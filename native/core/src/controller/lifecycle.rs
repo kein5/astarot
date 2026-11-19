@@ -69,10 +69,17 @@ impl Core {
         self.notify("initialization_progress", json!(2));
 
         self.step("Set Translation Engine");
-        // A folder in `<data>/translation-models` the local translation refused: its name and
+        // An engine entry of the translation catalog the local translation refused: its id and
         // the fixed reason, so that the user can find why a model of theirs is not listed.
-        for (folder, reason) in super::translation::refused_models(config.environment()) {
-            self.step(&format!("Translation model folder refused: {folder} ({reason})"));
+        for (id, reason) in super::translation::refused_models(config.environment()) {
+            self.step(&format!("Translation model folder refused: {id} ({reason})"));
+        }
+        // The saved selection named a model of the retired `translation-models` folder (#597):
+        // the setting went back to the default model. A fixed code only; the folder's name is
+        // the user's data.
+        let saved = config.saved_at_start("CTRANSLATE2_WEIGHT_TYPE");
+        if saved.as_str().is_some_and(|w| w.starts_with(super::translation::RETIRED_WEIGHT_PREFIX)) {
+            self.step(&format!("Translation model selection reset to the default ({})", super::translation::RETIRED_SELECTION_RESET));
         }
         let mut weights = Map::new();
         let candidates: Vec<String> = config
