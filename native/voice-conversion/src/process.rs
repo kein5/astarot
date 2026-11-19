@@ -567,10 +567,15 @@ fn audio(shared: &Shared, pcm: &[u8]) -> bool {
             return false;
         }
         state.remainder.extend_from_slice(pcm);
+        // The last sample arrived now. A capture can hand over several parts at once (PipeWire
+        // in quanta of its own), so each part is stamped back from now by what came after it:
+        // a block that ended as it arrived is never stamped as ending in the future.
+        let arrived = monotonic_ns() as i64;
         while state.remainder.len() >= PART {
             let part: Vec<u8> = state.remainder.drain(..PART).collect();
-            // A part is stamped with when it began: it ended as it arrived.
-            let stamp = (monotonic_ns() as i64 - PART_NS).max(state.last + 1);
+            // A part is stamped with when it began.
+            let after = state.remainder.len() as i64 * 1_000_000_000 / (2 * i64::from(p::RATE));
+            let stamp = (arrived - after - PART_NS).max(state.last + 1);
             state.last = stamp;
             if state.partial.is_empty() {
                 state.first = stamp;
@@ -1035,6 +1040,25 @@ mod tests {
         let starts: Vec<i64> = state.queue.iter().map(|b| b.info["start_ns"].as_i64().unwrap()).collect();
         assert!(starts[1] > starts[0]);
         assert_eq!(state.queue.iter().map(|b| b.info["sequence"].as_u64().unwrap()).collect::<Vec<_>>(), [0, 1]);
+    }
+
+    #[test]
+    fn parts_handed_over_together_are_stamped_back_from_their_arrival() {
+        // PipeWire hands the microphone over in quanta of its own (decision 11): a whole block
+        // can come in one go. It ended as it arrived, so its end is now, never in the future.
+        vrct_audio_routing::sync::monotonic_ns();
+        std::thread::sleep(std::time::Duration::from_millis(100));
+        let process = requested(40);
+        assert!(process.offer_audio(&vec![0u8; PART * 2 + 100]));
+        let arrived = vrct_audio_routing::sync::monotonic_ns() as i64;
+        let state = process.shared.state.lock().unwrap();
+        let block = &state.queue[0];
+        let (start, end) = (block.info["start_ns"].as_i64().unwrap(), block.info["end_ns"].as_i64().unwrap());
+        assert!(end <= arrived, "the block ends {} ns in the future", end - arrived);
+        // 100 bytes (about 1 ms) came after the block.
+        assert!(arrived - end >= 1_000_000 && arrived - end < 20_000_000, "{}", arrived - end);
+        assert_eq!(end - start, 40_000_000);
+        crate::protocol::require_fresh(end, arrived, crate::protocol::MANAGED_MAX_AGE_NS).expect("a block handed over whole is fresh");
     }
 
     #[test]
