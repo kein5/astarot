@@ -7,6 +7,10 @@ import { useSettingsDraft } from "../../../../../../logics/voice/useSettingsDraf
 import styles from "../advanced_settings/VoiceSettings.module.scss";
 import { EnvReadout } from "../_components/env_readout/EnvReadout";
 import { Description } from "../_components/description/Description";
+import { FormRow } from "../_components/form_row/FormRow";
+import { SectionLabelComponent } from "../_components/section_label_component/SectionLabelComponent";
+import { Hint, useHintDescriptions } from "../_components/hint/Hint";
+import { HintCheck } from "../_components/hint/HintCheck";
 import { VocabularyBulk } from "./VocabularyBulk.tsx";
 import { MAX_USER_TERMS, parseTerm, writtenKey } from "../../../../../../logics/transcription/vocabularyTerms.ts";
 
@@ -22,6 +26,7 @@ const Failure = ({ code, t }) => <p role="alert">{t(`realtime_toggle.${code}`, {
 
 export const RealtimeASRSettings = () => {
     const { t, i18n } = useI18n();
+    const hints = useHintDescriptions();
     const names = createLanguageNames(i18n.language);
     const languageLabel = code => code === "auto" ? t("realtime.auto_language") : names.fromCode(code);
     const { settings, state, endpoints, models, error, send, updateError } = useRealtimeASR();
@@ -62,40 +67,42 @@ export const RealtimeASRSettings = () => {
     const term = parseTerm(newTerm);
     const canAdd = term !== null && vocabulary.terms.length < MAX_USER_TERMS
         && !vocabulary.terms.some(row => writtenKey(row) === writtenKey(term));
+    // On a page that keeps descriptions out of sight (#614) what the captions are and which server
+    // they use is the heading's hint, and each field's words are its label's. What to do before
+    // Start (save) and every state stay in sight.
     return <section data-setting-id="realtime_asr" data-unsaved={dirty || undefined} className={styles.container} aria-label={t("realtime.title")}>
-        <h3>{t("realtime.title")}</h3>
-        <Description text={t("realtime.scope")} />
-        <Description text={t("realtime.server_help")} />
+        <SectionLabelComponent sub label={t("realtime.title")} desc={`${t("realtime.scope")}\n${t("realtime.server_help")}`} />
         {draft && <form aria-busy={saving} onSubmit={event => { event.preventDefault(); if (dirty && !saving) form.submit(write); }}>
             <label>{t("speech_servers.asr_selection")}<select disabled={saving} aria-label={t("speech_servers.asr_selection")} value={draft.server || "external"}
                 onChange={event => setDraft({ ...draft, server: event.target.value })}>
                 {["external", "bundled"].map(value => <option key={value} value={value}>{t(`speech_servers.${value}`)}</option>)}
             </select></label>
             {/* Whether a main switch may start the bundled server, or only Settings' Start button (#288). */}
-            {draft.server === "bundled" && <>
-                <label className={styles.checkLabel}><input type="checkbox" disabled={saving} checked={draft.start_server !== false}
-                    onChange={event => setDraft({ ...draft, start_server: event.target.checked })} />{t("realtime.start_server")}</label>
-                <Description text={t("realtime.start_server_help")} />
-            </>}
+            {draft.server === "bundled" && <HintCheck className={styles.checkLabel} label={t("realtime.start_server")}
+                description={t("realtime.start_server_help")} disabled={saving} checked={draft.start_server !== false}
+                onChange={event => setDraft({ ...draft, start_server: event.target.checked })} />}
             {draft.server !== "bundled" && <label>{t("realtime.url")}<input readOnly={saving} aria-label={t("realtime.url")} value={draft.base_url}
                 onChange={event => setDraft({ ...draft, base_url: event.target.value })} /></label>}
-            <label>{t("realtime.model")}<select disabled={saving} aria-label={t("realtime.model")} value={draft.model}
-                onChange={event => setDraft({ ...draft, model: event.target.value })}>
-                <option value="">{t("realtime.select_model")}</option>
-                {draft.model && !selectedModel && <option value={draft.model}>{draft.model} ({t("realtime.unavailable")})</option>}
-                {knownModels.map(row => <option key={row.id} value={row.id}>{row.id}</option>)}
-            </select></label>
-            <button type="button" onClick={() => send("/get/data/realtime_asr_models")}>{t("realtime.refresh_models")}</button>
-            <Description text={t("realtime.auto_help")} />
+            {/* The model list's refresh sits under the list, in the control column (#473). */}
+            <FormRow label={t("realtime.model")} description={t("realtime.auto_help")}
+                actions={<button type="button" onClick={() => send("/get/data/realtime_asr_models")}>{t("realtime.refresh_models")}</button>}>
+                <select disabled={saving} aria-label={t("realtime.model")} value={draft.model}
+                    onChange={event => setDraft({ ...draft, model: event.target.value })}>
+                    <option value="">{t("realtime.select_model")}</option>
+                    {draft.model && !selectedModel && <option value={draft.model}>{draft.model} ({t("realtime.unavailable")})</option>}
+                    {knownModels.map(row => <option key={row.id} value={row.id}>{row.id}</option>)}
+                </select>
+            </FormRow>
             {models.error_code && <Failure code={models.error_code} t={t} />}
-            <label>{t("realtime.silence")}<select disabled={saving} aria-label={t("realtime.silence")} value={draft.silence_duration_ms ?? ""}
-                onChange={event => updateSilence(event.target.value)}>
-                <option value="">{t("realtime.silence_default")}</option>
-                {draft.silence_duration_ms && !SILENCES.includes(draft.silence_duration_ms) &&
-                    <option value={draft.silence_duration_ms}>{t("realtime.silence_seconds", { seconds: draft.silence_duration_ms / 1000 })}</option>}
-                {SILENCES.map(ms => <option key={ms} value={ms}>{t("realtime.silence_seconds", { seconds: ms / 1000 })}</option>)}
-            </select></label>
-            <Description text={t("realtime.silence_help")} />
+            <FormRow label={t("realtime.silence")} description={t("realtime.silence_help")}>
+                <select disabled={saving} aria-label={t("realtime.silence")} value={draft.silence_duration_ms ?? ""}
+                    onChange={event => updateSilence(event.target.value)}>
+                    <option value="">{t("realtime.silence_default")}</option>
+                    {draft.silence_duration_ms && !SILENCES.includes(draft.silence_duration_ms) &&
+                        <option value={draft.silence_duration_ms}>{t("realtime.silence_seconds", { seconds: draft.silence_duration_ms / 1000 })}</option>}
+                    {SILENCES.map(ms => <option key={ms} value={ms}>{t("realtime.silence_seconds", { seconds: ms / 1000 })}</option>)}
+                </select>
+            </FormRow>
             <button type="button" onClick={refreshDevices}>{t("realtime.refresh_devices")}</button>
             {["mic", "speaker"].map(source => {
                 const choices = endpoints[source]?.endpoints ?? [];
@@ -105,23 +112,25 @@ export const RealtimeASRSettings = () => {
                 const languages = [...(selectedModel?.detects_language ? ["auto"] : []), ...(selectedModel?.languages ?? [])];
                 const owner = state[source];
                 const failure = endpoints[source]?.error_code || owner?.error_code;
+                // Which output to choose for the game audio, and what following the system's default does.
+                const inputHelp = [source === "speaker" && t("realtime.speaker_help"), follow && t("realtime.follow_default_help")].filter(Boolean).join("\n");
                 return <fieldset key={source}>
                     <legend>{t(`realtime.${source}`)}</legend>
-                    {source === "speaker" && <Description text={t("realtime.speaker_help")} />}
-                    <label>{t(`realtime.${source}_input`)}<select disabled={saving} aria-label={t(`realtime.${source}_input`)} value={follow ? FOLLOW : key(draft[source].endpoint)}
-                        onChange={event => updateSource(source, event.target.value === FOLLOW ? { endpoint: null, follow_default: true }
-                            : { endpoint: choices.find(row => key(row.endpoint) === event.target.value)?.endpoint ?? null, follow_default: false })}>
-                        <option value="">{t("realtime.select_device")}</option>
-                        <option value={FOLLOW}>{t(`realtime.follow_default_${source}`)}</option>
-                        {draft[source].endpoint && !selected && <option value={key(draft[source].endpoint)}>{t("realtime.disconnected")}</option>}
-                        {choices.map(row => <option key={key(row.endpoint)} value={key(row.endpoint)}>{row.label}</option>)}
-                    </select></label>
+                    <FormRow label={t(`realtime.${source}_input`)} description={inputHelp || undefined}>
+                        <select disabled={saving} aria-label={t(`realtime.${source}_input`)} value={follow ? FOLLOW : key(draft[source].endpoint)}
+                            onChange={event => updateSource(source, event.target.value === FOLLOW ? { endpoint: null, follow_default: true }
+                                : { endpoint: choices.find(row => key(row.endpoint) === event.target.value)?.endpoint ?? null, follow_default: false })}>
+                            <option value="">{t("realtime.select_device")}</option>
+                            <option value={FOLLOW}>{t(`realtime.follow_default_${source}`)}</option>
+                            {draft[source].endpoint && !selected && <option value={key(draft[source].endpoint)}>{t("realtime.disconnected")}</option>}
+                            {choices.map(row => <option key={key(row.endpoint)} value={key(row.endpoint)}>{row.label}</option>)}
+                        </select>
+                    </FormRow>
                     <label>{t(`realtime.${source}_language`)}<select disabled={saving} aria-label={t(`realtime.${source}_language`)} value={draft[source].language}
                         onChange={event => updateSource(source, { language: event.target.value })}>
                         {!languages.includes(draft[source].language) && <option value={draft[source].language}>{languageLabel(draft[source].language)}</option>}
                         {languages.map(language => <option key={language} value={language}>{languageLabel(language)}</option>)}
                     </select></label>
-                    {follow && <Description text={t("realtime.follow_default_help")} />}
                     <button type="button" disabled={saving || dirty || !selected || !selectedModel || !languages.includes(draft[source].language) ||
                         !owner || owner.requested || !!endpoints[source]?.error_code}
                         onClick={() => send("/run/start_realtime_asr", { source })}>{t(`realtime.start_${source}`)}</button>
@@ -134,8 +143,10 @@ export const RealtimeASRSettings = () => {
                 </fieldset>;
             })}
             <fieldset>
-                <legend>{t("realtime.vocabulary")}</legend>
-                <Description text={t("realtime.vocabulary_help")} />
+                {/* How the dictionary is used and written: the legend's hint, whose mark takes focus as a heading's does. */}
+                <legend><span className={styles.hinted} data-hint-host={hints || undefined}>{t("realtime.vocabulary")}
+                    {hints && <Hint text={t("realtime.vocabulary_help")} focusable />}</span></legend>
+                {!hints && <Description text={t("realtime.vocabulary_help")} />}
                 <label className={styles.checkLabel}><input type="checkbox" disabled={saving} checked={vocabulary.builtin !== false}
                     onChange={event => updateVocabulary({ builtin: event.target.checked })} />{t("realtime.vocabulary_builtin")}</label>
                 <ul aria-label={t("realtime.vocabulary_user")}>

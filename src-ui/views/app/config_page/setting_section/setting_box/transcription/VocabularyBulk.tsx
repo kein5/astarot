@@ -2,6 +2,7 @@ import { useId, useState } from "react";
 import { useI18n } from "@useI18n";
 import { useCopyToClipboard } from "@logics_common";
 import * as styles from "./VocabularyBulk.css.ts";
+import { Hint, useHintDescriptions } from "../_components/hint/Hint";
 import { addTerms, termsText } from "../../../../../../logics/transcription/vocabularyTerms.ts";
 import type { BulkResult } from "../../../../../../logics/transcription/vocabularyTerms.ts";
 
@@ -27,6 +28,7 @@ type Props = {
 export const VocabularyBulk = ({ terms, disabled, onTerms }: Props) => {
     const { t } = useI18n() as { t: Translate };
     const { is_copied, copyToClipboard } = useCopyToClipboard({ duration: 1500 });
+    const hints = useHintDescriptions();
     const id = useId();
     const [text, setText] = useState("");
     const [result, setResult] = useState<BulkResult | null>(null);
@@ -40,10 +42,15 @@ export const VocabularyBulk = ({ terms, disabled, onTerms }: Props) => {
 
     return (
         <div>
-            <label>{t("realtime.vocabulary_bulk")}<textarea readOnly={disabled} value={text} rows={4} spellCheck={false}
-                aria-describedby={`${id}-help`} placeholder={t("realtime.vocabulary_bulk_placeholder")}
-                onChange={event => setText(event.target.value)} /></label>
-            <p id={`${id}-help`}>{t("realtime.vocabulary_bulk_help")}</p>
+            {/* How to write the lines: the hint after the field's name on a page that keeps descriptions
+                out of sight (#614), opened by the pointer on the name or focus in the field. */}
+            <label data-hint-row={hints || undefined}>
+                <span className={styles.name} data-hint-host={hints || undefined}>{t("realtime.vocabulary_bulk")}
+                    {hints && <Hint text={t("realtime.vocabulary_bulk_help")} id={`${id}-help`} row />}</span>
+                <textarea readOnly={disabled} value={text} rows={4} spellCheck={false}
+                    aria-describedby={`${id}-help`} placeholder={t("realtime.vocabulary_bulk_placeholder")}
+                    onChange={event => setText(event.target.value)} /></label>
+            {!hints && <p id={`${id}-help`}>{t("realtime.vocabulary_bulk_help")}</p>}
             <div className={styles.actions}>
                 <button type="button" disabled={disabled || !text.trim()} onClick={add}>{t("realtime.vocabulary_bulk_add")}</button>
                 <button type="button" disabled={!terms.length} onClick={() => void copyToClipboard(termsText(terms))}>

@@ -6,3 +6,10 @@ export const actions = style({
     flexWrap: "wrap",
     gap: ".8rem",
 });
+
+// The field's name and its hint mark on one line (#614).
+export const name = style({
+    display: "flex",
+    alignItems: "center",
+    minWidth: 0,
+});

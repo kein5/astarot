@@ -4,7 +4,8 @@ import { hooks, loadModule, find, stubGlobals } from "../../../../../../logics/t
 import { rebaseDraft } from "../../../../../../logics/voice/draftRebase.ts";
 import * as vocabularyTerms from "../../../../../../logics/transcription/vocabularyTerms.ts";
 
-async function fixture(context) {
+// hints: whether the page keeps descriptions out of sight (#614).
+async function fixture(context, { hints = false } = {}) {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     const runtime = hooks(), barRuntime = hooks(), calls = [], listeners = [], responses = [];
     const window = {
@@ -41,6 +42,10 @@ async function fixture(context) {
         "../../../../../../logics/voice/useSettingsDraft": draftHooks,
         "../_components/env_readout/EnvReadout": { EnvReadout: "readout" },
         "../_components/description/Description": { Description: "description" },
+        "../_components/form_row/FormRow": { FormRow: "form-row" },
+        "../_components/section_label_component/SectionLabelComponent": { SectionLabelComponent: "section-label" },
+        "../_components/hint/Hint": { Hint: "hint", useHintDescriptions: () => hints },
+        "../_components/hint/HintCheck": { HintCheck: "hint-check" },
         "./VocabularyBulk.tsx": { VocabularyBulk: "vocabulary-bulk" },
         "../../../../../../logics/transcription/vocabularyTerms.ts": vocabularyTerms,
     });
@@ -251,4 +256,31 @@ test("a silence saved before the default became 0.4 s stays chosen", async conte
     assert.equal(select.props.value, 400);
     assert.deepEqual(optionValues(select), ["", 400, 300, 500, 700, 1000]);
     assert.equal(s.entries()[0].dirty, false);
+});
+
+// #614: on the speech recognition page the captions' words are hints: what they are is the
+// heading's, a field's its label's. What to do before Start and the states stay in sight.
+for (const hints of [false, true]) test(`${hints ? "hints" : "no hints"}: the captions' descriptions follow the page`, async context => {
+    const s = await fixture(context, { hints });
+    s.asr.settings = { ...s.asr.settings, server: "bundled" };
+    const tree = s.render();
+    const heading = find(tree, node => node.type === "section-label");
+    assert.equal(heading.props.sub, true);
+    assert.equal(heading.props.desc, "realtime.scope\nrealtime.server_help");
+    const row = label => find(tree, node => node.type === "form-row" && node.props.label === label).props;
+    assert.equal(row("realtime.model").description, "realtime.auto_help");
+    assert.equal(row("realtime.silence").description, "realtime.silence_help");
+    // Following the system's default says what that does; the game audio says which output to pick.
+    assert.equal(row("realtime.mic_input").description, "realtime.follow_default_help");
+    assert.equal(row("realtime.speaker_input").description, "realtime.speaker_help\nrealtime.follow_default_help");
+    const check = find(tree, node => node.type === "hint-check").props;
+    assert.deepEqual([check.label, check.description], ["realtime.start_server", "realtime.start_server_help"]);
+    const descriptions = [];
+    find(tree, node => { if (node.type === "description") descriptions.push(node.props.text); return false; });
+    // Saving before Start is what the disabled Start waits for: it stays in sight.
+    assert.deepEqual(descriptions, hints ? ["realtime.save_help"] : ["realtime.vocabulary_help", "realtime.save_help"]);
+    const legend = find(tree, node => node.type === "legend" && JSON.stringify(node.props.children).includes("realtime.vocabulary\""));
+    const mark = find(legend, node => node.type === "hint");
+    assert.equal(Boolean(mark), hints);
+    if (hints) assert.deepEqual([mark.props.text, mark.props.focusable], ["realtime.vocabulary_help", true]);
 });

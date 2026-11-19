@@ -4,12 +4,14 @@ import { hooks, loadModule, find } from "../../../../../../logics/test/hookHarne
 import * as vocabularyTerms from "../../../../../../logics/transcription/vocabularyTerms.ts";
 
 // #446: several terms at once, and the user's terms copied as the lines the field takes back.
-async function setup() {
+// hints: whether the page keeps descriptions out of sight (#614).
+async function setup({ hints = false } = {}) {
     const runtime = hooks(), copied = [], given = [];
     const copy = { is_copied: false, copyToClipboard: async text => { copied.push(text); } };
     const { VocabularyBulk } = await loadModule(new URL("./VocabularyBulk.tsx", import.meta.url), runtime, {
         "@useI18n": { useI18n: () => ({ t: (key, options) => options ? `${key}:${JSON.stringify(options)}` : key }) },
         "@logics_common": { useCopyToClipboard: () => copy },
+        "../_components/hint/Hint": { Hint: "hint", useHintDescriptions: () => hints },
         "../../../../../../logics/transcription/vocabularyTerms.ts": vocabularyTerms,
     });
     const props = { terms: ["VRChat=ブイチャ"], disabled: false, onTerms: terms => { given.push(terms); props.terms = terms; } };
@@ -60,4 +62,22 @@ test("the user's terms are copied one a line, and nothing can be added while the
     tree = s.render();
     assert.equal(find(tree, node => node.type === "textarea").props.readOnly, true);
     assert.equal(s.button(tree, "realtime.vocabulary_bulk_add").props.disabled, true);
+});
+
+// #614: how to write the lines is the hint after the field's name, still the field's description.
+for (const hints of [false, true]) test(`${hints ? "hints" : "no hints"}: how to write the lines describes the field`, async () => {
+    const s = await setup({ hints });
+    const tree = s.render();
+    const field = find(tree, node => node.type === "textarea");
+    const help = find(tree, node => node.props?.id === field.props["aria-describedby"]);
+    if (hints) {
+        assert.equal(help.type, "hint");
+        assert.deepEqual([help.props.text, help.props.row], ["realtime.vocabulary_bulk_help", true]);
+        // The pointer on the name, or focus in the field, opens it.
+        assert.equal(find(tree, node => node.type === "label").props["data-hint-row"], true);
+        assert.ok(find(tree, node => node.props?.["data-hint-host"] && find(node, inner => inner.type === "hint")));
+    } else {
+        assert.equal(help.type, "p");
+        assert.equal(help.props.children, "realtime.vocabulary_bulk_help");
+    }
 });
