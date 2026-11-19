@@ -225,7 +225,7 @@ test("chat reading keeps what it needs to start in sight; where and how often it
 });
 
 test("text to speech keeps the engine, the voice and the output in sight; the monitor, generation and microphone speech are in 「詳細設定」", () => {
-    const source = read("advanced_settings/VoiceSettings.jsx");
+    const source = read("advanced_settings/VoiceSettings.tsx");
     const page = source.split("export const VoiceSettings = () => {")[1].split("\n};")[0];
     const [before, rest] = page.split("<AdvancedSection");
     const fold = rest.split("</AdvancedSection>")[0];

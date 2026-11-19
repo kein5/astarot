@@ -7,7 +7,7 @@ async function setup({ draft, saved = draft, engineVoices = null }) {
     const runtime = hooks();
     const sent = [];
     const state = { draft: { ...draft } };
-    const { TtsEngine, CoeiroinkOptions, AudioQueryOptions, validCoeiroinkOptions, validAudioQueryOptions, COEIROINK_DEFAULTS } = await loadModule(new URL("./TtsEngine.jsx", import.meta.url), runtime, {
+    const { TtsEngine, CoeiroinkOptions, AudioQueryOptions, validCoeiroinkOptions, validAudioQueryOptions, COEIROINK_DEFAULTS } = await loadModule(new URL("./TtsEngine.tsx", import.meta.url), runtime, {
         "@tauri-apps/api/core": { isTauri: () => false },
         "@tauri-apps/plugin-opener": { openUrl: async () => {} },
         "../../../../../../logics/voice/useVoice": { useVoice: () => ({ engineVoices, send: (endpoint, data) => sent.push([endpoint, data]) }) },

@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
+import type { MouseEvent } from "react";
 import { useI18n } from "@useI18n";
 import { isTauri } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useVoice } from "../../../../../../logics/voice/useVoice";
 import { TTS_ENGINES } from "../tts/TtsEngine";
+import type { TtsEngineSpec } from "../tts/TtsEngine";
 import { EnvReadout } from "../_components/env_readout/EnvReadout";
 import styles from "./VoiceSettings.module.scss";
 
@@ -15,15 +17,15 @@ import styles from "./VoiceSettings.module.scss";
 export const EngineCatalog = () => {
     const { t } = useI18n();
     const { settings, engineChecks, send } = useVoice();
-    const [linkError, setLinkError] = useState(null);
-    const address = id => settings?.[TTS_ENGINES[id].url] || TTS_ENGINES[id].example;
-    const check = id => send("/get/data/tts_engine_voices", { engine: id, url: address(id), catalog: true });
+    const [linkError, setLinkError] = useState<string | null>(null);
+    const address = (spec: TtsEngineSpec) => settings?.[spec.url] || spec.example;
+    const check = (id: string, spec: TtsEngineSpec) => send("/get/data/tts_engine_voices", { engine: id, url: address(spec), catalog: true });
     // Wait for the saved settings, so the first check uses the saved address, not the example.
     const loaded = !!settings;
     useEffect(() => {
-        if (loaded) for (const id of Object.keys(TTS_ENGINES)) if (!engineChecks[id]) check(id);
+        if (loaded) for (const [id, spec] of Object.entries(TTS_ENGINES)) if (!engineChecks[id]) check(id, spec);
     }, [loaded]); // eslint-disable-line react-hooks/exhaustive-deps
-    const open = async (event, link) => {
+    const open = async (event: MouseEvent<HTMLAnchorElement>, link: string) => {
         if (!isTauri()) return;
         event.preventDefault();
         try { await openUrl(link); setLinkError(null); }
@@ -37,7 +39,7 @@ export const EngineCatalog = () => {
         {linkError && <p role="alert">{t("model_downloads.link_error")} <code>{linkError}</code></p>}
         <ul className={styles.catalog} role="list">
             {Object.entries(TTS_ENGINES).map(([id, spec]) => {
-                const result = engineChecks[id];
+                const result = engineChecks[id], { terms } = spec;
                 const state = !result ? "unchecked" : result.pending ? "checking" : result.connected ? "connected" :
                     result.error_code === "tts_engine_url_invalid" ? "url_invalid" : "not_connected";
                 return <li key={id} data-engine-card={id} role="group" aria-label={spec.name} className={styles.card}>
@@ -50,21 +52,21 @@ export const EngineCatalog = () => {
                     <dl className={styles.facts}>
                         <div><dt>{t("model_catalog.languages")}</dt><dd>{t("model_catalog.engine.languages")}</dd></div>
                         <div><dt>{t("model_catalog.engine.get")}</dt><dd>{t("model_catalog.engine.get_value")}</dd></div>
-                        <div><dt>{t("model_catalog.engine.address")}</dt><dd><code>{address(id)}</code></dd></div>
+                        <div><dt>{t("model_catalog.engine.address")}</dt><dd><code>{address(spec)}</code></dd></div>
                     </dl>
                     <EnvReadout tone={state === "connected" ? "active" : state === "url_invalid" ? "failed" : state === "not_connected" ? "warning" : "neutral"}
                         progress={state === "checking" ? "working" : state === "connected" ? "done" : undefined}>
                         <p>{state === "unchecked" ? t("model_catalog.engine.state.unchecked") : state === "checking" ? t("voice_ui.engine.checking") :
-                            state === "connected" ? t("voice_ui.engine.connected", { engine: spec.name, version: result.version ?? "" }) :
+                            state === "connected" ? t("voice_ui.engine.connected", { engine: spec.name, version: result?.version ?? "" }) :
                                 state === "url_invalid" ? t("voice_ui.errors.tts_engine_url_invalid") : t("voice_ui.engine.not_connected")}</p>
                     </EnvReadout>
                     {/* The button leads, so it is in the same place on every card; the links follow (#478). */}
                     <div className={styles.actions}>
-                        <button type="button" disabled={state === "checking"} onClick={() => check(id)}
+                        <button type="button" disabled={state === "checking"} onClick={() => check(id, spec)}
                             aria-label={t("model_catalog.engine.recheck_of", { engine: spec.name })}>{t("voice_ui.engine.recheck")}</button>
                         <a className={styles.link_button} href={spec.site} target="_blank" rel="noreferrer" onClick={event => open(event, spec.site)}>
                             {t("voice_ui.engine.site", { engine: spec.name })}</a>
-                        {spec.terms && <a href={spec.terms} target="_blank" rel="noreferrer" onClick={event => open(event, spec.terms)}>{t("voice_ui.engine.terms")}</a>}
+                        {terms && <a href={terms} target="_blank" rel="noreferrer" onClick={event => open(event, terms)}>{t("voice_ui.engine.terms")}</a>}
                     </div>
                 </li>;
             })}

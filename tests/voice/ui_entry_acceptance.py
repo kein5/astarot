@@ -514,7 +514,7 @@ def main():
                'src-ui/logics/common/useStdoutToPython.ts', 'src-ui/logics/common/useMessage.ts',
                'src-ui/logics/useReceiveRoutes.js', 'src-ui/logics/voice/useVoice.ts',
                'src-ui/views/app/main_page/main_section/message_container/message_input_box/MessageInputBox.tsx',
-               'src-ui/views/app/config_page/setting_section/setting_box/advanced_settings/VoiceSettings.jsx']
+               'src-ui/views/app/config_page/setting_section/setting_box/advanced_settings/VoiceSettings.tsx']
     report['source_sha256'] = {s: hashlib.sha256((ROOT / s).read_bytes()).hexdigest() for s in sources}
     try:
         execute(args, report)

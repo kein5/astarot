@@ -14,16 +14,20 @@ import { FormRow } from "../_components/form_row/FormRow";
 import { VirtualMicEntry } from "../tts/VirtualMicEntry";
 import { voiceErrorText } from "../../../../../../logics/voice/voiceErrorText.ts";
 import { AdvancedSection } from "../_components/advanced_section/AdvancedSection";
+import type { VoiceModelRole, VoiceSettings as VoiceSettingsValue } from "../../../../../../logics/voice/useVoice";
+
+// The speech.cpp roles, each with its server and its voice.
+const ROLES: readonly VoiceModelRole[] = ["japanese", "multilingual"];
 
 // Every field the page can make invalid: speech.cpp's seed and instructions, the installed
 // engines' reading numbers.
-const validVoiceSettings = draft => validGenerationOptions(draft) && validCoeiroinkOptions(draft) && validAudioQueryOptions(draft);
+const validVoiceSettings = (draft: VoiceSettingsValue) => validGenerationOptions(draft) && validCoeiroinkOptions(draft) && validAudioQueryOptions(draft);
 
 export const VoiceSettings = () => {
     const { t, i18n } = useI18n();
     const optionsErrorId = useId();
     const { settings, status, devices, error, send, updateError } = useVoice();
-    const label = ([key]) => {
+    const label = ([key]: string[]) => {
         if (key === "japanese_engine") return t("voice_ui.engine.label");
         if (Object.values(TTS_ENGINES).some(engine => engine.url === key)) return t("voice_ui.engine.url");
         if (key.startsWith("engine_voice_")) return t("voice_ui.engine.voice");
@@ -47,8 +51,8 @@ export const VoiceSettings = () => {
         <p role="status">{error ? t("voice.error") : t("voice.loading")}</p>
         <button type="button" onClick={() => send("/get/data/voice_settings")}>{t("voice.retry")}</button>
     </div>;
-    const field = (key, value) => setDraft(previous => ({ ...previous, [key]: value }));
-    const input = key => {
+    const field = (key: string, value: string) => setDraft(previous => ({ ...previous, [key]: value }));
+    const input = (key: string) => {
         const voice = key.endsWith("_voice");
         return <label>{t(`voice.${key}`)}
             <input value={voice && draft[key] === "none" ? "" : draft[key]}
@@ -56,14 +60,16 @@ export const VoiceSettings = () => {
                 onChange={e => field(key, voice && e.target.value === "" ? "none" : e.target.value)} maxLength={voice ? 128 : 512} />
         </label>;
     };
-    const server = role => <label>{t(`speech_servers.${role}_selection`)}
+    const server = (role: VoiceModelRole) => <label>{t(`speech_servers.${role}_selection`)}
         <select aria-label={t(`speech_servers.${role}_selection`)} value={draft[`${role}_server`] || "bundled"} onChange={e => field(`${role}_server`, e.target.value)}>
             {["external", "bundled"].map(value => <option key={value} value={value}>{t(`speech_servers.${value}`)}</option>)}
         </select>
     </label>;
     // speech.cpp makes the voice of this language: Japanese may come from an engine the user installed.
-    const speechcpp = role => role !== "japanese" || (draft.japanese_engine || "speechcpp") === "speechcpp";
+    const speechcpp = (role: VoiceModelRole) => role !== "japanese" || (draft.japanese_engine || "speechcpp") === "speechcpp";
     const deviceList = devices.devices || [];
+    // What failed last, said under the form.
+    const problem = error || status.last_error || devices.error;
     // The monitor never offers the virtual microphone's own endpoints or output.
     const monitorList = deviceList.filter(d => !d.id.startsWith("vrct.") && d.id !== (draft.routing === "managed" ? "" : draft.output_device));
     return <section className={styles.container} aria-label={t("voice.title")} data-setting-id="tts_settings">
@@ -94,7 +100,7 @@ export const VoiceSettings = () => {
                     </select>
                 </FormRow>
                 <VirtualMicEntry />
-                {["japanese", "multilingual"].map(role => <fieldset key={role} className={styles.group} aria-label={`${t(`speech_servers.${role}`)} · ${t("voice.title")}`}>
+                {ROLES.map(role => <fieldset key={role} className={styles.group} aria-label={`${t(`speech_servers.${role}`)} · ${t("voice.title")}`}>
                     <legend>{t(`speech_servers.${role}`)}</legend>
                     {/* Japanese can also come from an engine the user installed (ADR-008); its fields replace speech.cpp's. */}
                     {role === "japanese" && <TtsEngine draft={draft} setDraft={setDraft} saved={settings} />}
@@ -121,9 +127,9 @@ export const VoiceSettings = () => {
                     <label>{t("voice.monitor_volume")}: {draft.monitor_volume ?? "100"}%<input type="range" min="0" max="100" step="5" aria-label={t("voice.monitor_volume")}
                         style={{ "--range-fill": `${draft.monitor_volume ?? "100"}%` }}
                         disabled={draft.monitor !== "on"} value={draft.monitor_volume ?? "100"} onChange={e => field("monitor_volume", String(e.target.value))} /></label>
-                    {status.monitor_error && <EnvReadout tone="failed"><p>{t(`voice.monitor_errors.${status.monitor_error}`, { defaultValue: t("voice.monitor_error") })}</p></EnvReadout>}
+                    {!!status.monitor_error && <EnvReadout tone="failed"><p>{t(`voice.monitor_errors.${status.monitor_error}`, { defaultValue: t("voice.monitor_error") })}</p></EnvReadout>}
                 </fieldset>
-                {["japanese", "multilingual"].filter(speechcpp).map(role => <fieldset key={role} className={styles.group}
+                {ROLES.filter(speechcpp).map(role => <fieldset key={role} className={styles.group}
                     aria-label={`${t(`speech_servers.${role}`)} · ${t("voice_ui.generation_heading")}`}>
                     <legend>{t(`speech_servers.${role}`)} · {t("voice_ui.generation_heading")}</legend>
                     <GenerationOptions errorId={optionsErrorId} role={role} draft={draft} field={field} />
@@ -143,7 +149,7 @@ export const VoiceSettings = () => {
                     <select aria-label={t("voice.conversion")} value={draft.conversion || "off"}
                         onChange={e => setDraft(current => ({ ...current, conversion: e.target.value,
                             // Mixing cannot go with it; suppressing the voice is the one choice left.
-                            ...(e.target.value === "on" && current.direct_policy === "mix" ? { direct_policy: "suppress" } : {}) }))}>
+                            ...(e.target.value === "on" && current?.direct_policy === "mix" ? { direct_policy: "suppress" } : {}) }))}>
                         <option value="off">{t("voice.conversion_off")}</option><option value="on">{t("voice.conversion_on")}</option>
                     </select>
                 </FormRow>
@@ -153,14 +159,14 @@ export const VoiceSettings = () => {
         {!validGenerationOptions(draft) && <p id={optionsErrorId} role="alert">{t("voice_ui.invalid_options")}</p>}
         {form.navigationDialog}
         {/* The sentence says what to do; the code stays for reports. */}
-        {(error || status.last_error || devices.error) && <p role="alert">{t("voice.error")}: {voiceErrorText(error || status.last_error || devices.error,
+        {!!problem && <p role="alert">{t("voice.error")}: {voiceErrorText(String(problem),
             t("config_page.tts.tts_settings.label"), t, key => i18n.exists(key))}</p>}
     </section>;
 };
 
 // The TTS output device on its own, for pages other than TTS (the VRChat
 // page). It edits the same voice settings and saves from the save bar.
-export const TtsOutputDeviceSettings = ({ title }) => {
+export const TtsOutputDeviceSettings = ({ title }: { title: string }) => {
     const { t } = useI18n();
     const { settings, devices, error, send, updateError } = useVoice();
     const form = useSettingsDraft(settings, error, updateError, { label: ([key]) => t(`voice.${key}`, { defaultValue: key }),
@@ -171,7 +177,7 @@ export const TtsOutputDeviceSettings = ({ title }) => {
         send("/get/data/voice_output_devices");
     }, [send]);
     // speech.cpp makes the voice of this language: Japanese may come from an engine the user installed.
-    const speechcpp = role => role !== "japanese" || (draft.japanese_engine || "speechcpp") === "speechcpp";
+    const speechcpp = (role: VoiceModelRole) => role !== "japanese" || (draft?.japanese_engine || "speechcpp") === "speechcpp";
     const deviceList = devices.devices || [];
     return <section className={styles.container} aria-label={title} data-setting-id="tts_output_device">
         <SectionLabelComponent label={title} />

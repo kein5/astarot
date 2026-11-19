@@ -30,7 +30,7 @@ export type ModelAdvice = { recommended: string | null; reason: ModelAdviceReaso
 export type ModelAdviceOptions = { now?: number; reserveBytes?: number; deviceMode?: string };
 
 const isGpu = (row: HardwareDevice) => row.kind === 'gpu' || row.kind === 'igpu';
-// The engine's device choices (SpeechServers.jsx); anything else names one device.
+// The engine's device choices (SpeechServers.tsx); anything else names one device.
 const DEVICE_CHOICES = ['auto', 'cpu', 'gpu'];
 
 // The GPU the speech engine runs on with `deviceMode`, or null on the CPU: the GPU the
