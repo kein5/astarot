@@ -227,7 +227,18 @@ fn the_official_apis_translate_a_message_with_the_users_keys() {
     assert_eq!(result["translations"], json!([{ "message": "papago:en:こんにちは", "transliteration": [] }]));
     assert_eq!(run.chatbox_text(Duration::from_secs(5)).as_deref(), Some("こんにちは\ngoogle-cloud:en:こんにちは"));
 
+    // Decision 58: Papago does not translate Japanese to German directly and there is no local
+    // model. The original goes out, and the log says so once with the engine's name.
+    let mut targets = run.ui.ok("/get/data/selected_target_languages", None);
+    targets["1"]["1"]["language"] = json!("German");
+    targets["1"]["1"]["country"] = json!("Germany");
+    assert_eq!(run.ui.ok("/set/data/selected_target_languages", Some(targets))["1"]["1"]["language"], "German");
+    let result = run.chat("m-3", "こんにちは");
+    assert_eq!(result["translations"][0]["message"], "こんにちは");
     let log = run.process_log();
+    let lines: Vec<&str> = log.lines().filter(|l| l.contains("the engine lacks the language pair and the local model failed")).collect();
+    assert_eq!(lines.len(), 1, "{lines:?}");
+    assert!(lines[0].contains("\"provider\":\"Papago_API\""), "{}", lines[0]);
     assert!(!log.contains(&google) && !log.contains("secret-1") && !log.contains("こんにちは"), "the log has a key or text");
     run.ui.stop();
 }
@@ -247,6 +258,13 @@ fn a_failing_provider_falls_back_reports_and_sends_the_original() {
     assert_eq!((error["status"].as_u64(), error_code(&error)), (Some(400), "TRANSLATION_ENGINE_LIMIT"));
     // One retry, then the local model, which is not there.
     assert_eq!(run.fake.seen_under("/deepl-free/v2/translate").len() - before, 2);
+    // Decision 58: the failure (its retry included) is logged once with the provider's name,
+    // and never the text.
+    let log = run.process_log();
+    let failures: Vec<&str> = log.lines().filter(|l| l.contains("Translation: the provider failed")).collect();
+    assert_eq!(failures.len(), 1, "{failures:?}");
+    assert!(failures.iter().all(|l| l.contains("\"provider\":\"DeepL_API\"")), "{failures:?}");
+    assert!(!log.contains("こんにちは"), "the text reached the log");
     run.ui.stop();
 }
 
