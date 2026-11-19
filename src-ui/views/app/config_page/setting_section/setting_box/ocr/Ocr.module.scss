@@ -111,7 +111,7 @@
     border: .1rem solid transparent;
     border-radius: var(--vox_radius, .8rem);
     &:hover:enabled { background: var(--vox_secondary_hover); }
-    &:disabled { opacity: .6; cursor: not-allowed; }
+    &:disabled { opacity: .5; cursor: not-allowed; }
 }
 
 // Sharing a window (Linux, Wayland): the status line, then the buttons, which wrap in a narrow window.
@@ -123,7 +123,7 @@
     display: flex;
     flex-wrap: wrap;
     gap: .8rem;
-    .resetButton[aria-disabled="true"] { opacity: .6; cursor: not-allowed; }
+    .resetButton[aria-disabled="true"] { opacity: .5; cursor: not-allowed; }
     .resetButton[aria-disabled="true"]:hover { background: var(--dark_850_color, #25364f); }
 }
 

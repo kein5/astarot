@@ -29,7 +29,7 @@
 .stop:focus-visible { outline: .2rem solid var(--primary_200_color); outline-offset: .2rem; }
 // Amber while something is spoken or queued, and while muted; the words say which.
 .stop.is_attention, .stop.is_pressed { color: var(--vox_state_warning); border-color: var(--vox_state_warning); }
-.stop:disabled { opacity: .6; cursor: not-allowed; }
+.stop:disabled { opacity: .5; cursor: not-allowed; }
 .muted_badge { padding: .1rem .6rem; border-radius: .4rem; font-size: 1.2rem; color: var(--dark_1000_color); background: var(--vox_state_warning); }
 // This bar has no room for the long words. A narrow conversation column draws the
 // shortest ones; the accessible name and the tooltip stay the full words. The

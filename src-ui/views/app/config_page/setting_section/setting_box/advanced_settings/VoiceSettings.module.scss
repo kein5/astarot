@@ -70,7 +70,8 @@
     button:active:enabled { background: var(--dark_925_color); }
     button:global(.primary):active:enabled { background: var(--primary_800_color); }
     :focus-visible { outline: .2rem solid var(--primary_200_color, #80cbc4); outline-offset: .3rem; }
-    :disabled { opacity: .6; cursor: not-allowed; }
+    // A control that cannot be used is half as strong, as in shadcn/ui (disabled:opacity-50).
+    :disabled { opacity: .5; cursor: not-allowed; }
     // General description role: 1.2rem / 400 in the description color.
     p { font-size: 1.2rem; line-height: 1.6; color: var(--vox_description_text); overflow-wrap: anywhere; text-wrap: pretty; max-width: 72ch; }
     // Links read as links (the same blue as the translation page's), not as the description around them.

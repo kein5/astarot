@@ -9,5 +9,5 @@
     border-radius: var(--vox_radius); cursor: pointer;
     &:hover:enabled { background: var(--dark_600_color); }
     &:focus-visible { outline: .2rem solid var(--primary_200_color); outline-offset: .2rem; }
-    &:disabled { opacity: .6; cursor: default; }
+    &:disabled { opacity: .5; cursor: default; }
 }

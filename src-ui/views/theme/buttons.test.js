@@ -65,3 +65,28 @@ test("buttons set their words in medium weight, as shadcn/ui's Button does", () 
     assert.match(read("../../logics/common/noticeAction.css.ts"), /export const action = style\(\{[^}]*fontWeight: 500,/);
     assert.match(read("../app/main_page/main_section/message_container/log_box/message_container/SpeakerNames.css.ts"), /const button = \{[^}]*fontWeight: 500,/);
 });
+
+// shadcn/ui dims a control that cannot be used to half (disabled:opacity-50), as the kit does
+// (shared.css.ts). These were .6, and .45 for the settings top bar's discard and save. The
+// forms' rule is shared by their fields, selects, checkboxes and buttons.
+const halfDisabled = [
+    [box + "advanced_settings/VoiceSettings.module.scss", ":disabled {"],
+    [box + "_components/connection_check_button/ConnectionCheckButton.module.scss", ".button {", "&:disabled {"],
+    [box + "ocr/Ocr.module.scss", ".resetButton {", "&:disabled {"],
+    [box + "ocr/Ocr.module.scss", '.resetButton[aria-disabled="true"] {'],
+    [box + "updater/Updater.module.scss", ".install_button {", "&:disabled {"],
+    [box + "updater/Updater.module.scss", ".check_button {", "&:disabled {"],
+    [box + "updater/Updater.module.scss", ".refresh_button {", "&:disabled {"],
+    [box + "translation/Translation.module.scss", ".license_actions {", "&:disabled {"],
+    [views + "app/config_page/topbar/Topbar.module.scss", ".discard:disabled, .save:disabled {"],
+    [views + "app/config_page/topbar/Topbar.module.scss", ".stop:disabled {"],
+    [views + "app/main_page/main_section/top_bar/TopBar.module.scss", ".stop:disabled {"],
+    [views + "app/others/error_boundary/AppErrorBoundary.module.scss", ".update_button {", "&:disabled {"],
+    [views + "quick_chat/QuickChat.module.scss", "button:disabled {"],
+];
+
+test("a button or form control that cannot be used is half as strong, as in shadcn/ui", () => {
+    for (const [path, ...anchors] of halfDisabled) {
+        assert.match(ownDeclarations(path, ...anchors), /opacity: 0?\.5;/, `${path}: ${anchors.join(" ")}`);
+    }
+});
