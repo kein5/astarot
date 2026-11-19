@@ -245,6 +245,9 @@ pub struct Services {
     /// How long realtime recognition waits for speech.cpp and for its previous session; tests
     /// shorten them.
     pub realtime_limits: RealtimeLimits,
+    /// How long turning a recorder off waits for an engine request in flight
+    /// ([`vrct_transcription::recorder::STOP_WAIT`], 15 s); tests shorten it.
+    pub recorder_stop_wait: Duration,
 }
 
 impl Default for Services {
@@ -285,6 +288,7 @@ impl Default for Services {
             secret_store: Arc::new(crate::config::secrets::default_store),
             gpu_memory: crate::gpu_memory::native_reader(),
             realtime_limits: RealtimeLimits::default(),
+            recorder_stop_wait: vrct_transcription::recorder::STOP_WAIT,
         }
     }
 }

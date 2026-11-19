@@ -71,6 +71,9 @@ struct Legacy {
     energy: bool,
     /// The device the running capture has open.
     active: Option<Device>,
+    /// Stopped recorders whose engine request ran past the stop's wait (`_cleanup_workers`):
+    /// a handoff waits for them.
+    lingering: Vec<Recorder>,
 }
 
 /// Why the recorder could not start.
@@ -161,14 +164,39 @@ impl Transcription {
         Arc::new(move || area.upgrade().is_some_and(|area| area.epochs[index(source)].load(Ordering::SeqCst) == epoch))
     }
 
-    /// `stop_for_handoff`: stops the recorder; false when its device was not confirmed released.
+    /// `stop_for_handoff`: stops the recorder; false when its device was not confirmed released
+    /// or an engine request of a stopped recorder still runs.
     pub(crate) fn stop_legacy(&self, source: Source) -> bool {
         let mut legacy = self.legacy(source);
         legacy.transcript = false;
         legacy.energy = false;
         legacy.active = None;
         self.revisions[index(source)].fetch_add(1, Ordering::SeqCst);
-        legacy.recorder.take().is_none_or(|mut recorder| recorder.stop())
+        self.stop_recorder(source, &mut legacy)
+    }
+
+    /// `_stop`: stops the recorder and waits up to `Services::recorder_stop_wait` (15 s) for an
+    /// engine request in flight (decision 15 (1)); its result is dropped. A request still running
+    /// is kept until it ends, and the answer is false until then, as it is when the device was not
+    /// confirmed released.
+    fn stop_recorder(&self, source: Source, legacy: &mut Legacy) -> bool {
+        let core = self.core();
+        let stopped = match legacy.recorder.take() {
+            Some(mut recorder) => {
+                let wait = core.as_ref().map_or(vrct_transcription::recorder::STOP_WAIT, |core| core.services().recorder_stop_wait);
+                let stopped = recorder.stop_within(wait);
+                if !recorder.settled() {
+                    if let Some(core) = &core {
+                        core.step(&format!("{}: an engine request did not end within the stop's wait", source.as_str()));
+                    }
+                    legacy.lingering.push(recorder);
+                }
+                stopped
+            }
+            None => true,
+        };
+        legacy.lingering.retain(|recorder| !recorder.settled());
+        stopped && legacy.lingering.is_empty()
     }
 }
 
@@ -419,9 +447,7 @@ impl Core {
             legacy = area.legacy(source);
         }
         area.revisions[index(source)].fetch_add(1, Ordering::SeqCst);
-        if let Some(mut recorder) = legacy.recorder.take() {
-            recorder.stop();
-        }
+        area.stop_recorder(source, &mut legacy);
         legacy.active = None;
         legacy.transcript = new_transcript;
         legacy.energy = new_energy;

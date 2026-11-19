@@ -29,6 +29,8 @@ use vrct_audio_routing::identity::Device;
 const AUDIO_QUEUE: usize = 20;
 /// How long the recorder waits for a device to open (`_MIC_OPEN_TIMEOUT_SEC`).
 pub const OPEN_TIMEOUT: Duration = Duration::from_secs(8);
+/// How long a stop waits for an engine request in flight (`TRANSCRIPT_STOP_JOIN_TIMEOUT`).
+pub const STOP_WAIT: Duration = Duration::from_secs(15);
 
 /// The settings a recorder starts with (`_create_recorder`, `_create_transcriber`).
 #[derive(Clone, Debug, PartialEq)]
@@ -85,6 +87,9 @@ struct Shared {
     failed: AtomicBool,
     clips: Mutex<ClipQueue>,
     ready: Condvar,
+    /// An engine request is in flight ([`Asking`]); `answered` tells when it ends.
+    asking: Mutex<bool>,
+    answered: Condvar,
     on_event: Arc<dyn Fn(Event) + Send + Sync>,
 }
 
@@ -144,6 +149,8 @@ impl Recorder {
             failed: AtomicBool::new(false),
             clips: Mutex::new(ClipQueue::default()),
             ready: Condvar::new(),
+            asking: Mutex::new(false),
+            answered: Condvar::new(),
             on_event,
         });
         let mut opened = None;
@@ -190,15 +197,55 @@ impl Recorder {
         self.shared.running()
     }
 
-    /// Stops without waiting for an engine request in flight: its result is dropped. False
-    /// when the device could not be confirmed released.
+    /// Stops the capture, then waits up to [`STOP_WAIT`] for an engine request in flight, as
+    /// `_stop` joined the transcript thread (decision 15 (1)). Its result is dropped, and no new
+    /// request starts. What the transcriber is delivering is not waited for: the owner revokes
+    /// it. False when the device could not be confirmed released or the request is still
+    /// running ([`Recorder::settled`] tells when it ends).
     pub fn stop(&mut self) -> bool {
+        self.stop_within(STOP_WAIT)
+    }
+
+    /// [`Recorder::stop`], waiting up to `wait` for the request.
+    pub fn stop_within(&mut self, wait: Duration) -> bool {
         self.shared.stop.store(true, Ordering::SeqCst);
         self.shared.ready.notify_all();
-        match self.capture.take() {
+        let released = match self.capture.take() {
             Some(mut capture) => capture.stop(),
             None => true,
+        };
+        let asking = self.shared.asking.lock().unwrap_or_else(|e| e.into_inner());
+        let (asking, _) =
+            self.shared.answered.wait_timeout_while(asking, wait, |asking| *asking).unwrap_or_else(|e| e.into_inner());
+        released && !*asking
+    }
+
+    /// True once no engine request of this recorder is running.
+    pub fn settled(&self) -> bool {
+        !*self.shared.asking.lock().unwrap_or_else(|e| e.into_inner())
+    }
+}
+
+/// An engine request in flight, for a stop to wait on; ends when dropped, by return or by panic.
+struct Asking<'a>(&'a Shared);
+
+impl<'a> Asking<'a> {
+    /// `None` once the recorder is stopping: no request starts then. Checked under the lock a
+    /// stop waits with, so a stop either sees this request or this sees the stop.
+    fn begin(shared: &'a Shared) -> Option<Asking<'a>> {
+        let mut asking = shared.asking.lock().unwrap_or_else(|e| e.into_inner());
+        if !shared.running() {
+            return None;
         }
+        *asking = true;
+        Some(Asking(shared))
+    }
+}
+
+impl Drop for Asking<'_> {
+    fn drop(&mut self) {
+        *self.0.asking.lock().unwrap_or_else(|e| e.into_inner()) = false;
+        self.0.answered.notify_all();
     }
 }
 
@@ -296,7 +343,11 @@ fn transcribe(shared: Arc<Shared>, settings: Settings, mut recognize: Recognize)
         };
         let (builder, rate, channels) = phrases.as_mut().expect("made above");
         let (rate, channels) = (*rate, *channels);
-        let mut asr = |samples: &[i16]| recognize(&pcm::to_mono(samples, channels), rate);
+        let mut asr = |samples: &[i16]| match Asking::begin(&shared) {
+            Some(_asking) => recognize(&pcm::to_mono(samples, channels), rate),
+            // Stopping: what is left is not asked about, and nothing is delivered.
+            None => Ok(None),
+        };
         let drained = builder.drain(&mut pending, &mut asr);
         // What was not drained goes back in front of anything newer.
         if !pending.is_empty() {

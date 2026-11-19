@@ -18,7 +18,7 @@ use common::{Setup, Ui, error_code};
 use serde_json::{Value, json};
 use std::net::UdpSocket;
 use std::sync::atomic::Ordering;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use vrct_adapters::osc::{OscArg, PARAMETER_MUTE_SELF, decode_packet};
 use vrct_audio_routing::manager::Topology;
 use vrct_core::config::Platform;
@@ -45,6 +45,11 @@ fn start(saved: Value) -> Run {
 }
 
 fn start_with(saved: Value, lists: vrct_audio_routing::snapshot::RawLists) -> Run {
+    start_waiting(saved, lists, vrct_transcription::recorder::STOP_WAIT)
+}
+
+/// [`start_with`], with `stop_wait` for how long turning a recorder off waits for its engine.
+fn start_waiting(saved: Value, lists: vrct_audio_routing::snapshot::RawLists, stop_wait: Duration) -> Run {
     let asr = FakeAsr::start();
     let capture = FakeCapture::new();
     let audio = FakeAudio::with(lists);
@@ -58,6 +63,7 @@ fn start_with(saved: Value, lists: vrct_audio_routing::snapshot::RawLists) -> Ru
         audio: audio.platform(),
         transcription_capture: capture.factory(),
         transcription_endpoints: vrct_transcription::providers::Endpoints::all_at(&asr.base()),
+        recorder_stop_wait: stop_wait,
         ..Setup::default().services
     };
     let ui = Ui::with(Setup { saved: Some(saved), services, platform: Platform::Windows, ..Setup::default() });
@@ -155,6 +161,62 @@ fn a_recognised_utterance_reaches_the_ui_the_chatbox_and_the_log_but_not_the_dia
     assert_eq!(run.ui.ok("/get/data/mic_word_filter", None), json!([]));
     let log = run.process_log();
     assert!(!log.contains("こんにちは"), "recognised text reached process.log");
+    run.ui.stop();
+}
+
+#[test]
+fn turning_recognition_off_waits_for_the_engine_and_drops_what_it_answers() {
+    // Decision 15 (1): `_stop` joined the transcript thread for up to 15 s.
+    let run = start(cloud());
+    *run.asr.behaviour.transcription_hold.lock().unwrap() = Duration::from_millis(1500);
+    assert_eq!(run.ui.ok("/set/enable/transcription_send", None), true);
+    let mark = run.ui.lines().len();
+    run.capture.hear(Source::Mic, &[quiet(200), speech(900), quiet(1200)]);
+    eventually("the request reached the engine", || run.asr.requested("POST /openai/v1/audio/transcriptions") == 1);
+    let asked = Instant::now();
+    assert_eq!(run.ui.ok("/set/disable/transcription_send", None), false);
+    let waited = asked.elapsed();
+    assert!(waited >= Duration::from_millis(1200), "the switch answered before the engine: {waited:?}");
+    assert_eq!(run.capture.running(Source::Mic), 0, "the capture stopped before the wait");
+    std::thread::sleep(Duration::from_millis(300));
+    assert!(run.ui.on(mark, "/run/transcription_send_mic_message").is_empty(), "the answer after the switch went off was shown");
+    assert!(run.chatbox_text(Duration::from_millis(200)).is_none(), "the answer after the switch went off was sent");
+    run.ui.stop();
+}
+
+#[test]
+fn a_request_that_outlasts_the_wait_keeps_realtime_off_that_source_until_it_ends() {
+    // `stop_for_handoff` stayed false while a transcript thread that outlasted its wait ran.
+    let run = start_waiting(cloud(), devices(), Duration::from_millis(200));
+    // The realtime server is the same fake as the engine.
+    run.ui.ok(
+        "/set/data/realtime_asr_settings",
+        Some(json!({
+            "version": 1, "server": "external", "start_server": true, "base_url": run.asr.base(), "model": "haas-ja",
+            "mic": { "language": "ja", "endpoint": null, "follow_default": true },
+            "speaker": { "language": "ja", "endpoint": null, "follow_default": true },
+        })),
+    );
+    run.capture.add_endpoint(Source::Mic, "alsa.mic", "USB Mic");
+    run.capture.set_default(Source::Mic, Some("alsa.mic"));
+    let hold = Duration::from_millis(2500);
+    *run.asr.behaviour.transcription_hold.lock().unwrap() = hold;
+    assert_eq!(run.ui.ok("/set/enable/transcription_send", None), true);
+    let mark = run.ui.lines().len();
+    run.capture.hear(Source::Mic, &[quiet(200), speech(900), quiet(1200)]);
+    eventually("the request reached the engine", || run.asr.requested("POST /openai/v1/audio/transcriptions") == 1);
+    let asked = Instant::now();
+
+    let answer = run.ui.request("/run/start_realtime_asr", Some(json!({ "source": "mic" })));
+    assert_eq!(answer["result"]["error_code"], "realtime_legacy_stop_failed", "{answer}");
+    assert!(asked.elapsed() < hold, "the start waited for the request: {:?}", asked.elapsed());
+    assert!(run.process_log().contains("mic: an engine request did not end within the stop's wait"));
+
+    // Once the request ends, the source can be handed over; its answer is dropped.
+    std::thread::sleep(hold.saturating_sub(asked.elapsed()) + Duration::from_millis(300));
+    let state = run.ui.ok("/run/start_realtime_asr", Some(json!({ "source": "mic" })));
+    assert_eq!(state["mic"]["requested"], true, "{state}");
+    assert!(run.ui.on(mark, "/run/transcription_send_mic_message").is_empty(), "the late answer was shown");
     run.ui.stop();
 }
 
