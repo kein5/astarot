@@ -98,6 +98,8 @@
 }
 
 // ドロップダウン結果リスト
+// The list opens on the surface, as shadcn/ui's popover lists do and as the field's own
+// dropdowns (_DropdownMenu, the forms' selects) already do.
 .dropdown_results {
     position: absolute;
     top: calc(100% + 0.6rem);
@@ -106,7 +108,7 @@
     max-width: min(44rem, calc(100vw - 3.2rem));
     max-height: 38rem;
     overflow-y: auto;
-    background-color: var(--dark_900_color);
+    background-color: var(--vox_surface);
     border: 0.1rem solid var(--dark_750_color);
     border-radius: 0.8rem;
     box-shadow: var(--vox_shadow_overlay);
