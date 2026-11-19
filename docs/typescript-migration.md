@@ -12,12 +12,12 @@
 
 ## 現状の量
 
-第 4 段を終えた時点で、`src-ui` の中のファイルは次のとおりです。`.jsx` は JavaScript に含めます。
+第 6 段を終えた時点で、`src-ui` の中のファイルは次のとおりです。`.jsx` は JavaScript に含めます。
 
 | 範囲 | JavaScript | TypeScript |
 |---|---|---|
 | `src-ui/logics`（試験を除く） | 0 本 | 155 本、739KB（うち `.css.ts` が 1 本） |
-| `src-ui/views`（試験を除く） | 1 本、9KB | 216 本、1.1MB（うち vanilla-extract の `.css.ts` が 19 本） |
+| `src-ui/views`（試験を除く） | 0 本 | 217 本、1.1MB（うち vanilla-extract の `.css.ts` が 19 本） |
 | 試験（`*.test.js` と `src-ui/logics/test/`） | 205 本、1.3MB | 0 本 |
 
 残りの JavaScript の一覧は、次のコマンドで出せます。
@@ -35,7 +35,7 @@ git ls-files src-ui | grep -E '\.(js|jsx|mjs)$' | grep -v -E '\.test\.|/logics/t
 | 3 | ストアと IPC だけに依存する小さなフック | 済み。設定のフックを読む 5 本は第 4 段で移した |
 | 4 | `logics` の大きなモジュール（1 本ずつ） | 済み。受け取る値は実行時に新しく確かめず、宣言で渡す（下の第 4 段） |
 | 5 | `logics` の中の JSX（`.jsx` から `.tsx` へ） | 済み |
-| 6 | `views` | `VrApp` を除いて済み |
+| 6 | `views` | 済み |
 | 7 | 試験とテスト用のハーネス | 未着手（#550 の Vitest 移行は済み） |
 | 8 | 仕上げ（`allowJs` を外し、検査を強める） | 未着手 |
 
@@ -131,9 +131,11 @@ ADR-010 のとおり、画面を触る作業に合わせて移すのが基本で
 - VR の設定の窓は AI の翻訳のモデルのフィールドを、名前の文字列で引く代わりに小さな関数で読みます。VR パネルが送る操作を確かめる試験がソースの名前を拾うので、名前は組み立てずに書いたままにしています。
 - 型がなかったころに `views` の TypeScript（`CompanionController.tsx`、`ExperimentalFeatures.tsx`、`UsagePresetSelector.tsx`）が書いていた `as { ... }` は外しました。
 
-`vr` の次の 1 本は JavaScript のままです（`VrLogWindow` は `main_page` と一緒に移しました）。
+`vr` のうち次の 3 本は、ほかの区画と一緒に移しました。
 
-- `VrApp.jsx`: メインウィンドウから届く状態をそのまま atom に書き込む受け取り口（`VrStateReceiver`）を含みます。`useReceiveRoutes` と同じく、受け取る値をどこまで実行時に確かめるかが決まってから移します。
+- `VrLogWindow`: `LogBox`（`app/main_page`）に `savedView` を渡すので、`main_page` と一緒に移しました。
+- `VrIoFlowWindow`: `IoFlowView` を使うので、`io_flow` と一緒に移しました。
+- `VrApp`: メインウィンドウから届く状態をそのまま atom に書き込む受け取り口（`VrStateReceiver`）を含みます。`useReceiveRoutes` の後に、同じ方針（実行時に新しく確かめない）で移しました。同じ名前の atom にメインの値をそのまま書き込むことは、型ガード `isMirroredAtom` の 1 か所で宣言しています（下の「型の厳しさ」）。
 
 `app` は次の順に区画ごとの PR で移します。
 
@@ -248,7 +250,7 @@ ADR-010 のとおり、画面を触る作業に合わせて移すのが基本で
 
 ### 第 8 段：仕上げ
 
-- `tsconfig.json` から `allowJs` を外します。
+- `tsconfig.json` から `allowJs` を外します。第 6 段までで `src-ui` のソースから JavaScript はなくなりましたが、試験（第 7 段）と、`@useI18n` が指す `locales/useI18n.js` が JavaScript のうちは外せません。
 - 型の検査を段階的に強めます。候補は `noUncheckedIndexedAccess`、`exactOptionalPropertyTypes`、`noImplicitReturns`、`noUnusedLocals`、`noUnusedParameters` です。1 つずつ有効にし、出たエラーを直してから次に進みます。
 - `.eslintrc.json` を TypeScript の構文に対応させるかどうかを決めます。
 
@@ -266,7 +268,7 @@ ADR-010 のとおり、画面を触る作業に合わせて移すのが基本で
 - 下書きのフック（`useSettingsDraft.tsx`）の `answeredValue` も確かめられない宣言です。書き込みにバックエンドが答えた値を、保存した値と同じ型（`T`）として受け取ります（`savedFromResponse` があればその戻り値）。atom の値と同じく、宣言だけで確かめません。
 - VR の字幕のページ（`Vr.tsx`）の `answeredSettings` も同じ宣言です。書き込みにバックエンドが答えた設定を、オーバーレイのログの設定（`OverlayLogSettings`）として受け取ります。
 - `src-ui/cssProperties.d.ts` は、React の `CSSProperties` に `--` で始まる名前を足しています。インラインの style で CSS のカスタムプロパティ（`--checkbox-size` など）を渡すときに、`as CSSProperties` は要りません。
-- バックエンドの応答を受け取るフックの引数の型は、中核が送る形の宣言です。応答を受け取ってフックに渡す側（`useReceiveRoutes`）は、確かめずに渡します。経路の表が文字列で名指すフックと関数に `result` を届いたまま渡すことは、`useReceiveRoutes.ts` の型ガード `isCallable`（`(...args: unknown[]) => unknown`）の 1 か所で宣言しています。確かめるのは関数であることだけで、前と同じです。400 応答の `data` を設定に書き戻すときは、`_useBackendErrorHandling.ts` の `keptValue` のオーバーロードで、渡す先の `update…` の型として宣言します。前からフックが確かめていた値だけは、フックの中の型ガードで確かめます。設定のフックの `updateFromBackend…`、`setSuccess…`、`deleteSuccess…` も同じです。ただし `response_transform` で一覧を別の形に変える設定は、変える前に受け取った値が一覧であることを確かめます。
+- バックエンドの応答を受け取るフックの引数の型は、中核が送る形の宣言です。応答を受け取ってフックに渡す側（`useReceiveRoutes`）は、確かめずに渡します。経路の表が文字列で名指すフックと関数に `result` を届いたまま渡すことは、`useReceiveRoutes.ts` の型ガード `isCallable`（`(...args: unknown[]) => unknown`）の 1 か所で宣言しています。確かめるのは関数であることだけで、前と同じです。400 応答の `data` を設定に書き戻すときは、`_useBackendErrorHandling.ts` の `keptValue` のオーバーロードで、渡す先の `update…` の型として宣言します。VR パネルの入口（`VrApp.tsx`）がメインウィンドウから届いた値を同じ名前の atom に書き込むことは、型ガード `isMirroredAtom` で宣言します。確かめるのは atom があることだけで、前と同じです。前からフックが確かめていた値だけは、フックの中の型ガードで確かめます。設定のフックの `updateFromBackend…`、`setSuccess…`、`deleteSuccess…` も同じです。ただし `response_transform` で一覧を別の形に変える設定は、変える前に受け取った値が一覧であることを確かめます。
 - 設定のフックは型の付いたフィールドを返します。`views` の TypeScript が型のなかったころに書いた `as { ... }` は、第 6 段で外しました。
 
 ## 移すときの手順
