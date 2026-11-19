@@ -18,7 +18,7 @@ export const VoiceRouteSummary = () => {
     // page (#537), so the line under the label only says the route. The route is in that
     // page's 「詳細設定」, so the page opens on it (#554).
     const route = settings ? t(`voice.routing_${settings.routing}`) : t("voice.loading");
-    return <FormRow group label={t("voice.routing")} description={t("voice_ui.route_current", { route })} fold={false}>
+    return <FormRow group label={t("voice.routing")} description={t("voice_ui.route_current", { route })} fold={false} keepDescription>
         <PageLinkButton tab="device" action={t("voice_ui.edit_route")} target="voice_route" />
     </FormRow>;
 };

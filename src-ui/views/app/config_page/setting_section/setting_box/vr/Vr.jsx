@@ -11,6 +11,7 @@ import {
 } from "../_templates/Templates";
 import { PagePointer } from "../_components/page_pointer/PagePointer";
 import { AdvancedSection } from "../_components/advanced_section/AdvancedSection";
+import { HintDescriptions } from "../_components/hint/Hint";
 
 import {
     SectionLabelComponent,
@@ -59,8 +60,10 @@ export const Vr = () => {
     };
 
     // What a first start turns on is in sight: the captions in VR and on the desktop. Where they
-    // sit, how they look and what they show are set once, in 「詳細設定」 (#554).
+    // sit, how they look and what they show are set once, in 「詳細設定」 (#554). Reviewed against
+    // #614: the rows' descriptions are their labels' hints.
     return (
+        <HintDescriptions>
         <div className={styles.container}>
             <div>
                 <SectionLabelComponent label={t("config_page.vr.section_label_overlay")} />
@@ -129,6 +132,7 @@ export const Vr = () => {
             <PagePointer label={t("config_page.vr.vr_panel_pointer.label")} description={t("config_page.vr.vr_panel_pointer.desc")}
                 tab="experimental_features" action={t("config_page.vr.vr_panel_pointer.action")} />
         </div>
+        </HintDescriptions>
     );
 };
 

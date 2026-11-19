@@ -204,8 +204,12 @@ test("the VRChat page no longer carries chat reading; it ends with the way to th
         ...dependencies, ...store, react: runtime.api, "@useI18n": { useI18n: () => ({ t: key => key }) },
         "@logics_configs": { useOthers: () => ({ currentEnableNotificationVrcSfx: { data: true }, currentEnableVrcMicMuteSync: { data: false } }) },
         "../_components/page_pointer/PagePointer": pagePointer,
+        "../_components/hint/Hint": { HintDescriptions: "hints" },
     });
-    const page = runtime.render(vrchat.Vrchat);
+    // The page keeps its rows' descriptions out of sight, as hints (#614).
+    const wrapped = runtime.render(vrchat.Vrchat);
+    assert.equal(wrapped.type, "hints");
+    const page = wrapped.props.children;
     const last = page.props.children.at(-1);
     const pointer = last.type(last.props);
     // The heading and the button that names the page; no sentence repeats where the settings are.

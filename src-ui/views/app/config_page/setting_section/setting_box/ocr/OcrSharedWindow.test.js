@@ -29,6 +29,7 @@ const mount = async (context, state) => {
         }) },
         "../../../../../../logics/configs/ocrSharedWindow": sharedWindow,
         "../_components/env_readout/EnvReadout": { EnvReadout: props => ({ type: "readout", props }) },
+        "./OcrRegions": { RegionTitle: "region-title" },
     });
     const render = () => runtime.render(OcrSharedWindow);
     return { page, render };
