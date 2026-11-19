@@ -13,7 +13,7 @@
 |---|---|---|
 | `Button` | 4 つの見た目（primary、plain、quiet、danger）と 2 つの大きさ（regular、compact） | ネイティブの `<button>`。既定は `type="button"` |
 | `TextField` | 入力欄。値が正しくないときは `invalid` で赤い枠。住所やポートは `mono` で等幅 | ネイティブの `<input>` |
-| `Select` | 入力欄と同じ枠の選択欄。矢印は SVG | ネイティブの `<select>` |
+| `Select` | 入力欄と同じ枠の選択欄。矢印は SVG。選択肢は `SelectOption` と `SelectOptGroup` で書く | ネイティブの `<select>`、`<option>`、`<optgroup>` |
 | `Switch` | オンとオフ。オンでは Lilac の溝に Dark Plum のつまみ | Radix UI の Switch |
 | `SettingGroup` と `SettingRow` | 見出し付きのまとまりと、その中の 1 行 | — |
 
@@ -57,6 +57,7 @@
 DESIGN.md の「Components」で、部品の設計、見た目、構造を shadcn/ui に寄せる方針になりました（#680）。kit では、判断の要らない次の差を寄せました。ほかの差と判断項目は、棚卸しの文書（#683）にあります。
 
 - 各部品のパーツに、shadcn/ui の同じ部品と同じ `data-slot` を付けました（`button`、`input`、`native-select-wrapper`、`native-select`、`native-select-icon`、`switch`、`switch-thumb`）。
+- `Select` の選択肢に、shadcn/ui の `NativeSelectOption` と `NativeSelectOptGroup` に当たるパーツ（`SelectOption` と `SelectOptGroup`）を足し、`native-select-option` と `native-select-optgroup` を付けました（#691）。
 - `Select` は shadcn/ui の NativeSelect に当たります。シェブロンを 1.6rem にして右から 1.4rem に置き、使えないときは包む要素ごと薄くします。
 - ボタンの文字の太さを 500 に、使えない状態の不透明度を .5 にしました。
 
