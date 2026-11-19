@@ -10,6 +10,7 @@ import { createCoreBackendCommand } from "../../../logics/common/backendCommand.
 import { describeStartupFailure } from "../../../logics/common/startupPhase.ts";
 import { useI18n } from "@useI18n";
 import { useNotificationStatus, useIsBackendReady } from "@logics_common";
+import type { SidecarSessionHandlers } from "../../../logics/common/sidecarSession.ts";
 
 export const StartPythonController = () => {
     const { t } = useI18n();
@@ -21,8 +22,7 @@ export const StartPythonController = () => {
     const { updateInitProgress } = useStore_InitProgress();
     const { asyncFetchFonts } = useAsyncFetchFonts();
     const { asyncStdoutToPython } = useStdoutToPython();
-    const handlersRef = useRef(null);
-    handlersRef.current = {
+    const handlers: SidecarSessionHandlers = {
         receiveRoutes,
         backendStopped,
         feedWatchdog: () => asyncStdoutToPython("/run/feed_watchdog"),
@@ -49,6 +49,9 @@ export const StartPythonController = () => {
             console.error("stderr", line);
         },
     };
+    // The session reads the handlers of the latest render.
+    const handlersRef = useRef(handlers);
+    handlersRef.current = handlers;
 
     useEffect(() => {
         store.backend_session_owner ??= createSidecarSessionOwner({
@@ -73,9 +76,10 @@ export const StartPythonController = () => {
 
 const useAsyncFetchFonts = () => {
     const { updateSelectableFontFamilyList } = useStore_SelectableFontFamilyList();
-    const asyncFetchFonts = async (isCurrent) => {
+    const asyncFetchFonts = async (isCurrent: () => boolean) => {
         try {
-            let fonts = await invoke("get_font_list");
+            // The names of the installed font families (get_font_list, src-tauri/src/lib.rs): declared, not checked.
+            let fonts = await invoke<string[]>("get_font_list");
             if (!isCurrent()) return;
             fonts = fonts.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
             updateSelectableFontFamilyList(arrayToObject(fonts));

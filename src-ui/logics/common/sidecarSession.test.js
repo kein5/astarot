@@ -281,7 +281,7 @@ test("production controller publishes startup failure and the failure dialog say
     vi.spyOn(globalThis, "clearInterval").mockImplementation(s.timerTools.clearInterval);
     const common = { useNotificationStatus: () => ({ showNotification_Error: () => {} }),
         useIsBackendReady: b.stores.useStore_IsBackendReady, useWindow: () => ({ asyncCloseApp: () => {} }) };
-    const module = await loadModule(new URL("../../views/app/_app_controllers/StartPythonController.jsx", import.meta.url), b.runtime, {
+    const module = await loadModule(new URL("../../views/app/_app_controllers/StartPythonController.tsx", import.meta.url), b.runtime, {
         "@tauri-apps/api/core": { invoke: async () => [] },
         "@store": b.stores, "@utils": utils, "@logics_common": common,
         "@useReceiveRoutes": { useReceiveRoutes: () => ({ receiveRoutes: () => {}, backendStopped: () => {} }) },
@@ -332,7 +332,7 @@ for (const initialized of [false, true]) test(`production exit ${initialized ? "
         useIsBackendReady: b.stores.useStore_IsBackendReady,
         useIsSoftwareUpdating: b.stores.useStore_IsSoftwareUpdating,
         useIsOpenedConfigPage: b.stores.useStore_IsOpenedConfigPage };
-    const controller = await loadModule(new URL("../../views/app/_app_controllers/StartPythonController.jsx", import.meta.url), b.runtime, {
+    const controller = await loadModule(new URL("../../views/app/_app_controllers/StartPythonController.tsx", import.meta.url), b.runtime, {
         "@tauri-apps/api/core": { invoke: async () => [] },
         "@store": b.stores, "@utils": utils, "@logics_common": common,
         "@useReceiveRoutes": { useReceiveRoutes: () => b },
