@@ -12,12 +12,12 @@
 
 ## 現状の量
 
-第 6 段の設定の「翻訳」のページを終えた時点で、`src-ui` の中のファイルは次のとおりです。`.jsx` は JavaScript に含めます。
+第 6 段の設定のページを終えた時点で、`src-ui` の中のファイルは次のとおりです。`.jsx` は JavaScript に含めます。
 
 | 範囲 | JavaScript | TypeScript |
 |---|---|---|
 | `src-ui/logics`（試験を除く） | 2 本、87KB | 153 本、643KB（うち `.css.ts` が 1 本） |
-| `src-ui/views`（試験を除く） | 24 本、157KB | 193 本、963KB（うち vanilla-extract の `.css.ts` が 19 本） |
+| `src-ui/views`（試験を除く） | 10 本、46KB | 207 本、1.1MB（うち vanilla-extract の `.css.ts` が 19 本） |
 | 試験（`*.test.js` と `src-ui/logics/test/`） | 205 本、1.3MB | 0 本 |
 
 残りの JavaScript の一覧は、次のコマンドで出せます。
@@ -35,7 +35,7 @@ git ls-files src-ui | grep -E '\.(js|jsx|mjs)$' | grep -v -E '\.test\.|/logics/t
 | 3 | ストアと IPC だけに依存する小さなフック | 済み。設定のフックを読む 5 本は第 4 段で移した |
 | 4 | `logics` の大きなモジュール（1 本ずつ） | 設定の一覧（`ui_config_setter`）と `useSettingsLogics`、`useConfigSearch`、`useHotkeys` は済み。`useReceiveRoutes`、`_useBackendErrorHandling` が残り |
 | 5 | `logics` の中の JSX（`.jsx` から `.tsx` へ） | 済み |
-| 6 | `views` | `common_components`、`quick_chat`、`caption_overlay`、`vr`（`VrApp` を除く）、`app` の入口と `app/others`、`app/_app_controllers`（`StartPythonController` を除く）、`app/io_flow`、`app/main_page`、設定画面の部品とテンプレート、設定のページの一部は済み。`app` の残りの区画が残り |
+| 6 | `views` | `common_components`、`quick_chat`、`caption_overlay`、`vr`（`VrApp` を除く）、`app` の入口と `app/others`、`app/_app_controllers`（`StartPythonController` を除く）、`app/io_flow`、`app/main_page`、設定画面の部品とテンプレート、設定のページは済み。設定画面の枠が残り |
 | 7 | 試験とテスト用のハーネス | 未着手（#550 の Vitest 移行は済み） |
 | 8 | 仕上げ（`allowJs` を外し、検査を強める） | 未着手 |
 
@@ -220,6 +220,13 @@ ADR-010 のとおり、画面を触る作業に合わせて移すのが基本で
 - ユーザーが足したモデルの行には `non_commercial` や `license` がないので、ライセンスの判定と文は、そのフィールドがあるときだけ読みます。
 - 試験が正規表現で読む定義（`EXTERNAL_API_PROVIDERS`、`LOCAL_LLM_PROVIDERS`、`ENGINE_GROUPS`）の書き方は変えていません。
 
+5 回目で、残りのページ（VR の字幕の `vr/`、チャット読み取りの `ocr/`、見た目、共有の行、VRChat、ホットキー、このアプリについて、更新）を移しました。
+
+- VR の字幕のページは、書き込みにバックエンドが答えたオーバーレイのログの設定を、1 か所の宣言（`answeredSettings` のオーバーロード）で受け取ります（下の「型の厳しさ」）。
+- 選択肢（`RadioButton`）の `id` は `string | number` を受け付けます。フローの帯の件数（1〜3）が数値の id のまま比べられ、そのまま返されるためです。`selectFunction` の引数は、渡した選択肢の id の型です。
+- チャット読み取りのモデルの取得は、カタログをこのページが表示するフィールドだけの型（`OcrCatalogModel`）として読みます。宣言だけで、実行時には確かめません。
+- 試験がページのファイルを読む条件は `/\.(jsx|tsx)$/` に広げました。
+
 ### 第 7 段：試験とハーネス
 
 試験のファイル（`*.test.js`）と `src-ui/logics/test/` のハーネスを TypeScript にします。Issue #550 で決まった Vitest への移行は済んだので、着手できます。試験は Vitest で動きます（[development.md](development.md) の「UIの試験（Vitest）」）。試験を TypeScript にするまでは、次のように扱います。
@@ -246,6 +253,7 @@ ADR-010 のとおり、画面を触る作業に合わせて移すのが基本で
 - 計算したキーについては、これ以外の場所で宣言を増やしません。同じ形が要るときは `field()` か、この 2 つの型（`CategoryApi` と `SettingValues`）を使います。
 - メニューや一覧の外を押したかどうかの判定は、`logics/common/targetHolder.ts` の `TargetHolder`（`contains(target: EventTarget | null)`）で尋ねます。DOM の型ではイベントの対象が `EventTarget` で、`Element.contains` は `Node` しか受け取りません。メソッドの引数は両方向で照らし合わされるので、要素はそのまま `TargetHolder` に代入でき、対象を絞らずに尋ねられます。押されるのはページの要素なので成り立ちます。同じ判定にはこの型を使い、同じ形の宣言を増やしません。
 - 下書きのフック（`useSettingsDraft.tsx`）の `answeredValue` も確かめられない宣言です。書き込みにバックエンドが答えた値を、保存した値と同じ型（`T`）として受け取ります（`savedFromResponse` があればその戻り値）。atom の値と同じく、宣言だけで確かめません。
+- VR の字幕のページ（`Vr.tsx`）の `answeredSettings` も同じ宣言です。書き込みにバックエンドが答えた設定を、オーバーレイのログの設定（`OverlayLogSettings`）として受け取ります。
 - `src-ui/cssProperties.d.ts` は、React の `CSSProperties` に `--` で始まる名前を足しています。インラインの style で CSS のカスタムプロパティ（`--checkbox-size` など）を渡すときに、`as CSSProperties` は要りません。
 - バックエンドの応答を受け取るフックの引数の型は、中核が送る形の宣言です。値を確かめるのは、応答を受け取ってフックに渡す側（`useReceiveRoutes`）です。そこが JavaScript のうちは、確かめずに渡ります。前からフックが確かめていた値だけは、フックの中の型ガードで確かめます。設定のフックの `updateFromBackend…`、`setSuccess…`、`deleteSuccess…` も同じです。ただし `response_transform` で一覧を別の形に変える設定は、変える前に受け取った値が一覧であることを確かめます。
 - 設定のフックは型の付いたフィールドを返します。`views` の TypeScript が型のなかったころに書いた `as { ... }` は、第 6 段で外しました。
