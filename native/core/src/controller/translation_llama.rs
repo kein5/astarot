@@ -6,7 +6,7 @@
 //! for, as for any model they add. Its weight is `user:<id>`, chosen like any other local weight;
 //! choosing it makes the local translation run on llama.cpp's server instead of ONNX Runtime.
 //! The server is not bundled: the user sets it up first (`vrct_voice_conversion::runtime`,
-//! `llamacpp-vulkan` or `llamacpp-cpu`). It starts when the model loads (translation turned on,
+//! `llamacpp-vulkan`, which also runs on the CPU). It starts when the model loads (translation turned on,
 //! or a message translated with it), never on its own, and stops when another model loads.
 //!
 //! [`Routed`] is the app's [`LocalTranslation`]: it hands every other weight to the ONNX
@@ -26,7 +26,7 @@ use vrct_speech_server::server::State;
 use vrct_translation::http::Transport;
 use vrct_translation::providers::Error as ProviderError;
 use vrct_translation::translategemma;
-use vrct_voice_conversion::runtime::{llama_servers, LlamaServerBuild, Target};
+use vrct_voice_conversion::runtime::{llama_server, Target};
 
 /// The file is not a GGUF file of Gemma 3's architecture (TranslateGemma's).
 pub const GGUF_INVALID: &str = "translation_catalog_gguf_invalid";
@@ -173,9 +173,9 @@ pub fn weight_ids(env: &Environment) -> Vec<String> {
     registered(env).0.into_iter().map(|model| model.weight).collect()
 }
 
-/// The llama.cpp servers set up for this PC, the Vulkan build first.
-pub fn servers(env: &Environment) -> Vec<LlamaServerBuild> {
-    Target::current().map(|target| llama_servers(&env.state_dir.join("vc_runtimes"), target)).unwrap_or_default()
+/// The llama.cpp server set up for this PC (its Vulkan build), if any.
+pub fn server(env: &Environment) -> Option<PathBuf> {
+    Target::current().and_then(|target| llama_server(&env.state_dir.join("vc_runtimes"), target))
 }
 
 /// Whether this platform can run the `llamacpp` runtime at all (one of its servers is offered).
@@ -185,22 +185,10 @@ pub fn offered() -> bool {
 
 /// Whether a `llamacpp` weight can run now: its entry passes and a server is set up.
 pub fn weight_available(env: &Environment, weight: &str) -> bool {
-    registered(env).0.iter().any(|model| model.weight == weight) && !servers(env).is_empty()
+    registered(env).0.iter().any(|model| model.weight == weight) && server(env).is_some()
 }
 
 // ------------------------------------------------------------------------- the server
-
-/// The server build for a device: the CPU build for `cpu` when there is one, else the Vulkan
-/// build; the Vulkan build for a GPU, and for `auto` the CPU build when there is no Vulkan build.
-fn build_for(builds: &[LlamaServerBuild], device: &str) -> Option<LlamaServerBuild> {
-    let vulkan = builds.iter().find(|b| b.vulkan).cloned();
-    let cpu = builds.iter().find(|b| !b.vulkan).cloned();
-    match device {
-        "cpu" => cpu.or(vulkan),
-        "auto" => vulkan.or(cpu),
-        _ => vulkan,
-    }
-}
 
 /// A key for one start: 128 random bits as hex.
 fn new_key() -> String {
@@ -264,16 +252,17 @@ impl Routed {
 
     /// Starts a server for `model` and waits until it answers.
     fn start(&self, setup: &LocalSetup, model: &LlamaModel) -> Result<Loaded, LocalError> {
-        let build = build_for(&servers(&self.env), &model.device).ok_or(LocalError::Missing)?;
-        let device = if build.vulkan && model.device != "cpu" {
-            let listed = list_devices(&build.binary, &None).unwrap_or_default();
+        let binary = server(&self.env).ok_or(LocalError::Missing)?;
+        // The one build has the Vulkan backend; `cpu` runs it with no GPU (`--device none`).
+        let device = if model.device != "cpu" {
+            let listed = list_devices(&binary, &None).unwrap_or_default();
             let rows = (self.speech_rows)();
             choose_device(&model.device, rows.as_deref(), &listed).map_err(|_| LocalError::LoadFailed)?
         } else {
             Device::Cpu
         };
         let key = new_key();
-        let options = Options { binary: build.binary, model: model.file.clone(), device: device.clone(), api_key: key.clone(), environment: None, start_timeout: self.start_timeout };
+        let options = Options { binary, model: model.file.clone(), device: device.clone(), api_key: key.clone(), environment: None, start_timeout: self.start_timeout };
         let server = LlamaServer::new(options, None);
         server.start().map_err(|_| LocalError::LoadFailed)?;
         let base = match server.wait_ready(self.start_timeout + Duration::from_secs(5)) {
@@ -435,17 +424,7 @@ mod tests {
     }
 
     #[test]
-    fn the_build_follows_the_device() {
-        let vulkan = LlamaServerBuild { binary: "v".into(), vulkan: true };
-        let cpu = LlamaServerBuild { binary: "c".into(), vulkan: false };
-        let both = [vulkan.clone(), cpu.clone()];
-        assert_eq!(build_for(&both, "cpu"), Some(cpu.clone()));
-        assert_eq!(build_for(&both, "auto"), Some(vulkan.clone()));
-        assert_eq!(build_for(&both, "Vulkan1"), Some(vulkan.clone()));
-        assert_eq!(build_for(std::slice::from_ref(&cpu), "auto"), Some(cpu.clone()));
-        assert_eq!(build_for(std::slice::from_ref(&cpu), "Vulkan1"), None);
-        assert_eq!(build_for(std::slice::from_ref(&vulkan), "cpu"), Some(vulkan));
-        assert_eq!(build_for(&[], "auto"), None);
+    fn each_start_has_a_key_of_its_own() {
         assert_eq!(new_key().len(), 32);
         assert_ne!(new_key(), new_key());
     }

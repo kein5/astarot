@@ -398,7 +398,7 @@ fn a_translation_llm_entry_waits_for_llama_cpps_server() {
 
     // Once the runtime setup leaves a server, asking for the catalog again finds the entry usable.
     let target = Target::current().unwrap();
-    let runtime = llamacpp_runtime(target, false);
+    let runtime = llamacpp_runtime(target);
     let folder = ui.dir.join("vc_runtimes").join(runtime.id);
     std::fs::create_dir_all(folder.join("lib")).unwrap();
     for (_, name) in runtime.libraries.iter().flat_map(|l| &l.members) {

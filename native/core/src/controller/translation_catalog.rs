@@ -129,7 +129,7 @@ impl Core {
             })
             .collect();
         // A translation LLM also needs llama.cpp's server, which the user sets up apart.
-        let servers = !super::translation_llama::servers(config.environment()).is_empty();
+        let servers = super::translation_llama::server(config.environment()).is_some();
         for entry in entries.iter().filter(|e| e["group"] == "engine") {
             let weight = entry_weight(entry["id"].as_str().unwrap_or_default());
             let mut item = entry.as_object().cloned().unwrap_or_default();

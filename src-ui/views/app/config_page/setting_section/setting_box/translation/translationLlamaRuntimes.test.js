@@ -11,7 +11,7 @@ const load = async runtime => (await loadModule(new URL("./TranslationLlamaRunti
 
 let vc;
 
-test("both builds are offered where the backend offers them, and nothing starts unasked", async () => {
+test("the Vulkan build is offered where the backend offers it, and nothing starts unasked", async () => {
     const runtime = hooks(), sent = [];
     vc = { catalog: null, state: { jobs: {}, installed: {} }, send: (endpoint, data) => sent.push([endpoint, data]) };
     const TranslationLlamaRuntimes = await load(runtime);
@@ -19,24 +19,25 @@ test("both builds are offered where the backend offers them, and nothing starts 
     assert.deepEqual(sent.map(([endpoint]) => endpoint), ["/get/data/vc_runtime_catalog", "/get/data/vc_runtime_state"]);
     vc.catalog = { runtimes: [{ id: "rvc" }, { id: "onnxruntime-directml" }] };
     assert.equal(runtime.render(TranslationLlamaRuntimes), null);
+    // A CPU build an older backend might list is not shown: only the Vulkan build is offered.
     vc.catalog = { runtimes: [{ id: "rvc" }, { id: "llamacpp-vulkan" }, { id: "llamacpp-cpu" }] };
     const tree = runtime.render(TranslationLlamaRuntimes);
     const setups = [];
     find(tree, node => { if (node.type === "runtime-setup") setups.push(node.props); return false; });
-    assert.deepEqual(setups, [{ engine: "llamacpp-vulkan" }, { engine: "llamacpp-cpu" }]);
+    assert.deepEqual(setups, [{ engine: "llamacpp-vulkan" }]);
     assert.equal(tree.props["aria-label"], "translation_catalog.llamacpp.label");
-    assert.equal(sent.length, 2, "showing them starts no setup");
+    assert.equal(sent.length, 2, "showing it starts no setup");
 });
 
-test("a build set up or removed makes the catalog ask again", async () => {
+test("the build set up or removed makes the catalog ask again", async () => {
     const runtime = hooks(), asked = [];
-    vc = { catalog: { runtimes: [{ id: "llamacpp-vulkan" }, { id: "llamacpp-cpu" }] }, state: { jobs: {}, installed: {} }, send: () => {} };
+    vc = { catalog: { runtimes: [{ id: "llamacpp-vulkan" }] }, state: { jobs: {}, installed: {} }, send: () => {} };
     const TranslationLlamaRuntimes = await load(runtime);
     const onInstalled = () => asked.push("catalog");
     runtime.render(TranslationLlamaRuntimes, { onInstalled });
     runtime.render(TranslationLlamaRuntimes, { onInstalled });
     assert.deepEqual(asked, []);
-    vc.state = { jobs: {}, installed: { "llamacpp-cpu": "C:/state/vc_runtimes/llamacpp-cpu" } };
+    vc.state = { jobs: {}, installed: { "llamacpp-vulkan": "C:/state/vc_runtimes/llamacpp-vulkan" } };
     runtime.render(TranslationLlamaRuntimes, { onInstalled });
     assert.deepEqual(asked, ["catalog"]);
     runtime.render(TranslationLlamaRuntimes, { onInstalled });

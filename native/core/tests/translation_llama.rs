@@ -27,9 +27,9 @@ fn environment(dir: &Path) -> Environment {
 }
 
 /// What a finished setup of llama.cpp's server leaves, with the stand-in as the server.
-fn set_up_server(env: &Environment, vulkan: bool) {
+fn set_up_server(env: &Environment) {
     let target = Target::current().expect("Windows or Linux on x86-64");
-    let runtime = llamacpp_runtime(target, vulkan);
+    let runtime = llamacpp_runtime(target);
     let folder = env.state_dir.join("vc_runtimes").join(runtime.id);
     std::fs::create_dir_all(folder.join("lib")).unwrap();
     for (_, name) in runtime.libraries.iter().flat_map(|l| &l.members) {
@@ -102,7 +102,7 @@ fn a_translation_llm_runs_on_the_server_it_starts_and_hands_other_models_back() 
     // Without llama.cpp's server set up, the model is there but cannot run.
     assert!(!translation_llama::weight_available(&env, &weight));
     assert_eq!(routed.load(&setup(&weight)), Err(LocalError::Missing));
-    set_up_server(&env, false);
+    set_up_server(&env);
     assert!(translation_llama::weight_available(&env, &weight));
     assert_eq!(routed.languages(&weight).unwrap()["source"], json!({ "English": "en", "Japanese": "ja" }));
 
@@ -128,7 +128,7 @@ fn a_translation_llm_runs_on_the_server_it_starts_and_hands_other_models_back() 
 fn a_server_that_ended_is_started_again_once() {
     let dir = tempfile::tempdir().unwrap();
     let env = environment(dir.path());
-    set_up_server(&env, false);
+    set_up_server(&env);
     // The stand-in ends after each translation.
     let weight = add(&env, &gguf(dir.path(), "die"), "auto");
     let routed = Routed::new(&env, Arc::new(Inner::default()));
@@ -143,7 +143,7 @@ fn a_server_that_ended_is_started_again_once() {
 fn a_model_the_server_cannot_load_is_a_load_failure() {
     let dir = tempfile::tempdir().unwrap();
     let env = environment(dir.path());
-    set_up_server(&env, false);
+    set_up_server(&env);
     let routed = Routed::new(&env, Arc::new(Inner::default()));
     let bad = add(&env, &gguf(dir.path(), "bad_model"), "auto");
     let oom = add(&env, &gguf(dir.path(), "oom"), "auto");
@@ -151,8 +151,8 @@ fn a_model_the_server_cannot_load_is_a_load_failure() {
     assert_eq!(routed.load(&setup(&bad)), Err(LocalError::LoadFailed));
     assert!(matches!(routed.load(&setup(&oom)), Err(LocalError::OutOfMemory(_))));
     assert_eq!(routed.loaded(), None);
-    // A GPU asked for by name needs the Vulkan build.
+    // A GPU asked for by name that the server does not list (the stand-in lists none).
     let named = add(&env, &gguf(dir.path(), "ok"), "Vulkan1");
     routed.refresh();
-    assert_eq!(routed.load(&setup(&named)), Err(LocalError::Missing));
+    assert_eq!(routed.load(&setup(&named)), Err(LocalError::LoadFailed));
 }

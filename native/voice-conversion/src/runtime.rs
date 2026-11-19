@@ -440,19 +440,19 @@ pub fn onnx_directml_runtime() -> Runtime {
 }
 
 /// The setup of llama.cpp's `llama-server` with the Vulkan backend (ADR-015): it runs a
-/// decoder-only translation LLM such as TranslateGemma, on the GPU or the CPU.
+/// decoder-only translation LLM such as TranslateGemma, on the GPU or the CPU. Only this build
+/// is offered (decision 5 of the LLM runtime plan, 2026-11-19): it carries the CPU backends too,
+/// and a separate CPU build would save only about 13 MB of download.
 pub const LLAMACPP_VULKAN: &str = "llamacpp-vulkan";
-/// The same server without the Vulkan backend: the CPU only.
-pub const LLAMACPP_CPU: &str = "llamacpp-cpu";
 /// The release of `ggml-org/llama.cpp` whose archives are pinned below (published 2026-11-04).
 pub const LLAMACPP_TAG: &str = "b12125";
 /// ggml's CPU backends, one per instruction set; the server loads the one the CPU runs best.
 const LLAMACPP_CPU_BACKENDS: [&str; 14] =
     ["alderlake", "cannonlake", "cascadelake", "cooperlake", "haswell", "icelake", "ivybridge", "piledriver", "sandybridge", "sapphirerapids", "skylakex", "sse42", "x64", "zen4"];
 
-/// Whether a runtime is one of llama.cpp's servers.
+/// Whether a runtime is llama.cpp's server.
 pub fn is_llamacpp(runtime: &Runtime) -> bool {
-    runtime.id == LLAMACPP_VULKAN || runtime.id == LLAMACPP_CPU
+    runtime.id == LLAMACPP_VULKAN
 }
 
 /// The server's file name in a llama.cpp runtime's `lib/`.
@@ -465,7 +465,7 @@ pub fn llama_server_name(target: Target) -> &'static str {
 /// The Linux archive keeps versioned files behind links (`libllama.so.0` → `libllama.so.0.9.0`),
 /// which [`unpack_members`] refuses: the file is taken under the link's name, the one the
 /// libraries ask for (their RUNPATH is `$ORIGIN`).
-fn llamacpp_members(target: Target, vulkan: bool) -> Vec<(String, String)> {
+fn llamacpp_members(target: Target) -> Vec<(String, String)> {
     let same = |name: String| (name.clone(), name);
     let members: Vec<(String, String)> = match target {
         Target::Windows => {
@@ -474,9 +474,7 @@ fn llamacpp_members(target: Target, vulkan: bool) -> Vec<(String, String)> {
                 .map(|name| same(name.to_owned()))
                 .collect();
             members.extend(LLAMACPP_CPU_BACKENDS.iter().map(|cpu| same(format!("ggml-cpu-{cpu}.dll"))));
-            if vulkan {
-                members.push(same("ggml-vulkan.dll".into()));
-            }
+            members.push(same("ggml-vulkan.dll".into()));
             members
         }
         Target::Linux => {
@@ -491,9 +489,7 @@ fn llamacpp_members(target: Target, vulkan: bool) -> Vec<(String, String)> {
                 same("LICENSE".into()),
             ];
             members.extend(LLAMACPP_CPU_BACKENDS.iter().map(|cpu| same(format!("libggml-cpu-{cpu}.so"))));
-            if vulkan {
-                members.push(same("libggml-vulkan.so".into()));
-            }
+            members.push(same("libggml-vulkan.so".into()));
             // Every file sits in the archive's top folder.
             members.into_iter().map(|(source, name)| (format!("llama-{LLAMACPP_TAG}/{source}"), name)).collect()
         }
@@ -501,20 +497,19 @@ fn llamacpp_members(target: Target, vulkan: bool) -> Vec<(String, String)> {
     members
 }
 
-/// llama.cpp's server from its GitHub release, pinned by size and SHA-256 (decision 2 of
-/// docs/voice-stack/translation-llm-runtime-plan.md). Not bundled: fetched when the user asks.
-pub fn llamacpp_runtime(target: Target, vulkan: bool) -> Runtime {
-    let (archive, size, sha256) = match (target, vulkan) {
-        (Target::Windows, true) => ("win-vulkan-x64.zip", 37683656, "29db801266e784d17fbc9dd7ff9b6a350d2b665bdc5658216f37d91c09918f07"),
-        (Target::Windows, false) => ("win-cpu-x64.zip", 24730921, "968091ccb8c230e0cf7e0eed386310703bebae4a4fd4375f0c57db53958307d8"),
-        (Target::Linux, true) => ("ubuntu-vulkan-x64.tar.gz", 35883040, "455ec2f079e0d175b29beef93975aeacd119d8c74bd3e40298afa9a98e5a75f1"),
-        (Target::Linux, false) => ("ubuntu-x64.tar.gz", 23080676, "d23ae67c28cdae4b1fa5a4687442c787d0ef0e89d93512056e353b10495251ae"),
+/// llama.cpp's Vulkan server from its GitHub release, pinned by size and SHA-256 (decisions 2
+/// and 5 of docs/voice-stack/translation-llm-runtime-plan.md). Not bundled: fetched when the
+/// user asks. It also runs on the CPU (`--device none`).
+pub fn llamacpp_runtime(target: Target) -> Runtime {
+    let (archive, size, sha256) = match target {
+        Target::Windows => ("win-vulkan-x64.zip", 37683656, "29db801266e784d17fbc9dd7ff9b6a350d2b665bdc5658216f37d91c09918f07"),
+        Target::Linux => ("ubuntu-vulkan-x64.tar.gz", 35883040, "455ec2f079e0d175b29beef93975aeacd119d8c74bd3e40298afa9a98e5a75f1"),
     };
     let library = Library {
         url: format!("https://github.com/ggml-org/llama.cpp/releases/download/{LLAMACPP_TAG}/llama-{LLAMACPP_TAG}-bin-{archive}"),
         size,
         sha256: sha256.into(),
-        members: llamacpp_members(target, vulkan),
+        members: llamacpp_members(target),
     };
     let mut licenses = vec![format!("https://github.com/ggml-org/llama.cpp/blob/{LLAMACPP_TAG}/LICENSE")];
     if target == Target::Windows {
@@ -523,40 +518,26 @@ pub fn llamacpp_runtime(target: Target, vulkan: bool) -> Runtime {
         licenses.push("https://github.com/llvm/llvm-project/blob/llvmorg-20.1.8/openmp/LICENSE.TXT".into());
     }
     Runtime {
-        id: if vulkan { LLAMACPP_VULKAN } else { LLAMACPP_CPU },
-        name: if vulkan { "llama.cpp · Vulkan" } else { "llama.cpp · CPU" },
+        id: LLAMACPP_VULKAN,
+        name: "llama.cpp · Vulkan",
         download_bytes: size,
         assets: Vec::new(),
         license: if target == Target::Windows { "MIT, Apache-2.0 WITH LLVM-exception" } else { "MIT" },
         licenses,
-        notice: if vulkan { "llamacpp_vulkan" } else { "llamacpp_cpu" },
-        // The files taken (47 MB, with Vulkan 89 MB) and the archive while it is unpacked, rounded up.
-        disk_bytes: if vulkan { 140_000_000 } else { 80_000_000 },
+        notice: "llamacpp_vulkan",
+        // The files taken (89 MB) and the archive while it is unpacked, rounded up.
+        disk_bytes: 140_000_000,
         libraries: vec![library],
-        device: if vulkan { "vulkan" } else { "cpu" },
+        device: "vulkan",
     }
 }
 
-/// llama.cpp's servers offered on a platform, the Vulkan build first. Both are offered whatever
-/// the GPU: the Vulkan build also runs on the CPU, and the CPU build is the smaller download.
-pub fn llamacpp_runtimes(target: Target) -> Vec<Runtime> {
-    vec![llamacpp_runtime(target, true), llamacpp_runtime(target, false)]
-}
-
-/// A set-up llama.cpp server: its executable and whether it has the Vulkan backend.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct LlamaServerBuild {
-    pub binary: PathBuf,
-    pub vulkan: bool,
-}
-
-/// The llama.cpp servers set up under `root` (`<state>/vc_runtimes`), the Vulkan build first.
-pub fn llama_servers(root: &Path, target: Target) -> Vec<LlamaServerBuild> {
-    llamacpp_runtimes(target)
-        .into_iter()
-        .filter(|runtime| set_up(&root.join(runtime.id), std::slice::from_ref(runtime)))
-        .map(|runtime| LlamaServerBuild { binary: root.join(runtime.id).join("lib").join(llama_server_name(target)), vulkan: runtime.device == "vulkan" })
-        .collect()
+/// The llama.cpp server's executable when its setup under `root` (`<state>/vc_runtimes`) is
+/// complete.
+pub fn llama_server(root: &Path, target: Target) -> Option<PathBuf> {
+    let runtime = llamacpp_runtime(target);
+    let folder = root.join(runtime.id);
+    set_up(&folder, std::slice::from_ref(&runtime)).then(|| folder.join("lib").join(llama_server_name(target)))
 }
 
 /// The ONNX Runtime GPU runtimes offered on a platform: CUDA where an NVIDIA driver is, and
@@ -918,7 +899,7 @@ impl Shared {
                     let gpu = (self.options.gpu_check)();
                     let mut entries = vec![rvc_runtime(target, gpu)];
                     entries.extend(onnx_runtimes(target, gpu));
-                    entries.extend(llamacpp_runtimes(target));
+                    entries.push(llamacpp_runtime(target));
                     entries
                 })
                 .unwrap_or_default(),
@@ -1593,9 +1574,9 @@ mod tests {
             gpu_check: Arc::new(|| false),
             worker: dir.path().join("no-worker"),
             free_space: Arc::new(|_| None),
-            entries: Some(llamacpp_runtimes(target)),
+            entries: Some(vec![llamacpp_runtime(target)]),
         });
-        for runtime in llamacpp_runtimes(target) {
+        for runtime in [llamacpp_runtime(target)] {
             let version = version_of(&runtime);
             setup.start(&json!({ "id": runtime.id, "consent": true, "version": version })).unwrap();
             let deadline = std::time::Instant::now() + Duration::from_secs(600);
@@ -1609,9 +1590,7 @@ mod tests {
             assert_eq!(job["phase"], "ready", "{}: {job}", runtime.id);
             eprintln!("{}: warning {}", runtime.id, job["warning_code"]);
         }
-        let found = llama_servers(dir.path(), target);
-        assert_eq!(found.iter().map(|b| b.vulkan).collect::<Vec<_>>(), [true, false]);
-        assert!(found.iter().all(|b| b.binary.is_file()));
+        assert!(llama_server(dir.path(), target).is_some_and(|binary| binary.is_file()));
         assert!(setup.close(Duration::from_secs(5)));
     }
 
@@ -1658,60 +1637,55 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let catalog = setup_in(dir.path(), Target::Windows, true).catalog();
         let offered: Vec<&str> = catalog["runtimes"].as_array().unwrap().iter().map(|r| r["id"].as_str().unwrap()).collect();
-        assert_eq!(offered, ["rvc", ONNX_CUDA, ONNX_DIRECTML, LLAMACPP_VULKAN, LLAMACPP_CPU]);
+        assert_eq!(offered, ["rvc", ONNX_CUDA, ONNX_DIRECTML, LLAMACPP_VULKAN]);
         assert_eq!(catalog["runtimes"][2]["device"], "directml");
         let catalog = setup_in(dir.path(), Target::Linux, false).catalog();
         let offered: Vec<&str> = catalog["runtimes"].as_array().unwrap().iter().map(|r| r["id"].as_str().unwrap()).collect();
-        assert_eq!(offered, ["rvc", LLAMACPP_VULKAN, LLAMACPP_CPU]);
+        assert_eq!(offered, ["rvc", LLAMACPP_VULKAN]);
     }
 
     #[test]
     fn llamacpp_comes_pinned_from_its_github_release() {
         for target in [Target::Windows, Target::Linux] {
-            for vulkan in [true, false] {
-                let runtime = llamacpp_runtime(target, vulkan);
-                assert!(is_llamacpp(&runtime) && runtime.assets.is_empty());
-                assert_eq!(runtime.device, if vulkan { "vulkan" } else { "cpu" });
-                assert_eq!(runtime.libraries.len(), 1);
-                let library = &runtime.libraries[0];
-                assert!(library.url.starts_with("https://github.com/ggml-org/llama.cpp/releases/download/b12125/llama-b12125-bin-"), "{}", library.url);
-                assert!(vrct_ops::downloads::transport::validate_url(&library.url, &SOURCE_HOSTS).is_ok(), "{}", library.url);
-                // GitHub answers with a redirect to its asset host, which must be allowed too.
-                assert!(vrct_ops::downloads::transport::validate_url("https://release-assets.githubusercontent.com/github-production-release-asset/1/x", &SOURCE_HOSTS).is_ok());
-                assert_eq!((library.sha256.len(), runtime.download_bytes), (64, library.size));
-                let files = names(&runtime);
-                assert!(files.contains(&llama_server_name(target).to_string()));
-                assert_eq!(files.iter().any(|f| f.contains("ggml-vulkan")), vulkan);
-                assert_eq!(files.iter().filter(|f| f.contains("ggml-cpu-")).count(), 14);
-                // Plain names only (the archive reader refuses others), each once.
-                let unique: HashSet<&String> = files.iter().collect();
-                assert_eq!(unique.len(), files.len());
-                assert!(runtime.licenses[0].starts_with("https://github.com/ggml-org/llama.cpp/blob/b12125/"));
-            }
+            // Only the Vulkan build (decision 5 of the LLM runtime plan); it runs on the CPU too.
+            let runtime = llamacpp_runtime(target);
+            assert!(is_llamacpp(&runtime) && runtime.assets.is_empty());
+            assert_eq!((runtime.id, runtime.device), (LLAMACPP_VULKAN, "vulkan"));
+            assert_eq!(runtime.libraries.len(), 1);
+            let library = &runtime.libraries[0];
+            assert!(library.url.starts_with("https://github.com/ggml-org/llama.cpp/releases/download/b12125/llama-b12125-bin-"), "{}", library.url);
+            assert!(library.url.contains("vulkan-x64."), "{}", library.url);
+            assert!(vrct_ops::downloads::transport::validate_url(&library.url, &SOURCE_HOSTS).is_ok(), "{}", library.url);
+            // GitHub answers with a redirect to its asset host, which must be allowed too.
+            assert!(vrct_ops::downloads::transport::validate_url("https://release-assets.githubusercontent.com/github-production-release-asset/1/x", &SOURCE_HOSTS).is_ok());
+            assert_eq!((library.sha256.len(), runtime.download_bytes), (64, library.size));
+            let files = names(&runtime);
+            assert!(files.contains(&llama_server_name(target).to_string()));
+            assert!(files.iter().any(|f| f.contains("ggml-vulkan")));
+            assert_eq!(files.iter().filter(|f| f.contains("ggml-cpu-")).count(), 14);
+            // Plain names only (the archive reader refuses others), each once.
+            let unique: HashSet<&String> = files.iter().collect();
+            assert_eq!(unique.len(), files.len());
+            assert!(runtime.licenses[0].starts_with("https://github.com/ggml-org/llama.cpp/blob/b12125/"));
         }
         // The Linux archive's files sit in its top folder; the links' names are the ones kept.
-        let linux = llamacpp_runtime(Target::Linux, false);
+        let linux = llamacpp_runtime(Target::Linux);
         assert!(linux.libraries[0].members.iter().all(|(member, _)| member.starts_with("llama-b12125/")));
         assert!(linux.libraries[0].members.contains(&("llama-b12125/libllama.so.0.9.0".into(), "libllama.so.0".into())));
-        // Another release is another receipt: a setup of this one is not mistaken for it.
-        assert_ne!(version_of(&llamacpp_runtime(Target::Windows, true)), version_of(&llamacpp_runtime(Target::Windows, false)));
+        assert_ne!(version_of(&llamacpp_runtime(Target::Windows)), version_of(&linux));
     }
 
     #[test]
-    fn set_up_llama_servers_are_found_vulkan_first() {
+    fn a_set_up_llama_server_is_found() {
         for target in [Target::Windows, Target::Linux] {
             let dir = tempfile::tempdir().unwrap();
-            assert!(llama_servers(dir.path(), target).is_empty());
-            place(dir.path(), &llamacpp_runtime(target, false));
-            let cpu = dir.path().join(LLAMACPP_CPU).join("lib").join(llama_server_name(target));
-            assert_eq!(llama_servers(dir.path(), target), [LlamaServerBuild { binary: cpu.clone(), vulkan: false }]);
-            place(dir.path(), &llamacpp_runtime(target, true));
-            let found = llama_servers(dir.path(), target);
-            assert_eq!(found.iter().map(|b| b.vulkan).collect::<Vec<_>>(), [true, false]);
-            assert_eq!(found[1].binary, cpu);
+            assert_eq!(llama_server(dir.path(), target), None);
+            place(dir.path(), &llamacpp_runtime(target));
+            let binary = dir.path().join(LLAMACPP_VULKAN).join("lib").join(llama_server_name(target));
+            assert_eq!(llama_server(dir.path(), target), Some(binary.clone()));
             // A file missing: not set up.
-            fs::remove_file(dir.path().join(LLAMACPP_VULKAN).join("lib").join(llama_server_name(target))).unwrap();
-            assert_eq!(llama_servers(dir.path(), target).len(), 1);
+            fs::remove_file(&binary).unwrap();
+            assert_eq!(llama_server(dir.path(), target), None);
         }
     }
 

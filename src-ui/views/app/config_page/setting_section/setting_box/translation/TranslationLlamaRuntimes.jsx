@@ -4,10 +4,11 @@ import { useVcRuntimes } from "../../../../../../logics/voice/useVcRuntimes";
 import { VcRuntimeSetup } from "../advanced_settings/VcRuntimeSetup";
 
 // llama.cpp's server, which runs a translation LLM such as TranslateGemma (ADR-015). The app does
-// not ship it: the Vulkan build (GPU or CPU) or the CPU build is fetched from llama.cpp's GitHub
-// release after the user's consent, through the same runtime setup as the GPU builds of ONNX
-// Runtime. Where the backend offers neither (another platform), this renders nothing.
-export const LLAMACPP_RUNTIMES = ["llamacpp-vulkan", "llamacpp-cpu"];
+// not ship it: its Vulkan build, which runs on the GPU or the CPU, is fetched from llama.cpp's
+// GitHub release after the user's consent, through the same runtime setup as the GPU builds of
+// ONNX Runtime. Only that build is offered (decision 5 of the LLM runtime plan). Where the
+// backend does not offer it (another platform), this renders nothing.
+export const LLAMACPP_RUNTIMES = ["llamacpp-vulkan"];
 
 // onInstalled: called when a build comes or goes, so the catalog asks again which entries can run.
 export const TranslationLlamaRuntimes = ({ onInstalled } = {}) => {

@@ -236,14 +236,14 @@ def test_a_translation_llm_is_a_gguf_file_that_waits_for_llama_cpps_server(ui):
 
     page, peer = ui
     peer.runtimes = ["onnx", "llamacpp"]
-    peer.vc_runtimes = [llama_runtime("rvc", "RVC", "rvc_cpu", 1), llama_runtime("llamacpp-vulkan", "llama.cpp · Vulkan", "llamacpp_vulkan", 37_683_656),
-                        llama_runtime("llamacpp-cpu", "llama.cpp · CPU", "llamacpp_cpu", 24_730_921)]
+    # Only the Vulkan build is offered (it runs on the CPU too).
+    peer.vc_runtimes = [llama_runtime("rvc", "RVC", "rvc_cpu", 1), llama_runtime("llamacpp-vulkan", "llama.cpp · Vulkan", "llamacpp_vulkan", 37_683_656)]
     page.reload()
     servers = page.get_by_role("group", name="llama.cpp's server for translation LLMs")
     expect(servers.get_by_text("llama.cpp · Vulkan runtime", exact=True)).to_be_visible()
-    expect(servers.get_by_text("llama.cpp · CPU runtime", exact=True)).to_be_visible()
     expect(servers.get_by_text("RVC runtime")).to_have_count(0)
-    servers.get_by_role("button", name="Review download").first.click()
+    expect(servers.get_by_role("button", name="Review download")).to_have_count(1)
+    servers.get_by_role("button", name="Review download").click()
     dialog = page.get_by_role("dialog")
     expect(dialog).to_contain_text("release b12125")
     expect(dialog.get_by_role("link", name="https://github.com/ggml-org/llama.cpp/blob/b12125/LICENSE")).to_be_visible()
@@ -272,7 +272,7 @@ def test_a_translation_llm_is_a_gguf_file_that_waits_for_llama_cpps_server(ui):
     expect(card.get_by_text("Model file")).to_be_visible()
     expect(card.get_by_text("CPU only")).to_be_visible()
     expect(card.get_by_text("Needs llama.cpp's server")).to_be_visible()
-    expect(card.get_by_role("alert")).to_contain_text("Fetch one of its builds above first.")
+    expect(card.get_by_role("alert")).to_contain_text("Fetch the server above first.")
     expect(card.get_by_role("button", name="Use for translation on your PC")).to_be_disabled()
     assert sent(peer, "/run/use_translation_catalog_entry") == []
 
