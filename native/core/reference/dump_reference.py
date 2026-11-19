@@ -114,6 +114,8 @@ CASES = {
                            "SPEECH_SERVER_SETTINGS": {"version": 1}, "REALTIME_ASR_SETTINGS": {"version": 1}},
     "voice_settings_invalid": {"VOICE_SETTINGS": {"mode": "shout"}, "DIRECT_VOICE_SETTINGS": {"mode": "x"},
                                "SPEECH_SERVER_SETTINGS": {"version": 2}, "REALTIME_ASR_SETTINGS": {"server": "cloud"}},
+    # One speech server chosen, the other never (#566): only the missing one keeps the external server.
+    "voice_settings_one_server_chosen": {"VOICE_SETTINGS": {"japanese_server": "bundled", "japanese_url": "http://127.0.0.1:50080"}},
     "realtime_settings_full": {"REALTIME_ASR_SETTINGS": {
         "version": 1, "server": "external", "start_server": False, "base_url": "http://localhost:8080",
         "model": "qwen3-asr", "vocabulary": {"builtin": False, "terms": ["VRChat=ぶいあーるちゃっと", "vrchat", " Avatar  Name "]},

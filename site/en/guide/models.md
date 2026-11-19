@@ -55,6 +55,26 @@ The Whisper models of earlier versions can no longer be downloaded. Speech recog
 
 The "Text to speech (TTS)" page shows your GPU's name and its total and free memory, and suggests the standard or the lighter model for that free memory. This is guidance only; it does not reserve memory or guarantee that it runs. Leave more headroom when you use VRChat at the same time.
 
+### Execution checks
+
+How far each speech model has been checked. For a model with a memory estimate, the settings show the same record under "Memory needs and testing" on its card.
+
+| Model | Checked on |
+|---|---|
+| Irodori-TTS v4.1 Small MF · F16 | NVIDIA GeForce RTX 4080 SUPER |
+| Irodori-TTS v4.1 Small MF · Q8_0 | NVIDIA GeForce RTX 4080 SUPER |
+| Irodori-TTS v4.1 Small · F16 | Execution check pending |
+| Irodori-TTS v4 Large · Q8_0 | Execution check pending |
+| Qwen3-TTS 12Hz 0.6B CustomVoice · Q8_0 | NVIDIA GeForce RTX 4080 SUPER |
+| Qwen3-TTS 12Hz 0.6B CustomVoice · Q5_K | NVIDIA GeForce RTX 4080 SUPER |
+| Qwen3-TTS 12Hz 1.7B CustomVoice · Q8_0 | Execution check pending |
+
+::: info What was checked
+Checked on Linux (speech.cpp 0.9.0, Vulkan): it reads a short sentence aloud. Other GPUs, long text and sound quality are not checked yet.
+:::
+
+When your GPU differs from the one in the table, the card says so, and its suggestion is based on memory only.
+
 ## Which GPUs are used
 
 | Feature | GPU |

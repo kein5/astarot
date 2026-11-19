@@ -995,6 +995,7 @@ impl Config {
         // Written for 0.5 and earlier, which migrate a file without it (`LOCAL_ASR_MIGRATION_LATEST`).
         self.put_loading("LOCAL_ASR_MIGRATION", json!(LOCAL_ASR_MIGRATION_LATEST));
         self.migrate_usage_presets(&saved);
+        self.migrate_speech_servers(&saved);
         let channel = if ["-beta", "-rc"].iter().any(|m| self.env.version.contains(m)) { "beta" } else { "stable" };
         self.put_loading("SELECTED_RELEASE_CHANNEL", json!(channel));
         self.apply_installer_language();
@@ -1017,6 +1018,29 @@ impl Config {
     fn migrate_usage_presets(&self, saved: &Map<String, Value>) {
         if !saved.is_empty() && !saved.contains_key("USAGE_PRESETS") {
             self.set_loading("USAGE_PRESETS", json!(["all"]));
+        }
+    }
+
+    /// `_migrateSpeechServers`: new settings speak through the bundled server (#566). Before that a
+    /// missing choice meant the external server (Japanese at `http://127.0.0.1:8080`), so a saved
+    /// file whose speech settings do not name a server for a role keeps the external server for it:
+    /// an update does not move anyone off a server they run. Nothing saved, or a file that could not
+    /// be read, is a new install and stays on the bundled server.
+    fn migrate_speech_servers(&self, saved: &Map<String, Value>) {
+        if saved.is_empty() {
+            return;
+        }
+        let named = |field: &str| saved.get("VOICE_SETTINGS").and_then(Value::as_object).is_some_and(|voice| voice.contains_key(field));
+        let mut voice = self.get("VOICE_SETTINGS");
+        let mut changed = false;
+        for field in ["japanese_server", "multilingual_server"] {
+            if !named(field) {
+                voice[field] = json!("external");
+                changed = true;
+            }
+        }
+        if changed {
+            self.set_loading("VOICE_SETTINGS", voice);
         }
     }
 

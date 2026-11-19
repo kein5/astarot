@@ -55,6 +55,26 @@ ASTAROTの配布物にはテキスト読み上げ・音声認識・ボイスチ�
 
 読み上げのページではGPUの名前とメモリの合計・空きを表示し、空きに合わせて標準か軽量のモデルを勧めます。これは目安です。メモリを予約するものでも、動作を保証するものでもありません。VRChatなどと同時に使うときは余裕を多めに見てください。
 
+### 動作確認の記録
+
+読み上げのモデルをどこまで確かめたかの記録です。メモリの目安があるモデルは設定画面のカードの「必要メモリと動作確認」でも見られます。
+
+| モデル | 動作確認したGPU |
+|---|---|
+| Irodori-TTS v4.1 Small MF · F16 | NVIDIA GeForce RTX 4080 SUPER |
+| Irodori-TTS v4.1 Small MF · Q8_0 | NVIDIA GeForce RTX 4080 SUPER |
+| Irodori-TTS v4.1 Small · F16 | 動作確認待ち |
+| Irodori-TTS v4 Large · Q8_0 | 動作確認待ち |
+| Qwen3-TTS 12Hz 0.6B CustomVoice · Q8_0 | NVIDIA GeForce RTX 4080 SUPER |
+| Qwen3-TTS 12Hz 0.6B CustomVoice · Q5_K | NVIDIA GeForce RTX 4080 SUPER |
+| Qwen3-TTS 12Hz 1.7B CustomVoice · Q8_0 | 動作確認待ち |
+
+::: info 確かめた範囲
+Linux（speech.cpp 0.9.0、Vulkan）で短い文を読み上げられることを確かめました。ほかのGPU、長い文、音質はまだ確かめていません。
+:::
+
+お使いのGPUが表のGPUと違うときは、カードにそのことが出ます。そのときに勧めるモデルはメモリの量だけで決めたものです。
+
 ## 使えるGPU
 
 | 機能 | GPU |
