@@ -4,8 +4,8 @@
     python tools/translation_onnx/export.py NAME --source FOLDER --family m2m100|nllb --license LICENCE --output OUT
 
 The second form converts a model folder on this disk (a fine-tuned M2M100 or NLLB in the
-transformers layout) instead of a pinned download; the result is a folder a user can put in
-`<data>/translation-models/`. Its licence is the one given, written to manifest.json as it is.
+transformers layout) instead of a pinned download; the result is a folder a user can add with
+"Add a model of your own" in the translation catalog. Its licence is the one given, written to manifest.json as it is.
 
 The result is OUT/<name>-onnx-<variant>/ with (for int8):
 
