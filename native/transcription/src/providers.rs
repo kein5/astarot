@@ -346,6 +346,7 @@ impl Recognizer {
                 ("Content-Type", format!("multipart/form-data; boundary={boundary}")),
             ],
             body: Some(multipart(&boundary, &fields, &wav)),
+            cancel: None,
         };
         // The SDK tried twice more after a broken connection, 408, 409, 429 or 5xx.
         let mut tries = 0;
@@ -422,6 +423,7 @@ impl Recognizer {
             url: &url,
             headers: vec![("Authorization", format!("Token {key}")), ("Content-Type", "audio/wav".to_string())],
             body: Some(wav),
+            cancel: None,
         };
         let response = self.send(&request, UPLOAD).map_err(ApiError::of_http)?;
         if response.status != 200 {

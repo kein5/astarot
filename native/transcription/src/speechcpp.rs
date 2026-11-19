@@ -3,7 +3,7 @@
 
 use serde_json::{Value, json};
 use std::time::Duration;
-use vrct_translation::http::{Request, Timeouts, Transport};
+use vrct_translation::http::{Cancel, HttpError, Request, Timeouts, Transport};
 
 /// A recognition model the server lists (`RecognitionModel`).
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -55,13 +55,25 @@ fn detects(options: &[Value]) -> bool {
     false
 }
 
-/// `_survey`: the recognition models, and whether a diarization model runs on a GPU. `Err`
-/// carries a fixed code (`transport_error`, `http_<status>`, `expected_json`,
-/// `response_too_large`, `invalid_json`, `invalid_models`).
-pub fn survey(transport: &Transport, base_url: &str, timeout: Duration) -> Result<(Vec<Model>, bool), String> {
+/// `_survey`: the recognition models, and whether a diarization model runs on a GPU. Each step
+/// of the request (connecting, writing, each read) waits at most `timeout`; `cancel` ends it
+/// at once, as Python's `CancelToken` did. `Err` carries a fixed code (`cancelled`,
+/// `transport_error`, `http_<status>`, `expected_json`, `response_too_large`, `invalid_json`,
+/// `invalid_models`).
+pub fn survey(
+    transport: &Transport,
+    base_url: &str,
+    timeout: Duration,
+    cancel: Option<&Cancel>,
+) -> Result<(Vec<Model>, bool), String> {
     let url = format!("{}/v1/models", base_url.trim_end_matches('/'));
     let timeouts = Timeouts { connect: timeout, read: timeout, write: timeout };
-    let response = transport(&Request::get(&url), timeouts).map_err(|_| "transport_error".to_string())?;
+    let mut request = Request::get(&url);
+    if let Some(cancel) = cancel {
+        request = request.cancellable(cancel);
+    }
+    let response = transport(&request, timeouts)
+        .map_err(|error| if error == HttpError::Cancelled { "cancelled" } else { "transport_error" }.to_string())?;
     if response.status != 200 {
         return Err(format!("http_{}", response.status));
     }
@@ -286,7 +298,7 @@ mod tests {
     }
 
     fn listed(body: Value) -> Result<(Vec<Model>, bool), String> {
-        survey(&answering(200, "application/json; charset=utf-8", body), "http://127.0.0.1:8080/", Duration::from_secs(1))
+        survey(&answering(200, "application/json; charset=utf-8", body), "http://127.0.0.1:8080/", Duration::from_secs(1), None)
     }
 
     #[test]
@@ -338,19 +350,46 @@ mod tests {
         }
         let base = "http://127.0.0.1:8080";
         let second = Duration::from_secs(1);
-        assert_eq!(survey(&answering(503, "application/json", json!({})), base, second).unwrap_err(), "http_503");
+        assert_eq!(survey(&answering(503, "application/json", json!({})), base, second, None).unwrap_err(), "http_503");
         // Only a JSON answer is read (`expected_json` in Python).
-        assert_eq!(survey(&answering(200, "text/html", json!({ "data": [] })), base, second).unwrap_err(), "expected_json");
-        assert_eq!(survey(&answering(200, "", json!({ "data": [] })), base, second).unwrap_err(), "expected_json");
+        assert_eq!(survey(&answering(200, "text/html", json!({ "data": [] })), base, second, None).unwrap_err(), "expected_json");
+        assert_eq!(survey(&answering(200, "", json!({ "data": [] })), base, second, None).unwrap_err(), "expected_json");
         let large = json!({ "data": [], "padding": "x".repeat(1024 * 1024) });
-        assert_eq!(survey(&answering(200, "application/json", large), base, second).unwrap_err(), "response_too_large");
+        assert_eq!(survey(&answering(200, "application/json", large), base, second, None).unwrap_err(), "response_too_large");
         let broken: Transport = std::sync::Arc::new(|_, _| {
             Ok(vrct_translation::http::Response { status: 200, headers: vec![("content-type".into(), "application/json".into())], body: b"{".to_vec() })
         });
-        assert_eq!(survey(&broken, base, second).unwrap_err(), "invalid_json");
+        assert_eq!(survey(&broken, base, second, None).unwrap_err(), "invalid_json");
         let unreachable: Transport = std::sync::Arc::new(|_, _| Err(vrct_translation::http::HttpError::Unreachable));
-        assert_eq!(survey(&unreachable, base, second).unwrap_err(), "transport_error");
+        assert_eq!(survey(&unreachable, base, second, None).unwrap_err(), "transport_error");
         assert_eq!(listed(json!({ "data": [] })).unwrap(), (Vec::new(), false));
+    }
+
+    #[test]
+    fn a_cancel_ends_a_list_request_the_server_never_answers() {
+        // Decision 81: a server that takes the connection and says nothing (one going away)
+        // held the request for 5 s for each read; Python's `CancelToken` ended it at once.
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let base = format!("http://127.0.0.1:{}", listener.local_addr().unwrap().port());
+        std::thread::spawn(move || {
+            let mut held = Vec::new();
+            for stream in listener.incoming().flatten() {
+                held.push(stream);
+            }
+        });
+        let cancel = Cancel::new();
+        let cancelling = cancel.clone();
+        let timer = std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(100));
+            let at = std::time::Instant::now();
+            cancelling.cancel();
+            at
+        });
+        let listed = survey(&vrct_translation::http::direct(), &base, Duration::from_secs(5), Some(&cancel));
+        let ended = std::time::Instant::now();
+        assert_eq!(listed.unwrap_err(), "cancelled");
+        let late = ended.saturating_duration_since(timer.join().unwrap());
+        assert!(late < Duration::from_millis(100), "ended {late:?} after the cancel");
     }
 
     #[test]
