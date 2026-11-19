@@ -125,7 +125,7 @@ pub struct LlamaModel {
 
 /// The entry's model, or why it cannot run (a fixed code).
 fn model_of(row: &Value) -> Result<LlamaModel, &'static str> {
-    let file = PathBuf::from(row["folder"].as_str().unwrap_or_default());
+    let file = PathBuf::from(row["file"].as_str().unwrap_or_default());
     if !file.is_file() {
         return Err(translation_catalog::codes::FILE_MISSING);
     }
@@ -411,7 +411,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let file = dir.path().join("translategemma.gguf");
         std::fs::write(&file, gguf(&[("general.architecture", "gemma3")])).unwrap();
-        let row = |languages: Value| serde_json::json!({ "id": "tr-1", "group": "engine", "runtime": "llamacpp", "folder": file.to_string_lossy(), "languages": languages, "device": "cpu" });
+        let row = |languages: Value| serde_json::json!({ "id": "tr-1", "group": "engine", "runtime": "llamacpp", "file": file.to_string_lossy(), "languages": languages, "device": "cpu" });
         let model = model_of(&row(serde_json::json!(["ja", "en", "xx"]))).unwrap();
         assert_eq!((model.weight.as_str(), model.device.as_str()), ("user:tr-1", "cpu"));
         assert_eq!(model.languages["source"], serde_json::json!({ "English": "en", "Japanese": "ja" }));

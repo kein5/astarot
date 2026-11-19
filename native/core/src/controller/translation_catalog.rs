@@ -74,7 +74,7 @@ fn runtimes() -> Vec<&'static str> {
         .collect()
 }
 
-/// Checks an engine entry's folder before it is added (`onnx`: the folder holds a model with a
+/// Checks an engine entry's folder or file before it is added (`onnx`: the folder holds a model with a
 /// language the entry offers; `llamacpp`: the file is a Gemma 3 GGUF file).
 fn inspect_engine(row: &Value) -> Result<(), &'static str> {
     if row["runtime"] == catalog::LLAMACPP {
@@ -209,7 +209,8 @@ impl Core {
         config.put("SELECTABLE_CTRANSLATE2_WEIGHT_TYPE_DICT", Value::Object(dict));
     }
 
-    /// Adds an entry. Engine: `{group, name, runtime, folder, languages?}`. API: `{group, name,
+    /// Adds an entry. Engine: `{group, name, runtime, folder, languages?}` (`llamacpp`: `file` in
+    /// place of `folder`, and `device?`). API: `{group, name,
     /// protocol, url, model, auth_key}`; the key goes to the secret store. When the store does
     /// not take it, the entry is added all the same and its key is held in memory for this run
     /// (reported through `/run/secret_store_failed` and tried again, as a setting's key is).

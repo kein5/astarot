@@ -23,8 +23,9 @@ test("an engine entry that cannot pass is not sent", () => {
 
 test("a translation LLM is one .gguf file with its device (ADR-015)", () => {
     const llama = overrides => engineForm({ runtime: "llamacpp", folder: '"C:\\Models\\translategemma-4b-it.Q4_K_M.GGUF"', ...overrides });
+    // The file goes in `file`, never `folder` (translation_catalog.json version 2).
     assert.deepEqual(engineRequest(llama()), { request: { group: "engine", name: "Mine", runtime: "llamacpp",
-        folder: "C:\\Models\\translategemma-4b-it.Q4_K_M.GGUF", languages: [], device: "auto" } });
+        file: "C:\\Models\\translategemma-4b-it.Q4_K_M.GGUF", languages: [], device: "auto" } });
     assert.equal(engineRequest(llama({ device: "cpu" })).request.device, "cpu");
     assert.deepEqual(engineRequest(llama({ folder: " " })), { problem: "file_missing" });
     assert.deepEqual(engineRequest(llama({ folder: "C:\\Models\\translategemma" })), { problem: "file_missing" });

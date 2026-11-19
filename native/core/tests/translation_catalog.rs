@@ -378,7 +378,7 @@ fn a_translation_llm_entry_waits_for_llama_cpps_server() {
     let services = Services { telemetry_forced_off: Arc::new(|| true), ..Setup::default().services };
     let ui = start_in(temp.path(), services);
     let register = "/run/register_translation_catalog_entry";
-    let request = |name: &str, file: &Path, device: &str| json!({ "group": "engine", "name": name, "runtime": "llamacpp", "folder": file.to_string_lossy(), "languages": ["ja", "en"], "device": device });
+    let request = |name: &str, file: &Path, device: &str| json!({ "group": "engine", "name": name, "runtime": "llamacpp", "file": file.to_string_lossy(), "languages": ["ja", "en"], "device": device });
     let qwen = outside.path().join("qwen3.gguf");
     gguf(&qwen, "qwen3");
     assert_eq!(refused(&ui, register, request("Qwen", &qwen, "auto")), (400, "translation_catalog_gguf_invalid".into()));

@@ -267,7 +267,7 @@ def test_a_translation_llm_is_a_gguf_file_that_waits_for_llama_cpps_server(ui):
     card = page.get_by_role("group", name="TranslateGemma 4B", exact=True)
     expect(card).to_be_visible()
     assert sent(peer, "/run/register_translation_catalog_entry") == [
-        dict(group="engine", name="TranslateGemma 4B", runtime="llamacpp", folder="C:\\Models\\translategemma-4b-it.Q4_K_M.gguf",
+        dict(group="engine", name="TranslateGemma 4B", runtime="llamacpp", file="C:\\Models\\translategemma-4b-it.Q4_K_M.gguf",
              languages=[], device="cpu")]
     expect(card.get_by_text("Model file")).to_be_visible()
     expect(card.get_by_text("CPU only")).to_be_visible()

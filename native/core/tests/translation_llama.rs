@@ -60,7 +60,7 @@ fn gguf(dir: &Path, stem: &str) -> PathBuf {
 fn add(env: &Environment, file: &Path, device: &str) -> String {
     std::fs::create_dir_all(&env.state_dir).unwrap();
     let catalog = TranslationCatalog::new(env.state_dir.join(FILE_NAME));
-    let request = json!({ "group": "engine", "name": file.file_stem().unwrap().to_string_lossy(), "runtime": "llamacpp", "folder": file.to_string_lossy(), "languages": ["en", "ja"], "device": device });
+    let request = json!({ "group": "engine", "name": file.file_stem().unwrap().to_string_lossy(), "runtime": "llamacpp", "file": file.to_string_lossy(), "languages": ["en", "ja"], "device": device });
     let (id, _) = catalog.add(TranslationCatalog::normalize(&request).unwrap()).unwrap();
     format!("user:{id}")
 }

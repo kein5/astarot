@@ -17,8 +17,9 @@ export type EngineItem = {
     available: boolean;
     in_use: boolean;
     non_commercial?: boolean;
-    // The model's folder, or for the `llamacpp` runtime its GGUF file.
+    // The model's folder (`onnx`), or the GGUF file of a `llamacpp` entry.
     folder?: string;
+    file?: string;
     languages?: string[];
     // `llamacpp`: the device (`auto`, `cpu` or a Vulkan device) and whether llama.cpp's server
     // is set up.
@@ -81,10 +82,11 @@ export const languageCodes = (text: string): string[] | null => {
     return codes.every(code => LANGUAGE_CODE.test(code)) ? codes : null;
 };
 
-type EngineRequest = { group: "engine"; name: string; runtime: string; folder: string; languages: string[]; device?: string };
+type EngineRequest = { group: "engine"; name: string; runtime: string; folder?: string; file?: string; languages: string[]; device?: string };
 
 // The request for /run/register_translation_catalog_entry of an engine entry. A `llamacpp`
-// entry names a .gguf file and its device.
+// entry names a .gguf file in `file` (not `folder`) and its device. The form keeps either path
+// in its `folder` field.
 export function engineRequest(form: EngineForm): Checked<EngineRequest> {
     const name = checkName(form.name);
     if (typeof name !== "string") return name;
@@ -95,8 +97,9 @@ export function engineRequest(form: EngineForm): Checked<EngineRequest> {
     if (llamacpp && !/\.gguf$/i.test(folder)) return { problem: "file_missing" };
     const languages = languageCodes(form.languages);
     if (!languages) return { problem: "languages_invalid" };
-    const request: EngineRequest = { group: "engine", name, runtime, folder, languages };
-    if (llamacpp) request.device = form.device || "auto";
+    const request: EngineRequest = llamacpp
+        ? { group: "engine", name, runtime, file: folder, languages, device: form.device || "auto" }
+        : { group: "engine", name, runtime, folder, languages };
     return { request };
 }
 

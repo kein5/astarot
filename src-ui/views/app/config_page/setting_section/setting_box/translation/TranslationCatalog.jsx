@@ -103,7 +103,8 @@ const EntryCard = ({ group, item }) => {
         <dl className={styles.facts}>
             {group === "engine" ? <>
                 <div><dt>{t("translation_catalog.fact.runtime")}</dt><dd>{t(`translation_catalog.runtime.${item.runtime}`, { defaultValue: item.runtime })}</dd></div>
-                {item.folder && <div><dt>{t(item.runtime === LLAMACPP ? "translation_catalog.fact.file" : "translation_catalog.fact.folder")}</dt><dd><code>{item.folder}</code></dd></div>}
+                {item.file && <div><dt>{t("translation_catalog.fact.file")}</dt><dd><code>{item.file}</code></dd></div>}
+                {item.folder && <div><dt>{t("translation_catalog.fact.folder")}</dt><dd><code>{item.folder}</code></dd></div>}
                 {item.runtime === LLAMACPP && item.device && <div><dt>{t("translation_catalog.fact.device")}</dt>
                     <dd>{t(`translation_catalog.device.${item.device}`, { defaultValue: item.device })}</dd></div>}
                 {!folderModel && <div><dt>{t("translation_catalog.fact.languages")}</dt>
