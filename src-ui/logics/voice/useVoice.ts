@@ -7,6 +7,7 @@ import { pendingAfterVoiceFailure, stoppedVoiceStatus, stoppedDirectState } from
 import type { PendingVoiceRequest } from "./pendingVoiceRequest.ts";
 import { newerRoute, newerDirectState } from "./routeState";
 import type { RouteSnapshot } from "./routeState";
+import type { RvcSettings } from "./rvcStartOptions";
 import { acceptObservation, resetObservations } from "../common/polledState.ts";
 
 // The voice replies of the core (native/core/src/controller/voice), as far as this hook reads
@@ -24,7 +25,16 @@ export interface VoiceStatus extends RouteSnapshot {
     tts_server_starting?: unknown;
 }
 
+// The saved direct voice settings in its state. The RVC fields are what the main switch
+// starts RVC with (rvcStartOptions).
+export interface DirectVoiceSettings extends RvcSettings {
+    readonly mode?: unknown;
+    readonly engine?: unknown;
+    readonly [key: string]: unknown;
+}
+
 // /get/data/direct_voice_state, polled. generation counts the changes of direct voice.
+// output_route is "device" where voice goes to an output device (Windows).
 export interface DirectVoiceState extends RouteSnapshot {
     generation?: number;
     mode?: unknown;
@@ -32,7 +42,8 @@ export interface DirectVoiceState extends RouteSnapshot {
     pending?: unknown;
     stopping?: unknown;
     error?: unknown;
-    settings?: { readonly engine?: unknown; readonly [key: string]: unknown } | null;
+    output_route?: unknown;
+    settings?: DirectVoiceSettings | null;
 }
 
 // /get/data/voice_output_devices.
@@ -42,7 +53,7 @@ export interface VoiceOutputDevices {
     readonly [key: string]: unknown;
 }
 
-// An input of direct voice. The four fields together name it; refreshing keeps them.
+// Which input of direct voice: the four fields together name it; refreshing keeps them.
 export interface VoiceSource {
     readonly cookie?: unknown;
     readonly serial?: unknown;
@@ -51,9 +62,16 @@ export interface VoiceSource {
     readonly [key: string]: unknown;
 }
 
+// One input in the list: its identity and the name it is shown with.
+export interface VoiceSourceRow {
+    readonly id: VoiceSource;
+    readonly label?: unknown;
+    readonly [key: string]: unknown;
+}
+
 // /get/data/direct_voice_sources: the inputs, and the microphone chosen on the Device page.
 export interface DirectVoiceSources {
-    readonly sources: readonly VoiceSource[];
+    readonly sources: readonly VoiceSourceRow[];
     readonly error: unknown;
     readonly preferred?: VoiceSource | null;
     readonly [key: string]: unknown;

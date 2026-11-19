@@ -8,7 +8,7 @@ const text = node => [node?.props?.children].flat(Infinity)
 
 test("the swap button shows the same words at rest as its tooltip and accessible name (#569)", async () => {
     const runtime = hooks(), swaps = [];
-    const { LanguageSwapButton } = await loadModule(new URL("./LanguageSwapButton.jsx", import.meta.url), runtime, {
+    const { LanguageSwapButton } = await loadModule(new URL("./LanguageSwapButton.tsx", import.meta.url), runtime, {
         "@logics_main": { useLanguageSettings: () => ({ canChangeLanguageSettings: () => true, isLanguageSettingsBusy: false,
             swapSelectedLanguages: () => swaps.push("swap") }) },
     });

@@ -6,7 +6,7 @@ const slots = { 1: { "1": { language: "Japanese", country: "Japan", enable: true
 
 async function field(selector_key) {
     const runtime = hooks();
-    const { LanguageSelectorOpenButton } = await loadModule(new URL("./LanguageSelectorOpenButton.jsx", import.meta.url), runtime, {
+    const { LanguageSelectorOpenButton } = await loadModule(new URL("./LanguageSelectorOpenButton.tsx", import.meta.url), runtime, {
         "@useI18n": { useI18n: () => ({ t: key => key, i18n: { language: "en" } }) },
         "../../../../../../logics/common/languageNames.ts": { createLanguageNames: () => ({ name: slot => ({ language: slot.language, country: "" }) }) },
         "@store": { useStore_IsOpenedLanguageSelector: () => ({ updateIsOpenedLanguageSelector: () => {},

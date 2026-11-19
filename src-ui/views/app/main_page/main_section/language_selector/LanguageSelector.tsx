@@ -3,13 +3,23 @@ import { useI18n } from "@useI18n";
 
 import { useLanguageSettings } from "@logics_main";
 import { Empty, EmptyDescription } from "@common_components";
+import type { SelectableLanguage } from "@store";
 import { createLanguageNames, isLanguagePickKey } from "../../../../../logics/common/languageNames.ts";
 import styles from "./LanguageSelector.module.scss";
 
 import { LanguageSelectorTopBar } from "./language_selector_top_bar/LanguageSelectorTopBar";
+
+type PickLanguage = (language: SelectableLanguage) => void;
+
+type LanguageSelectorProps = {
+    title?: string;
+    hint?: string;
+    onClickFunction: PickLanguage;
+};
+
 // `hint` says what the language is for, in both directions (#569). It stays in sight above the
 // list and describes the search field, which has the focus when the list opens.
-export const LanguageSelector = ({ title, hint, onClickFunction }) => {
+export const LanguageSelector = ({ title, hint, onClickFunction }: LanguageSelectorProps) => {
     const { t, i18n } = useI18n();
     const names = useMemo(() => createLanguageNames(i18n.language), [i18n.language]);
     const { currentSelectableLanguageList } = useLanguageSettings();
@@ -19,7 +29,7 @@ export const LanguageSelector = ({ title, hint, onClickFunction }) => {
     // ISO 639 code ("j", "ja", "zh-Hant"), whose languages come first; Enter picks the first
     // match. The field takes focus when the selector opens.
     const [query, setQuery] = useState("");
-    const filter = useRef(null);
+    const filter = useRef<HTMLInputElement>(null);
     useEffect(() => { filter.current?.focus({ preventScroll: true }); }, []);
     const shown = useMemo(() => names.search(currentSelectableLanguageList.data ?? [], query),
         [names, currentSelectableLanguageList.data, query]);
@@ -58,7 +68,13 @@ export const LanguageSelector = ({ title, hint, onClickFunction }) => {
     );
 };
 
-const LanguageButton = ({ onClickFunction, language_data, label }) => {
+type LanguageButtonProps = {
+    onClickFunction: PickLanguage;
+    language_data: SelectableLanguage;
+    label: string;
+};
+
+const LanguageButton = ({ onClickFunction, language_data, label }: LanguageButtonProps) => {
 
     const adjustedOnClickFunction = () => {
         onClickFunction({

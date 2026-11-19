@@ -1,4 +1,5 @@
 import { useId } from "react";
+import type { ComponentType, SVGProps } from "react";
 import { useI18n } from "@useI18n";
 import { createLanguageNames } from "../../../../../../logics/common/languageNames.ts";
 import clsx from "clsx";
@@ -10,7 +11,18 @@ import {
     useLanguageSettings,
 } from "@logics_main";
 
-export const LanguageSelectorOpenButton = ({ TurnedOnSvgComponent, is_turned_on, selector_key, target_key }) => {
+// Which side of the pair the button opens the language list for.
+export type LanguageSelectorKey = "your_language" | "target_language";
+
+type LanguageSelectorOpenButtonProps = {
+    TurnedOnSvgComponent: ComponentType<SVGProps<SVGSVGElement>>;
+    is_turned_on: boolean;
+    selector_key: LanguageSelectorKey;
+    // The slot of that side ("1" to "3").
+    target_key: string;
+};
+
+export const LanguageSelectorOpenButton = ({ TurnedOnSvgComponent, is_turned_on, selector_key, target_key }: LanguageSelectorOpenButtonProps) => {
     const { t, i18n } = useI18n();
     const { updateIsOpenedLanguageSelector, currentIsOpenedLanguageSelector } = useStore_IsOpenedLanguageSelector();
     const { closeOverlay } = useIsMainPageCompactMode();
@@ -47,17 +59,15 @@ export const LanguageSelectorOpenButton = ({ TurnedOnSvgComponent, is_turned_on,
         [styles.is_turned_on]: is_turned_on,
     });
 
-    const getVariable = (target_selector_key) => {
+    const getVariable = (target_selector_key: LanguageSelectorKey) => {
         if (target_selector_key === "your_language") return currentSelectedYourLanguages.data[currentSelectedPresetTabNumber.data];
-        if (target_selector_key === "target_language") return currentSelectedTargetLanguages.data[currentSelectedPresetTabNumber.data];
+        return currentSelectedTargetLanguages.data[currentSelectedPresetTabNumber.data];
     };
 
-    const getTitle = (target_selector_key) => {
+    const getTitle = (target_selector_key: LanguageSelectorKey) => {
         if (target_selector_key === "your_language") return t("main_page.your_language");
-        if (target_selector_key === "target_language") {
-            if (currentSelectedTargetLanguages.data[currentSelectedPresetTabNumber.data]["2"].enable === false) return t("main_page.target_language");
-            return `${t("main_page.target_language")} ${target_key}`;
-        }
+        if (currentSelectedTargetLanguages.data[currentSelectedPresetTabNumber.data]["2"].enable === false) return t("main_page.target_language");
+        return `${t("main_page.target_language")} ${target_key}`;
     };
 
     const title = getTitle(selector_key);

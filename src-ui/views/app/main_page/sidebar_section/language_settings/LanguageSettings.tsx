@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import type { MouseEvent } from "react";
 import { useI18n } from "@useI18n";
 import styles from "./LanguageSettings.module.scss";
 import { PresetTabSelector } from "./preset_tab_selector/PresetTabSelector";
@@ -7,12 +8,17 @@ import { LanguageSwapButton } from "./language_swap_button/LanguageSwapButton";
 import { TranslatorSelectorOpenButton } from "./translator_selector_open_button/TranslatorSelectorOpenButton";
 import { AddRemoveTargetLanguageButtons } from "./add_remove_target_language_buttons/AddRemoveTargetLanguageButtons";
 import { useStore_IsOpenedTranslatorSelector } from "@store";
+import type { TargetHolder } from "../../../../../logics/common/targetHolder.ts";
+
+// The element the pointer left for. The pointer can also leave for no element at all.
+const isElement = (target: EventTarget | null): target is Element =>
+    target !== null && "getBoundingClientRect" in target && "contains" in target && typeof target.contains === "function";
 
 // The pointer left for the scrollbar of the rail around this part: the scrollbar is the
 // ancestor's own, to the right of its content box.
-export const isOnAncestorScrollbar = event => {
+export const isOnAncestorScrollbar = (event: MouseEvent<HTMLElement>) => {
     const element = event.relatedTarget;
-    if (!element?.getBoundingClientRect || !element.contains?.(event.currentTarget)) return false;
+    if (!isElement(element) || !element.contains(event.currentTarget)) return false;
     const bounds = element.getBoundingClientRect();
     return event.clientX >= bounds.left + element.clientLeft + element.clientWidth;
 };
@@ -24,19 +30,19 @@ export const LanguageSettings = () => {
     // the rail's scrollbar, which scrolls the list into view. From the scrollbar the pointer
     // can go straight on to the conversation, and no mouseleave comes here again then: so the
     // list closes as soon as the pointer is over anything outside this part (#563).
-    const stopWatching = useRef(null);
+    const stopWatching = useRef<(() => void) | null>(null);
     const endWatch = () => { stopWatching.current?.(); stopWatching.current = null; };
     useEffect(() => endWatch, []);
-    const closeTranslatorSelector = event => {
+    const closeTranslatorSelector = (event: MouseEvent<HTMLDivElement>) => {
         endWatch();
         if (!isOnAncestorScrollbar(event)) {
             updateIsOpenedTranslatorSelector(false);
             return;
         }
-        const container = event.currentTarget;
-        const page = container.ownerDocument;
+        const container: TargetHolder = event.currentTarget;
+        const page = event.currentTarget.ownerDocument;
         if (!page) return;
-        const movedOn = over => {
+        const movedOn = (over: globalThis.MouseEvent) => {
             endWatch();
             if (!container.contains(over.target)) updateIsOpenedTranslatorSelector(false);
         };

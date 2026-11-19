@@ -14,10 +14,10 @@ async function menu(context, values = {}) {
     context.onTestFinished(() => runtime.unmount());
     stubGlobals(context, { document });
     const state = { foreground: false, sync: false, small: false, large: false, osc: true, pending: false, flow: false, ...values };
-    const button = await loadModule(new URL("./right_side_components/_buttons/OpenQuickSettingButton.jsx", import.meta.url), runtime, {
+    const button = await loadModule(new URL("./right_side_components/_buttons/OpenQuickSettingButton.tsx", import.meta.url), runtime, {
         "@useI18n": { useI18n: () => ({ t }) },
     });
-    const { RightSideComponents } = await loadModule(new URL("./right_side_components/RightSideComponents.jsx", import.meta.url), runtime, {
+    const { RightSideComponents } = await loadModule(new URL("./right_side_components/RightSideComponents.tsx", import.meta.url), runtime, {
         "@useI18n": { useI18n: () => ({ t }) },
         "@store": { useStore_OpenedQuickSetting: () => ({ updateOpenedQuickSetting: value => calls.push(["open", value]) }) },
         "@logics_common": {
@@ -143,7 +143,7 @@ test("the main bar leads with stop and mute, drawn with its own short and shorte
         "@useI18n": { useI18n: () => ({ t }) }, "../../../../logics/voice/useVoice": { useVoice: () => voice },
         "../../../../logics/voice/voiceActions.ts": { voiceActions },
     });
-    const { TopBar } = await loadModule(new URL("./TopBar.jsx", import.meta.url), runtime, {
+    const { TopBar } = await loadModule(new URL("./TopBar.tsx", import.meta.url), runtime, {
         "./sidebar_compact_mode_button/SidebarCompactModeButton": { SidebarCompactModeButton: "compact" },
         "./right_side_components/RightSideComponents": { RightSideComponents: "right" },
         "../../../others/stop_actions/StopActions": actions,

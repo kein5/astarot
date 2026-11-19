@@ -1,3 +1,4 @@
+import type { ComponentType, SVGProps } from "react";
 import clsx from "clsx";
 import { useI18n } from "@useI18n";
 import styles from "./AddRemoveTargetLanguageButtons.module.scss";
@@ -24,7 +25,8 @@ export const AddRemoveTargetLanguageButtons = () => {
 
     // One rule for the look, the pointer and the keyboard: a button that looks unavailable
     // does nothing when pressed, by mouse or by Enter and Space.
-    const button = (allowed, action, label, className, Icon, iconClass) => {
+    const button = (allowed: boolean, action: () => void, label: string, className: string | undefined,
+        Icon: ComponentType<SVGProps<SVGSVGElement>>, iconClass: string | undefined) => {
         const press = () => { if (allowed && canChangeLanguageSettings()) action(); };
         return (
             <div className={clsx(className, { [styles.is_disabled]: !allowed, [styles.is_busy]: isLanguageSettingsBusy })}

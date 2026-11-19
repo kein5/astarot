@@ -2,7 +2,7 @@ import { useI18n } from "@useI18n";
 import styles from "./LanguageSelectorTopBar.module.scss";
 import { useStore_IsOpenedLanguageSelector } from "@store";
 
-export const LanguageSelectorTopBar = (props) => {
+export const LanguageSelectorTopBar = (props: { title?: string }) => {
     const { t } = useI18n();
     const { updateIsOpenedLanguageSelector } = useStore_IsOpenedLanguageSelector();
     const closeLanguageSelector = () => {

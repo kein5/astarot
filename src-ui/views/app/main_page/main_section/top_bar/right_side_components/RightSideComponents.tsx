@@ -24,6 +24,7 @@ import { OpenQuickSettingButton } from "./_buttons/OpenQuickSettingButton";
 import { VrchatPresence } from "../../../../others/vrchat_presence/VrchatPresence";
 
 import { generateLocalizedDocumentUrl } from "@ui_configs";
+import type { TargetHolder } from "../../../../../../logics/common/targetHolder.ts";
 
 export const RightSideComponents = () => {
     const { t } = useI18n();
@@ -61,13 +62,13 @@ const QuickSettingsMenu = () => {
     const { currentIsEnabledOverlaySmallLog, currentIsEnabledOverlayLargeLog } = useVr();
     const { updateOpenedQuickSetting } = useStore_OpenedQuickSetting();
     const [open, setOpen] = useState(false);
-    const root = useRef(null), opener = useRef(null);
+    const root = useRef<HTMLDivElement>(null), opener = useRef<HTMLButtonElement>(null);
     const panel = useId();
 
     useEffect(() => {
         if (!open) return;
-        const leave = event => { if (!root.current?.contains(event.target)) setOpen(false); };
-        const escape = event => {
+        const leave = (event: Event) => { const menu: TargetHolder | null = root.current; if (!menu?.contains(event.target)) setOpen(false); };
+        const escape = (event: KeyboardEvent) => {
             if (event.key !== "Escape") return;
             setOpen(false);
             opener.current?.focus();
