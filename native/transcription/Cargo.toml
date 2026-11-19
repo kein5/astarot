@@ -28,5 +28,13 @@ libc = "=0.2.191"
 # Without it no endpoint is listed; the capture itself runs in the vrct-asr-capture helper.
 pipewire = ["vrct-audio-routing/pipewire"]
 
+# A stand-in for the vrct-asr-capture helper, for the tests of the Linux capture (decision 82).
+# Never part of an application build.
+[[bin]]
+name = "fake-asr-capture"
+path = "tests/fixture/fake_asr_capture.rs"
+test = false
+doc = false
+
 # This crate is not part of any workspace (the application crate lives in src-tauri).
 [workspace]
