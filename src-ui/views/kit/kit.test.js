@@ -30,6 +30,20 @@ test("the switch is Radix's, the select is the system's", () => {
     assert.doesNotMatch(select, /@radix-ui\/react-select/, "Radix Select writes a <style> element at run time");
 });
 
+test("each part carries the data-slot of its shadcn/ui counterpart", () => {
+    // DESIGN.md "Components": a component takes its structure from shadcn/ui, a data-slot
+    // naming each part included (docs/design/components/shadcn-alignment.md).
+    assert.match(read("Button.tsx"), /<button ref=\{ref\} type=\{type\} data-slot="button"/);
+    assert.match(read("TextField.tsx"), /data-slot="input"/);
+    const select = read("Select.tsx");
+    for (const slot of ["native-select-wrapper", "native-select", "native-select-icon"]) {
+        assert.match(select, new RegExp(`data-slot="${slot}"`), slot);
+    }
+    const toggle = read("Switch.tsx");
+    assert.match(toggle, /<RadixSwitch\.Root ref=\{ref\} data-slot="switch"/);
+    assert.match(toggle, /<RadixSwitch\.Thumb data-slot="switch-thumb"/);
+});
+
 test("rows are divided by a hairline, groups by space; only field rows stack when narrow", () => {
     const css = read("Setting.css.ts");
     assert.match(css, /\[`\$\{rows\} > & \+ &`\]: \{ borderTop: `\.1rem solid \$\{vars\.vox_border\}` \}/);
