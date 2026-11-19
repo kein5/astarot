@@ -6,16 +6,11 @@ import styles from "./ColorEntryWithSaveButton.module.scss";
 import { _Entry } from "../_atoms/_entry/_Entry";
 import { clsx } from "clsx";
 import { useI18n } from "@useI18n";
+import type { TargetHolder } from "../../../../../../../logics/common/targetHolder.ts";
 
 const HEX_COLOR_RE = /^#[0-9a-fA-F]{6}$/;
 const PICKER_GAP_REM = 0.4;
 const VIEWPORT_PADDING_REM = 0.8;
-
-// The picker and the swatch as the check for a press outside them uses them: Node.contains,
-// asked with the press's target as it comes (a node of the page).
-interface PressArea {
-    contains(target: EventTarget | null): boolean;
-}
 
 const remToPx = (rem: number) => {
     const root_font_size = parseFloat(getComputedStyle(document.documentElement).fontSize);
@@ -105,7 +100,7 @@ export const ColorEntryWithSaveButton = (props: ColorEntryWithSaveButtonProps) =
     useEffect(() => {
         if (!is_open) return;
         const onDocumentMouseDown = (event: MouseEvent) => {
-            const popover: PressArea | null = popover_ref.current, swatch: PressArea | null = swatch_ref.current;
+            const popover: TargetHolder | null = popover_ref.current, swatch: TargetHolder | null = swatch_ref.current;
             if (popover?.contains(event.target)) return;
             if (swatch?.contains(event.target)) return;
             closePicker();

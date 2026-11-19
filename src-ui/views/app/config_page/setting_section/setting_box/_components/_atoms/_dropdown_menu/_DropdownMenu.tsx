@@ -5,6 +5,7 @@ import clsx from "clsx";
 import { useI18n } from "@useI18n";
 import ArrowLeftSvg from "@images/arrow_left.svg?react";
 import { useStore_IsOpenedDropdownMenu } from "@store";
+import type { TargetHolder } from "../../../../../../../../logics/common/targetHolder.ts";
 
 // The choices of a dropdown, { id: label }. [] until a list the backend sends arrives
 // (SettingOptions).
@@ -30,12 +31,6 @@ export interface DropdownMenuBaseProps {
     label?: ReactNode;
     secondary_label?: ReactNode;
     "aria-describedby"?: string;
-}
-
-// The dropdown as the check for a press outside it uses it: Node.contains, asked with the
-// press's target as it comes (a node of the page).
-interface PressArea {
-    contains(target: EventTarget | null): boolean;
 }
 
 // The list as a record; an empty list arrives as [].
@@ -138,7 +133,7 @@ export const _DropdownMenu = (props: DropdownMenuBaseProps) => {
         if (!is_opened) return;
 
         const handlePointerDown = (event: PointerEvent) => {
-            const area: PressArea | null = containerRef.current;
+            const area: TargetHolder | null = containerRef.current;
             if (area && !area.contains(event.target)) {
                 updateOpenedRef.current("");
             }
