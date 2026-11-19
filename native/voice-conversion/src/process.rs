@@ -931,4 +931,208 @@ mod tests {
         assert_eq!(without_verbatim_prefix(r"\\?\C:\voices\model.pth"), r"C:\voices\model.pth");
         assert_eq!(without_verbatim_prefix("/home/user/voices/model.pth"), "/home/user/voices/model.pth");
     }
+
+    /// A route whose sink cannot be found: a session fails at once, without a worker.
+    struct Unbound;
+
+    impl super::VcRoute for Unbound {
+        fn gates_output(&self) -> bool {
+            false
+        }
+        fn drops_late_blocks(&self) -> bool {
+            true
+        }
+        fn ready_timeout(&self) -> std::time::Duration {
+            std::time::Duration::from_millis(100)
+        }
+        fn input_blocks(&self) -> usize {
+            8
+        }
+        fn bind(&self, _: &vrct_audio_routing::graph::Endpoint, _: bool) -> Result<vrct_audio_routing::graph::Endpoint, String> {
+            Err("vc_output_missing".into())
+        }
+        fn output(&self, _: &vrct_audio_routing::graph::Endpoint) -> Result<Box<dyn vrct_audio_routing::router::Output>, String> {
+            Err("vc_output_missing".into())
+        }
+        fn capture(&self, _: &vrct_audio_routing::graph::Endpoint, _: vrct_audio_routing::windows_route::CaptureCallbacks) -> Box<dyn vrct_audio_routing::windows_route::Capture> {
+            unreachable!("a session without a sink captures nothing")
+        }
+        fn monitor_factory(&self) -> vrct_audio_routing::monitor::MonitorFactory {
+            std::sync::Arc::new(|_: &str, _: u32, _: u16, _: &[String]| Err(vrct_audio_routing::Error::speech("monitor_output_missing")))
+        }
+    }
+
+    fn process(block_ms: u32) -> super::VcProcess {
+        let session = "0123456789abcdef0123456789abcdef".to_owned();
+        super::VcProcess::with("/nonexistent-worker".into(), Vec::new(), session, "rvc", std::sync::Arc::new(Unbound), None, Block::from_ms(block_ms).unwrap())
+    }
+
+    /// The process as a running session sees its capture: requested, nothing started.
+    fn requested(block_ms: u32) -> super::VcProcess {
+        let process = process(block_ms);
+        process.shared.state.lock().unwrap().requested = true;
+        process
+    }
+
+    fn queued(process: &super::VcProcess) -> Vec<(Vec<u8>, bool)> {
+        process.shared.state.lock().unwrap().queue.iter().map(|b| (b.pcm.clone(), b.speech)).collect()
+    }
+
+    #[test]
+    fn speech_replaces_the_microphone_part_for_part_and_an_underrun_inside_it_is_silence() {
+        // `test_vc_speech_through.py`: speech in place of the microphone, a gap inside an
+        // utterance as silence, never the microphone, and the microphone again after it.
+        let process = requested(40);
+        let microphone = vec![7u8; PART];
+        // One and a half parts of speech; the utterance is still open.
+        assert!(process.speech_chunk(&vec![9u8; PART + PART / 2]));
+        assert!(process.offer_audio(&microphone));
+        assert!(process.offer_audio(&microphone));
+        let blocks = queued(&process);
+        assert_eq!(blocks.len(), 1);
+        let (pcm, speech) = &blocks[0];
+        assert!(speech, "a block that carried speech says so");
+        assert!(pcm[..PART + PART / 2].iter().all(|&b| b == 9));
+        assert!(pcm[PART + PART / 2..].iter().all(|&b| b == 0), "the rest of the part is silence, not the microphone");
+        // Still open with nothing to say: silence.
+        assert!(process.offer_audio(&microphone));
+        assert!(process.offer_audio(&microphone));
+        let (pcm, speech) = &queued(&process)[1];
+        assert!(*speech && pcm.iter().all(|&b| b == 0));
+        // The utterance ends: the microphone again.
+        process.shared.state.lock().unwrap().speech_open = false;
+        assert!(process.offer_audio(&microphone));
+        assert!(process.offer_audio(&microphone));
+        let (pcm, speech) = &queued(&process)[2];
+        assert!(!*speech && pcm.iter().all(|&b| b == 7));
+    }
+
+    #[test]
+    fn speech_waits_only_while_a_session_runs_and_never_beyond_two_seconds() {
+        let idle = process(40);
+        assert!(!idle.speech_chunk(&[1, 2]), "no session, no speech");
+        assert!(!idle.offer_audio(&[0u8; PART]), "no session, no capture");
+        let process = requested(40);
+        let two_seconds = 2 * 48000 * 2;
+        assert!(process.speech_chunk(&vec![1u8; two_seconds - 2]));
+        assert!(!process.speech_chunk(&[1u8; 4]), "over the limit");
+        assert!(process.speech_chunk(&[1u8; 2]));
+    }
+
+    #[test]
+    fn the_microphone_is_cut_into_whole_blocks_of_the_sessions_length() {
+        // Any length in, blocks of 40 ms out, in order, stamped one after another.
+        let process = requested(40);
+        let pcm: Vec<u8> = (0..PART * 5).map(|i| (i % 251) as u8).collect();
+        for piece in pcm.chunks(1000) {
+            assert!(process.offer_audio(piece));
+        }
+        let blocks = queued(&process);
+        assert_eq!(blocks.len(), 2, "five parts make two blocks of two and one part waits");
+        assert_eq!(blocks[0].0, pcm[..PART * 2]);
+        assert_eq!(blocks[1].0, pcm[PART * 2..PART * 4]);
+        let state = process.shared.state.lock().unwrap();
+        let starts: Vec<i64> = state.queue.iter().map(|b| b.info["start_ns"].as_i64().unwrap()).collect();
+        assert!(starts[1] > starts[0]);
+        assert_eq!(state.queue.iter().map(|b| b.info["sequence"].as_u64().unwrap()).collect::<Vec<_>>(), [0, 1]);
+    }
+
+    #[test]
+    fn a_session_starts_once_and_a_failed_one_ends_with_its_code() {
+        // `test_vc_isolated.py`: `stop` never waits, a second start is refused (`vc_single_use`),
+        // and `close` reports how the session ended.
+        let process = process(40);
+        let source = vrct_audio_routing::graph::Endpoint { cookie: 1, serial: 2, name: "mic".into(), media_class: "Audio/Source".into() };
+        process.start(source.clone()).unwrap();
+        assert_eq!(process.start(source.clone()).unwrap_err(), "vc_single_use");
+        // The session fails on its own (no sink); a close before that would only stop it.
+        let began = std::time::Instant::now();
+        while process.health().pending {
+            assert!(began.elapsed() < std::time::Duration::from_secs(5), "the session did not end");
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        let health = process.health();
+        assert_eq!((health.state.as_str(), health.error.as_deref(), health.requested, health.active), ("failed", Some("vc_output_missing"), false, false));
+        assert!(process.close(std::time::Duration::from_secs(5)));
+        // Stopped, it does not start again either.
+        assert_eq!(process.start(source).unwrap_err(), "vc_single_use");
+        let stopped = super::VcProcess::with("/nonexistent-worker".into(), Vec::new(), "0123456789abcdef0123456789abcdef".into(), "rvc", std::sync::Arc::new(Unbound), None, Block::default());
+        let began = std::time::Instant::now();
+        stopped.stop();
+        assert!(began.elapsed() < std::time::Duration::from_millis(100), "stop waits for nothing");
+        assert_eq!(stopped.start(vrct_audio_routing::graph::Endpoint { cookie: 1, serial: 2, name: "mic".into(), media_class: "Audio/Source".into() }).unwrap_err(), "vc_single_use");
+    }
+
+    #[test]
+    fn options_outside_the_contract_are_refused_before_anything_starts() {
+        // `test_rvc_integration.py`: `invalid_rvc_options`.
+        let base = serde_json::json!({ "engine": "rvc", "runtime": "/r", "model": "/v.pth", "index": "", "pitch": 0, "index_rate": 0 });
+        assert!(rvc_options(&base).is_ok());
+        let with = |key: &str, value: serde_json::Value| {
+            let mut options = base.clone();
+            options[key] = value;
+            options
+        };
+        let without = |key: &str| {
+            let mut options = base.clone();
+            options.as_object_mut().unwrap().remove(key);
+            options
+        };
+        let refused = [
+            with("engine", serde_json::json!("seed-vc")),
+            with("pitch", serde_json::json!(25)),
+            with("pitch", serde_json::json!(-25)),
+            with("pitch", serde_json::json!(1.5)),
+            with("index_rate", serde_json::json!(1.5)),
+            with("index_rate", serde_json::json!(-0.1)),
+            // An index rate needs an index, and an index is a .index file.
+            with("index_rate", serde_json::json!(0.5)),
+            with("index", serde_json::json!("/v.bin")),
+            with("model", serde_json::json!("/v.onnx")),
+            with("runtime", serde_json::json!("  ")),
+            with("model", serde_json::json!("/v\u{1}.pth")),
+            with("model", serde_json::json!(format!("/{}.pth", "a".repeat(4096)))),
+            with("device", serde_json::json!("npu")),
+            with("threads", serde_json::json!(-1)),
+            with("threads", serde_json::json!(super::MAX_THREADS + 1)),
+            with("highpass", serde_json::json!("yes")),
+            with("block_ms", serde_json::json!(30)),
+            with("block_ms", serde_json::json!(220)),
+            with("other", serde_json::json!(1)),
+            without("model"),
+            without("index_rate"),
+            serde_json::json!([]),
+        ];
+        for options in refused {
+            assert_eq!(rvc_options(&options).unwrap_err(), "vc_options_invalid", "{options}");
+        }
+        let mut indexed = with("index", serde_json::json!("/v.INDEX"));
+        indexed["index_rate"] = serde_json::json!(0.75);
+        let (options, rate) = rvc_options(&indexed).unwrap();
+        assert_eq!((options.index.as_str(), options.index_rate, rate.as_str()), ("/v.INDEX", 0.75, "0.75"));
+    }
+
+    #[test]
+    fn a_start_checks_the_worker_the_runtime_and_the_users_files() {
+        // `test_rvc_integration.py`: `missing_runtime` and the files of the start.
+        let dir = std::env::temp_dir().join(format!("vrct-vc-files-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let worker = dir.join("worker");
+        let model = dir.join("voice.pth");
+        std::fs::write(&model, b"model").unwrap();
+        let options = |model: &std::path::Path, index: &str| {
+            serde_json::json!({ "engine": "rvc", "runtime": dir.join("runtime"), "model": model, "index": index, "pitch": 0, "index_rate": 0 })
+        };
+        let route = || -> std::sync::Arc<dyn super::VcRoute> { std::sync::Arc::new(Unbound) };
+        let code = |result: Result<super::VcProcess, String>| result.err().unwrap_or_default();
+        // No worker.
+        assert_eq!(code(super::VcProcess::rvc(&options(&model, ""), &worker, route(), None)), "vc_engine_unavailable");
+        std::fs::write(&worker, b"worker").unwrap();
+        // No model, no index file, then no runtime.
+        assert_eq!(code(super::VcProcess::rvc(&options(&dir.join("absent.pth"), ""), &worker, route(), None)), "vc_runtime_missing");
+        let absent_index = dir.join("absent.index").to_string_lossy().into_owned();
+        assert_eq!(code(super::VcProcess::rvc(&options(&model, &absent_index), &worker, route(), None)), "vc_runtime_missing");
+        assert_eq!(code(super::VcProcess::rvc(&options(&model, ""), &worker, route(), None)), "vc_runtime_missing");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 }

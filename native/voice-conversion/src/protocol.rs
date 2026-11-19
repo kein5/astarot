@@ -434,4 +434,145 @@ mod tests {
             assert_eq!(require_output(&overrun, &[], &source, &original, now, MAX_AGE_NS, block).unwrap_err().code(), "vc_capture_overrun");
         }
     }
+
+    #[test]
+    fn a_worker_may_say_why_it_cannot_start_only_with_a_listed_code() {
+        // `test_vc_protocol.py`: `a_worker_can_say_why_it_cannot_start` and
+        // `only_a_listed_reason_is_trusted`.
+        let block = Block::default();
+        for code in WORKER_FAILURES {
+            let failed = with_pcm(failed_info(SESSION, code).unwrap(), 0);
+            assert_eq!(require_ready(&failed, &[], SESSION, "rvc", block).unwrap_err().code(), code);
+        }
+        // A run failure is not a reason not to start; an unlisted code is not trusted.
+        let overrun = with_pcm(failed_info(SESSION, "vc_capture_overrun").unwrap(), 0);
+        assert_eq!(require_ready(&overrun, &[], SESSION, "rvc", block).unwrap_err().code(), "vc_ready_invalid");
+        assert_eq!(failed_info(SESSION, "failed_info").unwrap_err().code(), "vc_ready_invalid");
+        let failed = with_pcm(failed_info(SESSION, "vc_model_missing").unwrap(), 0);
+        let variants: [(&str, Value); 4] =
+            [("session", json!("f".repeat(32))), ("protocol", json!(2)), ("extra", json!(1)), ("code", json!("vc_model_missing "))];
+        for (key, value) in variants {
+            let mut changed = failed.clone();
+            changed.insert(key.into(), value);
+            assert_eq!(require_ready(&changed, &[], SESSION, "rvc", block).unwrap_err().code(), "vc_ready_invalid", "{key}");
+        }
+        // A failure carries no audio.
+        assert_eq!(require_ready(&failed, &[0, 0], SESSION, "rvc", block).unwrap_err().code(), "vc_ready_invalid");
+    }
+
+    #[test]
+    fn a_ready_packet_must_match_the_fixed_contract() {
+        // `ready_must_match_fixed_contract`.
+        let block = Block::default();
+        let ready = with_pcm(ready_info(SESSION, "rvc", "low", 120, block).unwrap(), 0);
+        assert_eq!(require_ready(&ready, &[], SESSION, "rvc", block).unwrap(), (Some("gpu"), Some(120)));
+        let cases: [(&str, Value); 10] = [
+            ("session", json!("f".repeat(32))),
+            ("engine", json!("seed-vc")),
+            ("protocol", json!(2)),
+            ("rate", json!(44100)),
+            ("channels", json!(2)),
+            ("profile", json!("npu")),
+            ("latency_ms", json!(MAX_LATENCY_MS + 1)),
+            ("latency_ms", json!(-1)),
+            ("block_frames", json!(block.frames() + 1)),
+            ("extra", json!(true)),
+        ];
+        for (key, value) in cases {
+            let mut changed = ready.clone();
+            changed.insert(key.into(), value.clone());
+            assert_eq!(require_ready(&changed, &[], SESSION, "rvc", block).unwrap_err().code(), "vc_ready_invalid", "{key} {value}");
+        }
+        let mut missing = ready.clone();
+        missing.remove("latency_ms");
+        assert_eq!(require_ready(&missing, &[], SESSION, "rvc", block).unwrap_err().code(), "vc_ready_invalid");
+        // A ready packet carries no audio, and the engine is one the owner knows.
+        assert_eq!(require_ready(&ready, &[0, 0], SESSION, "rvc", block).unwrap_err().code(), "vc_ready_invalid");
+        assert_eq!(ready_info(SESSION, "other", "low", 0, block).unwrap_err().code(), "vc_engine_invalid");
+        assert_eq!(ready_info("not-a-session", "rvc", "low", 0, block).unwrap_err().code(), "vc_session_invalid");
+        // The CPU profile is the CPU.
+        let cpu = with_pcm(ready_info(SESSION, "rvc", "cpu", MAX_LATENCY_MS, block).unwrap(), 0);
+        assert_eq!(require_ready(&cpu, &[], SESSION, "rvc", block).unwrap(), (Some("cpu"), Some(MAX_LATENCY_MS)));
+    }
+
+    #[test]
+    fn an_output_that_does_not_answer_its_block_cannot_reach_audio() {
+        // `mismatched_output_cannot_reach_audio`, `vad_silence_is_zero`, and blocks from the
+        // future or too old (`expired_or_future_blocks`).
+        let block = Block::default();
+        let bytes = block.pcm_bytes();
+        let now = 10_000_000_000;
+        let source = with_pcm(input_info(SESSION, 4, now - block.ns() - 1, block).unwrap(), bytes);
+        let original = vec![3u8; bytes];
+        let converted = vec![5u8; bytes];
+        let mut output = source.clone();
+        output.insert("type".into(), json!("output"));
+        output.insert("state".into(), json!("converted"));
+        let cases: [(&str, Value); 10] = [
+            ("session", json!("f".repeat(32))),
+            ("sequence", json!(5)),
+            ("start_ns", json!(now - block.ns())),
+            ("end_ns", json!(now)),
+            ("rate", json!(44100)),
+            ("channels", json!(2)),
+            ("type", json!("input")),
+            ("state", json!("passthrough")),
+            ("sequence", json!(4.0)),
+            ("extra", json!(1)),
+        ];
+        for (key, value) in cases {
+            let mut changed = output.clone();
+            changed.insert(key.into(), value.clone());
+            assert_eq!(require_output(&changed, &converted, &source, &original, now, MAX_AGE_NS, block).unwrap_err().code(), "vc_output_invalid", "{key} {value}");
+        }
+        let mut missing = output.clone();
+        missing.remove("end_ns");
+        assert_eq!(require_output(&missing, &converted, &source, &original, now, MAX_AGE_NS, block).unwrap_err().code(), "vc_output_invalid");
+        // Silence the worker found is zeros, and accepted as such.
+        let mut silence = output.clone();
+        silence.insert("state".into(), json!("vad_silence"));
+        assert_eq!(require_output(&silence, &vec![0u8; bytes], &source, &original, now, MAX_AGE_NS, block).unwrap(), "vad_silence");
+        // A block that ends after now, or that is older than allowed, is refused.
+        let future = with_pcm(input_info(SESSION, 4, now, block).unwrap(), bytes);
+        let mut answer = future.clone();
+        answer.insert("type".into(), json!("output"));
+        answer.insert("state".into(), json!("converted"));
+        assert_eq!(require_output(&answer, &converted, &future, &original, now, MAX_AGE_NS, block).unwrap_err().code(), "vc_block_expired");
+        assert_eq!(require_fresh(now - MAX_AGE_NS - 1, now, MAX_AGE_NS).unwrap_err().code(), "vc_block_expired");
+        assert!(require_fresh(now - MAX_AGE_NS, now, MAX_AGE_NS).is_ok());
+        // A silent microphone's block may come back as it was: there is nothing to pass through.
+        let quiet = vec![0u8; bytes];
+        assert_eq!(require_output(&output, &quiet, &source, &quiet, now, MAX_AGE_NS, block).unwrap(), "converted");
+        // A worker failure while it runs is told only with a listed code.
+        let unlisted = with_pcm(object(json!({"type": "failed", "protocol": 1, "session": SESSION, "code": "vc_model_missing"})), 0);
+        assert_eq!(require_output(&unlisted, &[], &source, &original, now, MAX_AGE_NS, block).unwrap_err().code(), "vc_output_invalid");
+    }
+
+    #[test]
+    fn framing_that_is_cut_short_or_malformed_is_refused() {
+        // `invalid_framing_or_eof` and `declared_pcm_is_bounded`.
+        let block = Block::default();
+        let info = input_info(SESSION, 0, 1_000, block).unwrap();
+        let packet = encode_packet(&info, &vec![1u8; block.pcm_bytes()]).unwrap();
+        assert_eq!(read_packet(&mut &packet[..0]).unwrap_err().code(), "vc_worker_eof");
+        assert_eq!(read_packet(&mut &packet[..6]).unwrap_err().code(), "vc_worker_eof");
+        assert_eq!(read_packet(&mut &packet[..packet.len() - 1]).unwrap_err().code(), "vc_worker_eof");
+        let wire = |header: &[u8], length: u32| {
+            let mut wire = b"VVC1".to_vec();
+            wire.extend(length.to_le_bytes());
+            wire.extend(header);
+            wire
+        };
+        // A header of no length, one over the limit, one that is not a JSON object, and one
+        // without `pcm_bytes` or with an odd or too large one.
+        assert_eq!(read_packet(&mut &wire(b"", 0)[..]).unwrap_err().code(), "vc_packet_invalid");
+        assert_eq!(read_packet(&mut &wire(b"{}", (HEADER_LIMIT + 1) as u32)[..]).unwrap_err().code(), "vc_packet_invalid");
+        for header in [&b"[1]"[..], b"{\"pcm_bytes\":", b"{}", b"{\"pcm_bytes\":3}", b"{\"pcm_bytes\":-2}", b"{\"pcm_bytes\":2.0}"] {
+            assert_eq!(read_packet(&mut &wire(header, header.len() as u32)[..]).unwrap_err().code(), "vc_packet_invalid", "{}", String::from_utf8_lossy(header));
+        }
+        let large = format!("{{\"pcm_bytes\":{}}}", MAX_PCM_BYTES + 2);
+        assert_eq!(read_packet(&mut &wire(large.as_bytes(), large.len() as u32)[..]).unwrap_err().code(), "vc_packet_invalid");
+        // Odd audio is not written either.
+        assert_eq!(encode_packet(&info, &[0u8; 3]).unwrap_err().code(), "vc_packet_invalid");
+    }
 }
