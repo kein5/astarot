@@ -47,7 +47,9 @@
 :global([data-hint-host]):hover .tip,
 :global([data-hint-host]):has(:focus-visible) .tip,
 // Keyboard focus in a row opens the hint of the row's label, not those of its options.
-:global([data-hint-row]):has(:focus-visible) .tip_row {
+:global([data-hint-row]):has(:focus-visible) .tip_row,
+// A row that takes focus itself, such as a fold's summary, opens its title's hint the same way.
+:global([data-hint-row]):focus-visible .tip_row {
     display: block;
 }
 

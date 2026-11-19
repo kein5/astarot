@@ -11,6 +11,7 @@ import styles from "./VoiceSettings.module.scss";
 import { EnvReadout } from "../_components/env_readout/EnvReadout";
 import { Description } from "../_components/description/Description";
 import { FormRow } from "../_components/form_row/FormRow";
+import { Hint, useHintDescriptions } from "../_components/hint/Hint";
 import { VirtualMicEntry } from "../tts/VirtualMicEntry";
 import { voiceErrorText } from "../../../../../../logics/voice/voiceErrorText.ts";
 import { AdvancedSection } from "../_components/advanced_section/AdvancedSection";
@@ -25,6 +26,7 @@ const validVoiceSettings = (draft: VoiceSettingsValue) => validGenerationOptions
 
 export const VoiceSettings = () => {
     const { t, i18n } = useI18n();
+    const hints = useHintDescriptions();
     const optionsErrorId = useId();
     const { settings, status, devices, error, send, updateError } = useVoice();
     const label = ([key]: string[]) => {
@@ -73,12 +75,12 @@ export const VoiceSettings = () => {
     // The monitor never offers the virtual microphone's own endpoints or output.
     const monitorList = deviceList.filter(d => !d.id.startsWith("vrct.") && d.id !== (draft.routing === "managed" ? "" : draft.output_device));
     return <section className={styles.container} aria-label={t("voice.title")} data-setting-id="tts_settings">
-        <SectionLabelComponent label={t("config_page.tts.tts_settings.label")} />
+        {/* What the page reads and how it starts: the heading's hint on a page that keeps descriptions out of sight (#614). */}
+        <SectionLabelComponent label={t("config_page.tts.tts_settings.label")} desc={t("voice_ui.tts_description")} />
         <StatusLine tone={status.active ? "active" : "idle"}
             actions={<button type="button" title={t("voice.stop")} onClick={() => send("/run/stop_voice")}>{t("voice_ui.topbar_stop")}</button>}>
             {t(status.active ? "voice.playing" : "voice.idle")} · {t("voice.queued")}: {status.queued ?? 0}
         </StatusLine>
-        <Description text={t("voice_ui.tts_description")} />
         <VoiceRouteSummary />
         <form onSubmit={e => { e.preventDefault(); if (form.dirty && validVoiceSettings(draft)) form.submit(value => send("/set/data/voice_settings", value)); }}>
             <fieldset className={styles.fields} disabled={saving}>
@@ -112,8 +114,10 @@ export const VoiceSettings = () => {
                     monitor: t(draft.monitor === "on" ? "config_page.advanced_status.on" : "config_page.advanced_status.off"),
                     mic: t(draft.mic_mode === "translated" ? "config_page.advanced_status.on" : "config_page.advanced_status.off") })}>
                 <fieldset className={styles.group} aria-label={t("voice_ui.monitor_heading")}>
-                    <legend>{t("voice_ui.monitor_heading")}</legend>
-                    <Description text={t("voice.monitor_hint")} />
+                    {/* What the monitor plays: the legend's hint, whose mark takes focus as a heading's does (#614). */}
+                    <legend><span className={styles.hinted} data-hint-host={hints || undefined}><span>{t("voice_ui.monitor_heading")}</span>
+                        {hints && <Hint text={t("voice.monitor_hint")} focusable />}</span></legend>
+                    {!hints && <Description text={t("voice.monitor_hint")} />}
                     <label>{t("voice.monitor")}<select aria-label={t("voice.monitor")} value={draft.monitor || "off"} onChange={e => field("monitor", e.target.value)}>
                         <option value="off">{t("voice.monitor_off")}</option><option value="on">{t("voice.monitor_on")}</option>
                     </select></label>

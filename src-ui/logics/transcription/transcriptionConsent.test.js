@@ -180,11 +180,13 @@ test("only enable errors can open the chooser", async context => {
     assert.equal(s.render(), null);
 });
 
-test("settings keep the selected engine inside the radio row's accessible help", async context => {
+test("settings keep the selected engine in sight under the radio row's label and in its accessible help", async context => {
     const s = await fixture(context);
     const engines = [{ id: "Groq_Whisper", base: "GroqWhisper", key: "groq_whisper" },
         { id: "Custom_Whisper", base: "CustomWhisper", key: "custom_whisper", has_url: true, own: true }];
-    const { TranscriptionEngine_Box } = await loadModule(new URL("../../views/app/config_page/setting_section/setting_box/transcription/Transcription.tsx", import.meta.url), s.runtime, {
+    // A runtime of its own: the row's ids come from useId, whose slots the chooser's hooks would fill.
+    const boxRuntime = hooks();
+    const { TranscriptionEngine_Box } = await loadModule(new URL("../../views/app/config_page/setting_section/setting_box/transcription/Transcription.tsx", import.meta.url), boxRuntime, {
         "@logics_configs": s.configs, "@utils": {},
         "@useI18n": { useI18n: () => ({ t: (key, options) => options ? `${key}:${JSON.stringify(options)}` : key }) },
         "../advanced_settings/SpeechServers": {}, "./RealtimeASRSettings": {},
@@ -194,9 +196,10 @@ test("settings keep the selected engine inside the radio row's accessible help",
         "../_templates/Templates": { RadioButtonContainer: "radio-options" }, "../_components": {},
         "../_components/description/Description": {}, "../_components/custom_model_link/CustomModelLink": {},
         "../_components/setup_section/SetupSection": {}, "../_components/advanced_section/AdvancedSection": {},
+        "../_components/hint/Hint": {},
     });
     s.transcription.currentSelectedTranscriptionEngine = { data: "SpeechCpp", state: "ok" };
-    const tree = s.runtime.render(TranscriptionEngine_Box);
+    const tree = boxRuntime.render(TranscriptionEngine_Box);
     assert.equal(tree.type, "radio-options", "help belongs inside the row, not after its divider");
     assert.equal(tree.props.checked_variable.data, "SpeechCpp");
     // One choice under the two systems' names (#414): speech.cpp on your PC, then the APIs. The
@@ -207,9 +210,13 @@ test("settings keep the selected engine inside the radio row's accessible help",
         ["api", "config_page.transcription.cloud_section.label", [["Groq_Whisper", true], ["Custom_Whisper", true]]],
     ]);
     assert.equal(tree.props.options, undefined, "the groups are the only list of options");
-    assert.ok(find(tree.props.desc, node => node.props?.role === "status"));
+    // The engine in use is a value, not a description: the row's note, which stays in sight where
+    // the description is a hint (#614), and part of the choice's description.
+    assert.equal(tree.props.desc, "config_page.transcription.select_transcription_engine.desc");
+    assert.ok(find(tree.props.note, node => node.props?.role === "status"));
+    assert.equal(tree.props["aria-describedby"], tree.props.note_id);
     s.transcription.currentSelectableTranscriptionEngines = { data: ["SpeechCpp", "Custom_Whisper"] };
-    const keyed = s.runtime.render(TranscriptionEngine_Box).props.groups[1].options;
+    const keyed = boxRuntime.render(TranscriptionEngine_Box).props.groups[1].options;
     assert.deepEqual(keyed.map(option => [option.id, !!option.disabled]), [["Groq_Whisper", true], ["Custom_Whisper", false]]);
     s.transcription.currentSelectableTranscriptionEngines = { data: ["SpeechCpp"] };
 
@@ -236,12 +243,14 @@ test("settings keep the selected engine inside the radio row's accessible help",
     const label = find(row, node => node.type === LabelComponent);
     const control = find(row, node => node.type === RadioButton);
     const group = rowRuntime.render(control.type, control.props);
-    const help = find(rowRuntime.render(label.type, label.props), node => node.props?.id === group.props["aria-describedby"]);
+    const drawnLabel = rowRuntime.render(label.type, label.props);
+    const described = group.props["aria-describedby"].split(" ");
+    const help = find(drawnLabel, node => node.props?.id === label.props.note_id);
     // The row's name and help are on the group around both systems; each system is a
     // radiogroup named by the label shown above its options.
     assert.equal(group.props.role, "group");
     assert.equal(group.props["aria-labelledby"], label.props.label_id);
-    assert.ok(group.props["aria-describedby"]);
+    assert.deepEqual(described, [label.props.note_id, label.props.description_id]);
     assert.ok(find(help, node => node.props?.role === "status"));
     const systems = [];
     find(group, node => { if (node.props?.role === "radiogroup") systems.push(node); return false; });
@@ -258,11 +267,11 @@ test("settings keep the selected engine inside the radio row's accessible help",
 
     // The engine in use is named in the screen's words, not by its id.
     s.transcription.currentSelectedTranscriptionEngine = { data: "Custom_Whisper", state: "ok" };
-    const named = find(s.runtime.render(TranscriptionEngine_Box).props.desc, node => node.props?.role === "status");
+    const named = find(boxRuntime.render(TranscriptionEngine_Box).props.note, node => node.props?.role === "status");
     assert.match(JSON.stringify(named.props.children), /config_page\.transcription\.select_transcription_engine\.engines\.custom_whisper/);
     // A selection the backend no longer offers (a saved Google loads as none) shows as unselected.
     s.transcription.currentSelectedTranscriptionEngine = { data: null, state: "ok" };
-    const unselectedHelp = s.runtime.render(TranscriptionEngine_Box).props.desc;
+    const unselectedHelp = boxRuntime.render(TranscriptionEngine_Box).props.note;
     assert.ok(find(unselectedHelp, node => node.props?.role === "status" && JSON.stringify(node.props.children).includes("transcription_consent.selected")));
 });
 

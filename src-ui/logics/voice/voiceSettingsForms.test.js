@@ -38,6 +38,7 @@ async function setup(context) {
             "./StatusLine": {}, "../_components/description/Description": {},
             "../_components/section_label_component/SectionLabelComponent": { SectionLabelComponent: "heading" },
             "../_components/env_readout/EnvReadout": {}, "../_components/form_row/FormRow": { FormRow: "row" },
+            "../_components/hint/Hint": { Hint: "hint", useHintDescriptions: () => false },
             "../_components/advanced_section/AdvancedSection": { AdvancedSection: "advanced" },
             "../_components/page_pointer/PagePointer": { PageLinkButton: "page-link" },
         });

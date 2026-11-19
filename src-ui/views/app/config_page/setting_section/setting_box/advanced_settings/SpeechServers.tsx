@@ -6,7 +6,8 @@ import styles from "./VoiceSettings.module.scss";
 import { ModelDownloads, HardwareReadout } from "./ModelDownloads";
 import { EnvReadout } from "../_components/env_readout/EnvReadout";
 import { SetupSection } from "../_components/setup_section/SetupSection";
-import { Description } from "../_components/description/Description";
+import { FormRow } from "../_components/form_row/FormRow";
+import { HintCheck } from "../_components/hint/HintCheck";
 import { CustomModelLink } from "../_components/custom_model_link/CustomModelLink";
 import { pathExample } from "../../../../../../logics/common/pathExample";
 import type { SpeechProfile, SpeechServerProfileSettings, SpeechServerRow, SpeechServerSettings } from "../../../../../../logics/voice/useSpeechServers";
@@ -84,8 +85,7 @@ export const SpeechServers = ({ profiles = ["japanese", "multilingual", "asr"] }
     const attention = profiles.some(name => !!state[name]?.error_code || !!state[name]?.low_latency?.error_code);
     const summary = profiles.map(name => `${t(`speech_servers.${name}`)}: ${t(configured(name) ? "speech_servers.model_set" : "speech_servers.model_unset")} · ${stateText(name)}`).join(" / ");
     return <section className={styles.container} aria-label={t("speech_servers.title")}>
-        <SetupSection title={t("speech_servers.setup_title")} status={summary} attention={attention}>
-        <Description text={t("speech_servers.help")} />
+        <SetupSection title={t("speech_servers.setup_title")} desc={t("speech_servers.help")} status={summary} attention={attention}>
         {/* How to use a model file of your own instead of the default one. */}
         <CustomModelLink section={tts ? "tts" : "asr"} />
         {tts && <HardwareReadout reserve={reserve} setReserve={setReserve} />}
@@ -95,17 +95,23 @@ export const SpeechServers = ({ profiles = ["japanese", "multilingual", "asr"] }
             {profiles.map(name => {
                 const row = draft.profiles[name], owner = state[name], saved = savedSettings(settings).profiles;
                 const busy = saving || !!pending[name] || !owner || ["preparing", "ready", "stopping"].includes(owner.state);
-                const input = (key: PathField) => <label key={key}>{t(`speech_servers.${key}`)}
-                    <input value={row[key] ?? ""} disabled={busy} maxLength={4096} spellCheck={false}
-                        placeholder={t("voice_ui.example", { value: pathExample(exampleFiles[key]) })}
-                        onChange={event => field(name, key, event.target.value)} />
-                </label>;
+                const pathField = (key: PathField) => <input value={row[key] ?? ""} disabled={busy} maxLength={4096} spellCheck={false}
+                    placeholder={t("voice_ui.example", { value: pathExample(exampleFiles[key]) })}
+                    onChange={event => field(name, key, event.target.value)} />;
+                const input = (key: PathField) => <label key={key}>{t(`speech_servers.${key}`)}{pathField(key)}</label>;
+                // What the device choices run on: which GPUs, then what "CPU" is on this platform
+                // (a CPU build of its own on Linux, the one Vulkan build on Windows).
+                const deviceHelp = [devices.length > 0 && t("speech_servers.device_help"),
+                    (builds.cpu_build === "separate" || builds.cpu_build === "shared") && t(`speech_servers.cpu_build_${builds.cpu_build}`)]
+                    .filter(Boolean).join("\n");
                 // One server is a group with its subheading, not a frame inside the fold (#473).
                 return <fieldset key={name} className={styles.group}>
                     <legend>{t(`speech_servers.${name}`)}</legend>
                     {input("model")}{input(name === "asr" ? "vad_model" : "voice_file")}
                     {/* Optional: with it the server also tells who speaks in the game audio captions. */}
-                    {name === "asr" && <>{input("diarization_model")}<Description text={t("speech_servers.diarization_help")} /></>}
+                    {name === "asr" && <FormRow label={t("speech_servers.diarization_model")} description={t("speech_servers.diarization_help")}>
+                        {pathField("diarization_model")}
+                    </FormRow>}
                     {/* Other unsaved edits survive an apply; only an edited model path conflicts. */}
                     {/* The asr profile also takes a VAD file and a diarization file; "expected" names the field each target replaces. */}
                     <ModelDownloads targets={name === "asr" ? ["asr", "vad", "diarization"] : [name]} deviceMode={saved[name].device}
@@ -116,27 +122,20 @@ export const SpeechServers = ({ profiles = ["japanese", "multilingual", "asr"] }
                         expected={name === "asr" ? { asr: { model: saved.asr.model }, vad: { model: saved.asr.vad_model },
                                 diarization: { model: saved.asr.diarization_model } }
                             : { [name]: { model: saved[name].model } }} />
-                    <label>{t("speech_servers.device")}<select aria-label={t("speech_servers.device")} value={row.device} disabled={busy}
-                        onChange={event => field(name, "device", event.target.value)}>
-                        {choices(row.device).map(device => <option key={device} value={device}>{t(`speech_servers.${device}`)}</option>)}
-                        {namedDevices(row.device).map(([value, text, kept]) => <option key={value} value={value} disabled={kept}>{text}</option>)}
-                    </select></label>
-                    {devices.length > 0 && <Description text={t("speech_servers.device_help")} />}
-                    {/* What the CPU choice runs on differs by platform: a CPU build of its own on Linux,
-                        the one Vulkan build on Windows. */}
-                    {(builds.cpu_build === "separate" || builds.cpu_build === "shared") && <Description text={t(`speech_servers.cpu_build_${builds.cpu_build}`)} />}
+                    <FormRow label={t("speech_servers.device")} description={deviceHelp || undefined}>
+                        <select aria-label={t("speech_servers.device")} value={row.device} disabled={busy}
+                            onChange={event => field(name, "device", event.target.value)}>
+                            {choices(row.device).map(device => <option key={device} value={device}>{t(`speech_servers.${device}`)}</option>)}
+                            {namedDevices(row.device).map(([value, text, kept]) => <option key={value} value={value} disabled={kept}>{text}</option>)}
+                        </select>
+                    </FormRow>
                     {/* The Vulkan build is bundled but does not start here (Linux without libvulkan.so.1).
                         The GPU choices stay selectable, so a saved one never changes silently. */}
                     {builds.gpu_build === "unavailable" && <EnvReadout tone="warning"><p>{t("speech_servers.gpu_build_unavailable")}</p></EnvReadout>}
-                    {name === "japanese" && <>
-                        {/* A checkbox in a form carries its name beside it, as on the other voice pages (#473). */}
-                        <label className={styles.checkLabel}>
-                            <input type="checkbox" className={styles.fieldCheck} checked={!!row.low_latency} disabled={busy}
-                                onChange={event => field(name, "low_latency", event.target.checked)} />
-                            {t("speech_servers.low_latency")}
-                        </label>
-                        <Description text={t("speech_servers.low_latency_help")} />
-                    </>}
+                    {/* A checkbox in a form carries its name beside it, as on the other voice pages (#473). */}
+                    {name === "japanese" && <HintCheck className={styles.checkLabel} label={t("speech_servers.low_latency")}
+                        description={t("speech_servers.low_latency_help")} boxClassName={styles.fieldCheck}
+                        checked={!!row.low_latency} disabled={busy} onChange={event => field(name, "low_latency", event.target.checked)} />}
                     {/* The server's buttons sit in the control column, under its fields (#473). */}
                     <div className={`${styles.actions} ${styles.control_column}`}><button type="button" className="primary" disabled={dirty || saving || busy || !row.model.trim() ||
                         (name === "asr" && !row.vad_model.trim()) || owner?.error_code === "speech_server_cleanup_unconfirmed"}

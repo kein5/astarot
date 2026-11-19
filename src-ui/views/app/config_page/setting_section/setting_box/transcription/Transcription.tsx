@@ -6,7 +6,7 @@ import styles from "./Transcription.module.scss";
 import catalogStyles from "../advanced_settings/VoiceSettings.module.scss";
 import { RealtimeASRSettings } from "./RealtimeASRSettings";
 import { genNumObjArray } from "@utils";
-import { useEffect } from "react";
+import { useEffect, useId } from "react";
 import type { ReactNode } from "react";
 import type { DropdownSelection } from "../_components/_atoms/_dropdown_menu/_DropdownMenu";
 
@@ -30,14 +30,18 @@ import {
     SectionLabelComponent,
 } from "../_components";
 
-import { Description } from "../_components/description/Description";
 import { SetupSection } from "../_components/setup_section/SetupSection";
 import { AdvancedSection } from "../_components/advanced_section/AdvancedSection";
+import { HintDescriptions } from "../_components/hint/Hint";
 
 export const Transcription = () => {
     const { t } = useI18n();
     const { currentMicPhraseTimeout, currentSpeakerPhraseTimeout } = useTranscription();
+    // Reviewed against #614: the rows' descriptions are their labels' hints, and what the two
+    // systems and the folds are for are their headings' and titles'. The engine in use, the
+    // readouts, the warnings and the model downloads stay in sight.
     return (
+        <HintDescriptions>
         <div className={styles.container}>
             {/* Which engine listens comes first: it decides what else on this page applies.
                 Then the two systems it chooses from, as the translation catalog splits them
@@ -59,11 +63,13 @@ export const Transcription = () => {
                 <RealtimeASRSettings />
             </AdvancedSection>
         </div>
+        </HintDescriptions>
     );
 };
 
-// The engines' two systems (#414), each under its subheading with what it is. The ids are where
-// the settings search leads for the texts config_page.transcription.<id>.
+// The engines' two systems (#414), each under its subheading with what it is: the subheading's
+// hint on this page (#614). The ids are where the settings search leads for the texts
+// config_page.transcription.<id>.
 const ENGINE_GROUPS = { speechcpp: "speechcpp_section", api: "cloud_section" };
 
 const EngineGroup = ({ group, children }: { group: "speechcpp" | "api"; children?: ReactNode }) => {
@@ -72,8 +78,7 @@ const EngineGroup = ({ group, children }: { group: "speechcpp" | "api"; children
     return (
         <div className={styles.engine_group} data-engine-group={group}>
             <div data-setting-id={id}>
-                <SectionLabelComponent sub label={t(`config_page.transcription.${id}.label`)} />
-                <Description text={t(`config_page.transcription.${id}.desc`)} className={styles.group_desc} />
+                <SectionLabelComponent sub label={t(`config_page.transcription.${id}.label`)} desc={t(`config_page.transcription.${id}.desc`)} />
             </div>
             {children}
         </div>
@@ -291,16 +296,19 @@ export const TranscriptionEngine_Box = () => {
     });
     // The engine in use in the screen's words, not its id.
     const selected = [local, ...api_options].find(option => option.id === currentSelectedTranscriptionEngine.data);
+    const noteId = useId();
 
     return (
         <RadioButtonContainer
             label={t("config_page.transcription.select_transcription_engine.label")}
-            desc={<span className={styles.engine_help}>
-                <span>{t("config_page.transcription.select_transcription_engine.desc")}</span>
-                <span role="status">{t("transcription_consent.selected", {
-                    engine: selected?.label || currentSelectedTranscriptionEngine.data || t("transcription_consent.unselected"),
-                })}</span>
-            </span>}
+            desc={t("config_page.transcription.select_transcription_engine.desc")}
+            // The engine in use is a value, not a description: it stays under the label where the
+            // description is a hint (#614), and the choice's description still includes it.
+            note={<span role="status">{t("transcription_consent.selected", {
+                engine: selected?.label || currentSelectedTranscriptionEngine.data || t("transcription_consent.unselected"),
+            })}</span>}
+            note_id={noteId}
+            aria-describedby={noteId}
             selectFunction={setSelectedTranscriptionEngine}
             name="select_transcription_engine"
             // One choice, its options under the two systems' names, in the order the page shows
@@ -376,11 +384,11 @@ const WhisperSegmentFilter_Box = () => {
     const value = (base: WhisperFilterBase) => transcription[`current${base}`].data;
     return (
         <SetupSection title={t("config_page.transcription.whisper_filter.title")}
+            desc={t("config_page.transcription.whisper_filter.desc")}
             status={t("config_page.transcription.whisper_filter.status", {
                 mic_logprob: value("MicAvgLogprob") ?? "-", mic_no_speech: value("MicNoSpeechProb") ?? "-",
                 speaker_logprob: value("SpeakerAvgLogprob") ?? "-", speaker_no_speech: value("SpeakerNoSpeechProb") ?? "-",
             })}>
-            <Description text={t("config_page.transcription.whisper_filter.desc")} />
             {WHISPER_FILTERS.map((filter, index) => (
                 <SliderContainer key={filter.key}
                     label={t(`config_page.transcription.whisper_filter.${filter.key}.label`)}

@@ -113,6 +113,8 @@
     @media (max-width: 700px) { label { grid-template-columns: minmax(0, 1fr); gap: .8rem; } }
 }
 .actions { display: flex; align-items: center; flex-wrap: wrap; gap: .8rem; }
+// A name that no shared row draws, such as a legend, with its hint mark on its line (#614).
+.hinted { display: inline-flex; align-items: center; max-width: 100%; }
 // Buttons that belong to the fields above them start in the control column, where the
 // fields start (the label rows' 1fr / 1.6fr split with its 1.6rem gap), not under the labels (#473).
 .control_column { margin-inline-start: calc((100% - 1.6rem) / 2.6 + 1.6rem); }

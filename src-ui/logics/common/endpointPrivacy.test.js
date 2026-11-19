@@ -1,7 +1,7 @@
 import { test } from "vitest";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { endpointDescription, isNetworkDisconnected } from "./endpointPrivacy.ts";
+import { endpointDescription, endpointNotices, isNetworkDisconnected } from "./endpointPrivacy.ts";
 
 const t = key => key;
 for (const [warning, urls] of [
@@ -24,6 +24,10 @@ for (const [warning, urls] of [
     assert.equal(description.includes("network_privacy.http_warning"), warning);
     assert.match(description, /network_privacy.save_notice/);
     assert.match(description, /^models /);
+    // Split for a page that keeps descriptions out of sight (#614): the warning is its own part.
+    const notices = endpointNotices(url, "models", t);
+    assert.equal(notices.description, "models network_privacy.save_notice");
+    assert.equal(notices.warning, warning ? "network_privacy.http_warning" : null);
 });
 
 test("unknown connectivity does not incorrectly show the offline error", () => {
@@ -40,7 +44,9 @@ test("all three URL settings use the draft warning and save bar", () => {
         assert.match(source, /onChangeFunction=\{onChangeFunction\}/);
     }
     const pair = readFileSync(new URL("_components/credential_pair/CredentialPair.tsx", root), "utf8");
-    assert.match(pair, /desc=\{endpointDescription\(form.draft.url,/);
+    // The warning stays in sight where the description is a hint (#614).
+    assert.match(pair, /endpointNotices\(form.draft.url,/);
+    assert.match(pair, /endpointDescription\(form.draft.url,/);
     assert.match(pair, /useSettingsDraft\(saved,/);
     for (const file of ["translation/Translation.tsx", "transcription/Transcription.tsx"]) {
         assert.match(readFileSync(new URL(file, root), "utf8"), /<CredentialPair /);

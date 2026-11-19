@@ -114,8 +114,8 @@ test("speech recognition opens on the engine choice and its two systems; the res
     // The engine, then its two systems as the translation catalog splits them (#414): speech.cpp
     // on your PC with its models and server, then the APIs with their keys. The word filter, the
     // timing and the realtime captions' server are set once (#554). The old Whisper models'
-    // screen went in 0.6.0 (#288).
-    assert.deepEqual(order, ["TranscriptionEngine_Container", "EngineGroup", "SpeechServers", "EngineGroup", "CloudTranscription_Container",
+    // screen went in 0.6.0 (#288). The page keeps its descriptions out of sight, as hints (#614).
+    assert.deepEqual(order, ["HintDescriptions", "TranscriptionEngine_Container", "EngineGroup", "SpeechServers", "EngineGroup", "CloudTranscription_Container",
         "AdvancedSection", "Mic_Container", "Speaker_Container", "RealtimeASRSettings"]);
     assert.match(page, /<EngineGroup group="speechcpp">\s*<SpeechServers profiles=\{\["asr"\]\} \/>\s*<\/EngineGroup>\s*<EngineGroup group="api">\s*<CloudTranscription_Container \/>\s*<\/EngineGroup>/);
     assert.match(page, /<AdvancedSection [^>]*>\s*<Mic_Container \/>\s*<Speaker_Container \/>\s*<RealtimeASRSettings \/>\s*<\/AdvancedSection>/);

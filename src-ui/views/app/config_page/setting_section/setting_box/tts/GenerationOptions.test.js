@@ -60,9 +60,9 @@ test("TTS model-specific seed range error is associated without changing the sav
     s.runtime.unmount();
 });
 
-test("TTS form supplies an existing error ID to both language groups", async () => {
-    const s = await setup(), runtime = hooks();
-    const { VoiceSettings } = await loadModule(new URL("../advanced_settings/VoiceSettings.tsx", import.meta.url), runtime, {
+// hints: whether the page keeps descriptions out of sight (#614).
+const loadVoiceSettings = (s, runtime, hints = false) =>
+    loadModule(new URL("../advanced_settings/VoiceSettings.tsx", import.meta.url), runtime, {
         "../../../../../../logics/voice/useVoice": { useVoice: () => ({ settings: s.draft, status: {}, devices: {}, send: () => {} }) },
         "../../../../../../logics/voice/useSettingsDraft": { useSettingsDraft: () => ({ draft: s.draft }) },
         "../tts/GenerationOptions": { GenerationOptions: s.GenerationOptions, validGenerationOptions: s.validGenerationOptions },
@@ -74,12 +74,39 @@ test("TTS form supplies an existing error ID to both language groups", async () 
         "../_components/description/Description": { Description: "description" },
         "../_components/form_row/FormRow": { FormRow: "row" },
         "../_components/advanced_section/AdvancedSection": { AdvancedSection: "advanced" },
+        "../_components/hint/Hint": { Hint: "hint", useHintDescriptions: () => hints },
     });
+
+test("TTS form supplies an existing error ID to both language groups", async () => {
+    const s = await setup(), runtime = hooks();
+    const { VoiceSettings } = await loadVoiceSettings(s, runtime);
     const tree = runtime.render(VoiceSettings), alert = find(tree, node => node.props?.role === "alert");
     const groups = [];
     find(tree, node => { if (node.type === s.GenerationOptions) groups.push(node); return false; });
     assert.equal(groups.length, 2);
     for (const group of groups) assert.equal(group.props.errorId, alert.props.id);
+    runtime.unmount(); s.runtime.unmount();
+});
+
+// #614: what the TTS page reads is its heading's hint and what the monitor plays is its legend's;
+// the rows' words are their labels'. The instruction's line counts as it is typed, so it stays.
+for (const hints of [false, true]) test(`${hints ? "hints" : "no hints"}: the TTS page's descriptions follow the page`, async () => {
+    const s = await setup({ seed: "", instructions: "" }), runtime = hooks();
+    const { VoiceSettings } = await loadVoiceSettings(s, runtime, hints);
+    const tree = runtime.render(VoiceSettings);
+    assert.equal(find(tree, node => node.type === "heading").props.desc, "voice_ui.tts_description");
+    const descriptions = [];
+    find(tree, node => { if (node.type === "description") descriptions.push(node.props.text); return false; });
+    assert.deepEqual(descriptions, hints ? [] : ["voice.monitor_hint"]);
+    const legend = find(tree, node => node.type === "legend" && JSON.stringify(node.props.children).includes("voice_ui.monitor_heading"));
+    const mark = find(legend, node => node.type === "hint");
+    assert.equal(Boolean(mark), hints);
+    if (hints) assert.deepEqual([mark.props.text, mark.props.focusable], ["voice.monitor_hint", true]);
+    const rows = [];
+    find(tree, node => { if (node.type === "row") rows.push([node.props.label, node.props.description]); return false; });
+    assert.deepEqual(rows, [["voice.output_device", "voice_ui.output_hint"], ["voice.mic_mode", "voice.mic_hint"], ["voice.conversion", "voice.conversion_hint"]]);
+    const instruction = find(s.render(), node => node.type === "row");
+    assert.equal(instruction.props.keepDescription, true);
     runtime.unmount(); s.runtime.unmount();
 });
 

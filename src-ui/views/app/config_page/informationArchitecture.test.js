@@ -68,8 +68,12 @@ test("Q-07: input forwarding is in the RVC page's 「詳細設定」, no longer 
         "../../../../../../logics/voice/useVoice": { useVoice: () => voice },
         "../advanced_settings/DirectVoiceSettings": { DirectVoiceSettings },
         "../_components/advanced_section/AdvancedSection": { AdvancedSection },
+        "../_components/hint/Hint": { HintDescriptions: "hints" },
     });
-    const [conversion, fold] = runtime.render(rvc.Rvc).props.children;
+    const page = runtime.render(rvc.Rvc);
+    // The page keeps its descriptions out of sight, as hints (#614), the fold's form included.
+    assert.equal(page.type, "hints");
+    const [conversion, fold] = page.props.children;
     assert.equal(conversion.type, DirectVoiceSettings);
     assert.equal(conversion.props.variant, "rvc");
     assert.equal(fold.type, AdvancedSection);
@@ -84,6 +88,22 @@ test("Q-07: input forwarding is in the RVC page's 「詳細設定」, no longer 
     const source = readFileSync(new URL("../../../logics/configs/config_page_setter/_aux/useConfigSearch.ts", import.meta.url), "utf8");
     assert.match(source, /tab: "rvc", setting_id: "direct_voice_settings", label: t\("voice\.input_title"\)/);
     assert.match(read("advanced_settings/DirectVoiceSettings.tsx"), /data-setting-id=\{variant === "rvc" \? "rvc_settings" : "direct_voice_settings"\}/);
+});
+
+// #614: the TTS page keeps its descriptions out of sight, as hints, its servers' part included.
+test("the TTS page wraps its form and its servers in the hints", async () => {
+    const runtime = hooks();
+    const VoiceSettings = () => null, SpeechServers = () => null;
+    const tts = await loadModule(box("tts/Tts.tsx"), runtime, {
+        "../advanced_settings/VoiceSettings": { VoiceSettings }, "../advanced_settings/SpeechServers": { SpeechServers },
+        "../_components/hint/Hint": { HintDescriptions: "hints" },
+    });
+    const page = runtime.render(tts.Tts);
+    assert.equal(page.type, "hints");
+    const [form, servers] = page.props.children;
+    assert.equal(form.type, VoiceSettings);
+    assert.equal(servers.type, SpeechServers);
+    assert.deepEqual(servers.props.profiles, ["japanese", "multilingual"]);
 });
 
 test("a fold marks its line while a row inside it has unsaved edits", async () => {

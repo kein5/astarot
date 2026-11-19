@@ -214,3 +214,53 @@ test("with hints on, a FormRow's description is its label's hint unless the row 
     assert.ok(find(kept, node => node.type === "description"));
     assert.ok(!find(kept, node => node.type === "hint"));
 });
+
+test("with hints on, a setup fold's description is its title's hint and its summary's description", async () => {
+    const runtime = hooks();
+    const load = on => loadModule(new URL(base + "setup_section/SetupSection.tsx", import.meta.url), runtime, {
+        "../description/Description": { Description: "description" }, ...hintModule(on),
+    });
+    const { SetupSection } = await load(true);
+    const tree = runtime.render(SetupSection, { title: "Models and servers", status: "Model set", desc: "Choose a model.", children: "fields" });
+    const summary = find(tree, node => node.type === "summary"), hint = find(tree, node => node.type === "hint");
+    assert.equal(hint.props.text, "Choose a model.");
+    assert.equal(summary.props["aria-describedby"], hint.props.id, "the summary takes the focus, so it carries the words");
+    // The pointer on the title opens it; the summary opens it when it has the keyboard focus.
+    assert.equal(hint.props.row, true);
+    assert.equal(summary.props["data-hint-row"], true);
+    // The title's element holds the title only, as a label's does: the mark is beside it.
+    const host = find(summary, node => node.props?.["data-hint-host"]);
+    assert.deepEqual([host.props.children[0].props.className, host.props.children[0].props.children], ["title", "Models and servers"]);
+    assert.ok(!find(tree, node => node.type === "description"), "no paragraph opens the fold");
+    // On a page not yet reviewed the description is the fold's first paragraph, as before.
+    const { SetupSection: Plain } = await load(false);
+    const plain = runtime.render(Plain, { title: "Models and servers", desc: "Choose a model.", children: "fields" });
+    const body = find(plain, node => node.props?.className === "body");
+    assert.equal(body.props.children[0].type, "description");
+    assert.equal(find(plain, node => node.type === "summary").props["aria-describedby"], undefined);
+    assert.ok(!find(plain, node => node.type === "hint"));
+});
+
+test("a checkbox beside its name carries its description as the hint after the name, or under it", async () => {
+    const runtime = hooks();
+    const load = on => loadModule(new URL(base + "hint/HintCheck.tsx", import.meta.url), runtime, {
+        "../description/Description": { Description: "description" }, "./Hint": { Hint: "hint", useHintDescriptions: () => on },
+    });
+    const { HintCheck } = await load(true);
+    const [label, below] = runtime.render(HintCheck, { label: "Low latency", description: "Uses more power.", checked: true, onChange: () => {} }).props.children;
+    const box = find(label, node => node.type === "input"), hint = find(label, node => node.type === "hint");
+    // The name's element holds the name only: the mark is beside it.
+    assert.ok(find(label, node => node.type === "span" && node.props.children === "Low latency"));
+    assert.equal(box.props.type, "checkbox");
+    assert.equal(box.props.checked, true);
+    assert.equal(box.props["aria-describedby"], hint.props.id);
+    // The name's host: the pointer on it, or focus on the box, opens the bubble.
+    assert.equal(label.props["data-hint-host"], true);
+    assert.ok(!hint.props.focusable, "the box takes the focus");
+    assert.equal(below, false);
+    const { HintCheck: Plain } = await load(false);
+    const [plainLabel, plainBelow] = runtime.render(Plain, { label: "Low latency", description: "Uses more power." }).props.children;
+    assert.ok(!find(plainLabel, node => node.type === "hint"));
+    assert.equal(plainBelow.type, "description");
+    assert.equal(find(plainLabel, node => node.type === "input").props["aria-describedby"], plainBelow.props.id);
+});

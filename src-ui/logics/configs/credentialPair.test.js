@@ -5,10 +5,11 @@ import { flush, loadBridgeRoutes } from "../test/bridgeHarness.js";
 import { rebaseDraft } from "../voice/draftRebase.ts";
 import { changedPaths } from "../voice/saveBar.ts";
 import { createSettingsWriteResponses } from "../common/settingsWriteResponses.ts";
-import { endpointDescription } from "../common/endpointPrivacy.ts";
+import { endpointDescription, endpointNotices } from "../common/endpointPrivacy.ts";
 
 const providers = [["OpenAICompatible", "openai_compatible", "translation"], ["CustomWhisper", "custom_whisper", "transcription"]];
-async function setup(context, base, provider, section) {
+// hints: whether the page keeps descriptions out of sight (#614).
+async function setup(context, base, provider, section, hints = false) {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     const runtime = hooks(), requests = [], owners = createSettingsWriteResponses();
     // Flush state updates as React would; a render that keeps rebasing a fresh
@@ -35,8 +36,9 @@ async function setup(context, base, provider, section) {
     };
     const component = await loadModule(new URL("../../views/app/config_page/setting_section/setting_box/_components/credential_pair/CredentialPair.tsx", import.meta.url), runtime, {
         "../../../../../../../logics/voice/useSettingsDraft": draft,
-        "../../../../../../../logics/common/endpointPrivacy": { endpointDescription },
+        "../../../../../../../logics/common/endpointPrivacy": { endpointDescription, endpointNotices },
         "../../_templates/Templates": { EntryWithSaveButtonContainer: "url", AuthKeyContainer: "key" },
+        "../hint/Hint": { useHintDescriptions: () => hints },
         "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: (endpoint, data) => {
             const request = owners.begin(endpoint);
             requests.push({ endpoint, data, request });
@@ -232,3 +234,21 @@ for (const [base, provider, section] of providers) {
         assert.deepEqual(s.notices, []);
     });
 }
+
+// #614: where the URL's description is its label's hint, the warning about plain HTTP on the LAN
+// is not hidden in it: it stays under the label as a warning.
+for (const hints of [false, true]) test(`${hints ? "hints" : "no hints"}: a plain HTTP URL on the LAN keeps its warning in sight`, async context => {
+    const s = await setup(context, "CustomWhisper", "custom_whisper", "transcription", hints);
+    s.edit("url", "http://192.168.0.10:8000/v1");
+    const url = s.field("url");
+    assert.match(url.desc, /config_page\.transcription\.custom_whisper_url\.desc network_privacy\.save_notice/);
+    if (hints) {
+        assert.doesNotMatch(url.desc, /http_warning/);
+        assert.deepEqual(url.add_warnings, [{ label: "network_privacy.http_warning" }]);
+    } else {
+        assert.match(url.desc, /network_privacy\.http_warning$/);
+        assert.equal(url.add_warnings, undefined);
+    }
+    s.edit("url", "https://provider-b.example/v1");
+    assert.equal(s.field("url").add_warnings, undefined);
+});

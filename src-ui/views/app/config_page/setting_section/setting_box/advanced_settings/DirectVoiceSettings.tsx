@@ -146,19 +146,21 @@ export const DirectVoiceSettings = ({ variant = "all", subheading = false }: Dir
     const delay = isRvc && directState.mode === "converted" ? conversionDelaySeconds(directState) : null;
     const tone = status === "voice.input_failed" ? "failed" : status === "voice.input_pending" ? "pending" :
         ["voice.input_active", "voice.vc_idle", "voice.vc_active", "voice.vc_ready"].includes(status) ? "active" : "idle";
+    // What the form is for, what to expect of the conversion before Start (on the GPU and, without
+    // one, on the CPU) and what this input does not do: the heading's hint on a page that keeps
+    // descriptions out of sight (#614), a paragraph under it elsewhere.
+    const intro = [t(variant === "rvc" ? "voice.vc_rvc_hint" : "voice.input_description"),
+        (variant === "rvc" || (converted && rvc)) && t("voice_ui.rvc_latency_hint"), t("voice.input_scope")].filter(Boolean).join("\n");
     return <section className={styles.container} aria-label={variant === "rvc" ? t("config_page.rvc.rvc_settings.label") : t("voice.input_title")} data-setting-id={variant === "rvc" ? "rvc_settings" : "direct_voice_settings"}>
-        {subheading ? <h3>{t("voice.input_title")}</h3>
-            : <SectionLabelComponent label={variant === "rvc" ? t("config_page.rvc.rvc_settings.label") : t("voice.input_title")} />}
+        <SectionLabelComponent sub={subheading} label={variant === "rvc" ? t("config_page.rvc.rvc_settings.label") : t("voice.input_title")} desc={intro} />
         <StatusLine tone={tone}>{t(status)}</StatusLine>
         {/* Where RVC converts and how far behind the voice it is, once it runs. */}
         {delay && <p>{t(delay.device === "cpu" ? "voice_ui.rvc_running_cpu" : "voice_ui.rvc_running_gpu", { seconds: delay.seconds })}</p>}
         <VoiceRouteSummary />
-        <Description text={t(variant === "rvc" ? "voice.vc_rvc_hint" : "voice.input_description")} />
-        {/* Before Start: what to expect on the GPU and, without one, on the CPU. */}
-        {(variant === "rvc" || (converted && rvc)) && <Description text={t("voice_ui.rvc_latency_hint")} />}
         {/* Selecting RVC is its own action: opening the page or saving other fields never switches the mode. */}
-        {/* A row like the others (#478): the note on the left, its button in the control column. */}
-        {variant === "rvc" && needsSelection(draft) && <FormRow group label={t("voice_ui.select_rvc_label")} description={t("voice_ui.select_rvc_pending")} fold={false}>
+        {/* A row like the others (#478): the note on the left, its button in the control column. The
+            note says what the input uses now, so it stays in sight (#614). */}
+        {variant === "rvc" && needsSelection(draft) && <FormRow group label={t("voice_ui.select_rvc_label")} description={t("voice_ui.select_rvc_pending")} fold={false} keepDescription>
             <button type="button" disabled={busy || saving || selecting} onClick={selectRvc}>{t("voice_ui.select_rvc")}</button>
         </FormRow>}
         {/* A Seed-VC conversion saved by an earlier version was moved to RVC at this start. */}
@@ -184,11 +186,10 @@ export const DirectVoiceSettings = ({ variant = "all", subheading = false }: Dir
         {converted && rvc && !validNumbers(draft) && <p id={numbersErrorId} role="alert">{t("voice_ui.invalid_rvc_numbers")}</p>}
         {converted && rvc && draft.rvc_index_rate > 0 && !draft.rvc_index && <p role="alert">{t("voice_ui.rvc_index_required")}</p>}
         {/* Where and how the worker converts; read at Start. */}
-        {converted && rvc && <SetupSection title={t("voice_ui.rvc_worker_title")}
+        {converted && rvc && <SetupSection title={t("voice_ui.rvc_worker_title")} desc={t("voice_ui.rvc_worker_hint")}
             status={t("voice_ui.rvc_worker_status", { device: t(`voice.vc_rvc_device_${draft.rvc_device}`, { defaultValue: draft.rvc_device }),
                 threads: draft.rvc_threads ? draft.rvc_threads : t("voice_ui.rvc_threads_auto"),
                 highpass: t(draft.rvc_highpass ? "voice_ui.rvc_highpass_on" : "voice_ui.rvc_highpass_off") })}>
-            <Description text={t("voice_ui.rvc_worker_hint")} />
             <label>{t("voice.vc_rvc_device")}
                 <select aria-label={t("voice.vc_rvc_device")} value={draft.rvc_device} disabled={busy}
                     onChange={e => setDraft({ ...draft, rvc_device: e.target.value })}>
@@ -268,7 +269,6 @@ export const DirectVoiceSettings = ({ variant = "all", subheading = false }: Dir
         {/* The TTS monitor setting also covers converted voice; it is fixed at Start. */}
         <p>{t(!converted ? "voice.vc_monitor_passthrough" : settings?.monitor === "on" ? "voice.vc_monitor_on" : "voice.vc_monitor_off")}</p>
         {!!directState.monitor_error && <EnvReadout tone="failed"><p>{t(`voice.monitor_errors.${directState.monitor_error}`, { defaultValue: t("voice.monitor_error") })}</p></EnvReadout>}
-        <Description text={t("voice.input_scope")} />
         {/* An unconfirmed save is not a reason the input cannot be forwarded: its sentence stands alone (#460). */}
         {!!unavailable && <p role="alert">{String(unavailable).startsWith("save_") ? "" : `${t("voice.input_error")}: `}{errorText(String(unavailable))}</p>}
     </section>;
