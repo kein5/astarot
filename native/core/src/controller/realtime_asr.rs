@@ -173,20 +173,15 @@ fn pinned_endpoint(settings: &Value, source: Source) -> Result<Option<Endpoint>,
     endpoint_of(&row["endpoint"]).map(Some).ok_or("realtime_endpoint_invalid")
 }
 
-/// `session_options` without the endpoint: a session needs a saved model id.
-fn session_options(settings: &Value, source: Source, limits: vrct_transcription::realtime::Limits) -> Result<Options, &'static str> {
-    let model = settings["model"].as_str().unwrap_or("");
-    if model.trim().is_empty() {
-        return Err("realtime_model_invalid");
-    }
-    Ok(Options {
-        base_url: settings["base_url"].as_str().unwrap_or("").to_string(),
-        model: model.to_string(),
-        language: settings[source.as_str()]["language"].as_str().unwrap_or("auto").to_string(),
-        vocabulary: speechcpp::merged_terms(&settings["vocabulary"]),
-        silence_duration_ms: silence_duration(settings),
-        limits,
-    })
+/// What starts a session.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Starter {
+    /// A main switch (`_enableRealtimeToggle`): it may start the bundled server, and takes that
+    /// server's one model whatever model is saved.
+    Switch,
+    /// The settings page's start (`startRealtimeASR`): it needs a saved model the server lists,
+    /// and a bundled server that already runs.
+    Page,
 }
 
 /// The saved silence that ends an utterance, if the user chose one.
@@ -668,12 +663,20 @@ impl Core {
         }
     }
 
-    /// `_prepareRealtimeToggle`: checks a switch ON against the settings and the server.
-    fn prepare_realtime_toggle(&self, source: Source, expected: u64) -> Result<Options, String> {
+    /// `_prepareRealtimeToggle`, with the list request of the session's `_preflight`: checks a
+    /// start against the settings and the server, and lists the server's models for the
+    /// session. The list is asked for here, where a stop of the source ends it, before the
+    /// session is placed; the session does not ask again (decision 81).
+    fn prepare_realtime(&self, source: Source, expected: u64, starter: Starter) -> Result<Options, String> {
+        let i = index(source);
         let settings = {
             let state = self.realtime().state();
-            if state.closed || state.generation[index(source)] != expected {
+            if state.closed || state.generation[i] != expected {
                 return Err("realtime_stale_start".into());
+            }
+            let running = state.owners[i].as_ref().is_none_or(|o| !matches!(o.session.state(), "closed" | "failed"));
+            if starter == Starter::Page && state.requested[i] && running {
+                return Err("realtime_already_started".into());
             }
             state.settings.clone()
         };
@@ -687,16 +690,26 @@ impl Core {
         if self.carries_own_voice(&endpoint.name) {
             return Err("realtime_endpoint_feedback".into());
         }
+        let wanted = settings["model"].as_str().unwrap_or("");
+        if starter == Starter::Page && wanted.trim().is_empty() {
+            return Err("realtime_model_invalid".into());
+        }
         if !self.realtime_start_current(source, expected) {
             return Err("realtime_stale_start".into());
         }
-        let base_url = if settings["server"] == "bundled" {
-            if let Some(code) = self.await_asr_server(source, expected, settings["start_server"] != false) {
+        let bundled = settings["server"] == "bundled";
+        let base_url = if bundled {
+            if starter == Starter::Switch
+                && let Some(code) = self.await_asr_server(source, expected, settings["start_server"] != false)
+            {
                 return Err(code);
             }
             self.speech_servers().hub().binding(Profile::Asr).map_err(|_| "speech_server_not_ready".to_string())?
         } else {
             settings["base_url"].as_str().unwrap_or("").to_string()
+        };
+        let Some(base) = speechcpp::local_url(&base_url) else {
+            return Err(if starter == Starter::Page { "realtime_base_url_invalid" } else { "realtime_models_unavailable" }.into());
         };
         // A stop, a settings change or another start moves the generation on and ends the
         // request (decision 81).
@@ -708,15 +721,13 @@ impl Core {
             state.cancels[index(source)].clone()
         };
         let limits = self.services().realtime_limits;
-        let listed = speechcpp::local_url(&base_url)
-            .map(|base| speechcpp::survey(&self.services().translation_transport, &base, limits.models, Some(&cancel)));
+        let listed = speechcpp::survey(&self.services().translation_transport, &base, limits.models, Some(&cancel));
         if !self.realtime_start_current(source, expected) {
             return Err("realtime_stale_start".into());
         }
-        let models = listed.and_then(Result::ok).map(|(models, _)| models).ok_or("realtime_models_unavailable")?;
-        let wanted = settings["model"].as_str().unwrap_or("");
+        let (models, diarizes) = listed.map_err(|_| "realtime_models_unavailable".to_string())?;
         let mut chosen = models.iter().find(|m| m.id == wanted).cloned();
-        if chosen.is_none() && settings["server"] == "bundled" && models.len() == 1 {
+        if chosen.is_none() && starter == Starter::Switch && bundled && models.len() == 1 {
             // The bundled server loads exactly one recognizer.
             chosen = models.first().cloned();
         }
@@ -729,10 +740,11 @@ impl Core {
         }
         Ok(Options {
             base_url,
-            model: chosen.id,
+            model: chosen,
             language,
             vocabulary: speechcpp::merged_terms(&settings["vocabulary"]),
             silence_duration_ms: silence_duration(&settings),
+            diarizes,
             limits: limits.session,
         })
     }
@@ -768,8 +780,8 @@ impl Core {
         };
         if !active {
             self.realtime().toggle().starting += 1;
-            let code = match self.prepare_realtime_toggle(source, expected) {
-                Ok(options) => self.start_realtime_session(source, expected, Some(options)).err(),
+            let code = match self.prepare_realtime(source, expected, Starter::Switch) {
+                Ok(options) => self.start_realtime_session(source, expected, options).err(),
                 Err(code) => Some(code),
             };
             self.realtime().toggle().starting -= 1;
@@ -799,13 +811,18 @@ impl Core {
         ok(json!(false))
     }
 
-    /// `startRealtimeASR`.
+    /// `startRealtimeASR`. The model list is asked for before the session is placed (decision
+    /// 81): a server that does not answer it, or does not list the saved model or its language,
+    /// is answered here (409), where Python's session started and then failed with it.
     fn start_realtime(self: &Arc<Self>, data: &Value) -> Reply {
         let Ok(source) = source_of(data) else { return refused(400, "realtime_start_invalid") };
         let Some(expected) = data.get("_realtime_generation").and_then(Value::as_u64) else {
             return refused(400, "realtime_start_invalid");
         };
-        let result = match self.start_realtime_session(source, expected, None) {
+        let started = self
+            .prepare_realtime(source, expected, Starter::Page)
+            .and_then(|options| self.start_realtime_session(source, expected, options));
+        let result = match started {
             Ok(()) => ok(self.realtime_state()),
             Err(code) => refused(if is_bad_request(&code) { 400 } else { 409 }, &code),
         };
@@ -813,8 +830,9 @@ impl Core {
         result
     }
 
-    /// `_startRealtime`: `Err` is the code of the 409 (or 400) answer.
-    fn start_realtime_session(self: &Arc<Self>, source: Source, expected: u64, prepared: Option<Options>) -> Result<(), String> {
+    /// `_startRealtime` with the options [`Self::prepare_realtime`] checked: `Err` is the code
+    /// of the 409 (or 400) answer.
+    fn start_realtime_session(self: &Arc<Self>, source: Source, expected: u64, prepared: Options) -> Result<(), String> {
         let i = index(source);
         let lifecycle = self.audio_devices().lock_source(source);
         let precheck = |state: &State| -> Result<(), String> {
@@ -845,10 +863,7 @@ impl Core {
             if self.carries_own_voice(&endpoint.name) {
                 return Err("realtime_endpoint_feedback".into());
             }
-            let mut options = match prepared {
-                Some(options) => options,
-                None => session_options(&state.settings, source, self.services().realtime_limits.session)?,
-            };
+            let mut options = prepared;
             let mut server_run = None;
             if state.settings["server"] == "bundled" {
                 let hub = self.speech_servers().hub();
@@ -913,13 +928,7 @@ impl Core {
         if state.closed || state.generation[i] != generation {
             return Err("realtime_stale_start".into());
         }
-        let session = Session::new(
-            source,
-            options,
-            endpoint,
-            platform,
-            self.services().translation_transport.clone(),
-        );
+        let session = Session::new(source, options, endpoint, platform);
         let delivery = self.realtime_delivery(source, generation, &session, detect, language);
         let id = self.realtime().owners.fetch_add(1, Ordering::SeqCst);
         state.owners[i] = Some(Owner { id, session: session.clone(), delivery: delivery.clone() });

@@ -23,7 +23,7 @@ use std::time::{Duration, Instant};
 use tungstenite::protocol::WebSocketConfig;
 use tungstenite::{Message, WebSocket};
 use vrct_audio_routing::graph::Endpoint;
-use vrct_translation::http::{Cancel, Transport, Watched};
+use vrct_translation::http::{Cancel, Watched};
 
 pub const RATE: u32 = 24000;
 const MAX_AGE: Duration = Duration::from_millis(250);
@@ -37,11 +37,14 @@ const CAPTURE_OPEN_TIMEOUT: Duration = Duration::from_secs(120);
 const FIRST_AUDIO_TIMEOUT: Duration = Duration::from_secs(5);
 const STALL_TIMEOUT: Duration = Duration::from_secs(2);
 
-/// What a session asks of the server (`SessionOptions`).
+/// What a session asks of the server (`SessionOptions`), and what the server listed for it.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Options {
     pub base_url: String,
-    pub model: String,
+    /// The recognition model, as the server listed it when the start was checked. The session
+    /// does not ask for the list again (decision 81 in `docs/voice-stack/core-integration.md`):
+    /// a model the server no longer has is refused when the session connects.
+    pub model: speechcpp::Model,
     /// A code, or "auto".
     pub language: String,
     /// The merged vocabulary terms.
@@ -49,6 +52,9 @@ pub struct Options {
     /// The silence that ends an utterance (`server_vad`'s `silence_duration_ms`); `None` is
     /// [`DEFAULT_SILENCE_MS`].
     pub silence_duration_ms: Option<u32>,
+    /// Whether that list had a diarization model on a GPU: a speaker's session then asks who
+    /// speaks.
+    pub diarizes: bool,
     pub limits: Limits,
 }
 
@@ -109,11 +115,10 @@ struct Inner {
     options: Options,
     endpoint: Endpoint,
     platform: Arc<dyn CapturePlatform>,
-    transport: Transport,
     status: Mutex<Status>,
     stop: AtomicBool,
-    /// Ends the list request, the connection and the reads of the setup when the session is
-    /// stopped, so that a server that does not answer cannot hold the thread (decision 81).
+    /// Ends the connection and the reads of the setup when the session is stopped, so that a
+    /// server that does not answer cannot hold the thread (decision 81).
     cancel: Cancel,
     updates: Mutex<VecDeque<Update>>,
     arrived: Condvar,
@@ -209,20 +214,13 @@ pub(crate) fn open_socket(base_url: &str, model: Option<&str>, wait: Duration, c
 }
 
 impl Session {
-    pub fn new(
-        source: Source,
-        options: Options,
-        endpoint: Endpoint,
-        platform: Arc<dyn CapturePlatform>,
-        transport: Transport,
-    ) -> Session {
+    pub fn new(source: Source, options: Options, endpoint: Endpoint, platform: Arc<dyn CapturePlatform>) -> Session {
         Session {
             inner: Arc::new(Inner {
                 source,
                 options,
                 endpoint,
                 platform,
-                transport,
                 status: Mutex::new(Status { state: "idle", error: None, namespace: None }),
                 stop: AtomicBool::new(false),
                 cancel: Cancel::new(),
@@ -399,30 +397,25 @@ impl Session {
         self.inner.stop.load(Ordering::SeqCst)
     }
 
-    /// `_preflight`: the request options and whether to ask who speaks.
+    /// `_preflight` without its list request: the request options and whether to ask who
+    /// speaks, from the model the start listed. The start lists the models on its own thread,
+    /// where a stop of the source ends it, and checks the model and the language; the session's
+    /// thread only waits for the WebSocket (decision 81).
     fn preflight(&self) -> Result<(serde_json::Map<String, Value>, bool), Failure> {
-        let listed =
-            speechcpp::survey(&self.inner.transport, &self.inner.options.base_url, Duration::from_secs(5), Some(&self.inner.cancel));
-        if self.stopped() {
-            return Err(Failure::Stopped);
-        }
-        let (models, diarizes) = listed.map_err(|_| Failure::Realtime("preflight_failed"))?;
-        let Some(model) = models.iter().find(|m| m.id == self.inner.options.model) else {
-            return Err(Failure::Session("realtime_model_unavailable"));
-        };
-        if !speechcpp::language_supported(model, &self.inner.options.language) {
-            return Err(Failure::Session(if self.inner.options.language == "auto" {
+        let options = &self.inner.options;
+        if !speechcpp::language_supported(&options.model, &options.language) {
+            return Err(Failure::Session(if options.language == "auto" {
                 "realtime_language_auto_unsupported"
             } else {
                 "realtime_language_unsupported"
             }));
         }
-        let options = speechcpp::request_options(&model.options, &self.inner.options.vocabulary);
-        Ok((options, diarizes && self.inner.source == Source::Speaker))
+        let request = speechcpp::request_options(&options.model.options, &options.vocabulary);
+        Ok((request, options.diarizes && self.inner.source == Source::Speaker))
     }
 
     fn settings(&self, options: &serde_json::Map<String, Value>, diarization: bool) -> Value {
-        let mut transcription = json!({ "model": self.inner.options.model, "language": self.inner.options.language });
+        let mut transcription = json!({ "model": self.inner.options.model.id, "language": self.inner.options.language });
         for (key, value) in options {
             transcription[key] = value.clone();
         }
@@ -458,7 +451,7 @@ impl Session {
         event["type"] == "session.updated"
             && event["session"]["type"] == "transcription"
             && audio["format"] == json!({ "type": "audio/pcm", "rate": RATE })
-            && transcription["model"] == self.inner.options.model.as_str()
+            && transcription["model"] == self.inner.options.model.id.as_str()
             && transcription["language"] == self.inner.options.language.as_str()
             && options.iter().all(|(key, value)| transcription.get(key) == Some(value))
             && audio.get("noise_reduction").is_none_or(Value::is_null)
@@ -497,7 +490,7 @@ impl Session {
 
     fn connect(&self) -> Result<Socket, Failure> {
         let options = &self.inner.options;
-        let socket = open_socket(&options.base_url, Some(&options.model), options.limits.setup, Some(&self.inner.cancel));
+        let socket = open_socket(&options.base_url, Some(&options.model.id), options.limits.setup, Some(&self.inner.cancel));
         match socket {
             Some(socket) => Ok(socket),
             None if self.stopped() => Err(Failure::Stopped),
@@ -723,16 +716,7 @@ mod tests {
     }
 
     fn session() -> Session {
-        let options = Options {
-            base_url: "http://127.0.0.1:9".into(),
-            model: "m".into(),
-            language: "ja".into(),
-            vocabulary: Vec::new(),
-            silence_duration_ms: None,
-            limits: Limits::default(),
-        };
-        let endpoint = Endpoint { cookie: 1, serial: 1, name: "mic".into(), media_class: "Audio/Source".into() };
-        Session::new(Source::Mic, options, endpoint, Arc::new(NoDevice), vrct_translation::http::direct())
+        session_at("http://127.0.0.1:9", Limits::default())
     }
 
     fn refused_for(session: &Session) -> Option<&'static str> {
@@ -781,68 +765,70 @@ mod tests {
     /// Where a stand-in speech.cpp stops answering.
     #[derive(Clone, Copy, PartialEq)]
     enum Silent {
-        /// The model list.
-        List,
         /// The Realtime WebSocket's handshake.
         Handshake,
         /// The setup, after the handshake (`session.created` never comes).
         Setup,
     }
 
-    /// A speech.cpp stand-in on a loopback port that lists the model `m` until it falls
-    /// `silent`, and holds that connection open without a word. Gives its base URL and how many
-    /// connections it holds.
-    fn unanswering(silent: Silent) -> (String, Arc<AtomicU64>) {
-        use std::io::{Read, Write};
+    /// A speech.cpp stand-in on a loopback port that holds each connection open without a word
+    /// from where it falls `silent`. Gives its base URL, how many connections it holds and how
+    /// many asked for the model list.
+    fn unanswering(silent: Silent) -> (String, Arc<AtomicU64>, Arc<AtomicU64>) {
         let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
         let base = format!("http://127.0.0.1:{}", listener.local_addr().unwrap().port());
-        let held = Arc::new(AtomicU64::new(0));
-        let holding = held.clone();
+        let (held, listed) = (Arc::new(AtomicU64::new(0)), Arc::new(AtomicU64::new(0)));
+        let (holding, listing) = (held.clone(), listed.clone());
         std::thread::spawn(move || {
-            for mut stream in listener.incoming().flatten() {
-                let holding = holding.clone();
+            for stream in listener.incoming().flatten() {
+                let (holding, listing) = (holding.clone(), listing.clone());
                 std::thread::spawn(move || {
                     let mut head = [0u8; 64];
                     let size = stream.peek(&mut head).unwrap_or(0);
-                    let list = head[..size].starts_with(b"GET /v1/models");
-                    if list && silent != Silent::List {
-                        let _ = stream.read(&mut [0u8; 4096]);
-                        let body = json!({ "data": [{ "id": "m", "speech": { "task": "recognition", "languages": ["ja"], "options": [] } }] }).to_string();
-                        let head = format!("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", body.len());
-                        let _ = stream.write_all(format!("{head}{body}").as_bytes());
-                        return;
+                    if head[..size].starts_with(b"GET /v1/models") {
+                        listing.fetch_add(1, Ordering::SeqCst);
                     }
                     holding.fetch_add(1, Ordering::SeqCst);
-                    let _kept = if silent == Silent::Setup && !list { tungstenite::accept(stream).ok().map(|s| s.into_inner()) } else { Some(stream) };
+                    let _kept = match silent {
+                        Silent::Handshake => Some(stream),
+                        Silent::Setup => tungstenite::accept(stream).ok().map(WebSocket::into_inner),
+                    };
                     std::thread::sleep(Duration::from_secs(30));
                 });
             }
         });
-        (base, held)
+        (base, held, listed)
     }
 
     fn session_at(base_url: &str, limits: Limits) -> Session {
+        let model = speechcpp::Model {
+            id: "m".into(),
+            languages: vec!["ja".into()],
+            accepts_language: true,
+            detects_language: false,
+            options: vec!["language".into()],
+        };
         let options = Options {
             base_url: base_url.into(),
-            model: "m".into(),
+            model,
             language: "ja".into(),
             vocabulary: Vec::new(),
             silence_duration_ms: None,
+            diarizes: false,
             limits,
         };
         let endpoint = Endpoint { cookie: 1, serial: 1, name: "mic".into(), media_class: "Audio/Source".into() };
-        Session::new(Source::Mic, options, endpoint, Arc::new(NoDevice), vrct_translation::http::direct())
+        Session::new(Source::Mic, options, endpoint, Arc::new(NoDevice))
     }
 
     #[test]
     fn a_stop_ends_a_session_whose_server_does_not_answer_within_100_ms() {
-        // Decision 81: the session's thread waited for the list request and the WebSocket's setup
-        // without looking at the stop, and a start right after a stop then found the previous
-        // session busy (`realtime_previous_owner_busy`). A setup of 5 s shows a wait that a stop
-        // does not end.
+        // Decision 81: the session's thread waited for the WebSocket's setup without looking at
+        // the stop, and a start right after a stop then found the previous session busy
+        // (`realtime_previous_owner_busy`). A setup of 5 s shows a wait that a stop does not end.
         let limits = Limits { setup: Duration::from_secs(5), ..Limits::default() };
-        for silent in [Silent::List, Silent::Handshake, Silent::Setup] {
-            let (base, held) = unanswering(silent);
+        for silent in [Silent::Handshake, Silent::Setup] {
+            let (base, held, listed) = unanswering(silent);
             let session = session_at(&base, limits);
             session.start().unwrap();
             let started = Instant::now();
@@ -855,6 +841,8 @@ mod tests {
             assert_eq!(session.state(), "starting");
             assert!(session.close(Duration::from_millis(100)), "a stop did not end the wait for the server");
             assert_eq!((session.state(), session.error()), ("closed", None), "a stop is not a failure");
+            // The start listed the models; the session only connects.
+            assert_eq!(listed.load(Ordering::SeqCst), 0, "the session asked for the model list again");
         }
     }
 

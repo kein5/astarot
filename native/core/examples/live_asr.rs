@@ -393,8 +393,12 @@ fn main() {
         "session" => {
             let vocabulary = vrct_transcription::speechcpp::merged_terms(&json!({ "builtin": true, "terms": [] }));
             // The silence that ends an utterance is the core's default, as with unchanged settings.
-            let options = realtime::Options { base_url, model, language, vocabulary, silence_duration_ms: None, limits: Default::default() };
-            let session = realtime::Session::new(Source::Mic, options, endpoint(), Arc::new(player.clone()), vrct_translation::http::direct());
+            // The session takes the model as the server lists it, as the core's start gives it.
+            let (models, diarizes) = vrct_transcription::speechcpp::survey(&vrct_translation::http::direct(), &base_url, Duration::from_secs(5), None)
+                .expect("the server lists its models");
+            let model = models.into_iter().find(|listed| listed.id == model).expect("the server lists the model");
+            let options = realtime::Options { base_url, model, language, vocabulary, silence_duration_ms: None, diarizes, limits: Default::default() };
+            let session = realtime::Session::new(Source::Mic, options, endpoint(), Arc::new(player.clone()));
             let started = Instant::now();
             session.start().expect("the session starts");
             while session.state() != "ready" {

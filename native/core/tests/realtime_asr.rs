@@ -218,6 +218,8 @@ fn the_main_switch_streams_the_microphone_and_its_final_goes_out() {
     assert_eq!(run.chatbox_text(Duration::from_secs(5)).as_deref(), Some("こんにちは"));
     // The session asked for its model and sent the vocabulary as keywords; audio was 24 kHz.
     assert!(run.asr.requested("GET /v1/realtime?model=haas-ja") >= 1);
+    // The switch listed the models once; the session took that list (decision 81).
+    assert_eq!(run.asr.requested("GET /v1/models"), 1);
     assert!(run.asr.appends.load(Ordering::SeqCst) >= 25);
 
     let state = run.ui.ok("/get/data/realtime_asr_state", None);
@@ -446,6 +448,39 @@ fn the_settings_page_starts_and_stops_a_session_beside_the_recorder() {
     let generation = run.ui.ok("/get/data/realtime_asr_state", None)["speaker"]["generation"].as_u64().unwrap();
     let state = run.ui.ok("/run/start_realtime_asr", Some(json!({ "source": "speaker" })));
     assert!(state["speaker"]["generation"].as_u64().unwrap() > generation);
+    run.ui.stop();
+}
+
+#[test]
+fn the_settings_page_start_answers_what_the_server_lacks_before_any_session_starts() {
+    // Decision 81: the start lists the server's models before it places a session, so what
+    // the session's own list request found (and failed it with after the start) is the start's
+    // answer now.
+    let run = start(Platform::Windows, json!({ "SELECTED_TRANSCRIPTION_ENGINE": "Groq_Whisper" }), true);
+    let refused = |change: &dyn Fn(&mut Value)| {
+        let mut value = settings(&run.asr);
+        change(&mut value);
+        run.ui.ok("/set/data/realtime_asr_settings", Some(value));
+        let before = run.ui.ok("/get/data/realtime_asr_state", None)["mic"]["generation"].clone();
+        let answer = run.ui.request("/run/start_realtime_asr", Some(json!({ "source": "mic" })));
+        let state = run.ui.ok("/get/data/realtime_asr_state", None);
+        assert_eq!((state["mic"]["generation"].clone(), state["mic"]["requested"].clone()), (before, json!(false)), "{answer}");
+        (answer["status"].as_u64().unwrap_or(0), answer["result"]["error_code"].as_str().unwrap_or("").to_string())
+    };
+    assert_eq!(refused(&|s| s["model"] = json!("other-model")), (409, "realtime_model_unavailable".into()));
+    assert_eq!(refused(&|s| s["mic"]["language"] = json!("en")), (409, "realtime_language_unsupported".into()));
+    assert_eq!(refused(&|s| s["model"] = json!("")), (400, "realtime_model_invalid".into()));
+    let gone = format!("http://127.0.0.1:{}", common::net::free_port());
+    assert_eq!(refused(&|s| s["base_url"] = json!(gone)), (409, "realtime_models_unavailable".into()));
+    assert!(run.capture.opened().is_empty(), "no device was opened");
+    assert_eq!(run.asr.requested("GET /v1/realtime"), 0, "no session connected");
+
+    // With what the server lists, the session starts on that list alone.
+    run.ui.ok("/set/data/realtime_asr_settings", Some(settings(&run.asr)));
+    let listed = run.asr.requested("GET /v1/models");
+    assert_eq!(run.ui.ok("/run/start_realtime_asr", Some(json!({ "source": "mic" })))["mic"]["requested"], true);
+    eventually("the capture opened", || run.capture.running(Source::Mic) == 1);
+    assert_eq!(run.asr.requested("GET /v1/models"), listed + 1);
     run.ui.stop();
 }
 
