@@ -44,6 +44,17 @@ test("each part carries the data-slot of its shadcn/ui counterpart", () => {
     assert.match(toggle, /<RadixSwitch\.Thumb data-slot="switch-thumb"/);
 });
 
+test("the select is drawn like shadcn/ui's NativeSelect", () => {
+    const css = read("Field.css.ts");
+    // A 1.6rem chevron 1.4rem from the right, over 3.6rem of room.
+    assert.match(css, /right: "1\.4rem",\s*width: "1\.6rem",\s*height: "1\.6rem",\s*marginTop: "-\.8rem"/);
+    assert.match(css, /paddingRight: "3\.6rem"/);
+    // Disabled: the wrapper dims the select and its chevron together, and the select itself
+    // is not dimmed a second time.
+    assert.match(css, /"&:has\(select:disabled\)": \{ opacity: disabledLook\.opacity \}/);
+    assert.match(css, /select: \{[\s\S]*?"&:disabled": \{ opacity: 1 \}/);
+});
+
 test("rows are divided by a hairline, groups by space; only field rows stack when narrow", () => {
     const css = read("Setting.css.ts");
     assert.match(css, /\[`\$\{rows\} > & \+ &`\]: \{ borderTop: `\.1rem solid \$\{vars\.vox_border\}` \}/);
