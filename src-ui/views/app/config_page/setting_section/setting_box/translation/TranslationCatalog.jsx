@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { useI18n } from "@useI18n";
 import { useTranslationCatalog } from "../../../../../../logics/translation/useTranslationCatalog";
-import { ENTRY_NAME_LIMIT, apiRequest, engineRequest, entryState } from "../../../../../../logics/translation/translationCatalog";
+import { ENTRY_NAME_LIMIT, LLAMACPP, LLAMA_DEVICES, apiRequest, engineRequest, entryState } from "../../../../../../logics/translation/translationCatalog";
 import { endpointDescription } from "../../../../../../logics/common/endpointPrivacy";
 import { SectionLabelComponent } from "../_components";
 import { TranslationLlamaRuntimes } from "./TranslationLlamaRuntimes";
@@ -75,7 +75,11 @@ const ShippedCard = ({ group, item }) => {
 };
 
 // The states of an entry that cannot be used as it is, drawn as a problem.
-const PROBLEMS = ["unavailable", "no_key"];
+const PROBLEMS = ["unavailable", "no_server", "no_key"];
+
+// A state's help, worded for a translation LLM's file where that differs from a folder's.
+const stateHelp = (item, state) => state === "unavailable" && item.runtime === LLAMACPP
+    ? "translation_catalog.state_help.unavailable_llamacpp" : `translation_catalog.state_help.${state}`;
 
 // Where an API entry's key is: in the key store, held only until the app closes (the store did
 // not take it, ADR-013), or nowhere.
@@ -99,7 +103,9 @@ const EntryCard = ({ group, item }) => {
         <dl className={styles.facts}>
             {group === "engine" ? <>
                 <div><dt>{t("translation_catalog.fact.runtime")}</dt><dd>{t(`translation_catalog.runtime.${item.runtime}`, { defaultValue: item.runtime })}</dd></div>
-                {item.folder && <div><dt>{t("translation_catalog.fact.folder")}</dt><dd><code>{item.folder}</code></dd></div>}
+                {item.folder && <div><dt>{t(item.runtime === LLAMACPP ? "translation_catalog.fact.file" : "translation_catalog.fact.folder")}</dt><dd><code>{item.folder}</code></dd></div>}
+                {item.runtime === LLAMACPP && item.device && <div><dt>{t("translation_catalog.fact.device")}</dt>
+                    <dd>{t(`translation_catalog.device.${item.device}`, { defaultValue: item.device })}</dd></div>}
                 {!folderModel && <div><dt>{t("translation_catalog.fact.languages")}</dt>
                     <dd>{item.languages?.length ? item.languages.join(", ") : t("translation_catalog.languages_all")}</dd></div>}
             </> : <>
@@ -108,7 +114,7 @@ const EntryCard = ({ group, item }) => {
                 <div><dt>{t("translation_catalog.fact.key")}</dt><dd>{t(keyText(item))}</dd></div>
             </>}
         </dl>
-        {["missing", "unsupported", ...PROBLEMS].includes(state) && <p role="alert">{t(`translation_catalog.state_help.${state}`)}</p>}
+        {["missing", "unsupported", ...PROBLEMS].includes(state) && <p role="alert">{t(stateHelp(item, state))}</p>}
         {group === "api" && item.key_in_memory && <p>{t("translation_catalog.key_memory_help")}</p>}
         {folderModel ? <p>{t("translation_catalog.folder_help")}</p>
             : removing ? <div className={styles.actions} role="group" aria-label={t("translation_catalog.remove_confirm_label", { name: item.name })}>
@@ -152,10 +158,12 @@ const EngineForm = ({ runtimes }) => {
     const { t } = useI18n();
     const { send, pending } = useTranslationCatalog();
     const id = useId();
-    const empty = { name: "", folder: "", runtime: runtimes[0] ?? "onnx", languages: "" };
+    const empty = { name: "", folder: "", runtime: runtimes[0] ?? "onnx", languages: "", device: "auto" };
     const [form, setForm] = useState(empty);
     const [problem, setProblem] = useState(null);
     const busy = !!pending;
+    // A translation LLM is one GGUF file and names its device (ADR-015).
+    const llamacpp = form.runtime === LLAMACPP;
     useClearOnSuccess("engine", () => { setForm(empty); setProblem(null); });
     const set = key => event => setForm(current => ({ ...current, [key]: event.target.value }));
     const submit = () => {
@@ -167,23 +175,29 @@ const EngineForm = ({ runtimes }) => {
     return <details className={styles.more} data-catalog-add="engine">
         <summary>{t("translation_catalog.add.engine")}</summary>
         <div role="group" aria-label={t("translation_catalog.add.engine")} onKeyDown={onEnter(submit, busy)}>
-            <p>{t("translation_catalog.add_help.engine")}</p>
+            <p>{t(llamacpp ? "translation_catalog.add_help.engine_llamacpp" : "translation_catalog.add_help.engine")}</p>
             <p>{t("translation_catalog.terms_help")}</p>
             {runtimes.length === 0 && <p role="alert">{t("translation_catalog.no_runtime")}</p>}
             <label>{t("translation_catalog.field.name")}
                 <input type="text" value={form.name} maxLength={ENTRY_NAME_LIMIT} disabled={busy} spellCheck={false}
                     placeholder={t("translation_catalog.placeholder.engine_name")} onChange={set("name")} />
             </label>
-            <label>{t("translation_catalog.field.folder")}
-                <input type="text" value={form.folder} maxLength={4096} disabled={busy} spellCheck={false}
-                    aria-describedby={problem ? `${id}-problem` : undefined} onChange={set("folder")} />
-            </label>
+            {/* The engine first: it says whether a folder or a file is asked for. */}
             <label>{t("translation_catalog.field.runtime")}
                 <select value={form.runtime} disabled={busy || runtimes.length < 2} onChange={set("runtime")}>
                     {(runtimes.length ? runtimes : ["onnx"]).map(runtime =>
                         <option key={runtime} value={runtime}>{t(`translation_catalog.runtime.${runtime}`, { defaultValue: runtime })}</option>)}
                 </select>
             </label>
+            <label>{t(llamacpp ? "translation_catalog.field.file" : "translation_catalog.field.folder")}
+                <input type="text" value={form.folder} maxLength={4096} disabled={busy} spellCheck={false}
+                    aria-describedby={problem ? `${id}-problem` : undefined} onChange={set("folder")} />
+            </label>
+            {llamacpp && <label>{t("translation_catalog.field.device")}
+                <select value={form.device} disabled={busy} onChange={set("device")}>
+                    {LLAMA_DEVICES.map(device => <option key={device} value={device}>{t(`translation_catalog.device.${device}`)}</option>)}
+                </select>
+            </label>}
             <label>{t("translation_catalog.field.languages")}
                 <input type="text" value={form.languages} maxLength={4096} disabled={busy} spellCheck={false}
                     placeholder={t("translation_catalog.placeholder.languages")} onChange={set("languages")} />

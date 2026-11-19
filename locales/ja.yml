@@ -2240,6 +2240,7 @@ translation_catalog:
         missing: "フォルダーがありません"
         unsupported: "この版では使えません"
         unavailable: "読み込めません"
+        no_server: "llama.cppのサーバーが必要です"
         no_key: "APIキーがありません"
         not_downloaded: "未ダウンロード"
         not_set: "未設定"
@@ -2247,16 +2248,24 @@ translation_catalog:
         missing: "フォルダーが見つかりません。移動したときは項目を削除してから追加し直してください。"
         unsupported: "新しい版のアプリで追加した項目です。この版では使えません。"
         unavailable: "フォルダーのモデルを読み込めないか、示す言語がモデルにありません。理由はログに出ています。"
+        unavailable_llamacpp: "モデルのファイルをGemma 3のGGUFとして読めないか、示す言語がありません。理由はログに出ています。"
+        no_server: "このモデルはllama.cppのサーバーで動きます。先に上でサーバーの版のどちらかを取得してください。"
         no_key: "APIキーをアプリのキーの保管場所に保存できなかったので、アプリを閉じたときにキーがなくなりました。項目を削除して追加し直してください。"
     fact:
         runtime: "推論エンジン"
         folder: "フォルダー"
+        file: "モデルのファイル"
+        device: "機器"
         languages: "言語"
         url: "アドレス"
         model: "モデル"
         key: "APIキー"
     runtime:
         onnx: "ONNX Runtime（M2M100とNLLB-200の形式）"
+        llamacpp: "llama.cpp（TranslateGemmaのGGUFのファイル）"
+    device:
+        auto: "自動（音声認識が使うGPU。なければCPU）"
+        cpu: "CPUだけ"
     protocol:
         openai_compatible: "OpenAI互換のAPI"
     languages_all: "モデルにあるすべての言語"
@@ -2282,6 +2291,7 @@ translation_catalog:
         api: "APIを追加"
     add_help:
         engine: "モデルのあるフォルダーを入れてください。manifest.jsonとONNXのファイルとトークナイザーがあるフォルダーです。フォルダーはコピーも移動もしません。言語を空にするとモデルにあるすべての言語を使えます。"
+        engine_llamacpp: "TranslateGemmaのモデルのGGUFのファイルを入れてください。ファイルはコピーも移動もしません。TranslateGemmaはGemmaの利用規約と禁止用途のポリシーに従い、この条件は使う人にも及びます。会話の流れは送らず、メッセージを1つずつ訳します。言語を空にすると、アプリが名前を付けられるすべての言語を使えます。"
         api: "OpenAI互換のAPIを入れてください。インターネットのサービスでも、お使いのPCやLANの中のサーバーでもかまいません。キーは設定のファイルではなくアプリのキーの保管場所に置きます。使うときは先にアドレスとキーを確かめます。"
     terms_help: "追加したモデルの出どころとライセンスは、このアプリでは確かめていません。利用条件はご自身で確認してください。"
     no_runtime: "このビルドではお使いのPCでモデルを動かせないので、ここにはモデルを追加できません。"
@@ -2289,6 +2299,8 @@ translation_catalog:
     field:
         name: "表示する名前"
         folder: "モデルのフォルダー"
+        file: "モデルのGGUFのファイル"
+        device: "機器"
         runtime: "推論エンジン"
         languages: "言語のコード（省略可）"
         protocol: "APIの種類"
@@ -2305,6 +2317,7 @@ translation_catalog:
         name_missing: "名前を入れてください。"
         name_long: "名前は80文字までです。"
         folder_missing: "モデルのフォルダーを入れてください。"
+        file_missing: "モデルの.ggufのファイルの場所を入れてください。"
         languages_invalid: "jaやeng_Latnのような言語のコードを、コンマか空白で区切って入れてください。"
         url_missing: "アドレスを入れてください。"
         url_invalid: "http://かhttps://で始まるアドレスを入れてください。"
@@ -2342,6 +2355,9 @@ translation_catalog:
         translation_file_missing: "manifest.jsonにあるファイルがフォルダーにありません。"
         translation_bundle_modified: "フォルダーのファイルがmanifest.jsonの記録と違います。"
         translation_languages_unknown: "モデルの言語の名前が分からないか、入れた言語のコードがモデルにありません。"
+        translation_catalog_file_missing: "モデルのファイルが見つからないか、.ggufのファイルではありません。場所を確認してください。"
+        translation_catalog_device_invalid: "機器を選び直してください。"
+        translation_catalog_gguf_invalid: "このファイルは、TranslateGemmaのようなGemma 3のモデルのGGUFではありません。"
 studio:
     toggle_sidebar: "サイドバーを切り替える"
     close_sidebar: "サイドバーを閉じる"

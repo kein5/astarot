@@ -5,8 +5,9 @@
 //!
 //! - **engine**: a model that runs on an inference engine on this PC. The user names the folder
 //!   that holds it, the runtime that reads it (`onnx`: the M2M100 and NLLB-200 folders of
-//!   `native/translate-onnx`) and, if they want, the language codes to offer (none: every
-//!   language the model lists).
+//!   `native/translate-onnx`; `llamacpp`: one GGUF file of a decoder-only translation LLM such as
+//!   TranslateGemma, run by llama.cpp's server, ADR-015) and, if they want, the language codes
+//!   to offer (none: every language the model lists).
 //! - **api**: an API the app calls. The user names the protocol (`openai_compatible`), the
 //!   address (this PC, the LAN or the internet) and the model. The key never comes here: the
 //!   core keeps it in the secret store and this file records only whether the store holds it
@@ -36,8 +37,15 @@ const FORMAT_VERSION: u64 = 1;
 /// The two groups of the translation catalog.
 pub const GROUPS: [&str; 2] = ["engine", "api"];
 /// The runtimes an engine entry may name in this version: the ONNX folders of
-/// `native/translate-onnx` (M2M100 and NLLB-200 architectures).
-pub const RUNTIMES: [&str; 1] = ["onnx"];
+/// `native/translate-onnx` (M2M100 and NLLB-200 architectures), and a GGUF file of a
+/// decoder-only translation LLM (TranslateGemma) that llama.cpp's server runs (`llamacpp`,
+/// ADR-015). A `llamacpp` entry's `folder` is the path of that file, and it may name the device
+/// (`device`: `auto`, `cpu` or a Vulkan device such as `Vulkan1`, as the speech servers do).
+pub const RUNTIMES: [&str; 2] = ["onnx", "llamacpp"];
+/// The runtime whose entry is one GGUF file rather than a folder.
+pub const LLAMACPP: &str = "llamacpp";
+/// The device a `llamacpp` entry runs on when it names none.
+pub const LLAMACPP_DEVICE: &str = "auto";
 /// The protocols an API entry may name in this version.
 pub const PROTOCOLS: [&str; 1] = ["openai_compatible"];
 const PATH_LIMIT: usize = 4096;
@@ -52,6 +60,10 @@ pub mod codes {
     pub const NAME_INVALID: &str = "translation_catalog_name_invalid";
     pub const PATH_INVALID: &str = "translation_catalog_path_invalid";
     pub const FOLDER_MISSING: &str = "translation_catalog_folder_missing";
+    /// A `llamacpp` entry's file is not there, or is not a `.gguf` file.
+    pub const FILE_MISSING: &str = "translation_catalog_file_missing";
+    /// A `llamacpp` entry's device is not `auto`, `cpu` or a Vulkan device.
+    pub const DEVICE_INVALID: &str = "translation_catalog_device_invalid";
     pub const LANGUAGES_INVALID: &str = "translation_catalog_languages_invalid";
     pub const URL_INVALID: &str = "translation_catalog_url_invalid";
     pub const MODEL_INVALID: &str = "translation_catalog_model_invalid";
@@ -99,6 +111,17 @@ fn languages_of(value: &Value) -> Option<Vec<String>> {
     Some(codes)
 }
 
+/// A device a `llamacpp` entry may name: `auto`, `cpu` or `Vulkan<N>` (one or two digits).
+pub fn llamacpp_device(device: &str) -> bool {
+    matches!(device, "auto" | "cpu")
+        || device.strip_prefix("Vulkan").is_some_and(|digits| (1..=2).contains(&digits.len()) && digits.bytes().all(|b| b.is_ascii_digit()))
+}
+
+/// A path that ends in `.gguf`, in any case.
+fn gguf_path(path: &str) -> bool {
+    Path::new(path).extension().is_some_and(|extension| extension.eq_ignore_ascii_case("gguf"))
+}
+
 fn valid_row(row: &Value) -> bool {
     let common = row["id"].as_str().is_some_and(|id| !id.is_empty()) && row["name"].as_str().is_some_and(valid_name);
     common
@@ -107,6 +130,7 @@ fn valid_row(row: &Value) -> bool {
                 row["runtime"].as_str().is_some_and(token)
                     && row["folder"].as_str().is_some_and(plain_path)
                     && languages_of(&row["languages"]).is_some()
+                    && (row.get("device").is_none() || row["device"].as_str().is_some_and(token))
             }
             Some("api") => {
                 row["protocol"].as_str().is_some_and(token)
@@ -118,12 +142,13 @@ fn valid_row(row: &Value) -> bool {
         }
 }
 
-/// `ok`, `missing` (the folder is gone) or `unsupported` (a runtime or protocol this version
-/// does not know).
+/// `ok`, `missing` (the folder, or a `llamacpp` entry's file, is gone) or `unsupported` (a
+/// runtime or protocol this version does not know).
 fn status(row: &Value) -> &'static str {
     match row["group"].as_str() {
         Some("engine") if !RUNTIMES.contains(&row["runtime"].as_str().unwrap_or_default()) => "unsupported",
-        Some("engine") if !row["folder"].as_str().is_some_and(|f| Path::new(f).is_dir()) => "missing",
+        Some("engine") if row["runtime"] == LLAMACPP && !row["folder"].as_str().is_some_and(|f| Path::new(f).is_file()) => "missing",
+        Some("engine") if row["runtime"] != LLAMACPP && !row["folder"].as_str().is_some_and(|f| Path::new(f).is_dir()) => "missing",
         Some("api") if !PROTOCOLS.contains(&row["protocol"].as_str().unwrap_or_default()) => "unsupported",
         _ => "ok",
     }
@@ -197,7 +222,8 @@ impl TranslationCatalog {
 
     /// Checks a request and turns it into the row to store (without id and time).
     ///
-    /// Engine: exactly `{group, name, runtime, folder}` and, optionally, `languages`.
+    /// Engine: exactly `{group, name, runtime, folder}` and, optionally, `languages`; a
+    /// `llamacpp` entry may also name its `device`, and its `folder` is a `.gguf` file.
     /// API: exactly `{group, name, protocol, url, model, key}`, where `key` says whether the
     /// secret store holds a key for it.
     pub fn normalize(request: &Value) -> Result<Value, Error> {
@@ -208,7 +234,9 @@ impl TranslationCatalog {
             required.iter().all(|k| fields.contains_key(*k)) && fields.keys().all(|k| required.contains(&k.as_str()) || optional.contains(&k.as_str()))
         };
         let group = text("group").filter(|g| GROUPS.contains(g)).ok_or(Error::Code(codes::INVALID))?;
+        let llamacpp = text("runtime") == Some(LLAMACPP);
         let shaped = match group {
+            "engine" if llamacpp => has_only(&["group", "name", "runtime", "folder"], &["languages", "device"]),
             "engine" => has_only(&["group", "name", "runtime", "folder"], &["languages"]),
             _ => has_only(&["group", "name", "protocol", "url", "model", "key"], &[]),
         };
@@ -222,14 +250,26 @@ impl TranslationCatalog {
                 return Err(Error::Code(codes::RUNTIME_UNSUPPORTED));
             }
             let folder = text("folder").filter(|f| plain_path(f)).ok_or(Error::Code(codes::PATH_INVALID))?;
-            if !Path::new(folder).is_dir() {
+            if llamacpp {
+                if !gguf_path(folder) || !Path::new(folder).is_file() {
+                    return Err(Error::Code(codes::FILE_MISSING));
+                }
+            } else if !Path::new(folder).is_dir() {
                 return Err(Error::Code(codes::FOLDER_MISSING));
             }
             let languages = match fields.get("languages") {
                 None | Some(Value::Null) => Vec::new(),
                 Some(value) => languages_of(value).ok_or(Error::Code(codes::LANGUAGES_INVALID))?,
             };
-            return Ok(json!({ "group": group, "name": name, "runtime": runtime, "folder": folder, "languages": languages }));
+            let mut row = json!({ "group": group, "name": name, "runtime": runtime, "folder": folder, "languages": languages });
+            if llamacpp {
+                let device = match fields.get("device") {
+                    None | Some(Value::Null) => LLAMACPP_DEVICE,
+                    Some(value) => value.as_str().filter(|d| llamacpp_device(d)).ok_or(Error::Code(codes::DEVICE_INVALID))?,
+                };
+                row["device"] = json!(device);
+            }
+            return Ok(row);
         }
         let protocol = text("protocol").ok_or(Error::Code(codes::INVALID))?;
         if !PROTOCOLS.contains(&protocol) {
@@ -417,6 +457,47 @@ mod tests {
         assert_eq!(catalog.state()["error_code"], codes::UNREADABLE);
         assert_eq!(catalog.add(TranslationCatalog::normalize(&api("x", "https://a")).unwrap()).unwrap_err().to_string(), codes::UNREADABLE);
         assert_eq!(fs::read(dir.path().join(FILE_NAME)).unwrap(), b"{ not json");
+    }
+
+    #[test]
+    fn a_llamacpp_entry_is_one_gguf_file_with_its_device() {
+        let (dir, catalog, folder) = setup();
+        let file = Path::new(&folder).join("translategemma-4b-it.Q4_K_M.GGUF");
+        fs::write(&file, b"GGUF").unwrap();
+        let file = file.to_string_lossy().into_owned();
+        let entry = |extra: Value| {
+            let mut request = json!({ "group": "engine", "name": "TranslateGemma", "runtime": "llamacpp", "folder": file, "languages": ["ja", "en"] });
+            for (key, value) in extra.as_object().unwrap() {
+                request[key] = value.clone();
+            }
+            request
+        };
+        // Without a device, the one the speech servers would take.
+        let row = TranslationCatalog::normalize(&entry(json!({}))).unwrap();
+        assert_eq!(row["device"], "auto");
+        for device in ["cpu", "Vulkan0", "Vulkan12"] {
+            assert_eq!(TranslationCatalog::normalize(&entry(json!({ "device": device }))).unwrap()["device"], device);
+        }
+        for device in [json!("Vulkan"), json!("Vulkan123"), json!("cuda"), json!(1)] {
+            assert_eq!(TranslationCatalog::normalize(&entry(json!({ "device": device }))).unwrap_err().to_string(), codes::DEVICE_INVALID, "{device}");
+        }
+        // The file must be there and be a GGUF file; a folder is not one.
+        for path in [folder.clone(), dir.path().join("gone.gguf").to_string_lossy().into_owned()] {
+            assert_eq!(TranslationCatalog::normalize(&entry(json!({ "folder": path }))).unwrap_err().to_string(), codes::FILE_MISSING);
+        }
+        let other = Path::new(&folder).join("model.bin");
+        fs::write(&other, b"GGUF").unwrap();
+        assert_eq!(TranslationCatalog::normalize(&entry(json!({ "folder": other.to_string_lossy() }))).unwrap_err().to_string(), codes::FILE_MISSING);
+        // An ONNX entry names no device.
+        let onnx = json!({ "group": "engine", "name": "x", "runtime": "onnx", "folder": folder, "device": "cpu" });
+        assert_eq!(TranslationCatalog::normalize(&onnx).unwrap_err().to_string(), codes::INVALID);
+        // Stored, listed and shown missing once the file goes; the same file twice is refused.
+        let (id, state) = catalog.add(row).unwrap();
+        assert_eq!((state["entries"][0]["status"].as_str(), state["entries"][0]["device"].as_str()), (Some("ok"), Some("auto")));
+        assert_eq!(catalog.add(TranslationCatalog::normalize(&entry(json!({ "name": "Again" }))).unwrap()).unwrap_err().to_string(), codes::EXISTS);
+        fs::remove_file(&file).unwrap();
+        assert_eq!(catalog.state()["entries"][0]["status"], "missing");
+        assert_eq!(catalog.entry(&id).unwrap()["runtime"], LLAMACPP);
     }
 
     #[test]

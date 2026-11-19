@@ -17,8 +17,13 @@ export type EngineItem = {
     available: boolean;
     in_use: boolean;
     non_commercial?: boolean;
+    // The model's folder, or for the `llamacpp` runtime its GGUF file.
     folder?: string;
     languages?: string[];
+    // `llamacpp`: the device (`auto`, `cpu` or a Vulkan device) and whether llama.cpp's server
+    // is set up.
+    device?: string;
+    server_ready?: boolean;
     status?: EntryStatus;
 };
 
@@ -53,7 +58,13 @@ const URL_LIMIT = 2048;
 const MODEL_LIMIT = 200;
 const LANGUAGE_CODE = /^[A-Za-z0-9_-]{1,32}$/;
 
-export type EngineForm = { name: string; folder: string; runtime: string; languages: string };
+// The runtime of a translation LLM (TranslateGemma) on llama.cpp's server (ADR-015): one GGUF
+// file instead of a folder, and the device to run it on.
+export const LLAMACPP = "llamacpp";
+// The devices the form offers; the backend also takes a Vulkan device by name (`Vulkan1`).
+export const LLAMA_DEVICES = ["auto", "cpu"] as const;
+
+export type EngineForm = { name: string; folder: string; runtime: string; languages: string; device?: string };
 export type ApiForm = { name: string; url: string; model: string; auth_key: string; protocol: string };
 type Checked<T> = { request: T } | { problem: string };
 
@@ -70,15 +81,23 @@ export const languageCodes = (text: string): string[] | null => {
     return codes.every(code => LANGUAGE_CODE.test(code)) ? codes : null;
 };
 
-// The request for /run/register_translation_catalog_entry of an engine entry.
-export function engineRequest(form: EngineForm): Checked<{ group: "engine"; name: string; runtime: string; folder: string; languages: string[] }> {
+type EngineRequest = { group: "engine"; name: string; runtime: string; folder: string; languages: string[]; device?: string };
+
+// The request for /run/register_translation_catalog_entry of an engine entry. A `llamacpp`
+// entry names a .gguf file and its device.
+export function engineRequest(form: EngineForm): Checked<EngineRequest> {
     const name = checkName(form.name);
     if (typeof name !== "string") return name;
+    const runtime = form.runtime || "onnx";
+    const llamacpp = runtime === LLAMACPP;
     const folder = cleanPath(form.folder);
-    if (!folder) return { problem: "folder_missing" };
+    if (!folder) return { problem: llamacpp ? "file_missing" : "folder_missing" };
+    if (llamacpp && !/\.gguf$/i.test(folder)) return { problem: "file_missing" };
     const languages = languageCodes(form.languages);
     if (!languages) return { problem: "languages_invalid" };
-    return { request: { group: "engine", name, runtime: form.runtime || "onnx", folder, languages } };
+    const request: EngineRequest = { group: "engine", name, runtime, folder, languages };
+    if (llamacpp) request.device = form.device || "auto";
+    return { request };
 }
 
 // The request for /run/register_translation_catalog_entry of an API entry. The key goes to
@@ -109,9 +128,11 @@ export function weightLabel(weight: string, catalog: TranslationCatalog | null |
 
 // What an entry's card says, in order: a problem first, then whether it is in use. An API
 // entry whose key the store never took has no key once the app was closed ("no_key").
-export function entryState(item: EngineItem | ApiItem): "unsupported" | "missing" | "unavailable" | "no_key" | "in_use" | "ready" {
+// A translation LLM whose file is fine but whose llama.cpp server is not set up yet is
+// "no_server": the server is fetched apart.
+export function entryState(item: EngineItem | ApiItem): "unsupported" | "missing" | "unavailable" | "no_server" | "no_key" | "in_use" | "ready" {
     if (item.status === "unsupported" || item.status === "missing") return item.status;
-    if ("weight" in item && item.origin === "user" && !item.available) return "unavailable";
+    if ("weight" in item && item.origin === "user" && !item.available) return item.runtime === LLAMACPP && item.server_ready === false ? "no_server" : "unavailable";
     if ("has_key" in item && item.origin === "user" && item.has_key === false && !item.key_in_memory) return "no_key";
     return item.in_use ? "in_use" : "ready";
 }

@@ -92,15 +92,21 @@ def ui(tmp_path):
         page.set_default_timeout(5000)
         page.set_default_navigation_timeout(60000)
         peer = SimpleNamespace(sent=[], replies=[], errors=[], entries=[], refuse=None, sequence=0, key_store_works=True,
-                               selected=WEIGHTS[0], weights={weight: False for weight in WEIGHTS}, models=[])
+                               selected=WEIGHTS[0], weights={weight: False for weight in WEIGHTS}, models=[],
+                               runtimes=["onnx"], vc_runtimes=[], server_ready=False)
         page.on("pageerror", lambda error: peer.errors.append(str(error)))
 
+        def engine_item(e):
+            item = dict(e, origin="user", weight=f"user:{e['id']}", available=True, in_use=e.get("in_use", False))
+            if e.get("runtime") == "llamacpp":
+                # A translation LLM runs only once llama.cpp's server is set up (ADR-015).
+                item.update(available=peer.server_ready, server_ready=peer.server_ready)
+            return item
+
         def catalog():
-            engine = copy.deepcopy(BUILTIN_ENGINE) + [
-                dict(e, origin="user", weight=f"user:{e['id']}", available=True,
-                     in_use=e.get("in_use", False)) for e in peer.entries if e["group"] == "engine"]
+            engine = copy.deepcopy(BUILTIN_ENGINE) + [engine_item(e) for e in peer.entries if e["group"] == "engine"]
             api = copy.deepcopy(BUILTIN_API) + [dict(e, origin="user") for e in peer.entries if e["group"] == "api"]
-            return dict(engine=engine, api=api, runtimes=["onnx"], protocols=["openai_compatible"])
+            return dict(engine=engine, api=api, runtimes=peer.runtimes, protocols=["openai_compatible"])
 
         def reply(endpoint, result, status=200):
             peer.replies.append(dict(endpoint=endpoint, result=result, status=status))
@@ -145,6 +151,12 @@ def ui(tmp_path):
                 reply(ep, dict(observation_id=str(peer.sequence), jobs={}, downloaded={}))
             elif ep == "/get/data/user_models":
                 reply(ep, dict(models=[]))
+            # llama.cpp's server, offered by the runtime setup (ADR-015).
+            elif ep == "/get/data/vc_runtime_catalog":
+                reply(ep, dict(runtimes=peer.vc_runtimes))
+            elif ep == "/get/data/vc_runtime_state":
+                peer.sequence += 1
+                reply(ep, dict(observation_id=str(peer.sequence), jobs={}, installed={}))
             elif ep == "/run/start_model_download":
                 peer.sequence += 1
                 job = dict(job_id="job-1", phase="queued", received_bytes=0, total_bytes=1, paths={}, error_code=None)
@@ -206,6 +218,63 @@ def test_an_engine_entry_is_added_used_and_removed_with_a_confirmation(ui):
     expect(card.get_by_role("button", name="Remove")).to_be_disabled()
     # A switch reads back the local weights and the compatible engine the settings show.
     assert ("/get/data/selectable_ctranslate2_weight_type_dict", None) in peer.sent
+
+
+def llama_runtime(runtime_id, name, notice, download):
+    """A row of llama.cpp's server as the runtime setup lists it (vc_runtime_catalog)."""
+    return dict(id=runtime_id, name=name, version="0123456789abcdef", license="MIT, Apache-2.0 WITH LLVM-exception",
+                licenses=["https://github.com/ggml-org/llama.cpp/blob/b12125/LICENSE"], notice=notice,
+                download_bytes=download, disk_bytes=140_000_000, destination=f"C:\\State\\vc_runtimes\\{runtime_id}",
+                gpu_ready=False, requires_gpu=False, device="vulkan" if "vulkan" in runtime_id else "cpu")
+
+
+def test_a_translation_llm_is_a_gguf_file_that_waits_for_llama_cpps_server(ui):
+    """ADR-015: llama.cpp's server is offered beside the models and fetched only after its
+    review; a TranslateGemma entry is one .gguf file with its device, and cannot be used before
+    the server is set up."""
+    from playwright.sync_api import expect
+
+    page, peer = ui
+    peer.runtimes = ["onnx", "llamacpp"]
+    peer.vc_runtimes = [llama_runtime("rvc", "RVC", "rvc_cpu", 1), llama_runtime("llamacpp-vulkan", "llama.cpp · Vulkan", "llamacpp_vulkan", 37_683_656),
+                        llama_runtime("llamacpp-cpu", "llama.cpp · CPU", "llamacpp_cpu", 24_730_921)]
+    page.reload()
+    servers = page.get_by_role("group", name="llama.cpp's server for translation LLMs")
+    expect(servers.get_by_text("llama.cpp · Vulkan runtime", exact=True)).to_be_visible()
+    expect(servers.get_by_text("llama.cpp · CPU runtime", exact=True)).to_be_visible()
+    expect(servers.get_by_text("RVC runtime")).to_have_count(0)
+    servers.get_by_role("button", name="Review download").first.click()
+    dialog = page.get_by_role("dialog")
+    expect(dialog).to_contain_text("release b12125")
+    expect(dialog.get_by_role("link", name="https://github.com/ggml-org/llama.cpp/blob/b12125/LICENSE")).to_be_visible()
+    expect(dialog.get_by_role("button", name="Agree and download")).to_be_disabled()
+    dialog.get_by_role("button", name="Back").click()
+    assert sent(peer, "/run/start_vc_runtime_setup") == []
+
+    form = page.locator("[data-catalog-add=engine]")
+    form.locator("summary").click()
+    form.get_by_label("Inference engine").select_option("llamacpp")
+    expect(form.get_by_text("Enter the GGUF file of a TranslateGemma model.", exact=False)).to_be_visible()
+    expect(form.get_by_label("Folder of the model")).to_have_count(0)
+    form.get_by_label("Display name").fill("TranslateGemma 4B")
+    form.get_by_label("GGUF file of the model").fill("C:\\Models\\translategemma")
+    form.get_by_role("button", name="Add").click()
+    expect(form.get_by_text("Enter the path of the model's .gguf file.")).to_be_visible()
+    assert sent(peer, "/run/register_translation_catalog_entry") == []
+    form.get_by_label("GGUF file of the model").fill('"C:\\Models\\translategemma-4b-it.Q4_K_M.gguf"')
+    form.get_by_label("Device").select_option("cpu")
+    form.get_by_role("button", name="Add").click()
+    card = page.get_by_role("group", name="TranslateGemma 4B", exact=True)
+    expect(card).to_be_visible()
+    assert sent(peer, "/run/register_translation_catalog_entry") == [
+        dict(group="engine", name="TranslateGemma 4B", runtime="llamacpp", folder="C:\\Models\\translategemma-4b-it.Q4_K_M.gguf",
+             languages=[], device="cpu")]
+    expect(card.get_by_text("Model file")).to_be_visible()
+    expect(card.get_by_text("CPU only")).to_be_visible()
+    expect(card.get_by_text("Needs llama.cpp's server")).to_be_visible()
+    expect(card.get_by_role("alert")).to_contain_text("Fetch one of its builds above first.")
+    expect(card.get_by_role("button", name="Use for translation on your PC")).to_be_disabled()
+    assert sent(peer, "/run/use_translation_catalog_entry") == []
 
 
 def test_an_api_entry_sends_its_key_once_and_shows_only_that_it_is_kept(ui):

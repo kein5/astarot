@@ -65,14 +65,21 @@ fn key_entry(id: &str) -> String {
     format!("TRANSLATION_CATALOG/{id}")
 }
 
-/// The runtimes this build can run: `onnx` with the `onnx-translation` feature.
+/// The runtimes this build can run: `onnx` with the `onnx-translation` feature, and `llamacpp`
+/// where llama.cpp's server can be set up (Windows and Linux on x86-64, ADR-015).
 fn runtimes() -> Vec<&'static str> {
-    if cfg!(feature = "onnx-translation") { catalog::RUNTIMES.to_vec() } else { Vec::new() }
+    catalog::RUNTIMES
+        .into_iter()
+        .filter(|runtime| if *runtime == catalog::LLAMACPP { super::translation_llama::offered() } else { cfg!(feature = "onnx-translation") })
+        .collect()
 }
 
 /// Checks an engine entry's folder before it is added (`onnx`: the folder holds a model with a
-/// language the entry offers).
+/// language the entry offers; `llamacpp`: the file is a Gemma 3 GGUF file).
 fn inspect_engine(row: &Value) -> Result<(), &'static str> {
+    if row["runtime"] == catalog::LLAMACPP {
+        return super::translation_llama::inspect(row);
+    }
     #[cfg(feature = "onnx-translation")]
     {
         let folder = std::path::Path::new(row["folder"].as_str().unwrap_or_default());
@@ -121,6 +128,8 @@ impl Core {
                 })
             })
             .collect();
+        // A translation LLM also needs llama.cpp's server, which the user sets up apart.
+        let servers = !super::translation_llama::servers(config.environment()).is_empty();
         for entry in entries.iter().filter(|e| e["group"] == "engine") {
             let weight = entry_weight(entry["id"].as_str().unwrap_or_default());
             let mut item = entry.as_object().cloned().unwrap_or_default();
@@ -128,6 +137,9 @@ impl Core {
             item.insert("available".into(), json!(present[&weight] == true));
             item.insert("in_use".into(), json!(weight == selected));
             item.insert("weight".into(), json!(weight));
+            if entry["runtime"] == catalog::LLAMACPP {
+                item.insert("server_ready".into(), json!(servers));
+            }
             engine.push(Value::Object(item));
         }
 
@@ -322,7 +334,12 @@ impl Core {
 }
 
 pub(crate) fn add(b: &mut Builder<'_>) {
-    b.with("/get/data/translation_catalog", OPEN, |core, _| ok(core.translation_catalog_view()));
+    // Asked again when the page opens and after llama.cpp's server was set up: which entries can
+    // run follows the files and the server, so the list is found again first.
+    b.with("/get/data/translation_catalog", OPEN, |core, _| {
+        core.refresh_translation_weights();
+        ok(core.translation_catalog_view())
+    });
     b.with("/run/register_translation_catalog_entry", WAIT, |core, data| core.register_translation_entry(data));
     b.with("/run/remove_translation_catalog_entry", WAIT, |core, data| core.remove_translation_entry(data));
     b.with("/run/use_translation_catalog_entry", WAIT, |core, data| core.use_translation_entry(data));

@@ -104,5 +104,13 @@ path = "tests/fixture/fake_rvc_worker.rs"
 test = false
 doc = false
 
+# A stand-in for llama.cpp's llama-server that tests/translation_llama.rs starts: the same file
+# as vrct-speech-server's. Never part of an application build.
+[[bin]]
+name = "fake-llama-core"
+path = "../speech-server/tests/fixture/fake_llama.rs"
+test = false
+doc = false
+
 # This crate is not part of any workspace (the application crate lives in src-tauri).
 [workspace]

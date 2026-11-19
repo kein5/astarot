@@ -2240,6 +2240,7 @@ translation_catalog:
         missing: "Folder not found"
         unsupported: "Not supported by this version"
         unavailable: "Cannot be read"
+        no_server: "Needs llama.cpp's server"
         no_key: "No API key"
         not_downloaded: "Not downloaded"
         not_set: "Not set up"
@@ -2247,16 +2248,24 @@ translation_catalog:
         missing: "The folder cannot be found. If you moved it, remove the entry and add it again."
         unsupported: "This entry was added with a newer version of the app. This version cannot use it."
         unavailable: "The model in the folder cannot be read, or none of its languages are offered. The log names the reason."
+        unavailable_llamacpp: "The model file cannot be read as a Gemma 3 GGUF file, or none of its languages are offered. The log names the reason."
+        no_server: "This model runs on llama.cpp's server. Fetch one of its builds above first."
         no_key: "The API key could not be saved in the app's key store, so it was lost when the app closed. Remove the entry and add it again."
     fact:
         runtime: "Inference engine"
         folder: "Folder"
+        file: "Model file"
+        device: "Device"
         languages: "Languages"
         url: "Address"
         model: "Model"
         key: "API key"
     runtime:
         onnx: "ONNX Runtime (M2M100 and NLLB-200 format)"
+        llamacpp: "llama.cpp (TranslateGemma GGUF file)"
+    device:
+        auto: "Automatic (the GPU speech recognition would use, else the CPU)"
+        cpu: "CPU only"
     protocol:
         openai_compatible: "OpenAI-compatible API"
     languages_all: "Every language the model has"
@@ -2282,6 +2291,7 @@ translation_catalog:
         api: "Add an API"
     add_help:
         engine: "Enter the folder that holds the model (manifest.json, the ONNX files and the tokenizer). The folder is not copied or moved. Leave the languages empty to offer every language the model has."
+        engine_llamacpp: "Enter the GGUF file of a TranslateGemma model. The file is not copied or moved. TranslateGemma is under the Gemma Terms of Use and the Prohibited Use Policy, which also apply to you. It translates one message at a time, without the conversation before it. Leave the languages empty to offer every language the app can name for it."
         api: "Enter an OpenAI-compatible API: a service on the internet, or a server on your PC or your local network. The key is kept in the app's key store, not in the settings file. Using the entry checks the address and the key first."
     terms_help: "This app has not checked where a model you add comes from or its license. Check its terms yourself."
     no_runtime: "This build cannot run models on your PC, so models cannot be added here."
@@ -2289,6 +2299,8 @@ translation_catalog:
     field:
         name: "Display name"
         folder: "Folder of the model"
+        file: "GGUF file of the model"
+        device: "Device"
         runtime: "Inference engine"
         languages: "Language codes (optional)"
         protocol: "Kind of API"
@@ -2305,6 +2317,7 @@ translation_catalog:
         name_missing: "Enter a name."
         name_long: "Names can be up to 80 characters."
         folder_missing: "Enter the folder of the model."
+        file_missing: "Enter the path of the model's .gguf file."
         languages_invalid: "Enter language codes such as ja or eng_Latn, separated by commas or spaces."
         url_missing: "Enter the address."
         url_invalid: "Enter an address that starts with http:// or https://."
@@ -2342,6 +2355,9 @@ translation_catalog:
         translation_file_missing: "A file that manifest.json lists is not in the folder."
         translation_bundle_modified: "A file in the folder differs from what manifest.json records."
         translation_languages_unknown: "None of the model's languages can be named, or none of the codes you entered is in the model."
+        translation_catalog_file_missing: "The model file cannot be found, or it is not a .gguf file. Check the path."
+        translation_catalog_device_invalid: "Choose the device again."
+        translation_catalog_gguf_invalid: "This file is not a GGUF file of a Gemma 3 model such as TranslateGemma."
 studio:
     toggle_sidebar: "Toggle sidebar"
     close_sidebar: "Close the sidebar"

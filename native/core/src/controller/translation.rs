@@ -95,6 +95,8 @@ pub trait LocalTranslation: Send + Sync {
     }
     /// Finds the user's models again: the translation catalog changed (#413).
     fn refresh(&self) {}
+    /// Drops the loaded model: another kind of model is about to load (ADR-015).
+    fn unload(&self) {}
 }
 
 /// No local translation in this build: nothing loads.
@@ -117,44 +119,41 @@ impl LocalTranslation for NoLocalTranslation {
 /// Makes the local translation for a run (`Services::local_translation`).
 pub type LocalTranslationSource = Arc<dyn Fn(&crate::config::Environment) -> Arc<dyn LocalTranslation> + Send + Sync>;
 
-/// The default: ONNX Runtime with the `onnx-translation` feature, else none.
+/// The default: ONNX Runtime with the `onnx-translation` feature, else none; in front of it,
+/// llama.cpp's server for the translation LLMs the user added (ADR-015).
 pub fn default_local_translation(env: &crate::config::Environment) -> Arc<dyn LocalTranslation> {
     #[cfg(feature = "onnx-translation")]
-    {
-        Arc::new(super::translation_onnx::OnnxTranslation::new(env))
-    }
+    let inner: Arc<dyn LocalTranslation> = Arc::new(super::translation_onnx::OnnxTranslation::new(env));
     #[cfg(not(feature = "onnx-translation"))]
-    {
-        let _ = env;
-        Arc::new(NoLocalTranslation)
-    }
+    let inner: Arc<dyn LocalTranslation> = Arc::new(NoLocalTranslation);
+    Arc::new(super::translation_llama::Routed::new(env, inner))
 }
 
-/// Whether a weight's local model is on this PC (`Services::translation_weight_available`).
+/// Whether a weight's local model is on this PC (`Services::translation_weight_available`):
+/// for a translation LLM, also whether llama.cpp's server is set up.
 pub fn default_weight_available(env: &crate::config::Environment, weight: &str) -> bool {
+    if super::translation_llama::weight_available(env, weight) {
+        return true;
+    }
     #[cfg(feature = "onnx-translation")]
     {
         super::translation_onnx::weight_available(env, weight)
     }
     #[cfg(not(feature = "onnx-translation"))]
     {
-        let _ = (env, weight);
         false
     }
 }
 
 /// The weights the settings may name (`SELECTABLE_CTRANSLATE2_WEIGHT_TYPE_LIST`): the built-in
-/// ones, then the models the user added (`custom:<folder>`).
+/// ones, then the models the user added (`custom:<folder>`, `user:<id>`).
 pub fn weight_ids(env: &crate::config::Environment) -> Vec<String> {
     #[cfg(feature = "onnx-translation")]
-    {
-        super::translation_onnx::weight_ids(env)
-    }
+    let mut ids = super::translation_onnx::weight_ids(env);
     #[cfg(not(feature = "onnx-translation"))]
-    {
-        let _ = env;
-        crate::languages::TRANSLATION_WEIGHTS.iter().map(|w| w.to_string()).collect()
-    }
+    let mut ids: Vec<String> = crate::languages::TRANSLATION_WEIGHTS.iter().map(|w| w.to_string()).collect();
+    ids.extend(super::translation_llama::weight_ids(env));
+    ids
 }
 
 /// The translation compute devices for [`crate::config::Environment::compute_devices`]: the
@@ -195,16 +194,15 @@ pub fn with_gpu_builds(devices: Vec<Value>, state_dir: &std::path::Path) -> Vec<
 /// engine entries of the translation catalog that were refused (by id).
 pub fn refused_models(env: &crate::config::Environment) -> Vec<(String, &'static str)> {
     #[cfg(feature = "onnx-translation")]
-    {
+    let mut refused = {
         let mut refused = super::translation_onnx::discover(&env.data_dir).1;
         refused.extend(super::translation_onnx::registered(env).1);
         refused
-    }
+    };
     #[cfg(not(feature = "onnx-translation"))]
-    {
-        let _ = env;
-        Vec::new()
-    }
+    let mut refused = Vec::new();
+    refused.extend(super::translation_llama::registered(env).1);
+    refused
 }
 
 // ------------------------------------------------------------------------- the providers

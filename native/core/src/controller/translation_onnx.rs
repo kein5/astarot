@@ -426,6 +426,10 @@ impl LocalTranslation for OnnxTranslation {
         *self.custom.lock().unwrap() = every_custom(&self.env);
     }
 
+    fn unload(&self) {
+        *self.loaded.lock().unwrap() = None;
+    }
+
     fn translate(&self, text: &str, source: &str, target: &str) -> Result<String, LocalError> {
         let mut loaded = self.loaded.lock().unwrap();
         let loaded = loaded.as_mut().ok_or(LocalError::Failed)?;
