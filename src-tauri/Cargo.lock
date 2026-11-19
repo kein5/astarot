@@ -5793,6 +5793,7 @@ dependencies = [
 name = "vrct-ops"
 version = "0.0.0"
 dependencies = [
+ "app-identity",
  "chrono",
  "httparse",
  "libc",
