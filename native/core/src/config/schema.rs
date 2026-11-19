@@ -755,7 +755,7 @@ pub fn defaults(env: &Environment) -> Map<String, Value> {
         target.insert(tab.into(), json!({ "1": target_slot("1"), "2": target_slot("2"), "3": target_slot("3") }));
         selected_engines.insert(tab.into(), json!("CTranslate2"));
     }
-    // The built-in weights, then the models the user added (`custom:<folder>`).
+    // The built-in weights, then the engine entries the user added (`user:<id>`).
     let weights = crate::controller::translation::weight_ids(env);
     let weight_dict: Map<String, Value> = weights.iter().map(|w| (w.clone(), json!(false))).collect();
     let engine_status: Map<String, Value> = engines.iter().map(|e| (e.clone(), json!(false))).collect();
