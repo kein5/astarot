@@ -51,7 +51,7 @@ shadcn/ui は `input` を枠にも、薄めた塗りにも使います。アプ�
 | 状態 | ASTAROT | shadcn/ui | 扱い |
 |---|---|---|---|
 | フォーカス | `--vox_focus` の `.2rem` の outline。kit は外に `.2rem` 離す。部品によって `.1rem`〜`.3rem` 離すもの、内側に引くもの（レール）がある | 枠が `ring` になり、外に 3px の `ring` の 50% の影が付く（離さない） | 判断（D-06）。50% の輪が地に対して 3:1 に届くか（`brandPalette.test.js` の基準）を確かめてから決める。離す量の不ぞろいは D-06 のあとでそろえる |
-| 値が正しくない | kit の `TextField` は `invalid` で `aria-invalid` を付け、枠を `--vox_state_failed` にする | `aria-invalid` で枠が `destructive` になる。フォーカス中は輪も赤みを帯びる | 寄せる。`aria-invalid` を見て描く形にする（kit は属性を既に付けている） |
+| 値が正しくない | kit の `TextField` と `Select` は `invalid` で `aria-invalid` を付け、`[aria-invalid='true']` で枠を `--vox_state_failed` にする | `aria-invalid` で枠が `destructive` になる。フォーカス中は輪も赤みを帯びる | 枠は一致。フォーカス中の輪は D-06 |
 | 使えない | kit は不透明度 .55、フォームのボタンは .6、チェックボックスは灰色にする filter | 不透明度 .5。ボタンは `pointer-events: none` | 不透明度は .5 に寄せる。`pointer-events: none` は判断（D-07）。使えないスイッチや機能のボタンがツールチップで理由を示す規則（DESIGN.md「Layout」）とぶつかる |
 | ホバーと押下 | 部品ごとに `dark_*` と `primary_*` の段を選ぶ | `accent` の塗り、または `primary/90` のように同じ色を薄める | 判断（D-08）。不透明度で薄める作り方は、明度だけを変えるアプリの色の作り方（DESIGN.md「Colors」）と違う |
 | 開閉の動き | `--vox_motion`（220ms）と `--vox_ease_settle`。一覧は欄から落ちて落ち着き、行が続いて現れる | `fade-in`、`zoom-in-95`、出る向きからの slide-in | 判断（D-09）。DESIGN.md の「Motion」が一覧の開き方を決めている |
@@ -100,20 +100,44 @@ shadcn/ui は `input` を枠にも、薄めた塗りにも使います。アプ�
 | フォーカス | kit は輪と `primary_600` の枠。`_Entry` は全体の輪だけで、使っている間は `primary_400` の枠 | 枠が `ring`、3px の輪 | D-06 |
 | 文字 | 1.4rem | `text-base`（1.6rem）、幅 768px 以上で `text-sm`（1.4rem） | 残す（1.4rem。`text-base` はスマートフォンでの拡大を避けるためのもの） |
 | textarea の高さ | フォームは最小 8rem、縦に伸ばせる（`resize: vertical`） | `field-sizing: content` で中身に合わせて伸びる | 判断（D-13）。`field-sizing` は Baseline Widely available ではない |
-| 構造 | kit は `TextField` と `Select` が `Field.css.ts` を分け合う。textarea はない | `input.tsx`、`textarea.tsx`、`select.tsx` が別 | kit に `Textarea` を足すときは別の部品にする（寄せる） |
+| 構造 | kit は `TextField` と `Select` が `Field.css.ts` を分け合う。textarea はない | `input.tsx`、`textarea.tsx`、`native-select.tsx` が別 | kit に `Textarea` を足すときは別の部品にする（寄せる） |
 
 ### Select
 
 アプリ: kit の `Select`（ネイティブの `<select>`）、設定の行で主に使う自作の combobox の `_DropdownMenu`、フォームのネイティブの `select`（WebView2 では `appearance: base-select`）、VR パネルの `Picker`。
 
-| 観点 | ASTAROT | shadcn/ui | 扱い |
+shadcn/ui には、Radix の Select と、ネイティブの `<select>` を包む NativeSelect の2つがあります。kit の `Select` は NativeSelect に当たります。
+
+| 観点 | kit の `Select` | NativeSelect | 扱い |
 |---|---|---|---|
-| 土台 | ネイティブの `<select>`、または自作の ARIA combobox | Radix Select（Trigger、Content、Item、Group、Label、Separator、ScrollUpButton、ScrollDownButton） | 判断（D-14）。Radix Select は実行時に `<style>` を差し込むので、CSP の更新が要る（#452 で確認）。開いた一覧の操作も、OS と VR パネルのポインタで変わる |
+| 土台 | ネイティブの `<select>` を `span` で包み、SVG のシェブロンを重ねる | ネイティブの `<select>` を `div` で包み、lucide のシェブロンを重ねる | 一致。アイコンは D-11 |
+| `data-slot` | なし | `native-select-wrapper`、`native-select`、`native-select-icon`、`native-select-option`、`native-select-optgroup` | 寄せる |
+| size | なし（4rem） | `size`: default（3.6rem）、sm（3.2rem） | D-03 と D-10 に含める（kit のボタンは 3.2rem の大きさを `compact` と呼んでいる） |
+| 右の余白とシェブロン | 右の余白は 3.6rem。シェブロンは 1.2rem で右から 1.2rem、`--vox_secondary_text` | 右の余白は `pr-9`（3.6rem）。シェブロンは `size-4`（1.6rem）で右から 1.4rem、`muted-foreground` の 50% | 余白は一致。シェブロンの大きさと位置は寄せる。色は D-02 |
+| 使えない | 選択欄だけを薄くする（シェブロンは薄くならない） | 包む要素ごと不透明度 .5 | 寄せる |
+| 幅 | 列いっぱい（`width: 100%`） | `w-fit` | 残す（DESIGN.md の欄の幅の規則、#567） |
+| 一覧の行の色 | `option` の地を `--vox_surface` にする | `bg-[Canvas] text-[CanvasText]`（システムの色） | 残す（一覧は欄と同じ面に開く。DESIGN.md「Components」） |
+
+設定の行の `_DropdownMenu` と Radix Select の差は次のとおりです。
+
+| 観点 | `_DropdownMenu` | Radix Select | 扱い |
+|---|---|---|---|
+| 土台 | 自作の ARIA combobox | Radix Select（Trigger、Content、Item、Group、Label、Separator、ScrollUpButton、ScrollDownButton） | 判断（D-14）。Radix Select は実行時に `<style>` を差し込むので、CSP の更新が要る（#452 で確認）。開いた一覧の操作も、OS と VR パネルのポインタで変わる |
 | props | `_DropdownMenu` は `dropdown_id`、`list`（id から名前）、`selected_id`、`selectFunction`、`state`（読み込み中）、`is_disabled`、`label`、`secondary_label` | `value`、`onValueChange`、子の `SelectItem`、Trigger の `size` | D-14 に含める（props を寄せると、呼ぶ側がすべて変わる） |
 | 開いている数 | 1つだけ（`dropdown_id` を atom に持つ） | Radix が管理する | D-14 に含める |
 | トリガー | 4rem、余白 `.9rem 1.2rem`、`--vox_surface`、`--vox_field_border`、8px。ホバーで枠が `dark_500`、押下で `dark_900` | `h-9`（`sm` は `h-8`）、`px-3 py-2`、透明、`input` の枠、8px、`w-fit`。明るい配色ではホバーなし | 高さは D-03、色は D-02 |
 | 一覧 | `--vox_surface`、`dark_600` の枠、8px、`--vox_shadow_overlay`、余白 .4rem、高さは最大 20rem。下に入らなければ上に開く | `popover`、`border`、8px、`shadow-md`。Viewport の余白は `p-1`（.4rem） | 余白は一致。影は D-05 |
 | 行 | 余白 `.8rem 1.2rem`、4px。ホバーとキーボードで `dark_800`。選んだ行は `dark_900` の塗りと太い `primary_200` の文字 | `px-2 py-1.5`（.8rem、.6rem）、`rounded-sm`（6px）、`focus:bg-accent`。選んだ行は右にチェック | 判断（D-15）。角丸は D-04 |
+
+### Combobox、Command、InputGroup
+
+アプリ: 設定の検索（`SearchBar`。`role="combobox"` で結果の一覧を出し、一致した語を強調する。結果にはタブと前提の印が付く）と、言語の一覧の絞り込み（`LanguageSelector` の `type=search` の欄。Enter で最初の候補を選ぶ）。どちらも自作です。
+
+| 観点 | ASTAROT | shadcn/ui | 扱い |
+|---|---|---|---|
+| 土台 | 自作の ARIA combobox | Combobox は Base UI（`@base-ui/react`）、Command は cmdk で書かれている。new-york-v4 には、どちらも Radix で書いたものがない | 判断（D-36）。DESIGN.md は Radix で書いたものを読むとしているが、この2つにはそれがない |
+| 検索欄の枠 | 外側の要素が 4rem の枠（`dark_875`、`dark_750` の枠、8px）を持ち、中の入力欄は枠なし。虫眼鏡のアイコンと消すボタン（✕）がある。中にフォーカスがあると枠が `primary_400` | InputGroup（`h-9`、`input` の枠。中の入力欄にフォーカスがあると輪が付く。アイコンやボタンは `InputGroupAddon` で左右に置く） | 形は一致。`data-slot` と、塗りと枠のトークン（D-02）は寄せる。高さは D-03、輪は D-06 |
+| 結果の一覧 | `dark_900`、`dark_750` の枠、8px、影。行はホバー中と選択中に `dark_800` | Command の一覧は `popover`。行は `px-2 py-1.5`、`rounded-sm`、選択中は `accent`。見出しは `text-xs` の `muted-foreground` | 地を `--vox_surface` にするのは寄せる。選択中の `dark_800` は `accent`（`--vox_secondary_hover`）と同じ値。角丸は D-04 |
 
 ### Checkbox
 
@@ -148,7 +172,7 @@ shadcn/ui は `input` を枠にも、薄めた塗りにも使います。アプ�
 | 大きさ | kit は 4.4×2.4rem、つまみ 1.8rem。`ToggleSwitch` は 4×1.6rem（メインの機能では 3.6×1.4rem） | default は 3.2×1.84rem（`w-8 h-[1.15rem]`）、つまみ 1.6rem。`sm` は 2.4×1.4rem | D-17 |
 | 溝の縁 | オフは `dark_850` に `--vox_field_border` の縁 | 縁なし。オフは `input`（暗い配色では 80%） | 判断（D-18）。DESIGN.md は溝の縁を `field-border` にして 3:1 を満たしている |
 | オンとつまみ | オンは `primary_600`。つまみは `dark_300`、オンで Dark Plum | オンは `primary`。つまみは暗い配色で、オフが `foreground`、オンが `primary-foreground` | オンの色とオンのつまみは一致。オフのつまみは D-02 |
-| size | kit にはない | `size`: default、sm | kit に `size` の variant を足すのは寄せる |
+| size | kit にはない | `size`: default、sm | D-17 に含める（既定の大きさが決まってから足す） |
 | 土台 | `ToggleSwitch` は自作で、行（`SwitchContainer`）が `role="switch"` を持つ | Radix Switch | 判断（D-19） |
 
 VR パネルは px の段で描く別の画面（DESIGN.md「Typography」）なので、照合の外にしました。
@@ -295,9 +319,9 @@ VR パネルは px の段で描く別の画面（DESIGN.md「Typography」）な
 | 部品 | ASTAROT | shadcn/ui | 扱い |
 |---|---|---|---|
 | Empty | 会話の空の画面（`EmptyState.jsx`）、試験的な機能の点線の枠、検索の「結果なし」 | Empty（中央寄せ、`p-6`、Header、Media、Title、Description、Content） | 会話の空の画面は残す（DESIGN.md「Layout」が位置と出し方を決めている）。ほかの「結果なし」を Empty の形にそろえるのは寄せる |
-| Sidebar | メインのレール（24rem。狭いと 7.2rem のアイコンのレール、さらに狭いと会話に重なる）と設定のレール（5.6rem。ホバーとフォーカスで広がる） | Sidebar（25.6rem、アイコンだけで 4.8rem。`collapsible`: offcanvas、icon、none。Ctrl/Cmd+B で開閉し、状態を Cookie に保存） | 幅と振る舞いは残す（DESIGN.md「Layout」が決めている。小さいレールの好みは設定に保存する）。メニューの行の高さと選んだ行の表し方は判断（D-35） |
+| Sidebar | メインのレール（24rem。狭いと 7.2rem のアイコンのレール、さらに狭いと会話に重なる）と設定のレール（5.6rem。ホバーとフォーカスで広がる） | Sidebar（25.6rem、アイコンだけで 4.8rem。`collapsible`: offcanvas、icon、none。Ctrl/Cmd+B で開閉し、状態を Cookie に保存） | 幅と振る舞いは残す（DESIGN.md「Layout」が決めている。小さいレールの好みは設定に保存する）。狭いウィンドウで会話に重なるレールは Sheet（Radix Dialog）に近いが、これも残す。メニューの行の高さと選んだ行の表し方は判断（D-35） |
 
-### 対応がないもの
+### そのほか
 
 - Kbd: アプリにありません。ホットキーの欄は、入力欄の中に「Ctrl + Q」のように文字で出しています。キーを示す場所ができたら寄せます。
 - ScrollArea: アプリは `root.css` でスクロールバーを全体に描いています。Radix ScrollArea はネイティブのスクロールバーを隠すために `<style>` を差し込む見込みがあるので、今は寄せません。
@@ -321,7 +345,7 @@ VR パネルは px の段で描く別の画面（DESIGN.md「Typography」）な
 | D-11 | アイコンに lucide-react を足すか、アプリの SVG のままにするか | Select、Checkbox、Spinner、Dialog |
 | D-12 | 見た目のための Radix のパッケージ（Slot、Separator、Label）を足すか。足すならライセンス台帳と `NOTICE.md` に載せる | Button、Separator、Field |
 | D-13 | textarea に `field-sizing: content`（Baseline Widely available ではない）を、機能の検出と代わりの表示を付けて使うか | Textarea |
-| D-14 | 選択欄の土台を、ネイティブの `<select>` と自作の combobox のままにするか、Radix Select にするか（CSP の更新、VR パネルのポインタ、K-05） | Select |
+| D-14 | 設定の行の選択欄（自作の combobox の `_DropdownMenu`）を、NativeSelect（kit の `Select`）にそろえるか、Radix Select にするか。Radix Select は CSP の更新が要り、開いた一覧の操作が OS と VR パネルのポインタで変わる（K-05） | Select |
 | D-15 | 一覧の選んだ行を、色と太さ（今）で示すか、右のチェック（shadcn/ui）で示すか | Select |
 | D-16 | チェックボックスとラジオの土台を、ネイティブの input（今）にするか、Radix にするか | Checkbox、RadioGroup |
 | D-17 | 小さい操作部品の大きさ。チェックボックス 2.8rem から 1.6rem、ラジオ 2rem から 1.6rem、スイッチ 4.4×2.4rem から 3.2×1.84rem、スライダーのつまみ 1.8rem から 1.6rem。押せる範囲を行全体にするかとあわせて決める | Checkbox、RadioGroup、Switch、Slider |
@@ -343,31 +367,36 @@ VR パネルは px の段で描く別の画面（DESIGN.md「Typography」）な
 | D-33 | トーストを react-toastify から sonner に替えるか | Toast |
 | D-34 | 設定の行を Field のパーツに分けるか。`id` と `aria-describedby` を結び付ける場所、`orientation` の名前、エラーの出し方 | Field |
 | D-35 | レールのメニューの行の高さ（`h-8`）と、選んだ行の表し方（`data-active`）を寄せるか | Sidebar、設定のメニュー |
+| D-36 | 設定の検索と言語の一覧を、Combobox（Base UI）や Command（cmdk）にするか、自作のまま見た目だけを寄せるか。どちらにも Radix で書いたものがない | Combobox、Command |
 
 ほかに、#680 の判断項目（寄せる先を本家の shadcn/ui にすること、ADR-010 の7章への注記、ライセンスの記録の範囲）と、設定画面の部品の実験の残課題 K-01（kit を本採用するか）が、この棚卸しに関係します。
 
 ## 判断なしで寄せられる差
 
-上の表で「寄せる」とした差です。最初の段では、このうち画面の見た目を変えない差と、変えても小さい差から PR にします。
+上の表で「寄せる」とした差です。
 
-1. kit のパーツに `data-slot` を付ける。
-2. kit の `TextField` の値が正しくないときの見た目を、`aria-invalid` を見て描く形にする。
-3. kit の `Switch` に `size` の variant を足す。
-4. ボタンの文字の太さを 500 にする。
-5. 使えない状態の不透明度を .5 にそろえる。
-6. チェックボックスのチェックの線を `--vox_on_primary` にする。
-7. スライダーの満ちた部分を描き、溝を .6rem にし、使えない状態を足す。
-8. `_Entry` の塗り、枠、角丸を kit の入力欄にそろえる。
-9. 色のポップオーバーの地を `--vox_surface` にする。
-10. ダイアログの間を 1.6rem、最大幅を 51.2rem、背景を 50% の黒にする。ダイアログのパーツ（Header、Footer、Title、Description）の部品を作る。
-11. ツールチップの余白と角丸をそろえ、`Tooltip` と `Hint` の見た目を1つにする。
-12. プリセットの切り替えの `div role="button"` を `button` にする。
-13. `Separator`、`Badge`、`Spinner` をそれぞれ1つの部品にまとめる（見た目は今のまま）。
-14. 検索の「結果なし」を Empty の形にそろえる。
+kit（画面ではまだ使っていない部品）:
+
+1. `Button`、`TextField`、`Select`、`Switch` のパーツに `data-slot` を付ける。名前は shadcn/ui の部品（button、input、native-select、switch）に合わせる。
+2. `Select` を NativeSelect にそろえる。シェブロンを 1.6rem にして右から 1.4rem に置き、使えないときは包む要素ごと薄くする。
+3. `Button` の文字の太さを 500 にし、使えない状態の不透明度を .5 にする。
+
+画面で使っている部品:
+
+4. ボタンの文字の太さを 500 に、使えない状態の不透明度を .5 にそろえる。
+5. チェックボックスのチェックの線を `--vox_on_primary` にする。
+6. スライダーの満ちた部分を描き、溝を .6rem にし、使えない状態を足す。
+7. `_Entry` の塗り、枠、角丸を kit の入力欄にそろえる。
+8. 色のポップオーバーと、設定の検索の結果の一覧の地を `--vox_surface` にする。
+9. ダイアログの間を 1.6rem、最大幅を 51.2rem、背景を 50% の黒にする。ダイアログのパーツ（Header、Footer、Title、Description）の部品を作る。
+10. ツールチップの余白と角丸をそろえ、`Tooltip` と `Hint` の見た目を1つにする。
+11. プリセットの切り替えの `div role="button"` を `button` にする。
+12. `Separator`、`Badge`、`Spinner` をそれぞれ1つの部品にまとめる（見た目は今のまま）。
+13. 検索の「結果なし」を Empty の形にそろえる。
 
 ## 段階の案
 
-1. 段 1: kit の構造をそろえる（上の 1〜3）。kit は画面でまだ使っていないので、画面は変わりません。最初に寄せる部品の PR なので、ライセンス台帳と `NOTICE.md` に shadcn/ui を載せます（#680）。
-2. 段 2: 画面で使っている部品のうち、判断の要らない見た目の差（上の 4〜14）。部品ごとに PR を分けます。
+1. 段 1: kit をそろえる（上の 1〜3）。kit は画面でまだ使っていないので、画面は変わりません。最初に寄せる部品の PR なので、ライセンス台帳と `NOTICE.md` に shadcn/ui を載せます（#680）。
+2. 段 2: 画面で使っている部品のうち、判断の要らない見た目の差（上の 4〜13）。部品ごとに PR を分けます。
 3. 段 3: 判断項目が決まったものから。Radix への置き換え（D-14、D-16、D-19〜D-21、D-23、D-25〜D-27）は、ADR-010 の順（自作ではアクセシビリティを保ちにくい部品から）で進めます。CSP に触れる部品は、入れる前に `<style>` を差し込むかを確かめます。
 4. 設定の行（D-34）は、#554 の情報設計で設定画面を組み直すときに合わせます。
