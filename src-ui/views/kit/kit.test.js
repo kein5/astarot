@@ -41,9 +41,11 @@ test("each part carries the data-slot of its shadcn/ui counterpart", () => {
     assert.match(read("Button.tsx"), /<button ref=\{ref\} type=\{type\} data-slot="button"/);
     assert.match(read("TextField.tsx"), /data-slot="input"/);
     const select = read("Select.tsx");
-    for (const slot of ["native-select-wrapper", "native-select", "native-select-icon"]) {
+    for (const slot of ["native-select-wrapper", "native-select", "native-select-icon", "native-select-option", "native-select-optgroup"]) {
         assert.match(select, new RegExp(`data-slot="${slot}"`), slot);
     }
+    // The option parts are exported beside the select, as NativeSelectOption and NativeSelectOptGroup are.
+    assert.match(read("index.ts"), /export \{ Select, SelectOptGroup, SelectOption,/);
     const toggle = read("Switch.tsx");
     assert.match(toggle, /<RadixSwitch\.Root ref=\{ref\} data-slot="switch"/);
     assert.match(toggle, /<RadixSwitch\.Thumb data-slot="switch-thumb"/);
