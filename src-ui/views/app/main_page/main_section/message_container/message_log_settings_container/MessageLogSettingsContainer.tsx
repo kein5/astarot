@@ -6,7 +6,7 @@ import { useI18n } from "@useI18n";
 import { MessageLogUiScalingContainer } from "@setting_box";
 import ConfigSvg from "@images/configuration.svg?react";
 
-export const MessageLogSettingsContainer = (props) => {
+export const MessageLogSettingsContainer = (props: { to_visible_toggle_bar: boolean }) => {
     const { t } = useI18n();
     const [is_opened, setIsOpened] = useState(false);
     const [is_hovered, setIsHovered] = useState(false);

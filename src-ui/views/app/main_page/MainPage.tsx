@@ -1,3 +1,4 @@
+import type { RefObject } from "react";
 import clsx from "clsx";
 import * as styles from "./MainPage.css.ts";
 import { SidebarSection } from "./sidebar_section/SidebarSection.tsx";
@@ -12,9 +13,14 @@ import { StartupProgress } from "./main_section/message_container/log_box/Startu
 // placeholders of the same size. StartupAnnouncer, outside it, tells screen readers.
 // data-main-page and data-showing name the page and which page shows for tests that
 // drive the packaged app (tests/platform/native_webdriver.py): its class names are hashed.
-// The styles are vanilla-extract (ADR-010); the view stays JavaScript until the store
-// hooks it reads (useIsOpenedConfigPage) have types.
-export const MainPage = ({ focusFallback, locked = false }) => {
+// The styles are vanilla-extract (ADR-010).
+type MainPageProps = {
+    // Where focus goes when nothing on the page has it (App, ModalController).
+    focusFallback?: RefObject<HTMLDivElement>;
+    locked?: boolean;
+};
+
+export const MainPage = ({ focusFallback, locked = false }: MainPageProps) => {
     const { currentIsOpenedConfigPage } = useIsOpenedConfigPage();
     const hidden = currentIsOpenedConfigPage.data === true;
 

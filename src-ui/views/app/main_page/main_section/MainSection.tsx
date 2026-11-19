@@ -8,11 +8,12 @@ import { RealtimeControls } from "./realtime_controls/RealtimeControls";
 import { IoFlowPanel } from "./io_flow_panel/IoFlowPanel";
 
 import { useStore_IsOpenedLanguageSelector } from "@store";
+import type { SelectableLanguage } from "@store";
 import { useLanguageSettings } from "@logics_main";
 import { useEffect } from "react";
+import type { LanguageSelectorKey } from "../sidebar_section/language_settings/language_selector_open_button/LanguageSelectorOpenButton";
 
-// The styles are vanilla-extract (ADR-010); the view stays JavaScript until the store
-// hooks it reads (useStore_IsOpenedLanguageSelector, useLanguageSettings) have types.
+// The styles are vanilla-extract (ADR-010).
 export const MainSection = () => {
     return (
         <div className={styles.container}>
@@ -47,7 +48,7 @@ const HandleLanguageSelector = () => {
 
     }, [currentSelectedPresetTabNumber.data, currentSelectedYourLanguages.data, currentSelectedTargetLanguages.data]);
 
-    const getTitle = (target_selector_key) => {
+    const getTitle = (target_selector_key: LanguageSelectorKey) => {
         if (target_selector_key === "your_language") return t("main_page.language_selector.title_your_language");
         if (target_selector_key === "target_language") {
             if (currentSelectedTargetLanguages.data[currentSelectedPresetTabNumber.data]["2"].enable === false) return t("main_page.language_selector.title_target_language");
@@ -58,13 +59,11 @@ const HandleLanguageSelector = () => {
 
 
     if (currentIsOpenedLanguageSelector.data.your_language === true) {
-        const onclickFunction_YourLanguage = (payload) => {
+        const onclickFunction_YourLanguage = (payload: SelectableLanguage) => {
             if (!canChangeLanguageSettings()) return;
             updateIsOpenedLanguageSelector({ your_language: false, target_language: false, target_key: currentIsOpenedLanguageSelector.data.target_key });
-            setSelectedYourLanguages({
-                ...payload,
-                target_key: currentIsOpenedLanguageSelector.data.target_key,
-            });
+            // Your language has one slot: the hook reads the language and the country only.
+            setSelectedYourLanguages(payload);
         };
         const title = getTitle("your_language");
         return (
@@ -75,7 +74,7 @@ const HandleLanguageSelector = () => {
             />
         );
     } else if (currentIsOpenedLanguageSelector.data.target_language === true) {
-        const onclickFunction_TargetLanguage = (payload) => {
+        const onclickFunction_TargetLanguage = (payload: SelectableLanguage) => {
             if (!canChangeLanguageSettings()) return;
             updateIsOpenedLanguageSelector({ your_language: false, target_language: false, target_key: currentIsOpenedLanguageSelector.data.target_key });
             setSelectedTargetLanguages({

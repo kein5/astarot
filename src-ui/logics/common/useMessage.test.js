@@ -180,7 +180,7 @@ test("translation-off acknowledgements retain original readings and partial repl
 async function composer(subject, autoClear = false) {
     const runtime = hooks();
     runtime.store = subject.runtime.store;
-    const { MessageInputBox } = await loadModule(new URL("../../views/app/main_page/main_section/message_container/message_input_box/MessageInputBox.jsx", import.meta.url), runtime, {
+    const { MessageInputBox } = await loadModule(new URL("../../views/app/main_page/main_section/message_container/message_input_box/MessageInputBox.tsx", import.meta.url), runtime, {
         "@store": subject.stores,
         "@logics_common": { useMessageActions: () => subject.message },
         "@logics_configs": { useSettingValue: name => ({ data: name === "SendMessageButtonType" ? "show" : autoClear }) },

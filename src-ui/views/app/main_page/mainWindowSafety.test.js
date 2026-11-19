@@ -205,7 +205,7 @@ test("main language and log div buttons activate only on fresh Enter or Space pr
             { translation_engines: [{ id: "two", label: "Two", is_available: true }], selected_id: "one" }],
         ["sidebar_section/language_settings/language_swap_button/LanguageSwapButton.tsx", "LanguageSwapButton", {}],
         ["sidebar_section/language_settings/add_remove_target_language_buttons/AddRemoveTargetLanguageButtons.tsx", "AddRemoveTargetLanguageButtons", {}],
-        ["main_section/message_container/message_log_settings_container/MessageLogSettingsContainer.jsx", "MessageLogSettingsContainer", {}],
+        ["main_section/message_container/message_log_settings_container/MessageLogSettingsContainer.tsx", "MessageLogSettingsContainer", {}],
     ];
     const controls = tree => {
         if (!tree || typeof tree !== "object") return [];

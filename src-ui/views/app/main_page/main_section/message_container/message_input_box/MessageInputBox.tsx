@@ -1,4 +1,5 @@
 import { memo, useState, useEffect, useLayoutEffect, useRef } from "react";
+import type { ChangeEvent, KeyboardEvent } from "react";
 import { useStore } from "jotai";
 import styles from "./MessageInputBox.module.scss";
 import SendMessageSvg from "@images/send_message.svg?react";
@@ -9,22 +10,35 @@ import { useI18n } from "@useI18n";
 import { store, Atom_MessageLogs, useStore_MessageInputValue } from "@store";
 import { chatboxOverflowLength } from "../../../../../../logics/common/chatboxLength";
 import { CHATBOX_LENGTH_WARNING_ID } from "./ChatboxLengthWarning";
+import type { MessageLogRow } from "../../../../../../logics/transcription/realtimeCaptionState";
+
+// Enter in the box or a press of the send button. Only a key repeats.
+type SubmitEvent = { preventDefault(): void; repeat?: boolean };
+
+// A message the user sent whose words can be recalled into the box.
+type RecallableRow = MessageLogRow & { messages: { original: { message: string } } };
+const isRecallable = (log: MessageLogRow): log is RecallableRow => log.category === "sent"
+    && typeof log.messages?.original?.message === "string";
 
 export const MessageInputBox = memo(function MessageInputBox() {
     const { t } = useI18n();
-    const history = useRef(null);
+    const history = useRef<{ id: string; draft: string } | null>(null);
     const sending = useRef(false);
     const [pending, setPending] = useState(false);
     const atoms = useStore();
     const { currentMessageInputValue, updateMessageInputValue } = useStore_MessageInputValue();
-    const { sendMessage, startTyping, stopTyping } = useMessageActions();
+    const actions = useMessageActions();
+    // Drawn inside MessageActionsProvider (MessageContainer). Outside it, the box stops here, as it
+    // did when it read the actions of nothing.
+    if (!actions) throw new TypeError("MessageInputBox is drawn outside MessageActionsProvider");
+    const { sendMessage, startTyping, stopTyping } = actions;
 
     const currentEnableAutoClearMessageInputBox = useSettingValue("EnableAutoClearMessageInputBox");
     const currentSendMessageButtonType = useSettingValue("SendMessageButtonType");
 
     const { scrollToBottom } = useMessageLogScroll();
 
-    const log_box_ref = useRef(null);
+    const log_box_ref = useRef<HTMLTextAreaElement>(null);
 
     useLayoutEffect(() => {
         store.text_area_ref = log_box_ref;
@@ -35,7 +49,7 @@ export const MessageInputBox = memo(function MessageInputBox() {
         if (!currentMessageInputValue.data.trim()) stopTyping();
     }, [currentMessageInputValue.data, stopTyping]);
 
-    const onSubmitFunction = async (e) => {
+    const onSubmitFunction = async (e: SubmitEvent) => {
         e.preventDefault();
         if (e.repeat || sending.current) return;
 
@@ -63,22 +77,21 @@ export const MessageInputBox = memo(function MessageInputBox() {
         }
     };
 
-    const onChangeFunction = (e) => {
+    const onChangeFunction = (e: ChangeEvent<HTMLTextAreaElement>) => {
         const value = e.currentTarget.value;
         history.current = null;
         updateMessageInputValue(value);
         value.trim() ? startTyping() : stopTyping();
     };
 
-    const onKeyDownFunction = (e) => {
+    const onKeyDownFunction = (e: KeyboardEvent<HTMLTextAreaElement>) => {
         if (e.nativeEvent.isComposing || e.keyCode === 229) return;
         // History is only needed for explicit recall. Incoming captions and
         // translation responses must not subscribe/re-render the composer or
         // rebuild a second copy of the entire sent log after each update.
         if (e.shiftKey && (e.key === "ArrowUp" || e.key === "ArrowDown")) {
             e.preventDefault();
-            const rows = atoms.get(Atom_MessageLogs).data.filter(log => log.category === "sent"
-                && typeof log.messages?.original?.message === "string");
+            const rows = atoms.get(Atom_MessageLogs).data.filter(isRecallable);
             const selection = history.current;
             const index = selection ? rows.findIndex(row => row.id === selection.id) : rows.length;
             // Retention or clearing may remove the selected row between keypresses.
@@ -128,7 +141,7 @@ export const MessageInputBox = memo(function MessageInputBox() {
     );
 });
 
-const SendMessageButton = ({ onSubmitFunction, pending }) => {
+const SendMessageButton = ({ onSubmitFunction, pending }: { onSubmitFunction: (e: SubmitEvent) => void; pending: boolean }) => {
     const { t } = useI18n();
     return (
         <button
