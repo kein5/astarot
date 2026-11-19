@@ -38,6 +38,53 @@ pub trait Capture: Send {
     fn stop(&mut self);
 }
 
+/// The fixed codes a capture fails with (`_ERRORS` of `capture_pipewire.py`): those of the
+/// `vrct-asr-capture` helper, which the captures of this crate share, and those of its owner.
+pub const CAPTURE_CODES: [&str; 36] = [
+    "asr_capture_owner_gone",
+    "asr_capture_stalled",
+    "asr_capture_core_changed",
+    "asr_capture_core_error",
+    "asr_capture_stream_disconnected",
+    "asr_capture_clock_changed",
+    "asr_capture_latency_removed",
+    "asr_capture_format_removed",
+    "asr_capture_format_invalid",
+    "asr_capture_latency_invalid",
+    "asr_capture_latency_changed",
+    "asr_capture_stream_identity_invalid",
+    "asr_capture_clock_snapshot_inconsistent",
+    "asr_capture_clock_position_missing",
+    "asr_capture_clock_invalid",
+    "asr_capture_buffer_corrupted",
+    "asr_capture_discontinuity",
+    "asr_capture_buffer_invalid",
+    "asr_capture_timestamp_invalid",
+    "asr_capture_stale_buffer",
+    "asr_capture_pipe_blocked",
+    "asr_capture_endpoint_changed",
+    "asr_capture_unexpected_link",
+    "asr_capture_endpoint_removed",
+    "asr_capture_link_removed",
+    "asr_capture_endpoint_missing",
+    "asr_capture_stream_create_failed",
+    "asr_capture_stream_connect_failed",
+    "asr_capture_pipewire_version_unsupported",
+    "asr_capture_single_use",
+    "asr_capture_start_timeout",
+    "asr_capture_stopped",
+    "asr_capture_consumer_busy",
+    "asr_capture_consumer_closed",
+    "asr_capture_helper_closed",
+    "asr_capture_failed",
+];
+
+/// `capture_error_code`: a capture's code if it is one of [`CAPTURE_CODES`], else
+/// `asr_capture_failed`. Anything else a capture says (a driver's text) is never shown.
+pub fn capture_code(code: &str) -> &'static str {
+    CAPTURE_CODES.iter().find(|known| **known == code).copied().unwrap_or("asr_capture_failed")
+}
+
 /// What a capture reports. `on_audio` returns `false` to end the capture.
 pub struct CaptureCallbacks {
     pub on_audio: Box<dyn FnMut(&[u8]) -> bool + Send>,
