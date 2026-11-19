@@ -2034,6 +2034,10 @@ model_downloads:
     scope_tts_native_vulkan: "Checked on Linux (speech.cpp 0.9.0, Vulkan): it reads a short sentence aloud. Other GPUs, long text and sound quality are not checked yet."
     scope_tts_http_vulkan: "Checked on Linux (speech.cpp 0.9.0, Vulkan): reading a short sentence, stopping midway and restarting the server. The path to your audio output and other GPUs are not checked yet."
     gpu_unverified: "This GPU differs from the tested GPU. The recommendation describes memory only."
+    tier_translation: "Local translation: runs on the CPU unless you choose a GPU"
+    memory_reference_translation: "Peak memory while translating 60 short sentences on a CPU (not a minimum)"
+    validation_passed_translation: "Checked on:"
+    scope_translation_onnx_cpu: "Checked on Windows 11 (ONNX Runtime 1.32, 4 CPU threads): it translates short English and Japanese sentences. GPUs, other languages and long text are not checked yet."
 
 # The model catalog (where models are chosen): groups by use, one card per model.
 model_catalog:
@@ -2061,6 +2065,9 @@ model_catalog:
     hardware: "Hardware"
     terms: "Provider and license"
     memory: "about {{memory}} of memory (measured on {{device}})"
+    memory_needed: "Memory"
+    translation_memory: "about {{memory}} while translating (measured on a CPU)"
+    translation_memory_unknown: "Not measured yet"
     tier:
         light: "Light"
         medium: "Medium"

@@ -217,6 +217,7 @@ const CTranslate2WeightType_Box = () => {
 
         currentSelectedCTranslate2WeightType,
         setSelectedCTranslate2WeightType,
+        currentSelectedTranslationComputeDevice,
     } = useTranslation();
     const { catalog } = useModelDownloads();
     const { catalog: translationCatalog } = useTranslationCatalog();
@@ -283,6 +284,7 @@ const CTranslate2WeightType_Box = () => {
     return (
         <div ref={selection} tabIndex={-1} role="group" aria-label={t("config_page.translation.ctranslate2_weight_type.label")}>
             {downloadReview && <LegacyModelDownloadDialog kind="ctranslate2" weightType={downloadReview}
+                computeDevice={currentSelectedTranslationComputeDevice?.data}
                 onCancel={() => setDownloadReview(null)} onDownload={download} />}
             {confirming && (
                 <CTranslate2LicenseDialog

@@ -20,7 +20,9 @@ import { CustomModelLink } from "../custom_model_link/CustomModelLink";
 // and where a model of one's own goes, instead of waiting for a review that never comes.
 // It shows the variants of the model it was opened for, or every translation model when the
 // catalog has none of that one.
-export const LegacyModelDownloadDialog = ({ kind, weightType, onCancel, onDownload, extraAction = null, note = null }) => {
+// computeDevice: the saved device of the local translation (SELECTED_TRANSLATION_COMPUTE_DEVICE);
+// the models' memory is compared with it, the CPU's by default.
+export const LegacyModelDownloadDialog = ({ kind, weightType, onCancel, onDownload, extraAction = null, note = null, computeDevice }) => {
     const { t } = useI18n();
     const { catalog, error, send } = useModelDownloads();
     const [entry, setEntry] = useState(null), [consent, setConsent] = useState(false);
@@ -94,7 +96,7 @@ export const LegacyModelDownloadDialog = ({ kind, weightType, onCancel, onDownlo
             </> : translation ? <>
                 {translationRows.length > 0
                     ? <ModelDownloads targets={["translation"]} expected={{ translation: {} }}
-                        only={ownRows.length > 0 ? ownRows.map(model => model.id) : undefined} />
+                        only={ownRows.length > 0 ? ownRows.map(model => model.id) : undefined} translationDevice={computeDevice} />
                     : <p role="status">{t("legacy_model_downloads.translation_not_published")}</p>}
                 <p>{t("legacy_model_downloads.translation_own_model")}</p>
                 <CustomModelLink section="translation" />
