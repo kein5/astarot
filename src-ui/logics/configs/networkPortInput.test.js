@@ -36,7 +36,7 @@ async function settingsHarness({ host = "127.0.0.1" } = {}) {
         currentWebsocketTls: { state: "ok", data: { cert_file: "C:/certs/vox.pem", key_file: "C:/certs/vox-key.pem" } },
         setWebsocketTls: async value => { sent.push(["WebsocketTls", value]); return { status: 200, result: value }; },
     });
-    const module = await loadModule(new URL(box + "advanced_settings/AdvancedSettings.jsx", import.meta.url), runtime, {
+    const module = await loadModule(new URL(box + "advanced_settings/AdvancedSettings.tsx", import.meta.url), runtime, {
         "./DirectVoiceSettings": { DirectVoiceSettings: () => null },
         "../shared_items/SharedItems": { AutoExportMessageLogsContainer: () => null },
         "../_components/description/Description": { Description: () => null },
