@@ -119,7 +119,7 @@ Windowsの候補は、ビルドのジョブで`VRCT-VOX.zip`とインストー�
 
 この処理は成功した手動ビルドだけを受け付け、元のリポジトリ、ワークフロー、ブランチ、コミット、ブランチと版の形式の対応を確認します。取得した候補についても版・ファイル集合・容量・SHA-256を照合し、差異があれば終了します。続けて全ファイルの来歴を`gh attestation verify`で確かめます。署名したのがそのプラットフォームの候補のワークフローであること、コミットとブランチが下書きのものと同じこと、GitHubのランナーで作ったことです。1つでも確かめられなければ下書きを作りません。ダウンロードしたコードは実行しません。
 
-作成するのは`v<version>`の下書きです。既存の同名タグがある場合は、対象コミットが同じでも停止します。新しい版を選んでください。タグ照会の失敗も続行せず、既存リリースの上書きや自動公開は行いません。下書きの説明は、正式版なら`CHANGELOG.md`のこの版の節から作ります（節がなければ下書きを作りません）。ベータ版なら前のタグからのコミットから作ります。自動の処理は下書きを作るところまでで、公開はしません。公開する前に、下書きのタグ名が`v<version>`であることと、対象のコミットが候補を作ったコミットであることを、リリースの編集画面で確かめます。公開するとそのタグができ、リリースのタグはあとから動かせません。続けて本文を`docs/release-notes/<version>.md`のノート（0.5.0からの書式は[リリースノートの書式](../release-notes/README.md)）に差し替え、Windowsのインストール・旧版からの更新・アンインストールを確認してから公開してください。ビルド成功だけではWindowsのTTS/RVC実機動作まで確認したことになりません。確認の手順は[Windowsの音声機能](local-setup-windows.md)にあります。
+作成するのは`v<version>`の下書きです。既存の同名タグがある場合は、対象コミットが同じでも停止します。新しい版を選んでください。タグ照会の失敗も続行せず、既存リリースの上書きや自動公開は行いません。下書きの説明は、正式版なら`CHANGELOG.md`のこの版の節から作ります（節がなければ下書きを作りません）。ベータ版なら前のタグからのコミットから作ります。自動の処理は下書きを作るところまでで、公開はしません。公開する前に、下書きのタグ名が`v<version>`であることと、対象のコミットが候補を作ったコミットであることを確かめます（手順は[公開の直前にタグ名を書き直す](#公開の直前にタグ名を書き直す)）。公開するとそのタグができ、リリースのタグはあとから動かせません。続けて本文を`docs/release-notes/<version>.md`のノート（0.5.0からの書式は[リリースノートの書式](../release-notes/README.md)）に差し替え、Windowsのインストール・旧版からの更新・アンインストールを確認してから公開してください。ビルド成功だけではWindowsのTTS/RVC実機動作まで確認したことになりません。確認の手順は[Windowsの音声機能](local-setup-windows.md)にあります。
 
 Windowsのsetupは、下書きへまとめる際に`VRCT-VOX_setup.exe`へコピーします。インストーラーが取得する`VRCT-VOX.zip`の名前も維持してください。アプリ内の更新は`VRCT-VOX_setup.exe`とAppImageを使います（次の節）。
 
@@ -221,6 +221,59 @@ python tools/native_acceptance.py --app src-tauri/target/debug/vrct-vox --only v
 実行した試験と実行しなかった試験を、リリースノートの「既知の制限」に書いてください。
 
 操作できなかった部品があるときは、試験の出力先の`blocked-<操作>.json`を見てください。何が覆っていたかと、開いていたダイアログを記録してあります。
+
+## 公開の直前にタグ名を書き直す
+
+下書きのあいだはタグがまだなく、公開したときに下書きの`tag_name`と`target_commitish`からタグができます。ワークフローが入れた値をそのまま使わず、版と候補を作ったコミットを書いて上書きし、読み直して確かめます。`<id>`は下書きのリリースのIDです（`gh api 'repos/{owner}/{repo}/releases?per_page=10' --jq '.[] | select(.draft) | {id, tag_name}'`で引けます）。
+
+```bash
+git ls-remote --tags origin v<version>   # 何も出ないこと
+gh api -X PATCH repos/{owner}/{repo}/releases/<id> \
+  -f tag_name=v<version> -f target_commitish=<候補を作ったコミットの40桁のSHA>
+gh api repos/{owner}/{repo}/releases/<id> \
+  --jq '{tag_name, target_commitish, draft, prerelease, name}'
+```
+
+読み直した結果で、`tag_name`が`v<version>`、`target_commitish`が候補を作ったコミット、`draft`が`true`であることを確かめます。`prerelease`は正式版で`false`、ベータ版で`true`です。同じ名前のタグがすでにあったら公開しません。
+
+公開は保守担当者が行います。APIで公開するときは、最新版にするかを`make_latest`の文字列で明示します。正式版は`-F draft=false -f make_latest=true`、ベータ版は`-F draft=false -f make_latest=false`を同じPATCHに渡します。
+
+## 公開してから確かめる
+
+公開したら、次の4つを確かめます。
+
+1. タグのコミットが候補を作ったコミットと同じこと。
+
+   ```bash
+   gh api repos/{owner}/{repo}/releases/tags/v<version> \
+     --jq '{tag_name, draft, prerelease, target_commitish, published_at}'
+   git fetch origin --tags && git rev-parse 'v<version>^{commit}'
+   ```
+
+2. 最新版の指定（`make_latest`）が効いていること。`gh api repos/{owner}/{repo}/releases/latest --jq .tag_name`が、正式版なら`v<version>`、ベータ版なら前の正式版のままです。違うときは`make_latest`をPATCHし直します。
+3. 更新確認のWorkerが新しい`latest.json`を返すこと。安定版のアプリは`src-tauri/tauri.conf.json`の`plugins.updater.endpoints`にあるWorkerを読み、Workerは`releases/latest`の`latest.json`へ302で転送します（[アプリの更新](../spec/external-interfaces.md#アプリの更新)）。正式版なら`<version>`、ベータ版なら前の正式版の版が出ます。
+
+   ```bash
+   url=$(jq -r '.plugins.updater.endpoints[0]' src-tauri/tauri.conf.json)
+   curl -sI "$url" | grep -i '^location'
+   curl -sL "$url" | jq -r .version
+   ```
+
+4. 資産の件数と名前が候補と合うこと。リリースの資産は、各候補の`candidate-<platform>.json`にある資産とその`.sha256`、プラットフォームごとの`candidate-<platform>.json`と`SHA256SUMS-<platform>`、`latest.json`です（`tools/prepare_release.py`と`prepare-release.yml`）。期待する件数は「2 ×（2つの候補の`assets`の数の合計）+ 5」です。
+
+   ```bash
+   d=$(mktemp -d)
+   gh release download v<version> -p 'candidate-*.json' -D "$d"
+   gh api repos/{owner}/{repo}/releases/tags/v<version> --jq '[.assets[].name]' > "$d/published.json"
+   jq -s --slurpfile pub "$d/published.json" '
+     ([.[] | .assets[].name | ., . + ".sha256"]
+      + [.[] | "candidate-\(.platform).json", "SHA256SUMS-\(.platform)"]
+      + ["latest.json"]) as $want
+     | {want: ($want | length), published: ($pub[0] | length),
+        missing: ($want - $pub[0]), extra: ($pub[0] - $want)}' "$d"/candidate-*.json
+   ```
+
+   `want`と`published`が同じで、`missing`と`extra`が空であることを確かめます。前の版と件数が違うときは、配布物の増減（なくした配布物、名前を変えた配布物）で説明がつくかを確かめます。下書きを作る手順が資産の組み方を変えたら、この式も直します。
 
 ## 公開したあと
 

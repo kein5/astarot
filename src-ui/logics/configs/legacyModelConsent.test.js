@@ -249,14 +249,15 @@ for (const language of ["en", "ja"]) {
 // The core offers no CTranslate2 review: the translation models come through the shared
 // catalog (target "translation"). The review must not wait for one that never comes.
 for (const language of ["en", "ja"]) {
-    const folder = "C:\\Data\\translation-models";
-    test(`${language}: without a published translation model the review says so and where one's own goes`, async context => {
-        const s = await dialogFixture(context, language, entry, { legacy_models: [], models: [], translation_models_folder: folder });
+    test(`${language}: without a published translation model the review says so and that one's own is added in the catalog`, async context => {
+        const s = await dialogFixture(context, language, entry, { legacy_models: [], models: [] });
         const tree = s.render();
         const paragraph = key => find(tree, node => node.type === "p" && node.props.children === s.t(key));
         assert.notEqual(paragraph("legacy_model_downloads.translation_not_published"), null);
         assert.notEqual(paragraph("legacy_model_downloads.translation_own_model"), null);
-        assert.equal(find(tree, node => node.type === "code").props.children, folder);
+        // No folder to place a model in is named any more (#597): no path at all.
+        assert.equal(find(tree, node => node.type === "code"), null);
+        assert.match(s.t("legacy_model_downloads.translation_own_model"), language === "ja" ? /自分のモデルを追加/ : /Add a model of your own/);
         assert.equal(paragraph("model_downloads.loading"), null);
         assert.equal(find(tree, node => node.type === "button" && node.props.children === s.t("model_downloads.start")), null);
         const close = find(tree, node => node.type === "button" && node.props.autoFocus);
@@ -267,7 +268,7 @@ for (const language of ["en", "ja"]) {
     });
     test(`${language}: a published translation model is reviewed in the shared download card`, async context => {
         const model = { id: "m2m100-418m-onnx-int8", target: "translation", name: "M2M100 418M", artifacts: [] };
-        const s = await dialogFixture(context, language, entry, { legacy_models: [], models: [model], translation_models_folder: folder });
+        const s = await dialogFixture(context, language, entry, { legacy_models: [], models: [model] });
         const tree = s.render();
         const card = find(tree, node => node.type?.name === "ModelDownloads");
         assert.deepEqual(card.props.targets, ["translation"]);
@@ -279,7 +280,7 @@ for (const language of ["en", "ja"]) {
     test(`${language}: the review opened from a model's row shows that model's variants`, async context => {
         const models = ["m2m100-418m-onnx-int8", "m2m100-418m-onnx-float16", "nllb-200-distilled-600m-onnx-int8"]
             .map(id => ({ id, target: "translation", name: id, artifacts: [] }));
-        const s = await dialogFixture(context, language, entry, { legacy_models: [], models, translation_models_folder: folder });
+        const s = await dialogFixture(context, language, entry, { legacy_models: [], models });
         const card = find(s.render(), node => node.type?.name === "ModelDownloads");
         assert.deepEqual(card.props.only, ["nllb-200-distilled-600m-onnx-int8"]);
     });
