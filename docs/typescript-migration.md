@@ -12,12 +12,12 @@
 
 ## 現状の量
 
-第 6 段の設定の音声のページを終えた時点で、`src-ui` の中のファイルは次のとおりです。`.jsx` は JavaScript に含めます。
+第 6 段の設定の「詳細設定」のページを終えた時点で、`src-ui` の中のファイルは次のとおりです。`.jsx` は JavaScript に含めます。
 
 | 範囲 | JavaScript | TypeScript |
 |---|---|---|
 | `src-ui/logics`（試験を除く） | 2 本、87KB | 153 本、643KB（うち `.css.ts` が 1 本） |
-| `src-ui/views`（試験を除く） | 28 本、238KB | 189 本、877KB（うち vanilla-extract の `.css.ts` が 19 本） |
+| `src-ui/views`（試験を除く） | 27 本、211KB | 190 本、906KB（うち vanilla-extract の `.css.ts` が 19 本） |
 | 試験（`*.test.js` と `src-ui/logics/test/`） | 205 本、1.3MB | 0 本 |
 
 残りの JavaScript の一覧は、次のコマンドで出せます。
@@ -208,6 +208,11 @@ ADR-010 のとおり、画面を触る作業に合わせて移すのが基本で
 - フックが中核から受け取る値に宣言の型を付けました。`useModelDownloads` のカタログの行（`ModelCatalogRow`）とジョブ、`useVoice` の音声の設定（値はすべて文字列）、出力機器、モデルが受け付けるシード値の範囲と指示、エンジンの声、`useSpeechServers` のプロファイルと機器、`useVcRuntimes` のカタログとジョブです。宣言だけで、実行時には確かめません。
 - `ModelDownloads` の `reserve` と `only` は省略できる props です。組み込みモデルの取得の確認が渡していた `reserve={undefined}` は外しました。
 - 設定がないときは、名前の付いた `TypeError` で止まる関数を通して読みます（`SpeechServers` と `DirectVoiceSettings`）。前も同じ所で止まっていました。
+
+3 回目で、「詳細設定」のページ（`AdvancedSettings`、約 690 行）を移しました。
+
+- 保存のロジックが持つ `unknown` の欄の値は、`fieldValue` と `fieldText` で、React が欄に書くのと同じ文字列にしてから渡します。
+- 書き込みへの応答は、バックエンドが応答を返したときだけ読みます（`answerOf`）。TLS の組のエラーコードは文字列のときだけ使い、それ以外は前と同じく `save_unconfirmed` です。
 
 ### 第 7 段：試験とハーネス
 
