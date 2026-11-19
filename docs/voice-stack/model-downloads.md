@@ -104,7 +104,8 @@ CTranslate2の文章分割ファイル（tokenizer）は、重みと同じリポ
 
 - 比べるのは、ハードウェアの検出（`hardware.py`）が返すメモリーの総量である。空き容量は時々で変わり、空き容量に合う種類は上の「空きメモリーに合う」が示すためである。
 - モデルのメモリーは、`profile.memory_bytes`、`guidance.reference_memory_bytes`、検証済みの`sampled_peak_bytes`のうち最も大きい値である。案内と同じく25%を足し、GPUのメモリーの総量を超えれば警告する（`low_memory`）。GPUが複数あれば最も大きいものと比べ、メモリーを足し合わせない。エンジンの設定でGPUを名前で選んでいれば、そのGPUと比べる。
-- GPUがないか、エンジンをCPUで動かす設定のときは、`profile.gpu`が`recommended`で`profile.cpu`が`impractical`か`slow`のモデルに警告する（`no_gpu`、`cpu_setting`）。CPUのメモリーの総量が分かれば、それとも比べる。
+- GPUがないか、エンジンをCPUで動かす設定のときは、`profile.gpu`が`recommended`で`profile.cpu`が`impractical`か`slow`のモデルに警告する（`no_gpu`、`cpu_setting`）。CPUのメモリー（RAM）の総量が分かれば、それとも比べる。
+- RAMと比べるときは、モデルのメモリーに25%を足した値に、OSとVRChatの分として8 GiBを足す（`RAM_RESERVE`。2026-11-19の決定）。OSの4 GiBはWindows 11の最小要件のメモリー（4 GB）、VRChatの4 GiBはSteamのVRChatのページの最小要件のメモリー（4 GB）による。どちらも作り手が示す最小の値なので、実際に使う量より少なめで、警告が出すぎない側に寄せている。注記にはこの分も書く。GPUのメモリーには足さない（VRChatもGPUのメモリーを使うが、今回の決定はRAMの警告の範囲である）。この余裕を足すと、NLLB-200 distilled 600M（約1.39 GiB）には約9.7 GiB、M2M100 418M（約0.97 GiB）には約9.2 GiBのRAMが要る。8 GBのPCでは警告が出て、16 GBのPCでは出ない。
 - 検出していない、失敗した、メモリーが分からないときと、数値のないモデル（RVCなど）には警告しない。分からないことを性能不足とは書かない。
 - このため、音声認識やボイスチェンジャーのページでも、開いたときにハードウェアの検出（`/run/refresh_model_download_hardware`）を1回走らせる。検出はspeech.cppの`devices --json`を動かすだけで、モデルの取得や設定の変更はしない。
 ##### ローカル翻訳のモデル（#597）
@@ -119,7 +120,7 @@ CTranslate2の文章分割ファイル（tokenizer）は、重みと同じリポ
 - 比べる相手は翻訳の計算に使う機器（`SELECTED_TRANSLATION_COMPUTE_DEVICE`）で決める（`translationDeviceMode`）。既定のCPUならハードウェアの検出のCPUの行（RAMの総量）と比べる。GPUを選んでいればそのGPUのメモリの総量と比べる。CUDAとTensorRTはNVIDIAのGPUを、MIGraphXはAMDのGPUを、DirectMLとWebGPUはすべてのGPUを、検出の順に`device_index`番目として数える。そのGPUが検出の行にないときと、CPUでもGPUでも動くOpenVINOのときは比べない。
 - 読み上げのモデル向けの「空きメモリーに合う」の案内（`modelHardwareAdvice.ts`）は、空いているGPUのメモリを見るので翻訳には出さない。
 - RAMは検出（speech.cppの`devices --json`）のCPUの行で分かる。翻訳そのものはspeech.cppを使わない。同梱のspeech.cppが見つからず検出が失敗したときは、ほかのモデルと同じく警告しない。
-- 警告の基準はほかのモデルと同じく、モデルのメモリに25%を足した値が総量を超えるかである。OSやVRChatが使う分の余裕は足していない（PRの残課題）。
+- 警告の基準はほかのモデルと同じく、RAMと比べるときはモデルのメモリに25%を足し、OSとVRChatの分の8 GiBも足す（上の`RAM_RESERVE`）。GPUと比べるときは25%だけを足す。
 - カタログに翻訳の項目が入るのはPR #687が`translation_models.json`にNLLBの項目を書いたときである。それまでは目安を返すIDがカタログになく、画面には出ない。
 
 #### 再起動後の取得済み

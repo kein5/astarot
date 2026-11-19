@@ -130,7 +130,8 @@ const WarningNote = ({ warning }) => {
     return <p className={styles.hardware_warning}>
         <span className={styles.warning_mark} aria-hidden="true" />
         <span>{t("model_catalog.hardware_warning.note", {
-            reason: t(`model_catalog.hardware_warning.${key}`, { required: gib(warning.required ?? 0), available: gib(warning.available ?? 0) }) })}</span>
+            reason: t(`model_catalog.hardware_warning.${key}`, { required: gib(warning.required ?? 0),
+                available: gib(warning.available ?? 0), reserve: gib(warning.reserve ?? 0) }) })}</span>
     </p>;
 };
 
