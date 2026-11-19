@@ -129,9 +129,14 @@ fn a_language_is_kept_when_everything_the_model_hears_is_taken() {
     assert_eq!(ui.ok("/set/data/selected_transcription_engine", Some(json!("Deepgram"))), "Deepgram");
     assert!(ui.on(mark, "/run/selected_your_languages").is_empty(), "nothing was reset");
     assert_eq!(ui.ok("/get/data/selected_your_languages", None), languages.0);
-    // The list is still told, and the kept language is not in it (as in Python).
+    // The list is still told, with the kept language in it so that the UI can show it
+    // (decision 74 (c); Python left it out).
     let list = ui.wait_endpoint(mark, "/run/selectable_language_list")["result"].clone();
-    assert_eq!(names(&list), set(&["English", "Japanese"]));
+    assert_eq!(names(&list), set(&["English", "Japanese", "Korean"]));
+    // Once another language is chosen, the one the model cannot hear is no longer listed.
+    let japanese = every_tab(slot("Japanese", true), [slot("English", true), slot("English", false), slot("English", false)]);
+    ui.ok("/set/data/selected_your_languages", Some(japanese.0));
+    assert_eq!(names(&ui.ok("/get/data/selectable_language_list", None)), set(&["English", "Japanese"]));
     ui.stop();
 }
 
@@ -216,8 +221,10 @@ fn an_engine_that_cannot_be_used_stays_selected() {
     assert_eq!(ui.ok("/get/data/selected_transcription_engine", None), "Deepgram");
     let offered = ui.ok("/get/data/selectable_transcription_engines", None);
     assert!(!offered.as_array().unwrap().contains(&json!("Deepgram")), "{offered}");
-    // Its model's languages are unknown, so no language is listed (as in Python; 74).
-    assert_eq!(ui.ok("/get/data/selectable_language_list", None), json!([]));
+    // Its model's languages are unknown, so the whole table is listed (decision 74 (b); Python
+    // listed none).
+    let listed = names(&ui.ok("/get/data/selectable_language_list", None));
+    assert!(listed.contains("Korean") && listed.contains("Japanese"), "{listed:?}");
     ui.stop();
 
     // Its key deleted while it is selected: still selected, and its models are forgotten.
@@ -229,8 +236,10 @@ fn an_engine_that_cannot_be_used_stays_selected() {
     assert_eq!(ui.wait_endpoint(mark, "/run/selectable_deepgram_model_list")["result"], json!([]));
     assert_eq!(ui.ok("/get/data/selected_deepgram_model", None), Value::Null);
     assert!(ui.on(mark, "/run/selected_your_languages").is_empty(), "the languages stay");
-    assert!(ui.on(mark, "/run/selectable_language_list").is_empty());
-    assert_eq!(ui.ok("/get/data/selectable_language_list", None), json!([]), "as in Python (74)");
+    // The model's languages are unknown now: the whole table, told again (decision 74 (b)).
+    let told = names(&ui.wait_endpoint(mark, "/run/selectable_language_list")["result"]);
+    assert!(told.contains("Korean"), "{told:?}");
+    assert_eq!(names(&ui.ok("/get/data/selectable_language_list", None)), told);
     let offered = ui.ok("/get/data/selectable_transcription_engines", None);
     assert!(!offered.as_array().unwrap().contains(&json!("Deepgram")), "{offered}");
     ui.ok("/run/shutdown", None);
