@@ -51,9 +51,9 @@
       "name": "Secondary action",
       "kind": "button",
       "refersTo": "",
-      "description": "Secondary action used by the studio forms.",
-      "html": "<button class=\"ds-secondary\">Discard changes</button>",
-      "css": ".ds-secondary{font:14px system-ui;min-height:40px;padding:9px 12px;border-radius:8px;color:#fafafc;background:#3f2f4e;border:0}.ds-secondary:hover{background:#4e3d5d}.ds-secondary:focus-visible{outline:2px solid #d9c8fc;outline-offset:3px}"
+      "description": "The outline (quiet) button: the secondary action paired with a filled one, such as stop beside start; never used alone.",
+      "html": "<button class=\"ds-secondary\">Stop server</button>",
+      "css": ".ds-secondary{font:600 14px system-ui;min-height:40px;padding:9px 12px;border-radius:8px;color:#eeebf1;background:transparent;border:1px solid #877a94}.ds-secondary:hover{background:#3f2f4e}.ds-secondary:active{background:#261633}.ds-secondary:focus-visible{outline:2px solid #d9c8fc;outline-offset:3px}"
     },
     {
       "name": "Text field",
