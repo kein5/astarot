@@ -331,9 +331,10 @@ pub struct Core {
 pub type TranscriptionCapture =
     Arc<dyn Fn(&crate::config::Environment) -> Arc<dyn vrct_transcription::capture::CapturePlatform> + Send + Sync>;
 
-/// This computer's devices; on Linux the shipped `vrct-asr-capture` helper reads PipeWire.
-fn default_transcription_capture(env: &crate::config::Environment) -> Arc<dyn vrct_transcription::capture::CapturePlatform> {
-    Arc::new(vrct_transcription::capture::NativeCapture::new(crate::resources::locate(&env.app_dir, "build/vrct-asr-capture")))
+/// This computer's devices: WASAPI on Windows, the PipeWire capture of `vrct-audio-routing` on
+/// Linux (the `vrct-asr-capture` helper is no longer started; decision 2 of #733).
+fn default_transcription_capture(_env: &crate::config::Environment) -> Arc<dyn vrct_transcription::capture::CapturePlatform> {
+    Arc::new(vrct_transcription::capture::NativeCapture::new())
 }
 
 impl Core {
