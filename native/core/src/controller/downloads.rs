@@ -239,9 +239,6 @@ pub(crate) fn add(b: &mut Builder<'_>) {
         // The reviews of the built-in CTranslate2 downloads (`legacyModelCatalog`) come with
         // that download, which the core does not run yet: none is offered.
         catalog["legacy_models"] = json!([]);
-        // Where a user puts a translation model of their own (the core's addition).
-        let folder = core.config().environment().data_dir.join("translation-models");
-        catalog["translation_models_folder"] = json!(folder.to_string_lossy());
         ok(catalog)
     });
     b.with("/get/data/model_download_hardware", OPEN, |core, _| ok(to_value(core.ops().hardware.state())));
