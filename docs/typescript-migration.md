@@ -12,12 +12,12 @@
 
 ## 現状の量
 
-第 6 段の `app/main_page`を終えた時点で、`src-ui` の中のファイルは次のとおりです。`.jsx` は JavaScript に含めます。
+第 6 段の設定画面の小さな部品を終えた時点で、`src-ui` の中のファイルは次のとおりです。`.jsx` は JavaScript に含めます。
 
 | 範囲 | JavaScript | TypeScript |
 |---|---|---|
 | `src-ui/logics`（試験を除く） | 2 本、87KB | 153 本、635KB（うち `.css.ts` が 1 本） |
-| `src-ui/views`（試験を除く） | 88 本、595KB | 129 本、468KB（うち vanilla-extract の `.css.ts` が 19 本） |
+| `src-ui/views`（試験を除く） | 67 本、543KB | 150 本、532KB（うち vanilla-extract の `.css.ts` が 19 本） |
 | 試験（`*.test.js` と `src-ui/logics/test/`） | 205 本、1.3MB | 0 本 |
 
 残りの JavaScript の一覧は、次のコマンドで出せます。
@@ -35,7 +35,7 @@ git ls-files src-ui | grep -E '\.(js|jsx|mjs)$' | grep -v -E '\.test\.|/logics/t
 | 3 | ストアと IPC だけに依存する小さなフック | 済み。設定のフックを読む 5 本は第 4 段で移した |
 | 4 | `logics` の大きなモジュール（1 本ずつ） | 設定の一覧（`ui_config_setter`）と `useSettingsLogics`、`useConfigSearch`、`useHotkeys` は済み。`useReceiveRoutes`、`_useBackendErrorHandling` が残り |
 | 5 | `logics` の中の JSX（`.jsx` から `.tsx` へ） | 済み |
-| 6 | `views` | `common_components`、`quick_chat`、`caption_overlay`、`vr`（`VrApp` を除く）、`app` の入口と `app/others`、`app/_app_controllers` の 16 本、`app/io_flow`、`app/main_page` は済み。`app` の残りの区画が残り |
+| 6 | `views` | `common_components`、`quick_chat`、`caption_overlay`、`vr`（`VrApp` を除く）、`app` の入口と `app/others`、`app/_app_controllers` の 16 本、`app/io_flow`、`app/main_page`、設定画面の小さな部品は済み。`app` の残りの区画が残り |
 | 7 | 試験とテスト用のハーネス | 未着手（#550 の Vitest 移行は済み） |
 | 8 | 仕上げ（`allowJs` を外し、検査を強める） | 未着手 |
 
@@ -176,6 +176,12 @@ ADR-010 のとおり、画面を触る作業に合わせて移すのが基本で
 - VR のログの窓が閉じている間に保っておく表示の状態は `SavedLogView` です。
 - 入力欄は、メッセージの操作の提供元（`MessageActionsProvider`）の外で描かれたときに名前の付いた `TypeError` で止まります。前も同じ所で止まっていました。
 - React 18 の型にない `inert` 属性は、`src-ui/inertAttribute.d.ts` で `inert?: "" | undefined` として宣言しています。ページは隠すときに `inert=""` を書き、それ以外は書きません。
+
+5（`app/config_page`）は、ページが使う部品（`setting_box/_components`）とテンプレート（`_templates`）から移します。ページはその props の型の上に移します。1 回目で、`_atoms`（入力欄、プルダウン、ダウンロードのボタン、ページを開くボタン）と、ほかの部品に依存しない小さな部品（ラベル、見出し、説明、ヒント、行、折りたたみ、ページへの案内、保存ボタン付きの入力欄、認証キー、色、操作のボタン、接続の確認、ファイルの置き場、テレメトリーの中身、計算機器の名前）を移しました。
+
+- 部品ごとに props の型を輸出しています（`LabelComponentProps` など）。ページから渡される props を漏らさないように、呼ぶ側をすべて見て決めました。
+- 行（`FormRow`）は子の要素から `id` と `aria-describedby` だけを読みます（`RowControlProps`）。
+- 入力欄の `focus` と `blur` は、要素がないときは何もしません。描く前には呼ばれないので、前と同じに動きます。
 
 ### 第 7 段：試験とハーネス
 
