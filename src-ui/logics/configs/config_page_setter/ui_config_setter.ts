@@ -1276,6 +1276,15 @@ export const SETTINGS_ARRAY = [
         base_endpoint_name: "osc_port",
     },
     {
+        // OSCQuery (#559): finding VRChat and reading its mute state. Off, messages still go out.
+        Category: "AdvancedSettings",
+        Base_Name: "EnableOscQuery",
+        default_value: true,
+        ui_template_id: "toggle",
+        logics_template_id: "toggle_enable_disable",
+        base_endpoint_name: "osc_query",
+    },
+    {
         Category: "AdvancedSettings",
         Base_Name: "EnableWebsocket",
         default_value: false,

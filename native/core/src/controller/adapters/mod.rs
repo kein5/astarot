@@ -44,8 +44,13 @@ pub trait Osc: Send + Sync {
     fn send_typing(&self, typing: bool) -> io::Result<()>;
     /// Sends chatbox text; `current` is asked right before sending. True when sent.
     fn send_message(&self, text: &str, notification: bool, current: Option<&dyn Fn() -> bool>) -> io::Result<bool>;
-    /// Starts receiving `targets` (and OSCQuery) when the destination is this PC.
+    /// Starts receiving `targets` (and OSCQuery) when the destination is this PC and OSCQuery
+    /// is allowed.
     fn receive(&self, targets: Vec<(String, Target)>) -> Result<(), OscError>;
+    /// Lets OSCQuery run or not (the setting `OSC_QUERY`, #559): off, receiving, the
+    /// advertisement and the discovery stop and stay stopped; on, receiving starts again for the
+    /// current destination with the targets last given. Sending is not affected.
+    fn set_query_allowed(&self, allowed: bool) -> Result<(), OscError>;
     /// Receiving and OSCQuery run.
     fn query_enabled(&self) -> bool;
     /// Whether a VRChat with OSC on is seen on this PC; `None` when that cannot be known.
@@ -78,6 +83,10 @@ impl Osc for OscHandler {
     fn receive(&self, targets: Vec<(String, Target)>) -> Result<(), OscError> {
         self.set_dict_filter_and_target(targets);
         self.receive_osc_parameters()
+    }
+
+    fn set_query_allowed(&self, allowed: bool) -> Result<(), OscError> {
+        self.set_osc_query_allowed(allowed)
     }
 
     fn query_enabled(&self) -> bool {
@@ -155,6 +164,10 @@ impl Adapters {
                 (fallback, true)
             }
         };
+        // OSCQuery turned off in the settings (#559) never starts, not even at start-up.
+        if let Some(osc) = osc.as_ref().filter(|_| !config.get_bool("OSC_QUERY")) {
+            let _ = osc.set_query_allowed(false);
+        }
         Arc::new(Self {
             config,
             output: Arc::clone(&core.output),
