@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-11-18T00:00:00+00:00",
+  "generatedAt": "2026-11-19T00:00:00+00:00",
   "title": "Design System: ASTAROT Dark Studio",
   "extensions": {
     "colorMeta": {
@@ -23,8 +23,8 @@
     "motion": [
       {
         "name": "control-transition",
-        "value": "160ms ease",
-        "purpose": "Color feedback; disabled with reduced motion."
+        "value": "120ms cubic-bezier(.2, 0, 0, 1)",
+        "purpose": "Color feedback on hover and focus (--vox_motion_fast, --vox_ease); a pressed control changes color at once; disabled with reduced motion."
       }
     ],
     "breakpoints": [
@@ -45,15 +45,15 @@
       "refersTo": "button-primary",
       "description": "Primary action used by the studio forms.",
       "html": "<button class=\"ds-primary\">Save settings</button>",
-      "css": ".ds-primary{font:14px system-ui;min-height:40px;padding:9px 12px;border-radius:8px;color:#261633;background:#a47af5;border:0}.ds-primary:hover{background:#b897f7}.ds-primary:focus-visible{outline:2px solid #d9c8fc;outline-offset:3px}"
+      "css": ".ds-primary{font:600 14px system-ui;min-height:40px;padding:9px 12px;border-radius:8px;color:#261633;background:#a47af5;border:0}.ds-primary:hover{background:#b897f7}.ds-primary:focus-visible{outline:2px solid #d9c8fc;outline-offset:3px}"
     },
     {
       "name": "Secondary action",
       "kind": "button",
       "refersTo": "",
-      "description": "Secondary action used by the studio forms.",
-      "html": "<button class=\"ds-secondary\">Discard changes</button>",
-      "css": ".ds-secondary{font:14px system-ui;min-height:40px;padding:9px 12px;border-radius:8px;color:#fafafc;background:#3f2f4e;border:0}.ds-secondary:hover{background:#4e3d5d}.ds-secondary:focus-visible{outline:2px solid #d9c8fc;outline-offset:3px}"
+      "description": "The outline (quiet) button: the secondary action paired with a filled one, such as stop beside start; never used alone.",
+      "html": "<button class=\"ds-secondary\">Stop server</button>",
+      "css": ".ds-secondary{font:600 14px system-ui;min-height:40px;padding:9px 12px;border-radius:8px;color:#eeebf1;background:transparent;border:1px solid #877a94}.ds-secondary:hover{background:#3f2f4e}.ds-secondary:active{background:#261633}.ds-secondary:focus-visible{outline:2px solid #d9c8fc;outline-offset:3px}"
     },
     {
       "name": "Text field",
@@ -67,9 +67,9 @@
       "name": "Settings navigation",
       "kind": "nav",
       "refersTo": "",
-      "description": "Settings navigation used by the studio forms.",
-      "html": "<nav class=\"ds-nav\"><button aria-current=\"page\">TTS</button><button>RVC</button></nav>",
-      "css": ".ds-nav{display:grid;gap:4px;background:#1c0f27;padding:10px}.ds-nav button{font:14px system-ui;min-height:40px;padding:9px 12px;border-radius:8px;color:#fafafc;text-align:left;border:0;background:transparent}.ds-nav [aria-current]{background:#45306a}.ds-nav button:hover{background:#3f2f4e}.ds-nav button:focus-visible{outline:2px solid #d9c8fc;outline-offset:2px}"
+      "description": "The settings menu on the rail: one-line tabs under quiet group headings; the open page takes a deep Lilac fill, light Lilac text and a thin Lilac mark.",
+      "html": "<nav class=\"ds-nav\"><p>Voice and reading</p><button aria-current=\"page\">Text to speech</button><button>Voice changer</button></nav>",
+      "css": ".ds-nav{display:grid;gap:4px;background:#1c0f27;padding:10px}.ds-nav p{display:flex;align-items:center;min-height:24px;margin:0;padding:0 12px;font:600 12px/1.4 system-ui;color:#cfc4d6;white-space:nowrap}.ds-nav button{position:relative;display:flex;align-items:center;min-height:40px;padding:8px 12px;border:0;border-radius:8px;background:transparent;color:#fafafc;font:14px/1.4 system-ui;text-align:left;overflow:hidden;cursor:pointer}.ds-nav button:hover{background:#4e3d5d}.ds-nav button:active{background:#1c0f27}.ds-nav button[aria-current]{background:#4e2888;color:#d9c8fc;cursor:default}.ds-nav button[aria-current]::before{content:\"\";position:absolute;left:2px;top:50%;width:1px;height:20px;border-radius:1px;background:#b797f8;transform:translate(-50%,-50%)}.ds-nav button:focus-visible{outline:2px solid #d9c8fc;outline-offset:3px}"
     },
     {
       "name": "Explicit consent",
@@ -88,7 +88,18 @@
       "Lilac identifies primary actions, selected navigation and keyboard focus.",
       "Shared forms make TTS, RVC and model downloads feel part of the same application."
     ],
-    "rules": [],
+    "rules": [
+      {
+        "name": "The layout explains, not the text (#614)",
+        "body": "What a part of the screen is, what it belongs to and what state it is in are shown by where it sits and by its shape, size, color and motion. A secondary label or a line of explanation is added only where the layout cannot carry the meaning. A longer explanation is not kept on screen: it goes in a tooltip that opens on mouse-over (and on keyboard focus), and its words stay in the control's accessible name or description. This takes away no word that carries a meaning: a control keeps its name, a readout still states its condition in words, consent stays visible, and color never says something alone. New screens, the information architecture (#554) and the components (#452) start from this principle. Rules below that predate it, such as the visible first sentence of a general description, stay until the screens are reviewed against it.",
+        "section": "principles"
+      },
+      {
+        "name": "Components follow shadcn/ui",
+        "body": "Each component takes the parts, variants, look and structure of its shadcn/ui counterpart (the Radix base), written in vanilla-extract with the ASTAROT palette; where the two differ, such as the button looks (#474), a checkbox for a setting (#436), the 40px field or the focus ring, the rule in DESIGN.md stays.",
+        "section": "components"
+      }
+    ],
     "dos": [
       "Do preserve model consent, dirty-form guards, independent switches and stop/mute behavior.",
       "Do check Japanese labels, long paths, keyboard navigation and narrow windows using production components.",

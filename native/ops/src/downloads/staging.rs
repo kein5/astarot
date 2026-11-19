@@ -11,9 +11,9 @@ use std::path::{Path, PathBuf};
 use super::catalog::Model;
 use super::Error;
 use crate::json::{Json, Object};
+use app_identity::MODEL_DOWNLOAD_OWNER as PRODUCT;
 
 pub const LOCK_NAME: &str = ".download.lock";
-const PRODUCT: &str = "VRCT-VOX-model-download-v1";
 const MARKER: &str = "owner.json";
 const MARKER_LIMIT: u64 = 4096;
 
@@ -91,10 +91,10 @@ fn lock(file: &mut File) -> Result<(), Error> {
     }
 }
 
-/// The marker a staging directory carries, as Python's `mark_owned` writes it.
-fn marker(entry: &Model, directory: &str) -> Object {
+/// The marker a staging directory carries, as Python's `mark_owned` writes it, naming `product`.
+fn marker(product: &str, entry: &Model, directory: &str) -> Object {
     Object::new()
-        .with("product", PRODUCT)
+        .with("product", product)
         .with("id", entry.id.as_str())
         .with("revision", entry.revision.as_str())
         .with("files", entry.artifacts.iter().map(|a| Json::from(a.filename.as_str())).collect::<Vec<_>>())
@@ -104,7 +104,7 @@ fn marker(entry: &Model, directory: &str) -> Object {
 /// Writes `owner.json` (never over an existing one) and makes it durable.
 pub fn mark_owned(path: &Path, entry: &Model) -> Result<(), Error> {
     let name = path.file_name().and_then(|n| n.to_str()).unwrap_or_default();
-    let text = Json::from(marker(entry, name)).to_python_default();
+    let text = Json::from(marker(PRODUCT.current(), entry, name)).to_python_default();
     let mut out = OpenOptions::new().write(true).create_new(true).open(path.join(MARKER)).map_err(Error::Io)?;
     out.write_all(text.as_bytes()).map_err(Error::Io)?;
     out.flush().map_err(Error::Io)?;
@@ -207,10 +207,15 @@ fn recover_one(path: &Path, name: &str, entries: &[Model], extra_files: &[&str])
 
 /// The children of `path` when its marker names an entry of `entries` and the staging name
 /// `name` exactly, and every child is a regular file the entry owns. `skip` otherwise.
+///
+/// The marker's product may have either spelling (ADR-014, 2.11): this build writes the VRCT-VOX
+/// one, and a build that moved to ASTAROT takes back what an older one left, and the other way
+/// round.
 fn check_owned(path: &Path, name: &str, entries: &[Model], extra_files: &[&str]) -> Result<Vec<PathBuf>, Error> {
     let data = read_marker(path)?;
     let entry = data.get("id").and_then(Json::as_str).and_then(|id| entries.iter().find(|e| e.id == id)).ok_or(SKIP)?;
-    if !data.same_as(&marker(entry, name)) {
+    let product = data.get("product").and_then(Json::as_str).filter(|product| PRODUCT.accepts(product)).ok_or(SKIP)?;
+    if !data.same_as(&marker(product, entry, name)) {
         return Err(SKIP);
     }
     let mut children = Vec::new();

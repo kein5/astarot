@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useI18n } from "@useI18n";
-import { Button, Select, SettingGroup, SettingRow, Switch, TextField } from "../kit/index.ts";
+import RefreshSvg from "@images/refresh.svg?react";
+import { Button, Select, SelectOption, SettingGroup, SettingRow, Switch, TextField } from "../kit/index.ts";
 import * as styles from "./KitLab.css.ts";
 
 // The #452 component experiment on one page, for review in the dev server only
@@ -60,16 +61,16 @@ export const KitLab = () => {
                         {control => (
                             <Select {...control} value={font} onChange={event => setFont(event.target.value)}>
                                 {/* i18n-exempt-start: font family names */}
-                                <option value="Yu Gothic UI">Yu Gothic UI</option>
-                                <option value="Noto Sans JP">Noto Sans JP</option>
-                                <option value="Meiryo UI">Meiryo UI</option>
+                                <SelectOption value="Yu Gothic UI">Yu Gothic UI</SelectOption>
+                                <SelectOption value="Noto Sans JP">Noto Sans JP</SelectOption>
+                                <SelectOption value="Meiryo UI">Meiryo UI</SelectOption>
                                 {/* i18n-exempt-end */}
                             </Select>
                         )}
                     </SettingRow>
                     <SettingRow label={t("config_page.appearance.ui_language.label")}>
                         {/* i18n-exempt: a language code standing in for the real list */}
-                        {control => <Select {...control} disabled value="ja"><option value="ja">ja</option></Select>}
+                        {control => <Select {...control} disabled value="ja"><SelectOption value="ja">ja</SelectOption></Select>}
                     </SettingRow>
                 </SettingGroup>
             </div>
@@ -83,6 +84,8 @@ export const KitLab = () => {
                 <Button tone="danger">{t("realtime.vocabulary_remove_short")}</Button>
                 <Button tone="primary" disabled>{t("voice_ui.save_changes")}</Button>
                 <Button size="compact">{t("model_downloads.review")}</Button>
+                <Button><RefreshSvg className={styles.icon} aria-hidden="true" />{t("realtime.refresh_devices")}</Button>
+                <Button size="icon" aria-label={t("realtime.refresh_devices")}><RefreshSvg className={styles.icon} aria-hidden="true" /></Button>
             </div>
         </main>
     );

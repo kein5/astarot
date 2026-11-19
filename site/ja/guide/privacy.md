@@ -41,7 +41,7 @@ PCの構成として送るのは次の内容です。
 | モデルの取得 | Hugging Face | ダウンロードの要求 |
 | ボイスチェンジャー（RVC）の実行環境の取得 | Hugging Face、NuGet（`api.nuget.org`。ONNX Runtime）、PyPI（`files.pythonhosted.org`。NVIDIAのGPUで動かすときのライブラリ） | ダウンロードの要求 |
 | チャットボックスへの送信 | VRChat（PCの中のOSC） | 送る文章 |
-| VRChatとの連携（OSCQuery） | 同じLANの機器（mDNS） | アプリが動いていることの告知。告知に入るのは`VRCT:<起動した時刻>`という名前とポートで、PCの名前やユーザー名は入りません |
+| VRChatとの連携（OSCQuery、オフにできます） | お使いのPCの中（mDNS。PCの外には送りません） | アプリが動いていることの告知。告知に入るのは`VRCT:<起動した時刻>`という名前とポートで、PCの名前やユーザー名は入りません |
 | 利用状況の送信（オフにできます） | ASTAROTの開発者（Cloudflare） | 起動したこと、エラーの種類、PCの構成 |
 | 更新の確認（起動時、オフにできます）と更新の取得 | 正式版の確認はASTAROTの開発者（Cloudflare）を通してGitHubへ、ベータ版の確認はGitHubのAPIへ直接。取得はGitHub | 最新版の問い合わせとダウンロードの要求。会話や音声、設定は送りません。deb・rpmで入れた場合は確認しません |
 

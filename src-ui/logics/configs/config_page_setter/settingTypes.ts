@@ -239,6 +239,7 @@ export interface SettingValues {
     // AdvancedSettings
     OscIpAddress: string;
     OscPort: number;
+    EnableOscQuery: boolean;
     EnableWebsocket: boolean;
     WebsocketHost: string;
     WebsocketPort: number;

@@ -275,6 +275,73 @@ test("#436: the legacy dropdown is the same field as the forms' select, so an em
     assert.match(list, /background-color: var\(--vox_surface, #18253b\)/);
     assert.match(list, /border-radius: var\(--vox_radius, 0\.8rem\)/);
 });
+test("the settings text entry is the same field as the kit's text field and the forms' inputs", () => {
+    // docs/design/components/shadcn-alignment.md: _Entry takes the kit's fill, border, radius and
+    // height, and names its input as shadcn/ui's Input does.
+    const entry = read(box + "_components/_atoms/_entry/_Entry.module.scss");
+    const field = entry.split(".entry_wrapper {")[1].split("\n}")[0];
+    assert.match(field, /min-height: 4rem/, "the field keeps its height without a value");
+    assert.match(field, /background-color: var\(--vox_surface\)/);
+    assert.match(field, /border: 0\.1rem solid var\(--vox_field_border\)/);
+    assert.match(field, /border-radius: var\(--vox_radius\)/);
+    assert.ok(contrast("--vox_field_border", "--vox_surface") >= 3.5, "the field's edge is visible on its fill");
+    // The input fills the box, so a click anywhere in it reaches the input.
+    assert.match(entry, /\.entry_input_area\s*{[^}]*flex: 1 1 auto/);
+    assert.match(read(box + "_components/_atoms/_entry/_Entry.jsx"), /<input\s+data-slot="input"/);
+    // The API key's edit cover lies over the field, so it has the field's corners.
+    assert.match(read(box + "_components/auth_key/AuthKey.module.scss"), /\.entry_edit_cover\s*{[^}]*border-radius: var\(--vox_radius\)/);
+});
+test("the settings search is the same field as the other inputs, with InputGroup's parts", () => {
+    // docs/design/components/shadcn-alignment.md, Combobox, Command and InputGroup.
+    const css = read("search_bar/SearchBar.module.scss");
+    const field = css.split(".search_input_container {")[1].split("\n}")[0];
+    assert.match(field, /background-color: var\(--vox_surface\)/);
+    assert.match(field, /border: 0\.1rem solid var\(--vox_field_border\)/);
+    assert.match(field, /border-radius: var\(--vox_radius\)/);
+    // Hover makes the edge lighter, never darker than the field border.
+    assert.match(field, /&:hover\s*{\s*border-color: var\(--dark_550_color\)/);
+    const jsx = read("search_bar/SearchBar.jsx");
+    assert.match(jsx, /className=\{styles\.search_input_container\} data-slot="input-group"/);
+    assert.match(jsx, /data-slot="input-group-control"/);
+    assert.equal((jsx.match(/data-slot="input-group-addon"/g) ?? []).length, 2, "the icon and the clear button");
+    // The results open on the surface, like the other lists that drop from a field.
+    assert.match(css.split(".dropdown_results {")[1].split("\n}")[0], /background-color: var\(--vox_surface\)/);
+    // A search that finds nothing says so in shadcn/ui's Empty, inside the status the list becomes.
+    assert.match(jsx, /<Empty>\s*<EmptyDescription>\{t\("config_page\.search\.no_results"\)\}<\/EmptyDescription>\s*<\/Empty>/);
+    assert.doesNotMatch(css, /\.no_results/);
+});
+test("the slider draws its filled part on a .6rem groove, as shadcn/ui's Slider does", () => {
+    const css = read(box + "_components/slider/Slider.module.scss");
+    const rule = name => css.split(`\n${name} {`)[1].split("\n}")[0];
+    // The filled part (shadcn/ui's Range) is drawn in the primary colour.
+    assert.match(rule(".track"), /\n {4}background-color: var\(--primary_600_color\);/);
+    // The groove and its filled part are .6rem (h-1.5), across or along.
+    for (const name of [".rail", ".track"]) {
+        assert.match(rule(name), /height: 0\.6rem;/, name);
+        assert.match(rule(name), /width: 0\.6rem;/, name);
+    }
+    // The pointer still reaches 3rem around the groove.
+    assert.match(rule(".sliderRoot"), /height: 0\.6rem;\s*padding: 1\.2rem 0;/);
+    assert.match(rule(".sliderRoot"), /width: 0\.6rem;\s*padding: 0 1\.2rem;/);
+    // A disabled slider is half as strong (data-[disabled]:opacity-50), as the other controls are.
+    assert.match(rule(".sliderRoot"), /&\[data-disabled\] \{\s*opacity: 0\.5;/);
+    // The forms' range control looks the same: a .6rem groove painted up to --range-fill, which
+    // the monitor volume sets to its value's share.
+    const form = read(box + "advanced_settings/VoiceSettings.module.scss");
+    assert.match(form, /input\[type="range"\]::-webkit-slider-runnable-track \{ height: \.6rem;[^}]*linear-gradient\(to right, var\(--primary_600_color\) var\(--range-fill, 0%\), var\(--dark_825_color\) var\(--range-fill, 0%\)\)/);
+    assert.match(form, /input\[type="range"\]::-webkit-slider-thumb \{[^}]*height: 1\.8rem; margin-top: -\.6rem;/);
+    assert.match(form, /input\[type="range"\]::-moz-range-progress \{ height: \.6rem;[^}]*background: var\(--primary_600_color\)/);
+    assert.match(read(box + "advanced_settings/VoiceSettings.jsx"), /<input type="range" min="0" max="100"[^>]*style=\{\{ "--range-fill": `\$\{draft\.monitor_volume \?\? "100"\}%` \}\}/);
+});
+test("the forms' select draws the kit select's chevron, at its size and place", () => {
+    // Both are shadcn/ui's NativeSelect: a 1.6rem chevron 1.4rem from the right edge.
+    const form = read(box + "advanced_settings/VoiceSettings.module.scss");
+    const kit = /<path d="([^"]+)"/.exec(read("../../kit/Select.tsx"))[1];
+    const select = /\n {4}select \{[^}]*\}/.exec(form)[0];
+    assert.ok(select.includes(`viewBox='0 0 12 12'%3E%3Cpath d='${kit}'`), "the same chevron as the kit's");
+    assert.match(select, /padding-right: 3\.6rem;/);
+    assert.match(select, /background-position: right 1\.4rem center; background-size: 1\.6rem;/);
+});
 test("download dialogs write byte counts in the display language", () => {
     for (const page of ["advanced_settings/ModelDownloads.jsx", "ocr/OcrModels.jsx"]) {
         const source = read(box + page);

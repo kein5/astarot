@@ -300,7 +300,7 @@ pub fn acquire(candidates: &[PathBuf]) -> Result<Lease, Error> {
 static SHIPPED_LIBRARY: std::sync::OnceLock<PathBuf> = std::sync::OnceLock::new();
 
 /// The client library the app ships (`_internal/openvr`). Every [`acquire`] tries it after the
-/// caller's full paths (an explicit `VRCT_OPENVR_API`, the file beside the binary) and before a
+/// caller's full paths (an explicit `ASTAROT_OPENVR_API`, the file beside the binary) and before a
 /// bare name, which the system would look up anywhere. Set once, before the first connection.
 pub fn use_library(path: PathBuf) {
     let _ = SHIPPED_LIBRARY.set(path);

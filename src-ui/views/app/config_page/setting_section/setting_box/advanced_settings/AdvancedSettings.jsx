@@ -66,6 +66,7 @@ export const AdvancedSettings = () => {
                 <SectionLabelComponent label={t("config_page.advanced_settings.section_label_osc")} />
                 <OscIpAddressContainer />
                 <OscPortContainer />
+                <OscQueryContainer />
             </div>
             <WebsocketContainer />
             <ObsBrowserSourceContainer />
@@ -154,6 +155,23 @@ export const OscPortContainer = () => {
             width="10rem"
             type="number"
             {...PORT_INPUT_LIMITS}
+        />
+    );
+};
+
+// OSCQuery finds VRChat and reads its mute state (#559). Off, nothing listens for VRChat or
+// announces the app; mute sync and the VRChat check say why they are unavailable.
+const OscQueryContainer = () => {
+    const { t } = useI18n();
+    const { currentEnableOscQuery, toggleEnableOscQuery } = useAdvancedSettings();
+
+    return (
+        <CheckboxContainer
+            setting_id="osc_query"
+            label={t("config_page.advanced_settings.osc_query.label")}
+            desc={t("config_page.advanced_settings.osc_query.desc")}
+            variable={currentEnableOscQuery}
+            toggleFunction={toggleEnableOscQuery}
         />
     );
 };

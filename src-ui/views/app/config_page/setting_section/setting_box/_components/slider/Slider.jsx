@@ -25,6 +25,9 @@ export const Slider = (props) => {
     });
 
     const isVertical = props.orientation === "vertical";
+    // A slider that cannot be used, as shadcn/ui's (Radix's) disabled: half as strong, out of the
+    // tab order, and neither the pointer nor the keys move it.
+    const disabled = props.disabled === true;
     const min = props.min !== undefined ? Number(props.min) : 0;
     const max = props.max !== undefined ? Number(props.max) : 100;
     const step = props.step == null ? null : Number(props.step);
@@ -72,7 +75,7 @@ export const Slider = (props) => {
     }, [isVertical, max, min, step, localValue, decimalPlaces]);
 
     const handlePointerDown = (e) => {
-        if (e.button !== 0) return; // Only left click
+        if (disabled || e.button !== 0) return; // Only left click
         setIsDragging(true);
         const newValue = calculateValue(e.clientX, e.clientY);
         setLocalValue(newValue);
@@ -121,6 +124,7 @@ export const Slider = (props) => {
     // Keyboard: arrows move one step, PageUp/PageDown ten, Home/End to the
     // ends. Each key is a finished change, like releasing the pointer.
     const handleKeyDown = (e) => {
+        if (disabled) return;
         const unit = step || (max - min) / 100;
         const moves = {
             ArrowRight: unit, ArrowUp: unit, ArrowLeft: -unit, ArrowDown: -unit,
@@ -186,6 +190,7 @@ export const Slider = (props) => {
                     [styles.dragging]: isDragging
                 })}
                 ref={trackRef}
+                data-disabled={disabled ? "" : undefined}
                 onPointerDown={handlePointerDown}
             >
                 <div className={styles.rail}></div>
@@ -220,7 +225,8 @@ export const Slider = (props) => {
                 <div
                     className={clsx(styles.thumb, { [styles.thumbActive]: isDragging })}
                     role="slider"
-                    tabIndex={0}
+                    tabIndex={disabled ? undefined : 0}
+                    aria-disabled={disabled || undefined}
                     aria-label={accessibleName}
                     aria-describedby={props["aria-describedby"]}
                     aria-valuemin={min}

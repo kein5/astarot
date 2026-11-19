@@ -145,6 +145,8 @@ fn typed_chat_is_spoken_once_to_the_chosen_output_and_never_logged() {
     let played = run.voice.played().into_iter().find(|p| p.device == OUTPUT).unwrap();
     assert_eq!((played.rate, played.channels), (24000, 1));
     eventually("the bus counts it", || run.status()["completed"] == 1);
+    // The monitor is off (the default): nothing is opened for it (`disabled_monitor_opens_no_stream`).
+    assert!(run.voice.played().iter().all(|p| !p.device.starts_with("monitor:")), "a monitor was opened while it was off");
     // The flow panel's trace: queued, then playing, with the input's text only there.
     let traces = || run.ui.on(mark, "/run/io_trace");
     eventually("the trace says the speech played", || traces().iter().any(|t| t["result"]["outputs"]["speech"]["state"] == "playing"));
@@ -791,6 +793,95 @@ fn a_conversion_that_cannot_start_says_why_and_opens_nothing() {
     let bad = json!({ "source": mic, "mode": "converted", "options": { "engine": "rvc", "runtime": "x", "model": "voice.txt", "index": "", "pitch": 0, "index_rate": 0 } });
     assert_eq!(error_code(&start_direct(&run, bad)), "source_bridge_source_invalid");
     assert!(run.voice.passthrough_starts().is_empty(), "a failed conversion fell back to the microphone");
+    run.ui.stop();
+}
+
+#[test]
+fn a_conversion_is_heard_on_the_monitor_only_while_it_is_on_and_not_muted() {
+    // `test_monitor_vc.py`: the monitor gets the same converted blocks as the voice, nothing
+    // is opened for it while it is off, a mute stops it while the conversion goes on, and a
+    // resume brings it back. The monitor never gets the microphone itself.
+    let run = converting_run();
+    run.settings(json!({ "monitor": "on", "monitor_device": MONITOR }));
+    run.ui.ok("/run/resume_voice", None);
+    let mic = source("Mic (Realtek)").id.to_json();
+    let (_files, options) = rvc_files("convert");
+    let monitor = format!("monitor:{MONITOR}");
+    let monitor_bytes = || run.voice.played().iter().filter(|p| p.device == monitor).map(|p| p.bytes.len()).sum::<usize>();
+    assert_eq!(start_direct(&run, json!({ "source": mic, "mode": "converted", "options": options.clone() }))["status"], 200);
+    eventually("the monitor hears the converted voice", || {
+        run.voice.played().iter().filter(|p| p.device == monitor).any(|p| p.bytes.as_chunks::<2>().0.iter().any(|s| *s != [0, 0]))
+    });
+    for played in run.voice.played().into_iter().filter(|p| p.device == monitor) {
+        assert_eq!((played.rate, played.channels), (48000, 1));
+        let samples: Vec<i16> = played.bytes.as_chunks::<2>().0.iter().map(|s| i16::from_le_bytes(*s)).filter(|s| *s != 0).collect();
+        assert!(samples.iter().all(|s| (s - 1) % 100 == 0), "the monitor got audio that was not the worker's answer");
+    }
+
+    // Muted: the conversion goes on to the device (as silence there), the monitor stops.
+    run.ui.ok("/run/mute_voice", None);
+    eventually("the flow says muted", || run.ui.ok("/get/data/io_flow", None)["voice"]["outputs"][2]["carried"] == "muted");
+    // What the monitor had taken before the mute may still play out (at most 500 ms).
+    std::thread::sleep(Duration::from_millis(700));
+    let (heard, written) = (monitor_bytes(), run.played_on(OUTPUT));
+    eventually("the conversion goes on while muted", || run.played_on(OUTPUT) > written + 7680);
+    assert_eq!(monitor_bytes(), heard, "the monitor went on while muted");
+
+    // Resumed: the monitor hears it again.
+    run.ui.ok("/run/resume_voice", None);
+    eventually("the monitor hears it again", || monitor_bytes() > heard);
+    run.ui.ok("/run/stop_direct_voice", None);
+    eventually("the conversion stops", || {
+        let state = run.ui.ok("/get/data/direct_voice_state", None);
+        state["requested"] == false && state["pending"] == false
+    });
+
+    // Monitor off: a conversion opens nothing for it.
+    run.settings(json!({ "monitor": "off" }));
+    let before = run.voice.played().iter().filter(|p| p.device.starts_with("monitor:")).count();
+    let written = run.played_on(OUTPUT);
+    assert_eq!(start_direct(&run, json!({ "source": mic, "mode": "converted", "options": options }))["status"], 200);
+    eventually("the conversion is written", || run.played_on(OUTPUT) > written + 7680);
+    assert_eq!(run.voice.played().iter().filter(|p| p.device.starts_with("monitor:")).count(), before, "a monitor was opened while it was off");
+    run.ui.stop();
+}
+
+#[test]
+fn a_worker_that_stalls_or_only_finds_silence_is_never_taken_for_a_conversion() {
+    // `test_seedvc_live.py` and `test_rvc_integration.py` (the generic parts): a worker that
+    // answers nothing is stopped as stalled, and one that answers only silence is not
+    // confirmed as converting. Neither passes the microphone through.
+    let run = converting_run();
+    let mic = source("Mic (Realtek)").id.to_json();
+    let (_files, options) = rvc_files("stall");
+    assert_eq!(start_direct(&run, json!({ "source": mic, "mode": "converted", "options": options }))["status"], 200);
+    // The block it holds grows too old (`vc_block_expired`) before the 1 s read ends (`vc_worker_stalled`).
+    eventually("the stalled worker is stopped", || {
+        let error = run.ui.ok("/get/data/direct_voice_state", None)["error"].clone();
+        error == "vc_worker_stalled" || error == "vc_block_expired"
+    });
+    let state = run.ui.ok("/get/data/direct_voice_state", None);
+    assert_eq!((state["requested"].clone(), state["conversion_verified"].clone()), (json!(false), json!(false)));
+    assert!(run.voice.played().iter().filter(|p| p.device == OUTPUT).all(|p| p.bytes.iter().all(|b| *b == 0)), "a stalled worker's microphone reached the device");
+    eventually("the failed run is reaped", || run.ui.ok("/get/data/direct_voice_state", None)["pending"] == false);
+
+    let (_files, options) = rvc_files("silence");
+    assert_eq!(start_direct(&run, json!({ "source": mic, "mode": "converted", "options": options }))["status"], 200);
+    eventually("the conversion runs", || run.ui.ok("/get/data/direct_voice_state", None)["active"] == true);
+    let written = run.played_on(OUTPUT);
+    eventually("its answers are written", || run.played_on(OUTPUT) > written + 7680);
+    let state = run.ui.ok("/get/data/direct_voice_state", None);
+    assert_eq!(state["conversion_verified"], false, "silence alone does not show that the worker converts");
+    assert!(run.voice.played().iter().filter(|p| p.device == OUTPUT).all(|p| p.bytes.iter().all(|b| *b == 0)), "the microphone reached the device");
+    run.ui.ok("/run/stop_direct_voice", None);
+
+    // On the CPU, the state says so with its delay.
+    eventually("the silent run stops", || run.ui.ok("/get/data/direct_voice_state", None)["pending"] == false);
+    let (_files, options) = rvc_files("cpu");
+    assert_eq!(start_direct(&run, json!({ "source": mic, "mode": "converted", "options": options }))["status"], 200);
+    eventually("the conversion is verified", || run.ui.ok("/get/data/direct_voice_state", None)["conversion_verified"] == true);
+    let state = run.ui.ok("/get/data/direct_voice_state", None);
+    assert_eq!((state["conversion_device"].as_str(), state["conversion_latency_ms"].clone()), (Some("cpu"), json!(1182)));
     run.ui.stop();
 }
 

@@ -26,6 +26,8 @@ download-binaries = ["ort/download-binaries", "ort/tls-native", "ort/copy-dylibs
 load-dynamic = ["vrct-onnx-runtime/load-dynamic"]
 
 [dependencies]
+# The names the app goes by outside its code (ADR-014): the OpenVR library variable, the screen frame.
+app-identity = { path = "../app-identity" }
 ort = { version = "=2.0.0-rc.15", default-features = false, features = ["std", "api-17"] }
 # The process's one ONNX Runtime library and environment, shared with local translation.
 vrct-onnx-runtime = { path = "../onnx-runtime", default-features = false }

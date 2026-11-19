@@ -16,6 +16,7 @@ import { AdvancedSection } from "../_components/advanced_section/AdvancedSection
 import { useOthers } from "@logics_configs";
 import { VrchatPresence } from "../../../../others/vrchat_presence/VrchatPresence";
 import { PagePointer, PageLinkButton } from "../_components/page_pointer/PagePointer";
+import { HintDescriptions } from "../_components/hint/Hint";
 
 // What goes to VRChat: the chatbox first, as a first conversation needs it. What is set once
 // (the notification sound, mute sync, the message formats) is in 「詳細設定」, with the rows that
@@ -27,7 +28,9 @@ export const Vrchat = () => {
     const { t } = useI18n();
     const { currentEnableNotificationVrcSfx, currentEnableVrcMicMuteSync } = useOthers();
     const onOff = current => t(current.data === true ? "config_page.advanced_status.on" : "config_page.advanced_status.off");
+    // Reviewed against #614: the rows' descriptions are their labels' hints.
     return (
+        <HintDescriptions>
         <div className={styles.container}>
             <div>
                 <SectionLabelComponent label={t("config_page.vrchat.section_label_chatbox")} />
@@ -60,6 +63,7 @@ export const Vrchat = () => {
             </AdvancedSection>
             <ChatReadingPointer />
         </div>
+        </HintDescriptions>
     );
 };
 

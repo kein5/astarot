@@ -601,7 +601,7 @@ impl Core {
         asr_ms: Option<u64>,
         guard: Option<Guard>,
     ) -> Option<Value> {
-        self.process_message_stamped(spec, message, language, id, asr_ms, guard, None, None, None)
+        self.process_message_stamped(spec, message, language, id, asr_ms, guard, None, None, None, None)
     }
 
     /// Takes the settings of a message and its place in the chatbox order. `chatbox` false
@@ -619,7 +619,9 @@ impl Core {
     /// A realtime final with what it was admitted with when it arrived (`settings_snapshot` and
     /// `chatbox_sequence` of `_processMessage`), then, from the microphone, its translated
     /// speech when the voice settings let microphone finals speak (`mic_snapshot` and
-    /// `speech_update`).
+    /// `speech_update`). `received_ns` is when the final arrived, on speech's clock: the flow
+    /// panel times the message from it (`speech_update.received_ns`).
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn process_realtime(
         self: &Arc<Self>,
         spec: &Spec,
@@ -628,8 +630,9 @@ impl Core {
         guard: Guard,
         admitted: Admitted,
         mic_voice: Option<MicVoice>,
+        received_ns: i64,
     ) -> Option<Value> {
-        self.process_message_stamped(spec, message, None, Some(id), None, Some(guard), None, Some(admitted), mic_voice.as_ref())
+        self.process_message_stamped(spec, message, None, Some(id), None, Some(guard), None, Some(admitted), mic_voice.as_ref(), Some(received_ns))
     }
 
     /// [`Core::process_message`] with the speech generation the receiver stamped, or with what
@@ -646,6 +649,7 @@ impl Core {
         voice_generation: Option<u64>,
         admitted: Option<Admitted>,
         mic_voice: Option<&MicVoice>,
+        received_ns: Option<i64>,
     ) -> Option<Value> {
         let mic = spec.kind == "mic";
         // A message refused at admission stays refused after unmute.
@@ -683,7 +687,7 @@ impl Core {
 
         let started = Instant::now();
         let started_ns = vrct_tts::clock::monotonic_ns();
-        let trace = self.io_trace_begin(spec.kind, message, id.as_deref(), started_ns, asr_ms);
+        let trace = self.io_trace_begin(spec.kind, message, id.as_deref(), started_ns, asr_ms, received_ns);
         let voice = (voice_generation, started_ns);
         let slots = snapshot.target_slots();
         let speaks = matches!(spec.kind, "chat" | "mic");
@@ -1122,7 +1126,7 @@ impl Core {
         }
         // The receiver's stamp: a stop while this waited in the queue refuses its speech.
         let stamped = data.get("_voice_generation").and_then(Value::as_u64);
-        match self.process_message_stamped(&CHAT, text, None, Some(id_text), None, None, stamped, None, None) {
+        match self.process_message_stamped(&CHAT, text, None, Some(id_text), None, None, stamped, None, None, None) {
             Some(mut result) => {
                 // The id goes back as the UI sent it.
                 result["id"] = id.clone();

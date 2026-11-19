@@ -138,6 +138,65 @@ fn typing_reaches_vrchat_and_turning_sending_off_ends_it() {
     ui.stop();
 }
 
+/// A stand-in for VRChat's OSC port on 127.0.0.1, where OSCQuery is used.
+fn local_vrchat() -> (UdpSocket, u16) {
+    let socket = UdpSocket::bind(("127.0.0.1", 0)).unwrap();
+    let port = socket.local_addr().unwrap().port();
+    (socket, port)
+}
+
+#[test]
+fn oscquery_turned_off_starts_nothing_and_messages_still_go_out() {
+    // #559: the user turned OSCQuery off. VRChat is on this PC, but nothing receives, advertises
+    // or browses; mute sync cannot run and VRChat's presence is unknown.
+    let (socket, port) = local_vrchat();
+    let run = start(json!({ "OSC_PORT": port, "OSC_QUERY": false }), false);
+    let ui = &run.ui;
+    assert_eq!(ui.ready()["/get/data/osc_query"], false);
+    // A choice made in the settings: no warning at start-up with nothing stopped.
+    let notice = ui.wait_endpoint(0, "/run/enable_osc_query");
+    assert_eq!(
+        notice["result"],
+        json!({ "data": false, "disabled_functions": [], "reason": "turned_off", "microphone_stopped": false })
+    );
+    assert!(!run.osc().allowed.load(Ordering::SeqCst));
+    assert!(!vrct_core::controller::Osc::query_enabled(run.osc().as_ref()));
+    assert_eq!(ui.ok("/get/data/vrchat_osc_presence", None), "unknown");
+    assert_eq!(refused(ui, "/set/enable/vrc_mic_mute_sync", Value::Null), ("VRC_MIC_MUTE_SYNC_OSC_DISABLED".into(), json!(false)));
+    // Messages still go out.
+    ui.ok("/run/typing_message_box", None);
+    assert_eq!(received(&socket, Duration::from_secs(2)), Some(typing(true)));
+    ui.ok("/run/stop_typing_message_box", None);
+    assert_eq!(received(&socket, Duration::from_secs(2)), Some(typing(false)));
+
+    // On: receiving starts, VRChat is seen and mute sync can be turned on.
+    let mark = ui.lines().len();
+    assert_eq!(ui.ok("/set/enable/osc_query", None), true);
+    assert_eq!(ui.wait_endpoint(mark, "/run/enable_osc_query")["result"], json!({ "data": true, "disabled_functions": [] }));
+    assert!(vrct_core::controller::Osc::query_enabled(run.osc().as_ref()));
+    assert_eq!(ui.ok("/get/data/vrchat_osc_presence", None), "found");
+    assert_eq!(ui.ok("/set/enable/vrc_mic_mute_sync", None), true);
+    eventually("VRChat's unmute confirmed", || run.mic.last() == Some(false));
+
+    // Off with sync on: the microphone stops first, then sync goes off, and the UI is told why.
+    let mark = ui.lines().len();
+    assert_eq!(ui.ok("/set/disable/osc_query", None), false);
+    assert_eq!(
+        ui.wait_endpoint(mark, "/run/enable_osc_query")["result"],
+        json!({ "data": false, "disabled_functions": ["vrc_mic_mute_sync"], "reason": "turned_off", "microphone_stopped": true })
+    );
+    assert_eq!(run.mic.stopped.load(Ordering::SeqCst), 1);
+    assert_eq!(ui.ok("/get/data/vrc_mic_mute_sync", None), false);
+    assert!(!vrct_core::controller::Osc::query_enabled(run.osc().as_ref()));
+    assert_eq!(ui.ok("/get/data/vrchat_osc_presence", None), "unknown");
+    ui.ok("/run/typing_message_box", None);
+    assert_eq!(received(&socket, Duration::from_secs(2)), Some(typing(true)), "sending goes on");
+
+    ui.ok("/run/shutdown", None);
+    assert_eq!(ui.saved()["OSC_QUERY"], false);
+    run.ui.stop();
+}
+
 #[test]
 fn only_an_indicator_the_app_turned_on_is_turned_off() {
     // `test_controller_typing.py`.

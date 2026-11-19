@@ -33,13 +33,17 @@ test("the list offers automatic first, then this PC's fonts, and a saved font th
     assert.equal(gone.props.list["Gone Sans"], "config_page.vr.overlay_font_family.not_installed");
 });
 
-test("the description warns when no font here can show a language, asked for when the settings open", async () => {
+test("a warning says when no font here can show a language, asked for when the settings open", async () => {
     const fine = await render();
     assert.equal(fine.props.desc, "config_page.vr.overlay_font_family.desc");
+    assert.deepEqual(fine.props.add_warnings, []);
     assert.equal(fine.asked.length, 1);
 
+    // A warning under the label, not part of the description: it stays in sight where the
+    // description is the label's hint (#614).
     const missing = await render({ missing: ["Japanese"] });
-    assert.equal(missing.props.desc, "config_page.vr.overlay_font_family.desc\nconfig_page.vr.overlay_font_family.missing");
+    assert.equal(missing.props.desc, "config_page.vr.overlay_font_family.desc");
+    assert.deepEqual(missing.props.add_warnings, [{ label: "config_page.vr.overlay_font_family.missing" }]);
 
     const closed = await render({ open: false });
     assert.equal(closed.asked.length, 0);

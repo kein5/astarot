@@ -7,7 +7,7 @@ import { DropdownMenuContainer } from "../_templates/Templates";
 import { missingLanguagesText } from "../../../../../../logics/common/fontLanguages";
 
 // The subtitles' font, from the fonts on this PC (the same list as the app's font). No font is
-// bundled: when no font here can show a language, the description says so.
+// bundled: when no font here can show a language, a warning says so.
 export const OverlayFontFamily = () => {
     const { t, i18n } = useI18n();
     const {
@@ -34,17 +34,18 @@ export const OverlayFontFamily = () => {
     Object.assign(list, fonts);
 
     const missing = Array.isArray(currentOverlayFontMissingLanguages.data) ? currentOverlayFontMissingLanguages.data : [];
-    const desc = missing.length
-        ? `${t("config_page.vr.overlay_font_family.desc")}\n${t("config_page.vr.overlay_font_family.missing",
-            { languages: missingLanguagesText(missing, i18n?.language) })}`
-        : t("config_page.vr.overlay_font_family.desc");
+    // A language no font here can show is a warning under the label, in sight also where the
+    // description is the label's hint (#614).
+    const warnings = missing.length ? [{ label: t("config_page.vr.overlay_font_family.missing",
+        { languages: missingLanguagesText(missing, i18n?.language) }) }] : [];
 
     return (
         <DropdownMenuContainer
             setting_id="overlay_font_family"
             dropdown_id="overlay_font_family"
             label={t("config_page.vr.overlay_font_family.label")}
-            desc={desc}
+            desc={t("config_page.vr.overlay_font_family.desc")}
+            add_warnings={warnings}
             selected_id={selected}
             list={list}
             selectFunction={(selected_data) => setOverlayFontFamily(selected_data.selected_id)}

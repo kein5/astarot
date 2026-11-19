@@ -791,6 +791,58 @@ fn a_marker_written_by_python_is_recognized() {
     assert!(!partial.exists());
 }
 
+/// A staging directory marked with `product`, as Python's `json.dump` writes the marker.
+fn partial_marked(root: &Path, digit: char, product: &str) -> PathBuf {
+    fs::create_dir_all(root).unwrap();
+    let partial = root.join(format!(".partial-{}", digit.to_string().repeat(32)));
+    fs::create_dir(&partial).unwrap();
+    let marker = json!({"product": product, "id": "test-model", "revision": "a".repeat(40), "files": ["model.gguf"],
+        "directory": partial.file_name().unwrap().to_string_lossy()});
+    fs::write(partial.join("owner.json"), marker.to_string()).unwrap();
+    fs::write(partial.join("model.gguf"), b"GGU").unwrap();
+    partial
+}
+
+#[test]
+fn the_marker_names_the_product_as_0_5_did() {
+    let s = setup();
+    start(&s.manager).unwrap();
+    let path = model_path(&finish(&s.manager));
+    let marker: serde_json::Value = serde_json::from_slice(&fs::read(path.with_file_name("owner.json")).unwrap()).unwrap();
+    assert_eq!(marker["product"], "VRCT-VOX-model-download-v1");
+}
+
+/// ADR-014, 2.11: a staging directory marked under either spelling is this app's.
+#[test]
+fn a_marker_under_either_name_is_recognized_and_no_other() {
+    let s = setup();
+    let old = partial_marked(&s.root, 'b', "VRCT-VOX-model-download-v1");
+    let new = partial_marked(&s.root, 'c', "ASTAROT-model-download-v1");
+    let other = partial_marked(&s.root, 'd', "ASTAROT-model-download-v2");
+    let empty = partial_marked(&s.root, 'e', "");
+    recover_owned(&s.root, &[entry()], &[]).unwrap();
+    assert!(!old.exists() && !new.exists());
+    assert_eq!(fs::read(other.join("model.gguf")).unwrap(), b"GGU");
+    assert_eq!(fs::read(empty.join("model.gguf")).unwrap(), b"GGU");
+}
+
+#[test]
+fn a_damaged_cache_marked_by_astarot_is_downloaded_again() {
+    let s = setup();
+    start(&s.manager).unwrap();
+    let path = model_path(&finish(&s.manager));
+    // What a build that writes the ASTAROT marker leaves, damaged since.
+    let marker_path = path.with_file_name("owner.json");
+    let marker = fs::read_to_string(&marker_path).unwrap().replace("VRCT-VOX-model-download-v1", "ASTAROT-model-download-v1");
+    fs::write(&marker_path, marker).unwrap();
+    fs::write(&path, b"bad cache").unwrap();
+    start(&s.manager).unwrap();
+    assert_eq!(phase(&finish(&s.manager)), "ready");
+    assert_eq!(fs::read(&path).unwrap(), CONTENT);
+    assert_eq!(s.opened.lock().unwrap().len(), 2);
+    assert!(partials(&s.root).is_empty());
+}
+
 #[test]
 fn closing_waits_no_longer_than_its_timeout_for_a_committing_callback() {
     let s = setup();

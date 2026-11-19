@@ -13,6 +13,8 @@ pub struct FakeOsc {
     sender: Mutex<(String, u16, OscHandler)>,
     /// Receiving and OSCQuery cannot start (mDNS unavailable, for example).
     pub receive_fails: AtomicBool,
+    /// The user lets OSCQuery run (`OSC_QUERY`); off, nothing starts.
+    pub allowed: AtomicBool,
     enabled: AtomicBool,
     shut: AtomicBool,
     pub stopped: AtomicBool,
@@ -28,6 +30,7 @@ impl FakeOsc {
         Ok(Self {
             sender: Mutex::new((ip.to_string(), port, OscHandler::new(ip, port)?)),
             receive_fails: AtomicBool::new(receive_fails),
+            allowed: AtomicBool::new(true),
             enabled: AtomicBool::new(false),
             shut: AtomicBool::new(false),
             stopped: AtomicBool::new(false),
@@ -52,10 +55,11 @@ impl FakeOsc {
         }
     }
 
-    /// Starts receiving for `ip` as the real handler does: only for this PC.
+    /// Starts receiving for `ip` as the real handler does: only for this PC, and only while
+    /// OSCQuery is allowed.
     fn start_for(&self, ip: &str) -> Result<(), OscError> {
         self.enabled.store(false, Ordering::SeqCst);
-        if !uses_osc_query(ip) {
+        if !uses_osc_query(ip) || !self.allowed.load(Ordering::SeqCst) {
             return Ok(());
         }
         if self.receive_fails.load(Ordering::SeqCst) {
@@ -104,6 +108,22 @@ impl Osc for FakeOsc {
         *self.targets.lock().unwrap() = targets;
         if self.shut.load(Ordering::SeqCst) {
             return Err(OscError::ShutDown);
+        }
+        if self.enabled.load(Ordering::SeqCst) {
+            return Ok(());
+        }
+        let ip = self.ip();
+        self.start_for(&ip)
+    }
+
+    fn set_query_allowed(&self, allowed: bool) -> Result<(), OscError> {
+        if self.shut.load(Ordering::SeqCst) {
+            return Err(OscError::ShutDown);
+        }
+        self.allowed.store(allowed, Ordering::SeqCst);
+        if !allowed {
+            self.enabled.store(false, Ordering::SeqCst);
+            return Ok(());
         }
         if self.enabled.load(Ordering::SeqCst) {
             return Ok(());

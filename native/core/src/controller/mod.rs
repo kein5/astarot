@@ -35,6 +35,7 @@ pub mod updates;
 pub mod voice;
 
 pub use adapters::Osc;
+pub use realtime_asr::RealtimeLimits;
 pub use routes::routes;
 
 /// Launches the bundled speech.cpp servers from `folder` (a development checkout's bundle).
@@ -174,7 +175,7 @@ pub struct Services {
     pub model_target_idle: Arc<dyn Fn(&str) -> bool + Send + Sync>,
     /// The usage-event sender, to VRCT-VOX's own receiver by default.
     pub telemetry: Arc<dyn Fn() -> vrct_ops::telemetry::Telemetry + Send + Sync>,
-    /// `VRCT_TELEMETRY=off` by default.
+    /// `ASTAROT_TELEMETRY=off` or `VRCT_TELEMETRY=off` by default.
     pub telemetry_forced_off: Arc<dyn Fn() -> bool + Send + Sync>,
     /// Opens the OSC link to VRChat for an address and a port ([`adapters::open_osc`]).
     pub osc: adapters::OpenOsc,
@@ -242,6 +243,9 @@ pub struct Services {
     pub secret_store: crate::config::secrets::StoreSource,
     /// Reads the GPUs' memory for the flow panel ([`crate::gpu_memory`]); tests give a fixed one.
     pub gpu_memory: crate::gpu_memory::Reader,
+    /// How long realtime recognition waits for speech.cpp and for its previous session; tests
+    /// shorten them.
+    pub realtime_limits: RealtimeLimits,
 }
 
 impl Default for Services {
@@ -281,6 +285,7 @@ impl Default for Services {
             voice: Arc::new(voice::NativeVoice),
             secret_store: Arc::new(crate::config::secrets::default_store),
             gpu_memory: crate::gpu_memory::native_reader(),
+            realtime_limits: RealtimeLimits::default(),
         }
     }
 }
