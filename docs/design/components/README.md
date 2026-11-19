@@ -52,6 +52,16 @@
 - **選択欄**: ネイティブの `<select>` を使います。Radix Select は Viewport に `<style>` 要素を実行時に差し込みます（2.2.6 で確認）。アプリの CSP は差し込まれるスタイルをハッシュで許可しているため、足すと CSP の更新が要ります。開いた一覧の操作も、OS と VR パネルのポインタでの扱いが今と変わらないほうが安全と判断しました。
 - **Macaw UI の `sprinkles`（属性で余白や色を指定する仕組み）**: 取り入れていません。今のアプリは部品ごとのスタイルの書き方で、ADR-010 もその形を前提にしているためです。
 
+## shadcn/ui に寄せたこと（2026-11-19）
+
+DESIGN.md の「Components」で、部品の設計、見た目、構造を shadcn/ui に寄せる方針になりました（#680）。kit では、判断の要らない次の差を寄せました。ほかの差と判断項目は、棚卸しの文書（#683）にあります。
+
+- 各部品のパーツに、shadcn/ui の同じ部品と同じ `data-slot` を付けました（`button`、`input`、`native-select-wrapper`、`native-select`、`native-select-icon`、`switch`、`switch-thumb`）。
+- `Select` は shadcn/ui の NativeSelect に当たります。シェブロンを 1.6rem にして右から 1.4rem に置き、使えないときは包む要素ごと薄くします。
+- ボタンの文字の太さを 500 に、使えない状態の不透明度を .5 にしました。
+
+コードはそのまま写さず、Tailwind のクラスを vanilla-extract に読み替えています。shadcn/ui（MIT）の表示は `NOTICE.md` とライセンス台帳に載せました。
+
 ## 確かめたこと
 
 見本のページを Chromium（Playwright）で開いて、次のことを確かめました。WebView2 と WebKitGTK の実機では、まだ確かめていません。
