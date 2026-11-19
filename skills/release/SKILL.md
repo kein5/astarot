@@ -85,70 +85,24 @@ gh api 'repos/{owner}/{repo}/releases?per_page=10' \
    gh api -X PATCH repos/{owner}/{repo}/releases/<id> -F body=@docs/release-notes/X.Y.Z.md
    ```
 
-2. `tag_name`を明示してPATCHし、読み直して確かめます。下書きのあいだはタグがまだなく、公開したときに`tag_name`と`target_commitish`からタグができます。ワークフローが入れた値をそのまま信じず、版と候補のコミットを書いて上書きします。
-
-   ```sh
-   git ls-remote --tags origin vX.Y.Z   # 何も出ないこと
-   gh api -X PATCH repos/{owner}/{repo}/releases/<id> \
-     -f tag_name=vX.Y.Z -f target_commitish=<候補を作ったコミットの40桁のSHA>
-   gh api repos/{owner}/{repo}/releases/<id> \
-     --jq '{tag_name, target_commitish, draft, prerelease, name}'
-   ```
-
-   読み直した結果で、`tag_name`が`vX.Y.Z`、`target_commitish`が候補を作ったコミット、`draft`が`true`であることを確かめます。`prerelease`は正式版で`false`、ベータで`true`です。同じ名前のタグがすでにあったら止めて、保守担当者に伝えます。
+2. `tag_name`と`target_commitish`を明示してPATCHし、読み直して確かめます。コマンドと確かめる値は`release-candidates.md`の「公開の直前にタグ名を書き直す」にあります。同じ名前のタグがすでにあったら止めて、保守担当者に伝えます。
 3. 実機での確認を済ませます。Windowsは`release-candidates.md`の「公開前にWindowsのパッケージを起動して確かめる」、Linuxは「公開前にLinuxのデスクトップで確かめる」の手順です。確かめられなかったことは、リリースノートの`## 🐞 既知の問題`に書きます。
 4. 公開の準備ができたことを報告し、保守担当者の確認を待ちます。
 
 ## 5. 公開
 
-公開は保守担当者が行います。公開を任されたときは、次のPATCHで公開します。`make_latest`は文字列の`"true"`か`"false"`で明示します。
-
-```sh
-# 正式版
-gh api -X PATCH repos/{owner}/{repo}/releases/<id> -F draft=false -f make_latest=true
-# ベータ
-gh api -X PATCH repos/{owner}/{repo}/releases/<id> -F draft=false -f make_latest=false
-```
+公開は保守担当者が行います。公開を任されたときは、`make_latest`を文字列で明示したPATCHで公開します（正式版は`"true"`、ベータは`"false"`）。コマンドは`release-candidates.md`の「公開の直前にタグ名を書き直す」の最後にあります。
 
 ## 6. 公開の後
 
-1. リリースとタグを読み直します。タグのコミットが候補を作ったコミットと同じことを確かめます。
+`release-candidates.md`の「公開してから確かめる」の4つを確かめます。
 
-   ```sh
-   gh api repos/{owner}/{repo}/releases/tags/vX.Y.Z \
-     --jq '{tag_name, draft, prerelease, target_commitish, published_at}'
-   git fetch origin --tags && git rev-parse 'vX.Y.Z^{commit}'
-   ```
+1. タグのコミットが候補を作ったコミットと同じこと
+2. `releases/latest`が、正式版なら`vX.Y.Z`、ベータなら前の正式版のままであること（`make_latest`の結果）
+3. 更新確認のWorkerの`latest.json`が、正式版なら`X.Y.Z`を返すこと
+4. 資産の件数と名前が候補の一覧と合うこと（期待する件数は「2 ×（2つの候補の`assets`の数の合計）+ 5」）
 
-2. make_latestの結果を`releases/latest`で確かめます。正式版なら`vX.Y.Z`、ベータなら前の正式版のままです。違うときは`make_latest`をPATCHし直します。
-
-   ```sh
-   gh api repos/{owner}/{repo}/releases/latest --jq .tag_name
-   ```
-
-3. Workerの`latest.json`を確かめます。安定版のアプリは`src-tauri/tauri.conf.json`の`plugins.updater.endpoints`にあるWorkerを読み、Workerは`releases/latest`の`latest.json`へ302で転送します（`docs/spec/external-interfaces.md`の「アプリの更新」）。正式版なら`X.Y.Z`、ベータなら前の正式版の版が出ることを確かめます。
-
-   ```sh
-   url=$(jq -r '.plugins.updater.endpoints[0]' src-tauri/tauri.conf.json)
-   curl -sI "$url" | grep -i '^location'
-   curl -sL "$url" | jq -r .version
-   ```
-
-4. 資産の件数と名前を確かめます。下書きの資産は各候補の`candidate-<platform>.json`にある資産とその`.sha256`、プラットフォームごとの`candidate-<platform>.json`と`SHA256SUMS-<platform>`、`latest.json`です（`tools/prepare_release.py`と`prepare-release.yml`）。期待する件数は「2 ×（2つの候補の`assets`の数の合計）+ 5」です。
-
-   ```sh
-   d=$(mktemp -d)
-   gh release download vX.Y.Z -p 'candidate-*.json' -D "$d"
-   gh api repos/{owner}/{repo}/releases/tags/vX.Y.Z --jq '[.assets[].name]' > "$d/published.json"
-   jq -s --slurpfile pub "$d/published.json" '
-     ([.[] | .assets[].name | ., . + ".sha256"]
-      + [.[] | "candidate-\(.platform).json", "SHA256SUMS-\(.platform)"]
-      + ["latest.json"]) as $want
-     | {want: ($want | length), published: ($pub[0] | length),
-        missing: ($want - $pub[0]), extra: ($pub[0] - $want)}' "$d"/candidate-*.json
-   ```
-
-   `want`と`published`が同じで、`missing`と`extra`が空であることを確かめます。前の版と件数が違うときは、配布物の増減（なくした配布物、名前を変えた配布物）で説明がつくかを確かめます。下書きを作る手順が資産の組み方を変えたら、この式も直します。
+違うものがあれば、直すか保守担当者に伝えます。
 
 ## 7. mainをdevelopへ戻す
 
