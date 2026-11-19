@@ -490,7 +490,7 @@ config_page:
         requires: "要: {{name}}"
         no_results: "一致する設定が見つかりませんでした"
     common:
-        # The fold each settings page keeps its seldom-changed settings in (AdvancedSection.jsx).
+        # The fold each settings page keeps its seldom-changed settings in (AdvancedSection.tsx).
         advanced_section: "詳細設定"
         open_color_picker: "{{label}}の色を選択"
         duration_seconds_one: "{{count}}秒"

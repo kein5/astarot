@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import type { ReactNode } from "react";
 import { useI18n } from "@useI18n";
 import styles from "../setup_section/SetupSection.module.scss";
 
@@ -10,7 +11,13 @@ import styles from "../setup_section/SetupSection.module.scss";
 // to a setting inside, and SettingSection marks the line while a row inside has unsaved edits.
 // attention: something inside is in use and should be seen, such as the translation API a
 // language preset uses. The fold opens by itself then, and can still be closed.
-export const AdvancedSection = ({ status, attention = false, children }) => {
+export interface AdvancedSectionProps {
+    status?: ReactNode;
+    attention?: boolean;
+    children?: ReactNode;
+}
+
+export const AdvancedSection = ({ status, attention = false, children }: AdvancedSectionProps) => {
     const { t } = useI18n();
     const [opened, setOpened] = useState(attention);
     useEffect(() => { if (attention) setOpened(true); }, [attention]);

@@ -17,10 +17,10 @@ const translator = language => (key, values = {}) => {
     return text.replace(/\{\{(\w+)\}\}/g, (_, name) => values[name]);
 };
 const sources = readdirSync(settingBox, { recursive: true })
-    .filter(path => /\.jsx$/.test(path) && !/\.test\./.test(path))
+    .filter(path => /\.(jsx|tsx)$/.test(path) && !/\.test\./.test(path))
     .map(path => ({ path: path.replaceAll("\\", "/"), text: readFileSync(new URL(path.replaceAll("\\", "/"), settingBox), "utf8") }));
 
-const load = (runtime, language, opened = []) => loadModule(new URL("./PagePointer.jsx", import.meta.url), runtime, {
+const load = (runtime, language, opened = []) => loadModule(new URL("./PagePointer.tsx", import.meta.url), runtime, {
     "@useI18n": { useI18n: () => ({ t: translator(language) }) },
     "@store": { useStore_SelectedConfigTabId: () => ({ updateSelectedConfigTabId: id => opened.push(id) }) },
     "../form_row/FormRow": { FormRow: props => ({ type: "row", props }) },
@@ -31,7 +31,7 @@ const load = (runtime, language, opened = []) => loadModule(new URL("./PagePoint
 test("every button that opens another settings page names that page, with what is done there", async () => {
     const links = sources.flatMap(({ path, text }) => [...text.matchAll(/<(PagePointer|PageLinkButton)\b([^>]*?)\/>/gs)].map(([, , attributes]) => ({
         path, tab: attributes.match(/\btab="(\w+)"/)?.[1], action: attributes.match(/\baction=\{t\("([\w.]+)"\)\}/)?.[1] ?? null,
-    }))).filter(link => !link.path.endsWith("page_pointer/PagePointer.jsx"));
+    }))).filter(link => !link.path.endsWith("page_pointer/PagePointer.tsx"));
     assert.ok(links.every(link => link.tab), "each one names its page as a literal tab id");
     // The route row on the TTS, RVC and VRChat pages, mute sync on Device, the VR UI on Captions
     // and VR, and the OSC destination, the speech output and chat reading on VRChat.
@@ -82,5 +82,5 @@ test("the button leads with the page's menu icon, hidden from screen readers, an
 test("no settings page opens another page except through the button that names it", () => {
     // The settings menu and the search are the other ways between pages; both are outside setting_box.
     const callers = sources.filter(({ text }) => /updateSelectedConfigTabId\(/.test(text)).map(({ path }) => path);
-    assert.deepEqual(callers, ["_components/page_pointer/PagePointer.jsx"]);
+    assert.deepEqual(callers, ["_components/page_pointer/PagePointer.tsx"]);
 });

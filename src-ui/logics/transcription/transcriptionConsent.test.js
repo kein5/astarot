@@ -216,7 +216,7 @@ test("settings keep the selected engine inside the radio row's accessible help",
     // Use the real row, label and radio group to verify their help relationship.
     const rowRuntime = hooks();
     const root = new URL("../../views/app/config_page/setting_section/setting_box/", import.meta.url);
-    const { LabelComponent } = await loadModule(new URL("_components/label_component/LabelComponent.jsx", root), rowRuntime, {
+    const { LabelComponent } = await loadModule(new URL("_components/label_component/LabelComponent.tsx", root), rowRuntime, {
         "../_atoms/_open_webpage_button/_OpenWebpageButton": { _OpenWebpageButton: "webpage" },
         "../description/Description": { Description: "description" },
         "../hint/Hint": { Hint: "hint", useHintDescriptions: () => false },

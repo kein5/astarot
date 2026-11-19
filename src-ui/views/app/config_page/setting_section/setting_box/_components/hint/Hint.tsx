@@ -1,4 +1,5 @@
 import { createContext, useContext } from "react";
+import type { ReactNode } from "react";
 import HelpSvg from "@images/help.svg?react";
 import styles from "./Hint.module.scss";
 
@@ -12,7 +13,7 @@ import styles from "./Hint.module.scss";
 // before acting (consent, a warning, the value in use) is kept on screen by the row that shows it.
 const HintContext = createContext(false);
 
-export const HintDescriptions = ({ children }) => <HintContext.Provider value={true}>{children}</HintContext.Provider>;
+export const HintDescriptions = ({ children }: { children?: ReactNode }) => <HintContext.Provider value={true}>{children}</HintContext.Provider>;
 
 export const useHintDescriptions = () => useContext(HintContext);
 
@@ -24,7 +25,14 @@ export const useHintDescriptions = () => useContext(HintContext);
 // even inside the <label> of an option.
 // focusable: a hint no control points at, such as a section heading's. Its mark takes keyboard
 // focus, which opens the bubble, and carries the words as its own name.
-export const Hint = ({ text, id, row = false, focusable = false }) => (
+export interface HintProps {
+    text: string;
+    id?: string;
+    row?: boolean;
+    focusable?: boolean;
+}
+
+export const Hint = ({ text, id, row = false, focusable = false }: HintProps) => (
     <span className={styles.hint} data-hint>
         {focusable
             ? <span className={styles.focus_mark} tabIndex={0} role="img" aria-label={text}><HelpSvg className={styles.mark} aria-hidden="true" /></span>

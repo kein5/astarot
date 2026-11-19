@@ -1,10 +1,18 @@
 import { useState } from "react";
+import type { ReactNode } from "react";
 import styles from "./SetupSection.module.scss";
 
 // One-time setup on a page (models, runtimes, downloads, servers), folded
 // (DESIGN.md "Roles in settings"). The summary carries a one-line status, so it
 // can stay closed. `attention` opens it while something in it needs the user.
-export const SetupSection = ({ title, status, attention = false, children }) => {
+export interface SetupSectionProps {
+    title: ReactNode;
+    status?: ReactNode;
+    attention?: boolean;
+    children?: ReactNode;
+}
+
+export const SetupSection = ({ title, status, attention = false, children }: SetupSectionProps) => {
     const [opened, setOpened] = useState(false);
     return <details data-setup className={styles.setup} open={opened || attention}
         onToggle={event => setOpened(event.currentTarget.open)}>
