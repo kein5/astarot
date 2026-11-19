@@ -80,7 +80,7 @@ const BUILTIN_SUFFIX = "-ct2-int8";
 
 // The download catalog's ids of a built-in weight, one per variant: `m2m100_418M-ct2-int8` →
 // `m2m100-418m-onnx-int8`… (translation_onnx::catalog_id in the core). The settings keep the
-// CTranslate2 names; a user's model (`custom:`, `user:`) has none.
+// CTranslate2 names; a user's model (`user:`, and `custom:` of earlier versions) has none.
 export const translationCatalogIds = (weightType: unknown): string[] => {
     if (typeof weightType !== "string" || weightType.includes(":") || !weightType.endsWith(BUILTIN_SUFFIX)) return [];
     const model = weightType.slice(0, -BUILTIN_SUFFIX.length).toLowerCase().replace(/[_.]/g, "-");
