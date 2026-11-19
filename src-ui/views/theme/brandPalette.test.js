@@ -154,6 +154,18 @@ test("fields and outlined controls draw their edge with the field border", () =>
     for (const tone of ["quiet", "danger"]) {
         assert.match(buttons.slice(buttons.indexOf(`${tone}: {`)), /^[^}]*borderColor: vars\.vox_field_border/, tone);
     }
+    // The outline buttons still drawn in SCSS: the settings forms' quiet buttons, the update check
+    // beside Install, and Quit beside Retry when the app fails to start. Only the rule's own
+    // declarations count, not a nested state's.
+    for (const [path, rule] of [
+        ["app/config_page/setting_section/setting_box/advanced_settings/VoiceSettings.module.scss", "button.quiet {"],
+        ["app/config_page/setting_section/setting_box/updater/Updater.module.scss", ".check_button {"],
+        ["app/others/startup/StartupFailedDialog.module.scss", ".quit {"],
+    ]) {
+        const source = read(views + path);
+        assert.ok(source.includes(rule), `${path}: ${rule}`);
+        assert.match(source.slice(source.indexOf(rule)), /^[^{]*\{[^{}]*border(-color)?: [^;]*var\(--vox_field_border\)/, `${path}: ${rule}`);
+    }
 });
 
 test("no navy value of the old palette is left in the tokens", () => {
