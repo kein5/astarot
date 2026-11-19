@@ -16,7 +16,7 @@ export const TranslationSetupController = () => {
     const { t } = useI18n();
     const { request, setRequest, waiting, setWaiting, chooseRequests } = useTranslationSetup();
     const { currentCTranslate2WeightTypeStatus, currentSelectedCTranslate2WeightType,
-        pendingCTranslate2WeightTypeStatus, downloadCTranslate2WeightTypeStatus } = useTranslation();
+        pendingCTranslate2WeightTypeStatus, downloadCTranslate2WeightTypeStatus, currentSelectedTranslationComputeDevice } = useTranslation();
     const { currentTranslationStatus, setTranslation } = useMainFunction();
     const { showNotification_Success } = useNotificationStatus();
     const openTranslatorList = useOpenTranslatorList();
@@ -49,7 +49,7 @@ export const TranslationSetupController = () => {
     if (!request) return null;
     const close = () => setRequest(null);
     return <LegacyModelDownloadDialog kind="ctranslate2" weightType={request.weightType ?? currentSelectedCTranslate2WeightType.data}
-        onCancel={close}
+        onCancel={close} computeDevice={currentSelectedTranslationComputeDevice?.data}
         onDownload={payload => {
             setWaiting(request.resume ? payload.weight_type : null);
             pendingCTranslate2WeightTypeStatus(payload.weight_type);
