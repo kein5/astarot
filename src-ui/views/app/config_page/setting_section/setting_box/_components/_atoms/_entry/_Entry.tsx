@@ -1,16 +1,57 @@
 import clsx from "clsx";
 import React, { useRef, forwardRef, useImperativeHandle } from "react";
+import type { ChangeEvent, FocusEvent, HTMLAttributes, KeyboardEvent, ReactNode, WheelEvent } from "react";
 import styles from "./_Entry.module.scss";
 
-const _Entry = forwardRef((props, ref) => {
-    const inputRef = useRef();
+// What a parent may do with the field through its ref.
+export interface EntryHandle {
+    focus: () => void;
+    blur: () => void;
+}
+
+export interface EntryProps {
+    id?: string;
+    // Names the field when no aria-label is given and it is text.
+    label?: ReactNode;
+    width?: string;
+    type?: string;
+    inputMode?: HTMLAttributes<HTMLInputElement>["inputMode"];
+    min?: number | string;
+    max?: number | string;
+    step?: number | string;
+    placeholder?: string;
+    ui_variable?: string | number | null;
+    is_disabled?: boolean;
+    is_activated?: boolean;
+    readOnly?: boolean;
+    spellCheck?: boolean;
+    autoComplete?: string;
+    onChange?: (event: ChangeEvent<HTMLInputElement>) => void;
+    onFocus?: (event: FocusEvent<HTMLInputElement>) => void;
+    onBlur?: (event: FocusEvent<HTMLInputElement>) => void;
+    onKeyDown?: (event: KeyboardEvent<HTMLInputElement>) => void;
+    onKeyUp?: (event: KeyboardEvent<HTMLInputElement>) => void;
+    onWheel?: (event: WheelEvent<HTMLInputElement>) => void;
+    onEnterPressed?: (event: KeyboardEvent<HTMLInputElement>) => void;
+    "aria-label"?: string;
+    "aria-labelledby"?: string;
+    "aria-describedby"?: string;
+    "aria-invalid"?: boolean;
+    "aria-busy"?: boolean;
+    "aria-disabled"?: boolean;
+    "aria-controls"?: string;
+    "aria-expanded"?: boolean;
+}
+
+const _Entry = forwardRef<EntryHandle, EntryProps>((props, ref) => {
+    const inputRef = useRef<HTMLInputElement>(null);
 
     useImperativeHandle(ref, () => ({
         focus: () => {
-            inputRef.current.focus();
+            inputRef.current?.focus();
         },
         blur: () => {
-            inputRef.current.blur();
+            inputRef.current?.blur();
         }
     }));
     const is_disabled = props.is_disabled || false;
@@ -21,7 +62,7 @@ const _Entry = forwardRef((props, ref) => {
         [styles.is_activated]: props.is_activated,
     });
 
-    const handleKeyDown = (e) => {
+    const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
         props.onKeyDown?.(e);
         if (
             e.key === "Enter" &&

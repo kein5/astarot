@@ -5,7 +5,14 @@ import styles from "./Description.module.scss";
 // General description role (DESIGN.md): one visible sentence, the rest under "詳細".
 // `id` lets a control point at it with aria-describedby; `fold={false}` keeps
 // text that changes as you type (a character count) in view.
-export const Description = ({ text, className, id, fold = true }) => {
+export interface DescriptionProps {
+    text?: string | null;
+    className?: string;
+    id?: string;
+    fold?: boolean;
+}
+
+export const Description = ({ text, className, id, fold = true }: DescriptionProps) => {
     const { t } = useI18n();
     const [first, rest] = fold ? splitDescription(text) : [text, ""];
     if (!rest) return <p id={id} className={className}>{first}</p>;

@@ -14,7 +14,7 @@ async function fixture(context, language = "en", name = "ctranslate2_weight_type
     const t = (key, values) => { messages.push(key); return translations.t(key, values); };
     const statusHook = await loadModule(new URL("./useLegacyDownloadStatus.ts", import.meta.url), runtime);
     const { CircularProgress } = await loadModule(new URL("../../views/common_components/circular_progress/CircularProgress.tsx", import.meta.url), runtime);
-    const { _DownloadButton } = await loadModule(new URL("../../views/app/config_page/setting_section/setting_box/_components/_atoms/_download_button/_DownloadButton.jsx", import.meta.url), runtime, {
+    const { _DownloadButton } = await loadModule(new URL("../../views/app/config_page/setting_section/setting_box/_components/_atoms/_download_button/_DownloadButton.tsx", import.meta.url), runtime, {
         "@useI18n": { useI18n: () => ({ t }) }, "@common_components": { CircularProgress },
         "../../../../../../../../logics/common/useLegacyDownloadStatus": statusHook,
     });

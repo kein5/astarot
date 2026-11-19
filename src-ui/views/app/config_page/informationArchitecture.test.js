@@ -29,7 +29,7 @@ test("Q-06: the OSC address and port are under Advanced; the VRChat page leads t
     assert.match(vrchat, /<VrchatPresence \/>/, "the page still says whether VRChat is found, with the step that turns OSC on");
 
     const runtime = hooks(), opened = [], revealed = [];
-    const pointer = await loadModule(box("_components/page_pointer/PagePointer.jsx"), runtime, {
+    const pointer = await loadModule(box("_components/page_pointer/PagePointer.tsx"), runtime, {
         "@store": { useStore_SelectedConfigTabId: () => ({ updateSelectedConfigTabId: id => opened.push(id) }) },
         "../form_row/FormRow": { FormRow: props => ({ type: "row", props }) },
         "../../../../../../../logics/configs/revealSetting.ts": { revealSetting: target => revealed.push(target) },
@@ -241,7 +241,7 @@ test("text to speech keeps the engine, the voice and the output in sight; the mo
 
 test("「詳細設定」 starts closed, opens by itself for something in use, and can still be closed", async () => {
     const runtime = hooks();
-    const fold = await loadModule(box("_components/advanced_section/AdvancedSection.jsx"), runtime, {
+    const fold = await loadModule(box("_components/advanced_section/AdvancedSection.tsx"), runtime, {
         "../setup_section/SetupSection.module.scss": {},
     });
     let tree = runtime.render(fold.AdvancedSection, { status: "line", children: "inside" });

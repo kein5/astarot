@@ -4,7 +4,16 @@ import { EnvReadout } from "../env_readout/EnvReadout";
 
 // The connection state is an environment readout in words (DESIGN.md); its
 // color repeats the words. The check is the shared secondary settings button.
-export const ConnectionCheckButton = (props) => {
+export interface ConnectionCheckButtonProps {
+    // true while the last check reached the server.
+    variable?: boolean;
+    // "pending" while a check runs.
+    state?: string;
+    checkFunction?: () => void;
+    "aria-describedby"?: string;
+}
+
+export const ConnectionCheckButton = (props: ConnectionCheckButtonProps) => {
     const { t } = useI18n();
     const pending = props.state === "pending";
     const state = pending ? "checking" : props.variable === true ? "connected" : "disconnected";

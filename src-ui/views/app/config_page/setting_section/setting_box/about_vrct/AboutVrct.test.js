@@ -58,7 +58,7 @@ for (const language of ["en", "ja"]) {
     test(`${language}: color swatches identify the field and expose expansion`, async t => {
         const translation = await translate(language), runtime = hooks();
         stubGlobals(t, { document: eventTarget(), window: eventTarget() });
-        const { ColorEntryWithSaveButton } = await loadModule(new URL("../_components/color_entry_with_save_button/ColorEntryWithSaveButton.jsx", import.meta.url), runtime, {
+        const { ColorEntryWithSaveButton } = await loadModule(new URL("../_components/color_entry_with_save_button/ColorEntryWithSaveButton.tsx", import.meta.url), runtime, {
             clsx: { clsx }, "@useI18n": { useI18n: () => translation },
             "../_atoms/_entry/_Entry": { _Entry: "entry" }, "react-colorful": { HexColorPicker: "picker" },
         });

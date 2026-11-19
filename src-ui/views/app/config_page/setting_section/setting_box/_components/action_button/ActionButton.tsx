@@ -1,6 +1,20 @@
 import { useEffect, useRef, useState } from "react";
+import type { ComponentType, ReactNode, SVGProps } from "react";
 import clsx from "clsx";
 import styles from "./ActionButton.module.scss";
+
+export interface ActionButtonProps {
+    IconComponent: ComponentType<SVGProps<SVGSVGElement>>;
+    // Shown for clicked_duration ms after the action succeeds.
+    ClickedIconComponent?: ComponentType<SVGProps<SVGSVGElement>>;
+    clicked_duration?: number;
+    // May return a promise: the button waits for it.
+    onclickFunction?: () => unknown;
+    onErrorFunction?: (error: unknown) => void;
+    // Names the button when it is text.
+    label?: ReactNode;
+    "aria-describedby"?: string;
+}
 
 export const ActionButton = ({
     IconComponent,
@@ -10,12 +24,12 @@ export const ActionButton = ({
     onErrorFunction,
     label,
     "aria-describedby": describedBy,
-}) => {
+}: ActionButtonProps) => {
     const [is_clicked, setIsClicked] = useState(false);
     const [is_pending, setIsPending] = useState(false);
     const running = useRef(false);
     const mounted = useRef(true);
-    const timer_ref = useRef(null);
+    const timer_ref = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
     useEffect(() => {
         mounted.current = true;

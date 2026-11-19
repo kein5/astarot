@@ -1,19 +1,32 @@
 import styles from "./AuthKey.module.scss";
 import { useI18n } from "@useI18n";
 import { _Entry } from "../_atoms/_entry/_Entry";
+import type { EntryHandle } from "../_atoms/_entry/_Entry";
 import { useState, useRef, useEffect } from "react";
+import type { ChangeEvent, ReactNode } from "react";
 
-export const AuthKey = (props) => {
+export interface AuthKeyProps {
+    label?: ReactNode;
+    // The saved key; "" or null when there is none, and the field opens for typing.
+    variable?: string | null;
+    // "pending" while a save waits for the backend.
+    state?: string;
+    onChangeFunction: (value: string) => void;
+    saveFunction: () => unknown;
+    "aria-describedby"?: string;
+}
+
+export const AuthKey = (props: AuthKeyProps) => {
     const { t } = useI18n();
     const [is_editable, seIsEditable] = useState(false);
-    const entryRef = useRef(null);
+    const entryRef = useRef<EntryHandle>(null);
 
     const revealEditAuthKey = () => {
         seIsEditable(true);
-        entryRef.current.focus();
+        entryRef.current?.focus();
     };
 
-    const onChangeEntryAuthKey = (e) => {
+    const onChangeEntryAuthKey = (e: ChangeEvent<HTMLInputElement>) => {
         if (props.state === "pending") return;
         props.onChangeFunction(e.target.value);
     };

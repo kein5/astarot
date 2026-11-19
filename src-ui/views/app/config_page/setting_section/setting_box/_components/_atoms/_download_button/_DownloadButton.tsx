@@ -2,8 +2,23 @@ import { useI18n } from "@useI18n";
 import { CircularProgress } from "@common_components";
 import styles from "./_DownloadButton.module.scss";
 import { legacyDownloadPhase, useLegacyDownloadStatus } from "../../../../../../../../logics/common/useLegacyDownloadStatus";
+import type { LegacyDownloadOption } from "../../../../../../../../logics/common/useLegacyDownloadStatus";
 
-export const _DownloadButton = ({option, ...props}) => {
+// One built-in model in the list of a download choice (DownloadModels).
+export interface DownloadOption extends LegacyDownloadOption {
+    id: string;
+    label?: string;
+    is_default?: boolean;
+    // Nothing is published to download yet.
+    download_unavailable?: boolean;
+}
+
+export interface DownloadButtonProps {
+    option: DownloadOption;
+    downloadStartFunction?: (id: string) => void;
+}
+
+export const _DownloadButton = ({option, ...props}: DownloadButtonProps) => {
     const { t } = useI18n();
     // The built-in downloads are the local translation models (Whisper's were removed in #288).
     // Their row names the model; the engine's old name is not shown (#565).
@@ -11,23 +26,25 @@ export const _DownloadButton = ({option, ...props}) => {
     const progressName = t("legacy_model_downloads.progress_name", { model });
     const status = useLegacyDownloadStatus(option, model, t);
     const phase = legacyDownloadPhase(option);
+    // A number while the download runs: Number.isFinite is false for anything else.
+    const progress = typeof option.progress === "number" && Number.isFinite(option.progress) ? option.progress : null;
 
     const renderContent = () => {
         switch (true) {
-            case Number.isFinite(option.progress):
+            case progress !== null:
                 return (
                     <div className={styles.progress_wrapper}>
                         <CircularProgress
                             aria-label={progressName}
                             variant={phase === "finalizing" ? "indeterminate" : "determinate"}
-                            value={option.progress}
+                            value={progress}
                             size="3rem"
                             sx={{ color: "var(--primary_300_color)" }}
                         />
-                        <p className={styles.progress_label} aria-hidden="true">{`${Math.round(option.progress)}%`}</p>
+                        <p className={styles.progress_label} aria-hidden="true">{`${Math.round(progress)}%`}</p>
                     </div>
                 );
-            case option.is_pending:
+            case option.is_pending === true:
                 return (
                     <div className={styles.progress_wrapper}>
                         <CircularProgress aria-label={progressName} size="3rem" sx={{ color: "var(--dark_600_color)" }}/>
@@ -40,12 +57,12 @@ export const _DownloadButton = ({option, ...props}) => {
                 return (
                     <button
                         className={styles.download_button}
-                        onClick={() => props.downloadStartFunction(option.id)}
+                        onClick={() => props.downloadStartFunction?.(option.id)}
                     >
                         <p className={styles.download_button_label}>{t("model_downloads.review")}</p>
                     </button>
                 );
-            case option.is_default:
+            case option.is_default === true:
                 return (
                     <span className={styles.default_badge}>
                         {t("common.default_label")}

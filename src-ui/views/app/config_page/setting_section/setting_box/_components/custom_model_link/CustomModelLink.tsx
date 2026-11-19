@@ -1,4 +1,5 @@
 import { useState } from "react";
+import type { MouseEvent } from "react";
 import { useI18n } from "@useI18n";
 import { isTauri } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
@@ -10,11 +11,11 @@ import styles from "./CustomModelLink.module.scss";
 // opens the page: no setting, model or audio changes.
 // section: the heading's anchor on the page, the same in both languages (tts, asr,
 // whisper-server, rvc, seed-vc, translation).
-export const CustomModelLink = ({ section }) => {
+export const CustomModelLink = ({ section }: { section: string }) => {
     const { t, i18n } = useI18n();
     const [failed, setFailed] = useState(false);
     const url = `${generateLocalizedDocumentUrl(i18n.language).vrct_document_custom_models_url}#${section}`;
-    const open = async event => {
+    const open = async (event: MouseEvent<HTMLAnchorElement>) => {
         if (!isTauri()) return;
         event.preventDefault();
         try { await openUrl(url); setFailed(false); }

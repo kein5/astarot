@@ -195,7 +195,7 @@ test("the VRChat page no longer carries chat reading; it ends with the way to th
     const ja = yaml.load(readFileSync(new URL("../../../../locales/ja.yml", import.meta.url), "utf8"));
     const t = (key, values) => key.split(".").reduce((node, part) => node?.[part], ja).replace(/\{\{(\w+)\}\}/g, (_, name) => values[name]);
     const store = { "@store": { useStore_SelectedConfigTabId: () => ({ updateSelectedConfigTabId: id => opened.push(id) }) } };
-    const pagePointer = await loadModule(new URL("./setting_section/setting_box/_components/page_pointer/PagePointer.jsx", import.meta.url), runtime, {
+    const pagePointer = await loadModule(new URL("./setting_section/setting_box/_components/page_pointer/PagePointer.tsx", import.meta.url), runtime, {
         ...store, "@useI18n": { useI18n: () => ({ t }) }, "../form_row/FormRow": { FormRow: () => null },
         "../../../../../../../logics/configs/revealSetting.ts": { revealSetting() {} },
         "../../../../sidebar_section/SidebarSection.jsx": { TabIcon: () => null },
