@@ -1,5 +1,6 @@
-//! One explicit microphone through a native PipeWire capture stream, as 48 kHz mono s16le
-//! (decision 11 in `docs/voice-stack/core-integration.md`).
+//! One explicit microphone, or the monitor of one speaker, through a native PipeWire capture
+//! stream, as 48 kHz mono s16le (decision 11 in `docs/voice-stack/core-integration.md`, and
+//! realtime recognition since decision 2 of #733).
 //!
 //! Python captured it with the `vrct-asr-capture` helper (`PipeWireCapture` of
 //! `capture_pipewire.py`); here it is a stream of the app, as the outputs are (`output.rs`). The
@@ -37,12 +38,23 @@ pub struct PipeWireCapture {
     callbacks: Option<CaptureCallbacks>,
     quit: Arc<AtomicBool>,
     worker: Option<Worker>,
+    /// The stream's thread ended within the stop's wait.
+    released: bool,
 }
 
 impl PipeWireCapture {
-    /// A capture of `source` that starts on [`Capture::start`]; `node_name` names its stream.
+    /// A capture of `source` that starts on [`Capture::start`]; `node_name` names its stream. A
+    /// source of class `Audio/Sink` (a speaker) is captured from its monitor
+    /// (`stream.capture.sink`, as `vrct-asr-capture` did).
     pub fn new(source: Endpoint, node_name: &str, callbacks: CaptureCallbacks) -> Self {
-        Self { source, node_name: node_name.to_owned(), callbacks: Some(callbacks), quit: Arc::new(AtomicBool::new(false)), worker: None }
+        Self {
+            source,
+            node_name: node_name.to_owned(),
+            callbacks: Some(callbacks),
+            quit: Arc::new(AtomicBool::new(false)),
+            worker: None,
+            released: true,
+        }
     }
 }
 
@@ -51,14 +63,15 @@ impl Capture for PipeWireCapture {
         let callbacks = self.callbacks.take().ok_or_else(|| Error::runtime("asr_capture_single_use"))?;
         // The source must still be the node it was chosen as.
         let data = crate::pipewire::read_graph_data(true, None).map_err(|_| Error::runtime("asr_capture_endpoint_missing"))?;
-        match graph::endpoint(&data, &self.source.name, "Audio/Source") {
+        match graph::endpoint(&data, &self.source.name, &self.source.media_class) {
             Ok(found) if found == self.source => {}
             Ok(_) => return Err(Error::runtime("asr_capture_endpoint_changed")),
             Err(_) => return Err(Error::runtime("asr_capture_endpoint_missing")),
         }
         let (ready, started) = mpsc::channel();
         let (quit, target, node_name) = (self.quit.clone(), self.source.serial.to_string(), self.node_name.clone());
-        let worker = Worker::spawn("vrct-pipewire-capture", move || run(&quit, &target, &node_name, callbacks, &ready))
+        let monitor = self.source.media_class == "Audio/Sink";
+        let worker = Worker::spawn("vrct-pipewire-capture", move || run(&quit, &target, monitor, &node_name, callbacks, &ready))
             .map_err(|_| Error::runtime("asr_capture_stream_create_failed"))?;
         match started.recv_timeout(Duration::from_secs(3)) {
             Ok(Ok(())) => {
@@ -84,8 +97,12 @@ impl Capture for PipeWireCapture {
     fn stop(&mut self) {
         self.request_stop();
         if let Some(worker) = self.worker.take() {
-            worker.join(Duration::from_millis(500));
+            self.released = worker.join(Duration::from_millis(500));
         }
+    }
+
+    fn released(&self) -> bool {
+        self.released
     }
 }
 
@@ -105,10 +122,10 @@ struct Seen {
     refused: bool,
 }
 
-fn run(quit: &AtomicBool, target: &str, node_name: &str, callbacks: CaptureCallbacks, ready: &mpsc::Sender<Result<()>>) {
+fn run(quit: &AtomicBool, target: &str, monitor: bool, node_name: &str, callbacks: CaptureCallbacks, ready: &mpsc::Sender<Result<()>>) {
     let callbacks = Rc::new(RefCell::new(callbacks));
     let mut told = false;
-    let result = stream(quit, target, node_name, &callbacks, ready, &mut told);
+    let result = stream(quit, target, monitor, node_name, &callbacks, ready, &mut told);
     if let Err(error) = result {
         if told {
             (callbacks.borrow_mut().on_error)(&error.code);
@@ -122,6 +139,7 @@ fn run(quit: &AtomicBool, target: &str, node_name: &str, callbacks: CaptureCallb
 fn stream(
     quit: &AtomicBool,
     target: &str,
+    monitor: bool,
     node_name: &str,
     callbacks: &Rc<RefCell<CaptureCallbacks>>,
     ready: &mpsc::Sender<Result<()>>,
@@ -132,7 +150,7 @@ fn stream(
     let mainloop = pw::main_loop::MainLoopRc::new(None).map_err(unavailable)?;
     let context = pw::context::ContextRc::new(&mainloop, None).map_err(unavailable)?;
     let core = context.connect_rc(None).map_err(unavailable)?;
-    let properties = pw::properties::properties! {
+    let mut properties = pw::properties::properties! {
         *pw::keys::MEDIA_TYPE => "Audio",
         *pw::keys::MEDIA_CATEGORY => "Capture",
         *pw::keys::NODE_NAME => node_name,
@@ -142,6 +160,9 @@ fn stream(
         "node.dont-reconnect" => "true",
         "node.dont-move" => "true",
     };
+    if monitor {
+        properties.insert(*pw::keys::STREAM_CAPTURE_SINK, "true");
+    }
     let stream = pw::stream::StreamRc::new(core, node_name, properties).map_err(unavailable)?;
     let seen = Rc::new(RefCell::new(Seen::default()));
     let (heard, changed, delivering) = (seen.clone(), seen.clone(), callbacks.clone());
