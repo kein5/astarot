@@ -22,6 +22,22 @@ test("an engine entry that cannot pass is not sent", () => {
     assert.equal(languageCodes("a/b"), null);
 });
 
+test("a translation LLM is one .gguf file with its device (ADR-015)", () => {
+    const llama = overrides => engineForm({ runtime: "llamacpp", folder: '"C:\\Models\\translategemma-4b-it.Q4_K_M.GGUF"', ...overrides });
+    // The file goes in `file`, never `folder` (translation_catalog.json version 2).
+    assert.deepEqual(engineRequest(llama()), { request: { group: "engine", name: "Mine", runtime: "llamacpp",
+        file: "C:\\Models\\translategemma-4b-it.Q4_K_M.GGUF", languages: [], device: "auto" } });
+    assert.equal(engineRequest(llama({ device: "cpu" })).request.device, "cpu");
+    assert.deepEqual(engineRequest(llama({ folder: " " })), { problem: "file_missing" });
+    assert.deepEqual(engineRequest(llama({ folder: "C:\\Models\\translategemma" })), { problem: "file_missing" });
+    // An ONNX entry names no device.
+    assert.equal("device" in engineRequest(engineForm({ device: "cpu" })).request, false);
+    const entry = fields => ({ id: "tr-9", origin: "user", name: "TG", runtime: "llamacpp", weight: "user:tr-9", available: false, in_use: false, status: "ok", ...fields });
+    assert.equal(entryState(entry({ server_ready: false })), "no_server");
+    assert.equal(entryState(entry({ server_ready: true })), "unavailable");
+    assert.equal(entryState(entry({ available: true, server_ready: true })), "ready");
+});
+
 test("an API entry carries its key once, trimmed, with the address and model", () => {
     assert.deepEqual(apiRequest(apiForm()), { request: {
         group: "api", name: "Home", protocol: "openai_compatible", url: "http://192.168.1.5:8000/v1", model: "qwen", auth_key: "k" } });
