@@ -968,6 +968,11 @@ fn a_capture_that_fails_ends_the_conversion_with_its_own_code() {
         eventually("the conversion fails", || run.ui.ok("/get/data/direct_voice_state", None)["error"] == shown);
         let state = run.ui.ok("/get/data/direct_voice_state", None);
         assert_eq!((state["requested"].clone(), state["active"].clone()), (json!(false), json!(false)), "{code}: {state}");
+        // The next start is refused while this one still cleans up.
+        eventually("the conversion has stopped", || {
+            let state = run.ui.ok("/get/data/direct_voice_state", None);
+            state["pending"] == false && state["stopping"] == false
+        });
     }
     run.ui.stop();
 }
