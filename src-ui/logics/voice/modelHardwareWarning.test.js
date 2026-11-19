@@ -1,6 +1,6 @@
 import { test } from "vitest";
 import assert from "node:assert/strict";
-import { hardwareWarning, requiredMemory, translationDeviceMode } from "./modelHardwareWarning.ts";
+import { hardwareWarning, RAM_RESERVE, requiredMemory, translationDeviceMode } from "./modelHardwareWarning.ts";
 
 const GiB = 1024 ** 3;
 const ready = devices => ({ phase: "ready", measured_at_ms: 1, devices });
@@ -68,6 +68,19 @@ test("on the CPU a model larger than the reported memory is warned about", () =>
     assert.equal(hardwareWarning(model(20 * GiB, { cpu: "unverified" }), ready([cpu(16 * GiB)])).reason, "low_memory");
 });
 
+test("on the CPU the RAM the OS and VRChat need is kept back, but not on a GPU", () => {
+    assert.deepEqual(RAM_RESERVE, { os: 4 * GiB, vrchat: 4 * GiB });
+    // 4 GiB and the 25% allowance is 5 GiB; with the 8 GiB kept back it needs 13 GiB of RAM.
+    const warning = hardwareWarning(model(4 * GiB, { cpu: "unverified" }), ready([cpu(12 * GiB)]));
+    assert.equal(warning.reason, "low_memory");
+    assert.equal(warning.reserve, 8 * GiB);
+    assert.equal(warning.required, 4 * GiB);
+    assert.equal(hardwareWarning(model(4 * GiB, { cpu: "unverified" }), ready([cpu(13 * GiB)])), null);
+    // The same model on an 8 GiB GPU: only the allowance counts there.
+    assert.equal(hardwareWarning(model(4 * GiB), ready([gpu(8 * GiB)])), null);
+    assert.equal(hardwareWarning(model(7 * GiB), ready([gpu(8 * GiB)])).reserve, null);
+});
+
 test("an unknown PC or a model without figures is never warned about", () => {
     for (const phase of ["unknown", "probing", "failed", "closed"])
         assert.equal(hardwareWarning(model(99 * GiB), { phase, devices: [] }), null);
@@ -101,14 +114,18 @@ const translationWarning = (device, hardware) => {
 test("the local translation is compared with the RAM by default, not with a GPU", () => {
     for (const device of ["", null, undefined, { device: "cpu", device_index: 0, device_name: "CPU" }])
         assert.equal(translationDeviceMode(device, laptop), "cpu");
-    // 1.39 GiB and the 25% allowance: about 1.73 GiB.
+    // 1.39 GiB and the 25% allowance (about 1.73 GiB) with 8 GiB kept for the OS and VRChat:
+    // about 9.73 GiB, more than an 8 GiB PC has and less than a 16 GiB one.
     const warning = translationWarning({ device: "cpu", device_index: 0 }, ready([gpu(8 * GiB), cpu(GiB)]));
     assert.equal(warning.reason, "low_memory");
     assert.equal(warning.device.kind, "cpu");
     assert.equal(warning.required, 1_490_300_928);
     assert.equal(warning.available, GiB);
-    assert.equal(translationWarning("", ready([cpu(1.5 * GiB)])).reason, "low_memory");
-    assert.equal(translationWarning("", ready([cpu(2 * GiB)])), null);
+    assert.equal(warning.reserve, 8 * GiB);
+    assert.equal(translationWarning("", ready([cpu(8 * GiB)])).reason, "low_memory");
+    assert.equal(translationWarning("", ready([cpu(9.5 * GiB)])).reason, "low_memory");
+    assert.equal(translationWarning("", ready([cpu(10 * GiB)])), null);
+    assert.equal(translationWarning("", ready([cpu(16 * GiB)])), null);
     assert.equal(translationWarning("", laptop), null);
     // A GPU too small for it does not matter while the translation runs on the CPU.
     assert.equal(translationWarning("", ready([gpu(GiB), cpu(16 * GiB)])), null);
