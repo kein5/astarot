@@ -39,8 +39,8 @@ export interface TranslationComputeDevice {
     restart_required?: boolean;
 }
 
-// A model the user added to the local translation, known only to the backend: a folder
-// ("custom:<folder>") or a translation catalog entry ("user:<id>").
+// A model the user added to the local translation, known only to the backend: a translation
+// catalog entry ("user:<id>").
 export interface CustomWeightStatus {
     id: string;
     is_custom: true;
