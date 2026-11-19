@@ -130,3 +130,22 @@ $toggle_control_ease: ease-out;
         --toggle_bg_on: var(--primary_700_color);
     }
 }
+// A tooltip's bubble, shadcn/ui's TooltipContent read by DESIGN.md's rules: rounded-md, px-3 py-1.5
+// and text-xs. common_components/tooltip and the settings' Hint both draw it, so the app has one
+// tooltip look (docs/design/components/shadcn-alignment.md, item 10). It is as wide as its words
+// up to a reading measure, and keeps the line breaks of its text. Its colours stay the light
+// words on dark_700 until D-22 decides whether they are inverted, as shadcn/ui's are.
+@mixin tooltip_content {
+    width: max-content;
+    max-width: min(36rem, 90cqi);
+    padding: .6rem 1.2rem;
+    border-radius: var(--vox_radius, .8rem);
+    background-color: var(--dark_700_color);
+    color: var(--dark_basic_text_color);
+    font-size: 1.2rem;
+    font-weight: 500;
+    line-height: 1.6;
+    text-align: left;
+    white-space: pre-line;
+    overflow-wrap: anywhere;
+}
