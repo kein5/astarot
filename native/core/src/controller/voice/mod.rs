@@ -1277,18 +1277,34 @@ impl Core {
     // ------------------------------------------------------------ the flow panel
 
     /// Begins a message's trace (`_beginIoTrace`): the microphone's and typed chat.
-    pub(crate) fn io_trace_begin(&self, kind: &str, message: &str, id: Option<&str>, started_ns: i64, asr_ms: Option<u64>) -> Option<Arc<IoTrace>> {
+    /// The flow panel's trace of a message (`_beginIoTrace`). A realtime microphone final is
+    /// timed from when it arrived (`received_ns`), with its wait before the message pipeline
+    /// took it; a recorder's from the start of its recognition (`asr_ms`).
+    pub(crate) fn io_trace_begin(
+        &self,
+        kind: &str,
+        message: &str,
+        id: Option<&str>,
+        started_ns: i64,
+        asr_ms: Option<u64>,
+        received_ns: Option<i64>,
+    ) -> Option<Arc<IoTrace>> {
         let voice = self.voice()?;
         let trace_id = id.map(str::to_owned).unwrap_or_else(uuid_text);
         match kind {
             "chat" => Some(voice.traces.begin(&trace_id, "chat", message, "send", started_ns)),
-            "mic" => Some(match asr_ms {
-                Some(asr) => {
+            "mic" => Some(match (received_ns.filter(|received| (1..=started_ns).contains(received)), asr_ms) {
+                (Some(received), _) => {
+                    let trace = voice.traces.begin(&trace_id, "voice", message, "final", received);
+                    trace.stage("wait", Some((started_ns - received) as f64 / 1e6));
+                    trace
+                }
+                (None, Some(asr)) => {
                     let trace = voice.traces.begin(&trace_id, "voice", message, "recognition", started_ns - (asr as i64) * 1_000_000);
                     trace.stage("recognition", Some(asr as f64));
                     trace
                 }
-                None => voice.traces.begin(&trace_id, "voice", message, "received", started_ns),
+                (None, None) => voice.traces.begin(&trace_id, "voice", message, "received", started_ns),
             }),
             _ => None,
         }
