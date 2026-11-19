@@ -8,6 +8,7 @@ import { useIsOpenedConfigPage } from "@logics_common";
 import { EnvReadout } from "../_components/env_readout/EnvReadout";
 import { SectionLabelComponent } from "../_components";
 import { AdvancedSection } from "../_components/advanced_section/AdvancedSection";
+import { HintDescriptions } from "../_components/hint/Hint";
 // The hotkeys a conversation cannot wait for, stop and mute, are in sight; the others are set
 // once, in 「詳細設定」, whose line says how many of them have a key (#554).
 const ADVANCED_HOTKEYS = ["open_quick_chat", "toggle_vrct_visibility", "toggle_translation",
@@ -17,15 +18,19 @@ export const Hotkeys = () => {
     const { t } = useI18n();
     const { currentHotkeys } = useHotkeys();
     const assigned = ADVANCED_HOTKEYS.filter(id => !!currentHotkeys.data?.[id]?.length).length;
+    // Reviewed against #614: what the hotkeys do while this page is open is a state, said by a
+    // readout; the quick chat row's notes are its label's hint.
     return (
+        <HintDescriptions>
         <div className={styles.container}>
-            <p className={styles.disabled_notice}>{t("config_page.hotkeys.disabled_notice")}</p>
+            <EnvReadout className={styles.disabled_notice} live={false}><p>{t("config_page.hotkeys.disabled_notice")}</p></EnvReadout>
             <StopHotkeysContainer />
             <AdvancedSection status={t("config_page.advanced_status.hotkeys", { count: assigned })}>
                 <QuickChatHotkeyContainer />
                 <ToggleHotkeysContainer />
             </AdvancedSection>
         </div>
+        </HintDescriptions>
     );
 };
 
@@ -60,12 +65,12 @@ const QuickChatHotkeyContainer = () => {
             <SectionLabelComponent sub label={t("config_page.hotkeys.section_label_quick_chat")} />
             <HotkeysEntryContainer
                 label={t("quick_chat.label")}
+                desc={t("quick_chat.shortcut_hint")}
                 hotkey_id="open_quick_chat"
                 value={currentHotkeys.data}
                 state={currentHotkeys.state}
                 setHotkeys={setHotkeys}
             />
-            <p className={styles.quick_chat_notice}>{t("quick_chat.shortcut_hint")}</p>
             {["wayland", "xwayland", "unknown"].includes(platform) && <EnvReadout className={styles.platform_readout}>
                 <p>{t({ wayland: "quick_chat.wayland_portal", xwayland: "quick_chat.xwayland_hint", unknown: "quick_chat.platform_unknown" }[platform])}</p>
             </EnvReadout>}

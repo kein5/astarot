@@ -219,8 +219,11 @@ test("settings keep the selected engine inside the radio row's accessible help",
     const { LabelComponent } = await loadModule(new URL("_components/label_component/LabelComponent.jsx", root), rowRuntime, {
         "../_atoms/_open_webpage_button/_OpenWebpageButton": { _OpenWebpageButton: "webpage" },
         "../description/Description": { Description: "description" },
+        "../hint/Hint": { Hint: "hint", useHintDescriptions: () => false },
     });
-    const { RadioButton } = await loadModule(new URL("_components/radio_button/RadioButton.jsx", root), rowRuntime);
+    const { RadioButton } = await loadModule(new URL("_components/radio_button/RadioButton.jsx", root), rowRuntime, {
+        "../hint/Hint": { Hint: "hint", useHintDescriptions: () => false },
+    });
     const { RadioButtonContainer } = await loadModule(new URL("_templates/Templates.jsx", root), rowRuntime, {
         "@store": { useStore_IsBreakPoint: () => ({ currentIsBreakPoint: { data: false } }) },
         "../_components": { LabelComponent, RadioButton }, "@common_components": { Checkbox: "checkbox" },

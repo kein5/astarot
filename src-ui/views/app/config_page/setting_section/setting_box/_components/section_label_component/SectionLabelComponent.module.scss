@@ -9,3 +9,5 @@
 // The fold's body already leaves 16px between its parts, so 8px more makes the 24px above.
 .sub_container { padding: .8rem 0 .8rem; }
 .sub_label { color: var(--vox_secondary_text); font-size: 1.5rem; font-weight: 600; line-height: 1.4; text-wrap: balance; }
+// A subheading and its hint mark on one line (#614).
+.label_line { display: flex; align-items: center; }

@@ -1,6 +1,7 @@
 import { VoiceRouteSettings } from "./VoiceRouteSettings";
 import { AdvancedSection } from "../_components/advanced_section/AdvancedSection";
 import { PagePointer } from "../_components/page_pointer/PagePointer";
+import { HintDescriptions } from "../_components/hint/Hint";
 import { useI18n } from "@useI18n";
 import styles from "./Device.module.scss";
 import clsx from "clsx";
@@ -39,7 +40,9 @@ export const Device = () => {
         currentEnableAutomaticSpeakerThreshold, currentVadAvailable } = useDevice();
     const mode = (vad, automatic) => currentVadAvailable.data === true && vad.data === true ? "option_vad"
         : automatic.data === true ? "option_auto" : "option_manual";
+    // Reviewed against #614: the rows' descriptions are their labels' hints.
     return (
+        <HintDescriptions>
         <div className={styles.container}>
             <MicContainer part="device" />
             <SpeakerContainer part="device" />
@@ -54,6 +57,7 @@ export const Device = () => {
                     tab="vrchat" target="vrc_mic_mute_sync" action={t("config_page.device.mute_sync_action")} />
             </AdvancedSection>
         </div>
+        </HintDescriptions>
     );
 };
 

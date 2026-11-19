@@ -1,6 +1,12 @@
 import styles from "./RadioButton.module.scss";
 import clsx from "clsx";
 import { useI18n } from "@useI18n";
+import { Hint, useHintDescriptions } from "../hint/Hint";
+
+// On a page that keeps descriptions out of sight (#614) an option's description is its hint,
+// opened by the pointer on the option or keyboard focus on its radio. A warning, or a text the
+// option marks keep_desc (a license to read before a download), stays under the option.
+const asHint = (hints, option) => hints && typeof option.desc === "string" && option.desc_tone !== "warning" && !option.keep_desc;
 
 // `groups` ([{ id, label, options }]) splits the options under visible group names, such as the
 // speech recognition engines' two systems (#414). They stay one choice: the radios share one
@@ -8,8 +14,9 @@ import { useI18n } from "@useI18n";
 // radiogroup named by its label, inside a group named by the row's label.
 export const RadioButton = (props) => {
     const { t } = useI18n();
+    const hints = useHintDescriptions();
     const options = props.groups ? props.groups.flatMap(group => group.options) : props.options;
-    const has_desc = options.some((option) => Boolean(option.desc));
+    const has_desc = options.some((option) => Boolean(option.desc) && !asHint(hints, option));
     const pending = props.checked_variable.state === "pending";
     const containerClass = clsx(styles.container, {
         [styles.column]: props.column === true,
@@ -24,15 +31,17 @@ export const RadioButton = (props) => {
             [styles.is_selected]: props.checked_variable.data === option.id,
         });
 
+        const hint = asHint(hints, option);
+        const hintId = hint ? `${props.name}-${option.id}-hint` : undefined;
         const labelClass = clsx(styles.radio_button_wrapper, {
             [styles.is_selected]: props.checked_variable.data === option.id,
             [styles.disabled]: option.disabled === true || pending,
-            [styles.has_desc]: Boolean(option.desc),
+            [styles.has_desc]: Boolean(option.desc) && !hint,
         });
 
         return (
             <div key={option.id} className={radioWrapperClass}>
-                <label className={labelClass}>
+                <label className={labelClass} data-hint-host={hint || undefined}>
                     <div className={styles.radio_button_header}>
                         {/* While a choice waits on the engine the radios look and read as disabled and
                             ignore presses, but stay focusable: a disabled radio would drop the
@@ -46,15 +55,19 @@ export const RadioButton = (props) => {
                             checked={props.checked_variable.data === option.id}
                             disabled={option.disabled === true}
                             aria-disabled={pending && option.disabled !== true ? true : undefined}
+                            aria-describedby={hintId}
                         />
                         <div className={styles.label_heading_wrapper}>
                             <p className={styles.radio_button_label}>{option.label}</p>
                             {option.capacity && (
                                 <span className={styles.capacity_label}>{option.capacity}</span>
                             )}
+                            {/* A disabled radio takes neither the pointer nor focus: the mark of an
+                                option that cannot be chosen takes both, so why it cannot is still read. */}
+                            {hint && <Hint text={option.desc} id={hintId} focusable={option.disabled === true} />}
                         </div>
                     </div>
-                    {option.desc && (
+                    {option.desc && !hint && (
                         <p className={clsx(styles.radio_button_desc, {
                             [styles.desc_warning]: option.desc_tone === "warning",
                         })}>{option.desc}</p>

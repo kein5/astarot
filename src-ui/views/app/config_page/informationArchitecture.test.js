@@ -159,7 +159,8 @@ const pageParts = (source, name) => {
     const body = page.slice(page.indexOf("return ("));
     const fold = body.includes("<AdvancedSection") ? body.split("<AdvancedSection")[1].split("</AdvancedSection>")[0] : "";
     const names = text => [...text.matchAll(/<([A-Z][A-Za-z_]+)/g)].map(match => match[1])
-        .filter(part => !["SectionLabelComponent", "AdvancedSection"].includes(part));
+        // HintDescriptions only says how the page's descriptions are shown (#614).
+        .filter(part => !["SectionLabelComponent", "AdvancedSection", "HintDescriptions"].includes(part));
     const outside = body.replace(fold, "");
     return { outside: names(outside), fold: names(fold) };
 };
@@ -182,7 +183,8 @@ test("the design and hotkeys pages keep a first start's settings in sight and fo
         "SendMessageButtonTypeContainer", "ShowResendButtonContainer", "AutoClearMessageInputBoxContainer",
         "ConvertMessageToHiraganaContainer", "ConvertMessageToRomajiContainer"]);
     const hotkeys = pageParts(read("hotkeys/Hotkeys.jsx"), "Hotkeys");
-    assert.deepEqual(hotkeys.outside, ["StopHotkeysContainer"]);
+    // That hotkeys are paused while settings are open is said by a readout, before the rows (#614).
+    assert.deepEqual(hotkeys.outside, ["EnvReadout", "StopHotkeysContainer"]);
     assert.deepEqual(hotkeys.fold, ["QuickChatHotkeyContainer", "ToggleHotkeysContainer"]);
     const source = read("hotkeys/Hotkeys.jsx");
     // Every hotkey still has its row: stop and mute in sight, the others in the fold.

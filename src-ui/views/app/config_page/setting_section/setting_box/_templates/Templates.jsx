@@ -86,6 +86,7 @@ const TemplatesContainerWrapper = ({
             className={container_class}
             data-setting-id={target_setting_id || undefined}
             data-setting-label={target_label || undefined}
+            data-hint-row
         >
             {children}
         </div>
