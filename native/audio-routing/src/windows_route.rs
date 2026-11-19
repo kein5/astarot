@@ -36,6 +36,10 @@ pub trait Capture: Send {
     /// Ask to stop without waiting (safe from any thread).
     fn request_stop(&self);
     fn stop(&mut self);
+    /// After [`Capture::stop`]: whether the device was confirmed released.
+    fn released(&self) -> bool {
+        true
+    }
 }
 
 /// The fixed codes a capture fails with (`_ERRORS` of `capture_pipewire.py`): those of the
