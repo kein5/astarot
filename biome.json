@@ -46,7 +46,6 @@
         "noArrayIndexKey": "warn",
         "noAssignInExpressions": "warn",
         "noControlCharactersInRegex": "warn",
-        "noImplicitAnyLet": "warn",
         "noShadowRestrictedNames": "warn",
         "useIterableCallbackReturn": "warn"
       }
