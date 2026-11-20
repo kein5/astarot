@@ -19,7 +19,7 @@ mise run check               # 軽量チェック
 | --- | --- |
 | `doctor` | `python tools/dev.py doctor` |
 | `check`、`check:all` | `python tools/dev.py check`（`quick`）、`--scope all` |
-| `check:voice`、`check:ui`、`check:rust`、`check:workflows`、`check:crates`、`check:links` | `python tools/dev.py check --scope <名前>` |
+| `check:voice`、`check:ui`、`check:rust`、`check:workflows`、`check:crates`、`check:links`、`check:hooks` | `python tools/dev.py check --scope <名前>` |
 | `check:commits`、`check:secrets` | `python tools/dev.py check --scope <名前> --base origin/develop` |
 | `check:vulns` | `python tools/dev.py check --scope vulns`（osv.devに問い合わせる） |
 | `setup:headless`、`setup:ui`、`setup:browser`、`setup:rust`、`setup:resources` | `python tools/dev.py setup --scope <名前>` |
@@ -157,8 +157,9 @@ python tools/dev.py check --scope rust --dry-run
 | `workflows` | ワークフローと自前のアクションを、actionlintとzizmorで検査（[リポジトリの検査](#リポジトリの検査)） |
 | `crates` | すべてのCargoのワークスペースの依存のライセンス、禁止の設定、取得元を、cargo-denyで検査（[リポジトリの検査](#リポジトリの検査)）。先に `setup --scope rust` が要る |
 | `links` | リポジトリのMarkdownのファイル同士のリンクと見出しへのリンクを、lycheeで検査。外部のサイトには問い合わせない（[リポジトリの検査](#リポジトリの検査)） |
+| `hooks` | Gitのフックの設定（`hk.pkl`）を `hk validate` で検査（[Gitのフック](#gitのフック)） |
 | `quick` | `tooling`、`node`、`lint`。既定値 |
-| `all` | 上記9対象。時間がかかるため統合時に明示実行 |
+| `all` | 上記10対象。時間がかかるため統合時に明示実行 |
 | `commits` | `--base` からHEADまでの新規コミット形式を検証 |
 | `secrets` | `--base` からHEADまでの新規コミットに、鍵やトークンが入っていないかをgitleaksで検査（[リポジトリの検査](#リポジトリの検査)） |
 | `vulns` | ロックファイルの依存の既知の脆弱性を、osv-scannerで検査。osv.devに問い合わせるので `all` には入れない（[リポジトリの検査](#リポジトリの検査)） |
@@ -188,6 +189,7 @@ Pythonは専用venvを優先し、次に既存の `.venv` を探します。`--p
 | --- | --- | --- | --- |
 | `workflows` | actionlint、zizmor | ワークフローの書き方、式、型（actionlint）。ワークフロー、自前のアクション、`dependabot.yml` の安全の問題（zizmor） | `.github/zizmor.yml`、または該当行の `# zizmor: ignore[<監査>] <理由>` |
 | `links` | lychee | `site/` 以外のMarkdownのファイル同士のリンクと、見出しへのリンク（`#...`）。外部のサイトには問い合わせない | `lychee.toml` |
+| `hooks` | hk | Gitのフックの設定（`hk.pkl`）の書き方。`hk.pkl` が読むhkの設定のパッケージの版と、`mise.toml` のhkの版がそろっていること（`tests/devtools/test_toolchain_pins.py`） | なし |
 | `secrets` | gitleaks | `--base` からHEADまでの新規コミットの鍵やトークン。見つけた値は出力に出さない（`--redact`） | `.gitleaks.toml`（規則）、`.gitleaksignore`（過去のコミットの指紋） |
 | `vulns` | osv-scanner | `uv.lock`、`package-lock.json`（ルートと `site/` と `site/motion/`）、17の `Cargo.lock` の依存の既知の脆弱性（osv.dev） | `osv-scanner.toml`（いまはない） |
 | `crates` | cargo-deny | 17のCargoのワークスペース（`CARGO_WORKSPACES`）の依存のライセンス、取得元（crates.ioと、許可したgitのリポジトリ）、版を書かない依存。配布する2つのシステム（WindowsとLinuxのx64）で組む依存だけを見る | `deny.toml` |
@@ -330,8 +332,24 @@ CLIは指定refとHEADの共通祖先を求め、その後のコミットだけ�
 
 `CHANGELOG.md` は正式版のリリースを準備するときに `tools/changelog.py` が書きます。載せるのは正式版だけで、前の正式版からの変更をまとめます。ベータ版のノートは、前のタグからのコミットで作ります。コミットの解析はCocogittoの `cog changelog` に任せ、利用者向けと内部向けの分類と書式をこのスクリプトが決めます。種別ごとの見出しは `cog.toml` の `[commit_types]` にあります。試験は `tests/devtools/test_changelog.py` です。
 
-開発CLIはフックを自動では入れません。フックは開発者が `cog install-hook commit-msg` で入れます。履歴を書き換える `cog edit`、版とタグを作る `cog bump`、commit/push、公開hookも開発CLIに含めません。版は今までどおり `package.json` で決めて `npm run update-version` で反映し、タグはGitHub Releasesの下書きを公開したときにできます。
+開発CLIはフックを自動では入れません。フックは開発者が `cog install-hook commit-msg` か、[hk](#gitのフック)で入れます。履歴を書き換える `cog edit`、版とタグを作る `cog bump`、commit/push、公開hookも開発CLIに含めません。版は今までどおり `package.json` で決めて `npm run update-version` で反映し、タグはGitHub Releasesの下書きを公開したときにできます。
 
+
+## Gitのフック
+
+`hk.pkl` は、hkで動かすGitのフックの設定です。開発CLIはフックを入れないので、使うときは複製ごとに一度 `hk install` を実行します。Git 2.54以降では、`.git/hooks/` を書き換えずにGitの設定（`hook.<名前>.command`）として入ります。入ったフックはmiseのshimを通るので、hkも各手順の道具も `mise.toml` の版で動きます（先に `mise install`）。
+
+| フック | 手順 | 確かめること |
+| --- | --- | --- |
+| pre-commit | gitleaks | ステージした変更の鍵やトークン。見つけた値は表示しない |
+| pre-commit | actionlint、zizmor | 変えたワークフローと自前のアクション。`check --scope workflows` と同じ設定 |
+| pre-commit | lychee | 変えたMarkdown（`site/` を除く）のリンク。外部のサイトには問い合わせない |
+| commit-msg | cocogitto | Conventional Commits（`cog.toml`） |
+
+- どの手順もファイルを書き換えません。1回だけ飛ばすときは `HK=0 git commit ...` です。
+- `cog install-hook commit-msg` で入れたフックもあると、Git 2.54以降ではそれも動くので、メッセージを2回確かめます。どちらか一方にするかは、まだ決めていません。
+- すべてのファイルに流すときは `hk run pre-commit --all` です。gitleaksはそのときもステージした変更だけを見ます。コミットの範囲は `check --scope secrets` で確かめます。
+- `check --scope hooks` は `hk.pkl` を `hk validate` で確かめます。初回は、固定した版のhkの設定のパッケージをGitHubのリリースから取得します。
 ## CIでの利用と再現性
 
 CIのワークフローはNode、Rust、Python、uv、Cocogitto、それに[リポジトリの検査](#リポジトリの検査)の道具を `jdx/mise-action`（コミットSHAで固定）で入れます。版は `mise.toml`、取得するファイルとSHA-256は `mise.lock` から読むので、開発者の手元と同じ版になります。ジョブごとに必要なツールだけを `install_args` で選びます。uvを使うジョブは `UV_PYTHON_PREFERENCE=only-system` と `UV_PYTHON_DOWNLOADS=never` を付け、miseのPythonを使わせて、uvが別のPythonを取得しないようにします。署名の秘密情報を扱う `prepare-release.yml` では、書き込みのできるトークンをmise-actionに渡さず、キャッシュも使いません。

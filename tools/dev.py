@@ -21,10 +21,10 @@ import tomllib
 
 
 ROOT = Path(__file__).resolve().parents[1]
-SCOPES = ("quick", "tooling", "node", "ui", "voice", "lint", "rust", "workflows", "crates", "links", "vulns", "secrets",
-          "commits", "all")
+SCOPES = ("quick", "tooling", "node", "ui", "voice", "lint", "rust", "workflows", "crates", "links", "hooks", "vulns",
+          "secrets", "commits", "all")
 GROUPS = {"quick": ("tooling", "node", "lint"),
-          "all": ("tooling", "node", "ui", "voice", "lint", "rust", "workflows", "crates", "links")}
+          "all": ("tooling", "node", "ui", "voice", "lint", "rust", "workflows", "crates", "links", "hooks")}
 # Rust crates outside the Tauri app, each with its own Cargo.lock and tests.
 NATIVE_CRATES = ("native/app-identity", "native/speech-server", "native/ops", "native/audio-routing", "native/adapters", "native/translation",
                  "native/transcription", "native/openvr-client", "native/onnx-runtime", "native/vr-overlay", "native/voice-conversion",
@@ -226,6 +226,10 @@ def checks_plan(args, root):
             # sets them. Offline: a site that is down never fails it; root-relative links ("/...")
             # resolve from the repository's root.
             steps.append(Step("lychee", ["lychee", "--offline", "--no-progress", "--root-dir", str(root.resolve()), "."]))
+        elif scope == "hooks":
+            # hk.pkl, the Git hooks' settings, as hk reads them. The first run downloads hk's
+            # settings package of the pinned version from its GitHub release.
+            steps.append(Step("hk validate", ["hk", "validate"]))
         elif scope == "vulns":
             # Known vulnerabilities (osv.dev) of every lock file: this asks osv.dev over the network.
             # Exceptions go in osv-scanner.toml with a reason.
@@ -278,7 +282,7 @@ def pinned_versions(root):
             (("node", "node"), ("cocogitto", "cog"), ("rust", "cargo"), ("uv", "uv"),
              ("actionlint", "actionlint"), ("zizmor", "zizmor"), ("cargo-deny", "cargo-deny"),
              ("cargo-nextest", "cargo-nextest"), ("osv-scanner", "osv-scanner"), ("gitleaks", "gitleaks"),
-             ("lychee", "lychee"))
+             ("lychee", "lychee"), ("hk", "hk"))
             if name in tools}
 
 
@@ -349,6 +353,8 @@ def doctor(args, root, *, preflight=False):
         needed_tools.update(("cargo", "cargo-deny"))
     if "links" in selected:
         needed_tools.add("lychee")
+    if "hooks" in selected:
+        needed_tools.add("hk")
     if "vulns" in selected:
         needed_tools.add("osv-scanner")
     if "secrets" in selected:
@@ -474,7 +480,7 @@ def parser():
     for command in ("doctor", "check"):
         sub = commands.add_parser(command, help="Inspect local prerequisites" if command == "doctor" else "Run selected model-free checks")
         sub.add_argument("--scope", choices=(*SCOPES, "browser") if command == "doctor" else SCOPES,
-                         default="quick", help="quick = tooling + node + lint; all also runs ui, voice, Rust, workflows, crates and links (default: quick)")
+                         default="quick", help="quick = tooling + node + lint; all also runs ui, voice, Rust, workflows, crates, links and hooks (default: quick)")
         sub.add_argument("--python", help="Existing environment's Python executable; never installs packages")
         if command == "doctor":
             sub.add_argument("--json", action="store_true", help="Machine-readable diagnostics; missing prerequisites exit 2")

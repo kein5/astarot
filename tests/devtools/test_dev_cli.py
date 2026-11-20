@@ -298,6 +298,12 @@ class DeveloperCLITests(unittest.TestCase):
         (step,) = self.dev.checks_plan(args, self.root)
         self.assertEqual(step.argv, ["lychee", "--offline", "--no-progress", "--root-dir", str(self.root.resolve()), "."])
 
+    def test_hook_check_validates_the_settings_without_installing_any_hook(self):
+        code, output = self.call("check", "--scope", "hooks", "--dry-run")
+        self.assertEqual(code, 0)
+        self.assertIn("[hk validate] hk validate", output)
+        self.assertNotIn("hk install", output)
+
     def test_browser_setup_adds_dependencies_to_explicit_existing_python(self):
         code, output = self.call("setup", "--scope", "browser", "--python",
             sys.executable, "--dry-run")
