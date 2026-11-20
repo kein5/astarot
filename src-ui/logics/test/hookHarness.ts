@@ -158,6 +158,15 @@ export async function loadModule<M = Record<string, unknown>>(url: URL, runtime:
     return loaded<M>(exports);
 }
 
+// A value a test gives the code under test without the declared type: test data with only the
+// fields the code reads, or a value of the wrong shape given on purpose to see how the code copes.
+// The test says which beside the call. This overload is the one place that declares such values;
+// tests use it instead of casts.
+export function unchecked<T>(value: unknown): T;
+export function unchecked(value: unknown): unknown {
+    return value;
+}
+
 // A rendered tree, as React types it: an element's props are whatever its component was given.
 export type TreeNode = ReactElement;
 
