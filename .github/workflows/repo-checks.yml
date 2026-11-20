@@ -20,11 +20,13 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          # The secrets step reads the commits since the base.
+          fetch-depth: 0
           persist-credentials: false
       - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
         with:
           version: 2026.11.8
-          install_args: actionlint zizmor
+          install_args: actionlint zizmor gitleaks osv-scanner
       # The token lets zizmor ask GitHub about the actions the workflows use (impostor commits,
       # known vulnerable versions); it can read public data only.
       - name: Workflows (actionlint, zizmor)
@@ -32,3 +34,20 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: python3 tools/dev.py check --scope workflows
+      # Keys and tokens in the commits this run adds: a pull request's, a push's or the merge
+      # queue's. A new branch's push has no earlier commit; its pull request is checked instead.
+      - name: Secrets in new commits (gitleaks)
+        if: ${{ !cancelled() }}
+        env:
+          COMMIT_BASE: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before }}
+        run: |
+          if [ -z "$COMMIT_BASE" ] || [ "$COMMIT_BASE" = "0000000000000000000000000000000000000000" ]; then
+            echo "No earlier commit to compare with; nothing to scan."
+            exit 0
+          fi
+          python3 tools/dev.py check --scope secrets --base "$COMMIT_BASE"
+      # Known vulnerabilities of every lock file, from osv.dev. A notice not listed in
+      # osv-scanner.toml, or one whose day to look again has come, fails the step (#835).
+      - name: Known vulnerabilities (osv-scanner)
+        if: ${{ !cancelled() }}
+        run: python3 tools/dev.py check --scope vulns
