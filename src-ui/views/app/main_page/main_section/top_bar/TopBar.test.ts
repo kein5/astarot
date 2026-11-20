@@ -1,25 +1,59 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
+import type { TestContext } from "vitest";
 import { readFileSync } from "node:fs";
 import yaml from "js-yaml";
-import { hooks, loadModule, find, eventTarget, stubGlobals } from "../../../../../logics/test/hookHarness.ts";
+import { hooks, loadModule, find, eventTarget, stubGlobals, unchecked } from "../../../../../logics/test/hookHarness.ts";
+import type { TreeNode } from "../../../../../logics/test/hookHarness.ts";
 import { voiceActions } from "../../../../../logics/voice/voiceActions.ts";
 
-const all = (tree, predicate, found = []) => { find(tree, node => { if (predicate(node)) found.push(node); return false; }); return found; };
-const t = (key, options) => options ? `${key}:${JSON.stringify(options)}` : key;
+interface MenuState {
+    foreground: boolean;
+    sync: boolean;
+    small: boolean;
+    large: boolean;
+    osc: boolean;
+    pending: boolean;
+    flow: boolean;
+    update?: string;
+}
+// A part the bar draws from a function of its own (not exported), as React would call it.
+type Part = (props?: object) => TreeNode;
 
-async function menu(context, values = {}) {
-    const runtime = hooks(), calls = [], document = eventTarget();
+const all = (tree: unknown, predicate: (node: TreeNode) => boolean, found: TreeNode[] = []) => { find(tree, node => { if (predicate(node)) found.push(node); return false; }); return found; };
+const t = (key: string, options?: object) => options ? `${key}:${JSON.stringify(options)}` : key;
+
+// value?.[key], for a value read from a locale file.
+const fieldOf = (value: unknown, key: string): unknown =>
+    value === null || value === undefined ? undefined : Reflect.get(Object(value), key);
+
+// The ref an element carries: React 18 keeps it on the element, beside its props.
+const refOf = (node: object): { current: unknown } => {
+    const ref: unknown = Reflect.get(node, "ref");
+    assert.ok(ref !== null && typeof ref === "object" && "current" in ref);
+    return ref;
+};
+
+// The part of the bar named `name`, found in its tree: a function of the bar's own module.
+const partNamed = (tree: TreeNode, name: string): Part => {
+    const node = find(tree, item => typeof item.type === "function" && item.type.name === name);
+    assert.ok(node);
+    // Its element type is that function, which the test calls as React would.
+    return unchecked<Part>(node.type);
+};
+
+async function menu(context: TestContext, values: Partial<MenuState> = {}) {
+    const runtime = hooks(), calls: unknown[][] = [], document = eventTarget();
     // Unmount first: the menu's cleanup still needs the document this test provides.
     context.onTestFinished(() => runtime.unmount());
     stubGlobals(context, { document });
-    const state = { foreground: false, sync: false, small: false, large: false, osc: true, pending: false, flow: false, ...values };
-    const button = await loadModule(new URL("./right_side_components/_buttons/OpenQuickSettingButton.tsx", import.meta.url), runtime, {
+    const state: MenuState = { foreground: false, sync: false, small: false, large: false, osc: true, pending: false, flow: false, ...values };
+    const button = await loadModule<typeof import("./right_side_components/_buttons/OpenQuickSettingButton.tsx")>(new URL("./right_side_components/_buttons/OpenQuickSettingButton.tsx", import.meta.url), runtime, {
         "@useI18n": { useI18n: () => ({ t }) },
     });
-    const { RightSideComponents } = await loadModule(new URL("./right_side_components/RightSideComponents.tsx", import.meta.url), runtime, {
+    const { RightSideComponents } = await loadModule<typeof import("./right_side_components/RightSideComponents.tsx")>(new URL("./right_side_components/RightSideComponents.tsx", import.meta.url), runtime, {
         "@useI18n": { useI18n: () => ({ t }) },
-        "@store": { useStore_OpenedQuickSetting: () => ({ updateOpenedQuickSetting: value => calls.push(["open", value]) }) },
+        "@store": { useStore_OpenedQuickSetting: () => ({ updateOpenedQuickSetting: (value: unknown) => calls.push(["open", value]) }) },
         "@logics_common": {
             useIsOscAvailable: () => ({ currentIsOscAvailable: { data: state.osc }, oscUnavailableLabelKey: "why_unavailable" }),
         },
@@ -38,22 +72,29 @@ async function menu(context, values = {}) {
             togglePanel: () => { calls.push(["flow"]); state.flow = !state.flow; } }) },
     });
     const right = runtime.render(RightSideComponents);
-    const Menu = find(right, node => node.type?.name === "QuickSettingsMenu").type;
-    const FlowButton = find(right, node => node.type?.name === "IoFlowButton").type;
-    const focused = [];
+    const Menu = partNamed(right, "QuickSettingsMenu");
+    const FlowButton = partNamed(right, "IoFlowButton");
+    const focused: string[] = [];
     const draw = () => {
         const tree = runtime.render(Menu, {}, node => {
-            node.ref.current = { contains: target => target === "inside" };
-            find(node, child => child.type === "button").ref.current = { focus: () => focused.push("opener") };
+            refOf(node).current = { contains: (target: unknown) => target === "inside" };
+            const opener = find(node, child => child.type === "button");
+            assert.ok(opener);
+            refOf(opener).current = { focus: () => focused.push("opener") };
         });
         const rows = all(tree, node => node.type === button.OpenQuickSettingButton).map(node => {
-            const drawn = node.type(node.props);
-            return { props: node.props, button: find(drawn, child => child.type === "button"), note: find(drawn, child => child.type === "p" && child.props.className === "note") };
+            // The node's type is OpenQuickSettingButton (the predicate above): draw it with its props.
+            const drawn = button.OpenQuickSettingButton(node.props);
+            const rowButton = find(drawn, child => child.type === "button");
+            assert.ok(rowButton);
+            return { props: node.props, button: rowButton, note: find(drawn, child => child.type === "p" && child.props.className === "note") };
         });
-        return { tree, opener: find(tree, node => node.type === "button"), panel: find(tree, node => node.props?.role === "group"), rows,
+        const opener = find(tree, node => node.type === "button");
+        assert.ok(opener);
+        return { tree, opener, panel: find(tree, node => node.props?.role === "group"), rows,
             state: find(tree, node => node.props?.className === "menu_state")?.props.children };
     };
-    const UpdateButton = find(right, node => node.type?.name === "SoftwareUpdateAvailableButton").type;
+    const UpdateButton = partNamed(right, "SoftwareUpdateAvailableButton");
     return { draw, calls, document, focused, state, flowButton: () => runtime.render(FlowButton), updateButton: () => runtime.render(UpdateButton) };
 }
 
@@ -67,6 +108,7 @@ test("the quick settings button says how many of its toggles are on, and opens t
     view.opener.props.onClick();
     view = s.draw();
     assert.equal(view.opener.props["aria-expanded"], true);
+    assert.ok(view.panel);
     assert.equal(view.opener.props["aria-controls"], view.panel.props.id);
     assert.deepEqual(view.rows.map(row => [row.props.label, row.props.variable]), [
         ["main_page.foreground", true], ["config_page.others.vrc_mic_mute_sync.label", false], ["config_page.vr.section_label_overlay", true]]);
@@ -85,7 +127,7 @@ test("nothing on reads as all off", async context => {
 test("a toggle is pressed in the open menu; the overlay row closes it and opens its dialog", async context => {
     const s = await menu(context);
     s.draw().opener.props.onClick();
-    let view = s.draw();
+    const view = s.draw();
     view.rows[0].button.props.onClick();
     view.rows[1].button.props.onClick();
     assert.deepEqual(s.calls, [["foreground"], ["sync"]]);
@@ -100,6 +142,7 @@ test("mute sync that cannot be used is disabled and says why", async context => 
     s.draw().opener.props.onClick();
     const row = s.draw().rows[1];
     assert.equal(row.button.props.disabled, true);
+    assert.ok(row.note);
     assert.equal(row.note.props.children, "why_unavailable");
     row.props.onClickFunction();
     assert.deepEqual(s.calls, []);
@@ -137,25 +180,27 @@ test("Escape closes the menu and returns focus; a press or focus outside closes 
 });
 
 test("the main bar leads with stop and mute, drawn with its own short and shortest words", async () => {
-    const runtime = hooks(), sent = [];
-    const voice = { status: { queued: 2, active: true }, route: { requested_muted: true, ready: true, pending: false, managed: true }, send: path => sent.push(path) };
-    const actions = await loadModule(new URL("../../../others/stop_actions/StopActions.tsx", import.meta.url), runtime, {
+    const runtime = hooks(), sent: string[] = [];
+    const voice: { status: object; route: Record<string, boolean>; send: (path: string) => number } =
+        { status: { queued: 2, active: true }, route: { requested_muted: true, ready: true, pending: false, managed: true }, send: path => sent.push(path) };
+    const actions = await loadModule<typeof import("../../../others/stop_actions/StopActions.tsx")>(new URL("../../../others/stop_actions/StopActions.tsx", import.meta.url), runtime, {
         "@useI18n": { useI18n: () => ({ t }) }, "../../../../logics/voice/useVoice": { useVoice: () => voice },
         "../../../../logics/voice/voiceActions.ts": { voiceActions },
     });
-    const { TopBar } = await loadModule(new URL("./TopBar.tsx", import.meta.url), runtime, {
+    const { TopBar } = await loadModule<typeof import("./TopBar.tsx")>(new URL("./TopBar.tsx", import.meta.url), runtime, {
         "./sidebar_compact_mode_button/SidebarCompactModeButton": { SidebarCompactModeButton: "compact" },
         "./right_side_components/RightSideComponents": { RightSideComponents: "right" },
         "../../../others/stop_actions/StopActions": actions,
     });
     const bar = runtime.render(TopBar);
     const leading = find(bar, node => node.props?.className === "leading");
+    assert.ok(leading);
     const [first, second] = leading.props.children;
     assert.equal(first.type, "compact");
     assert.equal(second.type, actions.StopActions);
     const group = runtime.render(second.type, second.props);
     const [stop, mute] = all(group, node => node.type === "button");
-    const words = button => Object.fromEntries(all(button, node => node.type === "span").map(node => [node.props.className, node.props.children]));
+    const words = (button: TreeNode) => Object.fromEntries(all(button, node => node.type === "span").map(node => [node.props.className, node.props.children]));
     assert.deepEqual(words(stop), { long: 'voice_ui.topbar_stop_count:{"count":2}', short: 'voice_ui.topbar_stop_short_count:{"count":2}',
         tiny: 'voice_ui.topbar_stop_tiny_count:{"count":2}' });
     assert.equal(stop.props["aria-label"], 'voice_ui.topbar_stop_count:{"count":2}', "the name stays the full words");
@@ -170,6 +215,8 @@ test("the main bar leads with stop and mute, drawn with its own short and shorte
     assert.deepEqual(sent.slice(-2), ["/run/stop_voice", "/run/resume_voice"]);
 
     // A hotkey presses these same buttons with the state of the moment.
+    assert.ok(voiceActions.stop);
+    assert.ok(voiceActions.toggleMute);
     voiceActions.stop(); voiceActions.toggleMute();
     assert.deepEqual(sent.slice(-2), ["/run/stop_voice", "/run/resume_voice"]);
     voice.route = { requested_muted: false, ready: true, pending: false };
@@ -188,7 +235,7 @@ test("the main bar leads with stop and mute, drawn with its own short and shorte
 test("the settings bar draws the same actions without the shortest words", async () => {
     const runtime = hooks();
     const voice = { status: {}, route: {}, send() {} };
-    const { StopActions } = await loadModule(new URL("../../../others/stop_actions/StopActions.tsx", import.meta.url), runtime, {
+    const { StopActions } = await loadModule<typeof import("../../../others/stop_actions/StopActions.tsx")>(new URL("../../../others/stop_actions/StopActions.tsx", import.meta.url), runtime, {
         "@useI18n": { useI18n: () => ({ t }) }, "../../../../logics/voice/useVoice": { useVoice: () => voice },
         "../../../../logics/voice/voiceActions.ts": { voiceActions },
     });
@@ -213,14 +260,16 @@ test("the main bar's stylesheet hides the long words and swaps to the shortest w
     assert.match(menu, /@container main_section \(max-width: 64rem\) \{ @include narrow_menu; \}/);
     for (const language of ["en", "ja"]) {
         const strings = yaml.load(readFileSync(new URL(`../../../../../../locales/${language}.yml`, import.meta.url), "utf8"));
-        for (const key of ["quick_settings", "quick_settings_on", "quick_settings_all_off"]) assert.equal(typeof strings.main_page[key], "string");
-        for (const key of ["topbar_stop_tiny", "topbar_stop_tiny_count"]) assert.equal(typeof strings.voice_ui[key], "string");
+        for (const key of ["quick_settings", "quick_settings_on", "quick_settings_all_off"]) assert.equal(typeof fieldOf(fieldOf(strings, "main_page"), key), "string");
+        for (const key of ["topbar_stop_tiny", "topbar_stop_tiny_count"]) assert.equal(typeof fieldOf(fieldOf(strings, "voice_ui"), key), "string");
     }
 });
 
 test("stop and mute keep their width in a narrow bar; the update button keeps only its arrow there", async context => {
     const css = readFileSync(new URL("./TopBar.module.scss", import.meta.url), "utf8");
-    const leading = css.match(/\.leading \{([^}]*)\}/)[1];
+    const leadingRule = css.match(/\.leading \{([^}]*)\}/);
+    assert.ok(leadingRule);
+    const leading = leadingRule[1];
     assert.match(leading, /flex-shrink: 0/, "the right-hand buttons can no longer slide over stop and mute");
     assert.doesNotMatch(leading, /min-width: 0/);
     const right = readFileSync(new URL("./right_side_components/RightSideComponents.module.scss", import.meta.url), "utf8");
