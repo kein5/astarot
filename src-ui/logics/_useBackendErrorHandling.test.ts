@@ -4,11 +4,24 @@ import { readFileSync } from "node:fs";
 import i18next from "i18next";
 import yaml from "js-yaml";
 import { renderToStaticMarkup } from "react-dom/server";
+import type { PrimitiveAtom } from "jotai/vanilla";
 import { loadBridgeRoutes } from "./test/bridgeHarness.ts";
+import { unchecked } from "./test/hookHarness.ts";
+import type { AtomState } from "./store.ts";
+
+// A locale file: keys, each holding a text or another level of keys. The test reads the levels
+// it knows by name; a missing one stops with a TypeError, as it always did.
+type LocaleTree = { readonly [key: string]: LocaleTree };
+const localeTree = (language: string) =>
+    unchecked<LocaleTree>(yaml.load(readFileSync(new URL(`../../locales/${language}.yml`, import.meta.url), "utf8")));
+// The store's registry holds each setting's atom under its Atom_ name.
+const atomNamed = (registry: Record<string, unknown>, name: string) => unchecked<PrimitiveAtom<AtomState<unknown>>>(registry[name]);
+// A notice's options, read as notice.options.category_id always was.
+const optionsOf = (notice: { options: unknown } | undefined) => unchecked<{ category_id?: unknown }>(notice?.options);
 
 test("credential reentry notices and field hints exist in every supported locale", () => {
     for (const language of ["en", "ja"]) {
-        const locale = yaml.load(readFileSync(new URL(`../../locales/${language}.yml`, import.meta.url), "utf8"));
+        const locale = localeTree(language);
         assert.ok(locale.backend_errors.CREDENTIAL_REENTRY_REQUIRED);
         assert.ok(locale.config_page.common.credential_reentry_required);
     }
@@ -18,25 +31,25 @@ test("credential reentry notices and field hints exist in every supported locale
 // no text, so a Japanese UI would show English (the GPU memory notices once did).
 test("every code shown with its backend_errors text has one in every supported locale", () => {
     const source = readFileSync(new URL("./_useBackendErrorHandling.ts", import.meta.url), "utf8");
-    const codes = new Set();
+    const codes = new Set<string>();
     for (const [, labels, body] of source.matchAll(/((?:case "[A-Z0-9_]+":\s*)+)([\s\S]*?)(?=case "|default:)/g)) {
         if (/\blocalized\b/.test(body)) for (const [, code] of labels.matchAll(/case "([A-Z0-9_]+)"/g)) codes.add(code);
     }
     for (const code of ["TRANSLATION_VRAM_CHAT", "TRANSLATION_VRAM_MIC", "TRANSLATION_VRAM_SPEAKER"]) assert.ok(codes.has(code), code);
     for (const language of ["en", "ja"]) {
-        const locale = yaml.load(readFileSync(new URL(`../../locales/${language}.yml`, import.meta.url), "utf8"));
+        const locale = localeTree(language);
         const missing = [...codes].filter(code => typeof locale.backend_errors[code] !== "string");
         assert.deepEqual(missing, [], `${language}: backend_errors has no text for these codes`);
     }
 });
 
-for (const [base, provider] of [["OpenAICompatible", "openai_compatible"], ["CustomWhisper", "custom_whisper"]]) {
+for (const [base, provider] of [["OpenAICompatible", "openai_compatible"], ["CustomWhisper", "custom_whisper"]] as const) {
     test(`${provider}: credential reentry settles only the URL and explains the rejection`, async () => {
         const s = await loadBridgeRoutes();
-        const url = s.stores.dynamicStoreRegistry[`Atom_${base}URL`];
-        const key = s.stores.dynamicStoreRegistry[`Atom_${base}AuthKey`];
+        const url = atomNamed(s.stores.dynamicStoreRegistry, `Atom_${base}URL`);
+        const key = atomNamed(s.stores.dynamicStoreRegistry, `Atom_${base}AuthKey`);
         const savedURL = "https://previous.invalid/v1";
-        const savedKey = { state: "pending", data: "synthetic-saved-key" };
+        const savedKey: AtomState<unknown> = { state: "pending", data: "synthetic-saved-key" };
         s.runtime.store.set(url, { state: "pending", data: savedURL });
         s.runtime.store.set(key, savedKey);
         s.receiveRoutes({ status: 400, endpoint: `/set/data/${provider}_url`, result: {
@@ -45,17 +58,17 @@ for (const [base, provider] of [["OpenAICompatible", "openai_compatible"], ["Cus
         assert.deepEqual(s.runtime.store.get(url), { state: "ok", data: savedURL });
         assert.strictEqual(s.runtime.store.get(key), savedKey);
         assert.equal(s.notices.length, 1);
-        assert.equal(s.notices[0].options.category_id, "CREDENTIAL_REENTRY_REQUIRED");
+        assert.equal(optionsOf(s.notices[0]).category_id, "CREDENTIAL_REENTRY_REQUIRED");
         assert.deepEqual(s.reads, []);
     });
 }
 
 test("compatible URL rejection restores the URL and settles only its pending request", async () => {
     const s = await loadBridgeRoutes();
-    const url = s.stores.dynamicStoreRegistry.Atom_OpenAICompatibleURL;
-    const key = s.stores.dynamicStoreRegistry.Atom_OpenAICompatibleAuthKey;
+    const url = atomNamed(s.stores.dynamicStoreRegistry, "Atom_OpenAICompatibleURL");
+    const key = atomNamed(s.stores.dynamicStoreRegistry, "Atom_OpenAICompatibleAuthKey");
     const previousURL = "https://previous.invalid/v1";
-    const previousKey = { state: "pending", data: "synthetic-saved-key" };
+    const previousKey: AtomState<unknown> = { state: "pending", data: "synthetic-saved-key" };
     s.runtime.store.set(url, { state: "pending", data: previousURL });
     s.runtime.store.set(key, previousKey);
 
@@ -67,15 +80,15 @@ test("compatible URL rejection restores the URL and settles only its pending req
     assert.deepEqual(s.runtime.store.get(url), { state: "ok", data: previousURL });
     assert.strictEqual(s.runtime.store.get(key), previousKey);
     assert.equal(s.notices.length, 1);
-    assert.equal(s.notices[0].options.category_id, "CONNECTION_OPENAI_COMPATIBLE_URL_INVALID");
+    assert.equal(optionsOf(s.notices[0]).category_id, "CONNECTION_OPENAI_COMPATIBLE_URL_INVALID");
     assert.deepEqual(s.reads, []);
 });
 
 test("compatible key rejection still settles the key without altering the URL", async () => {
     const s = await loadBridgeRoutes();
-    const url = s.stores.dynamicStoreRegistry.Atom_OpenAICompatibleURL;
-    const key = s.stores.dynamicStoreRegistry.Atom_OpenAICompatibleAuthKey;
-    const previousURL = { state: "pending", data: "https://previous.invalid/v1" };
+    const url = atomNamed(s.stores.dynamicStoreRegistry, "Atom_OpenAICompatibleURL");
+    const key = atomNamed(s.stores.dynamicStoreRegistry, "Atom_OpenAICompatibleAuthKey");
+    const previousURL: AtomState<unknown> = { state: "pending", data: "https://previous.invalid/v1" };
     s.runtime.store.set(url, previousURL);
     s.runtime.store.set(key, { state: "pending", data: "synthetic-saved-key" });
 
@@ -95,7 +108,7 @@ for (const [field, code] of [
     ["custom_whisper_url", "CREDENTIAL_REENTRY_REQUIRED"],
 ]) test(`${field}: ${code} renders in the saved UI language`, async () => {
     const resources = Object.fromEntries(["en", "ja"].map(language => [language, {
-        translation: yaml.load(readFileSync(new URL(`../../locales/${language}.yml`, import.meta.url), "utf8")),
+        translation: localeTree(language),
     }]));
     const i18n = i18next.createInstance();
     await i18n.init({ lng: "en", resources });
@@ -104,8 +117,9 @@ for (const [field, code] of [
         error_code: code, message: "The saved URL was invalid", data: "",
     } });
     const notice = s.notices.at(-1);
+    assert.ok(notice);
     assert.equal(notice.type, "error");
-    assert.equal(notice.options.category_id, code);
+    assert.equal(optionsOf(notice).category_id, code);
     assert.equal(renderToStaticMarkup(notice.key), resources.en.translation.backend_errors[code]);
 
     // Settings finish applying after the IPC notice was already queued.
@@ -125,7 +139,7 @@ test("other backend notifications still resolve their message when received", as
         error_code: "CONNECTION_LMSTUDIO_FAILED", message: "Connection failed",
     } });
     await i18n.changeLanguage("ja");
-    assert.equal(s.notices.at(-1).key, "Connection failed");
+    assert.equal(s.notices.at(-1)?.key, "Connection failed");
 });
 
 test("output failures have separate warnings per sink and never expose raw errors", async () => {
@@ -135,7 +149,7 @@ test("output failures have separate warnings per sink and never expose raw error
             error_code: "MESSAGE_OUTPUT_FAILED", message: "raw private exception", data: { output },
         } });
     }
-    assert.deepEqual(s.notices.map(notice => notice.options.category_id), [
+    assert.deepEqual(s.notices.map(notice => optionsOf(notice).category_id), [
         "MESSAGE_OUTPUT_FAILED.osc", "MESSAGE_OUTPUT_FAILED.logger", "MESSAGE_OUTPUT_FAILED.tts", "MESSAGE_OUTPUT_FAILED.unknown",
     ]);
     assert.ok(s.notices.every(notice => notice.type === "warning" && notice.key === "backend_errors.MESSAGE_OUTPUT_FAILED"));
@@ -143,7 +157,7 @@ test("output failures have separate warnings per sink and never expose raw error
 });
 
 for (const language of ["en", "ja"]) test(`${language}: partial output warning names the output and explains duplicate risk`, async () => {
-    const translation = yaml.load(readFileSync(new URL(`../../locales/${language}.yml`, import.meta.url), "utf8"));
+    const translation = localeTree(language);
     const i18n = i18next.createInstance();
     await i18n.init({ lng: language, resources: { [language]: { translation } } });
     const s = await loadBridgeRoutes(undefined, i18n);
@@ -153,6 +167,7 @@ for (const language of ["en", "ja"]) test(`${language}: partial output warning n
             error_code: "MESSAGE_OUTPUT_FAILED", data: { output }, message: "raw error",
         } });
         const notice = s.notices.at(-1);
+        assert.ok(notice);
         assert.ok(notice.key.includes(i18n.t(`message_outputs.${output}`)));
         assert.match(notice.key, language === "ja" ? /再送するとほかの出力先に同じメッセージが重ねて届く/ : /If you resend it, those outputs may receive it twice/);
         assert.equal(notice.type, "warning");
@@ -160,7 +175,7 @@ for (const language of ["en", "ja"]) test(`${language}: partial output warning n
 });
 
 for (const language of ["en", "ja"]) test(`${language}: overlay failure notifies and re-reads all output switches`, async () => {
-    const translation = yaml.load(readFileSync(new URL(`../../locales/${language}.yml`, import.meta.url), "utf8"));
+    const translation = localeTree(language);
     const i18n = i18next.createInstance();
     await i18n.init({ lng: language, resources: { [language]: { translation } } });
     const s = await loadBridgeRoutes(undefined, i18n);
@@ -173,7 +188,7 @@ for (const language of ["en", "ja"]) test(`${language}: overlay failure notifies
 });
 
 for (const language of ["en", "ja"]) test(`${language}: a VR UI that this system cannot show says so and re-reads only its own switch`, async () => {
-    const translation = yaml.load(readFileSync(new URL(`../../locales/${language}.yml`, import.meta.url), "utf8"));
+    const translation = localeTree(language);
     const i18n = i18next.createInstance();
     await i18n.init({ lng: language, resources: { [language]: { translation } } });
     const s = await loadBridgeRoutes(undefined, i18n);
@@ -187,11 +202,11 @@ for (const language of ["en", "ja"]) test(`${language}: a VR UI that this system
 
 // Decision 13 of #278: the VAD runs on the speech.cpp server, and details.reason names the next step.
 for (const language of ["en", "ja"]) test(`${language}: a VAD that cannot use its server says why and re-reads only a refused switch`, async () => {
-    const translation = yaml.load(readFileSync(new URL(`../../locales/${language}.yml`, import.meta.url), "utf8"));
+    const translation = localeTree(language);
     const i18n = i18next.createInstance();
     await i18n.init({ lng: language, resources: { [language]: { translation } } });
     const s = await loadBridgeRoutes(undefined, i18n);
-    const vad = (endpoint, data, reason) => s.receiveRoutes({ status: 400, endpoint, result: {
+    const vad = (endpoint: string, data: unknown, reason: string) => s.receiveRoutes({ status: 400, endpoint, result: {
         error_code: "VAD_UNAVAILABLE", data, details: { reason }, message: "Voice activity detection needs the speech.cpp server",
     } });
     // Turning a switch on is refused while the server is not set up.
@@ -209,7 +224,7 @@ for (const language of ["en", "ja"]) test(`${language}: a VAD that cannot use it
 });
 
 for (const language of ["en", "ja"]) test(`${language}: a key store failure stays on screen and changes no setting`, async () => {
-    const translation = yaml.load(readFileSync(new URL(`../../locales/${language}.yml`, import.meta.url), "utf8"));
+    const translation = localeTree(language);
     const i18n = i18next.createInstance();
     await i18n.init({ lng: language, resources: { [language]: { translation } } });
     const s = await loadBridgeRoutes(undefined, i18n);
@@ -223,11 +238,11 @@ for (const language of ["en", "ja"]) test(`${language}: a key store failure stay
 });
 
 for (const language of ["en", "ja"]) test(`${language}: a key store failure says what the user can do about it`, async () => {
-    const translation = yaml.load(readFileSync(new URL(`../../locales/${language}.yml`, import.meta.url), "utf8"));
+    const translation = localeTree(language);
     const i18n = i18next.createInstance();
     await i18n.init({ lng: language, resources: { [language]: { translation } } });
     const s = await loadBridgeRoutes(undefined, i18n);
-    const failed = data => s.receiveRoutes({ status: 400, endpoint: "/run/secret_store_failed", result: {
+    const failed = (data: Record<string, unknown>) => s.receiveRoutes({ status: 400, endpoint: "/run/secret_store_failed", result: {
         error_code: "SECRET_STORE_FAILED", data: { entries: ["AUTH_KEYS/DeepL_API"], store: "secret_service", ...data },
         message: "The API keys could not be kept in their secure storage.",
     } });
@@ -239,6 +254,6 @@ for (const language of ["en", "ja"]) test(`${language}: a key store failure says
     const errors = translation.backend_errors;
     assert.deepEqual(s.notices.map(notice => notice.key),
         [errors.SECRET_STORE_FAILED_moving, errors.SECRET_STORE_FAILED_os_store, errors.SECRET_STORE_FAILED_os_store]);
-    assert.ok(s.notices.every(notice => typeof notice.key === "string" && notice.key !== errors.SECRET_STORE_FAILED));
+    assert.ok(s.notices.every(notice => typeof notice.key === "string" && !Object.is(notice.key, errors.SECRET_STORE_FAILED)));
     assert.ok(s.notices.every(notice => !notice.key.includes("AUTH_KEYS")), "no entry names or keys on screen");
 });

@@ -2,8 +2,15 @@ import assert from "node:assert/strict";
 import { test, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import i18next from "i18next";
+import type { ResourceKey } from "i18next";
+import type { PrimitiveAtom } from "jotai/vanilla";
 import yaml from "js-yaml";
 import { loadBridgeRoutes } from "./test/bridgeHarness.ts";
+import { unchecked } from "./test/hookHarness.ts";
+import type { AtomState } from "./store.ts";
+
+// The store's registry holds each setting's atom under its Atom_ name.
+const atomNamed = (registry: Record<string, unknown>, name: string) => unchecked<PrimitiveAtom<AtomState<unknown>>>(registry[name]);
 
 const failures = [
     ["/set/enable/obs_browser_source", "OBS_BROWSER_SOURCE_PORT_UNAVAILABLE", "EnableObsBrowserSource", false],
@@ -16,16 +23,17 @@ const failures = [
 ];
 
 for (const language of ["en", "ja"]) {
-    const translation = yaml.load(readFileSync(new URL(`../../locales/${language}.yml`, import.meta.url), "utf8"));
+    // A locale file, which is a mapping of keys to text.
+    const translation = unchecked<ResourceKey>(yaml.load(readFileSync(new URL(`../../locales/${language}.yml`, import.meta.url), "utf8")));
     for (const [endpoint, error_code, field, previous] of failures) {
         test(`${language}: ${error_code} on ${endpoint} settles only its initiating field`, async context => {
             vi.spyOn(console, "error").mockImplementation(() => {});
             const i18n = i18next.createInstance();
             await i18n.init({ lng: language, resources: { [language]: { translation } } });
             const s = await loadBridgeRoutes(undefined, i18n);
-            const values = { EnableObsBrowserSource: false, ObsBrowserSourcePort: 2232,
+            const values: Record<string, unknown> = { EnableObsBrowserSource: false, ObsBrowserSourcePort: 2232,
                 EnableWebsocket: true, WebsocketHost: "127.0.0.1" };
-            const atoms = Object.fromEntries(Object.keys(values).map(name => [name, s.stores.dynamicStoreRegistry[`Atom_${name}`]]));
+            const atoms = Object.fromEntries(Object.keys(values).map(name => [name, atomNamed(s.stores.dynamicStoreRegistry, `Atom_${name}`)] as const));
             for (const [name, atom] of Object.entries(atoms)) {
                 s.runtime.store.set(atom, { state: "pending", data: values[name] });
             }
@@ -52,8 +60,8 @@ for (const language of ["en", "ja"]) {
 test("a standalone WebSocket enable failure still settles its own switch", async context => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     const s = await loadBridgeRoutes();
-    const ws = s.stores.dynamicStoreRegistry.Atom_EnableWebsocket;
-    const obs = s.stores.dynamicStoreRegistry.Atom_EnableObsBrowserSource;
+    const ws = atomNamed(s.stores.dynamicStoreRegistry, "Atom_EnableWebsocket");
+    const obs = atomNamed(s.stores.dynamicStoreRegistry, "Atom_EnableObsBrowserSource");
     s.runtime.store.set(ws, { state: "pending", data: false });
     s.runtime.store.set(obs, { state: "pending", data: false });
     s.receiveRoutes({ endpoint: "/set/enable/websocket_server", status: 400,
