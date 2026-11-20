@@ -2,16 +2,23 @@ import { test } from "vitest";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { ENGINE_FORM_SETTING_ID, apiRequest, engineRequest, entryState, isUsersWeight, languageCodes, weightLabel } from "./translationCatalog.ts";
+import type { ApiForm, ApiItem, EngineForm, EngineItem, TranslationCatalog } from "./translationCatalog.ts";
+import { unchecked } from "../test/hookHarness.ts";
 import { isRelayAllowed } from "../common/vrPanelWire.ts";
 import { featureResyncReads } from "../common/pendingRequestRecovery.ts";
 
-const engineForm = (overrides = {}) => ({ name: " Mine ", folder: '"C:\\Models\\nllb"', runtime: "onnx", languages: "", ...overrides });
-const apiForm = (overrides = {}) => ({ name: "Home", url: " http://192.168.1.5:8000/v1 ", model: " qwen ", auth_key: " k ", protocol: "openai_compatible", ...overrides });
+const engineForm = (overrides: Partial<EngineForm> = {}): EngineForm => ({ name: " Mine ", folder: '"C:\\Models\\nllb"', runtime: "onnx", languages: "", ...overrides });
+const apiForm = (overrides: Partial<ApiForm> = {}): ApiForm => ({ name: "Home", url: " http://192.168.1.5:8000/v1 ", model: " qwen ", auth_key: " k ", protocol: "openai_compatible", ...overrides });
+// The request a form makes; a form that cannot pass fails here, as reading its request would.
+const requestOf = <T>(checked: { request: T } | { problem: string }): T => {
+    assert.ok("request" in checked, JSON.stringify(checked));
+    return checked.request;
+};
 
 test("an engine entry names its folder, its runtime and the languages it offers", () => {
     assert.deepEqual(engineRequest(engineForm()),
         { request: { group: "engine", name: "Mine", runtime: "onnx", folder: "C:\\Models\\nllb", languages: [] } });
-    assert.deepEqual(engineRequest(engineForm({ languages: "ja, en  ja、eng_Latn" })).request.languages, ["ja", "en", "eng_Latn"]);
+    assert.deepEqual(requestOf(engineRequest(engineForm({ languages: "ja, en  ja、eng_Latn" }))).languages, ["ja", "en", "eng_Latn"]);
 });
 
 test("an engine entry that cannot pass is not sent", () => {
@@ -23,16 +30,16 @@ test("an engine entry that cannot pass is not sent", () => {
 });
 
 test("a translation LLM is one .gguf file with its device (ADR-015)", () => {
-    const llama = overrides => engineForm({ runtime: "llamacpp", folder: '"C:\\Models\\translategemma-4b-it.Q4_K_M.GGUF"', ...overrides });
+    const llama = (overrides?: Partial<EngineForm>) => engineForm({ runtime: "llamacpp", folder: '"C:\\Models\\translategemma-4b-it.Q4_K_M.GGUF"', ...overrides });
     // The file goes in `file`, never `folder` (translation_catalog.json version 2).
     assert.deepEqual(engineRequest(llama()), { request: { group: "engine", name: "Mine", runtime: "llamacpp",
         file: "C:\\Models\\translategemma-4b-it.Q4_K_M.GGUF", languages: [], device: "auto" } });
-    assert.equal(engineRequest(llama({ device: "cpu" })).request.device, "cpu");
+    assert.equal(requestOf(engineRequest(llama({ device: "cpu" }))).device, "cpu");
     assert.deepEqual(engineRequest(llama({ folder: " " })), { problem: "file_missing" });
     assert.deepEqual(engineRequest(llama({ folder: "C:\\Models\\translategemma" })), { problem: "file_missing" });
     // An ONNX entry names no device.
-    assert.equal("device" in engineRequest(engineForm({ device: "cpu" })).request, false);
-    const entry = fields => ({ id: "tr-9", origin: "user", name: "TG", runtime: "llamacpp", weight: "user:tr-9", available: false, in_use: false, status: "ok", ...fields });
+    assert.equal("device" in requestOf(engineRequest(engineForm({ device: "cpu" }))), false);
+    const entry = (fields: Partial<EngineItem>): EngineItem => ({ id: "tr-9", origin: "user", name: "TG", runtime: "llamacpp", weight: "user:tr-9", available: false, in_use: false, status: "ok", ...fields });
     assert.equal(entryState(entry({ server_ready: false })), "no_server");
     assert.equal(entryState(entry({ server_ready: true })), "unavailable");
     assert.equal(entryState(entry({ available: true, server_ready: true })), "ready");
@@ -41,7 +48,7 @@ test("a translation LLM is one .gguf file with its device (ADR-015)", () => {
 test("an API entry carries its key once, trimmed, with the address and model", () => {
     assert.deepEqual(apiRequest(apiForm()), { request: {
         group: "api", name: "Home", protocol: "openai_compatible", url: "http://192.168.1.5:8000/v1", model: "qwen", auth_key: "k" } });
-    assert.equal(apiRequest(apiForm({ model: "" })).request.model, "");
+    assert.equal(requestOf(apiRequest(apiForm({ model: "" }))).model, "");
     assert.deepEqual(apiRequest(apiForm({ url: "" })), { problem: "url_missing" });
     assert.deepEqual(apiRequest(apiForm({ url: "ftp://host" })), { problem: "url_invalid" });
     assert.deepEqual(apiRequest(apiForm({ url: "http://a b" })), { problem: "url_invalid" });
@@ -50,10 +57,11 @@ test("an API entry carries its key once, trimmed, with the address and model", (
 });
 
 test("a user's local weight shows the name it was added under", () => {
-    const catalog = { engine: [
+    // Test data: weightLabel reads only the engine entries' weight, origin and name.
+    const catalog = unchecked<TranslationCatalog>({ engine: [
         { id: "m2m100_418M-ct2-int8", weight: "m2m100_418M-ct2-int8", origin: "builtin", name: "m2m100_418M-ct2-int8" },
         { id: "tr-1", weight: "user:tr-1", origin: "user", name: "My NLLB" },
-    ], api: [], runtimes: ["onnx"], protocols: ["openai_compatible"] };
+    ], api: [], runtimes: ["onnx"], protocols: ["openai_compatible"] });
     assert.equal(weightLabel("user:tr-1", catalog), "My NLLB");
     assert.equal(weightLabel("user:tr-2", catalog), "user:tr-2");
     // A folder model of earlier versions is no longer the user's model (#597).
@@ -63,7 +71,7 @@ test("a user's local weight shows the name it was added under", () => {
 });
 
 test("a card says a problem before whether it is in use", () => {
-    const engine = (fields) => ({ id: "tr-1", origin: "user", name: "x", runtime: "onnx", weight: "user:tr-1", available: true, in_use: false, status: "ok", ...fields });
+    const engine = (fields: Partial<EngineItem>): EngineItem => ({ id: "tr-1", origin: "user", name: "x", runtime: "onnx", weight: "user:tr-1", available: true, in_use: false, status: "ok", ...fields });
     assert.equal(entryState(engine({})), "ready");
     assert.equal(entryState(engine({ in_use: true })), "in_use");
     assert.equal(entryState(engine({ available: false })), "unavailable");
@@ -73,7 +81,7 @@ test("a card says a problem before whether it is in use", () => {
 });
 
 test("an API entry whose key the store never took has no key once the app was closed", () => {
-    const api = (fields) => ({ id: "tr-4", origin: "user", name: "Home", url: "http://192.168.1.5:8000/v1", status: "ok", has_key: true, key_in_memory: false, in_use: false, ...fields });
+    const api = (fields: Partial<ApiItem>): ApiItem => ({ id: "tr-4", origin: "user", name: "Home", url: "http://192.168.1.5:8000/v1", status: "ok", has_key: true, key_in_memory: false, in_use: false, ...fields });
     assert.equal(entryState(api({})), "ready");
     // Held in memory for this run: usable until the app closes.
     assert.equal(entryState(api({ has_key: false, key_in_memory: true })), "ready");

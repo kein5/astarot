@@ -1,10 +1,11 @@
 import { test } from "vitest";
 import assert from "node:assert/strict";
 import { USER_MODEL_FILES, cleanPath, registrationRequest, userModelStatus } from "./modelCatalog.ts";
+import type { UserModel } from "./modelCatalog.ts";
 import { isRelayAllowed } from "../common/vrPanelWire.ts";
 import { featureResyncReads } from "../common/pendingRequestRecovery.ts";
 
-const model = (status = "ok", paths = { model: "C:\\Models\\mine.gguf" }) =>
+const model = (status: UserModel["status"] = "ok", paths: Record<string, string> = { model: "C:\\Models\\mine.gguf" }): UserModel =>
     ({ id: "user-1", target: "japanese", name: "Mine", paths, total_bytes: 4, registered_at: null, status });
 
 test("a registered model is in use only while the saved path is its file", () => {
@@ -27,8 +28,9 @@ test("the registration request names the target, a trimmed name and the given fi
         { request: { target: "japanese", name: "Mine", paths: { model: "C:\\m\\a.GGUF" } } });
     assert.deepEqual(registrationRequest("rvc", "Voice", { model: "/v/a.pth", index: " " }),
         { request: { target: "rvc", name: "Voice", paths: { model: "/v/a.pth" } } });
-    assert.deepEqual(registrationRequest("rvc", "Voice", { model: "/v/a.pth", index: "/v/a.index" }).request.paths,
-        { model: "/v/a.pth", index: "/v/a.index" });
+    const withIndex = registrationRequest("rvc", "Voice", { model: "/v/a.pth", index: "/v/a.index" });
+    assert.ok("request" in withIndex);
+    assert.deepEqual(withIndex.request.paths, { model: "/v/a.pth", index: "/v/a.index" });
 });
 
 test("a registration that cannot pass is not sent", () => {

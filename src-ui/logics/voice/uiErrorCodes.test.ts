@@ -22,10 +22,13 @@ const PAGES = [
 
 for (const language of ["en", "ja"]) test(`${language}: every code the UI makes has a text where its page looks`, () => {
     const locale = yaml.load(readFileSync(new URL(`../../../locales/${language}.yml`, import.meta.url), "utf8"));
-    const get = path => path.split(".").reduce((node, key) => node?.[key], locale);
+    // A key of a mapping in the locale tree, or undefined, as `node?.[key]` read it.
+    const child = (node: unknown, key: string): unknown =>
+        typeof node === "object" && node !== null ? Reflect.get(node, key) : undefined;
+    const get = (path: string) => path.split(".").reduce<unknown>(child, locale);
     for (const { page, sections, codes } of PAGES) {
         for (const code of codes) {
-            assert.ok(sections.some(section => typeof get(section)?.[code] === "string"), `${page}: ${code}`);
+            assert.ok(sections.some(section => typeof child(get(section), code) === "string"), `${page}: ${code}`);
         }
     }
 });
@@ -38,7 +41,7 @@ test("the list covers the codes the UI makes", () => {
     for (const file of sources) {
         const source = readFileSync(new URL(file, import.meta.url), "utf8");
         for (const [, code] of source.matchAll(/"([a-z_]+_(?:unconfirmed|request_failed))"/g)) {
-            if (code === "speech_server_cleanup_unconfirmed") continue; // a server code, in speechServerErrors.test.js
+            if (code === "speech_server_cleanup_unconfirmed") continue; // a server code, in speechServerErrors.test.ts
             assert.ok(listed.has(code), `${file}: ${code}`);
         }
     }

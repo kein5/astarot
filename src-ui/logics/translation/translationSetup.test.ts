@@ -1,65 +1,89 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
+import type { TestContext } from "vitest";
+import type { ReactElement } from "react";
 import { hooks, loadModule } from "../test/hookHarness.ts";
+import type { HookRuntime } from "../test/hookHarness.ts";
 import { downloadProgress } from "../main/setupNeeds.ts";
+import type { BackendErrorReport } from "../_useBackendErrorHandling.ts";
 
 const noop = () => {};
-const api = values => new Proxy(values, { get: (object, name) => object[name] ?? noop });
+const api = <T extends object>(values: T) => new Proxy(values, { get: (object, name) => Reflect.get(object, name) ?? noop });
+// A function given to an atom's update in place of its value.
+const isUpdate = (value: unknown): value is (previous: unknown) => unknown => typeof value === "function";
 
-async function fixture(context) {
-    const runtime = hooks(), calls = [], notices = [];
-    const setup = await loadModule(new URL("./useTranslationSetup.ts", import.meta.url), runtime);
-    const states = {};
-    const mainStore = { store: { backend_subprocess: {} } };
+interface SwitchState {
+    data: unknown;
+    state: string;
+}
+interface WeightRow {
+    id: string;
+    is_downloaded: boolean;
+    is_pending?: boolean;
+    progress?: number | null;
+}
+type Call = [string, ...unknown[]];
+
+async function fixture(context: TestContext) {
+    const runtime = hooks(), calls: Call[] = [], notices: [string, unknown][] = [];
+    const setup = await loadModule<typeof import("./useTranslationSetup.ts")>(new URL("./useTranslationSetup.ts", import.meta.url), runtime);
+    const states: Record<string, SwitchState> = {};
+    const mainStore: Record<string, unknown> = { store: { backend_subprocess: {} } };
     for (const name of ["Translation", "TranscriptionSend", "TranscriptionReceive", "OcrCapture", "Foreground"]) {
         states[name] = { data: false, state: "ok" };
         mainStore[`useStore_${name}Status`] = () => ({
             [`current${name}Status`]: states[name],
             [`pending${name}Status`]: () => { states[name].state = "pending"; },
-            [`update${name}Status`]: (value, options) => {
-                const data = typeof value === "function" ? value(states[name]) : value;
+            [`update${name}Status`]: (value: unknown, options?: { set_state?: string }) => {
+                const data = isUpdate(value) ? value(states[name]) : value;
                 states[name] = { data, state: options?.set_state ?? "ok" };
             },
         });
     }
-    const main = await loadModule(new URL("../main/useMainFunction.ts", import.meta.url), runtime, {
+    const main = await loadModule<typeof import("../main/useMainFunction.ts")>(new URL("../main/useMainFunction.ts", import.meta.url), runtime, {
         "@store": mainStore,
-        "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: async (...args) => { calls.push(args); return true; } }) },
+        "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: async (...args: Call) => { calls.push(args); return true; } }) },
     });
-    const translation = api({
-        currentCTranslate2WeightTypeStatus: { data: [{ id: "small", is_downloaded: false }] },
+    const weightRows: WeightRow[] = [{ id: "small", is_downloaded: false }];
+    const translationValues = {
+        currentCTranslate2WeightTypeStatus: { data: weightRows },
         currentSelectedCTranslate2WeightType: { data: "small", state: "ok" },
-        pendingCTranslate2WeightTypeStatus: id => { weight({ is_pending: true }); calls.push(["pending", id]); },
-        downloadCTranslate2WeightTypeStatus: value => calls.push(["/run/download_ctranslate2_weight", value]),
-    });
-    const weight = values => { translation.currentCTranslate2WeightTypeStatus = { data: [{
+        pendingCTranslate2WeightTypeStatus: (id: string) => { weight({ is_pending: true }); calls.push(["pending", id]); },
+        downloadCTranslate2WeightTypeStatus: (value: unknown) => calls.push(["/run/download_ctranslate2_weight", value]),
+    };
+    const translation = api(translationValues);
+    const weight = (values: Partial<WeightRow>) => { translation.currentCTranslate2WeightTypeStatus = { data: [{
         ...translation.currentCTranslate2WeightTypeStatus.data[0], ...values }] }; };
-    const configs = { useTranslation: () => translation, ocrStartErrorKey: () => null, ocrShouldRestoreSharedWindow: () => false };
+    const configs: Record<string, unknown> = { useTranslation: () => translation, ocrStartErrorKey: () => null, ocrShouldRestoreSharedWindow: () => false };
     for (const name of ["Transcription", "Others", "Ocr", "OcrSharedWindow", "AdvancedSettings"]) configs[`use${name}`] = () => api({});
-    const common = { useNotificationStatus: () => api({
-        showNotification_Error: (message, options) => notices.push(["error", options?.category_id]),
-        showNotification_Success: (message, options) => notices.push(["success", message]),
+    const common: Record<string, unknown> = { useNotificationStatus: () => api({
+        showNotification_Error: (message: unknown, options?: { category_id?: unknown }) => notices.push(["error", options?.category_id]),
+        showNotification_Success: (message: unknown) => notices.push(["success", message]),
     }) };
     for (const name of ["Volume", "LLMConnection", "IsSoftwareUpdating"]) common[`use${name}`] = () => api({});
-    const errors = await loadModule(new URL("../_useBackendErrorHandling.ts", import.meta.url), runtime, {
-        "@useI18n": { useI18n: () => ({ t: key => key, i18n: { exists: () => true } }) },
+    const errors = await loadModule<typeof import("../_useBackendErrorHandling.ts")>(new URL("../_useBackendErrorHandling.ts", import.meta.url), runtime, {
+        "@useI18n": { useI18n: () => ({ t: (key: string) => key, i18n: { exists: () => true } }) },
         "@logics_common": common, "@logics_configs": configs, "@logics_main": main,
         "./ui_configs": {}, "./configs/legacyModelConsent": {}, "./configs/cloudTranscription": { CLOUD_TRANSCRIPTION_ENGINES: [] },
         "./transcription/useTranscriptionConsent": { useTranscriptionConsent: () => ({ setRequest: noop }) },
         "./translation/useTranslationSetup": setup,
         "./ocr/useOcrSetup": { useOcrSetup: () => ({ show: noop }) },
     });
-    const error = errors._useBackendErrorHandling().errorHandling_Backend;
+    const errorHandling = errors._useBackendErrorHandling().errorHandling_Backend;
+    // A 400 answer as the tests report it: no message and no result, as before.
+    const error = (report: Pick<BackendErrorReport, "error_code" | "endpoint" | "data">) =>
+        errorHandling({ message: undefined, result: undefined, ...report });
     let selector = false;
-    const expanded = [];
-    const controller = async owner => loadModule(new URL("../../views/app/_app_controllers/TranslationSetupController.tsx", import.meta.url), owner, {
+    const expanded: boolean[] = [];
+    const controller = async (owner: HookRuntime) => loadModule<typeof import("../../views/app/_app_controllers/TranslationSetupController.tsx")>(
+        new URL("../../views/app/_app_controllers/TranslationSetupController.tsx", import.meta.url), owner, {
         "@logics_configs": configs, "@logics_common": common,
         "@logics_main": { ...main, useIsMainPageCompactMode: () => ({ expandSidebar: () => expanded.push(true) }) },
-        "@store": { useStore_IsOpenedTranslatorSelector: () => ({ updateIsOpenedTranslatorSelector: value => { selector = value; } }) },
+        "@store": { useStore_IsOpenedTranslatorSelector: () => ({ updateIsOpenedTranslatorSelector: (value: boolean) => { selector = value; } }) },
         "../../../logics/translation/useTranslationSetup": setup,
         "../../../logics/translation/useOpenTranslatorList": await loadModule(new URL("./useOpenTranslatorList.ts", import.meta.url), owner, {
             "@logics_main": { useIsMainPageCompactMode: () => ({ expandSidebar: () => expanded.push(true) }) },
-            "@store": { useStore_IsOpenedTranslatorSelector: () => ({ updateIsOpenedTranslatorSelector: value => { selector = value; } }) },
+            "@store": { useStore_IsOpenedTranslatorSelector: () => ({ updateIsOpenedTranslatorSelector: (value: boolean) => { selector = value; } }) },
         }),
         "../../../logics/main/setupNeeds": { downloadProgress },
         "../config_page/setting_section/setting_box/_components/download_models/LegacyModelDownloadDialog": { LegacyModelDownloadDialog: "review" },
@@ -76,12 +100,18 @@ async function fixture(context) {
         owner = next;
         return render();
     };
+    // The review a press opens; none fails here, as reading its props would.
     const press = () => {
         main.useMainFunction().toggleTranslation();
         error({ error_code: "TRANSLATION_MODEL_MISSING", endpoint: "/set/enable/translation", data: false });
-        return render();
+        const review = render();
+        assert.ok(review);
+        return review;
     };
-    const accept = review => { review.props.onDownload({ weight_type: "small", consent: true }); review.props.onCancel(); render(); };
+    const accept = (review: ReactElement | null) => {
+        assert.ok(review);
+        review.props.onDownload({ weight_type: "small", consent: true }); review.props.onCancel(); render();
+    };
     const enables = () => calls.filter(([path]) => path === "/set/enable/translation").length;
     context.onTestFinished(() => runtime.unmount());
     render();
@@ -169,7 +199,9 @@ test("asking for another translator opens the list once, and drawing the page ag
 test("a review opened from the empty conversation fetches the model without turning Translation on", async context => {
     const s = await fixture(context);
     s.setup.useTranslationSetup().open(false);
-    assert.equal(s.render().props.note, null, "the review keeps saying nothing is turned on");
+    const review = s.render();
+    assert.ok(review);
+    assert.equal(review.props.note, null, "the review keeps saying nothing is turned on");
     s.accept(s.render());
     s.weight({ is_downloaded: true, is_pending: false, progress: null });
     s.render();

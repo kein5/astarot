@@ -1,19 +1,27 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { hooks, loadModule } from "../test/hookHarness.ts";
+import type { TestContext } from "vitest";
+import { hooks, loadModule, unchecked } from "../test/hookHarness.ts";
 import * as shapes from "./virtualMic.ts";
+import type { VirtualMicCable, VirtualMicStatus, VirtualMicStatusReply } from "./virtualMic.ts";
 
-const id = name => JSON.stringify(["Windows WASAPI", name]);
-const CABLE = { playback: id("CABLE Input (VB-Audio Virtual Cable)"), recording: id("CABLE Output (VB-Audio Virtual Cable)"),
+const id = (name: string) => JSON.stringify(["Windows WASAPI", name]);
+const CABLE: VirtualMicCable = { playback: id("CABLE Input (VB-Audio Virtual Cable)"), recording: id("CABLE Output (VB-Audio Virtual Cable)"),
     playback_label: "CABLE Input (VB-Audio Virtual Cable)", recording_label: "CABLE Output (VB-Audio Virtual Cable)" };
-const status = (extra = {}) => ({ supported: true, cables: [CABLE], error: null, tts_output: null, tts_output_is_cable: false, ...extra });
+const status = (extra: Partial<VirtualMicStatus> = {}): VirtualMicStatus => ({ supported: true, cables: [CABLE], error: null, tts_output: null, tts_output_is_cable: false, ...extra });
 
 test("only a well-formed status is used", () => {
     assert.deepEqual(shapes.normalizeVirtualMicStatus(status()), status());
     for (const bad of [null, "x", {}, { supported: true }, { supported: "yes", cables: [] },
-        { supported: true, cables: [{ playback: "a" }] }]) assert.equal(shapes.normalizeVirtualMicStatus(bad), null, JSON.stringify(bad));
+        { supported: true, cables: [{ playback: "a" }] }]) {
+        // Replies of the wrong shape, given on purpose.
+        assert.equal(shapes.normalizeVirtualMicStatus(unchecked<VirtualMicStatusReply>(bad)), null, JSON.stringify(bad));
+    }
     // A label that is missing falls back to the device identity.
-    assert.equal(shapes.normalizeVirtualMicStatus(status({ cables: [{ playback: "p", recording: "r" }] })).cables[0].recording_label, "r");
+    // A cable without its labels, given on purpose.
+    const fallback = shapes.normalizeVirtualMicStatus(status({ cables: [unchecked<VirtualMicCable>({ playback: "p", recording: "r" })] }));
+    assert.ok(fallback);
+    assert.equal(fallback.cables[0].recording_label, "r");
 });
 
 test("levels are kept between 0 and 1, and results need their flags", () => {
@@ -46,10 +54,10 @@ test("the cable TTS already plays into is checked first, even under a cut MME na
     assert.equal(shapes.deviceName("plain"), "plain");
 });
 
-async function hook(context, sent = []) {
+async function hook(context: TestContext, sent: [string, unknown][] = []) {
     const runtime = hooks();
-    const { useVirtualMic } = await loadModule(new URL("./useVirtualMic.ts", import.meta.url), runtime, {
-        "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: async (endpoint, data) => { sent.push([endpoint, data]); return true; } }) },
+    const { useVirtualMic } = await loadModule<typeof import("./useVirtualMic.ts")>(new URL("./useVirtualMic.ts", import.meta.url), runtime, {
+        "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: async (endpoint: string, data?: unknown) => { sent.push([endpoint, data]); return true; } }) },
         "./virtualMic.ts": shapes,
     });
     context.onTestFinished(() => runtime.unmount());
@@ -57,7 +65,7 @@ async function hook(context, sent = []) {
 }
 
 test("a check moves the meter only for its own cable and ends with its outcome", async context => {
-    const sent = [];
+    const sent: [string, unknown][] = [];
     const use = await hook(context, sent);
     await use().startCheck(CABLE.playback);
     assert.deepEqual(sent, [["/run/virtual_mic_test", { playback: CABLE.playback }]]);
@@ -71,7 +79,7 @@ test("a check moves the meter only for its own cable and ends with its outcome",
     use().updateResult({ heard: true, stopped: false, peak_dbfs: -12.1 });
     assert.equal(use().check.phase, "done");
     assert.equal(use().check.level, 0);
-    assert.equal(use().check.result.heard, true);
+    assert.equal(use().check.result?.heard, true);
     // A late level after the end does not move the meter again.
     use().updateLevel({ playback: CABLE.playback, level: 0.5 });
     assert.equal(use().check.level, 0);
@@ -89,7 +97,7 @@ test("a refused check shows its code, and a stopped backend ends a check under w
 });
 
 test("dismissing the notice tells the backend; the settings can still open the guide", async context => {
-    const sent = [];
+    const sent: [string, unknown][] = [];
     const use = await hook(context, sent);
     use().updateNotice(true);
     assert.equal(use().notice, true);
@@ -114,7 +122,7 @@ test("the status, the level, the outcome and a refusal arrive through their own 
     subject.receiveRoutes({ status: 200, endpoint: "/run/virtual_mic_level", result: { playback: CABLE.playback, level: 0.7 } });
     assert.equal(state().check.level, 0.7);
     subject.receiveRoutes({ status: 200, endpoint: "/run/virtual_mic_test", result: { heard: false, stopped: false, peak_dbfs: null } });
-    assert.deepEqual([state().check.phase, state().check.result.heard], ["done", false]);
+    assert.deepEqual([state().check.phase, state().check.result?.heard], ["done", false]);
     // A refusal is the guide's own message, not a general error notice.
     state().resetCheck();
     await state().startCheck(CABLE.playback);

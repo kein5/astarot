@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import { pendingAfterVoiceFailure, stoppedVoiceStatus, stoppedDirectState } from "./pendingVoiceRequest.ts";
+import { unchecked } from "../test/hookHarness.ts";
 
-for (const [endpoint, intent] of [["/run/enable_tts", true], ["/run/disable_tts", false],
-    ["/run/start_direct_voice", true], ["/run/stop_direct_voice", false]]) {
+const commands: [string, boolean][] = [["/run/enable_tts", true], ["/run/disable_tts", false],
+    ["/run/start_direct_voice", true], ["/run/stop_direct_voice", false]];
+for (const [endpoint, intent] of commands) {
     test(`terminal failure releases matching ${endpoint}, preserves newer opposite intent`, () => {
         assert.equal(pendingAfterVoiceFailure({ intent, generation: 4 }, endpoint), null);
         const newer = { intent: !intent, generation: 5 };
@@ -14,7 +16,8 @@ for (const [endpoint, intent] of [["/run/enable_tts", true], ["/run/disable_tts"
 test("poll failures and unconfirmed timeout do not release an outstanding command", () => {
     const waiting = { intent: false, generation: 9 };
     for (const endpoint of [undefined, "/get/data/voice_status", "/get/data/direct_voice_state"])
-        assert.equal(pendingAfterVoiceFailure(waiting, endpoint), waiting);
+        // A failure with no endpoint, given on purpose: a poll that failed before any reply.
+        assert.equal(pendingAfterVoiceFailure(waiting, unchecked<string>(endpoint)), waiting);
 });
 
 test("process exit clears busy flags without resetting generation or saved settings", () => {
