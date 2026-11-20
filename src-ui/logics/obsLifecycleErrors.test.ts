@@ -17,7 +17,7 @@ const failures = [
 for (const language of ["en", "ja"]) {
     const translation = readLocale(language);
     for (const [endpoint, error_code, field, previous] of failures) {
-        test(`${language}: ${error_code} on ${endpoint} settles only its initiating field`, async context => {
+        test(`${language}: ${error_code} on ${endpoint} settles only its initiating field`, async () => {
             vi.spyOn(console, "error").mockImplementation(() => {});
             const i18n = i18next.createInstance();
             await i18n.init({ lng: language, resources: { [language]: { translation } } });
@@ -48,7 +48,7 @@ for (const language of ["en", "ja"]) {
     }
 }
 
-test("a standalone WebSocket enable failure still settles its own switch", async context => {
+test("a standalone WebSocket enable failure still settles its own switch", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     const s = await loadBridgeRoutes();
     const ws = settingAtom(s.stores.dynamicStoreRegistry, "Atom_EnableWebsocket");

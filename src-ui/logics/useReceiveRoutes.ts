@@ -685,7 +685,6 @@ export const useReceiveRoutes = () => {
             }
 
             case 348:
-                // console.log(`from backend: %c ${JSON.stringify(parsed_data)}`, style_348);
                 break;
 
             case 403:
@@ -728,9 +727,6 @@ export const useReceiveRoutes = () => {
     return { receiveRoutes, backendStopped };
 };
 
-const style_348 = [
-    "color: gray",
-].join(";");
 
 
 

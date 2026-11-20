@@ -207,7 +207,7 @@ test("a new connection key is made only after the question is answered", async (
     tree = s.runtime.render(s.tokenComponent);
     const dialog = find(tree, node => node.type === "dialog");
     assert.ok(dialog && s.dialogs.at(-1) === true);
-    const [cancel, confirm] = findIn(dialog, node => node.type === "div" && Array.isArray(node.props.children)
+    const [cancel] = findIn(dialog, node => node.type === "div" && Array.isArray(node.props.children)
         && node.props.children.every((child: TreeNode | null) => child?.type === "button")).props.children;
     assert.equal(cancel.props.autoFocus, true); // The safe choice has the focus.
     // Drawn in the app's dialog frame: the forms' container (border, padding, buttons) and the
@@ -238,7 +238,7 @@ for (const language of ["en", "ja"]) {
         ["websocket_tls", "WEBSOCKET_HOST_NEEDS_TLS", "WebsocketTls", { cert_file: "a.pem", key_file: "b.pem" }],
         ["websocket_tls", "WEBSOCKET_TLS_INVALID", "WebsocketTls", { cert_file: "", key_file: "" }],
     ] satisfies [string, string, string, unknown][]) {
-        test(`${language}: ${code} restores the setting and shows localized guidance`, async context => {
+        test(`${language}: ${code} restores the setting and shows localized guidance`, async () => {
             vi.spyOn(console, "error").mockImplementation(() => {});
             const i18n = i18next.createInstance();
             await i18n.init({ lng: language, resources: { [language]: { translation } } });

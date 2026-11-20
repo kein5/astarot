@@ -105,7 +105,7 @@ test("failed GETs block stale writes; a successful retry restores editing", asyn
     } finally {adapter.resetLanguageMutations();}
 });
 
-test("timeout cannot start an old GET batch before a late failing write", async context => {
+test("timeout cannot start an old GET batch before a late failing write", async () => {
     const {adapter,values,request,calls,send} = await setup();
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     try {

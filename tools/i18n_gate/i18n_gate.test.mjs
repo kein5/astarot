@@ -72,6 +72,7 @@ test("keys named in the code must exist", () => {
             '"main.missing" is not defined in the reference locale',
             '"main.list" names a group of keys, not one text',
             // A template key is checked by its fixed part.
+            // biome-ignore lint/suspicious/noTemplateCurlyInString: the gate's message quotes the key as the source writes it, ${...} included.
             '"nope.${...}" starts with "nope", which is not a group in the reference locale',
             '"voice.gone" is not defined in the reference locale',
             '"main.absent" is not defined in the reference locale',

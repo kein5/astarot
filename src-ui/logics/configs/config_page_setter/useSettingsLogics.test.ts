@@ -85,7 +85,7 @@ test("text saves await their own response, preserve later edits and ignore disca
     assert.equal(s.entry?.saveState, "unsaved");
 });
 
-test("VR sliders can hand edits to the parent debounce synchronously", async context => {
+test("VR sliders can hand edits to the parent debounce synchronously", async () => {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     const writes: number[] = [], runtime = hooks();
     const props: SliderLogicOptions = { variable: 0, min: 0, max: 1, setter_timing: "on_change", debounce_ms: 0,
