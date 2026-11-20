@@ -54,7 +54,8 @@ type NamedAtom = readonly [string, Atom<unknown>];
 let allowedNames: Set<string> | null = null;
 // The registry also holds the store hooks, which are functions; its "Atom_" entries are atoms.
 const atomEntries = (): NamedAtom[] => {
-    const allowed = allowedNames ??= vrPanelStateNames(SETTINGS_ARRAY);
+    allowedNames ??= vrPanelStateNames(SETTINGS_ARRAY);
+    const allowed = allowedNames;
     return Object.entries(dynamicStoreRegistry)
         .flatMap(([key, atom]): NamedAtom[] => key.startsWith("Atom_") && typeof atom !== "function"
             ? [[key.slice("Atom_".length), atom]] : [])
@@ -100,7 +101,8 @@ export const VrPanelSyncController = () => {
     const { showNotification_Error } = useNotificationStatus();
     const openFailures = useRef<FailureRun | null>(null);
     // Made once; every render reads the same run of failures.
-    const openFailure = openFailures.current ??= failureRun();
+    openFailures.current ??= failureRun();
+    const openFailure = openFailures.current;
 
     // VR画面のウィンドウは VR UI が ON の間だけ作る (OFF の間も動かしておくと、使わない人にも負荷がかかる)。
     // 作られた VR画面は vr-panel-ready を送ってくるので、状態はそのときに送る
@@ -185,7 +187,7 @@ export const VrPanelSyncController = () => {
             disposed = true;
             isVrSettingsOpenRef.current = false;
             isOpenedByVrRef.current = false;
-            unsubscribes.forEach(unsubscribe => unsubscribe());
+            unsubscribes.forEach(unsubscribe => { unsubscribe(); });
             unlistenReady.then(f => f());
             unlistenStdout.then(f => f());
             unlistenConfigPage.then(f => f());

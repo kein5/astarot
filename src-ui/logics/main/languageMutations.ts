@@ -45,7 +45,7 @@ const affectedAtoms = (endpoint: string) => endpoint.endsWith("selected_tab_no")
         : endpoint.endsWith("selected_target_languages") ? [targetAtom]
             : endpoint.endsWith("selected_translation_engines") ? [selectedEnginesAtom]
                 : [yourAtom, targetAtom];
-const setState = (atoms: readonly LanguageAtom[], state: AtomStatus) => atoms.forEach(atom => atom.mark(state));
+const setState = (atoms: readonly LanguageAtom[], state: AtomStatus) => atoms.forEach(atom => { atom.mark(state); });
 const resyncPending = new Set<string>();
 const publish = (data: LanguageMutationState) => jotai.set(Atom_LanguageMutation, { state: "ok", data: { ...data, isResyncing: resyncPending.size > 0 } });
 const coordinator = createLanguageMutationCoordinator(publish, request => {
@@ -70,7 +70,7 @@ export const canChangeLanguageSettings = () => !jotai.get(Atom_LanguageMutation)
     && allAtoms().every(atom => atom.status() === "ok");
 
 export function resyncLanguageSettings(send: LanguageSend) {
-    Object.keys(getAtoms).forEach(endpoint => resyncPending.add(endpoint));
+    Object.keys(getAtoms).forEach(endpoint => { resyncPending.add(endpoint); });
     publish(coordinator.getState());
     setState(allAtoms(), "pending");
     for (const [endpoint, atom] of Object.entries(getAtoms)) {

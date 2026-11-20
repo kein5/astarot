@@ -49,7 +49,8 @@ export const CaptionOverlayController = () => {
     // A window that cannot be opened or updated is said once, until it works again (#397).
     const failures = useRef<Record<WindowStep, FailureRun> | null>(null);
     // Made once; every render reads the same runs of failures.
-    const failure = failures.current ??= { open: failureRun(), update: failureRun() };
+    failures.current ??= { open: failureRun(), update: failureRun() };
+    const failure = failures.current;
     const notifyFailure = (step: WindowStep, error: unknown) => failure[step].failed(() => showNotification_Error(
         t(windowFailureKey("caption_overlay", step, error)), { category_id: `caption_overlay_${step}_failed` }));
 
@@ -105,7 +106,7 @@ export const CaptionOverlayController = () => {
                 save({ ...current, font_size: next });
             }),
         ];
-        return () => offs.forEach(off => off.then(stop => stop(), () => {}));
+        return () => offs.forEach(off => { off.then(stop => stop(), () => {}); });
     }, [supported]);
 
     useEffect(() => {

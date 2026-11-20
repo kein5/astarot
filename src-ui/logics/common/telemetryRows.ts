@@ -64,9 +64,11 @@ export const telemetryRows = (body: unknown, t: TelemetryTranslate): TelemetryRo
                 if (name === "cpu" || name === "cores") field(`hw_${name}`, String(part));
                 else if (name === "ram_gb") field("hw_ram_gb", `${part} GB`);
                 else if (name === "gpus" && Array.isArray(part)) {
-                    part.forEach((gpu: unknown, index: number) => rows.push({
-                        key: `hw_gpu_${index}`, label: t("telemetry_contents.fields.hw_gpu", { number: index + 1 }), value: gpuText(gpu, t),
-                    }));
+                    part.forEach((gpu: unknown, index: number) => {
+                        rows.push({
+                            key: `hw_gpu_${index}`, label: t("telemetry_contents.fields.hw_gpu", { number: index + 1 }), value: gpuText(gpu, t),
+                        });
+                    });
                 } else unknown(`hw.${name}`, part);
             }
         } else unknown(key, value);

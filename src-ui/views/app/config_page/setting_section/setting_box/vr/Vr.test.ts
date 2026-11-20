@@ -91,7 +91,7 @@ test("closing settings stops the overlay sample text, and reopening does not res
     const delegate = (name: string) => (...args: unknown[]): unknown => Reflect.apply(hookOf(active, name), undefined, args);
     const api = { ...runtimes.button.api };
     for (const name of ["useState", "useRef", "useEffect", "useLayoutEffect", "useMemo", "useCallback", "useId"]) Reflect.set(api, name, delegate(name));
-    context.onTestFinished(() => Object.values(runtimes).forEach(runtime => runtime.unmount()));
+    context.onTestFinished(() => Object.values(runtimes).forEach(runtime => { runtime.unmount(); }));
     const saved = { tracker: "HMD" };
     const { Vr } = await loadModule<typeof import("./Vr.tsx")>(new URL("./Vr.tsx", import.meta.url), { ...runtimes.button, api }, {
         "./DesktopCaptionOverlay": { DesktopCaptionOverlay: "desktop" },

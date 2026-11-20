@@ -26,7 +26,7 @@ const MarqueeText = ({ children, speed = 40, shouldAnimate = false, className = 
 
     useEffect(() => {
         const cleanup = () => {
-            timers.current.forEach((t) => clearTimeout(t));
+            timers.current.forEach((t) => { clearTimeout(t); });
             timers.current = [];
             if (contentRef.current) {
                 contentRef.current.style.transition = "";

@@ -165,7 +165,7 @@ const deferred = () => {
     return { promise, resolve, reject };
 };
 
-test("action feedback precedes a slow operation and repeated presses send only once", async context => {
+test("action feedback precedes a slow operation and repeated presses send only once", async () => {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     const runtime = hooks(), work = deferred();
     const { ActionButton } = await load<ActionButtonModule>(actionPath, runtime);
@@ -217,7 +217,7 @@ test("a rejected action clears pending, reports the error and permits retry with
     runtime.unmount();
 });
 
-test("an action settling after its settings page closes does not schedule success feedback", async context => {
+test("an action settling after its settings page closes does not schedule success feedback", async () => {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     const runtime = hooks(), work = deferred();
     const { ActionButton } = await load<ActionButtonModule>(actionPath, runtime);

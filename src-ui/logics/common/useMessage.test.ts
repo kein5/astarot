@@ -59,7 +59,7 @@ for (const mode of ["false", "throw", "reject"]) test(`send ${mode} resolves onl
     assert.deepEqual(subject.typingWrites, ["/run/stop_typing_message_box", "/run/stop_typing_message_box"]);
 });
 
-for (const status of [400, 404, 423, 500]) test(`terminal ${status} response clears pending and a late success can settle an uncertain row`, async context => {
+for (const status of [400, 404, 423, 500]) test(`terminal ${status} response clears pending and a late success can settle an uncertain row`, async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     const subject = await setup();
     await subject.message.sendMessage("First", "first");
@@ -73,7 +73,7 @@ for (const status of [400, 404, 423, 500]) test(`terminal ${status} response cle
     assert.deepEqual(subject.reads, []);
 });
 
-test("a correlated error only settles that pending row", async context => {
+test("a correlated error only settles that pending row", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     const subject = await setup();
     await subject.message.sendMessage("First", "first");
@@ -123,7 +123,7 @@ test("late transport failure cannot downgrade success; backend stop settles rema
     assert.equal(waiting.writes.length, 1);
 });
 
-test("submit resets typing before an outstanding send and keeps the two-second start cooldown", async context => {
+test("submit resets typing before an outstanding send and keeps the two-second start cooldown", async () => {
     let now = 2000;
     vi.spyOn(Date, "now").mockImplementation(() => now);
     const write = deferred(), subject = await setup(() => write.promise);
@@ -213,7 +213,7 @@ async function composer(subject: Subject, autoClear = false) {
 }
 
 for (const success of [true, false]) for (const autoClear of [true, false]) {
-    test(`desktop Enter resets typing with success=${success}, auto-clear=${autoClear}`, async context => {
+    test(`desktop Enter resets typing with success=${success}, auto-clear=${autoClear}`, async () => {
         // The id the browser gives; the component never reads it.
     vi.spyOn(globalThis, "setTimeout").mockImplementation(asTimerFunction("setTimeout", () => 0));
         const subject = await setup(async () => success), input = await composer(subject, autoClear);
@@ -353,7 +353,7 @@ for (const language of ["en", "ja"]) test(`${language}: a cloud engine's reason 
     for (const code of ENGINE_CAUSES) assert.notEqual(errors[code], errors.ASR_ERROR, code);
 });
 
-for (const accepted of [true, false]) test(`holding Enter and duplicate clicks send once until handoff settles (${accepted})`, async context => {
+for (const accepted of [true, false]) test(`holding Enter and duplicate clicks send once until handoff settles (${accepted})`, async () => {
     // The id the browser gives; the component never reads it.
     vi.spyOn(globalThis, "setTimeout").mockImplementation(asTimerFunction("setTimeout", () => 0));
     const handoff = deferred(), subject = await setup(() => handoff.promise), input = await composer(subject);
