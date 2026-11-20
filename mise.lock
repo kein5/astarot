@@ -36,6 +36,23 @@ checksum_source = "mise-versions"
 url = "https://github.com/ast-grep/ast-grep/releases/download/0.51.1/app-x86_64-pc-windows-msvc.zip"
 url_api = "https://api.github.com/repos/ast-grep/ast-grep/releases/assets/701859070"
 
+[[tools.biome]]
+version = "2.6.6"
+backend = "aqua:biomejs/biome"
+specifiers = ["2.6.6"]
+
+[tools.biome."platforms.linux-x64"]
+checksum = "sha256:69ca8e9ff548091b2bfbd178d6f73142b483a5257b07854de702c68fb7f8c06b"
+url = "https://github.com/biomejs/biome/releases/download/%40biomejs/biome%402.6.6/biome-linux-x64"
+url_api = "https://api.github.com/repos/biomejs/biome/releases/assets/717269715"
+provenance = "github-attestations"
+
+[tools.biome."platforms.windows-x64"]
+checksum = "sha256:d3aac0b55e1b52ce586892b7c64de6bd2fc3774fe5b71129426af92c8a3c0571"
+url = "https://github.com/biomejs/biome/releases/download/%40biomejs/biome%402.6.6/biome-win32-x64.exe"
+url_api = "https://api.github.com/repos/biomejs/biome/releases/assets/717269713"
+provenance = "github-attestations"
+
 [[tools.cargo-deny]]
 version = "0.20.2"
 backend = "aqua:EmbarkStudios/cargo-deny"

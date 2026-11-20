@@ -50,7 +50,8 @@ test("every fold of the app is the app's one fold", () => {
     const box = new URL("../../", import.meta.url);
     const files = ["_components/setup_section/SetupSection.tsx", "_components/advanced_section/AdvancedSection.tsx",
         "_components/description/Description.tsx", "_components/telemetry/TelemetryContents.tsx", "translation/TranslationCatalog.tsx",
-        "advanced_settings/UserModels.tsx", "advanced_settings/ModelDownloads.tsx", "transcription/VocabularyList.tsx"];
+        "advanced_settings/UserModels.tsx", "advanced_settings/ModelDownloads.tsx", "transcription/VocabularyList.tsx",
+        "_components/word_filter/WordFilter.tsx", "_components/message_format/MessageFormat.tsx"];
     for (const file of files) {
         const source = readFileSync(new URL(file, box), "utf8");
         assert.match(source, /<Fold[\s>]/, file);

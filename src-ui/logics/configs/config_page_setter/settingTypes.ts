@@ -110,6 +110,7 @@ export interface SettingValues {
     UiScaling: number;
     MessageLogUiScaling: number;
     SendMessageButtonType: string;
+    CatalogLayout: string;
     ShowResendButton: boolean;
     SelectedFontFamily: string;
     Transparency: number;

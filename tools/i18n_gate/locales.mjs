@@ -70,7 +70,7 @@ const pluralGroups = (flat) => {
         groups.get(base).set(match[1], value);
     }
     for (const [base, forms] of groups) {
-        const counts = [...forms.values()].some(value => variablesOf(value).has("count"));
+        const counts = [...forms.values()].some((value) => variablesOf(value).has("count"));
         if (!counts) groups.delete(base);
     }
     return groups;
@@ -100,14 +100,15 @@ export const checkLocales = (locales) => {
             if (!other.flat.has(key)) add(other.language, key, `missing; locales/${reference.language}.yml has it`);
         }
         for (const key of other.flat.keys()) {
-            if (!reference.flat.has(key)) add(other.language, key, `not in locales/${reference.language}.yml (extra key)`);
+            if (!reference.flat.has(key))
+                add(other.language, key, `not in locales/${reference.language}.yml (extra key)`);
         }
         for (const [key, value] of reference.flat) {
             if (!other.flat.has(key) || typeof value !== "string") continue;
             const expected = variablesOf(value);
             const actual = variablesOf(other.flat.get(key));
-            const missing = sorted([...expected].filter(name => !actual.has(name)));
-            const extra = sorted([...actual].filter(name => !expected.has(name)));
+            const missing = sorted([...expected].filter((name) => !actual.has(name)));
+            const extra = sorted([...actual].filter((name) => !expected.has(name)));
             if (missing.length || extra.length) {
                 const parts = [];
                 if (missing.length) parts.push(`missing {{${missing.join("}}, {{")}}}`);
@@ -120,14 +121,16 @@ export const checkLocales = (locales) => {
     for (const locale of locales) {
         const needed = pluralCategories(locale.language);
         for (const [base, forms] of pluralGroups(locale.flat)) {
-            const absent = needed.filter(category => !forms.has(category));
-            if (absent.length) add(locale.language, base, `plural forms missing: ${absent.map(c => `${base}_${c}`).join(", ")}`);
+            const absent = needed.filter((category) => !forms.has(category));
+            if (absent.length)
+                add(locale.language, base, `plural forms missing: ${absent.map((c) => `${base}_${c}`).join(", ")}`);
         }
         const leaves = new Set(locale.flat.keys());
         const plurals = new Set(pluralGroups(locale.flat).keys());
         for (const [key, value] of locale.flat) {
             for (const nested of nestedKeysOf(value)) {
-                if (!leaves.has(nested) && !plurals.has(nested)) add(locale.language, key, `$t(${nested}) points at no key`);
+                if (!leaves.has(nested) && !plurals.has(nested))
+                    add(locale.language, key, `$t(${nested}) points at no key`);
             }
         }
     }

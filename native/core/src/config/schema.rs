@@ -601,6 +601,9 @@ pub fn keys() -> Vec<Key> {
         immediate("EXPERIMENTAL_FEATURES", experimental_features()),
         // What the settings menu and the main switches show (#554). It changes no feature.
         immediate("USAGE_PRESETS", usage_presets()),
+        // How the model catalogs lay out their cards: "grid" or "list" (the settings' catalogs). It
+        // changes no model and no feature.
+        key("CATALOG_LAYOUT", managed(Ty::Str, false, |v, _| matches!(v.as_str(), Some("grid" | "list")))),
         // The screen edge the tray companion's hexagram hides at (src-tauri/src/companion.rs).
         key("TRAY_COMPANION_EDGE", one_of("TRAY_COMPANION_EDGE_LIST")),
         // The monitor it shows on, by the system's name for it; empty for the primary monitor.
@@ -855,6 +858,7 @@ pub fn defaults(env: &Environment) -> Map<String, Value> {
         ("EXPERIMENTAL_FEATURES", experimental_features_default()),
         // A new install starts with the basic features; an update shows all (Config::migrate_usage_presets).
         ("USAGE_PRESETS", json!(["basic"])),
+        ("CATALOG_LAYOUT", json!("grid")),
         ("TRAY_COMPANION_EDGE", json!("right")),
         ("TRAY_COMPANION_MONITOR", json!("")),
         ("SPEAKER_THRESHOLD", json!(300)),

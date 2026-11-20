@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Hint } from "../_components/hint/Hint";
 import styles from "./VoiceSettings.module.scss";
 
@@ -6,9 +7,14 @@ import styles from "./VoiceSettings.module.scss";
 // heading's does; elsewhere (the translation review) they stay lines under the heading. Called as
 // a function, so the heading stays an element of the catalog it heads.
 // hints: whether the page shows descriptions as hints (useHintDescriptions).
-export const catalogHeading = (hints: boolean, level: "h3" | "h4", title: string, help: readonly string[], id?: string) => {
+// aside: what stands at the end of the heading's line (the catalog's layout buttons); the lines of
+// help, when there are any, follow under both.
+export const catalogHeading = (hints: boolean, level: "h3" | "h4", title: string, help: readonly string[], id?: string, aside?: ReactNode) => {
     const Heading = level;
-    return hints && help.length > 0
+    const heading = hints && help.length > 0
         ? <Heading id={id}><span className={styles.hinted} data-hint-host><span>{title}</span><Hint text={help.join("\n")} focusable /></span></Heading>
-        : <><Heading id={id}>{title}</Heading>{help.map(text => <p key={text}>{text}</p>)}</>;
+        : <Heading id={id}>{title}</Heading>;
+    const lines = hints ? [] : help.map(text => <p key={text}>{text}</p>);
+    const line = aside ? <div className={styles.catalog_head}>{heading}{aside}</div> : heading;
+    return lines.length ? <>{line}{lines}</> : line;
 };
