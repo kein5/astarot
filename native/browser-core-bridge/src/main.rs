@@ -1,5 +1,8 @@
 //! Runs the backend core for the screens in a browser (the integration tests, ADR-017).
 //!
+//! Codename: Aglasis, a test host (#689; the table is in `docs/voice-stack/project-rename.md`).
+//! It is not the app's IPC or event delivery, which Scirlin is held for.
+//!
 //! vrct-browser-core-bridge --state <settings folder> [--port <port>]
 //!
 //! It listens on 127.0.0.1 and prints `ws://127.0.0.1:<port>` once ready. Over the WebSocket the
