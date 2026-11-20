@@ -126,10 +126,12 @@ ELF dependencies. This is a portable directory layout, **not** an AppImage or a
 promise of compatibility with all distributions. A build made on CachyOS may
 require newer glibc than the Ubuntu CI build; consult its manifest.
 
-Packaged Linux settings/logs go to `$XDG_CONFIG_HOME/vrct-vox` (default `~/.config/vrct-vox`),
-weights and other writable data to `$XDG_DATA_HOME/vrct-vox` (default `~/.local/share/vrct-vox`),
-and caches to `$XDG_CACHE_HOME/vrct-vox` (default `~/.cache/vrct-vox`). Explicit
-`VRCT_CONFIG_DIR`, `VRCT_DATA_DIR`, `VRCT_CACHE_DIR` override those directories.
+Packaged Linux settings/logs go to `$XDG_CONFIG_HOME/astarot` (default `~/.config/astarot`), and
+weights and other writable data to `$XDG_DATA_HOME/astarot` (default `~/.local/share/astarot`).
+Up to 0.5.x both were named `vrct-vox`; the first start of 0.6.0 moves them and leaves links with
+the old names ([the move](../spec/data-and-persistence.md#linuxの保存先の移動)). The app keeps no
+cache directory. `ASTAROT_CONFIG_DIR` and `ASTAROT_DATA_DIR` (or `VRCT_CONFIG_DIR` and
+`VRCT_DATA_DIR`) override those directories, and a directory named that way is never moved.
 An explicitly supplied `HF_HOME` is respected. Existing development/Windows paths are unchanged.
 
 Managed audio still needs the explicit PipeWire setup in `local-setup-linux.md`.

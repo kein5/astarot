@@ -72,7 +72,7 @@ RVCには音声モデルのほかに実行環境、HuBERT、RMVPEが必要です
 
 ## 名称と保存先
 
-画面にはASTAROTと表示しますが、実行ファイルと配布物は`vrct-vox` / `VRCT-VOX`、アプリIDは`io.github.kein5.vrct-vox`のままです。Linuxでは設定・データ・キャッシュを`vrct-vox`ディレクトリ（`~/.config/vrct-vox`など）に保存します。詳しくは[名称と識別子](/docs/voice-stack/project-rename.md)を参照してください。
+画面にはASTAROTと表示しますが、実行ファイルと配布物は`vrct-vox` / `VRCT-VOX`、アプリIDは`io.github.kein5.vrct-vox`のままです。Linuxでは、0.6.0から設定とデータを`astarot`ディレクトリ（`~/.config/astarot`と`~/.local/share/astarot`）に保存します。0.6.0の最初の起動で、0.5.xの`vrct-vox`ディレクトリをそこへ移し、古い名前のリンクを残します。詳しくは[名称と識別子](/docs/voice-stack/project-rename.md)を参照してください。
 
 ## プライバシーとモデル
 

@@ -130,7 +130,7 @@ FUSE, physical audio or private routing acceptance on Ubuntu 24.04.
 
 Both the WebDriver and normal-launch tests pass `VRCT_CONFIG_DIR`, so they remain
 independent of an installed app. For manual AppImage tests with isolated `XDG_*`
-directories, also set `VRCT_CONFIG_DIR` to `$XDG_CONFIG_HOME/vrct-vox`, preserving
+directories, also set `ASTAROT_CONFIG_DIR` to `$XDG_CONFIG_HOME/astarot`, preserving
 the same state location. See the [Linux acceptance guide](linux-build-pipeline.md#acceptance-and-exclusions)
 for testing the single-instance guard itself and its D-Bus requirement.
 
