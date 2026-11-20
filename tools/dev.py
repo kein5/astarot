@@ -35,11 +35,9 @@ OWNER = "VRCT-VOX developer environment v1\n"
 # that folder needs a desktop, a driver or real devices and runs only when asked.
 PLATFORM_UNIT_TESTS = (
     "tests/platform/test_display_power_guard.py",
-    "tests/platform/test_native_chatbox_helpers.py",
-    "tests/platform/test_voice_measurement_math.py",
 )
 LINT_PATHS = [
-    "tests/voice", "tools/voice_latency.py", "tools/private_pipewire.py", "tools/build_voice_gate.py",
+    "tests/voice", "tools/private_pipewire.py", "tools/build_voice_gate.py",
     "tools/check_voice_distribution.py", "tools/release_candidate.py", "tools/native_acceptance.py",
     "tools/prepare_release.py", "tools/release_automation.py", "tools/changelog.py", "tools/dev.py", "tools/build_linux.py",
     "tools/check_python_lock.py", "tools/rust_licenses.py", "tools/app_resources.py",
