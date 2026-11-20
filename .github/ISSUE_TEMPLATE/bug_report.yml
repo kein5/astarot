@@ -74,7 +74,7 @@ body:
     attributes:
       label: Relevant log output / ログ
       description: |
-        Windows: the `logs` folder next to vrct-vox.exe. Linux: `~/.config/vrct-vox/logs/`.
+        Windows: the `logs` folder next to vrct-vox.exe. Linux: `~/.config/astarot/logs/` (`~/.config/vrct-vox/logs/` up to 0.5.x).
         Remove API keys, chat text and other personal data before pasting. / API キーや会話の内容などの個人情報は取り除いてください。
       render: text
     validations:
