@@ -3,6 +3,7 @@ import { test } from "vitest";
 import { drawWith, hooks, loadModule, nodesIn } from "../../../../../../logics/test/hookHarness.ts";
 import type { TreeNode } from "../../../../../../logics/test/hookHarness.ts";
 import * as networkPortInput from "../../../../../../logics/configs/networkPortInput.ts";
+import * as rvcBlockChoices from "../../../../../../logics/configs/rvcBlockChoices.ts";
 import * as obsBrowserSourceUrl from "../../../../../../logics/configs/obsBrowserSourceUrl.ts";
 import { localeAt, readLocale } from "../../../../../../logics/test/locales.ts";
 
@@ -23,6 +24,7 @@ async function rows(values: Record<string, unknown> = {}) {
         "@logics_configs": { useAdvancedSettings: settings, useOthers: settings,
             useSaveButtonLogic: (options: { variable: unknown }) => ({ variable: options.variable, onChangeFunction() {}, saveFunction() {} }) },
         "../../../../../../logics/configs/networkPortInput": networkPortInput,
+        "../../../../../../logics/configs/rvcBlockChoices": rvcBlockChoices,
         "../../../../../../logics/configs/obsBrowserSourceUrl": obsBrowserSourceUrl,
         "../../../../../../logics/voice/useSettingsDraft": { useSettingsDraft: (saved: unknown) => ({ draft: saved, setDraft() {}, saving: false, dirty: false, submit() {}, navigationDialog: null }) },
         "../../../../../../logics/common/useConsentDialog": { useConsentDialog: () => ({ dialog: { current: null }, close() {} }) },
@@ -31,7 +33,7 @@ async function rows(values: Record<string, unknown> = {}) {
         "../_components/description/Description": { Description: "description" },
         "../_components/telemetry/TelemetryContents": { TelemetryContents: "telemetry-contents" },
         "./GpuCheck.tsx": { GpuCheck: "gpu-check" },
-        "../_templates/Templates": { CheckboxContainer: "row", ActionButtonContainer: "row", EntryWithSaveButtonContainer: "row", ColorEntryWithSaveButtonContainer: "row" },
+        "../_templates/Templates": { CheckboxContainer: "row", ActionButtonContainer: "row", DropdownMenuContainer: "row", EntryWithSaveButtonContainer: "row", ColorEntryWithSaveButtonContainer: "row" },
         "../_components": { SectionLabelComponent: "section-label" },
         "../_components/hint/Hint": { HintDescriptions: "hints" },
     });

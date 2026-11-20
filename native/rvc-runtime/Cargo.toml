@@ -38,6 +38,9 @@ worker = ["load-dynamic", "cuda"]
 
 [dependencies]
 hound = "3.5"
+# The NVIDIA driver's GPU name for the worker's block choice (`backend::gpu_name`); the version
+# `ort` already loads ONNX Runtime with.
+libloading = "=0.9.1"
 ort = { version = "=2.0.0-rc.15", default-features = false, features = ["std", "api-17"] }
 # The ONNX Runtime library and environment, as the app's chat reading and translation make them.
 vrct-onnx-runtime = { path = "../onnx-runtime", default-features = false }

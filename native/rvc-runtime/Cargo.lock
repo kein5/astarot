@@ -505,6 +505,7 @@ name = "rvc-runtime"
 version = "0.1.0"
 dependencies = [
  "hound",
+ "libloading",
  "ort",
  "prost",
  "rustfft",

@@ -123,5 +123,5 @@ pub(super) const CODES: &[CodeInfo] = &[
     // with the reason.
     CodeInfo { code: "VAD_UNAVAILABLE", category: Category::Transcription, message: "Voice activity detection needs the speech.cpp server with a recognition model and Silero VAD; phrases are cut by volume", severity: Severity::Warning, user_action_required: true, reported: false },
     // Core only (#531): the RVC block length of the Advanced settings.
-    CodeInfo { code: "VALIDATION_RVC_BLOCK_MS", category: Category::Validation, message: "RVC block length must be 20 to 200 ms in steps of 20", severity: Severity::Warning, user_action_required: true, reported: true },
+    CodeInfo { code: "VALIDATION_RVC_BLOCK_MS", category: Category::Validation, message: "RVC block length must be automatic (0) or 20 to 200 ms in steps of 20", severity: Severity::Warning, user_action_required: true, reported: true },
 ];
