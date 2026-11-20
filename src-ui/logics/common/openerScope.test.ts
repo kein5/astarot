@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { test } from "vitest";
+import { unchecked } from "../test/hookHarness.ts";
 
 // Second security audit SEC-02: the main window may open only the URLs listed in
 // src-tauri/capabilities/vrct_capability.json. Every URL written in the UI must be on that list,
@@ -8,10 +9,15 @@ import { test } from "vitest";
 // placeholder. The glob matching follows the glob crate with default options (`*` also crosses
 // `/`); src-tauri/src/opener_scope_tests.rs checks the list with the crate itself.
 const root = new URL("../../../", import.meta.url);
-const capability = JSON.parse(readFileSync(new URL("src-tauri/capabilities/vrct_capability.json", root), "utf8"));
-const scope = capability.permissions.find(item => typeof item === "object" && item.identifier === "opener:allow-open-url");
+// The parts of the capability file the test reads, as Tauri reads them.
+interface Capability {
+    permissions: (string | { identifier?: string; allow: { url: string }[]; deny?: { url: string }[] })[];
+}
+const capability = unchecked<Capability>(JSON.parse(readFileSync(new URL("src-tauri/capabilities/vrct_capability.json", root), "utf8")));
+// The opener permission is in the file; reading it as one keeps the TypeError a missing one gave.
+const scope = unchecked<Exclude<Capability["permissions"][number], string>>(capability.permissions.find(item => typeof item === "object" && item.identifier === "opener:allow-open-url"));
 
-const toRegExp = pattern => new RegExp("^" + [...pattern.matchAll(/\*+|\?|\[[^\]]+\]|[^*?[]+/g)].map(([part]) => {
+const toRegExp = (pattern: string) => new RegExp("^" + [...pattern.matchAll(/\*+|\?|\[[^\]]+\]|[^*?[]+/g)].map(([part]) => {
     if (part.startsWith("*")) return ".*";
     if (part === "?") return ".";
     if (part.startsWith("[")) return part;
@@ -19,7 +25,7 @@ const toRegExp = pattern => new RegExp("^" + [...pattern.matchAll(/\*+|\?|\[[^\]
 }).join("") + "$");
 const allow = scope.allow.map(item => toRegExp(item.url));
 const deny = (scope.deny ?? []).map(item => toRegExp(item.url));
-const opens = url => !deny.some(pattern => pattern.test(url)) && allow.some(pattern => pattern.test(url));
+const opens = (url: string) => !deny.some(pattern => pattern.test(url)) && allow.some(pattern => pattern.test(url));
 
 // Written in the UI but never opened as a link: values shown in fields (a default, a placeholder's example).
 const NOT_LINKS = new Set(["https://api.openai.com/v1", "http://127.0.0.1:8080",
@@ -28,7 +34,7 @@ const NOT_LINKS = new Set(["https://api.openai.com/v1", "http://127.0.0.1:8080",
     // The example address of an API entry of the translation catalog (TranslationCatalog.tsx).
     "http://192.168.1.10:8000/v1"]);
 
-const sources = (folder, found = []) => {
+const sources = (folder: URL, found: URL[] = []): URL[] => {
     for (const name of readdirSync(folder)) {
         const path = new URL(name, folder);
         if (statSync(path).isDirectory()) sources(new URL(`${name}/`, folder), found);
@@ -38,7 +44,7 @@ const sources = (folder, found = []) => {
 };
 
 test("every URL the UI shows is on the list of URLs the app may open", () => {
-    const urls = new Set();
+    const urls = new Set<string>();
     for (const path of sources(new URL("src-ui/", root))) {
         for (const [url] of readFileSync(path, "utf8").matchAll(/https?:\/\/[^\s"'`)<>]+/g)) {
             const cut = url.search(/\$\{|\{/);

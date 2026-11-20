@@ -1,14 +1,17 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import { telemetryRows, sentSummary } from "./telemetryRows.ts";
+import type { TelemetryTranslate } from "./telemetryRows.ts";
 
 // i18next's behaviour for the two ways this file calls it: a known key resolves (here, to
 // itself plus its values), an unknown one falls back to defaultValue.
 const KNOWN = new Set(["telemetry_contents.events.app_started", "telemetry_contents.events.error",
     "telemetry_contents.gpu_kind.gpu", "telemetry_contents.gpu_kind.igpu", "telemetry_contents.gpu_driver",
     "telemetry_contents.fields.hw_gpu"]);
-const t = (key, options = {}) => {
-    if (!KNOWN.has(key) && !key.startsWith("telemetry_contents.fields.")) return options.defaultValue ?? key;
+const t: TelemetryTranslate = (key, options = {}) => {
+    // The file passes defaultValue as a text.
+    const fallback = options.defaultValue;
+    if (!KNOWN.has(key) && !key.startsWith("telemetry_contents.fields.")) return typeof fallback === "string" ? fallback : key;
     const values = Object.entries(options).filter(([name]) => name !== "defaultValue").map(([name, value]) => `${name}=${value}`);
     return values.length ? `${key}(${values.join(",")})` : key;
 };

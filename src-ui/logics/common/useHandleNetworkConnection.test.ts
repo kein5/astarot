@@ -2,15 +2,15 @@ import assert from "node:assert/strict";
 import { test } from "vitest";
 import { readFileSync } from "node:fs";
 import yaml from "js-yaml";
-import { hooks, loadModule } from "../test/hookHarness.ts";
+import { hooks, loadModule, unchecked } from "../test/hookHarness.ts";
 import * as endpointPrivacy from "./endpointPrivacy.ts";
 
 test("a lost network connection is told in the UI language, and only when it is known to be lost", async () => {
-    const runtime = hooks(), shown = [];
-    const { useHandleNetworkConnection } = await loadModule(new URL("./useHandleNetworkConnection.ts", import.meta.url), runtime, {
+    const runtime = hooks(), shown: [unknown, unknown][] = [];
+    const { useHandleNetworkConnection } = await loadModule<typeof import("./useHandleNetworkConnection.ts")>(new URL("./useHandleNetworkConnection.ts", import.meta.url), runtime, {
         "./endpointPrivacy": endpointPrivacy,
-        "@logics_common": { useNotificationStatus: () => ({ showNotification_Error: (message, options) => shown.push([message, options]) }) },
-        "@useI18n": { useI18n: () => ({ t: key => `t:${key}` }) },
+        "@logics_common": { useNotificationStatus: () => ({ showNotification_Error: (message: unknown, options: unknown) => shown.push([message, options]) }) },
+        "@useI18n": { useI18n: () => ({ t: (key: string) => `t:${key}` }) },
     });
     const { handleNetworkConnection } = runtime.render(useHandleNetworkConnection);
     handleNetworkConnection(null);
@@ -20,6 +20,7 @@ test("a lost network connection is told in the UI language, and only when it is 
     assert.deepEqual(shown, [["t:network_privacy.disconnected", { hide_duration: 8000 }]]);
     for (const language of ["en", "ja"]) {
         const strings = yaml.load(readFileSync(new URL(`../../../locales/${language}.yml`, import.meta.url), "utf8"));
-        assert.equal(typeof strings.network_privacy.disconnected, "string", language);
+        // Read as strings.network_privacy.disconnected: a missing level stops with a TypeError.
+        assert.equal(typeof unchecked<Record<string, unknown>>(unchecked<Record<string, unknown>>(strings).network_privacy).disconnected, "string", language);
     }
 });
