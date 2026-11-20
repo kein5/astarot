@@ -98,7 +98,7 @@ test("unmount before spawn resolves installs no late watchdog; remount resumes f
     detachAgain();
 });
 
-test("failed spawn has no automatic retry; repeated retry clicks start one new attempt", async context => {
+test("failed spawn has no automatic retry; repeated retry clicks start one new attempt", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     const s = setup(), detach = s.mount();
     await flush();
@@ -124,7 +124,7 @@ test("failed spawn has no automatic retry; repeated retry clicks start one new a
     detachAgain();
 });
 
-test("command error retires a late child before retry; stale events cannot affect the replacement", async context => {
+test("command error retires a late child before retry; stale events cannot affect the replacement", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     const s = setup(), detach = s.mount();
     await flush();
@@ -159,7 +159,7 @@ test("command error retires a late child before retry; stale events cannot affec
     detach();
 });
 
-test("failed cleanup prevents replacement until the child can be retired", async context => {
+test("failed cleanup prevents replacement until the child can be retired", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     const s = setup(), detach = s.mount();
     await flush();
@@ -179,7 +179,7 @@ test("failed cleanup prevents replacement until the child can be retired", async
     detach();
 });
 
-test("a command error while running is logged and keeps the live sidecar", async context => {
+test("a command error while running is logged and keeps the live sidecar", async () => {
     const logged = vi.spyOn(console, "error").mockImplementation(() => {});
     const s = setup(), detach = s.mount();
     await flush();
@@ -211,7 +211,7 @@ test("expected exits release pending state without a crash notice and do not sur
     detach();
 });
 
-test("exit after spawn but before initialization fails startup and permits only an explicit retry", async context => {
+test("exit after spawn but before initialization fails startup and permits only an explicit retry", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     const s = setup(), detach = s.mount();
     await flush();
@@ -278,7 +278,7 @@ test("lines that overtake spawn() wait for the child, so their replies can send 
     detach();
 });
 
-test("lines held before a failed spawn are dropped", async context => {
+test("lines held before a failed spawn are dropped", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     const s = setup(), detach = s.mount();
     await flush();
@@ -292,7 +292,7 @@ test("lines held before a failed spawn are dropped", async context => {
     detach();
 });
 
-test("production controller publishes startup failure and the failure dialog says why and offers a working retry", async context => {
+test("production controller publishes startup failure and the failure dialog says why and offers a working retry", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     const s = setup(), b = await loadBridgeStore();
     // The fake timer stands in for the global one, which the controller uses.
@@ -343,7 +343,7 @@ test("production controller publishes startup failure and the failure dialog say
     assert.equal(s.timers.size, 0);
 });
 
-for (const initialized of [false, true]) test(`production exit ${initialized ? "after" : "before"} initialization clears readiness and keeps the main page, locked only before`, async context => {
+for (const initialized of [false, true]) test(`production exit ${initialized ? "after" : "before"} initialization clears readiness and keeps the main page, locked only before`, async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     const s = setup(), b = await loadBridgeRoutes();
     // The fake timer stands in for the global one, which the controller uses.

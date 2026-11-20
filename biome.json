@@ -44,6 +44,7 @@
         "noComponentHookFactories": "warn",
         "noUnusedFunctionParameters": "error",
         "noUnusedImports": "error",
+        "noUnusedVariables": "error",
         "useExhaustiveDependencies": "warn",
         "useHookAtTopLevel": "warn"
       },
