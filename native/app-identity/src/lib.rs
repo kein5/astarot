@@ -87,8 +87,9 @@ pub const LINUX_PACKAGE: Renamed = Renamed::not_moved("vrct-vox", "astarot");
 
 /// The `product` in `owner.json`, the marker on a model download's folder. It tells a folder this
 /// app wrote, which it may remove after an interrupted download or move aside when its files
-/// fail their check. A reader takes either spelling (ADR-014, 2.11).
-pub const MODEL_DOWNLOAD_OWNER: Renamed = Renamed::not_moved("VRCT-VOX-model-download-v1", "ASTAROT-model-download-v1");
+/// fail their check. A reader takes either spelling (ADR-014, 2.11): 0.5.x wrote the VRCT-VOX one
+/// and reads only that, so it leaves alone what an interrupted download of 0.6.0 left.
+pub const MODEL_DOWNLOAD_OWNER: Renamed = Renamed::moved("VRCT-VOX-model-download-v1", "ASTAROT-model-download-v1");
 
 /// The names of the API keys in the OS credential store (ADR-013; ADR-014, 2.9).
 pub mod credentials {
@@ -200,7 +201,7 @@ mod tests {
 
     /// The names that moved, each in its own pull request with its migration (ADR-014, 5). The
     /// pull request that moves another one adds it here.
-    const MOVED: [&str; 1] = ["LINUX_FOLDER"];
+    const MOVED: [&str; 2] = ["LINUX_FOLDER", "MODEL_DOWNLOAD_OWNER"];
 
     #[test]
     fn only_the_names_with_their_migration_are_written_the_astarot_way() {
@@ -219,7 +220,7 @@ mod tests {
         assert_eq!(LINUX_FOLDER.current(), "astarot");
         assert_eq!(EXECUTABLE.current(), "vrct-vox");
         assert_eq!(LINUX_PACKAGE.current(), "vrct-vox");
-        assert_eq!(MODEL_DOWNLOAD_OWNER.current(), "VRCT-VOX-model-download-v1");
+        assert_eq!(MODEL_DOWNLOAD_OWNER.current(), "ASTAROT-model-download-v1");
         assert_eq!(credentials::WINDOWS_PREFIX.current(), "VRCT-VOX");
         assert_eq!(credentials::APPLICATION.current(), "vrct-vox");
         assert_eq!(credentials::STORE_ATTRIBUTE.current(), "vrct-vox-store");

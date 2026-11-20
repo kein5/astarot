@@ -520,7 +520,7 @@ fn receiving_applies_packets_and_bundles_on_one_thread_and_serves_oscquery() {
     let info = get_json(Ipv4Addr::LOCALHOST.into(), http, "/HOST_INFO").unwrap().unwrap();
     assert_eq!(info["OSC_PORT"], json!(osc_port));
     assert_eq!(info["OSC_IP"], json!("127.0.0.1"));
-    assert!(info["NAME"].as_str().unwrap().starts_with("VRCT:"));
+    assert!(info["NAME"].as_str().unwrap().starts_with("ASTAROT:"));
     let node = get_json(Ipv4Addr::LOCALHOST.into(), http, "/avatar/parameters/MuteSelf").unwrap().unwrap();
     assert_eq!(node, json!({"FULL_PATH": "/avatar/parameters/MuteSelf", "ACCESS": 3}));
     assert_eq!(get_json(Ipv4Addr::LOCALHOST.into(), http, "/nothing"), Ok(None));
@@ -653,7 +653,7 @@ fn oscquery_turned_off_receives_and_announces_nothing_while_sending_goes_on() {
     }
     let observer = Mdns::start().unwrap();
     observer.browse(OSCJSON_TYPE);
-    let ours = || observer.discovered(OSCJSON_TYPE).iter().any(|s| s.name.starts_with("VRCT:"));
+    let ours = || observer.discovered(OSCJSON_TYPE).iter().any(|s| s.name.starts_with("ASTAROT:"));
     let (socket, port) = udp_listener();
     let handler = OscHandler::new("127.0.0.1", port).unwrap();
     handler.set_osc_query_allowed(false).unwrap();

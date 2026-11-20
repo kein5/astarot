@@ -55,7 +55,7 @@ const LAUNCHER_GAZE_HIDE_DEG: f64 = 45.0;
 /// The anchors the log can have (`PANEL_ANCHORS`).
 pub const PANEL_ANCHORS: [&str; 4] = ["Playspace", "LeftHand", "RightHand", "HMD"];
 
-/// The overlays, in the order Python made them (`VRCT0` to `VRCT4`).
+/// The overlays, in the order Python made them (`ASTAROT0` to `ASTAROT4`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Surface {
     Small,
@@ -631,8 +631,10 @@ impl Overlay {
         }
         state.constructing = true;
         state.input = input::Interaction::default();
+        // The overlay keys: ASTAROT0 to ASTAROT4 for the windows, ASTAROT_<part> for the rest
+        // (VRCT up to 0.5.x; SteamVR keeps nothing under them, ADR-014 2.2).
         for (i, surface) in Surface::ALL.into_iter().enumerate() {
-            let handle = self.create(state, &format!("VRCT{i}"))?;
+            let handle = self.create(state, &format!("ASTAROT{i}"))?;
             state.handles.insert(surface, handle);
             if surface.region().is_some() {
                 // Shown once the page was captured (no blank board on the wrist).
@@ -1109,7 +1111,7 @@ impl Overlay {
         if state.vr_panel_enabled && !state.vr_resources_tried && state.session.is_some() {
             state.vr_resources_tried = true;
             self.make_toolbar_and_ghost(state)?;
-            let handle = self.create(state, "VRCT_tooltip")?;
+            let handle = self.create(state, "ASTAROT_tooltip")?;
             state.session.as_mut().expect("connected").set_sort_order(handle, 70)?;
             self.submit(state, handle, "visibility", "hide".into(), |s| s.hide(handle))?;
             state.tooltip_handle = Some(handle);
@@ -1949,10 +1951,10 @@ mod tests {
         });
         wait("connected", || overlay.initialized());
         let keys: Vec<String> = vr.with(|s| s.created.iter().map(|(k, _)| k.clone()).collect());
-        assert_eq!(&keys[..5], ["VRCT0", "VRCT1", "VRCT2", "VRCT3", "VRCT4"]);
-        let small = vr.handle("VRCT0").unwrap();
+        assert_eq!(&keys[..5], ["ASTAROT0", "ASTAROT1", "ASTAROT2", "ASTAROT3", "ASTAROT4"]);
+        let small = vr.handle("ASTAROT0").unwrap();
         assert!(vr.with(|s| s.visible.contains(&small)));
-        let panel = vr.handle("VRCT2").unwrap();
+        let panel = vr.handle("ASTAROT2").unwrap();
         assert!(!vr.with(|s| s.visible.contains(&panel)), "the VR windows wait for the page");
         overlay.shutdown();
         assert!(!overlay.running());
@@ -1969,7 +1971,7 @@ mod tests {
         wait("connected", || overlay.initialized());
         let token = overlay.publication_token(Surface::Small);
         assert_eq!(overlay.update_image(Surface::Small, &[0; 16], 2, 2, token, &|| true), Ok(true));
-        let small = vr.handle("VRCT0").unwrap();
+        let small = vr.handle("ASTAROT0").unwrap();
         assert_eq!(vr.with(|s| s.raw[&small]), (2, 2));
         overlay.clear_image(Surface::Small);
         assert_eq!(overlay.update_image(Surface::Small, &[0; 16], 2, 2, token, &|| true), Ok(false), "stale after a clear");

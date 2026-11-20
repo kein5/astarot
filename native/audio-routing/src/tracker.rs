@@ -287,7 +287,7 @@ impl ActiveEndpointTracker {
         self.shared.running.set();
         self.shared.stopped.clear();
         let shared = self.shared.clone();
-        match Worker::spawn("vrct-endpoint-tracker", move || run(&shared)) {
+        match Worker::spawn("astarot-endpoint-tracker", move || run(&shared)) {
             Ok(worker) => *thread = Some(worker),
             Err(_) => {
                 self.shared.stopped.set();

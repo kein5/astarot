@@ -129,7 +129,7 @@ pub fn run() {
     // The folders, before anything reads them (the log below is in one of them) and after the
     // environment above is set: on Linux the folders of 0.5.x move to their new names here.
     let storage = std::env::current_exe().ok().and_then(|executable| backend_host::settle_folders(&executable));
-    startup_log("VRCT startup began");
+    startup_log("ASTAROT startup began");
     if let Some(line) = storage {
         // Result codes only: no path, no setting.
         startup_log(&format!("Storage folders: {line}"));
@@ -289,7 +289,7 @@ pub fn run() {
     let app = match result {
         Ok(app) => app,
         Err(error) => {
-            startup_log(&format!("VRCT startup failed: {error}"));
+            startup_log(&format!("ASTAROT startup failed: {error}"));
             #[cfg(target_os = "linux")]
             vr_panel_surface::cleanup();
             panic!("error while running tauri application: {error}");
@@ -305,7 +305,7 @@ pub fn run() {
             // The VR panel's last frame (it can show the conversation) must not outlive the app.
             #[cfg(target_os = "linux")]
             vr_panel_surface::cleanup();
-            startup_log("VRCT event loop ended");
+            startup_log("ASTAROT event loop ended");
         }
     });
 }

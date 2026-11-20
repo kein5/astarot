@@ -163,7 +163,7 @@ impl Audition {
         // The answer says it plays, even when so short a sentence ends before the answer leaves.
         let answer = self.status();
         let this = self.clone();
-        let spawned = thread::Builder::new().name("vrct-vox-audition".into()).spawn({
+        let spawned = thread::Builder::new().name("astarot-audition".into()).spawn({
             let token = token.clone();
             move || {
                 let timer = Timer::start(token.clone());
@@ -203,7 +203,7 @@ impl Timer {
     fn start(token: CancelToken) -> Self {
         let stopped = Event::new();
         let flag = stopped.clone();
-        let _ = thread::Builder::new().name("vrct-vox-audition-timeout".into()).spawn(move || {
+        let _ = thread::Builder::new().name("astarot-audition-timeout".into()).spawn(move || {
             if !flag.wait(Some(TIMEOUT)) {
                 token.cancel_with("voice_audition_timeout");
             }

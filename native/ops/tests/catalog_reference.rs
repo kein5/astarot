@@ -69,7 +69,9 @@ fn urls_receipts_and_markers_are_what_python_writes() {
     for model in python_entries() {
         let _ = std::fs::remove_file(staging.join("owner.json"));
         vrct_ops::downloads::staging::mark_owned(&staging, &model).unwrap();
+        // The same bytes as the Python of 0.5.x, which named VRCT-VOX (ADR-014 renamed the product).
         let written = std::fs::read_to_string(staging.join("owner.json")).unwrap();
+        let written = written.replace("\"ASTAROT-model-download-v1\"", "\"VRCT-VOX-model-download-v1\"");
         assert_eq!(Json::from(written), *reference.get("owners").unwrap().get(&model.id).unwrap(), "{}", model.id);
     }
 }

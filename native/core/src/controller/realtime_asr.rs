@@ -107,7 +107,7 @@ impl Drop for VadUser {
             toggle.vad_users = toggle.vad_users.saturating_sub(1);
         }
         // A recorder may go while its owner holds other locks: the release runs on its own.
-        let _ = std::thread::Builder::new().name("vrct-vad-release".into()).spawn(move || core.release_asr_server());
+        let _ = std::thread::Builder::new().name("astarot-vad-release".into()).spawn(move || core.release_asr_server());
     }
 }
 

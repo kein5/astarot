@@ -431,7 +431,7 @@ impl DeviceManager {
         self.stop.clear();
         self.notify.clear();
         let manager = self.clone();
-        match Worker::spawn("vrct-device-monitor", move || manager.monitoring()) {
+        match Worker::spawn("astarot-device-monitor", move || manager.monitoring()) {
             Ok(worker) => lifecycle.monitor = Some(worker),
             Err(_) => self.reporter.error("device_monitor_thread_unavailable"),
         }

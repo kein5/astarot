@@ -28,7 +28,7 @@ use std::sync::OnceLock;
 use ort::environment::{Environment, EnvironmentBuilder};
 
 /// The name the environment is made with (it appears in ONNX Runtime's own log lines only).
-pub const ENVIRONMENT_NAME: &str = "vrct";
+pub const ENVIRONMENT_NAME: &str = "astarot";
 /// The variable that names the library to load; it wins over everything else.
 pub const LIBRARY_VARIABLE: &str = "ORT_DYLIB_PATH";
 /// The variable that stops ONNX Runtime's usage reports before its environment exists.

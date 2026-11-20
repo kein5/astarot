@@ -142,7 +142,7 @@ impl WorkerPipe {
         let mut stdout = owned.child.stdout.take().expect("piped");
         let mut stdin = owned.child.stdin.take().expect("piped");
         let (packet_sender, packets) = channel();
-        thread::Builder::new().name("vrct-vc-read".into()).spawn(move || loop {
+        thread::Builder::new().name("astarot-vc-read".into()).spawn(move || loop {
             let packet = read_packet(&mut stdout);
             let failed = packet.is_err();
             if packet_sender.send(packet).is_err() || failed {
@@ -152,7 +152,7 @@ impl WorkerPipe {
         let (writes, write_queue) = channel::<Vec<u8>>();
         let write_failed = Arc::new(AtomicBool::new(false));
         let failed = write_failed.clone();
-        thread::Builder::new().name("vrct-vc-write".into()).spawn(move || {
+        thread::Builder::new().name("astarot-vc-write".into()).spawn(move || {
             while let Ok(bytes) = write_queue.recv() {
                 if stdin.write_all(&bytes).and_then(|()| stdin.flush()).is_err() {
                     failed.store(true, Ordering::SeqCst);

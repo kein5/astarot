@@ -100,7 +100,7 @@ impl PipeWireOutput {
         let state = Arc::new(State { shared: Mutex::new(Shared { capacity, stride, quantum, ..Shared::default() }), changed: Condvar::new() });
         let (ready, started) = mpsc::channel();
         let (thread_state, target, node_name) = (state.clone(), target.to_owned(), node_name.to_owned());
-        let worker = Worker::spawn("vrct-pipewire-output", move || {
+        let worker = Worker::spawn("astarot-pipewire-output", move || {
             if let Err(error) = run(&thread_state, &target, rate, channels, &node_name, &ready) {
                 let _ = ready.send(Err(error));
             }

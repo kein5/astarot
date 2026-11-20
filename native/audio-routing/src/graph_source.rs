@@ -197,7 +197,7 @@ impl GraphSource {
         state.stop = stop.clone();
         let source = Arc::downgrade(self);
         let factory = self.factory.clone();
-        match Worker::spawn("vrct-pipewire-graph", move || work(&source, &factory, &stop)) {
+        match Worker::spawn("astarot-pipewire-graph", move || work(&source, &factory, &stop)) {
             Ok(worker) => state.thread = Some(worker),
             Err(_) => state.stop.set(),
         }
