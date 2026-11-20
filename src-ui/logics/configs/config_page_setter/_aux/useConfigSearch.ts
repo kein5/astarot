@@ -5,7 +5,7 @@ import { useOcr } from "@logics_configs";
 import { useRealtimeASR } from "../../../transcription/useRealtimeASR";
 import { createLanguageNames } from "../../../common/languageNames.ts";
 import { ui_configs } from "@ui_configs";
-import i18n from "@root/locales/config.js";
+import i18n from "@root/locales/config.ts";
 import { requestSettingsNavigation } from "../../../voice/settingsNavigation";
 import { NOT_SETTINGS, settingTarget } from "./configSearchTargets.ts";
 import { revealSetting } from "../../revealSetting.ts";

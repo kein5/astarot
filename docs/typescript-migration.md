@@ -260,7 +260,7 @@ ADR-010 のとおり、画面を触る作業に合わせて移すのが基本で
 
 ### 第 8 段：仕上げ
 
-- `tsconfig.json` から `allowJs` を外します。第 6 段までで `src-ui` のソースから JavaScript はなくなりましたが、試験（第 7 段）と、`@useI18n` が指す `locales/useI18n.js` が JavaScript のうちは外せません。
+- `tsconfig.json` から `allowJs` を外します。第 6 段までで `src-ui` のソースから JavaScript はなくなりました。`locales` の 2 本（`config`、`@useI18n` が指す `useI18n`）も TypeScript にしたので、残るのは試験（第 7 段）です。試験が JavaScript のうちは外せません。
 - 型の検査を段階的に強めます。候補は `noUncheckedIndexedAccess`、`exactOptionalPropertyTypes`、`noImplicitReturns`、`noUnusedLocals`、`noUnusedParameters` です。1 つずつ有効にし、出たエラーを直してから次に進みます。
 - `.eslintrc.json` を TypeScript の構文に対応させるかどうかを決めます。
 

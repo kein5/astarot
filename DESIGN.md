@@ -153,7 +153,7 @@ The VR panel draws into the headset in pixels of its own, which the window's wid
 | 22px | Window titles, and numbers read at a glance (presets, the steppers' and the toolbar's values) |
 | 26px | Buttons that are only a symbol (−, +, A−, A＋, ›) |
 
-Each step is about 1.17 times the one under it, so two steps differ at a glance; weight and color tell text of one step apart. 16px is the smallest: running text such as notes and tooltip help was already 16px, and only marks and short abbreviations were smaller. A size in between moves to the nearest step, not added. Left out are the log's text, which is the size picked with A−／A＋ (14 to 28px, 17px by default); the inputs and outputs window, which draws the desktop flow view (rem) 1.1 times larger; and the one-line and multi-line subtitle overlays, pictures that the native overlay draws at sizes of their own (`native/vr-overlay/src/subtitle.rs`). `src-ui/views/vr/fontSteps.test.js` checks the VR panel.
+Each step is about 1.17 times the one under it, so two steps differ at a glance; weight and color tell text of one step apart. 16px is the smallest: running text such as notes and tooltip help was already 16px, and only marks and short abbreviations were smaller. A size in between moves to the nearest step, not added. Left out are the log's text, which is the size picked with A−／A＋ (14 to 28px, 17px by default); the inputs and outputs window, which draws the desktop flow view (rem) 1.1 times larger; and the one-line and multi-line subtitle overlays, pictures that the native overlay draws at sizes of their own (`native/vr-overlay/src/subtitle.rs`). `src-ui/views/vr/fontSteps.test.ts` checks the VR panel.
 
 ## Layout
 
