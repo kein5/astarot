@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import type { TestContext } from "vitest";
-import { hooks, loadModule, find, eventTarget, stubGlobals, unchecked } from "../../../../../../logics/test/hookHarness.ts";
+import { hooks, loadModule, find, eventTarget, stubGlobals, unchecked, setRef } from "../../../../../../logics/test/hookHarness.ts";
 import type { TreeNode } from "../../../../../../logics/test/hookHarness.ts";
 import { nextLogView, rowsBetween } from "../../../../../../logics/common/messageLogView.ts";
 import { speakerContinuations } from "../../../../../../logics/common/speakerNames.ts";
@@ -11,13 +11,6 @@ interface Row {
     id: string;
 }
 type SavedViewRef = { current: SavedLogView | null };
-
-// The ref an element carries: React 18 keeps it on the element, beside its props.
-const refOf = (node: object): { current: unknown } => {
-    const ref: unknown = Reflect.get(node, "ref");
-    assert.ok(ref !== null && typeof ref === "object" && "current" in ref);
-    return ref;
-};
 
 async function setup(context: TestContext, savedView: SavedViewRef | undefined, initialRows: Row[]) {
     const runtime = hooks(), store = {}, observers: ResizeObserver[] = [];
@@ -52,10 +45,10 @@ async function setup(context: TestContext, savedView: SavedViewRef | undefined, 
     const render = (): TreeNode => {
         let virtual: TreeNode | null = null;
         runtime.render(LogBox.type, { savedView }, tree => {
-            refOf(tree).current = element;
+            setRef(tree, element);
             virtual = find(tree, node => node.type === Virtualizer);
             assert.ok(virtual);
-            refOf(virtual).current = { cache };
+            setRef(virtual, { cache });
         });
         assert.ok(virtual);
         return virtual;
@@ -118,7 +111,7 @@ test("VR reopening keeps following the latest bottom; End restores follow after 
 
 test("retention during closure uses the existing two-step shift after restoring the saved view", async context => {
     const oldRows = [{ id: "a" }, { id: "b" }, { id: "c" }], newest = [{ id: "b" }, { id: "c" }, { id: "d" }];
-    // A saved view with only the fields that reopening the log reads.
+    // Test data: a saved view with only the fields that reopening the log reads.
     const savedView: SavedViewRef = { current: unchecked<SavedLogView>({ view: { rows: oldRows, source: oldRows, shift: false }, follow: false, scrollTop: 100 }) };
     const subject = await setup(context, savedView, newest);
     assert.equal(subject.render().props.data, oldRows);

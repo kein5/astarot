@@ -1,16 +1,11 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import type { TestContext } from "vitest";
-import { readFile } from "node:fs/promises";
-import yaml from "js-yaml";
 import { hooks, loadModule, find, unchecked } from "../../../logics/test/hookHarness.ts";
+import { localeAt, readLocale } from "../../../logics/test/locales.ts";
 import type { FocusOcrModelsOptions } from "../../../logics/ocr/useOcrSetup.ts";
 
 type OcrSetupModule = typeof import("../../../logics/ocr/useOcrSetup.ts");
-
-// value?.[key], for a value read from a locale file.
-const fieldOf = (value: unknown, key: string): unknown =>
-    value === null || value === undefined ? undefined : Reflect.get(Object(value), key);
 
 async function fixture(context: TestContext) {
     const runtime = hooks(), events: unknown[][] = [];
@@ -72,7 +67,7 @@ test("focusing the models waits for the section and lands on its first enabled a
     const button = (disabled: boolean, inDialog = false) => ({ disabled, closest: () => inDialog ? {} : null, focus: () => focused.push(disabled ? "disabled" : "review") });
     let section: object | null = null;
     const doc = { querySelector: (selector: string) => selector === '[data-setting-id="ocr_models"]' ? section : null };
-    // A page with only the section the code looks for, standing in for the document.
+    // Test data: a page with only the section the code looks for, standing in for the document.
     focusOcrModels({ doc: unchecked<FocusOcrModelsOptions["doc"]>(doc), wait: callback => timers.push(callback) });
     const first = timers.shift();
     assert.ok(first);
@@ -87,10 +82,9 @@ test("focusing the models waits for the section and lands on its first enabled a
 });
 
 for (const language of ["en", "ja"]) test(`${language}: the guide says chat reading stayed off and that downloading asks first`, async () => {
-    const messages = yaml.load(await readFile(new URL(`../../../../locales/${language}.yml`, import.meta.url), "utf8"));
-    const guide = fieldOf(messages, "ocr_setup");
-    for (const key of ["title", "body", "next", "close", "review"]) assert.ok(fieldOf(guide, key), key);
-    const next = fieldOf(guide, "next");
+    const messages = readLocale(language);
+    for (const key of ["title", "body", "next", "close", "review"]) assert.ok(localeAt(messages, `ocr_setup.${key}`), key);
+    const next = localeAt(messages, "ocr_setup.next");
     assert.ok(typeof next === "string");
     assert.match(next, language === "ja" ? /ライセンス/ : /license/);
 });

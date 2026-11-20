@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { hooks, loadModule, find, unchecked } from "../../logics/test/hookHarness.ts";
+import { hooks, loadModule, find, componentName, draw } from "../../logics/test/hookHarness.ts";
 import * as startupPhase from "../../logics/common/startupPhase.ts";
 
 const named = (name: string) => Object.defineProperty(() => null, "name", { value: name });
@@ -31,10 +31,10 @@ const load = async (phase: string) => {
         "./others/startup/StartupAnnouncer": { StartupAnnouncer: parts.StartupAnnouncer },
     });
     const tree = runtime.render(App);
-    const contents = find(tree, node => typeof node.type === "function" && node.type.name === "Contents");
+    const contents = find(tree, node => componentName(node) === "Contents");
     assert.ok(contents);
     // Contents is a function component of App's own, drawn here as a function.
-    const inner = unchecked<(props: unknown) => unknown>(contents.type)(contents.props);
+    const inner = draw(contents);
     const has = (node: unknown, part: unknown) => !!find(node, child => child.type === part);
     return { tree, contents, inner, has };
 };

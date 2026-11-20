@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { hooks, loadModule, find, unchecked } from "../../../../../../../logics/test/hookHarness.ts";
-import type { HookRuntime, TreeNode } from "../../../../../../../logics/test/hookHarness.ts";
+import { hooks, loadModule, find, componentName, drawWith } from "../../../../../../../logics/test/hookHarness.ts";
+import type { TreeNode } from "../../../../../../../logics/test/hookHarness.ts";
 
 const engines = [
     { id: "CTranslate2", label: "CTranslate2", is_available: true, is_default: true },
@@ -9,11 +9,8 @@ const engines = [
 ];
 
 // An engine's box, the list's own function component (not exported), as the list put it in its
-// tree: found by its name and drawn with the props the list gave it.
-const isBox = (item: TreeNode, id: string) => typeof item.type === "function" && item.type.name === "TranslatorBox" && item.props.id === id;
-const drawBox = (runtime: HookRuntime, node: TreeNode) =>
-    // The element's type is that function component, called here as React would call it.
-    runtime.render(unchecked<(props: unknown) => TreeNode>(node.type), node.props);
+// tree: found by its name and drawn (drawWith) with the props the list gave it.
+const isBox = (item: TreeNode, id: string) => componentName(item) === "TranslatorBox" && item.props.id === id;
 
 async function setup(selected: unknown[] = [], closed: unknown[] = []) {
     const runtime = hooks();
@@ -33,7 +30,7 @@ test("an unavailable translation engine cannot be selected with the keyboard and
     const box = (id: string) => {
         const node = find(tree, item => isBox(item, id));
         assert.ok(node);
-        return drawBox(runtime, node);
+        return drawWith(runtime, node);
     };
     const press = (element: TreeNode, key: string) => element.props.onKeyDown({ key, repeat: false, preventDefault() {} });
 
@@ -65,7 +62,7 @@ test("the reason an engine is unavailable is on screen and describes the group a
     const box = (tree: TreeNode, id: string) => {
         const node = find(tree, item => isBox(item, id));
         assert.ok(node);
-        return drawBox(runtime, node);
+        return drawWith(runtime, node);
     };
 
     const tree = render(engines);

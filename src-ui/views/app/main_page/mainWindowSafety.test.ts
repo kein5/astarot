@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import * as usagePresetsModule from "../../../logics/configs/usagePresets.ts";
 import { test } from "vitest";
 import type { TFunction } from "i18next";
-import { hooks, loadModule, find, unchecked } from "../../../logics/test/hookHarness.ts";
+import { hooks, loadModule, find, unchecked, draw, treeNode } from "../../../logics/test/hookHarness.ts";
 import type { TreeNode } from "../../../logics/test/hookHarness.ts";
 import { loadBridgeStore } from "../../../logics/test/bridgeHarness.ts";
 import { chunkArray } from "../../../logics/utils.ts";
@@ -34,13 +34,11 @@ const keydown = (control: TreeNode, key: string, repeat = false) => {
     control.props.onKeyDown({ key, repeat, preventDefault() { prevented = true; } });
     assert.equal(prevented, true);
 };
-// An element's own function, called as React would: its type is a function component.
-const drawPart = (node: object, props: unknown): TreeNode => unchecked<Part>(Reflect.get(node, "type"))(props);
-// A switch drawn with only the props its keys and clicks read.
+// Test data: a switch drawn with only the props its keys and clicks read.
 const switchProps = (props: object) => unchecked<SwitchProps>(props);
-// The engine's child process, only there: the switches check that one runs, nothing more.
+// Test data: the engine's child process, only there: the switches check that one runs, nothing more.
 const runningChild = () => unchecked<NonNullable<BridgeStore["stores"]["store"]["backend_subprocess"]>>({});
-// A t of the test's own, which answers the key or records what it is asked.
+// Test data: a t of the test's own, which answers the key or records what it is asked.
 const translate = (t: (key: string, options?: { page?: string }) => string) => unchecked<TFunction>(t);
 
 const loadSwitches = async (b: BridgeStore, voice: object = {}, setup: SwitchSetup = { blocks: {}, compact: false }, starting = false) => {
@@ -239,10 +237,10 @@ test("main language and log div buttons activate only on fresh Enter or Space pr
     ] as const;
     // The drawn controls a key can press: role="button", through the parts each draws of its own.
     const controls = (tree: unknown): TreeNode[] => {
-        if (!tree || typeof tree !== "object") return [];
-        if (typeof Reflect.get(tree, "type") === "function") return controls(drawPart(tree, Reflect.get(tree, "props")));
-        // An object of a drawn tree is an element, as find() reads it.
-        const node = unchecked<TreeNode>(tree);
+        const node = treeNode(tree);
+        if (!node) return [];
+        // A part the page draws of its own, drawn as React would.
+        if (typeof node.type === "function") return controls(draw(node));
         return [node.props.role === "button" ? node : null,
             ...[node.props.children].flat(Infinity).flatMap(controls)].filter((control): control is TreeNode => Boolean(control));
     };
@@ -349,7 +347,7 @@ test("each feature's icon is a named button to its settings, the same while star
     const voice = { status: { tts_generation: 1 }, directState: { observation_id: "one" }, send() {} };
     const name = (type: unknown) => typeof type === "function" ? type.name : type;
     const shape = (rows: TreeNode[]) => rows.map(node => {
-        const row = drawPart(node, node.props);
+        const row = draw(node);
         return [name(row.type), row.props.children.map((child: TreeNode) => name(child.type))];
     });
     const starting = await loadSwitches(b, voice, { compact: false, prepared, blocks: {} }, true);

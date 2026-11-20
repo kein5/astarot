@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import { readFile } from "node:fs/promises";
-import { hooks, loadModule, find, unchecked } from "../../../../../../../logics/test/hookHarness.ts";
+import { hooks, loadModule, find, unchecked, findIn } from "../../../../../../../logics/test/hookHarness.ts";
 import type { HookRuntime, TreeNode } from "../../../../../../../logics/test/hookHarness.ts";
 import { applyRealtimeCaption } from "../../../../../../../logics/transcription/realtimeCaptionState.ts";
 import { encodeLogUpdate, decodeLogUpdate } from "../../../../../../../logics/common/vrPanelWire.ts";
@@ -11,7 +11,7 @@ type RowModule = typeof import("./MessageContainer.tsx");
 type RowProps = Parameters<RowModule["MessageContainer"]["type"]>[0];
 type Translate = (key: string, options?: { speakers?: string; label?: string }) => string;
 
-// A log row as the log hands it to the row: the fields the test sets. The row's other props
+// Test data: a log row as the log hands it to the row, with the fields the test sets. The row's other props
 // (the actions, the names of the speakers) stay absent, as the log leaves them where it has none.
 const rowProps = (row: unknown) => unchecked<RowProps>(row);
 
@@ -40,20 +40,13 @@ const heard = (extra: object = {}) => ({ id: "heard", category: "received", stat
     realtime: { source: "speaker", namespace: "session", generation: 4, item_id: "one", revision: 3, state: "translated" },
     speakers: ["A", "B"], messages: { original: { message: "やあ", transliteration: [] }, translations: [] }, ...extra });
 
-// The node a predicate finds, which the test needs to be there.
-const found = (tree: unknown, predicate: (node: TreeNode) => boolean) => {
-    const node = find(tree, predicate);
-    assert.ok(node);
-    return node;
-};
-
 test("the voices are written with the names given, and the main window names them from the row", async () => {
     const runtime = hooks(), store = { is_vr_panel: false };
     const { MessageContainer, speakerNames } = await load(runtime, store, japanese);
     const named: unknown[][] = [];
     const nameSpeakers = (namespace: string, names: unknown) => named.push([namespace, names]);
     const who = (tree: TreeNode) => find(tree, node => node.type === "button");
-    const whoButton = (tree: TreeNode) => found(tree, node => node.type === "button");
+    const whoButton = (tree: TreeNode) => findIn(tree, node => node.type === "button");
     // Without names the label stays as before.
     assert.equal(whoButton(runtime.render(MessageContainer.type, rowProps(heard({ nameSpeakers })))).props.children, "話者A・B");
     const row = rowProps(heard({ speaker_names: { A: "ミカ" }, nameSpeakers }));
@@ -64,7 +57,7 @@ test("the voices are written with the names given, and the main window names the
     assert.equal(find(tree, node => node.type === speakerNames.SpeakerNamesEditor), null);
     whoButton(tree).props.onClick();
     tree = runtime.render(MessageContainer.type, row);
-    const editor = found(tree, node => node.type === speakerNames.SpeakerNamesEditor);
+    const editor = findIn(tree, node => node.type === speakerNames.SpeakerNamesEditor);
     assert.deepEqual(editor.props.labels, ["A", "B"]);
     assert.deepEqual(editor.props.names, { A: "ミカ" });
     editor.props.onSave({ A: "ミカ", B: "ユウ" });
@@ -85,8 +78,8 @@ test("a row that goes on with the same voices shows its time and keeps who spoke
     assert.ok(find(tree, node => node.props?.children === "12:00"));
     assert.equal(find(tree, node => node.props?.children === "main_page.message_log.received"), null);
     assert.equal(find(tree, node => node.type === "button"), null);
-    assert.equal(found(tree, node => node.type === "span" && node.props.children === "話者A・B").props.className, "hidden");
-    assert.match(found(tree, node => typeof node.props?.className === "string" && node.props.className.includes("message_wrapper")).props.className, /continues/);
+    assert.equal(findIn(tree, node => node.type === "span" && node.props.children === "話者A・B").props.className, "hidden");
+    assert.match(findIn(tree, node => typeof node.props?.className === "string" && node.props.className.includes("message_wrapper")).props.className, /continues/);
 });
 
 test("the naming form keeps each name within what the core takes and closes on Escape", async () => {
@@ -110,7 +103,7 @@ test("the naming form keeps each name within what the core takes and closes on E
     // A control character cannot be saved.
     inputs()[0].props.onChange({ target: { value: "a\u0007b" } });
     form = runtime.render(speakerNames.SpeakerNamesEditor, props);
-    assert.equal(found(form, node => node.type === "button" && node.props.type === "submit").props.disabled, true);
+    assert.equal(findIn(form, node => node.type === "button" && node.props.type === "submit").props.disabled, true);
     form.props.onKeyDown({ key: "Escape", preventDefault() {}, stopPropagation() {} });
     assert.equal(closed.length, 2);
     assert.equal(saved.length, 1);
@@ -179,7 +172,7 @@ test("VR pending label is static; only the desktop renders the animated loader",
     for (const isVr of [false, true]) {
         store.is_vr_panel = isVr;
         const failed = runtime.render(MessageContainer.type, rowProps({ ...props, status: "failed" }));
-        const failure = found(failed, node => node.props.children === "main_page.message_log.send_unconfirmed");
+        const failure = findIn(failed, node => node.props.children === "main_page.message_log.send_unconfirmed");
         assert.match(failure.props.className, /failed/);
         assert.equal(find(failed, node => node.props.className === "loader"), null);
         assert.equal(find(failed, node => node.props.children === "main_page.message_log.sent"), null);
@@ -222,7 +215,7 @@ test("a typed message kept out of the chatbox by the setting says so, quietly an
     const { MessageContainer } = await load(runtime, { is_vr_panel: false });
     const row = { id: "typed", category: "sent", created_at: "12:00",
         messages: { original: { message: "Hello", transliteration: [] }, translations: [] } };
-    const label = (props: object) => found(runtime.render(MessageContainer.type, rowProps({ ...row, ...props })),
+    const label = (props: object) => findIn(runtime.render(MessageContainer.type, rowProps({ ...row, ...props })),
         node => typeof node.props?.children === "string" && node.props.children.startsWith("main_page.message_log."));
     const off = label({ status: "ok", delivery_reason: "vrchat_off" });
     assert.equal(off.props.children, "main_page.message_log.sent_vrchat_off");

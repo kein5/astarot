@@ -20,7 +20,8 @@ async function field(selector_key: OpenButtonProps["selector_key"]) {
                 currentSelectedYourLanguages: { data: slots }, currentSelectedTargetLanguages: { data: slots } }),
         },
     });
-    // A tag name stands in for the icon component, given on purpose: the test reads only the button.
+    // On purpose: a tag name stands in for the icon component the type asks for; the test reads
+    // only the button.
     const tree = runtime.render(LanguageSelectorOpenButton, { TurnedOnSvgComponent: unchecked<OpenButtonProps["TurnedOnSvgComponent"]>("svg"),
         is_turned_on: false, selector_key, target_key: "1" });
     const button = find(tree, node => node.type === "button");

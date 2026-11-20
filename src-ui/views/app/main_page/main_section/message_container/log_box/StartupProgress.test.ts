@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { hooks, loadModule, find } from "../../../../../../logics/test/hookHarness.ts";
+import { hooks, loadModule, find, fieldOf } from "../../../../../../logics/test/hookHarness.ts";
 
 interface StartupDownload {
     kind: string;
@@ -9,11 +9,7 @@ interface StartupDownload {
 }
 
 // node?.props?.children, for a rendered node of any kind.
-const childrenOf = (node: unknown): unknown => {
-    if (node === null || node === undefined) return undefined;
-    const props: unknown = Reflect.get(Object(node), "props");
-    return props === null || props === undefined ? undefined : Reflect.get(Object(props), "children");
-};
+const childrenOf = (node: unknown): unknown => fieldOf(node, "props", "children");
 
 const texts = (node: unknown): string[] => !node || typeof node !== "object" ? (typeof node === "string" ? [node] : [])
     : Array.isArray(node) ? node.flatMap(texts) : texts(childrenOf(node));
