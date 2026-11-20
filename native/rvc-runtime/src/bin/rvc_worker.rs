@@ -4,8 +4,10 @@
 //! (`native/voice-conversion/src/protocol.rs`, "VVC1"): one `ready` (or `failed`) packet
 //! once the voice model is loaded, then one `output` packet for every `input` packet, each a
 //! block of 48 kHz mono 16-bit audio. The block is `--block-ms` long (20 to 200 ms in steps
-//! of 20; 80 ms, the external runtime's, when it is not given; the application passes its
-//! setting, 40 ms by default), and the `ready` packet confirms it in `block_frames`. It opens
+//! of 20; 80 ms, the external runtime's, when it is not given), and the `ready` packet says it
+//! in `block_frames`. With `--block-ms auto`, the application's default, the worker chooses:
+//! on a GPU the shortest of 40, 60, 80, 100, 120, 160 and 200 ms it converts in time with room
+//! to spare (timed on a test tone before `ready`), on the CPU 40 ms. It opens
 //! no audio device, downloads nothing and never writes audio, text or file paths anywhere but
 //! the output pipe.
 //!
@@ -142,6 +144,21 @@ const CPU_LATE_WINDOW: usize = 8;
 /// `vc_capture_overrun` a few seconds later (an Intel Core i7-1255U took 1.2 s for a 0.5 s
 /// block, 2026-11-20).
 const CPU_TIMED_BLOCKS: usize = 2;
+/// `--block-ms auto` on a GPU: the packet lengths chosen from, shortest first (#531). The GPU is
+/// timed on the shortest, and the shortest it converts in time with [`AUTO_HEADROOM`] is used;
+/// the last when none is. A longer block delays the voice by as much again and leaves the GPU
+/// idle longer, which lowers its clock, so the shortest that keeps up is the one wanted
+/// (docs/voice-stack/rvc-low-latency-2026-11-20.md).
+const AUTO_BLOCK_MS: [u32; 7] = [40, 60, 80, 100, 120, 160, 200];
+/// The GPU's time for a block converted back to back, times this, must fit in the packet. At
+/// the microphone's pace the round trip's p95 was 1.2 to 1.4 times that time (an RTX 3060 Ti
+/// over Thunderbolt, CUDA and DirectML, 60 and 80 ms blocks, 2026-11-20).
+const AUTO_HEADROOM: f64 = 1.4;
+/// Blocks timed, after one that settles the networks' first runs.
+const AUTO_TIMED_BLOCKS: usize = 3;
+/// `--block-ms auto` on the CPU: packets of the application's earlier default. The CPU
+/// converts 0.5 s blocks of its own whatever the packets.
+const AUTO_CPU_PACKET_MS: u32 = 40;
 
 #[cfg(target_os = "linux")]
 const ORT_LIBRARY: &str = "libonnxruntime.so";
@@ -249,7 +266,8 @@ struct Arguments {
     device: Choice,
     threads: Option<usize>,
     highpass: bool,
-    packets: Packets,
+    /// `None`: `--block-ms auto`, chosen when the device is known.
+    packets: Option<Packets>,
 }
 
 /// What `--device` asks for.
@@ -276,7 +294,7 @@ const USAGE: &str = "\
 Usage: vrct-rvc-worker --runtime <dir> --model <voice.pth> --session <32 hex digits>
                        [--index <file.index>] [--pitch <-24..24>] [--index-rate <0..1>]
                        [--device auto|cuda|directml|cpu] [--directml <dir>] [--threads <n>]
-                       [--highpass on|off] [--block-ms <20..200, a multiple of 20>]
+                       [--highpass on|off] [--block-ms auto|<20..200, a multiple of 20>]
        vrct-rvc-worker --runtime <dir> --probe [--device cuda|directml|cpu|auto]
 ";
 
@@ -303,9 +321,10 @@ fn parse(mut values: HashMap<String, String>) -> Result<Arguments, String> {
         Some("off") => false,
         Some(_) => return Err("`--highpass` must be on or off".into()),
     };
-    let packets = match take("block-ms") {
-        None => Packets::of(DEFAULT_BLOCK_MS).expect("a valid default"),
-        Some(text) => text.parse::<u32>().ok().and_then(Packets::of).ok_or("`--block-ms` must be 20 to 200, a multiple of 20")?,
+    let packets = match take("block-ms").as_deref() {
+        None => Some(Packets::of(DEFAULT_BLOCK_MS).expect("a valid default")),
+        Some("auto") => None,
+        Some(text) => Some(text.parse::<u32>().ok().and_then(Packets::of).ok_or("`--block-ms` must be auto, or 20 to 200 and a multiple of 20")?),
     };
     if let Some(unknown) = values.keys().next() {
         return Err(format!("unknown option `--{unknown}`"));
@@ -505,7 +524,6 @@ fn load(arguments: &Arguments) -> Result<(Stream, Profile), Failure> {
         return Err(Failure::RuntimeIncomplete);
     }
     let device = load_runtime(&arguments.runtime, arguments.directml.as_deref(), arguments.device, true)?;
-    let profile = Profile::of(device, arguments.packets);
     // On the GPU the CPU side of a block is small; one thread per session kept the same
     // block times with a third less CPU and 8 threads instead of 77 (README, "Application
     // worker").
@@ -535,30 +553,75 @@ fn load(arguments: &Arguments) -> Result<(Stream, Profile), Failure> {
         }
         _ => None,
     };
-    // The GPU first: the error that says the most comes from the first session.
-    let synthesizer = Synthesizer::new(&model, device).map_err(|error| {
-        log("synthesizer", &error);
-        classify(&error, device, Failure::CheckpointIncomplete)
-    })?;
-    let features = FeatureExtractor::from_checkpoint(&hubert, device).map_err(|error| {
-        log("feature extractor", &error);
-        classify(&error, device, Failure::CheckpointIncomplete)
-    })?;
-    let pitch = Rmvpe::load(&rmvpe, device).map_err(|error| {
-        log("pitch extractor", &error);
-        classify(&error, device, Failure::RuntimeIncomplete)
-    })?;
-    let converter = Converter { features, pitch: Box::new(pitch), synthesizer, index, version: model.version };
-    let options = StreamOptions { transpose: arguments.pitch, index_rate: arguments.index_rate, speaker: 0, noise: NoiseMode::Random, layout: profile.layout, highpass: arguments.highpass };
-    let mut stream = Stream::new(converter, options).map_err(|error| {
-        log("stream", &error);
-        Failure::IndexFailed
-    })?;
-    if profile.device == Device::Cpu {
-        let fastest = cpu_block_time(&mut stream).map_err(|error| {
-            log("conversion", &error);
-            Failure::CheckpointIncomplete
+    // The networks' sessions. The GPU first: the error that says the most comes from the first
+    // session.
+    let networks = |index: Option<FeatureIndex>| -> Result<Converter, Failure> {
+        let synthesizer = Synthesizer::new(&model, device).map_err(|error| {
+            log("synthesizer", &error);
+            classify(&error, device, Failure::CheckpointIncomplete)
         })?;
+        let features = FeatureExtractor::from_checkpoint(&hubert, device).map_err(|error| {
+            log("feature extractor", &error);
+            classify(&error, device, Failure::CheckpointIncomplete)
+        })?;
+        let pitch = Rmvpe::load(&rmvpe, device).map_err(|error| {
+            log("pitch extractor", &error);
+            classify(&error, device, Failure::RuntimeIncomplete)
+        })?;
+        Ok(Converter { features, pitch: Box::new(pitch), synthesizer, index, version: model.version })
+    };
+    let converter = networks(index)?;
+    let stream_for = |converter: Converter, profile: Profile| {
+        let options = StreamOptions { transpose: arguments.pitch, index_rate: arguments.index_rate, speaker: 0, noise: NoiseMode::Random, layout: profile.layout, highpass: arguments.highpass };
+        Stream::new(converter, options).map_err(|error| {
+            log("stream", &error);
+            Failure::IndexFailed
+        })
+    };
+    let conversion_failed = |error: Error| {
+        log("conversion", &error);
+        Failure::CheckpointIncomplete
+    };
+    let (mut stream, profile) = match arguments.packets {
+        Some(packets) => {
+            let profile = Profile::of(device, packets);
+            (stream_for(converter, profile)?, profile)
+        }
+        None if device.is_gpu() => {
+            // `--block-ms auto` (#531): the GPU's time for a block of the shortest length, back to
+            // back, then the shortest length it converts in time with room to spare.
+            let first = Profile::of(device, Packets::of(AUTO_BLOCK_MS[0]).expect("a valid block"));
+            let mut stream = stream_for(converter, first)?;
+            let time = gpu_block_time(&mut stream).map_err(conversion_failed)?;
+            let ms = auto_block_ms(time);
+            eprintln!("vrct-rvc-worker: a {} ms block took {:.1} ms on the GPU; converting in {ms} ms blocks", AUTO_BLOCK_MS[0], time.as_secs_f64() * 1000.0);
+            if ms == AUTO_BLOCK_MS[0] {
+                (stream, first)
+            } else {
+                // DirectML sessions that ran one block length are not given another: they
+                // converted blocks of a second length four to six times slower than fresh ones.
+                // CUDA's did not (about 3 s of loading saved).
+                let converter = stream.into_converter();
+                let converter = if device == Device::DirectMl {
+                    let Converter { index, features, pitch, synthesizer, .. } = converter;
+                    // The old sessions go before the new ones take the GPU's memory.
+                    drop((features, pitch, synthesizer));
+                    networks(index)?
+                } else {
+                    converter
+                };
+                let profile = Profile::of(device, Packets::of(ms).expect("a valid block"));
+                (stream_for(converter, profile)?, profile)
+            }
+        }
+        None => {
+            // The CPU converts 0.5 s blocks of its own whatever the packets (`CPU_LAYOUT`).
+            let profile = Profile::of(device, Packets::of(AUTO_CPU_PACKET_MS).expect("a valid block"));
+            (stream_for(converter, profile)?, profile)
+        }
+    };
+    if profile.device == Device::Cpu {
+        let fastest = cpu_block_time(&mut stream).map_err(conversion_failed)?;
         if !cpu_keeps_up(fastest, profile.layout) {
             eprintln!("vrct-rvc-worker: a {} ms block took {} ms on the CPU", profile.layout.block * 10, fastest.as_millis());
             return Err(Failure::CpuTooSlow);
@@ -590,6 +653,38 @@ fn cpu_block_time(stream: &mut Stream) -> Result<Duration, Error> {
 /// Whether the CPU converts a block in less time than the block lasts.
 fn cpu_keeps_up(block_time: Duration, layout: Layout) -> bool {
     block_time < Duration::from_millis(layout.block as u64 * 10)
+}
+
+/// The GPU's time for one packet's stream block, converted back to back: one block settles
+/// the networks' first runs at this length, then the median of [`AUTO_TIMED_BLOCKS`]. The
+/// stream is reset afterwards.
+fn gpu_block_time(stream: &mut Stream) -> Result<Duration, Error> {
+    let block = tone(stream.options().layout.block_samples(), INPUT_RATE);
+    stream.process(&block)?;
+    let mut times = Vec::with_capacity(AUTO_TIMED_BLOCKS);
+    for _ in 0..AUTO_TIMED_BLOCKS {
+        let started = Instant::now();
+        stream.process(&block)?;
+        times.push(started.elapsed());
+    }
+    stream.reset();
+    times.sort();
+    Ok(times[times.len() / 2])
+}
+
+/// Whether a GPU that converts a block back to back in `block_time` keeps up with packets of
+/// this length at the microphone's pace: [`AUTO_HEADROOM`] times the time fits in the packet.
+fn keeps_up_with_headroom(block_time: Duration, packets: Packets) -> bool {
+    block_time.as_secs_f64() * AUTO_HEADROOM <= f64::from(packets.ms) / 1000.0
+}
+
+/// `--block-ms auto` on a GPU that converts the shortest block in `block_time`: the shortest of
+/// [`AUTO_BLOCK_MS`] it keeps up with, the longest when none. A longer block's time is the
+/// shortest one's: it takes little longer, as most of the work is the 2 s of context every block
+/// carries (48 to 58 ms with CUDA and 38 to 53 ms with DirectML from 20 to 200 ms on one GPU).
+fn auto_block_ms(block_time: Duration) -> u32 {
+    let fits = |ms: &u32| keeps_up_with_headroom(block_time, Packets::of(*ms).expect("a valid block"));
+    AUTO_BLOCK_MS.into_iter().find(fits).unwrap_or(AUTO_BLOCK_MS[AUTO_BLOCK_MS.len() - 1])
 }
 
 /// The stream with its rate conversions: 48 kHz in and out, 16 kHz and the model's rate
@@ -1255,10 +1350,29 @@ mod tests {
         assert_eq!(base(&[]).unwrap().directml, None);
         assert_eq!(base(&[("directml", "")]).unwrap().directml, None);
         assert_eq!(base(&[("directml", "/d/lib")]).unwrap().directml, Some(PathBuf::from("/d/lib")));
-        assert_eq!(base(&[]).unwrap().packets.ms, 80, "the external runtime's packets");
-        assert_eq!(base(&[("block-ms", "40")]).unwrap().packets.ms, 40);
-        for bad in ["30", "0", "220", "40.0", "-40", "x"] {
+        assert_eq!(base(&[]).unwrap().packets, Packets::of(80), "the external runtime's packets");
+        assert_eq!(base(&[("block-ms", "40")]).unwrap().packets, Packets::of(40));
+        assert_eq!(base(&[("block-ms", "auto")]).unwrap().packets, None, "chosen once the device is known");
+        for bad in ["30", "0", "220", "40.0", "-40", "x", "Auto"] {
             assert!(base(&[("block-ms", bad)]).is_err(), "{bad}");
         }
+    }
+
+    #[test]
+    fn the_automatic_block_is_the_shortest_the_gpu_converts_in_time_with_room_to_spare() {
+        // The tried lengths are valid packets, shortest first.
+        assert!(AUTO_BLOCK_MS.windows(2).all(|pair| pair[0] < pair[1]));
+        assert!(AUTO_BLOCK_MS.iter().all(|&ms| Packets::of(ms).is_some()));
+        assert!(Packets::of(AUTO_CPU_PACKET_MS).is_some());
+        let fits = |time_ms: u64, block_ms: u32| keeps_up_with_headroom(Duration::from_millis(time_ms), Packets::of(block_ms).unwrap());
+        assert!(fits(28, 40) && !fits(29, 40), "1.4 times the time fits in the block");
+        let chosen = |time_ms: u64| auto_block_ms(Duration::from_millis(time_ms));
+        // An RTX 3060 Ti over Thunderbolt (2026-11-20), 40 ms blocks back to back: CUDA 50 to 55
+        // ms, DirectML 37 to 43 ms. An RTX 4080 SUPER: 11 to 15 ms.
+        assert_eq!(chosen(55), 80, "CUDA on the laptop");
+        assert_eq!(chosen(37), 60, "DirectML on the laptop");
+        assert_eq!(chosen(15), 40, "the desktop");
+        // Between the steps, and a GPU that keeps up with none.
+        assert_eq!((chosen(72), chosen(86), chosen(115), chosen(143), chosen(500)), (120, 160, 200, 200, 200));
     }
 }

@@ -423,14 +423,22 @@ to 0.4 `src-python/models/voice_conversion/protocol.py`): a `ready` packet, or a
 packet with a fixed code, then one `output` packet of 48 kHz mono 16-bit audio for every
 `input` packet. Every packet is one block of `--block-ms` (20 to 200 ms in steps of 20; 80 ms
 when it is not given, the external runtime's). The application passes its Advanced setting
-(`RVC_BLOCK_MS`, 40 ms by default, #531), and the `ready` packet confirms the block in
-`block_frames`; the owner refuses a worker that confirms another. The owner, the Linux
+(`RVC_BLOCK_MS`, #531), and the `ready` packet confirms the block in `block_frames`; the
+owner refuses a worker that confirms another. By default the setting is automatic and the
+application passes `--block-ms auto`: before `ready` the worker times the GPU on 40 ms blocks
+of a test tone (one block to settle, then the median of three) and keeps the shortest of 40,
+60, 80, 100, 120, 160 and 200 ms that is at least 1.4 times that time, or 200 ms when none is;
+a longer block takes little longer to convert. On DirectML a length other than 40 ms gets the
+networks loaded again (about 3 s): DirectML converted blocks of a second length four to six
+times slower on the sessions that had run the first. On the CPU it uses 40 ms packets. `ready` then says the chosen block and the owner
+converts in it. The 1.4 leaves room for the round trip at the microphone's pace, when the
+GPU idles between blocks and clocks down ([the measurements](../../docs/voice-stack/rvc-low-latency-2026-11-20.md)). The owner, the Linux
 launch helper (`native/vc-worker`, mode `rvc-native`), the router process, the managed sink,
 mute and the speech-through-conversion path are the same as with the external runtime.
 
 ```sh
 python tools/build_rvc_worker.py   # cargo build --no-default-features --features worker → build/vrct-rvc-worker
-vrct-rvc-worker --runtime <dir> --model voice.pth --session <32 hex> [--index f.index] [--pitch n] [--index-rate r] [--device auto|cuda|directml|cpu] [--directml <dir>] [--block-ms 40]
+vrct-rvc-worker --runtime <dir> --model voice.pth --session <32 hex> [--index f.index] [--pitch n] [--index-rate r] [--device auto|cuda|directml|cpu] [--directml <dir>] [--block-ms auto|40]
 vrct-rvc-worker --runtime <dir> --probe [--device cuda|directml|cpu|auto]   # exit 0 runs; 3 the GPU cannot be used (auto: the CPU can); 4 broken
 ```
 
