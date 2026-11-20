@@ -2,6 +2,8 @@
 
 ブラウザに出したアプリの画面と、中核（`native/core`）をつなぐ試験の道具です。結合テスト（`tests/integration/`、[ADR-017](../../docs/adr/adr-017-integration-tests-through-the-core.md)）が、試験ごとに 1 つ起動します。アプリにも配布物にも入りません。
 
+コードネームは Aglasis で、**試験のホスト**に付けた名前です（[#689](https://github.com/kein5/astarot/issues/689)、表は [project-rename.md](../../docs/voice-stack/project-rename.md) の「内部のコードネーム」）。アプリの中の IPC とイベントの配送（Scirlin の候補）とは別のものです。パッケージ名とフォルダーの名前は機能の名前のままにします。
+
 ```sh
 cargo build --locked --manifest-path native/browser-core-bridge/Cargo.toml
 native/browser-core-bridge/target/debug/vrct-browser-core-bridge --state <設定のフォルダー> [--port <ポート>]
