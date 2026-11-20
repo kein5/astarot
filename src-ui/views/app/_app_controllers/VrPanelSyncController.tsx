@@ -185,7 +185,7 @@ export const VrPanelSyncController = () => {
             disposed = true;
             isVrSettingsOpenRef.current = false;
             isOpenedByVrRef.current = false;
-            unsubscribes.forEach(unsubscribe => unsubscribe());
+            unsubscribes.forEach(unsubscribe => { unsubscribe(); });
             unlistenReady.then(f => f());
             unlistenStdout.then(f => f());
             unlistenConfigPage.then(f => f());

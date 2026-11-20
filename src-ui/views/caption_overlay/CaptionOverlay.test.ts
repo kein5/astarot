@@ -13,7 +13,7 @@ import type { CaptionOverlayBridge } from "../../logics/captionOverlay/bridge.ts
 // through React.Children.toArray, which keys every child, and the line test reads the keys.
 const findAll = (tree: unknown, match: (node: TreeNode) => boolean, found: TreeNode[] = []) => {
     const node = treeNode(tree);
-    if (Array.isArray(tree)) tree.forEach(item => findAll(item, match, found));
+    if (Array.isArray(tree)) tree.forEach(item => { findAll(item, match, found); });
     else if (node) {
         if (match(node)) found.push(node);
         findAll(node.props?.children, match, found);

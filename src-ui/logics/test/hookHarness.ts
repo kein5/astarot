@@ -99,7 +99,7 @@ export function hooks() {
         index = 0;
         const tree = component(props);
         attach(tree);
-        effects.splice(0).forEach(fn => fn());
+        effects.splice(0).forEach(fn => { fn(); });
         return tree;
     }
     return { api, jotai, targets, get store() { return store; }, set store(value: Store) { store = value; },

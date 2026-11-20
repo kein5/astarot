@@ -182,7 +182,7 @@ export const buildFlowGraph = (flow: IoFlow | null | undefined, traces: Trace[] 
             path.push(speechConverted ? "speech>conversion" : "speech>live_voice");
             if (speechConverted) path.push("conversion>live_voice");
         }
-        if (reached.chatbox || reached.speech) path.forEach(id => lit.add(id));
+        if (reached.chatbox || reached.speech) path.forEach(id => { lit.add(id); });
     }
     for (const row of edges) row.lit = row.on && lit.has(row.id);
     const pulse = newest ? `${newest.id}:${Object.keys(arrivals[newest.input]).sort().join(",")}` : null;
