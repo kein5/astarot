@@ -6,6 +6,8 @@ import { useTranslationCatalog } from "../../../../../../logics/translation/useT
 import { ENGINE_FORM_SETTING_ID, ENTRY_NAME_LIMIT, LLAMACPP, LLAMA_DEVICES, apiRequest, engineRequest, entryState } from "../../../../../../logics/translation/translationCatalog";
 import { endpointDescription } from "../../../../../../logics/common/endpointPrivacy";
 import { SectionLabelComponent } from "../_components";
+import { useHintDescriptions } from "../_components/hint/Hint";
+import { catalogHeading } from "../advanced_settings/catalogHeading";
 import { TranslationLlamaRuntimes } from "./TranslationLlamaRuntimes";
 import styles from "../advanced_settings/VoiceSettings.module.scss";
 import type { ApiForm as ApiFields, ApiItem, EngineForm as EngineFields, EngineItem, TranslationCatalog }
@@ -23,6 +25,9 @@ const entriesOf = (catalog: TranslationCatalog, group: CatalogGroupId): CatalogE
 // The translation catalog (#413): what translates, in two groups. The entries the app ships
 // are folded away under each group; the entries the user added are cards with their actions.
 // Adding an entry only records it: nothing is downloaded, copied or switched by adding.
+// Its cards are laid out as the model catalog's (DESIGN.md "Components", #614): the name with the
+// state at the end of its line, the facts in one table, then the notes and the actions; the entry
+// in use carries the active frame.
 export const TranslationCatalogSection = () => {
     const { t } = useI18n();
     const { catalog, error, send } = useTranslationCatalog();
@@ -48,6 +53,7 @@ const errorText = (t: TFunction, code: string) => t([`translation_catalog.errors
 
 const CatalogGroup = ({ group, catalog }: { group: CatalogGroupId; catalog: TranslationCatalog }) => {
     const { t } = useI18n();
+    const hints = useHintDescriptions();
     const { send } = useTranslationCatalog();
     // Which llama.cpp entries can run follows the server builds set up below.
     const askAgain = useCallback(() => send("/get/data/translation_catalog"), [send]);
@@ -56,8 +62,8 @@ const CatalogGroup = ({ group, catalog }: { group: CatalogGroupId; catalog: Tran
     const own = entries.filter(entry => entry.item.origin !== "builtin");
     return (
         <div className={styles.catalog_group} data-catalog-group={group}>
-            <h3>{t(`translation_catalog.group.${group}`)}</h3>
-            <p>{t(`translation_catalog.group_help.${group}`)}</p>
+            {/* What the group is: its heading's hint on a page that shows descriptions as hints, a line under it elsewhere. */}
+            {catalogHeading(hints, "h3", t(`translation_catalog.group.${group}`), [t(`translation_catalog.group_help.${group}`)])}
             {own.length > 0
                 ? <ul className={styles.catalog}>{own.map(entry => <EntryCard key={entry.item.id} {...entry} />)}</ul>
                 : <p>{t("translation_catalog.none_added")}</p>}
@@ -72,17 +78,17 @@ const CatalogGroup = ({ group, catalog }: { group: CatalogGroupId; catalog: Tran
 };
 
 // An entry the app ships: its name and whether it can be used now. Its settings stay in the
-// sections above.
+// sections above. The state ends the name's line, where every card of the catalog has it.
 const ShippedCard = ({ group, item }: CatalogEntry) => {
     const { t } = useI18n();
     const state = item.in_use ? "in_use" : item.available ? "ready" : group === "engine" ? "not_downloaded" : "not_set";
-    return <li className={styles.card} data-catalog-item={item.id}>
+    return <li className={styles.card} data-catalog-item={item.id} data-status={state}>
         <div className={styles.card_head}>
             <strong>{item.name}</strong>
             <span className={styles.badge}>{t("translation_catalog.badge.builtin")}</span>
             {group === "api" && item.kind && <span className={styles.badge}>{t(`translation_catalog.kind.${item.kind}`)}</span>}
             {"non_commercial" in item && item.non_commercial && <span className={styles.badge} data-tone="changed">{t("translation_catalog.badge.non_commercial")}</span>}
-            <span className={styles.badge} data-tone={state === "in_use" || state === "ready" ? state : undefined}>{t(`translation_catalog.state.${state}`)}</span>
+            <span className={`${styles.badge} ${styles.status}`} data-tone={state === "in_use" || state === "ready" ? state : undefined}>{t(`translation_catalog.state.${state}`)}</span>
         </div>
     </li>;
 };
@@ -106,13 +112,15 @@ const EntryCard = ({ group, item }: CatalogEntry) => {
     const [removing, setRemoving] = useState(false);
     const state = entryState(item);
     const busy = !!pending;
-    return <li className={styles.card} data-catalog-item={item.id} tabIndex={-1} role="group" aria-label={item.name}>
-        <div className={styles.card_head}>
+    // Laid out as a card of the model catalog: what it is and its state, its facts, then its
+    // notes and actions.
+    return <li className={styles.card} data-catalog-item={item.id} data-status={state} tabIndex={-1} role="group" aria-label={item.name}>
+        <div className={styles.card_intro}><div className={styles.card_head}>
             <strong>{item.name}</strong>
             <span className={styles.badge} data-tone="own">{t("translation_catalog.badge.user")}</span>
-            <span className={styles.badge} data-tone={PROBLEMS.includes(state) ? "missing" : state}>{t(`translation_catalog.state.${state}`)}</span>
-        </div>
-        <dl className={styles.facts}>
+            <span className={`${styles.badge} ${styles.status}`} data-tone={PROBLEMS.includes(state) ? "missing" : state}>{t(`translation_catalog.state.${state}`)}</span>
+        </div></div>
+        <dl className={`${styles.facts} ${styles.card_spec}`}>
             {group === "engine" ? <>
                 <div><dt>{t("translation_catalog.fact.runtime")}</dt><dd>{t(`translation_catalog.runtime.${item.runtime}`, { defaultValue: item.runtime })}</dd></div>
                 {item.file && <div><dt>{t("translation_catalog.fact.file")}</dt><dd><code>{item.file}</code></dd></div>}
@@ -127,22 +135,24 @@ const EntryCard = ({ group, item }: CatalogEntry) => {
                 <div><dt>{t("translation_catalog.fact.key")}</dt><dd>{t(keyText(item))}</dd></div>
             </>}
         </dl>
-        {["missing", "unsupported", ...PROBLEMS].includes(state) && <p role="alert">{t(stateHelp(item, state))}</p>}
-        {group === "api" && item.key_in_memory && <p>{t("translation_catalog.key_memory_help")}</p>}
-        {removing ? <div className={styles.actions} role="group" aria-label={t("translation_catalog.remove_confirm_label", { name: item.name })}>
-                <p>{t(`translation_catalog.remove_confirm.${group}`)}</p>
-                <button type="button" autoFocus onClick={() => setRemoving(false)}>{t("translation_catalog.back")}</button>
-                <button type="button" disabled={busy} onClick={() => {
-                    setRemoving(false); send("/run/remove_translation_catalog_entry", { id: item.id });
-                }}>{t("translation_catalog.remove_do")}</button>
-            </div>
-            : <div className={styles.actions}>
-                {state !== "in_use" && <button type="button" className="primary" disabled={busy || state !== "ready"}
-                    onClick={() => send("/run/use_translation_catalog_entry", { id: item.id })}>{t(`translation_catalog.use.${group}`)}</button>}
-                <button type="button" disabled={busy || (group === "engine" && state === "in_use")}
-                    onClick={() => setRemoving(true)}>{t("translation_catalog.remove")}</button>
-                {group === "engine" && state === "in_use" && <p>{t("translation_catalog.remove_in_use")}</p>}
-            </div>}
+        <div className={styles.card_foot}>
+            {["missing", "unsupported", ...PROBLEMS].includes(state) && <p role="alert">{t(stateHelp(item, state))}</p>}
+            {group === "api" && item.key_in_memory && <p>{t("translation_catalog.key_memory_help")}</p>}
+            {removing ? <div className={styles.actions} role="group" aria-label={t("translation_catalog.remove_confirm_label", { name: item.name })}>
+                    <p>{t(`translation_catalog.remove_confirm.${group}`)}</p>
+                    <button type="button" autoFocus onClick={() => setRemoving(false)}>{t("translation_catalog.back")}</button>
+                    <button type="button" disabled={busy} onClick={() => {
+                        setRemoving(false); send("/run/remove_translation_catalog_entry", { id: item.id });
+                    }}>{t("translation_catalog.remove_do")}</button>
+                </div>
+                : <div className={styles.actions}>
+                    {state !== "in_use" && <button type="button" className="primary" disabled={busy || state !== "ready"}
+                        onClick={() => send("/run/use_translation_catalog_entry", { id: item.id })}>{t(`translation_catalog.use.${group}`)}</button>}
+                    <button type="button" disabled={busy || (group === "engine" && state === "in_use")}
+                        onClick={() => setRemoving(true)}>{t("translation_catalog.remove")}</button>
+                    {group === "engine" && state === "in_use" && <p>{t("translation_catalog.remove_in_use")}</p>}
+                </div>}
+        </div>
     </li>;
 };
 
