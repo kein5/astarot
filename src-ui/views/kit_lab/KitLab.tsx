@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useI18n } from "@useI18n";
 import RefreshSvg from "@images/refresh.svg?react";
-import { Button, Select, SelectOption, SettingGroup, SettingRow, Switch, TextField } from "../kit/index.ts";
+import { Button, Dialog, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Select, SelectOption, SettingGroup, SettingRow, Switch, TextField } from "../kit/index.ts";
 import * as styles from "./KitLab.css.ts";
 
 // The #452 component experiment on one page, for review in the dev server only
@@ -16,6 +16,7 @@ export const KitLab = () => {
     const [ip, setIp] = useState("127.0.0.1");
     const [port, setPort] = useState("99999");
     const [font, setFont] = useState("Yu Gothic UI");
+    const [dialogOpen, setDialogOpen] = useState(false);
     const portNumber = Number(port);
     const portInvalid = !/^\d+$/.test(port) || portNumber < 1 || portNumber > 65535;
 
@@ -87,6 +88,24 @@ export const KitLab = () => {
                 <Button><RefreshSvg className={styles.icon} aria-hidden="true" />{t("realtime.refresh_devices")}</Button>
                 <Button size="icon" aria-label={t("realtime.refresh_devices")}><RefreshSvg className={styles.icon} aria-hidden="true" /></Button>
             </div>
+
+            {/* i18n-exempt: developer-only gallery heading */}
+            <h2 className={styles.section}>Dialog</h2>
+            <div className={styles.buttons}>
+                {/* i18n-exempt: developer-only gallery control */}
+                <Button onClick={() => setDialogOpen(true)}>Open the dialog</Button>
+            </div>
+            {/* The settings page's leave confirmation, in the kit's parts. */}
+            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+                <DialogHeader>
+                    <DialogTitle>{t("voice_ui.leave_title")}</DialogTitle>
+                    <DialogDescription>{t("voice_ui.leave_hint")}</DialogDescription>
+                </DialogHeader>
+                <DialogFooter>
+                    <Button autoFocus onClick={() => setDialogOpen(false)}>{t("voice_ui.keep_editing")}</Button>
+                    <Button tone="danger" onClick={() => setDialogOpen(false)}>{t("voice_ui.discard_leave")}</Button>
+                </DialogFooter>
+            </Dialog>
         </main>
     );
 };
