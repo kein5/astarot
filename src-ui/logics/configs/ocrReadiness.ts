@@ -16,8 +16,8 @@ const round = (value: number): number => Math.round(value * 10000) / 10000;
 
 export const normalizeRegion = (region: OcrRegionInput): OcrRegion => {
     const source = region && typeof region === "object" ? region : FULL_REGION;
-    let x = Math.min(Math.max(finite(source.x, 0), 0), 1 - MIN_REGION_SIDE);
-    let y = Math.min(Math.max(finite(source.y, 0), 0), 1 - MIN_REGION_SIDE);
+    const x = Math.min(Math.max(finite(source.x, 0), 0), 1 - MIN_REGION_SIDE);
+    const y = Math.min(Math.max(finite(source.y, 0), 0), 1 - MIN_REGION_SIDE);
     const width = Math.min(Math.max(finite(source.width, 1), MIN_REGION_SIDE), 1 - x);
     const height = Math.min(Math.max(finite(source.height, 1), MIN_REGION_SIDE), 1 - y);
     return { x: round(x), y: round(y), width: round(width), height: round(height) };
