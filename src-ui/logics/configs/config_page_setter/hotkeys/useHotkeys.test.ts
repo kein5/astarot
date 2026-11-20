@@ -539,7 +539,7 @@ test("the voice hotkeys press the controls the main window published", async () 
     assert.deepEqual(state.actions, ["stop", "toggleMute", "toggleTts", "toggleRvc"]);
 });
 
-test("a portal that goes away is said and the keys are bound again once; a second loss soon after is left to the user", async context => {
+test("a portal that goes away is said and the keys are bound again once; a second loss soon after is left to the user", async () => {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"], now: 1_000_000 });
     const subject = await setup(), { state } = subject;
     const hook = await subject.load();
@@ -563,7 +563,7 @@ test("a portal that goes away is said and the keys are bound again once; a secon
     assert.deepEqual(state.notices.map(([message]) => message), ["quick_chat.portal_lost"]);
 });
 
-test("a portal lost while the shortcuts are paused waits for the next bind", async context => {
+test("a portal lost while the shortcuts are paused waits for the next bind", async () => {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"], now: 1_000_000 });
     const subject = await setup(), { state } = subject;
     const hook = await subject.load();
@@ -576,7 +576,7 @@ test("a portal lost while the shortcuts are paused waits for the next bind", asy
     assert.equal(state.calls.filter(([cmd]) => cmd === "portal_shortcuts_bind").length, 1);
 });
 
-test("a reconnect that is pending when the shortcuts pause is dropped", async context => {
+test("a reconnect that is pending when the shortcuts pause is dropped", async () => {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"], now: 1_000_000 });
     const subject = await setup(), { state } = subject;
     const hook = await subject.load();

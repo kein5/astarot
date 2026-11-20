@@ -44,6 +44,7 @@
         "noComponentHookFactories": "warn",
         "noUnusedFunctionParameters": "error",
         "noUnusedImports": "error",
+        "noUnusedVariables": "error",
         "useExhaustiveDependencies": "warn",
         "useHookAtTopLevel": "warn"
       },
@@ -54,7 +55,7 @@
       "suspicious": {
         "noArrayIndexKey": "warn",
         "noGlobalIsNan": "error",
-        "noImplicitAnyLet": "warn",
+        "noTemplateCurlyInString": "error",
         "useIterableCallbackReturn": "warn"
       }
     }
