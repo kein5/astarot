@@ -3,7 +3,7 @@ import { test } from "vitest";
 import { voiceSwitchStates } from "./voiceActions.ts";
 
 test("the voice switch states reach their listeners only when they change", () => {
-    const seen = [];
+    const seen: ReturnType<typeof voiceSwitchStates.get>[] = [];
     const stop = voiceSwitchStates.subscribe(() => seen.push(voiceSwitchStates.get()));
     const off = { on: false, pending: false };
     voiceSwitchStates.publish({ tts: off, rvc: off });

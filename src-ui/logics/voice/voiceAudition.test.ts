@@ -1,19 +1,21 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "vitest";
+import type { TestContext } from "vitest";
 import yaml from "js-yaml";
 import { hooks, loadModule } from "../test/hookHarness.ts";
 import * as shapes from "./voiceAudition.ts";
+import type { AuditionProfile, AuditionState, AuditionView } from "./voiceAudition.ts";
 
-const playing = (run, profile = "japanese") => ({ state: "playing", run, profile, last_run: null, outcome: null, error_code: null });
-const ended = (run, last, outcome, error_code = null) => ({ state: "idle", run, profile: null, last_run: last, outcome, error_code });
+const playing = (run: number, profile: AuditionProfile = "japanese"): AuditionState => ({ state: "playing", run, profile, last_run: null, outcome: null, error_code: null });
+const ended = (run: number, last: number | null, outcome: AuditionState["outcome"], error_code: string | null = null): AuditionState => ({ state: "idle", run, profile: null, last_run: last, outcome, error_code });
 
 test("only a well-formed state is used, and only a failure carries a code", () => {
     assert.deepEqual(shapes.normalizeAuditionState(playing(2)), playing(2));
     assert.deepEqual(shapes.normalizeAuditionState(ended(3, 3, "failed", "monitor_output_missing")), ended(3, 3, "failed", "monitor_output_missing"));
-    assert.equal(shapes.normalizeAuditionState(ended(3, 3, "completed", "x")).error_code, null);
+    assert.equal(shapes.normalizeAuditionState(ended(3, 3, "completed", "x"))?.error_code, null);
     // A code that is not a plain identifier is not shown as one.
-    assert.equal(shapes.normalizeAuditionState(ended(3, 3, "failed", "Device <b>")).error_code, "voice_audition_failed");
+    assert.equal(shapes.normalizeAuditionState(ended(3, 3, "failed", "Device <b>"))?.error_code, "voice_audition_failed");
     for (const bad of [null, "playing", {}, { state: "playing" }, { state: "busy", run: 1 }, { state: "idle", run: -1 }, { state: "idle", run: 1.5 }])
         assert.equal(shapes.normalizeAuditionState(bad), null, JSON.stringify(bad));
 });
@@ -40,7 +42,7 @@ test("a card can play only the model in use, with its server running, the monito
 });
 
 test("a press waits for its own answer, plays, and ends with the outcome of its run", () => {
-    const pending = { phase: "pending", profile: "japanese", run: null, error: null };
+    const pending: AuditionView = { phase: "pending", profile: "japanese", run: null, error: null };
     // A poll from before the press does not end it.
     assert.equal(shapes.auditionAfterState(pending, ended(0, null, null)), pending);
     const view = shapes.auditionAfterState(pending, playing(1));
@@ -60,10 +62,10 @@ test("a press waits for its own answer, plays, and ends with the outcome of its 
     assert.equal(shapes.auditionAfterFailure(view, "x"), view);
 });
 
-async function hook(context, sent = []) {
+async function hook(context: TestContext, sent: [string, unknown][] = []) {
     const runtime = hooks();
-    const { useVoiceAudition } = await loadModule(new URL("./useVoiceAudition.ts", import.meta.url), runtime, {
-        "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: async (endpoint, data) => { sent.push([endpoint, data]); return true; } }) },
+    const { useVoiceAudition } = await loadModule<typeof import("./useVoiceAudition.ts")>(new URL("./useVoiceAudition.ts", import.meta.url), runtime, {
+        "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: async (endpoint: string, data?: unknown) => { sent.push([endpoint, data]); return true; } }) },
         "./voiceAudition.ts": shapes,
     });
     context.onTestFinished(() => runtime.unmount());
@@ -71,7 +73,7 @@ async function hook(context, sent = []) {
 }
 
 test("a press sends the sentence's id, never its text, and repeat presses wait for the answer", async context => {
-    const sent = [];
+    const sent: [string, unknown][] = [];
     const use = await hook(context, sent);
     await use().start("multilingual");
     assert.deepEqual(sent, [["/run/start_voice_audition", { kind: "tts", profile: "multilingual", sentence: "en" }]]);
@@ -123,9 +125,13 @@ const CODES = ["voice_audition_failed", "voice_audition_unconfirmed", "voice_aud
     "voice_audition_server_not_ready", "voice_audition_timeout", "monitor_output_missing", "monitor_feedback_blocked",
     "monitor_output_error", "backend_unavailable"];
 
+// A key of a mapping in the locale tree, or undefined.
+const child = (node: unknown, key: string): unknown =>
+    typeof node === "object" && node !== null ? Reflect.get(node, key) : undefined;
+
 for (const language of ["en", "ja"]) test(`${language}: every reason and code of the audition has its text`, () => {
-    const locale = yaml.load(readFileSync(new URL(`../../../locales/${language}.yml`, import.meta.url), "utf8")).voice_audition;
-    for (const key of ["play", "pending", "stop", "tooltip"]) assert.equal(typeof locale[key], "string", key);
-    for (const block of ["not_in_use", "server_stopped", "monitor_off", "muted"]) assert.equal(typeof locale.blocked[block], "string", block);
-    for (const code of CODES) assert.equal(typeof locale.errors[code], "string", code);
+    const locale = child(yaml.load(readFileSync(new URL(`../../../locales/${language}.yml`, import.meta.url), "utf8")), "voice_audition");
+    for (const key of ["play", "pending", "stop", "tooltip"]) assert.equal(typeof child(locale, key), "string", key);
+    for (const block of ["not_in_use", "server_stopped", "monitor_off", "muted"]) assert.equal(typeof child(child(locale, "blocked"), block), "string", block);
+    for (const code of CODES) assert.equal(typeof child(child(locale, "errors"), code), "string", code);
 });

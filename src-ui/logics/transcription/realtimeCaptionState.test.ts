@@ -1,18 +1,23 @@
 import assert from "node:assert/strict";
 import { test, vi } from "vitest";
-import { hooks, loadModule } from "../test/hookHarness.ts";
+import { hooks, loadModule, unchecked } from "../test/hookHarness.ts";
 import * as captions from "./realtimeCaptionState.ts";
+import type { CaptionMessage, CaptionSource, MessageLogRow, RealtimeCaptionLog, RealtimeCaptionPayload, RealtimeSession, RealtimeSessions } from "./realtimeCaptionState.ts";
 import { keepRecentLogs } from "../common/messageLogLimit.ts";
+import type { RealtimeAsrSettings } from "./useRealtimeASR.ts";
 
-const owner = { generation: 4, requested: true, state: "ready", namespace: "session" };
-const payload = { source: "mic", namespace: "session", generation: 4, item_id: "one", revision: 1, state: "partial", text: "hello" };
+const owner: RealtimeSession = { generation: 4, requested: true, state: "ready", namespace: "session" };
+// The message log, as the store holds it.
+type MessageLogs = { state: string; data: MessageLogRow[] };
 
-for (const source of ["mic", "speaker"]) {
+const payload = { source: "mic", namespace: "session", generation: 4, item_id: "one", revision: 1, state: "partial", text: "hello" } satisfies RealtimeCaptionPayload;
+
+for (const source of ["mic", "speaker"] as const) {
     for (const [outcome, status, reason] of [["delivered", "ok", null], ["not_delivered", "not_sent", "expired"],
         ["not_delivered", "not_sent", "revoked"], ["not_delivered", "not_sent", "superseded"],
-        ["not_delivered", "not_sent", "filtered"], ["failed", "failed", "processing_failed"]]) {
+        ["not_delivered", "not_sent", "filtered"], ["failed", "failed", "processing_failed"]] satisfies [string, string, string | null][]) {
         test(`${source} recognized row stays pending until ${outcome}/${reason}`, () => {
-            const event = { ...payload, source, state: "final" };
+            const event = { ...payload, source, state: "final" as const };
             const active = { [source]: owner };
             const final = captions.applyRealtimeCaption({ rows: [], retired: [] }, event, active);
             assert.equal(final.rows[0].status, "pending");
@@ -20,7 +25,7 @@ for (const source of ["mic", "speaker"]) {
                 translations: [{ message: "訳", transliteration: [] }] }, active);
             assert.equal(translated.rows[0].status, "pending");
             // Terminal notifications remain useful after a stop or a new session.
-            const result = { ...event, state: "outcome", text: undefined, revision: 3, outcome, reason };
+            const result = { ...event, state: "outcome" as const, text: undefined, revision: 3, outcome, reason };
             const settled = captions.applyRealtimeCaption(translated, result, {});
             assert.equal(settled.rows[0].status, status);
             assert.equal(settled.rows[0].category, source === "mic" ? "sent" : "received");
@@ -28,7 +33,7 @@ for (const source of ["mic", "speaker"]) {
             assert.equal(settled.rows[0].messages, translated.rows[0].messages);
             for (const later of [result, { ...result, revision: 100, outcome: "delivered" },
                 { ...result, revision: 100, outcome: "failed" }, { ...event, revision: 100 },
-                { ...event, revision: 100, state: "partial" }, { ...event, revision: 100, state: "translated" }]) {
+                { ...event, revision: 100, state: "partial" }, { ...event, revision: 100, state: "translated" }] satisfies RealtimeCaptionPayload[]) {
                 assert.equal(captions.applyRealtimeCaption(settled, later, active), settled);
             }
         });
@@ -36,7 +41,7 @@ for (const source of ["mic", "speaker"]) {
 }
 
 test("a speaker caption keeps the speakers its final names, through translation and the outcome", () => {
-    const active = { speaker: owner }, event = { ...payload, source: "speaker" };
+    const active = { speaker: owner }, event = { ...payload, source: "speaker" as const };
     const partial = captions.applyRealtimeCaption({ rows: [], retired: [] }, { ...event, speakers: [] }, active);
     assert.equal("speakers" in partial.rows[0], false);
     const final = captions.applyRealtimeCaption(partial, { ...event, revision: 2, state: "final", speakers: ["C", "B"] }, active);
@@ -46,13 +51,14 @@ test("a speaker caption keeps the speakers its final names, through translation 
         const translated = captions.applyRealtimeCaption(final, { ...event, revision: 3, state: "translated", speakers,
             translations: [{ message: "訳", transliteration: [] }] }, active);
         assert.deepEqual(translated.rows[0].speakers, ["C", "B"]);
-        const settled = captions.applyRealtimeCaption(translated, { ...event, text: undefined, revision: 4, state: "outcome", outcome: "delivered" }, {});
+        // An outcome carries no text: the one the caption had is cleared.
+        const settled = captions.applyRealtimeCaption(translated, unchecked<RealtimeCaptionPayload>({ ...event, text: undefined, revision: 4, state: "outcome", outcome: "delivered" }), {});
         assert.deepEqual(settled.rows[0].speakers, ["C", "B"]);
     }
 });
 
 test("speakers that are not short capital labels, or that come for the microphone, are left out", () => {
-    const row = (source, speakers) => captions.applyRealtimeCaption({ rows: [], retired: [] },
+    const row = (source: CaptionSource, speakers: unknown) => captions.applyRealtimeCaption({ rows: [], retired: [] },
         { ...payload, source, state: "final", speakers }, { [source]: owner }).rows[0];
     for (const speakers of ["A", [1], ["a"], [""], ["ABCD"], ["A", "B", "C", "D", "E"], [["A"]], null, {}]) {
         assert.equal("speakers" in row("speaker", speakers), false, JSON.stringify(speakers));
@@ -63,13 +69,13 @@ test("speakers that are not short capital labels, or that come for the microphon
 
 test("outcomes cannot create rows or settle another caption identity or a partial", () => {
     const empty = { rows: [], retired: [] };
-    const event = { ...payload, state: "outcome", revision: 3, outcome: "delivered" };
+    const event = { ...payload, state: "outcome" as const, revision: 3, outcome: "delivered" };
     assert.equal(captions.applyRealtimeCaption(empty, event, { mic: owner }), empty);
     const partial = captions.applyRealtimeCaption(empty, payload, { mic: owner });
     assert.equal(captions.applyRealtimeCaption(partial, event, { mic: owner }), partial);
     const final = captions.applyRealtimeCaption(partial, { ...payload, revision: 2, state: "final" }, { mic: owner });
     for (const changes of [{ source: "speaker" }, { generation: 5 }, { namespace: "new" }, { item_id: "new" },
-        { outcome: "unknown" }, { outcome: "toString" }, { revision: 2 }]) {
+        { outcome: "unknown" }, { outcome: "toString" }, { revision: 2 }] satisfies Partial<RealtimeCaptionPayload>[]) {
         assert.equal(captions.applyRealtimeCaption(final, { ...event, ...changes }, { mic: owner }), final);
     }
     const pruned = { rows: [], retired: [final.rows[0].id] };
@@ -98,24 +104,24 @@ test("caption pruning retains unchanged lists and retires only stale partial cap
     const final = captions.applyRealtimeCaption(partial, { ...payload, item_id: "final", state: "final" }, { mic: owner });
     const pruned = captions.pruneRealtimeCaptions(final, { mic: { ...owner, requested: false } });
     assert.equal(pruned.rows.length, 1);
-    assert.equal(pruned.rows[0].realtime.state, "final");
+    assert.equal(pruned.rows[0].realtime?.state, "final");
     assert.deepEqual(pruned.retired, [partial.rows[0].id]);
     assert.equal(captions.pruneRealtimeCaptions(pruned, {}), pruned);
     assert.equal(captions.applyRealtimeCaption(pruned, { ...payload, revision: 2 }, { mic: owner }), pruned);
 });
 
 test("production realtime and message hooks preserve logs on polls and handle captions, stop and settings invalidation", async () => {
-    const runtime = hooks(), Atom_MessageLogs = runtime.jotai.atom({ state: "ok", data: [] });
+    const runtime = hooks(), Atom_MessageLogs = runtime.jotai.atom<MessageLogs>({ state: "ok", data: [] });
     const storeImports = {
         Atom_MessageLogs, store: {},
         useStore_MessageLogs: () => ({ currentMessageLogs: runtime.store.get(Atom_MessageLogs),
-            updateMessageLogs(update) { runtime.store.set(Atom_MessageLogs, value => ({ ...value, data: update(value) })); } }),
+            updateMessageLogs(update: (value: MessageLogs) => MessageLogRow[]) { runtime.store.set(Atom_MessageLogs, value => ({ ...value, data: update(value) })); } }),
         useStore_MessageInputValue: () => ({ currentMessageInputValue: { data: "" }, updateMessageInputValue() {} }),
     };
-    const realtime = await loadModule(new URL("./useRealtimeASR.ts", import.meta.url), runtime, {
+    const realtime = await loadModule<typeof import("./useRealtimeASR.ts")>(new URL("./useRealtimeASR.ts", import.meta.url), runtime, {
         "@store": storeImports, "./realtimeCaptionState": captions,
     });
-    const { useMessage } = await loadModule(new URL("../common/useMessage.ts", import.meta.url), runtime, {
+    const { useMessage } = await loadModule<typeof import("../common/useMessage.ts")>(new URL("../common/useMessage.ts", import.meta.url), runtime, {
         "@store": storeImports, "../transcription/useRealtimeASR": realtime,
         "../transcription/realtimeCaptionState": captions, "./messageLogLimit": { keepRecentLogs },
     });
@@ -131,7 +137,7 @@ test("production realtime and message hooks preserve logs on polls and handle ca
     assert.equal(logChanges, 0);
     // A caption can bind the namespace before the first ready poll arrives.
     render().messages.updateRealtimeCaption(payload);
-    assert.equal(render().asr.state.mic.namespace, "session");
+    assert.equal(render().asr.state.mic?.namespace, "session");
     assert.equal(logs().data.length, 1);
     const before = logs(), state = render().asr.state;
     render().asr.updateState({ mic: { ...owner, state: "starting", namespace: null } });
@@ -141,8 +147,10 @@ test("production realtime and message hooks preserve logs on polls and handle ca
     render().messages.updateRealtimeCaption({ ...payload, revision: 2, state: "final", text: "complete" });
     render().messages.failSentMessageLog({});
     assert.equal(logs().data[0].status, "pending");
-    render().messages.updateRealtimeCaption({ ...payload, revision: 3, state: "translated", text: "complete", translations: [{ message: "translation" }] });
-    assert.equal(logs().data[0].realtime.state, "translated");
+    render().messages.updateRealtimeCaption({ ...payload, revision: 3, state: "translated", text: "complete",
+        // A translation without its readings.
+        translations: unchecked<CaptionMessage[]>([{ message: "translation" }]) });
+    assert.equal(logs().data[0].realtime?.state, "translated");
     assert.equal(logs().data[0].status, "pending");
     render().messages.updateRealtimeCaption({ ...payload, item_id: "partial" });
     render().asr.updateState({ mic: { ...owner, state: "closed", requested: false } });
@@ -157,14 +165,18 @@ test("production realtime and message hooks preserve logs on polls and handle ca
     render().asr.updateState({ mic: { ...owner, generation: 5, namespace: "new" } });
     const newCaption = { ...payload, generation: 5, namespace: "new", item_id: "new" };
     render().messages.updateRealtimeCaption(newCaption);
-    const settings = { server: "bundled", model: "first", mic: {}, speaker: {} };
+    // Settings with only what the hook compares: the sources' fields are left out.
+    const settings = unchecked<RealtimeAsrSettings>({ server: "bundled", model: "first", mic: {}, speaker: {} });
     render().asr.updateSettings(settings);
     render().asr.updateSettings({ ...settings, model: "changed" });
-    assert.equal(render().asr.state.mic.state, "stopping");
+    assert.equal(render().asr.state.mic?.state, "stopping");
     assert.equal(logs().data.length, 1);
     // Even an equal poll must prune a partial added since the last state update.
-    runtime.store.set(Atom_MessageLogs, { ...logs(), data: [...logs().data, { id: "stale", realtime: { ...newCaption } }] });
+    // A row with only what pruning reads of it.
+    const stale = unchecked<MessageLogRow>({ id: "stale", realtime: { ...newCaption } });
+    runtime.store.set(Atom_MessageLogs, { ...logs(), data: [...logs().data, stale] });
     const invalidated = render().asr.state;
+    assert.ok(invalidated.mic);
     render().asr.updateState({ mic: { ...invalidated.mic } });
     assert.equal(render().asr.state, invalidated);
     assert.equal(logs().data.length, 1);
@@ -174,19 +186,20 @@ test("production realtime and message hooks preserve logs on polls and handle ca
     render().messages.updateRealtimeCaption({ ...payload, generation: 6, namespace: "restart", item_id: "partial" });
     render().asr.backendStopped();
     assert.deepEqual(logs().data.map(row => row.status), ["not_sent", "failed"]);
-    assert.equal(logs().data[1].realtime.reason, "backend_unavailable");
+    assert.equal(logs().data[1].realtime?.reason, "backend_unavailable");
     const lostLogs = logs();
     render().messages.updateRealtimeCaption({ ...payload, generation: 6, namespace: "restart", revision: 3, state: "outcome", outcome: "delivered" });
     assert.equal(logs(), lostLogs);
     unsubscribe();
 });
 
-const empty = () => ({ rows: [], retired: [] });
+const empty = (): RealtimeCaptionLog => ({ rows: [], retired: [] });
 
 test("a caption with a malformed identity is ignored; the limits themselves are accepted", () => {
     const start = empty();
-    const ok = changes => captions.applyRealtimeCaption(start, { ...payload, ...changes },
-        { mic: { ...owner, namespace: changes.namespace ?? owner.namespace, generation: changes.generation ?? owner.generation } });
+    // Captions with a malformed identity on purpose, and the session each would belong to.
+    const ok = (changes: Record<string, unknown>) => captions.applyRealtimeCaption(start, unchecked<RealtimeCaptionPayload>({ ...payload, ...changes }),
+        unchecked<RealtimeSessions>({ mic: { ...owner, namespace: changes.namespace ?? owner.namespace, generation: changes.generation ?? owner.generation } }));
     for (const changes of [{ namespace: "n".repeat(129) }, { item_id: "i".repeat(257) }, { namespace: 5 }, { item_id: 5 },
         { namespace: "" }, { item_id: "" }, { revision: 0 }, { revision: 1.5 }, { generation: -1 }, { source: "game" }, { state: "done" }]) {
         assert.equal(ok(changes), start, JSON.stringify(changes));
@@ -218,7 +231,7 @@ test("a blank or discarded caption removes its row, and that caption never comes
     const shown = captions.applyRealtimeCaption(empty(), payload, active);
     const other = captions.applyRealtimeCaption(shown, { ...payload, item_id: "two" }, active);
     const blank = captions.applyRealtimeCaption(other, { ...payload, revision: 2, text: "  " }, active);
-    assert.deepEqual(blank.rows.map(row => row.realtime.item_id), ["two"]);
+    assert.deepEqual(blank.rows.map(row => row.realtime?.item_id), ["two"]);
     const discarded = captions.applyRealtimeCaption(blank, { ...payload, item_id: "two", revision: 2, state: "discarded" }, active);
     assert.deepEqual(discarded.rows, []);
     assert.deepEqual(discarded.retired, [shown.rows[0].id, other.rows[1].id]);
@@ -245,11 +258,11 @@ test("a caption only moves forward: newer revisions, then final, then translated
     }
     const final = captions.applyRealtimeCaption(partial, { ...payload, revision: 3, state: "final", text: "hello there" }, active);
     assert.equal(final.rows[0].messages.original.message, "hello there");
-    for (const state of ["partial", "final"]) {
+    for (const state of ["partial", "final"] as const) {
         assert.equal(captions.applyRealtimeCaption(final, { ...payload, revision: 4, state }, active), final, state);
     }
     const translated = captions.applyRealtimeCaption(final, { ...payload, revision: 4, state: "translated", text: "hello there" }, active);
-    assert.equal(translated.rows[0].realtime.state, "translated");
+    assert.equal(translated.rows[0].realtime?.state, "translated");
     assert.equal(captions.applyRealtimeCaption(translated, { ...payload, revision: 5, state: "translated" }, active), translated);
     // A recognized row that was settled before its translation stays settled.
     const settled = captions.applyRealtimeCaption(final, { ...payload, state: "outcome", revision: 4, outcome: "delivered" }, {});
@@ -261,17 +274,17 @@ test("settling one caption keeps the other rows", () => {
     const first = captions.applyRealtimeCaption(empty(), { ...payload, state: "final" }, active);
     const both = captions.applyRealtimeCaption(first, { ...payload, item_id: "two" }, active);
     const settled = captions.applyRealtimeCaption(both, { ...payload, state: "outcome", revision: 2, outcome: "failed" }, active);
-    assert.deepEqual(settled.rows.map(row => [row.realtime.item_id, row.status]), [["one", "failed"], ["two", "pending"]]);
+    assert.deepEqual(settled.rows.map(row => [row.realtime?.item_id, row.status]), [["one", "failed"], ["two", "pending"]]);
 });
 
 test("session states: both sources update together, negative generations are refused, and starting replaces any state but ready", () => {
     const state = { mic: owner, speaker: { ...owner, namespace: "speaker" } };
     const both = captions.mergeRealtimeState(state, { mic: { ...owner, generation: 5 }, speaker: { ...owner, generation: 6 } });
-    assert.deepEqual([both.mic.generation, both.speaker.generation], [5, 6]);
+    assert.deepEqual([both.mic?.generation, both.speaker?.generation], [5, 6]);
     assert.equal(captions.mergeRealtimeState(state, { mic: { ...owner, generation: -1 } }), state);
     const none = {};
     assert.equal(captions.mergeRealtimeState(none, { mic: { ...owner, generation: -1 } }), none, "even with no session yet");
-    assert.equal(captions.mergeRealtimeState({}, { mic: { ...owner, generation: 0 } }).mic.generation, 0);
+    assert.equal(captions.mergeRealtimeState({}, { mic: { ...owner, generation: 0 } }).mic?.generation, 0);
     const connecting = { mic: { ...owner, state: "connecting" } };
-    assert.equal(captions.mergeRealtimeState(connecting, { mic: { ...owner, state: "starting" } }).mic.state, "starting");
+    assert.equal(captions.mergeRealtimeState(connecting, { mic: { ...owner, state: "starting" } }).mic?.state, "starting");
 });

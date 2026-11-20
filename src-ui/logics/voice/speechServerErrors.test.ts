@@ -4,9 +4,10 @@ import { test } from "vitest";
 import yaml from "js-yaml";
 
 // Codes the servers report as a notice, not a failure (native/speech-server/src/lib.rs).
-const NOTICES = { speech_server_cpu_fallback: true };
+const NOTICES: Record<string, boolean> = { speech_server_cpu_fallback: true };
 
-const read = path => readFileSync(new URL(path, import.meta.url), "utf8");
+const read = (path: string) => readFileSync(new URL(path, import.meta.url), "utf8");
+const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null;
 
 // The codes the bundled speech servers can report (native/speech-server/src/lib.rs, mod codes) and
 // those the core's start and stop add (native/core/src/controller/speech.rs), plus the UI's own.
@@ -21,18 +22,30 @@ const serverCodes = () => {
     return codes;
 };
 
+// The speech server section of a locale file. A file without one fails here, as reading
+// its errors would have.
+const speechServers = (language: string) => {
+    const tree = yaml.load(read(`../../../locales/${language}.yml`));
+    const section = isRecord(tree) ? tree.speech_servers : undefined;
+    assert.ok(isRecord(section), `${language}: speech_servers`);
+    const { errors, notices = {} } = section;
+    assert.ok(isRecord(errors) && isRecord(notices), `${language}: speech_servers.errors and notices`);
+    return { errors, notices };
+};
+
 // The server page shared by speech recognition and TTS falls back to voice_ui.errors, whose
 // texts send the user to the TTS switch. A server code must have its own text here.
 test("every speech server code has its own text on the server page in English and Japanese", () => {
     const codes = serverCodes();
     assert.ok(codes.size > 15, `found ${codes.size} codes`);
     for (const language of ["en", "ja"]) {
-        const { errors, notices = {} } = yaml.load(read(`../../../locales/${language}.yml`)).speech_servers;
+        const { errors, notices } = speechServers(language);
         for (const code of codes) {
             // A notice (the CPU fallback) is shown from speech_servers.notices, not as an error.
             const text = code in NOTICES ? notices[code] : errors[code];
             const section = code in NOTICES ? "notices" : "errors";
             assert.equal(typeof text, "string", `${language}: speech_servers.${section}.${code}`);
+            assert.ok(typeof text === "string");
             assert.doesNotMatch(text, /TTS/, `${language}: ${code} names TTS`);
         }
     }
