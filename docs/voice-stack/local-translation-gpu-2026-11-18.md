@@ -111,6 +111,8 @@ CPU で動いたのは形の計算だけで、量子化の演算（`MatMulIntege
 
 2026-11-15 の比較では、NLLB 3.3B の int8 は英語へ訳す 4 方向で CTranslate2 より BLEU が 1.12〜1.90 低く、回帰がないとまでは言えませんでした（`tools/translation_onnx/README.md`）。今回は確かめていません。元のモデルの取得（17 GB を超える）と書き出し（50 GB を超えるメモリー）が要るためです。確かめるときは、`compare.py --directions de-en,ja-en,ru-en,zh-en` で文の数を各方向 200 に増やすか、量子化の方式（チャネルごとの量子化など）を変えたフォルダと比べます。
 
+2026-11-20 の追記: 英語と日本語の間の 2 方向を、WMT20 の全文で確かめました。ONNX 版と CTranslate2 版の BLEU の差は、英→日が −0.06、日→英が −0.09 で、どちらも 95% 区間が 0 をまたぎました。独→英、露→英、中→英は確かめていません。判断 77 はこれで閉じました（[core-integration.md](core-integration.md) の 77）。結果は `tools/translation_onnx/README.md` の「英語と日本語の確認（2026-11-20）」にあります。
+
 ### 差し替えの検討
 
 候補のライセンスは [licensing.md](licensing.md) にまとめました。どれも ONNX Runtime の上で動かす前提で、ADR-012 の 2.5 のとおり、音声 AI の例外の手続きの対象にはなりません。今の `native/translate-onnx` がそのまま動かせるのは M2M100 と NLLB の形だけです。
