@@ -2,7 +2,7 @@
 
 アプリの部品を shadcn/ui の部品と照らし合わせ、差分を一覧にした文書です。DESIGN.md の「Components」の節にある、部品を shadcn/ui に寄せる方針（#680）を進めるための下調べです。棚卸しの時点では、部品のコードを変えていませんでした。その後に寄せた差は、表の「扱い」の列に PR の番号を添えて「寄せた」と書いています。
 
-- 状態: 棚卸し（2026-11-19）。寄せる作業は、判断の要らない差と、下の判断項目が決まった差から、段階的に PR にします。段 1（kit）は #684、段 2 のうち Select と入力欄は #691、ボタンは #694、検索欄は #695、チェックボックスとスライダーは #697、ツールチップは #721 で寄せました。
+- 状態: 棚卸し（2026-11-19）。寄せる作業は、判断の要らない差と、下の判断項目が決まった差から、段階的に PR にします。段 1（kit）は #684、段 2 のうち Select と入力欄は #691、ボタンは #694、検索欄は #695、チェックボックスとスライダーは #697、ツールチップは #721、Dialog のパーツは kit に #775 で寄せました。
 - 照合した shadcn/ui: [shadcn-ui/ui](https://github.com/shadcn-ui/ui) の `apps/v4/registry/new-york-v4/ui/`（`main` のコミット `968d8cb9dc`、2026-11-17）。MIT ライセンスです。どのスタイルに寄せるかは D-01 で決めます。
 - 照合したアプリ: develop（#676 と #677 のマージ後）
 - 関係する文書: [設定画面の部品の実験](README.md)（#452、`src-ui/views/kit/`）、[ADR-010](../../adr/adr-010-frontend-stack.md)
@@ -62,7 +62,7 @@ shadcn/ui は `input` を枠にも、薄めた塗りにも使います。アプ�
 |---|---|---|---|
 | ファイル | kit は部品ごとに `Name.tsx` と `Name.css.ts`。ほかは `Name.jsx` と `Name.module.scss` | 1つの部品を1つの `.tsx` に書く | 残す（vanilla-extract のスタイルは `.css.ts` に置く）。`.tsx` と `.css.ts` の組にそろえる |
 | パーツ | ダイアログやカードはパーツに分けず、使う側がマークアップを書く | `DialogHeader`、`DialogTitle` のように、パーツを名前付きで export する | 寄せる。新しく作るときと置き換えるときにパーツに分ける |
-| `data-slot` | kit の部品（#684、#691）、`_Entry` の入力欄（#691）、設定の検索の InputGroup のパーツと言語の一覧の検索欄、Empty（#695）、ツールチップの `tooltip-trigger` と `tooltip-content`（#721）。ほかはなし | すべてのパーツに付ける | 寄せる |
+| `data-slot` | kit の部品（#684、#691）、`_Entry` の入力欄（#691）、設定の検索の InputGroup のパーツと言語の一覧の検索欄、Empty（#695）、ツールチップの `tooltip-trigger` と `tooltip-content`（#721）、kit の Dialog のパーツ（#775）。ほかはなし | すべてのパーツに付ける | 寄せる |
 | variant | kit は `recipe()`（`button` の `tone` と `size`、`field` の `kind` と `mono`、`row` の `layout`） | `cva()`。`buttonVariants` のように部品の隣で export する | recipe は既にある。export の名前と variant の名前は、部品ごとの判断（ボタンは D-10）で決める |
 | ref | kit は `forwardRef` | React 19 の `ref` の props | 残す（React 18） |
 | Radix | `@radix-ui/react-switch` と `@radix-ui/react-visually-hidden` だけ | 多くの部品が Radix（統合パッケージの `radix-ui`） | パッケージは個別のまま（DESIGN.md）。どの部品を Radix にするかは、下の部品ごとの判断で決める |
@@ -207,7 +207,7 @@ VR パネルは px の段で描く別の画面（DESIGN.md「Typography」）な
 | 観点 | ASTAROT | shadcn/ui | 扱い |
 |---|---|---|---|
 | 土台 | ネイティブの `<dialog>` | Radix Dialog と AlertDialog（Portal、Overlay、Content、Header、Footer、Title、Description、Close） | 判断（D-23）。ネイティブの `<dialog>` は Baseline で、フォーカスの閉じ込めと Esc を持つ。Radix Dialog はスクロールを止めるために `<style>` を差し込む見込みがあり、入れる前に CSP への影響を確かめる |
-| パーツ | なし（ダイアログごとに書く） | Header、Footer、Title、Description | 寄せる。ネイティブの `<dialog>` のままでもパーツの部品は作れる |
+| パーツ | 画面のダイアログは、ダイアログごとに書く（初期設定のダイアログ（#759）だけが、パーツの `data-slot` を持つ）。kit に `Dialog`（DialogContent に当たる）、`DialogHeader`、`DialogFooter`、`DialogTitle`、`DialogDescription` を、ネイティブの `<dialog>` の上に作った（#775） | Header、Footer、Title、Description | 寄せる。kit には作った（#775）。画面のダイアログをこの部品に置き換えるのは、次にダイアログを作り直すとき（#764 の決定 3）。細部は D-43 |
 | 幅、余白、間 | `min(51.2rem, 100vw − 2.4rem)`、余白 2.4rem、部品の間 1.6rem。同意と確認のダイアログでは、見出しと本文の段落が1つの部品で、その中の段落の間は .8rem | `max-w-[calc(100%-2rem)]`、`sm:max-w-lg`（51.2rem）、余白 `p-6`（2.4rem）、間 `gap-4`（1.6rem） | 一致（寄せた。一覧の 9） |
 | 角丸 | 12px（DESIGN.md の `rounded.dialog`） | `rounded-lg`（10px） | D-04 |
 | 地、枠、影 | `dark_875` の地、`dark_600` の `.1rem` の枠、影なし | `background` の地、`border`、`shadow-lg` | 判断（D-05、D-02）。ダイアログの地 `dark_875` は、DESIGN.md の 3:1 の基準に入っている |
@@ -378,6 +378,7 @@ VR パネルは px の段で描く別の画面（DESIGN.md「Typography」）な
 | D-40 | 設定の検索欄の中身を InputGroup に寄せるか。虫眼鏡のアイコンは 1.5rem で `size-4`（1.6rem）より小さく、左の余白は .8rem で `pl-3`（1.2rem）より狭く、文字は 1.3rem で入力欄の 1.4rem より小さい。広いウィンドウの検索欄は設定のレールの幅（20.8rem）から左右の余白を引いた 17.6rem で、文字を大きくすると入る文字が減る | Combobox、InputGroup |
 | D-41 | しきい値の部品（音量のメーターに重ねた細いつまみ）を Slider に寄せるか、メーターと一体のアプリだけの部品として照合の外にするか。寄せるなら、つまみの形（幅 .4rem、高さ 4rem）とメーターの色をどう扱うかも決める | Slider |
 | D-42 | ツールチップの文字の細部を寄せるか。アプリは 500 の太さで行の高さ 1.6、shadcn/ui は太さの指定がなく（400）、`text-xs` の行の高さは 1.33 で、`text-balance` で行の長さを釣り合わせる。`Hint` は複数行の説明を出すので、行の高さは DESIGN.md の説明の 1.6 にそろえた | Tooltip |
+| D-43 | kit の Dialog のパーツの細部を、shadcn/ui と画面のダイアログのどちらに合わせるか。kit では次のようにした。DialogHeader の文字は狭い幅でも左に寄せる（shadcn/ui は幅 640px 未満で中央）。DialogTitle の行の高さは 1.4（shadcn/ui は `leading-none`）で、見出しは `h2`（Radix と同じ。画面のダイアログは `h3`）。DialogDescription は説明の文字の色（`muted-foreground` に当たる `--vox_description_text`。初期設定のダイアログは `--vox_secondary_text`）。幅はウィンドウより 3.2rem 狭いところまで（shadcn/ui の `calc(100%-2rem)`。画面の共通の枠は 2.4rem） | Dialog |
 
 ほかに、#680 の判断項目（寄せる先を本家の shadcn/ui にすること、ADR-010 の7章への注記、ライセンスの記録の範囲）と、設定画面の部品の実験の残課題 K-01（kit を本採用するか）が、この棚卸しに関係します。
 
@@ -422,6 +423,10 @@ kit の差で、表では「寄せる」にしていたのにこの一覧から�
 画面の差で、表では「寄せる」にしていたのにこの一覧から漏れていたもの:
 
 17. 設定の検索欄の塗りと枠を入力欄のトークン（`--vox_surface`、`--vox_field_border`）にし、InputGroup の `data-slot` を付ける。言語の一覧の検索欄に Input の `data-slot` を付ける（#695）。
+
+kit の差（Dialog の節。画面の 9 のうちパーツの部品を、先に kit に作る）:
+
+18. kit に Dialog のパーツ（Dialog、DialogHeader、DialogFooter、DialogTitle、DialogDescription）を作り、`data-slot` を付ける。見本のページに置く（#775。画面のダイアログの置き換えは #764 の決定 3 のとおり、次の作り直しのとき。細部は D-43）。
 
 ## 段階の案
 

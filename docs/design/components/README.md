@@ -15,6 +15,7 @@
 | `TextField` | 入力欄。値が正しくないときは `invalid` で赤い枠。住所やポートは `mono` で等幅 | ネイティブの `<input>` |
 | `Select` | 入力欄と同じ枠の選択欄。矢印は SVG。選択肢は `SelectOption` と `SelectOptGroup` で書く | ネイティブの `<select>`、`<option>`、`<optgroup>` |
 | `Switch` | オンとオフ。オンでは Lilac の溝に Dark Plum のつまみ | Radix UI の Switch |
+| `Dialog` と、そのパーツの `DialogHeader`、`DialogFooter`、`DialogTitle`、`DialogDescription` | モーダルのダイアログ。題名と説明がダイアログの名前と説明になる。開くかどうかは `open` と `onOpenChange` で持ち主が決める | ネイティブの `<dialog>`（`showModal()`） |
 | `SettingGroup` と `SettingRow` | 見出し付きのまとまりと、その中の 1 行 | — |
 
 見本のページを開くには、`npx vite` を実行してから `http://localhost:1420/kit-lab.html` を開きます。設定の文言は `locales/` の実際の文言を使っています。日本語と英語の切り替えと、狭いウィンドウでの見え方を確かめられます。
@@ -61,6 +62,7 @@ DESIGN.md の「Components」で、部品の設計、見た目、構造を shadc
 - `Select` は shadcn/ui の NativeSelect に当たります。シェブロンを 1.6rem にして右から 1.4rem に置き、使えないときは包む要素ごと薄くします。
 - ボタンの文字の太さを 500 に、使えない状態の不透明度を .5 にしました。
 - `Button` に、アイコンだけのボタンの `icon` の大きさ（4rem の正方形）を足しました。アイコンの付いたボタンは、左右の余白を regular で 1.2rem、compact で 1rem にします（#694）。
+- shadcn/ui の Dialog のパーツ（`Dialog`、`DialogHeader`、`DialogFooter`、`DialogTitle`、`DialogDescription`）を、ネイティブの `<dialog>` の上に作りました。幅、余白、部品の間、背景（50% の黒）は shadcn/ui、角丸、地、枠、影がないことはアプリのダイアログのままです。ボタンの並び（D-24）と細部（D-43）は棚卸しの判断項目にあります（#775）。
 
 コードはそのまま写さず、Tailwind のクラスを vanilla-extract に読み替えています。shadcn/ui（MIT）の表示は `NOTICE.md` とライセンス台帳に載せました。
 
