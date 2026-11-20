@@ -2,6 +2,7 @@
 // overlay window only draws the strings it is handed. Durations are always whole ms.
 import { formatMs, latestTraces, outputArrivals, stageSegments, timelineScale, traceTotal } from "./ioFlow.ts";
 import type { FlowInput, FlowOutputRow, IoFlow, Stage, Trace } from "./ioFlow.ts";
+import { isInteger } from "../common/numberGuards.ts";
 
 // i18next's t, as far as it is used here.
 export type Translate = (key: string, options?: Record<string, unknown>) => string;
@@ -73,8 +74,12 @@ export const offGroups = (outputs: readonly FlowOutputRow[] | null | undefined, 
     const groups = new Map<string | null | undefined, string[]>();
     for (const row of outputs ?? []) {
         if (row.on) continue;
-        if (!groups.has(row.reason)) groups.set(row.reason, []);
-        groups.get(row.reason)!.push(t(`io_flow.output.${row.id}`));
+        let names = groups.get(row.reason);
+        if (!names) {
+            names = [];
+            groups.set(row.reason, names);
+        }
+        names.push(t(`io_flow.output.${row.id}`));
     }
     return [...groups].map(([reason, names]) => ({ reason, outputs: names.join(t("io_flow.list_separator")),
         text: t(`io_flow.reason.${reason}`) }));
@@ -145,5 +150,7 @@ export const stripItems = (traces: Trace[] | null | undefined, count: number, t:
 }).map(item => ({ ...item, rows: item.rows.map(row => ({ ...row, end: Math.min(row.end, item.scale), start: Math.min(row.start, item.scale) })) }));
 
 // The live reading under the strip: the conversion's recent round trip, while it runs.
-export const flowNote = (flow: IoFlow | null | undefined, t: Translate): string => Number.isInteger(flow?.conversion_round_trip_ms)
-    ? oneLine(t("io_flow.conversion_live", { ms: flow!.conversion_round_trip_ms }), 120) : "";
+export const flowNote = (flow: IoFlow | null | undefined, t: Translate): string => {
+    const ms = flow?.conversion_round_trip_ms;
+    return isInteger(ms) ? oneLine(t("io_flow.conversion_live", { ms }), 120) : "";
+};
