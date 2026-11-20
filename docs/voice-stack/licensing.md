@@ -646,6 +646,15 @@ Pythonのバックエンド（`src-python/`）と、それだけが使ってい�
 - Seed-VCの統合（`integrations/seed_vc/`、GPL-3.0-onlyの表示のあるファイルを含む）を消した。0.4.xまでの配布物に入っていた分のソースの提供の約束は、上の節のとおり続く。
 - 翻訳の比較の道具（`tools/translation_onnx/compare.py`）が照らすCTranslate2のモデルの固定値は、`tools/translation_onnx/ctranslate2_pins.py`に移した。
 
+## 使われていない試験の依存を外した（2026-11-20、#810）
+
+`pyproject.toml`の`voice-test`のグループから、`tests/`、`tools/`、`utils/`のどこからもimportされていなかった4つを外した。開発の試験の依存で、配布物には入らないので、配布物とNOTICEは変わらない。
+
+- `audioop-lts` 0.2.2（PSF-2.0）。上の「開発に使うPythonを3.14にした」の節で足したもの。使っていたVADとSpeechRecognitionのフォークは、Pythonのバックエンドと一緒に消えた。
+- `soxr` 1.1.0（LGPL-2.1-or-later）、`websockets` 17.4（BSD-3-Clause）、`requests` 2.34.2（Apache-2.0）。
+- `requests`の間接の依存の`certifi`、`charset-normalizer`、`idna`、`urllib3`も`uv.lock`から外れた。
+- `tools/dev.py`の`doctor`が確かめるパッケージの一覧からも外した。
+
 ## 読みの解析器と辞書（2026-11-16）
 
 メッセージの読み（ひらがな・ローマ字）は、Pythonと同じくSudachiで解析する。中核は解析器にsudachi.rsを使い、辞書は`_internal/build/sudachi/system.dic`を読む。候補の比較は[中核の統合](core-integration.md)の「判断が要ること」の3にある。

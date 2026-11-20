@@ -299,9 +299,9 @@ def doctor(args, root, *, preflight=False):
         if not Path(python).is_file():
             row(scope, "missing", f"Python environment missing: {python}", remedy)
             continue
-        packages = {"voice": ["pytest", "requests", "PyYAML", "numpy", "soxr", "psutil", "pillow", "websockets", "tqdm", "python-osc", "openvr"],
+        packages = {"voice": ["pytest", "PyYAML", "numpy", "psutil", "pillow", "tqdm", "python-osc", "openvr"],
             "lint": ["ruff"],
-            "browser": ["pytest", "playwright", "python-osc", "requests"]}[scope]
+            "browser": ["pytest", "playwright", "python-osc"]}[scope]
         script = "import sys, importlib.metadata as m; print(sys.version); " + "; ".join(
             f"print({p!r}, m.version({p!r}))" for p in packages)
         if scope != "lint" and series:
