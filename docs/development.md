@@ -19,9 +19,9 @@ mise run check               # 軽量チェック
 | --- | --- |
 | `doctor` | `python tools/dev.py doctor` |
 | `check`、`check:all` | `python tools/dev.py check`（`quick`）、`--scope all` |
-| `check:voice`、`check:ui`、`check:rust`、`check:workflows` | `python tools/dev.py check --scope <名前>` |
+| `check:voice`、`check:ui`、`check:rust`、`check:integration`、`check:workflows` | `python tools/dev.py check --scope <名前>` |
 | `check:commits` | `python tools/dev.py check --scope commits --base origin/develop` |
-| `setup:headless`、`setup:ui`、`setup:browser`、`setup:rust`、`setup:resources` | `python tools/dev.py setup --scope <名前>` |
+| `setup:headless`、`setup:ui`、`setup:browser`、`setup:rust`、`setup:resources`、`setup:integration` | `python tools/dev.py setup --scope <名前>` |
 | `spec` | 機能仕様書の一覧を作り直す（`python tools/spec_catalog.py --write`） |
 | `adr` | ADR の索引の表を作り直す（`python tools/adr_catalog.py --write`） |
 | `build:voice-gate`、`build:rvc-worker` | 音声の補助プログラムとRVCのワーカーを `build/` にビルドする |
@@ -47,6 +47,7 @@ miseを[公式の手順](https://mise.jdx.dev/getting-started.html)で入れ、�
 | Python | 3.14.10 | ビルドの道具と試験に使う。`pyproject.toml` の `requires-python` には同じマイナー版（3.14）を書く。0.5.0から配布物にPythonは入らない |
 | uv | 0.13.5 | |
 | Cocogitto | 7.0.0 | コマンド名は `cog` |
+| Biome | 2.6.6 | UIのTypeScriptとJavaScriptのlintと整形（[UIのlintと整形](#uiのlintと整形biome)） |
 | actionlint | 1.7.12 | ワークフローの書き方を確かめる |
 | zizmor | 1.32.0 | ワークフローの安全の問題を確かめる |
 | cargo-deny | 0.20.2 | Rustのクレートのライセンス、既知の脆弱性、取得元を確かめる |
@@ -60,7 +61,7 @@ miseを[公式の手順](https://mise.jdx.dev/getting-started.html)で入れ、�
 
 版の正本は `mise.toml` です。上の表は説明のために写したもので、食い違ったら `mise.toml` が正しいです。`mise.lock` はRust以外のツールの取得元のURLとSHA-256を、LinuxとWindowsのそれぞれについて記録しています。版を変えるときは `mise.toml` を書き換え、`mise lock --platform linux-x64,windows-x64` で `mise.lock` を作り直します。CIはこの2つのファイルから同じ版を入れます（後述）。`tests/devtools/test_toolchain_pins.py` は、版が完全に固定されていること、`mise.lock` と一致すること、ワークフローがmiseの外で版を決めていないことを確かめます。
 
-道具の版は、公開から14日（2週間）以上たった最新の版から選びます。`mise.toml` の道具も、Biomeのようにnpmなどで入れる開発の道具も同じで、足すときも、版を上げるときも同じです。出たばかりの版が取り下げられたり、乗っ取られて差し替えられたりしたときに、巻き込まれないためです。この決まりは2026-11-20に #828 で決めたもので（元は #582）、2026-11-21に #832 で、ここに書きました。
+道具の版は、公開から14日（2週間）以上たった最新の版から選びます。`mise.toml` で固定する道具（Biomeを含む）も、npmなどで入れる開発の道具も同じで、足すときも、版を上げるときも同じです。出たばかりの版が取り下げられたり、乗っ取られて差し替えられたりしたときに、巻き込まれないためです。この決まりは2026-11-20に #828 で決めたもので（元は #582）、2026-11-21に #832 で、ここに書きました。
 
 uvはmise以外で入れたPython（uvが自分で取得したものを含む）を先に見つけることがあります。環境を作るタスク（`setup:*`）は `UV_PYTHON_PREFERENCE=only-system` を付けて、PATHにあるmiseのPythonを使わせます。uvのコマンドにはPythonの版を書きません（`--python 3.14` などを付けない）。uvは `pyproject.toml` の `requires-python` に合うPythonをPATHから選び、`tools/dev.py` は `mise.toml` の版を読みます。Pythonの版を上げるときに書き換えるのは、`mise.toml`、`mise.lock`、`pyproject.toml` の `requires-python`、`uv.lock` です。`tests/devtools/test_toolchain_pins.py` は、CI、タスク、bat、`tools/dev.py` がuvに版を渡していないことも確かめます。`mise.toml` の `[env]` にはuvの設定を置いていません。`[env]` の値はmiseが起動するすべてのプログラムに引き継がれるため、環境を作るタスクだけが自分で設定します。
 
@@ -101,6 +102,7 @@ Linuxのトレイ用ライブラリは `ayatana-appindicator3-0.1` または `ap
 | `browser` | `uv.lock` の `voice-ui-test` グループを `build/dev/browser-venv` に同期。既存venvへの追加も可 |
 | `rust` | `cargo fetch --locked` でCargo.lockに従う依存を取得（`src-tauri` と、`tools/dev.py` の `NATIVE_CRATES` にある `native/` のクレート。下の `check --scope rust` と同じ一覧） |
 | `resources` | `tools/app_resources.py stage --allow-missing` で `src-tauri/bin/_internal` を `build/` にあるもので作り直す |
+| `integration` | [結合テスト](#結合テストplaywright)の準備。`native/browser-core-bridge` の依存を `cargo fetch --locked` で取得し、Playwright の Chromium と WebKit を取得する（合わせて数百 MB）。先に `setup --scope ui` が要る。ブラウザが使う OS のライブラリは入れない |
 
 専用venvには所有マーカーを保存します。同じ場所にマーカーのない既存ディレクトリやシンボリックリンクがある場合は停止し、削除しません。Pythonのスコープはいずれも、`tools/check_python_lock.py`でロック全体のアーカイブのSHA-256とGit依存の完全なcommit SHAを検査します。続いて、`uv.lock` からハッシュと間接依存を含む一覧を `uv export` で `build/dev/<scope>-requirements.txt` に書き出し、専用venvへ `uv pip sync` で同期します。uvは一覧にあるハッシュを照合し、不一致なら停止します。Git依存にはアーカイブのハッシュを要求せず、固定commitを使います。`--python` で既存venvを指定した場合（`browser` のみ）は `uv pip install -r` で追加し、ほかのパッケージは削除しません。[uvの環境指定](https://docs.astral.sh/uv/pip/environments/)と[依存の固定・同期](https://docs.astral.sh/uv/pip/compile/)を参照してください。
 
@@ -143,6 +145,7 @@ python tools/dev.py check --scope node
 python tools/dev.py check --scope voice
 python tools/dev.py check --scope ui
 python tools/dev.py check --scope rust --dry-run
+python tools/dev.py check --scope integration
 ```
 
 | スコープ | 内容 |
@@ -151,11 +154,12 @@ python tools/dev.py check --scope rust --dry-run
 | `node` | `src-ui` 以下の `.test.js` / `.test.mjs` / `.test.ts` と `tools/i18n_gate` の試験を Vitest で実行（`vitest.config.js`）。`node_modules` の Vitest を Node で直接起動し、取得はしない。未導入なら `setup --scope ui` を案内して止まる。続けて[文言の検査](#uiの文言と翻訳の検査)（`tools/i18n_gate/check.mjs`）を実行する |
 | `lint` | `tools/dev.py` の `LINT_PATHS`（`tests/voice`、`tests/devtools`、音声・配布・開発の道具）をRuffで検査。自動修正なし。voice CIも同じスコープを実行する |
 | `voice` | `tests/voice/pytest.ini` を使ったモデルなしの契約試験と、`tests/platform`にある単体の試験3件 |
-| `ui` | UIの試験（Vitest）、型チェック（`npm run typecheck`）、`npm run vite-build`。ブラウザの操作は含まない |
+| `ui` | UIの試験（Vitest）、[Biome](#uiのlintと整形biome)のlintと整形の検査、型チェック（`npm run typecheck`）、`npm run vite-build`。ブラウザの操作は含まない |
 | `rust` | `src-tauri` の `cargo check --locked --offline` と、`native/app-identity`、`native/speech-server`、`native/ops`、`native/audio-routing`、`native/adapters`、`native/translation`、`native/transcription`、`native/openvr-client`、`native/onnx-runtime`、`native/vr-overlay`、`native/voice-conversion`、`native/translate-onnx`、`native/tts`、`native/core` の `cargo test --locked --offline`。キャッシュやOS依存（Linuxでは `libpipewire-0.3` の開発ファイルとlibclang。`src-tauri` も中核を通して使う）がなければ失敗 |
+| `integration` | [結合テスト](#結合テストplaywright)。`native/browser-core-bridge` を `cargo build --locked --offline` で組み、`tests/integration/vite.config.ts` で画面を組んでから、Playwright で Chromium と WebKit の試験を流す。ブラウザは取得しない。未導入なら `setup --scope integration` を案内して止まる |
 | `workflows` | ワークフローと自前のアクションを、actionlintとzizmorで検査（[リポジトリの検査](#リポジトリの検査)） |
 | `quick` | `tooling`、`node`、`lint`。既定値 |
-| `all` | 上記7対象。時間がかかるため統合時に明示実行 |
+| `all` | 上記8対象。時間がかかるため統合時に明示実行 |
 | `commits` | `--base` からHEADまでの新規コミット形式を検証 |
 
 Pythonは専用venvを優先し、次に既存の `.venv` を探します。`--python` があればその実行ファイルを使います。専用venvがない状態で `all` を実行しても、依存の不足を黙って省略しません。`doctor --scope all` で先に確認できます。
@@ -217,6 +221,45 @@ npm run test:coverage    # カバレッジ（build/coverage/ui に HTML と json
 - 既存の `.js` を `.ts` に移すときは、同じコミットで参照をすべて書き換えます。ビューのimport、試験の読み込み、Pythonの試験やツールが指すパスが対象です。
 - デザイントークンの値は `src-ui/views/app/_index_css/variables.css` が正本です。vanilla-extractからは `src-ui/views/theme/vars.css.ts` の `vars` で同じ変数を参照します。トークンを足したら両方に書きます（`vars.test.ts` が食い違いを検出します）。
 - Radix UIは振る舞いとアクセシビリティに使い、見た目はvanilla-extractで付けます。Radixの部品を足すときは、実行時に `<style>` 要素を差し込むかどうかを確かめます。CSPは差し込まれるスタイルをハッシュで許可していて、`contentSecurityPolicy.test.ts` がその数を数えています。
+
+### UIのlintと整形（Biome）
+
+UIのTypeScriptとJavaScriptは [Biome](https://biomejs.dev/) でlintと整形を行います。版は `mise.toml` で固定していて（`mise install` で入ります）、設定は `biome.json` です。`check --scope ui` が `biome lint` と `biome format` を実行します。どちらも検査だけで、ファイルを書き換えません。
+
+```sh
+biome lint                     # lint（対象は biome.json の files.includes）
+biome format                   # 整形の検査（対象は formatter.includes）
+biome format --write <ファイル>  # 整形する
+biome lint --write <ファイル>    # 安全な自動修正だけを当てる
+```
+
+- 対象は `src-ui` の `.ts` と `.tsx`、`locales` の `.ts`、`tools/` の `.mjs`、リポジトリ直下の `.js` と `.mjs` です。`site/` は別の道具で扱うので含めません。
+- lintは推奨のルール（`preset: "recommended"`）を使います。導入の時点で違反のあったルールは `biome.json` で警告（`warn`）にしてあり、`check` を止めません。違反のなかったルールはエラーのままなので、新しく増えると止まります。
+- Playwright の領域のルール（`domains.playwright`）は切ってあります。Biome は `@playwright/test` の依存を見て自動で有効にしますが、Playwright の試験（`tests/integration/`）は対象の外で、対象の中では `describe` という名前の関数を誤って指摘するためです。
+- 整形を当てるのは、いまは `formatter.includes` のファイル（リポジトリ直下の設定ファイルと `tools/` の `.mjs`）だけです。`src-ui` と `locales` は整形していません。
+- 字下げと改行は `.editorconfig` に従います（`useEditorconfig`）。1行の長さは120字です。
+- ルールをその場所だけ外すときは、理由を添えて `// biome-ignore lint/<グループ>/<ルール>: <理由>` と書きます。ESLintのコメント（`eslint-disable`）は効きません。
+- 前に置いていた `.eslintrc.json` と ESLint の依存は外しました。`check` から呼ばれておらず、検査には使われていませんでした。
+
+### 結合テスト（Playwright）
+
+画面を操作して、中核と Rust のクレートを通り、外への出口と画面の結果までを 1 本で確かめる試験です（[ADR-017](adr/adr-017-integration-tests-through-the-core.md)）。試験は `tests/integration/` にあり、Playwright で Chromium と WebKit の両方で流します。CI では `voice-tests.yml` の `integration` のジョブが、すべての PR で Linux と Windows で流します。配布物の形で殻と OS を通す試験（`tests/platform`、`tools/native_acceptance.py`）は E2E と呼び、ここには含めません。
+
+```sh
+python tools/dev.py setup --scope ui
+python tools/dev.py setup --scope integration    # ホストの依存と Chromium、WebKit を取得する
+python tools/dev.py check --scope integration    # ホストと画面を組んで、両方のブラウザで流す
+# 組んだあと、ブラウザやファイルを絞って流す
+node node_modules/@playwright/test/cli.js test --config tests/integration/playwright.config.ts --project chromium translationCatalog.spec.ts
+```
+
+- **画面**：`tests/integration/app/` は、アプリの本物の入り口（`src-ui/views/app/index.tsx`）を読み込むページです。読み込む前に Tauri の公式の偽物（`@tauri-apps/api/mocks` の `mockIPC`）を入れます。中核とのやり取り（`backend_start`、`backend_write`、`backend_kill`）だけを WebSocket で中核のホストへ流し、ほかの Tauri の呼び出しには `tauriStandIns.ts` の偽物が答えます。アプリのコードに試験用の分岐はありません。
+- **中核のホスト**：`native/browser-core-bridge` は、中核を `native/core/tests/common` と同じ偽物の `Services`（音声の機器、読み上げの出力、OSC、録音、メモリーの鍵の保存先）で起動し、WebSocket で画面とつなぎます。試験ごとに、自分の設定のフォルダーとポートで 1 つ起動します。
+- **外のサービス**：翻訳の API、読み上げのサーバー、OSC の受け手は `standIns.ts` の偽物が受け、届いたものを試験が確かめます。設定のフォルダーのファイル（`config.json`、`translation_catalog.json`、ログ）も試験から読めます（`fixtures.ts`）。
+- **アプリが新しい Tauri のコマンドを呼ぶようにしたら**、`tauriStandIns.ts` に答えを足します。答えのない呼び出しは記録され、試験はそこで失敗します。
+- **試験の終わり**に、ページのエラーがないことと、答えのない Tauri の呼び出しがないことを確かめます。
+- **Linux の WebKit**：Playwright の WebKit は Ubuntu 向けに組まれていて、Ubuntu 以外では OS のライブラリが足りずに起動しないことがあります。Ubuntu では `node node_modules/@playwright/test/cli.js install-deps chromium webkit` で入ります。手元で WebKit を流せないときは、Chromium だけを流し、WebKit は CI で確かめます。
+- 結果は `build/integration/results`（失敗した試験の画面写真とトレース）にあります。
 
 ### UIのミューテーションテスト
 
@@ -290,7 +333,7 @@ Pythonのバックエンドの偽のSteamVR（`src-python/test/fake_openvr.py`�
 
 ## EditorConfigとコミット形式
 
-`.editorconfig` はUTF-8、LF、末尾改行を指定します。基本の字下げは空白4個、JSON/YAML/TOML/HTML/CSS/SCSSは2個です。Markdownの末尾空白、patch/diffの空白と末尾改行は意味があるため、一律削除を避けています。適用はエディターで今後編集するファイルが対象です。既存ファイルを一括整形するコマンドは追加していません。[EditorConfigの設定仕様](https://editorconfig.org/)に対応するエディターまたは拡張機能を使います。
+`.editorconfig` はUTF-8、LF、末尾改行を指定します。基本の字下げは空白4個、JSON/YAML/TOML/HTML/CSS/SCSSは2個です。Markdownの末尾空白、patch/diffの空白と末尾改行は意味があるため、一律削除を避けています。適用はエディターで今後編集するファイルが対象です。UIのTypeScriptとJavaScriptは、Biomeが同じ設定で整形します（[UIのlintと整形](#uiのlintと整形biome)）。それ以外の既存ファイルを一括整形するコマンドは追加していません。[EditorConfigの設定仕様](https://editorconfig.org/)に対応するエディターまたは拡張機能を使います。
 
 CocogittoはConventional Commitsを扱うツールで、コマンド名が `cog` です。例えば `feat(dev): add developer checks` は機能追加、`fix(tts): preserve cancellation state` は不具合修正を表します。形式は[Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.0/)に従います。
 
@@ -329,6 +372,7 @@ python tools/dev.py check --scope tooling
 python tools/dev.py check --scope voice --python .venv/bin/python
 python tools/dev.py check --scope lint --python .venv/bin/python
 python tools/dev.py check --scope ui
+python tools/dev.py check --scope integration
 python tools/dev.py check --scope commits --base origin/develop
 ```
 

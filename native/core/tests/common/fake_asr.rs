@@ -149,6 +149,9 @@ impl FakeAsr {
 
     fn handle(&self, mut stream: TcpStream) {
         stream.set_read_timeout(Some(Duration::from_secs(10))).unwrap();
+        // As speech.cpp's own server does: without it, a final's second and third event wait for
+        // the app's next acknowledgement (Nagle), about 20 ms on Linux (#556, #738).
+        stream.set_nodelay(true).unwrap();
         // Peek the head first: the Realtime path is handed to the WebSocket whole.
         let mut peeked = [0u8; 4096];
         let Ok(size) = stream.peek(&mut peeked) else { return };

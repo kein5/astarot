@@ -14,6 +14,20 @@ test("blocked config loading shows the persistent load-failure notice", async ()
         options: { hide_duration: null, category_id: "config_save_failed" } }]);
 });
 
+test("the dictionary written out, or not, is said by the button that asked, not by a notice", async () => {
+    const s = await loadBridgeRoutes();
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+        s.receiveRoutes({ endpoint: "/run/export_vocabulary", status: 200, result: { file: "vocabulary-20261120-153000.txt" } });
+        s.receiveRoutes({ endpoint: "/run/export_vocabulary", status: 500, result: "Internal error" });
+        s.receiveRoutes({ endpoint: "/run/export_vocabulary", status: 400, result: { error_code: "realtime_vocabulary_invalid" } });
+        assert.deepEqual(s.notices, []);
+        assert.deepEqual(error.mock.calls, [], "the reply has a route");
+    } finally {
+        error.mockRestore();
+    }
+});
+
 test("skipped speech warns when the backend count rises, not for earlier counts", async () => {
     const s = await loadBridgeRoutes();
     const status = (expired: number) => s.receiveRoutes({ endpoint: "/get/data/voice_status", status: 200, result: { expired } });
@@ -28,6 +42,14 @@ test("skipped speech warns when the backend count rises, not for earlier counts"
     assert.equal(s.notices.length, 1);
     status(1);
     assert.equal(s.notices.length, 2);
+});
+
+test("saved speech settings ask for the TTS generation the save started, and a refused save does not", async () => {
+    const s = await loadBridgeRoutes();
+    s.receiveRoutes({ endpoint: "/set/data/voice_settings", status: 400, result: { error_code: "VOICE_SETTINGS_INVALID" } });
+    assert.deepEqual(s.reads, []);
+    s.receiveRoutes({ endpoint: "/set/data/voice_settings", status: 200, result: { mode: "original" } });
+    assert.deepEqual(s.reads, ["/get/data/voice_status"]);
 });
 
 test("failed required initialization maps and scalars retain renderable defaults and warn", async context => {

@@ -60,12 +60,13 @@ WindowsのNSISテンプレートは上記のレジストリキーから前回の
 | Humots | `native/ocr-runtime` | チャット欄の読み取りと、VRChatの画面の取得 |
 | Nebiros | `native/ops` | 実行状態の監督。バックエンドの見張り（watchdog）と利用状況の通知。モデルの取得もここにある |
 | Nuberus | `native/vr-overlay` | SteamVRのオーバーレイ（字幕のログ、VRパネル、ランチャー） |
+| Aglasis | `native/browser-core-bridge` | **試験のホスト**。結合テスト（`tests/integration/`、ADR-017）で、ブラウザに出した画面と中核をつなぐ。試験の道具で、アプリと配布物には入らない。アプリの中の配送（Scirlinの候補）とは別のもの |
 
-コードネームは、各クレートの`Cargo.toml`の`description`と、`lib.rs`の冒頭にも書いてあります。パッケージ名（`vrct-core`など）とフォルダーの名前はまだ変えていません。パッケージ名はコードの中だけの名前として、ADR-014のPR 12で、どのクレートも`astarot-`で始まる名前（`astarot-core`など）にします。コードネームはパッケージ名にせず、文書と説明だけに使います（[#797](https://github.com/kein5/astarot/pull/797)の決定）。フォルダーの名前は変えません。
+コードネームは、各クレートの`Cargo.toml`の`description`と、`lib.rs`の冒頭（実行ファイルだけのクレートは`main.rs`の冒頭）にも書いてあります。パッケージ名（`vrct-core`など）とフォルダーの名前はまだ変えていません。パッケージ名はコードの中だけの名前として、ADR-014のPR 12で、どのクレートも`astarot-`で始まる名前（`astarot-core`など）にします。コードネームはパッケージ名にせず、文書と説明だけに使います（[#797](https://github.com/kein5/astarot/pull/797)の決定）。フォルダーの名前は変えません。
 
 次の名前は、まだ付けていません。
 
-- **条件を待つ候補**: Scirlin（IPCとイベントの配送。汎用の配送とVRChatのOSCに固有の部分を分けられたら）、Morail（ログ、テレメトリ、診断の情報の秘匿化。秘匿化が独立した責務になったら）。いまは、汎用の配送（UIとの要求の受け渡しは`native/core`、WebSocketのサーバーは`native/adapters`）とVRChatのOSC（`native/adapters`）が1つの境界にまとまっておらず、秘匿化は`native/core`の`log.rs`の中にある。
+- **条件を待つ候補**: Scirlin（IPCとイベントの配送。汎用の配送とVRChatのOSCに固有の部分を分けられたら）、Morail（ログ、テレメトリ、診断の情報の秘匿化。秘匿化が独立した責務になったら）。いまは、汎用の配送（UIとの要求の受け渡しは`native/core`、WebSocketのサーバーは`native/adapters`）とVRChatのOSC（`native/adapters`）が1つの境界にまとまっておらず、秘匿化は`native/core`の`log.rs`の中にある。Scirlinが受け持つのはアプリの中の配送で、試験のホストのAglasisとは重ならない。
 - **予約**: Surgat（権限の仲介）、Frucissiere（状態の復元と障害からの回復）。
 - **予備**: Valefar、Glasyabolas。担当は決めていない。
 - **名前のないクレート**: `app-identity`、`audio-routing`、`adapters`、`openvr-client`、`onnx-runtime`、`translate-onnx`、`voice-conversion`、`rvc-runtime`と、Cの補助プログラム。すべてのクレートに名前を付けるわけではない。

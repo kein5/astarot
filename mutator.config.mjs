@@ -9,10 +9,7 @@
 export default {
     runner: "vitest",
     vitestConfig: "vitest.mutator.config.js",
-    include: [
-        "src-ui/logics/**/*.ts",
-        "src-ui/views/vr/vrPanelHover.ts",
-    ],
+    include: ["src-ui/logics/**/*.ts", "src-ui/views/vr/vrPanelHover.ts"],
     exclude: [
         "src-ui/**/*.test.*",
         "src-ui/**/*.d.ts",
