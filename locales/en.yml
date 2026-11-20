@@ -2373,7 +2373,6 @@ studio:
     toggle_sidebar: "Toggle sidebar"
     close_sidebar: "Close the sidebar"
     empty_title: "Your conversation starts here"
-    empty_description: "Type a message below. Control translation, transcription and voice from the sidebar."
     empty_vrchat_hint: "If nothing appears in VRChat, open VRChat's Action Menu and set Options → OSC to Enabled."
     setup_label: "Before you start"
     setup_translation: "Translation needs its model downloaded first."

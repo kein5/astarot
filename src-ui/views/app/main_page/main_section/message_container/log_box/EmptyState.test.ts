@@ -5,11 +5,13 @@ import type { ReactNode } from "react";
 import { hooks, loadModule, find, unchecked, fieldOf } from "../../../../../../logics/test/hookHarness.ts";
 import type { TreeNode } from "../../../../../../logics/test/hookHarness.ts";
 import * as needsLogic from "../../../../../../logics/main/setupNeeds.ts";
+import { localeAt, readLocale } from "../../../../../../logics/test/locales.ts";
 
 type EmptyStateModule = typeof import("./EmptyState.tsx");
 interface EmptySetup {
     needs?: unknown[];
-    sends?: boolean | null;
+    // Whether the main window hands its line about VRChat down (MainPage does; the VR panel does not).
+    hint?: boolean;
     vr?: boolean;
     startup?: ReactNode;
     settings?: Record<string, unknown>;
@@ -30,23 +32,27 @@ const draw = (node: unknown): unknown => {
 const texts = (node: unknown): string[] => !node || typeof node !== "object" ? (typeof node === "string" ? [node] : [])
     : Array.isArray(node) ? node.flatMap(texts) : texts(propOf(node, "children"));
 
-async function setup({ needs = [], sends = true, vr = false, startup = null, settings = {}, recognition = "ready" }: EmptySetup = {}) {
-    const runtime = hooks(), started: string[] = [];
+// The main window's line about VRChat, as a part that draws one line (VrchatOscHint decides when).
+const VrchatLine = ({ className }: { className?: string }) => createElement("p", { className }, "the line about VRChat");
+
+async function setup({ needs = [], hint = true, vr = false, startup = null, settings = {}, recognition = "ready" }: EmptySetup = {}) {
+    const runtime = hooks(), started: string[] = [], read: string[] = [];
     const { EmptyState } = await loadModule<EmptyStateModule>(new URL("./EmptyState.tsx", import.meta.url), runtime, {
         "@store": { store: { is_vr_panel: vr } },
-        "@logics_configs": { useSettingValue: (name: string) => settings[name] ?? ({ data: name === "EnableSendMessageToVrc" ? sends : undefined }) },
+        "@logics_configs": { useSettingValue: (name: string) => { read.push(name); return settings[name] ?? { data: undefined }; } },
         "../../../../../../logics/main/useSetupNeeds": { useSetupNeeds: () => ({ needs, start: (id: string) => started.push(id) }) },
         "../../../../../../logics/setup/useRecognitionState": { useRecognitionState: () => ({ state: recognition }) },
         "../../../../../../logics/setup/useFirstRunSetup": { useFirstRunSetup: () => ({ openSetup: () => started.push("first_run") }) },
         "../../../../../../logics/main/setupNeeds": needsLogic,
         "../../../startupContext": { useStartupPlaceholder: () => startup },
+        "../../../vrchatHintContext": { useVrchatHint: () => hint ? VrchatLine : null },
     });
     const tree = draw(runtime.render(EmptyState));
-    return { tree, started, texts: texts(tree) };
+    return { tree, started, read, texts: texts(tree) };
 }
 
-// The greeting's block: the one whose first child is the heading.
-const isGreeting = (node: TreeNode) => node.props?.children?.[0]?.type === "h1";
+// The greeting's block: the one that holds the heading and nothing else.
+const isGreeting = (node: TreeNode) => node.props?.children?.type === "h1";
 const greetingIn = (tree: unknown) => {
     const greeting = find(tree, isGreeting);
     assert.ok(greeting);
@@ -98,20 +104,30 @@ test("a recognition not set up yet offers the first-run setup in place of the ot
     }
 });
 
-test("nothing to prepare leaves the greeting and the VRChat hint", async () => {
-    const s = await setup();
+test("the greeting is the heading alone: where to type is left to the composer under it", async () => {
+    const s = await setup({ hint: false });
     assert.equal(find(s.tree, node => node.type === "ul"), null);
-    assert.deepEqual(s.texts, ["studio.empty_title", "studio.empty_description", "studio.empty_vrchat_hint"]);
+    assert.deepEqual(s.texts, ["studio.empty_title"]);
+    assert.equal(greetingIn(s.tree).props.children.type, "h1");
+    // The sentence about where to type is gone from both languages, not only from this screen.
+    for (const language of ["en", "ja"]) assert.equal(localeAt(readLocale(language), "studio.empty_description"), undefined, language);
 });
 
-test("the VRChat hint is shown only while messages are sent to VRChat", async () => {
-    assert.ok(!(await setup({ sends: false })).texts.includes("studio.empty_vrchat_hint"));
-    assert.ok(!(await setup({ sends: null })).texts.includes("studio.empty_vrchat_hint"));
+test("under the list stands the main window's line about VRChat, which decides by itself when it has something to say", async () => {
+    const s = await setup({ needs: [{ id: "translation", weight: { id: "small" }, action: "review" }] });
+    assert.deepEqual(s.texts, ["studio.empty_title", "studio.setup_translation", "model_downloads.review", "the line about VRChat"]);
+    const line = find(s.tree, node => node.type === "p" && node.props.children === "the line about VRChat");
+    assert.ok(line);
+    assert.equal(line.props.className, "hint", "drawn in the hint's place and look");
+    // The first screen no longer reads whether messages are sent: the line's own part does.
+    assert.deepEqual(s.read, ["UiScaling", "UiLanguage"]);
+    // Without that part (no main window around it) nothing stands there.
+    assert.deepEqual((await setup({ hint: false })).texts, ["studio.empty_title"]);
 });
 
 test("the VR panel keeps the greeting alone", async () => {
     const s = await setup({ vr: true, needs: [{ id: "translation", weight: { id: "small" } }] });
-    assert.deepEqual(s.texts, ["studio.empty_title", "studio.empty_description"]);
+    assert.deepEqual(s.texts, ["studio.empty_title"]);
 });
 
 test("the greeting keeps its room but is drawn only once the saved UI size and language are in place", async () => {
@@ -136,6 +152,7 @@ test("the greeting waits for the language and the narrow layout that the saved s
         "../../../../../../logics/setup/useFirstRunSetup": { useFirstRunSetup: () => ({ openSetup: () => {} }) },
         "../../../../../../logics/main/setupNeeds": needsLogic,
         "../../../startupContext": { useStartupPlaceholder: () => null },
+        "../../../vrchatHintContext": { useVrchatHint: () => null },
     });
     const ok = <T>(data: T) => ({ state: "ok" as const, data });
     const base = { scaling: ok(100), language: ok("ja"), shownLanguage: "ja", width: 871, narrow: false };
@@ -165,6 +182,7 @@ test("a language or layout that does not follow holds the greeting back for a se
         "../../../../../../logics/setup/useFirstRunSetup": { useFirstRunSetup: () => ({ openSetup: () => {} }) },
         "../../../../../../logics/main/setupNeeds": needsLogic,
         "../../../startupContext": { useStartupPlaceholder: () => null },
+        "../../../vrchatHintContext": { useVrchatHint: () => null },
     });
     const stub = { innerWidth: 871, document: { documentElement: { hasAttribute: () => false } } };
     const saved = Object.fromEntries(Object.keys(stub).map(key => [key, Reflect.get(globalThis, key)]));
@@ -180,9 +198,10 @@ test("a language or layout that does not follow holds the greeting back for a se
 test("while the engine starts, the main page's startup list takes the setup list's place", async () => {
     const StartupProgress = () => createElement("p", null, "startup");
     const s = await setup({ startup: createElement(StartupProgress), needs: [{ id: "translation", weight: { id: "small" } }] });
-    assert.deepEqual(s.texts, ["studio.empty_title", "studio.empty_description", "startup"]);
+    // The line about VRChat is not drawn either, so VRChat is not asked about before the engine is up.
+    assert.deepEqual(s.texts, ["studio.empty_title", "startup"]);
     assert.equal(find(s.tree, node => node.type === "button"), null);
     // The VR panel never shows it.
     assert.deepEqual((await setup({ vr: true, startup: createElement(StartupProgress) })).texts,
-        ["studio.empty_title", "studio.empty_description"]);
+        ["studio.empty_title"]);
 });
