@@ -440,6 +440,8 @@ main_page:
         no_results: "No matching languages"
 
     update_available: "New version is ready!"
+    update_button: "Update {{version}}"
+    update_button_plain: "Update"
     updating: "Now updating..."
 
 config_page:

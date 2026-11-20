@@ -158,21 +158,30 @@ const IoFlowButton = () => {
 };
 
 // Shown once a check (at start or on the update page) found a new version; opens the update page.
+// That a version is out is a state, shown by a mark on the update icon and the short word with
+// the version (「更新 0.6.1」, #766); the sentence that announces it is the button's tooltip and its
+// accessible description. A narrow bar keeps the icon and its mark (RightSideComponents.module.scss).
 const SoftwareUpdateAvailableButton = () => {
     const { t } = useI18n();
     const { appUpdate } = useAppUpdate();
     const { updateOpenedQuickSetting } = useStore_OpenedQuickSetting();
+    const sentenceId = useId();
 
     if (!["available", "downloading", "installing"].includes(appUpdate.status)) return null;
+    const sentence = t("main_page.update_available");
+    // The version the check found; a check that names none leaves the word alone.
+    const label = appUpdate.version ? t("main_page.update_button", { version: appUpdate.version }) : t("main_page.update_button_plain");
 
     return (
-        // A narrow bar hides the words (RightSideComponents.module.scss); the tooltip keeps them
-        // there, and is left out where the words are in sight.
-        <Tooltip bare placement="bottom" title={t("main_page.update_available")}>
-            <button type="button" className={styles.software_update_button}
+        <Tooltip bare placement="bottom" title={sentence}>
+            <button type="button" className={styles.software_update_button} aria-describedby={sentenceId}
                 onClick={()=>updateOpenedQuickSetting("update_software")}>
-                <RefreshSvg className={styles.refresh_svg} aria-hidden="true"/>
-                <span className={styles.software_update_label}>{t("main_page.update_available")}</span>
+                <span className={styles.update_icon}>
+                    <RefreshSvg className={styles.refresh_svg} aria-hidden="true"/>
+                    <span className={styles.update_mark} aria-hidden="true" />
+                </span>
+                <span className={styles.software_update_label}>{label}</span>
+                <span id={sentenceId} hidden>{sentence}</span>
             </button>
         </Tooltip>
     );
