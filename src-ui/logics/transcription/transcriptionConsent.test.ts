@@ -1,66 +1,107 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
+import type { TestContext } from "vitest";
 import { readFile } from "node:fs/promises";
 import yaml from "js-yaml";
-import { hooks, loadModule, find } from "../test/hookHarness.ts";
+import { hooks, loadModule, find, unchecked } from "../test/hookHarness.ts";
+import type { HookRuntime, TreeNode } from "../test/hookHarness.ts";
 import * as endpointPrivacy from "../common/endpointPrivacy.ts";
+import type { BackendErrorReport } from "../_useBackendErrorHandling.ts";
+import type { RadioGroup, RadioOption } from "../../views/app/config_page/setting_section/setting_box/_components/radio_button/RadioButton.tsx";
 
 const noop = () => {};
-const api = values => new Proxy(values, { get: (object, name) => object[name] ?? noop });
+const api = <T extends object>(values: T) => new Proxy(values, { get: (object, name) => Reflect.get(object, name) ?? noop });
+// A function given to an atom's update in place of its value.
+const isUpdate = (value: unknown): value is (previous: unknown) => unknown => typeof value === "function";
+// The node find finds; none fails here, as reading its props would.
+const found = (tree: unknown, predicate: (node: TreeNode) => boolean) => {
+    const node = find(tree, predicate);
+    assert.ok(node);
+    return node;
+};
+// Draws the component an element names with the props it was given, as React would draw it
+// there. The components drawn this way are function components that draw one element.
+const draw = (runtime: HookRuntime, node: TreeNode) => {
+    assert.equal(typeof node.type, "function");
+    return runtime.render(unchecked<(props: unknown) => TreeNode>(node.type), node.props);
+};
+// A key of a mapping in a locale tree, or undefined.
+const child = (node: unknown, key: string): unknown =>
+    typeof node === "object" && node !== null ? Reflect.get(node, key) : undefined;
+// A text in a locale tree; anything else fails here, as matching it would.
+const text = (node: unknown) => {
+    assert.ok(typeof node === "string");
+    return node;
+};
 
-async function fixture(context) {
-    const runtime = hooks(), calls = [];
-    const consent = await loadModule(new URL("./useTranscriptionConsent.ts", import.meta.url), runtime);
-    const states = {};
-    const mainStore = { store: { backend_subprocess: {} } };
+interface SwitchState {
+    data: unknown;
+    state: string;
+}
+interface Transcription {
+    currentSelectedTranscriptionEngine: { data: string | null; state: string };
+    currentSelectableTranscriptionEngines: { data: string[] };
+    setSelectedTranscriptionEngine: (value: string) => Promise<boolean>;
+}
+type Call = [string, ...unknown[]];
+type Direction = "Send" | "Receive";
+
+async function fixture(context: TestContext) {
+    const runtime = hooks(), calls: Call[] = [];
+    const consent = await loadModule<typeof import("./useTranscriptionConsent.ts")>(new URL("./useTranscriptionConsent.ts", import.meta.url), runtime);
+    const states: Record<string, SwitchState> = {};
+    const mainStore: Record<string, unknown> = { store: { backend_subprocess: {} } };
     for (const name of ["Translation", "TranscriptionSend", "TranscriptionReceive", "OcrCapture", "Foreground"]) {
         states[name] = { data: false, state: "ok" };
         mainStore[`useStore_${name}Status`] = () => ({
             [`current${name}Status`]: states[name],
             [`pending${name}Status`]: () => { states[name].state = "pending"; },
-            [`update${name}Status`]: (value, options) => {
-                const data = typeof value === "function" ? value(states[name]) : value;
+            [`update${name}Status`]: (value: unknown, options?: { set_state?: string }) => {
+                const data = isUpdate(value) ? value(states[name]) : value;
                 states[name] = { data, state: options?.set_state ?? "ok" };
             },
         });
     }
-    const main = await loadModule(new URL("../main/useMainFunction.ts", import.meta.url), runtime, {
+    const main = await loadModule<typeof import("../main/useMainFunction.ts")>(new URL("../main/useMainFunction.ts", import.meta.url), runtime, {
         "@store": mainStore,
-        "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: async (...args) => { calls.push(args); return true; } }) },
+        "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: async (...args: Call) => { calls.push(args); return true; } }) },
     });
-    const transcription = api({
+    const transcription: Transcription = api({
         currentSelectedTranscriptionEngine: { data: null, state: "ok" },
         currentSelectableTranscriptionEngines: { data: ["SpeechCpp"] },
-        setSelectedTranscriptionEngine: async value => {
+        setSelectedTranscriptionEngine: async (value: string) => {
             transcription.currentSelectedTranscriptionEngine = { data: null, state: "pending" };
             calls.push(["/set/data/selected_transcription_engine", value]);
             return true;
         },
     });
-    const configs = { useTranscription: () => transcription, ocrStartErrorKey: () => null, ocrShouldRestoreSharedWindow: () => false };
+    const configs: Record<string, unknown> = { useTranscription: () => transcription, ocrStartErrorKey: () => null, ocrShouldRestoreSharedWindow: () => false };
     for (const name of ["Translation", "Others", "Ocr", "OcrSharedWindow", "AdvancedSettings"]) configs[`use${name}`] = () => api({});
-    const common = {};
+    const common: Record<string, unknown> = {};
     for (const name of ["NotificationStatus", "Volume", "LLMConnection", "IsSoftwareUpdating"]) common[`use${name}`] = () => api({});
-    const errors = await loadModule(new URL("../_useBackendErrorHandling.ts", import.meta.url), runtime, {
-        "@useI18n": { useI18n: () => ({ t: key => key, i18n: { exists: () => true } }) },
+    const errors = await loadModule<typeof import("../_useBackendErrorHandling.ts")>(new URL("../_useBackendErrorHandling.ts", import.meta.url), runtime, {
+        "@useI18n": { useI18n: () => ({ t: (key: string) => key, i18n: { exists: () => true } }) },
         "@logics_common": common, "@logics_configs": configs, "@logics_main": main,
         "./ui_configs": {}, "./configs/legacyModelConsent": {}, "./configs/cloudTranscription": { CLOUD_TRANSCRIPTION_ENGINES: [] },
         "./transcription/useTranscriptionConsent": consent,
         "./translation/useTranslationSetup": { useTranslationSetup: () => ({ open: noop }) },
         "./ocr/useOcrSetup": { useOcrSetup: () => ({ show: noop }) },
     });
-    const error = errors._useBackendErrorHandling().errorHandling_Backend;
-    const { TranscriptionConsentController } = await loadModule(new URL("../../views/app/_app_controllers/TranscriptionConsentController.tsx", import.meta.url), runtime, {
+    const errorHandling = errors._useBackendErrorHandling().errorHandling_Backend;
+    // A 400 answer as the tests report it: no message and no result, as before.
+    const error = (report: Pick<BackendErrorReport, "error_code" | "endpoint" | "data">) =>
+        errorHandling({ message: undefined, result: undefined, ...report });
+    const { TranscriptionConsentController } = await loadModule<typeof import("../../views/app/_app_controllers/TranscriptionConsentController.tsx")>(new URL("../../views/app/_app_controllers/TranscriptionConsentController.tsx", import.meta.url), runtime, {
         "@logics_configs": configs, "@logics_main": main,
-        "@store": { useStore_IsOpenedConfigPage: () => ({ updateIsOpenedConfigPage: value => calls.push(["open_config_page", value]) }),
-            useStore_SelectedConfigTabId: () => ({ updateSelectedConfigTabId: value => calls.push(["config_tab", value]) }) },
+        "@store": { useStore_IsOpenedConfigPage: () => ({ updateIsOpenedConfigPage: (value: unknown) => calls.push(["open_config_page", value]) }),
+            useStore_SelectedConfigTabId: () => ({ updateSelectedConfigTabId: (value: unknown) => calls.push(["config_tab", value]) }) },
         "../../../logics/transcription/useTranscriptionConsent": consent,
         "../../../logics/common/useConsentDialog": { useConsentDialog: () => ({ dialog: { current: null }, close: noop }) },
     });
     const render = () => runtime.render(TranscriptionConsentController);
-    const click = key => find(render(), node => node.type === "button" && node.props.children === `transcription_consent.${key}`).props.onClick();
-    const acknowledge = value => { transcription.currentSelectedTranscriptionEngine = { data: value, state: "ok" }; render(); };
-    const firstEnable = direction => {
+    const click = (key: string) => found(render(), node => node.type === "button" && node.props.children === `transcription_consent.${key}`).props.onClick();
+    const acknowledge = (value: string | null) => { transcription.currentSelectedTranscriptionEngine = { data: value, state: "ok" }; render(); };
+    const firstEnable = (direction: Direction) => {
         main.useMainFunction()[`toggleTranscription${direction}`]();
         error({ error_code: "TRANSCRIPTION_ENGINE_NOT_SELECTED", endpoint: `/set/enable/transcription_${direction === "Send" ? "send" : "receive"}`, data: false });
         render();
@@ -70,7 +111,7 @@ async function fixture(context) {
     return { runtime, render, calls, states, transcription, configs, click, acknowledge, firstEnable, error, consent };
 }
 
-for (const direction of ["Send", "Receive"]) test(`${direction}: first enable opens chooser; a choice saves then continues only the original enable`, async context => {
+for (const direction of ["Send", "Receive"] as const) test(`${direction}: first enable opens chooser; a choice saves then continues only the original enable`, async context => {
     const s = await fixture(context);
     assert.equal(s.render(), null);
     s.firstEnable(direction);
@@ -95,7 +136,7 @@ test("Local (speech.cpp) saves the selection and continues the original enable w
     s.firstEnable("Receive");
     // The removed local Whisper (#288) and the retired Google web speech engine are not offered;
     // a cloud engine is chosen in the settings once its key is registered.
-    const choices = [];
+    const choices: unknown[] = [];
     find(s.render(), node => { if (node.type === "button") choices.push(node.props.children); return false; });
     assert.deepEqual(choices, ["transcription_consent.cancel", "transcription_consent.settings", "transcription_consent.speechcpp"]);
     await s.click("speechcpp");
@@ -122,9 +163,9 @@ test("Escape cancels and the initial focus target is Cancel", async context => {
     const s = await fixture(context);
     s.firstEnable("Send");
     const tree = s.render();
-    assert.equal(find(tree, node => node.props?.autoFocus).props.children, "transcription_consent.cancel");
+    assert.equal(found(tree, node => node.props?.autoFocus).props.children, "transcription_consent.cancel");
     let prevented = false;
-    find(tree, node => node.type === "dialog").props.onCancel({ preventDefault: () => { prevented = true; } });
+    found(tree, node => node.type === "dialog").props.onCancel({ preventDefault: () => { prevented = true; } });
     assert.equal(prevented, true);
     assert.equal(s.render(), null);
     assert.equal(s.calls.filter(([path]) => path.startsWith("/set/enable/")).length, 1);
@@ -155,7 +196,7 @@ test("failed save and unrelated selection updates never enable capture", async c
 test("an engine that cannot start points at its settings; unmount drops any continuation", async context => {
     const s = await fixture(context);
     s.error({ error_code: "TRANSCRIPTION_ENGINE_UNAVAILABLE", endpoint: "/set/enable/transcription_send", data: false });
-    const buttons = [];
+    const buttons: unknown[] = [];
     find(s.render(), node => { if (node.type === "button") buttons.push(node.props.children); return false; });
     assert.deepEqual(buttons, ["transcription_consent.cancel", "transcription_consent.settings"]);
     s.runtime.unmount();
@@ -186,9 +227,9 @@ test("settings keep the selected engine in sight under the radio row's label and
         { id: "Custom_Whisper", base: "CustomWhisper", key: "custom_whisper", has_url: true, own: true }];
     // A runtime of its own: the row's ids come from useId, whose slots the chooser's hooks would fill.
     const boxRuntime = hooks();
-    const { TranscriptionEngine_Box } = await loadModule(new URL("../../views/app/config_page/setting_section/setting_box/transcription/Transcription.tsx", import.meta.url), boxRuntime, {
+    const { TranscriptionEngine_Box } = await loadModule<typeof import("../../views/app/config_page/setting_section/setting_box/transcription/Transcription.tsx")>(new URL("../../views/app/config_page/setting_section/setting_box/transcription/Transcription.tsx", import.meta.url), boxRuntime, {
         "@logics_configs": s.configs, "@utils": {},
-        "@useI18n": { useI18n: () => ({ t: (key, options) => options ? `${key}:${JSON.stringify(options)}` : key }) },
+        "@useI18n": { useI18n: () => ({ t: (key: string, options?: unknown) => options ? `${key}:${JSON.stringify(options)}` : key }) },
         "../advanced_settings/SpeechServers": {}, "./RealtimeASRSettings": {},
         "../_components/credential_pair/CredentialPair": {},
         "../../../../../../logics/configs/cloudTranscription": { CLOUD_TRANSCRIPTION_ENGINES: engines },
@@ -205,7 +246,7 @@ test("settings keep the selected engine in sight under the radio row's label and
     // One choice under the two systems' names (#414): speech.cpp on your PC, then the APIs. The
     // local Whisper (#288) and the retired Google web speech engine are gone. An API engine is
     // offered but cannot be chosen until the backend has accepted its key.
-    assert.deepEqual(tree.props.groups.map(group => [group.id, group.label, group.options.map(option => [option.id, !!option.disabled])]), [
+    assert.deepEqual(tree.props.groups.map((group: RadioGroup<RadioOption>) => [group.id, group.label, group.options.map(option => [option.id, !!option.disabled])]), [
         ["speechcpp", "config_page.transcription.speechcpp_section.label", [["SpeechCpp", false]]],
         ["api", "config_page.transcription.cloud_section.label", [["Groq_Whisper", true], ["Custom_Whisper", true]]],
     ]);
@@ -217,33 +258,33 @@ test("settings keep the selected engine in sight under the radio row's label and
     assert.equal(tree.props["aria-describedby"], tree.props.note_id);
     s.transcription.currentSelectableTranscriptionEngines = { data: ["SpeechCpp", "Custom_Whisper"] };
     const keyed = boxRuntime.render(TranscriptionEngine_Box).props.groups[1].options;
-    assert.deepEqual(keyed.map(option => [option.id, !!option.disabled]), [["Groq_Whisper", true], ["Custom_Whisper", false]]);
+    assert.deepEqual(keyed.map((option: RadioOption) => [option.id, !!option.disabled]), [["Groq_Whisper", true], ["Custom_Whisper", false]]);
     s.transcription.currentSelectableTranscriptionEngines = { data: ["SpeechCpp"] };
 
     // Use the real row, label and radio group to verify their help relationship.
     const rowRuntime = hooks();
     const root = new URL("../../views/app/config_page/setting_section/setting_box/", import.meta.url);
-    const { LabelComponent } = await loadModule(new URL("_components/label_component/LabelComponent.tsx", root), rowRuntime, {
+    const { LabelComponent } = await loadModule<typeof import("../../views/app/config_page/setting_section/setting_box/_components/label_component/LabelComponent.tsx")>(new URL("_components/label_component/LabelComponent.tsx", root), rowRuntime, {
         "../_atoms/_open_webpage_button/_OpenWebpageButton": { _OpenWebpageButton: "webpage" },
         "../description/Description": { Description: "description" },
         "../hint/Hint": { Hint: "hint", useHintDescriptions: () => false },
     });
-    const { RadioButton } = await loadModule(new URL("_components/radio_button/RadioButton.tsx", root), rowRuntime, {
+    const { RadioButton } = await loadModule<typeof import("../../views/app/config_page/setting_section/setting_box/_components/radio_button/RadioButton.tsx")>(new URL("_components/radio_button/RadioButton.tsx", root), rowRuntime, {
         "../hint/Hint": { Hint: "hint", useHintDescriptions: () => false },
     });
-    const { RadioButtonContainer } = await loadModule(new URL("_templates/Templates.tsx", root), rowRuntime, {
+    const { RadioButtonContainer } = await loadModule<typeof import("../../views/app/config_page/setting_section/setting_box/_templates/Templates.tsx")>(new URL("_templates/Templates.tsx", root), rowRuntime, {
         "@store": { useStore_IsBreakPoint: () => ({ currentIsBreakPoint: { data: false } }) },
         "../_components": { LabelComponent, RadioButton }, "@common_components": { Checkbox: "checkbox" },
     });
-    let row = rowRuntime.render(RadioButtonContainer, tree.props);
-    row = rowRuntime.render(row.type, row.props);
-    row = rowRuntime.render(row.type, row.props);
+    let row: TreeNode = rowRuntime.render(RadioButtonContainer, tree.props);
+    row = draw(rowRuntime, row);
+    row = draw(rowRuntime, row);
     assert.equal(row.type, "div");
     assert.equal(row.props["data-setting-id"], "select_transcription_engine");
-    const label = find(row, node => node.type === LabelComponent);
-    const control = find(row, node => node.type === RadioButton);
-    const group = rowRuntime.render(control.type, control.props);
-    const drawnLabel = rowRuntime.render(label.type, label.props);
+    const label = found(row, node => node.type === LabelComponent);
+    const control = found(row, node => node.type === RadioButton);
+    const group = draw(rowRuntime, control);
+    const drawnLabel = draw(rowRuntime, label);
     const described = group.props["aria-describedby"].split(" ");
     const help = find(drawnLabel, node => node.props?.id === label.props.note_id);
     // The row's name and help are on the group around both systems; each system is a
@@ -252,11 +293,11 @@ test("settings keep the selected engine in sight under the radio row's label and
     assert.equal(group.props["aria-labelledby"], label.props.label_id);
     assert.deepEqual(described, [label.props.note_id, label.props.description_id]);
     assert.ok(find(help, node => node.props?.role === "status"));
-    const systems = [];
+    const systems: TreeNode[] = [];
     find(group, node => { if (node.props?.role === "radiogroup") systems.push(node); return false; });
     assert.deepEqual(systems.map(node => find(group, other => other.props?.id === node.props["aria-labelledby"])?.props.children),
         ["config_page.transcription.speechcpp_section.label", "config_page.transcription.cloud_section.label"]);
-    const radios = [];
+    const radios: { value?: string; name?: string; checked?: boolean; disabled?: boolean }[] = [];
     find(group, node => { if (node.type === "input") radios.push(node.props); return false; });
     // One native set: the arrow keys move through both systems and Tab stops once.
     assert.deepEqual(radios.map(radio => [radio.value, radio.name, radio.checked, radio.disabled]), [
@@ -267,7 +308,7 @@ test("settings keep the selected engine in sight under the radio row's label and
 
     // The engine in use is named in the screen's words, not by its id.
     s.transcription.currentSelectedTranscriptionEngine = { data: "Custom_Whisper", state: "ok" };
-    const named = find(boxRuntime.render(TranscriptionEngine_Box).props.note, node => node.props?.role === "status");
+    const named = found(boxRuntime.render(TranscriptionEngine_Box).props.note, node => node.props?.role === "status");
     assert.match(JSON.stringify(named.props.children), /config_page\.transcription\.select_transcription_engine\.engines\.custom_whisper/);
     // A selection the backend no longer offers (a saved Google loads as none) shows as unselected.
     s.transcription.currentSelectedTranscriptionEngine = { data: null, state: "ok" };
@@ -277,16 +318,17 @@ test("settings keep the selected engine in sight under the radio row's label and
 
 for (const language of ["en", "ja"]) test(`${language}: choice and error text disclose where audio goes and the separate local download`, async () => {
     const messages = yaml.load(await readFile(new URL(`../../../locales/${language}.yml`, import.meta.url), "utf8"));
+    const consent = child(messages, "transcription_consent"), errors = child(messages, "backend_errors");
     // The retired Google web speech engine left no text behind.
-    assert.equal(messages.transcription_consent.google_notice, undefined);
-    assert.equal(messages.transcription_consent.google, undefined);
-    assert.doesNotMatch(messages.config_page.transcription.select_transcription_engine.desc, /Google/);
-    assert.match(messages.transcription_consent.cloud_notice, /API/);
-    assert.match(messages.transcription_consent.cloud_notice, language === "ja" ? /送られます/ : /sent/);
-    assert.match(messages.transcription_consent.speechcpp_notice, /speech\.cpp/);
-    assert.equal(messages.transcription_consent.whisper_notice, undefined);
+    assert.equal(child(consent, "google_notice"), undefined);
+    assert.equal(child(consent, "google"), undefined);
+    assert.doesNotMatch(text(child(child(child(child(messages, "config_page"), "transcription"), "select_transcription_engine"), "desc")), /Google/);
+    assert.match(text(child(consent, "cloud_notice")), /API/);
+    assert.match(text(child(consent, "cloud_notice")), language === "ja" ? /送られます/ : /sent/);
+    assert.match(text(child(consent, "speechcpp_notice")), /speech\.cpp/);
+    assert.equal(child(consent, "whisper_notice"), undefined);
     for (const code of ["ENGINE_NOT_SELECTED", "ENGINE_UNAVAILABLE"])
-        assert.ok(messages.backend_errors[`TRANSCRIPTION_${code}`]);
+        assert.ok(child(errors, `TRANSCRIPTION_${code}`));
     // Only the removed Whisper engine reported these.
-    for (const code of ["MODEL_MISSING", "VRAM_MIC", "VRAM_SPEAKER"]) assert.equal(messages.backend_errors[`TRANSCRIPTION_${code}`], undefined);
+    for (const code of ["MODEL_MISSING", "VRAM_MIC", "VRAM_SPEAKER"]) assert.equal(child(errors, `TRANSCRIPTION_${code}`), undefined);
 });
