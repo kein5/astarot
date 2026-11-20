@@ -100,7 +100,7 @@ def run_group(args, name, tests, env):
     command = ["python3", str(ROOT / "tools/display_power_guard.py"), "--", str(args.python), "-m", "pytest",
                "-c", "tests/voice/pytest.ini", *tests, "-q", "-rs", "--tb=short", f"--basetemp={out / 'tmp'}",
                f"--junitxml={report}"]
-    with (out / "pytest.log").open("w") as log:
+    with (out / "pytest.log").open("w", encoding="utf-8") as log:
         code = subprocess.run(command, cwd=ROOT, env={**os.environ, **env}, stdout=log, stderr=subprocess.STDOUT,
                               timeout=args.timeout).returncode
     return code, counts(report)
@@ -185,7 +185,7 @@ def main(argv=None):
         detail = f"{tally[0]} passed, {tally[1]} failed, {tally[2]} skipped" if tally else "no report (see the log)"
         print(f"{name:10} {row['result']:8} {detail}  {row['seconds']} s", flush=True)
     summary = {"build": str(build), "packaged": bool(args.appimage), "groups": results}
-    (args.output / "summary.json").write_text(json.dumps(summary, indent=2) + "\n")
+    (args.output / "summary.json").write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
     print(f"report: {args.output / 'summary.json'}")
     return 1 if failed else 0
 

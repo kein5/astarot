@@ -38,10 +38,10 @@ def prepare_work(path):
     marker = work / '.vrct-linux-build'
     if work == ROOT or work in ROOT.parents or work.is_relative_to(ROOT / 'src-tauri'):
         raise ValueError('choose a dedicated build directory')
-    if work.exists() and any(work.iterdir()) and (not marker.is_file() or marker.read_text() != 'VRCT-VOX Linux staging v1\n'):
+    if work.exists() and any(work.iterdir()) and (not marker.is_file() or marker.read_text(encoding='utf-8') != 'VRCT-VOX Linux staging v1\n'):
         raise ValueError('refusing an existing nonempty directory: choose a dedicated build directory')
     work.mkdir(parents=True, exist_ok=True)
-    marker.write_text('VRCT-VOX Linux staging v1\n')
+    marker.write_text('VRCT-VOX Linux staging v1\n', encoding='utf-8')
     return work
 
 
@@ -95,12 +95,12 @@ def tauri_workspace(work, internal):
     binary.mkdir()
     # tauri.conf.json maps bin/_internal to the app's _internal folder.
     shutil.copytree(internal, binary / '_internal', symlinks=True)
-    config = json.loads((tauri / 'tauri.conf.json').read_text())
+    config = json.loads((tauri / 'tauri.conf.json').read_text(encoding='utf-8'))
     config['bundle']['targets'] = []
     # Nothing runs beside the app any more; a stale entry would name a missing binary.
     config['bundle'].pop('externalBin', None)
     config['bundle'].pop('windows', None)
-    (tauri / 'tauri.conf.json').write_text(json.dumps(config, indent=2))
+    (tauri / 'tauri.conf.json').write_text(json.dumps(config, indent=2), encoding='utf-8')
     return workspace
 
 
@@ -201,7 +201,7 @@ def main():
     check_tree(candidate, require_runtime=True)
     for _, folder in SPEECH_BUILDS:
         verify_bundle(candidate / '_internal/build' / folder)
-    version = json.loads((ROOT / 'package.json').read_text())['version']
+    version = json.loads((ROOT / 'package.json').read_text(encoding='utf-8'))['version']
     report = {'schema': 1, 'version': version, 'profile': args.profile, 'variant': PACKAGE_VARIANT,
               'speech_builds': [variant for variant, _ in SPEECH_BUILDS],
               'platform': platform.platform(), 'libc': platform.libc_ver(),
@@ -210,7 +210,7 @@ def main():
               'files': inventory(candidate),
               'limitations': ['Not a license clearance; review all native-library and dependency obligations before publication.',
                               'No Windows validation; Linux ABI requirements depend on the recorded build host.']}
-    (candidate / 'build-manifest.json').write_text(json.dumps(report, ensure_ascii=False, indent=2) + '\n')
+    (candidate / 'build-manifest.json').write_text(json.dumps(report, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
     (candidate / 'build-manifest.json').chmod(0o644)
     args.output_dir.mkdir(parents=True, exist_ok=True)
     output = args.output_dir / f'VRCT-VOX-{version}-{PACKAGE_VARIANT}-{args.profile}.tar.gz'

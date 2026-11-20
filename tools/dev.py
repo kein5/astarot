@@ -372,7 +372,7 @@ def owned_environment(target, root):
             raise DevError(f"Refusing symlink in setup destination: {path}")
     if target.exists():
         marker = target / OWNER_FILE
-        if not target.is_dir() or not marker.is_file() or marker.read_text() != OWNER:
+        if not target.is_dir() or not marker.is_file() or marker.read_text(encoding="utf-8") != OWNER:
             raise DevError(f"Environment is not owned by dev.py: {target}. Preserve it and choose an explicit existing Python for browser dependencies.")
         if not env_python(target).is_file():
             raise DevError(f"Owned environment is incomplete: {target}. Inspect it before recreating it manually.")
