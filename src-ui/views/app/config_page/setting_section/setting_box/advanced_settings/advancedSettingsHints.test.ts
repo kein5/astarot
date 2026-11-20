@@ -4,6 +4,7 @@ import { drawWith, hooks, loadModule, nodesIn } from "../../../../../../logics/t
 import type { TreeNode } from "../../../../../../logics/test/hookHarness.ts";
 import * as networkPortInput from "../../../../../../logics/configs/networkPortInput.ts";
 import * as obsBrowserSourceUrl from "../../../../../../logics/configs/obsBrowserSourceUrl.ts";
+import { localeAt, readLocale } from "../../../../../../logics/test/locales.ts";
 
 // #614: the advanced settings show their rows' general descriptions as hints. What is read before
 // acting stays on screen: the addresses in use, and the sentence that says what the usage data sends.
@@ -94,4 +95,19 @@ test("the note that the OBS address changed is said only while the OBS browser s
     assert.deepEqual(note(await rows({ currentEnableObsBrowserSource: false })), []);
     // Drawn by itself and unfolded, so the page's hints do not reach it.
     assert.deepEqual(note(await rows({ currentEnableObsBrowserSource: true })), [[key("obs_browser_source_url.desc"), false]]);
+});
+
+test("the two addresses are named by what they are; their buttons say that pressing copies", async () => {
+    const { rows: all } = await rows();
+    const copy = all.filter(row => row.props.action_label !== undefined).map(row => [row.props.label, row.props.action_label]);
+    assert.deepEqual(copy, [[key("websocket_url.label"), key("websocket_url.copy")], [key("obs_browser_source_url.label"), key("obs_browser_source_url.copy")]]);
+    for (const language of ["en", "ja"]) {
+        const strings = readLocale(language);
+        for (const name of ["websocket_url", "obs_browser_source_url"]) {
+            const label = localeAt(strings, `${key(name)}.label`), action = localeAt(strings, `${key(name)}.copy`);
+            assert.ok(typeof label === "string" && typeof action === "string");
+            assert.doesNotMatch(label, /[（(]/, `${language}: the name carries no instruction`);
+            assert.ok(action.includes(label), `${language}: the button names what it copies`);
+        }
+    }
 });

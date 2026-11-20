@@ -1228,14 +1228,16 @@ config_page:
         websocket_port:
             label: "WebSocketのポート"
         websocket_url:
-            label: "WebSocket URL（クリックでコピー）"
+            label: "WebSocket URL"
+            copy: "WebSocket URLをコピー"
         obs_browser_source:
             section_label: "OBSブラウザソース"
         enable_obs_browser_source:
             label: "OBSブラウザソースを有効化"
             desc: "OBS（ブラウザソース）向けに翻訳を表示するオーバーレイページをホストし、一定時間後にフェードアウトします。"
         obs_browser_source_url:
-            label: "OBS URL（クリックでコピー）"
+            label: "OBS URL"
+            copy: "OBS URLをコピー"
             desc: "OBSのURLにキーが含まれるようになりました。もう一度コピーしてOBSのブラウザソースのURLを更新してください。"
         obs_browser_source_port:
             label: "OBSポート"

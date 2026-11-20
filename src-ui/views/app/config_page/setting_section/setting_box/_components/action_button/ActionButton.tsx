@@ -11,8 +11,12 @@ export interface ActionButtonProps {
     // May return a promise: the button waits for it.
     onclickFunction?: () => unknown;
     onErrorFunction?: (error: unknown) => void;
-    // Names the button when it is text.
+    // The row's label: the button's name, unless action_label says what pressing does.
     label?: ReactNode;
+    // What pressing does, where the row's label names the thing and not the action (an address
+    // and its copy button, #614): the button's name, and its tooltip, which opens while the
+    // pointer is on the button and while it has keyboard focus.
+    action_label?: string;
     "aria-describedby"?: string;
 }
 
@@ -23,6 +27,7 @@ export const ActionButton = ({
     onclickFunction,
     onErrorFunction,
     label,
+    action_label,
     "aria-describedby": describedBy,
 }: ActionButtonProps) => {
     const [is_clicked, setIsClicked] = useState(false);
@@ -64,10 +69,12 @@ export const ActionButton = ({
             <button type="button" className={clsx(styles.button_wrapper, active_class)} onClick={onClick}
                 aria-disabled={is_pending || is_clicked} aria-busy={is_pending}
                 aria-describedby={describedBy}
-                aria-label={typeof label === "string" ? label : undefined}>
+                aria-label={action_label ?? (typeof label === "string" ? label : undefined)}>
                 <ShownIcon className={clsx(styles.button_svg, active_class, { [styles.is_pending]: is_pending })} aria-hidden="true" />
                 {is_pending && <span className={styles.loader} aria-hidden="true" />}
             </button>
+            {/* The words are the button's name already, so the bubble is not read a second time. */}
+            {action_label && <span role="tooltip" aria-hidden="true" data-slot="tooltip-content" className={styles.tip}>{action_label}</span>}
         </div>
     );
 };

@@ -1228,14 +1228,16 @@ config_page:
         websocket_port:
             label: "WebSocket port"
         websocket_url:
-            label: "WebSocket URL (click to copy)"
+            label: "WebSocket URL"
+            copy: "Copy the WebSocket URL"
         obs_browser_source:
             section_label: "OBS Browser Source"
         enable_obs_browser_source:
             label: "Enable OBS Browser Source"
             desc: "Host a local overlay page for OBS (Browser Source) that shows translations and fades out over time."
         obs_browser_source_url:
-            label: "OBS URL (click to copy)"
+            label: "OBS URL"
+            copy: "Copy the OBS URL"
             desc: "The OBS URL now includes a key. Copy it again and replace the Browser Source URL in OBS."
         obs_browser_source_port:
             label: "OBS port"

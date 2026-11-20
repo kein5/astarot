@@ -396,6 +396,8 @@ const WebsocketUrlContainer = () => {
             // The address in use, not a description: it stays on screen.
             desc={shown}
             keep_desc
+            // The label names the address; the button says what pressing does.
+            action_label={t("config_page.advanced_settings.websocket_url.copy")}
             IconComponent={CopyThinSvg}
             ClickedIconComponent={CheckMarkSvg}
             clicked_duration={1000}
@@ -493,6 +495,7 @@ const ObsBrowserSourceUrlContainer = () => {
                 // The address in use, not a description: it stays on screen.
                 desc={shown}
                 keep_desc
+                action_label={t("config_page.advanced_settings.obs_browser_source_url.copy")}
                 IconComponent={CopyThinSvg}
                 ClickedIconComponent={CheckMarkSvg}
                 clicked_duration={1000}
