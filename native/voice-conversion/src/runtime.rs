@@ -764,6 +764,7 @@ fn now_ns() -> u128 {
 
 impl RuntimeSetup {
     pub fn new(options: SetupOptions) -> Self {
+        recover_libraries(&options.root);
         Self {
             shared: Arc::new(Shared {
                 options,
@@ -1080,8 +1081,7 @@ impl Shared {
             fs::write(&record, serde_json::to_string(&done).expect("strings serialize"))?;
         }
         fs::remove_file(&record)?;
-        let _ = fs::remove_dir_all(&target);
-        fs::rename(&staging, &target)?;
+        swap_in(&staging, &target)?;
         let _ = fs::remove_dir_all(&downloads);
         Ok(())
     }
@@ -1252,7 +1252,7 @@ impl Shared {
                 fs::write(&marker, finished.to_string())?;
             }
             self.checkpoint(cancel)?;
-            fs::write(folder.join("receipt.json"), json!({ "version": version, "id": runtime.id }).to_string())?;
+            write_receipt(&folder, &json!({ "version": version, "id": runtime.id }))?;
             // Steps resume a setup, not a finished runtime: a repair must run them again.
             let _ = fs::remove_file(&marker);
             let _ = fs::remove_dir_all(folder.join(".cache"));
@@ -1288,6 +1288,65 @@ impl Shared {
             }
         }
     }
+}
+
+/// Where a repair moves the libraries it replaces until the new ones are in place.
+const PREVIOUS_LIBRARIES: &str = "lib.previous";
+
+/// Puts `staging` in the place of `target` without removing the libraries there first: the old
+/// folder is renamed aside, the new one renamed in, and only then the old one removed. On
+/// Windows a loaded library (the RVC worker's, or the app's own ONNX Runtime) keeps its folder
+/// from being renamed, so the swap fails before anything is removed and the runtime set up
+/// before stays as it was (#517).
+fn swap_in(staging: &Path, target: &Path) -> std::io::Result<()> {
+    let previous = target.with_file_name(PREVIOUS_LIBRARIES);
+    if previous.exists() {
+        fs::remove_dir_all(&previous)?;
+    }
+    let had = target.exists();
+    if had {
+        fs::rename(target, &previous)?;
+    }
+    if let Err(error) = fs::rename(staging, target) {
+        if had {
+            let _ = fs::rename(&previous, target);
+        }
+        return Err(error);
+    }
+    if had {
+        let _ = fs::remove_dir_all(&previous);
+    }
+    Ok(())
+}
+
+/// A repair that stopped between the two renames of [`swap_in`] left `lib.previous` and no
+/// `lib`: the earlier libraries go back, so the runtime set up before is usable again. One that
+/// stopped after them left both: the new `lib` stays and the old copy goes. Called at start,
+/// for every runtime folder under `root`.
+pub fn recover_libraries(root: &Path) {
+    let Ok(folders) = fs::read_dir(root) else { return };
+    for folder in folders.flatten().filter(|entry| entry.file_type().is_ok_and(|kind| kind.is_dir())) {
+        let (previous, lib) = (folder.path().join(PREVIOUS_LIBRARIES), folder.path().join("lib"));
+        if !previous.is_dir() {
+            continue;
+        }
+        if lib.exists() {
+            let _ = fs::remove_dir_all(&previous);
+        } else {
+            let _ = fs::rename(&previous, &lib);
+        }
+    }
+}
+
+/// Writes `receipt.json` through a temporary file and a rename: a stop leaves the earlier
+/// receipt or the new one, never part of one.
+fn write_receipt(folder: &Path, receipt: &Value) -> std::io::Result<()> {
+    let part = folder.join("receipt.json.part");
+    let mut file = File::create(&part)?;
+    file.write_all(receipt.to_string().as_bytes())?;
+    file.sync_all()?;
+    drop(file);
+    fs::rename(&part, folder.join("receipt.json"))
 }
 
 fn is_disk_full(error: &std::io::Error) -> bool {
