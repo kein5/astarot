@@ -112,6 +112,35 @@ fn the_vr_panel_list_is_the_uis_and_every_entry_is_wired() {
     }
 }
 
+/// The endpoints whose answers `src-ui/logics/useReceiveRoutes.ts` hands to a hook
+/// (`{ endpoint: "/...", ... }`).
+fn ui_received_endpoints() -> BTreeSet<String> {
+    let text = include_str!("../../../src-ui/logics/useReceiveRoutes.ts");
+    text.split("endpoint: \"").skip(1).map(|rest| rest.split('"').next().unwrap().to_string()).filter(|e| e.starts_with('/')).collect()
+}
+
+/// The voice endpoints (speech settings and status, the managed route, mute, direct voice, the
+/// voice audition): the UI hands the answer of each one the core serves to the voice hooks, and
+/// receives none the core does not serve. Until 0.6.0 tests/voice/test_headless_and_ui_contract.py
+/// held the UI to the Python backend's list.
+#[test]
+fn the_ui_receives_the_answer_of_every_voice_endpoint_the_core_serves() {
+    let voice = |endpoint: &str| endpoint.contains("voice");
+    let ui: BTreeSet<String> = ui_received_endpoints().into_iter().filter(|e| voice(e)).collect();
+    assert!(ui.len() > 10, "the UI's routes were not read: {ui:?}");
+    let core: BTreeSet<String> = routes().endpoints().filter(|e| voice(e)).map(str::to_string).collect();
+    assert_eq!(
+        core.difference(&ui).collect::<Vec<_>>(),
+        Vec::<&String>::new(),
+        "the core serves these voice endpoints, but src-ui/logics/useReceiveRoutes.ts drops their answers"
+    );
+    assert_eq!(
+        ui.difference(&core).collect::<Vec<_>>(),
+        Vec::<&String>::new(),
+        "src-ui/logics/useReceiveRoutes.ts waits for these voice endpoints, but the core does not serve them"
+    );
+}
+
 #[test]
 fn the_remaining_endpoints_are_listed_in_the_migration_document() {
     let spec: BTreeSet<String> = spec().into_iter().map(|s| s.endpoint).collect();
