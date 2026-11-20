@@ -63,7 +63,7 @@
 | 入れ方 | 更新の責任 | 失敗したときに保つもの | 確かめているもの |
 |---|---|---|---|
 | Windows のインストーラー | アプリが署名を確かめたインストーラーを起動する。入れ替えはインストーラー | パッケージの SHA-256 が合わない、壊れている、途中で切れている、ファイルが使用中で入れ替えられないときは、前のインストールのまま。入れ替えの途中で止まったときは、次にインストーラーを動かすと前の状態に戻す | `tests/installer/windows_update_scenarios.py`（CI の `installer-update-tests.yml` で本物の NSIS を動かす） |
-| AppImage（書き込める場所） | アプリ（`tauri-plugin-updater` が AppImage を置き換える） | 署名の確認は置き換えの前に行う。書き込みに失敗したときは、退避した前の AppImage を戻す。アプリはそのまま動き続ける | 自動の試験はない（残課題） |
+| AppImage（書き込める場所） | アプリ。`tauri-plugin-updater` は取得と署名の確認だけで、置き換えはアプリが行う（`src-tauri/src/app_update.rs` の `replace_appimage`） | 署名と ELF であることを確かめてから、同じフォルダーの隠しファイル（`.<名前>.update-<番号>`）に書き、前の AppImage の権限を付け、`fsync` して名前を変えて置き換える。名前を変える前に失敗したり止まったりしても、前の AppImage はそのまま残る。止まったときの書きかけのファイルは、次の起動で消す。動いているアプリは前のファイルのまま動き続ける | `app_update.rs` の単体試験（`an_appimage_is_replaced_in_one_rename_and_keeps_its_permissions`、`a_failed_replacement_leaves_the_appimage_as_it_was`、`what_a_stopped_replacement_left_goes_and_nothing_else`）。`src-tauri` の試験は CI では動かない |
 | 書き込めない場所の AppImage、Windows の ZIP、Linux の tar.gz | 利用者 | アプリはファイルを置き換えない | `app_update.rs` の単体試験（入れ方の判定） |
 | deb、rpm | パッケージマネージャー | アプリは確認も置き換えもしない | 同上 |
 
@@ -71,7 +71,6 @@
 
 ## 残課題
 
-- AppImage の置き換えは `tauri-plugin-updater` の中で、元の場所に直接書き込む。書き込みの途中でアプリが落ちたり電源が切れたりすると、壊れた AppImage が元の場所に残る。退避した前の AppImage は一時フォルダーの `tauri_current_app*/current_app.AppImage` に残る。同じフォルダーで別の名前に書いてから名前を変えるには、プラグインに手を入れる必要がある。AppImage の更新の失敗を試す自動の試験もない。
 - 公開済みのモデルが同じ大きさのまま壊れたとき、取得の画面は取得し直すまで使えるものとして表示する。起動のたびに SHA-256 を確かめると、数 GB のモデルでは時間がかかる。
 - 新しい版の設定を古い版で開いても、知らないキーはファイルに残る（#560。この直しを含む版から）。ただし、新しい版で選択肢を足した設定のように、古い版の検査に通らない値は既定値に戻して保存する。そのため、更新に失敗して前の版に戻したときは、新しい版で変えた設定の一部がなくなることがある。この直しより前の版は、知らないキーも捨てて保存する。
 - RVC の実行環境の準備（`vc_runtimes/`）は、この文書の棚卸しにまだ入れていない。
