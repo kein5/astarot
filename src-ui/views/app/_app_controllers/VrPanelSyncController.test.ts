@@ -1,22 +1,37 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
+import type { TestContext } from "vitest";
 import { hooks, loadModule } from "../../../logics/test/hookHarness.ts";
 import * as wire from "../../../logics/common/vrPanelWire.ts";
 import * as windowFailures from "../../../logics/common/windowFailures.ts";
 
-async function setup(context, { registry = {}, values = {}, settings = [], openFailure = null } = {}) {
-    const runtime = hooks(), lifecycle = hooks(), listeners = new Map();
+interface SyncSetup {
+    registry?: Record<string, unknown>;
+    values?: Record<string, unknown>;
+    settings?: unknown[];
+    openFailure?: unknown;
+}
+type Listener = (event?: unknown) => void;
+interface InvokeArgs {
+    open?: boolean;
+    payload?: Record<string, unknown>;
+}
+type MainFunctionsMemory = { translation: boolean; transcription_send: boolean; transcription_receive: boolean };
+
+async function setup(context: TestContext, { registry = {}, values = {}, settings = [], openFailure = null }: SyncSetup = {}) {
+    const runtime = hooks(), lifecycle = hooks(), listeners = new Map<string, Listener>();
     const state = { enabled: true, configOpen: false, mic: true };
-    const actions = [], requests = [], windows = [], pushes = [], emitted = [], notices = [];
-    let memory = { translation: false, transcription_send: false, transcription_receive: false };
+    const actions: unknown[][] = [], requests: unknown[][] = [], windows: unknown[] = [], pushes: [string, InvokeArgs][] = [],
+        emitted: unknown[][] = [], notices: unknown[][] = [];
+    let memory: MainFunctionsMemory = { translation: false, transcription_send: false, transcription_receive: false };
     const common = {
         useIsOpenedConfigPage: () => ({ currentIsOpenedConfigPage: { data: state.configOpen },
-            setIsOpenedConfigPage: value => { state.configOpen = value; } }),
-        useNotificationStatus: () => ({ showNotification_Error: (message, options) => notices.push([message, options]) }),
+            setIsOpenedConfigPage: (value: boolean) => { state.configOpen = value; } }),
+        useNotificationStatus: () => ({ showNotification_Error: (message: string, options: unknown) => notices.push([message, options]) }),
         useVolume: () => ({ currentMicThresholdCheckStatus: { data: false }, currentSpeakerThresholdCheckStatus: { data: false } }),
     };
-    const { VrPanelSyncController } = await loadModule(new URL("./VrPanelSyncController.tsx", import.meta.url), runtime, {
-        "@tauri-apps/api/core": { invoke: async (name, args) => {
+    const { VrPanelSyncController } = await loadModule<typeof import("./VrPanelSyncController.tsx")>(new URL("./VrPanelSyncController.tsx", import.meta.url), runtime, {
+        "@tauri-apps/api/core": { invoke: async (name: string, args: InvokeArgs) => {
             if (name === "set_vr_panel_window") {
                 windows.push(args.open);
                 if (args.open && openFailure) throw openFailure;
@@ -24,37 +39,43 @@ async function setup(context, { registry = {}, values = {}, settings = [], openF
             else pushes.push([name, args]);
             return true;
         } },
-        "@tauri-apps/api/event": { emit: async (...args) => emitted.push(args), listen: (name, handler) => {
+        "@tauri-apps/api/event": { emit: async (...args: unknown[]) => emitted.push(args), listen: (name: string, handler: Listener) => {
             listeners.set(name, handler);
             return Promise.resolve(() => { if (listeners.get(name) === handler) listeners.delete(name); });
         } },
-        jotai: { getDefaultStore: () => ({ get: atom => values[atom], sub: () => () => {} }) },
+        jotai: { getDefaultStore: () => ({ get: (atom: string) => values[atom], sub: () => () => {} }) },
         "@store": { dynamicStoreRegistry: registry },
         "../../../logics/configs/config_page_setter/ui_config_setter": { SETTINGS_ARRAY: settings },
         "@logics_common": common,
         "@logics_configs": { useVr: () => ({ currentIsEnabledOverlayVrPanel: { data: state.enabled } }) },
-        "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: async (...args) => requests.push(args) }) },
+        "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: async (...args: unknown[]) => requests.push(args) }) },
         "../../../logics/common/vrPanelWire": wire,
         "../../../logics/common/windowFailures.ts": windowFailures,
-        "@useI18n": { useI18n: () => ({ t: key => key }) },
+        "@useI18n": { useI18n: () => ({ t: (key: string) => key }) },
         "../../../logics/main/languageMutations": { isLanguageMutation: () => false, rejectLanguageMutation: () => {} },
     });
-    const { ConfigPageCloseTriggerController } = await loadModule(new URL("./ConfigPageCloseTriggerController.tsx", import.meta.url), lifecycle, {
+    const { ConfigPageCloseTriggerController } = await loadModule<typeof import("./ConfigPageCloseTriggerController.tsx")>(new URL("./ConfigPageCloseTriggerController.tsx", import.meta.url), lifecycle, {
         "@logics_common": common,
         "@store": { useStore_MainFunctionsStateMemory: () => ({ currentMainFunctionsStateMemory: { data: memory },
-            updateMainFunctionsStateMemory: value => { memory = value; } }) },
+            updateMainFunctionsStateMemory: (value: MainFunctionsMemory) => { memory = value; } }) },
         "@logics_main": { useMainFunction: () => ({
             currentTranslationStatus: { data: false }, currentTranscriptionReceiveStatus: { data: false },
             currentTranscriptionSendStatus: { data: state.mic },
-            setTranscriptionSend: (value, options) => { actions.push([value, options]); state.mic = value; },
+            setTranscriptionSend: (value: boolean, options: unknown) => { actions.push([value, options]); state.mic = value; },
             pendingTranscriptionSendStatus: () => {},
         }) },
     });
     context.onTestFinished(() => { runtime.unmount(); lifecycle.unmount(); });
     const render = () => { runtime.render(VrPanelSyncController); lifecycle.render(ConfigPageCloseTriggerController); };
-    const config = value => { listeners.get("vr-panel-config-page")({ payload: value }); render(); };
+    // The handler the controller listens with for an event, which the test needs to be there.
+    const listener = (name: string) => {
+        const handler = listeners.get(name);
+        assert.ok(handler, name);
+        return handler;
+    };
+    const config = (value: boolean) => { listener("vr-panel-config-page")({ payload: value }); render(); };
     render();
-    return { state, actions, requests, windows, pushes, emitted, notices, listeners, runtime, render, config };
+    return { state, actions, requests, windows, pushes, emitted, notices, listeners, listener, runtime, render, config };
 }
 
 // SEC-03: only the listed state goes to the VR panel, through its channel.
@@ -71,9 +92,10 @@ test("the VR panel gets the listed state through invoke, and nothing else", asyn
     assert.equal(view.pushes.length, 1);
     const [name, { payload }] = view.pushes[0];
     assert.equal(name, "vr_panel_state_push");
+    assert.ok(payload);
     assert.deepEqual(Object.keys(payload).sort(), ["TranslationStatus", "VrPanelLayout"]);
     assert.deepEqual(view.emitted, []); // nothing goes out as an event any more
-    view.listeners.get("vr-panel-ready")();
+    view.listener("vr-panel-ready")();
     assert.equal(view.pushes.length, 2);
 });
 
@@ -91,14 +113,14 @@ test("recreating the VR panel leaves settings open and microphone paused", async
     assert.equal(view.state.mic, false);
     assert.deepEqual(view.actions, [[false, { reason: "settings_pause" }]]);
     assert.deepEqual(view.windows, [true, false, true]);
-    view.listeners.get("vr-panel-stdout")({ payload: { path: "/set/enable/transcription_send" } });
+    view.listener("vr-panel-stdout")({ payload: { path: "/set/enable/transcription_send" } });
     assert.deepEqual(view.requests, []); // The old panel no longer owns the pause.
 });
 
 // SEC-02 and SEC-07: only listed requests are relayed, and each is marked for the backend's own check.
 test("the VR panel's requests are relayed marked as its own, and unlisted ones are dropped", async context => {
     const view = await setup(context);
-    const relay = view.listeners.get("vr-panel-stdout");
+    const relay = view.listener("vr-panel-stdout");
     relay({ payload: { path: "/set/enable/translation" } });
     relay({ payload: { path: "/set/data/overlay_vr_panel_opacity", value: 0.8 } });
     for (const path of ["/set/enable/telemetry", "/set/data/telemetry_notice", "/set/data/deepl_auth_key",
@@ -113,8 +135,8 @@ for (const dispose of ["disable", "unmount"]) {
     test(`late callbacks after ${dispose} cannot reacquire settings ownership`, async context => {
         const view = await setup(context);
         view.config(true);
-        const oldConfig = view.listeners.get("vr-panel-config-page");
-        const oldStdout = view.listeners.get("vr-panel-stdout");
+        const oldConfig = view.listener("vr-panel-config-page");
+        const oldStdout = view.listener("vr-panel-stdout");
         if (dispose === "disable") {
             view.state.enabled = false;
             view.render();

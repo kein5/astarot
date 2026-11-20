@@ -1,26 +1,45 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
+import type { TestContext } from "vitest";
 import { hooks, loadModule } from "../../../logics/test/hookHarness.ts";
 import * as sharedWindow from "../../../logics/configs/ocrSharedWindow.ts";
 
 const flush = async () => { for (let i = 0; i < 10; i++) await Promise.resolve(); };
 
+interface SharedWindowState {
+    supported: boolean;
+    active: boolean;
+    busy: boolean;
+    error: null;
+    restoring?: boolean;
+}
+type EventHandler = (event: unknown) => void;
+// The app around the controller, as the test changes it.
+interface App {
+    chatReading: { data: boolean; state: string };
+    shared: SharedWindowState;
+    calls: string[];
+    notices: unknown[][];
+    listeners: [string, EventHandler][];
+    unlistened: number;
+}
+
 // The controller with the app around it replaced: chat reading's switch, the shared-window state,
 // the Tauri event and the notifications.
-const mount = async (context, { listenFails = false } = {}) => {
+const mount = async (context: TestContext, { listenFails = false }: { listenFails?: boolean } = {}) => {
     const runtime = hooks();
     context.onTestFinished(() => runtime.unmount());
-    const app = { chatReading: { data: false, state: "ok" }, shared: { supported: true, active: false, busy: false, error: null },
+    const app: App = { chatReading: { data: false, state: "ok" }, shared: { supported: true, active: false, busy: false, error: null },
         calls: [], notices: [], listeners: [], unlistened: 0 };
-    const { OcrSharedWindowController } = await loadModule(new URL("./OcrSharedWindowController.tsx", import.meta.url), runtime, {
-        "@tauri-apps/api/event": { listen: async (event, handler) => {
+    const { OcrSharedWindowController } = await loadModule<typeof import("./OcrSharedWindowController.tsx")>(new URL("./OcrSharedWindowController.tsx", import.meta.url), runtime, {
+        "@tauri-apps/api/event": { listen: async (event: string, handler: EventHandler) => {
             if (listenFails) throw new Error("not inside the app");
             app.listeners.push([event, handler]);
             return () => { app.unlistened++; };
         } },
         "@logics_common": { useNotificationStatus: () => ({
-            showNotification_Warning: (message, options) => app.notices.push(["warning", message, options]),
-            showNotification_Error: (message, options) => app.notices.push(["error", message, options]),
+            showNotification_Warning: (message: string, options: unknown) => app.notices.push(["warning", message, options]),
+            showNotification_Error: (message: string, options: unknown) => app.notices.push(["error", message, options]),
         }) },
         "@logics_main": { useMainFunction: () => ({ currentOcrCaptureStatus: app.chatReading,
             pendingOcrCaptureStatus: () => { app.calls.push("pending"); app.chatReading = { ...app.chatReading, state: "pending" }; } }) },
