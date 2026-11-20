@@ -28,9 +28,14 @@
         background: var(--vox_surface); box-shadow: var(--vox_shadow_overlay);
     }
 }
-.head { display: flex; flex-wrap: wrap; align-items: baseline; gap: .4rem 1.2rem; margin-bottom: 1.2rem; }
+.head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .4rem 1.2rem; margin-bottom: 1.2rem; }
+// The title and its hint. The bubble opens under the title at every width: the panel clips
+// what goes above its first line.
+.title_line {
+    display: flex; align-items: center;
+    :global([data-slot="tooltip-content"]) { top: calc(100% + .6rem); bottom: auto; }
+}
 .title { font-size: 1.6rem; font-weight: 600; margin: 0; }
-.hint { flex: 1 1 20rem; margin: 0; font-size: 1.2rem; color: var(--vox_description_text); }
 .close {
     min-height: 3.2rem; padding: .4rem 1.2rem; border-radius: var(--vox_radius); font-size: 1.3rem; font-weight: 500;
     color: var(--dark_200_color); background: var(--vox_surface); border: .1rem solid var(--vox_border); cursor: pointer;

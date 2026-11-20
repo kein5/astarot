@@ -10,6 +10,7 @@ import type { FlowInput, FlowLane, IoFlow, Trace } from "../../../logics/flow/io
 import type { TimelineRow } from "../../../logics/flow/flowText.ts";
 import type { GpuMemory } from "../../../logics/flow/gpuMemory.ts";
 import { FlowGraph } from "./FlowGraph";
+import { Hint } from "../config_page/setting_section/setting_box/_components/hint/Hint";
 import styles from "./IoFlowView.module.scss";
 
 const HISTORY = 20;
@@ -56,13 +57,17 @@ export const IoFlowView = ({ flow, traces, gpuMemory, compact = false }: IoFlowV
 };
 
 // How much GPU memory the app holds on each GPU, by what holds it, and the GPU's whole use.
+// How it is read is the hint of the heading (#614), not a line under the readout.
 const GpuMemorySection = ({ memory }: { memory: GpuMemory | null }) => {
     const { t } = useI18n();
     const rows = gpuRows(memory, t);
     const state = memory?.state ?? "measuring";
     const message = state !== "ready" ? t(`io_flow.gpu.state.${state}`) : rows.length === 0 ? t("io_flow.gpu.none") : null;
     return <section className={styles.gpu} aria-labelledby="io_flow_gpu_title">
-        <h3 id="io_flow_gpu_title" className={styles.latest_title}>{t("io_flow.gpu.title")}</h3>
+        <div className={styles.gpu_title} data-hint-host>
+            <h3 id="io_flow_gpu_title" className={styles.latest_title}>{t("io_flow.gpu.title")}</h3>
+            <Hint text={t("io_flow.gpu.note")} focusable />
+        </div>
         {message
             ? <p className={styles.no_trace} role="status">{message}</p>
             : <ul className={styles.gpu_list}>
@@ -86,7 +91,6 @@ const GpuMemorySection = ({ memory }: { memory: GpuMemory | null }) => {
                     </ul>}
                 </li>)}
             </ul>}
-        <p className={styles.origin}>{t("io_flow.gpu.note")}</p>
     </section>;
 };
 
