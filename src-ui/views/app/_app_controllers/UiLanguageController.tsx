@@ -5,7 +5,7 @@ import { useAppearance } from "@logics_configs";
 import { useIsBackendReady } from "@logics_common";
 
 // waitForEngine (the main window): keep the provisional language from
-// locales/config.js until the engine has sent the saved one, instead of
+// locales/config.ts until the engine has sent the saved one, instead of
 // switching to the setting's built-in default first.
 export const UiLanguageController = ({ waitForEngine = false } = {}) => {
     const { currentUiLanguage } = useAppearance();
