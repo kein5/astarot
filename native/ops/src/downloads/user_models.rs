@@ -376,6 +376,19 @@ mod tests {
     }
 
     #[test]
+    fn a_path_is_the_same_in_the_spellings_of_its_system() {
+        assert!(same_path("models/voice.gguf", "models/voice.gguf"));
+        assert!(!same_path("models/voice.gguf", "models/other.gguf"));
+        if cfg!(windows) {
+            // Windows paths ignore case and take either separator.
+            assert!(same_path("C:/Models/Voice.gguf", "c:\\models\\voice.gguf"));
+        } else {
+            assert!(same_path("models//voice.gguf", "models/voice.gguf"));
+            assert!(!same_path("Models/voice.gguf", "models/voice.gguf"));
+        }
+    }
+
+    #[test]
     fn requests_name_exactly_their_fields_and_roles() {
         let (dir, models, file) = setup();
         let index = dir.path().join("voice.index");
