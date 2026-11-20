@@ -260,7 +260,7 @@ test("each translation provider is one fold that says whether it can be used; th
     const runtime = hooks();
     const engines = [{ id: "DeepL_API", label: "DeepL API", is_available: true }, { id: "Gemini_API", label: "Gemini API", is_available: false },
         { id: "Ollama", label: "Ollama", is_available: true }];
-    let selected = { 1: "CTranslate2", 2: "Ollama", 3: "CTranslate2" };
+    const selected = { 1: "CTranslate2", 2: "Ollama", 3: "CTranslate2" };
     const SetupSection = () => null;
     const source = readFileSync(new URL("./setting_section/setting_box/translation/Translation.tsx", import.meta.url), "utf8");
     const dependencies = Object.fromEntries([...source.matchAll(/from "([^"]+)"/g)].map(match => [match[1], {}]));

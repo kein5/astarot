@@ -147,9 +147,10 @@ export function createPendingRequestRecovery(): PendingRequestRecovery {
     const controls = new Map<string, PendingControl>(), restorers = new Set<() => unknown>(), reads = new Map<string | undefined, PendingRead>();
     const register: RegisterPendingControl = ({ endpoints = [], read, restore, stop = restore, parallel = false }: PendingControlRegistration) => {
         // RegisterPendingControl requires restore or stop, and stop falls back to restore.
-        restorers.add(stop!);
+        if (stop) restorers.add(stop);
         // Only a registration with restore has endpoints, so a control without it is never stored.
-        const control: PendingControl = { read, restore: restore!, version: 0, parallel };
+        if (!restore) return;
+        const control: PendingControl = { read, restore, version: 0, parallel };
         for (const endpoint of endpoints) controls.set(endpoint, control);
     };
     const beginSend = (endpoint: string) => {
@@ -173,7 +174,9 @@ export function createPendingRequestRecovery(): PendingRequestRecovery {
             reading.again?.();
         };
         // resync runs only for a control with a read, which is what send() is given.
-        try { Promise.resolve(send(control.read!)).then(sent => { if (sent === false) failed(); }, failed); }
+        const read = control.read;
+        if (read === undefined) return;
+        try { Promise.resolve(send(read)).then(sent => { if (sent === false) failed(); }, failed); }
         catch { failed(); }
     };
     const acceptResponse = (endpoint: string) => {
