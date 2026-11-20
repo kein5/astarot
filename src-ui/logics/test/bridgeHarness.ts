@@ -1,7 +1,10 @@
+import assert from "node:assert/strict";
 import * as legacyModelConsent from "../configs/legacyModelConsent.ts";
 import * as sharedWindow from "../configs/ocrSharedWindow.ts";
 import { atom } from "jotai/vanilla";
-import type { Atom, WritableAtom } from "jotai/vanilla";
+import type { Atom, PrimitiveAtom, WritableAtom } from "jotai/vanilla";
+import type { ReactNode } from "react";
+import type { AtomState, NotificationOptions } from "../store.ts";
 import type { i18n as I18n } from "i18next";
 import { hooks, loadModule } from "./hookHarness.ts";
 import type { HookRuntime } from "./hookHarness.ts";
@@ -58,10 +61,30 @@ interface BridgeOverrides {
     configs?: Record<string, unknown>;
     main?: Record<string, unknown>;
 }
-interface Notice {
+// A notice the routes showed: its text (a translation key, or an element such as TranslatedNotice)
+// and its options, as useNotificationStatus takes them.
+export interface Notice {
     type: "error" | "warning";
-    key: string;
-    options: unknown;
+    key: ReactNode;
+    options: NotificationOptions | undefined;
+}
+
+// A notice's text when it is a text, as most are; the test fails there when the notice is missing or
+// its text is an element. Reading a missing notice's key stopped with a TypeError before.
+export function noticeText(notice: Notice | undefined): string {
+    assert.ok(notice, "no notice");
+    assert.equal(typeof notice.key, "string", "the notice's text is not a text");
+    return typeof notice.key === "string" ? notice.key : "";
+}
+
+// A setting's atom in the store's registry, under its Atom_ name. The settings list makes each one
+// a primitive atom of the setting's state, which the setting's hook writes; the registry keeps them
+// as unknown. This overload is the one place that says so.
+export function settingAtom<T = unknown>(registry: Readonly<Record<string, unknown>>, name: string): PrimitiveAtom<AtomState<T>>;
+export function settingAtom(registry: Readonly<Record<string, unknown>>, name: string): unknown {
+    const target = registry[name];
+    if (typeof target !== "object" || target === null) throw new TypeError(`the registry has no ${name}`);
+    return target;
 }
 
 export const loadBridgeRoutes = async (
@@ -73,8 +96,8 @@ export const loadBridgeRoutes = async (
     const notices: Notice[] = [], reads: string[] = [];
     const useI18n = () => i18n ? { t: i18n.t.bind(i18n), i18n } : { t: (key: string) => key, i18n: { exists: () => false } };
     const notification = {
-        showNotification_Error: (key: string, options?: unknown) => notices.push({ type: "error", key, options }),
-        showNotification_Warning: (key: string, options?: unknown) => notices.push({ type: "warning", key, options }),
+        showNotification_Error: (key: ReactNode, options?: NotificationOptions) => notices.push({ type: "error", key, options }),
+        showNotification_Warning: (key: ReactNode, options?: NotificationOptions) => notices.push({ type: "warning", key, options }),
         showNotification_Success: noop, showNotification_SaveSuccess: noop, dismissNotification: noop,
     };
     const common = stubApi({

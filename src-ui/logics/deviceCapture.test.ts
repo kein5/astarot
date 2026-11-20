@@ -5,7 +5,7 @@ import i18next from "i18next";
 import type { ResourceKey } from "i18next";
 import type { Atom } from "jotai/vanilla";
 import yaml from "js-yaml";
-import { loadBridgeRoutes } from "./test/bridgeHarness.ts";
+import { loadBridgeRoutes, noticeText } from "./test/bridgeHarness.ts";
 import { loadModule, unchecked } from "./test/hookHarness.ts";
 import type { AtomState } from "./store.ts";
 
@@ -37,10 +37,12 @@ for (const language of ["en", "ja"]) for (const source of ["mic", "speaker"]) {
             old_device: { id: "id-a", name: "マイク A" }, new_device: { id: "id-b", name: "USB B" } });
         assert.equal(s.notices.length, 1);
         assert.equal(s.notices[0].type, "warning");
-        assert.match(s.notices[0].key, /マイク A/);
-        assert.match(s.notices[0].key, /USB B/);
+        assert.match(noticeText(s.notices[0]), /マイク A/);
+        assert.match(noticeText(s.notices[0]), /USB B/);
         // The notice's options say how long it stays.
-        assert.notEqual(unchecked<{ hide_duration: unknown }>(s.notices[0]?.options).hide_duration, null);
+        const shown = s.notices[0]?.options;
+        assert.ok(shown);
+        assert.notEqual(shown.hide_duration, null);
         assert.deepEqual(s.reads, []);
     });
 }
@@ -70,6 +72,6 @@ test("switches between duplicate labels distinguish the endpoints in the notice"
     const s = await loadBridgeRoutes(undefined, i18n);
     s.receiveRoutes({ status: 200, endpoint: "/run/audio_device_switched", result: { source: "mic",
         old_device: { id: "endpoint-a", name: "USB mic" }, new_device: { id: "endpoint-b", name: "USB mic" } } });
-    assert.match(s.notices[0].key, /USB mic \(endpoint-a\)/);
-    assert.match(s.notices[0].key, /USB mic \(endpoint-b\)/);
+    assert.match(noticeText(s.notices[0]), /USB mic \(endpoint-a\)/);
+    assert.match(noticeText(s.notices[0]), /USB mic \(endpoint-b\)/);
 });

@@ -5,7 +5,7 @@ import i18next from "i18next";
 import yaml from "js-yaml";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { PrimitiveAtom } from "jotai/vanilla";
-import { loadBridgeRoutes } from "./test/bridgeHarness.ts";
+import { loadBridgeRoutes, noticeText } from "./test/bridgeHarness.ts";
 import { unchecked } from "./test/hookHarness.ts";
 import type { AtomState } from "./store.ts";
 
@@ -168,8 +168,8 @@ for (const language of ["en", "ja"]) test(`${language}: partial output warning n
         } });
         const notice = s.notices.at(-1);
         assert.ok(notice);
-        assert.ok(notice.key.includes(i18n.t(`message_outputs.${output}`)));
-        assert.match(notice.key, language === "ja" ? /再送するとほかの出力先に同じメッセージが重ねて届く/ : /If you resend it, those outputs may receive it twice/);
+        assert.ok(noticeText(notice).includes(i18n.t(`message_outputs.${output}`)));
+        assert.match(noticeText(notice), language === "ja" ? /再送するとほかの出力先に同じメッセージが重ねて届く/ : /If you resend it, those outputs may receive it twice/);
         assert.equal(notice.type, "warning");
     }
 });
@@ -255,5 +255,5 @@ for (const language of ["en", "ja"]) test(`${language}: a key store failure says
     assert.deepEqual(s.notices.map(notice => notice.key),
         [errors.SECRET_STORE_FAILED_moving, errors.SECRET_STORE_FAILED_os_store, errors.SECRET_STORE_FAILED_os_store]);
     assert.ok(s.notices.every(notice => typeof notice.key === "string" && !Object.is(notice.key, errors.SECRET_STORE_FAILED)));
-    assert.ok(s.notices.every(notice => !notice.key.includes("AUTH_KEYS")), "no entry names or keys on screen");
+    assert.ok(s.notices.every(notice => !noticeText(notice).includes("AUTH_KEYS")), "no entry names or keys on screen");
 });
