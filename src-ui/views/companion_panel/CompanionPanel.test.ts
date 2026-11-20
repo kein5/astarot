@@ -1,8 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import type { TestContext } from "vitest";
-import { hooks, loadModule, find, eventTarget, stubGlobals, unchecked } from "../../logics/test/hookHarness.ts";
-import type { TreeNode } from "../../logics/test/hookHarness.ts";
+import { hooks, loadModule, find, eventTarget, stubGlobals, unchecked, findIn } from "../../logics/test/hookHarness.ts";
 import { flush } from "../../logics/test/bridgeHarness.ts";
 import * as status from "../../logics/companion/status.ts";
 import type { CompanionStatus } from "../../logics/companion/status.ts";
@@ -12,13 +11,6 @@ const ready = { ready: true, mic: { on: false, pending: false }, translation: { 
     menu: { start: "s", stop: "s", panel: "p", main: "m", quit: "q" } };
 
 type Status = typeof ready;
-
-// A node the test goes on to read: it must be there.
-const found = (tree: unknown, predicate: (node: TreeNode) => boolean) => {
-    const node = find(tree, predicate);
-    assert.ok(node);
-    return node;
-};
 
 async function setup(context: TestContext, initial: Status = ready) {
     const runtime = hooks(), requests: string[] = [], removals: string[] = [], languages: string[] = [];
@@ -48,7 +40,7 @@ async function setup(context: TestContext, initial: Status = ready) {
     return { render, requests, removals, callbacks, languages, window,
         set: (next: Status) => { current = next; }, get hides() { return hides; },
         row: (label: string) => find(render(), node => node.props?.label === label)?.props,
-        stateText: () => found(render(), node => node.props?.role === "status").props.children[1] };
+        stateText: () => findIn(render(), node => node.props?.role === "status").props.children[1] };
 }
 
 test("the panel shows the switches as the main window reports them, in its language", async context => {
@@ -84,7 +76,7 @@ test("until the backend is ready the switches cannot be used", async context => 
 test("Escape and the close button hide the panel; the main window can be opened from it", async context => {
     const s = await setup(context);
     s.window.dispatch("keydown", { key: "Escape" });
-    const footer = found(s.render(), node => node.type === "footer");
+    const footer = findIn(s.render(), node => node.type === "footer");
     const [open, close] = footer.props.children;
     open.props.onClick();
     close.props.onClick();

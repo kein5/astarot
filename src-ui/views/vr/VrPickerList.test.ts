@@ -4,7 +4,7 @@ import { test, vi } from "vitest";
 import type { TestContext } from "vitest";
 import React from "react";
 import type { RefObject } from "react";
-import { hooks, loadModule, find, stubGlobals, eventTarget, unchecked } from "../../logics/test/hookHarness.ts";
+import { hooks, loadModule, find, stubGlobals, eventTarget, unchecked, findIn, nodesIn, componentName, componentNamed, draw, fieldOf, setRef } from "../../logics/test/hookHarness.ts";
 import type { TreeNode } from "../../logics/test/hookHarness.ts";
 import * as languageNames from "../../logics/common/languageNames.ts";
 import type { LanguageEntry } from "../../logics/common/languageNames.ts";
@@ -18,23 +18,8 @@ const fonts = Array.from({ length: 743 }, (_, index) => ({ id: `font-${index}`, 
 type Font = (typeof fonts)[number];
 const languages = Object.entries(languageCodes).flatMap(([language, countries]) =>
     Object.keys(countries).map(country => ({ language, country })));
-// An object in the rendered tree is an element, as find reads it.
-const all = (tree: unknown, predicate: (node: TreeNode) => boolean): TreeNode[] => {
-    if (!tree || typeof tree !== "object") return [];
-    const node = unchecked<TreeNode>(tree);
-    return [...(predicate(node) ? [node] : []), ...React.Children.toArray(node.props?.children).flatMap(child => all(child, predicate))];
-};
-// A node the test goes on to read: it must be there.
-const found = (tree: unknown, predicate: (node: TreeNode) => boolean) => {
-    const node = find(tree, predicate);
-    assert.ok(node);
-    return node;
-};
-// An element's ref. React elements keep it, but React 18's types leave it out of ReactElement.
-const refOf = (node: TreeNode): { current: unknown } => Reflect.get(node, "ref");
-const callbackRefOf = (node: TreeNode): (value: unknown) => void => Reflect.get(node, "ref");
-// Draws a node of the tree whose component is one of the module's own function components.
-const component = (node: TreeNode) => unchecked<(props: object) => TreeNode>(node.type);
+// Every node of a rendered tree that the predicate picks.
+const all = (tree: unknown, predicate: (node: TreeNode) => boolean): TreeNode[] => nodesIn(tree).filter(predicate);
 // Like `cleanup?.()`: nothing for null or undefined, a TypeError for any other value that is not a function.
 const runCleanup = (cleanup: unknown) => {
     if (cleanup === undefined || cleanup === null) return;
@@ -114,11 +99,11 @@ async function pickerHarness(context: TestContext, { height = 320, margin = 89, 
         const promise = new Promise<boolean>(done => { resolve = done; });
         return { promise, resolve };
     };
-    let attachment = deferred(), virtualMounted = false, virtualRef: { current: unknown } | undefined;
+    let attachment = deferred(), virtualMounted = false, virtualNode: TreeNode | undefined;
     const mountVirtualizer = () => {
         virtualMounted = true;
-        assert.ok(virtualRef);
-        virtualRef.current = handle;
+        assert.ok(virtualNode);
+        setRef(virtualNode, handle);
         queueMicrotask(() => { assert.ok(props); if (props.scrollRef.current) attachment.resolve(true); });
     };
     const cleanupVirtualizer = () => {
@@ -126,8 +111,8 @@ async function pickerHarness(context: TestContext, { height = 320, margin = 89, 
         attachment.resolve(false);
         attachment = deferred();
         virtualMounted = false;
-        assert.ok(virtualRef);
-        virtualRef.current = null;
+        assert.ok(virtualNode);
+        setRef(virtualNode, null);
     };
     const handle = { scrollToIndex: async (index: number, options: { offset: number; [key: string]: unknown }) => {
         calls.push([index, options]);
@@ -139,18 +124,18 @@ async function pickerHarness(context: TestContext, { height = 320, margin = 89, 
     const Virtualizer = () => null;
     const module = await loadModule<typeof import("./VrPickerList.tsx")>(new URL("./VrPickerList.tsx", import.meta.url), runtime, { virtua: { Virtualizer } });
     // The picker is generic over its options; the test draws it with its fake scroll container.
-    const drawPicker = unchecked<(props: PickerProps) => TreeNode>(module.VrPickerList);
+    const drawPicker = componentNamed(module, "VrPickerList");
     const navigationRef: { current: VrPickerNavigation | null } = { current: null }, scrollRef: { current: unknown } = { current: scroll };
     const render = (next: Record<string, unknown> | undefined = props) => {
         props = { scrollRef, navigationRef, ...next };
         props.scrollRef.current = scroll;
         layoutIndex = 0;
         tree = runtime.render(drawPicker, props, root => {
-            refOf(root).current = container;
+            setRef(root, container);
             const virtual = find(root, node => node.type === Virtualizer);
             if (virtual) {
                 virtualProps = virtual.props;
-                virtualRef = refOf(virtual);
+                virtualNode = virtual;
                 if (!virtualMounted) mountVirtualizer();
                 const { data, itemSize, bufferSize = 200, keepMounted = [] } = virtual.props;
                 const from = Math.max(0, Math.floor((scroll.scrollTop - margin - bufferSize) / itemSize));
@@ -164,7 +149,7 @@ async function pickerHarness(context: TestContext, { height = 320, margin = 89, 
                 rowTrees = React.Children.toArray(root.props.children);
             }
             const rendered = rowTrees.flatMap(row => all(row, node => node.type === "button"));
-            for (const node of nodes.values()) callbackRefOf(node.element)(null);
+            for (const node of nodes.values()) setRef(node.element, null);
             const old = new Map(nodes);
             nodes.clear();
             for (const element of rendered) {
@@ -185,7 +170,7 @@ async function pickerHarness(context: TestContext, { height = 320, margin = 89, 
                 };
                 node.element = element;
                 nodes.set(index, node);
-                callbackRefOf(element)(node);
+                setRef(element, node);
             }
         });
         return tree;
@@ -229,7 +214,7 @@ async function fontPicker(context: TestContext, selected_id = "font-0", layout?:
     // Test data: the picker's props without onBack, which nothing here calls, and the fake scroll container.
     const tree = Picker(unchecked<Parameters<typeof Picker>[0]>({ title: "Fonts", back_label: "Back", options: fonts, selected_id,
         scrollRef: unchecked<RefObject<HTMLElement | null>>(h.scrollRef), onPick: (value: string) => picked.push(value) }));
-    await h.settle(found(tree, node => node.type === h.VrPickerList).props);
+    await h.settle(findIn(tree, node => node.type === h.VrPickerList).props);
     return { h, picked };
 }
 
@@ -371,20 +356,20 @@ async function languageWindow(context: TestContext, h: Picker, locale = "en") {
     const render = () => {
         tree = runtime.render(VrLanguageWindow, windowProps, root => {
             const scroll = find(root, node => node.props.className === "picker_scroll");
-            if (scroll) refOf(scroll).current = h.scroll;
+            if (scroll) setRef(scroll, h.scroll);
         });
         return tree;
     };
     render();
     const open = (kind = "source") => {
-        found(tree, node => node.type === "button" && node.props.className.split(" ").includes(kind)).props.onClick();
+        findIn(tree, node => node.type === "button" && node.props.className.split(" ").includes(kind)).props.onClick();
         render();
-        found(tree, node => node.type === "button" && node.props.className.includes("all_languages")).props.onClick();
+        findIn(tree, node => node.type === "button" && node.props.className.includes("all_languages")).props.onClick();
         render();
     };
     context.onTestFinished(() => runtime.unmount());
     return { render, open, settings, sorts, filters, picked, i18n, source,
-        get tree() { return tree; }, get list() { return found(tree, node => node.type === h.VrPickerList); } };
+        get tree() { return tree; }, get list() { return findIn(tree, node => node.type === h.VrPickerList); } };
 }
 
 test("the full language grid mounts bounded pairs and group jumps use the filtered option index", async context => {
@@ -397,7 +382,7 @@ test("the full language grid mounts bounded pairs and group jumps use the filter
     assert.ok(h.nodes.size <= 28);
     context.annotate(`135 full language choices (languageCodes.js, English), selected first entry, viewport 320px, heading 38px, row pitch 80px, buffer 200px: 135 buttons / 68 rows -> ${h.nodes.size} buttons / ${h.rowCount} rows, including keyboard endpoints; simulated layout.`);
     const expected = w.list.props.options.findIndex((entry: LanguageEntry) => entry.language === "Japanese");
-    const jump = found(w.tree, node => node.props["data-vr-language-jump"] === "J");
+    const jump = findIn(w.tree, node => node.props["data-vr-language-jump"] === "J");
     const choices = w.list.props.options;
     const jGroup = languageJumpGroups(choices.map((entry: LanguageEntry) => languageNames.createLanguageNames("en").name(entry).language), "en").find(group => group.id === "J");
     assert.ok(jGroup);
@@ -433,7 +418,7 @@ test("initial language positioning and group jumps use the surviving StrictMode 
     assert.equal(h.node(index).getBoundingClientRect().top, 0);
     assert.equal(h.calls.length, 1);
     assert.equal(h.landed.length, 1);
-    found(w.tree, node => node.props["data-vr-language-jump"] === "A").props.onClick();
+    findIn(w.tree, node => node.props["data-vr-language-jump"] === "A").props.onClick();
     await h.settle();
     assert.equal(h.scroll.scrollTop, 38);
     assert.equal(h.document.activeElement, h.nodes.get(0));
@@ -454,7 +439,7 @@ test("search keeps lazy windowing, sorts only when its inputs change, and uses o
     w.settings.currentSelectedTranslationEngines.state = "ok";
     w.render();
     const oldKey = w.list.key;
-    found(w.tree, node => node.type === "input").props.onChange({ target: { value: "Arabic" } });
+    findIn(w.tree, node => node.type === "input").props.onChange({ target: { value: "Arabic" } });
     w.render();
     assert.notEqual(w.list.key, oldKey, "new filter resets virtual measurements and focus indices");
     assert.equal(w.sorts.length, initialSorts, "search filters the memoized sort");
@@ -469,7 +454,7 @@ test("search keeps lazy windowing, sorts only when its inputs change, and uses o
     assert.ok(filtered.nodes.size < w.list.props.options.length);
     assert.equal(w.list.props.initialIndex, -1);
     const first = w.list.props.options[0];
-    const input = found(w.tree, node => node.type === "input");
+    const input = findIn(w.tree, node => node.type === "input");
     input.props.onKeyDown({ key: "Enter", nativeEvent: { isComposing: true } });
     assert.equal(w.picked.length, 0);
     input.props.onKeyDown({ key: "Enter", preventDefault() {} });
@@ -488,14 +473,14 @@ test("a language code typed in the VR filter lists that language first, and Ente
     const w = await languageWindow(context, h);
     w.open();
     await h.settle(w.list.props);
-    found(w.tree, node => node.type === "input").props.onChange({ target: { value: "ja" } });
+    findIn(w.tree, node => node.type === "input").props.onChange({ target: { value: "ja" } });
     w.render();
     // Azerbaijani's name also contains "ja" and comes first by name.
     assert.ok(w.list.props.options.some((entry: LanguageEntry) => entry.language === "Azerbaijani"));
     assert.equal(w.list.props.options[0].language, "Japanese");
-    found(w.tree, node => node.type === "input").props.onKeyDown({ key: "Enter", preventDefault() {} });
+    findIn(w.tree, node => node.type === "input").props.onKeyDown({ key: "Enter", preventDefault() {} });
     // The source language's setter was given the language's entry.
-    assert.equal(unchecked<LanguageEntry>(w.picked[0]).language, "Japanese");
+    assert.equal(fieldOf(w.picked[0], "language"), "Japanese");
 });
 
 test("grid jumps to disabled selections keep focus; Tab skips disabled options and preserves columns", async context => {
@@ -562,18 +547,18 @@ test("font selection reaches the existing appearance setter and closes the setti
     const windowProps = unchecked<Parameters<typeof VrSettingsWindow>[0]>({});
     const render = () => runtime.render(VrSettingsWindow, windowProps, root => {
         const picker = find(root, node => node.props["data-vr-settings-list"] === "picker");
-        if (picker) refOf(picker).current = h.scroll;
+        if (picker) setRef(picker, h.scroll);
     });
     let tree = render();
-    found(tree, node => node.type === "button" && find(node, child => child.props?.text === "config_page.side_menu_labels.appearance") !== null).props.onClick();
+    findIn(tree, node => node.type === "button" && find(node, child => child.props?.text === "config_page.side_menu_labels.appearance") !== null).props.onClick();
     tree = render();
-    const category = found(tree, node => typeof node.type === "function" && node.type.name === "Category");
-    const appearance = component(category)(category.props);
-    const controls = component(appearance)(appearance.props);
-    found(controls, node => node.type === rows.SelectRow && node.props.label === "config_page.appearance.font_family.label").props.onOpen();
+    const category = findIn(tree, node => componentName(node) === "Category");
+    const appearance = draw(category);
+    const controls = draw(appearance);
+    findIn(controls, node => node.type === rows.SelectRow && node.props.label === "config_page.appearance.font_family.label").props.onOpen();
     tree = render();
-    const picker = found(tree, node => node.type === rows.Picker);
-    await h.settle(found(rows.Picker(picker.props), node => node.type === h.VrPickerList).props);
+    const picker = findIn(tree, node => node.type === rows.Picker);
+    await h.settle(findIn(rows.Picker(picker.props), node => node.type === h.VrPickerList).props);
     h.node(701).element.props.onClick();
     assert.deepEqual(picked, ["font-701"]);
     assert.equal(find(render(), node => node.type === rows.Picker), null);
@@ -583,13 +568,13 @@ test("font selection reaches the existing appearance setter and closes the setti
 test("search with no matches renders no options and cannot select; clearing restores the full list", async context => {
     const h = await pickerHarness(context), w = await languageWindow(context, h);
     w.open();
-    found(w.tree, node => node.type === "input").props.onChange({ target: { value: "no-such-language" } });
+    findIn(w.tree, node => node.type === "input").props.onChange({ target: { value: "no-such-language" } });
     w.render();
     await h.settle(w.list.props);
     assert.ok(h.virtualProps);
     assert.equal(h.nodes.size, 0);
-    assert.ok(found(w.tree, node => node.props.children === "main_page.language_selector.no_results"));
-    const input = found(w.tree, node => node.type === "input");
+    assert.ok(findIn(w.tree, node => node.props.children === "main_page.language_selector.no_results"));
+    const input = findIn(w.tree, node => node.type === "input");
     input.props.onKeyDown({ key: "Enter" });
     assert.equal(w.picked.length, 0);
     input.props.onChange({ target: { value: "" } });
@@ -616,7 +601,7 @@ test("a selected language far down the list is revealed, disabled and labelled o
     assert.equal(w.picked.length, 0);
     const group = languageJumpGroups(w.list.props.options.map((entry: LanguageEntry) => languageNames.createLanguageNames("ja").name(entry).language), "ja").find(group => group.id === "ハ");
     assert.ok(group);
-    found(w.tree, node => node.props["data-vr-language-jump"] === "ハ").props.onClick();
+    findIn(w.tree, node => node.props["data-vr-language-jump"] === "ハ").props.onClick();
     await h.settle();
     assert.equal(h.calls.at(-1)?.[0], Math.floor(group.index / 2));
 });
@@ -629,7 +614,8 @@ test("adding a target preserves the existing ordered setter payload", async cont
     h.node(0).element.props.onClick();
     assert.equal(w.picked.length, 1);
     // The target languages' setter was given the ordered entries.
-    const payload = unchecked<unknown[]>(w.picked[0]);
+    const payload = w.picked[0];
+    assert.ok(Array.isArray(payload), "the setter was given a list");
     assert.equal(payload.length, 2);
     assert.strictEqual(payload[0], w.settings.currentSelectedTargetLanguages.data[1][1]);
     assert.strictEqual(payload[1], entry);
