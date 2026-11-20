@@ -16,6 +16,9 @@
   },
   "linter": {
     "enabled": true,
+    "domains": {
+      "playwright": "none"
+    },
     "rules": {
       "preset": "recommended",
       "a11y": {

@@ -199,6 +199,7 @@ biome lint --write <ファイル>    # 安全な自動修正だけを当てる
 
 - 対象は `src-ui` の `.ts` と `.tsx`、`locales` の `.ts`、`tools/` の `.mjs`、リポジトリ直下の `.js` と `.mjs` です。`site/` は別の道具で扱うので含めません。
 - lintは推奨のルール（`preset: "recommended"`）を使います。導入の時点で違反のあったルールは `biome.json` で警告（`warn`）にしてあり、`check` を止めません。違反のなかったルールはエラーのままなので、新しく増えると止まります。
+- Playwright の領域のルール（`domains.playwright`）は切ってあります。Biome は `@playwright/test` の依存を見て自動で有効にしますが、Playwright の試験（`tests/integration/`）は対象の外で、対象の中では `describe` という名前の関数を誤って指摘するためです。
 - 整形を当てるのは、いまは `formatter.includes` のファイル（リポジトリ直下の設定ファイルと `tools/` の `.mjs`）だけです。`src-ui` と `locales` は整形していません。
 - 字下げと改行は `.editorconfig` に従います（`useEditorconfig`）。1行の長さは120字です。
 - ルールをその場所だけ外すときは、理由を添えて `// biome-ignore lint/<グループ>/<ルール>: <理由>` と書きます。ESLintのコメント（`eslint-disable`）は効きません。
