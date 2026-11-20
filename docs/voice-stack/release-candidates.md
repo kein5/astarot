@@ -145,7 +145,7 @@ Windowsのsetupは、下書きへまとめる際に`VRCT-VOX_setup.exe`へコピ
 ```powershell
 # 下書きのパッケージを取得し、SHA-256を確かめて、作業用のフォルダーへ展開する
 $d = "build\release-check\<version>"
-gh release download v<version> -R kein5/VRCT-VOX -p "VRCT-VOX.zip" -p "VRCT-VOX.zip.sha256" -D "$d\dl"
+gh release download v<version> -R kein5/astarot -p "VRCT-VOX.zip" -p "VRCT-VOX.zip.sha256" -D "$d\dl"
 (Get-FileHash "$d\dl\VRCT-VOX.zip" -Algorithm SHA256).Hash.ToLower() -eq (Get-Content "$d\dl\VRCT-VOX.zip.sha256" -Raw).Trim()
 New-Item -ItemType Directory -Force "$d\app", "$d\state", "$d\webview" | Out-Null
 tar -xf "$d\dl\VRCT-VOX.zip" -C "$d\app"
@@ -168,7 +168,7 @@ $env:WEBVIEW2_USER_DATA_FOLDER = (Resolve-Path "$d\webview").Path
 ```bash
 # 下書きのAppImageを取得し、SHA-256を確かめる
 mkdir -p ~/.cache/vrct-vox-release-check/<version> && cd ~/.cache/vrct-vox-release-check/<version>
-gh release download v<version> -R kein5/VRCT-VOX -p '*.AppImage' -p 'SHA256SUMS-linux'
+gh release download v<version> -R kein5/astarot -p '*.AppImage' -p 'SHA256SUMS-linux'
 sha256sum -c --ignore-missing SHA256SUMS-linux
 cd <リポジトリ>
 
