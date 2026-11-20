@@ -28,6 +28,7 @@ export const useCatalogLayout = (): CatalogLayout => {
 
 // The list of a catalog's cards.
 export const CatalogList = ({ layout, children }: { layout: CatalogLayout; children: ReactNode }) =>
+    // biome-ignore lint/a11y/noRedundantRoles: WebKit stops reading a <ul> with list-style: none (.catalog) as a list; the role keeps it one for screen readers.
     <ul className={styles.catalog} role="list" data-layout={layout}>{children}</ul>;
 
 // A card's facts (its table of languages, size, hardware and terms, or of an entry's file and

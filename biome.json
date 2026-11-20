@@ -25,7 +25,6 @@
         "noAutofocus": "warn",
         "noLabelWithoutControl": "warn",
         "noNoninteractiveTabindex": "warn",
-        "noRedundantRoles": "warn",
         "noStaticElementInteractions": "warn",
         "noSvgWithoutTitle": "warn",
         "useAltText": "warn",
@@ -37,23 +36,25 @@
         "useSemanticElements": "warn"
       },
       "complexity": {
+        "useMathMinMax": "error",
         "useOptionalChain": "error"
       },
       "correctness": {
         "noComponentHookFactories": "warn",
-        "noUnreachable": "warn",
         "noUnusedFunctionParameters": "error",
+        "noUnusedImports": "error",
         "noUnusedVariables": "error",
         "useExhaustiveDependencies": "warn",
         "useHookAtTopLevel": "warn"
       },
+      "style": {
+        "useConst": "error"
+      },
       "suspicious": {
         "noArrayIndexKey": "warn",
         "noAssignInExpressions": "warn",
-        "noControlCharactersInRegex": "warn",
         "noGlobalIsNan": "error",
         "noImplicitAnyLet": "warn",
-        "noShadowRestrictedNames": "warn",
         "useIterableCallbackReturn": "warn"
       }
     }
