@@ -54,6 +54,10 @@ run = "python tools/dev.py check --scope ui"
 description = "cargo check and cargo test of the Tauri app and the native crates"
 run = "python tools/dev.py check --scope rust"
 
+[tasks."check:integration"]
+description = "Integration tests: the screens in Chromium and WebKit through the real core (Playwright)"
+run = "python tools/dev.py check --scope integration"
+
 [tasks."check:commits"]
 description = "Commit messages since origin/develop (fetch it first)"
 run = "python tools/dev.py check --scope commits --base origin/develop"
@@ -75,6 +79,10 @@ env = { UV_PYTHON_PREFERENCE = "only-system" }
 [tasks."setup:rust"]
 description = "cargo fetch --locked for the Tauri app and the native crates"
 run = "python tools/dev.py setup --scope rust"
+
+[tasks."setup:integration"]
+description = "The core host's Rust dependencies and Playwright's Chromium and WebKit (several hundred MB)"
+run = "python tools/dev.py setup --scope integration"
 
 [tasks."setup:resources"]
 description = "src-tauri/bin/_internal for tauri dev and cargo check (stages what build/ has)"

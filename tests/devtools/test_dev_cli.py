@@ -221,6 +221,31 @@ class DeveloperCLITests(unittest.TestCase):
         self.assertIn("--locked", output)
         self.assertNotIn("cargo fetch", output)
 
+    def test_integration_builds_the_core_host_and_the_page_before_the_tests(self):
+        # ADR-017: the screens in Chromium and WebKit, through the core's host of its own crate.
+        code, output = self.call("check", "--scope", "integration", "--dry-run")
+        self.assertEqual(code, 0)
+        host = output.index("cargo build --locked --offline --manifest-path native/browser-core-bridge/Cargo.toml")
+        page = output.index("vite.js build --config tests/integration/vite.config.ts")
+        tests = output.index("@playwright/test/cli.js test --config tests/integration/playwright.config.ts")
+        self.assertLess(host, page)
+        self.assertLess(page, tests)
+        self.assertNotIn("playwright install", output, "a check never downloads the browsers")
+        self.assertIn("integration", self.dev.GROUPS["all"])
+
+    def test_integration_asks_for_setup_when_playwright_is_missing(self):
+        code, output = self.call("check", "--scope", "integration")
+        self.assertEqual(code, 2)
+        self.assertIn("setup --scope ui", output)
+
+    def test_integration_setup_fetches_the_host_crate_and_both_browsers(self):
+        (self.root / "node_modules/@playwright/test").mkdir(parents=True)
+        (self.root / "node_modules/@playwright/test/cli.js").write_text("")
+        code, output = self.call("setup", "--scope", "integration", "--dry-run")
+        self.assertEqual(code, 0)
+        self.assertIn("fetch --locked --manifest-path native/browser-core-bridge/Cargo.toml", output)
+        self.assertIn("@playwright/test/cli.js install chromium webkit", output)
+
     def test_browser_setup_adds_dependencies_to_explicit_existing_python(self):
         code, output = self.call("setup", "--scope", "browser", "--python",
             sys.executable, "--dry-run")
