@@ -2,7 +2,7 @@ import { test } from "vitest";
 import assert from "node:assert/strict";
 import { FADE_MS, MAX_CAPTION_LINES, captionLines, nextChange, stampLines, visibleLines } from "./lines.ts";
 
-const row = (id, category, message, translations = [], status = "ok") => ({
+const row = (id: string | number, category: string, message: string, translations: string[] = [], status = "ok") => ({
     id, category, status, messages: { original: { message, transliteration: [] },
         translations: translations.map(text => ({ message: text, transliteration: [] })) },
 });
@@ -44,7 +44,7 @@ test("a heard line names its speakers; the user's own line and malformed labels 
 
 test("a heard line carries the names given to its voices, by its session", () => {
     // #447: names belong to one session (namespace); a voice without one is "".
-    const heard = (id, namespace) => ({ ...row(id, "received", "やあ"), speakers: ["A", "B"], realtime: { namespace } });
+    const heard = (id: number, namespace: string) => ({ ...row(id, "received", "やあ"), speakers: ["A", "B"], realtime: { namespace } });
     const speakerNames = { one: { A: "ミカ" }, two: {} };
     const lines = captionLines([heard(1, "one"), heard(2, "two"), heard(3, "three")], { speakerNames });
     assert.deepEqual(lines.map(line => line.speaker_names), [["ミカ", ""], undefined, undefined]);
@@ -60,19 +60,19 @@ test("long text is cut by characters, and at most three translations are kept", 
 test("the log's history is not shown when the overlay is turned on; new and changed lines get their time", () => {
     const first = captionLines([row(1, "sent", "前からあった行")]);
     const baseline = stampLines(null, first, 1000, 6000);
-    assert.equal(baseline.get("1").until, 0);
+    assert.equal(baseline.get("1")?.until, 0);
 
     const second = captionLines([row(1, "sent", "前からあった行"), row(2, "received", "新しい行")]);
     const stamped = stampLines(baseline, second, 5000, 6000);
-    assert.equal(stamped.get("1").until, 0);
-    assert.equal(stamped.get("2").until, 11000);
+    assert.equal(stamped.get("1")?.until, 0);
+    assert.equal(stamped.get("2")?.until, 11000);
 
     // The same words keep their time; rewritten words (a caption still being recognized) start again.
     const unchanged = stampLines(stamped, second, 8000, 6000);
-    assert.equal(unchanged.get("2").until, 11000);
+    assert.equal(unchanged.get("2")?.until, 11000);
     const rewritten = captionLines([row(2, "received", "新しい行が伸びた")]);
     const again = stampLines(unchanged, rewritten, 9000, 6000);
-    assert.equal(again.get("2").until, 15000);
+    assert.equal(again.get("2")?.until, 15000);
     assert.equal(again.has("1"), false);
 });
 
