@@ -264,6 +264,26 @@ class DeveloperCLITests(unittest.TestCase):
         self.assertIn("fetch --locked --manifest-path native/browser-core-bridge/Cargo.toml", output)
         self.assertIn("@playwright/test/cli.js install chromium webkit", output)
 
+    def test_workflow_check_runs_actionlint_and_zizmor_on_the_whole_repository(self):
+        with patch.dict(os.environ, {"GITHUB_ACTIONS": ""}):
+            code, output = self.call("check", "--scope", "workflows", "--dry-run")
+        self.assertEqual(code, 0)
+        # shellcheck and pyflakes are not pinned in mise.toml, so actionlint leaves them out.
+        self.assertIn("actionlint -shellcheck= -pyflakes=", output)
+        # The root, so that the composite actions and dependabot.yml are audited too.
+        self.assertIn("[zizmor] zizmor .", output)
+        with patch.dict(os.environ, {"GITHUB_ACTIONS": "true"}):
+            _, output = self.call("check", "--scope", "workflows", "--dry-run")
+        self.assertIn("zizmor --format github .", output)
+
+    def test_workflow_check_names_the_missing_tools_and_their_pins(self):
+        (self.root / "mise.toml").write_text('[tools]\nactionlint = "1.7.12"\nzizmor = "1.32.0"\n')
+        with patch.object(self.dev.shutil, "which", return_value=None):
+            code, output = self.call("doctor", "--scope", "workflows")
+        self.assertEqual(code, 2)
+        self.assertIn("mise install (mise.toml pins 1.7.12)", output)
+        self.assertIn("mise install (mise.toml pins 1.32.0)", output)
+
     def test_browser_setup_adds_dependencies_to_explicit_existing_python(self):
         code, output = self.call("setup", "--scope", "browser", "--python",
             sys.executable, "--dry-run")

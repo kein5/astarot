@@ -16,7 +16,7 @@ runs:
   steps:
     - name: Read candidate version
       shell: pwsh
-      run: |
+      run: |  # zizmor: ignore[github-env] VERSION must match a strict version pattern first
         $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
         # Keep the single-line GITHUB_ENV assignment and artifact paths bounded.
         if ($version -isnot [string] -or $version -notmatch '\A[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?\z') {
@@ -56,7 +56,7 @@ runs:
 
     - name: Keep uv on mise's Python
       shell: pwsh
-      run: |
+      run: |  # zizmor: ignore[github-env] two constant uv settings
         "UV_PYTHON_PREFERENCE=only-system" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
         "UV_PYTHON_DOWNLOADS=never" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 

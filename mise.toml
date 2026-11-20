@@ -84,6 +84,10 @@ run = "python tools/dev.py check --scope rust"
 description = "Integration tests: the screens in Chromium and WebKit through the real core (Playwright)"
 run = "python tools/dev.py check --scope integration"
 
+[tasks."check:workflows"]
+description = "Workflows and the repository's own actions (actionlint, zizmor)"
+run = "python tools/dev.py check --scope workflows"
+
 [tasks."check:commits"]
 description = "Commit messages since origin/develop (fetch it first)"
 run = "python tools/dev.py check --scope commits --base origin/develop"

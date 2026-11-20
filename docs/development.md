@@ -19,7 +19,7 @@ mise run check               # 軽量チェック
 | --- | --- |
 | `doctor` | `python tools/dev.py doctor` |
 | `check`、`check:all` | `python tools/dev.py check`（`quick`）、`--scope all` |
-| `check:voice`、`check:ui`、`check:rust`、`check:integration` | `python tools/dev.py check --scope <名前>` |
+| `check:voice`、`check:ui`、`check:rust`、`check:integration`、`check:workflows` | `python tools/dev.py check --scope <名前>` |
 | `check:commits` | `python tools/dev.py check --scope commits --base origin/develop` |
 | `setup:headless`、`setup:ui`、`setup:browser`、`setup:rust`、`setup:resources`、`setup:integration` | `python tools/dev.py setup --scope <名前>` |
 | `spec` | 機能仕様書の一覧を作り直す（`python tools/spec_catalog.py --write`） |
@@ -61,7 +61,7 @@ miseを[公式の手順](https://mise.jdx.dev/getting-started.html)で入れ、�
 
 版の正本は `mise.toml` です。上の表は説明のために写したもので、食い違ったら `mise.toml` が正しいです。`mise.lock` はRust以外のツールの取得元のURLとSHA-256を、LinuxとWindowsのそれぞれについて記録しています。版を変えるときは `mise.toml` を書き換え、`mise lock --platform linux-x64,windows-x64` で `mise.lock` を作り直します。CIはこの2つのファイルから同じ版を入れます（後述）。`tests/devtools/test_toolchain_pins.py` は、版が完全に固定されていること、`mise.lock` と一致すること、ワークフローがmiseの外で版を決めていないことを確かめます。
 
-道具の版は、公開から14日（2週間）以上たった最新の版から選びます。`mise.toml` で固定する道具（Biomeを含む）も、npmなどで入れる開発の道具も同じで、足すときも、版を上げるときも同じです。出たばかりの版が取り下げられたり、乗っ取られて差し替えられたりしたときに、巻き込まれないためです。この決まりは2026-11-20に #828 で決めたもので（元は #582）、2026-11-21に #832 で、ここに書きました。
+道具の版は、公開から14日（2週間）以上たった最新の版から選びます。`mise.toml` で固定する道具（Biomeを含む）も、npmなどで入れる開発の道具も同じで、足すときも、版を上げるときも同じです。出たばかりの版が取り下げられたり、乗っ取られて差し替えられたりしたときに、巻き込まれないためです。この決まりは2026-11-20に #828 で決めたもので（元は #582）、2026-11-21に #832 で、ここに書きました。Dependabotの版の更新の提案も、公開から14日たつまで待ちます（`.github/dependabot.yml` の `cooldown`。2026-11-21に #833 で決めました）。セキュリティの更新は待たずに出ます。
 
 uvはmise以外で入れたPython（uvが自分で取得したものを含む）を先に見つけることがあります。環境を作るタスク（`setup:*`）は `UV_PYTHON_PREFERENCE=only-system` を付けて、PATHにあるmiseのPythonを使わせます。uvのコマンドにはPythonの版を書きません（`--python 3.14` などを付けない）。uvは `pyproject.toml` の `requires-python` に合うPythonをPATHから選び、`tools/dev.py` は `mise.toml` の版を読みます。Pythonの版を上げるときに書き換えるのは、`mise.toml`、`mise.lock`、`pyproject.toml` の `requires-python`、`uv.lock` です。`tests/devtools/test_toolchain_pins.py` は、CI、タスク、bat、`tools/dev.py` がuvに版を渡していないことも確かめます。`mise.toml` の `[env]` にはuvの設定を置いていません。`[env]` の値はmiseが起動するすべてのプログラムに引き継がれるため、環境を作るタスクだけが自分で設定します。
 
@@ -157,8 +157,9 @@ python tools/dev.py check --scope integration
 | `ui` | UIの試験（Vitest）、[Biome](#uiのlintと整形biome)のlintと整形の検査、型チェック（`npm run typecheck`）、`npm run vite-build`。ブラウザの操作は含まない |
 | `rust` | `src-tauri` の `cargo check --locked --offline` と、`native/app-identity`、`native/speech-server`、`native/ops`、`native/audio-routing`、`native/adapters`、`native/translation`、`native/transcription`、`native/openvr-client`、`native/onnx-runtime`、`native/vr-overlay`、`native/voice-conversion`、`native/translate-onnx`、`native/tts`、`native/core` の `cargo test --locked --offline`。キャッシュやOS依存（Linuxでは `libpipewire-0.3` の開発ファイルとlibclang。`src-tauri` も中核を通して使う）がなければ失敗 |
 | `integration` | [結合テスト](#結合テストplaywright)。`native/browser-core-bridge` を `cargo build --locked --offline` で組み、`tests/integration/vite.config.ts` で画面を組んでから、Playwright で Chromium と WebKit の試験を流す。ブラウザは取得しない。未導入なら `setup --scope integration` を案内して止まる |
+| `workflows` | ワークフローと自前のアクションを、actionlintとzizmorで検査（[リポジトリの検査](#リポジトリの検査)） |
 | `quick` | `tooling`、`node`、`lint`。既定値 |
-| `all` | 上記7対象。時間がかかるため統合時に明示実行 |
+| `all` | 上記8対象。時間がかかるため統合時に明示実行 |
 | `commits` | `--base` からHEADまでの新規コミット形式を検証 |
 
 Pythonは専用venvを優先し、次に既存の `.venv` を探します。`--python` があればその実行ファイルを使います。専用venvがない状態で `all` を実行しても、依存の不足を黙って省略しません。`doctor --scope all` で先に確認できます。
@@ -177,6 +178,18 @@ Pythonは専用venvを優先し、次に既存の `.venv` を探します。`--p
 | `130` | Ctrl+Cによる中断 |
 
 機械処理には `python tools/dev.py doctor --scope voice --json` を使います。未整備環境では `ok: false` と対処方法を返します。
+
+## リポジトリの検査
+
+製品のコードの試験とは別に、リポジトリそのものを検査するスコープがあります。道具はどれも `mise.toml` で版を固定しています。手元では `mise install` で入れてから実行します。入っていなければ、`check` は `mise install` を案内して止まります。CIでは `repo-checks.yml` の1つのジョブが、スコープごとに1つのステップで実行します。前のステップが失敗しても、後のステップは実行します。
+
+| スコープ | 道具 | 確かめること | 例外の置き場所 |
+| --- | --- | --- | --- |
+| `workflows` | actionlint、zizmor | ワークフローの書き方、式、型（actionlint）。ワークフロー、自前のアクション、`dependabot.yml` の安全の問題（zizmor） | `.github/zizmor.yml`、または該当行の `# zizmor: ignore[<監査>] <理由>` |
+
+- actionlintのshellcheckとpyflakesの検査は切っています。どちらも `mise.toml` で版を固定していないので、PCによって結果が変わるためです。
+- zizmorは、`GH_TOKEN` があるとGitHubに問い合わせる監査（固定したコミットが本当にそのアクションのものか、既知の脆弱性のある版か）も行います。CIではワークフローのトークン（読み取りだけ）を渡します。手元では、`GH_TOKEN` がなければその監査を飛ばします。
+- 例外を足すときは、理由を必ず書きます。
 
 ## UIのTypeScriptとスタイル（移行中）
 
@@ -351,7 +364,7 @@ CLIは指定refとHEADの共通祖先を求め、その後のコミットだけ�
 
 ## CIでの利用と再現性
 
-CIのワークフローはNode、Rust、Python、uv、Cocogittoを `jdx/mise-action`（コミットSHAで固定）で入れます。版は `mise.toml`、取得するファイルとSHA-256は `mise.lock` から読むので、開発者の手元と同じ版になります。ジョブごとに必要なツールだけを `install_args` で選びます。uvを使うジョブは `UV_PYTHON_PREFERENCE=only-system` と `UV_PYTHON_DOWNLOADS=never` を付け、miseのPythonを使わせて、uvが別のPythonを取得しないようにします。署名の秘密情報を扱う `prepare-release.yml` では、書き込みのできるトークンをmise-actionに渡さず、キャッシュも使いません。
+CIのワークフローはNode、Rust、Python、uv、Cocogitto、それに[リポジトリの検査](#リポジトリの検査)の道具を `jdx/mise-action`（コミットSHAで固定）で入れます。版は `mise.toml`、取得するファイルとSHA-256は `mise.lock` から読むので、開発者の手元と同じ版になります。ジョブごとに必要なツールだけを `install_args` で選びます。uvを使うジョブは `UV_PYTHON_PREFERENCE=only-system` と `UV_PYTHON_DOWNLOADS=never` を付け、miseのPythonを使わせて、uvが別のPythonを取得しないようにします。署名の秘密情報を扱う `prepare-release.yml` では、書き込みのできるトークンをmise-actionに渡さず、キャッシュも使いません。
 
 CIでは準備と検証を分けます。例えば、依存を導入した後は次のように同じコマンドを呼べます。WindowsではPython実行ファイルを `.venv\Scripts\python.exe` に変更します。
 
