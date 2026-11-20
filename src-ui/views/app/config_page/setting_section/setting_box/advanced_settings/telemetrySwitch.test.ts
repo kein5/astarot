@@ -25,6 +25,7 @@ async function render({ enabled, pending }: { enabled: boolean; pending: boolean
         "./GpuCheck.tsx": { GpuCheck: () => null },
         "../../../../../../logics/configs/telemetryToggle": telemetryToggle,
         "../../../../../../logics/configs/networkPortInput": {},
+        "../../../../../../logics/configs/rvcBlockChoices": {},
         "../../../../../../logics/configs/obsBrowserSourceUrl": {},
         "../../../../../../logics/voice/useSettingsDraft": {},
         "../../../../../../logics/common/useConsentDialog": {},
