@@ -127,7 +127,7 @@ pub fn detect_install(executable: &Path, appimage: Option<&Path>, debug: bool) -
             return InstallKind::PackageManager(kind.to_owned());
         }
         if let Some(appimage) = appimage.filter(|path| path.is_file()) {
-            // The updater moves the AppImage aside and writes the new one in its place.
+            // The app writes the new AppImage beside it and renames it over ([`replace_appimage`]).
             let writable = appimage.parent().is_some_and(directory_is_writable);
             return if writable { InstallKind::AppImage } else { InstallKind::AppImageReadOnly };
         }
@@ -326,11 +326,25 @@ fn acquire(state: &AppUpdateState) -> Result<BusyGuard<'_>, String> {
 
 fn install_kind<R: Runtime>(app: &AppHandle<R>) -> InstallKind {
     let executable = std::env::current_exe().unwrap_or_default();
+    detect_install(&executable, appimage_of(app).as_deref(), cfg!(debug_assertions))
+}
+
+/// The AppImage this copy runs from (`$APPIMAGE`), on Linux.
+fn appimage_of<R: Runtime>(app: &AppHandle<R>) -> Option<PathBuf> {
     #[cfg(target_os = "linux")]
-    let appimage = app.env().appimage.map(PathBuf::from);
+    {
+        app.env().appimage.map(PathBuf::from)
+    }
     #[cfg(not(target_os = "linux"))]
-    let appimage: Option<PathBuf> = { let _ = app; None };
-    detect_install(&executable, appimage.as_deref(), cfg!(debug_assertions))
+    {
+        let _ = app;
+        None
+    }
+}
+
+/// The AppImage an install replaces: this copy's, when it is a writable one.
+fn replaced_appimage<R: Runtime>(app: &AppHandle<R>) -> Option<PathBuf> {
+    (install_kind(app) == InstallKind::AppImage).then(|| appimage_of(app)).flatten()
 }
 
 /// An updater for this copy that reads `endpoints`. With `exactly`, the release of that version
@@ -445,8 +459,10 @@ fn restart_if_core_stopped<R: Runtime>(app: &AppHandle<R>) -> bool {
 /// Downloads `update`, verifies its signature and installs it. On Windows the installer takes
 /// over and this process exits; elsewhere it returns, and the caller restarts the app. A failure
 /// before the core is stopped leaves the running app as it was; a failure after it (the Windows
-/// installer did not start) restarts the app through [`restart_if_core_stopped`].
-async fn download_and_install(update: &Update, mut progress: impl FnMut(InstallProgress)) -> Result<(), &'static str> {
+/// installer did not start) restarts the app through [`restart_if_core_stopped`]. A writable
+/// AppImage (`appimage`) is replaced here, in one rename ([`replace_appimage`]), not by the
+/// updater, which writes the new file over the current one.
+async fn download_and_install(update: &Update, appimage: Option<&Path>, mut progress: impl FnMut(InstallProgress)) -> Result<(), &'static str> {
     let mut downloaded = 0u64;
     let bytes = update
         .download(
@@ -463,12 +479,96 @@ async fn download_and_install(update: &Update, mut progress: impl FnMut(InstallP
         })?;
     progress(InstallProgress::Install);
     crate::startup_log(&format!("Installing update {}", update.version));
-    // Windows: starts the installer and exits. Linux: replaces the AppImage, keeping the old
-    // one when writing the new one fails.
+    if let Some(appimage) = appimage {
+        // The same check the updater's own install makes, then a replacement in one rename.
+        update.verify(&bytes).map_err(|error| {
+            crate::startup_log(&format!("Update verification failed: {error}"));
+            "update_signature_invalid"
+        })?;
+        return replace_appimage(appimage, &bytes).map_err(|error| {
+            crate::startup_log(&format!("Update install failed: {}", error.kind()));
+            "update_install_failed"
+        });
+    }
+    // Windows: starts the installer and exits.
     update.install(bytes).map_err(|error| {
         crate::startup_log(&format!("Update install failed: {error}"));
         "update_install_failed"
     })
+}
+
+/// The prefix of the file a replacement of the AppImage `name` writes beside it.
+fn staged_prefix(name: &str) -> String {
+    format!(".{name}.update-")
+}
+
+/// Puts the verified AppImage `bytes` in place of `appimage` in one rename (#517). The new file
+/// is written beside it under a hidden name ([`staged_prefix`]), given the current file's
+/// permissions, flushed to disk and renamed over it; the folder is flushed after. A failure or
+/// a stop before the rename leaves the current AppImage as it was, and the file it left is
+/// removed at the next start ([`remove_appimage_leftovers`]). The running copy keeps its old
+/// file open, as the updater's own replacement does.
+fn replace_appimage(appimage: &Path, bytes: &[u8]) -> std::io::Result<()> {
+    use std::io::Write;
+    // AppImages are ELF executables; anything else is not installed.
+    if !bytes.starts_with(b"\x7fELF") {
+        return Err(std::io::Error::new(std::io::ErrorKind::InvalidData, "not an AppImage"));
+    }
+    let directory = appimage.parent().ok_or_else(|| std::io::Error::other("the AppImage has no folder"))?;
+    let name = appimage.file_name().ok_or_else(|| std::io::Error::other("the AppImage has no name"))?.to_string_lossy();
+    let permissions = std::fs::metadata(appimage)?.permissions();
+    let (staged, mut file) = {
+        let mut attempt = 0u32;
+        loop {
+            let candidate = directory.join(format!("{}{}-{attempt}", staged_prefix(&name), std::process::id()));
+            match std::fs::OpenOptions::new().write(true).create_new(true).open(&candidate) {
+                Ok(file) => break (candidate, file),
+                Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists && attempt < 100 => attempt += 1,
+                Err(error) => return Err(error),
+            }
+        }
+    };
+    let written = (|| {
+        file.write_all(bytes)?;
+        file.set_permissions(permissions)?;
+        file.sync_all()?;
+        drop(file);
+        std::fs::rename(&staged, appimage)
+    })();
+    match written {
+        Ok(()) => {
+            #[cfg(unix)]
+            if let Ok(folder) = std::fs::File::open(directory) {
+                let _ = folder.sync_all();
+            }
+            Ok(())
+        }
+        Err(error) => {
+            let _ = std::fs::remove_file(&staged);
+            Err(error)
+        }
+    }
+}
+
+/// Removes what a replacement of `appimage` that stopped before its rename left beside it: the
+/// regular files named with [`staged_prefix`]. Nothing else in the folder is touched.
+fn remove_appimage_leftovers(appimage: &Path) {
+    let (Some(directory), Some(name)) = (appimage.parent(), appimage.file_name()) else { return };
+    let prefix = staged_prefix(&name.to_string_lossy());
+    let Ok(entries) = std::fs::read_dir(directory) else { return };
+    for entry in entries.flatten() {
+        let ours = entry.file_name().to_str().is_some_and(|n| n.starts_with(&prefix));
+        if ours && entry.file_type().is_ok_and(|kind| kind.is_file()) {
+            let _ = std::fs::remove_file(entry.path());
+        }
+    }
+}
+
+/// At start: the files an AppImage replacement left when it stopped part way.
+pub fn clean_up_after_updates<R: Runtime>(app: &AppHandle<R>) {
+    if let Some(appimage) = replaced_appimage(app) {
+        remove_appimage_leftovers(&appimage);
+    }
 }
 
 fn main_only<R: Runtime>(window: &WebviewWindow<R>) -> Result<(), String> {
@@ -563,7 +663,7 @@ pub async fn app_update_install<R: Runtime>(
         .map_err(|_| "update_install_failed".to_string())?
         .clone()
         .ok_or_else(|| "update_not_checked".to_string())?;
-    download_and_install(&update, |progress| {
+    download_and_install(&update, replaced_appimage(&app).as_deref(), |progress| {
         let _ = on_progress.send(progress);
     })
     .await
@@ -629,7 +729,7 @@ impl<R: Runtime> CoreUpdates<R> {
             }
         };
         let update = update.ok_or("update_not_found")?;
-        download_and_install(&update, |_| {}).await
+        download_and_install(&update, replaced_appimage(app).as_deref(), |_| {}).await
     }
 }
 
@@ -682,6 +782,74 @@ impl<R: Runtime> SoftwareUpdates for CoreUpdates<R> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// An AppImage of `content` in a folder of its own, executable as a downloaded one is made.
+    #[cfg(unix)]
+    fn appimage(content: &[u8]) -> (tempfile::TempDir, PathBuf) {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("ASTAROT.AppImage");
+        std::fs::write(&path, content).unwrap();
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).unwrap();
+        (dir, path)
+    }
+
+    #[cfg(unix)]
+    fn names(dir: &Path) -> Vec<String> {
+        let mut names: Vec<String> = std::fs::read_dir(dir).unwrap().map(|e| e.unwrap().file_name().to_string_lossy().into_owned()).collect();
+        names.sort();
+        names
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn an_appimage_is_replaced_in_one_rename_and_keeps_its_permissions() {
+        use std::io::Read;
+        use std::os::unix::fs::PermissionsExt;
+        let (dir, path) = appimage(b"\x7fELF old");
+        // The running copy keeps reading the file it started from.
+        let mut running = std::fs::File::open(&path).unwrap();
+        replace_appimage(&path, b"\x7fELF new").unwrap();
+        assert_eq!(std::fs::read(&path).unwrap(), b"\x7fELF new");
+        assert_eq!(std::fs::metadata(&path).unwrap().permissions().mode() & 0o777, 0o755);
+        assert_eq!(names(dir.path()), ["ASTAROT.AppImage"], "the staged file was left");
+        let mut old = Vec::new();
+        running.read_to_end(&mut old).unwrap();
+        assert_eq!(old, b"\x7fELF old");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_failed_replacement_leaves_the_appimage_as_it_was() {
+        use std::os::unix::fs::PermissionsExt;
+        let (dir, path) = appimage(b"\x7fELF old");
+        // Not an AppImage: refused before anything is written.
+        assert_eq!(replace_appimage(&path, b"PK\x03\x04 zip").unwrap_err().kind(), std::io::ErrorKind::InvalidData);
+        // A folder that cannot be written: the new file cannot be made beside it.
+        std::fs::set_permissions(dir.path(), std::fs::Permissions::from_mode(0o555)).unwrap();
+        let writable_anyway = std::fs::File::create(dir.path().join("probe")).is_ok();
+        if !writable_anyway {
+            assert!(replace_appimage(&path, b"\x7fELF new").is_err());
+        }
+        std::fs::set_permissions(dir.path(), std::fs::Permissions::from_mode(0o755)).unwrap();
+        let _ = std::fs::remove_file(dir.path().join("probe"));
+        assert_eq!(std::fs::read(&path).unwrap(), b"\x7fELF old");
+        assert_eq!(names(dir.path()), ["ASTAROT.AppImage"]);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn what_a_stopped_replacement_left_goes_and_nothing_else() {
+        let (dir, path) = appimage(b"\x7fELF current");
+        // A replacement stopped between writing and renaming: its file, then others' files.
+        std::fs::write(dir.path().join(".ASTAROT.AppImage.update-1234-0"), b"\x7fELF half").unwrap();
+        std::fs::create_dir(dir.path().join(".ASTAROT.AppImage.update-folder")).unwrap();
+        std::fs::write(dir.path().join(".Other.AppImage.update-1234-0"), b"x").unwrap();
+        std::fs::write(dir.path().join("ASTAROT.AppImage.update-1234-0"), b"x").unwrap();
+        remove_appimage_leftovers(&path);
+        assert_eq!(names(dir.path()), [".ASTAROT.AppImage.update-folder", ".Other.AppImage.update-1234-0", "ASTAROT.AppImage", "ASTAROT.AppImage.update-1234-0"]);
+        assert_eq!(std::fs::read(&path).unwrap(), b"\x7fELF current");
+    }
 
     fn release(tag: &str, prerelease: bool, manifest: bool) -> GithubRelease {
         let mut assets = vec![GithubAsset {

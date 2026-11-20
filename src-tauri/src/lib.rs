@@ -197,6 +197,8 @@ pub fn run() {
             // The WebView2 environment every window shares comes first (Windows; #564). The main
             // window is made here, not by Tauri ("create": false), so that it gets it too.
             webview_environment::prepare(app);
+            // An AppImage update that stopped before its rename left a file beside it (#517).
+            app_update::clean_up_after_updates(app.handle());
             let main_config = app.config().app.windows.iter().find(|window| window.label == "main").cloned()
                 .ok_or_else(|| Error::other("main webview window has no configuration"))?;
             let main_window = webview_environment::main_window(app, &main_config)?;
