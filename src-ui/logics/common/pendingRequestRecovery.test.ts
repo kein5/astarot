@@ -243,10 +243,9 @@ test("exit cancels queued recovery reads, including late send rejections", async
 });
 
 function backendEndpoints() {
-    // The Python backend's endpoints as the specification keeps them, and the core's own.
-    const python = JSON.parse(readFileSync(new URL("../../../tools/spec_python_baseline.json", import.meta.url), "utf8"));
-    const core = JSON.parse(readFileSync(new URL("../../../tools/spec_core_additions.json", import.meta.url), "utf8"));
-    return new Set([...python.endpoints, ...core.endpoints].map(entry => entry.endpoint));
+    // The core's endpoints as the specification takes them (native/core/tests/spec_catalog.rs).
+    const core = JSON.parse(readFileSync(new URL("../../../tools/spec_core_catalog.json", import.meta.url), "utf8"));
+    return new Set(core.endpoints.map((entry: { endpoint: string }) => entry.endpoint));
 }
 
 test("each kind of setting is released by its own writes and read back with its getter", () => {
