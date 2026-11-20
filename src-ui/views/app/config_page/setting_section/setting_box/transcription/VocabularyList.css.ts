@@ -2,13 +2,7 @@ import { fallbackVar, globalStyle, style } from "@vanilla-extract/css";
 import { vars } from "../../../../../theme/vars.css.ts";
 
 // The dictionary's terms (#792): a bar of the app's one fold (_components/fold/Fold.css.ts) under
-// the switch of the built-in terms. The bar says how many terms are in use and how many the user
-// added, changed or took out, so the state is read without opening.
-export const title = style({
-    fontSize: "1.5rem",
-    fontWeight: 600,
-    color: fallbackVar(vars.dark_200_color, "#e0e8f6"),
-});
+// the switch of the built-in terms. The bar says how many terms are in use.
 
 // A new term: its written form, its readings and the button, on one line while they fit.
 export const add = style({

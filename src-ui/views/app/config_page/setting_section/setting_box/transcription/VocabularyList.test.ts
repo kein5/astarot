@@ -34,7 +34,7 @@ async function setup(vocabulary: Vocabulary, { hints = false, builtin = BUILTIN 
 
 const words = (node: TreeNode): string[] => nodesIn(node).flatMap(child => typeof child.props?.children === "string" ? [child.props.children] : []);
 
-test("the rows say the readings in use and the user's change; the summary counts the terms in use and the changes", async () => {
+test("the rows say the readings in use and the user's change; the summary counts the terms in use", async () => {
     const s = await setup({ builtin: true, terms: ["猫丸=ねこまる", "Friends+=ふれぷら"], removed: ["Quest"] });
     const tree = s.render();
     const states = nodesIn(tree).filter(node => node.type === "li").map(node => node.props["data-state"]);
@@ -46,8 +46,8 @@ test("the rows say the readings in use and the user's change; the summary counts
     assert.equal(tree.type, "fold");
     assert.equal(tree.props.size, undefined);
     assert.equal(tree.props.open, undefined, "closed at first");
-    assert.deepEqual(words(tree.props.summary), ["realtime.vocabulary_list:{\"count\":3}", "realtime.vocabulary_own_count:{\"count\":1}",
-        "realtime.vocabulary_changed_count:{\"count\":1}", "realtime.vocabulary_removed_count:{\"count\":1}"]);
+    // The number of terms in use, and no counts of the changes (#792).
+    assert.equal(tree.props.summary, "realtime.vocabulary_list:{\"count\":3}");
     // A term taken out keeps its place with the one way back; a term of the user's is deleted, a
     // built-in one taken out.
     const buttons = (written: string) => nodesIn(s.row(tree, written)).filter(node => node.type === "button").map(node => node.props["aria-label"]);
