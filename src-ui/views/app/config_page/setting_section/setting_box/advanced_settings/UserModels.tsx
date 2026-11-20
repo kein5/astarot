@@ -6,6 +6,8 @@ import { extensionOf } from "../../../../../../logics/common/fileDrop";
 import { FileDropZone } from "../_components/file_drop_zone/FileDropZone";
 import styles from "./VoiceSettings.module.scss";
 import { Fold } from "../_components/fold/Fold";
+import { CatalogFacts } from "./catalogLayout";
+import type { CatalogLayout } from "./catalogLayout";
 import { AuditionButton, AuditionNote } from "./VoiceAudition";
 import type { DownloadBlock, ExpectedPaths } from "./ModelDownloads";
 import type { UserModel, UserModelStatus } from "../../../../../../logics/voice/modelCatalog";
@@ -23,9 +25,11 @@ export interface UserModelCardsProps {
     expected?: ExpectedPaths;
     blocked?: DownloadBlock;
     busy: boolean;
+    // The layout of the catalog the cards are in.
+    layout?: CatalogLayout;
 }
 
-export const UserModelCards = ({ target, expected, blocked, busy }: UserModelCardsProps) => {
+export const UserModelCards = ({ target, expected, blocked, busy, layout = "list" }: UserModelCardsProps) => {
     const { t } = useI18n();
     const { userModels, send } = useModelDownloads();
     const [removing, setRemoving] = useState<string | null>(null);
@@ -41,13 +45,13 @@ export const UserModelCards = ({ target, expected, blocked, busy }: UserModelCar
                 <span className={`${styles.badge} ${styles.status}`} data-tone={status === "registered" ? "downloaded" : status}>{t(`user_models.status.${status}`)}</span>
             </div></div>
             {/* Laid out as a catalog card: what it is, its facts, then its notes and actions. */}
-            <dl className={`${styles.facts} ${styles.card_spec}`}>
+            <CatalogFacts layout={layout}><dl className={`${styles.facts} ${styles.card_spec}`}>
                 {roles.filter(([role]) => model.paths[role]).map(([role]) => <div key={role}>
                     <dt>{t(`user_models.file.${role}`)}</dt>
                     <dd><code style={{ overflowWrap: "anywhere" }}>{model.paths[role]}</code></dd>
                 </div>)}
                 <div><dt>{t("user_models.size")}</dt><dd>{gib(model.total_bytes)}</dd></div>
-            </dl>
+            </dl></CatalogFacts>
             <div className={styles.card_foot}>
                 {["missing", "changed"].includes(status) && <p role="alert">{t(`user_models.status_help.${status}`)}</p>}
                 {status === "registered" && blocked && <p>{t(blocked === "edited" ? "user_models.blocked_edited" : "model_downloads.blocked")}</p>}

@@ -36,6 +36,7 @@ async function catalog(context: TestContext, hints = false) {
         "../_components/hint/Hint": { useHintDescriptions: () => hints },
         "../_components/fold/Fold": { Fold: "fold" },
         "../advanced_settings/catalogHeading": heading,
+        "../advanced_settings/catalogLayout": { useCatalogLayout: () => "list", CatalogList: "ul", CatalogFacts: "catalog-facts", CatalogLayoutSwitch: "catalog-layout-switch" },
         "./TranslationLlamaRuntimes": { TranslationLlamaRuntimes: "llama-runtimes" },
     });
     // One component at a time: each is drawn from scratch, so no state of the last one is read.
@@ -68,7 +69,9 @@ test("an added entry's card is what it is, its facts, then its notes and actions
         const card = cards.get(id);
         assert.ok(card, id);
         const blocks: TreeNode[] = [card.props.children].flat();
-        assert.deepEqual(blocks.map(classOf), ["card_intro", "facts card_spec", "card_foot"], id);
+        // The facts are the catalogs' own part (catalogLayout.tsx): beside in the list, folded in the grid.
+        const block = (node: TreeNode) => node.type === "catalog-facts" ? `catalog-facts > ${classOf(node.props.children)}` : classOf(node);
+        assert.deepEqual(blocks.map(block), ["card_intro", "catalog-facts > facts card_spec", "card_foot"], id);
         const foot = blocks[2];
         assert.ok(find(foot, node => classOf(node) === "actions"), `${id}: the actions are in the foot`);
         // What keeps an entry from running is said beside the actions it explains.

@@ -2112,6 +2112,13 @@ model_downloads:
 
 # モデルカタログ（モデルを選ぶ画面）。用途ごとのまとまりと、モデルごとのカード。
 model_catalog:
+    # The layouts of the catalogs' cards: a grid that shows more models at once, or a list that
+    # shows each model's facts beside it. In the grid the facts are a fold of the card.
+    layout:
+        label: "カタログの並べ方"
+        grid: "グリッド"
+        list: "リスト"
+        facts: "詳細"
     group:
         japanese: "日本語の読み上げ"
         multilingual: "日本語以外の読み上げ"

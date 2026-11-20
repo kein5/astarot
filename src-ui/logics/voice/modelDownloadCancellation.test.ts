@@ -144,7 +144,8 @@ test("the receive router correlates Apply and Cancel acknowledgements", async t 
 const loadHeading = (runtime: HookRuntime) => loadModule<typeof import("../../views/app/config_page/setting_section/setting_box/advanced_settings/catalogHeading.tsx")>(new URL("../../views/app/config_page/setting_section/setting_box/advanced_settings/catalogHeading.tsx", import.meta.url), runtime,
     { "../_components/hint/Hint": { Hint: "hint" } });
 // hints: whether the page has been reviewed against #614 (HintDescriptions), so its descriptions are hints.
-const loadCatalog = async (s: { render: () => object }, ui: HookRuntime, hints = false) => loadModule<typeof import("../../views/app/config_page/setting_section/setting_box/advanced_settings/ModelDownloads.tsx")>(new URL("../../views/app/config_page/setting_section/setting_box/advanced_settings/ModelDownloads.tsx", import.meta.url), ui, {
+// layout: the catalogs' layout chosen (catalogLayout.tsx).
+const loadCatalog = async (s: { render: () => object }, ui: HookRuntime, hints = false, layout = "list") => loadModule<typeof import("../../views/app/config_page/setting_section/setting_box/advanced_settings/ModelDownloads.tsx")>(new URL("../../views/app/config_page/setting_section/setting_box/advanced_settings/ModelDownloads.tsx", import.meta.url), ui, {
     "@tauri-apps/api/core": { isTauri: () => false },
     "@tauri-apps/plugin-opener": {},
     "../../../../../../logics/voice/useModelDownloads": { useModelDownloads: s.render },
@@ -161,6 +162,25 @@ const loadCatalog = async (s: { render: () => object }, ui: HookRuntime, hints =
     "../_components/hint/Hint": { Hint: "hint", useHintDescriptions: () => hints },
     "../_components/fold/Fold": { Fold: "fold" },
     "./catalogHeading": await loadHeading(ui),
+    "./catalogLayout": { useCatalogLayout: () => layout, CatalogList: "ul", CatalogFacts: "catalog-facts", CatalogLayoutSwitch: "catalog-layout-switch" },
+});
+
+test("the cards take the layout chosen on the heading's line, and one model asked about stays a list", async t => {
+    const s = await setup(t), ui = hooks();
+    t.onTestFinished(() => ui.unmount());
+    const { ModelDownloads } = await loadCatalog(s, ui, false, "grid");
+    s.render().updateCatalog(catalog({ models: [{ id: "model", target: "rvc", name: "Model", total_bytes: 10 },
+        { id: "other", target: "rvc", name: "Other", total_bytes: 10 }] }));
+    const draw = (only?: string[]) => ui.render(ModelDownloads, { targets: ["rvc"], expected: { rvc: {} }, only });
+    const layouts = (tree: object) => nodesIn(tree).filter(node => ["ul", "catalog-facts", "user-model-cards"].includes(String(node.type)))
+        .map(node => `${String(node.type)}:${node.props.layout}`);
+    let tree = draw();
+    assert.ok(find(tree, node => node.type === "catalog-layout-switch"), "the layout buttons on the heading's line");
+    assert.deepEqual(layouts(tree), ["ul:grid", "catalog-facts:grid", "catalog-facts:grid", "user-model-cards:grid"]);
+    // The translation review asks about one model: no choice, and its card is a list's.
+    tree = draw(["model"]);
+    assert.equal(find(tree, node => node.type === "catalog-layout-switch"), null);
+    assert.deepEqual(layouts(tree), ["ul:list", "catalog-facts:list", "user-model-cards:list"]);
 });
 
 test("the production model card enables matching Cancel during Apply verification", async t => {

@@ -8,6 +8,8 @@ import { endpointDescription } from "../../../../../../logics/common/endpointPri
 import { SectionLabelComponent } from "../_components";
 import { useHintDescriptions } from "../_components/hint/Hint";
 import { catalogHeading } from "../advanced_settings/catalogHeading";
+import { CatalogFacts, CatalogLayoutSwitch, CatalogList, useCatalogLayout } from "../advanced_settings/catalogLayout";
+import type { CatalogLayout } from "../advanced_settings/catalogLayout";
 import { TranslationLlamaRuntimes } from "./TranslationLlamaRuntimes";
 import styles from "../advanced_settings/VoiceSettings.module.scss";
 import { Fold } from "../_components/fold/Fold";
@@ -32,18 +34,23 @@ const entriesOf = (catalog: TranslationCatalog, group: CatalogGroupId): CatalogE
 export const TranslationCatalogSection = () => {
     const { t } = useI18n();
     const { catalog, error, send } = useTranslationCatalog();
+    const layout = useCatalogLayout();
     // Asked again when the page opens: which entries can be used follows the keys and the
     // downloads set up elsewhere since.
     useEffect(() => { send("/get/data/translation_catalog"); }, [send]);
     return (
         <section className={styles.container} aria-label={t("translation_catalog.title")}>
-            <SectionLabelComponent label={t("translation_catalog.title")} />
+            {/* The cards' layout, chosen on the section's heading line, as on the model catalogs. */}
+            <div className={`${styles.catalog_head} ${styles.section_head}`}>
+                <SectionLabelComponent label={t("translation_catalog.title")} />
+                <CatalogLayoutSwitch />
+            </div>
             <p>{t("translation_catalog.intro")}</p>
             {error && <p role="alert">{errorText(t, error)}</p>}
             {catalog?.error_code && <p role="alert">{errorText(t, catalog.error_code)}</p>}
             {catalog ? <>
-                <CatalogGroup group="engine" catalog={catalog} />
-                <CatalogGroup group="api" catalog={catalog} />
+                <CatalogGroup group="engine" catalog={catalog} layout={layout} />
+                <CatalogGroup group="api" catalog={catalog} layout={layout} />
             </> : <p>{t("translation_catalog.loading")}</p>}
         </section>
     );
@@ -52,7 +59,7 @@ export const TranslationCatalogSection = () => {
 // i18next takes the first key it has: a code without its own text gets the general one.
 const errorText = (t: TFunction, code: string) => t([`translation_catalog.errors.${code}`, "translation_catalog.errors.other"], { code });
 
-const CatalogGroup = ({ group, catalog }: { group: CatalogGroupId; catalog: TranslationCatalog }) => {
+const CatalogGroup = ({ group, catalog, layout }: { group: CatalogGroupId; catalog: TranslationCatalog; layout: CatalogLayout }) => {
     const { t } = useI18n();
     const hints = useHintDescriptions();
     const { send } = useTranslationCatalog();
@@ -66,10 +73,10 @@ const CatalogGroup = ({ group, catalog }: { group: CatalogGroupId; catalog: Tran
             {/* What the group is: its heading's hint on a page that shows descriptions as hints, a line under it elsewhere. */}
             {catalogHeading(hints, "h3", t(`translation_catalog.group.${group}`), [t(`translation_catalog.group_help.${group}`)])}
             {own.length > 0
-                ? <ul className={styles.catalog}>{own.map(entry => <EntryCard key={entry.item.id} {...entry} />)}</ul>
+                ? <CatalogList layout={layout}>{own.map(entry => <EntryCard key={entry.item.id} {...entry} layout={layout} />)}</CatalogList>
                 : <p>{t("translation_catalog.none_added")}</p>}
             <Fold summary={t("translation_catalog.shipped_title", { count: shipped.length })}>
-                <ul className={styles.catalog}>{shipped.map(entry => <ShippedCard key={entry.item.id} {...entry} />)}</ul>
+                <CatalogList layout={layout}>{shipped.map(entry => <ShippedCard key={entry.item.id} {...entry} />)}</CatalogList>
             </Fold>
             {group === "engine" && (catalog.runtimes ?? []).includes("llamacpp") && <TranslationLlamaRuntimes onInstalled={askAgain} />}
             {group === "engine" ? <EngineForm runtimes={catalog.runtimes ?? []} /> : <ApiForm protocols={catalog.protocols ?? []} />}
@@ -106,7 +113,7 @@ const keyText = (item: ApiItem) => item.key_in_memory ? "translation_catalog.key
     : item.has_key ? "translation_catalog.key_kept" : "translation_catalog.key_none";
 
 // An entry the user added: what it points at, and Use and Remove.
-const EntryCard = ({ group, item }: CatalogEntry) => {
+const EntryCard = ({ group, item, layout }: CatalogEntry & { layout: CatalogLayout }) => {
     const { t } = useI18n();
     const { send, pending } = useTranslationCatalog();
     const [removing, setRemoving] = useState(false);
@@ -120,7 +127,7 @@ const EntryCard = ({ group, item }: CatalogEntry) => {
             <span className={styles.badge} data-tone="own">{t("translation_catalog.badge.user")}</span>
             <span className={`${styles.badge} ${styles.status}`} data-tone={PROBLEMS.includes(state) ? "missing" : state}>{t(`translation_catalog.state.${state}`)}</span>
         </div></div>
-        <dl className={`${styles.facts} ${styles.card_spec}`}>
+        <CatalogFacts layout={layout}><dl className={`${styles.facts} ${styles.card_spec}`}>
             {group === "engine" ? <>
                 <div><dt>{t("translation_catalog.fact.runtime")}</dt><dd>{t(`translation_catalog.runtime.${item.runtime}`, { defaultValue: item.runtime })}</dd></div>
                 {item.file && <div><dt>{t("translation_catalog.fact.file")}</dt><dd><code>{item.file}</code></dd></div>}
@@ -134,7 +141,7 @@ const EntryCard = ({ group, item }: CatalogEntry) => {
                 <div><dt>{t("translation_catalog.fact.model")}</dt><dd>{item.model || t("translation_catalog.model_first")}</dd></div>
                 <div><dt>{t("translation_catalog.fact.key")}</dt><dd>{t(keyText(item))}</dd></div>
             </>}
-        </dl>
+        </dl></CatalogFacts>
         <div className={styles.card_foot}>
             {["missing", "unsupported", ...PROBLEMS].includes(state) && <p role="alert">{t(stateHelp(item, state))}</p>}
             {group === "api" && item.key_in_memory && <p>{t("translation_catalog.key_memory_help")}</p>}

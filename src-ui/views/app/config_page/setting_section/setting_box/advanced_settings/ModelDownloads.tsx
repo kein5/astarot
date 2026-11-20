@@ -14,6 +14,7 @@ import { Fold } from "../_components/fold/Fold";
 import { EnvReadout } from "../_components/env_readout/EnvReadout";
 import { Hint, useHintDescriptions } from "../_components/hint/Hint";
 import { catalogHeading } from "./catalogHeading";
+import { CatalogFacts, CatalogLayoutSwitch, CatalogList, useCatalogLayout } from "./catalogLayout";
 import { useConsentDialog } from "../../../../../../logics/common/useConsentDialog";
 import { createLanguageNames } from "../../../../../../logics/common/languageNames";
 import { EngineCatalog } from "./EngineCatalog";
@@ -254,6 +255,10 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
     const selectedRestrictions = restrictionsOf(selected);
     // The consent and every restriction ticked: only then may the review start.
     const agreed = !!selected && canStart(selected, consent, acknowledged);
+    // The cards' layout: chosen on the heading's line, except for one model asked about (the
+    // translation review), which stays a list.
+    const chosenLayout = useCatalogLayout();
+    const layout = only ? "list" : chosenLayout;
     const acknowledge = (kind: string, checked: boolean) => setAcknowledged(previous => checked ? [...previous.filter(k => k !== kind), kind] : previous.filter(k => k !== kind));
 
     // One card: the chosen file of a model, its facts and its download. `version` is the catalog's.
@@ -336,7 +341,7 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
                 {/* One file: its type as the first fact, in the terms' column and the values'. */}
                 {family.rows.length === 1 && variantLabel(current) !== current.name &&
                     <p className={styles.variant}><span>{t("model_catalog.variant")}</span><span>{variantLabel(current)}</span></p>}
-                <ModelFacts entry={current} guidance={guidanceHint ? guidance : undefined} />
+                <CatalogFacts layout={layout}><ModelFacts entry={current} guidance={guidanceHint ? guidance : undefined} /></CatalogFacts>
                 {/* Only after the user picks another file; the file in use shown first is not a choice. */}
                 {choices[family.key] && hint.recommended && family.rows.some(entry => entry.id === hint.recommended) && current.id !== hint.recommended &&
                     <p>{t('model_downloads.manual_choice')}</p>}
@@ -364,7 +369,7 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
     };
 
     return <section ref={section} tabIndex={-1} className={styles.container} aria-label={t("model_downloads.title")}>
-        {catalogHeading(hints, "h3", t("model_downloads.title"), [t("model_downloads.help")])}
+        {catalogHeading(hints, "h3", t("model_downloads.title"), [t("model_downloads.help")], undefined, !only && <CatalogLayoutSwitch />)}
         {!catalog && <p aria-busy="true">{t("model_downloads.loading")}</p>}
         {hasTTS && !shared && <>
             <label>{t('model_downloads.headroom')}<select aria-label={t('model_downloads.headroom')} value={reserve} onChange={event => setReserve(event.target.value)}>
@@ -400,17 +405,17 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
                     {hint.recommended && <p><strong>{t('model_downloads.recommended')}</strong>: {matching.find(entry => entry.id === hint.recommended)?.name}</p>}
                 </div>}
                 {/* The models of one's own sit in the same list, after the reviewed ones (#403). */}
-                <ul className={styles.catalog} role="list">
+                <CatalogList layout={layout}>
                     {families.map(family => card(target, family, catalog.catalog_version))}
-                    {own && <UserModelCards target={target} expected={expected} blocked={blocked} busy={busy} />}
-                </ul>
+                    {own && <UserModelCards target={target} expected={expected} blocked={blocked} busy={busy} layout={layout} />}
+                </CatalogList>
                 {own && <UserModelRegistration target={target} busy={busy} />}
             </section>;
         })}
         {hasTTS && !shared && <Fold size="link" className={styles.more} summary={t('model_downloads.memory_boundary_summary')}>
             <p>{t('model_downloads.memory_boundary')}</p>
         </Fold>}
-        {engines && targets.includes("japanese") && <EngineCatalog />}
+        {engines && targets.includes("japanese") && <EngineCatalog layout={layout} />}
         {selected && <dialog ref={dialog} aria-label={t("model_downloads.warning_title")} onCancel={event => { event.preventDefault(); close(); }}>
             <div className={styles.dialog_text}>
                 <h3>{t("model_downloads.warning_title")}</h3>

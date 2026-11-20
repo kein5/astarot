@@ -142,6 +142,25 @@
 // What the GPU reading says for this use, a readout of this session, in one block under the heading.
 .catalog_advice { display: grid; gap: .2rem; min-width: 0; }
 .catalog { display: grid; gap: 1.2rem; margin: 0; padding: 0; list-style: none; min-width: 0; }
+// The grid layout of a catalog (catalogLayout.tsx): the cards side by side, as many as fit at
+// 26rem or more, each read down: what the model is, its file and facts, then its actions, which
+// line up at the foot of the cards of a row. A card is its own container here, so its facts stack
+// where they would in a narrow window, whatever the page's width.
+.catalog[data-layout="grid"] {
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 26rem), 1fr));
+    > .card { display: flex; flex-direction: column; container-type: inline-size; }
+    > .card > .card_foot { margin-top: auto; }
+}
+// A catalog's heading and its layout buttons on one line; the buttons go under it where they do
+// not fit beside it.
+.catalog_head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .8rem 1.6rem; min-width: 0; }
+// A section's label (the translation catalog's) keeps its rule up to the buttons, which stand on
+// the label's line, above the space under it.
+.catalog_head.section_head {
+    align-items: flex-end;
+    > [data-section-label] { flex: 1 1 auto; }
+    > :last-child { margin-bottom: 1.2rem; }
+}
 .card {
     display: grid; gap: 1.2rem; min-width: 0; padding: 1.6rem;
     // The facts' terms take one width on every card, so their values start at one place down the list.
