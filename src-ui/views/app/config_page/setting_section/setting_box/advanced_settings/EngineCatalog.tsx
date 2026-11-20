@@ -54,9 +54,12 @@ export const EngineCatalog = ({ layout = "list" }: { layout?: CatalogLayout }) =
                     <div className={styles.card_intro}>
                         <div className={styles.card_head}>
                             <strong>{spec.name}</strong>
-                            {inUse === id && <span className={styles.badge} data-tone="in_use">{t("model_catalog.status.in_use")}</span>}
+                            {layout === "list" && inUse === id && <span className={styles.badge} data-tone="in_use">{t("model_catalog.status.in_use")}</span>}
                             <span className={`${styles.badge} ${styles.status}`} data-tone={state}>{t(`model_catalog.engine.state.${state}`)}</span>
                         </div>
+                        {/* In the grid "in use" is the line under the name, so the state ends the name's line on every card. */}
+                        {layout === "grid" && inUse === id && <div className={styles.card_badges}>
+                            <span className={styles.badge} data-tone="in_use">{t("model_catalog.status.in_use")}</span></div>}
                         <p>{t(`model_catalog.engine.summary.${id}`)}</p>
                     </div>
                     <CatalogFacts layout={layout}><dl className={`${styles.facts} ${styles.card_spec}`}>

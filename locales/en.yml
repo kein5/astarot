@@ -2119,6 +2119,7 @@ model_catalog:
         grid: "Grid"
         list: "List"
         facts: "Details"
+        facts_of: "Details ({{file}})"
     group:
         japanese: "Reading Japanese"
         multilingual: "Reading other languages"
@@ -2159,6 +2160,8 @@ model_catalog:
         recommended: "GPU recommended"
         not_needed: "no GPU needed"
     recommended_for: "Suggested for {{languages}}"
+    recommended_for_count_one: "Suggested for {{count}} language"
+    recommended_for_count_other: "Suggested for {{count}} languages"
     fits_memory: "Fits the free memory"
     hardware_warning:
         badge: "May be too heavy"

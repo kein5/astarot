@@ -27,11 +27,12 @@ export const CatalogList = ({ layout, children }: { layout: CatalogLayout; child
     <ul className={styles.catalog} role="list" data-layout={layout}>{children}</ul>;
 
 // A card's facts (its table of languages, size, hardware and terms, or of an entry's file and
-// address): beside what the model is in the list, in a fold under it in the grid.
-export const CatalogFacts = ({ layout, children }: { layout: CatalogLayout; children: ReactNode }) => {
+// address): beside what the model is in the list, in a fold under it in the grid. summary: the
+// fold's words, when they say more than "Details" (the file a model card would get).
+export const CatalogFacts = ({ layout, summary, children }: { layout: CatalogLayout; summary?: string; children: ReactNode }) => {
     const { t } = useI18n();
     return layout === "grid"
-        ? <Fold size="link" className={css.facts} summary={t("model_catalog.layout.facts")}>{children}</Fold>
+        ? <Fold size="link" className={css.facts} summary={summary ?? t("model_catalog.layout.facts")}>{children}</Fold>
         : <>{children}</>;
 };
 

@@ -52,5 +52,8 @@ export const icon = style({
 });
 globalStyle(`${icon} rect`, { fill: "none" });
 
-// The facts' fold in a grid card: the table under its words.
+// The facts' fold in a grid card: what it holds (the file's choice, the table, a note) a little apart
+// from each other, as in a card of the list. It is the container of what it holds, so the table
+// stacks in the card's width (the card itself shares the list's rows and cannot be one).
 export const facts = style({});
+globalStyle(`${facts} > div:last-child`, { gap: ".8rem", paddingTop: ".8rem", containerType: "inline-size" });

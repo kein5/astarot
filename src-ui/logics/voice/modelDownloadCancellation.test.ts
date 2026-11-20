@@ -169,18 +169,39 @@ test("the cards take the layout chosen on the heading's line, and one model aske
     const s = await setup(t), ui = hooks();
     t.onTestFinished(() => ui.unmount());
     const { ModelDownloads } = await loadCatalog(s, ui, false, "grid");
-    s.render().updateCatalog(catalog({ models: [{ id: "model", target: "rvc", name: "Model", total_bytes: 10 },
-        { id: "other", target: "rvc", name: "Other", total_bytes: 10 }] }));
-    const draw = (only?: string[]) => ui.render(ModelDownloads, { targets: ["rvc"], expected: { rvc: {} }, only });
-    const layouts = (tree: object) => nodesIn(tree).filter(node => ["ul", "catalog-facts", "user-model-cards"].includes(String(node.type)))
-        .map(node => `${String(node.type)}:${node.props.layout}`);
+    s.render().updateCatalog(catalog({ models: [
+        { id: "model-q8", target: "asr", name: "Model · Q8_0", total_bytes: 2 * 1073741824, profile: { recommended_for: ["ja", "en", "ko"], summary: "model" },
+            speech: { name: "model", label: "Model", type: "q8_0", default: true, languages: ["ja"], start: [] } },
+        { id: "model-q4", target: "asr", name: "Model · Q4_K", total_bytes: 1073741824,
+            speech: { name: "model", label: "Model", type: "q4_k", default: false, languages: ["ja"], start: [] } },
+        { id: "other", target: "asr", name: "Other", total_bytes: 10, profile: { recommended_for: ["ja"] } },
+    ] }));
+    const draw = (only?: string[]) => ui.render(ModelDownloads, { targets: ["asr"], expected: { asr: {} }, only });
+    const cards = (tree: object) => nodesIn(tree).filter(node => node.props?.["data-model-download"] !== undefined);
+    const parts = (card: TreeNode) => [card.props.children].flat(2).filter(Boolean).map(part => String(part.type === "catalog-facts" ? "catalog-facts" : part.props.className));
     let tree = draw();
     assert.ok(find(tree, node => node.type === "catalog-layout-switch"), "the layout buttons on the heading's line");
-    assert.deepEqual(layouts(tree), ["ul:grid", "catalog-facts:grid", "catalog-facts:grid", "user-model-cards:grid"]);
+    assert.equal(findIn(tree, node => node.type === "ul").props.layout, "grid");
+    // A grid card is three parts: what the model is, its details folded, and its actions.
+    const [model, other] = cards(tree);
+    assert.deepEqual(parts(model), ["card_intro", "catalog-facts", "card_foot"]);
+    const details = findIn(model, node => node.type === "catalog-facts");
+    assert.equal(details.props.summary, "model_catalog.layout.facts_of");
+    assert.ok(find(details, node => node.type === "select"), "the choice of the file is in the fold");
+    assert.equal(find(findIn(model, node => node.props?.className === "card_intro"), node => node.type === "select"), null);
+    assert.ok(find(findIn(model, node => node.props?.className === "card_foot"), node => node.type === "button"), "the actions stay on the card");
+    // Whom it is suggested for is one short word: how many languages, or the one.
+    const badge = (card: TreeNode) => findIn(card, node => node.props?.["data-tone"] === "recommended").props.children;
+    assert.equal(badge(model), "model_catalog.recommended_for_count");
+    assert.equal(badge(other), "model_catalog.recommended_for");
+    assert.equal(findIn(tree, node => node.type === "user-model-cards").props.layout, "grid");
     // The translation review asks about one model: no choice, and its card is a list's.
-    tree = draw(["model"]);
+    tree = draw(["model-q8", "model-q4"]);
     assert.equal(find(tree, node => node.type === "catalog-layout-switch"), null);
-    assert.deepEqual(layouts(tree), ["ul:list", "catalog-facts:list", "user-model-cards:list"]);
+    assert.equal(findIn(tree, node => node.type === "ul").props.layout, "list");
+    assert.deepEqual(parts(cards(tree)[0]), ["card_intro", "card_spec", "card_foot"]);
+    assert.equal(find(tree, node => node.type === "catalog-facts"), null);
+    assert.equal(badge(cards(tree)[0]), "model_catalog.recommended_for");
 });
 
 test("the production model card enables matching Cancel during Apply verification", async t => {

@@ -310,8 +310,53 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
         ].filter((line): line is string => typeof line === "string") : null;
         // The hint needs the hardware row, which a row with a profile has.
         const guidanceHint = hints && !!guidance && !!current.profile;
+        const grid = layout === "grid";
+        // Whom the model is suggested for: the languages in the list; in the grid, one language or
+        // how many, so the badge stays one short word.
+        const forLanguages = [...new Set(suggested)];
+        const recommended = !grid || forLanguages.length === 1
+            ? t("model_catalog.recommended_for", { languages: languages(suggested, 3) })
+            : t("model_catalog.recommended_for_count", { count: forLanguages.length });
+        // The file shown and the choice of the others.
+        const file = <>
+            {family.rows.length > 1 && <label className={styles.variant_choice}>{t("model_catalog.variant")}
+                <select aria-label={t("model_catalog.variant_of", { model: label })} value={current.id}
+                    onChange={event => setChoices(previous => ({ ...previous, [family.key]: event.target.value }))}>
+                    {family.rows.map(entry => <option key={entry.id} value={entry.id}>
+                        {[variantLabel(entry), gib(entry.total_bytes), entry.speech?.default && t("model_downloads.asr_type_default"),
+                            ["downloaded", "in_use"].includes(status(entry)) && t(`model_catalog.status.${status(entry)}`),
+                            warningOf(entry) && t("model_catalog.hardware_warning.option")].filter(Boolean).join(" · ")}
+                    </option>)}
+                </select></label>}
+            {/* One file: its type as the first fact, in the terms' column and the values'. */}
+            {family.rows.length === 1 && variantLabel(current) !== current.name &&
+                <p className={styles.variant}><span>{t("model_catalog.variant")}</span><span>{variantLabel(current)}</span></p>}
+        </>;
+        const facts = <ModelFacts entry={current} guidance={guidanceHint ? guidance : undefined} />;
+        // Only after the user picks another file; the file in use shown first is not a choice.
+        const manualChoice = choices[family.key] && hint.recommended && family.rows.some(entry => entry.id === hint.recommended) && current.id !== hint.recommended &&
+            <p>{t('model_downloads.manual_choice')}</p>;
+        const prepareHint = downloaded && !job && shownStatus !== "in_use" && <p>{t("model_catalog.prepare_hint")}</p>;
+        const guidanceFold = guidance && !guidanceHint && <Fold size="link" className={styles.more} summary={t('model_downloads.guidance_summary')}>
+            {guidance.map(line => <p key={line}>{line}</p>)}
+        </Fold>;
+        // What runs comes first, with its own actions; the card's actions follow, as before.
+        const run = <>
+            {jobView(current, true)}
+            {others.map(entry => jobView(entry, false))}
+            <div className={styles.actions}>
+                <button type="button" disabled={busy} onClick={() => {
+                    setConsent(false);
+                    setAcknowledged([]);
+                    setSelected({ ...current, catalog_version: version, downloaded });
+                }}>{t(downloaded ? "model_catalog.prepare" : "model_downloads.review")}</button>
+                {/* The TTS models: a short sentence on the monitor output only (#415). */}
+                <AuditionButton target={target} status={shownStatus} />
+            </div>
+        </>;
         // The card's parts in the order they are read (#614): what it is, its state and a warning,
-        // the file and its facts, then what runs and what can be done.
+        // the file and its facts, then what runs and what can be done. In the grid a card keeps
+        // what it is, the file it would get and what can be done; the rest is in its fold.
         return <li key={family.key} data-model-download tabIndex={-1} role="group" aria-label={label} className={styles.card} data-status={shownStatus}>
             <div className={styles.card_intro}>
                 {/* The name and the state on one line, so every card's state is at the same place;
@@ -321,49 +366,27 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
                     <StatusBadge status={shownStatus} />
                 </div>
                 {(suggested.length > 0 || fits || warning) && <div className={styles.card_badges}>
-                    {suggested.length > 0 && <span className={styles.badge} data-tone="recommended">{t("model_catalog.recommended_for", { languages: languages(suggested, 3) })}</span>}
+                    {suggested.length > 0 && <span className={styles.badge} data-tone="recommended">{recommended}</span>}
                     {fits && <span className={styles.badge} data-tone="recommended">{t("model_catalog.fits_memory")}</span>}
                     {warning && <WarningBadge />}
                 </div>}
                 {current.profile?.summary && <p>{t(`model_downloads.summary.${current.profile.summary}`)}</p>}
-                {warning && <WarningNote warning={warning} />}
+                {!grid && warning && <WarningNote warning={warning} />}
             </div>
-            <div className={styles.card_spec}>
-                {family.rows.length > 1 && <label className={styles.variant_choice}>{t("model_catalog.variant")}
-                    <select aria-label={t("model_catalog.variant_of", { model: label })} value={current.id}
-                        onChange={event => setChoices(previous => ({ ...previous, [family.key]: event.target.value }))}>
-                        {family.rows.map(entry => <option key={entry.id} value={entry.id}>
-                            {[variantLabel(entry), gib(entry.total_bytes), entry.speech?.default && t("model_downloads.asr_type_default"),
-                                ["downloaded", "in_use"].includes(status(entry)) && t(`model_catalog.status.${status(entry)}`),
-                                warningOf(entry) && t("model_catalog.hardware_warning.option")].filter(Boolean).join(" · ")}
-                        </option>)}
-                    </select></label>}
-                {/* One file: its type as the first fact, in the terms' column and the values'. */}
-                {family.rows.length === 1 && variantLabel(current) !== current.name &&
-                    <p className={styles.variant}><span>{t("model_catalog.variant")}</span><span>{variantLabel(current)}</span></p>}
-                <CatalogFacts layout={layout}><ModelFacts entry={current} guidance={guidanceHint ? guidance : undefined} /></CatalogFacts>
-                {/* Only after the user picks another file; the file in use shown first is not a choice. */}
-                {choices[family.key] && hint.recommended && family.rows.some(entry => entry.id === hint.recommended) && current.id !== hint.recommended &&
-                    <p>{t('model_downloads.manual_choice')}</p>}
-            </div>
-            {/* What runs comes first, with its own actions; the card's actions follow, as before. */}
+            {grid
+                ? <CatalogFacts layout="grid" summary={t("model_catalog.layout.facts_of", {
+                    file: [variantLabel(current) !== current.name && variantLabel(current), gib(current.total_bytes)].filter(Boolean).join(" · ") })}>
+                    {warning && <WarningNote warning={warning} />}
+                    {file}{facts}{manualChoice}{prepareHint}
+                    <AuditionNote target={target} status={shownStatus} />
+                    {guidanceFold}
+                </CatalogFacts>
+                : <div className={styles.card_spec}>{file}{facts}{manualChoice}</div>}
             <div className={styles.card_foot}>
-                {jobView(current, true)}
-                {others.map(entry => jobView(entry, false))}
-                <div className={styles.actions}>
-                    <button type="button" disabled={busy} onClick={() => {
-                        setConsent(false);
-                        setAcknowledged([]);
-                        setSelected({ ...current, catalog_version: version, downloaded });
-                    }}>{t(downloaded ? "model_catalog.prepare" : "model_downloads.review")}</button>
-                    {/* The TTS models: a short sentence on the monitor output only (#415). */}
-                    <AuditionButton target={target} status={shownStatus} />
-                </div>
-                {downloaded && !job && shownStatus !== "in_use" && <p>{t("model_catalog.prepare_hint")}</p>}
-                <AuditionNote target={target} status={shownStatus} />
-                {guidance && !guidanceHint && <Fold size="link" className={styles.more} summary={t('model_downloads.guidance_summary')}>
-                    {guidance.map(line => <p key={line}>{line}</p>)}
-                </Fold>}
+                {run}
+                {!grid && prepareHint}
+                {!grid && <AuditionNote target={target} status={shownStatus} />}
+                {!grid && guidanceFold}
             </div>
         </li>;
     };

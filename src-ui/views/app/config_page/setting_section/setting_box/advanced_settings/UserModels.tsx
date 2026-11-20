@@ -39,11 +39,14 @@ export const UserModelCards = ({ target, expected, blocked, busy, layout = "list
         const roles = USER_MODEL_FILES[target] ?? [];
         const savedPaths = expected?.[target];
         return <li key={model.id} data-user-model tabIndex={-1} role="group" aria-label={model.name} className={styles.card} data-status={status}>
+            {/* In the grid the "your model" mark is the line under the name, so the state ends the name's line on every card. */}
             <div className={styles.card_intro}><div className={styles.card_head}>
                 <strong>{model.name}</strong>
-                <span className={styles.badge} data-tone="own">{t("user_models.badge")}</span>
+                {layout === "list" && <span className={styles.badge} data-tone="own">{t("user_models.badge")}</span>}
                 <span className={`${styles.badge} ${styles.status}`} data-tone={status === "registered" ? "downloaded" : status}>{t(`user_models.status.${status}`)}</span>
-            </div></div>
+            </div>
+            {layout === "grid" && <div className={styles.card_badges}><span className={styles.badge} data-tone="own">{t("user_models.badge")}</span></div>}
+            </div>
             {/* Laid out as a catalog card: what it is, its facts, then its notes and actions. */}
             <CatalogFacts layout={layout}><dl className={`${styles.facts} ${styles.card_spec}`}>
                 {roles.filter(([role]) => model.paths[role]).map(([role]) => <div key={role}>

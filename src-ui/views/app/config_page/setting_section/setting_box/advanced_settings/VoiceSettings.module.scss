@@ -143,13 +143,21 @@
 .catalog_advice { display: grid; gap: .2rem; min-width: 0; }
 .catalog { display: grid; gap: 1.2rem; margin: 0; padding: 0; list-style: none; min-width: 0; }
 // The grid layout of a catalog (catalogLayout.tsx): the cards side by side, as many as fit at
-// 26rem or more, each read down: what the model is, its file and facts, then its actions, which
-// line up at the foot of the cards of a row. A card is its own container here, so its facts stack
-// where they would in a narrow window, whatever the page's width.
+// 26rem or more, each read down in three parts: what the model is (its name, state and words), its
+// details in a fold, then what runs and its actions. A card takes three rows of the list and shares
+// them with the cards beside it (subgrid), so their names, their folds and their actions start on
+// the same lines across a row. A card is not a container (containment would end the subgrid): its
+// fold is (catalogLayout.css.ts), so the facts in it stack as in a narrow window.
 .catalog[data-layout="grid"] {
     grid-template-columns: repeat(auto-fill, minmax(min(100%, 26rem), 1fr));
-    > .card { display: flex; flex-direction: column; container-type: inline-size; }
-    > .card > .card_foot { margin-top: auto; }
+    > .card:has(> .card_foot) { grid-row: span 3; grid-template-rows: subgrid; row-gap: 1.2rem; }
+    // A part shorter than the row it shares keeps its lines at the top, not spread over the row.
+    > .card > .card_intro, > .card > .card_foot { align-content: start; }
+    // The name's line is the name and the state, the state at the top right of every card: a long
+    // name wraps in its own column.
+    .card_head { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; }
+    // A card of a name alone (an entry the app ships) is one row; the cards of a row are as tall as each other.
+    > .card:not(:has(> .card_foot)) { align-content: start; }
 }
 // A catalog's heading and its layout buttons on one line; the buttons go under it where they do
 // not fit beside it.
