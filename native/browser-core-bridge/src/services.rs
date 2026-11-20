@@ -23,7 +23,14 @@ mod fake_osc;
 #[path = "../../core/tests/common/fake_voice.rs"]
 mod fake_voice;
 
+/// The one audio output of the stand-ins: the speech goes there, as it would to a speaker.
+pub const OUTPUT: &str = "Integration speaker";
+
 pub fn stand_ins() -> Services {
+    let audio = fake_audio::FakeAudio::new();
+    audio.set_outputs(Some(&[(OUTPUT, OUTPUT)]));
+    let voice = fake_voice::FakeVoice::new();
+    voice.set_outputs(&[OUTPUT]);
     Services {
         // OSC goes out through the real sender of the adapters crate, without mDNS.
         osc: fake_osc::factory(false).0,
@@ -31,12 +38,12 @@ pub fn stand_ins() -> Services {
         transcription_transport: vrct_translation::http::loopback_only(),
         translation_endpoints: vrct_translation::providers::Endpoints::all_at("http://provider.invalid"),
         transcription_endpoints: vrct_transcription::providers::Endpoints::all_at("http://provider.invalid"),
-        audio: fake_audio::FakeAudio::new().platform(),
+        audio: audio.platform(),
         vr: Arc::new(vrct_core::vr_overlay::runtime::fake::FakeVr::default()),
         vr_panel_surface: None,
         steamvr_poll: Duration::from_millis(200),
         transcription_capture: fake_capture::FakeCapture::new().factory(),
-        voice: fake_voice::FakeVoice::new().platform(),
+        voice: voice.platform(),
         secret_store: vrct_core::config::secrets::MemoryStore::new().system_source(),
         telemetry_forced_off: Arc::new(|| true),
         ..Services::default()
