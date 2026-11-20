@@ -1043,11 +1043,17 @@ fn a_conversion_converts_in_the_block_of_the_advanced_settings() {
         });
         assert_eq!(run.ui.ok("/get/data/direct_voice_state", None)["conversion_block_ms"], Value::Null);
     };
+    let asked_to_time = || run.ui.dir.join("vc_runtimes").join("rvc-block-lengths.remeasure").is_file();
     assert_eq!(run.ui.ok("/get/data/rvc_block_ms", None), 0);
     converts_in("auto", 80);
+    assert!(!asked_to_time(), "the default asks for nothing");
     assert_eq!(run.ui.ok("/set/data/rvc_block_ms", Some(json!(120))), 120);
     converts_in("120", 120);
+    assert!(!asked_to_time(), "a chosen length asks for nothing");
+    // Choosing Automatic again asks the worker to time the GPU again at the next start (it
+    // removes the request; the stand-in worker does not).
     assert_eq!(run.ui.ok("/set/data/rvc_block_ms", Some(json!(0))), 0);
+    assert!(asked_to_time());
     converts_in("auto", 80);
     assert_eq!(run.ui.ok("/set/data/rvc_block_ms", Some(json!(120))), 120);
     // Anything but 0 or 20 to 200 ms in steps of 20 is refused, and the saved block stays.

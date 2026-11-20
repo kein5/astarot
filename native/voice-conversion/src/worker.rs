@@ -74,6 +74,17 @@ pub struct RvcOptions {
 /// The worker's file of chosen block lengths, beside the RVC runtime folder
 /// (`<state>/vc_runtimes/rvc-block-lengths.json`). It holds hashed keys and lengths only.
 pub const BLOCK_CACHE_FILE: &str = "rvc-block-lengths.json";
+/// Beside [`BLOCK_CACHE_FILE`]: asks the worker to time the GPU again on the next automatic
+/// start that would use a kept length (the user chose Automatic again, #531). The worker keeps
+/// the new length for that start's voice model and GPU and removes this file.
+pub const BLOCK_REMEASURE_FILE: &str = "rvc-block-lengths.remeasure";
+
+/// Asks for the GPU to be timed again at the next automatic start ([`BLOCK_REMEASURE_FILE`] in
+/// `runtimes_root`, `<state>/vc_runtimes`).
+pub fn ask_block_timing(runtimes_root: &Path) -> std::io::Result<()> {
+    std::fs::create_dir_all(runtimes_root)?;
+    std::fs::write(runtimes_root.join(BLOCK_REMEASURE_FILE), b"")
+}
 
 /// What the worker's `--device` takes. `directml` runs on Windows with the DirectML runtime.
 pub const DEVICES: [&str; 4] = ["auto", "cuda", "directml", "cpu"];
@@ -262,6 +273,18 @@ mod tests {
         let mut sneaky = base();
         sneaky["block_cache"] = json!("/elsewhere");
         assert_eq!(rvc_options(&sneaky).unwrap_err(), "vc_options_invalid");
+    }
+
+    #[test]
+    fn choosing_automatic_again_asks_the_worker_to_time_the_gpu_again() {
+        // The worker finds the request beside its cache file, by the cache file's name (#531).
+        assert_eq!(Path::new(BLOCK_CACHE_FILE).with_extension("remeasure"), Path::new(BLOCK_REMEASURE_FILE));
+        let root = std::env::temp_dir().join(format!("vc-runtimes-remeasure-{}", std::process::id())).join("vc_runtimes");
+        let _ = std::fs::remove_dir_all(&root);
+        ask_block_timing(&root).unwrap();
+        assert!(root.join(BLOCK_REMEASURE_FILE).is_file(), "made with its folder");
+        ask_block_timing(&root).unwrap();
+        let _ = std::fs::remove_dir_all(root.parent().unwrap());
     }
 
     #[test]
