@@ -1,7 +1,7 @@
 [package]
 name = "vrct-transcription"
 version = "0.0.0"
-description = "Speech recognition of VRCT-VOX: the recorder and its phrases, the cloud engines, and realtime recognition on speech.cpp"
+description = "Speech recognition of VRCT-VOX: the recorder and its phrases, the cloud engines, and realtime recognition on speech.cpp (codename Loray)"
 edition = "2024"
 publish = false
 

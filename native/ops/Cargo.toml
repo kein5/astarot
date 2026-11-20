@@ -1,7 +1,7 @@
 [package]
 name = "vrct-ops"
 version = "0.0.0"
-description = "Model downloads, usage events and the backend watchdog of VRCT-VOX"
+description = "Model downloads, usage events and the backend watchdog of VRCT-VOX (codename Nebiros)"
 edition = "2024"
 publish = false
 

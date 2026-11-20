@@ -1,7 +1,7 @@
 [package]
 name = "vrct-core"
 version = "0.0.0"
-description = "The VRCT-VOX backend core: the UI request protocol, settings and their migration, start-up and shut-down"
+description = "The VRCT-VOX backend core: the UI request protocol, settings and their migration, start-up and shut-down (codename Ayperos)"
 edition = "2024"
 publish = false
 
