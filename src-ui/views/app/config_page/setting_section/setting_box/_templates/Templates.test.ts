@@ -253,16 +253,18 @@ test("with hints on, a FormRow's description is its label's hint unless the row 
 test("with hints on, a setup fold's description is its title's hint and its summary's description", async () => {
     const runtime = hooks();
     const load = (on: boolean) => loadModule<typeof import("../_components/setup_section/SetupSection.tsx")>(new URL(base + "setup_section/SetupSection.tsx", import.meta.url), runtime, {
-        "../description/Description": { Description: "description" }, ...hintModule(on),
+        "../description/Description": { Description: "description" }, ...hintModule(on), "../fold/Fold": { Fold: "fold" },
     });
     const { SetupSection } = await load(true);
+    // A bar of the app's one fold: what its summary says, and what the summary element carries.
     const tree = runtime.render(SetupSection, { title: "Models and servers", status: "Model set", desc: "Choose a model.", children: "fields" });
-    const summary = findIn(tree, node => node.type === "summary"), hint = findIn(tree, node => node.type === "hint");
+    const summary = tree.props.summary, hint = findIn(summary, node => node.type === "hint");
+    assert.equal(tree.type, "fold");
     assert.equal(hint.props.text, "Choose a model.");
-    assert.equal(summary.props["aria-describedby"], hint.props.id, "the summary takes the focus, so it carries the words");
+    assert.equal(tree.props.summaryProps["aria-describedby"], hint.props.id, "the summary takes the focus, so it carries the words");
     // The pointer on the title opens it; the summary opens it when it has the keyboard focus.
     assert.equal(hint.props.row, true);
-    assert.equal(summary.props["data-hint-row"], true);
+    assert.equal(tree.props.summaryProps["data-hint-row"], true);
     // The title's element holds the title only, as a label's does: the mark is beside it.
     const host = findIn(summary, node => node.props?.["data-hint-host"]);
     assert.deepEqual([host.props.children[0].props.className, host.props.children[0].props.children], ["title", "Models and servers"]);
@@ -270,9 +272,8 @@ test("with hints on, a setup fold's description is its title's hint and its summ
     // On a page not yet reviewed the description is the fold's first paragraph, as before.
     const { SetupSection: Plain } = await load(false);
     const plain = runtime.render(Plain, { title: "Models and servers", desc: "Choose a model.", children: "fields" });
-    const body = findIn(plain, node => node.props?.className === "body");
-    assert.equal(body.props.children[0].type, "description");
-    assert.equal(findIn(plain, node => node.type === "summary").props["aria-describedby"], undefined);
+    assert.equal(plain.props.children[0].type, "description");
+    assert.equal(plain.props.summaryProps["aria-describedby"], undefined);
     assert.ok(!find(plain, node => node.type === "hint"));
 });
 

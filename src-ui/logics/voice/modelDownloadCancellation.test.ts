@@ -159,6 +159,7 @@ const loadCatalog = async (s: { render: () => object }, ui: HookRuntime, hints =
     "./UserModels": { UserModelCards: "user-model-cards", UserModelRegistration: "user-model-registration" },
     "./VoiceAudition": { AuditionButton: "audition-button", AuditionNote: "audition-note" },
     "../_components/hint/Hint": { Hint: "hint", useHintDescriptions: () => hints },
+    "../_components/fold/Fold": { Fold: "fold" },
     "./catalogHeading": await loadHeading(ui),
 });
 
@@ -310,13 +311,15 @@ test("a model's measured memory is the hardware term's hint on a reviewed page, 
         const { ModelDownloads } = await loadCatalog(s, ui, hints);
         const card = findIn(ui.render(ModelDownloads, { targets: ["rvc"], expected: {} }), node => node.props?.["data-model-download"] !== undefined);
         const facts = findIn(card, node => componentName(node) === "ModelFacts");
-        const fold = find(card, node => node.type === "details");
+        // A link of the app's one fold.
+        const fold = find(card, node => node.type === "fold");
         if (hints) {
             assert.equal(facts.props.guidance.length, 2, "the memory and where it was checked");
             assert.equal(fold, null);
         } else {
             assert.equal(facts.props.guidance, undefined);
-            assert.equal(findIn(fold, node => node.type === "summary").props.children, "model_downloads.guidance_summary");
+            assert.ok(fold);
+            assert.deepEqual([fold.props.size, fold.props.summary], ["link", "model_downloads.guidance_summary"]);
         }
     }
 });

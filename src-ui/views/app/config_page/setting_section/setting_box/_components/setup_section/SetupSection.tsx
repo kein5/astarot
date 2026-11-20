@@ -2,6 +2,7 @@ import { useId, useState } from "react";
 import type { ReactNode } from "react";
 import { Description } from "../description/Description";
 import { Hint, useHintDescriptions } from "../hint/Hint";
+import { Fold } from "../fold/Fold";
 import styles from "./SetupSection.module.scss";
 
 // One-time setup on a page (models, runtimes, downloads, servers), folded
@@ -26,15 +27,15 @@ export const SetupSection = ({ title, status, desc, attention = false, children 
     const hint = useHintDescriptions() && desc ? desc : undefined;
     const descriptionId = hint ? `${id}-description` : undefined;
     const titleElement = <span className={styles.title}>{title}</span>;
-    return <details data-setup className={styles.setup} open={opened || attention}
-        onToggle={event => setOpened(event.currentTarget.open)}>
-        <summary data-hint-row={hint ? true : undefined} aria-describedby={descriptionId}>
+    // A bar of the app's one fold (Fold.tsx): the title and its status, and what pressing does.
+    return <Fold data-setup className={styles.setup} open={opened || attention}
+        onToggle={event => setOpened(event.currentTarget.open)}
+        summaryProps={{ "data-hint-row": hint ? true : undefined, "aria-describedby": descriptionId }}
+        summary={<>
             {hint ? <span data-hint-host>{titleElement}<Hint text={hint} id={descriptionId} row /></span> : titleElement}
             {status && <span className={styles.status}>{status}</span>}
-        </summary>
-        <div className={styles.body}>
-            {desc && !hint && <Description text={desc} />}
-            {children}
-        </div>
-    </details>;
+        </>}>
+        {desc && !hint && <Description text={desc} />}
+        {children}
+    </Fold>;
 };

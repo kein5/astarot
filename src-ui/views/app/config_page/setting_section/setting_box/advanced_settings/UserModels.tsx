@@ -5,6 +5,7 @@ import { USER_MODEL_FILES, USER_MODEL_NAME_LIMIT, registrationRequest, userModel
 import { extensionOf } from "../../../../../../logics/common/fileDrop";
 import { FileDropZone } from "../_components/file_drop_zone/FileDropZone";
 import styles from "./VoiceSettings.module.scss";
+import { Fold } from "../_components/fold/Fold";
 import { AuditionButton, AuditionNote } from "./VoiceAudition";
 import type { DownloadBlock, ExpectedPaths } from "./ModelDownloads";
 import type { UserModel, UserModelStatus } from "../../../../../../logics/voice/modelCatalog";
@@ -111,8 +112,7 @@ export const UserModelRegistration = ({ target, busy }: UserModelRegistrationPro
         setSentFor({ name: sent, before: (userModels?.models ?? []).filter(model => sameName(model, sent)).map(model => model.id) });
         send("/run/register_user_model", checked.request);
     };
-    return <details className={styles.more} data-user-model-register>
-        <summary>{t("user_models.register_title")}</summary>
+    return <Fold data-user-model-register summary={t("user_models.register_title")}>
         {/* Not a <form>: the catalog sits inside the speech server settings form, and a nested
             form would submit (save) that one too. Enter in a field registers, as a form would. */}
         <div role="group" aria-label={t("user_models.register_label", { group: t(`model_catalog.group.${target}`) })}
@@ -144,5 +144,5 @@ export const UserModelRegistration = ({ target, busy }: UserModelRegistrationPro
                 <button type="button" disabled={busy} onClick={submit}>{t("user_models.register")}</button>
             </div>
         </div>
-    </details>;
+    </Fold>;
 };

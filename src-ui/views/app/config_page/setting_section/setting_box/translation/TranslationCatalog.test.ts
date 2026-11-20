@@ -34,6 +34,7 @@ async function catalog(context: TestContext, hints = false) {
         "../../../../../../logics/common/endpointPrivacy": { endpointDescription: () => "" },
         "../_components": { SectionLabelComponent: "section-label" },
         "../_components/hint/Hint": { useHintDescriptions: () => hints },
+        "../_components/fold/Fold": { Fold: "fold" },
         "../advanced_settings/catalogHeading": heading,
         "./TranslationLlamaRuntimes": { TranslationLlamaRuntimes: "llama-runtimes" },
     });
