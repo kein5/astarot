@@ -11,7 +11,10 @@ test("a StrictMode effect replay keeps the original opener for focus return", as
     // Called before the hook has set it, it stops with a TypeError, as calling null did.
     let effect: Effect = () => { throw new TypeError("effect is not a function"); }, refIndex = 0;
     const react = {
-        useRef: (initial: unknown) => (refs[refIndex] ??= { current: initial }, refs[refIndex++]),
+        useRef: (initial: unknown) => {
+            refs[refIndex] ??= { current: initial };
+            return refs[refIndex++];
+        },
         useEffect: (fn: Effect) => { effect = fn; },
     };
     const body = { tagName: "BODY" };

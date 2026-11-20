@@ -2,6 +2,8 @@
 // (src-tauri/src/caption_overlay.rs). The native side reports a drop or a size
 // step; the main window saves them like any other setting.
 
+import { isInteger } from "../common/numberGuards.ts";
+
 // The window's place in whole px, as the native command takes it.
 export interface CaptionPlacement {
     x: number;
@@ -22,5 +24,7 @@ export const steppedFontSize = (size: number, change: unknown): number => {
 
 // The saved place, or a drop the native side reported, as the native command takes it:
 // null for the band, and for anything malformed.
-export const placementOf = (data: { x?: unknown; y?: unknown } | null | undefined): CaptionPlacement | null =>
-    Number.isInteger(data?.x) && Number.isInteger(data?.y) ? { x: data!.x as number, y: data!.y as number } : null;
+export const placementOf = (data: { x?: unknown; y?: unknown } | null | undefined): CaptionPlacement | null => {
+    const x = data?.x, y = data?.y;
+    return isInteger(x) && isInteger(y) ? { x, y } : null;
+};

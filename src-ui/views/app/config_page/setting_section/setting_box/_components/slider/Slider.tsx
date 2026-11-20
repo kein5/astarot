@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect, useCallback } from "react";
+import { useRef, useState, useEffect, useCallback } from "react";
 import type { KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent, ReactNode } from "react";
 import styles from "./Slider.module.scss";
 import clsx from "clsx";
@@ -91,7 +91,7 @@ export const Slider = (props: SliderProps) => {
     const calculateValue = useCallback((clientX: number, clientY: number) => {
         if (!trackRef.current) return localValue;
         const rect = trackRef.current.getBoundingClientRect();
-        let percentage;
+        let percentage: number;
         if (isVertical) {
             let y = clientY - rect.top;
             y = Math.max(0, Math.min(y, rect.height));

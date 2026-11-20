@@ -20,6 +20,30 @@ uv = "0.13.5"
 cocogitto = "7.0.0"
 # Lints and formats the UI's TypeScript and JavaScript (biome.json; `python tools/dev.py check --scope ui`).
 biome = "2.6.6"
+# Checks of the repository itself. Each takes the newest release that had been out for two weeks
+# when it was added (2026-11-21; docs/development.md); CI installs only the ones a job runs
+# (install_args).
+# The workflows: actionlint for syntax and expressions, zizmor for security problems.
+actionlint = "1.7.12"
+zizmor = "1.32.0"
+# The Rust crates: cargo-deny for licenses, advisories and sources; cargo-nextest runs the tests.
+# mise's registry has no cargo-nextest, so it comes from its GitHub releases (see [tool_alias]).
+cargo-deny = "0.20.2"
+cargo-nextest = { version = "0.9.151", version_prefix = "cargo-nextest-" }
+# Secrets in the history and known vulnerabilities in the lock files.
+gitleaks = "8.30.1"
+osv-scanner = "2.7.0"
+# Links in the documents and the user guide.
+lychee = "0.24.2"
+# Git hooks.
+hk = "2.11.1"
+# Structural search and rewrite for migrations (ast-grep), and the software bill of materials of
+# a release (syft). Pinned for those tasks; no check runs them.
+ast-grep = "0.51.1"
+syft = "1.57.0"
+
+[tool_alias]
+cargo-nextest = "github:nextest-rs/nextest"
 
 # No uv settings in [env]: mise exports [env] to every program it starts. Tasks that create
 # environments set them for themselves instead.

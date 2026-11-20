@@ -64,8 +64,7 @@ export function createSettingsWriteResponses(): SettingsWriteResponses {
         if (!attempted) {
             const queue = queues.get(request.endpoint);
             const index = queue?.indexOf(request) ?? -1;
-            // index >= 0 only when the queue exists.
-            if (index >= 0) queue!.splice(index, 1);
+            if (queue && index >= 0) queue.splice(index, 1);
         }
     };
     const receive = (response: BackendResponse) => {

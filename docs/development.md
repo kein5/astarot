@@ -47,8 +47,21 @@ miseを[公式の手順](https://mise.jdx.dev/getting-started.html)で入れ、�
 | Python | 3.14.10 | ビルドの道具と試験に使う。`pyproject.toml` の `requires-python` には同じマイナー版（3.14）を書く。0.5.0から配布物にPythonは入らない |
 | uv | 0.13.5 | |
 | Cocogitto | 7.0.0 | コマンド名は `cog` |
+| Biome | 2.6.6 | UIのTypeScriptとJavaScriptのlintと整形（[UIのlintと整形](#uiのlintと整形biome)） |
+| actionlint | 1.7.12 | ワークフローの書き方を確かめる |
+| zizmor | 1.32.0 | ワークフローの安全の問題を確かめる |
+| cargo-deny | 0.20.2 | Rustのクレートのライセンス、既知の脆弱性、取得元を確かめる |
+| cargo-nextest | 0.9.151 | Rustの試験を流す。コマンドは `cargo nextest`。miseのレジストリにないので、`mise.toml` の `[tool_alias]` でGitHubのリリースから取る |
+| gitleaks | 8.30.1 | 履歴とファイルに鍵やトークンが入っていないかを確かめる |
+| osv-scanner | 2.7.0 | ロックファイルの依存に既知の脆弱性がないかを確かめる |
+| lychee | 0.24.2 | 文書とガイドのリンクを確かめる |
+| hk | 2.11.1 | Gitのフックを動かす |
+| ast-grep | 0.51.1 | 構文で探して書き換える。移行の作業に使い、`check` には入れない |
+| syft | 1.57.0 | リリースの部品表（SBOM）を作る。`check` には入れない |
 
 版の正本は `mise.toml` です。上の表は説明のために写したもので、食い違ったら `mise.toml` が正しいです。`mise.lock` はRust以外のツールの取得元のURLとSHA-256を、LinuxとWindowsのそれぞれについて記録しています。版を変えるときは `mise.toml` を書き換え、`mise lock --platform linux-x64,windows-x64` で `mise.lock` を作り直します。CIはこの2つのファイルから同じ版を入れます（後述）。`tests/devtools/test_toolchain_pins.py` は、版が完全に固定されていること、`mise.lock` と一致すること、ワークフローがmiseの外で版を決めていないことを確かめます。
+
+道具の版は、公開から14日（2週間）以上たった最新の版から選びます。`mise.toml` で固定する道具（Biomeを含む）も、npmなどで入れる開発の道具も同じで、足すときも、版を上げるときも同じです。出たばかりの版が取り下げられたり、乗っ取られて差し替えられたりしたときに、巻き込まれないためです。この決まりは2026-11-20に #828 で決めたもので（元は #582）、2026-11-21に #832 で、ここに書きました。
 
 uvはmise以外で入れたPython（uvが自分で取得したものを含む）を先に見つけることがあります。環境を作るタスク（`setup:*`）は `UV_PYTHON_PREFERENCE=only-system` を付けて、PATHにあるmiseのPythonを使わせます。uvのコマンドにはPythonの版を書きません（`--python 3.14` などを付けない）。uvは `pyproject.toml` の `requires-python` に合うPythonをPATHから選び、`tools/dev.py` は `mise.toml` の版を読みます。Pythonの版を上げるときに書き換えるのは、`mise.toml`、`mise.lock`、`pyproject.toml` の `requires-python`、`uv.lock` です。`tests/devtools/test_toolchain_pins.py` は、CI、タスク、bat、`tools/dev.py` がuvに版を渡していないことも確かめます。`mise.toml` の `[env]` にはuvの設定を置いていません。`[env]` の値はmiseが起動するすべてのプログラムに引き継がれるため、環境を作るタスクだけが自分で設定します。
 
@@ -63,6 +76,16 @@ uvはmise以外で入れたPython（uvが自分で取得したものを含む）
 | Node.js / npm | [Node.js downloads](https://nodejs.org/en/download) |
 | Rust / Cargo | [Rust installation](https://www.rust-lang.org/tools/install) |
 | Cocogitto | [Cocogitto installation](https://docs.cocogitto.io/) |
+| actionlint | [actionlint installation](https://github.com/rhysd/actionlint/blob/main/docs/install.md) |
+| zizmor | [zizmor installation](https://docs.zizmor.sh/installation/) |
+| cargo-deny | [cargo-deny](https://embarkstudios.github.io/cargo-deny/) |
+| cargo-nextest | [cargo-nextest installation](https://nexte.st/docs/installation/pre-built-binaries/) |
+| gitleaks | [gitleaks](https://github.com/gitleaks/gitleaks#installing) |
+| osv-scanner | [OSV-Scanner installation](https://google.github.io/osv-scanner/installation/) |
+| lychee | [lychee installation](https://github.com/lycheeverse/lychee#installation) |
+| hk | [hk getting started](https://hk.jdx.dev/getting_started.html) |
+| ast-grep | [ast-grep quick start](https://ast-grep.github.io/guide/quick-start.html) |
+| syft | [Syft installation](https://github.com/anchore/syft#installation) |
 
 LinuxのTauri検証にはWebKitGTK 4.1などの開発ライブラリも必要です。必要なパッケージは[Linuxビルド手順](voice-stack/linux-build-pipeline.md)にあります。`doctor --scope rust` は主要ライブラリをpkg-configで調べます。WindowsではTauri用のC++ビルド環境などを別途用意します。Rustのコンパイル成功は、インストーラーの実機確認とは別です。
 

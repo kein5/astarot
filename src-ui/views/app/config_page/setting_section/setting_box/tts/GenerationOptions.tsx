@@ -7,10 +7,14 @@ import { EnvReadout } from "../_components/env_readout/EnvReadout";
 import { FormRow } from "../_components/form_row/FormRow";
 import styles from "../advanced_settings/VoiceSettings.module.scss";
 
+// Control characters other than tab, line feed and carriage return: an instruction with one is not valid.
+// biome-ignore lint/suspicious/noControlCharactersInRegex: the control characters are what it looks for.
+const CONTROL_CHARACTERS = /[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/;
+
 export const validGenerationOptions = (draft: VoiceSettings) => ["japanese", "multilingual"].every(role => {
     const seed = draft[`${role}_seed`] || "", instruction = draft[`${role}_instructions`] || "";
     return (!seed || (/^[0-9]{1,16}$/.test(seed) && BigInt(seed) <= 9007199254740991n)) &&
-        Array.from(instruction).length <= 4000 && !/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/.test(instruction);
+        Array.from(instruction).length <= 4000 && !CONTROL_CHARACTERS.test(instruction);
 });
 
 // One role's generation fields (seed and instructions) in the TTS draft; `field` writes one field
@@ -48,7 +52,7 @@ export const GenerationOptions = ({ role, draft, field, errorId }: GenerationOpt
     const seed = draft[seedKey] || "", instructions = draft[instructionKey] || "";
     const fixed = seed !== "";
     const invalidSeed = !/^[0-9]{1,16}$/.test(seed) || BigInt(/^[0-9]{1,16}$/.test(seed) ? seed : "0") > 9007199254740991n;
-    const invalidInstructions = Array.from(instructions).length > 4000 || /[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/.test(instructions);
+    const invalidInstructions = Array.from(instructions).length > 4000 || CONTROL_CHARACTERS.test(instructions);
     const outsideSeedRange = options?.seed && fixed && /^[0-9]{1,16}$/.test(seed) &&
         (BigInt(seed) < BigInt(options.seed.minimum) || BigInt(seed) > BigInt(options.seed.maximum));
     const support = (value: unknown) => t(`voice_ui.${!options ? "not_confirmed" : value ? "supported" : "not_supported"}`);

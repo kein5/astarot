@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { ToastContainer, toast, cssTransition } from "react-toastify";
 import type { TypeOptions } from "react-toastify";
 import type { TFunction } from "i18next";
