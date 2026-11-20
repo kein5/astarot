@@ -1,5 +1,7 @@
 //! Public HTTPS only; never attach user credentials or execute downloaded content
-//! (`transport.py`).
+//! ([`transport.py`]).
+//!
+//! [`transport.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/model_downloads/transport.py
 
 use std::collections::HashMap;
 use std::io::{self, Read};

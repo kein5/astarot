@@ -1,9 +1,12 @@
 //! Playing speech to an explicitly chosen output.
 //!
-//! Port of `src-python/models/audio_routing/audio_router.py` and of the cancellation
-//! token the Python speech scheduler hands it (`CancelToken` in `speechcpp_tts.py`).
+//! Port of [`src-python/models/audio_routing/audio_router.py`] and of the cancellation
+//! token the Python speech scheduler hands it (`CancelToken` in [`speechcpp_tts.py`]).
 //! The router never captures, mixes, or routes an unconverted microphone, and never
 //! falls back to the OS default output.
+//!
+//! [`src-python/models/audio_routing/audio_router.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/audio_routing/audio_router.py
+//! [`speechcpp_tts.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/tts/speechcpp_tts.py
 
 use std::sync::{Arc, Mutex};
 use std::time::Duration;

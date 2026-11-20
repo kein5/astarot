@@ -1,11 +1,14 @@
 //! Linux: bring the target window (X11 / XWayland only) to the front and send Ctrl+V.
 //!
-//! The same steps as `models/clipboard/x11_paste.py` and the window search of
-//! `models/ocr/ocr_capture_x11.py`. VRChat under Proton is an XWayland window, so the
+//! The same steps as [`models/clipboard/x11_paste.py`] and the window search of
+//! [`models/ocr/ocr_capture_x11.py`]. VRChat under Proton is an XWayland window, so the
 //! X11 steps reach it. The window manager is asked to activate the window
 //! (`_NET_ACTIVE_WINDOW`, as a pager acting for the user); the keys go through XTest,
 //! which reaches X11 windows only, so they are sent only once the window is in front.
 //! Wayland-native windows cannot be pasted into.
+//!
+//! [`models/clipboard/x11_paste.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/clipboard/x11_paste.py
+//! [`models/ocr/ocr_capture_x11.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/ocr/ocr_capture_x11.py
 
 use std::time::{Duration, Instant};
 

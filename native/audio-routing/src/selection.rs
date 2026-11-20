@@ -1,9 +1,11 @@
 //! Which row a saved device choice means, and what to open when it means none.
 //!
-//! Port of the selection rules of `src-python/controller.py` (`_selectedAudioDevice`,
+//! Port of the selection rules of [`src-python/controller.py`] (`_selectedAudioDevice`,
 //! `_audioTarget` and the host lookup of `_publishAudioDeviceLocked`), plus the move of
 //! choices saved under Windows hosts that are no longer listed (see [`migrate_mic`]).
 //! The functions are pure: the caller passes the snapshot and the saved values.
+//!
+//! [`src-python/controller.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/controller.py
 
 use crate::identity::{capture_key, device_id, resolve_device, Device, NO_HOST};
 use crate::naming::same_output;

@@ -120,8 +120,10 @@ fn requests_under_one_lock_run_in_order_and_others_run_beside_them() {
 
 #[test]
 fn a_stop_of_typing_never_overtakes_its_start() {
-    // `test_mainloop_typing_order.py`: the start and the stop of the typing indicator share a
+    // [`test_mainloop_typing_order.py`]: the start and the stop of the typing indicator share a
     // lock, held until the handler ends, and keep their order while start-up is not over.
+    //
+    // [`test_mainloop_typing_order.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/test/test_mainloop_typing_order.py
     let order = Arc::new(Mutex::new(Vec::new()));
     let mut routes = Routes::new();
     for (name, value) in [("/run/typing_message_box", true), ("/run/stop_typing_message_box", false)] {

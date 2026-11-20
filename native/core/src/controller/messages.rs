@@ -1,4 +1,4 @@
-//! The message pipeline (`Controller._processMessage` and its callers in `controller.py`): a
+//! The message pipeline (`Controller._processMessage` and its callers in [`controller.py`]): a
 //! typed message (`/run/send_message_box`) and the text the microphone, the speaker and OCR
 //! recognise go through the same steps.
 //!
@@ -13,6 +13,8 @@
 //! Other areas use [`Core::deliver_transcription`] (recognition and OCR), and get the
 //! messages through the hooks of [`MessageHooks`] (the VR overlay and speech), which do
 //! nothing until those areas set them.
+//!
+//! [`controller.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/controller.py
 
 use super::routes::{Builder, WAIT};
 use super::{ok, Core};
@@ -1275,7 +1277,9 @@ mod tests {
 
     #[test]
     fn only_a_message_that_went_out_moves_the_chatbox_order_on() {
-        // `test_message_delivery_revocation.py` (`osc_lifecycle_wait_rechecks_publication`).
+        // [`test_message_delivery_revocation.py`] (`osc_lifecycle_wait_rechecks_publication`).
+        //
+        // [`test_message_delivery_revocation.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/test/test_message_delivery_revocation.py
         let mut order = ChatboxOrder::default();
         let sent: std::cell::RefCell<Vec<u64>> = Default::default();
         let mut send = |sequence: u64, goes_out: bool| {
@@ -1301,7 +1305,9 @@ mod tests {
 
     #[test]
     fn each_start_of_the_conversation_log_writes_its_own_file_and_a_stop_writes_nowhere() {
-        // `test_conversation_logger.py`.
+        // [`test_conversation_logger.py`].
+        //
+        // [`test_conversation_logger.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/test/test_conversation_logger.py
         let first = tempfile::tempdir().unwrap();
         let second = tempfile::tempdir().unwrap();
         let mut log = ConversationLog::default();

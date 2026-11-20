@@ -1,10 +1,12 @@
 //! Usage events as the receiver takes them, against a stand-in that keeps the receiver's rules
-//! (`tests/voice/test_telemetry_client.py` and `src-python/test/test_telemetry.py`).
+//! (`tests/voice/test_telemetry_client.py` and [`src-python/test/test_telemetry.py`]).
 //!
 //! The receiver's contract: POST /v1/events with X-Ingest-Key; only "app_started" and "error"
 //! are taken, and "error" needs error_code matching [A-Za-z0-9_.-]{1,64}. It answers 200
 //! {"ok": true, "accepted": N}, 401 without the key. Nothing here leaves the PC, and nothing
 //! asks the real hardware.
+//!
+//! [`src-python/test/test_telemetry.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/test/test_telemetry.py
 
 use std::net::TcpListener;
 use std::sync::Mutex;

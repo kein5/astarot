@@ -1,8 +1,10 @@
-//! Running OCR below VRChat and the VR panels (Windows only; `background_priority.py`).
+//! Running OCR below VRChat and the VR panels (Windows only; [`background_priority.py`]).
 //!
 //! ONNX Runtime creates native threads at normal priority. On hardware, OCR at normal
 //! priority made the VR panel's work several times slower; below normal, it only runs
 //! when the others leave the CPU free. Elsewhere these are no-ops, as in Python.
+//!
+//! [`background_priority.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/background_priority.py
 
 /// The calling thread at below-normal priority.
 pub fn lower_current_thread() {

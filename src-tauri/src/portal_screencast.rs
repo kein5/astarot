@@ -7,10 +7,12 @@
 //! connection to a small helper (`native/screen-capture`) and ends both when
 //! asked, when the window goes away or when the app exits. The helper writes
 //! the newest frame to `<private directory>/screen-frame`, where the backend's
-//! chat reading finds it (`src-python/models/ocr/ocr_capture_portal.py`).
+//! chat reading finds it ([`src-python/models/ocr/ocr_capture_portal.py`]).
 //!
 //! Nothing here runs until the main window calls `screencast_start`, which the
 //! page only does when the user presses the button for it.
+//!
+//! [`src-python/models/ocr/ocr_capture_portal.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/ocr/ocr_capture_portal.py
 use std::collections::HashMap;
 use std::future::poll_fn;
 use std::num::NonZeroUsize;

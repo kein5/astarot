@@ -290,9 +290,11 @@ fn a_final_that_reached_the_chatbox_is_delivered_though_it_expires_after() {
 
 #[test]
 fn captions_are_drawn_on_the_large_vr_log_and_one_it_cannot_show_is_told() {
-    // `test_realtime_overlay*.py` and the realtime cases of `test_overlay_lifecycle_publication.py`
+    // `test_realtime_overlay*.py` and the realtime cases of [`test_overlay_lifecycle_publication.py`]
     // through the core: each caption state draws the large log; a picture SteamVR refuses is
     // told as the caption's `overlay_large` output failure, and the final still goes out.
+    //
+    // [`test_overlay_lifecycle_publication.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/test/test_overlay_lifecycle_publication.py
     let fake = FakeVr::running();
     let run = start_with_vr(Platform::Linux, json!({ "OVERLAY_LARGE_LOG": true }), true, Some(fake.clone()));
     eventually("the large log made", || fake.handle("ASTAROT1").is_some());
@@ -699,8 +701,10 @@ fn a_connection_that_breaks_or_an_event_too_large_ends_the_session() {
 
 #[test]
 fn a_microphone_that_stops_delivering_ends_its_session_and_the_switch_says_so() {
-    // `capture_windows.py`: no audio 2 s after the last, or 5 s after the open, is a stopped
+    // [`capture_windows.py`]: no audio 2 s after the last, or 5 s after the open, is a stopped
     // microphone; the user is told instead of seeing no captions.
+    //
+    // [`capture_windows.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/transcription/capture_windows.py
     let run = start(Platform::Linux, json!({}), true);
     assert_eq!(run.ui.ok("/set/enable/transcription_send", None), true);
     eventually("the capture opened", || run.capture.running(Source::Mic) == 1);

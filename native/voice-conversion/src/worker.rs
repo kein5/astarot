@@ -1,8 +1,10 @@
-//! The RVC worker process (`astarot-rvc-worker`, `rvc_process.py`) and its pipes.
+//! The RVC worker process (`astarot-rvc-worker`, [`rvc_process.py`]) and its pipes.
 //!
 //! Reads and writes run on threads of their own, so that a stalled worker never blocks the
 //! owner: the owner waits on a channel with a deadline, and a stop ends the child, which
 //! ends both threads.
+//!
+//! [`rvc_process.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/voice_conversion/rvc_process.py
 
 use std::io::Write;
 use std::path::{Path, PathBuf};

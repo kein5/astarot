@@ -1,5 +1,5 @@
 //! Where the VR panel's page is captured, how its size is set and how the controllers' mouse
-//! input reaches it (`window_capture.py`, `window_capture_linux.py`).
+//! input reaches it ([`window_capture.py`], [`window_capture_linux.py`]).
 //!
 //! On Windows the page lives in the app's window "ASTAROT VR Panel", parked off-screen; it is
 //! photographed with `PrintWindow`, and the mouse goes to its WebView2 input window
@@ -8,6 +8,9 @@
 //! repaint to `<ASTAROT_VR_PANEL_DIR>/frame`; sizes and the mouse go to
 //! `<ASTAROT_VR_PANEL_DIR>/input.sock`, one line each, which the app turns into GDK events. The core
 //! runs in the app's process, so all of this works from here as it did from the sidecar.
+//!
+//! [`window_capture.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/overlay/window_capture.py
+//! [`window_capture_linux.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/overlay/window_capture_linux.py
 
 /// The title the app gives the VR panel's window (`src-tauri/src/lib.rs`).
 pub const VR_PANEL_TITLE: &str = "ASTAROT VR Panel";
@@ -38,7 +41,9 @@ pub const OUTSIDE: (i64, i64) = (-1, -1);
 /// WebView2) (`_WHEEL_UNITS_PER_GDK_DELTA`).
 pub const WHEEL_UNITS_PER_GDK_DELTA: f64 = -60.0;
 
-/// The line the Linux page reads from `input.sock` (`window_capture_linux.py`).
+/// The line the Linux page reads from `input.sock` ([`window_capture_linux.py`]).
+///
+/// [`window_capture_linux.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/overlay/window_capture_linux.py
 pub fn input_line(input: PointerInput) -> String {
     match input {
         PointerInput::Move { x, y, pressed } => format!("move {x} {y} {}", u8::from(pressed)),

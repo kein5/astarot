@@ -1,7 +1,9 @@
-//! A conversion on the managed route (Linux; `_PipeWireRoute` of `process.py`, decision 11 in
+//! A conversion on the managed route (Linux; `_PipeWireRoute` of [`process.py`], decision 11 in
 //! `docs/voice-stack/core-integration.md`): the microphone it converts is captured from
 //! PipeWire, and the converted voice goes into the managed VC input (`vrct.managed.vc`), whose
 //! OS gate owns mute. Nothing is written in place of the gate.
+//!
+//! [`process.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/voice_conversion/process.py
 
 use crate::error::Result;
 use crate::graph::Endpoint;

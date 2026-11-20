@@ -66,7 +66,9 @@ struct Offer {
 struct Profile {
     summary: String,
     id: Option<String>,
-    /// File type -> catalog id, for a name whose files are pinned in `catalog.py` (the speech models).
+    /// File type -> catalog id, for a name whose files are pinned in [`catalog.py`] (the speech models).
+    ///
+    /// [`catalog.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/model_downloads/catalog.py
     ids: Option<std::collections::BTreeMap<String, String>>,
     /// Replaces speech.cpp's start languages.
     recommended_for: Option<Vec<String>>,

@@ -1,7 +1,9 @@
-//! PLaMo (`translation_plamo.py`).
+//! PLaMo ([`translation_plamo.py`]).
 //!
 //! The key is checked by listing the models; every listed model is kept. Translation is one
 //! Chat Completions request with PLaMo's own prompt and one retry.
+//!
+//! [`translation_plamo.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/translation/translation_plamo.py
 
 use super::chat::ChatCompletions;
 use super::{Access, Api, Error, Provider, Translation};

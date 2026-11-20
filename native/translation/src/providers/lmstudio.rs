@@ -1,9 +1,11 @@
-//! LM Studio on this PC or the LAN (`translation_lmstudio.py`), at `LMSTUDIO_URL`.
+//! LM Studio on this PC or the LAN ([`translation_lmstudio.py`]), at `LMSTUDIO_URL`.
 //!
 //! It has no key: the server counts as there when `/models` answers 200 within 0.2 seconds.
 //! The model list is every listed model; a server that cannot be read lists none. Translation
 //! is one Chat Completions request with the long local wait and no retry. LM Studio takes any
 //! key; the LangChain client sent `lmstudio`, and so does this one.
+//!
+//! [`translation_lmstudio.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/translation/translation_lmstudio.py
 
 use super::chat::ChatCompletions;
 use super::{join, listed, Access, Api, Error, Provider, Translation, LOCAL_PROBE};

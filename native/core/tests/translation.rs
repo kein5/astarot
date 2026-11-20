@@ -1,12 +1,14 @@
 //! The translation engines through the IPC surface (#277): keys checked with the provider,
 //! model choices, LM Studio and Ollama, the OpenAI-compatible endpoint, the start-up check, the
 //! local model's weight and licence, and turning translation on. The behaviours are those of
-//! `controller.py` (`_setTranslationEngineAuthKey`, `_setTranslationEngineModel`,
+//! [`controller.py`] (`_setTranslationEngineAuthKey`, `_setTranslationEngineModel`,
 //! `_checkTranslationEngineConnection`, `setDeeplAuthKey`, `_setEndpointCredential`,
 //! `setTranslatorLMStudioURL`, `setCtranslate2WeightType`, `setEnableTranslation`, `init`).
 //!
 //! Every provider is a stand-in on a loopback port (`vrct_translation::fake`); nothing leaves
 //! this PC. The local model is a stand-in too.
+//!
+//! [`controller.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/controller.py
 
 mod common;
 
@@ -585,7 +587,9 @@ fn deepl_with_local_behind(fake: &FakeProviders) -> (Ui, Arc<FakeLocal>) {
 
 #[test]
 fn the_fallback_waits_for_a_loaded_model_only() {
-    // `test_model_translate_fallback_no_wait.py`.
+    // [`test_model_translate_fallback_no_wait.py`].
+    //
+    // [`test_model_translate_fallback_no_wait.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/test/test_model_translate_fallback_no_wait.py
     let fake = FakeProviders::start();
     let (ui, local) = deepl_with_local_behind(&fake);
     // A refusal DeepL does not try again, so that only the local model's waits are timed (a
@@ -615,7 +619,10 @@ fn the_fallback_waits_for_a_loaded_model_only() {
 
 #[test]
 fn a_language_no_engine_has_is_sent_as_it_is_without_a_failure() {
-    // `test_model_get_translate_unsupported_language.py`, `test_translation_unsupported_language.py`.
+    // [`test_model_get_translate_unsupported_language.py`], [`test_translation_unsupported_language.py`].
+    //
+    // [`test_model_get_translate_unsupported_language.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/test/test_model_get_translate_unsupported_language.py
+    // [`test_translation_unsupported_language.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/test/test_translation_unsupported_language.py
     let fake = FakeProviders::start();
     let (ui, local) = deepl_with_local_behind(&fake);
     // DeepL has no Arabic.
@@ -663,8 +670,10 @@ fn the_same_language_on_both_sides_is_not_translated() {
 
 #[test]
 fn several_destinations_translate_at_the_same_time_and_keep_their_slots() {
-    // `test_model_input_translate_parallel.py`.
+    // [`test_model_input_translate_parallel.py`].
     // An online provider: the local model is one model and translates one text at a time.
+    //
+    // [`test_model_input_translate_parallel.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/test/test_model_input_translate_parallel.py
     let fake = FakeProviders::start();
     let (ui, _local) = deepl_with_local_behind(&fake);
     let mut target = ui.ok("/get/data/selected_target_languages", None);

@@ -4,7 +4,7 @@
 //! recognition or realtime recognition takes the microphone over. Turning off and a failure drop
 //! it everywhere; a pause, a move and the hand-over keep it.
 //!
-//! The behaviours are those of `src-python/test/test_message_delivery_revocation.py`
+//! The behaviours are those of [`src-python/test/test_message_delivery_revocation.py`]
 //! (`disable_during_translation_drops_all_outputs_but_keeps_typed_chat`,
 //! `user_off_while_settings_paused_revokes_inflight_delivery`,
 //! `internal_pause_preserves_inflight_legacy_delivery`, `error_disable_revokes_before_cleanup`,
@@ -17,6 +17,8 @@
 //! undelivered once the mute is lifted (decision 55 of `docs/voice-stack/core-integration.md`).
 //! The translation is DeepL on `FakeProviders`, held until the test releases it; recognition is
 //! `common::fake_asr` with the devices of `common::fake_capture`, and OSC is `common::fake_osc`.
+//!
+//! [`src-python/test/test_message_delivery_revocation.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/test/test_message_delivery_revocation.py
 
 mod common;
 

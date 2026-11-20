@@ -1,8 +1,10 @@
 //! Device list snapshots and the identities given to their rows.
 //!
 //! Port of `DeviceManager._identifiedSnapshot` and `_trackedSpeakerDevice` in
-//! `src-python/device_manager.py`. A snapshot is replaced as a whole, so a reader
+//! [`src-python/device_manager.py`]. A snapshot is replaced as a whole, so a reader
 //! never sees the new microphone list next to the old default.
+//!
+//! [`src-python/device_manager.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/device_manager.py
 
 use std::collections::HashMap;
 

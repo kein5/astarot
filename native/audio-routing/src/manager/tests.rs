@@ -1,5 +1,7 @@
-//! Ports of `src-python/test/test_device_manager.py` and
+//! Ports of [`src-python/test/test_device_manager.py`] and
 //! `tests/voice/test_device_reconciliation.py`.
+//!
+//! [`src-python/test/test_device_manager.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/test/test_device_manager.py
 
 use std::sync::atomic::AtomicUsize;
 use std::sync::Barrier;

@@ -1,4 +1,4 @@
-//! Finding chat bubbles without a detector model (`ocr_detection.py`).
+//! Finding chat bubbles without a detector model ([`ocr_detection.py`]).
 //!
 //! 1. Region: only the configured part of each view (window or headset) is read.
 //! 2. Text lines: PP-OCR's own text detector finds the lines.
@@ -9,6 +9,8 @@
 //!
 //! Shape heuristics only ever filter what PP-OCR read as text; they never propose
 //! regions (a colour/contour bubble finder was disproven on real frames upstream).
+//!
+//! [`ocr_detection.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/ocr/ocr_detection.py
 
 use std::collections::BTreeMap;
 

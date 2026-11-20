@@ -2,7 +2,9 @@
 //!
 //! SteamVR hands poses as 3x4 matrices (rotation and translation, row major); the overlay
 //! works on them as 4x4 homogeneous matrices. Everything is `f64` and computed in the same
-//! order as the Python implementation (`overlay_utils.py`), so the two agree to rounding.
+//! order as the Python implementation ([`overlay_utils.py`]), so the two agree to rounding.
+//!
+//! [`overlay_utils.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/overlay/overlay_utils.py
 pub type Vec3 = [f64; 3];
 pub type Mat3 = [[f64; 3]; 3];
 pub type Mat34 = [[f64; 4]; 3];

@@ -1,9 +1,11 @@
 //! What a usage event says about the PC: its CPU, memory and GPUs, with each GPU's driver
-//! version (`hardware.py`).
+//! version ([`hardware.py`]).
 //!
 //! The names come from the bundled speech.cpp (`speech devices --json`), the list the model
 //! guidance already uses. Nothing here reads a serial number, a host or user name, or an audio
 //! device. Memory is sent as the nearest common size, not the exact amount.
+//!
+//! [`hardware.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/telemetry/hardware.py
 
 use std::path::Path;
 use std::sync::Mutex;

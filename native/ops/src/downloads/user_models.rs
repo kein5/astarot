@@ -1,5 +1,5 @@
 //! Model files the user registers under a name, listed next to the reviewed catalog
-//! (`src-python/models/model_downloads/user_models.py`, #403).
+//! ([`src-python/models/model_downloads/user_models.py`], #403).
 //!
 //! A registration only remembers where a file is: nothing is copied, moved, downloaded or
 //! deleted, and removing a registration leaves the file alone. Using a registered model is a
@@ -11,6 +11,8 @@
 //! modification time (nanoseconds since 1970); a file that is gone or differs is reported as
 //! `missing` or `changed` and cannot be used until it is registered again. No SHA-256 is
 //! computed. Names and paths are the user's own data and are never logged here.
+//!
+//! [`src-python/models/model_downloads/user_models.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/model_downloads/user_models.py
 
 use serde_json::{Map, Value, json};
 use std::fs;

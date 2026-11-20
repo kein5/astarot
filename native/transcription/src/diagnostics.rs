@@ -1,4 +1,4 @@
-//! Speech timing diagnostics (`utterance_diagnostics.py`, decision 15 in
+//! Speech timing diagnostics ([`utterance_diagnostics.py`], decision 15 in
 //! `docs/voice-stack/core-integration.md`): counts and timings of each source's speech, summed
 //! up in the log once a minute at most. No audio, text, item id, timer or thread: a source's
 //! first event opens a window, and the first event 60 s or more later writes the window before it
@@ -8,6 +8,8 @@
 //! stages is slow ([`SLOW_MS`]) or the caller says so; otherwise it only counts. Counts and the
 //! largest value cover the whole window; the 50th and 95th percentiles (nearest rank) the last 256
 //! values of a stage.
+//!
+//! [`utterance_diagnostics.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/transcription/utterance_diagnostics.py
 
 use std::collections::{BTreeMap, VecDeque};
 use std::sync::{Arc, Mutex};

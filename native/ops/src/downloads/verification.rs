@@ -1,4 +1,6 @@
-//! File verification shared by catalog and built-in model transactions (`verification.py`).
+//! File verification shared by catalog and built-in model transactions ([`verification.py`]).
+//!
+//! [`verification.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/model_downloads/verification.py
 
 use std::fs::{self, File};
 use std::io::Read;
