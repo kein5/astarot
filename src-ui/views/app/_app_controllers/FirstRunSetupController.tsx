@@ -226,6 +226,10 @@ const useRunner = ({ run, setRun, view, downloads, realtime, setSelectedTranscri
 };
 
 // What was found. Each row only reads; its button leads to the place where it is set.
+// Whether a row needs the user is told by the layout before the words are read (#614): what
+// needs the user comes first, each row a card of its own with the warning's amber rule and tint,
+// a larger mark and its name in full strength; the rest follow in one quiet frame, smaller and
+// muted. The words are the same in both.
 const Findings = ({ recognition, onLeave }: { recognition: RecognitionState; onLeave: () => void }) => {
     const { t } = useI18n();
     const mic = useSettingValue("SelectedMicDevice");
@@ -236,31 +240,34 @@ const Findings = ({ recognition, onLeave }: { recognition: RecognitionState; onL
     const micName = mic?.state === "ok" && typeof mic.data === "string" && mic.data && mic.data !== "NoDevice" ? mic.data : null;
     const translation = needs.find(need => need.id === "translation");
     const cables = virtualMic?.supported === true && virtualMic.error === null ? virtualMic.cables.length : null;
+    // Only needed to bring the read-aloud and the voice changer's voice to VRChat.
+    const virtualMicRow: FindingProps | null = cables === null ? null : { id: "virtual_mic", state: cables > 0 ? "ready" : "neutral",
+        name: t("first_run_setup.found.virtual_mic"),
+        action: <button type="button" onClick={() => { onLeave(); openGuide(); }}>{t("first_run_setup.found.virtual_mic_open")}</button>,
+        children: t(cables > 0 ? "first_run_setup.found.virtual_mic_found" : "first_run_setup.found.virtual_mic_missing") };
+    const rows: FindingProps[] = [
+        { id: "mic", state: micName ? "ready" : "attention", name: t("first_run_setup.found.mic"),
+            children: micName ?? t("first_run_setup.found.mic_missing") },
+        // The readout's words, as the other rows' (its frame stays on the VRChat page). They
+        // change by themselves while the dialog is open, so they are announced.
+        { id: "vrchat", state: VRCHAT_STATES[vrchat.state], name: t("first_run_setup.found.vrchat"), live: true,
+            children: vrchat.lines.map(line => <span key={line}>{line}</span>) },
+        ...(virtualMicRow ? [virtualMicRow] : []),
+        { id: "translation", state: translation ? "attention" : "ready", name: t("first_run_setup.found.translation"),
+            action: translation && <button type="button" onClick={() => { onLeave(); openTranslatorList(); }}>
+                {t("first_run_setup.found.translation_choose")}</button>,
+            children: t(translation ? "first_run_setup.found.translation_missing" : "first_run_setup.found.translation_ready") },
+        { id: "recognition", state: RECOGNITION_STATES[recognition], name: t("first_run_setup.found.recognition"),
+            children: t(`first_run_setup.found.recognition_${recognition}`) },
+    ];
+    const urgent = rows.filter(row => row.state === "attention");
+    const settled = rows.filter(row => row.state !== "attention");
     return <section className={ui.section} aria-labelledby="first-run-found">
         <h4 id="first-run-found" className={ui.sectionTitle}>{t("first_run_setup.found.heading")}</h4>
-        <ul className={ui.items} data-slot="item-group">
-            <Finding state={micName ? "ready" : "attention"} name={t("first_run_setup.found.mic")}>
-                {micName ?? t("first_run_setup.found.mic_missing")}
-            </Finding>
-            {/* The readout's words, as the other rows' (its frame stays on the VRChat page). They
-                change by themselves while the dialog is open, so they are announced. */}
-            <Finding state={VRCHAT_STATES[vrchat.state]} name={t("first_run_setup.found.vrchat")} live>
-                {vrchat.lines.map(line => <span key={line}>{line}</span>)}
-            </Finding>
-            {/* Only needed to bring the read-aloud and the voice changer's voice to VRChat. */}
-            {cables !== null && <Finding state={cables > 0 ? "ready" : "neutral"} name={t("first_run_setup.found.virtual_mic")}
-                action={<button type="button" onClick={() => { onLeave(); openGuide(); }}>{t("first_run_setup.found.virtual_mic_open")}</button>}>
-                {t(cables > 0 ? "first_run_setup.found.virtual_mic_found" : "first_run_setup.found.virtual_mic_missing")}
-            </Finding>}
-            <Finding state={translation ? "attention" : "ready"} name={t("first_run_setup.found.translation")}
-                action={translation && <button type="button" onClick={() => { onLeave(); openTranslatorList(); }}>
-                    {t("first_run_setup.found.translation_choose")}</button>}>
-                {t(translation ? "first_run_setup.found.translation_missing" : "first_run_setup.found.translation_ready")}
-            </Finding>
-            <Finding state={RECOGNITION_STATES[recognition]} name={t("first_run_setup.found.recognition")}>
-                {t(`first_run_setup.found.recognition_${recognition}`)}
-            </Finding>
-        </ul>
+        {urgent.length > 0 && <ul className={ui.urgent} data-slot="item-group" data-state="attention">
+            {urgent.map(row => <Finding key={row.id} {...row} />)}</ul>}
+        {settled.length > 0 && <ul className={ui.items} data-slot="item-group">
+            {settled.map(row => <Finding key={row.id} {...row} />)}</ul>}
     </section>;
 };
 
@@ -277,6 +284,7 @@ const RECOGNITION_STATES: Record<RecognitionState, FindingState> = {
 
 // One row (shadcn/ui's Item): the mark, the name over what was found, and the row's action.
 interface FindingProps {
+    id: string;
     state: FindingState;
     name: string;
     live?: boolean;
@@ -284,7 +292,7 @@ interface FindingProps {
     children: ReactNode;
 }
 const Finding = ({ state, name, live = false, action, children }: FindingProps) =>
-    <li className={ui.item} data-slot="item" data-state={state}>
+    <li className={state === "attention" ? ui.urgentItem : ui.item} data-slot="item" data-state={state}>
         <StateMark state={state} />
         <div className={ui.content} data-slot="item-content">
             <span className={ui.itemTitle} data-slot="item-title">{name}</span>

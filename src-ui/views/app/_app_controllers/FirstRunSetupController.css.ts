@@ -72,21 +72,38 @@ const list = {
     border: `.1rem solid ${vars.vox_border}`,
     borderRadius: vars.vox_radius,
 } as const;
+
+// Whether a finding needs the user is told by where it sits and how it looks, before its words
+// are read (#614): the findings that need the user come first, each a card of its own, with the
+// warning's amber rule on its left and its tint, a larger mark and the name at full strength. The
+// rest (ready, being checked, or neither) follow in one quiet frame, smaller and muted.
+export const urgent = within({ display: "grid", gap: ".8rem", margin: 0, padding: 0, listStyle: "none" });
 export const items = within(list);
 
 // Item: the mark, the name over what was found, and its action under the words, where they
 // start. What was found is a sentence or two of Japanese, so the words take the row's width and
-// the actions of all rows start at the same place. Every row has the same padding and at least
-// the same height, whatever it says.
-export const item = within({
+// the actions of all rows start at the same place.
+const row = {
     display: "grid",
-    gridTemplateColumns: "2rem minmax(0, 1fr)",
     gridTemplateAreas: '"media content" ". actions"',
     columnGap: "1.2rem",
     rowGap: ".8rem",
     alignContent: "center",
+} as const;
+export const urgentItem = within({
+    ...row,
+    gridTemplateColumns: "2.4rem minmax(0, 1fr)",
     minHeight: "6.4rem",
-    padding: "1.2rem 1.6rem",
+    padding: "1.4rem 1.6rem 1.4rem 1.3rem",
+    borderLeft: `.3rem solid ${vars.vox_state_warning}`,
+    borderRadius: vars.vox_radius,
+    background: vars.vox_warning_tint,
+});
+export const item = within({
+    ...row,
+    gridTemplateColumns: "1.8rem minmax(0, 1fr)",
+    minHeight: "4.8rem",
+    padding: ".8rem 1.6rem",
 }, separated);
 
 // The state at a glance: ready (a lilac disc with a check, as a readout's finished work), needs
@@ -96,11 +113,14 @@ export const mark = within({
     gridArea: "media",
     alignSelf: "start",
     display: "block",
-    width: "2rem",
-    height: "2rem",
-    // On the name's line (1.4rem at 1.5).
+    width: "1.8rem",
+    height: "1.8rem",
+    // On the name's line (1.3rem at 1.5).
     marginTop: ".05rem",
     color: vars.vox_description_text,
+}, {
+    // On the name's line (1.5rem at 1.4).
+    [`${urgentItem} &`]: { width: "2.4rem", height: "2.4rem", marginTop: "-.1rem" },
 });
 globalStyle(`${dialog} ${mark} svg`, { display: "block", width: "100%", height: "100%", overflow: "visible" });
 
@@ -127,19 +147,23 @@ export const markShape = {
 
 export const content = within({ gridArea: "content", display: "grid", gap: ".2rem", minWidth: 0 });
 export const itemTitle = within({
-    fontSize: "1.4rem",
+    fontSize: "1.3rem",
     fontWeight: 500,
     lineHeight: 1.5,
-    color: vars.dark_200_color,
+    color: vars.vox_secondary_text,
+}, {
+    [`${urgentItem} &`]: { fontSize: "1.5rem", fontWeight: 600, lineHeight: 1.4, color: vars.dark_basic_text_color },
 });
 export const itemDescription = within({
     display: "grid",
     gap: ".2rem",
-    fontSize: "1.3rem",
+    fontSize: "1.2rem",
     lineHeight: 1.6,
-    color: vars.vox_secondary_text,
+    color: vars.vox_description_text,
     overflowWrap: "anywhere",
     wordBreak: "auto-phrase",
+}, {
+    [`${urgentItem} &`]: { fontSize: "1.3rem", color: vars.dark_200_color },
 });
 export const itemActions = within({ gridArea: "actions", display: "flex", justifySelf: "start" });
 

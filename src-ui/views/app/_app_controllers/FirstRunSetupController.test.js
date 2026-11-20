@@ -198,11 +198,23 @@ test("each finding is marked by its state, with its words and its action apart",
         const list = findings.type(findings.props);
         const rows = [];
         find(list, node => { if (node.type?.name === "Finding") rows.push(node.props); return false; });
-        return { w, rows: Object.fromEntries(rows.map(row => [row.name.split(".").at(-1), row])) };
+        // Where each row is drawn: the cards of what needs the user, or the quiet list after them.
+        const placed = className => {
+            const group = find(list, node => node.type === "ul" && node.props.className === className);
+            const names = [];
+            find(group, node => { if (node.type?.name === "Finding") names.push(node.props.name.split(".").at(-1)); return false; });
+            return names;
+        };
+        return { w, rows: Object.fromEntries(rows.map(row => [row.name.split(".").at(-1), row])),
+            urgent: placed("urgent"), settled: placed("items"), list };
     };
-    let { rows } = await rowsOf({ mic: "NoDevice", vrchat: "not_found", cables: [], needs: [{ id: "translation", action: "choose" }] });
+    let { rows, urgent, settled } = await rowsOf({ mic: "NoDevice", vrchat: "not_found", cables: [], needs: [{ id: "translation", action: "choose" }] });
     assert.deepEqual(Object.fromEntries(Object.entries(rows).map(([name, row]) => [name, row.state])),
         { mic: "attention", vrchat: "attention", virtual_mic: "neutral", translation: "attention", recognition: "attention" });
+    // The layout says it before the words (#614): what needs the user comes first, as cards;
+    // the rest follow in the quiet list. Each keeps its order within its place.
+    assert.deepEqual(urgent, ["mic", "vrchat", "translation", "recognition"]);
+    assert.deepEqual(settled, ["virtual_mic"]);
     assert.equal(rows.mic.children, "first_run_setup.found.mic_missing");
     assert.deepEqual(rows.vrchat.children.map(line => line.props.children), ["vrchat_presence.not_found", "vrchat_presence.not_found_hint"]);
     assert.equal(rows.vrchat.live, true, "the VRChat words change by themselves and are announced");
@@ -211,10 +223,14 @@ test("each finding is marked by its state, with its words and its action apart",
     assert.equal(rows.translation.action.props.children, "first_run_setup.found.translation_choose");
     assert.equal(rows.virtual_mic.action.props.children, "first_run_setup.found.virtual_mic_open");
 
-    ({ rows } = await rowsOf({ engine: "SpeechCpp", server: "bundled", paths: { model: "/m/a.gguf", vad_model: "/m/v.gguf" }, opened: true,
+    let list;
+    ({ rows, urgent, settled, list } = await rowsOf({ engine: "SpeechCpp", server: "bundled", paths: { model: "/m/a.gguf", vad_model: "/m/v.gguf" }, opened: true,
         cables: [{ playback: "CABLE Input", recording: "CABLE Output" }] }));
     assert.deepEqual(Object.fromEntries(Object.entries(rows).map(([name, row]) => [name, row.state])),
         { mic: "ready", vrchat: "ready", virtual_mic: "ready", translation: "ready", recognition: "ready" });
+    // Nothing to do: no card at all, only the quiet list.
+    assert.equal(find(list, node => node.type === "ul" && node.props.className === "urgent"), null);
+    assert.deepEqual(settled, ["mic", "vrchat", "virtual_mic", "translation", "recognition"]);
     assert.equal(rows.mic.children, "Microphone (USB)");
     assert.ok(!rows.translation.action, "nothing to do: no button");
 
