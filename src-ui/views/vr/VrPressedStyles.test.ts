@@ -7,7 +7,7 @@ for (const [file, targets] of [
     ["VrSettingsWindow.module.scss", [".button", ".clickable"]],
     ["VrWindow.module.scss", [".close_button"]],
     ["VrLanguageWindow.module.scss", [".language_window button", ".language_window summary"]],
-]) {
+] satisfies [string, string[]][]) {
     test(`${file} gives enabled VR controls immediate, layout-preserving pressed colour`, async () => {
         const source = await readFile(new URL(file, import.meta.url), "utf8");
         const css = compileString(source).css;
