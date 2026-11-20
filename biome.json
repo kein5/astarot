@@ -25,7 +25,6 @@
         "noAutofocus": "warn",
         "noLabelWithoutControl": "warn",
         "noNoninteractiveTabindex": "warn",
-        "noRedundantRoles": "warn",
         "noStaticElementInteractions": "warn",
         "noSvgWithoutTitle": "warn",
         "useAltText": "warn",
