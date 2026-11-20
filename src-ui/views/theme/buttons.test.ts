@@ -5,13 +5,13 @@ import { test } from "vitest";
 // The app's buttons are still drawn rule by rule in each screen's styles, not by one component.
 // These tests hold what the shadcn/ui alignment (docs/design/components/shadcn-alignment.md)
 // made the same for all of them, so a new copy of a button rule does not bring the old values back.
-const read = path => readFileSync(new URL(path, import.meta.url), "utf8");
+const read = (path: string) => readFileSync(new URL(path, import.meta.url), "utf8");
 const views = "../";
 const box = views + "app/config_page/setting_section/setting_box/";
 
 // The declarations a rule writes itself, before any nested rule: the text from the selector to
 // the first brace after its opening one. Each anchor is looked for after the one before it.
-const ownDeclarations = (path, ...anchors) => {
+const ownDeclarations = (path: string, ...anchors: string[]) => {
     const source = read(path);
     let at = 0;
     for (const anchor of anchors) {

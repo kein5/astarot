@@ -4,7 +4,7 @@ import { test } from "vitest";
 
 // The vanilla-extract contract names custom properties that variables.css defines; a typo or a
 // removed token would otherwise become an empty var() in the built CSS.
-const read = name => readFileSync(new URL(name, import.meta.url), "utf8");
+const read = (name: string) => readFileSync(new URL(name, import.meta.url), "utf8");
 
 test("every token in the vanilla-extract contract is defined in variables.css", () => {
     const contract = read("./vars.css.ts");
