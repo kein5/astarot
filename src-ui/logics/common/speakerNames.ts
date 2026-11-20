@@ -53,7 +53,7 @@ type LogRow = {
 };
 
 const voices = (row: LogRow | undefined): string => {
-    if (!row || row.category !== "received" || !row.realtime) return "";
+    if (row?.category !== "received" || !row.realtime) return "";
     const labels = speakerLabels(row.speakers);
     return labels.length ? `${row.realtime.generation}:${row.realtime.namespace}:${labels.join("·")}` : "";
 };
