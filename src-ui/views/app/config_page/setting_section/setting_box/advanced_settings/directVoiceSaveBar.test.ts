@@ -4,9 +4,14 @@ import * as directVoiceDraft from "../../../../../../logics/voice/directVoiceDra
 import * as draftRebase from "../../../../../../logics/voice/draftRebase.ts";
 import * as voiceErrorText from "../../../../../../logics/voice/voiceErrorText.ts";
 import { changedPaths } from "../../../../../../logics/voice/saveBar.ts";
+import type { SaveBarEntry } from "../../../../../../logics/voice/saveBar.ts";
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { hooks, loadModule } from "../../../../../../logics/test/hookHarness.ts";
+import { hooks, loadModule, unchecked } from "../../../../../../logics/test/hookHarness.ts";
+import type { TreeNode } from "../../../../../../logics/test/hookHarness.ts";
+import type { DirectVoiceSettingsProps } from "./DirectVoiceSettings.tsx";
+
+type Variant = NonNullable<DirectVoiceSettingsProps["variant"]>;
 
 // #429: input forwarding under the advanced settings showed a saved RVC conversion as forwarding
 // and put that change in the save bar as soon as the page opened. Any save from the page then
@@ -15,24 +20,24 @@ import { hooks, loadModule } from "../../../../../../logics/test/hookHarness.ts"
 const rvcSettings = { mode: "converted", engine: "rvc", runtime: "", reference: "", rvc_runtime: "/rvc", rvc_model: "voice.pth",
     rvc_index: "", rvc_pitch: 0, rvc_index_rate: 0, rvc_device: "auto", rvc_threads: 0, rvc_highpass: true };
 
-async function open(variant, settings) {
-    const runtime = hooks(), entries = new Map(), writes = [];
-    const ui = { "@useI18n": { useI18n: () => ({ t: key => key }) } };
-    const { useSettingsDraft } = await loadModule(new URL("../../../../../../logics/voice/useSettingsDraft.tsx", import.meta.url), runtime, {
+async function open(variant: Variant, settings: typeof rvcSettings) {
+    const runtime = hooks(), entries = new Map<string, SaveBarEntry>(), writes: Record<string, unknown>[] = [];
+    const ui = { "@useI18n": { useI18n: () => ({ t: (key: string) => key }) } };
+    const { useSettingsDraft } = await loadModule<typeof import("../../../../../../logics/voice/useSettingsDraft.tsx")>(new URL("../../../../../../logics/voice/useSettingsDraft.tsx", import.meta.url), runtime, {
         ...ui, "./draftRebase": draftRebase,
-        "./saveBar": { changedPaths, setSaveBarEntry: (id, entry) => { if (entry) entries.set(id, entry); else entries.delete(id); } },
+        "./saveBar": { changedPaths, setSaveBarEntry: (id: string, entry: SaveBarEntry | null) => { if (entry) entries.set(id, entry); else entries.delete(id); } },
     });
-    const { DirectVoiceSettings } = await loadModule(new URL("./DirectVoiceSettings.tsx", import.meta.url), runtime, { ...ui,
+    const { DirectVoiceSettings } = await loadModule<typeof import("./DirectVoiceSettings.tsx")>(new URL("./DirectVoiceSettings.tsx", import.meta.url), runtime, { ...ui,
         "../../../../../../logics/voice/useSettingsDraft": { useSettingsDraft },
         "../../../../../../logics/voice/routeState": routeState,
         "../../../../../../logics/voice/directVoiceDraft": directVoiceDraft,
         "../../../../../../logics/voice/useVoice": { useVoice: () => ({ directState: { settings }, directSources: {},
             settings: { routing: "managed" }, route: {}, updateDirectError: () => {}, setDirectDraftBlocked: () => {},
-            send: (endpoint, value) => {
+            send: (endpoint: string, value: Record<string, unknown>) => {
                 if (endpoint !== "/set/data/direct_voice_settings") return true;
                 writes.push(value);
                 return Promise.resolve({ status: 200, result: { settings: value } });
-            } }), sourceKey: value => value },
+            } }), sourceKey: (value: unknown) => value },
         "../device/VoiceRouteSettings": { VoiceRouteSummary: "route", VoiceRouteControls: "controls" },
         "../_components/section_label_component/SectionLabelComponent": { SectionLabelComponent: "heading" },
         "./ModelDownloads": { ModelDownloads: "downloads" }, "./VcRuntimeSetup": { VcRuntimeSetup: "runtime" }, "./StatusLine": { StatusLine: "status" },
@@ -42,9 +47,9 @@ async function open(variant, settings) {
         "../_components/form_row/FormRow": { FormRow: "row" },
         "../_components/custom_model_link/CustomModelLink": { CustomModelLink: "custom-model-link" },
         "../_components/file_drop_zone/FileDropZone": { FileDropZone: "file-drop" },
-        "../../../../../../logics/common/fileDrop": { extensionOf: path => path.slice(path.lastIndexOf(".")).toLowerCase() },
+        "../../../../../../logics/common/fileDrop": { extensionOf: (path: string) => path.slice(path.lastIndexOf(".")).toLowerCase() },
         "../../../../../../logics/voice/conversionLatency": { conversionDelaySeconds: () => null },
-        "../../../../../../logics/common/pathExample": { pathExample: file => file },
+        "../../../../../../logics/common/pathExample": { pathExample: (file: string) => file },
         "../../../../../../logics/voice/rvcStartOptions": rvcStartOptions,
         "../../../../../../logics/voice/voiceErrorText.ts": voiceErrorText,
     });
@@ -80,15 +85,16 @@ test("#429: a save from input forwarding keeps the RVC selection", async () => {
 
 test("input forwarding with RVC saved still shows forwarding, not the conversion", async () => {
     const page = await open("legacy", rvcSettings);
-    const text = JSON.stringify(page.tree, (key, value) => key === "_owner" || key === "_store" ? undefined : value);
+    const text = JSON.stringify(page.tree, (key: string, value: unknown) => key === "_owner" || key === "_store" ? undefined : value);
     assert.match(text, /voice\.vc_monitor_passthrough/);
     assert.doesNotMatch(text, /voice\.vc_rvc_pitch/);
     page.runtime.unmount();
 });
 
-const flatten = node => !node || typeof node !== "object" ? [] :
-    Array.isArray(node) ? node.flatMap(flatten) : [node, ...flatten(node.props?.children)];
-const selectButton = tree => flatten(tree).find(node => node.type === "button" && node.props.children === "voice_ui.select_rvc");
+// Any object in the drawn tree other than an array is an element.
+const flatten = (node: unknown): TreeNode[] => !node || typeof node !== "object" ? [] :
+    Array.isArray(node) ? node.flatMap(flatten) : [unchecked<TreeNode>(node), ...flatten(unchecked<TreeNode>(node).props?.children)];
+const selectButton = (tree: unknown) => flatten(tree).find(node => node.type === "button" && node.props.children === "voice_ui.select_rvc");
 
 test("#436: opening the RVC page with forwarding saved leaves the save bar empty and offers a button", async () => {
     const forwarding = await open("rvc", { ...rvcSettings, mode: "passthrough" });
@@ -119,16 +125,19 @@ test("#436: saving an RVC field with forwarding saved keeps forwarding", async (
 // #614: what each form is for, what to expect of the conversion and what the input does not do are
 // its heading's description (a hint on the RVC page); nothing repeats them as a paragraph. What
 // Start waits for and the monitor's line stay in sight.
-const all = (tree, predicate, found = []) => {
+const all = (tree: unknown, predicate: (node: TreeNode) => boolean, found: TreeNode[] = []) => {
     if (!tree || typeof tree !== "object") return found;
-    if (predicate(tree)) found.push(tree);
-    for (const child of [tree.props?.children].flat()) all(child, predicate, found);
+    // Any other object in the drawn tree is an element (or an array of them, which has no props).
+    const node = unchecked<TreeNode>(tree);
+    if (predicate(node)) found.push(node);
+    for (const child of [node.props?.children].flat()) all(child, predicate, found);
     return found;
 };
-for (const [variant, heading, intro] of [
+const forms: [Variant, string, string][] = [
     ["rvc", "config_page.rvc.rvc_settings.label", "voice.vc_rvc_hint\nvoice_ui.rvc_latency_hint\nvoice.input_scope"],
     ["legacy", "voice.input_title", "voice.input_description\nvoice.input_scope"],
-]) test(`${variant}: the form's description is its heading's`, async () => {
+];
+for (const [variant, heading, intro] of forms) test(`${variant}: the form's description is its heading's`, async () => {
     const page = await open(variant, rvcSettings);
     const [label] = all(page.tree, node => node.type === "heading");
     assert.equal(label.props.label, heading);
