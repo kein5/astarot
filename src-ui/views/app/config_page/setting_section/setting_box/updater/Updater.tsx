@@ -9,6 +9,7 @@ import type { TFunction } from "i18next";
 import type { EnvReadoutTone } from "../_components/env_readout/EnvReadout";
 import styles from "./Updater.module.scss";
 import { SectionLabelComponent } from "../_components";
+import { HintDescriptions } from "../_components/hint/Hint";
 import { EnvReadout } from "../_components/env_readout/EnvReadout";
 import { _OpenWebpageButton } from "../_components/_atoms/_open_webpage_button/_OpenWebpageButton";
 import { CheckboxContainer } from "../_templates/Templates";
@@ -73,9 +74,14 @@ export const Updater = () => {
         if (code) showNotification_Error(t(`app_update.errors.${code}`), { category_id: "app_update" });
     };
 
+    // How an update is fetched and installed is the same for every copy that updates here: the
+    // heading's hint (#614). Why a copy cannot update here stays on screen, where its button would be.
+    const installs = policy === "install";
     return (
+        <HintDescriptions>
         <div className={styles.container}>
-            <SectionLabelComponent label={t("config_page.side_menu_labels.updater")} />
+            <SectionLabelComponent label={t("config_page.side_menu_labels.updater")}
+                desc={installs ? t("app_update.policy.install") : undefined} />
             <EnvReadout tone={toneOf(appUpdate)} progress={busy ? "working" : undefined}>
                 <p>
                     ASTAROT {version}
@@ -84,7 +90,7 @@ export const Updater = () => {
                 {status && <p>{status}</p>}
                 {appUpdate.error && <p>{t(`app_update.errors.${appUpdate.error}`)}</p>}
             </EnvReadout>
-            {policy && <p className={styles.policy}>{t(`app_update.policy.${policy}`)}</p>}
+            {policy && !installs && <p className={styles.policy}>{t(`app_update.policy.${policy}`)}</p>}
             {checks &&
                 <div className={styles.actions}>
                     {canInstall &&
@@ -106,9 +112,12 @@ export const Updater = () => {
                     setting_id="check_software_updates"
                     label={t("app_update.check_at_start")}
                     desc={t("app_update.check_at_start_desc")}
+                    // Whom the app asks at each start is read before the box is ticked: it stays on screen.
+                    keep_desc
                     variable={currentEnableCheckSoftwareUpdates}
                     toggleFunction={toggleEnableCheckSoftwareUpdates}
                 />}
         </div>
+        </HintDescriptions>
     );
 };

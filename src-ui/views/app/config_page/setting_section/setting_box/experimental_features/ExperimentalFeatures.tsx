@@ -16,6 +16,7 @@ import {
 import type { ExperimentalFeature, ExperimentalFeatureValues } from "../../../../../../logics/configs/experimentalFeatures.ts";
 import { ActionButtonContainer, CheckboxContainer, DropdownMenuContainer } from "../_templates/Templates";
 import { SectionLabelComponent } from "../_components";
+import { HintDescriptions } from "../_components/hint/Hint";
 import { EDGES } from "../../../../../../logics/companion/hexagram.ts";
 
 type Current = { state?: string; data?: unknown };
@@ -63,9 +64,12 @@ export const ExperimentalFeatures = () => {
     );
 };
 
+// The rows' general descriptions are hints here (#614). The notice that these are on trial stays
+// on screen, and so does a description that says the app will start differently.
 export const ExperimentalFeatureList = ({ features, current, setValues, edge, monitor, vrPanel }: ListProps) => {
     const { t } = useI18n();
     return (
+        <HintDescriptions>
         <div className={styles.container}>
             {/* Like every other page, it starts with its category heading, then the notice. */}
             <SectionLabelComponent label={t("config_page.experimental_features.section_label")} />
@@ -80,6 +84,9 @@ export const ExperimentalFeatureList = ({ features, current, setValues, edge, mo
                                 setting_id={`experimental_features.${id}`}
                                 label={t(experimentalFeatureLabelKey(id))}
                                 desc={t(experimentalFeatureDescKey(id))}
+                                // The tray companion changes how the app starts, which is read before it is
+                                // turned on: its words stay on screen.
+                                keep_desc={id === "tray_companion"}
                                 variable={{ state: current.state, data: enabled }}
                                 toggleFunction={() => setValues(experimentalFeatureRequest(id, !enabled))}
                             />
@@ -90,6 +97,7 @@ export const ExperimentalFeatureList = ({ features, current, setValues, edge, mo
                 })}
             {vrPanel && <VrPanelItem {...vrPanel} />}
         </div>
+        </HintDescriptions>
     );
 };
 
