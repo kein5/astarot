@@ -40,10 +40,11 @@ test("an unknown language or edge falls back to English and the right edge, and 
 
 test("the panel says starting until the backend is ready, then whether the microphone listens", () => {
     assert.equal(panelState(null), "starting");
-    // States with only what the panel reads.
-    assert.equal(panelState(unchecked({ ready: false, mic: { on: true } })), "starting");
-    assert.equal(panelState(unchecked({ ready: true, mic: { on: true } })), "listening");
-    assert.equal(panelState(unchecked({ ready: true, mic: { on: false } })), "idle");
+    // Test data: a state with only what the panel reads.
+    const state = (ready: boolean, on: boolean) => unchecked<Parameters<typeof panelState>[0]>({ ready, mic: { on } });
+    assert.equal(panelState(state(false, true)), "starting");
+    assert.equal(panelState(state(true, true)), "listening");
+    assert.equal(panelState(state(true, false)), "idle");
 });
 
 test("each of the six switches has its action, and only those run", () => {
