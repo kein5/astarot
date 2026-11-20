@@ -7,6 +7,8 @@ use serde_json::{Map, Value, json};
 
 pub const MAX_USER_TERMS: usize = 100;
 pub const MAX_TERMS: usize = 150;
+/// The most built-in terms the user can take out (#792): more than the built-in list holds.
+pub const MAX_REMOVED: usize = 150;
 const MAX_WRITTEN: usize = 48;
 const MAX_READING: usize = 32;
 const MAX_READINGS: usize = 8;
@@ -40,12 +42,30 @@ fn written_form(term: &str) -> &str {
     term.split_once('=').map_or(term, |(w, _)| w)
 }
 
+/// A built-in term's written form the user took out (#792), as `parse_term` keeps a written form:
+/// trimmed, its spaces made single, at most 48 characters, without `,` or `=`.
+fn parse_written(value: &Value) -> Result<String, &'static str> {
+    const INVALID: &str = "realtime_vocabulary_invalid";
+    let text = value.as_str().ok_or(INVALID)?;
+    if text.chars().any(|c| (c as u32) < 32 || c as u32 == 127) {
+        return Err(INVALID);
+    }
+    let written = text.split_whitespace().collect::<Vec<_>>().join(" ");
+    let length = char_len(&written);
+    if length == 0 || length > MAX_WRITTEN || written.contains(',') || written.contains('=') {
+        return Err(INVALID);
+    }
+    Ok(written)
+}
+
 /// `str.casefold` for the comparisons of written forms.
 fn fold(text: &str) -> String {
     text.chars().flat_map(char::to_lowercase).collect::<String>().replace('ß', "ss")
 }
 
-/// `normalize_vocabulary`.
+/// `normalize_vocabulary`. `removed` lists the built-in terms the user took out, by their written
+/// forms (#792). It is left out of the saved value while it is empty, so a version without it
+/// still reads the settings as long as no built-in term is taken out.
 pub fn normalize_vocabulary(value: Option<&Value>) -> Result<Value, &'static str> {
     const INVALID: &str = "realtime_vocabulary_invalid";
     let default = json!({ "builtin": true, "terms": [] });
@@ -54,7 +74,7 @@ pub fn normalize_vocabulary(value: Option<&Value>) -> Result<Value, &'static str
         Some(value) => value,
     };
     let object = value.as_object().ok_or(INVALID)?;
-    if object.keys().any(|k| k != "builtin" && k != "terms") {
+    if object.keys().any(|k| k != "builtin" && k != "terms" && k != "removed") {
         return Err(INVALID);
     }
     let builtin = match object.get("builtin") {
@@ -79,7 +99,27 @@ pub fn normalize_vocabulary(value: Option<&Value>) -> Result<Value, &'static str
             result.push(Value::String(term));
         }
     }
-    Ok(json!({ "builtin": builtin, "terms": result }))
+    let removed = match object.get("removed") {
+        None | Some(Value::Null) => &empty,
+        Some(Value::Array(removed)) => removed,
+        Some(_) => return Err(INVALID),
+    };
+    if removed.len() > MAX_REMOVED {
+        return Err(INVALID);
+    }
+    let mut taken_out = Vec::new();
+    let mut seen = std::collections::HashSet::new();
+    for written in removed {
+        let written = parse_written(written)?;
+        if seen.insert(fold(&written)) {
+            taken_out.push(Value::String(written));
+        }
+    }
+    let mut saved = json!({ "builtin": builtin, "terms": result });
+    if !taken_out.is_empty() {
+        saved["removed"] = Value::Array(taken_out);
+    }
+    Ok(saved)
 }
 
 const EXCLUDED: [&str; 3] = ["vrct.managed.", "vrct.source-bridge.", "vrct.asr.capture."];
@@ -332,6 +372,23 @@ mod tests {
             assert_eq!(parse_term(&json!(term)).as_deref(), Ok(term.as_str()), "{term} is a canonical term");
             assert!(seen.insert(fold(written_form(term))), "{term} is there once");
         }
+    }
+
+    // #792: the built-in terms the user took out are kept by their written forms, made canonical
+    // and told apart without regard to letter case. Nothing taken out leaves the member out, so a
+    // version without it reads the settings as before.
+    #[test]
+    fn the_built_in_terms_taken_out_are_kept_and_left_out_when_there_are_none() {
+        let saved = normalize_vocabulary(Some(&json!({ "terms": [], "removed": ["  Friends+ ", "friends+", "Known   User"] }))).unwrap();
+        assert_eq!(saved, json!({ "builtin": true, "terms": [], "removed": ["Friends+", "Known User"] }));
+        assert_eq!(normalize_vocabulary(Some(&json!({ "terms": [], "removed": [] }))).unwrap(), json!({ "builtin": true, "terms": [] }));
+        assert_eq!(normalize_vocabulary(Some(&json!({ "terms": [], "removed": null }))).unwrap(), json!({ "builtin": true, "terms": [] }));
+        for refused in [json!("Quest"), json!([3]), json!(["a=b"]), json!(["a,b"]), json!([""]), json!(["x".repeat(49)]),
+            json!(vec!["x"; MAX_REMOVED + 1])] {
+            assert_eq!(normalize_vocabulary(Some(&json!({ "terms": [], "removed": refused }))), Err("realtime_vocabulary_invalid"), "{refused}");
+        }
+        let many: Vec<String> = (0..MAX_REMOVED).map(|i| format!("t{i}")).collect();
+        assert_eq!(normalize_vocabulary(Some(&json!({ "removed": many }))).unwrap()["removed"].as_array().unwrap().len(), MAX_REMOVED);
     }
 
     #[test]
