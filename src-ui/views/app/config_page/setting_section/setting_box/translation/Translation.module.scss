@@ -24,7 +24,8 @@
     background: var(--dark_875_color, #282a2e);
     color: var(--dark_200_color, #e5e7eb);
 
-    &::backdrop { background: #0009; }
+    // As the forms' dialogs (VoiceSettings.module.scss): shadcn/ui's bg-black/50.
+    &::backdrop { background: #00000080; }
     &[open] { display: grid; gap: 1.6rem; align-content: start; }
 
     h3 { font-size: 1.6rem; font-weight: 650; margin-bottom: 1.2rem; }

@@ -87,7 +87,9 @@
     input[type="checkbox"].fieldCheck { width: 2.4rem; height: 2.4rem; min-height: 2.4rem; margin-top: 0; }
     // shadcn/ui's DialogContent: at most 51.2rem wide (sm:max-w-lg), 1.6rem between its parts (gap-4).
     dialog { max-width: min(51.2rem, calc(100vw - 3.2rem)); max-height: calc(100dvh - 3.2rem); overflow-y: auto; padding: 2.4rem; border: .1rem solid var(--dark_600_color, #555d69); border-radius: 1.2rem; background: var(--dark_875_color, #282a2e); color: inherit; }
-    dialog::backdrop { background: #0009; }
+    // shadcn/ui's bg-black/50. Written as a colour, not a token: a ::backdrop takes custom properties
+    // from its dialog only in newer engines (Safari 17.4, Chrome 122), and an older WebKitGTK would not dim.
+    dialog::backdrop { background: #00000080; }
     dialog button { margin: .8rem .8rem 0 0; }
     // A consent dialog reads as a document: its title and facts are one part (`.dialog_text`), a
     // fact a paragraph with air between them; the consent and the actions are parts of their own.
