@@ -1199,9 +1199,13 @@ mod leftover_tests {
         let path = dir.path().join("config.json");
         let left = dir.path().join("config.json.0123456789ab.tmp");
         fs::write(&left, "{\"ENABLE_TRANSLATION\": tr").unwrap();
-        // Not a save's own name: another case, length or file.
-        let kept = ["config.json.0123456789AB.tmp", "config.json.0123.tmp", "config.json.0123456789ab.tmp.bak", "other.json.0123456789ab.tmp", "config.json.before-migration-3"];
-        for name in kept {
+        // Not a save's own name: another length or file, or (where names keep their case; on
+        // Windows it would be the leftover itself) another case.
+        let mut kept = vec!["config.json.0123.tmp", "config.json.0123456789ab.tmp.bak", "other.json.0123456789ab.tmp", "config.json.before-migration-3"];
+        if !cfg!(windows) {
+            kept.push("config.json.0123456789AB.tmp");
+        }
+        for name in kept.iter().copied() {
             fs::write(dir.path().join(name), "x").unwrap();
         }
         // A folder, or a link, by a save's name is not a leftover of one.
