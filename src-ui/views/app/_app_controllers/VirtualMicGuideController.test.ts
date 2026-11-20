@@ -145,6 +145,14 @@ test("while a check runs the meter follows it and the dialog cannot be put away"
     assert.ok(!s.calls.includes("close"));
 });
 
+for (const language of ["en", "ja"]) test(`${language}: the line about the output device says the state; the way to the settings is the button under it`, () => {
+    const line = localeAt(readLocale(language), "virtual_mic.found.output_unset");
+    assert.ok(typeof line === "string");
+    // The device it should be, once, and no path through the settings (#614).
+    assert.equal(line.split("{{playback}}").length - 1, 1);
+    assert.doesNotMatch(line, language === "ja" ? /設定の「/ : /settings/i);
+});
+
 test("every text the guide shows exists in English and Japanese", () => {
     const keys = new Set<string>();
     const source = readFileSync(new URL("./VirtualMicGuideController.tsx", import.meta.url), "utf8")
