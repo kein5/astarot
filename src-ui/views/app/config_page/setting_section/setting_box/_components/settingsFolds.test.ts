@@ -56,13 +56,22 @@ test("the registered words are a bar of the app's fold that says how many, open 
     assert.equal(find(fold, node => node.type === "entry"), null);
 });
 
-test("with no word there is no fold, and adding words opens the list", async context => {
+test("with no word the bar says 0 and, opened, that there is none; adding words opens the list", async context => {
     const s = await wordFilter(context, [], false);
+    let fold = findIn(s.render(), node => node.type === "fold");
+    assert.equal(fold.props.summary, "config_page.transcription.mic_word_filter.list:{\"count\":0}");
+    assert.equal(find(fold, node => node.type === "p"), null, "closed, nothing is drawn inside");
+    fold.props.onToggle({ currentTarget: { open: true } });
+    fold = findIn(s.render(), node => node.type === "fold");
+    assert.equal(fold.props.open, true);
+    assert.equal(findIn(fold, node => node.type === "p").props.children, "config_page.transcription.mic_word_filter.list_empty");
+    assert.deepEqual(words(fold), []);
+    // Closed again, words added open it.
+    fold.props.onToggle({ currentTarget: { open: false } });
     const tree = s.render();
-    assert.equal(find(tree, node => node.type === "fold"), null);
     findIn(tree, node => node.type === "entry").props.onChange({ target: { value: "alpha, beta" } });
     findIn(s.render(), node => node.type === "button").props.onClick();
-    assert.deepEqual(s.store.updates, [true]);
+    assert.deepEqual(s.store.updates, [true, false, true]);
 });
 
 const defaults = { message: { prefix: "", suffix: "" }, separator: "\n", translation: { prefix: "", suffix: "", separator: "\n" }, translation_first: false };

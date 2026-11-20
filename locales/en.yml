@@ -797,6 +797,7 @@ config_page:
             add_button_label: "Add"
             list_one: "Registered words ({{count}})"
             list_other: "Registered words ({{count}})"
+            list_empty: "No words are registered."
         mic_vad_filter:
             label: "Mic VAD filter"
             desc: "Only send audio to recognition after a silence gap is detected. Disable this if mic transcription stops mid-conversation instead of continuing to transcribe."

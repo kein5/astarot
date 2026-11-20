@@ -19,6 +19,13 @@
     max-height: 20rem;
 }
 
+// The list with no word: a quiet line in the fold.
+.empty {
+    margin: 0;
+    font-size: 1.4rem;
+    color: var(--vox_description_text);
+}
+
 .item_wrapper {
     display: flex;
     justify-content: center;
