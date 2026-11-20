@@ -22,6 +22,7 @@ async function form(context: TestContext, models: UserModel[]) {
         "../_components/file_drop_zone/FileDropZone": { FileDropZone: "drop-zone" },
         "./VoiceAudition": { AuditionButton: "audition-button", AuditionNote: "audition-note" },
         "../_components/fold/Fold": { Fold: "fold" },
+        "./catalogLayout": { CatalogFacts: "catalog-facts" },
     });
     const render = () => runtime.render(UserModelRegistration, { target: "japanese", busy: false });
     const inputs = () => all(render(), node => node.type === "input");

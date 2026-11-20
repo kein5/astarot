@@ -11,7 +11,7 @@ import { FormRow } from "../_components/form_row/FormRow";
 import { SectionLabelComponent } from "../_components/section_label_component/SectionLabelComponent";
 import { Hint, useHintDescriptions } from "../_components/hint/Hint";
 import { HintCheck } from "../_components/hint/HintCheck";
-import { VocabularyBulk } from "./VocabularyBulk.tsx";
+import { VocabularyFiles } from "./VocabularyFiles.tsx";
 import { VocabularyList } from "./VocabularyList.tsx";
 import type { TFunction } from "i18next";
 import type { CaptionSource } from "../../../../../../logics/transcription/realtimeCaptionState";
@@ -163,7 +163,9 @@ export const RealtimeASRSettings = () => {
                     as the core makes them, and the core checks them again on save. */}
                 <VocabularyList builtin={builtinVocabulary} vocabulary={vocabulary} disabled={saving}
                     onVocabulary={next => setDraft(previous => previous && { ...previous, vocabulary: next })} />
-                <VocabularyBulk terms={vocabulary.terms} disabled={saving} onTerms={terms => updateVocabulary({ terms })} />
+                {/* The dictionary in and out of a file, under the list (#792). */}
+                <VocabularyFiles builtin={builtinVocabulary} vocabulary={vocabulary} disabled={saving} send={send}
+                    onVocabulary={next => setDraft(previous => previous && { ...previous, vocabulary: next })} />
             </fieldset>
             <Description text={t("realtime.save_help")} />
             <button type="submit" disabled={saving || !dirty}>{t("realtime.save")}</button>

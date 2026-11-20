@@ -47,7 +47,7 @@ export const VocabularyList = ({ builtin, vocabulary, disabled, onVocabulary }: 
 
     const rows = dictionaryRows(builtin, vocabulary);
     const count = (state: DictionaryRow["state"]) => rows.filter(row => row.state === state).length;
-    const own = count("own"), changed = count("changed"), removed = count("removed");
+    const changed = count("changed"), removed = count("removed");
     const editedRow = rows.find(row => row.term === editing);
     const trial: ReadingsChange | null = !editedRow ? null
         : editedRow.state === "own" ? changeOwnReadings(vocabulary, editedRow.term, typed) : changeReadings(vocabulary, editedRow.term, typed);
@@ -78,13 +78,9 @@ export const VocabularyList = ({ builtin, vocabulary, disabled, onVocabulary }: 
     const typing = (set: (value: string) => void) => (value: string) => { set(value); setAdded(null); };
 
     return (
-        // A bar of the app's one fold (Fold.tsx): what the list holds, closed at first.
-        <Fold summary={<>
-            <span className={styles.title}>{t("realtime.vocabulary_list", { count: rows.length - removed })}</span>
-            {own > 0 && <span className={voiceStyles.badge} data-tone="own">{t("realtime.vocabulary_own_count", { count: own })}</span>}
-            {changed > 0 && <span className={voiceStyles.badge} data-tone="changed">{t("realtime.vocabulary_changed_count", { count: changed })}</span>}
-            {removed > 0 && <span className={voiceStyles.badge}>{t("realtime.vocabulary_removed_count", { count: removed })}</span>}
-        </>}>
+        // A bar of the app's one fold (Fold.tsx), closed at first: the number of terms in use and
+        // nothing more. What the user changed is read in the list (#792).
+        <Fold summary={t("realtime.vocabulary_list", { count: rows.length - removed })}>
             {/* How the list is built and follows a newer app: the hint of its line on a page that
                 keeps descriptions out of sight (#614), a line elsewhere. */}
             {hints
@@ -127,8 +123,6 @@ export const VocabularyList = ({ builtin, vocabulary, disabled, onVocabulary }: 
                             : <span className={styles.readings}>
                                 {row.readings.length ? <span>{readingsText(row.readings)}</span>
                                     : <span className={styles.none}>{t("realtime.vocabulary_no_reading")}</span>}
-                                {row.state !== "builtin" && <span className={voiceStyles.badge} data-tone={row.state === "removed" ? undefined : row.state}>
-                                    {t(`realtime.vocabulary_state_${row.state}`)}</span>}
                             </span>}
                         {!isEditing && <span className={styles.actions}>
                             {row.state !== "removed" && <button type="button" className={voiceStyles.quiet} disabled={disabled} onClick={() => startEdit(row)}

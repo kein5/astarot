@@ -76,7 +76,6 @@ const MarqueeText = ({ children, speed = 40, shouldAnimate = false, className = 
                 content.style.transition = "none";
                 content.style.transform = `translateX(0)`;
                 // force reflow
-                // eslint-disable-next-line @typescript-eslint/no-unused-expressions
                 content.offsetHeight;
                 // small initial delay before next iteration
                 const t2 = setTimeout(runOnce, initialDelay);

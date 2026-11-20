@@ -21,17 +21,18 @@ import tomllib
 
 
 ROOT = Path(__file__).resolve().parents[1]
-SCOPES = ("quick", "tooling", "node", "ui", "voice", "lint", "rust", "workflows", "crates", "links", "vulns", "secrets",
+SCOPES = ("quick", "tooling", "node", "ui", "voice", "lint", "rust", "integration", "workflows", "crates", "links", "vulns", "secrets",
           "commits", "all")
 GROUPS = {"quick": ("tooling", "node", "lint"),
-          "all": ("tooling", "node", "ui", "voice", "lint", "rust", "workflows", "crates", "links")}
+          "all": ("tooling", "node", "ui", "voice", "lint", "rust", "integration", "workflows", "crates", "links")}
 # Rust crates outside the Tauri app, each with its own Cargo.lock and tests.
 NATIVE_CRATES = ("native/app-identity", "native/speech-server", "native/ops", "native/audio-routing", "native/adapters", "native/translation",
                  "native/transcription", "native/openvr-client", "native/onnx-runtime", "native/vr-overlay", "native/voice-conversion",
                  "native/translate-onnx", "native/tts", "native/core")
-# Every Cargo workspace with a lock file of its own: the Tauri app, the crates above, and the two
-# whose tests check --scope rust does not run yet (#812). cargo-deny reads them all.
-CARGO_WORKSPACES = ("src-tauri", *NATIVE_CRATES, "native/ocr-runtime", "native/rvc-runtime")
+# Every Cargo workspace with a lock file of its own: the Tauri app, the crates above, the
+# integration tests' host (check --scope integration builds it), and the two whose tests
+# check --scope rust does not run yet (#812). cargo-deny reads them all.
+CARGO_WORKSPACES = ("src-tauri", *NATIVE_CRATES, "native/browser-core-bridge", "native/ocr-runtime", "native/rvc-runtime")
 # cargo-deny's lints for a shared deny.toml: a license, exception or source one workspace has no
 # use for is not a mistake.
 DENY_UNUSED = ("license-not-encountered", "license-exception-not-encountered", "unmatched-source")
@@ -40,7 +41,11 @@ DENY_UNUSED = ("license-not-encountered", "license-exception-not-encountered", "
 # osv-scanner cannot resolve, and nothing from it ships.
 OSV_LOCKFILES = ("uv.lock", "package-lock.json", "site/package-lock.json", "site/motion/package-lock.json",
                  *(f"{workspace}/Cargo.lock" for workspace in CARGO_WORKSPACES))
-SETUP_SCOPES = ("headless", "ui", "browser", "rust", "resources")
+SETUP_SCOPES = ("headless", "ui", "browser", "rust", "resources", "integration")
+# The integration tests (ADR-017): the core's host for the screens in a browser, and the browsers.
+INTEGRATION_HOST = "native/browser-core-bridge"
+INTEGRATION_BROWSERS = ("chromium", "webkit")
+PLAYWRIGHT_CLI = "node_modules/@playwright/test/cli.js"
 OWNER_FILE = ".vrct-vox-dev-env"
 OWNER = "VRCT-VOX developer environment v1\n"
 # Plain unit tests that live in tests/platform next to the helpers they test; the rest of
@@ -188,6 +193,10 @@ def checks_plan(args, root):
                 steps.append(Step("i18n gate", ["node", "--disable-warning=ExperimentalWarning",
                     "tools/i18n_gate/check.mjs"]))
             if scope == "ui":
+                # Biome (biome.json, pinned in mise.toml): its lint rules, then the format of the
+                # files its formatter covers. Both only read; `biome format --write` formats.
+                steps.append(Step("Biome lint", ["biome", "lint"]))
+                steps.append(Step("Biome format", ["biome", "format"]))
                 steps.append(Step("TypeScript", ["npm", "--ignore-scripts", "run", "typecheck"]))
                 steps.append(Step("Vite build", ["npm", "--ignore-scripts", "run", "vite-build"]))
         elif scope == "voice":
@@ -195,6 +204,16 @@ def checks_plan(args, root):
                 *PLATFORM_UNIT_TESTS, "-q"]))
         elif scope == "lint":
             steps.append(Step("Ruff", [python, "-m", "ruff", "check", *LINT_PATHS]))
+        elif scope == "integration":
+            # The screens, operated in Chromium and WebKit, through the real core (tests/integration).
+            if not args.dry_run and not (root / PLAYWRIGHT_CLI).is_file():
+                raise DevError("Playwright is not installed. Run: python tools/dev.py setup --scope ui, then --scope integration")
+            steps.append(Step("core host for the browser", ["cargo", "build", "--locked", "--offline",
+                "--manifest-path", f"{INTEGRATION_HOST}/Cargo.toml"]))
+            steps.append(Step("integration page", ["node", "node_modules/vite/bin/vite.js", "build",
+                "--config", "tests/integration/vite.config.ts", "--logLevel", "warn"]))
+            steps.append(Step("integration tests (Playwright)", ["node", PLAYWRIGHT_CLI, "test",
+                "--config", "tests/integration/playwright.config.ts"]))
         elif scope == "rust":
             steps.append(Step("Cargo check", ["cargo", "check", "--locked", "--offline",
                 "--manifest-path", "src-tauri/Cargo.toml"]))
@@ -275,7 +294,7 @@ def pinned_versions(root):
     """Tool versions pinned in mise.toml, keyed by the name doctor looks up on PATH."""
     tools = mise_versions(root)
     return {command: tools[name] for name, command in
-            (("node", "node"), ("cocogitto", "cog"), ("rust", "cargo"), ("uv", "uv"),
+            (("node", "node"), ("cocogitto", "cog"), ("rust", "cargo"), ("uv", "uv"), ("biome", "biome"),
              ("actionlint", "actionlint"), ("zizmor", "zizmor"), ("cargo-deny", "cargo-deny"),
              ("cargo-nextest", "cargo-nextest"), ("osv-scanner", "osv-scanner"), ("gitleaks", "gitleaks"),
              ("lychee", "lychee"))
@@ -310,6 +329,9 @@ def doctor(args, root, *, preflight=False):
             compatible = compatible and bool(match) and int(match[1]) >= 22
         if name == "cog":
             compatible = compatible and version.startswith("cog 7.")
+        if name == "biome":
+            # Another version formats and lints differently: only the pinned one passes.
+            compatible = compatible and bool(expected) and version == f"Version: {expected}"
         row(name, "ok" if compatible else "missing", version,
             f"Pinned in mise.toml: {expected} (mise install)" if expected else "")
 
@@ -321,7 +343,11 @@ def doctor(args, root, *, preflight=False):
         if not (root / "node_modules").is_dir():
             row("UI packages", "missing", "node_modules is absent", "python tools/dev.py setup --scope ui")
     if "ui" in selected:
-        needed_tools.add("npm")
+        needed_tools.update(("npm", "biome"))
+    if "integration" in selected:
+        needed_tools.update(("node", "cargo"))
+        row("Playwright", "ok" if (root / PLAYWRIGHT_CLI).is_file() else "missing", PLAYWRIGHT_CLI,
+            "python tools/dev.py setup --scope ui, then setup --scope integration (downloads the browsers)")
     if "rust" in selected:
         needed_tools.update(("cargo", "cargo-nextest"))
         resources = root / "src-tauri/bin/_internal"
@@ -414,6 +440,17 @@ def setup(args, root):
     if args.scope == "ui":
         return execute([Step("locked UI packages", ["npm", "ci", "--ignore-scripts", "--no-audit", "--no-fund",
             *(["--offline"] if args.offline else [])])], root, dry_run=args.dry_run)
+    if args.scope == "integration":
+        # The browsers are downloaded by Playwright's own installer (several hundred MB); the system
+        # libraries they need are not installed (on Ubuntu: npx playwright install-deps).
+        if not args.dry_run and not (root / PLAYWRIGHT_CLI).is_file():
+            raise DevError("Playwright is not installed. Run: python tools/dev.py setup --scope ui")
+        return execute([
+            Step(f"locked Rust dependencies {INTEGRATION_HOST}", ["cargo", "--config",
+                f"net.offline={'true' if args.offline else 'false'}", "fetch", "--locked",
+                "--manifest-path", f"{INTEGRATION_HOST}/Cargo.toml"]),
+            Step("Playwright browsers", ["node", PLAYWRIGHT_CLI, "install", *INTEGRATION_BROWSERS]),
+        ], root, dry_run=args.dry_run)
     if args.scope == "rust":
         # execute normally enforces Cargo offline. Dependency acquisition is
         # explicit here, so use Cargo's per-command override, never in check.
@@ -474,7 +511,7 @@ def parser():
     for command in ("doctor", "check"):
         sub = commands.add_parser(command, help="Inspect local prerequisites" if command == "doctor" else "Run selected model-free checks")
         sub.add_argument("--scope", choices=(*SCOPES, "browser") if command == "doctor" else SCOPES,
-                         default="quick", help="quick = tooling + node + lint; all also runs ui, voice, Rust, workflows, crates and links (default: quick)")
+                         default="quick", help="quick = tooling + node + lint; all also runs ui, voice, Rust, integration, workflows, crates and links (default: quick)")
         sub.add_argument("--python", help="Existing environment's Python executable; never installs packages")
         if command == "doctor":
             sub.add_argument("--json", action="store_true", help="Machine-readable diagnostics; missing prerequisites exit 2")
