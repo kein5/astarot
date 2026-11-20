@@ -359,3 +359,9 @@ test("download dialogs write byte counts in the display language", () => {
         assert.match(source, /t\("model_downloads\.exact_bytes"/, page);
     }
 });
+test("a modal dialog dims the window with shadcn/ui's 50% black, written as a colour", () => {
+    for (const file of [box + "advanced_settings/VoiceSettings.module.scss", box + "translation/Translation.module.scss", "topbar/Topbar.module.scss"]) {
+        const rules = [...read(file).matchAll(/::backdrop\s*{([^}]*)}/g)].map(match => match[1].trim());
+        assert.deepEqual(rules, ["background: #00000080;"], file);
+    }
+});
