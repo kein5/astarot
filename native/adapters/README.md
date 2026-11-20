@@ -31,9 +31,9 @@
 外部のツール側の設定は変えずに済むようにしています。
 
 - **VRChat（OSC）**: 送信先の既定は `127.0.0.1:9000`。チャットボックスは `/chatbox/input` に `[本文, True, 通知]`、入力中の表示は `/chatbox/typing` に `[flag]`。バイト列は python-osc と同じです（試験で照合）。
-- **VRChat（OSCQuery）**: 受信は送信先がこの PC（`127.0.0.1` か `localhost`）のときだけです。UDP の受信と HTTP のサーバはどちらも 127.0.0.1 の空きポートで待ち受け、`VRCT:<ナノ秒>` の名前で `_oscjson._tcp` と `_osc._udp` を mDNS で告知します。ツリーとホスト情報の JSON は tinyoscquery と同じ文字列です（試験で照合）。
+- **VRChat（OSCQuery）**: 受信は送信先がこの PC（`127.0.0.1` か `localhost`）のときだけです。UDP の受信と HTTP のサーバはどちらも 127.0.0.1 の空きポートで待ち受け、`ASTAROT:<ナノ秒>`（0.5.x までは `VRCT:<ナノ秒>`）の名前で `_oscjson._tcp` と `_osc._udp` を mDNS で告知します。ツリーとホスト情報の JSON は tinyoscquery と同じ文字列です（試験で照合）。
 - **mDNS**: python-zeroconf の既定の動きに合わせています。すべての IPv4 アドレス（ループバックを含む）で 224.0.0.251:5353 に参加し、LAN 側のインターフェースでもアドレス 127.0.0.1 で告知します。既存のライブラリ（mdns-sd）は、インターフェースのサブネットに合わないアドレスを告知から外すため使っていません。python-zeroconf との相互の発見は試験で確かめています。
-- **OBS**: ブラウザソースの URL（`/` または `/obs` に `?token=`）、`/obs/connection`（`Authorization: Bearer`）、`/health`、Host ヘッダの検査、応答ヘッダ、ページの HTML は同じです。HTML は Python 版が作ったものとバイト単位で一致することを試験で確かめています。
+- **OBS**: ブラウザソースの URL（`/` または `/obs` に `?token=`）、`/obs/connection`（`Authorization: Bearer`）、`/health`、Host ヘッダの検査、応答ヘッダ、ページの HTML は同じです。HTML は、題名（0.6.0 から `ASTAROT OBS Browser Source`）のほかは Python 版が作ったものとバイト単位で一致することを、試験で確かめています。
 - **WebSocket**: `?token=` がなければハンドシェイクの前に 403。上限（受信 64 KiB、受信の速さ、送信 256 KiB、送信待ち 128 件と 4 MiB、クライアントごと 1 MiB）、1008 での切断、20 秒ごとの ping は同じです。
 - **証明書**: ループバックの IPv4 だけが平文で待ち受けます。それ以外は利用者が選んだ PEM の証明書と鍵が必要で、1 MiB まで、1つのファイルに両方を入れても使えます。パスフレーズ付きの鍵は使えません。失敗の理由は `missing`、`unreadable`、`not_a_file`、`size`、`load_failed` の文字列だけで返します。
 

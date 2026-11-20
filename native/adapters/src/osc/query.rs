@@ -322,7 +322,7 @@ pub fn get_json(ip: IpAddr, port: u16, path: &str) -> Result<Option<Value>, Clie
         IpAddr::V6(v6) => format!("[{v6}]:{port}"),
     };
     let request = format!(
-        "GET {path} HTTP/1.1\r\nHost: {host}\r\nUser-Agent: VRCT-VOX\r\nAccept: */*\r\nConnection: close\r\n\r\n"
+        "GET {path} HTTP/1.1\r\nHost: {host}\r\nUser-Agent: ASTAROT\r\nAccept: */*\r\nConnection: close\r\n\r\n"
     );
     stream.set_write_timeout(Some(HTTP_REQUEST_TIMEOUT)).map_err(|_| ClientError::Transport)?;
     stream.write_all(request.as_bytes()).map_err(|_| ClientError::Transport)?;
