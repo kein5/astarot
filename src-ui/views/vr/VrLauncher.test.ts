@@ -40,7 +40,7 @@ async function launcher(context: TestContext) {
     assert.ok(logButton);
     const render = () => drawWith(runtime, logButton);
     render();
-    return { runtime, document, window, calls, render };
+    return { runtime, document, window, calls, render, tree };
 }
 
 for (const signal of ["outside-release", "document-leave", "pointer-cancel", "window-blur", "button-leave", "button-blur", "unmount"]) {
@@ -104,6 +104,20 @@ test("launcher cancellation listeners stay stable across renders and clean up on
     view.runtime.unmount();
     assert.deepEqual(view.document.removed, view.document.added);
     assert.deepEqual(view.window.removed, view.window.added);
+});
+
+test("the log button's tooltip shows with the tooltips turned off: only it says the long press", async context => {
+    const view = await launcher(context);
+    const group = findIn(view.tree, node => node.props?.["aria-label"] === "vr_panel.tooltip.windows_group");
+    const children: TreeNode[] = group.props.children;
+    const buttons = children.map(node => { view.runtime.remount(); return drawWith(view.runtime, node); });
+    // The log, the languages, the inputs and outputs, the settings.
+    assert.deepEqual(buttons.map(button => [button.props.tipTitle, button.props.tipHelp, button.props.tipForce]), [
+        ["vr_panel.window_log", "vr_panel.tooltip.log_open_help", true],
+        ["vr_panel.window_language", "vr_panel.tooltip.open_view", false],
+        ["io_flow.vr_window", "vr_panel.tooltip.open_view", false],
+        ["vr_panel.window_settings", "vr_panel.tooltip.open_view", false],
+    ]);
 });
 
 // The function buttons, rendered with the given switch states, blocks and settings page state.

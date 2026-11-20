@@ -7,6 +7,7 @@ import settingsStyles from './VrSettingsWindow.module.scss';
 import LanguageSvg from '@images/mui_language.svg?react';
 import XMarkSvg from '@images/x_mark.svg?react';
 import WarningSvg from '@images/warning.svg?react';
+import NarrowArrowDownSvg from '@images/narrow_arrow_down.svg?react';
 import { useLanguageSettings } from '@logics_main';
 import { useI18n } from '@useI18n';
 import { useIsOpenedConfigPage } from '@logics_common';
@@ -294,15 +295,20 @@ export function VrLanguageWindow({ onClose }: { onClose: () => void }) {
                         onClick={() => number !== preset && save(() => settings.setSelectedPresetTabNumber(number), { nextPreset: number, focusKey: `preset:${number}` })}>{number}</button>)}</div>
                     {status && <span className={`${styles.status} ${error || syncError ? styles.error : ''}`}>{status}</span>}
                 </div>
-                <div className={styles.source_row}>
-                    <button className={clsx(settingsStyles.row, settingsStyles.clickable, settingsStyles.select, styles.source)} ref={mainRef('your')} aria-disabled={busy ? true : undefined} onClick={() => open({ kind: 'your', stage: 'saved' }, 'your')}>
-                        <span className={settingsStyles.label}>{t('main_page.your_language')}</span><LanguageText names={names} entry={source} className={styles.selected_value} /><span className={settingsStyles.chevron} aria-hidden="true">›</span>
-                    </button>
-                    <button className={clsx(settingsStyles.button, styles.swap)} ref={mainRef('swap')} aria-label={c('swap_name')} aria-disabled={busy ? true : undefined}
-                        onClick={() => save(() => settings.swapSelectedLanguages())}><span>{c('swap')}</span><span className={styles.country}>{c('swap_hint')}</span></button>
-                </div>
+                <button className={clsx(settingsStyles.row, settingsStyles.clickable, settingsStyles.select, styles.source)} ref={mainRef('your')} aria-disabled={busy ? true : undefined} onClick={() => open({ kind: 'your', stage: 'saved' }, 'your')}>
+                    <span className={settingsStyles.label}>{t('main_page.your_language')}</span><LanguageText names={names} entry={source} className={styles.selected_value} /><span className={settingsStyles.chevron} aria-hidden="true">›</span>
+                </button>
                 <section className={styles.targets}>
-                    <div className={styles.target_heading}><h2 className={settingsStyles.section_label}>{t('main_page.target_language')}</h2><span className={styles.count}>{targets.length} / 3{duplicates && <span> · {c('duplicate')}</span>}</span></div>
+                    {/* The swap exchanges your language with recipient 1, so it stands between the two, between an up
+                        and a down arrow as on the main screen (#614). Where it stands says what its second line said. */}
+                    <div className={styles.target_heading}>
+                        <h2 className={settingsStyles.section_label}>{t('main_page.target_language')}</h2>
+                        <button className={clsx(settingsStyles.button, styles.swap)} ref={mainRef('swap')} aria-label={c('swap_name')} aria-disabled={busy ? true : undefined}
+                            onClick={() => save(() => settings.swapSelectedLanguages())}>
+                            <NarrowArrowDownSvg className={clsx(styles.swap_arrow, styles.swap_arrow_up)} aria-hidden="true" /><span>{c('swap')}</span><NarrowArrowDownSvg className={styles.swap_arrow} aria-hidden="true" />
+                        </button>
+                        <span className={styles.count}>{targets.length} / 3{duplicates && <span> · {c('duplicate')}</span>}</span>
+                    </div>
                     <div className={styles.selected_rows}>{targets.map((entry, index) => <div className={clsx(settingsStyles.row, styles.target_row)} key={index}>
                         <button className={styles.target_change} ref={mainRef(`target:${index}`)} aria-label={`${c('change_target', { n: index + 1 })}: ${names.name(entry).label}`} aria-disabled={busy ? true : undefined}
                             onClick={() => open({ kind: 'target-replace', index, stage: 'saved' }, `target:${index}`)}>
