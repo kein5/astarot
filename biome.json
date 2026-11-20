@@ -55,7 +55,6 @@
         "noArrayIndexKey": "warn",
         "noAssignInExpressions": "warn",
         "noGlobalIsNan": "error",
-        "noImplicitAnyLet": "warn",
         "useIterableCallbackReturn": "warn"
       }
     }

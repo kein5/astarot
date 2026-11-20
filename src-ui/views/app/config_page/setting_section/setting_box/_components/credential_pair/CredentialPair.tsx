@@ -55,7 +55,7 @@ export const CredentialPair = <B extends string>({ settings, base, provider, sec
         const submittedKey = enteredKey.current;
         const urlChanged = value.url.trim() !== saved.url.trim(), keyChanged = value.auth_key !== saved.auth_key;
         const pairChanged = urlChanged && (keyChanged || !!value.auth_key);
-        let endpoint, data;
+        let endpoint: string, data: Credential | string | undefined;
         if (pairChanged) {
             endpoint = `/set/data/${provider}_auth_key_and_url`;
             data = value;
