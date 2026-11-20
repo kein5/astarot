@@ -166,7 +166,7 @@ export const useModelDownloads = () => {
         setError("request_unconfirmed");
         setPending(previous => {
             const remaining = previous?.filter(request => request.endpoint === "/run/apply_model_download");
-            remaining?.forEach(request => overdueApplies.add(request));
+            remaining?.forEach(request => { overdueApplies.add(request); });
             return remaining?.length ? remaining : null;
         });
     }, [setError, setPending]);

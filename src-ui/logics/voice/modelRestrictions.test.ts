@@ -162,7 +162,7 @@ test("the review of an unrestricted model keeps its one checkbox and its request
 test("reopening the review clears an earlier acknowledgement", async context => {
     const s = await dialog(context, nllb);
     let tree = s.render();
-    checkboxes(tree).forEach(box => box.props.onChange({ target: { checked: true } }));
+    checkboxes(tree).forEach(box => { box.props.onChange({ target: { checked: true } }); });
     tree = s.render();
     findIn(tree, node => node.type === "button" && node.props.autoFocus).props.onClick();
     tree = s.render();

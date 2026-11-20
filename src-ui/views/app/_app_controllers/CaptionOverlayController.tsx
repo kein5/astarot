@@ -105,7 +105,7 @@ export const CaptionOverlayController = () => {
                 save({ ...current, font_size: next });
             }),
         ];
-        return () => offs.forEach(off => off.then(stop => stop(), () => {}));
+        return () => offs.forEach(off => { off.then(stop => stop(), () => {}); });
     }, [supported]);
 
     useEffect(() => {

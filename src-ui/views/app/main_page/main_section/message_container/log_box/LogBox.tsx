@@ -118,12 +118,12 @@ export const LogBox = memo(function LogBox({ savedView }: LogBoxProps = {}) {
         const listeners: [EventTarget, string, EventListener][] = [[element, "scroll", onScroll], [element, "wheel", onInput], [element, "touchmove", onInput],
             [window, "keydown", onKeyDown], [element, "pointerdown", onPointerDown],
             [window, "pointerup", onPointerUp], [window, "pointercancel", onPointerUp]];
-        listeners.forEach(([target, type, listener]) => target.addEventListener(type, listener, { passive: true }));
+        listeners.forEach(([target, type, listener]) => { target.addEventListener(type, listener, { passive: true }); });
         observer.observe(element);
         return () => {
             if (savedView) savedView.current = { ...latestView.current, follow: followRef.current,
                 scrollTop: element.scrollTop, cache: virtualizerRef.current?.cache };
-            listeners.forEach(([target, type, listener]) => target.removeEventListener(type, listener));
+            listeners.forEach(([target, type, listener]) => { target.removeEventListener(type, listener); });
             observer.disconnect();
             store.scroll_log_to_bottom = null;
         };

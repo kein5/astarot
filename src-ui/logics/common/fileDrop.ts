@@ -56,7 +56,7 @@ let listening: Promise<UnlistenFn | null> | null = null;
 
 const publish = (next: Readonly<DragState>): void => {
     drag = next;
-    watchers.forEach(watch => watch(drag));
+    watchers.forEach(watch => { watch(drag); });
 };
 
 const hit = (position: Point | undefined): DropZone | null => position ?

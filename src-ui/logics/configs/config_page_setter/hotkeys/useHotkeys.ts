@@ -119,7 +119,7 @@ const ensurePortalListener = () => {
             }),
         ]).then(results => {
             const stops = results.filter(result => result.status === "fulfilled").map(result => result.value);
-            const unlisten = () => stops.forEach(stop => stop());
+            const unlisten = () => stops.forEach(stop => { stop(); });
             const failed = results.find(result => result.status === "rejected");
             if (failed) {
                 unlisten();

@@ -52,7 +52,7 @@ export const SaveBar = () => {
             <button type="button" autoFocus onClick={() => dialog.current?.close()}>{t("voice_ui.keep_editing")}</button>
             <button type="button" onClick={() => {
                 const proceed = leaving;
-                dirty.forEach(entry => entry.discard());
+                dirty.forEach(entry => { entry.discard(); });
                 dialog.current?.close();
                 proceed();
             }}>{t("voice_ui.discard_leave")}</button>
@@ -82,10 +82,10 @@ export const SaveBar = () => {
         </div>
         {/* Narrow windows draw data-short instead; the text and the accessible name stay the full words. */}
         <button type="button" className={styles.discard} disabled={saving || !dirty.length} aria-label={t("voice_ui.discard")}
-            data-short={t("voice_ui.discard_short")} onClick={() => dirty.forEach(entry => entry.discard())}>{t("voice_ui.discard")}</button>
+            data-short={t("voice_ui.discard_short")} onClick={() => dirty.forEach(entry => { entry.discard(); })}>{t("voice_ui.discard")}</button>
         <button type="button" className={styles.save} disabled={saving || !dirty.length || dirty.some(entry => !entry.canSave)}
             aria-label={t(saving ? "voice.saving" : "voice_ui.save_changes")} data-short={t(saving ? "voice.saving" : "voice_ui.save_changes_short")}
-            onClick={() => dirty.forEach(entry => entry.save())}>{t(saving ? "voice.saving" : "voice_ui.save_changes")}</button>
+            onClick={() => dirty.forEach(entry => { entry.save(); })}>{t(saving ? "voice.saving" : "voice_ui.save_changes")}</button>
         {leaveDialog}
     </div>;
 };

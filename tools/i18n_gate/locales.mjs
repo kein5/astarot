@@ -9,7 +9,9 @@ export const PLURAL_SUFFIX = /_(zero|one|two|few|many|other)$/;
 // lists of lines (returnObjects) are compared item by item.
 export const flatten = (tree, prefix = "", out = new Map()) => {
     if (Array.isArray(tree)) {
-        tree.forEach((item, index) => flatten(item, `${prefix}.${index}`, out));
+        tree.forEach((item, index) => {
+            flatten(item, `${prefix}.${index}`, out);
+        });
     } else if (tree !== null && typeof tree === "object") {
         for (const [key, value] of Object.entries(tree)) {
             flatten(value, prefix ? `${prefix}.${key}` : key, out);

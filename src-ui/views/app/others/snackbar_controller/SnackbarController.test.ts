@@ -28,7 +28,7 @@ const setup = async (context: TestContext) => {
     });
     const show = (message: string, extra: Partial<Notification["data"]> = {}) => runtime.store.set(notification,
         { state: "ok", data: { status: "error", is_open: true, category_id: null, message, options: {}, ...extra } });
-    const flush = () => timers.splice(0).forEach(callback => callback());
+    const flush = () => timers.splice(0).forEach(callback => { callback(); });
     return { runtime, render: () => runtime.render(SnackbarController), notification, toasts, show, flush, closes: () => closes, page };
 };
 

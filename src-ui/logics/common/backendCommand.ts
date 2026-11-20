@@ -59,7 +59,7 @@ export const createCoreBackendCommand = ({ invoke, Channel, newSessionId }: Core
     const out: ListenerLists<BackendStreamEvents> = {};
     const err: ListenerLists<BackendStreamEvents> = {};
     const emit = <E, K extends keyof E>(list: ListenerLists<E>, event: K, value: E[K]) =>
-        (list[event] ?? []).forEach(listener => listener(value));
+        (list[event] ?? []).forEach(listener => { listener(value); });
     const command: BackendCommand = {
         on(event, listener) {
             register(own, event, listener);

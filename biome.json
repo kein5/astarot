@@ -56,8 +56,7 @@
         "noArrayIndexKey": "warn",
         "noAssignInExpressions": "warn",
         "noGlobalIsNan": "error",
-        "noTemplateCurlyInString": "error",
-        "useIterableCallbackReturn": "warn"
+        "noTemplateCurlyInString": "error"
       }
     }
   },
