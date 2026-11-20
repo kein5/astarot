@@ -18,7 +18,7 @@ def test_the_installer_is_built_after_the_package_and_checked_against_it():
     assert jobs["candidate"]["name"] == "Windows candidate (not a release)"
     steps = jobs["build"]["steps"]
     bundle = next(step for step in steps if "installer_package_hashes.py write" in step.get("run", ""))
-    assert bundle["env"]["VRCT_REQUIRE_PACKAGE_HASHES"] == "1"
+    assert bundle["env"]["ASTAROT_REQUIRE_PACKAGE_HASHES"] == "1"
     assert bundle["run"].index("installer_package_hashes.py write") < bundle["run"].index("bundle --bundles nsis")
     assert "installer_package_hashes.py write --package VRCT-VOX.zip" in bundle["run"]
     # In pwsh, "npm run tauri -- …" loses the "--" (npm.ps1), so npm eats --bundles: call the CLI directly.

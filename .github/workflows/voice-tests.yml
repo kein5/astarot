@@ -107,7 +107,7 @@ jobs:
         if: ${{ !cancelled() }}
         continue-on-error: true
         env:
-          VRCT_PIPELINE_BMF: ${{ runner.temp }}/pipeline-latency.json
+          ASTAROT_PIPELINE_BMF: ${{ runner.temp }}/pipeline-latency.json
         run: cargo test --locked --manifest-path native/core/Cargo.toml --test pipeline_overhead -- --ignored --nocapture
       - if: ${{ !cancelled() }}
         continue-on-error: true

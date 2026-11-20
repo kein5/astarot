@@ -61,9 +61,9 @@ ${StrLoc}
 ; The SHA-256 of the package this installer was released with, written into
 ; nsis\package-hashes.nsh by tools/installer_package_hashes.py once the ZIP exists
 ; (release.yml). It makes the installer refuse a package that was replaced on the release
-; page, even together with its .sha256 file. A release build sets VRCT_REQUIRE_PACKAGE_HASHES=1
+; page, even together with its .sha256 file. A release build sets ASTAROT_REQUIRE_PACKAGE_HASHES=1
 ; so a missing file stops the build; other builds fall back to the published .sha256 file.
-!if "$%VRCT_REQUIRE_PACKAGE_HASHES%" == "1"
+!if "$%ASTAROT_REQUIRE_PACKAGE_HASHES%" == "1"
   !include "..\..\..\..\nsis\package-hashes.nsh"
   !ifndef PACKAGE_SHA256
     !error "nsis\package-hashes.nsh must define PACKAGE_SHA256"

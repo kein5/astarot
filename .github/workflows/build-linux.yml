@@ -128,24 +128,24 @@ jobs:
         run: cargo install tauri-driver --version 2.1.0 --locked
       - name: Relocated read-only package acceptance
         env:
-          VRCT_TEST_NATIVE_GUI: '1'
-          VRCT_TEST_XVFB: '1'
+          ASTAROT_TEST_NATIVE_GUI: '1'
+          ASTAROT_TEST_XVFB: '1'
           GDK_BACKEND: x11
         run: |
-          export VRCT_TEST_DRIVER="$HOME/.cargo/bin/tauri-driver"
-          export VRCT_TEST_LINUX_ARCHIVE="$(realpath build/linux/artifacts/*.tar.gz)"
+          export ASTAROT_TEST_DRIVER="$HOME/.cargo/bin/tauri-driver"
+          export ASTAROT_TEST_LINUX_ARCHIVE="$(realpath build/linux/artifacts/*.tar.gz)"
           dbus-run-session -- xvfb-run -a -s '-screen 0 1280x900x24' \
             build/dev/headless-venv/bin/python -m pytest \
             -c tests/voice/pytest.ini tests/platform/test_linux_package.py -q \
             --basetemp=build/linux/acceptance > linux-acceptance.log 2>&1
       - name: AppImage extract-and-run acceptance
         env:
-          VRCT_TEST_NATIVE_GUI: '1'
-          VRCT_TEST_XVFB: '1'
+          ASTAROT_TEST_NATIVE_GUI: '1'
+          ASTAROT_TEST_XVFB: '1'
           GDK_BACKEND: x11
         run: |
-          export VRCT_TEST_DRIVER="$HOME/.cargo/bin/tauri-driver"
-          export VRCT_TEST_APPIMAGE="$(realpath build/linux/artifacts/*.AppImage)"
+          export ASTAROT_TEST_DRIVER="$HOME/.cargo/bin/tauri-driver"
+          export ASTAROT_TEST_APPIMAGE="$(realpath build/linux/artifacts/*.AppImage)"
           dbus-run-session -- xvfb-run -a -s '-screen 0 1280x900x24' \
             build/dev/headless-venv/bin/python -m pytest \
             -c tests/voice/pytest.ini tests/platform/test_appimage.py -q \

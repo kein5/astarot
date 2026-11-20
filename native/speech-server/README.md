@@ -77,8 +77,8 @@ python tools/dev.py check --scope rust
 実物の speech.cpp とモデルで確かめるときは、環境変数を指定します。指定がなければ、この試験は何もせずに通ります。
 
 ```sh
-VRCT_SPEECHCPP_BUNDLE=<build/speechcpp のフォルダ> \
-VRCT_SPEECH_MODEL=<TTS モデルの .gguf> \
-VRCT_SPEECH_DEVICE=cpu \
+ASTAROT_SPEECHCPP_BUNDLE=<build/speechcpp のフォルダ> \
+ASTAROT_SPEECH_MODEL=<TTS モデルの .gguf> \
+ASTAROT_SPEECH_DEVICE=cpu \
 cargo test --manifest-path native/speech-server/Cargo.toml --test real --test devices -- --nocapture
 ```

@@ -288,13 +288,13 @@ class DeveloperCLITests(unittest.TestCase):
             'class Probe(unittest.TestCase):\n'
             ' def test_environment(self):\n'
             '  self.assertNotIn("VRCT_SEED_POC", os.environ)\n'
-            '  self.assertNotIn("VRCT_TEST_NATIVE_GUI", os.environ)\n'
+            '  self.assertNotIn("ASTAROT_TEST_NATIVE_GUI", os.environ)\n'
             '  self.assertEqual(os.environ["HF_HUB_OFFLINE"], "1")\n'
             '  self.assertNotIn("PYTEST_ADDOPTS", os.environ)\n',
             encoding="utf8",
         )
         with patch.dict(os.environ, {
-            "VRCT_SEED_POC": "never-start", "VRCT_TEST_NATIVE_GUI": "1",
+            "VRCT_SEED_POC": "never-start", "ASTAROT_TEST_NATIVE_GUI": "1",
             "PYTEST_ADDOPTS": "--unwanted", "HF_HUB_OFFLINE": "0",
         }):
             code, _ = self.call("check", "--scope", "tooling")

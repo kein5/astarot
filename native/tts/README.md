@@ -21,7 +21,7 @@ until the sidecar is retired. See "Not in this crate" below for what plugs in.
 | `converted_router.py` | `src/converted.rs`, `src/resample.rs` | Speech through the running voice conversion (ADR-007): 48 kHz mono, one resampler per stream |
 | `message_hook.py` | `src/message_hook.rs` | Chat and microphone speech events from pipeline values |
 | `external_engine.py`, `voicevox_tts.py`, `coeiroink_tts.py`, `engines.py` | `src/engines.rs` | Installed engines (ADR-008): VOICEVOX, SHAREVOX, AivisSpeech and COEIROINK v2; version, voice list, sentence-by-sentence WAV synthesis with one sentence prefetched |
-| `voice_trace.py` | `src/trace.rs` | Opt-in `VRCT_VOICE_TRACE` timing records |
+| `voice_trace.py` | `src/trace.rs` | Opt-in `ASTAROT_VOICE_TRACE` timing records |
 | (none) | `src/onset.rs` | speech.cpp speech starts at its first sound: the near-silence before it is dropped (#556) |
 
 Nothing is logged. Text, instructions, audio, server bodies and device names never go
@@ -57,7 +57,7 @@ devices, the speech.cpp servers and the voice conversion.
   lower Nyquist frequency). The output length and timing are the same; the samples are
   not bit-identical.
 - **Garbage-collector diagnostics.** Python could record interpreter GC pauses in the
-  trace (`VRCT_VOICE_GC_DIAGNOSTICS=1`). Rust has no collector; the `gc_pauses` field is
+  trace (`ASTAROT_VOICE_GC_DIAGNOSTICS=1`). Rust has no collector; the `gc_pauses` field is
   written empty so the record keeps its shape.
 - **Clock.** Event timestamps use the OS monotonic clock (`CLOCK_MONOTONIC` on Linux, the
   performance counter on Windows). On Linux this is the clock Python's

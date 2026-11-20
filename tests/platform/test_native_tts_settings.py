@@ -8,7 +8,7 @@ import pytest
 from native_webdriver import NativeWebDriver
 from test_native_ui import initial_state
 
-pytestmark = pytest.mark.skipif(os.environ.get('VRCT_TEST_NATIVE_GUI') != '1', reason='opt-in native desktop')
+pytestmark = pytest.mark.skipif(os.environ.get('ASTAROT_TEST_NATIVE_GUI') != '1', reason='opt-in native desktop')
 
 
 @pytest.mark.parametrize('scaling', [100, 150])

@@ -119,5 +119,5 @@ Python の実装と同じに動くことは、`tests/contract/` の 2 つのフ�
 - プロバイダの契約は通信を差し替えて実際のアドレスのまま記録します。外のネットワークには出ません。キーは作り物です。比べないのは、HTTP のライブラリや SDK が自分で付けるヘッダー（`User-Agent`、`Accept`、`x-stainless-*` など）と、本文のない要求の `Content-Type` だけです。Python の requests には書き込みの待ち時間がないので、その欄も比べません。
 - 応答には `retry-after` などのヘッダーを付けられます。再試行の前の待ちは SDK の規則に乱数が入るので、記録ではなく範囲（`retry_pause`）で書き、1 回目と 2 回目の要求の間の時間を Python と Rust の両方で確かめます。待つ場面があるので、Rust の試験は場面を並べて流します。
 - 中核が意図して Python と違う場面は、`python` の記録を残したまま `rust` に中核の記録を書き、`differences` にその理由と決めた場所を書きます（いまは、この PC と LAN の OpenAI 互換のエンドポイントの待ち時間と再試行だけです）。Google Cloud Translation と Papago は Python になかったので、各社の文書から書いた `expect` と比べます。
-- 読みの契約は記録した形態素を Rust の読みに渡して比べるので、辞書なしで動きます。`VRCT_SUDACHI_DICTIONARY` に SudachiDict の `system.dic`（ファイルに書いた版）を指定すると、sudachi.rs の解析結果も記録と比べます。2026-11-18 に Python の環境の SudachiDict full 20250825 で 170 文すべてが一致しました。
-- 場面を変えたときは、Python の環境で `VRCT_TRANSLATION_CONTRACT_WRITE=1` を付けて 2 つの Python の試験を流すと、記録を書き直します。Python のない環境では場面と記録を手で書きます。
+- 読みの契約は記録した形態素を Rust の読みに渡して比べるので、辞書なしで動きます。`ASTAROT_SUDACHI_DICTIONARY` に SudachiDict の `system.dic`（ファイルに書いた版）を指定すると、sudachi.rs の解析結果も記録と比べます。2026-11-18 に Python の環境の SudachiDict full 20250825 で 170 文すべてが一致しました。
+- 場面を変えたときは、Python の環境で `ASTAROT_TRANSLATION_CONTRACT_WRITE=1` を付けて 2 つの Python の試験を流すと、記録を書き直します。Python のない環境では場面と記録を手で書きます。

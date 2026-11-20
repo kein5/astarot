@@ -21,7 +21,7 @@ from test_native_ui import initial_state
 from native_translation import TranslationFixture
 from tools.private_pipewire import private_graph, wait_for
 
-pytestmark = pytest.mark.skipif(os.environ.get('VRCT_TEST_NATIVE_QUICK_CHAT') != '1', reason='opt-in desktop shortcut/private graph')
+pytestmark = pytest.mark.skipif(os.environ.get('ASTAROT_TEST_NATIVE_QUICK_CHAT') != '1', reason='opt-in desktop shortcut/private graph')
 
 
 def xdo(*args):
@@ -240,10 +240,10 @@ def test_shortcut_focus_escape_and_single_pipeline(tmp_path):
             real_models=False, physical_capture=False, physical_ime=False), indent=2))
 
 
-@pytest.mark.skipif(not os.environ.get('VRCT_TEST_WAYLAND_APP'), reason='separate native Wayland binary required')
+@pytest.mark.skipif(not os.environ.get('ASTAROT_TEST_WAYLAND_APP'), reason='separate native Wayland binary required')
 def test_wayland_explains_shortcut_limit_and_opens_from_button(tmp_path, monkeypatch):
-    monkeypatch.setenv('VRCT_TEST_APP', os.environ['VRCT_TEST_WAYLAND_APP'])
-    monkeypatch.delenv('VRCT_TEST_APPIMAGE', raising=False)
+    monkeypatch.setenv('ASTAROT_TEST_APP', os.environ['ASTAROT_TEST_WAYLAND_APP'])
+    monkeypatch.delenv('ASTAROT_TEST_APPIMAGE', raising=False)
     state = initial_state(tmp_path)
     with NativeWebDriver(tmp_path / 'ui', {'VRCT_CONFIG_DIR': str(state), 'GDK_BACKEND': 'wayland'}) as ui:
         ui.wait_main_ready()

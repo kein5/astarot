@@ -5,7 +5,7 @@ built in, it refuses a package that was replaced on the release page, even when 
 was replaced with it. release.yml builds the ZIP first, then:
 
     python tools/installer_package_hashes.py write --package VRCT-VOX.zip
-    (bundle the installer with VRCT_REQUIRE_PACKAGE_HASHES=1)
+    (bundle the installer with ASTAROT_REQUIRE_PACKAGE_HASHES=1)
     python tools/installer_package_hashes.py check --package VRCT-VOX.zip
 
 `--package` takes the ZIP (hashed here) or a .sha256 file (its first word).

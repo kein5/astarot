@@ -1,6 +1,6 @@
 //! Opt-in, bounded timing records. Never called from an audio callback.
 //!
-//! Set `VRCT_VOICE_TRACE` to a local regular file only while measuring. Each
+//! Set `ASTAROT_VOICE_TRACE` to a local regular file only while measuring. Each
 //! utterance appends one JSON line after playback: no text, audio, URLs or
 //! error details. Missing parents, full files and special files disable the
 //! record, never speech. A measuring harness must require a complete trace; a
@@ -24,7 +24,7 @@ pub fn canonical_uuid(value: &str) -> Option<String> {
     Some(format!("{}-{}-{}-{}-{}", &hex[..8], &hex[8..12], &hex[12..16], &hex[16..20], &hex[20..]))
 }
 
-/// Append one record when `VRCT_VOICE_TRACE` is set. Best effort.
+/// Append one record when `ASTAROT_VOICE_TRACE` is set. Best effort.
 ///
 /// `first_write` is `(monotonic_ns, sample_rate)` of the first audible write.
 /// `outcome` is `completed`, `cancelled` or `error`.

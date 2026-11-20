@@ -58,9 +58,10 @@ class Step:
 
 
 def child_environment():
-    # Live acceptance switches and asset paths must not opt a headless check in.
+    # Live acceptance switches and asset paths must not opt a headless check in: the app's own
+    # variables under their ASTAROT names and the VRCT names of 0.5.x alike.
     env = {key: value for key, value in os.environ.items()
-           if not key.startswith("VRCT_") and key not in (
+           if not key.startswith(("ASTAROT_", "VRCT_")) and key not in (
                "PYTEST_ADDOPTS", "PYTEST_PLUGINS", "PYTHONPATH", "PYTHONHOME")}
     # ORT_DISABLE_TELEMETRY: the onnxruntime wheel (1.32) otherwise writes a device id under
     # ~/.cache/Microsoft and sends usage events when a test creates a session (#574).

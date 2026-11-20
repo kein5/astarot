@@ -30,7 +30,7 @@ CIでは`voice-tests.yml`の`core-integration`がこの試験を流します。�
 手元では次のように流します。値は標準エラーにも出ます。
 
 ```sh
-VRCT_PIPELINE_BMF=pipeline-latency.json cargo test --locked --manifest-path native/core/Cargo.toml \
+ASTAROT_PIPELINE_BMF=pipeline-latency.json cargo test --locked --manifest-path native/core/Cargo.toml \
     --test pipeline_overhead -- --ignored --nocapture
 ```
 

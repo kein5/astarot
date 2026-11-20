@@ -312,7 +312,7 @@ Issue #327 の監査レポートです。0.5.0 でメイン画面のレイアウ
 ```sh
 python tools/dev.py setup --scope browser   # build/dev/browser-venv を用意する
 npm ci
-AUDIT_OUT=build/layout-audit VRCT_TEST_STUDIO_UI=1 VRCT_TEST_CHROMIUM=/path/to/chrome \
+AUDIT_OUT=build/layout-audit ASTAROT_TEST_STUDIO_UI=1 ASTAROT_TEST_CHROMIUM=/path/to/chrome \
 PYTHONPATH=tests/voice build/dev/browser-venv/bin/python -m pytest -c tests/voice/pytest.ini \
     --rootdir . docs/design/main-layout-audit/audit/layout_audit.py -q -p no:cacheprovider
 python docs/design/main-layout-audit/audit/summarize.py build/layout-audit > docs/design/main-layout-audit/findings.md

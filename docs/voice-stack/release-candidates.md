@@ -183,7 +183,7 @@ python tools/native_acceptance.py --appimage <AppImageの絶対パス>
 python tools/native_acceptance.py --appimage <AppImageの絶対パス> --vrchat
 ```
 
-`tools/native_acceptance.py`は、試験のグループごとにpytestを起動し、成功、失敗、スキップの件数を表示します。結果は`build/native-acceptance/summary.json`、各グループのログは同じフォルダーの`<グループ>/pytest.log`です。試験は実際のアプリを画面に開きます。`tauri-driver` 2.1.0の場所は`--driver`か`VRCT_TEST_DRIVER`で指定します。
+`tools/native_acceptance.py`は、試験のグループごとにpytestを起動し、成功、失敗、スキップの件数を表示します。結果は`build/native-acceptance/summary.json`、各グループのログは同じフォルダーの`<グループ>/pytest.log`です。試験は実際のアプリを画面に開きます。`tauri-driver` 2.1.0の場所は`--driver`か`ASTAROT_TEST_DRIVER`で指定します。
 
 | グループ | 確かめること | 要るもの |
 |---|---|---|

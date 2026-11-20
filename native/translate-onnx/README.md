@@ -139,8 +139,8 @@ cargo test --locked --manifest-path native/translate-onnx/Cargo.toml
 
 ```sh
 ORT_DYLIB_PATH=<onnxruntime のライブラリ> \
-VRCT_TRANSLATE_M2M100=<m2m100_418M-onnx-int8 のフォルダ> \
-VRCT_TRANSLATE_NLLB=<nllb-200-distilled-600M-onnx-int8 のフォルダ> \
+ASTAROT_TRANSLATE_M2M100=<m2m100_418M-onnx-int8 のフォルダ> \
+ASTAROT_TRANSLATE_NLLB=<nllb-200-distilled-600M-onnx-int8 のフォルダ> \
 cargo test --manifest-path native/translate-onnx/Cargo.toml
 ```
 
@@ -148,8 +148,8 @@ GPU の実行プロバイダで CPU と同じ訳になるかは、`a_device_deco
 
 ```sh
 ORT_DYLIB_PATH=<DirectML 版の onnxruntime.dll> \
-VRCT_TRANSLATE_DEVICE=directml:0 \
-VRCT_TRANSLATE_DEVICE_MODEL=<tiny-nllb-onnx-float32 のフォルダ> \
+ASTAROT_TRANSLATE_DEVICE=directml:0 \
+ASTAROT_TRANSLATE_DEVICE_MODEL=<tiny-nllb-onnx-float32 のフォルダ> \
 cargo test --manifest-path native/translate-onnx/Cargo.toml --test real a_device
 ```
 

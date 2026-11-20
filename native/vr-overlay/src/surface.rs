@@ -5,8 +5,8 @@
 //! photographed with `PrintWindow`, and the mouse goes to its WebView2 input window
 //! (`Chrome_RenderWidgetHostHWND`) with `PostMessageW`, so the system's cursor does not move. On
 //! Linux the app (`src-tauri/src/vr_panel_surface.rs`) renders the page off-screen and writes each
-//! repaint to `<VRCT_VR_PANEL_DIR>/frame`; sizes and the mouse go to
-//! `<VRCT_VR_PANEL_DIR>/input.sock`, one line each, which the app turns into GDK events. The core
+//! repaint to `<ASTAROT_VR_PANEL_DIR>/frame`; sizes and the mouse go to
+//! `<ASTAROT_VR_PANEL_DIR>/input.sock`, one line each, which the app turns into GDK events. The core
 //! runs in the app's process, so all of this works from here as it did from the sidecar.
 
 /// The title the app gives the VR panel's window (`src-tauri/src/lib.rs`).

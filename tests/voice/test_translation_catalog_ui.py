@@ -22,7 +22,7 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
 pytestmark = pytest.mark.skipif(
-    os.environ.get("VRCT_TEST_TRANSLATION_CATALOG_UI") != "1", reason="opt-in browser test"
+    os.environ.get("ASTAROT_TEST_TRANSLATION_CATALOG_UI") != "1", reason="opt-in browser test"
 )
 
 BUILTIN_ENGINE = [
@@ -85,7 +85,7 @@ def ui(tmp_path):
             assert vite.poll() is None and time.monotonic() < end
             time.sleep(0.05)
         browser = stack.enter_context(sync_playwright()).chromium.launch(
-            executable_path=os.environ["VRCT_TEST_CHROMIUM"], headless=True
+            executable_path=os.environ["ASTAROT_TEST_CHROMIUM"], headless=True
         )
         stack.callback(browser.close)
         page = browser.new_page(viewport={"width": 1000, "height": 1800})
@@ -415,8 +415,8 @@ def test_without_a_published_model_only_the_selected_one_and_yours_are_listed(ui
     expect(note).to_contain_text('use an external translation API or a local LLM under "More settings" below')
     expect(page.get_by_text("CTranslate2")).to_have_count(0)
     assert sent(peer, "/run/start_model_download") == []
-    if os.environ.get("VRCT_TEST_SCREENSHOTS"):
-        page.screenshot(path=os.path.join(os.environ["VRCT_TEST_SCREENSHOTS"], "translation-models-none.png"))
+    if os.environ.get("ASTAROT_TEST_SCREENSHOTS"):
+        page.screenshot(path=os.path.join(os.environ["ASTAROT_TEST_SCREENSHOTS"], "translation-models-none.png"))
     # A narrow window: the list and the note wrap instead of widening the page.
     page.set_viewport_size({"width": 480, "height": 1600})
     expect(note).to_be_visible()
@@ -440,7 +440,7 @@ def test_a_published_model_gets_its_row_and_its_review_opens_the_shared_download
     expect(setup.get_by_text("The included translation models cannot be downloaded yet.")).to_have_count(0)
     reviews = models.get_by_role("button", name="Review download")
     expect(reviews).to_have_count(2)
-    screenshots = os.environ.get("VRCT_TEST_SCREENSHOTS")
+    screenshots = os.environ.get("ASTAROT_TEST_SCREENSHOTS")
     if screenshots:
         page.screenshot(path=os.path.join(screenshots, "translation-models-published.png"))
 
@@ -510,8 +510,8 @@ def test_a_translation_model_shows_the_memory_it_needs_and_fits_a_large_ram(ui):
     expect(card.get_by_text("Checked on Windows 11 (ONNX Runtime 1.32, 4 CPU threads)", exact=False)).to_be_visible()
     expect(card.get_by_text("This GPU differs from the tested GPU", exact=False)).to_have_count(0)
     assert ("/run/refresh_model_download_hardware", {}) in peer.sent
-    if os.environ.get("VRCT_TEST_SCREENSHOTS"):
-        page.screenshot(path=os.path.join(os.environ["VRCT_TEST_SCREENSHOTS"], "translation-memory-fits.png"))
+    if os.environ.get("ASTAROT_TEST_SCREENSHOTS"):
+        page.screenshot(path=os.path.join(os.environ["ASTAROT_TEST_SCREENSHOTS"], "translation-memory-fits.png"))
 
     # M2M100 has not been measured: it says so and is never warned about.
     review.get_by_role("button", name="Close").click()
@@ -546,8 +546,8 @@ def test_a_small_ram_is_warned_about_before_the_download_by_keyboard(ui):
     expect(page.locator("dialog[open]").filter(has_text="I have reviewed the source")).to_have_count(0)
     # Only a guide: nothing was downloaded.
     assert sent(peer, "/run/start_model_download") == []
-    if os.environ.get("VRCT_TEST_SCREENSHOTS"):
-        page.screenshot(path=os.path.join(os.environ["VRCT_TEST_SCREENSHOTS"], "translation-memory-warning.png"))
+    if os.environ.get("ASTAROT_TEST_SCREENSHOTS"):
+        page.screenshot(path=os.path.join(os.environ["ASTAROT_TEST_SCREENSHOTS"], "translation-memory-warning.png"))
 
 
 def test_a_translation_on_a_gpu_is_compared_with_that_gpu(ui):
@@ -572,8 +572,8 @@ def test_the_translation_warning_fits_a_narrow_window(ui):
     overflow = page.evaluate("""() => [document.documentElement, ...document.querySelectorAll('dialog[open]')]
         .map(el => el.scrollWidth - el.clientWidth)""")
     assert max(overflow) <= 0, overflow
-    if os.environ.get("VRCT_TEST_SCREENSHOTS"):
-        page.screenshot(path=os.path.join(os.environ["VRCT_TEST_SCREENSHOTS"], "translation-memory-narrow.png"))
+    if os.environ.get("ASTAROT_TEST_SCREENSHOTS"):
+        page.screenshot(path=os.path.join(os.environ["ASTAROT_TEST_SCREENSHOTS"], "translation-memory-narrow.png"))
 
 def test_the_catalog_fits_a_narrow_window(ui, tmp_path):
     from playwright.sync_api import expect
@@ -593,8 +593,8 @@ def test_the_catalog_fits_a_narrow_window(ui, tmp_path):
     expect(page.locator("[data-catalog-item='tr-10']").get_by_text("Only until you close the app (not saved)")).to_be_visible()
     overflow = page.evaluate("() => document.documentElement.scrollWidth - document.documentElement.clientWidth")
     assert overflow <= 0, overflow
-    if os.environ.get("VRCT_TEST_SCREENSHOTS"):
-        page.screenshot(path=os.path.join(os.environ["VRCT_TEST_SCREENSHOTS"], "translation-catalog-narrow.png"), full_page=True)
+    if os.environ.get("ASTAROT_TEST_SCREENSHOTS"):
+        page.screenshot(path=os.path.join(os.environ["ASTAROT_TEST_SCREENSHOTS"], "translation-catalog-narrow.png"), full_page=True)
 
 
 def test_the_retired_folder_note_shows_only_while_the_folder_holds_something(ui):
@@ -630,8 +630,8 @@ def test_the_retired_folder_note_leads_to_the_add_form_by_keyboard_in_a_narrow_j
     expect(name).not_to_be_visible()
     overflow = page.evaluate("() => document.documentElement.scrollWidth - document.documentElement.clientWidth")
     assert overflow <= 0, overflow
-    if os.environ.get("VRCT_TEST_SCREENSHOTS"):
-        page.screenshot(path=os.path.join(os.environ["VRCT_TEST_SCREENSHOTS"], "translation-retired-folder-note.png"))
+    if os.environ.get("ASTAROT_TEST_SCREENSHOTS"):
+        page.screenshot(path=os.path.join(os.environ["ASTAROT_TEST_SCREENSHOTS"], "translation-retired-folder-note.png"))
 
     # Reached with Tab and pressed with Enter, as a keyboard user would.
     button = note.get_by_role("button", name="「自分のモデルを追加」を開く")
@@ -648,7 +648,7 @@ def test_the_retired_folder_note_leads_to_the_add_form_by_keyboard_in_a_narrow_j
     assert form.evaluate("el => { for (let d = el; d; d = d.parentElement) if (d.tagName === 'DETAILS' && !d.open) return false; return true; }")
     expect(name).to_be_focused()
     expect(name).to_be_in_viewport()
-    if os.environ.get("VRCT_TEST_SCREENSHOTS"):
-        page.screenshot(path=os.path.join(os.environ["VRCT_TEST_SCREENSHOTS"], "translation-retired-folder-add-form.png"))
+    if os.environ.get("ASTAROT_TEST_SCREENSHOTS"):
+        page.screenshot(path=os.path.join(os.environ["ASTAROT_TEST_SCREENSHOTS"], "translation-retired-folder-add-form.png"))
     # Nothing was sent by going there.
     assert sent(peer, "/run/register_translation_catalog_entry") == []

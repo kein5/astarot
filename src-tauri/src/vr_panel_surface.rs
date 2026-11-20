@@ -8,7 +8,7 @@
 //!
 //! The backend reads frames from `<dir>/frame` and writes one-line pointer
 //! commands to the datagram socket `<dir>/input.sock`. `<dir>` is private to
-//! this process and its children (`VRCT_VR_PANEL_DIR`).
+//! this process and its children (`ASTAROT_VR_PANEL_DIR`).
 use std::cell::{Cell, RefCell};
 use std::fs::{DirBuilder, File, OpenOptions};
 use std::os::unix::fs::{DirBuilderExt, FileExt, OpenOptionsExt};
