@@ -169,7 +169,7 @@ UIの試験は Vitest で動きます。設定は `vitest.config.js` で、ア�
 
 ```sh
 npm test                 # 全件を1回実行する（check --scope node と同じ）
-npx vitest run src-ui/logics/common/meterValue.test.js   # ファイルを絞る
+npx vitest run src-ui/logics/common/meterValue.test.ts   # ファイルを絞る
 npm run test:watch       # 変更を監視して実行する
 npm run test:coverage    # カバレッジ（build/coverage/ui に HTML と json-summary）
 ```

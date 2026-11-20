@@ -19,10 +19,10 @@
 | ID | 契約 | 根拠 | 確かめているもの |
 |---|---|---|---|
 | CT-10 | モデルの取得は、ライセンスとサイズを示して同意を得てから行う。起動時には自動で取得しない（`AUTO_DOWNLOAD_MODELS` は 0.5.0 で引退。キーは互換のために残す） | `AGENTS.md`「ユーザーの操作と同意」 | `native/core/tests/downloads.rs`、`native/ops`の`downloads/manager_tests.rs` |
-| CT-11 | 取得できるモデルは版、サイズ、SHA-256、ライセンスを固定してカタログに載せる。非商用など制限のあるライセンスのモデルは既定にしない | `AGENTS.md`「配布物とライセンス」 | `native/core/tests/downloads.rs`（チャット読み取りの表との照合を含む）、`native/ocr-runtime/tests/models.rs`、`src-ui/logics/configs/ctranslate2License.test.js` |
+| CT-11 | 取得できるモデルは版、サイズ、SHA-256、ライセンスを固定してカタログに載せる。非商用など制限のあるライセンスのモデルは既定にしない | `AGENTS.md`「配布物とライセンス」 | `native/core/tests/downloads.rs`（チャット読み取りの表との照合を含む）、`native/ocr-runtime/tests/models.rs`、`src-ui/logics/configs/ctranslate2License.test.ts` |
 | CT-12 | 画面の変更によって、マイクの有効化、モデルの取得、メッセージの送信、音声経路の変更が勝手に起きない | `AGENTS.md`「ユーザーの操作と同意」 | 手動 |
 | CT-13 | ホットキーは既定で割り当てない。設定画面を開いている間は無効にする | `docs/voice-stack/quick-chat-design.md` | `native/core/tests/config_reference.rs`（既存の割り当ての引き継ぎ）、手動 |
-| CT-14 | クラウドへ送るのは、利用者がキーを登録してエンジンを選んだときだけ | `docs/spec/cross-cutting.md` | `src-ui/logics/configs/cloudTranscription.test.js`、手動 |
+| CT-14 | クラウドへ送るのは、利用者がキーを登録してエンジンを選んだときだけ | `docs/spec/cross-cutting.md` | `src-ui/logics/configs/cloudTranscription.test.ts`、手動 |
 
 ## 停止と独立した制御
 
@@ -47,7 +47,7 @@
 
 | ID | 契約 | 根拠 | 確かめているもの |
 |---|---|---|---|
-| CT-40 | 表示する文言は`locales/`に置き、`en.yml`と`ja.yml`は必ずそろえる | `AGENTS.md`「UI」 | `tests/voice/test_headless_and_ui_contract.py`、`src-ui/logics/configs/cloudTranscription.test.js` |
+| CT-40 | 表示する文言は`locales/`に置き、`en.yml`と`ja.yml`は必ずそろえる | `AGENTS.md`「UI」 | `tests/voice/test_headless_and_ui_contract.py`、`src-ui/logics/configs/cloudTranscription.test.ts` |
 | CT-41 | React 18、CSS Modules、Jotai、i18nextの構成を保ち、リモートのフォントを入れない | `AGENTS.md`「UI」 | 手動 |
-| CT-42 | 言語の変更は要求ごとに対応づけ、失敗したら読み直す | `src-ui/logics/main/languageMutationCoordinator.ts` | `languageMutationCoordinator.test.js`、`languageMutations.test.js` |
+| CT-42 | 言語の変更は要求ごとに対応づけ、失敗したら読み直す | `src-ui/logics/main/languageMutationCoordinator.ts` | `languageMutationCoordinator.test.ts`、`languageMutations.test.ts` |
 | CT-43 | 未保存の変更があるまま離れるときは確かめる | `cross-cutting.md` | `src-ui/logics/voice/saveBar.test.js`（保存バーの集計）、手動（ダイアログ） |
