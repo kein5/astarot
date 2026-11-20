@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import { directRouteReady, newerRoute, newerDirectState, usesOutputDevice } from "./routeState.ts";
+import type { RouteSnapshot } from "./routeState.ts";
 
-const muted = { observation_id: "100", generation: 4, requested_muted: true, observed_muted: true, pending: false, ready: true };
-const resuming = { ...muted, observation_id: "101", generation: 5, requested_muted: false, pending: true };
-const open = { ...resuming, observation_id: "102", observed_muted: false, pending: false };
+const muted: RouteSnapshot = { observation_id: "100", generation: 4, requested_muted: true, observed_muted: true, pending: false, ready: true };
+const resuming: RouteSnapshot = { ...muted, observation_id: "101", generation: 5, requested_muted: false, pending: true };
+const open: RouteSnapshot = { ...resuming, observation_id: "102", observed_muted: false, pending: false };
 
 test("the managed route needs managed routing, and the device route an output device", () => {
     const managedRoute = { output_route: "managed" }, deviceRoute = { output_route: "device" };
@@ -24,7 +25,7 @@ test("observations within the same generation cannot roll back confirmation", ()
     assert.equal(newerRoute(resuming, open), open);
 });
 test("a restarted backend can advance despite resetting its generation", () => {
-    const restarted = { ...muted, observation_id: "200", generation: 0 };
+    const restarted: RouteSnapshot = { ...muted, observation_id: "200", generation: 0 };
     assert.equal(newerRoute(open, restarted), restarted);
     assert.equal(newerRoute(restarted, open), restarted);
 });
@@ -34,7 +35,7 @@ test("missing or invalid ordering data cannot assert mute", () => {
     assert.equal(newerRoute({}, muted), muted);
 });
 test("a newer direct state keeps the previous settings object when they are unchanged", () => {
-    const first = { observation_id: "1", requested: false, settings: { mode: "converted", rvc_model: "a.pth" } };
+    const first: RouteSnapshot = { observation_id: "1", requested: false, settings: { mode: "converted", rvc_model: "a.pth" } };
     const same = newerDirectState(first, { observation_id: "2", requested: false, settings: { mode: "converted", rvc_model: "a.pth" } });
     assert.equal(same, first);
     assert.equal(same.settings, first.settings);
@@ -46,7 +47,7 @@ test("a newer direct state keeps the previous settings object when they are unch
 });
 
 test("changed direct status keeps settings, while nested changes and generations publish", () => {
-    const first = { observation_id: "1", generation: 1, requested: false, settings: { engine: "rvc", options: [1, 2] } };
+    const first: RouteSnapshot = { observation_id: "1", generation: 1, requested: false, settings: { engine: "rvc", options: [1, 2] } };
     const changed = newerDirectState(first, { ...first, observation_id: "2", requested: true,
         settings: { options: [1, 2], engine: "rvc" } });
     assert.notEqual(changed, first);
