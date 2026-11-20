@@ -1267,6 +1267,17 @@ impl Core {
     /// translation of the selected target speaks. `targets` is the target languages of the
     /// message's tab as they were when it was admitted. Returns whether it was queued.
     #[allow(clippy::too_many_arguments)]
+    /// Readies the speech server that will speak a message's translation while it is translated
+    /// (#556): the speech of `mic` (the microphone's translated voice) or of a typed or
+    /// recognised message, in the language of the speech's target slot among `destinations`.
+    pub(crate) fn warm_speech(&self, mic: bool, destinations: &Value) {
+        let Some(voice) = self.voice() else { return };
+        let settings = voice.bus.settings();
+        let Some(language) = destinations[&settings.target_slot]["language"].as_str() else { return };
+        let source = if mic { vrct_tts::events::Source::Mic } else { vrct_tts::events::Source::Chat };
+        voice.bus.warm(&source, language);
+    }
+
     pub fn publish_mic_voice(
         &self,
         snapshot: &MicVoiceSnapshot,

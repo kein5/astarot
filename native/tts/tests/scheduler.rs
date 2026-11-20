@@ -877,3 +877,82 @@ fn typed_chat_waiting_behind_a_long_utterance_does_not_expire_but_microphone_spe
     assert_eq!(spoken.lock().unwrap().len(), 3);
     close(&bus);
 }
+
+type Warmed = Arc<Mutex<Vec<(String, String, String)>>>;
+
+/// A bus whose warm-ups are recorded and signal `done`.
+fn warming_bus(settings: VoiceSettings, sink: &Sink, done: Event) -> (VoiceEventBus, Warmed) {
+    let warmed: Warmed = Arc::default();
+    let seen = warmed.clone();
+    let bus = bus(settings, sink, move |options| {
+        options.warm_up = Arc::new(move |url: &str, voice: &str, language: &str, _token: &CancelToken| -> Result<(), TtsError> {
+            seen.lock().unwrap().push((url.to_owned(), voice.to_owned(), language.to_owned()));
+            done.set();
+            Ok(())
+        });
+    });
+    (bus, warmed)
+}
+
+#[test]
+fn warming_readies_the_server_that_will_speak_once_while_it_stays_ready() {
+    // #556: the server that will speak the translation is readied while the text is translated.
+    let sink = Sink::default();
+    let done = Event::new();
+    let settings = VoiceSettings { multilingual_url: "http://127.0.0.1:9".into(), multilingual_voice: "ryan".into(), ..speech_settings() };
+    let (bus, warmed) = warming_bus(settings, &sink, done.clone());
+    assert!(bus.warm(&Source::Mic, "English"));
+    assert!(done.wait(Some(Duration::from_secs(2))), "the warm-up ran");
+    assert_eq!(*warmed.lock().unwrap(), [("http://127.0.0.1:9".to_owned(), "ryan".to_owned(), "en".to_owned())]);
+    // The server stays ready for a while after it was readied, so nothing more is sent.
+    assert!(!bus.warm(&Source::Mic, "English"));
+    assert_eq!(warmed.lock().unwrap().len(), 1);
+    // Nothing is played.
+    assert_eq!(sink.writes(), 0);
+    close(&bus);
+}
+
+#[test]
+fn warming_sends_nothing_where_speech_cannot_follow() {
+    let sink = Sink::default();
+    let done = Event::new();
+    let remote = |settings: VoiceSettings| VoiceSettings { multilingual_url: "http://127.0.0.1:9".into(), japanese_url: "http://127.0.0.1:9".into(), ..settings };
+    // The microphone's translated voice is off.
+    let (bus, warmed) = warming_bus(remote(VoiceSettings { mic_mode: "off".into(), ..speech_settings() }), &sink, done.clone());
+    assert!(!bus.warm(&Source::Mic, "English"));
+    // An installed engine speaks Japanese.
+    let (engine, _) = warming_bus(remote(VoiceSettings { japanese_engine: "voicevox".into(), ..speech_settings() }), &sink, done.clone());
+    assert!(!engine.warm(&Source::Mic, "Japanese"));
+    // Muted.
+    let (muted, _) = warming_bus(remote(speech_settings()), &sink, done.clone());
+    muted.set_muted(true);
+    assert!(!muted.warm(&Source::Mic, "English"));
+    assert!(warmed.lock().unwrap().is_empty());
+    for bus in [bus, engine, muted] {
+        close(&bus);
+    }
+}
+
+#[test]
+fn speech_that_starts_stops_a_warm_up_under_way() {
+    // The speech must not wait behind the warm-up on the server.
+    let sink = Sink::default();
+    let (entered, stopped) = (Event::new(), Event::new());
+    let (e, s) = (entered.clone(), stopped.clone());
+    let settings = VoiceSettings { multilingual_url: "http://127.0.0.1:9".into(), ..speech_settings() };
+    let bus = bus(settings, &sink, move |options| {
+        options.provider_factory = provider(|_, _, _| Ok(frames(vec![1, 0])));
+        options.warm_up = Arc::new(move |_: &str, _: &str, _: &str, token: &CancelToken| -> Result<(), TtsError> {
+            e.set();
+            if token.wait(Duration::from_secs(2)) {
+                s.set();
+            }
+            Ok(())
+        });
+    });
+    assert!(bus.warm(&Source::Mic, "English"));
+    assert!(entered.wait(Some(Duration::from_secs(2))), "the warm-up started");
+    assert!(bus.publish(mic_event("m-1", "Hello"), None, None));
+    assert!(stopped.wait(Some(Duration::from_secs(2))), "the speech stopped the warm-up");
+    close(&bus);
+}

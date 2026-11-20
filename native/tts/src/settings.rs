@@ -609,6 +609,33 @@ impl VoiceSettings {
     /// translation, or microphone speech without one, is an error.
     /// `resolve_server` gives a running bundled server's base URL for a role
     /// (`japanese` or `multilingual`).
+    /// Where speech.cpp would speak a message of `source` in `language` (a UI language name or a
+    /// tag): the server's base URL, the voice and the language tag, as [`Self::request_for`]
+    /// chooses them, without a text. `None` where the mode speaks nothing for `source`, an
+    /// installed engine speaks the language, or the server cannot be named.
+    pub fn speechcpp_target(&self, source: &Source, language: &str, resolve_server: Option<ServerResolver<'_>>) -> Option<(String, String, &'static str)> {
+        let speaks = if *source == Source::Mic { self.mic_mode == "translated" } else { self.mode != "off" };
+        if !speaks {
+            return None;
+        }
+        let language = language_tag(language).ok()?;
+        if self.engine_for(language).ok()? != SPEECHCPP {
+            return None;
+        }
+        let japanese = language == "ja";
+        let (server, voice) = if japanese { (&self.japanese_server, &self.japanese_voice) } else { (&self.multilingual_server, &self.multilingual_voice) };
+        let url = if server == "bundled" {
+            local_url(&resolve_server?(if japanese { "japanese" } else { "multilingual" }).ok()?).ok()?
+        } else if japanese {
+            self.japanese_url.clone()
+        } else if self.multilingual_url.is_empty() {
+            return None;
+        } else {
+            self.multilingual_url.clone()
+        };
+        Some((url, voice.clone(), language))
+    }
+
     pub fn request_for(&self, event: &SpeechMessageEvent, resolve_server: Option<ServerResolver<'_>>) -> Result<SpeechRequest, TtsError> {
         let (text, language) = if event.source == Source::Mic {
             if self.mic_mode != "translated" {

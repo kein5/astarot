@@ -56,6 +56,15 @@ impl Synthesizer for SpeechCppTts {
     }
 }
 
+/// Readies a speech.cpp server (base URL, voice, language tag) for the speech that follows
+/// ([`SpeechCppTts::warm_up`]).
+/// The token stops it.
+pub type WarmUp = Arc<dyn Fn(&str, &str, &str, &CancelToken) -> Result<(), TtsError> + Send + Sync>;
+
+/// How long a server stays ready after it last spoke or was readied: [`VoiceEventBus::warm`]
+/// sends nothing within it.
+const WARM_FOR: Duration = Duration::from_secs(1);
+
 /// A speech.cpp synthesizer for a server's base URL.
 pub type ProviderFactory = Arc<dyn Fn(&str) -> Result<Box<dyn Synthesizer>, TtsError> + Send + Sync>;
 
@@ -94,6 +103,7 @@ pub type FirstAudioHook = Arc<dyn Fn(&SpeechMessageEvent, i64, bool, i64) + Send
 /// Construction options. The defaults are the application's.
 pub struct BusOptions {
     pub provider_factory: ProviderFactory,
+    pub warm_up: WarmUp,
     /// Japanese from an installed engine. Without one, choosing an engine
     /// fails like an unknown engine does.
     pub engine_factory: Option<EngineFactory>,
@@ -117,6 +127,7 @@ impl BusOptions {
     pub fn new(router: Arc<dyn SpeechRouter>) -> Self {
         Self {
             provider_factory: Arc::new(|url: &str| -> Result<Box<dyn Synthesizer>, TtsError> { Ok(Box::new(SpeechCppTts::new(url)?)) }),
+            warm_up: Arc::new(|url: &str, voice: &str, language: &str, token: &CancelToken| -> Result<(), TtsError> { Ok(SpeechCppTts::new(url)?.warm_up(voice, language, token)?) }),
             engine_factory: None,
             router,
             capacity: 4,
@@ -230,6 +241,10 @@ struct State {
     source_epochs: HashMap<Source, u64>,
     stats: Stats,
     busy: Busy,
+    /// The [`VoiceEventBus::warm`] request under way, which speech that starts stops, and when
+    /// the speech server last spoke or was readied.
+    warming: Option<CancelToken>,
+    ready_at: Option<Instant>,
 }
 
 struct Hooks {
@@ -243,6 +258,7 @@ struct Inner {
     changed: Condvar,
     hooks: RwLock<Hooks>,
     provider_factory: ProviderFactory,
+    warm_up: WarmUp,
     engine_factory: Option<EngineFactory>,
     router: Arc<dyn SpeechRouter>,
     capacity: usize,
@@ -311,10 +327,13 @@ impl VoiceEventBus {
                     source_epochs: HashMap::new(),
                     stats: Stats::default(),
                     busy: Busy::default(),
+                    warming: None,
+                    ready_at: None,
                 }),
                 changed: Condvar::new(),
                 hooks: RwLock::new(Hooks { converted_router: options.converted_router, on_first_audio: options.on_first_audio, monitor_factory: options.monitor_factory }),
                 provider_factory: options.provider_factory,
+                warm_up: options.warm_up,
                 engine_factory: options.engine_factory,
                 router: options.router,
                 capacity: options.capacity,
@@ -442,6 +461,44 @@ impl VoiceEventBus {
     }
 
     /// Offer a message. Returns whether it was queued.
+    /// Readies the speech.cpp server that will speak a message of `source` in `language` while
+    /// the message is still being translated (#556): between utterances the GPU falls to a power
+    /// state with lower clocks, the next speech's first frames are made about twice as slowly,
+    /// and a short synthesis during the translation's wait raises the clocks again. Sends one short request on a thread of its own
+    /// and plays nothing; nothing when speech is off or muted for `source`, an installed engine
+    /// speaks the language, speech is under way or queued, or the server spoke or was readied
+    /// within [`WARM_FOR`]. Whether a request was sent.
+    pub fn warm(&self, source: &Source, language: &str) -> bool {
+        let token = CancelToken::new();
+        let settings = {
+            let mut state = self.inner.state();
+            let ready = state.ready_at.is_some_and(|at| at.elapsed() < WARM_FOR);
+            if state.closed || state.muted || !state.tts_enabled || state.warming.is_some() || ready || state.active.is_some() || !state.queue.is_empty() {
+                return false;
+            }
+            state.warming = Some(token.clone());
+            state.settings.clone()
+        };
+        let resolve = self.inner.resolve_server.clone();
+        let resolver = resolve.as_ref().map(|resolve| &**resolve as &dyn Fn(&str) -> Result<String, TtsError>);
+        let Some((url, voice, language)) = settings.speechcpp_target(source, language, resolver) else {
+            finish_warm(&self.inner, &token, false);
+            return false;
+        };
+        let inner = self.inner.clone();
+        let running = token.clone();
+        let spawned = thread::Builder::new().name("vrct-tts-warm".into()).spawn(move || {
+            // A refusal or a server that is not there is left to the speech that follows to report.
+            let done = catch_unwind(AssertUnwindSafe(|| (inner.warm_up)(&url, &voice, language, &running))).is_ok_and(|r| r.is_ok());
+            finish_warm(&inner, &running, done);
+        });
+        if spawned.is_err() {
+            finish_warm(&self.inner, &token, false);
+            return false;
+        }
+        true
+    }
+
     pub fn publish(&self, event: SpeechMessageEvent, expected_generation: Option<u64>, expected_source_generation: Option<u64>) -> bool {
         let mut state = self.inner.state();
         if expected_generation.is_some_and(|generation| generation != state.epoch) {
@@ -676,6 +733,18 @@ fn open_monitor(inner: &Arc<Inner>, settings: &VoiceSettings, epoch: u64) -> Opt
     }
 }
 
+/// Ends the warm-up `token` stops: only its own, as speech may have stopped it and another may
+/// have started since. `ready` when the server spoke it.
+fn finish_warm(inner: &Inner, token: &CancelToken, ready: bool) {
+    let mut state = inner.state();
+    if state.warming.as_ref().is_some_and(|warming| warming.same(token)) {
+        state.warming = None;
+    }
+    if ready {
+        state.ready_at = Some(Instant::now());
+    }
+}
+
 fn next_job(inner: &Arc<Inner>) -> Option<(Job, CancelToken, Option<i64>)> {
     let mut state = inner.state();
     loop {
@@ -708,6 +777,10 @@ fn next_job(inner: &Arc<Inner>) -> Option<(Job, CancelToken, Option<i64>)> {
         }
         let deadline = (job.event.source == Source::Mic).then(|| job.event.timestamp_ns + max_age_ns);
         let token = CancelToken::with_start_deadline(deadline);
+        // Speech that starts stops a warm-up still under way, so that it does not wait behind it.
+        if let Some(warming) = state.warming.take() {
+            warming.cancel();
+        }
         state.busy.start(now);
         state.active = Some(token.clone());
         state.active_source = Some(job.event.source.clone());
@@ -768,6 +841,7 @@ fn work(inner: &Arc<Inner>) {
         state.busy.end(monotonic_ns());
         state.active = None;
         state.active_source = None;
+        state.ready_at = Some(Instant::now());
         inner.changed.notify_all();
     }
 }

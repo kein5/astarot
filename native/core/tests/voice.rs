@@ -1706,6 +1706,16 @@ fn translating(voice: FakeVoice) -> (Run, vrct_translation::fake::FakeProviders)
     (Run { ui, voice }, fake)
 }
 
+/// A request that readies the speech server (#556): it asks for at most half a second.
+fn is_warm_up(request: &Value) -> bool {
+    request.get("max_seconds").is_some()
+}
+
+/// The requests that speak a message, without the warm-ups.
+fn spoken(requests: &[Value]) -> Vec<Value> {
+    requests.iter().filter(|request| !is_warm_up(request)).cloned().collect()
+}
+
 #[test]
 fn translated_chat_and_microphone_finals_speak_the_selected_translation() {
     let (run, _fake) = translating(FakeVoice::new());
@@ -1715,9 +1725,13 @@ fn translated_chat_and_microphone_finals_speak_the_selected_translation() {
     assert_eq!(saved["status"], 200, "{saved}");
     assert_eq!(run.enable()["result"]["tts_enabled"], true);
     run.ui.ok("/run/send_message_box", Some(json!({ "id": "t-1", "message": "konnichiwa" })));
-    eventually("the translation is spoken", || english.requests().len() == 1);
-    let request = english.requests().pop().unwrap();
+    eventually("the translation is spoken", || spoken(&english.requests()).len() == 1);
+    let request = spoken(&english.requests()).pop().unwrap();
     assert_eq!((request["input"].as_str(), request["language"].as_str()), (Some("deepl-free:EN-US:konnichiwa"), Some("en")));
+    // #556: the server that speaks the translation was readied first, while the text was translated.
+    let requests = english.requests();
+    assert!(requests.first().is_some_and(is_warm_up), "no warm-up before the speech: {requests:?}");
+    assert_eq!(requests[0]["language"], "en");
     assert!(japanese.requests().is_empty(), "the original was spoken in translated mode");
 
     // A realtime microphone final (the recognition area hands it over): only a successful
@@ -1832,8 +1846,8 @@ fn a_realtime_microphone_final_speaks_its_translation() {
     assert_eq!(state["mic"]["requested"], true);
     eventually("the capture opened", || !capture.opened().is_empty());
     capture.hear(Source::Mic, &[common::fake_capture::speech(2000)]);
-    eventually("the final's translation is spoken", || english.requests().iter().any(|r| r["language"] == "en"));
-    let request = english.requests().into_iter().find(|r| r["language"] == "en").unwrap();
+    eventually("the final's translation is spoken", || spoken(&english.requests()).iter().any(|r| r["language"] == "en"));
+    let request = spoken(&english.requests()).into_iter().find(|r| r["language"] == "en").unwrap();
     assert!(request["input"].as_str().unwrap().starts_with("deepl-free:EN-US:"), "the translation was spoken");
     assert!(japanese.requests().is_empty(), "the original was spoken");
     run.ui.ok("/run/stop_realtime_asr", Some(json!({ "source": "mic" })));
