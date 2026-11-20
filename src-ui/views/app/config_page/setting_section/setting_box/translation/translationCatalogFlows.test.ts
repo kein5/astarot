@@ -54,6 +54,7 @@ const loadSection = async (runtime: HookRuntime) => {
         "../../../../../../logics/common/endpointPrivacy": { endpointDescription: () => "" },
         "../_components": { SectionLabelComponent: "section-label" },
         "../_components/hint/Hint": { useHintDescriptions: () => false },
+        "../_components/fold/Fold": { Fold: "fold" },
         "../advanced_settings/catalogHeading": heading,
         "./TranslationLlamaRuntimes": { TranslationLlamaRuntimes: "llama-runtimes" },
     });
@@ -121,7 +122,8 @@ test("each group says when nothing was added, and keeps the entries the app ship
     for (const id of ["engine", "api"] as const) {
         const drawn = group(id);
         assert.ok(textOf(drawn).includes("translation_catalog.none_added"), id);
-        const fold = findIn(drawn, node => node.type === "details" && textOf(find(node, inner => inner.type === "summary")) === "translation_catalog.shipped_title", `${id}: the fold`);
+        // A bar of the app's one fold, named by its summary.
+        const fold = findIn(drawn, node => node.type === "fold" && node.props.summary === "translation_catalog.shipped_title", `${id}: the fold`);
         const cards = nodesIn(fold).filter(node => componentName(node) === "ShippedCard").map(node => { runtime.remount(); return drawWith(runtime, node); });
         assert.equal(cards.length, 2, id);
         for (const shipped of cards) assert.ok(textOf(shipped).includes("translation_catalog.badge.builtin"), id);
