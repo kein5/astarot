@@ -6,7 +6,7 @@ import * as networkPortInput from "../../../../../../logics/configs/networkPortI
 import * as obsBrowserSourceUrl from "../../../../../../logics/configs/obsBrowserSourceUrl.ts";
 
 // #614: the advanced settings show their rows' general descriptions as hints. What is read before
-// acting stays on screen: the addresses in use and what the usage data sends.
+// acting stays on screen: the addresses in use, and the sentence that says what the usage data sends.
 
 // Settings as the page reads them: every current value is there, every action does nothing.
 const settings = () => new Proxy({}, { get: (_, key) => String(key).startsWith("current") ? { state: "ok", data: null } : () => {} });
@@ -46,7 +46,11 @@ test("the page shows descriptions as hints, and keeps the addresses in use and w
     const { page, rows: all } = await rows();
     assert.equal(page.type, "hints", "the whole page is inside HintDescriptions");
     const kept = all.filter(row => row.props.keep_desc === true).map(row => row.props.label);
-    assert.deepEqual(kept, [key("telemetry.label"), key("websocket_url.label"), key("obs_browser_source_url.label")]);
+    assert.deepEqual(kept, [key("websocket_url.label"), key("obs_browser_source_url.label")]);
+    // What the usage data sends: one sentence on screen (the row's lead), the rest as the hint.
+    const telemetry = all.find(row => row.props.label === key("telemetry.label"))?.props;
+    assert.deepEqual([telemetry?.lead, telemetry?.desc, telemetry?.keep_desc], [key("telemetry.lead"), key("telemetry.desc"), undefined]);
+    assert.deepEqual(all.filter(row => row.props.lead !== undefined).map(row => row.props.label), [key("telemetry.label")], "no other row has a lead");
     // The two addresses are the values in use, not words about the setting.
     const address = (label: string) => all.find(row => row.props.label === key(label))?.props.desc;
     assert.match(address("websocket_url.label"), /^ws:\/\//);
@@ -57,6 +61,7 @@ test("the general descriptions are left to become hints: the rows that carry one
     const { rows: all } = await rows();
     const hinted = all.filter(row => typeof row.props.desc === "string" && row.props.keep_desc !== true).map(row => row.props.label);
     assert.deepEqual(hinted, [
+        key("telemetry.label"),
         key("osc_query.label"),
         key("websocket_host.label"), key("websocket_tls_cert_file.label"), key("websocket_tls_key_file.label"), key("websocket_token.label"),
         key("enable_obs_browser_source.label"),

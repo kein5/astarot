@@ -33,7 +33,18 @@ test("who is charged, the retired folder and the unavailable models stay on scre
     // Drawn by themselves, so the page's hints do not reach them.
     assert.match(component("AITranslation_Container"), /nothingToGet && <Description text=\{t\("config_page\.translation\.models_unavailable"\)\} fold=\{false\} \/>/);
     assert.match(component("TranslationComputeDevice_Box"), /<p role="status">\{t\("config_page\.translation\.translation_compute_device\.restart_note"\)\}<\/p>/);
-    assert.equal([...page.matchAll(/<Description text=\{t\("config_page\.translation\.llm_privacy_desc"\)\}/g)].length, 2);
+});
+
+test("what an LLM engine is sent is said once, in the fold: the sentence on screen, its details as the hint", () => {
+    const leads = [...page.matchAll(/<Lead text=\{t\("config_page\.translation\.llm_privacy_lead"\)\} details=\{t\("config_page\.translation\.llm_privacy_desc"\)\} \/>/g)];
+    assert.equal(leads.length, 1);
+    assert.equal([...page.matchAll(/llm_privacy_(lead|desc)/g)].length, 2, "nowhere else on the page");
+    // Inside 「詳細設定」, before the APIs and the local servers it is about.
+    const fold = page.split("<AdvancedSection")[1].split("</AdvancedSection>")[0];
+    assert.ok(fold.indexOf("<Lead ") > 0 && fold.indexOf("<Lead ") < fold.indexOf("<ExternalTranslationAPI_Container />"));
+    // The form that adds an API shows the whole text before anything is added.
+    const catalog = read("TranslationCatalog.tsx");
+    assert.match(catalog, /<p>\{t\("config_page\.translation\.llm_privacy_lead"\)\}<\/p>\s*<p>\{t\("config_page\.translation\.llm_privacy_desc"\)\}<\/p>/);
 });
 
 test("the general descriptions are left to become hints", () => {

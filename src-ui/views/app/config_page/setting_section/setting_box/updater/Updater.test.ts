@@ -44,9 +44,10 @@ test("why a copy cannot update here stays on screen", async () => {
     }
 });
 
-test("whom the app asks at each start stays on screen beside its checkbox", async () => {
+test("that the app asks at each start stays on screen beside its checkbox; whom it asks is the hint", async () => {
     const { checkbox } = await page(info("windows_installer", "install"));
-    assert.deepEqual([checkbox.props.desc, checkbox.props.keep_desc], ["app_update.check_at_start_desc", true]);
+    assert.deepEqual([checkbox.props.lead, checkbox.props.desc, checkbox.props.keep_desc],
+        ["app_update.check_at_start_lead", "app_update.check_at_start_desc", undefined]);
     // A copy that never checks has no such setting.
     assert.equal((await page(info("deb", "package_manager"))).checkbox, undefined);
 });

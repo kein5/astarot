@@ -3,13 +3,6 @@
     flex-direction: column;
 }
 
-.privacy_description {
-    font-size: 1.3rem;
-    line-height: 1.6;
-    overflow-wrap: anywhere;
-    margin: 1rem 0;
-}
-
 // Non-commercial license confirmation (NLLB weights). Same native <dialog>
 // pattern as the model download warning in advanced_settings/ModelDownloads: shadcn/ui's
 // DialogContent width (sm:max-w-lg), and 1.6rem between its parts (gap-4), the words being one.

@@ -235,9 +235,10 @@ const TelemetryContainer = () => {
             <CheckboxContainer
                 setting_id="telemetry"
                 label={t("config_page.advanced_settings.telemetry.label")}
+                // What leaves the PC is read before the box is ticked: one sentence stays on screen,
+                // and what goes with it and what is never sent are the label's hint.
+                lead={t("config_page.advanced_settings.telemetry.lead")}
                 desc={t("config_page.advanced_settings.telemetry.desc")}
-                // What leaves the PC is read before the box is ticked, so it is not a hint.
-                keep_desc
                 variable={shownTelemetry(others.currentTelemetry, others.currentTelemetryNotice)}
                 toggleFunction={() => toggleTelemetryOrAnswer(others)}
                 note={unanswered ? t("config_page.advanced_settings.telemetry.unanswered") : undefined}

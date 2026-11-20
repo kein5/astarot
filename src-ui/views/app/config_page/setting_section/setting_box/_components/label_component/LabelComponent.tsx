@@ -4,6 +4,7 @@ import { _OpenWebpageButton } from "../_atoms/_open_webpage_button/_OpenWebpageB
 import WarningSvg from "@images/warning.svg?react";
 import { Description } from "../description/Description";
 import { Hint, useHintDescriptions } from "../hint/Hint";
+import { Lead } from "../lead/Lead";
 
 // A warning shown under the label, such as a key that must be entered again.
 export interface LabelWarning {
@@ -15,6 +16,11 @@ export interface LabelWarning {
 export interface LabelComponentProps {
     label?: ReactNode;
     label_id?: string;
+    // What must be known before acting, in one sentence: what leaves the PC, or what a switch
+    // changes beyond itself. It stays on screen on every page; `desc` then holds the details,
+    // whose hint follows the sentence, not the label, so the bubble does not cover the sentence.
+    lead?: string;
+    lead_id?: string;
     desc?: ReactNode;
     description_id?: string;
     // Keeps a text description on screen on a page that shows them as hints.
@@ -35,9 +41,10 @@ export const LabelComponent = (props: LabelComponentProps) => {
     const label = <p id={props.label_id} className={styles.label}>{props.label}</p>;
     return (
         <div className={styles.label_component}>
-            {hint
+            {hint && !props.lead
                 ? <div className={styles.label_line} data-hint-host>{label}<Hint text={desc} id={props.description_id} row /></div>
                 : label}
+            {props.lead && <Lead row text={props.lead} id={props.lead_id} details={hint ? desc : undefined} details_id={props.description_id} />}
             {props.desc && !hint
                 ? typeof props.desc === "string" ? <Description id={props.description_id} text={props.desc} className={styles.desc} /> : <p id={props.description_id} className={styles.desc}>{props.desc}</p>
                 : null

@@ -273,6 +273,7 @@ test("each translation provider is one fold that says whether it can be used; th
         // The translation catalog (#413) has cards, not provider folds.
         "./TranslationCatalog": { TranslationCatalogSection: () => null },
         "../_components/hint/Hint": { HintDescriptions: "hints" },
+        "../_components/lead/Lead": { Lead: "lead" },
     });
     // Translation's own sections are not exported; draw them through the page.
     const page = runtime.render(translation.Translation);
@@ -283,7 +284,11 @@ test("each translation provider is one fold that says whether it can be used; th
     const [, advanced] = page.props.children.props.children;
     assert.equal(advanced.props.attention, true);
     assert.equal(advanced.props.status, "config_page.advanced_status.translation");
-    for (const section of [advanced.props.children].flat()) {
+    // The fold starts with what an LLM engine is sent, once: the sentence, and its details as the hint.
+    const [lead, ...sections] = [advanced.props.children].flat();
+    assert.deepEqual([lead.type, lead.props.text, lead.props.details],
+        ["lead", "config_page.translation.llm_privacy_lead", "config_page.translation.llm_privacy_desc"]);
+    for (const section of sections) {
         const drawn = section.type(section.props);
         if (!drawn) continue;
         for (const provider of all(drawn, node => typeof node.props?.id === "string" && typeof node.type === "function")) {

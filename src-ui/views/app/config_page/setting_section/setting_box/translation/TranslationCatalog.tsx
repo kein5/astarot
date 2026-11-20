@@ -255,6 +255,8 @@ const ApiForm = ({ protocols }: { protocols: readonly string[] }) => {
         <summary>{t("translation_catalog.add.api")}</summary>
         <div role="group" aria-label={t("translation_catalog.add.api")} onKeyDown={onEnter(submit, busy)}>
             <p>{t("translation_catalog.add_help.api")}</p>
+            {/* Read before an API is added: the whole text, in view. */}
+            <p>{t("config_page.translation.llm_privacy_lead")}</p>
             <p>{t("config_page.translation.llm_privacy_desc")}</p>
             <label>{t("translation_catalog.field.name")}
                 <input type="text" value={form.name} maxLength={ENTRY_NAME_LIMIT} disabled={busy} spellCheck={false}

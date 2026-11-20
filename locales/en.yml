@@ -671,7 +671,8 @@ config_page:
         section_label_ai_translation: "AI translation (local)"
         section_label_external_api: "External translation API"
         section_label_local_llm: "Local LLM and compatible server"
-        llm_privacy_desc: "LLM engines receive the text to translate and the prompt, plus up to five recent messages of the conversation: what you said in chat or into the microphone, and what the speaker transcription heard from others, each with the time it was said (hours and minutes). The conversation is kept in memory only and cleared when you change the engine, server or model, or turn translation off."
+        llm_privacy_lead: "LLM engines receive the text to translate and the prompt, plus up to five recent messages of the conversation."
+        llm_privacy_desc: "The messages are what you said in chat or into the microphone and what the speaker transcription heard from others, each with the time it was said (hours and minutes). The conversation is kept in memory only and cleared when you change the engine, server or model, or turn translation off."
         # Shown while the translation-models folder of earlier versions holds a folder (#597).
         retired_models_folder:
             label: "Models in the translation-models folder"
@@ -1128,7 +1129,8 @@ config_page:
         items:
             tray_companion:
                 label: "Hexagram overlay"
-                desc: "Use ASTAROT through a hexagram hidden at the edge of the screen and the desktop captions. From the next start the app opens in the tray without its main window. Bring the mouse to the edge and half of the hexagram comes out. Turn it with the wheel, hover a triangle, and press the label that comes out to switch that feature. This feature is still being tested."
+                lead: "From the next start the app opens in the tray without its main window."
+                desc: "Use ASTAROT through a hexagram hidden at the edge of the screen and the desktop captions. Bring the mouse to the edge and half of the hexagram comes out. Turn it with the wheel, hover a triangle, and press the label that comes out to switch that feature. This feature is still being tested."
                 edge:
                     label: "Screen edge for the hexagram"
                     desc: "Bring the mouse to the middle of this edge and the hexagram comes out."
@@ -1159,7 +1161,8 @@ config_page:
         section_label_telemetry: "Usage data"
         telemetry:
             label: "Send usage data"
-            desc: "Sends the developers a note that the app started, and the kind of error (its error code) when one happens. Each carries the app version, the OS and its version, the display language, and your PC's hardware (CPU, memory, GPUs and their driver versions). The text and audio of conversations, the names of microphones and speakers, and user names are never sent. The sender's IP address and anything that tells one PC from another are not kept. The receiver records when an event arrived and the country it came from. The same thing is sent once a day at most."
+            lead: "Sends the developers a note that the app started, and the kind of error (its error code) when one happens."
+            desc: "Each carries the app version, the OS and its version, the display language, and your PC's hardware (CPU, memory, GPUs and their driver versions). The text and audio of conversations, the names of microphones and speakers, and user names are never sent. The sender's IP address and anything that tells one PC from another are not kept. The receiver records when an event arrived and the country it came from. The same thing is sent once a day at most."
             unanswered: "You have not chosen yet whether to send it, and nothing is sent. Check the box to start sending."
         section_label_gpu_check: "GPU report"
         gpu_check:
@@ -1571,7 +1574,8 @@ app_update:
     install: "Update to {{version}} and restart"
     release_page: "Release notes for {{version}}"
     check_at_start: "Check for updates at start"
-    check_at_start_desc: "Each start asks for a new version: a stable version asks GitHub Releases through the developer's server (Cloudflare), a beta asks the GitHub API directly. This sends what any download sends; no conversation or voice."
+    check_at_start_lead: "Each start asks for a new version."
+    check_at_start_desc: "A stable version asks GitHub Releases through the developer's server (Cloudflare), a beta asks the GitHub API directly. This sends what any download sends; no conversation or voice."
     status:
         checking: "Checking for updates…"
         up_to_date: "You have the latest version."
