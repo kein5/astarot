@@ -251,9 +251,9 @@ def checks_plan(args, root):
             steps.append(Step("hk validate", ["hk", "validate"]))
         elif scope == "vulns":
             # Known vulnerabilities (osv.dev) of every lock file: this asks osv.dev over the network.
-            # Exceptions go in osv-scanner.toml with a reason.
+            # Exceptions go in osv-scanner.toml with a reason and a day to look again (#835).
             lockfiles = [name for name in OSV_LOCKFILES if args.dry_run or (root / name).is_file()]
-            steps.append(Step("osv-scanner", ["osv-scanner", "scan", "source",
+            steps.append(Step("osv-scanner", ["osv-scanner", "scan", "source", "--config", "osv-scanner.toml",
                 *(flag for name in lockfiles for flag in ("--lockfile", name))]))
         elif scope == "secrets":
             # Keys and tokens in the commits after --base, as gitleaks finds them with
