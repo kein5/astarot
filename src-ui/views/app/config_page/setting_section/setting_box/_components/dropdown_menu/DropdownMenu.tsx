@@ -60,7 +60,7 @@ export const MultiDropdownMenu = <P extends object>(props: MultiDropdownMenuProp
 
                 return (
                     <>
-                        {beforeInserts.map((item, i) => {
+                        {beforeInserts.map((item) => {
                             const InsertComponent = item.props.insert_component;
                             return <InsertComponent key={item.key} {...item.props.insert_component_props} />;
                         })}
