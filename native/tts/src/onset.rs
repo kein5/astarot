@@ -201,6 +201,9 @@ mod tests {
             let voice = vec![1200i16; ms(10)];
             let out = samples(skip_leading_silence(frames(vec![lead.clone(), voice.clone()])));
             assert_eq!(out, [&lead[extra..], &voice[..]].concat(), "{extra}");
+            // A stream that ends before its first sound passes the whole samples it kept.
+            let out = samples(skip_leading_silence(frames(vec![lead.clone()])));
+            assert_eq!(out, &lead[extra..], "{extra}, no sound");
         }
     }
 
