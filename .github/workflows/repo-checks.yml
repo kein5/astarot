@@ -50,9 +50,8 @@ jobs:
             exit 0
           fi
           python3 tools/dev.py check --scope secrets --base "$COMMIT_BASE"
-      # Known vulnerabilities of every lock file, from osv.dev. A finding does not fail the job
-      # until the pull request that added this step is decided; it is reported in the step.
+      # Known vulnerabilities of every lock file, from osv.dev. A notice not listed in
+      # osv-scanner.toml, or one whose day to look again has come, fails the step (#835).
       - name: Known vulnerabilities (osv-scanner)
         if: ${{ !cancelled() }}
-        continue-on-error: true
         run: python3 tools/dev.py check --scope vulns

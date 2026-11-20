@@ -205,7 +205,7 @@ Pythonは専用venvを優先し、次に既存の `.venv` を探します。`--p
 | `workflows` | actionlint、zizmor | ワークフローの書き方、式、型（actionlint）。ワークフロー、自前のアクション、`dependabot.yml` の安全の問題（zizmor） | `.github/zizmor.yml`、または該当行の `# zizmor: ignore[<監査>] <理由>` |
 | `links` | lychee | `site/` 以外のMarkdownのファイル同士のリンクと、見出しへのリンク（`#...`）。外部のサイトには問い合わせない | `lychee.toml` |
 | `secrets` | gitleaks | `--base` からHEADまでの新規コミットの鍵やトークン。見つけた値は出力に出さない（`--redact`） | `.gitleaks.toml`（規則）、`.gitleaksignore`（過去のコミットの指紋） |
-| `vulns` | osv-scanner | `uv.lock`、`package-lock.json`（ルートと `site/` と `site/motion/`）、18の `Cargo.lock` の依存の既知の脆弱性（osv.dev） | `osv-scanner.toml`（いまはない） |
+| `vulns` | osv-scanner | `uv.lock`、`package-lock.json`（ルートと `site/` と `site/motion/`）、18の `Cargo.lock` の依存の既知の脆弱性（osv.dev） | `osv-scanner.toml`（例外。理由と見直す日を書く） |
 | `crates` | cargo-deny | 18のCargoのワークスペース（`CARGO_WORKSPACES`）の依存のライセンス、取得元（crates.ioと、許可したgitのリポジトリ）、版を書かない依存。配布する2つのシステム（WindowsとLinuxのx64）で組む依存だけを見る | `deny.toml` |
 
 - actionlintのshellcheckとpyflakesの検査は切っています。どちらも `mise.toml` で版を固定していないので、PCによって結果が変わるためです。
@@ -213,7 +213,7 @@ Pythonは専用venvを優先し、次に既存の `.venv` を探します。`--p
 - 例外を足すときは、理由を必ず書きます。
 - `deny.toml` のライセンスは[ライセンス台帳](voice-stack/licensing.md)に合わせています。許容型（MIT、Apache-2.0、BSD、ISC、Zlib、Unicode-3.0など）はどのクレートにも認め、MPL-2.0とCDLA-Permissive-2.0は台帳で確かめたクレートだけに認めます。新しい依存で検査が止まったら、台帳に記録してから `deny.toml` に足します。既知の脆弱性はcargo-denyでは見ません。
 - gitleaksは、2026-11-21に履歴全体（4,806コミット）を調べたときの56件を、規則（計測結果のハッシュ、試験のWebSocketの値と暗号化した鍵）と、過去のコミットの指紋の一覧に分けて外しています。どれも秘密ではありませんでした。CIでは、PR、push、マージキューが足したコミットだけを見ます。
-- osv-scannerは `tools/translation_onnx/requirements.txt` を読みません。torchのローカルの版（`+cpu`）を解決できないためで、そこから配布物に入るものはありません。CIの `vulns` のステップは、見つかっても失敗にしません（2026-11-21の時点で、Rustのロックファイルに19件あります）。
+- osv-scannerは `tools/translation_onnx/requirements.txt` を読みません。torchのローカルの版（`+cpu`）を解決できないためで、そこから配布物に入るものはありません。`osv-scanner.toml` に載っていない通知があると、CIの `vulns` のステップも失敗します（2026-11-21に #835 で決定）。いま直せない通知は、`osv-scanner.toml` に理由と見直す日（`ignoreUntil`）を書いて例外にします。その日を過ぎると例外が切れて検査が失敗するので、直すか、まだ直せない理由と新しい日を書いて例外を延ばします。2026-11-21の時点の例外は9件で、どれも同じメジャー版の中の更新では直らないものです（保守が終わったクレートと、GTK 3の `glib` 0.18）。
 - lycheeは `site/` を読みません。ガイドのページはファイルではなく道筋（`requirements` など）でつながっているためで、そのリンクはサイトのビルドのあとの検査（`tools/check_site_anchors.mjs`）が確かめます。リンク先のファイルを消したときは、日付の入った記録の中のリンクを、消す前のコミットに固定したGitHubのリンクに替えます。
 - CIでは `crates` だけを別のワークフロー `rust-crates.yml` で実行します。すべての依存の取得が要るので、`Cargo.toml`、`Cargo.lock`、`deny.toml` などを変えたPRと、developとmainへのpushだけで動きます。
 
