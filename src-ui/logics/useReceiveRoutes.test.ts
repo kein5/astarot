@@ -52,7 +52,7 @@ test("saved speech settings ask for the TTS generation the save started, and a r
     assert.deepEqual(s.reads, ["/get/data/voice_status"]);
 });
 
-test("failed required initialization maps and scalars retain renderable defaults and warn", async context => {
+test("failed required initialization maps and scalars retain renderable defaults and warn", async () => {
     const errors = vi.spyOn(console, "error").mockImplementation(() => {});
     const s = await loadBridgeRoutes();
     const fields = ["selected_your_languages", "selected_target_languages", "selected_tab_no",
@@ -80,7 +80,7 @@ test("failed required initialization maps and scalars retain renderable defaults
     assert.equal(errors.mock.calls.filter(call => call[0] === "Sidecar initialization field unavailable").length, fields.length);
 });
 
-test("malformed nested language maps and required scalar types cannot replace defaults", async context => {
+test("malformed nested language maps and required scalar types cannot replace defaults", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     const s = await loadBridgeRoutes();
     const your = s.runtime.store.get(s.stores.Atom_SelectedYourLanguages);
@@ -132,7 +132,7 @@ test("message format objects from the backend survive initialization", async () 
     assert.deepEqual(s.notices, []);
 });
 
-test("a failed message format getter keeps a format the settings page can render", async context => {
+test("a failed message format getter keeps a format the settings page can render", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     const s = await loadBridgeRoutes();
     s.receiveRoutes({ endpoint: "/run/initialization_complete", status: 200, result: {
@@ -144,7 +144,7 @@ test("a failed message format getter keeps a format the settings page can render
     assert.equal(s.notices.length, 1);
 });
 
-test("null init getter retains its real default, applies later fields, reaches ready and warns once", async context => {
+test("null init getter retains its real default, applies later fields, reaches ready and warns once", async () => {
     const errors = vi.spyOn(console, "error").mockImplementation(() => {});
     const s = await loadBridgeRoutes();
     const hostAtom = settingAtom(s.stores.dynamicStoreRegistry, "Atom_MicHostList");
@@ -166,7 +166,7 @@ test("null init getter retains its real default, applies later fields, reaches r
     assert.equal(fieldErrors[0][1], "/get/data/selectable_mic_host_list");
 });
 
-test("malformed arrays and individual handler errors do not abort remaining initialization", async context => {
+test("malformed arrays and individual handler errors do not abort remaining initialization", async () => {
     const errors = vi.spyOn(console, "error").mockImplementation(() => {});
     const s = await loadBridgeRoutes();
     s.receiveRoutes({ endpoint: "/run/initialization_complete", status: 200, result: {
@@ -192,7 +192,7 @@ test("a valid initialization finishes without a degraded notice", async () => {
     assert.deepEqual(s.notices, []);
 });
 
-test("unset scalar values (no API key, no model) are applied and do not warn", async context => {
+test("unset scalar values (no API key, no model) are applied and do not warn", async () => {
     const errors = vi.spyOn(console, "error").mockImplementation(() => {});
     const s = await loadBridgeRoutes();
     s.receiveRoutes({ endpoint: "/run/initialization_complete", status: 200, result: {
@@ -205,7 +205,7 @@ test("unset scalar values (no API key, no model) are applied and do not warn", a
 });
 
 for (const endpoint of ["/run/update_software", "/run/update_cuda_software"]) {
-    for (const status of [400, 404, 409, 423, 500]) test(`${endpoint} ${status} clears expected exit and a later crash is reported`, async context => {
+    for (const status of [400, 404, 409, 423, 500]) test(`${endpoint} ${status} clears expected exit and a later crash is reported`, async () => {
         vi.spyOn(console, "error").mockImplementation(() => {});
         const s = await loadBridgeRoutes(), events: Record<string, (value: unknown) => void> = {}, crashes: unknown[] = [];
         const owner = createSidecarSessionOwner({ store: s.stores.store,

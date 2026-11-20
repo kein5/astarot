@@ -26,7 +26,7 @@ let snapshot: readonly SaveBarEntry[] = [];
 
 const publish = (): void => {
     snapshot = [...entries.values()];
-    listeners.forEach(listener => listener());
+    listeners.forEach(listener => { listener(); });
 };
 
 export const setSaveBarEntry = (id: string, entry: SaveBarEntry | null): void => {

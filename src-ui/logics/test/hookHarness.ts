@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
-import Babel from "@babel/standalone";
+import { HARNESS_QUERY } from "./harnessModules.ts";
 import type { BabelOptions } from "@babel/standalone";
 import React from "react";
 import type { ReactElement } from "react";
@@ -57,7 +56,8 @@ export function hooks() {
         deps.some((value, i) => !Object.is(value, slot.deps?.[i]));
     const memo = <T>(factory: () => T, deps: Deps): T => {
         const i = index++;
-        const slot = changed(slots[i], deps) ? slots[i] = { deps, value: factory() } : slots[i];
+        if (changed(slots[i], deps)) slots[i] = { deps, value: factory() };
+        const slot = slots[i];
         return held<T>(slot ?? {});
     };
     const effect = (fn: () => unknown, deps?: Deps) => {
@@ -99,7 +99,7 @@ export function hooks() {
         index = 0;
         const tree = component(props);
         attach(tree);
-        effects.splice(0).forEach(fn => fn());
+        effects.splice(0).forEach(fn => { fn(); });
         return tree;
     }
     return { api, jotai, targets, get store() { return store; }, set store(value: Store) { store = value; },
@@ -134,10 +134,9 @@ export function loaded(exports: Record<string, unknown>): unknown {
 }
 
 export async function loadModule<M = Record<string, unknown>>(url: URL, runtime: HookRuntime, imports: Record<string, unknown> = {}): Promise<M> {
-    const source = await readFile(url, "utf8");
-    const { code } = Babel.transform(source, typeScriptAware(url, {
-        presets: [["react", { runtime: "automatic" }]], plugins: ["transform-modules-commonjs"],
-    }));
+    // Vite builds the source into a function of require and exports (harnessModules.ts).
+    const built: unknown = Reflect.get(await import(/* @vite-ignore */ `${url.href}?${HARNESS_QUERY}`), "default");
+    if (typeof built !== "function") throw new TypeError(`${url.pathname} did not build into a function`);
     const dependencies: Record<string, unknown> = { react: runtime.api, "react/jsx-runtime": jsx, clsx, jotai: runtime.jotai,
         "@useI18n": { useI18n: () => ({ t: (key: string) => key }) },
         "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: async () => true }) }, ...imports };
@@ -159,7 +158,7 @@ export async function loadModule<M = Record<string, unknown>>(url: URL, runtime:
         throw new Error(`Unexpected dependency: ${name}`);
     };
     const exports: Record<string, unknown> = {};
-    new Function("require", "exports", code ?? "")(require, exports);
+    Reflect.apply(built, undefined, [require, exports]);
     return loaded<M>(exports);
 }
 

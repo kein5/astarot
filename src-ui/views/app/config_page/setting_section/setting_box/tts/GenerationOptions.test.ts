@@ -55,7 +55,7 @@ test("the seed and instruction fields show an example while they are empty", asy
     s.runtime.unmount();
 });
 
-test("TTS model-specific seed range error is associated without changing the save contract", async t => {
+test("TTS model-specific seed range error is associated without changing the save contract", async () => {
     vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
     const s = await setup({ seed: "123", instructions: "", modelOptions: { japanese: {
         server: "external", configured_url: "http://local", options: { seed: { minimum: 0, maximum: 100 } },

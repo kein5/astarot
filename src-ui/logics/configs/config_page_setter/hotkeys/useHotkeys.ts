@@ -65,6 +65,7 @@ let portalPaused = true; // Like the plugin's unregisterAll while settings are o
 // A Wayland client is never told that it is minimized, so isMinimized() stays false there.
 // Remember that the hotkey minimized the window; getting the focus back means it is up again.
 let minimizedByHotkey = false;
+// biome-ignore lint/correctness/noUnusedVariables: read by `??=` below, so the focus listener is added once.
 let focusWatch: Promise<UnlistenFn> | null = null;
 let registrationGeneration = 0;
 let registrationOwner: HookOwner | null = null;
@@ -118,7 +119,7 @@ const ensurePortalListener = () => {
             }),
         ]).then(results => {
             const stops = results.filter(result => result.status === "fulfilled").map(result => result.value);
-            const unlisten = () => stops.forEach(stop => stop());
+            const unlisten = () => stops.forEach(stop => { stop(); });
             const failed = results.find(result => result.status === "rejected");
             if (failed) {
                 unlisten();

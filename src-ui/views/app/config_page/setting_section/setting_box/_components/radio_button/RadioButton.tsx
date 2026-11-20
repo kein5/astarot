@@ -1,7 +1,6 @@
 import styles from "./RadioButton.module.scss";
 import clsx from "clsx";
 import type { ComponentType, ReactNode } from "react";
-import { useI18n } from "@useI18n";
 import { Hint, useHintDescriptions } from "../hint/Hint";
 
 export interface RadioOption {
@@ -54,7 +53,6 @@ const asHint = (hints: boolean, option: RadioOption): option is RadioOption & { 
 // name, so the arrow keys move through every group and Tab stops once. Each group is a
 // radiogroup named by its label, inside a group named by the row's label.
 export const RadioButton = <O extends RadioOption>(props: RadioButtonProps<O>) => {
-    const { t } = useI18n();
     const hints = useHintDescriptions();
     // One of the two is given.
     const options: readonly O[] = props.groups ? props.groups.flatMap(group => group.options) : props.options ?? [];
