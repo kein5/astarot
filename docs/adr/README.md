@@ -28,6 +28,7 @@ ASTAROT の設計判断の記録（ADR）の正本は、このディレクトリ
 | [013](adr-013-secret-store.md) | API キーを OS の資格情報ストアに保管する | 2026-11-18 | 採用 | 実装済み | 有効 | Rust の中核 |
 | [014](adr-014-internal-identifier-migration.md) | 内部識別子を ASTAROT にそろえ、設定とモデルを引き継ぐ | 2026-11-19 | 採用 | 未着手 | 有効 | Rust の中核 |
 | [015](adr-015-translation-llm-runtime-exception.md) | TranslateGemma の翻訳を LLM 用の実行基盤で動かす（ADR-012 の例外） | 2026-11-19 | 採用 | 未着手 | 有効 | Rust の中核 |
+| [016](adr-016-user-guide-site-on-rspress.md) | 利用者向けのサイトの土台を VitePress から Rspress（React）に替える | 2026-11-20 | 採用 | 未着手 | 有効 | Rust の中核 |
 
 <!-- adr-index:end -->
 
@@ -134,6 +135,8 @@ ADR 001〜003 は、2026-10-27 に音声の最初の段階（P1）のために�
 [ADR-013: API キーを OS の資格情報ストアに保管する](adr-013-secret-store.md)は2026-11-18に採用した。`SECRET_SETTINGS`の項目（APIキー、PapagoのClient ID）の保管先を、`secrets.json`（WindowsはDPAPI、Linuxは0600の平文）から、Windowsの資格情報マネージャーとLinuxのSecret Serviceへ移す。現状維持とアプリが管理する鍵での暗号化を比べ、Linuxの平文をなくせることと、両OSで守られ方が揃うことから選んだ。移行は読み戻せた項目だけを移す段階的な形にし、失敗してもキーを失わない。実施はIssue #575で、そのときに残っていた4つの判断（Secret Serviceのない環境、移行した後の`secrets.json`、ストアの障害、読めない`secrets.json`）も決めた。どれもキーを失わず平文を増やさない側を選び、ADR-013の「実施で決めたこと」に書いた。
 
 [ADR-014: 内部識別子を ASTAROT にそろえ、設定とモデルを引き継ぐ](adr-014-internal-identifier-migration.md)は2026-11-19に採用した。ADR-011 の P2 にあたる。アプリ ID、保存先、Windows のインストール先とレジストリのキー、実行ファイル名、Linux のパッケージと音声経路、資格情報の名前、環境変数、配布物の名前を、0.6.0 で ASTAROT の名前へ移す。判断の項目は Issue #635 の決定のとおりである。Windows のインストール先を移すこととレジストリのキーを変えることは、#635 で推奨した案と逆の決定である。どちらも移行の処理（フォルダーを移すことと、旧のキーを読んで新しいキーへ移すこと）と一緒に入れる。移せないときは旧の場所と名前で動き続け、旧の名前は 0.6.x の間は読む。更新確認とテレメトリの送信先、チャット欄検出モデルの ID、設定と IPC と OSC の契約は変えない。実装は 0.6.0 で行い、12 の PR に分ける。
+
+[ADR-016: 利用者向けのサイトの土台を VitePress から Rspress（React）に替える](adr-016-user-guide-site-on-rspress.md)は2026-11-20に採用した。サイトの再設計（PR #701）の決定のうち、土台を VitePress のままにし部品を Vue で作るという前提だけを置き換える。アプリの UI と、部品を寄せる先の shadcn/ui が React なので、部品と知見を React にそろえる。配布済みのアプリが開く URL とアンカー、日英、全文検索、GitHub Pages への公開は保つ。Rspress は既定の言語のページを接頭辞なしで出すので、`/` だけを受け持つ既定の言語を置いて `/ja/` と `/en/` を保つ。
 
 ## 配置の移行（2026-11-18）
 
