@@ -44,6 +44,14 @@ test("skipped speech warns when the backend count rises, not for earlier counts"
     assert.equal(s.notices.length, 2);
 });
 
+test("saved speech settings ask for the TTS generation the save started, and a refused save does not", async () => {
+    const s = await loadBridgeRoutes();
+    s.receiveRoutes({ endpoint: "/set/data/voice_settings", status: 400, result: { error_code: "VOICE_SETTINGS_INVALID" } });
+    assert.deepEqual(s.reads, []);
+    s.receiveRoutes({ endpoint: "/set/data/voice_settings", status: 200, result: { mode: "original" } });
+    assert.deepEqual(s.reads, ["/get/data/voice_status"]);
+});
+
 test("failed required initialization maps and scalars retain renderable defaults and warn", async context => {
     const errors = vi.spyOn(console, "error").mockImplementation(() => {});
     const s = await loadBridgeRoutes();

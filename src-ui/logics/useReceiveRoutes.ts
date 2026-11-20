@@ -528,6 +528,10 @@ export const useReceiveRoutes = () => {
             sendSpeech("/get/data/speech_server_settings");
             sendVoice("/get/data/direct_voice_state");
         }
+        // Saving the speech settings stops what is being read and starts a new TTS generation
+        // (native/tts/src/scheduler.rs). The switch sends the generation it knows, so it must
+        // learn the new one now: at the next poll, a press made before it would be refused.
+        if (status === 200 && endpoint === "/set/data/voice_settings") sendVoice("/get/data/voice_status");
         // The main TTS toggle can start or stop a bundled server; keep Settings in step.
         if (["/run/enable_tts", "/run/disable_tts"].includes(endpoint)) sendSpeech("/get/data/speech_server_state");
         if (status !== 200 && ["/run/enable_tts", "/run/disable_tts"].includes(endpoint)) {
