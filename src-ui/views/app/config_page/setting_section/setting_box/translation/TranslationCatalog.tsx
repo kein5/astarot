@@ -99,7 +99,7 @@ const ShippedCard = ({ group, item, layout }: CatalogEntry & { layout: CatalogLa
         <div className={styles.card_head}>
             <strong>{item.name}</strong>
             {layout === "list" && kind}
-            <span className={`${styles.badge} ${styles.status}`} data-tone={state === "in_use" || state === "ready" ? state : undefined}>{t(`translation_catalog.state.${state}`)}</span>
+            <span className={`${styles.badge} ${styles.status}`} data-tone={state}>{t(`translation_catalog.state.${state}`)}</span>
         </div>
         {layout === "grid" && <div className={styles.card_badges}>{kind}</div>}
     </li>;

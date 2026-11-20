@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { test } from "vitest";
 import { find, findIn, hooks, loadModule, nodesIn } from "../../../../../../logics/test/hookHarness.ts";
 
@@ -57,3 +58,18 @@ test("a catalog's list says its layout, and a grid card's facts are a fold of th
     const folded = runtime.render(module.CatalogFacts, { layout: "grid", children: facts });
     assert.deepEqual([folded.type, folded.props.size, folded.props.summary, folded.props.children], ["fold", "link", "model_catalog.layout.facts", facts]);
 });
+
+// The state badges of every catalog share these rules (VoiceSettings.module.scss): a model on the PC
+// is a filled badge with a check, one that is not is an outline with an empty ring.
+test("whether a model is on the PC is told by the state badge's shape and mark, not by its words alone", () => {
+    const scss = readFileSync(new URL("./VoiceSettings.module.scss", import.meta.url), "utf8");
+    const rules = scss.slice(scss.indexOf(".badge.status {"), scss.indexOf("// The \"!\" of a model"));
+    assert.match(rules, /&::before \{[^}]*mask: var\(--status_mark\)/, "a mark drawn before the words");
+    assert.match(rules, /&\[data-tone="not_downloaded"\], &\[data-tone="not_set"\] \{\s*--status_mark: url\("data:image\/svg\+xml,[^"]*circle[^"]*"\);\s*background: transparent;/,
+        "not yet: an outline with an empty ring");
+    assert.match(rules, /&\[data-tone="downloaded"\], &\[data-tone="in_use"\], &\[data-tone="ready"\] \{\s*--status_mark: url\("data:image\/svg\+xml,[^"]*path/,
+        "on the PC: a check");
+    assert.match(rules, /&\[data-tone="downloaded"\] \{ background: var\(--dark_300_color/, "downloaded: filled light");
+    assert.match(rules, /&\[data-tone="in_use"\] \{ background: var\(--vox_state_active/, "in use: filled in the active color");
+});
+

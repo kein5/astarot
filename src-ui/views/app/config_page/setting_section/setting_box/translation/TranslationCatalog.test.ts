@@ -97,6 +97,13 @@ test("an added entry's card is what it is, its facts, then its notes and actions
     assert.deepEqual([shipped.props.children].flat().filter(Boolean).map(classOf), ["card_head"]);
 });
 
+test("an entry's state badge names its state, so whether it is on the PC is drawn by its shape and mark", async context => {
+    const { cards } = await catalog(context);
+    const state = (id: string) => findIn(cards.get(id), node => classOf(node) === "badge status").props["data-tone"];
+    // Not downloaded yet (an outline with an empty ring), can be used (filled, with a check), in use.
+    assert.deepEqual(["shipped", "cloud", "mine"].map(state), ["not_downloaded", "ready", "in_use"]);
+});
+
 test("a group's help is its heading's hint on a page that shows hints, a line under the heading elsewhere", async context => {
     for (const hints of [false, true]) {
         const { groups } = await catalog(context, hints);
