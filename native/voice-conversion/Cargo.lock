@@ -610,6 +610,7 @@ dependencies = [
  "uuid",
  "vrct-audio-routing",
  "vrct-ops",
+ "windows",
  "windows-sys 0.61.2",
 ]
 
