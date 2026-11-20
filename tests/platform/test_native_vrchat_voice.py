@@ -5,7 +5,11 @@ bubble the camera client shows and the app's chat reading reads back, as
 test_native_vrchat_roundtrip.py checks. Through the app's text to speech it goes into the managed
 route, whose microphone (vrct.managed.source, "VRCT Managed Virtual Microphone") is what VRChat
 hears when it is chosen as VRChat's microphone. A mute silences the voice and leaves the chatbox
-working, and the app's exit leaves the microphone silent.
+working, and the app's exit leaves the microphone silent. VRChat's own side is read from the
+speaker client's OSC output: its avatar parameter Voice (the level VRChat hears from its
+microphone, 0 to 1) rises with each spoken message and stays at 0 while the route is muted
+(decision 1 of #878). VRChat's own mute is turned off for the test through its OSC input
+(/input/Voice, reading MuteSelf back) and put back as it was after it.
 
 This replaces the vrchat-voice group that went with the Python backend (#746, decision 2):
 its tests drove the managed route with the Python backend's PipeWire parts. Here the app's own
@@ -14,9 +18,10 @@ stand-in of native_speech_server.py: a tone, no model.
 
 Beyond the round trip's two clients and OCR models, it needs the managed route already set up on
 this PC. The app sets it up when the managed route is saved, and keeps it after it closes; this
-test does not set it up, and stops when it is missing. For VRChat itself to hear the voice,
-choose VRCT Managed Virtual Microphone in the speaker client. Nothing else of the PC's audio is
-read: only the managed microphone, and of it only whether each 20 ms is sound.
+test does not set it up, and stops when it is missing. VRChat hears the voice only with VRCT
+Managed Virtual Microphone chosen as the speaker client's microphone, and its OSC output on (the
+lab's clients start with it). Nothing else of the PC's audio is read: only the managed
+microphone, and of it only whether each 20 ms is sound.
 """
 import json
 import os
@@ -25,6 +30,8 @@ import subprocess
 import sys
 from threading import Lock, Thread
 import time
+
+import socket
 
 import pytest
 
@@ -46,6 +53,8 @@ PIECE, SOUND = 960 * 2, 1000
 # The stand-in speaks 3 s, with 143 ms of silence at each loudness step of 0; shorter gaps than
 # GAP belong to one burst.
 GAP, SPOKEN = 0.2, (2.5, 3.3)
+# VRChat's Voice when it hears the stand-in's tone; it stays at 0 in silence.
+HEARD = 0.05
 WAIT = 20
 
 
@@ -100,6 +109,75 @@ class ManagedMicrophone:
             return bool(self.pieces) and time.monotonic() - self.pieces[-1][0] < 1
 
 
+class SpeakerVoice:
+    """The speaker client's OSC output: when Voice (its microphone's level) and MuteSelf changed."""
+
+    def __init__(self, port):
+        self.port, self.values, self.lock = port, [], Lock()
+
+    def __enter__(self):
+        from pythonosc.osc_packet import OscPacket, ParseError
+
+        self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.socket.bind(("127.0.0.1", self.port))
+        self.socket.settimeout(.2)
+        self.open = True
+
+        def read():
+            while self.open:
+                try:
+                    data = self.socket.recv(65536)
+                    packet = OscPacket(data)
+                except (OSError, ParseError):
+                    continue
+                for timed in packet.messages:
+                    name = timed.message.address.rsplit("/", 1)[-1]
+                    if timed.message.address.startswith("/avatar/parameters/") and name in ("Voice", "MuteSelf") and timed.message.params:
+                        with self.lock:
+                            self.values.append((time.monotonic(), name, timed.message.params[0]))
+
+        self.thread = Thread(target=read, daemon=True)
+        self.thread.start()
+        return self
+
+    def __exit__(self, *exc):
+        self.open = False
+        self.thread.join(2)
+        self.socket.close()
+
+    def loudest(self, start, end):
+        """The highest Voice VRChat reported between start and end (0 when it reported none)."""
+        with self.lock:
+            return max((float(value) for at, name, value in self.values if name == "Voice" and start <= at <= end), default=0.0)
+
+    def muted(self):
+        """VRChat's own mute as it last reported it, or None."""
+        with self.lock:
+            return next((bool(value) for _, name, value in reversed(self.values) if name == "MuteSelf"), None)
+
+    def toggle_mute(self, osc_in):
+        """Toggles VRChat's own mute (/input/Voice, as its mute button) and returns the state it
+        reports back. VRChat reports MuteSelf only when it changes, so this is also how the test
+        learns it."""
+        from pythonosc.udp_client import SimpleUDPClient
+
+        client = SimpleUDPClient("127.0.0.1", osc_in)
+        with self.lock:
+            before = len(self.values)
+        client.send_message("/input/Voice", 1)
+        time.sleep(.2)
+        client.send_message("/input/Voice", 0)
+        deadline = time.monotonic() + 5
+        while time.monotonic() < deadline:
+            with self.lock:
+                changed = [bool(value) for _, name, value in self.values[before:] if name == "MuteSelf"]
+            if changed:
+                return changed[-1]
+            time.sleep(.1)
+        raise AssertionError("VRChat did not report MuteSelf after its mute was toggled: is its OSC output on, "
+                             "and its microphone in toggle mode?")
+
+
 def test_one_send_is_shown_by_vrchat_and_heard_once_on_the_managed_microphone(tmp_path):
     assert lab.ready(), "start the lab clients: python tools/chatbox_lab/launch_clients.py --clients 2"
     assert MODELS.is_dir(), f"OCR models not found: {MODELS}"
@@ -109,7 +187,7 @@ def test_one_send_is_shown_by_vrchat_and_heard_once_on_the_managed_microphone(tm
     report = {"status": "failed", "real_vrchat": True, "real_ocr": True, "host_audio_changed": False,
               "speaker_osc_port": speaker["osc_in"], "messages": []}
     try:
-        with SpeechServerFixture() as server, ManagedMicrophone() as microphone:
+        with SpeechServerFixture() as server, ManagedMicrophone() as microphone, SpeakerVoice(speaker["osc_out"]) as vrchat:
             state = initial_state(tmp_path)
             config = json.loads((state / "config.json").read_text(encoding="utf-8"))
             config.update(SEND_MESSAGE_TO_VRC=True, OSC_IP_ADDRESS="127.0.0.1", OSC_PORT=speaker["osc_in"],
@@ -148,16 +226,27 @@ def test_one_send_is_shown_by_vrchat_and_heard_once_on_the_managed_microphone(tm
                     # The speech is over by now; wait out its tail before counting.
                     time.sleep(max(0, SPOKEN[1] + 1 - (time.monotonic() - sent)))
                     bursts = microphone.bursts(sent, time.monotonic())
+                    loudest = vrchat.loudest(sent, time.monotonic())
                     report["messages"].append({"sent": text, "read_after_s": read_at and round(read_at, 1),
-                                               "voice_bursts_s": bursts, "voice_expected": heard_once})
+                                               "voice_bursts_s": bursts, "vrchat_voice_max": round(loudest, 3),
+                                               "voice_expected": heard_once})
                     assert read_at is not None, f"not read back within {WAIT}s: {text}"
                     if heard_once:
                         assert len(bursts) == 1 and SPOKEN[0] <= bursts[0] <= SPOKEN[1], f"{text}: heard {bursts}"
+                        assert loudest >= HEARD, (
+                            f"{text}: VRChat reported no voice (Voice {loudest:.3f}) with its mute "
+                            f"{'on' if vrchat.muted() else 'off'}. Choose VRCT Managed Virtual Microphone in the speaker client")
                     else:
                         assert bursts == [], f"{text}: heard {bursts} while muted"
+                        assert loudest < HEARD, f"{text}: VRChat heard a voice (Voice {loudest:.3f}) while the route was muted"
                     # VRChat limits how often a chatbox may change; leave the bubble time to be replaced.
                     time.sleep(max(0, 4 - (time.monotonic() - sent)))
 
+                # VRChat's own mute off for the test, and back as it was after it.
+                if vrchat.toggle_mute(speaker["osc_in"]):
+                    vrchat.toggle_mute(speaker["osc_in"])
+                else:
+                    report["vrchat_mute_was_on"] = True
                 ui.set_switch("Chat reading (OCR)")
                 route("Unmute", "Voice enabled (confirmed)")
                 ui.set_switch("Text to speech (TTS)")
@@ -169,6 +258,8 @@ def test_one_send_is_shown_by_vrchat_and_heard_once_on_the_managed_microphone(tm
                 ui.set_switch("Chat reading (OCR)", on=False)
                 ui.assert_rendered()
                 ui.close_app()
+                if report.get("vrchat_mute_was_on"):
+                    vrchat.toggle_mute(speaker["osc_in"])
             # The app's exit leaves the managed microphone silent.
             closed = time.monotonic()
             time.sleep(2)
