@@ -63,8 +63,9 @@ export const CatalogLayoutSwitch = () => {
 // the translation catalog), folded as the setup folds are: a bar of the app's one fold with the
 // part's name, its readout (how many models, how many are on the PC) and what pressing does.
 // What the part is for is the name's hint on a page that keeps descriptions out of sight (#614),
-// otherwise the first lines inside. It starts open and keeps what the user chose while it is
-// drawn. A catalog that shows one model (the translation review) draws the part unfolded.
+// otherwise the first lines inside. It starts closed, its readout saying what it holds, and keeps
+// what the user chose while it is drawn; that is not saved. A catalog that shows one model (the
+// translation review) draws the part unfolded.
 // level: the heading's level, which the name keeps as a heading for assistive technology.
 export interface CatalogSectionProps {
     title: string;
@@ -80,7 +81,7 @@ export interface CatalogSectionProps {
 
 export const CatalogSection = ({ title, help, readout, level, id, fold = true, children, ...data }: CatalogSectionProps) => {
     const hints = useHintDescriptions();
-    const [opened, setOpened] = useState(true);
+    const [opened, setOpened] = useState(false);
     const own = useId();
     const headingId = id ?? `${own}-heading`;
     if (!fold) {

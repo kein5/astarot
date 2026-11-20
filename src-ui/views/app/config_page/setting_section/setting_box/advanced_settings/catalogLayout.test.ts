@@ -60,7 +60,7 @@ test("a catalog's list says its layout, and a grid card's facts are a fold of th
     assert.deepEqual([folded.type, folded.props.size, folded.props.summary, folded.props.children], ["fold", "link", "model_catalog.layout.facts", facts]);
 });
 
-test("a part of a catalog is a bar of the app's fold with its name as a heading, its readout and what it is for", async () => {
+test("a part of a catalog is a bar of the app's fold, closed at first, with its name as a heading, its readout and what it is for", async () => {
     for (const hints of [false, true]) {
         const { runtime, module } = await layouts("grid", hints);
         const draw = () => runtime.render(module.CatalogSection, { title: "Speech recognition", help: ["What it is for", "How to choose"],
@@ -68,7 +68,7 @@ test("a part of a catalog is a bar of the app's fold with its name as a heading,
         let tree = draw();
         assert.deepEqual([tree.type, tree.props["aria-labelledby"], tree.props["data-catalog-group"]], ["section", "model-catalog-asr", "asr"]);
         const fold = findIn(tree, node => node.type === "fold");
-        assert.deepEqual([fold.props.size, fold.props.open, fold.props["data-catalog-fold"]], [undefined, true, true], "a bar, open at first");
+        assert.deepEqual([fold.props.size, fold.props.open, fold.props["data-catalog-fold"]], [undefined, false, true], "a bar, closed at first");
         // The name stays a heading of its level for assistive technology, inside the bar.
         const heading = findIn(fold.props.summary, node => node.props?.role === "heading");
         assert.deepEqual([heading.props["aria-level"], heading.props.id, heading.props.children], [4, "model-catalog-asr", "Speech recognition"]);
@@ -84,10 +84,12 @@ test("a part of a catalog is a bar of the app's fold with its name as a heading,
             assert.deepEqual(marks, []);
             assert.deepEqual(lines, ["What it is for", "How to choose"]);
         }
-        // Closing it keeps it closed while it is drawn.
-        fold.props.onToggle({ currentTarget: { open: false } });
+        // Opening it keeps it open while it is drawn, and closing it closed.
+        fold.props.onToggle({ currentTarget: { open: true } });
         tree = draw();
-        assert.equal(findIn(tree, node => node.type === "fold").props.open, false);
+        assert.equal(findIn(tree, node => node.type === "fold").props.open, true);
+        findIn(tree, node => node.type === "fold").props.onToggle({ currentTarget: { open: false } });
+        assert.equal(findIn(draw(), node => node.type === "fold").props.open, false);
     }
 });
 
