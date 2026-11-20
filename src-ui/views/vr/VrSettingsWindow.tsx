@@ -419,7 +419,7 @@ const VrSettings = ({ t }: { t: Translate }) => {
                     { id: "LeftHand", label: t("vr_panel.anchor_left_hand") },
                     { id: "RightHand", label: t("vr_panel.anchor_right_hand") },
                 ]} />
-            <ToggleRow label={t("vr_panel.launcher_auto_hide")} sub={t("vr_panel.launcher_auto_hide_desc")}
+            <ToggleRow label={t("vr_panel.launcher_auto_hide")}
                 variable={vr.currentOverlayVrLauncherAutoHide} onToggle={vr.toggleOverlayVrLauncherAutoHide} />
             <ToggleRow label={t("vr_panel.tooltip_enabled")} sub={t("vr_panel.tooltip_enabled_desc")}
                 variable={vr.currentOverlayVrTooltip} onToggle={vr.toggleOverlayVrTooltip} />

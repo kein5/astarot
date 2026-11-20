@@ -30,8 +30,7 @@
 .country { font-size: 16px; line-height: 1.3; font-weight: 400; color: var(--dark_350_color); text-align: center; overflow-wrap: anywhere; }
 .targets { display: flex; flex-direction: column; gap: 8px; flex: 1 0 auto; }
 .target_heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-shrink: 0; }
-.target_heading h2 { margin-top: 8px; display: flex; align-items: baseline; gap: 12px; line-height: 1.3; }
-.target_heading h2 span { font-size: 16px; color: var(--dark_350_color); font-weight: 400; }
+.target_heading h2 { margin-top: 8px; line-height: 1.3; }
 .count { margin-top: 8px; font-size: 16px; font-variant-numeric: tabular-nums; flex-shrink: 0; color: var(--dark_350_color); }
 .selected_rows { display: flex; flex-direction: column; gap: 8px; flex-shrink: 0; }
 .target_row { align-items: stretch; gap: 8px; }
@@ -48,7 +47,6 @@
 .context > span { display: block; font-size: 16px; color: var(--dark_350_color); line-height: 1.3; }
 .context h2 { font-size: 16px; font-weight: 400; line-height: 1.3; overflow-wrap: anywhere; }
 .feedback { flex-shrink: 0; color: var(--primary_200_color); font-size: 16px; line-height: 1.4; padding: 10px 14px; border-radius: 12px; background: var(--dark_950_color); }
-.feedback span { color: var(--dark_350_color); }
 .retry { margin: 14px 16px 0; flex-shrink: 0; }
 .error { color: var(--warning_color); }
 .picker_scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding-right: 8px; display: flex; flex-direction: column; gap: 8px; scroll-padding-block: 8px; }
