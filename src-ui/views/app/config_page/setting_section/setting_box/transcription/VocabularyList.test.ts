@@ -40,8 +40,8 @@ test("the rows say the readings in use and the user's change; the summary counts
     const states = nodesIn(tree).filter(node => node.type === "li").map(node => node.props["data-state"]);
     assert.deepEqual(states, ["own", "builtin", "changed", "removed"], "the user's own terms come first, as the core uses them");
     assert.ok(words(s.row(tree, "Friends+")).includes("ふれぷら"));
-    assert.ok(words(s.row(tree, "Friends+")).includes("realtime.vocabulary_state_changed"), "the state is said in words, not by color alone");
-    assert.ok(words(s.row(tree, "猫丸")).includes("realtime.vocabulary_state_own"));
+    // No badge on a row (#792): its state is its place and look, and the words of its buttons.
+    assert.ok(!nodesIn(tree).some(node => typeof node.props?.children === "string" && node.props.children.startsWith("realtime.vocabulary_state_")));
     // A bar of the app's one fold, closed at first; its summary says what the list holds.
     assert.equal(tree.type, "fold");
     assert.equal(tree.props.size, undefined);

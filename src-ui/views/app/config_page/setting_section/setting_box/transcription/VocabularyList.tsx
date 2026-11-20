@@ -127,8 +127,6 @@ export const VocabularyList = ({ builtin, vocabulary, disabled, onVocabulary }: 
                             : <span className={styles.readings}>
                                 {row.readings.length ? <span>{readingsText(row.readings)}</span>
                                     : <span className={styles.none}>{t("realtime.vocabulary_no_reading")}</span>}
-                                {row.state !== "builtin" && <span className={voiceStyles.badge} data-tone={row.state === "removed" ? undefined : row.state}>
-                                    {t(`realtime.vocabulary_state_${row.state}`)}</span>}
                             </span>}
                         {!isEditing && <span className={styles.actions}>
                             {row.state !== "removed" && <button type="button" className={voiceStyles.quiet} disabled={disabled} onClick={() => startEdit(row)}
