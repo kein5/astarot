@@ -180,8 +180,6 @@ export const TtsOutputDeviceSettings = ({ title }: { title: string }) => {
         send("/get/data/voice_settings");
         send("/get/data/voice_output_devices");
     }, [send]);
-    // speech.cpp makes the voice of this language: Japanese may come from an engine the user installed.
-    const speechcpp = (role: VoiceModelRole) => role !== "japanese" || (draft?.japanese_engine || "speechcpp") === "speechcpp";
     const deviceList = devices.devices || [];
     return <section className={styles.container} aria-label={title} data-setting-id="tts_output_device">
         <SectionLabelComponent label={title} />

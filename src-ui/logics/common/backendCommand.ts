@@ -44,7 +44,9 @@ export type BackendChannelConstructor = new <T>() => { onmessage: (message: T) =
 type ListenerLists<E> = { [K in keyof E]?: Array<(value: E[K]) => void> };
 
 const register = <E, K extends keyof E>(list: ListenerLists<E>, event: K, listener: (value: E[K]) => void) => {
-    (list[event] ??= []).push(listener);
+    const listeners = list[event] ?? [];
+    list[event] = listeners;
+    listeners.push(listener);
 };
 
 export interface CoreBackendCommandOptions {
@@ -59,7 +61,7 @@ export const createCoreBackendCommand = ({ invoke, Channel, newSessionId }: Core
     const out: ListenerLists<BackendStreamEvents> = {};
     const err: ListenerLists<BackendStreamEvents> = {};
     const emit = <E, K extends keyof E>(list: ListenerLists<E>, event: K, value: E[K]) =>
-        (list[event] ?? []).forEach(listener => listener(value));
+        (list[event] ?? []).forEach(listener => { listener(value); });
     const command: BackendCommand = {
         on(event, listener) {
             register(own, event, listener);

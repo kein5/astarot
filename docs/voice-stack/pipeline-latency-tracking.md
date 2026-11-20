@@ -105,10 +105,138 @@ ASTAROT_PIPELINE_BMF=pipeline-latency.json cargo test --locked --manifest-path n
 - 区間は`pipeline: end of speech to audible speech`（話し終わりから訳した声が聞こえ始めるまで）で、p50 0.7秒以下、p95 1.0秒以下を目標にします。
 - 途中で2つ以上に分かれた発話は数えません。分かれた発話では、後半の声が前半の読み上げの終わりを待つので、声の遅れとは別の時間が入るためです。`pipeline_latency`の要約と`--bmf`の値は分かれなかった発話だけから求め、分かれた件数を要約の`split_utterances`に出します。
 - 録音と再生のバッファ（Linuxの録音補助、PipeWire、WindowsのWASAPI）は含めません。`pipeline_latency`はこれらを通さずに測ります。実機での値は別の記録にします。
-- 負荷平均1以下で、VRChatを動かしていないときの値で判定します。要約の`load_average`に、計測を始めたときと終えたときの負荷平均（1分、5分、15分）を記録します。1を超えたときは、標準エラーにその旨を出します。VRChatを動かしたときの値は、別の目標として測ります。
+- PCが静かで、VRChatを動かしていないときの値で判定します。静かとは、Linuxでは負荷平均が1以下、負荷平均のないWindowsではCPUの使用率（すべての論理プロセッサーの平均）が10%以下のことです（Windowsの目安は2026-11-21に決定、#738）。VRChatを動かしたときの値は、別の目標として測ります。
+- 要約には、計測を始めたときと終えたときのPCの様子を記録します。Linuxは`load_average`（1分、5分、15分の負荷平均）、Windowsは`cpu_usage`（5秒間の使用率、%）で、どちらも読めないOSでは`null`です。終えたときの値は、最後の発話とそのあとの無音を流し終えてから読みます。目安を超えたときは、標準エラーにその旨を出します。読み方と判定は`native/core/tests/machine_load.rs`にあります。
 
-この計測はCIでは動きません。認識、翻訳、読み上げのモデル（合わせて約2.5 GB）、speech.cppの実行ファイル、ONNX Runtime、日本語の音声の素材が要ります。また、GitHubのランナーにはGPUがありません。書き出したファイルは、CIと同じ形でBencherへ送れます。testbedには、CIのtestbedと混ざらない名前を付けます。
+この計測はCIでは動きません。認識、翻訳、読み上げのモデル（合わせて約2.5 GB）、speech.cppの実行ファイル、ONNX Runtime、日本語の音声の素材が要ります。また、GitHubのランナーにはGPUがありません。そのため、保守担当者のPCで手で測り、書き出したファイルをCIと同じ形でBencherへ送ります。段取りは2026-11-21に決めました（#738）。
+
+### 測るPCとテストベッド
+
+保守担当者の3台で測ります。テストベッドの名前は`<OS>-<CPU>-<GPU>`の形にそろえます。翻訳はCPUで動くので、GPUだけでなくCPUも名前に入れます。Bencherのプロジェクトは公開なので、ホスト名は入れません。
+
+| PC | テストベッド | 認識と読み上げのGPU |
+|---|---|---|
+| CachyOS（Linux 6.18）、Ryzen 9 9950X3D、RTX 4080 SUPER 16 GB | `cachyos-9950x3d-rtx4080super` | `Vulkan0`（RTX 4080 SUPER） |
+| Windows 11、Core i7-1255UのノートPC、ThunderboltでつないだRTX 3060 Ti | `win11-i7-1255u-rtx3060ti` | `speech devices --json`で確かめる（2026-11-18の記録では`Vulkan1`） |
+| RTX 3060 12 GBのPC | 未定（ASTAROTを入れたあとに決めて、この表に足す） | 未定 |
+
+CIのテストベッド（`ubuntu-latest`、`windows-latest`）とは名前が違うので、値は混ざりません。
+
+### Bencherでの置き場所と測る時期
+
+- 専用の枝`real-models`に送ります。developのCIの送信は、履歴をやり直すとき（`--start-point-reset`）にdevelopの枝の履歴を空にします。手測りを`develop`の枝に送ると、手測りの系列も一緒に切れるためです。測ったコミットは`--hash`で結び付けます。
+- しきい値は付けないので、アラートは出ません。テストベッドごとに10回分たまったら、付けるかどうかを見直します。
+- 測るのは、#556の変更がdevelopに入ったとき、版を出す前、それ以外は2週間に1回です。複数のPCで測るときは、同じコミットで測ります。
+- 1回の計測は`--runs 10`です。6つの入力を10巡し、2つに分かれなかった発話を数えます。2026-11-21の通し確認では6つのうち4〜5つを数えたので、1回に40〜50件になります。p95は最近接順位なので、数えた件数が20件以上あれば、最も遅い1件だけで決まりません。所要時間は15〜20分です。
+
+### 入力とモデル
+
+どのPCでも同じ入力と同じモデルを使い、写したあとにSHA-256で確かめます。
+
+- 入力は、日本語の7つのWAVE（`clip0.wav`〜`clip6.wav`。Irodori-TTS v4.1で作った合成音声、48 kHz、16 bit）と、正解の文の`texts.txt`です。最初の1つは慣らしで、数えません。リポジトリには入れず、保守担当者が各PCに写します。`pipeline_latency`が出すのは時間、件数、文字誤り率だけで、文と音声は出しません。
+- モデルは、アプリのモデルの取得の画面から、ライセンスと容量を確かめて取得します。保存先は設定のフォルダーの`downloaded_models/<ID>/<revision>/`です。SHA-256は、アプリのカタログ（`native/ops/data/speechcpp_models.json`、`native/ops/src/downloads/catalog.rs`、`native/ops/data/translation_models.json`）の値と比べます。
+
+  | 用途 | アプリでの名前 | ファイル |
+  |---|---|---|
+  | 認識 | Qwen3-ASR 0.6B（Q8_0） | `Qwen3-ASR-0.6B-Q8_0.gguf` |
+  | 発話の検出 | Silero VAD v6.2 · F32 | `silero-vad-309K-v6.2-F32.gguf` |
+  | 読み上げ | Qwen3-TTS 12Hz 0.6B CustomVoice · Q8_0（声は`ryan`） | `Qwen3-TTS-12Hz-0.6B-CustomVoice-Q8_0.gguf` |
+  | 翻訳 | M2M100 418M · int8（`m2m100-418m-onnx-int8`） | フォルダー（6つのファイル） |
+
+- speech.cppとONNX Runtimeは、測るコミットが固定する版を、リポジトリの道具で`build/`に取ります。インストールしたアプリの中のものは使いません。アプリと測るコミットで、固定の版がずれることがあるためです。
+- [2026-11-18の記録](pipeline-latency-2026-11-18.md)（p50 972 ms、p95 1,149 ms）は、自分で書き出した翻訳のモデルで測りました。このモデルは、公開した`m2m100-418m-onnx-int8`とエンコーダーとデコーダーのハッシュが違います。手測りの系列は公開した版で測るので、その記録の値とはそのままでは比べられません。
+
+入力のSHA-256は次のとおりです。
+
+```
+311b8c48cc5a1879e17483e8e528105c4a48a274c288d3bdda79dbed6e026f81  clip0.wav
+0c854d1dfa74d4683bb1707d6a6ab501016782aaee68ccc097a39fd1e0852cbf  clip1.wav
+8e73a92dbe19b63e7655b69ba3658ff07f15f56ffbc7c1f6bc5dc7da1063b01d  clip2.wav
+1edb5214b04a7491b43c1c548e081618e2cb6cf80271ee5fb5952ef7fd487aae  clip3.wav
+bd7e8d909097e43e53ac0f5f3e87dcf33fcd6ada82f077a21e0e66b5e7ab9912  clip4.wav
+34822f755f988456461ffa722664daffdd8229307eac7a50c2cd166846899821  clip5.wav
+e64d770924f2fad354e114032977abd3ef0204e20f276d2e52ff8e80986c300e  clip6.wav
+dc39540143ace64b680bdaa0331b7706c487f5226bffcf41396dc71ff88331eb  texts.txt
+```
+
+### 送る鍵
+
+Bencherに送る鍵は、保守担当者が各PCで自分で入れます。CIの鍵（リポジトリのシークレット`BENCHER_API_KEY`）はGitHubから読み出せないので、手測りには使いません。
+
+- 鍵は、BencherのConsoleで、プロジェクト`astarot`のAPIキー（`bencher_run_`で始まるプロジェクトのキー）としてPCごとに1つ作ります。キーの名前はテストベッドの名前にします。PCを使わなくなったら、そのPCのキーだけを失効させます。
+- キーはパスワードの管理の道具など、PCの外に保管します。送るときだけその端末に入れ、送ったらすぐ消します。
+- コマンドの引数（`--key`）には書きません。シェルの履歴とプロセスの一覧に残るためです。ファイル、シェルの設定、Issue、チャットにも書きません。
+
+### 各PCで1回だけする準備
+
+1. developをcheckoutし、`mise install`で道具をそろえる。Windowsでは、RustのMSVCのためにVisual StudioのC++のビルドツールも要る。
+2. 上の入力とモデルをそろえ、SHA-256を確かめる（Linuxは`sha256sum`、Windowsは`Get-FileHash`）。
+3. BencherのCLIをCIと同じ版（`pipeline-latency.yml`の`bencherdev/bencher`、いまはv0.6.16）で[公式のリリース](https://github.com/bencherdev/bencher/releases)から取り、リリースにある`.sha256`の値と比べてから、`bencher`の名前でPATHの通った場所に置く。Linuxは`bencher-v<版>-linux-x86-64`、Windowsは`bencher-v<版>-windows-x86-64.exe`です。
+4. 保守担当者が、上の「送る鍵」のとおりにPCのキーを作る。
+
+### 毎回の計測
+
+1. checkoutを最新のdevelopにし、speech.cppとONNX Runtimeを取り直して、`pipeline_latency`をビルドする（下のコマンド）。
+2. VRChat、SteamVR、ほかの重い処理を止める。Linuxでは、負荷平均（1分）が1以下になるまで待つ。Windowsでは、タスクマネージャーなどでCPUの使用率が落ち着いたことを見てから始める。
+3. `--runs 10`で測る。
+4. 標準エラーに出る要約で、数えた件数（`n`）、分かれた発話の数（`split_utterances`）、PCの様子（Linuxは`load_average`、Windowsは`cpu_usage`）を確かめる。目安を超えた回は標準エラーに注意が出るので、送らずに測り直す。
+5. `bencher run --dry-run`で、送る中身（枝、コミット、テストベッド、8つの値）を確かめる。dry runは鍵が要らず、Bencherに何も保存しない。
+6. 保守担当者が鍵を入れて送り、すぐ消す。
+
+Linux（bash）では次のとおりです。
 
 ```sh
-bencher run --project <プロジェクト> --branch develop --testbed <testbed> --adapter json --file <ファイル>
+# 測るコミットが固定するspeech.cpp（Vulkan版）とONNX Runtimeをbuild/に取り、pipeline_latencyをビルドする
+python tools/speechcpp_bundle.py --variant linux-x64-vulkan --download --output build/speechcpp --replace
+python tools/runtime_libraries.py --platform linux --download --output build
+cargo build --release --locked --manifest-path native/core/Cargo.toml --example pipeline_latency
+build/speechcpp/speech devices --json   # 使うGPUの名前を確かめる
+
+T=cachyos-9950x3d-rtx4080super
+C=$(git rev-parse --short=9 HEAD)
+ORT_DYLIB_PATH="$PWD/build/onnxruntime/libonnxruntime.so" \
+native/core/target/release/examples/pipeline_latency \
+  --app-dir . --clips <入力のフォルダー> \
+  --asr-model <Qwen3-ASR-0.6B-Q8_0.gguf> --vad-model <silero-vad-309K-v6.2-F32.gguf> \
+  --tts-model <Qwen3-TTS-12Hz-0.6B-CustomVoice-Q8_0.gguf> --translation <m2m100-418m-onnx-int8のフォルダー> \
+  --device Vulkan0 --runs 10 --label "$T-$C" --out "results-$T-$C.jsonl" --bmf "pipeline-$T-$C.json"
+
+# 送る中身を確かめる（鍵は要らない。何も保存しない）
+bencher run --project astarot --branch real-models --hash "$(git rev-parse HEAD)" --testbed "$T" \
+  --adapter json --file "pipeline-$T-$C.json" --dry-run
+
+# 保守担当者が送る。鍵は画面に出さずに入れ、送ったら消す
+read -rs -p 'Bencher key: ' BENCHER_API_KEY; echo; export BENCHER_API_KEY
+bencher run --project astarot --branch real-models --hash "$(git rev-parse HEAD)" --testbed "$T" \
+  --adapter json --file "pipeline-$T-$C.json"
+unset BENCHER_API_KEY
+```
+
+Windows（PowerShell）では次のとおりです。
+
+```powershell
+# 測るコミットが固定するspeech.cpp（Vulkan版）とONNX Runtimeをbuildに取り、pipeline_latencyをビルドする
+python tools/speechcpp_bundle.py --variant windows-x64-vulkan --download --output build/speechcpp --replace
+python tools/runtime_libraries.py --platform windows --download --output build
+cargo build --release --locked --manifest-path native/core/Cargo.toml --example pipeline_latency
+build\speechcpp\speech.exe devices --json   # RTX 3060 Tiの名前（Vulkan0、Vulkan1など）を確かめる
+
+$T = 'win11-i7-1255u-rtx3060ti'
+$C = git rev-parse --short=9 HEAD
+$env:ORT_DYLIB_PATH = "$PWD\build\onnxruntime\onnxruntime.dll"
+native\core\target\release\examples\pipeline_latency.exe `
+  --app-dir . --clips <入力のフォルダー> `
+  --asr-model <Qwen3-ASR-0.6B-Q8_0.gguf> --vad-model <silero-vad-309K-v6.2-F32.gguf> `
+  --tts-model <Qwen3-TTS-12Hz-0.6B-CustomVoice-Q8_0.gguf> --translation <m2m100-418m-onnx-int8のフォルダー> `
+  --device <上で確かめた名前> --runs 10 --label "$T-$C" --out "results-$T-$C.jsonl" --bmf "pipeline-$T-$C.json"
+
+# 送る中身を確かめる（鍵は要らない。何も保存しない）
+bencher run --project astarot --branch real-models --hash (git rev-parse HEAD) --testbed $T `
+  --adapter json --file "pipeline-$T-$C.json" --dry-run
+
+# 保守担当者が送る。鍵は画面に出さずに入れ、送ったら消す
+$env:BENCHER_API_KEY = [System.Net.NetworkCredential]::new('', (Read-Host 'Bencher key' -AsSecureString)).Password
+bencher run --project astarot --branch real-models --hash (git rev-parse HEAD) --testbed $T `
+  --adapter json --file "pipeline-$T-$C.json"
+Remove-Item Env:BENCHER_API_KEY
 ```

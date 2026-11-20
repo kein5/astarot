@@ -155,8 +155,10 @@ export const createSidecarSessionOwner = ({ store, createCommand, setInterval, c
                     }
                     // A reply to a line may send requests; until the child is known they could
                     // not be written and would read as "engine unavailable".
-                    if (!session.child) (session.early ??= []).push(message);
-                    else deliver(message);
+                    if (!session.child) {
+                        session.early ??= [];
+                        session.early.push(message);
+                    } else deliver(message);
                 });
                 command.stderr.on("data", line => {
                     if (!isLive(session)) return;

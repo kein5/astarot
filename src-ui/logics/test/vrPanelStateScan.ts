@@ -89,7 +89,9 @@ export const settingsByCategory = () => {
     const source = fs.readFileSync(requiredFile(path.join(SRC, "logics/configs/config_page_setter/ui_config_setter")), "utf8");
     const byCategory: Record<string, string[]> = {};
     for (const [, category, base] of source.matchAll(/Category:\s*"(\w+)",\s*Base_Name:\s*"(\w+)"/g)) {
-        (byCategory[category] ??= []).push(base);
+        const bases = byCategory[category] ?? [];
+        byCategory[category] = bases;
+        bases.push(base);
     }
     return byCategory;
 };

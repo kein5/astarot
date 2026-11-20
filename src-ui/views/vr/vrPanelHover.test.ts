@@ -50,7 +50,7 @@ function setup(context: TestContext) {
     });
     return { hover, root, listen, window, fonts, frames, observers, hits, writes, button,
         setHit: (value: FakeButton) => { hit = value; },
-        frame: () => { const pending = [...frames.values()]; frames.clear(); pending.forEach(fn => fn()); },
+        frame: () => { const pending = [...frames.values()]; frames.clear(); pending.forEach(fn => { fn(); }); },
     };
 }
 
@@ -80,7 +80,7 @@ test("view, layout, font and window changes share the scroll frame and use the l
     s.setHit(s.button("picker"));
     s.hover.setPointer({ x: 1, y: 2 });
     s.hover.setPointer({ x: 3, y: 4 });
-    s.observers.forEach(observer => observer.callback());
+    s.observers.forEach(observer => { observer.callback(); });
     s.window.dispatch("resize");
     s.fonts.dispatch("loadingdone");
     s.root.dispatch("scroll");

@@ -175,7 +175,7 @@ async function pickerHarness(context: TestContext, { height = 320, margin = 89, 
         });
         return tree;
     };
-    const frame = () => { const callbacks = [...frames.values()]; frames.clear(); callbacks.forEach(callback => callback()); };
+    const frame = () => { const callbacks = [...frames.values()]; frames.clear(); callbacks.forEach(callback => { callback(); }); };
     const microtasks = () => new Promise<void>(resolve => queueMicrotask(resolve));
     const settle = async (next?: Record<string, unknown>) => {
         render(next); await microtasks(); frame();
@@ -184,7 +184,7 @@ async function pickerHarness(context: TestContext, { height = 320, margin = 89, 
     };
     const replayMountEffects = ({ picker = true }: { picker?: boolean } = {}) => {
         cleanupVirtualizer();
-        if (picker) layoutEffects.forEach(effect => runCleanup(effect.cleanup));
+        if (picker) layoutEffects.forEach(effect => { runCleanup(effect.cleanup); });
         mountVirtualizer();
         if (picker) layoutEffects.forEach(effect => { effect.cleanup = effect.setup(); });
     };

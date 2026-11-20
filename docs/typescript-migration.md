@@ -246,7 +246,7 @@ ADR-010 のとおり、画面を触る作業に合わせて移すのが基本で
 
 - ソースを移す PR では、試験のうち移したファイルを名指しする行だけを書き換えます（`./saveBar.js` を `./saveBar.ts` にするなど）。試験の書き方、実行の方法、ハーネスの API は変えません。
 - ソースを文字列として読んで書き換えてから読み込む試験（`useStdoutToPython.test.js`、`languageMutations.test.js`）は、`node:module` の `stripTypeScriptTypes` で型を消してから import の行を書き換えます。型だけの import は消えるので、書き換えるのは値の import です。
-- ハーネスの `loadModule` は `.ts` と `.tsx` を Babel で変換して読み込みます。型だけの import は消えるので、モックは要りません。依存の指定に拡張子がなくても、対応するモックを見つけます。
+- ハーネスの `loadModule` は `.ts` と `.tsx` を、Vite の変換を通して読み込みます（`harnessModules.ts`）。型だけの import（`import type`）は消えるので、モックは要りません。依存の指定に拡張子がなくても、対応するモックを見つけます。
 
 ハーネスの 4 本（`hookHarness`、`bridgeHarness`、`vitestSetup`、`vrPanelStateScan`）を先に移しました。試験はこの上に、まとまりごとの PR で移します。
 

@@ -40,7 +40,7 @@ function walk(node: unknown, visit: (node: Node) => void) {
     if (isNode(node)) visit(node);
     for (const [key, value] of Object.entries(node)) {
         if (["loc", "comments", "tokens"].includes(key)) continue;
-        if (Array.isArray(value)) value.forEach(child => walk(child, visit));
+        if (Array.isArray(value)) value.forEach(child => { walk(child, visit); });
         else if (value && typeof value === "object") walk(value, visit);
     }
 }
