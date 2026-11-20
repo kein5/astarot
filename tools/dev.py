@@ -34,6 +34,8 @@ OWNER = "VRCT-VOX developer environment v1\n"
 # Plain unit tests that live in tests/platform next to the helpers they test; the rest of
 # that folder needs a desktop, a driver or real devices and runs only when asked.
 PLATFORM_UNIT_TESTS = (
+    # The teardown of the GUI tests' driver, on throwaway processes (Linux only).
+    "tests/platform/test_native_driver_teardown.py",
     "tests/platform/test_display_power_guard.py",
     "tests/platform/test_native_chatbox_helpers.py",
     "tests/platform/test_voice_measurement_math.py",
