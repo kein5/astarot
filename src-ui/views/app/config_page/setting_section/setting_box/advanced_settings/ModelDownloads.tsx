@@ -10,6 +10,7 @@ import { hardwareWarning, translationDeviceMode } from "../../../../../../logics
 import { RESTRICTIONS, canStart, restrictionsOf, startRequest } from "../../../../../../logics/voice/modelRestrictions";
 import { catalogFamilies, downloadStatus, firstVariant, familyLabel, variantLabel } from "../../../../../../logics/voice/modelCatalog";
 import styles from "./VoiceSettings.module.scss";
+import { Fold } from "../_components/fold/Fold";
 import { EnvReadout } from "../_components/env_readout/EnvReadout";
 import { Hint, useHintDescriptions } from "../_components/hint/Hint";
 import { catalogHeading } from "./catalogHeading";
@@ -101,9 +102,9 @@ export const HardwareReadout = ({ reserve, setReserve }: HardwareReadoutProps) =
             {hardware.measured_at_ms && <p>{t('model_downloads.hardware_measured')}: {measuredTime(hardware.measured_at_ms, i18n?.language)}</p>}
             {reading.multiple && <p>{t('model_downloads.multiple_gpus')}</p>}
         </EnvReadout>}
-        <details className={styles.more}><summary>{t('model_downloads.memory_boundary_summary')}</summary>
+        <Fold size="link" className={styles.more} summary={t('model_downloads.memory_boundary_summary')}>
             <p>{t('model_downloads.memory_boundary')}</p>
-        </details>
+        </Fold>
     </div>;
 };
 
@@ -355,9 +356,9 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
                 </div>
                 {downloaded && !job && shownStatus !== "in_use" && <p>{t("model_catalog.prepare_hint")}</p>}
                 <AuditionNote target={target} status={shownStatus} />
-                {guidance && !guidanceHint && <details className={styles.more}><summary>{t('model_downloads.guidance_summary')}</summary>
+                {guidance && !guidanceHint && <Fold size="link" className={styles.more} summary={t('model_downloads.guidance_summary')}>
                     {guidance.map(line => <p key={line}>{line}</p>)}
-                </details>}
+                </Fold>}
             </div>
         </li>;
     };
@@ -406,9 +407,9 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
                 {own && <UserModelRegistration target={target} busy={busy} />}
             </section>;
         })}
-        {hasTTS && !shared && <details className={styles.more}><summary>{t('model_downloads.memory_boundary_summary')}</summary>
+        {hasTTS && !shared && <Fold size="link" className={styles.more} summary={t('model_downloads.memory_boundary_summary')}>
             <p>{t('model_downloads.memory_boundary')}</p>
-        </details>}
+        </Fold>}
         {engines && targets.includes("japanese") && <EngineCatalog />}
         {selected && <dialog ref={dialog} aria-label={t("model_downloads.warning_title")} onCancel={event => { event.preventDefault(); close(); }}>
             <div className={styles.dialog_text}>

@@ -498,6 +498,9 @@ config_page:
     common:
         # The fold each settings page keeps its seldom-changed settings in (AdvancedSection.tsx).
         advanced_section: "詳細設定"
+        # What pressing a fold's bar does (_components/fold/Fold.tsx), for the eye only.
+        fold_open: "開く"
+        fold_close: "閉じる"
         open_color_picker: "{{label}}の色を選択"
         duration_seconds_one: "{{count}}秒"
         duration_seconds_other: "{{count}}秒"
@@ -1473,8 +1476,6 @@ realtime:
   vocabulary_list_one: "辞書の用語（{{count}}語）"
   vocabulary_list_other: "辞書の用語（{{count}}語）"
   vocabulary_list_about: "辞書の作り方"
-  vocabulary_list_open: "開く"
-  vocabulary_list_close: "閉じる"
   vocabulary_own_count_one: "自分で追加 {{count}}"
   vocabulary_own_count_other: "自分で追加 {{count}}"
   vocabulary_state_own: "自分で追加"

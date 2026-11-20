@@ -17,6 +17,7 @@ async function setup(vocabulary: Vocabulary, { hints = false, builtin = BUILTIN 
     const { VocabularyList } = await loadModule<typeof import("./VocabularyList.tsx")>(new URL("./VocabularyList.tsx", import.meta.url), runtime, {
         "@useI18n": { useI18n: () => ({ t: (key: string, options?: object) => options ? `${key}:${JSON.stringify(options)}` : key }) },
         "../_components/hint/Hint": { Hint: "hint", useHintDescriptions: () => hints },
+        "../_components/fold/Fold": { Fold: "fold" },
         "../../../../../../logics/transcription/vocabularyTerms.ts": vocabularyTerms,
     });
     const props = { builtin, vocabulary, disabled: false,
@@ -41,14 +42,12 @@ test("the rows say the readings in use and the user's change; the summary counts
     assert.ok(words(s.row(tree, "Friends+")).includes("ふれぷら"));
     assert.ok(words(s.row(tree, "Friends+")).includes("realtime.vocabulary_state_changed"), "the state is said in words, not by color alone");
     assert.ok(words(s.row(tree, "猫丸")).includes("realtime.vocabulary_state_own"));
-    const summary = findIn(tree, node => node.type === "summary");
-    assert.deepEqual(words(summary), ["realtime.vocabulary_list:{\"count\":3}", "realtime.vocabulary_own_count:{\"count\":1}",
-        "realtime.vocabulary_changed_count:{\"count\":1}", "realtime.vocabulary_removed_count:{\"count\":1}",
-        "realtime.vocabulary_list_open", "realtime.vocabulary_list_close"]);
-    // The bar's words of what it does are for the eye: the details element says whether it is open.
-    const toggle = findIn(summary, node => node.props["aria-hidden"] === "true");
-    assert.deepEqual(words(toggle), ["realtime.vocabulary_list_open", "realtime.vocabulary_list_close"]);
-    assert.equal(findIn(tree, node => node.type === "details").props.open, undefined, "closed at first");
+    // A bar of the app's one fold, closed at first; its summary says what the list holds.
+    assert.equal(tree.type, "fold");
+    assert.equal(tree.props.size, undefined);
+    assert.equal(tree.props.open, undefined, "closed at first");
+    assert.deepEqual(words(tree.props.summary), ["realtime.vocabulary_list:{\"count\":3}", "realtime.vocabulary_own_count:{\"count\":1}",
+        "realtime.vocabulary_changed_count:{\"count\":1}", "realtime.vocabulary_removed_count:{\"count\":1}"]);
     // A term taken out keeps its place with the one way back; a term of the user's is deleted, a
     // built-in one taken out.
     const buttons = (written: string) => nodesIn(s.row(tree, written)).filter(node => node.type === "button").map(node => node.props["aria-label"]);

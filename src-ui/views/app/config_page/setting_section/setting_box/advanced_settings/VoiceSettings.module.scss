@@ -79,7 +79,6 @@
     a:hover { color: var(--primary_200_color); }
     summary { cursor: pointer; padding: .8rem 0; font-weight: 600; }
     details.more { color: var(--dark_400_color, #adbed6); }
-    details.more summary { padding: .4rem 0; font-weight: 400; font-size: 1.3rem; }
     [role="alert"] { border: .1rem solid var(--warning_color); border-radius: var(--vox_radius); padding: .8rem 1.2rem; overflow-wrap: anywhere; font-size: 1.3rem; color: var(--dark_200_color); }
     label.checkLabel { display: flex; align-items: flex-start; gap: 1.2rem; cursor: pointer; }
     input[type="checkbox"] { appearance: auto; -webkit-appearance: checkbox; accent-color: var(--primary_400_color); width: 2rem; height: 2rem; min-height: 2rem; padding: 0; margin-top: .2rem; flex-shrink: 0; }
@@ -152,8 +151,6 @@
     &:focus-visible { outline: .2rem solid var(--primary_200_color); outline-offset: .3rem; }
     > strong, .card_head > strong { font-size: 1.5rem; font-weight: 600; color: var(--dark_200_color); }
     &[data-status="in_use"] { border-color: var(--vox_state_active, #b797f8); background: var(--vox_highlight_tint); }
-    // The memory guidance, where it is not a hint, is a quiet line at the card's foot.
-    details.more summary { padding: 0; }
 }
 // The name's line and what the model is, read as one; the file and its facts; the actions and
 // what they started. Each block is tight inside and apart from the next.

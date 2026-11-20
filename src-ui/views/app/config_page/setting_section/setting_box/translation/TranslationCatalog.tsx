@@ -10,6 +10,7 @@ import { useHintDescriptions } from "../_components/hint/Hint";
 import { catalogHeading } from "../advanced_settings/catalogHeading";
 import { TranslationLlamaRuntimes } from "./TranslationLlamaRuntimes";
 import styles from "../advanced_settings/VoiceSettings.module.scss";
+import { Fold } from "../_components/fold/Fold";
 import type { ApiForm as ApiFields, ApiItem, EngineForm as EngineFields, EngineItem, TranslationCatalog }
     from "../../../../../../logics/translation/translationCatalog";
 
@@ -67,10 +68,9 @@ const CatalogGroup = ({ group, catalog }: { group: CatalogGroupId; catalog: Tran
             {own.length > 0
                 ? <ul className={styles.catalog}>{own.map(entry => <EntryCard key={entry.item.id} {...entry} />)}</ul>
                 : <p>{t("translation_catalog.none_added")}</p>}
-            <details className={styles.more}>
-                <summary>{t("translation_catalog.shipped_title", { count: shipped.length })}</summary>
+            <Fold summary={t("translation_catalog.shipped_title", { count: shipped.length })}>
                 <ul className={styles.catalog}>{shipped.map(entry => <ShippedCard key={entry.item.id} {...entry} />)}</ul>
-            </details>
+            </Fold>
             {group === "engine" && (catalog.runtimes ?? []).includes("llamacpp") && <TranslationLlamaRuntimes onInstalled={askAgain} />}
             {group === "engine" ? <EngineForm runtimes={catalog.runtimes ?? []} /> : <ApiForm protocols={catalog.protocols ?? []} />}
         </div>
@@ -195,8 +195,7 @@ const EngineForm = ({ runtimes }: { runtimes: readonly string[] }) => {
         setProblem(null);
         send(REGISTER, checked.request);
     };
-    return <details className={styles.more} data-catalog-add="engine">
-        <summary>{t("translation_catalog.add.engine")}</summary>
+    return <Fold data-catalog-add="engine" summary={t("translation_catalog.add.engine")}>
         {/* The note about the translation-models folder leads here (revealSetting). */}
         <div role="group" aria-label={t("translation_catalog.add.engine")} onKeyDown={onEnter(submit, busy)} data-setting-id={ENGINE_FORM_SETTING_ID}>
             <p>{t(llamacpp ? "translation_catalog.add_help.engine_llamacpp" : "translation_catalog.add_help.engine")}</p>
@@ -231,7 +230,7 @@ const EngineForm = ({ runtimes }: { runtimes: readonly string[] }) => {
                 <button type="button" disabled={busy || runtimes.length === 0} onClick={submit}>{t("translation_catalog.add_do")}</button>
             </div>
         </div>
-    </details>;
+    </Fold>;
 };
 
 const ApiForm = ({ protocols }: { protocols: readonly string[] }) => {
@@ -251,8 +250,7 @@ const ApiForm = ({ protocols }: { protocols: readonly string[] }) => {
         setProblem(null);
         send(REGISTER, checked.request);
     };
-    return <details className={styles.more} data-catalog-add="api">
-        <summary>{t("translation_catalog.add.api")}</summary>
+    return <Fold data-catalog-add="api" summary={t("translation_catalog.add.api")}>
         <div role="group" aria-label={t("translation_catalog.add.api")} onKeyDown={onEnter(submit, busy)}>
             <p>{t("translation_catalog.add_help.api")}</p>
             {/* Read before an API is added: the whole text, in view. */}
@@ -286,5 +284,5 @@ const ApiForm = ({ protocols }: { protocols: readonly string[] }) => {
                 <button type="button" disabled={busy} onClick={submit}>{t("translation_catalog.add_do")}</button>
             </div>
         </div>
-    </details>;
+    </Fold>;
 };

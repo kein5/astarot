@@ -75,6 +75,7 @@ async function dialog(context: TestContext, entry: object) {
         "./UserModels": { UserModelCards: "user-model-cards", UserModelRegistration: "user-model-registration" },
         "./VoiceAudition": { AuditionButton: "audition-button", AuditionNote: "audition-note" },
         "../_components/hint/Hint": { Hint: "hint", useHintDescriptions: () => false },
+        "../_components/fold/Fold": { Fold: "fold" },
         "./catalogHeading": await loadHeading(runtime),
     });
     context.onTestFinished(() => runtime.unmount());

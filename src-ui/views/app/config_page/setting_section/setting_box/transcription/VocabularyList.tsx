@@ -4,6 +4,7 @@ import { useI18n } from "@useI18n";
 import * as styles from "./VocabularyList.css.ts";
 import voiceStyles from "../advanced_settings/VoiceSettings.module.scss";
 import { Hint, useHintDescriptions } from "../_components/hint/Hint";
+import { Fold } from "../_components/fold/Fold";
 import { addTerm, changeOwnReadings, changeReadings, deleteOwn, dictionaryRows, readingsText, restoreAllBuiltin, restoreBuiltin, takeOut }
     from "../../../../../../logics/transcription/vocabularyTerms.ts";
 import type { AddResult, DictionaryRow, ReadingsChange, Vocabulary } from "../../../../../../logics/transcription/vocabularyTerms.ts";
@@ -77,24 +78,13 @@ export const VocabularyList = ({ builtin, vocabulary, disabled, onVocabulary }: 
     const typing = (set: (value: string) => void) => (value: string) => { set(value); setAdded(null); };
 
     return (
-        <details className={styles.fold}>
-            {/* The bar: what the list holds, then what pressing it does, in words and a turning
-                chevron. The details element says to assistive technology whether it is open. */}
-            <summary className={styles.summary}>
-                <span className={styles.summaryText}>
-                    <span className={styles.title}>{t("realtime.vocabulary_list", { count: rows.length - removed })}</span>
-                    {own > 0 && <span className={voiceStyles.badge} data-tone="own">{t("realtime.vocabulary_own_count", { count: own })}</span>}
-                    {changed > 0 && <span className={voiceStyles.badge} data-tone="changed">{t("realtime.vocabulary_changed_count", { count: changed })}</span>}
-                    {removed > 0 && <span className={voiceStyles.badge}>{t("realtime.vocabulary_removed_count", { count: removed })}</span>}
-                </span>
-                <span className={styles.toggle} aria-hidden="true">
-                    <span className={styles.openWord}>{t("realtime.vocabulary_list_open")}</span>
-                    <span className={styles.closeWord}>{t("realtime.vocabulary_list_close")}</span>
-                    <svg className={styles.chevron} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
-                        strokeLinecap="round" strokeLinejoin="round"><path d="M6 9l6 6 6-6" /></svg>
-                </span>
-            </summary>
-            <div className={styles.body}>
+        // A bar of the app's one fold (Fold.tsx): what the list holds, closed at first.
+        <Fold summary={<>
+            <span className={styles.title}>{t("realtime.vocabulary_list", { count: rows.length - removed })}</span>
+            {own > 0 && <span className={voiceStyles.badge} data-tone="own">{t("realtime.vocabulary_own_count", { count: own })}</span>}
+            {changed > 0 && <span className={voiceStyles.badge} data-tone="changed">{t("realtime.vocabulary_changed_count", { count: changed })}</span>}
+            {removed > 0 && <span className={voiceStyles.badge}>{t("realtime.vocabulary_removed_count", { count: removed })}</span>}
+        </>}>
             {/* How the list is built and follows a newer app: the hint of its line on a page that
                 keeps descriptions out of sight (#614), a line elsewhere. */}
             {hints
@@ -159,7 +149,6 @@ export const VocabularyList = ({ builtin, vocabulary, disabled, onVocabulary }: 
             </ul>
             {builtin && vocabulary.builtin !== false && <div><button type="button" disabled={disabled || (!changed && !removed)}
                 onClick={() => { setEditing(null); onVocabulary(restoreAllBuiltin(vocabulary, builtin)); }}>{t("realtime.vocabulary_restore_all")}</button></div>}
-            </div>
-        </details>
+        </Fold>
     );
 };
