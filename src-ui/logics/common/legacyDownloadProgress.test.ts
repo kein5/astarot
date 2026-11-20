@@ -2,32 +2,48 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test, vi } from "vitest";
 import i18next from "i18next";
+import type { ResourceKey, TOptions } from "i18next";
 import yaml from "js-yaml";
-import { hooks, loadModule, find } from "../test/hookHarness.ts";
+import type { TestContext } from "vitest";
+import { hooks, loadModule, find, unchecked } from "../test/hookHarness.ts";
+import type { TreeNode } from "../test/hookHarness.ts";
+import type { DownloadButtonProps, DownloadOption } from "../../views/app/config_page/setting_section/setting_box/_components/_atoms/_download_button/_DownloadButton.tsx";
 
-async function fixture(context, language = "en", name = "ctranslate2_weight_type") {
+// A locale file is a mapping of keys to text, as locales/config reads it.
+const translationOf = (text: string): ResourceKey => {
+    const translation: unknown = yaml.load(text);
+    if (typeof translation === "string" || (typeof translation === "object" && translation !== null)) return translation;
+    throw new TypeError("A locale file holds no translations");
+};
+
+async function fixture(context: TestContext, language = "en", name = "ctranslate2_weight_type") {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"], now: 0 });
-    const runtime = hooks(), messages = [];
+    const runtime = hooks(), messages: string[] = [];
     const translations = i18next.createInstance();
-    const resource = yaml.load(readFileSync(new URL(`../../../locales/${language}.yml`, import.meta.url), "utf8"));
+    const resource = translationOf(readFileSync(new URL(`../../../locales/${language}.yml`, import.meta.url), "utf8"));
     await translations.init({ lng: language, resources: { [language]: { translation: resource } } });
-    const t = (key, values) => { messages.push(key); return translations.t(key, values); };
+    const t = (key: string, values?: TOptions) => { messages.push(key); return translations.t(key, values); };
     const statusHook = await loadModule(new URL("./useLegacyDownloadStatus.ts", import.meta.url), runtime);
-    const { CircularProgress } = await loadModule(new URL("../../views/common_components/circular_progress/CircularProgress.tsx", import.meta.url), runtime);
-    const { _DownloadButton } = await loadModule(new URL("../../views/app/config_page/setting_section/setting_box/_components/_atoms/_download_button/_DownloadButton.tsx", import.meta.url), runtime, {
+    const { CircularProgress } = await loadModule<typeof import("../../views/common_components/circular_progress/CircularProgress.tsx")>(new URL("../../views/common_components/circular_progress/CircularProgress.tsx", import.meta.url), runtime);
+    const { _DownloadButton } = await loadModule<typeof import("../../views/app/config_page/setting_section/setting_box/_components/_atoms/_download_button/_DownloadButton.tsx")>(new URL("../../views/app/config_page/setting_section/setting_box/_components/_atoms/_download_button/_DownloadButton.tsx", import.meta.url), runtime, {
         "@useI18n": { useI18n: () => ({ t }) }, "@common_components": { CircularProgress },
         "../../../../../../../../logics/common/useLegacyDownloadStatus": statusHook,
     });
-    const option = { id: "base", label: "base", progress: null, is_pending: false, is_downloaded: false };
-    const props = { option, name, downloadStartFunction: () => assert.fail("no automatic download") };
+    const option: DownloadOption = { id: "base", label: "base", progress: null, is_pending: false, is_downloaded: false };
+    // The row also passes its setting's name, which the button does not read.
+    const props: DownloadButtonProps & { name: string } = { option, name, downloadStartFunction: () => assert.fail("no automatic download") };
     const render = () => { runtime.render(_DownloadButton, props); return runtime.render(_DownloadButton, props); };
     context.onTestFinished(() => runtime.unmount());
     return { option, render, runtime, messages,
-        progress: tree => {
+        progress: (tree: TreeNode) => {
             const node = find(tree, node => node.type === CircularProgress);
             return node && CircularProgress(node.props).props;
         },
-        status: tree => find(tree, node => node.props?.role === "status").props };
+        status: (tree: TreeNode) => {
+            const node = find(tree, node => node.props?.role === "status");
+            assert.ok(node);
+            return node.props;
+        } };
 }
 
 // The built-in downloads are the local translation weights; the Whisper ones went with the engine (#288).
@@ -105,10 +121,14 @@ test("an already installed model stays quiet; unmount cancels pending announceme
 });
 
 test("shared circular progress clamps determinate values and omits unknown values", async () => {
-    const { CircularProgress } = await loadModule(new URL("../../views/common_components/circular_progress/CircularProgress.tsx", import.meta.url), hooks());
-    for (const [value, expected] of [[-5, 0], [108, 100], [NaN, undefined], [null, undefined]]) {
-        const tree = CircularProgress({ variant: "determinate", value, "aria-label": "Test download" });
+    const { CircularProgress } = await loadModule<typeof import("../../views/common_components/circular_progress/CircularProgress.tsx")>(new URL("../../views/common_components/circular_progress/CircularProgress.tsx", import.meta.url), hooks());
+    const cases: [number | null, number | undefined][] = [[-5, 0], [108, 100], [NaN, undefined], [null, undefined]];
+    for (const [value, expected] of cases) {
+        // null on purpose: a value the backend has not sent.
+        const tree = CircularProgress({ variant: "determinate", value: unchecked<number>(value), "aria-label": "Test download" });
         assert.equal(tree.props["aria-valuenow"], expected);
-        assert.equal(find(tree, node => node.type === "svg").props["aria-hidden"], "true");
+        const svg = find(tree, node => node.type === "svg");
+        assert.ok(svg);
+        assert.equal(svg.props["aria-hidden"], "true");
     }
 });

@@ -9,14 +9,20 @@ import { test } from "vitest";
 // then cannot write or delete files, start a program or open a site the link list does not
 // allow. These tests fail when a permission comes back without a use.
 const root = new URL("../../../", import.meta.url);
-const read = path => readFileSync(new URL(path, root), "utf8");
+const read = (path: string) => readFileSync(new URL(path, root), "utf8");
 const capabilityFolder = new URL("src-tauri/capabilities/", root);
-const capabilities = readdirSync(capabilityFolder).filter(name => name.endsWith(".json"))
+// A permission is named alone or with its scope (Tauri's capability files).
+type Permission = string | { identifier: string };
+interface Capability {
+    name: string;
+    permissions: Permission[];
+}
+const capabilities: Capability[] = readdirSync(capabilityFolder).filter(name => name.endsWith(".json"))
     .map(name => ({ name, ...JSON.parse(readFileSync(new URL(name, capabilityFolder), "utf8")) }));
-const id = permission => typeof permission === "string" ? permission : permission.identifier;
-const plugin = permission => id(permission).split(":")[0];
+const id = (permission: Permission) => typeof permission === "string" ? permission : permission.identifier;
+const plugin = (permission: Permission) => id(permission).split(":")[0];
 
-const sources = (folder, found = []) => {
+const sources = (folder: URL, found: URL[] = []) => {
     for (const name of readdirSync(folder)) {
         const path = new URL(name, folder);
         if (statSync(path).isDirectory()) sources(new URL(`${name}/`, folder), found);

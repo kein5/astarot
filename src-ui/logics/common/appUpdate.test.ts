@@ -1,24 +1,27 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import { createAppUpdate, downloadPercent, INITIAL_APP_UPDATE } from "./appUpdate.ts";
+import type { AppUpdateInstallProgress, AppUpdateMode, AppUpdateState } from "./appUpdate.ts";
+import { unchecked } from "../test/hookHarness.ts";
 
-const setup = (answers, mode = "install") => {
-    let state = { ...INITIAL_APP_UPDATE };
-    const calls = [];
-    const channels = [];
-    const invoke = async (command, args) => {
+const setup = (answers: Record<string, unknown>, mode: AppUpdateMode = "install") => {
+    let state: AppUpdateState = { ...INITIAL_APP_UPDATE };
+    const calls: string[] = [];
+    const channels: ((message: AppUpdateInstallProgress) => void)[] = [];
+    // Tauri's invoke, answering each command with the test's data (or failing with it).
+    const invoke = async <T,>(command: string, args?: Record<string, unknown>): Promise<T> => {
         calls.push(command);
-        if (command === "app_update_info") return { mode, kind: "appimage", channel: "stable", current_version: "0.4.0" };
+        if (command === "app_update_info") return unchecked<T>({ mode, kind: "appimage", channel: "stable", current_version: "0.4.0" });
         const answer = answers[command];
-        if (typeof answer === "function") return answer(args);
+        if (typeof answer === "function") return unchecked<T>(answer(args));
         if (answer instanceof Error || typeof answer === "string") throw answer;
-        return answer;
+        return unchecked<T>(answer);
     };
     const updater = createAppUpdate({
         invoke,
-        createChannel: onmessage => { channels.push(onmessage); return { onmessage }; },
+        createChannel: (onmessage: (message: AppUpdateInstallProgress) => void) => { channels.push(onmessage); return { onmessage }; },
         get: () => state,
-        set: next => { state = next; },
+        set: (next: AppUpdateState) => { state = next; },
     });
     return { updater, calls, channels, state: () => state };
 };
@@ -28,7 +31,7 @@ test("a found update is offered with its version and release page", async () => 
     await s.updater.check();
     assert.equal(s.state().status, "available");
     assert.equal(s.state().version, "0.4.1");
-    assert.equal(s.state().info.mode, "install");
+    assert.equal(s.state().info?.mode, "install");
 });
 
 test("no update means up to date", async () => {
@@ -54,7 +57,7 @@ test("an unknown rejection becomes a generic code, not the raw message", async (
 });
 
 test("deb, rpm and development builds never ask for updates", async () => {
-    for (const mode of ["package_manager", "disabled"]) {
+    for (const mode of ["package_manager", "disabled"] as const) {
         const s = setup({ app_update_check: { available: true, version: "9.9.9" } }, mode);
         await s.updater.check();
         assert.deepEqual(s.calls, ["app_update_info"]);
@@ -96,11 +99,12 @@ test("a failed install goes back to the offer and says why; the app keeps runnin
 });
 
 test("a second check while one runs is ignored", async () => {
-    let release;
+    let release: ((value: unknown) => void) | undefined;
     const s = setup({ app_update_check: () => new Promise(resolve => { release = resolve; }) });
     const first = s.updater.check();
     await new Promise(resolve => setImmediate(resolve));
     await s.updater.check();
+    assert.ok(release);
     release({ available: false });
     await first;
     assert.equal(s.calls.filter(command => command === "app_update_check").length, 1);
