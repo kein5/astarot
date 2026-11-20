@@ -12,7 +12,8 @@ import { SectionLabelComponent } from "../_components/section_label_component/Se
 import { Hint, useHintDescriptions } from "../_components/hint/Hint";
 import { HintCheck } from "../_components/hint/HintCheck";
 import { VocabularyBulk } from "./VocabularyBulk.tsx";
-import { MAX_USER_TERMS, parseTerm, writtenKey } from "../../../../../../logics/transcription/vocabularyTerms.ts";
+import { VocabularyBuiltin } from "./VocabularyBuiltin.tsx";
+import { MAX_USER_TERMS, ownTerms, parseTerm, writtenKey } from "../../../../../../logics/transcription/vocabularyTerms.ts";
 import type { TFunction } from "i18next";
 import type { CaptionSource } from "../../../../../../logics/transcription/realtimeCaptionState";
 import type { RealtimeAsrEndpointId, RealtimeAsrSettings, RealtimeAsrSourceSettings, RealtimeAsrVocabulary }
@@ -35,11 +36,11 @@ export const RealtimeASRSettings = () => {
     const hints = useHintDescriptions();
     const names = createLanguageNames(i18n.language);
     const languageLabel = (code: string) => code === "auto" ? t("realtime.auto_language") : names.fromCode(code);
-    const { settings, state, endpoints, models, error, send, updateError } = useRealtimeASR();
+    const { settings, state, endpoints, models, error, builtinVocabulary, send, updateError } = useRealtimeASR();
     const { state: servers, send: sendSpeech } = useSpeechServers();
     const label = ([group, field]: string[]) => {
         if (["mic", "speaker"].includes(group)) return t(`realtime.${group}_${field === "language" ? "language" : "input"}`);
-        if (group === "vocabulary") return t(field === "builtin" ? "realtime.vocabulary_builtin" : "realtime.vocabulary_user");
+        if (group === "vocabulary") return t(field === "builtin" || field === "removed" ? "realtime.vocabulary_builtin" : "realtime.vocabulary_user");
         const fields: Partial<Record<string, string>> = { server: "speech_servers.asr_selection", base_url: "realtime.url", model: "realtime.model", silence_duration_ms: "realtime.silence" };
         return t(fields[group] ?? "realtime.title");
     };
@@ -53,6 +54,8 @@ export const RealtimeASRSettings = () => {
     useEffect(() => {
         send("/get/data/realtime_asr_settings");
         send("/get/data/realtime_asr_state");
+        // The built-in terms the dictionary lists to be changed or taken out (#792).
+        send("/get/data/builtin_vocabulary");
         sendSpeech("/get/data/speech_server_state");
         refreshDevices();
     }, [send, sendSpeech]);
@@ -74,6 +77,8 @@ export const RealtimeASRSettings = () => {
         return value ? { ...previous, silence_duration_ms: Number(value) } : previous;
     });
     const vocabulary: RealtimeAsrVocabulary = draft?.vocabulary ?? { builtin: true, terms: [] };
+    // The user's own terms; those that change a built-in term are listed with the built-in ones.
+    const own = ownTerms(builtinVocabulary, vocabulary);
     const updateVocabulary = (values: Partial<RealtimeAsrVocabulary>) => setDraft(previous => previous && { ...previous, vocabulary: { ...vocabulary, ...values } });
     // One keyword per entry, "written=reading,reading", made canonical as the backend makes it;
     // the backend checks it again on save.
@@ -162,8 +167,10 @@ export const RealtimeASRSettings = () => {
                 {!hints && <Description text={t("realtime.vocabulary_help")} />}
                 <label className={styles.checkLabel}><input type="checkbox" disabled={saving} checked={vocabulary.builtin !== false}
                     onChange={event => updateVocabulary({ builtin: event.target.checked })} />{t("realtime.vocabulary_builtin")}</label>
+                {vocabulary.builtin !== false && builtinVocabulary && <VocabularyBuiltin builtin={builtinVocabulary} vocabulary={vocabulary}
+                    disabled={saving} onVocabulary={next => setDraft(previous => previous && { ...previous, vocabulary: next })} />}
                 <ul aria-label={t("realtime.vocabulary_user")}>
-                    {vocabulary.terms.map(row => <li key={row}>{row} <button type="button" disabled={saving}
+                    {own.map(row => <li key={row}>{row} <button type="button" disabled={saving}
                         aria-label={t("realtime.vocabulary_remove", { term: row })}
                         onClick={() => updateVocabulary({ terms: vocabulary.terms.filter(other => other !== row) })}>{t("realtime.vocabulary_remove_short")}</button></li>)}
                 </ul>
