@@ -19,7 +19,7 @@ mise run check               # 軽量チェック
 | --- | --- |
 | `doctor` | `python tools/dev.py doctor` |
 | `check`、`check:all` | `python tools/dev.py check`（`quick`）、`--scope all` |
-| `check:voice`、`check:ui`、`check:rust`、`check:integration`、`check:workflows` | `python tools/dev.py check --scope <名前>` |
+| `check:voice`、`check:ui`、`check:rust`、`check:integration`、`check:workflows`、`check:crates` | `python tools/dev.py check --scope <名前>` |
 | `check:commits` | `python tools/dev.py check --scope commits --base origin/develop` |
 | `setup:headless`、`setup:ui`、`setup:browser`、`setup:rust`、`setup:resources`、`setup:integration` | `python tools/dev.py setup --scope <名前>` |
 | `spec` | 機能仕様書の一覧を作り直す（`python tools/spec_catalog.py --write`） |
@@ -34,7 +34,19 @@ mise run check               # 軽量チェック
 
 設計判断の記録（ADR）の索引の表（[docs/adr/README.md](adr/README.md)）は、各 ADR の冒頭の front matter から生成します。ADR を足したり front matter を変えたりしたら `mise run adr` で作り直します。`check` は `tests/devtools/test_adr_catalog.py` で、番号の重複、項目と値、裏付けのパス、リンク、表の古さを確かめます。
 
-npmのスクリプト（`npm run doctor`、`npm run check` など）も当面は残します。中身は同じ `tools/dev.py` ですが、miseを通らないので、PATHにあるツールの版で動きます。アプリの起動（`npm run dev-fast` など）とWindowsの配布物のビルド（`npm run release`）は、今までどおりnpmのスクリプトです。miseを有効にしたシェル（`mise activate`）から呼ぶと、固定した版で動きます。
+開発CLI（`tools/dev.py`）の近道は、miseのタスクだけに置きます（2026-11-21）。npmのスクリプトに残すのは、npmでないと動かないものです。Vite、Tauri、アプリの起動（`npm run dev-fast` など）、Windowsの配布物のビルド（`npm run build`、`npm run release`）、UIの試験（`npm test`、Vitest）、型チェック（`npm run typecheck`）などです。miseを有効にしたシェル（`mise activate`）から呼ぶと、npmのスクリプトも固定した版で動きます。
+
+以前はnpmにも同じ近道があり、miseと食い違っていました（npmの `check:commits` は `--base` を渡さず、範囲の検査の名前は `test:*` でした）。npmの近道は、次のmiseのタスクに替わりました。
+
+| 以前のnpmのスクリプト | miseのタスク |
+| --- | --- |
+| `npm run doctor` | `mise run doctor` |
+| `npm run check`、`npm run check:all` | `mise run check`、`mise run check:all` |
+| `npm run check:commits` | `mise run check:commits` |
+| `npm run test:voice`、`npm run test:ui`、`npm run test:integration` | `mise run check:voice`、`mise run check:ui`、`mise run check:integration` |
+| `npm run setup:headless`、`npm run setup:browser` | `mise run setup:headless`、`mise run setup:browser` |
+
+`check:commits` は、cloneしたときの `origin/develop` と比べます。リモートの名前が違うときは、`mise run check:commits --base <リモート>/develop` のように後ろに `--base` を書くと、そちらが使われます。`tests/devtools/test_dev_shortcuts.py` が、npmのスクリプトから `tools/dev.py` を呼んでいないこと、範囲のタスクの名前が範囲の名前（`check:<範囲>`、`setup:<範囲>`）とそろっていること、npmへ渡すタスクが残っているスクリプトを指していることを確かめます。
 
 ## 用意するツール
 
@@ -100,7 +112,7 @@ Linuxのトレイ用ライブラリは `ayatana-appindicator3-0.1` または `ap
 | `headless` | `uv.lock` の `voice-test` グループだけを `build/dev/headless-venv` に同期 |
 | `ui` | `npm ci --ignore-scripts` でルートの `node_modules` を準備 |
 | `browser` | `uv.lock` の `voice-ui-test` グループを `build/dev/browser-venv` に同期。既存venvへの追加も可 |
-| `rust` | `cargo fetch --locked` でCargo.lockに従う依存を取得（`src-tauri` と、`tools/dev.py` の `NATIVE_CRATES` にある `native/` のクレート。下の `check --scope rust` と同じ一覧） |
+| `rust` | `cargo fetch --locked` でCargo.lockに従う依存を取得（`tools/dev.py` の `CARGO_WORKSPACES`。`src-tauri`、`NATIVE_CRATES` にある `native/` のクレート、結合テストの `native/browser-core-bridge`、`native/ocr-runtime`、`native/rvc-runtime`。下の `check --scope crates` と同じ一覧） |
 | `resources` | `tools/app_resources.py stage --allow-missing` で `src-tauri/bin/_internal` を `build/` にあるもので作り直す |
 | `integration` | [結合テスト](#結合テストplaywright)の準備。`native/browser-core-bridge` の依存を `cargo fetch --locked` で取得し、Playwright の Chromium と WebKit を取得する（合わせて数百 MB）。先に `setup --scope ui` が要る。ブラウザが使う OS のライブラリは入れない |
 
@@ -155,11 +167,12 @@ python tools/dev.py check --scope integration
 | `lint` | `tools/dev.py` の `LINT_PATHS`（`tests/voice`、`tests/devtools`、音声・配布・開発の道具）をRuffで検査。自動修正なし。voice CIも同じスコープを実行する |
 | `voice` | `tests/voice/pytest.ini` を使ったモデルなしの契約試験と、`tests/platform`にある単体の試験3件 |
 | `ui` | UIの試験（Vitest）、[Biome](#uiのlintと整形biome)のlintと整形の検査、型チェック（`npm run typecheck`）、`npm run vite-build`。ブラウザの操作は含まない |
-| `rust` | `src-tauri` の `cargo check --locked --offline` と、`native/app-identity`、`native/speech-server`、`native/ops`、`native/audio-routing`、`native/adapters`、`native/translation`、`native/transcription`、`native/openvr-client`、`native/onnx-runtime`、`native/vr-overlay`、`native/voice-conversion`、`native/translate-onnx`、`native/tts`、`native/core` の `cargo test --locked --offline`。キャッシュやOS依存（Linuxでは `libpipewire-0.3` の開発ファイルとlibclang。`src-tauri` も中核を通して使う）がなければ失敗 |
+| `rust` | `src-tauri` の `cargo check --locked --offline` と、`native/app-identity`、`native/speech-server`、`native/ops`、`native/audio-routing`、`native/adapters`、`native/translation`、`native/transcription`、`native/openvr-client`、`native/onnx-runtime`、`native/vr-overlay`、`native/voice-conversion`、`native/translate-onnx`、`native/tts`、`native/core` の試験を、cargo-nextestで実行（`cargo nextest run --locked --offline`）。nextestはdoctestを流さないので、`src/lib.rs` のあるクレートは続けて `cargo test --doc` を実行する。キャッシュやOS依存（Linuxでは `libpipewire-0.3` の開発ファイルとlibclang。`src-tauri` も中核を通して使う）がなければ失敗 |
 | `integration` | [結合テスト](#結合テストplaywright)。`native/browser-core-bridge` を `cargo build --locked --offline` で組み、`tests/integration/vite.config.ts` で画面を組んでから、Playwright で Chromium と WebKit の試験を流す。ブラウザは取得しない。未導入なら `setup --scope integration` を案内して止まる |
 | `workflows` | ワークフローと自前のアクションを、actionlintとzizmorで検査（[リポジトリの検査](#リポジトリの検査)） |
+| `crates` | すべてのCargoのワークスペースの依存のライセンス、禁止の設定、取得元を、cargo-denyで検査（[リポジトリの検査](#リポジトリの検査)）。先に `setup --scope rust` が要る |
 | `quick` | `tooling`、`node`、`lint`。既定値 |
-| `all` | 上記8対象。時間がかかるため統合時に明示実行 |
+| `all` | 上記9対象。時間がかかるため統合時に明示実行 |
 | `commits` | `--base` からHEADまでの新規コミット形式を検証 |
 
 Pythonは専用venvを優先し、次に既存の `.venv` を探します。`--python` があればその実行ファイルを使います。専用venvがない状態で `all` を実行しても、依存の不足を黙って省略しません。`doctor --scope all` で先に確認できます。
@@ -186,10 +199,13 @@ Pythonは専用venvを優先し、次に既存の `.venv` を探します。`--p
 | スコープ | 道具 | 確かめること | 例外の置き場所 |
 | --- | --- | --- | --- |
 | `workflows` | actionlint、zizmor | ワークフローの書き方、式、型（actionlint）。ワークフロー、自前のアクション、`dependabot.yml` の安全の問題（zizmor） | `.github/zizmor.yml`、または該当行の `# zizmor: ignore[<監査>] <理由>` |
+| `crates` | cargo-deny | 18のCargoのワークスペース（`CARGO_WORKSPACES`）の依存のライセンス、取得元（crates.ioと、許可したgitのリポジトリ）、版を書かない依存。配布する2つのシステム（WindowsとLinuxのx64）で組む依存だけを見る | `deny.toml` |
 
 - actionlintのshellcheckとpyflakesの検査は切っています。どちらも `mise.toml` で版を固定していないので、PCによって結果が変わるためです。
 - zizmorは、`GH_TOKEN` があるとGitHubに問い合わせる監査（固定したコミットが本当にそのアクションのものか、既知の脆弱性のある版か）も行います。CIではワークフローのトークン（読み取りだけ）を渡します。手元では、`GH_TOKEN` がなければその監査を飛ばします。
 - 例外を足すときは、理由を必ず書きます。
+- `deny.toml` のライセンスは[ライセンス台帳](voice-stack/licensing.md)に合わせています。許容型（MIT、Apache-2.0、BSD、ISC、Zlib、Unicode-3.0など）はどのクレートにも認め、MPL-2.0とCDLA-Permissive-2.0は台帳で確かめたクレートだけに認めます。新しい依存で検査が止まったら、台帳に記録してから `deny.toml` に足します。既知の脆弱性はcargo-denyでは見ません。
+- CIでは `crates` だけを別のワークフロー `rust-crates.yml` で実行します。すべての依存の取得が要るので、`Cargo.toml`、`Cargo.lock`、`deny.toml` などを変えたPRと、developとmainへのpushだけで動きます。
 
 ## UIのTypeScriptとスタイル（移行中）
 

@@ -29,7 +29,7 @@ The GitHub Actions workflow `VRCT-VOX Linux candidate (no publication)` targets 
 It runs on relevant pull requests or manual dispatch, tests the relocated package,
 and the AppImage extraction fallback, then retains successful candidates for seven days. It has `contents: read`, no
 publishing credentials and no release/AUR actions. The Linux packages of the
-[`v0.1.0-beta.1` prerelease](https://github.com/kein5/VRCT-VOX/releases/tag/v0.1.0-beta.1)
+[`v0.1.0-beta.1` prerelease](https://github.com/kein5/astarot/releases/tag/v0.1.0-beta.1)
 are candidates from this workflow, published through the
 [release draft gate](release-candidates.md). A local build is an unpublished candidate.
 

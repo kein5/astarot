@@ -4,6 +4,8 @@ version = "0.0.0"
 description = "ASTAROT: speech, voice conversion and translated chat"
 authors = ["misyaguziya"]
 edition = "2024"
+# Never published: cargo-deny (deny.toml) treats it as this repository's own code.
+publish = false
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

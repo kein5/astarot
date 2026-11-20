@@ -1,0 +1,62 @@
+# cargo-deny's settings for every Cargo workspace in this repository
+# (python tools/dev.py check --scope crates; docs/development.md, "リポジトリの検査").
+#
+# The licenses follow the license ledger, docs/voice-stack/licensing.md ("Rust依存のライセンス文"):
+# permissive licenses for any crate, and MPL-2.0 and CDLA-Permissive-2.0 only for the crates the
+# ledger reviewed. A crate that needs anything else stops the check until the ledger and this file
+# both say why it is acceptable.
+
+[graph]
+# The systems ASTAROT ships for. Crates only another system builds are not counted.
+targets = ["x86_64-pc-windows-msvc", "x86_64-unknown-linux-gnu"]
+
+[licenses]
+allow = [
+    "MIT",
+    "MIT-0",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Zlib",
+    "Unicode-3.0",
+    "CC0-1.0",
+    "Unlicense",
+    "BSL-1.0",
+]
+confidence-threshold = 0.93
+exceptions = [
+    # MPL-2.0, a file-level copyleft: used unmodified, and the source of the same version is on
+    # crates.io. The ledger lists these crates; dwrote is built on Windows only.
+    { allow = ["MPL-2.0"], crate = "cssparser" },
+    { allow = ["MPL-2.0"], crate = "cssparser-macros" },
+    { allow = ["MPL-2.0"], crate = "dtoa-short" },
+    { allow = ["MPL-2.0"], crate = "dwrote" },
+    { allow = ["MPL-2.0"], crate = "option-ext" },
+    { allow = ["MPL-2.0"], crate = "selectors" },
+    # Mozilla's root certificates, derived from the CCADB data; the attribution is in NOTICE.md and
+    # in the crate list tools/rust_licenses.py writes. webpki-root-certs is in a lock file but in
+    # no build.
+    { allow = ["CDLA-Permissive-2.0"], crate = "webpki-roots" },
+    { allow = ["CDLA-Permissive-2.0"], crate = "webpki-root-certs" },
+]
+
+[licenses.private]
+# This repository's own crates (publish = false) are VRCT-VOX's code under its LICENSE.
+ignore = true
+
+[bans]
+# Two versions of one crate are common through the Tauri and GTK stacks; not checked for now.
+multiple-versions = "allow"
+# A dependency must name its version; this repository's own path crates need not.
+wildcards = "deny"
+allow-wildcard-paths = true
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-git = [
+    # Sudachi's tokenizer, pinned to one revision in the lock files (native/translation).
+    "https://github.com/WorksApplications/sudachi.rs",
+]
