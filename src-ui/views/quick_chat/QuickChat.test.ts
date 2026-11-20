@@ -1,41 +1,59 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { test } from 'vitest';
-import { hooks, loadModule, find, eventTarget, stubGlobals } from '../../logics/test/hookHarness.ts';
+import type { TestContext } from 'vitest';
+import { hooks, loadModule, find, eventTarget, stubGlobals, unchecked } from '../../logics/test/hookHarness.ts';
+import type { TreeNode } from '../../logics/test/hookHarness.ts';
 import { deferred, flush } from '../../logics/test/bridgeHarness.ts';
 import * as chatboxLength from '../../logics/common/chatboxLength.ts';
+import type { QuickChatBridge } from './QuickChat.tsx';
 
-async function setup(testContext) {
-    const runtime = hooks(), properties = new Map(), callbacks = {}, removals = [], submissions = [];
+// A node the test goes on to read: it must be there.
+const found = (tree: unknown, predicate: (node: TreeNode) => boolean) => {
+    const node = find(tree, predicate);
+    assert.ok(node);
+    return node;
+};
+// An element's ref. React elements keep it, but React 18's types leave it out of ReactElement.
+const refOf = (node: TreeNode): { current: unknown } => Reflect.get(node, 'ref');
+// A callback the window registers; calling it before that stops with a TypeError.
+const notYet = async (_event?: unknown): Promise<void> => { throw new TypeError('the window has not registered this callback'); };
+
+async function setup(testContext: TestContext) {
+    const runtime = hooks(), properties = new Map<string, string>(), removals: string[] = [], submissions: unknown[] = [];
+    const callbacks: { open: (event?: unknown) => unknown; context: (event?: unknown) => unknown } = { open: notYet, context: notYet };
     let context = { language: 'ja', enter_to_send: true, clear_on_send: true, ui_scaling: 150, font_family: 'Noto Sans JP' };
-    let focusCount = 0, hideCount = 0, contextRead = () => Promise.resolve(context);
+    let focusCount = 0, hideCount = 0, contextRead: () => Promise<unknown> = () => Promise.resolve(context);
     const field = { focus: () => focusCount++ };
     const i18n = { changeLanguage: async () => {} };
     const window = eventTarget();
-    stubGlobals(testContext, { window, document: { documentElement: { style: { setProperty: (key, value) => properties.set(key, value) } } } });
-    const bridge = {
+    stubGlobals(testContext, { window, document: { documentElement: { style: { setProperty: (key: string, value: string) => properties.set(key, value) } } } });
+    const fake = {
         context: () => contextRead(),
-        onOpen: async callback => { callbacks.open = callback; return () => removals.push('open'); },
-        onContextChanged: async callback => { callbacks.context = callback; return () => removals.push('context'); },
+        onOpen: async (callback: (event?: unknown) => unknown) => { callbacks.open = callback; return () => removals.push('open'); },
+        onContextChanged: async (callback: (event?: unknown) => unknown) => { callbacks.context = callback; return () => removals.push('context'); },
         hide: async () => { hideCount++; },
-        submit: request => { submissions.push(request); return bridge.handoff.promise; },
-        handoff: deferred(),
+        submit: (request: unknown): Promise<boolean> => { submissions.push(request); return fake.handoff.promise; },
+        handoff: deferred<boolean>(),
     };
-    const { QuickChat } = await loadModule(new URL('./QuickChat.tsx', import.meta.url), runtime, {
-        '@useI18n': { useI18n: () => ({ t: key => key, i18n }) },
+    // Test data: the contexts the test reads carry only the settings the window applies, and the
+    // window calls the open and context callbacks with or without an event.
+    const bridge = unchecked<QuickChatBridge>(fake);
+    const { QuickChat } = await loadModule<typeof import('./QuickChat.tsx')>(new URL('./QuickChat.tsx', import.meta.url), runtime, {
+        '@useI18n': { useI18n: () => ({ t: (key: string) => key, i18n }) },
         '../../logics/quickChat/bridge': { quickChatBridge: bridge },
         '../../logics/common/chatboxLength': chatboxLength,
     });
     const render = () => runtime.render(QuickChat, { bridge }, tree => {
-        tree.ref.current = {};
-        find(tree, node => node.type === 'textarea').ref.current = field;
+        refOf(tree).current = {};
+        refOf(found(tree, node => node.type === 'textarea')).current = field;
     });
     render(); await flush(); render();
-    return { runtime, render, properties, callbacks, removals, bridge, submissions,
-        setContext: next => { context = { ...context, ...next }; },
-        setRead: read => { contextRead = read; },
+    return { runtime, render, properties, callbacks, removals, bridge: fake, submissions,
+        setContext: (next: Partial<typeof context>) => { context = { ...context, ...next }; },
+        setRead: (read: () => Promise<unknown>) => { contextRead = read; },
         get focusCount() { return focusCount; }, get hideCount() { return hideCount; },
-        field: () => find(render(), node => node.type === 'textarea').props,
+        field: () => found(render(), node => node.type === 'textarea').props,
     };
 }
 
@@ -78,7 +96,7 @@ test('an older context read cannot overwrite a later settings update', async t =
 test('appearance updates preserve Quick Chat IME, repeat, pending and failed-handoff draft guards', async t => {
     const subject = await setup(t);
     subject.field().onChange({ target: { value: 'こんにちは' } });
-    const enter = extra => subject.field().onKeyDown({ key: 'Enter', nativeEvent: {}, preventDefault() {}, ...extra });
+    const enter = (extra?: object) => subject.field().onKeyDown({ key: 'Enter', nativeEvent: {}, preventDefault() {}, ...extra });
     subject.field().onCompositionStart(); enter(); subject.field().onCompositionEnd();
     enter({ nativeEvent: { isComposing: true } }); enter({ keyCode: 229 }); enter({ repeat: true }); enter({ shiftKey: true });
     assert.equal(subject.submissions.length, 0);
@@ -104,10 +122,10 @@ test('minimum-size layout keeps scrollable overflow, wrapping actions and nonshr
 });
 
 test('main publishes saved appearance on initial configuration and later changes', async () => {
-    const runtime = hooks(), contexts = [];
+    const runtime = hooks(), contexts: { ui_scaling: number; font_family: string }[] = [];
     let scale = 150, font = 'Noto Sans JP';
-    const { QuickChatController } = await loadModule(new URL('../app/_app_controllers/QuickChatController.tsx', import.meta.url), runtime, {
-        '@tauri-apps/api/core': { invoke: async (name, args) => { if (name === 'quick_chat_configure') contexts.push(args.context); } },
+    const { QuickChatController } = await loadModule<typeof import('../app/_app_controllers/QuickChatController.tsx')>(new URL('../app/_app_controllers/QuickChatController.tsx', import.meta.url), runtime, {
+        '@tauri-apps/api/core': { invoke: async (name: string, args: { context: { ui_scaling: number; font_family: string } }) => { if (name === 'quick_chat_configure') contexts.push(args.context); } },
         '@tauri-apps/api/event': { listen: async () => () => {} },
         '@useI18n': { useI18n: () => ({ i18n: { language: 'ja' } }) },
         '../../../logics/common/useMessage': { useMessage: () => ({ sendMessage() { assert.fail('configuration must not send'); } }) },
@@ -126,8 +144,8 @@ test('main publishes saved appearance on initial configuration and later changes
     assert.equal(contexts[0].font_family, 'Noto Sans JP');
     scale = 200; font = 'Local font';
     runtime.render(QuickChatController); await flush();
-    assert.equal(contexts.at(-1).ui_scaling, 200);
-    assert.equal(contexts.at(-1).font_family, 'Local font');
+    assert.equal(contexts.at(-1)?.ui_scaling, 200);
+    assert.equal(contexts.at(-1)?.font_family, 'Local font');
     runtime.unmount();
 });
 

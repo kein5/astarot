@@ -1,30 +1,45 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { test, vi } from "vitest";
-import { hooks, loadModule, find, stubGlobals } from "../../logics/test/hookHarness.ts";
+import type { TestContext } from "vitest";
+import { hooks, loadModule, find, stubGlobals, unchecked } from "../../logics/test/hookHarness.ts";
+import type { TreeNode } from "../../logics/test/hookHarness.ts";
 import { flush } from "../../logics/test/bridgeHarness.ts";
 import * as lines from "../../logics/captionOverlay/lines.ts";
 import * as speakerLabels from "../../logics/common/speakerLabels.ts";
+import type { CaptionOverlayBridge } from "../../logics/captionOverlay/bridge.ts";
 
-const findAll = (tree, match, found = []) => {
+const findAll = (tree: unknown, match: (node: TreeNode) => boolean, found: TreeNode[] = []) => {
     if (Array.isArray(tree)) tree.forEach(item => findAll(item, match, found));
     else if (tree && typeof tree === "object") {
-        if (match(tree)) found.push(tree);
-        findAll(tree.props?.children, match, found);
+        // An object in the rendered tree is an element, as find reads it.
+        const node = unchecked<TreeNode>(tree);
+        if (match(node)) found.push(node);
+        findAll(node.props?.children, match, found);
     }
     return found;
 };
+// A node the test goes on to read: it must be there.
+const found = (tree: unknown, predicate: (node: TreeNode) => boolean) => {
+    const node = find(tree, predicate);
+    assert.ok(node);
+    return node;
+};
 
-async function setup(context, snapshot) {
+async function setup(context: TestContext, snapshot: unknown) {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
-    const runtime = hooks(), properties = new Map(), callbacks = {}, removed = [];
+    const runtime = hooks(), properties = new Map<string, string>(), removed: string[] = [];
+    // The overlay's own callback once it listens; calling it before that stops with a TypeError.
+    const callbacks = { changed: (_event?: unknown): void => { throw new TypeError("callbacks.changed is not a function"); } };
     let clock = 1000, current = snapshot, reads = 0;
-    stubGlobals(context, { document: { documentElement: { style: { setProperty: (key, value) => properties.set(key, value) } } } });
-    const bridge = {
+    stubGlobals(context, { document: { documentElement: { style: { setProperty: (key: string, value: string) => properties.set(key, value) } } } });
+    // The notice carries nothing, so the test calls the overlay's callback with or without an
+    // event; the bridge's declared callback always takes one.
+    const bridge = unchecked<CaptionOverlayBridge>({
         snapshot: async () => { reads++; return current; },
-        onChanged: async callback => { callbacks.changed = callback; return () => removed.push("changed"); },
-    };
-    const { CaptionOverlay } = await loadModule(new URL("./CaptionOverlay.tsx", import.meta.url), runtime, {
+        onChanged: async (callback: (event?: unknown) => void) => { callbacks.changed = callback; return () => removed.push("changed"); },
+    });
+    const { CaptionOverlay } = await loadModule<typeof import("./CaptionOverlay.tsx")>(new URL("./CaptionOverlay.tsx", import.meta.url), runtime, {
         "../../logics/captionOverlay/bridge": { captionOverlayBridge: bridge },
         "../../logics/captionOverlay/lines": lines,
         "../../logics/common/speakerLabels": speakerLabels,
@@ -35,9 +50,9 @@ async function setup(context, snapshot) {
     return { runtime, render, properties, callbacks, removed,
         texts: () => findAll(render(), node => node.type === "p").map(node => node.props.children),
         lineClasses: () => findAll(render(), node => node.type === "div" && node.key !== null && node.key !== undefined).map(node => node.props.className),
-        container: () => find(render(), node => node.type === "div"),
-        advance: ms => { clock += ms; vi.advanceTimersByTime(ms); },
-        set: next => { current = next; },
+        container: () => found(render(), node => node.type === "div"),
+        advance: (ms: number) => { clock += ms; vi.advanceTimersByTime(ms); },
+        set: (next: unknown) => { current = next; },
         get reads() { return reads; },
     };
 }
@@ -61,9 +76,9 @@ test("the overlay reads its captions through the command, draws them and applies
 
 test("the user's own words and the other side are drawn in different colours and on different sides", async () => {
     const scss = await readFile(new URL("./CaptionOverlay.module.scss", import.meta.url), "utf8");
-    const rule = name => scss.match(new RegExp(`^\\.${name} \\{([^}]*)\\}`, "m"))?.[1] ?? "";
-    const ink = name => rule(name).match(/--caption_ink: (#[0-9a-f]{6});/)?.[1];
-    const soft = name => rule(name).match(/--caption_ink_soft: (#[0-9a-f]{6});/)?.[1];
+    const rule = (name: string) => scss.match(new RegExp(`^\\.${name} \\{([^}]*)\\}`, "m"))?.[1] ?? "";
+    const ink = (name: string) => rule(name).match(/--caption_ink: (#[0-9a-f]{6});/)?.[1];
+    const soft = (name: string) => rule(name).match(/--caption_ink_soft: (#[0-9a-f]{6});/)?.[1];
     assert.ok(ink("sent") && ink("received") && soft("sent") && soft("received"));
     assert.notEqual(ink("sent"), ink("received"));
     assert.notEqual(soft("sent"), soft("received"));
@@ -77,13 +92,13 @@ test("the user's own words and the other side are drawn in different colours and
 });
 
 test("a heard line leads with who spoke and takes that voice's colour", async context => {
-    const heard = (id, speakers, text = "こんばんは", translations = []) =>
+    const heard = (id: string, speakers: string[] | undefined, text = "こんばんは", translations: string[] = []) =>
         ({ id, kind: "received", text, translations, pending: false, until: 9000, ...(speakers ? { speakers } : {}) });
     const s = await setup(context, { ...base, lines: [
         heard("a", ["A"]), heard("b", ["B", "A"], "", ["Good evening"]), heard("c", ["E"]), heard("d", undefined),
         heard("e", ["a"]), { ...heard("f", ["A"]), kind: "sent" },
     ] });
-    const label = child => Array.isArray(child) ? [child[0].props.className, child[0].props.children, child[1]] : child;
+    const label = (child: unknown) => Array.isArray(child) ? [child[0].props.className, child[0].props.children, child[1]] : child;
     assert.deepEqual(s.texts().map(label), [
         ["who", "A", "こんばんは"],
         // Two voices in one line; with only the translation shown, the label leads it.
@@ -100,7 +115,7 @@ test("a heard line leads with who spoke and takes that voice's colour", async co
 
 test("a voice with a name is written by its name and keeps its label's colour", async context => {
     // #447: the names given to the voices of the session.
-    const heard = (id, speakers, speaker_names) =>
+    const heard = (id: string, speakers: string[], speaker_names: string[]) =>
         ({ id, kind: "received", text: "やあ", translations: [], pending: false, until: 9000, speakers, speaker_names });
     const s = await setup(context, { ...base, lines: [
         heard("a", ["A", "B"], ["ミカ", ""]), heard("b", ["B"], ["ユウ"]), heard("c", ["A"], ["ミカ", "x"]),
@@ -112,7 +127,7 @@ test("a voice with a name is written by its name and keeps its label's colour", 
 
 test("each voice has a colour of its own, none of them the user's blue", async () => {
     const scss = await readFile(new URL("./CaptionOverlay.module.scss", import.meta.url), "utf8");
-    const ink = name => scss.match(new RegExp(`^\\.${name} \\{[^}]*--caption_ink: (#[0-9a-f]{6});`, "m"))?.[1];
+    const ink = (name: string) => scss.match(new RegExp(`^\\.${name} \\{[^}]*--caption_ink: (#[0-9a-f]{6});`, "m"))?.[1];
     const inks = [ink("received"), ink("voice_1"), ink("voice_2"), ink("voice_3")];
     assert.ok(inks.every(Boolean));
     assert.equal(new Set([...inks, ink("sent")]).size, 5);
@@ -159,7 +174,7 @@ test("while Ctrl is held over it the overlay outlines itself and shows the text 
     await flush();
     const [outline] = frame();
     assert.equal(outline.props["aria-hidden"], "true");
-    assert.deepEqual(find(outline, node => node.type === "span").props.children, [32, " px"]);
+    assert.deepEqual(found(outline, node => node.type === "span").props.children, [32, " px"]);
     // The captions stay as they were under the outline.
     assert.deepEqual(s.texts(), ["こんにちは"]);
     s.set({ ...base, lines: [line] });

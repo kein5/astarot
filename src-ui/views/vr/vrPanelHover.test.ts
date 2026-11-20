@@ -1,41 +1,62 @@
 import assert from "node:assert/strict";
 import { test, vi } from "vitest";
-import { eventTarget, stubGlobals } from "../../logics/test/hookHarness.ts";
+import type { TestContext } from "vitest";
+import { eventTarget, stubGlobals, unchecked } from "../../logics/test/hookHarness.ts";
 import { trackVrPointerHover } from "./vrPanelHover.ts";
+import type { VrPointerHover } from "./vrPanelHover.ts";
 
-function setup(context) {
-    let hover;
+type Listener = (event: unknown) => unknown;
+// What the tracker asks an observer to watch for: MutationObserver's options; ResizeObserver gets none.
+type ObserveOptions = { subtree?: boolean; childList?: boolean; attributes?: boolean; attributeFilter?: string[] };
+// A button under the pointer, as the tracker reads it.
+interface FakeButton {
+    inert?: boolean;
+    closest(selector: string): FakeButton | null;
+    setAttribute: (...args: unknown[]) => number;
+    removeAttribute: (...args: unknown[]) => number;
+}
+
+function setup(context: TestContext) {
+    let hover: VrPointerHover | undefined;
     context.onTestFinished(() => hover?.dispose());
-    const frames = new Map(), observers = [], hits = [], writes = [];
-    let sequence = 0, hit = null;
-    const root = { ...eventTarget(), contains: target => !target.outside, querySelectorAll: () => ["panel", "popup"] };
-    vi.spyOn(root, "addEventListener");
+    const frames = new Map<number, () => void>(), observers: Observer[] = [], hits: [number, number][] = [], writes: unknown[][] = [];
+    let sequence = 0, hit: FakeButton | null = null;
+    const target = eventTarget();
+    const root = { ...target,
+        // The tracker listens with a capture flag, which the fake event target leaves out.
+        addEventListener: (type: string, fn: Listener, _capture?: boolean) => target.addEventListener(type, fn),
+        contains: (node: { outside?: boolean }) => !node.outside, querySelectorAll: () => ["panel", "popup"] };
+    const listen = vi.spyOn(root, "addEventListener");
     const window = eventTarget(), fonts = eventTarget();
-    const document = { fonts, documentElement: {}, body: {}, elementFromPoint: (x, y) => { hits.push([x, y]); return hit; } };
+    const document = { fonts, documentElement: {}, body: {}, elementFromPoint: (x: number, y: number) => { hits.push([x, y]); return hit; } };
     class Observer {
-        constructor(callback) { this.callback = callback; this.observed = []; observers.push(this); }
-        observe(...args) { this.observed.push(args); }
+        callback: () => void;
+        observed: [unknown, ObserveOptions?][] = [];
+        disconnected?: boolean;
+        constructor(callback: () => void) { this.callback = callback; observers.push(this); }
+        observe(...args: [unknown, ObserveOptions?]) { this.observed.push(args); }
         disconnect() { this.disconnected = true; }
     }
     stubGlobals(context, { window, document, MutationObserver: Observer, ResizeObserver: Observer,
-        requestAnimationFrame: fn => { frames.set(++sequence, fn); return sequence; },
-        cancelAnimationFrame: id => frames.delete(id),
+        requestAnimationFrame: (fn: () => void) => { frames.set(++sequence, fn); return sequence; },
+        cancelAnimationFrame: (id: number) => frames.delete(id),
     });
-    hover = trackVrPointerHover(root);
-    const button = name => ({
+    // Test data: the root holds only what the tracker uses of an element.
+    hover = trackVrPointerHover(unchecked<HTMLElement>(root));
+    const button = (name: string): FakeButton => ({
         closest(selector) { return selector === "[inert]" ? (this.inert ? this : null) : this; },
         setAttribute: (...args) => writes.push([name, "set", ...args]),
         removeAttribute: (...args) => writes.push([name, "remove", ...args]),
     });
-    return { hover, root, window, fonts, frames, observers, hits, writes, button,
-        setHit: value => { hit = value; },
+    return { hover, root, listen, window, fonts, frames, observers, hits, writes, button,
+        setHit: (value: FakeButton) => { hit = value; },
         frame: () => { const pending = [...frames.values()]; frames.clear(); pending.forEach(fn => fn()); },
     };
 }
 
 test("scroll under a stationary pointer re-hit-tests once per frame, with no unchanged-target writes", context => {
     const s = setup(context), first = s.button("first"), second = s.button("second");
-    assert.equal(s.root.addEventListener.mock.calls[0][2], true);
+    assert.equal(s.listen.mock.calls[0][2], true);
     s.setHit(first);
     for (let i = 0; i < 100; i++) s.hover.setPointer({ x: 10, y: 20 });
     assert.equal(s.frames.size, 1);
@@ -67,9 +88,10 @@ test("view, layout, font and window changes share the scroll frame and use the l
     s.frame();
     assert.deepEqual(s.hits, [[3, 4]]);
     const mutations = s.observers[0].observed[0][1];
+    assert.ok(mutations);
     assert.equal(mutations.subtree, true);
     assert.equal(mutations.childList, true);
-    assert.equal(mutations.attributeFilter.includes("data-vr-hover"), false);
+    assert.equal(mutations.attributeFilter?.includes("data-vr-hover"), false);
     assert.equal(s.observers[0].observed.length, 3); // Atlas plus inherited html/body styles.
     assert.equal(s.observers[1].observed.length, 3);
 });
@@ -82,7 +104,7 @@ test("null pointer and teardown cancel queued tests and clear hover; inert targe
     s.root.dispatch("scroll");
     s.hover.setPointer(null);
     assert.equal(s.frames.size, 0);
-    assert.equal(s.writes.at(-1)[1], "remove");
+    assert.equal(s.writes.at(-1)?.[1], "remove");
     s.root.dispatch("scroll");
     assert.equal(s.frames.size, 0);
     button.inert = true;

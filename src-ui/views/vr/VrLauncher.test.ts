@@ -1,23 +1,35 @@
 import assert from "node:assert/strict";
 import { test, vi } from "vitest";
-import { eventTarget, find, hooks, loadModule } from "../../logics/test/hookHarness.ts";
+import type { TestContext } from "vitest";
+import { eventTarget, find, hooks, loadModule, unchecked } from "../../logics/test/hookHarness.ts";
+import type { TreeNode } from "../../logics/test/hookHarness.ts";
 import * as switchBlocks from "../../logics/main/switchBlocks.ts";
 
-async function launcher(context) {
+// A node the test goes on to read: it must be there.
+const found = (tree: unknown, predicate: (node: TreeNode) => boolean) => {
+    const node = find(tree, predicate);
+    assert.ok(node);
+    return node;
+};
+// Draws a node of the tree whose component is one of the launcher's own function components.
+const component = (node: TreeNode) => unchecked<(props: object) => TreeNode>(node.type);
+
+async function launcher(context: TestContext) {
     const runtime = hooks(), document = eventTarget(), window = eventTarget();
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
-    const previousDocument = globalThis.document, previousWindow = globalThis.window;
-    globalThis.document = document;
-    globalThis.window = window;
+    // The globals the fakes stand in for, set and put back as the assignments and deletes did.
+    const previousDocument: unknown = globalThis.document, previousWindow: unknown = globalThis.window;
+    Reflect.set(globalThis, "document", document);
+    Reflect.set(globalThis, "window", window);
     context.onTestFinished(() => {
         runtime.unmount();
-        if (previousDocument === undefined) delete globalThis.document;
-        else globalThis.document = previousDocument;
-        if (previousWindow === undefined) delete globalThis.window;
-        else globalThis.window = previousWindow;
+        if (previousDocument === undefined) Reflect.deleteProperty(globalThis, "document");
+        else Reflect.set(globalThis, "document", previousDocument);
+        if (previousWindow === undefined) Reflect.deleteProperty(globalThis, "window");
+        else Reflect.set(globalThis, "window", previousWindow);
     });
-    const calls = [];
-    const { VrLauncher } = await loadModule(new URL("./VrLauncher.tsx", import.meta.url), runtime, {
+    const calls: string[] = [];
+    const { VrLauncher } = await loadModule<typeof import("./VrLauncher.tsx")>(new URL("./VrLauncher.tsx", import.meta.url), runtime, {
         "@logics_common": {
             useIsOpenedConfigPage: () => ({ currentIsOpenedConfigPage: { data: false } }),
             useVrPanelLogOutOfView: () => ({ currentVrPanelLogOutOfView: { data: false } }),
@@ -26,7 +38,7 @@ async function launcher(context) {
         "@logics_main": { useMainFunction: () => ({}) },
         "@store": { useStore_SwitchBlocks: () => ({ currentSwitchBlocks: { data: {} } }) },
         "../../logics/main/switchBlocks": switchBlocks,
-        "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: path => calls.push(path) }) },
+        "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: (path: string) => calls.push(path) }) },
         "@images/brand/icon-small.svg": "icon",
         "@images/brand/logo.svg": "logo",
         "./VrTooltip": { VrTooltipButton: "button" },
@@ -35,7 +47,7 @@ async function launcher(context) {
         toggleLog: () => calls.push("toggleLog"), openLog: () => calls.push("openLog"), togglePopup() {} });
     const logButton = find(tree, node => typeof node.props?.onLongPress === "function");
     assert.ok(logButton);
-    const render = () => runtime.render(logButton.type, logButton.props);
+    const render = () => runtime.render(component(logButton), logButton.props);
     render();
     return { runtime, document, window, calls, render };
 }
@@ -104,10 +116,13 @@ test("launcher cancellation listeners stay stable across renders and clean up on
 });
 
 // The function buttons, rendered with the given switch states, blocks and settings page state.
-async function functionButtons({ blocks = {}, statuses = {}, configOpen = false } = {}) {
-    const runtime = hooks(), calls = [];
-    const status = name => statuses[name] ?? { state: "ok", data: false };
-    const { VrLauncher } = await loadModule(new URL("./VrLauncher.tsx", import.meta.url), runtime, {
+type Block = { reason: string; action: string };
+type Status = { state: string; data: boolean };
+async function functionButtons({ blocks = {}, statuses = {}, configOpen = false }:
+    { blocks?: Record<string, Block>; statuses?: Record<string, Status>; configOpen?: boolean } = {}) {
+    const runtime = hooks(), calls: string[] = [];
+    const status = (name: string) => statuses[name] ?? { state: "ok", data: false };
+    const { VrLauncher } = await loadModule<typeof import("./VrLauncher.tsx")>(new URL("./VrLauncher.tsx", import.meta.url), runtime, {
         "@logics_common": {
             useIsOpenedConfigPage: () => ({ currentIsOpenedConfigPage: { data: configOpen } }),
             useVrPanelLogOutOfView: () => ({ currentVrPanelLogOutOfView: { data: false } }),
@@ -121,14 +136,14 @@ async function functionButtons({ blocks = {}, statuses = {}, configOpen = false 
         }) },
         "@store": { useStore_SwitchBlocks: () => ({ currentSwitchBlocks: { data: blocks } }) },
         "../../logics/main/switchBlocks": switchBlocks,
-        "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: path => calls.push(path) }) },
+        "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: (path: string) => calls.push(path) }) },
         "@images/brand/icon-small.svg": "icon",
         "@images/brand/logo.svg": "logo",
         "./VrTooltip": { VrTooltipButton: "button" },
     });
     const tree = runtime.render(VrLauncher, { windows: { log: false, popup: null }, toggleLog() {}, openLog() {}, togglePopup() {} });
-    const group = find(tree, node => node.props?.["aria-label"] === "vr_panel.tooltip.functions_group");
-    const buttons = group.props.children.map(node => runtime.render(node.type, node.props));
+    const group = found(tree, node => node.props?.["aria-label"] === "vr_panel.tooltip.functions_group");
+    const buttons: TreeNode[] = group.props.children.map((node: TreeNode) => runtime.render(component(node), node.props));
     return { buttons, calls };
 }
 
@@ -182,11 +197,12 @@ test("an open settings page explains the lock before a missing setup", async () 
 
 test("the VR panel has a text for every block its buttons can show", async () => {
     const { readFile } = await import("node:fs/promises");
-    const shown = ["translation", "transcription_send", "transcription_receive", "ocr"];
-    const blocks = switchBlocks.switchBlocks({
+    const shown = ["translation", "transcription_send", "transcription_receive", "ocr"] as const;
+    // Test data: needs with only the fields the blocks read.
+    const blocks = switchBlocks.switchBlocks(unchecked<Parameters<typeof switchBlocks.switchBlocks>[0]>({
         needs: [{ id: "translation", weight: "m" }, { id: "transcription" }],
         ocr: { language_supported: true, missing_models: ["a"] },
-    });
+    }));
     const reasons = new Set(shown.map(id => blocks[id]?.reason).filter(Boolean));
     reasons.add("translation_downloading").add("translation_unavailable").add("ocr_language");
     for (const lang of ["en", "ja"]) {

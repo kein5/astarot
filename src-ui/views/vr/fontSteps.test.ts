@@ -14,7 +14,7 @@ const steps = new Set([...front.matchAll(/vr-[\w-]+:\s*fontSize: "(\d+px)"/g)].m
 const allowed = new Set(["VrWindow.module.scss:clamp(14px, var(--vr_log_font_size, 17px), 28px)"]);
 
 // font-size, and the size in a font shorthand (`font: 600 19px/1.2 ...`).
-const sizes = source => [
+const sizes = (source: string) => [
     ...[...source.matchAll(/font-size:\s*([^;}]+)/g)].map(([, value]) => value.replace("!important", "").trim()),
     ...[...source.matchAll(/font:\s*([^;}]+)/g)].flatMap(([, value]) => value.match(/\b[\d.]+(?:px|rem)\b/)?.[0] ?? []),
 ];
