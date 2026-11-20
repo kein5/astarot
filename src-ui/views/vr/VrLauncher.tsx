@@ -140,6 +140,8 @@ interface WindowButtonProps {
     onLongPress?: (() => void) | null;
 }
 
+// A button with a long press (the log) says so only in its tooltip, so that tooltip shows even
+// when the tooltips are turned off, as a blocked switch's does: nothing else in VR says it.
 const WindowButton = ({ Svg, label, name = label, is_open, is_attention = false, onClick, onLongPress = null }: WindowButtonProps) => {
     const { t } = useI18n();
     const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -175,6 +177,7 @@ const WindowButton = ({ Svg, label, name = label, is_open, is_attention = false,
         tipTitle={name} tipState={t(`vr_panel.tooltip.${is_holding ? "holding" : is_attention ? "lost" : is_open ? "open" : "hidden"}`)}
         tipHelp={t(`vr_panel.tooltip.${is_holding ? "holding_help" : is_attention ? "click_recall" :
             onLongPress ? (is_open ? "log_close_help" : "log_open_help") : is_open ? "close_view" : "open_view"}`)}
+        tipForce={onLongPress !== null}
         onMouseDown={onMouseDown} onMouseUp={stopTimer} onMouseLeave={stopTimer} onBlur={stopTimer}
         onClick={() => { if (!long_pressed.current) onClick(); long_pressed.current = false; }}>
         <Svg className={styles.icon} aria-hidden="true" />
