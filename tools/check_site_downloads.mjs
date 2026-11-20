@@ -1,4 +1,4 @@
-// Checks how the guide's download button (site/.vitepress/theme/releases.mjs) reads release
+// Checks how the guide's download button (site/theme/lib/releases.mjs) reads release
 // assets: the files of v0.2.0 as published, the deb and rpm that 0.3.0 adds, layouts a later
 // release may take, and files that are not downloads.
 //
@@ -10,8 +10,8 @@ import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
 const root = resolve(import.meta.dirname, "..");
-const { classify, detectPlatform, fillSlots, readRelease, recommend, LATEST_API, REPO_URL, SLOTS } = await import(
-    pathToFileURL(resolve(root, "site/.vitepress/theme/releases.mjs"))
+const { classify, detectPlatform, readRelease, recommend, LATEST_API, REPO_URL } = await import(
+    pathToFileURL(resolve(root, "site/theme/lib/releases.mjs"))
 );
 
 const asset = (tag, name, size = 1) => ({
@@ -43,10 +43,6 @@ const CASES = [
         },
         windows: "VRCT-VOX_setup.exe",
         linux: "VRCT-VOX-0.2.0-linux-x64-vulkan-release.AppImage",
-        slots: [
-            "VRCT-VOX_setup.exe", "VRCT-VOX.zip", "VRCT-VOX_cuda.zip",
-            "VRCT-VOX-0.2.0-linux-x64-vulkan-release.AppImage", null, null, "VRCT-VOX-0.2.0-linux-x64-vulkan-release.tar.gz",
-        ],
         skipped: 0,
     },
     {
@@ -70,11 +66,6 @@ const CASES = [
         ],
         windows: "VRCT-VOX_setup.exe",
         linux: "VRCT-VOX-0.3.0-linux-x64-vulkan-release.AppImage",
-        slots: [
-            "VRCT-VOX_setup.exe", "VRCT-VOX.zip", "VRCT-VOX_cuda.zip",
-            "VRCT-VOX-0.3.0-linux-x64-vulkan-release.AppImage", "VRCT-VOX-0.3.0-linux-x64-vulkan-release.deb",
-            "VRCT-VOX-0.3.0-linux-x64-vulkan-release.rpm", "VRCT-VOX-0.3.0-linux-x64-vulkan-release.tar.gz",
-        ],
         skipped: 0,
     },
     {
@@ -87,10 +78,6 @@ const CASES = [
         expect: { "VRCT-VOX.zip": "windows zip - -", "VRCT-VOX-0.4.0-linux-x64-cpu-release.deb": "linux deb cpu x64" },
         windows: "VRCT-VOX_setup.exe",
         linux: "VRCT-VOX-0.4.0-linux-x64-cpu-release.AppImage",
-        slots: [
-            "VRCT-VOX_setup.exe", "VRCT-VOX.zip", null,
-            "VRCT-VOX-0.4.0-linux-x64-cpu-release.AppImage", "VRCT-VOX-0.4.0-linux-x64-cpu-release.deb", null, null,
-        ],
         skipped: 0,
     },
     {
@@ -120,10 +107,6 @@ const CASES = [
         linux: "VRCT-VOX_0.5.0_amd64.AppImage",
         linuxArm: "VRCT-VOX_0.5.0_aarch64.AppImage",
         // The x64 files only; the source archive is not the Linux tar.gz.
-        slots: [
-            "VRCT-VOX_0.5.0_x64-setup.exe", null, null,
-            "VRCT-VOX_0.5.0_amd64.AppImage", "vrct-vox_0.5.0_amd64.deb", "vrct-vox-0.5.0-1.x86_64.rpm", null,
-        ],
         skipped: 3,
     },
     {
@@ -132,7 +115,6 @@ const CASES = [
         expect: {},
         windows: null,
         linux: null,
-        slots: [null, null, null, null, null, null, null],
         skipped: 0,
     },
 ];
@@ -156,12 +138,6 @@ for (const test of CASES) {
         if (!(key in test)) continue;
         const got = recommend(read.downloads, os, arch)?.name ?? null;
         if (got !== test[key]) fail(test.title, `${os} ${arch} is offered ${got}, expected ${test[key]}`);
-    }
-    if (test.slots) {
-        const got = fillSlots(read.downloads).map(slot => slot.download?.name ?? null);
-        test.slots.forEach((want, index) => {
-            if (got[index] !== want) fail(test.title, `menu row ${SLOTS[index].id} is ${got[index]}, expected ${want}`);
-        });
     }
     if (recommend(read.downloads, "macos") && !read.downloads.some(item => item.os === "macos")) fail(test.title, "macOS is offered a file");
     if (read.skipped !== test.skipped) fail(test.title, `${read.skipped} files left out, expected ${test.skipped}`);
@@ -212,4 +188,4 @@ if (failures.length) {
     console.error(failures.join("\n"));
     process.exit(1);
 }
-console.log(`download rules: ${CASES.length} releases, the manual's ${SLOTS.length} menu rows and ${PLATFORMS.length} browsers read as expected`);
+console.log(`download rules: ${CASES.length} releases, ${PLATFORMS.length} browsers read as expected`);

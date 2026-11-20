@@ -1,0 +1,184 @@
+/* ---------- The hero's buttons ---------- */
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  margin: -6px;
+  padding-top: 24px;
+}
+
+@media (min-width: 640px) {
+  .actions {
+    padding-top: 32px;
+  }
+}
+
+.action {
+  flex-shrink: 0;
+  padding: 6px;
+}
+
+/* The app's control radius instead of pills. */
+.button {
+  display: inline-flex;
+  align-items: center;
+  height: 44px;
+  padding: 0 20px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  white-space: nowrap;
+  text-decoration: none;
+  transition:
+    background-color var(--vox-motion-fast) var(--vox-ease),
+    border-color var(--vox-motion-fast) var(--vox-ease);
+}
+
+.brand {
+  background: var(--vox-button-bg);
+  color: var(--vox-button-text);
+}
+
+.brand:hover {
+  background: var(--vox-button-hover-bg);
+}
+
+.alt {
+  border-color: var(--vox-border);
+  background: var(--vox-surface);
+  color: var(--rp-c-text-1);
+}
+
+.alt:hover {
+  border-color: var(--vox-border-strong);
+  background: var(--vox-surface-hover);
+}
+
+.button:focus-visible {
+  outline: 2px solid var(--vox-focus);
+  outline-offset: 2px;
+}
+
+/* ---------- The picture of the app ---------- */
+
+.shot {
+  max-width: 1152px;
+  margin: 0 auto;
+  padding: 0 24px 48px;
+}
+
+.shot img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--vox-border);
+  border-radius: 12px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+}
+
+@media (min-width: 640px) {
+  .shot {
+    padding: 0 48px 64px;
+  }
+}
+
+@media (min-width: 960px) {
+  .shot {
+    padding: 0 64px 64px;
+  }
+}
+
+/* ---------- The features ---------- */
+
+.showcase {
+  max-width: 1152px;
+  margin: 0 auto;
+  padding: 16px 24px 72px;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+  align-items: center;
+  gap: 48px;
+  padding: 40px 0;
+  border-top: 1px solid var(--vox-hairline);
+}
+
+.row.flip {
+  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+}
+
+.row.flip .media {
+  order: 2;
+}
+
+.media video {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1280 / 500;
+  border: 1px solid var(--vox-hairline);
+  border-radius: 12px;
+  background: var(--rp-c-bg);
+}
+
+.text h2 {
+  margin: 0 0 12px;
+  font-size: 24px;
+  font-weight: 600;
+  line-height: 1.4;
+  word-break: auto-phrase;
+}
+
+.text p {
+  margin: 0 0 16px;
+  font-size: 16px;
+  line-height: 1.8;
+  color: var(--rp-c-text-2);
+}
+
+.more {
+  font-weight: 500;
+  color: var(--rp-c-link);
+  text-decoration: underline;
+  text-decoration-color: rgba(128, 172, 255, 0.45);
+  text-underline-offset: 4px;
+}
+
+.more::after {
+  content: ' →';
+}
+
+.more:hover {
+  text-decoration-color: currentColor;
+}
+
+.note {
+  margin: 0;
+  padding-top: 32px;
+  border-top: 1px solid var(--vox-hairline);
+  font-size: 15px;
+  color: var(--rp-c-text-2);
+}
+
+.note a {
+  color: var(--rp-c-link);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+@media (max-width: 767px) {
+  .row,
+  .row.flip {
+    grid-template-columns: 1fr;
+    gap: 20px;
+    padding: 28px 0;
+  }
+
+  .row.flip .media {
+    order: 0;
+  }
+}
