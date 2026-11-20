@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import type { MutableRefObject } from "react";
 import { useI18n } from "@useI18n";
 import clsx from "clsx";
