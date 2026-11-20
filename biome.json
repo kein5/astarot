@@ -54,7 +54,6 @@
       },
       "suspicious": {
         "noArrayIndexKey": "warn",
-        "noAssignInExpressions": "warn",
         "noGlobalIsNan": "error",
         "noTemplateCurlyInString": "error"
       }

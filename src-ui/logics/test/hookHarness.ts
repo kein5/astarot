@@ -56,7 +56,8 @@ export function hooks() {
         deps.some((value, i) => !Object.is(value, slot.deps?.[i]));
     const memo = <T>(factory: () => T, deps: Deps): T => {
         const i = index++;
-        const slot = changed(slots[i], deps) ? slots[i] = { deps, value: factory() } : slots[i];
+        if (changed(slots[i], deps)) slots[i] = { deps, value: factory() };
+        const slot = slots[i];
         return held<T>(slot ?? {});
     };
     const effect = (fn: () => unknown, deps?: Deps) => {

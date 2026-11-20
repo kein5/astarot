@@ -44,7 +44,9 @@ export type BackendChannelConstructor = new <T>() => { onmessage: (message: T) =
 type ListenerLists<E> = { [K in keyof E]?: Array<(value: E[K]) => void> };
 
 const register = <E, K extends keyof E>(list: ListenerLists<E>, event: K, listener: (value: E[K]) => void) => {
-    (list[event] ??= []).push(listener);
+    const listeners = list[event] ?? [];
+    list[event] = listeners;
+    listeners.push(listener);
 };
 
 export interface CoreBackendCommandOptions {
