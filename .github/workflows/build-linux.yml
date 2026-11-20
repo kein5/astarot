@@ -74,6 +74,8 @@ jobs:
             webkit2gtk-driver xvfb xauth x11-utils dbus-x11 fonts-noto-cjk
             desktop-file-utils libgtk-3-dev libgdk-pixbuf-2.0-dev glib-networking
             imagemagick xdotool meson ninja-build libsndfile1-dev libglib2.0-dev liblua5.4-dev rpm"
+          # Runners hosted on AWS fetch from archive.ubuntu.com instead of their slow EC2 mirror.
+          bash tools/ci/prefer_ubuntu_archive.sh
           # The runner's package mirror sometimes cannot be resolved for a while. Try again before failing the job.
           for attempt in 1 2 3 4; do
             sudo apt-get update && sudo apt-get install -y $packages && break
