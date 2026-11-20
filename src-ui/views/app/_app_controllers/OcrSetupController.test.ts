@@ -87,4 +87,8 @@ for (const language of ["en", "ja"]) test(`${language}: the guide says chat read
     const next = localeAt(messages, "ocr_setup.next");
     assert.ok(typeof next === "string");
     assert.match(next, language === "ja" ? /ライセンス/ : /license/);
+    // Where the models are is the name of the button under it (#614): the sentence says what to
+    // do there and that chat reading is turned on again by hand.
+    assert.doesNotMatch(next, language === "ja" ? /設定の「/ : /settings/i);
+    assert.match(next, language === "ja" ? /もう一度.*オンにしてください/ : /on again/);
 });

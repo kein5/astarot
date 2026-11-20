@@ -2502,7 +2502,7 @@ transcription_consent:
 ocr_setup:
     title: "Chat reading needs its recognition models"
     body: "The recognition models for the selected language have not been downloaded yet, so Chat reading (OCR) stays off."
-    next: "Open the models section in Chat reading (OCR) settings, check the provider, license and size, and download them. Then turn Chat reading (OCR) on again."
+    next: "In the models section, check the provider, license and size, and download them. Then turn Chat reading (OCR) on again."
     close: "Close"
     review: "Go to the models"
 network_privacy:
@@ -2650,7 +2650,7 @@ virtual_mic:
         playback: "Playback end (ASTAROT's output)"
         recording: "Recording end (VRChat's microphone)"
         output_set: "The text-to-speech output device is \"{{playback}}\"."
-        output_unset: "The text-to-speech output device is not \"{{playback}}\". In Settings → Text to speech (TTS), choose \"{{playback}}\" as the output device and save."
+        output_unset: "The text-to-speech output device is not \"{{playback}}\"."
         open_tts: "Open the text-to-speech settings"
     test:
         heading: "Check with a test sound"
