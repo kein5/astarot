@@ -2,20 +2,11 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { test } from 'vitest';
 import type { TestContext } from 'vitest';
-import { hooks, loadModule, find, eventTarget, stubGlobals, unchecked } from '../../logics/test/hookHarness.ts';
-import type { TreeNode } from '../../logics/test/hookHarness.ts';
+import { hooks, loadModule, eventTarget, stubGlobals, unchecked, findIn, setRef } from '../../logics/test/hookHarness.ts';
 import { deferred, flush } from '../../logics/test/bridgeHarness.ts';
 import * as chatboxLength from '../../logics/common/chatboxLength.ts';
 import type { QuickChatBridge } from './QuickChat.tsx';
 
-// A node the test goes on to read: it must be there.
-const found = (tree: unknown, predicate: (node: TreeNode) => boolean) => {
-    const node = find(tree, predicate);
-    assert.ok(node);
-    return node;
-};
-// An element's ref. React elements keep it, but React 18's types leave it out of ReactElement.
-const refOf = (node: TreeNode): { current: unknown } => Reflect.get(node, 'ref');
 // A callback the window registers; calling it before that stops with a TypeError.
 const notYet = async (_event?: unknown): Promise<void> => { throw new TypeError('the window has not registered this callback'); };
 
@@ -36,8 +27,9 @@ async function setup(testContext: TestContext) {
         submit: (request: unknown): Promise<boolean> => { submissions.push(request); return fake.handoff.promise; },
         handoff: deferred<boolean>(),
     };
-    // Test data: the contexts the test reads carry only the settings the window applies, and the
-    // window calls the open and context callbacks with or without an event.
+    // On purpose: the test calls the window's open and context callbacks with or without an event;
+    // the bridge's declared callbacks always take one. The contexts carry only the settings the
+    // window applies.
     const bridge = unchecked<QuickChatBridge>(fake);
     const { QuickChat } = await loadModule<typeof import('./QuickChat.tsx')>(new URL('./QuickChat.tsx', import.meta.url), runtime, {
         '@useI18n': { useI18n: () => ({ t: (key: string) => key, i18n }) },
@@ -45,15 +37,15 @@ async function setup(testContext: TestContext) {
         '../../logics/common/chatboxLength': chatboxLength,
     });
     const render = () => runtime.render(QuickChat, { bridge }, tree => {
-        refOf(tree).current = {};
-        refOf(found(tree, node => node.type === 'textarea')).current = field;
+        setRef(tree, {});
+        setRef(findIn(tree, node => node.type === 'textarea'), field);
     });
     render(); await flush(); render();
     return { runtime, render, properties, callbacks, removals, bridge: fake, submissions,
         setContext: (next: Partial<typeof context>) => { context = { ...context, ...next }; },
         setRead: (read: () => Promise<unknown>) => { contextRead = read; },
         get focusCount() { return focusCount; }, get hideCount() { return hideCount; },
-        field: () => found(render(), node => node.type === 'textarea').props,
+        field: () => findIn(render(), node => node.type === 'textarea').props,
     };
 }
 

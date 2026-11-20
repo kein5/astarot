@@ -16,7 +16,7 @@ for (const [endpoint, intent] of commands) {
 test("poll failures and unconfirmed timeout do not release an outstanding command", () => {
     const waiting = { intent: false, generation: 9 };
     for (const endpoint of [undefined, "/get/data/voice_status", "/get/data/direct_voice_state"])
-        // A failure with no endpoint, given on purpose: a poll that failed before any reply.
+        // On purpose: a failure with no endpoint, a poll that failed before any reply.
         assert.equal(pendingAfterVoiceFailure(waiting, unchecked<string>(endpoint)), waiting);
 });
 

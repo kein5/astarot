@@ -2,20 +2,13 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "vitest";
 import i18next from "i18next";
-import type { ResourceKey } from "i18next";
-import yaml from "js-yaml";
+import { readLocale } from "../test/locales.ts";
 
 // The name of each feature, the same in the app and on the site: what it does, then its short name.
 const LANGUAGES = ["ja", "en"] as const;
 const sources = Object.fromEntries(LANGUAGES.map(language => [language,
     readFileSync(new URL(`../../../locales/${language}.yml`, import.meta.url), "utf8")]));
-// A locale file is a mapping of keys to text, as locales/config reads it.
-const translationOf = (text: string): ResourceKey => {
-    const translation: unknown = yaml.load(text);
-    if (typeof translation === "string" || (typeof translation === "object" && translation !== null)) return translation;
-    throw new TypeError("A locale file holds no translations");
-};
-const resources = Object.fromEntries(LANGUAGES.map(language => [language, { translation: translationOf(sources[language]) }]));
+const resources = Object.fromEntries(LANGUAGES.map(language => [language, { translation: readLocale(language) }]));
 
 const NAMES = {
     ja: {

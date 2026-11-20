@@ -1,10 +1,8 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import { test } from "vitest";
 import type { TestContext } from "vitest";
-import yaml from "js-yaml";
-import { hooks, loadModule, find, unchecked } from "../test/hookHarness.ts";
-import type { TreeNode } from "../test/hookHarness.ts";
+import { hooks, loadModule, find, findIn, nodesIn, componentName } from "../test/hookHarness.ts";
+import { localeAt, readLocale, textAt } from "../test/locales.ts";
 import * as languageNames from "../common/languageNames.ts";
 import * as modelCatalog from "./modelCatalog.ts";
 import * as modelHardwareWarning from "./modelHardwareWarning.ts";
@@ -42,22 +40,15 @@ test("starting needs the consent and every restriction ticked; an unknown kind c
     assert.deepEqual(restrictionsOf(null), []);
 });
 
-// A key of a mapping in a locale tree, or undefined.
-const child = (node: unknown, key: string): unknown =>
-    typeof node === "object" && node !== null ? Reflect.get(node, key) : undefined;
-
 for (const language of ["en", "ja"]) test(`${language}: every restriction and its refusal have words`, () => {
-    const locale = yaml.load(readFileSync(new URL(`../../../locales/${language}.yml`, import.meta.url), "utf8"));
-    const section = child(locale, "model_downloads");
+    const locale = readLocale(language);
     for (const kind of RESTRICTIONS) {
-        const restriction = child(child(section, "restriction"), kind);
-        for (const key of ["title", "note", "acknowledge"]) assert.equal(typeof child(restriction, key), "string", `${kind}.${key}`);
-        const note = child(restriction, "note");
-        assert.ok(typeof note === "string");
-        assert.match(note, /\{\{license\}\}/, "the note names the license");
+        const restriction = `model_downloads.restriction.${kind}`;
+        for (const key of ["title", "note", "acknowledge"]) assert.equal(typeof localeAt(locale, `${restriction}.${key}`), "string", `${kind}.${key}`);
+        assert.match(textAt(locale, `${restriction}.note`), /\{\{license\}\}/, "the note names the license");
     }
-    for (const key of ["title", "note"]) assert.equal(typeof child(child(child(section, "restriction"), "other"), key), "string");
-    assert.equal(typeof child(child(section, "errors"), "model_download_restriction_unacknowledged"), "string");
+    for (const key of ["title", "note"]) assert.equal(typeof localeAt(locale, `model_downloads.restriction.other.${key}`), "string");
+    assert.equal(typeof localeAt(locale, "model_downloads.errors.model_download_restriction_unacknowledged"), "string");
 });
 
 async function dialog(context: TestContext, entry: object) {
@@ -81,36 +72,18 @@ async function dialog(context: TestContext, entry: object) {
     });
     context.onTestFinished(() => runtime.unmount());
     const render = () => runtime.render(ModelDownloads, { targets: ["translation"], expected: { translation: {} } });
-    found(render(), node => node.type === "button" && node.props.children === "model_downloads.review").props.onClick();
+    findIn(render(), node => node.type === "button" && node.props.children === "model_downloads.review").props.onClick();
     return { render, sent };
 }
 
-// The node find finds; none fails here, as reading its props would.
-const found = (tree: unknown, predicate: (node: TreeNode) => boolean) => {
-    const node = find(tree, predicate);
-    assert.ok(node);
-    return node;
-};
-// A component's name, as `type?.name` read it: a tag's type has none.
-const typeName = (node: TreeNode) => typeof node.type === "function" ? node.type.name : undefined;
-const all = (tree: unknown, predicate: (node: TreeNode) => boolean, matches: TreeNode[] = []) => {
-    if (Array.isArray(tree)) tree.forEach(node => all(node, predicate, matches));
-    else if (tree && typeof tree === "object") {
-        // An object in the rendered tree is an element, as find reads it.
-        const node = unchecked<TreeNode>(tree);
-        if (predicate(node)) matches.push(node);
-        all(node.props?.children, predicate, matches);
-    }
-    return matches;
-};
-const checkboxes = (tree: unknown) => all(tree, node => node.type === "input" && node.props.type === "checkbox");
-const start = (tree: unknown) => found(tree, node => node.type === "button" && node.props.children === "model_downloads.start");
+const checkboxes = (tree: unknown) => nodesIn(tree).filter(node => node.type === "input" && node.props.type === "checkbox");
+const start = (tree: unknown) => findIn(tree, node => node.type === "button" && node.props.children === "model_downloads.start");
 
 test("the review of a non-commercial model asks for a second checkbox and sends what was ticked", async context => {
     const s = await dialog(context, nllb);
     let tree = s.render();
     // The note says it, marked like a warning, before the consent.
-    const note = found(tree, node => typeName(node) === "RestrictionNote");
+    const note = findIn(tree, node => componentName(node) === "RestrictionNote");
     assert.deepEqual([note.props.kind, note.props.license], ["non_commercial", "CC-BY-NC-4.0"]);
     const [consent, acknowledgement] = checkboxes(tree);
     assert.equal(checkboxes(tree).length, 2);
@@ -150,7 +123,7 @@ test("the Gemma terms are a checkbox of their own, apart from the consent", asyn
     assert.deepEqual(startRequest({ ...both, catalog_version: "v" }, ["gemma_terms", "non_commercial"]).acknowledged, ["non_commercial", "gemma_terms"]);
     const s = await dialog(context, gemma);
     let tree = s.render();
-    const note = found(tree, node => typeName(node) === "RestrictionNote");
+    const note = findIn(tree, node => componentName(node) === "RestrictionNote");
     assert.deepEqual([note.props.kind, note.props.license], ["gemma_terms", gemma.license]);
     const boxes = checkboxes(tree);
     assert.equal(boxes.length, 2);
@@ -168,7 +141,7 @@ test("the Gemma terms are a checkbox of their own, apart from the consent", asyn
 test("the review of an unrestricted model keeps its one checkbox and its request", async context => {
     const s = await dialog(context, m2m);
     let tree = s.render();
-    assert.equal(find(tree, node => typeName(node) === "RestrictionNote"), null);
+    assert.equal(find(tree, node => componentName(node) === "RestrictionNote"), null);
     assert.equal(checkboxes(tree).length, 1);
     checkboxes(tree)[0].props.onChange({ target: { checked: true } });
     tree = s.render();
@@ -182,9 +155,9 @@ test("reopening the review clears an earlier acknowledgement", async context => 
     let tree = s.render();
     checkboxes(tree).forEach(box => box.props.onChange({ target: { checked: true } }));
     tree = s.render();
-    found(tree, node => node.type === "button" && node.props.autoFocus).props.onClick();
+    findIn(tree, node => node.type === "button" && node.props.autoFocus).props.onClick();
     tree = s.render();
-    found(tree, node => node.type === "button" && node.props.children === "model_downloads.review").props.onClick();
+    findIn(tree, node => node.type === "button" && node.props.children === "model_downloads.review").props.onClick();
     tree = s.render();
     assert.deepEqual(checkboxes(tree).map(box => box.props.checked), [false, false]);
     assert.equal(start(tree).props.disabled, true);

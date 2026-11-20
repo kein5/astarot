@@ -1,3 +1,4 @@
+import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import Babel from "@babel/standalone";
 import type { BabelOptions } from "@babel/standalone";
@@ -12,7 +13,7 @@ import type { TestContext } from "vitest";
 type Deps = readonly unknown[] | undefined;
 type Store = ReturnType<typeof createStore>;
 // One hook's memory: the dependencies it last ran with, and its value or its effect's clean-up.
-interface Slot {
+export interface Slot {
     deps?: Deps;
     value?: unknown;
     cleanup?: unknown;
@@ -22,18 +23,18 @@ type SetState<S> = (value: S | ((previous: S) => S)) => void;
 // A slot holds what its hook put there. Hooks run in the same order on every render (React's
 // rule, which the views keep), so slot i always belongs to the same hook and holds its type. This
 // overload is the one place that says so.
-function held<T>(slot: Slot): T;
-function held(slot: Slot): unknown {
+export function held<T>(slot: Slot): T;
+export function held(slot: Slot): unknown {
     return slot.value;
 }
 
 // React calls a function given to useState or to its setter instead of keeping it.
-function isUpdater<S>(value: S | ((previous: S) => S)): value is (previous: S) => S;
-function isUpdater(value: unknown): boolean {
+export function isUpdater<S>(value: S | ((previous: S) => S)): value is (previous: S) => S;
+export function isUpdater(value: unknown): boolean {
     return typeof value === "function";
 }
-function isInitializer<S>(value: S | (() => S)): value is () => S;
-function isInitializer(value: unknown): boolean {
+export function isInitializer<S>(value: S | (() => S)): value is () => S;
+export function isInitializer(value: unknown): boolean {
     return typeof value === "function";
 }
 
@@ -127,8 +128,8 @@ export function typeScriptAware(url: URL | string, options: BabelOptions): Babel
 // (loadModule<typeof import("./Foo.tsx")>): the harness runs that source with the dependencies the
 // test hands it, and the source's exports keep their declared types. This overload is the one
 // place that says so; nothing checks it while the module runs.
-function loaded<M>(exports: Record<string, unknown>): M;
-function loaded(exports: Record<string, unknown>): unknown {
+export function loaded<M>(exports: Record<string, unknown>): M;
+export function loaded(exports: Record<string, unknown>): unknown {
     return exports;
 }
 
@@ -187,6 +188,103 @@ export function find(tree: unknown, predicate: (node: TreeNode) => boolean): Tre
         if (found) return found;
     }
     return null;
+}
+
+// The node the predicate picks, or the test fails there with an AssertionError. A test that read
+// a node it did not find stopped with a TypeError at the same place before.
+export function findIn(tree: unknown, predicate: (node: TreeNode) => boolean, what = "node"): TreeNode {
+    const node = find(tree, predicate);
+    assert.ok(node, `the tree holds no ${what}`);
+    return node;
+}
+
+// Every node of a rendered tree, in the order find visits them.
+export function nodesIn(tree: unknown): TreeNode[] {
+    const nodes: TreeNode[] = [];
+    find(tree, node => { nodes.push(node); return false; });
+    return nodes;
+}
+
+// An object of a rendered tree as the element it is (asNode), or null for text, numbers and the
+// like.
+export function treeNode(value: unknown): TreeNode | null {
+    return value && typeof value === "object" ? asNode(value) : null;
+}
+
+// The name of the function component an element draws, or null for an element of a tag.
+export function componentName(node: TreeNode): string | null {
+    return typeof node.type === "function" ? node.type.name : null;
+}
+
+// A component a test draws itself: the type of an element of the code under test that is one of
+// its own function components, or a component the module exports under a name the test picks.
+// What such a component takes and draws is what the test gives it and reads back: this overload
+// is the one place that says so.
+export type DrawnComponent = (props?: unknown) => TreeNode;
+function asComponent(value: unknown): DrawnComponent;
+function asComponent(value: unknown): unknown {
+    return value;
+}
+export function componentOf(node: TreeNode): DrawnComponent {
+    if (typeof node.type !== "function") throw new TypeError(`${String(node.type)} is not a function component`);
+    return asComponent(node.type);
+}
+export function componentNamed(module: object, name: string): DrawnComponent {
+    const component: unknown = Reflect.get(module, name);
+    if (typeof component !== "function") throw new TypeError(`${name} is not a function`);
+    return asComponent(component);
+}
+// Draws an element of the code's own components as React would: its type called with its props.
+export const draw = (node: TreeNode, props: unknown = node.props) => componentOf(node)(props);
+// The same, drawn by a runtime of the harness, so its hooks run there.
+export const drawWith = (runtime: HookRuntime, node: TreeNode, props: unknown = node.props) => runtime.render(componentOf(node), props);
+
+// The render function a forwardRef component wraps, which React 18's types leave out.
+export function forwardRefRender(component: unknown): (props: unknown, ref: unknown) => TreeNode {
+    const render: unknown = Reflect.get(Object(component), "render");
+    if (typeof render !== "function") throw new TypeError("not a forwardRef component");
+    return asComponent(render);
+}
+
+// An element's ref, which React 18's element type leaves out.
+export const refOf = (node: TreeNode): unknown => Reflect.get(node, "ref");
+// Puts the value where React would put the element it draws: into its ref object, or through its
+// ref function. An element without a ref stops with a TypeError, as setting .current on it did.
+export function setRef(node: TreeNode, value: unknown) {
+    const ref = refOf(node);
+    if (typeof ref === "function") ref(value);
+    else if (ref && typeof ref === "object") Reflect.set(ref, "current", value);
+    else throw new TypeError("the element has no ref");
+}
+
+export const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null;
+// value?.[key]?.[...] for an unknown value: undefined wherever a level is missing.
+export function fieldOf(value: unknown, ...keys: string[]): unknown {
+    let current = value;
+    for (const key of keys) {
+        if ((typeof current !== "object" && typeof current !== "function") || current === null) return undefined;
+        current = Reflect.get(current, key);
+    }
+    return current;
+}
+
+// A fake timer's handle. The fakes number their timers, as the browser does; the declared handle
+// type is Node's or the code's own. This overload is the one place that says so.
+export function timerHandle<T = ReturnType<typeof setTimeout>>(id: number): T;
+export function timerHandle(id: number): unknown {
+    return id;
+}
+// The number of a fake timer's handle.
+export function timerNumber(handle: unknown): number {
+    if (typeof handle !== "number") throw new TypeError("not a fake timer's handle");
+    return handle;
+}
+// A fake for the global setTimeout or setInterval, which spyOn's mockImplementation takes as the
+// global's own (overloaded) type. The fakes take a callback and a delay and return a number.
+type TimerFake = (callback: () => void, delay?: number) => unknown;
+export function asTimerFunction<K extends "setTimeout" | "setInterval">(_name: K, fake: TimerFake): (typeof globalThis)[K];
+export function asTimerFunction(_name: string, fake: TimerFake): unknown {
+    return fake;
 }
 
 type Listener = (event: unknown) => unknown;

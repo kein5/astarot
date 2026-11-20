@@ -5,7 +5,7 @@ import { createCoreBackendCommand } from "./backendCommand.ts";
 import { createSidecarSessionOwner } from "./sidecarSession.ts";
 import type { BackendExit } from "./backendCommand.ts";
 import type { SidecarSessionHandlers, SidecarSessionStore, SidecarTimer } from "./sidecarSession.ts";
-import { unchecked } from "../test/hookHarness.ts";
+import { fieldOf, timerHandle, unchecked } from "../test/hookHarness.ts";
 
 class FakeChannel<T> {
     onmessage: (message: T) => void = () => {};
@@ -19,17 +19,20 @@ interface StartChannels {
 
 const fakeCore = () => {
     const calls: [string, Record<string, unknown> | undefined][] = [];
-    let channels: StartChannels | null = null;
+    let startArgs: Record<string, unknown> | undefined | null = null;
     // Tauri's invoke: every command answers null, as the core's do.
     const invoke = async <T,>(command: string, args?: Record<string, unknown>): Promise<T> => {
         calls.push([command, args]);
-        if (command === "backend_start") channels = unchecked<StartChannels>(args);
+        if (command === "backend_start") startArgs = args;
+        // Test data: null, the answer of every command of the core.
         return unchecked<T>(null);
     };
     // The session the command started: a line or an exit before it stops with a TypeError, as reading null did.
-    const started = () => {
-        if (!channels) throw new TypeError("No backend session has started");
-        return channels;
+    const started = (): StartChannels => {
+        if (!startArgs) throw new TypeError("No backend session has started");
+        const { lines, exit } = startArgs;
+        assert.ok(lines instanceof FakeChannel && exit instanceof FakeChannel, "backend_start was not given its channels");
+        return { lines, exit };
     };
     return { calls, invoke, line: (line: string) => started().lines.onmessage(line), exit: (code: number | null) => started().exit.onmessage(code) };
 };
@@ -56,21 +59,21 @@ test("the core command starts a session, writes lines without the newline and ki
 
 test("a session over the core reaches initialization and reports an unexpected end", async () => {
     const core = fakeCore();
-    // An empty store, which the owner fills.
+    // Test data: an empty store, which the owner fills.
     const store = unchecked<SidecarSessionStore>({});
-    const received: { endpoint?: string }[] = [];
+    const received: unknown[] = [];
     const states: string[] = [];
     const exits: Partial<BackendExit>[] = [];
     const owner = createSidecarSessionOwner({
         store,
         createCommand: () => createCoreBackendCommand({ invoke: core.invoke, Channel: FakeChannel, newSessionId: () => "s2" }),
         // A timer id the fake clock never uses.
-        setInterval: () => unchecked<SidecarTimer>(1),
+        setInterval: () => timerHandle<SidecarTimer>(1),
         clearInterval: () => {},
     });
     const handlers: SidecarSessionHandlers = {
         // The parsed line this test wrote.
-        receiveRoutes: message => received.push(unchecked<{ endpoint?: string }>(message)),
+        receiveRoutes: message => received.push(message),
         backendStopped: () => {},
         feedWatchdog: () => {},
         beginStartup: () => {},
@@ -84,7 +87,7 @@ test("a session over the core reaches initialization and reports an unexpected e
     await store.backend_session.completion;
     assert.equal(store.backend_session.phase, "running");
     core.line(JSON.stringify({ status: 200, endpoint: "/run/initialization_complete", result: {} }));
-    assert.equal(received.at(-1)?.endpoint, "/run/initialization_complete");
+    assert.equal(fieldOf(received.at(-1), "endpoint"), "/run/initialization_complete");
     assert.ok(store.backend_subprocess);
     assert.equal(await store.backend_subprocess.write("line\n"), true);
     core.exit(0);

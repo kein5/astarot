@@ -5,7 +5,7 @@ import { decodeLogUpdate, decodeOrdered, diffLogRows, encodeLogUpdate, encodeOrd
     VR_PANEL_RELAY_PATHS, VR_PANEL_STATE_ATOMS, VR_PANEL_STATE_CATEGORIES, vrPanelStateNames } from "./vrPanelWire.ts";
 import type { ReceivedLog, SentLog } from "./vrPanelWire.ts";
 import { scanVrPanelState, settingsByCategory } from "../test/vrPanelStateScan.ts";
-import { unchecked } from "../test/hookHarness.ts";
+import { fieldOf, isRecord } from "../test/hookHarness.ts";
 
 // Tauri の emit を通ったときの変化を模す: キーを辞書順にし、undefined を落とし、NaN を null にする
 const sortKeysDeep = (value: unknown): unknown => Array.isArray(value) ? value.map(sortKeysDeep)
@@ -17,13 +17,17 @@ test("object key order survives the emit round trip", () => {
     const plain = emitRoundTrip(fonts);
     assert.notDeepEqual(Object.keys(plain), Object.keys(fonts)); // 素のままでは並びが変わる
     // The decoded value is the object that was encoded.
-    assert.deepEqual(Object.keys(unchecked<object>(decodeOrdered(emitRoundTrip(encodeOrdered(fonts))))), Object.keys(fonts));
+    const decoded = decodeOrdered(emitRoundTrip(encodeOrdered(fonts)));
+    assert.ok(isRecord(decoded));
+    assert.deepEqual(Object.keys(decoded), Object.keys(fonts));
 });
 
 test("nested atoms, arrays and primitives are restored unchanged", () => {
     const atom = { state: "ok", data: { devices: { b: "b", a: "a" }, list: [{ z: 1, a: [{ y: 2, x: null }] }, "text", 3, true, null] } };
     assert.deepEqual(decodeOrdered(emitRoundTrip(encodeOrdered(atom))), atom);
-    assert.deepEqual(Object.keys(unchecked<typeof atom>(decodeOrdered(emitRoundTrip(encodeOrdered(atom)))).data.devices), ["b", "a"]);
+    const devices = fieldOf(decodeOrdered(emitRoundTrip(encodeOrdered(atom))), "data", "devices");
+    assert.ok(isRecord(devices));
+    assert.deepEqual(Object.keys(devices), ["b", "a"]);
     assert.deepEqual(decodeOrdered(emitRoundTrip(encodeOrdered([1, "a"]))), [1, "a"]);
 });
 

@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import { test, vi } from "vitest";
 import type { TestContext } from "vitest";
 import { readFileSync } from "node:fs";
-import { hooks, loadModule, unchecked } from "../../../../../../logics/test/hookHarness.ts";
-import type { HookRuntime, TreeNode } from "../../../../../../logics/test/hookHarness.ts";
+import { hooks, loadModule, draw, drawWith } from "../../../../../../logics/test/hookHarness.ts";
+import type { TreeNode } from "../../../../../../logics/test/hookHarness.ts";
 import { flush } from "../../../../../../logics/test/bridgeHarness.ts";
 import * as registry from "../../../../../../logics/configs/experimentalFeatures.ts";
 import * as hexagram from "../../../../../../logics/companion/hexagram.ts";
@@ -49,11 +49,6 @@ async function load(context: TestContext, registryModule: typeof registry = regi
     const render = (props: ListProps) => runtime.render(module.ExperimentalFeatureList, props);
     return { module, runtime, render, writes, current, vrPanel, vrPanelToggles, sent };
 }
-
-// A part of the page that is one of its own components, which return an element: drawn by the
-// runtime as React would, or called once as the list's own code calls it.
-const drawWith = (runtime: HookRuntime, item: TreeNode) => runtime.render(unchecked<(props: unknown) => TreeNode>(item.type), item.props);
-const call = (item: TreeNode) => unchecked<(props: unknown) => TreeNode>(item.type)(item.props);
 
 const flat = (tree: TreeNode | null): TreeNode[] => {
     // The list the test reads next: one that is not drawn fails here, as reading it did.
@@ -122,7 +117,7 @@ test("every listed feature has a name and a description in English and Japanese"
 test("the tray companion is listed and stays off until the user turns it on", async context => {
     const s = await load(context);
     const tree = s.runtime.render(s.module.ExperimentalFeatures, {});
-    const list = call(tree);
+    const list = draw(tree);
     const switches = children(list).filter(item => item.type === "checkbox");
     assert.deepEqual(switches.map(item => item.props.setting_id), ["experimental_features.tray_companion"]);
     assert.equal(switches[0].props.label, "config_page.experimental_features.items.tray_companion.label");
@@ -141,7 +136,7 @@ test("while the tray companion is on, the edge its hexagram hides at can be chos
     const on = s.render({ features, current: { state: "ok", data: { tray_companion: true } }, setValues: () => {}, edge });
     const chooser = children(on).find(item => typeof item.type === "function");
     assert.ok(chooser);
-    const dropdown = call(chooser);
+    const dropdown = draw(chooser);
     assert.equal(dropdown.type, "dropdown");
     assert.equal(dropdown.props.selected_id, "right");
     assert.deepEqual(Object.keys(dropdown.props.list), ["right", "left", "top", "bottom"]);
@@ -237,7 +232,7 @@ test("when the monitor list cannot be read, the chosen monitor says so instead o
 test("#554 (Q-05): the VR panel is listed with the features on trial and keeps its own saved switch", async context => {
     const s = await load(context);
     const tree = s.runtime.render(s.module.ExperimentalFeatures, {});
-    const list = call(tree);
+    const list = draw(tree);
     const item = flat(list).find(node => typeof node.type === "function" && node.props.current === s.vrPanel);
     assert.ok(item, "the page lists the VR panel");
     const off = drawWith(s.runtime, item);

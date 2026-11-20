@@ -2,28 +2,16 @@ import assert from "node:assert/strict";
 import { test } from "vitest";
 import { readFileSync } from "node:fs";
 import i18next from "i18next";
-import yaml from "js-yaml";
 import { renderToStaticMarkup } from "react-dom/server";
-import type { PrimitiveAtom } from "jotai/vanilla";
-import { loadBridgeRoutes } from "./test/bridgeHarness.ts";
-import { unchecked } from "./test/hookHarness.ts";
+import { loadBridgeRoutes, noticeText, settingAtom } from "./test/bridgeHarness.ts";
+import { branchAt, localeAt, readLocale } from "./test/locales.ts";
 import type { AtomState } from "./store.ts";
-
-// A locale file: keys, each holding a text or another level of keys. The test reads the levels
-// it knows by name; a missing one stops with a TypeError, as it always did.
-type LocaleTree = { readonly [key: string]: LocaleTree };
-const localeTree = (language: string) =>
-    unchecked<LocaleTree>(yaml.load(readFileSync(new URL(`../../locales/${language}.yml`, import.meta.url), "utf8")));
-// The store's registry holds each setting's atom under its Atom_ name.
-const atomNamed = (registry: Record<string, unknown>, name: string) => unchecked<PrimitiveAtom<AtomState<unknown>>>(registry[name]);
-// A notice's options, read as notice.options.category_id always was.
-const optionsOf = (notice: { options: unknown } | undefined) => unchecked<{ category_id?: unknown }>(notice?.options);
 
 test("credential reentry notices and field hints exist in every supported locale", () => {
     for (const language of ["en", "ja"]) {
-        const locale = localeTree(language);
-        assert.ok(locale.backend_errors.CREDENTIAL_REENTRY_REQUIRED);
-        assert.ok(locale.config_page.common.credential_reentry_required);
+        const locale = readLocale(language);
+        assert.ok(localeAt(locale, "backend_errors.CREDENTIAL_REENTRY_REQUIRED"));
+        assert.ok(localeAt(locale, "config_page.common.credential_reentry_required"));
     }
 });
 
@@ -37,8 +25,8 @@ test("every code shown with its backend_errors text has one in every supported l
     }
     for (const code of ["TRANSLATION_VRAM_CHAT", "TRANSLATION_VRAM_MIC", "TRANSLATION_VRAM_SPEAKER"]) assert.ok(codes.has(code), code);
     for (const language of ["en", "ja"]) {
-        const locale = localeTree(language);
-        const missing = [...codes].filter(code => typeof locale.backend_errors[code] !== "string");
+        const errors = branchAt(readLocale(language), "backend_errors");
+        const missing = [...codes].filter(code => typeof errors[code] !== "string");
         assert.deepEqual(missing, [], `${language}: backend_errors has no text for these codes`);
     }
 });
@@ -46,8 +34,8 @@ test("every code shown with its backend_errors text has one in every supported l
 for (const [base, provider] of [["OpenAICompatible", "openai_compatible"], ["CustomWhisper", "custom_whisper"]] as const) {
     test(`${provider}: credential reentry settles only the URL and explains the rejection`, async () => {
         const s = await loadBridgeRoutes();
-        const url = atomNamed(s.stores.dynamicStoreRegistry, `Atom_${base}URL`);
-        const key = atomNamed(s.stores.dynamicStoreRegistry, `Atom_${base}AuthKey`);
+        const url = settingAtom(s.stores.dynamicStoreRegistry, `Atom_${base}URL`);
+        const key = settingAtom(s.stores.dynamicStoreRegistry, `Atom_${base}AuthKey`);
         const savedURL = "https://previous.invalid/v1";
         const savedKey: AtomState<unknown> = { state: "pending", data: "synthetic-saved-key" };
         s.runtime.store.set(url, { state: "pending", data: savedURL });
@@ -58,15 +46,15 @@ for (const [base, provider] of [["OpenAICompatible", "openai_compatible"], ["Cus
         assert.deepEqual(s.runtime.store.get(url), { state: "ok", data: savedURL });
         assert.strictEqual(s.runtime.store.get(key), savedKey);
         assert.equal(s.notices.length, 1);
-        assert.equal(optionsOf(s.notices[0]).category_id, "CREDENTIAL_REENTRY_REQUIRED");
+        assert.equal(s.notices[0]?.options?.category_id, "CREDENTIAL_REENTRY_REQUIRED");
         assert.deepEqual(s.reads, []);
     });
 }
 
 test("compatible URL rejection restores the URL and settles only its pending request", async () => {
     const s = await loadBridgeRoutes();
-    const url = atomNamed(s.stores.dynamicStoreRegistry, "Atom_OpenAICompatibleURL");
-    const key = atomNamed(s.stores.dynamicStoreRegistry, "Atom_OpenAICompatibleAuthKey");
+    const url = settingAtom(s.stores.dynamicStoreRegistry, "Atom_OpenAICompatibleURL");
+    const key = settingAtom(s.stores.dynamicStoreRegistry, "Atom_OpenAICompatibleAuthKey");
     const previousURL = "https://previous.invalid/v1";
     const previousKey: AtomState<unknown> = { state: "pending", data: "synthetic-saved-key" };
     s.runtime.store.set(url, { state: "pending", data: previousURL });
@@ -80,14 +68,14 @@ test("compatible URL rejection restores the URL and settles only its pending req
     assert.deepEqual(s.runtime.store.get(url), { state: "ok", data: previousURL });
     assert.strictEqual(s.runtime.store.get(key), previousKey);
     assert.equal(s.notices.length, 1);
-    assert.equal(optionsOf(s.notices[0]).category_id, "CONNECTION_OPENAI_COMPATIBLE_URL_INVALID");
+    assert.equal(s.notices[0]?.options?.category_id, "CONNECTION_OPENAI_COMPATIBLE_URL_INVALID");
     assert.deepEqual(s.reads, []);
 });
 
 test("compatible key rejection still settles the key without altering the URL", async () => {
     const s = await loadBridgeRoutes();
-    const url = atomNamed(s.stores.dynamicStoreRegistry, "Atom_OpenAICompatibleURL");
-    const key = atomNamed(s.stores.dynamicStoreRegistry, "Atom_OpenAICompatibleAuthKey");
+    const url = settingAtom(s.stores.dynamicStoreRegistry, "Atom_OpenAICompatibleURL");
+    const key = settingAtom(s.stores.dynamicStoreRegistry, "Atom_OpenAICompatibleAuthKey");
     const previousURL: AtomState<unknown> = { state: "pending", data: "https://previous.invalid/v1" };
     s.runtime.store.set(url, previousURL);
     s.runtime.store.set(key, { state: "pending", data: "synthetic-saved-key" });
@@ -108,7 +96,7 @@ for (const [field, code] of [
     ["custom_whisper_url", "CREDENTIAL_REENTRY_REQUIRED"],
 ]) test(`${field}: ${code} renders in the saved UI language`, async () => {
     const resources = Object.fromEntries(["en", "ja"].map(language => [language, {
-        translation: localeTree(language),
+        translation: readLocale(language),
     }]));
     const i18n = i18next.createInstance();
     await i18n.init({ lng: "en", resources });
@@ -119,13 +107,13 @@ for (const [field, code] of [
     const notice = s.notices.at(-1);
     assert.ok(notice);
     assert.equal(notice.type, "error");
-    assert.equal(optionsOf(notice).category_id, code);
-    assert.equal(renderToStaticMarkup(notice.key), resources.en.translation.backend_errors[code]);
+    assert.equal(notice.options?.category_id, code);
+    assert.equal(renderToStaticMarkup(notice.key), branchAt(resources.en.translation, "backend_errors")[code]);
 
     // Settings finish applying after the IPC notice was already queued.
     await i18n.changeLanguage("ja");
     assert.equal(s.notices.length, 1);
-    assert.equal(renderToStaticMarkup(notice.key), resources.ja.translation.backend_errors[code]);
+    assert.equal(renderToStaticMarkup(notice.key), branchAt(resources.ja.translation, "backend_errors")[code]);
 });
 
 test("other backend notifications still resolve their message when received", async () => {
@@ -149,7 +137,7 @@ test("output failures have separate warnings per sink and never expose raw error
             error_code: "MESSAGE_OUTPUT_FAILED", message: "raw private exception", data: { output },
         } });
     }
-    assert.deepEqual(s.notices.map(notice => optionsOf(notice).category_id), [
+    assert.deepEqual(s.notices.map(notice => notice.options?.category_id), [
         "MESSAGE_OUTPUT_FAILED.osc", "MESSAGE_OUTPUT_FAILED.logger", "MESSAGE_OUTPUT_FAILED.tts", "MESSAGE_OUTPUT_FAILED.unknown",
     ]);
     assert.ok(s.notices.every(notice => notice.type === "warning" && notice.key === "backend_errors.MESSAGE_OUTPUT_FAILED"));
@@ -157,7 +145,7 @@ test("output failures have separate warnings per sink and never expose raw error
 });
 
 for (const language of ["en", "ja"]) test(`${language}: partial output warning names the output and explains duplicate risk`, async () => {
-    const translation = localeTree(language);
+    const translation = readLocale(language);
     const i18n = i18next.createInstance();
     await i18n.init({ lng: language, resources: { [language]: { translation } } });
     const s = await loadBridgeRoutes(undefined, i18n);
@@ -168,41 +156,41 @@ for (const language of ["en", "ja"]) test(`${language}: partial output warning n
         } });
         const notice = s.notices.at(-1);
         assert.ok(notice);
-        assert.ok(notice.key.includes(i18n.t(`message_outputs.${output}`)));
-        assert.match(notice.key, language === "ja" ? /再送するとほかの出力先に同じメッセージが重ねて届く/ : /If you resend it, those outputs may receive it twice/);
+        assert.ok(noticeText(notice).includes(i18n.t(`message_outputs.${output}`)));
+        assert.match(noticeText(notice), language === "ja" ? /再送するとほかの出力先に同じメッセージが重ねて届く/ : /If you resend it, those outputs may receive it twice/);
         assert.equal(notice.type, "warning");
     }
 });
 
 for (const language of ["en", "ja"]) test(`${language}: overlay failure notifies and re-reads all output switches`, async () => {
-    const translation = localeTree(language);
+    const translation = readLocale(language);
     const i18n = i18next.createInstance();
     await i18n.init({ lng: language, resources: { [language]: { translation } } });
     const s = await loadBridgeRoutes(undefined, i18n);
     s.receiveRoutes({ status: 400, endpoint: "/run/message_output_error", result: {
         error_code: "OVERLAY_RUNTIME_FAILED", data: { reason: "runtime" }, message: "private native exception",
     } });
-    assert.deepEqual(s.notices, [{ type: "error", key: translation.backend_errors.OVERLAY_RUNTIME_FAILED,
+    assert.deepEqual(s.notices, [{ type: "error", key: branchAt(translation, "backend_errors").OVERLAY_RUNTIME_FAILED,
         options: { category_id: "OVERLAY_RUNTIME_FAILED" } }]);
     assert.deepEqual(s.reads, ["/get/data/overlay_small_log", "/get/data/overlay_large_log", "/get/data/overlay_vr_panel"]);
 });
 
 for (const language of ["en", "ja"]) test(`${language}: a VR UI that this system cannot show says so and re-reads only its own switch`, async () => {
-    const translation = localeTree(language);
+    const translation = readLocale(language);
     const i18n = i18next.createInstance();
     await i18n.init({ lng: language, resources: { [language]: { translation } } });
     const s = await loadBridgeRoutes(undefined, i18n);
     s.receiveRoutes({ status: 400, endpoint: "/set/enable/overlay_vr_panel", result: {
         error_code: "OVERLAY_VR_PANEL_UNSUPPORTED", data: false, message: "The VR UI is not available in this environment.",
     } });
-    assert.deepEqual(s.notices, [{ type: "error", key: translation.backend_errors.OVERLAY_VR_PANEL_UNSUPPORTED,
+    assert.deepEqual(s.notices, [{ type: "error", key: branchAt(translation, "backend_errors").OVERLAY_VR_PANEL_UNSUPPORTED,
         options: { category_id: "OVERLAY_VR_PANEL_UNSUPPORTED" } }]);
     assert.deepEqual(s.reads, ["/get/data/overlay_vr_panel"]);
 });
 
 // Decision 13 of #278: the VAD runs on the speech.cpp server, and details.reason names the next step.
 for (const language of ["en", "ja"]) test(`${language}: a VAD that cannot use its server says why and re-reads only a refused switch`, async () => {
-    const translation = localeTree(language);
+    const translation = readLocale(language);
     const i18n = i18next.createInstance();
     await i18n.init({ lng: language, resources: { [language]: { translation } } });
     const s = await loadBridgeRoutes(undefined, i18n);
@@ -214,7 +202,7 @@ for (const language of ["en", "ja"]) test(`${language}: a VAD that cannot use it
     // A recording that cannot use the server cuts by volume; a reason with no text adds nothing.
     vad("/run/vad_unavailable", { source: "mic" }, "speech_server_not_ready");
     vad("/run/vad_unavailable", { source: "mic" }, "realtime_session_failed");
-    const errors = translation.backend_errors, next = translation.realtime_toggle;
+    const errors = branchAt(translation, "backend_errors"), next = branchAt(translation, "realtime_toggle");
     assert.deepEqual(s.notices.map(notice => [notice.type, notice.key]), [
         ["warning", `${errors.VAD_UNAVAILABLE} ${next.realtime_vad_model_missing}`],
         ["warning", `${errors.VAD_UNAVAILABLE_recording} ${next.speech_server_not_ready}`],
@@ -224,7 +212,7 @@ for (const language of ["en", "ja"]) test(`${language}: a VAD that cannot use it
 });
 
 for (const language of ["en", "ja"]) test(`${language}: a key store failure stays on screen and changes no setting`, async () => {
-    const translation = localeTree(language);
+    const translation = readLocale(language);
     const i18n = i18next.createInstance();
     await i18n.init({ lng: language, resources: { [language]: { translation } } });
     const s = await loadBridgeRoutes(undefined, i18n);
@@ -232,13 +220,13 @@ for (const language of ["en", "ja"]) test(`${language}: a key store failure stay
         error_code: "SECRET_STORE_FAILED", data: { operation: "write", entries: ["AUTH_KEYS/DeepL_API"], reason: "write_failed", store: "file" },
         message: "The API keys could not be kept in their secure storage.",
     } });
-    assert.deepEqual(s.notices, [{ type: "error", key: translation.backend_errors.SECRET_STORE_FAILED,
+    assert.deepEqual(s.notices, [{ type: "error", key: branchAt(translation, "backend_errors").SECRET_STORE_FAILED,
         options: { hide_duration: null, category_id: "SECRET_STORE_FAILED" } }]);
     assert.deepEqual(s.reads, []);
 });
 
 for (const language of ["en", "ja"]) test(`${language}: a key store failure says what the user can do about it`, async () => {
-    const translation = localeTree(language);
+    const translation = readLocale(language);
     const i18n = i18next.createInstance();
     await i18n.init({ lng: language, resources: { [language]: { translation } } });
     const s = await loadBridgeRoutes(undefined, i18n);
@@ -251,9 +239,9 @@ for (const language of ["en", "ja"]) test(`${language}: a key store failure says
     // A store that is locked or not running: the keyring is the user's to open.
     failed({ operation: "read", reason: "locked" });
     failed({ operation: "write", reason: "unavailable" });
-    const errors = translation.backend_errors;
+    const errors = branchAt(translation, "backend_errors");
     assert.deepEqual(s.notices.map(notice => notice.key),
         [errors.SECRET_STORE_FAILED_moving, errors.SECRET_STORE_FAILED_os_store, errors.SECRET_STORE_FAILED_os_store]);
     assert.ok(s.notices.every(notice => typeof notice.key === "string" && !Object.is(notice.key, errors.SECRET_STORE_FAILED)));
-    assert.ok(s.notices.every(notice => !notice.key.includes("AUTH_KEYS")), "no entry names or keys on screen");
+    assert.ok(s.notices.every(notice => !noticeText(notice).includes("AUTH_KEYS")), "no entry names or keys on screen");
 });

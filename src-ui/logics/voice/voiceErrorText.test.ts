@@ -1,32 +1,19 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import { test } from "vitest";
 import i18next from "i18next";
-import yaml from "js-yaml";
+import { branchAt, readLocale } from "../test/locales.ts";
+import type { LocaleBranch } from "../test/locales.ts";
 import { voiceErrorText } from "./voiceErrorText.ts";
 import type { Translate } from "./voiceErrorText.ts";
 
-const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null;
-// A locale file, a mapping of keys to text. Anything else fails here, as reading a key of it would.
-const localeTree = (language: string): Record<string, unknown> => {
-    const tree = yaml.load(readFileSync(new URL(`../../../locales/${language}.yml`, import.meta.url), "utf8"));
-    assert.ok(isRecord(tree), `locales/${language}.yml`);
-    return tree;
-};
-const locales: Record<string, Record<string, unknown>> = Object.fromEntries(["en", "ja"].map(language => [language, localeTree(language)]));
+const locales: Record<string, LocaleBranch> = Object.fromEntries(["en", "ja"].map(language => [language, readLocale(language)]));
 const resources = Object.fromEntries(Object.entries(locales).map(([language, translation]) => [language, { translation }]));
-// The keys of a section of a locale file (`voice.input_errors`).
-const sectionKeys = (tree: unknown, path: string): string[] => {
-    const section = path.split(".").reduce<unknown>((node, key) => isRecord(node) ? node[key] : undefined, tree);
-    assert.ok(isRecord(section), path);
-    return Object.keys(section);
-};
 
 for (const language of ["en", "ja"]) test(`${language}: every code the voice pages explain is explained on the main screen too`, async () => {
     const i18n = i18next.createInstance();
     await i18n.init({ lng: language, fallbackLng: false, resources });
     const t: Translate = (key, params) => i18n.t(key, params), exists = (key: string) => i18n.exists(key);
-    const codes = sectionKeys(locales[language], "voice.input_errors");
+    const codes = Object.keys(branchAt(locales[language], "voice.input_errors"));
     assert.ok(codes.includes("vc_gpu_unavailable"));
     for (const code of codes) {
         const text = voiceErrorText(code, "RVC", t, exists);

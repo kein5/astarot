@@ -1,14 +1,10 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "vitest";
-import { hooks, loadModule } from "../../../../../../logics/test/hookHarness.ts";
+import { hooks, loadModule, fieldOf } from "../../../../../../logics/test/hookHarness.ts";
 
 // node?.props?.children, for a rendered node of any kind.
-const childrenOf = (node: unknown): unknown => {
-    if (node === null || node === undefined) return undefined;
-    const props: unknown = Reflect.get(Object(node), "props");
-    return props === null || props === undefined ? undefined : Reflect.get(Object(props), "children");
-};
+const childrenOf = (node: unknown): unknown => fieldOf(node, "props", "children");
 
 const text = (node: unknown): string => [childrenOf(node)].flat(Infinity)
     .map((child: unknown) => typeof child === "string" ? child : child && typeof child === "object" ? text(child) : "").join("");

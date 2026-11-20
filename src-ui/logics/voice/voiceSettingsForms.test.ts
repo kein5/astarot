@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { test, vi } from "vitest";
 import type { TestContext } from "vitest";
 import type { ReactElement } from "react";
-import { hooks, loadModule, stubGlobals, eventTarget, find, unchecked } from "../test/hookHarness.ts";
+import { hooks, loadModule, stubGlobals, eventTarget, find, componentNamed, isRecord } from "../test/hookHarness.ts";
 import type { HookRuntime } from "../test/hookHarness.ts";
 import { flush } from "../test/bridgeHarness.ts";
 import { rebaseDraft } from "./draftRebase.ts";
@@ -21,7 +21,6 @@ const saved = (entry: SaveBarEntry | null | undefined) => {
     assert.ok(entry);
     return entry;
 };
-const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null;
 
 async function setup(context: TestContext) {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
@@ -63,7 +62,7 @@ async function setup(context: TestContext) {
             "../_components/page_pointer/PagePointer": { PageLinkButton: "page-link" },
         });
         // The form the view exports under that name; both take a title.
-        const form = unchecked<(props: { title: string }) => ReactElement>(components[name]);
+        const form = componentNamed(components, name);
         forms.push(() => runtime.render(form, { title: "Output" }));
     }
     context.onTestFinished(() => owners.stop());

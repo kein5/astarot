@@ -6,7 +6,7 @@ import type { SidecarSession, SidecarSessionStore, SidecarTimer } from "./sideca
 import type { BackendCommand } from "./backendCommand.ts";
 import * as startupPhase from "./startupPhase.ts";
 import { expectBackendExit } from "./sidecarExitExpectation.ts";
-import { hooks, loadModule, find, unchecked } from "../test/hookHarness.ts";
+import { asTimerFunction, componentName, fieldOf, findIn, hooks, loadModule, find, timerHandle, unchecked } from "../test/hookHarness.ts";
 import { deferred, flush, loadBridgeStore, loadBridgeRoutes } from "../test/bridgeHarness.ts";
 import * as utils from "../utils.ts";
 
@@ -37,7 +37,7 @@ const sessionOf = (store: { backend_session: SidecarSession | null }) => {
 const completionOf = (store: { backend_session: SidecarSession | null }) => sessionOf(store).completion;
 
 const setup = () => {
-    // The store starts with no session, as the app's does before its first start.
+    // Test data: the store starts with no session, as the app's does before its first start.
     const store = unchecked<SidecarSessionStore>({}), timers = new Map<unknown, () => void>(), states: string[] = [], messages: unknown[] = [], crashes: unknown[] = [];
     const attempts: { command: BackendCommand; spawn: ReturnType<typeof deferred<FakeChild>>; child: FakeChild;
         events: Record<string, Listener>; stdout: Record<string, Listener>; stderr: Record<string, Listener> }[] = [];
@@ -45,7 +45,7 @@ const setup = () => {
     const createCommand = () => {
         const spawn = deferred<FakeChild>(), events: Record<string, Listener> = {}, stdout: Record<string, Listener> = {}, stderr: Record<string, Listener> = {};
         const child: FakeChild = { kills: 0, kill: async () => { child.kills++; } };
-        // A command with only what the owner uses; its child has no pid and writes nothing.
+        // Test data: a command with only what the owner uses; its child has no pid and writes nothing.
         const command = unchecked<BackendCommand>({ on: (name: string, fn: Listener) => { events[name] = fn; },
             stdout: { on: (name: string, fn: Listener) => { stdout[name] = fn; } },
             stderr: { on: (name: string, fn: Listener) => { stderr[name] = fn; } }, spawn: () => spawn.promise });
@@ -54,7 +54,7 @@ const setup = () => {
     };
     const timerTools = {
         // The fake timer's id is a number, as the browser's is.
-        setInterval: (fn: () => void, delay?: number) => { assert.equal(delay, 20000); timers.set(++timerId, fn); return unchecked<SidecarTimer>(timerId); },
+        setInterval: (fn: () => void, delay?: number) => { assert.equal(delay, 20000); timers.set(++timerId, fn); return timerHandle<SidecarTimer>(timerId); },
         clearInterval: (id: unknown) => timers.delete(id),
     };
     const owner = createSidecarSessionOwner({ store, createCommand, ...timerTools });
@@ -262,7 +262,7 @@ test("lines that overtake spawn() wait for the child, so their replies can send 
     // be written (backend_unavailable right after the window opened).
     const s = setup(), seen: unknown[][] = [];
     // The routes get each line parsed: an object with its endpoint.
-    s.handlers.receiveRoutes = (message: unknown) => seen.push([unchecked<{ endpoint: unknown }>(message).endpoint, s.store.backend_subprocess]);
+    s.handlers.receiveRoutes = (message: unknown) => seen.push([fieldOf(message, "endpoint"), s.store.backend_subprocess]);
     const detach = s.mount();
     await flush();
     const a = s.attempts[0];
@@ -296,7 +296,7 @@ test("production controller publishes startup failure and the failure dialog say
     vi.spyOn(console, "error").mockImplementation(() => {});
     const s = setup(), b = await loadBridgeStore();
     // The fake timer stands in for the global one, which the controller uses.
-    vi.spyOn(globalThis, "setInterval").mockImplementation(unchecked<typeof setInterval>(s.timerTools.setInterval));
+    vi.spyOn(globalThis, "setInterval").mockImplementation(asTimerFunction("setInterval", s.timerTools.setInterval));
     vi.spyOn(globalThis, "clearInterval").mockImplementation(s.timerTools.clearInterval);
     const common = { useNotificationStatus: () => ({ showNotification_Error: () => {} }),
         useIsBackendReady: b.stores.useStore_IsBackendReady, useWindow: () => ({ asyncCloseApp: () => {} }) };
@@ -347,7 +347,7 @@ for (const initialized of [false, true]) test(`production exit ${initialized ? "
     vi.spyOn(console, "error").mockImplementation(() => {});
     const s = setup(), b = await loadBridgeRoutes();
     // The fake timer stands in for the global one, which the controller uses.
-    vi.spyOn(globalThis, "setInterval").mockImplementation(unchecked<typeof setInterval>(s.timerTools.setInterval));
+    vi.spyOn(globalThis, "setInterval").mockImplementation(asTimerFunction("setInterval", s.timerTools.setInterval));
     vi.spyOn(globalThis, "clearInterval").mockImplementation(s.timerTools.clearInterval);
     const common = { useNotificationStatus: () => ({ showNotification_Error() {} }),
         useIsBackendReady: b.stores.useStore_IsBackendReady,
@@ -420,8 +420,7 @@ for (const initialized of [false, true]) test(`production exit ${initialized ? "
     });
     const tree = app.App();
     // The main page is always there: locked under the failure dialog, live after a later exit.
-    const contents = find(tree, node => typeof node.type === "function" && node.type.name === "Contents");
-    assert.ok(contents);
+    const contents = findIn(tree, node => componentName(node) === "Contents");
     assert.equal(contents.props.locked, !initialized);
     assert.equal(!!find(tree, node => node.type === StartupFailedDialog), !initialized);
     assert.equal(find(tree, node => node.type === StartupAnnouncer), null);

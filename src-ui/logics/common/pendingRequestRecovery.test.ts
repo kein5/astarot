@@ -3,11 +3,19 @@ import { test, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { createPendingRequestRecovery, restorePendingValue, settingPendingControl, staticPendingControls, featureResyncReads, restoreDownloadPending, sendWithRecovery } from "./pendingRequestRecovery.ts";
 import type { PendingControlSpec, PendingDownloadRequest, PendingRestore } from "./pendingRequestRecovery.ts";
-import type { SettingDefinition } from "./initializationFields.ts";
-import { unchecked } from "../test/hookHarness.ts";
+import type { SettingDefinition, SettingLogicsTemplateId } from "./initializationFields.ts";
+import { isRecord, unchecked } from "../test/hookHarness.ts";
 
-// A restore that reports nothing (undefined), as some of these tests' restores always did; the
-// recovery reads that as "nothing changed".
+// The templates a setting can name; the type checker keeps this list whole.
+const TEMPLATES = { get_only: true, get_list: true, get_set: true, get_set_delete: true, toggle_enable_disable: true,
+    weight_download_status: true } satisfies Record<SettingLogicsTemplateId, true>;
+const isTemplate = (value: string): value is SettingLogicsTemplateId => Object.keys(TEMPLATES).includes(value);
+// A weight download's request, as the store checks it before restoring.
+const isDownloadRequest = (request: unknown): request is PendingDownloadRequest => request === null || request === undefined
+    || typeof request === "string" || (isRecord(request) && (request.weight_type === undefined || typeof request.weight_type === "string"));
+
+// On purpose: a restore that reports nothing (undefined), as some of these tests' restores always
+// did; the recovery reads that as "nothing changed".
 const quietRestore = (restore: (request: PendingDownloadRequest) => void) => unchecked<PendingRestore>(restore);
 
 const setup = (spec: PendingControlSpec = settingPendingControl({ base_endpoint_name: "osc_port", logics_template_id: "get_set" })) => {
@@ -142,7 +150,9 @@ test("all configured recovery reads exist in the backend mapping and have UI rou
     // Extract only the declarative settings fields; no React / Vite alias imports.
     for (const match of settings.matchAll(/logics_template_id: "([^"]+)"[^}]*?base_endpoint_name: "([^"]+)"/g)) {
         // The template and the endpoint as the source writes them.
-        const { read } = settingPendingControl({ logics_template_id: unchecked(match[1]), base_endpoint_name: unchecked(match[2]) });
+        const [, template, endpoint] = match;
+        assert.ok(isTemplate(template), template);
+        const { read } = settingPendingControl({ logics_template_id: template, base_endpoint_name: endpoint });
         if (read) assert.ok(mappedEndpoints.has(read), read);
         else assert.equal(mappedEndpoints.has(`/get/data/${match[2]}`), false, `Do not omit existing getter: ${match[2]}`);
     }
@@ -212,8 +222,8 @@ test("failed send identifies a legacy download even with another weight outstand
 
 test("terminal failures republish confirmed atoms for a VR-only pending control", () => {
     const recovery = createPendingRequestRecovery(), publications: unknown[] = [];
-    // The restore answers with the publish flag it is given, which may be undefined.
     recovery.register({ ...staticPendingControls.TranslationStatus,
+        // On purpose: the restore answers with the publish flag it is given, which may be undefined.
         restore: unchecked<PendingRestore>((_request: unknown, _all: unknown, publish: unknown) => { publications.push(publish); return publish; }) });
     recovery.receive({ endpoint: "/set/enable/translation", status: 404 }, () => assert.fail("no read exists"));
     assert.equal(recovery.failSend("/set/enable/translation", undefined, undefined), true);
@@ -324,7 +334,11 @@ test("a refused download releases that weight only, with the store's own restore
     let value = { state: "ok", data: ["small", "large"].map(id => ({ id, is_pending: true, progress: 10 })) };
     recovery.register({ ...settingPendingControl({ base_endpoint_name: "whisper_weight", logics_template_id: "weight_download_status" }),
         // The request the recovery holds is the download's.
-        restore: (request, all) => { value = restoreDownloadPending(value, unchecked(request), all); return true; } });
+        restore: (request, all) => {
+            assert.ok(isDownloadRequest(request));
+            value = restoreDownloadPending(value, request, all);
+            return true;
+        } });
     recovery.failSend("/run/download_whisper_weight", { weight_type: "small" }, undefined);
     assert.deepEqual(value.data.map(item => item.is_pending), [false, true]);
     recovery.receive({ endpoint: "/run/download_whisper_weight", status: 404, result: { data: "medium" } }, () => true);

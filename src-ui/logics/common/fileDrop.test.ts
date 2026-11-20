@@ -9,10 +9,10 @@ import { unchecked } from "../test/hookHarness.ts";
 const box = (left: number, top: number, width: number, height: number) => ({ left, top, width, height, right: left + width, bottom: top + height });
 const zone = (rect: ReturnType<typeof box>, extra: Partial<DropZone> = {}): DropZone & { drops: string[][] } => {
     const drops: string[][] = [];
-    // An element with only the box the zone reads.
+    // Test data: an element with only the box the zone reads.
     return { drops, element: unchecked<Element>({ getBoundingClientRect: () => rect }), drop: paths => drops.push(paths), disabled: () => false, ...extra };
 };
-// Tauri's drag-and-drop events with only the fields the handler reads (a plain position for PhysicalPosition).
+// Test data: Tauri's drag-and-drop events with only the fields the handler reads (a plain position for PhysicalPosition).
 const drag = (payload: object) => handleDragDrop(unchecked<DragDropEvent>(payload));
 
 test("a file's kind is its last extension, in any letter case, from Windows or Linux paths", () => {

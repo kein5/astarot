@@ -1,24 +1,11 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import type { TestContext } from "vitest";
-import { find, hooks, loadModule, unchecked } from "../../../../../../logics/test/hookHarness.ts";
-import type { TreeNode } from "../../../../../../logics/test/hookHarness.ts";
+import { find, hooks, loadModule, nodesIn, componentName } from "../../../../../../logics/test/hookHarness.ts";
 import * as sharedWindow from "../../../../../../logics/configs/ocrSharedWindow.ts";
 
 const flush = async () => { for (let i = 0; i < 10; i++) await Promise.resolve(); };
-const buttons = (tree: unknown) => {
-    const found: TreeNode[] = [];
-    const walk = (node: unknown): void => {
-        if (!node || typeof node !== "object") return;
-        if (Array.isArray(node)) return node.forEach(walk);
-        // Any other object here is an element of the drawn tree.
-        const element = unchecked<TreeNode>(node);
-        if (element.type === "button") found.push(element);
-        walk(element.props?.children);
-    };
-    walk(tree);
-    return found;
-};
+const buttons = (tree: unknown) => nodesIn(tree).filter(node => node.type === "button");
 
 const mount = async (context: TestContext, state: Partial<sharedWindow.SharedWindowState>) => {
     const runtime = hooks();
@@ -87,7 +74,7 @@ test("while the desktop's dialog is open the button stays focusable but does not
 
 test("the status and a failure are announced in the readout", async context => {
     const { render } = await mount(context, { supported: true, error: "screencast_helper_missing" });
-    const readout = find(render(), node => (typeof node.type === "function" && node.type.name === "EnvReadout") || node.props?.tone);
+    const readout = find(render(), node => componentName(node) === "EnvReadout" || node.props?.tone);
     assert.ok(readout);
     assert.equal(readout.props.tone, "failed");
     const lines = [readout.props.children].flat().filter(Boolean).map(line => line.props.children);

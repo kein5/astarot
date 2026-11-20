@@ -2,8 +2,7 @@ import assert from "node:assert/strict";
 import { test, vi } from "vitest";
 import type { TestContext } from "vitest";
 import type { ReactNode } from "react";
-import { hooks, loadModule, find, stubGlobals, eventTarget, unchecked } from "../../../../../../logics/test/hookHarness.ts";
-import type { TreeNode } from "../../../../../../logics/test/hookHarness.ts";
+import { hooks, loadModule, find, findIn, componentName, draw as drawElement, fieldOf, stubGlobals, eventTarget } from "../../../../../../logics/test/hookHarness.ts";
 import { rebaseDraft } from "../../../../../../logics/voice/draftRebase.ts";
 import { changedPaths } from "../../../../../../logics/voice/saveBar.ts";
 import type { SaveBarEntry } from "../../../../../../logics/voice/saveBar.ts";
@@ -13,13 +12,6 @@ const draftPath = "../../../../../../logics/voice/useSettingsDraft.tsx";
 const importsPath = "../../../../../../../logics/voice/useSettingsDraft";
 const flush = async () => { for (let i = 0; i < 10; i++) await Promise.resolve(); };
 
-// The node a test reads: one that is missing fails the test where it is read.
-const found = (node: TreeNode | null) => { assert.ok(node); return node; };
-// A field of a value the form sent, read as `value.field` read it.
-const fieldOf = (value: unknown, field: string): unknown => {
-    if (value === null || value === undefined) throw new TypeError(`No ${field} on ${String(value)}`);
-    return Reflect.get(Object(value), field);
-};
 interface SentRequest {
     value: unknown;
     resolve: (result: StdoutResult) => void;
@@ -64,9 +56,9 @@ async function setup(context: TestContext, kind: "word" | "message") {
     const render = () => { draw(); return draw(); };
     // InputComponent is intentionally private; exercise the component rendered by the parent.
     const input = () => {
-        const node = find(render(), node => typeof node.type === "function" && node.type.name === "InputComponent");
+        const node = find(render(), node => componentName(node) === "InputComponent");
         // A function component of MessageFormat.tsx, drawn with the props its parent gave it.
-        return node ? unchecked<(props: unknown) => ReactNode>(node.type)(node.props) : null;
+        return node ? drawElement(node) : null;
     };
     const reject = async () => {
         saved.state = "ok";
@@ -82,8 +74,8 @@ async function setup(context: TestContext, kind: "word" | "message") {
 
 test("word filter stages additions and deletions without changing confirmed data, and retains rejected edits", async context => {
     const s = await setup(context, "word");
-    found(find(s.render(), node => node.type === s.Entry)).props.onChange({ target: { value: "new" } });
-    found(find(s.render(), node => node.type === s.Entry)).props.onEnterPressed();
+    findIn(s.render(), node => node.type === s.Entry).props.onChange({ target: { value: "new" } });
+    findIn(s.render(), node => node.type === s.Entry).props.onEnterPressed();
     s.render();
     assert.deepEqual(s.saved.data, ["old"]);
     assert.equal(s.requests.length, 0);
@@ -95,7 +87,7 @@ test("word filter stages additions and deletions without changing confirmed data
     assert.equal(s.entry.saveState, "save_failed");
     assert.ok(find(s.render(), node => node.props?.value === "new"));
     s.entry.discard(); s.render();
-    const row = found(find(s.render(), node => node.props?.value === "old"));
+    const row = findIn(s.render(), node => node.props?.value === "old");
     row.props.deleteAction("old", {}); s.render();
     const removal = s.entry.save(); s.render();
     assert.deepEqual(s.requests.at(-1)?.value, []);
@@ -106,15 +98,15 @@ test("word filter stages additions and deletions without changing confirmed data
 
 for (const action of ["reset", "swap"]) test(`message format ${action} shares the draft and cannot be undone by a stale timer`, async context => {
     const s = await setup(context, "message");
-    const prefix = () => found(find(s.input(), node => node.props?.["aria-label"]?.endsWith("before_original")));
+    const prefix = () => findIn(s.input(), node => node.props?.["aria-label"]?.endsWith("before_original"));
     prefix().props.onChange({ target: { value: "draft" } }); s.render();
     assert.equal(s.entry.edited, true);
     assert.equal(s.requests.length, 0);
     const leave = { defaultPrevented: false, preventDefault() { this.defaultPrevented = true; }, detail: { proceed() {} } };
     s.window.dispatch("vrct:settings-leave", leave);
     assert.equal(leave.defaultPrevented, true);
-    if (action === "reset") found(find(s.input(), node => node.type === "reset")).props.onClickFunction();
-    else found(find(s.input(), node => node.props?.className === "swap_button_wrapper")).props.onClick();
+    if (action === "reset") findIn(s.input(), node => node.type === "reset").props.onClickFunction();
+    else findIn(s.input(), node => node.props?.className === "swap_button_wrapper").props.onClick();
     s.render(); vi.advanceTimersByTime(600); s.render();
     assert.equal(s.requests.length, 0);
     assert.equal(prefix().props.ui_variable, action === "reset" ? "" : "draft");

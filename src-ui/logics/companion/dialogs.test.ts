@@ -8,7 +8,7 @@ const fake = () => {
         // Called before an observer exists, it stops with a TypeError, as calling null did.
         callback: () => { throw new TypeError("state.callback is not a function"); },
         options: null, disconnected: false };
-    // A document with only what the watch reads.
+    // Test data: a document with only what the watch reads.
     const root = unchecked<Parameters<typeof watchOpenDialogs>[0]>({ body: {},
         querySelector: (selector: string) => (selector === "dialog[open]" && state.open ? {} : null) });
     class Observer {

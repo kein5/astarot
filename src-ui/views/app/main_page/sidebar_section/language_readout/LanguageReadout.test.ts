@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import { readFileSync } from "node:fs";
-import { hooks, loadModule, find } from "../../../../../logics/test/hookHarness.ts";
+import { hooks, loadModule, find, fieldOf } from "../../../../../logics/test/hookHarness.ts";
 import type { TreeNode } from "../../../../../logics/test/hookHarness.ts";
 import * as languageNames from "../../../../../logics/common/languageNames.ts";
 
@@ -21,11 +21,7 @@ const entry = (language: string, country: string, enable = true): Entry => ({ la
 const t = (key: string, options?: { from: string; to: string }) => options ? `${options.from} → ${options.to}` : key;
 
 // node?.props?.[key], for a rendered node of any kind.
-const propOf = (node: unknown, key: string): unknown => {
-    if (node === null || node === undefined) return undefined;
-    const props: unknown = Reflect.get(Object(node), "props");
-    return props === null || props === undefined ? undefined : Reflect.get(Object(props), key);
-};
+const propOf = (node: unknown, key: string): unknown => fieldOf(node, "props", key);
 
 async function setup({ ui = "ja", yours = entry("Japanese", "Japan"), targets = { 1: entry("English", "United States"), 2: entry("Korean", "South Korea", false), 3: entry("French", "France", false) }, preset = "1" }: ReadoutSetup = {}) {
     const runtime = hooks(), toggled: boolean[] = [];

@@ -1,22 +1,13 @@
 import { test } from "vitest";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import yaml from "js-yaml";
 import {
     createSharedWindowActions, endedNotice, INITIAL_SHARED_WINDOW, nextRestoreToken, RESTORE_LIMIT_MS, shareErrorKey,
     sharedWindowView, shouldHoldSwitch, shouldRestoreSharing, shouldStopSharing, startErrorKey,
 } from "./ocrSharedWindow.ts";
-import type { ScreencastReply, SharedWindowState, SharedWindowView, TimerHandle } from "./ocrSharedWindow.ts";
-import { unchecked } from "../test/hookHarness.ts";
+import type { ScreencastReply, SharedWindowState, SharedWindowView } from "./ocrSharedWindow.ts";
+import { isRecord, timerHandle, timerNumber, unchecked } from "../test/hookHarness.ts";
+import { localeAt, readLocale, textAt } from "../test/locales.ts";
 
-const locale = (name: string): unknown => yaml.load(readFileSync(new URL(`../../../locales/${name}.yml`, import.meta.url), "utf8"));
-const lookup = (tree: unknown, key: string) => key.split(".").reduce<unknown>((node, part) => node && typeof node === "object" ? Reflect.get(node, part) : undefined, tree);
-// A text of the locale file; anything else fails here, as assert.match did.
-const textAt = (tree: unknown, key: string) => {
-    const value = lookup(tree, key);
-    assert.ok(typeof value === "string", key);
-    return value;
-};
 // Test data: states with only the fields the view reads.
 const viewOf = (state: Partial<SharedWindowState>) => sharedWindowView(unchecked<SharedWindowState>(state));
 // A view the section draws; the hidden one has none of the fields read below, which then failed
@@ -25,6 +16,9 @@ const shown = (view: SharedWindowView) => {
     assert.ok(view.visible);
     return view;
 };
+
+// The app's reply to a screencast command: an object, or nothing.
+const isReply = (value: unknown): value is ScreencastReply => value === null || value === undefined || isRecord(value);
 
 // The page's pieces around the actions, as the tests read them.
 interface Page {
@@ -48,7 +42,9 @@ const harness = ({ token = "", state = {}, commands = {} }: HarnessOptions = {})
             const answer = commands[command];
             if (answer instanceof Error) throw answer.message;
             // The scripted answers stand in for the app's replies.
-            return unchecked<ScreencastReply>(typeof answer === "function" ? answer(args) : answer);
+            const reply: unknown = typeof answer === "function" ? answer(args) : answer;
+            assert.ok(isReply(reply), command);
+            return reply;
         },
         read: () => page.state,
         write: next => { page.state = next; },
@@ -57,9 +53,6 @@ const harness = ({ token = "", state = {}, commands = {} }: HarnessOptions = {})
     });
     return { page, actions };
 };
-// Fake timers number their handles.
-const handle = (index: number) => unchecked<TimerHandle>(index);
-const indexOf = (timer: TimerHandle) => unchecked<number>(timer);
 
 test("the section is only shown where a window can be shared", () => {
     assert.deepEqual(sharedWindowView(null), { visible: false });
@@ -205,8 +198,8 @@ test("English and Japanese have every string the section uses", () => {
         .concat(["config_page.ocr.capture_source.shared", "config_page.ocr.runtime.shared_window_ended",
             "common_error.ocr_window_not_found_wayland"]);
     for (const name of ["en", "ja"]) {
-        const tree = locale(name);
-        for (const key of keys) assert.equal(typeof lookup(tree, key), "string", `${name}: ${key}`);
+        const tree = readLocale(name);
+        for (const key of keys) assert.equal(typeof localeAt(tree, key), "string", `${name}: ${key}`);
         assert.match(textAt(tree, "config_page.ocr.shared_window.error_failed"), /\{\{code\}\}/);
         assert.match(textAt(tree, "config_page.ocr.capture_source.shared"), /\{\{status\}\}/);
     }
@@ -247,8 +240,8 @@ test("restoring sends the saved token, keeps the new one, and reports that a win
         invoke: async (command, args) => { page.calls.push([command, args]); return { restore_token: "next" }; },
         read: () => page.state, write: next => { page.state = next; },
         token: () => page.token, saveToken: value => { page.saved.push(value); page.token = value; },
-        later: (run, ms) => { timers.push({ run, ms, cancelled: false }); return handle(timers.length - 1); },
-        cancel: timer => { timers[indexOf(timer)].cancelled = true; },
+        later: (run, ms) => { timers.push({ run, ms, cancelled: false }); return timerHandle(timers.length - 1); },
+        cancel: timer => { timers[timerNumber(timer)].cancelled = true; },
     });
     assert.equal(await actions.restore(), true);
     assert.deepEqual(page.calls, [["screencast_start", { restoreToken: "saved" }]]);
@@ -281,7 +274,7 @@ test("a desktop that asks instead of restoring is given a limit, then the reques
         },
         read: () => page.state, write: next => { page.state = next; },
         token: () => page.token, saveToken: value => { page.saved.push(value); page.token = value; },
-        later: (run, ms) => { timers.push({ run, ms }); return handle(timers.length - 1); },
+        later: (run, ms) => { timers.push({ run, ms }); return timerHandle(timers.length - 1); },
         cancel: () => {},
     });
     const restoring = actions.restore({ limit: 5000 });

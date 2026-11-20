@@ -1,18 +1,9 @@
 import assert from "node:assert/strict";
 import { test, vi } from "vitest";
 import type { TestContext } from "vitest";
-import { eventTarget, find, hooks, loadModule, unchecked } from "../../logics/test/hookHarness.ts";
+import { eventTarget, find, hooks, loadModule, unchecked, findIn, drawWith } from "../../logics/test/hookHarness.ts";
 import type { TreeNode } from "../../logics/test/hookHarness.ts";
 import * as switchBlocks from "../../logics/main/switchBlocks.ts";
-
-// A node the test goes on to read: it must be there.
-const found = (tree: unknown, predicate: (node: TreeNode) => boolean) => {
-    const node = find(tree, predicate);
-    assert.ok(node);
-    return node;
-};
-// Draws a node of the tree whose component is one of the launcher's own function components.
-const component = (node: TreeNode) => unchecked<(props: object) => TreeNode>(node.type);
 
 async function launcher(context: TestContext) {
     const runtime = hooks(), document = eventTarget(), window = eventTarget();
@@ -47,7 +38,7 @@ async function launcher(context: TestContext) {
         toggleLog: () => calls.push("toggleLog"), openLog: () => calls.push("openLog"), togglePopup() {} });
     const logButton = find(tree, node => typeof node.props?.onLongPress === "function");
     assert.ok(logButton);
-    const render = () => runtime.render(component(logButton), logButton.props);
+    const render = () => drawWith(runtime, logButton);
     render();
     return { runtime, document, window, calls, render };
 }
@@ -142,8 +133,8 @@ async function functionButtons({ blocks = {}, statuses = {}, configOpen = false 
         "./VrTooltip": { VrTooltipButton: "button" },
     });
     const tree = runtime.render(VrLauncher, { windows: { log: false, popup: null }, toggleLog() {}, openLog() {}, togglePopup() {} });
-    const group = found(tree, node => node.props?.["aria-label"] === "vr_panel.tooltip.functions_group");
-    const buttons: TreeNode[] = group.props.children.map((node: TreeNode) => runtime.render(component(node), node.props));
+    const group = findIn(tree, node => node.props?.["aria-label"] === "vr_panel.tooltip.functions_group");
+    const buttons: TreeNode[] = group.props.children.map((node: TreeNode) => drawWith(runtime, node));
     return { buttons, calls };
 }
 

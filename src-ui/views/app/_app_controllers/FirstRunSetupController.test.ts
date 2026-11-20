@@ -2,9 +2,9 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "vitest";
 import type { TestContext } from "vitest";
-import yaml from "js-yaml";
-import { hooks, loadModule, find, unchecked } from "../../../logics/test/hookHarness.ts";
+import { hooks, loadModule, find, findIn, nodesIn, componentName, draw } from "../../../logics/test/hookHarness.ts";
 import type { TreeNode } from "../../../logics/test/hookHarness.ts";
+import { branchAt, localeAt, readLocale } from "../../../logics/test/locales.ts";
 import * as logic from "../../../logics/setup/firstRunSetup.ts";
 
 const CATALOG = {
@@ -47,10 +47,6 @@ function world(values: Partial<World> = {}): World {
         downloadError: null, realtimeError: null, sent: [], calls: [],
         mic: "Microphone (USB)", vrchat: "found", cables: [], needs: [], ...values };
 }
-
-// value?.[key], for a value read from a locale file.
-const fieldOf = (value: unknown, key: string): unknown =>
-    value === null || value === undefined ? undefined : Reflect.get(Object(value), key);
 
 async function setup(context: TestContext, w = world()) {
     const runtime = hooks();
@@ -95,18 +91,14 @@ async function setup(context: TestContext, w = world()) {
     context.onTestFinished(() => runtime.unmount());
     // Renders until the effects stop changing what is drawn (each effect may set state).
     const render = () => { let tree: unknown; for (let i = 0; i < 4; i += 1) tree = runtime.render(FirstRunSetupController); return tree; };
-    const buttons = (tree: unknown) => { const found: TreeNode[] = []; find(tree, node => { if (node.type === "button") found.push(node); return false; }); return found; };
+    const buttons = (tree: unknown) => nodesIn(tree).filter(node => node.type === "button");
     const button = (tree: unknown, label: string) => {
         const found = buttons(tree).find(node => [node.props.children].flat().includes(label));
         assert.ok(found, label);
         return found;
     };
     // A part the dialog draws from a function of its own, found by that function's name.
-    const part = (tree: unknown, name: string) => {
-        const found = find(tree, node => typeof node.type === "function" && node.type.name === name);
-        assert.ok(found, name);
-        return found;
-    };
+    const part = (tree: unknown, name: string) => findIn(tree, node => componentName(node) === name, name);
     return { render, button, buttons, part };
 }
 
@@ -240,26 +232,21 @@ interface FindingRow {
     action?: TreeNode | false;
     children: string | TreeNode[];
 }
-// A part the harness does not draw by itself (it draws one level), called as the dialog would.
-interface Part { type: (props: object) => unknown; props: object }
-const isFinding = (node: TreeNode) => typeof node.type === "function" && node.type.name === "Finding";
+const isFinding = (node: TreeNode) => componentName(node) === "Finding";
 const shortName = (row: FindingRow) => row.name.split(".").at(-1) ?? row.name;
 
 test("each finding is marked by its state, with its words and its action apart", async context => {
     const rowsOf = async (values: Partial<World>) => {
         const w = world(values);
         const s = await setup(context, w);
-        // The element the dialog drew for Findings: a function component and the props it was given.
-        const findings = unchecked<Part>(s.part(s.render(), "Findings"));
-        const list = findings.type(findings.props);
-        const rows: FindingRow[] = [];
-        find(list, node => { if (isFinding(node)) rows.push(node.props); return false; });
+        // The element the dialog drew for Findings, which the harness does not draw by itself (it
+        // draws one level): drawn here with the props it was given, as the dialog would.
+        const list = draw(s.part(s.render(), "Findings"));
+        const rows: FindingRow[] = nodesIn(list).filter(isFinding).map(node => node.props);
         // Where each row is drawn: the cards of what needs the user, or the quiet list after them.
         const placed = (className: string) => {
             const group = find(list, node => node.type === "ul" && node.props.className === className);
-            const names: string[] = [];
-            find(group, node => { if (isFinding(node)) names.push(shortName(node.props)); return false; });
-            return names;
+            return nodesIn(group).filter(isFinding).map(node => shortName(node.props));
         };
         return { rows: Object.fromEntries(rows.map(row => [shortName(row), row])), urgent: placed("urgent"), settled: placed("items"), list };
     };
@@ -311,12 +298,9 @@ test("every string it uses is in both languages", () => {
     for (const state of ["ready", "cloud", "own_server", "needs_setup", "unknown"]) keys.add(`first_run_setup.found.recognition_${state}`);
     for (const step of ["server", "engine"]) keys.add(`first_run_setup.recognition.step_${step}`);
     for (const language of ["en", "ja"]) {
-        const messages = yaml.load(readFileSync(new URL(`../../../../locales/${language}.yml`, import.meta.url), "utf8"));
-        for (const key of keys) {
-            const value = key.split(".").reduce<unknown>((node, part) => fieldOf(node, part), messages);
-            assert.equal(typeof value, "string", `${language}: ${key}`);
-        }
+        const messages = readLocale(language);
+        for (const key of keys) assert.equal(typeof localeAt(messages, key), "string", `${language}: ${key}`);
         // Japanese text never says "this PC" (このPC); it names the user's own computer.
-        if (language === "ja") assert.ok(!JSON.stringify(fieldOf(messages, "first_run_setup")).includes("このPC"));
+        if (language === "ja") assert.ok(!JSON.stringify(branchAt(messages, "first_run_setup")).includes("このPC"));
     }
 });

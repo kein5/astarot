@@ -1,22 +1,7 @@
 import assert from "node:assert/strict";
 import { test, vi } from "vitest";
-import { hooks, loadModule, find, eventTarget, unchecked } from "../test/hookHarness.ts";
-import type { TreeNode } from "../test/hookHarness.ts";
+import { hooks, loadModule, findIn, eventTarget, setRef, unchecked } from "../test/hookHarness.ts";
 import type { SliderProps } from "../../views/app/config_page/setting_section/setting_box/_components/slider/Slider.tsx";
-
-// A node the test reads at once: when it is missing, the test fails here.
-const found = (tree: unknown, predicate: (node: TreeNode) => boolean) => {
-    const node = find(tree, predicate);
-    assert.ok(node);
-    return node;
-};
-
-// The ref React keeps on an element, which the test points at its stand-ins.
-const refOf = (node: TreeNode) => {
-    const ref: unknown = Reflect.get(node, "ref");
-    if (typeof ref !== "object" || ref === null || !("current" in ref)) throw new TypeError("The element has no ref");
-    return ref;
-};
 
 const componentRoot = "../../views/app/config_page/setting_section/setting_box/_components/";
 const pointer = (x: number, y = 0) => ({ button: 0, clientX: x, clientY: y, preventDefault() {} });
@@ -35,11 +20,11 @@ test("slider installs listeners once per drag, reads current values/callbacks an
         } },
     });
     const props: { min: number; max: number; step: number; orientation?: SliderProps["orientation"] } = { min: 0, max: 100, step: 1 };
-    // Only the fields the stand-in slider logic leaves the slider to read.
+    // Test data: only the fields the stand-in slider logic leaves the slider to read.
     const render = () => runtime.render(Slider, unchecked<SliderProps>(props), tree => {
-        refOf(found(tree, node => node.props?.onPointerDown)).current = track;
+        setRef(findIn(tree, node => node.props?.onPointerDown), track);
     });
-    const start = () => found(render(), node => node.props?.onPointerDown).props.onPointerDown(pointer(10));
+    const start = () => findIn(render(), node => node.props?.onPointerDown).props.onPointerDown(pointer(10));
     start(); render();
     const installed = [...window.added];
     assert.deepEqual(installed.map(([type]) => type), ["pointermove", "pointerup"]);
@@ -80,8 +65,8 @@ for (const timing of ["on_change", "on_change_committed"] as const) test(`slider
     });
     const props: SliderProps = { min: 0, max: 100, step: 1, variable: 0, state: "ok", setter_timing: timing,
         setterFunction: value => { sent.push(value); return true; } };
-    const render = () => runtime.render(Slider, props, tree => { refOf(found(tree, node => node.props?.onPointerDown)).current = track; });
-    found(render(), node => node.props?.onPointerDown).props.onPointerDown(pointer(10));
+    const render = () => runtime.render(Slider, props, tree => { setRef(findIn(tree, node => node.props?.onPointerDown), track); });
+    findIn(render(), node => node.props?.onPointerDown).props.onPointerDown(pointer(10));
     render();
     window.dispatch("pointermove", pointer(20)); render();
     vi.advanceTimersByTime(100);
@@ -96,7 +81,7 @@ for (const timing of ["on_change", "on_change_committed"] as const) test(`slider
     assert.deepEqual(sent, [30]);
     assert.deepEqual(window.added.map(([type]) => type), ["pointermove", "pointerup"]);
     assert.deepEqual(window.removed, window.added);
-    found(render(), node => node.props?.onPointerDown).props.onPointerDown(pointer(40)); render();
+    findIn(render(), node => node.props?.onPointerDown).props.onPointerDown(pointer(40)); render();
     runtime.unmount();
     vi.advanceTimersByTime(1000);
     assert.deepEqual(sent, [30]);
@@ -119,10 +104,10 @@ test("dropdown keeps open listeners through renders, uses the latest updater and
     const inside = {}, container = { contains: (target: unknown) => target === inside,
         getBoundingClientRect: () => ({ top: 200, bottom: 240 }) };
     const render = () => runtime.render(_DropdownMenu, props, tree => {
-        refOf(tree).current = container;
-        refOf(found(tree, node => node.props?.role === "listbox")).current = { offsetHeight: 200, children: [] };
+        setRef(tree, container);
+        setRef(findIn(tree, node => node.props?.role === "listbox"), { offsetHeight: 200, children: [] });
     });
-    found(render(), node => node.props?.role === "combobox").props.onClick();
+    findIn(render(), node => node.props?.role === "combobox").props.onClick();
     render();
     const installed = [...document.added];
     assert.deepEqual(installed.map(([type]) => type), ["pointerdown", "keydown"]);
@@ -137,7 +122,7 @@ test("dropdown keeps open listeners through renders, uses the latest updater and
     assert.deepEqual(document.added, installed);
     assert.deepEqual(document.removed, installed);
     assert.deepEqual(window.removed, window.added);
-    found(render(), node => node.props?.role === "combobox").props.onClick(); render(); render();
+    findIn(render(), node => node.props?.role === "combobox").props.onClick(); render(); render();
     document.dispatch("pointerdown", { target: {} });
     assert.deepEqual(updates.at(-1), [version - 1, ""]);
     runtime.unmount();

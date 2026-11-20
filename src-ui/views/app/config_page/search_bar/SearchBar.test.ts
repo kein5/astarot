@@ -1,15 +1,12 @@
 import assert from "node:assert/strict";
 import { test, vi } from "vitest";
 import type { TestContext } from "vitest";
-import { hooks, loadModule, find, stubGlobals, eventTarget } from "../../../../logics/test/hookHarness.ts";
-import type { TreeNode } from "../../../../logics/test/hookHarness.ts";
+import { hooks, loadModule, find, setRef, stubGlobals, eventTarget } from "../../../../logics/test/hookHarness.ts";
 import * as searchTargets from "../../../../logics/configs/config_page_setter/_aux/configSearchTargets.ts";
 import * as revealSettingModule from "../../../../logics/configs/revealSetting.ts";
 
 const key = (name: string) => ({ key: name, defaultPrevented: false,
     preventDefault() { this.defaultPrevented = true; }, stopPropagation() {} });
-// React's element type leaves out ref, which the search field carries.
-const refOf = (node: TreeNode): { current: unknown } | null | undefined => Reflect.get(node, "ref");
 
 // The page as far as the search reads it: what has the focus and where a setting's row is.
 interface FakeDocument extends ReturnType<typeof eventTarget> {
@@ -71,9 +68,7 @@ async function setup(t: TestContext, { reducedMotion = false, control = true, de
         const field = find(runtime.render(SearchBar, {}, tree => {
             const input = find(tree, node => node.type === "input");
             assert.ok(input);
-            const ref = refOf(input);
-            assert.ok(ref);
-            ref.current = search;
+            setRef(input, search);
         }), node => node.type === "input");
         assert.ok(field);
         return field;

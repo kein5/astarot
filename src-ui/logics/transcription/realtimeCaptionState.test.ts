@@ -51,7 +51,8 @@ test("a speaker caption keeps the speakers its final names, through translation 
         const translated = captions.applyRealtimeCaption(final, { ...event, revision: 3, state: "translated", speakers,
             translations: [{ message: "訳", transliteration: [] }] }, active);
         assert.deepEqual(translated.rows[0].speakers, ["C", "B"]);
-        // An outcome carries no text: the one the caption had is cleared.
+        // On purpose: the caption's own fields with an outcome, which carries no text; the text the
+        // caption had is cleared.
         const settled = captions.applyRealtimeCaption(translated, unchecked<RealtimeCaptionPayload>({ ...event, text: undefined, revision: 4, state: "outcome", outcome: "delivered" }), {});
         assert.deepEqual(settled.rows[0].speakers, ["C", "B"]);
     }
@@ -148,7 +149,7 @@ test("production realtime and message hooks preserve logs on polls and handle ca
     render().messages.failSentMessageLog({});
     assert.equal(logs().data[0].status, "pending");
     render().messages.updateRealtimeCaption({ ...payload, revision: 3, state: "translated", text: "complete",
-        // A translation without its readings.
+        // Test data: a translation without its readings, which the log does not read here.
         translations: unchecked<CaptionMessage[]>([{ message: "translation" }]) });
     assert.equal(logs().data[0].realtime?.state, "translated");
     assert.equal(logs().data[0].status, "pending");
@@ -165,14 +166,14 @@ test("production realtime and message hooks preserve logs on polls and handle ca
     render().asr.updateState({ mic: { ...owner, generation: 5, namespace: "new" } });
     const newCaption = { ...payload, generation: 5, namespace: "new", item_id: "new" };
     render().messages.updateRealtimeCaption(newCaption);
-    // Settings with only what the hook compares: the sources' fields are left out.
+    // Test data: settings with only what the hook compares; the sources' fields are left out.
     const settings = unchecked<RealtimeAsrSettings>({ server: "bundled", model: "first", mic: {}, speaker: {} });
     render().asr.updateSettings(settings);
     render().asr.updateSettings({ ...settings, model: "changed" });
     assert.equal(render().asr.state.mic?.state, "stopping");
     assert.equal(logs().data.length, 1);
     // Even an equal poll must prune a partial added since the last state update.
-    // A row with only what pruning reads of it.
+    // Test data: a row with only what pruning reads of it.
     const stale = unchecked<MessageLogRow>({ id: "stale", realtime: { ...newCaption } });
     runtime.store.set(Atom_MessageLogs, { ...logs(), data: [...logs().data, stale] });
     const invalidated = render().asr.state;
@@ -197,7 +198,7 @@ const empty = (): RealtimeCaptionLog => ({ rows: [], retired: [] });
 
 test("a caption with a malformed identity is ignored; the limits themselves are accepted", () => {
     const start = empty();
-    // Captions with a malformed identity on purpose, and the session each would belong to.
+    // On purpose: captions with a malformed identity, and the session each would belong to.
     const ok = (changes: Record<string, unknown>) => captions.applyRealtimeCaption(start, unchecked<RealtimeCaptionPayload>({ ...payload, ...changes }),
         unchecked<RealtimeSessions>({ mic: { ...owner, namespace: changes.namespace ?? owner.namespace, generation: changes.generation ?? owner.generation } }));
     for (const changes of [{ namespace: "n".repeat(129) }, { item_id: "i".repeat(257) }, { namespace: 5 }, { item_id: 5 },

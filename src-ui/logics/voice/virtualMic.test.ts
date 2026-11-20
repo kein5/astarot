@@ -14,11 +14,11 @@ test("only a well-formed status is used", () => {
     assert.deepEqual(shapes.normalizeVirtualMicStatus(status()), status());
     for (const bad of [null, "x", {}, { supported: true }, { supported: "yes", cables: [] },
         { supported: true, cables: [{ playback: "a" }] }]) {
-        // Replies of the wrong shape, given on purpose.
+        // On purpose: replies of the wrong shape.
         assert.equal(shapes.normalizeVirtualMicStatus(unchecked<VirtualMicStatusReply>(bad)), null, JSON.stringify(bad));
     }
     // A label that is missing falls back to the device identity.
-    // A cable without its labels, given on purpose.
+    // On purpose: a cable without its labels.
     const fallback = shapes.normalizeVirtualMicStatus(status({ cables: [unchecked<VirtualMicCable>({ playback: "p", recording: "r" })] }));
     assert.ok(fallback);
     assert.equal(fallback.cables[0].recording_label, "r");

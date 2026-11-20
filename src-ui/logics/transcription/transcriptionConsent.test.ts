@@ -1,10 +1,9 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import type { TestContext } from "vitest";
-import { readFile } from "node:fs/promises";
-import yaml from "js-yaml";
-import { hooks, loadModule, find, unchecked } from "../test/hookHarness.ts";
-import type { HookRuntime, TreeNode } from "../test/hookHarness.ts";
+import { hooks, loadModule, find, findIn, drawWith } from "../test/hookHarness.ts";
+import type { TreeNode } from "../test/hookHarness.ts";
+import { localeAt, readLocale, textAt } from "../test/locales.ts";
 import * as endpointPrivacy from "../common/endpointPrivacy.ts";
 import type { BackendErrorReport } from "../_useBackendErrorHandling.ts";
 import type { RadioGroup, RadioOption } from "../../views/app/config_page/setting_section/setting_box/_components/radio_button/RadioButton.tsx";
@@ -13,26 +12,6 @@ const noop = () => {};
 const api = <T extends object>(values: T) => new Proxy(values, { get: (object, name) => Reflect.get(object, name) ?? noop });
 // A function given to an atom's update in place of its value.
 const isUpdate = (value: unknown): value is (previous: unknown) => unknown => typeof value === "function";
-// The node find finds; none fails here, as reading its props would.
-const found = (tree: unknown, predicate: (node: TreeNode) => boolean) => {
-    const node = find(tree, predicate);
-    assert.ok(node);
-    return node;
-};
-// Draws the component an element names with the props it was given, as React would draw it
-// there. The components drawn this way are function components that draw one element.
-const draw = (runtime: HookRuntime, node: TreeNode) => {
-    assert.equal(typeof node.type, "function");
-    return runtime.render(unchecked<(props: unknown) => TreeNode>(node.type), node.props);
-};
-// A key of a mapping in a locale tree, or undefined.
-const child = (node: unknown, key: string): unknown =>
-    typeof node === "object" && node !== null ? Reflect.get(node, key) : undefined;
-// A text in a locale tree; anything else fails here, as matching it would.
-const text = (node: unknown) => {
-    assert.ok(typeof node === "string");
-    return node;
-};
 
 interface SwitchState {
     data: unknown;
@@ -99,7 +78,7 @@ async function fixture(context: TestContext) {
         "../../../logics/common/useConsentDialog": { useConsentDialog: () => ({ dialog: { current: null }, close: noop }) },
     });
     const render = () => runtime.render(TranscriptionConsentController);
-    const click = (key: string) => found(render(), node => node.type === "button" && node.props.children === `transcription_consent.${key}`).props.onClick();
+    const click = (key: string) => findIn(render(), node => node.type === "button" && node.props.children === `transcription_consent.${key}`).props.onClick();
     const acknowledge = (value: string | null) => { transcription.currentSelectedTranscriptionEngine = { data: value, state: "ok" }; render(); };
     const firstEnable = (direction: Direction) => {
         main.useMainFunction()[`toggleTranscription${direction}`]();
@@ -163,9 +142,9 @@ test("Escape cancels and the initial focus target is Cancel", async context => {
     const s = await fixture(context);
     s.firstEnable("Send");
     const tree = s.render();
-    assert.equal(found(tree, node => node.props?.autoFocus).props.children, "transcription_consent.cancel");
+    assert.equal(findIn(tree, node => node.props?.autoFocus).props.children, "transcription_consent.cancel");
     let prevented = false;
-    found(tree, node => node.type === "dialog").props.onCancel({ preventDefault: () => { prevented = true; } });
+    findIn(tree, node => node.type === "dialog").props.onCancel({ preventDefault: () => { prevented = true; } });
     assert.equal(prevented, true);
     assert.equal(s.render(), null);
     assert.equal(s.calls.filter(([path]) => path.startsWith("/set/enable/")).length, 1);
@@ -277,14 +256,14 @@ test("settings keep the selected engine in sight under the radio row's label and
         "../_components": { LabelComponent, RadioButton }, "@common_components": { Checkbox: "checkbox" },
     });
     let row: TreeNode = rowRuntime.render(RadioButtonContainer, tree.props);
-    row = draw(rowRuntime, row);
-    row = draw(rowRuntime, row);
+    row = drawWith(rowRuntime, row);
+    row = drawWith(rowRuntime, row);
     assert.equal(row.type, "div");
     assert.equal(row.props["data-setting-id"], "select_transcription_engine");
-    const label = found(row, node => node.type === LabelComponent);
-    const control = found(row, node => node.type === RadioButton);
-    const group = draw(rowRuntime, control);
-    const drawnLabel = draw(rowRuntime, label);
+    const label = findIn(row, node => node.type === LabelComponent);
+    const control = findIn(row, node => node.type === RadioButton);
+    const group = drawWith(rowRuntime, control);
+    const drawnLabel = drawWith(rowRuntime, label);
     const described = group.props["aria-describedby"].split(" ");
     const help = find(drawnLabel, node => node.props?.id === label.props.note_id);
     // The row's name and help are on the group around both systems; each system is a
@@ -308,7 +287,7 @@ test("settings keep the selected engine in sight under the radio row's label and
 
     // The engine in use is named in the screen's words, not by its id.
     s.transcription.currentSelectedTranscriptionEngine = { data: "Custom_Whisper", state: "ok" };
-    const named = found(boxRuntime.render(TranscriptionEngine_Box).props.note, node => node.props?.role === "status");
+    const named = findIn(boxRuntime.render(TranscriptionEngine_Box).props.note, node => node.props?.role === "status");
     assert.match(JSON.stringify(named.props.children), /config_page\.transcription\.select_transcription_engine\.engines\.custom_whisper/);
     // A selection the backend no longer offers (a saved Google loads as none) shows as unselected.
     s.transcription.currentSelectedTranscriptionEngine = { data: null, state: "ok" };
@@ -317,18 +296,17 @@ test("settings keep the selected engine in sight under the radio row's label and
 });
 
 for (const language of ["en", "ja"]) test(`${language}: choice and error text disclose where audio goes and the separate local download`, async () => {
-    const messages = yaml.load(await readFile(new URL(`../../../locales/${language}.yml`, import.meta.url), "utf8"));
-    const consent = child(messages, "transcription_consent"), errors = child(messages, "backend_errors");
+    const messages = readLocale(language);
     // The retired Google web speech engine left no text behind.
-    assert.equal(child(consent, "google_notice"), undefined);
-    assert.equal(child(consent, "google"), undefined);
-    assert.doesNotMatch(text(child(child(child(child(messages, "config_page"), "transcription"), "select_transcription_engine"), "desc")), /Google/);
-    assert.match(text(child(consent, "cloud_notice")), /API/);
-    assert.match(text(child(consent, "cloud_notice")), language === "ja" ? /送られます/ : /sent/);
-    assert.match(text(child(consent, "speechcpp_notice")), /speech\.cpp/);
-    assert.equal(child(consent, "whisper_notice"), undefined);
+    assert.equal(localeAt(messages, "transcription_consent.google_notice"), undefined);
+    assert.equal(localeAt(messages, "transcription_consent.google"), undefined);
+    assert.doesNotMatch(textAt(messages, "config_page.transcription.select_transcription_engine.desc"), /Google/);
+    assert.match(textAt(messages, "transcription_consent.cloud_notice"), /API/);
+    assert.match(textAt(messages, "transcription_consent.cloud_notice"), language === "ja" ? /送られます/ : /sent/);
+    assert.match(textAt(messages, "transcription_consent.speechcpp_notice"), /speech\.cpp/);
+    assert.equal(localeAt(messages, "transcription_consent.whisper_notice"), undefined);
     for (const code of ["ENGINE_NOT_SELECTED", "ENGINE_UNAVAILABLE"])
-        assert.ok(child(errors, `TRANSCRIPTION_${code}`));
+        assert.ok(localeAt(messages, `backend_errors.TRANSCRIPTION_${code}`));
     // Only the removed Whisper engine reported these.
-    for (const code of ["MODEL_MISSING", "VRAM_MIC", "VRAM_SPEAKER"]) assert.equal(child(errors, `TRANSCRIPTION_${code}`), undefined);
+    for (const code of ["MODEL_MISSING", "VRAM_MIC", "VRAM_SPEAKER"]) assert.equal(localeAt(messages, `backend_errors.TRANSCRIPTION_${code}`), undefined);
 });

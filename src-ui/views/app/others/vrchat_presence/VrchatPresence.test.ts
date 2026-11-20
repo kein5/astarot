@@ -1,9 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import type { TestContext } from "vitest";
-import { readFileSync } from "node:fs";
-import yaml from "js-yaml";
-import { hooks, loadModule, find, stubGlobals, unchecked } from "../../../../logics/test/hookHarness.ts";
+import { hooks, loadModule, find, stubGlobals } from "../../../../logics/test/hookHarness.ts";
+import { branchAt, readLocale } from "../../../../logics/test/locales.ts";
 
 const EnvReadout = () => null;
 interface PresenceState {
@@ -84,8 +83,7 @@ test("with OSCQuery turned off it says that is why VRChat cannot be checked, and
 
 test("every state has words in English and Japanese", () => {
     for (const language of ["en", "ja"]) {
-        // Test data: a locale file, read as the mapping of texts it is.
-        const strings = unchecked<{ vrchat_presence: Record<string, unknown> }>(yaml.load(readFileSync(new URL(`../../../../../locales/${language}.yml`, import.meta.url), "utf8"))).vrchat_presence;
+        const strings = branchAt(readLocale(language), "vrchat_presence");
         for (const key of ["checking", "found", "not_found", "not_found_hint", "unknown", "sending_off", "osc_query_off"]) assert.equal(typeof strings[key], "string");
     }
 });

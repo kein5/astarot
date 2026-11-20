@@ -1,35 +1,17 @@
 import assert from "node:assert/strict";
 import { test, vi } from "vitest";
-import { readFileSync } from "node:fs";
-import yaml from "js-yaml";
 import i18next from "i18next";
-import type { PrimitiveAtom } from "jotai/vanilla";
 import { parsePortInput, PORT_INPUT_LIMITS } from "./networkPortInput.ts";
 import { buildObsBrowserSourceUrl, buildWebsocketUrl } from "./obsBrowserSourceUrl.ts";
-import { hooks, loadModule, find, unchecked } from "../test/hookHarness.ts";
+import { hooks, loadModule, find, findIn, componentName, componentOf, forwardRefRender, unchecked } from "../test/hookHarness.ts";
 import type { TreeNode } from "../test/hookHarness.ts";
-import { loadBridgeRoutes } from "../test/bridgeHarness.ts";
+import { loadBridgeRoutes, settingAtom } from "../test/bridgeHarness.ts";
+import { localeAt, readLocale, textAt } from "../test/locales.ts";
 import type { SaveButtonLogicOptions } from "./config_page_setter/useSettingsLogics.ts";
 import type { SettingsDraftOptions } from "../voice/useSettingsDraft.tsx";
 import type { EntryProps } from "../../views/app/config_page/setting_section/setting_box/_components/_atoms/_entry/_Entry.tsx";
 import type { EntryWithSaveButtonProps } from "../../views/app/config_page/setting_section/setting_box/_components/entry_with_save_button/EntryWithSaveButton.tsx";
 
-// The name of a component's node; a tag's node has none.
-const componentName = (node: TreeNode) => typeof node.type === "function" ? node.type.name : undefined;
-// A node the test reads at once: one that is not there fails here, where reading it failed.
-const found = (tree: unknown, predicate: (node: TreeNode) => boolean) => {
-    const node = find(tree, predicate);
-    assert.ok(node);
-    return node;
-};
-// A text of a locale file, read by its key; one that is not there reads as undefined.
-const lookup = (tree: unknown, key: string) => key.split(".").reduce<unknown>((node, part) => node && typeof node === "object" ? Reflect.get(node, part) : undefined, tree);
-// A text the test reads at once; anything else fails here, where reading it failed.
-const textAt = (tree: unknown, key: string) => {
-    const value = lookup(tree, key);
-    assert.ok(typeof value === "string", key);
-    return value;
-};
 
 test("port drafts accept only digits in range and serialize as integers", () => {
     for (const [value, expected] of [[0, null], [1, 1], [65535, 65535], [65536, null], [-1, null],
@@ -101,7 +83,7 @@ async function settingsHarness({ host = "127.0.0.1" } = {}) {
     });
     const root = runtime.render(module.AdvancedSettings);
     // The containers the page draws are components without props that draw one element.
-    const child = (tree: unknown, name: string) => unchecked<() => TreeNode>(found(tree, node => componentName(node) === name).type);
+    const child = (tree: unknown, name: string) => componentOf(findIn(tree, node => componentName(node) === name));
     const ws = runtime.render(child(root, "WebsocketContainer"));
     const obs = runtime.render(child(root, "ObsBrowserSourceContainer"));
     // The options are there once the page has drawn the field that gives them.
@@ -143,9 +125,9 @@ test("the RVC block length is a number from 20 to 200 in steps of 20 under Advan
     s.saveOptions.setFunction("60");
     assert.deepEqual(s.sent.at(-1), ["RvcBlockMs", "60"]);
     for (const language of ["en", "ja"]) {
-        const strings = yaml.load(readFileSync(new URL(`../../../locales/${language}.yml`, import.meta.url), "utf8"));
+        const strings = readLocale(language);
         assert.match(textAt(strings, "config_page.advanced_settings.rvc_block_ms.desc"), /20.*200.*40/s, language);
-        assert.equal(typeof lookup(strings, "backend_errors.VALIDATION_RVC_BLOCK_MS"), "string", language);
+        assert.equal(typeof localeAt(strings, "backend_errors.VALIDATION_RVC_BLOCK_MS"), "string", language);
     }
 });
 
@@ -157,11 +139,11 @@ test("native number input receives min, max and step through the shared componen
         { "../_atoms/_entry/_Entry": { _Entry } });
     // Test data: only the props the number input reads, without a save.
     const wrapper = runtime.render(EntryWithSaveButton, unchecked<EntryWithSaveButtonProps>({ type: "number", variable: 2231, ...PORT_INPUT_LIMITS }));
-    const entry = found(wrapper, node => node.type === _Entry);
+    const entry = findIn(wrapper, node => node.type === _Entry);
     // forwardRef keeps the component's render function, which React's types leave out.
-    const entryRender = unchecked<{ render: (props: EntryProps, ref: null) => TreeNode }>(_Entry);
-    const tree = runtime.render((props: EntryProps) => entryRender.render(props, null), entry.props);
-    const input = found(tree, node => node.type === "input");
+    const entryRender = forwardRefRender(_Entry);
+    const tree = runtime.render((props: EntryProps) => entryRender(props, null), entry.props);
+    const input = findIn(tree, node => node.type === "input");
     for (const key of ["min", "max", "step"] as const) assert.equal(input.props[key], PORT_INPUT_LIMITS[key]);
 });
 
@@ -203,7 +185,7 @@ test("a new connection key is made only after the question is answered", async (
     tree = s.runtime.render(s.tokenComponent);
     const dialog = find(tree, node => node.type === "dialog");
     assert.ok(dialog && s.dialogs.at(-1) === true);
-    const [cancel, confirm] = found(dialog, node => node.type === "div" && Array.isArray(node.props.children)
+    const [cancel, confirm] = findIn(dialog, node => node.type === "div" && Array.isArray(node.props.children)
         && node.props.children.every((child: TreeNode | null) => child?.type === "button")).props.children;
     assert.equal(cancel.props.autoFocus, true); // The safe choice has the focus.
     // Drawn in the app's dialog frame: the forms' container (border, padding, buttons) and the
@@ -215,7 +197,7 @@ test("a new connection key is made only after the question is answered", async (
 
     s.runtime.render(s.tokenComponent).props.children[0].props.onclickFunction();
     const again = find(s.runtime.render(s.tokenComponent), node => node.type === "dialog");
-    const buttons = found(again, node => node.type === "div" && Array.isArray(node.props.children)
+    const buttons = findIn(again, node => node.type === "div" && Array.isArray(node.props.children)
         && node.props.children.every((child: TreeNode | null) => child?.type === "button")).props.children;
     await buttons[1].props.onClick();
     assert.deepEqual(s.ipc, [["/run/regenerate_websocket_auth_token", undefined]]);
@@ -223,7 +205,7 @@ test("a new connection key is made only after the question is answered", async (
 });
 
 for (const language of ["en", "ja"]) {
-    const translation = yaml.load(readFileSync(new URL(`../../../locales/${language}.yml`, import.meta.url), "utf8"));
+    const translation = readLocale(language);
     for (const [endpoint, code, field, previous] of [
         ["osc_port", "VALIDATION_OSC_PORT_INVALID", "OscPort", 9000],
         ["websocket_port", "WEBSOCKET_PORT_INVALID", "WebsocketPort", 2231],
@@ -237,15 +219,10 @@ for (const language of ["en", "ja"]) {
         test(`${language}: ${code} restores the setting and shows localized guidance`, async context => {
             vi.spyOn(console, "error").mockImplementation(() => {});
             const i18n = i18next.createInstance();
-            // A locale file holds its texts by key.
-            assert.ok(translation && typeof translation === "object");
             await i18n.init({ lng: language, resources: { [language]: { translation } } });
             const s = await loadBridgeRoutes(undefined, i18n);
-            const target = s.stores.dynamicStoreRegistry[`Atom_${field}`];
-            assert.ok(target && typeof target !== "function");
-            // The registry keeps each setting's atom, which the setting's hook writes: a primitive
-            // atom of the setting's state.
-            const atom = unchecked<PrimitiveAtom<{ state: string; data: unknown }>>(target);
+            // The registry keeps each setting's atom, which the setting's hook writes.
+            const atom = settingAtom(s.stores.dynamicStoreRegistry, `Atom_${field}`);
             s.runtime.store.set(atom, { state: "pending", data: previous });
             s.receiveRoutes({ endpoint: `/set/data/${endpoint}`, status: 400,
                 result: { error_code: code, data: previous } });
@@ -268,7 +245,7 @@ for (const [index, [name, suffix, min, max]] of obsNumeric.entries()) test(`OBS 
     for (const value of ["-1", "1.5", String(max + 1), ""]) row.props.onChangeFunction(value);
     assert.deepEqual(s.drafts, ["-1", "1.5", String(max + 1), ""]);
     for (const lang of ["en", "ja"]) {
-        const strings = yaml.load(readFileSync(new URL(`../../../locales/${lang}.yml`, import.meta.url), "utf8"));
+        const strings = readLocale(lang);
         const description = textAt(strings, `config_page.advanced_settings.obs_browser_source_${suffix}.desc`);
         assert.ok(description.includes(String(min)) && description.includes(String(max)));
     }

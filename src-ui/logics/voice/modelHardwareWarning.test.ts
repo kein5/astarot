@@ -100,7 +100,7 @@ test("an unknown PC or a model without figures is never warned about", () => {
     assert.equal(hardwareWarning(model(99 * GiB), null), null);
     assert.equal(hardwareWarning(model(99 * GiB), ready([gpu(null)])), null);
     // RVC: no profile, no memory figure.
-    // A guidance without a memory figure, as the catalog sends it for RVC.
+    // On purpose: a guidance without a memory figure, as the catalog sends it for RVC.
     const rvc = unchecked<WarnedModel>({ profile: null, guidance: { tier: "voice", reference_memory_bytes: null, validation: { state: "passed" } } });
     assert.equal(hardwareWarning(rvc, ready([gpu(2 * GiB)])), null);
     assert.equal(hardwareWarning(rvc, ready([cpu()])), null);
@@ -175,7 +175,8 @@ test("a translation GPU the probe cannot point at is not compared", () => {
 });
 
 test("a translation model without a measurement is never warned about", () => {
-    // A guidance without a memory figure, as the catalog sends it for a model not measured yet.
+    // On purpose: a guidance without a memory figure, as the catalog sends it for a model not
+    // measured yet.
     const m2m100 = unchecked<WarnedModel>({ target: "translation", profile: null, guidance: { tier: "unknown", reference_memory_bytes: null, validation: { state: "pending" } } });
     assert.equal(hardwareWarning(m2m100, ready([cpu(GiB / 4)]), { deviceMode: "cpu" }), null);
     // The probe failed (no speech.cpp to ask): an unknown PC is not shown as too weak.

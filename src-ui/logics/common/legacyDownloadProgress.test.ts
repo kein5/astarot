@@ -1,26 +1,18 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import { test, vi } from "vitest";
 import i18next from "i18next";
-import type { ResourceKey, TOptions } from "i18next";
-import yaml from "js-yaml";
+import type { TOptions } from "i18next";
 import type { TestContext } from "vitest";
-import { hooks, loadModule, find, unchecked } from "../test/hookHarness.ts";
+import { hooks, loadModule, find, findIn, unchecked } from "../test/hookHarness.ts";
 import type { TreeNode } from "../test/hookHarness.ts";
+import { readLocale } from "../test/locales.ts";
 import type { DownloadButtonProps, DownloadOption } from "../../views/app/config_page/setting_section/setting_box/_components/_atoms/_download_button/_DownloadButton.tsx";
-
-// A locale file is a mapping of keys to text, as locales/config reads it.
-const translationOf = (text: string): ResourceKey => {
-    const translation: unknown = yaml.load(text);
-    if (typeof translation === "string" || (typeof translation === "object" && translation !== null)) return translation;
-    throw new TypeError("A locale file holds no translations");
-};
 
 async function fixture(context: TestContext, language = "en", name = "ctranslate2_weight_type") {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"], now: 0 });
     const runtime = hooks(), messages: string[] = [];
     const translations = i18next.createInstance();
-    const resource = translationOf(readFileSync(new URL(`../../../locales/${language}.yml`, import.meta.url), "utf8"));
+    const resource = readLocale(language);
     await translations.init({ lng: language, resources: { [language]: { translation: resource } } });
     const t = (key: string, values?: TOptions) => { messages.push(key); return translations.t(key, values); };
     const statusHook = await loadModule(new URL("./useLegacyDownloadStatus.ts", import.meta.url), runtime);
@@ -39,11 +31,7 @@ async function fixture(context: TestContext, language = "en", name = "ctranslate
             const node = find(tree, node => node.type === CircularProgress);
             return node && CircularProgress(node.props).props;
         },
-        status: (tree: TreeNode) => {
-            const node = find(tree, node => node.props?.role === "status");
-            assert.ok(node);
-            return node.props;
-        } };
+        status: (tree: TreeNode) => findIn(tree, node => node.props?.role === "status").props };
 }
 
 // The built-in downloads are the local translation weights; the Whisper ones went with the engine (#288).
@@ -124,7 +112,7 @@ test("shared circular progress clamps determinate values and omits unknown value
     const { CircularProgress } = await loadModule<typeof import("../../views/common_components/circular_progress/CircularProgress.tsx")>(new URL("../../views/common_components/circular_progress/CircularProgress.tsx", import.meta.url), hooks());
     const cases: [number | null, number | undefined][] = [[-5, 0], [108, 100], [NaN, undefined], [null, undefined]];
     for (const [value, expected] of cases) {
-        // null on purpose: a value the backend has not sent.
+        // On purpose: null, a value the backend has not sent.
         const tree = CircularProgress({ variant: "determinate", value: unchecked<number>(value), "aria-label": "Test download" });
         assert.equal(tree.props["aria-valuenow"], expected);
         const svg = find(tree, node => node.type === "svg");

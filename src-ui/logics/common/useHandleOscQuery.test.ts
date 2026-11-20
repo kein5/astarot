@@ -1,18 +1,15 @@
 import assert from "node:assert/strict";
 import { test, vi } from "vitest";
-import { readFileSync } from "node:fs";
 import i18next from "i18next";
-import type { ResourceKey } from "i18next";
-import yaml from "js-yaml";
 import { loadModule, unchecked } from "../test/hookHarness.ts";
+import { readLocale } from "../test/locales.ts";
 
 // A notice is an element of a function component that returns its text.
 type NoticeElement = { type: (props: unknown) => string; props: unknown };
 import { loadBridgeStore, loadBridgeRoutes } from "../test/bridgeHarness.ts";
 
 for (const language of ["en", "ja"]) {
-    // A locale file, which is a mapping of keys to text.
-    const translation = unchecked<ResourceKey>(yaml.load(readFileSync(new URL(`../../../locales/${language}.yml`, import.meta.url), "utf8")));
+    const translation = readLocale(language);
     test(`${language}: OSCQuery is unavailable until setup succeeds, and each warning says what happened`, async () => {
         const i18n = i18next.createInstance();
         await i18n.init({ lng: language, resources: { [language]: { translation } } });
@@ -81,8 +78,8 @@ for (const language of ["en", "ja"]) {
         const subject = await loadModule<typeof import("./useIsOscAvailable.ts")>(new URL("./useIsOscAvailable.ts", import.meta.url), runtime, { "@store": stores });
         assert.equal(subject.oscUnavailableLabelKey("remote_destination"), "config_page.common.warning_labels.unable_to_use_osc_query_remote");
         assert.equal(subject.oscUnavailableLabelKey("turned_off"), "config_page.common.warning_labels.unable_to_use_osc_query_off");
-        // undefined on purpose: a reason the backend left out.
         for (const why of ["setup_failed", null, undefined])
+            // On purpose: undefined, a reason the backend left out.
             assert.equal(subject.oscUnavailableLabelKey(unchecked(why)), "config_page.common.warning_labels.unable_to_use_osc_query");
         for (const why of ["remote_destination", "setup_failed", "turned_off"]) assert.equal(i18n.exists(subject.oscUnavailableLabelKey(why)), true);
         runtime.store.set(stores.Atom_OscUnavailableReason, { state: "ok", data: "remote_destination" });

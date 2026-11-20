@@ -1,15 +1,9 @@
 import assert from "node:assert/strict";
 import { readdirSync, readFileSync } from "node:fs";
 import { test } from "vitest";
-import yaml from "js-yaml";
 import { NOT_SETTINGS, settingTarget } from "./configSearchTargets.ts";
-import { unchecked } from "../../../test/hookHarness.ts";
-
-// A locale file (locales/*.yml) as this test reads it: mappings down to the texts, each key
-// read, checked for truth or for being a text.
-interface LocaleTree {
-    readonly [key: string]: LocaleTree | undefined;
-}
+import { branchAt, readLocale } from "../../../test/locales.ts";
+import type { LocaleTree } from "../../../test/locales.ts";
 
 const read = (path: string) => readFileSync(new URL(path, import.meta.url), "utf8");
 const box = "../../../../views/app/config_page/setting_section/setting_box/";
@@ -21,9 +15,9 @@ const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 // to the element whose data-setting-id is its target, or else whose data-setting-label is its
 // label. A text listed but found nowhere on its page is a result that goes nowhere.
 for (const page of ["vr", "hotkeys", "ocr"]) test(`every ${page} result in the settings search has a place on its page`, () => {
-    const texts = unchecked<{ config_page: Record<string, LocaleTree> }>(yaml.load(read("../../../../../locales/en.yml"))).config_page[page];
+    const texts = branchAt(readLocale("en"), `config_page.${page}`);
     const source = pageSource(page);
-    const labelled = (value: LocaleTree | string | undefined) => typeof value === "string" || (value && (value.label || value.label_for_automatic || value.label_for_manual));
+    const labelled = (value: LocaleTree | undefined) => typeof value === "string" || (value && (value.label || value.label_for_automatic || value.label_for_manual));
     const keys = Object.keys(texts).filter(key => labelled(texts[key]) && !NOT_SETTINGS.has(`${page}.${key}`)
         // A section's description belongs to its title.
         && !(/_desc$/.test(key) && typeof texts[key] === "string" && (texts[key.replace(/_desc$/, "_title")] || texts[key.replace(/_desc$/, "_label")])));

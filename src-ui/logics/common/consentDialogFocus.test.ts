@@ -1,8 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import type { TestContext } from "vitest";
-import { hooks, loadModule, find, stubGlobals, unchecked } from "../test/hookHarness.ts";
-import type { TreeNode } from "../test/hookHarness.ts";
+import { componentNamed, findIn, hooks, loadModule, find, setRef, stubGlobals } from "../test/hookHarness.ts";
 import * as legacyConsent from "../configs/legacyModelConsent.ts";
 import * as endpointPrivacy from "./endpointPrivacy.ts";
 import * as languageNames from "./languageNames.ts";
@@ -18,20 +17,6 @@ const entry = { id: "reviewed-model", name: "Reviewed model", target: "rvc", tot
 
 type Kind = "catalog" | "ocr" | "nllb" | "legacy";
 type OpenerState = "present" | "removed" | "disabled";
-
-// A node the test reads at once: when it is missing, the test fails here.
-const found = (tree: unknown, predicate: (node: TreeNode) => boolean) => {
-    const node = find(tree, predicate);
-    assert.ok(node);
-    return node;
-};
-
-// The ref React keeps on an element, which the test points at its stand-ins.
-const refOf = (node: TreeNode) => {
-    const ref: unknown = Reflect.get(node, "ref");
-    if (typeof ref !== "object" || ref === null || !("current" in ref)) throw new TypeError("The element has no ref");
-    return ref;
-};
 
 async function fixture(context: TestContext, kind: Kind, openerState: OpenerState) {
     const runtime = hooks(), calls: [string, unknown?][] = [], focus: string[] = [], order: string[] = [];
@@ -95,7 +80,7 @@ async function fixture(context: TestContext, kind: Kind, openerState: OpenerStat
         legacy: ["_components/download_models/LegacyModelDownloadDialog.tsx", "LegacyModelDownloadDialog"] };
     const [path, name] = paths[kind];
     // The component named for this kind; the props below are the ones for that kind.
-    const Component = unchecked<(props: object) => TreeNode>((await loadModule(new URL(path, boxes), runtime, imports))[name]);
+    const Component = componentNamed(await loadModule(new URL(path, boxes), runtime, imports), name);
     const props = kind === "catalog" ? { targets: ["rvc"] } : kind === "ocr"
         ? { ids: [entry.id], missing: [entry.id], onChanged: () => {}, title: "OCR models" }
         : kind === "nllb" ? { weight: entry, action: "select", fallback: { current: section },
@@ -103,13 +88,14 @@ async function fixture(context: TestContext, kind: Kind, openerState: OpenerStat
         : { kind: "whisper", weightType: "base", onCancel: end, onDownload: (data: unknown) => calls.push(["download", data]) };
     const render = () => runtime.render(Component, props, tree => {
         const dialog = find(tree, node => node.type === "dialog");
-        if (dialog) refOf(dialog).current = modal;
-        if (tree.type === "section") refOf(tree).current = section;
+        // The test points the refs at its stand-ins.
+        if (dialog) setRef(dialog, modal);
+        if (tree.type === "section") setRef(tree, section);
     });
     context.onTestFinished(() => runtime.unmount());
     let tree = render();
     if (["catalog", "ocr"].includes(kind)) {
-        found(tree, node => node.type === "button" && node.props.children === "model_downloads.review").props.onClick();
+        findIn(tree, node => node.type === "button" && node.props.children === "model_downloads.review").props.onClick();
     }
     tree = render();
     const commit = async () => {
@@ -131,23 +117,23 @@ for (const kind of ["catalog", "ocr", "nllb", "legacy"] as const) {
             test(`${kind}: ${path} closes before unmount and restores focus (${openerState} opener)`, async context => {
                 const s = await fixture(context, kind, openerState);
                 let tree = s.tree;
-                const start = () => found(tree, node => node.type === "button" &&
+                const start = () => findIn(tree, node => node.type === "button" &&
                     ["model_downloads.start", "config_page.translation.ctranslate2_weight_type.confirm_select"].includes(node.props.children));
                 assert.equal(s.modal.open, true);
                 assert.equal(start().props.disabled, true);
                 start().props.onClick(); // A disabled handler cannot bypass consent.
                 assert.equal(s.calls.filter(([endpoint]) => !endpoint.startsWith("/get/")).length, 0);
                 if (path === "start/consent") {
-                    found(tree, node => node.type === "input" && node.props.type === "checkbox").props.onChange({ target: { checked: true } });
+                    findIn(tree, node => node.type === "input" && node.props.type === "checkbox").props.onChange({ target: { checked: true } });
                     tree = s.render();
                     assert.equal(start().props.disabled, false);
                     assert.equal(s.calls.filter(([endpoint]) => !endpoint.startsWith("/get/")).length, 0);
                     start().props.onClick();
                 } else if (path === "escape") {
                     let prevented = false;
-                    found(tree, node => node.type === "dialog").props.onCancel({ preventDefault: () => { prevented = true; } });
+                    findIn(tree, node => node.type === "dialog").props.onCancel({ preventDefault: () => { prevented = true; } });
                     assert.equal(prevented, true);
-                } else found(tree, node => node.type === "button" && node.props.autoFocus).props.onClick();
+                } else findIn(tree, node => node.type === "button" && node.props.autoFocus).props.onClick();
                 assert.equal(s.modal.open, false);
                 await s.commit();
                 assert.deepEqual(s.focus, [openerState === "present" ? "opener" : "nearby control"]);
@@ -165,7 +151,7 @@ for (const kind of ["catalog", "ocr", "nllb", "legacy"] as const) {
 test("a pending download with no enabled nearby control returns focus to its named section", async context => {
     const s = await fixture(context, "catalog", "disabled");
     s.fallbackControl.disabled = true;
-    found(s.tree, node => node.type === "button" && node.props.autoFocus).props.onClick();
+    findIn(s.tree, node => node.type === "button" && node.props.autoFocus).props.onClick();
     await s.commit();
     assert.deepEqual(s.focus, ["model section"]);
 });
@@ -173,7 +159,7 @@ test("a pending download with no enabled nearby control returns focus to its nam
 test("NLLB falls back to the labelled section when its template has no enabled controls", async context => {
     const s = await fixture(context, "nllb", "disabled");
     s.fallbackControl.disabled = true;
-    found(s.tree, node => node.type === "button" && node.props.autoFocus).props.onClick();
+    findIn(s.tree, node => node.type === "button" && node.props.autoFocus).props.onClick();
     await s.commit();
     assert.deepEqual(s.focus, ["model section"]);
 });
@@ -181,7 +167,7 @@ test("NLLB falls back to the labelled section when its template has no enabled c
 test("removing the entire model row uses a control in the stable section", async context => {
     const s = await fixture(context, "ocr", "removed");
     s.scope.isConnected = false;
-    found(s.tree, node => node.type === "button" && node.props.autoFocus).props.onClick();
+    findIn(s.tree, node => node.type === "button" && node.props.autoFocus).props.onClick();
     await s.commit();
     assert.deepEqual(s.focus, ["nearby control"]);
 });

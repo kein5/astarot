@@ -18,7 +18,7 @@ test("a place is two whole numbers; anything else is the band", () => {
     const withExtra = { x: 1, y: 2, extra: 3 };
     assert.deepEqual(placementOf(withExtra), { x: 1, y: 2 });
     for (const value of [null, undefined, {}, { x: null, y: null }, { x: 1 }, { x: 1.5, y: 2 }, { x: "1", y: 2 }, [1, 2]]) {
-        // Wrong shapes on purpose: the place must be two whole numbers.
+        // On purpose: wrong shapes; the place must be two whole numbers.
         assert.equal(placementOf(unchecked(value)), null);
     }
 });

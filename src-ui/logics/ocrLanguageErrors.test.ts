@@ -1,20 +1,13 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import type { PrimitiveAtom } from "jotai/vanilla";
-import { flush, loadBridgeRoutes } from "./test/bridgeHarness.ts";
+import { flush, loadBridgeRoutes, settingAtom } from "./test/bridgeHarness.ts";
 import { unchecked } from "./test/hookHarness.ts";
-import type { AtomState } from "./store.ts";
 import type { SharedWindowState } from "./configs/ocrSharedWindow.ts";
-
-// The store's registry holds each setting's atom under its Atom_ name.
-const atomNamed = (registry: Record<string, unknown>, name: string) => unchecked<PrimitiveAtom<AtomState<unknown>>>(registry[name]);
-// A notice's options, read as notice.options.category_id always was.
-const optionsOf = (notice: { options: unknown } | undefined) => unchecked<{ category_id?: unknown }>(notice?.options);
 
 for (const error_code of ["OCR_DISABLED_MODEL_MISSING", "OCR_DISABLED_MODEL_LOAD_FAILED"]) {
     test(`OCR language ${error_code} settles the previous language`, async () => {
         const s = await loadBridgeRoutes();
-        const language = atomNamed(s.stores.dynamicStoreRegistry, "Atom_OcrSourceLanguage");
+        const language = settingAtom(s.stores.dynamicStoreRegistry, "Atom_OcrSourceLanguage");
         s.runtime.store.set(language, { state: "pending", data: "auto" });
         s.receiveRoutes({ endpoint: "/set/data/ocr_source_language", status: 400,
             result: { error_code, data: "auto" } });
@@ -22,7 +15,7 @@ for (const error_code of ["OCR_DISABLED_MODEL_MISSING", "OCR_DISABLED_MODEL_LOAD
         assert.equal(s.runtime.store.get(language).state, "ok");
         assert.equal(s.notices.length, 1);
         assert.equal(s.notices[0].type, "error");
-        assert.equal(optionsOf(s.notices[0]).category_id, error_code);
+        assert.equal(s.notices[0].options?.category_id, error_code);
         assert.deepEqual(s.reads, []);
     });
 }
@@ -33,7 +26,7 @@ const sharing: [boolean | null, string][] = [[true, "common_error.ocr_window_not
 for (const [supported, key] of sharing) {
     test(`window not found names sharing only where a window can be shared (${supported})`, async () => {
         const s = await loadBridgeRoutes();
-        // A sharing state with only what the notice reads.
+        // Test data: a sharing state with only what the notice reads.
         s.runtime.store.set(s.stores.Atom_OcrSharedWindow, { state: "ok", data: unchecked<SharedWindowState>({ supported, active: false, busy: false, error: null }) });
         s.receiveRoutes({ endpoint: "/set/enable/ocr_capture", status: 400,
             result: { error_code: "OCR_DISABLED_WINDOW_NOT_FOUND", data: false } });
@@ -45,7 +38,7 @@ for (const [supported, key] of sharing) {
 
 test("a capture failure keeps its own notice on Wayland", async () => {
     const s = await loadBridgeRoutes();
-    // A sharing state with only what the notice reads.
+    // Test data: a sharing state with only what the notice reads.
     s.runtime.store.set(s.stores.Atom_OcrSharedWindow, { state: "ok", data: unchecked<SharedWindowState>({ supported: true, active: false, busy: false, error: null }) });
     s.receiveRoutes({ endpoint: "/set/enable/ocr_capture", status: 400,
         result: { error_code: "OCR_DISABLED_CAPTURE_UNAVAILABLE", data: false } });
@@ -86,7 +79,7 @@ for (const [name, outcome] of outcomes) {
         // Off from the failed start, then off again to end the switch's waiting.
         assert.deepEqual(settled, [false, false]);
         assert.equal(s.notices.length, 1);
-        assert.equal(optionsOf(s.notices[0]).category_id, "OCR_DISABLED_WINDOW_NOT_FOUND");
+        assert.equal(s.notices[0].options?.category_id, "OCR_DISABLED_WINDOW_NOT_FOUND");
     });
 }
 

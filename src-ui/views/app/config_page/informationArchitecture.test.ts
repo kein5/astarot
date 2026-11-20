@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import { readFileSync } from "node:fs";
-import yaml from "js-yaml";
-import { hooks, loadModule, find, unchecked } from "../../../logics/test/hookHarness.ts";
+import { hooks, loadModule, find, drawWith, unchecked } from "../../../logics/test/hookHarness.ts";
+import { readLocale, localeAt, textAt } from "../../../logics/test/locales.ts";
+import type { LocaleBranch } from "../../../logics/test/locales.ts";
 import type { HookRuntime, TreeNode } from "../../../logics/test/hookHarness.ts";
 import * as searchTargets from "../../../logics/configs/config_page_setter/_aux/configSearchTargets.ts";
 import * as revealSettingModule from "../../../logics/configs/revealSetting.ts";
@@ -10,15 +11,9 @@ import * as revealSettingModule from "../../../logics/configs/revealSetting.ts";
 // Where each setting lives after the information architecture review (#554,
 // docs/design/information-architecture/README.md and the decisions on the Issue).
 
-// A locale file: texts under nested keys. The type lets a test both follow keys and read a text;
-// what is really there is what the tests check (typeof ... === "string"), as before.
-type Texts = string & { readonly [key: string]: Texts };
-
 const box = (path: string) => new URL(`./setting_section/setting_box/${path}`, import.meta.url);
 const read = (path: string) => readFileSync(box(path), "utf8");
-// Test data: the locale files, read as the nested texts they are.
-const locales = Object.fromEntries(["en", "ja"].map(language =>
-    [language, unchecked<Texts>(yaml.load(readFileSync(new URL(`../../../../locales/${language}.yml`, import.meta.url), "utf8")))]));
+const locales: Record<string, LocaleBranch> = Object.fromEntries(["en", "ja"].map(language => [language, readLocale(language)]));
 const loadSearch = (runtime: HookRuntime) => loadModule<typeof import("../../../logics/configs/config_page_setter/_aux/useConfigSearch.ts")>(new URL("../../../logics/configs/config_page_setter/_aux/useConfigSearch.ts", import.meta.url), runtime, {
     "@store": {}, "@logics_configs": {}, "@ui_configs": {}, "@root/locales/config.ts": {},
     "../../../transcription/useRealtimeASR": {}, "../../../common/languageNames.ts": {}, "../../../voice/settingsNavigation": {},
@@ -45,7 +40,7 @@ test("Q-06: the OSC address and port are under Advanced; the VRChat page leads t
         const link = find(row, node => node.type === pointer.PageLinkButton);
         assert.ok(link);
         // PageLinkButton is a function component, drawn here as a function.
-        const button = find(runtime.render(unchecked<(props: unknown) => unknown>(link.type), link.props), node => node.type === "button");
+        const button = find(drawWith(runtime, link), node => node.type === "button");
         assert.ok(button);
         button.props.onClick();
     };
@@ -61,9 +56,8 @@ test("Q-06: the OSC address and port are under Advanced; the VRChat page leads t
     // The OSCQuery switch (#559) sits with them.
     for (const key of ["section_label_osc", "osc_ip_address", "osc_port", "osc_query"]) assert.deepEqual(search.settingTabs("advanced_settings", key), ["advanced_settings"]);
     for (const language of ["en", "ja"]) {
-        const vrchatTexts = locales[language].config_page.vrchat;
-        assert.equal(typeof vrchatTexts.osc_pointer.label, "string");
-        assert.equal(typeof vrchatTexts.osc_pointer.action, "string");
+        assert.equal(typeof localeAt(locales[language], "config_page.vrchat.osc_pointer.label"), "string");
+        assert.equal(typeof localeAt(locales[language], "config_page.vrchat.osc_pointer.action"), "string");
     }
 });
 
@@ -158,9 +152,9 @@ test("a fold marks its line while a row inside it has unsaved edits", async () =
 // The settings search over the real texts, in Japanese, with the page names as keys.
 const searchOver = async (language: string) => {
     const runtime = hooks();
-    const resources: Record<string, Texts> = { en: locales.en, ja: locales[language] };
+    const resources: Record<string, LocaleBranch> = { en: locales.en, ja: locales[language] };
     const lookup = (key: string, values?: Record<string, string>) => {
-        const text = key.split(".").reduce<Texts | undefined>((node, part) => node?.[part], locales[language]);
+        const text = localeAt(locales[language], key);
         return typeof text === "string" ? text.replace(/\{\{(\w+)\}\}/g, (_, name: string) => values?.[name] ?? "") : key;
     };
     const { useConfigSearch } = await loadModule<typeof import("../../../logics/configs/config_page_setter/_aux/useConfigSearch.ts")>(new URL("../../../logics/configs/config_page_setter/_aux/useConfigSearch.ts", import.meta.url), runtime, {
@@ -239,9 +233,8 @@ test("the design and hotkeys pages keep a first start's settings in sight and fo
 
 test("each fold's line has its words in both languages", () => {
     for (const language of ["en", "ja"]) {
-        const status = locales[language].config_page.advanced_status;
-        for (const key of ["on", "off", "appearance", "hotkeys_one", "hotkeys_other", "vrchat"]) assert.equal(typeof status[key], "string", `${language}: ${key}`);
-        assert.equal(typeof locales[language].config_page.common.advanced_section, "string");
+        for (const key of ["on", "off", "appearance", "hotkeys_one", "hotkeys_other", "vrchat"]) assert.equal(typeof localeAt(locales[language], `config_page.advanced_status.${key}`), "string", `${language}: ${key}`);
+        assert.equal(typeof localeAt(locales[language], "config_page.common.advanced_section"), "string");
     }
 });
 
@@ -265,7 +258,7 @@ test("chat reading keeps what it needs to start in sight; where and how often it
     assert.deepEqual(fold, ["Detection_Container", "CaptureTarget_Container", "Performance_Container"]);
     const main = source.split("const Main_Container = () => {")[1].split("\n};")[0];
     assert.match(main, /<OcrStatus[\s\S]*<OcrSourceLanguage_Box \/>[\s\S]*<OcrSharedWindow \/>[\s\S]*<OcrModels/);
-    for (const language of ["en", "ja"]) assert.equal(typeof locales[language].config_page.advanced_status.ocr, "string");
+    for (const language of ["en", "ja"]) assert.equal(typeof localeAt(locales[language], "config_page.advanced_status.ocr"), "string");
 });
 
 test("text to speech keeps the engine, the voice and the output in sight; the monitor, generation and microphone speech are in 「詳細設定」", () => {
@@ -332,14 +325,14 @@ test("speech recognition shows its engine and the engine's two systems in sight;
     // The search finds both groups by their names, and leads to their headings.
     assert.match(source, /const ENGINE_GROUPS = \{ speechcpp: "speechcpp_section", api: "cloud_section" \};/);
     for (const language of ["en", "ja"]) {
-        const texts = locales[language].config_page.transcription;
+        const texts = "config_page.transcription";
         for (const id of ["speechcpp_section", "cloud_section"]) {
-            assert.equal(typeof texts[id].label, "string", `${language}: ${id}`);
-            assert.equal(typeof texts[id].desc, "string", `${language}: ${id}`);
+            assert.equal(typeof localeAt(locales[language], `${texts}.${id}.label`), "string", `${language}: ${id}`);
+            assert.equal(typeof localeAt(locales[language], `${texts}.${id}.desc`), "string", `${language}: ${id}`);
         }
-        assert.equal(typeof texts.select_transcription_engine.badge_own, "string");
-        assert.match(locales[language].config_page.advanced_status.transcription, /\{\{phrase\}\}[\s\S]*\{\{speaker\}\}/);
-        assert.doesNotMatch(locales[language].config_page.advanced_status.transcription, /\{\{cloud\}\}/);
+        assert.equal(typeof localeAt(locales[language], `${texts}.select_transcription_engine.badge_own`), "string");
+        assert.match(textAt(locales[language], "config_page.advanced_status.transcription"), /\{\{phrase\}\}[\s\S]*\{\{speaker\}\}/);
+        assert.doesNotMatch(textAt(locales[language], "config_page.advanced_status.transcription"), /\{\{cloud\}\}/);
     }
 });
 

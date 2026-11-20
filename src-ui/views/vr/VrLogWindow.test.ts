@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { hooks, loadModule, find, unchecked } from "../../logics/test/hookHarness.ts";
+import { hooks, loadModule, find, unchecked, drawWith } from "../../logics/test/hookHarness.ts";
 
 test("closed VR log renders no body or subscribers and retains its saved view across reopen", async () => {
     const runtime = hooks();
@@ -23,7 +23,7 @@ test("closed VR log renders no body or subscribers and retains its saved view ac
     assert.ok(opened);
     const bodyRuntime = hooks();
     // The element the window returns draws its body, a function component.
-    const body = bodyRuntime.render(unchecked<(props: object) => unknown>(opened.type), opened.props);
+    const body = drawWith(bodyRuntime, opened);
     const log = find(body, node => node.type === LogBox);
     assert.ok(log);
     const savedView = log.props.savedView;

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { test } from "vitest";
-import { unchecked } from "../test/hookHarness.ts";
+import { fieldOf, isRecord } from "../test/hookHarness.ts";
 
 // Second security audit SEC-02: the main window may open only the URLs listed in
 // src-tauri/capabilities/vrct_capability.json. Every URL written in the UI must be on that list,
@@ -9,13 +9,22 @@ import { unchecked } from "../test/hookHarness.ts";
 // placeholder. The glob matching follows the glob crate with default options (`*` also crosses
 // `/`); src-tauri/src/opener_scope_tests.rs checks the list with the crate itself.
 const root = new URL("../../../", import.meta.url);
-// The parts of the capability file the test reads, as Tauri reads them.
-interface Capability {
-    permissions: (string | { identifier?: string; allow: { url: string }[]; deny?: { url: string }[] })[];
+// The parts of the capability file the test reads, as Tauri reads them: the opener permission, with
+// the URLs it allows and denies.
+interface OpenerScope {
+    identifier: string;
+    allow: { url: string }[];
+    deny?: { url: string }[];
 }
-const capability = unchecked<Capability>(JSON.parse(readFileSync(new URL("src-tauri/capabilities/vrct_capability.json", root), "utf8")));
-// The opener permission is in the file; reading it as one keeps the TypeError a missing one gave.
-const scope = unchecked<Exclude<Capability["permissions"][number], string>>(capability.permissions.find(item => typeof item === "object" && item.identifier === "opener:allow-open-url"));
+const isUrlList = (value: unknown): value is { url: string }[] =>
+    Array.isArray(value) && value.every(item => isRecord(item) && typeof item.url === "string");
+const isOpenerScope = (value: unknown): value is OpenerScope => isRecord(value) && value.identifier === "opener:allow-open-url"
+    && isUrlList(value.allow) && (value.deny === undefined || isUrlList(value.deny));
+const permissions = fieldOf(JSON.parse(readFileSync(new URL("src-tauri/capabilities/vrct_capability.json", root), "utf8")), "permissions");
+assert.ok(Array.isArray(permissions), "the capability file lists no permissions");
+// The opener permission is in the file; the test stops here without one, as it did reading it.
+const scope = permissions.find(isOpenerScope);
+assert.ok(scope, "the capability file has no opener permission with URLs");
 
 const toRegExp = (pattern: string) => new RegExp("^" + [...pattern.matchAll(/\*+|\?|\[[^\]]+\]|[^*?[]+/g)].map(([part]) => {
     if (part.startsWith("*")) return ".*";

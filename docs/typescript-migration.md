@@ -261,13 +261,12 @@ ADR-010 のとおり、画面を触る作業に合わせて移すのが基本で
 試験の 206 本は、ハーネスの上にまとまりごとの 9 本の PR（#749〜#757）で移しました。どの試験も、名前、入力、確かめる値、件数は変えていません（Vitest は 207 ファイル、1569 件で、移す前と同じ）。
 
 - 見つけた節を読む前に `assert.ok` で確かめる所が増えました。前に `null` を読んで `TypeError` で落ちていた所が、同じ所で `AssertionError` で落ちます。
-- `unchecked` は約 200 か所で使っています。手引きの 2 つの使い方（試験用の部分的な値、わざと渡す形の違う値）のほかに、描いた木から取り出した部品を関数として描く所と、React 18 の型にない要素の `ref` を読む所にも使いました。
-- 見つけた節を確かめる関数、要素の `ref` を読む関数、ロケールを読む関数など、小さな補助関数が試験のファイルごとにあります。区画を並行して移したためです。ハーネスに寄せると、重複と `unchecked` が減ります。
+- 移した直後の `unchecked` は約 200 か所で、2 つの使い方のほかに、描いた木から取り出した部品を描く所や、要素の `ref` を読む所にも使っていました。また、見つけた節を確かめる関数やロケールを読む関数などが、試験のファイルごとにありました。区画を並行して移したためです。
+- 2026-11-20 の決定で、これらをハーネスに寄せました。`unchecked` は 2 つの使い方（`Test data:` と `On purpose:` のコメントを付ける）だけに残し、90 か所になりました。ハーネスの補助関数は下の「試験のハーネス」にあります。
 
 ### 第 8 段：仕上げ
 
 - `tsconfig.json` から `allowJs` を外します。第 7 段までで、`src-ui` のソースと試験、`locales` の 2 本（`config`、`@useI18n` が指す `useI18n`）はすべて TypeScript になったので、着手できます。リポジトリの直下の設定（`vite.config.js`、`vitest.config.js` など）と `tools/` のスクリプトは、型検査の対象の外です。
-- 試験の補助関数をハーネスに寄せます（第 7 段の最後の項目）。
 - 型の検査を段階的に強めます。候補は `noUncheckedIndexedAccess`、`exactOptionalPropertyTypes`、`noImplicitReturns`、`noUnusedLocals`、`noUnusedParameters` です。1 つずつ有効にし、出たエラーを直してから次に進みます。
 - `.eslintrc.json` を TypeScript の構文に対応させるかどうかを決めます。
 
@@ -287,6 +286,31 @@ ADR-010 のとおり、画面を触る作業に合わせて移すのが基本で
 - `src-ui/cssProperties.d.ts` は、React の `CSSProperties` に `--` で始まる名前を足しています。インラインの style で CSS のカスタムプロパティ（`--checkbox-size` など）を渡すときに、`as CSSProperties` は要りません。
 - バックエンドの応答を受け取るフックの引数の型は、中核が送る形の宣言です。応答を受け取ってフックに渡す側（`useReceiveRoutes`）は、確かめずに渡します。経路の表が文字列で名指すフックと関数に `result` を届いたまま渡すことは、`useReceiveRoutes.ts` の型ガード `isCallable`（`(...args: unknown[]) => unknown`）の 1 か所で宣言しています。確かめるのは関数であることだけで、前と同じです。400 応答の `data` を設定に書き戻すときは、`_useBackendErrorHandling.ts` の `keptValue` のオーバーロードで、渡す先の `update…` の型として宣言します。VR パネルの入口（`VrApp.tsx`）がメインウィンドウから届いた値を同じ名前の atom に書き込むことは、型ガード `isMirroredAtom` で宣言します。確かめるのは atom があることだけで、前と同じです。前からフックが確かめていた値だけは、フックの中の型ガードで確かめます。設定のフックの `updateFromBackend…`、`setSuccess…`、`deleteSuccess…` も同じです。ただし `response_transform` で一覧を別の形に変える設定は、変える前に受け取った値が一覧であることを確かめます。
 - 設定のフックは型の付いたフィールドを返します。`views` の TypeScript が型のなかったころに書いた `as { ... }` は、第 6 段で外しました。
+
+## 試験のハーネス
+
+試験（`*.test.ts`）にも、アプリと同じ規則を当てます（2026-11-20 の決定）。`strict` で、`any`、二重のキャスト、`@ts-...` を使いません。型で確かめられない所は、ハーネス（`src-ui/logics/test/`）の補助関数の中で 1 か所ずつ宣言し、試験の中ではキャストを使いません。
+
+- 宣言の場所は次のとおりです。どれもオーバーロードで宣言し、実行時には確かめません（`componentOf` と `componentNamed` は、関数であることだけを確かめます）。
+  - `hookHarness.ts`
+    - `loaded`: 読み込んだソースの輸出が、試験の名指すモジュールの型を持つ
+    - `asNode`: 描いた木の中のオブジェクトは要素である
+    - `held`: フックのスロットは、そのフックの型の値を持つ
+    - `unchecked`: 試験がコードに渡す、宣言された型を持たない値
+    - `asComponent`（`componentOf`、`componentNamed`、`forwardRefRender` の中）: 試験が自分で描く部品が、渡す props を受け取り、読む木を返す
+    - `timerHandle`、`asTimerFunction`: 偽のタイマーの id は番号で、偽物は大域のタイマーの代わりになる
+  - `bridgeHarness.ts`
+    - `settingAtom`: 登録簿の設定の atom は、設定の状態のプリミティブな atom である
+- `unchecked` は 2 つの使い方だけに使います。(1) コードが読むフィールドだけを持つ試験用の値、(2) コードの振る舞いを見るためにわざと渡す形の違う値。呼ぶ所に、`Test data:` か `On purpose:` で始まるコメントを置きます。ほかの用途には、下の補助関数を使います。
+- 試験が繰り返し使う補助関数はハーネスにあります。
+  - 木を探す: `find`、`findIn`（見つからなければ失敗）、`nodesIn`、`treeNode`、`componentName`
+  - 部品を描く: `componentOf`、`componentNamed`、`draw`、`drawWith`、`forwardRefRender`
+  - 要素の `ref`: `refOf`、`setRef`
+  - 型の分からない値を読む: `isRecord`、`fieldOf`
+  - 偽のタイマー: `timerHandle`、`timerNumber`、`asTimerFunction`
+  - ロケール（`locales.ts`）: `readLocale`、`localeAt`、`textAt`、`branchAt`。言語のファイルが文字列と対応表だけでできていることを、読むときに確かめます。
+  - 通知と設定の atom（`bridgeHarness.ts`）: `Notice`（本文は `ReactNode`、オプションは `NotificationOptions`）、`noticeText`、`settingAtom`
+- 型だけを使うパッケージ（`@types/node`、`@babel/types`）は、開発用の依存に書きます。
 
 ## 移すときの手順
 

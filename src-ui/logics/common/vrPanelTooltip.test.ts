@@ -33,7 +33,7 @@ test("geometry stays in logical atlas pixels and clamps the arrow at both edges"
         const right = { ...button, left: 30 + 760 * scale, width: 96 * scale };
         assert.deepEqual(tooltipGeometry(region, right, 880, 128), { button: [760, 12, 96, 104], arrow_x: 300 });
     }
-    // A button without its geometry, on purpose.
+    // On purpose: a button without its geometry.
     assert.equal(tooltipGeometry({ left: 0, top: 0, width: 0, height: 0 }, unchecked({}), 880, 128), null);
     assert.equal(tooltipGeometry({ left: 0, top: 0, width: 880, height: 128 },
         { left: -1, top: 12, width: 124, height: 104 }, 880, 128), null);

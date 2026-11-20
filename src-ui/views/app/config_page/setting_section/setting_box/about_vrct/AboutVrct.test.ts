@@ -2,28 +2,14 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { test } from "vitest";
 import i18next from "i18next";
-import yaml from "js-yaml";
 import clsx from "clsx";
-import { hooks, loadModule, find, stubGlobals, eventTarget, unchecked } from "../../../../../../logics/test/hookHarness.ts";
+import { hooks, loadModule, findIn, nodesIn, componentName, draw, stubGlobals, eventTarget, unchecked } from "../../../../../../logics/test/hookHarness.ts";
+import { readLocale, localeAt, textAt, branchAt } from "../../../../../../logics/test/locales.ts";
 import type { TreeNode } from "../../../../../../logics/test/hookHarness.ts";
 import type { ColorEntryWithSaveButtonProps } from "../_components/color_entry_with_save_button/ColorEntryWithSaveButton.tsx";
 
-const resources = Object.fromEntries(await Promise.all(["en", "ja"].map(async language => [language, {
-    translation: yaml.load(await readFile(new URL(`../../../../../../../locales/${language}.yml`, import.meta.url), "utf8")),
-}])));
-const all = (tree: unknown, predicate: (node: TreeNode) => boolean) => {
-    const nodes: TreeNode[] = [];
-    find(tree, node => { if (predicate(node)) nodes.push(node); return false; });
-    return nodes;
-};
-// The node the test reads next: one that is not there fails here, as reading it did.
-const found = (tree: unknown, predicate: (node: TreeNode) => boolean) => {
-    const node = find(tree, predicate);
-    assert.ok(node);
-    return node;
-};
-// An element of the page's own components drawn as React would, with its props.
-const draw = (node: TreeNode) => unchecked<(props: unknown) => unknown>(node.type)(node.props);
+const resources = Object.fromEntries(["en", "ja"].map(language => [language, { translation: readLocale(language) }]));
+const all = (tree: unknown, predicate: (node: TreeNode) => boolean) => nodesIn(tree).filter(predicate);
 const translate = async (language: string) => {
     const i18n = i18next.createInstance();
     await i18n.init({ lng: language, fallbackLng: false, resources });
@@ -47,10 +33,10 @@ for (const language of ["en", "ja"]) {
         const names = [];
         for (const component of links) {
             // A link of the page's own: what it draws is the anchor.
-            const link = unchecked<TreeNode>(draw(component)), name = link.props["aria-label"];
+            const link = draw(component), name = link.props["aria-label"];
             assert.equal(link.type, "a"); assert.ok(link.props.href);
             assert.ok(name && !name.startsWith("config_page."));
-            assert.equal(found(link, node => node.type === "img").props.alt, "");
+            assert.equal(findIn(link, node => node.type === "img").props.alt, "");
             assert.equal(name, translation.t(`config_page.about_vrct.image_links.${component.props.href_id}`));
             names.push(name);
         }
@@ -60,7 +46,7 @@ for (const language of ["en", "ja"]) {
         for (const image of creditImages) {
             assert.ok(image.props.alt && !image.props.alt.startsWith("config_page."), image.props.src);
         }
-        const disclaimer = found(tree, node => node.props?.className === "vrchat_disclaimer");
+        const disclaimer = findIn(tree, node => node.props?.className === "vrchat_disclaimer");
         // The trademark notice keeps its original English wording in every locale.
         assert.equal(disclaimer.props.lang, "en");
         assert.match(disclaimer.props.children, /not endorsed by VRChat/);
@@ -78,15 +64,15 @@ for (const language of ["en", "ja"]) {
         const names = [];
         for (const label of language === "ja" ? ["文字色", "背景色"] : ["Text color", "Background color"]) {
             const tree = runtime.render(ColorEntryWithSaveButton, swatch(label));
-            const button = found(tree, node => node.type === "button");
+            const button = findIn(tree, node => node.type === "button");
             assert.ok(button.props["aria-label"].includes(label));
             names.push(button.props["aria-label"]);
         }
         assert.equal(new Set(names).size, 2);
-        let button = found(runtime.render(ColorEntryWithSaveButton, swatch("Field")), node => node.type === "button");
+        let button = findIn(runtime.render(ColorEntryWithSaveButton, swatch("Field")), node => node.type === "button");
         assert.equal(button.props["aria-expanded"], false);
         button.props.onClick();
-        button = found(runtime.render(ColorEntryWithSaveButton, swatch("Field")), node => node.type === "button");
+        button = findIn(runtime.render(ColorEntryWithSaveButton, swatch("Field")), node => node.type === "button");
         assert.equal(button.props["aria-expanded"], true);
         runtime.unmount();
     });
@@ -108,9 +94,9 @@ for (const language of ["en", "ja"]) {
             "@logics_common": { useIsOpenedConfigPage: () => ({ currentIsOpenedConfigPage: { data: true } }) },
         });
         const root = runtime.render(Vr);
-        const overlay = found(root, node => node.props?.id === "overlay_settings_small");
+        const overlay = findIn(root, node => node.props?.id === "overlay_settings_small");
         const overlayTree = draw(overlay);
-        const other = found(overlayTree, node => typeof node.type === "function" && node.type.name === "OtherControls");
+        const other = findIn(overlayTree, node => componentName(node) === "OtherControls");
         const tree = draw(other);
         const durationSliders = all(tree, node => node.type === "slider" && [60, 5].includes(node.props.max));
         assert.equal(durationSliders.length, 2);
@@ -120,10 +106,10 @@ for (const language of ["en", "ja"]) {
                 "@logics_configs": { useSliderLogic: () => ({ ui_value: duration.props.variable }) },
             });
             const slider = sliderRuntime.render(Slider, duration.props);
-            const thumb = found(slider, node => node.props?.role === "slider");
+            const thumb = findIn(slider, node => node.props?.role === "slider");
             const expected = translation.t("config_page.common.duration_seconds", { count: duration.props.variable });
             assert.equal(thumb.props["aria-valuetext"], expected);
-            assert.equal(found(slider, node => node.props?.className === "valueLabelLabel").props.children, expected);
+            assert.equal(findIn(slider, node => node.props?.className === "valueLabelLabel").props.children, expected);
             assert.equal(expected, language === "ja" ? `${duration.props.variable}秒` : duration.props.variable === 1 ? "1 second" : "2 seconds");
         }
     });
@@ -133,11 +119,11 @@ test("all new locale keys exist in both files without relying on fallback", () =
     const flatten = (value: object, prefix = ""): string[] => Object.entries(value).flatMap(([key, child]) => typeof child === "object"
         ? flatten(child, `${prefix}${key}.`) : [`${prefix}${key}`]);
     for (const language of ["en", "ja"]) {
-        const page = resources[language].translation.config_page;
-        const keys = [...flatten(page.about_vrct.image_links), ...flatten(page.about_vrct.credits)];
-        const other = resources[language === "en" ? "ja" : "en"].translation.config_page;
-        assert.deepEqual(keys, [...flatten(other.about_vrct.image_links), ...flatten(other.about_vrct.credits)]);
-        for (const name of ["open_color_picker", "duration_seconds_one", "duration_seconds_other"]) assert.ok(page.common[name]);
-        assert.ok(page.transcription.mic_word_filter.remove_word.includes("{{word}}"));
+        const page = branchAt(resources[language].translation, "config_page");
+        const keys = [...flatten(branchAt(page, "about_vrct.image_links")), ...flatten(branchAt(page, "about_vrct.credits"))];
+        const other = branchAt(resources[language === "en" ? "ja" : "en"].translation, "config_page");
+        assert.deepEqual(keys, [...flatten(branchAt(other, "about_vrct.image_links")), ...flatten(branchAt(other, "about_vrct.credits"))]);
+        for (const name of ["open_color_picker", "duration_seconds_one", "duration_seconds_other"]) assert.ok(localeAt(page, `common.${name}`));
+        assert.ok(textAt(page, "transcription.mic_word_filter.remove_word").includes("{{word}}"));
     }
 });

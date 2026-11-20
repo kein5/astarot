@@ -1,8 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { readFileSync } from "node:fs";
-import yaml from "js-yaml";
-import { hooks, loadModule, unchecked } from "../test/hookHarness.ts";
+import { hooks, loadModule } from "../test/hookHarness.ts";
+import { localeAt, readLocale } from "../test/locales.ts";
 import * as endpointPrivacy from "./endpointPrivacy.ts";
 
 test("a lost network connection is told in the UI language, and only when it is known to be lost", async () => {
@@ -19,8 +18,7 @@ test("a lost network connection is told in the UI language, and only when it is 
     handleNetworkConnection(false);
     assert.deepEqual(shown, [["t:network_privacy.disconnected", { hide_duration: 8000 }]]);
     for (const language of ["en", "ja"]) {
-        const strings = yaml.load(readFileSync(new URL(`../../../locales/${language}.yml`, import.meta.url), "utf8"));
-        // Read as strings.network_privacy.disconnected: a missing level stops with a TypeError.
-        assert.equal(typeof unchecked<Record<string, unknown>>(unchecked<Record<string, unknown>>(strings).network_privacy).disconnected, "string", language);
+        // A missing level fails here, as reading through it did.
+        assert.equal(typeof localeAt(readLocale(language), "network_privacy.disconnected"), "string", language);
     }
 });
