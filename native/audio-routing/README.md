@@ -25,9 +25,9 @@ until the sidecar is retired.
 | `audio_routing/devices_pipewire.py` | `src/pipewire/output.rs`, `src/graph.rs` | A native playback stream instead of `pw-cat`. |
 | `audio_routing/pipewire_graph.py` | `src/graph_source.rs`, `src/pipewire/observer.rs` | A registry connection with server round trips instead of running `pw-dump`. |
 | `audio_routing/pipewire_graph_pipe.py` | `src/pipewire/feed.rs` | Same wire format. |
-| `audio_routing/pipewire_gate.py` | `src/graph.rs` (`parse_managed`), `src/pipewire/gate.rs` | Still changes mute through `vrct-voice-gate`. |
+| `audio_routing/pipewire_gate.py` | `src/graph.rs` (`parse_managed`), `src/pipewire/gate.rs` | Still changes mute through `astarot-voice-gate`. |
 | `audio_routing/managed_microphone.py` | `src/pipewire/managed.rs` | Unit files byte for byte the same (checked against Python's output in `tests/data/managed_units.json`). |
-| `audio_routing/source_bridge.py` | `src/graph.rs` (selection, links), `src/pipewire/bridge.rs` | Still supervises `vrct-source-bridge`. |
+| `audio_routing/source_bridge.py` | `src/graph.rs` (selection, links), `src/pipewire/bridge.rs` | Still supervises `astarot-source-bridge`. |
 | `audio_routing/gc_guard.py` | — | Python's cyclic garbage collector paused playback; Rust has none. |
 | `audio_routing/virtual_mic.py` | `src/virtual_mic.rs`, `src/platform.rs` | The recording end is read as 48 kHz mono converted by WASAPI, not in its own format through PortAudio. |
 | The device choice in `controller.py` (`_selectedAudioDevice`, `_audioTarget`, the host of `_publishAudioDeviceLocked`) | `src/selection.rs` | Plus moving choices saved under other Windows hosts (`migrate_mic`, `migrate_speaker`). |
@@ -90,7 +90,7 @@ the PipeWire dependency are item 4 of "判断が要ること" in
 only, saved choices from other hosts moved to the same WASAPI device). Still open
 here:
 
-1. Whether the C helpers `vrct-voice-gate` and `vrct-source-bridge` should move to Rust
+1. Whether the C helpers `astarot-voice-gate` and `astarot-source-bridge` should move to Rust
    too. They are outside #280 and already use libpipewire directly.
 
 ## Build

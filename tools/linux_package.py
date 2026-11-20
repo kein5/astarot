@@ -19,9 +19,9 @@ except ImportError:
 # The app runs the Rust backend core in its own process; _internal holds what it and the app
 # start or read (tools/app_resources.py lists the same files for staging).
 RUNTIME = ('vrct-vox',
-           '_internal/build/vrct-voice-gate', '_internal/build/vrct-source-bridge',
-           '_internal/build/vrct-vc-worker', '_internal/build/vrct-asr-capture',
-           '_internal/build/vrct-screen-capture', '_internal/build/vrct-rvc-worker',
+           '_internal/build/astarot-voice-gate', '_internal/build/astarot-source-bridge',
+           '_internal/build/astarot-asr-capture',
+           '_internal/build/astarot-screen-capture', '_internal/build/astarot-rvc-worker',
            '_internal/build/speechcpp/speech', '_internal/build/speechcpp/bundle.json',
            '_internal/build/speechcpp-cpu/speech', '_internal/build/speechcpp-cpu/bundle.json',
            '_internal/licenses/VRCT/LICENSE', '_internal/licenses/VRCT/NOTICE.md',

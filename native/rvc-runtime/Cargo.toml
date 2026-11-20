@@ -20,7 +20,7 @@ path = "src/bin/rvc_stream.rs"
 
 # The application's live voice conversion process (VVC1 pipes, see src/bin/rvc_worker.rs).
 [[bin]]
-name = "vrct-rvc-worker"
+name = "astarot-rvc-worker"
 path = "src/bin/rvc_worker.rs"
 required-features = ["worker"]
 

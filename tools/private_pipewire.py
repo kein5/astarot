@@ -1,6 +1,6 @@
 """A PipeWire daemon of its own, with WirePlumber's policy, in a temporary folder.
 
-The tests of the native helpers (vrct-source-bridge, vrct-asr-capture) and of the CI's audio
+The tests of the native helpers (astarot-source-bridge, astarot-asr-capture) and of the CI's audio
 setup run on it, so the PC's own graph is never touched. It needs pipewire, wireplumber 0.5,
 pw-loopback, pw-cat, pw-dump and pw-metadata; the Linux CI builds them into a prefix of their own
 (tools/ci/setup_pipewire.sh). The Rust tests have the same graph in

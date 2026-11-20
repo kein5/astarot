@@ -174,7 +174,7 @@ contact VRChat, or load inference models.
 The collector and final tree/tar checks reject OCR weights, Mia2026 assets, unsafe
 links, traversal, duplicate paths, special files and uninspectable nested archives.
 These are path/type checks, not a detector for deliberately renamed weights.
-Original licenses and notices are retained. The Rust crates built into `vrct-vox` and `vrct-rvc-worker` are listed with their
+Original licenses and notices are retained. The Rust crates built into `vrct-vox` and `astarot-rvc-worker` are listed with their
 license texts in `_internal/licenses/rust/` (`tools/rust_licenses.py`, which needs
 the Cargo registry sources, so `--offline` builds need them cached). The build
 stops if a crate publishes no license text and has no reviewed entry in

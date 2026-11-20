@@ -41,7 +41,7 @@ class SizeTests(unittest.TestCase):
     def test_a_package_without_the_sidecar_is_split_by_the_new_layout(self):
         for name, size in [("vrct-vox.exe", 10), ("onnxruntime.dll", 11), ("DirectML.dll", 12),
                            ("_internal/build/speechcpp/speech.exe", 30), ("_internal/build/speechcpp/notices/a.txt", 1),
-                           ("_internal/build/vrct-rvc-worker.exe", 13), ("_internal/licenses/VRCT/LICENSE", 2),
+                           ("_internal/build/astarot-rvc-worker.exe", 13), ("_internal/licenses/VRCT/LICENSE", 2),
                            ("_internal/licenses/rust/crates.json", 3), ("_internal/fonts/a.otf", 6),
                            ("_internal/build/other.bin", 4), ("weights/w.bin", 8)]:
             write(self.package, name, size)

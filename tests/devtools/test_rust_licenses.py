@@ -69,7 +69,7 @@ class CollectTest(unittest.TestCase):
                   "native/rvc-runtime/Cargo.toml": meta(worker["id"], [worker, shared],
                                                         {worker["id"]: [(shared["id"], NORMAL)]})}
         crates = rl.collect("x86_64-pc-windows-msvc", load=self.load_for(graphs))
-        self.assertEqual(crates[("shared", "1.0.0")]["binaries"], ["vrct-vox", "vrct-rvc-worker"])
+        self.assertEqual(crates[("shared", "1.0.0")]["binaries"], ["vrct-vox", "astarot-rvc-worker"])
         self.assertEqual(set(crates[("shared", "1.0.0")]["files"]), {"LICENSE-MIT", "LICENSE-APACHE"})
         self.assertTrue(crates[("app", "1.0.0")]["local"])
         self.assertEqual(crates[("app", "1.0.0")]["files"], {})

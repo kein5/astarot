@@ -1,5 +1,5 @@
 //! Realtime recognition's Linux capture on a private PipeWire graph (decision 2 of #733): the
-//! PipeWire capture of `vrct-audio-routing` in place of the `vrct-asr-capture` helper. The
+//! PipeWire capture of `vrct-audio-routing` in place of the `astarot-asr-capture` helper. The
 //! endpoints are listed, a microphone is read from its source and a speaker from its sink's
 //! monitor, a node that is no longer the one chosen is refused, and a capture that loses its node
 //! tells it once.

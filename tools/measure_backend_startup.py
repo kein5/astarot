@@ -112,7 +112,7 @@ def _finish(report: dict, internal: Path, archive: Path | None) -> dict:
 SIDECAR = "vrct-vox-sidecar.exe"
 APP_EXE = ("vrct-vox.exe", "vrct-vox")
 ONNX_RUNTIME = ("onnxruntime", "directml")
-RVC_WORKER = ("vrct-rvc-worker.exe", "vrct-rvc-worker")
+RVC_WORKER = ("astarot-rvc-worker.exe", "astarot-rvc-worker")
 
 
 def has_sidecar(package: Path) -> bool:
@@ -134,7 +134,7 @@ def core_size_report(package: Path, archive: Path | None) -> dict:
         "app_exe": 0,            # vrct-vox.exe: the app and the core
         "onnx_runtime": 0,       # onnxruntime*.dll / DirectML.dll beside the app, when linked dynamically
         "speechcpp": 0,          # _internal/build/speechcpp
-        "rvc_worker": 0,         # _internal/build/vrct-rvc-worker.exe
+        "rvc_worker": 0,         # _internal/build/astarot-rvc-worker.exe
         "licenses": 0,           # _internal/licenses
         "fonts": 0,              # *.ttf, *.otf anywhere
         "other_internal": 0,     # anything else in _internal

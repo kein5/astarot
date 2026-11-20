@@ -1,7 +1,7 @@
 //! The managed route's mute, read from the graph and changed by a native helper.
 //!
 //! Port of `PipeWireGate` in `src-python/models/audio_routing/pipewire_gate.py`.
-//! Every change goes through `vrct-voice-gate`, which acts only on the node with the
+//! Every change goes through `astarot-voice-gate`, which acts only on the node with the
 //! expected core cookie and serial, so a replaced endpoint is never changed by name.
 //! A change counts only when a graph captured after the helper returned shows it.
 
@@ -26,7 +26,7 @@ pub struct PipeWireGate {
 }
 
 impl PipeWireGate {
-    /// `helper` is `<resources>/build/vrct-voice-gate`.
+    /// `helper` is `<resources>/build/astarot-voice-gate`.
     pub fn new(helper: PathBuf, env: ProcessEnv) -> Self {
         let reader: GraphReader = Arc::new(|after| crate::pipewire::read_graph_data(true, after).map_err(|_| Error::runtime("managed_graph_unavailable")));
         Self::with_reader(helper, env, reader)
@@ -152,7 +152,7 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("vrct-gate-{}-{name}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
-        let (script, log) = (dir.join("vrct-voice-gate"), dir.join("args"));
+        let (script, log) = (dir.join("astarot-voice-gate"), dir.join("args"));
         std::fs::write(&script, format!("#!/bin/sh\necho \"$@\" >> '{}'\nexit {status}\n", log.display())).unwrap();
         std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).unwrap();
         (Scratch(dir), script, log)

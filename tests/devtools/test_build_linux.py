@@ -175,7 +175,7 @@ class LinuxStagingTests(unittest.TestCase):
             for name in app_resources.LINUX_HELPERS:
                 (output / name).write_bytes(b'helper')
         elif names[1].endswith('build_rvc_worker.py'):
-            (output / 'vrct-rvc-worker').write_bytes(b'worker')
+            (output / 'astarot-rvc-worker').write_bytes(b'worker')
         elif names[1].endswith('rust_licenses.py'):
             licenses = Path(names[names.index('--output') + 1])
             licenses.mkdir(parents=True)
@@ -224,14 +224,14 @@ class LinuxStagingTests(unittest.TestCase):
     def test_a_missing_helper_stops_the_build(self):
         def without_gate(argv, **options):
             self.fake_run(argv, **options)
-            gate = self.work / 'build/vrct-voice-gate'
+            gate = self.work / 'build/astarot-voice-gate'
             if gate.exists():
                 gate.unlink()
         with patch.object(build_linux, 'run', side_effect=without_gate), \
                 patch.object(build_linux, 'load_manifest', return_value=MANIFEST), \
                 patch.object(build_linux, 'stage_bundle', side_effect=self.fake_bundle), \
                 patch.object(build_linux, 'verify_bundle'):
-            with self.assertRaisesRegex(ValueError, 'vrct-voice-gate'):
+            with self.assertRaisesRegex(ValueError, 'astarot-voice-gate'):
                 build_linux.stage_internal(self.work, ARCHIVES)
 
     def test_the_tauri_workspace_ships_no_sidecar(self):

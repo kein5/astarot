@@ -30,7 +30,7 @@ except ImportError:
 ROOT = Path(__file__).resolve().parents[1]
 
 # Linux helper programs (build_voice_gate.py) the backend and the app start; staged when present.
-LINUX_HELPERS = ('vrct-voice-gate', 'vrct-source-bridge', 'vrct-vc-worker', 'vrct-asr-capture', 'vrct-screen-capture')
+LINUX_HELPERS = ('astarot-voice-gate', 'astarot-source-bridge', 'astarot-asr-capture', 'astarot-screen-capture')
 
 # The speech.cpp bundles (speechcpp_bundle.py), one folder per build. Windows ships the Vulkan
 # build only; Linux ships the Vulkan build and the CPU build, and the user chooses in the
@@ -46,7 +46,7 @@ def required(platform):
     """The paths inside `_internal` a package of `platform` cannot do without."""
     names = [name for bundle in SPEECH_BUNDLES[platform]
              for name in (f'build/{bundle}/{_exe("speech", platform)}', f'build/{bundle}/bundle.json')]
-    names += [f'build/{_exe("vrct-rvc-worker", platform)}',
+    names += [f'build/{_exe("astarot-rvc-worker", platform)}',
               'licenses/VRCT/LICENSE', 'licenses/VRCT/NOTICE.md', 'licenses/rust/crates.json']
     # ONNX Runtime for chat reading and local translation, and the OpenVR client library for the
     # VR overlay and the headset view (tools/runtime_libraries.py, issue #509).
@@ -82,7 +82,7 @@ def pairs(platform, build=ROOT / 'build', root=ROOT):
         file = build / name
         if file.is_file():
             result.append((file, name))
-    helpers = ['vrct-rvc-worker'] + (list(LINUX_HELPERS) if platform == 'linux' else [])
+    helpers = ['astarot-rvc-worker'] + (list(LINUX_HELPERS) if platform == 'linux' else [])
     for name in helpers:
         file = build / _exe(name, platform)
         if file.is_file():

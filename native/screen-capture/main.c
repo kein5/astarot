@@ -7,7 +7,7 @@
  * frames a second, so the stream is asked for that rate (1000 / INTERVAL_MS)
  * and frames that still arrive clearly sooner are dropped here.
  *
- *   vrct-screen-capture PARENT_PID NODE_ID FRAME_PATH INTERVAL_MS
+ *   astarot-screen-capture PARENT_PID NODE_ID FRAME_PATH INTERVAL_MS
  *   stdin   the PipeWire remote from OpenPipeWireRemote (a socket)
  *   stdout  a pipe the owner only holds. Nothing is written to it: when the
  *           owner closes its end (or dies), the helper stops.

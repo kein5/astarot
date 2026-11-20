@@ -3,7 +3,7 @@
 Inference-only RVC voice conversion in Rust (issue #275; Phase 1: offline conversion,
 Phase 2: streaming conversion, Phase 3: the application's voice changer).
 
-The application runs it as `vrct-rvc-worker` (`src/bin/rvc_worker.rs`), a separate
+The application runs it as `astarot-rvc-worker` (`src/bin/rvc_worker.rs`), a separate
 process that replaces the external PyTorch runtime the voice changer used before. See
 [Application worker](#application-worker-phase-3).
 
@@ -82,7 +82,7 @@ run on the CPU.
 | `download-binaries` (default) | links the ONNX Runtime build `ort` downloads; tests and the two tools above |
 | `cuda` | the CUDA execution provider |
 | `load-dynamic` | no ONNX Runtime at build time: `backend::load_runtime(path)` loads `libonnxruntime.so` / `onnxruntime.dll` at run time |
-| `worker` | `load-dynamic` + `cuda`, and the `vrct-rvc-worker` binary |
+| `worker` | `load-dynamic` + `cuda`, and the `astarot-rvc-worker` binary |
 
 On Windows the DirectML provider's Rust side is always built in (`ort`'s `directml` feature as a
 Windows dependency, as in `native/translate-onnx`); whether it runs depends on the ONNX Runtime
@@ -417,7 +417,7 @@ small change if the specification decides otherwise.
 
 ## Application worker (Phase 3)
 
-`vrct-rvc-worker` is what the application starts for the voice changer. It speaks the
+`astarot-rvc-worker` is what the application starts for the voice changer. It speaks the
 application's live-VC pipe contract (`native/voice-conversion/src/protocol.rs`, "VVC1"; up
 to 0.4 `src-python/models/voice_conversion/protocol.py`): a `ready` packet, or a `failed`
 packet with a fixed code, then one `output` packet of 48 kHz mono 16-bit audio for every
@@ -429,9 +429,9 @@ launch helper (`native/vc-worker`, mode `rvc-native`), the router process, the m
 mute and the speech-through-conversion path are the same as with the external runtime.
 
 ```sh
-python tools/build_rvc_worker.py   # cargo build --no-default-features --features worker → build/vrct-rvc-worker
-vrct-rvc-worker --runtime <dir> --model voice.pth --session <32 hex> [--index f.index] [--pitch n] [--index-rate r] [--device auto|cuda|directml|cpu] [--directml <dir>] [--block-ms 40]
-vrct-rvc-worker --runtime <dir> --probe [--device cuda|directml|cpu|auto]   # exit 0 runs; 3 the GPU cannot be used (auto: the CPU can); 4 broken
+python tools/build_rvc_worker.py   # cargo build --no-default-features --features worker → build/astarot-rvc-worker
+astarot-rvc-worker --runtime <dir> --model voice.pth --session <32 hex> [--index f.index] [--pitch n] [--index-rate r] [--device auto|cuda|directml|cpu] [--directml <dir>] [--block-ms 40]
+astarot-rvc-worker --runtime <dir> --probe [--device cuda|directml|cpu|auto]   # exit 0 runs; 3 the GPU cannot be used (auto: the CPU can); 4 broken
 ```
 
 - **Runtime folder** (set up by `native/voice-conversion/src/runtime.rs` after consent; up to

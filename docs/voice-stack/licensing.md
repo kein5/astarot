@@ -92,7 +92,7 @@ nanobind（BSD-3-Clause）の実ビルド版の特定は未了。
 ## RVC同梱ワーカー（2026-11-15、#275 Phase 3）
 
 RVCの変換は、本家の推論を再実装した`native/rvc-runtime`（MIT、本家コードの複写・翻案なし）を
-`vrct-rvc-worker`としてWindowsとLinuxの配布物に同梱して行う。これにより、下の「RVC追加分」以降に書いた
+`astarot-rvc-worker`としてWindowsとLinuxの配布物に同梱して行う。これにより、下の「RVC追加分」以降に書いた
 外部のPython実行環境（PyTorch、本家エンジン、`praat-parselmouth`などの依存）と、本家由来のMITコード
 （`integrations/rvc/blocks.py`、`loader.py`、`LICENSE.upstream`）は使わなくなり、リポジトリと配布物から削除した。
 
@@ -169,7 +169,7 @@ Tauri本体の他のRust依存と同じく未整理（残課題）。→ 下の�
 
 ### Rust依存のライセンス文
 
-配布物に入るRust製の実行ファイルは、Tauri本体の`vrct-vox`とRVCワーカーの`vrct-rvc-worker`の2つ。
+配布物に入るRust製の実行ファイルは、Tauri本体の`vrct-vox`とRVCワーカーの`astarot-rvc-worker`の2つ。
 `native/`の他のクレートは2026-11-15のdevelopではまだどの実行ファイルにも組み込んでいない
 （`asr-capture`など`main.c`だけのものはC）。→ #344で`native/core`などが`vrct-vox`に入った（下の「#344」の節）。
 
@@ -220,7 +220,7 @@ NOTICEに「RVC base models」の節を足して、出所を示した。
 
 #322の残課題へのオーナーの決定を受けて、台帳と#344で増えた依存を突き合わせた。#344をマージした後のdevelop（`6fe7bd36`）で`tools/rust_licenses.py`を実行し、マージ直前のdevelop（`131bbc3a`）の一覧と比べた。
 
-配布物に入るRust製の実行ファイルは、引き続き`vrct-vox`と`vrct-rvc-worker`の2つ。#344で`vrct-vox`がバックエンドの中核（`native/core`）を取り込み、中核が使う`native/adapters`、`native/ops`、`native/speech-server`、`native/tts`も一緒に入った。どれもリポジトリ内のクレートで、一覧ではVRCT-VOXのコードとして扱う。アプリの依存は`src-tauri/Cargo.lock`で決まり、中核を単独で試験するための`native/core/Cargo.lock`は使わない。2つのロックファイルで同じクレートの版が食い違う例はなかった。中核のクレートは機能フラグを持たず、配布物に入る新しい実行ファイルもない（`fake-speech`などの`[[bin]]`は試験用）。
+配布物に入るRust製の実行ファイルは、引き続き`vrct-vox`と`astarot-rvc-worker`の2つ。#344で`vrct-vox`がバックエンドの中核（`native/core`）を取り込み、中核が使う`native/adapters`、`native/ops`、`native/speech-server`、`native/tts`も一緒に入った。どれもリポジトリ内のクレートで、一覧ではVRCT-VOXのコードとして扱う。アプリの依存は`src-tauri/Cargo.lock`で決まり、中核を単独で試験するための`native/core/Cargo.lock`は使わない。2つのロックファイルで同じクレートの版が食い違う例はなかった。中核のクレートは機能フラグを持たず、配布物に入る新しい実行ファイルもない（`fake-speech`などの`[[bin]]`は試験用）。
 
 | 項目 | Windows | Linux |
 |---|---|---|
@@ -250,7 +250,7 @@ NOTICEに「RVC base models」の節を足して、出所を示した。
 中核の機能フラグ`onnx-translation`は、2026-11-16から既定でオンで、アプリでも有効（ローカル翻訳のエンジンを`native/translate-onnx`に決めた。[core-integration.md](core-integration.md)の「決まったこと」）。`ort`はチャットの読み取りと同じ`load-dynamic`で、ONNX Runtimeをビルドで取得もリンクもしない。アプリのロックファイルに新しく入った外部のクレートは`tokenizers` 0.23.2（Apache-2.0）とその依存（`esaxx-rs`、`spm_precompiled`、`fancy-regex`、`rayon`、`derive_builder`、`monostate`、`daachorse`、`compact_str`など。どれもMITかApache-2.0、またはそのどちらかを選べる。`zerocopy`はBSD-2-Clause OR Apache-2.0 OR MIT、`macro_rules_attribute`はApache-2.0 OR MIT OR Zlib）。`tools/rust_licenses.py`をWindowsとLinuxの両方の対象で実行し、どれも公開パッケージにライセンス文があることを確かめた。`tokenizers`は`default-features = false`と`fancy-regex`で使うので、C++のコード（`esaxx_fast`、`onig`）はビルドに入らない。ONNX Runtimeのライブラリそのものをどこから配るかは未決（同じ文書の「判断が要ること」の2）。読みの辞書（同じく3）も、決まったら辞書のライセンスをここに足す。
 ## チャットの読み取りを中核に入れたときの依存（2026-11-16、#285）
 
-中核（`native/core`）が`native/ocr-runtime`を使うようになり、`vrct-vox`に次の外部のクレートが加わった。`caseless`（MIT）、`libloading` 0.9.1（ISC）、`ort`と`ort-sys`（MIT OR Apache-2.0）、`ndarray`、`matrixmultiply`、`num-complex`、`num-integer`、`rawpointer`、`unicode-bidi`、`unicode-normalization`（MITとApache-2.0のいずれか）。`tools/rust_licenses.py`をWindowsとLinuxの両方で実行し、どれも公開パッケージにライセンス文があることを確かめた。`ndarray`などは`vrct-rvc-worker`がすでに使っていたもの。
+中核（`native/core`）が`native/ocr-runtime`を使うようになり、`vrct-vox`に次の外部のクレートが加わった。`caseless`（MIT）、`libloading` 0.9.1（ISC）、`ort`と`ort-sys`（MIT OR Apache-2.0）、`ndarray`、`matrixmultiply`、`num-complex`、`num-integer`、`rawpointer`、`unicode-bidi`、`unicode-normalization`（MITとApache-2.0のいずれか）。`tools/rust_licenses.py`をWindowsとLinuxの両方で実行し、どれも公開パッケージにライセンス文があることを確かめた。`ndarray`などは`astarot-rvc-worker`がすでに使っていたもの。
 
 `native/ocr-runtime`はVRCT-VOXのコードで、OpenCV 4.10.0（Apache-2.0）、RapidOCR 3.9.2（Apache-2.0）、pyclipperが同梱するClipper 6.4.2（Boost Software License 1.0）の処理を、結果が一致するように書き直したもの。ソースファイルの複写はない。表示は[NOTICE](../../NOTICE.md#rust-crates-in-vrct-vox-builds)に書いた。ONNX Runtimeはアプリに静的にリンクせず、実行時に読み込む（[core-integration.md](core-integration.md)の「判断が要ること」の13）。どのONNX Runtimeをどこから配るかは未決。OpenVRのクライアントライブラリも同じく未決（同じ節の16）。
 
@@ -307,7 +307,7 @@ librosa、libsndfile等を含む最終runtime配布条件の監査は引き続�
 
 Windows版にも固定speech.cpp 0.10.0の公式Vulkan版`speech.exe`と通知を同梱する。元ZIPのサイズとSHA-256は[固定台帳](speechcpp-bundle-artifacts.json)にある。ZIP内の`speech.dll`、`speech.h`、`speech.lib`は使わないので含めない。`speech.exe`はMSVCのビルド情報を持ち、Cランタイムの動的ライブラリを読み込まないので、GCCのランタイムは含まない。GCCの文書はLinux版のための通知で、同じ通知一式に残る。`vulkan-1.dll`とGPUドライバーは配布物に含まない。
 
-RVCとSeed-VCの実行環境、基礎モデル、声のモデルは、WindowsでもLinuxでも配布物に含まない。アプリの準備機能は、利用者の同意を得て提供元からこのPCへ直接取得するだけで、再配布はしない。取得先はGitHub（uv、Python、エンジン本体、ONNX Runtime）、PyPI、PyTorch、Hugging Faceで、同意画面にライセンスのリンクとサイズを示す。2026-11-15からRVCの実行環境はONNX Runtime（GPU用はNVIDIAのライブラリも）だけになり、変換は同梱の`vrct-rvc-worker`が行う（上の「RVC同梱ワーカー」）。0.4.xまでのWindowsの配布物の`_internal/voice_worker/integrations/seed_vc/`にはGPL-3.0-onlyのアダプターを、`_internal/licenses/python/`には凍結したPythonパッケージのライセンス文書を含んでいた。0.5.0の中核はSeed-VCの実行環境を準備せず、RVCの実行環境だけをNuGet（ONNX Runtime。2026-11-18まではGitHub）、PyPI（NVIDIAのライブラリ）、Hugging Face（基礎モデル）から取得する（`native/voice-conversion/src/runtime.rs`）。0.5.0の配布物の中身は下の「Pythonの同梱の終了」の節にある。
+RVCとSeed-VCの実行環境、基礎モデル、声のモデルは、WindowsでもLinuxでも配布物に含まない。アプリの準備機能は、利用者の同意を得て提供元からこのPCへ直接取得するだけで、再配布はしない。取得先はGitHub（uv、Python、エンジン本体、ONNX Runtime）、PyPI、PyTorch、Hugging Faceで、同意画面にライセンスのリンクとサイズを示す。2026-11-15からRVCの実行環境はONNX Runtime（GPU用はNVIDIAのライブラリも）だけになり、変換は同梱の`astarot-rvc-worker`が行う（上の「RVC同梱ワーカー」）。0.4.xまでのWindowsの配布物の`_internal/voice_worker/integrations/seed_vc/`にはGPL-3.0-onlyのアダプターを、`_internal/licenses/python/`には凍結したPythonパッケージのライセンス文書を含んでいた。0.5.0の中核はSeed-VCの実行環境を準備せず、RVCの実行環境だけをNuGet（ONNX Runtime。2026-11-18まではGitHub）、PyPI（NVIDIAのライブラリ）、Hugging Face（基礎モデル）から取得する（`native/voice-conversion/src/runtime.rs`）。0.5.0の配布物の中身は下の「Pythonの同梱の終了」の節にある。
 
 Linuxの配布物も、2026-11-11から同じ準備機能を持つ（以下のuvとSeed-VCの記述は0.4.xまでのもの）。取得するuvはLinux用の公式リリース（x86-64、glibc版）で、版・サイズ・SHA-256を固定する。そのために`_internal/integrations/seed_vc/`へ（2026-11-15まではRVCの`_internal/integrations/rvc/`にも）、ハッシュを固定した依存の一覧（`requirements-cuda.lock`、`requirements.lock`）と、Seed-VCのパッチ（`offline-loader.patch`、GPL-3.0-only）を加えた。Linux用のPyTorch（CUDA版）は、NVIDIAのライブラリを別のパッケージ（`nvidia-*-cu12`など）として取得する。これらもNVIDIAのライセンスに従い、配布物には含まない。
 
@@ -587,8 +587,8 @@ Hugging Faceのファイルの大きさとSHA-256はAPIが示すLFSの値を2026
 | `_internal/build/speechcpp/` | 固定版のspeech.cpp（Vulkan版）と依存の通知 | MITと通知の各ライセンス（上の各節） |
 | Linuxの`_internal/build/speechcpp-cpu/` | 固定版のspeech.cpp（CPU版）と依存の通知 | 同上（下の「Linuxの2つのspeech.cpp」） |
 | `_internal/build/sudachi/`（版が決まってから） | 読みの辞書SudachiDictと`LEGAL`、`LICENSE-2.0.txt` | Apache-2.0（下の「読みの解析器と辞書」） |
-| `_internal/build/vrct-rvc-worker(.exe)` | RVCの同梱ワーカー | MIT（VRCT-VOX）。Rustの依存は`licenses/rust` |
-| Linuxの`_internal/build/vrct-*` | 音声の補助プログラム（`vrct-voice-gate`など） | VRCT-VOX自身のコード |
+| `_internal/build/astarot-rvc-worker(.exe)` | RVCの同梱ワーカー | MIT（VRCT-VOX）。Rustの依存は`licenses/rust` |
+| Linuxの`_internal/build/vrct-*` | 音声の補助プログラム（`astarot-voice-gate`など） | VRCT-VOX自身のコード |
 | `_internal/licenses/VRCT/` | `LICENSE`と`NOTICE.md` | |
 | `_internal/licenses/rust/` | アプリとワーカーのRustのクレートのライセンス文 | 一覧のとおり |
 | `_internal/licenses/nscurl/`（Windows） | インストーラーのNScurlの通知 | 上の節のとおり |

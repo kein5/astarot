@@ -42,7 +42,7 @@ GPUドライバーのキャッシュが空のとき（ドライバーを更新�
 
 RVCの設定画面、または「高度な設定」の入力の転送にある「実行環境」の欄から、実行環境を取得できます。ライセンス、サイズ、保存先を確認して同意すると、次を自動で行います。Gitも開発環境もいりません。
 
-RVCの変換は、配布物に入っている`vrct-rvc-worker.exe`（`native/rvc-runtime`）が行います（2026-11-15から）。RVCの実行環境の準備は、次のとおりです。NVIDIAのドライバー（`nvcuda.dll`）があるPCにはGPU用、ないPCにはCPU用を出します。
+RVCの変換は、配布物に入っている`astarot-rvc-worker.exe`（`native/rvc-runtime`）が行います（2026-11-15から）。RVCの実行環境の準備は、次のとおりです。NVIDIAのドライバー（`nvcuda.dll`）があるPCにはGPU用、ないPCにはCPU用を出します。
 
 1. GPU用は、ONNX Runtime 1.31.0（CUDA 13版。NuGetにあるMicrosoftの公式パッケージ`Microsoft.ML.OnnxRuntime.Gpu.Windows`）と、NVIDIAのCUDA 13.4とcuDNN 9.26のライブラリ（PyPIの`nvidia-cuda-runtime`、`nvidia-cublas`、`nvidia-curand`、`nvidia-cuda-nvrtc`、`nvidia-cudnn-cu13`のwheel）。CPU用は、ONNX Runtime 1.31.0のCPU版（`Microsoft.ML.OnnxRuntime`）だけです。アーカイブごとにサイズとSHA-256を照合し、ワーカーが読み込むDLLだけを`lib\`に取り出します。アーカイブは取り出したあとに消します。2026-11-18まではONNX RuntimeをGitHubのリリースから取得していました。そのときに準備した実行環境は、`lib\`のファイルが同じ名前なので、準備し直さずにそのまま使えます。
 2. 基礎モデル（HuBERTの`config.json`と`pytorch_model.bin`、`rmvpe.onnx`）を取得して、ハッシュを検証します。
@@ -72,7 +72,7 @@ RVCを止めている間も声を届けたいときは、入力の転送を使�
 
 ### 手動で用意する場合
 
-開発者向けです。RVCは次の構成のフォルダーを用意して、設定で指定します。中身は`native/voice-conversion/src/runtime.rs`の`gpu_libraries`、`cpu_libraries`、`rvc_assets`に固定したファイルです（0.4までのPythonでは`src-python/models/voice_conversion/runtime_setup.py`の`RVC_LIBRARIES`と`RVC_ASSETS`）。ワーカーは`build\vrct-rvc-worker.exe`で、`python tools/build_rvc_worker.py`でビルドします（Rustが必要です）。
+開発者向けです。RVCは次の構成のフォルダーを用意して、設定で指定します。中身は`native/voice-conversion/src/runtime.rs`の`gpu_libraries`、`cpu_libraries`、`rvc_assets`に固定したファイルです（0.4までのPythonでは`src-python/models/voice_conversion/runtime_setup.py`の`RVC_LIBRARIES`と`RVC_ASSETS`）。ワーカーは`build\astarot-rvc-worker.exe`で、`python tools/build_rvc_worker.py`でビルドします（Rustが必要です）。
 
 ```text
 runtime\

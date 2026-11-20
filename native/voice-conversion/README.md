@@ -2,7 +2,7 @@
 
 Direct voice and voice conversion for VRCT-VOX in Rust: one direct producer at a time
 (the microphone passed through or converted), the owner of the RVC worker process
-(`vrct-rvc-worker`, built from `native/rvc-runtime`), and the consent-gated setup of the
+(`astarot-rvc-worker`, built from `native/rvc-runtime`), and the consent-gated setup of the
 runtime that worker loads.
 
 The backend core (`native/core`, `controller/voice`) uses it for `/run/start_direct_voice`,
