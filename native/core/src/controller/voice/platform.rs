@@ -38,7 +38,7 @@ pub trait VoicePlatform: Send + Sync {
     fn managed_vc_devices(&self) -> Option<Arc<dyn ManagedVcDevices>> {
         None
     }
-    /// The RVC worker the app ships (`build/vrct-rvc-worker`).
+    /// The RVC worker the app ships (`build/astarot-rvc-worker`).
     fn rvc_worker(&self, app_dir: &Path) -> PathBuf;
     /// How the worker's runtime is downloaded.
     fn runtime_transport(&self) -> Arc<dyn Transport>;
@@ -113,7 +113,7 @@ impl VoicePlatform for NativeVoice {
     fn gate(&self, app_dir: &Path) -> Arc<dyn Gate> {
         #[cfg(all(target_os = "linux", feature = "pipewire"))]
         {
-            let helper = crate::resources::locate(app_dir, "build/vrct-voice-gate");
+            let helper = crate::resources::locate(app_dir, "build/astarot-voice-gate");
             Arc::new(vrct_audio_routing::pipewire::gate::PipeWireGate::new(helper, vrct_audio_routing::process::ProcessEnv::default()))
         }
         #[cfg(not(all(target_os = "linux", feature = "pipewire")))]

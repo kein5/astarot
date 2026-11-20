@@ -15,7 +15,7 @@
 | `speechcpp` | speech.cpp のモデルの一覧と語彙。内蔵の VRChat の用語は `data/vrchat_terms.txt` にあり、ビルドのときに埋め込む（#792） | `speechcpp_asr.py`、`asr_vocabulary.py`、`vrchat_terms.py` |
 | `terms` | 語彙（用語辞書）を認識した文、読み上げる文、翻訳の指示に当てる（#446） | なし（中核で足した） |
 | `realtime` | speech.cpp の Realtime の WebSocket に音声を流し、字幕と確定した文を届ける | `realtime_session.py`、`speechcpp_realtime.py`、`realtime_audio.py`、`realtime_events.py`、`realtime_delivery.py` |
-| `capture` | 録音の口。Windows は WASAPI（スピーカーはループバック）、Linux は `vrct-asr-capture` | `capture_windows.py`、`capture_pipewire.py`、`capture_packets.py` |
+| `capture` | 録音の口。Windows は WASAPI（スピーカーはループバック）、Linux は `vrct-audio-routing` の PipeWire の録音（0.5.x までは補助プログラム `vrct-asr-capture`） | `capture_windows.py`、`capture_pipewire.py`、`capture_packets.py` |
 | `endpoint_choice` | Linux で録るノードの選び方。VRCT 自身のノードを断り、「既定に従う」では既定か、それが VRCT のものなら設定した既定を選ぶ。グラフを受け取るだけなので、どの OS でも試験できる | `capture_pipewire.py` の `_validate`、`_select`、`default_endpoint` |
 | `pcm` | 音量（`audioop.rms`）、モノラル化、サンプリング周波数の変換、WAV | `audioop`、`numpy`、`soxr` |
 

@@ -405,7 +405,7 @@ mod tests {
     #[test]
     fn the_header_has_a_fixed_layout() {
         let bytes = header(6, 0x0102_0304_0506_0708, 1628, 880, 6512);
-        assert_eq!(&bytes[..8], b"VRCTVRP1");
+        assert_eq!(&bytes[..8], b"ASTRVRP1");
         assert_eq!(u64::from_le_bytes(bytes[8..16].try_into().unwrap()), 6);
         assert_eq!(u64::from_le_bytes(bytes[16..24].try_into().unwrap()), 0x0102_0304_0506_0708);
         assert_eq!(u32::from_le_bytes(bytes[24..28].try_into().unwrap()), 1628);

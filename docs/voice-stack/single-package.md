@@ -14,7 +14,7 @@ Issue #288「CPU/CUDA 2バリアント解消」の要件、決定、受け入れ
 
 | 受け入れ条件 | 状態 | 根拠 |
 |---|---|---|
-| Windows の配布物が単一パッケージで、CPU と CUDA の区別がない | 満たす（次の版から） | 0.5.1 の `VRCT-VOX.zip` と `VRCT-VOX_cuda.zip` は同じ 729 個のファイル（展開して 102,141,609 バイト）でした。中身が違うのは別々にビルドした `vrct-vox.exe` と `_internal/build/vrct-rvc-worker.exe` の2つで、大きさは同じでした。判断 3 で CUDA 版をやめ、リリースの工程は `VRCT-VOX.zip` だけを作ります（「C. パッケージの一本化」） |
+| Windows の配布物が単一パッケージで、CPU と CUDA の区別がない | 満たす（次の版から） | 0.5.1 の `VRCT-VOX.zip` と `VRCT-VOX_cuda.zip` は同じ 729 個のファイル（展開して 102,141,609 バイト）でした。中身が違うのは別々にビルドした `vrct-vox.exe` と `_internal/build/astarot-rvc-worker.exe` の2つで、大きさは同じでした。判断 3 で CUDA 版をやめ、リリースの工程は `VRCT-VOX.zip` だけを作ります（「C. パッケージの一本化」） |
 | NVIDIA、AMD、Intel の各 GPU で、音声認識とローカル翻訳の GPU 実行を実測 | 未実施 | 2026-11-15 の決定で 0.4.0 の前提から外した。計画は「GPU ベンダーの実測の計画」。ローカル翻訳は GPU で動かす手段がまだない（判断 5） |
 | 既存利用者の設定が引き継がれ、faster-whisper の廃止の案内がある | 0.3.0 から 0.5 系まで満たした。0.6.0 で外す（判断 4） | 「既存の利用者への配慮」 |
 | 同梱物に CTranslate2 と CUDA のライブラリがない | 満たす（0.5.0 から） | 0.5.0 で Python を配布物から外した。2026-11-18 から、配布物の検査（`tools/distribution_policy.py`）が CTranslate2 と CUDA の数学ライブラリを見つけると候補を止める |

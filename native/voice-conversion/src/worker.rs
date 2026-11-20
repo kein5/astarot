@@ -1,4 +1,4 @@
-//! The RVC worker process (`vrct-rvc-worker`, `rvc_process.py`) and its pipes.
+//! The RVC worker process (`astarot-rvc-worker`, `rvc_process.py`) and its pipes.
 //!
 //! Reads and writes run on threads of their own, so that a stalled worker never blocks the
 //! owner: the owner waits on a channel with a deadline, and a stop ends the child, which
@@ -31,9 +31,9 @@ pub fn ort_library() -> &'static str {
 /// The worker's file name in the shipped `build/` folder.
 pub fn worker_name() -> &'static str {
     if cfg!(windows) {
-        "vrct-rvc-worker.exe"
+        "astarot-rvc-worker.exe"
     } else {
-        "vrct-rvc-worker"
+        "astarot-rvc-worker"
     }
 }
 

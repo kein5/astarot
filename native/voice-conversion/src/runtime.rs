@@ -1,6 +1,6 @@
 //! The consent-gated setup of the RVC worker's runtime (`runtime_setup.py`, the native kind).
 //!
-//! The worker (`vrct-rvc-worker`) ships with the app. What it loads does not: ONNX Runtime
+//! The worker (`astarot-rvc-worker`) ships with the app. What it loads does not: ONNX Runtime
 //! (with its CUDA provider and NVIDIA's CUDA and cuDNN libraries on a PC with an NVIDIA
 //! driver, the CPU build otherwise) and the two fixed networks. They are fetched from pinned
 //! sources after the user's consent, checked against their sizes and SHA-256, and unpacked
@@ -1439,7 +1439,7 @@ mod tests {
 
     /// The pinned libraries from their real sources through the setup's own step: fetched with
     /// the app's transport and hosts, checked against their pins and unpacked into `lib/`.
-    /// With `ASTAROT_TEST_RVC_WORKER` (a built `vrct-rvc-worker`) the worker then probes them on
+    /// With `ASTAROT_TEST_RVC_WORKER` (a built `astarot-rvc-worker`) the worker then probes them on
     /// the CPU, or with `ASTAROT_TEST_RVC_GPU=1` on the GPU (`--device cuda`, no fallback). The CPU
     /// runtime fetches 160 MB, the GPU one about 1.1 GB. `ASTAROT_TEST_RVC_TARGET=linux` or
     /// `windows` fetches another platform's files (no probe then). Archives already in the
@@ -1496,7 +1496,7 @@ mod tests {
     }
 
     /// An ONNX Runtime GPU runtime through a whole setup from its sources: fetched, checked
-    /// against its pins, unpacked, and probed by a built `vrct-rvc-worker`
+    /// against its pins, unpacked, and probed by a built `astarot-rvc-worker`
     /// (`ASTAROT_TEST_RVC_WORKER`) as the setup probes it, then receipted. `ASTAROT_TEST_ONNX_RUNTIME`
     /// is `directml` (the default; Windows; about 215 MB; probed with `auto`, and then with
     /// `--device directml`, which must take a GPU through DirectML) or `cuda` (about 1.1 GB;

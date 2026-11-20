@@ -8,7 +8,7 @@
 //! voice. Only timing numbers are printed: no audio is written anywhere and no text is involved.
 //!
 //! ```text
-//! cargo run --release --example vc_path_latency -- --worker <vrct-rvc-worker.exe> \
+//! cargo run --release --example vc_path_latency -- --worker <astarot-rvc-worker.exe> \
 //!     --runtime <state>/vc_runtimes/rvc [--directml <state>/vc_runtimes/onnxruntime-directml/lib] \
 //!     --model <voice.pth> [--device cuda] [--block-ms 80|auto] [--output app] [--bursts 15] \
 //!     [--input-device "Speakers (Steam Streaming Microphone)"] \

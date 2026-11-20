@@ -1,4 +1,4 @@
-//! The real `vrct-voice-gate` on a private PipeWire graph (decision 89 in
+//! The real `astarot-voice-gate` on a private PipeWire graph (decision 89 in
 //! `docs/voice-stack/core-integration.md`): the C helper refuses, by itself, a node whose
 //! identity is not the one it was given, and a resume whose direct branch is not as expected.
 //! `pipewire/gate.rs` tests the Rust side with a fake helper; this is the helper's own part, as
@@ -35,7 +35,7 @@ fn helper(binary: &std::path::Path, args: &[String]) -> bool {
 
 /// Both cases share one graph: the environment that points at it is the process's.
 #[test]
-#[ignore = "starts a private PipeWire and WirePlumber and builds vrct-voice-gate; the Linux CI runs it"]
+#[ignore = "starts a private PipeWire and WirePlumber and builds astarot-voice-gate; the Linux CI runs it"]
 fn the_gate_helper_refuses_what_it_was_not_given() {
     let graph = PrivateGraph::start("vrct-gate-test");
     let binary = build_helper("voice-gate", &graph.dir);

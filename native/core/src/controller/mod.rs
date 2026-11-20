@@ -227,8 +227,8 @@ pub struct Services {
     /// The app's own updater behind the update endpoints ([`updates`]). Switched off by
     /// default, as Python shipped it; the app gives the updater of its update page.
     pub software_updates: Arc<dyn updates::SoftwareUpdates>,
-    /// The microphone and speaker captures of speech recognition (WASAPI, or the Linux helper
-    /// `vrct-asr-capture`); tests feed PCM of their own.
+    /// The microphone and speaker captures of speech recognition (WASAPI, or the PipeWire capture
+    /// of `vrct-audio-routing` on Linux); tests feed PCM of their own.
     pub transcription_capture: TranscriptionCapture,
     /// Where the cloud recognition engines are (Groq, OpenAI, Deepgram).
     pub transcription_endpoints: vrct_transcription::providers::Endpoints,
@@ -342,7 +342,7 @@ pub type TranscriptionCapture =
     Arc<dyn Fn(&crate::config::Environment) -> Arc<dyn vrct_transcription::capture::CapturePlatform> + Send + Sync>;
 
 /// This computer's devices: WASAPI on Windows, the PipeWire capture of `vrct-audio-routing` on
-/// Linux (the `vrct-asr-capture` helper is no longer started; decision 2 of #733).
+/// Linux (the `vrct-asr-capture` helper of 0.5.x is gone; decision 2 of #733).
 fn default_transcription_capture(_env: &crate::config::Environment) -> Arc<dyn vrct_transcription::capture::CapturePlatform> {
     Arc::new(vrct_transcription::capture::NativeCapture::new())
 }

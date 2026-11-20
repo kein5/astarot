@@ -382,7 +382,7 @@ def test_replace_keeps_a_current_bundle_and_replaces_one_of_another_release(tmp_
     m = module()
     source = _windows_archive(tmp_path, monkeypatch)
     output = tmp_path / "build/speechcpp"
-    neighbour = tmp_path / "build/vrct-rvc-worker.exe"
+    neighbour = tmp_path / "build/astarot-rvc-worker.exe"
     neighbour.parent.mkdir()
     neighbour.write_bytes(b"other build output")
     args = ["--variant", "windows-x64-vulkan", "--archive", str(source), "--replace", "--output", str(output)]

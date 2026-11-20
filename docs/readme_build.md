@@ -58,8 +58,8 @@ Windowsの配布物は1つです。0.5まではCUDA版（`VRCT-VOX_cuda.zip`）�
 |---|---|
 | `_internal/build/speechcpp/` | speech.cppのVulkan版の実行ファイル、`bundle.json`、ライセンス文 |
 | `_internal/build/speechcpp-cpu/`（Linux） | speech.cppのCPU版の実行ファイル、`bundle.json`、ライセンス文。設定で「CPU」を選んだときと、「自動」でGPUを使えないときに動く |
-| `_internal/build/vrct-rvc-worker.exe` | 声質変換のworker（Linuxでは`.exe`なし） |
-| `_internal/build/vrct-voice-gate`ほか（Linux） | 音声経路の補助プログラム。`vrct-voice-gate`、`vrct-source-bridge`、`vrct-vc-worker`、`vrct-asr-capture`、`vrct-screen-capture`（`tools/build_voice_gate.py`） |
+| `_internal/build/astarot-rvc-worker.exe` | 声質変換のworker（Linuxでは`.exe`なし） |
+| `_internal/build/astarot-voice-gate`ほか（Linux） | 音声経路の補助プログラム。`astarot-voice-gate`、`astarot-source-bridge`、`astarot-screen-capture`（`tools/build_voice_gate.py`。0.5.xまでは`vrct-*`の名前で、`vrct-vc-worker`と`vrct-asr-capture`もあった） |
 | `_internal/build/sudachi/` | 読みの辞書。`build/sudachi`にあるときだけ入る（`tools/sudachi_dictionary.py`） |
 | `_internal/config/pipewire/`（Linux） | PipeWireの設定（リポジトリの`config/pipewire`） |
 | `_internal/licenses/` | リポジトリの`LICENSE`と`NOTICE.md`、Rustのクレートのライセンス文、NScurlのライセンス文（Windows） |
