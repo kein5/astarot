@@ -1,16 +1,22 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
+import type { TestContext } from "vitest";
 import { hooks, loadModule, find } from "../../../../../../logics/test/hookHarness.ts";
 import { flush } from "../../../../../../logics/test/bridgeHarness.ts";
 import * as adjust from "../../../../../../logics/captionOverlay/adjust.ts";
 
 const DEFAULT_SETTINGS = { position: "bottom", font_size: 28, display_duration: 6, opacity: 0.6 };
 
-async function setup(context, { settings = DEFAULT_SETTINGS, placement = { x: null, y: null } } = {}) {
-    const runtime = hooks(), saved = [];
-    const { DesktopCaptionOverlay } = await loadModule(new URL("./DesktopCaptionOverlay.tsx", import.meta.url), runtime, {
+interface Options {
+    settings?: typeof DEFAULT_SETTINGS;
+    placement?: { x: number | null; y: number | null };
+}
+
+async function setup(context: TestContext, { settings = DEFAULT_SETTINGS, placement = { x: null, y: null } }: Options = {}) {
+    const runtime = hooks(), saved: [string, unknown][] = [];
+    const { DesktopCaptionOverlay } = await loadModule<typeof import("./DesktopCaptionOverlay.tsx")>(new URL("./DesktopCaptionOverlay.tsx", import.meta.url), runtime, {
         "@tauri-apps/api/core": { invoke: async () => true },
-        "@useI18n": { useI18n: () => ({ t: key => key }) },
+        "@useI18n": { useI18n: () => ({ t: (key: string) => key }) },
         "@ui_configs": { ui_configs: {
             overlay_desktop_default_settings: DEFAULT_SETTINGS,
             overlay_desktop_default_placement: { x: null, y: null },
@@ -19,9 +25,9 @@ async function setup(context, { settings = DEFAULT_SETTINGS, placement = { x: nu
             currentIsEnabledOverlayDesktop: { data: true, state: "ok" },
             toggleIsEnabledOverlayDesktop: () => {},
             currentOverlayDesktopSettings: { data: settings, state: "ok" },
-            setOverlayDesktopSettings: async value => saved.push(["settings", value]),
+            setOverlayDesktopSettings: async (value: unknown) => saved.push(["settings", value]),
             currentOverlayDesktopPlacement: { data: placement, state: "ok" },
-            setOverlayDesktopPlacement: async value => saved.push(["placement", value]),
+            setOverlayDesktopPlacement: async (value: unknown) => saved.push(["placement", value]),
             currentIoFlowOverlaySettings: { data: { desktop: false, count: 1 }, state: "ok" },
             setIoFlowOverlaySettings: () => {},
         }) },
@@ -36,7 +42,12 @@ async function setup(context, { settings = DEFAULT_SETTINGS, placement = { x: nu
     const render = () => runtime.render(DesktopCaptionOverlay, { part: "details" });
     render(); await flush();
     context.onTestFinished(() => runtime.unmount());
-    const item = id => find(render(), node => node.props?.setting_id === id);
+    // The row the test reads next: one that is not there fails here, as reading it did.
+    const item = (id: string) => {
+        const node = find(render(), node => node.props?.setting_id === id);
+        assert.ok(node);
+        return node;
+    };
     return { saved, item };
 }
 
