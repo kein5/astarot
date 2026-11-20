@@ -11,14 +11,9 @@ import { vars } from "../../theme/vars.css.ts";
 
 export const dialog = style({});
 
-// shadcn/ui's DialogContent: at most 51.2rem wide (sm:max-w-lg), 1.6rem between its parts (gap-4).
-// Three classes, to come after the frame's `.host dialog.dialog` and the forms' `dialog[open]`.
-globalStyle(`${dialog}${dialog}${dialog}`, {
-    width: "min(51.2rem, calc(100vw - 2.4rem))",
-    maxWidth: "calc(100vw - 2.4rem)",
-    gap: "1.6rem",
-    lineHeight: 1.5,
-});
+// The frame gives it shadcn/ui's DialogContent width and gap, as every dialog of the app. Its own
+// line height, with three classes to come after the frame's `.host dialog.dialog`.
+globalStyle(`${dialog}${dialog}${dialog}`, { lineHeight: 1.5 });
 
 // A part's rules under the dialog; `more` adds rules for selectors of the part itself ("& + &").
 const within = (rules: GlobalStyleRule, more: Record<string, GlobalStyleRule> = {}) => style({

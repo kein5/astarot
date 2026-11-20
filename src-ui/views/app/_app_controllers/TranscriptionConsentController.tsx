@@ -57,22 +57,18 @@ export const TranscriptionConsentController = () => {
     return <div className={`${styles.container} ${dialogStyles.host}`}>
         <dialog ref={dialog} className={dialogStyles.dialog} aria-label={t("transcription_consent.title")}
             onCancel={event => { event.preventDefault(); cancel(); }}>
-            <h3>{t("transcription_consent.title")}</h3>
-            {request.mode === "choose" ? <>
-                <p>{t("transcription_consent.speechcpp_notice")}</p>
-                <p>{t("transcription_consent.cloud_notice")}</p>
-                <div className={styles.actions}>
-                    <button type="button" autoFocus onClick={cancel}>{t("transcription_consent.cancel")}</button>
-                    <button type="button" onClick={openSettings}>{t("transcription_consent.settings")}</button>
-                    <button type="button" disabled={pending} onClick={() => choose("SpeechCpp")}>{t("transcription_consent.speechcpp")}</button>
-                </div>
-            </> : <>
-                <p>{t("backend_errors.TRANSCRIPTION_ENGINE_UNAVAILABLE")}</p>
-                <div className={styles.actions}>
-                    <button type="button" autoFocus onClick={cancel}>{t("transcription_consent.cancel")}</button>
-                    <button type="button" onClick={openSettings}>{t("transcription_consent.settings")}</button>
-                </div>
-            </>}
+            <div className={styles.dialog_text}>
+                <h3>{t("transcription_consent.title")}</h3>
+                {request.mode === "choose" ? <>
+                    <p>{t("transcription_consent.speechcpp_notice")}</p>
+                    <p>{t("transcription_consent.cloud_notice")}</p>
+                </> : <p>{t("backend_errors.TRANSCRIPTION_ENGINE_UNAVAILABLE")}</p>}
+            </div>
+            <div className={styles.actions}>
+                <button type="button" autoFocus onClick={cancel}>{t("transcription_consent.cancel")}</button>
+                <button type="button" onClick={openSettings}>{t("transcription_consent.settings")}</button>
+                {request.mode === "choose" && <button type="button" disabled={pending} onClick={() => choose("SpeechCpp")}>{t("transcription_consent.speechcpp")}</button>}
+            </div>
         </dialog>
     </div>;
 };

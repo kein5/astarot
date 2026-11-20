@@ -413,8 +413,10 @@ const WebsocketTokenContainer = () => {
         {open && <div className={`${voiceStyles.container} ${dialogStyles.host}`}>
             <dialog ref={dialog} className={dialogStyles.dialog} aria-label={key("confirm_title")}
                 onCancel={event => { event.preventDefault(); cancel(); }}>
-                <h3>{key("confirm_title")}</h3>
-                <p>{key("confirm_body")}</p>
+                <div className={voiceStyles.dialog_text}>
+                    <h3>{key("confirm_title")}</h3>
+                    <p>{key("confirm_body")}</p>
+                </div>
                 <div className={voiceStyles.actions}>
                     <button type="button" autoFocus onClick={cancel}>{key("confirm_cancel")}</button>
                     <button type="button" onClick={regenerate}>{key("confirm_ok")}</button>

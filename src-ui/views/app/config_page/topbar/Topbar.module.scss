@@ -61,7 +61,8 @@
 .stop.is_pressed { color: var(--vox_state_warning); border-color: var(--vox_state_warning); background: var(--dark_900_color); }
 .stop:disabled { opacity: .5; cursor: not-allowed; }
 .muted_badge { padding: .1rem .6rem; border-radius: .4rem; font-size: 1.2rem; color: var(--dark_1000_color); background: var(--vox_state_warning); }
-.leave_dialog { max-width: min(46rem, 85vw); padding: 2.4rem; border: .1rem solid var(--dark_600_color); border-radius: 1.2rem; background: var(--dark_875_color); color: var(--dark_200_color); font-size: 1.4rem; }
+// shadcn/ui's DialogContent width (sm:max-w-lg), as the app's other dialogs.
+.leave_dialog { max-width: min(51.2rem, 85vw); padding: 2.4rem; border: .1rem solid var(--dark_600_color); border-radius: 1.2rem; background: var(--dark_875_color); color: var(--dark_200_color); font-size: 1.4rem; }
 .leave_dialog::backdrop { background: #0009; }
 .leave_actions { display: flex; flex-wrap: wrap; gap: .8rem; margin-top: 1.6rem; }
 .leave_actions button { min-height: 4rem; padding: .8rem 1.4rem; border-radius: var(--vox_radius); font-weight: 500; color: var(--dark_200_color); background: var(--dark_850_color); cursor: pointer; }

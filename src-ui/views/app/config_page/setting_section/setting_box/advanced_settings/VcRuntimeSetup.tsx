@@ -72,14 +72,16 @@ export const VcRuntimeSetup = ({ engine, current, disabled, onUse }: VcRuntimeSe
                 onClick={() => { setConsent(false); setOpen(true); }}>{t(job ? "vc_runtime.resume" : "vc_runtime.review")}</button>}
         </div>
         {open && <dialog ref={dialog} aria-label={t("vc_runtime.warning_title")} onCancel={event => { event.preventDefault(); close(); }}>
-            <h3>{t("vc_runtime.warning_title")}</h3>
-            <p>{t(`vc_runtime.notice_${entry.notice}`)}</p>
-            <p>{t("vc_runtime.size", { download: gb(entry.download_bytes), disk: gb(entry.disk_bytes) })}</p>
-            <p>{t(`vc_runtime.connection_notice_${entry.notice}`)}</p>
-            <p>{own("vc_runtime.no_start", t("vc_runtime.no_start"))}</p>
-            <p>{t("model_downloads.license_links")}: {entry.licenses.map(url => <span key={url}> <a href={url} onClick={event => openLink(event, url)} target="_blank" rel="noreferrer" style={{ overflowWrap: "anywhere" }}>{url}</a> </span>)}</p>
-            {linkError && <div role="alert"><p>{t("model_downloads.link_error")}</p><code style={{ overflowWrap: "anywhere" }}>{linkError}</code></div>}
-            <p>{t("model_downloads.destination")}: <code style={{ overflowWrap: "anywhere" }}>{entry.destination}</code></p>
+            <div className={styles.dialog_text}>
+                <h3>{t("vc_runtime.warning_title")}</h3>
+                <p>{t(`vc_runtime.notice_${entry.notice}`)}</p>
+                <p>{t("vc_runtime.size", { download: gb(entry.download_bytes), disk: gb(entry.disk_bytes) })}</p>
+                <p>{t(`vc_runtime.connection_notice_${entry.notice}`)}</p>
+                <p>{own("vc_runtime.no_start", t("vc_runtime.no_start"))}</p>
+                <p>{t("model_downloads.license_links")}: {entry.licenses.map(url => <span key={url}> <a href={url} onClick={event => openLink(event, url)} target="_blank" rel="noreferrer" style={{ overflowWrap: "anywhere" }}>{url}</a> </span>)}</p>
+                {linkError && <div role="alert"><p>{t("model_downloads.link_error")}</p><code style={{ overflowWrap: "anywhere" }}>{linkError}</code></div>}
+                <p>{t("model_downloads.destination")}: <code style={{ overflowWrap: "anywhere" }}>{entry.destination}</code></p>
+            </div>
             <label className={styles.checkLabel}><input type="checkbox" checked={consent} onChange={event => setConsent(event.target.checked)} />{t("vc_runtime.consent")}</label>
             <div className={styles.actions}>
                 <button type="button" autoFocus onClick={close}>{t("model_downloads.back")}</button>

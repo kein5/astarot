@@ -365,13 +365,15 @@ export const CTranslate2LicenseDialog = ({ weight, action, onCancel, onConfirm, 
 
     return (
         <dialog ref={dialog} className={styles.license_dialog} aria-label={t(key("confirm_title"))} onCancel={event => { event.preventDefault(); cancel(); }}>
-            <h3>{t(key("confirm_title"))}</h3>
-            <p>{t(key("confirm_body"), { weight_type: weight.id, license: weight.license })}</p>
-            <p>
-                <a href={weight.license_url} target="_blank" rel="noreferrer" onClick={event => openLink(event, weight.license_url)}>{t(key("license_link"))} ({weight.license})</a>
-                {" · "}
-                <a href={weight.model_card_url} target="_blank" rel="noreferrer" onClick={event => openLink(event, weight.model_card_url)}>{t(key("model_card_link"))}</a>
-            </p>
+            <div className={styles.license_text}>
+                <h3>{t(key("confirm_title"))}</h3>
+                <p>{t(key("confirm_body"), { weight_type: weight.id, license: weight.license })}</p>
+                <p>
+                    <a href={weight.license_url} target="_blank" rel="noreferrer" onClick={event => openLink(event, weight.license_url)}>{t(key("license_link"))} ({weight.license})</a>
+                    {" · "}
+                    <a href={weight.model_card_url} target="_blank" rel="noreferrer" onClick={event => openLink(event, weight.model_card_url)}>{t(key("model_card_link"))}</a>
+                </p>
+            </div>
             <label className={styles.license_check}>
                 <input type="checkbox" checked={checked} onChange={event => setChecked(event.target.checked)} />
                 {t(key("confirm_check"))}
