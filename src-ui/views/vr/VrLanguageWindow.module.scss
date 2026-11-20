@@ -23,17 +23,23 @@
 .preset { width: 64px; font-size: 22px; }
 .status { margin-left: auto; font-size: 16px; line-height: 1.4; color: var(--primary_200_color); min-width: 0; overflow-wrap: anywhere; text-align: right; }
 .status.error { max-width: 220px; }
-.source_row { display: flex; gap: 12px; flex-shrink: 0; }
-.source { flex: 1; min-width: 0; }
+.source { min-width: 0; }
 .selected_value { text-align: right; font-weight: 500; }
-.swap { width: 152px; height: auto; min-height: 72px; flex-direction: column; gap: 4px; padding: 8px 12px; font-size: 19px; }
-.country { font-size: 16px; line-height: 1.3; font-weight: 400; color: var(--dark_350_color); text-align: center; overflow-wrap: anywhere; }
+// The swap stands on the recipients' heading line, between your language above and recipient 1
+// below: the two it exchanges. A laser target of its own, 56px tall like the other buttons.
+.swap { min-width: 152px; gap: 10px; padding: 0 18px; font-size: 19px; }
+.swap_arrow { width: 20px; height: 20px; flex-shrink: 0; fill: currentColor; }
+.swap_arrow_up { transform: rotate(180deg); }
 .targets { display: flex; flex-direction: column; gap: 8px; flex: 1 0 auto; }
-.target_heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-shrink: 0; }
-.target_heading h2 { margin-top: 8px; line-height: 1.3; }
-.count { margin-top: 8px; font-size: 16px; font-variant-numeric: tabular-nums; flex-shrink: 0; color: var(--dark_350_color); }
+// The heading, the swap in the middle of the window and the count at the right end.
+.target_heading { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 12px; flex-shrink: 0; }
+.target_heading h2 { margin-top: 0; line-height: 1.3; }
+.target_heading .count { justify-self: end; }
+.count { font-size: 16px; font-variant-numeric: tabular-nums; flex-shrink: 0; color: var(--dark_350_color); }
 .selected_rows { display: flex; flex-direction: column; gap: 8px; flex-shrink: 0; }
-.target_row { align-items: stretch; gap: 8px; }
+// The rows of the list are 64px, each button in them still 56px tall: with the swap on the heading
+// line, three recipients, the line under them and the translator stay in the window without scrolling.
+.target_row { align-items: stretch; gap: 8px; min-height: 64px; padding-block: 4px; }
 .target_change { flex: 1; display: flex; align-items: center; gap: 10px; min-width: 0; min-height: 56px; border-radius: 12px; text-align: left; background: transparent; color: inherit; }
 .order { flex-shrink: 0; width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 19px; font-weight: 600; color: var(--dark_basic_text_color); background: var(--dark_750_color); }
 .remove { width: 64px; font-size: 16px; }
@@ -64,7 +70,6 @@
 .unavailable { margin-top: 8px; flex-shrink: 0; }
 .unavailable summary { cursor: pointer; }
 .unavailable summary::-webkit-details-marker { display: none; }
-.unavailable summary .count { margin-top: 0; }
 .unavailable .helper { margin: 8px 0; padding-left: 11px; border-left: 3px solid var(--primary_700_color); }
 .waiting { flex: 1; display: flex; align-items: center; justify-content: center; font-size: 19px; padding: 24px; }
 .sr_only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }

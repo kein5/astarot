@@ -1355,7 +1355,6 @@ vr_panel:
     language:
         preset_number: "Preset {{n}}"
         swap: "Swap"
-        swap_hint: "With recipient 1"
         swap_name: "Swap your language with recipient 1"
         required: "Required"
         min_reason: "At least one recipient language is required"

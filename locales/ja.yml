@@ -1355,7 +1355,6 @@ vr_panel:
     language:
         preset_number: "プリセット{{n}}"
         swap: "入れ替え"
-        swap_hint: "相手の1番と"
         swap_name: "あなたの言語と相手の1番を入れ替える"
         required: "必須"
         min_reason: "相手の言語は最低1つ必要です"
