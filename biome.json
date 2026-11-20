@@ -42,6 +42,7 @@
       "correctness": {
         "noComponentHookFactories": "warn",
         "noUnreachable": "warn",
+        "noUnusedFunctionParameters": "error",
         "useExhaustiveDependencies": "warn",
         "useHookAtTopLevel": "warn"
       },
