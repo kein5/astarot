@@ -218,13 +218,16 @@ mod tests {
         assert!(terms_in("# only a comment\n\n").is_empty());
     }
 
-    // #792: the built-in terms come from data/vrchat_terms.txt. The rules of each line are checked
-    // against the settings' own (vrct-core's voice_settings tests), which this crate cannot reach.
+    // #792: the built-in terms come from data/vrchat_terms.txt, and "Friends+" is read as players
+    // say it. The rules of each line are checked against the settings' own (vrct-core's
+    // voice_settings tests), which this crate cannot reach.
     #[test]
     fn the_built_in_terms_are_the_data_file() {
         let terms = vrchat_terms();
         assert_eq!(terms.len(), 50);
         assert_eq!(terms[0], "VRChat=ブイアールチャット,ブイチャ");
+        assert!(terms.contains(&"Friends+=フレンドプラス,フレプラ".to_string()));
+        assert!(!terms.iter().any(|t| t.contains("フレンズプラス")));
         let mut written: Vec<String> = terms.iter().map(|t| written_form(t).to_lowercase()).collect();
         written.sort();
         written.dedup();
