@@ -77,7 +77,7 @@ fn the_overlay_starts_with_the_saved_switches_and_announces_the_vr_page_state() 
     assert_eq!(ui.on(0, "/run/vr_panel_launcher_intro")[0]["result"], "idle");
     wait("connected to SteamVR", || fake.with(|s| s.sessions_open) == 1);
     let keys: Vec<String> = fake.with(|s| s.created.iter().map(|(k, _)| k.clone()).collect());
-    assert_eq!(&keys[..5], ["VRCT0", "VRCT1", "VRCT2", "VRCT3", "VRCT4"]);
+    assert_eq!(&keys[..5], ["ASTAROT0", "ASTAROT1", "ASTAROT2", "ASTAROT3", "ASTAROT4"]);
     ui.ok("/run/shutdown", None);
     assert_eq!(fake.with(|s| s.sessions_open), 0, "the shut-down closes SteamVR");
     let calls = fake.with(|s| s.calls.len());
@@ -99,9 +99,9 @@ fn a_log_turns_on_without_steamvr_and_connects_once_it_runs() {
         s.running = true;
         s.hands_connected = true;
     });
-    wait("connected", || fake.with(|s| s.sessions_open) == 1 && fake.handle("VRCT1").is_some());
-    wait("overlays made", || fake.calls_on(fake.handle("VRCT1").unwrap(), "width").len() == 1);
-    let large = fake.handle("VRCT1").unwrap();
+    wait("connected", || fake.with(|s| s.sessions_open) == 1 && fake.handle("ASTAROT1").is_some());
+    wait("overlays made", || fake.calls_on(fake.handle("ASTAROT1").unwrap(), "width").len() == 1);
+    let large = fake.handle("ASTAROT1").unwrap();
     assert_eq!(fake.calls_on(large, "width"), [format!("width {large} 0.2500")], "the large log is a quarter of its stored width");
 
     assert_eq!(ui.ok("/run/send_text_overlay", Some(json!("サンプル"))), "サンプル");
@@ -124,8 +124,8 @@ fn settings_reach_the_running_overlay() {
     let ui = with_vr(Arc::new(fake.clone()), false, None);
     ui.ready();
     assert_eq!(ui.ok("/set/enable/overlay_small_log", None), true);
-    wait("connected", || fake.handle("VRCT0").is_some() && !fake.calls_on(fake.handle("VRCT0").unwrap(), "relative").is_empty());
-    let small = fake.handle("VRCT0").unwrap();
+    wait("connected", || fake.handle("ASTAROT0").is_some() && !fake.calls_on(fake.handle("ASTAROT0").unwrap(), "relative").is_empty());
+    let small = fake.handle("ASTAROT0").unwrap();
     let mut settings = ui.ok("/get/data/overlay_small_log_settings", None);
     settings["x_pos"] = json!(0.25);
     settings["ui_scaling"] = json!(1.5);
@@ -135,7 +135,7 @@ fn settings_reach_the_running_overlay() {
     assert_eq!(fake.calls_on(small, "width").last().unwrap(), &format!("width {small} 1.5000"));
 
     // The launcher moves to the other wrist.
-    let launcher = fake.handle("VRCT3").unwrap();
+    let launcher = fake.handle("ASTAROT3").unwrap();
     assert_eq!(ui.ok("/set/data/overlay_vr_launcher_hand", Some(json!("RightHand"))), "RightHand");
     assert!(fake.calls_on(launcher, "relative").last().unwrap().starts_with(&format!("relative {launcher} 2 ")));
     ui.stop();
@@ -171,8 +171,8 @@ fn the_vr_panel_shows_the_page_and_follows_its_requests() {
     let ui = with_vr(Arc::new(fake.clone()), true, None);
     ui.ready();
     assert_eq!(ui.ok("/set/enable/overlay_vr_panel", None), true);
-    wait("connected", || fake.handle("VRCT2").is_some());
-    let (panel, launcher) = (fake.handle("VRCT2").unwrap(), fake.handle("VRCT3").unwrap());
+    wait("connected", || fake.handle("ASTAROT2").is_some());
+    let (panel, launcher) = (fake.handle("ASTAROT2").unwrap(), fake.handle("ASTAROT3").unwrap());
     // The launcher shows once the page was captured, with its opening animation.
     wait("launcher shown", || fake.with(|s| s.visible.contains(&launcher)));
     assert!(!fake.calls_on(launcher, "texture").is_empty());
@@ -274,7 +274,7 @@ fn a_failure_turns_the_overlays_off_and_is_reported() {
     ui.ready();
     ui.ok("/set/enable/overlay_small_log", None);
     ui.ok("/set/enable/overlay_large_log", None);
-    wait("connected", || fake.with(|s| s.sessions_open) == 1 && fake.handle("VRCT4").is_some());
+    wait("connected", || fake.with(|s| s.sessions_open) == 1 && fake.handle("ASTAROT4").is_some());
     std::thread::sleep(Duration::from_millis(100));
     fake.with(|s| s.fail_raw = true);
     let mark = ui.send("/run/send_text_overlay", Some(json!("x")));
@@ -293,7 +293,7 @@ fn a_message_the_vr_log_cannot_show_is_reported_for_that_output() {
     let fake = FakeVr::running();
     let ui = with_vr(Arc::new(fake.clone()), false, Some(json!({ "OVERLAY_LARGE_LOG": true })));
     ui.ready();
-    wait("the large log made", || fake.handle("VRCT1").is_some());
+    wait("the large log made", || fake.handle("ASTAROT1").is_some());
     std::thread::sleep(Duration::from_millis(100));
     // SteamVR takes the reconnect but refuses the picture again.
     fake.with(|s| s.fail_pictures = true);
@@ -377,9 +377,9 @@ fn the_controllers_hover_click_and_move_the_log_and_the_place_is_saved() {
     let saved = json!({ "OVERLAY_VR_PANEL": true, "OVERLAY_VR_PANEL_SETTINGS": panel });
     let ui = Ui::with(Setup { services, saved: Some(saved), ..Setup::default() });
     ui.ready();
-    wait("connected", || fake.handle("VRCT2").is_some());
+    wait("connected", || fake.handle("ASTAROT2").is_some());
     ui.ok("/run/vr_panel_windows", Some(json!({ "log": true, "popup": false })));
-    let log = fake.handle("VRCT2").unwrap();
+    let log = fake.handle("ASTAROT2").unwrap();
     wait("log shown", || fake.with(|s| s.visible.contains(&log) && s.bounds.contains_key(&log)));
 
     // The right controller 60 cm in front of the log's centre, its laser on it.
@@ -528,8 +528,8 @@ fn a_diarized_caption_names_its_speakers_and_the_large_log_draws_their_names() {
     });
     let ui = Ui::with(Setup { services, saved: Some(saved), platform: vrct_core::config::Platform::Linux, ..Setup::default() });
     ui.ready();
-    wait("the large log made", || fake.handle("VRCT1").is_some());
-    let large = fake.handle("VRCT1").unwrap();
+    wait("the large log made", || fake.handle("ASTAROT1").is_some());
+    let large = fake.handle("ASTAROT1").unwrap();
 
     let mark = ui.lines().len();
     assert_eq!(ui.ok("/set/enable/transcription_receive", None), true);
@@ -575,10 +575,10 @@ fn a_sent_message_is_drawn_on_the_running_large_log() {
     let fake = FakeVr::running();
     let ui = with_vr(Arc::new(fake.clone()), false, Some(json!({ "OVERLAY_LARGE_LOG": true })));
     ui.ready();
-    wait("the large log made", || fake.handle("VRCT1").is_some());
-    let large = fake.handle("VRCT1").unwrap();
+    wait("the large log made", || fake.handle("ASTAROT1").is_some());
+    let large = fake.handle("ASTAROT1").unwrap();
     let before = fake.calls_on(large, "raw").len();
-    let small = fake.handle("VRCT0").unwrap();
+    let small = fake.handle("ASTAROT0").unwrap();
     let small_before = fake.calls_on(small, "raw").len();
     let answer = ui.ok("/run/send_message_box", Some(json!({ "id": "m1", "message": "hello" })));
     assert_eq!(answer["id"], "m1", "{answer}");

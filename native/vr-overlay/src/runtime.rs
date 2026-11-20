@@ -150,7 +150,7 @@ pub mod fake {
         pub refuse_connect: bool,
         pub fail_raw: bool,
         /// Like `fail_raw`, but only for pictures larger than the 1×1 clear on the windows
-        /// (`VRCT0`…, not the pointer's `VRCT_pointer_*` marks): connecting still works, showing
+        /// (`ASTAROT0`…, not the pointer's `ASTAROT_pointer_*` marks): connecting still works, showing
         /// a message does not.
         pub fail_pictures: bool,
         pub quit: bool,

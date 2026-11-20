@@ -295,8 +295,8 @@ fn captions_are_drawn_on_the_large_vr_log_and_one_it_cannot_show_is_told() {
     // told as the caption's `overlay_large` output failure, and the final still goes out.
     let fake = FakeVr::running();
     let run = start_with_vr(Platform::Linux, json!({ "OVERLAY_LARGE_LOG": true }), true, Some(fake.clone()));
-    eventually("the large log made", || fake.handle("VRCT1").is_some());
-    let large = fake.handle("VRCT1").unwrap();
+    eventually("the large log made", || fake.handle("ASTAROT1").is_some());
+    let large = fake.handle("ASTAROT1").unwrap();
     let drawn = || fake.calls_on(large, "raw");
     let before = drawn().len();
     let mark = run.ui.lines().len();
