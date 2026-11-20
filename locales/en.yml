@@ -795,7 +795,8 @@ config_page:
             label: "Mic word filter"
             desc: "If a registered word is detected, the message will not be sent. To add multiple words at once, separate them with ',' (comma).\n*Duplicate words will not be registered."
             add_button_label: "Add"
-            count_desc: "Words currently registered: {{count}}"
+            list_one: "Registered words ({{count}})"
+            list_other: "Registered words ({{count}})"
         mic_vad_filter:
             label: "Mic VAD filter"
             desc: "Only send audio to recognition after a silence gap is detected. Disable this if mic transcription stops mid-conversation instead of continuing to transcribe."
@@ -961,8 +962,8 @@ config_page:
         message_format_common:
             example_view:
                 title: "Preview"
-                show_all: "Show all examples"
-                show_fewer: "Show fewer examples"
+                more_one: "More examples ({{count}})"
+                more_other: "More examples ({{count}})"
                 original_translated: "Original + translation"
                 original_translated_multi: "Original + translation (multi-language)"
                 translated_only_multi: "Translation only (multi-language)"
