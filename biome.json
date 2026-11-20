@@ -48,6 +48,7 @@
         "noControlCharactersInRegex": "warn",
         "noImplicitAnyLet": "warn",
         "noShadowRestrictedNames": "warn",
+        "noTemplateCurlyInString": "error",
         "useIterableCallbackReturn": "warn"
       }
     }
