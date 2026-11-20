@@ -1,8 +1,5 @@
 {
   "src-ui/logics/ui_configs.ts": {
     "property:label|OpenAI Compatible": 1
-  },
-  "src-ui/views/app/config_page/setting_section/setting_box/transcription/RealtimeASRSettings.tsx": {
-    "attribute:placeholder|VRChat=ブイアールチャット": 1
   }
 }

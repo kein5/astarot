@@ -1,5 +1,5 @@
 import { createLanguageNames } from "../../../../../../logics/common/languageNames.ts";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useI18n } from "@useI18n";
 import { useRealtimeASR } from "../../../../../../logics/transcription/useRealtimeASR";
 import { useSpeechServers } from "../../../../../../logics/voice/useSpeechServers";
@@ -12,8 +12,7 @@ import { SectionLabelComponent } from "../_components/section_label_component/Se
 import { Hint, useHintDescriptions } from "../_components/hint/Hint";
 import { HintCheck } from "../_components/hint/HintCheck";
 import { VocabularyBulk } from "./VocabularyBulk.tsx";
-import { VocabularyBuiltin } from "./VocabularyBuiltin.tsx";
-import { MAX_USER_TERMS, ownTerms, parseTerm, writtenKey } from "../../../../../../logics/transcription/vocabularyTerms.ts";
+import { VocabularyList } from "./VocabularyList.tsx";
 import type { TFunction } from "i18next";
 import type { CaptionSource } from "../../../../../../logics/transcription/realtimeCaptionState";
 import type { RealtimeAsrEndpointId, RealtimeAsrSettings, RealtimeAsrSourceSettings, RealtimeAsrVocabulary }
@@ -47,7 +46,6 @@ export const RealtimeASRSettings = () => {
     const write = (value: DraftWriteValue<RealtimeAsrSettings>) => send("/set/data/realtime_asr_settings", value);
     const form = useSettingsDraft(settings, error, updateError, { label, write });
     const { draft, setDraft, dirty, saving } = form;
-    const [newTerm, setNewTerm] = useState("");
     const refreshDevices = () => {
         for (const source of ["mic", "speaker"]) send("/get/data/realtime_asr_endpoints", { source });
     };
@@ -77,14 +75,7 @@ export const RealtimeASRSettings = () => {
         return value ? { ...previous, silence_duration_ms: Number(value) } : previous;
     });
     const vocabulary: RealtimeAsrVocabulary = draft?.vocabulary ?? { builtin: true, terms: [] };
-    // The user's own terms; those that change a built-in term are listed with the built-in ones.
-    const own = ownTerms(builtinVocabulary, vocabulary);
     const updateVocabulary = (values: Partial<RealtimeAsrVocabulary>) => setDraft(previous => previous && { ...previous, vocabulary: { ...vocabulary, ...values } });
-    // One keyword per entry, "written=reading,reading", made canonical as the backend makes it;
-    // the backend checks it again on save.
-    const term = parseTerm(newTerm);
-    const canAdd = term !== null && vocabulary.terms.length < MAX_USER_TERMS
-        && !vocabulary.terms.some(row => writtenKey(row) === writtenKey(term));
     // On a page that keeps descriptions out of sight (#614) what the captions are and which server
     // they use is the heading's hint, and each field's words are its label's. What to do before
     // Start (save) and every state stay in sight.
@@ -167,19 +158,11 @@ export const RealtimeASRSettings = () => {
                 {!hints && <Description text={t("realtime.vocabulary_help")} />}
                 <label className={styles.checkLabel}><input type="checkbox" disabled={saving} checked={vocabulary.builtin !== false}
                     onChange={event => updateVocabulary({ builtin: event.target.checked })} />{t("realtime.vocabulary_builtin")}</label>
-                {vocabulary.builtin !== false && builtinVocabulary && <VocabularyBuiltin builtin={builtinVocabulary} vocabulary={vocabulary}
-                    disabled={saving} onVocabulary={next => setDraft(previous => previous && { ...previous, vocabulary: next })} />}
-                <ul aria-label={t("realtime.vocabulary_user")}>
-                    {own.map(row => <li key={row}>{row} <button type="button" disabled={saving}
-                        aria-label={t("realtime.vocabulary_remove", { term: row })}
-                        onClick={() => updateVocabulary({ terms: vocabulary.terms.filter(other => other !== row) })}>{t("realtime.vocabulary_remove_short")}</button></li>)}
-                </ul>
-                <label>{t("realtime.vocabulary_term")}<input readOnly={saving} value={newTerm} maxLength={320} spellCheck={false}
-                    placeholder="VRChat=ブイアールチャット" onChange={event => setNewTerm(event.target.value)} /></label>
-                <button type="button" disabled={saving || !canAdd} onClick={() => {
-                    if (term !== null) updateVocabulary({ terms: [...vocabulary.terms, term] });
-                    setNewTerm("");
-                }}>{t("realtime.vocabulary_add")}</button>
+                {/* The whole dictionary, one list: terms are added, changed and taken out there (#792).
+                    Each edit goes to the draft; one term or many, the user's terms are canonical
+                    as the core makes them, and the core checks them again on save. */}
+                <VocabularyList builtin={builtinVocabulary} vocabulary={vocabulary} disabled={saving}
+                    onVocabulary={next => setDraft(previous => previous && { ...previous, vocabulary: next })} />
                 <VocabularyBulk terms={vocabulary.terms} disabled={saving} onTerms={terms => updateVocabulary({ terms })} />
             </fieldset>
             <Description text={t("realtime.save_help")} />
