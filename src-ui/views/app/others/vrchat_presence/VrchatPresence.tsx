@@ -14,7 +14,12 @@ const TONES: Partial<Record<PresenceState, EnvReadoutTone>> = { found: "active",
 // see that. This says it in words: found, not found (with the step that turns
 // OSC on), or that this PC cannot tell. It asks again every few seconds while
 // it is on screen, so starting VRChat or enabling OSC shows up by itself.
-export const VrchatPresence = ({ className }: { className?: string }) => {
+// useVrchatPresence gives the words and their tone, for a place that draws them its own way (the
+// first-run setup's list, #557); VrchatPresence draws them as an environment readout.
+// What the readout says: the presence answer, or why it is not asked.
+export type VrchatPresenceState = PresenceState | "sending_off" | "osc_query_off";
+
+export const useVrchatPresence = (): { state: VrchatPresenceState; tone: EnvReadoutTone; lines: string[] } => {
     const { t } = useI18n();
     const { currentVrchatOscPresence, getVrchatOscPresence, currentEnableSendMessageToVrc } = useOthers();
     const { currentEnableOscQuery } = useAdvancedSettings();
@@ -30,16 +35,19 @@ export const VrchatPresence = ({ className }: { className?: string }) => {
         const timer = setInterval(() => ask.current(), 5000);
         return () => clearInterval(timer);
     }, [sends, osc_query_off]);
-    if (!sends) return <EnvReadout className={className}><p>{t("vrchat_presence.sending_off")}</p></EnvReadout>;
-    if (osc_query_off) {
-        return <EnvReadout className={className}><p>{t("vrchat_presence.osc_query_off")}</p></EnvReadout>;
-    }
+    if (!sends) return { state: "sending_off", tone: "neutral", lines: [t("vrchat_presence.sending_off")] };
+    if (osc_query_off) return { state: "osc_query_off", tone: "neutral", lines: [t("vrchat_presence.osc_query_off")] };
     const answer = currentVrchatOscPresence.data;
     const state: PresenceState = isAnswer(answer) ? answer : "checking";
+    return { state, tone: TONES[state] ?? "neutral",
+        lines: [t(`vrchat_presence.${state}`), ...(state === "not_found" ? [t("vrchat_presence.not_found_hint")] : [])] };
+};
+
+export const VrchatPresence = ({ className }: { className?: string }) => {
+    const { tone, lines } = useVrchatPresence();
     return (
-        <EnvReadout className={className} tone={TONES[state] ?? "neutral"}>
-            <p>{t(`vrchat_presence.${state}`)}</p>
-            {state === "not_found" && <p>{t("vrchat_presence.not_found_hint")}</p>}
+        <EnvReadout className={className} tone={tone}>
+            {lines.map(line => <p key={line}>{line}</p>)}
         </EnvReadout>
     );
 };
