@@ -2,6 +2,7 @@
 //! realtime session sends it (`asr_vocabulary.py`, `vrchat_terms.py`).
 
 use serde_json::{Value, json};
+use std::sync::OnceLock;
 use std::time::Duration;
 use vrct_translation::http::{Cancel, HttpError, Request, Timeouts, Transport};
 
@@ -126,59 +127,21 @@ pub const MAX_TERMS: usize = 150;
 const MAX_PROMPT: usize = 300;
 const PROMPT_PREFIX: &str = "VRChat用語: ";
 
-/// `VRCHAT_TERMS`: the built-in VRChat vocabulary, reviewed by hand.
-pub const VRCHAT_TERMS: &[&str] = &[
-    "VRChat=ブイアールチャット,ブイチャ",
-    "VRC=ブイアールシー",
-    "インスタンス",
-    "ワールド",
-    "アバター",
-    "ポータル",
-    "ミラー",
-    "フレンド",
-    "フレンド申請=ふれんどしんせい",
-    "ブロック",
-    "ミュート",
-    "ジョイン",
-    "グループ",
-    "Public=パブリック",
-    "Friends+=フレンズプラス",
-    "Invite+=インバイトプラス",
-    "トラストランク",
-    "Visitor=ビジター",
-    "New User=ニューユーザー",
-    "Known User=ノウンユーザー",
-    "Trusted User=トラステッドユーザー",
-    "Udon",
-    "UdonSharp=ウドンシャープ",
-    "VRChat SDK",
-    "SDK=エスディーケー",
-    "VCC=ブイシーシー",
-    "Creator Companion=クリエイターコンパニオン",
-    "Unity=ユニティ",
-    "OSC=オーエスシー",
-    "PhysBones=フィズボーン",
-    "Expression Menu=エクスプレッションメニュー",
-    "SteamVR=スチームブイアール",
-    "Quest=クエスト",
-    "PCVR=ピーシーブイアール",
-    "Index=インデックス",
-    "ベースステーション",
-    "トラッカー",
-    "フルトラ",
-    "フルトラッキング",
-    "BOOTH",
-    "VRM=ブイアールエム",
-    "Discord=ディスコード",
-    "Vket=ブイケット",
-    "集会=しゅうかい",
-    "お砂糖=おさとう",
-    "無言勢=むごんぜい",
-    "Quest勢=くえすとぜい",
-    "PC勢=ぴーしーぜい",
-    "デスクトップ勢=ですくとっぷぜい",
-    "改変=かいへん",
-];
+/// The built-in VRChat vocabulary as it is kept: `data/vrchat_terms.txt`, embedded when the app
+/// is built. Editing that file adds a term or puts its readings right (#792).
+const VRCHAT_TERMS_TEXT: &str = include_str!("../data/vrchat_terms.txt");
+
+/// The terms of a vocabulary file: one `written=reading,reading` a line, without the blank lines
+/// and the comments (`#`), each line trimmed.
+pub fn terms_in(text: &str) -> Vec<String> {
+    text.lines().map(str::trim).filter(|line| !line.is_empty() && !line.starts_with('#')).map(str::to_string).collect()
+}
+
+/// `vrchat_terms`: the built-in VRChat vocabulary, reviewed by hand (`data/vrchat_terms.txt`).
+pub fn vrchat_terms() -> &'static [String] {
+    static TERMS: OnceLock<Vec<String>> = OnceLock::new();
+    TERMS.get_or_init(|| terms_in(VRCHAT_TERMS_TEXT))
+}
 
 fn written_form(term: &str) -> &str {
     term.split_once('=').map_or(term, |(written, _)| written)
@@ -189,10 +152,10 @@ fn written_form(term: &str) -> &str {
 pub fn merged_terms(vocabulary: &Value) -> Vec<String> {
     let builtin = vocabulary["builtin"].as_bool().unwrap_or(true);
     let user = vocabulary["terms"].as_array().into_iter().flatten().filter_map(Value::as_str).map(str::to_string);
-    let built: Vec<String> = if builtin { VRCHAT_TERMS.iter().map(|t| t.to_string()).collect() } else { Vec::new() };
+    let built: &[String] = if builtin { vrchat_terms() } else { &[] };
     let mut seen: Vec<String> = Vec::new();
     let mut result = Vec::new();
-    for term in user.chain(built) {
+    for term in user.chain(built.iter().cloned()) {
         let key = written_form(&term).to_lowercase();
         if !seen.contains(&key) && result.len() < MAX_TERMS {
             seen.push(key);
@@ -246,6 +209,31 @@ mod tests {
         assert_eq!(merged_terms(&json!({ "builtin": false, "terms": [] })), Vec::<String>::new());
         let many: Vec<String> = (0..200).map(|i| format!("t{i}")).collect();
         assert_eq!(merged_terms(&json!({ "builtin": true, "terms": many })).len(), MAX_TERMS);
+    }
+
+    #[test]
+    fn a_vocabulary_file_is_one_term_a_line_without_its_comments() {
+        let text = "# The heading\n\nVRChat=ブイアールチャット,ブイチャ\n  ワールド  \n# Friends+=フレンズプラス\nお砂糖=おさとう\n";
+        assert_eq!(terms_in(text), ["VRChat=ブイアールチャット,ブイチャ", "ワールド", "お砂糖=おさとう"]);
+        assert!(terms_in("# only a comment\n\n").is_empty());
+    }
+
+    // #792: the built-in terms come from data/vrchat_terms.txt, and "Friends+" is read as players
+    // say it. The rules of each line are checked against the settings' own (vrct-core's
+    // voice_settings tests), which this crate cannot reach.
+    #[test]
+    fn the_built_in_terms_are_the_data_file() {
+        let terms = vrchat_terms();
+        assert_eq!(terms.len(), 50);
+        assert_eq!(terms[0], "VRChat=ブイアールチャット,ブイチャ");
+        assert!(terms.contains(&"Friends+=フレンドプラス,フレプラ".to_string()));
+        assert!(!terms.iter().any(|t| t.contains("フレンズプラス")));
+        let mut written: Vec<String> = terms.iter().map(|t| written_form(t).to_lowercase()).collect();
+        written.sort();
+        written.dedup();
+        assert_eq!(written.len(), terms.len(), "no written form twice");
+        assert!(terms.len() < MAX_TERMS, "room is left for the user's terms");
+        assert_eq!(merged_terms(&json!({ "builtin": true, "terms": [] })), terms);
     }
 
     #[test]
