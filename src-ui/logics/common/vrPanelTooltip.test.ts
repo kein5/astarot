@@ -1,13 +1,14 @@
 import { test } from "vitest";
 import assert from "node:assert/strict";
 import { keepNewestVrLayout, tooltipMarker, tooltipGeometry } from "./vrPanelTooltip.ts";
+import { unchecked } from "../test/hookHarness.ts";
 
 test("delayed GET/initialization snapshots cannot replace a newer session", () => {
     const current = { tooltip_epoch: 23, atlas: [1628, 880] };
-    assert.equal(keepNewestVrLayout(current, { tooltip_epoch: 22 }), current);
-    assert.equal(keepNewestVrLayout(current, { atlas: [1628, 880] }), current);
+    assert.equal(keepNewestVrLayout<object>(current, { tooltip_epoch: 22 }), current);
+    assert.equal(keepNewestVrLayout<object>(current, { atlas: [1628, 880] }), current);
     const next = { tooltip_epoch: 24 };
-    assert.equal(keepNewestVrLayout(current, next), next);
+    assert.equal(keepNewestVrLayout<object>(current, next), next);
     const resize = { tooltip_epoch: 23, atlas: [2128, 1136] };
     assert.equal(keepNewestVrLayout(current, resize), resize);
 });
@@ -32,7 +33,8 @@ test("geometry stays in logical atlas pixels and clamps the arrow at both edges"
         const right = { ...button, left: 30 + 760 * scale, width: 96 * scale };
         assert.deepEqual(tooltipGeometry(region, right, 880, 128), { button: [760, 12, 96, 104], arrow_x: 300 });
     }
-    assert.equal(tooltipGeometry({ left: 0, top: 0, width: 0, height: 0 }, {}, 880, 128), null);
+    // A button without its geometry, on purpose.
+    assert.equal(tooltipGeometry({ left: 0, top: 0, width: 0, height: 0 }, unchecked({}), 880, 128), null);
     assert.equal(tooltipGeometry({ left: 0, top: 0, width: 880, height: 128 },
         { left: -1, top: 12, width: 124, height: 104 }, 880, 128), null);
 });

@@ -3,7 +3,13 @@ import { test, vi } from "vitest";
 import { loadBridgeRoutes } from "./test/bridgeHarness.ts";
 import { expectBackendExit } from "./common/sidecarExitExpectation.ts";
 import { createSidecarSessionOwner } from "./common/sidecarSession.ts";
-import { loadModule } from "./test/hookHarness.ts";
+import { loadModule, unchecked } from "./test/hookHarness.ts";
+import type { PrimitiveAtom } from "jotai/vanilla";
+import type { AtomState } from "./store.ts";
+
+// The store's registry holds each setting's atom under its Atom_ name.
+const atomNamed = <T = unknown>(registry: Record<string, unknown>, name: string) => unchecked<PrimitiveAtom<AtomState<T>>>(registry[name]);
+type MessageFormat = { message: { prefix: string }; translation: { suffix: string } };
 
 test("blocked config loading shows the persistent load-failure notice", async () => {
     const s = await loadBridgeRoutes();
@@ -15,7 +21,7 @@ test("blocked config loading shows the persistent load-failure notice", async ()
 
 test("skipped speech warns when the backend count rises, not for earlier counts", async () => {
     const s = await loadBridgeRoutes();
-    const status = expired => s.receiveRoutes({ endpoint: "/get/data/voice_status", status: 200, result: { expired } });
+    const status = (expired: number) => s.receiveRoutes({ endpoint: "/get/data/voice_status", status: 200, result: { expired } });
     status(2);
     status(2);
     assert.deepEqual(s.notices, []);
@@ -36,19 +42,21 @@ test("failed required initialization maps and scalars retain renderable defaults
         "selected_translation_engines", "ui_scaling", "auto_mic_select", "ui_language"];
     s.receiveRoutes({ endpoint: "/run/initialization_complete", status: 200,
         result: Object.fromEntries(fields.map(name => [`/get/data/${name}`, null])) });
-    assert.equal(s.runtime.store.get(s.stores.dynamicStoreRegistry.Atom_UiScaling).data, 100);
-    assert.equal(s.runtime.store.get(s.stores.dynamicStoreRegistry.Atom_EnableAutoMicSelect).data, true);
+    assert.equal(s.runtime.store.get(atomNamed(s.stores.dynamicStoreRegistry, "Atom_UiScaling")).data, 100);
+    assert.equal(s.runtime.store.get(atomNamed(s.stores.dynamicStoreRegistry, "Atom_EnableAutoMicSelect")).data, true);
     assert.equal(s.runtime.store.get(s.stores.Atom_SelectedPresetTabNumber).data, "1");
-    const { LanguageSelectorOpenButton } = await loadModule(new URL("../views/app/main_page/sidebar_section/language_settings/language_selector_open_button/LanguageSelectorOpenButton.tsx", import.meta.url), s.runtime, {
+    const { LanguageSelectorOpenButton } = await loadModule<typeof import("../views/app/main_page/sidebar_section/language_settings/language_selector_open_button/LanguageSelectorOpenButton.tsx")>(new URL("../views/app/main_page/sidebar_section/language_settings/language_selector_open_button/LanguageSelectorOpenButton.tsx", import.meta.url), s.runtime, {
         "@store": s.stores,
-        "@useI18n": { useI18n: () => ({ t: key => key, i18n: { language: "en" } }) },
-        "../../../../../../logics/common/languageNames.ts": { createLanguageNames: () => ({ name: value => value }) },
+        "@useI18n": { useI18n: () => ({ t: (key: string) => key, i18n: { language: "en" } }) },
+        "../../../../../../logics/common/languageNames.ts": { createLanguageNames: () => ({ name: (value: unknown) => value }) },
         "@logics_main": { useLanguageSettings: () => ({
             ...s.stores.useStore_SelectedPresetTabNumber(), ...s.stores.useStore_SelectedYourLanguages(), ...s.stores.useStore_SelectedTargetLanguages(),
         }), useIsMainPageCompactMode: () => ({ closeOverlay: () => {} }) },
     });
-    for (const selector_key of ["your_language", "target_language"]) {
-        assert.doesNotThrow(() => s.runtime.render(LanguageSelectorOpenButton, { selector_key, target_key: "1", TurnedOnSvgComponent: "svg" }));
+    for (const selector_key of ["your_language", "target_language"] as const) {
+        // The props the button is drawn with here: no is_turned_on, and a tag name for the icon.
+        assert.doesNotThrow(() => s.runtime.render(LanguageSelectorOpenButton,
+            unchecked<Parameters<typeof LanguageSelectorOpenButton>[0]>({ selector_key, target_key: "1", TurnedOnSvgComponent: "svg" })));
     }
     assert.equal(s.notices.length, 1);
     assert.equal(s.notices[0].key, "common_warning.startup_degraded");
@@ -68,7 +76,7 @@ test("malformed nested language maps and required scalar types cannot replace de
     assert.strictEqual(s.runtime.store.get(s.stores.Atom_SelectedYourLanguages), your);
     assert.strictEqual(s.runtime.store.get(s.stores.Atom_SelectedTargetLanguages), target);
     assert.equal(s.runtime.store.get(s.stores.Atom_SelectedPresetTabNumber).data, "1");
-    assert.equal(s.runtime.store.get(s.stores.dynamicStoreRegistry.Atom_UiScaling).data, 100);
+    assert.equal(s.runtime.store.get(atomNamed(s.stores.dynamicStoreRegistry, "Atom_UiScaling")).data, 100);
     assert.equal(s.notices.length, 1);
 });
 
@@ -86,11 +94,11 @@ test("valid language maps, compute-device objects, false and zero survive initia
         "/get/data/selected_transcription_engine": null,
     } });
     assert.deepEqual(s.runtime.store.get(s.stores.Atom_SelectedYourLanguages).data, your);
-    assert.deepEqual(s.runtime.store.get(s.stores.dynamicStoreRegistry.Atom_SelectedTranslationComputeDevice).data, device);
-    assert.equal(s.runtime.store.get(s.stores.dynamicStoreRegistry.Atom_EnableAutoMicSelect).data, false);
-    assert.equal(s.runtime.store.get(s.stores.dynamicStoreRegistry.Atom_MicThreshold).data, 0);
-    assert.equal(s.runtime.store.get(s.stores.dynamicStoreRegistry.Atom_CustomWhisperAuthKey).data, null);
-    assert.equal(s.runtime.store.get(s.stores.dynamicStoreRegistry.Atom_SelectedCustomWhisperModel).data, null);
+    assert.deepEqual(s.runtime.store.get(atomNamed(s.stores.dynamicStoreRegistry, "Atom_SelectedTranslationComputeDevice")).data, device);
+    assert.equal(s.runtime.store.get(atomNamed(s.stores.dynamicStoreRegistry, "Atom_EnableAutoMicSelect")).data, false);
+    assert.equal(s.runtime.store.get(atomNamed(s.stores.dynamicStoreRegistry, "Atom_MicThreshold")).data, 0);
+    assert.equal(s.runtime.store.get(atomNamed(s.stores.dynamicStoreRegistry, "Atom_CustomWhisperAuthKey")).data, null);
+    assert.equal(s.runtime.store.get(atomNamed(s.stores.dynamicStoreRegistry, "Atom_SelectedCustomWhisperModel")).data, null);
     assert.deepEqual(s.notices, []);
 });
 
@@ -102,8 +110,8 @@ test("message format objects from the backend survive initialization", async () 
         "/get/data/send_message_format_parts": format,
         "/get/data/received_message_format_parts": format,
     } });
-    assert.deepEqual(s.runtime.store.get(s.stores.dynamicStoreRegistry.Atom_SendMessageFormatParts).data, format);
-    assert.deepEqual(s.runtime.store.get(s.stores.dynamicStoreRegistry.Atom_ReceivedMessageFormatParts).data, format);
+    assert.deepEqual(s.runtime.store.get(atomNamed(s.stores.dynamicStoreRegistry, "Atom_SendMessageFormatParts")).data, format);
+    assert.deepEqual(s.runtime.store.get(atomNamed(s.stores.dynamicStoreRegistry, "Atom_ReceivedMessageFormatParts")).data, format);
     assert.deepEqual(s.notices, []);
 });
 
@@ -113,7 +121,7 @@ test("a failed message format getter keeps a format the settings page can render
     s.receiveRoutes({ endpoint: "/run/initialization_complete", status: 200, result: {
         "/get/data/send_message_format_parts": null,
     } });
-    const { message, translation } = s.runtime.store.get(s.stores.dynamicStoreRegistry.Atom_SendMessageFormatParts).data;
+    const { message, translation } = s.runtime.store.get(atomNamed<MessageFormat>(s.stores.dynamicStoreRegistry, "Atom_SendMessageFormatParts")).data;
     assert.equal(message.prefix, "");
     assert.equal(translation.suffix, "");
     assert.equal(s.notices.length, 1);
@@ -122,7 +130,7 @@ test("a failed message format getter keeps a format the settings page can render
 test("null init getter retains its real default, applies later fields, reaches ready and warns once", async context => {
     const errors = vi.spyOn(console, "error").mockImplementation(() => {});
     const s = await loadBridgeRoutes();
-    const hostAtom = s.stores.dynamicStoreRegistry.Atom_MicHostList;
+    const hostAtom = atomNamed(s.stores.dynamicStoreRegistry, "Atom_MicHostList");
     const before = s.runtime.store.get(hostAtom);
     s.receiveRoutes({ endpoint: "/run/initialization_complete", status: 200, result: {
         "/get/data/selectable_mic_host_list": null,
@@ -131,8 +139,8 @@ test("null init getter retains its real default, applies later fields, reaches r
     } });
     assert.strictEqual(s.runtime.store.get(hostAtom), before);
     assert.deepEqual(before.data, []);
-    assert.deepEqual(s.runtime.store.get(s.stores.dynamicStoreRegistry.Atom_MicDeviceList).data, { Microphone: "Microphone" });
-    assert.equal(s.runtime.store.get(s.stores.dynamicStoreRegistry.Atom_SelectedMicHost).data, "System");
+    assert.deepEqual(s.runtime.store.get(atomNamed(s.stores.dynamicStoreRegistry, "Atom_MicDeviceList")).data, { Microphone: "Microphone" });
+    assert.equal(s.runtime.store.get(atomNamed(s.stores.dynamicStoreRegistry, "Atom_SelectedMicHost")).data, "System");
     assert.equal(s.runtime.store.get(s.stores.Atom_IsBackendReady).data, true);
     assert.deepEqual(s.notices, [{ type: "warning", key: "common_warning.startup_degraded",
         options: { hide_duration: null, category_id: "startup_degraded" } }]);
@@ -150,8 +158,8 @@ test("malformed arrays and individual handler errors do not abort remaining init
         "/get/data/selectable_mic_device_list": [{ toString: null }],
         "/get/data/selected_mic_host": "System",
     } });
-    assert.deepEqual(s.runtime.store.get(s.stores.dynamicStoreRegistry.Atom_MicDeviceList).data, []);
-    assert.equal(s.runtime.store.get(s.stores.dynamicStoreRegistry.Atom_SelectedMicHost).data, "System");
+    assert.deepEqual(s.runtime.store.get(atomNamed(s.stores.dynamicStoreRegistry, "Atom_MicDeviceList")).data, []);
+    assert.equal(s.runtime.store.get(atomNamed(s.stores.dynamicStoreRegistry, "Atom_SelectedMicHost")).data, "System");
     assert.equal(s.runtime.store.get(s.stores.Atom_IsBackendReady).data, true);
     assert.equal(s.notices.length, 1);
     assert.equal(errors.mock.calls.filter(call => call[0] === "Sidecar initialization field unavailable").length, 2);
@@ -163,7 +171,7 @@ test("a valid initialization finishes without a degraded notice", async () => {
         "/get/data/selectable_mic_host_list": [], "/get/data/auto_mic_select": false,
     } });
     assert.equal(s.runtime.store.get(s.stores.Atom_IsBackendReady).data, true);
-    assert.equal(s.runtime.store.get(s.stores.dynamicStoreRegistry.Atom_EnableAutoMicSelect).data, false);
+    assert.equal(s.runtime.store.get(atomNamed(s.stores.dynamicStoreRegistry, "Atom_EnableAutoMicSelect")).data, false);
     assert.deepEqual(s.notices, []);
 });
 
@@ -182,21 +190,23 @@ test("unset scalar values (no API key, no model) are applied and do not warn", a
 for (const endpoint of ["/run/update_software", "/run/update_cuda_software"]) {
     for (const status of [400, 404, 409, 423, 500]) test(`${endpoint} ${status} clears expected exit and a later crash is reported`, async context => {
         vi.spyOn(console, "error").mockImplementation(() => {});
-        const s = await loadBridgeRoutes(), events = {}, crashes = [];
+        const s = await loadBridgeRoutes(), events: Record<string, (value: unknown) => void> = {}, crashes: unknown[] = [];
         const owner = createSidecarSessionOwner({ store: s.stores.store,
-            createCommand: () => ({ on: (name, fn) => { events[name] = fn; },
-                stdout: { on: (_, fn) => { events.stdout = fn; } }, stderr: { on: () => {} }, spawn: async () => ({}) }),
-            setInterval: () => 1, clearInterval: () => {},
+            // A command and a timer with only what the owner uses here.
+            createCommand: () => unchecked({ on: (name: string, fn: (value: unknown) => void) => { events[name] = fn; },
+                stdout: { on: (_: string, fn: (value: unknown) => void) => { events.stdout = fn; } }, stderr: { on: () => {} }, spawn: async () => ({}) }),
+            setInterval: () => unchecked(1), clearInterval: () => {},
         });
-        const detach = owner.attach(() => ({ setStartupState: () => {}, beginStartup: () => {}, started: () => {},
-            receiveRoutes: s.receiveRoutes, backendStopped: s.backendStopped, unexpectedExit: event => crashes.push(event) }));
-        await s.stores.store.backend_session.completion;
+        // Handlers with only what this run calls.
+        const detach = owner.attach(() => unchecked({ setStartupState: () => {}, beginStartup: () => {}, started: () => {},
+            receiveRoutes: s.receiveRoutes, backendStopped: s.backendStopped, unexpectedExit: (event: unknown) => crashes.push(event) }));
+        await s.stores.store.backend_session?.completion;
         events.stdout(JSON.stringify({ endpoint: "/run/initialization_complete", status: 200, result: {} }));
         const session = s.stores.store.backend_session;
         expectBackendExit(session, endpoint);
         s.runtime.store.set(s.stores.Atom_IsSoftwareUpdating, { state: "ok", data: true });
         s.receiveRoutes({ endpoint, status, result: { error_code: "UPDATE_SOFTWARE_DOWNLOAD" } });
-        assert.equal(session.expectedExits.size, 0);
+        assert.equal(session?.expectedExits.size, 0);
         assert.equal(s.runtime.store.get(s.stores.Atom_IsSoftwareUpdating).data, false);
         events.close({ code: 1 });
         assert.equal(crashes.length, 1);

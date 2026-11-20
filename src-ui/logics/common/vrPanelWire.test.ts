@@ -3,24 +3,27 @@ import { readdirSync, readFileSync } from "node:fs";
 import { test } from "vitest";
 import { decodeLogUpdate, decodeOrdered, diffLogRows, encodeLogUpdate, encodeOrdered, isLogUpdate, isRelayAllowed, isSecretAtomName,
     VR_PANEL_RELAY_PATHS, VR_PANEL_STATE_ATOMS, VR_PANEL_STATE_CATEGORIES, vrPanelStateNames } from "./vrPanelWire.ts";
+import type { ReceivedLog, SentLog } from "./vrPanelWire.ts";
 import { scanVrPanelState, settingsByCategory } from "../test/vrPanelStateScan.ts";
+import { unchecked } from "../test/hookHarness.ts";
 
 // Tauri の emit を通ったときの変化を模す: キーを辞書順にし、undefined を落とし、NaN を null にする
-const sortKeysDeep = value => Array.isArray(value) ? value.map(sortKeysDeep)
-    : value && typeof value === "object" ? Object.fromEntries(Object.keys(value).sort().map(key => [key, sortKeysDeep(value[key])])) : value;
-const emitRoundTrip = value => JSON.parse(JSON.stringify(sortKeysDeep(value)));
+const sortKeysDeep = (value: unknown): unknown => Array.isArray(value) ? value.map(sortKeysDeep)
+    : value && typeof value === "object" ? Object.fromEntries(Object.keys(value).sort().map(key => [key, sortKeysDeep(Reflect.get(value, key))])) : value;
+const emitRoundTrip = (value: unknown) => JSON.parse(JSON.stringify(sortKeysDeep(value)));
 
 test("object key order survives the emit round trip", () => {
     const fonts = { "Yu Gothic UI": "Yu Gothic UI", arial: "arial", Arial: "Arial", "メイリオ": "メイリオ" };
     const plain = emitRoundTrip(fonts);
     assert.notDeepEqual(Object.keys(plain), Object.keys(fonts)); // 素のままでは並びが変わる
-    assert.deepEqual(Object.keys(decodeOrdered(emitRoundTrip(encodeOrdered(fonts)))), Object.keys(fonts));
+    // The decoded value is the object that was encoded.
+    assert.deepEqual(Object.keys(unchecked<object>(decodeOrdered(emitRoundTrip(encodeOrdered(fonts))))), Object.keys(fonts));
 });
 
 test("nested atoms, arrays and primitives are restored unchanged", () => {
     const atom = { state: "ok", data: { devices: { b: "b", a: "a" }, list: [{ z: 1, a: [{ y: 2, x: null }] }, "text", 3, true, null] } };
     assert.deepEqual(decodeOrdered(emitRoundTrip(encodeOrdered(atom))), atom);
-    assert.deepEqual(Object.keys(decodeOrdered(emitRoundTrip(encodeOrdered(atom))).data.devices), ["b", "a"]);
+    assert.deepEqual(Object.keys(unchecked<typeof atom>(decodeOrdered(emitRoundTrip(encodeOrdered(atom)))).data.devices), ["b", "a"]);
     assert.deepEqual(decodeOrdered(emitRoundTrip(encodeOrdered([1, "a"]))), [1, "a"]);
 });
 
@@ -51,12 +54,13 @@ test("the VR panel cannot change where saved keys are sent or what runs", () => 
 test("only the main window may emit events; the VR panel only listens", () => {
     const dir = new URL("../../../src-tauri/capabilities/", import.meta.url);
     const emitting = ["core:default", "core:event:default", "core:event:allow-emit", "core:event:allow-emit-to"];
-    const granted = new Map();
+    const granted = new Map<string, string[]>();
     for (const file of readdirSync(dir).filter(name => name.endsWith(".json"))) {
         const capability = JSON.parse(readFileSync(new URL(file, dir), "utf8"));
-        const permissions = (capability.permissions ?? []).map(item => typeof item === "string" ? item : item.identifier);
+        // A permission is its identifier, or an object that names one (Tauri's capability format).
+        const permissions = (capability.permissions ?? []).map((item: string | { identifier: string }) => typeof item === "string" ? item : item.identifier);
         for (const window of capability.windows ?? []) granted.set(window, [...(granted.get(window) ?? []), ...permissions]);
-        if (!permissions.some(permission => emitting.includes(permission))) continue;
+        if (!permissions.some((permission: string) => emitting.includes(permission))) continue;
         for (const window of capability.windows ?? []) assert.equal(window, "main", `${file}: ${window} may emit events`);
     }
     assert.deepEqual(granted.get("vr_panel")?.sort(), ["core:event:allow-listen", "core:event:allow-unlisten"]);
@@ -83,11 +87,11 @@ test("an endpoint the list does not name is not relayed", () => {
 // launcher's switches, the language window and the meters. If a VR window starts sending
 // something new, this fails until the path is added to VR_PANEL_RELAY_PATHS on purpose.
 test("everything the VR windows send is relayed", () => {
-    const read = path => readFileSync(new URL(path, import.meta.url), "utf8");
+    const read = (path: string) => readFileSync(new URL(path, import.meta.url), "utf8");
     const settings = new Map([...read("../configs/config_page_setter/ui_config_setter.ts")
         .matchAll(/\{[^{}]*?Base_Name:\s*"(\w+)"[^{}]*?logics_template_id:\s*"(\w+)"[^{}]*?base_endpoint_name:\s*"(\w+)"[^{}]*?\}/gs)]
         .map(([, base, template, endpoint]) => [base, { template, endpoint }]));
-    const handWritten = {
+    const handWritten: Record<string, string | string[]> = {
         toggleTranslation: ["translation"], toggleTranscriptionSend: ["transcription_send"],
         toggleTranscriptionReceive: ["transcription_receive"], toggleOcrCapture: ["ocr_capture"],
         setSelectedPresetTabNumber: "/set/data/selected_tab_no", setSelectedYourLanguages: "/set/data/selected_your_languages",
@@ -99,7 +103,7 @@ test("everything the VR windows send is relayed", () => {
         volumeCheckStart_Mic: "/set/enable/check_mic_threshold", volumeCheckStop_Mic: "/set/disable/check_mic_threshold",
         volumeCheckStart_Speaker: "/set/enable/check_speaker_threshold", volumeCheckStop_Speaker: "/set/disable/check_speaker_threshold",
     };
-    const endpointsOf = name => {
+    const endpointsOf = (name: string) => {
         const known = handWritten[name];
         if (Array.isArray(known)) return known.flatMap(item => item.startsWith("/") ? [item] : [`/set/enable/${item}`, `/set/disable/${item}`]);
         if (known) return [known];
@@ -108,7 +112,7 @@ test("everything the VR windows send is relayed", () => {
         if (!setting) return [];
         return verb === "toggle" ? [`/set/enable/${setting.endpoint}`, `/set/disable/${setting.endpoint}`] : [`/set/data/${setting.endpoint}`];
     };
-    const sent = new Set(), names = new Set();
+    const sent = new Set<string>(), names = new Set<string>();
     for (const file of readdirSync(new URL("../../views/vr/", import.meta.url)).filter(name => /\.[jt]sx?$/.test(name) && !name.includes(".test."))) {
         const source = read(`../../views/vr/${file}`);
         // A name built from pieces (`set${key}Model`) escapes this scan, so the VR windows write names out in full.
@@ -160,7 +164,7 @@ test("the VR panel is not sent credentials, advanced settings, updates or hotkey
 
 // SEC-03: the state goes through the VR panel's own channel, never an event other windows hear.
 test("the state is pushed to the VR panel's channel, not emitted as an event", () => {
-    const read = path => readFileSync(new URL(path, import.meta.url), "utf8");
+    const read = (path: string) => readFileSync(new URL(path, import.meta.url), "utf8");
     const sender = read("../../views/app/_app_controllers/VrPanelSyncController.tsx");
     const receiver = read("../../views/vr/VrApp.tsx");
     assert.match(sender, /invoke\("vr_panel_state_push"/);
@@ -171,7 +175,7 @@ test("the state is pushed to the VR panel's channel, not emitted as an event", (
     assert.match(rust, /sender != MAIN/);
 });
 
-const row = (id, text = id) => ({ id, category: "sent", status: "ok", messages: { original: { message: text, transliteration: [] }, translations: [] } });
+const row = (id: string, text: string = id) => ({ id, category: "sent", status: "ok", messages: { original: { message: text, transliteration: [] }, translations: [] } });
 
 test("a log diff sends only the rows that changed", () => {
     const [a, b, c, d] = ["a", "b", "c", "d"].map(id => row(id));
@@ -186,8 +190,9 @@ test("a log diff sends only the rows that changed", () => {
 });
 
 test("the VR panel rebuilds the same log from the diffs", () => {
-    let sent = null, received = null, rows = [];
-    const steps = [
+    type Row = ReturnType<typeof row>;
+    let sent: SentLog<Row> | null = null, received: ReceivedLog | null = null, rows: Row[] = [];
+    const steps: ((current: Row[]) => Row[])[] = [
         current => [...current, row("a")],
         current => [...current, row("b"), row("c")],
         current => current.map(item => item.id === "b" ? { ...item, status: "pending" } : item),
@@ -198,13 +203,13 @@ test("the VR panel rebuilds the same log from the diffs", () => {
     ];
     for (const step of steps) {
         rows = step(rows);
-        const update = encodeLogUpdate(sent, { state: "ok", data: rows });
+        const update: ReturnType<typeof encodeLogUpdate<Row>> = encodeLogUpdate(sent, { state: "ok", data: rows });
         sent = update.sent;
         const encoded = emitRoundTrip(update.message);
         assert.equal(isLogUpdate(encoded), true);
         received = decodeLogUpdate(received, encoded);
-        assert.deepEqual(received.rows, rows);
-        assert.equal(received.state, "ok");
+        assert.deepEqual(received?.rows, rows);
+        assert.equal(received?.state, "ok");
     }
 });
 
@@ -213,6 +218,6 @@ test("a log diff against a log the VR panel did not receive is refused", () => {
     const second = encodeLogUpdate(first.sent, { state: "ok", data: [...first.sent.rows, row("b")] });
     assert.equal(decodeLogUpdate(null, emitRoundTrip(second.message)), null); // 起動直後で全件をまだ受け取っていない
     const full = encodeLogUpdate(second.sent, { state: "ok", data: second.sent.rows }, true);
-    assert.deepEqual(decodeLogUpdate(null, emitRoundTrip(full.message)).rows, second.sent.rows);
+    assert.deepEqual(decodeLogUpdate(null, emitRoundTrip(full.message))?.rows, second.sent.rows);
     assert.equal(isLogUpdate(encodeOrdered({ state: "ok", data: [] })), false);
 });

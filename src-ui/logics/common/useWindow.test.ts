@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import { test, vi } from "vitest";
 import { hooks, loadModule, stubGlobals } from "../test/hookHarness.ts";
+import type { HookRuntime } from "../test/hookHarness.ts";
+
+type CloseRequest = { preventDefault: () => void };
 
 // innerSize reports physical pixels; the 800px breakpoint is in CSS pixels
 // (scaled by the UI size), like the stylesheet's (max-width: 800px) queries.
@@ -9,16 +12,16 @@ for (const [physical, ratio, scaling, narrow] of [
     [1600, 2, 100, true], [1700, 2, 100, false],
     [800, 1, 100, true], [801, 1, 100, false],
     [1800, 1.5, 150, true], [1801, 1.5, 150, false],
-]) test(`a ${physical}px window at devicePixelRatio ${ratio} and UI ${scaling}% is ${narrow ? "narrow" : "wide"}`, async context => {
-    const attributes = new Set(), updates = [];
+] satisfies [number, number, number, boolean][]) test(`a ${physical}px window at devicePixelRatio ${ratio} and UI ${scaling}% is ${narrow ? "narrow" : "wide"}`, async context => {
+    const attributes = new Set<string>(), updates: unknown[] = [];
     stubGlobals(context, { devicePixelRatio: ratio, document: { documentElement: {
-        hasAttribute: name => attributes.has(name),
-        toggleAttribute: (name, on) => { if (on) attributes.add(name); else attributes.delete(name); },
+        hasAttribute: (name: string) => attributes.has(name),
+        toggleAttribute: (name: string, on: boolean) => { if (on) attributes.add(name); else attributes.delete(name); },
     } } });
-    const { useWindow } = await loadModule(new URL("./useWindow.ts", import.meta.url), hooks(), {
+    const { useWindow } = await loadModule<typeof import("./useWindow.ts")>(new URL("./useWindow.ts", import.meta.url), hooks(), {
         "@tauri-apps/api/window": {},
         "@store": { store: { appWindow: { innerSize: async () => ({ width: physical }) } },
-            useStore_IsBreakPoint: () => ({ updateIsBreakPoint: value => updates.push(value) }) },
+            useStore_IsBreakPoint: () => ({ updateIsBreakPoint: (value: unknown) => updates.push(value) }) },
         "@logics_configs": { useAppearance: () => ({ currentUiScaling: { data: scaling } }) },
     });
     await useWindow().asyncUpdateBreakPoint();
@@ -30,34 +33,37 @@ for (const [physical, ratio, scaling, narrow] of [
 // used to place it once the engine was ready, so it showed centred and then jumped.
 test("the window is placed before it shows, and the UI does not move it afterwards", async () => {
     const { readFile } = await import("node:fs/promises");
-    const read = path => readFile(new URL(path, import.meta.url), "utf8");
+    const read = (path: string) => readFile(new URL(path, import.meta.url), "utf8");
     const config = JSON.parse(await read("../../../src-tauri/tauri.conf.json"));
     assert.equal(config.app.windows[0].visible, false, "the main window is made hidden");
     const lib = await read("../../../src-tauri/src/lib.rs");
     const setup = lib.split(".setup(move |app| {")[1].split("main_window.show()")[0];
     assert.match(setup, /window_placement::apply\(&main_window/);
-    const { useWindow } = await loadModule(new URL("./useWindow.ts", import.meta.url), hooks(), {
+    const { useWindow } = await loadModule<typeof import("./useWindow.ts")>(new URL("./useWindow.ts", import.meta.url), hooks(), {
         "@store": { store: { appWindow: {} }, useStore_IsBreakPoint: () => ({ updateIsBreakPoint() {} }) },
         "@logics_configs": { useAppearance: () => ({ currentUiScaling: { data: 100 } }) },
     });
-    assert.equal(useWindow().restoreWindowGeometry, undefined);
+    // A function the hook no longer has: read by name.
+    assert.equal(Reflect.get(useWindow(), "restoreWindowGeometry"), undefined);
     const routes = await read("../useReceiveRoutes.ts");
     assert.match(routes, /endpoint: "\/get\/data\/main_window_geometry", ns: null, hook_name: null, method_name: null/);
 });
 
-const loadClosing = async (runtime, appWindow, sent) => loadModule(new URL("./useWindow.ts", import.meta.url), runtime, {
+const loadClosing = async (runtime: HookRuntime, appWindow: object, sent: unknown[]) =>
+    loadModule<typeof import("./useWindow.ts")>(new URL("./useWindow.ts", import.meta.url), runtime, {
     "@tauri-apps/api/window": {},
-    "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: endpoint => sent.push(endpoint) }) },
+    "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: (endpoint: string) => sent.push(endpoint) }) },
     "@store": { store: { appWindow }, useStore_IsBreakPoint: () => ({ updateIsBreakPoint() {} }) },
     "@logics_configs": { useAppearance: () => ({ currentUiScaling: { data: 100 } }) },
 });
 
 test("Alt+F4 and the close button share one shutdown before the window is destroyed", async context => {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
-    const runtime = hooks(), sent = [], calls = [];
-    let requested = null;
+    const runtime = hooks(), sent: unknown[] = [], calls: string[] = [];
+    // Called before the controller has listened, it stops with a TypeError, as calling null did.
+    let requested: (event: CloseRequest) => void = () => { throw new TypeError("requested is not a function"); };
     const appWindow = {
-        onCloseRequested: async handler => { requested = handler; return () => calls.push("unlisten"); },
+        onCloseRequested: async (handler: (event: CloseRequest) => void) => { requested = handler; return () => calls.push("unlisten"); },
         destroy: async () => calls.push("destroy"),
         close: async () => calls.push("close"),
     };
@@ -81,7 +87,7 @@ test("Alt+F4 and the close button share one shutdown before the window is destro
 test("a failed destroy removes the listener and closes the window the usual way", async context => {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     stubGlobals(context, { console: { ...console, error() {} } });
-    const runtime = hooks(), sent = [], calls = [];
+    const runtime = hooks(), sent: unknown[] = [], calls: string[] = [];
     const appWindow = {
         onCloseRequested: async () => () => calls.push("unlisten"),
         destroy: async () => { throw new Error("not allowed"); },

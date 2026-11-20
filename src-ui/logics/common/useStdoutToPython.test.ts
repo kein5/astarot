@@ -3,11 +3,11 @@ import { readFile } from "node:fs/promises";
 import { stripTypeScriptTypes } from "node:module";
 import { test, vi } from "vitest";
 
-const moduleUrl = source => `data:text/javascript;base64,${Buffer.from(source).toString("base64")}`;
+const moduleUrl = (source: string) => `data:text/javascript;base64,${Buffer.from(source).toString("base64")}`;
 // The adapter under test is loaded from a data: URL, which Node imports itself, while Vitest loads
 // this file through Vite. A static import here would make a second copy of these singletons, so
 // the test takes them from Node too, from the same file URLs the adapter imports.
-const nativeImport = path => import(/* @vite-ignore */ moduleUrl(
+const nativeImport = (path: string) => import(/* @vite-ignore */ moduleUrl(
     `export * from ${JSON.stringify(new URL(path, import.meta.url).href)};`));
 const { pendingRequestRecovery } = await nativeImport("./pendingRequestRecovery.ts");
 const { rejectExpectedExit } = await nativeImport("./sidecarExitExpectation.ts");
@@ -46,10 +46,10 @@ async function setup() {
 }
 
 test("settings transport returns its canonical write response, never a matching GET", async () => {
-    const subject = await setup(), endpoint = "/set/data/realtime_asr_settings", writes = [];
-    subject.store.backend_subprocess = { write: async line => { writes.push(JSON.parse(line)); } };
+    const subject = await setup(), endpoint = "/set/data/realtime_asr_settings", writes: object[] = [];
+    subject.store.backend_subprocess = { write: async (line: string) => { writes.push(JSON.parse(line)); } };
     let completed = false;
-    const saving = subject.send(endpoint, { vocabulary: { terms: ["a = b"] } }).then(response => { completed = true; return response; });
+    const saving = subject.send(endpoint, { vocabulary: { terms: ["a = b"] } }).then((response: unknown) => { completed = true; return response; });
     settingsWriteResponses.receive({ endpoint: "/get/data/realtime_asr_settings", status: 200, result: {} });
     await Promise.resolve();
     assert.equal(completed, false);
@@ -61,8 +61,8 @@ test("settings transport returns its canonical write response, never a matching 
 
 // SEC-02: a request relayed for the VR panel carries its origin, which the backend checks.
 test("a relayed request is marked for the backend, and the main window's own requests are not", async () => {
-    const subject = await setup(), writes = [];
-    subject.store.backend_subprocess = { write: async line => { writes.push(JSON.parse(line)); } };
+    const subject = await setup(), writes: object[] = [];
+    subject.store.backend_subprocess = { write: async (line: string) => { writes.push(JSON.parse(line)); } };
     await subject.send("/set/enable/translation", undefined, undefined, "vr_panel");
     await subject.send("/set/enable/translation");
     assert.deepEqual(writes, [{ endpoint: "/set/enable/translation", origin: "vr_panel" }, { endpoint: "/set/enable/translation" }]);
@@ -111,14 +111,14 @@ for (const mode of ["missing", "false", "throw", "reject"]) test(`actual transpo
     } };
     assert.equal(await subject.send("/set/data/osc_port", 9001), false);
     assert.deepEqual(subject.value, { state: "ok", data: 9000 });
-    assert.deepEqual(subject.notices.map(([key]) => key), ["common_error.request_send_failed"]);
+    assert.deepEqual(subject.notices.map(([key]: unknown[]) => key), ["common_error.request_send_failed"]);
 });
 
 test("successful transport preserves the wire format and stays pending until response", async () => {
-    const subject = await setup(), writes = [];
-    subject.store.backend_subprocess = { write: async line => { writes.push(line); } };
+    const subject = await setup(), writes: string[] = [];
+    subject.store.backend_subprocess = { write: async (line: string) => { writes.push(line); } };
     let settled = false;
-    const saving = subject.send("/set/data/osc_port", 9001).then(response => { settled = true; return response; });
+    const saving = subject.send("/set/data/osc_port", 9001).then((response: unknown) => { settled = true; return response; });
     await Promise.resolve();
     assert.equal(writes.length, 1);
     assert.deepEqual(JSON.parse(writes[0]), { endpoint: "/set/data/osc_port", data: Buffer.from("9001").toString("base64") });
@@ -133,7 +133,7 @@ test("successful transport preserves the wire format and stays pending until res
 
 test("encoding throws also restore before any write", async context => {
     vi.spyOn(console, "error").mockImplementation(() => {});
-    const subject = await setup(), cyclic = {};
+    const subject = await setup(), cyclic: { self?: unknown } = {};
     cyclic.self = cyclic;
     subject.store.backend_subprocess = { write: () => assert.fail("encoding should fail before write") };
     assert.equal(await subject.send("/set/data/osc_port", cyclic), false);
@@ -152,7 +152,7 @@ test("rejected language admission does not fail or release the existing owner", 
     const subject = await setup();
     subject.store.rejectLanguage = true;
     assert.equal(await subject.send("/set/data/selected_target_languages", {}), false);
-    assert.deepEqual(subject.events.map(([type]) => type), ["begin"]);
+    assert.deepEqual(subject.events.map(([type]: unknown[]) => type), ["begin"]);
 });
 
 test("language preserves uncertain-write versus before-send failure semantics", async context => {
@@ -161,7 +161,7 @@ test("language preserves uncertain-write versus before-send failure semantics", 
         const subject = await setup();
         if (childExists) subject.store.backend_subprocess = { write: async () => { throw Error("unknown delivery"); } };
         assert.equal(await subject.send("/set/data/selected_target_languages", {}), false);
-        assert.deepEqual(subject.events.map(([type]) => type), ["begin", childExists ? "unconfirmed" : "before-send"]);
+        assert.deepEqual(subject.events.map(([type]: unknown[]) => type), ["begin", childExists ? "unconfirmed" : "before-send"]);
     }
 });
 
@@ -201,7 +201,8 @@ for (const endpoint of ["/run/update_software", "/run/update_cuda_software"]) {
 test("an old rejected write cannot change a replacement session or replay the request", async context => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     const subject = await setup();
-    let reject;
+    // Called before the write has started, it stops with a TypeError, as calling undefined did.
+    let reject: (reason: unknown) => void = () => { throw new TypeError("reject is not a function"); };
     subject.store.backend_subprocess = { write: () => new Promise((_, no) => { reject = no; }) };
     const send = subject.send("/run/update_software");
     const nextSession = { expectedExits: new Map() };
@@ -214,7 +215,7 @@ test("an old rejected write cannot change a replacement session or replay the re
 });
 
 test("overlapping update writes that both fail leave no expected exit", async () => {
-    const subject = await setup(), completions = [];
+    const subject = await setup(), completions: ((value: unknown) => void)[] = [];
     subject.store.backend_subprocess = { write: () => new Promise(resolve => completions.push(resolve)) };
     const first = subject.send("/run/update_software"), second = subject.send("/run/update_software");
     completions[0](false);

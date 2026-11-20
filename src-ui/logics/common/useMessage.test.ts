@@ -3,27 +3,35 @@ import { test, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import i18next from "i18next";
 import yaml from "js-yaml";
-import { find, hooks, loadModule } from "../test/hookHarness.ts";
+import type { i18n as I18n } from "i18next";
+import { find, hooks, loadModule, unchecked } from "../test/hookHarness.ts";
 import { loadBridgeRoutes, deferred, flush } from "../test/bridgeHarness.ts";
 import { keepRecentLogs } from "./messageLogLimit.ts";
 import * as chatboxLength from "./chatboxLength.ts";
 import { decodeLogUpdate, encodeLogUpdate } from "./vrPanelWire.ts";
+import type { MessageLogRow } from "../transcription/realtimeCaptionState.ts";
 
-async function setup(send = async () => true, reset = async () => true, i18n = null) {
-    let useMessage;
-    const writes = [], typingWrites = [], endpoints = [];
+// The endpoint and the value useMessage sends; a message goes with its row: { id, message }.
+type Sent = [endpoint: string, data: { id?: unknown }];
+
+async function setup(send: (...args: Sent) => unknown = async () => true, reset: (...args: unknown[]) => unknown = async () => true, i18n: I18n | null = null) {
+    // Rendered before loadBridgeRoutes has loaded it, it stops with a TypeError, as rendering undefined did.
+    let useMessage: typeof import("./useMessage.ts").useMessage = () => { throw new TypeError("useMessage is not a function"); };
+    const writes: Sent[] = [], typingWrites: unknown[] = [], endpoints: unknown[] = [];
     const subject = await loadBridgeRoutes(async ({ runtime, stores }) => {
-        ({ useMessage } = await loadModule(new URL("./useMessage.ts", import.meta.url), runtime, {
+        ({ useMessage } = await loadModule<typeof import("./useMessage.ts")>(new URL("./useMessage.ts", import.meta.url), runtime, {
             "@store": stores,
             ...i18n && { "@useI18n": { useI18n: () => ({ t: i18n.t.bind(i18n), i18n }) } },
-            "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: (...args) => {
+            "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: (...args: unknown[]) => {
                 endpoints.push(args[0]);
                 if (args[0] !== "/run/send_message_box") {
                     typingWrites.push(args[0]);
                     return reset(...args);
                 }
-                writes.push(args);
-                return send(...args);
+                // A message is sent with its row.
+                const sent = unchecked<Sent>(args);
+                writes.push(sent);
+                return send(...sent);
             } }) },
             "../transcription/useRealtimeASR": {}, "../transcription/realtimeCaptionState": {},
             "./messageLogLimit": { keepRecentLogs },
@@ -32,7 +40,7 @@ async function setup(send = async () => true, reset = async () => true, i18n = n
     }, i18n);
     return { ...subject, writes, typingWrites, endpoints, message: subject.runtime.render(useMessage),
         rows: () => subject.runtime.store.get(subject.stores.Atom_MessageLogs).data,
-        receive: (status, result) => subject.receiveRoutes({ endpoint: "/run/send_message_box", status, result }),
+        receive: (status: number, result: unknown) => subject.receiveRoutes({ endpoint: "/run/send_message_box", status, result }),
     };
 }
 
@@ -163,7 +171,7 @@ for (const failed of [false, true]) test(`acknowledgement preserves original rea
     const first = encodeLogUpdate(null, { state: "ok", data: before });
     const mirror = decodeLogUpdate(null, first.message);
     const update = encodeLogUpdate(first.sent, { state: "ok", data: subject.rows() });
-    assert.deepEqual(decodeLogUpdate(mirror, update.message).rows, subject.rows());
+    assert.deepEqual(decodeLogUpdate(mirror, update.message)?.rows, subject.rows());
     subject.message.failSentMessageLog({ id: "readings" });
     assert.equal(subject.rows()[0].status, "ok");
 });
@@ -177,29 +185,36 @@ test("translation-off acknowledgements retain original readings and partial repl
     assert.deepEqual(subject.rows()[0].messages, { original, translations: [] });
 });
 
-async function composer(subject, autoClear = false) {
+type Subject = Awaited<ReturnType<typeof setup>>;
+
+async function composer(subject: Subject, autoClear = false) {
     const runtime = hooks();
     runtime.store = subject.runtime.store;
-    const { MessageInputBox } = await loadModule(new URL("../../views/app/main_page/main_section/message_container/message_input_box/MessageInputBox.tsx", import.meta.url), runtime, {
+    const { MessageInputBox } = await loadModule<typeof import("../../views/app/main_page/main_section/message_container/message_input_box/MessageInputBox.tsx")>(new URL("../../views/app/main_page/main_section/message_container/message_input_box/MessageInputBox.tsx", import.meta.url), runtime, {
         "@store": subject.stores,
         "@logics_common": { useMessageActions: () => subject.message },
-        "@logics_configs": { useSettingValue: name => ({ data: name === "SendMessageButtonType" ? "show" : autoClear }) },
+        "@logics_configs": { useSettingValue: (name: string) => ({ data: name === "SendMessageButtonType" ? "show" : autoClear }) },
         "@logics_main": { useMessageLogScroll: () => ({ scrollToBottom() {} }) },
         "../../../../../../logics/common/chatboxLength": chatboxLength,
         "./ChatboxLengthWarning": { CHATBOX_LENGTH_WARNING_ID: "length-warning" },
     });
     const render = () => runtime.render(MessageInputBox.type);
-    const field = () => find(render(), node => node.type === "textarea");
+    const field = () => {
+        const textarea = find(render(), node => node.type === "textarea");
+        assert.ok(textarea);
+        return textarea;
+    };
     return { render, field, input: () => runtime.store.get(subject.stores.Atom_MessageInputValue).data,
-        change: value => { field().props.onChange({ currentTarget: { value } }); render(); },
+        change: (value: string) => { field().props.onChange({ currentTarget: { value } }); render(); },
         enter: (extra = {}) => field().props.onKeyDown({ key: "Enter", keyCode: 13, nativeEvent: {}, preventDefault() {}, ...extra }),
-        key: key => field().props.onKeyDown({ key, shiftKey: true, nativeEvent: {}, preventDefault() {} }),
+        key: (key: string) => field().props.onKeyDown({ key, shiftKey: true, nativeEvent: {}, preventDefault() {} }),
     };
 }
 
 for (const success of [true, false]) for (const autoClear of [true, false]) {
     test(`desktop Enter resets typing with success=${success}, auto-clear=${autoClear}`, async context => {
-        vi.spyOn(globalThis, "setTimeout").mockImplementation(() => 0);
+        // The id the browser gives; the component never reads it.
+    vi.spyOn(globalThis, "setTimeout").mockImplementation(() => unchecked<ReturnType<typeof setTimeout>>(0));
         const subject = await setup(async () => success), input = await composer(subject, autoClear);
         input.change("Hello");
         input.enter();
@@ -234,14 +249,16 @@ test("desktop empty submit, user clear, programmatic clear and blur reset typing
 });
 
 for (const success of [true, false]) test(`Quick Chat handoff resets typing and preserves acceptance=${success}`, async () => {
-    const subject = await setup(async () => success), runtime = hooks(), finished = [];
-    let receive, request = null;
-    const { QuickChatController } = await loadModule(new URL("../../views/app/_app_controllers/QuickChatController.tsx", import.meta.url), runtime, {
-        "@tauri-apps/api/core": { invoke: async (name, args) => {
+    const subject = await setup(async () => success), runtime = hooks(), finished: unknown[] = [];
+    // Called before the controller has listened, it stops with a TypeError, as calling undefined did.
+    let receive: () => Promise<unknown> = async () => { throw new TypeError("receive is not a function"); };
+    let request: unknown = null;
+    const { QuickChatController } = await loadModule<typeof import("../../views/app/_app_controllers/QuickChatController.tsx")>(new URL("../../views/app/_app_controllers/QuickChatController.tsx", import.meta.url), runtime, {
+        "@tauri-apps/api/core": { invoke: async (name: string, args: unknown) => {
             if (name === "quick_chat_take") { const next = request; request = null; return next; }
             if (name === "quick_chat_finish") finished.push(args);
         } },
-        "@tauri-apps/api/event": { listen: async (_, callback) => { receive = callback; return () => {}; } },
+        "@tauri-apps/api/event": { listen: async (_: string, callback: () => Promise<unknown>) => { receive = callback; return () => {}; } },
         "@useI18n": { useI18n: () => ({ i18n: { language: "en" } }) },
         "../../../logics/common/useMessage": { useMessage: () => subject.message },
         "@logics_common": {
@@ -282,12 +299,15 @@ test("output failure warns without failing or resending a successful message row
     assert.equal(subject.rows()[0].status, "ok");
     assert.deepEqual(subject.rows()[0].messages.original, original);
     assert.equal(subject.notices[0].type, "warning");
-    assert.equal(subject.notices[0].options.category_id, "MESSAGE_OUTPUT_FAILED.overlay_large");
+    // A notice's options name its category.
+    assert.equal(unchecked<{ category_id?: unknown }>(subject.notices[0].options).category_id, "MESSAGE_OUTPUT_FAILED.overlay_large");
     assert.equal(subject.writes.length, 1);
     assert.deepEqual(subject.reads, []);
 });
 
-const locale = language => yaml.load(readFileSync(new URL(`../../../locales/${language}.yml`, import.meta.url), "utf8"));
+// A locale file; these tests read its backend_errors texts by code.
+const locale = (language: string) =>
+    unchecked<{ backend_errors: Record<string, string> }>(yaml.load(readFileSync(new URL(`../../../locales/${language}.yml`, import.meta.url), "utf8")));
 // Every code the sidecar puts on /run/transcription_recognition_error.
 const RECOGNITION_FAILURES = ["AUDIO_OPEN_ERROR", "AUDIO_READ_ERROR", "VAD_INFERENCE_ERROR",
     "TRANSCRIBER_INIT_ERROR", "ASR_ERROR", "CLEANUP_TIMEOUT"];
@@ -297,8 +317,8 @@ for (const language of ["en", "ja"]) test(`${language}: recognition failures are
     const i18n = i18next.createInstance();
     await i18n.init({ lng: language, resources: { [language]: { translation } }, interpolation: { escapeValue: false } });
     const subject = await setup(undefined, undefined, i18n);
-    const log = result => subject.receiveRoutes({ status: 200, endpoint: "/run/transcription_recognition_error", result });
-    const failure = (error_code, source) => ({ error_code, stage: "recording", source, message: "English default", recoverable: false });
+    const log = (result: unknown) => subject.receiveRoutes({ status: 200, endpoint: "/run/transcription_recognition_error", result });
+    const failure = (error_code: string, source: string) => ({ error_code, stage: "recording", source, message: "English default", recoverable: false });
     log(failure("AUDIO_OPEN_ERROR", "mic"));
     log(failure("AUDIO_OPEN_ERROR", "speaker"));
     log(failure("ASR_ERROR", "mic"));
@@ -324,7 +344,7 @@ for (const language of ["en", "ja"]) test(`${language}: a cloud engine's reason 
     const i18n = i18next.createInstance();
     await i18n.init({ lng: language, resources: { [language]: { translation } }, interpolation: { escapeValue: false } });
     const subject = await setup(undefined, undefined, i18n);
-    const log = result => subject.receiveRoutes({ status: 200, endpoint: "/run/transcription_recognition_error", result });
+    const log = (result: unknown) => subject.receiveRoutes({ status: 200, endpoint: "/run/transcription_recognition_error", result });
     for (const cause of ENGINE_CAUSES) log({ error_code: "ASR_ERROR", stage: "asr", source: "mic", message: "English default", cause });
     // A cause the UI has no text for falls back to the general text.
     log({ error_code: "ASR_ERROR", stage: "asr", source: "mic", message: "English default", cause: "TRANSCRIPTION_API_SOMETHING_NEW" });
@@ -334,7 +354,8 @@ for (const language of ["en", "ja"]) test(`${language}: a cloud engine's reason 
 });
 
 for (const accepted of [true, false]) test(`holding Enter and duplicate clicks send once until handoff settles (${accepted})`, async context => {
-    vi.spyOn(globalThis, "setTimeout").mockImplementation(() => 0);
+    // The id the browser gives; the component never reads it.
+    vi.spyOn(globalThis, "setTimeout").mockImplementation(() => unchecked<ReturnType<typeof setTimeout>>(0));
     const handoff = deferred(), subject = await setup(() => handoff.promise), input = await composer(subject);
     input.change("同じ下書き");
     input.enter();
@@ -342,6 +363,7 @@ for (const accepted of [true, false]) test(`holding Enter and duplicate clicks s
     input.enter({ repeat: true });
     input.enter(); // Another non-repeat keydown before the handoff settles.
     const button = find(input.render(), node => typeof node.props.onSubmitFunction === "function");
+    assert.ok(button);
     assert.equal(button.props.pending, true);
     button.props.onSubmitFunction({ preventDefault() {} });
     assert.equal(subject.writes.length, 1);
@@ -350,7 +372,7 @@ for (const accepted of [true, false]) test(`holding Enter and duplicate clicks s
     input.enter({ repeat: true }); // Still held after settlement: never resend.
     assert.equal(subject.writes.length, 1);
     assert.equal(input.input(), "同じ下書き");
-    assert.equal(find(input.render(), node => typeof node.props.onSubmitFunction === "function").props.pending, false);
+    assert.equal(find(input.render(), node => typeof node.props.onSubmitFunction === "function")?.props.pending, false);
     input.enter(); // A deliberate later message, including identical text, is allowed.
     await flush();
     assert.equal(subject.writes.length, 2);
@@ -366,11 +388,12 @@ test("main input keeps IME and Shift+Enter guards", async () => {
     assert.equal(subject.writes.length, 0);
 });
 
-const sentRow = (id, message) => ({ id, category: "sent", messages: { original: { message } } });
+const sentRow = (id: string, message: unknown) => ({ id, category: "sent", messages: { original: { message } } });
 test("history eviction resets to the saved draft and never puts a non-string in the composer", async () => {
     const subject = await setup(), input = await composer(subject);
-    const setRows = rows => subject.runtime.store.set(subject.stores.Atom_MessageLogs, { state: "ok", data: rows });
-    let rows = [sentRow("oldest", "古い文"), sentRow("newer", "新しい文"),
+    // Rows with only what the history reads: received rows have no text, and some rows no id.
+    const setRows = (rows: unknown[]) => subject.runtime.store.set(subject.stores.Atom_MessageLogs, { state: "ok", data: unchecked<MessageLogRow[]>(rows) });
+    let rows: unknown[] = [sentRow("oldest", "古い文"), sentRow("newer", "新しい文"),
         ...Array.from({ length: 998 }, (_, id) => ({ id: `received-${id}`, category: "received" }))];
     setRows(rows);
     input.change("書きかけの文章");
@@ -390,7 +413,8 @@ test("history eviction resets to the saved draft and never puts a non-string in 
 
 test("history follows row identity through appended rows and partial eviction, then restores the draft", async () => {
     const subject = await setup(), input = await composer(subject);
-    const setRows = rows => subject.runtime.store.set(subject.stores.Atom_MessageLogs, { state: "ok", data: rows });
+    // Rows with only what the history reads: received rows have no text, and some rows no id.
+    const setRows = (rows: unknown[]) => subject.runtime.store.set(subject.stores.Atom_MessageLogs, { state: "ok", data: unchecked<MessageLogRow[]>(rows) });
     setRows([sentRow("a", "same"), sentRow("b", "same")]);
     input.change("draft");
     input.key("ArrowUp");
@@ -420,5 +444,5 @@ test("a message kept out of the chatbox by the setting keeps that reason on its 
         ["Typed", "ok", "vrchat_off", true], ["Reached VRChat", "ok", undefined, false],
         ["Spoken", "ok", "vrchat_off", true], ["Heard", "ok", undefined, false]]);
     const mirrored = decodeLogUpdate(null, encodeLogUpdate(null, { state: "ok", data: subject.rows() }).message);
-    assert.deepEqual(mirrored.rows, subject.rows(), "the VR panel shows the same reason");
+    assert.deepEqual(mirrored?.rows, subject.rows(), "the VR panel shows the same reason");
 });
