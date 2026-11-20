@@ -36,9 +36,13 @@
         "useKeyWithMouseEvents": "warn",
         "useSemanticElements": "warn"
       },
+      "complexity": {
+        "useOptionalChain": "error"
+      },
       "correctness": {
         "noComponentHookFactories": "warn",
         "noUnreachable": "warn",
+        "noUnusedFunctionParameters": "error",
         "useExhaustiveDependencies": "warn",
         "useHookAtTopLevel": "warn"
       },
@@ -46,6 +50,7 @@
         "noArrayIndexKey": "warn",
         "noAssignInExpressions": "warn",
         "noControlCharactersInRegex": "warn",
+        "noGlobalIsNan": "error",
         "noShadowRestrictedNames": "warn",
         "useIterableCallbackReturn": "warn"
       }
