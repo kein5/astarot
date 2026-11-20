@@ -1,21 +1,38 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { hooks, loadModule, find, eventTarget, stubGlobals } from "../../../../../../logics/test/hookHarness.ts";
+import type { TestContext } from "vitest";
+import { hooks, loadModule, find, eventTarget, stubGlobals, unchecked } from "../../../../../../logics/test/hookHarness.ts";
+import type { TreeNode } from "../../../../../../logics/test/hookHarness.ts";
 import { nextLogView, rowsBetween } from "../../../../../../logics/common/messageLogView.ts";
 import { speakerContinuations } from "../../../../../../logics/common/speakerNames.ts";
+import type { SavedLogView } from "./LogBox.tsx";
 
-async function setup(context, savedView, initialRows) {
-    const runtime = hooks(), store = {}, observers = [];
+interface Row {
+    id: string;
+}
+type SavedViewRef = { current: SavedLogView | null };
+
+// The ref an element carries: React 18 keeps it on the element, beside its props.
+const refOf = (node: object): { current: unknown } => {
+    const ref: unknown = Reflect.get(node, "ref");
+    assert.ok(ref !== null && typeof ref === "object" && "current" in ref);
+    return ref;
+};
+
+async function setup(context: TestContext, savedView: SavedViewRef | undefined, initialRows: Row[]) {
+    const runtime = hooks(), store = {}, observers: ResizeObserver[] = [];
     let rows = initialRows, subscriptions = 0, offset = 0;
     const element = { ...eventTarget(), clientHeight: 200, scrollHeight: 1000,
         contains: () => true, closest: () => null,
         get scrollTop() { return offset; },
-        set scrollTop(value) { offset = Math.max(0, Math.min(value, this.scrollHeight - this.clientHeight)); },
+        set scrollTop(value: number) { offset = Math.max(0, Math.min(value, this.scrollHeight - this.clientHeight)); },
     };
     const window = eventTarget();
     const document = { ...eventTarget(), body: {}, getSelection: () => null };
     class ResizeObserver {
-        constructor(callback) { this.callback = callback; observers.push(this); }
+        callback: () => void;
+        disconnected?: boolean;
+        constructor(callback: () => void) { this.callback = callback; observers.push(this); }
         observe() {}
         disconnect() { this.disconnected = true; }
     }
@@ -23,7 +40,7 @@ async function setup(context, savedView, initialRows) {
         getComputedStyle: () => ({ paddingTop: "16px" }),
     });
     const Virtualizer = () => null;
-    const { LogBox } = await loadModule(new URL("./LogBox.tsx", import.meta.url), runtime, {
+    const { LogBox } = await loadModule<typeof import("./LogBox.tsx")>(new URL("./LogBox.tsx", import.meta.url), runtime, {
         jotai: { useAtomValue: () => { subscriptions++; return { data: rows }; } },
         virtua: { Virtualizer }, "@store": { store, Atom_MessageLogs: {} },
         "./message_container/MessageContainer": {}, "./EmptyState": { EmptyState: () => null },
@@ -32,21 +49,23 @@ async function setup(context, savedView, initialRows) {
         "@logics_configs": { useSettingValue: () => ({ data: false }) },
     });
     const cache = { measured: true };
-    const render = () => {
-        let virtual;
+    const render = (): TreeNode => {
+        let virtual: TreeNode | null = null;
         runtime.render(LogBox.type, { savedView }, tree => {
-            tree.ref.current = element;
+            refOf(tree).current = element;
             virtual = find(tree, node => node.type === Virtualizer);
-            virtual.ref.current = { cache };
+            assert.ok(virtual);
+            refOf(virtual).current = { cache };
         });
+        assert.ok(virtual);
         return virtual;
     };
     return { render, runtime, element, store, window, cache, observers,
-        get subscriptions() { return subscriptions; }, setRows: value => { rows = value; } };
+        get subscriptions() { return subscriptions; }, setRows: (value: Row[]) => { rows = value; } };
 }
 
 test("VR reopening restores a paused scroll and cache before reconciling messages received while closed", async context => {
-    const savedView = { current: null }, rows = [{ id: "a" }, { id: "b" }];
+    const savedView: SavedViewRef = { current: null }, rows = [{ id: "a" }, { id: "b" }];
     const before = await setup(context, savedView, rows);
     before.render();
     assert.equal(before.element.scrollTop, 800);
@@ -54,6 +73,7 @@ test("VR reopening restores a paused scroll and cache before reconciling message
     before.element.scrollTop = 123;
     before.element.dispatch("scroll");
     before.runtime.unmount();
+    assert.ok(savedView.current);
     assert.equal(savedView.current.follow, false);
     assert.equal(savedView.current.scrollTop, 123);
     assert.equal(savedView.current.cache, before.cache);
@@ -73,10 +93,11 @@ test("VR reopening restores a paused scroll and cache before reconciling message
 });
 
 test("VR reopening keeps following the latest bottom; End restores follow after a manual scroll", async context => {
-    const savedView = { current: null };
+    const savedView: SavedViewRef = { current: null };
     const before = await setup(context, savedView, [{ id: "a" }]);
     before.render();
     before.runtime.unmount();
+    assert.ok(savedView.current);
     assert.equal(savedView.current.follow, true);
     const after = await setup(context, savedView, [{ id: "a" }, { id: "b" }]);
     after.render();
@@ -97,12 +118,13 @@ test("VR reopening keeps following the latest bottom; End restores follow after 
 
 test("retention during closure uses the existing two-step shift after restoring the saved view", async context => {
     const oldRows = [{ id: "a" }, { id: "b" }, { id: "c" }], newest = [{ id: "b" }, { id: "c" }, { id: "d" }];
-    const savedView = { current: { view: { rows: oldRows, source: oldRows, shift: false }, follow: false, scrollTop: 100 } };
+    // A saved view with only the fields that reopening the log reads.
+    const savedView: SavedViewRef = { current: unchecked<SavedLogView>({ view: { rows: oldRows, source: oldRows, shift: false }, follow: false, scrollTop: 100 }) };
     const subject = await setup(context, savedView, newest);
     assert.equal(subject.render().props.data, oldRows);
     const shift = subject.render();
     assert.equal(shift.props.shift, true);
-    assert.deepEqual(shift.props.data.map(row => row.id), ["b", "c"]);
+    assert.deepEqual(shift.props.data.map((row: Row) => row.id), ["b", "c"]);
     assert.equal(subject.render().props.data, newest);
     subject.runtime.unmount();
 });

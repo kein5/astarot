@@ -1,32 +1,41 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { hooks, loadModule, find } from "../../../../../../../logics/test/hookHarness.ts";
+import { hooks, loadModule, find, unchecked } from "../../../../../../../logics/test/hookHarness.ts";
+import type { HookRuntime, TreeNode } from "../../../../../../../logics/test/hookHarness.ts";
 
 const engines = [
     { id: "CTranslate2", label: "CTranslate2", is_available: true, is_default: true },
     { id: "DeepL_API", label: "DeepL API", is_available: false },
 ];
 
-async function setup(selected = [], closed = []) {
+// An engine's box, the list's own function component (not exported), as the list put it in its
+// tree: found by its name and drawn with the props the list gave it.
+const isBox = (item: TreeNode, id: string) => typeof item.type === "function" && item.type.name === "TranslatorBox" && item.props.id === id;
+const drawBox = (runtime: HookRuntime, node: TreeNode) =>
+    // The element's type is that function component, called here as React would call it.
+    runtime.render(unchecked<(props: unknown) => TreeNode>(node.type), node.props);
+
+async function setup(selected: unknown[] = [], closed: unknown[] = []) {
     const runtime = hooks();
-    const { TranslatorSelector } = await loadModule(new URL("./TranslatorSelector.tsx", import.meta.url), runtime, {
-        "@utils": { chunkArray: (items, size) => Array.from({ length: Math.ceil(items.length / size) }, (_, i) => items.slice(i * size, i * size + size)) },
-        "@store": { useStore_IsOpenedTranslatorSelector: () => ({ updateIsOpenedTranslatorSelector: value => closed.push(value) }) },
+    const { TranslatorSelector } = await loadModule<typeof import("./TranslatorSelector.tsx")>(new URL("./TranslatorSelector.tsx", import.meta.url), runtime, {
+        "@utils": { chunkArray: <T>(items: T[], size: number) => Array.from({ length: Math.ceil(items.length / size) }, (_, i) => items.slice(i * size, i * size + size)) },
+        "@store": { useStore_IsOpenedTranslatorSelector: () => ({ updateIsOpenedTranslatorSelector: (value: unknown) => closed.push(value) }) },
         "@logics_main": { useLanguageSettings: () => ({ canChangeLanguageSettings: () => true, isLanguageSettingsBusy: false,
-            setSelectedTranslationEngines: id => selected.push(id) }) },
+            setSelectedTranslationEngines: (id: unknown) => selected.push(id) }) },
     });
     return { runtime, TranslatorSelector };
 }
 
 test("an unavailable translation engine cannot be selected with the keyboard and leaves the tab order", async () => {
-    const selected = [], closed = [];
+    const selected: unknown[] = [], closed: unknown[] = [];
     const { runtime, TranslatorSelector } = await setup(selected, closed);
     const tree = runtime.render(TranslatorSelector, { selected_id: "CTranslate2", translation_engines: engines, is_selected_same_language: false });
-    const box = id => {
-        const node = find(tree, item => item.type?.name === "TranslatorBox" && item.props.id === id);
-        return runtime.render(node.type, node.props);
+    const box = (id: string) => {
+        const node = find(tree, item => isBox(item, id));
+        assert.ok(node);
+        return drawBox(runtime, node);
     };
-    const press = (element, key) => element.props.onKeyDown({ key, repeat: false, preventDefault() {} });
+    const press = (element: TreeNode, key: string) => element.props.onKeyDown({ key, repeat: false, preventDefault() {} });
 
     const unavailable = box("DeepL_API");
     assert.equal(unavailable.props.tabIndex, -1);
@@ -45,13 +54,18 @@ test("an unavailable translation engine cannot be selected with the keyboard and
 
 test("the reason an engine is unavailable is on screen and describes the group and the engine", async () => {
     const { runtime, TranslatorSelector } = await setup();
-    const render = (translation_engines, is_selected_same_language = false) =>
+    const render = (translation_engines: typeof engines, is_selected_same_language = false) =>
         runtime.render(TranslatorSelector, { selected_id: "CTranslate2", translation_engines, is_selected_same_language });
-    const group = tree => find(tree, item => item.props?.role === "group");
-    const text = (tree, key) => find(tree, item => item.type === "p" && item.props.children === key);
-    const box = (tree, id) => {
-        const node = find(tree, item => item.type?.name === "TranslatorBox" && item.props.id === id);
-        return runtime.render(node.type, node.props);
+    const group = (tree: TreeNode) => {
+        const found = find(tree, item => item.props?.role === "group");
+        assert.ok(found);
+        return found;
+    };
+    const text = (tree: TreeNode, key: string) => find(tree, item => item.type === "p" && item.props.children === key);
+    const box = (tree: TreeNode, id: string) => {
+        const node = find(tree, item => isBox(item, id));
+        assert.ok(node);
+        return drawBox(runtime, node);
     };
 
     const tree = render(engines);
@@ -69,6 +83,7 @@ test("the reason an engine is unavailable is on screen and describes the group a
     const same_language = render(engines, true);
     assert.equal(text(same_language, "main_page.translator_selector.unavailable_hint"), null);
     const same_reason = text(same_language, "main_page.translator_selector.is_selected_same_language");
+    assert.ok(same_reason);
     assert.equal(group(same_language).props["aria-describedby"], same_reason.props.id);
     assert.equal(box(same_language, "DeepL_API").props["aria-describedby"], same_reason.props.id);
 });

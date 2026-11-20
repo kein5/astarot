@@ -1,24 +1,29 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
+import type { TestContext } from "vitest";
 import { hooks, loadModule, find, eventTarget, stubGlobals } from "../../../../../../../../logics/test/hookHarness.ts";
 
-const setup = async context => {
-    const runtime = hooks(), window = eventTarget(), timers = new Map(), sent = [], edited = [], hovered = [];
+const setup = async (context: TestContext) => {
+    const runtime = hooks(), window = eventTarget(), timers = new Map<number, () => void>(), sent: string[] = [], edited: string[] = [], hovered: boolean[] = [];
     let timerId = 0;
     context.onTestFinished(() => runtime.unmount());
-    stubGlobals(context, { window, setTimeout: (fn, delay) => {
+    stubGlobals(context, { window, setTimeout: (fn: () => void, delay: number) => {
         assert.equal(delay, 500);
         timers.set(++timerId, fn);
         return timerId;
-    }, clearTimeout: id => timers.delete(id) });
-    const { MessageSubMenuContainer } = await loadModule(new URL("./MessageSubMenuContainer.tsx", import.meta.url), runtime, {
+    }, clearTimeout: (id: number) => timers.delete(id) });
+    const { MessageSubMenuContainer } = await loadModule<typeof import("./MessageSubMenuContainer.tsx")>(new URL("./MessageSubMenuContainer.tsx", import.meta.url), runtime, {
         "@common_components": { Tooltip: () => null },
     });
     const props = { is_shown: true, resendFunction: () => sent.push("resend"), editFunction: () => edited.push("edit"),
-        setIsHovered: value => hovered.push(value) };
-    const render = () => find(runtime.render(MessageSubMenuContainer, props), node => node.type === "button");
-    const captured = new Set(), target = { setPointerCapture: id => captured.add(id),
-        hasPointerCapture: id => captured.has(id), releasePointerCapture: id => captured.delete(id),
+        setIsHovered: (value: boolean) => hovered.push(value) };
+    const render = () => {
+        const button = find(runtime.render(MessageSubMenuContainer, props), node => node.type === "button");
+        assert.ok(button);
+        return button;
+    };
+    const captured = new Set<number>(), target = { setPointerCapture: (id: number) => captured.add(id),
+        hasPointerCapture: (id: number) => captured.has(id), releasePointerCapture: (id: number) => captured.delete(id),
         getBoundingClientRect: () => ({ left: 0, right: 100, top: 0, bottom: 50 }) };
     const down = (button = 0, isPrimary = true) => {
         const control = render();
@@ -29,7 +34,7 @@ const setup = async context => {
 
 test("resend accepts only a primary pointer hold; a click still edits", async context => {
     const s = await setup(context);
-    for (const [button, primary] of [[1, true], [2, true], [0, false]]) {
+    for (const [button, primary] of [[1, true], [2, true], [0, false]] as const) {
         s.down(button, primary);
         for (const fn of [...s.timers.values()]) fn();
         assert.deepEqual(s.sent, []);
@@ -67,6 +72,9 @@ test("the click that ends a completed resend hold does not also edit (replace th
     assert.deepEqual(s.edited, ["edit", "edit"]);
 });
 
+// The mouse events a pointer event stood in for before.
+const OLD_NAMES: Record<string, string> = { onPointerUp: "onMouseUp", onPointerLeave: "onMouseLeave" };
+
 for (const cancel of ["onPointerUp", "onPointerLeave", "onPointerCancel", "onLostPointerCapture", "onBlur", "window blur", "unmount"])
     test(`resend ${cancel} invalidates the hold, including a queued timer callback`, async context => {
         const s = await setup(context);
@@ -75,7 +83,7 @@ for (const cancel of ["onPointerUp", "onPointerLeave", "onPointerCancel", "onLos
         if (cancel === "unmount") s.runtime.unmount();
         else if (cancel === "window blur") s.window.dispatch("blur");
         else {
-            const oldName = { onPointerUp: "onMouseUp", onPointerLeave: "onMouseLeave" }[cancel];
+            const oldName = OLD_NAMES[cancel];
             const props = s.render().props;
             (props[cancel] ?? props[oldName])?.({ pointerId: 1 });
         }
@@ -95,7 +103,7 @@ for (const cancel of ["onPointerUp", "onPointerLeave", "onPointerCancel", "onLos
         assert.deepEqual(s.window.removed, s.window.added);
     });
 
-const key = (name, extra = {}) => ({ key: name, repeat: false, prevented: false, preventDefault() { this.prevented = true; }, ...extra });
+const key = (name: string, extra: { repeat?: boolean } = {}) => ({ key: name, repeat: false, prevented: false, preventDefault() { this.prevented = true; }, ...extra });
 
 for (const name of ["Enter", " "]) test(`holding ${name === " " ? "Space" : name} resends and a short press edits`, async context => {
     const s = await setup(context);

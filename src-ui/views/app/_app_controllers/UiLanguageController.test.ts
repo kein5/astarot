@@ -3,10 +3,10 @@ import { test } from "vitest";
 import { hooks, loadModule } from "../../../logics/test/hookHarness.ts";
 
 const setup = async () => {
-    const runtime = hooks(), changes = [];
+    const runtime = hooks(), changes: string[] = [];
     const state = { language: "en", ready: false };
-    const { UiLanguageController } = await loadModule(new URL("./UiLanguageController.tsx", import.meta.url), runtime, {
-        "@useI18n": { useI18n: () => ({ i18n: { changeLanguage: language => changes.push(language) } }) },
+    const { UiLanguageController } = await loadModule<typeof import("./UiLanguageController.tsx")>(new URL("./UiLanguageController.tsx", import.meta.url), runtime, {
+        "@useI18n": { useI18n: () => ({ i18n: { changeLanguage: (language: string) => changes.push(language) } }) },
         "@logics_configs": { useAppearance: () => ({ currentUiLanguage: { data: state.language } }) },
         "@logics_common": { useIsBackendReady: () => ({ currentIsBackendReady: { data: state.ready } }) },
     });
