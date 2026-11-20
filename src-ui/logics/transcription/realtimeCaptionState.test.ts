@@ -202,7 +202,8 @@ test("a caption with a malformed identity is ignored; the limits themselves are 
     const ok = (changes: Record<string, unknown>) => captions.applyRealtimeCaption(start, unchecked<RealtimeCaptionPayload>({ ...payload, ...changes }),
         unchecked<RealtimeSessions>({ mic: { ...owner, namespace: changes.namespace ?? owner.namespace, generation: changes.generation ?? owner.generation } }));
     for (const changes of [{ namespace: "n".repeat(129) }, { item_id: "i".repeat(257) }, { namespace: 5 }, { item_id: 5 },
-        { namespace: "" }, { item_id: "" }, { revision: 0 }, { revision: 1.5 }, { generation: -1 }, { source: "game" }, { state: "done" }]) {
+        { namespace: "" }, { item_id: "" }, { revision: 0 }, { revision: 1.5 }, { revision: Number.NaN }, { generation: -1 },
+        { source: "game" }, { state: "done" }]) {
         assert.equal(ok(changes), start, JSON.stringify(changes));
     }
     for (const changes of [{ namespace: "n".repeat(128) }, { item_id: "i".repeat(256) }, { generation: 0 }]) {
@@ -268,6 +269,16 @@ test("a caption only moves forward: newer revisions, then final, then translated
     // A recognized row that was settled before its translation stays settled.
     const settled = captions.applyRealtimeCaption(final, { ...payload, state: "outcome", revision: 4, outcome: "delivered" }, {});
     assert.equal(captions.applyRealtimeCaption(settled, { ...payload, revision: 5, state: "translated" }, active), settled);
+});
+
+test("a row that is not a caption stays where it is through captions and pruning", () => {
+    const typed: MessageLogRow = { id: "typed", category: "sent", messages: { original: { message: "typed", transliteration: [] }, translations: [] } };
+    const active = { mic: owner };
+    const shown = captions.applyRealtimeCaption({ rows: [typed], retired: [] }, payload, active);
+    assert.deepEqual(shown.rows.map(row => row.id), ["typed", "realtime:mic:4:session:one"]);
+    const pruned = captions.pruneRealtimeCaptions(shown, { mic: { ...owner, requested: false } });
+    assert.deepEqual(pruned.rows, [typed]);
+    assert.equal(pruned.rows[0], typed);
 });
 
 test("settling one caption keeps the other rows", () => {

@@ -35,7 +35,7 @@ voice-test = [
     "audioop-lts==0.2.2",
     # Verifies updater signatures in the release-draft tests (tools/updater_manifest.py).
     "cryptography==50.0.2",
-    # The chatbox helpers of the native GUI tests (tests/platform/native_chatbox.py).
+    # The Quick Chat native GUI test reads what the app sends over OSC (tests/platform/test_native_quick_chat.py).
     "python-osc==1.10.2",
     # pyopenvr: the Rust crates' copy of its function tables is checked against it
     # (tests/voice/test_openvr_fn_tables.py), and the packages bundle the OpenVR client library
