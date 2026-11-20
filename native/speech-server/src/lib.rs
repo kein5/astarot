@@ -1,6 +1,8 @@
 //! Owns the bundled speech.cpp server processes: start, stop, restart and liveness; and
 //! llama.cpp's server for a translation LLM, which the app fetches after consent ([`llama`]).
 //!
+//! Codename: Sargatanas (#689; the table is in `docs/voice-stack/project-rename.md`).
+//!
 //! The behaviour follows `src-python/models/speech_server/`, which this crate is to
 //! replace (issue #276): the same settings file, the same states and the same fixed
 //! error codes. The speech.cpp executable stays a separate process; only the layer

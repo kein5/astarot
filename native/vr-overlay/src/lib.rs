@@ -1,5 +1,7 @@
 //! The SteamVR overlays of VRCT-VOX (`src-python/models/overlay/`, issue #282).
 //!
+//! Codename: Nuberus (#689; the table is in `docs/voice-stack/project-rename.md`).
+//!
 //! - [`engine`]: the overlay thread. It waits for SteamVR, makes the overlays, keeps their
 //!   positions, fades the subtitles out, shows the VR panel's picture and takes the controllers
 //!   (laser, clicks on the page, grabbing, scaling, resizing, the toolbar).

@@ -1,6 +1,8 @@
 //! Speech recognition of VRCT-VOX (#278), the Rust replacement for
 //! `src-python/models/transcription/`.
 //!
+//! Codename: Loray (#689; the table is in `docs/voice-stack/project-rename.md`).
+//!
 //! - [`recorder`]: the recorder of the cloud engines: capture, the energy listener
 //!   ([`energy`]) or voice activity detection ([`vad`], on a speech.cpp server: [`server_vad`]),
 //!   utterances from phrases ([`phrases`]) and the engines ([`providers`]).
