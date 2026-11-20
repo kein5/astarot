@@ -5,6 +5,7 @@ import { createLanguageNames } from "../../../../../../logics/common/languageNam
 import clsx from "clsx";
 import styles from "./LanguageSelectorOpenButton.module.scss";
 import ArrowLeftSvg from "@images/arrow_left.svg?react";
+import { Tooltip } from "../../../../../common_components/tooltip/Tooltip";
 import { useStore_IsOpenedLanguageSelector } from "@store";
 import {
     useIsMainPageCompactMode,
@@ -89,13 +90,15 @@ export const LanguageSelectorOpenButton = ({ TurnedOnSvgComponent, is_turned_on,
                 <p className={styles.title}>{title}</p>
             </div>
             {/* A button so the selector also opens from the keyboard. */}
-            <button type="button" className={styles.dropdown_menu_container} onClick={toggleSelector}
-                aria-label={country_text ? `${title}: ${language_text} (${country_text})` : `${title}: ${language_text}`} aria-expanded={is_opened}
-                title={hint} aria-describedby={hint_id}>
-                <span className={styles.selected_language} data-skeleton="">{language_text}</span>
-                {country_text && <span className={styles.selected_language} data-skeleton="">({country_text})</span>}
-                <ArrowLeftSvg className={arrow_class_names} aria-hidden="true" />
-            </button>
+            <Tooltip bare placement="right" title={hint}>
+                <button type="button" className={styles.dropdown_menu_container} onClick={toggleSelector}
+                    aria-label={country_text ? `${title}: ${language_text} (${country_text})` : `${title}: ${language_text}`} aria-expanded={is_opened}
+                    aria-describedby={hint_id}>
+                    <span className={styles.selected_language} data-skeleton="">{language_text}</span>
+                    {country_text && <span className={styles.selected_language} data-skeleton="">({country_text})</span>}
+                    <ArrowLeftSvg className={arrow_class_names} aria-hidden="true" />
+                </button>
+            </Tooltip>
             <span id={hint_id} className={styles.visually_hidden}>{hint}</span>
         </div>
     );

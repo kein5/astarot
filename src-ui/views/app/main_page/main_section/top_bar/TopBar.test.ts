@@ -20,6 +20,21 @@ interface MenuState {
 }
 const all = (tree: unknown, predicate: (node: TreeNode) => boolean) => nodesIn(tree).filter(predicate);
 const t = (key: string, options?: object) => options ? `${key}:${JSON.stringify(options)}` : key;
+// A control inside its tooltip, an element named "tooltip" that keeps the bubble's words in
+// `title` and its side in `placement` (hookHarness): the control, the words and the side.
+const tipped = (tree: TreeNode) => {
+    assert.equal(tree.type, "tooltip");
+    const control = find(tree.props.children, () => true);
+    assert.ok(control);
+    return { control, words: tree.props.title, side: tree.props.placement };
+};
+// The words a control points at with aria-describedby: kept in the page, out of sight.
+const describedBy = (control: TreeNode) => {
+    const words = find(control, node => node.props?.id !== undefined && node.props.id === control.props["aria-describedby"]);
+    assert.ok(words, "the control points at its description");
+    assert.equal(words.props.hidden, true);
+    return words.props.children;
+};
 
 // The part of the bar named `name`, found in its tree: a function of the bar's own module (not
 // exported), which the test draws as React would.
@@ -183,7 +198,8 @@ test("the main bar leads with stop and mute, drawn with its own short and shorte
     assert.equal(second.type, actions.StopActions);
     const group = runtime.render(second.type, second.props);
     const [stop, mute] = all(group, node => node.type === "button");
-    const words = (button: TreeNode) => Object.fromEntries(all(button, node => node.type === "span").map(node => [node.props.className, node.props.children]));
+    // The words a button draws, by their class (its description is a span without one).
+    const words = (button: TreeNode) => Object.fromEntries(all(button, node => node.type === "span" && node.props.className !== undefined).map(node => [node.props.className, node.props.children]));
     assert.deepEqual(words(stop), { long: 'voice_ui.topbar_stop_count:{"count":2}', short: 'voice_ui.topbar_stop_short_count:{"count":2}',
         tiny: 'voice_ui.topbar_stop_tiny_count:{"count":2}' });
     assert.equal(stop.props["aria-label"], 'voice_ui.topbar_stop_count:{"count":2}', "the name stays the full words");
@@ -192,7 +208,14 @@ test("the main bar leads with stop and mute, drawn with its own short and shorte
     assert.deepEqual(words(mute), { long: "voice_ui.mute_row", short: "voice_ui.mute_row", tiny: "voice_ui.topbar_muted",
         muted_badge: "voice_ui.topbar_muted" });
     assert.equal(mute.props["aria-label"], "voice_ui.mute_row");
-    assert.equal(mute.props.title, "voice.mute_scope_managed");
+    // Both tooltips open under the bar, on the pointer and on keyboard focus (Tooltip); their
+    // words stay in the page as the buttons' descriptions. No title attribute is left.
+    const [stopTip, muteTip] = all(group, node => node.type === "tooltip").map(tipped);
+    assert.deepEqual([stopTip.control.props["aria-label"], stopTip.words, stopTip.side], [stop.props["aria-label"], "voice.stop", "bottom"]);
+    assert.deepEqual([muteTip.control.props["aria-label"], muteTip.words, muteTip.side], [mute.props["aria-label"], "voice.mute_scope_managed", "bottom"]);
+    assert.equal(describedBy(stop), "voice.stop");
+    assert.equal(describedBy(mute), "voice.mute_scope_managed");
+    assert.deepEqual([stop.props.title, mute.props.title], [undefined, undefined]);
     assert.equal(mute.props["aria-pressed"], true);
     stop.props.onClick(); mute.props.onClick();
     assert.deepEqual(sent.slice(-2), ["/run/stop_voice", "/run/resume_voice"]);
@@ -225,7 +248,7 @@ test("the settings bar draws the same actions without the shortest words", async
     const classes = { stop_actions: "stop_actions", stop: "stop", long: "long", short: "short", is_attention: "is_attention",
         is_pressed: "is_pressed", muted_badge: "muted_badge" };
     const group = runtime.render(StopActions, { classes });
-    assert.deepEqual(all(group, node => node.type === "span").map(node => node.props.className), ["long", "short", "long", "short"]);
+    assert.deepEqual(all(group, node => node.type === "span" && node.props.className !== undefined).map(node => node.props.className), ["long", "short", "long", "short"]);
     const [, mute] = all(group, node => node.type === "button");
     assert.equal(mute.props["aria-pressed"], undefined, "no reported state, no toggle");
 });
@@ -258,10 +281,11 @@ test("stop and mute keep their width in a narrow bar; the update button keeps on
     const right = readFileSync(new URL("./right_side_components/RightSideComponents.module.scss", import.meta.url), "utf8");
     const narrow = right.split("@mixin narrow_menu")[1].split("@container")[0];
     assert.match(narrow, /\.software_update_label \{[^}]*clip-path: inset\(50%\)/);
-    const button = (await menu(context, { update: "available" })).updateButton();
+    const { control: button, words, side } = tipped((await menu(context, { update: "available" })).updateButton());
     assert.equal(button.type, "button");
     assert.equal(button.props.type, "button");
-    assert.equal(button.props.title, "main_page.update_available", "the tooltip keeps the words");
+    assert.deepEqual([words, side], ["main_page.update_available", "bottom"], "the tooltip keeps the words");
+    assert.equal(button.props.title, undefined);
     assert.ok(find(button, node => node.type === "span" && node.props.children === "main_page.update_available"), "and so does the name");
 });
 
@@ -277,14 +301,18 @@ test("the words added to the main page are never smaller than 12px (1.2rem at th
 
 test("the inputs and outputs button opens and closes the panel it controls", async context => {
     const s = await menu(context);
-    let button = s.flowButton();
+    const drawn = tipped(s.flowButton());
+    let button = drawn.control;
     assert.equal(button.type, "button");
     assert.equal(button.props["aria-expanded"], false);
     assert.equal(button.props["aria-controls"], "io_flow_panel");
-    assert.equal(button.props.title, "io_flow.open_hint");
+    // What the panel shows is the button's tooltip and, kept in the page, its description.
+    assert.deepEqual([drawn.words, drawn.side], ["io_flow.open_hint", "bottom"]);
+    assert.equal(describedBy(button), "io_flow.open_hint");
+    assert.equal(button.props.title, undefined);
     assert.ok(find(button, node => node.props?.children === "io_flow.open"), "the button names itself");
     button.props.onClick();
-    button = s.flowButton();
+    button = tipped(s.flowButton()).control;
     assert.equal(button.props["aria-expanded"], true);
     assert.match(button.props.className, /has_on/);
     assert.deepEqual(s.calls, [["flow"]]);

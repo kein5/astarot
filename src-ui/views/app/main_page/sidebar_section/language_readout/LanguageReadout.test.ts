@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import { readFileSync } from "node:fs";
-import { hooks, loadModule, find, fieldOf } from "../../../../../logics/test/hookHarness.ts";
+import { hooks, loadModule, find, fieldOf, treeNode } from "../../../../../logics/test/hookHarness.ts";
 import type { TreeNode } from "../../../../../logics/test/hookHarness.ts";
 import * as languageNames from "../../../../../logics/common/languageNames.ts";
 
@@ -35,7 +35,10 @@ async function setup({ ui = "ja", yours = entry("Japanese", "Japan"), targets = 
                 currentSelectedTargetLanguages: { data: targets && { 1: targets, 2: { 1: entry("Japanese", "Japan") } } } }),
         },
     });
-    return { button: runtime.render(LanguageReadout), toggled };
+    // The readout is drawn inside its tooltip, an element named "tooltip" that keeps the bubble's
+    // words in `title` (hookHarness); nothing is drawn before the languages arrive.
+    const drawn = runtime.render(LanguageReadout);
+    return { tip: drawn, button: drawn ? treeNode(drawn.props.children) : null, toggled };
 }
 const names = (button: TreeNode | null) => {
     assert.ok(button);
@@ -46,7 +49,10 @@ test("the icon rail shows your language and the other side's, in the UI language
     const s = await setup();
     assert.deepEqual(names(s.button), ["日本語", "英語"]);
     assert.ok(s.button);
-    assert.equal(s.button.props.title, "日本語 → 英語");
+    assert.ok(s.tip);
+    // The rail cuts long names short: the pair in full is the tooltip, beside the rail.
+    assert.deepEqual([s.tip.type, s.tip.props.title, s.tip.props.placement], ["tooltip", "日本語 → 英語", "right"]);
+    assert.equal(s.button.props.title, undefined);
     assert.equal(s.button.props["aria-label"], "main_page.language_settings: 日本語 → 英語");
     assert.equal(find(s.button, node => node.props?.className === "more"), null);
     assert.deepEqual(names((await setup({ ui: "en" })).button), ["Japanese", "English"]);
@@ -58,8 +64,8 @@ test("more languages on the other side are counted, and disabled ones are not", 
     const more = find(s.button, node => node.props?.className === "more");
     assert.ok(more);
     assert.equal(more.props.children.join(""), "+1");
-    assert.ok(s.button);
-    assert.equal(s.button.props.title, "日本語 → 英語 +1");
+    assert.ok(s.tip);
+    assert.equal(s.tip.props.title, "日本語 → 英語 +1");
 });
 
 test("it follows the selected preset and opens the rail when pressed", async () => {
@@ -84,5 +90,6 @@ test("long names end in an ellipsis; on is tinted and named in the rail", () => 
     assert.match(switches, /&\.is_active \{\s*background-color: var\(--vox_highlight_tint\);/);
     assert.match(switches, /&\.is_active:not\(\.is_pending\) \{\s*color: var\(--vox_state_active\);/);
     const jsx = readFileSync(new URL("../main_function_switch/MainFunctionSwitch.tsx", import.meta.url), "utf8");
-    assert.match(jsx, /title=\{blockedTitle \?\? statusText \?\? \(currentIsMainPageCompactMode\.data \? switchLabel : undefined\)\}/);
+    assert.match(jsx, /const tooltip = blockedTitle \?\? statusText \?\? \(currentIsMainPageCompactMode\.data \? switchLabel : undefined\);/);
+    assert.match(jsx, /<Tooltip bare placement="right" title=\{tooltip\}>/);
 });

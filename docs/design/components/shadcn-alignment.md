@@ -192,11 +192,11 @@ VR パネルは px の段で描く別の画面（DESIGN.md「Typography」）な
 
 ### Tooltip
 
-アプリ: `common_components/tooltip`（SCSS。ポータルなし、`role="tooltip"` なし。使っているのは再送のボタンだけ）。#676 と #677 で入った `Hint`（設定の説明の吹き出し）。メインの画面と設定の多くの部品にあるネイティブの `title` 属性。VR パネルの `VrTooltip`（Python 側が描く）。
+アプリ: `common_components/tooltip`（SCSS。吹き出しはページの末尾に描き、部品の位置からウィンドウの中に置く。`role="tooltip"` を持つが、読み上げには渡さない。メインの画面のレール、上のバー、タイトルバー、入力欄と、再送のボタンが使う。#766）。#676 と #677 で入った `Hint`（設定の説明の吹き出し）。設定の一部の部品と会話のログにあるネイティブの `title` 属性。VR パネルの `VrTooltip`（Python 側が描く）。
 
 | 観点 | ASTAROT | shadcn/ui | 扱い |
 |---|---|---|---|
-| 土台 | CSS の hover と focus で開く。`Hint` は `:has(:focus-visible)` で開き、`aria-describedby` で読まれる | Radix Tooltip（Provider、Trigger、Content、Arrow。ポータルに描く） | 判断（D-21）。ADR-010 が Radix に置き換える候補に挙げている部品 |
+| 土台 | `Tooltip` は、マウスを重ねたときとキーボードのフォーカスで開き、押したときと Escape、Enter、Space で閉じる（#766）。部品に見えている言葉と同じ文は出さない。読み上げは、部品の名前か、ページに残した説明（`aria-describedby`）が受け持つ。`Hint` は CSS の hover と `:has(:focus-visible)` で開き、`aria-describedby` で読まれる | Radix Tooltip（Provider、Trigger、Content、Arrow。ポータルに描く） | 判断（D-21）。ADR-010 が Radix に置き換える候補に挙げている部品 |
 | 開くまで | `Tooltip` は .1 秒待って .15 秒で現れる。`Hint` は 120ms で現れる | `delayDuration` は 0 | D-21 に含める |
 | 見た目 | `Tooltip` と `Hint` は1つの見た目（`common_css/mixins.scss` の `tooltip_content`。#721）。`dark_700` の塗りに明るい文字、1.2rem/500、行の高さ 1.6、余白 `.6rem 1.2rem`、8px、言葉の幅で最大 36rem、文の改行を保つ。前は `Tooltip` が余白 `.4rem .8rem` と 4px の1行（中の段落は `root.css` で折り返すので、ボタンの幅の中で数文字ずつに折れていた）、`Hint` が `.8rem 1.2rem`。矢印なし | `foreground` の塗りに `background` の文字（色が反転）、`text-xs`（1.2rem、行の高さ 1.33）、太さの指定なし、`px-3 py-1.5`（1.2rem、.6rem）、8px、`text-balance`。矢印あり | 余白と角丸は寄せ、`Tooltip` と `Hint` の見た目を1つにした（#721）。色の反転と矢印は判断（D-22）。文字の太さ、行の高さ、`text-balance` は今のまま（D-42、2026-11-19 に決定） |
 
@@ -356,7 +356,7 @@ VR パネルは px の段で描く別の画面（DESIGN.md「Typography」）な
 | D-18 | スイッチの溝の縁をなくすか。なくすなら、DESIGN.md の 3:1 を別の形で満たす | Switch |
 | D-19 | メインの機能のスイッチ（行全体が `role="switch"`）を Radix Switch で作り直すか | Switch |
 | D-20 | スライダーを Radix Slider に置き換えるか。値の吹き出しと目盛りは shadcn/ui にない | Slider |
-| D-21 | ツールチップを Radix Tooltip に置き換えるか。`title` 属性と `Hint` も含めるか。開くまでの待ち時間をどうするか | Tooltip |
+| D-21 | ツールチップを Radix Tooltip に置き換えるか。`title` 属性と `Hint` も含めるか。開くまでの待ち時間をどうするか。メインの画面の `title` 属性は、#766 で `common_components/tooltip` に替えた（Radix ではない） | Tooltip |
 | D-22 | ツールチップの色を反転（明るい地に暗い文字）させ、矢印を付けるか | Tooltip |
 | D-23 | ダイアログの土台を、ネイティブの `<dialog>` のままにするか、Radix Dialog にするか（CSP） | Dialog |
 | D-24 | ダイアログのボタンの並び（狭いと縦、広いと右寄せ）と、右上の閉じるボタンを取り入れるか | Dialog |

@@ -36,6 +36,14 @@ const keydown = (control: TreeNode, key: string, repeat = false) => {
 };
 // Test data: a switch drawn with only the props its keys and clicks read.
 const switchProps = (props: object) => unchecked<SwitchProps>(props);
+// A control is drawn inside its tooltip, an element named "tooltip" that keeps the bubble's words
+// in `title` (hookHarness). This is the control: the tooltip adds no role and takes no key.
+const inTooltip = (tree: TreeNode): TreeNode => {
+    assert.equal(tree.type, "tooltip");
+    const control = treeNode(tree.props.children);
+    assert.ok(control);
+    return control;
+};
 // Test data: the engine's child process, only there: the switches check that one runs, nothing more.
 const runningChild = () => unchecked<NonNullable<BridgeStore["stores"]["store"]["backend_subprocess"]>>({});
 // Test data: a t of the test's own, which answers the key or records what it is asked.
@@ -78,8 +86,8 @@ for (const key of ["Enter", " "]) test(`holding ${JSON.stringify(key)} cannot re
         b.runtime.store.set(atom, { data: true, state: "ok" });
         const render = () => {
             const main = s.useMainFunction();
-            return b.runtime.render(s.SwitchContainer, switchProps({ SvgComponent: icon, currentState: main[`current${name}Status`],
-                toggleFunction: main[`toggle${name}`] }));
+            return inTooltip(b.runtime.render(s.SwitchContainer, switchProps({ SvgComponent: icon, currentState: main[`current${name}Status`],
+                toggleFunction: main[`toggle${name}`] })));
         };
         const before = s.requests.length, control = render();
         keydown(control, key);
@@ -105,7 +113,7 @@ test("TTS and RVC ignore held keys but allow a fresh press to cancel their pendi
     for (const id of ["tts", "rvc"]) {
         const item = find(b.runtime.render(s.MainFunctionSwitch), node => node.props.switch_id === id);
         assert.ok(item);
-        const control = s.SwitchContainer(item.props), before = sent.length;
+        const control = inTooltip(s.SwitchContainer(item.props)), before = sent.length;
         keydown(control, "Enter", true);
         keydown(control, " ", true);
         assert.equal(sent.length, before);
@@ -158,7 +166,7 @@ test("disconnected main switches hide retained activity and reject clicks, keys 
     }
     const disconnected = b.runtime.render(s.MainFunctionSwitch);
     for (const item of disconnected.props.children) {
-        const control = s.SwitchContainer(item.props);
+        const control = inTooltip(s.SwitchContainer(item.props));
         assert.equal(control.props["aria-disabled"], true);
         assert.equal(control.props["aria-checked"], false);
         assert.equal(control.props["aria-busy"], false);
@@ -180,7 +188,7 @@ test("while the engine starts, the switches are locked placeholders, not disconn
     const starting = b.runtime.render(s.MainFunctionSwitch);
     for (const item of starting.props.children) {
         assert.equal(item.props.statusText, null);
-        const control = s.SwitchContainer(item.props);
+        const control = inTooltip(s.SwitchContainer(item.props));
         assert.equal(control.props["aria-disabled"], true);
         assert.equal(control.props["aria-checked"], false);
         assert.equal(control.props["aria-label"], item.props.switchLabel);
@@ -280,9 +288,13 @@ test("a switch whose setup is missing is disabled, says why, and its icon leads 
     for (const id of ["translation", "ocr", "tts", "transcription_send"]) {
         const props = rows[at(id)].props;
         assert.equal(props.blockedReason, `main_page.switch_blocked.${setup.blocks[id].reason}`);
-        const control = s.SwitchContainer(props), before = s.requests.length + sent.length;
+        const drawn = s.SwitchContainer(props);
+        const control = inTooltip(drawn), before = s.requests.length + sent.length;
         assert.equal(control.props["aria-disabled"], true);
-        assert.equal(control.props.title, props.blockedReason);
+        // The reason is the tooltip, beside the rail; no title attribute is left on the switch.
+        assert.equal(drawn.props.title, props.blockedReason);
+        assert.equal(drawn.props.placement, "right");
+        assert.equal(control.props.title, undefined);
         assert.equal(control.props["aria-describedby"], `main_switch_${id}_reason`);
         // Still in the tab order, so the reason can be heard; pressing does nothing.
         assert.equal(control.props.tabIndex, 0);
@@ -305,7 +317,7 @@ test("a switch whose setup is missing is disabled, says why, and its icon leads 
     // Switches without a block keep working.
     const free = rows[at("transcription_receive")].props;
     assert.equal(free.blockedReason, null);
-    assert.equal(s.SwitchContainer(free).props["aria-disabled"], false);
+    assert.equal(inTooltip(s.SwitchContainer(free)).props["aria-disabled"], false);
 });
 
 test("a switch that is on stays usable when its setup goes missing, so it can be turned off", async () => {
@@ -320,7 +332,7 @@ test("a switch that is on stays usable when its setup goes missing, so it can be
     assert.equal(rows[index].props.blockedReason, null);
     assert.equal(rows.length, 6);
     const before = s.requests.length;
-    s.SwitchContainer(rows[index].props).props.onClick();
+    inTooltip(s.SwitchContainer(rows[index].props)).props.onClick();
     assert.deepEqual(s.requests.slice(before), ["/set/disable/ocr_capture"]);
 });
 
@@ -360,16 +372,20 @@ test("each feature's icon is a named button to its settings, the same while star
     assert.deepEqual(shape(rows), before);
     for (const node of rows) {
         const row = s.SwitchRow(node.props);
-        const [button, control] = row.props.children;
+        const [tip, control] = row.props.children;
+        const button = inTooltip(tip);
         assert.equal(button.type, "button");
         assert.equal(button.props.type, "button");
-        // Named and titled alike; the icon inside is not read.
+        // Its name is also its tooltip; the icon inside is not read.
         assert.ok(button.props["aria-label"]);
-        assert.equal(button.props.title, button.props["aria-label"]);
+        assert.equal(tip.props.title, button.props["aria-label"]);
+        assert.equal(button.props.title, undefined);
+        // Beside the rail, level with the row, so the bubble does not cover the switch's name.
+        assert.deepEqual([tip.props.placement, tip.props.beside], ["right", ".switch_row"]);
         assert.equal(button.props.children.props["aria-hidden"], "true");
         // The switch beside it keeps its own role and name.
         assert.equal(control.type, s.SwitchContainer);
-        assert.equal(s.SwitchContainer(control.props).props.role, "switch");
+        assert.equal(inTooltip(s.SwitchContainer(control.props)).props.role, "switch");
         button.props.onClick();
     }
     assert.deepEqual(prepared, ["translator", "transcription", "transcription", "ocr", "tts", "rvc"]);
@@ -421,9 +437,15 @@ test("#554: the uses picked in settings choose the switches in sight; one that i
     more = rows.at(-1);
     assert.ok(more);
     assert.equal(more.props.expanded, true);
-    const button = b.runtime.render(s.MoreFeaturesButton, more.props);
+    const tip = b.runtime.render(s.MoreFeaturesButton, more.props);
+    const button = inTooltip(tip);
     assert.equal(button.props["aria-expanded"], true);
     assert.equal(button.props["aria-label"], "main_page.more_features_hide");
+    // What the button does is its tooltip and, kept in the page, its accessible description.
+    assert.equal(tip.props.title, "main_page.more_features_hide: main_page.more_features_hint");
+    const hint = find(button, node => node.props.id === button.props["aria-describedby"]);
+    assert.ok(hint);
+    assert.deepEqual([hint.props.hidden, hint.props.children], [true, "main_page.more_features_hint"]);
 });
 
 test("#554: every switch is in sight while the uses are not known, and with everything picked", async () => {

@@ -22,6 +22,7 @@ import { useMainFunction } from "@logics_main";
 import { useIoFlow } from "../../../../../../logics/flow/useIoFlow";
 import { OpenQuickSettingButton } from "./_buttons/OpenQuickSettingButton";
 import { VrchatPresence } from "../../../../others/vrchat_presence/VrchatPresence";
+import { Tooltip } from "../../../../../common_components/tooltip/Tooltip";
 
 import { generateLocalizedDocumentUrl } from "@ui_configs";
 import type { TargetHolder } from "../../../../../../logics/common/targetHolder.ts";
@@ -35,16 +36,17 @@ export const RightSideComponents = () => {
             <SoftwareUpdateAvailableButton />
             <IoFlowButton />
             <QuickSettingsMenu />
-            <a
-                className={styles.help_and_info_button}
-                aria-label={t("main_page.help_link")}
-                title={t("main_page.help_link")}
-                href={generateLocalizedDocumentUrl(currentUiLanguage.data).vrct_document_ui_guide_url}
-                target="_blank"
-                rel="noreferrer"
-            >
-                <HelpSvg className={styles.help_svg} aria-hidden="true" />
-            </a>
+            <Tooltip bare placement="bottom" title={t("main_page.help_link")}>
+                <a
+                    className={styles.help_and_info_button}
+                    aria-label={t("main_page.help_link")}
+                    href={generateLocalizedDocumentUrl(currentUiLanguage.data).vrct_document_ui_guide_url}
+                    target="_blank"
+                    rel="noreferrer"
+                >
+                    <HelpSvg className={styles.help_svg} aria-hidden="true" />
+                </a>
+            </Tooltip>
         </div>
     );
 };
@@ -53,7 +55,8 @@ export const RightSideComponents = () => {
 // VRChat microphone mute sync and the subtitle overlay. One button opens them
 // and says how many are on, so the bar keeps its room for stop and mute.
 // It closes with Escape (focus returns to the button), a press outside, or
-// when focus moves elsewhere.
+// when focus moves elsewhere. Its tooltip is its name: drawn where a narrow bar
+// hides the words, and left out where they are in sight (Tooltip).
 const QuickSettingsMenu = () => {
     const { t } = useI18n();
     const { currentForegroundStatus, toggleForeground } = useMainFunction();
@@ -89,17 +92,19 @@ const QuickSettingsMenu = () => {
 
     return (
         <div ref={root} className={styles.menu}>
-            <button ref={opener} type="button" className={clsx(styles.menu_button, { [styles.has_on]: on > 0 })}
-                aria-expanded={open} aria-controls={panel} title={t("main_page.quick_settings")}
-                onClick={() => setOpen(value => !value)}>
-                <TuneSvg className={styles.menu_svg} aria-hidden="true" />
-                <span className={styles.menu_text}>
-                    <span className={styles.menu_label}>{t("main_page.quick_settings")}</span>
-                    <span className={styles.menu_state}>
-                        {on > 0 ? t("main_page.quick_settings_on", { count: on }) : t("main_page.quick_settings_all_off")}
+            <Tooltip bare placement="bottom" title={t("main_page.quick_settings")}>
+                <button ref={opener} type="button" className={clsx(styles.menu_button, { [styles.has_on]: on > 0 })}
+                    aria-expanded={open} aria-controls={panel}
+                    onClick={() => setOpen(value => !value)}>
+                    <TuneSvg className={styles.menu_svg} aria-hidden="true" />
+                    <span className={styles.menu_text}>
+                        <span className={styles.menu_label}>{t("main_page.quick_settings")}</span>
+                        <span className={styles.menu_state}>
+                            {on > 0 ? t("main_page.quick_settings_on", { count: on }) : t("main_page.quick_settings_all_off")}
+                        </span>
                     </span>
-                </span>
-            </button>
+                </button>
+            </Tooltip>
             {open && <div id={panel} className={styles.menu_panel} role="group" aria-label={t("main_page.quick_settings")}>
                 <OpenQuickSettingButton
                     row
@@ -132,17 +137,23 @@ const QuickSettingsMenu = () => {
 };
 
 // Opens the panel that shows where the user's voice and chat go, and how long each took.
+// What the panel shows is the button's tooltip and its accessible description.
 const IoFlowButton = () => {
     const { t } = useI18n();
     const { isPanelOpen, togglePanel } = useIoFlow();
+    const hint = t("io_flow.open_hint");
+    const hintId = useId();
     return (
-        <button type="button" className={clsx(styles.menu_button, { [styles.has_on]: isPanelOpen })}
-            aria-expanded={isPanelOpen} aria-controls="io_flow_panel" title={t("io_flow.open_hint")} onClick={togglePanel}>
-            <FlowSvg className={styles.menu_svg} aria-hidden="true" />
-            <span className={styles.menu_text}>
-                <span className={styles.menu_label}>{t("io_flow.open")}</span>
-            </span>
-        </button>
+        <Tooltip bare placement="bottom" title={hint}>
+            <button type="button" className={clsx(styles.menu_button, { [styles.has_on]: isPanelOpen })}
+                aria-expanded={isPanelOpen} aria-controls="io_flow_panel" aria-describedby={hintId} onClick={togglePanel}>
+                <FlowSvg className={styles.menu_svg} aria-hidden="true" />
+                <span className={styles.menu_text}>
+                    <span className={styles.menu_label}>{t("io_flow.open")}</span>
+                </span>
+                <span id={hintId} hidden>{hint}</span>
+            </button>
+        </Tooltip>
     );
 };
 
@@ -155,11 +166,14 @@ const SoftwareUpdateAvailableButton = () => {
     if (!["available", "downloading", "installing"].includes(appUpdate.status)) return null;
 
     return (
-        // A narrow bar hides the words (RightSideComponents.module.scss); the tooltip keeps them.
-        <button type="button" className={styles.software_update_button} title={t("main_page.update_available")}
-            onClick={()=>updateOpenedQuickSetting("update_software")}>
-            <RefreshSvg className={styles.refresh_svg} aria-hidden="true"/>
-            <span className={styles.software_update_label}>{t("main_page.update_available")}</span>
-        </button>
+        // A narrow bar hides the words (RightSideComponents.module.scss); the tooltip keeps them
+        // there, and is left out where the words are in sight.
+        <Tooltip bare placement="bottom" title={t("main_page.update_available")}>
+            <button type="button" className={styles.software_update_button}
+                onClick={()=>updateOpenedQuickSetting("update_software")}>
+                <RefreshSvg className={styles.refresh_svg} aria-hidden="true"/>
+                <span className={styles.software_update_label}>{t("main_page.update_available")}</span>
+            </button>
+        </Tooltip>
     );
 };

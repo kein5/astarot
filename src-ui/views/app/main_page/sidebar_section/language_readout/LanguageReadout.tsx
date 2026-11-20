@@ -3,6 +3,7 @@ import { createLanguageNames } from "../../../../../logics/common/languageNames.
 import styles from "./LanguageReadout.module.scss";
 import ArrowDownSvg from "@images/narrow_arrow_down.svg?react";
 import { useIsMainPageCompactMode, useLanguageSettings } from "@logics_main";
+import { Tooltip } from "../../../../common_components/tooltip/Tooltip";
 
 // The icon rail hides the language controls. This keeps the selected pair in
 // sight (your language, then the first language of the other side and how many
@@ -21,12 +22,15 @@ export const LanguageReadout = () => {
     const more = targets.length - 1;
     const pair = t("main_page.language_pair", { from, to: more > 0 ? `${to} +${more}` : to });
     return (
-        <button type="button" className={styles.container} title={pair}
-            aria-label={`${t("main_page.language_settings")}: ${pair}`} onClick={toggleIsMainPageCompactMode}>
-            <span className={styles.name} data-skeleton="">{from}</span>
-            <ArrowDownSvg className={styles.arrow} aria-hidden="true" />
-            <span className={styles.name} data-skeleton="">{to}</span>
-            {more > 0 && <span className={styles.more}>+{more}</span>}
-        </button>
+        // The rail shows the two names cut short; the tooltip has the pair in full.
+        <Tooltip bare placement="right" title={pair}>
+            <button type="button" className={styles.container}
+                aria-label={`${t("main_page.language_settings")}: ${pair}`} onClick={toggleIsMainPageCompactMode}>
+                <span className={styles.name} data-skeleton="">{from}</span>
+                <ArrowDownSvg className={styles.arrow} aria-hidden="true" />
+                <span className={styles.name} data-skeleton="">{to}</span>
+                {more > 0 && <span className={styles.more}>+{more}</span>}
+            </button>
+        </Tooltip>
     );
 };

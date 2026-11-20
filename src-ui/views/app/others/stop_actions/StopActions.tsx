@@ -1,15 +1,18 @@
 import clsx from "clsx";
-import { useEffect } from "react";
+import { useEffect, useId } from "react";
 import { useI18n } from "@useI18n";
 import { useVoice } from "../../../../logics/voice/useVoice";
 import { voiceActions } from "../../../../logics/voice/voiceActions.ts";
+import { Tooltip } from "../../../common_components/tooltip/Tooltip";
 
 // Stop actions within reach during a conversation: on the main page and on
 // every settings page. Stop sends the TTS page's stop (it also clears the
 // queue). Mute is the route's mute: TTS on the external route, and the whole
 // virtual microphone (TTS and converted voice) on the managed route. It has one
 // name everywhere (voice_ui.mute_row: this button, the voice route row and the
-// hotkey); its tooltip says what it silences. It shows the reported mute state as a pressed
+// hotkey); its tooltip says what it silences. Both tooltips open below the bar, on the pointer
+// and on keyboard focus, and their words are the buttons' accessible descriptions (kept in the
+// page while the tooltips are closed). It shows the reported mute state as a pressed
 // toggle; pressing it again asks to resume, which the backend allows only once
 // the route is ready.
 // classes: the host bar's stylesheet (stop_actions, stop, long, short,
@@ -35,22 +38,31 @@ export const StopActions = ({ classes }: { classes: Readonly<Record<string, stri
     const toggleMute = () => { if (!resumeBlocked) send(muted ? "/run/resume_voice" : "/run/mute_voice"); };
     // Hotkeys press these same buttons, with today's state (logics/voice/voiceActions.ts).
     useEffect(() => { voiceActions.stop = stopVoice; voiceActions.toggleMute = toggleMute; });
+    const stopScope = t("voice.stop");
+    const muteScope = t(route.managed ? "voice.mute_scope_managed" : route.covers_direct ? "voice.mute_scope_device" : "voice.mute_scope_external");
+    const stopScopeId = useId(), muteScopeId = useId();
     return <div className={classes.stop_actions} role="group" aria-label={t("voice_ui.stop_actions")}>
         {/* Narrow windows show the short words, which stay part of the accessible name. */}
-        <button type="button" className={clsx(classes.stop, { [classes.is_attention]: speaking })} title={t("voice.stop")}
-            aria-label={stop} onClick={stopVoice}>
-            <span className={classes.long} aria-hidden="true">{stop}</span>
-            <span className={classes.short} aria-hidden="true">{stopShort}</span>
-            {classes.tiny && <span className={classes.tiny} aria-hidden="true">{stopTiny}</span>}
-        </button>
-        <button type="button" className={clsx(classes.stop, { [classes.is_pressed]: muted })} aria-label={mute}
-            aria-pressed={known ? muted : undefined} title={t(route.managed ? "voice.mute_scope_managed" : route.covers_direct ? "voice.mute_scope_device" : "voice.mute_scope_external")}
-            disabled={resumeBlocked}
-            onClick={toggleMute}>
-            <span className={classes.long} aria-hidden="true">{mute}</span>
-            <span className={classes.short} aria-hidden="true">{mute}</span>
-            {classes.tiny && <span className={classes.tiny} aria-hidden="true">{muted ? t("voice_ui.topbar_muted") : mute}</span>}
-            {muted && <span className={classes.muted_badge} aria-hidden="true">{t("voice_ui.topbar_muted")}</span>}
-        </button>
+        <Tooltip bare placement="bottom" title={stopScope}>
+            <button type="button" className={clsx(classes.stop, { [classes.is_attention]: speaking })}
+                aria-label={stop} aria-describedby={stopScopeId} onClick={stopVoice}>
+                <span className={classes.long} aria-hidden="true">{stop}</span>
+                <span className={classes.short} aria-hidden="true">{stopShort}</span>
+                {classes.tiny && <span className={classes.tiny} aria-hidden="true">{stopTiny}</span>}
+                <span id={stopScopeId} hidden>{stopScope}</span>
+            </button>
+        </Tooltip>
+        <Tooltip bare placement="bottom" title={muteScope}>
+            <button type="button" className={clsx(classes.stop, { [classes.is_pressed]: muted })} aria-label={mute}
+                aria-pressed={known ? muted : undefined} aria-describedby={muteScopeId}
+                disabled={resumeBlocked}
+                onClick={toggleMute}>
+                <span className={classes.long} aria-hidden="true">{mute}</span>
+                <span className={classes.short} aria-hidden="true">{mute}</span>
+                {classes.tiny && <span className={classes.tiny} aria-hidden="true">{muted ? t("voice_ui.topbar_muted") : mute}</span>}
+                {muted && <span className={classes.muted_badge} aria-hidden="true">{t("voice_ui.topbar_muted")}</span>}
+                <span id={muteScopeId} hidden>{muteScope}</span>
+            </button>
+        </Tooltip>
     </div>;
 };
