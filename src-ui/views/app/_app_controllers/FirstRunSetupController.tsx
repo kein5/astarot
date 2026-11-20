@@ -240,8 +240,9 @@ const Findings = ({ recognition, onLeave }: { recognition: RecognitionState; onL
     const micName = mic?.state === "ok" && typeof mic.data === "string" && mic.data && mic.data !== "NoDevice" ? mic.data : null;
     const translation = needs.find(need => need.id === "translation");
     const cables = virtualMic?.supported === true && virtualMic.error === null ? virtualMic.cables.length : null;
-    // Only needed to bring the read-aloud and the voice changer's voice to VRChat.
-    const virtualMicRow: FindingProps | null = cables === null ? null : { id: "virtual_mic", state: cables > 0 ? "ready" : "neutral",
+    // No virtual cable needs the user, like the other things the setup looks for (decided in #759):
+    // its row goes to the cards, and its words say when it is needed.
+    const virtualMicRow: FindingProps | null = cables === null ? null : { id: "virtual_mic", state: cables > 0 ? "ready" : "attention",
         name: t("first_run_setup.found.virtual_mic"),
         action: <button type="button" onClick={() => { onLeave(); openGuide(); }}>{t("first_run_setup.found.virtual_mic_open")}</button>,
         children: t(cables > 0 ? "first_run_setup.found.virtual_mic_found" : "first_run_setup.found.virtual_mic_missing") };
@@ -273,7 +274,7 @@ const Findings = ({ recognition, onLeave }: { recognition: RecognitionState; onL
 
 // How a row reads at a glance. ready: nothing to do; attention: the user has something to do
 // (its words say what); checking: not known yet; neutral: neither, such as a choice made
-// elsewhere or something only some uses need.
+// elsewhere.
 type FindingState = "ready" | "attention" | "checking" | "neutral";
 const VRCHAT_STATES: Record<VrchatPresenceState, FindingState> = {
     found: "ready", not_found: "attention", checking: "checking", unknown: "neutral", sending_off: "neutral", osc_query_off: "neutral",

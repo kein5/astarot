@@ -266,12 +266,13 @@ test("each finding is marked by its state, with its words and its action apart",
     const states = (rows: Record<string, FindingRow>) => Object.fromEntries(Object.entries(rows).map(([name, row]) => [name, row.state]));
 
     const needing = await rowsOf({ mic: "NoDevice", vrchat: "not_found", cables: [], needs: [{ id: "translation", action: "choose" }] });
+    // No virtual cable needs the user too (decided in #759).
     assert.deepEqual(states(needing.rows),
-        { mic: "attention", vrchat: "attention", virtual_mic: "neutral", translation: "attention", recognition: "attention" });
+        { mic: "attention", vrchat: "attention", virtual_mic: "attention", translation: "attention", recognition: "attention" });
     // The layout says it before the words (#614): what needs the user comes first, as cards;
     // the rest follow in the quiet list. Each keeps its order within its place.
-    assert.deepEqual(needing.urgent, ["mic", "vrchat", "translation", "recognition"]);
-    assert.deepEqual(needing.settled, ["virtual_mic"]);
+    assert.deepEqual(needing.urgent, ["mic", "vrchat", "virtual_mic", "translation", "recognition"]);
+    assert.deepEqual(needing.settled, []);
     assert.equal(needing.rows.mic.children, "first_run_setup.found.mic_missing");
     const lines = needing.rows.vrchat.children;
     assert.ok(Array.isArray(lines));
@@ -294,9 +295,13 @@ test("each finding is marked by its state, with its words and its action apart",
     assert.equal(ready.rows.mic.children, "Microphone (USB)");
     assert.ok(!ready.rows.translation.action, "nothing to do: no button");
 
-    // Not known yet, or a choice made elsewhere: neither ready nor needing the user here.
-    const elsewhere = await rowsOf({ vrchat: "checking", engine: "Deepgram", opened: true });
+    // Not known yet, or a choice made elsewhere: neither ready nor needing the user here. The
+    // cards and the quiet list then share the findings by state, each in its order.
+    const elsewhere = await rowsOf({ vrchat: "checking", engine: "Deepgram", opened: true,
+        cables: [{ playback: "CABLE Input", recording: "CABLE Output" }], needs: [{ id: "translation", action: "choose" }] });
     assert.deepEqual([elsewhere.rows.vrchat.state, elsewhere.rows.recognition.state], ["checking", "neutral"]);
+    assert.deepEqual(elsewhere.urgent, ["translation"]);
+    assert.deepEqual(elsewhere.settled, ["mic", "vrchat", "virtual_mic", "recognition"]);
 });
 
 test("every string it uses is in both languages", () => {
