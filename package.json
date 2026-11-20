@@ -47,7 +47,7 @@
     "@vanilla-extract/css": "1.21.3",
     "@vanilla-extract/recipes": "0.5.7",
     "clsx": "2.1.1",
-    "i18next": "25.0.1",
+    "i18next": "27.2.2",
     "jotai": "3.0.2",
     "js-base64": "3.9.6",
     "jszip": "3.10.2",
