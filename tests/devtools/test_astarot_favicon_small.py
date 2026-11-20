@@ -137,7 +137,7 @@ class AstarotFaviconSmallTests(unittest.TestCase):
             self.assertFalse(favicon.matches(path, built[favicon.BRAND / "favicon-16.svg"]))
 
     def test_manual_uses_the_ico(self):
-        config = (ROOT / "site/.vitepress/config.mts").read_text(encoding="utf-8")
+        config = (ROOT / "site/rspress.config.ts").read_text(encoding="utf-8")
         self.assertIn("manual/brand/favicon.ico", config)
         self.assertNotIn("manual/brand/favicon.svg", config,
                          "browsers prefer an SVG icon at every size and would skip the 16 px variant")

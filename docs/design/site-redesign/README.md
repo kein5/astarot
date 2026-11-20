@@ -1,15 +1,15 @@
 # マニュアルサイトの再設計の提案
 
-利用者向けのサイト（`site/`）の作りを見直す設計です。ガイドとマニュアルを1つのサイトにまとめ、見た目をアプリと同じASTAROTの配色にそろえ、部品をshadcn/uiの設計にならって作り直します。作り替えは8段に分け、1つの大きなPRにはしません。
+利用者向けのサイト（`site/`）の作りを見直す設計です。ガイドとマニュアルを1つのサイトにまとめ、見た目をアプリと同じASTAROTの配色にそろえ、部品をshadcn/uiの設計にならって作り直します。作り替えは9段に分け、1つの大きなPRにはしません。
 
-- 状態: 方針は決定済み（2026-11-19）。全体の方向、段の順序、S-01〜S-11は、すべてこの文書で推したA案に決まりました（[決まったこと](#決まったこと)）。実装は5章の段1から順に進めます。
+- 状態: 方針は決定済み（2026-11-19）。全体の方向、段の順序、S-01〜S-11は、すべてこの文書で推したA案に決まりました（[決まったこと](#決まったこと)）。実装は5章の段1から順に進めます。2026-11-20に、土台をVitePressからRspress（React）に替えると決まりました（[ADR-016](../../adr/adr-016-user-guide-site-on-rspress.md)）。決まったことの表に「土台」を足し、2章、3章、5章をRspressに合わせました。土台を替える段を段2として足したので、前の段2から段8は段3から段9になりました。
 - 前提: [棚卸し](inventory.md)。問題の番号（P-01など）は棚卸しの番号です。
 - 関係: #371（マニュアルの新設）、#554（アプリの情報設計）、#680（部品をshadcn/uiに寄せる方針）、#673（0.6.0に向けたガイドの更新）、#690（サイトのVite）
 
 ## 見直しを始めた時点で決まっていたこと
 
-- 土台はVitePressのままにします。日英の構成、検索、GitHub Pagesへの公開の仕組みを使い続けます。
-- 部品は、shadcn/uiの設計を参考にした自前のVueの部品で作り直します。shadcn-vueは入れません。
+- 土台はVitePressのままにします。日英の構成、検索、GitHub Pagesへの公開の仕組みを使い続けます。2026-11-20に、土台はRspress（React）に替えると決まりました（ADR-016）。日英の構成、検索、GitHub Pagesへの公開を保つことは変わりません。
+- 部品は、shadcn/uiの設計を参考にした自前のVueの部品で作り直します。shadcn-vueは入れません。2026-11-20からは、部品はReactで書きます。
 - 色はASTAROTのブランドのトークンを使います。正本はDESIGN.mdと`docs/brand/`です。アプリの設定画面と見た目の言葉をそろえます。
 - 動くマスコット（悪魔ペンギン）の新しいモデルは、別の作業で完成しています。サイトに組み込むのはこの設計が固まってからです。この文書には置き場の候補と組み込み方の方針だけを書きます。
 
@@ -59,7 +59,7 @@
 5. 言語のメニュー（日本語、English）
 6. GitHub
 
-ダウンロードのボタンは、トップのヒーローに加えて「インストール」のページの冒頭にも置きます（P-09）。どちらも同じ部品（2.3の`DownloadButton`）です。狭い画面では、VitePressのメニューのボタンに3から6をまとめます。
+ダウンロードのボタンは、トップのヒーローに加えて「インストール」のページの冒頭にも置きます（P-09）。どちらも同じ部品（2.3の`DownloadButton`）です。狭い画面では、Rspressのメニューのボタンに3から6をまとめます。
 
 ### 1.4 トップのページ
 
@@ -119,11 +119,10 @@
 
 ### 2.1 作り方の決まり
 
-- 置き場は`site/.vitepress/theme/ui/<部品>/`です。パーツを1つずつ`.vue`のファイルにし、フォルダーの`index.ts`がパーツを名前付きでexportします（`Card`、`CardHeader`、`CardTitle`など）。shadcn/uiの「1つの部品に1つのファイル、パーツは名前付きのexport」を、Vueの「1つのファイルに1つの部品」の形に読み替えたものです。
+- 置き場は`site/theme/ui/`です。shadcn/uiと同じく、1つの部品を1つの`.tsx`に書き、パーツを名前付きでexportします（`Card`、`CardHeader`、`CardTitle`など）。shadcn/uiのReactのコードを、DESIGN.mdの読み替えの規則で写します。
 - 各パーツの根の要素に、shadcn/uiと同じ名前の`data-slot`を付けます（`card`、`card-header`など）。
-- 見た目の種類は`variant`と`size`のpropsで受け、根の要素の`data-variant`と`data-size`に写します。CSSはこの属性で選びます。種類を組み立てるためのライブラリ（cvaなど）は入れません。
-- スタイルは各部品の`<style scoped>`に書きます。色、角丸、余白、文字の大きさ、動きには3章のトークンだけを使います。部品のファイルに色の値を直接書いていないことを検査します。
-- キーボードの操作（メニュー、タブ、吹き出し、ダイアログ）は自前のcomposableにまとめます。今の`useMenu.ts`、`OsTabs.vue`、`Term.vue`にある操作を出発点にします。先にネイティブの要素（`<button>`、`<dialog>`、`<details>`）を使います。ヘッドレスの部品のライブラリは入れません（S-09）。
+- 見た目の種類は`variant`と`size`のpropsで受けます。スタイルの書き方（CSS Modulesか、アプリと同じvanilla-extractの`recipe()`か）と、アプリの`src-ui/views/kit/`の部品をサイトと共有するかは、段4で決めます（ADR-016の7）。どちらでも、色、角丸、余白、文字の大きさ、動きには3章のトークンだけを使い、部品のファイルに色の値を直接書いていないことを検査します。
+- キーボードの操作（メニュー、タブ、吹き出し、ダイアログ）は自前のhookにまとめます。段2でReactに写した`OsTabs`、`Term`とメニューの操作を出発点にします。先にネイティブの要素（`<button>`、`<dialog>`、`<details>`）を使います。ヘッドレスの部品のライブラリは入れません（S-09）。
 - 部品の文言は`theme/i18n/ja.ts`と`theme/i18n/en.ts`に集め、日英のキーと補間の変数がそろっていることを検査します（P-12）。
 - CSSの機能は、Baseline Widely availableのものをそのまま使い、それより新しいものは`@supports`と代わりの表示を付けたときだけ使います。AGENTS.mdのUIの決まりをサイトにも当てはめます。サイトは読み手のブラウザで開くので、Chrome、Edge、Firefox、Safariで読めることを前提にします。
 - shadcn/uiの読み替えは、DESIGN.mdの「Components」の規則に従います。サイトの1 remはTailwindと同じ16 pxなので、shadcn/uiの長さはそのまま読めます（アプリの1 remは10 pxです）。色はshadcn/uiの値を使わず、3.2の対応表でASTAROTのトークンに置き換えます。shadcn/uiとDESIGN.mdの規則が違うところ（ボタンの役割、フォーカスの輪）は、DESIGN.mdに従います。
@@ -133,13 +132,13 @@
 
 | 部品 | 役割 | 参考にするshadcn/uiの部品 | 置き換えるもの |
 |---|---|---|---|
-| `Button` | 操作とリンクのボタン。見た目は`primary`、`plain`、`quiet`、`link`、大きさは`sm`、`default`、`lg`、`icon`。`href`を渡すと`<a>`で描く | Button。`asChild`の代わりに`href`で描き分ける | VitePressの`VPButton`（`HomeActions`）、マニュアルの`.secondary`と`.more` |
+| `Button` | 操作とリンクのボタン。見た目は`primary`、`plain`、`quiet`、`link`、大きさは`sm`、`default`、`lg`、`icon`。`href`を渡すと`<a>`で描く | Button。`asChild`の代わりに`href`で描き分ける | トップのヒーローのボタン（今の`HomeActions`）、マニュアルの`.secondary`と`.more` |
 | `ButtonGroup` | 主のボタンとメニューを開くボタンを1つの組に見せる | Button Group | ダウンロードのボタンの組 |
 | `Badge` | 短い状態の印（おすすめ、実験的機能） | Badge | マニュアルの目次の`.chip`、メニューの「おすすめ」 |
 | `Kbd` | キーの名前 | Kbd、KbdGroup | 本文のキーの書き方、検索窓の`/` |
 | `Card` | 枠で囲んだ1つのまとまり | Card（Header、Title、Description、Action、Content、Footer） | トップの機能と目次、マニュアルの関連するページと前後の章 |
 | `Item` | 名前、1行の説明、行き先を並べる行 | Item（Media、Content、Title、Description、Actions）、ItemGroup | `{.feature-rows}`、サポートの一覧 |
-| `Alert` | 本文の囲み | Alert（Title、Description） | VitePressのカスタムブロック、`ManualCallout`、`{.needs}` |
+| `Alert` | 本文の囲み | Alert（Title、Description） | Markdownの囲み（`:::`）、`ManualCallout`、`{.needs}` |
 | `Separator` | 区切りの線 | Separator | h2の右の線、バーの区切り |
 | `Spinner` | 読み込み中の印 | Spinner | ダウンロードのボタンの確認中の表示 |
 | `DropdownMenu` | ボタンから開くメニュー | Dropdown Menu（Trigger、Content、Label、Group、Item、RadioGroup、RadioItem、Separator） | 2つのダウンロードのメニュー、`ManualLangMenu`、`useMenu` |
@@ -153,7 +152,7 @@
 | `Collapsible` | 畳んだ補足 | Collapsible。ネイティブの`<details>`で描く | `::: details` |
 | `Table` | 表 | Table。Markdownの表にスタイルを当てる | `.vp-doc`の表 |
 
-`Alert`の種類は、GitHubの5種類（note、tip、important、warning、caution）と畳んだ補足にし、種類ごとにマスコットの表情を付けます（S-06）。Markdownでの書き方（今の`::: warning`を使い続けるか、GitHubの`> [!NOTE]`の形にするか）はS-06では決めていないので、段3のPRで判断が要ることとして扱います。どちらの書き方でも、Markdownを`Alert`で描くようにmarkdown-itのレンダラーを設定します。
+`Alert`の種類は、GitHubの5種類（note、tip、important、warning、caution）と畳んだ補足にし、種類ごとにマスコットの表情を付けます（S-06）。Markdownでの書き方（今の`::: warning`を使い続けるか、GitHubの`> [!NOTE]`の形にするか）はS-06では決めていないので、段4のPRで判断が要ることとして扱います。どちらの書き方でも、Markdownの囲みを`Alert`で描くようにします。
 
 ### 2.3 サイトの部品（`theme/components/`）
 
@@ -171,20 +170,23 @@
 | `ContentsGrid` | `Card`、`Item` | マニュアルの目次 |
 | `MascotStage` | 自前（4章） | マニュアルのヒーローのマスコット |
 | `ShotZoom` | `Dialog` | `theme/index.ts`の`zoom()` |
-| `PagePager` | `Card`。shadcn/uiのPaginationの前後のリンクの形にならう | VitePressの前後のページのリンク、マニュアルの前後の章 |
+| `PagePager` | `Card`。shadcn/uiのPaginationの前後のリンクの形にならう | テーマの前後のページのリンク、マニュアルの前後の章 |
 
-### 2.4 VitePressの既定のテーマの部品
+表の「置き換えるもの」は、2026-11-19のVueの部品の名前です。段2では、これらをいったん同じ役割のReactの部品に写します。段4と段5で、2.2の基本の部品の上に作り直します。
 
-上部のバー、サイドバー、ページの中の目次、狭い画面のメニューは、VitePressの部品を使い続け、トークンと最小限のCSSで見た目を合わせます。参考にするshadcn/uiの部品は次のとおりです。
+### 2.4 Rspressの既定のテーマの部品
 
-| VitePressの部品 | 参考にするshadcn/uiの部品 |
+上部のバー、サイドバー、ページの中の目次、狭い画面のメニュー、検索の画面は、Rspressの既定のテーマの部品を使い続け、トークンと最小限のCSSで見た目を合わせます。自前の部品はレイアウトのスロット（`afterHeroActions`、`afterHero`、`beforeDocContent`、`bottom`など）に差し込みます。参考にするshadcn/uiの部品は次のとおりです。
+
+| Rspressの部品 | 参考にするshadcn/uiの部品 |
 |---|---|
-| `VPNav`（上部のバー） | Navigation Menu |
-| `VPSidebar` | Sidebar（Group、GroupLabel、Menu、MenuButtonの選んだ状態） |
-| `VPDocAsideOutline`（ページの中の目次） | Sidebarの小さい大きさ |
-| `VPLocalNav`と`VPNavScreen`（狭い画面） | Sheet |
+| `Nav`（上部のバー） | Navigation Menu |
+| `Sidebar` | Sidebar（Group、GroupLabel、Menu、MenuButtonの選んだ状態） |
+| `Outline`（ページの中の目次） | Sidebarの小さい大きさ |
+| `NavHamburger`（狭い画面） | Sheet |
+| `SearchPanel`（検索の画面） | Command、Empty |
 
-VitePressの部品を写して直す（フォークする）ことは、これ以上増やしません。写しはVitePressを上げるたびに合わせ直す必要があり、`LocalSearchBox.vue`はVitePress 2で約410行の差が出ています（P-11、#690）。`LocalSearchBox.vue`への変更は、見た目（`Command`にならうスタイル）と、今ある空の検索のときのページの一覧だけにとどめます。
+Rspressの部品を写して直す（`rspress eject`）ことはしません。写しはRspressを上げるたびに合わせ直す必要があるためです。VitePressの検索の写し（`LocalSearchBox.vue`、P-11）は段2でなくなります。
 
 ## 3. 色と文字のトークン
 
@@ -194,38 +196,38 @@ VitePressの部品を写して直す（フォークする）ことは、これ�
 
 1. ブランドの色: Dark Plum `#261633`、Lilac `#A47AF5`、Off-White `#FAFAFC`、White（`docs/brand/README.md`）。
 2. 役割のトークン: DESIGN.mdの`colors`の名前に`--a-`を付けたもの（`--a-canvas`、`--a-surface`など）。部品はこの層だけを使います。`--a-`は今のマニュアルのトークンの接頭辞です。
-3. VitePressの変数（`--vp-c-*`）: 役割のトークンから値を引きます。VitePressの既定のテーマの部品は、この層を通して同じ配色になります。
+3. Rspressの変数（`--rp-c-*`）: 役割のトークンから値を引きます。Rspressの既定のテーマの部品は、この層を通して同じ配色になります。
 
-ダークの値は、DESIGN.mdの`colors`をそのまま使います。DESIGN.mdから値を写すときに食い違いが起きないように、`tools/site_tokens.mjs`でDESIGN.mdのfront matterから`site/.vitepress/theme/tokens.css`のダークの値を書き出し、`--check`をPagesのワークフローで実行します（S-02）。
+ダークの値は、DESIGN.mdの`colors`をそのまま使います。DESIGN.mdから値を写すときに食い違いが起きないように、`tools/site_tokens.mjs`でDESIGN.mdのfront matterから`site/theme/tokens.css`のダークの値を書き出し、`--check`をPagesのワークフローで実行します（S-02）。
 
 ### 3.2 色の対応表
 
 ライトの値は、DESIGN.mdの「Colors」の規則で作った案です。ブランドに役割に合う色があればそのまま使い、なければDark PlumかLilacの明度だけを変えています（OKLCHの色相の差は3°以内、彩度は元の色以下）。コントラストは2026-11-19に計算した値で、地（canvas）、面（surface）、レール（rail）に対するものです。
 
-| DESIGN.mdの名前 | サイトのトークン | shadcn/uiの役割 | VitePressの変数 | ダーク（DESIGN.md） | ライト（案） |
+| DESIGN.mdの名前 | サイトのトークン | shadcn/uiの役割 | Rspressの変数（案） | ダーク（DESIGN.md） | ライト（案） |
 |---|---|---|---|---|---|
-| `canvas` | `--a-canvas` | `background` | `--vp-c-bg` | `#261633` | `#fafafc`（Off-White） |
-| `rail` | `--a-rail` | `sidebar` | `--vp-c-bg-alt`、`--vp-sidebar-bg-color` | `#1c0f27` | `#f6f1fa`（Dark Plumを明るく） |
-| `surface` | `--a-surface` | `card`、`popover` | `--vp-c-bg-elv`、`--vp-c-bg-soft` | `#332341` | `#ffffff`（White） |
-| `border` | `--a-border` | `border` | `--vp-c-divider` | `#4e3d5d` | `#dfd7e8`（Dark Plumを明るく） |
-| `field-border` | `--a-field-border` | `input` | `--vp-c-border` | `#877a94` | `#887995`（3.62〜4.03:1） |
-| `text` | `--a-text` | `foreground` | `--vp-c-text-1` | `#fafafc` | `#261633`（Dark Plum、15.17〜16.87:1） |
-| `secondary-text` | `--a-secondary-text` | — | `--vp-c-text-2` | `#cfc4d6` | `#544760`（7.72〜8.58:1） |
-| `description-text` | `--a-description-text` | `muted-foreground` | `--vp-c-text-3` | `#aba0b5` | `#6a5d75`（5.50〜6.11:1） |
-| `primary` | `--a-primary` | `primary` | `--vp-button-brand-bg` | `#a47af5` | `#a47af5`（Lilac。地に対して3.02:1） |
-| （Lilacの上の文字） | `--a-on-primary` | `primary-foreground` | `--vp-button-brand-text` | `#261633` | `#261633`（5.37:1） |
-| `primary-hover` | `--a-primary-hover` | `primary`を濃く | `--vp-button-brand-hover-bg` | `#b897f7` | `#9c72ed`（Lilacを暗く。上の文字は4.85:1） |
-| `state-active` | `--a-state-active`、`--a-link` | — | `--vp-c-brand-1` | `#b797f8`（6.03〜7.67:1） | `#7046b6`（Lilacを暗く、5.83〜6.48:1） |
+| `canvas` | `--a-canvas` | `background` | `--rp-c-bg` | `#261633` | `#fafafc`（Off-White） |
+| `rail` | `--a-rail` | `sidebar` | `--rp-c-bg-soft` | `#1c0f27` | `#f6f1fa`（Dark Plumを明るく） |
+| `surface` | `--a-surface` | `card`、`popover` | `--rp-c-bg-mute` | `#332341` | `#ffffff`（White） |
+| `border` | `--a-border` | `border` | `--rp-c-divider-light` | `#4e3d5d` | `#dfd7e8`（Dark Plumを明るく） |
+| `field-border` | `--a-field-border` | `input` | `--rp-c-divider` | `#877a94` | `#887995`（3.62〜4.03:1） |
+| `text` | `--a-text` | `foreground` | `--rp-c-text-1` | `#fafafc` | `#261633`（Dark Plum、15.17〜16.87:1） |
+| `secondary-text` | `--a-secondary-text` | — | `--rp-c-text-2` | `#cfc4d6` | `#544760`（7.72〜8.58:1） |
+| `description-text` | `--a-description-text` | `muted-foreground` | `--rp-c-text-3` | `#aba0b5` | `#6a5d75`（5.50〜6.11:1） |
+| `primary` | `--a-primary` | `primary` | `--rp-c-brand` | `#a47af5` | `#a47af5`（Lilac。地に対して3.02:1） |
+| （Lilacの上の文字） | `--a-on-primary` | `primary-foreground` | — | `#261633` | `#261633`（5.37:1） |
+| `primary-hover` | `--a-primary-hover` | `primary`を濃く | `--rp-c-brand-dark` | `#b897f7` | `#9c72ed`（Lilacを暗く。上の文字は4.85:1） |
+| `state-active` | `--a-state-active`、`--a-link` | — | `--rp-c-link` | `#b797f8`（6.03〜7.67:1） | `#7046b6`（Lilacを暗く、5.83〜6.48:1） |
 | `focus` | `--a-focus` | `ring` | — | `#d9c8fc` | `#7e55c7`（4.71〜5.24:1） |
-| `state-warning` | `--a-state-warning` | — | `--vp-c-warning-1` | `#d4a162` | `#865813`（5.52〜6.14:1） |
-| `state-failed` | `--a-state-failed` | `destructive` | `--vp-c-danger-1` | `#e4938e` | `#944a47`（5.67〜6.31:1） |
+| `state-warning` | `--a-state-warning` | — | — | `#d4a162` | `#865813`（5.52〜6.14:1） |
+| `state-failed` | `--a-state-failed` | `destructive` | — | `#e4938e` | `#944a47`（5.67〜6.31:1） |
 | `readout-rule` | `--a-readout-rule` | — | — | `#a47af5` | `#a47af5` |
 
 - リンクの色（`--a-link`）は、ダークでもライトでも`state-active`と同じ値にします。DESIGN.mdはLilacを主な操作、選んだナビゲーション、フォーカスに使うとしています。リンクは行き先を選ぶ操作なので、Lilacの系統にします。
 - ライトの`primary-hover`は、ダークと逆に暗くします。明るくするとボタンの地に対するコントラストが3:1を下回るためです。
 - ライトの`state-warning`と`state-failed`は、DESIGN.mdのダークの作り方にならい、ライトの`state-active`と同じ明度（0.50）と低い彩度（0.10）にしました。
 - マニュアルの今のライトの値のうち、`--a-link`（`#6a3fd2`）と`--a-trouble`（`#8a4a9e`）はこの規則に合いません（[棚卸し](inventory.md#3つの配色が並んでいる)）。上の表の値に置き換えます。
-- 値は段2で、`brandPalette.test.js`と同じ基準の検査（色相、彩度、コントラスト）をサイトにも足してから確定します。
+- 値は段3で、`brandPalette.test.js`と同じ基準の検査（色相、彩度、コントラスト）をサイトにも足してから確定します。
 
 ライトとダークは、OSの設定に合わせ、切り替えのボタンも付けます（S-01）。
 
@@ -241,7 +243,7 @@ VitePressの部品を写して直す（フォークする）ことは、これ�
 | h2 | 22 px | 24 px。右へ細い線を引く今の形は残す | 段の2.4 rem。22 pxは段の間にあるので、h3の18 pxと見分けやすい24 pxへ移す。線は設定の`category-heading`の形 |
 | h1 | 30 px | 30 px | アプリの段の外。読む面の見出しとして残す |
 
-アプリの段（12、13、14、15、16、18、20、24 px）にない大きさは、24 pxより大きい見出しだけにします。トップの製品名は、マニュアルのヒーローと同じくアイコンとワードマークの画像で示します。文字で書く見出しの大きさは段5bで決めます。日本語の1行は今と同じく約40字（本文の列は640 px）にします。
+アプリの段（12、13、14、15、16、18、20、24 px）にない大きさは、24 pxより大きい見出しだけにします。トップの製品名は、マニュアルのヒーローと同じくアイコンとワードマークの画像で示します。文字で書く見出しの大きさは段6bで決めます。日本語の1行は今と同じく約40字（本文の列は640 px）にします。
 
 ### 3.4 角丸、余白、動き
 
@@ -275,7 +277,7 @@ VitePressの部品を写して直す（フォークする）ことは、これ�
 - 5秒を超えて動き続けるなら、止めるボタンを付けます（WCAG 2.2の達成基準2.2.2）。止めた状態は保存します。
 - 動きは意味を持たせません。吹き出しの言葉はHTMLの文字として置き、代わりのテキスト（`alt`）は今と同じくマスコットの姿を説明します。
 - 音は出しません。
-- 置き場はM-1から始めます。M-2とM-3は止まった表情なので、動くモデルを待たずに段3で入れられます。
+- 置き場はM-1から始めます。M-2とM-3は止まった表情なので、動くモデルを待たずに段4で入れられます。
 
 ### 4.3 形式と受け入れの条件
 
@@ -304,25 +306,26 @@ VitePressの部品を写して直す（フォークする）ことは、これ�
 | 段 | 中身 | 前提 | 公開される変化 |
 |---|---|---|---|
 | 0 | この提案（文書だけ） | — | なし |
-| 1 | 規則に合わない言い方を直す（P-10）。`content.mjs`の古いページの名前も直す | なし。ほかの段と並べて進められる | 文章だけ |
-| 2 | トークン。`tokens.css`（ダークとライト）、`--vp-c-*`の割り当て、`custom.css`と`manual.css`の色をトークンに置き換える、配色の検査、DESIGN.mdの「The user guide (site/)」の更新 | なし | 紺からDark Plumへ。OSの設定に合わせたライトの表示と切り替えのボタン |
-| 3 | 基本の部品（`Button`、`Badge`、`Kbd`、`Card`、`Item`、`Alert`、`Separator`、`Spinner`、`Collapsible`、`Table`）。今の部品の見た目を置き換え、カスタムブロックを`Alert`で描く。止まった表情をM-2とM-3に置く | 段2 | 囲みとボタンの見た目 |
-| 4 | 操作の部品（`DropdownMenu`、`Tabs`、`Tooltip`、`Dialog`、`InputGroup`）。`DownloadButton`を1つにし、`OsTabs`、`Term`、`CopyText`、`ShotZoom`、言語のメニューを作り直す | 段3 | メニュー、タブ、吹き出し |
-| 5 | 情報構成。5aでサイドバーと上部のバー（URLは変えない）、5bでトップのページをまとめる、5cで`/manual/`を転送のページにしてマニュアルの部品を消す | 段4 | 並びとトップ。`/manual/`が転送に変わる |
-| 6 | 検索のパレットの見た目を`Command`と`Empty`にならわせる（`LocalSearchBox.vue`のスタイルだけ） | 段3 | 検索の見た目 |
-| 7 | 画像と動画。Dark Plumのアプリでスクリーンショットを撮り直し（`tools/docs_screenshots.py`）、`site/motion/src/theme.ts`をトークンに合わせて動画を書き出し直し、声と文字の流れの図と経路の帯の色を直す | 段2。アプリの画面がDark Plumで撮れること | 画像と動画 |
-| 8 | マスコットの組み込み（`MascotStage`、M-1） | 段5b。動くモデルが4.3の条件を満たすこと | トップのマスコットが動く |
+| 1 | 規則に合わない言い方を直す（P-10）。`content.mjs`の古いページの名前も直す（#704） | なし。ほかの段と並べて進められる | 文章だけ |
+| 2 | 土台の移行（ADR-016）。VitePressをRspressに替え、日英のURL、節のアンカー、検索、GitHub Pagesへの公開を保つ。Markdownの中で部品を使うページを`.mdx`にし、ページとトップの部品をReactに写す。検索と見出しのリンクの検査をRspressの出力に合わせる。`/manual/`をこの段で転送にするかは段2のPRで決める | なし | 土台。見た目は今の部品の形を保ったまま、Rspressのテーマの上に載る |
+| 3 | トークン。`tokens.css`（ダークとライト）、`--rp-c-*`の割り当て、色をトークンに置き換える、配色の検査、DESIGN.mdの「The user guide (site/)」の更新 | 段2 | 紺からDark Plumへ。OSの設定に合わせたライトの表示と切り替えのボタン |
+| 4 | 基本の部品（`Button`、`Badge`、`Kbd`、`Card`、`Item`、`Alert`、`Separator`、`Spinner`、`Collapsible`、`Table`）。今の部品の見た目を置き換え、Markdownの囲みを`Alert`で描く。止まった表情をM-2とM-3に置く | 段3 | 囲みとボタンの見た目 |
+| 5 | 操作の部品（`DropdownMenu`、`Tabs`、`Tooltip`、`Dialog`、`InputGroup`）。`DownloadButton`を1つにし、`OsTabs`、`Term`、`CopyText`、`ShotZoom`、言語のメニューを作り直す | 段4 | メニュー、タブ、吹き出し |
+| 6 | 情報構成。6aでサイドバーと上部のバー（URLは変えない）、6bでトップのページをまとめる、6cで`/manual/`を転送のページにしてマニュアルの部品を消す（段2で転送にしたときは6cはない） | 段5 | 並びとトップ。`/manual/`が転送に変わる |
+| 7 | 検索の画面の見た目を`Command`と`Empty`にならわせる（Rspressの`SearchPanel`にスタイルを当てる） | 段4 | 検索の見た目 |
+| 8 | 画像と動画。Dark Plumのアプリでスクリーンショットを撮り直し（`tools/docs_screenshots.py`）、`site/motion/src/theme.ts`をトークンに合わせて動画を書き出し直し、声と文字の流れの図と経路の帯の色を直す | 段3。アプリの画面がDark Plumで撮れること | 画像と動画 |
+| 9 | マスコットの組み込み（`MascotStage`、M-1） | 段6b。動くモデルが4.3の条件を満たすこと | トップのマスコットが動く |
 
 - 段1はほかの段を待たずに出せます。#673と同じページに触れるので、#673のあとにマージします。
-- 段2で、配色の正本がアプリと同じになります。段2から段7までの間、スクリーンショットと動画は紺のアプリのままです。段は番号の順に進め、段7を段2のすぐあとには回しません（2026-11-19に決定）。
-- 段5の情報構成は、部品がそろってから組み替えます。トップのページを新しい部品で一度だけ作り直すためです。
-- VitePress 2への移行（#690の案B）は、この計画とは別に扱います。段2から段6は、VitePressの内部ではなくスロットとCSSの変数に頼る作りにするので、移行の順序に縛られません。ただし、移行と段6を同じ時期に進めると`LocalSearchBox.vue`の合わせ直しが重なるので、どちらかを先に終えます。
+- 段3で、配色の正本がアプリと同じになります。段3から段8までの間、スクリーンショットと動画は紺のアプリのままです。段は番号の順に進め、段8を段3のすぐあとには回しません（2026-11-19に決定。決めたときの番号では段7と段2）。
+- 段6の情報構成は、部品がそろってから組み替えます。トップのページを新しい部品で一度だけ作り直すためです。
+- 段2でVitePressを外すので、VitePress 2への移行（#690の案B）は行いません。段3から段7は、Rspressの内部ではなくレイアウトのスロットとCSSの変数に頼る作りにします。
 
 ### 各段で確かめること
 
 - `site/`で`npm run build`と、Pagesのワークフローの4つの検査
-- 段2以降: 配色の検査（色相、彩度、コントラスト）
-- 段3以降: 部品のファイルに色の値を直接書いていないことの検査、日英の文言のキーの検査
+- 段3以降: 配色の検査（色相、彩度、コントラスト）
+- 段4以降: 部品のファイルに色の値を直接書いていないことの検査、日英の文言のキーの検査
 - ブラウザでの確認: 幅360 px、768 px、1280 pxで、横にはみ出さないこと。キーボードだけでメニュー、タブ、吹き出し、ダイアログ、検索を操作できること。フォーカスが見えること。動きを減らす設定で動きが止まること。ライトとダークの両方
 - ブラウザの種類: Chromium系とFirefoxに加えて、WebKit系（Safari）でも確かめます。手元で確かめられないものは、PRに「確かめていない」と書きます
 
@@ -332,16 +335,17 @@ VitePressの部品を写して直す（フォークする）ことは、これ�
 
 | 番号 | 決めたこと | 決まった案 | 退けた案 | 理由 |
 |---|---|---|---|---|
-| 方向 | 見直しの進め方 | ガイドとマニュアルを1つにし、8段で作り替える | マニュアルの章に本文を書いてガイドを減らす。両方を残して見た目だけそろえる | 本文があるのはガイドで、配布済みのアプリもガイドのURLを開きます。マニュアルは英語のページが検索エンジンとJavaScriptのない読み手に見えません |
-| 順序 | 段の順序 | 5章の番号のとおり。段7（画像と動画）を段2のすぐあとには回さない | 段7を段2のすぐあとに回す | 段2から段7までの間は、紺のアプリの画像がDark Plumのページに載ります。段7はアプリの画面をDark Plumで撮れることが前提です |
+| 土台 | サイトの土台 | Rspress（React）に替える（2026-11-20） | VitePressのまま、Vueで部品を作る | アプリのUIとshadcn/uiがReactなので、部品と知見をReactに一本化します。詳しくは[ADR-016](../../adr/adr-016-user-guide-site-on-rspress.md) |
+| 方向 | 見直しの進め方 | ガイドとマニュアルを1つにし、段に分けて作り替える（決めたときは8段。2026-11-20に土台の移行を段2として足し、9段にした） | マニュアルの章に本文を書いてガイドを減らす。両方を残して見た目だけそろえる | 本文があるのはガイドで、配布済みのアプリもガイドのURLを開きます。マニュアルは英語のページが検索エンジンとJavaScriptのない読み手に見えません |
+| 順序 | 段の順序 | 5章の番号のとおり。画像と動画の段を、トークンの段のすぐあとには回さない（決めたときの番号では段7と段2、今は段8と段3） | 画像と動画の段をトークンの段のすぐあとに回す | トークンの段から画像と動画の段までの間は、紺のアプリの画像がDark Plumのページに載ります。画像と動画の段は、アプリの画面をDark Plumで撮れることが前提です |
 | S-01 | ライトとダークの扱い | OSの設定に合わせ、切り替えのボタンも付ける | ダークだけ（今のガイド）。OSの設定に合わせ、ボタンは付けない（今のマニュアル） | #371で承認したマニュアルはライトとダークの両方に対応しています。読み手が明るい場所で長い文を読むときにライトを選べます。ダークはアプリと同じ値なので、アプリとの見た目はダークでそろいます |
 | S-02 | ダークの値をDESIGN.mdから書き出すか | `tools/site_tokens.mjs`で書き出し、`--check`をCIで実行する | 手で写す | アプリの配色が変わったときに、サイトが古い値のまま残ることを防げます。紺のまま残った今の状態（P-05）がその例です |
 | S-03 | サイドバーのまとまり（1.2） | アプリの設定のメニューの名前にそろえた6つ | 今の5つのまま並びだけ直す | アプリと同じ名前で探せます |
 | S-04 | 経路の帯と図の色の意味 | 帯は方向で色分けせず、そのページの段だけをLilacで示す。方向は帯の名前（「自分から相手へ」）で示す。声と文字の流れの図は、アプリの「入力と出力」の図と同じ線の色（声、チャット、読み上げ）にする | 方向の色分けを残し、色だけをブランドに寄せる | Lilacは選んだもの（このページ）を示す色としてアプリと同じ意味になります。図はアプリの画面と同じ色の言葉で読めます。方向は今も帯の名前で書いてあるので、色を外しても意味は失われません |
 | S-05 | マニュアルのトップの「5つの柱」と「案内役とコールアウトの見かた」 | どちらもトップから外す。サブタイトルはワードマークに残し、表情と囲みの見かたは「ASTAROTとは」の末尾に置く | トップに残す | トップを短くし、目次と機能の紹介を先に見せます。5つの柱は機能の紹介と内容が重なります |
-| S-06 | 囲みの種類と表情 | GitHubの5種類（note、tip、important、warning、caution）と畳んだ補足。表情は種類ごとに付ける | マニュアルの6種類（うまくいかないときを含む）。表情を付けない | VitePressがMarkdownで書ける種類と一致します。「うまくいかないとき」はページの型（1.6）の節で扱えます。Markdownでの書き方は決めていません（2.2） |
+| S-06 | 囲みの種類と表情 | GitHubの5種類（note、tip、important、warning、caution）と畳んだ補足。表情は種類ごとに付ける | マニュアルの6種類（うまくいかないときを含む）。表情を付けない | VitePressがMarkdownで書ける種類と一致します（2026-11-19の時点の理由。Rspressでの書き方は段4で確かめる）。「うまくいかないとき」はページの型（1.6）の節で扱えます。Markdownでの書き方は決めていません（2.2） |
 | S-07 | 見出しの書体 | 本文と同じ書体 | Outfitが入っているPCだけOutfit | 読み手のPCによって見出しの形が変わらなくなります。ブランドの書体はワードマーク（画像）で示せます |
 | S-08 | `/manual/`の転送のページをいつまで残すか | 期限を決めずに残す | 次の正式版まで残して消す | リポジトリの中に`/manual/`へのリンクはありません（2026-11-19に確認）。ただし0.5.0から公開しているので、ブックマークや検索エンジンから来る読み手がいる可能性があります。転送のページは小さく、残しても手間が増えません |
-| S-09 | 操作の部品の振る舞いを自前で書くか | 自前のcomposableとネイティブの要素 | Reka UIなどのヘッドレスの部品を入れる | サイトに要る操作はメニュー、タブ、吹き出し、ダイアログの4つで、今のコードに土台があります。依存とライセンスの確認も増えません |
-| S-10 | 動くマスコットの受け入れの条件 | 4.3の条件（転送の量、ライセンス、生成AIの表示、正本の場所）。形式は成果物が分かってから、段8でこの条件に照らして決める | — | 2026-11-19の時点で、動くモデルの形式がこのリポジトリから分かりません |
+| S-09 | 操作の部品の振る舞いを自前で書くか | 自前のcomposable（Reactではhook）とネイティブの要素 | Reka UIなどのヘッドレスの部品を入れる | サイトに要る操作はメニュー、タブ、吹き出し、ダイアログの4つで、今のコードに土台があります。依存とライセンスの確認も増えません |
+| S-10 | 動くマスコットの受け入れの条件 | 4.3の条件（転送の量、ライセンス、生成AIの表示、正本の場所）。形式は成果物が分かってから、段9でこの条件に照らして決める | — | 2026-11-19の時点で、動くモデルの形式がこのリポジトリから分かりません |
 | S-11 | マスコットの素材の正本の場所 | `docs/brand/astarot/mascot/` | `site/`の中だけ | アイコンやロゴと同じく、ブランドの素材として1か所で管理できます |
