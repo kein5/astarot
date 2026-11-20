@@ -35,7 +35,9 @@
     { "endpoint": "/get/data/osc_query", "handler": "core: OSC_QUERY", "before_init": true },
     { "endpoint": "/set/enable/osc_query", "handler": "core: set_osc_query", "before_init": true },
     { "endpoint": "/set/disable/osc_query", "handler": "core: set_osc_query", "before_init": true },
-    { "endpoint": "/get/data/builtin_vocabulary", "handler": "core: speechcpp::vrchat_terms", "before_init": true }
+    { "endpoint": "/get/data/builtin_vocabulary", "handler": "core: speechcpp::vrchat_terms", "before_init": true },
+    { "endpoint": "/run/export_vocabulary", "handler": "core: export_vocabulary", "before_init": true },
+    { "endpoint": "/run/open_filepath_vocabulary_exports", "handler": "core: open_folder_reply", "before_init": true }
   ],
   "errors": [
     { "code": "AUTH_GOOGLE_CLOUD_INVALID", "category": "auth", "message": "Google Cloud Translation API key is not valid", "severity": "warning", "user_action_required": true },

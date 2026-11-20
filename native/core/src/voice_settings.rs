@@ -122,6 +122,32 @@ pub fn normalize_vocabulary(value: Option<&Value>) -> Result<Value, &'static str
     Ok(saved)
 }
 
+/// The head of a dictionary file the user writes out (#792). The lines after it are the form the
+/// settings page reads back: one term a line, and a built-in term taken out as its written form
+/// after `-`. Lines starting with `#` are notes.
+const VOCABULARY_FILE_HEAD: &str = "\
+# ASTAROT term dictionary / 用語辞書
+# One term a line: written=reading,reading. A line starting with \"-\" is a built-in term taken out.
+# 1行に1語、「表記=読み,読み」。「-」で始まる行は、外した内蔵の用語です。
+";
+
+/// `vocabulary_file`: the user's dictionary as a file: their terms (a built-in term's changed
+/// readings among them), then the built-in terms they took out. From a value already normalized
+/// (`normalize_vocabulary`).
+pub fn vocabulary_file(vocabulary: &Value) -> String {
+    let mut text = VOCABULARY_FILE_HEAD.to_string();
+    for term in vocabulary["terms"].as_array().into_iter().flatten().filter_map(Value::as_str) {
+        text.push_str(term);
+        text.push('\n');
+    }
+    for written in vocabulary["removed"].as_array().into_iter().flatten().filter_map(Value::as_str) {
+        text.push('-');
+        text.push_str(written);
+        text.push('\n');
+    }
+    text
+}
+
 const EXCLUDED: [&str; 3] = ["vrct.managed.", "vrct.source-bridge.", "vrct.asr.capture."];
 
 fn decimal(text: &Value, bits: u32) -> Result<String, &'static str> {
@@ -389,6 +415,18 @@ mod tests {
         }
         let many: Vec<String> = (0..MAX_REMOVED).map(|i| format!("t{i}")).collect();
         assert_eq!(normalize_vocabulary(Some(&json!({ "removed": many }))).unwrap()["removed"].as_array().unwrap().len(), MAX_REMOVED);
+    }
+
+    // #792: the file the user writes out: the head, their terms, then the built-in terms taken out.
+    #[test]
+    fn a_dictionary_file_holds_the_terms_then_the_built_in_ones_taken_out() {
+        let vocabulary = normalize_vocabulary(Some(&json!({ "terms": ["猫丸 = ねこまる", "Quest=くえすと"], "removed": ["Vket"] }))).unwrap();
+        let text = vocabulary_file(&vocabulary);
+        let lines: Vec<&str> = text.lines().filter(|line| !line.starts_with('#')).collect();
+        assert_eq!(lines, ["猫丸=ねこまる", "Quest=くえすと", "-Vket"]);
+        assert!(text.starts_with("# ASTAROT term dictionary"));
+        let empty = vocabulary_file(&normalize_vocabulary(None).unwrap());
+        assert!(empty.lines().all(|line| line.starts_with('#')), "nothing but the head");
     }
 
     #[test]
