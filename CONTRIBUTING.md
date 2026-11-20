@@ -25,7 +25,7 @@ flowchart TD
     branch --> commit["Commits as Conventional Commits<br>checked by the commit-msg hook"]
     commit --> pr["Pull request to develop<br>what changed, what was verified and what was not"]
     pr --> checks["Required checks<br>contract tests,<br>commit messages, dependency review"]
-    checks --> review["Review<br>every conversation resolved"]
+    checks --> review["Review<br>every conversation resolved,<br>a code owner's approval<br>for the files they own"]
     review --> merge["Merged into develop<br>with a merge commit"]
     merge --> ship["Ships in the next beta,<br>then in the stable release"]
     checks -->|a check fails| commit
@@ -34,6 +34,7 @@ flowchart TD
 
 When a pull request changes this flow or the release flow, it updates the diagram in the same pull request: this one, or the release flow in [release candidates](docs/voice-stack/release-candidates.md#全体の流れ).
 
+- A pull request that changes a file listed in [.github/CODEOWNERS](.github/CODEOWNERS) needs a code owner's approval before it merges. The list holds what the project publishes: building, signing and publishing releases, the release notes and the changelog, what the packages hold and the licenses shipped in them, the models the app offers for download, and the public pages (`site/` and the READMEs). Other pull requests need no approving review.
 - Write every commit message as a [Conventional Commit](#commit-messages). The commit-msg hook and CI check them.
 - Add or update tests for behavior changes, and describe what you verified and what you could not.
 - For a change that is OS-specific or changes what is supported (packages, OS, runtimes), state in the pull request the platforms it affects, where it was checked (CI, or a real PC with OS, version and package), where it was not, and any backward-compatibility impact. CI passing does not count as a real-PC check. Keep the [support matrix](site/en/guide/support.md) and its [verification records](docs/voice-stack/platform-verification.md) in step.
