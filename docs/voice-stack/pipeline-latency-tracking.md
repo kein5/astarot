@@ -79,9 +79,11 @@ ASTAROT_PIPELINE_BMF=pipeline-latency.json cargo test --locked --manifest-path n
 リポジトリにBencherの鍵とプロジェクトがないあいだは、`pipeline-latency.yml`は何も送らず、送らなかった理由を注記に出します。送るには、次の準備が要ります。
 
 1. Bencher Cloudで公開のプロジェクトを作ります。公開のプロジェクトは無料のプランで使えます。無料のプランの上限は1日65,535メトリクスで、CIの1回の送信は8メトリクス（ベンチマーク2つ×measure 2つ×OS 2つ）です。課金の設定はしません。
-2. measureの`latency-p50`と`latency-p95`を、単位をミリ秒にして作ります。Bencherは知らないmeasureを自動で作りますが、そのときの単位は決められません。
-3. プロジェクトのAPIキーを、リポジトリのシークレット`BENCHER_API_KEY`に登録します。
-4. プロジェクトのスラッグを、リポジトリの変数`BENCHER_PROJECT`に登録します。
+2. プロジェクトのAPIキー（`bencher_run_`で始まるプロジェクトのキー）を作り、リポジトリのシークレット`BENCHER_API_KEY`に登録します。
+3. プロジェクトのスラッグを、リポジトリの変数`BENCHER_PROJECT`に登録します。
+4. ワークフロー`bencher-measures.yml`をdevelopで手動で実行します（`gh workflow run bencher-measures.yml --ref develop`）。measureの`latency-p50`と`latency-p95`がなければ作り、どちらも単位をミリ秒（`milliseconds (ms)`）にします。BencherのConsoleにはmeasureを作る画面がなく、先に値が送られてBencherが自動で作ったmeasureには単位がないためです。何度実行しても同じ結果になります。
+
+2026-11-21に、プロジェクト`astarot`で1〜3を済ませました。
 
 ## 実モデルの値
 
