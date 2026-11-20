@@ -237,7 +237,7 @@ npm run test:mutation -- --reporter agent > build/mutants.json         # 未検�
 npx mutator accept <キー> --reason "<等価と判断した理由>"               # 等価なミュータントを記録する
 ```
 
-対象は `mutator.config.mjs` に書いてあります。テストが import する純粋なロジック（`src-ui/logics` の `.ts` と `views/vr/vrPanelHover.ts`）です。mutator は Vite の変換の中で変異を入れるため、Vite を通らない読み込み方のファイルは対象にできません。`loadModule`（`hookHarness.ts`）や `loadBridgeRoutes`（`bridgeHarness.ts`）で読むフックと橋渡し、文字列として読むファイルは、理由を添えて `exclude` に入れてあります。テストがそのファイルを import するように変えたら、`exclude` から外してください。
+対象は `mutator.config.mjs` に書いてあります。`src-ui/logics` と `src-ui/views` の `.ts` と `.tsx` で、スタイル（`.css.ts`）、型の宣言、試験とその基盤は除きます。mutator は Vite の変換の中で変異を入れます。試験が import するソースに加え、`loadModule`（`hookHarness.ts`）や `loadBridgeRoutes`（`bridgeHarness.ts`）で読むフック、橋渡し、部品も Vite を通るので、対象にできます。どの試験も実行しないソースの変異は NoCoverage として数え、スコアに入れます。
 
 結果の読み方:
 
@@ -253,7 +253,7 @@ npx mutator accept <キー> --reason "<等価と判断した理由>"            
 
 - 未検出は1件ずつコードを読み、テストの不足か、どの入力でも結果が変わらない等価なミュータントかを判断します。等価なら `npx mutator accept` で理由と一緒に記録し、`mutator.accepted.json` をコミットします。記録した行が変わると、次の実行で「古い」と報告されます。
 - 変異の種類ごとの除外（`excludedMutators`）はしていません。文字列の置き換え（`StringLiteral`）は等価になりやすい一方、表のエンドポイント名やノードのIDなど、本物の穴も多く見つかったためです。
-- テストからは実行されていても、mutator には見えない経路があります。`data:` URL でNodeに直接読ませるモジュール（`useStdoutToPython.test.ts`）と、`loadModule` に差し替え品を渡すテストです。未検出が多いファイルは、等価か判断する前に、そのファイルを使うテストの読み込み方を確かめます。
+- テストからは実行されていても、mutator には見えない経路が残っています。`data:` URL でNodeに直接読ませるモジュールです（`useStdoutToPython.test.ts`、`useHotkeys.test.ts`、`languageMutations.test.ts`）。また、`loadModule` に差し替え品を渡したテストでは、差し替えたソースは実行されません。未検出が多いファイルは、等価か判断する前に、そのファイルを使うテストの読み込み方を確かめます。
 - Vitest 5 は変換したモジュールを `node_modules/.vitest-cache` に残します（`fsModuleCache`、既定で有効）。mutator はこのキャッシュと自分の計装を区別しません。そのため、対象を変えて回すと計装のないモジュールが読まれ、エラーなしで NoCoverage ばかりになり、スコアが0%近くまで落ちます。`npm run test:mutation` は `vitest.mutator.config.js`（このキャッシュを切った設定）を使います。`npx mutator --config vitest.config.js` のように、ほかの設定で回さないでください。
 - 結果のキャッシュは `.mutator/` にあり（Gitの対象外）、次の実行では関数とテストが変わっていないものを再利用します。0.2.0 は最後の実行の結果だけを持つので、`--include` で絞って回した後の全体の実行は、ほぼ全件を回し直します。`.mutator/` を共有するので、同じ作業ツリーで2つ同時に回さないでください。
 - 全体の実行には数分かかります。結果を報告するときは、対象の範囲と計測した条件（版、並列数、機材）を添え、スコアを品質の保証として書かないでください。
