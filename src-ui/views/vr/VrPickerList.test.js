@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import * as featureLabel from "../../logics/common/featureLabel.ts";
 import { test, vi } from "vitest";
 import React from "react";
-import { hooks, loadModule, find, stubGlobals, eventTarget } from "../../logics/test/hookHarness.js";
+import { hooks, loadModule, find, stubGlobals, eventTarget } from "../../logics/test/hookHarness.ts";
 import * as languageNames from "../../logics/common/languageNames.ts";
 import { languageCodes } from "../../logics/common/languageCodes.ts";
 import { languageJumpGroups } from "../../logics/common/languageJumpGroups.ts";

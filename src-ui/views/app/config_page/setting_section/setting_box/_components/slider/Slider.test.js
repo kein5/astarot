@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { hooks, loadModule, find, eventTarget } from "../../../../../../../logics/test/hookHarness.js";
+import { hooks, loadModule, find, eventTarget } from "../../../../../../../logics/test/hookHarness.ts";
 
 const pointer = (x, y = 0) => ({ button: 0, clientX: x, clientY: y, preventDefault() {} });
 const key = name => ({ key: name, defaultPrevented: false, preventDefault() { this.defaultPrevented = true; } });

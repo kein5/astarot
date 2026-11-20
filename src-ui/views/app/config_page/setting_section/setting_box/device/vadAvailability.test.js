@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "vitest";
 import { readFileSync } from "node:fs";
 import yaml from "js-yaml";
-import { hooks, loadModule, find } from "../../../../../../logics/test/hookHarness.js";
+import { hooks, loadModule, find } from "../../../../../../logics/test/hookHarness.ts";
 
 // #391: without a VAD engine the VAD option says why it cannot be chosen, and a VAD switch
 // saved by an earlier version shows the volume mode that applies instead.

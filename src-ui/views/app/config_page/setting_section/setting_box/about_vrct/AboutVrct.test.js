@@ -4,7 +4,7 @@ import { test } from "vitest";
 import i18next from "i18next";
 import yaml from "js-yaml";
 import clsx from "clsx";
-import { hooks, loadModule, find, stubGlobals, eventTarget } from "../../../../../../logics/test/hookHarness.js";
+import { hooks, loadModule, find, stubGlobals, eventTarget } from "../../../../../../logics/test/hookHarness.ts";
 
 const resources = Object.fromEntries(await Promise.all(["en", "ja"].map(async language => [language, {
     translation: yaml.load(await readFile(new URL(`../../../../../../../locales/${language}.yml`, import.meta.url), "utf8")),

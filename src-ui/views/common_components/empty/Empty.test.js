@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "vitest";
-import { hooks, loadModule } from "../../../logics/test/hookHarness.js";
+import { hooks, loadModule } from "../../../logics/test/hookHarness.ts";
 
 const read = name => readFileSync(new URL(name, import.meta.url), "utf8");
 

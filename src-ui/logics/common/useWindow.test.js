@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test, vi } from "vitest";
-import { hooks, loadModule, stubGlobals } from "../test/hookHarness.js";
+import { hooks, loadModule, stubGlobals } from "../test/hookHarness.ts";
 
 // innerSize reports physical pixels; the 800px breakpoint is in CSS pixels
 // (scaled by the UI size), like the stylesheet's (max-width: 800px) queries.

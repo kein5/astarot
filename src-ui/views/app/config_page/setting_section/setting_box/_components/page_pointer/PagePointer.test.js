@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "vitest";
 import { readFileSync, readdirSync } from "node:fs";
 import yaml from "js-yaml";
-import { hooks, loadModule, find } from "../../../../../../../logics/test/hookHarness.js";
+import { hooks, loadModule, find } from "../../../../../../../logics/test/hookHarness.ts";
 
 // A button on a settings page that opens another page names that page and what is done there
 // (#537), in one label: 「「デバイス」で音声経路を変更」, not 「音声経路を変更」, which looked as if

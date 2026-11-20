@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test, vi } from "vitest";
-import { hooks, loadModule, stubGlobals, eventTarget, find } from "../test/hookHarness.js";
-import { flush, loadBridgeRoutes } from "../test/bridgeHarness.js";
+import { hooks, loadModule, stubGlobals, eventTarget, find } from "../test/hookHarness.ts";
+import { flush, loadBridgeRoutes } from "../test/bridgeHarness.ts";
 import { rebaseDraft } from "../voice/draftRebase.ts";
 import { changedPaths } from "../voice/saveBar.ts";
 import { createSettingsWriteResponses } from "../common/settingsWriteResponses.ts";

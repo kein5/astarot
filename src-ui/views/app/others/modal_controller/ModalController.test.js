@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { hooks, loadModule, find, stubGlobals, eventTarget } from "../../../../logics/test/hookHarness.js";
+import { hooks, loadModule, find, stubGlobals, eventTarget } from "../../../../logics/test/hookHarness.ts";
 
 async function fixture(context) {
     const runtime = hooks(), focus = [], changes = [];

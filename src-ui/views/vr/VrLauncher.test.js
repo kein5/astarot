@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test, vi } from "vitest";
-import { eventTarget, find, hooks, loadModule } from "../../logics/test/hookHarness.js";
+import { eventTarget, find, hooks, loadModule } from "../../logics/test/hookHarness.ts";
 import * as switchBlocks from "../../logics/main/switchBlocks.ts";
 
 async function launcher(context) {

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test, vi } from "vitest";
-import { hooks, loadModule } from "../../test/hookHarness.js";
+import { hooks, loadModule } from "../../test/hookHarness.ts";
 
 async function setup(context) {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });

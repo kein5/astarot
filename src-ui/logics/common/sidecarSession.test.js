@@ -4,8 +4,8 @@ import { test, vi } from "vitest";
 import { createSidecarSessionOwner } from "./sidecarSession.ts";
 import * as startupPhase from "./startupPhase.ts";
 import { expectBackendExit } from "./sidecarExitExpectation.ts";
-import { hooks, loadModule, find } from "../test/hookHarness.js";
-import { deferred, flush, loadBridgeStore, loadBridgeRoutes } from "../test/bridgeHarness.js";
+import { hooks, loadModule, find } from "../test/hookHarness.ts";
+import { deferred, flush, loadBridgeStore, loadBridgeRoutes } from "../test/bridgeHarness.ts";
 import * as utils from "../utils.ts";
 
 test("only the main window can start, feed or retire the backend", async () => {

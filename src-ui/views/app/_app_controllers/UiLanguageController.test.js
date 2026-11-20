@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { hooks, loadModule } from "../../../logics/test/hookHarness.js";
+import { hooks, loadModule } from "../../../logics/test/hookHarness.ts";
 
 const setup = async () => {
     const runtime = hooks(), changes = [];

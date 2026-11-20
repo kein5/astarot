@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { hooks, loadModule, find } from "../../logics/test/hookHarness.js";
+import { hooks, loadModule, find } from "../../logics/test/hookHarness.ts";
 
 test("closed VR log renders no body or subscribers and retains its saved view across reopen", async () => {
     const runtime = hooks();

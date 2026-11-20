@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { hooks, loadModule, find } from "../test/hookHarness.js";
+import { hooks, loadModule, find } from "../test/hookHarness.ts";
 import * as uiConfigs from "../ui_configs.ts";
 
 const HOME = "https://kein5.github.io/astarot";

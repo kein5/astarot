@@ -3,7 +3,7 @@ import { test, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import i18next from "i18next";
 import yaml from "js-yaml";
-import { loadBridgeRoutes } from "./test/bridgeHarness.js";
+import { loadBridgeRoutes } from "./test/bridgeHarness.ts";
 
 const failures = [
     ["/set/enable/obs_browser_source", "OBS_BROWSER_SOURCE_PORT_UNAVAILABLE", "EnableObsBrowserSource", false],

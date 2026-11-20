@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { loadModule } from "../test/hookHarness.js";
-import { loadBridgeStore } from "../test/bridgeHarness.js";
+import { loadModule } from "../test/hookHarness.ts";
+import { loadBridgeStore } from "../test/bridgeHarness.ts";
 import * as meterValue from "./meterValue.ts";
 
 test("both meter atoms preserve equal wrappers but publish state and value changes", async () => {

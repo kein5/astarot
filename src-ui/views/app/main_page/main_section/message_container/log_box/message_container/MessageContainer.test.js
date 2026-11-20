@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import { readFile } from "node:fs/promises";
-import { hooks, loadModule, find } from "../../../../../../../logics/test/hookHarness.js";
+import { hooks, loadModule, find } from "../../../../../../../logics/test/hookHarness.ts";
 import { applyRealtimeCaption } from "../../../../../../../logics/transcription/realtimeCaptionState.ts";
 import { encodeLogUpdate, decodeLogUpdate } from "../../../../../../../logics/common/vrPanelWire.ts";
 import * as speakerNamesLogic from "../../../../../../../logics/common/speakerNames.ts";

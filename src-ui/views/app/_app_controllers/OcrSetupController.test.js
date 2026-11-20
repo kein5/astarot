@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "vitest";
 import { readFile } from "node:fs/promises";
 import yaml from "js-yaml";
-import { hooks, loadModule, find } from "../../../logics/test/hookHarness.js";
+import { hooks, loadModule, find } from "../../../logics/test/hookHarness.ts";
 
 async function fixture(context) {
     const runtime = hooks(), events = [];

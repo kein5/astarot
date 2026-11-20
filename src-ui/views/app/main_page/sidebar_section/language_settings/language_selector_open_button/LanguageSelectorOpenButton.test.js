@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { hooks, loadModule, find } from "../../../../../../logics/test/hookHarness.js";
+import { hooks, loadModule, find } from "../../../../../../logics/test/hookHarness.ts";
 
 const slots = { 1: { "1": { language: "Japanese", country: "Japan", enable: true }, "2": { language: "English", country: "United States", enable: false } } };
 

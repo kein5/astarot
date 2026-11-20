@@ -4,7 +4,7 @@ import * as rvcStartOptions from "../../../../../../logics/voice/rvcStartOptions
 import * as voiceErrorTextModule from "../../../../../../logics/voice/voiceErrorText.ts";
 import assert from "node:assert/strict";
 import { test, vi } from "vitest";
-import { hooks, loadModule, find } from "../../../../../../logics/test/hookHarness.js";
+import { hooks, loadModule, find } from "../../../../../../logics/test/hookHarness.ts";
 
 async function setup({ seed = "invalid", instructions = "\u0001", modelOptions = {} } = {}) {
     const runtime = hooks();

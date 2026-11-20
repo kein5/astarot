@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { test, vi } from "vitest";
 import { readFileSync } from "node:fs";
-import { hooks, loadModule } from "../../../../../../logics/test/hookHarness.js";
-import { flush } from "../../../../../../logics/test/bridgeHarness.js";
+import { hooks, loadModule } from "../../../../../../logics/test/hookHarness.ts";
+import { flush } from "../../../../../../logics/test/bridgeHarness.ts";
 import * as registry from "../../../../../../logics/configs/experimentalFeatures.ts";
 import * as hexagram from "../../../../../../logics/companion/hexagram.ts";
 

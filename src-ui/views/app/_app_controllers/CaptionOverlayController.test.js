@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test, vi } from "vitest";
-import { hooks, loadModule } from "../../../logics/test/hookHarness.js";
-import { flush } from "../../../logics/test/bridgeHarness.js";
+import { hooks, loadModule } from "../../../logics/test/hookHarness.ts";
+import { flush } from "../../../logics/test/bridgeHarness.ts";
 import * as lines from "../../../logics/captionOverlay/lines.ts";
 import * as ioFlow from "../../../logics/flow/ioFlow.ts";
 import * as flowText from "../../../logics/flow/flowText.ts";

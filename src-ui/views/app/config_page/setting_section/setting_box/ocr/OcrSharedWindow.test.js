@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { find, hooks, loadModule } from "../../../../../../logics/test/hookHarness.js";
+import { find, hooks, loadModule } from "../../../../../../logics/test/hookHarness.ts";
 import * as sharedWindow from "../../../../../../logics/configs/ocrSharedWindow.ts";
 
 const flush = async () => { for (let i = 0; i < 10; i++) await Promise.resolve(); };

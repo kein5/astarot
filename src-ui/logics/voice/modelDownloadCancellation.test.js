@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { hooks, loadModule, find } from "../test/hookHarness.js";
-import { loadBridgeRoutes } from "../test/bridgeHarness.js";
+import { hooks, loadModule, find } from "../test/hookHarness.ts";
+import { loadBridgeRoutes } from "../test/bridgeHarness.ts";
 import * as polledState from "../common/polledState.ts";
 import * as languageNames from "../common/languageNames.ts";
 import * as modelCatalog from "./modelCatalog.ts";

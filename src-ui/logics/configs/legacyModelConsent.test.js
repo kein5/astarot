@@ -5,8 +5,8 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { Children } from "react";
 import i18next from "i18next";
 import yaml from "js-yaml";
-import { hooks, loadModule, find, stubGlobals } from "../test/hookHarness.js";
-import { loadBridgeRoutes } from "../test/bridgeHarness.js";
+import { hooks, loadModule, find, stubGlobals } from "../test/hookHarness.ts";
+import { loadBridgeRoutes } from "../test/bridgeHarness.ts";
 import * as consentLogic from "./legacyModelConsent.ts";
 import * as setupNeeds from "../main/setupNeeds.ts";
 

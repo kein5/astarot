@@ -5,8 +5,8 @@ import yaml from "js-yaml";
 import i18next from "i18next";
 import { parsePortInput, PORT_INPUT_LIMITS } from "./networkPortInput.ts";
 import { buildObsBrowserSourceUrl, buildWebsocketUrl } from "./obsBrowserSourceUrl.ts";
-import { hooks, loadModule, find } from "../test/hookHarness.js";
-import { loadBridgeRoutes } from "../test/bridgeHarness.js";
+import { hooks, loadModule, find } from "../test/hookHarness.ts";
+import { loadBridgeRoutes } from "../test/bridgeHarness.ts";
 
 test("port drafts accept only digits in range and serialize as integers", () => {
     for (const [value, expected] of [[0, null], [1, 1], [65535, 65535], [65536, null], [-1, null],
