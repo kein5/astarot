@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { test } from "vitest";
 import type { TestContext } from "vitest";
 import yaml from "js-yaml";
-import { hooks, loadModule, find } from "../../../logics/test/hookHarness.ts";
+import { hooks, loadModule, find, unchecked } from "../../../logics/test/hookHarness.ts";
 import type { TreeNode } from "../../../logics/test/hookHarness.ts";
 import * as logic from "../../../logics/setup/firstRunSetup.ts";
 
@@ -33,12 +33,19 @@ interface World {
     realtimeError: string | null;
     sent: [string, unknown][];
     calls: unknown[];
+    // What the findings read: the saved microphone, the VRChat presence, the virtual cables and
+    // what the setup needs.
+    mic: string;
+    vrchat: string;
+    cables: object[];
+    needs: object[];
 }
 
 function world(values: Partial<World> = {}): World {
     return { notice: true, settled: false, opened: false, telemetryPending: false,
         engine: null, server: "external", paths: { model: "", vad_model: "" }, catalog: CATALOG, jobs: {},
-        downloadError: null, realtimeError: null, sent: [], calls: [], ...values };
+        downloadError: null, realtimeError: null, sent: [], calls: [],
+        mic: "Microphone (USB)", vrchat: "found", cables: [], needs: [], ...values };
 }
 
 // value?.[key], for a value read from a locale file.
@@ -55,7 +62,7 @@ async function setup(context: TestContext, w = world()) {
         "@logics_configs": {
             useOthers: () => ({ currentTelemetryNotice: { state: "ok", data: { pending: w.telemetryPending } } }),
             useTranscription: () => ({ setSelectedTranscriptionEngine: async (engine: unknown) => { record("/set/data/selected_transcription_engine", engine); return true; } }),
-            useSettingValue: () => ({ state: "ok", data: "Microphone (USB)" }),
+            useSettingValue: () => ({ state: "ok", data: w.mic }),
         },
         "@store": {
             useStore_IsBackendReady: () => ({ currentIsBackendReady: { data: true } }),
@@ -69,8 +76,8 @@ async function setup(context: TestContext, w = world()) {
         "../../../logics/voice/useModelDownloads": { useModelDownloads: () => ({
             catalog: w.catalog, state: { jobs: w.jobs }, error: w.downloadError,
             send: async (endpoint: string, data: unknown) => { record(endpoint, data); if (endpoint.startsWith("/run/")) w.downloadError = null; } }) },
-        "../../../logics/voice/useVirtualMic": { useVirtualMic: () => ({ status: { supported: true, cables: [], error: null }, openGuide: () => w.calls.push("guide") }) },
-        "../../../logics/main/useSetupNeeds": { useSetupNeeds: () => ({ needs: [] }) },
+        "../../../logics/voice/useVirtualMic": { useVirtualMic: () => ({ status: { supported: true, cables: w.cables, error: null }, openGuide: () => w.calls.push("guide") }) },
+        "../../../logics/main/useSetupNeeds": { useSetupNeeds: () => ({ needs: w.needs }) },
         "../../../logics/translation/useOpenTranslatorList": { useOpenTranslatorList: () => () => w.calls.push("translators") },
         "../../../logics/setup/useFirstRunSetup": { useFirstRunSetup: () => ({
             notice: w.notice, opened: w.opened, settled: w.settled,
@@ -82,7 +89,8 @@ async function setup(context: TestContext, w = world()) {
             return { state, engine: w.engine, server: w.server, paths: w.paths };
         } },
         "../../../logics/setup/firstRunSetup.ts": logic,
-        "../others/vrchat_presence/VrchatPresence": { VrchatPresence: () => null },
+        "../others/vrchat_presence/VrchatPresence": { useVrchatPresence: () => ({ state: w.vrchat, tone: "neutral",
+            lines: [`vrchat_presence.${w.vrchat}`, ...(w.vrchat === "not_found" ? ["vrchat_presence.not_found_hint"] : [])] }) },
     });
     context.onTestFinished(() => runtime.unmount());
     // Renders until the effects stop changing what is drawn (each effect may set state).
@@ -220,6 +228,80 @@ test("Later puts it away for this run without dismissing it; Don't show again do
     assert.ok(alternative);
     alternative.props.children.props.onClick();
     assert.ok(v.calls.includes("dismiss"));
+});
+
+// What was found reads at a glance (#557): each row is marked ready, needs the user, being checked
+// or neither, its words stay beside the mark, and its button sits under its words, never inside them.
+// One row of what was found, as Findings hands it to Finding.
+interface FindingRow {
+    name: string;
+    state: string;
+    live?: boolean;
+    action?: TreeNode | false;
+    children: string | TreeNode[];
+}
+// A part the harness does not draw by itself (it draws one level), called as the dialog would.
+interface Part { type: (props: object) => unknown; props: object }
+const isFinding = (node: TreeNode) => typeof node.type === "function" && node.type.name === "Finding";
+const shortName = (row: FindingRow) => row.name.split(".").at(-1) ?? row.name;
+
+test("each finding is marked by its state, with its words and its action apart", async context => {
+    const rowsOf = async (values: Partial<World>) => {
+        const w = world(values);
+        const s = await setup(context, w);
+        // The element the dialog drew for Findings: a function component and the props it was given.
+        const findings = unchecked<Part>(s.part(s.render(), "Findings"));
+        const list = findings.type(findings.props);
+        const rows: FindingRow[] = [];
+        find(list, node => { if (isFinding(node)) rows.push(node.props); return false; });
+        // Where each row is drawn: the cards of what needs the user, or the quiet list after them.
+        const placed = (className: string) => {
+            const group = find(list, node => node.type === "ul" && node.props.className === className);
+            const names: string[] = [];
+            find(group, node => { if (isFinding(node)) names.push(shortName(node.props)); return false; });
+            return names;
+        };
+        return { rows: Object.fromEntries(rows.map(row => [shortName(row), row])), urgent: placed("urgent"), settled: placed("items"), list };
+    };
+    const states = (rows: Record<string, FindingRow>) => Object.fromEntries(Object.entries(rows).map(([name, row]) => [name, row.state]));
+
+    const needing = await rowsOf({ mic: "NoDevice", vrchat: "not_found", cables: [], needs: [{ id: "translation", action: "choose" }] });
+    // No virtual cable needs the user too (decided in #759).
+    assert.deepEqual(states(needing.rows),
+        { mic: "attention", vrchat: "attention", virtual_mic: "attention", translation: "attention", recognition: "attention" });
+    // The layout says it before the words (#614): what needs the user comes first, as cards;
+    // the rest follow in the quiet list. Each keeps its order within its place.
+    assert.deepEqual(needing.urgent, ["mic", "vrchat", "virtual_mic", "translation", "recognition"]);
+    assert.deepEqual(needing.settled, []);
+    assert.equal(needing.rows.mic.children, "first_run_setup.found.mic_missing");
+    const lines = needing.rows.vrchat.children;
+    assert.ok(Array.isArray(lines));
+    assert.deepEqual(lines.map(line => line.props.children), ["vrchat_presence.not_found", "vrchat_presence.not_found_hint"]);
+    assert.equal(needing.rows.vrchat.live, true, "the VRChat words change by themselves and are announced");
+    // The buttons are the rows' actions; the words around them are only the finding.
+    assert.equal(needing.rows.translation.children, "first_run_setup.found.translation_missing");
+    const choose = needing.rows.translation.action, guide = needing.rows.virtual_mic.action;
+    assert.ok(choose && guide);
+    assert.equal(choose.props.children, "first_run_setup.found.translation_choose");
+    assert.equal(guide.props.children, "first_run_setup.found.virtual_mic_open");
+
+    const ready = await rowsOf({ engine: "SpeechCpp", server: "bundled", paths: { model: "/m/a.gguf", vad_model: "/m/v.gguf" }, opened: true,
+        cables: [{ playback: "CABLE Input", recording: "CABLE Output" }] });
+    assert.deepEqual(states(ready.rows),
+        { mic: "ready", vrchat: "ready", virtual_mic: "ready", translation: "ready", recognition: "ready" });
+    // Nothing to do: no card at all, only the quiet list.
+    assert.equal(find(ready.list, node => node.type === "ul" && node.props.className === "urgent"), null);
+    assert.deepEqual(ready.settled, ["mic", "vrchat", "virtual_mic", "translation", "recognition"]);
+    assert.equal(ready.rows.mic.children, "Microphone (USB)");
+    assert.ok(!ready.rows.translation.action, "nothing to do: no button");
+
+    // Not known yet, or a choice made elsewhere: neither ready nor needing the user here. The
+    // cards and the quiet list then share the findings by state, each in its order.
+    const elsewhere = await rowsOf({ vrchat: "checking", engine: "Deepgram", opened: true,
+        cables: [{ playback: "CABLE Input", recording: "CABLE Output" }], needs: [{ id: "translation", action: "choose" }] });
+    assert.deepEqual([elsewhere.rows.vrchat.state, elsewhere.rows.recognition.state], ["checking", "neutral"]);
+    assert.deepEqual(elsewhere.urgent, ["translation"]);
+    assert.deepEqual(elsewhere.settled, ["mic", "vrchat", "virtual_mic", "recognition"]);
 });
 
 test("every string it uses is in both languages", () => {
