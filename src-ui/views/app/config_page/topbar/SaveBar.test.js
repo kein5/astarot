@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "vitest";
 import { readFileSync } from "node:fs";
 import yaml from "js-yaml";
-import { hooks, loadModule, find, eventTarget, stubGlobals } from "../../../../logics/test/hookHarness.js";
+import { hooks, loadModule, find, eventTarget, stubGlobals } from "../../../../logics/test/hookHarness.ts";
 
 const t = (key, options) => options?.changes ? `${key}[${options.changes}]` : key;
 async function render(context, entries, tab = "tts") {

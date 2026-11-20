@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { hooks, loadModule, find, eventTarget, stubGlobals } from "../test/hookHarness.js";
+import { hooks, loadModule, find, eventTarget, stubGlobals } from "../test/hookHarness.ts";
 
 async function fixture(saved, context) {
     // The opened rail listens on the document for Escape and presses outside it.

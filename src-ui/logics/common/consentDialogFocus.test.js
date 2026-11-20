@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { hooks, loadModule, find, stubGlobals } from "../test/hookHarness.js";
+import { hooks, loadModule, find, stubGlobals } from "../test/hookHarness.ts";
 import * as legacyConsent from "../configs/legacyModelConsent.ts";
 import * as endpointPrivacy from "./endpointPrivacy.ts";
 import * as languageNames from "./languageNames.ts";

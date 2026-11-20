@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { hooks, loadModule } from "../../../../../../logics/test/hookHarness.js";
+import { hooks, loadModule } from "../../../../../../logics/test/hookHarness.ts";
 
 // #614: what the guide checks is the row's description, a hint on the TTS page; that no virtual
 // cable was found is a state, so it stays in sight.

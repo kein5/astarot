@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test, vi } from "vitest";
-import { hooks, loadModule, stubGlobals, eventTarget } from "../test/hookHarness.js";
+import { hooks, loadModule, stubGlobals, eventTarget } from "../test/hookHarness.ts";
 import { rebaseDraft } from "./draftRebase.ts";
 
 const flush = async () => { for (let i = 0; i < 10; i++) await Promise.resolve(); };

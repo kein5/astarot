@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { hooks, loadModule, find } from "../../../../../../../logics/test/hookHarness.js";
+import { hooks, loadModule, find } from "../../../../../../../logics/test/hookHarness.ts";
 
 const engines = [
     { id: "CTranslate2", label: "CTranslate2", is_available: true, is_default: true },

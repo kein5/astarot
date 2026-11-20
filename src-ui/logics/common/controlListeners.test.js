@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test, vi } from "vitest";
-import { hooks, loadModule, find, eventTarget } from "../test/hookHarness.js";
+import { hooks, loadModule, find, eventTarget } from "../test/hookHarness.ts";
 
 const componentRoot = "../../views/app/config_page/setting_section/setting_box/_components/";
 const pointer = (x, y = 0) => ({ button: 0, clientX: x, clientY: y, preventDefault() {} });

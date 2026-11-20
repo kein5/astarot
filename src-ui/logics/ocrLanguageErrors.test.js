@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { flush, loadBridgeRoutes } from "./test/bridgeHarness.js";
+import { flush, loadBridgeRoutes } from "./test/bridgeHarness.ts";
 
 for (const error_code of ["OCR_DISABLED_MODEL_MISSING", "OCR_DISABLED_MODEL_LOAD_FAILED"]) {
     test(`OCR language ${error_code} settles the previous language`, async () => {

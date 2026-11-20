@@ -6,7 +6,7 @@ import * as voiceErrorText from "../../../../../../logics/voice/voiceErrorText.t
 import { changedPaths } from "../../../../../../logics/voice/saveBar.ts";
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { hooks, loadModule } from "../../../../../../logics/test/hookHarness.js";
+import { hooks, loadModule } from "../../../../../../logics/test/hookHarness.ts";
 
 // #429: input forwarding under the advanced settings showed a saved RVC conversion as forwarding
 // and put that change in the save bar as soon as the page opened. Any save from the page then

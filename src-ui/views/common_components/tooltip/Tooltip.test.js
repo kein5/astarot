@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "vitest";
-import { hooks, loadModule, find } from "../../../logics/test/hookHarness.js";
+import { hooks, loadModule, find } from "../../../logics/test/hookHarness.ts";
 
 const read = path => readFileSync(new URL(path, import.meta.url), "utf8");
 // The declarations a rule writes itself, before any nested rule.

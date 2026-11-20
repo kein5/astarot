@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test, vi } from "vitest";
-import { eventTarget, stubGlobals } from "../../logics/test/hookHarness.js";
+import { eventTarget, stubGlobals } from "../../logics/test/hookHarness.ts";
 import { trackVrPointerHover } from "./vrPanelHover.ts";
 
 function setup(context) {

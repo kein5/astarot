@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "vitest";
 import yaml from "js-yaml";
-import { hooks, loadModule } from "../test/hookHarness.js";
+import { hooks, loadModule } from "../test/hookHarness.ts";
 import * as shapes from "./voiceAudition.ts";
 
 const playing = (run, profile = "japanese") => ({ state: "playing", run, profile, last_run: null, outcome: null, error_code: null });
@@ -97,7 +97,7 @@ test("a press sends the sentence's id, never its text, and repeat presses wait f
 });
 
 test("a refusal reaches the card through its own route, and only a playing audition is polled", async () => {
-    const { loadBridgeRoutes } = await import("../test/bridgeHarness.js");
+    const { loadBridgeRoutes } = await import("../test/bridgeHarness.ts");
     const subject = await loadBridgeRoutes();
     const state = () => subject.voiceAudition();
     await state().start("japanese");

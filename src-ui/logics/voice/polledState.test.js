@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test, vi } from "vitest";
 import { createStore } from "jotai/vanilla";
-import { hooks, loadModule } from "../test/hookHarness.js";
+import { hooks, loadModule } from "../test/hookHarness.ts";
 import * as polledState from "../common/polledState.ts";
 import * as routeState from "./routeState.ts";
 import * as pendingVoiceRequest from "./pendingVoiceRequest.ts";

@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { test, vi } from "vitest";
 import i18next from "i18next";
 import yaml from "js-yaml";
-import { hooks, loadModule, find } from "../test/hookHarness.js";
+import { hooks, loadModule, find } from "../test/hookHarness.ts";
 
 async function fixture(context, language = "en", name = "ctranslate2_weight_type") {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"], now: 0 });

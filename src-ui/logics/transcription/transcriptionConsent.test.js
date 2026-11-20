@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "vitest";
 import { readFile } from "node:fs/promises";
 import yaml from "js-yaml";
-import { hooks, loadModule, find } from "../test/hookHarness.js";
+import { hooks, loadModule, find } from "../test/hookHarness.ts";
 import * as endpointPrivacy from "../common/endpointPrivacy.ts";
 
 const noop = () => {};

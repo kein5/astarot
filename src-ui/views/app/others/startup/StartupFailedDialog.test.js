@@ -3,7 +3,7 @@ import { test } from "vitest";
 import { readFileSync } from "node:fs";
 import i18next from "i18next";
 import yaml from "js-yaml";
-import { hooks, loadModule, find } from "../../../../logics/test/hookHarness.js";
+import { hooks, loadModule, find } from "../../../../logics/test/hookHarness.ts";
 
 const load = async (failure, language = "en") => {
     const i18n = i18next.createInstance();

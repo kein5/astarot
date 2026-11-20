@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { hooks, loadModule, find } from "../../../../../../logics/test/hookHarness.js";
+import { hooks, loadModule, find } from "../../../../../../logics/test/hookHarness.ts";
 
 // The engine part of the TTS page (ADR-008), with the voice hook and the readout stubbed.
 async function setup({ draft, saved = draft, engineVoices = null }) {

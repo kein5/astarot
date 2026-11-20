@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { test } from "vitest";
-import { hooks, loadModule } from "../test/hookHarness.js";
-import { flush } from "../test/bridgeHarness.js";
+import { hooks, loadModule } from "../test/hookHarness.ts";
+import { flush } from "../test/bridgeHarness.ts";
 
 const load = async (runtime, invoke = async () => true) =>
     loadModule(new URL("./closeBehavior.ts", import.meta.url), runtime, { "@tauri-apps/api/core": { invoke } });

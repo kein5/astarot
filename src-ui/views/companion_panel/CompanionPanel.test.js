@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { hooks, loadModule, find, eventTarget, stubGlobals } from "../../logics/test/hookHarness.js";
-import { flush } from "../../logics/test/bridgeHarness.js";
+import { hooks, loadModule, find, eventTarget, stubGlobals } from "../../logics/test/hookHarness.ts";
+import { flush } from "../../logics/test/bridgeHarness.ts";
 import * as status from "../../logics/companion/status.ts";
 
 const ready = { ready: true, mic: { on: false, pending: false }, translation: { on: true, pending: false }, language: "ja",

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "vitest";
 import { readFileSync } from "node:fs";
 import yaml from "js-yaml";
-import { hooks, loadModule, find, stubGlobals } from "../../../../logics/test/hookHarness.js";
+import { hooks, loadModule, find, stubGlobals } from "../../../../logics/test/hookHarness.ts";
 
 const EnvReadout = () => null;
 async function setup(context, { presence = null, sends = true, osc_query = true } = {}) {

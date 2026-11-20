@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "vitest";
 import { readFileSync } from "node:fs";
 import yaml from "js-yaml";
-import { hooks, loadModule } from "../test/hookHarness.js";
+import { hooks, loadModule } from "../test/hookHarness.ts";
 import * as endpointPrivacy from "./endpointPrivacy.ts";
 
 test("a lost network connection is told in the UI language, and only when it is known to be lost", async () => {

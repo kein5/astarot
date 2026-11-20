@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { hooks, loadModule } from "../../../../../../logics/test/hookHarness.js";
+import { hooks, loadModule } from "../../../../../../logics/test/hookHarness.ts";
 import * as shapes from "../../../../../../logics/voice/voiceAudition.ts";
 
 // The audition's button and note on a TTS card (#415), with the voice, the servers and the

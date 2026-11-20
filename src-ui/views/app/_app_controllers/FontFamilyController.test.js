@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { hooks, loadModule, stubGlobals } from "../../../logics/test/hookHarness.js";
+import { hooks, loadModule, stubGlobals } from "../../../logics/test/hookHarness.ts";
 
 test("the selected font family is set as one CSS string, so non-identifier names still apply", async context => {
     const runtime = hooks(), properties = new Map();

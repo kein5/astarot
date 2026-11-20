@@ -3,8 +3,8 @@ import { test } from "vitest";
 import { readFileSync } from "node:fs";
 import i18next from "i18next";
 import yaml from "js-yaml";
-import { loadBridgeRoutes } from "./test/bridgeHarness.js";
-import { loadModule } from "./test/hookHarness.js";
+import { loadBridgeRoutes } from "./test/bridgeHarness.ts";
+import { loadModule } from "./test/hookHarness.ts";
 import * as meterValue from "./common/meterValue.ts";
 
 for (const language of ["en", "ja"]) for (const source of ["mic", "speaker"]) {

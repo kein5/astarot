@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import { test, vi } from "vitest";
-import { loadBridgeRoutes } from "./test/bridgeHarness.js";
+import { loadBridgeRoutes } from "./test/bridgeHarness.ts";
 import { expectBackendExit } from "./common/sidecarExitExpectation.ts";
 import { createSidecarSessionOwner } from "./common/sidecarSession.ts";
-import { loadModule } from "./test/hookHarness.js";
+import { loadModule } from "./test/hookHarness.ts";
 
 test("blocked config loading shows the persistent load-failure notice", async () => {
     const s = await loadBridgeRoutes();

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { hooks, loadModule, find } from "../../../../../../logics/test/hookHarness.js";
+import { hooks, loadModule, find } from "../../../../../../logics/test/hookHarness.ts";
 
 // llama.cpp's server for the translation LLMs (ADR-015): offered only where the backend offers
 // it, set up through the runtime setup after the user's consent, never fetched unasked.

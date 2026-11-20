@@ -3,8 +3,8 @@ import { readFileSync } from "node:fs";
 import { test, vi } from "vitest";
 import i18next from "i18next";
 import yaml from "js-yaml";
-import { hooks, loadModule, find, stubGlobals } from "../test/hookHarness.js";
-import { loadBridgeStore } from "../test/bridgeHarness.js";
+import { hooks, loadModule, find, stubGlobals } from "../test/hookHarness.ts";
+import { loadBridgeStore } from "../test/bridgeHarness.ts";
 
 const resources = Object.fromEntries(["en", "ja"].map(language => [language, {
     translation: yaml.load(readFileSync(new URL(`../../../locales/${language}.yml`, import.meta.url), "utf8")),

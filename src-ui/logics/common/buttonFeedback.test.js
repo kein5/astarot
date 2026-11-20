@@ -12,7 +12,7 @@ import * as featureLabel from "./featureLabel.ts";
 import { nextLogView, rowsBetween } from "./messageLogView.ts";
 import { speakerContinuations } from "./speakerNames.ts";
 import * as switchBlocksModule from "../main/switchBlocks.ts";
-import { typeScriptAware } from "../test/hookHarness.js";
+import { typeScriptAware } from "../test/hookHarness.ts";
 
 // Exercise the production JSX handlers without a WebView or a new test runtime.
 // Hooks retain state across explicit renders; IPC promises are controlled by tests.
@@ -52,7 +52,7 @@ const icon = () => null;
 async function load(path, runtime, imports = {}) {
     const url = new URL(`../../views/${path}`, import.meta.url);
     const source = await readFile(url, "utf8");
-    // Views moving to TypeScript (ADR-010) lose their types first, as in hookHarness.js.
+    // Views moving to TypeScript (ADR-010) lose their types first, as in hookHarness.ts.
     const { code } = Babel.transform(source, typeScriptAware(url, {
         presets: [["react", { runtime: "automatic" }]], plugins: ["transform-modules-commonjs"],
     }));
