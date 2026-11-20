@@ -6,10 +6,14 @@ import unittest
 
 
 ROOT = Path(__file__).resolve().parents[2]
-TOOLS = ("node", "rust", "python", "uv", "cocogitto")
+# The checks of the repository (workflows, crates, secrets, vulnerabilities, links, hooks) and the
+# migration and release helpers, pinned with the toolchains.
+CHECK_TOOLS = ("actionlint", "zizmor", "cargo-deny", "cargo-nextest", "gitleaks", "osv-scanner", "lychee", "hk",
+               "ast-grep", "syft")
+TOOLS = ("node", "rust", "python", "uv", "cocogitto", *CHECK_TOOLS)
 # Downloaded archives mise.lock checks by SHA-256. Rust comes through rustup, which has no
 # archive checksum in the lock.
-LOCKED_ARCHIVES = ("node", "python", "uv", "cocogitto")
+LOCKED_ARCHIVES = ("node", "python", "uv", "cocogitto", *CHECK_TOOLS)
 PLATFORMS = ("linux-x64", "windows-x64")
 
 
@@ -78,6 +82,13 @@ class ToolchainPinTests(unittest.TestCase):
                 for platform in PLATFORMS:
                     checksum = entries[0].get(f"platforms.{platform}", {}).get("checksum", "")
                     self.assertRegex(checksum, r"^sha256:[0-9a-f]{64}$", f"{name} {platform}")
+
+    def test_nextest_comes_from_its_own_releases(self):
+        # mise's registry has no cargo-nextest; the alias names the project's GitHub releases.
+        config = tomllib.loads((ROOT / "mise.toml").read_text(encoding="utf-8"))
+        self.assertEqual(config["tool_alias"]["cargo-nextest"], "github:nextest-rs/nextest")
+        lock = tomllib.loads((ROOT / "mise.lock").read_text(encoding="utf-8"))["tools"]
+        self.assertEqual(lock["cargo-nextest"][0]["backend"], "github:nextest-rs/nextest")
 
     def test_ci_installs_the_toolchains_through_mise(self):
         uses_mise = False
