@@ -67,6 +67,8 @@
 | 書き込めない場所の AppImage、Windows の ZIP、Linux の tar.gz | 利用者 | アプリはファイルを置き換えない | `app_update.rs` の単体試験（入れ方の判定） |
 | deb、rpm | パッケージマネージャー | アプリは確認も置き換えもしない | 同上 |
 
+`tauri-plugin-updater` 自身が AppImage を原子的に置き換える（同じフォルダーに書いてから名前を変える）ようになったら、アプリの置き換え（`replace_appimage`）をやめ、Windows のインストーラーと同じくプラグインの `Update::install` に戻す（#881 で決定）。プラグインを上げるときは、その `install_appimage` を確かめる。
+
 どの入れ方でも、ダウンロードと署名の確認に失敗したときはファイルに触れず、今の版のまま理由のコード（`update_download_failed`、`update_signature_invalid` など）を返す。Windows でバックエンドを止めたあとにインストーラーを起動できなかったときは、アプリを起動し直してバックエンドのある状態に戻す。
 
 ## 残課題

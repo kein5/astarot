@@ -508,6 +508,11 @@ fn staged_prefix(name: &str) -> String {
 /// a stop before the rename leaves the current AppImage as it was, and the file it left is
 /// removed at the next start ([`remove_appimage_leftovers`]). The running copy keeps its old
 /// file open, as the updater's own replacement does.
+///
+/// Decided in #881: once `tauri-plugin-updater` replaces an AppImage atomically itself (a new
+/// file beside it, then a rename), this goes and a writable AppImage is installed with
+/// `Update::install` again, as the Windows installer is. Check the plugin's `install_appimage`
+/// when it is updated.
 fn replace_appimage(appimage: &Path, bytes: &[u8]) -> std::io::Result<()> {
     use std::io::Write;
     // AppImages are ELF executables; anything else is not installed.
