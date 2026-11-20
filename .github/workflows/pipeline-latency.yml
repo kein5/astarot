@@ -67,6 +67,10 @@ jobs:
       - if: steps.ready.outputs.send == 'true'
         uses: bencherdev/bencher@7de3c69a85380826613050826b4bce062be2f07d # v0.6.16
       # A failure to send is not a failure of develop or of the pull request.
+      # The thresholds alert only once develop has 10 times of its own (#738): fewer give limits
+      # so narrow that the runners' own spread would alert. develop's history starts over the
+      # first time a new BENCHER_START_POINT_IDEMPOTENCY_KEY is sent; later sends with the same
+      # key add to that history. Change the key when the measurement changes what it counts.
       - name: Send develop's times and keep its thresholds
         if: steps.ready.outputs.send == 'true' && github.event.workflow_run.event == 'push'
         continue-on-error: true
@@ -74,12 +78,14 @@ jobs:
           BENCHER_API_KEY: ${{ secrets.BENCHER_API_KEY }}
           GITHUB_TOKEN: ${{ github.token }}
           HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          # Since the test's fake servers set TCP_NODELAY (2026-11-21): Linux lost about 20 ms.
+          BENCHER_START_POINT_IDEMPOTENCY_KEY: develop-2026-11-21-fake-servers-tcp-nodelay
         run: >-
-          bencher run --branch develop --hash "$HEAD_SHA" --adapter json --file "$RESULTS"
-          --threshold-measure latency-p50 --threshold-test t_test --threshold-max-sample-size 64
-          --threshold-lower-boundary _ --threshold-upper-boundary 0.99
-          --threshold-measure latency-p95 --threshold-test t_test --threshold-max-sample-size 64
-          --threshold-lower-boundary _ --threshold-upper-boundary 0.99
+          bencher run --branch develop --hash "$HEAD_SHA" --start-point-reset --adapter json --file "$RESULTS"
+          --threshold-measure latency-p50 --threshold-test t_test --threshold-min-sample-size 10
+          --threshold-max-sample-size 64 --threshold-lower-boundary _ --threshold-upper-boundary 0.99
+          --threshold-measure latency-p95 --threshold-test t_test --threshold-min-sample-size 10
+          --threshold-max-sample-size 64 --threshold-lower-boundary _ --threshold-upper-boundary 0.99
           --thresholds-reset --github-actions "$GITHUB_TOKEN"
       - name: Send the pull request's times
         if: steps.ready.outputs.send == 'true' && github.event.workflow_run.event == 'pull_request'

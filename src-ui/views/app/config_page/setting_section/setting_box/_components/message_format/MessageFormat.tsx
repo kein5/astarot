@@ -3,7 +3,6 @@ import clsx from "clsx";
 import { useTranslation } from "react-i18next";
 import { _Entry } from "../_atoms/_entry/_Entry";
 import SwapSvg from "@images/swap_horizontal.svg?react";
-import ArrowLeftSvg from "@images/arrow_left.svg?react";
 import {
     useStore_IsBreakPoint,
     useStore_MessageFormat_ExampleViewFilter,
@@ -11,6 +10,7 @@ import {
 import { useAppearance } from "@logics_configs";
 import { ui_configs } from "@ui_configs";
 import { ResetButton } from "@common_components";
+import { Fold } from "../fold/Fold";
 import { useState } from "react";
 import type { ChangeEvent } from "react";
 import { useSettingsDraft } from "../../../../../../../logics/voice/useSettingsDraft";
@@ -147,50 +147,15 @@ const ExampleComponent = ({ format, format_id }: { format: MessageFormatParts; f
 
     };
 
-    const svg_class_names = clsx(styles.arrow_left_svg, {
-        [styles.to_down]: currentMessageFormat_ExampleViewFilter.data[format_id] === "Simplified",
-        [styles.to_up]: currentMessageFormat_ExampleViewFilter.data[format_id] === "All"
-    });
-
-
-    const renderFilteredExampleBox = (format_id: MessageFormatId, id: string) => {
-        if (format_id === "send" && id === "Simplified") {
-            return (
-                <>
-                    {renderExampleBox(label_original_translated, "original_translated")}
-                    {renderExampleBox(label_original_translated_multi, "original_translated_multi")}
-                </>
-            );
-        } else if ( format_id === "send" && id === "All") {
-            return (
-                <>
-                    {renderExampleBox(label_original_translated, "original_translated")}
-                    {renderExampleBox(label_original_translated_multi, "original_translated_multi")}
-                    {renderExampleBox(label_translated_only_multi, "translated_only_multi")}
-                    {renderExampleBox(label_translated_only, "translated_only")}
-                    {renderExampleBox(label_original_only, "original_only")}
-                </>
-            );
-
-        } else if (format_id === "received") {
-            return (
-                <>
-                    {renderExampleBox(label_original_translated, "original_translated")}
-                    {renderExampleBox(label_original_only, "original_only")}
-                    {renderExampleBox(label_translated_only, "translated_only")}
-                </>
-            );
-        }
-    };
-
-    const exampleViewFilterToggleFunction = (format_id: MessageFormatId) => {
-        if (["send", "received"].includes(format_id) === false) return console.error(`format_id should be small case 'send' or 'received'. got format_id: ${format_id}`);
-
+    // The sent format shows two examples, and the others in a fold of the app's own (#820), the
+    // few-words size; whether it is open is kept while the app runs. The received format has three
+    // and shows them all.
+    const showsAll = currentMessageFormat_ExampleViewFilter.data[format_id] === "All";
+    const toggled = (open: boolean) => {
+        if (open === showsAll) return;
         updateMessageFormat_ExampleViewFilter({
             ...currentMessageFormat_ExampleViewFilter.data,
-            [format_id]: currentMessageFormat_ExampleViewFilter.data[format_id] === "Simplified"
-                ? "All"
-                : "Simplified"
+            [format_id]: open ? "All" : "Simplified",
         });
     };
 
@@ -198,19 +163,23 @@ const ExampleComponent = ({ format, format_id }: { format: MessageFormatParts; f
         <div className={styles.example_container}>
             <p className={styles.section_title}>{label_title}</p>
             <div className={styles.example_view_container}>
-                {renderFilteredExampleBox(format_id, currentMessageFormat_ExampleViewFilter.data[format_id])}
+                {format_id === "send" ? <>
+                    {renderExampleBox(label_original_translated, "original_translated")}
+                    {renderExampleBox(label_original_translated_multi, "original_translated_multi")}
+                    <Fold size="link" open={showsAll} onToggle={event => toggled(event.currentTarget.open)}
+                        summary={t(locale_base_path + "more", { count: 3 })}>
+                        <div className={styles.example_view_container}>
+                            {renderExampleBox(label_translated_only_multi, "translated_only_multi")}
+                            {renderExampleBox(label_translated_only, "translated_only")}
+                            {renderExampleBox(label_original_only, "original_only")}
+                        </div>
+                    </Fold>
+                </> : <>
+                    {renderExampleBox(label_original_translated, "original_translated")}
+                    {renderExampleBox(label_original_only, "original_only")}
+                    {renderExampleBox(label_translated_only, "translated_only")}
+                </>}
             </div>
-            { format_id === "send" &&
-                <div className={styles.show_more_container} onClick={() => exampleViewFilterToggleFunction(format_id)}
-                    role="button" tabIndex={0}
-                    aria-expanded={currentMessageFormat_ExampleViewFilter.data[format_id] === "All"}
-                    aria-label={t(currentMessageFormat_ExampleViewFilter.data[format_id] === "All"
-                        ? "config_page.others.message_format_common.example_view.show_fewer"
-                        : "config_page.others.message_format_common.example_view.show_all")}
-                    onKeyDown={event => { if (event.key === " " || event.key === "Enter") { event.preventDefault(); exampleViewFilterToggleFunction(format_id); } }}>
-                    <ArrowLeftSvg className={svg_class_names} aria-hidden="true"/>
-                </div>
-            }
         </div>
     );
 };

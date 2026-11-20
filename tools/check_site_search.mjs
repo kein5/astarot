@@ -14,7 +14,10 @@ import { pathToFileURL } from "node:url";
 
 const root = resolve(import.meta.dirname, "..");
 const dist = resolve(process.argv[2] ?? join(root, "site/dist"));
-const provider = join(root, "site/node_modules/@rspress/core/dist/theme/components/Search/logic/providers/LocalProvider.js");
+const provider = join(
+    root,
+    "site/node_modules/@rspress/core/dist/theme/components/Search/logic/providers/LocalProvider.js",
+);
 
 registerHooks({
     resolve(specifier, context, nextResolve) {
@@ -46,7 +49,7 @@ const WORDS = {
 const failures = [];
 const files = readdirSync(join(dist, "static"));
 for (const [locale, words] of Object.entries(WORDS)) {
-    const file = files.find(name => name.startsWith(`search_index.${locale}.`) && name.endsWith(".json"));
+    const file = files.find((name) => name.startsWith(`search_index.${locale}.`) && name.endsWith(".json"));
     if (!file) {
         failures.push(`${locale}: no search index in ${join(dist, "static")}`);
         continue;
@@ -57,9 +60,10 @@ for (const [locale, words] of Object.entries(WORDS)) {
     await search.init({ currentLang: locale, currentVersion: "", versioned: false });
     for (const [word, page] of words) {
         const [{ hits }] = await search.search({ keyword: word, limit: 50 });
-        const found = hits.map(hit => hit.routePath);
+        const found = hits.map((hit) => hit.routePath);
         if (!found.length) failures.push(`${locale}: nothing found for "${word}"`);
-        else if (!found.includes(page)) failures.push(`${locale}: "${word}" did not find ${page} (found ${found.slice(0, 5).join(", ")})`);
+        else if (!found.includes(page))
+            failures.push(`${locale}: "${word}" did not find ${page} (found ${found.slice(0, 5).join(", ")})`);
         else console.log(`${locale}: "${word}" → ${found.length} (${found.slice(0, 3).join(", ")})`);
     }
 }

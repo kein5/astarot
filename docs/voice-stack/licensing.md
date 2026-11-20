@@ -655,6 +655,14 @@ Pythonのバックエンド（`src-python/`）と、それだけが使ってい�
 - `requests`の間接の依存の`certifi`、`charset-normalizer`、`idna`、`urllib3`も`uv.lock`から外れた。
 - `tools/dev.py`の`doctor`が確かめるパッケージの一覧からも外した。
 
+## 結合テストの道具（2026-11-20、#821）
+
+画面から中核まで通す結合テスト（ADR-017）のために、開発の依存を足した。どれも配布物には入らないので、配布物とNOTICEは変わらない。
+
+- npmの開発の依存：`@playwright/test` 1.65.0と、その依存の`playwright`と`playwright-core`（どれもApache-2.0）。
+- Playwrightのブラウザ（ChromiumとWebKit）は、`python tools/dev.py setup --scope integration`が開発のPCとCIのキャッシュに取得する。リポジトリと配布物には入れない。
+- 中核のホスト`native/browser-core-bridge`は試験の道具のクレートで、アプリのビルドに含めない。使う外部のクレート（`tungstenite`、`serde_json`）は、すでに中核が使っている版と同じ。
+
 ## 読みの解析器と辞書（2026-11-16）
 
 メッセージの読み（ひらがな・ローマ字）は、Pythonと同じくSudachiで解析する。中核は解析器にsudachi.rsを使い、辞書は`_internal/build/sudachi/system.dic`を読む。候補の比較は[中核の統合](core-integration.md)の「判断が要ること」の3にある。

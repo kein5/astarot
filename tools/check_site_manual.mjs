@@ -18,8 +18,8 @@ const SITE = "https://kein5.github.io/astarot/";
 const BASE = "/astarot/";
 
 const failures = [];
-const htmlFor = path => (path.endsWith("/") ? `${path}index.html` : `${path}.html`).replace(/^\//, "");
-const built = path => existsSync(join(dist, path));
+const htmlFor = (path) => (path.endsWith("/") ? `${path}index.html` : `${path}.html`).replace(/^\//, "");
+const built = (path) => existsSync(join(dist, path));
 
 if (MANUAL_REDIRECTS.length !== 11) failures.push(`${MANUAL_REDIRECTS.length} manual pages, the manual had 11`);
 for (const { path, to } of MANUAL_REDIRECTS) {
@@ -37,12 +37,15 @@ for (const { path, to } of MANUAL_REDIRECTS) {
     // address and, without scripts, the Japanese page.
     const head = html.slice(0, html.indexOf("</head>"));
     const target = JSON.stringify(to);
-    if (!head.includes("location.replace(") || !head.includes(target)) failures.push(`${path}: no script in the head sends readers to ${to}`);
-    if (!head.includes(`rel="canonical" href="${SITE}ja${to}"`)) failures.push(`${path}: the canonical link does not name ${SITE}ja${to}`);
+    if (!head.includes("location.replace(") || !head.includes(target))
+        failures.push(`${path}: no script in the head sends readers to ${to}`);
+    if (!head.includes(`rel="canonical" href="${SITE}ja${to}"`))
+        failures.push(`${path}: the canonical link does not name ${SITE}ja${to}`);
     if (!head.includes(`url=${BASE}ja${to}`)) failures.push(`${path}: no refresh for readers without scripts`);
     // The page itself links both languages for browsers that do not follow the redirect.
     for (const locale of ["ja", "en"]) {
-        if (!html.includes(`href="${BASE}${locale}${to}"`)) failures.push(`${path}: the page does not link ${BASE}${locale}${to}`);
+        if (!html.includes(`href="${BASE}${locale}${to}"`))
+            failures.push(`${path}: the page does not link ${BASE}${locale}${to}`);
     }
 }
 

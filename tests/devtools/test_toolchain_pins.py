@@ -10,10 +10,10 @@ ROOT = Path(__file__).resolve().parents[2]
 # migration and release helpers, pinned with the toolchains.
 CHECK_TOOLS = ("actionlint", "zizmor", "cargo-deny", "cargo-nextest", "gitleaks", "osv-scanner", "lychee", "hk",
                "ast-grep", "syft")
-TOOLS = ("node", "rust", "python", "uv", "cocogitto", *CHECK_TOOLS)
+TOOLS = ("node", "rust", "python", "uv", "cocogitto", "biome", *CHECK_TOOLS)
 # Downloaded archives mise.lock checks by SHA-256. Rust comes through rustup, which has no
 # archive checksum in the lock.
-LOCKED_ARCHIVES = ("node", "python", "uv", "cocogitto", *CHECK_TOOLS)
+LOCKED_ARCHIVES = ("node", "python", "uv", "cocogitto", "biome", *CHECK_TOOLS)
 PLATFORMS = ("linux-x64", "windows-x64")
 
 

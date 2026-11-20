@@ -18,6 +18,8 @@ rust = { version = "1.100.0", profile = "minimal", components = "clippy,rustfmt"
 python = "3.14.10"
 uv = "0.13.5"
 cocogitto = "7.0.0"
+# Lints and formats the UI's TypeScript and JavaScript (biome.json; `python tools/dev.py check --scope ui`).
+biome = "2.6.6"
 # Checks of the repository itself. Each takes the newest release that had been out for two weeks
 # when it was added (2026-11-21; docs/development.md); CI installs only the ones a job runs
 # (install_args).
@@ -71,12 +73,16 @@ description = "Voice contract tests without models"
 run = "python tools/dev.py check --scope voice"
 
 [tasks."check:ui"]
-description = "UI tests (Vitest), the type check and the Vite build"
+description = "UI tests (Vitest), Biome (lint and format check), the type check and the Vite build"
 run = "python tools/dev.py check --scope ui"
 
 [tasks."check:rust"]
 description = "cargo check of the Tauri app, and the native crates' tests (cargo-nextest and doctests)"
 run = "python tools/dev.py check --scope rust"
+
+[tasks."check:integration"]
+description = "Integration tests: the screens in Chromium and WebKit through the real core (Playwright)"
+run = "python tools/dev.py check --scope integration"
 
 [tasks."check:workflows"]
 description = "Workflows and the repository's own actions (actionlint, zizmor)"
@@ -123,6 +129,10 @@ env = { UV_PYTHON_PREFERENCE = "only-system" }
 [tasks."setup:rust"]
 description = "cargo fetch --locked for the Tauri app and the native crates"
 run = "python tools/dev.py setup --scope rust"
+
+[tasks."setup:integration"]
+description = "The core host's Rust dependencies and Playwright's Chromium and WebKit (several hundred MB)"
+run = "python tools/dev.py setup --scope integration"
 
 [tasks."setup:resources"]
 description = "src-tauri/bin/_internal for tauri dev and cargo check (stages what build/ has)"
