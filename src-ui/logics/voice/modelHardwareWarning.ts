@@ -91,7 +91,8 @@ export function hardwareWarning(model: WarnedModel, hardware: HardwareState | nu
         if (model.profile?.gpu === "recommended" && SLOW_ON_CPU.includes(model.profile?.cpu ?? ""))
             return { reason: deviceMode === "cpu" || named?.kind === "cpu" ? "cpu_setting" : "no_gpu", required, available: null, device: null, reserve: null };
         const cpu = devices.find(row => row.kind === "cpu" && positive(row.memory_total));
-        if (cpu && required !== null && required * ALLOWANCE + RESERVED_RAM > cpu.memory_total!)
+        const total = cpu?.memory_total;
+        if (cpu && positive(total) && required !== null && required * ALLOWANCE + RESERVED_RAM > total)
             return { reason: "low_memory", required, available: cpu.memory_total, device: cpu, reserve: RESERVED_RAM };
         return null;
     }

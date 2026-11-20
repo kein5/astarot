@@ -151,7 +151,8 @@ export const outputArrivals = (trace: Trace | null | undefined): OutputArrival[]
 export const traceTotal = (trace: Trace | null | undefined): number | null => {
     const ends = outputArrivals(trace).map(row => row.end ?? row.at);
     const stages = stageSegments(trace);
-    if (stages.length) ends.push(stages.at(-1)!.start + stages.at(-1)!.ms);
+    const last = stages.at(-1);
+    if (last) ends.push(last.start + last.ms);
     return ends.length ? Math.max(...ends) : null;
 };
 
