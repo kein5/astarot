@@ -1,16 +1,16 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { hooks, loadModule, find } from "../../logics/test/hookHarness.ts";
+import { hooks, loadModule, find, unchecked } from "../../logics/test/hookHarness.ts";
 import * as startupPhase from "../../logics/common/startupPhase.ts";
 
-const named = name => Object.defineProperty(() => null, "name", { value: name });
+const named = (name: string) => Object.defineProperty(() => null, "name", { value: name });
 const parts = Object.fromEntries(["ConfigPage", "MainPage", "ModalController", "TranscriptionConsentController",
     "TranslationSetupController", "OcrSetupController", "SwitchBlocksController", "TelemetryNoticeController", "FirstRunSetupController", "VirtualMicGuideController", "WindowGeometryController", "WindowTitleBar",
     "UpdatingComponent", "StartupFailedDialog", "StartupAnnouncer", "UiLanguageController"].map(name => [name, named(name)]));
 
-const load = async phase => {
+const load = async (phase: string) => {
     const runtime = hooks();
-    const { App } = await loadModule(new URL("./App.tsx", import.meta.url), runtime, {
+    const { App } = await loadModule<typeof import("./App.tsx")>(new URL("./App.tsx", import.meta.url), runtime, {
         "./_app_controllers/TranscriptionConsentController": { TranscriptionConsentController: parts.TranscriptionConsentController },
         "./_app_controllers/TranslationSetupController": { TranslationSetupController: parts.TranslationSetupController },
         "./_app_controllers/TelemetryNoticeController": { TelemetryNoticeController: parts.TelemetryNoticeController },
@@ -31,28 +31,35 @@ const load = async phase => {
         "./others/startup/StartupAnnouncer": { StartupAnnouncer: parts.StartupAnnouncer },
     });
     const tree = runtime.render(App);
-    const contents = find(tree, node => node.type?.name === "Contents");
-    const inner = contents.type(contents.props);
-    const has = (node, part) => !!find(node, child => child.type === part);
+    const contents = find(tree, node => typeof node.type === "function" && node.type.name === "Contents");
+    assert.ok(contents);
+    // Contents is a function component of App's own, drawn here as a function.
+    const inner = unchecked<(props: unknown) => unknown>(contents.type)(contents.props);
+    const has = (node: unknown, part: unknown) => !!find(node, child => child.type === part);
     return { tree, contents, inner, has };
 };
 
 test("from the first frame the main page and title bar are drawn, locked until the engine is ready", async () => {
     for (const [phase, locked, announcer, dialog] of [
         ["starting", true, true, false], ["failed", true, false, true], ["ready", false, false, false], ["stopped", false, false, false],
-    ]) {
+    ] as const) {
         const { tree, contents, inner, has } = await load(phase);
         assert.equal(contents.props.locked, locked, phase);
         assert.equal(has(tree, parts.StartupAnnouncer), announcer, phase);
         assert.equal(has(tree, parts.StartupFailedDialog), dialog, phase);
         assert.ok(has(inner, parts.WindowTitleBar), "the title bar keeps closing and moving the window");
         const page = find(inner, node => node.type === parts.MainPage);
+        assert.ok(page);
         assert.equal(page.props.locked, locked);
         // The settings page and the dialogs that act on the engine's settings wait for them.
         for (const part of [parts.ConfigPage, parts.ModalController, parts.TranscriptionConsentController,
             parts.TranslationSetupController, parts.OcrSetupController, parts.TelemetryNoticeController,
             parts.FirstRunSetupController, parts.VirtualMicGuideController, parts.SwitchBlocksController]) assert.equal(has(inner, part), !locked, `${phase}: ${part.name}`);
-        assert.equal(find(inner, node => node.type === parts.WindowGeometryController).props.saveGeometry, !locked);
-        assert.equal(find(tree, node => node.type === parts.UiLanguageController).props.waitForEngine, true);
+        const geometry = find(inner, node => node.type === parts.WindowGeometryController);
+        assert.ok(geometry);
+        assert.equal(geometry.props.saveGeometry, !locked);
+        const language = find(tree, node => node.type === parts.UiLanguageController);
+        assert.ok(language);
+        assert.equal(language.props.waitForEngine, true);
     }
 });

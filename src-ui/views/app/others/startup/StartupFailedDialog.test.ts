@@ -2,21 +2,24 @@ import assert from "node:assert/strict";
 import { test } from "vitest";
 import { readFileSync } from "node:fs";
 import i18next from "i18next";
+import type { ResourceKey } from "i18next";
 import yaml from "js-yaml";
-import { hooks, loadModule, find } from "../../../../logics/test/hookHarness.ts";
+import { hooks, loadModule, find, unchecked } from "../../../../logics/test/hookHarness.ts";
+import type { TreeNode } from "../../../../logics/test/hookHarness.ts";
 
-const load = async (failure, language = "en") => {
+const load = async (failure: unknown, language = "en") => {
     const i18n = i18next.createInstance();
-    const translation = yaml.load(readFileSync(new URL(`../../../../../locales/${language}.yml`, import.meta.url), "utf8"));
+    // Test data: a locale file, read as the mapping of texts it is.
+    const translation = unchecked<ResourceKey>(yaml.load(readFileSync(new URL(`../../../../../locales/${language}.yml`, import.meta.url), "utf8")));
     await i18n.init({ lng: language, resources: { [language]: { translation } } });
-    const t = i18n.t.bind(i18n), calls = [];
-    const { StartupFailedDialog } = await loadModule(new URL("./StartupFailedDialog.tsx", import.meta.url), hooks(), {
+    const t = i18n.t.bind(i18n), calls: string[] = [];
+    const { StartupFailedDialog } = await loadModule<typeof import("./StartupFailedDialog.tsx")>(new URL("./StartupFailedDialog.tsx", import.meta.url), hooks(), {
         "@useI18n": { useI18n: () => ({ t }) },
         "@logics_common": { useWindow: () => ({ asyncQuitApp: () => calls.push("quit") }) },
         "../../../../logics/common/useBackendStartup": { useBackendStartup: () => ({ failure, retryStartup: () => calls.push("retry") }) },
     });
     const tree = StartupFailedDialog();
-    const texts = [];
+    const texts: string[] = [];
     find(tree, node => { if (typeof node.props?.children === "string") texts.push(node.props.children); return false; });
     return { tree, texts, calls, t };
 };
@@ -51,7 +54,7 @@ test("a program that never ran gets its short message as a detail; with no messa
 
 test("the two actions retry and quit, and retry takes the first focus", async () => {
     const { tree, calls } = await load({ kind: "exit", code: 1 });
-    const buttons = [];
+    const buttons: TreeNode[] = [];
     find(tree, node => { if (node.type === "button") buttons.push(node); return false; });
     assert.equal(buttons.length, 2);
     assert.equal(buttons[0].props.autoFocus, true);
