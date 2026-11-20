@@ -18,6 +18,7 @@ interface Asr {
     endpoints: Record<string, unknown>;
     models: Record<string, unknown>;
     error: string | null;
+    builtinVocabulary: readonly string[] | null;
     send: (endpoint: string, data?: unknown) => unknown;
     updateError: (error: string | null) => void;
 }
@@ -49,7 +50,7 @@ async function fixture(context: TestContext, { hints = false }: { hints?: boolea
             mic: { endpoint: null, follow_default: true, language: "ja" },
             speaker: { endpoint: null, follow_default: true, language: "ja" },
             vocabulary: { builtin: true, terms: [] } },
-        state: {}, endpoints: {}, models: {}, error: null,
+        state: {}, endpoints: {}, models: {}, error: null, builtinVocabulary: null,
         send: (endpoint, data) => {
             calls.push([endpoint, data]);
             if (endpoint.startsWith("/set/")) return new Promise(resolve => responses.push(resolve));
@@ -71,6 +72,7 @@ async function fixture(context: TestContext, { hints = false }: { hints?: boolea
         "../_components/hint/Hint": { Hint: "hint", useHintDescriptions: () => hints },
         "../_components/hint/HintCheck": { HintCheck: "hint-check" },
         "./VocabularyBulk.tsx": { VocabularyBulk: "vocabulary-bulk" },
+        "./VocabularyBuiltin.tsx": { VocabularyBuiltin: "vocabulary-builtin" },
         "../../../../../../logics/transcription/vocabularyTerms.ts": vocabularyTerms,
     });
     const { SaveBar } = await loadModule<typeof import("../../../topbar/Topbar.tsx")>(new URL("../../../topbar/Topbar.tsx", import.meta.url), barRuntime, {
@@ -114,8 +116,41 @@ async function fixture(context: TestContext, { hints = false }: { hints?: boolea
     };
     context.onTestFinished(() => { runtime.unmount(); barRuntime.unmount(); });
     render();
-    return { runtime, barRuntime, asr, render, bar, field, entries, status, changeURL, writes, acknowledge, refuse, window, modal, listeners };
+    return { runtime, barRuntime, asr, render, bar, field, entries, status, changeURL, writes, acknowledge, refuse, window, modal, listeners, calls };
 }
+
+// #792: the page asks for the built-in terms and lists them, with the user's changes, while they are
+// on. The user's own list leaves out the terms that change a built-in one; with the built-in terms
+// off, it holds them all. A change from the list goes to the draft and the save bar.
+test("the built-in terms are listed while they are on, and the user's list leaves out their changes", async context => {
+    const s = await fixture(context);
+    assert.ok(s.calls.some(([endpoint]) => endpoint === "/get/data/builtin_vocabulary"), "the page asks for the built-in terms");
+    assert.equal(find(s.render(), node => node.type === "vocabulary-builtin"), null, "nothing to list before the core answers");
+    s.asr.builtinVocabulary = ["VRChat=ブイアールチャット,ブイチャ", "Quest=クエスト"];
+    s.asr.settings = { ...s.asr.settings, vocabulary: { builtin: true, terms: ["猫丸", "Quest=くえすと"], removed: ["VRChat"] } };
+    s.runtime.remount();
+    const own = () => {
+        const list = findIn(s.render(), node => node.type === "ul" && node.props["aria-label"] === "realtime.vocabulary_user");
+        // Each row is the term, then its remove button.
+        return nodesIn(list).filter(node => node.type === "li").map(node => node.props.children[0]);
+    };
+    let tree = s.render();
+    const builtin = findIn(tree, node => node.type === "vocabulary-builtin");
+    assert.deepEqual(builtin.props.builtin, s.asr.builtinVocabulary);
+    assert.deepEqual(builtin.props.vocabulary, { builtin: true, terms: ["猫丸", "Quest=くえすと"], removed: ["VRChat"] });
+    assert.deepEqual(own(), ["猫丸"]);
+    builtin.props.onVocabulary({ builtin: true, terms: ["猫丸"] });
+    tree = s.render();
+    assert.equal(s.entries().length, 1, "the change waits in the save bar");
+    // With the built-in terms off there is nothing to list, and every term of the user's is theirs.
+    findIn(tree, node => node.type === "input" && node.props.type === "checkbox").props.onChange({ target: { checked: false } });
+    s.render();
+    s.asr.settings = { ...s.asr.settings, vocabulary: { builtin: false, terms: ["猫丸", "Quest=くえすと"] } };
+    s.runtime.remount();
+    tree = s.render();
+    assert.equal(find(tree, node => node.type === "vocabulary-builtin"), null);
+    assert.deepEqual(own(), ["猫丸", "Quest=くえすと"]);
+});
 
 test("realtime drafts register and unregister with the shared save bar, including dictionary edits", async context => {
     const s = await fixture(context);

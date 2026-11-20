@@ -148,12 +148,20 @@ fn written_form(term: &str) -> &str {
 }
 
 /// `merged_terms`: the user's terms (already normalized by the settings) first, then the
-/// built-in ones, without a written form twice, at most [`MAX_TERMS`].
+/// built-in ones, without a written form twice, at most [`MAX_TERMS`]. The built-in terms the user
+/// took out (`removed`, by written form, #792) are left out; a user's term with the written form
+/// of a built-in one is how its readings are changed, and wins as before.
 pub fn merged_terms(vocabulary: &Value) -> Vec<String> {
     let builtin = vocabulary["builtin"].as_bool().unwrap_or(true);
     let user = vocabulary["terms"].as_array().into_iter().flatten().filter_map(Value::as_str).map(str::to_string);
     let built: &[String] = if builtin { vrchat_terms() } else { &[] };
-    let mut seen: Vec<String> = Vec::new();
+    let mut seen: Vec<String> =
+        vocabulary["removed"].as_array().into_iter().flatten().filter_map(Value::as_str).map(str::to_lowercase).collect();
+    for term in vocabulary["terms"].as_array().into_iter().flatten().filter_map(Value::as_str) {
+        // A user's own term is never taken out by `removed`, only the built-in one it names.
+        let key = written_form(term).to_lowercase();
+        seen.retain(|taken_out| *taken_out != key);
+    }
     let mut result = Vec::new();
     for term in user.chain(built.iter().cloned()) {
         let key = written_form(&term).to_lowercase();
@@ -209,6 +217,20 @@ mod tests {
         assert_eq!(merged_terms(&json!({ "builtin": false, "terms": [] })), Vec::<String>::new());
         let many: Vec<String> = (0..200).map(|i| format!("t{i}")).collect();
         assert_eq!(merged_terms(&json!({ "builtin": true, "terms": many })).len(), MAX_TERMS);
+    }
+
+    // #792: a built-in term the user took out is not sent nor applied; their own term with the
+    // same written form still is (that is how a built-in term's readings are changed).
+    #[test]
+    fn the_built_in_terms_taken_out_are_left_out() {
+        let all = merged_terms(&json!({ "builtin": true, "terms": [] }));
+        let fewer = merged_terms(&json!({ "builtin": true, "terms": [], "removed": ["friends+", "Quest"] }));
+        assert_eq!(fewer.len(), all.len() - 2);
+        assert!(!fewer.iter().any(|t| t.starts_with("Friends+") || t.starts_with("Quest=")));
+        assert!(fewer.iter().any(|t| t.starts_with("Quest勢=")), "only the term of that written form");
+        let changed = merged_terms(&json!({ "builtin": true, "terms": ["Friends+=ふれぷら"], "removed": ["Friends+"] }));
+        assert_eq!(changed[0], "Friends+=ふれぷら");
+        assert_eq!(changed.iter().filter(|t| t.starts_with("Friends+")).count(), 1);
     }
 
     #[test]

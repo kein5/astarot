@@ -174,6 +174,26 @@ fn japanese_speech_reads_the_terms_with_their_readings() {
     run.ui.stop();
 }
 
+// #792: a built-in term the user took out is no longer read with its reading, and one whose readings
+// they changed is read with theirs. The settings page lists the built-in terms it can change.
+#[test]
+fn speech_follows_the_users_changes_of_the_built_in_terms() {
+    let saved = json!({ "REALTIME_ASR_SETTINGS": { "vocabulary": { "builtin": true, "terms": ["Friends+=ふれぷら"], "removed": ["VRChat"] } } });
+    let run = start(saved, Platform::Windows);
+    let builtin = run.ui.ok("/get/data/builtin_vocabulary", None);
+    let terms = builtin["terms"].as_array().unwrap();
+    assert!(terms.iter().any(|t| t == "VRChat=ブイアールチャット,ブイチャ"), "the list is the shipped one, without the user's changes");
+    assert!(terms.iter().any(|t| t == "Friends+=フレンドプラス,フレプラ"));
+    let settings = run.ui.ok("/get/data/realtime_asr_settings", None);
+    assert_eq!(settings["vocabulary"]["removed"], json!(["VRChat"]));
+    let server = FakeTts::speechcpp(0.2);
+    speaking(&run, &server);
+    run.ui.ok("/run/send_message_box", Some(json!({ "id": "m-1", "message": "VRChatでFriends+のQuest" })));
+    eventually("the speech is asked for", || !server.requests().is_empty());
+    assert_eq!(spoken_inputs(&server)[0], "VRChatでふれぷらのクエスト");
+    run.ui.stop();
+}
+
 #[test]
 fn a_stop_or_mute_cancels_speech_and_a_stale_stamp_is_refused() {
     let run = start(json!({}), Platform::Windows);
