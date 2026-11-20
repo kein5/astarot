@@ -1,9 +1,15 @@
 name: VRCT-VOX voice contracts (no models)
 on:
+  # Pushes run the jobs on develop and main only. A push to a pull request's branch would run the
+  # same commit a second time (Issue #773). develop's runs keep the Rust caches that pull requests
+  # read and the history pipeline-latency.yml sends to Bencher.
   push:
+    branches: [develop, main]
   pull_request:
   # The merge queue checks the commit it builds with the same jobs before it merges.
   merge_group:
+  # A branch without a pull request runs the jobs by hand.
+  workflow_dispatch:
 permissions:
   contents: read
 # The toolchains come from mise.toml and mise.lock (jdx/mise-action). uv takes the Python mise
