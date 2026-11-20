@@ -245,7 +245,7 @@ Issue のコメントは、音声認識・翻訳・TTS・声質変換・OCR の�
 - 引退させた道具: `voice_cli.py`、`voice_route.py`、`voice_acceptance.py`、`voice_b_poc.py`、`live_tts_acceptance.py`、`managed_vrchat_probe.py`、`native_frame_acceptance.py`、`source_bridge_acceptance.py`、`voice_route_acceptance.py`、`speechcpp_asr_poc.py`、`fetch_ocr_models.py`、`vrchat_voice_host.py`、`run_with_fake_vr.py`、`fake_vr_site/`、`windows_field/`、`chatbox_lab/` の `collect.py` と `label.py`、`whisper_eval/run_vrct_transcription_test.py`、`seedvc_artifacts.py`、`integrations/seed_vc/`、中核の基準データを作る道具（core、ops、ocr-runtime、vr-overlay）。`native_acceptance.py` は、Python に頼らない 3 つのグループ（appimage、ui、vrchat）だけを残しました。`translation_onnx/compare.py` は CTranslate2 の固定値を `tools/translation_onnx/ctranslate2_pins.py` に移して残しました。OpenVR の関数表を書く道具（`native/openvr-client/reference/dump_reference.py`）は pyopenvr だけを使うので残しました。
 - CI と開発の道具: `voice-tests.yml` の `backend-windows` と `backend-linux` を外し、`headless` から `voice_cli.py` と `voice_route.py` を外しました（#732 の判断 2 の決定）。`headless` は道具、配布物、UI と、Linux の私用の PipeWire の試験を受け持ちます。`tools/dev.py` の `backend` のスコープ、`pyproject.toml` のアプリの依存と `cuda`、`linux-build`、`bat/install.bat`、`mise` の `setup:app`、`setup:backend`、`check:backend` をなくしました。`voice-test` のグループには `python-osc` と pyopenvr を足しました。
 - 文書: 手順と決まりの文書は今の形に直しました。仕様と各クレートの README のうち、移した元を示す「Python のどのファイルか」の記述は、履歴として残しています。
-- 残したもの: C の補助 `vrct-asr-capture`（#744 の判断 1）と `vrct-vc-worker`（判断 5）は、アプリが使わなくなりましたが、配布物から外すかが決まっていないので残しました。どちらも Python の試験の一部を失いました。
+- 残したもの: C の補助 `vrct-asr-capture`（#744 の判断 1）と `vrct-vc-worker`（判断 5）は、アプリが使わなくなりましたが、配布物から外すかが決まっていないので残しました（その後 #746 の判断 3 で外すと決まり、#809 で 2 つとも外しました）。どちらも Python の試験の一部を失いました。
 
 以下は 2026-11-16 の一覧です。
 
