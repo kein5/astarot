@@ -317,7 +317,6 @@ export const useSliderLogic = ({
     postUpdateAction,
     min,
     max,
-    step = 1,
     show_label_values = null,
     marks_step,
     setter_timing = "on_change_committed",
