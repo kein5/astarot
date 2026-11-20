@@ -5,35 +5,39 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { test } from "vitest";
 import { parse } from "@babel/parser";
+import type { MemberExpression, Node, OptionalMemberExpression } from "@babel/types";
+import { unchecked } from "../test/hookHarness.ts";
 
 // Static only: no DOM, application startup, network, or execution of bundle code.
 // @babel/parser is already installed by @vitejs/plugin-react (package-lock.json).
 const root = fileURLToPath(new URL("../../../", import.meta.url));
-const read = name => readFileSync(path.join(root, name), "utf8");
+const read = (name: string) => readFileSync(path.join(root, name), "utf8");
 const config = JSON.parse(read("src-tauri/tauri.conf.json"));
 const security = config.app.security;
-const sources = (policy, directive) => {
+// A CSP in Tauri v2's directive map: each directive's sources as a list or one text.
+const sources = (policy: Record<string, string | string[]>, directive: string) => {
     assert.ok(policy && typeof policy === "object", "Use the Tauri v2 directive map");
     const value = policy[directive];
     assert.ok(value, `Missing ${directive}`);
     return Array.isArray(value) ? value : value.trim().split(/\s+/);
 };
-const hash = css => `'sha256-${createHash("sha256").update(css).digest("base64")}'`;
+const hash = (css: string) => `'sha256-${createHash("sha256").update(css).digest("base64")}'`;
 // Each library's stylesheet literal, recognised by how it starts. react-toastify 11.2 ships it
 // formatted (":root {\n  --toastify-"); 11.0 minified it (":root{--toastify-").
-const injectedStyles = [
+const injectedStyles: [string, RegExp][] = [
     ["node_modules/react-colorful/dist/index.mjs", /^\.react-colorful\s*\{/],
     ["node_modules/react-toastify/dist/index.mjs", /^:root\s*\{\s*--toastify-/],
 ];
-function files(directory) {
+function files(directory: string): string[] {
     return readdirSync(path.join(root, directory), { withFileTypes: true }).flatMap(entry => {
         const name = `${directory}/${entry.name}`;
         return entry.isDirectory() ? files(name) : [name];
     });
 }
-function walk(node, visit) {
+// The walk meets Babel's nodes and the objects inside them; an object with a type is a node.
+function walk(node: unknown, visit: (node: Node) => void) {
     if (!node || typeof node !== "object") return;
-    if (node.type) visit(node);
+    if ("type" in node && node.type) visit(unchecked<Node>(node));
     for (const [key, value] of Object.entries(node)) {
         if (["loc", "comments", "tokens"].includes(key)) continue;
         if (Array.isArray(value)) value.forEach(child => walk(child, visit));
@@ -41,16 +45,19 @@ function walk(node, visit) {
     }
 }
 // TypeScript sources (ADR-010) are read with the same rules; .ts files have no JSX.
-const ast = (code, file = "") => parse(code, { sourceType: "unambiguous", createImportExpressions: true,
+const ast = (code: string, file = "") => parse(code, { sourceType: "unambiguous", createImportExpressions: true,
     plugins: /\.ts$/.test(file) ? ["typescript"] : /\.tsx$/.test(file) ? ["typescript", "jsx"] : ["jsx"] });
-const literal = node => node?.type === "StringLiteral" ? node.value
+// Like list.includes(value), for a value that may be anything.
+const isOneOf = (list: readonly string[], value: unknown) => list.some(item => item === value);
+const literal = (node: Node | null | undefined) => node?.type === "StringLiteral" ? node.value
     : node?.type === "TemplateLiteral" && !node.expressions.length ? node.quasis[0].value.cooked : null;
-const member = node => node?.type === "Identifier" ? node.name
-    : ["MemberExpression", "OptionalMemberExpression"].includes(node?.type)
-        ? node.computed ? literal(node.property) : node.property.name : null;
-const remote = value => /^(?:[a-z][\w+.-]*:|\/\/)/i.test(value);
-function cssProblems(css) {
-    const problems = [];
+// A member's property is read by its name, as `property.name` did: a private name (#x) has none.
+const member = (node: Node | null | undefined) => node?.type === "Identifier" ? node.name
+    : node?.type === "MemberExpression" || node?.type === "OptionalMemberExpression"
+        ? node.computed ? literal(node.property) : "name" in node.property ? node.property.name : undefined : null;
+const remote = (value: string) => /^(?:[a-z][\w+.-]*:|\/\/)/i.test(value);
+function cssProblems(css: string) {
+    const problems: string[] = [];
     // Includes @font-face src, @import and CSS embedded in JSX string values.
     for (const match of css.matchAll(/(?:url\(\s*|@import\s+)["']?([^\s"')]+)/gi)) {
         if (remote(match[1]) && !match[1].startsWith("data:image/")) problems.push(`external CSS resource ${match[1]}`);
@@ -62,58 +69,61 @@ function cssProblems(css) {
 // `Function.prototype.call`, `.apply` and `.bind` only borrow a method (js-base64 3.9 binds
 // Uint8Array.prototype.toBase64 this way); they cannot make code from a string. Anything else on
 // Function, including Function.prototype.constructor, is still reported.
-const isStatic = (node, name) => ["MemberExpression", "OptionalMemberExpression"].includes(node?.type)
-    && !node.computed && node.property.name === name;
-function borrowedFunctionMethods(tree) {
-    const names = new Set();
+const isStatic = (node: Node | null | undefined, name: string): node is MemberExpression | OptionalMemberExpression =>
+    (node?.type === "MemberExpression" || node?.type === "OptionalMemberExpression")
+    && !node.computed && "name" in node.property && node.property.name === name;
+function borrowedFunctionMethods(tree: Node) {
+    const names = new Set<Node>();
     walk(tree, node => {
-        if (["call", "apply", "bind"].some(name => isStatic(node, name)) && isStatic(node.object, "prototype")
+        if ((isStatic(node, "call") || isStatic(node, "apply") || isStatic(node, "bind")) && isStatic(node.object, "prototype")
             && node.object.object.type === "Identifier" && node.object.object.name === "Function") names.add(node.object.object);
     });
     return names;
 }
-function jsProblems(code, application = true, file = "") {
-    const problems = [];
+function jsProblems(code: string, application = true, file = "") {
+    const problems: string[] = [];
     const tree = ast(code, file);
     const borrowed = borrowedFunctionMethods(tree);
     walk(tree, node => {
-        const fail = message => problems.push(`${node.loc.start.line}: ${message}`);
+        const fail = (message: string) => problems.push(`${node.loc?.start.line}: ${message}`);
         // Check references too, so aliases and indirect eval cannot evade this guard.
         if ((node.type === "Identifier" && ["eval", "Function", "WebAssembly"].includes(node.name) && !borrowed.has(node))
-            || (["MemberExpression", "OptionalMemberExpression"].includes(node.type)
-                && ["eval", "Function", "WebAssembly"].includes(member(node)))) fail("dynamic code generation");
-        if (["CallExpression", "OptionalCallExpression", "NewExpression"].includes(node.type)) {
+            || ((node.type === "MemberExpression" || node.type === "OptionalMemberExpression")
+                && isOneOf(["eval", "Function", "WebAssembly"], member(node)))) fail("dynamic code generation");
+        if (node.type === "CallExpression" || node.type === "OptionalCallExpression" || node.type === "NewExpression") {
             const name = member(node.callee);
-            if (["Worker", "SharedWorker"].includes(name)) fail("worker requires a policy review");
-            if (["setTimeout", "setInterval"].includes(name) && literal(node.arguments[0]) !== null) fail("string timer");
+            if (isOneOf(["Worker", "SharedWorker"], name)) fail("worker requires a policy review");
+            if (isOneOf(["setTimeout", "setInterval"], name) && literal(node.arguments[0]) !== null) fail("string timer");
             if (application) {
-                if (["fetch", "XMLHttpRequest", "WebSocket", "EventSource", "FontFace", "importScripts", "convertFileSrc", "createObjectURL", "toDataURL"].includes(name)) fail(`new resource loader: ${name}`);
-                if (name === "createElement" && ["script", "style", "link", "iframe"].includes(literal(node.arguments[0]))) fail("dynamic resource element");
-                if (["insertAdjacentHTML", "write", "writeln"].includes(name)
-                    && member(node.callee.object) === "document") fail("HTML injection");
-                if (name === "setAttribute" && ["src", "href", "style"].includes(literal(node.arguments[0]))) fail("resource/style attribute setter");
+                if (isOneOf(["fetch", "XMLHttpRequest", "WebSocket", "EventSource", "FontFace", "importScripts", "convertFileSrc", "createObjectURL", "toDataURL"], name)) fail(`new resource loader: ${name}`);
+                if (name === "createElement" && isOneOf(["script", "style", "link", "iframe"], literal(node.arguments[0]))) fail("dynamic resource element");
+                if (isOneOf(["insertAdjacentHTML", "write", "writeln"], name)
+                    && member("object" in node.callee ? node.callee.object : undefined) === "document") fail("HTML injection");
+                if (name === "setAttribute" && isOneOf(["src", "href", "style"], literal(node.arguments[0]))) fail("resource/style attribute setter");
             }
         }
-        if (["ImportDeclaration", "ExportNamedDeclaration", "ExportAllDeclaration", "ImportExpression"].includes(node.type) && node.source) {
+        if ((node.type === "ImportDeclaration" || node.type === "ExportNamedDeclaration" || node.type === "ExportAllDeclaration"
+            || node.type === "ImportExpression") && node.source) {
             const value = literal(node.source);
-            if (value === null || remote(value)) fail("non-local module import");
+            if (value === null || (value !== undefined && remote(value))) fail("non-local module import");
             if (application && value === "@tauri-apps/plugin-http") fail("HTTP plugin needs a separate native permission review");
         }
         const value = literal(node);
-        if (value !== null) problems.push(...cssProblems(value));
+        if (value !== null && value !== undefined) problems.push(...cssProblems(value));
         if (!application) return;
-        if (node.type === "AssignmentExpression" && ["src", "href", "innerHTML", "outerHTML"].includes(member(node.left))) fail("dynamic resource/HTML assignment");
-        if (node.type === "JSXOpeningElement" && ["script", "style", "link", "iframe", "audio", "video"].includes(node.name.name)) fail("new JSX resource element");
+        if (node.type === "AssignmentExpression" && isOneOf(["src", "href", "innerHTML", "outerHTML"], member(node.left))) fail("dynamic resource/HTML assignment");
+        if (node.type === "JSXOpeningElement" && node.name.type === "JSXIdentifier"
+            && isOneOf(["script", "style", "link", "iframe", "audio", "video"], node.name.name)) fail("new JSX resource element");
         if (node.type === "JSXAttribute") {
             if (node.name.name === "dangerouslySetInnerHTML") fail("HTML injection");
-            const value = literal(node.value?.expression ?? node.value);
-            if (["src", "srcSet"].includes(node.name.name) && value && remote(value) && !value.startsWith("data:image/")) fail("external JSX resource");
+            const value = literal(node.value?.type === "JSXExpressionContainer" ? node.value.expression : node.value);
+            if (isOneOf(["src", "srcSet"], node.name.name) && value && remote(value) && !value.startsWith("data:image/")) fail("external JSX resource");
         }
     });
     return problems;
 }
-function htmlProblems(html) {
-    const problems = [];
+function htmlProblems(html: string) {
+    const problems: string[] = [];
     for (const tag of html.matchAll(/<(script|link|img|base|iframe|audio|video)\b[^>]*>/gi)) {
         for (const attribute of tag[0].matchAll(/(?:src|href)\s*=\s*["']([^"']*)["']/gi)) {
             if (remote(attribute[1])) problems.push(`external HTML resource ${attribute[1]}`);
@@ -122,8 +132,8 @@ function htmlProblems(html) {
     if (/<style\b|\sstyle\s*=|\son\w+\s*=|<script\b(?![^>]*\bsrc=)/i.test(html)) problems.push("inline HTML code/style");
     return problems;
 }
-function styleHashes(code) {
-    const values = [];
+function styleHashes(code: string) {
+    const values: string[] = [];
     walk(ast(code), node => {
         const value = literal(node);
         if (value && injectedStyles.some(([, start]) => start.test(value))) values.push(hash(value));
@@ -205,7 +215,7 @@ test("emitted production dependencies and HTML agree with the policy (run after 
     const built = files("dist");
     assert.deepEqual(built.filter(file => file.endsWith(".html")).sort(), ["dist/caption-overlay.html",
         "dist/companion-handle.html", "dist/companion-panel.html", "dist/index.html", "dist/quick-chat.html", "dist/vr.html"]);
-    const hashes = [];
+    const hashes: string[] = [];
     let styleInjectors = 0;
     for (const file of built) {
         if (file.endsWith(".js")) {
