@@ -6,7 +6,7 @@ backend went in 0.6.0 (#285) so that test_screen_capture_native.py can still che
 frames. Nothing else uses it.
 
 File layout (little-endian): a 64-byte header, then the pixels.
-    0  "VRCTSCR1"
+    0  "ASTRSCR1"
     8  sequence, odd while the pixels are being replaced
     16 instance: 0 once the stream is gone; the upper half is the helper's process id
     24 width, 28 height, 32 bytes per row, 36 pixel layout (0 BGRx, 1 BGRA, 2 RGBx, 3 RGBA)
@@ -31,7 +31,7 @@ import numpy as np
 DIRECTORY_ENV = "ASTAROT_VR_PANEL_DIR"
 FRAME_NAME = "screen-frame"
 
-_MAGIC = b"VRCTSCR1"
+_MAGIC = b"ASTRSCR1"
 _HEADER = struct.Struct("<8sQQIIIIQ")
 _HEADER_SIZE = 64
 _MAX_SIDE = 16384

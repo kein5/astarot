@@ -403,7 +403,7 @@ VRパネルで会話ログを閉じている間も、状態の受信とログの
 |---|---|
 | XDG ScreenCast portal（`org.freedesktop.portal.ScreenCast`） | Tauriが専用のD-Bus接続で、アプリIDの登録、`CreateSession`、`SelectSources`、`Start`、`OpenPipeWireRemote`の順に呼ぶ。`SelectSources`にはウィンドウだけ（`types: 2`）、1つだけ（`multiple: false`）、ポインターを映さない（`cursor_mode: 1`、対応しているとき）、選んだ結果を覚える（`persist_mode: 2`、ポータルの版が4以上のとき）、保存済みの`restore_token`を渡す。ポータルの応答が1（取り消し）なら`portal_cancelled`、そのほかの失敗は`portal_request_failed`、ウィンドウの共有に対応していなければ`screencast_unsupported` |
 | `astarot-screen-capture`（`native/screen-capture`） | Tauriが`OpenPipeWireRemote`の接続を標準入力として渡して起動する。引数は親のプロセスID、PipeWireのノードID、フレームファイルの場所、間隔（250ミリ秒）。メモリーのバッファーだけを受け付け（DMA-BUFは使わない）、形式はBGRx、BGRA、RGBx、RGBA。デスクトップには最大で毎秒4枚を頼み、明らかに早く届いた分は捨てる。標準出力のパイプをTauriが閉じるか、Tauriが終了すると止まる。標準エラーに`streaming`と、止まった理由（`screen_capture_<理由>`）を1行ずつ出す |
-| フレームファイル | `$XDG_RUNTIME_DIR/astarot/vr-panel-<pid>/screen-frame`（ディレクトリは0700、ファイルは0600）。先頭64バイトはリトルエンディアンで、目印`VRCTSCR1`、通し番号（書き換え中は奇数）、識別番号（共有が終わると0。上位32ビットはヘルパーのプロセスID）、幅、高さ、1行のバイト数、画素の並び（0: BGRx、1: BGRA、2: RGBx、3: RGBA）、フレームの時刻。続けて画素を置く。最後の行は幅×4バイトだけを持つ。バックエンドは通し番号が読む前後で同じ偶数のときだけ使い、ファイルがない、識別番号が0、ヘルパーのプロセスがない、のどれかなら共有は終わったとみなす |
+| フレームファイル | `$XDG_RUNTIME_DIR/astarot/vr-panel-<pid>/screen-frame`（ディレクトリは0700、ファイルは0600）。先頭64バイトはリトルエンディアンで、目印`ASTRSCR1`、通し番号（書き換え中は奇数）、識別番号（共有が終わると0。上位32ビットはヘルパーのプロセスID）、幅、高さ、1行のバイト数、画素の並び（0: BGRx、1: BGRA、2: RGBx、3: RGBA）、フレームの時刻。続けて画素を置く。最後の行は幅×4バイトだけを持つ。バックエンドは通し番号が読む前後で同じ偶数のときだけ使い、ファイルがない、識別番号が0、ヘルパーのプロセスがない、のどれかなら共有は終わったとみなす |
 
 変化のないウィンドウは新しいフレームを送らないので、フレームが古いことだけでは共有の終わりと判断しない。
 

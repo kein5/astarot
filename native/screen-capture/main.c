@@ -15,7 +15,7 @@
  *           line when it stops on a failure
  *
  * Frame file: a 64-byte little-endian header, then the pixels.
- *   0  "VRCTSCR1"
+ *   0  "ASTRSCR1"
  *   8  sequence (u64): odd while the pixels are being replaced
  *   16 instance (u64): 0 once the stream is gone; the upper half is this pid
  *   24 width, 28 height, 32 bytes per row, 36 pixel layout (u32 each)
@@ -98,7 +98,7 @@ static void u32(uint8_t *p, uint32_t value) { value = htole32(value); memcpy(p, 
 static void u64(uint8_t *p, uint64_t value) { value = htole64(value); memcpy(p, &value, 8); }
 static bool write_header(struct state *s, uint64_t instance, uint32_t width, uint32_t height, uint32_t stride, uint64_t time) {
     uint8_t header[HEADER_SIZE] = {0};
-    memcpy(header, "VRCTSCR1", 8);
+    memcpy(header, "ASTRSCR1", 8);
     u64(header + 8, s->sequence); u64(header + 16, instance);
     u32(header + 24, width); u32(header + 28, height); u32(header + 32, stride); u32(header + 36, s->layout);
     u64(header + 40, time);
