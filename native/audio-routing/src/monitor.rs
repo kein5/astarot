@@ -160,7 +160,7 @@ impl MonitorTee {
         });
         let exclude: Vec<String> = options.exclude.into_iter().filter(|d| !d.is_empty()).collect();
         let (state, device) = (shared.clone(), device.to_owned());
-        let worker = Worker::spawn("vrct-vox-monitor", move || run(&state, &device, volume, &exclude, &options.factory, options.on_error.as_ref(), options.on_ready.as_ref())).ok();
+        let worker = Worker::spawn("astarot-monitor", move || run(&state, &device, volume, &exclude, &options.factory, options.on_error.as_ref(), options.on_ready.as_ref())).ok();
         if worker.is_none() {
             lock(&shared.queue).failed = true;
         }

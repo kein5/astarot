@@ -214,7 +214,7 @@ impl DeviceCapture {
         let stop = Arc::new(AtomicBool::new(false));
         let flag = stop.clone();
         let (opened, started) = std::sync::mpsc::channel();
-        let worker = Worker::spawn("vrct-asr-capture", move || {
+        let worker = Worker::spawn("astarot-asr-capture", move || {
             let Ok(_com) = Com::init() else {
                 let _ = opened.send(Err(Error::runtime("asr_capture_failed")));
                 return;
@@ -292,7 +292,7 @@ impl Capture for WasapiCapture {
         let Some(mut callbacks) = self.callbacks.take() else { return Err(Error::runtime("source_bridge_capture_failed")) };
         let (stop, identity) = (self.stop.clone(), self.identity.clone());
         let (opened, started) = std::sync::mpsc::channel();
-        let worker = Worker::spawn("vrct-windows-capture", move || {
+        let worker = Worker::spawn("astarot-windows-capture", move || {
             let Ok(_com) = Com::init() else {
                 let _ = opened.send(Err(Error::runtime("source_bridge_capture_failed")));
                 return;

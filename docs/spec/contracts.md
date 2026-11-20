@@ -8,7 +8,7 @@
 
 | ID | 契約 | 根拠 | 確かめているもの |
 |---|---|---|---|
-| CT-01 | IPCのメッセージの形（`endpoint`と`data`の要求、`status`と`endpoint`と`result`の応答）と状態コードの意味を変えない | `AGENTS.md`「互換性」 | `native/core/tests/dispatch.rs`（受付と再試行）、`tests/voice/test_headless_and_ui_contract.py`（音声のエンドポイントが両側にある） |
+| CT-01 | IPCのメッセージの形（`endpoint`と`data`の要求、`status`と`endpoint`と`result`の応答）と状態コードの意味を変えない | `AGENTS.md`「互換性」 | `native/core/tests/dispatch.rs`（受付と再試行）、`native/core/tests/endpoint_coverage.rs`の`the_ui_receives_the_answer_of_every_voice_endpoint_the_core_serves`（音声のエンドポイントが両側にある） |
 | CT-02 | サイドカーが送る通知の名前はすべて`run_mapping`に定義する | 送る時点の例外を防ぐ | `native/core/src/controller/mod.rs`の`RUN_MAPPING`（通知の名前は1つの表にあり、表にない名前は送る時点で止まる）。専用の試験はない（Pythonの`test_controller_run_mapping_contract.py`は0.6.0で消した） |
 | CT-03 | 既存のエンドポイント名、設定キー、OSCのアドレス、内部の識別子`VRCT`は、名前を変えるという理由だけで置き換えない。保存先やアプリIDを変えるときは移行の処理を用意する | `AGENTS.md`「互換性」、`docs/voice-stack/project-rename.md` | `tests/voice/test_fork_distribution_identity.py`、`tests/voice/test_config_and_distribution.py` |
 | CT-04 | `config.json`は壊れた値や知らないキーがあっても起動できる。無効な値は保存しない | `native/core/src/config/` | `native/core/tests/config_versions.rs`、`config_reference.rs`、`settings_endpoints.rs` |
@@ -32,7 +32,7 @@
 | CT-21 | 「読み上げ停止」は読み上げだけを止め、読み上げのオンオフとミュートは変えない。停止の前に積まれた音声はあとで鳴らない | `DESIGN.md` | `native/core/tests/voice.rs`、`native/audio-routing`の`voice_route/tests.rs` |
 | CT-22 | 読み上げ（TTS）とRVCは独立したスイッチで、片方の操作がもう片方を止めない | `AGENTS.md`「停止と独立した制御」 | `native/core/tests/voice.rs` |
 | CT-23 | ミュートは再開の確認が済むまで解除しない。管理対象の経路とWindowsの出力デバイスでは読み上げと変換音声、そのスピーカーモニターを止め、再起動後もミュートを保つ。モニターの待機音声は捨て、解除後に古い音声を鳴らさない。TTS・RVCのスイッチと変換ワーカーはミュートで変えない | `docs/adr/adr-005-managed-microphone-lifetime.md`、[停止とミュート](cross-cutting.md#停止とミュート) | `native/core/tests/voice.rs`、`native/audio-routing`の`voice_route/tests.rs`と`mute_state.rs`の単体の試験、`tests/voice_gate_private.rs`、`tests/direct_suppression_private.rs`（私用のPipeWire） |
-| CT-24 | Quick Chat、VRパネル、ホットキーの振る舞いを保つ | `AGENTS.md`、`PRODUCT.md` | `tests/platform/test_native_quick_chat.py`（手で流すGUIの試験）、`src-ui/logics/common/vrPanelWire.test.ts`、手動 |
+| CT-24 | Quick Chat、VRパネル、ホットキーの振る舞いを保つ | `AGENTS.md`、`PRODUCT.md` | `tests/platform/test_native_quick_chat.py`（リリース前に`tools/native_acceptance.py`の`quick_chat`のグループで流すGUIの試験）、`src-ui/logics/common/vrPanelWire.test.ts`、手動 |
 
 ## 秘密情報と安全
 
@@ -47,7 +47,7 @@
 
 | ID | 契約 | 根拠 | 確かめているもの |
 |---|---|---|---|
-| CT-40 | 表示する文言は`locales/`に置き、`en.yml`と`ja.yml`は必ずそろえる | `AGENTS.md`「UI」 | `tests/voice/test_headless_and_ui_contract.py`、`src-ui/logics/configs/cloudTranscription.test.ts` |
+| CT-40 | 表示する文言は`locales/`に置き、`en.yml`と`ja.yml`は必ずそろえる | `AGENTS.md`「UI」 | `tools/i18n_gate/check.mjs`（`python tools/dev.py check`の文言の検査。全キーが両方の言語にあり、値が空でないこと）、`src-ui/logics/configs/cloudTranscription.test.ts` |
 | CT-41 | React 18、CSS Modules、Jotai、i18nextの構成を保ち、リモートのフォントを入れない | `AGENTS.md`「UI」 | 手動 |
 | CT-42 | 言語の変更は要求ごとに対応づけ、失敗したら読み直す | `src-ui/logics/main/languageMutationCoordinator.ts` | `languageMutationCoordinator.test.ts`、`languageMutations.test.ts` |
 | CT-43 | 未保存の変更があるまま離れるときは確かめる | `cross-cutting.md` | `src-ui/logics/voice/saveBar.test.ts`（保存バーの集計）、`src-ui/logics/voice/settingsNavigation.test.ts`（保存バーの確認がフォームの確認より先に尋ねられる送り方）、手動（ダイアログ） |

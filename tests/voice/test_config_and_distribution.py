@@ -10,7 +10,7 @@ def _fake_build(root, platform):
     (root / "speechcpp/notices").mkdir(parents=True)
     (root / f"speechcpp/speech{exe}").write_bytes(b"engine")
     (root / "speechcpp/bundle.json").write_text("{}")
-    (root / f"vrct-rvc-worker{exe}").write_bytes(b"worker")
+    (root / f"astarot-rvc-worker{exe}").write_bytes(b"worker")
     (root / "licenses/rust").mkdir(parents=True)
     (root / "licenses/rust/crates.json").write_text("[]")
     return root

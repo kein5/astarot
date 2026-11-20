@@ -58,8 +58,8 @@ Windowsの配布物は1つです。0.5まではCUDA版（`VRCT-VOX_cuda.zip`）�
 |---|---|
 | `_internal/build/speechcpp/` | speech.cppのVulkan版の実行ファイル、`bundle.json`、ライセンス文 |
 | `_internal/build/speechcpp-cpu/`（Linux） | speech.cppのCPU版の実行ファイル、`bundle.json`、ライセンス文。設定で「CPU」を選んだときと、「自動」でGPUを使えないときに動く |
-| `_internal/build/vrct-rvc-worker.exe` | 声質変換のworker（Linuxでは`.exe`なし） |
-| `_internal/build/vrct-voice-gate`ほか（Linux） | 音声経路の補助プログラム。`vrct-voice-gate`、`vrct-source-bridge`、`vrct-vc-worker`、`vrct-asr-capture`、`vrct-screen-capture`（`tools/build_voice_gate.py`） |
+| `_internal/build/astarot-rvc-worker.exe` | 声質変換のworker（Linuxでは`.exe`なし） |
+| `_internal/build/astarot-voice-gate`ほか（Linux） | 音声経路の補助プログラム。`astarot-voice-gate`、`astarot-source-bridge`、`astarot-screen-capture`（`tools/build_voice_gate.py`。0.5.xまでは`vrct-*`の名前で、`vrct-vc-worker`と`vrct-asr-capture`もあった） |
 | `_internal/build/sudachi/` | 読みの辞書。`build/sudachi`にあるときだけ入る（`tools/sudachi_dictionary.py`） |
 | `_internal/config/pipewire/`（Linux） | PipeWireの設定（リポジトリの`config/pipewire`） |
 | `_internal/licenses/` | リポジトリの`LICENSE`と`NOTICE.md`、Rustのクレートのライセンス文、NScurlのライセンス文（Windows） |
@@ -134,7 +134,7 @@ npm run update-version
 
 ## CIと公開先
 
-[voice-tests.yml](../.github/workflows/voice-tests.yml)はpushとpull requestで回帰試験を実行します。[build-linux.yml](../.github/workflows/build-linux.yml)は対象ファイルのpull requestと手動実行に対応し、Linux候補を作成・検査します。[release.yml](../.github/workflows/release.yml)はWindows候補を作成・検査するワークフローで、手動実行とmain宛てのpull requestで動きます。ビルドのジョブが`VRCT-VOX.zip`と、そのSHA-256を埋め込んだNSISインストーラーを作ります（`tools/installer_package_hashes.py`）。最後のジョブで全部を検査します。[windows-package.yml](../.github/workflows/windows-package.yml)は、`bat/`や同梱資源の道具を変えたdevelop宛てのpull requestと手動実行で、`_internal`の用意を試します。[installer-update-tests.yml](../.github/workflows/installer-update-tests.yml)は、NSISのテンプレートやインストーラーの試験を変えたpull requestと手動実行で、Windowsの更新の試験を動かします。[prepare-release.yml](../.github/workflows/prepare-release.yml)は、検査済みの候補からリリースの下書きを作る手動のワークフローです。[release-draft-auto.yml](../.github/workflows/release-draft-auto.yml)は、`release/X.Y.Z`のPRをmainへマージしたときに、候補のビルドと`prepare-release.yml`を順に始めます。[release-back-merge.yml](../.github/workflows/release-back-merge.yml)は、正式版を公開したときに、mainをdevelopへ戻すPRを開きます（[配布候補の手順](voice-stack/release-candidates.md#公開したあと)）。
+[voice-tests.yml](../.github/workflows/voice-tests.yml)はpull requestと、developとmainへのpushで回帰試験を実行します。PRのない枝では手動で実行できます。[build-linux.yml](../.github/workflows/build-linux.yml)は対象ファイルのpull requestと手動実行に対応し、Linux候補を作成・検査します。[release.yml](../.github/workflows/release.yml)はWindows候補を作成・検査するワークフローで、手動実行とmain宛てのpull requestで動きます。ビルドのジョブが`VRCT-VOX.zip`と、そのSHA-256を埋め込んだNSISインストーラーを作ります（`tools/installer_package_hashes.py`）。最後のジョブで全部を検査します。[windows-package.yml](../.github/workflows/windows-package.yml)は、`bat/`や同梱資源の道具を変えたdevelop宛てのpull requestと手動実行で、`_internal`の用意を試します。[installer-update-tests.yml](../.github/workflows/installer-update-tests.yml)は、NSISのテンプレートやインストーラーの試験を変えたpull requestと手動実行で、Windowsの更新の試験を動かします。[prepare-release.yml](../.github/workflows/prepare-release.yml)は、検査済みの候補からリリースの下書きを作る手動のワークフローです。[release-draft-auto.yml](../.github/workflows/release-draft-auto.yml)は、`release/X.Y.Z`のPRをmainへマージしたときに、候補のビルドと`prepare-release.yml`を順に始めます。[release-back-merge.yml](../.github/workflows/release-back-merge.yml)は、正式版を公開したときに、mainをdevelopへ戻すPRを開きます（[配布候補の手順](voice-stack/release-candidates.md#公開したあと)）。
 
 ビルド候補はGitHub Actionsの成果物として保存します。これらのワークフローはGitHub ReleasesやHugging Faceへ自動公開しません。タグをpushしても公開処理は始まりません。候補をビルドするワークフローの権限は`contents: read`で、本家の公開用キーやテレメトリー用キーは使いません。
 

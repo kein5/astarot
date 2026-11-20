@@ -236,7 +236,7 @@ impl LlamaServer {
         shared.started = true;
         shared.health.state = State::Preparing;
         let inner = self.inner.clone();
-        match std::thread::Builder::new().name("vrct-llama-server".into()).spawn(move || inner.run()) {
+        match std::thread::Builder::new().name("astarot-llama-server".into()).spawn(move || inner.run()) {
             Ok(thread) => shared.thread = Some((thread.thread().id(), thread)),
             Err(_) => {
                 shared.health = Health { state: State::Failed, base_url: None, error_code: Some(codes::LAUNCH_FAILED) };
@@ -403,7 +403,7 @@ impl Inner {
         // The pipe is read on its own thread: a read of it cannot be bounded in time.
         let (sender, receiver) = sync_channel::<Vec<u8>>(64);
         std::thread::Builder::new()
-            .name("vrct-llama-output".into())
+            .name("astarot-llama-output".into())
             .spawn(move || {
                 let Some(mut stderr) = stderr else { return };
                 let mut block = [0u8; 8192];

@@ -3,11 +3,11 @@
 //!
 //! The Tauri process asks the desktop on the user's request (portal_screencast.rs) and
 //! starts native/screen-capture, which copies the newest frame of the stream into
-//! `<VRCT_VR_PANEL_DIR>/screen-frame`. This only reads that file; it never starts a
+//! `<ASTAROT_VR_PANEL_DIR>/screen-frame`. This only reads that file; it never starts a
 //! capture.
 //!
 //! File layout (little-endian): a 64-byte header, then the pixels.
-//!   0  "VRCTSCR1"
+//!   0  "ASTRSCR1"
 //!   8  sequence, odd while the pixels are being replaced
 //!   16 instance: 0 once the stream is gone; the upper half is the helper's process id
 //!   24 width, 28 height, 32 bytes per row, 36 layout (0 BGRx, 1 BGRA, 2 RGBx, 3 RGBA)
@@ -100,7 +100,7 @@ pub struct SharedWindowCapture {
 }
 
 impl SharedWindowCapture {
-    /// `path` overrides the file announced through `VRCT_VR_PANEL_DIR`.
+    /// `path` overrides the file announced through `ASTAROT_VR_PANEL_DIR`.
     pub fn new(path: Option<PathBuf>) -> Self {
         SharedWindowCapture { path, cache: None, alive: writer_alive }
     }

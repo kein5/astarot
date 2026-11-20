@@ -3,7 +3,7 @@
   "about": [
     "The contract of the translation providers (issue #277).",
     "Each case gives what is asked of a provider (operation, access, translation) and what the provider answers (answers: replies in order per method and URL; the last reply repeats; {\"error\": \"connect\"} is a connection that fails).",
-    "`python` is what the Python clients of src-python/models/translation/ sent and returned for the case, recorded by src-python/test/test_translation_contract.py (VRCT_TRANSLATION_CONTRACT_WRITE=1 records again).",
+    "`python` is what the Python clients of src-python/models/translation/ sent and returned for the case, recorded by src-python/test/test_translation_contract.py (ASTAROT_TRANSLATION_CONTRACT_WRITE=1 records again).",
     "native/translation/tests/contract.rs runs every case against the Rust providers and compares with `python`, after the differences the case names. `rust` replaces `python` where the core behaves differently on purpose; `expect` is the record of a provider Python never had, written from the provider's documentation.",
     "Requests are compared by method, URL, headers other than transport noise, JSON body and timeouts. Outcomes: check {accepted, models}, models {models}, translate {text} or {failed: true}.",
     "A reply may carry headers (retry-after, x-should-retry). `retry_pause` is the range of seconds the SDK waits before its retry (its rule has a random part); both tests check the time between the first two requests against it."

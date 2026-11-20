@@ -126,10 +126,12 @@ ELF dependencies. This is a portable directory layout, **not** an AppImage or a
 promise of compatibility with all distributions. A build made on CachyOS may
 require newer glibc than the Ubuntu CI build; consult its manifest.
 
-Packaged Linux settings/logs go to `$XDG_CONFIG_HOME/vrct-vox` (default `~/.config/vrct-vox`),
-weights and other writable data to `$XDG_DATA_HOME/vrct-vox` (default `~/.local/share/vrct-vox`),
-and caches to `$XDG_CACHE_HOME/vrct-vox` (default `~/.cache/vrct-vox`). Explicit
-`VRCT_CONFIG_DIR`, `VRCT_DATA_DIR`, `VRCT_CACHE_DIR` override those directories.
+Packaged Linux settings/logs go to `$XDG_CONFIG_HOME/astarot` (default `~/.config/astarot`), and
+weights and other writable data to `$XDG_DATA_HOME/astarot` (default `~/.local/share/astarot`).
+Up to 0.5.x both were named `vrct-vox`; the first start of 0.6.0 moves them and leaves links with
+the old names ([the move](../spec/data-and-persistence.md#linuxの保存先の移動)). The app keeps no
+cache directory. `ASTAROT_CONFIG_DIR` and `ASTAROT_DATA_DIR` (or `VRCT_CONFIG_DIR` and
+`VRCT_DATA_DIR`) override those directories, and a directory named that way is never moved.
 An explicitly supplied `HF_HOME` is respected. Existing development/Windows paths are unchanged.
 
 Managed audio still needs the explicit PipeWire setup in `local-setup-linux.md`.
@@ -142,7 +144,7 @@ are no longer shipped.
 ## Acceptance and exclusions
 
 ```sh
-VRCT_TEST_LINUX_ARCHIVE=/absolute/path/candidate.tar.gz \
+ASTAROT_TEST_LINUX_ARCHIVE=/absolute/path/candidate.tar.gz \
   build/dev/headless-venv/bin/python -m pytest \
   -c tests/voice/pytest.ini tests/platform/test_linux_package.py -q
 ```
@@ -152,7 +154,7 @@ VRCT_TEST_LINUX_ARCHIVE=/absolute/path/candidate.tar.gz \
 containing spaces, makes the installation read-only, checks that no Python backend is
 present and that both bundled engine builds start, and verifies installation hashes did not
 change. For GUI tests also set
-`VRCT_TEST_NATIVE_GUI=1` and `VRCT_TEST_DRIVER` to a tauri-driver 2.1.0 executable.
+`ASTAROT_TEST_NATIVE_GUI=1` and `ASTAROT_TEST_DRIVER` to a tauri-driver 2.1.0 executable.
 The shared `NativeWebDriver` launcher passes `VRCT_CONFIG_DIR` explicitly, defaulting
 to its existing `$XDG_CONFIG_HOME/vrct-vox` location and preserving caller overrides.
 This lets release-build tests run beside the installed app: debug builds and launches
@@ -162,8 +164,8 @@ pointing to that same config directory; changing `XDG_*` alone does not bypass t
 To test duplicate-launch prevention itself, leave `VRCT_CONFIG_DIR` unset and use
 a release build with a working D-Bus session bus shared by both launches.
 On a physical desktop run under `tools/display_power_guard.py` via system Python/Gio.
-CI explicitly uses `VRCT_TEST_XVFB=1` with Xvfb, checks its server and real rendering.
-Setting `VRCT_TEST_NATIVE_ROUTE=1` additionally tests a private PipeWire graph and
+CI explicitly uses `ASTAROT_TEST_XVFB=1` with Xvfb, checks its server and real rendering.
+Setting `ASTAROT_TEST_NATIVE_ROUTE=1` additionally tests a private PipeWire graph and
 managed mute/resume/restart (requires WirePlumber 0.5's policy profile). This is a
 local acceptance option; Ubuntu 24.04 CI runs the remaining smoke cases and does
 not claim audio-graph acceptance. None of these tests record the physical microphone,
@@ -172,7 +174,7 @@ contact VRChat, or load inference models.
 The collector and final tree/tar checks reject OCR weights, Mia2026 assets, unsafe
 links, traversal, duplicate paths, special files and uninspectable nested archives.
 These are path/type checks, not a detector for deliberately renamed weights.
-Original licenses and notices are retained. The Rust crates built into `vrct-vox` and `vrct-rvc-worker` are listed with their
+Original licenses and notices are retained. The Rust crates built into `vrct-vox` and `astarot-rvc-worker` are listed with their
 license texts in `_internal/licenses/rust/` (`tools/rust_licenses.py`, which needs
 the Cargo registry sources, so `--offline` builds need them cached). The build
 stops if a crate publishes no license text and has no reviewed entry in
@@ -197,7 +199,7 @@ OCR weights are excluded regardless.
 
 - Inside the AppImage the GUI process runs with the bundled library path
   (`LD_LIBRARY_PATH`) and GTK settings. The launcher keeps the host values in
-  `VRCT_APPIMAGE_HOST_*`; a program the app starts should get them back, as the screen
+  `ASTAROT_APPIMAGE_HOST_*`; a program the app starts should get them back, as the screen
   capture helper does (`src-tauri/src/portal_screencast.rs`). See [AppImage](appimage.md#run).
 - [Tauri Linux prerequisites](https://v2.tauri.app/start/prerequisites/#linux) define the
   native WebKitGTK build boundary; [official WebDriver CI](https://v2.tauri.app/develop/tests/webdriver/ci/)

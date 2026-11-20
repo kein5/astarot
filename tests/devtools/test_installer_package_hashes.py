@@ -80,7 +80,7 @@ class ToolTests(unittest.TestCase):
 class TemplateTests(unittest.TestCase):
     def test_a_release_build_cannot_leave_the_hash_out(self):
         head = TEMPLATE.split('Name "${PRODUCTNAME}"', 1)[0]
-        required = head.split('!if "$%VRCT_REQUIRE_PACKAGE_HASHES%" == "1"', 1)[1].split("!else", 1)[0]
+        required = head.split('!if "$%ASTAROT_REQUIRE_PACKAGE_HASHES%" == "1"', 1)[1].split("!else", 1)[0]
         self.assertIn('!include "..\\..\\..\\..\\nsis\\package-hashes.nsh"', required)
         self.assertNotIn("/NONFATAL", required)
         self.assertIn("!ifndef PACKAGE_SHA256\n    !error", required)

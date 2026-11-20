@@ -106,10 +106,10 @@ sequenceDiagram
   opt 現在の送信設定がオンで、より新しい番号をOSCへ送っていない
     S->>V: /chatbox/input [書式を当てた文, true, 通知音]
   end
-  S->>W: {type: "CHAT", …}
   opt TTS が訳を読む設定で、選んだ枠に実際の訳文がある
     S->>Q: 訳を積む（世代が古ければ捨てる）
   end
+  S->>W: {type: "CHAT", …}
   opt 出力先の一部で例外
     S-->>UI: 400 /run/message_output_error（出力先別の警告）
   end

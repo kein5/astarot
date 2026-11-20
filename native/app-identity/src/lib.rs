@@ -35,6 +35,11 @@ impl Renamed {
         Renamed { legacy, astarot, writes_astarot: false }
     }
 
+    /// A name this build writes under its ASTAROT spelling, with the migration it needs.
+    const fn moved(legacy: &'static str, astarot: &'static str) -> Self {
+        Renamed { legacy, astarot, writes_astarot: true }
+    }
+
     /// The spelling this build writes, registers and creates.
     pub const fn current(&self) -> &'static str {
         if self.writes_astarot {
@@ -68,8 +73,9 @@ pub const APP_ID: Renamed = Renamed::not_moved("io.github.kein5.vrct-vox", "io.g
 pub const DESKTOP_FILE_MARKER: Renamed = Renamed::not_moved("X-VRCT-VOX-Generated", "X-ASTAROT-Generated");
 
 /// The folder the Linux packages keep settings, logs and models in, under `$XDG_CONFIG_HOME` and
-/// under `$XDG_DATA_HOME` (ADR-014, 2.4).
-pub const LINUX_FOLDER: Renamed = Renamed::not_moved("vrct-vox", "astarot");
+/// under `$XDG_DATA_HOME` (ADR-014, 2.4). The app moves the VRCT-VOX folder at its start and
+/// leaves a link with the old name (`vrct_core::storage::linux`).
+pub const LINUX_FOLDER: Renamed = Renamed::moved("vrct-vox", "astarot");
 
 /// The app's executable without `.exe` (`mainBinaryName` in `src-tauri/tauri.conf.json`), and the
 /// Linux window class, which follows it (`StartupWMClass`; ADR-014, 2.5 and 2.6).
@@ -81,8 +87,9 @@ pub const LINUX_PACKAGE: Renamed = Renamed::not_moved("vrct-vox", "astarot");
 
 /// The `product` in `owner.json`, the marker on a model download's folder. It tells a folder this
 /// app wrote, which it may remove after an interrupted download or move aside when its files
-/// fail their check. A reader takes either spelling (ADR-014, 2.11).
-pub const MODEL_DOWNLOAD_OWNER: Renamed = Renamed::not_moved("VRCT-VOX-model-download-v1", "ASTAROT-model-download-v1");
+/// fail their check. A reader takes either spelling (ADR-014, 2.11): 0.5.x wrote the VRCT-VOX one
+/// and reads only that, so it leaves alone what an interrupted download of 0.6.0 left.
+pub const MODEL_DOWNLOAD_OWNER: Renamed = Renamed::moved("VRCT-VOX-model-download-v1", "ASTAROT-model-download-v1");
 
 /// The names of the API keys in the OS credential store (ADR-013; ADR-014, 2.9).
 pub mod credentials {
@@ -140,35 +147,36 @@ pub mod env {
     pub const OPENVR_API: Variable = Variable { astarot: "ASTAROT_OPENVR_API", legacy: "VRCT_OPENVR_API" };
 
     // The variables below are for development, or are handed from the app to its own processes.
-    // ADR-014 renames each without keeping the old name, together with the tools and documents
-    // that use it (2.2).
+    // They took their ASTAROT names in 0.6.0 without keeping the old ones, together with the
+    // tools and documents that use them (ADR-014, 2.2).
 
     /// A loopback HTTP receiver that takes the usage events in place of the real one.
-    pub const TELEMETRY_URL: &str = "VRCT_TELEMETRY_URL";
+    pub const TELEMETRY_URL: &str = "ASTAROT_TELEMETRY_URL";
     /// A local file the speech timings are appended to while measuring.
-    pub const VOICE_TRACE: &str = "VRCT_VOICE_TRACE";
+    pub const VOICE_TRACE: &str = "ASTAROT_VOICE_TRACE";
     /// `1` adds the `gc_pauses` field to the records of [`VOICE_TRACE`] (empty in Rust; Python
     /// filled it).
-    pub const VOICE_GC_DIAGNOSTICS: &str = "VRCT_VOICE_GC_DIAGNOSTICS";
+    pub const VOICE_GC_DIAGNOSTICS: &str = "ASTAROT_VOICE_GC_DIAGNOSTICS";
     /// The folder through which the Linux app hands the VR panel's frames and the captured
     /// screen to the VR overlay and chat reading in the same process tree.
-    pub const VR_PANEL_DIR: &str = "VRCT_VR_PANEL_DIR";
+    pub const VR_PANEL_DIR: &str = "ASTAROT_VR_PANEL_DIR";
     /// The host's `LD_LIBRARY_PATH`, which `packaging/appimage/AppRun` keeps before it points the
     /// variable at the AppImage's own libraries.
-    pub const APPIMAGE_HOST_LD_LIBRARY_PATH: &str = "VRCT_APPIMAGE_HOST_LD_LIBRARY_PATH";
+    pub const APPIMAGE_HOST_LD_LIBRARY_PATH: &str = "ASTAROT_APPIMAGE_HOST_LD_LIBRARY_PATH";
     /// `x` when the host had `LD_LIBRARY_PATH` set at all (even to nothing), empty when not
     /// (`packaging/appimage/AppRun`).
-    pub const APPIMAGE_HOST_LD_LIBRARY_PATH_SET: &str = "VRCT_APPIMAGE_HOST_LD_LIBRARY_PATH_SET";
+    pub const APPIMAGE_HOST_LD_LIBRARY_PATH_SET: &str = "ASTAROT_APPIMAGE_HOST_LD_LIBRARY_PATH_SET";
 }
 
 /// The first bytes of the files the app's processes hand each other on Linux. Both ends are in
-/// the same version, so these change together with no migration.
+/// the same version, so these change together with no migration (`VRCTVRP1` and `VRCTSCR1` up to
+/// 0.5.x; eight bytes, so `ASTR` rather than `ASTAROT`).
 pub mod handoff {
     /// The VR panel's frame, from the app to the VR overlay.
-    pub const VR_PANEL_FRAME: &[u8; 8] = b"VRCTVRP1";
+    pub const VR_PANEL_FRAME: &[u8; 8] = b"ASTRVRP1";
     /// The captured screen, from the capture helper (`native/screen-capture/main.c`, which
     /// writes the same eight bytes) to chat reading.
-    pub const SCREEN_FRAME: &[u8; 8] = b"VRCTSCR1";
+    pub const SCREEN_FRAME: &[u8; 8] = b"ASTRSCR1";
 }
 
 #[cfg(test)]
@@ -192,25 +200,28 @@ mod tests {
     const VARIABLES: [Variable; 4] = [env::CONFIG_DIR, env::DATA_DIR, env::TELEMETRY, env::OPENVR_API];
     use env::Variable;
 
-    /// No name has moved yet: each moves in its own pull request, with its migration (ADR-014,
-    /// 5). The pull request that moves one changes its line here.
+    /// The names that moved, each in its own pull request with its migration (ADR-014, 5). The
+    /// pull request that moves another one adds it here.
+    const MOVED: [&str; 2] = ["LINUX_FOLDER", "MODEL_DOWNLOAD_OWNER"];
+
     #[test]
-    fn every_name_is_still_written_the_way_0_5_wrote_it() {
+    fn only_the_names_with_their_migration_are_written_the_astarot_way() {
         for (what, name) in ALL {
-            assert!(!name.writes_astarot, "{what}");
-            assert_eq!(name.current(), name.legacy, "{what}");
-            assert_eq!(name.other(), name.astarot, "{what}");
+            let moved = MOVED.contains(&what);
+            assert_eq!(name.writes_astarot, moved, "{what}");
+            assert_eq!(name.current(), if moved { name.astarot } else { name.legacy }, "{what}");
+            assert_eq!(name.other(), if moved { name.legacy } else { name.astarot }, "{what}");
         }
     }
 
     #[test]
-    fn the_values_written_are_those_of_0_5() {
+    fn the_values_written_are_those_of_0_5_but_the_linux_folder() {
         assert_eq!(APP_ID.current(), "io.github.kein5.vrct-vox");
         assert_eq!(DESKTOP_FILE_MARKER.current(), "X-VRCT-VOX-Generated");
-        assert_eq!(LINUX_FOLDER.current(), "vrct-vox");
+        assert_eq!(LINUX_FOLDER.current(), "astarot");
         assert_eq!(EXECUTABLE.current(), "vrct-vox");
         assert_eq!(LINUX_PACKAGE.current(), "vrct-vox");
-        assert_eq!(MODEL_DOWNLOAD_OWNER.current(), "VRCT-VOX-model-download-v1");
+        assert_eq!(MODEL_DOWNLOAD_OWNER.current(), "ASTAROT-model-download-v1");
         assert_eq!(credentials::WINDOWS_PREFIX.current(), "VRCT-VOX");
         assert_eq!(credentials::APPLICATION.current(), "vrct-vox");
         assert_eq!(credentials::STORE_ATTRIBUTE.current(), "vrct-vox-store");
@@ -246,7 +257,7 @@ mod tests {
 
     #[test]
     fn a_moved_name_writes_astarot_and_still_knows_the_old_one() {
-        let moved = Renamed { writes_astarot: true, ..LINUX_FOLDER };
+        let moved = Renamed { writes_astarot: true, ..LINUX_PACKAGE };
         assert_eq!(moved.current(), "astarot");
         assert_eq!(moved.other(), "vrct-vox");
         assert!(moved.accepts("vrct-vox") && moved.accepts("astarot"));
@@ -288,14 +299,14 @@ mod tests {
     }
 
     #[test]
-    fn the_names_handed_between_processes_are_those_of_0_5() {
-        assert_eq!(env::VR_PANEL_DIR, "VRCT_VR_PANEL_DIR");
-        assert_eq!(env::TELEMETRY_URL, "VRCT_TELEMETRY_URL");
-        assert_eq!(env::VOICE_TRACE, "VRCT_VOICE_TRACE");
-        assert_eq!(env::VOICE_GC_DIAGNOSTICS, "VRCT_VOICE_GC_DIAGNOSTICS");
-        assert_eq!(env::APPIMAGE_HOST_LD_LIBRARY_PATH, "VRCT_APPIMAGE_HOST_LD_LIBRARY_PATH");
-        assert_eq!(env::APPIMAGE_HOST_LD_LIBRARY_PATH_SET, "VRCT_APPIMAGE_HOST_LD_LIBRARY_PATH_SET");
-        assert_eq!(handoff::VR_PANEL_FRAME, b"VRCTVRP1");
-        assert_eq!(handoff::SCREEN_FRAME, b"VRCTSCR1");
+    fn the_development_and_handoff_names_are_astarot() {
+        assert_eq!(env::VR_PANEL_DIR, "ASTAROT_VR_PANEL_DIR");
+        assert_eq!(env::TELEMETRY_URL, "ASTAROT_TELEMETRY_URL");
+        assert_eq!(env::VOICE_TRACE, "ASTAROT_VOICE_TRACE");
+        assert_eq!(env::VOICE_GC_DIAGNOSTICS, "ASTAROT_VOICE_GC_DIAGNOSTICS");
+        assert_eq!(env::APPIMAGE_HOST_LD_LIBRARY_PATH, "ASTAROT_APPIMAGE_HOST_LD_LIBRARY_PATH");
+        assert_eq!(env::APPIMAGE_HOST_LD_LIBRARY_PATH_SET, "ASTAROT_APPIMAGE_HOST_LD_LIBRARY_PATH_SET");
+        assert_eq!(handoff::VR_PANEL_FRAME, b"ASTRVRP1");
+        assert_eq!(handoff::SCREEN_FRAME, b"ASTRSCR1");
     }
 }

@@ -484,7 +484,7 @@ fn open_proxy(host: &str, port: u16, wait: Duration) -> Result<TcpStream, HttpEr
 /// for a refused authorization) fails the request.
 fn tunnel(stream: &mut Watched, url: &Url, authorization: Option<&str>) -> Result<(), HttpError> {
     let target = if url.host.contains(':') { format!("[{}]:{}", url.host, url.port) } else { format!("{}:{}", url.host, url.port) };
-    let mut head = format!("CONNECT {target} HTTP/1.1\r\nHost: {target}\r\nUser-Agent: VRCT-VOX\r\n");
+    let mut head = format!("CONNECT {target} HTTP/1.1\r\nHost: {target}\r\nUser-Agent: ASTAROT\r\n");
     if let Some(authorization) = authorization {
         if authorization.contains(['\r', '\n']) {
             return Err(HttpError::Url);
@@ -572,7 +572,7 @@ fn exchange(request: &Request<'_>, timeouts: Timeouts, proxy: Option<&Proxy>) ->
     let url = Url::parse(request.url)?;
     let mut stream = connect(&url, timeouts, request.cancel.as_ref(), proxy)?;
     let mut head = format!("{} {} HTTP/1.1\r\nHost: {}\r\n", request.method, url.target, url.host_header());
-    head.push_str("User-Agent: VRCT-VOX\r\nAccept: application/json\r\nConnection: close\r\n");
+    head.push_str("User-Agent: ASTAROT\r\nAccept: application/json\r\nConnection: close\r\n");
     for (name, value) in &request.headers {
         if value.contains(['\r', '\n']) {
             return Err(HttpError::Url);

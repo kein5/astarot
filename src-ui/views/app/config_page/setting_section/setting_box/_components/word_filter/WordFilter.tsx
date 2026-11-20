@@ -5,10 +5,11 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import type { ChangeEvent } from "react";
 import type { EntryHandle } from "../_atoms/_entry/_Entry";
 import { useStore_IsOpenedMicWordFilterList } from "@store";
+import { Fold } from "../fold/Fold";
 import { useTranscription } from "@logics_configs";
 import { useSettingsDraft } from "../../../../../../../logics/voice/useSettingsDraft";
 
-export const WordFilter = (props: { "aria-describedby"?: string }) => {
+export const WordFilter = (props: { "aria-labelledby"?: string; "aria-describedby"?: string }) => {
     const { t } = useI18n();
 
     const [input_value, setInputValue] = useState("");
@@ -92,22 +93,34 @@ export const WordFilter = (props: { "aria-describedby"?: string }) => {
     };
 
 
+    // The registered words are a bar of the app's one fold (#820): the bar says how many there
+    // are, and the words are inside it. Whether it is open is kept while the app runs, and adding
+    // words opens it. With no word the bar stays, at 0, and says so inside.
+    const opened = currentIsOpenedMicWordFilterList.data === true;
     return (
-        <div className={styles.container}>
+        <div className={styles.container} role="group" aria-labelledby={props["aria-labelledby"]}>
             {form.navigationDialog}
-            { currentIsOpenedMicWordFilterList.data && words.length > 0 &&
-                <div ref={setListSectionRef} className={styles.list_section_wrapper}>
-                    {
-                        words.map((item) => {
-                            return <WordFilterItem value={item} key={item} deleteAction={deleteAction}
-                                buttonRef={node => {
-                                    if (node) deleteRefs.current.set(item, node);
-                                    else deleteRefs.current.delete(item);
-                                }}/>;
-                        })
-                    }
-                </div>
-            }
+            <Fold open={opened} summary={t("config_page.transcription.mic_word_filter.list", { count: words.length })}
+                summaryProps={{ "aria-describedby": props["aria-describedby"] }}
+                onToggle={event => {
+                    const open = event.currentTarget.open;
+                    if (open !== opened) updateIsOpenedMicWordFilterList(open);
+                }}>
+                { opened && (words.length === 0
+                    ? <p className={styles.empty}>{t("config_page.transcription.mic_word_filter.list_empty")}</p>
+                    : <div ref={setListSectionRef} className={styles.list_section_wrapper}>
+                        {
+                            words.map((item) => {
+                                return <WordFilterItem value={item} key={item} deleteAction={deleteAction}
+                                    buttonRef={node => {
+                                        if (node) deleteRefs.current.set(item, node);
+                                        else deleteRefs.current.delete(item);
+                                    }}/>;
+                            })
+                        }
+                    </div>)
+                }
+            </Fold>
             <div className={styles.entry_section_wrapper}>
                 <_Entry ref={entryRef} aria-describedby={props["aria-describedby"]} aria-label={t("config_page.transcription.mic_word_filter.label")} width="30rem" onChange={onChangeEntry} onEnterPressed={handleEnterPressed} ui_variable={input_value}/>
                 <button className={styles.add_button} onClick={addWords}>{t("config_page.transcription.mic_word_filter.add_button_label")}</button>
@@ -136,34 +149,6 @@ const WordFilterItem = (props: WordFilterItemProps) => {
                 aria-label={t("config_page.transcription.mic_word_filter.remove_word", { word: props.value })}
                 onClick={event => props.deleteAction(props.value, event.currentTarget)}>
                 <DeleteSvg className={styles.delete_svg} aria-hidden="true" focusable="false"/>
-            </button>
-        </div>
-    );
-};
-
-import ArrowLeftSvg from "@images/arrow_left.svg?react";
-export const WordFilterListToggleComponent = (props: { "aria-describedby"?: string }) => {
-    const { t } = useI18n();
-    const { currentIsOpenedMicWordFilterList, updateIsOpenedMicWordFilterList } = useStore_IsOpenedMicWordFilterList();
-    const { currentMicWordFilterList } = useTranscription();
-
-    const svg_class_names = clsx(styles["arrow_left_svg"], {
-        [styles.to_down]: !currentIsOpenedMicWordFilterList.data,
-        [styles.to_up]: currentIsOpenedMicWordFilterList.data
-    });
-
-    const OnclickFunction = () => {
-        updateIsOpenedMicWordFilterList(!currentIsOpenedMicWordFilterList.data);
-    };
-
-    return (
-        <div className={styles.toggle_button_container}>
-            <p className={styles.words_count_text}>{t("config_page.transcription.mic_word_filter.count_desc", {count: currentMicWordFilterList.data.length} )}</p>
-            <button type="button" className={styles.toggle_button_wrapper} onClick={OnclickFunction}
-                aria-describedby={props["aria-describedby"]}
-                aria-expanded={currentIsOpenedMicWordFilterList.data === true}
-                aria-label={t("config_page.transcription.mic_word_filter.count_desc", {count: currentMicWordFilterList.data.length})}>
-                <ArrowLeftSvg className={svg_class_names} aria-hidden="true"/>
             </button>
         </div>
     );

@@ -91,9 +91,15 @@ fn readonly(name: &'static str) -> Key {
     Key { name, serialize: false, readonly: true, immediate: false, check: None }
 }
 
-/// An RVC block a conversion may use: 20 to 200 ms in steps of 20 (`protocol::Block`).
+/// An RVC block a conversion may use: 0, the worker's choice (the default, #531), or 20 to
+/// 200 ms in steps of 20 (`protocol::Block`).
 pub fn is_valid_rvc_block_ms(value: &Value) -> bool {
-    value.is_u64() && value.as_u64().and_then(|ms| u32::try_from(ms).ok()).and_then(vrct_voice_conversion::protocol::Block::from_ms).is_some()
+    value.as_u64().filter(|_| value.is_u64()).and_then(|ms| u32::try_from(ms).ok()).is_some_and(is_valid_rvc_block)
+}
+
+/// `is_valid_rvc_block_ms` of a number.
+pub fn is_valid_rvc_block(ms: u32) -> bool {
+    ms == vrct_voice_conversion::worker::AUTO_BLOCK_MS || vrct_voice_conversion::protocol::Block::from_ms(ms).is_some()
 }
 
 pub fn is_valid_port(value: &Value) -> bool {
@@ -595,6 +601,9 @@ pub fn keys() -> Vec<Key> {
         immediate("EXPERIMENTAL_FEATURES", experimental_features()),
         // What the settings menu and the main switches show (#554). It changes no feature.
         immediate("USAGE_PRESETS", usage_presets()),
+        // How the model catalogs lay out their cards: "grid" or "list" (the settings' catalogs). It
+        // changes no model and no feature.
+        key("CATALOG_LAYOUT", managed(Ty::Str, false, |v, _| matches!(v.as_str(), Some("grid" | "list")))),
         // The screen edge the tray companion's hexagram hides at (src-tauri/src/companion.rs).
         key("TRAY_COMPANION_EDGE", one_of("TRAY_COMPANION_EDGE_LIST")),
         // The monitor it shows on, by the system's name for it; empty for the primary monitor.
@@ -849,6 +858,7 @@ pub fn defaults(env: &Environment) -> Map<String, Value> {
         ("EXPERIMENTAL_FEATURES", experimental_features_default()),
         // A new install starts with the basic features; an update shows all (Config::migrate_usage_presets).
         ("USAGE_PRESETS", json!(["basic"])),
+        ("CATALOG_LAYOUT", json!("grid")),
         ("TRAY_COMPANION_EDGE", json!("right")),
         ("TRAY_COMPANION_MONITOR", json!("")),
         ("SPEAKER_THRESHOLD", json!(300)),

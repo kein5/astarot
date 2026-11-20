@@ -39,9 +39,9 @@ python tools/speechcpp_bundle.py --variant linux-x64-vulkan --archive /path/to/s
 python tools/speechcpp_bundle.py --variant linux-x64-cpu --archive /path/to/speech-0.11.0-linux-x64-cpu.zip --output build/speechcpp-cpu
 ```
 
-`build_voice_gate.py`は、`build/vrct-voice-gate`、`vrct-source-bridge`、`vrct-vc-worker`、`vrct-asr-capture`、`vrct-screen-capture`をビルドする。`libpipewire-0.3-dev`が必要。
-`vrct-screen-capture`がないと、チャット読み取りの「ウィンドウを共有…」は`screencast_helper_missing`で止まる（`src-tauri/src/portal_screencast.rs`）。
-`vrct-vc-worker`は、0.4までのPythonバックエンドが同梱サーバーと声質変換の起動に使ったヘルパーで、0.5.0の中核は起動しない（`native/voice-conversion/src/child.rs`。[中核の統合](core-integration.md)の「判断が要ること」の5）。ビルドと同梱は続けている（`tools/app_resources.py`の`LINUX_HELPERS`）。
+`build_voice_gate.py`は、`build/astarot-voice-gate`、`astarot-source-bridge`、`astarot-screen-capture`をビルドする。`libpipewire-0.3-dev`が必要。
+`astarot-screen-capture`がないと、チャット読み取りの「ウィンドウを共有…」は`screencast_helper_missing`で止まる（`src-tauri/src/portal_screencast.rs`）。
+0.5.xまでは`vrct-vc-worker`と`vrct-asr-capture`もビルドして同梱していた。`vrct-vc-worker`は0.4までのPythonバックエンドが同梱サーバーと声質変換の起動に使ったヘルパー、`vrct-asr-capture`はLinuxの音声認識の録音のヘルパーで、中核はどちらも起動しなくなったので、0.6.0でソースごと消した（ADR-014、#809）。
 
 `speechcpp_bundle.py`は、版とSHA-256を固定した書庫から、`speech`本体と同梱のライセンス文書を出力先に置く。配布物と同じく、Vulkan版は`build/speechcpp`、CPU版は`build/speechcpp-cpu`に置く。どちらのビルドかは`bundle.json`で決まり、フォルダの名前では決まらない。
 書庫が手元になければ、`--archive`の代わりに`--download`を指定すると取得する。通信するのは`--download`を指定したときだけ。
@@ -54,7 +54,7 @@ Linux候補をビルド済みなら、`build/linux/build/speechcpp`と`build/lin
 
 Windows専用の3依存（PyAudioWPatch、windows-capture、pycaw）は`pyproject.toml`のOS markerで選択する。チャット読み取りのRapidOCRはLinuxにも入る。
 `opencv-python`は`tool.uv.exclude-dependencies`で除き、同じ`cv2`を提供する2種類のOpenCVの同時導入を避ける。
-Linuxのチャット読み取りは、VRChatのウィンドウをX11/XWayland経由で取り込む。SteamVRが動いている間は、ヘッドセットの映像をOpenGLで読む（偽のSteamVRでだけ確認）。Waylandネイティブのウィンドウは、利用者が設定の「チャット読み取り」で共有すると読み取れる（XDG ScreenCast portal。開発ビルドは`build/vrct-screen-capture`を使う）。従来ASRの録音は未対応。
+Linuxのチャット読み取りは、VRChatのウィンドウをX11/XWayland経由で取り込む。SteamVRが動いている間は、ヘッドセットの映像をOpenGLで読む（偽のSteamVRでだけ確認）。Waylandネイティブのウィンドウは、利用者が設定の「チャット読み取り」で共有すると読み取れる（XDG ScreenCast portal。開発ビルドは`build/astarot-screen-capture`を使う）。従来ASRの録音は未対応。
 2026-11-11に、Protonで動く実際のVRChat（ローカルの試験インスタンスにクライアントを2つ）と、実際のPP-OCRのモデルで確認した（CachyOS、KDE Plasma 6.8、Wayland）。X11/XWaylandの経路は、もう一方のクライアントが送ったチャットを読めた。共有の経路は、入れ子のXwayland（KWinから見るとWaylandネイティブのウィンドウ）の中で動かしたVRChatを共有して読めた。このとき「6文のうち5文（開発ビルド）、4文（AppImage）」と記録したが、読めなかったのではなく、確認の手順の誤りだった（2026-11-12に訂正）。会話ログは画面に見えている行だけを描くので、ログが画面を埋めたあとの行を数えられていなかった。gamescopeの中のVRChatと、WineのWaylandドライバーで動くVRChatでは確認できていない（gamescope 3.17はウィンドウが落ち、使ったProton-GEはWaylandドライバーの指定を受け付けなかった）。音声タイピングモードの貼り付けは、実際のVRChatのチャット欄に文字が入ることを確認した。GNOMEなど、KDE以外のデスクトップでは確認できていない。
 2026-11-12に、同じ構成で12文（日本語と英語、2行に折り返す長さの文を含む）を10秒おきに送って測り直した（開発ビルド、develop `5d4b1a16`に#196の変更を足したもの）。X11/XWaylandの経路、共有の経路とも12文すべてを読み、送ってからログに出るまでは0.6〜1.5秒だった（X11の1文だけ4.2秒）。吹き出しの検出モデルは入れていないので、看板の文字も結果に混じる。試験用のワールドは数秒ごとに話し手とカメラの位置を変えるため、距離や背景は文ごとに違う。確認のときは、名前の検索が話し手側のウィンドウを拾わないよう、話し手側のウィンドウのタイトルを変えた（2つのクライアントがどちらも`VRChat`という名前になるため）。
 この手順はPython依存のみを取得し、ASR/TTS/VC重みの取得スクリプトは実行しない。
@@ -77,7 +77,7 @@ Linux（x86-64）でも、RVCの実行環境をアプリから取得できます
 - x86-64のPC。それ以外では、取得の欄を表示しません。
 - GPUで変換するには、NVIDIAのGPUとNVIDIAのドライバー。アプリは`/proc/driver/nvidia/version`があるかどうかで、ドライバーが動いているかを確かめます。nouveauなど、このファイルがない環境ではCPU用の実行環境を出します。
 
-RVCの変換は、配布物に入っている`vrct-rvc-worker`（`native/rvc-runtime`）が行います（2026-11-15から）。RVCはドライバーがなくても取得できます。ドライバーがあるPCにはGPU用、ないPCにはCPU用の実行環境を出します。同意すると、次を順に行います。
+RVCの変換は、配布物に入っている`astarot-rvc-worker`（`native/rvc-runtime`）が行います（2026-11-15から）。RVCはドライバーがなくても取得できます。ドライバーがあるPCにはGPU用、ないPCにはCPU用の実行環境を出します。同意すると、次を順に行います。
 
 1. GPU用は、ONNX Runtime 1.31.0（CUDA 13版。NuGetにあるMicrosoftの公式パッケージ`Microsoft.ML.OnnxRuntime.Gpu.Linux`）と、NVIDIAのCUDA 13.4とcuDNN 9.26のライブラリ（PyPIの`nvidia-cuda-runtime`、`nvidia-cublas`、`nvidia-curand`、`nvidia-cuda-nvrtc`、`nvidia-cudnn-cu13`のwheel）を取得します。CPU用は、ONNX Runtime 1.31.0のCPU版（`Microsoft.ML.OnnxRuntime`）だけです。アーカイブごとにサイズとSHA-256を照合し、ワーカーが読み込む`.so`だけを`lib/`に取り出して、アーカイブは消します。2026-11-18まではONNX RuntimeをGitHubのリリースから取得していました。そのときに準備した実行環境は、`lib/`のファイルが同じ名前なので、準備し直さずにそのまま使えます。
 2. 基礎モデル（HuBERTの`config.json`と`pytorch_model.bin`、`rmvpe.onnx`）を取得して、ハッシュを検証します。
@@ -103,7 +103,7 @@ RVCの列は、2026-11-15に下と同じPCで1回ずつ取得した値です。�
 
 Seed-VCの列は、2026-11-11に1台のPCで1回ずつ取得して測った値です（CachyOS、RTX 4080 SUPER、NVIDIAドライバー620.70.06、btrfs、有線の回線）。通信量は、取得中にネットワーク機器が受信したバイト数です（RVCは4.83 GB、Seed-VCは6.28 GB）。必要な空き容量は、取得中のフォルダーの大きさ（`du -sb`）の最大値を切り上げた値で、RVCは15.6 GB、Seed-VCは17.5 GBでした。`uv`のキャッシュと導入先を別々に数えています。`uv`は、ファイルシステムが対応していれば両者でデータを共有するので（reflinkまたはハードリンク）、その場合に実際に使う容量はこれより小さくなります。かかった時間はRVCが62秒、Seed-VCが139秒ですが、回線の速さで大きく変わります。
 
-保存先は、`config.json`と同じフォルダーの`vc_runtimes`です。配布版では`~/.config/vrct-vox/vc_runtimes`、ソースからの開発起動では、`VRCT_CONFIG_DIR`を指定しなければ実行ファイルのあるフォルダーの`vc_runtimes`になります（`src-tauri/target/debug/`など。gitの対象外です。0.4までのPythonバックエンドでは`src-python/vc_runtimes`）。途中で失敗したり中止したりしても、終わった手順は次回に飛ばします。0.4までのSeed-VCでは、中止すると`uv`と`uv`が起動したプロセスをまとめて止め、アプリが異常終了したときも`uv`は一緒に終わりました。終わったら「この実行環境を使う」を押して保存します。消したいときは、このフォルダーを削除します。
+保存先は、`config.json`と同じフォルダーの`vc_runtimes`です。配布版では`~/.config/astarot/vc_runtimes`（0.5.xまでは`~/.config/vrct-vox/vc_runtimes`）、ソースからの開発起動では、`VRCT_CONFIG_DIR`を指定しなければ実行ファイルのあるフォルダーの`vc_runtimes`になります（`src-tauri/target/debug/`など。gitの対象外です。0.4までのPythonバックエンドでは`src-python/vc_runtimes`）。途中で失敗したり中止したりしても、終わった手順は次回に飛ばします。0.4までのSeed-VCでは、中止すると`uv`と`uv`が起動したプロセスをまとめて止め、アプリが異常終了したときも`uv`は一緒に終わりました。終わったら「この実行環境を使う」を押して保存します。消したいときは、このフォルダーを削除します。
 
 声のモデルは別です。RVCの設定画面の取得欄から取得するか、権利を確認したものを指定します。0.4までのSeed-VCには、利用が許可された参照音声（1〜30秒のWAV）を指定しました。
 

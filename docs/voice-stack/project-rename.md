@@ -34,17 +34,42 @@ Windowsの実行ファイルには`.exe`が付きます。
 | 対象 | 値 |
 |---|---|
 | TauriアプリID | `io.github.kein5.vrct-vox` |
-| Linuxの設定保存先 | `$XDG_CONFIG_HOME/vrct-vox`、既定は`~/.config/vrct-vox` |
-| Linuxのデータ保存先 | `$XDG_DATA_HOME/vrct-vox`、既定は`~/.local/share/vrct-vox` |
-| Linuxのキャッシュ保存先 | `$XDG_CACHE_HOME/vrct-vox`、既定は`~/.cache/vrct-vox` |
-| 環境変数 | `VRCT_CONFIG_DIR`、`VRCT_DATA_DIR`、`VRCT_CACHE_DIR`などの`VRCT_*`。利用者とパッケージ作成者向けの4つは、0.6.0から`ASTAROT_CONFIG_DIR`、`ASTAROT_DATA_DIR`、`ASTAROT_TELEMETRY`、`ASTAROT_OPENVR_API`を先に読み、なければ`VRCT_*`を読む。旧名は0.6.xの間読む。`ASTAROT_TELEMETRY`と`VRCT_TELEMETRY`は、どちらかが`off`なら送信を止める |
+| Linuxの設定保存先 | 0.6.0から`$XDG_CONFIG_HOME/astarot`、既定は`~/.config/astarot`。0.5.xの`vrct-vox`は起動の最初に移し、旧名には新しいフォルダーを指すリンクを0.6.xの間残す（[Linuxの保存先の移動](../spec/data-and-persistence.md#linuxの保存先の移動)） |
+| Linuxのデータ保存先 | 0.6.0から`$XDG_DATA_HOME/astarot`、既定は`~/.local/share/astarot`。移し方は設定保存先と同じ |
+| Linuxのキャッシュ保存先 | なし。0.4までのPythonバックエンドだけが`$XDG_CACHE_HOME/vrct-vox`（既定は`~/.cache/vrct-vox`）を使った |
+| 環境変数 | 0.6.0から`ASTAROT_*`。利用者とパッケージ作成者向けの4つ（`ASTAROT_CONFIG_DIR`、`ASTAROT_DATA_DIR`、`ASTAROT_TELEMETRY`、`ASTAROT_OPENVR_API`）は先に読み、なければ0.5.xの`VRCT_*`の名前を読む。旧名は0.6.xの間読む。`ASTAROT_TELEMETRY`と`VRCT_TELEMETRY`は、どちらかが`off`なら送信を止める。開発、試験、ビルド、プロセスの受け渡しの変数（`ASTAROT_VR_PANEL_DIR`、`ASTAROT_LINUX_BUNDLE`、`ASTAROT_TEST_*`など）は、旧名を読まない。`VRCT_CACHE_DIR`などは0.4までのPythonバックエンドだけが読んだ |
 | Windowsのインストール先を記録するキー | `VRCT-VOX` |
 | 音声経路と仮想マイク | `vrct.managed.*`ノード、`vrct-managed-*.service`、所有者識別子`vrct-vox-service-v1` |
-| モデル取得の所有マーカー | `VRCT-VOX-model-download-v1`。0.6.0から`ASTAROT-model-download-v1`も受け付ける（書くのは`VRCT-VOX-model-download-v1`のまま） |
+| モデル取得の所有マーカー | 0.6.0から`ASTAROT-model-download-v1`を書く。0.5.xが書いた`VRCT-VOX-model-download-v1`も0.6.xの間は受け付ける。0.5.xは自分の値しか読まないので、0.5.xに戻すと0.6.0が残した取得の途中のフォルダーは片付けずに残す |
 | Linuxビルド作業領域の所有マーカー | `VRCT-VOX Linux staging v1` |
 | Waylandのショートカット登録 | portalのアプリID`io.github.kein5.vrct-vox`、`~/.local/share/applications/io.github.kein5.vrct-vox.desktop` |
 
 WindowsのNSISテンプレートは上記のレジストリキーから前回のインストール先を読みます。0.5.1からはインストーラーの画面、Windowsのアプリの一覧、ショートカットに`ASTAROT`と出ます。新しく入れるときの既定のインストール先は`%LOCALAPPDATA%\ASTAROT`です。Windowsでは設定とモデルがインストール先に置かれるため、0.5.0以前から更新したときのインストール先は元の`%LOCALAPPDATA%\VRCT-VOX`のままです。アプリの一覧の登録は同じキーのまま名前だけが変わり、`vrct-vox`という名前のショートカットは`ASTAROT`の名前に置き換わります。
+
+## 内部のコードネーム
+
+内部のクレートのうち、責務の境界がはっきりしているものには、アスタロトの配下とされる悪魔の名前をコードネームとして付けています（[#689](https://github.com/kein5/astarot/issues/689)）。コードネームは補助の名前です。画面、文書、公開するAPIでは、機能を説明する名前を使います。設定のキー、公開するAPI、ファイルのパスは、コードネームのためだけには変えません。名前の階級は史料上の所属で、クレートの依存関係とは関係ありません。階級の木、出典、採用の理由、ほかの候補は#689にあります。
+
+| コードネーム | 対象 | いま受け持っていること |
+|---|---|---|
+| Ayperos | `native/core` | 中核。UIとの要求の受け渡し、設定とその移行、起動と終了、各機能の取りまとめ |
+| Sargatanas | `native/speech-server` | アプリが動かす推論のサーバー（同梱のspeech.cppと、翻訳のLLMのllama.cpp）の起動、停止、再起動、生存の確認 |
+| Loray | `native/transcription` | 音声認識。録音と発話の区切り、クラウドのエンジン、speech.cppでのリアルタイムの認識 |
+| Hael | `native/translation` | オンラインの翻訳先（DeepLなど）への要求、読みがな、TranslateGemmaへの要求 |
+| Forau | `native/tts` | 読み上げの要求、読み上げの順番、音声の受け渡し |
+| Humots | `native/ocr-runtime` | チャット欄の読み取りと、VRChatの画面の取得 |
+| Nebiros | `native/ops` | 実行状態の監督。バックエンドの見張り（watchdog）と利用状況の通知。モデルの取得もここにある |
+| Nuberus | `native/vr-overlay` | SteamVRのオーバーレイ（字幕のログ、VRパネル、ランチャー） |
+| Aglasis | `native/browser-core-bridge` | **試験のホスト**。結合テスト（`tests/integration/`、ADR-017）で、ブラウザに出した画面と中核をつなぐ。試験の道具で、アプリと配布物には入らない。アプリの中の配送（Scirlinの候補）とは別のもの |
+
+コードネームは、各クレートの`Cargo.toml`の`description`と、`lib.rs`の冒頭（実行ファイルだけのクレートは`main.rs`の冒頭）にも書いてあります。パッケージ名（`vrct-core`など）とフォルダーの名前はまだ変えていません。パッケージ名はコードの中だけの名前として、ADR-014のPR 12で、どのクレートも`astarot-`で始まる名前（`astarot-core`など）にします。コードネームはパッケージ名にせず、文書と説明だけに使います（[#797](https://github.com/kein5/astarot/pull/797)の決定）。フォルダーの名前は変えません。
+
+次の名前は、まだ付けていません。
+
+- **条件を待つ候補**: Scirlin（IPCとイベントの配送。汎用の配送とVRChatのOSCに固有の部分を分けられたら）、Morail（ログ、テレメトリ、診断の情報の秘匿化。秘匿化が独立した責務になったら）。いまは、汎用の配送（UIとの要求の受け渡しは`native/core`、WebSocketのサーバーは`native/adapters`）とVRChatのOSC（`native/adapters`）が1つの境界にまとまっておらず、秘匿化は`native/core`の`log.rs`の中にある。Scirlinが受け持つのはアプリの中の配送で、試験のホストのAglasisとは重ならない。
+- **予約**: Surgat（権限の仲介）、Frucissiere（状態の復元と障害からの回復）。
+- **予備**: Valefar、Glasyabolas。担当は決めていない。
+- **名前のないクレート**: `app-identity`、`audio-routing`、`adapters`、`openvr-client`、`onnx-runtime`、`translate-onnx`、`voice-conversion`、`rvc-runtime`と、Cの補助プログラム。すべてのクレートに名前を付けるわけではない。
 
 ## 公開
 

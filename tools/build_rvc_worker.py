@@ -1,4 +1,4 @@
-"""Build the bundled RVC worker (native/rvc-runtime, vrct-rvc-worker) into build/.
+"""Build the bundled RVC worker (native/rvc-runtime, astarot-rvc-worker) into build/.
 
 The worker loads ONNX Runtime and the CUDA libraries at run time from the runtime folder
 the user sets up after consent (src-python/models/voice_conversion/runtime_setup.py), so
@@ -13,7 +13,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 CRATE = ROOT / 'native/rvc-runtime'
-NAME = 'vrct-rvc-worker' + ('.exe' if sys.platform == 'win32' else '')
+NAME = 'astarot-rvc-worker' + ('.exe' if sys.platform == 'win32' else '')
 
 
 def main(argv=None):
@@ -24,7 +24,7 @@ def main(argv=None):
     args = parser.parse_args(argv)
     target = (args.target_dir or CRATE / 'target').resolve()
     command = ['cargo', 'build', '--release', '--locked', '--manifest-path', str(CRATE / 'Cargo.toml'),
-               '--no-default-features', '--features', 'worker', '--bin', 'vrct-rvc-worker',
+               '--no-default-features', '--features', 'worker', '--bin', 'astarot-rvc-worker',
                '--target-dir', str(target), *(['--offline'] if args.offline else [])]
     print('+ ' + ' '.join(command), flush=True)
     subprocess.run(command, check=True, env=dict(os.environ))

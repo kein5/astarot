@@ -197,7 +197,7 @@ impl VoiceRoute {
         self.shared.set_muted(true);
         if state.worker.is_none() {
             let shared = self.shared.clone();
-            state.worker = Some(Worker::spawn("vrct-voice-gate", move || work(&shared)).map_err(|_| Error::runtime("voice_route_unavailable"))?);
+            state.worker = Some(Worker::spawn("astarot-voice-gate", move || work(&shared)).map_err(|_| Error::runtime("voice_route_unavailable"))?);
         }
         self.shared.wake.set();
         Ok(())

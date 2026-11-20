@@ -280,14 +280,14 @@ test("「詳細設定」 starts closed, opens by itself for something in use, an
     const runtime = hooks();
     const fold = await loadModule<typeof import("./setting_section/setting_box/_components/advanced_section/AdvancedSection.tsx")>(box("_components/advanced_section/AdvancedSection.tsx"), runtime, {
         "../setup_section/SetupSection.module.scss": {},
+        "../fold/Fold": { Fold: "fold" },
     });
     let tree = runtime.render(fold.AdvancedSection, { status: "line", children: "inside" });
-    assert.equal(tree.type, "details");
+    // A bar of the app's one fold.
+    assert.equal(tree.type, "fold");
     assert.equal(tree.props.open, false);
     assert.ok("data-advanced" in tree.props);
-    const summary = find(tree, node => node.type === "summary");
-    assert.ok(summary);
-    assert.deepEqual(summary.props.children.map((part: TreeNode | undefined) => part?.props?.children), ["config_page.common.advanced_section", "line"]);
+    assert.deepEqual(tree.props.summary.props.children.map((part: TreeNode | undefined) => part?.props?.children), ["config_page.common.advanced_section", "line"]);
     tree = runtime.render(fold.AdvancedSection, { status: "line", attention: true, children: "inside" });
     tree = runtime.render(fold.AdvancedSection, { status: "line", attention: true, children: "inside" });
     assert.equal(tree.props.open, true, "a provider in use opens it");

@@ -1,9 +1,15 @@
 name: VRCT-VOX voice contracts (no models)
 on:
+  # Pushes run the jobs on develop and main only. A push to a pull request's branch would run the
+  # same commit a second time (Issue #773). develop's runs keep the Rust caches that pull requests
+  # read and the history pipeline-latency.yml sends to Bencher.
   push:
+    branches: [develop, main]
   pull_request:
   # The merge queue checks the commit it builds with the same jobs before it merges.
   merge_group:
+  # A branch without a pull request runs the jobs by hand.
+  workflow_dispatch:
 permissions:
   contents: read
 # The toolchains come from mise.toml and mise.lock (jdx/mise-action). uv takes the Python mise
@@ -24,12 +30,13 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      # Cocogitto too: the tooling scope runs tools/changelog.py against real commits. Rust on
-      # Linux: the voice gate helper's test on a private PipeWire graph (below).
+      # Cocogitto too: the tooling scope runs tools/changelog.py against real commits. Biome: the
+      # ui scope lints and checks the format of the UI's TypeScript. Rust on Linux: the voice gate
+      # helper's test on a private PipeWire graph (below).
       - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
         with:
           version: 2026.11.8
-          install_args: ${{ runner.os == 'Linux' && 'node python uv cocogitto rust' || 'node python uv cocogitto' }}
+          install_args: ${{ runner.os == 'Linux' && 'node python uv cocogitto biome rust' || 'node python uv cocogitto biome' }}
       - run: uv venv
       - run: uv export --frozen --no-header --no-annotate --format requirements-txt --no-emit-project --only-group voice-test --output-file voice-test-requirements.txt
       - run: uv pip sync --require-hashes voice-test-requirements.txt
@@ -49,7 +56,7 @@ jobs:
           echo "$RUNNER_TEMP/vrct-pipewire/prefix/bin" >> "$GITHUB_PATH"
       - if: runner.os == 'Linux'
         run: uv run --no-project python tools/build_voice_gate.py
-      # On a PipeWire and WirePlumber of their own: the real vrct-voice-gate refuses what it was
+      # On a PipeWire and WirePlumber of their own: the real astarot-voice-gate refuses what it was
       # not given (decision 89) and, heard through the managed microphone, keeps speech audible
       # while it suppresses the direct voice; a conversion on the managed route captures its
       # microphone and plays into the managed VC input (decision 11;
@@ -101,7 +108,7 @@ jobs:
         if: ${{ !cancelled() }}
         continue-on-error: true
         env:
-          VRCT_PIPELINE_BMF: ${{ runner.temp }}/pipeline-latency.json
+          ASTAROT_PIPELINE_BMF: ${{ runner.temp }}/pipeline-latency.json
         run: cargo test --locked --manifest-path native/core/Cargo.toml --test pipeline_overhead -- --ignored --nocapture
       - if: ${{ !cancelled() }}
         continue-on-error: true
@@ -113,12 +120,13 @@ jobs:
           retention-days: 14
       # The OS stores the API keys go to (ADR-013). Linux: GNOME Keyring with an unlocked login
       # keyring on a private session bus. Windows: the runner user's Credential Manager. Each test
-      # writes one item under a scope of its own and removes it.
+      # writes one item under a scope of its own and removes it. On the same bus, the move of the
+      # 0.5.x folders looks for a running app by its single-instance name (ADR-014).
       - if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends gnome-keyring dbus
-          dbus-run-session -- bash -c 'printf "ci" | gnome-keyring-daemon --unlock --components=secrets >/dev/null && cargo test --locked --manifest-path native/core/Cargo.toml --lib secret_service -- --ignored && cargo test --locked --manifest-path native/core/Cargo.toml --test secret_store -- --ignored'
+          dbus-run-session -- bash -c 'printf "ci" | gnome-keyring-daemon --unlock --components=secrets >/dev/null && cargo test --locked --manifest-path native/core/Cargo.toml --lib secret_service -- --ignored && cargo test --locked --manifest-path native/core/Cargo.toml --test secret_store -- --ignored && cargo test --locked --manifest-path native/core/Cargo.toml --test storage_linux -- --ignored'
       - if: runner.os == 'Windows'
         run: |
           cargo test --locked --manifest-path native/core/Cargo.toml --lib credential_manager -- --ignored
@@ -135,6 +143,41 @@ jobs:
       - run: cargo test --locked --manifest-path native/translate-onnx/Cargo.toml
       # Speech requests, the speech queue and the listener monitor (Issue #279).
       - run: cargo test --locked --manifest-path native/tts/Cargo.toml
+  # The integration tests (ADR-017): the app's screens, operated in Chromium and WebKit, through
+  # the real core and crates, with stand-ins for the devices and the services outside the app
+  # (tests/integration, native/browser-core-bridge).
+  integration:
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
+        with:
+          version: 2026.11.8
+          install_args: node python rust
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          workspaces: native/browser-core-bridge
+      - run: npm ci --ignore-scripts
+      # The host's Rust dependencies and Playwright's Chromium and WebKit; on Linux also the
+      # system libraries they need.
+      - run: python tools/dev.py setup --scope integration
+      - if: runner.os == 'Linux'
+        run: node node_modules/@playwright/test/cli.js install-deps chromium webkit
+      - run: python tools/dev.py check --scope integration
+      - if: ${{ failure() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: integration-${{ matrix.os }}
+          path: |
+            build/integration/results
+            build/integration/report
+          if-no-files-found: ignore
+          retention-days: 14
   # Pull requests, and pushes to develop and main that did not come through one, so commits
   # made without the local commit-msg hook are checked too.
   commit-conventions:

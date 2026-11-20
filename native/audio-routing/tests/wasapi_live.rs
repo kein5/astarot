@@ -1,5 +1,5 @@
 //! Speech to a real WASAPI output. Ignored by default; run on Windows with
-//! `VRCT_WASAPI_LIVE_OUTPUT="<output name>" cargo test --test wasapi_live -- --ignored`.
+//! `ASTAROT_WASAPI_LIVE_OUTPUT="<output name>" cargo test --test wasapi_live -- --ignored`.
 //! A silent virtual device, such as "Speakers (Steam Streaming Microphone)", keeps the
 //! test quiet.
 #![cfg(windows)]
@@ -8,7 +8,7 @@ use vrct_audio_routing::naming::{output_identity, WASAPI_HOST};
 use vrct_audio_routing::router::{AudioRouter, CancelToken, Frame};
 
 fn device() -> String {
-    let name = std::env::var("VRCT_WASAPI_LIVE_OUTPUT").expect("set VRCT_WASAPI_LIVE_OUTPUT to an output's name");
+    let name = std::env::var("ASTAROT_WASAPI_LIVE_OUTPUT").expect("set ASTAROT_WASAPI_LIVE_OUTPUT to an output's name");
     output_identity(WASAPI_HOST, &name)
 }
 

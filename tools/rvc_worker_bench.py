@@ -1,4 +1,4 @@
-"""Times the RVC worker (vrct-rvc-worker) on the devices of this PC.
+"""Times the RVC worker (astarot-rvc-worker) on the devices of this PC.
 
 Two decisions wait on PCs other than the one first measured (a laptop with an RTX 3060 Ti over
 Thunderbolt): the default block length (40 ms, #531) and the order of `auto` (CUDA before
@@ -15,11 +15,14 @@ no recording, no text. Nothing it converts is kept. Each run is one fresh worker
 - `paced`: one packet per block length, as the microphone sends them. The round trip is what
   the app waits for; a block whose answer takes longer than the block falls behind.
 
-  python tools/rvc_worker_bench.py --worker <vrct-rvc-worker> --runtime <state>/vc_runtimes/rvc \
+  python tools/rvc_worker_bench.py --worker <astarot-rvc-worker> --runtime <state>/vc_runtimes/rvc \
       [--directml <state>/vc_runtimes/onnxruntime-directml/lib] --model <voice.pth> \
-      [--devices cuda,directml] [--block-ms 40,80] [--packets 300] [--rounds 3] [--json out.json]
+      [--devices cuda,directml] [--block-ms 40,80] [--packets 300] [--rounds 3] [--json out.json] \
+      [--gpu-clocks]
 
 Prints one JSON line per run and Markdown tables at the end; `--json` keeps every run.
+`--gpu-clocks` (NVIDIA only) samples the GPU's performance state and clock with `nvidia-smi`
+during each run: with long blocks the GPU idles between packets and clocks down (#531).
 """
 from __future__ import annotations
 
@@ -224,6 +227,46 @@ def run_case(command: list[str], block_ms: int, packets: int, sync: bool, sessio
     return result
 
 
+def clock_summary(rows: list[tuple[float, str, int, int]], started: float, ended: float) -> dict:
+    """The GPU while the blocks went through: `nvidia-smi` rows of (time, performance state, SM
+    clock in MHz, use in %) over the last 70 % of the run, after the worker settled."""
+    kept = [row for row in rows if row[0] >= started + (ended - started) * 0.3]
+    if not kept:
+        return {}
+    clocks = sorted(row[2] for row in kept)
+    states: dict[str, int] = {}
+    for row in kept:
+        states[row[1]] = states.get(row[1], 0) + 1
+    return {"sm_clock_p50": clocks[len(clocks) // 2], "sm_clock_min": clocks[0], "pstates": dict(sorted(states.items())),
+            "use_mean": round(sum(row[3] for row in kept) / len(kept), 1)}
+
+
+class GpuClocks:
+    """`nvidia-smi` every 100 ms on its own thread, summed up by `clock_summary`."""
+
+    def __init__(self) -> None:
+        self.rows: list[tuple[float, str, int, int]] = []
+        flags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
+        self.process = subprocess.Popen(["nvidia-smi", "--query-gpu=pstate,clocks.sm,utilization.gpu", "--format=csv,noheader,nounits", "-lms", "100"],
+                                        stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, creationflags=flags)
+        self.started = time.perf_counter()
+        self.thread = threading.Thread(target=self._read, daemon=True)
+        self.thread.start()
+
+    def _read(self) -> None:
+        for line in self.process.stdout:
+            parts = [part.strip() for part in line.split(",")]
+            if len(parts) == 3 and parts[1].isdigit() and parts[2].isdigit():
+                self.rows.append((time.perf_counter(), parts[0], int(parts[1]), int(parts[2])))
+
+    def stop(self) -> dict:
+        ended = time.perf_counter()
+        self.process.terminate()
+        self.process.wait(timeout=5)
+        self.thread.join(timeout=5)
+        return clock_summary(self.rows, self.started, ended)
+
+
 def markdown(results: list[dict]) -> str:
     """The comparison as tables: per device and block, pooled over rounds by their ranges."""
     lines = []
@@ -238,6 +281,13 @@ def markdown(results: list[dict]) -> str:
             over = f"{sum(g['over_block'] for g in group)} / {sum(g['n'] for g in group)}"
             late = f"{sum(g['over_late'] for g in group)} / {sum(g['n'] for g in group)}"
             lines.append(f"| {device} | {block} ms | {span('p50')} | {span('p95')} | {span('max')} | {over} | {late} | {len(group)} |")
+        lines.append("")
+    clocked = [r for r in results if r.get("gpu")]
+    if clocked:
+        lines += ["### GPU during the runs (nvidia-smi)", "", "| Device | Block | Mode | SM clock p50 (MHz) | Lowest | States |", "|---|---|---|---|---|---|"]
+        for r in sorted(clocked, key=lambda r: (r["device"], r["block_ms"], r["mode"])):
+            states = ", ".join(f"{state} {count}" for state, count in r["gpu"]["pstates"].items())
+            lines.append(f"| {r['device']} | {r['block_ms']} ms | {r['mode']} | {r['gpu']['sm_clock_p50']} | {r['gpu']['sm_clock_min']} | {states} |")
         lines.append("")
     return "\n".join(lines)
 
@@ -254,6 +304,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--packets", type=int, default=300)
     parser.add_argument("--rounds", type=int, default=3)
     parser.add_argument("--json", type=Path)
+    parser.add_argument("--gpu-clocks", action="store_true", help="sample the NVIDIA GPU's clock with nvidia-smi during each run")
     args = parser.parse_args(argv)
     devices = [d for d in args.devices.split(",") if d]
     blocks = [int(b) for b in args.block_ms.split(",") if b]
@@ -269,7 +320,10 @@ def main(argv: list[str] | None = None) -> int:
                 for mode in modes:
                     session = uuid.uuid4().hex
                     command = worker_command(args.worker, args.runtime, args.model, device, block, session, args.directml)
+                    clocks = GpuClocks() if args.gpu_clocks else None
                     result = {"round": round_, "device": device, **run_case(command, block, args.packets, mode == "sync", session)}
+                    if clocks:
+                        result["gpu"] = clocks.stop()
                     results.append(result)
                     print(json.dumps(result), flush=True)
     print()

@@ -37,8 +37,8 @@ def main():
     parser.add_argument("--chromium", required=True, help="Chromium executable for Playwright")
     parser.add_argument("--output", type=Path, default=OUTPUT)
     args = parser.parse_args()
-    env = dict(os.environ, VRCT_TEST_STUDIO_UI="1", VRCT_TEST_CHROMIUM=args.chromium,
-               VRCT_DOCS_SCREENSHOTS=str(args.output.resolve()))
+    env = dict(os.environ, ASTAROT_TEST_STUDIO_UI="1", ASTAROT_TEST_CHROMIUM=args.chromium,
+               ASTAROT_DOCS_SCREENSHOTS=str(args.output.resolve()))
     command = [args.python, "-m", "pytest", "-c", "tests/voice/pytest.ini", "tests/voice/test_docs_screenshots.py", "-q"]
     result = subprocess.run(command, cwd=ROOT, env=env)
     if result.returncode == 0:

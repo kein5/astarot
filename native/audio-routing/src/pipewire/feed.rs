@@ -71,7 +71,7 @@ impl GraphFeed {
         set_nonblocking(&writer);
         let stop = Arc::new(Event::new());
         let halt = stop.clone();
-        let worker = Worker::spawn("vrct-graph-feed", move || {
+        let worker = Worker::spawn("astarot-graph-feed", move || {
             let _user = user;
             let mut file = std::fs::File::from(writer);
             let _ = source.read(true, None);
@@ -171,7 +171,7 @@ impl RemoteGraph {
         let state = Arc::new((Mutex::new(RemoteState { observation: Observation { sequence: 0, captured: 0.0, data: None }, alive: true }), Condvar::new()));
         let stop = Arc::new(AtomicBool::new(false));
         let (shared, halt) = (state.clone(), stop.clone());
-        let worker = Worker::spawn("vrct-graph-receiver", move || {
+        let worker = Worker::spawn("astarot-graph-receiver", move || {
             let mut file = std::fs::File::from(reader.try_clone().expect("descriptor"));
             let mut previous = 0u64;
             let result = (|| -> Result<(), GraphUnavailable> {

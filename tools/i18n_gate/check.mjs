@@ -32,18 +32,21 @@ export const loadExceptions = (text) => {
     const terms = [];
     const paths = [];
     for (const entry of data.terms ?? []) {
-        if (!entry?.text || !entry?.reason) problems.push(`exceptions.yml: every term needs text and reason (${JSON.stringify(entry)})`);
+        if (!entry?.text || !entry?.reason)
+            problems.push(`exceptions.yml: every term needs text and reason (${JSON.stringify(entry)})`);
         else terms.push(String(entry.text));
     }
     for (const entry of data.paths ?? []) {
-        if (!entry?.path || !entry?.reason) problems.push(`exceptions.yml: every path needs path and reason (${JSON.stringify(entry)})`);
+        if (!entry?.path || !entry?.reason)
+            problems.push(`exceptions.yml: every path needs path and reason (${JSON.stringify(entry)})`);
         else paths.push(String(entry.path));
     }
     return { terms, paths, problems };
 };
 
 // A path entry is a file, or a folder when it ends with "/".
-const isExceptedPath = (file, paths) => paths.some(path => path.endsWith("/") ? file.startsWith(path) : file === path);
+const isExceptedPath = (file, paths) =>
+    paths.some((path) => (path.endsWith("/") ? file.startsWith(path) : file === path));
 
 const listSources = (root, paths) => {
     const files = [];
@@ -64,14 +67,21 @@ const listSources = (root, paths) => {
 
 export const runGate = (root) => {
     const errors = [];
-    const locales = LANGUAGES.map(language => parseLocale(readFileSync(join(root, "locales", `${language}.yml`), "utf8"), language));
+    const locales = LANGUAGES.map((language) =>
+        parseLocale(readFileSync(join(root, "locales", `${language}.yml`), "utf8"), language),
+    );
     for (const problem of checkLocales(locales)) {
-        errors.push({ file: problem.file, line: lineOfKey(root, problem.file, problem.key), column: 1,
-            message: `${problem.key}: ${problem.message}` });
+        errors.push({
+            file: problem.file,
+            line: lineOfKey(root, problem.file, problem.key),
+            column: 1,
+            message: `${problem.key}: ${problem.message}`,
+        });
     }
 
     const exceptions = loadExceptions(readFileSync(join(HERE, "exceptions.yml"), "utf8"));
-    for (const problem of exceptions.problems) errors.push({ file: "tools/i18n_gate/exceptions.yml", line: 1, column: 1, message: problem });
+    for (const problem of exceptions.problems)
+        errors.push({ file: "tools/i18n_gate/exceptions.yml", line: 1, column: 1, message: problem });
 
     const index = keyIndex(locales[0]);
     const needsTranslation = makeNeedsTranslation(exceptions.terms);
@@ -79,7 +89,10 @@ export const runGate = (root) => {
     const files = listSources(root, exceptions.paths);
     for (const file of files) {
         const result = scanSource(file, readFileSync(join(root, file), "utf8"), { index, needsTranslation });
-        errors.push(...result.errors, ...result.keys.map(item => ({ ...item, message: `translation key ${item.message}` })));
+        errors.push(
+            ...result.errors,
+            ...result.keys.map((item) => ({ ...item, message: `translation key ${item.message}` })),
+        );
         hardcoded.push(...result.hardcoded);
     }
     return { errors, hardcoded, files };
@@ -139,16 +152,24 @@ const inventory = (counts) => {
             total += count;
         }
     }
-    const rows = (map) => [...map].sort((a, b) => b[1] - a[1]).map(([name, count]) => `  ${String(count).padStart(5)}  ${name}`).join("\n");
+    const rows = (map) =>
+        [...map]
+            .sort((a, b) => b[1] - a[1])
+            .map(([name, count]) => `  ${String(count).padStart(5)}  ${name}`)
+            .join("\n");
     return `Known hard-coded text: ${total} in ${Object.keys(counts).length} files\n\nBy kind:\n${rows(byKind)}\n\nBy area:\n${rows(byArea)}`;
 };
 
 const main = () => {
     const root = process.cwd();
     const args = new Set(process.argv.slice(2));
-    const unknown = [...args].filter(arg => !["--update-baseline", "--inventory"].includes(arg));
+    const unknown = [...args].filter((arg) => !["--update-baseline", "--inventory"].includes(arg));
     if (unknown.length || !existsSync(join(root, "locales", "en.yml"))) {
-        console.error(unknown.length ? `Unknown option: ${unknown.join(" ")}` : "Run from the repository root (locales/en.yml not found).");
+        console.error(
+            unknown.length
+                ? `Unknown option: ${unknown.join(" ")}`
+                : "Run from the repository root (locales/en.yml not found).",
+        );
         process.exit(2);
     }
     const baselinePath = join(HERE, "baseline.json");
@@ -163,21 +184,34 @@ const main = () => {
     }
 
     const baseline = existsSync(baselinePath) ? JSON.parse(readFileSync(baselinePath, "utf8")) : {};
-    const { added, fixed } = args.has("--update-baseline") ? { added: [], fixed: [] } : compareBaseline(hardcoded, baseline);
+    const { added, fixed } = args.has("--update-baseline")
+        ? { added: [], fixed: [] }
+        : compareBaseline(hardcoded, baseline);
 
     for (const item of errors) annotate("error", item);
     for (const item of added) {
-        annotate("error", { ...item, message: `hard-coded ${item.kind === "jsx-text" ? "text" : item.kind.replace(":", " ")} "${item.text}": `
-            + "move it to locales/en.yml and locales/ja.yml and use t(), or mark it // i18n-exempt: <reason>" });
+        annotate("error", {
+            ...item,
+            message:
+                `hard-coded ${item.kind === "jsx-text" ? "text" : item.kind.replace(":", " ")} "${item.text}": ` +
+                "move it to locales/en.yml and locales/ja.yml and use t(), or mark it // i18n-exempt: <reason>",
+        });
     }
     for (const item of fixed) {
-        annotate("error", { file: item.file, line: 1, column: 1,
-            message: `${item.count} fewer hard-coded "${item.text}" than tools/i18n_gate/baseline.json lists; `
-                + "run node tools/i18n_gate/check.mjs --update-baseline so it cannot come back" });
+        annotate("error", {
+            file: item.file,
+            line: 1,
+            column: 1,
+            message:
+                `${item.count} fewer hard-coded "${item.text}" than tools/i18n_gate/baseline.json lists; ` +
+                "run node tools/i18n_gate/check.mjs --update-baseline so it cannot come back",
+        });
     }
     const problems = errors.length + added.length + fixed.length;
-    console.log(`i18n gate: ${files.length} source files, ${LANGUAGES.join("/")} locales; `
-        + `${problems ? `${problems} problem(s)` : "no problems"} (known hard-coded text: ${hardcoded.length}).`);
+    console.log(
+        `i18n gate: ${files.length} source files, ${LANGUAGES.join("/")} locales; ` +
+            `${problems ? `${problems} problem(s)` : "no problems"} (known hard-coded text: ${hardcoded.length}).`,
+    );
     process.exit(problems ? 1 : 0);
 };
 

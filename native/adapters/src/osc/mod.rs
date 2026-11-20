@@ -7,7 +7,7 @@
 //!   by default). Text is never logged.
 //! - Receiving (and OSCQuery) runs only when VRChat is on this PC (`127.0.0.1` or
 //!   `localhost`). A UDP server on 127.0.0.1 with an ephemeral port, an OSCQuery HTTP
-//!   server on another, both advertised by mDNS as `VRCT:<nanoseconds>` with the
+//!   server on another, both advertised by mDNS as `ASTAROT:<nanoseconds>` with the
 //!   address 127.0.0.1, and a browser for `_oscjson._tcp.local.`. The user can turn all
 //!   of it off ([`OscHandler::set_osc_query_allowed`], #559); sending goes on.
 //! - Received packets, bundle contents included, are applied on receipt on the one
@@ -47,7 +47,9 @@ pub const LOOPBACK: &str = "127.0.0.1";
 pub const PARAMETER_MUTE_SELF: &str = "/avatar/parameters/MuteSelf";
 pub const CHATBOX_TYPING: &str = "/chatbox/typing";
 pub const CHATBOX_INPUT: &str = "/chatbox/input";
-pub const OSC_QUERY_SERVICE_NAME: &str = "VRCT";
+/// The name the receiver is advertised under, before `:<nanoseconds>`. Up to 0.5.x it was `VRCT`;
+/// nothing keeps it, so it changed without a migration (ADR-014, 2.2).
+pub const OSC_QUERY_SERVICE_NAME: &str = "ASTAROT";
 const RECEIVE_POLL: Duration = Duration::from_millis(100);
 /// socketserver's UDP packet size.
 const MAX_PACKET: usize = 8192;

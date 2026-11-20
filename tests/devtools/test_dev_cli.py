@@ -209,6 +209,24 @@ class DeveloperCLITests(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertLess(output.index("typecheck"), output.index("vite-build"))
 
+    def test_ui_scope_runs_biome_before_the_type_check(self):
+        folder = self.root / "src-ui"
+        folder.mkdir(parents=True)
+        (folder / "one.test.js").write_text('')
+        code, output = self.call("check", "--scope", "ui", "--dry-run")
+        self.assertEqual(code, 0)
+        # Lint, then the format check (read-only: no --write), before the type check.
+        self.assertLess(output.index("biome lint"), output.index("biome format"))
+        self.assertLess(output.index("biome format"), output.index("typecheck"))
+        self.assertNotIn("--write", output)
+        # The node scope (part of quick) does not need Biome.
+        code, output = self.call("check", "--scope", "node", "--dry-run")
+        self.assertNotIn("biome", output)
+
+    def test_doctor_takes_biome_only_at_the_pinned_version(self):
+        (self.root / "mise.toml").write_text('[tools]\nbiome = "2.6.6"\n')
+        self.assertEqual(self.dev.pinned_versions(self.root).get("biome"), "2.6.6")
+
     def test_node_scope_does_not_pass_when_no_tests_were_found(self):
         code, output = self.call("check", "--scope", "node", "--dry-run")
         self.assertEqual(code, 2)
@@ -220,6 +238,31 @@ class DeveloperCLITests(unittest.TestCase):
         self.assertIn("--offline", output)
         self.assertIn("--locked", output)
         self.assertNotIn("cargo fetch", output)
+
+    def test_integration_builds_the_core_host_and_the_page_before_the_tests(self):
+        # ADR-017: the screens in Chromium and WebKit, through the core's host of its own crate.
+        code, output = self.call("check", "--scope", "integration", "--dry-run")
+        self.assertEqual(code, 0)
+        host = output.index("cargo build --locked --offline --manifest-path native/browser-core-bridge/Cargo.toml")
+        page = output.index("vite.js build --config tests/integration/vite.config.ts")
+        tests = output.index("@playwright/test/cli.js test --config tests/integration/playwright.config.ts")
+        self.assertLess(host, page)
+        self.assertLess(page, tests)
+        self.assertNotIn("playwright install", output, "a check never downloads the browsers")
+        self.assertIn("integration", self.dev.GROUPS["all"])
+
+    def test_integration_asks_for_setup_when_playwright_is_missing(self):
+        code, output = self.call("check", "--scope", "integration")
+        self.assertEqual(code, 2)
+        self.assertIn("setup --scope ui", output)
+
+    def test_integration_setup_fetches_the_host_crate_and_both_browsers(self):
+        (self.root / "node_modules/@playwright/test").mkdir(parents=True)
+        (self.root / "node_modules/@playwright/test/cli.js").write_text("")
+        code, output = self.call("setup", "--scope", "integration", "--dry-run")
+        self.assertEqual(code, 0)
+        self.assertIn("fetch --locked --manifest-path native/browser-core-bridge/Cargo.toml", output)
+        self.assertIn("@playwright/test/cli.js install chromium webkit", output)
 
     def test_browser_setup_adds_dependencies_to_explicit_existing_python(self):
         code, output = self.call("setup", "--scope", "browser", "--python",
@@ -288,13 +331,13 @@ class DeveloperCLITests(unittest.TestCase):
             'class Probe(unittest.TestCase):\n'
             ' def test_environment(self):\n'
             '  self.assertNotIn("VRCT_SEED_POC", os.environ)\n'
-            '  self.assertNotIn("VRCT_TEST_NATIVE_GUI", os.environ)\n'
+            '  self.assertNotIn("ASTAROT_TEST_NATIVE_GUI", os.environ)\n'
             '  self.assertEqual(os.environ["HF_HUB_OFFLINE"], "1")\n'
             '  self.assertNotIn("PYTEST_ADDOPTS", os.environ)\n',
             encoding="utf8",
         )
         with patch.dict(os.environ, {
-            "VRCT_SEED_POC": "never-start", "VRCT_TEST_NATIVE_GUI": "1",
+            "VRCT_SEED_POC": "never-start", "ASTAROT_TEST_NATIVE_GUI": "1",
             "PYTEST_ADDOPTS": "--unwanted", "HF_HUB_OFFLINE": "0",
         }):
             code, _ = self.call("check", "--scope", "tooling")

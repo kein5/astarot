@@ -82,6 +82,8 @@ impl FakeTts {
                 let (route, state) = (route.clone(), served.clone());
                 std::thread::spawn(move || {
                     socket.set_nonblocking(false).unwrap();
+                    // As speech.cpp's own server does (#556, #738).
+                    socket.set_nodelay(true).unwrap();
                     let mut reader = BufReader::new(socket.try_clone().unwrap());
                     let mut line = String::new();
                     if reader.read_line(&mut line).is_err() {

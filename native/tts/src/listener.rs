@@ -196,7 +196,7 @@ impl ListenerMonitors {
         let registry = self.0.clone();
         let waiter = monitor.clone();
         let handle = thread::Builder::new()
-            .name("vrct-speech-exit".into())
+            .name("astarot-speech-exit".into())
             .spawn(move || {
                 *lock(&waiter.0.thread) = Some(thread::current().id());
                 if process.wait().is_ok() {
@@ -265,7 +265,7 @@ impl ListenerMonitors {
             if start {
                 let registry = self.0.clone();
                 let prober = monitor.clone();
-                thread::Builder::new().name("vrct-vox-listener".into()).spawn(move || run_external(registry, prober)).expect("spawn the speech listener monitor");
+                thread::Builder::new().name("astarot-listener".into()).spawn(move || run_external(registry, prober)).expect("spawn the speech listener monitor");
             }
             (monitor, exited)
         };
@@ -480,7 +480,7 @@ impl ListenerTableProbe {
         if !state.worker {
             state.worker = true;
             let inner = self.0.clone();
-            thread::Builder::new().name("vrct-listener-table".into()).spawn(move || table_worker(inner)).expect("spawn the listener table worker");
+            thread::Builder::new().name("astarot-listener-table".into()).spawn(move || table_worker(inner)).expect("spawn the listener table worker");
         }
         self.0.changed.notify_all();
         while !state.closed && !stopped.is_set() {

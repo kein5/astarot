@@ -10,9 +10,9 @@ CIで測るのは、中核が自分で足す時間です。認識、翻訳、音
 
 | 部分 | 代わりに使うもの |
 |---|---|
-| リアルタイム字幕のサーバー | `tests/common/fake_asr.rs`。試験が頼んだときに1つの発話を確定させ、その時刻を記録します。 |
+| リアルタイム字幕のサーバー | `tests/common/fake_asr.rs`。試験が頼んだときに1つの発話を確定させ、その時刻を記録します。本物のspeech.cppと同じく、接続に`TCP_NODELAY`を付けます。 |
 | 翻訳 | `vrct_translation::fake`のDeepL。すぐに答えます。 |
-| 読み上げのサーバー | `tests/common/fake_tts.rs`のspeech.cpp。冒頭に0.42秒の無音を付けて返します。speech.cppのQwen3-TTSの冒頭の無音（[2026-11-18の記録](pipeline-latency-2026-11-18.md)で421〜435 ms）に合わせた長さです。 |
+| 読み上げのサーバー | `tests/common/fake_tts.rs`のspeech.cpp。冒頭に0.42秒の無音を付けて返します。speech.cppのQwen3-TTSの冒頭の無音（[2026-11-18の記録](pipeline-latency-2026-11-18.md)で421〜435 ms）に合わせた長さです。接続には`TCP_NODELAY`を付けます。 |
 | 読み上げの出力 | 試験の中の出力。振幅64を超えるサンプルを最初に書いた時刻を記録し、デバイスと同じ速さで受け取ります（先読みは40 msまで）。 |
 | チャットボックス | 127.0.0.2で待つUDPのソケットです。 |
 
@@ -30,7 +30,7 @@ CIでは`voice-tests.yml`の`core-integration`がこの試験を流します。�
 手元では次のように流します。値は標準エラーにも出ます。
 
 ```sh
-VRCT_PIPELINE_BMF=pipeline-latency.json cargo test --locked --manifest-path native/core/Cargo.toml \
+ASTAROT_PIPELINE_BMF=pipeline-latency.json cargo test --locked --manifest-path native/core/Cargo.toml \
     --test pipeline_overhead -- --ignored --nocapture
 ```
 
@@ -62,15 +62,17 @@ VRCT_PIPELINE_BMF=pipeline-latency.json cargo test --locked --manifest-path nati
 
 | きっかけ | 送り方 |
 |---|---|
-| developへのpush | ブランチ`develop`に送ります。しきい値を毎回この設定に合わせます（`--thresholds-reset`）。 |
+| developへのpush | ブランチ`develop`に送ります。しきい値を毎回この設定に合わせます（`--thresholds-reset`）。履歴は、ワークフローの`BENCHER_START_POINT_IDEMPOTENCY_KEY`の値ごとに分かれます（下記）。 |
 | 同じリポジトリのブランチからのプルリクエスト | プルリクエストのブランチに送ります。基点はマージ先のブランチとそのコミットで、基点のしきい値を写します。結果とアラートはプルリクエストのコメントに出ます。 |
 | フォークからのプルリクエスト、ほかのブランチへのpush、マージキュー | 送りません。 |
 
 しきい値はmeasureごとに1つで、次の設定です。
 
 - 検定: t検定（`t_test`）
-- 比べる履歴: 直近の64件まで
+- 比べる履歴: 直近の64件まで。10件たまるまではアラートを出しません（`--threshold-min-sample-size 10`）。件数が少ないうちは境界が狭く、ランナーのぶれだけでアラートが出るためです。
 - 上側の境界: 0.99。下側（速くなったとき）はアラートを出しません。
+
+測るものが変わって値が一段変わったときは、developの履歴を空からやり直します。`pipeline-latency.yml`のdevelopの送信の`BENCHER_START_POINT_IDEMPOTENCY_KEY`を新しい値に替えると、その値で最初に送ったときに履歴が空になり（`--start-point-reset`）、同じ値の2回目からは続きに積まれます。2026-11-21に、試験の偽のサーバーに`TCP_NODELAY`を付けて（#738、#556）、Linuxの値が約20 ms下がったので、`develop-2026-11-21-fake-servers-tcp-nodelay`でやり直しました。
 
 アラートが出ても、`bencher run`は失敗しません（`--error-on-alert`を付けていません）。送る手順は`continue-on-error`なので、Bencherに届かないときもワークフローは失敗しません。ただし`--github-actions`を付けて送ると、Bencherが「Bencher Report」というチェックを作り、アラートがあるとそのチェックが失敗になります。このチェックはdevelopのルールセットの必須のチェックに入っていないので、マージは止まりません。
 
@@ -79,9 +81,11 @@ VRCT_PIPELINE_BMF=pipeline-latency.json cargo test --locked --manifest-path nati
 リポジトリにBencherの鍵とプロジェクトがないあいだは、`pipeline-latency.yml`は何も送らず、送らなかった理由を注記に出します。送るには、次の準備が要ります。
 
 1. Bencher Cloudで公開のプロジェクトを作ります。公開のプロジェクトは無料のプランで使えます。無料のプランの上限は1日65,535メトリクスで、CIの1回の送信は8メトリクス（ベンチマーク2つ×measure 2つ×OS 2つ）です。課金の設定はしません。
-2. measureの`latency-p50`と`latency-p95`を、単位をミリ秒にして作ります。Bencherは知らないmeasureを自動で作りますが、そのときの単位は決められません。
-3. プロジェクトのAPIキーを、リポジトリのシークレット`BENCHER_API_KEY`に登録します。
-4. プロジェクトのスラッグを、リポジトリの変数`BENCHER_PROJECT`に登録します。
+2. プロジェクトのAPIキー（`bencher_run_`で始まるプロジェクトのキー）を作り、リポジトリのシークレット`BENCHER_API_KEY`に登録します。
+3. プロジェクトのスラッグを、リポジトリの変数`BENCHER_PROJECT`に登録します。
+4. ワークフロー`bencher-measures.yml`をdevelopで手動で実行します（`gh workflow run bencher-measures.yml --ref develop`）。measureの`latency-p50`と`latency-p95`がなければ作り、どちらも単位をミリ秒（`milliseconds (ms)`）にします。BencherのConsoleにはmeasureを作る画面がなく、先に値が送られてBencherが自動で作ったmeasureには単位がないためです。何度実行しても同じ結果になります。
+
+2026-11-21に、プロジェクト`astarot`で1〜3を済ませました。
 
 ## 実モデルの値
 
@@ -93,6 +97,15 @@ VRCT_PIPELINE_BMF=pipeline-latency.json cargo test --locked --manifest-path nati
 | `pipeline: end of speech to chatbox` | 話し終わりから、チャットボックスの送出まで |
 | `pipeline: end of speech to final` | 話し終わりから、認識の確定まで |
 | `pipeline: translation` | 翻訳 |
+
+### #556の目標の判定
+
+2026-11-20に、目標と比べる値の定義を次のとおり決めました（#556）。
+
+- 区間は`pipeline: end of speech to audible speech`（話し終わりから訳した声が聞こえ始めるまで）で、p50 0.7秒以下、p95 1.0秒以下を目標にします。
+- 途中で2つ以上に分かれた発話は数えません。分かれた発話では、後半の声が前半の読み上げの終わりを待つので、声の遅れとは別の時間が入るためです。`pipeline_latency`の要約と`--bmf`の値は分かれなかった発話だけから求め、分かれた件数を要約の`split_utterances`に出します。
+- 録音と再生のバッファ（Linuxの録音補助、PipeWire、WindowsのWASAPI）は含めません。`pipeline_latency`はこれらを通さずに測ります。実機での値は別の記録にします。
+- 負荷平均1以下で、VRChatを動かしていないときの値で判定します。要約の`load_average`に、計測を始めたときと終えたときの負荷平均（1分、5分、15分）を記録します。1を超えたときは、標準エラーにその旨を出します。VRChatを動かしたときの値は、別の目標として測ります。
 
 この計測はCIでは動きません。認識、翻訳、読み上げのモデル（合わせて約2.5 GB）、speech.cppの実行ファイル、ONNX Runtime、日本語の音声の素材が要ります。また、GitHubのランナーにはGPUがありません。書き出したファイルは、CIと同じ形でBencherへ送れます。testbedには、CIのtestbedと混ざらない名前を付けます。
 

@@ -1,6 +1,6 @@
 //! The consent-gated setup of the RVC worker's runtime (`runtime_setup.py`, the native kind).
 //!
-//! The worker (`vrct-rvc-worker`) ships with the app. What it loads does not: ONNX Runtime
+//! The worker (`astarot-rvc-worker`) ships with the app. What it loads does not: ONNX Runtime
 //! (with its CUDA provider and NVIDIA's CUDA and cuDNN libraries on a PC with an NVIDIA
 //! driver, the CPU build otherwise) and the two fixed networks. They are fetched from pinned
 //! sources after the user's consent, checked against their sizes and SHA-256, and unpacked
@@ -1439,11 +1439,11 @@ mod tests {
 
     /// The pinned libraries from their real sources through the setup's own step: fetched with
     /// the app's transport and hosts, checked against their pins and unpacked into `lib/`.
-    /// With `VRCT_TEST_RVC_WORKER` (a built `vrct-rvc-worker`) the worker then probes them on
-    /// the CPU, or with `VRCT_TEST_RVC_GPU=1` on the GPU (`--device cuda`, no fallback). The CPU
-    /// runtime fetches 160 MB, the GPU one about 1.1 GB. `VRCT_TEST_RVC_TARGET=linux` or
+    /// With `ASTAROT_TEST_RVC_WORKER` (a built `astarot-rvc-worker`) the worker then probes them on
+    /// the CPU, or with `ASTAROT_TEST_RVC_GPU=1` on the GPU (`--device cuda`, no fallback). The CPU
+    /// runtime fetches 160 MB, the GPU one about 1.1 GB. `ASTAROT_TEST_RVC_TARGET=linux` or
     /// `windows` fetches another platform's files (no probe then). Archives already in the
-    /// folder `VRCT_TEST_RVC_DOWNLOADS` are taken as a resumed setup takes them: only when
+    /// folder `ASTAROT_TEST_RVC_DOWNLOADS` are taken as a resumed setup takes them: only when
     /// their size and SHA-256 match. The networks are not fetched: they are models, offered
     /// only with the user's consent.
     ///
@@ -1452,12 +1452,12 @@ mod tests {
     #[ignore = "fetches the pinned archives from their sources"]
     fn pinned_libraries_come_from_their_sources() {
         let current = Target::current();
-        let target = match std::env::var("VRCT_TEST_RVC_TARGET").as_deref() {
+        let target = match std::env::var("ASTAROT_TEST_RVC_TARGET").as_deref() {
             Ok("linux") => Target::Linux,
             Ok("windows") => Target::Windows,
             _ => current.expect("Windows or Linux on x86-64"),
         };
-        let gpu = std::env::var_os("VRCT_TEST_RVC_GPU").is_some();
+        let gpu = std::env::var_os("ASTAROT_TEST_RVC_GPU").is_some();
         let mut runtime = rvc_runtime(target, gpu);
         runtime.assets.clear();
         let dir = tempfile::tempdir().unwrap();
@@ -1472,7 +1472,7 @@ mod tests {
             entries: Some(vec![runtime.clone()]),
         });
         let folder = dir.path().join("rvc");
-        if let Some(kept) = std::env::var_os("VRCT_TEST_RVC_DOWNLOADS") {
+        if let Some(kept) = std::env::var_os("ASTAROT_TEST_RVC_DOWNLOADS") {
             fs::create_dir_all(folder.join("downloads")).unwrap();
             for name in runtime.libraries.iter().filter_map(|l| l.url.rsplit('/').next()) {
                 if Path::new(&kept).join(name).is_file() {
@@ -1486,7 +1486,7 @@ mod tests {
         found.sort();
         expected.sort();
         assert_eq!(found, expected);
-        if let Some(worker) = std::env::var_os("VRCT_TEST_RVC_WORKER")
+        if let Some(worker) = std::env::var_os("ASTAROT_TEST_RVC_WORKER")
             && Some(target) == current
         {
             let device = if gpu { "cuda" } else { "cpu" };
@@ -1496,12 +1496,12 @@ mod tests {
     }
 
     /// An ONNX Runtime GPU runtime through a whole setup from its sources: fetched, checked
-    /// against its pins, unpacked, and probed by a built `vrct-rvc-worker`
-    /// (`VRCT_TEST_RVC_WORKER`) as the setup probes it, then receipted. `VRCT_TEST_ONNX_RUNTIME`
+    /// against its pins, unpacked, and probed by a built `astarot-rvc-worker`
+    /// (`ASTAROT_TEST_RVC_WORKER`) as the setup probes it, then receipted. `ASTAROT_TEST_ONNX_RUNTIME`
     /// is `directml` (the default; Windows; about 215 MB; probed with `auto`, and then with
     /// `--device directml`, which must take a GPU through DirectML) or `cuda` (about 1.1 GB;
     /// probed with `auto`, and then with `--device cuda`, which must take the GPU). With
-    /// `VRCT_TEST_KEEP_RUNTIME_ROOT` the setup is made there (as `<root>/onnxruntime-directml`
+    /// `ASTAROT_TEST_KEEP_RUNTIME_ROOT` the setup is made there (as `<root>/onnxruntime-directml`
     /// or `<root>/onnxruntime-cuda`) and kept.
     ///
     ///     cargo test --manifest-path native/voice-conversion/Cargo.toml --lib -- --ignored onnx_runtime_sets_up
@@ -1509,14 +1509,14 @@ mod tests {
     #[ignore = "fetches the pinned archives from their sources"]
     fn onnx_runtime_sets_up_from_its_sources() {
         let Some(target) = Target::current() else { return };
-        let cuda = std::env::var("VRCT_TEST_ONNX_RUNTIME").as_deref() == Ok("cuda");
+        let cuda = std::env::var("ASTAROT_TEST_ONNX_RUNTIME").as_deref() == Ok("cuda");
         if !cuda && target != Target::Windows {
             return;
         }
-        let kept = std::env::var_os("VRCT_TEST_KEEP_RUNTIME_ROOT").map(PathBuf::from);
+        let kept = std::env::var_os("ASTAROT_TEST_KEEP_RUNTIME_ROOT").map(PathBuf::from);
         let dir = tempfile::tempdir().unwrap();
         let root = kept.clone().unwrap_or_else(|| dir.path().to_owned());
-        let worker = std::env::var_os("VRCT_TEST_RVC_WORKER").map(PathBuf::from);
+        let worker = std::env::var_os("ASTAROT_TEST_RVC_WORKER").map(PathBuf::from);
         let transport = vrct_ops::downloads::transport::Public { timeout: vrct_ops::downloads::transport::TIMEOUT, hosts: SOURCE_HOSTS.iter().map(|h| h.to_string()).collect() };
         let runtime = if cuda { onnx_cuda_runtime(target) } else { onnx_directml_runtime() };
         let setup = RuntimeSetup::new(SetupOptions {
@@ -1551,7 +1551,7 @@ mod tests {
     }
 
     /// llama.cpp's servers for this PC set up from the pinned archives through the setup itself:
-    /// fetched (or, with `VRCT_TEST_LLAMACPP_DOWNLOADS`, read from that folder by file name),
+    /// fetched (or, with `ASTAROT_TEST_LLAMACPP_DOWNLOADS`, read from that folder by file name),
     /// checked against their pins, unpacked and run with `--list-devices`. No model is read.
     /// About 63 MB on Windows, 59 MB on Linux.
     ///
@@ -1561,7 +1561,7 @@ mod tests {
     fn llamacpp_sets_up_from_its_release() {
         let target = Target::current().expect("Windows or Linux on x86-64");
         let dir = tempfile::tempdir().unwrap();
-        let transport: Arc<dyn Transport> = match std::env::var_os("VRCT_TEST_LLAMACPP_DOWNLOADS") {
+        let transport: Arc<dyn Transport> = match std::env::var_os("ASTAROT_TEST_LLAMACPP_DOWNLOADS") {
             Some(folder) => {
                 let folder = PathBuf::from(folder);
                 Arc::new(move |url: &str| -> Result<Box<dyn vrct_ops::downloads::transport::Body>, vrct_ops::downloads::Error> {

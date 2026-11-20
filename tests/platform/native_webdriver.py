@@ -23,7 +23,7 @@ from tools.display_power_guard import check_displays_on as check_physical_displa
 def check_displays_on():
     # CI explicitly creates Xvfb; no DRM connector/DPMS state exists there.
     # A live server and rendered screenshot are still mandatory.
-    if os.environ.get('VRCT_TEST_XVFB') == '1':
+    if os.environ.get('ASTAROT_TEST_XVFB') == '1':
         if not os.environ.get('DISPLAY'):
             raise RuntimeError('Xvfb acceptance requires DISPLAY')
         subprocess.run(['xdpyinfo'], check=True, capture_output=True, timeout=5)
@@ -354,7 +354,7 @@ class NativeWebDriver:
         # Release/AppImage tests must not attach to an installed instance.
         env.setdefault("VRCT_CONFIG_DIR", str(self.output / "config/vrct-vox"))
         self.log = (self.output / "driver.log").open("w")
-        driver = os.environ.get("VRCT_TEST_DRIVER", str(ROOT / "tmp/voice-completion/tauri-driver/bin/tauri-driver"))
+        driver = os.environ.get("ASTAROT_TEST_DRIVER", str(ROOT / "tmp/voice-completion/tauri-driver/bin/tauri-driver"))
         self.process = subprocess.Popen(
             [driver, "--port", str(ports[0]), "--native-port", str(ports[1])],
             env=env, stdout=self.log, stderr=subprocess.STDOUT, start_new_session=True,
@@ -368,7 +368,7 @@ class NativeWebDriver:
                     if self.process.poll() is not None:
                         raise RuntimeError("tauri-driver exited before startup")
                     time.sleep(.1)
-            binary = os.environ.get("VRCT_TEST_APP", str(ROOT / "src-tauri/build/native-cargo/debug/vrct-vox"))
+            binary = os.environ.get("ASTAROT_TEST_APP", str(ROOT / "src-tauri/build/native-cargo/debug/vrct-vox"))
             result = self.request("POST", "/session", {"capabilities": {"alwaysMatch": {
                 "browserName": "wry", "tauri:options": {"application": binary}}}})
             self.session = result["sessionId"]
@@ -377,7 +377,7 @@ class NativeWebDriver:
             for child in psutil.Process(self.process.pid).children(recursive=True):
                 try:
                     if matches_launched_app(child.exe(), child.environ(), binary,
-                                            appimage=bool(os.environ.get('VRCT_TEST_APPIMAGE'))):
+                                            appimage=bool(os.environ.get('ASTAROT_TEST_APPIMAGE'))):
                         apps.append(child)
                 except (psutil.NoSuchProcess, psutil.AccessDenied):
                     pass  # A transient helper may finish, or run with other credentials, during discovery.

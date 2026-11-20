@@ -797,7 +797,7 @@ pub(crate) fn may_start_hidden(app: &AppHandle) -> bool {
     #[cfg(target_os = "linux")]
     if has_tray {
         let app = app.clone();
-        let asked = std::thread::Builder::new().name("vrct-tray-at-start".into()).spawn(move || {
+        let asked = std::thread::Builder::new().name("astarot-tray-at-start".into()).spawn(move || {
             if linux_tray::shown() {
                 return;
             }
@@ -838,7 +838,7 @@ mod tray {
     use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
     use tauri::{AppHandle, Emitter, Manager, Wry};
 
-    pub const TRAY: &str = "vrct-vox";
+    pub const TRAY: &str = "astarot";
 
     /// The menu items are handles: a clone changes the same item in the menu.
     #[derive(Clone)]
@@ -1175,7 +1175,7 @@ mod linux_tray {
     /// closing quits there as before 0.5.0. Anything that fails counts as not shown.
     pub fn shown() -> bool {
         let (sender, receiver) = std::sync::mpsc::channel();
-        let asked = std::thread::Builder::new().name("vrct-tray-host".into()).spawn(move || {
+        let asked = std::thread::Builder::new().name("astarot-tray-host".into()).spawn(move || {
             let _ = sender.send(watcher_present());
         });
         asked.is_ok() && receiver.recv_timeout(ASK_FOR).unwrap_or(false)

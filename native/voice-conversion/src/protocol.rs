@@ -6,7 +6,8 @@
 //! beyond these codes.
 //!
 //! Every block of a session has the same length, a [`Block`]: the owner chooses it (the RVC
-//! worker's `--block-ms`) and the worker's `ready` packet confirms it in `block_frames`.
+//! worker's `--block-ms`) and the worker's `ready` packet confirms it in `block_frames`, or the
+//! owner leaves it to the RVC worker (`--block-ms auto`) and takes it from `ready`.
 
 use std::io::Read;
 
@@ -178,6 +179,17 @@ pub fn failed_info(session_id: &str, code: &str) -> Result<Info> {
 fn with_pcm(mut info: Info, pcm_bytes: usize) -> Info {
     info.insert("pcm_bytes".into(), json!(pcm_bytes));
     info
+}
+
+/// The block a worker chose (`--block-ms auto`, #531): its `ready` packet's `block_frames`,
+/// when that is a whole block a session may have. [`require_ready`] checks the rest.
+pub fn ready_block(info: &Info) -> Option<Block> {
+    let frames = info.get("block_frames").filter(|value| value.is_u64())?.as_u64()?;
+    let per_ms = u64::from(RATE / 1000);
+    if !frames.is_multiple_of(per_ms) {
+        return None;
+    }
+    Block::from_ms(u32::try_from(frames / per_ms).ok()?)
 }
 
 /// The worker's ready packet, or its failure. Returns where it converts (`gpu`, `cpu`, or
@@ -503,6 +515,29 @@ mod tests {
         // The CPU profile is the CPU.
         let cpu = with_pcm(ready_info(SESSION, "rvc", "cpu", MAX_LATENCY_MS, block).unwrap(), 0);
         assert_eq!(require_ready(&cpu, &[], SESSION, "rvc", block).unwrap(), (Some("cpu"), Some(MAX_LATENCY_MS)));
+    }
+
+    #[test]
+    fn a_block_the_worker_chose_is_read_from_its_ready_packet() {
+        // `--block-ms auto` (#531): the owner takes the block from `ready`, then checks the
+        // packet against it like a block it chose.
+        for ms in [40, 60, 80, 100, 120, 160, 200] {
+            let block = Block::from_ms(ms).unwrap();
+            let ready = with_pcm(ready_info(SESSION, "rvc", "low", 52, block).unwrap(), 0);
+            assert_eq!(ready_block(&ready), Some(block), "{ms}");
+            assert!(require_ready(&ready, &[], SESSION, "rvc", ready_block(&ready).unwrap()).is_ok());
+        }
+        // Only a whole block a session may have.
+        let ready = with_pcm(ready_info(SESSION, "rvc", "low", 52, Block::default()).unwrap(), 0);
+        for frames in [json!(48 * 30), json!(48 * 220), json!(48 * 40 + 1), json!(0), json!(-1920), json!(1920.0), json!("1920"), Value::Null] {
+            let mut changed = ready.clone();
+            changed.insert("block_frames".into(), frames.clone());
+            assert_eq!(ready_block(&changed), None, "{frames}");
+        }
+        // A failure has no block; it still says why it failed.
+        let failed = with_pcm(failed_info(SESSION, "vc_gpu_unavailable").unwrap(), 0);
+        assert_eq!(ready_block(&failed), None);
+        assert_eq!(require_ready(&failed, &[], SESSION, "rvc", Block::default()).unwrap_err().code(), "vc_gpu_unavailable");
     }
 
     #[test]

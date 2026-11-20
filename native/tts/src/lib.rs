@@ -1,6 +1,8 @@
 //! Speech synthesis for VRCT-VOX: requests to a local speech.cpp server, one
 //! bounded speech worker, and the hand-off of streamed PCM to an output.
 //!
+//! Codename: Forau (#689; the table is in `docs/voice-stack/project-rename.md`).
+//!
 //! This is the Rust counterpart of `src-python/models/tts/`. It keeps the same
 //! settings format, the same error codes and the same queueing, interruption and
 //! expiry rules. Output devices, the voice conversion and the speech.cpp process

@@ -91,7 +91,7 @@ XIM module, so Mozc and other host input methods can type into the window.
 A user-set `XMODIFIERS` is kept.
 
 The launcher records the host's values of these variables, `LD_LIBRARY_PATH`, `PATH` and the
-GTK/GIO settings as `VRCT_APPIMAGE_HOST_<NAME>` and `VRCT_APPIMAGE_HOST_<NAME>_SET` before it
+GTK/GIO settings as `ASTAROT_APPIMAGE_HOST_<NAME>` and `ASTAROT_APPIMAGE_HOST_<NAME>_SET` before it
 changes them. Up to 0.4 a separate launcher gave them back to the Python backend. Now the
 backend runs inside the GUI process, and every program it starts (speech.cpp, the helpers,
 the RVC worker, `xdg-open`) inherits the GUI environment unless the code that starts it
@@ -109,14 +109,14 @@ Windows and other rendering paths retain their configured transparency.
 ## Acceptance and limits
 
 ```sh
-VRCT_TEST_APPIMAGE=/absolute/path/candidate.AppImage \
-VRCT_TEST_APPIMAGE_FUSE=1 VRCT_TEST_NATIVE_GUI=1 VRCT_TEST_NATIVE_ROUTE=1 \
+ASTAROT_TEST_APPIMAGE=/absolute/path/candidate.AppImage \
+ASTAROT_TEST_APPIMAGE_FUSE=1 ASTAROT_TEST_NATIVE_GUI=1 ASTAROT_TEST_NATIVE_ROUTE=1 \
 uv run --no-project --python /usr/bin/python3 tools/display_power_guard.py -- \
 build/dev/headless-venv/bin/python -m pytest \
   -c tests/voice/pytest.ini tests/platform/test_appimage.py -q
 ```
 
-Supply `VRCT_TEST_DRIVER` for a different tauri-driver 2.1.0 location. The system
+Supply `ASTAROT_TEST_DRIVER` for a different tauri-driver 2.1.0 location. The system
 Python running the display guard needs Gio. Tests copy the actual image to a
 path with spaces and cover native drawing/shutdown plus private managed routing,
 settings persistence and restart muted, for both FUSE and extraction. The
@@ -130,7 +130,7 @@ FUSE, physical audio or private routing acceptance on Ubuntu 24.04.
 
 Both the WebDriver and normal-launch tests pass `VRCT_CONFIG_DIR`, so they remain
 independent of an installed app. For manual AppImage tests with isolated `XDG_*`
-directories, also set `VRCT_CONFIG_DIR` to `$XDG_CONFIG_HOME/vrct-vox`, preserving
+directories, also set `ASTAROT_CONFIG_DIR` to `$XDG_CONFIG_HOME/astarot`, preserving
 the same state location. See the [Linux acceptance guide](linux-build-pipeline.md#acceptance-and-exclusions)
 for testing the single-instance guard itself and its D-Bus requirement.
 

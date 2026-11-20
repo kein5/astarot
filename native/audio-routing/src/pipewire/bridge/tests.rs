@@ -285,8 +285,8 @@ fn reselected_source_is_rejected_before_launch() {
 fn launch_arguments_pin_serials_and_start_muted() {
     let source = Endpoint { cookie: 42, serial: 110, name: "external.source".into(), media_class: "Audio/Source".into() };
     let sink = Endpoint { cookie: 42, serial: 111, name: "vrct.managed.vc".into(), media_class: "Audio/Sink".into() };
-    let args = launch_arguments("/opt/build/vrct-source-bridge", 7, &source, &sink, &"a".repeat(32));
-    assert!(args[0].ends_with("vrct-source-bridge"));
+    let args = launch_arguments("/opt/build/astarot-source-bridge", 7, &source, &sink, &"a".repeat(32));
+    assert!(args[0].ends_with("astarot-source-bridge"));
     assert_eq!(args[2], "7");
     let value = |flag: &str| args[args.iter().position(|a| a == flag).unwrap() + 1].clone();
     let (capture, playback) = (value("--capture-props"), value("--playback-props"));

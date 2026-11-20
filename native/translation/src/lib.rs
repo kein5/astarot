@@ -1,6 +1,8 @@
 //! Translation providers and readings for VRCT-VOX (#277), moved from
 //! `src-python/models/translation/` and `src-python/models/transliteration/`.
 //!
+//! Codename: Hael (#689; the table is in `docs/voice-stack/project-rename.md`).
+//!
 //! - [`providers`]: DeepL, Google Cloud Translation, Papago (NAVER Cloud Platform), Plamo,
 //!   Gemini, OpenAI, Groq, OpenRouter, an OpenAI-compatible endpoint, LM Studio and Ollama, one
 //!   module each: checking a key or a server, listing models, translating.

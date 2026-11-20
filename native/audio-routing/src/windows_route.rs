@@ -43,7 +43,7 @@ pub trait Capture: Send {
 }
 
 /// The fixed codes a capture fails with (`_ERRORS` of `capture_pipewire.py`): those of the
-/// `vrct-asr-capture` helper, which the captures of this crate share, and those of its owner.
+/// `vrct-asr-capture` helper of 0.5.x, which the captures of this crate kept, and those of its owner.
 pub const CAPTURE_CODES: [&str; 36] = [
     "asr_capture_owner_gone",
     "asr_capture_stalled",
@@ -232,7 +232,7 @@ impl QueuedOutput {
             output: Mutex::new(Some(output)),
         });
         let (worker_state, worker_clock) = (state.clone(), clock.clone());
-        let worker = Worker::spawn("vrct-vc-output", move || {
+        let worker = Worker::spawn("astarot-vc-output", move || {
             // The device is taken out for writing so that a stuck write holds nothing
             // the closing thread needs.
             let Some(mut output) = lock(&worker_state.output).take() else { return };
@@ -413,7 +413,7 @@ impl WindowsBridge {
         state.requested = true;
         state.pending = true;
         let shared = self.shared.clone();
-        let worker = Worker::spawn("vrct-windows-bridge", move || run(&shared, &source)).map_err(|_| Error::runtime("source_bridge_output_failed"))?;
+        let worker = Worker::spawn("astarot-windows-bridge", move || run(&shared, &source)).map_err(|_| Error::runtime("source_bridge_output_failed"))?;
         state.worker = Some(worker);
         Ok(())
     }

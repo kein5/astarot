@@ -11,24 +11,49 @@ const traverse = Babel.packages.traverse.default;
 
 // Attributes whose value is shown or read out to the user. aria-* is added by prefix.
 export const USER_ATTRIBUTES = new Set([
-    "title", "placeholder", "alt", "label", "tooltip", "description", "caption", "heading",
-    "ariaLabel", "aria-label",
+    "title",
+    "placeholder",
+    "alt",
+    "label",
+    "tooltip",
+    "description",
+    "caption",
+    "heading",
+    "ariaLabel",
+    "aria-label",
 ]);
 const ARIA_TEXT = /^aria-(label|description|placeholder|roledescription|valuetext)$/;
 const isUserAttribute = (name) => USER_ATTRIBUTES.has(name) || ARIA_TEXT.test(name);
 // Object properties that usually reach the screen (option lists, notices).
 export const USER_PROPERTIES = new Set([
-    "label", "title", "placeholder", "description", "desc", "tooltip", "ariaLabel", "aria-label", "alt", "heading", "caption",
+    "label",
+    "title",
+    "placeholder",
+    "description",
+    "desc",
+    "tooltip",
+    "ariaLabel",
+    "aria-label",
+    "alt",
+    "heading",
+    "caption",
 ]);
 const propertyName = (node) =>
-    node.computed ? null : node.key.type === "Identifier" ? node.key.name : node.key.type === "StringLiteral" ? node.key.value : null;
+    node.computed
+        ? null
+        : node.key.type === "Identifier"
+          ? node.key.name
+          : node.key.type === "StringLiteral"
+            ? node.key.value
+            : null;
 
 // An attribute value that only names something (an id, a key, a path, a URL) is not text.
 const IDENTIFIER_LIKE = /^[a-z0-9_.\-:/#?=&%]+$/;
 
 const KEY_LIKE = /^[a-z][a-z0-9_]*(\.[A-Za-z0-9_]+)+$/;
 // "voice.pth" is a file name, not the key pth in the voice namespace.
-const FILE_NAME = /\.(pth|index|gguf|onnx|bin|pt|ckpt|safetensors|json|ya?ml|txt|wav|mp3|ogg|flac|png|jpe?g|svg|ico|exe|dll|so|zip|tar|gz|log|md|html|css|js|ts)$/i;
+const FILE_NAME =
+    /\.(pth|index|gguf|onnx|bin|pt|ckpt|safetensors|json|ya?ml|txt|wav|mp3|ogg|flac|png|jpe?g|svg|ico|exe|dll|so|zip|tar|gz|log|md|html|css|js|ts)$/i;
 
 export const EXEMPT_MARK = "i18n-exempt";
 const EXEMPT_COMMENT = /i18n-exempt(?::\s*(.*\S))?/;
@@ -42,7 +67,7 @@ const escapeRegExp = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 export const makeNeedsTranslation = (terms = []) => {
     const patterns = [...terms]
         .sort((a, b) => b.length - a.length)
-        .map(term => new RegExp(`(?<![\\p{L}\\p{N}_])${escapeRegExp(term)}(?![\\p{L}\\p{N}_])`, "gu"));
+        .map((term) => new RegExp(`(?<![\\p{L}\\p{N}_])${escapeRegExp(term)}(?![\\p{L}\\p{N}_])`, "gu"));
     return (text) => {
         let rest = String(text);
         for (const pattern of patterns) rest = rest.replace(pattern, " ");
@@ -65,7 +90,7 @@ const displayedLiterals = (node) => {
         case "StringLiteral":
             return [{ node, text: node.value }];
         case "TemplateLiteral":
-            return [{ node, text: node.quasis.map(q => q.value.cooked ?? q.value.raw).join(" ") }];
+            return [{ node, text: node.quasis.map((q) => q.value.cooked ?? q.value.raw).join(" ") }];
         case "ConditionalExpression":
             return [...displayedLiterals(node.consequent), ...displayedLiterals(node.alternate)];
         case "LogicalExpression":
@@ -81,13 +106,22 @@ const displayedLiterals = (node) => {
 
 const isTranslateCall = (callee) =>
     (callee.type === "Identifier" && callee.name === "t") ||
-    (callee.type === "MemberExpression" && !callee.computed && callee.property.type === "Identifier" && callee.property.name === "t");
+    (callee.type === "MemberExpression" &&
+        !callee.computed &&
+        callee.property.type === "Identifier" &&
+        callee.property.name === "t");
 
 const returnsObjects = (options) =>
-    options?.type === "ObjectExpression" && options.properties.some(p =>
-        p.type === "ObjectProperty" && !p.computed &&
-        ((p.key.type === "Identifier" && p.key.name === "returnObjects") || (p.key.type === "StringLiteral" && p.key.value === "returnObjects")) &&
-        p.value.type === "BooleanLiteral" && p.value.value);
+    options?.type === "ObjectExpression" &&
+    options.properties.some(
+        (p) =>
+            p.type === "ObjectProperty" &&
+            !p.computed &&
+            ((p.key.type === "Identifier" && p.key.name === "returnObjects") ||
+                (p.key.type === "StringLiteral" && p.key.value === "returnObjects")) &&
+            p.value.type === "BooleanLiteral" &&
+            p.value.value,
+    );
 
 // Checks a key against the reference locale. Returns a message, or null when it resolves.
 export const resolveKey = (key, index, { allowBranch = false } = {}) => {
@@ -135,7 +169,12 @@ export const scanSource = (file, code, { index, needsTranslation }) => {
     try {
         ast = parser.parse(code, { sourceType: "module", plugins: parserPlugins(file), errorRecovery: false });
     } catch (error) {
-        errors.push({ file, line: error.loc?.line ?? 1, column: (error.loc?.column ?? 0) + 1, message: `cannot parse: ${error.message}` });
+        errors.push({
+            file,
+            line: error.loc?.line ?? 1,
+            column: (error.loc?.column ?? 0) + 1,
+            message: `cannot parse: ${error.message}`,
+        });
         return { keys, hardcoded, errors };
     }
 
@@ -147,7 +186,8 @@ export const scanSource = (file, code, { index, needsTranslation }) => {
     for (const comment of ast.comments ?? []) {
         const where = { file, line: comment.loc.start.line, column: comment.loc.start.column + 1 };
         if (EXEMPT_END.test(comment.value)) {
-            if (blockStart === null) errors.push({ ...where, message: `${EXEMPT_MARK}-end without ${EXEMPT_MARK}-start` });
+            if (blockStart === null)
+                errors.push({ ...where, message: `${EXEMPT_MARK}-end without ${EXEMPT_MARK}-start` });
             else for (let line = blockStart; line <= comment.loc.end.line; line++) exemptLines.add(line);
             blockStart = null;
             continue;
@@ -156,7 +196,10 @@ export const scanSource = (file, code, { index, needsTranslation }) => {
         const match = block ?? comment.value.match(EXEMPT_COMMENT);
         if (!match) continue;
         if (!match[1]) {
-            errors.push({ ...where, message: `${EXEMPT_MARK} needs a reason: // ${block ? `${EXEMPT_MARK}-start` : EXEMPT_MARK}: <why this text is not translated>` });
+            errors.push({
+                ...where,
+                message: `${EXEMPT_MARK} needs a reason: // ${block ? `${EXEMPT_MARK}-start` : EXEMPT_MARK}: <why this text is not translated>`,
+            });
             continue;
         }
         if (block) {
@@ -169,7 +212,8 @@ export const scanSource = (file, code, { index, needsTranslation }) => {
         const before = sourceLines[comment.loc.start.line - 1].slice(0, comment.loc.start.column);
         if (/^\s*\{?\s*$/.test(before)) exemptLines.add(comment.loc.end.line + 1);
     }
-    if (blockStart !== null) errors.push({ file, line: blockStart, column: 1, message: `${EXEMPT_MARK}-start without ${EXEMPT_MARK}-end` });
+    if (blockStart !== null)
+        errors.push({ file, line: blockStart, column: 1, message: `${EXEMPT_MARK}-start without ${EXEMPT_MARK}-end` });
     const exempt = (line) => exemptLines.has(line);
 
     const checkedKeyNodes = new WeakSet();
@@ -208,7 +252,8 @@ export const scanSource = (file, code, { index, needsTranslation }) => {
         },
         JSXAttribute(path) {
             const { name, value } = path.node;
-            const attribute = name.type === "JSXNamespacedName" ? `${name.namespace.name}:${name.name.name}` : name.name;
+            const attribute =
+                name.type === "JSXNamespacedName" ? `${name.namespace.name}:${name.name.name}` : name.name;
             if (attribute === "i18nKey" && value?.type === "StringLiteral") {
                 const message = resolveKey(value.value, index);
                 if (message) reportKey(value, message);
@@ -245,8 +290,12 @@ export const scanSource = (file, code, { index, needsTranslation }) => {
             exit(path) {
                 const { node } = path;
                 if (checkedKeyNodes.has(node)) return;
-                if (path.parent.type === "ImportDeclaration" || path.parent.type === "ExportAllDeclaration" ||
-                    path.parent.type === "ExportNamedDeclaration") return;
+                if (
+                    path.parent.type === "ImportDeclaration" ||
+                    path.parent.type === "ExportAllDeclaration" ||
+                    path.parent.type === "ExportNamedDeclaration"
+                )
+                    return;
                 if (!KEY_LIKE.test(node.value) || FILE_NAME.test(node.value)) return;
                 const namespace = node.value.slice(0, node.value.indexOf("."));
                 if (!index.namespaces.has(namespace)) return;

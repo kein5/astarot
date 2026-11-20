@@ -1,0 +1,775 @@
+{
+ "date": "2026-11-20",
+ "method": "Each run starts vrct-translate on the CPU with --verify (the core checks the files on loading), times the load, and translates one sentence at a time as the app does. Sets: warmup (the first en-ja sentence), wmt30 (the first 30 WMT20 sentences of each direction, the sentences of the 600M memory figure), short (the first 30 WMT20 sentences after those with 6 to 16 source tokens). peak is VmHWM at the end (it is reached while loading); largest_rss_while_translating is the largest VmRSS read every 10 ms while the sets were translated. The models ran in the order 1.3B, 600M, 3.3B, 3.3B, 600M, 1.3B with nothing else of this check running.",
+ "environment": {
+  "processor": "AMD Ryzen 9 9950X3D 16-Core Processor",
+  "system": "Linux x86_64",
+  "logical_cpus": 32,
+  "threads": 4,
+  "onnx_runtime": "libonnxruntime.so.1.32.0",
+  "page_cache": "warm"
+ },
+ "models": {
+  "onnx-nllb-200-3.3B": {
+   "folder": "nllb-200-3.3B-onnx-int8",
+   "files": {
+    "decoder_model_merged_quantized.onnx": "af3cad74979e62172d0db22923a921fc7188f03dd25735f453922c8875d9505a",
+    "encoder_model_quantized.onnx": "431fa515edd7e0835ff0fd86dd1c2bd07567d4287e47ee424bfb5e2fdc7c6595",
+    "tokenizer.json": "e316b82de11d0f951f370943b3c438311629547285129b0b81dadabd01bca665",
+    "vocab.json": "4c89e13706a1f6e445dc2524b8fc0fe04f9c821d9f1da87b2af6f8fbbbd00fbd",
+    "vocabulary.data": "7309d027b45189108b64010d6ed9c432e973957e5174ed798cb4483cc6bdae31"
+   },
+   "exported": "2026-11-15 by export.py (Reshape allowzero=1, manifest schema 1); see export-equivalence.json"
+  },
+  "onnx-nllb-200-distilled-1.3B": {
+   "folder": "nllb-200-distilled-1.3B-onnx-int8",
+   "files": {
+    "decoder_model_merged_quantized.onnx": "7763083e9dc0f34a9917e5ba88e5088bf02f6dcc3cc75efbd5e84a77f7343656",
+    "encoder_model_quantized.onnx": "d387352b125efcc15ceb1e23b96af5b8b2fcc942af8cf4eb56feec81c21a57e7",
+    "tokenizer.json": "e316b82de11d0f951f370943b3c438311629547285129b0b81dadabd01bca665",
+    "vocab.json": "4c89e13706a1f6e445dc2524b8fc0fe04f9c821d9f1da87b2af6f8fbbbd00fbd",
+    "vocabulary.data": "f1ebdaf5ae7eaf8839da5aaa691952b8dbcf3925e3ca78bffc0112e9bc514b7f"
+   },
+   "exported": "2026-11-15 by export.py (Reshape allowzero=1, manifest schema 1); see export-equivalence.json"
+  },
+  "onnx-nllb-200-distilled-600M": {
+   "folder": "nllb-200-distilled-600M-onnx-int8",
+   "files": {
+    "decoder_model_merged_quantized.onnx": "737cdb919ca1334846bffbd9ef15ea275823d98c74dd75c98dbe522fa880be8a",
+    "encoder_model_quantized.onnx": "b71b2f4bb77cc2e10be582f6d2230629fd4c93cac5d8afc1e3bc39db9910fcf9",
+    "tokenizer.json": "e316b82de11d0f951f370943b3c438311629547285129b0b81dadabd01bca665",
+    "vocab.json": "4c89e13706a1f6e445dc2524b8fc0fe04f9c821d9f1da87b2af6f8fbbbd00fbd",
+    "vocabulary.data": "ab479b689766b640fe611565be288f15163ae7543c8bd5f279ed4bd68e3a3724"
+   },
+   "published": "kein5/nllb-200-distilled-600M-onnx-int8@3c6d40d6ebd424d17d69f0e3236a8a7f8be9a170"
+  }
+ },
+ "runs": [
+  {
+   "backend": "{\"backend\":\"cpu\",\"fallback\":null,\"variant\":\"int8\"}",
+   "load_seconds": 2.56,
+   "verify": true,
+   "memory_after_load": {
+    "VmHWM": 2845859840,
+    "VmRSS": 2320547840,
+    "RssAnon": 2295529472,
+    "RssFile": 25018368
+   },
+   "load_average_before": [
+    4.857421875,
+    10.98681640625,
+    27.28955078125
+   ],
+   "sets": {
+    "warmup": {
+     "sentences": 1,
+     "failed": 0,
+     "total_seconds": 0.53,
+     "mean_seconds": 0.529,
+     "median_seconds": 0.529,
+     "p90_seconds": 0.529,
+     "max_seconds": 0.529,
+     "in_tokens_mean": 21.0,
+     "out_tokens_mean": 22.0,
+     "ms_per_out_token": 24.0,
+     "memory_after": {
+      "VmHWM": 2845859840,
+      "VmRSS": 2326147072,
+      "RssAnon": 2296147968,
+      "RssFile": 29999104
+     },
+     "largest_rss_while_translating": 2326147072
+    },
+    "wmt30 en-ja": {
+     "sentences": 30,
+     "failed": 0,
+     "total_seconds": 36.12,
+     "mean_seconds": 1.204,
+     "median_seconds": 0.808,
+     "p90_seconds": 2.605,
+     "max_seconds": 3.07,
+     "in_tokens_mean": 57.5,
+     "out_tokens_mean": 46.4,
+     "ms_per_out_token": 25.9,
+     "memory_after": {
+      "VmHWM": 2845859840,
+      "VmRSS": 2404167680,
+      "RssAnon": 2296246272,
+      "RssFile": 107921408
+     },
+     "largest_rss_while_translating": 2404167680
+    },
+    "wmt30 ja-en": {
+     "sentences": 30,
+     "failed": 0,
+     "total_seconds": 18.53,
+     "mean_seconds": 0.618,
+     "median_seconds": 0.649,
+     "p90_seconds": 0.895,
+     "max_seconds": 1.112,
+     "in_tokens_mean": 28.1,
+     "out_tokens_mean": 26.5,
+     "ms_per_out_token": 23.3,
+     "memory_after": {
+      "VmHWM": 2845859840,
+      "VmRSS": 2433593344,
+      "RssAnon": 2296246272,
+      "RssFile": 137347072
+     },
+     "largest_rss_while_translating": 2433593344
+    },
+    "short en-ja": {
+     "sentences": 30,
+     "failed": 0,
+     "total_seconds": 8.64,
+     "mean_seconds": 0.288,
+     "median_seconds": 0.27,
+     "p90_seconds": 0.451,
+     "max_seconds": 0.489,
+     "in_tokens_mean": 12.5,
+     "out_tokens_mean": 12.8,
+     "ms_per_out_token": 22.6,
+     "memory_after": {
+      "VmHWM": 2845859840,
+      "VmRSS": 2447224832,
+      "RssAnon": 2296246272,
+      "RssFile": 150978560
+     },
+     "largest_rss_while_translating": 2447224832
+    },
+    "short ja-en": {
+     "sentences": 30,
+     "failed": 0,
+     "total_seconds": 9.72,
+     "mean_seconds": 0.324,
+     "median_seconds": 0.309,
+     "p90_seconds": 0.431,
+     "max_seconds": 0.47,
+     "in_tokens_mean": 13.6,
+     "out_tokens_mean": 14.3,
+     "ms_per_out_token": 22.7,
+     "memory_after": {
+      "VmHWM": 2845859840,
+      "VmRSS": 2460594176,
+      "RssAnon": 2296246272,
+      "RssFile": 164347904
+     },
+     "largest_rss_while_translating": 2460594176
+    }
+   },
+   "peak": 2845859840,
+   "largest_rss_while_translating": 2460594176,
+   "load_average_after": [
+    4.70654296875,
+    9.56787109375,
+    25.52490234375
+   ],
+   "model": "nllb-200-distilled-1.3B"
+  },
+  {
+   "backend": "{\"backend\":\"cpu\",\"fallback\":null,\"variant\":\"int8\"}",
+   "load_seconds": 1.41,
+   "verify": true,
+   "memory_after_load": {
+    "VmHWM": 1588486144,
+    "VmRSS": 1063104512,
+    "RssAnon": 1037934592,
+    "RssFile": 25169920
+   },
+   "load_average_before": [
+    4.70654296875,
+    9.56787109375,
+    25.52490234375
+   ],
+   "sets": {
+    "warmup": {
+     "sentences": 1,
+     "failed": 0,
+     "total_seconds": 0.3,
+     "mean_seconds": 0.304,
+     "median_seconds": 0.304,
+     "p90_seconds": 0.304,
+     "max_seconds": 0.304,
+     "in_tokens_mean": 21.0,
+     "out_tokens_mean": 24.0,
+     "ms_per_out_token": 12.7,
+     "memory_after": {
+      "VmHWM": 1588486144,
+      "VmRSS": 1068380160,
+      "RssAnon": 1038557184,
+      "RssFile": 29822976
+     },
+     "largest_rss_while_translating": 1068380160
+    },
+    "wmt30 en-ja": {
+     "sentences": 30,
+     "failed": 0,
+     "total_seconds": 19.36,
+     "mean_seconds": 0.645,
+     "median_seconds": 0.416,
+     "p90_seconds": 1.41,
+     "max_seconds": 1.842,
+     "in_tokens_mean": 57.5,
+     "out_tokens_mean": 45.0,
+     "ms_per_out_token": 14.3,
+     "memory_after": {
+      "VmHWM": 1588486144,
+      "VmRSS": 1145548800,
+      "RssAnon": 1038655488,
+      "RssFile": 106893312
+     },
+     "largest_rss_while_translating": 1145548800
+    },
+    "wmt30 ja-en": {
+     "sentences": 30,
+     "failed": 0,
+     "total_seconds": 9.75,
+     "mean_seconds": 0.325,
+     "median_seconds": 0.337,
+     "p90_seconds": 0.493,
+     "max_seconds": 0.631,
+     "in_tokens_mean": 28.1,
+     "out_tokens_mean": 25.9,
+     "ms_per_out_token": 12.6,
+     "memory_after": {
+      "VmHWM": 1588486144,
+      "VmRSS": 1176481792,
+      "RssAnon": 1038655488,
+      "RssFile": 137826304
+     },
+     "largest_rss_while_translating": 1176481792
+    },
+    "short en-ja": {
+     "sentences": 30,
+     "failed": 0,
+     "total_seconds": 4.51,
+     "mean_seconds": 0.15,
+     "median_seconds": 0.143,
+     "p90_seconds": 0.219,
+     "max_seconds": 0.23,
+     "in_tokens_mean": 12.5,
+     "out_tokens_mean": 12.6,
+     "ms_per_out_token": 12.0,
+     "memory_after": {
+      "VmHWM": 1588486144,
+      "VmRSS": 1190572032,
+      "RssAnon": 1038655488,
+      "RssFile": 151916544
+     },
+     "largest_rss_while_translating": 1190572032
+    },
+    "short ja-en": {
+     "sentences": 30,
+     "failed": 0,
+     "total_seconds": 5.39,
+     "mean_seconds": 0.18,
+     "median_seconds": 0.186,
+     "p90_seconds": 0.244,
+     "max_seconds": 0.266,
+     "in_tokens_mean": 13.6,
+     "out_tokens_mean": 14.9,
+     "ms_per_out_token": 12.1,
+     "memory_after": {
+      "VmHWM": 1588486144,
+      "VmRSS": 1202040832,
+      "RssAnon": 1038655488,
+      "RssFile": 163385344
+     },
+     "largest_rss_while_translating": 1202040832
+    }
+   },
+   "peak": 1588486144,
+   "largest_rss_while_translating": 1202040832,
+   "load_average_after": [
+    4.70556640625,
+    8.96142578125,
+    24.64697265625
+   ],
+   "model": "nllb-200-distilled-600M"
+  },
+  {
+   "backend": "{\"backend\":\"cpu\",\"fallback\":null,\"variant\":\"int8\"}",
+   "load_seconds": 5.43,
+   "verify": true,
+   "memory_after_load": {
+    "VmHWM": 6810329088,
+    "VmRSS": 5761507328,
+    "RssAnon": 5736308736,
+    "RssFile": 25198592
+   },
+   "load_average_before": [
+    4.70556640625,
+    8.96142578125,
+    24.64697265625
+   ],
+   "sets": {
+    "warmup": {
+     "sentences": 1,
+     "failed": 0,
+     "total_seconds": 1.07,
+     "mean_seconds": 1.066,
+     "median_seconds": 1.066,
+     "p90_seconds": 1.066,
+     "max_seconds": 1.066,
+     "in_tokens_mean": 21.0,
+     "out_tokens_mean": 22.0,
+     "ms_per_out_token": 48.5,
+     "memory_after": {
+      "VmHWM": 6810329088,
+      "VmRSS": 5766717440,
+      "RssAnon": 5736931328,
+      "RssFile": 29786112
+     },
+     "largest_rss_while_translating": 5766717440
+    },
+    "wmt30 en-ja": {
+     "sentences": 30,
+     "failed": 0,
+     "total_seconds": 83.96,
+     "mean_seconds": 2.799,
+     "median_seconds": 1.751,
+     "p90_seconds": 6.149,
+     "max_seconds": 7.271,
+     "in_tokens_mean": 57.5,
+     "out_tokens_mean": 50.8,
+     "ms_per_out_token": 55.1,
+     "memory_after": {
+      "VmHWM": 6810329088,
+      "VmRSS": 5857386496,
+      "RssAnon": 5737029632,
+      "RssFile": 120356864
+     },
+     "largest_rss_while_translating": 5857386496
+    },
+    "wmt30 ja-en": {
+     "sentences": 30,
+     "failed": 0,
+     "total_seconds": 39.86,
+     "mean_seconds": 1.329,
+     "median_seconds": 1.426,
+     "p90_seconds": 1.9,
+     "max_seconds": 2.434,
+     "in_tokens_mean": 28.1,
+     "out_tokens_mean": 27.0,
+     "ms_per_out_token": 49.2,
+     "memory_after": {
+      "VmHWM": 6810329088,
+      "VmRSS": 5896642560,
+      "RssAnon": 5737029632,
+      "RssFile": 159612928
+     },
+     "largest_rss_while_translating": 5896642560
+    },
+    "short en-ja": {
+     "sentences": 30,
+     "failed": 0,
+     "total_seconds": 19.01,
+     "mean_seconds": 0.634,
+     "median_seconds": 0.53,
+     "p90_seconds": 0.963,
+     "max_seconds": 1.407,
+     "in_tokens_mean": 12.5,
+     "out_tokens_mean": 13.2,
+     "ms_per_out_token": 48.0,
+     "memory_after": {
+      "VmHWM": 6810329088,
+      "VmRSS": 5914337280,
+      "RssAnon": 5737029632,
+      "RssFile": 177307648
+     },
+     "largest_rss_while_translating": 5914337280
+    },
+    "short ja-en": {
+     "sentences": 30,
+     "failed": 0,
+     "total_seconds": 21.64,
+     "mean_seconds": 0.721,
+     "median_seconds": 0.732,
+     "p90_seconds": 0.861,
+     "max_seconds": 1.146,
+     "in_tokens_mean": 13.6,
+     "out_tokens_mean": 15.2,
+     "ms_per_out_token": 47.3,
+     "memory_after": {
+      "VmHWM": 6810329088,
+      "VmRSS": 5931900928,
+      "RssAnon": 5737029632,
+      "RssFile": 194871296
+     },
+     "largest_rss_while_translating": 5931900928
+    }
+   },
+   "peak": 6810329088,
+   "largest_rss_while_translating": 5931900928,
+   "load_average_after": [
+    4.40283203125,
+    6.96044921875,
+    21.24560546875
+   ],
+   "model": "nllb-200-3.3B"
+  },
+  {
+   "backend": "{\"backend\":\"cpu\",\"fallback\":null,\"variant\":\"int8\"}",
+   "load_seconds": 4.56,
+   "verify": true,
+   "memory_after_load": {
+    "VmHWM": 6811566080,
+    "VmRSS": 5761384448,
+    "RssAnon": 5736316928,
+    "RssFile": 25067520
+   },
+   "load_average_before": [
+    4.40283203125,
+    6.96044921875,
+    21.24560546875
+   ],
+   "sets": {
+    "warmup": {
+     "sentences": 1,
+     "failed": 0,
+     "total_seconds": 1.01,
+     "mean_seconds": 1.014,
+     "median_seconds": 1.014,
+     "p90_seconds": 1.014,
+     "max_seconds": 1.014,
+     "in_tokens_mean": 21.0,
+     "out_tokens_mean": 22.0,
+     "ms_per_out_token": 46.1,
+     "memory_after": {
+      "VmHWM": 6811566080,
+      "VmRSS": 5766594560,
+      "RssAnon": 5736939520,
+      "RssFile": 29655040
+     },
+     "largest_rss_while_translating": 5766594560
+    },
+    "wmt30 en-ja": {
+     "sentences": 30,
+     "failed": 0,
+     "total_seconds": 83.82,
+     "mean_seconds": 2.794,
+     "median_seconds": 1.718,
+     "p90_seconds": 5.993,
+     "max_seconds": 7.281,
+     "in_tokens_mean": 57.5,
+     "out_tokens_mean": 50.8,
+     "ms_per_out_token": 55.0,
+     "memory_after": {
+      "VmHWM": 6811566080,
+      "VmRSS": 5857329152,
+      "RssAnon": 5737037824,
+      "RssFile": 120291328
+     },
+     "largest_rss_while_translating": 5857329152
+    },
+    "wmt30 ja-en": {
+     "sentences": 30,
+     "failed": 0,
+     "total_seconds": 39.53,
+     "mean_seconds": 1.318,
+     "median_seconds": 1.426,
+     "p90_seconds": 1.847,
+     "max_seconds": 2.433,
+     "in_tokens_mean": 28.1,
+     "out_tokens_mean": 27.0,
+     "ms_per_out_token": 48.8,
+     "memory_after": {
+      "VmHWM": 6811566080,
+      "VmRSS": 5896585216,
+      "RssAnon": 5737037824,
+      "RssFile": 159547392
+     },
+     "largest_rss_while_translating": 5896585216
+    },
+    "short en-ja": {
+     "sentences": 30,
+     "failed": 0,
+     "total_seconds": 18.99,
+     "mean_seconds": 0.633,
+     "median_seconds": 0.532,
+     "p90_seconds": 0.992,
+     "max_seconds": 1.403,
+     "in_tokens_mean": 12.5,
+     "out_tokens_mean": 13.2,
+     "ms_per_out_token": 47.9,
+     "memory_after": {
+      "VmHWM": 6811566080,
+      "VmRSS": 5914279936,
+      "RssAnon": 5737037824,
+      "RssFile": 177242112
+     },
+     "largest_rss_while_translating": 5914279936
+    },
+    "short ja-en": {
+     "sentences": 30,
+     "failed": 0,
+     "total_seconds": 21.34,
+     "mean_seconds": 0.711,
+     "median_seconds": 0.727,
+     "p90_seconds": 0.86,
+     "max_seconds": 1.086,
+     "in_tokens_mean": 13.6,
+     "out_tokens_mean": 15.2,
+     "ms_per_out_token": 46.7,
+     "memory_after": {
+      "VmHWM": 6811566080,
+      "VmRSS": 5931843584,
+      "RssAnon": 5737037824,
+      "RssFile": 194805760
+     },
+     "largest_rss_while_translating": 5931843584
+    }
+   },
+   "peak": 6811566080,
+   "largest_rss_while_translating": 5931843584,
+   "load_average_after": [
+    4.55517578125,
+    5.89453125,
+    18.4375
+   ],
+   "model": "nllb-200-3.3B"
+  },
+  {
+   "backend": "{\"backend\":\"cpu\",\"fallback\":null,\"variant\":\"int8\"}",
+   "load_seconds": 1.35,
+   "verify": true,
+   "memory_after_load": {
+    "VmHWM": 1586429952,
+    "VmRSS": 1061027840,
+    "RssAnon": 1035829248,
+    "RssFile": 25198592
+   },
+   "load_average_before": [
+    4.55517578125,
+    5.89453125,
+    18.4375
+   ],
+   "sets": {
+    "warmup": {
+     "sentences": 1,
+     "failed": 0,
+     "total_seconds": 0.3,
+     "mean_seconds": 0.301,
+     "median_seconds": 0.301,
+     "p90_seconds": 0.301,
+     "max_seconds": 0.301,
+     "in_tokens_mean": 21.0,
+     "out_tokens_mean": 24.0,
+     "ms_per_out_token": 12.6,
+     "memory_after": {
+      "VmHWM": 1586429952,
+      "VmRSS": 1066303488,
+      "RssAnon": 1036451840,
+      "RssFile": 29851648
+     },
+     "largest_rss_while_translating": 1066303488
+    },
+    "wmt30 en-ja": {
+     "sentences": 30,
+     "failed": 0,
+     "total_seconds": 19.17,
+     "mean_seconds": 0.639,
+     "median_seconds": 0.417,
+     "p90_seconds": 1.337,
+     "max_seconds": 1.847,
+     "in_tokens_mean": 57.5,
+     "out_tokens_mean": 45.0,
+     "ms_per_out_token": 14.2,
+     "memory_after": {
+      "VmHWM": 1586429952,
+      "VmRSS": 1143472128,
+      "RssAnon": 1036550144,
+      "RssFile": 106921984
+     },
+     "largest_rss_while_translating": 1143472128
+    },
+    "wmt30 ja-en": {
+     "sentences": 30,
+     "failed": 0,
+     "total_seconds": 9.96,
+     "mean_seconds": 0.332,
+     "median_seconds": 0.338,
+     "p90_seconds": 0.499,
+     "max_seconds": 0.675,
+     "in_tokens_mean": 28.1,
+     "out_tokens_mean": 25.9,
+     "ms_per_out_token": 12.8,
+     "memory_after": {
+      "VmHWM": 1586429952,
+      "VmRSS": 1174405120,
+      "RssAnon": 1036550144,
+      "RssFile": 137854976
+     },
+     "largest_rss_while_translating": 1174405120
+    },
+    "short en-ja": {
+     "sentences": 30,
+     "failed": 0,
+     "total_seconds": 4.5,
+     "mean_seconds": 0.15,
+     "median_seconds": 0.144,
+     "p90_seconds": 0.219,
+     "max_seconds": 0.232,
+     "in_tokens_mean": 12.5,
+     "out_tokens_mean": 12.6,
+     "ms_per_out_token": 11.9,
+     "memory_after": {
+      "VmHWM": 1586429952,
+      "VmRSS": 1188495360,
+      "RssAnon": 1036550144,
+      "RssFile": 151945216
+     },
+     "largest_rss_while_translating": 1188495360
+    },
+    "short ja-en": {
+     "sentences": 30,
+     "failed": 0,
+     "total_seconds": 5.39,
+     "mean_seconds": 0.18,
+     "median_seconds": 0.185,
+     "p90_seconds": 0.245,
+     "max_seconds": 0.267,
+     "in_tokens_mean": 13.6,
+     "out_tokens_mean": 14.9,
+     "ms_per_out_token": 12.1,
+     "memory_after": {
+      "VmHWM": 1586429952,
+      "VmRSS": 1199964160,
+      "RssAnon": 1036550144,
+      "RssFile": 163414016
+     },
+     "largest_rss_while_translating": 1199964160
+    }
+   },
+   "peak": 1586429952,
+   "largest_rss_while_translating": 1199964160,
+   "load_average_after": [
+    4.345703125,
+    5.6708984375,
+    17.83251953125
+   ],
+   "model": "nllb-200-distilled-600M"
+  },
+  {
+   "backend": "{\"backend\":\"cpu\",\"fallback\":null,\"variant\":\"int8\"}",
+   "load_seconds": 2.33,
+   "verify": true,
+   "memory_after_load": {
+    "VmHWM": 2844753920,
+    "VmRSS": 2319585280,
+    "RssAnon": 2294468608,
+    "RssFile": 25116672
+   },
+   "load_average_before": [
+    4.345703125,
+    5.6708984375,
+    17.83251953125
+   ],
+   "sets": {
+    "warmup": {
+     "sentences": 1,
+     "failed": 0,
+     "total_seconds": 0.5,
+     "mean_seconds": 0.505,
+     "median_seconds": 0.505,
+     "p90_seconds": 0.505,
+     "max_seconds": 0.505,
+     "in_tokens_mean": 21.0,
+     "out_tokens_mean": 22.0,
+     "ms_per_out_token": 22.9,
+     "memory_after": {
+      "VmHWM": 2844753920,
+      "VmRSS": 2325188608,
+      "RssAnon": 2295091200,
+      "RssFile": 30097408
+     },
+     "largest_rss_while_translating": 2325188608
+    },
+    "wmt30 en-ja": {
+     "sentences": 30,
+     "failed": 0,
+     "total_seconds": 36.08,
+     "mean_seconds": 1.203,
+     "median_seconds": 0.784,
+     "p90_seconds": 2.601,
+     "max_seconds": 3.247,
+     "in_tokens_mean": 57.5,
+     "out_tokens_mean": 46.4,
+     "ms_per_out_token": 25.9,
+     "memory_after": {
+      "VmHWM": 2844753920,
+      "VmRSS": 2403143680,
+      "RssAnon": 2295189504,
+      "RssFile": 107954176
+     },
+     "largest_rss_while_translating": 2403143680
+    },
+    "wmt30 ja-en": {
+     "sentences": 30,
+     "failed": 0,
+     "total_seconds": 18.68,
+     "mean_seconds": 0.623,
+     "median_seconds": 0.672,
+     "p90_seconds": 0.935,
+     "max_seconds": 1.066,
+     "in_tokens_mean": 28.1,
+     "out_tokens_mean": 26.5,
+     "ms_per_out_token": 23.5,
+     "memory_after": {
+      "VmHWM": 2844753920,
+      "VmRSS": 2432569344,
+      "RssAnon": 2295189504,
+      "RssFile": 137379840
+     },
+     "largest_rss_while_translating": 2432569344
+    },
+    "short en-ja": {
+     "sentences": 30,
+     "failed": 0,
+     "total_seconds": 8.43,
+     "mean_seconds": 0.281,
+     "median_seconds": 0.256,
+     "p90_seconds": 0.445,
+     "max_seconds": 0.47,
+     "in_tokens_mean": 12.5,
+     "out_tokens_mean": 12.8,
+     "ms_per_out_token": 22.0,
+     "memory_after": {
+      "VmHWM": 2844753920,
+      "VmRSS": 2446200832,
+      "RssAnon": 2295189504,
+      "RssFile": 151011328
+     },
+     "largest_rss_while_translating": 2446200832
+    },
+    "short ja-en": {
+     "sentences": 30,
+     "failed": 0,
+     "total_seconds": 9.78,
+     "mean_seconds": 0.326,
+     "median_seconds": 0.311,
+     "p90_seconds": 0.432,
+     "max_seconds": 0.472,
+     "in_tokens_mean": 13.6,
+     "out_tokens_mean": 14.3,
+     "ms_per_out_token": 22.8,
+     "memory_after": {
+      "VmHWM": 2844753920,
+      "VmRSS": 2459570176,
+      "RssAnon": 2295189504,
+      "RssFile": 164380672
+     },
+     "largest_rss_while_translating": 2459570176
+    }
+   },
+   "peak": 2844753920,
+   "largest_rss_while_translating": 2459570176,
+   "load_average_after": [
+    4.23779296875,
+    5.32958984375,
+    16.76611328125
+   ],
+   "model": "nllb-200-distilled-1.3B"
+  }
+ ]
+}

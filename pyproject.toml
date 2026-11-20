@@ -22,20 +22,15 @@ dev = [
 # injected; installed alone with --only-group.
 voice-test = [
     "pytest==9.2.0",
-    "requests==2.34.2",
     "PyYAML==6.0.3",
     "ruff==0.17.5",
     "numpy==2.4.6",
-    "soxr==1.1.0",
     "psutil==7.2.2",
     "pillow==13.0.0",
-    "websockets==17.4",
     "tqdm==4.70.1",
-    # audioop for the speech.cpp realtime test (it left the standard library in Python 3.13).
-    "audioop-lts==0.2.2",
     # Verifies updater signatures in the release-draft tests (tools/updater_manifest.py).
     "cryptography==50.0.2",
-    # The chatbox helpers of the native GUI tests (tests/platform/native_chatbox.py).
+    # The Quick Chat native GUI test reads what the app sends over OSC (tests/platform/test_native_quick_chat.py).
     "python-osc==1.10.2",
     # pyopenvr: the Rust crates' copy of its function tables is checked against it
     # (tests/voice/test_openvr_fn_tables.py), and the packages bundle the OpenVR client library

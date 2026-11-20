@@ -201,6 +201,46 @@ pub fn directml_adapters() -> Result<Vec<DirectMlAdapter>> {
     Ok(adapters)
 }
 
+/// The name of the GPU a device converts on, to tell one GPU from another (#531): CUDA's
+/// device 0, the one ONNX Runtime's CUDA provider uses, from the NVIDIA driver; for DirectML
+/// the [`preferred_adapter`]. `None` for the CPU or when the name cannot be read.
+pub fn gpu_name(device: Device) -> Option<String> {
+    match device {
+        Device::Cpu => None,
+        Device::Cuda => cuda_device_name(),
+        #[cfg(windows)]
+        Device::DirectMl => directml_adapters().ok().and_then(|adapters| preferred_adapter(&adapters).map(|adapter| adapter.name.clone())).filter(|name| !name.is_empty()),
+        #[cfg(not(windows))]
+        Device::DirectMl => None,
+    }
+}
+
+/// CUDA device 0's name from the driver library (`cuDeviceGetName`).
+fn cuda_device_name() -> Option<String> {
+    #[cfg(windows)]
+    const DRIVER: &str = "nvcuda.dll";
+    #[cfg(not(windows))]
+    const DRIVER: &str = "libcuda.so.1";
+    type Init = unsafe extern "C" fn(u32) -> i32;
+    type DeviceGet = unsafe extern "C" fn(*mut i32, i32) -> i32;
+    type DeviceGetName = unsafe extern "C" fn(*mut std::ffi::c_char, i32, i32) -> i32;
+    // SAFETY: the driver's documented C functions with their documented signatures; the name
+    // is written into a buffer of the length given and read up to its terminating zero.
+    unsafe {
+        let driver = libloading::Library::new(DRIVER).ok()?;
+        let init: libloading::Symbol<Init> = driver.get(b"cuInit\0").ok()?;
+        let device_get: libloading::Symbol<DeviceGet> = driver.get(b"cuDeviceGet\0").ok()?;
+        let device_get_name: libloading::Symbol<DeviceGetName> = driver.get(b"cuDeviceGetName\0").ok()?;
+        let mut device = 0i32;
+        let mut name = [0 as std::ffi::c_char; 256];
+        if init(0) != 0 || device_get(&mut device, 0) != 0 || device_get_name(name.as_mut_ptr(), name.len() as i32, device) != 0 {
+            return None;
+        }
+        let name = std::ffi::CStr::from_ptr(name.as_ptr()).to_string_lossy().into_owned();
+        (!name.is_empty()).then_some(name)
+    }
+}
+
 fn first_output(outputs: &ort::session::SessionOutputs, name: &str) -> Result<(Vec<usize>, Vec<f32>)> {
     let value = outputs.get(name).ok_or_else(|| Error::Backend(format!("the graph has no output named {name}")))?;
     let (shape, data) = value.try_extract_tensor::<f32>().map_err(backend)?;

@@ -712,7 +712,7 @@ fn redirects_are_followed_only_to_the_fixed_hosts() {
     let sent = server.requests().into_iter().find(|r| r.path == "/start").unwrap();
     assert_eq!(
         sent.headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect::<Vec<_>>(),
-        [("Host", "huggingface.co"), ("User-Agent", "VRCT-VOX-model-download/1"), ("Accept-Encoding", "identity"), ("Connection", "close")]
+        [("Host", "huggingface.co"), ("User-Agent", "ASTAROT-model-download/1"), ("Accept-Encoding", "identity"), ("Connection", "close")]
     );
     // The first hop goes to the URL's own host only after it was checked.
     assert_eq!(code(open_via("https://evil.example/x", &HOSTS, &connect).err().unwrap()), "download_url_rejected");
@@ -820,13 +820,14 @@ fn partial_marked(root: &Path, digit: char, product: &str) -> PathBuf {
     partial
 }
 
+/// ADR-014: from 0.6.0 the marker names ASTAROT.
 #[test]
-fn the_marker_names_the_product_as_0_5_did() {
+fn the_marker_names_astarot() {
     let s = setup();
     start(&s.manager).unwrap();
     let path = model_path(&finish(&s.manager));
     let marker: serde_json::Value = serde_json::from_slice(&fs::read(path.with_file_name("owner.json")).unwrap()).unwrap();
-    assert_eq!(marker["product"], "VRCT-VOX-model-download-v1");
+    assert_eq!(marker["product"], "ASTAROT-model-download-v1");
 }
 
 /// ADR-014, 2.11: a staging directory marked under either spelling is this app's.
@@ -844,13 +845,14 @@ fn a_marker_under_either_name_is_recognized_and_no_other() {
 }
 
 #[test]
-fn a_damaged_cache_marked_by_astarot_is_downloaded_again() {
+fn a_damaged_cache_marked_by_0_5_is_downloaded_again() {
     let s = setup();
     start(&s.manager).unwrap();
     let path = model_path(&finish(&s.manager));
-    // What a build that writes the ASTAROT marker leaves, damaged since.
+    // What 0.5.x left, with its own marker, damaged since.
     let marker_path = path.with_file_name("owner.json");
-    let marker = fs::read_to_string(&marker_path).unwrap().replace("VRCT-VOX-model-download-v1", "ASTAROT-model-download-v1");
+    let marker = fs::read_to_string(&marker_path).unwrap().replace("ASTAROT-model-download-v1", "VRCT-VOX-model-download-v1");
+    assert!(marker.contains("VRCT-VOX-model-download-v1"));
     fs::write(&marker_path, marker).unwrap();
     fs::write(&path, b"bad cache").unwrap();
     start(&s.manager).unwrap();

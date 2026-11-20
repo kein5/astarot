@@ -107,7 +107,7 @@ impl Drop for VadUser {
             toggle.vad_users = toggle.vad_users.saturating_sub(1);
         }
         // A recorder may go while its owner holds other locks: the release runs on its own.
-        let _ = std::thread::Builder::new().name("vrct-vad-release".into()).spawn(move || core.release_asr_server());
+        let _ = std::thread::Builder::new().name("astarot-vad-release".into()).spawn(move || core.release_asr_server());
     }
 }
 
@@ -1225,6 +1225,10 @@ pub(crate) fn add(b: &mut Builder<'_>) {
     b.with("/set/data/realtime_asr_settings", OPEN, |core, data| core.set_realtime_settings(data));
     b.with("/get/data/realtime_asr_endpoints", OPEN, |core, data| core.realtime_endpoints(data));
     b.with("/get/data/realtime_asr_models", OPEN, |core, _| core.realtime_models());
+    // The built-in VRChat terms as the app ships them (#792): the settings page lists them to be
+    // changed or taken out. They are no secret, but the name holds "vocabulary" and is masked in
+    // the log like the rest of the dictionary.
+    b.with("/get/data/builtin_vocabulary", OPEN, |_, _| ok(json!({ "terms": speechcpp::vrchat_terms() })));
     b.with("/get/data/realtime_asr_state", OPEN, |core, _| ok(core.realtime_state()));
     b.with("/run/start_realtime_asr", OPEN, |core, data| core.start_realtime(data));
     // Answered as it arrives (`IMMEDIATE_ENDPOINTS`).

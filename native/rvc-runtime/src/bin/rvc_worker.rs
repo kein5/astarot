@@ -1,13 +1,17 @@
-//! `vrct-rvc-worker`: the application's live RVC voice conversion process.
+//! `astarot-rvc-worker`: the application's live RVC voice conversion process.
 //!
 //! It speaks the application's live-VC pipe contract
 //! (`native/voice-conversion/src/protocol.rs`, "VVC1"): one `ready` (or `failed`) packet
 //! once the voice model is loaded, then one `output` packet for every `input` packet, each a
 //! block of 48 kHz mono 16-bit audio. The block is `--block-ms` long (20 to 200 ms in steps
-//! of 20; 80 ms, the external runtime's, when it is not given; the application passes its
-//! setting, 40 ms by default), and the `ready` packet confirms it in `block_frames`. It opens
-//! no audio device, downloads nothing and never writes audio, text or file paths anywhere but
-//! the output pipe.
+//! of 20; 80 ms, the external runtime's, when it is not given), and the `ready` packet says it
+//! in `block_frames`. With `--block-ms auto`, the application's default, the worker chooses:
+//! on a GPU the shortest of 40, 60, 80, 100, 120, 160 and 200 ms it converts in time with room
+//! to spare (timed on a test tone before `ready`), on the CPU 40 ms. With `--block-cache <file>`
+//! it keeps that choice there, by voice model and GPU, and uses it again on a later start
+//! instead of timing the GPU. It opens no audio device, downloads nothing and never writes
+//! audio, text or file paths anywhere but the output pipe (the block cache holds hashes and
+//! lengths only).
 //!
 //! ONNX Runtime, the CUDA libraries and the two fixed networks come from the runtime
 //! folder the application sets up after the user's consent (`--runtime`):
@@ -142,6 +146,21 @@ const CPU_LATE_WINDOW: usize = 8;
 /// `vc_capture_overrun` a few seconds later (an Intel Core i7-1255U took 1.2 s for a 0.5 s
 /// block, 2026-11-20).
 const CPU_TIMED_BLOCKS: usize = 2;
+/// `--block-ms auto` on a GPU: the packet lengths chosen from, shortest first (#531). The GPU is
+/// timed on the shortest, and the shortest it converts in time with [`AUTO_HEADROOM`] is used;
+/// the last when none is. A longer block delays the voice by as much again and leaves the GPU
+/// idle longer, which lowers its clock, so the shortest that keeps up is the one wanted
+/// (docs/voice-stack/rvc-low-latency-2026-11-20.md).
+const AUTO_BLOCK_MS: [u32; 7] = [40, 60, 80, 100, 120, 160, 200];
+/// The GPU's time for a block converted back to back, times this, must fit in the packet. At
+/// the microphone's pace the round trip's p95 was 1.2 to 1.4 times that time (an RTX 3060 Ti
+/// over Thunderbolt, CUDA and DirectML, 60 and 80 ms blocks, 2026-11-20).
+const AUTO_HEADROOM: f64 = 1.4;
+/// Blocks timed, after one that settles the networks' first runs.
+const AUTO_TIMED_BLOCKS: usize = 3;
+/// `--block-ms auto` on the CPU: packets of the application's earlier default. The CPU
+/// converts 0.5 s blocks of its own whatever the packets.
+const AUTO_CPU_PACKET_MS: u32 = 40;
 
 #[cfg(target_os = "linux")]
 const ORT_LIBRARY: &str = "libonnxruntime.so";
@@ -249,7 +268,10 @@ struct Arguments {
     device: Choice,
     threads: Option<usize>,
     highpass: bool,
-    packets: Packets,
+    /// `None`: `--block-ms auto`, chosen when the device is known.
+    packets: Option<Packets>,
+    /// `--block-cache`: where `--block-ms auto` keeps the lengths it chose ([`BlockCache`]).
+    block_cache: Option<PathBuf>,
 }
 
 /// What `--device` asks for.
@@ -273,11 +295,11 @@ fn choice(text: Option<&str>) -> Result<Choice, String> {
 }
 
 const USAGE: &str = "\
-Usage: vrct-rvc-worker --runtime <dir> --model <voice.pth> --session <32 hex digits>
+Usage: astarot-rvc-worker --runtime <dir> --model <voice.pth> --session <32 hex digits>
                        [--index <file.index>] [--pitch <-24..24>] [--index-rate <0..1>]
                        [--device auto|cuda|directml|cpu] [--directml <dir>] [--threads <n>]
-                       [--highpass on|off] [--block-ms <20..200, a multiple of 20>]
-       vrct-rvc-worker --runtime <dir> --probe [--device cuda|directml|cpu|auto]
+                       [--highpass on|off] [--block-ms auto|<20..200, a multiple of 20>] [--block-cache <file>]
+       astarot-rvc-worker --runtime <dir> --probe [--device cuda|directml|cpu|auto]
 ";
 
 fn parse(mut values: HashMap<String, String>) -> Result<Arguments, String> {
@@ -303,14 +325,16 @@ fn parse(mut values: HashMap<String, String>) -> Result<Arguments, String> {
         Some("off") => false,
         Some(_) => return Err("`--highpass` must be on or off".into()),
     };
-    let packets = match take("block-ms") {
-        None => Packets::of(DEFAULT_BLOCK_MS).expect("a valid default"),
-        Some(text) => text.parse::<u32>().ok().and_then(Packets::of).ok_or("`--block-ms` must be 20 to 200, a multiple of 20")?,
+    let packets = match take("block-ms").as_deref() {
+        None => Some(Packets::of(DEFAULT_BLOCK_MS).expect("a valid default")),
+        Some("auto") => None,
+        Some(text) => Some(text.parse::<u32>().ok().and_then(Packets::of).ok_or("`--block-ms` must be auto, or 20 to 200 and a multiple of 20")?),
     };
+    let block_cache = take("block-cache").filter(|text| !text.is_empty()).map(PathBuf::from);
     if let Some(unknown) = values.keys().next() {
         return Err(format!("unknown option `--{unknown}`"));
     }
-    Ok(Arguments { runtime, directml, model, index, session, pitch, index_rate, device, threads, highpass, packets })
+    Ok(Arguments { runtime, directml, model, index, session, pitch, index_rate, device, threads, highpass, packets, block_cache })
 }
 
 fn options() -> Result<(HashMap<String, String>, bool), String> {
@@ -340,7 +364,7 @@ fn load_gpu_libraries(lib: &Path) -> bool {
         let before = pending.len();
         pending.retain(|name| ort::util::preload_dylib(lib.join(name)).is_err());
         if pending.len() == before {
-            eprintln!("vrct-rvc-worker: {} GPU libraries could not be loaded from the runtime", pending.len());
+            eprintln!("astarot-rvc-worker: {} GPU libraries could not be loaded from the runtime", pending.len());
             return false;
         }
     }
@@ -394,7 +418,7 @@ fn directml_on_integrated_gpu() -> bool {
     match backend::directml_adapters() {
         Ok(adapters) => auto_skips_directml(backend::preferred_adapter(&adapters)),
         Err(error) => {
-            eprintln!("vrct-rvc-worker: the GPUs could not be listed: {error}");
+            eprintln!("astarot-rvc-worker: the GPUs could not be listed: {error}");
             false
         }
     }
@@ -415,25 +439,25 @@ fn load_runtime(runtime: &Path, directml: Option<&Path>, choice: Choice, convers
     let directml = directml_folder(&lib, directml);
     let (mut folder, mut device) = plan(choice, &lib, lib.join(CUDA_PROVIDER).is_file(), directml.as_deref(), || load_gpu_libraries(&lib))?;
     if !preload_directml(&folder) {
-        eprintln!("vrct-rvc-worker: DirectML could not be loaded");
+        eprintln!("astarot-rvc-worker: DirectML could not be loaded");
         if choice != Choice::Auto || device != Device::DirectMl || !preload_directml(&lib) {
             return Err(Failure::RuntimeIncomplete);
         }
         (folder, device) = (lib.clone(), Device::Cpu);
     }
     backend::load_runtime(&folder.join(ORT_LIBRARY)).map_err(|error| {
-        eprintln!("vrct-rvc-worker: ONNX Runtime could not be loaded: {error}");
+        eprintln!("astarot-rvc-worker: ONNX Runtime could not be loaded: {error}");
         Failure::RuntimeIncomplete
     })?;
     if conversion && choice == Choice::Auto && device == Device::DirectMl && directml_on_integrated_gpu() {
-        eprintln!("vrct-rvc-worker: DirectML would run on an integrated GPU; converting on the CPU");
+        eprintln!("astarot-rvc-worker: DirectML would run on an integrated GPU; converting on the CPU");
         device = Device::Cpu;
     }
     if device.is_gpu() {
         // Whether the GPU works at all, before any model: GPU errors from a real model's
         // session cannot be told apart from problems with the model.
         if let Err(error) = backend::check_device(device) {
-            eprintln!("vrct-rvc-worker: GPU ({device:?}): {error}");
+            eprintln!("astarot-rvc-worker: GPU ({device:?}): {error}");
             match (choice, &error) {
                 (Choice::Auto, Error::DeviceUnavailable(_)) => device = Device::Cpu,
                 _ => return Err(classify(&error, device, Failure::RuntimeIncomplete)),
@@ -442,7 +466,7 @@ fn load_runtime(runtime: &Path, directml: Option<&Path>, choice: Choice, convers
     }
     if device == Device::Cpu {
         backend::check_device(Device::Cpu).map_err(|error| {
-            eprintln!("vrct-rvc-worker: CPU: {error}");
+            eprintln!("astarot-rvc-worker: CPU: {error}");
             Failure::RuntimeIncomplete
         })?;
     }
@@ -505,12 +529,11 @@ fn load(arguments: &Arguments) -> Result<(Stream, Profile), Failure> {
         return Err(Failure::RuntimeIncomplete);
     }
     let device = load_runtime(&arguments.runtime, arguments.directml.as_deref(), arguments.device, true)?;
-    let profile = Profile::of(device, arguments.packets);
     // On the GPU the CPU side of a block is small; one thread per session kept the same
     // block times with a third less CPU and 8 threads instead of 77 (README, "Application
     // worker").
     backend::set_intra_threads(arguments.threads.or(Some(if device.is_gpu() { GPU_INTRA_THREADS } else { cpu_intra_threads() })));
-    let log = |what: &str, error: &Error| eprintln!("vrct-rvc-worker: {what}: {error}");
+    let log = |what: &str, error: &Error| eprintln!("astarot-rvc-worker: {what}: {error}");
     let model = VoiceModel::load(&arguments.model).map_err(|error| {
         log("voice model", &error);
         match error {
@@ -535,36 +558,181 @@ fn load(arguments: &Arguments) -> Result<(Stream, Profile), Failure> {
         }
         _ => None,
     };
-    // The GPU first: the error that says the most comes from the first session.
-    let synthesizer = Synthesizer::new(&model, device).map_err(|error| {
-        log("synthesizer", &error);
-        classify(&error, device, Failure::CheckpointIncomplete)
-    })?;
-    let features = FeatureExtractor::from_checkpoint(&hubert, device).map_err(|error| {
-        log("feature extractor", &error);
-        classify(&error, device, Failure::CheckpointIncomplete)
-    })?;
-    let pitch = Rmvpe::load(&rmvpe, device).map_err(|error| {
-        log("pitch extractor", &error);
-        classify(&error, device, Failure::RuntimeIncomplete)
-    })?;
-    let converter = Converter { features, pitch: Box::new(pitch), synthesizer, index, version: model.version };
-    let options = StreamOptions { transpose: arguments.pitch, index_rate: arguments.index_rate, speaker: 0, noise: NoiseMode::Random, layout: profile.layout, highpass: arguments.highpass };
-    let mut stream = Stream::new(converter, options).map_err(|error| {
-        log("stream", &error);
-        Failure::IndexFailed
-    })?;
+    // The networks' sessions. The GPU first: the error that says the most comes from the first
+    // session.
+    let networks = |index: Option<FeatureIndex>| -> Result<Converter, Failure> {
+        let synthesizer = Synthesizer::new(&model, device).map_err(|error| {
+            log("synthesizer", &error);
+            classify(&error, device, Failure::CheckpointIncomplete)
+        })?;
+        let features = FeatureExtractor::from_checkpoint(&hubert, device).map_err(|error| {
+            log("feature extractor", &error);
+            classify(&error, device, Failure::CheckpointIncomplete)
+        })?;
+        let pitch = Rmvpe::load(&rmvpe, device).map_err(|error| {
+            log("pitch extractor", &error);
+            classify(&error, device, Failure::RuntimeIncomplete)
+        })?;
+        Ok(Converter { features, pitch: Box::new(pitch), synthesizer, index, version: model.version })
+    };
+    let converter = networks(index)?;
+    let stream_for = |converter: Converter, profile: Profile| {
+        let options = StreamOptions { transpose: arguments.pitch, index_rate: arguments.index_rate, speaker: 0, noise: NoiseMode::Random, layout: profile.layout, highpass: arguments.highpass };
+        Stream::new(converter, options).map_err(|error| {
+            log("stream", &error);
+            Failure::IndexFailed
+        })
+    };
+    let conversion_failed = |error: Error| {
+        log("conversion", &error);
+        Failure::CheckpointIncomplete
+    };
+    let (stream, profile) = match arguments.packets {
+        Some(packets) => {
+            let profile = Profile::of(device, packets);
+            (stream_for(converter, profile)?, profile)
+        }
+        None if device.is_gpu() => {
+            // `--block-ms auto` (#531). The length chosen before for this voice model on this GPU
+            // is used again without timing.
+            let cache = arguments.block_cache.as_deref().and_then(|path| BlockCache::for_start(path, arguments, device));
+            if let Some(ms) = cache.as_ref().and_then(BlockCache::chosen) {
+                eprintln!("astarot-rvc-worker: converting in {ms} ms blocks, chosen before for this voice model on this GPU");
+                let profile = Profile::of(device, Packets::of(ms).expect("a valid block"));
+                return finish(stream_for(converter, profile)?, profile);
+            }
+            // The GPU's time for a block of the shortest length, back to back, then the shortest
+            // length it converts in time with room to spare.
+            let first = Profile::of(device, Packets::of(AUTO_BLOCK_MS[0]).expect("a valid block"));
+            let mut stream = stream_for(converter, first)?;
+            let time = gpu_block_time(&mut stream).map_err(conversion_failed)?;
+            let ms = auto_block_ms(time);
+            eprintln!("astarot-rvc-worker: a {} ms block took {:.1} ms on the GPU; converting in {ms} ms blocks", AUTO_BLOCK_MS[0], time.as_secs_f64() * 1000.0);
+            if let Some(cache) = &cache {
+                cache.remember(ms);
+            }
+            if ms == AUTO_BLOCK_MS[0] {
+                (stream, first)
+            } else {
+                // DirectML sessions that ran one block length are not given another: they
+                // converted blocks of a second length four to six times slower than fresh ones.
+                // CUDA's did not (about 3 s of loading saved).
+                let converter = stream.into_converter();
+                let converter = if device == Device::DirectMl {
+                    let Converter { index, features, pitch, synthesizer, .. } = converter;
+                    // The old sessions go before the new ones take the GPU's memory.
+                    drop((features, pitch, synthesizer));
+                    networks(index)?
+                } else {
+                    converter
+                };
+                let profile = Profile::of(device, Packets::of(ms).expect("a valid block"));
+                (stream_for(converter, profile)?, profile)
+            }
+        }
+        None => {
+            // The CPU converts 0.5 s blocks of its own whatever the packets (`CPU_LAYOUT`).
+            let profile = Profile::of(device, Packets::of(AUTO_CPU_PACKET_MS).expect("a valid block"));
+            (stream_for(converter, profile)?, profile)
+        }
+    };
+    finish(stream, profile)
+}
+
+/// The CPU's speed check before `ready`; a GPU's stream is ready as it is.
+fn finish(mut stream: Stream, profile: Profile) -> Result<(Stream, Profile), Failure> {
     if profile.device == Device::Cpu {
         let fastest = cpu_block_time(&mut stream).map_err(|error| {
-            log("conversion", &error);
+            eprintln!("astarot-rvc-worker: conversion: {error}");
             Failure::CheckpointIncomplete
         })?;
         if !cpu_keeps_up(fastest, profile.layout) {
-            eprintln!("vrct-rvc-worker: a {} ms block took {} ms on the CPU", profile.layout.block * 10, fastest.as_millis());
+            eprintln!("astarot-rvc-worker: a {} ms block took {} ms on the CPU", profile.layout.block * 10, fastest.as_millis());
             return Err(Failure::CpuTooSlow);
         }
     }
     Ok((stream, profile))
+}
+
+/// `--block-cache <file>`: the lengths `--block-ms auto` chose on a GPU, so that a later start
+/// with the same voice model on the same GPU converts in the same length without timing the GPU
+/// again (#531). An entry is found by a hash of the voice model (path, size and modification
+/// time), the index when it is used, the device, the GPU's name, the ONNX Runtime library and
+/// the CPU threads. The file holds only those hashes and the lengths: no path, model or GPU name.
+/// A file that cannot be read or written only means the GPU is timed again.
+struct BlockCache {
+    path: PathBuf,
+    key: String,
+}
+
+/// The entries kept; past that the file starts again from the newest.
+const BLOCK_CACHE_ENTRIES: usize = 64;
+/// Changes when the choice changes (`AUTO_BLOCK_MS`, `AUTO_HEADROOM` or how the GPU is timed), so
+/// lengths chosen another way are not used.
+const BLOCK_CACHE_VERSION: u64 = 1;
+
+impl BlockCache {
+    /// The entry of this start, when the GPU can be told apart from another.
+    fn for_start(path: &Path, arguments: &Arguments, device: Device) -> Option<Self> {
+        Some(BlockCache { path: path.to_path_buf(), key: Self::key(&backend::gpu_name(device)?, arguments, device)? })
+    }
+
+    /// The entry's key: `None` when a file it depends on cannot be read.
+    fn key(gpu: &str, arguments: &Arguments, device: Device) -> Option<String> {
+        let stamp = |file: &Path| -> Option<String> {
+            let meta = std::fs::metadata(file).ok()?;
+            let modified = meta.modified().ok()?.duration_since(std::time::UNIX_EPOCH).ok()?.as_nanos();
+            Some(format!("{}:{}:{modified}", file.display(), meta.len()))
+        };
+        let index = match (&arguments.index, arguments.index_rate > 0.0) {
+            (Some(index), true) => stamp(index)?,
+            _ => "-".into(),
+        };
+        let library = match device {
+            Device::DirectMl => arguments.directml.as_deref().map(|dir| dir.join(ORT_LIBRARY)),
+            _ => Some(arguments.runtime.join("lib").join(ORT_LIBRARY)),
+        };
+        let text = format!("{BLOCK_CACHE_VERSION}|{device:?}|{gpu}|{}|{index}|{}|{:?}", stamp(&arguments.model)?, library.as_deref().and_then(stamp).unwrap_or_default(), arguments.threads);
+        Some(format!("{:016x}", fnv1a(text.as_bytes())))
+    }
+
+    fn entries(&self) -> Map<String, Value> {
+        let read = std::fs::read(&self.path).ok().and_then(|bytes| serde_json::from_slice::<Value>(&bytes).ok());
+        match read {
+            Some(Value::Object(mut file)) if file.get("version") == Some(&Value::from(BLOCK_CACHE_VERSION)) => match file.remove("blocks") {
+                Some(Value::Object(blocks)) => blocks,
+                _ => Map::new(),
+            },
+            _ => Map::new(),
+        }
+    }
+
+    /// The length chosen before, when it is one `--block-ms auto` chooses from.
+    fn chosen(&self) -> Option<u32> {
+        let ms = self.entries().get(&self.key)?.get("block_ms")?.as_u64()?;
+        u32::try_from(ms).ok().filter(|ms| AUTO_BLOCK_MS.contains(ms))
+    }
+
+    /// Keeps `ms` for this start's entry, written whole into a new file that then replaces the old.
+    fn remember(&self, ms: u32) {
+        let mut blocks = self.entries();
+        if blocks.len() >= BLOCK_CACHE_ENTRIES && !blocks.contains_key(&self.key) {
+            blocks.clear();
+        }
+        blocks.insert(self.key.clone(), Value::Object(object(&[("block_ms", ms.into())])));
+        let file = object(&[("version", BLOCK_CACHE_VERSION.into()), ("blocks", Value::Object(blocks))]);
+        let partial = self.path.with_extension("json.partial");
+        let written = serde_json::to_vec_pretty(&Value::Object(file)).ok().is_some_and(|bytes| std::fs::write(&partial, bytes).is_ok()) && std::fs::rename(&partial, &self.path).is_ok();
+        if !written {
+            let _ = std::fs::remove_file(&partial);
+            eprintln!("astarot-rvc-worker: the chosen block length could not be kept");
+        }
+    }
+}
+
+/// FNV-1a, 64 bits: the same hash on every platform and in every version.
+fn fnv1a(bytes: &[u8]) -> u64 {
+    bytes.iter().fold(0xcbf2_9ce4_8422_2325, |hash, &byte| (hash ^ u64::from(byte)).wrapping_mul(0x0000_0100_0000_01b3))
 }
 
 /// A 220 Hz tone at -20 dB.
@@ -590,6 +758,38 @@ fn cpu_block_time(stream: &mut Stream) -> Result<Duration, Error> {
 /// Whether the CPU converts a block in less time than the block lasts.
 fn cpu_keeps_up(block_time: Duration, layout: Layout) -> bool {
     block_time < Duration::from_millis(layout.block as u64 * 10)
+}
+
+/// The GPU's time for one packet's stream block, converted back to back: one block settles
+/// the networks' first runs at this length, then the median of [`AUTO_TIMED_BLOCKS`]. The
+/// stream is reset afterwards.
+fn gpu_block_time(stream: &mut Stream) -> Result<Duration, Error> {
+    let block = tone(stream.options().layout.block_samples(), INPUT_RATE);
+    stream.process(&block)?;
+    let mut times = Vec::with_capacity(AUTO_TIMED_BLOCKS);
+    for _ in 0..AUTO_TIMED_BLOCKS {
+        let started = Instant::now();
+        stream.process(&block)?;
+        times.push(started.elapsed());
+    }
+    stream.reset();
+    times.sort();
+    Ok(times[times.len() / 2])
+}
+
+/// Whether a GPU that converts a block back to back in `block_time` keeps up with packets of
+/// this length at the microphone's pace: [`AUTO_HEADROOM`] times the time fits in the packet.
+fn keeps_up_with_headroom(block_time: Duration, packets: Packets) -> bool {
+    block_time.as_secs_f64() * AUTO_HEADROOM <= f64::from(packets.ms) / 1000.0
+}
+
+/// `--block-ms auto` on a GPU that converts the shortest block in `block_time`: the shortest of
+/// [`AUTO_BLOCK_MS`] it keeps up with, the longest when none. A longer block's time is the
+/// shortest one's: it takes little longer, as most of the work is the 2 s of context every block
+/// carries (48 to 58 ms with CUDA and 38 to 53 ms with DirectML from 20 to 200 ms on one GPU).
+fn auto_block_ms(block_time: Duration) -> u32 {
+    let fits = |ms: &u32| keeps_up_with_headroom(block_time, Packets::of(*ms).expect("a valid block"));
+    AUTO_BLOCK_MS.into_iter().find(fits).unwrap_or(AUTO_BLOCK_MS[AUTO_BLOCK_MS.len() - 1])
 }
 
 /// The stream with its rate conversions: 48 kHz in and out, 16 kHz and the model's rate
@@ -627,7 +827,7 @@ impl Live {
 /// One stream block of 16 kHz input to 48 kHz output.
 fn convert_block(stream: &mut Stream, output: &mut StreamResampler, low: &[f32]) -> Result<Vec<f32>, Stop> {
     let converted = stream.process(low).map_err(|error| {
-        eprintln!("vrct-rvc-worker: conversion failed: {error}");
+        eprintln!("astarot-rvc-worker: conversion failed: {error}");
         Stop("vc_conversion_invalid")
     })?;
     let converted = output.process(&converted);
@@ -934,12 +1134,12 @@ fn serve(live: Live, profile: Profile, session: &str) -> Result<(), Stop> {
 fn probe(runtime: &Path, choice: Choice) -> ExitCode {
     match load_runtime(runtime, None, choice, false) {
         Ok(Device::Cpu) if choice == Choice::Auto => {
-            eprintln!("vrct-rvc-worker: the GPU cannot be used; conversion will run on the CPU");
+            eprintln!("astarot-rvc-worker: the GPU cannot be used; conversion will run on the CPU");
             ExitCode::from(3)
         }
         Ok(_) => ExitCode::SUCCESS,
         Err(failure) => {
-            eprintln!("vrct-rvc-worker: {}", failure.code());
+            eprintln!("astarot-rvc-worker: {}", failure.code());
             ExitCode::from(if matches!(failure, Failure::GpuUnavailable | Failure::DirectMlUnavailable) { 3 } else { 4 })
         }
     }
@@ -951,7 +1151,7 @@ fn main() -> ExitCode {
     let (values, probing) = match options() {
         Ok(parsed) => parsed,
         Err(message) => {
-            eprintln!("vrct-rvc-worker: {message}\n{USAGE}");
+            eprintln!("astarot-rvc-worker: {message}\n{USAGE}");
             return ExitCode::from(2);
         }
     };
@@ -975,7 +1175,7 @@ fn main() -> ExitCode {
     let arguments = match parse(values) {
         Ok(arguments) => arguments,
         Err(message) => {
-            eprintln!("vrct-rvc-worker: {message}\n{USAGE}");
+            eprintln!("astarot-rvc-worker: {message}\n{USAGE}");
             return ExitCode::from(2);
         }
     };
@@ -991,7 +1191,7 @@ fn main() -> ExitCode {
     match serve(Live::new(stream, profile.packets), profile, &arguments.session) {
         Ok(()) => ExitCode::SUCCESS,
         Err(Stop(code)) => {
-            eprintln!("vrct-rvc-worker: stopped: {code}");
+            eprintln!("astarot-rvc-worker: stopped: {code}");
             if code == OVERRUN {
                 // Instead of the next answer: the owner stops with this code.
                 let failed = object(&[("type", "failed".into()), ("protocol", 1.into()), ("session", arguments.session.as_str().into()), ("code", code.into())]);
@@ -1124,7 +1324,7 @@ mod tests {
 
     #[test]
     fn the_directml_folder_is_the_one_given_or_the_runtimes_own_directml_build() {
-        let dir = std::env::temp_dir().join(format!("vrct-rvc-worker-dml-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("astarot-rvc-worker-dml-{}", std::process::id()));
         let lib = dir.join("lib");
         std::fs::create_dir_all(&lib).unwrap();
         let given = Path::new("/d/lib");
@@ -1175,16 +1375,16 @@ mod tests {
         assert!(!auto_skips_directml(backend::preferred_adapter(&[])));
     }
 
-    /// The GPUs of a DirectML build of ONNX Runtime on this PC (`VRCT_TEST_DIRECTML_LIB`: a
+    /// The GPUs of a DirectML build of ONNX Runtime on this PC (`ASTAROT_TEST_DIRECTML_LIB`: a
     /// folder with its `onnxruntime.dll` and `DirectML.dll`), as the worker judges them. Prints
     /// names and flags only.
     ///
-    ///     VRCT_TEST_DIRECTML_LIB=<dir> cargo test --no-default-features --features worker --bin vrct-rvc-worker -- --ignored --nocapture directml_lists
+    ///     ASTAROT_TEST_DIRECTML_LIB=<dir> cargo test --no-default-features --features worker --bin astarot-rvc-worker -- --ignored --nocapture directml_lists
     #[cfg(windows)]
     #[test]
     #[ignore = "needs the DirectML build of ONNX Runtime"]
     fn directml_lists_this_pcs_gpus() {
-        let Some(folder) = std::env::var_os("VRCT_TEST_DIRECTML_LIB").map(PathBuf::from) else { return };
+        let Some(folder) = std::env::var_os("ASTAROT_TEST_DIRECTML_LIB").map(PathBuf::from) else { return };
         assert!(preload_directml(&folder));
         backend::load_runtime(&folder.join(ORT_LIBRARY)).unwrap();
         let adapters = backend::directml_adapters().unwrap();
@@ -1255,10 +1455,70 @@ mod tests {
         assert_eq!(base(&[]).unwrap().directml, None);
         assert_eq!(base(&[("directml", "")]).unwrap().directml, None);
         assert_eq!(base(&[("directml", "/d/lib")]).unwrap().directml, Some(PathBuf::from("/d/lib")));
-        assert_eq!(base(&[]).unwrap().packets.ms, 80, "the external runtime's packets");
-        assert_eq!(base(&[("block-ms", "40")]).unwrap().packets.ms, 40);
-        for bad in ["30", "0", "220", "40.0", "-40", "x"] {
+        assert_eq!(base(&[]).unwrap().packets, Packets::of(80), "the external runtime's packets");
+        assert_eq!(base(&[("block-ms", "40")]).unwrap().packets, Packets::of(40));
+        assert_eq!(base(&[("block-ms", "auto")]).unwrap().packets, None, "chosen once the device is known");
+        for bad in ["30", "0", "220", "40.0", "-40", "x", "Auto"] {
             assert!(base(&[("block-ms", bad)]).is_err(), "{bad}");
         }
+    }
+
+    #[test]
+    fn the_automatic_block_is_the_shortest_the_gpu_converts_in_time_with_room_to_spare() {
+        // The tried lengths are valid packets, shortest first.
+        assert!(AUTO_BLOCK_MS.windows(2).all(|pair| pair[0] < pair[1]));
+        assert!(AUTO_BLOCK_MS.iter().all(|&ms| Packets::of(ms).is_some()));
+        assert!(Packets::of(AUTO_CPU_PACKET_MS).is_some());
+        let fits = |time_ms: u64, block_ms: u32| keeps_up_with_headroom(Duration::from_millis(time_ms), Packets::of(block_ms).unwrap());
+        assert!(fits(28, 40) && !fits(29, 40), "1.4 times the time fits in the block");
+        let chosen = |time_ms: u64| auto_block_ms(Duration::from_millis(time_ms));
+        // An RTX 3060 Ti over Thunderbolt (2026-11-20), 40 ms blocks back to back: CUDA 50 to 55
+        // ms, DirectML 37 to 43 ms. An RTX 4080 SUPER: 11 to 15 ms.
+        assert_eq!(chosen(55), 80, "CUDA on the laptop");
+        assert_eq!(chosen(37), 60, "DirectML on the laptop");
+        assert_eq!(chosen(15), 40, "the desktop");
+        // Between the steps, and a GPU that keeps up with none.
+        assert_eq!((chosen(72), chosen(86), chosen(115), chosen(143), chosen(500)), (120, 160, 200, 200, 200));
+    }
+
+    #[test]
+    fn a_chosen_block_is_kept_for_the_same_voice_model_on_the_same_gpu() {
+        // FNV-1a's published values: the key is the same everywhere.
+        assert_eq!((fnv1a(b""), fnv1a(b"a")), (0xcbf2_9ce4_8422_2325, 0xaf63_dc4c_8601_ec8c));
+        let dir = std::env::temp_dir().join(format!("vrct-block-cache-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let model = dir.join("voice.pth");
+        std::fs::write(&model, b"model").unwrap();
+        let values: HashMap<String, String> =
+            [("runtime", dir.to_str().unwrap()), ("model", model.to_str().unwrap()), ("session", "0123456789abcdef0123456789abcdef"), ("block-ms", "auto")].iter().map(|(k, v)| (k.to_string(), v.to_string())).collect();
+        let arguments = parse(values).unwrap();
+        let key = |gpu: &str, device: Device| BlockCache::key(gpu, &arguments, device).unwrap();
+        let first = key("NVIDIA GeForce RTX 3060 Ti", Device::Cuda);
+        assert_eq!(first.len(), 16);
+        assert_eq!(first, key("NVIDIA GeForce RTX 3060 Ti", Device::Cuda), "the same start finds the same entry");
+        assert_ne!(first, key("NVIDIA GeForce RTX 4080 SUPER", Device::Cuda), "another GPU");
+        assert_ne!(first, key("NVIDIA GeForce RTX 3060 Ti", Device::DirectMl), "another device");
+        // Kept, found again, and nothing but the hash and the length is written.
+        let cache = BlockCache { path: dir.join("rvc-block-lengths.json"), key: first.clone() };
+        assert_eq!(cache.chosen(), None);
+        cache.remember(80);
+        assert_eq!(cache.chosen(), Some(80));
+        let written = std::fs::read_to_string(&cache.path).unwrap();
+        assert!(!written.contains("voice") && !written.contains("NVIDIA") && written.contains(&first), "{written}");
+        // Another GPU has an entry of its own; a length not chosen from is not used.
+        let other = BlockCache { path: cache.path.clone(), key: key("NVIDIA GeForce RTX 4080 SUPER", Device::Cuda) };
+        other.remember(40);
+        assert_eq!((cache.chosen(), other.chosen()), (Some(80), Some(40)));
+        std::fs::write(&cache.path, format!("{{\"version\": {BLOCK_CACHE_VERSION}, \"blocks\": {{\"{first}\": {{\"block_ms\": 30}}}}}}")).unwrap();
+        assert_eq!(cache.chosen(), None);
+        // A changed voice model is timed again.
+        std::fs::write(&model, b"another model").unwrap();
+        assert_ne!(first, key("NVIDIA GeForce RTX 3060 Ti", Device::Cuda));
+        // A file of another version, or not JSON, is as no file.
+        std::fs::write(&cache.path, b"not json").unwrap();
+        assert_eq!(cache.chosen(), None);
+        cache.remember(60);
+        assert_eq!(cache.chosen(), Some(60));
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

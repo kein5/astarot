@@ -146,6 +146,8 @@ Python の `src-python/test/test_native_core_reference.py` は、Python 側の�
 
 `tools/measure_backend_startup.py` が、展開した Windows の配布物を相手にサイズと起動時間を計ります。中核の起動は `native/core/examples/startup_time.rs` で計ります。アプリと同じ `Environment` で `Backend::start` を呼び、`/run/initialization_complete` までの時間を返します。
 
+`tools/measure_backend_startup.py` は、この基準値を計るための道具だったので消しました（#810）。下のコマンドは 2026-11-16 の手順の記録です。中核の起動時間は、今も `startup_time.rs` を単独で動かして計れます。
+
 ```sh
 cargo build --release --locked --manifest-path native/core/Cargo.toml --example startup_time
 python tools/measure_backend_startup.py --package <展開した配布物> \
@@ -814,6 +816,9 @@ PR の残課題と同じものです。決まったら、この節を更新し�
 76. **GPU で読み込めても翻訳で失敗するフォルダ**（#277）。CPU への切り替えは、実行プロバイダでモデルを読み込めなかったときだけです（`accelerate::open_with_fallback`）。2026-11-18 より前に `export.py` で作ったフォルダ（`Reshape` が `allowzero=1`）は、DirectML で読み込みは通り、最初の翻訳で失敗します。この場合は CPU に切り替わらず、翻訳の失敗になります。今回の 2 つ目の不具合のように、失敗せずに値がおかしくなる場合もありました。案は (a) このまま（公開するフォルダは新しい書き出しで作る）、(b) GPU で読み込んだあとに短い入力で一度訳し、失敗するか値が有限でなければ CPU で読み込み直して知らせる（40 と同じ通知）、です。(b) は読み込みが少し遅くなります。
     - **決まりました（2026-11-19）: (b)**。`translate-onnx` の `Translator::load` が、CPU 以外で読み込んだあとに、言語のトークンと終了のトークンの原文でエンコーダ、デコーダの最初のステップ、キャッシュ付きのステップを 1 回ずつ通します。失敗したとき、または出力が有限でないか絶対値が float16 の最大（65504）を超えたときは、CPU で読み込み直し、40 と同じ通知の `reason` に `translation_provider_check_failed` を入れます（メモリー不足は `translation_out_of_memory` のまま）。乱数の小さなモデルの `allowzero=1` のフォルダは、Intel と NVIDIA の GPU の DirectML で CPU に切り替わり、新しいフォルダは 4 つの形とも切り替わらずに GPU で動きました（`tests/real.rs`）。値を CPU と比べないので、有限で大きすぎない誤った値は見つけられません。
 77. **NLLB 3.3B の英語へ訳す方向**（#277、#288 の未決事項）。2026-11-15 の比較で英語へ訳す 4 方向の BLEU が CTranslate2 より 1.12〜1.90 低かった件は、確かめていません。元のモデルの取得（17 GB を超える）と書き出し（50 GB を超えるメモリー）が要るためです。確かめるなら、文の数を増やすか、量子化の方式を変えて比べます。手順は [ローカル翻訳の GPU と公開の準備](local-translation-gpu-2026-11-18.md) にあります。
+    - **決まりました（2026-11-20）: 閉じます**。英語と日本語の間の 2 方向は確かめました。独→英、露→英、中→英の 3 方向は確かめていません。
+    - WMT20 の全文（英→日 1,000 文、日→英 993 文）で、ONNX 版から CTranslate2 版を引いた BLEU の差は、英→日が −0.06（95% 区間 −0.43〜+0.32）、日→英が −0.09（−0.45〜+0.27）でした。どちらの区間も 0 をまたぐので、ONNX 版のほうが低いとは言えません。2026-11-15 に 50 文で見えた日→英の −1.90 は、再現しませんでした。
+    - 3.3B は公開しません（78 のまま）。結果は `tools/translation_onnx/README.md` の「英語と日本語の確認（2026-11-20）」にあります。
 78. **公開するモデルと NLLB の扱い**（#277、#288 の未決事項）。決めてほしいことは次のとおりです。
     - 公開するモデルと形。少なくとも M2M100 418M の int8（約 506 MB）。GPU 用に float16 を足すか（1 の「モデルの公開」）。
     - 公開先のリポジトリの持ち主と名前（モデルと形ごとに 1 つのリポジトリにするか）。

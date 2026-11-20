@@ -508,7 +508,7 @@ impl VoiceEventBus {
             state.worker = Some(finished.clone());
             let inner = self.inner.clone();
             thread::Builder::new()
-                .name("vrct-vox".into())
+                .name("astarot".into())
                 .spawn(move || {
                     // A panic outside one utterance must not leave a dead
                     // worker that close() waits for and publish() never replaces.
@@ -588,7 +588,7 @@ impl StartExpiry {
         let stopped = Event::new();
         let flag = stopped.clone();
         thread::Builder::new()
-            .name("vrct-vox-start-expiry".into())
+            .name("astarot-start-expiry".into())
             .spawn(move || {
                 run_start_expiry(deadline_ns, monotonic_ns, |remaining| flag.wait(Some(remaining)), || flag.is_set(), || token.expire_start());
             })
@@ -623,7 +623,7 @@ impl RequestTimer {
         let stopped = Event::new();
         let flag = stopped.clone();
         thread::Builder::new()
-            .name("vrct-vox-request-timeout".into())
+            .name("astarot-request-timeout".into())
             .spawn(move || {
                 if !flag.wait(Some(timeout)) {
                     token.cancel_with("request_timeout");

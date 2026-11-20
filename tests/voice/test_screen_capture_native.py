@@ -134,7 +134,7 @@ def compile_c(source, binary):
 @pytest.fixture(scope="module")
 def helper(tmp_path_factory):
     assert SOURCE.is_file(), "the window-sharing helper is not implemented"
-    return compile_c(SOURCE, tmp_path_factory.mktemp("screen-capture") / "vrct-screen-capture")
+    return compile_c(SOURCE, tmp_path_factory.mktemp("screen-capture") / "astarot-screen-capture")
 
 
 @pytest.fixture(scope="module")

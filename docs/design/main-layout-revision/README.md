@@ -127,8 +127,8 @@
 ```powershell
 $env:PYTHONUTF8 = "1"   # Windows で findings の JSON を書くため
 $env:AUDIT_OUT = "build/layout-audit"
-$env:VRCT_TEST_STUDIO_UI = "1"
-$env:VRCT_TEST_CHROMIUM = "<chrome.exe のパス>"
+$env:ASTAROT_TEST_STUDIO_UI = "1"
+$env:ASTAROT_TEST_CHROMIUM = "<chrome.exe のパス>"
 $env:PYTHONPATH = "tests/voice;docs/design/main-layout-audit/audit"
 build/dev/browser-venv/Scripts/python.exe -m pytest -c tests/voice/pytest.ini --rootdir . `
     docs/design/main-layout-audit/audit/layout_audit.py -q -p no:cacheprovider -p show_scrollbars

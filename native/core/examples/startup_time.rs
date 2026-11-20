@@ -1,7 +1,8 @@
 //! Measures how long the core takes from `Backend::start` to `/run/initialization_complete`,
 //! the way the application starts it (`src-tauri/src/backend_host.rs`): in this process, with
 //! the settings in `--config-dir` and the application folder `--app-dir` (where the bundled
-//! speech.cpp is found). `tools/measure_backend_startup.py` runs it next to the Python sidecar.
+//! speech.cpp is found). It gave the core's numbers of the baseline before the move from the
+//! Python sidecar ("切り替え前の基準値" in docs/voice-stack/core-integration.md).
 //!
 //! cargo run --release --locked --manifest-path native/core/Cargo.toml --example startup_time --
 //!     --app-dir <extracted package> --config-dir <empty folder> --runs 5

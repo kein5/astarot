@@ -29,8 +29,9 @@
 | 読み込み（JSON として読めない） | — | 元のファイルを `config.json.unreadable-<日時>-<乱数>` に移して残し、既定値で起動する。UI に `/run/config_file_unreadable` で場所を知らせる | `move_aside` | `an_unreadable_settings_file_is_kept_aside_and_reported_after_start_up` |
 | 読み込み（権限がないなど、読めない理由がほかにある） | — | 元のファイルに触れず、その起動では保存しない。`load_failed` で知らせる | `load` | `a_settings_file_that_cannot_be_read_is_left_alone_and_never_overwritten` |
 | API キーの移し替えと保存 | `secrets.json` に書いて読み戻せたキーだけを `config.json` から除く | キーはどちらかのファイルに残る。メモリーのキーはその起動で使える。`/run/secret_store_failed` で知らせる | [API キーの保存先](data-and-persistence.md#apiキーの保存先) | `native/core/tests/secret_store.rs`、`config/secrets.rs` の単体試験 |
+| Linux の保存先の移動（0.6.0 から） | `vrct-vox` のフォルダーが `astarot` に移り、旧の名前にリンクが残り、保存したパスが付け替わる | 名前を変えられなければ旧のフォルダーをそのまま使い、次の起動でまた試す。名前を変えたあとで止まったときは、次の起動が記録（`storage_migration.json`）から続きを済ませる。パスを付け替えられなければ、旧のパスはリンクを通して読め、次の起動でやり直す | [Linuxの保存先の移動](data-and-persistence.md#linuxの保存先の移動)。名前の変更は1回の `rename` で、コピーしない | `native/core/tests/storage_linux.rs`、`storage/mod.rs` の単体試験 |
 
-0.5 までは、ローカル音声認識の移行（`LOCAL_ASR_MIGRATION` が最新でない保存ファイル）の前に、移す前の内容を API キーを除いて `config.json.before-migration-<段階>` に残していた。写しを書けなければ `config.json` を書き換えなかった。0.6.0 はこの移行を行わないので、写しを書かない。前の版が残した写しには触れない（`native/core/tests/lifecycle.rs` の `no_copy_before_a_migration_is_written_any_more`。[ローカル音声認識の移行](data-and-persistence.md#ローカル音声認識の移行)）。
+0.5 までは、ローカル音声認識の移行（`LOCAL_ASR_MIGRATION` が最新でない保存ファイル）の前に、移す前の内容を API キーを除いて `config.json.before-migration-<段階>` に残していた。写しを書けなければ `config.json` を書き換えなかった。0.6.0 はこの移行を行わないので、その写しを書かない。前の版が残した写しには触れない（`native/core/tests/lifecycle.rs` の `no_copy_before_a_migration_is_written_any_more`。[ローカル音声認識の移行](data-and-persistence.md#ローカル音声認識の移行)）。Linux の保存先を移すときは、同じ決まりで `config.json.before-migration-storage` を残す。
 
 ## モデルの取得と適用
 
@@ -47,7 +48,7 @@
 | 公開済みのファイルが壊れた、なくなった | 取得し直すと、そのフォルダーを作業用の名前に戻して消し、取り直して同じ場所に公開する | フォルダーにアプリが書いていないものがあれば、残して `size_mismatch` か `hash_mismatch` で失敗する。作業用の名前がほかのもので使われているとき、Windows でファイルが使用中のときも残す | `complete_cache_is_reverified_and_a_damaged_one_is_downloaded_again`、`a_damaged_cache_holding_anything_else_is_kept_and_fails`、`a_damaged_cache_whose_staging_name_is_taken_is_kept`、`a_damaged_cache_moved_aside_by_a_run_that_stopped_is_removed_by_the_next` |
 | 適用（設定に書く） | ファイルを確かめ直してから設定に書く | 確かめられなければ設定に書かず、取得は `ready` のまま残る | `tampered_file_cannot_be_applied`、`failed_setting_application_keeps_download_available` |
 
-公開済みのフォルダーを取り直してよいのは、中身がすべてアプリの書いたものだと確かめられたときだけである。確かめる条件は、中断した取得を片付ける条件と同じにしている。フォルダーの `owner.json` がそのモデルと公開前の作業用の名前を指し、中身がそのモデルのファイル、`owner.json`、`receipt.json` の通常のファイルだけであること。作業用の名前に戻すので、名前を変えた直後にアプリが止まっても、次に取得するときに片付く。
+公開済みのフォルダーを取り直してよいのは、中身がすべてアプリの書いたものだと確かめられたときだけである。確かめる条件は、中断した取得を片付ける条件と同じにしている。フォルダーの `owner.json` がそのモデルと公開前の作業用の名前を指し、中身がそのモデルのファイル、`owner.json`、`receipt.json` の通常のファイルだけであること。`owner.json` の `product` は 0.6.0 から `ASTAROT-model-download-v1` で、0.5.x が書いた `VRCT-VOX-model-download-v1` も同じに扱う（ADR-014）。作業用の名前に戻すので、名前を変えた直後にアプリが止まっても、次に取得するときに片付く。
 
 利用者が登録したモデル（`user_models.json`）は、一時ファイルに書いて置き換える。読めない、または版が違うときは書き換えずに残す（`native/ops/src/downloads/user_models.rs` の試験）。登録したファイルの大きさか更新時刻が変わったら、使えるものとして扱わない。
 

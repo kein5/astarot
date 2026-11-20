@@ -23,7 +23,7 @@ const CATALOG = unchecked<TranslationCatalog>({
 
 // The catalog's groups and cards, each drawn on its own. hints: whether the page shows
 // descriptions as hints (HintDescriptions).
-async function catalog(context: TestContext, hints = false) {
+async function catalog(context: TestContext, hints = false, layout = "list") {
     const runtime = hooks();
     context.onTestFinished(() => runtime.unmount());
     const heading = await loadModule<typeof import("../advanced_settings/catalogHeading.tsx")>(
@@ -34,7 +34,9 @@ async function catalog(context: TestContext, hints = false) {
         "../../../../../../logics/common/endpointPrivacy": { endpointDescription: () => "" },
         "../_components": { SectionLabelComponent: "section-label" },
         "../_components/hint/Hint": { useHintDescriptions: () => hints },
+        "../_components/fold/Fold": { Fold: "fold" },
         "../advanced_settings/catalogHeading": heading,
+        "../advanced_settings/catalogLayout": { useCatalogLayout: () => layout, CatalogList: "ul", CatalogFacts: "catalog-facts", CatalogLayoutSwitch: "catalog-layout-switch" },
         "./TranslationLlamaRuntimes": { TranslationLlamaRuntimes: "llama-runtimes" },
     });
     // One component at a time: each is drawn from scratch, so no state of the last one is read.
@@ -61,13 +63,28 @@ test("every card of the translation catalog ends its name's line with the state,
         [["mine", "in_use"], ["llm", "no_server"], ["shipped", "not_downloaded"], ["home", "ready"], ["cloud", "ready"]]);
 });
 
+test("in the grid a card's first line is its name and its state, and its marks are the line under it", async context => {
+    const { cards } = await catalog(context, false, "grid");
+    for (const id of ["shipped", "mine"]) {
+        const card = cards.get(id);
+        assert.ok(card, id);
+        const headLine = findIn(card, node => classOf(node) === "card_head");
+        assert.deepEqual([headLine.props.children].flat().filter(Boolean).map(node => node.type === "strong" ? "name" : classOf(node)),
+            ["name", "badge status"], id);
+        const marks = findIn(card, node => classOf(node) === "card_badges");
+        assert.ok(nodesIn(marks).some(node => classOf(node) === "badge"), `${id}: its kind under the name`);
+    }
+});
+
 test("an added entry's card is what it is, its facts, then its notes and actions", async context => {
     const { cards } = await catalog(context);
     for (const id of ["mine", "llm", "home"]) {
         const card = cards.get(id);
         assert.ok(card, id);
         const blocks: TreeNode[] = [card.props.children].flat();
-        assert.deepEqual(blocks.map(classOf), ["card_intro", "facts card_spec", "card_foot"], id);
+        // The facts are the catalogs' own part (catalogLayout.tsx): beside in the list, folded in the grid.
+        const block = (node: TreeNode) => node.type === "catalog-facts" ? `catalog-facts > ${classOf(node.props.children)}` : classOf(node);
+        assert.deepEqual(blocks.map(block), ["card_intro", "catalog-facts > facts card_spec", "card_foot"], id);
         const foot = blocks[2];
         assert.ok(find(foot, node => classOf(node) === "actions"), `${id}: the actions are in the foot`);
         // What keeps an entry from running is said beside the actions it explains.
@@ -77,7 +94,7 @@ test("an added entry's card is what it is, its facts, then its notes and actions
     // A shipped entry is its head alone.
     const shipped = cards.get("shipped");
     assert.ok(shipped);
-    assert.equal(classOf(shipped.props.children), "card_head");
+    assert.deepEqual([shipped.props.children].flat().filter(Boolean).map(classOf), ["card_head"]);
 });
 
 test("a group's help is its heading's hint on a page that shows hints, a line under the heading elsewhere", async context => {

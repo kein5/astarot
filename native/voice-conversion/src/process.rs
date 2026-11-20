@@ -1,7 +1,8 @@
 //! One conversion session: the worker's owner (`process.py`, `rvc_process.py`, `isolated.py`).
 //!
-//! The microphone is captured in blocks of the session's length (`block_ms` of the start, 40 ms
-//! unless chosen; Python's were 80 ms), each block goes to the worker, and only its checked,
+//! The microphone is captured in blocks of the session's length (`block_ms` of the start; when
+//! the start leaves it, the RVC worker chooses and says so in `ready`; Python's were 80 ms),
+//! each block goes to the worker, and only its checked,
 //! fresh answer reaches the output. No original-audio fallback exists. Capture never waits for
 //! the worker.
 //!
@@ -10,7 +11,7 @@
 
 use std::collections::VecDeque;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Condvar, Mutex, MutexGuard};
+use std::sync::{Arc, Condvar, Mutex, MutexGuard, OnceLock};
 use std::thread;
 use std::time::Duration;
 
@@ -23,7 +24,7 @@ use vrct_audio_routing::sync::monotonic_ns;
 use vrct_audio_routing::windows_route::{Capture, CaptureCallbacks, RouteDevices, WindowsRoute};
 
 use crate::protocol::{self as p, ProtocolError};
-use crate::worker::{arguments, rate_text, runtime_complete, RvcOptions, WorkerPipe, DEFAULT_BLOCK_MS, DEVICES, MAX_THREADS};
+use crate::worker::{arguments, rate_text, runtime_complete, RvcOptions, WorkerPipe, AUTO_BLOCK_MS, BLOCK_CACHE_FILE, DEFAULT_BLOCK_MS, DEVICES, MAX_THREADS};
 
 /// Device route: a block older than this is dropped instead of sent. More than half of the
 /// blocks of the last six seconds late means the PC cannot keep up, and the voice stops.
@@ -200,6 +201,8 @@ struct State {
     remainder: Vec<u8>,
     first: i64,
     last: i64,
+    /// The last block's start: the next one starts later.
+    block_start: i64,
     sequence: u64,
     sent: u64,
     speech: VecDeque<u8>,
@@ -232,8 +235,19 @@ struct Shared {
     args: Vec<String>,
     session: String,
     engine: &'static str,
-    block: p::Block,
-    late_window: usize,
+    /// The session's block: set at the start when the start chose one, otherwise from the
+    /// worker's `ready` (`--block-ms auto`, #531). The capture starts only after `ready`.
+    block: OnceLock<p::Block>,
+}
+
+impl Shared {
+    fn block(&self) -> p::Block {
+        *self.block.get().expect("the block is known before the capture starts")
+    }
+
+    fn late_window(&self) -> usize {
+        late_window(self.block())
+    }
 }
 
 fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
@@ -256,7 +270,7 @@ fn new_session() -> String {
 
 /// The checked options of an RVC start (`start_options('converted', ...)` with engine `rvc`).
 /// `device` (`auto`), `threads` (0: the worker's choice), `highpass` (true) and `block_ms`
-/// ([`DEFAULT_BLOCK_MS`]) may be left out.
+/// ([`DEFAULT_BLOCK_MS`]: the worker's choice) may be left out.
 pub fn rvc_options(options: &Value) -> Result<(RvcOptions, String), String> {
     let invalid = || "vc_options_invalid".to_owned();
     let object = options.as_object().ok_or_else(invalid)?;
@@ -279,8 +293,10 @@ pub fn rvc_options(options: &Value) -> Result<(RvcOptions, String), String> {
         Some(Value::Bool(on)) => *on,
         Some(_) => return Err(invalid()),
     };
+    // 0 (`AUTO_BLOCK_MS`): the worker chooses (#531).
     let block_ms = match object.get("block_ms") {
         None => DEFAULT_BLOCK_MS,
+        Some(value) if value.is_u64() && value.as_u64() == Some(u64::from(AUTO_BLOCK_MS)) => AUTO_BLOCK_MS,
         Some(value) => value.as_u64().filter(|_| value.is_u64()).and_then(|ms| u32::try_from(ms).ok()).and_then(p::Block::from_ms).ok_or_else(invalid)?.ms(),
     };
     let text = |key: &str| -> Result<String, String> {
@@ -298,7 +314,7 @@ pub fn rvc_options(options: &Value) -> Result<(RvcOptions, String), String> {
         return Err(invalid());
     }
     let rate = rate_text(index_rate, !rate.is_f64());
-    Ok((RvcOptions { runtime: PathBuf::from(runtime), directml: None, model: PathBuf::from(model), index, pitch, index_rate, device, threads, highpass, block_ms }, rate))
+    Ok((RvcOptions { runtime: PathBuf::from(runtime), directml: None, model: PathBuf::from(model), index, pitch, index_rate, device, threads, highpass, block_ms, block_cache: None }, rate))
 }
 
 fn resolve(path: &Path) -> Option<PathBuf> {
@@ -340,16 +356,22 @@ impl VcProcess {
             return Err("vc_runtime_missing".into());
         }
         options.directml = directml.map(Path::to_path_buf);
+        // Beside the runtime folder: it outlives a runtime set up again.
+        options.block_cache = options.runtime.parent().map(|folder| folder.join(BLOCK_CACHE_FILE));
         if options.device == "directml" && options.directml.is_none() {
             return Err("vc_directml_missing".into());
         }
         let session = new_session();
         let args = arguments(&options, &rate, &session);
-        let block = p::Block::from_ms(options.block_ms).ok_or("vc_options_invalid")?;
+        let block = match options.block_ms {
+            AUTO_BLOCK_MS => None,
+            ms => Some(p::Block::from_ms(ms).ok_or("vc_options_invalid")?),
+        };
         Ok(Self::with(worker.to_path_buf(), args, session, "rvc", route, monitor, block))
     }
 
-    fn with(worker: PathBuf, args: Vec<String>, session: String, engine: &'static str, route: Arc<dyn VcRoute>, monitor_choice: Option<MonitorSpec>, block: p::Block) -> Self {
+    /// `block`: `None` when the worker chooses it and says so in `ready`.
+    fn with(worker: PathBuf, args: Vec<String>, session: String, engine: &'static str, route: Arc<dyn VcRoute>, monitor_choice: Option<MonitorSpec>, block: Option<p::Block>) -> Self {
         Self {
             shared: Arc::new(Shared {
                 state: Mutex::new(State {
@@ -369,6 +391,7 @@ impl VcProcess {
                     remainder: Vec::new(),
                     first: 0,
                     last: 0,
+                    block_start: 0,
                     sequence: 0,
                     sent: 0,
                     speech: VecDeque::new(),
@@ -390,8 +413,7 @@ impl VcProcess {
                 args,
                 session,
                 engine,
-                block,
-                late_window: late_window(block),
+                block: block.map(OnceLock::from).unwrap_or_default(),
             }),
         }
     }
@@ -406,7 +428,7 @@ impl VcProcess {
         state.pending = true;
         state.state = "preparing";
         let shared = self.shared.clone();
-        let handle = thread::Builder::new().name("vrct-vc".into()).spawn(move || run(&shared, &source)).map_err(|_| "vc_start_failed".to_owned())?;
+        let handle = thread::Builder::new().name("astarot-vc".into()).spawn(move || run(&shared, &source)).map_err(|_| "vc_start_failed".to_owned())?;
         state.thread = Some(handle);
         Ok(())
     }
@@ -454,8 +476,8 @@ impl VcProcess {
             round_trip_ms: median_ms(&state.rounds),
             device: state.device.clone(),
             latency_ms: state.latency_ms,
-            // Known once the worker's ready packet has confirmed it.
-            block_ms: state.device.as_ref().map(|_| i64::from(self.shared.block.ms())),
+            // Known once the worker's ready packet has confirmed or chosen it.
+            block_ms: state.device.as_ref().and(self.shared.block.get()).map(|block| i64::from(block.ms())),
         }
     }
 
@@ -640,10 +662,16 @@ fn audio(shared: &Shared, pcm: &[u8]) -> bool {
                 part
             };
             state.partial.extend_from_slice(&part);
-            if state.partial.len() == shared.block.pcm_bytes() {
-                let info = match p::input_info(&shared.session, state.sequence, state.first, shared.block) {
+            if state.partial.len() == shared.block().pcm_bytes() {
+                // The block ends no later than its last part arrived. Its first part can have
+                // been handed over later after it began than this one (WASAPI read every 10 ms,
+                // then two packets at once): stamped from that part alone, the block would end
+                // in the future, which is refused as vc_block_expired.
+                let start = state.first.min(arrived - after - shared.block().ns()).max(state.block_start + 1);
+                state.block_start = start;
+                let info = match p::input_info(&shared.session, state.sequence, start, shared.block()) {
                     Ok(mut info) => {
-                        info.insert("pcm_bytes".into(), json!(shared.block.pcm_bytes()));
+                        info.insert("pcm_bytes".into(), json!(shared.block().pcm_bytes()));
                         info
                     }
                     Err(error) => {
@@ -661,7 +689,7 @@ fn audio(shared: &Shared, pcm: &[u8]) -> bool {
                 } else {
                     state.queue.pop_front();
                     state.queue.push_back(block);
-                    if too_late(&mut state, true, shared.late_window) {
+                    if too_late(&mut state, true, shared.late_window()) {
                         fault = Some("vc_capture_overrun".to_owned());
                         break;
                     }
@@ -684,7 +712,7 @@ fn next_block(shared: &Shared, info: p::Info) -> Result<Option<p::Info>, String>
     let end = info.get("end_ns").and_then(Value::as_i64).unwrap_or(0);
     let age = monotonic_ns() as i64 - end;
     let late = age > LATE_NS;
-    if too_late(&mut state, late, shared.late_window) {
+    if too_late(&mut state, late, shared.late_window()) {
         return Err("vc_capture_overrun".into());
     }
     if late {
@@ -862,7 +890,11 @@ fn session(shared: &Arc<Shared>, source: &Endpoint, worker_slot: &mut Option<Wor
     let worker = worker_slot.insert(WorkerPipe::start(&shared.worker, &shared.args, None).map_err(|_| "vc_worker_failed".to_owned())?);
     let check = || -> Result<(), ProtocolError> { cancelled(shared).map_err(ProtocolError) };
     let (info, pcm) = worker.read(route.ready_timeout(), &mut || check()).map_err(|e| e.0)?;
-    let (device, latency) = p::require_ready(&info, &pcm, &shared.session, shared.engine, shared.block).map_err(|e| e.0)?;
+    // A start that left the block to the worker learns it here (`--block-ms auto`, #531); the
+    // rest of the packet is checked against it as against a block the start chose.
+    let block = shared.block.get().copied().or_else(|| p::ready_block(&info)).unwrap_or_default();
+    let (device, latency) = p::require_ready(&info, &pcm, &shared.session, shared.engine, block).map_err(|e| e.0)?;
+    let _ = shared.block.set(block);
     {
         let mut state = lock(&shared.state);
         state.device = device.map(str::to_owned);
@@ -945,11 +977,11 @@ fn session(shared: &Arc<Shared>, source: &Endpoint, worker_slot: &mut Option<Wor
         {
             let mut state = lock(&shared.state);
             state.rounds.push_back(monotonic_ns() as i64 - sent_at);
-            while state.rounds.len() > shared.late_window {
+            while state.rounds.len() > shared.late_window() {
                 state.rounds.pop_front();
             }
         }
-        let converted_state = p::require_output(&result, &converted, &info, &pcm, monotonic_ns() as i64, route.max_age_ns(), shared.block).map_err(|e| e.0)?;
+        let converted_state = p::require_output(&result, &converted, &info, &pcm, monotonic_ns() as i64, route.max_age_ns(), shared.block()).map_err(|e| e.0)?;
         fresh().map_err(|e| e.0)?;
         let audible = audible(shared, converted, speech);
         output.write(&audible, &deadline).map_err(code_of)?;
@@ -980,9 +1012,9 @@ mod tests {
     }
 
     #[test]
-    fn a_start_converts_in_40_ms_blocks_unless_it_chooses_another_length() {
+    fn a_start_leaves_the_block_to_the_worker_unless_it_chooses_a_length() {
         let base = serde_json::json!({ "engine": "rvc", "runtime": "/r", "model": "/v.pth", "index": "", "pitch": 0, "index_rate": 0 });
-        assert_eq!(rvc_options(&base).unwrap().0.block_ms, 40);
+        assert_eq!(rvc_options(&base).unwrap().0.block_ms, crate::worker::AUTO_BLOCK_MS);
         let mut chosen = base.clone();
         chosen["block_ms"] = serde_json::json!(120);
         assert_eq!(rvc_options(&chosen).unwrap().0.block_ms, 120);
@@ -1031,7 +1063,7 @@ mod tests {
 
     fn process(block_ms: u32) -> super::VcProcess {
         let session = "0123456789abcdef0123456789abcdef".to_owned();
-        super::VcProcess::with("/nonexistent-worker".into(), Vec::new(), session, "rvc", std::sync::Arc::new(Unbound), None, Block::from_ms(block_ms).unwrap())
+        super::VcProcess::with("/nonexistent-worker".into(), Vec::new(), session, "rvc", std::sync::Arc::new(Unbound), None, Some(Block::from_ms(block_ms).unwrap()))
     }
 
     /// The process as a running session sees its capture: requested, nothing started.
@@ -1124,6 +1156,26 @@ mod tests {
     }
 
     #[test]
+    fn a_block_whose_first_part_came_late_ends_when_its_last_part_arrived() {
+        // WASAPI is read every 10 ms: a part can be handed over late and the next one at once.
+        // Stamped from the late part alone, the block ended about 18 ms in the future and the
+        // conversion stopped with vc_block_expired on its second block (#531).
+        vrct_audio_routing::sync::monotonic_ns();
+        std::thread::sleep(std::time::Duration::from_millis(100));
+        let process = requested(40);
+        assert!(process.offer_audio(&vec![0u8; PART]));
+        std::thread::sleep(std::time::Duration::from_millis(2));
+        assert!(process.offer_audio(&vec![0u8; PART]));
+        let arrived = vrct_audio_routing::sync::monotonic_ns() as i64;
+        let state = process.shared.state.lock().unwrap();
+        let block = &state.queue[0];
+        let (start, end) = (block.info["start_ns"].as_i64().unwrap(), block.info["end_ns"].as_i64().unwrap());
+        assert!(end <= arrived, "the block ends {} ns in the future", end - arrived);
+        assert_eq!(end - start, 40_000_000);
+        crate::protocol::require_fresh(end, arrived, crate::protocol::DEVICE_MAX_AGE_NS).expect("the block is fresh when it is queued");
+    }
+
+    #[test]
     fn a_capture_failure_is_shown_by_the_captures_own_code_as_python_showed_it() {
         // `_capture_failed` over `capture_error_code` (decision 3 of #733).
         assert_eq!(super::capture_failure("asr_capture_start_timeout"), "asr_capture_start_timeout");
@@ -1154,7 +1206,7 @@ mod tests {
         assert!(process.close(std::time::Duration::from_secs(5)));
         // Stopped, it does not start again either.
         assert_eq!(process.start(source).unwrap_err(), "vc_single_use");
-        let stopped = super::VcProcess::with("/nonexistent-worker".into(), Vec::new(), "0123456789abcdef0123456789abcdef".into(), "rvc", std::sync::Arc::new(Unbound), None, Block::default());
+        let stopped = super::VcProcess::with("/nonexistent-worker".into(), Vec::new(), "0123456789abcdef0123456789abcdef".into(), "rvc", std::sync::Arc::new(Unbound), None, Some(Block::default()));
         let began = std::time::Instant::now();
         stopped.stop();
         assert!(began.elapsed() < std::time::Duration::from_millis(100), "stop waits for nothing");
@@ -1260,6 +1312,18 @@ mod tests {
         for device in ["auto", "cuda", "cpu"] {
             assert!(super::VcProcess::rvc(&options(device), &worker, None, route(), None).is_ok(), "{device}");
         }
+        // Left to the worker, the block it chooses is kept beside the runtime folder (#531); a
+        // length the start chose is not.
+        let args = |block_ms: u32| {
+            let mut value = options("auto");
+            value["block_ms"] = serde_json::json!(block_ms);
+            super::VcProcess::rvc(&value, &worker, None, route(), None).unwrap().shared.args.clone()
+        };
+        let cache = std::fs::canonicalize(&runtime).unwrap().parent().unwrap().join(super::BLOCK_CACHE_FILE);
+        let auto = args(0);
+        let at = auto.iter().position(|arg| arg == "--block-cache").expect("the cache is named");
+        assert_eq!(std::path::Path::new(&auto[at + 1]).file_name(), cache.file_name());
+        assert!(!args(80).contains(&"--block-cache".to_owned()));
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

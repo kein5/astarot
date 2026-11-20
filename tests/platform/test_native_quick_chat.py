@@ -1,7 +1,8 @@
-"""KDE/X11 shortcut -> separate input -> existing sidecar/translation/OSC/TTS.
+"""KDE/X11 shortcut -> separate input -> the app's core: translation, OSC and TTS (CT-24).
 
 Uses local HTTP fixtures and private PipeWire. No model, host microphone or
 VRChat connection. Real IME behavior is covered only by synthetic browser events.
+tools/native_acceptance.py runs it as the quick_chat group, on KDE under X11 or XWayland.
 """
 import base64
 from contextlib import ExitStack, contextmanager
@@ -10,18 +11,17 @@ import os
 import re
 import socket
 import subprocess
-import sys
 import time
 
 import pytest
 
 from native_webdriver import NativeWebDriver, ROOT
-from native_processes import sidecars
 from test_native_ui import initial_state
 from native_translation import TranslationFixture
+from native_speech_server import SpeechServerFixture
 from tools.private_pipewire import private_graph, wait_for
 
-pytestmark = pytest.mark.skipif(os.environ.get('VRCT_TEST_NATIVE_QUICK_CHAT') != '1', reason='opt-in desktop shortcut/private graph')
+pytestmark = pytest.mark.skipif(os.environ.get('ASTAROT_TEST_NATIVE_QUICK_CHAT') != '1', reason='opt-in desktop shortcut/private graph')
 
 
 def xdo(*args):
@@ -97,9 +97,9 @@ def test_shortcut_raises_input_above_fullscreen_without_restoring_main(tmp_path)
         ui.close_settings()
         ui.wait("window.__TAURI_INTERNALS__.invoke('plugin:global-shortcut|is_registered', {shortcut:'Ctrl+Shift+Alt+F9'}).then(value => window.__shortcutRegistered = value); return window.__shortcutRegistered === true")
         main = ui.command('GET', '/window')
-        main_xid, = window_for(ui.app_process.pid, 'VRCT-VOX')
+        main_xid, = window_for(ui.app_process.pid, 'ASTAROT')
         xdo('windowminimize', main_xid)
-        wait_for(lambda: not window_for(ui.app_process.pid, 'VRCT-VOX'))
+        wait_for(lambda: not window_for(ui.app_process.pid, 'ASTAROT'))
         with fullscreen_foreground(tmp_path / 'foreground.log') as foreground:
             for opening in ('first', 'hidden', 'minimized', 'visible'):
                 xdo('windowactivate', '--sync', foreground)
@@ -125,7 +125,7 @@ def test_shortcut_raises_input_above_fullscreen_without_restoring_main(tmp_path)
                         chat_state=subprocess.check_output(['xprop', '-id', chat_xid, '_NET_WM_STATE'], text=True),
                         foreground_state=subprocess.check_output(['xprop', '-id', foreground, '_NET_WM_STATE'], text=True),
                     ), indent=2))
-                assert not window_for(ui.app_process.pid, 'VRCT-VOX'), opening
+                assert not window_for(ui.app_process.pid, 'ASTAROT'), opening
                 chat, = [handle for handle in ui.command('GET', '/window/handles') if handle != main]
                 ui.command('POST', '/window', {'handle': chat})
                 ui.wait("return document.activeElement?.getAttribute('aria-label') === 'Message'")
@@ -146,14 +146,10 @@ def test_shortcut_raises_input_above_fullscreen_without_restoring_main(tmp_path)
 
 
 def test_shortcut_focus_escape_and_single_pipeline(tmp_path):
-    sys.path.insert(0, str(ROOT / 'tests/voice'))
-    from ui_entry_acceptance import FixtureServer
     from pythonosc.osc_packet import OscPacket
     with private_graph(config_fragment=ROOT / 'config/pipewire/90-vrct-managed.conf'), ExitStack() as stack:
         translation = stack.enter_context(TranslationFixture(['Quick chat translation']))
-        tts = FixtureServer()
-        tts.start()
-        stack.callback(tts.stop)
+        tts = stack.enter_context(SpeechServerFixture())
         osc = stack.enter_context(socket.socket(socket.AF_INET, socket.SOCK_DGRAM))
         osc.bind(('127.0.0.2', 0))
         osc.setblocking(False)
@@ -181,24 +177,19 @@ def test_shortcut_focus_escape_and_single_pipeline(tmp_path):
             ui.open_route_settings()
             ui.click_text('button', 'Unmute')
             ui.close_settings()
-            ui.click('[role=switch][aria-label=Translation]')
-            ui.wait("return document.querySelector('[role=switch][aria-label=Translation]').getAttribute('aria-checked') === 'true'")
-            if ui.evaluate("return document.querySelector('[role=switch][aria-label=TTS]').getAttribute('aria-checked')") == 'false':
-                ui.click('[role=switch][aria-label=TTS]')
-            ui.wait("return document.querySelector('[role=switch][aria-label=TTS]').getAttribute('aria-checked') === 'true'")
+            ui.set_switch('Translation')
+            ui.set_switch('Text to speech (TTS)')
             main = ui.command('GET', '/window')
-            before = sidecars(ui)
-            assert len(before) == 1, before
-            main_xid, = window_for(ui.app_process.pid, 'VRCT-VOX')
+            main_xid, = window_for(ui.app_process.pid, 'ASTAROT')
             xdo('windowminimize', main_xid)
-            wait_for(lambda: not window_for(ui.app_process.pid, 'VRCT-VOX'))
+            wait_for(lambda: not window_for(ui.app_process.pid, 'ASTAROT'))
             start = time.monotonic()
             xdo('key', '--clearmodifiers', 'ctrl+alt+shift+j')
             wait_for(lambda: window_for(ui.app_process.pid, 'ASTAROT Quick Chat'))
             chat_xid, = window_for(ui.app_process.pid, 'ASTAROT Quick Chat')
             wait_for(lambda: xdo('getwindowfocus') == chat_xid)
             latency_ms = (time.monotonic() - start) * 1000
-            assert not window_for(ui.app_process.pid, 'VRCT-VOX'), 'opening the input must not restore the main window'
+            assert not window_for(ui.app_process.pid, 'ASTAROT'), 'opening the input must not restore the main window'
             handles = ui.command('GET', '/window/handles')
             chat, = [handle for handle in handles if handle != main]
             ui.command('POST', '/window', {'handle': chat})
@@ -215,10 +206,10 @@ def test_shortcut_focus_escape_and_single_pipeline(tmp_path):
             assert ui.evaluate('return arguments[0].value', ui.control('Message')) == 'retained draft'
             ui.fill('Message', 'Quick chat integration')
             xdo('key', 'Return')
-            ui.wait("return document.querySelector('textarea[class*=message_box_input_area]').value === ''")
+            # The Quick Chat window's own field empties once the message is handed on.
+            ui.wait("return document.querySelector('textarea[aria-label=Message]').value === ''")
             wait_for(lambda: len(translation.requests) == 1 and len(tts.requests) == 1)
             (tmp_path / 'quick-chat.png').write_bytes(base64.b64decode(ui.command('GET', '/screenshot')))
-            assert sidecars(ui) == before, 'the mini window must not spawn a second sidecar'
             messages = []
             until = time.monotonic() + 1
             while time.monotonic() < until:
@@ -236,20 +227,31 @@ def test_shortcut_focus_escape_and_single_pipeline(tmp_path):
             ui.close_app()
         (tmp_path / 'quick-chat.json').write_text(json.dumps(dict(
             shortcut='Ctrl+Alt+Shift+J', platform='KDE/XWayland', key_to_focus_ms=latency_ms,
-            main_stayed_minimized=True, sidecar_count=1, translation_count=1, osc_count=1, tts_count=1,
+            main_stayed_minimized=True, translation_count=1, osc_count=1, tts_count=1,
             real_models=False, physical_capture=False, physical_ime=False), indent=2))
 
 
-@pytest.mark.skipif(not os.environ.get('VRCT_TEST_WAYLAND_APP'), reason='separate native Wayland binary required')
-def test_wayland_explains_shortcut_limit_and_opens_from_button(tmp_path, monkeypatch):
-    monkeypatch.setenv('VRCT_TEST_APP', os.environ['VRCT_TEST_WAYLAND_APP'])
-    monkeypatch.delenv('VRCT_TEST_APPIMAGE', raising=False)
+def wayland_app():
+    """The build to start on native Wayland: ASTAROT_TEST_WAYLAND_APP, or else the development
+    build under test on a Wayland desktop. An AppImage is not started this way."""
+    if os.environ.get('ASTAROT_TEST_WAYLAND_APP'):
+        return os.environ['ASTAROT_TEST_WAYLAND_APP']
+    if os.environ.get('WAYLAND_DISPLAY') and not os.environ.get('ASTAROT_TEST_APPIMAGE'):
+        return os.environ.get('ASTAROT_TEST_APP')
+    return None
+
+
+@pytest.mark.skipif(not wayland_app(), reason='a Wayland desktop and a development build, or ASTAROT_TEST_WAYLAND_APP')
+def test_wayland_says_the_portal_registers_the_shortcut_and_opens_from_button(tmp_path, monkeypatch):
+    monkeypatch.setenv('ASTAROT_TEST_APP', wayland_app())
+    monkeypatch.delenv('ASTAROT_TEST_APPIMAGE', raising=False)
     state = initial_state(tmp_path)
     with NativeWebDriver(tmp_path / 'ui', {'VRCT_CONFIG_DIR': str(state), 'GDK_BACKEND': 'wayland'}) as ui:
         ui.wait_main_ready()
         main = ui.command('GET', '/window')
         ui.open_voice_page('Hotkeys', '[data-setting-id="open_quick_chat"] input')
-        ui.wait("return [...document.querySelectorAll('[role=status], [role=status] p')].some(e => e.textContent.includes('unavailable in native Wayland'))")
+        # Native Wayland registers the shortcut with the desktop's GlobalShortcuts portal; the page says so.
+        ui.wait("return document.body.innerText.includes(\"desktop's GlobalShortcuts portal\")")
         ui.click_text('button', 'Open input window')
         ui.wait("return document.querySelector('[data-main-page][data-showing=main]') !== null")
         chat, = [handle for handle in ui.command('GET', '/window/handles') if handle != main]

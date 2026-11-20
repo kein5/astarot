@@ -8,7 +8,7 @@
 //!
 //! The backend reads frames from `<dir>/frame` and writes one-line pointer
 //! commands to the datagram socket `<dir>/input.sock`. `<dir>` is private to
-//! this process and its children (`VRCT_VR_PANEL_DIR`).
+//! this process and its children (`ASTAROT_VR_PANEL_DIR`).
 use std::cell::{Cell, RefCell};
 use std::fs::{DirBuilder, File, OpenOptions};
 use std::os::unix::fs::{DirBuilderExt, FileExt, OpenOptionsExt};
@@ -83,7 +83,7 @@ pub fn header(sequence: u64, instance: u64, width: u32, height: u32, stride: u32
 }
 
 fn directory_for(runtime: &Path, process: u32) -> PathBuf {
-    runtime.join("vrct-vox").join(format!("vr-panel-{process}"))
+    runtime.join("astarot").join(format!("vr-panel-{process}"))
 }
 
 /// Directories of processes that no longer exist (a crash leaves one behind).
@@ -212,7 +212,7 @@ impl Panel {
         let socket = UnixDatagram::bind(socket_path).map_err(|error| format!("vr_panel_input_failed: {error}"))?;
         let stop = Arc::new(AtomicBool::new(false));
         let stopping = stop.clone();
-        std::thread::Builder::new().name("vrct-vr-panel-input".into()).spawn(move || {
+        std::thread::Builder::new().name("astarot-vr-panel-input".into()).spawn(move || {
             let mut buffer = [0u8; 128];
             while let Ok(length) = socket.recv(&mut buffer) {
                 if stopping.load(Ordering::Acquire) {
@@ -405,7 +405,7 @@ mod tests {
     #[test]
     fn the_header_has_a_fixed_layout() {
         let bytes = header(6, 0x0102_0304_0506_0708, 1628, 880, 6512);
-        assert_eq!(&bytes[..8], b"VRCTVRP1");
+        assert_eq!(&bytes[..8], b"ASTRVRP1");
         assert_eq!(u64::from_le_bytes(bytes[8..16].try_into().unwrap()), 6);
         assert_eq!(u64::from_le_bytes(bytes[16..24].try_into().unwrap()), 0x0102_0304_0506_0708);
         assert_eq!(u32::from_le_bytes(bytes[24..28].try_into().unwrap()), 1628);
@@ -423,7 +423,7 @@ mod tests {
         }
         let stale = stale_directories(&parent, |process| process == 10);
         assert_eq!(stale, vec![parent.join("vr-panel-20")]);
-        assert_eq!(directory_for(Path::new("/run/user/1000"), 42), Path::new("/run/user/1000/vrct-vox/vr-panel-42"));
+        assert_eq!(directory_for(Path::new("/run/user/1000"), 42), Path::new("/run/user/1000/astarot/vr-panel-42"));
         std::fs::remove_dir_all(&parent).unwrap();
     }
 }

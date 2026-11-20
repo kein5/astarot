@@ -22,10 +22,12 @@ export interface RealtimeAsrSourceSettings {
     readonly follow_default?: boolean;
 }
 
-// The built-in keywords on or off, and the user's own, "written=reading,reading".
+// The built-in keywords on or off, and the user's own, "written=reading,reading". removed: the
+// built-in terms the user took out, by written form (#792); left out while there are none.
 export interface RealtimeAsrVocabulary {
     readonly builtin?: boolean;
     readonly terms: readonly string[];
+    readonly removed?: readonly string[];
 }
 
 // /get/data/realtime_asr_settings (native/core/src/controller/realtime_asr.rs), in the shape the
@@ -93,6 +95,15 @@ const settingsAtom = atom<RealtimeAsrSettings | null>(null);
 const endpointsAtom = atom<RealtimeAsrEndpoints>({});
 const modelsAtom = atom<RealtimeAsrModels>({ models: [] });
 const errorAtom = atom<string | null>(null);
+// /get/data/builtin_vocabulary: the built-in VRChat terms as the app ships them (#792). null until
+// the core answers.
+const builtinVocabularyAtom = atom<readonly string[] | null>(null);
+
+// The built-in terms from the core's answer, or null when it is not a list of terms.
+const builtinTermsOf = (value: unknown): string[] | null => {
+    const terms: unknown = value && typeof value === "object" ? Reflect.get(value, "terms") : undefined;
+    return Array.isArray(terms) && terms.every(term => typeof term === "string") ? terms : null;
+};
 
 export const useRealtimeASR = () => {
     const [settings, setSettings] = useAtom(settingsAtom);
@@ -100,6 +111,7 @@ export const useRealtimeASR = () => {
     const [endpoints] = useAtom(endpointsAtom);
     const [models, updateModels] = useAtom(modelsAtom);
     const [error, updateError] = useAtom(errorAtom);
+    const [builtinVocabulary, setBuiltinVocabulary] = useAtom(builtinVocabularyAtom);
     const atoms = useStore();
     const { asyncStdoutToPython } = useStdoutToPython();
     const updateState = useCallback((value: RealtimeStateUpdate | null | undefined) => {
@@ -132,6 +144,7 @@ export const useRealtimeASR = () => {
         atoms.set(endpointsAtom, {});
         atoms.set(modelsAtom, { models: [] });
         atoms.set(errorAtom, null);
+        atoms.set(builtinVocabularyAtom, null);
         const logs = atoms.get(Atom_MessageLogs);
         atoms.set(Atom_MessageLogs, { ...logs, data: logs.data.filter(row => row.realtime?.state !== "partial") });
     }, [atoms]);
@@ -151,6 +164,10 @@ export const useRealtimeASR = () => {
         setSettings(value);
         updateError(null);
     }, [atoms, setSettings, updateError, updateState]);
+    const updateBuiltinVocabulary = useCallback((value: unknown) => {
+        const terms = builtinTermsOf(value);
+        if (terms) setBuiltinVocabulary(terms);
+    }, [setBuiltinVocabulary]);
     const updateEndpoints = useCallback((value: RealtimeAsrEndpoint | null | undefined) => {
         const source = value?.source;
         if (value && isSource(source)) {
@@ -165,6 +182,6 @@ export const useRealtimeASR = () => {
         if (response === false) updateError("backend_unavailable");
         return response;
     }, [updateError]);
-    return { settings, state, endpoints, models, error, send, updateSettings,
-        updateState, updateEndpoints, updateModels, updateError, reset, backendStopped };
+    return { settings, state, endpoints, models, error, builtinVocabulary, send, updateSettings,
+        updateState, updateEndpoints, updateModels, updateBuiltinVocabulary, updateError, reset, backendStopped };
 };

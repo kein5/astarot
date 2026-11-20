@@ -18,7 +18,7 @@ ASTAROTが他のプログラムとやり取りする口。UIとサイドカー�
 - 入力欄の送信操作では、空欄や送信失敗の場合も入力中の表示を消す。空欄への変更、自動クリア、フォーカスの移動、VRChatへの送信をオフにする操作でも消す。入力中の通知は引き続き2秒以上の間隔を空ける。Quick Chatは入力中の通知を出さず、送信時は共通の処理で表示を消す。
 - OCRで読んだ文とリアルタイム字幕はVRChatへ送らない。
 - 「翻訳後のメッセージのみ送信する」がオンなら訳だけを送る。送る文の形は設定のVRChatページのメッセージフォーマットで決める。
-- 送信先と受信のbind先は独立している。OSCQueryは送信先が`127.0.0.1`か`localhost`のときだけ使い、UDP受信とHTTPを常に`127.0.0.1`の空きポートにbindする。`VRCT:<時刻>`という名前で受信口を公開する。送信先を別のマシンから戻した場合も、受信はloopbackで再開する。
+- 送信先と受信のbind先は独立している。OSCQueryは送信先が`127.0.0.1`か`localhost`のときだけ使い、UDP受信とHTTPを常に`127.0.0.1`の空きポートにbindする。`ASTAROT:<時刻>`（0.5.xまでは`VRCT:<時刻>`）という名前で受信口を公開する。送信先を別のマシンから戻した場合も、受信はloopbackで再開する。
 - 受信口の広告と探索（mDNS）は、PCの外へ出さない（#559）。送るパケットはすべてIPのTTLを0にする。OSはこれを同じPCのグループの参加者（VRChatを含む）にだけ渡し、ネットワークには送らない。送り元が同じPC（loopbackかPC自身のアドレス）でないパケットは無視するので、ほかのマシンの問い合わせには答えず、その広告も覚えない。広告のアドレスは`127.0.0.1`なので、ほかのマシンは前からこの受信口を使えなかった。参加と送信をloopbackのインターフェースだけにする形では、VRChat（Windowsのデスクトップモードで確認）と互いに見つけられない。
 - 利用者はOSCQueryを止められる（`OSC_QUERY`、既定はオン。設定の「高度な設定」。中核のみ、#559）。オフのあいだはUDP受信、HTTP、広告、探索のどれも始めない。送信先を変えても始めず、オフにしたときに動いていれば止めて広告を取り下げる。チャットボックスへの送信と入力中の表示は変わらない。VRCマイクミュート同期は使えず、VRChatの在席は`"unknown"`になる。オンに戻すと、今の送信先で受信を始める。エンドポイントは`/get/data/osc_query`、`/set/enable/osc_query`、`/set/disable/osc_query`で、どちらの切り替えのあとも`/run/enable_osc_query`で準備の結果を知らせる。
 - OSCの起動、IP・ポート変更、停止は同じライフサイクルロックで直列化する。新しい受信・広告を用意できてから設定を確定し、失敗したら前の受信・広告を復旧する。復旧も失敗した場合は設定値を保ち、capabilityを無効として知らせる。終了要求後の起動は拒否する。
@@ -148,7 +148,7 @@ ASTAROTが他のプログラムとやり取りする口。UIとサイドカー�
 - 2種類以外の通知と、形式に合わないエラーコードは、送る前に捨てる。
 - PCの構成は同梱のspeech.cppの`speech devices --json`から読む（[モデル取得の目安](../voice-stack/model-downloads.md)と同じ一覧）。起動は待たせず、最初の通知の前に1回だけ読む。
 - デプロイ済みの受け側は、知らない項目が付いた通知も受け付ける（2026-11-14に`v`と`hw`を付けた`app_started`で確認した。応答は`accepted: 1`）。受け側が`hw`を保存するかどうかは受け側の実装による。
-- 環境変数`VRCT_TELEMETRY_URL`は、開発者が自分のPCに立てた代わりの受け側を指すためのもので、ループバックのHTTPのアドレスだけを受け付ける。ほかの値は無視する。
+- 環境変数`ASTAROT_TELEMETRY_URL`は、開発者が自分のPCに立てた代わりの受け側を指すためのもので、ループバックのHTTPのアドレスだけを受け付ける。ほかの値は無視する。
 - 受け側は送信元のIPアドレスや端末の識別子を保存しない設計である（受け側の担当の説明による）。通信の相手として、Cloudflareは送信元のアドレスを扱う。
 - 受け側は通知ごとに、受信した時刻と接続元の国を記録する。国はクライアントが送る値ではなく、Cloudflareが接続元のアドレスから出す値である（2026-11-14に受け側の読み取り用のビューで確認した）。利用者に見せる説明にもこの2つを含める。
 
@@ -170,7 +170,7 @@ ASTAROTが他のプログラムとやり取りする口。UIとサイドカー�
 
 同梱のONNX Runtime（チャット読み取り、ローカル翻訳、声質変換のワーカー）は、Microsoftの公式ビルドが持つ利用状況の送信を、アプリの同意の設定にかかわらず常に止める（#518）。
 
-- アプリ（`src-tauri/src/lib.rs`の`run`）と、ONNX Runtimeを読み込む各ツール（`ocr-read`、`vrct-translate`、`vrct-rvc-worker`ほか）は、ほかのスレッドを始める前に環境変数`ORT_DISABLE_TELEMETRY=1`を設定する。声質変換のワーカーはアプリからこの値を受け継ぐ。
+- アプリ（`src-tauri/src/lib.rs`の`run`）と、ONNX Runtimeを読み込む各ツール（`ocr-read`、`vrct-translate`、`astarot-rvc-worker`ほか）は、ほかのスレッドを始める前に環境変数`ORT_DISABLE_TELEMETRY=1`を設定する。声質変換のワーカーはアプリからこの値を受け継ぐ。
 - ONNX Runtimeの環境はすべて`with_telemetry(false)`（`DisableTelemetryEvents`）で作る。
 - Linux版（1.31）は、環境を作った時点で`~/.cache/Microsoft/DeveloperTools/.onnxruntime/`に`deviceid`とイベントのデータベースを作り、`mobile.events.data.microsoft.com`へ送る。止められるのは環境変数だけで、`DisableTelemetryEvents`は環境を作った後に呼ぶため、最初のイベントとファイルには間に合わない（2026-11-17に公式の`onnxruntime-linux-x64-1.31.0.tgz`で確認した）。
 - Windows版（1.31）はHTTPで送らず、ETWのイベント（プロバイダー`Microsoft.ML.ONNXRuntime`）を書くだけで、`deviceid`のファイルも作らない。集めるかどうかはWindowsの診断データの設定による。環境変数は読まず、`DisableTelemetryEvents`で止める。環境を作るときの最初の`ProcessInfo`イベントだけは、この設定より前に書かれる。
@@ -241,13 +241,13 @@ Plamo、Gemini、OpenAI、Groq、OpenRouter、OpenAI互換、LM Studio、Ollama�
 
 | 相手 | 起動 | 通信 |
 |---|---|---|
-| 同梱のspeech.cpp（TTS、ASR） | `build/vrct-vc-worker … speech-server`。プロファイルは`japanese`、`multilingual`、`asr` | OSが割り当てた`127.0.0.1`のポート。`GET /health`、`GET /v1/models`で準備を確かめる。起動の待ち時間は120秒 |
+| 同梱のspeech.cpp（TTS、ASR） | `build/speechcpp/speech serve …`（LinuxのCPU版は`build/speechcpp-cpu`）。中核が直接起動し、Linuxでは起動したスレッドが終わると子プロセスも終わる（`native/speech-server/src/child.rs`の`PR_SET_PDEATHSIG`）。プロファイルは`japanese`、`multilingual`、`asr` | OSが割り当てた`127.0.0.1`のポート。`GET /health`、`GET /v1/models`で準備を確かめる。起動の待ち時間は120秒 |
 | 外部のspeech.cpp | 利用者が起動する | ループバックの`http`だけを受け付ける |
 | 読み上げ | — | `POST /v1/audio/speech`に`{input, voice, language, response_format: "pcm", seed?, instructions?}`。応答は`audio/pcm`。4000文字まで |
 | 音声認識（REST） | — | `POST /v1/audio/transcriptions` |
 | リアルタイム音声認識 | — | `ws://…/v1/realtime`。`session.update`と`input_audio_buffer.append`、`commit`、`clear` |
 | 話者分離（任意） | `asr`プロファイルに話者分離モデルのパスがあれば、同じサーバーに3つ目のモデルとして読み込ませる | `/v1/models`がCPU以外の装置にある`diarization`を返すサーバーへのスピーカーの接続だけが、`session.update`の`audio.input.diarization`に`{}`を入れる。確定した発話の`speakers`（ラベル、開始、終了）を受け取る。マイクの接続は要求しない |
-| RVCワーカー | `build/vrct-rvc-worker`（Rust、`native/rvc-runtime`）。Linuxでは`build/vrct-vc-worker … rvc-native …`が起動する | stdin・stdoutでPCM（48kHz、`--block-ms`の長さのブロック単位。中核は`RVC_BLOCK_MS`を渡し、既定は40 msで1920フレーム。指定がなければワーカーは80 msで3840フレーム。`ready`の`block_frames`で長さを返す）。制御はJSON行（32KiBまで）。ONNX RuntimeとCUDAのライブラリは実行環境のフォルダーの`lib/`から読み込む。GPUを使えなければCPUで変換する。readyで変換する場所（`profile`が`low`ならGPU、`cpu`ならCPU）と、加える遅れ（`latency_ms`）を伝える。CPUで追いつかないときは、出力の代わりに`failed`（`vc_capture_overrun`）を送って止まる |
+| RVCワーカー | `build/astarot-rvc-worker`（Rust、`native/rvc-runtime`）。中核が直接起動する（`native/voice-conversion/src/child.rs`） | stdin・stdoutでPCM（48kHz、`--block-ms`の長さのブロック単位。中核は`RVC_BLOCK_MS`を渡す。既定の0（自動）では`--block-ms auto`を渡し、ワーカーがGPUで間に合う長さを選ぶ。指定がなければワーカーは80 msで3840フレーム。`ready`の`block_frames`で長さを返す）。制御はJSON行（32KiBまで）。ONNX RuntimeとCUDAのライブラリは実行環境のフォルダーの`lib/`から読み込む。GPUを使えなければCPUで変換する。readyで変換する場所（`profile`が`low`ならGPU、`cpu`ならCPU）と、加える遅れ（`latency_ms`）を伝える。CPUで追いつかないときは、出力の代わりに`failed`（`vc_capture_overrun`）を送って止まる |
 
 同梱TTSサーバーの停止・異常終了は、起動ごとの識別子と、その実行を使うTTSの世代を照合して処理する。現在のTTSが使うサーバーが終了したときは、TTSをオフにして待機中・再生中の読み上げを取り消し、従来どおり音声の状態取得でUIに伝える。同じ実行の停止直後と後処理後に通知が重なっても、無効化とTTSの世代更新は一度だけ行う。古い実行からの遅れた通知で、別の接続先や新しいサーバー実行を使うTTSをオフにしない。
 
@@ -402,8 +402,8 @@ VRパネルで会話ログを閉じている間も、状態の受信とログの
 | 相手 | やりとり |
 |---|---|
 | XDG ScreenCast portal（`org.freedesktop.portal.ScreenCast`） | Tauriが専用のD-Bus接続で、アプリIDの登録、`CreateSession`、`SelectSources`、`Start`、`OpenPipeWireRemote`の順に呼ぶ。`SelectSources`にはウィンドウだけ（`types: 2`）、1つだけ（`multiple: false`）、ポインターを映さない（`cursor_mode: 1`、対応しているとき）、選んだ結果を覚える（`persist_mode: 2`、ポータルの版が4以上のとき）、保存済みの`restore_token`を渡す。ポータルの応答が1（取り消し）なら`portal_cancelled`、そのほかの失敗は`portal_request_failed`、ウィンドウの共有に対応していなければ`screencast_unsupported` |
-| `vrct-screen-capture`（`native/screen-capture`） | Tauriが`OpenPipeWireRemote`の接続を標準入力として渡して起動する。引数は親のプロセスID、PipeWireのノードID、フレームファイルの場所、間隔（250ミリ秒）。メモリーのバッファーだけを受け付け（DMA-BUFは使わない）、形式はBGRx、BGRA、RGBx、RGBA。デスクトップには最大で毎秒4枚を頼み、明らかに早く届いた分は捨てる。標準出力のパイプをTauriが閉じるか、Tauriが終了すると止まる。標準エラーに`streaming`と、止まった理由（`screen_capture_<理由>`）を1行ずつ出す |
-| フレームファイル | `$XDG_RUNTIME_DIR/vrct-vox/vr-panel-<pid>/screen-frame`（ディレクトリは0700、ファイルは0600）。先頭64バイトはリトルエンディアンで、目印`VRCTSCR1`、通し番号（書き換え中は奇数）、識別番号（共有が終わると0。上位32ビットはヘルパーのプロセスID）、幅、高さ、1行のバイト数、画素の並び（0: BGRx、1: BGRA、2: RGBx、3: RGBA）、フレームの時刻。続けて画素を置く。最後の行は幅×4バイトだけを持つ。バックエンドは通し番号が読む前後で同じ偶数のときだけ使い、ファイルがない、識別番号が0、ヘルパーのプロセスがない、のどれかなら共有は終わったとみなす |
+| `astarot-screen-capture`（`native/screen-capture`） | Tauriが`OpenPipeWireRemote`の接続を標準入力として渡して起動する。引数は親のプロセスID、PipeWireのノードID、フレームファイルの場所、間隔（250ミリ秒）。メモリーのバッファーだけを受け付け（DMA-BUFは使わない）、形式はBGRx、BGRA、RGBx、RGBA。デスクトップには最大で毎秒4枚を頼み、明らかに早く届いた分は捨てる。標準出力のパイプをTauriが閉じるか、Tauriが終了すると止まる。標準エラーに`streaming`と、止まった理由（`screen_capture_<理由>`）を1行ずつ出す |
+| フレームファイル | `$XDG_RUNTIME_DIR/astarot/vr-panel-<pid>/screen-frame`（ディレクトリは0700、ファイルは0600）。先頭64バイトはリトルエンディアンで、目印`ASTRSCR1`、通し番号（書き換え中は奇数）、識別番号（共有が終わると0。上位32ビットはヘルパーのプロセスID）、幅、高さ、1行のバイト数、画素の並び（0: BGRx、1: BGRA、2: RGBx、3: RGBA）、フレームの時刻。続けて画素を置く。最後の行は幅×4バイトだけを持つ。バックエンドは通し番号が読む前後で同じ偶数のときだけ使い、ファイルがない、識別番号が0、ヘルパーのプロセスがない、のどれかなら共有は終わったとみなす |
 
 変化のないウィンドウは新しいフレームを送らないので、フレームが古いことだけでは共有の終わりと判断しない。
 

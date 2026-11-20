@@ -13,6 +13,8 @@ const endpoints = new Set([
 ].map(name => `/set/data/${name}`).concat([
     // A new connection key: the button says it is done only when the backend says so.
     "/run/regenerate_websocket_auth_token",
+    // The dictionary written out (#792): the button says the file's name, or that it failed.
+    "/run/export_vocabulary",
 ]));
 const textEndpoints = new Set([
     "deepl_auth_key", "plamo_auth_key", "gemini_auth_key", "openai_auth_key", "groq_auth_key", "openrouter_auth_key",

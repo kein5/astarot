@@ -35,7 +35,7 @@ use crate::portal_shortcuts::{backends_with, ensure_desktop_file, failure, next,
 
 const INTERFACE: &str = "org.freedesktop.portal.ScreenCast";
 const IMPL_INTERFACE: &str = "org.freedesktop.impl.portal.ScreenCast";
-const HELPER: &str = "vrct-screen-capture";
+const HELPER: &str = "astarot-screen-capture";
 /// The backend reads this file in the directory `vr_panel_surface` prepared.
 const FRAME_NAME: &str = "screen-frame";
 const SOURCE_WINDOW: u32 = 2;
@@ -244,7 +244,7 @@ impl Helper {
         let lifeline = child.stdout.take();
         let (sender, lines) = mpsc::channel();
         if let Some(stderr) = child.stderr.take() {
-            let reader = std::thread::Builder::new().name("vrct-screen-capture-log".into()).spawn(move || {
+            let reader = std::thread::Builder::new().name("astarot-screen-capture-log".into()).spawn(move || {
                 for line in BufReader::new(stderr).lines().map_while(Result::ok) {
                     let Some(parsed) = helper_line(&line) else { continue };
                     if let HelperLine::Failed(reason) = &parsed {
@@ -398,7 +398,7 @@ impl Portal {
 
     fn token(&mut self) -> String {
         self.counter += 1;
-        format!("vrct_vox_cast_{}_{}", std::process::id(), self.counter)
+        format!("astarot_cast_{}_{}", std::process::id(), self.counter)
     }
 
     /// Calls a request-returning method and waits for its `Response`, subscribing first so a
@@ -609,7 +609,7 @@ pub async fn screencast_start(window: WebviewWindow, app: AppHandle, state: Stat
     let (reply, result) = mpsc::channel();
     let thread = {
         let stop = stop.clone();
-        std::thread::Builder::new().name("vrct-portal-screencast".into())
+        std::thread::Builder::new().name("astarot-portal-screencast".into())
             .spawn(move || run(app, program, frame, restore_token, stop, reply))
             .map_err(|_| "screencast_unavailable")?
     };
@@ -725,7 +725,7 @@ mod tests {
 
     #[test]
     fn a_session_handle_is_a_path_as_text_or_as_a_path() {
-        let path = "/org/freedesktop/portal/desktop/session/1_42/vrct_vox_cast_7_2";
+        let path = "/org/freedesktop/portal/desktop/session/1_42/astarot_cast_7_2";
         let as_text = results(vec![("session_handle", Value::from(path))]);
         assert_eq!(session_handle(&as_text).unwrap().as_str(), path);
         let as_path = results(vec![("session_handle", Value::from(zbus::zvariant::ObjectPath::try_from(path).unwrap()))]);
@@ -738,15 +738,15 @@ mod tests {
     fn the_helper_is_looked_for_in_the_package_then_in_the_checkout() {
         // The archive: the app sits beside `_internal`.
         let packaged = helper_candidates(Path::new("/opt/VRCT-VOX/vrct-vox"), None);
-        assert_eq!(packaged[0], PathBuf::from("/opt/VRCT-VOX/_internal/build/vrct-screen-capture"));
+        assert_eq!(packaged[0], PathBuf::from("/opt/VRCT-VOX/_internal/build/astarot-screen-capture"));
         // The AppImage: the app is in usr/bin, the backend's files under usr/lib/vrct-vox.
         let appimage = helper_candidates(Path::new("/tmp/.mount_x/usr/bin/vrct-vox"), None);
         assert_eq!(appimage, vec![
-            PathBuf::from("/tmp/.mount_x/usr/bin/_internal/build/vrct-screen-capture"),
-            PathBuf::from("/tmp/.mount_x/usr/lib/vrct-vox/_internal/build/vrct-screen-capture"),
+            PathBuf::from("/tmp/.mount_x/usr/bin/_internal/build/astarot-screen-capture"),
+            PathBuf::from("/tmp/.mount_x/usr/lib/vrct-vox/_internal/build/astarot-screen-capture"),
         ]);
         let development = helper_candidates(Path::new("/src/src-tauri/target/debug/vrct-vox"), Some(Path::new("/src")));
-        assert_eq!(development.last(), Some(&PathBuf::from("/src/build/vrct-screen-capture")));
+        assert_eq!(development.last(), Some(&PathBuf::from("/src/build/astarot-screen-capture")));
         assert_eq!(development.len(), 3);
     }
 

@@ -1,5 +1,7 @@
 //! The backend core of VRCT-VOX, in Rust (Issue #285).
 //!
+//! Codename: Ayperos (#689; the table is in `docs/voice-stack/project-rename.md`).
+//!
 //! It takes over what the Python sidecar's `mainloop.py`, `controller.py` and `config.py` did:
 //! the requests from the UI and their answers ([`protocol`], [`dispatch`]), the error codes
 //! ([`errors`]), the settings and their migration from the Python era ([`config`]), the start-up
@@ -22,6 +24,7 @@ pub mod net_policy;
 pub mod protocol;
 pub mod resources;
 pub mod shipped_libraries;
+pub mod storage;
 pub mod voice_settings;
 
 pub use backend::{Backend, Options, STARTUP_FAILED_EXIT, STARTUP_LIMIT, STARTUP_TIMEOUT_EXIT, Sink};

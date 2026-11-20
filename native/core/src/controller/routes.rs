@@ -149,11 +149,10 @@ pub fn routes(core: &Arc<Core>) -> Routes {
     }
     b.get("/get/data/voice_settings", OPEN, "VOICE_SETTINGS");
     // Core only (#531): the block an RVC conversion cuts the microphone into, read when one
-    // starts. Refused unless 20 to 200 ms in steps of 20; the saved value stays.
+    // starts: 0 (the default) lets the worker choose. Refused unless 0 or 20 to 200 ms in
+    // steps of 20; the saved value stays.
     b.get("/get/data/rvc_block_ms", OPEN, "RVC_BLOCK_MS");
-    let rvc_block = integer(core, "RVC_BLOCK_MS", "VALIDATION_RVC_BLOCK_MS", |v, _| {
-        u32::try_from(v).ok().and_then(vrct_voice_conversion::protocol::Block::from_ms).is_some()
-    });
+    let rvc_block = integer(core, "RVC_BLOCK_MS", "VALIDATION_RVC_BLOCK_MS", |v, _| u32::try_from(v).is_ok_and(crate::config::schema::is_valid_rvc_block));
     b.add("/set/data/rvc_block_ms", OPEN, rvc_block);
 
     // Appearance
@@ -243,6 +242,9 @@ pub fn routes(core: &Arc<Core>) -> Routes {
     b.get("/get/data/usage_presets", OPEN, "USAGE_PRESETS");
     let presets = store(core, "USAGE_PRESETS", "VALIDATION_CONFIG_VALUE_INVALID");
     b.add("/set/data/usage_presets", OPEN, presets);
+    b.get("/get/data/catalog_layout", OPEN, "CATALOG_LAYOUT");
+    let layout = store(core, "CATALOG_LAYOUT", "VALIDATION_CONFIG_VALUE_INVALID");
+    b.add("/set/data/catalog_layout", OPEN, layout);
     b.get("/get/data/tray_companion_edge", OPEN, "TRAY_COMPANION_EDGE");
     let edge = store(core, "TRAY_COMPANION_EDGE", "VALIDATION_CONFIG_VALUE_INVALID");
     b.add("/set/data/tray_companion_edge", OPEN, edge);

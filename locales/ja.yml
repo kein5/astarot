@@ -271,7 +271,7 @@ backend_errors:
     VAD_INFERENCE_ERROR: "発話の検出に失敗したため、音声認識を止めました。もう一度試してください。繰り返し起きるときはASTAROTを再起動してください。"
     VAD_UNAVAILABLE: "VADには音声認識サーバー（speech.cpp）のSilero VADを使います。サーバーの準備ができていないため、オンにしませんでした。"
     VAD_UNAVAILABLE_recording: "音声認識サーバー（speech.cpp）のVADを使えないため、音声は音量で区切ります。"
-    VALIDATION_RVC_BLOCK_MS: "20で割り切れる20〜200の整数を入力してください。"
+    VALIDATION_RVC_BLOCK_MS: "「自動」か、20〜200のうち20で割り切れる長さを選んでください。"
     TRANSCRIBER_INIT_ERROR: "音声認識を開始できませんでした。設定の「音声認識（ASR）」でエンジンとモデルを確かめてから、もう一度試してください。"
     ASR_ERROR: "音声認識に失敗したため、認識を止めました。設定の「音声認識（ASR）」でエンジンを確かめてください。オンラインのエンジンなら、ネットワークの接続も確かめてから、もう一度試してください。"
     TRANSCRIPTION_API_AUTH_FAILED: "音声認識のサービスがAPIキーを受け付けなかったため、認識を止めました。設定の「音声認識（ASR）」でキーを確かめてください。"
@@ -498,6 +498,9 @@ config_page:
     common:
         # The fold each settings page keeps its seldom-changed settings in (AdvancedSection.tsx).
         advanced_section: "詳細設定"
+        # What pressing a fold's bar does (_components/fold/Fold.tsx), for the eye only.
+        fold_open: "開く"
+        fold_close: "閉じる"
         open_color_picker: "{{label}}の色を選択"
         duration_seconds_one: "{{count}}秒"
         duration_seconds_other: "{{count}}秒"
@@ -792,7 +795,9 @@ config_page:
             label: "ワードフィルター"
             desc: "登録された単語を検出するとその文章は送信されません。\n「,」カンマで区切るとまとめて複数の単語を追加できます。\n※重複した単語は登録されません。"
             add_button_label: "追加"
-            count_desc: "現在登録されている単語数: {{count}}"
+            list_one: "登録した単語（{{count}}語）"
+            list_other: "登録した単語（{{count}}語）"
+            list_empty: "登録した単語はありません。"
         mic_vad_filter:
             label: "マイクのVADフィルター"
             desc: "無音区間を検出してから音声を認識処理に送ります。会話の途中で文字起こしが止まってしまう場合は、この設定を無効にしてください。"
@@ -958,8 +963,8 @@ config_page:
         message_format_common:
             example_view:
                 title: "プレビュー"
-                show_all: "すべての例を表示"
-                show_fewer: "例の数を減らす"
+                more_one: "ほかの例（{{count}}件）"
+                more_other: "ほかの例（{{count}}件）"
                 original_translated: "原文 + 翻訳"
                 original_translated_multi: "原文 + 翻訳（多言語）"
                 translated_only_multi: "翻訳のみ（多言語）"
@@ -1268,8 +1273,10 @@ config_page:
             label: "縁取りの色（#RRGGBB）"
         section_label_rvc: "ボイスチェンジャー（RVC）"
         rvc_block_ms:
-            label: "変換する単位の長さ（ms）"
-            desc: "マイクの音声をこの長さずつ区切って変換します。短いほど声の遅れは小さくなりますが、GPUの処理が間に合わないと声が途切れやすくなります。20で割り切れる20〜200の整数を入力してください。既定は40です。次に変換を開始したときから使います。"
+            label: "変換する単位の長さ"
+            desc: "マイクの音声をこの長さずつ区切って変換します。短いほど声の遅れは小さくなりますが、GPUの処理が間に合わないと声が途切れやすくなります。「自動」では変換を始めるときにGPUの速さを測り、間に合ういちばん短い長さを選びます。既定は「自動」です。次に変換を開始したときから使います。"
+            automatic: "自動"
+            length: "{{ms}} ms"
 
     notifications:
         save_success: "設定を保存しました。"
@@ -1449,23 +1456,60 @@ realtime:
   vocabulary_help: "音声認識と読み上げと翻訳で、用語の書き方と読みをそろえます。音声認識の結果はどのエンジンでも登録した書き方に直し、日本語の読み上げは登録した読みで読みます。AIの翻訳エンジンには文に出てくる語を名前として伝えます。1項目に1語を書き、必要なら「=」のあとに読みをカンマ区切りで続けます（例: VRChat=ブイアールチャット,ブイチャ）。読みが普段の言葉と同じだと、その言葉も書き換わります。Haas-jaにはキーワードとして、Qwen3-ASRには短いヒントとして渡します。登録した語ごとに、言っていない語が書かれる可能性が少し増えるため、必要な語だけにしてください。辞書を変えると動作中の字幕は停止します。"
   vocabulary_builtin: "内蔵のVRChat用語を使う"
   vocabulary_user: "追加した用語"
-  vocabulary_term: "追加する用語"
   vocabulary_add: "用語を追加"
   vocabulary_remove: "{{term}}を削除"
   vocabulary_remove_short: "削除"
-  vocabulary_bulk: "まとめて追加する用語"
-  vocabulary_bulk_help: "1行に1語を、1語ずつ追加するときと同じ書き方で書きます。コピーした用語の一覧もそのまま貼り付けられます。"
-  vocabulary_bulk_placeholder: "VRChat=ブイアールチャット\nMidnight Rooftop"
-  vocabulary_bulk_add: "まとめて追加"
-  vocabulary_bulk_added: "{{count}}語を追加しました。保存すると使われます。"
-  vocabulary_bulk_skipped: "追加しなかった行：{{parts}}。"
-  vocabulary_bulk_separator: "、"
-  vocabulary_bulk_duplicates: "登録済みの{{count}}行"
-  vocabulary_bulk_invalid: "書き方が合わない{{count}}行"
-  vocabulary_bulk_over: "上限の100語を超えた{{count}}行"
-  vocabulary_bulk_rest: "書き方が合わない行と上限を超えた行は、直せるように欄に残しています。"
-  vocabulary_copy: "用語をコピー"
-  vocabulary_copied: "コピーしました"
+  # #792: the dictionary in use, one list: the user's own terms and the built-in terms with the
+  # user's changes. Terms are added at its head. A built-in term left as it ships follows a newer
+  # app's list.
+  vocabulary_list_one: "辞書の用語（{{count}}語）"
+  vocabulary_list_other: "辞書の用語（{{count}}語）"
+  vocabulary_list_about: "辞書の作り方"
+  vocabulary_new_written: "表記"
+  vocabulary_new_written_placeholder: "猫丸"
+  vocabulary_new_readings: "読み（「、」で区切る。省ける）"
+  vocabulary_new_readings_placeholder: "ねこまる"
+  vocabulary_add_done: "「{{term}}」を追加しました。保存すると使われます。"
+  vocabulary_add_builtin: "内蔵の用語「{{term}}」の読みを変えました。保存すると使われます。"
+  vocabulary_add_duplicate: "「{{term}}」は辞書にあります。読みを変えるときは、その行の「読みを変える」を使います。"
+  vocabulary_add_invalid: "表記は48字までで、「,」と「=」は使えません。読みは8個まで、1つ32字までです。"
+  vocabulary_add_full: "自分で追加した用語と読みを変えた内蔵の用語が、合わせて上限の100語に達しています。"
+  vocabulary_list_help: "内蔵のVRChat用語と、自分で追加した用語を合わせた辞書です。一覧の上の欄で用語を足せます。内蔵の用語は、読みを変えたり外したりできます。変更は自分の設定として保存し、アプリを更新しても残ります。変えていない内蔵の用語は、更新で用語が増えたり読みが直ったりすると、新しい内容に従います。自分で追加した用語と読みを変えた内蔵の用語は、合わせて100語までです。"
+  # #792: the dictionary written out to a file and read back from one.
+  vocabulary_import: "ファイルから読み込む"
+  vocabulary_export: "ファイルに書き出す"
+  vocabulary_export_open: "書き出したフォルダーを開く"
+  vocabulary_export_done: "「{{file}}」に書き出しました。"
+  vocabulary_export_failed: "書き出せませんでした。もう一度試してください。"
+  vocabulary_import_done: "辞書をファイルの内容に置き換えました。保存すると使われます。"
+  vocabulary_import_counts: "自分で追加した用語 {{own}}、読みを変えた内蔵の用語 {{changed}}、外した内蔵の用語 {{removed}}"
+  vocabulary_import_nothing: "読み込みました。辞書はファイルの内容と同じでした。"
+  vocabulary_import_empty: "ファイルに用語がありませんでした。辞書は変えていません。"
+  vocabulary_import_skipped: "読み込まなかった行：{{parts}}。"
+  vocabulary_import_separator: "、"
+  vocabulary_import_invalid_one: "書き方が合わない{{count}}行"
+  vocabulary_import_invalid_other: "書き方が合わない{{count}}行"
+  vocabulary_import_duplicate_one: "同じ表記が重なった{{count}}行"
+  vocabulary_import_duplicate_other: "同じ表記が重なった{{count}}行"
+  vocabulary_import_over_one: "上限の100語を超えた{{count}}行"
+  vocabulary_import_over_other: "上限の100語を超えた{{count}}行"
+  vocabulary_import_unreadable: "ファイルを読めませんでした。文字のファイル（.txt）を選んでください。"
+  vocabulary_import_too_large: "ファイルが大きすぎます。256 KBまでのファイルを選んでください。"
+  vocabulary_no_reading: "読みなし"
+  vocabulary_change_readings: "読みを変える"
+  vocabulary_change_readings_of: "{{term}}の読みを変える"
+  vocabulary_readings_of: "{{term}}の読み（「、」で区切る）"
+  vocabulary_readings_apply: "決定"
+  vocabulary_readings_cancel: "取り消す"
+  vocabulary_readings_invalid: "読みは8個まで、1つ32字までです。「=」は使えません。"
+  vocabulary_readings_full: "自分で追加した用語と読みを変えた内蔵の用語が、合わせて上限の100語に達しているため、読みを変えられません。"
+  vocabulary_restore: "元に戻す"
+  vocabulary_restore_of: "{{term}}の読みを元に戻す"
+  vocabulary_take_out: "外す"
+  vocabulary_take_out_of: "{{term}}を外す"
+  vocabulary_put_back: "戻す"
+  vocabulary_put_back_of: "{{term}}を戻す"
+  vocabulary_restore_all: "内蔵の用語をすべて元に戻す"
 
 realtime_toggle:
   save_unconfirmed: "設定の保存を確認できませんでした。内容を確認してもう一度保存してください。"
@@ -2070,6 +2114,14 @@ model_downloads:
 
 # モデルカタログ（モデルを選ぶ画面）。用途ごとのまとまりと、モデルごとのカード。
 model_catalog:
+    # The layouts of the catalogs' cards: a grid that shows more models at once, or a list that
+    # shows each model's facts beside it. In the grid the facts are a fold of the card.
+    layout:
+        label: "カタログの並べ方"
+        grid: "グリッド"
+        list: "リスト"
+        facts: "詳細"
+        facts_of: "詳細（{{file}}）"
     group:
         japanese: "日本語の読み上げ"
         multilingual: "日本語以外の読み上げ"
@@ -2110,6 +2162,8 @@ model_catalog:
         recommended: "GPU推奨"
         not_needed: "GPU不要"
     recommended_for: "おすすめ：{{languages}}"
+    recommended_for_count_one: "おすすめ：{{count}}言語"
+    recommended_for_count_other: "おすすめ：{{count}}言語"
     fits_memory: "空きメモリに合う"
     hardware_warning:
         badge: "性能不足の可能性"

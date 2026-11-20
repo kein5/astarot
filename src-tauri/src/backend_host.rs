@@ -9,7 +9,7 @@
 //! (`docs/voice-stack/core-integration.md`).
 
 use std::path::{Path, PathBuf};
-use std::sync::Mutex;
+use std::sync::{Mutex, OnceLock};
 use std::time::Duration;
 use tauri::ipc::Channel;
 use tauri::Manager;
@@ -61,30 +61,59 @@ pub(crate) fn state_dir(executable: &Path) -> PathBuf {
 }
 
 /// Where settings, logs and models live: the same folders the Python sidecar used, so that a
-/// user's settings carry over (`runtime_paths.py`, `config.py`).
+/// user's settings carry over (`runtime_paths.py`, `config.py`). They are settled once per process
+/// ([`settle_folders`]), and every reader gets the same answer.
+#[derive(Clone)]
 struct Folders {
     state_dir: PathBuf,
     app_dir: PathBuf,
     data_dir: PathBuf,
 }
 
-fn folders(executable: &Path) -> Folders {
-    let app_dir = executable.parent().map_or_else(|| PathBuf::from("."), Path::to_path_buf);
-    let linux_bundle = cfg!(target_os = "linux") && option_env!("VRCT_LINUX_BUNDLE") == Some("1");
-    // ASTAROT_CONFIG_DIR and ASTAROT_DATA_DIR, or the VRCT_ names 0.5.x documented.
-    let xdg = |variable: &str, configured: app_identity::env::Variable, fallback: &str| {
-        if let Some(dir) = configured.value_os() {
-            return PathBuf::from(dir);
-        }
-        let base = std::env::var_os(variable).map(PathBuf::from).filter(|p| p.is_absolute());
-        base.unwrap_or_else(|| PathBuf::from(std::env::var_os("HOME").unwrap_or_default()).join(fallback)).join(app_identity::LINUX_FOLDER.current())
-    };
-    let configured = app_identity::env::CONFIG_DIR.value_os().map(PathBuf::from);
-    let state_dir = configured.unwrap_or_else(|| {
-        if linux_bundle { xdg("XDG_CONFIG_HOME", app_identity::env::CONFIG_DIR, ".config") } else { app_dir.clone() }
+static FOLDERS: OnceLock<Folders> = OnceLock::new();
+
+/// Settles the folders at the start, before anything reads them, and answers the line for the
+/// start-up log when the Linux packages' folders were looked at. There the folders of 0.5.x move
+/// from `vrct-vox` to `astarot` (ADR-014, 2.4; `vrct_core::storage::linux`), which first asks the
+/// session bus whether another ASTAROT or VRCT-VOX runs: call it after the start has set its
+/// environment variables, as that starts a thread.
+pub(crate) fn settle_folders(executable: &Path) -> Option<String> {
+    let mut line = None;
+    FOLDERS.get_or_init(|| {
+        let (folders, summary) = resolve(executable);
+        line = summary;
+        folders
     });
-    let data_dir = if linux_bundle { xdg("XDG_DATA_HOME", app_identity::env::DATA_DIR, ".local/share") } else { app_dir.clone() };
-    Folders { state_dir, app_dir, data_dir }
+    line
+}
+
+fn folders(executable: &Path) -> Folders {
+    FOLDERS.get_or_init(|| resolve(executable).0).clone()
+}
+
+fn resolve(executable: &Path) -> (Folders, Option<String>) {
+    use app_identity::env::{CONFIG_DIR, DATA_DIR};
+    let app_dir = executable.parent().map_or_else(|| PathBuf::from("."), Path::to_path_buf);
+    #[cfg(target_os = "linux")]
+    if option_env!("ASTAROT_LINUX_BUNDLE") == Some("1") {
+        use vrct_core::storage::linux::{Location, other_instance, settle};
+        let home = PathBuf::from(std::env::var_os("HOME").unwrap_or_default());
+        // ASTAROT_CONFIG_DIR and ASTAROT_DATA_DIR, or the VRCT_ names 0.5.x documented, name a
+        // folder that is used as it is. Otherwise the XDG folder, under its old and new names.
+        let location = |configured: app_identity::env::Variable, variable: &str, fallback: &str| match configured.value_os() {
+            Some(dir) => Location::Given(PathBuf::from(dir)),
+            None => {
+                let base = std::env::var_os(variable).map(PathBuf::from).filter(|p| p.is_absolute()).unwrap_or_else(|| home.join(fallback));
+                let name = app_identity::LINUX_FOLDER;
+                Location::Default { legacy: base.join(name.legacy), current: base.join(name.current()) }
+            }
+        };
+        let settled = settle(location(CONFIG_DIR, "XDG_CONFIG_HOME", ".config"), location(DATA_DIR, "XDG_DATA_HOME", ".local/share"), other_instance);
+        let line = settled.summary();
+        return (Folders { state_dir: settled.state_dir, app_dir, data_dir: settled.data_dir }, Some(line));
+    }
+    let state_dir = CONFIG_DIR.value_os().map_or_else(|| app_dir.clone(), PathBuf::from);
+    (Folders { state_dir, data_dir: app_dir.clone(), app_dir }, None)
 }
 
 fn environment(executable: &Path, version: String) -> Environment {

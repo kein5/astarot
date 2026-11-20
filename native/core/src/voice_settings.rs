@@ -7,6 +7,8 @@ use serde_json::{Map, Value, json};
 
 pub const MAX_USER_TERMS: usize = 100;
 pub const MAX_TERMS: usize = 150;
+/// The most built-in terms the user can take out (#792): more than the built-in list holds.
+pub const MAX_REMOVED: usize = 150;
 const MAX_WRITTEN: usize = 48;
 const MAX_READING: usize = 32;
 const MAX_READINGS: usize = 8;
@@ -40,12 +42,30 @@ fn written_form(term: &str) -> &str {
     term.split_once('=').map_or(term, |(w, _)| w)
 }
 
+/// A built-in term's written form the user took out (#792), as `parse_term` keeps a written form:
+/// trimmed, its spaces made single, at most 48 characters, without `,` or `=`.
+fn parse_written(value: &Value) -> Result<String, &'static str> {
+    const INVALID: &str = "realtime_vocabulary_invalid";
+    let text = value.as_str().ok_or(INVALID)?;
+    if text.chars().any(|c| (c as u32) < 32 || c as u32 == 127) {
+        return Err(INVALID);
+    }
+    let written = text.split_whitespace().collect::<Vec<_>>().join(" ");
+    let length = char_len(&written);
+    if length == 0 || length > MAX_WRITTEN || written.contains(',') || written.contains('=') {
+        return Err(INVALID);
+    }
+    Ok(written)
+}
+
 /// `str.casefold` for the comparisons of written forms.
 fn fold(text: &str) -> String {
     text.chars().flat_map(char::to_lowercase).collect::<String>().replace('ß', "ss")
 }
 
-/// `normalize_vocabulary`.
+/// `normalize_vocabulary`. `removed` lists the built-in terms the user took out, by their written
+/// forms (#792). It is left out of the saved value while it is empty, so a version without it
+/// still reads the settings as long as no built-in term is taken out.
 pub fn normalize_vocabulary(value: Option<&Value>) -> Result<Value, &'static str> {
     const INVALID: &str = "realtime_vocabulary_invalid";
     let default = json!({ "builtin": true, "terms": [] });
@@ -54,7 +74,7 @@ pub fn normalize_vocabulary(value: Option<&Value>) -> Result<Value, &'static str
         Some(value) => value,
     };
     let object = value.as_object().ok_or(INVALID)?;
-    if object.keys().any(|k| k != "builtin" && k != "terms") {
+    if object.keys().any(|k| k != "builtin" && k != "terms" && k != "removed") {
         return Err(INVALID);
     }
     let builtin = match object.get("builtin") {
@@ -79,7 +99,49 @@ pub fn normalize_vocabulary(value: Option<&Value>) -> Result<Value, &'static str
             result.push(Value::String(term));
         }
     }
-    Ok(json!({ "builtin": builtin, "terms": result }))
+    let removed = match object.get("removed") {
+        None | Some(Value::Null) => &empty,
+        Some(Value::Array(removed)) => removed,
+        Some(_) => return Err(INVALID),
+    };
+    if removed.len() > MAX_REMOVED {
+        return Err(INVALID);
+    }
+    let mut taken_out = Vec::new();
+    let mut seen = std::collections::HashSet::new();
+    for written in removed {
+        let written = parse_written(written)?;
+        if seen.insert(fold(&written)) {
+            taken_out.push(Value::String(written));
+        }
+    }
+    let mut saved = json!({ "builtin": builtin, "terms": result });
+    if !taken_out.is_empty() {
+        saved["removed"] = Value::Array(taken_out);
+    }
+    Ok(saved)
+}
+
+/// The head of a dictionary file the user writes out (#792). The lines after it are the form the
+/// settings page reads back: one term a line, as the built-in terms' data file has them. Lines
+/// starting with `#` are notes.
+const VOCABULARY_FILE_HEAD: &str = "\
+# ASTAROT term dictionary / 用語辞書
+# The terms in use, one a line: written=reading,reading. Reading this file in makes the dictionary these terms.
+# 使っている用語を1行に1語、「表記=読み,読み」で書いています。読み込むと、辞書がこのファイルの用語に置き換わります。
+";
+
+/// `vocabulary_file`: the dictionary in use as a file (#792): every term recognition uses, in the
+/// order it uses them (`merged_terms`): the user's terms, a built-in term's changed readings among
+/// them, then the built-in terms left as they ship. A built-in term taken out is not in use and
+/// not written. From a value already normalized (`normalize_vocabulary`).
+pub fn vocabulary_file(vocabulary: &Value) -> String {
+    let mut text = VOCABULARY_FILE_HEAD.to_string();
+    for term in vrct_transcription::speechcpp::merged_terms(vocabulary) {
+        text.push_str(&term);
+        text.push('\n');
+    }
+    text
 }
 
 const EXCLUDED: [&str; 3] = ["vrct.managed.", "vrct.source-bridge.", "vrct.asr.capture."];
@@ -317,6 +379,62 @@ pub fn normalize_direct(value: &Value) -> Option<Value> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // #792: the built-in terms live in a data file (vrct-transcription's data/vrchat_terms.txt).
+    // Each line keeps the rules of a user's term and is already in its canonical form, and no
+    // written form is there twice: an edit of the file that breaks them fails here. How many
+    // there are is not held to a number: a longer list only loses its last terms to the cap of
+    // the merge when the user has many of their own.
+    #[test]
+    fn the_built_in_terms_keep_the_rules_of_a_term() {
+        let terms = vrct_transcription::speechcpp::vrchat_terms();
+        assert!(!terms.is_empty());
+        let mut seen = std::collections::HashSet::new();
+        for term in terms {
+            assert_eq!(parse_term(&json!(term)).as_deref(), Ok(term.as_str()), "{term} is a canonical term");
+            assert!(seen.insert(fold(written_form(term))), "{term} is there once");
+        }
+    }
+
+    // #792: the built-in terms the user took out are kept by their written forms, made canonical
+    // and told apart without regard to letter case. Nothing taken out leaves the member out, so a
+    // version without it reads the settings as before.
+    #[test]
+    fn the_built_in_terms_taken_out_are_kept_and_left_out_when_there_are_none() {
+        let saved = normalize_vocabulary(Some(&json!({ "terms": [], "removed": ["  Friends+ ", "friends+", "Known   User"] }))).unwrap();
+        assert_eq!(saved, json!({ "builtin": true, "terms": [], "removed": ["Friends+", "Known User"] }));
+        assert_eq!(normalize_vocabulary(Some(&json!({ "terms": [], "removed": [] }))).unwrap(), json!({ "builtin": true, "terms": [] }));
+        assert_eq!(normalize_vocabulary(Some(&json!({ "terms": [], "removed": null }))).unwrap(), json!({ "builtin": true, "terms": [] }));
+        for refused in [json!("Quest"), json!([3]), json!(["a=b"]), json!(["a,b"]), json!([""]), json!(["x".repeat(49)]),
+            json!(vec!["x"; MAX_REMOVED + 1])] {
+            assert_eq!(normalize_vocabulary(Some(&json!({ "terms": [], "removed": refused }))), Err("realtime_vocabulary_invalid"), "{refused}");
+        }
+        let many: Vec<String> = (0..MAX_REMOVED).map(|i| format!("t{i}")).collect();
+        assert_eq!(normalize_vocabulary(Some(&json!({ "removed": many }))).unwrap()["removed"].as_array().unwrap().len(), MAX_REMOVED);
+    }
+
+    // #792: the file the user writes out: the head, then the dictionary in use, as recognition
+    // uses it. A built-in term taken out is not written.
+    #[test]
+    fn a_dictionary_file_holds_every_term_in_use() {
+        use vrct_transcription::speechcpp::{merged_terms, vrchat_terms};
+        let vocabulary = normalize_vocabulary(Some(&json!({ "terms": ["猫丸 = ねこまる", "Quest=くえすと"], "removed": ["Vket"] }))).unwrap();
+        let text = vocabulary_file(&vocabulary);
+        assert!(text.starts_with("# ASTAROT term dictionary"));
+        let lines: Vec<&str> = text.lines().filter(|line| !line.starts_with('#')).collect();
+        assert_eq!(lines, merged_terms(&vocabulary));
+        assert_eq!(lines[..2], ["猫丸=ねこまる", "Quest=くえすと"], "the user's terms first");
+        let shipped = |written: &str| vrchat_terms().iter().find(|term| term.split('=').next() == Some(written)).unwrap().as_str();
+        assert!(lines.contains(&shipped("VRChat")), "a built-in term as it ships");
+        assert!(!lines.contains(&shipped("Quest")), "a built-in term with changed readings is written once, changed");
+        assert!(!lines.iter().any(|line| line.starts_with("Vket")), "a built-in term taken out is not in use");
+        assert!(!lines.iter().any(|line| line.starts_with('-')));
+        // Without the built-in terms, only the user's.
+        let own = normalize_vocabulary(Some(&json!({ "builtin": false, "terms": ["猫丸=ねこまる"] }))).unwrap();
+        assert_eq!(vocabulary_file(&own).lines().filter(|line| !line.starts_with('#')).collect::<Vec<_>>(), ["猫丸=ねこまる"]);
+        let none = normalize_vocabulary(Some(&json!({ "builtin": false, "terms": [] }))).unwrap();
+        assert!(vocabulary_file(&none).lines().all(|line| line.starts_with('#')), "nothing but the head");
+    }
 
     #[test]
     fn terms_are_canonical() {

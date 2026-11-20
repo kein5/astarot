@@ -43,7 +43,7 @@ flowchart LR
 | 処理の本体 | `native/core/src/controller/`と、`native/`のほかのクレート | 各機能（翻訳は`translation`、音声認識は`transcription`、読み上げは`tts`、声質変換は`voice-conversion`、音声経路は`audio-routing`、OCRは`ocr-runtime`、オーバーレイは`vr-overlay`、OSCなどは`adapters`、同梱サーバーは`speech-server`、モデル取得とテレメトリは`ops`） |
 | 設定 | `native/core/src/config/` | 設定の宣言、検証（`config/schema.rs`）、保存 |
 | エラー | `native/core/src/errors/` | エラーコードと既定の文言 |
-| ネイティブの補助 | `native/`、`build/` | `vrct-rvc-worker`、Linuxの`vrct-voice-gate`・`vrct-source-bridge`・`vrct-asr-capture`・`vrct-screen-capture`（ウィンドウ共有）、speech.cppのバイナリ |
+| ネイティブの補助 | `native/`、`build/` | `astarot-rvc-worker`、Linuxの`astarot-voice-gate`・`astarot-source-bridge`・`astarot-screen-capture`（ウィンドウ共有）、speech.cppのバイナリ |
 | Pythonバックエンド（0.4まで） | `src-python/`（0.6.0で消した） | 0.5.0の配布物には入らず、起動もしない。0.6.0でリポジトリからも消した（#285）。`reference/`の一覧のPythonの行は`tools/spec_python_baseline.json`に写した。中核との対応は`native/core/README.md`にある |
 
 ## 画面

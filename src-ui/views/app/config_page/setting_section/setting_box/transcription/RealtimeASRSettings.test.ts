@@ -18,6 +18,7 @@ interface Asr {
     endpoints: Record<string, unknown>;
     models: Record<string, unknown>;
     error: string | null;
+    builtinVocabulary: readonly string[] | null;
     send: (endpoint: string, data?: unknown) => unknown;
     updateError: (error: string | null) => void;
 }
@@ -49,7 +50,7 @@ async function fixture(context: TestContext, { hints = false }: { hints?: boolea
             mic: { endpoint: null, follow_default: true, language: "ja" },
             speaker: { endpoint: null, follow_default: true, language: "ja" },
             vocabulary: { builtin: true, terms: [] } },
-        state: {}, endpoints: {}, models: {}, error: null,
+        state: {}, endpoints: {}, models: {}, error: null, builtinVocabulary: null,
         send: (endpoint, data) => {
             calls.push([endpoint, data]);
             if (endpoint.startsWith("/set/")) return new Promise(resolve => responses.push(resolve));
@@ -70,7 +71,8 @@ async function fixture(context: TestContext, { hints = false }: { hints?: boolea
         "../_components/section_label_component/SectionLabelComponent": { SectionLabelComponent: "section-label" },
         "../_components/hint/Hint": { Hint: "hint", useHintDescriptions: () => hints },
         "../_components/hint/HintCheck": { HintCheck: "hint-check" },
-        "./VocabularyBulk.tsx": { VocabularyBulk: "vocabulary-bulk" },
+        "./VocabularyFiles.tsx": { VocabularyFiles: "vocabulary-files" },
+        "./VocabularyList.tsx": { VocabularyList: "vocabulary-list" },
         "../../../../../../logics/transcription/vocabularyTerms.ts": vocabularyTerms,
     });
     const { SaveBar } = await loadModule<typeof import("../../../topbar/Topbar.tsx")>(new URL("../../../topbar/Topbar.tsx", import.meta.url), barRuntime, {
@@ -114,19 +116,39 @@ async function fixture(context: TestContext, { hints = false }: { hints?: boolea
     };
     context.onTestFinished(() => { runtime.unmount(); barRuntime.unmount(); });
     render();
-    return { runtime, barRuntime, asr, render, bar, field, entries, status, changeURL, writes, acknowledge, refuse, window, modal, listeners };
+    return { runtime, barRuntime, asr, render, bar, field, entries, status, changeURL, writes, acknowledge, refuse, window, modal, listeners, calls };
 }
+
+// #792: the page asks for the built-in terms and hands them, with the dictionary, to one list where
+// terms are added, changed and taken out. A change from the list goes to the draft and the save bar.
+test("the dictionary is one list, with the built-in terms the page asked for", async context => {
+    const s = await fixture(context);
+    assert.ok(s.calls.some(([endpoint]) => endpoint === "/get/data/builtin_vocabulary"), "the page asks for the built-in terms");
+    const list = () => findIn(s.render(), node => node.type === "vocabulary-list");
+    assert.equal(list().props.builtin, null, "the list draws the user's terms until the core answers");
+    s.asr.builtinVocabulary = ["VRChat=ブイアールチャット,ブイチャ", "Quest=クエスト"];
+    s.asr.settings = { ...s.asr.settings, vocabulary: { builtin: true, terms: ["猫丸", "Quest=くえすと"], removed: ["VRChat"] } };
+    s.runtime.remount();
+    assert.deepEqual(list().props.builtin, s.asr.builtinVocabulary);
+    assert.deepEqual(list().props.vocabulary, { builtin: true, terms: ["猫丸", "Quest=くえすと"], removed: ["VRChat"] });
+    // No second place to add a term: the list is the one.
+    assert.equal(find(s.render(), node => node.type === "button" && node.props.children === "realtime.vocabulary_add"), null);
+    list().props.onVocabulary({ builtin: true, terms: ["猫丸"] });
+    s.render();
+    assert.equal(s.entries().length, 1);
+    assert.deepEqual(s.entries()[0].changes, ["realtime.vocabulary_user", "realtime.vocabulary_builtin"], "the change waits in the save bar");
+    // The form's listeners go while the window stub is still there.
+    s.runtime.unmount();
+    s.barRuntime.unmount();
+});
 
 test("realtime drafts register and unregister with the shared save bar, including dictionary edits", async context => {
     const s = await fixture(context);
     assert.equal(s.entries().length, 1);
     assert.equal(s.status(), "voice_ui.saved");
     s.changeURL();
-    let tree = s.render();
-    findIn(tree, node => node.type === "input" && node.props.maxLength === 320).props.onChange({ target: { value: "VRChat=ブイアールチャット" } });
-    tree = s.render();
-    findIn(tree, node => node.type === "button" && node.props.children === "realtime.vocabulary_add").props.onClick();
-    tree = s.render();
+    findIn(s.render(), node => node.type === "vocabulary-list").props.onVocabulary({ builtin: true, terms: ["VRChat=ブイアールチャット"] });
+    const tree = s.render();
     assert.equal(tree.props["data-unsaved"], true);
     assert.deepEqual(s.entries()[0].changes, ["realtime.url", "realtime.vocabulary_user"]);
     assert.equal(s.status(), "voice_ui.unsaved");
@@ -137,26 +159,27 @@ test("realtime drafts register and unregister with the shared save bar, includin
     assert.equal(s.listeners.length, 0);
 });
 
-test("terms added together join the draft and the save bar like one added term", async context => {
-    // #446: the bulk add hands the whole list to the form; nothing is saved until the bar saves.
+test("a dictionary file read in joins the draft and the save bar, as a term added in the list does", async context => {
+    // #792: the file part hands the dictionary it read to the form; nothing is saved until the bar
+    // saves. It writes out the dictionary the page shows, through the page's own requests.
     const s = await fixture(context);
     let tree = s.render();
-    const bulk = findIn(tree, node => node.type === "vocabulary-bulk");
-    assert.deepEqual(bulk.props.terms, []);
-    bulk.props.onTerms(["VRChat=ブイアールチャット", "Midnight Rooftop"]);
+    const files = findIn(tree, node => node.type === "vocabulary-files");
+    assert.deepEqual(files.props.vocabulary, { builtin: true, terms: [] });
+    assert.equal(files.props.send, s.asr.send);
+    files.props.onVocabulary({ builtin: true, terms: ["VRChat=ブイアールチャット", "Midnight Rooftop"] });
     tree = s.render();
-    assert.deepEqual(findIn(tree, node => node.type === "vocabulary-bulk").props.terms, ["VRChat=ブイアールチャット", "Midnight Rooftop"]);
+    assert.deepEqual(findIn(tree, node => node.type === "vocabulary-files").props.vocabulary.terms, ["VRChat=ブイアールチャット", "Midnight Rooftop"]);
     assert.deepEqual(s.entries()[0].changes, ["realtime.vocabulary_user"]);
-    assert.deepEqual(s.writes(), [], "adding never submits");
-    // The single add takes an entry in the canonical form and refuses one already listed.
-    const input = () => findIn(s.render(), node => node.type === "input" && node.props.maxLength === 320).props;
-    const add = () => findIn(s.render(), node => node.type === "button" && node.props.children === "realtime.vocabulary_add").props;
-    input().onChange({ target: { value: "vrchat = ぶいちゃ" } });
-    assert.equal(add().disabled, true, "the written form is listed already");
-    input().onChange({ target: { value: " 猫丸 = ねこまる " } });
-    add().onClick();
-    assert.deepEqual(findIn(s.render(), node => node.type === "vocabulary-bulk").props.terms,
+    assert.deepEqual(s.writes(), [], "reading a file never submits");
+    // A term added in the list joins the same terms.
+    const list = findIn(s.render(), node => node.type === "vocabulary-list");
+    assert.deepEqual(list.props.vocabulary.terms, ["VRChat=ブイアールチャット", "Midnight Rooftop"]);
+    list.props.onVocabulary({ ...list.props.vocabulary, terms: [...list.props.vocabulary.terms, "猫丸=ねこまる"] });
+    assert.deepEqual(findIn(s.render(), node => node.type === "vocabulary-files").props.vocabulary.terms,
         ["VRChat=ブイアールチャット", "Midnight Rooftop", "猫丸=ねこまる"]);
+    // No bulk add and no copy of the terms remain.
+    assert.equal(find(s.render(), node => node.type === "textarea"), null);
     // The form's listeners go while the window stub is still there.
     s.runtime.unmount();
     s.barRuntime.unmount();
@@ -215,8 +238,7 @@ test("canonical vocabulary acknowledgement clears the save bar and enables realt
     s.asr.state = { mic: { requested: false }, speaker: { requested: false } };
     s.asr.models = { server: "external", configured_url: s.asr.settings.base_url, base_url: s.asr.settings.base_url,
         models: [{ id: "asr-model", languages: ["ja"] }] };
-    findIn(s.render(), node => node.type === "input" && node.props.maxLength === 320).props.onChange({ target: { value: "VRChat = ブイアールチャット" } });
-    findIn(s.render(), node => node.type === "button" && node.props.children === "realtime.vocabulary_add").props.onClick();
+    findIn(s.render(), node => node.type === "vocabulary-list").props.onVocabulary({ builtin: true, terms: ["VRChat=ブイアールチャット"] });
     s.render(); s.entries()[0].save(); s.render();
     const sent = s.writes()[0][1];
     await s.acknowledge({ ...sent, vocabulary: { ...sent.vocabulary, terms: ["VRChat=ブイアールチャット"] } });

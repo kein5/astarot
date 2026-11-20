@@ -1,18 +1,18 @@
 //! Real models, on a PC that has them. Each variable names a folder that
 //! tools/translation_onnx/export.py wrote; the test is skipped without it.
 //!
-//!     VRCT_TRANSLATE_M2M100=.../m2m100_418M-onnx-int8
-//!     VRCT_TRANSLATE_NLLB=.../nllb-200-distilled-600M-onnx-int8
+//!     ASTAROT_TRANSLATE_M2M100=.../m2m100_418M-onnx-int8
+//!     ASTAROT_TRANSLATE_NLLB=.../nllb-200-distilled-600M-onnx-int8
 //!
 //! A GPU against the CPU, with any such folder (tools/translation_onnx/tiny.py writes small
 //! ones) and an ONNX Runtime library that has the provider (ORT_DYLIB_PATH):
 //!
-//!     VRCT_TRANSLATE_DEVICE=directml:1 VRCT_TRANSLATE_DEVICE_MODEL=.../tiny-nllb-onnx-float32
+//!     ASTAROT_TRANSLATE_DEVICE=directml:1 ASTAROT_TRANSLATE_DEVICE_MODEL=.../tiny-nllb-onnx-float32
 //!
 //! A folder the provider loads but cannot run (on DirectML: one written before 2026-11-18,
 //! whose Reshape nodes have allowzero=1):
 //!
-//!     VRCT_TRANSLATE_DEVICE=directml:1 VRCT_TRANSLATE_UNRUNNABLE_MODEL=.../folder
+//!     ASTAROT_TRANSLATE_DEVICE=directml:1 ASTAROT_TRANSLATE_UNRUNNABLE_MODEL=.../folder
 
 use vrct_translate_onnx::{codes, Accelerator, Bundle, Provider, Translator};
 
@@ -40,7 +40,7 @@ fn check(translator: &mut Translator, english: &str, japanese: &str) {
 
 #[test]
 fn m2m100_translates_both_ways() {
-    let Some(mut translator) = translator("VRCT_TRANSLATE_M2M100") else { return };
+    let Some(mut translator) = translator("ASTAROT_TRANSLATE_M2M100") else { return };
     check(&mut translator, "en", "ja");
     // A character SentencePiece does not know keeps the id the app's tokenizer gives it
     // through vocab.json ("跻" is one), not the unknown token.
@@ -50,12 +50,12 @@ fn m2m100_translates_both_ways() {
 
 #[test]
 fn nllb_translates_both_ways() {
-    let Some(mut translator) = translator("VRCT_TRANSLATE_NLLB") else { return };
+    let Some(mut translator) = translator("ASTAROT_TRANSLATE_NLLB") else { return };
     check(&mut translator, "eng_Latn", "jpn_Jpan");
 }
 
 fn device() -> Option<Accelerator> {
-    let device = std::env::var("VRCT_TRANSLATE_DEVICE").ok()?;
+    let device = std::env::var("ASTAROT_TRANSLATE_DEVICE").ok()?;
     let (name, index) = device.split_once(':').unwrap_or((&device, "0"));
     Some(Accelerator::new(Provider::from_name(name).expect("a provider name"), index.parse().expect("a device index")))
 }
@@ -64,7 +64,7 @@ fn device() -> Option<Accelerator> {
 /// model runs on the CPU, saying why (decision 76). It then translates as the CPU does.
 #[test]
 fn a_folder_the_device_cannot_run_falls_back_to_the_cpu() {
-    let (Some(at), Some(folder)) = (device(), std::env::var_os("VRCT_TRANSLATE_UNRUNNABLE_MODEL")) else {
+    let (Some(at), Some(folder)) = (device(), std::env::var_os("ASTAROT_TRANSLATE_UNRUNNABLE_MODEL")) else {
         return;
     };
     let bundle = Bundle::open(folder).unwrap();
@@ -84,7 +84,7 @@ fn a_folder_the_device_cannot_run_falls_back_to_the_cpu() {
 #[test]
 fn a_device_decodes_as_the_cpu_does() {
     let (Some(device), Some(folder)) =
-        (std::env::var("VRCT_TRANSLATE_DEVICE").ok(), std::env::var_os("VRCT_TRANSLATE_DEVICE_MODEL"))
+        (std::env::var("ASTAROT_TRANSLATE_DEVICE").ok(), std::env::var_os("ASTAROT_TRANSLATE_DEVICE_MODEL"))
     else {
         return;
     };

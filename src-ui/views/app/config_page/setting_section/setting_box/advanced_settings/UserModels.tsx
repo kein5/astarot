@@ -5,6 +5,9 @@ import { USER_MODEL_FILES, USER_MODEL_NAME_LIMIT, registrationRequest, userModel
 import { extensionOf } from "../../../../../../logics/common/fileDrop";
 import { FileDropZone } from "../_components/file_drop_zone/FileDropZone";
 import styles from "./VoiceSettings.module.scss";
+import { Fold } from "../_components/fold/Fold";
+import { CatalogFacts } from "./catalogLayout";
+import type { CatalogLayout } from "./catalogLayout";
 import { AuditionButton, AuditionNote } from "./VoiceAudition";
 import type { DownloadBlock, ExpectedPaths } from "./ModelDownloads";
 import type { UserModel, UserModelStatus } from "../../../../../../logics/voice/modelCatalog";
@@ -22,9 +25,11 @@ export interface UserModelCardsProps {
     expected?: ExpectedPaths;
     blocked?: DownloadBlock;
     busy: boolean;
+    // The layout of the catalog the cards are in.
+    layout?: CatalogLayout;
 }
 
-export const UserModelCards = ({ target, expected, blocked, busy }: UserModelCardsProps) => {
+export const UserModelCards = ({ target, expected, blocked, busy, layout = "list" }: UserModelCardsProps) => {
     const { t } = useI18n();
     const { userModels, send } = useModelDownloads();
     const [removing, setRemoving] = useState<string | null>(null);
@@ -34,19 +39,26 @@ export const UserModelCards = ({ target, expected, blocked, busy }: UserModelCar
         const roles = USER_MODEL_FILES[target] ?? [];
         const savedPaths = expected?.[target];
         return <li key={model.id} data-user-model tabIndex={-1} role="group" aria-label={model.name} className={styles.card} data-status={status}>
+            {/* In the grid the "your model" mark is the line under the name, so the state ends the name's line on every card. */}
             <div className={styles.card_intro}><div className={styles.card_head}>
                 <strong>{model.name}</strong>
-                <span className={styles.badge} data-tone="own">{t("user_models.badge")}</span>
+                {layout === "list" && <span className={styles.badge} data-tone="own">{t("user_models.badge")}</span>}
                 <span className={`${styles.badge} ${styles.status}`} data-tone={status === "registered" ? "downloaded" : status}>{t(`user_models.status.${status}`)}</span>
-            </div></div>
-            {/* Laid out as a catalog card: what it is, its facts, then its notes and actions. */}
-            <dl className={`${styles.facts} ${styles.card_spec}`}>
+            </div>
+            {layout === "grid" && <div className={styles.card_badges}><span className={styles.badge} data-tone="own">{t("user_models.badge")}</span></div>}
+            </div>
+            {/* Laid out as a catalog card: what it is, its facts, then its notes and actions. In
+                the grid its size is on the card, as a model's, and its files are in the fold. */}
+            {layout === "grid" && <dl className={`${styles.facts} ${styles.card_key}`}>
+                <div><dt>{t("user_models.size")}</dt><dd>{gib(model.total_bytes)}</dd></div>
+            </dl>}
+            <CatalogFacts layout={layout}><dl className={`${styles.facts} ${styles.card_spec}`}>
                 {roles.filter(([role]) => model.paths[role]).map(([role]) => <div key={role}>
                     <dt>{t(`user_models.file.${role}`)}</dt>
                     <dd><code style={{ overflowWrap: "anywhere" }}>{model.paths[role]}</code></dd>
                 </div>)}
-                <div><dt>{t("user_models.size")}</dt><dd>{gib(model.total_bytes)}</dd></div>
-            </dl>
+                {layout === "list" && <div><dt>{t("user_models.size")}</dt><dd>{gib(model.total_bytes)}</dd></div>}
+            </dl></CatalogFacts>
             <div className={styles.card_foot}>
                 {["missing", "changed"].includes(status) && <p role="alert">{t(`user_models.status_help.${status}`)}</p>}
                 {status === "registered" && blocked && <p>{t(blocked === "edited" ? "user_models.blocked_edited" : "model_downloads.blocked")}</p>}
@@ -111,8 +123,7 @@ export const UserModelRegistration = ({ target, busy }: UserModelRegistrationPro
         setSentFor({ name: sent, before: (userModels?.models ?? []).filter(model => sameName(model, sent)).map(model => model.id) });
         send("/run/register_user_model", checked.request);
     };
-    return <details className={styles.more} data-user-model-register>
-        <summary>{t("user_models.register_title")}</summary>
+    return <Fold data-user-model-register summary={t("user_models.register_title")}>
         {/* Not a <form>: the catalog sits inside the speech server settings form, and a nested
             form would submit (save) that one too. Enter in a field registers, as a form would. */}
         <div role="group" aria-label={t("user_models.register_label", { group: t(`model_catalog.group.${target}`) })}
@@ -144,5 +155,5 @@ export const UserModelRegistration = ({ target, busy }: UserModelRegistrationPro
                 <button type="button" disabled={busy} onClick={submit}>{t("user_models.register")}</button>
             </div>
         </div>
-    </details>;
+    </Fold>;
 };

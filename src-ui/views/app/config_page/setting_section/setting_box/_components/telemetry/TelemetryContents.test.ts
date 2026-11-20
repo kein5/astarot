@@ -15,6 +15,7 @@ async function setup(context: TestContext, preview: unknown, props: { with_sent?
     const { TelemetryContents } = await loadModule<typeof import("./TelemetryContents.tsx")>(new URL("./TelemetryContents.tsx", import.meta.url), runtime, {
         "@logics_configs": { useOthers: () => ({ currentTelemetryPreview: preview, getTelemetryPreview: () => asked.push(true) }) },
         "../../../../../../../logics/common/telemetryRows": rows,
+        "../fold/Fold": { Fold: "fold" },
     });
     context.onTestFinished(() => runtime.unmount());
     return { tree: runtime.render(TelemetryContents, props), asked };
@@ -26,8 +27,10 @@ const text = (node: TreeNode | null) => { assert.ok(node); return React.Children
 
 test("what is sent is asked for when the user opens it, not before", async context => {
     const s = await setup(context, { state: "ok", data: null });
-    assert.equal(s.tree.type, "details");
-    assert.equal(text(find(s.tree, node => node.type === "summary")), "telemetry_contents.show");
+    // A bar of the app's one fold; the raw records inside are its links.
+    assert.equal(s.tree.type, "fold");
+    assert.equal(s.tree.props.size, undefined);
+    assert.equal(s.tree.props.summary, "telemetry_contents.show");
     assert.deepEqual(s.asked, []);
     s.tree.props.onToggle({ currentTarget: { open: true } });
     assert.deepEqual(s.asked, [true]);
@@ -76,7 +79,9 @@ test("the settings also list what was sent, newest first, each with its data", a
     const s = await setup(context, { state: "ok", data: { endpoint: null, app_started: EVENT, sent } }, { with_sent: true });
     const section = findIn(s.tree, node => node.type === "section");
     const items = all(section, node => node.type === "li");
-    assert.deepEqual(items.map(item => text(find(item, node => node.type === "summary"))), [
+    const folds = items.map(item => findIn(item, node => node.type === "fold"));
+    assert.ok(folds.every(fold => fold.props.size === "link"));
+    assert.deepEqual(folds.map(fold => React.Children.toArray(fold.props.summary.props.children).join("")), [
         "2026-11-14 21:30 — telemetry_contents.events.error (speech_server_out_of_memory) — telemetry_contents.sent_failed",
         "2026-11-13 09:00 — telemetry_contents.events.app_started — telemetry_contents.sent_accepted",
     ]);
