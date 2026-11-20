@@ -1,26 +1,49 @@
 import assert from "node:assert/strict";
 import { test, vi } from "vitest";
-import { hooks, loadModule, stubGlobals, eventTarget } from "../test/hookHarness.ts";
+import type { TestContext } from "vitest";
+import { hooks, loadModule, stubGlobals, eventTarget, unchecked } from "../test/hookHarness.ts";
 import { rebaseDraft } from "./draftRebase.ts";
+import type { DraftWrite, SettingsDraft } from "./useSettingsDraft.tsx";
+import type { StdoutResult } from "../common/useStdoutToPython.ts";
+
+// The form the tests edit: a vocabulary and a model.
+interface Vocabulary {
+    vocabulary: { terms: string[] };
+    model: string;
+}
+interface Request {
+    value: Vocabulary;
+    resolve: (response: unknown) => void;
+}
+
+const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null;
+// The form's draft; a form without one fails here, as reading a field of it would.
+const draftOf = (form: SettingsDraft<Vocabulary>) => {
+    assert.ok(form.draft);
+    return form.draft;
+};
 
 const flush = async () => { for (let i = 0; i < 10; i++) await Promise.resolve(); };
-async function setup(context, savedFromResponse) {
+async function setup(context: TestContext, savedFromResponse?: (result: unknown) => Vocabulary) {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
-    const runtime = hooks(), requests = [];
+    const runtime = hooks(), requests: Request[] = [];
     context.onTestFinished(() => runtime.unmount());
     stubGlobals(context, { window: eventTarget() });
-    const state = { saved: { vocabulary: { terms: [] }, model: "old" }, error: null };
-    const { useSettingsDraft } = await loadModule(new URL("./useSettingsDraft.tsx", import.meta.url), runtime, {
+    const state: { saved: Vocabulary; error: string | null } = { saved: { vocabulary: { terms: [] }, model: "old" }, error: null };
+    const { useSettingsDraft } = await loadModule<typeof import("./useSettingsDraft.tsx")>(new URL("./useSettingsDraft.tsx", import.meta.url), runtime, {
         "./draftRebase": { rebaseDraft }, "./saveBar": { changedPaths: () => [], setSaveBarEntry() {} },
     });
-    const write = value => new Promise(resolve => requests.push({ value, resolve }));
-    const updateError = value => { state.error = value; };
+    // Without patch the form writes its whole draft. The tests answer with only what the draft
+    // reads of an answer (status and result), or with false.
+    const write: DraftWrite<Vocabulary> = value => new Promise<StdoutResult>(resolve =>
+        requests.push({ value: unchecked<Vocabulary>(value), resolve: response => resolve(unchecked<StdoutResult>(response)) }));
+    const updateError = (value: string | null) => { state.error = value; };
     const render = () => {
         runtime.render(() => useSettingsDraft(state.saved, state.error, updateError, { write, savedFromResponse }));
         return runtime.render(() => useSettingsDraft(state.saved, state.error, updateError, { write, savedFromResponse }));
     };
     const edit = () => { render().setDraft({ ...state.saved, vocabulary: { terms: ["VRChat = ブイアールチャット"] } }); render(); };
-    const reply = async (index, value) => {
+    const reply = async (index: number, value: Vocabulary) => {
         state.saved = value;
         render();
         requests[index].resolve({ status: 200, result: value });
@@ -51,13 +74,14 @@ test("a late owned acknowledgement clears uncertainty but discard revokes owners
     assert.equal((await s.reply(0, canonical)).saveState, "saved");
     s.edit(); s.render().submit(s.write); s.render();
     s.render().discard(); s.render();
-    s.render().setDraft({ ...s.render().draft, model: "newer" }); s.render();
-    assert.equal((await s.reply(1, canonical)).draft.model, "newer");
+    s.render().setDraft({ ...draftOf(s.render()), model: "newer" }); s.render();
+    assert.equal(draftOf(await s.reply(1, canonical)).model, "newer");
     assert.equal(s.render().saveState, "unsaved");
 });
 
 test("direct-voice responses acknowledge their nested settings without adopting runtime state", async context => {
-    const s = await setup(context, value => value.settings);
+    // The reply's settings, which this test sends as the form's value.
+    const s = await setup(context, value => unchecked<Vocabulary>(isRecord(value) ? value.settings : undefined));
     s.edit(); s.render().submit(s.write); s.render();
     const canonical = { ...s.state.saved, vocabulary: { terms: ["VRChat=ブイアールチャット"] } };
     s.state.saved = canonical;
@@ -70,7 +94,7 @@ test("direct-voice responses acknowledge their nested settings without adopting 
 test("canonical acknowledgement preserves edits made after submission", async context => {
     const s = await setup(context);
     s.edit(); s.render().submit(s.write);
-    s.render().setDraft({ ...s.render().draft, model: "newer" }); s.render();
+    s.render().setDraft({ ...draftOf(s.render()), model: "newer" }); s.render();
     const canonical = { ...s.state.saved, vocabulary: { terms: ["VRChat=ブイアールチャット"] } };
     const form = await s.reply(0, canonical);
     assert.deepEqual(form.draft, { ...canonical, model: "newer" });
@@ -81,10 +105,10 @@ test("canonical acknowledgement preserves edits made after submission", async co
 test("editing back to the old saved value while saving survives the response atom update", async context => {
     const s = await setup(context);
     s.edit(); s.render().submit(s.write); s.render();
-    s.render().setDraft({ ...s.render().draft, vocabulary: { terms: [] } }); s.render();
+    s.render().setDraft({ ...draftOf(s.render()), vocabulary: { terms: [] } }); s.render();
     const canonical = { ...s.state.saved, vocabulary: { terms: ["VRChat=ブイアールチャット"] } };
     const form = await s.reply(0, canonical);
-    assert.deepEqual(form.draft.vocabulary.terms, []);
+    assert.deepEqual(draftOf(form).vocabulary.terms, []);
     assert.equal(form.dirty, true);
     assert.equal(form.saving, false);
 });
@@ -99,7 +123,7 @@ test("an identical GET cannot acknowledge a write and an older response cannot c
     s.state.error = null; s.render();
     assert.equal(s.render().saveState, "save_failed", "a refresh clearing the feature error still cannot confirm delivery");
     assert.equal(s.render().dirty, true);
-    s.render().setDraft({ ...s.render().draft, model: "newer" }); s.render();
+    s.render().setDraft({ ...draftOf(s.render()), model: "newer" }); s.render();
     s.render().submit(s.write); s.render();
     await s.reply(0, s.requests[0].value);
     assert.equal(s.render().saving, true);
