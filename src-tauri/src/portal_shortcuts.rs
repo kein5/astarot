@@ -304,7 +304,7 @@ impl Portal {
             .map_err(failure("portal_unavailable"))?;
         let (connection, session, alive) = (self.connection.clone(), self.session.clone(), self.alive.clone());
         let holders = self.holders.clone();
-        self.listener = Some(std::thread::Builder::new().name("vrct-portal-signals".into())
+        self.listener = Some(std::thread::Builder::new().name("astarot-portal-signals".into())
             .spawn(move || listen(connection, signals, owners, backends, session, holders, alive, app))
             .map_err(|_| "portal_unavailable")?);
         let version: u32 = self.wait(operation, async {
@@ -319,7 +319,7 @@ impl Portal {
 
     fn token(&mut self) -> String {
         self.counter += 1;
-        format!("vrct_vox_{}_{}", std::process::id(), self.counter)
+        format!("astarot_{}_{}", std::process::id(), self.counter)
     }
 
     /// Calls a request-returning method and waits for its `Response`,
@@ -618,7 +618,7 @@ pub fn raise_with_kwin(caption: &'static str) {
         };
         let pid = std::process::id();
         let name = format!(
-            "vrct_vox_raise_{pid}_{}",
+            "astarot_raise_{pid}_{}",
             COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
         );
         let path = runtime.join(format!("{name}.js"));
@@ -674,7 +674,7 @@ pub async fn portal_shortcuts_bind(
         if worker.is_none() {
             let jobs = Arc::new(Jobs::default());
             let (app, receiver) = (app.clone(), jobs.clone());
-            std::thread::Builder::new().name("vrct-portal-shortcuts".into())
+            std::thread::Builder::new().name("astarot-portal-shortcuts".into())
                 .spawn(move || run(app, receiver)).map_err(|_| "portal_unavailable")?;
             *worker = Some(jobs);
         }

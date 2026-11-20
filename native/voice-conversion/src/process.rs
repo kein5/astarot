@@ -409,7 +409,7 @@ impl VcProcess {
         state.pending = true;
         state.state = "preparing";
         let shared = self.shared.clone();
-        let handle = thread::Builder::new().name("vrct-vc".into()).spawn(move || run(&shared, &source)).map_err(|_| "vc_start_failed".to_owned())?;
+        let handle = thread::Builder::new().name("astarot-vc".into()).spawn(move || run(&shared, &source)).map_err(|_| "vc_start_failed".to_owned())?;
         state.thread = Some(handle);
         Ok(())
     }

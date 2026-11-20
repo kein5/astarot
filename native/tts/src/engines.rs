@@ -425,7 +425,7 @@ impl EngineClient {
         let client = self.clone();
         let producer = inner.clone();
         thread::Builder::new()
-            .name("vrct-vox-engine-prefetch".into())
+            .name("astarot-engine-prefetch".into())
             .spawn(move || {
                 for piece in pieces {
                     match client.synthesize_piece(&piece, &voice_id, &producer, &params) {

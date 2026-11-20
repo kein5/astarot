@@ -167,7 +167,7 @@ pub fn run_check(pair: &CablePair, report: &mut dyn FnMut(f64), stop: &Arc<Event
     let pcm = tone(TONE_RATE);
     let failed = Arc::new(Mutex::new(false));
     let (player_stop, player_failed) = (stop.clone(), failed.clone());
-    let player = Worker::spawn("vrct-virtual-mic-tone", move || {
+    let player = Worker::spawn("astarot-virtual-mic-tone", move || {
         let token = StopToken(player_stop.clone());
         let step = (f64::from(TONE_RATE) * BLOCK_SECONDS) as usize * 2;
         for block in pcm.chunks(step) {

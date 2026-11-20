@@ -71,7 +71,7 @@ impl Capture for PipeWireCapture {
         let (ready, started) = mpsc::channel();
         let (quit, target, node_name) = (self.quit.clone(), self.source.serial.to_string(), self.node_name.clone());
         let monitor = self.source.media_class == "Audio/Sink";
-        let worker = Worker::spawn("vrct-pipewire-capture", move || run(&quit, &target, monitor, &node_name, callbacks, &ready))
+        let worker = Worker::spawn("astarot-pipewire-capture", move || run(&quit, &target, monitor, &node_name, callbacks, &ready))
             .map_err(|_| Error::runtime("asr_capture_stream_create_failed"))?;
         match started.recv_timeout(Duration::from_secs(3)) {
             Ok(Ok(())) => {

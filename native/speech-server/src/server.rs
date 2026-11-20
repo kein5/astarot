@@ -235,7 +235,7 @@ impl SpeechServer {
         shared.started = true;
         shared.health.state = State::Preparing;
         let inner = self.inner.clone();
-        let name = format!("vrct-speech-{}", self.inner.profile.name());
+        let name = format!("astarot-speech-{}", self.inner.profile.name());
         match std::thread::Builder::new().name(name).spawn(move || inner.run()) {
             Ok(thread) => shared.thread = Some((thread.thread().id(), thread)),
             Err(_) => {
@@ -423,7 +423,7 @@ impl Inner {
         // while the warm-up runs, and that can take many seconds.
         let (inner, rows, done) = (self.clone(), rows.clone(), Done::new());
         let finished = done.clone();
-        let name = format!("vrct-speech-warm-{}", self.profile.name());
+        let name = format!("astarot-speech-warm-{}", self.profile.name());
         let thread = std::thread::Builder::new().name(name).spawn(move || {
             inner.finish_start(port, &rows, deadline);
             finished.finish();
@@ -511,7 +511,7 @@ impl Inner {
 
         // The pipe is read on its own thread: a read of it cannot be bounded in time.
         let (sender, receiver) = sync_channel::<Vec<u8>>(64);
-        let reader = std::thread::Builder::new().name("vrct-speech-output".into()).spawn(move || {
+        let reader = std::thread::Builder::new().name("astarot-speech-output".into()).spawn(move || {
             let Some(mut stderr) = stderr else { return };
             let mut block = [0u8; 8192];
             while let Ok(read) = stderr.read(&mut block) {

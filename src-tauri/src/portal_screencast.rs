@@ -244,7 +244,7 @@ impl Helper {
         let lifeline = child.stdout.take();
         let (sender, lines) = mpsc::channel();
         if let Some(stderr) = child.stderr.take() {
-            let reader = std::thread::Builder::new().name("vrct-screen-capture-log".into()).spawn(move || {
+            let reader = std::thread::Builder::new().name("astarot-screen-capture-log".into()).spawn(move || {
                 for line in BufReader::new(stderr).lines().map_while(Result::ok) {
                     let Some(parsed) = helper_line(&line) else { continue };
                     if let HelperLine::Failed(reason) = &parsed {
@@ -398,7 +398,7 @@ impl Portal {
 
     fn token(&mut self) -> String {
         self.counter += 1;
-        format!("vrct_vox_cast_{}_{}", std::process::id(), self.counter)
+        format!("astarot_cast_{}_{}", std::process::id(), self.counter)
     }
 
     /// Calls a request-returning method and waits for its `Response`, subscribing first so a
@@ -609,7 +609,7 @@ pub async fn screencast_start(window: WebviewWindow, app: AppHandle, state: Stat
     let (reply, result) = mpsc::channel();
     let thread = {
         let stop = stop.clone();
-        std::thread::Builder::new().name("vrct-portal-screencast".into())
+        std::thread::Builder::new().name("astarot-portal-screencast".into())
             .spawn(move || run(app, program, frame, restore_token, stop, reply))
             .map_err(|_| "screencast_unavailable")?
     };
@@ -725,7 +725,7 @@ mod tests {
 
     #[test]
     fn a_session_handle_is_a_path_as_text_or_as_a_path() {
-        let path = "/org/freedesktop/portal/desktop/session/1_42/vrct_vox_cast_7_2";
+        let path = "/org/freedesktop/portal/desktop/session/1_42/astarot_cast_7_2";
         let as_text = results(vec![("session_handle", Value::from(path))]);
         assert_eq!(session_handle(&as_text).unwrap().as_str(), path);
         let as_path = results(vec![("session_handle", Value::from(zbus::zvariant::ObjectPath::try_from(path).unwrap()))]);
