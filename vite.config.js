@@ -72,7 +72,7 @@ export default defineConfig(() => {
             alias: {
                 "@root": path.resolve(__dirname),
 
-                "@useI18n": path.resolve(__dirname, "locales/useI18n.js"),
+                "@useI18n": path.resolve(__dirname, "locales/useI18n.ts"),
 
                 // Logic modules without an extension, so a file can move from .js to .ts
                 // (ADR-010) without touching the alias; tsconfig.json has the same list.

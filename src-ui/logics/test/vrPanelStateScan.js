@@ -18,7 +18,7 @@ const ALIASES = {
     "@ui_configs": "src-ui/logics/ui_configs",
     "@useStdoutToPython": "src-ui/logics/common/useStdoutToPython",
     "@useReceiveRoutes": "src-ui/logics/useReceiveRoutes",
-    "@useI18n": "locales/useI18n.js",
+    "@useI18n": "locales/useI18n",
     "@logics_common": "src-ui/logics/common",
     "@logics_main": "src-ui/logics/main",
     "@logics_configs": "src-ui/logics/configs",

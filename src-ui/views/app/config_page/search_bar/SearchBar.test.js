@@ -38,7 +38,7 @@ async function setup(t, { reducedMotion = false, control = true, delayed = false
         "../../../voice/settingsNavigation": { requestSettingsNavigation: fn => { if (guarded) proceed = fn; else fn(); } },
         "@ui_configs": { ui_configs: {} },
         "./configSearchTargets.ts": searchTargets, "../../revealSetting.ts": revealSettingModule,
-        "@root/locales/config.js": { getResource: () => ({ config_page: { advanced_settings: { osc: { label: "OSC", desc: "OSC port" } } } }) },
+        "@root/locales/config.ts": { getResource: () => ({ config_page: { advanced_settings: { osc: { label: "OSC", desc: "OSC port" } } } }) },
     });
     const runtime = hooks();
     let hook = hookRuntime.render(useConfigSearch);

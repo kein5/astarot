@@ -28,7 +28,7 @@
         // from .js to .ts without touching them.
         "paths": {
             "@root/*": ["./*"],
-            "@useI18n": ["./locales/useI18n.js"],
+            "@useI18n": ["./locales/useI18n"],
             "@useReceiveRoutes": ["./src-ui/logics/useReceiveRoutes"],
             "@useStdoutToPython": ["./src-ui/logics/common/useStdoutToPython"],
             "@ui_configs": ["./src-ui/logics/ui_configs"],
