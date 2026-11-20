@@ -583,4 +583,68 @@ mod tests {
         assert_eq!(offered_languages(&json!({ "languages": [] }), &model), model);
         assert_eq!(offered_languages(&json!({ "languages": ["ko", "ja", "xx"] }), &model), vec!["ja".to_string(), "ko".to_string()]);
     }
+
+    /// A stored row with every field this version checks when it reads the file.
+    fn stored_engine(folder: &str) -> Value {
+        json!({ "id": "tr-engine", "group": "engine", "name": "Mine", "runtime": "onnx", "folder": folder, "languages": ["ja", "en"] })
+    }
+
+    fn stored_api() -> Value {
+        json!({ "id": "tr-api", "group": "api", "name": "LAN", "protocol": "openai_compatible", "url": "http://192.168.1.5:8000/v1", "model": "qwen", "key": true })
+    }
+
+    #[test]
+    fn a_file_with_a_row_this_version_cannot_trust_is_not_read_and_stays_as_it_was() {
+        let (dir, catalog, folder) = setup();
+        let path = dir.path().join(FILE_NAME);
+        let write = |rows: Vec<Value>| fs::write(&path, serde_json::to_string(&json!({ "version": 1, "entries": rows })).unwrap()).unwrap();
+        write(vec![stored_engine(&folder), stored_api()]);
+        assert_eq!(catalog.rows().len(), 2, "the file as written is read");
+        let mut broken = Vec::new();
+        for (field, value) in [
+            ("id", json!("")), ("id", json!(1)), ("name", json!("")), ("name", json!(" padded")), ("group", json!("other")),
+            ("runtime", json!("has space")), ("folder", json!("relative/path")), ("languages", json!(["ja", "not a code"])),
+            ("languages", json!("ja")), ("device", json!("")), ("file", json!("/also/a/file.gguf")),
+        ] {
+            let mut row = stored_engine(&folder);
+            row[field] = value.clone();
+            broken.push((format!("engine {field}={value}"), row));
+        }
+        for (field, value) in [("protocol", json!("")), ("url", json!("http://a b")), ("url", json!("")), ("model", json!(" qwen")), ("key", json!("yes"))] {
+            let mut row = stored_api();
+            row[field] = value.clone();
+            broken.push((format!("api {field}={value}"), row));
+        }
+        for (why, row) in broken {
+            write(vec![stored_engine(&folder), row]);
+            let before = fs::read(&path).unwrap();
+            assert_eq!(catalog.state()["error_code"], codes::UNREADABLE, "{why}");
+            assert_eq!(catalog.add(TranslationCatalog::normalize(&engine("Other", &folder)).unwrap()).unwrap_err().to_string(), codes::UNREADABLE, "{why}");
+            assert_eq!(fs::read(&path).unwrap(), before, "{why}: never overwritten");
+        }
+        // A file that cannot be read at all is not an empty catalog either; only no file is.
+        fs::remove_file(&path).unwrap();
+        fs::create_dir(&path).unwrap();
+        assert_eq!(catalog.state()["error_code"], codes::UNREADABLE);
+        fs::remove_dir(&path).unwrap();
+        assert_eq!(catalog.state(), json!({ "entries": [] }));
+    }
+
+    #[test]
+    fn an_api_entry_of_a_protocol_this_version_does_not_know_is_shown_as_unsupported() {
+        assert_eq!(view(&stored_api())["status"], "ok");
+        let mut newer = stored_api();
+        newer["protocol"] = json!("some_newer_protocol");
+        assert_eq!(view(&newer)["status"], "unsupported");
+    }
+
+    #[test]
+    fn up_to_the_limit_of_language_codes_are_kept() {
+        let codes: Vec<String> = (0..LANGUAGE_LIMIT).map(|i| format!("l{i}")).collect();
+        assert_eq!(languages_of(&json!(codes)).map(|kept| kept.len()), Some(LANGUAGE_LIMIT));
+        let one_more: Vec<String> = (0..=LANGUAGE_LIMIT).map(|i| format!("l{i}")).collect();
+        assert_eq!(languages_of(&json!(one_more)), None);
+        assert_eq!(languages_of(&json!([])), Some(Vec::new()));
+    }
 }
+

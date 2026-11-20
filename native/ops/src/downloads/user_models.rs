@@ -318,4 +318,111 @@ mod tests {
         assert_eq!(models.register(&request).unwrap_err().to_string(), "user_models_unreadable");
         assert_eq!(fs::read(dir.path().join(FILE_NAME)).unwrap(), b"{ not json");
     }
+
+    fn stored(file: &str) -> Value {
+        let size = fs::metadata(file).unwrap().len();
+        json!({ "id": "user-0123456789ab", "target": "japanese", "name": "Mine", "files": { "model": { "path": file, "size": size, "mtime_ns": 1 } } })
+    }
+
+    #[test]
+    fn a_file_with_a_row_this_version_cannot_trust_is_not_read_and_stays_as_it_was() {
+        let (dir, models, file) = setup();
+        let path = dir.path().join(FILE_NAME);
+        let write = |version: Value, rows: Vec<Value>| fs::write(&path, serde_json::to_string(&json!({ "version": version, "models": rows })).unwrap()).unwrap();
+        write(json!(FORMAT_VERSION), vec![stored(&file)]);
+        assert_eq!(models.state()["models"].as_array().unwrap().len(), 1, "the file as written is read");
+        let mut broken: Vec<(String, Value)> = Vec::new();
+        for (field, value) in [("id", json!(1)), ("name", json!("")), ("target", json!("ocr")), ("files", json!([]))] {
+            let mut row = stored(&file);
+            row[field] = value.clone();
+            broken.push((format!("{field}={value}"), row));
+        }
+        for (field, value) in [("path", json!(1)), ("size", json!(-1)), ("size", json!("4")), ("mtime_ns", json!(1.5))] {
+            let mut row = stored(&file);
+            row["files"]["model"][field] = value.clone();
+            broken.push((format!("model {field}={value}"), row));
+        }
+        let mut no_model = stored(&file);
+        no_model["files"] = json!({ "index": no_model["files"]["model"].clone() });
+        broken.push(("no model".into(), no_model));
+        let mut stray = stored(&file);
+        stray["files"]["index"] = stray["files"]["model"].clone();
+        broken.push(("an index for a speech model".into(), stray));
+        for (why, row) in broken {
+            write(json!(FORMAT_VERSION), vec![stored(&file), row]);
+            let before = fs::read(&path).unwrap();
+            assert_eq!(models.state()["error_code"], "user_models_unreadable", "{why}");
+            assert_eq!(fs::read(&path).unwrap(), before, "{why}");
+        }
+        write(json!(FORMAT_VERSION + 1), vec![stored(&file)]);
+        assert_eq!(models.state()["error_code"], "user_models_unreadable", "a newer version");
+        write(json!(null), vec![stored(&file)]);
+        assert_eq!(models.state()["error_code"], "user_models_unreadable", "no version");
+        // A file that cannot be read at all is not an empty list either; only no file is.
+        fs::remove_file(&path).unwrap();
+        fs::create_dir(&path).unwrap();
+        assert_eq!(models.state()["error_code"], "user_models_unreadable");
+        fs::remove_dir(&path).unwrap();
+        assert_eq!(models.state(), json!({ "models": [] }));
+    }
+
+    #[test]
+    fn a_name_is_printable_trimmed_and_at_most_80_characters() {
+        assert!(valid_name("My voice") && valid_name("声のモデル") && valid_name(&"a".repeat(NAME_LIMIT)));
+        assert!(!valid_name(&"a".repeat(NAME_LIMIT + 1)));
+        for name in ["", " x", "x ", "a\tb", "a\u{200B}b", "a\u{00AD}b", "a\u{202E}b", "a\u{FEFF}b", "a\u{2028}b", "a\u{3000}b"] {
+            assert!(!valid_name(name), "{name:?}");
+        }
+    }
+
+    #[test]
+    fn requests_name_exactly_their_fields_and_roles() {
+        let (dir, models, file) = setup();
+        let index = dir.path().join("voice.index");
+        let pth = dir.path().join("voice.pth");
+        fs::write(&index, b"I").unwrap();
+        fs::write(&pth, b"P").unwrap();
+        let (index, pth) = (index.to_string_lossy().into_owned(), pth.to_string_lossy().into_owned());
+        let extra = json!({ "target": "japanese", "name": "x", "paths": { "model": file }, "more": 1 });
+        assert_eq!(models.register(&extra).unwrap_err().to_string(), "user_model_invalid");
+        let stray = json!({ "target": "japanese", "name": "x", "paths": { "model": file, "index": index } });
+        assert_eq!(models.register(&stray).unwrap_err().to_string(), "user_model_invalid");
+        // RVC takes a model and its index, each of its own suffix.
+        let state = models.register(&json!({ "target": "rvc", "name": "Voice", "paths": { "model": pth, "index": index } })).unwrap();
+        assert_eq!(state["models"][0]["paths"], json!({ "model": pth, "index": index }));
+        let swapped = json!({ "target": "rvc", "name": "Swapped", "paths": { "model": index, "index": pth } });
+        assert_eq!(models.register(&swapped).unwrap_err().to_string(), "user_model_file_type");
+        // Another file under a name already taken for the target is refused too.
+        let other = dir.path().join("other.pth");
+        fs::write(&other, b"O").unwrap();
+        let same_name = json!({ "target": "rvc", "name": "Voice", "paths": { "model": other.to_string_lossy() } });
+        assert_eq!(models.register(&same_name).unwrap_err().to_string(), "user_model_exists");
+    }
+
+    #[test]
+    fn a_file_rewritten_to_the_same_size_is_changed_and_a_missing_one_is_not_usable() {
+        let (_dir, models, file) = setup();
+        let state = models.register(&json!({ "target": "japanese", "name": "x", "paths": { "model": file } })).unwrap();
+        let id = state["models"][0]["id"].as_str().unwrap().to_string();
+        // Same size, another time: the file is not the one registered.
+        let later = fs::metadata(&file).unwrap().modified().unwrap() + std::time::Duration::from_secs(60);
+        fs::File::options().write(true).open(&file).unwrap().set_modified(later).unwrap();
+        assert_eq!(models.state()["models"][0]["status"], "changed");
+        assert_eq!(models.usable(&id).unwrap_err().to_string(), "user_model_changed");
+        fs::remove_file(&file).unwrap();
+        assert_eq!(models.usable(&id).unwrap_err().to_string(), "user_model_missing");
+        assert_eq!(models.usable("user-none").unwrap_err().to_string(), "user_model_unknown");
+    }
+
+    #[test]
+    fn a_time_before_1970_is_recorded_as_negative_nanoseconds() {
+        let (dir, models, file) = setup();
+        let before = UNIX_EPOCH - std::time::Duration::from_secs(2);
+        fs::File::options().write(true).open(&file).unwrap().set_modified(before).unwrap();
+        models.register(&json!({ "target": "japanese", "name": "old", "paths": { "model": file } })).unwrap();
+        let saved: Value = serde_json::from_str(&fs::read_to_string(dir.path().join(FILE_NAME)).unwrap()).unwrap();
+        assert_eq!(saved["models"][0]["files"]["model"]["mtime_ns"], -2_000_000_000i64);
+        assert_eq!(models.state()["models"][0]["status"], "ok");
+    }
 }
+
