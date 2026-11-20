@@ -40,7 +40,9 @@ test("all three URL settings use the draft warning and save bar", () => {
     const root = new URL("../../views/app/config_page/setting_section/setting_box/", import.meta.url);
     for (const file of ["translation/Translation.tsx"]) {
         const source = readFileSync(new URL(file, root), "utf8");
-        assert.match(source, /desc=\{endpointDescription\(variable,/);
+        // The row's words are its label's hint there (#614); the warning stays in sight, as a warning.
+        assert.equal([...source.matchAll(/const notices = endpointNotices\(variable,/g)].length, 2, "the LM Studio and the Ollama URL");
+        assert.equal([...source.matchAll(/desc=\{notices\.description\}\s*add_warnings=\{notices\.warning \? \[\{ label: notices\.warning \}\] : undefined\}/g)].length, 2);
         assert.match(source, /saveFunction=\{saveFunction\}/);
         assert.match(source, /onChangeFunction=\{onChangeFunction\}/);
     }

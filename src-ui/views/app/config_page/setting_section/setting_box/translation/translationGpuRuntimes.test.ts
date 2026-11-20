@@ -17,7 +17,7 @@ const load = async (runtime: HookRuntime, vc: VcRuntimes, refreshed: string[]) =
     "@logics_configs": { useTranslation: () => ({ getSelectableTranslationComputeDeviceList: () => refreshed.push("list") }) },
     "../../../../../../logics/voice/useVcRuntimes": { useVcRuntimes: () => vc },
     "../advanced_settings/VcRuntimeSetup": { VcRuntimeSetup: "runtime-setup" },
-    "../_components/description/Description": { Description: "description" },
+    "../_components": { SectionLabelComponent: "section-label" },
 })).TranslationGpuRuntimes;
 
 test("only the builds the backend offers are shown, and none is fetched unasked", async () => {
@@ -38,6 +38,11 @@ test("only the builds the backend offers are shown, and none is fetched unasked"
     assert.deepEqual(setups, [{ engine: "onnxruntime-directml" }]);
     assert.ok(tree);
     assert.equal(tree.props["aria-label"], "config_page.translation.gpu_runtimes.label");
+    // The part is named by a subheading, which carries what the builds are for: its hint on a
+    // page that shows descriptions as hints (#614), a line under it elsewhere.
+    const heading = find(tree, node => node.type === "section-label");
+    assert.deepEqual([heading?.props.sub, heading?.props.label, heading?.props.desc],
+        [true, "config_page.translation.gpu_runtimes.label", "config_page.translation.gpu_runtimes.desc"]);
     // Showing them starts no setup and asks for no list.
     assert.equal(sent.length, 2);
     assert.deepEqual(refreshed, []);

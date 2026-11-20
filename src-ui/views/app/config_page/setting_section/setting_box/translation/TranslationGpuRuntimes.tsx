@@ -3,7 +3,7 @@ import { useI18n } from "@useI18n";
 import { useTranslation } from "@logics_configs";
 import { useVcRuntimes } from "../../../../../../logics/voice/useVcRuntimes";
 import { VcRuntimeSetup } from "../advanced_settings/VcRuntimeSetup";
-import { Description } from "../_components/description/Description";
+import { SectionLabelComponent } from "../_components";
 import styles from "../advanced_settings/VoiceSettings.module.scss";
 
 // The GPU builds of ONNX Runtime for the local translation (core-integration, decision 2 (c)).
@@ -30,8 +30,10 @@ export const TranslationGpuRuntimes = () => {
     const offered = TRANSLATION_RUNTIMES.filter(id => catalog?.runtimes?.some(row => row.id === id));
     if (offered.length === 0) return null;
     // The runtime setup's controls and consent dialog take their look from the voice settings' container.
+    // The part has its name as a subheading; what the builds are for is the heading's hint on a page
+    // that shows descriptions as hints (#614), a line under it elsewhere.
     return <section className={styles.container} aria-label={t("config_page.translation.gpu_runtimes.label")}>
-        <Description text={t("config_page.translation.gpu_runtimes.desc")} />
+        <SectionLabelComponent sub label={t("config_page.translation.gpu_runtimes.label")} desc={t("config_page.translation.gpu_runtimes.desc")} />
         {offered.map(id => <VcRuntimeSetup key={id} engine={id} />)}
     </section>;
 };

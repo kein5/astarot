@@ -272,12 +272,15 @@ test("each translation provider is one fold that says whether it can be used; th
         "../_components/setup_section/SetupSection": { SetupSection },
         // The translation catalog (#413) has cards, not provider folds.
         "./TranslationCatalog": { TranslationCatalogSection: () => null },
+        "../_components/hint/Hint": { HintDescriptions: "hints" },
     });
     // Translation's own sections are not exported; draw them through the page.
     const page = runtime.render(translation.Translation);
+    // The page shows its descriptions as hints (#614): everything is inside HintDescriptions.
+    assert.equal(page.type, "hints");
     const folds: [string, unknown, unknown, unknown][] = [];
     // The APIs and local LLMs are in 「詳細設定」 (#554), which opens by itself while a preset uses one.
-    const [, advanced] = page.props.children;
+    const [, advanced] = page.props.children.props.children;
     assert.equal(advanced.props.attention, true);
     assert.equal(advanced.props.status, "config_page.advanced_status.translation");
     for (const section of [advanced.props.children].flat()) {
