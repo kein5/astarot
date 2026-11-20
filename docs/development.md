@@ -180,7 +180,7 @@ npm run test:coverage    # カバレッジ（build/coverage/ui に HTML と json
 - アサーションは `node:assert/strict` を使います。`test` と `vi` は `vitest` から import します。
 - 後片付けは `context.onTestFinished(fn)` で登録します。`src-ui/logics/test/vitestSetup.ts` が、node:test の `after` と同じく登録した順に呼びます（Vitest の既定は逆順）。
 - 時計の偽装は `vi.useFakeTimers({ toFake: [...] })` と `vi.advanceTimersByTime(ms)` です。テストが終わると実時間に戻ります。`vi.spyOn` は次のテストの前に元に戻ります（`restoreMocks`）。
-- `hookHarness.ts` の `loadModule` で読むソースは、Babel で変換してから評価します。Vite を通らないため、カバレッジでは実行されていても0%と出ます。カバレッジの数字は、この読み込み方をしていないファイルだけを比べてください。
+- `hookHarness.ts` の `loadModule` で読むソースも、Vite が変換します（`src-ui/logics/test/harnessModules.ts`）。`?harness` を付けて読み込むと、TypeScript と JSX の変換のあと、import と export を `require` と `exports` を受け取る関数に包みます。`loadModule` はその関数を、試験が渡した差し替え品で呼びます。読み込むたびにソースの最上位が実行し直されるのは、前と同じです。この読み込み方のソースも、カバレッジに数えられ、ミューテーションテストの対象になります。
 - `data:` URL でNodeに直接読ませたモジュールと、テストファイルが import したモジュールは別の実体になります。シングルトンを共有するときは、テストの側も `data:` URL 経由で読みます（`useStdoutToPython.test.ts` の `nativeImport`）。
 - 既存の `.js` を `.ts` に移すときは、同じコミットで参照をすべて書き換えます。ビューのimport、試験の読み込み、Pythonの試験やツールが指すパスが対象です。
 - デザイントークンの値は `src-ui/views/app/_index_css/variables.css` が正本です。vanilla-extractからは `src-ui/views/theme/vars.css.ts` の `vars` で同じ変数を参照します。トークンを足したら両方に書きます（`vars.test.ts` が食い違いを検出します）。
