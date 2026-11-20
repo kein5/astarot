@@ -123,4 +123,4 @@ Pythonのバックエンドのコード（0.6.0で消した`src-python/errors.py
 | `CONNECTION_OLLAMA_URL_INVALID` | connection | Ollama URL is not valid | warning | 要 | あり |
 | `OVERLAY_FONT_NOT_FOUND` | general | The font is not installed on this PC | warning | 要 | あり |
 | `VAD_UNAVAILABLE` | transcription | Voice activity detection needs the speech.cpp server with a recognition model and Silero VAD; phrases are cut by volume | warning | 要 | あり |
-| `VALIDATION_RVC_BLOCK_MS` | validation | RVC block length must be 20 to 200 ms in steps of 20 | warning | 要 | あり |
+| `VALIDATION_RVC_BLOCK_MS` | validation | RVC block length must be automatic (0) or 20 to 200 ms in steps of 20 | warning | 要 | あり |

@@ -271,7 +271,7 @@ backend_errors:
     VAD_INFERENCE_ERROR: "Speech detection failed, so recognition stopped. Try again. If this keeps happening, restart ASTAROT."
     VAD_UNAVAILABLE: "VAD uses Silero VAD on the speech recognition server (speech.cpp). The server is not set up, so VAD was not turned on."
     VAD_UNAVAILABLE_recording: "The VAD of the speech recognition server (speech.cpp) cannot be used, so speech is cut by volume."
-    VALIDATION_RVC_BLOCK_MS: "Enter a multiple of 20 from 20 to 200."
+    VALIDATION_RVC_BLOCK_MS: "Choose Automatic or a multiple of 20 from 20 to 200."
     TRANSCRIBER_INIT_ERROR: "The speech recognizer could not start. Check the engine and model under Settings → Speech recognition (ASR), then try again."
     ASR_ERROR: "Speech recognition failed, so recognition stopped. Check the engine under Settings → Speech recognition (ASR) and, for an online engine, the network connection, then try again."
     TRANSCRIPTION_API_AUTH_FAILED: "The speech recognition service refused the API key, so recognition stopped. Check the key under Settings → Speech recognition (ASR)."
@@ -1268,8 +1268,10 @@ config_page:
             label: "Outline color (#RRGGBB)"
         section_label_rvc: "Voice changer (RVC)"
         rvc_block_ms:
-            label: "Conversion block length (ms)"
-            desc: "The microphone is converted in pieces of this length. Shorter pieces make the voice lag less, but the voice breaks up more easily when the GPU cannot keep up. Enter a multiple of 20 from 20 to 200. The default is 40. It applies from the next time conversion starts."
+            label: "Conversion block length"
+            desc: "The microphone is converted in pieces of this length. Shorter pieces make the voice lag less, but the voice breaks up more easily when the GPU cannot keep up. Automatic times the GPU when conversion starts and picks the shortest length it keeps up with. The default is Automatic. It applies from the next time conversion starts."
+            automatic: "Automatic"
+            length: "{{ms}} ms"
 
     notifications:
         save_success: "Settings have been saved."

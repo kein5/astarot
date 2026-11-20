@@ -63,7 +63,7 @@ pub struct RvcOptions {
     /// The causal input high-pass (`--highpass on|off`).
     pub highpass: bool,
     /// The length of the blocks the microphone is cut into and converted in, in ms
-    /// (`--block-ms`; [`crate::protocol::Block`]).
+    /// (`--block-ms`; [`crate::protocol::Block`]), or [`AUTO_BLOCK_MS`]: the worker chooses.
     pub block_ms: u32,
 }
 
@@ -71,10 +71,13 @@ pub struct RvcOptions {
 pub const DEVICES: [&str; 4] = ["auto", "cuda", "directml", "cpu"];
 /// The most CPU threads per network a start may ask for.
 pub const MAX_THREADS: u32 = 64;
-/// The block of a start that does not choose one (#531). On the GPU it adds about 60 ms less
-/// delay than the 80 ms of the external runtime; a block that takes longer to convert than it
-/// lasts is dropped (the device route) or ends the conversion when that happens too often.
-pub const DEFAULT_BLOCK_MS: u32 = 40;
+/// A start's `block_ms` that leaves the block to the worker (`--block-ms auto`, #531): on a
+/// GPU the shortest it converts in time with room to spare, timed before `ready`, which then
+/// says the block. A fixed 40 ms block took longer to convert than it lasts on a slower GPU (an
+/// RTX 3060 Ti over Thunderbolt) and was dropped block after block.
+pub const AUTO_BLOCK_MS: u32 = 0;
+/// The block of a start that does not choose one: the worker's choice (decided 2026-11-20).
+pub const DEFAULT_BLOCK_MS: u32 = AUTO_BLOCK_MS;
 
 /// Python's `str()` of the index rate: `0` for an int, `0.5`, `1.0` for floats.
 pub fn rate_text(rate: f64, was_integer: bool) -> String {
@@ -103,7 +106,7 @@ pub fn arguments(options: &RvcOptions, rate_text: &str, session: &str) -> Vec<St
         "--index-rate".into(),
         rate_text.into(),
         "--block-ms".into(),
-        options.block_ms.to_string(),
+        if options.block_ms == AUTO_BLOCK_MS { "auto".into() } else { options.block_ms.to_string() },
         "--device".into(),
         options.device.clone(),
         "--highpass".into(),
@@ -230,8 +233,13 @@ mod tests {
         assert_eq!((options.device.as_str(), options.threads, options.highpass), ("auto", 0, true));
         let args = arguments(&options, &rate, "s");
         assert_eq!(args[args.len() - 4..], ["--device", "auto", "--highpass", "on"], "no --threads: the worker picks");
-        // The block is always passed: 40 ms unless the start chose another (#531).
-        assert_eq!(args[args.len() - 6..args.len() - 4], ["--block-ms", "40"]);
+        // The block is always passed: the worker's choice unless the start chose one (#531).
+        assert_eq!(args[args.len() - 6..args.len() - 4], ["--block-ms", "auto"]);
+        let mut zero = base();
+        zero["block_ms"] = json!(0);
+        let (options, rate) = rvc_options(&zero).unwrap();
+        assert_eq!(options.block_ms, AUTO_BLOCK_MS, "0 asks for the worker's choice");
+        assert!(arguments(&options, &rate, "s").windows(2).any(|pair| pair == ["--block-ms", "auto"]));
     }
 
     #[test]
@@ -265,8 +273,8 @@ mod tests {
     #[test]
     fn bad_worker_choices_are_refused() {
         for (key, bad) in [("device", json!("gpu")), ("device", json!(null)), ("device", json!("DirectML")), ("threads", json!(-1)), ("threads", json!(65)), ("threads", json!(1.5)),
-            ("highpass", json!("on")), ("other", json!(1)), ("block_ms", json!(30)), ("block_ms", json!(0)), ("block_ms", json!(220)),
-            ("block_ms", json!(40.0)), ("block_ms", json!("40")), ("block_ms", json!(null))]
+            ("highpass", json!("on")), ("other", json!(1)), ("block_ms", json!(30)), ("block_ms", json!(-40)), ("block_ms", json!(220)),
+            ("block_ms", json!(40.0)), ("block_ms", json!(0.0)), ("block_ms", json!("40")), ("block_ms", json!("auto")), ("block_ms", json!(null))]
         {
             let mut value = base();
             value[key] = bad.clone();

@@ -10,6 +10,8 @@ import { HintDescriptions } from "../_components/hint/Hint";
 import { TelemetryContents } from "../_components/telemetry/TelemetryContents";
 import { GpuCheck } from "./GpuCheck.tsx";
 import { parsePortInput, PORT_INPUT_LIMITS } from "../../../../../../logics/configs/networkPortInput";
+import { rvcBlockChoiceId, rvcBlockChoices } from "../../../../../../logics/configs/rvcBlockChoices";
+import type { DropdownSelection } from "../_components/_atoms/_dropdown_menu/_DropdownMenu";
 import { buildObsBrowserSourceUrl, buildWebsocketUrl } from "../../../../../../logics/configs/obsBrowserSourceUrl";
 import { useSettingsDraft } from "../../../../../../logics/voice/useSettingsDraft";
 import { useConsentDialog } from "../../../../../../logics/common/useConsentDialog";
@@ -27,6 +29,7 @@ import {
 import {
     CheckboxContainer,
     ActionButtonContainer,
+    DropdownMenuContainer,
     EntryWithSaveButtonContainer,
     ColorEntryWithSaveButtonContainer,
 } from "../_templates/Templates";
@@ -109,31 +112,24 @@ export const AdvancedSettings = () => {
     );
 };
 
-// The block an RVC conversion cuts the microphone into (#531). The backend refuses anything but
-// 20 to 200 ms in steps of 20 and keeps the saved value; the next Start reads it.
+// The block an RVC conversion cuts the microphone into (#531): Automatic, the default, or a
+// length the user chose, which then wins. Chosen from a list, so only lengths the backend
+// accepts are sent; the next Start reads it.
 export const RvcBlockMsContainer = () => {
     const { t } = useI18n();
     const { currentRvcBlockMs, setRvcBlockMs } = useAdvancedSettings();
-
-    const { variable, onChangeFunction, saveFunction } = useSaveButtonLogic({
-        variable: currentRvcBlockMs.data,
-        state: currentRvcBlockMs.state,
-        setFunction: setRvcBlockMs,
-        label: t("config_page.advanced_settings.rvc_block_ms.label"),
-    });
+    const key = (name: string) => `config_page.advanced_settings.rvc_block_ms.${name}`;
 
     return (
-        <EntryWithSaveButtonContainer
+        <DropdownMenuContainer
             setting_id="rvc_block_ms"
-            label={t("config_page.advanced_settings.rvc_block_ms.label")}
-            desc={t("config_page.advanced_settings.rvc_block_ms.desc")}
-            variable={fieldValue(variable)}
-            saveFunction={saveFunction}
-            onChangeFunction={onChangeFunction}
+            dropdown_id="rvc_block_ms"
+            label={t(key("label"))}
+            desc={t(key("desc"))}
+            selected_id={rvcBlockChoiceId(currentRvcBlockMs.data)}
+            list={rvcBlockChoices(t(key("automatic")), ms => t(key("length"), { ms }))}
+            selectFunction={(selection: DropdownSelection) => setRvcBlockMs(Number(selection.selected_id))}
             state={currentRvcBlockMs.state}
-            width="10rem"
-            type="number"
-            min={20} max={200} step={20}
         />
     );
 };
