@@ -1181,15 +1181,20 @@ mod linux_tray {
         asked.is_ok() && receiver.recv_timeout(ASK_FOR).unwrap_or(false)
     }
 
+    /// Runs on a thread of its own ([`shown`]); zbus 6 has no blocking API, so it waits here.
     fn watcher_present() -> bool {
-        let Ok(connection) = zbus::blocking::Connection::session() else { return false };
-        WATCHERS.iter().any(|name| {
-            connection
-                .call_method(Some("org.freedesktop.DBus"), "/org/freedesktop/DBus", Some("org.freedesktop.DBus"),
-                    "NameHasOwner", &(*name,))
-                .ok()
-                .and_then(|reply| reply.body().deserialize::<bool>().ok())
-                .unwrap_or(false)
+        zbus::block_on(async {
+            let Ok(connection) = zbus::Connection::session().await else { return false };
+            for name in WATCHERS {
+                let reply = connection
+                    .call_method(Some("org.freedesktop.DBus"), "/org/freedesktop/DBus", Some("org.freedesktop.DBus"),
+                        "NameHasOwner", &(name,))
+                    .await;
+                if reply.ok().and_then(|reply| reply.body().deserialize::<bool>().ok()).unwrap_or(false) {
+                    return true;
+                }
+            }
+            false
         })
     }
 }

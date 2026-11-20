@@ -8,6 +8,7 @@
 //! One worker thread owns a dedicated session-bus connection: the host app
 //! registry requires `Register` before any other portal call on a connection.
 use std::collections::HashMap;
+use std::num::NonZeroUsize;
 use std::path::PathBuf;
 use std::future::{poll_fn, Future};
 use std::pin::Pin;
@@ -24,7 +25,7 @@ use zbus::export::futures_core::Stream;
 #[path = "portal_shortcut_worker.rs"]
 pub(crate) mod worker;
 use worker::{Backend, Mailbox, Operation, Worker};
-use zbus::zvariant::{OwnedObjectPath, OwnedValue, Value};
+use zbus::{OwnedObjectPath, OwnedVariant, Variant};
 
 /// Must match a desktop file the portal can find; see `ensure_desktop_file`.
 pub(crate) const APP_ID: &str = app_identity::APP_ID.current();
@@ -276,22 +277,22 @@ impl Portal {
     fn initialize(&mut self, app: AppHandle, operation: &Operation) -> Result<(), String> {
         self.wait(operation, self.connection.call_method(
             Some(DESTINATION), DESKTOP, Some("org.freedesktop.host.portal.Registry"), "Register",
-            &(APP_ID, HashMap::<&str, Value>::new()),
+            &(APP_ID, HashMap::<&str, Variant>::new()),
         ))?.map_err(failure("portal_app_id_unavailable"))?;
         // Watch owner changes before resolving the owner, including replacement.
         let owner_rule = MatchRule::builder().msg_type(zbus::message::Type::Signal)
-            .sender("org.freedesktop.DBus").map_err(failure("portal_unavailable"))?
-            .interface("org.freedesktop.DBus").map_err(failure("portal_unavailable"))?
-            .member("NameOwnerChanged").map_err(failure("portal_unavailable"))?
-            .add_arg(DESTINATION).map_err(failure("portal_unavailable"))?.build();
-        let owners = self.wait(operation, MessageStream::for_match_rule(owner_rule, &self.connection, Some(8)))?
+            .sender("org.freedesktop.DBus")
+            .interface("org.freedesktop.DBus")
+            .member("NameOwnerChanged")
+            .add_arg(DESTINATION).build().map_err(failure("portal_unavailable"))?;
+        let owners = self.wait(operation, MessageStream::for_match_rule(owner_rule, &self.connection, NonZeroUsize::new(8)))?
             .map_err(failure("portal_unavailable"))?;
         let backend_rule = MatchRule::builder().msg_type(zbus::message::Type::Signal)
-            .sender("org.freedesktop.DBus").map_err(failure("portal_unavailable"))?
-            .interface("org.freedesktop.DBus").map_err(failure("portal_unavailable"))?
-            .member("NameOwnerChanged").map_err(failure("portal_unavailable"))?
-            .arg0ns(BACKENDS).map_err(failure("portal_unavailable"))?.build();
-        let backends = self.wait(operation, MessageStream::for_match_rule(backend_rule, &self.connection, Some(8)))?
+            .sender("org.freedesktop.DBus")
+            .interface("org.freedesktop.DBus")
+            .member("NameOwnerChanged")
+            .arg0ns(BACKENDS).build().map_err(failure("portal_unavailable"))?;
+        let backends = self.wait(operation, MessageStream::for_match_rule(backend_rule, &self.connection, NonZeroUsize::new(8)))?
             .map_err(failure("portal_unavailable"))?;
         let reply = self.wait(operation, self.connection.call_method(
             Some("org.freedesktop.DBus"), "/org/freedesktop/DBus", Some("org.freedesktop.DBus"),
@@ -299,8 +300,8 @@ impl Portal {
         ))?.map_err(failure("portal_unavailable"))?;
         self.destination = reply.body().deserialize().map_err(failure("portal_unavailable"))?;
         let rule = MatchRule::builder().msg_type(zbus::message::Type::Signal)
-            .sender(self.destination.as_str()).map_err(failure("portal_unavailable"))?.build();
-        let signals = self.wait(operation, MessageStream::for_match_rule(rule, &self.connection, Some(64)))?
+            .sender(self.destination.as_str()).build().map_err(failure("portal_unavailable"))?;
+        let signals = self.wait(operation, MessageStream::for_match_rule(rule, &self.connection, NonZeroUsize::new(64)))?
             .map_err(failure("portal_unavailable"))?;
         let (connection, session, alive) = (self.connection.clone(), self.session.clone(), self.alive.clone());
         let holders = self.holders.clone();
@@ -324,14 +325,14 @@ impl Portal {
 
     /// Calls a request-returning method and waits for its `Response`,
     /// subscribing first so a fast response cannot be missed.
-    fn request<B>(&mut self, operation: &Operation, method: &str, token: &str, body: &B) -> Result<HashMap<String, OwnedValue>, String>
+    fn request<B>(&mut self, operation: &Operation, method: &str, token: &str, body: &B) -> Result<HashMap<String, OwnedVariant>, String>
     where
         B: serde::Serialize + zbus::zvariant::DynamicType,
     {
         self.check(operation)?;
         let path = format!("{DESKTOP}/request/{}/{token}", self.sender);
         self.request_path = Some(path.clone());
-        let results: Result<HashMap<String, OwnedValue>, String> = self.wait(operation, async {
+        let results: Result<HashMap<String, OwnedVariant>, String> = self.wait(operation, async {
             let request = Proxy::new(&self.connection, self.destination.as_str(), path.as_str(), "org.freedesktop.portal.Request")
                 .await.map_err(failure("portal_unavailable"))?;
             let mut responses = request.receive_signal("Response").await.map_err(failure("portal_unavailable"))?;
@@ -342,7 +343,7 @@ impl Portal {
             self.check(operation)?;
             let message = next(&mut responses).await.ok_or("portal_request_failed")?;
             self.check(operation)?;
-            let (code, results): (u32, HashMap<String, OwnedValue>) =
+            let (code, results): (u32, HashMap<String, OwnedVariant>) =
                 message.body().deserialize().map_err(failure("portal_request_failed"))?;
             match code {
                 0 => Ok(results),
@@ -364,13 +365,13 @@ impl Portal {
             .map_err(|_| "portal_request_failed")?;
         *self.session.lock().unwrap() = Some(expected);
         let options = HashMap::from([
-            ("handle_token", Value::from(token.as_str())),
-            ("session_handle_token", Value::from(session_token.as_str())),
+            ("handle_token", Variant::from(token.as_str())),
+            ("session_handle_token", Variant::from(session_token.as_str())),
         ]);
         let results = self.request(operation, "CreateSession", &token, &(options,))?;
         let handle = match results.get("session_handle").map(|value| &**value) {
-            Some(Value::Str(path)) => path.as_str().to_owned(),
-            Some(Value::ObjectPath(path)) => path.as_str().to_owned(),
+            Some(Variant::Str(path)) => path.as_str().to_owned(),
+            Some(Variant::ObjectPath(path)) => path.as_str().to_owned(),
             _ => return Err("portal_request_failed".into()),
         };
         let handle = OwnedObjectPath::try_from(handle).map_err(|_| "portal_request_failed")?;
@@ -380,26 +381,26 @@ impl Portal {
 
     fn bind_session(&mut self, session: &OwnedObjectPath, binding: &Binding, operation: &Operation) -> Result<HashMap<String, Assigned>, String> {
         let token = self.token();
-        let shortcuts: Vec<(&str, HashMap<&str, Value>)> = binding
+        let shortcuts: Vec<(&str, HashMap<&str, Variant>)> = binding
             .iter()
             .map(|(id, preferred, _)| {
                 let description = ACTIONS.iter().find(|(action, _)| action == id).map_or("", |(_, text)| *text);
                 (
                     id.as_str(),
                     HashMap::from([
-                        ("description", Value::from(description)),
-                        ("preferred_trigger", Value::from(preferred.as_str())),
+                        ("description", Variant::from(description)),
+                        ("preferred_trigger", Variant::from(preferred.as_str())),
                     ]),
                 )
             })
             .collect();
-        let options = HashMap::from([("handle_token", Value::from(token.as_str()))]);
+        let options = HashMap::from([("handle_token", Variant::from(token.as_str()))]);
         let results = self.request(operation, "BindShortcuts", &token, &(session, shortcuts, "", options))?;
         // Best effort: the desktop's own description of each assigned key.
         let described: HashMap<String, String> = results
             .get("shortcuts")
             .and_then(|value| value.try_clone().ok())
-            .and_then(|value| Vec::<(String, HashMap<String, OwnedValue>)>::try_from(value).ok())
+            .and_then(|value| Vec::<(String, HashMap<String, OwnedVariant>)>::try_from(value).ok())
             .unwrap_or_default()
             .into_iter()
             .map(|(id, properties)| {
@@ -573,7 +574,7 @@ fn listen(connection: Connection, mut signals: MessageStream, mut owners: Messag
             }
         } else if interface == Some(INTERFACE) && member == Some("Activated") {
             let Ok((handle, id, _time, options)) = message.body()
-                .deserialize::<(OwnedObjectPath, String, u64, HashMap<String, OwnedValue>)>() else { continue };
+                .deserialize::<(OwnedObjectPath, String, u64, HashMap<String, OwnedVariant>)>() else { continue };
             if session.lock().map_or(true, |current| current.as_ref() != Some(&handle)) { continue; }
             let activation_token = options.get("activation_token")
                 .and_then(|value| value.try_clone().ok()).and_then(|value| String::try_from(value).ok());
@@ -609,7 +610,6 @@ fn run(app: AppHandle, jobs: Arc<Jobs>) {
 /// KWin scripts may activate windows; the script matches our own PID only.
 /// Best effort: other desktops have no KWin and keep the normal behaviour.
 pub fn raise_with_kwin(caption: &'static str) {
-    use zbus::blocking::{Connection, Proxy};
     static COUNTER: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
     std::thread::spawn(move || {
         let Some(runtime) = std::env::var_os("XDG_RUNTIME_DIR").map(PathBuf::from).filter(|path| path.is_absolute())
@@ -633,18 +633,22 @@ pub fn raise_with_kwin(caption: &'static str) {
             return;
         }
         drop(file);
-        let run = || -> zbus::Result<()> {
-            let connection = Connection::session()?;
-            let scripting = Proxy::new(&connection, "org.kde.KWin", "/Scripting", "org.kde.kwin.Scripting")?;
-            let id: i32 = scripting.call("loadScript", &(path.to_string_lossy().as_ref(), name.as_str()))?;
-            let loaded = Proxy::new(&connection, "org.kde.KWin", format!("/Scripting/Script{id}"), "org.kde.kwin.Script")
-                .and_then(|script| script.call::<_, _, ()>("run", &()));
-            // KWin evaluates the script asynchronously after run().
+        // zbus 6 has no blocking API: this thread waits on its own calls.
+        let run = async {
+            let connection = Connection::session().await?;
+            let scripting = Proxy::new(&connection, "org.kde.KWin", "/Scripting", "org.kde.kwin.Scripting").await?;
+            let id: i32 = scripting.call("loadScript", &(path.to_string_lossy().as_ref(), name.as_str())).await?;
+            let loaded = match Proxy::new(&connection, "org.kde.KWin", format!("/Scripting/Script{id}"), "org.kde.kwin.Script").await {
+                Ok(script) => script.call::<_, _, ()>("run", &()).await,
+                Err(error) => Err(error),
+            };
+            // KWin evaluates the script asynchronously after run(). Nothing else waits on this
+            // thread's connection meanwhile.
             std::thread::sleep(Duration::from_millis(500));
-            let _: zbus::Result<bool> = scripting.call("unloadScript", &(name.as_str(),));
+            let _: zbus::Result<bool> = scripting.call("unloadScript", &(name.as_str(),)).await;
             loaded
         };
-        let _ = run();
+        let _: zbus::Result<()> = zbus::block_on(run);
         let _ = std::fs::remove_file(&path);
     });
 }

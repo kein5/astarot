@@ -13,6 +13,7 @@
 //! page only does when the user presses the button for it.
 use std::collections::HashMap;
 use std::future::poll_fn;
+use std::num::NonZeroUsize;
 use std::io::{BufRead, BufReader};
 use std::os::fd::OwnedFd;
 use std::path::{Path, PathBuf};
@@ -26,7 +27,7 @@ use std::time::{Duration, Instant};
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, State, WebviewWindow};
 use zbus::export::futures_core::Stream;
-use zbus::zvariant::{OwnedObjectPath, OwnedValue, Value};
+use zbus::{OwnedObjectPath, OwnedVariant, Variant};
 use zbus::{Connection, MatchRule, MessageStream, Proxy};
 
 use crate::portal_shortcuts::worker::wait_until;
@@ -104,44 +105,44 @@ fn usable_token(token: Option<&str>) -> Option<&str> {
 
 /// The options of `SelectSources`: one window, no pointer in the picture, and a permission the desktop remembers.
 /// `version` and `cursor_modes` are what this desktop's portal says it supports.
-fn select_options<'a>(handle_token: &'a str, version: u32, cursor_modes: u32, restore_token: Option<&'a str>) -> HashMap<&'static str, Value<'a>> {
+fn select_options<'a>(handle_token: &'a str, version: u32, cursor_modes: u32, restore_token: Option<&'a str>) -> HashMap<&'static str, Variant<'a>> {
     let mut options = HashMap::from([
-        ("handle_token", Value::from(handle_token)),
-        ("types", Value::from(SOURCE_WINDOW)),
-        ("multiple", Value::from(false)),
+        ("handle_token", Variant::from(handle_token)),
+        ("types", Variant::from(SOURCE_WINDOW)),
+        ("multiple", Variant::from(false)),
     ]);
     if cursor_modes & CURSOR_HIDDEN != 0 {
-        options.insert("cursor_mode", Value::from(CURSOR_HIDDEN));
+        options.insert("cursor_mode", Variant::from(CURSOR_HIDDEN));
     }
     // Restoring a choice exists from version 4 on; an older portal rejects the unknown options.
     if version >= 4 {
-        options.insert("persist_mode", Value::from(PERSIST_UNTIL_REVOKED));
+        options.insert("persist_mode", Variant::from(PERSIST_UNTIL_REVOKED));
         if let Some(token) = usable_token(restore_token) {
-            options.insert("restore_token", Value::from(token));
+            options.insert("restore_token", Variant::from(token));
         }
     }
     options
 }
 
-fn text(results: &HashMap<String, OwnedValue>, key: &str) -> Option<String> {
+fn text(results: &HashMap<String, OwnedVariant>, key: &str) -> Option<String> {
     results.get(key).and_then(|value| value.try_clone().ok()).and_then(|value| String::try_from(value).ok())
 }
 
 /// The session a `CreateSession` response names.
-fn session_handle(results: &HashMap<String, OwnedValue>) -> Result<OwnedObjectPath, String> {
+fn session_handle(results: &HashMap<String, OwnedVariant>) -> Result<OwnedObjectPath, String> {
     let handle = match results.get("session_handle").map(|value| &**value) {
-        Some(Value::Str(path)) => path.as_str().to_owned(),
-        Some(Value::ObjectPath(path)) => path.as_str().to_owned(),
+        Some(Variant::Str(path)) => path.as_str().to_owned(),
+        Some(Variant::ObjectPath(path)) => path.as_str().to_owned(),
         _ => return Err("portal_request_failed".into()),
     };
     OwnedObjectPath::try_from(handle).map_err(|_| "portal_request_failed".into())
 }
 
 /// The PipeWire node of the shared window and the token for next time, from a `Start` response.
-fn started(results: &HashMap<String, OwnedValue>) -> Result<(u32, Started), String> {
+fn started(results: &HashMap<String, OwnedVariant>) -> Result<(u32, Started), String> {
     let streams = results.get("streams")
         .and_then(|value| value.try_clone().ok())
-        .and_then(|value| Vec::<(u32, HashMap<String, OwnedValue>)>::try_from(value).ok())
+        .and_then(|value| Vec::<(u32, HashMap<String, OwnedVariant>)>::try_from(value).ok())
         .ok_or("portal_request_failed")?;
     // One window was asked for (`multiple` is false).
     let (node, _) = streams.first().ok_or("portal_request_failed")?;
@@ -345,11 +346,11 @@ struct Portal {
 }
 
 /// A match for `NameOwnerChanged`; the caller narrows it to the names it watches.
-fn owner_changes() -> Result<zbus::match_rule::Builder<'static>, String> {
+fn owner_changes() -> zbus::match_rule::Builder<'static> {
     MatchRule::builder().msg_type(zbus::message::Type::Signal)
-        .sender("org.freedesktop.DBus").map_err(failure("portal_unavailable"))?
-        .interface("org.freedesktop.DBus").map_err(failure("portal_unavailable"))?
-        .member("NameOwnerChanged").map_err(failure("portal_unavailable"))
+        .sender("org.freedesktop.DBus")
+        .interface("org.freedesktop.DBus")
+        .member("NameOwnerChanged")
 }
 
 impl Portal {
@@ -363,27 +364,27 @@ impl Portal {
         // shows no app name in its dialog and remembers the choice for an unnamed app.
         let registered = wait_until(deadline, check, connection.call_method(
             Some(DESTINATION), DESKTOP, Some("org.freedesktop.host.portal.Registry"), "Register",
-            &(APP_ID, HashMap::<&str, Value>::new()),
+            &(APP_ID, HashMap::<&str, Variant>::new()),
         ))?;
         if registered.is_err() {
             crate::startup_log("Window sharing: the portal did not accept the app id");
         }
         // Watch owner changes before resolving the owner, so a replacement is not missed.
-        let owners = owner_changes()?.add_arg(DESTINATION).map_err(failure("portal_unavailable"))?.build();
-        let owners = wait_until(deadline, check, MessageStream::for_match_rule(owners, &connection, Some(8)))?
+        let owners = owner_changes().add_arg(DESTINATION).build().map_err(failure("portal_unavailable"))?;
+        let owners = wait_until(deadline, check, MessageStream::for_match_rule(owners, &connection, NonZeroUsize::new(8)))?
             .map_err(failure("portal_unavailable"))?;
-        let backends = owner_changes()?.arg0ns(BACKENDS).map_err(failure("portal_unavailable"))?.build();
-        let backends = wait_until(deadline, check, MessageStream::for_match_rule(backends, &connection, Some(8)))?
+        let backends = owner_changes().arg0ns(BACKENDS).build().map_err(failure("portal_unavailable"))?;
+        let backends = wait_until(deadline, check, MessageStream::for_match_rule(backends, &connection, NonZeroUsize::new(8)))?
             .map_err(failure("portal_unavailable"))?;
         let reply = wait_until(deadline, check, connection.call_method(
             Some("org.freedesktop.DBus"), "/org/freedesktop/DBus", Some("org.freedesktop.DBus"), "GetNameOwner", &(DESTINATION,),
         ))?.map_err(failure("portal_unavailable"))?;
         let destination: String = reply.body().deserialize().map_err(failure("portal_unavailable"))?;
         let rule = MatchRule::builder().msg_type(zbus::message::Type::Signal)
-            .sender(destination.as_str()).map_err(failure("portal_unavailable"))?
-            .interface("org.freedesktop.portal.Session").map_err(failure("portal_unavailable"))?
-            .member("Closed").map_err(failure("portal_unavailable"))?.build().to_owned();
-        let signals = wait_until(deadline, check, MessageStream::for_match_rule(rule, &connection, Some(8)))?
+            .sender(destination.as_str())
+            .interface("org.freedesktop.portal.Session")
+            .member("Closed").build().map_err(failure("portal_unavailable"))?.to_owned();
+        let signals = wait_until(deadline, check, MessageStream::for_match_rule(rule, &connection, NonZeroUsize::new(8)))?
             .map_err(failure("portal_unavailable"))?;
         let sender = connection.unique_name().ok_or("portal_unavailable")?.trim_start_matches(':').replace('.', "_");
         Ok(Self { connection, destination, sender, counter: 0, request_path: None, session: None, signals, owners, backends,
@@ -404,14 +405,14 @@ impl Portal {
     /// Calls a request-returning method and waits for its `Response`, subscribing first so a
     /// fast response cannot be missed.
     fn request<B>(&mut self, deadline: Instant, check: &dyn Fn() -> Result<(), String>, method: &str, token: &str, body: &B)
-        -> Result<HashMap<String, OwnedValue>, String>
+        -> Result<HashMap<String, OwnedVariant>, String>
     where
         B: serde::Serialize + zbus::zvariant::DynamicType,
     {
         check()?;
         let path = format!("{DESKTOP}/request/{}/{token}", self.sender);
         self.request_path = Some(path.clone());
-        let results: Result<HashMap<String, OwnedValue>, String> = wait_until(deadline, check, async {
+        let results: Result<HashMap<String, OwnedVariant>, String> = wait_until(deadline, check, async {
             let request = Proxy::new(&self.connection, self.destination.as_str(), path.as_str(), "org.freedesktop.portal.Request")
                 .await.map_err(failure("portal_unavailable"))?;
             let mut responses = request.receive_signal("Response").await.map_err(failure("portal_unavailable"))?;
@@ -420,7 +421,7 @@ impl Portal {
             check()?;
             let _: OwnedObjectPath = portal.call(method, body).await.map_err(failure("portal_request_failed"))?;
             let message = next(&mut responses).await.ok_or("portal_request_failed")?;
-            let (code, results): (u32, HashMap<String, OwnedValue>) =
+            let (code, results): (u32, HashMap<String, OwnedVariant>) =
                 message.body().deserialize().map_err(failure("portal_request_failed"))?;
             match code {
                 0 => Ok(results),
@@ -450,8 +451,8 @@ impl Portal {
         self.session = Some(OwnedObjectPath::try_from(format!("{DESKTOP}/session/{}/{session_token}", self.sender))
             .map_err(|_| "portal_request_failed")?);
         let options = HashMap::from([
-            ("handle_token", Value::from(token.as_str())),
-            ("session_handle_token", Value::from(session_token.as_str())),
+            ("handle_token", Variant::from(token.as_str())),
+            ("session_handle_token", Variant::from(session_token.as_str())),
         ]);
         let session = session_handle(&self.request(setup, check, "CreateSession", &token, &(options,))?)?;
         self.session = Some(session.clone());
@@ -461,15 +462,15 @@ impl Portal {
         self.request(Instant::now() + SETUP_TIMEOUT, check, "SelectSources", &token, &(&session, options))?;
 
         let token = self.token();
-        let options = HashMap::from([("handle_token", Value::from(token.as_str()))]);
+        let options = HashMap::from([("handle_token", Variant::from(token.as_str()))]);
         let results = self.request(Instant::now() + DIALOG_TIMEOUT, check, "Start", &token, &(&session, "", options))?;
         let (node, started) = started(&results)?;
 
         let reply = wait_until(Instant::now() + SETUP_TIMEOUT, check, self.connection.call_method(
             Some(self.destination.as_str()), DESKTOP, Some(INTERFACE), "OpenPipeWireRemote",
-            &(&session, HashMap::<&str, Value>::new()),
+            &(&session, HashMap::<&str, Variant>::new()),
         ))?.map_err(failure("portal_request_failed"))?;
-        let remote: zbus::zvariant::OwnedFd = reply.body().deserialize().map_err(failure("portal_request_failed"))?;
+        let remote: zbus::OwnedFd = reply.body().deserialize().map_err(failure("portal_request_failed"))?;
         // The backend that shares the window is running now; a slow answer leaves every backend counting.
         self.holders = wait_until(Instant::now() + HOLDERS_TIMEOUT, || Ok(()), backends_with(&self.connection, IMPL_INTERFACE))
             .unwrap_or_default();
@@ -657,26 +658,26 @@ pub fn shutdown<R: tauri::Runtime>(app: &AppHandle<R>) {
 mod tests {
     use super::*;
 
-    fn results(entries: Vec<(&str, Value<'_>)>) -> HashMap<String, OwnedValue> {
-        entries.into_iter().map(|(key, value)| (key.to_owned(), OwnedValue::try_from(value).unwrap())).collect()
+    fn results(entries: Vec<(&str, Variant<'_>)>) -> HashMap<String, OwnedVariant> {
+        entries.into_iter().map(|(key, value)| (key.to_owned(), OwnedVariant::try_from(value).unwrap())).collect()
     }
 
-    fn streams(nodes: &[u32]) -> Value<'static> {
-        let streams: Vec<(u32, HashMap<String, Value<'static>>)> = nodes.iter()
-            .map(|node| (*node, HashMap::from([("source_type".to_owned(), Value::from(SOURCE_WINDOW))])))
+    fn streams(nodes: &[u32]) -> Variant<'static> {
+        let streams: Vec<(u32, HashMap<String, Variant<'static>>)> = nodes.iter()
+            .map(|node| (*node, HashMap::from([("source_type".to_owned(), Variant::from(SOURCE_WINDOW))])))
             .collect();
-        Value::from(streams)
+        Variant::from(streams)
     }
 
     #[test]
     fn asks_for_one_window_without_the_pointer_and_remembers_the_choice() {
         let options = select_options("t1", 5, 7, Some("saved"));
-        assert_eq!(options["handle_token"], Value::from("t1"));
-        assert_eq!(options["types"], Value::from(2u32));
-        assert_eq!(options["multiple"], Value::from(false));
-        assert_eq!(options["cursor_mode"], Value::from(1u32));
-        assert_eq!(options["persist_mode"], Value::from(2u32));
-        assert_eq!(options["restore_token"], Value::from("saved"));
+        assert_eq!(options["handle_token"], Variant::from("t1"));
+        assert_eq!(options["types"], Variant::from(2u32));
+        assert_eq!(options["multiple"], Variant::from(false));
+        assert_eq!(options["cursor_mode"], Variant::from(1u32));
+        assert_eq!(options["persist_mode"], Variant::from(2u32));
+        assert_eq!(options["restore_token"], Variant::from("saved"));
         assert_eq!(options.len(), 6);
     }
 
@@ -707,12 +708,12 @@ mod tests {
 
     #[test]
     fn a_start_response_names_the_node_and_the_next_token() {
-        let response = results(vec![("streams", streams(&[57])), ("restore_token", Value::from("next"))]);
+        let response = results(vec![("streams", streams(&[57])), ("restore_token", Variant::from("next"))]);
         assert_eq!(started(&response), Ok((57, Started { restore_token: Some("next".into()) })));
         // The desktop may not hand out a token (the user chose not to be remembered).
         let once = results(vec![("streams", streams(&[58]))]);
         assert_eq!(started(&once), Ok((58, Started { restore_token: None })));
-        let odd = results(vec![("streams", streams(&[59])), ("restore_token", Value::from(""))]);
+        let odd = results(vec![("streams", streams(&[59])), ("restore_token", Variant::from(""))]);
         assert_eq!(started(&odd), Ok((59, Started { restore_token: None })));
     }
 
@@ -720,18 +721,18 @@ mod tests {
     fn a_start_response_without_a_stream_is_a_failure() {
         assert_eq!(started(&results(vec![])), Err("portal_request_failed".into()));
         assert_eq!(started(&results(vec![("streams", streams(&[]))])), Err("portal_request_failed".into()));
-        assert_eq!(started(&results(vec![("streams", Value::from("57"))])), Err("portal_request_failed".into()));
+        assert_eq!(started(&results(vec![("streams", Variant::from("57"))])), Err("portal_request_failed".into()));
     }
 
     #[test]
     fn a_session_handle_is_a_path_as_text_or_as_a_path() {
         let path = "/org/freedesktop/portal/desktop/session/1_42/astarot_cast_7_2";
-        let as_text = results(vec![("session_handle", Value::from(path))]);
+        let as_text = results(vec![("session_handle", Variant::from(path))]);
         assert_eq!(session_handle(&as_text).unwrap().as_str(), path);
-        let as_path = results(vec![("session_handle", Value::from(zbus::zvariant::ObjectPath::try_from(path).unwrap()))]);
+        let as_path = results(vec![("session_handle", Variant::from(zbus::zvariant::ObjectPath::try_from(path).unwrap()))]);
         assert_eq!(session_handle(&as_path).unwrap().as_str(), path);
         assert!(session_handle(&results(vec![])).is_err());
-        assert!(session_handle(&results(vec![("session_handle", Value::from("not a path"))])).is_err());
+        assert!(session_handle(&results(vec![("session_handle", Variant::from("not a path"))])).is_err());
     }
 
     #[test]
