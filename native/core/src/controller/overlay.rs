@@ -16,11 +16,12 @@ use crate::config::schema::default_launcher;
 use crate::errors::ErrorReply;
 use crate::protocol::Reply;
 use serde_json::{Value, json};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Weak};
 use vrct_vr_overlay::engine::{self, Event, Options, Overlay, PANEL_ANCHORS, Surface, WindowSettings};
 use vrct_vr_overlay::fonts::{FontLibrary, valid_family_name};
 use vrct_vr_overlay::placement;
-use vrct_vr_overlay::subtitle::{CaptionId, CaptionState, Direction, LargePicture, Reading, Subtitle, Subtitles, Translation};
+use vrct_vr_overlay::subtitle::{CaptionId, CaptionState, Direction, LargePicture, Reading, Renderer, Subtitle, Subtitles, Translation};
 use vrct_vr_overlay::tooltip::validate_tooltip;
 
 /// The log window's default size and the range a corner drag allows (logical px).
@@ -63,6 +64,28 @@ pub(crate) struct VrOverlay {
     engine: Overlay,
     subtitles: Subtitles,
     supported: bool,
+    /// Whether the subtitle fonts were loaded ahead of the first message ([`warm_subtitle_fonts`]).
+    fonts_warmed: AtomicBool,
+}
+
+/// Loads the subtitle fonts on a thread of their own, once, when a log is first on. The first
+/// picture otherwise reads them, which took about 0.3 s on a PC with many fonts (#556) and kept
+/// the message's later outputs waiting. A log never turned on loads no font.
+fn warm_subtitle_fonts(vr: &VrOverlay) {
+    if vr.fonts_warmed.swap(true, Ordering::SeqCst) {
+        return;
+    }
+    let library = Arc::clone(vr.subtitles.renderer.library());
+    let _ = std::thread::Builder::new().name("overlay-fonts".into()).spawn(move || {
+        // The fonts of Japanese (the default group) and of Latin, as a sent message is drawn.
+        let sample = Subtitle {
+            original: Some("あA".into()),
+            language: Some("Japanese".into()),
+            translations: vec![Translation { text: "A".into(), language: "English".into(), readings: Vec::new() }],
+            ..Subtitle::default()
+        };
+        let _ = Renderer::new(library).small_log(&sample);
+    });
 }
 
 /// One message for the logs, as the message pipeline has it (what Python's `small_overlay` and
@@ -181,7 +204,7 @@ impl Core {
         let subtitles = Subtitles::new(fonts, Arc::new(vrct_vr_overlay::subtitle::local_time));
         // A saved family that is gone draws with the automatic fonts; the setting stays.
         subtitles.renderer.set_font_family(Some(&config.get_str("OVERLAY_FONT_FAMILY")));
-        let _ = core.vr.set(VrOverlay { engine, subtitles, supported });
+        let _ = core.vr.set(VrOverlay { engine, subtitles, supported, fonts_warmed: AtomicBool::new(false) });
     }
 
     /// `/set/data/overlay_font_family`: a family on this system, or "" for automatic. The
@@ -238,7 +261,11 @@ impl Core {
         vr.engine.set_vr_panel_enabled(vr_panel);
         vr.engine.set_panel_locked(config.get_bool("OVERLAY_VR_PANEL_LOCKED"));
         vr.engine.set_launcher_auto_hide(config.get_bool("OVERLAY_VR_LAUNCHER_AUTO_HIDE"));
-        if config.get_bool("OVERLAY_SMALL_LOG") || config.get_bool("OVERLAY_LARGE_LOG") || vr_panel {
+        let logs = config.get_bool("OVERLAY_SMALL_LOG") || config.get_bool("OVERLAY_LARGE_LOG");
+        if logs {
+            warm_subtitle_fonts(vr);
+        }
+        if logs || vr_panel {
             vr.engine.start()
         } else {
             vr.engine.shutdown();
