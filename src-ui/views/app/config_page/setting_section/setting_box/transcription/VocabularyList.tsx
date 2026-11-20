@@ -78,12 +78,23 @@ export const VocabularyList = ({ builtin, vocabulary, disabled, onVocabulary }: 
 
     return (
         <details className={styles.fold}>
+            {/* The bar: what the list holds, then what pressing it does, in words and a turning
+                chevron. The details element says to assistive technology whether it is open. */}
             <summary className={styles.summary}>
-                <span>{t("realtime.vocabulary_list", { count: rows.length - removed })}</span>
-                {own > 0 && <span className={voiceStyles.badge} data-tone="own">{t("realtime.vocabulary_own_count", { count: own })}</span>}
-                {changed > 0 && <span className={voiceStyles.badge} data-tone="changed">{t("realtime.vocabulary_changed_count", { count: changed })}</span>}
-                {removed > 0 && <span className={voiceStyles.badge}>{t("realtime.vocabulary_removed_count", { count: removed })}</span>}
+                <span className={styles.summaryText}>
+                    <span className={styles.title}>{t("realtime.vocabulary_list", { count: rows.length - removed })}</span>
+                    {own > 0 && <span className={voiceStyles.badge} data-tone="own">{t("realtime.vocabulary_own_count", { count: own })}</span>}
+                    {changed > 0 && <span className={voiceStyles.badge} data-tone="changed">{t("realtime.vocabulary_changed_count", { count: changed })}</span>}
+                    {removed > 0 && <span className={voiceStyles.badge}>{t("realtime.vocabulary_removed_count", { count: removed })}</span>}
+                </span>
+                <span className={styles.toggle} aria-hidden="true">
+                    <span className={styles.openWord}>{t("realtime.vocabulary_list_open")}</span>
+                    <span className={styles.closeWord}>{t("realtime.vocabulary_list_close")}</span>
+                    <svg className={styles.chevron} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+                        strokeLinecap="round" strokeLinejoin="round"><path d="M6 9l6 6 6-6" /></svg>
+                </span>
             </summary>
+            <div className={styles.body}>
             {/* How the list is built and follows a newer app: the hint of its line on a page that
                 keeps descriptions out of sight (#614), a line elsewhere. */}
             {hints
@@ -148,6 +159,7 @@ export const VocabularyList = ({ builtin, vocabulary, disabled, onVocabulary }: 
             </ul>
             {builtin && vocabulary.builtin !== false && <div><button type="button" disabled={disabled || (!changed && !removed)}
                 onClick={() => { setEditing(null); onVocabulary(restoreAllBuiltin(vocabulary, builtin)); }}>{t("realtime.vocabulary_restore_all")}</button></div>}
+            </div>
         </details>
     );
 };

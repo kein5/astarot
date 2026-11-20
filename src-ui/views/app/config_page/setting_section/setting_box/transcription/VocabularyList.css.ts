@@ -1,21 +1,90 @@
 import { fallbackVar, globalStyle, style } from "@vanilla-extract/css";
 import { vars } from "../../../../../theme/vars.css.ts";
 
-// The dictionary's terms (#792): a fold under the switch of the built-in terms. Its summary says how
-// many terms are in use and how many the user added, changed or took out, so the state is read
-// without opening.
+// The dictionary's terms (#792): a fold under the switch of the built-in terms, drawn as one of the
+// app's raised parts with a hairline all round. Closed, it is a single bar that says how many terms
+// are in use and how many the user added, changed or took out, so the state is read without
+// opening; the whole bar opens it. Open, the bar heads the list, a hairline under it.
 export const fold = style({
-    display: "grid",
-    gap: "1.2rem",
     minWidth: 0,
+    border: `.1rem solid ${fallbackVar(vars.dark_800_color, "#344662")}`,
+    borderRadius: fallbackVar(vars.vox_radius, ".8rem"),
+    // The bar's corners follow the fold's.
+    overflow: "clip",
 });
 
 export const summary = style({
     display: "flex",
+    alignItems: "center",
+    gap: ".8rem 1.2rem",
+    padding: "1.2rem 1.6rem",
+    background: fallbackVar(vars.vox_surface, "#332341"),
+    cursor: "pointer",
+    listStyle: "none",
+    transition: `background-color ${fallbackVar(vars.vox_motion_fast, "120ms")} ${fallbackVar(vars.vox_ease, "ease-out")}`,
+    selectors: {
+        // The browser's own triangle gives way to the chevron at the bar's end.
+        "&::-webkit-details-marker": { display: "none" },
+        "&::marker": { content: '""' },
+        "&:hover": { background: fallbackVar(vars.vox_secondary_hover, "#3a2a4a") },
+        "&:focus-visible": { outline: `.2rem solid ${fallbackVar(vars.primary_200_color, "#d5c2fb")}`, outlineOffset: "-.2rem" },
+    },
+    "@media": { "(prefers-reduced-motion: reduce)": { transition: "none" } },
+});
+
+// The title and the counts, wrapping before the toggle's words do.
+export const summaryText = style({
+    display: "flex",
     flexWrap: "wrap",
     alignItems: "center",
     gap: ".6rem 1rem",
-    cursor: "pointer",
+    flex: "1 1 auto",
+    minWidth: 0,
+});
+
+export const title = style({
+    fontSize: "1.5rem",
+    fontWeight: 600,
+    color: fallbackVar(vars.dark_200_color, "#e0e8f6"),
+});
+
+// What the bar does, in words and a chevron that turns as the fold opens. The words of the other
+// state are put away by the fold's own state, so nothing is kept in sync by hand.
+export const toggle = style({
+    display: "inline-flex",
+    alignItems: "center",
+    gap: ".6rem",
+    flex: "none",
+    fontSize: "1.3rem",
+    fontWeight: 500,
+    color: fallbackVar(vars.vox_secondary_text, "#c3cde0"),
+});
+
+export const openWord = style({});
+export const closeWord = style({});
+export const chevron = style({
+    width: "1.6rem",
+    height: "1.6rem",
+    // A line, not a filled shape, whatever the page's icons are filled with.
+    fill: "none",
+    transition: `transform ${fallbackVar(vars.vox_motion_fast, "120ms")} ${fallbackVar(vars.vox_ease, "ease-out")}`,
+    "@media": { "(prefers-reduced-motion: reduce)": { transition: "none" } },
+});
+
+globalStyle(`${fold}[open] ${openWord}, ${fold}:not([open]) ${closeWord}`, { display: "none" });
+globalStyle(`${fold}[open] ${chevron}`, { transform: "rotate(180deg)" });
+globalStyle(`${fold}[open] > ${summary}`, { borderBottom: `.1rem solid ${fallbackVar(vars.dark_800_color, "#344662")}` });
+// The settings page gives every summary its own padding and weight; the bar keeps its own.
+globalStyle(`${fold} > ${summary}`, { padding: "1.2rem 1.6rem", fontWeight: 400 });
+// Focus from a press is not shown; keyboard focus is (above).
+globalStyle(`${fold} > ${summary}:focus:not(:focus-visible)`, { outline: "none" });
+
+// The list under the bar.
+export const body = style({
+    display: "grid",
+    gap: "1.2rem",
+    padding: "1.2rem 1.6rem 1.6rem",
+    minWidth: 0,
 });
 
 // A new term: its written form, its readings and the button, on one line while they fit.

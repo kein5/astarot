@@ -1473,6 +1473,8 @@ realtime:
   vocabulary_list_one: "Terms in the dictionary ({{count}})"
   vocabulary_list_other: "Terms in the dictionary ({{count}})"
   vocabulary_list_about: "How the dictionary is built"
+  vocabulary_list_open: "Open"
+  vocabulary_list_close: "Close"
   vocabulary_own_count_one: "{{count}} added by you"
   vocabulary_own_count_other: "{{count}} added by you"
   vocabulary_state_own: "Added by you"

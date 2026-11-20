@@ -43,7 +43,12 @@ test("the rows say the readings in use and the user's change; the summary counts
     assert.ok(words(s.row(tree, "猫丸")).includes("realtime.vocabulary_state_own"));
     const summary = findIn(tree, node => node.type === "summary");
     assert.deepEqual(words(summary), ["realtime.vocabulary_list:{\"count\":3}", "realtime.vocabulary_own_count:{\"count\":1}",
-        "realtime.vocabulary_changed_count:{\"count\":1}", "realtime.vocabulary_removed_count:{\"count\":1}"]);
+        "realtime.vocabulary_changed_count:{\"count\":1}", "realtime.vocabulary_removed_count:{\"count\":1}",
+        "realtime.vocabulary_list_open", "realtime.vocabulary_list_close"]);
+    // The bar's words of what it does are for the eye: the details element says whether it is open.
+    const toggle = findIn(summary, node => node.props["aria-hidden"] === "true");
+    assert.deepEqual(words(toggle), ["realtime.vocabulary_list_open", "realtime.vocabulary_list_close"]);
+    assert.equal(findIn(tree, node => node.type === "details").props.open, undefined, "closed at first");
     // A term taken out keeps its place with the one way back; a term of the user's is deleted, a
     // built-in one taken out.
     const buttons = (written: string) => nodesIn(s.row(tree, written)).filter(node => node.type === "button").map(node => node.props["aria-label"]);
