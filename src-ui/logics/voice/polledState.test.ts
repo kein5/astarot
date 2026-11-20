@@ -108,7 +108,7 @@ for (const [field, update, pending, error, command, first, acknowledged] of [
         { tts_generation: 3, tts_enabled: false }, { tts_generation: 4, tts_enabled: true }],
     ["directState", "updateDirectState", "directPending", "directError", "/run/start_direct_voice",
         { generation: 3, requested: false, mode: "off" }, { generation: 4, requested: true, mode: "converted", settings: { engine: "rvc" } }],
-] satisfies [string, string, string, string, string, object, object][]) test(`${pending}: acknowledgement runs even when the accepted snapshot keeps its reference`, async t => {
+] satisfies [string, string, string, string, string, object, object][]) test(`${pending}: acknowledgement runs even when the accepted snapshot keeps its reference`, async () => {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     const { runtime, render } = await setup("./useVoice.ts", (module: VoiceModule) => module.useVoice);
     call(render(), update, { ...first, observation_id: "100" });
@@ -132,7 +132,7 @@ for (const [field, update, pending, error, command, first, acknowledged] of [
     subscription.unsubscribe();
 });
 
-test("TTS generation guard and direct stop/error acknowledgement conditions remain intact", async t => {
+test("TTS generation guard and direct stop/error acknowledgement conditions remain intact", async () => {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     const { render } = await setup("./useVoice.ts", (module: VoiceModule) => module.useVoice);
     render().updateStatus({ observation_id: "1", tts_generation: 5, tts_enabled: true });

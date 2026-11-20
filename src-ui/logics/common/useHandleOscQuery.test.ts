@@ -87,7 +87,7 @@ for (const language of ["en", "ja"]) {
             "config_page.common.warning_labels.unable_to_use_osc_query_remote");
     });
 
-    test(`${language}: rejected mute sync uses the existing localized error protocol`, async context => {
+    test(`${language}: rejected mute sync uses the existing localized error protocol`, async () => {
         vi.spyOn(console, "error").mockImplementation(() => {});
         const i18n = i18next.createInstance();
         await i18n.init({ lng: language, resources: { [language]: { translation } } });

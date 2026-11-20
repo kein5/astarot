@@ -529,23 +529,3 @@ export const useSaveButtonLogic = ({
 
     return { variable: input_value, onChangeFunction, saveFunction };
 };
-
-const createMarks = (min: number, max: number, marks_step = 1, labelFormatter = (value: number): unknown => value): SliderMark[] => {
-    const marks: SliderMark[] = [];
-    let current = min;
-
-    const decimalPlaces = marks_step.toString().includes('.')
-        ? marks_step.toString().split('.')[1].length
-        : 0;
-
-    for (let i = 0; i <= 1000; i++) {
-        // Use a small epsilon for the comparison to handle floating point errors
-        if (current > max + (marks_step / 10)) break;
-
-        const fixedValue = parseFloat(current.toFixed(decimalPlaces));
-        marks.push({ value: fixedValue, label: `${labelFormatter(fixedValue)}` });
-
-        current += marks_step;
-    }
-    return marks;
-};

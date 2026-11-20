@@ -67,7 +67,6 @@ import HeadphonesSvg from "@images/headphones.svg?react";
 import { useMainFunction } from "@logics_main";
 
 const PresetContainer = () => {
-    const { t } = useI18n();
     const { currentTranscriptionSendStatus, currentTranscriptionReceiveStatus } = useMainFunction();
 
     const yourLanguageSettings = {

@@ -272,7 +272,7 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
         const hint = advice[target];
         const current = family.rows.find(entry => entry.id === choices[family.key])
             ?? firstVariant(family.rows, hint.recommended, entry => status(entry) === "in_use");
-        const job = state.jobs[current.id], active = activePhases.includes(job?.phase);
+        const job = state.jobs[current.id];
         const shownStatus = status(current);
         const downloaded = ["downloaded", "in_use"].includes(shownStatus);
         // A download of another file of this model keeps its progress and actions in view.
