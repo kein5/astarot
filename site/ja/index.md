@@ -1,5 +1,6 @@
 ---
-layout: home
+pageType: home
+description: VRChat向けの翻訳・音声認識・読み上げ・声の変換・チャット読み取りアプリASTAROTの使い方
 hero:
   name: ASTAROT
   # Each span stays on one line where it fits (custom.css), so the headline breaks between them.

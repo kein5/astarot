@@ -15,7 +15,7 @@ The ASTAROT brand set is in `astarot/`. [ADR-011](../adr/adr-011-astarot-brand-a
 | `app-icon.svg`, `app-icon.ico`, `icon-<size>.png` | The app icon: the white symbol on a Dark Plum tile. The PNGs are 16 to 1024 px. |
 | `favicon.svg`, `favicon-<size>.png` | The favicon: the symbol in Dark Plum without a tile. The PNGs are 32 to 64 px. |
 | `favicon-16.svg`, `favicon-16.png` | The favicon drawn again for 16 px, with one-pixel lines and no dots in the bubble (see [Regenerating](#regenerating)). |
-| `favicon.ico` | The favicon at 16 px from `favicon-16.png`, and at 32 and 48 px from `favicon-32.png` and `favicon-48.png`. The user manual uses it. |
+| `favicon.ico` | The favicon at 16 px from `favicon-16.png`, and at 32 and 48 px from `favicon-32.png` and `favicon-48.png`. The user manual's pages use it. |
 | `brand-board.svg` | One sheet with the logos, the icon, the favicon, the colors and the typeface. |
 
 The symbols, the logos and the brand board also come as PNG files with the same names. The PNG files are rendered from the SVG files. No tool in this repository renders them; after changing an SVG, render its PNG again at the same pixel size.
@@ -35,7 +35,7 @@ The wordmark is outlined, so it looks the same without fonts. The subtitle in th
 
 - **The app.** `tools/astarot_app_assets.py` builds the Tauri icons in `src-tauri/icons/` and the in-app SVGs in `src-ui/views/assets/brand/` from this set. The AppImage and the Linux packages take their desktop icon from `src-tauri/icons/128x128@2x.png` at build time.
 - **The READMEs.** They show the horizontal logo (`astarot/logo-horizontal-light.png` and `-dark.png`) and switch between them with `prefers-color-scheme`. They use the PNG files because an SVG shown as an image sets the subtitle in another font unless the viewer has Outfit installed.
-- **The user manual.** `site/public/manual/brand/` holds copies of `app-icon.svg` and `favicon.ico`, and WebP wordmarks for the manual's home page. Copy `app-icon.svg` again after changing it; `tools/astarot_favicon_small.py` writes the copy of `favicon.ico`.
+- **The user manual.** `site/public/manual/brand/` holds copies of `app-icon.svg` and `favicon.ico`, and WebP wordmarks that the manual's home page showed. The manual's pages now send readers to the guide and still use the ICO; the wordmarks wait for the merged home page (`docs/design/site-redesign`). Copy `app-icon.svg` again after changing it; `tools/astarot_favicon_small.py` writes the copy of `favicon.ico`.
 
 ## Regenerating
 
