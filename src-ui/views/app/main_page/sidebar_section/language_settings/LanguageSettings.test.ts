@@ -3,9 +3,9 @@ import { test } from "vitest";
 import { hooks, loadModule, eventTarget } from "../../../../../logics/test/hookHarness.ts";
 
 async function settings() {
-    const runtime = hooks(), closed = [];
-    const { LanguageSettings } = await loadModule(new URL("./LanguageSettings.tsx", import.meta.url), runtime, {
-        "@store": { useStore_IsOpenedTranslatorSelector: () => ({ updateIsOpenedTranslatorSelector: value => closed.push(value) }) },
+    const runtime = hooks(), closed: unknown[] = [];
+    const { LanguageSettings } = await loadModule<typeof import("./LanguageSettings.tsx")>(new URL("./LanguageSettings.tsx", import.meta.url), runtime, {
+        "@store": { useStore_IsOpenedTranslatorSelector: () => ({ updateIsOpenedTranslatorSelector: (value: unknown) => closed.push(value) }) },
         "@logics_main": { useMainFunction: () => ({}) },
         "./preset_tab_selector/PresetTabSelector": { PresetTabSelector: "presets" },
         "./language_selector_open_button/LanguageSelectorOpenButton": { LanguageSelectorOpenButton: "language" },
@@ -14,15 +14,15 @@ async function settings() {
         "./add_remove_target_language_buttons/AddRemoveTargetLanguageButtons": { AddRemoveTargetLanguageButtons: "add-remove" },
     });
     const container = runtime.render(LanguageSettings);
-    return { leave: event => container.props.onMouseLeave(event), closed, runtime };
+    return { leave: (event: unknown) => container.props.onMouseLeave(event), closed, runtime };
 }
 
 // The language settings, one element inside them, and the page they are on.
 const page = eventTarget();
 const button = {};
-const inside = { ownerDocument: page, contains: node => node === inside || node === button };
+const inside = { ownerDocument: page, contains: (node: unknown) => node === inside || node === button };
 // The rail's scroll container: 240px wide at x=0, of which 232px are content and 8px scrollbar.
-const rail = { clientLeft: 0, clientWidth: 232, getBoundingClientRect: () => ({ left: 0 }), contains: node => node === inside };
+const rail = { clientLeft: 0, clientWidth: 232, getBoundingClientRect: () => ({ left: 0 }), contains: (node: unknown) => node === inside };
 const toScrollbar = { currentTarget: inside, relatedTarget: rail, clientX: 236 };
 
 test("the translator list stays open when the pointer goes to the rail's scrollbar", async () => {

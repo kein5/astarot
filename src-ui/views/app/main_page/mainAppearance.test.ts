@@ -2,24 +2,31 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "vitest";
 
-const read = path => readFileSync(new URL(path, import.meta.url), "utf8");
-const variables = Object.fromEntries([...read("../_index_css/variables.css").matchAll(/(--[\w-]+):\s*([^;]+);/g)]
+const read = (path: string) => readFileSync(new URL(path, import.meta.url), "utf8");
+const variables: Record<string, string> = Object.fromEntries([...read("../_index_css/variables.css").matchAll(/(--[\w-]+):\s*([^;]+);/g)]
     .map(([, key, value]) => [key, value.trim()]));
-const color = token => {
+const color = (token: string): string => {
     const value = variables[token] ?? token;
     const alias = /^var\((--[\w-]+)\)$/.exec(value);
     return alias ? color(alias[1]) : value;
 };
-const luminance = token => {
-    const rgb = color(token).slice(1).match(/../g).map(channel => parseInt(channel, 16) / 255)
+// The two-digit channels of a #rrggbb colour; a colour without them stops the test, as reading
+// channels from null did.
+const channels = (value: string) => {
+    const pairs = value.slice(1).match(/../g);
+    assert.ok(pairs, value);
+    return pairs;
+};
+const luminance = (token: string) => {
+    const rgb = channels(color(token)).map(channel => parseInt(channel, 16) / 255)
         .map(channel => channel <= .04045 ? channel / 12.92 : ((channel + .055) / 1.055) ** 2.4);
     return rgb[0] * .2126 + rgb[1] * .7152 + rgb[2] * .0722;
 };
-const contrast = (fg, bg) => {
+const contrast = (fg: string, bg: string) => {
     const values = [luminance(fg), luminance(bg)].sort((a, b) => b - a);
     return (values[0] + .05) / (values[1] + .05);
 };
-const token = (css, pattern) => { const match = css.match(pattern); assert.ok(match, String(pattern)); return match[1]; };
+const token = (css: string, pattern: RegExp) => { const match = css.match(pattern); assert.ok(match, String(pattern)); return match[1]; };
 const bg = /background(?:-color)?:\s*var\((--[\w-]+)\)/;
 const fg = /color:\s*var\((--[\w-]+)\)/;
 // MainPage is in vanilla-extract: `backgroundColor: vars.vox_canvas` is `var(--vox_canvas)`.
