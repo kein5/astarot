@@ -13,7 +13,7 @@ import * as featureLabel from "./featureLabel.ts";
 import { nextLogView, rowsBetween } from "./messageLogView.ts";
 import { speakerContinuations } from "./speakerNames.ts";
 import * as switchBlocksModule from "../main/switchBlocks.ts";
-import { find, findIn, held, loaded, refOf, typeScriptAware, unchecked } from "../test/hookHarness.ts";
+import { find, findIn, held, isInitializer, isUpdater, loaded, refOf, typeScriptAware, unchecked } from "../test/hookHarness.ts";
 import type { Slot, TreeNode } from "../test/hookHarness.ts";
 
 type Deps = readonly unknown[] | undefined;
@@ -39,13 +39,10 @@ function hooks() {
     const api = { ...React,
         useState: <S,>(initial: S | (() => S)): [S, (value: S | ((previous: S) => S)) => void] => {
             const i = index++;
-            // React calls a function given to useState or to its setter instead of keeping it. The slot
-            // keeps what it returns, which held reads back as the state.
-            const start: unknown = initial;
-            if (!(i in slots)) slots[i] = { value: typeof start === "function" ? start() : start };
+            // React calls a function given to useState or to its setter instead of keeping it.
+            if (!(i in slots)) slots[i] = { value: isInitializer(initial) ? initial() : initial };
             return [held<S>(slots[i] ?? {}), value => {
-                const next: unknown = value;
-                slots[i] = { value: typeof next === "function" ? next(held<S>(slots[i] ?? {})) : next };
+                slots[i] = { value: isUpdater(value) ? value(held<S>(slots[i] ?? {})) : value };
             }];
         },
         useRef: <T,>(initial: T) => memo(() => ({ current: initial }), []),

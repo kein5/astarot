@@ -29,12 +29,12 @@ export function held(slot: Slot): unknown {
 }
 
 // React calls a function given to useState or to its setter instead of keeping it.
-function isUpdater<S>(value: S | ((previous: S) => S)): value is (previous: S) => S;
-function isUpdater(value: unknown): boolean {
+export function isUpdater<S>(value: S | ((previous: S) => S)): value is (previous: S) => S;
+export function isUpdater(value: unknown): boolean {
     return typeof value === "function";
 }
-function isInitializer<S>(value: S | (() => S)): value is () => S;
-function isInitializer(value: unknown): boolean {
+export function isInitializer<S>(value: S | (() => S)): value is () => S;
+export function isInitializer(value: unknown): boolean {
     return typeof value === "function";
 }
 
