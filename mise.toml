@@ -79,7 +79,7 @@ description = "UI tests (Vitest), Biome (lint and format check), the type check 
 run = "python tools/dev.py check --scope ui"
 
 [tasks."check:rust"]
-description = "cargo check and cargo test of the Tauri app and the native crates"
+description = "cargo check of the Tauri app, and the native crates' tests (cargo-nextest and doctests)"
 run = "python tools/dev.py check --scope rust"
 
 [tasks."check:integration"]
@@ -89,6 +89,10 @@ run = "python tools/dev.py check --scope integration"
 [tasks."check:workflows"]
 description = "Workflows and the repository's own actions (actionlint, zizmor)"
 run = "python tools/dev.py check --scope workflows"
+
+[tasks."check:crates"]
+description = "Licenses and sources of every Cargo workspace's dependencies (cargo-deny; setup:rust first)"
+run = "python tools/dev.py check --scope crates"
 
 [tasks."check:commits"]
 description = "Commit messages since origin/develop (fetch it first)"
