@@ -6,6 +6,8 @@ import { MainSection } from "./main_section/MainSection";
 import { useIsOpenedConfigPage } from "@logics_common";
 import { StartupContext } from "./startupContext";
 import { StartupProgress } from "./main_section/message_container/log_box/StartupProgress";
+import { VrchatHintContext } from "./vrchatHintContext";
+import { VrchatOscHint } from "../others/vrchat_presence/VrchatOscHint";
 
 // While the engine starts (locked), the page keeps its real layout but takes no
 // input: inert removes it from focus, pointer and the accessibility tree, and
@@ -32,10 +34,13 @@ export const MainPage = ({ focusFallback, locked = false }: MainPageProps) => {
             [styles.showMain]: !hidden,
         })}>
             <StartupContext.Provider value={locked ? <StartupProgress /> : null}>
-                <div className={styles.container}>
-                    <SidebarSection />
-                    <MainSection />
-                </div>
+                {/* The empty conversation's line about VRChat is the main window's: the VR panel has none. */}
+                <VrchatHintContext.Provider value={VrchatOscHint}>
+                    <div className={styles.container}>
+                        <SidebarSection />
+                        <MainSection />
+                    </div>
+                </VrchatHintContext.Provider>
             </StartupContext.Provider>
         </div>
     );

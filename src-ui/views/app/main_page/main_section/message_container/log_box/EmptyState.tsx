@@ -8,12 +8,15 @@ import { downloadProgress } from "../../../../../../logics/main/setupNeeds";
 import { useRecognitionState } from "../../../../../../logics/setup/useRecognitionState";
 import { useFirstRunSetup } from "../../../../../../logics/setup/useFirstRunSetup";
 import { useStartupPlaceholder } from "../../../startupContext";
+import { useVrchatHint } from "../../../vrchatHintContext";
 import styles from "./LogBox.module.scss";
 
 // The first screen of a session: a greeting and, in the main window, what the selected
 // engines still need, each with the step that provides it: the download review, or the
 // settings where the local speech recognition models are set. Where to type is not said in
 // words (#614): the composer under the log says it by its place and its placeholder.
+// Under the list, the main window's line on turning OSC on in VRChat stands only while no
+// VRChat with OSC on is found (VrchatOscHint, handed down by MainPage).
 // While the engine starts, the main page's startup list (StartupProgress) takes
 // its place: how far the start has come and which models it is fetching.
 // The greeting sits in the middle row and the list in the row below it, so the list
@@ -101,7 +104,8 @@ const useNarrowLayout = () => {
 const Setup = () => {
     const { t } = useI18n();
     const { needs, start } = useSetupNeeds();
-    const sends = useSettingValue("EnableSendMessageToVrc");
+    // The main window's line about VRChat; it draws nothing unless it has something to say.
+    const VrchatHint = useVrchatHint();
     // Nothing chosen for the recognition yet, or the bundled server without its models:
     // the first-run setup prepares it in one go (#557).
     const { state: recognition } = useRecognitionState();
@@ -128,6 +132,6 @@ const Setup = () => {
                 </li>;
             })}
         </ul>}
-        {sends?.data === true && <p className={styles.hint}>{t("studio.empty_vrchat_hint")}</p>}
+        {VrchatHint && <VrchatHint className={styles.hint} />}
     </>;
 };

@@ -501,15 +501,21 @@ test("opening and closing settings keeps the same MainSection type and key mount
     const runtime = hooks();
     let open = false;
     const MainSection = () => null;
+    const VrchatOscHint = () => null;
     const { MainPage } = await load<typeof import("../../views/app/main_page/MainPage.tsx")>("app/main_page/MainPage.tsx", runtime, {
         "@logics_common": { useIsOpenedConfigPage: () => ({ currentIsOpenedConfigPage: { data: open } }) },
         "./sidebar_section/SidebarSection": { SidebarSection: icon },
         "./main_section/MainSection": { MainSection },
         "./startupContext": { StartupContext: { Provider: "startup-provider" } },
         "./main_section/message_container/log_box/StartupProgress": { StartupProgress: icon },
+        "./vrchatHintContext": { VrchatHintContext: { Provider: "vrchat-hint-provider" } },
+        "../others/vrchat_presence/VrchatOscHint": { VrchatOscHint },
     });
     const focusFallback = { current: null };
-    const initial = findIn(runtime.render(MainPage, { focusFallback }), node => node.type === MainSection);
+    const first = runtime.render(MainPage, { focusFallback });
+    const initial = findIn(first, node => node.type === MainSection);
+    // The main window hands the empty conversation its line about VRChat; the VR panel has no such provider.
+    assert.equal(findIn(first, node => node.type === "vrchat-hint-provider").props.value, VrchatOscHint);
     for (const state of [true, false]) {
         open = state;
         const page = runtime.render(MainPage, { focusFallback });
