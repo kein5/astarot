@@ -27,9 +27,10 @@
 //! Where it converts (`--device`, default `auto`):
 //!
 //! - `auto`: CUDA when the runtime has the CUDA provider and its libraries load; otherwise
-//!   DirectML when a DirectML folder is there; otherwise the CPU. A GPU that then cannot
-//!   run the check graph leaves the CPU of the same library. On a PC with both, CUDA comes
-//!   first, as before DirectML was offered.
+//!   DirectML when a DirectML folder is there and DirectML would not run on an integrated
+//!   GPU (too slow for real time); otherwise the CPU. A GPU that then cannot run the check
+//!   graph leaves the CPU of the same library. On a PC with both, CUDA comes first, as
+//!   before DirectML was offered.
 //! - `cuda`, `directml`: that GPU or a `failed` packet, never the CPU.
 //! - `cpu`: the CPU, with the runtime's own library.
 //!
@@ -368,10 +369,35 @@ fn preload_directml(folder: &Path) -> bool {
     !library.is_file() || ort::util::preload_dylib(&library).is_ok()
 }
 
+/// Whether `Auto` passes over DirectML for the GPU it would run on: an integrated one, which
+/// cannot convert in real time (an Intel Iris Xe took about 240 ms for a 40 ms block,
+/// 2026-11-20). A GPU ONNX Runtime does not describe is taken.
+fn auto_skips_directml(adapter: Option<&backend::DirectMlAdapter>) -> bool {
+    adapter.is_some_and(|adapter| adapter.discrete == Some(false))
+}
+
+#[cfg(windows)]
+fn directml_on_integrated_gpu() -> bool {
+    match backend::directml_adapters() {
+        Ok(adapters) => auto_skips_directml(backend::preferred_adapter(&adapters)),
+        Err(error) => {
+            eprintln!("vrct-rvc-worker: the GPUs could not be listed: {error}");
+            false
+        }
+    }
+}
+
+#[cfg(not(windows))]
+fn directml_on_integrated_gpu() -> bool {
+    false
+}
+
 /// Loads ONNX Runtime and decides where to convert ([`Choice`], [`plan`]): CUDA from
 /// `<runtime>/lib` with the CUDA libraries, DirectML from the DirectML folder, the CPU from
-/// either. Under `Auto`, a GPU whose check graph cannot run leaves the CPU of the same library.
-fn load_runtime(runtime: &Path, directml: Option<&Path>, choice: Choice) -> Result<Device, Failure> {
+/// either. Under `Auto`, a GPU whose check graph cannot run leaves the CPU of the same library,
+/// and so does DirectML on an integrated GPU when `conversion` is set (a conversion is starting;
+/// a probe only asks whether the device runs, for the translation too).
+fn load_runtime(runtime: &Path, directml: Option<&Path>, choice: Choice, conversion: bool) -> Result<Device, Failure> {
     let lib = runtime.join("lib");
     let directml = directml_folder(&lib, directml);
     let (mut folder, mut device) = plan(choice, &lib, lib.join(CUDA_PROVIDER).is_file(), directml.as_deref(), || load_gpu_libraries(&lib))?;
@@ -386,6 +412,10 @@ fn load_runtime(runtime: &Path, directml: Option<&Path>, choice: Choice) -> Resu
         eprintln!("vrct-rvc-worker: ONNX Runtime could not be loaded: {error}");
         Failure::RuntimeIncomplete
     })?;
+    if conversion && choice == Choice::Auto && device == Device::DirectMl && directml_on_integrated_gpu() {
+        eprintln!("vrct-rvc-worker: DirectML would run on an integrated GPU; converting on the CPU");
+        device = Device::Cpu;
+    }
     if device.is_gpu() {
         // Whether the GPU works at all, before any model: GPU errors from a real model's
         // session cannot be told apart from problems with the model.
@@ -461,7 +491,7 @@ fn load(arguments: &Arguments) -> Result<(Stream, Profile), Failure> {
     if !hubert.join("pytorch_model.bin").is_file() || !hubert.join("config.json").is_file() || !rmvpe.is_file() {
         return Err(Failure::RuntimeIncomplete);
     }
-    let device = load_runtime(&arguments.runtime, arguments.directml.as_deref(), arguments.device)?;
+    let device = load_runtime(&arguments.runtime, arguments.directml.as_deref(), arguments.device, true)?;
     let profile = Profile::of(device, arguments.packets);
     // On the GPU the CPU side of a block is small; one thread per session kept the same
     // block times with a third less CPU and 8 threads instead of 77 (README, "Application
@@ -859,7 +889,7 @@ fn serve(live: Live, profile: Profile, session: &str) -> Result<(), Stop> {
 /// own `lib/` when that holds the DirectML build. Exit 3 when the GPU cannot be used (with
 /// `auto`: the CPU can, so conversion will run there), 4 when the runtime is incomplete.
 fn probe(runtime: &Path, choice: Choice) -> ExitCode {
-    match load_runtime(runtime, None, choice) {
+    match load_runtime(runtime, None, choice, false) {
         Ok(Device::Cpu) if choice == Choice::Auto => {
             eprintln!("vrct-rvc-worker: the GPU cannot be used; conversion will run on the CPU");
             ExitCode::from(3)
@@ -1070,6 +1100,43 @@ mod tests {
         // A folder without DirectML needs nothing loaded first.
         assert!(preload_directml(&dir));
         std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn auto_passes_over_directml_on_an_integrated_gpu_only() {
+        let adapter = |name: &str, discrete: Option<bool>, index: Option<u32>| backend::DirectMlAdapter { name: name.into(), discrete, high_performance_index: index };
+        // A laptop with both: DirectML's high-performance preference takes the discrete GPU.
+        let both = [adapter("Intel(R) Iris(R) Xe Graphics", Some(false), Some(1)), adapter("NVIDIA GeForce RTX 3060 Ti", Some(true), Some(0))];
+        assert_eq!(backend::preferred_adapter(&both).map(|a| a.name.as_str()), Some("NVIDIA GeForce RTX 3060 Ti"));
+        assert!(!auto_skips_directml(backend::preferred_adapter(&both)));
+        // Integrated only: auto converts on the CPU instead.
+        let integrated = [adapter("Intel(R) Iris(R) Xe Graphics", Some(false), Some(0))];
+        assert!(auto_skips_directml(backend::preferred_adapter(&integrated)));
+        // A GPU ONNX Runtime does not describe, or no order: the first is taken and kept.
+        let unknown = [adapter("GPU", None, None), adapter("Other", Some(false), None)];
+        assert_eq!(backend::preferred_adapter(&unknown).map(|a| a.name.as_str()), Some("GPU"));
+        assert!(!auto_skips_directml(backend::preferred_adapter(&unknown)));
+        assert!(!auto_skips_directml(backend::preferred_adapter(&[])));
+    }
+
+    /// The GPUs of a DirectML build of ONNX Runtime on this PC (`VRCT_TEST_DIRECTML_LIB`: a
+    /// folder with its `onnxruntime.dll` and `DirectML.dll`), as the worker judges them. Prints
+    /// names and flags only.
+    ///
+    ///     VRCT_TEST_DIRECTML_LIB=<dir> cargo test --no-default-features --features worker --bin vrct-rvc-worker -- --ignored --nocapture directml_lists
+    #[cfg(windows)]
+    #[test]
+    #[ignore = "needs the DirectML build of ONNX Runtime"]
+    fn directml_lists_this_pcs_gpus() {
+        let Some(folder) = std::env::var_os("VRCT_TEST_DIRECTML_LIB").map(PathBuf::from) else { return };
+        assert!(preload_directml(&folder));
+        backend::load_runtime(&folder.join(ORT_LIBRARY)).unwrap();
+        let adapters = backend::directml_adapters().unwrap();
+        for adapter in &adapters {
+            println!("{adapter:?}");
+        }
+        assert!(!adapters.is_empty(), "the DirectML build lists its GPUs");
+        println!("taken: {:?}; auto passes over it: {}", backend::preferred_adapter(&adapters), auto_skips_directml(backend::preferred_adapter(&adapters)));
     }
 
     #[test]
