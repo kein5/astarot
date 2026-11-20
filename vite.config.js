@@ -32,10 +32,10 @@ export default defineConfig(() => {
             host: host || false,
             hmr: host
                 ? {
-                    protocol: "ws",
-                    host,
-                    port: 1421,
-                }
+                      protocol: "ws",
+                      host,
+                      port: 1421,
+                  }
                 : undefined,
             watch: {
                 // 3. keep backend files and large local datasets/environments out of the watcher.
@@ -89,7 +89,10 @@ export default defineConfig(() => {
                 "@logics_main": path.resolve(__dirname, "src-ui/logics/main"),
                 "@logics_configs": path.resolve(__dirname, "src-ui/logics/configs"),
 
-                "@setting_box": path.resolve(__dirname, "src-ui/views/app/config_page/setting_section/setting_box/index"),
+                "@setting_box": path.resolve(
+                    __dirname,
+                    "src-ui/views/app/config_page/setting_section/setting_box/index",
+                ),
                 "@common_components": path.resolve(__dirname, "src-ui/views/common_components/index"),
             },
         },
@@ -97,9 +100,9 @@ export default defineConfig(() => {
         css: {
             preprocessorOptions: {
                 scss: {
-                    api: "modern-compiler"
-                }
-            }
-        }
+                    api: "modern-compiler",
+                },
+            },
+        },
     };
 });

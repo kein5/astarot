@@ -15,14 +15,15 @@ const root = resolve(import.meta.dirname, "..");
 const dist = resolve(process.argv[2] ?? join(root, "site/dist"));
 const BASE = "/astarot/";
 
-const walk = dir => readdirSync(dir).flatMap(name => {
-    const path = join(dir, name);
-    return statSync(path).isDirectory() ? walk(path) : [path];
-});
+const walk = (dir) =>
+    readdirSync(dir).flatMap((name) => {
+        const path = join(dir, name);
+        return statSync(path).isDirectory() ? walk(path) : [path];
+    });
 const pages = new Map();
-for (const file of walk(dist).filter(path => path.endsWith(".html"))) {
+for (const file of walk(dist).filter((path) => path.endsWith(".html"))) {
     const html = readFileSync(file, "utf8");
-    const ids = new Set([...html.matchAll(/\sid="([^"]+)"/g)].map(match => match[1]));
+    const ids = new Set([...html.matchAll(/\sid="([^"]+)"/g)].map((match) => match[1]));
     pages.set(relative(dist, file).split("\\").join("/"), { html, ids });
 }
 
@@ -66,7 +67,8 @@ for (const locale of ["ja", "en"]) {
         }
         for (const id of headings) {
             checked++;
-            if (!built.ids.has(id)) failures.push(`${locale}/${page}: #${id} is opened from outside the site but is not a heading`);
+            if (!built.ids.has(id))
+                failures.push(`${locale}/${page}: #${id} is opened from outside the site but is not a heading`);
         }
     }
 }

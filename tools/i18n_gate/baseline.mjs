@@ -6,7 +6,9 @@ const entryOf = (item) => `${item.kind}|${item.text}`;
 
 export const countFindings = (findings) => {
     const counts = {};
-    for (const item of [...findings].sort((a, b) => a.file.localeCompare(b.file) || entryOf(a).localeCompare(entryOf(b)))) {
+    for (const item of [...findings].sort(
+        (a, b) => a.file.localeCompare(b.file) || entryOf(a).localeCompare(entryOf(b)),
+    )) {
         counts[item.file] ??= {};
         counts[item.file][entryOf(item)] = (counts[item.file][entryOf(item)] ?? 0) + 1;
     }
