@@ -58,7 +58,8 @@ function answeredValue(result: unknown, savedFromResponse?: (result: unknown) =>
 // changes that are not in the draft,
 // e.g. an engine the backend has not selected yet.
 // `patch` sends only changed top-level fields to setters that merge them.
-export function useSettingsDraft<T>(saved: T | null | undefined, error: unknown, updateError: (code: string | null) => void,
+// `_error` is the caller's error state, which the draft does not read: it reports through updateError.
+export function useSettingsDraft<T>(saved: T | null | undefined, _error: unknown, updateError: (code: string | null) => void,
     { write, canSave = true, label = path => path.join("."), pending = [], savedFromResponse, patch = false }: SettingsDraftOptions<T> = {}): SettingsDraft<T> {
     const { t } = useI18n();
     const [draft, setDraft] = useState<DraftState<T>>(null);

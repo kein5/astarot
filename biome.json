@@ -37,11 +37,13 @@
         "useSemanticElements": "warn"
       },
       "complexity": {
-        "useMathMinMax": "error"
+        "useMathMinMax": "error",
+        "useOptionalChain": "error"
       },
       "correctness": {
         "noComponentHookFactories": "warn",
         "noUnreachable": "warn",
+        "noUnusedFunctionParameters": "error",
         "useExhaustiveDependencies": "warn",
         "useHookAtTopLevel": "warn"
       },
@@ -49,6 +51,7 @@
         "noArrayIndexKey": "warn",
         "noAssignInExpressions": "warn",
         "noControlCharactersInRegex": "warn",
+        "noGlobalIsNan": "error",
         "noImplicitAnyLet": "warn",
         "noShadowRestrictedNames": "warn",
         "useIterableCallbackReturn": "warn"
