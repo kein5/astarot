@@ -1,62 +1,83 @@
 import assert from "node:assert/strict";
 import { test, vi } from "vitest";
 import { createStore } from "jotai/vanilla";
-import { hooks, loadModule } from "../test/hookHarness.ts";
+import type { Atom, PrimitiveAtom } from "jotai/vanilla";
+import { hooks, loadModule, unchecked } from "../test/hookHarness.ts";
+import type { HookRuntime } from "../test/hookHarness.ts";
 import * as polledState from "../common/polledState.ts";
 import * as routeState from "./routeState.ts";
 import * as pendingVoiceRequest from "./pendingVoiceRequest.ts";
+import type { ModelDownloadState } from "./useModelDownloads.ts";
 
-async function setup(file, name) {
+type VoiceModule = typeof import("./useVoice.ts");
+type DownloadsModule = typeof import("./useModelDownloads.ts");
+type ServersModule = typeof import("./useSpeechServers.ts");
+
+// Loads a hook's module with the polled state it shares, and draws the hook that name picks.
+async function setup<M, R>(file: string, name: (module: M) => () => R) {
     const runtime = hooks();
-    const module = await loadModule(new URL(file, import.meta.url), runtime, {
+    const module = await loadModule<M>(new URL(file, import.meta.url), runtime, {
         "../common/polledState.ts": polledState, "./routeState": routeState,
         "./pendingVoiceRequest.ts": pendingVoiceRequest,
     });
-    const render = () => runtime.render(module[name]);
-    return { runtime, render, useHook: module[name] };
+    const useHook = name(module);
+    const render = () => runtime.render(useHook);
+    return { runtime, render, useHook };
 }
-const clone = value => JSON.parse(JSON.stringify(value));
-const observe = (runtime, value) => {
+const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value));
+// The harness makes every atom with atom(initial), so each can be set as well as read.
+const writable = (target: Atom<unknown>): target is PrimitiveAtom<unknown> => "write" in target;
+const observe = (runtime: HookRuntime, value: unknown) => {
     const target = runtime.targets.find(target => runtime.store.get(target) === value);
-    assert.ok(target);
+    assert.ok(target && writable(target));
     let changes = 0;
     const unsubscribe = runtime.store.sub(target, () => changes++);
     return { target, get changes() { return changes; }, unsubscribe };
+};
+// The loops below name the field they read and the update they call.
+const read = (value: unknown, name: string): unknown => {
+    assert.ok(value && typeof value === "object");
+    return Reflect.get(value, name);
+};
+const call = (hook: object, name: string, ...args: unknown[]): unknown => {
+    const method = Reflect.get(hook, name);
+    assert.ok(typeof method === "function");
+    return Reflect.apply(method, hook, args);
 };
 
 for (const [field, update, first, change] of [
     ["status", "updateStatus", { tts_generation: 2, tts_enabled: true, engines: ["one"] }, { tts_enabled: false }],
     ["route", "updateRoute", { generation: 2, requested_muted: false, observed_muted: false }, { requested_muted: true }],
     ["directState", "updateDirectState", { generation: 2, requested: true, mode: "converted", settings: { engine: "rvc" } }, { requested: false }],
-]) test(`${field}: equal polls do not notify; an overtaken response cannot roll back state`, async () => {
-    const { runtime, render } = await setup("./useVoice.ts", "useVoice");
-    render()[update]({ ...first, observation_id: "100" });
-    const before = render()[field], subscription = observe(runtime, before);
+] satisfies [string, string, object, object][]) test(`${field}: equal polls do not notify; an overtaken response cannot roll back state`, async () => {
+    const { runtime, render } = await setup("./useVoice.ts", (module: VoiceModule) => module.useVoice);
+    call(render(), update, { ...first, observation_id: "100" });
+    const before = read(render(), field), subscription = observe(runtime, before);
     // The cursor advances even though the rendered state keeps its old ID.
-    render()[update]({ ...clone(first), observation_id: "103" });
-    render()[update]({ ...clone(first), ...change, observation_id: "102" });
-    assert.equal(render()[field], before);
+    call(render(), update, { ...clone(first), observation_id: "103" });
+    call(render(), update, { ...clone(first), ...change, observation_id: "102" });
+    assert.equal(read(render(), field), before);
     assert.equal(subscription.changes, 0);
-    render()[update]({ ...clone(first), ...change, observation_id: "104" });
-    assert.notEqual(render()[field], before);
+    call(render(), update, { ...clone(first), ...change, observation_id: "104" });
+    assert.notEqual(read(render(), field), before);
     assert.equal(subscription.changes, 1);
-    const changed = render()[field];
-    render()[update]({ ...clone(first), observation_id: "104" });
-    for (const observation_id of [undefined, "bad", "-1"]) render()[update]({ ...first, observation_id });
-    assert.equal(render()[field], changed);
+    const changed = read(render(), field);
+    call(render(), update, { ...clone(first), observation_id: "104" });
+    for (const observation_id of [undefined, "bad", "-1"]) call(render(), update, { ...first, observation_id });
+    assert.equal(read(render(), field), changed);
     render().backendStopped();
-    const stopped = render()[field];
-    render()[update]({ ...first, observation_id: "103" });
-    assert.equal(render()[field], stopped);
+    const stopped = read(render(), field);
+    call(render(), update, { ...first, observation_id: "103" });
+    assert.equal(read(render(), field), stopped);
     render().reset();
-    render()[update]({ ...first, observation_id: "1" });
-    assert.equal(render()[field].observation_id, "1");
+    call(render(), update, { ...first, observation_id: "1" });
+    assert.equal(read(read(render(), field), "observation_id"), "1");
     subscription.unsubscribe();
 });
 
 test("separate voice hook instances share ordering before another render", async () => {
-    const { runtime, useHook } = await setup("./useVoice.ts", "useVoice");
-    const render = () => runtime.render(() => [useHook(), useHook()]);
+    const { runtime, useHook } = await setup("./useVoice.ts", (module: VoiceModule) => module.useVoice);
+    const render = () => runtime.render(() => [useHook(), useHook()] as const);
     const [first, second] = render();
     first.updateRoute({ observation_id: "100", observed_muted: false });
     const before = render()[0].route;
@@ -67,7 +88,7 @@ test("separate voice hook instances share ordering before another render", async
 });
 
 test("observation cursors are isolated by store and atom", async () => {
-    const { runtime, render } = await setup("./useVoice.ts", "useVoice");
+    const { runtime, render } = await setup("./useVoice.ts", (module: VoiceModule) => module.useVoice);
     const firstStore = runtime.store;
     const first = { observation_id: "100", tts_generation: 1, tts_enabled: true };
     render().updateStatus(first);
@@ -87,33 +108,33 @@ for (const [field, update, pending, error, command, first, acknowledged] of [
         { tts_generation: 3, tts_enabled: false }, { tts_generation: 4, tts_enabled: true }],
     ["directState", "updateDirectState", "directPending", "directError", "/run/start_direct_voice",
         { generation: 3, requested: false, mode: "off" }, { generation: 4, requested: true, mode: "converted", settings: { engine: "rvc" } }],
-]) test(`${pending}: acknowledgement runs even when the accepted snapshot keeps its reference`, async t => {
+] satisfies [string, string, string, string, string, object, object][]) test(`${pending}: acknowledgement runs even when the accepted snapshot keeps its reference`, async t => {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
-    const { runtime, render } = await setup("./useVoice.ts", "useVoice");
-    render()[update]({ ...first, observation_id: "100" });
+    const { runtime, render } = await setup("./useVoice.ts", (module: VoiceModule) => module.useVoice);
+    call(render(), update, { ...first, observation_id: "100" });
     await render().send(command, { mode: "converted", options: { engine: "rvc" } });
-    const request = render()[pending], pendingTarget = observe(runtime, request).target;
+    const request = read(render(), pending), pendingTarget = observe(runtime, request).target;
     vi.advanceTimersByTime(5000);
-    assert.equal(render()[error], "voice_request_unconfirmed");
-    render()[update]({ ...acknowledged, observation_id: "102" });
-    assert.equal(render()[pending], null);
-    assert.equal(render()[error], null);
-    const before = render()[field], subscription = observe(runtime, before);
+    assert.equal(read(render(), error), "voice_request_unconfirmed");
+    call(render(), update, { ...acknowledged, observation_id: "102" });
+    assert.equal(read(render(), pending), null);
+    assert.equal(read(render(), error), null);
+    const before = read(render(), field), subscription = observe(runtime, before);
     // Recreate an outstanding acknowledgement independently of rendered state.
     runtime.store.set(pendingTarget, request);
-    render()[update]({ ...clone(acknowledged), observation_id: "104" });
-    assert.equal(render()[pending], null);
-    assert.equal(render()[field], before);
+    call(render(), update, { ...clone(acknowledged), observation_id: "104" });
+    assert.equal(read(render(), pending), null);
+    assert.equal(read(render(), field), before);
     assert.equal(subscription.changes, 0);
     runtime.store.set(pendingTarget, request);
-    render()[update]({ ...acknowledged, observation_id: "103" });
-    assert.equal(render()[pending], request);
+    call(render(), update, { ...acknowledged, observation_id: "103" });
+    assert.equal(read(render(), pending), request);
     subscription.unsubscribe();
 });
 
 test("TTS generation guard and direct stop/error acknowledgement conditions remain intact", async t => {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
-    const { render } = await setup("./useVoice.ts", "useVoice");
+    const { render } = await setup("./useVoice.ts", (module: VoiceModule) => module.useVoice);
     render().updateStatus({ observation_id: "1", tts_generation: 5, tts_enabled: true });
     const status = render().status;
     render().updateStatus({ observation_id: "2", tts_generation: 4, tts_enabled: false });
@@ -130,22 +151,22 @@ test("TTS generation guard and direct stop/error acknowledgement conditions rema
 });
 
 test("downloads and hardware skip equal observations, reject overtaken responses and reset their cursors", async () => {
-    const { runtime, render } = await setup("./useModelDownloads.ts", "useModelDownloads");
+    const { runtime, render } = await setup("./useModelDownloads.ts", (module: DownloadsModule) => module.useModelDownloads);
     for (const [field, update, first, changed] of [
         ["state", "updateState", { jobs: { model: { phase: "downloading", bytes: 10 } } }, { jobs: { model: { phase: "downloading", bytes: 20 } } }],
         ["hardware", "updateHardware", { phase: "ready", devices: [{ name: "gpu", memory: 8 }] }, { phase: "failed", devices: [] }],
-    ]) {
-        render()[update]({ ...first, observation_id: "100" });
-        const before = render()[field], subscription = observe(runtime, before);
-        render()[update]({ ...clone(first), observation_id: "103" });
-        render()[update]({ ...changed, observation_id: "102" });
-        assert.equal(render()[field], before);
+    ] satisfies [string, string, object, object][]) {
+        call(render(), update, { ...first, observation_id: "100" });
+        const before = read(render(), field), subscription = observe(runtime, before);
+        call(render(), update, { ...clone(first), observation_id: "103" });
+        call(render(), update, { ...changed, observation_id: "102" });
+        assert.equal(read(render(), field), before);
         assert.equal(subscription.changes, 0);
-        render()[update]({ ...changed, observation_id: "104" });
-        assert.notEqual(render()[field], before);
+        call(render(), update, { ...changed, observation_id: "104" });
+        assert.notEqual(read(render(), field), before);
         render().reset();
-        render()[update]({ ...first, observation_id: "1" });
-        assert.equal(render()[field].observation_id, "1");
+        call(render(), update, { ...first, observation_id: "1" });
+        assert.equal(read(read(render(), field), "observation_id"), "1");
         subscription.unsubscribe();
     }
     const snapshot = { observation_id: "5", jobs: {} };
@@ -155,13 +176,14 @@ test("downloads and hardware skip equal observations, reject overtaken responses
     assert.equal(render().state, before);
     await render().send("/run/start_model_download", { id: "model" });
     assert.ok(render().pending);
-    render().acknowledge({ observation_id: "7", jobs: { model: { phase: "queued" } } }, "/run/start_model_download");
+    // A job with only its phase: the acknowledgement reads no more of it.
+    render().acknowledge(unchecked<ModelDownloadState>({ observation_id: "7", jobs: { model: { phase: "queued" } } }), "/run/start_model_download");
     assert.equal(render().pending, null);
     assert.equal(render().state, before);
 });
 
 test("speech servers preserve rows and pending objects while retaining generation/phase guards", async () => {
-    const { runtime, render } = await setup("./useSpeechServers.ts", "useSpeechServers");
+    const { runtime, render } = await setup("./useSpeechServers.ts", (module: ServersModule) => module.useSpeechServers);
     const first = { japanese: { generation: 2, state: "ready", base_url: "local" }, asr: { generation: 1, state: "stopped" } };
     render().updateState(first);
     const state = render().state, pending = render().pending, subscription = observe(runtime, state);
@@ -192,7 +214,7 @@ test("speech servers preserve rows and pending objects while retaining generatio
 });
 
 test("speech server devices keep what the CPU and GPU choices run on, and nothing unknown", async () => {
-    const { render } = await setup("./useSpeechServers.ts", "useSpeechServers");
+    const { render } = await setup("./useSpeechServers.ts", (module: ServersModule) => module.useSpeechServers);
     assert.deepEqual(render().builds, { cpu_build: null, gpu_build: null });
     // Linux: the CPU build of its own, and a Vulkan build that does not start on this PC.
     render().updateDevices({ devices: [], cpu_build: "separate", gpu_build: "unavailable" });
