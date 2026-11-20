@@ -1,34 +1,38 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { find, hooks, loadModule } from "../../../../../../logics/test/hookHarness.ts";
+import type { TestContext } from "vitest";
+import { find, hooks, loadModule, unchecked } from "../../../../../../logics/test/hookHarness.ts";
+import type { TreeNode } from "../../../../../../logics/test/hookHarness.ts";
 import * as sharedWindow from "../../../../../../logics/configs/ocrSharedWindow.ts";
 
 const flush = async () => { for (let i = 0; i < 10; i++) await Promise.resolve(); };
-const buttons = tree => {
-    const found = [];
-    const walk = node => {
+const buttons = (tree: unknown) => {
+    const found: TreeNode[] = [];
+    const walk = (node: unknown): void => {
         if (!node || typeof node !== "object") return;
         if (Array.isArray(node)) return node.forEach(walk);
-        if (node.type === "button") found.push(node);
-        walk(node.props?.children);
+        // Any other object here is an element of the drawn tree.
+        const element = unchecked<TreeNode>(node);
+        if (element.type === "button") found.push(element);
+        walk(element.props?.children);
     };
     walk(tree);
     return found;
 };
 
-const mount = async (context, state) => {
+const mount = async (context: TestContext, state: Partial<sharedWindow.SharedWindowState>) => {
     const runtime = hooks();
     context.onTestFinished(() => runtime.unmount());
-    const page = { state: { ...sharedWindow.INITIAL_SHARED_WINDOW, ...state }, calls: [] };
-    const { OcrSharedWindow } = await loadModule(new URL("./OcrSharedWindow.tsx", import.meta.url), runtime, {
+    const page: { state: sharedWindow.SharedWindowState; calls: unknown[][] } = { state: { ...sharedWindow.INITIAL_SHARED_WINDOW, ...state }, calls: [] };
+    const { OcrSharedWindow } = await loadModule<typeof import("./OcrSharedWindow.tsx")>(new URL("./OcrSharedWindow.tsx", import.meta.url), runtime, {
         "@logics_configs": { useOcrSharedWindow: () => ({
             currentOcrSharedWindow: { data: page.state },
             refresh: () => page.calls.push(["refresh"]),
-            share: options => page.calls.push(["share", options]),
+            share: (options: unknown) => page.calls.push(["share", options]),
             stop: async () => { page.calls.push(["stop"]); },
         }) },
         "../../../../../../logics/configs/ocrSharedWindow": sharedWindow,
-        "../_components/env_readout/EnvReadout": { EnvReadout: props => ({ type: "readout", props }) },
+        "../_components/env_readout/EnvReadout": { EnvReadout: (props: unknown) => ({ type: "readout", props }) },
         "./OcrRegions": { RegionTitle: "region-title" },
     });
     const render = () => runtime.render(OcrSharedWindow);
@@ -46,6 +50,7 @@ test("nothing is shown where no window can be shared, and opening the page asks 
 test("the button asks for a window only when it is pressed", async context => {
     const { page, render } = await mount(context, { supported: true });
     const tree = render();
+    assert.ok(tree);
     assert.equal(tree.type, "section");
     assert.equal(tree.props["aria-label"], "config_page.ocr.shared_window.label");
     const [share, ...others] = buttons(tree);
@@ -82,8 +87,9 @@ test("while the desktop's dialog is open the button stays focusable but does not
 
 test("the status and a failure are announced in the readout", async context => {
     const { render } = await mount(context, { supported: true, error: "screencast_helper_missing" });
-    const readout = find(render(), node => node.type?.name === "EnvReadout" || node.props?.tone);
+    const readout = find(render(), node => (typeof node.type === "function" && node.type.name === "EnvReadout") || node.props?.tone);
+    assert.ok(readout);
     assert.equal(readout.props.tone, "failed");
-    const lines = [].concat(readout.props.children).filter(Boolean).map(line => line.props.children);
+    const lines = [readout.props.children].flat().filter(Boolean).map(line => line.props.children);
     assert.deepEqual(lines, ["config_page.ocr.shared_window.status_idle", "config_page.ocr.shared_window.error_failed"]);
 });

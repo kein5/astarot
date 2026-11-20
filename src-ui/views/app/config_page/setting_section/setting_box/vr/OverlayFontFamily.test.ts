@@ -3,13 +3,20 @@ import { test } from "vitest";
 import { hooks, loadModule } from "../../../../../../logics/test/hookHarness.ts";
 import { missingLanguagesText } from "../../../../../../logics/common/fontLanguages.ts";
 
-async function render({ selected = "", missing = [], open = true, fonts = { "Noto Sans": "Noto Sans" } } = {}) {
-    const runtime = hooks(), asked = [], chosen = [];
-    const { OverlayFontFamily } = await loadModule(new URL("./OverlayFontFamily.tsx", import.meta.url), runtime, {
+interface Options {
+    selected?: string;
+    missing?: string[];
+    open?: boolean;
+    fonts?: Record<string, string>;
+}
+
+async function render({ selected = "", missing = [], open = true, fonts = { "Noto Sans": "Noto Sans" } }: Options = {}) {
+    const runtime = hooks(), asked: boolean[] = [], chosen: unknown[] = [];
+    const { OverlayFontFamily } = await loadModule<typeof import("./OverlayFontFamily.tsx")>(new URL("./OverlayFontFamily.tsx", import.meta.url), runtime, {
         "@store": { useStore_SelectableFontFamilyList: () => ({ currentSelectableFontFamilyList: { data: fonts } }) },
         "@logics_configs": { useVr: () => ({
             currentOverlayFontFamily: { data: selected, state: "ok" },
-            setOverlayFontFamily: value => chosen.push(value),
+            setOverlayFontFamily: (value: unknown) => chosen.push(value),
             currentOverlayFontMissingLanguages: { data: missing },
             getOverlayFontMissingLanguages: () => asked.push(true),
         }) },
