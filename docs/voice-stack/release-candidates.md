@@ -20,6 +20,8 @@ flowchart TD
     stableDraft --> stablePublish["人が確かめて公開<br>正式版 vX.Y.Z"]
     stablePublish --> back["main を develop へ戻す PR"]
     back --> develop
+    stablePublish --> matrix["対応環境の表と検証の記録を更新<br>develop への PR"]
+    matrix --> develop
 ```
 
 ベータ版は`develop`から作ります。正式版は`develop`から切った`release/X.Y.Z`をPRで`main`へ統合し、そのマージのコミットから作ります。公開済みの版を急いで直すときだけ、`release/X.Y.Z`を`main`から切ります（[公開済みの版を急いで直す](#公開済みの版を急いで直す)）。ベータ版も正式版も、公開の前にタグ名、リリースノート、実機での動きを人が確かめます。各段の手順はこの下の節にあります。
@@ -145,7 +147,7 @@ Windowsのsetupは、下書きへまとめる際に`VRCT-VOX_setup.exe`へコピ
 ```powershell
 # 下書きのパッケージを取得し、SHA-256を確かめて、作業用のフォルダーへ展開する
 $d = "build\release-check\<version>"
-gh release download v<version> -R kein5/VRCT-VOX -p "VRCT-VOX.zip" -p "VRCT-VOX.zip.sha256" -D "$d\dl"
+gh release download v<version> -R kein5/astarot -p "VRCT-VOX.zip" -p "VRCT-VOX.zip.sha256" -D "$d\dl"
 (Get-FileHash "$d\dl\VRCT-VOX.zip" -Algorithm SHA256).Hash.ToLower() -eq (Get-Content "$d\dl\VRCT-VOX.zip.sha256" -Raw).Trim()
 New-Item -ItemType Directory -Force "$d\app", "$d\state", "$d\webview" | Out-Null
 tar -xf "$d\dl\VRCT-VOX.zip" -C "$d\app"
@@ -160,6 +162,8 @@ $env:WEBVIEW2_USER_DATA_FOLDER = (Resolve-Path "$d\webview").Path
 - OSCの送信先がこのPC（既定）だと、バックエンドがmDNSのためにポートを開き、新しい場所の実行ファイルにはWindowsのファイアウォールの確認が出ます。確認を出さずに見るときは、`state\config.json`に`"OSC_IP_ADDRESS": "127.0.0.2"`と`"SEND_MESSAGE_TO_VRC": false`を書いてから起動します。
 - 利用状況のお知らせで「送信する」を選ぶと、実際の受信サーバーへ1件送ります。送らずに見るときは`VRCT_TELEMETRY`に`off`を入れます。
 - 少なくとも次を確かめます。起動して版が表示されること。設定の「翻訳」のダウンロードを押すと、取得の確認画面が開き、同意して取得が終わると翻訳がオンになって訳文が出ること（翻訳のモデルは2026-11-19に公開しました。それより前の版では、未公開であることと自分で用意したモデルを置くフォルダが出ます）。設定の各ページが開くこと。閉じると、アプリが起動したプロセス（speech.cppのサーバーやRVCのワーカー）が残らないこと。`state\logs\error.log`ができていないこと。0.1.0までは、翻訳モデルがない状態で「翻訳」を押すたびに記録（`MissingCTranslate2Tokenizer`）が1件残りました。モデルがまだないのは最初の起動では当たり前の状態なので、いまは記録せず、利用状況のエラーの通知にも数えません。
+- 確かめるのは手元のWindows 11です。一般向けに配信されているWindows 11で確かめる手順は、リリースの前の確認に加えないと2026-11-18に決めました（#516）。Insider Preview版で確かめたときは、そのビルドの番号を記録に書きます。対応環境の表にも、一般向けのWindows 11では確かめていないと書いてあります。
+- 確かめたことと確かめなかったことを、版、OSとそのビルド、配布形式（インストーラーかZIPか）と一緒に控えます。公開したあと、[対応環境の表と検証の記録](#公開したあとに対応環境の表を更新する)に足します。
 
 ## 公開前にLinuxのデスクトップで確かめる
 
@@ -168,7 +172,7 @@ $env:WEBVIEW2_USER_DATA_FOLDER = (Resolve-Path "$d\webview").Path
 ```bash
 # 下書きのAppImageを取得し、SHA-256を確かめる
 mkdir -p ~/.cache/vrct-vox-release-check/<version> && cd ~/.cache/vrct-vox-release-check/<version>
-gh release download v<version> -R kein5/VRCT-VOX -p '*.AppImage' -p 'SHA256SUMS-linux'
+gh release download v<version> -R kein5/astarot -p '*.AppImage' -p 'SHA256SUMS-linux'
 sha256sum -c --ignore-missing SHA256SUMS-linux
 cd <リポジトリ>
 
@@ -191,7 +195,13 @@ python tools/native_acceptance.py --appimage <AppImageの絶対パス> --vrchat
 
 0.5までは、ほかに`voice`、`tts-model`、`asr`、`downloads`、`rvc`、`seed-vc`、`vrchat-voice`、`vr-ui`のグループと、モデルと実行環境を取得する`--fetch-models`、`--fetch-runtimes`がありました。これらは試験専用のPipeWireグラフでアプリの音声を流したり聞いたりするのに、Pythonのバックエンドの部品（PipeWireのゲート、読み上げの呼び出し、録音、取得と準備の仕組み）を使っていたので、0.6.0でバックエンドと一緒に消しました（#285）。音声経路、読み上げ、音声認識、RVCを実機で確かめる試験は、今はありません。読み上げと遅延は、中核の例（`native/core/examples/live_speech.rs`、`pipeline_latency.rs`）で測れます。
 
-実行した試験と実行しなかった試験を、リリースノートの「既知の制限」に書いてください。
+実機で確かめる範囲は2026-11-18に決めました（#516）。
+
+- 配布形式はAppImageで確かめます。debとrpmはコンテナに入れる試験、tar.gzは仮想の画面で起動する試験（どちらも`build-linux.yml`）だけで、実機では確かめません。
+- デスクトップは実機で確かめます。記録には、ディストリビューションとその版、デスクトップ環境、表示の方式（WaylandかX11か）を書きます。
+- VRは実際のヘッドセットとSteamVRを使わず、偽のSteamVR（`FakeVr`）を使う試験で足ります。この試験は`voice-tests.yml`の`core-integration`のジョブが流します（[CIが確かめていること](platform-verification.md#ci-が確かめていること)）。
+
+実行した試験と実行しなかった試験を、リリースノートの`## 🐞 既知の問題`に書いてください。結果は、版、ディストリビューション、デスクトップ環境、配布形式と一緒に控えます。公開したあと、[対応環境の表と検証の記録](#公開したあとに対応環境の表を更新する)に足します。
 
 操作できなかった部品があるときは、試験の出力先の`blocked-<操作>.json`を見てください。何が覆っていたかと、開いていたダイアログを記録してあります。
 
@@ -247,6 +257,22 @@ gh api repos/{owner}/{repo}/releases/<id> \
    ```
 
    `want`と`published`が同じで、`missing`と`extra`が空であることを確かめます。前の版と件数が違うときは、配布物の増減（なくした配布物、名前を変えた配布物）で説明がつくかを確かめます。下書きを作る手順が資産の組み方を変えたら、この式も直します。
+
+## 公開したあとに対応環境の表を更新する
+
+正式版を公開したら、利用者向けの[対応環境と検証の範囲](../../site/ja/guide/support.md)（英語は[Platform support](../../site/en/guide/support.md)）と、その根拠の[対応環境の検証の記録](platform-verification.md)を、公開した版に合わせて更新します（#516）。ホットフィックスの版も同じです。ガイドのサイトはdevelopから公開されるので、更新はdevelopへのPRにし、版を公開したあとにマージします。公開の前にマージすると、まだ出していない版の内容を利用者に見せることになります。
+
+1. 根拠の一覧の「実機の記録」に、この版の記録を足します。[Windows](#公開前にwindowsのパッケージを起動して確かめる)と[Linux](#公開前にlinuxのデスクトップで確かめる)の公開前の確認で控えたことを、版、OSとその版、配布形式、確かめたこと、確かめなかったことの列に書き、記録の出典（PRやIssueのコメント）へリンクします。PCの持ち主が分かる情報は書きません。実機で確かめなかった版では、そのことを書きます。
+2. 根拠の一覧の「CIが確かめていること」を、この版のワークフローと見比べます。ジョブ、ランナー、確かめることが変わっていれば直します。
+3. 日本語と英語のページを同じように直します。
+   - 冒頭の「X.Y.Zの時点の内容です（日付）」を、公開した版と日付にします。根拠の一覧の「対象の版」も同じ版にします。
+   - 「OSと配布形式」の行を、この版の配布物と見比べます。
+   - 実機の欄は、1で足した記録がある欄だけを、この版で確かめたと書き換えます。前の版の記録しかない欄は、その版を書いたまま残します。記録のない欄は「未検証」のままです。
+   - Windowsの実機の記録のOSの注記（Insider Preview版のビルドの番号）を、1の記録に合わせます。
+4. `python tools/dev.py check --scope voice`で`tests/voice/test_support_matrix.py`を流し、`site/`で`npm run build`とPagesのワークフローの検査を流します。この試験が確かめるのは、配布物の名前、debとrpmを試すコンテナのOSと版、日英の表の形だけです。機能の欄の中身は、PRのレビューで1の記録と見比べます。
+5. PRの「Platforms / 対応環境」に、変えた欄と、根拠にした記録を書きます。
+
+ベータ版を公開したときは、利用者向けのページは変えません。ページは正式版の範囲を示すためです。ベータ版を実機で確かめたときは、根拠の一覧の「実機の記録」にだけ足します（0.5.0-beta.5の記録と同じ扱いです）。
 
 ## 公開したあと
 

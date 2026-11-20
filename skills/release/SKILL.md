@@ -1,6 +1,6 @@
 ---
 name: release
-description: ASTAROTの版を出す手順。release/X.Y.Zブランチ、版上げとCHANGELOG、リリースノート（docs/release-notes）、候補のビルド、「Prepare verified ASTAROT release draft」での下書き、公開前のtag_nameの確認、公開、公開後のlatest・Workerのlatest.json・資産の件数の確認、mainをdevelopへ戻す統合を扱う。リリース、版上げ、ベータ、正式版、ホットフィックスの版、下書き、公開、リリースノートを頼まれたときに使う。Use when preparing, drafting, publishing or checking a release, or writing its notes. 通常のPRはpull-requestスキル。
+description: ASTAROTの版を出す手順。release/X.Y.Zブランチ、版上げとCHANGELOG、リリースノート（docs/release-notes）、候補のビルド、「Prepare verified ASTAROT release draft」での下書き、公開前のtag_nameの確認、公開、公開後のlatest・Workerのlatest.json・資産の件数の確認、対応環境の表と検証の記録の更新、mainをdevelopへ戻す統合を扱う。リリース、版上げ、ベータ、正式版、ホットフィックスの版、下書き、公開、リリースノートを頼まれたときに使う。Use when preparing, drafting, publishing or checking a release, or writing its notes. 通常のPRはpull-requestスキル。
 ---
 
 # 版を出す
@@ -25,7 +25,8 @@ description: ASTAROTの版を出す手順。release/X.Y.Zブランチ、版上�
 4. 公開の前の確認（tag_nameを明示してPATCHし、読み直す）
 5. 公開
 6. 公開の後の確認（make_latest、releases/latest、Workerのlatest.json、資産の件数）
-7. mainをdevelopへ戻す統合
+7. 対応環境の表と検証の記録の更新（正式版とホットフィックス）
+8. mainをdevelopへ戻す統合
 
 ## 1. releaseブランチ
 
@@ -39,7 +40,7 @@ git worktree add ../<リポジトリ名>-release-<版> -b release/X.Y.Z origin/d
 1. `package.json`の`version`を`X.Y.Z`にし、`npm run update-version`で各ファイルへ反映します。
 2. `npm run changelog`で`CHANGELOG.md`にこの版の節を書きます。節を読み、分かりにくい行はファイルの上で直します。
 3. 1と2を`chore(release): version X.Y.Z`の1つのコミットにします。
-4. `python tools/changelog.py scaffold-notes`（`mise run changelog:notes`）で`docs/release-notes/X.Y.Z.md`の雛形を作り、8の書式で書き直します。`docs(release): add the X.Y.Z release notes`でコミットします。
+4. `python tools/changelog.py scaffold-notes`（`mise run changelog:notes`）で`docs/release-notes/X.Y.Z.md`の雛形を作り、9の書式で書き直します。`docs(release): add the X.Y.Z release notes`でコミットします。
 5. mainへのPRを開きます（`gh pr create --base main`）。本文には、含める変更、確かめたこと、判断が要ることを書きます。
 6. mainへのPRは保守担当者の確認を受けてからマージコミットで統合します。`CHANGELOG.md`の節が`release/X.Y.Z`のコミットへリンクしているので、squashとrebaseは使いません。
 
@@ -86,7 +87,7 @@ gh api 'repos/{owner}/{repo}/releases?per_page=10' \
    ```
 
 2. `tag_name`と`target_commitish`を明示してPATCHし、読み直して確かめます。コマンドと確かめる値は`release-candidates.md`の「公開の直前にタグ名を書き直す」にあります。同じ名前のタグがすでにあったら止めて、保守担当者に伝えます。
-3. 実機での確認を済ませます。Windowsは`release-candidates.md`の「公開前にWindowsのパッケージを起動して確かめる」、Linuxは「公開前にLinuxのデスクトップで確かめる」の手順です。確かめられなかったことは、リリースノートの`## 🐞 既知の問題`に書きます。
+3. 実機での確認を済ませます。Windowsは`release-candidates.md`の「公開前にWindowsのパッケージを起動して確かめる」、Linuxは「公開前にLinuxのデスクトップで確かめる」の手順です。確かめる範囲（WindowsのOS、Linuxの配布形式とデスクトップ、VR）もそれぞれの節にあります。確かめられなかったことは、リリースノートの`## 🐞 既知の問題`に書きます。確かめたことと確かめなかったことは、版、OSとその版、配布形式と一緒に控えます（7で使います）。
 4. 公開の準備ができたことを報告し、保守担当者の確認を待ちます。
 
 ## 5. 公開
@@ -104,7 +105,18 @@ gh api 'repos/{owner}/{repo}/releases?per_page=10' \
 
 違うものがあれば、直すか保守担当者に伝えます。
 
-## 7. mainをdevelopへ戻す
+## 7. 対応環境の表と検証の記録を更新する
+
+正式版とホットフィックスの版を公開したら、利用者向けの対応環境の表（`site/ja/guide/support.md`と`site/en/guide/support.md`）と、その根拠の`docs/voice-stack/platform-verification.md`を、公開した版に合わせて更新します（#516）。手順は`release-candidates.md`の「公開したあとに対応環境の表を更新する」にあります。
+
+1. developから`docs/support-matrix-X.Y.Z`のようなブランチを切ります。
+2. 4の3で控えた実機の確認の結果を根拠の一覧に足し、日英の表の冒頭の版と日付、配布形式の行、実機の欄を直します。前の版の記録しかない欄を、この版で確かめたことにしません。
+3. `python tools/dev.py check --scope voice`（`tests/voice/test_support_matrix.py`）と、`site/`のビルドを流します。
+4. developへのPRを開きます。サイトはdevelopから公開されるので、版を公開したあとにマージします。
+
+ベータ版では表を変えません。ベータ版を実機で確かめたときは、根拠の一覧の実機の記録にだけ足します。
+
+## 8. mainをdevelopへ戻す
 
 正式版を公開すると、「Open ASTAROT back-merge pull request」（`release-back-merge.yml`）が`chore/merge-main-back-X.Y.Z`からdevelopへのPRを開きます。題は`chore(release): merge main (X.Y.Z) back into develop`です。ベータでは開きません。
 
@@ -115,7 +127,7 @@ gh api 'repos/{owner}/{repo}/releases?per_page=10' \
 
 PRが開かなかったときは、ジョブのSummaryにあるリンクから人がPRを開きます。リポジトリの設定でActionsにPRの作成を許していないと、ジョブはブランチを作ったところで止まります。
 
-## 8. リリースノートの書式
+## 9. リリースノートの書式
 
 正本は`docs/release-notes/README.md`です。正式版ごとに`docs/release-notes/<版>.md`を書き、GitHubのリリースの本文にします。
 
