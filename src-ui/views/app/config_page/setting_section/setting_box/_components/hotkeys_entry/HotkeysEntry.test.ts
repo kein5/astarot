@@ -1,26 +1,48 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import { hooks, loadModule, find } from "../../../../../../../logics/test/hookHarness.ts";
+import type { TreeNode } from "../../../../../../../logics/test/hookHarness.ts";
+import type { Hotkeys } from "../../../../../../../logics/store.ts";
+import type { HotkeysEntryProps } from "./HotkeysEntry.tsx";
+
+// The node a test reads: one that is missing fails the test where it is read.
+const found = (node: TreeNode | null | undefined) => { assert.ok(node); return node; };
+// The element's ref object, which React 18's element type leaves out. Setting current on a node
+// with no ref stops with a TypeError, as `node.ref.current = ...` did.
+const setRef = (node: TreeNode, value: unknown) => {
+    const ref: unknown = Reflect.get(node, "ref");
+    if (typeof ref !== "object" || ref === null) throw new TypeError("The element has no ref object");
+    Reflect.set(ref, "current", value);
+};
+interface KeyEvent {
+    key: string;
+    defaultPrevented: boolean;
+    stopped: boolean;
+    preventDefault(): void;
+    stopPropagation(): void;
+    [field: string]: unknown;
+}
 
 async function setup() {
-    const runtime = hooks(), saves = [];
+    const runtime = hooks(), saves: Hotkeys[] = [];
     const Entry = () => null;
-    const { HotkeysEntry } = await loadModule(new URL("./HotkeysEntry.tsx", import.meta.url), runtime, {
+    const { HotkeysEntry } = await loadModule<typeof import("./HotkeysEntry.tsx")>(new URL("./HotkeysEntry.tsx", import.meta.url), runtime, {
         "../_atoms/_entry/_Entry": { _Entry: Entry },
     });
-    const props = { value: { open_quick_chat: ["Ctrl", "Q"] }, hotkey_id: "open_quick_chat", label: "クイックチャット",
-        setHotkeys: async value => { saves.push(value); return true; } };
-    let current;
+    const props: HotkeysEntryProps = { value: { open_quick_chat: ["Ctrl", "Q"] }, hotkey_id: "open_quick_chat", label: "クイックチャット",
+        setHotkeys: async (value: Hotkeys) => { saves.push(value); return true; } };
+    let current: TreeNode | null | undefined;
     const render = () => {
         const tree = runtime.render(HotkeysEntry, props, tree => {
             current = find(tree, node => node.type === Entry);
-            current.ref.current = { blur: () => current.props.onBlur() };
+            const entry = found(current);
+            setRef(entry, { blur: () => entry.props.onBlur() });
         });
         return tree;
     };
-    const field = () => { render(); return current.props; };
-    const key = (name, extra = {}) => {
-        const event = { key: name, defaultPrevented: false, stopped: false,
+    const field = () => { render(); return found(current).props; };
+    const key = (name: string, extra: Record<string, unknown> = {}) => {
+        const event: KeyEvent = { key: name, defaultPrevented: false, stopped: false,
             preventDefault() { this.defaultPrevented = true; }, stopPropagation() { this.stopped = true; }, ...extra };
         field().onKeyDown(event);
         field().onKeyUp(event);
@@ -66,7 +88,7 @@ test("blur cancels a partial chord; a fresh chord and the clear button still sav
     subject.field().onFocus();
     subject.key("w", { ctrlKey: true });
     assert.deepEqual(subject.saves, [{ open_quick_chat: ["Ctrl", "W"] }]);
-    const clear = find(subject.render(), node => node.type === "button");
+    const clear = found(find(subject.render(), node => node.type === "button"));
     assert.equal(clear.props["aria-label"], "quick_chat.clear_shortcut");
     clear.props.onClick();
     assert.deepEqual(subject.saves.at(-1), { open_quick_chat: null });
@@ -116,7 +138,10 @@ test("every symbol key typed with Shift is recorded by a name the global shortcu
     for (const [code, key] of Object.entries(shifted)) {
         const subject = await setup();
         subject.key(key, { code, ctrlKey: true, shiftKey: true });
-        const saved = subject.saves[0].open_quick_chat;
+        const first = subject.saves[0];
+        assert.ok(first);
+        const saved = first.open_quick_chat;
+        assert.ok(saved);
         assert.deepEqual(saved.slice(0, 2), ["Ctrl", "Shift"], code);
         assert.ok(accepted.has(saved[2]), `${code}: ${saved[2]}`);
     }
@@ -130,8 +155,9 @@ test("every symbol key typed with Shift is recorded by a name the global shortcu
 
 for (const newerEdit of [false, true]) test(`rejected hotkey restores committed display without overwriting a newer edit: ${newerEdit}`, async () => {
     const s = await setup();
-    let resolve;
-    s.props.setHotkeys = () => new Promise(done => { resolve = done; });
+    // Set by the save below, before the test resolves it.
+    let resolve: (taken: boolean) => void = () => { throw new TypeError("No save is waiting"); };
+    s.props.setHotkeys = () => new Promise<boolean>(done => { resolve = done; });
     s.key("w", { ctrlKey: true });
     s.field(); s.field(); // Let blur's synchronization effect finish before rejection.
     if (newerEdit) {

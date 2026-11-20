@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "vitest";
 import { buildComputeDeviceOptions, computeDeviceLabel, needsRestart } from "./computeDeviceOptions";
 
-const t = (key, values) => `${key}:${JSON.stringify(values ?? {})}`;
+const t = (key: string, values?: Record<string, unknown>) => `${key}:${JSON.stringify(values ?? {})}`;
 const cpu = { device: "cpu", device_index: 0, device_name: "cpu", compute_types: ["auto", "float32", "int8"] };
 const cuda = { device: "cuda", device_index: 0, device_name: "NVIDIA GPU (CUDA)", compute_types: ["auto", "float32", "float16", "int4"] };
 const later = { ...cuda, restart_required: true };
@@ -26,6 +26,6 @@ test("the label of the chosen device names the restart only when one is needed",
     assert.equal(needsRestart(null), false);
     assert.equal(computeDeviceLabel(cpu, t), "CPU");
     assert.equal(computeDeviceLabel(cuda, t), "NVIDIA GPU (CUDA)");
-    assert.match(computeDeviceLabel(later, t), /^config_page\.common\.compute_device\.after_restart:/);
+    assert.match(computeDeviceLabel(later, t) ?? "", /^config_page\.common\.compute_device\.after_restart:/);
     assert.equal(computeDeviceLabel(undefined, t), undefined);
 });
