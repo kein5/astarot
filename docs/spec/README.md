@@ -38,7 +38,7 @@ ASTAROTの機能、API、データ、振る舞いの約束をまとめた文書�
 ## 更新の決まり
 
 - `reference/`の3つの一覧は`tools/spec_catalog.py`が生成する。手で編集しない。入力は、中核（`native/core`）が書き出した`tools/spec_core_catalog.json`、設定キーの検証の式（`native/core/src/config/schema.rs`の`keys()`）、UIのコードである。
-- 中核のエンドポイント、通知、エラーコード、設定キーを変えたら、同じ変更で次の2つを実行し、JSONと一覧を作り直す。
+- 中核のエンドポイント、通知、エラーコード、設定キーを変えたら、同じ変更で`mise run spec`を実行し、JSONと一覧を作り直す。中身は次の2つである。
 
   ```sh
   VRCT_SPEC_CATALOG_WRITE=1 cargo test --manifest-path native/core/Cargo.toml --test spec_catalog

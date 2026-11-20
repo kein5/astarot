@@ -22,7 +22,7 @@ mise run check               # 軽量チェック
 | `check:voice`、`check:ui`、`check:rust`、`check:integration`、`check:workflows`、`check:crates` | `python tools/dev.py check --scope <名前>` |
 | `check:commits` | `python tools/dev.py check --scope commits --base origin/develop` |
 | `setup:headless`、`setup:ui`、`setup:browser`、`setup:rust`、`setup:resources`、`setup:integration` | `python tools/dev.py setup --scope <名前>` |
-| `spec` | 機能仕様書の一覧を作り直す（`python tools/spec_catalog.py --write`） |
+| `spec` | 機能仕様書の一覧を作り直す（中核の一覧`tools/spec_core_catalog.json`を書き直してから`python tools/spec_catalog.py --write`） |
 | `adr` | ADR の索引の表を作り直す（`python tools/adr_catalog.py --write`） |
 | `build:voice-gate`、`build:rvc-worker` | 音声の補助プログラムとRVCのワーカーを `build/` にビルドする |
 | `build:windows`、`build:linux` | `npm run build`、`python tools/build_linux.py` |
@@ -30,7 +30,7 @@ mise run check               # 軽量チェック
 | `changelog:notes` | 正式版のリリースノートの雛形を `docs/release-notes/<版>.md` に作る。既にあれば上書きしない（[リリースノートの書式](release-notes/README.md#雛形から書き始める)） |
 | `dev:web` | Web UIの開発サーバー（Vite）。検証には含めない |
 
-機能仕様書の一覧（`docs/spec/reference/` のエンドポイント、エラーコード、設定キー）はコードから生成します。エンドポイント、エラーコード、設定キーを変えたら `mise run spec` で作り直します。`check` はこの一覧が最新かどうかも確かめます。仕様書の入口は [docs/spec/README.md](spec/README.md) です。
+機能仕様書の一覧（`docs/spec/reference/` のエンドポイント、エラーコード、設定キー）は中核とUIのコードから生成します。エンドポイント、エラーコード、設定キーを変えたら `mise run spec` で作り直します。`check` はこの一覧が最新かどうかも確かめます。仕様書の入口は [docs/spec/README.md](spec/README.md) です。
 
 設計判断の記録（ADR）の索引の表（[docs/adr/README.md](adr/README.md)）は、各 ADR の冒頭の front matter から生成します。ADR を足したり front matter を変えたりしたら `mise run adr` で作り直します。`check` は `tests/devtools/test_adr_catalog.py` で、番号の重複、項目と値、裏付けのパス、リンク、表の古さを確かめます。
 
