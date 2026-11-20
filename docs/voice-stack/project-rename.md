@@ -61,7 +61,7 @@ WindowsのNSISテンプレートは上記のレジストリキーから前回の
 | Nebiros | `native/ops` | 実行状態の監督。バックエンドの見張り（watchdog）と利用状況の通知。モデルの取得もここにある |
 | Nuberus | `native/vr-overlay` | SteamVRのオーバーレイ（字幕のログ、VRパネル、ランチャー） |
 
-コードネームは、各クレートの`Cargo.toml`の`description`と、`lib.rs`の冒頭にも書いてあります。パッケージ名（`vrct-core`など）とフォルダーの名前はまだ変えていません。パッケージ名はコードの中だけの名前として、ADR-014のPR 12で扱います。
+コードネームは、各クレートの`Cargo.toml`の`description`と、`lib.rs`の冒頭にも書いてあります。パッケージ名（`vrct-core`など）とフォルダーの名前はまだ変えていません。パッケージ名はコードの中だけの名前として、ADR-014のPR 12で、どのクレートも`astarot-`で始まる名前（`astarot-core`など）にします。コードネームはパッケージ名にせず、文書と説明だけに使います（[#797](https://github.com/kein5/astarot/pull/797)の決定）。フォルダーの名前は変えません。
 
 次の名前は、まだ付けていません。
 
