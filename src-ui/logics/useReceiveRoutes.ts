@@ -909,4 +909,5 @@ const buildRouteMetaList = () => {
     return mergedList;
 };
 
-const ROUTE_META_LIST = buildRouteMetaList();
+// Every route: the static ones above and the ones the settings definitions make. Exported for its tests.
+export const ROUTE_META_LIST = buildRouteMetaList();

@@ -187,7 +187,7 @@ export const loadBridgeRoutes = async (
         "./common/settingsWriteResponses.ts": settingsResponses,
         "./main/languageMutations": { receiveLanguageMutation: noop, resetLanguageMutations: noop, isLanguageMutation: () => false },
     });
-    return { ...subject, notices, reads, virtualMic: () => localRuntime.render(virtualMic.useVirtualMic),
+    return { ...subject, notices, reads, routeTable: routes.ROUTE_META_LIST, virtualMic: () => localRuntime.render(virtualMic.useVirtualMic),
         firstRunSetup: () => localRuntime.render(firstRunSetup.useFirstRunSetup),
         voiceAudition: () => localRuntime.render(voiceAudition.useVoiceAudition), auditionSent: sent,
         gpuCheck: () => localRuntime.render(gpuCheck.useGpuCheck),
