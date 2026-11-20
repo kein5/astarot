@@ -1069,8 +1069,6 @@ config_page:
         models:
             title: "Recognition models"
             desc: "Chat reading runs PaddleOCR models on your PC. Nothing is downloaded until you review the terms and agree."
-            installed: "Downloaded"
-            missing: "Not downloaded"
             required: "Needed for the current source language"
             refresh: "Check again"
         runtime:
