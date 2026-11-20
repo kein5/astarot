@@ -283,8 +283,8 @@ impl Sender {
                 ("Content-Type", "application/json"),
                 ("Content-Length", length.as_str()),
                 ("X-Ingest-Key", self.key.as_str()),
-                // Kept until the receiver is known not to sort events by it (ADR-014, 8).
-                ("User-Agent", "VRCT-VOX"),
+                // The receiver does not read it (ADR-014, 8; checked against its source on 2026-11-20).
+                ("User-Agent", "ASTAROT"),
             ];
             net::send_request(&mut stream, "POST", &t.path, &headers, data.as_bytes())?;
             let mut response = net::read_response(stream, "POST")?;

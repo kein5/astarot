@@ -111,7 +111,7 @@ fn the_app_started_event_carries_where_it_came_from_and_nothing_else() {
     let host = format!("127.0.0.1:{}", target.server.port);
     assert_eq!(
         headers,
-        [("Host", host.as_str()), ("Accept-Encoding", "identity"), ("Content-Type", "application/json"), ("Content-Length", length.as_str()), ("X-Ingest-Key", INGEST_KEY), ("User-Agent", "VRCT-VOX")]
+        [("Host", host.as_str()), ("Accept-Encoding", "identity"), ("Content-Type", "application/json"), ("Content-Length", length.as_str()), ("X-Ingest-Key", INGEST_KEY), ("User-Agent", "ASTAROT")]
     );
     // json.dumps(ensure_ascii=True, separators=(",", ":")).
     assert!(request.body.is_ascii() && !request.body.windows(2).any(|w| w == b", " || w == b": "));
