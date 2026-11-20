@@ -27,8 +27,9 @@ async function setup(testContext: TestContext) {
         submit: (request: unknown): Promise<boolean> => { submissions.push(request); return fake.handoff.promise; },
         handoff: deferred<boolean>(),
     };
-    // Test data: the contexts the test reads carry only the settings the window applies, and the
-    // window calls the open and context callbacks with or without an event.
+    // On purpose: the test calls the window's open and context callbacks with or without an event;
+    // the bridge's declared callbacks always take one. The contexts carry only the settings the
+    // window applies.
     const bridge = unchecked<QuickChatBridge>(fake);
     const { QuickChat } = await loadModule<typeof import('./QuickChat.tsx')>(new URL('./QuickChat.tsx', import.meta.url), runtime, {
         '@useI18n': { useI18n: () => ({ t: (key: string) => key, i18n }) },
