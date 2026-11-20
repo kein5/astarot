@@ -302,7 +302,7 @@ export function VrLanguageWindow({ onClose }: { onClose: () => void }) {
                         onClick={() => save(() => settings.swapSelectedLanguages())}><span>{c('swap')}</span><span className={styles.country}>{c('swap_hint')}</span></button>
                 </div>
                 <section className={styles.targets}>
-                    <div className={styles.target_heading}><h2 className={settingsStyles.section_label}>{t('main_page.target_language')}<span>{c('range')}</span></h2><span className={styles.count}>{targets.length} / 3{duplicates && <span> · {c('duplicate')}</span>}</span></div>
+                    <div className={styles.target_heading}><h2 className={settingsStyles.section_label}>{t('main_page.target_language')}</h2><span className={styles.count}>{targets.length} / 3{duplicates && <span> · {c('duplicate')}</span>}</span></div>
                     <div className={styles.selected_rows}>{targets.map((entry, index) => <div className={clsx(settingsStyles.row, styles.target_row)} key={index}>
                         <button className={styles.target_change} ref={mainRef(`target:${index}`)} aria-label={`${c('change_target', { n: index + 1 })}: ${names.name(entry).label}`} aria-disabled={busy ? true : undefined}
                             onClick={() => open({ kind: 'target-replace', index, stage: 'saved' }, `target:${index}`)}>
@@ -325,7 +325,7 @@ export function VrLanguageWindow({ onClose }: { onClose: () => void }) {
                     <button className={clsx(settingsStyles.button, settingsStyles.back)} ref={backButton} aria-disabled={busy ? true : undefined} onClick={() => !locked && back()}>‹ {t('common.go_back_button_label')}</button>
                     <div className={clsx(settingsStyles.picker_title, styles.context)}><span>{c('preset_number', { n: preset })}</span><h2>{title}</h2></div>
                 </div>
-                {status && <p className={`${styles.feedback} ${error || syncError ? styles.error : ''}`}>{status}{busy && !syncError && <span> {c('busy_hint')}</span>}</p>}
+                {status && <p className={`${styles.feedback} ${error || syncError ? styles.error : ''}`}>{status}</p>}
                 {view.stage === 'list' && <div className={styles.list_tools}>
                     <input type="search" data-vr-hoverable="" className={styles.filter} value={query} disabled={busy}
                         placeholder={t('main_page.language_selector.filter')} aria-label={t('main_page.language_selector.filter')}
@@ -360,7 +360,6 @@ export function VrLanguageWindow({ onClose }: { onClose: () => void }) {
                         {view.stage === 'saved' && <button className={clsx(settingsStyles.row, settingsStyles.clickable, styles.all_languages)} aria-disabled={busy ? true : undefined} onClick={() => !busy && setView({ ...view, stage: 'list' })}>{c('all_languages')}<span className={settingsStyles.chevron} aria-hidden="true">›</span></button>}
                         <h3 className={settingsStyles.section_label}>{view.stage === 'list' ? c('all_languages') : c('saved')}</h3>
                         {!languageChoices.length && <p role="status" className={styles.helper}>{t('main_page.language_selector.no_results')}</p>}
-                        {view.stage === 'saved' && <p className={styles.helper}>{c('saved_hint')}</p>}
                         <VrPickerList key={`${viewKey}/${query}/${i18n.language}`} options={languageChoices} columns={2}
                             scrollRef={pickerScroll} navigationRef={languageList} isDisabled={choiceDisabled}
                             virtualized={sortedChoices.length >= VR_PICKER_WINDOW_THRESHOLD}
