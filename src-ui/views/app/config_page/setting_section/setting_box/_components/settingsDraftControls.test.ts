@@ -33,7 +33,7 @@ async function setup(context: TestContext, kind: "word" | "message") {
     const saved: { state: string; data: unknown } = kind === "word" ? words : format;
     const send = (value: unknown) => new Promise<StdoutResult>(resolve => { saved.state = "pending"; requests.push({ value, resolve }); });
     const Entry = () => null;
-    const common = { [importsPath]: { useSettingsDraft }, "../_atoms/_entry/_Entry": { _Entry: Entry } };
+    const common = { [importsPath]: { useSettingsDraft }, "../_atoms/_entry/_Entry": { _Entry: Entry }, "../fold/Fold": { Fold: "fold" } };
     let draw: () => ReactNode;
     if (kind === "word") {
         const state = { currentMicWordFilterList: saved, setMicWordFilterList: send,

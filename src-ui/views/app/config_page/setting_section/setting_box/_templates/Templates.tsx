@@ -16,7 +16,6 @@ import {
     AuthKey,
     ActionButton,
     WordFilter,
-    WordFilterListToggleComponent,
     DownloadModels,
     MessageFormat,
     ConnectionCheckButton,
@@ -299,9 +298,11 @@ export const WordFilterContainer = (props: TemplateRowProps) => {
     const accessibility = useTemplateAccessibility(props);
     return (
         <div data-setting-id={props.setting_id || "mic_word_filter"}>
+            {/* The label and its description; the entry and the registered words, a fold of their
+                own (WordFilter), start on the row's left edge under it (#437). */}
             <CommonContainer
-                Component={WordFilterListToggleComponent}
                 remove_border_bottom={true}
+                label_type="label_only"
                 {...props}
                 {...accessibility}
             />

@@ -795,7 +795,9 @@ config_page:
             label: "ワードフィルター"
             desc: "登録された単語を検出するとその文章は送信されません。\n「,」カンマで区切るとまとめて複数の単語を追加できます。\n※重複した単語は登録されません。"
             add_button_label: "追加"
-            count_desc: "現在登録されている単語数: {{count}}"
+            list_one: "登録した単語（{{count}}語）"
+            list_other: "登録した単語（{{count}}語）"
+            list_empty: "登録した単語はありません。"
         mic_vad_filter:
             label: "マイクのVADフィルター"
             desc: "無音区間を検出してから音声を認識処理に送ります。会話の途中で文字起こしが止まってしまう場合は、この設定を無効にしてください。"
@@ -961,8 +963,8 @@ config_page:
         message_format_common:
             example_view:
                 title: "プレビュー"
-                show_all: "すべての例を表示"
-                show_fewer: "例の数を減らす"
+                more_one: "ほかの例（{{count}}件）"
+                more_other: "ほかの例（{{count}}件）"
                 original_translated: "原文 + 翻訳"
                 original_translated_multi: "原文 + 翻訳（多言語）"
                 translated_only_multi: "翻訳のみ（多言語）"
