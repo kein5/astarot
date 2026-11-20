@@ -25,7 +25,6 @@
         "noAutofocus": "warn",
         "noLabelWithoutControl": "warn",
         "noNoninteractiveTabindex": "warn",
-        "noRedundantRoles": "warn",
         "noStaticElementInteractions": "warn",
         "noSvgWithoutTitle": "warn",
         "useAltText": "warn",
@@ -36,9 +35,13 @@
         "useKeyWithMouseEvents": "warn",
         "useSemanticElements": "warn"
       },
+      "complexity": {
+        "useOptionalChain": "error"
+      },
       "correctness": {
         "noComponentHookFactories": "warn",
         "noUnreachable": "warn",
+        "noUnusedFunctionParameters": "error",
         "useExhaustiveDependencies": "warn",
         "useHookAtTopLevel": "warn"
       },
@@ -46,8 +49,8 @@
         "noArrayIndexKey": "warn",
         "noAssignInExpressions": "warn",
         "noControlCharactersInRegex": "warn",
-        "noImplicitAnyLet": "warn",
-        "noShadowRestrictedNames": "warn"
+        "noGlobalIsNan": "error",
+        "noImplicitAnyLet": "warn"
       }
     }
   },

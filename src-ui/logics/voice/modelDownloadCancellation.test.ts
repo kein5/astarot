@@ -144,8 +144,11 @@ test("the receive router correlates Apply and Cancel acknowledgements", async t 
 const loadHeading = (runtime: HookRuntime) => loadModule<typeof import("../../views/app/config_page/setting_section/setting_box/advanced_settings/catalogHeading.tsx")>(new URL("../../views/app/config_page/setting_section/setting_box/advanced_settings/catalogHeading.tsx", import.meta.url), runtime,
     { "../_components/hint/Hint": { Hint: "hint" } });
 // hints: whether the page has been reviewed against #614 (HintDescriptions), so its descriptions are hints.
-// layout: the catalogs' layout chosen (catalogLayout.tsx).
-const loadCatalog = async (s: { render: () => object }, ui: HookRuntime, hints = false, layout = "list") => loadModule<typeof import("../../views/app/config_page/setting_section/setting_box/advanced_settings/ModelDownloads.tsx")>(new URL("../../views/app/config_page/setting_section/setting_box/advanced_settings/ModelDownloads.tsx", import.meta.url), ui, {
+// layout: the catalogs' layout chosen (catalogLayout.tsx). counted: words that show their values
+// (a key and its options), for a test that reads them.
+const counted = { "@useI18n": { useI18n: () => ({ i18n: { language: "en" },
+    t: (key: string | string[], options?: object) => `${[key].flat()[0]}${options && !("defaultValue" in options) ? `:${JSON.stringify(options)}` : ""}` }) } };
+const loadCatalog = async (s: { render: () => object }, ui: HookRuntime, hints = false, layout = "list", words: object = {}) => loadModule<typeof import("../../views/app/config_page/setting_section/setting_box/advanced_settings/ModelDownloads.tsx")>(new URL("../../views/app/config_page/setting_section/setting_box/advanced_settings/ModelDownloads.tsx", import.meta.url), ui, {
     "@tauri-apps/api/core": { isTauri: () => false },
     "@tauri-apps/plugin-opener": {},
     "../../../../../../logics/voice/useModelDownloads": { useModelDownloads: s.render },
@@ -162,7 +165,9 @@ const loadCatalog = async (s: { render: () => object }, ui: HookRuntime, hints =
     "../_components/hint/Hint": { Hint: "hint", useHintDescriptions: () => hints },
     "../_components/fold/Fold": { Fold: "fold" },
     "./catalogHeading": await loadHeading(ui),
-    "./catalogLayout": { useCatalogLayout: () => layout, CatalogList: "ul", CatalogFacts: "catalog-facts", CatalogLayoutSwitch: "catalog-layout-switch" },
+    "./catalogLayout": { useCatalogLayout: () => layout, CatalogList: "ul", CatalogFacts: "catalog-facts", CatalogLayoutSwitch: "catalog-layout-switch",
+        CatalogSection: "catalog-section" },
+    ...words,
 });
 
 test("the cards take the layout chosen on the heading's line, and one model asked about stays a list", async t => {
@@ -240,7 +245,8 @@ test("the catalog groups models by use, one card per recognizer with its file ty
         { id: "vad", target: "vad", name: "VAD", total_bytes: 1 },
     ] }));
     const render = () => ui.render(ModelDownloads, { targets: ["asr", "vad"], expected: {} });
-    const groups = () => nodesIn(render()).filter(node => node.type === "h4").map(node => node.props.children);
+    // Each use is a part of the catalog of its own (catalogLayout.tsx's CatalogSection), named by it.
+    const groups = () => nodesIn(render()).filter(node => node.type === "catalog-section").map(node => node.props.title);
     const cards = () => nodesIn(render()).filter(node => node.props?.["data-model-download"] !== undefined);
     const select = (card: TreeNode) => find(card, node => node.type === "select");
     const choice = (card: TreeNode) => findIn(card, node => node.type === "select");
@@ -296,31 +302,28 @@ test("the time of a GPU reading is written in the display language", async t => 
     assert.doesNotMatch(measuredTime(at, "ja"), /AM|PM/);
 });
 
-test("on a reviewed page, what a use is for and how to choose in it are its heading's hint", async t => {
+test("each use is a part of the catalog with what it is for and its readout, folded but in the translation review", async t => {
     const s = await setup(t);
     const row = (id: string, target: string) => ({ id, target, name: `${id} · Q8_0`, total_bytes: 1 });
-    s.render().updateCatalog(catalog({ models: [row("asr-model", "asr"), row("vad-model", "vad")] }));
+    s.render().updateCatalog(catalog({ models: [row("asr-model", "asr"), row("asr-other", "asr"), row("vad-model", "vad")] }));
+    s.render().updateState(downloadState({ observation_id: "1", jobs: {}, downloaded: { "vad-model": { model: "/vad" } } }));
     for (const hints of [true, false]) {
         const ui = hooks();
         t.onTestFinished(() => ui.unmount());
-        const { ModelDownloads } = await loadCatalog(s, ui, hints);
-        const tree = ui.render(ModelDownloads, { targets: ["asr", "vad"], expected: {} });
-        const lines = nodesIn(tree).filter(node => node.type === "p").map(node => node.props.children);
-        const marks = nodesIn(tree).filter(node => node.type === "hint").map(node => node.props.text);
-        if (hints) {
-            assert.deepEqual(marks, ["model_downloads.help",
-                "model_catalog.group_help.asr\nmodel_downloads.asr_choice\nmodel_downloads.asr_requirements",
-                "model_catalog.group_help.vad\nmodel_downloads.vad_requirements"]);
-            for (const text of ["model_downloads.help", "model_catalog.group_help.asr", "model_downloads.asr_choice", "model_downloads.vad_requirements"])
-                assert.ok(!lines.includes(text), `${text} is not a line as well`);
-        } else {
-            // The translation review is not reviewed: its lines stay under the headings.
-            assert.deepEqual(marks, []);
-            for (const text of ["model_downloads.help", "model_catalog.group_help.asr", "model_downloads.asr_choice", "model_downloads.vad_requirements"])
-                assert.ok(lines.includes(text), text);
-        }
-        // Either way the headings are the groups' names.
-        assert.deepEqual(nodesIn(tree).filter(node => node.type === "h4").length, 2);
+        const { ModelDownloads } = await loadCatalog(s, ui, hints, "list", counted);
+        const parts = (only?: string[]) => nodesIn(ui.render(ModelDownloads, { targets: ["asr", "vad"], expected: {}, only }))
+            .filter(node => node.type === "catalog-section").map(node => node.props);
+        const [asr, vad] = parts();
+        // What the use is for and how to choose in it; the part shows them as its name's hint or as
+        // lines (catalogLayout.test.ts).
+        assert.deepEqual([asr.title, asr.level, asr.id, asr.fold], ["model_catalog.group.asr", 4, "model-catalog-asr", true]);
+        assert.deepEqual(asr.help, ["model_catalog.group_help.asr", "model_downloads.asr_choice", "model_downloads.asr_requirements"]);
+        assert.deepEqual(vad.help, ["model_catalog.group_help.vad", "model_downloads.vad_requirements"]);
+        // Its bar reads out how many models it has and how many are on the PC.
+        assert.equal(asr.readout, 'model_catalog.group_readout:{"count":2,"obtained":0}');
+        assert.equal(vad.readout, 'model_catalog.group_readout:{"count":1,"obtained":1}');
+        // The translation review asks about one model: no part of it is folded.
+        assert.ok(parts(["asr-model"]).every(part => part.fold === false));
     }
 });
 
