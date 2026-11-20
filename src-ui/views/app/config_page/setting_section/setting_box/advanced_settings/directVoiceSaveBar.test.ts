@@ -51,6 +51,7 @@ async function open(variant: Variant, settings: typeof rvcSettings) {
         "../../../../../../logics/voice/conversionLatency": { conversionDelaySeconds: () => null },
         "../../../../../../logics/common/pathExample": { pathExample: (file: string) => file },
         "../../../../../../logics/voice/rvcStartOptions": rvcStartOptions,
+        "../../../../../../logics/voice/useVcRuntimes": { useVcRuntimes: () => ({ catalog: null }) },
         "../../../../../../logics/voice/voiceErrorText.ts": voiceErrorText,
     });
     const render = () => runtime.render(DirectVoiceSettings, { variant });

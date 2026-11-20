@@ -20,7 +20,8 @@ import { FileDropZone } from "../_components/file_drop_zone/FileDropZone";
 import { extensionOf } from "../../../../../../logics/common/fileDrop";
 import { conversionDelaySeconds } from "../../../../../../logics/voice/conversionLatency";
 import { pathExample } from "../../../../../../logics/common/pathExample";
-import { MAX_RVC_THREADS, RVC_DEVICES, RVC_WORKER_DEFAULTS, rvcStartOptions } from "../../../../../../logics/voice/rvcStartOptions";
+import { DIRECTML_RUNTIME, MAX_RVC_THREADS, RVC_WORKER_DEFAULTS, rvcDevices, rvcStartOptions } from "../../../../../../logics/voice/rvcStartOptions";
+import { useVcRuntimes } from "../../../../../../logics/voice/useVcRuntimes";
 import type { DirectVoiceSelection, DirectVoiceVariant } from "../../../../../../logics/voice/directVoiceDraft";
 import type { DirectVoiceSettings as SavedDirectVoice } from "../../../../../../logics/voice/useVoice";
 
@@ -79,6 +80,9 @@ export const DirectVoiceSettings = ({ variant = "all", subheading = false }: Dir
         t, key => i18n.exists(key), first);
     const { settings, route, error, directState, directOwner, directPending, directSources, directError, updateDirectError, send, setDirectDraftBlocked,
         selectedSource: selected, setSelectedSource: setSelected } = useVoice();
+    // The DirectML runtime is offered on Windows only; the runtime setup below loads the catalog.
+    const { catalog: runtimeCatalog } = useVcRuntimes();
+    const directmlOffered = !!runtimeCatalog?.runtimes?.some(row => row.id === DIRECTML_RUNTIME);
     const saved = useMemo<DirectVoiceDraft | null>(() => directSavedDraft(defaults, directState.settings, variant), [directState.settings, variant]);
     const busy = !!directPending || !!directState.requested || !!directState.pending || !!directState.stopping;
     const validThreads = (draft: DirectVoiceDraft) => Number.isInteger(draft.rvc_threads) && draft.rvc_threads >= 0 && draft.rvc_threads <= MAX_RVC_THREADS;
@@ -193,7 +197,7 @@ export const DirectVoiceSettings = ({ variant = "all", subheading = false }: Dir
             <label>{t("voice.vc_rvc_device")}
                 <select aria-label={t("voice.vc_rvc_device")} value={draft.rvc_device} disabled={busy}
                     onChange={e => setDraft({ ...draft, rvc_device: e.target.value })}>
-                    {RVC_DEVICES.map(device => <option key={device} value={device}>{t(`voice.vc_rvc_device_${device}`)}</option>)}
+                    {rvcDevices(directmlOffered, draft.rvc_device).map(device => <option key={device} value={device}>{t(`voice.vc_rvc_device_${device}`)}</option>)}
                 </select>
             </label>
             <label>{t("voice.vc_rvc_threads")}
@@ -250,6 +254,11 @@ export const DirectVoiceSettings = ({ variant = "all", subheading = false }: Dir
             </fieldset>}
             {converted && <VcRuntimeSetup engine={rvc ? "rvc" : "seed-vc"} current={rvc ? draft.rvc_runtime : draft.runtime} disabled={busy || saving}
                 onUse={path => setDraft({ ...draft, [rvc ? "rvc_runtime" : "runtime"]: path })} />}
+            {/* DirectML (Windows) needs its own runtime, shared with the translation; the worker finds it at Start. */}
+            {converted && rvc && directmlOffered && <>
+                <Description text={t("voice_ui.rvc_directml_hint")} />
+                <VcRuntimeSetup engine={DIRECTML_RUNTIME} disabled={busy || saving} />
+            </>}
             {/* Other unsaved edits survive an apply; only edited model or index paths conflict. */}
             {rvc && <ModelDownloads targets={["rvc"]} blocked={busy || saving ? "busy" :
                 draft.rvc_model !== savedForm(saved).rvc_model || draft.rvc_index !== savedForm(saved).rvc_index ? "edited" : false}

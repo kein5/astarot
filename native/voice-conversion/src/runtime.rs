@@ -1102,14 +1102,14 @@ impl Shared {
         Ok(())
     }
 
-    /// The worker loads the libraries and runs one operation on the device. The GPU runtime is
+    /// The worker loads the libraries and runs one operation on the device. A GPU runtime is
     /// still usable on the CPU when the GPU cannot run it: exit 3 then, and a warning. The
-    /// worker knows no DirectML: the DirectML build is loaded (with DirectML) and run on the CPU.
+    /// DirectML build is probed on DirectML (the worker loads `DirectML.dll` first).
     fn verifying(&self, runtime: &Runtime, cancel: &AtomicBool) -> Result<(), StepError> {
         if is_llamacpp(runtime) {
             return self.verifying_llamacpp(runtime, cancel);
         }
-        let device = if matches!(runtime.device, "cpu" | "directml") { "cpu" } else { "auto" };
+        let device = if runtime.device == "cpu" { "cpu" } else { "auto" };
         let mut command = Command::new(&self.options.worker);
         command.arg("--runtime").arg(self.folder(runtime)).arg("--probe").arg("--device").arg(device).stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null());
         let owned = child::spawn(command).map_err(|_| StepError::Failed)?;
@@ -1135,8 +1135,13 @@ impl Shared {
         match (code, device) {
             (Some(0), _) => Ok(()),
             (Some(3), "auto") => {
-                // ONNX Runtime with CUDA for the app: the translation then runs on the CPU.
-                let warning = if runtime.id == ONNX_CUDA { "onnx_runtime_gpu_unusable" } else { "vc_runtime_gpu_unusable_cpu" };
+                // ONNX Runtime with CUDA or DirectML for the app: the translation (and with
+                // DirectML, RVC on it) then runs on the CPU.
+                let warning = match runtime.id {
+                    ONNX_CUDA => "onnx_runtime_gpu_unusable",
+                    ONNX_DIRECTML => "onnx_runtime_directml_unusable",
+                    _ => "vc_runtime_gpu_unusable_cpu",
+                };
                 self.update(runtime.id, |job| {
                     job.insert("warning_code".into(), json!(warning));
                 });
@@ -1493,10 +1498,11 @@ mod tests {
     /// An ONNX Runtime GPU runtime through a whole setup from its sources: fetched, checked
     /// against its pins, unpacked, and probed by a built `vrct-rvc-worker`
     /// (`VRCT_TEST_RVC_WORKER`) as the setup probes it, then receipted. `VRCT_TEST_ONNX_RUNTIME`
-    /// is `directml` (the default; Windows; about 215 MB, probed on the CPU with DirectML loaded
-    /// first) or `cuda` (about 1.1 GB; probed with `auto`, and then with `--device cuda`, which
-    /// must take the GPU). With `VRCT_TEST_KEEP_RUNTIME_ROOT` the setup is made there (as
-    /// `<root>/onnxruntime-directml` or `<root>/onnxruntime-cuda`) and kept.
+    /// is `directml` (the default; Windows; about 215 MB; probed with `auto`, and then with
+    /// `--device directml`, which must take a GPU through DirectML) or `cuda` (about 1.1 GB;
+    /// probed with `auto`, and then with `--device cuda`, which must take the GPU). With
+    /// `VRCT_TEST_KEEP_RUNTIME_ROOT` the setup is made there (as `<root>/onnxruntime-directml`
+    /// or `<root>/onnxruntime-cuda`) and kept.
     ///
     ///     cargo test --manifest-path native/voice-conversion/Cargo.toml --lib -- --ignored onnx_runtime_sets_up
     #[test]
@@ -1532,10 +1538,9 @@ mod tests {
         assert_eq!(found, expected);
         if let Some(worker) = worker {
             setup.shared.verifying(&runtime, &cancel).expect("the worker loads the runtime as the setup probes it");
-            if cuda {
-                let status = Command::new(&worker).arg("--runtime").arg(&folder).arg("--probe").arg("--device").arg("cuda").status().unwrap();
-                assert!(status.success(), "the worker's probe on CUDA: {status}");
-            }
+            let device = if cuda { "cuda" } else { "directml" };
+            let status = Command::new(&worker).arg("--runtime").arg(&folder).arg("--probe").arg("--device").arg(device).status().unwrap();
+            assert!(status.success(), "the worker's probe on {device}: {status}");
             fs::write(folder.join("receipt.json"), json!({ "version": version_of(&runtime), "id": runtime.id }).to_string()).unwrap();
             if cuda {
                 assert_eq!(cuda_libraries(&root, target).first().map(|found| found.lib.clone()), Some(folder.join("lib")));

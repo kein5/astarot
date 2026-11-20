@@ -26,6 +26,20 @@ pub enum Device {
     /// libraries), loading fails with [`Error::DeviceUnavailable`] instead of running on
     /// the CPU. ONNX Runtime's own behaviour would be to fall back silently.
     Cuda,
+    /// DirectML (Windows; NVIDIA, AMD and Intel GPUs), falling back to the CPU for operators
+    /// it lacks. Needs the DirectML build of ONNX Runtime, loaded after `DirectML.dll`.
+    ///
+    /// The GPU is the one DirectML ranks highest for performance, so a laptop's discrete GPU
+    /// is taken over its integrated one. If DirectML cannot start, loading fails with
+    /// [`Error::DeviceUnavailable`], as for CUDA.
+    DirectMl,
+}
+
+impl Device {
+    /// Whether the graphs run on a GPU.
+    pub fn is_gpu(self) -> bool {
+        self != Device::Cpu
+    }
 }
 
 fn backend(error: impl std::fmt::Display) -> Error {
@@ -76,14 +90,29 @@ fn session(source: Source, device: Device) -> Result<Session> {
     if threads > 0 {
         builder = builder.with_intra_threads(threads).map_err(backend)?;
     }
-    if device == Device::Cuda {
-        #[cfg(feature = "cuda")]
-        {
-            // error_on_failure: a provider that cannot start is an error, not the CPU.
-            builder = builder.with_execution_providers([ort::ep::CUDA::default().build().error_on_failure()]).map_err(|error| Error::DeviceUnavailable(error.to_string()))?;
+    match device {
+        Device::Cpu => {}
+        Device::Cuda => {
+            #[cfg(feature = "cuda")]
+            {
+                // error_on_failure: a provider that cannot start is an error, not the CPU.
+                builder = builder.with_execution_providers([ort::ep::CUDA::default().build().error_on_failure()]).map_err(|error| Error::DeviceUnavailable(error.to_string()))?;
+            }
+            #[cfg(not(feature = "cuda"))]
+            return Err(Error::invalid("this build has no CUDA support (enable the `cuda` feature)"));
         }
-        #[cfg(not(feature = "cuda"))]
-        return Err(Error::invalid("this build has no CUDA support (enable the `cuda` feature)"));
+        Device::DirectMl => {
+            #[cfg(windows)]
+            {
+                use ort::ep::directml::{DeviceFilter, PerformancePreference};
+                // DirectML needs both off (ONNX Runtime's DirectML documentation).
+                builder = builder.with_memory_pattern(false).map_err(backend)?.with_parallel_execution(false).map_err(backend)?;
+                let provider = ort::ep::DirectML::default().with_device_filter(DeviceFilter::Gpu).with_performance_preference(PerformancePreference::HighPerformance);
+                builder = builder.with_execution_providers([provider.build().error_on_failure()]).map_err(|error| Error::DeviceUnavailable(error.to_string()))?;
+            }
+            #[cfg(not(windows))]
+            return Err(Error::DeviceUnavailable("DirectML exists on Windows only".into()));
+        }
     }
     match source {
         Source::File(path) => builder.commit_from_file(path).map_err(backend),
@@ -101,8 +130,8 @@ pub fn check_device(device: Device) -> Result<()> {
     let y = graph.add(&x, &one);
     graph.output_f32("y", &y, &[crate::onnx::Dim::Fixed(1), crate::onnx::Dim::Fixed(4)]);
     // The graph is valid, so on the GPU any failure to create or run it is the device's.
-    let unavailable = |error: Error| match (device, error) {
-        (Device::Cuda, Error::Backend(message)) => Error::DeviceUnavailable(message),
+    let unavailable = |error: Error| match (device.is_gpu(), error) {
+        (true, Error::Backend(message)) => Error::DeviceUnavailable(message),
         (_, error) => error,
     };
     let mut session = session(Source::Memory(&graph.into_model()), device).map_err(unavailable)?;

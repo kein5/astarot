@@ -10,7 +10,9 @@ import { readLocale } from "../test/locales.ts";
 // isolated.py, protocol.py WORKER_FAILURES) and had no message.
 const CODES = ["vc_start_failed", "vc_engine_unavailable", "source_bridge_stopping", "vc_worker_failed",
     "vc_model_missing", "vc_runtime_version_unsupported", "vc_checkpoint_incomplete", "vc_index_failed",
-    "vc_engine_format_invalid", "vc_runtime_incomplete", "vc_router_timeout", "vc_router_failed", "vc_cleanup_failed", "vc_ready_invalid"];
+    "vc_engine_format_invalid", "vc_runtime_incomplete", "vc_router_timeout", "vc_router_failed", "vc_cleanup_failed", "vc_ready_invalid",
+    // DirectML (native/voice-conversion: process.rs, protocol.rs WORKER_FAILURES).
+    "vc_directml_missing", "vc_directml_unavailable"];
 const resources = Object.fromEntries(["en", "ja"].map(language => [language, { translation: readLocale(language) }]));
 
 for (const language of ["en", "ja"]) test(`${language}: voice changer errors say what to do`, async () => {

@@ -144,6 +144,7 @@ for (const [pitch, rate, threads] of [[25, 0.5, 0], [0, -1, 0], [NaN, NaN, 0], [
         "../../../../../../logics/voice/conversionLatency": { conversionDelaySeconds: () => null },
         "../../../../../../logics/common/pathExample": { pathExample: (file: string) => `/models/${file}` },
         "../../../../../../logics/voice/rvcStartOptions": rvcStartOptions,
+        "../../../../../../logics/voice/useVcRuntimes": { useVcRuntimes: () => ({ catalog: null }) },
         "@useI18n": { useI18n: () => ({ t: (key: string, options?: object) => options ? `${key}:${JSON.stringify(options)}` : key }) },
     });
     const tree = runtime.render(DirectVoiceSettings, { variant: "rvc" });

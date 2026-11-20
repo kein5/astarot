@@ -46,6 +46,12 @@ rustfft = "6.4"
 serde_json = "1"
 thiserror = "2"
 
+# DirectML (`Device::DirectMl`): only the Rust side of the provider; whether it runs depends on
+# the ONNX Runtime library that is loaded (the DirectML build). Windows only, as in
+# native/translate-onnx.
+[target.'cfg(windows)'.dependencies]
+ort = { version = "=2.0.0-rc.15", default-features = false, features = ["directml"] }
+
 [profile.dev]
 opt-level = 2
 

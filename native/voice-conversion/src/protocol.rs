@@ -69,13 +69,22 @@ pub const DEVICE_MAX_AGE_NS: i64 = 1_000_000_000;
 pub const MANAGED_MAX_AGE_NS: i64 = 160_000_000;
 const MAGIC: &[u8; 4] = b"VVC1";
 const HEADER_LIMIT: usize = 2048;
-/// RVC converts on the GPU (`low`, as before) or on the CPU (`cpu`, with a larger delay).
+/// RVC converts on a GPU (`low`, as before; CUDA or DirectML) or on the CPU (`cpu`, with a
+/// larger delay).
 pub const RVC_PROFILES: [&str; 2] = ["low", "cpu"];
 pub const MAX_LATENCY_MS: i64 = 10_000;
 
 /// Why a worker could not become ready, from a fixed list.
-pub const WORKER_FAILURES: [&str; 7] =
-    ["vc_gpu_unavailable", "vc_model_missing", "vc_runtime_version_unsupported", "vc_checkpoint_incomplete", "vc_index_failed", "vc_engine_format_invalid", "vc_runtime_incomplete"];
+pub const WORKER_FAILURES: [&str; 8] = [
+    "vc_gpu_unavailable",
+    "vc_directml_unavailable",
+    "vc_model_missing",
+    "vc_runtime_version_unsupported",
+    "vc_checkpoint_incomplete",
+    "vc_index_failed",
+    "vc_engine_format_invalid",
+    "vc_runtime_incomplete",
+];
 
 /// Why a running worker stops instead of answering a block.
 pub const RUN_FAILURES: [&str; 1] = ["vc_capture_overrun"];

@@ -19,11 +19,25 @@
 //! <runtime>/assets/rmvpe/rmvpe.onnx
 //! ```
 //!
-//! Where it converts (`--device`, default `auto`): on the GPU when the runtime has the
-//! CUDA provider and the GPU can be used, otherwise on the CPU.
+//! On Windows, `--directml <dir>` names a second library folder: the DirectML build of
+//! ONNX Runtime and `DirectML.dll`, which the application sets up after consent as well
+//! (its "ONNX Runtime · DirectML" runtime, shared with the local translation). A process
+//! loads one ONNX Runtime, so the worker picks the folder before it loads anything.
 //!
-//! - **GPU**: every packet is converted before it is answered, as the external runtime did
-//!   (one stream block per packet, a crossfade of half the block, 2 s of context).
+//! Where it converts (`--device`, default `auto`):
+//!
+//! - `auto`: CUDA when the runtime has the CUDA provider and its libraries load; otherwise
+//!   DirectML when a DirectML folder is there; otherwise the CPU. A GPU that then cannot
+//!   run the check graph leaves the CPU of the same library. On a PC with both, CUDA comes
+//!   first, as before DirectML was offered.
+//! - `cuda`, `directml`: that GPU or a `failed` packet, never the CPU.
+//! - `cpu`: the CPU, with the runtime's own library.
+//!
+//! How it converts there:
+//!
+//! - **GPU** (CUDA or DirectML): every packet is converted before it is answered, as the
+//!   external runtime did (one stream block per packet, a crossfade of half the block, 2 s
+//!   of context).
 //! - **CPU**: the CPU cannot convert such short blocks in real time, so the worker converts
 //!   0.5 s blocks on a thread of its own and answers each packet at once from what that
 //!   thread has finished, at a fixed delay that leaves a whole block's time for each
@@ -32,9 +46,9 @@
 //!   cannot keep up: the worker says so with a `failed` packet (`vc_capture_overrun`, as
 //!   the owner reports a GPU that falls behind) and stops, instead of answering silence.
 //!
-//! The `ready` packet names the device (`profile`: `low` for the GPU, `cpu`) and the delay
-//! the worker adds between a sample coming in and its converted counterpart going out
-//! (`latency_ms`), for the application to show.
+//! The `ready` packet names the device (`profile`: `low` for a GPU, CUDA or DirectML, `cpu`)
+//! and the delay the worker adds between a sample coming in and its converted counterpart
+//! going out (`latency_ms`), for the application to show.
 //!
 //! `--probe` only checks that the device can run (exit 0) and is what the setup's last
 //! step runs.
@@ -149,6 +163,9 @@ const GPU_LIBRARIES: &[&str] = &[
     "libcudnn_engines_runtime_compiled.so.9",
     "libcudnn_engines_tensor_ir.so.9",
 ];
+/// DirectML itself, beside the DirectML build of ONNX Runtime; loaded first, because the
+/// loader does not look beside `onnxruntime.dll`.
+const DIRECTML_LIBRARY: &str = "DirectML.dll";
 #[cfg(windows)]
 const GPU_LIBRARIES: &[&str] = &[
     "cudart64_13.dll",
@@ -173,6 +190,8 @@ const GPU_LIBRARIES: &[&str] = &[
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Failure {
     GpuUnavailable,
+    /// DirectML was asked for and cannot run: no DirectML folder, or no GPU it can use.
+    DirectMlUnavailable,
     RuntimeIncomplete,
     ModelMissing,
     CheckpointIncomplete,
@@ -184,6 +203,7 @@ impl Failure {
     fn code(self) -> &'static str {
         match self {
             Failure::GpuUnavailable => "vc_gpu_unavailable",
+            Failure::DirectMlUnavailable => "vc_directml_unavailable",
             Failure::RuntimeIncomplete => "vc_runtime_incomplete",
             Failure::ModelMissing => "vc_model_missing",
             Failure::CheckpointIncomplete => "vc_checkpoint_incomplete",
@@ -205,6 +225,8 @@ type Packet = (Map<String, Value>, Vec<u8>);
 
 struct Arguments {
     runtime: PathBuf,
+    /// The DirectML build of ONNX Runtime with `DirectML.dll` (`--directml`), when set up.
+    directml: Option<PathBuf>,
     model: PathBuf,
     index: Option<PathBuf>,
     session: String,
@@ -219,9 +241,10 @@ struct Arguments {
 /// What `--device` asks for.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Choice {
-    /// The GPU when it can be used, otherwise the CPU.
+    /// A GPU when one can be used (CUDA, then DirectML), otherwise the CPU.
     Auto,
     Cuda,
+    DirectMl,
     Cpu,
 }
 
@@ -229,22 +252,24 @@ fn choice(text: Option<&str>) -> Result<Choice, String> {
     match text {
         None | Some("auto") => Ok(Choice::Auto),
         Some("cuda") => Ok(Choice::Cuda),
+        Some("directml") => Ok(Choice::DirectMl),
         Some("cpu") => Ok(Choice::Cpu),
-        Some(_) => Err("`--device` must be auto, cuda or cpu".into()),
+        Some(_) => Err("`--device` must be auto, cuda, directml or cpu".into()),
     }
 }
 
 const USAGE: &str = "\
 Usage: vrct-rvc-worker --runtime <dir> --model <voice.pth> --session <32 hex digits>
                        [--index <file.index>] [--pitch <-24..24>] [--index-rate <0..1>]
-                       [--device auto|cuda|cpu] [--threads <n>] [--highpass on|off]
-                       [--block-ms <20..200, a multiple of 20>]
-       vrct-rvc-worker --runtime <dir> --probe [--device cuda|cpu|auto]
+                       [--device auto|cuda|directml|cpu] [--directml <dir>] [--threads <n>]
+                       [--highpass on|off] [--block-ms <20..200, a multiple of 20>]
+       vrct-rvc-worker --runtime <dir> --probe [--device cuda|directml|cpu|auto]
 ";
 
 fn parse(mut values: HashMap<String, String>) -> Result<Arguments, String> {
     let mut take = |name: &str| values.remove(name);
     let runtime = take("runtime").map(PathBuf::from).ok_or("`--runtime` is required")?;
+    let directml = take("directml").filter(|text| !text.is_empty()).map(PathBuf::from);
     let model = take("model").map(PathBuf::from).ok_or("`--model` is required")?;
     let session = take("session").ok_or("`--session` is required")?;
     if session.len() != 32 || !session.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b)) {
@@ -271,7 +296,7 @@ fn parse(mut values: HashMap<String, String>) -> Result<Arguments, String> {
     if let Some(unknown) = values.keys().next() {
         return Err(format!("unknown option `--{unknown}`"));
     }
-    Ok(Arguments { runtime, model, index, session, pitch, index_rate, device, threads, highpass, packets })
+    Ok(Arguments { runtime, directml, model, index, session, pitch, index_rate, device, threads, highpass, packets })
 }
 
 fn options() -> Result<(HashMap<String, String>, bool), String> {
@@ -308,42 +333,70 @@ fn load_gpu_libraries(lib: &Path) -> bool {
     true
 }
 
-/// Loads ONNX Runtime (and, for the GPU, the CUDA libraries) from `<runtime>/lib` and
-/// decides where to convert. `Auto` takes the GPU only when the runtime has the CUDA
-/// provider, its libraries load and a CUDA session runs; anything else is the CPU.
-fn load_runtime(runtime: &Path, choice: Choice) -> Result<Device, Failure> {
-    let lib = runtime.join("lib");
-    let has_provider = lib.join(CUDA_PROVIDER).is_file();
-    let mut gpu = match choice {
-        Choice::Cpu => false,
-        Choice::Cuda if !has_provider => return Err(Failure::GpuUnavailable),
-        Choice::Cuda if !load_gpu_libraries(&lib) => return Err(Failure::RuntimeIncomplete),
-        Choice::Cuda => true,
-        Choice::Auto => has_provider && load_gpu_libraries(&lib),
-    };
-    // The app's DirectML runtime (the DirectML build of ONNX Runtime, probed here on the CPU)
-    // needs DirectML.dll loaded first: the loader does not look beside onnxruntime.dll.
-    let directml = lib.join("DirectML.dll");
-    if directml.is_file() && ort::util::preload_dylib(&directml).is_err() {
-        eprintln!("vrct-rvc-worker: DirectML could not be loaded from the runtime");
-        return Err(Failure::RuntimeIncomplete);
+/// The folder with the DirectML build of ONNX Runtime: `--directml`, else `<runtime>/lib`
+/// when it is that build (the app's "ONNX Runtime · DirectML" runtime, which its setup probes
+/// with this worker). Windows only.
+fn directml_folder(lib: &Path, given: Option<&Path>) -> Option<PathBuf> {
+    if !cfg!(windows) {
+        return None;
     }
-    backend::load_runtime(&lib.join(ORT_LIBRARY)).map_err(|error| {
+    given.map(Path::to_path_buf).or_else(|| lib.join(DIRECTML_LIBRARY).is_file().then(|| lib.to_path_buf()))
+}
+
+/// Which library folder to load and the device to try, before anything is loaded. CUDA needs
+/// its libraries loaded first, so trying them is part of choosing.
+fn plan(choice: Choice, lib: &Path, has_cuda: bool, directml: Option<&Path>, mut cuda_loads: impl FnMut() -> bool) -> Result<(PathBuf, Device), Failure> {
+    Ok(match choice {
+        Choice::Cpu => (lib.to_path_buf(), Device::Cpu),
+        Choice::Cuda if !has_cuda => return Err(Failure::GpuUnavailable),
+        Choice::Cuda if !cuda_loads() => return Err(Failure::RuntimeIncomplete),
+        Choice::Cuda => (lib.to_path_buf(), Device::Cuda),
+        Choice::DirectMl => (directml.ok_or(Failure::DirectMlUnavailable)?.to_path_buf(), Device::DirectMl),
+        Choice::Auto if has_cuda && cuda_loads() => (lib.to_path_buf(), Device::Cuda),
+        Choice::Auto => match directml {
+            Some(folder) => (folder.to_path_buf(), Device::DirectMl),
+            None => (lib.to_path_buf(), Device::Cpu),
+        },
+    })
+}
+
+/// Loads `DirectML.dll` from `folder` when it is there (the DirectML build of ONNX Runtime
+/// needs it loaded first: the loader does not look beside `onnxruntime.dll`). False when it is
+/// there and cannot be loaded.
+fn preload_directml(folder: &Path) -> bool {
+    let library = folder.join(DIRECTML_LIBRARY);
+    !library.is_file() || ort::util::preload_dylib(&library).is_ok()
+}
+
+/// Loads ONNX Runtime and decides where to convert ([`Choice`], [`plan`]): CUDA from
+/// `<runtime>/lib` with the CUDA libraries, DirectML from the DirectML folder, the CPU from
+/// either. Under `Auto`, a GPU whose check graph cannot run leaves the CPU of the same library.
+fn load_runtime(runtime: &Path, directml: Option<&Path>, choice: Choice) -> Result<Device, Failure> {
+    let lib = runtime.join("lib");
+    let directml = directml_folder(&lib, directml);
+    let (mut folder, mut device) = plan(choice, &lib, lib.join(CUDA_PROVIDER).is_file(), directml.as_deref(), || load_gpu_libraries(&lib))?;
+    if !preload_directml(&folder) {
+        eprintln!("vrct-rvc-worker: DirectML could not be loaded");
+        if choice != Choice::Auto || device != Device::DirectMl || !preload_directml(&lib) {
+            return Err(Failure::RuntimeIncomplete);
+        }
+        (folder, device) = (lib.clone(), Device::Cpu);
+    }
+    backend::load_runtime(&folder.join(ORT_LIBRARY)).map_err(|error| {
         eprintln!("vrct-rvc-worker: ONNX Runtime could not be loaded: {error}");
         Failure::RuntimeIncomplete
     })?;
-    if gpu {
-        // Whether the GPU works at all, before any model: CUDA errors from a real model's
+    if device.is_gpu() {
+        // Whether the GPU works at all, before any model: GPU errors from a real model's
         // session cannot be told apart from problems with the model.
-        if let Err(error) = backend::check_device(Device::Cuda) {
-            eprintln!("vrct-rvc-worker: GPU: {error}");
+        if let Err(error) = backend::check_device(device) {
+            eprintln!("vrct-rvc-worker: GPU ({device:?}): {error}");
             match (choice, &error) {
-                (Choice::Auto, Error::DeviceUnavailable(_)) => gpu = false,
-                _ => return Err(classify(&error, Failure::RuntimeIncomplete)),
+                (Choice::Auto, Error::DeviceUnavailable(_)) => device = Device::Cpu,
+                _ => return Err(classify(&error, device, Failure::RuntimeIncomplete)),
             }
         }
     }
-    let device = if gpu { Device::Cuda } else { Device::Cpu };
     if device == Device::Cpu {
         backend::check_device(Device::Cpu).map_err(|error| {
             eprintln!("vrct-rvc-worker: CPU: {error}");
@@ -354,8 +407,9 @@ fn load_runtime(runtime: &Path, choice: Choice) -> Result<Device, Failure> {
 }
 
 /// What a loading error says about what the user can do.
-fn classify(error: &Error, otherwise: Failure) -> Failure {
+fn classify(error: &Error, device: Device, otherwise: Failure) -> Failure {
     match error {
+        Error::DeviceUnavailable(_) if device == Device::DirectMl => Failure::DirectMlUnavailable,
         Error::DeviceUnavailable(_) => Failure::GpuUnavailable,
         Error::Io(_) => Failure::ModelMissing,
         _ => otherwise,
@@ -372,15 +426,16 @@ struct Profile {
 
 impl Profile {
     fn of(device: Device, packets: Packets) -> Self {
-        Profile { device, layout: if device == Device::Cuda { packets.gpu_layout() } else { CPU_LAYOUT }, packets }
+        Profile { device, layout: if device.is_gpu() { packets.gpu_layout() } else { CPU_LAYOUT }, packets }
     }
 
     /// Packets answered with silence before the first converted audio is due (CPU): the
     /// block being filled, a block's time for converting it, and one packet of margin.
     fn lead_packets(&self) -> usize {
-        match self.device {
-            Device::Cuda => 0,
-            Device::Cpu => (2 * self.layout.block_samples()).div_ceil(self.packets.input()) + 1,
+        if self.device.is_gpu() {
+            0
+        } else {
+            (2 * self.layout.block_samples()).div_ceil(self.packets.input()) + 1
         }
     }
 
@@ -406,18 +461,18 @@ fn load(arguments: &Arguments) -> Result<(Stream, Profile), Failure> {
     if !hubert.join("pytorch_model.bin").is_file() || !hubert.join("config.json").is_file() || !rmvpe.is_file() {
         return Err(Failure::RuntimeIncomplete);
     }
-    let device = load_runtime(&arguments.runtime, arguments.device)?;
+    let device = load_runtime(&arguments.runtime, arguments.directml.as_deref(), arguments.device)?;
     let profile = Profile::of(device, arguments.packets);
     // On the GPU the CPU side of a block is small; one thread per session kept the same
     // block times with a third less CPU and 8 threads instead of 77 (README, "Application
     // worker").
-    backend::set_intra_threads(arguments.threads.or(Some(if device == Device::Cuda { GPU_INTRA_THREADS } else { cpu_intra_threads() })));
+    backend::set_intra_threads(arguments.threads.or(Some(if device.is_gpu() { GPU_INTRA_THREADS } else { cpu_intra_threads() })));
     let log = |what: &str, error: &Error| eprintln!("vrct-rvc-worker: {what}: {error}");
     let model = VoiceModel::load(&arguments.model).map_err(|error| {
         log("voice model", &error);
         match error {
             Error::Unsupported { .. } => Failure::FormatInvalid,
-            ref other => classify(other, Failure::CheckpointIncomplete),
+            ref other => classify(other, device, Failure::CheckpointIncomplete),
         }
     })?;
     if ![32_000, 40_000, 48_000].contains(&model.config.sample_rate) {
@@ -440,15 +495,15 @@ fn load(arguments: &Arguments) -> Result<(Stream, Profile), Failure> {
     // The GPU first: the error that says the most comes from the first session.
     let synthesizer = Synthesizer::new(&model, device).map_err(|error| {
         log("synthesizer", &error);
-        classify(&error, Failure::CheckpointIncomplete)
+        classify(&error, device, Failure::CheckpointIncomplete)
     })?;
     let features = FeatureExtractor::from_checkpoint(&hubert, device).map_err(|error| {
         log("feature extractor", &error);
-        classify(&error, Failure::CheckpointIncomplete)
+        classify(&error, device, Failure::CheckpointIncomplete)
     })?;
     let pitch = Rmvpe::load(&rmvpe, device).map_err(|error| {
         log("pitch extractor", &error);
-        classify(&error, Failure::RuntimeIncomplete)
+        classify(&error, device, Failure::RuntimeIncomplete)
     })?;
     let converter = Converter { features, pitch: Box::new(pitch), synthesizer, index, version: model.version };
     let options = StreamOptions { transpose: arguments.pitch, index_rate: arguments.index_rate, speaker: 0, noise: NoiseMode::Random, layout: profile.layout, highpass: arguments.highpass };
@@ -696,7 +751,7 @@ impl Answers {
     fn new(mut live: Live, profile: Profile) -> Result<Self, Stop> {
         // A 220 Hz tone at -20 dB.
         let tone = |count: usize, rate: u32| -> Vec<f32> { (0..count).map(|n| 0.1 * (n as f32 * 2.0 * std::f32::consts::PI * 220.0 / rate as f32).sin()).collect() };
-        if profile.device == Device::Cuda {
+        if profile.device.is_gpu() {
             let block = tone(profile.packets.frames(), RATE);
             for _ in 0..WARMUP_BLOCKS {
                 live.convert(&block)?;
@@ -765,7 +820,7 @@ fn serve(live: Live, profile: Profile, session: &str) -> Result<(), Stop> {
         ("protocol", 1.into()),
         ("session", session.into()),
         ("engine", "rvc".into()),
-        ("profile", (if profile.device == Device::Cuda { "low" } else { "cpu" }).into()),
+        ("profile", (if profile.device.is_gpu() { "low" } else { "cpu" }).into()),
         ("rate", RATE.into()),
         ("channels", 1.into()),
         ("block_frames", profile.packets.frames().into()),
@@ -800,10 +855,11 @@ fn serve(live: Live, profile: Profile, session: &str) -> Result<(), Stop> {
 }
 
 /// `--probe`: whether the runtime's libraries load and a session runs on the device
-/// (`cuda`, the default, `cpu`, or `auto`). Exit 3 when the GPU cannot be used (with
+/// (`cuda`, the default, `directml`, `cpu`, or `auto`). The DirectML folder is the runtime's
+/// own `lib/` when that holds the DirectML build. Exit 3 when the GPU cannot be used (with
 /// `auto`: the CPU can, so conversion will run there), 4 when the runtime is incomplete.
 fn probe(runtime: &Path, choice: Choice) -> ExitCode {
-    match load_runtime(runtime, choice) {
+    match load_runtime(runtime, None, choice) {
         Ok(Device::Cpu) if choice == Choice::Auto => {
             eprintln!("vrct-rvc-worker: the GPU cannot be used; conversion will run on the CPU");
             ExitCode::from(3)
@@ -811,7 +867,7 @@ fn probe(runtime: &Path, choice: Choice) -> ExitCode {
         Ok(_) => ExitCode::SUCCESS,
         Err(failure) => {
             eprintln!("vrct-rvc-worker: {}", failure.code());
-            ExitCode::from(if failure == Failure::GpuUnavailable { 3 } else { 4 })
+            ExitCode::from(if matches!(failure, Failure::GpuUnavailable | Failure::DirectMlUnavailable) { 3 } else { 4 })
         }
     }
 }
@@ -829,6 +885,7 @@ fn main() -> ExitCode {
     if probing {
         let device = match values.get("device").map(String::as_str) {
             None | Some("cuda") => Some(Choice::Cuda),
+            Some("directml") => Some(Choice::DirectMl),
             Some("cpu") => Some(Choice::Cpu),
             Some("auto") => Some(Choice::Auto),
             Some(_) => None,
@@ -957,6 +1014,71 @@ mod tests {
         assert_eq!(Profile::of(Device::Cuda, short).latency_ms(48_000), 32);
         assert_eq!(Profile::of(Device::Cpu, short).lead_packets(), 26);
         assert_eq!(Profile::of(Device::Cpu, short).layout, CPU_LAYOUT);
+        // DirectML converts like CUDA: one block per packet, no lead.
+        let directml = Profile::of(Device::DirectMl, short);
+        assert_eq!((directml.layout, directml.lead_packets(), directml.latency_ms(48_000)), (short.gpu_layout(), 0, 32));
+    }
+
+    #[test]
+    fn the_library_and_device_are_chosen_before_anything_loads() {
+        let lib = Path::new("/r/lib");
+        let dml = Path::new("/d/lib");
+        let cuda = |loads: bool| move || loads;
+        let at = |folder: &Path, device: Device| Ok((folder.to_path_buf(), device));
+        // The CPU always uses the runtime's own library.
+        assert_eq!(plan(Choice::Cpu, lib, true, Some(dml), cuda(true)), at(lib, Device::Cpu));
+        // CUDA: the provider and its libraries, or a failure, never another device.
+        assert_eq!(plan(Choice::Cuda, lib, false, Some(dml), cuda(true)), Err(Failure::GpuUnavailable));
+        assert_eq!(plan(Choice::Cuda, lib, true, Some(dml), cuda(false)), Err(Failure::RuntimeIncomplete));
+        assert_eq!(plan(Choice::Cuda, lib, true, None, cuda(true)), at(lib, Device::Cuda));
+        // DirectML: its own folder, or a failure.
+        assert_eq!(plan(Choice::DirectMl, lib, true, None, cuda(true)), Err(Failure::DirectMlUnavailable));
+        assert_eq!(plan(Choice::DirectMl, lib, true, Some(dml), cuda(true)), at(dml, Device::DirectMl));
+        // Auto: CUDA first (as before DirectML), then DirectML, then the CPU.
+        assert_eq!(plan(Choice::Auto, lib, true, Some(dml), cuda(true)), at(lib, Device::Cuda));
+        assert_eq!(plan(Choice::Auto, lib, true, Some(dml), cuda(false)), at(dml, Device::DirectMl));
+        assert_eq!(plan(Choice::Auto, lib, false, Some(dml), cuda(true)), at(dml, Device::DirectMl));
+        assert_eq!(plan(Choice::Auto, lib, false, None, cuda(true)), at(lib, Device::Cpu));
+        assert_eq!(plan(Choice::Auto, lib, true, None, cuda(false)), at(lib, Device::Cpu));
+        // The CUDA libraries are only tried when CUDA may be used.
+        let mut tried = false;
+        let _ = plan(Choice::DirectMl, lib, true, Some(dml), || {
+            tried = true;
+            true
+        });
+        assert!(!tried);
+    }
+
+    #[test]
+    fn the_directml_folder_is_the_one_given_or_the_runtimes_own_directml_build() {
+        let dir = std::env::temp_dir().join(format!("vrct-rvc-worker-dml-{}", std::process::id()));
+        let lib = dir.join("lib");
+        std::fs::create_dir_all(&lib).unwrap();
+        let given = Path::new("/d/lib");
+        if cfg!(windows) {
+            assert_eq!(directml_folder(&lib, Some(given)), Some(given.to_path_buf()));
+            assert_eq!(directml_folder(&lib, None), None);
+            // The app's DirectML runtime, as its setup probes it.
+            std::fs::write(lib.join(DIRECTML_LIBRARY), b"").unwrap();
+            assert_eq!(directml_folder(&lib, None), Some(lib.clone()));
+            assert_eq!(directml_folder(&lib, Some(given)), Some(given.to_path_buf()));
+        } else {
+            std::fs::write(lib.join(DIRECTML_LIBRARY), b"").unwrap();
+            assert_eq!(directml_folder(&lib, Some(given)), None);
+            assert_eq!(directml_folder(&lib, None), None);
+        }
+        // A folder without DirectML needs nothing loaded first.
+        assert!(preload_directml(&dir));
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn a_gpu_that_cannot_run_says_which_gpu() {
+        let unavailable = Error::DeviceUnavailable("no adapter".into());
+        assert_eq!(classify(&unavailable, Device::DirectMl, Failure::RuntimeIncomplete), Failure::DirectMlUnavailable);
+        assert_eq!(classify(&unavailable, Device::Cuda, Failure::RuntimeIncomplete), Failure::GpuUnavailable);
+        assert_eq!(classify(&Error::Backend("x".into()), Device::DirectMl, Failure::CheckpointIncomplete), Failure::CheckpointIncomplete);
+        assert_eq!(Failure::DirectMlUnavailable.code(), "vc_directml_unavailable");
     }
 
     #[test]
@@ -1004,7 +1126,12 @@ mod tests {
         assert!(base(&[("unknown", "1")]).is_err());
         assert_eq!(base(&[]).unwrap().device, Choice::Auto);
         assert_eq!(base(&[("device", "cpu")]).unwrap().device, Choice::Cpu);
+        assert_eq!(base(&[("device", "directml")]).unwrap().device, Choice::DirectMl);
         assert!(base(&[("device", "gpu")]).is_err());
+        assert!(base(&[("device", "DirectML")]).is_err());
+        assert_eq!(base(&[]).unwrap().directml, None);
+        assert_eq!(base(&[("directml", "")]).unwrap().directml, None);
+        assert_eq!(base(&[("directml", "/d/lib")]).unwrap().directml, Some(PathBuf::from("/d/lib")));
         assert_eq!(base(&[]).unwrap().packets.ms, 80, "the external runtime's packets");
         assert_eq!(base(&[("block-ms", "40")]).unwrap().packets.ms, 40);
         for bad in ["30", "0", "220", "40.0", "-40", "x"] {

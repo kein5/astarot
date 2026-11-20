@@ -119,7 +119,8 @@ CPU版のパッケージに入っているライブラリは、GitHubのアー�
 CUDAプロバイダも、GitHubの`gpu_cuda13`版と同じくcuBLAS 13とcudart 13にリンクしていて、固定したNVIDIAのwheelと合う。
 同意画面のライセンスのリンクはNuGetのパッケージのLicenseのページにした。GitHubから準備した実行環境は、`lib/`の
 ファイルが同じ名前なので導入済みのまま使える（`runtime.rs`の`OrtSource`）。DirectML版はNuGetに1.31.0がない
-（最新は1.24.4）が、RVCの取得はDirectML版を使っていない（ローカル翻訳のDirectML版は下の節）。
+（最新は1.24.4）が、RVCの取得はDirectML版を使っていない。RVCのワーカーはDirectMLで変換するときに、ローカル翻訳と
+共用のDirectML版（下の節）を自分のプロセスに読み込む。新しく取得するものはない。
 
 ワーカーのRust依存（`ort`、`ort-sys`、`libloading`、`prost`、`rustfft`、`serde_json`、`thiserror`、`hound`など）は
 MIT、Apache-2.0、ISCなどの許容型ライセンス。配布物へのライセンス文書の同梱方法は、Tauri本体のRust依存と同じく
@@ -131,7 +132,7 @@ MIT、Apache-2.0、ISCなどの許容型ライセンス。配布物へのライ�
 上の実行環境と同じ仕組みで、利用者の同意を得てから提供元から取得する（`runtime.rs`の`onnx_cuda_runtime`と
 `onnx_directml_runtime`。保存先は設定フォルダーの`vc_runtimes/onnxruntime-cuda`と`vc_runtimes/onnxruntime-directml`）。
 アプリは、翻訳の処理デバイスにその版が選ばれているときだけ、起動時に同梱のCPU版の代わりに読み込む。チャット読み取りも
-同じライブラリを使う。
+同じライブラリを使う。RVCのワーカーも、DirectMLで変換するときはDirectML版を使う（`native/rvc-runtime/README.md`）。
 
 | 取得物 | 取得元 | ライセンス |
 |---|---|---|
