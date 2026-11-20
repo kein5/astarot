@@ -290,9 +290,13 @@ class DeveloperCLITests(unittest.TestCase):
                                     "--lockfile", "native/core/Cargo.lock"])
 
     def test_link_check_stays_offline_and_resolves_root_links_from_the_repository(self):
-        code, output = self.call("check", "--scope", "links", "--dry-run")
+        code, _ = self.call("check", "--scope", "links", "--dry-run")
         self.assertEqual(code, 0)
-        self.assertIn(f"lychee --offline --no-progress --root-dir {self.root.resolve()} .", output.replace("'", ""))
+        # The planned argv, not the printed line: the temporary folder's name has spaces, which
+        # POSIX shells and Windows quote differently.
+        args = self.dev.parser().parse_args(["check", "--scope", "links", "--dry-run"])
+        (step,) = self.dev.checks_plan(args, self.root)
+        self.assertEqual(step.argv, ["lychee", "--offline", "--no-progress", "--root-dir", str(self.root.resolve()), "."])
 
     def test_browser_setup_adds_dependencies_to_explicit_existing_python(self):
         code, output = self.call("setup", "--scope", "browser", "--python",
