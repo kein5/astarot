@@ -129,7 +129,7 @@ python tools/dev.py check --scope rust --dry-run
 | `node` | `src-ui` 以下の `.test.js` / `.test.mjs` / `.test.ts` と `tools/i18n_gate` の試験を Vitest で実行（`vitest.config.js`）。`node_modules` の Vitest を Node で直接起動し、取得はしない。未導入なら `setup --scope ui` を案内して止まる。続けて[文言の検査](#uiの文言と翻訳の検査)（`tools/i18n_gate/check.mjs`）を実行する |
 | `lint` | `tools/dev.py` の `LINT_PATHS`（`tests/voice`、`tests/devtools`、音声・配布・開発の道具）をRuffで検査。自動修正なし。voice CIも同じスコープを実行する |
 | `voice` | `tests/voice/pytest.ini` を使ったモデルなしの契約試験と、`tests/platform`にある単体の試験3件 |
-| `ui` | UIの試験（Vitest）、型チェック（`npm run typecheck`）、`npm run vite-build`。ブラウザの操作は含まない |
+| `ui` | UIの試験（Vitest）、[Biome](#uiのlintと整形biome)のlintと整形の検査、型チェック（`npm run typecheck`）、`npm run vite-build`。ブラウザの操作は含まない |
 | `rust` | `src-tauri` の `cargo check --locked --offline` と、`native/app-identity`、`native/speech-server`、`native/ops`、`native/audio-routing`、`native/adapters`、`native/translation`、`native/transcription`、`native/openvr-client`、`native/onnx-runtime`、`native/vr-overlay`、`native/voice-conversion`、`native/translate-onnx`、`native/tts`、`native/core` の `cargo test --locked --offline`。キャッシュやOS依存（Linuxでは `libpipewire-0.3` の開発ファイルとlibclang。`src-tauri` も中核を通して使う）がなければ失敗 |
 | `quick` | `tooling`、`node`、`lint`。既定値 |
 | `all` | 上記6対象。時間がかかるため統合時に明示実行 |
@@ -182,6 +182,24 @@ npm run test:coverage    # カバレッジ（build/coverage/ui に HTML と json
 - 既存の `.js` を `.ts` に移すときは、同じコミットで参照をすべて書き換えます。ビューのimport、試験の読み込み、Pythonの試験やツールが指すパスが対象です。
 - デザイントークンの値は `src-ui/views/app/_index_css/variables.css` が正本です。vanilla-extractからは `src-ui/views/theme/vars.css.ts` の `vars` で同じ変数を参照します。トークンを足したら両方に書きます（`vars.test.ts` が食い違いを検出します）。
 - Radix UIは振る舞いとアクセシビリティに使い、見た目はvanilla-extractで付けます。Radixの部品を足すときは、実行時に `<style>` 要素を差し込むかどうかを確かめます。CSPは差し込まれるスタイルをハッシュで許可していて、`contentSecurityPolicy.test.ts` がその数を数えています。
+
+### UIのlintと整形（Biome）
+
+UIのTypeScriptとJavaScriptは [Biome](https://biomejs.dev/) でlintと整形を行います。版は `mise.toml` で固定していて（`mise install` で入ります）、設定は `biome.json` です。`check --scope ui` が `biome lint` と `biome format` を実行します。どちらも検査だけで、ファイルを書き換えません。
+
+```sh
+biome lint                     # lint（対象は biome.json の files.includes）
+biome format                   # 整形の検査（対象は formatter.includes）
+biome format --write <ファイル>  # 整形する
+biome lint --write <ファイル>    # 安全な自動修正だけを当てる
+```
+
+- 対象は `src-ui` の `.ts` と `.tsx`、`locales` の `.ts`、`tools/` の `.mjs`、リポジトリ直下の `.js` と `.mjs` です。`site/` は別の道具で扱うので含めません。
+- lintは推奨のルール（`preset: "recommended"`）を使います。導入の時点で違反のあったルールは `biome.json` で警告（`warn`）にしてあり、`check` を止めません。違反のなかったルールはエラーのままなので、新しく増えると止まります。
+- 整形を当てるのは、いまは `formatter.includes` のファイル（リポジトリ直下の設定ファイルと `tools/` の `.mjs`）だけです。`src-ui` と `locales` は整形していません。
+- 字下げと改行は `.editorconfig` に従います（`useEditorconfig`）。1行の長さは120字です。
+- ルールをその場所だけ外すときは、理由を添えて `// biome-ignore lint/<グループ>/<ルール>: <理由>` と書きます。ESLintのコメント（`eslint-disable`）は効きません。
+- 前に置いていた `.eslintrc.json` と ESLint の依存は外しました。`check` から呼ばれておらず、検査には使われていませんでした。
 
 ### UIのミューテーションテスト
 
@@ -255,7 +273,7 @@ Pythonのバックエンドの偽のSteamVR（`src-python/test/fake_openvr.py`�
 
 ## EditorConfigとコミット形式
 
-`.editorconfig` はUTF-8、LF、末尾改行を指定します。基本の字下げは空白4個、JSON/YAML/TOML/HTML/CSS/SCSSは2個です。Markdownの末尾空白、patch/diffの空白と末尾改行は意味があるため、一律削除を避けています。適用はエディターで今後編集するファイルが対象です。既存ファイルを一括整形するコマンドは追加していません。[EditorConfigの設定仕様](https://editorconfig.org/)に対応するエディターまたは拡張機能を使います。
+`.editorconfig` はUTF-8、LF、末尾改行を指定します。基本の字下げは空白4個、JSON/YAML/TOML/HTML/CSS/SCSSは2個です。Markdownの末尾空白、patch/diffの空白と末尾改行は意味があるため、一律削除を避けています。適用はエディターで今後編集するファイルが対象です。UIのTypeScriptとJavaScriptは、Biomeが同じ設定で整形します（[UIのlintと整形](#uiのlintと整形biome)）。それ以外の既存ファイルを一括整形するコマンドは追加していません。[EditorConfigの設定仕様](https://editorconfig.org/)に対応するエディターまたは拡張機能を使います。
 
 CocogittoはConventional Commitsを扱うツールで、コマンド名が `cog` です。例えば `feat(dev): add developer checks` は機能追加、`fix(tts): preserve cancellation state` は不具合修正を表します。形式は[Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.0/)に従います。
 

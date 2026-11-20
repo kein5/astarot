@@ -25,9 +25,10 @@ export const EngineCatalog = () => {
     const check = (id: string, spec: TtsEngineSpec) => send("/get/data/tts_engine_voices", { engine: id, url: address(spec), catalog: true });
     // Wait for the saved settings, so the first check uses the saved address, not the example.
     const loaded = !!settings;
+    // biome-ignore lint/correctness/useExhaustiveDependencies: checks once, when the saved settings arrive; a check's result or a typed address must not start another round.
     useEffect(() => {
         if (loaded) for (const [id, spec] of Object.entries(TTS_ENGINES)) if (!engineChecks[id]) check(id, spec);
-    }, [loaded]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [loaded]);
     const open = async (event: MouseEvent<HTMLAnchorElement>, link: string) => {
         if (!isTauri()) return;
         event.preventDefault();

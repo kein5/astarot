@@ -209,6 +209,24 @@ class DeveloperCLITests(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertLess(output.index("typecheck"), output.index("vite-build"))
 
+    def test_ui_scope_runs_biome_before_the_type_check(self):
+        folder = self.root / "src-ui"
+        folder.mkdir(parents=True)
+        (folder / "one.test.js").write_text('')
+        code, output = self.call("check", "--scope", "ui", "--dry-run")
+        self.assertEqual(code, 0)
+        # Lint, then the format check (read-only: no --write), before the type check.
+        self.assertLess(output.index("biome lint"), output.index("biome format"))
+        self.assertLess(output.index("biome format"), output.index("typecheck"))
+        self.assertNotIn("--write", output)
+        # The node scope (part of quick) does not need Biome.
+        code, output = self.call("check", "--scope", "node", "--dry-run")
+        self.assertNotIn("biome", output)
+
+    def test_doctor_takes_biome_only_at_the_pinned_version(self):
+        (self.root / "mise.toml").write_text('[tools]\nbiome = "2.6.6"\n')
+        self.assertEqual(self.dev.pinned_versions(self.root).get("biome"), "2.6.6")
+
     def test_node_scope_does_not_pass_when_no_tests_were_found(self):
         code, output = self.call("check", "--scope", "node", "--dry-run")
         self.assertEqual(code, 2)

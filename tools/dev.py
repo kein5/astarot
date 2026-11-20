@@ -176,6 +176,10 @@ def checks_plan(args, root):
                 steps.append(Step("i18n gate", ["node", "--disable-warning=ExperimentalWarning",
                     "tools/i18n_gate/check.mjs"]))
             if scope == "ui":
+                # Biome (biome.json, pinned in mise.toml): its lint rules, then the format of the
+                # files its formatter covers. Both only read; `biome format --write` formats.
+                steps.append(Step("Biome lint", ["biome", "lint"]))
+                steps.append(Step("Biome format", ["biome", "format"]))
                 steps.append(Step("TypeScript", ["npm", "--ignore-scripts", "run", "typecheck"]))
                 steps.append(Step("Vite build", ["npm", "--ignore-scripts", "run", "vite-build"]))
         elif scope == "voice":
@@ -225,7 +229,8 @@ def pinned_versions(root):
     """Tool versions pinned in mise.toml, keyed by the name doctor looks up on PATH."""
     tools = mise_versions(root)
     return {command: tools[name] for name, command in
-            (("node", "node"), ("cocogitto", "cog"), ("rust", "cargo"), ("uv", "uv")) if name in tools}
+            (("node", "node"), ("cocogitto", "cog"), ("rust", "cargo"), ("uv", "uv"), ("biome", "biome"))
+            if name in tools}
 
 
 def python_series(root):
@@ -256,6 +261,9 @@ def doctor(args, root, *, preflight=False):
             compatible = compatible and bool(match) and int(match[1]) >= 22
         if name == "cog":
             compatible = compatible and version.startswith("cog 7.")
+        if name == "biome":
+            # Another version formats and lints differently: only the pinned one passes.
+            compatible = compatible and bool(expected) and version == f"Version: {expected}"
         row(name, "ok" if compatible else "missing", version,
             f"Pinned in mise.toml: {expected} (mise install)" if expected else "")
 
@@ -267,7 +275,7 @@ def doctor(args, root, *, preflight=False):
         if not (root / "node_modules").is_dir():
             row("UI packages", "missing", "node_modules is absent", "python tools/dev.py setup --scope ui")
     if "ui" in selected:
-        needed_tools.add("npm")
+        needed_tools.update(("npm", "biome"))
     if "rust" in selected:
         needed_tools.add("cargo")
         resources = root / "src-tauri/bin/_internal"
