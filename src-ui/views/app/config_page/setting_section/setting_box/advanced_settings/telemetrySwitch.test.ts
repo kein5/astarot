@@ -32,6 +32,7 @@ async function render({ enabled, pending }: { enabled: boolean; pending: boolean
         "@logics_configs": { useOthers: () => others, useAdvancedSettings: () => ({}) },
         "../_templates/Templates": { CheckboxContainer },
         "../_components": { SectionLabelComponent: () => null },
+        "../_components/hint/Hint": { HintDescriptions: "hints" },
     });
     const page = runtime.render(module.AdvancedSettings);
     // The page's own telemetry row, a component that takes no props.

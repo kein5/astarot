@@ -6,6 +6,7 @@ import voiceStyles from "./VoiceSettings.module.scss";
 import dialogStyles from "../_components/download_models/LegacyModelDownloadDialog.module.scss";
 import { AutoExportMessageLogsContainer } from "../shared_items/SharedItems";
 import { Description } from "../_components/description/Description";
+import { HintDescriptions } from "../_components/hint/Hint";
 import { TelemetryContents } from "../_components/telemetry/TelemetryContents";
 import { GpuCheck } from "./GpuCheck.tsx";
 import { parsePortInput, PORT_INPUT_LIMITS } from "../../../../../../logics/configs/networkPortInput";
@@ -56,10 +57,14 @@ const errorCodeOf = (result: unknown): string | undefined =>
 type TlsField = "cert_file" | "key_file";
 type TlsPaths = Readonly<Record<TlsField, string>>;
 
+// The rows' general descriptions are hints here (#614, DESIGN.md "Principles"). What is read
+// before acting stays on screen: the URLs in use, what the usage data sends, the GPU check's
+// words and the warnings.
 export const AdvancedSettings = () => {
     const { t } = useI18n();
 
     return (
+        <HintDescriptions>
         <div className={styles.container}>
             <div>
                 <SectionLabelComponent label={t("config_page.advanced_settings.section_label_logs")} />
@@ -82,7 +87,10 @@ export const AdvancedSettings = () => {
             {/* Where messages go to VRChat: set once, if ever, like the other connections below.
                 The VRChat page says whether VRChat is found and leads here (#554, Q-06). */}
             <div>
-                <SectionLabelComponent label={t("config_page.advanced_settings.section_label_osc")} />
+                {/* That the destination is VRChat's default and is usually left alone: the heading's hint,
+                    in the words the VRChat page uses where it leads here. */}
+                <SectionLabelComponent label={t("config_page.advanced_settings.section_label_osc")}
+                    desc={t("config_page.vrchat.osc_pointer.desc")} />
                 <OscIpAddressContainer />
                 <OscPortContainer />
                 <OscQueryContainer />
@@ -94,6 +102,7 @@ export const AdvancedSettings = () => {
                 <RvcBlockMsContainer />
             </div>
         </div>
+        </HintDescriptions>
     );
 };
 
@@ -227,6 +236,8 @@ const TelemetryContainer = () => {
                 setting_id="telemetry"
                 label={t("config_page.advanced_settings.telemetry.label")}
                 desc={t("config_page.advanced_settings.telemetry.desc")}
+                // What leaves the PC is read before the box is ticked, so it is not a hint.
+                keep_desc
                 variable={shownTelemetry(others.currentTelemetry, others.currentTelemetryNotice)}
                 toggleFunction={() => toggleTelemetryOrAnswer(others)}
                 note={unanswered ? t("config_page.advanced_settings.telemetry.unanswered") : undefined}
@@ -378,7 +389,9 @@ const WebsocketUrlContainer = () => {
     return (
         <ActionButtonContainer
             label={t("config_page.advanced_settings.websocket_url.label")}
+            // The address in use, not a description: it stays on screen.
             desc={shown}
+            keep_desc
             IconComponent={CopyThinSvg}
             ClickedIconComponent={CheckMarkSvg}
             clicked_duration={1000}
@@ -473,7 +486,9 @@ const ObsBrowserSourceUrlContainer = () => {
         <>
             <ActionButtonContainer
                 label={t("config_page.advanced_settings.obs_browser_source_url.label")}
+                // The address in use, not a description: it stays on screen.
                 desc={shown}
+                keep_desc
                 IconComponent={CopyThinSvg}
                 ClickedIconComponent={CheckMarkSvg}
                 clicked_duration={1000}

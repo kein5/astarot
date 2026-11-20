@@ -80,6 +80,7 @@ async function settingsHarness({ host = "127.0.0.1" } = {}) {
         },
         "../_templates/Templates": { EntryWithSaveButtonContainer: () => null, ActionButtonContainer: () => null },
         "../_components": { SectionLabelComponent: () => null },
+        "../_components/hint/Hint": { HintDescriptions: "hints" },
     });
     const root = runtime.render(module.AdvancedSettings);
     // The containers the page draws are components without props that draw one element.
