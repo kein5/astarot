@@ -429,6 +429,33 @@ fn an_ai_translator_is_told_the_users_terms_that_the_text_holds() {
 }
 
 #[test]
+fn the_translated_speech_is_asked_for_before_the_vr_overlay_is_drawn() {
+    // Drawing an overlay's picture takes tens of milliseconds, which the voice waited for (#556).
+    let run = start(json!({ "OVERLAY_SMALL_LOG": true, "OVERLAY_LARGE_LOG": true }), None);
+    let order: Arc<Mutex<Vec<String>>> = Arc::default();
+    let (o, s) = (Arc::clone(&order), Arc::clone(&order));
+    run.ui.backend.core().set_message_hooks(
+        Some(Arc::new(move |event: &OverlayMessage| {
+            o.lock().unwrap().push(format!("overlay {:?}", event.log));
+            Ok(())
+        })),
+        Some(Arc::new(move |event: &SpokenMessage| {
+            s.lock().unwrap().push(format!("speech {:?}", event.stage));
+            Ok(())
+        })),
+    );
+    run.translate_with_deepl();
+    let mark = run.ui.send("/run/send_message_box", Some(json!({ "id": "m-1", "message": "こんにちは" })));
+    let answer = run.ui.wait_endpoint(mark, "/run/send_message_box");
+    assert!(answer["result"].get("output_failures").is_none(), "{}", answer["result"]["output_failures"]);
+    // The chatbox still comes first.
+    assert!(run.chatbox_text(Duration::from_secs(5)).is_some());
+    // A typed message goes to the large log only.
+    assert_eq!(*order.lock().unwrap(), ["speech Original", "speech Translated", "overlay Large"]);
+    run.ui.stop();
+}
+
+#[test]
 fn the_overlay_and_speech_hooks_get_each_message_and_a_failure_is_reported() {
     let run = start(json!({ "OVERLAY_LARGE_LOG": true }), None);
     let overlays: Arc<Mutex<Vec<OverlayMessage>>> = Arc::default();

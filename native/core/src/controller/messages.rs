@@ -855,7 +855,34 @@ impl Core {
                     }
                 }
             }
+        }
 
+        // The translated speech, before the outputs that take time: drawing a VR overlay's
+        // picture takes tens of milliseconds, and the voice would wait for it (#556). Each request
+        // checks that the message is still current, and a stop drops speech already queued by its
+        // generation, as before.
+        if speaks {
+            let outcome: Vec<_> = outcomes.clone();
+            self.speak_translated(spec, &snapshot, id.as_ref(), message, &outcome, voice, &current, &mut failures);
+        }
+        if let Some(mic_voice) = mic_voice {
+            let translations: Vec<String> = outcomes.iter().map(|o| o.text.clone()).collect();
+            let success: Vec<bool> = outcomes.iter().map(|o| o.success).collect();
+            let provenance: Vec<&str> = outcomes.iter().map(|o| o.provenance).collect();
+            self.publish_mic_voice(
+                &mic_voice.snapshot,
+                &mic_voice.update,
+                &snapshot.tab,
+                snapshot.source_language.as_deref(),
+                &snapshot.target,
+                &translations,
+                &success,
+                &provenance,
+                &current,
+            );
+        }
+
+        if feature_enabled {
             // The VR overlay
             // The VR overlay area shows it unless a hook replaces it.
             let overlay_hook = self.messages().hooks.read().unwrap().overlay.clone();
@@ -946,26 +973,6 @@ impl Core {
         }
         self.add_history(spec.kind, message, &snapshot);
 
-        if speaks {
-            let outcome: Vec<_> = outcomes.clone();
-            self.speak_translated(spec, &snapshot, id.as_ref(), message, &outcome, voice, &current, &mut failures);
-        }
-        if let Some(mic_voice) = mic_voice {
-            let translations: Vec<String> = outcomes.iter().map(|o| o.text.clone()).collect();
-            let success: Vec<bool> = outcomes.iter().map(|o| o.success).collect();
-            let provenance: Vec<&str> = outcomes.iter().map(|o| o.provenance).collect();
-            self.publish_mic_voice(
-                &mic_voice.snapshot,
-                &mic_voice.update,
-                &snapshot.tab,
-                snapshot.source_language.as_deref(),
-                &snapshot.target,
-                &translations,
-                &success,
-                &provenance,
-                &current,
-            );
-        }
         if !failures.is_empty() {
             payload.insert("output_failures".into(), Value::Array(failures));
         }
