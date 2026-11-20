@@ -2,20 +2,23 @@ import { test } from "vitest";
 import assert from "node:assert/strict";
 import { TRACE_KEEP, formatMs, latestTraces, median, mergeTrace, outputArrivals, overlayCount, stageSegments,
     timelineScale, traceTotal } from "./ioFlow.ts";
+import type { FlowInput, Trace } from "./ioFlow.ts";
 
-const trace = (id, input = "voice", outputs = {}, stages = {}) => ({ id, input, text: id, translation: "", origin: "final",
-    stages, outputs });
+const trace = (id: string, input: FlowInput = "voice", outputs: Trace["outputs"] = {}, stages: Trace["stages"] = {}): Trace => ({
+    id, input, text: id, translation: "", origin: "final", stages, outputs });
 
 test("a trace that comes again replaces its copy in place; old ones drop off", () => {
     let list = mergeTrace([], trace("a"));
     list = mergeTrace(list, trace("b", "chat"));
     list = mergeTrace(list, { ...trace("a"), outputs: { speech: { state: "playing", at_ms: 900 } } });
+    assert.ok(list);
     assert.deepEqual(list.map(row => row.id), ["a", "b"]);
-    assert.equal(list[0].outputs.speech.at_ms, 900);
+    assert.equal(list[0].outputs.speech?.at_ms, 900);
     assert.equal(mergeTrace(list, { id: "x", input: "speaker" }), list, "not a trace of the user's own input");
     for (let index = 0; index < TRACE_KEEP + 5; index++) list = mergeTrace(list, trace(`n${index}`));
+    assert.ok(list);
     assert.equal(list.length, TRACE_KEEP);
-    assert.equal(list.at(-1).id, `n${TRACE_KEEP + 4}`);
+    assert.equal(list.at(-1)?.id, `n${TRACE_KEEP + 4}`);
 });
 
 test("the latest traces come newest first, of one input when asked", () => {
@@ -48,7 +51,11 @@ test("outputs that did not go out have no arrival, and the total falls back to t
 });
 
 test("speech tells how much of its time was the synthesis, never more than its arrival", () => {
-    const speech = (synthesis_ms) => outputArrivals(trace("s", "chat", { speech: { state: "playing", at_ms: 500, converted: false, synthesis_ms } }))[0];
+    const speech = (synthesis_ms: unknown) => {
+        const arrival = outputArrivals(trace("s", "chat", { speech: { state: "playing", at_ms: 500, converted: false, synthesis_ms } }))[0];
+        assert.ok(arrival?.kind === "speech");
+        return arrival;
+    };
     assert.equal(speech(180).synthesis, 180);
     assert.equal(speech(900).synthesis, 500, "a clock step never draws it before the origin");
     assert.equal(speech(undefined).synthesis, null);

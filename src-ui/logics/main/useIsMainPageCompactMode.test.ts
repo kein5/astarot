@@ -1,39 +1,42 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { hooks, loadModule, find, eventTarget, stubGlobals } from "../test/hookHarness.ts";
+import type { TestContext } from "vitest";
+import type { ComponentType, SVGProps } from "react";
+import { hooks, loadModule, find, eventTarget, stubGlobals, unchecked } from "../test/hookHarness.ts";
 
-async function fixture(saved, context) {
+async function fixture(saved: boolean, context: TestContext) {
     // The opened rail listens on the document for Escape and presses outside it.
-    const document = { ...eventTarget(), focused: [],
-        querySelector: selector => selector === "[data-sidebar-toggle]" ? { focus: () => document.focused.push(selector) } : null };
+    const focused: string[] = [];
+    const document = { ...eventTarget(), focused,
+        querySelector: (selector: string) => selector === "[data-sidebar-toggle]" ? { focus: () => document.focused.push(selector) } : null };
     stubGlobals(context, { document });
-    const runtime = hooks(), requests = [];
+    const runtime = hooks(), requests: string[] = [];
     let narrow = true;
     const store = {
         useStore_IsBreakPoint: () => ({ currentIsBreakPoint: { data: narrow } }),
         useStore_IsMainPageCompactMode: () => ({ currentIsMainPageCompactMode: { data: saved, state: "ok" },
-            updateIsMainPageCompactMode: value => { saved = value; } }),
+            updateIsMainPageCompactMode: (value: boolean) => { saved = value; } }),
         useStore_IsOpenedLanguageSelector: () => ({ currentIsOpenedLanguageSelector: { data: selector },
-            updateIsOpenedLanguageSelector: value => { selector = value; } }),
+            updateIsOpenedLanguageSelector: (value: unknown) => { selector = value; } }),
     };
-    let selector = {};
-    const logic = await loadModule(new URL("./useIsMainPageCompactMode.ts", import.meta.url), runtime, {
+    let selector: unknown = {};
+    const logic = await loadModule<typeof import("./useIsMainPageCompactMode.ts")>(new URL("./useIsMainPageCompactMode.ts", import.meta.url), runtime, {
         "@store": store, "@useStdoutToPython": { useStdoutToPython: () => ({
-            asyncStdoutToPython: endpoint => requests.push(endpoint) }) },
+            asyncStdoutToPython: (endpoint: string) => requests.push(endpoint) }) },
     });
-    const { SidebarSection } = await loadModule(new URL("../../views/app/main_page/sidebar_section/SidebarSection.tsx", import.meta.url), runtime, {
+    const { SidebarSection } = await loadModule<typeof import("../../views/app/main_page/sidebar_section/SidebarSection.tsx")>(new URL("../../views/app/main_page/sidebar_section/SidebarSection.tsx", import.meta.url), runtime, {
         "@store": store, "@logics_main": logic, "./logo/Logo": { Logo: "logo" },
         "./main_function_switch/MainFunctionSwitch": { MainFunctionSwitch: "switches" },
         "./language_settings/LanguageSettings": { LanguageSettings: "languages" },
         "./language_readout/LanguageReadout": { LanguageReadout: "readout" },
         "./open_settings/OpenSettings": { OpenSettings: "settings" },
     });
-    const { SidebarCompactModeButton } = await loadModule(new URL("../../views/app/main_page/main_section/top_bar/sidebar_compact_mode_button/SidebarCompactModeButton.tsx", import.meta.url), runtime, {
+    const { SidebarCompactModeButton } = await loadModule<typeof import("../../views/app/main_page/main_section/top_bar/sidebar_compact_mode_button/SidebarCompactModeButton.tsx")>(new URL("../../views/app/main_page/main_section/top_bar/sidebar_compact_mode_button/SidebarCompactModeButton.tsx", import.meta.url), runtime, {
         "@logics_main": logic,
     });
     const english = { language: "English", country: "United States", enable: true };
-    const { LanguageSelectorOpenButton } = await loadModule(new URL("../../views/app/main_page/sidebar_section/language_settings/language_selector_open_button/LanguageSelectorOpenButton.tsx", import.meta.url), runtime, {
-        "@useI18n": { useI18n: () => ({ t: key => key, i18n: { language: "en" } }) },
+    const { LanguageSelectorOpenButton } = await loadModule<typeof import("../../views/app/main_page/sidebar_section/language_settings/language_selector_open_button/LanguageSelectorOpenButton.tsx")>(new URL("../../views/app/main_page/sidebar_section/language_settings/language_selector_open_button/LanguageSelectorOpenButton.tsx", import.meta.url), runtime, {
+        "@useI18n": { useI18n: () => ({ t: (key: string) => key, i18n: { language: "en" } }) },
         "../../../../../../logics/common/languageNames.ts": { createLanguageNames: () => ({ name: () => ({ language: "English", country: "" }) }) },
         "@store": store, "@logics_main": { ...logic, useLanguageSettings: () => ({ currentSelectedPresetTabNumber: { data: "1" },
             currentSelectedYourLanguages: { data: { 1: { 1: english } } }, currentSelectedTargetLanguages: { data: { 1: { 1: english, 2: english } } } }) },
@@ -41,8 +44,10 @@ async function fixture(saved, context) {
     // One render for all of them: the hooks share the runtime's slots.
     const render = () => runtime.render(() => ({ sidebar: SidebarSection(), button: SidebarCompactModeButton(),
         hook: logic.useIsMainPageCompactMode(),
-        language: LanguageSelectorOpenButton({ TurnedOnSvgComponent: "svg", is_turned_on: true, selector_key: "your_language", target_key: "1" }) }));
-    return { render, requests, document, setNarrow: value => { narrow = value; }, saved: () => saved, selector: () => selector };
+        // A string stands in for the icon component; the test only finds the button.
+        language: LanguageSelectorOpenButton({ TurnedOnSvgComponent: unchecked<ComponentType<SVGProps<SVGSVGElement>>>("svg"),
+            is_turned_on: true, selector_key: "your_language", target_key: "1" }) }));
+    return { render, requests, document, setNarrow: (value: boolean) => { narrow = value; }, saved: () => saved, selector: () => selector };
 }
 
 for (const saved of [false, true]) {
@@ -88,11 +93,12 @@ for (const saved of [false, true]) {
         const opened = s.render();
         assert.match(opened.sidebar.props.className, /isOverlay/);
         const inside = { nodeType: 1, closest: () => null };
-        opened.sidebar.ref.current = { contains: target => target === inside };
+        // React 18's element type leaves out the ref the element carries.
+        unchecked<{ ref: { current: unknown } }>(opened.sidebar).ref.current = { contains: (target: unknown) => target === inside };
         s.document.dispatch("pointerdown", { target: inside });
         assert.equal(s.render().button.props["aria-expanded"], true, "a press inside the rail keeps it open");
         // The toggle handles its own press; closing here as well would reopen it.
-        s.document.dispatch("pointerdown", { target: { nodeType: 1, closest: selector => selector === "[data-sidebar-toggle]" ? {} : null } });
+        s.document.dispatch("pointerdown", { target: { nodeType: 1, closest: (selector: string) => selector === "[data-sidebar-toggle]" ? {} : null } });
         assert.equal(s.render().button.props["aria-expanded"], true);
         s.document.dispatch("keydown", { key: "Escape", defaultPrevented: false });
         assert.equal(s.render().button.props["aria-expanded"], false);
@@ -105,10 +111,12 @@ for (const saved of [false, true]) {
         assert.equal(s.render().button.props["aria-expanded"], false, "a press on the conversation closes it");
 
         // The opened rail carries its own close button, since the toggle is under it.
-        const closeButton = tree => find(tree, node => node.type === "button" && node.props["aria-label"] === "studio.close_sidebar");
+        const closeButton = (tree: unknown) => find(tree, node => node.type === "button" && node.props["aria-label"] === "studio.close_sidebar");
         assert.equal(closeButton(s.render().sidebar), null);
         s.render().button.props.onClick();
-        closeButton(s.render().sidebar).props.onClick();
+        const close = closeButton(s.render().sidebar);
+        assert.ok(close);
+        close.props.onClick();
         assert.equal(s.render().button.props["aria-expanded"], false);
         assert.equal(s.document.focused.length, 2, "and focus goes back to the toggle");
         assert.deepEqual(s.requests, [], "never saved");
@@ -122,6 +130,7 @@ for (const saved of [false, true]) {
         const s = await fixture(saved, context);
         s.render().button.props.onClick();
         const opener = find(s.render().language, node => node.type === "button");
+        assert.ok(opener);
         opener.props.onClick();
         assert.deepEqual(s.selector(), { your_language: true, target_language: false, target_key: "1" });
         const tree = s.render();

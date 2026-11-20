@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import { setupNeeds, downloadProgress, translationDownloadable, translationCatalogIds } from "./setupNeeds.ts";
+import type { ModelWeight, SetupSelection } from "./setupNeeds.ts";
 
-const weights = downloaded => [{ id: "small", is_downloaded: downloaded }, { id: "large", is_downloaded: false }];
-const asr = (model, vad_model) => ({ model, vad_model, diarization_model: "", device: "auto" });
-const selection = values => ({ translationEngine: "CTranslate2", translationWeights: weights(false), translationWeight: "small",
+const weights = (downloaded: boolean): ModelWeight[] => [{ id: "small", is_downloaded: downloaded }, { id: "large", is_downloaded: false }];
+const asr = (model: string, vad_model: string) => ({ model, vad_model, diarization_model: "", device: "auto" });
+const selection = (values?: SetupSelection): SetupSelection => ({ translationEngine: "CTranslate2", translationWeights: weights(false), translationWeight: "small",
     transcriptionEngine: "SpeechCpp", realtimeServer: "bundled", asrProfile: asr("", ""), ...values });
 
 test("a selected built-in engine without its selected model is a need", () => {
@@ -48,7 +49,8 @@ test("progress is a whole percentage, a wait before the first report, or nothing
 });
 
 test("a model the catalog does not offer asks for another translator instead of a review", () => {
-    const action = translationDownloadable => setupNeeds(selection({ translationDownloadable })).find(need => need.id === "translation").action;
+    const action = (translationDownloadable: boolean | null | undefined) =>
+        setupNeeds(selection({ translationDownloadable })).find(need => need.id === "translation")?.action;
     assert.equal(action(false), "choose");
     // Unknown (no catalog yet) or downloadable: the review, as before.
     assert.equal(action(null), "review");

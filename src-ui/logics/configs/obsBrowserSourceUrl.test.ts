@@ -28,8 +28,8 @@ test("OBS uses the configured host and port and preserves the wildcard fallback"
 });
 
 test("beyond this PC both URLs are encrypted, on this PC they stay plain", () => {
-    for (const [host, secure] of [["127.0.0.1", false], ["127.10.0.1", false], ["localhost", false],
-        ["10.0.0.5", true], ["192.168.1.10", true], ["100.64.0.1", true], ["128.0.0.1", true]]) {
+    for (const [host, secure] of ([["127.0.0.1", false], ["127.10.0.1", false], ["localhost", false],
+        ["10.0.0.5", true], ["192.168.1.10", true], ["100.64.0.1", true], ["128.0.0.1", true]] satisfies [string, boolean][])) {
         assert.equal(isLoopbackHost(host), !secure, host);
         assert.equal(buildObsBrowserSourceUrl(host, 2232, "key").url.startsWith(secure ? "https://" : "http://"), true, host);
         assert.equal(buildWebsocketUrl(host, 2231, "key").url.startsWith(secure ? "wss://" : "ws://"), true, host);

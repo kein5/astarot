@@ -2,8 +2,23 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { stripTypeScriptTypes } from "node:module";
 import { test, vi } from "vitest";
+import type { LanguageMutationState } from "./languageMutationCoordinator.ts";
 
-const moduleUrl = code => `data:text/javascript;base64,${Buffer.from(code).toString("base64")}`;
+// The stand-in for jotai the adapter is given (the module written in setup): what it keeps per
+// atom name, and each value it set, in order.
+interface FakeAtom {
+    state: string;
+    data: unknown;
+}
+interface FakeStorage {
+    history: { name: string; value: { data: { lastVrResult?: { kind?: string } | null; isResyncing?: boolean } } }[];
+    values: Record<string, FakeAtom> & {
+        LanguageMutation: { state: string; data: LanguageMutationState & { isResyncing?: boolean } };
+        NotificationStatus: { state: string; data: { status?: string } };
+    };
+}
+
+const moduleUrl = (code: string) => `data:text/javascript;base64,${Buffer.from(code).toString("base64")}`;
 const atomNames = ["LanguageMutation", "NotificationStatus", "SelectedPresetTabNumber", "SelectedYourLanguages",
     "SelectedTargetLanguages", "SelectedTranslationEngines", "TranslationEngines"];
 const getters = ["selected_tab_no", "selected_your_languages", "selected_target_languages", "selected_translation_engines", "selectable_translation_engines"];
@@ -23,7 +38,7 @@ async function setup() {
             },
         });
     `) + `#${crypto.randomUUID()}`;
-    const storage = await import(storageUrl);
+    const storage: FakeStorage = await import(storageUrl);
     for (const name of atomNames) storage.values[name] = { state: "ok", data: {} };
     storage.values.SelectedPresetTabNumber.data = "1";
     storage.values.LanguageMutation.data = { inFlight: null, lastVrResult: null, isResyncing: false };
@@ -35,11 +50,11 @@ async function setup() {
         .replace('"@store"', JSON.stringify(atomsUrl))
         .replace('"i18next"', JSON.stringify(translationUrl))
         .replace('"./languageMutationCoordinator"', JSON.stringify(coordinatorUrl));
-    const adapter = await import(moduleUrl(source));
+    const adapter: typeof import("./languageMutations.ts") = await import(moduleUrl(source));
     const request = (id = "first", source = "vr") => ({ requestId: id, source,
         endpoint: "/set/data/selected_target_languages", expectedSnapshot: adapter.getLanguageSnapshot() });
-    const calls = [];
-    const send = async endpoint => { calls.push(endpoint); return true; };
+    const calls: string[] = [];
+    const send = async (endpoint: string) => { calls.push(endpoint); return true; };
     return { adapter, ...storage, request, calls, send };
 }
 
@@ -62,14 +77,14 @@ test("failure publishes resync ownership before its result and retains it until 
         adapter.receiveLanguageMutation({endpoint:write.endpoint,status:500},send);
         assert.equal(calls.length,5);
         const failure = history.find(item => item.name === "LanguageMutation" && item.value.data.lastVrResult?.kind === "failure");
-        assert.equal(failure.value.data.isResyncing,true);
+        assert.equal(failure?.value.data.isResyncing,true);
         for (let i=0;i<5;i++) {
             values[fields[i]] = {state:"ok",data:i === 2 ? {partial:"backend value"} : values[fields[i]].data};
             adapter.receiveLanguageMutation({endpoint:`/get/data/${getters[i]}`,status:200},send);
             assert.equal(adapter.canChangeLanguageSettings(),i === 4);
         }
         assert.deepEqual(values.SelectedTargetLanguages.data,{partial:"backend value"});
-        assert.equal(values.LanguageMutation.data.lastVrResult.kind,"failure");
+        assert.equal(values.LanguageMutation.data.lastVrResult?.kind,"failure");
     } finally {adapter.resetLanguageMutations();}
 });
 
@@ -96,7 +111,7 @@ test("timeout cannot start an old GET batch before a late failing write", async 
     try {
         const write=request();adapter.beginLanguageMutation(write);
         vi.advanceTimersByTime(adapter.LANGUAGE_RESPONSE_WAIT_MS);
-        assert.equal(values.LanguageMutation.data.inFlight.kind,"unconfirmed");
+        assert.equal(values.LanguageMutation.data.inFlight?.kind,"unconfirmed");
         assert.equal(calls.length,0);
         assert.equal(adapter.beginLanguageMutation(request("retry")),false);
         adapter.receiveLanguageMutation({endpoint:write.endpoint,status:500},send);
@@ -110,12 +125,12 @@ test("uncertain write failures retain ownership without concurrent GETs", async 
     try {
         const write=request();adapter.beginLanguageMutation(write);
         adapter.languageMutationWriteUnconfirmed(write.requestId);
-        assert.equal(values.LanguageMutation.data.inFlight.requestId,write.requestId);
+        assert.equal(values.LanguageMutation.data.inFlight?.requestId,write.requestId);
         assert.equal(calls.length,0);
         values.SelectedTargetLanguages.state="ok";
         adapter.receiveLanguageMutation({endpoint:write.endpoint,status:200},send);
         adapter.languageMutationWriteUnconfirmed(write.requestId);
-        assert.equal(values.LanguageMutation.data.lastVrResult.kind,"success");
+        assert.equal(values.LanguageMutation.data.lastVrResult?.kind,"success");
     } finally {adapter.resetLanguageMutations();}
 });
 
@@ -125,7 +140,7 @@ test("missing backend is a failure and requires current state before retry", asy
         const write=request();adapter.beginLanguageMutation(write);
         adapter.failLanguageMutationBeforeSend(write.requestId);
         assert.equal(values.LanguageMutation.data.inFlight,null);
-        assert.equal(values.LanguageMutation.data.lastVrResult.kind,"failure");
+        assert.equal(values.LanguageMutation.data.lastVrResult?.kind,"failure");
         assert.equal(adapter.canChangeLanguageSettings(),false);
     } finally {adapter.resetLanguageMutations();}
 });
@@ -147,9 +162,9 @@ test("a VR request that went through the emit round trip is accepted by the main
     values.SelectedTargetLanguages = { state: "ok", data: { 1: { 1: { language: "English", country: "United States", enable: true },
         2: { language: "English", country: "United States", enable: false } } } };
     values.SelectedTranslationEngines = { state: "ok", data: { 1: "CTranslate2", 2: "Google" } };
-    const sortKeysDeep = value => Array.isArray(value) ? value.map(sortKeysDeep)
-        : value && typeof value === "object" ? Object.fromEntries(Object.keys(value).sort().map(key => [key, sortKeysDeep(value[key])])) : value;
-    const viaEmit = value => JSON.parse(JSON.stringify(sortKeysDeep(value)));
+    const sortKeysDeep = (value: unknown): unknown => Array.isArray(value) ? value.map(sortKeysDeep)
+        : value && typeof value === "object" ? Object.fromEntries(Object.keys(value).sort().map(key => [key, sortKeysDeep(Reflect.get(value, key))])) : value;
+    const viaEmit = (value: unknown) => JSON.parse(JSON.stringify(sortKeysDeep(value)));
     const request = { requestId: "vr-emit", source: "vr", endpoint: "/set/data/selected_target_languages",
         expectedSnapshot: adapter.getLanguageSnapshot() };
     assert.equal(adapter.beginLanguageMutation(viaEmit(request)), true); // 内容が同じなら受け付ける

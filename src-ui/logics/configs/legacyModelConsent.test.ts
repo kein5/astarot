@@ -5,10 +5,38 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { Children } from "react";
 import i18next from "i18next";
 import yaml from "js-yaml";
-import { hooks, loadModule, find, stubGlobals } from "../test/hookHarness.ts";
+import { hooks, loadModule, find, stubGlobals, unchecked } from "../test/hookHarness.ts";
+import type { TestContext } from "vitest";
+import type { PrimitiveAtom } from "jotai/vanilla";
+import type { TreeNode } from "../test/hookHarness.ts";
+import type { LegacyDownloadRequest, Translate } from "./legacyModelConsent.ts";
 import { loadBridgeRoutes } from "../test/bridgeHarness.ts";
 import * as consentLogic from "./legacyModelConsent.ts";
 import * as setupNeeds from "../main/setupNeeds.ts";
+
+// The name of a component's node; a tag's node has none.
+const componentName = (node: TreeNode) => typeof node.type === "function" ? node.type.name : undefined;
+// A node the test reads at once: one that is not there fails here, where reading it failed.
+const found = (tree: unknown, predicate: (node: TreeNode) => boolean) => {
+    const node = find(tree, predicate);
+    assert.ok(node);
+    return node;
+};
+// A row of a weight list, as the bridge keeps it in the setting's atom.
+interface WeightRow {
+    id: string;
+    job_id?: string;
+    is_pending: boolean;
+    is_downloaded: boolean;
+    progress: number | null;
+}
+// The registry keeps each setting's atom, which the setting's hook writes: a primitive atom of the
+// setting's state.
+const weightsAtom = (subject: Awaited<ReturnType<typeof loadBridgeRoutes>>, name: string) => {
+    const target = subject.stores.dynamicStoreRegistry[name];
+    assert.ok(target && typeof target !== "function");
+    return unchecked<PrimitiveAtom<{ state: string; data: WeightRow[] }>>(target);
+};
 
 const componentURL = new URL("../../views/app/config_page/setting_section/setting_box/_components/download_models/LegacyModelDownloadDialog.tsx", import.meta.url);
 const entry = { kind: "ctranslate2", weight_type: "nllb-200-distilled-600M-ct2-int8", name: "CTranslate2 NLLB 600M",
@@ -23,17 +51,19 @@ const untokenized = { kind: "ctranslate2", weight_type: "plain", name: "A model 
     total_bytes: 147882941, tokenizer: null, tokenizer_size_unknown: false,
     revision: "c".repeat(40), manifest_version: "reviewed-plain-manifest" };
 
-async function dialogFixture(context, language, reviewedEntry, catalog = { legacy_models: [reviewedEntry] }) {
+async function dialogFixture(context: TestContext, language: string, reviewedEntry: typeof entry | typeof untokenized, catalog: unknown = { legacy_models: [reviewedEntry] }) {
     const translations = i18next.createInstance();
     const resource = yaml.load(readFileSync(new URL(`../../../locales/${language}.yml`, import.meta.url), "utf8"));
+    // A locale file holds its texts by key.
+    assert.ok(resource && typeof resource === "object");
     await translations.init({ lng: language, resources: { [language]: { translation: resource } } });
     const events = { focused: 0, opened: 0, closed: 0 };
     stubGlobals(context, { document: { activeElement: { isConnected: true, getAttribute: () => null,
         closest: () => null, focus: () => events.focused++ } } });
-    const runtime = hooks(), requests = [], reads = [];
-    const dialogHooks = await loadModule(new URL("../common/useConsentDialog.ts", import.meta.url), runtime);
-    const downloads = { catalog, send: (...args) => reads.push(args) };
-    const { LegacyModelDownloadDialog } = await loadModule(componentURL, runtime, {
+    const runtime = hooks(), requests: LegacyDownloadRequest[] = [], reads: unknown[][] = [];
+    const dialogHooks = await loadModule<typeof import("../common/useConsentDialog.ts")>(new URL("../common/useConsentDialog.ts", import.meta.url), runtime);
+    const downloads = { catalog, send: (...args: unknown[]) => reads.push(args) };
+    const { LegacyModelDownloadDialog } = await loadModule<typeof import("../../views/app/config_page/setting_section/setting_box/_components/download_models/LegacyModelDownloadDialog.tsx")>(componentURL, runtime, {
         "@useI18n": { useI18n: () => ({ t: translations.t.bind(translations) }) },
         "@tauri-apps/api/core": { isTauri: () => false },
         "@tauri-apps/plugin-opener": { openUrl: () => { throw new Error("No links should open in this test"); } },
@@ -45,10 +75,11 @@ async function dialogFixture(context, language, reviewedEntry, catalog = { legac
         "../custom_model_link/CustomModelLink": { CustomModelLink: function CustomModelLink() { return null; } },
     });
     const props = { kind: reviewedEntry.kind, weightType: reviewedEntry.weight_type,
-        onCancel: () => events.closed++, onDownload: data => requests.push(data) };
+        onCancel: () => events.closed++, onDownload: (data: LegacyDownloadRequest) => requests.push(data) };
     const modal = { open: false, showModal() { this.open = true; events.opened++; }, close() { this.open = false; } };
     const render = () => runtime.render(LegacyModelDownloadDialog, props, tree => {
-        find(tree, node => node.type === "dialog").ref.current = modal;
+        // React 18's element type leaves out the ref the element carries.
+        unchecked<{ ref: { current: unknown } }>(found(tree, node => node.type === "dialog")).ref.current = modal;
     });
     context.onTestFinished(() => runtime.unmount());
     render();
@@ -60,13 +91,13 @@ for (const language of ["en", "ja"]) {
         test(`${language} ${reviewedEntry.weight_type}: labelled facts, size, revisions and consent remain distinct`, async context => {
             const s = await dialogFixture(context, language, reviewedEntry);
             let tree = s.render();
-            const rows = Children.toArray(find(tree, node => node.type === "dl").props.children);
-            const label = key => s.t(`legacy_model_downloads.${key}`);
-            const labels = rows.map(row => find(row, node => node.type === "dt").props.children);
+            const rows = Children.toArray(found(tree, node => node.type === "dl").props.children);
+            const label = (key: string) => s.t(`legacy_model_downloads.${key}`);
+            const labels = rows.map(row => found(row, node => node.type === "dt").props.children);
             assert.deepEqual(labels, ["model", "provider", "license", "size",
                 ...(reviewedEntry.tokenizer ? ["additional_files"] : []), "revision_label", "terms"].map(label));
-            const fact = key => rows.find(row => find(row, node => node.type === "dt").props.children === label(key));
-            const value = key => find(fact(key), node => node.type === "dd");
+            const fact = (key: string) => rows.find(row => found(row, node => node.type === "dt").props.children === label(key));
+            const value = (key: string) => found(fact(key), node => node.type === "dd");
             assert.equal(value("model").props.children, reviewedEntry.name);
             assert.equal(value("provider").props.children, reviewedEntry.provider);
             assert.ok(renderToStaticMarkup(value("license")).includes(reviewedEntry.license));
@@ -74,8 +105,8 @@ for (const language of ["en", "ja"]) {
                 ? (language === "ja" ? "642,903,406 バイト（約 613 MB）" : "642,903,406 bytes (about 613 MB)")
                 : (language === "ja" ? "147,882,941 バイト（約 141 MB）" : "147,882,941 bytes (about 141 MB)");
             assert.equal(value("size").props.children, expectedSize);
-            const assertRevision = (container, full) => {
-                const code = find(container, node => node.type === "code");
+            const assertRevision = (container: unknown, full: string) => {
+                const code = found(container, node => node.type === "code");
                 assert.equal(code.props.children, full.slice(0, 12));
                 assert.equal(code.props.title, full);
                 assert.equal(code.props["aria-description"], full);
@@ -85,27 +116,27 @@ for (const language of ["en", "ja"]) {
             if (reviewedEntry.tokenizer) {
                 const extra = value("additional_files");
                 assert.ok(renderToStaticMarkup(extra).includes(reviewedEntry.tokenizer.repo));
-                assert.equal(find(extra, node => node.type === "p").props.children, label("plus_tokenizer"));
+                assert.equal(found(extra, node => node.type === "p").props.children, label("plus_tokenizer"));
                 assertRevision(extra, reviewedEntry.tokenizer.revision);
-                assert.equal(licenseWarning.props.children, label("non_commercial"));
+                assert.equal(licenseWarning?.props.children, label("non_commercial"));
             } else {
                 assert.equal(fact("additional_files"), undefined);
                 assert.equal(licenseWarning, null);
                 assert.ok(!renderToStaticMarkup(tree).includes(label("plus_tokenizer")));
             }
-            const terms = find(value("terms"), node => node.type === "a");
+            const terms = found(value("terms"), node => node.type === "a");
             assert.ok(terms.props.href.includes(reviewedEntry.revision));
-            const consent = find(tree, node => node.type === "label");
+            const consent = found(tree, node => node.type === "label");
             assert.equal(Children.toArray(consent.props.children).at(-1), label(reviewedEntry.tokenizer
                 ? "consent" : "consent_without_extra_files"));
-            const start = () => find(tree, node => node.type === "button" && node.props.children === s.t("model_downloads.start"));
+            const start = () => found(tree, node => node.type === "button" && node.props.children === s.t("model_downloads.start"));
             assert.equal(start().props.disabled, true);
             start().props.onClick();
             assert.deepEqual(s.requests, []);
             assert.equal(s.events.opened, 1);
             assert.equal(s.reads[0][0], "/get/data/model_download_catalog");
-            assert.equal(find(tree, node => node.type === "button" && node.props.autoFocus).props.children, s.t("model_downloads.back"));
-            find(tree, node => node.type === "input").props.onChange({ target: { checked: true } });
+            assert.equal(found(tree, node => node.type === "button" && node.props.autoFocus).props.children, s.t("model_downloads.back"));
+            found(tree, node => node.type === "input").props.onChange({ target: { checked: true } });
             s.downloads.catalog = { legacy_models: [{ ...reviewedEntry, manifest_version: "unreviewed-manifest" }] };
             tree = s.render();
             tree = s.render();
@@ -122,9 +153,9 @@ for (const language of ["en", "ja"]) {
     test(`${language}: Escape cancels without a download and a reopened review is unchecked`, async context => {
         const s = await dialogFixture(context, language, entry);
         let tree = s.render();
-        find(tree, node => node.type === "input").props.onChange({ target: { checked: true } });
+        found(tree, node => node.type === "input").props.onChange({ target: { checked: true } });
         tree = s.render();
-        find(tree, node => node.type === "dialog").props.onCancel({ preventDefault() {} });
+        found(tree, node => node.type === "dialog").props.onCancel({ preventDefault() {} });
         s.runtime.unmount();
         await Promise.resolve();
         assert.equal(s.events.closed, 1);
@@ -132,38 +163,41 @@ for (const language of ["en", "ja"]) {
         assert.deepEqual(s.requests, []);
         const reopened = await dialogFixture(context, language, entry);
         const reopenedTree = reopened.render();
-        assert.equal(find(reopenedTree, node => node.type === "input").props.checked, false);
-        assert.equal(find(reopenedTree, node => node.type === "button"
+        assert.equal(found(reopenedTree, node => node.type === "input").props.checked, false);
+        assert.equal(found(reopenedTree, node => node.type === "button"
             && node.props.children === reopened.t("model_downloads.start")).props.disabled, true);
     });
 }
 
 test("large sizes use the list's GB convention and three significant digits", () => {
-    const t = (key, values) => key.endsWith("exact_bytes") ? `${values.bytes} bytes` : `${values.bytes} (about ${values.size})`;
+    const t: Translate = (key, values = {}) => key.endsWith("exact_bytes") ? `${values.bytes} bytes` : `${values.bytes} (about ${values.size})`;
     assert.equal(consentLogic.legacyReviewSize({ total_bytes: 1529008357 }, t), "1,529,008,357 bytes (about 1.42 GB)");
 });
 
 // The CTranslate2 weights are the built-in downloads left; Whisper's went with the engine (#288).
-for (const [kind, base] of [["ctranslate2", "CTranslate2"]]) {
+for (const [kind, base] of [["ctranslate2", "CTranslate2"]] satisfies [string, string][]) {
     test(`${kind}: the settings download handler sends the reviewed consent unchanged`, async () => {
-        const runtime = hooks(), sent = [];
+        const runtime = hooks(), sent: unknown[][] = [];
         const name = `${base}WeightTypeStatus`;
-        const { useSettingsLogics } = await loadModule(new URL("./config_page_setter/useSettingsLogics.ts", import.meta.url), runtime, {
+        const { useSettingsLogics } = await loadModule<typeof import("./config_page_setter/useSettingsLogics.ts")>(new URL("./config_page_setter/useSettingsLogics.ts", import.meta.url), runtime, {
             "@store": { getStoreHook: () => () => ({ [`current${name}`]: { data: [] }, [`update${name}`]: () => {} }) },
             "@logics_common": { useNotificationStatus: () => ({}) },
             "@utils": {}, "../../voice/saveBar": {},
-            "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: (...args) => sent.push(args) }) },
+            "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: (...args: unknown[]) => sent.push(args) }) },
         });
         const api = runtime.render(() => useSettingsLogics([{ Category: "test", Base_Name: name,
             base_endpoint_name: `${kind}_weight`, logics_template_id: "weight_download_status" }], "test"));
-        const payload = consentLogic.legacyDownloadRequest({ ...entry, kind }, true);
-        api.settings[`download${name}`](payload);
+        // The entry, for the kind this loop runs.
+        const reviewed = { ...entry, kind };
+        const payload = consentLogic.legacyDownloadRequest(reviewed, true);
+        const download = api.settings[`download${name}`];
+        assert.ok(typeof download === "function");
+        download(payload);
         assert.deepEqual(sent, [[`/run/download_${kind}_weight`, payload]]);
     });
     test(`${kind}: consent rejection clears only its pending row and shows a translated notice`, async () => {
         const subject = await loadBridgeRoutes();
-        const atom = subject.stores.dynamicStoreRegistry[`Atom_${base}WeightTypeStatus`];
-        assert.ok(atom);
+        const atom = weightsAtom(subject, `Atom_${base}WeightTypeStatus`);
         subject.runtime.store.set(atom, { state: "ok", data: [
             { id: "requested", is_pending: true, is_downloaded: false, progress: 0 },
             { id: "other", is_pending: true, is_downloaded: true, progress: 0.5 },
@@ -184,16 +218,16 @@ for (const [kind, base] of [["ctranslate2", "CTranslate2"]]) {
 }
 
 // The CTranslate2 weights are the built-in downloads left; Whisper's went with the engine (#288).
-for (const [kind, base] of [["ctranslate2", "CTranslate2"]]) {
+for (const [kind, base] of [["ctranslate2", "CTranslate2"]] satisfies [string, string][]) {
     test(`${kind}: asynchronous failure clears only the failed weight and ignores a stale job`, async () => {
         const subject = await loadBridgeRoutes();
-        const atom = subject.stores.dynamicStoreRegistry[`Atom_${base}WeightTypeStatus`];
+        const atom = weightsAtom(subject, `Atom_${base}WeightTypeStatus`);
         const original = [
             { id: "requested", job_id: "current", is_pending: true, is_downloaded: true, progress: 12 },
             { id: "other", job_id: "another", is_pending: true, is_downloaded: false, progress: 50 },
         ];
         subject.runtime.store.set(atom, { state: "ok", data: original });
-        const fail = data => subject.receiveRoutes({
+        const fail = (data: Record<string, unknown>) => subject.receiveRoutes({
             status: 400, endpoint: `/run/error_${kind}_weight`,
             result: { error_code: `WEIGHT_${kind.toUpperCase()}_DOWNLOAD`, data },
         });
@@ -208,7 +242,7 @@ for (const [kind, base] of [["ctranslate2", "CTranslate2"]]) {
 
     test(`${kind}: verified completion accepts identified payload and ignores late progress`, async () => {
         const subject = await loadBridgeRoutes();
-        const atom = subject.stores.dynamicStoreRegistry[`Atom_${base}WeightTypeStatus`];
+        const atom = weightsAtom(subject, `Atom_${base}WeightTypeStatus`);
         subject.runtime.store.set(atom, { state: "ok", data: [
             { id: "requested", is_pending: true, is_downloaded: false, progress: 12 },
             { id: "other", is_pending: true, is_downloaded: false, progress: 50 },
@@ -252,7 +286,7 @@ for (const language of ["en", "ja"]) {
     test(`${language}: without a published translation model the review says so and that one's own is added in the catalog`, async context => {
         const s = await dialogFixture(context, language, entry, { legacy_models: [], models: [] });
         const tree = s.render();
-        const paragraph = key => find(tree, node => node.type === "p" && node.props.children === s.t(key));
+        const paragraph = (key: string) => find(tree, node => node.type === "p" && node.props.children === s.t(key));
         assert.notEqual(paragraph("legacy_model_downloads.translation_not_published"), null);
         assert.notEqual(paragraph("legacy_model_downloads.translation_own_model"), null);
         // No folder to place a model in is named any more (#597): no path at all.
@@ -260,7 +294,7 @@ for (const language of ["en", "ja"]) {
         assert.match(s.t("legacy_model_downloads.translation_own_model"), language === "ja" ? /自分のモデルを追加/ : /Add a model of your own/);
         assert.equal(paragraph("model_downloads.loading"), null);
         assert.equal(find(tree, node => node.type === "button" && node.props.children === s.t("model_downloads.start")), null);
-        const close = find(tree, node => node.type === "button" && node.props.autoFocus);
+        const close = found(tree, node => node.type === "button" && node.props.autoFocus);
         assert.equal(close.props.children, s.t("legacy_model_downloads.close"));
         close.props.onClick();
         assert.equal(s.events.closed, 1);
@@ -270,7 +304,7 @@ for (const language of ["en", "ja"]) {
         const model = { id: "m2m100-418m-onnx-int8", target: "translation", name: "M2M100 418M", artifacts: [] };
         const s = await dialogFixture(context, language, entry, { legacy_models: [], models: [model] });
         const tree = s.render();
-        const card = find(tree, node => node.type?.name === "ModelDownloads");
+        const card = found(tree, node => componentName(node) === "ModelDownloads");
         assert.deepEqual(card.props.targets, ["translation"]);
         assert.deepEqual(card.props.expected, { translation: {} });
         // Opened for NLLB, which the catalog does not offer: every translation model is shown.
@@ -281,7 +315,7 @@ for (const language of ["en", "ja"]) {
         const models = ["m2m100-418m-onnx-int8", "m2m100-418m-onnx-float16", "nllb-200-distilled-600m-onnx-int8"]
             .map(id => ({ id, target: "translation", name: id, artifacts: [] }));
         const s = await dialogFixture(context, language, entry, { legacy_models: [], models });
-        const card = find(s.render(), node => node.type?.name === "ModelDownloads");
+        const card = found(s.render(), node => componentName(node) === "ModelDownloads");
         assert.deepEqual(card.props.only, ["nllb-200-distilled-600m-onnx-int8"]);
     });
 }

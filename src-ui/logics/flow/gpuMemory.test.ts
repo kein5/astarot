@@ -1,13 +1,18 @@
 import { test } from "vitest";
 import assert from "node:assert/strict";
 import { formatBytes, gpuRows, readGpuMemory, shownGpus } from "./gpuMemory.ts";
+import type { GpuMemory } from "./gpuMemory.ts";
+import type { Translate } from "./flowText.ts";
+import { unchecked } from "../test/hookHarness.ts";
 
-const t = (key, options) => options ? `${key}:${JSON.stringify(options)}` : key;
+const t: Translate = (key, options) => options ? `${key}:${JSON.stringify(options)}` : key;
 const GB = 1024 ** 3;
 const MB = 1024 ** 2;
-const gpu = (extra = {}) => ({ name: "Test GPU", total: 8 * GB, used: 3 * GB,
+const gpu = (extra: Record<string, unknown> = {}) => ({ name: "Test GPU", total: 8 * GB, used: 3 * GB,
     app: { speech: GB, conversion: 512 * MB, other: 256 * MB }, app_shared: 0, ...extra });
-const answer = (gpus, extra = {}) => ({ state: "ready", gpus, age_ms: 300, ...extra });
+// The backend's answer as the test writes it: some are malformed on purpose, which readGpuMemory
+// turns away; the rows are drawn from well-formed ones.
+const answer = (gpus: unknown[], extra: Record<string, unknown> = {}) => unchecked<GpuMemory>({ state: "ready", gpus, age_ms: 300, ...extra });
 
 test("only a well-formed answer is read", () => {
     assert.deepEqual(readGpuMemory(answer([gpu()])), answer([gpu()]));
@@ -17,13 +22,15 @@ test("only a well-formed answer is read", () => {
     assert.equal(readGpuMemory(answer([gpu({ app: { speech: -1, conversion: 0, other: 0 } })])), null);
     assert.equal(readGpuMemory(answer([gpu({ name: 3 })])), null);
     // Numbers the driver does not tell are null, not zero.
-    const unknown = readGpuMemory(answer([gpu({ total: null, used: "x", app_shared: undefined })])).gpus[0];
+    const read = readGpuMemory(answer([gpu({ total: null, used: "x", app_shared: undefined })]));
+    assert.ok(read);
+    const unknown = read.gpus[0];
     assert.deepEqual([unknown.total, unknown.used, unknown.app_shared], [null, null, null]);
 });
 
 test("a reading left from an earlier opening of the panel is not shown", () => {
     assert.deepEqual(readGpuMemory(answer([gpu()], { age_ms: 60000 })), { state: "measuring", gpus: [], age_ms: 60000 });
-    assert.equal(readGpuMemory(answer([gpu()], { age_ms: 4000 })).state, "ready");
+    assert.equal(readGpuMemory(answer([gpu()], { age_ms: 4000 }))?.state, "ready");
 });
 
 test("sizes read as GB from 1 GB, else whole MB", () => {

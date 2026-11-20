@@ -3,10 +3,33 @@ import { test, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import yaml from "js-yaml";
 import i18next from "i18next";
+import type { PrimitiveAtom } from "jotai/vanilla";
 import { parsePortInput, PORT_INPUT_LIMITS } from "./networkPortInput.ts";
 import { buildObsBrowserSourceUrl, buildWebsocketUrl } from "./obsBrowserSourceUrl.ts";
-import { hooks, loadModule, find } from "../test/hookHarness.ts";
+import { hooks, loadModule, find, unchecked } from "../test/hookHarness.ts";
+import type { TreeNode } from "../test/hookHarness.ts";
 import { loadBridgeRoutes } from "../test/bridgeHarness.ts";
+import type { SaveButtonLogicOptions } from "./config_page_setter/useSettingsLogics.ts";
+import type { SettingsDraftOptions } from "../voice/useSettingsDraft.tsx";
+import type { EntryProps } from "../../views/app/config_page/setting_section/setting_box/_components/_atoms/_entry/_Entry.tsx";
+import type { EntryWithSaveButtonProps } from "../../views/app/config_page/setting_section/setting_box/_components/entry_with_save_button/EntryWithSaveButton.tsx";
+
+// The name of a component's node; a tag's node has none.
+const componentName = (node: TreeNode) => typeof node.type === "function" ? node.type.name : undefined;
+// A node the test reads at once: one that is not there fails here, where reading it failed.
+const found = (tree: unknown, predicate: (node: TreeNode) => boolean) => {
+    const node = find(tree, predicate);
+    assert.ok(node);
+    return node;
+};
+// A text of a locale file, read by its key; one that is not there reads as undefined.
+const lookup = (tree: unknown, key: string) => key.split(".").reduce<unknown>((node, part) => node && typeof node === "object" ? Reflect.get(node, part) : undefined, tree);
+// A text the test reads at once; anything else fails here, where reading it failed.
+const textAt = (tree: unknown, key: string) => {
+    const value = lookup(tree, key);
+    assert.ok(typeof value === "string", key);
+    return value;
+};
 
 test("port drafts accept only digits in range and serialize as integers", () => {
     for (const [value, expected] of [[0, null], [1, 1], [65535, 65535], [65536, null], [-1, null],
@@ -21,22 +44,23 @@ const obsNumeric = [
     ["MaxMessages", "max_messages", 1, 50], ["DisplayDuration", "display_duration", 1, 120],
     ["FadeoutDuration", "fadeout_duration", 0, 120], ["FontSize", "font_size", 10, 200],
     ["FontOutlineThickness", "font_outline_thickness", 0, 20],
-];
+] satisfies [string, string, number, number][];
 const box = "../../views/app/config_page/setting_section/setting_box/";
 async function settingsHarness({ host = "127.0.0.1" } = {}) {
-    const runtime = hooks(), drafts = [], sent = [], copied = [], ipc = [], notices = [], dialogs = [];
-    let saveOptions, draftOptions;
-    const advanced = {};
+    const runtime = hooks(), drafts: unknown[] = [], sent: [string, unknown][] = [], copied: string[] = [],
+        ipc: [string, unknown][] = [], notices: string[] = [], dialogs: boolean[] = [];
+    let saveOptions: SaveButtonLogicOptions | undefined, draftOptions: SettingsDraftOptions<unknown> | undefined;
+    const advanced: Record<string, unknown> = {};
     for (const name of ["OscPort", "WebsocketPort", "ObsBrowserSourcePort", "RvcBlockMs", ...obsNumeric.map(([name]) => `ObsBrowserSource${name}`)]) {
         advanced[`current${name}`] = { state: "ok", data: 2231 };
-        advanced[`set${name}`] = value => sent.push([name, value]);
+        advanced[`set${name}`] = (value: unknown) => sent.push([name, value]);
     }
     Object.assign(advanced, {
         currentWebsocketHost: { data: host }, currentWebsocketAuthToken: { data: "test+token&あ" },
         currentWebsocketTls: { state: "ok", data: { cert_file: "C:/certs/vox.pem", key_file: "C:/certs/vox-key.pem" } },
-        setWebsocketTls: async value => { sent.push(["WebsocketTls", value]); return { status: 200, result: value }; },
+        setWebsocketTls: async (value: unknown) => { sent.push(["WebsocketTls", value]); return { status: 200, result: value }; },
     });
-    const module = await loadModule(new URL(box + "advanced_settings/AdvancedSettings.tsx", import.meta.url), runtime, {
+    const module = await loadModule<typeof import("../../views/app/config_page/setting_section/setting_box/advanced_settings/AdvancedSettings.tsx")>(new URL(box + "advanced_settings/AdvancedSettings.tsx", import.meta.url), runtime, {
         "./DirectVoiceSettings": { DirectVoiceSettings: () => null },
         "../shared_items/SharedItems": { AutoExportMessageLogsContainer: () => null },
         "../_components/description/Description": { Description: () => null },
@@ -45,41 +69,44 @@ async function settingsHarness({ host = "127.0.0.1" } = {}) {
         "../../../../../../logics/configs/obsBrowserSourceUrl": { buildObsBrowserSourceUrl, buildWebsocketUrl },
         "../../../../../../logics/configs/networkPortInput": { parsePortInput, PORT_INPUT_LIMITS },
         // A minimal draft: the saved pair, edited in place, submitted through the given write.
-        "../../../../../../logics/voice/useSettingsDraft": { useSettingsDraft: (saved, error, updateError, options) => {
+        "../../../../../../logics/voice/useSettingsDraft": { useSettingsDraft: (saved: Record<string, unknown>, error: unknown, updateError: unknown, options: SettingsDraftOptions<unknown>) => {
             draftOptions = options;
             const draft = { ...saved };
             return { draft, dirty: true, saving: false, navigationDialog: null,
-                setDraft: update => Object.assign(draft, update(draft)), submit: write => write(draft) };
+                setDraft: (update: (draft: Record<string, unknown>) => Record<string, unknown>) => Object.assign(draft, update(draft)),
+                submit: (write: (draft: Record<string, unknown>) => unknown) => write(draft) };
         } },
-        "../../../../../../logics/configs/telemetryToggle": { toggleTelemetryOrAnswer: () => {}, shownTelemetry: value => value, telemetryUnanswered: () => false },
-        "../../../../../../logics/common/useConsentDialog": { useConsentDialog: open => {
+        "../../../../../../logics/configs/telemetryToggle": { toggleTelemetryOrAnswer: () => {}, shownTelemetry: (value: unknown) => value, telemetryUnanswered: () => false },
+        "../../../../../../logics/common/useConsentDialog": { useConsentDialog: (open: boolean) => {
             dialogs.push(open);
             return { dialog: { current: null }, close: () => {} };
         } },
-        "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: async (endpoint, data) => {
+        "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: async (endpoint: string, data?: unknown) => {
             ipc.push([endpoint, data]);
             return { status: 200, result: "new-token" };
         } }) },
         "@logics_common": {
-            useCopyToClipboard: () => ({ copyToClipboard: url => copied.push(url) }),
-            useNotificationStatus: () => ({ showNotification_Success: text => notices.push(text) }),
+            useCopyToClipboard: () => ({ copyToClipboard: (url: string) => copied.push(url) }),
+            useNotificationStatus: () => ({ showNotification_Success: (text: string) => notices.push(text) }),
         },
         "@logics_configs": {
             useAdvancedSettings: () => advanced,
-            useSaveButtonLogic: options => {
+            useSaveButtonLogic: (options: SaveButtonLogicOptions) => {
                 saveOptions = options;
-                return { variable: options.variable, onChangeFunction: value => drafts.push(value), saveFunction: () => {} };
+                return { variable: options.variable, onChangeFunction: (value: unknown) => drafts.push(value), saveFunction: () => {} };
             },
         },
         "../_templates/Templates": { EntryWithSaveButtonContainer: () => null, ActionButtonContainer: () => null },
         "../_components": { SectionLabelComponent: () => null },
     });
     const root = runtime.render(module.AdvancedSettings);
-    const child = (tree, name) => find(tree, node => node.type?.name === name).type;
+    // The containers the page draws are components without props that draw one element.
+    const child = (tree: unknown, name: string) => unchecked<() => TreeNode>(found(tree, node => componentName(node) === name).type);
     const ws = runtime.render(child(root, "WebsocketContainer"));
     const obs = runtime.render(child(root, "ObsBrowserSourceContainer"));
-    return { runtime, drafts, sent, copied, ipc, notices, dialogs, get saveOptions() { return saveOptions; },
-        get draftOptions() { return draftOptions; }, root, rvcBlockComponent: module.RvcBlockMsContainer,
+    // The options are there once the page has drawn the field that gives them.
+    return { runtime, drafts, sent, copied, ipc, notices, dialogs, get saveOptions() { assert.ok(saveOptions); return saveOptions; },
+        get draftOptions() { assert.ok(draftOptions); return draftOptions; }, root, rvcBlockComponent: module.RvcBlockMsContainer,
         components: [module.OscPortContainer, child(ws, "WebsocketPortContainer"), child(obs, "ObsBrowserSourcePortContainer")],
         urlComponent: child(ws, "WebsocketUrlContainer"),
         obsUrlComponent: child(obs, "ObsBrowserSourceUrlContainer"),
@@ -94,16 +121,16 @@ test("all three production port fields enforce range and send numeric IPC values
     for (const component of s.components) {
         const row = s.runtime.render(component);
         assert.equal(row.props.type, "number");
-        for (const key of ["min", "max", "step"]) assert.equal(row.props[key], PORT_INPUT_LIMITS[key]);
+        for (const key of ["min", "max", "step"] as const) assert.equal(row.props[key], PORT_INPUT_LIMITS[key]);
         s.drafts.length = 0;
         for (const value of ["0", "65536", "-1", "1.5", "1e2", "8x"]) row.props.onChangeFunction(value);
         assert.deepEqual(s.drafts, []);
         for (const value of ["", "1", "65535"]) row.props.onChangeFunction(value);
         assert.deepEqual(s.drafts, ["", "1", "65535"]);
         s.saveOptions.setFunction("80");
-        assert.equal(s.sent.at(-1)[1], 80);
+        assert.equal(s.sent.at(-1)?.[1], 80);
         s.saveOptions.setFunction("");
-        assert.equal(s.sent.at(-1)[1], null); // backend returns existing localized invalid-port error
+        assert.equal(s.sent.at(-1)?.[1], null); // backend returns existing localized invalid-port error
     }
 });
 
@@ -117,22 +144,25 @@ test("the RVC block length is a number from 20 to 200 in steps of 20 under Advan
     assert.deepEqual(s.sent.at(-1), ["RvcBlockMs", "60"]);
     for (const language of ["en", "ja"]) {
         const strings = yaml.load(readFileSync(new URL(`../../../locales/${language}.yml`, import.meta.url), "utf8"));
-        assert.match(strings.config_page.advanced_settings.rvc_block_ms.desc, /20.*200.*40/s, language);
-        assert.equal(typeof strings.backend_errors.VALIDATION_RVC_BLOCK_MS, "string", language);
+        assert.match(textAt(strings, "config_page.advanced_settings.rvc_block_ms.desc"), /20.*200.*40/s, language);
+        assert.equal(typeof lookup(strings, "backend_errors.VALIDATION_RVC_BLOCK_MS"), "string", language);
     }
 });
 
 test("native number input receives min, max and step through the shared components", async () => {
     const runtime = hooks();
     runtime.api.useImperativeHandle = () => {};
-    const { _Entry } = await loadModule(new URL(box + "_components/_atoms/_entry/_Entry.tsx", import.meta.url), runtime);
-    const { EntryWithSaveButton } = await loadModule(new URL(box + "_components/entry_with_save_button/EntryWithSaveButton.tsx", import.meta.url), runtime,
+    const { _Entry } = await loadModule<typeof import("../../views/app/config_page/setting_section/setting_box/_components/_atoms/_entry/_Entry.tsx")>(new URL(box + "_components/_atoms/_entry/_Entry.tsx", import.meta.url), runtime);
+    const { EntryWithSaveButton } = await loadModule<typeof import("../../views/app/config_page/setting_section/setting_box/_components/entry_with_save_button/EntryWithSaveButton.tsx")>(new URL(box + "_components/entry_with_save_button/EntryWithSaveButton.tsx", import.meta.url), runtime,
         { "../_atoms/_entry/_Entry": { _Entry } });
-    const wrapper = runtime.render(EntryWithSaveButton, { type: "number", variable: 2231, ...PORT_INPUT_LIMITS });
-    const entry = find(wrapper, node => node.type === _Entry);
-    const tree = runtime.render(props => _Entry.render(props, null), entry.props);
-    const input = find(tree, node => node.type === "input");
-    for (const key of ["min", "max", "step"]) assert.equal(input.props[key], PORT_INPUT_LIMITS[key]);
+    // Test data: only the props the number input reads, without a save.
+    const wrapper = runtime.render(EntryWithSaveButton, unchecked<EntryWithSaveButtonProps>({ type: "number", variable: 2231, ...PORT_INPUT_LIMITS }));
+    const entry = found(wrapper, node => node.type === _Entry);
+    // forwardRef keeps the component's render function, which React's types leave out.
+    const entryRender = unchecked<{ render: (props: EntryProps, ref: null) => TreeNode }>(_Entry);
+    const tree = runtime.render((props: EntryProps) => entryRender.render(props, null), entry.props);
+    const input = found(tree, node => node.type === "input");
+    for (const key of ["min", "max", "step"] as const) assert.equal(input.props[key], PORT_INPUT_LIMITS[key]);
 });
 
 test("WebSocket copy uses the exact token returned by the backend and masks only the display", async () => {
@@ -154,13 +184,13 @@ test("a LAN host copies encrypted URLs for WebSocket and OBS", async () => {
 test("the certificate and key are saved together as one pair", async () => {
     const s = await settingsHarness();
     const rows = s.runtime.render(s.tlsComponent).props.children.filter(Boolean);
-    const [cert, key] = rows.filter(row => row.props?.setting_id?.startsWith("websocket_tls_"));
+    const [cert, key] = rows.filter((row: TreeNode) => row.props?.setting_id?.startsWith("websocket_tls_"));
     assert.deepEqual([cert.props.variable, key.props.variable], ["C:/certs/vox.pem", "C:/certs/vox-key.pem"]);
     cert.props.onChangeFunction("D:/new.pem");
     await key.props.saveFunction();
     assert.deepEqual(s.sent.at(-1), ["WebsocketTls", { cert_file: "D:/new.pem", key_file: "C:/certs/vox-key.pem" }]);
     // The save bar lists the field by its own label.
-    assert.equal(s.draftOptions.label(["key_file"]), "config_page.advanced_settings.websocket_tls_key_file.label");
+    assert.equal(s.draftOptions.label?.(["key_file"]), "config_page.advanced_settings.websocket_tls_key_file.label");
 });
 
 test("a new connection key is made only after the question is answered", async () => {
@@ -173,8 +203,8 @@ test("a new connection key is made only after the question is answered", async (
     tree = s.runtime.render(s.tokenComponent);
     const dialog = find(tree, node => node.type === "dialog");
     assert.ok(dialog && s.dialogs.at(-1) === true);
-    const [cancel, confirm] = find(dialog, node => node.type === "div" && Array.isArray(node.props.children)
-        && node.props.children.every(child => child?.type === "button")).props.children;
+    const [cancel, confirm] = found(dialog, node => node.type === "div" && Array.isArray(node.props.children)
+        && node.props.children.every((child: TreeNode | null) => child?.type === "button")).props.children;
     assert.equal(cancel.props.autoFocus, true); // The safe choice has the focus.
     cancel.props.onClick();
     assert.deepEqual(s.ipc, []);
@@ -182,8 +212,8 @@ test("a new connection key is made only after the question is answered", async (
 
     s.runtime.render(s.tokenComponent).props.children[0].props.onclickFunction();
     const again = find(s.runtime.render(s.tokenComponent), node => node.type === "dialog");
-    const buttons = find(again, node => node.type === "div" && Array.isArray(node.props.children)
-        && node.props.children.every(child => child?.type === "button")).props.children;
+    const buttons = found(again, node => node.type === "div" && Array.isArray(node.props.children)
+        && node.props.children.every((child: TreeNode | null) => child?.type === "button")).props.children;
     await buttons[1].props.onClick();
     assert.deepEqual(s.ipc, [["/run/regenerate_websocket_auth_token", undefined]]);
     assert.deepEqual(s.notices, ["config_page.advanced_settings.websocket_token.done"]);
@@ -200,13 +230,19 @@ for (const language of ["en", "ja"]) {
         ["websocket_host", "WEBSOCKET_HOST_RESET_WITHOUT_TLS", "WebsocketHost", "127.0.0.1"],
         ["websocket_tls", "WEBSOCKET_HOST_NEEDS_TLS", "WebsocketTls", { cert_file: "a.pem", key_file: "b.pem" }],
         ["websocket_tls", "WEBSOCKET_TLS_INVALID", "WebsocketTls", { cert_file: "", key_file: "" }],
-    ]) {
+    ] satisfies [string, string, string, unknown][]) {
         test(`${language}: ${code} restores the setting and shows localized guidance`, async context => {
             vi.spyOn(console, "error").mockImplementation(() => {});
             const i18n = i18next.createInstance();
+            // A locale file holds its texts by key.
+            assert.ok(translation && typeof translation === "object");
             await i18n.init({ lng: language, resources: { [language]: { translation } } });
             const s = await loadBridgeRoutes(undefined, i18n);
-            const atom = s.stores.dynamicStoreRegistry[`Atom_${field}`];
+            const target = s.stores.dynamicStoreRegistry[`Atom_${field}`];
+            assert.ok(target && typeof target !== "function");
+            // The registry keeps each setting's atom, which the setting's hook writes: a primitive
+            // atom of the setting's state.
+            const atom = unchecked<PrimitiveAtom<{ state: string; data: unknown }>>(target);
             s.runtime.store.set(atom, { state: "pending", data: previous });
             s.receiveRoutes({ endpoint: `/set/data/${endpoint}`, status: 400,
                 result: { error_code: code, data: previous } });
@@ -218,7 +254,7 @@ for (const language of ["en", "ja"]) {
         });
     }
     test(`${language}: WebSocket host label states IPv4`, () => {
-        assert.match(translation.config_page.advanced_settings.websocket_host.label, /IPv4/);
+        assert.match(textAt(translation, "config_page.advanced_settings.websocket_host.label"), /IPv4/);
     });
 }
 
@@ -230,7 +266,7 @@ for (const [index, [name, suffix, min, max]] of obsNumeric.entries()) test(`OBS 
     assert.deepEqual(s.drafts, ["-1", "1.5", String(max + 1), ""]);
     for (const lang of ["en", "ja"]) {
         const strings = yaml.load(readFileSync(new URL(`../../../locales/${lang}.yml`, import.meta.url), "utf8"));
-        const description = strings.config_page.advanced_settings[`obs_browser_source_${suffix}`].desc;
+        const description = textAt(strings, `config_page.advanced_settings.obs_browser_source_${suffix}.desc`);
         assert.ok(description.includes(String(min)) && description.includes(String(max)));
     }
 });
