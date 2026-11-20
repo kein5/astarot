@@ -9,7 +9,7 @@ const validators = createInitializationValidators([
 
 // A caption window dragged once is saved as whole px and has to come back on the next start.
 test("a saved caption window place is applied at start-up", () => {
-    const applied = [];
+    const applied: unknown[] = [];
     const failed = applyInitializationFields({ [PLACEMENT]: { x: -1700, y: 640 } },
         { [PLACEMENT]: value => applied.push(value) }, validators, () => {});
     assert.deepEqual(failed, []);
@@ -30,7 +30,7 @@ const HOTKEYS = ["open_quick_chat", "toggle_vrct_visibility", "toggle_translatio
     "toggle_transcription_receive", "stop_voice", "toggle_voice_mute", "toggle_tts", "toggle_rvc"];
 
 test("the language selections start empty, with only the first slot of each tab on", () => {
-    const empty = enable => ({ language: "", country: "", enable });
+    const empty = (enable: boolean) => ({ language: "", country: "", enable });
     assert.deepEqual(initialLanguages(), { 1: { 1: empty(true) }, 2: { 1: empty(true) }, 3: { 1: empty(true) } });
     const targets = { 1: empty(true), 2: empty(false), 3: empty(false) };
     assert.deepEqual(initialLanguages(true), { 1: targets, 2: targets, 3: targets });
@@ -46,7 +46,7 @@ test("a setting's value is checked against the type of its default", () => {
         { base_endpoint_name: "box", logics_template_id: "get_set", default_value: { size: 1, label: "" } },
         { base_endpoint_name: "shaped", logics_template_id: "get_only", default_value: "", response_transform: "keys" },
     ]);
-    const check = (name, value) => valid[`/get/data/${name}`](value);
+    const check = (name: string, value: unknown) => valid[`/get/data/${name}`](value);
     assert.deepEqual([check("port", 8000), check("port", Number.NaN), check("port", Infinity), check("port", "8000")],
         [true, false, false, false]);
     assert.deepEqual([check("name", "a"), check("name", 1)], [true, false]);
@@ -78,8 +78,8 @@ test("a weight download status is read from its type list only", () => {
 
 test("the start-up values that no setting describes have their own checks", () => {
     const valid = createInitializationValidators([]);
-    const check = (name, value) => valid[`/get/data/${name}`](value);
-    const tabs = value => ({ 1: value, 2: value, 3: value });
+    const check = (name: string, value: unknown) => valid[`/get/data/${name}`](value);
+    const tabs = (value: unknown) => ({ 1: value, 2: value, 3: value });
     assert.equal(check("selected_your_languages", tabs({ 1: slot() })), true);
     assert.equal(check("selected_your_languages", { 1: { 1: slot() }, 2: { 1: slot() } }), false, "every tab is there");
     assert.equal(check("selected_your_languages", tabs({ 1: { ...slot(), enable: "yes" } })), false);
@@ -117,15 +117,15 @@ test("hotkeys are a key list, or none, for every action", () => {
 
 test("values that cannot be used are reported by endpoint and reason, without the value", () => {
     const log = vi.spyOn(console, "error").mockImplementation(() => {});
-    const unknown = [], applied = [];
+    const unknown: { endpoint: string; result: unknown }[] = [], applied: unknown[] = [];
     const valid = createInitializationValidators([
         { base_endpoint_name: "deepl_auth_key", logics_template_id: "get_set", default_value: "" },
         { base_endpoint_name: "port", logics_template_id: "get_set", default_value: 9000 },
     ]);
     const routes = {
-        "/get/data/deepl_auth_key": value => applied.push(value),
+        "/get/data/deepl_auth_key": (value: unknown) => applied.push(value),
         "/get/data/port": () => { throw new Error("cannot apply"); },
-        "/get/data/version": value => applied.push(value),
+        "/get/data/version": (value: unknown) => applied.push(value),
     };
     const failed = applyInitializationFields({
         "/get/data/deepl_auth_key": 12345,
@@ -145,11 +145,11 @@ test("values that cannot be used are reported by endpoint and reason, without th
 });
 
 test("a start-up result that is not an object fails as a whole", () => {
-    vi.spyOn(console, "error").mockImplementation(() => {});
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
     const routes = { "/get/data/version": () => assert.fail("nothing is applied") };
     for (const result of [null, undefined, "ready", 1, ["/get/data/version"]]) {
         assert.deepEqual(applyInitializationFields(result, routes, {}, () => assert.fail("no field")),
             ["/run/initialization_complete"], JSON.stringify(result));
     }
-    assert.deepEqual(console.error.mock.calls[0], ["Sidecar initialization field unavailable", "/run/initialization_complete", "expected an object"]);
+    assert.deepEqual(log.mock.calls[0], ["Sidecar initialization field unavailable", "/run/initialization_complete", "expected an object"]);
 });

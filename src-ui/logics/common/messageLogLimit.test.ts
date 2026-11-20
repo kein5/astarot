@@ -7,7 +7,7 @@ test("the log keeps only the most recent rows", () => {
     const kept = keepRecentLogs(rows);
     assert.equal(kept.length, MESSAGE_LOG_LIMIT);
     assert.equal(kept[0].id, 5);
-    assert.equal(kept.at(-1).id, MESSAGE_LOG_LIMIT + 4);
+    assert.equal(kept.at(-1)?.id, MESSAGE_LOG_LIMIT + 4);
     const short = rows.slice(0, 3);
     assert.equal(keepRecentLogs(short), short); // 上限より少なければ同じ配列のまま (VRパネルへの差分が空になる)
 });

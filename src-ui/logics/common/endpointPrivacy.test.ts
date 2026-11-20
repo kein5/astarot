@@ -3,8 +3,8 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { endpointDescription, endpointNotices, isNetworkDisconnected } from "./endpointPrivacy.ts";
 
-const t = key => key;
-for (const [warning, urls] of [
+const t = (key: string) => key;
+const cases: [boolean, string[]][] = [
     [true, [
         "http://10.0.0.1/v1", "http://172.16.0.1/v1", "http://172.31.255.254/v1",
         "http://192.168.1.1/v1", "http://169.254.1.1/v1",
@@ -19,7 +19,8 @@ for (const [warning, urls] of [
         "http://[fec0::1]/v1", "http://[2001:db8::1]/v1", "unfinished", "",
         "https://studio.local/v1", "http://studio.local.example.com/v1",
     ]],
-]) for (const url of urls) test(`${url || "empty draft"}: LAN warning ${warning}, save notice retained`, () => {
+];
+for (const [warning, urls] of cases) for (const url of urls) test(`${url || "empty draft"}: LAN warning ${warning}, save notice retained`, () => {
     const description = endpointDescription(url, "models", t);
     assert.equal(description.includes("network_privacy.http_warning"), warning);
     assert.match(description, /network_privacy.save_notice/);
