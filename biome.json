@@ -36,6 +36,9 @@
         "useKeyWithMouseEvents": "warn",
         "useSemanticElements": "warn"
       },
+      "complexity": {
+        "useOptionalChain": "error"
+      },
       "correctness": {
         "noComponentHookFactories": "warn",
         "noUnreachable": "warn",
