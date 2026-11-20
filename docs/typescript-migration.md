@@ -12,13 +12,13 @@
 
 ## 現状の量
 
-第 6 段を終えた時点で、`src-ui` の中のファイルは次のとおりです。`.jsx` は JavaScript に含めます。
+第 7 段を終えた時点で、`src-ui` の中のファイルは次のとおりです。`.jsx` は JavaScript に含めます。
 
 | 範囲 | JavaScript | TypeScript |
 |---|---|---|
-| `src-ui/logics`（試験を除く） | 0 本 | 155 本、743KB（うち `.css.ts` が 1 本） |
-| `src-ui/views`（試験を除く） | 0 本 | 218 本、1.1MB（うち vanilla-extract の `.css.ts` が 19 本） |
-| 試験（`*.test.js` と `src-ui/logics/test/`） | 208 本、1.3MB | 0 本 |
+| `src-ui/logics`（試験を除く） | 0 本 | 155 本、744KB（うち `.css.ts` が 1 本） |
+| `src-ui/views`（試験を除く） | 0 本 | 219 本、1.1MB（うち vanilla-extract の `.css.ts` が 19 本） |
+| 試験（`*.test.ts` と `src-ui/logics/test/`） | 0 本 | 210 本、1.5MB |
 
 残りの JavaScript の一覧は、次のコマンドで出せます。
 
@@ -36,7 +36,7 @@ git ls-files src-ui | grep -E '\.(js|jsx|mjs)$' | grep -v -E '\.test\.|/logics/t
 | 4 | `logics` の大きなモジュール（1 本ずつ） | 済み。受け取る値は実行時に新しく確かめず、宣言で渡す（下の第 4 段） |
 | 5 | `logics` の中の JSX（`.jsx` から `.tsx` へ） | 済み |
 | 6 | `views` | 済み |
-| 7 | 試験とテスト用のハーネス | ハーネスは済み。試験（`*.test.js`）が残り |
+| 7 | 試験とテスト用のハーネス | 済み。`src-ui` と `locales` に JavaScript は残っていない |
 | 8 | 仕上げ（`allowJs` を外し、検査を強める） | 未着手 |
 
 ### 第 1 段：`logics` の葉のモジュール
@@ -242,7 +242,7 @@ ADR-010 のとおり、画面を触る作業に合わせて移すのが基本で
 
 ### 第 7 段：試験とハーネス
 
-試験のファイル（`*.test.js`）と `src-ui/logics/test/` のハーネスを TypeScript にします。Issue #550 で決まった Vitest への移行は済んだので、着手できます。試験は Vitest で動きます（[development.md](development.md) の「UIの試験（Vitest）」）。試験を TypeScript にするまでは、次のように扱います。
+試験のファイルと `src-ui/logics/test/` のハーネスを TypeScript にしました。試験は Vitest で動きます（[development.md](development.md) の「UIの試験（Vitest）」）。試験を TypeScript にするまでは、次のように扱っていました。
 
 - ソースを移す PR では、試験のうち移したファイルを名指しする行だけを書き換えます（`./saveBar.js` を `./saveBar.ts` にするなど）。試験の書き方、実行の方法、ハーネスの API は変えません。
 - ソースを文字列として読んで書き換えてから読み込む試験（`useStdoutToPython.test.js`、`languageMutations.test.js`）は、`node:module` の `stripTypeScriptTypes` で型を消してから import の行を書き換えます。型だけの import は消えるので、書き換えるのは値の import です。
@@ -258,9 +258,16 @@ ADR-010 のとおり、画面を触る作業に合わせて移すのが基本で
 - `@babel/standalone` には型がないので、基盤が使う `transform` だけを `src-ui/logics/test/babelStandalone.d.ts` で宣言しています。
 - 試験がコードに渡す値のうち、宣言された型を持たないもの（コードが読むフィールドだけを持つ試験用の値と、コードの振る舞いを見るためにわざと渡す形の違う値）は、`hookHarness.ts` の `unchecked<T>()` を通します。どちらなのかは、呼ぶ所に書きます。試験の中でキャストは使わず、この 1 か所で宣言します。
 
+試験の 206 本は、ハーネスの上にまとまりごとの 9 本の PR（#749〜#757）で移しました。どの試験も、名前、入力、確かめる値、件数は変えていません（Vitest は 207 ファイル、1569 件で、移す前と同じ）。
+
+- 見つけた節を読む前に `assert.ok` で確かめる所が増えました。前に `null` を読んで `TypeError` で落ちていた所が、同じ所で `AssertionError` で落ちます。
+- `unchecked` は約 200 か所で使っています。手引きの 2 つの使い方（試験用の部分的な値、わざと渡す形の違う値）のほかに、描いた木から取り出した部品を関数として描く所と、React 18 の型にない要素の `ref` を読む所にも使いました。
+- 見つけた節を確かめる関数、要素の `ref` を読む関数、ロケールを読む関数など、小さな補助関数が試験のファイルごとにあります。区画を並行して移したためです。ハーネスに寄せると、重複と `unchecked` が減ります。
+
 ### 第 8 段：仕上げ
 
-- `tsconfig.json` から `allowJs` を外します。第 6 段までで `src-ui` のソースから JavaScript はなくなりました。`locales` の 2 本（`config`、`@useI18n` が指す `useI18n`）も TypeScript にしたので、残るのは試験（第 7 段）です。試験が JavaScript のうちは外せません。
+- `tsconfig.json` から `allowJs` を外します。第 7 段までで、`src-ui` のソースと試験、`locales` の 2 本（`config`、`@useI18n` が指す `useI18n`）はすべて TypeScript になったので、着手できます。リポジトリの直下の設定（`vite.config.js`、`vitest.config.js` など）と `tools/` のスクリプトは、型検査の対象の外です。
+- 試験の補助関数をハーネスに寄せます（第 7 段の最後の項目）。
 - 型の検査を段階的に強めます。候補は `noUncheckedIndexedAccess`、`exactOptionalPropertyTypes`、`noImplicitReturns`、`noUnusedLocals`、`noUnusedParameters` です。1 つずつ有効にし、出たエラーを直してから次に進みます。
 - `.eslintrc.json` を TypeScript の構文に対応させるかどうかを決めます。
 

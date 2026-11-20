@@ -173,7 +173,7 @@ Rustの中核は、準備の途中で止まったときも終了コードで知�
 
 中核の起動・入力・終了は、Tauriのコマンド`backend_start`、`backend_write`、`backend_kill`で行う（`src-tauri/src/backend_host.rs`）。3つとも`main`ウィンドウからの呼び出しだけを受け付け、ほかのウィンドウには`backend_forbidden`を返す。入力と終了は、起動のときに渡したセッションIDが今の実行と一致するときだけ働く。新しく起動すると、前の実行を止めてから始める。アプリはshellプラグインを入れない（0.4まではPythonのサイドカーの起動に使っていた）。リンクはopenerプラグインの一覧だけで開く。UIはファイルの読み書きとHTTPの要求を自分でしないので、fsとhttpのプラグインはアプリに入れない（セキュリティ監査SEC-05）。`src-ui/logics/common/appPermissions.test.ts`が、権限の一覧とUIの呼び出し方を照合する。
 
-これらは`src-ui/logics/useReceiveRoutes.test.js`、`src-ui/logics/common/sidecarSession.test.js`、`useStdoutToPython.test.js`で、spawnと子プロセスのイベントを模擬して検証する。
+これらは`src-ui/logics/useReceiveRoutes.test.ts`、`src-ui/logics/common/sidecarSession.test.ts`、`useStdoutToPython.test.ts`で、spawnと子プロセスのイベントを模擬して検証する。
 
 ## 並行性とロック
 

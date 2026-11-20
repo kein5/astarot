@@ -32,14 +32,14 @@
 | CT-21 | 「読み上げ停止」は読み上げだけを止め、読み上げのオンオフとミュートは変えない。停止の前に積まれた音声はあとで鳴らない | `DESIGN.md` | `native/core/tests/voice.rs`、`native/audio-routing`の`voice_route/tests.rs` |
 | CT-22 | 読み上げ（TTS）とRVCは独立したスイッチで、片方の操作がもう片方を止めない | `AGENTS.md`「停止と独立した制御」 | `native/core/tests/voice.rs` |
 | CT-23 | ミュートは再開の確認が済むまで解除しない。管理対象の経路とWindowsの出力デバイスでは読み上げと変換音声、そのスピーカーモニターを止め、再起動後もミュートを保つ。モニターの待機音声は捨て、解除後に古い音声を鳴らさない。TTS・RVCのスイッチと変換ワーカーはミュートで変えない | `docs/adr/adr-005-managed-microphone-lifetime.md`、[停止とミュート](cross-cutting.md#停止とミュート) | `native/core/tests/voice.rs`、`native/audio-routing`の`voice_route/tests.rs`と`mute_state.rs`の単体の試験、`tests/voice_gate_private.rs`、`tests/direct_suppression_private.rs`（私用のPipeWire） |
-| CT-24 | Quick Chat、VRパネル、ホットキーの振る舞いを保つ | `AGENTS.md`、`PRODUCT.md` | `tests/platform/test_native_quick_chat.py`（手で流すGUIの試験）、`src-ui/logics/common/vrPanelWire.test.js`、手動 |
+| CT-24 | Quick Chat、VRパネル、ホットキーの振る舞いを保つ | `AGENTS.md`、`PRODUCT.md` | `tests/platform/test_native_quick_chat.py`（手で流すGUIの試験）、`src-ui/logics/common/vrPanelWire.test.ts`、手動 |
 
 ## 秘密情報と安全
 
 | ID | 契約 | 根拠 | 確かめているもの |
 |---|---|---|---|
 | CT-30 | APIキーとトークンの値をログに書かない。会話の本文を診断ログに書かない | `native/core/src/log.rs` | `native/core/src/log.rs`の単体の試験 |
-| CT-31 | VRパネルからは、APIキー、トークン、モデル取得、ファイルを開く操作、終了、更新を要求できない | `src-ui/logics/common/vrPanelWire.ts` | `src-ui/logics/common/vrPanelWire.test.js` |
+| CT-31 | VRパネルからは、APIキー、トークン、モデル取得、ファイルを開く操作、終了、更新を要求できない | `src-ui/logics/common/vrPanelWire.ts` | `src-ui/logics/common/vrPanelWire.test.ts` |
 | CT-32 | WebSocketはトークンのない接続を拒み、すべてのアドレスでは待ち受けない | `native/adapters/src/websocket.rs` | `native/adapters/tests/websocket.rs`、`native/adapters/tests/tls.rs` |
 | CT-33 | 上流VRCTのチャット吹き出し検出モデルを含むOCRの重み、許諾のないモデル、Mia2026の音声を配布物に入れない | `AGENTS.md`「配布物とライセンス」 | `tests/voice/test_ocr_distribution.py`、`tests/voice/test_distribution_artifacts.py` |
 
@@ -50,4 +50,4 @@
 | CT-40 | 表示する文言は`locales/`に置き、`en.yml`と`ja.yml`は必ずそろえる | `AGENTS.md`「UI」 | `tests/voice/test_headless_and_ui_contract.py`、`src-ui/logics/configs/cloudTranscription.test.ts` |
 | CT-41 | React 18、CSS Modules、Jotai、i18nextの構成を保ち、リモートのフォントを入れない | `AGENTS.md`「UI」 | 手動 |
 | CT-42 | 言語の変更は要求ごとに対応づけ、失敗したら読み直す | `src-ui/logics/main/languageMutationCoordinator.ts` | `languageMutationCoordinator.test.ts`、`languageMutations.test.ts` |
-| CT-43 | 未保存の変更があるまま離れるときは確かめる | `cross-cutting.md` | `src-ui/logics/voice/saveBar.test.js`（保存バーの集計）、手動（ダイアログ） |
+| CT-43 | 未保存の変更があるまま離れるときは確かめる | `cross-cutting.md` | `src-ui/logics/voice/saveBar.test.ts`（保存バーの集計）、手動（ダイアログ） |
