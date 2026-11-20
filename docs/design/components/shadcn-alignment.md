@@ -327,7 +327,7 @@ VR パネルは px の段で描く別の画面（DESIGN.md「Typography」）な
 - Kbd: アプリにありません。ホットキーの欄は、入力欄の中に「Ctrl + Q」のように文字で出しています。キーを示す場所ができたら寄せます。
 - ScrollArea: アプリは `root.css` でスクロールバーを全体に描いています。Radix ScrollArea はネイティブのスクロールバーを隠すために `<style>` を差し込む見込みがあるので、今は寄せません。
 - Table: `GpuCheck` の表だけです。shadcn/ui の Table は Radix を使わないので、表に手を入れるときに寄せます。
-- Item: 初期設定（#557）の「いまの状態」を、Item の形（ItemGroup、Item、ItemMedia、ItemContent、ItemTitle、ItemDescription、ItemActions）にそろえ、同じ名前の `data-slot` を付けました。部品にはまだ分けていません（初期設定の `FirstRunSetupController.css.ts`）。shadcn/ui との違いは2つです。行の操作は、行の右端ではなく説明の下に置きます。説明が1〜2文の日本語で、右端に置くと説明の列が狭くなり、4行に折り返したためです。行の印（ItemMedia）は、状態を4通りの印で示します（DESIGN.md「Components」）。
+- Item: 初期設定（#557）の「いまの状態」を、Item の形（ItemGroup、Item、ItemMedia、ItemContent、ItemTitle、ItemDescription、ItemActions）にそろえ、同じ名前の `data-slot` を付けました。部品にはまだ分けていません（初期設定の `FirstRunSetupController.css.ts`）。shadcn/ui との違いは3つです。行の操作は、行の右端ではなく説明の下に置きます。説明が1〜2文の日本語で、右端に置くと説明の列が狭くなり、4行に折り返したためです。行の印（ItemMedia）は、状態を4通りの印で示します。対応が要る行は、ほかの行の前に、琥珀色の線と地を持つ1枚ずつのカードとして置き、ほかの行は1つの枠の中に小さくまとめます。文を読む前に、配置と形と大きさと色で対応が要るかが分かるようにするためです（DESIGN.md「Components」、#614）。
 - アプリだけのもの: `FileDropZone`、保存バー、コンパニオンの取っ手、VR パネル（px の段で描く別の画面）、字幕のオーバーレイ、しきい値の部品（音量のメーターと一体。D-41）。照合の外にしました。
 
 ## 判断項目
