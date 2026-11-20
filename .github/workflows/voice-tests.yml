@@ -55,7 +55,7 @@ jobs:
           echo "$RUNNER_TEMP/vrct-pipewire/prefix/bin" >> "$GITHUB_PATH"
       - if: runner.os == 'Linux'
         run: uv run --no-project python tools/build_voice_gate.py
-      # On a PipeWire and WirePlumber of their own: the real vrct-voice-gate refuses what it was
+      # On a PipeWire and WirePlumber of their own: the real astarot-voice-gate refuses what it was
       # not given (decision 89) and, heard through the managed microphone, keeps speech audible
       # while it suppresses the direct voice; a conversion on the managed route captures its
       # microphone and plays into the managed VC input (decision 11;

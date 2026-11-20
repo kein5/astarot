@@ -18,7 +18,7 @@ def _build(base, platform):
         (build / bundle / f"speech{exe}").write_bytes(b"engine")
         (build / bundle / "bundle.json").write_text("{}")
         (build / bundle / "notices/LICENSE.txt").write_text("notice")
-    (build / f"vrct-rvc-worker{exe}").write_bytes(b"worker")
+    (build / f"astarot-rvc-worker{exe}").write_bytes(b"worker")
     (build / "licenses/rust").mkdir(parents=True)
     (build / "licenses/rust/crates.json").write_text("[]")
     if platform == "linux":
@@ -96,7 +96,7 @@ class AppResourcesTests(unittest.TestCase):
         build.mkdir()
         absent = app_resources.stage(self.output, "windows", build, ROOT)
         self.assertIn("build/speechcpp/speech.exe", absent)
-        self.assertIn("build/vrct-rvc-worker.exe", absent)
+        self.assertIn("build/astarot-rvc-worker.exe", absent)
         self.assertEqual(app_resources.main(["--platform", "windows", "check", str(self.output)]), 1)
 
 

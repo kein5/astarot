@@ -169,13 +169,14 @@ pub mod env {
 }
 
 /// The first bytes of the files the app's processes hand each other on Linux. Both ends are in
-/// the same version, so these change together with no migration.
+/// the same version, so these change together with no migration (`VRCTVRP1` and `VRCTSCR1` up to
+/// 0.5.x; eight bytes, so `ASTR` rather than `ASTAROT`).
 pub mod handoff {
     /// The VR panel's frame, from the app to the VR overlay.
-    pub const VR_PANEL_FRAME: &[u8; 8] = b"VRCTVRP1";
+    pub const VR_PANEL_FRAME: &[u8; 8] = b"ASTRVRP1";
     /// The captured screen, from the capture helper (`native/screen-capture/main.c`, which
     /// writes the same eight bytes) to chat reading.
-    pub const SCREEN_FRAME: &[u8; 8] = b"VRCTSCR1";
+    pub const SCREEN_FRAME: &[u8; 8] = b"ASTRSCR1";
 }
 
 #[cfg(test)]
@@ -298,14 +299,14 @@ mod tests {
     }
 
     #[test]
-    fn the_development_and_handoff_names_are_astarot_and_the_frame_tags_are_0_5_s() {
+    fn the_development_and_handoff_names_are_astarot() {
         assert_eq!(env::VR_PANEL_DIR, "ASTAROT_VR_PANEL_DIR");
         assert_eq!(env::TELEMETRY_URL, "ASTAROT_TELEMETRY_URL");
         assert_eq!(env::VOICE_TRACE, "ASTAROT_VOICE_TRACE");
         assert_eq!(env::VOICE_GC_DIAGNOSTICS, "ASTAROT_VOICE_GC_DIAGNOSTICS");
         assert_eq!(env::APPIMAGE_HOST_LD_LIBRARY_PATH, "ASTAROT_APPIMAGE_HOST_LD_LIBRARY_PATH");
         assert_eq!(env::APPIMAGE_HOST_LD_LIBRARY_PATH_SET, "ASTAROT_APPIMAGE_HOST_LD_LIBRARY_PATH_SET");
-        assert_eq!(handoff::VR_PANEL_FRAME, b"VRCTVRP1");
-        assert_eq!(handoff::SCREEN_FRAME, b"VRCTSCR1");
+        assert_eq!(handoff::VR_PANEL_FRAME, b"ASTRVRP1");
+        assert_eq!(handoff::SCREEN_FRAME, b"ASTRSCR1");
     }
 }

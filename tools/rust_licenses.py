@@ -27,7 +27,7 @@ TARGETS = {'win32': 'x86_64-pc-windows-msvc', 'linux': 'x86_64-unknown-linux-gnu
 # default features; the worker as tools/build_rvc_worker.py builds it.
 SHIPPED = (
     ('vrct-vox', 'src-tauri/Cargo.toml', ()),
-    ('vrct-rvc-worker', 'native/rvc-runtime/Cargo.toml', ('--no-default-features', '--features', 'worker')),
+    ('astarot-rvc-worker', 'native/rvc-runtime/Cargo.toml', ('--no-default-features', '--features', 'worker')),
 )
 PREFIXES = ('LICENSE', 'LICENCE', 'COPYING', 'COPYRIGHT', 'NOTICE', 'UNLICENSE', 'AUTHORS')
 MARKER = 'crates.json'

@@ -51,7 +51,7 @@ def verify_tools(directory, *, download=False):
     for row in json.loads(MANIFEST.read_text())['tools']:
         target = directory / row['name']
         if not os.path.lexists(target) and download:
-            request = Request(row['url'], headers={'User-Agent': 'VRCT-VOX-AppImage-build'})
+            request = Request(row['url'], headers={'User-Agent': 'ASTAROT-AppImage-build'})
             with urlopen(request, timeout=60) as response:
                 data = response.read(row['size'] + 1)
             store_tool(directory, row, data)

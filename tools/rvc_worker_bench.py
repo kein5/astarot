@@ -1,4 +1,4 @@
-"""Times the RVC worker (vrct-rvc-worker) on the devices of this PC.
+"""Times the RVC worker (astarot-rvc-worker) on the devices of this PC.
 
 Two decisions wait on PCs other than the one first measured (a laptop with an RTX 3060 Ti over
 Thunderbolt): the default block length (40 ms, #531) and the order of `auto` (CUDA before
@@ -15,7 +15,7 @@ no recording, no text. Nothing it converts is kept. Each run is one fresh worker
 - `paced`: one packet per block length, as the microphone sends them. The round trip is what
   the app waits for; a block whose answer takes longer than the block falls behind.
 
-  python tools/rvc_worker_bench.py --worker <vrct-rvc-worker> --runtime <state>/vc_runtimes/rvc \
+  python tools/rvc_worker_bench.py --worker <astarot-rvc-worker> --runtime <state>/vc_runtimes/rvc \
       [--directml <state>/vc_runtimes/onnxruntime-directml/lib] --model <voice.pth> \
       [--devices cuda,directml] [--block-ms 40,80] [--packets 300] [--rounds 3] [--json out.json] \
       [--gpu-clocks]

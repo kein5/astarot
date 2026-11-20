@@ -1,4 +1,4 @@
-//! `vrct-rvc-worker`: the application's live RVC voice conversion process.
+//! `astarot-rvc-worker`: the application's live RVC voice conversion process.
 //!
 //! It speaks the application's live-VC pipe contract
 //! (`native/voice-conversion/src/protocol.rs`, "VVC1"): one `ready` (or `failed`) packet
@@ -295,11 +295,11 @@ fn choice(text: Option<&str>) -> Result<Choice, String> {
 }
 
 const USAGE: &str = "\
-Usage: vrct-rvc-worker --runtime <dir> --model <voice.pth> --session <32 hex digits>
+Usage: astarot-rvc-worker --runtime <dir> --model <voice.pth> --session <32 hex digits>
                        [--index <file.index>] [--pitch <-24..24>] [--index-rate <0..1>]
                        [--device auto|cuda|directml|cpu] [--directml <dir>] [--threads <n>]
                        [--highpass on|off] [--block-ms auto|<20..200, a multiple of 20>] [--block-cache <file>]
-       vrct-rvc-worker --runtime <dir> --probe [--device cuda|directml|cpu|auto]
+       astarot-rvc-worker --runtime <dir> --probe [--device cuda|directml|cpu|auto]
 ";
 
 fn parse(mut values: HashMap<String, String>) -> Result<Arguments, String> {
@@ -364,7 +364,7 @@ fn load_gpu_libraries(lib: &Path) -> bool {
         let before = pending.len();
         pending.retain(|name| ort::util::preload_dylib(lib.join(name)).is_err());
         if pending.len() == before {
-            eprintln!("vrct-rvc-worker: {} GPU libraries could not be loaded from the runtime", pending.len());
+            eprintln!("astarot-rvc-worker: {} GPU libraries could not be loaded from the runtime", pending.len());
             return false;
         }
     }
@@ -418,7 +418,7 @@ fn directml_on_integrated_gpu() -> bool {
     match backend::directml_adapters() {
         Ok(adapters) => auto_skips_directml(backend::preferred_adapter(&adapters)),
         Err(error) => {
-            eprintln!("vrct-rvc-worker: the GPUs could not be listed: {error}");
+            eprintln!("astarot-rvc-worker: the GPUs could not be listed: {error}");
             false
         }
     }
@@ -439,25 +439,25 @@ fn load_runtime(runtime: &Path, directml: Option<&Path>, choice: Choice, convers
     let directml = directml_folder(&lib, directml);
     let (mut folder, mut device) = plan(choice, &lib, lib.join(CUDA_PROVIDER).is_file(), directml.as_deref(), || load_gpu_libraries(&lib))?;
     if !preload_directml(&folder) {
-        eprintln!("vrct-rvc-worker: DirectML could not be loaded");
+        eprintln!("astarot-rvc-worker: DirectML could not be loaded");
         if choice != Choice::Auto || device != Device::DirectMl || !preload_directml(&lib) {
             return Err(Failure::RuntimeIncomplete);
         }
         (folder, device) = (lib.clone(), Device::Cpu);
     }
     backend::load_runtime(&folder.join(ORT_LIBRARY)).map_err(|error| {
-        eprintln!("vrct-rvc-worker: ONNX Runtime could not be loaded: {error}");
+        eprintln!("astarot-rvc-worker: ONNX Runtime could not be loaded: {error}");
         Failure::RuntimeIncomplete
     })?;
     if conversion && choice == Choice::Auto && device == Device::DirectMl && directml_on_integrated_gpu() {
-        eprintln!("vrct-rvc-worker: DirectML would run on an integrated GPU; converting on the CPU");
+        eprintln!("astarot-rvc-worker: DirectML would run on an integrated GPU; converting on the CPU");
         device = Device::Cpu;
     }
     if device.is_gpu() {
         // Whether the GPU works at all, before any model: GPU errors from a real model's
         // session cannot be told apart from problems with the model.
         if let Err(error) = backend::check_device(device) {
-            eprintln!("vrct-rvc-worker: GPU ({device:?}): {error}");
+            eprintln!("astarot-rvc-worker: GPU ({device:?}): {error}");
             match (choice, &error) {
                 (Choice::Auto, Error::DeviceUnavailable(_)) => device = Device::Cpu,
                 _ => return Err(classify(&error, device, Failure::RuntimeIncomplete)),
@@ -466,7 +466,7 @@ fn load_runtime(runtime: &Path, directml: Option<&Path>, choice: Choice, convers
     }
     if device == Device::Cpu {
         backend::check_device(Device::Cpu).map_err(|error| {
-            eprintln!("vrct-rvc-worker: CPU: {error}");
+            eprintln!("astarot-rvc-worker: CPU: {error}");
             Failure::RuntimeIncomplete
         })?;
     }
@@ -533,7 +533,7 @@ fn load(arguments: &Arguments) -> Result<(Stream, Profile), Failure> {
     // block times with a third less CPU and 8 threads instead of 77 (README, "Application
     // worker").
     backend::set_intra_threads(arguments.threads.or(Some(if device.is_gpu() { GPU_INTRA_THREADS } else { cpu_intra_threads() })));
-    let log = |what: &str, error: &Error| eprintln!("vrct-rvc-worker: {what}: {error}");
+    let log = |what: &str, error: &Error| eprintln!("astarot-rvc-worker: {what}: {error}");
     let model = VoiceModel::load(&arguments.model).map_err(|error| {
         log("voice model", &error);
         match error {
@@ -597,7 +597,7 @@ fn load(arguments: &Arguments) -> Result<(Stream, Profile), Failure> {
             // is used again without timing.
             let cache = arguments.block_cache.as_deref().and_then(|path| BlockCache::for_start(path, arguments, device));
             if let Some(ms) = cache.as_ref().and_then(BlockCache::chosen) {
-                eprintln!("vrct-rvc-worker: converting in {ms} ms blocks, chosen before for this voice model on this GPU");
+                eprintln!("astarot-rvc-worker: converting in {ms} ms blocks, chosen before for this voice model on this GPU");
                 let profile = Profile::of(device, Packets::of(ms).expect("a valid block"));
                 return finish(stream_for(converter, profile)?, profile);
             }
@@ -607,7 +607,7 @@ fn load(arguments: &Arguments) -> Result<(Stream, Profile), Failure> {
             let mut stream = stream_for(converter, first)?;
             let time = gpu_block_time(&mut stream).map_err(conversion_failed)?;
             let ms = auto_block_ms(time);
-            eprintln!("vrct-rvc-worker: a {} ms block took {:.1} ms on the GPU; converting in {ms} ms blocks", AUTO_BLOCK_MS[0], time.as_secs_f64() * 1000.0);
+            eprintln!("astarot-rvc-worker: a {} ms block took {:.1} ms on the GPU; converting in {ms} ms blocks", AUTO_BLOCK_MS[0], time.as_secs_f64() * 1000.0);
             if let Some(cache) = &cache {
                 cache.remember(ms);
             }
@@ -643,11 +643,11 @@ fn load(arguments: &Arguments) -> Result<(Stream, Profile), Failure> {
 fn finish(mut stream: Stream, profile: Profile) -> Result<(Stream, Profile), Failure> {
     if profile.device == Device::Cpu {
         let fastest = cpu_block_time(&mut stream).map_err(|error| {
-            eprintln!("vrct-rvc-worker: conversion: {error}");
+            eprintln!("astarot-rvc-worker: conversion: {error}");
             Failure::CheckpointIncomplete
         })?;
         if !cpu_keeps_up(fastest, profile.layout) {
-            eprintln!("vrct-rvc-worker: a {} ms block took {} ms on the CPU", profile.layout.block * 10, fastest.as_millis());
+            eprintln!("astarot-rvc-worker: a {} ms block took {} ms on the CPU", profile.layout.block * 10, fastest.as_millis());
             return Err(Failure::CpuTooSlow);
         }
     }
@@ -725,7 +725,7 @@ impl BlockCache {
         let written = serde_json::to_vec_pretty(&Value::Object(file)).ok().is_some_and(|bytes| std::fs::write(&partial, bytes).is_ok()) && std::fs::rename(&partial, &self.path).is_ok();
         if !written {
             let _ = std::fs::remove_file(&partial);
-            eprintln!("vrct-rvc-worker: the chosen block length could not be kept");
+            eprintln!("astarot-rvc-worker: the chosen block length could not be kept");
         }
     }
 }
@@ -827,7 +827,7 @@ impl Live {
 /// One stream block of 16 kHz input to 48 kHz output.
 fn convert_block(stream: &mut Stream, output: &mut StreamResampler, low: &[f32]) -> Result<Vec<f32>, Stop> {
     let converted = stream.process(low).map_err(|error| {
-        eprintln!("vrct-rvc-worker: conversion failed: {error}");
+        eprintln!("astarot-rvc-worker: conversion failed: {error}");
         Stop("vc_conversion_invalid")
     })?;
     let converted = output.process(&converted);
@@ -1134,12 +1134,12 @@ fn serve(live: Live, profile: Profile, session: &str) -> Result<(), Stop> {
 fn probe(runtime: &Path, choice: Choice) -> ExitCode {
     match load_runtime(runtime, None, choice, false) {
         Ok(Device::Cpu) if choice == Choice::Auto => {
-            eprintln!("vrct-rvc-worker: the GPU cannot be used; conversion will run on the CPU");
+            eprintln!("astarot-rvc-worker: the GPU cannot be used; conversion will run on the CPU");
             ExitCode::from(3)
         }
         Ok(_) => ExitCode::SUCCESS,
         Err(failure) => {
-            eprintln!("vrct-rvc-worker: {}", failure.code());
+            eprintln!("astarot-rvc-worker: {}", failure.code());
             ExitCode::from(if matches!(failure, Failure::GpuUnavailable | Failure::DirectMlUnavailable) { 3 } else { 4 })
         }
     }
@@ -1151,7 +1151,7 @@ fn main() -> ExitCode {
     let (values, probing) = match options() {
         Ok(parsed) => parsed,
         Err(message) => {
-            eprintln!("vrct-rvc-worker: {message}\n{USAGE}");
+            eprintln!("astarot-rvc-worker: {message}\n{USAGE}");
             return ExitCode::from(2);
         }
     };
@@ -1175,7 +1175,7 @@ fn main() -> ExitCode {
     let arguments = match parse(values) {
         Ok(arguments) => arguments,
         Err(message) => {
-            eprintln!("vrct-rvc-worker: {message}\n{USAGE}");
+            eprintln!("astarot-rvc-worker: {message}\n{USAGE}");
             return ExitCode::from(2);
         }
     };
@@ -1191,7 +1191,7 @@ fn main() -> ExitCode {
     match serve(Live::new(stream, profile.packets), profile, &arguments.session) {
         Ok(()) => ExitCode::SUCCESS,
         Err(Stop(code)) => {
-            eprintln!("vrct-rvc-worker: stopped: {code}");
+            eprintln!("astarot-rvc-worker: stopped: {code}");
             if code == OVERRUN {
                 // Instead of the next answer: the owner stops with this code.
                 let failed = object(&[("type", "failed".into()), ("protocol", 1.into()), ("session", arguments.session.as_str().into()), ("code", code.into())]);
@@ -1324,7 +1324,7 @@ mod tests {
 
     #[test]
     fn the_directml_folder_is_the_one_given_or_the_runtimes_own_directml_build() {
-        let dir = std::env::temp_dir().join(format!("vrct-rvc-worker-dml-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("astarot-rvc-worker-dml-{}", std::process::id()));
         let lib = dir.join("lib");
         std::fs::create_dir_all(&lib).unwrap();
         let given = Path::new("/d/lib");
@@ -1379,7 +1379,7 @@ mod tests {
     /// folder with its `onnxruntime.dll` and `DirectML.dll`), as the worker judges them. Prints
     /// names and flags only.
     ///
-    ///     ASTAROT_TEST_DIRECTML_LIB=<dir> cargo test --no-default-features --features worker --bin vrct-rvc-worker -- --ignored --nocapture directml_lists
+    ///     ASTAROT_TEST_DIRECTML_LIB=<dir> cargo test --no-default-features --features worker --bin astarot-rvc-worker -- --ignored --nocapture directml_lists
     #[cfg(windows)]
     #[test]
     #[ignore = "needs the DirectML build of ONNX Runtime"]

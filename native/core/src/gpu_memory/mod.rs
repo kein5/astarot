@@ -96,14 +96,14 @@ fn read_from(_root: u32) -> Result<Vec<Gpu>, &'static str> {
     Err(UNSUPPORTED)
 }
 
-/// What a process does, from its executable's name (`speech.exe`, `vrct-rvc-worker`).
+/// What a process does, from its executable's name (`speech.exe`, `astarot-rvc-worker`).
 pub fn part_of(executable: &str) -> Part {
     let name = executable.rsplit(['/', '\\']).next().unwrap_or(executable).to_ascii_lowercase();
     let stem = name.strip_suffix(".exe").unwrap_or(&name);
     match stem {
         "speech" => Part::Speech,
         // Linux cuts a process's name to 15 bytes, which this one fits exactly.
-        "vrct-rvc-worker" => Part::Conversion,
+        "astarot-rvc-worker" => Part::Conversion,
         _ => Part::Other,
     }
 }
@@ -153,8 +153,8 @@ mod tests {
         assert_eq!(part_of("speech.exe"), Part::Speech);
         assert_eq!(part_of("SPEECH.EXE"), Part::Speech);
         assert_eq!(part_of("/opt/astarot/build/speechcpp/speech"), Part::Speech);
-        assert_eq!(part_of(r"C:\app\build\vrct-rvc-worker.exe"), Part::Conversion);
-        assert_eq!(part_of("vrct-rvc-worker"), Part::Conversion);
+        assert_eq!(part_of(r"C:\app\build\astarot-rvc-worker.exe"), Part::Conversion);
+        assert_eq!(part_of("astarot-rvc-worker"), Part::Conversion);
         assert_eq!(part_of("msedgewebview2.exe"), Part::Other);
         assert_eq!(part_of("speech-helper"), Part::Other);
     }
@@ -166,7 +166,7 @@ mod tests {
             row(10, 1, "explorer.exe"),
             row(100, 10, "astarot.exe"),
             row(101, 100, "speech.exe"),
-            row(102, 100, "vrct-rvc-worker.exe"),
+            row(102, 100, "astarot-rvc-worker.exe"),
             row(103, 100, "msedgewebview2.exe"),
             row(104, 103, "msedgewebview2.exe"),
             row(200, 10, "speech.exe"),

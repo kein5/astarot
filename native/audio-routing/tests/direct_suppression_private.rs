@@ -1,4 +1,4 @@
-//! The managed route on a private PipeWire graph with the real `vrct-voice-gate`, heard through
+//! The managed route on a private PipeWire graph with the real `astarot-voice-gate`, heard through
 //! the managed microphone (`test_private_direct_suppression_keeps_tts_audible_and_requires_resume`
 //! of `tests/voice/test_spoken_route_native.py`, decision 1 of #732): a tone stands for the
 //! converted voice in the VC input (440 Hz) and another for speech in the TTS input (880 Hz).
@@ -143,7 +143,7 @@ fn node(name: &str, media_class: &str) -> Endpoint {
 
 /// One graph for every step: the environment that points at it is the process's.
 #[test]
-#[ignore = "starts a private PipeWire and WirePlumber and builds vrct-voice-gate; the Linux CI runs it"]
+#[ignore = "starts a private PipeWire and WirePlumber and builds astarot-voice-gate; the Linux CI runs it"]
 fn suppressing_the_direct_voice_keeps_speech_audible_and_a_drift_mutes_the_route() {
     let graph = PrivateGraph::start("vrct-route-test");
     let helper = build_helper("voice-gate", &graph.dir);

@@ -1,4 +1,4 @@
-//! A stand-in for `vrct-rvc-worker`, for the voice tests: the same arguments and pipe contract
+//! A stand-in for `astarot-rvc-worker`, for the voice tests: the same arguments and pipe contract
 //! ("VVC1"), no model and no ONNX Runtime. It is never part of an application build.
 //!
 //! - `--probe`: exits with the number in `<runtime>/probe-exit` (0 without the file).

@@ -11,7 +11,7 @@ The fork supports external engines and a fixed speech.cpp binary bundle with
 separate third-party notices. Windows builds carry its Vulkan build; Linux builds
 carry its CPU build and its Vulkan build of the same release side by side, each
 with the same notices. RVC voice conversion is the fork's own
-reimplementation (`native/rvc-runtime`, MIT), shipped as `vrct-rvc-worker`; its
+reimplementation (`native/rvc-runtime`, MIT), shipped as `astarot-rvc-worker`; its
 Rust dependencies are listed with the app's (see "Rust crates in VRCT-VOX
 builds" below). The ONNX Runtime the worker runs on (Microsoft's NuGet
 packages), the NVIDIA CUDA and cuDNN libraries (NVIDIA's PyPI wheels) and the
@@ -201,7 +201,7 @@ covered in the next section.
 
 ## Rust crates in VRCT-VOX builds
 
-The application (`vrct-vox`) and the RVC worker (`vrct-rvc-worker`) are built
+The application (`vrct-vox`) and the RVC worker (`astarot-rvc-worker`) are built
 from Rust crates. Every build lists the crates compiled into these two
 executables for its platform, with each crate's license, in
 `_internal/licenses/rust/README.md` (`crates.json` holds the same list), and
@@ -252,7 +252,7 @@ package `Microsoft.AI.DirectML`, under the Microsoft Software License Terms for
 DirectML, which allow its use on Windows only and say it may send usage data to
 Microsoft). The app loads one of them instead of the shipped CPU build at start
 when the user chose its device for translation; chat reading then uses it too.
-The RVC worker (`vrct-rvc-worker`) also loads the DirectML build, in its own
+The RVC worker (`astarot-rvc-worker`) also loads the DirectML build, in its own
 process, when it converts through DirectML.
 No translation model is bundled: the int8 ONNX conversions of M2M100 418M
 (MIT, the default; `kein5/m2m100_418M-onnx-int8`, with the MIT licence text in

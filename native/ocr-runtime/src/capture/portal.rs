@@ -7,7 +7,7 @@
 //! capture.
 //!
 //! File layout (little-endian): a 64-byte header, then the pixels.
-//!   0  "VRCTSCR1"
+//!   0  "ASTRSCR1"
 //!   8  sequence, odd while the pixels are being replaced
 //!   16 instance: 0 once the stream is gone; the upper half is the helper's process id
 //!   24 width, 28 height, 32 bytes per row, 36 layout (0 BGRx, 1 BGRA, 2 RGBx, 3 RGBA)

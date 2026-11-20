@@ -270,7 +270,7 @@ async fn fetch_releases() -> Result<Vec<GithubRelease>, String> {
         let _ = rustls::crypto::ring::default_provider().install_default();
     }
     let client = reqwest::Client::builder()
-        .user_agent("VRCT-VOX-updater")
+        .user_agent("ASTAROT-updater")
         .timeout(Duration::from_secs(20))
         .build()
         .map_err(|error| error.to_string())?;
