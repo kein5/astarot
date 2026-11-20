@@ -71,6 +71,8 @@ export const createInitializationValidators = (settings: readonly SettingDefinit
             value[key] === null || (Array.isArray(value[key]) && value[key].every(string))),
         // The usage presets: ids the UI filters itself (usagePresets.ts, pickedPresets).
         usage_presets: value => Array.isArray(value) && value.every(string),
+        // The model catalogs' layout: only the two the catalogs know keep a saved choice.
+        catalog_layout: value => value === "grid" || value === "list",
         compute_mode: string,
         version: string,
         message_box_ratio: number,

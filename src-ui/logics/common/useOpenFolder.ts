@@ -29,11 +29,15 @@ export const useOpenFolder = () => {
         });
     };
 
+    // The folder the term dictionary is written out to (#792); the settings page asks for it.
+    const openedFolder_VocabularyExports = openedFolder_ConfigFile;
+
     return {
         openFolder_MessageLogs,
         openFolder_ConfigFile,
 
         openedFolder_MessageLogs,
         openedFolder_ConfigFile,
+        openedFolder_VocabularyExports,
     };
 };

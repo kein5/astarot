@@ -45,7 +45,7 @@ for (const index of [0, 1, 2]) test(`word filter names its delete buttons and fo
         "@logics_configs": { useTranscription: () => state },
         "@store": { useStore_IsOpenedMicWordFilterList: () => ({ currentIsOpenedMicWordFilterList: { data: true } }) },
         "@useI18n": { useI18n: () => ({ t: (name: string, values?: { word?: string }) => values?.word ? `Remove ${values.word}` : name }) },
-        "../_atoms/_entry/_Entry": { _Entry: Entry },
+        "../_atoms/_entry/_Entry": { _Entry: Entry }, "../fold/Fold": { Fold: "fold" },
     });
     const buttons = new Map<string | null, ReturnType<typeof focusNode>>(), entryNode = focusNode(document);
     let rows: Row[] = [];

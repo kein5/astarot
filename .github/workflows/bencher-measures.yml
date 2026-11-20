@@ -1,0 +1,36 @@
+name: Bencher measures
+# The two measures pipeline-latency.yml sends, latency-p50 and latency-p95, in milliseconds
+# (#738; docs/voice-stack/pipeline-latency-tracking.md). Bencher's Console cannot create a measure,
+# and one Bencher makes from a first report has no units. Run this by hand on develop: it creates a
+# measure that is missing and gives both their units. It checks out nothing; the Bencher key
+# reaches one step, which runs bencher measure commands only.
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  measures:
+    if: github.repository == 'kein5/astarot' && github.ref == 'refs/heads/develop'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      BENCHER_PROJECT: ${{ vars.BENCHER_PROJECT }}
+    steps:
+      # The same CLI as pipeline-latency.yml.
+      - uses: bencherdev/bencher@7de3c69a85380826613050826b4bce062be2f07d # v0.6.16
+      - name: Create the measures or give them their units
+        env:
+          BENCHER_API_KEY: ${{ secrets.BENCHER_API_KEY }}
+        run: |
+          if [ -z "$BENCHER_API_KEY" ] || [ -z "$BENCHER_PROJECT" ]; then
+            echo "::error title=Bencher measures::The repository needs the BENCHER_API_KEY secret and the BENCHER_PROJECT variable."
+            exit 1
+          fi
+          for measure in latency-p50 latency-p95; do
+            if bencher measure view "$BENCHER_PROJECT" "$measure" > /dev/null; then
+              bencher measure update "$BENCHER_PROJECT" "$measure" --units "milliseconds (ms)"
+            else
+              bencher measure create "$BENCHER_PROJECT" --name "$measure" --slug "$measure" --units "milliseconds (ms)"
+            fi
+          done
+          bencher measure list "$BENCHER_PROJECT"

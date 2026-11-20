@@ -229,6 +229,16 @@ export const SETTINGS_ARRAY = [
         logics_template_id: "get_set",
         base_endpoint_name: "send_message_button_type",
     },
+    // How the model catalogs lay out their cards (the settings' catalogs, catalogLayout.tsx):
+    // "grid" or "list", one for every catalog and saved. A new install starts with the grid.
+    {
+        Category: "Appearance",
+        Base_Name: "CatalogLayout",
+        default_value: "grid",
+        ui_template_id: "select",
+        logics_template_id: "get_set",
+        base_endpoint_name: "catalog_layout",
+    },
     {
         Category: "Appearance",
         Base_Name: "ShowResendButton",

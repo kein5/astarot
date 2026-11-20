@@ -242,6 +242,9 @@ pub fn routes(core: &Arc<Core>) -> Routes {
     b.get("/get/data/usage_presets", OPEN, "USAGE_PRESETS");
     let presets = store(core, "USAGE_PRESETS", "VALIDATION_CONFIG_VALUE_INVALID");
     b.add("/set/data/usage_presets", OPEN, presets);
+    b.get("/get/data/catalog_layout", OPEN, "CATALOG_LAYOUT");
+    let layout = store(core, "CATALOG_LAYOUT", "VALIDATION_CONFIG_VALUE_INVALID");
+    b.add("/set/data/catalog_layout", OPEN, layout);
     b.get("/get/data/tray_companion_edge", OPEN, "TRAY_COMPANION_EDGE");
     let edge = store(core, "TRAY_COMPANION_EDGE", "VALIDATION_CONFIG_VALUE_INVALID");
     b.add("/set/data/tray_companion_edge", OPEN, edge);

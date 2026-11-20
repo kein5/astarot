@@ -14,6 +14,7 @@ import { Fold } from "../_components/fold/Fold";
 import { EnvReadout } from "../_components/env_readout/EnvReadout";
 import { Hint, useHintDescriptions } from "../_components/hint/Hint";
 import { catalogHeading } from "./catalogHeading";
+import { CatalogFacts, CatalogLayoutSwitch, CatalogList, useCatalogLayout } from "./catalogLayout";
 import { useConsentDialog } from "../../../../../../logics/common/useConsentDialog";
 import { createLanguageNames } from "../../../../../../logics/common/languageNames";
 import { EngineCatalog } from "./EngineCatalog";
@@ -41,6 +42,8 @@ export const measuredTime = (ms: number, language?: string) => new Date(ms).toLo
 const bytes = (value: number, t: Translate) => `${t("model_downloads.exact_bytes", { bytes: Number(value).toLocaleString("en-US") })} (${(value / 1073741824).toFixed(2)} GiB)`;
 // The page lists sizes in GiB; the consent dialog keeps the exact byte counts.
 const gib = (value: number) => `${(value / 1073741824).toFixed(2)} GiB`;
+// A file's size in the facts: one under 0.01 GiB (a voice activity model) in MiB, not "0.00 GiB".
+const fileSize = (value: number) => value < 0.01 * 1073741824 ? `${(value / 1048576).toFixed(1)} MiB` : gib(value);
 
 const reserveBytes = (reserve: string) => (reserve === 'vr' ? 2 : .5) * 1024 ** 3;
 // The local translation runs on its own device (translationDeviceMode), mostly the CPU: the
@@ -112,7 +115,10 @@ export const HardwareReadout = ({ reserve, setReserve }: HardwareReadoutProps) =
 // languages, download size, hardware and whom it is suggested for. Rows outside speech.cpp
 // (RVC) have no profile and show their size and terms only.
 // guidance: the measured memory and where it was checked, as the hardware term's hint (#614).
-const ModelFacts = ({ entry, guidance }: { entry: ModelCatalogRow; guidance?: readonly string[] }) => {
+// part: the whole table, or a grid card's two parts of it: "key", the size and the hardware (and a
+// translation model's memory), on the card; "rest", the languages and the terms, in its fold.
+type FactsPart = "all" | "key" | "rest";
+const ModelFacts = ({ entry, guidance, part = "all", className }: { entry: ModelCatalogRow; guidance?: readonly string[]; part?: FactsPart; className?: string }) => {
     const { t } = useI18n();
     const languages = useLanguageList();
     const profile = entry.profile;
@@ -129,13 +135,14 @@ const ModelFacts = ({ entry, guidance }: { entry: ModelCatalogRow; guidance?: re
     const translationMemory = entry.target === "translation" && (isNumber(referenceMemory)
         ? t("model_catalog.translation_memory", { memory: gib(referenceMemory) })
         : t("model_catalog.translation_memory_unknown"));
-    return <dl className={styles.facts}>
-        {supported.length > 0 && <div><dt>{t("model_catalog.languages")}</dt><dd>{languages(supported, 12)}</dd></div>}
-        <div><dt>{t("model_catalog.size")}</dt><dd>{gib(entry.total_bytes)}</dd></div>
-        {hardware && <div><dt>{guidance?.length ? <span className={styles.hinted} data-hint-host><span>{t("model_catalog.hardware")}</span>
+    const key = part !== "rest", rest = part !== "key";
+    return <dl className={className ? `${styles.facts} ${className}` : styles.facts}>
+        {rest && supported.length > 0 && <div><dt>{t("model_catalog.languages")}</dt><dd>{languages(supported, 12)}</dd></div>}
+        {key && <div><dt>{t("model_catalog.size")}</dt><dd>{fileSize(entry.total_bytes)}</dd></div>}
+        {key && hardware && <div><dt>{guidance?.length ? <span className={styles.hinted} data-hint-host><span>{t("model_catalog.hardware")}</span>
             <Hint text={guidance.join("\n")} focusable /></span> : t("model_catalog.hardware")}</dt><dd>{hardware}</dd></div>}
-        {translationMemory && <div><dt>{t("model_catalog.memory_needed")}</dt><dd>{translationMemory}</dd></div>}
-        <div><dt>{t("model_catalog.terms")}</dt><dd>{entry.provider} · {entry.license}</dd></div>
+        {key && translationMemory && <div><dt>{t("model_catalog.memory_needed")}</dt><dd>{translationMemory}</dd></div>}
+        {rest && <div><dt>{t("model_catalog.terms")}</dt><dd>{entry.provider} · {entry.license}</dd></div>}
     </dl>;
 };
 
@@ -254,6 +261,10 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
     const selectedRestrictions = restrictionsOf(selected);
     // The consent and every restriction ticked: only then may the review start.
     const agreed = !!selected && canStart(selected, consent, acknowledged);
+    // The cards' layout: chosen on the heading's line, except for one model asked about (the
+    // translation review), which stays a list.
+    const chosenLayout = useCatalogLayout();
+    const layout = only ? "list" : chosenLayout;
     const acknowledge = (kind: string, checked: boolean) => setAcknowledged(previous => checked ? [...previous.filter(k => k !== kind), kind] : previous.filter(k => k !== kind));
 
     // One card: the chosen file of a model, its facts and its download. `version` is the catalog's.
@@ -305,8 +316,54 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
         ].filter((line): line is string => typeof line === "string") : null;
         // The hint needs the hardware row, which a row with a profile has.
         const guidanceHint = hints && !!guidance && !!current.profile;
+        const grid = layout === "grid";
+        // Whom the model is suggested for: the languages in the list; in the grid, one language or
+        // how many, so the badge stays one short word.
+        const forLanguages = [...new Set(suggested)];
+        const recommended = !grid || forLanguages.length === 1
+            ? t("model_catalog.recommended_for", { languages: languages(suggested, 3) })
+            : t("model_catalog.recommended_for_count", { count: forLanguages.length });
+        // The file shown and the choice of the others.
+        const file = <>
+            {family.rows.length > 1 && <label className={styles.variant_choice}>{t("model_catalog.variant")}
+                <select aria-label={t("model_catalog.variant_of", { model: label })} value={current.id}
+                    onChange={event => setChoices(previous => ({ ...previous, [family.key]: event.target.value }))}>
+                    {family.rows.map(entry => <option key={entry.id} value={entry.id}>
+                        {[variantLabel(entry), gib(entry.total_bytes), entry.speech?.default && t("model_downloads.asr_type_default"),
+                            ["downloaded", "in_use"].includes(status(entry)) && t(`model_catalog.status.${status(entry)}`),
+                            warningOf(entry) && t("model_catalog.hardware_warning.option")].filter(Boolean).join(" · ")}
+                    </option>)}
+                </select></label>}
+            {/* One file: its type as the first fact, in the terms' column and the values'. */}
+            {family.rows.length === 1 && variantLabel(current) !== current.name &&
+                <p className={styles.variant}><span>{t("model_catalog.variant")}</span><span>{variantLabel(current)}</span></p>}
+        </>;
+        const factsGuidance = guidanceHint ? guidance : undefined;
+        // Only after the user picks another file; the file in use shown first is not a choice.
+        const manualChoice = choices[family.key] && hint.recommended && family.rows.some(entry => entry.id === hint.recommended) && current.id !== hint.recommended &&
+            <p>{t('model_downloads.manual_choice')}</p>;
+        const prepareHint = downloaded && !job && shownStatus !== "in_use" && <p>{t("model_catalog.prepare_hint")}</p>;
+        const guidanceFold = guidance && !guidanceHint && <Fold size="link" className={styles.more} summary={t('model_downloads.guidance_summary')}>
+            {guidance.map(line => <p key={line}>{line}</p>)}
+        </Fold>;
+        // What runs comes first, with its own actions; the card's actions follow, as before.
+        const run = <>
+            {jobView(current, true)}
+            {others.map(entry => jobView(entry, false))}
+            <div className={styles.actions}>
+                <button type="button" disabled={busy} onClick={() => {
+                    setConsent(false);
+                    setAcknowledged([]);
+                    setSelected({ ...current, catalog_version: version, downloaded });
+                }}>{t(downloaded ? "model_catalog.prepare" : "model_downloads.review")}</button>
+                {/* The TTS models: a short sentence on the monitor output only (#415). */}
+                <AuditionButton target={target} status={shownStatus} />
+            </div>
+        </>;
         // The card's parts in the order they are read (#614): what it is, its state and a warning,
-        // the file and its facts, then what runs and what can be done.
+        // the file and its facts, then what runs and what can be done. In the grid a card keeps
+        // what it is, its size and hardware, and what can be done; the file's choice, the
+        // languages, the terms and the notes are in its fold.
         return <li key={family.key} data-model-download tabIndex={-1} role="group" aria-label={label} className={styles.card} data-status={shownStatus}>
             <div className={styles.card_intro}>
                 {/* The name and the state on one line, so every card's state is at the same place;
@@ -316,55 +373,34 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
                     <StatusBadge status={shownStatus} />
                 </div>
                 {(suggested.length > 0 || fits || warning) && <div className={styles.card_badges}>
-                    {suggested.length > 0 && <span className={styles.badge} data-tone="recommended">{t("model_catalog.recommended_for", { languages: languages(suggested, 3) })}</span>}
+                    {suggested.length > 0 && <span className={styles.badge} data-tone="recommended">{recommended}</span>}
                     {fits && <span className={styles.badge} data-tone="recommended">{t("model_catalog.fits_memory")}</span>}
                     {warning && <WarningBadge />}
                 </div>}
                 {current.profile?.summary && <p>{t(`model_downloads.summary.${current.profile.summary}`)}</p>}
-                {warning && <WarningNote warning={warning} />}
+                {!grid && warning && <WarningNote warning={warning} />}
             </div>
-            <div className={styles.card_spec}>
-                {family.rows.length > 1 && <label className={styles.variant_choice}>{t("model_catalog.variant")}
-                    <select aria-label={t("model_catalog.variant_of", { model: label })} value={current.id}
-                        onChange={event => setChoices(previous => ({ ...previous, [family.key]: event.target.value }))}>
-                        {family.rows.map(entry => <option key={entry.id} value={entry.id}>
-                            {[variantLabel(entry), gib(entry.total_bytes), entry.speech?.default && t("model_downloads.asr_type_default"),
-                                ["downloaded", "in_use"].includes(status(entry)) && t(`model_catalog.status.${status(entry)}`),
-                                warningOf(entry) && t("model_catalog.hardware_warning.option")].filter(Boolean).join(" · ")}
-                        </option>)}
-                    </select></label>}
-                {/* One file: its type as the first fact, in the terms' column and the values'. */}
-                {family.rows.length === 1 && variantLabel(current) !== current.name &&
-                    <p className={styles.variant}><span>{t("model_catalog.variant")}</span><span>{variantLabel(current)}</span></p>}
-                <ModelFacts entry={current} guidance={guidanceHint ? guidance : undefined} />
-                {/* Only after the user picks another file; the file in use shown first is not a choice. */}
-                {choices[family.key] && hint.recommended && family.rows.some(entry => entry.id === hint.recommended) && current.id !== hint.recommended &&
-                    <p>{t('model_downloads.manual_choice')}</p>}
-            </div>
-            {/* What runs comes first, with its own actions; the card's actions follow, as before. */}
+            {grid && <ModelFacts entry={current} guidance={factsGuidance} part="key" className={styles.card_key} />}
+            {grid
+                ? <CatalogFacts layout="grid" summary={variantLabel(current) !== current.name
+                    ? t("model_catalog.layout.facts_of", { file: variantLabel(current) }) : undefined}>
+                    {warning && <WarningNote warning={warning} />}
+                    {file}<ModelFacts entry={current} part="rest" />{manualChoice}{prepareHint}
+                    <AuditionNote target={target} status={shownStatus} />
+                    {guidanceFold}
+                </CatalogFacts>
+                : <div className={styles.card_spec}>{file}<ModelFacts entry={current} guidance={factsGuidance} />{manualChoice}</div>}
             <div className={styles.card_foot}>
-                {jobView(current, true)}
-                {others.map(entry => jobView(entry, false))}
-                <div className={styles.actions}>
-                    <button type="button" disabled={busy} onClick={() => {
-                        setConsent(false);
-                        setAcknowledged([]);
-                        setSelected({ ...current, catalog_version: version, downloaded });
-                    }}>{t(downloaded ? "model_catalog.prepare" : "model_downloads.review")}</button>
-                    {/* The TTS models: a short sentence on the monitor output only (#415). */}
-                    <AuditionButton target={target} status={shownStatus} />
-                </div>
-                {downloaded && !job && shownStatus !== "in_use" && <p>{t("model_catalog.prepare_hint")}</p>}
-                <AuditionNote target={target} status={shownStatus} />
-                {guidance && !guidanceHint && <Fold size="link" className={styles.more} summary={t('model_downloads.guidance_summary')}>
-                    {guidance.map(line => <p key={line}>{line}</p>)}
-                </Fold>}
+                {run}
+                {!grid && prepareHint}
+                {!grid && <AuditionNote target={target} status={shownStatus} />}
+                {!grid && guidanceFold}
             </div>
         </li>;
     };
 
     return <section ref={section} tabIndex={-1} className={styles.container} aria-label={t("model_downloads.title")}>
-        {catalogHeading(hints, "h3", t("model_downloads.title"), [t("model_downloads.help")])}
+        {catalogHeading(hints, "h3", t("model_downloads.title"), [t("model_downloads.help")], undefined, !only && <CatalogLayoutSwitch />)}
         {!catalog && <p aria-busy="true">{t("model_downloads.loading")}</p>}
         {hasTTS && !shared && <>
             <label>{t('model_downloads.headroom')}<select aria-label={t('model_downloads.headroom')} value={reserve} onChange={event => setReserve(event.target.value)}>
@@ -400,17 +436,17 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
                     {hint.recommended && <p><strong>{t('model_downloads.recommended')}</strong>: {matching.find(entry => entry.id === hint.recommended)?.name}</p>}
                 </div>}
                 {/* The models of one's own sit in the same list, after the reviewed ones (#403). */}
-                <ul className={styles.catalog} role="list">
+                <CatalogList layout={layout}>
                     {families.map(family => card(target, family, catalog.catalog_version))}
-                    {own && <UserModelCards target={target} expected={expected} blocked={blocked} busy={busy} />}
-                </ul>
+                    {own && <UserModelCards target={target} expected={expected} blocked={blocked} busy={busy} layout={layout} />}
+                </CatalogList>
                 {own && <UserModelRegistration target={target} busy={busy} />}
             </section>;
         })}
         {hasTTS && !shared && <Fold size="link" className={styles.more} summary={t('model_downloads.memory_boundary_summary')}>
             <p>{t('model_downloads.memory_boundary')}</p>
         </Fold>}
-        {engines && targets.includes("japanese") && <EngineCatalog />}
+        {engines && targets.includes("japanese") && <EngineCatalog layout={layout} />}
         {selected && <dialog ref={dialog} aria-label={t("model_downloads.warning_title")} onCancel={event => { event.preventDefault(); close(); }}>
             <div className={styles.dialog_text}>
                 <h3>{t("model_downloads.warning_title")}</h3>

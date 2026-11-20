@@ -143,6 +143,41 @@ jobs:
       - run: cargo test --locked --manifest-path native/translate-onnx/Cargo.toml
       # Speech requests, the speech queue and the listener monitor (Issue #279).
       - run: cargo test --locked --manifest-path native/tts/Cargo.toml
+  # The integration tests (ADR-017): the app's screens, operated in Chromium and WebKit, through
+  # the real core and crates, with stand-ins for the devices and the services outside the app
+  # (tests/integration, native/browser-core-bridge).
+  integration:
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
+        with:
+          version: 2026.11.8
+          install_args: node python rust
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          workspaces: native/browser-core-bridge
+      - run: npm ci --ignore-scripts
+      # The host's Rust dependencies and Playwright's Chromium and WebKit; on Linux also the
+      # system libraries they need.
+      - run: python tools/dev.py setup --scope integration
+      - if: runner.os == 'Linux'
+        run: node node_modules/@playwright/test/cli.js install-deps chromium webkit
+      - run: python tools/dev.py check --scope integration
+      - if: ${{ failure() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: integration-${{ matrix.os }}
+          path: |
+            build/integration/results
+            build/integration/report
+          if-no-files-found: ignore
+          retention-days: 14
   # Pull requests, and pushes to develop and main that did not come through one, so commits
   # made without the local commit-msg hook are checked too.
   commit-conventions:

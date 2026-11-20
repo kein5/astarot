@@ -199,6 +199,8 @@ export const STATIC_ROUTE_META_LIST: readonly RouteMeta[] = [
     { endpoint: "/run/audio_device_switched", ns: null, hook_name: null, method_name: null },
     { endpoint: "/run/config_file_unreadable", ns: null, hook_name: null, method_name: null }, // Shown by receiveRoutes itself.
     { endpoint: "/run/config_save_failed", ns: null, hook_name: null, method_name: null }, // Shown by receiveRoutes itself.
+    // The reply goes to the button that asked (settingsWriteResponses), which says what came of it.
+    { endpoint: "/run/export_vocabulary", ns: null, hook_name: null, method_name: null },
     { endpoint: "/run/secret_store_failed", ns: null, hook_name: null, method_name: null }, // A 400: shown by the error handling.
     // Fire-and-forget actions from the VR settings (sample text, sent repeatedly while
     // started, and launcher reset): the answer needs no handling, but without a route
@@ -226,6 +228,7 @@ export const STATIC_ROUTE_META_LIST: readonly RouteMeta[] = [
     { endpoint: "/set/data/main_window_geometry", ns: null, hook_name: null, method_name: null },
 
     { endpoint: "/run/open_filepath_logs", ns: common, hook_name: "useOpenFolder", method_name: "openedFolder_MessageLogs" },
+    { endpoint: "/run/open_filepath_vocabulary_exports", ns: common, hook_name: "useOpenFolder", method_name: "openedFolder_VocabularyExports" },
     { endpoint: "/run/open_filepath_config_file", ns: common, hook_name: "useOpenFolder", method_name: "openedFolder_ConfigFile" },
 
     { endpoint: "/get/data/connected_lmstudio", ns: common, hook_name: "useLLMConnection", method_name: "setConnectionStatus_LMStudio" },
@@ -498,6 +501,8 @@ export const useReceiveRoutes = () => {
             failTranslationCatalog(errorCodeOf(result));
             return;
         }
+        // The dictionary could not be written out: the button that asked says so (#792).
+        if (status !== 200 && endpoint === "/run/export_vocabulary") return;
         // A name the core refused: the names stay as they were, and the editor is closed.
         if (status !== 200 && endpoint === "/set/data/speaker_names") {
             showNotification_Error(t("main_page.message_log.speaker_names_failed"), { category_id: "speaker_names" });
@@ -523,6 +528,10 @@ export const useReceiveRoutes = () => {
             sendSpeech("/get/data/speech_server_settings");
             sendVoice("/get/data/direct_voice_state");
         }
+        // Saving the speech settings stops what is being read and starts a new TTS generation
+        // (native/tts/src/scheduler.rs). The switch sends the generation it knows, so it must
+        // learn the new one now: at the next poll, a press made before it would be refused.
+        if (status === 200 && endpoint === "/set/data/voice_settings") sendVoice("/get/data/voice_status");
         // The main TTS toggle can start or stop a bundled server; keep Settings in step.
         if (["/run/enable_tts", "/run/disable_tts"].includes(endpoint)) sendSpeech("/get/data/speech_server_state");
         if (status !== 200 && ["/run/enable_tts", "/run/disable_tts"].includes(endpoint)) {

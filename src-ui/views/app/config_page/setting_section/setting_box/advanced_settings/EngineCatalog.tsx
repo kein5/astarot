@@ -9,6 +9,8 @@ import type { TtsEngineSpec } from "../tts/TtsEngine";
 import { EnvReadout } from "../_components/env_readout/EnvReadout";
 import { useHintDescriptions } from "../_components/hint/Hint";
 import { catalogHeading } from "./catalogHeading";
+import { CatalogFacts, CatalogList } from "./catalogLayout";
+import type { CatalogLayout } from "./catalogLayout";
 import styles from "./VoiceSettings.module.scss";
 
 // The speech engines a user installs and runs themselves (ADR-008), listed beside the models.
@@ -16,7 +18,8 @@ import styles from "./VoiceSettings.module.scss";
 // site and says whether the engine answers at its saved address. A check asks only for the
 // engine's version and voice list, on this PC (loopback addresses only), once when the list
 // first shows and again on request. Choosing an engine stays in "Engine for Japanese" above.
-export const EngineCatalog = () => {
+// layout: the catalog's layout, which the engines' cards share with the models' above them.
+export const EngineCatalog = ({ layout = "list" }: { layout?: CatalogLayout }) => {
     const { t } = useI18n();
     const hints = useHintDescriptions();
     const { settings, engineChecks, send } = useVoice();
@@ -41,7 +44,7 @@ export const EngineCatalog = () => {
         {/* The voices' credit terms are seen before an engine is used, so they stay on screen (#614). */}
         <p>{t("model_catalog.engine.terms_notice")}</p>
         {linkError && <p role="alert">{t("model_downloads.link_error")} <code>{linkError}</code></p>}
-        <ul className={styles.catalog} role="list">
+        <CatalogList layout={layout}>
             {Object.entries(TTS_ENGINES).map(([id, spec]) => {
                 const result = engineChecks[id], { terms } = spec;
                 const state = !result ? "unchecked" : result.pending ? "checking" : result.connected ? "connected" :
@@ -52,16 +55,19 @@ export const EngineCatalog = () => {
                     <div className={styles.card_intro}>
                         <div className={styles.card_head}>
                             <strong>{spec.name}</strong>
-                            {inUse === id && <span className={styles.badge} data-tone="in_use">{t("model_catalog.status.in_use")}</span>}
+                            {layout === "list" && inUse === id && <span className={styles.badge} data-tone="in_use">{t("model_catalog.status.in_use")}</span>}
                             <span className={`${styles.badge} ${styles.status}`} data-tone={state}>{t(`model_catalog.engine.state.${state}`)}</span>
                         </div>
+                        {/* In the grid "in use" is the line under the name, so the state ends the name's line on every card. */}
+                        {layout === "grid" && inUse === id && <div className={styles.card_badges}>
+                            <span className={styles.badge} data-tone="in_use">{t("model_catalog.status.in_use")}</span></div>}
                         <p>{t(`model_catalog.engine.summary.${id}`)}</p>
                     </div>
-                    <dl className={`${styles.facts} ${styles.card_spec}`}>
+                    <CatalogFacts layout={layout}><dl className={`${styles.facts} ${styles.card_spec}`}>
                         <div><dt>{t("model_catalog.languages")}</dt><dd>{t("model_catalog.engine.languages")}</dd></div>
                         <div><dt>{t("model_catalog.engine.get")}</dt><dd>{t("model_catalog.engine.get_value")}</dd></div>
                         <div><dt>{t("model_catalog.engine.address")}</dt><dd><code>{address(spec)}</code></dd></div>
-                    </dl>
+                    </dl></CatalogFacts>
                     <div className={styles.card_foot}>
                         <EnvReadout tone={state === "connected" ? "active" : state === "url_invalid" ? "failed" : state === "not_connected" ? "warning" : "neutral"}
                             progress={state === "checking" ? "working" : state === "connected" ? "done" : undefined}>
@@ -80,6 +86,6 @@ export const EngineCatalog = () => {
                     </div>
                 </li>;
             })}
-        </ul>
+        </CatalogList>
     </section>;
 };

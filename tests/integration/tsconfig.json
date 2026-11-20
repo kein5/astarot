@@ -1,0 +1,9 @@
+{
+    // The integration tests (ADR-017) and their page, checked with the app's rules (tsconfig.json).
+    // They run in Node (Playwright) and in the browser (app/), so both kinds of types are there.
+    "extends": "../../tsconfig.json",
+    "compilerOptions": {
+        "types": ["node", "vite/client", "vite-plugin-svgr/client"]
+    },
+    "include": ["./**/*.ts", "../../src-ui/**/*.d.ts"]
+}

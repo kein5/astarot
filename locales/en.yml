@@ -795,7 +795,9 @@ config_page:
             label: "Mic word filter"
             desc: "If a registered word is detected, the message will not be sent. To add multiple words at once, separate them with ',' (comma).\n*Duplicate words will not be registered."
             add_button_label: "Add"
-            count_desc: "Words currently registered: {{count}}"
+            list_one: "Registered words ({{count}})"
+            list_other: "Registered words ({{count}})"
+            list_empty: "No words are registered."
         mic_vad_filter:
             label: "Mic VAD filter"
             desc: "Only send audio to recognition after a silence gap is detected. Disable this if mic transcription stops mid-conversation instead of continuing to transcribe."
@@ -961,8 +963,8 @@ config_page:
         message_format_common:
             example_view:
                 title: "Preview"
-                show_all: "Show all examples"
-                show_fewer: "Show fewer examples"
+                more_one: "More examples ({{count}})"
+                more_other: "More examples ({{count}})"
                 original_translated: "Original + translation"
                 original_translated_multi: "Original + translation (multi-language)"
                 translated_only_multi: "Translation only (multi-language)"
@@ -1457,28 +1459,12 @@ realtime:
   vocabulary_add: "Add term"
   vocabulary_remove: "Remove {{term}}"
   vocabulary_remove_short: "Remove"
-  vocabulary_bulk: "Terms to add together"
-  vocabulary_bulk_help: "One term per line, as \"written=reading,reading\" (the readings can be left out, such as VRChat=ブイアールチャット,ブイチャ). A copied list of terms can be pasted as it is."
-  vocabulary_bulk_placeholder: "VRChat=ブイアールチャット\nMidnight Rooftop"
-  vocabulary_bulk_add: "Add all"
-  vocabulary_bulk_added: "Terms added: {{count}}. Save to use them."
-  vocabulary_bulk_skipped: "Lines not added: {{parts}}."
-  vocabulary_bulk_separator: ", "
-  vocabulary_bulk_duplicates: "{{count}} already in the list"
-  vocabulary_bulk_invalid: "{{count}} not in the right form"
-  vocabulary_bulk_over: "{{count}} over the limit of 100"
-  vocabulary_bulk_rest: "The lines not in the right form or over the limit stay in the field, to be put right."
-  vocabulary_copy: "Copy terms"
-  vocabulary_copied: "Copied"
   # #792: the dictionary in use, one list: the user's own terms and the built-in terms with the
   # user's changes. Terms are added at its head. A built-in term left as it ships follows a newer
   # app's list.
   vocabulary_list_one: "Terms in the dictionary ({{count}})"
   vocabulary_list_other: "Terms in the dictionary ({{count}})"
   vocabulary_list_about: "How the dictionary is built"
-  vocabulary_own_count_one: "{{count}} added by you"
-  vocabulary_own_count_other: "{{count}} added by you"
-  vocabulary_state_own: "Added by you"
   vocabulary_new_written: "Written form"
   vocabulary_new_written_placeholder: "Midnight Rooftop"
   vocabulary_new_readings: "Readings (separated by \"、\" or commas; optional)"
@@ -1489,12 +1475,26 @@ realtime:
   vocabulary_add_invalid: "The written form takes up to 48 characters, without \",\" or \"=\". Up to 8 readings, each up to 32 characters."
   vocabulary_add_full: "Your terms and the built-in terms whose readings you changed are at the limit of 100."
   vocabulary_list_help: "The dictionary holds the built-in VRChat terms and the terms you added. Add terms with the fields above the list. You can change the readings of a built-in term or take it out. Your changes are saved with your settings and stay after the app is updated. Built-in terms you have not changed follow an update when it adds terms or corrects readings. Your terms and the built-in terms whose readings you changed can be 100 in all."
-  vocabulary_changed_count_one: "{{count}} reading changed"
-  vocabulary_changed_count_other: "{{count}} readings changed"
-  vocabulary_removed_count_one: "{{count}} taken out"
-  vocabulary_removed_count_other: "{{count}} taken out"
-  vocabulary_state_changed: "Readings changed"
-  vocabulary_state_removed: "Taken out"
+  # #792: the dictionary written out to a file and read back from one.
+  vocabulary_import: "Import from a file"
+  vocabulary_export: "Export to a file"
+  vocabulary_export_open: "Open the export folder"
+  vocabulary_export_done: "Exported to \"{{file}}\"."
+  vocabulary_export_failed: "Could not export. Try again."
+  vocabulary_import_done: "The dictionary is now the file's terms. Save to use them."
+  vocabulary_import_counts: "{{own}} added by you, {{changed}} built-in terms with changed readings, {{removed}} built-in terms taken out"
+  vocabulary_import_nothing: "Imported. The dictionary already had the file's terms."
+  vocabulary_import_empty: "The file has no terms. The dictionary was not changed."
+  vocabulary_import_skipped: "Lines not imported: {{parts}}."
+  vocabulary_import_separator: ", "
+  vocabulary_import_invalid_one: "{{count}} not in the form of a term"
+  vocabulary_import_invalid_other: "{{count}} not in the form of a term"
+  vocabulary_import_duplicate_one: "{{count}} with a written form already on a line above"
+  vocabulary_import_duplicate_other: "{{count}} with a written form already on a line above"
+  vocabulary_import_over_one: "{{count}} over the limit of 100 terms"
+  vocabulary_import_over_other: "{{count}} over the limit of 100 terms"
+  vocabulary_import_unreadable: "Could not read the file. Choose a text file (.txt)."
+  vocabulary_import_too_large: "The file is too large. Choose one of 256 KB or less."
   vocabulary_no_reading: "No reading"
   vocabulary_change_readings: "Change readings"
   vocabulary_change_readings_of: "Change the readings of {{term}}"
@@ -2114,6 +2114,14 @@ model_downloads:
 
 # The model catalog (where models are chosen): groups by use, one card per model.
 model_catalog:
+    # The layouts of the catalogs' cards: a grid that shows more models at once, or a list that
+    # shows each model's facts beside it. In the grid the facts are a fold of the card.
+    layout:
+        label: "Catalog layout"
+        grid: "Grid"
+        list: "List"
+        facts: "Details"
+        facts_of: "Details ({{file}})"
     group:
         japanese: "Reading Japanese"
         multilingual: "Reading other languages"
@@ -2154,6 +2162,8 @@ model_catalog:
         recommended: "GPU recommended"
         not_needed: "no GPU needed"
     recommended_for: "Suggested for {{languages}}"
+    recommended_for_count_one: "Suggested for {{count}} language"
+    recommended_for_count_other: "Suggested for {{count}} languages"
     fits_memory: "Fits the free memory"
     hardware_warning:
         badge: "May be too heavy"
