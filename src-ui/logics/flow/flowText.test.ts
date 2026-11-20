@@ -1,11 +1,16 @@
 import { test } from "vitest";
 import assert from "node:assert/strict";
 import { flowNote, offGroups, oneLine, outputDetail, outputTime, stripItems, timelineRows } from "./flowText.ts";
+import type { FlowNames, Translate } from "./flowText.ts";
+import type { FlowInput, FlowOutputRow, Trace } from "./ioFlow.ts";
+import { unchecked } from "../test/hookHarness.ts";
 
-const t = (key, options) => options ? `${key}:${JSON.stringify(options)}` : key;
-const names = { language: name => `lang(${name})` };
-const trace = (id, input, outputs, stages = {}, extra = {}) => ({ id, input, text: `text ${id}`, translation: "", origin: "final",
-    stages, outputs, ...extra });
+const t: Translate = (key, options) => options ? `${key}:${JSON.stringify(options)}` : key;
+const names: FlowNames = { language: name => `lang(${name})` };
+const trace = (id: string, input: FlowInput, outputs: Trace["outputs"], stages: Trace["stages"] = {}, extra: Partial<Trace> = {}): Trace => ({
+    id, input, text: `text ${id}`, translation: "", origin: "final", stages, outputs, ...extra });
+// Test data: outputTime reads only the row's id.
+const output = (id: string) => unchecked<FlowOutputRow>({ id });
 
 test("each output of the route map says what it does, or why it is not used", () => {
     assert.equal(outputDetail({ id: "chatbox", on: true, content: "both" }, t, names), "io_flow.content.both");
@@ -30,11 +35,11 @@ test("unused outputs fold into one line per reason, in their order", () => {
 test("the latest message's time for an output is in ms, or its state when it did not go out", () => {
     const row = trace("a", "voice", { chatbox: { state: "sent", at_ms: 240 },
         speech: { state: "playing", at_ms: 800, converted: true, conversion_ms: 31 } });
-    assert.equal(outputTime({ id: "chatbox" }, row, t), "240 ms");
-    assert.equal(outputTime({ id: "speech" }, row, t), "831 ms");
-    assert.equal(outputTime({ id: "chatbox" }, trace("b", "chat", { chatbox: { state: "off", at_ms: null } }), t), "io_flow.state.off");
-    assert.equal(outputTime({ id: "desktop_caption" }, row, t), null);
-    assert.equal(outputTime({ id: "chatbox" }, null, t), null);
+    assert.equal(outputTime(output("chatbox"), row, t), "240 ms");
+    assert.equal(outputTime(output("speech"), row, t), "831 ms");
+    assert.equal(outputTime(output("chatbox"), trace("b", "chat", { chatbox: { state: "off", at_ms: null } }), t), "io_flow.state.off");
+    assert.equal(outputTime(output("desktop_caption"), row, t), null);
+    assert.equal(outputTime(output("chatbox"), null, t), null);
 });
 
 test("a timeline lists the stages in order, then each arrival, then what did not go out", () => {

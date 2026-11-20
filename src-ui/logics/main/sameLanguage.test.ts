@@ -2,8 +2,9 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "vitest";
 import { isSameLanguageSelected } from "./sameLanguage.ts";
+import type { LanguageSlot } from "./sameLanguage.ts";
 
-const slot = (language, country, enable = true) => ({ language, country, enable });
+const slot = (language: string, country: string, enable = true): LanguageSlot => ({ language, country, enable });
 
 test("a target in the spoken language is the same language whatever its country", () => {
     assert.equal(isSameLanguageSelected(slot("English", "United States"), { 1: slot("English", "United Kingdom") }), true);

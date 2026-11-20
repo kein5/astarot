@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import { IDLE_GPU_CHECK, ISSUE_URL_LIMIT, deviceRows, gpuCheckAfterAnswer, gpuCheckAfterState, issueTitle, issueUrl } from "./gpuCheck.ts";
+import type { GpuCheckView, GpuReport } from "./gpuCheck.ts";
 
-const REPORT = {
+const REPORT: GpuReport = {
     report: "astarot-gpu-check", schema: 1,
     devices: [
         { device: "cpu", kind: "cpu", name: null },
@@ -23,7 +24,7 @@ test("the polled state becomes the view; another shape leaves it as it was", () 
 });
 
 test("a start waits for its answer: an earlier idle state does not end it", () => {
-    const pending = { ...IDLE_GPU_CHECK, phase: "pending", run: 3 };
+    const pending: GpuCheckView = { ...IDLE_GPU_CHECK, phase: "pending", run: 3 };
     assert.equal(gpuCheckAfterState(pending, { state: "idle", run: 3, outcome: "done" }), pending);
     assert.equal(gpuCheckAfterState(pending, { state: "running", run: 4, step: "tts" }).phase, "running");
     assert.equal(gpuCheckAfterAnswer(pending, { state: "running", run: 4 }).phase, "running");
