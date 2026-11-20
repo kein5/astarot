@@ -87,12 +87,12 @@ Checked on Linux (AppImage): converting a voice and passing it on, and staying s
 |---|---|
 | Speech, realtime captions and telling speakers apart (speech.cpp, which comes with the app) | AMD, Intel and NVIDIA (Vulkan) |
 | Local translation | NVIDIA (the Windows GPU version). Other GPUs run it on the CPU |
-| Voice changer (RVC) | NVIDIA (GeForce GTX 16 or RTX 20 series or later, driver 580 or later). Otherwise it runs on the CPU ([System requirements](requirements#rvc-on-an-nvidia-gpu)) |
+| Voice changer (RVC) | NVIDIA with CUDA, or from 0.6.0 on Windows, a DirectX 12 GPU with DirectML. The CPU can also convert if it is fast enough for live audio ([Voice changer](../features/voice-conversion)) |
 | Chat reading | Runs on the CPU |
 
-With the inference device set to Automatic or GPU, the speech.cpp servers that come with the app use a dedicated GPU (a graphics card) before integrated graphics, and of several dedicated GPUs the one with the most memory. You can also pick one under "Inference device" in "Models and servers".
+Under "Models and servers", Automatic selects the dedicated Vulkan GPU with the most memory among those available for computation. It uses the CPU if none is available. You can also select a dedicated GPU by name.
 
-To translate on an AMD or Intel GPU, use a [local LLM](../features/translation#use-local-llms-and-compatible-servers): Ollama and LM Studio support those GPUs too. To turn speech into text, use realtime captions (the bundled speech.cpp), which run on any GPU.
+To translate on an AMD or Intel GPU, use a [local LLM](../features/translation#use-local-llms-and-compatible-servers): Ollama and LM Studio support those GPUs too.
 
 ## Where models are saved
 

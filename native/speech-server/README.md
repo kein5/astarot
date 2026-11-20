@@ -4,10 +4,9 @@
 
 speech.cpp の実行ファイルは従来どおり別プロセスです。このクレートが持つのは管理層だけで、推論はしません。
 
-## 現在の状態
+## アプリとの接続
 
-- ライブラリとして完成しており、試験も通っています。**アプリにはまだ組み込んでいません。** 動作中のアプリでサーバを所有しているのは、今も Python 側（[`models/speech_server/runtime.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/speech_server/runtime.py)）です。同じサーバを2か所から所有しないよう、Tauri 側の配線は、Python 側の呼び出しを置き換えるとき（#278 と協調）に行います。
-- `src-tauri` はこのクレートに依存していません。
+0.5.0から、Tauriアプリ内の中核（`native/core`）がこのクレートを使って同梱サーバーを起動・停止します。設定と操作のエンドポイントは中核の `controller/speech.rs` にあります。
 
 ## Python 版との対応
 

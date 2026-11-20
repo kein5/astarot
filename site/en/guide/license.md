@@ -4,7 +4,7 @@
 
 ASTAROT is under the [MIT License](https://github.com/kein5/astarot/blob/develop/LICENSE). The original VRCT copyright and attribution are retained.
 
-External engines, models and the GPL Seed-VC integration have their own terms, so the voice stack as a whole is not claimed to be MIT. [NOTICE.md](https://github.com/kein5/astarot/blob/develop/NOTICE.md) lists the LGPL and GPL components in the packages, where to get their source and how to replace them.
+External engines and model weights have their own licenses. [NOTICE.md](https://github.com/kein5/astarot/blob/develop/NOTICE.md) lists third-party licenses and identifies the LGPL and GPL components included through 0.4.x, including the Seed-VC integration.
 
 ## Model licenses
 

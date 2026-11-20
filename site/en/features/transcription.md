@@ -77,7 +77,7 @@ Names last while this listening session runs and are not saved. When listening s
 
 ## Add words to recognize
 
-Under "Term dictionary", add words you want recognized and how to write them. Common VRChat terms are built in.
+Under "Term dictionary", add words you want recognized and how to write them. Common VRChat terms are built in. From 0.6.0 you can edit their readings, remove individual terms and restore the defaults. Saved changes survive app updates.
 
 Proper nouns such as world names and your friends' names are worth adding. The dictionary is used beyond speech recognition:
 

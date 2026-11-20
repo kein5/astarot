@@ -4,13 +4,13 @@ route: voice-conversion
 
 # Voice changer (RVC)
 
-Changes your microphone's voice into another voice and gets it to VRChat through a virtual microphone. RVC conversion is part of ASTAROT; the libraries it runs on and its base models are fetched separately as its runtime. RVC converts on an NVIDIA GPU, and on the CPU on a PC whose GPU cannot be used. The settings are under Settings → "Voice changer (RVC)".
+Changes your microphone's voice into another voice and gets it to VRChat through a virtual microphone. RVC conversion is part of ASTAROT; the libraries it runs on and its base models are fetched separately as its runtime. The settings are under Settings → "Voice changer (RVC)".
 
 It is experimental. Before relying on it, check in your own setup how it sounds and how long the changed voice takes to come through.
 
 ## What you need
 
-- To run RVC on the GPU, an NVIDIA GeForce GTX 16 or RTX 20 series GPU or later and driver 580 or later. Without one RVC runs on the CPU, with a longer delay (see "How far behind the voice is" below)
+- A CPU fast enough for live conversion, or a supported GPU. CUDA needs an NVIDIA GeForce GTX 16 or RTX 20 series GPU or later with driver 580 or later. From 0.6.0, Windows can also use a DirectX 12 GPU through DirectML.
 - A virtual microphone that carries the changed voice to VRChat ([How voice and text flow](../guide/how-it-works#why-a-virtual-microphone-is-needed))
 - For RVC:
   - an RVC runtime (ONNX Runtime, and on a PC with an NVIDIA driver also the CUDA 13 and cuDNN libraries)
@@ -34,7 +34,7 @@ The runtime that is fetched depends on whether the PC has an NVIDIA driver.
 | Download, about | 1.8 GB on Windows, 1.9 GB on Linux | 0.6 GB on Windows and Linux |
 | Free disk space needed, about | 2.7 GB on Windows, 3.3 GB on Linux | 0.8 GB |
 
-The GPU runtime also converts on the CPU when the GPU cannot be used (a driver older than 580, or a GTX 10 series GPU or older). The setup says so when it finishes. [System requirements](../guide/requirements#rvc-on-an-nvidia-gpu) lists the GPUs and how to check the driver.
+From 0.6.0 on Windows, you can download "ONNX Runtime · DirectML" under "Models and runtime". Automatic selection tries CUDA first, then DirectML on a dedicated GPU, then the CPU. To try DirectML on integrated graphics, select DirectML in the RVC settings. CPU conversion only starts if the speed check passes. See [System requirements](../guide/requirements#rvc-on-an-nvidia-gpu) for CUDA driver requirements.
 
 An RVC runtime fetched by an earlier version (the kind that uses PyTorch) can no longer be used. If the page says "The runtime in this folder is of an earlier kind and can no longer be used", fetch it again the same way. It goes into the same folder, so your saved settings keep working. When it finishes, the files of the earlier kind (`venv`, `python`, `engine`, `rmvpe.pt` and so on) are deleted automatically. Only what the earlier setup put there is deleted; models (`.pth`, `.index` and the like) and audio files you put in `engine` are kept.
 
@@ -79,7 +79,7 @@ As a default model, you can get Saisho Utane's RVC v2 model (CC BY 4.0, about 0.
 
 ## About Seed-VC {#seed-vc}
 
-Seed-VC was removed in 0.4.0, and RVC is now the only voice changer. Changing your voice toward a reference WAV is no longer possible. A Seed-VC runtime fetched by an earlier version is not used by 0.4.0.
+Seed-VC was removed in 0.5.0, and RVC is now the only voice changer. Changing your voice toward a reference WAV is no longer possible. A Seed-VC runtime fetched by an earlier version is not used from 0.5.0.
 
 ## Speak in your changed voice
 

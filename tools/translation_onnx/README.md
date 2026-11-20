@@ -1,6 +1,6 @@
 # ONNX 版ローカル翻訳モデルの作成と比較
 
-`native/translate-onnx` が読み込むモデルを作り、現行の CTranslate2 と訳文を比べるための道具です。アプリの実行時には使いません。
+`native/translate-onnx` が読み込むモデルを作り、旧バックエンドの CTranslate2 と訳文を比べるための道具です。アプリの実行時には使いません。
 
 ## モデルを作る
 
@@ -74,9 +74,9 @@ python tools/translation_onnx/publish.py catalog <フォルダ> --repo <持ち�
 - 2026-11-19 に `kein5/m2m100_418M-onnx-int8` と `kein5/nllb-200-distilled-600M-onnx-int8` を公開しました（`docs/voice-stack/licensing.md` の「公開したモデル（2026-11-19、#687）」）。
 - 2026-11-21 に `kein5/nllb-200-distilled-1.3B-onnx-int8` を公開しました（`docs/voice-stack/licensing.md` の「NLLB-200 distilled 1.3Bの公開（2026-11-21）」）。
 
-## 現行の CTranslate2 と比べる
+## 旧バックエンドの CTranslate2 と比べる
 
-比べるときの Python 環境は、アプリの `uv.lock` と同じ版にします（ctranslate2 4.8.4、transformers 5.22.1、tokenizers 0.23.3、sentencepiece 0.2.1）。これに sacrebleu 2.6.0 を足します。
+比較には「モデルを作る」で用意したPython環境を使います。CTranslate2とsacrebleuを含む依存の版は `tools/translation_onnx/requirements.txt` にあります。
 
 ```sh
 cargo build --release --manifest-path native/translate-onnx/Cargo.toml
@@ -86,7 +86,7 @@ python tools/translation_onnx/compare.py m2m100_418M \
     --out <結果>.json
 ```
 
-CTranslate2 の側は、アプリが固定しているモデルを取得し、ピン留めと照合してから、`translation_translator.py` と同じ手順で翻訳します。比べる対象は、WMT20 の8方向（英語と日本語・中国語・ドイツ語・ロシア語の双方向）で、各方向の先頭 N 文です。結果のファイルには点数と件数だけを書き、文章は書きません。
+CTranslate2 の側は、旧バックエンドが使っていた版のモデルを取得し、ピン留めと照合してから、`translation_translator.py` と同じ手順で翻訳します。比べる対象は、WMT20 の8方向（英語と日本語・中国語・ドイツ語・ロシア語の双方向）で、各方向の先頭 N 文です。結果のファイルには点数と件数だけを書き、文章は書きません。
 
 `--directions en-ja,ja-en` のように指定すると、方向を絞れます。
 

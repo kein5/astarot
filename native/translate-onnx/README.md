@@ -6,7 +6,7 @@
 
 - アプリのローカル翻訳のエンジンです（2026-11-16 に決定。[core-integration.md](../../docs/voice-stack/core-integration.md) の「決まったこと」）。中核（`native/core`）の機能 `onnx-translation`（既定でオン）の裏にあり、アプリ（`src-tauri`）でも有効です。
 - ONNX Runtime は実行時に読み込みます（`ort` の `load-dynamic`）。ビルドでは何も取得もリンクもしません。配布物には公式の CPU 版 1.31.0 が入っています（`_internal/onnxruntime`）。GPU で動かすための CUDA 版と DirectML 版は同梱せず、利用者が同意してから取得します（2026-11-19。[core-integration.md](../../docs/voice-stack/core-integration.md) の「判断が要ること」の 2）。ライブラリが見つからないときはモデルを読み込めません（`translation_runtime_missing`。中核では `TRANSLATION_MODEL_LOAD_FAILED`）。
-- モデルは `tools/translation_onnx/export.py` で作ります。作ったモデルの公開とモデル取得カタログへの登録は、まだしていません（公開は保守担当者の確認が要る外部への操作です）。公開とカタログの項目の作成には `tools/translation_onnx/publish.py` を使い、項目は `native/ops/data/translation_models.json` に置きます。
+- モデルは `tools/translation_onnx/export.py` で作ります。カタログから取得できるのは M2M100 418M と NLLB-200 distilled 600M の int8 版です。公開とカタログの項目の作成には `tools/translation_onnx/publish.py` を使い、項目は `native/ops/data/translation_models.json` に置きます。
 
 ## 対象モデル
 
@@ -49,7 +49,7 @@ CPU 以外のプロバイダで読み込んだときは、使う前に一度だ�
 | MIGraphX | × | ○ | AMD の GPU（ROCm を入れた Linux） | AMD の ONNX Runtime（`onnxruntime-migraphx`。ROCm 10 からはプラグイン）と ROCm 一式（システムに入れる） | ONNX Runtime は MIT、ROCm は部品ごと（多くは MIT か Apache-2.0） | AMD が保守。キャッシュ付きのデコーダで問題が出るという報告がある | ライブラリにあれば出す（`migraphx`） |
 | WebGPU | ○ | ○ | Direct3D 12 または Vulkan の GPU | WebGPU の実行プロバイダ（1.31 ではプラグインの別の包み）。公式の zip には入っていない。大きさは計っていない | MIT（Dawn は BSD-3-Clause） | 新しい。生成 AI 向けに盛んに手が入っている | ライブラリにあれば出す（`webgpu`） |
 
-大きさは 2026-11-16 の公式の配布物（GitHub と NuGet）の値です。1 MB は 10^6 バイトです。どのプロバイダも、実際のモデルではまだ動かしていません。
+大きさは 2026-11-16 の公式の配布物（GitHub と NuGet）の値です。1 MB は 10^6 バイトです。CPUで実モデルを動かした条件と結果は[翻訳モデルの比較](../../tools/translation_onnx/README.md)にあります。
 
 DirectML は、乱数の小さなモデル（`tools/translation_onnx/tiny.py`）で、4 つの形すべてが Intel と NVIDIA の GPU で CPU と同じ訳の ID を出しました（2026-11-18、DirectML 版の ONNX Runtime 1.24.4）。そのために直したことが 2 つあります。
 
@@ -109,7 +109,7 @@ DirectML の int8 と int4 は 2026-11-19 から一覧に出します（`core-in
 | `translation_bundle_modified` | ファイルの大きさが違う（読み込む時は SHA-256 も比べ、違えば「モデルがない」と同じ扱い） |
 | `translation_languages_unknown` | アプリが名前を付けられる言語が1つもない |
 
-## 現行の CTranslate2 と同じにしていること
+## 旧バックエンドの CTranslate2 と同じにしていること
 
 - 入力は 1024 トークンまでで、超えたら失敗にします（`translation_input_too_long`）。
 - 出力は 256 トークンまでです。言語トークンと終了トークンも数に含めます。終了トークンで終わらなかった訳文は失敗にします（`translation_unfinished`）。どちらもアプリが CTranslate2 で調べている条件と同じです。
@@ -153,4 +153,4 @@ ASTAROT_TRANSLATE_DEVICE_MODEL=<tiny-nllb-onnx-float32 のフォルダ> \
 cargo test --manifest-path native/translate-onnx/Cargo.toml --test real a_device
 ```
 
-現行の CTranslate2 との訳文の比較は `tools/translation_onnx/compare.py` で行います。手順は同じフォルダの README にあります。
+旧バックエンドの CTranslate2 との訳文の比較は `tools/translation_onnx/compare.py` で行います。手順は同じフォルダの README にあります。

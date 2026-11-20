@@ -6,8 +6,7 @@ uses PipeWire through its native client API.
 
 The Rust backend core (`native/core`, #285) uses it for the device lists, the choice
 of microphone and speaker, Auto Select and the virtual microphone guide
-(`controller/audio_devices.rs`). The Python backend does not use it; its modules stay
-until the sidecar is retired.
+(`controller/audio_devices.rs`). The table below maps the former Python modules to their Rust equivalents.
 
 ## What replaces what
 

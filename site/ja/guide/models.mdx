@@ -87,12 +87,12 @@ Linux（AppImage）で、声を変換して流せることと、ミュート中�
 |---|---|
 | 読み上げ、リアルタイム字幕、話した人の見分け（アプリに入っているspeech.cpp） | AMD、Intel、NVIDIA（Vulkan） |
 | ローカルの翻訳 | NVIDIA（WindowsのGPU版）。ほかのGPUではCPUで動きます |
-| ボイスチェンジャー（RVC） | NVIDIA（GeForce GTX 16・RTX 20シリーズ以降とドライバー580以降）。それ以外ではCPUで動きます（[動作環境](requirements#nvidiaのgpuでrvcを使うとき)） |
+| ボイスチェンジャー（RVC） | CUDA対応のNVIDIAのGPU。Windowsでは0.6.0からDirectX 12対応のGPUもDirectMLで使えます。変換が間に合うPCではCPUでも動きます（[ボイスチェンジャー](../features/voice-conversion)） |
 | チャット読み取り | CPUで動きます |
 
-アプリに入っているspeech.cppのサーバーは、推論デバイスが「自動」か「GPU」のとき、内蔵GPUより独立GPU（グラフィックボード）を優先して使います。独立GPUが複数あればメモリの多いほうを使います。使うGPUは「モデルとサーバー」の「推論デバイス」で指定もできます。
+「モデルとサーバー」で推論デバイスを「自動」にすると、計算に使える独立GPUのうち、メモリが最も多いものを選びます。該当するGPUがなければCPUを使います。独立GPUは名前で指定することもできます。
 
-AMDやIntelのGPUで翻訳したいときは、[ローカルLLM](../features/translation#ローカルllmと互換サーバーを使う)を使えます。OllamaやLM StudioはAMDとIntelのGPUにも対応しています。音声を文字にするときは、どのGPUでも動くリアルタイム字幕（アプリに入っているspeech.cpp）を使ってください。
+AMDやIntelのGPUで翻訳したいときは、[ローカルLLM](../features/translation#ローカルllmと互換サーバーを使う)を使えます。OllamaやLM StudioはAMDとIntelのGPUにも対応しています。
 
 ## 保存先
 

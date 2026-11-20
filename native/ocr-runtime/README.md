@@ -5,9 +5,8 @@ Chat-bubble OCR and VRChat frame capture in Rust (issue #281): a port of
 through `ort`, with RapidOCR's pre- and post-processing reproduced exactly.
 
 The backend core (`native/core`, `controller::ocr`) runs it in the application process
-when the core is the backend: the chat reading endpoints, the start checks, the status
-and the settings of a running pipeline. Read lines go to the core's message pipeline.
-The Python module is unchanged and is still what the Python sidecar uses.
+and handles chat reading requests, startup checks, status and settings for a running
+pipeline. Read lines go to the core's message pipeline.
 
 ONNX Runtime is linked in one of two ways, chosen by a feature:
 
@@ -31,9 +30,9 @@ process. The binaries stop ONNX Runtime's usage reports first thing
 |---|---|---|
 | [`ocr_engine_rapidocr.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/ocr/ocr_engine_rapidocr.py) + RapidOCR 3.9.2 | `engine.rs`, `det.rs`, `rec.rs`, `unclip.rs`, `numeric.rs` | Size bounds and vertical padding, DB detection and its post-processing, the perspective crop, batched CTC recognition, score rounding, Arabic display order, final filtering, `readtext_bgr_or_raise`. |
 | OpenCV 4.10 calls RapidOCR makes | `cv/` | Bilinear and area resizing, contour tracing, convex hull, minimum-area rectangle, polygon filling, perspective warp with bicubic weights, 2×2 dilation, masked mean. Same arithmetic as `opencv-python-headless` 4.10.0.84. |
-| [`ocr_models.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/ocr/ocr_models.py), [`ocr_languages.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/ocr/ocr_languages.py) | `models.rs`, `languages.rs` | Catalog pins (checked against [`catalog.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/model_downloads/catalog.py)), size and SHA-256 checks, the character list read from `inference.yml` as PyYAML reads the pinned files. |
+| [`ocr_models.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/ocr/ocr_models.py), [`ocr_languages.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/ocr/ocr_languages.py) | `models.rs`, `languages.rs` | Catalog pins (checked against [`catalog.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/model_downloads/catalog.py); now `native/core/tests/downloads.rs` checks them against the model download catalog), size and SHA-256 checks, the character list read from `inference.yml` as PyYAML reads the pinned files. |
 | [`ocr_detection.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/ocr/ocr_detection.py) | `detection.rs` | Reading regions per view, line grouping, block bounds, the chatbox style check. |
-| [`ocr_bubble_detector.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/ocr/ocr_bubble_detector.py), [`ocr_chatbox_detector.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/ocr/ocr_chatbox_detector.py) | `chatbox.rs` | VRCT-VOX's own detector only (the verified download's file name; the upstream detector is never loaded). |
+| [`ocr_bubble_detector.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/ocr/ocr_bubble_detector.py), [`ocr_chatbox_detector.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/ocr/ocr_chatbox_detector.py) | `chatbox.rs` | ASTAROT's own detector only (the verified download's file name; the upstream detector is never loaded). |
 | [`ocr_pipeline.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/ocr/ocr_pipeline.py), [`ocr_failure.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/ocr/ocr_failure.py) | `pipeline.rs`, `text.rs`, `failure.rs`, `priority.rs` | The tick, recognition reuse, deduplication, merging lines into a message, retries and backoff, settings while running, start checks with the `OCR_DISABLED_*` reasons, thread priority on Windows. |
 | `ocr_capture*.py`, [`process_check.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/process_check.py) | `capture/` | The facade (headset view while SteamVR runs, else the desktop window), PrintWindow (Windows), X11/XWayland (Linux), the ScreenCast portal's frame file (Linux), the OpenVR mirror (D3D11 on Windows, OpenGL on Linux), blank frames, the start probe. |
 
@@ -46,7 +45,7 @@ pixels; `Debug` output of words, messages and pictures shows sizes only.
 - X11 is spoken directly (`x11rb`) instead of through `libX11` with ctypes. A vanished
   window or a lost server is an error value; there is no Xlib error handler that could
   exit the process.
-- The OpenVR client library is loaded at run time: `VRCT_OPENVR_API`, else
+- The OpenVR client library is loaded at run time: `ASTAROT_OPENVR_API` (or its legacy name `VRCT_OPENVR_API`), else
   `openvr_api.dll` / `libopenvr_api.so` beside the executable, else by name. The
   interface versions are those of pyopenvr 2.12.1401 (`IVRCompositor_029`,
   `IVRSystem_023`). Their functions are called by position; each position is declared
