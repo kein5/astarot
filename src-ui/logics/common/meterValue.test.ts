@@ -6,9 +6,13 @@ import * as meterValue from "./meterValue.ts";
 
 test("both meter atoms preserve equal wrappers but publish state and value changes", async () => {
     const { runtime, stores } = await loadBridgeStore();
-    for (const name of ["MicVolume", "SpeakerVolume"]) {
-        const target = stores[`Atom_${name}`], hook = stores[`useStore_${name}`]();
-        const update = hook[`update${name}`];
+    // Each meter's atom and its hook's update, named as the store names them.
+    const meters = {
+        MicVolume: () => ({ target: stores.Atom_MicVolume, update: stores.useStore_MicVolume().updateMicVolume }),
+        SpeakerVolume: () => ({ target: stores.Atom_SpeakerVolume, update: stores.useStore_SpeakerVolume().updateSpeakerVolume }),
+    };
+    for (const name of ["MicVolume", "SpeakerVolume"] as const) {
+        const { target, update } = meters[name]();
         const pending = runtime.store.get(target);
         update(0);
         const confirmed = runtime.store.get(target);
@@ -33,13 +37,13 @@ test("both meter atoms preserve equal wrappers but publish state and value chang
 
 test("useVolume only writes meter atoms; repeated samples and stop resets preserve wrappers", async () => {
     const { runtime, stores, jotai, subscriptions } = await loadBridgeStore();
-    const { useVolume } = await loadModule(new URL("./useVolume.ts", import.meta.url), runtime, {
+    const { useVolume } = await loadModule<typeof import("./useVolume.ts")>(new URL("./useVolume.ts", import.meta.url), runtime, {
         "@store": stores, jotai, "./meterValue.ts": meterValue,
     });
     const volume = runtime.render(useVolume);
     assert.equal(subscriptions.includes(stores.Atom_MicVolume), false);
     assert.equal(subscriptions.includes(stores.Atom_SpeakerVolume), false);
-    for (const [name, source] of [["MicVolume", "Mic"], ["SpeakerVolume", "Speaker"]]) {
+    for (const [name, source] of [["MicVolume", "Mic"], ["SpeakerVolume", "Speaker"]] as const) {
         const target = stores[`Atom_${name}`];
         volume[`updateVolumeVariable_${source}`](0);
         const initial = runtime.store.get(target);
