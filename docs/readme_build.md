@@ -158,6 +158,6 @@ Tauriの失敗はRust・C++ツールと`src-tauri/bin/_internal`の有無、画�
 
 ## 共通の開発コマンドと下書き作成
 
-環境診断と検査の入口は[開発ガイド](development.md)にまとめています。`npm run check`で軽い検査、`npm run test:voice`でモデル不要の音声契約、`npm run test:ui`でNodeテストとViteビルドを実行します。
+環境診断と検査の入口は[開発ガイド](development.md)にまとめています。`mise run check`で軽い検査、`mise run check:voice`でモデル不要の音声契約、`mise run check:ui`でUIの試験、型チェック、Viteのビルドを実行します。
 
 候補の検査後は[配布手順](voice-stack/release-candidates.md)に従い、同じコミットのLinux・Windows成果物からリリース下書きを作成できます。公開は別途行います。
