@@ -206,6 +206,9 @@ test("a new connection key is made only after the question is answered", async (
     const [cancel, confirm] = found(dialog, node => node.type === "div" && Array.isArray(node.props.children)
         && node.props.children.every((child: TreeNode | null) => child?.type === "button")).props.children;
     assert.equal(cancel.props.autoFocus, true); // The safe choice has the focus.
+    // Drawn in the app's dialog frame: the forms' container (border, padding, buttons) and the
+    // shared frame (width), as every dialog on that frame; with the frame alone it was bare.
+    assert.deepEqual(String(tree.props.children[1].props.className).split(" ").sort(), ["container", "host"]);
     cancel.props.onClick();
     assert.deepEqual(s.ipc, []);
     assert.equal(s.runtime.render(s.tokenComponent).props.children[1], false);

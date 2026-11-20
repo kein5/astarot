@@ -410,7 +410,7 @@ const WebsocketTokenContainer = () => {
             IconComponent={RefreshSvg}
             onclickFunction={() => setOpen(true)}
         />
-        {open && <div className={dialogStyles.host}>
+        {open && <div className={`${voiceStyles.container} ${dialogStyles.host}`}>
             <dialog ref={dialog} className={dialogStyles.dialog} aria-label={key("confirm_title")}
                 onCancel={event => { event.preventDefault(); cancel(); }}>
                 <h3>{key("confirm_title")}</h3>
