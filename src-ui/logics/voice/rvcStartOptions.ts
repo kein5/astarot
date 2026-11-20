@@ -1,5 +1,6 @@
-// The devices the RVC worker's --device accepts.
-export type RvcDevice = "auto" | "cuda" | "cpu";
+// The devices the RVC worker's --device accepts. DirectML runs on Windows with the
+// "ONNX Runtime · DirectML" runtime (shared with the local translation).
+export type RvcDevice = "auto" | "cuda" | "directml" | "cpu";
 
 export interface RvcWorkerOptions {
     rvc_device: RvcDevice;
@@ -10,8 +11,15 @@ export interface RvcWorkerOptions {
 // The RVC worker's --device, --threads (0: the worker chooses) and --highpass, with the
 // worker's own defaults. Settings saved before they existed start the same way as before.
 export const RVC_WORKER_DEFAULTS: Readonly<RvcWorkerOptions> = { rvc_device: "auto", rvc_threads: 0, rvc_highpass: true };
-export const RVC_DEVICES: readonly RvcDevice[] = ["auto", "cuda", "cpu"];
+export const RVC_DEVICES: readonly RvcDevice[] = ["auto", "cuda", "directml", "cpu"];
 export const MAX_RVC_THREADS = 64;
+// The runtime that holds the DirectML build of ONNX Runtime (native/voice-conversion runtime.rs).
+export const DIRECTML_RUNTIME = "onnxruntime-directml";
+
+// The devices to list: DirectML only where its runtime is offered (Windows), and a saved choice
+// always, so that the form shows what will be used.
+export const rvcDevices = (directmlOffered: boolean, saved?: string | null): RvcDevice[] =>
+    RVC_DEVICES.filter(device => device !== "directml" || directmlOffered || saved === "directml");
 
 // Saved or edited direct voice settings, as far as RVC reads them. The device is passed on
 // as saved: the worker refuses a name it does not know.

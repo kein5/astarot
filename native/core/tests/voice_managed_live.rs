@@ -52,7 +52,7 @@ fn a_conversion_on_the_managed_route_plays_into_the_vc_input() {
 
     let route = Arc::new(ManagedRoute::new(Arc::new(PipeWireVcDevices::new()), Arc::new(vrct_audio_routing::monitor::open_monitor_output)));
     let worker = Path::new(env!("CARGO_BIN_EXE_fake-rvc-worker"));
-    let process = VcProcess::rvc(&options, worker, route, None).expect("the conversion is made");
+    let process = VcProcess::rvc(&options, worker, None, route, None).expect("the conversion is made");
     process.start(source).expect("the conversion starts");
     let deadline = Instant::now() + Duration::from_secs(15);
     loop {

@@ -252,6 +252,8 @@ package `Microsoft.AI.DirectML`, under the Microsoft Software License Terms for
 DirectML, which allow its use on Windows only and say it may send usage data to
 Microsoft). The app loads one of them instead of the shipped CPU build at start
 when the user chose its device for translation; chat reading then uses it too.
+The RVC worker (`vrct-rvc-worker`) also loads the DirectML build, in its own
+process, when it converts through DirectML.
 No translation model is bundled: the int8 ONNX conversions of M2M100 418M
 (MIT, the default; `kein5/m2m100_418M-onnx-int8`, with the MIT licence text in
 `LICENSE`) and NLLB-200 distilled 600M (CC-BY-NC-4.0;

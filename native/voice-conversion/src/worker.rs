@@ -52,8 +52,12 @@ pub struct RvcOptions {
     pub index: String,
     pub pitch: i64,
     pub index_rate: f64,
-    /// `auto`, `cuda` or `cpu` (the worker's `--device`).
+    /// `auto`, `cuda`, `directml` or `cpu` (the worker's `--device`).
     pub device: String,
+    /// The `lib/` of the app's DirectML runtime (the DirectML build of ONNX Runtime and
+    /// `DirectML.dll`) when it is set up: the worker's `--directml`. The owner finds it; a start
+    /// never names it.
+    pub directml: Option<PathBuf>,
     /// CPU threads per network; 0 lets the worker choose.
     pub threads: u32,
     /// The causal input high-pass (`--highpass on|off`).
@@ -63,8 +67,8 @@ pub struct RvcOptions {
     pub block_ms: u32,
 }
 
-/// What the worker's `--device` takes.
-pub const DEVICES: [&str; 3] = ["auto", "cuda", "cpu"];
+/// What the worker's `--device` takes. `directml` runs on Windows with the DirectML runtime.
+pub const DEVICES: [&str; 4] = ["auto", "cuda", "directml", "cpu"];
 /// The most CPU threads per network a start may ask for.
 pub const MAX_THREADS: u32 = 64;
 /// The block of a start that does not choose one (#531). On the GPU it adds about 60 ms less
@@ -108,6 +112,10 @@ pub fn arguments(options: &RvcOptions, rate_text: &str, session: &str) -> Vec<St
     // Without `--threads` the worker picks the count for the device it ends up on.
     if options.threads > 0 {
         args.extend(["--threads".into(), options.threads.to_string()]);
+    }
+    // Given whenever it is set up: `auto` may convert there too.
+    if let Some(directml) = &options.directml {
+        args.extend(["--directml".into(), directml.to_string_lossy().into_owned()]);
     }
     args
 }
@@ -239,8 +247,24 @@ mod tests {
     }
 
     #[test]
+    fn the_directml_runtime_reaches_the_worker_when_the_owner_found_it() {
+        let mut value = base();
+        value["device"] = json!("directml");
+        let (mut options, rate) = rvc_options(&value).unwrap();
+        assert_eq!((options.device.as_str(), options.directml.as_deref()), ("directml", None), "a start never names the folder");
+        assert!(!arguments(&options, &rate, "s").contains(&"--directml".to_string()));
+        options.directml = Some(PathBuf::from("/state/vc_runtimes/onnxruntime-directml/lib"));
+        let args = arguments(&options, &rate, "s");
+        assert_eq!(args[args.len() - 2..], ["--directml", "/state/vc_runtimes/onnxruntime-directml/lib"]);
+        // A start cannot sneak the folder in.
+        let mut sneaky = base();
+        sneaky["directml"] = json!("/elsewhere");
+        assert_eq!(rvc_options(&sneaky).unwrap_err(), "vc_options_invalid");
+    }
+
+    #[test]
     fn bad_worker_choices_are_refused() {
-        for (key, bad) in [("device", json!("gpu")), ("device", json!(null)), ("threads", json!(-1)), ("threads", json!(65)), ("threads", json!(1.5)),
+        for (key, bad) in [("device", json!("gpu")), ("device", json!(null)), ("device", json!("DirectML")), ("threads", json!(-1)), ("threads", json!(65)), ("threads", json!(1.5)),
             ("highpass", json!("on")), ("other", json!(1)), ("block_ms", json!(30)), ("block_ms", json!(0)), ("block_ms", json!(220)),
             ("block_ms", json!(40.0)), ("block_ms", json!("40")), ("block_ms", json!(null))]
         {

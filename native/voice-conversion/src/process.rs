@@ -298,7 +298,7 @@ pub fn rvc_options(options: &Value) -> Result<(RvcOptions, String), String> {
         return Err(invalid());
     }
     let rate = rate_text(index_rate, !rate.is_f64());
-    Ok((RvcOptions { runtime: PathBuf::from(runtime), model: PathBuf::from(model), index, pitch, index_rate, device, threads, highpass, block_ms }, rate))
+    Ok((RvcOptions { runtime: PathBuf::from(runtime), directml: None, model: PathBuf::from(model), index, pitch, index_rate, device, threads, highpass, block_ms }, rate))
 }
 
 fn resolve(path: &Path) -> Option<PathBuf> {
@@ -323,8 +323,10 @@ pub struct VcProcess {
 
 impl VcProcess {
     /// Check the files before anything starts (`RVCProcess.__init__`): the worker, the runtime
-    /// the worker loads and the user's model and index.
-    pub fn rvc(options: &Value, worker: &Path, route: Arc<dyn VcRoute>, monitor: Option<MonitorSpec>) -> Result<Self, String> {
+    /// the worker loads and the user's model and index. `directml` is the `lib/` of the app's
+    /// DirectML runtime when it is set up ([`crate::runtime::directml_libraries`]): the worker
+    /// is told where it is, and DirectML cannot be chosen without it.
+    pub fn rvc(options: &Value, worker: &Path, directml: Option<&Path>, route: Arc<dyn VcRoute>, monitor: Option<MonitorSpec>) -> Result<Self, String> {
         let (mut options, rate) = rvc_options(options)?;
         if !worker.is_file() {
             return Err("vc_engine_unavailable".into());
@@ -336,6 +338,10 @@ impl VcProcess {
         }
         if !runtime_complete(&options.runtime) {
             return Err("vc_runtime_missing".into());
+        }
+        options.directml = directml.map(Path::to_path_buf);
+        if options.device == "directml" && options.directml.is_none() {
+            return Err("vc_directml_missing".into());
         }
         let session = new_session();
         let args = arguments(&options, &rate, &session);
@@ -1218,13 +1224,42 @@ mod tests {
         let route = || -> std::sync::Arc<dyn super::VcRoute> { std::sync::Arc::new(Unbound) };
         let code = |result: Result<super::VcProcess, String>| result.err().unwrap_or_default();
         // No worker.
-        assert_eq!(code(super::VcProcess::rvc(&options(&model, ""), &worker, route(), None)), "vc_engine_unavailable");
+        assert_eq!(code(super::VcProcess::rvc(&options(&model, ""), &worker, None, route(), None)), "vc_engine_unavailable");
         std::fs::write(&worker, b"worker").unwrap();
         // No model, no index file, then no runtime.
-        assert_eq!(code(super::VcProcess::rvc(&options(&dir.join("absent.pth"), ""), &worker, route(), None)), "vc_runtime_missing");
+        assert_eq!(code(super::VcProcess::rvc(&options(&dir.join("absent.pth"), ""), &worker, None, route(), None)), "vc_runtime_missing");
         let absent_index = dir.join("absent.index").to_string_lossy().into_owned();
-        assert_eq!(code(super::VcProcess::rvc(&options(&model, &absent_index), &worker, route(), None)), "vc_runtime_missing");
-        assert_eq!(code(super::VcProcess::rvc(&options(&model, ""), &worker, route(), None)), "vc_runtime_missing");
+        assert_eq!(code(super::VcProcess::rvc(&options(&model, &absent_index), &worker, None, route(), None)), "vc_runtime_missing");
+        assert_eq!(code(super::VcProcess::rvc(&options(&model, ""), &worker, None, route(), None)), "vc_runtime_missing");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn directml_needs_its_runtime_and_the_worker_is_told_where_it_is() {
+        let dir = std::env::temp_dir().join(format!("vrct-vc-directml-{}", std::process::id()));
+        let runtime = dir.join("runtime");
+        for name in crate::worker::ASSETS {
+            let path = runtime.join("assets").join(name);
+            std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+            std::fs::write(path, b"asset").unwrap();
+        }
+        std::fs::create_dir_all(runtime.join("lib")).unwrap();
+        std::fs::write(runtime.join("lib").join(crate::worker::ort_library()), b"ort").unwrap();
+        let (worker, model) = (dir.join("worker"), dir.join("voice.pth"));
+        std::fs::write(&worker, b"worker").unwrap();
+        std::fs::write(&model, b"model").unwrap();
+        let options = |device: &str| serde_json::json!({ "engine": "rvc", "runtime": runtime, "model": model, "index": "", "pitch": 0, "index_rate": 0, "device": device });
+        let route = || -> std::sync::Arc<dyn super::VcRoute> { std::sync::Arc::new(Unbound) };
+        let lib = dir.join("onnxruntime-directml").join("lib");
+        // Asked for without the DirectML runtime: refused before the worker starts.
+        assert_eq!(super::VcProcess::rvc(&options("directml"), &worker, None, route(), None).err().as_deref(), Some("vc_directml_missing"));
+        // Every other device starts without it, and any start is told where it is when it is set up.
+        for device in ["auto", "cuda", "cpu", "directml"] {
+            assert!(super::VcProcess::rvc(&options(device), &worker, Some(&lib), route(), None).is_ok(), "{device}");
+        }
+        for device in ["auto", "cuda", "cpu"] {
+            assert!(super::VcProcess::rvc(&options(device), &worker, None, route(), None).is_ok(), "{device}");
+        }
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

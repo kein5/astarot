@@ -84,6 +84,10 @@ run on the CPU.
 | `load-dynamic` | no ONNX Runtime at build time: `backend::load_runtime(path)` loads `libonnxruntime.so` / `onnxruntime.dll` at run time |
 | `worker` | `load-dynamic` + `cuda`, and the `vrct-rvc-worker` binary |
 
+On Windows the DirectML provider's Rust side is always built in (`ort`'s `directml` feature as a
+Windows dependency, as in `native/translate-onnx`); whether it runs depends on the ONNX Runtime
+library that is loaded (the DirectML build).
+
 The library and the process's one environment come from `native/onnx-runtime`
 (`vrct-onnx-runtime`), the crate the application's chat reading and local translation use
 too. `backend::load_runtime(path)` loads exactly that file (`ORT_DYLIB_PATH` is ignored) and
@@ -426,8 +430,8 @@ mute and the speech-through-conversion path are the same as with the external ru
 
 ```sh
 python tools/build_rvc_worker.py   # cargo build --no-default-features --features worker → build/vrct-rvc-worker
-vrct-rvc-worker --runtime <dir> --model voice.pth --session <32 hex> [--index f.index] [--pitch n] [--index-rate r] [--device auto|cuda|cpu] [--block-ms 40]
-vrct-rvc-worker --runtime <dir> --probe [--device cuda|cpu|auto]   # exit 0 runs; 3 the GPU cannot be used (auto: the CPU can); 4 broken
+vrct-rvc-worker --runtime <dir> --model voice.pth --session <32 hex> [--index f.index] [--pitch n] [--index-rate r] [--device auto|cuda|directml|cpu] [--directml <dir>] [--block-ms 40]
+vrct-rvc-worker --runtime <dir> --probe [--device cuda|directml|cpu|auto]   # exit 0 runs; 3 the GPU cannot be used (auto: the CPU can); 4 broken
 ```
 
 - **Runtime folder** (set up by `native/voice-conversion/src/runtime.rs` after consent; up to
@@ -439,13 +443,25 @@ vrct-rvc-worker --runtime <dir> --probe [--device cuda|cpu|auto]   # exit 0 runs
   one: only ONNX Runtime's CPU build. `assets/` holds `hubert_base` and `rmvpe.onnx`. The
   worker loads the CUDA libraries from `lib/` itself, then ONNX Runtime, so nothing depends
   on the system's library path.
-- **Where it converts** (`--device`, default `auto`): on the GPU when the runtime has the
-  CUDA provider, its libraries load and a CUDA session runs; otherwise on the CPU. The
-  `ready` packet says which (`profile`: `low` for the GPU as before, `cpu`) and the delay
-  the worker adds (`latency_ms`); the application shows both. `--device cuda` keeps the
-  strict form (`vc_gpu_unavailable`). Missing or broken libraries are
-  `vc_runtime_incomplete`.
-- **GPU layout**: one stream block per packet, a crossfade of half the block searched over
+- **DirectML folder** (Windows, `--directml`): the `lib/` of the app's "ONNX Runtime ·
+  DirectML" runtime, shared with the local translation (`onnxruntime-directml`: ONNX Runtime
+  1.24.4, the last DirectML build, and DirectML 1.15.4, from NuGet after consent). The owner
+  passes it at every start when it is set up; a start cannot name it. A process loads one
+  ONNX Runtime, so the worker decides which folder to load before it loads anything, and
+  loads `DirectML.dll` first. The DirectML provider takes the GPU DirectML ranks highest for
+  performance (`HighPerformance`, GPUs only), so a laptop's discrete GPU over its integrated
+  one; memory patterns and parallel execution are off, as DirectML requires.
+- **Where it converts** (`--device`, default `auto`): `auto` takes CUDA when the runtime has
+  the CUDA provider and its libraries load, else DirectML when a DirectML folder is there,
+  else the CPU; a GPU whose check graph cannot run then leaves the CPU of the library
+  already loaded. On a PC with both, CUDA comes first, as before DirectML was offered. The
+  `ready` packet says which (`profile`: `low` for a GPU, CUDA or DirectML, `cpu`) and the
+  delay the worker adds (`latency_ms`); the application shows both. `--device cuda` and
+  `--device directml` keep the strict form (`vc_gpu_unavailable`,
+  `vc_directml_unavailable`). Missing or broken libraries are `vc_runtime_incomplete`. The
+  setup probes the DirectML runtime with `--device auto` on DirectML (exit 3 and a warning
+  when no GPU can be used through it).
+- **GPU layout** (CUDA and DirectML): one stream block per packet, a crossfade of half the block searched over
   10 ms, 2 s of context, every packet converted before it is answered. At 80 ms this is the
   external runtime's profile (`Layout { block: 8, crossfade: 4, search: 1, extra: 200 }`,
   added delay 52 ms: crossfade, search and the two rate conversions); at 40 ms it is

@@ -243,6 +243,7 @@ impl Voice {
             let platform = platform.clone();
             let worker = platform.rvc_worker(&app_dir);
             let settings = weak.clone();
+            let runtimes_root = env.state_dir.join("vc_runtimes");
             Arc::new(move |options, monitor, output| {
                 // Seed-VC ran on Python and ended with it; a start of it fails as one whose
                 // runtime is missing did.
@@ -262,7 +263,10 @@ impl Voice {
                     }
                 };
                 let options = with_block(options, settings.upgrade().map(|core| core.config().get("RVC_BLOCK_MS")));
-                Ok(Box::new(VcProcess::rvc(&options, &worker, route, monitor)?) as Box<dyn vrct_voice_conversion::DirectBackend>)
+                // The DirectML runtime (shared with the translation), looked up at each start: it
+                // may have been set up since the app started.
+                let directml = vrct_voice_conversion::runtime::directml_libraries(&runtimes_root).map(|found| found.lib);
+                Ok(Box::new(VcProcess::rvc(&options, &worker, directml.as_deref(), route, monitor)?) as Box<dyn vrct_voice_conversion::DirectBackend>)
             })
         };
         let direct = Arc::new(DirectVoice::new(passthrough, Some(converted)));
