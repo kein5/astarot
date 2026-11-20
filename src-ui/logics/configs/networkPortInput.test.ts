@@ -39,6 +39,7 @@ async function settingsHarness({ host = "127.0.0.1" } = {}) {
     }
     Object.assign(advanced, {
         currentWebsocketHost: { data: host }, currentWebsocketAuthToken: { data: "test+token&あ" },
+        currentEnableObsBrowserSource: { state: "ok", data: true },
         currentWebsocketTls: { state: "ok", data: { cert_file: "C:/certs/vox.pem", key_file: "C:/certs/vox-key.pem" } },
         setWebsocketTls: async (value: unknown) => { sent.push(["WebsocketTls", value]); return { status: 200, result: value }; },
     });

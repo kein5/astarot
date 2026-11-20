@@ -81,7 +81,10 @@ export const AdvancedSettings = () => {
             {/* The GPU check, next to the usage data: both say what leaves the PC (#288). It
                 sends nothing itself; the user reads the report and may send it on GitHub. */}
             <div>
-                <SectionLabelComponent label={t("config_page.advanced_settings.section_label_gpu_check")} />
+                {/* What the check is for, how it measures and what its result holds are the heading's
+                    hint; what is known before pressing stays under it (#614). */}
+                <SectionLabelComponent label={t("config_page.advanced_settings.section_label_gpu_check")}
+                    desc={["desc", "what", "privacy"].map(name => t(`config_page.advanced_settings.gpu_check.${name}`)).join("\n")} />
                 <GpuCheck />
             </div>
             {/* Where messages go to VRChat: set once, if ever, like the other connections below.
@@ -393,6 +396,8 @@ const WebsocketUrlContainer = () => {
             // The address in use, not a description: it stays on screen.
             desc={shown}
             keep_desc
+            // The label names the address; the button says what pressing does.
+            action_label={t("config_page.advanced_settings.websocket_url.copy")}
             IconComponent={CopyThinSvg}
             ClickedIconComponent={CheckMarkSvg}
             clicked_duration={1000}
@@ -477,7 +482,7 @@ const EnableObsBrowserSourceContainer = () => {
 const ObsBrowserSourceUrlContainer = () => {
     const { t } = useI18n();
     const { copyToClipboard } = useCopyToClipboard();
-    const { currentWebsocketHost, currentObsBrowserSourcePort, currentWebsocketAuthToken } = useAdvancedSettings();
+    const { currentWebsocketHost, currentObsBrowserSourcePort, currentWebsocketAuthToken, currentEnableObsBrowserSource } = useAdvancedSettings();
 
     const { url, shown } = buildObsBrowserSourceUrl(
         currentWebsocketHost.data, currentObsBrowserSourcePort.data, currentWebsocketAuthToken.data,
@@ -490,16 +495,18 @@ const ObsBrowserSourceUrlContainer = () => {
                 // The address in use, not a description: it stays on screen.
                 desc={shown}
                 keep_desc
+                action_label={t("config_page.advanced_settings.obs_browser_source_url.copy")}
                 IconComponent={CopyThinSvg}
                 ClickedIconComponent={CheckMarkSvg}
                 clicked_duration={1000}
                 onclickFunction={() => copyToClipboard(url)}
             />
-            <Description
+            {/* The address changed for those who use the source: said only while it is on. */}
+            {currentEnableObsBrowserSource.data === true && <Description
                 text={t("config_page.advanced_settings.obs_browser_source_url.desc")}
                 className={styles.obs_url_description}
                 fold={false}
-            />
+            />}
         </>
     );
 };

@@ -4,15 +4,19 @@ import { drawWith, hooks, loadModule, nodesIn } from "../../../../../../logics/t
 import type { TreeNode } from "../../../../../../logics/test/hookHarness.ts";
 import * as networkPortInput from "../../../../../../logics/configs/networkPortInput.ts";
 import * as obsBrowserSourceUrl from "../../../../../../logics/configs/obsBrowserSourceUrl.ts";
+import { localeAt, readLocale } from "../../../../../../logics/test/locales.ts";
 
 // #614: the advanced settings show their rows' general descriptions as hints. What is read before
 // acting stays on screen: the addresses in use, and the sentence that says what the usage data sends.
 
-// Settings as the page reads them: every current value is there, every action does nothing.
-const settings = () => new Proxy({}, { get: (_, key) => String(key).startsWith("current") ? { state: "ok", data: null } : () => {} });
+// Settings as the page reads them: every current value is there (null unless the test gives one),
+// every action does nothing.
+const settingsWith = (values: Record<string, unknown>) => () => new Proxy({}, { get: (_, key) =>
+    String(key).startsWith("current") ? { state: "ok", data: values[String(key)] ?? null } : () => {} });
 
 // The page with its own containers drawn, down to the rows (the templates, kept as names).
-async function rows() {
+async function rows(values: Record<string, unknown> = {}) {
+    const settings = settingsWith(values);
     const runtime = hooks();
     const module = await loadModule<typeof import("./AdvancedSettings.tsx")>(new URL("./AdvancedSettings.tsx", import.meta.url), runtime, {
         "@logics_common": { useCopyToClipboard: () => ({ copyToClipboard() {} }), useOpenFolder: settings, useNotificationStatus: () => ({ showNotification_Success() {} }) },
@@ -72,14 +76,38 @@ test("the general descriptions are left to become hints: the rows that carry one
     ]);
 });
 
-test("the OSC heading says what the destination is, and the notes that are not rows stay as they were", async () => {
+test("the OSC and GPU check headings carry what their sections are as hints; the usage data's contents stay", async () => {
     const { ofType } = await rows();
     const described = ofType("section-label").filter(node => node.props.desc !== undefined);
-    assert.deepEqual(described.map(node => [node.props.label, node.props.desc]),
-        [[key("section_label_osc"), "config_page.vrchat.osc_pointer.desc"]], "only the OSC heading has a description");
-    // The note under the OBS address is drawn by itself and unfolded, with or without hints.
-    assert.deepEqual(ofType("description").map(note => [note.props.text, note.props.fold]), [[key("obs_browser_source_url.desc"), false]]);
+    assert.deepEqual(described.map(node => [node.props.label, node.props.desc]), [
+        // What the check is for, how it measures and what its result holds, one to a line.
+        [key("section_label_gpu_check"), [key("gpu_check.desc"), key("gpu_check.what"), key("gpu_check.privacy")].join("\n")],
+        [key("section_label_osc"), "config_page.vrchat.osc_pointer.desc"],
+    ], "no other heading has a description");
     // The GPU check and the usage data's contents are parts of their own.
     assert.equal(ofType("gpu-check").length, 1);
     assert.equal(ofType("telemetry-contents").length, 1);
+});
+
+test("the note that the OBS address changed is said only while the OBS browser source is on", async () => {
+    const note = (found: Awaited<ReturnType<typeof rows>>) => found.ofType("description").map(node => [node.props.text, node.props.fold]);
+    assert.deepEqual(note(await rows()), [], "not while the setting has not arrived");
+    assert.deepEqual(note(await rows({ currentEnableObsBrowserSource: false })), []);
+    // Drawn by itself and unfolded, so the page's hints do not reach it.
+    assert.deepEqual(note(await rows({ currentEnableObsBrowserSource: true })), [[key("obs_browser_source_url.desc"), false]]);
+});
+
+test("the two addresses are named by what they are; their buttons say that pressing copies", async () => {
+    const { rows: all } = await rows();
+    const copy = all.filter(row => row.props.action_label !== undefined).map(row => [row.props.label, row.props.action_label]);
+    assert.deepEqual(copy, [[key("websocket_url.label"), key("websocket_url.copy")], [key("obs_browser_source_url.label"), key("obs_browser_source_url.copy")]]);
+    for (const language of ["en", "ja"]) {
+        const strings = readLocale(language);
+        for (const name of ["websocket_url", "obs_browser_source_url"]) {
+            const label = localeAt(strings, `${key(name)}.label`), action = localeAt(strings, `${key(name)}.copy`);
+            assert.ok(typeof label === "string" && typeof action === "string");
+            assert.doesNotMatch(label, /[（(]/, `${language}: the name carries no instruction`);
+            assert.ok(action.includes(label), `${language}: the button names what it copies`);
+        }
+    }
 });

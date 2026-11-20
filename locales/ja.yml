@@ -1167,8 +1167,9 @@ config_page:
         section_label_gpu_check: "GPUの動作の報告"
         gpu_check:
             desc: "読み上げと音声認識がお使いのGPUで正しく動くかを確かめて、その結果を開発者に報告できます。開発者の手元にないGPU、とくにAMDのGPUの結果を集めています。"
-            what: "ダウンロード済みの読み上げと音声認識のモデルで、決まった短い文をCPUと各GPUで処理し、かかった時間と結果のずれを計ります。数分かかることがあります。マイクとスピーカーとVRChatは使わず、モデルもダウンロードしません。"
-            privacy: "結果に入るのはアプリとOSのバージョン、CPUとGPUの名前、メモリの量、GPUのドライバのバージョン、モデルの名前、計った時間とずれだけです。ユーザー名やファイルの場所、読み上げた文や聞き取った文は入りません。結果は自動では送りません。全文を確かめてから送るかどうかを選べます。"
+            what: "ダウンロード済みの読み上げと音声認識のモデルで、決まった短い文をCPUと各GPUで処理し、かかった時間と結果のずれを計ります。モデルはダウンロードしません。"
+            privacy: "結果に入るのはアプリとOSのバージョン、CPUとGPUの名前、メモリの量、GPUのドライバのバージョン、モデルの名前、計った時間とずれだけです。ユーザー名やファイルの場所、読み上げた文や聞き取った文は入りません。"
+            before: "数分かかることがあります。マイクとスピーカーとVRChatは使いません。結果は自動では送らず、全文を確かめてから送るかどうかを選べます。"
             start: "確かめる"
             stop: "止める"
             step_environment: "GPUの一覧を調べています…"
@@ -1227,14 +1228,16 @@ config_page:
         websocket_port:
             label: "WebSocketのポート"
         websocket_url:
-            label: "WebSocket URL（クリックでコピー）"
+            label: "WebSocket URL"
+            copy: "WebSocket URLをコピー"
         obs_browser_source:
             section_label: "OBSブラウザソース"
         enable_obs_browser_source:
             label: "OBSブラウザソースを有効化"
             desc: "OBS（ブラウザソース）向けに翻訳を表示するオーバーレイページをホストし、一定時間後にフェードアウトします。"
         obs_browser_source_url:
-            label: "OBS URL（クリックでコピー）"
+            label: "OBS URL"
+            copy: "OBS URLをコピー"
             desc: "OBSのURLにキーが含まれるようになりました。もう一度コピーしてOBSのブラウザソースのURLを更新してください。"
         obs_browser_source_port:
             label: "OBSポート"
