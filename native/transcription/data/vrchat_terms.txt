@@ -1,0 +1,66 @@
+# The built-in VRChat vocabulary of the term dictionary (#446, #792). The app embeds this file
+# when it is built (`speechcpp::vrchat_terms`); a term is added or its readings put right by
+# editing this file, without touching the code.
+#
+# One term a line: `written=reading,reading`, the same form as the user's own terms and the
+# settings' "add several terms" field. The readings may be left out (`ワールド`). Lines that start
+# with `#` and blank lines are skipped.
+#
+# The rules of a user's term hold here too, and the tests check them
+# (native/core/src/voice_settings.rs, `parse_term`):
+# - the written form: at most 48 characters, without `,` or `=`;
+# - at most 8 readings, each at most 32 characters, without `,` or `=`;
+# - no written form twice, with letter case ignored.
+#
+# The first reading is the one the text to speech reads (#446).
+
+VRChat=ブイアールチャット,ブイチャ
+VRC=ブイアールシー
+インスタンス
+ワールド
+アバター
+ポータル
+ミラー
+フレンド
+フレンド申請=ふれんどしんせい
+ブロック
+ミュート
+ジョイン
+グループ
+Public=パブリック
+Friends+=フレンズプラス
+Invite+=インバイトプラス
+トラストランク
+Visitor=ビジター
+New User=ニューユーザー
+Known User=ノウンユーザー
+Trusted User=トラステッドユーザー
+Udon
+UdonSharp=ウドンシャープ
+VRChat SDK
+SDK=エスディーケー
+VCC=ブイシーシー
+Creator Companion=クリエイターコンパニオン
+Unity=ユニティ
+OSC=オーエスシー
+PhysBones=フィズボーン
+Expression Menu=エクスプレッションメニュー
+SteamVR=スチームブイアール
+Quest=クエスト
+PCVR=ピーシーブイアール
+Index=インデックス
+ベースステーション
+トラッカー
+フルトラ
+フルトラッキング
+BOOTH
+VRM=ブイアールエム
+Discord=ディスコード
+Vket=ブイケット
+集会=しゅうかい
+お砂糖=おさとう
+無言勢=むごんぜい
+Quest勢=くえすとぜい
+PC勢=ぴーしーぜい
+デスクトップ勢=ですくとっぷぜい
+改変=かいへん

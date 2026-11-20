@@ -318,6 +318,22 @@ pub fn normalize_direct(value: &Value) -> Option<Value> {
 mod tests {
     use super::*;
 
+    // #792: the built-in terms live in a data file (vrct-transcription's data/vrchat_terms.txt).
+    // Each line keeps the rules of a user's term and is already in its canonical form, and no
+    // written form is there twice: an edit of the file that breaks them fails here. How many
+    // there are is not held to a number: a longer list only loses its last terms to the cap of
+    // the merge when the user has many of their own.
+    #[test]
+    fn the_built_in_terms_keep_the_rules_of_a_term() {
+        let terms = vrct_transcription::speechcpp::vrchat_terms();
+        assert!(!terms.is_empty());
+        let mut seen = std::collections::HashSet::new();
+        for term in terms {
+            assert_eq!(parse_term(&json!(term)).as_deref(), Ok(term.as_str()), "{term} is a canonical term");
+            assert!(seen.insert(fold(written_form(term))), "{term} is there once");
+        }
+    }
+
     #[test]
     fn terms_are_canonical() {
         assert_eq!(parse_term(&json!("  Avatar   Name = あ , い ")).unwrap(), "Avatar Name=あ,い");
