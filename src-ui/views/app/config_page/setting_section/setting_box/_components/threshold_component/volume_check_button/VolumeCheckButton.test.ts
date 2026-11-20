@@ -1,14 +1,19 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import { hooks, loadModule, find } from "../../../../../../../../logics/test/hookHarness.ts";
+import type { VolumeCheckButtonProps } from "./VolumeCheckButton.tsx";
 
 test("holding Enter or Space toggles the volume check once, and a pending check ignores presses", async () => {
-    const runtime = hooks(), calls = [];
-    const { VolumeCheckButton } = await loadModule(new URL("./VolumeCheckButton.tsx", import.meta.url), runtime);
-    const props = { isChecking: { state: "ok", data: false }, SvgComponent: () => null,
+    const runtime = hooks(), calls: string[] = [];
+    const { VolumeCheckButton } = await loadModule<typeof import("./VolumeCheckButton.tsx")>(new URL("./VolumeCheckButton.tsx", import.meta.url), runtime);
+    const props: VolumeCheckButtonProps = { isChecking: { state: "ok", data: false }, SvgComponent: () => null,
         startFunction: () => calls.push("start"), stopFunction: () => calls.push("stop") };
-    const button = () => find(runtime.render(VolumeCheckButton.type, props), node => node.props?.role === "button");
-    const press = (key, repeat = false) => button().props.onKeyDown({ key, repeat, preventDefault() {} });
+    const button = () => {
+        const node = find(runtime.render(VolumeCheckButton.type, props), node => node.props?.role === "button");
+        assert.ok(node);
+        return node;
+    };
+    const press = (key: string, repeat = false) => button().props.onKeyDown({ key, repeat, preventDefault() {} });
 
     press("Enter");
     for (let i = 0; i < 5; i++) press("Enter", true);

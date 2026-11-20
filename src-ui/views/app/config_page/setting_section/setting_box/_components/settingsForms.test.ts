@@ -1,49 +1,84 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
+import type { ReactNode } from "react";
 import clsx from "clsx";
 import { rebaseDraft } from "../../../../../../logics/voice/draftRebase.ts";
 import { changedPaths } from "../../../../../../logics/voice/saveBar.ts";
-import { hooks, loadModule, find, stubGlobals, eventTarget } from "../../../../../../logics/test/hookHarness.ts";
+import { hooks, loadModule, find, stubGlobals, eventTarget, unchecked } from "../../../../../../logics/test/hookHarness.ts";
+import type { TreeNode } from "../../../../../../logics/test/hookHarness.ts";
 
-const all = (tree, predicate) => {
-    const nodes = [];
+const all = (tree: unknown, predicate: (node: TreeNode) => unknown) => {
+    const nodes: TreeNode[] = [];
     find(tree, node => { if (predicate(node)) nodes.push(node); return false; });
     return nodes;
 };
-const key = name => ({ key: name, nativeEvent: {}, defaultPrevented: false,
+const key = (name?: string) => ({ key: name, nativeEvent: {}, defaultPrevented: false,
     preventDefault() { this.defaultPrevented = true; }, stopPropagation() {} });
-const focusNode = document => ({ focus() { document.activeElement = this; }, blur() { document.activeElement = document.body; } });
+interface FakeDocument {
+    body: object;
+    activeElement?: unknown;
+}
+const focusNode = (document: FakeDocument) => ({ focus() { document.activeElement = this; }, blur() { document.activeElement = document.body; } });
+
+// The node a test reads: one that is missing fails the test where it is read.
+const found = (node: TreeNode | null) => { assert.ok(node); return node; };
+// An element's ref, which React 18's element type leaves out. Each helper stops with a TypeError
+// where reading the ref the old way did.
+const refOf = (node: TreeNode): unknown => Reflect.get(node, "ref");
+const setRef = (node: TreeNode, value: unknown) => {
+    const ref = refOf(node);
+    if (typeof ref !== "object" || ref === null) throw new TypeError("The element has no ref object");
+    Reflect.set(ref, "current", value);
+};
+const callRef = (node: TreeNode, value: unknown) => {
+    const ref = refOf(node);
+    if (typeof ref !== "function") throw new TypeError("The element's ref is not a function");
+    ref(value);
+};
+// A function component found in a rendered tree, called with the props it was given.
+const call = (node: TreeNode) => unchecked<(props: unknown) => ReactNode>(node.type)(node.props);
+// _Entry is a forwardRef: React 18's types leave out the render function it wraps.
+const entryRender = (entry: unknown) => unchecked<(props: unknown, ref: null) => ReactNode>(Reflect.get(Object(entry), "render"));
+
+interface Row {
+    word: unknown;
+    key: string | null;
+    button: TreeNode;
+    node: ReturnType<typeof focusNode>;
+    rendered: ReactNode;
+}
 
 for (const index of [0, 1, 2]) test(`word filter names its delete buttons and focuses a neighbour after deleting index ${index}`, async t => {
-    const runtime = hooks(), document = { body: {}, activeElement: null };
+    const runtime = hooks(), document: FakeDocument = { body: {}, activeElement: null };
     t.onTestFinished(() => runtime.unmount());
-    stubGlobals(t, { document, window: eventTarget(), requestAnimationFrame: fn => fn() });
-    const { useSettingsDraft } = await loadModule(new URL("../../../../../../logics/voice/useSettingsDraft.tsx", import.meta.url), runtime, {
+    stubGlobals(t, { document, window: eventTarget(), requestAnimationFrame: (fn: () => void) => fn() });
+    const { useSettingsDraft } = await loadModule<typeof import("../../../../../../logics/voice/useSettingsDraft.tsx")>(new URL("../../../../../../logics/voice/useSettingsDraft.tsx", import.meta.url), runtime, {
         "./draftRebase": { rebaseDraft }, "./saveBar": { changedPaths, setSaveBarEntry() {} },
     });
+    type WordList = { data: string[] };
     const state = { currentMicWordFilterList: { data: ["alpha", "日本語", "gamma"] },
-        updateMicWordFilterList(fn) { this.currentMicWordFilterList.data = fn(this.currentMicWordFilterList); },
+        updateMicWordFilterList(fn: (current: WordList) => string[]) { this.currentMicWordFilterList.data = fn(this.currentMicWordFilterList); },
         setMicWordFilterList: () => {} };
     // The production hook's functions are destructured, so the fake uses closures too.
     state.updateMicWordFilterList = fn => { state.currentMicWordFilterList.data = fn(state.currentMicWordFilterList); };
     const Entry = () => null;
-    const { WordFilter } = await loadModule(new URL("./word_filter/WordFilter.tsx", import.meta.url), runtime, {
+    const { WordFilter } = await loadModule<typeof import("./word_filter/WordFilter.tsx")>(new URL("./word_filter/WordFilter.tsx", import.meta.url), runtime, {
         "../../../../../../../logics/voice/useSettingsDraft": { useSettingsDraft },
         "@logics_configs": { useTranscription: () => state },
         "@store": { useStore_IsOpenedMicWordFilterList: () => ({ currentIsOpenedMicWordFilterList: { data: true } }) },
-        "@useI18n": { useI18n: () => ({ t: (name, values) => values?.word ? `Remove ${values.word}` : name }) },
+        "@useI18n": { useI18n: () => ({ t: (name: string, values?: { word?: string }) => values?.word ? `Remove ${values.word}` : name }) },
         "../_atoms/_entry/_Entry": { _Entry: Entry },
     });
-    const buttons = new Map(), entryNode = focusNode(document);
-    let rows;
+    const buttons = new Map<string | null, ReturnType<typeof focusNode>>(), entryNode = focusNode(document);
+    let rows: Row[] = [];
     const render = () => runtime.render(WordFilter, {}, tree => {
-        find(tree, node => node.type === Entry).ref.current = entryNode;
+        setRef(found(find(tree, node => node.type === Entry)), entryNode);
         rows = all(tree, node => node.props?.deleteAction).map(row => {
-            const rendered = row.type(row.props);
-            const button = find(rendered, node => node.type === "button");
+            const rendered = call(row);
+            const button = found(find(rendered, node => node.type === "button"));
             const node = buttons.get(row.key) ?? focusNode(document);
             buttons.set(row.key, node);
-            button.ref(node);
+            callRef(button, node);
             return { word: row.props.value, key: row.key, button, node, rendered };
         });
     });
@@ -55,7 +90,8 @@ for (const index of [0, 1, 2]) test(`word filter names its delete buttons and fo
         assert.equal(row.button.props.children.props["aria-hidden"], "true");
         assert.equal(row.button.props.children.props.focusable, "false");
     }
-    const remove = row => {
+    const remove = (row: Row | undefined) => {
+        assert.ok(row);
         row.node.focus();
         row.button.props.onClick({ currentTarget: row.node });
         document.activeElement = document.body; // Native removal of the focused button.
@@ -68,26 +104,26 @@ for (const index of [0, 1, 2]) test(`word filter names its delete buttons and fo
 });
 
 test("checkbox input stays mounted and focused through pending, including rejection", async t => {
-    const runtime = hooks(), document = { body: {} };
+    const runtime = hooks(), document: FakeDocument = { body: {} };
     stubGlobals(t, { document });
-    const { Checkbox } = await loadModule(new URL("../../../../../common_components/checkbox/Checkbox.tsx", import.meta.url), runtime);
+    const { Checkbox } = await loadModule<typeof import("../../../../../common_components/checkbox/Checkbox.tsx")>(new URL("../../../../../common_components/checkbox/Checkbox.tsx", import.meta.url), runtime);
     let toggles = 0;
     const props = { label: "Show resend button", variable: { state: "ok", data: false }, toggleFunction: () => toggles++ };
     const render = () => runtime.render(Checkbox, props);
-    const original = find(render(), node => node.type === "input");
+    const original = found(find(render(), node => node.type === "input"));
     const focused = focusNode(document); focused.focus();
     original.props.onChange();
     assert.equal(toggles, 1);
     for (const state of ["pending", "ok"]) {
         props.variable.state = state;
-        const tree = render(), input = find(tree, node => node.type === "input");
+        const tree = render(), input = found(find(tree, node => node.type === "input"));
         assert.equal(input.type, original.type);
         assert.equal(input.key, original.key);
         assert.notEqual(input.props.disabled, true);
         assert.equal(input.props["aria-busy"], state === "pending");
         assert.equal(input.props["aria-disabled"], state === "pending");
         // The input remains in the same child slot, immediately before its focus drawing.
-        const label = find(tree, node => node.type === "label");
+        const label = found(find(tree, node => node.type === "label"));
         assert.equal(label.props.children[0].props, input.props);
         assert.equal(label.props.children[1].props.className, "cbx");
         assert.equal(document.activeElement, focused);
@@ -106,14 +142,14 @@ test("checkbox input stays mounted and focused through pending, including reject
 for (const label of ["WebSocket locked by OBS", "Mic mute sync without OSC", "OCR detector not installed"]) {
     test(`unavailable checkbox ignores click, Space and change: ${label}`, async () => {
         const runtime = hooks();
-        const { Checkbox } = await loadModule(new URL("../../../../../common_components/checkbox/Checkbox.tsx", import.meta.url), runtime);
+        const { Checkbox } = await loadModule<typeof import("../../../../../common_components/checkbox/Checkbox.tsx")>(new URL("../../../../../common_components/checkbox/Checkbox.tsx", import.meta.url), runtime);
         let calls = 0;
         const tree = runtime.render(Checkbox, { label, variable: { state: "ok", data: false }, is_available: false,
             "aria-describedby": "warning", toggleFunction: () => calls++ });
-        const input = find(tree, node => node.type === "input");
+        const input = found(find(tree, node => node.type === "input"));
         assert.equal(input.props["aria-disabled"], true);
         assert.equal(input.props["aria-describedby"], "warning");
-        for (const [handler, name] of [["onClick", undefined], ["onKeyDown", " "], ["onKeyDown", "Enter"]]) {
+        for (const [handler, name] of [["onClick", undefined], ["onKeyDown", " "], ["onKeyDown", "Enter"]] as const) {
             const event = key(name); input.props[handler](event); assert.equal(event.defaultPrevented, true);
         }
         input.props.onChange();
@@ -121,23 +157,35 @@ for (const label of ["WebSocket locked by OBS", "Mic mute sync without OSC", "OC
     });
 }
 
+// The props the three fields with a save button are given here.
+interface SaveFieldProps {
+    label: string;
+    variable: string;
+    state: string;
+    "aria-describedby": string;
+    saveFunction: () => unknown;
+    onChangeFunction: () => unknown;
+}
+
 for (const [name, path] of [["EntryWithSaveButton", "entry_with_save_button"], ["AuthKey", "auth_key"], ["ColorEntryWithSaveButton", "color_entry_with_save_button"]]) {
     test(`${name} Enter saves once, keeps focus and guards pending editing`, async t => {
-        const runtime = hooks(), inputRuntime = hooks(), document = { ...eventTarget(), body: {} };
+        const runtime = hooks(), inputRuntime = hooks(), document: FakeDocument = { ...eventTarget(), body: {} };
         stubGlobals(t, { document, window: eventTarget() });
         inputRuntime.api.useImperativeHandle = () => {};
-        const { _Entry } = await loadModule(new URL("./_atoms/_entry/_Entry.tsx", import.meta.url), inputRuntime);
-        const { [name]: Component } = await loadModule(new URL(`./${path}/${name}.tsx`, import.meta.url), runtime, {
+        const { _Entry } = await loadModule<typeof import("./_atoms/_entry/_Entry.tsx")>(new URL("./_atoms/_entry/_Entry.tsx", import.meta.url), inputRuntime);
+        const module = await loadModule(new URL(`./${path}/${name}.tsx`, import.meta.url), runtime, {
             clsx: { clsx }, "../_atoms/_entry/_Entry": { _Entry }, "react-colorful": { HexColorPicker: () => null },
         });
+        // One of the three fields with a save button, picked by name; each takes the props below.
+        const Component = unchecked<(props: SaveFieldProps) => ReactNode>(module[name]);
         let saves = 0, edits = 0;
-        const props = { label: "Field", variable: "", state: "ok", "aria-describedby": "help",
+        const props: SaveFieldProps = { label: "Field", variable: "", state: "ok", "aria-describedby": "help",
             saveFunction: () => saves++, onChangeFunction: () => edits++ };
         const node = focusNode(document); node.focus();
         const render = () => {
-            const entry = find(runtime.render(Component, props), item => item.type === _Entry);
-            if (entry.ref) entry.ref.current = node;
-            return find(inputRuntime.render(p => _Entry.render(p, null), entry.props), item => item.type === "input");
+            const entry = found(find(runtime.render(Component, props), item => item.type === _Entry));
+            if (refOf(entry)) setRef(entry, node);
+            return found(find(inputRuntime.render((p: unknown) => entryRender(_Entry)(p, null), entry.props), item => item.type === "input"));
         };
         let input = render();
         input.props.onKeyDown({ ...key("Enter"), target: node });
@@ -161,14 +209,15 @@ for (const [name, path] of [["EntryWithSaveButton", "entry_with_save_button"], [
 }
 
 test("threshold Enter commits without blur or a duplicate blur-triggered save", async t => {
-    const runtime = hooks(), saves = [], document = { body: {} };
+    const runtime = hooks(), saves: string[] = [], document: FakeDocument = { body: {} };
     stubGlobals(t, { document });
     const Entry = () => null;
-    const { ThresholdEntry } = await loadModule(new URL("./threshold_component/threshold_entry/ThresholdEntry.tsx", import.meta.url), runtime, {
+    const { ThresholdEntry } = await loadModule<typeof import("./threshold_component/threshold_entry/ThresholdEntry.tsx")>(new URL("./threshold_component/threshold_entry/ThresholdEntry.tsx", import.meta.url), runtime, {
         "../../_atoms/_entry/_Entry": { _Entry: Entry },
     });
     const wrapper = ThresholdEntry({ ui_threshold: 120, setThresholdFunction: value => saves.push(value) });
-    const input = runtime.render(wrapper.type, wrapper.props);
+    // The input component the wrapper draws, a function component of ThresholdEntry.tsx.
+    const input = runtime.render(unchecked<(props: unknown) => TreeNode>(wrapper.type), wrapper.props);
     const node = focusNode(document); node.focus();
     input.props.onEnterPressed({ target: node });
     assert.equal(document.activeElement, node);
@@ -178,11 +227,11 @@ test("threshold Enter commits without blur or a duplicate blur-triggered save", 
 
 test("_Entry forwards ARIA relations and Enter ignores IME confirmation", async () => {
     const runtime = hooks(); runtime.api.useImperativeHandle = () => {};
-    const { _Entry } = await loadModule(new URL("./_atoms/_entry/_Entry.tsx", import.meta.url), runtime);
+    const { _Entry } = await loadModule<typeof import("./_atoms/_entry/_Entry.tsx")>(new URL("./_atoms/_entry/_Entry.tsx", import.meta.url), runtime);
     const aria = { "aria-label": "Name", "aria-labelledby": "label", "aria-describedby": "help error",
         "aria-invalid": true, "aria-busy": true, "aria-disabled": true, "aria-controls": "popup", "aria-expanded": false };
     let saves = 0;
-    const input = find(runtime.render(props => _Entry.render(props, null), { ...aria, onEnterPressed: () => saves++ }), node => node.type === "input");
+    const input = found(find(runtime.render((props: unknown) => entryRender(_Entry)(props, null), { ...aria, onEnterPressed: () => saves++ }), node => node.type === "input"));
     for (const [name, value] of Object.entries(aria)) assert.equal(input.props[name], value);
     input.props.onKeyDown({ ...key("Enter"), nativeEvent: { isComposing: true } });
     input.props.onKeyDown({ ...key("Enter"), keyCode: 229 });
