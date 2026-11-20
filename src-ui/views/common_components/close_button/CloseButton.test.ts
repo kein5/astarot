@@ -1,18 +1,15 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { readFileSync } from "node:fs";
 import i18next from "i18next";
-import type { ResourceKey } from "i18next";
-import yaml from "js-yaml";
-import { hooks, loadModule, find, stubGlobals, unchecked } from "../../../logics/test/hookHarness.ts";
+import { hooks, loadModule, find, stubGlobals } from "../../../logics/test/hookHarness.ts";
 import type { TreeNode } from "../../../logics/test/hookHarness.ts";
+import { readLocale } from "../../../logics/test/locales.ts";
 import type { CloseButtonProps } from "./CloseButton.tsx";
 
 for (const language of ["en", "ja"]) {
     test(`${language}: close icon has a localized default, precise overrides and no SVG name`, async () => {
         const translations = i18next.createInstance();
-        // Test data: a locale file, read as the mapping of texts it is.
-        const resource = unchecked<ResourceKey>(yaml.load(readFileSync(new URL(`../../../../locales/${language}.yml`, import.meta.url), "utf8")));
+        const resource = readLocale(language);
         await translations.init({ lng: language, resources: { [language]: { translation: resource } } });
         const runtime = hooks();
         const { CloseButton } = await loadModule<typeof import("./CloseButton.tsx")>(new URL("./CloseButton.tsx", import.meta.url), runtime, {

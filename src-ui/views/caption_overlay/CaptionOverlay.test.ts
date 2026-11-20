@@ -2,28 +2,23 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { test, vi } from "vitest";
 import type { TestContext } from "vitest";
-import { hooks, loadModule, find, stubGlobals, unchecked } from "../../logics/test/hookHarness.ts";
+import { hooks, loadModule, stubGlobals, unchecked, findIn, treeNode } from "../../logics/test/hookHarness.ts";
 import type { TreeNode } from "../../logics/test/hookHarness.ts";
 import { flush } from "../../logics/test/bridgeHarness.ts";
 import * as lines from "../../logics/captionOverlay/lines.ts";
 import * as speakerLabels from "../../logics/common/speakerLabels.ts";
 import type { CaptionOverlayBridge } from "../../logics/captionOverlay/bridge.ts";
 
+// Every node the match picks, with the keys the overlay gave them: nodesIn walks the children
+// through React.Children.toArray, which keys every child, and the line test reads the keys.
 const findAll = (tree: unknown, match: (node: TreeNode) => boolean, found: TreeNode[] = []) => {
+    const node = treeNode(tree);
     if (Array.isArray(tree)) tree.forEach(item => findAll(item, match, found));
-    else if (tree && typeof tree === "object") {
-        // An object in the rendered tree is an element, as find reads it.
-        const node = unchecked<TreeNode>(tree);
+    else if (node) {
         if (match(node)) found.push(node);
         findAll(node.props?.children, match, found);
     }
     return found;
-};
-// A node the test goes on to read: it must be there.
-const found = (tree: unknown, predicate: (node: TreeNode) => boolean) => {
-    const node = find(tree, predicate);
-    assert.ok(node);
-    return node;
 };
 
 async function setup(context: TestContext, snapshot: unknown) {
@@ -33,8 +28,8 @@ async function setup(context: TestContext, snapshot: unknown) {
     const callbacks = { changed: (_event?: unknown): void => { throw new TypeError("callbacks.changed is not a function"); } };
     let clock = 1000, current = snapshot, reads = 0;
     stubGlobals(context, { document: { documentElement: { style: { setProperty: (key: string, value: string) => properties.set(key, value) } } } });
-    // The notice carries nothing, so the test calls the overlay's callback with or without an
-    // event; the bridge's declared callback always takes one.
+    // On purpose: the notice carries nothing, so the test calls the overlay's callback with or
+    // without an event; the bridge's declared callback always takes one.
     const bridge = unchecked<CaptionOverlayBridge>({
         snapshot: async () => { reads++; return current; },
         onChanged: async (callback: (event?: unknown) => void) => { callbacks.changed = callback; return () => removed.push("changed"); },
@@ -50,7 +45,7 @@ async function setup(context: TestContext, snapshot: unknown) {
     return { runtime, render, properties, callbacks, removed,
         texts: () => findAll(render(), node => node.type === "p").map(node => node.props.children),
         lineClasses: () => findAll(render(), node => node.type === "div" && node.key !== null && node.key !== undefined).map(node => node.props.className),
-        container: () => found(render(), node => node.type === "div"),
+        container: () => findIn(render(), node => node.type === "div"),
         advance: (ms: number) => { clock += ms; vi.advanceTimersByTime(ms); },
         set: (next: unknown) => { current = next; },
         get reads() { return reads; },
@@ -174,7 +169,7 @@ test("while Ctrl is held over it the overlay outlines itself and shows the text 
     await flush();
     const [outline] = frame();
     assert.equal(outline.props["aria-hidden"], "true");
-    assert.deepEqual(found(outline, node => node.type === "span").props.children, [32, " px"]);
+    assert.deepEqual(findIn(outline, node => node.type === "span").props.children, [32, " px"]);
     // The captions stay as they were under the outline.
     assert.deepEqual(s.texts(), ["こんにちは"]);
     s.set({ ...base, lines: [line] });

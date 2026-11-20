@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test, vi } from "vitest";
 import type { TestContext } from "vitest";
-import { hooks, loadModule, find, unchecked } from "../../logics/test/hookHarness.ts";
+import { hooks, loadModule, find, unchecked, findIn } from "../../logics/test/hookHarness.ts";
 import type { TreeNode } from "../../logics/test/hookHarness.ts";
 import { flush } from "../../logics/test/bridgeHarness.ts";
 import * as status from "../../logics/companion/status.ts";
@@ -14,12 +14,6 @@ const ready = { ready: true, language: "ja", edge: "right", mic: { on: true, pen
     rvc: { on: false, pending: true }, listening: off, ocr: off,
     menu: { start: "s", stop: "s", panel: "p", main: "m", quit: "q" } };
 
-// A node the test goes on to read: it must be there.
-const found = (tree: unknown, predicate: (node: TreeNode) => boolean) => {
-    const node = find(tree, predicate);
-    assert.ok(node);
-    return node;
-};
 // A callback the handle registers; calling it before that stops with a TypeError.
 const notYet = async (): Promise<void> => { throw new TypeError("the handle has not registered this callback"); };
 
@@ -49,13 +43,13 @@ async function setup(context: TestContext, { layout = { out: true, edge: "right"
     const render = () => runtime.render(CompanionHandle, { bridge });
     render(); await flush(); render();
     const settle = async () => { await flush(); render(); await flush(); render(); };
-    const point = (label: string) => found(render(), node => node.type === "polygon" && node.props["aria-label"] === label);
+    const point = (label: string) => findIn(render(), node => node.type === "polygon" && node.props["aria-label"] === label);
     // A switch's docked label (in the tests a .css.ts class is its own name).
     const dock = () => find(render(), node => node.type === "button" && node.props.className === "dock");
     const shown = () => [...FEATURE_LABELS].filter(label => point(label).props["data-shown"] === true);
     // The pointer rests on a triangle (or the middle) long enough for its dock to open.
     const rest = async (target: TreeNode) => { target.props.onPointerEnter(); vi.advanceTimersByTime(200); await settle(); };
-    const core = () => found(render(), node => node.type === "polygon" && node.props.role === "button");
+    const core = () => findIn(render(), node => node.type === "polygon" && node.props.role === "button");
     const menu = () => find(render(), node => node.type === "div" && node.props.role === "group");
     // The handle drawn while it is out: there is a tree to read.
     const tree = () => { const drawn = render(); assert.ok(drawn); return drawn; };

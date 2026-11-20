@@ -1,16 +1,13 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { readFileSync } from "node:fs";
 import i18next from "i18next";
-import type { ResourceKey } from "i18next";
-import yaml from "js-yaml";
-import { hooks, loadModule, find, unchecked } from "../../../../logics/test/hookHarness.ts";
+import { hooks, loadModule, find } from "../../../../logics/test/hookHarness.ts";
 import type { TreeNode } from "../../../../logics/test/hookHarness.ts";
+import { readLocale } from "../../../../logics/test/locales.ts";
 
 const load = async (failure: unknown, language = "en") => {
     const i18n = i18next.createInstance();
-    // Test data: a locale file, read as the mapping of texts it is.
-    const translation = unchecked<ResourceKey>(yaml.load(readFileSync(new URL(`../../../../../locales/${language}.yml`, import.meta.url), "utf8")));
+    const translation = readLocale(language);
     await i18n.init({ lng: language, resources: { [language]: { translation } } });
     const t = i18n.t.bind(i18n), calls: string[] = [];
     const { StartupFailedDialog } = await loadModule<typeof import("./StartupFailedDialog.tsx")>(new URL("./StartupFailedDialog.tsx", import.meta.url), hooks(), {

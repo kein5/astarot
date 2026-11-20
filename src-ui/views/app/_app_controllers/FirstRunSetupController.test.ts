@@ -2,9 +2,8 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "vitest";
 import type { TestContext } from "vitest";
-import yaml from "js-yaml";
-import { hooks, loadModule, find } from "../../../logics/test/hookHarness.ts";
-import type { TreeNode } from "../../../logics/test/hookHarness.ts";
+import { hooks, loadModule, find, findIn, nodesIn, componentName } from "../../../logics/test/hookHarness.ts";
+import { branchAt, localeAt, readLocale } from "../../../logics/test/locales.ts";
 import * as logic from "../../../logics/setup/firstRunSetup.ts";
 
 const CATALOG = {
@@ -40,10 +39,6 @@ function world(values: Partial<World> = {}): World {
         engine: null, server: "external", paths: { model: "", vad_model: "" }, catalog: CATALOG, jobs: {},
         downloadError: null, realtimeError: null, sent: [], calls: [], ...values };
 }
-
-// value?.[key], for a value read from a locale file.
-const fieldOf = (value: unknown, key: string): unknown =>
-    value === null || value === undefined ? undefined : Reflect.get(Object(value), key);
 
 async function setup(context: TestContext, w = world()) {
     const runtime = hooks();
@@ -87,18 +82,14 @@ async function setup(context: TestContext, w = world()) {
     context.onTestFinished(() => runtime.unmount());
     // Renders until the effects stop changing what is drawn (each effect may set state).
     const render = () => { let tree: unknown; for (let i = 0; i < 4; i += 1) tree = runtime.render(FirstRunSetupController); return tree; };
-    const buttons = (tree: unknown) => { const found: TreeNode[] = []; find(tree, node => { if (node.type === "button") found.push(node); return false; }); return found; };
+    const buttons = (tree: unknown) => nodesIn(tree).filter(node => node.type === "button");
     const button = (tree: unknown, label: string) => {
         const found = buttons(tree).find(node => [node.props.children].flat().includes(label));
         assert.ok(found, label);
         return found;
     };
     // A part the dialog draws from a function of its own, found by that function's name.
-    const part = (tree: unknown, name: string) => {
-        const found = find(tree, node => typeof node.type === "function" && node.type.name === name);
-        assert.ok(found, name);
-        return found;
-    };
+    const part = (tree: unknown, name: string) => findIn(tree, node => componentName(node) === name, name);
     return { render, button, buttons, part };
 }
 
@@ -229,12 +220,9 @@ test("every string it uses is in both languages", () => {
     for (const state of ["ready", "cloud", "own_server", "needs_setup", "unknown"]) keys.add(`first_run_setup.found.recognition_${state}`);
     for (const step of ["server", "engine"]) keys.add(`first_run_setup.recognition.step_${step}`);
     for (const language of ["en", "ja"]) {
-        const messages = yaml.load(readFileSync(new URL(`../../../../locales/${language}.yml`, import.meta.url), "utf8"));
-        for (const key of keys) {
-            const value = key.split(".").reduce<unknown>((node, part) => fieldOf(node, part), messages);
-            assert.equal(typeof value, "string", `${language}: ${key}`);
-        }
+        const messages = readLocale(language);
+        for (const key of keys) assert.equal(typeof localeAt(messages, key), "string", `${language}: ${key}`);
         // Japanese text never says "this PC" (このPC); it names the user's own computer.
-        if (language === "ja") assert.ok(!JSON.stringify(fieldOf(messages, "first_run_setup")).includes("このPC"));
+        if (language === "ja") assert.ok(!JSON.stringify(branchAt(messages, "first_run_setup")).includes("このPC"));
     }
 });

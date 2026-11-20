@@ -1,11 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import type { TestContext } from "vitest";
-import { hooks, loadModule, find, stubGlobals, eventTarget, unchecked } from "../../../../logics/test/hookHarness.ts";
-import type { TreeNode } from "../../../../logics/test/hookHarness.ts";
-
-// React's element type leaves out ref, which the dialog and its close button carry.
-const refOf = (node: TreeNode): { current: unknown } | null | undefined => Reflect.get(node, "ref");
+import { hooks, loadModule, find, stubGlobals, eventTarget, unchecked, refOf, setRef } from "../../../../logics/test/hookHarness.ts";
 
 async function fixture(context: TestContext) {
     const runtime = hooks(), focus: string[] = [], changes: [string, boolean][] = [];
@@ -31,14 +27,9 @@ async function fixture(context: TestContext) {
     // Test data: the main page as far as focus restoring reads it.
     const render = () => runtime.render(ModalController, { fallback: unchecked<Parameters<typeof ModalController>[0]["fallback"]>(fallback) }, tree => {
         const dialog = find(tree, node => node.type === "dialog");
-        if (dialog) {
-            const ref = refOf(dialog);
-            assert.ok(ref);
-            ref.current = modal;
-        }
+        if (dialog) setRef(dialog, modal);
         const button = find(tree, node => node.type === "button");
-        const buttonRef = button ? refOf(button) : undefined;
-        if (buttonRef) buttonRef.current = control("close");
+        if (button && refOf(button)) setRef(button, control("close"));
     });
     context.onTestFinished(() => runtime.unmount());
     return { render, modal, focus, changes, opener, fallbackControl, runtime,

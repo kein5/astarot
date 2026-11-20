@@ -2,9 +2,9 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "vitest";
 import type { TestContext } from "vitest";
-import yaml from "js-yaml";
-import { hooks, loadModule, find } from "../../../logics/test/hookHarness.ts";
+import { hooks, loadModule, find, nodesIn } from "../../../logics/test/hookHarness.ts";
 import type { TreeNode } from "../../../logics/test/hookHarness.ts";
+import { localeAt, readLocale } from "../../../logics/test/locales.ts";
 import * as shapes from "../../../logics/voice/virtualMic.ts";
 import * as firstRunLogic from "../../../logics/setup/firstRunSetup.ts";
 
@@ -22,10 +22,6 @@ const CABLE = { playback: id("CABLE Input (VB-Audio Virtual Cable)"), recording:
     playback_label: "CABLE Input (VB-Audio Virtual Cable)", recording_label: "CABLE Output (VB-Audio Virtual Cable)" };
 const IDLE = { phase: "idle", playback: null, level: 0, result: null, error: null };
 const status = (extra: object = {}) => ({ supported: true, cables: [], error: null, tts_output: null, tts_output_is_cable: false, ...extra });
-
-// value?.[key], for a value read from a locale file.
-const fieldOf = (value: unknown, key: string): unknown =>
-    value === null || value === undefined ? undefined : Reflect.get(Object(value), key);
 
 async function setup(context: TestContext, { notice = true, current = status(), opened = false, telemetryPending = false, check = IDLE,
     firstRun = { notice: false, settled: false } }: GuideSetup = {}) {
@@ -51,11 +47,7 @@ async function setup(context: TestContext, { notice = true, current = status(), 
     context.onTestFinished(() => runtime.unmount());
     // The first render decides; the second shows what that decision opened.
     const render = () => { runtime.render(VirtualMicGuideController); return runtime.render(VirtualMicGuideController); };
-    const all = (tree: unknown, type: string) => {
-        const found: TreeNode[] = [];
-        find(tree, node => { if (node.type === type) found.push(node); return false; });
-        return found;
-    };
+    const all = (tree: unknown, type: string) => nodesIn(tree).filter(node => node.type === type);
     return { render, all, calls, state, url: VB_CABLE_URL, remount: runtime.remount };
 }
 
@@ -161,10 +153,7 @@ test("every text the guide shows exists in English and Japanese", () => {
     for (const code of [...source.matchAll(/"(virtual_mic_[a-z_]+|audio_devices_unavailable)"/g)].map(match => match[1]).concat("other"))
         keys.add(`virtual_mic.test.error.${code}`);
     for (const language of ["en", "ja"]) {
-        const strings = yaml.load(readFileSync(new URL(`../../../../locales/${language}.yml`, import.meta.url), "utf8"));
-        for (const key of keys) {
-            const value = key.split(".").reduce<unknown>((node, part) => fieldOf(node, part), strings);
-            assert.equal(typeof value, "string", `${language}: ${key}`);
-        }
+        const strings = readLocale(language);
+        for (const key of keys) assert.equal(typeof localeAt(strings, key), "string", `${language}: ${key}`);
     }
 });

@@ -2,8 +2,9 @@ import assert from "node:assert/strict";
 import { test } from "vitest";
 import type { TestContext } from "vitest";
 import { readFileSync } from "node:fs";
-import yaml from "js-yaml";
-import { hooks, loadModule, find, eventTarget, stubGlobals, unchecked } from "../../../../../logics/test/hookHarness.ts";
+import { hooks, loadModule, find, eventTarget, stubGlobals, findIn, nodesIn, componentName, componentOf, setRef } from "../../../../../logics/test/hookHarness.ts";
+import type { DrawnComponent } from "../../../../../logics/test/hookHarness.ts";
+import { localeAt, readLocale } from "../../../../../logics/test/locales.ts";
 import type { TreeNode } from "../../../../../logics/test/hookHarness.ts";
 import { voiceActions } from "../../../../../logics/voice/voiceActions.ts";
 
@@ -17,30 +18,12 @@ interface MenuState {
     flow: boolean;
     update?: string;
 }
-// A part the bar draws from a function of its own (not exported), as React would call it.
-type Part = (props?: object) => TreeNode;
-
-const all = (tree: unknown, predicate: (node: TreeNode) => boolean, found: TreeNode[] = []) => { find(tree, node => { if (predicate(node)) found.push(node); return false; }); return found; };
+const all = (tree: unknown, predicate: (node: TreeNode) => boolean) => nodesIn(tree).filter(predicate);
 const t = (key: string, options?: object) => options ? `${key}:${JSON.stringify(options)}` : key;
 
-// value?.[key], for a value read from a locale file.
-const fieldOf = (value: unknown, key: string): unknown =>
-    value === null || value === undefined ? undefined : Reflect.get(Object(value), key);
-
-// The ref an element carries: React 18 keeps it on the element, beside its props.
-const refOf = (node: object): { current: unknown } => {
-    const ref: unknown = Reflect.get(node, "ref");
-    assert.ok(ref !== null && typeof ref === "object" && "current" in ref);
-    return ref;
-};
-
-// The part of the bar named `name`, found in its tree: a function of the bar's own module.
-const partNamed = (tree: TreeNode, name: string): Part => {
-    const node = find(tree, item => typeof item.type === "function" && item.type.name === name);
-    assert.ok(node);
-    // Its element type is that function, which the test calls as React would.
-    return unchecked<Part>(node.type);
-};
+// The part of the bar named `name`, found in its tree: a function of the bar's own module (not
+// exported), which the test draws as React would.
+const partNamed = (tree: TreeNode, name: string): DrawnComponent => componentOf(findIn(tree, item => componentName(item) === name));
 
 async function menu(context: TestContext, values: Partial<MenuState> = {}) {
     const runtime = hooks(), calls: unknown[][] = [], document = eventTarget();
@@ -77,10 +60,10 @@ async function menu(context: TestContext, values: Partial<MenuState> = {}) {
     const focused: string[] = [];
     const draw = () => {
         const tree = runtime.render(Menu, {}, node => {
-            refOf(node).current = { contains: (target: unknown) => target === "inside" };
+            setRef(node, { contains: (target: unknown) => target === "inside" });
             const opener = find(node, child => child.type === "button");
             assert.ok(opener);
-            refOf(opener).current = { focus: () => focused.push("opener") };
+            setRef(opener, { focus: () => focused.push("opener") });
         });
         const rows = all(tree, node => node.type === button.OpenQuickSettingButton).map(node => {
             // The node's type is OpenQuickSettingButton (the predicate above): draw it with its props.
@@ -259,9 +242,9 @@ test("the main bar's stylesheet hides the long words and swaps to the shortest w
     const menu = readFileSync(new URL("./right_side_components/RightSideComponents.module.scss", import.meta.url), "utf8");
     assert.match(menu, /@container main_section \(max-width: 64rem\) \{ @include narrow_menu; \}/);
     for (const language of ["en", "ja"]) {
-        const strings = yaml.load(readFileSync(new URL(`../../../../../../locales/${language}.yml`, import.meta.url), "utf8"));
-        for (const key of ["quick_settings", "quick_settings_on", "quick_settings_all_off"]) assert.equal(typeof fieldOf(fieldOf(strings, "main_page"), key), "string");
-        for (const key of ["topbar_stop_tiny", "topbar_stop_tiny_count"]) assert.equal(typeof fieldOf(fieldOf(strings, "voice_ui"), key), "string");
+        const strings = readLocale(language);
+        for (const key of ["quick_settings", "quick_settings_on", "quick_settings_all_off"]) assert.equal(typeof localeAt(strings, `main_page.${key}`), "string");
+        for (const key of ["topbar_stop_tiny", "topbar_stop_tiny_count"]) assert.equal(typeof localeAt(strings, `voice_ui.${key}`), "string");
     }
 });
 

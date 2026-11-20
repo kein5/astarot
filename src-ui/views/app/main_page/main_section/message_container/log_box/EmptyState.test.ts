@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test, vi } from "vitest";
 import { createElement } from "react";
 import type { ReactNode } from "react";
-import { hooks, loadModule, find, unchecked } from "../../../../../../logics/test/hookHarness.ts";
+import { hooks, loadModule, find, unchecked, fieldOf } from "../../../../../../logics/test/hookHarness.ts";
 import type { TreeNode } from "../../../../../../logics/test/hookHarness.ts";
 import * as needsLogic from "../../../../../../logics/main/setupNeeds.ts";
 
@@ -17,11 +17,7 @@ interface EmptySetup {
 }
 
 // node?.props?.[key], for a rendered node of any kind.
-const propOf = (node: unknown, key: string): unknown => {
-    if (node === null || node === undefined) return undefined;
-    const props: unknown = Reflect.get(Object(node), "props");
-    return props === null || props === undefined ? undefined : Reflect.get(Object(props), key);
-};
+const propOf = (node: unknown, key: string): unknown => fieldOf(node, "props", key);
 
 // Draw the nested component too, so the whole screen can be searched.
 const draw = (node: unknown): unknown => {
@@ -153,7 +149,7 @@ test("the greeting waits for the language and the narrow layout that the saved s
     // Within a pixel of the edge either layout counts.
     assert.equal(greetingWaits({ ...base, width: 800.5, narrow: false }), null);
     assert.equal(greetingWaits({ ...base, width: 800.5, narrow: true }), null);
-    // No width read yet, given on purpose: the type says a number.
+    // On purpose: no width read yet, where the type says a number.
     assert.equal(greetingWaits({ ...base, width: unchecked<number>(undefined) }), null);
 });
 
