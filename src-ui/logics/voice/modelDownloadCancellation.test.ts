@@ -140,7 +140,11 @@ test("the receive router correlates Apply and Cancel acknowledgements", async t 
     assert.equal(s.render().pending, null);
 });
 
-const loadCatalog = (s: { render: () => object }, ui: HookRuntime) => loadModule<typeof import("../../views/app/config_page/setting_section/setting_box/advanced_settings/ModelDownloads.tsx")>(new URL("../../views/app/config_page/setting_section/setting_box/advanced_settings/ModelDownloads.tsx", import.meta.url), ui, {
+// The catalog's headings as they are, with the hint mark as a name: the catalog draws them in place.
+const loadHeading = (runtime: HookRuntime) => loadModule<typeof import("../../views/app/config_page/setting_section/setting_box/advanced_settings/catalogHeading.tsx")>(new URL("../../views/app/config_page/setting_section/setting_box/advanced_settings/catalogHeading.tsx", import.meta.url), runtime,
+    { "../_components/hint/Hint": { Hint: "hint" } });
+// hints: whether the page has been reviewed against #614 (HintDescriptions), so its descriptions are hints.
+const loadCatalog = async (s: { render: () => object }, ui: HookRuntime, hints = false) => loadModule<typeof import("../../views/app/config_page/setting_section/setting_box/advanced_settings/ModelDownloads.tsx")>(new URL("../../views/app/config_page/setting_section/setting_box/advanced_settings/ModelDownloads.tsx", import.meta.url), ui, {
     "@tauri-apps/api/core": { isTauri: () => false },
     "@tauri-apps/plugin-opener": {},
     "../../../../../../logics/voice/useModelDownloads": { useModelDownloads: s.render },
@@ -154,6 +158,8 @@ const loadCatalog = (s: { render: () => object }, ui: HookRuntime) => loadModule
     "./EngineCatalog": { EngineCatalog: "engines" },
     "./UserModels": { UserModelCards: "user-model-cards", UserModelRegistration: "user-model-registration" },
     "./VoiceAudition": { AuditionButton: "audition-button", AuditionNote: "audition-note" },
+    "../_components/hint/Hint": { Hint: "hint", useHintDescriptions: () => hints },
+    "./catalogHeading": await loadHeading(ui),
 });
 
 test("the production model card enables matching Cancel during Apply verification", async t => {
@@ -242,4 +248,75 @@ test("the time of a GPU reading is written in the display language", async t => 
     assert.equal(measuredTime(at, "ja"), new Date(at).toLocaleTimeString("ja"));
     assert.equal(measuredTime(at, "en"), new Date(at).toLocaleTimeString("en"));
     assert.doesNotMatch(measuredTime(at, "ja"), /AM|PM/);
+});
+
+test("on a reviewed page, what a use is for and how to choose in it are its heading's hint", async t => {
+    const s = await setup(t);
+    const row = (id: string, target: string) => ({ id, target, name: `${id} · Q8_0`, total_bytes: 1 });
+    s.render().updateCatalog(catalog({ models: [row("asr-model", "asr"), row("vad-model", "vad")] }));
+    for (const hints of [true, false]) {
+        const ui = hooks();
+        t.onTestFinished(() => ui.unmount());
+        const { ModelDownloads } = await loadCatalog(s, ui, hints);
+        const tree = ui.render(ModelDownloads, { targets: ["asr", "vad"], expected: {} });
+        const lines = nodesIn(tree).filter(node => node.type === "p").map(node => node.props.children);
+        const marks = nodesIn(tree).filter(node => node.type === "hint").map(node => node.props.text);
+        if (hints) {
+            assert.deepEqual(marks, ["model_downloads.help",
+                "model_catalog.group_help.asr\nmodel_downloads.asr_choice\nmodel_downloads.asr_requirements",
+                "model_catalog.group_help.vad\nmodel_downloads.vad_requirements"]);
+            for (const text of ["model_downloads.help", "model_catalog.group_help.asr", "model_downloads.asr_choice", "model_downloads.vad_requirements"])
+                assert.ok(!lines.includes(text), `${text} is not a line as well`);
+        } else {
+            // The translation review is not reviewed: its lines stay under the headings.
+            assert.deepEqual(marks, []);
+            for (const text of ["model_downloads.help", "model_catalog.group_help.asr", "model_downloads.asr_choice", "model_downloads.vad_requirements"])
+                assert.ok(lines.includes(text), text);
+        }
+        // Either way the headings are the groups' names.
+        assert.deepEqual(nodesIn(tree).filter(node => node.type === "h4").length, 2);
+    }
+});
+
+test("a card says its state at the end of its name's line, and what speaks for it under the name", async t => {
+    const s = await setup(t), ui = hooks();
+    t.onTestFinished(() => ui.unmount());
+    const { ModelDownloads } = await loadCatalog(s, ui);
+    const model = (id: string, suggested: string[]) => ({ id, target: "asr", name: `${id} · Q8_0`, total_bytes: 1,
+        profile: { recommended_for: suggested, languages: ["ja"] } });
+    s.render().updateCatalog(catalog({ models: [model("a", ["ja"]), model("b", [])] }));
+    s.render().updateState(downloadState({ observation_id: "1", jobs: {}, downloaded: { a: { model: "/m/a.gguf" } } }));
+    const cards = nodesIn(ui.render(ModelDownloads, { targets: ["asr"], expected: { asr: { model: "/m/a.gguf" } } }))
+        .filter(node => node.props?.["data-model-download"] !== undefined);
+    // The card in use is told by its frame, as well as by its badge.
+    assert.deepEqual(cards.map(card => card.props["data-status"]), ["in_use", "not_downloaded"]);
+    for (const card of cards) {
+        const head = findIn(card, node => node.props?.className === "card_head");
+        assert.deepEqual(head.props.children.map((child: TreeNode) => child.type === "strong" ? "name" : componentName(child)), ["name", "StatusBadge"]);
+    }
+    const badges = findIn(cards[0], node => node.props?.className === "card_badges");
+    assert.ok(find(badges, node => node.props?.children === "model_catalog.recommended_for"));
+    assert.equal(find(cards[1], node => node.props?.className === "card_badges"), null, "no empty line of badges");
+});
+
+test("a model's measured memory is the hardware term's hint on a reviewed page, a fold elsewhere", async t => {
+    const s = await setup(t);
+    s.render().updateCatalog(catalog({ models: [{ id: "tts", target: "rvc", name: "TTS · F16", total_bytes: 1,
+        profile: { tier: "medium", cpu: "impractical", gpu: "recommended", languages: ["ja"] },
+        guidance: { tier: "medium", reference_memory_bytes: 1024 ** 3, validation: { state: "passed", device: "GPU" } } }] }));
+    for (const hints of [true, false]) {
+        const ui = hooks();
+        t.onTestFinished(() => ui.unmount());
+        const { ModelDownloads } = await loadCatalog(s, ui, hints);
+        const card = findIn(ui.render(ModelDownloads, { targets: ["rvc"], expected: {} }), node => node.props?.["data-model-download"] !== undefined);
+        const facts = findIn(card, node => componentName(node) === "ModelFacts");
+        const fold = find(card, node => node.type === "details");
+        if (hints) {
+            assert.equal(facts.props.guidance.length, 2, "the memory and where it was checked");
+            assert.equal(fold, null);
+        } else {
+            assert.equal(facts.props.guidance, undefined);
+            assert.equal(findIn(fold, node => node.type === "summary").props.children, "model_downloads.guidance_summary");
+        }
+    }
 });

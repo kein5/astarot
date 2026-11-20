@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "vitest";
 import type { TestContext } from "vitest";
 import { componentNamed, findIn, hooks, loadModule, find, setRef, stubGlobals } from "../test/hookHarness.ts";
+import type { HookRuntime } from "../test/hookHarness.ts";
 import * as legacyConsent from "../configs/legacyModelConsent.ts";
 import * as endpointPrivacy from "./endpointPrivacy.ts";
 import * as languageNames from "./languageNames.ts";
@@ -17,6 +18,10 @@ const entry = { id: "reviewed-model", name: "Reviewed model", target: "rvc", tot
 
 type Kind = "catalog" | "ocr" | "nllb" | "legacy";
 type OpenerState = "present" | "removed" | "disabled";
+
+// The catalog's headings as they are, with the hint mark as a name: the catalog draws them in place.
+const loadHeading = (runtime: HookRuntime) => loadModule<typeof import("../../views/app/config_page/setting_section/setting_box/advanced_settings/catalogHeading.tsx")>(new URL("../../views/app/config_page/setting_section/setting_box/advanced_settings/catalogHeading.tsx", import.meta.url), runtime,
+    { "../_components/hint/Hint": { Hint: "hint" } });
 
 async function fixture(context: TestContext, kind: Kind, openerState: OpenerState) {
     const runtime = hooks(), calls: [string, unknown?][] = [], focus: string[] = [], order: string[] = [];
@@ -52,6 +57,8 @@ async function fixture(context: TestContext, kind: Kind, openerState: OpenerStat
         "./EngineCatalog": { EngineCatalog: "engines" },
         "./UserModels": { UserModelCards: "user-model-cards", UserModelRegistration: "user-model-registration" },
         "./VoiceAudition": { AuditionButton: "audition-button", AuditionNote: "audition-note" },
+        "../_components/hint/Hint": { Hint: "hint", useHintDescriptions: () => false },
+        "./catalogHeading": await loadHeading(runtime),
         "../../../../../../logics/common/languageNames": languageNames,
         "../../../../../../../logics/configs/legacyModelConsent": legacyConsent,
         "../_components/env_readout/EnvReadout": { EnvReadout: "readout" },
