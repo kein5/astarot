@@ -175,10 +175,14 @@ export function useSettingsDraft<T>(saved: T | null | undefined, error: unknown,
     useEffect(() => () => setSaveBarEntry(id, null), [id]);
     return {
         draft, setDraft, dirty, saving, discard, submit, saveState,
+        // The form's own confirmation, for a page without the save bar's (Topbar.tsx), which asks
+        // first where it is. Its two answers are one row, as the save bar's are.
         navigationDialog: leaving ? <dialog ref={dialog} onCancel={() => setLeaving(null)} aria-label={t("voice_ui.leave_title")}>
             <p>{t("voice_ui.leave_hint")}</p>
-            <button type="button" autoFocus onClick={() => setLeaving(null)}>{t("voice_ui.keep_editing")}</button>
-            <button type="button" onClick={() => { const proceed = leaving; discard(); setLeaving(null); proceed(); }}>{t("voice_ui.discard_leave")}</button>
+            <div data-leave-actions>
+                <button type="button" autoFocus onClick={() => setLeaving(null)}>{t("voice_ui.keep_editing")}</button>
+                <button type="button" onClick={() => { const proceed = leaving; discard(); setLeaving(null); proceed(); }}>{t("voice_ui.discard_leave")}</button>
+            </div>
         </dialog> : null,
     };
 }

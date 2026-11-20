@@ -98,8 +98,11 @@
     dialog > ul, .dialog_text > ul { margin: 0; padding-left: 2rem; list-style: disc; font-size: 1.2rem; line-height: 1.6; color: var(--vox_description_text); }
     // The consent breaks between phrases where the engine can, not inside a word.
     dialog > label.checkLabel { padding: 0; font-size: 1.4rem; line-height: 1.5; word-break: auto-phrase; }
-    // A button that is a part itself, or in the actions' row, keeps the gaps only.
-    dialog > button, dialog > .actions button { margin: 0; }
+    // The two answers of a form's own leave confirmation (useSettingsDraft.tsx) are one row, as the
+    // save bar's confirmation lays them out (Topbar.module.scss).
+    dialog > [data-leave-actions] { display: flex; flex-wrap: wrap; gap: .8rem; }
+    // A button in a row of actions keeps the row's gap only.
+    dialog > [data-leave-actions] button, dialog > .actions button { margin: 0; }
     // A range control looks like the shared Slider (6px groove filled up to the value, 18px Lilac
     // thumb), not a text field. Chromium and WebKit have no part for the filled length, so the
     // form sets --range-fill to the value's share and the groove paints it; the thumb, centred

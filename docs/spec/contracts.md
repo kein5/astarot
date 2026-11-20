@@ -50,4 +50,4 @@
 | CT-40 | 表示する文言は`locales/`に置き、`en.yml`と`ja.yml`は必ずそろえる | `AGENTS.md`「UI」 | `tests/voice/test_headless_and_ui_contract.py`、`src-ui/logics/configs/cloudTranscription.test.ts` |
 | CT-41 | React 18、CSS Modules、Jotai、i18nextの構成を保ち、リモートのフォントを入れない | `AGENTS.md`「UI」 | 手動 |
 | CT-42 | 言語の変更は要求ごとに対応づけ、失敗したら読み直す | `src-ui/logics/main/languageMutationCoordinator.ts` | `languageMutationCoordinator.test.ts`、`languageMutations.test.ts` |
-| CT-43 | 未保存の変更があるまま離れるときは確かめる | `cross-cutting.md` | `src-ui/logics/voice/saveBar.test.ts`（保存バーの集計）、手動（ダイアログ） |
+| CT-43 | 未保存の変更があるまま離れるときは確かめる | `cross-cutting.md` | `src-ui/logics/voice/saveBar.test.ts`（保存バーの集計）、`src-ui/logics/voice/settingsNavigation.test.ts`（保存バーの確認がフォームの確認より先に尋ねられる送り方）、手動（ダイアログ） |
