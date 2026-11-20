@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import { test } from "vitest";
 
 // The app window's text takes the steps DESIGN.md names (#568). The VR windows have steps of
-// their own (vr/fontSteps.test.js). The caption overlay draws its captions at the size its user
+// their own (vr/fontSteps.test.ts). The caption overlay draws its captions at the size its user
 // picks; its fixed text takes the app's steps in px, since that window does not follow the UI
 // size. Sizes relative to their parent (em, %) and 0 (hidden text) follow the parent.
 const views = fileURLToPath(new URL("..", import.meta.url));
@@ -14,7 +14,7 @@ const steps = new Set([...design.split("rounded:")[0].matchAll(/fontSize: "([\d.
 // The log's base size, which the log font size setting replaces from JavaScript.
 const allowed = new Set(["app/main_page/main_section/message_container/log_box/LogBox.module.scss:1rem"]);
 
-const sources = dir => readdirSync(dir).flatMap(name => {
+const sources = (dir: string): string[] => readdirSync(dir).flatMap((name): string[] => {
     const path = join(dir, name);
     if (statSync(path).isDirectory()) return ["vr", "caption_overlay"].includes(name) && dir === views ? [] : sources(path);
     return /\.(s?css)$/.test(name) ? [path] : [];

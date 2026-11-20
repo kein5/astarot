@@ -130,7 +130,7 @@ The palette comes from the three ASTAROT brand colors (`docs/brand/astarot/`): D
 | `description-text` | The subtitle of the dark horizontal logo |
 | `state-warning`, `state-failed` | None; see below |
 
-The grey and lilac steps that components use directly (`dark_*` and `primary_*` in `variables.css`) are derived the same way, the greys from Dark Plum and the lilacs from Lilac, and the greys get darker as their number grows. Only the brand's own values (Off-White and the secondary and description text greys) and plain white are taken as they are. `brandPalette.test.js` checks every step.
+The grey and lilac steps that components use directly (`dark_*` and `primary_*` in `variables.css`) are derived the same way, the greys from Dark Plum and the lilacs from Lilac, and the greys get darker as their number grows. Only the brand's own values (Off-White and the secondary and description text greys) and plain white are taken as they are. `brandPalette.test.ts` checks every step.
 
 Use the canvas for conversation and settings, the deeper rail for navigation, and raised surfaces for fields. Borders separate working regions without heavy cards. Enable state is also expressed by labels and switch position.
 
@@ -142,7 +142,7 @@ Contrast (WCAG 2.x, measured on the canvas, the surface and the rail): text, sec
 
 Keep the user's configured UI font, scaling and log-font preferences. Local Noto/system fallbacks support Japanese without remote font requests. Section headings give long forms a readable hierarchy; technical paths wrap inside their containers.
 
-Text in the app window takes the sizes in the front matter's `typography` (#568): 1.2, 1.3, 1.4, 1.5, 1.6, 1.8, 2 and 2.4rem (the last only for the empty conversation's greeting). A size in between is moved to the nearest step, not added; small marks and tooltips use 1.2rem. Sizes relative to their parent (em, %) follow the parent, such as the log, whose base size the log font size setting replaces. The desktop caption overlay draws its captions at the size its user picks; its one fixed text, the size shown while the overlay is moved, takes a step in px (1.4rem is 14px), because that window does not follow the UI size. `src-ui/views/app/fontSteps.test.js` checks the app window and the caption overlay.
+Text in the app window takes the sizes in the front matter's `typography` (#568): 1.2, 1.3, 1.4, 1.5, 1.6, 1.8, 2 and 2.4rem (the last only for the empty conversation's greeting). A size in between is moved to the nearest step, not added; small marks and tooltips use 1.2rem. Sizes relative to their parent (em, %) follow the parent, such as the log, whose base size the log font size setting replaces. The desktop caption overlay draws its captions at the size its user picks; its one fixed text, the size shown while the overlay is moved, takes a step in px (1.4rem is 14px), because that window does not follow the UI size. `src-ui/views/app/fontSteps.test.ts` checks the app window and the caption overlay.
 
 The VR panel draws into the headset in pixels of its own, which the window's width in VR scales: at the default sizes a pixel is about 0.44 mm (the log window is 0.4 m wide for 900px, and the toolbar keeps that scale). It has four steps of its own, the front matter's `vr-*` (#568):
 

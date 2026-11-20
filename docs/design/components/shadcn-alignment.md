@@ -50,7 +50,7 @@ shadcn/ui は `input` を枠にも、薄めた塗りにも使います。アプ�
 
 | 状態 | ASTAROT | shadcn/ui | 扱い |
 |---|---|---|---|
-| フォーカス | `--vox_focus` の `.2rem` の outline。kit は外に `.2rem` 離す。部品によって `.1rem`〜`.3rem` 離すもの、内側に引くもの（レール）がある | 枠が `ring` になり、外に 3px の `ring` の 50% の影が付く（離さない） | 判断（D-06）。50% の輪が地に対して 3:1 に届くか（`brandPalette.test.js` の基準）を確かめてから決める。離す量の不ぞろいは D-06 のあとでそろえる |
+| フォーカス | `--vox_focus` の `.2rem` の outline。kit は外に `.2rem` 離す。部品によって `.1rem`〜`.3rem` 離すもの、内側に引くもの（レール）がある | 枠が `ring` になり、外に 3px の `ring` の 50% の影が付く（離さない） | 判断（D-06）。50% の輪が地に対して 3:1 に届くか（`brandPalette.test.ts` の基準）を確かめてから決める。離す量の不ぞろいは D-06 のあとでそろえる |
 | 値が正しくない | kit の `TextField` と `Select` は `invalid` で `aria-invalid` を付け、`[aria-invalid='true']` で枠を `--vox_state_failed` にする | `aria-invalid` で枠が `destructive` になる。フォーカス中は輪も赤みを帯びる | 枠は一致。フォーカス中の輪は D-06 |
 | 使えない | kit、フォーム（`VoiceSettings.module.scss`。入力欄、選択欄、ボタンに共通の規則）、画面の操作のボタンは不透明度 .5（#684、#694。前は kit が .55、フォームと多くのボタンが .6、設定の上のバーの保存と取り消しが .45）。`_Entry` は文字の色だけを変える。チェックボックスは灰色にする filter。設定の Slider は `disabled` で .5（#697）。トグル、開閉のボタン、待ちの表示は .55〜.6 のまま | 不透明度 .5。ボタンは `pointer-events: none` | 不透明度は .5 に寄せる（操作のボタンとフォームは寄せた）。トグルは D-27、開閉のボタンは D-26 と一緒に扱う。`_Entry` は D-37。`pointer-events: none` は判断（D-07）。使えないスイッチや機能のボタンがツールチップで理由を示す規則（DESIGN.md「Layout」）とぶつかる |
 | ホバーと押下 | 部品ごとに `dark_*` と `primary_*` の段を選ぶ | `accent` の塗り、または `primary/90` のように同じ色を薄める | 判断（D-08）。不透明度で薄める作り方は、明度だけを変えるアプリの色の作り方（DESIGN.md「Colors」）と違う |

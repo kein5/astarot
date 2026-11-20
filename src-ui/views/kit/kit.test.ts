@@ -5,12 +5,12 @@ import { test } from "vitest";
 // The rules of the #452 settings kit that a reader of the source could break without noticing.
 // The behaviour itself (Space toggles a switch, a label names it, focus shows a ring) was checked
 // in a browser against kit-lab.html; see docs/design/components/README.md.
-const read = name => readFileSync(new URL(name, import.meta.url), "utf8");
+const read = (name: string) => readFileSync(new URL(name, import.meta.url), "utf8");
 const kitFiles = readdirSync(new URL(".", import.meta.url)).filter(name => /\.(ts|tsx)$/.test(name));
 
 test("the kit takes every colour from the tokens", () => {
     // Comments name issues (#452), so only the code is searched.
-    const code = name => read(name).replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+    const code = (name: string) => read(name).replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
     for (const name of kitFiles) {
         assert.doesNotMatch(code(name), /#[0-9a-fA-F]{3,8}\b/, `${name} writes a colour by hand`);
     }

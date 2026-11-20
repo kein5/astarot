@@ -3,9 +3,9 @@ import { readFileSync } from "node:fs";
 import { test } from "vitest";
 import { hooks, loadModule, find } from "../../../logics/test/hookHarness.ts";
 
-const read = path => readFileSync(new URL(path, import.meta.url), "utf8");
+const read = (path: string) => readFileSync(new URL(path, import.meta.url), "utf8");
 // The declarations a rule writes itself, before any nested rule.
-const ownDeclarations = (source, selector) => {
+const ownDeclarations = (source: string, selector: string) => {
     const at = source.indexOf(`${selector} {`);
     assert.ok(at >= 0, selector);
     const open = source.indexOf("{", at);
@@ -47,13 +47,14 @@ test("the common tooltip and the settings' Hint draw the same bubble, and only i
 
 test("the tooltip's parts carry shadcn/ui's data-slot", async () => {
     const runtime = hooks();
-    const { Tooltip } = await loadModule(new URL("./Tooltip.tsx", import.meta.url), runtime);
+    const { Tooltip } = await loadModule<typeof import("./Tooltip.tsx")>(new URL("./Tooltip.tsx", import.meta.url), runtime);
     const props = { title: "words", children: "button" };
     const trigger = runtime.render(Tooltip, props);
     assert.equal(trigger.props["data-slot"], "tooltip-trigger");
     assert.equal(find(trigger, node => node.props?.["data-slot"] === "tooltip-content"), null, "closed at first");
     trigger.props.onMouseEnter();
     const content = find(runtime.render(Tooltip, props), node => node.props?.["data-slot"] === "tooltip-content");
+    assert.ok(content);
     assert.equal(content.props.children, "words");
     runtime.unmount();
     // The settings' Hint: its bubble is the content.

@@ -1,15 +1,16 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
+import type { TestContext } from "vitest";
 import { readFileSync } from "node:fs";
 import yaml from "js-yaml";
-import { hooks, loadModule, find, eventTarget, stubGlobals } from "../../../../logics/test/hookHarness.ts";
+import { hooks, loadModule, find, eventTarget, stubGlobals, unchecked } from "../../../../logics/test/hookHarness.ts";
 
-const t = (key, options) => options?.changes ? `${key}[${options.changes}]` : key;
-async function render(context, entries, tab = "tts") {
+const t = (key: string, options?: { changes?: string }) => options?.changes ? `${key}[${options.changes}]` : key;
+async function render(context: TestContext, entries: unknown, tab = "tts") {
     const runtime = hooks();
     // The leave guard listens on the window while there are edits.
     stubGlobals(context, { window: eventTarget() });
-    const { SaveBar } = await loadModule(new URL("./Topbar.tsx", import.meta.url), runtime, {
+    const { SaveBar } = await loadModule<typeof import("./Topbar.tsx")>(new URL("./Topbar.tsx", import.meta.url), runtime, {
         "@useI18n": { useI18n: () => ({ t }) }, "@logics_common": {},
         "@store": { useStore_SelectedConfigTabId: () => ({ currentSelectedConfigTabId: { data: tab } }) },
         "../../../../logics/voice/saveBar": { useSaveBarEntries: () => entries }, "../../others/stop_actions/StopActions": {},
@@ -18,13 +19,16 @@ async function render(context, entries, tab = "tts") {
     runtime.unmount();
     return tree;
 }
-async function bar(context, entries) {
+async function bar(context: TestContext, entries: unknown) {
     const tree = await render(context, entries);
-    return { status: find(tree, node => node.props?.role === "status").props.children,
-        count: find(tree, node => node.props?.className === "count"),
-        save: find(tree, node => node.type === "button" && node.props.className === "save").props };
+    const status = find(tree, node => node.props?.role === "status");
+    assert.ok(status);
+    const count = find(tree, node => node.props?.className === "count");
+    const save = find(tree, node => node.type === "button" && node.props.className === "save");
+    assert.ok(save);
+    return { status: status.props.children, count, save: save.props };
 }
-const entry = values => ({ dirty: true, edited: true, saving: false, saveState: "unsaved", changes: [], canSave: true, save() {}, discard() {}, ...values });
+const entry = (values: Record<string, unknown>) => ({ dirty: true, edited: true, saving: false, saveState: "unsaved", changes: [], canSave: true, save() {}, discard() {}, ...values });
 
 test("a change the page proposes is named as what Save will apply, not as an unsaved edit", async context => {
     // The RVC page selecting RVC: nothing was edited, one thing is pending.
@@ -66,7 +70,8 @@ test("#436: a page without a form says in the save bar's place that its changes 
 
 test("the wording exists in English and Japanese and names the change", () => {
     for (const language of ["en", "ja"]) {
-        const strings = yaml.load(readFileSync(new URL(`../../../../../locales/${language}.yml`, import.meta.url), "utf8")).voice_ui;
+        // Test data: a locale file, read as the mapping of texts it is.
+        const strings = unchecked<{ voice_ui: Record<string, string> }>(yaml.load(readFileSync(new URL(`../../../../../locales/${language}.yml`, import.meta.url), "utf8"))).voice_ui;
         assert.match(strings.applies_on_save, /\{\{changes\}\}/);
         assert.equal(typeof strings.changes_separator, "string");
         assert.equal(typeof strings.applies_now, "string");

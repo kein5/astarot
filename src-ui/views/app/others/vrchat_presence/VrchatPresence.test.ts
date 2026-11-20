@@ -1,16 +1,22 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
+import type { TestContext } from "vitest";
 import { readFileSync } from "node:fs";
 import yaml from "js-yaml";
-import { hooks, loadModule, find, stubGlobals } from "../../../../logics/test/hookHarness.ts";
+import { hooks, loadModule, find, stubGlobals, unchecked } from "../../../../logics/test/hookHarness.ts";
 
 const EnvReadout = () => null;
-async function setup(context, { presence = null, sends = true, osc_query = true } = {}) {
-    const runtime = hooks(), asked = [], timers = [];
-    const state = { presence, sends, osc_query };
-    stubGlobals(context, { setInterval: (fn, ms) => { timers.push({ fn, ms, cleared: false }); return timers.length - 1; },
-        clearInterval: id => { timers[id].cleared = true; } });
-    const { VrchatPresence } = await loadModule(new URL("./VrchatPresence.tsx", import.meta.url), runtime, {
+interface PresenceState {
+    presence: unknown;
+    sends: boolean;
+    osc_query: boolean;
+}
+async function setup(context: TestContext, { presence = null, sends = true, osc_query = true }: Partial<PresenceState> = {}) {
+    const runtime = hooks(), asked: boolean[] = [], timers: { fn: () => void; ms: number; cleared: boolean }[] = [];
+    const state: PresenceState = { presence, sends, osc_query };
+    stubGlobals(context, { setInterval: (fn: () => void, ms: number) => { timers.push({ fn, ms, cleared: false }); return timers.length - 1; },
+        clearInterval: (id: number) => { timers[id].cleared = true; } });
+    const { VrchatPresence } = await loadModule<typeof import("./VrchatPresence.tsx")>(new URL("./VrchatPresence.tsx", import.meta.url), runtime, {
         "@logics_configs": { useOthers: () => ({ currentVrchatOscPresence: { data: state.presence },
             currentEnableSendMessageToVrc: { data: state.sends }, getVrchatOscPresence: () => asked.push(true) }),
         useAdvancedSettings: () => ({ currentEnableOscQuery: { data: state.osc_query } }) },
@@ -18,7 +24,7 @@ async function setup(context, { presence = null, sends = true, osc_query = true 
     });
     const draw = () => {
         const readout = runtime.render(VrchatPresence, { className: "placed" });
-        const lines = []; find(readout, node => { if (node.type === "p") lines.push(node.props.children); return false; });
+        const lines: unknown[] = []; find(readout, node => { if (node.type === "p") lines.push(node.props.children); return false; });
         return { tone: readout.props.tone ?? "neutral", lines, className: readout.props.className };
     };
     return { draw, asked, timers, state, unmount: () => runtime.unmount() };
@@ -78,7 +84,8 @@ test("with OSCQuery turned off it says that is why VRChat cannot be checked, and
 
 test("every state has words in English and Japanese", () => {
     for (const language of ["en", "ja"]) {
-        const strings = yaml.load(readFileSync(new URL(`../../../../../locales/${language}.yml`, import.meta.url), "utf8")).vrchat_presence;
+        // Test data: a locale file, read as the mapping of texts it is.
+        const strings = unchecked<{ vrchat_presence: Record<string, unknown> }>(yaml.load(readFileSync(new URL(`../../../../../locales/${language}.yml`, import.meta.url), "utf8"))).vrchat_presence;
         for (const key of ["checking", "found", "not_found", "not_found_hint", "unknown", "sending_off", "osc_query_off"]) assert.equal(typeof strings[key], "string");
     }
 });

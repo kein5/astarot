@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 
 // #436: one kind of control per job across the settings pages (DESIGN.md "Components").
 const settingBox = fileURLToPath(new URL("./setting_section/setting_box/", import.meta.url));
-const sources = (dir) => readdirSync(dir).flatMap(name => {
+const sources = (dir: string): [string, string][] => readdirSync(dir).flatMap((name): [string, string][] => {
     const path = join(dir, name);
     if (statSync(path).isDirectory()) return sources(path);
     return /\.(jsx|tsx)$/.test(name) && !/\.test\./.test(name) ? [[path, readFileSync(path, "utf8")]] : [];

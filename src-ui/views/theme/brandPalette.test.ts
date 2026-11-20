@@ -5,22 +5,26 @@ import { test } from "vitest";
 // The app's tokens follow the ASTAROT palette in DESIGN.md (#452). DESIGN.md's front matter is the
 // source of the colours; variables.css carries them to the app. These tests keep the two in step
 // and hold the contrast rules DESIGN.md states under "Colors".
-const read = path => readFileSync(new URL(path, import.meta.url), "utf8");
+const read = (path: string) => readFileSync(new URL(path, import.meta.url), "utf8");
 const variables = Object.fromEntries([...read("../app/_index_css/variables.css").matchAll(/(--[\w-]+):\s*([^;]+);/g)]
     .map(([, key, value]) => [key, value.trim()]));
-const color = token => {
+const color = (token: string): string => {
     const value = variables[token] ?? token;
     const alias = /^var\((--[\w-]+)\)$/.exec(value);
     return (alias ? color(alias[1]) : value).toLowerCase();
 };
-const linear = token => color(token).slice(1, 7).match(/../g).map(channel => parseInt(channel, 16) / 255)
-    .map(channel => channel <= .04045 ? channel / 12.92 : ((channel + .055) / 1.055) ** 2.4);
-const luminance = token => {
+const linear = (token: string) => {
+    const pairs = color(token).slice(1, 7).match(/../g);
+    assert.ok(pairs, `${token} is a hex colour`);
+    return pairs.map(channel => parseInt(channel, 16) / 255)
+        .map(channel => channel <= .04045 ? channel / 12.92 : ((channel + .055) / 1.055) ** 2.4);
+};
+const luminance = (token: string) => {
     const rgb = linear(token);
     return rgb[0] * .2126 + rgb[1] * .7152 + rgb[2] * .0722;
 };
 // OKLCH as CSS Color 4 converts it, for DESIGN.md's derivation rule.
-const oklch = token => {
+const oklch = (token: string) => {
     const [r, g, b] = linear(token);
     const l = Math.cbrt(.4122214708 * r + .5363325363 * g + .0514459929 * b);
     const m = Math.cbrt(.2119034982 * r + .6806995451 * g + .1073969566 * b);
@@ -33,18 +37,18 @@ const oklch = token => {
         hue: (Math.atan2(bb, a) * 180 / Math.PI + 360) % 360,
     };
 };
-const hueApart = (x, y) => {
+const hueApart = (x: number, y: number) => {
     const turn = Math.abs(x - y) % 360;
     return Math.min(turn, 360 - turn);
 };
-const contrast = (a, b) => {
+const contrast = (a: string, b: string) => {
     const values = [luminance(a), luminance(b)].sort((x, y) => y - x);
     return (values[0] + .05) / (values[1] + .05);
 };
 
 const design = read("../../../DESIGN.md");
 const front = design.slice(design.indexOf("colors:"), design.indexOf("typography:"));
-const designColor = name => {
+const designColor = (name: string) => {
     const match = new RegExp(`\\n\\s+${name}:\\s*"(#[0-9a-fA-F]{6})"`).exec(front);
     assert.ok(match, `DESIGN.md has no colour ${name}`);
     return match[1].toLowerCase();
@@ -84,7 +88,7 @@ test("every grey and Lilac step is its brand colour with only the lightness chan
     // and plain white, which has no hue, are not derived.
     const asIs = new Set(["text", "secondary-text", "description-text"].map(designColor));
     asIs.add("#ffffff");
-    const sources = { dark: oklch("#261633"), primary: oklch("#a47af5") };
+    const sources: Record<string, ReturnType<typeof oklch>> = { dark: oklch("#261633"), primary: oklch("#a47af5") };
     const steps = Object.keys(variables).filter(token => /^--(dark|primary)_\d+_color$/.test(token));
     assert.ok(steps.length > 40, "variables.css has its grey and Lilac steps");
     for (const token of steps) {

@@ -3,11 +3,11 @@ import { readFileSync } from "node:fs";
 import { test } from "vitest";
 import { hooks, loadModule } from "../../../logics/test/hookHarness.ts";
 
-const read = name => readFileSync(new URL(name, import.meta.url), "utf8");
+const read = (name: string) => readFileSync(new URL(name, import.meta.url), "utf8");
 
 test("Empty and its description carry shadcn/ui's data-slot and pass their props on", async () => {
     const runtime = hooks();
-    const { Empty, EmptyDescription } = await loadModule(new URL("./Empty.tsx", import.meta.url), runtime);
+    const { Empty, EmptyDescription } = await loadModule<typeof import("./Empty.tsx")>(new URL("./Empty.tsx", import.meta.url), runtime);
     const empty = runtime.render(Empty, { role: "status", className: "extra", children: "x" });
     assert.equal(empty.type, "div");
     assert.equal(empty.props["data-slot"], "empty");

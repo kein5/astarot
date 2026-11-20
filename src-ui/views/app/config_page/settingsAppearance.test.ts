@@ -2,20 +2,28 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "vitest";
 
-const read = path => readFileSync(new URL(path, import.meta.url), "utf8");
+const read = (path: string) => readFileSync(new URL(path, import.meta.url), "utf8");
+// The first group of a pattern that has to be in the text.
+const group = (pattern: RegExp, text: string) => {
+    const match = pattern.exec(text);
+    assert.ok(match, `${pattern} is in the text`);
+    return match[1];
+};
 const variables = Object.fromEntries([...read("../_index_css/variables.css").matchAll(/(--[\w-]+):\s*([^;]+);/g)]
     .map(([, key, value]) => [key, value.trim()]));
-const color = token => {
+const color = (token: string): string => {
     const value = variables[token] ?? token;
     const alias = /^var\((--[\w-]+)\)$/.exec(value);
     return alias ? color(alias[1]) : value;
 };
-const luminance = token => {
-    const rgb = color(token).slice(1).match(/../g).map(channel => parseInt(channel, 16) / 255)
+const luminance = (token: string) => {
+    const channels = color(token).slice(1).match(/../g);
+    assert.ok(channels, `${token} is a hex colour`);
+    const rgb = channels.map(channel => parseInt(channel, 16) / 255)
         .map(channel => channel <= .04045 ? channel / 12.92 : ((channel + .055) / 1.055) ** 2.4);
     return rgb[0] * .2126 + rgb[1] * .7152 + rgb[2] * .0722;
 };
-const contrast = (foreground, background) => {
+const contrast = (foreground: string, background: string) => {
     const values = [luminance(foreground), luminance(background)].sort((a, b) => b - a);
     return (values[0] + .05) / (values[1] + .05);
 };
@@ -31,7 +39,7 @@ const pairs = [
     ["delete resting", "--error_bc_color", "--dark_800_color", "--vox_state_failed", "--dark_800_color", 3],
     ["delete hover", "--error_bc_color", "--dark_750_color", "--vox_state_failed", "--dark_825_color", 3],
     ["delete pressed", "--error_bc_color", "--dark_850_color", "--vox_state_failed", "--dark_850_color", 3],
-];
+] as const;
 for (const [name, oldFg, oldBg, fg, bg, minimum] of pairs) {
     test(`${name}: changed CSS pair meets ${minimum}:1 and improves the audited ratio`, () => {
         assert.ok(contrast(fg, bg) >= minimum, `${name}: ${contrast(fg, bg)}`);
@@ -70,7 +78,7 @@ test("available-width breakpoints stack rows at 400px/100% and 800px/200%, inclu
     const voice = read(box + "advanced_settings/VoiceSettings.module.scss");
     const row = read(box + "_components/form_row/FormRow.module.scss");
     const legacy = read(box + "_templates/Templates.module.scss");
-    const breakpoint = css => Number(/@container \(max-width: ([\d.]+)rem\)/.exec(css)[1]);
+    const breakpoint = (css: string) => Number(group(/@container \(max-width: ([\d.]+)rem\)/, css));
     assert.equal(breakpoint(voice), 16 + 18 + 1.6);
     assert.equal(breakpoint(row), breakpoint(voice));
     // The legacy row has no side padding, so its label starts on the heading's edge. It has the
@@ -125,9 +133,9 @@ test("legacy model information wraps above its action inside the padded row, inc
     assert.match(column, /\.radio_button_desc\s*{[^}]*overflow-wrap: anywhere/);
     assert.match(download, /\.download_container\s*{[^}]*width: 10.4rem;[^}]*min-width: 0;[^}]*max-width: 100%/);
     assert.match(download, /\.download_button_label\s*{[^}]*white-space: normal;[^}]*overflow-wrap: anywhere/);
-    const labelBasis = Number(/flex: 1 1 ([\d.]+)rem/.exec(column)[1]);
-    const actionWidth = Number(/width: ([\d.]+)rem/.exec(download.split(".download_container {")[1])[1]);
-    const gap = Number(/gap: ([\d.]+)rem/.exec(radio.split("\n.radio_button_container {")[1])[1]);
+    const labelBasis = Number(group(/flex: 1 1 ([\d.]+)rem/, column));
+    const actionWidth = Number(group(/width: ([\d.]+)rem/, download.split(".download_container {")[1]));
+    const gap = Number(group(/gap: ([\d.]+)rem/, radio.split("\n.radio_button_container {")[1]));
     assert.equal(Math.round((labelBasis + actionWidth + gap) * 10) / 10, 35.6);
     assert.ok(actionWidth >= 7 * 1.2 + 2 * .8, "取得内容を確認 and its padding fit the action");
     // The reviewer measured a 672px scroller at 800px / 200%. The other
@@ -312,7 +320,7 @@ test("the settings search is the same field as the other inputs, with InputGroup
 });
 test("the slider draws its filled part on a .6rem groove, as shadcn/ui's Slider does", () => {
     const css = read(box + "_components/slider/Slider.module.scss");
-    const rule = name => css.split(`\n${name} {`)[1].split("\n}")[0];
+    const rule = (name: string) => css.split(`\n${name} {`)[1].split("\n}")[0];
     // The filled part (shadcn/ui's Range) is drawn in the primary colour.
     assert.match(rule(".track"), /\n {4}background-color: var\(--primary_600_color\);/);
     // The groove and its filled part are .6rem (h-1.5), across or along.
@@ -336,8 +344,10 @@ test("the slider draws its filled part on a .6rem groove, as shadcn/ui's Slider 
 test("the forms' select draws the kit select's chevron, at its size and place", () => {
     // Both are shadcn/ui's NativeSelect: a 1.6rem chevron 1.4rem from the right edge.
     const form = read(box + "advanced_settings/VoiceSettings.module.scss");
-    const kit = /<path d="([^"]+)"/.exec(read("../../kit/Select.tsx"))[1];
-    const select = /\n {4}select \{[^}]*\}/.exec(form)[0];
+    const kit = group(/<path d="([^"]+)"/, read("../../kit/Select.tsx"));
+    const selectRule = /\n {4}select \{[^}]*\}/.exec(form);
+    assert.ok(selectRule);
+    const select = selectRule[0];
     assert.ok(select.includes(`viewBox='0 0 12 12'%3E%3Cpath d='${kit}'`), "the same chevron as the kit's");
     assert.match(select, /padding-right: 3\.6rem;/);
     assert.match(select, /background-position: right 1\.4rem center; background-size: 1\.6rem;/);

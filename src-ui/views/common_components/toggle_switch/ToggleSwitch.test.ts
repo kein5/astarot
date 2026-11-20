@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "vitest";
 
-const read = path => readFileSync(new URL(path, import.meta.url), "utf8");
-const block = (source, selector) => {
+const read = (path: string) => readFileSync(new URL(path, import.meta.url), "utf8");
+const block = (source: string, selector: string) => {
     const start = source.indexOf(`${selector} {`);
     assert.ok(start >= 0, `${selector} is defined`);
     return source.slice(start, source.indexOf("}", start));
