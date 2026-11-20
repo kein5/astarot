@@ -36,6 +36,7 @@
         "useSemanticElements": "warn"
       },
       "complexity": {
+        "useMathMinMax": "error",
         "useOptionalChain": "error"
       },
       "correctness": {
