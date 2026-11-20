@@ -34,6 +34,13 @@ FAKE_WORKER = textwrap.dedent("""
 
 
 class NumbersTests(unittest.TestCase):
+    def test_the_gpu_clock_is_read_after_the_worker_settled(self):
+        # The first 30 % of a run (here up to t=3) is left out: the clock is still where it was.
+        rows = [(1.0, "P8", 210, 0), (2.0, "P8", 210, 0), (4.0, "P2", 1950, 40), (6.0, "P3", 1185, 30), (9.0, "P2", 1935, 50)]
+        summary = bench.clock_summary(rows, 0.0, 10.0)
+        self.assertEqual(summary, {"sm_clock_p50": 1935, "sm_clock_min": 1185, "pstates": {"P2": 2, "P3": 1}, "use_mean": 40.0})
+        self.assertEqual(bench.clock_summary([], 0.0, 10.0), {})
+
     def test_percentiles_are_numpys_linear_ones(self):
         values = [float(v) for v in range(1, 101)]
         self.assertEqual(bench.percentile(values, 50), 50.5)
