@@ -135,3 +135,28 @@ mod official_api_tests {
         assert_eq!(transcription()["Japanese"]["Japan"][RETIRED_GOOGLE_ENGINE], "ja-JP");
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_translation_engines_are_offered_in_the_table_s_order_without_the_web_translators() {
+        assert_eq!(
+            translation_engines(),
+            [
+                "DeepL_API", "Google_Cloud_API", "Papago_API", "CTranslate2", "Plamo_API", "Gemini_API", "OpenAI_API",
+                "LMStudio", "OpenAI_Compatible", "Ollama", "Groq_API", "OpenRouter_API",
+            ]
+        );
+    }
+
+    #[test]
+    fn a_recognition_language_is_known_only_with_one_of_its_own_countries() {
+        assert!(known_language("Japanese", "Japan"));
+        assert!(known_language("English", "United States"));
+        assert!(!known_language("Japanese", "United States"));
+        assert!(!known_language("Japan", "Japanese"));
+        assert!(!known_language("", ""));
+    }
+}
