@@ -76,13 +76,14 @@ tar -xzf VRCT-VOX-<バージョン>-linux-x64-vulkan-release.tar.gz
 展開した`VRCT-VOX`フォルダーの中身はばらさずにそのまま置いておいてください。WebKitGTK 4.1、GTK 3、PipeWire、VulkanなどはOSに入っているものを使います。どのディストリビューションでも動くことを約束するものではありません。
 
 ::: details 設定とデータの場所（Linux）
-| 内容 | 場所 |
-|---|---|
-| 設定とログ | <CopyText>\~/.config/vrct-vox</CopyText>（`$XDG_CONFIG_HOME`があればその下） |
-| データ | <CopyText>\~/.local/share/vrct-vox</CopyText> |
-| キャッシュ | <CopyText>\~/.cache/vrct-vox</CopyText> |
+| 内容 | 0.6.0から | 0.5.xまで |
+|---|---|---|
+| 設定とログ | <CopyText>\~/.config/astarot</CopyText> | <CopyText>\~/.config/vrct-vox</CopyText> |
+| データ | <CopyText>\~/.local/share/astarot</CopyText> | <CopyText>\~/.local/share/vrct-vox</CopyText> |
 
-deb、rpm、AppImage、tar.gzのどれで起動しても、同じ場所を使います。
+`$XDG_CONFIG_HOME`や`$XDG_DATA_HOME`があれば、その下になります。deb、rpm、AppImage、tar.gzのどれで起動しても、同じ場所を使います。
+
+0.5.xから0.6.0にすると、最初の起動で`vrct-vox`のフォルダーを中身ごと`astarot`の名前に移します。古い名前は新しいフォルダーへのリンクとして残るので、古い場所を開いても同じファイルが見えます。ほかのASTAROTが動いているときなど、移せないときは古いフォルダーのまま使い、次の起動でまた移します。
 :::
 
 ## ダウンロードを確かめる
