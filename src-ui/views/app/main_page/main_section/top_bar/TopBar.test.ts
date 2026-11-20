@@ -17,6 +17,8 @@ interface MenuState {
     pending: boolean;
     flow: boolean;
     update?: string;
+    // The version an update check found.
+    version?: string;
 }
 const all = (tree: unknown, predicate: (node: TreeNode) => boolean) => nodesIn(tree).filter(predicate);
 const t = (key: string, options?: object) => options ? `${key}:${JSON.stringify(options)}` : key;
@@ -63,7 +65,7 @@ async function menu(context: TestContext, values: Partial<MenuState> = {}) {
         "@logics_main": { useMainFunction: () => ({ currentForegroundStatus: { data: state.foreground, state: state.pending ? "pending" : "ok" },
             toggleForeground: () => calls.push(["foreground"]) }) },
         "./_buttons/OpenQuickSettingButton": button,
-        "../../../../../../logics/common/useAppUpdate": { useAppUpdate: () => ({ appUpdate: { status: state.update ?? "idle" } }) },
+        "../../../../../../logics/common/useAppUpdate": { useAppUpdate: () => ({ appUpdate: { status: state.update ?? "idle", version: state.version ?? null } }) },
         "../../../../others/vrchat_presence/VrchatPresence": { VrchatPresence: "vrchat-presence" },
         "@ui_configs": { generateLocalizedDocumentUrl: () => ({ vrct_document_ui_guide_url: "https://example.invalid/guide" }) },
         "../../../../../../logics/flow/useIoFlow": { useIoFlow: () => ({ isPanelOpen: state.flow,
@@ -281,12 +283,41 @@ test("stop and mute keep their width in a narrow bar; the update button keeps on
     const right = readFileSync(new URL("./right_side_components/RightSideComponents.module.scss", import.meta.url), "utf8");
     const narrow = right.split("@mixin narrow_menu")[1].split("@container")[0];
     assert.match(narrow, /\.software_update_label \{[^}]*clip-path: inset\(50%\)/);
-    const { control: button, words, side } = tipped((await menu(context, { update: "available" })).updateButton());
+    // The icon and its mark stay in a narrow bar: only the words are clipped.
+    assert.doesNotMatch(narrow, /\.update_(icon|mark)/);
+    const { control: button, words, side } = tipped((await menu(context, { update: "available", version: "0.6.1" })).updateButton());
     assert.equal(button.type, "button");
     assert.equal(button.props.type, "button");
-    assert.deepEqual([words, side], ["main_page.update_available", "bottom"], "the tooltip keeps the words");
     assert.equal(button.props.title, undefined);
-    assert.ok(find(button, node => node.type === "span" && node.props.children === "main_page.update_available"), "and so does the name");
+    // #766: a version being out is a state. It is a mark on the icon and the short word with the
+    // version; the sentence that announces it is the tooltip and the button's description.
+    const label = find(button, node => node.props?.className === "software_update_label");
+    assert.ok(label);
+    assert.equal(label.props.children, 'main_page.update_button:{"version":"0.6.1"}', "the words, which stay the button's name in a narrow bar");
+    const mark = find(button, node => node.props?.className === "update_mark");
+    assert.ok(mark, "the mark on the icon");
+    assert.equal(mark.props["aria-hidden"], "true");
+    assert.deepEqual([words, side], ["main_page.update_available", "bottom"]);
+    assert.equal(describedBy(button), "main_page.update_available");
+    assert.equal(find(button, node => node.props?.className !== undefined && node.props.children === "main_page.update_available"), null, "the sentence is not a line of the bar");
+});
+
+test("the update button names the version when the check found one, shows while it downloads and installs, and is absent otherwise", async context => {
+    for (const update of ["available", "downloading", "installing"]) {
+        const { control } = tipped((await menu(context, { update, version: "0.6.1" })).updateButton());
+        assert.ok(find(control, node => node.props?.children === 'main_page.update_button:{"version":"0.6.1"}'), update);
+    }
+    const plain = tipped((await menu(context, { update: "available" })).updateButton()).control;
+    assert.ok(find(plain, node => node.props?.children === "main_page.update_button_plain"), "no version, no number");
+    for (const update of ["idle", "up_to_date", "checking", "failed"]) assert.equal((await menu(context, { update })).updateButton(), null, update);
+    // Both languages keep the version in the words.
+    for (const language of ["en", "ja"]) {
+        const strings = readLocale(language);
+        const [named, plainWords, sentence] = ["update_button", "update_button_plain", "update_available"].map(key => localeAt(strings, `main_page.${key}`));
+        assert.ok(typeof named === "string" && typeof plainWords === "string" && typeof sentence === "string", language);
+        assert.match(named, /\{\{version\}\}/, language);
+        assert.equal(named.replace(/\s*\{\{version\}\}\s*/, ""), plainWords, `${language}: the same word with and without the version`);
+    }
 });
 
 test("the words added to the main page are never smaller than 12px (1.2rem at the 10px base)", () => {

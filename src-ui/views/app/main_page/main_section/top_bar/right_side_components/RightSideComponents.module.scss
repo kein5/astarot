@@ -40,7 +40,7 @@
 @mixin narrow_menu {
     .container { gap: .4rem; }
     .menu_button { padding: .4rem .8rem; }
-    // The update button keeps its arrow; its words stay the accessible name and the tooltip.
+    // The update button keeps its arrow and the mark on it; its words stay the accessible name.
     .menu_text, .software_update_label { position: absolute; width: .1rem; height: .1rem; margin: -.1rem; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 }
 @container main_section (max-width: 64rem) { @include narrow_menu; }
@@ -69,16 +69,20 @@
     display: flex;
     justify-content: center;
     align-items: center;
-    gap: 0.4rem;
+    gap: 0.8rem;
     color: var(--primary_300_color);
-    padding: 1rem 0.4rem;
+    padding: 1rem 0.8rem;
+    border-radius: var(--vox_radius);
     cursor: pointer;
     &:hover {
         background-color: var(--dark_800_color);
+        .update_mark { box-shadow: 0 0 0 .2rem var(--dark_800_color); }
     }
     &:active {
         background-color: var(--dark_900_color);
+        .update_mark { box-shadow: 0 0 0 .2rem var(--dark_900_color); }
     }
+    &:focus-visible { outline: .2rem solid var(--primary_200_color); outline-offset: -.2rem; }
 }
 
 .refresh_svg {
@@ -86,6 +90,16 @@
     transform: rotate(-30deg);
 }
 
+// A version is out: a dot on the icon's corner, ringed in the bar's colour so it stands off the arrow.
+.update_icon { position: relative; display: flex; }
+.update_mark {
+    position: absolute; top: -.2rem; right: -.4rem;
+    width: .8rem; height: .8rem; border-radius: 50%;
+    background: var(--primary_200_color); box-shadow: 0 0 0 .2rem var(--vox_canvas);
+}
+
 .software_update_label {
-    font-size: 1.2rem;
+    font-size: 1.3rem;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
 }

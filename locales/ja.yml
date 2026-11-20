@@ -440,6 +440,8 @@ main_page:
         no_results: "一致する言語がありません"
 
     update_available: "新しいバージョンが出ました！"
+    update_button: "更新 {{version}}"
+    update_button_plain: "更新"
     updating: "アップデート中..."
 
 config_page:
