@@ -241,6 +241,32 @@ class DeveloperCLITests(unittest.TestCase):
         self.assertIn("mise install (mise.toml pins 1.7.12)", output)
         self.assertIn("mise install (mise.toml pins 1.32.0)", output)
 
+    def test_rust_check_runs_the_native_tests_with_nextest_and_keeps_the_doctests(self):
+        (self.root / "native/core/src").mkdir(parents=True)
+        (self.root / "native/core/src/lib.rs").write_text("")
+        code, output = self.call("check", "--scope", "rust", "--dry-run")
+        self.assertEqual(code, 0)
+        self.assertIn("cargo nextest run --locked --offline --manifest-path native/core/Cargo.toml", output)
+        self.assertNotIn("cargo test --locked", output)
+        # nextest does not run doctests: a crate with a library runs them with cargo test --doc.
+        self.assertIn("cargo test --doc --locked --offline --manifest-path native/core/Cargo.toml", output)
+        self.assertNotIn("--doc --locked --offline --manifest-path native/tts/Cargo.toml", output)
+
+    def test_crate_check_runs_cargo_deny_offline_on_every_cargo_workspace(self):
+        code, output = self.call("check", "--scope", "crates", "--dry-run")
+        self.assertEqual(code, 0)
+        lines = [line for line in output.splitlines() if line.startswith("[cargo-deny ")]
+        self.assertEqual(len(lines), len(self.dev.CARGO_WORKSPACES))
+        for workspace in ("src-tauri", "native/core", "native/ocr-runtime", "native/rvc-runtime"):
+            self.assertIn(f"--manifest-path {workspace}/Cargo.toml --config deny.toml check", output)
+        self.assertTrue(all("--frozen" in line and line.endswith("licenses bans sources") for line in lines))
+
+    def test_rust_setup_fetches_every_workspace_cargo_deny_reads(self):
+        code, output = self.call("setup", "--scope", "rust", "--dry-run")
+        self.assertEqual(code, 0)
+        for workspace in self.dev.CARGO_WORKSPACES:
+            self.assertIn(f"--manifest-path {workspace}/Cargo.toml", output)
+
     def test_browser_setup_adds_dependencies_to_explicit_existing_python(self):
         code, output = self.call("setup", "--scope", "browser", "--python",
             sys.executable, "--dry-run")

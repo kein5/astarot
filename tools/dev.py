@@ -21,13 +21,19 @@ import tomllib
 
 
 ROOT = Path(__file__).resolve().parents[1]
-SCOPES = ("quick", "tooling", "node", "ui", "voice", "lint", "rust", "workflows", "commits", "all")
+SCOPES = ("quick", "tooling", "node", "ui", "voice", "lint", "rust", "workflows", "crates", "commits", "all")
 GROUPS = {"quick": ("tooling", "node", "lint"),
-          "all": ("tooling", "node", "ui", "voice", "lint", "rust", "workflows")}
+          "all": ("tooling", "node", "ui", "voice", "lint", "rust", "workflows", "crates")}
 # Rust crates outside the Tauri app, each with its own Cargo.lock and tests.
 NATIVE_CRATES = ("native/app-identity", "native/speech-server", "native/ops", "native/audio-routing", "native/adapters", "native/translation",
                  "native/transcription", "native/openvr-client", "native/onnx-runtime", "native/vr-overlay", "native/voice-conversion",
                  "native/translate-onnx", "native/tts", "native/core")
+# Every Cargo workspace with a lock file of its own: the Tauri app, the crates above, and the two
+# whose tests check --scope rust does not run yet (#812). cargo-deny reads them all.
+CARGO_WORKSPACES = ("src-tauri", *NATIVE_CRATES, "native/ocr-runtime", "native/rvc-runtime")
+# cargo-deny's lints for a shared deny.toml: a license, exception or source one workspace has no
+# use for is not a mistake.
+DENY_UNUSED = ("license-not-encountered", "license-exception-not-encountered", "unmatched-source")
 SETUP_SCOPES = ("headless", "ui", "browser", "rust", "resources")
 OWNER_FILE = ".vrct-vox-dev-env"
 OWNER = "VRCT-VOX developer environment v1\n"
@@ -187,8 +193,13 @@ def checks_plan(args, root):
             steps.append(Step("Cargo check", ["cargo", "check", "--locked", "--offline",
                 "--manifest-path", "src-tauri/Cargo.toml"]))
             for crate in NATIVE_CRATES:
-                steps.append(Step(f"Cargo test {crate}", ["cargo", "test", "--locked", "--offline",
-                    "--manifest-path", f"{crate}/Cargo.toml"]))
+                # cargo-nextest runs each test in a process of its own; it does not run doctests,
+                # so a crate with a library runs them with cargo test --doc as before.
+                steps.append(Step(f"Cargo nextest {crate}", ["cargo", "nextest", "run", "--locked", "--offline",
+                    "--manifest-path", f"{crate}/Cargo.toml", "--no-tests", "pass"]))
+                if (root / crate / "src/lib.rs").is_file():
+                    steps.append(Step(f"Cargo doctests {crate}", ["cargo", "test", "--doc", "--locked", "--offline",
+                        "--manifest-path", f"{crate}/Cargo.toml"]))
         elif scope == "workflows":
             # actionlint: syntax, expressions and types. Its shellcheck and pyflakes passes stay off:
             # mise.toml pins neither, so they would change with whatever the PC has. zizmor:
@@ -197,6 +208,13 @@ def checks_plan(args, root):
             steps.append(Step("actionlint", ["actionlint", "-shellcheck=", "-pyflakes="]))
             steps.append(Step("zizmor", ["zizmor", *(["--format", "github"]
                 if os.environ.get("GITHUB_ACTIONS") == "true" else []), "."]))
+        elif scope == "crates":
+            # Licenses, banned crates and sources, as deny.toml allows them (the license ledger,
+            # docs/voice-stack/licensing.md). Known vulnerabilities are osv-scanner's.
+            for crate in CARGO_WORKSPACES:
+                steps.append(Step(f"cargo-deny {crate}", ["cargo-deny", "--frozen", "--manifest-path",
+                    f"{crate}/Cargo.toml", "--config", "deny.toml", "check",
+                    *(flag for lint in DENY_UNUSED for flag in ("-A", lint)), "licenses", "bans", "sources"]))
         elif scope == "commits":
             if not args.base or args.base.startswith("-"):
                 raise DevError("commits requires --base REF (for example origin/develop); old history is not rewritten.")
@@ -234,7 +252,8 @@ def pinned_versions(root):
     tools = mise_versions(root)
     return {command: tools[name] for name, command in
             (("node", "node"), ("cocogitto", "cog"), ("rust", "cargo"), ("uv", "uv"),
-             ("actionlint", "actionlint"), ("zizmor", "zizmor")) if name in tools}
+             ("actionlint", "actionlint"), ("zizmor", "zizmor"), ("cargo-deny", "cargo-deny"),
+             ("cargo-nextest", "cargo-nextest")) if name in tools}
 
 
 def python_series(root):
@@ -278,7 +297,7 @@ def doctor(args, root, *, preflight=False):
     if "ui" in selected:
         needed_tools.add("npm")
     if "rust" in selected:
-        needed_tools.add("cargo")
+        needed_tools.update(("cargo", "cargo-nextest"))
         resources = root / "src-tauri/bin/_internal"
         row("Tauri resources", "ok" if resources.is_dir() and not resources.is_symlink() else "missing",
             str(resources), "python tools/dev.py setup --scope resources stages what build/ has.")
@@ -300,6 +319,8 @@ def doctor(args, root, *, preflight=False):
         needed_tools.update(("cog", "git"))
     if "workflows" in selected:
         needed_tools.update(("actionlint", "zizmor"))
+    if "crates" in selected:
+        needed_tools.update(("cargo", "cargo-deny"))
     pinned = pinned_versions(root)
     for tool_name in sorted(needed_tools):
         tool(tool_name, pinned.get(tool_name))
@@ -367,7 +388,7 @@ def setup(args, root):
         return execute([Step(f"locked Rust dependencies {manifest}", ["cargo", "--config",
             f"net.offline={'true' if args.offline else 'false'}", "fetch", "--locked",
             "--manifest-path", f"{manifest}/Cargo.toml"])
-            for manifest in ("src-tauri", *NATIVE_CRATES)], root, dry_run=args.dry_run)
+            for manifest in CARGO_WORKSPACES], root, dry_run=args.dry_run)
     uv = ["uv", *(["--offline"] if args.offline else [])]
     # Every scope installs an exact subset of uv.lock (pyproject.toml groups).
     groups = {"headless": ["--only-group", "voice-test"], "browser": ["--only-group", "voice-ui-test"]}[args.scope]
@@ -421,7 +442,7 @@ def parser():
     for command in ("doctor", "check"):
         sub = commands.add_parser(command, help="Inspect local prerequisites" if command == "doctor" else "Run selected model-free checks")
         sub.add_argument("--scope", choices=(*SCOPES, "browser") if command == "doctor" else SCOPES,
-                         default="quick", help="quick = tooling + node + lint; all also runs ui, voice, Rust and workflows (default: quick)")
+                         default="quick", help="quick = tooling + node + lint; all also runs ui, voice, Rust, workflows and crates (default: quick)")
         sub.add_argument("--python", help="Existing environment's Python executable; never installs packages")
         if command == "doctor":
             sub.add_argument("--json", action="store_true", help="Machine-readable diagnostics; missing prerequisites exit 2")
