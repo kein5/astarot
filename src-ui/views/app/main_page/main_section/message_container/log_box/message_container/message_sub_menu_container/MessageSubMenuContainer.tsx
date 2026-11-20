@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 import type { KeyboardEvent, MouseEvent, PointerEvent } from "react";
 import clsx from "clsx";
 import { useI18n } from "@useI18n";

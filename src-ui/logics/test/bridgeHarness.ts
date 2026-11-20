@@ -38,7 +38,7 @@ export const loadBridgeStore = async (runtime: HookRuntime = hooks()) => {
     };
     const stores = await loadModule<typeof import("../store.ts")>(new URL("../store.ts", import.meta.url), runtime, {
         jotai,
-        "./_test_data.ts": {}, "@ui_configs": {},
+        "@ui_configs": {},
         "./common/vrPanelTooltip": { keepNewestVrLayout: (_: unknown, next: unknown) => next },
         "./voice/settingsNavigation": { requestSettingsNavigation: (action: () => unknown) => action() },
         "./common/pendingRequestRecovery.ts": recovery,
