@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test, vi } from "vitest";
 import type { TestContext } from "vitest";
-import { hooks, loadModule, stubGlobals, eventTarget, find, unchecked } from "../test/hookHarness.ts";
+import { hooks, loadModule, stubGlobals, eventTarget, find, fieldOf } from "../test/hookHarness.ts";
 import { flush, loadBridgeRoutes } from "../test/bridgeHarness.ts";
 import { rebaseDraft } from "../voice/draftRebase.ts";
 import { changedPaths } from "../voice/saveBar.ts";
@@ -22,6 +22,13 @@ interface SentPair {
     url: string;
     auth_key: string;
 }
+const isSentPair = (data: unknown): data is SentPair =>
+    typeof fieldOf(data, "url") === "string" && typeof fieldOf(data, "auth_key") === "string";
+// The write's value itself, read as the pair the test has just compared it with.
+const sentPair = (data: unknown): SentPair => {
+    assert.ok(isSentPair(data), "the write sends a URL and a key");
+    return data;
+};
 // React calls a function given to a state setter instead of keeping it.
 const isUpdate = <S>(next: S | ((previous: S) => S)): next is (previous: S) => S => typeof next === "function";
 
@@ -97,7 +104,7 @@ for (const [base, provider, section] of providers) {
         const request = s.requests[0];
         assert.equal(request.endpoint, `/set/data/${provider}_auth_key_and_url`);
         assert.deepEqual(request.data, { url: "https://provider-b.example/v1", auth_key: "FAKE-KEY-B" });
-        const sent = unchecked<SentPair>(request.data);
+        const sent = sentPair(request.data);
         s.owners.receive({ endpoint: `/get/data/${provider}_url`, status: 200, result: sent.url });
         assert.equal(s.entry()?.saving, true);
         s.settings[`current${base}URL`].data = sent.url;
@@ -164,7 +171,7 @@ for (const [base, provider, section] of providers) {
             const request = s.requests[0];
             assert.equal(request.endpoint, `/set/data/${provider}_auth_key_and_url`);
             assert.deepEqual(request.data, { url: "https://provider-c.example/v1", auth_key: value });
-            const sent = unchecked<SentPair>(request.data);
+            const sent = sentPair(request.data);
             s.settings[`current${base}URL`].data = sent.url;
             s.settings[`current${base}AuthKey`].data = value;
             s.owners.receive({ endpoint: request.endpoint, status: 200, result: sent });

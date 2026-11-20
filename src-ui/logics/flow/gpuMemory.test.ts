@@ -10,8 +10,8 @@ const GB = 1024 ** 3;
 const MB = 1024 ** 2;
 const gpu = (extra: Record<string, unknown> = {}) => ({ name: "Test GPU", total: 8 * GB, used: 3 * GB,
     app: { speech: GB, conversion: 512 * MB, other: 256 * MB }, app_shared: 0, ...extra });
-// The backend's answer as the test writes it: some are malformed on purpose, which readGpuMemory
-// turns away; the rows are drawn from well-formed ones.
+// On purpose: the backend's answer as the test writes it, some of them malformed, which
+// readGpuMemory turns away; the rows are drawn from well-formed ones.
 const answer = (gpus: unknown[], extra: Record<string, unknown> = {}) => unchecked<GpuMemory>({ state: "ready", gpus, age_ms: 300, ...extra });
 
 test("only a well-formed answer is read", () => {

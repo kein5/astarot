@@ -1,13 +1,13 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "vitest";
-import yaml from "js-yaml";
+import { branchAt, localeAt, readLocale } from "../test/locales.ts";
+import type { LocaleTree } from "../test/locales.ts";
 
 // Codes the servers report as a notice, not a failure (native/speech-server/src/lib.rs).
 const NOTICES: Record<string, boolean> = { speech_server_cpu_fallback: true };
 
 const read = (path: string) => readFileSync(new URL(path, import.meta.url), "utf8");
-const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null;
 
 // The codes the bundled speech servers can report (native/speech-server/src/lib.rs, mod codes) and
 // those the core's start and stop add (native/core/src/controller/speech.rs), plus the UI's own.
@@ -25,11 +25,10 @@ const serverCodes = () => {
 // The speech server section of a locale file. A file without one fails here, as reading
 // its errors would have.
 const speechServers = (language: string) => {
-    const tree = yaml.load(read(`../../../locales/${language}.yml`));
-    const section = isRecord(tree) ? tree.speech_servers : undefined;
-    assert.ok(isRecord(section), `${language}: speech_servers`);
-    const { errors, notices = {} } = section;
-    assert.ok(isRecord(errors) && isRecord(notices), `${language}: speech_servers.errors and notices`);
+    const section = branchAt(readLocale(language), "speech_servers");
+    const errors = branchAt(section, "errors");
+    const notices: LocaleTree = localeAt(section, "notices") ?? {};
+    assert.ok(typeof notices !== "string", `${language}: speech_servers.errors and notices`);
     return { errors, notices };
 };
 

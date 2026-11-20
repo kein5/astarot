@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test, vi } from "vitest";
 import type { SaveBarEntry } from "./saveBar.ts";
-import { unchecked } from "../test/hookHarness.ts";
+import { fieldOf } from "../test/hookHarness.ts";
 
 // The store is read through useSyncExternalStore; take its two arguments to drive it without React.
 vi.mock("react", () => ({ useSyncExternalStore: (subscribe: unknown, getSnapshot: unknown) => ({ subscribe, getSnapshot }) }));
@@ -12,8 +12,14 @@ interface ExternalStore {
     subscribe: (listener: () => void) => () => void;
     getSnapshot: () => readonly SaveBarEntry[];
 }
+const isExternalStore = (value: unknown): value is ExternalStore =>
+    typeof fieldOf(value, "subscribe") === "function" && typeof fieldOf(value, "getSnapshot") === "function";
 // Not the entries the hook is declared to return: react is mocked above.
-const storeOf = () => unchecked<ExternalStore>(useSaveBarEntries());
+const storeOf = () => {
+    const store: unknown = useSaveBarEntries();
+    assert.ok(isExternalStore(store), "the mocked useSyncExternalStore hands back the store");
+    return store;
+};
 
 const entry = (name: string): SaveBarEntry => ({ dirty: true, saving: false, saveState: "unsaved", changes: [name], canSave: true, save() {}, discard() {} });
 

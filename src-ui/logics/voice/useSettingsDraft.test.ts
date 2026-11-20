@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test, vi } from "vitest";
 import type { TestContext } from "vitest";
-import { hooks, loadModule, stubGlobals, eventTarget, unchecked } from "../test/hookHarness.ts";
+import { hooks, loadModule, stubGlobals, eventTarget, fieldOf, unchecked } from "../test/hookHarness.ts";
 import { rebaseDraft } from "./draftRebase.ts";
 import type { DraftWrite, SettingsDraft } from "./useSettingsDraft.tsx";
 import type { StdoutResult } from "../common/useStdoutToPython.ts";
@@ -16,7 +16,9 @@ interface Request {
     resolve: (response: unknown) => void;
 }
 
-const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null;
+// A whole form as the tests write it.
+const isVocabulary = (value: unknown): value is Vocabulary =>
+    Array.isArray(fieldOf(value, "vocabulary", "terms")) && typeof fieldOf(value, "model") === "string";
 // The form's draft; a form without one fails here, as reading a field of it would.
 const draftOf = (form: SettingsDraft<Vocabulary>) => {
     assert.ok(form.draft);
@@ -33,10 +35,13 @@ async function setup(context: TestContext, savedFromResponse?: (result: unknown)
     const { useSettingsDraft } = await loadModule<typeof import("./useSettingsDraft.tsx")>(new URL("./useSettingsDraft.tsx", import.meta.url), runtime, {
         "./draftRebase": { rebaseDraft }, "./saveBar": { changedPaths: () => [], setSaveBarEntry() {} },
     });
-    // Without patch the form writes its whole draft. The tests answer with only what the draft
-    // reads of an answer (status and result), or with false.
-    const write: DraftWrite<Vocabulary> = value => new Promise<StdoutResult>(resolve =>
-        requests.push({ value: unchecked<Vocabulary>(value), resolve: response => resolve(unchecked<StdoutResult>(response)) }));
+    // Without patch the form writes its whole draft.
+    const write: DraftWrite<Vocabulary> = value => {
+        assert.ok(isVocabulary(value), "the form writes its whole draft");
+        // Test data: the tests answer with only what the draft reads of an answer (status and
+        // result), or with false.
+        return new Promise<StdoutResult>(resolve => requests.push({ value, resolve: response => resolve(unchecked<StdoutResult>(response)) }));
+    };
     const updateError = (value: string | null) => { state.error = value; };
     const render = () => {
         runtime.render(() => useSettingsDraft(state.saved, state.error, updateError, { write, savedFromResponse }));
@@ -81,7 +86,11 @@ test("a late owned acknowledgement clears uncertainty but discard revokes owners
 
 test("direct-voice responses acknowledge their nested settings without adopting runtime state", async context => {
     // The reply's settings, which this test sends as the form's value.
-    const s = await setup(context, value => unchecked<Vocabulary>(isRecord(value) ? value.settings : undefined));
+    const s = await setup(context, value => {
+        const settings = fieldOf(value, "settings");
+        assert.ok(isVocabulary(settings), "the reply carries the form's settings");
+        return settings;
+    });
     s.edit(); s.render().submit(s.write); s.render();
     const canonical = { ...s.state.saved, vocabulary: { terms: ["VRChat=ブイアールチャット"] } };
     s.state.saved = canonical;

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "vitest";
 import type { TestContext } from "vitest";
 import type { ComponentType, SVGProps } from "react";
-import { hooks, loadModule, find, eventTarget, stubGlobals, unchecked } from "../test/hookHarness.ts";
+import { hooks, loadModule, find, eventTarget, setRef, stubGlobals, unchecked } from "../test/hookHarness.ts";
 
 async function fixture(saved: boolean, context: TestContext) {
     // The opened rail listens on the document for Escape and presses outside it.
@@ -44,7 +44,7 @@ async function fixture(saved: boolean, context: TestContext) {
     // One render for all of them: the hooks share the runtime's slots.
     const render = () => runtime.render(() => ({ sidebar: SidebarSection(), button: SidebarCompactModeButton(),
         hook: logic.useIsMainPageCompactMode(),
-        // A string stands in for the icon component; the test only finds the button.
+        // On purpose: a tag name stands in for the icon component; the test only finds the button.
         language: LanguageSelectorOpenButton({ TurnedOnSvgComponent: unchecked<ComponentType<SVGProps<SVGSVGElement>>>("svg"),
             is_turned_on: true, selector_key: "your_language", target_key: "1" }) }));
     return { render, requests, document, setNarrow: (value: boolean) => { narrow = value; }, saved: () => saved, selector: () => selector };
@@ -93,8 +93,7 @@ for (const saved of [false, true]) {
         const opened = s.render();
         assert.match(opened.sidebar.props.className, /isOverlay/);
         const inside = { nodeType: 1, closest: () => null };
-        // React 18's element type leaves out the ref the element carries.
-        unchecked<{ ref: { current: unknown } }>(opened.sidebar).ref.current = { contains: (target: unknown) => target === inside };
+        setRef(opened.sidebar, { contains: (target: unknown) => target === inside });
         s.document.dispatch("pointerdown", { target: inside });
         assert.equal(s.render().button.props["aria-expanded"], true, "a press inside the rail keeps it open");
         // The toggle handles its own press; closing here as well would reopen it.

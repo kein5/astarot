@@ -1,19 +1,12 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import { readFileSync } from "node:fs";
-import yaml from "js-yaml";
 import {
     USAGE_PRESETS, USAGE_PRESET_IDS, MAIN_SWITCHES, ALWAYS_SHOWN_TABS,
     pickedPresets, isSwitchShown, isTabShown, togglePreset, usagePresetLabelKey, usagePresetDescKey,
 } from "./usagePresets.ts";
 import { SETTINGS_MENU_TABS } from "./settingsMenu.ts";
-import { unchecked } from "../test/hookHarness.ts";
-
-// A locale file (locales/*.yml) as this test reads it: mappings down to the texts, each key
-// read or checked for truth.
-interface LocaleTree {
-    readonly [key: string]: LocaleTree | undefined;
-}
+import { localeAt, readLocale } from "../test/locales.ts";
 
 const root = new URL("../../../", import.meta.url);
 const read = (path: string) => readFileSync(new URL(path, root), "utf8");
@@ -88,8 +81,8 @@ test("picking and unpicking keeps the table's order and never leaves nothing pic
 
 test("every preset has a name and a description in both languages", () => {
     for (const language of ["en", "ja"]) {
-        const strings = unchecked<LocaleTree>(yaml.load(read(`locales/${language}.yml`)));
-        const lookup = (key: string) => key.split(".").reduce<LocaleTree | undefined>((node, part) => node?.[part], strings);
+        const strings = readLocale(language);
+        const lookup = (key: string) => localeAt(strings, key);
         for (const id of USAGE_PRESET_IDS) {
             assert.equal(typeof lookup(usagePresetLabelKey(id)), "string", `${language}: ${id}`);
             assert.equal(typeof lookup(usagePresetDescKey(id)), "string", `${language}: ${id}`);

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "vitest";
-import yaml from "js-yaml";
+import { localeAt, readLocale } from "../test/locales.ts";
 
 // Codes the UI makes itself (a reply that never came, a request that failed without a code),
 // and the sections each page looks them up in, in order. Without a text the page shows the
@@ -21,14 +21,10 @@ const PAGES = [
 ];
 
 for (const language of ["en", "ja"]) test(`${language}: every code the UI makes has a text where its page looks`, () => {
-    const locale = yaml.load(readFileSync(new URL(`../../../locales/${language}.yml`, import.meta.url), "utf8"));
-    // A key of a mapping in the locale tree, or undefined, as `node?.[key]` read it.
-    const child = (node: unknown, key: string): unknown =>
-        typeof node === "object" && node !== null ? Reflect.get(node, key) : undefined;
-    const get = (path: string) => path.split(".").reduce<unknown>(child, locale);
+    const locale = readLocale(language);
     for (const { page, sections, codes } of PAGES) {
         for (const code of codes) {
-            assert.ok(sections.some(section => typeof child(get(section), code) === "string"), `${page}: ${code}`);
+            assert.ok(sections.some(section => typeof localeAt(locale, `${section}.${code}`) === "string"), `${page}: ${code}`);
         }
     }
 });

@@ -176,7 +176,7 @@ test("downloads and hardware skip equal observations, reject overtaken responses
     assert.equal(render().state, before);
     await render().send("/run/start_model_download", { id: "model" });
     assert.ok(render().pending);
-    // A job with only its phase: the acknowledgement reads no more of it.
+    // Test data: a job with only its phase; the acknowledgement reads no more of it.
     render().acknowledge(unchecked<ModelDownloadState>({ observation_id: "7", jobs: { model: { phase: "queued" } } }), "/run/start_model_download");
     assert.equal(render().pending, null);
     assert.equal(render().state, before);

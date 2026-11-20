@@ -12,6 +12,7 @@ interface FlowSample {
     flow: IoFlow & { voice: FlowLane & { outputs: FlowOutputRow[] } };
     traces: Trace[];
 }
+// Test data: the sample the backend's tests share, read as far as these tests read it.
 const sample = unchecked<FlowSample>(JSON.parse(readFileSync(new URL("../../../tests/voice/fixtures/io_flow_sample.json", import.meta.url), "utf8")));
 // A box of the graph by its id, of the kind that id names.
 type NodeKind<N, I> = N extends { id: infer D } ? (I extends D ? N : never) : never;

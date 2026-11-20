@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import type { TestContext } from "vitest";
-import { hooks, loadModule, find, unchecked } from "../test/hookHarness.ts";
+import { hooks, loadModule, find, findIn, nodesIn, componentName, unchecked } from "../test/hookHarness.ts";
 import type { HookRuntime, TreeNode } from "../test/hookHarness.ts";
 import { loadBridgeRoutes } from "../test/bridgeHarness.ts";
 import * as polledState from "../common/polledState.ts";
@@ -17,14 +17,6 @@ type Call = [string, ...unknown[]];
 // Test data: download states and catalogs with only the fields the code under test reads.
 const downloadState = (value: object) => unchecked<ModelDownloadState>(value);
 const catalog = (value: object) => unchecked<ModelDownloadCatalog>(value);
-// The node find finds; none fails here, as reading its props would.
-const found = (tree: unknown, predicate: (node: TreeNode) => boolean) => {
-    const node = find(tree, predicate);
-    assert.ok(node);
-    return node;
-};
-// A component's name, as `type?.name` read it: a tag's type has none.
-const typeName = (node: TreeNode) => typeof node.type === "function" ? node.type.name : undefined;
 
 async function setup(t: TestContext, transport: (...args: Call) => Promise<boolean> = async () => true) {
     const runtime = hooks(), calls: Call[] = [];
@@ -164,21 +156,6 @@ const loadCatalog = (s: { render: () => object }, ui: HookRuntime) => loadModule
     "./VoiceAudition": { AuditionButton: "audition-button", AuditionNote: "audition-note" },
 });
 
-// The nodes of a rendered tree that match, in order (find returns only the first).
-const all = (tree: unknown, predicate: (node: TreeNode) => boolean) => {
-    const matches: TreeNode[] = [];
-    const walk = (value: unknown): void => {
-        if (!value || typeof value !== "object") return;
-        if (Array.isArray(value)) return value.forEach(walk);
-        // An object in the rendered tree is an element, as find reads it.
-        const node = unchecked<TreeNode>(value);
-        if (predicate(node)) matches.push(node);
-        walk(node.props?.children);
-    };
-    walk(tree);
-    return matches;
-};
-
 test("the production model card enables matching Cancel during Apply verification", async t => {
     const s = await setup(t), ui = hooks();
     t.onTestFinished(() => ui.unmount());
@@ -186,7 +163,7 @@ test("the production model card enables matching Cancel during Apply verificatio
     s.render().updateCatalog(catalog({ models: [{ id: "model", target: "rvc", name: "Model", total_bytes: 10 }] }));
     s.render().updateState(downloadState({ observation_id: "1", jobs: { model: { job_id: "job", phase: "ready" } } }));
     const render = () => ui.render(ModelDownloads, { targets: ["rvc"], expected: { rvc: {} } });
-    const button = (name: string) => found(render(), node => node.type === "button" && node.props.children === `model_downloads.${name}`);
+    const button = (name: string) => findIn(render(), node => node.type === "button" && node.props.children === `model_downloads.${name}`);
     button("apply").props.onClick();
     s.render().updateState(downloadState({ observation_id: "2", jobs: { model: { job_id: "job", phase: "verifying" } } }));
     assert.equal(button("cancel").props.disabled, false);
@@ -211,10 +188,10 @@ test("the catalog groups models by use, one card per recognizer with its file ty
         { id: "vad", target: "vad", name: "VAD", total_bytes: 1 },
     ] }));
     const render = () => ui.render(ModelDownloads, { targets: ["asr", "vad"], expected: {} });
-    const groups = () => all(render(), node => node.type === "h4").map(node => node.props.children);
-    const cards = () => all(render(), node => node.props?.["data-model-download"] !== undefined);
+    const groups = () => nodesIn(render()).filter(node => node.type === "h4").map(node => node.props.children);
+    const cards = () => nodesIn(render()).filter(node => node.props?.["data-model-download"] !== undefined);
     const select = (card: TreeNode) => find(card, node => node.type === "select");
-    const choice = (card: TreeNode) => found(card, node => node.type === "select");
+    const choice = (card: TreeNode) => findIn(card, node => node.type === "select");
     const values = (node: TreeNode) => [node.props.children].flat(2).filter(Boolean).map(option => option.props.value);
     assert.deepEqual(groups(), ["model_catalog.group.asr", "model_catalog.group.vad"]);
     assert.deepEqual(cards().map(card => card.props["aria-label"]), ["qwen", "v3", "VAD"]);
@@ -227,7 +204,7 @@ test("the catalog groups models by use, one card per recognizer with its file ty
     assert.equal(choice(cards()[1]).props.value, "v3-q8");
     assert.equal(choice(cards()[0]).props.value, "qwen-q8", "each card keeps its own choice");
     // The facts come from speech.cpp's catalog when a row has no profile.
-    const facts = found(cards()[1], node => typeName(node) === "ModelFacts");
+    const facts = findIn(cards()[1], node => componentName(node) === "ModelFacts");
     assert.equal(facts.props.entry.id, "v3-q8");
     assert.equal(s.calls.filter(([endpoint]) => endpoint.startsWith("/run/") && !endpoint.includes("hardware")).length, 0, "choosing starts nothing");
 });
@@ -240,10 +217,10 @@ test("a model downloaded before a restart says so, and in use only when its file
     s.render().updateCatalog(catalog({ catalog_version: "v", models: [model("a"), model("b"), model("c")] }));
     s.render().updateState(downloadState({ observation_id: "1", jobs: {}, downloaded: { a: { model: "/m/a.pth" }, b: { model: "/m/b.pth" } } }));
     const render = () => ui.render(ModelDownloads, { targets: ["rvc"], expected: { rvc: { model: "/m/a.pth" } } });
-    const status = (card: TreeNode) => found(card, node => typeName(node) === "StatusBadge").props.status;
-    const cards = all(render(), node => node.props?.["data-model-download"] !== undefined);
+    const status = (card: TreeNode) => findIn(card, node => componentName(node) === "StatusBadge").props.status;
+    const cards = nodesIn(render()).filter(node => node.props?.["data-model-download"] !== undefined);
     assert.deepEqual(cards.map(status), ["in_use", "downloaded", "not_downloaded"]);
-    const action = (card: TreeNode) => found(card, node => node.type === "button" && node.props.children?.startsWith?.("model_"));
+    const action = (card: TreeNode) => findIn(card, node => node.type === "button" && node.props.children?.startsWith?.("model_"));
     assert.deepEqual(cards.map(card => action(card).props.children), ["model_catalog.prepare", "model_catalog.prepare", "model_downloads.review"]);
     // Getting a downloaded file ready still goes through the review and consent.
     action(cards[1]).props.onClick();
@@ -251,9 +228,9 @@ test("a model downloaded before a restart says so, and in use only when its file
     const dialog = find(render(), node => node.type === "dialog");
     assert.ok(find(dialog, node => node.props?.children === "model_catalog.prepare_notice"));
     // The audition (#415) follows the card's own action in its row, with the card's status.
-    const row = found(cards[0], node => node.props?.className === "actions");
+    const row = findIn(cards[0], node => node.props?.className === "actions");
     assert.deepEqual(row.props.children.map((child: TreeNode | null) => child?.type), ["button", "audition-button"]);
-    assert.deepEqual(cards.map(card => found(card, node => node.type === "audition-note").props), [
+    assert.deepEqual(cards.map(card => findIn(card, node => node.type === "audition-note").props), [
         { target: "rvc", status: "in_use" }, { target: "rvc", status: "downloaded" }, { target: "rvc", status: "not_downloaded" }]);
 });
 

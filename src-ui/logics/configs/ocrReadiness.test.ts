@@ -1,10 +1,9 @@
 import { test } from "vitest";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import yaml from "js-yaml";
 import { captureStatusSummary, detectorStatus, FULL_REGION, isFullRegion, normalizeRegion, readinessSummary, regionPercent, runtimeSummary, withRegionValue } from "./ocrReadiness.ts";
 import type { CaptureStatusSummary, OcrRegionInput } from "./ocrReadiness.ts";
 import { unchecked } from "../test/hookHarness.ts";
+import { localeAt, readLocale, textAt } from "../test/locales.ts";
 
 // What a summary says of its source and its text's values; a kind of summary without them reads
 // as undefined.
@@ -25,7 +24,7 @@ test("region stays inside the window whichever slider moves", () => {
 
 test("garbage from the backend never produces an invalid region", () => {
     for (const value of [undefined, "x", { x: "a" }, { x: -1, y: 2, width: NaN, height: Infinity }]) {
-        // Values of the wrong shape, given on purpose.
+        // On purpose: values of the wrong shape.
         const region = normalizeRegion(unchecked<OcrRegionInput>(value));
         assert.ok(region.x >= 0 && region.y >= 0);
         assert.ok(region.x + region.width <= 1 + 1e-9 && region.y + region.height <= 1 + 1e-9);
@@ -127,11 +126,9 @@ test("a shared window is named as the source, and losing it says what to do", ()
 
 test("source and stopped messages interpolate the runtime or readiness in both locales", () => {
     for (const language of ["en", "ja"]) {
-        // The locale file, as far as this test reads it.
-        const strings = unchecked<{ config_page: { ocr: { capture_source: Record<string, string> } } }>(
-            yaml.load(readFileSync(new URL(`../../../locales/${language}.yml`, import.meta.url), "utf8")));
+        const strings = readLocale(language);
         for (const key of ["window", "vr", "stopped"]) {
-            assert.ok(strings.config_page.ocr.capture_source[key].includes("{{status}}"), `${language}: ${key}`);
+            assert.ok(textAt(strings, `config_page.ocr.capture_source.${key}`).includes("{{status}}"), `${language}: ${key}`);
         }
     }
 });
@@ -149,9 +146,9 @@ test("every readiness and OCR start-error string exists in English and Japanese"
     keys.push(...["waiting", "reading", "failed_capture", "failed_detector", "failed_recognition", "failed_tick"]
         .map(name => `config_page.ocr.runtime.${name}`));
     for (const language of ["en", "ja"]) {
-        const strings = yaml.load(readFileSync(new URL(`../../../locales/${language}.yml`, import.meta.url), "utf8"));
+        const strings = readLocale(language);
         for (const key of keys) {
-            const value = key.split(".").reduce<unknown>((node, part) => node && typeof node === "object" ? Reflect.get(node, part) : undefined, strings);
+            const value = localeAt(strings, key);
             assert.equal(typeof value, "string", `${language}: ${key}`);
             // A text, as the assertion above made sure.
             if (typeof value === "string") assert.ok(value.trim().length > 0, `${language}: ${key}`);

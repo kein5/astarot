@@ -1,27 +1,16 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import { test } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import { Children } from "react";
 import i18next from "i18next";
-import yaml from "js-yaml";
-import { hooks, loadModule, find, stubGlobals, unchecked } from "../test/hookHarness.ts";
+import { hooks, loadModule, stubGlobals, find, findIn, componentName, setRef } from "../test/hookHarness.ts";
 import type { TestContext } from "vitest";
-import type { PrimitiveAtom } from "jotai/vanilla";
-import type { TreeNode } from "../test/hookHarness.ts";
 import type { LegacyDownloadRequest, Translate } from "./legacyModelConsent.ts";
-import { loadBridgeRoutes } from "../test/bridgeHarness.ts";
+import { loadBridgeRoutes, settingAtom } from "../test/bridgeHarness.ts";
+import { readLocale } from "../test/locales.ts";
 import * as consentLogic from "./legacyModelConsent.ts";
 import * as setupNeeds from "../main/setupNeeds.ts";
 
-// The name of a component's node; a tag's node has none.
-const componentName = (node: TreeNode) => typeof node.type === "function" ? node.type.name : undefined;
-// A node the test reads at once: one that is not there fails here, where reading it failed.
-const found = (tree: unknown, predicate: (node: TreeNode) => boolean) => {
-    const node = find(tree, predicate);
-    assert.ok(node);
-    return node;
-};
 // A row of a weight list, as the bridge keeps it in the setting's atom.
 interface WeightRow {
     id: string;
@@ -30,13 +19,9 @@ interface WeightRow {
     is_downloaded: boolean;
     progress: number | null;
 }
-// The registry keeps each setting's atom, which the setting's hook writes: a primitive atom of the
-// setting's state.
-const weightsAtom = (subject: Awaited<ReturnType<typeof loadBridgeRoutes>>, name: string) => {
-    const target = subject.stores.dynamicStoreRegistry[name];
-    assert.ok(target && typeof target !== "function");
-    return unchecked<PrimitiveAtom<{ state: string; data: WeightRow[] }>>(target);
-};
+// The registry keeps each setting's atom, which the setting's hook writes.
+const weightsAtom = (subject: Awaited<ReturnType<typeof loadBridgeRoutes>>, name: string) =>
+    settingAtom<WeightRow[]>(subject.stores.dynamicStoreRegistry, name);
 
 const componentURL = new URL("../../views/app/config_page/setting_section/setting_box/_components/download_models/LegacyModelDownloadDialog.tsx", import.meta.url);
 const entry = { kind: "ctranslate2", weight_type: "nllb-200-distilled-600M-ct2-int8", name: "CTranslate2 NLLB 600M",
@@ -53,9 +38,7 @@ const untokenized = { kind: "ctranslate2", weight_type: "plain", name: "A model 
 
 async function dialogFixture(context: TestContext, language: string, reviewedEntry: typeof entry | typeof untokenized, catalog: unknown = { legacy_models: [reviewedEntry] }) {
     const translations = i18next.createInstance();
-    const resource = yaml.load(readFileSync(new URL(`../../../locales/${language}.yml`, import.meta.url), "utf8"));
-    // A locale file holds its texts by key.
-    assert.ok(resource && typeof resource === "object");
+    const resource = readLocale(language);
     await translations.init({ lng: language, resources: { [language]: { translation: resource } } });
     const events = { focused: 0, opened: 0, closed: 0 };
     stubGlobals(context, { document: { activeElement: { isConnected: true, getAttribute: () => null,
@@ -79,7 +62,7 @@ async function dialogFixture(context: TestContext, language: string, reviewedEnt
     const modal = { open: false, showModal() { this.open = true; events.opened++; }, close() { this.open = false; } };
     const render = () => runtime.render(LegacyModelDownloadDialog, props, tree => {
         // React 18's element type leaves out the ref the element carries.
-        unchecked<{ ref: { current: unknown } }>(found(tree, node => node.type === "dialog")).ref.current = modal;
+        setRef(findIn(tree, node => node.type === "dialog"), modal);
     });
     context.onTestFinished(() => runtime.unmount());
     render();
@@ -91,13 +74,13 @@ for (const language of ["en", "ja"]) {
         test(`${language} ${reviewedEntry.weight_type}: labelled facts, size, revisions and consent remain distinct`, async context => {
             const s = await dialogFixture(context, language, reviewedEntry);
             let tree = s.render();
-            const rows = Children.toArray(found(tree, node => node.type === "dl").props.children);
+            const rows = Children.toArray(findIn(tree, node => node.type === "dl").props.children);
             const label = (key: string) => s.t(`legacy_model_downloads.${key}`);
-            const labels = rows.map(row => found(row, node => node.type === "dt").props.children);
+            const labels = rows.map(row => findIn(row, node => node.type === "dt").props.children);
             assert.deepEqual(labels, ["model", "provider", "license", "size",
                 ...(reviewedEntry.tokenizer ? ["additional_files"] : []), "revision_label", "terms"].map(label));
-            const fact = (key: string) => rows.find(row => found(row, node => node.type === "dt").props.children === label(key));
-            const value = (key: string) => found(fact(key), node => node.type === "dd");
+            const fact = (key: string) => rows.find(row => findIn(row, node => node.type === "dt").props.children === label(key));
+            const value = (key: string) => findIn(fact(key), node => node.type === "dd");
             assert.equal(value("model").props.children, reviewedEntry.name);
             assert.equal(value("provider").props.children, reviewedEntry.provider);
             assert.ok(renderToStaticMarkup(value("license")).includes(reviewedEntry.license));
@@ -106,7 +89,7 @@ for (const language of ["en", "ja"]) {
                 : (language === "ja" ? "147,882,941 バイト（約 141 MB）" : "147,882,941 bytes (about 141 MB)");
             assert.equal(value("size").props.children, expectedSize);
             const assertRevision = (container: unknown, full: string) => {
-                const code = found(container, node => node.type === "code");
+                const code = findIn(container, node => node.type === "code");
                 assert.equal(code.props.children, full.slice(0, 12));
                 assert.equal(code.props.title, full);
                 assert.equal(code.props["aria-description"], full);
@@ -116,7 +99,7 @@ for (const language of ["en", "ja"]) {
             if (reviewedEntry.tokenizer) {
                 const extra = value("additional_files");
                 assert.ok(renderToStaticMarkup(extra).includes(reviewedEntry.tokenizer.repo));
-                assert.equal(found(extra, node => node.type === "p").props.children, label("plus_tokenizer"));
+                assert.equal(findIn(extra, node => node.type === "p").props.children, label("plus_tokenizer"));
                 assertRevision(extra, reviewedEntry.tokenizer.revision);
                 assert.equal(licenseWarning?.props.children, label("non_commercial"));
             } else {
@@ -124,19 +107,19 @@ for (const language of ["en", "ja"]) {
                 assert.equal(licenseWarning, null);
                 assert.ok(!renderToStaticMarkup(tree).includes(label("plus_tokenizer")));
             }
-            const terms = found(value("terms"), node => node.type === "a");
+            const terms = findIn(value("terms"), node => node.type === "a");
             assert.ok(terms.props.href.includes(reviewedEntry.revision));
-            const consent = found(tree, node => node.type === "label");
+            const consent = findIn(tree, node => node.type === "label");
             assert.equal(Children.toArray(consent.props.children).at(-1), label(reviewedEntry.tokenizer
                 ? "consent" : "consent_without_extra_files"));
-            const start = () => found(tree, node => node.type === "button" && node.props.children === s.t("model_downloads.start"));
+            const start = () => findIn(tree, node => node.type === "button" && node.props.children === s.t("model_downloads.start"));
             assert.equal(start().props.disabled, true);
             start().props.onClick();
             assert.deepEqual(s.requests, []);
             assert.equal(s.events.opened, 1);
             assert.equal(s.reads[0][0], "/get/data/model_download_catalog");
-            assert.equal(found(tree, node => node.type === "button" && node.props.autoFocus).props.children, s.t("model_downloads.back"));
-            found(tree, node => node.type === "input").props.onChange({ target: { checked: true } });
+            assert.equal(findIn(tree, node => node.type === "button" && node.props.autoFocus).props.children, s.t("model_downloads.back"));
+            findIn(tree, node => node.type === "input").props.onChange({ target: { checked: true } });
             s.downloads.catalog = { legacy_models: [{ ...reviewedEntry, manifest_version: "unreviewed-manifest" }] };
             tree = s.render();
             tree = s.render();
@@ -153,9 +136,9 @@ for (const language of ["en", "ja"]) {
     test(`${language}: Escape cancels without a download and a reopened review is unchecked`, async context => {
         const s = await dialogFixture(context, language, entry);
         let tree = s.render();
-        found(tree, node => node.type === "input").props.onChange({ target: { checked: true } });
+        findIn(tree, node => node.type === "input").props.onChange({ target: { checked: true } });
         tree = s.render();
-        found(tree, node => node.type === "dialog").props.onCancel({ preventDefault() {} });
+        findIn(tree, node => node.type === "dialog").props.onCancel({ preventDefault() {} });
         s.runtime.unmount();
         await Promise.resolve();
         assert.equal(s.events.closed, 1);
@@ -163,8 +146,8 @@ for (const language of ["en", "ja"]) {
         assert.deepEqual(s.requests, []);
         const reopened = await dialogFixture(context, language, entry);
         const reopenedTree = reopened.render();
-        assert.equal(found(reopenedTree, node => node.type === "input").props.checked, false);
-        assert.equal(found(reopenedTree, node => node.type === "button"
+        assert.equal(findIn(reopenedTree, node => node.type === "input").props.checked, false);
+        assert.equal(findIn(reopenedTree, node => node.type === "button"
             && node.props.children === reopened.t("model_downloads.start")).props.disabled, true);
     });
 }
@@ -294,7 +277,7 @@ for (const language of ["en", "ja"]) {
         assert.match(s.t("legacy_model_downloads.translation_own_model"), language === "ja" ? /自分のモデルを追加/ : /Add a model of your own/);
         assert.equal(paragraph("model_downloads.loading"), null);
         assert.equal(find(tree, node => node.type === "button" && node.props.children === s.t("model_downloads.start")), null);
-        const close = found(tree, node => node.type === "button" && node.props.autoFocus);
+        const close = findIn(tree, node => node.type === "button" && node.props.autoFocus);
         assert.equal(close.props.children, s.t("legacy_model_downloads.close"));
         close.props.onClick();
         assert.equal(s.events.closed, 1);
@@ -304,7 +287,7 @@ for (const language of ["en", "ja"]) {
         const model = { id: "m2m100-418m-onnx-int8", target: "translation", name: "M2M100 418M", artifacts: [] };
         const s = await dialogFixture(context, language, entry, { legacy_models: [], models: [model] });
         const tree = s.render();
-        const card = found(tree, node => componentName(node) === "ModelDownloads");
+        const card = findIn(tree, node => componentName(node) === "ModelDownloads");
         assert.deepEqual(card.props.targets, ["translation"]);
         assert.deepEqual(card.props.expected, { translation: {} });
         // Opened for NLLB, which the catalog does not offer: every translation model is shown.
@@ -315,7 +298,7 @@ for (const language of ["en", "ja"]) {
         const models = ["m2m100-418m-onnx-int8", "m2m100-418m-onnx-float16", "nllb-200-distilled-600m-onnx-int8"]
             .map(id => ({ id, target: "translation", name: id, artifacts: [] }));
         const s = await dialogFixture(context, language, entry, { legacy_models: [], models });
-        const card = found(s.render(), node => componentName(node) === "ModelDownloads");
+        const card = findIn(s.render(), node => componentName(node) === "ModelDownloads");
         assert.deepEqual(card.props.only, ["nllb-200-distilled-600m-onnx-int8"]);
     });
 }

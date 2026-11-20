@@ -1,9 +1,8 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import { test } from "vitest";
 import type { TestContext } from "vitest";
-import yaml from "js-yaml";
 import { hooks, loadModule } from "../test/hookHarness.ts";
+import { localeAt, readLocale } from "../test/locales.ts";
 import * as shapes from "./voiceAudition.ts";
 import type { AuditionProfile, AuditionState, AuditionView } from "./voiceAudition.ts";
 
@@ -125,13 +124,9 @@ const CODES = ["voice_audition_failed", "voice_audition_unconfirmed", "voice_aud
     "voice_audition_server_not_ready", "voice_audition_timeout", "monitor_output_missing", "monitor_feedback_blocked",
     "monitor_output_error", "backend_unavailable"];
 
-// A key of a mapping in the locale tree, or undefined.
-const child = (node: unknown, key: string): unknown =>
-    typeof node === "object" && node !== null ? Reflect.get(node, key) : undefined;
-
 for (const language of ["en", "ja"]) test(`${language}: every reason and code of the audition has its text`, () => {
-    const locale = child(yaml.load(readFileSync(new URL(`../../../locales/${language}.yml`, import.meta.url), "utf8")), "voice_audition");
-    for (const key of ["play", "pending", "stop", "tooltip"]) assert.equal(typeof child(locale, key), "string", key);
-    for (const block of ["not_in_use", "server_stopped", "monitor_off", "muted"]) assert.equal(typeof child(child(locale, "blocked"), block), "string", block);
-    for (const code of CODES) assert.equal(typeof child(child(locale, "errors"), code), "string", code);
+    const locale = readLocale(language);
+    for (const key of ["play", "pending", "stop", "tooltip"]) assert.equal(typeof localeAt(locale, `voice_audition.${key}`), "string", key);
+    for (const block of ["not_in_use", "server_stopped", "monitor_off", "muted"]) assert.equal(typeof localeAt(locale, `voice_audition.blocked.${block}`), "string", block);
+    for (const code of CODES) assert.equal(typeof localeAt(locale, `voice_audition.errors.${code}`), "string", code);
 });
