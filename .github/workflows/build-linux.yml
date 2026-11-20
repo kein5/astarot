@@ -51,6 +51,8 @@ jobs:
       # The build and test tools run on the Python in mise.toml; uv never fetches its own.
       UV_PYTHON_PREFERENCE: only-system
       UV_PYTHON_DOWNLOADS: never
+    # Caches (actions/cache, Swatinem/rust-cache and the like) may serve pull request runs only.
+    # A manual run builds the release candidate, and it builds without them.
     steps:
       # The tar.gz, the AppDir and the AppImage together need more room than some runners have
       # free (one had 14 GB on 2026-11-01); drop preinstalled SDKs this job never uses. Removing

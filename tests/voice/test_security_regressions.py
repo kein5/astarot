@@ -114,6 +114,11 @@ def test_workflows_pin_external_code_and_keep_inputs_out_of_scripts(workflow):
             assert len(attest) == 1
             assert attest[0]["if"] == "github.event_name == 'workflow_dispatch'"
             assert attest[0]["with"]["subject-path"].endswith("release-candidate/*")
+            # A cache may serve pull request runs only: a manual run builds the release
+            # candidate, and it builds without caches.
+            for step in job["steps"]:
+                if re.match(r"(actions/cache|Swatinem/rust-cache)(/[\w-]+)?@", step.get("uses", "")):
+                    assert step.get("if") == "github.event_name == 'pull_request'", step.get("name", step["uses"])
     else:
         assert document["permissions"] == {"contents": "read"}
         assert all("permissions" not in job for job in document["jobs"].values())
