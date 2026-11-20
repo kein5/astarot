@@ -7,6 +7,7 @@ import { rebaseDraft } from "../voice/draftRebase.ts";
 import { changedPaths } from "../voice/saveBar.ts";
 import { createSettingsWriteResponses } from "../common/settingsWriteResponses.ts";
 import { endpointDescription, endpointNotices } from "../common/endpointPrivacy.ts";
+import type { TreeNode } from "../test/hookHarness.ts";
 import type { SettingsWriteRequest } from "../common/settingsWriteResponses.ts";
 import type { SaveBarEntry } from "../voice/saveBar.ts";
 import type { CredentialSettings } from "../../views/app/config_page/setting_section/setting_box/_components/credential_pair/CredentialPair.tsx";
@@ -199,6 +200,9 @@ for (const [base, provider, section] of providers) {
             assert.equal(prevented, true);
             const keep = find(dialog, node => node.type === "button" && node.props.children === "voice_ui.keep_editing");
             assert.ok(keep);
+            // The form's own confirmation puts its two answers in one row, as the save bar's does.
+            const row = find(dialog, node => node.props?.["data-leave-actions"] !== undefined);
+            assert.deepEqual(row?.props.children.map((answer: TreeNode) => answer.props.children), ["voice_ui.keep_editing", "voice_ui.discard_leave"]);
             keep.props.onClick();
             assert.equal(s.field("key").variable, "");
             assert.equal(proceeded, false);
