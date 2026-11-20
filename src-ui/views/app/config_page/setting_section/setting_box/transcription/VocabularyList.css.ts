@@ -1,8 +1,9 @@
 import { fallbackVar, globalStyle, style } from "@vanilla-extract/css";
 import { vars } from "../../../../../theme/vars.css.ts";
 
-// The built-in terms (#792): a fold under the switch that turns them on. Its summary says how
-// many there are and how many the user changed or took out, so the state is read without opening.
+// The dictionary's terms (#792): a fold under the switch of the built-in terms. Its summary says how
+// many terms are in use and how many the user added, changed or took out, so the state is read
+// without opening.
 export const fold = style({
     display: "grid",
     gap: "1.2rem",
@@ -15,6 +16,28 @@ export const summary = style({
     alignItems: "center",
     gap: ".6rem 1rem",
     cursor: "pointer",
+});
+
+// A new term: its written form, its readings and the button, on one line while they fit.
+export const add = style({
+    display: "flex",
+    flexWrap: "wrap",
+    alignItems: "flex-end",
+    gap: ".8rem 1.2rem",
+});
+
+export const addField = style({
+    display: "grid",
+    gap: ".4rem",
+    flex: "1 1 16rem",
+    minWidth: 0,
+});
+
+// Each field's name above it, not beside it as the settings page lays out its other labels: the
+// two fields and the button make one line of their own.
+globalStyle(`${add} ${addField}`, {
+    gridTemplateColumns: "minmax(0, 1fr)",
+    gap: ".4rem",
 });
 
 export const rows = style({

@@ -174,3 +174,72 @@ export const restoreAllBuiltin = (vocabulary: Vocabulary, builtin: readonly stri
     const keys = keysOf(builtin);
     return settled(vocabulary, vocabulary.terms.filter(term => !keys.has(writtenKey(term))), []);
 };
+
+// ------------------------------------------------------------------------ the whole dictionary
+// One list of the dictionary in use: the user's own terms, then the built-in terms with the user's
+// changes over them. New terms are added from the list itself; a term added with a built-in
+// term's written form changes that term's readings (the user's term of that written form wins).
+
+export type RowState = BuiltinState | "own";
+
+export type DictionaryRow = {
+    written: string;
+    readings: string[];
+    state: RowState;
+    // The term the row stands for: the user's own entry, or the built-in term as it ships.
+    term: string;
+};
+
+// The rows in the order the core uses them: the user's own terms first, then the built-in ones
+// (while they are on and their list has arrived).
+export const dictionaryRows = (builtin: readonly string[] | null, vocabulary: Vocabulary): DictionaryRow[] => {
+    const own = ownTerms(builtin, vocabulary).map((term): DictionaryRow => ({ written: writtenOf(term), readings: readingsOf(term), state: "own", term }));
+    if (!builtin || vocabulary.builtin === false) return own;
+    return [...own, ...builtinRows(builtin, vocabulary).map((row): DictionaryRow => ({ written: row.written, readings: row.readings, state: row.state, term: row.shipped }))];
+};
+
+// The term of a written form and readings as typed, or null when the rules of a term refuse it.
+const typedTerm = (written: string, readings: string): string | null => {
+    // A "=" in the written form would move part of it into the readings: refused.
+    if (written.includes("=")) return null;
+    const typed = typedReadings(readings).trim();
+    return parseTerm(typed ? `${written}=${typed}` : written);
+};
+
+// One of the user's own terms with these readings, in its place.
+export const changeOwnReadings = (vocabulary: Vocabulary, own: string, text: string): ReadingsChange => {
+    const term = typedTerm(writtenOf(own), text);
+    if (term === null) return { ok: false, reason: "invalid" };
+    const key = writtenKey(own);
+    return { ok: true, vocabulary: { ...vocabulary, terms: vocabulary.terms.map(row => writtenKey(row) === key ? term : row) } };
+};
+
+// One of the user's own terms deleted.
+export const deleteOwn = (vocabulary: Vocabulary, own: string): Vocabulary =>
+    ({ ...vocabulary, terms: withoutKey(vocabulary.terms, writtenKey(own)) });
+
+export type AddResult =
+    // added: a new term of the user's. builtin: the readings of the built-in term of that written form.
+    | { ok: true; vocabulary: Vocabulary; kind: "added" | "builtin" }
+    // duplicate: the dictionary has that written form already, with those readings.
+    | { ok: false; reason: "invalid" | "full" | "duplicate" };
+
+// A term added from the list: the written form and its readings as typed.
+export const addTerm = (vocabulary: Vocabulary, builtin: readonly string[] | null, written: string, readings: string): AddResult => {
+    const term = typedTerm(written, readings);
+    if (term === null) return { ok: false, reason: "invalid" };
+    const key = writtenKey(term);
+    const shipped = builtin && vocabulary.builtin !== false ? builtin.find(row => writtenKey(row) === key) : undefined;
+    if (shipped !== undefined) {
+        const before = builtinRows([shipped], vocabulary)[0];
+        const changed = changeReadings(vocabulary, shipped, readings);
+        if (!changed.ok) return changed;
+        const after = builtinRows([shipped], changed.vocabulary)[0];
+        // The same readings of a term in use: nothing to add.
+        if (before.state !== "removed" && before.readings.join(",") === after.readings.join(",")) return { ok: false, reason: "duplicate" };
+        return { ok: true, vocabulary: changed.vocabulary, kind: "builtin" };
+    }
+    if (vocabulary.terms.some(row => writtenKey(row) === key)) return { ok: false, reason: "duplicate" };
+    if (vocabulary.terms.length >= MAX_USER_TERMS) return { ok: false, reason: "full" };
+    return { ok: true, vocabulary: { ...vocabulary, terms: [...vocabulary.terms, term] }, kind: "added" };
+};

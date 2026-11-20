@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { MAX_USER_TERMS, addTerms, builtinRows, changeReadings, ownTerms, parseTerm, readingsText, restoreAllBuiltin, restoreBuiltin,
-    takeOut, termsText, writtenKey } from "./vocabularyTerms.ts";
+import { MAX_USER_TERMS, addTerm, addTerms, builtinRows, changeOwnReadings, changeReadings, deleteOwn, dictionaryRows, ownTerms, parseTerm,
+    readingsText, restoreAllBuiltin, restoreBuiltin, takeOut, termsText, writtenKey } from "./vocabularyTerms.ts";
 
 test("an entry is made canonical as the core makes it, or refused", () => {
     assert.equal(parseTerm("  VRChat = ブイアールチャット , ブイチャ "), "VRChat=ブイアールチャット,ブイチャ");
@@ -89,4 +89,52 @@ test("a built-in term is taken out, put back, and all of them restored, the user
     const readings = changeReadings(out, BUILTIN[3], "くえすと");
     assert.ok(readings.ok);
     assert.deepEqual(readings.vocabulary, { builtin: true, terms: ["猫丸", "Quest=くえすと"] });
+});
+
+// The whole dictionary, one list: the user's own terms first, as the core uses them, then the
+// built-in terms with the user's changes. Terms are added from the list.
+test("the list holds the user's own terms, then the built-in ones while they are on", () => {
+    const vocabulary = { builtin: true, terms: ["猫丸=ねこまる", "Quest=くえすと"], removed: ["ワールド"] };
+    assert.deepEqual(dictionaryRows(BUILTIN, vocabulary).map(row => [row.written, row.state, row.term]), [
+        ["猫丸", "own", "猫丸=ねこまる"],
+        ["VRChat", "builtin", BUILTIN[0]],
+        ["ワールド", "removed", BUILTIN[1]],
+        ["Friends+", "builtin", BUILTIN[2]],
+        ["Quest", "changed", BUILTIN[3]],
+    ]);
+    // Built-in terms off, or their list not here yet: only the user's terms, a change of a built-in
+    // one among them.
+    assert.deepEqual(dictionaryRows(BUILTIN, { ...vocabulary, builtin: false }).map(row => [row.written, row.state]), [["猫丸", "own"], ["Quest", "own"]]);
+    assert.deepEqual(dictionaryRows(null, vocabulary).map(row => row.written), ["猫丸", "Quest"]);
+});
+
+test("a term added from the list is the user's own, or changes the built-in term of its written form", () => {
+    const start = { builtin: true, terms: ["猫丸"] };
+    assert.deepEqual(addTerm(start, BUILTIN, "  Midnight   Rooftop ", "みっどないと、るーふとっぷ"),
+        { ok: true, kind: "added", vocabulary: { builtin: true, terms: ["猫丸", "Midnight Rooftop=みっどないと,るーふとっぷ"] } });
+    assert.deepEqual(addTerm(start, BUILTIN, "黒猫", ""), { ok: true, kind: "added", vocabulary: { builtin: true, terms: ["猫丸", "黒猫"] } });
+    // The written form of a built-in term: its readings change, and a term taken out is put back.
+    assert.deepEqual(addTerm(start, BUILTIN, "quest", "くえすと"),
+        { ok: true, kind: "builtin", vocabulary: { builtin: true, terms: ["猫丸", "Quest=くえすと"] } });
+    assert.deepEqual(addTerm({ ...start, removed: ["Quest"] }, BUILTIN, "Quest", "クエスト"),
+        { ok: true, kind: "builtin", vocabulary: { builtin: true, terms: ["猫丸"] } });
+    // With the built-in terms off, the same written form is a term of the user's.
+    assert.deepEqual(addTerm({ ...start, builtin: false }, BUILTIN, "Quest", "くえすと"),
+        { ok: true, kind: "added", vocabulary: { builtin: false, terms: ["猫丸", "Quest=くえすと"] } });
+    // Nothing new, or what the rules of a term refuse, or no room.
+    assert.deepEqual(addTerm(start, BUILTIN, "猫丸", "ねこ"), { ok: false, reason: "duplicate" });
+    assert.deepEqual(addTerm(start, BUILTIN, "Quest", "クエスト"), { ok: false, reason: "duplicate" });
+    for (const [written, readings] of [["a=b", ""], ["a,b", ""], ["x".repeat(49), ""], ["猫", "ね=こ"], ["", "ねこ"]]) {
+        assert.deepEqual(addTerm(start, BUILTIN, written, readings), { ok: false, reason: "invalid" }, `${written}|${readings}`);
+    }
+    const full = { terms: Array.from({ length: MAX_USER_TERMS }, (_, index) => `t${index}`) };
+    assert.deepEqual(addTerm(full, BUILTIN, "黒猫", ""), { ok: false, reason: "full" });
+});
+
+test("the user's own terms have their readings changed in their place, or are deleted", () => {
+    const start = { builtin: true, terms: ["猫丸=ねこまる", "黒猫"], removed: ["Quest"] };
+    const changed = changeOwnReadings(start, "黒猫", "くろねこ、くろ");
+    assert.deepEqual(changed, { ok: true, vocabulary: { ...start, terms: ["猫丸=ねこまる", "黒猫=くろねこ,くろ"] } });
+    assert.deepEqual(changeOwnReadings(start, "黒猫", "く=ろ"), { ok: false, reason: "invalid" });
+    assert.deepEqual(deleteOwn(start, "猫丸=ねこまる"), { ...start, terms: ["黒猫"] }, "what is taken out stays");
 });
