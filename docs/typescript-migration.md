@@ -284,6 +284,7 @@ ADR-010 のとおり、画面を触る作業に合わせて移すのが基本で
 - 下書きのフック（`useSettingsDraft.tsx`）の `answeredValue` も確かめられない宣言です。書き込みにバックエンドが答えた値を、保存した値と同じ型（`T`）として受け取ります（`savedFromResponse` があればその戻り値）。atom の値と同じく、宣言だけで確かめません。
 - VR の字幕のページ（`Vr.tsx`）の `answeredSettings` も同じ宣言です。書き込みにバックエンドが答えた設定を、オーバーレイのログの設定（`OverlayLogSettings`）として受け取ります。
 - `src-ui/cssProperties.d.ts` は、React の `CSSProperties` に `--` で始まる名前を足しています。インラインの style で CSS のカスタムプロパティ（`--checkbox-size` など）を渡すときに、`as CSSProperties` は要りません。
+- `src-ui/i18next.d.ts` は、i18next の型の設定 `strictInterpolationChecks` を切っています。i18next 27 でこの設定が既定で有効になり、`t(key)` と `t(key, options)` が別のシグネチャになりました。ロケールのファイルは実行時に読む YAML なので、i18next はメッセージがどの変数を取るかを知らず、この検査では変数を確かめられません。切ると `t` の型は i18next 26 のときと同じになり、画面側の翻訳の型（`t(key, options?)` の 1 つの関数）にそのまま渡せます。
 - バックエンドの応答を受け取るフックの引数の型は、中核が送る形の宣言です。応答を受け取ってフックに渡す側（`useReceiveRoutes`）は、確かめずに渡します。経路の表が文字列で名指すフックと関数に `result` を届いたまま渡すことは、`useReceiveRoutes.ts` の型ガード `isCallable`（`(...args: unknown[]) => unknown`）の 1 か所で宣言しています。確かめるのは関数であることだけで、前と同じです。400 応答の `data` を設定に書き戻すときは、`_useBackendErrorHandling.ts` の `keptValue` のオーバーロードで、渡す先の `update…` の型として宣言します。VR パネルの入口（`VrApp.tsx`）がメインウィンドウから届いた値を同じ名前の atom に書き込むことは、型ガード `isMirroredAtom` で宣言します。確かめるのは atom があることだけで、前と同じです。前からフックが確かめていた値だけは、フックの中の型ガードで確かめます。設定のフックの `updateFromBackend…`、`setSuccess…`、`deleteSuccess…` も同じです。ただし `response_transform` で一覧を別の形に変える設定は、変える前に受け取った値が一覧であることを確かめます。
 - 設定のフックは型の付いたフィールドを返します。`views` の TypeScript が型のなかったころに書いた `as { ... }` は、第 6 段で外しました。
 
