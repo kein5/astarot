@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import { hooks, loadModule, find, unchecked, fieldOf } from "../../../../../../logics/test/hookHarness.ts";
 import type { TreeNode } from "../../../../../../logics/test/hookHarness.ts";
 import * as needsLogic from "../../../../../../logics/main/setupNeeds.ts";
+import { localeAt, readLocale } from "../../../../../../logics/test/locales.ts";
 
 type EmptyStateModule = typeof import("./EmptyState.tsx");
 interface EmptySetup {
@@ -45,8 +46,8 @@ async function setup({ needs = [], sends = true, vr = false, startup = null, set
     return { tree, started, texts: texts(tree) };
 }
 
-// The greeting's block: the one whose first child is the heading.
-const isGreeting = (node: TreeNode) => node.props?.children?.[0]?.type === "h1";
+// The greeting's block: the one that holds the heading and nothing else.
+const isGreeting = (node: TreeNode) => node.props?.children?.type === "h1";
 const greetingIn = (tree: unknown) => {
     const greeting = find(tree, isGreeting);
     assert.ok(greeting);
@@ -98,10 +99,19 @@ test("a recognition not set up yet offers the first-run setup in place of the ot
     }
 });
 
+test("the greeting is the heading alone: where to type is left to the composer under it", async () => {
+    const s = await setup({ sends: false });
+    assert.equal(find(s.tree, node => node.type === "ul"), null);
+    assert.deepEqual(s.texts, ["studio.empty_title"]);
+    assert.equal(greetingIn(s.tree).props.children.type, "h1");
+    // The sentence about where to type is gone from both languages, not only from this screen.
+    for (const language of ["en", "ja"]) assert.equal(localeAt(readLocale(language), "studio.empty_description"), undefined, language);
+});
+
 test("nothing to prepare leaves the greeting and the VRChat hint", async () => {
     const s = await setup();
     assert.equal(find(s.tree, node => node.type === "ul"), null);
-    assert.deepEqual(s.texts, ["studio.empty_title", "studio.empty_description", "studio.empty_vrchat_hint"]);
+    assert.deepEqual(s.texts, ["studio.empty_title", "studio.empty_vrchat_hint"]);
 });
 
 test("the VRChat hint is shown only while messages are sent to VRChat", async () => {
@@ -111,7 +121,7 @@ test("the VRChat hint is shown only while messages are sent to VRChat", async ()
 
 test("the VR panel keeps the greeting alone", async () => {
     const s = await setup({ vr: true, needs: [{ id: "translation", weight: { id: "small" } }] });
-    assert.deepEqual(s.texts, ["studio.empty_title", "studio.empty_description"]);
+    assert.deepEqual(s.texts, ["studio.empty_title"]);
 });
 
 test("the greeting keeps its room but is drawn only once the saved UI size and language are in place", async () => {
@@ -180,9 +190,9 @@ test("a language or layout that does not follow holds the greeting back for a se
 test("while the engine starts, the main page's startup list takes the setup list's place", async () => {
     const StartupProgress = () => createElement("p", null, "startup");
     const s = await setup({ startup: createElement(StartupProgress), needs: [{ id: "translation", weight: { id: "small" } }] });
-    assert.deepEqual(s.texts, ["studio.empty_title", "studio.empty_description", "startup"]);
+    assert.deepEqual(s.texts, ["studio.empty_title", "startup"]);
     assert.equal(find(s.tree, node => node.type === "button"), null);
     // The VR panel never shows it.
     assert.deepEqual((await setup({ vr: true, startup: createElement(StartupProgress) })).texts,
-        ["studio.empty_title", "studio.empty_description"]);
+        ["studio.empty_title"]);
 });

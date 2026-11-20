@@ -10,9 +10,10 @@ import { useFirstRunSetup } from "../../../../../../logics/setup/useFirstRunSetu
 import { useStartupPlaceholder } from "../../../startupContext";
 import styles from "./LogBox.module.scss";
 
-// The first screen of a session. It says where to type and, in the main window,
-// what the selected engines still need, each with the step that provides it: the
-// download review, or the settings where the local speech recognition models are set.
+// The first screen of a session: a greeting and, in the main window, what the selected
+// engines still need, each with the step that provides it: the download review, or the
+// settings where the local speech recognition models are set. Where to type is not said in
+// words (#614): the composer under the log says it by its place and its placeholder.
 // While the engine starts, the main page's startup list (StartupProgress) takes
 // its place: how far the start has come and which models it is fetching.
 // The greeting sits in the middle row and the list in the row below it, so the list
@@ -36,7 +37,6 @@ export const EmptyState = () => {
     return <div className={styles.empty}>
         <div className={styles.greeting} data-waiting={waiting || undefined} aria-hidden={waiting || undefined}>
             <h1>{t("studio.empty_title")}</h1>
-            <p>{t("studio.empty_description")}</p>
         </div>
         {!store.is_vr_panel && <div className={styles.next}>{startup ?? <Setup />}</div>}
     </div>;
