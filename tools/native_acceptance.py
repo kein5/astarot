@@ -16,9 +16,18 @@ round trip, and stops the clients it started. It reads the chat with the OCR mod
 ASTAROT_TEST_OCR_MODELS (default ~/.cache/vrct-vox-chatbox-lab/models); without them the group is
 reported as skipped.
 
+The vrchat-voice group runs with the round trip's clients: the same send also speaks into the
+managed route, and the group checks that the managed microphone hears it once and that a mute
+silences it while the chatbox goes on. It needs the managed route already set up on this PC (the
+app sets it up when the managed route is saved) and reads it with pw-record; without it the group
+is reported as skipped. For VRChat itself to hear the voice, choose VRCT Managed Virtual Microphone
+in the speaker client.
+
 Until 0.6.0 this also fetched the models and runtimes of the voice, speech and recognition groups
 with the Python backend's downloader and installer, and synthesized their input with its TTS. Those
 groups drove the app's audio through the Python backend's PipeWire modules and went with it (#285).
+The speech route is now checked by the core on a private PipeWire graph
+(native/core/tests/spoken_route_live.rs, in CI), and vrchat-voice here.
 """
 import argparse
 import json
@@ -41,6 +50,10 @@ def groups():
         "appimage": (["test_appimage.py"], {"ASTAROT_TEST_APPIMAGE_FUSE": on, "ASTAROT_TEST_NATIVE_ROUTE": on}, [], "packaged"),
         "ui": (["test_native_ui.py", "test_native_tts_settings.py"], {"ASTAROT_TEST_NATIVE_ROUTE": on}, [], "any"),
         "vrchat": (["test_native_vrchat_roundtrip.py"], {"ASTAROT_TEST_NATIVE_VRCHAT_ROUNDTRIP": on}, ["--vrchat", "ocr"], "any"),
+        # The same send to the chatbox and, spoken, to the managed microphone (#746). It reads the
+        # PC's managed route and never sets it up.
+        "vrchat-voice": (["test_native_vrchat_voice.py"], {"ASTAROT_TEST_NATIVE_VRCHAT_VOICE": on},
+                         ["--vrchat", "ocr", "managed_route", "pw-record"], "any"),
         "quick_chat": (["test_native_quick_chat.py"], {"ASTAROT_TEST_NATIVE_QUICK_CHAT": on}, ["kde", "xdotool"], "any"),
     }
 
@@ -51,10 +64,21 @@ def assets(args):
     ocr = Path(os.environ.get("ASTAROT_TEST_OCR_MODELS", Path.home() / ".cache/vrct-vox-chatbox-lab/models"))
     have["ocr"] = ocr if ocr.is_dir() else None
     have["--vrchat"] = args.vrchat or None
+    have["pw-record"] = shutil.which("pw-record")
+    have["managed_route"] = have["pw-record"] and managed_route_present()
     # Quick Chat's window stacking and focus are read from KDE with xdotool and xprop.
     have["kde"] = "KDE" in os.environ.get("XDG_CURRENT_DESKTOP", "").split(":") or None
     have["xdotool"] = (shutil.which("xdotool") and shutil.which("xprop")) or None
     return {need: value for need, value in have.items() if value}
+
+
+def managed_route_present():
+    """Whether the PC's PipeWire has the managed microphone (pw-dump only reads the graph)."""
+    try:
+        graph = json.loads(subprocess.run(["pw-dump"], capture_output=True, text=True, timeout=10, check=True).stdout)
+    except (OSError, subprocess.SubprocessError, ValueError):
+        return None
+    return any(item.get("info", {}).get("props", {}).get("node.name") == "vrct.managed.source" for item in graph) or None
 
 
 def plan(args, have):
