@@ -50,7 +50,8 @@ export function createLanguageNames(uiLanguage?: string | null, intl: typeof Int
     };
     const parsedTags = new Map<string | undefined, LanguageTagParts>();
     const parts = (code: string | undefined): LanguageTagParts => {
-        if (parsedTags.has(code)) return parsedTags.get(code)!;
+        const cached = parsedTags.get(code);
+        if (cached) return cached;
         try {
             // An undefined code throws here and falls through to the empty result.
             const tag = new intl.Locale(code as string);
