@@ -188,7 +188,7 @@ python tools/native_acceptance.py --appimage <AppImageの絶対パス> --vrchat
 | グループ | 確かめること | 要るもの |
 |---|---|---|
 | `appimage` | FUSEと展開の両方式での起動、描画、終了、設定画面の操作、再起動後のミュート | AppImage |
-| `ui` | 基本画面と設定画面（表示倍率100%と150%） | なし |
+| `ui` | 基本画面と設定画面（表示倍率100%と150%） | `xwininfo`（デスクトップの字幕の窓の試験。CachyOSとArch Linuxでは `xorg-xwininfo`、UbuntuとDebianでは `x11-utils` のパッケージ） |
 | `vrchat` | アプリで入力した文が実際のVRChatの吹き出しに出て、チャット読み取りで読み戻せること | `--vrchat`、OCRのモデル |
 | `quick_chat` | Quick Chatのショートカットで、入力の窓が全画面の窓の上に出てフォーカスを取り、メインの窓を戻さないこと。下書きを保ち、翻訳、OSC、読み上げへ1回ずつ流れること。ほかの窓からの操作を断ること。Waylandではショートカットをデスクトップのポータルで登録すると示し、ボタンで開けること | KDE（X11かXWayland）、`xdotool`と`xprop`、GTKの入った`python3`。Waylandの1件は、Waylandのデスクトップで開発用のビルドを使うときだけ流れる |
 
