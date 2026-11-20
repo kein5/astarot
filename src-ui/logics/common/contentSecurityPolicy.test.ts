@@ -9,7 +9,8 @@ import { isNode } from "@babel/types";
 import type { MemberExpression, Node, OptionalMemberExpression } from "@babel/types";
 
 // Static only: no DOM, application startup, network, or execution of bundle code.
-// @babel/parser and @babel/types are already installed by @vitejs/plugin-react (package-lock.json).
+// @babel/parser comes with the Babel packages the build already installs (package-lock.json);
+// @babel/types is a direct development dependency, for its types and isNode.
 const root = fileURLToPath(new URL("../../../", import.meta.url));
 const read = (name: string) => readFileSync(path.join(root, name), "utf8");
 const config = JSON.parse(read("src-tauri/tauri.conf.json"));
@@ -45,8 +46,14 @@ function walk(node: unknown, visit: (node: Node) => void) {
     }
 }
 // TypeScript sources (ADR-010) are read with the same rules; .ts files have no JSX.
-const ast = (code: string, file = "") => parse(code, { sourceType: "unambiguous", createImportExpressions: true,
-    plugins: /\.ts$/.test(file) ? ["typescript"] : /\.tsx$/.test(file) ? ["typescript", "jsx"] : ["jsx"] });
+// The parser types its tree with the @babel/types it comes with, which may be another major
+// version than the one this file names; isNode checks the tree and reads it as this file's Node.
+const ast = (code: string, file = ""): Node => {
+    const tree: unknown = parse(code, { sourceType: "unambiguous", createImportExpressions: true,
+        plugins: /\.ts$/.test(file) ? ["typescript"] : /\.tsx$/.test(file) ? ["typescript", "jsx"] : ["jsx"] });
+    if (!isNode(tree)) throw new TypeError(`${file || "code"} did not parse into a syntax tree`);
+    return tree;
+};
 // Like list.includes(value), for a value that may be anything.
 const isOneOf = (list: readonly string[], value: unknown) => list.some(item => item === value);
 const literal = (node: Node | null | undefined) => node?.type === "StringLiteral" ? node.value
