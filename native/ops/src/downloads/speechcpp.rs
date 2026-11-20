@@ -2,8 +2,7 @@
 //!
 //! The data is in `data/` (its README describes the fields): the snapshot of `speech models
 //! --json` (`speechcpp_models.json`, written by tools/speechcpp_models.py) and the reviewed offers
-//! and profiles (`speechcpp_asr.json`). `tests/catalog_reference.rs` checks the entries built here
-//! against Python's.
+//! and profiles (`speechcpp_asr.json`).
 
 use std::sync::OnceLock;
 

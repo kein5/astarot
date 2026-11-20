@@ -40,4 +40,4 @@ Python のバックエンド（`src-python/models/model_downloads/speechcpp_asr.
 - `artifacts`: `manifest.json` と、マニフェストにあるすべてのファイルです。役割は `manifest`、`encoder`、`decoder`、`tokenizer`、`vocabulary`、`weights`（`vocabulary.data`）、`data`（2 GB を超えるグラフの `.onnx_data`。グラフごとに 1 つ）です。
 - `licenses`: 固定した版のモデルカードと、MIT なら `LICENSE`、CC-BY-NC-4.0 なら Creative Commons の説明のページです。
 
-項目を足したり変えたりしたら、`catalog.rs` の `CATALOG_VERSION` を上げます。Python のカタログの写し（`tests/data/python_reference.json`）と比べる試験（`tests/catalog_reference.rs`）があるので、変えた項目と `CATALOG_VERSION` を写しにも手で入れます。写しを作っていた Python のカタログと `reference/dump_reference.py` は 0.6.0 で消しました。翻訳の項目は写しにないので、試験は翻訳の項目を除いて比べます。
+項目を足したり変えたりしたら、`catalog.rs` の `CATALOG_VERSION` を上げます。Python のカタログの写しと比べる試験は、0.6.0 で引退させました（#746）。
