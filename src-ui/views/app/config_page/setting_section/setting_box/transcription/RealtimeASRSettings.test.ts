@@ -37,7 +37,7 @@ async function fixture(context: TestContext, { hints = false }: { hints?: boolea
         addEventListener(type: string, fn: Listener["fn"], options?: { capture?: boolean }) { listeners.push({ type, fn, capture: !!options?.capture }); },
         removeEventListener(type: string, fn: Listener["fn"]) { const i = listeners.findIndex(row => row.type === type && row.fn === fn); if (i >= 0) listeners.splice(i, 1); },
         dispatch(type: string, event: unknown) { [...listeners].sort((a, b) => Number(b.capture) - Number(a.capture))
-            .filter(row => row.type === type).forEach(row => row.fn(event)); },
+            .filter(row => row.type === type).forEach(row => { row.fn(event); }); },
     };
     stubGlobals(context, { window });
     runtime.api.useSyncExternalStore = (_, snapshot) => snapshot();

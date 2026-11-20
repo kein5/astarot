@@ -201,7 +201,7 @@ export function createPendingRequestRecovery(): PendingRequestRecovery {
     };
     return { register, beginSend, failSend, acceptResponse, receive, stop: () => {
         reads.clear();
-        restorers.forEach(restore => restore());
+        restorers.forEach(restore => { restore(); });
     } };
 }
 

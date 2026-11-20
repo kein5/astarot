@@ -230,7 +230,7 @@ npm run test:coverage    # カバレッジ（build/coverage/ui に HTML と json
 - アサーションは `node:assert/strict` を使います。`test` と `vi` は `vitest` から import します。
 - 後片付けは `context.onTestFinished(fn)` で登録します。`src-ui/logics/test/vitestSetup.ts` が、node:test の `after` と同じく登録した順に呼びます（Vitest の既定は逆順）。
 - 時計の偽装は `vi.useFakeTimers({ toFake: [...] })` と `vi.advanceTimersByTime(ms)` です。テストが終わると実時間に戻ります。`vi.spyOn` は次のテストの前に元に戻ります（`restoreMocks`）。
-- `hookHarness.ts` の `loadModule` で読むソースは、Babel で変換してから評価します。Vite を通らないため、カバレッジでは実行されていても0%と出ます。カバレッジの数字は、この読み込み方をしていないファイルだけを比べてください。
+- `hookHarness.ts` の `loadModule` で読むソースも、Vite が変換します（`src-ui/logics/test/harnessModules.ts`）。`?harness` を付けて読み込むと、TypeScript と JSX の変換のあと、import と export を `require` と `exports` を受け取る関数に包みます。`loadModule` はその関数を、試験が渡した差し替え品で呼びます。読み込むたびにソースの最上位が実行し直されるのは、前と同じです。この読み込み方のソースも、カバレッジに数えられ、ミューテーションテストの対象になります。
 - `data:` URL でNodeに直接読ませたモジュールと、テストファイルが import したモジュールは別の実体になります。シングルトンを共有するときは、テストの側も `data:` URL 経由で読みます（`useStdoutToPython.test.ts` の `nativeImport`）。
 - 既存の `.js` を `.ts` に移すときは、同じコミットで参照をすべて書き換えます。ビューのimport、試験の読み込み、Pythonの試験やツールが指すパスが対象です。
 - デザイントークンの値は `src-ui/views/app/_index_css/variables.css` が正本です。vanilla-extractからは `src-ui/views/theme/vars.css.ts` の `vars` で同じ変数を参照します。トークンを足したら両方に書きます（`vars.test.ts` が食い違いを検出します）。
@@ -287,7 +287,7 @@ npm run test:mutation -- --reporter agent > build/mutants.json         # 未検�
 npx mutator accept <キー> --reason "<等価と判断した理由>"               # 等価なミュータントを記録する
 ```
 
-対象は `mutator.config.mjs` に書いてあります。テストが import する純粋なロジック（`src-ui/logics` の `.ts` と `views/vr/vrPanelHover.ts`）です。mutator は Vite の変換の中で変異を入れるため、Vite を通らない読み込み方のファイルは対象にできません。`loadModule`（`hookHarness.ts`）や `loadBridgeRoutes`（`bridgeHarness.ts`）で読むフックと橋渡し、文字列として読むファイルは、理由を添えて `exclude` に入れてあります。テストがそのファイルを import するように変えたら、`exclude` から外してください。
+対象は `mutator.config.mjs` に書いてあります。`src-ui/logics` と `src-ui/views` の `.ts` と `.tsx` で、スタイル（`.css.ts`）、型の宣言、試験とその基盤は除きます。mutator は Vite の変換の中で変異を入れます。試験が import するソースに加え、`loadModule`（`hookHarness.ts`）や `loadBridgeRoutes`（`bridgeHarness.ts`）で読むフック、橋渡し、部品も Vite を通るので、対象にできます。どの試験も実行しないソースの変異は NoCoverage として数え、スコアに入れます。
 
 結果の読み方:
 
@@ -303,10 +303,11 @@ npx mutator accept <キー> --reason "<等価と判断した理由>"            
 
 - 未検出は1件ずつコードを読み、テストの不足か、どの入力でも結果が変わらない等価なミュータントかを判断します。等価なら `npx mutator accept` で理由と一緒に記録し、`mutator.accepted.json` をコミットします。記録した行が変わると、次の実行で「古い」と報告されます。
 - 変異の種類ごとの除外（`excludedMutators`）はしていません。文字列の置き換え（`StringLiteral`）は等価になりやすい一方、表のエンドポイント名やノードのIDなど、本物の穴も多く見つかったためです。
-- テストからは実行されていても、mutator には見えない経路があります。`data:` URL でNodeに直接読ませるモジュール（`useStdoutToPython.test.ts`）と、`loadModule` に差し替え品を渡すテストです。未検出が多いファイルは、等価か判断する前に、そのファイルを使うテストの読み込み方を確かめます。
+- テストからは実行されていても、mutator には見えない経路が残っています。`data:` URL でNodeに直接読ませるモジュールです（`useStdoutToPython.test.ts`、`useHotkeys.test.ts`、`languageMutations.test.ts`）。また、`loadModule` に差し替え品を渡したテストでは、差し替えたソースは実行されません。未検出が多いファイルは、等価か判断する前に、そのファイルを使うテストの読み込み方を確かめます。
 - Vitest 5 は変換したモジュールを `node_modules/.vitest-cache` に残します（`fsModuleCache`、既定で有効）。mutator はこのキャッシュと自分の計装を区別しません。そのため、対象を変えて回すと計装のないモジュールが読まれ、エラーなしで NoCoverage ばかりになり、スコアが0%近くまで落ちます。`npm run test:mutation` は `vitest.mutator.config.js`（このキャッシュを切った設定）を使います。`npx mutator --config vitest.config.js` のように、ほかの設定で回さないでください。
 - 結果のキャッシュは `.mutator/` にあり（Gitの対象外）、次の実行では関数とテストが変わっていないものを再利用します。0.2.0 は最後の実行の結果だけを持つので、`--include` で絞って回した後の全体の実行は、ほぼ全件を回し直します。`.mutator/` を共有するので、同じ作業ツリーで2つ同時に回さないでください。
-- 全体の実行には数分かかります。結果を報告するときは、対象の範囲と計測した条件（版、並列数、機材）を添え、スコアを品質の保証として書かないでください。
+- `--include` で絞って回した後に全体を回すときは、`--full-dry-run` を付けます。付けないと、カバレッジの収集の一部に絞った回の結果が使われ、そのときに対象でなかったファイルの変異が NoCoverage と数えられます（2026-11-21 に、64 ファイル・約 3,600 件で起きました）。
+- 全体を最初から回すと、手元（Linux、並列16）で35分ほどかかりました（2026-11-21、変異40,552件）。前の回の結果を使える部分が多ければ、数分で終わります。結果を報告するときは、対象の範囲と計測した条件（版、並列数、機材）を添え、スコアを品質の保証として書かないでください。
 - 0.2.0 には、Windows でパスの区切りが合わず計装されない問題が報告されています（Issue #550）。手順は Linux で確かめたものです。
 
 ## UIの文言と翻訳の検査

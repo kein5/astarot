@@ -90,7 +90,7 @@ test("delete and both toggle directions restore without synthesizing a success",
     }
 });
 
-test("transport false, sync throw and rejection restore, never resend", async context => {
+test("transport false, sync throw and rejection restore, never resend", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     for (const failure of [() => false, () => { throw Error("sync"); }, () => Promise.reject(Error("async"))]) {
         const subject = setup();
@@ -105,7 +105,7 @@ test("transport false, sync throw and rejection restore, never resend", async co
     }
 });
 
-test("successful send stays pending; elapsed time cannot release it", async context => {
+test("successful send stays pending; elapsed time cannot release it", async () => {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     const subject = setup();
     assert.equal(await sendWithRecovery(() => true, () => assert.fail("unexpected failure")), true);

@@ -57,7 +57,7 @@ const loadClosing = async (runtime: HookRuntime, appWindow: object, sent: unknow
     "@logics_configs": { useAppearance: () => ({ currentUiScaling: { data: 100 } }) },
 });
 
-test("Alt+F4 and the close button share one shutdown before the window is destroyed", async context => {
+test("Alt+F4 and the close button share one shutdown before the window is destroyed", async () => {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     const runtime = hooks(), sent: unknown[] = [], calls: string[] = [];
     // Called before the controller has listened, it stops with a TypeError, as calling null did.

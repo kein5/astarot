@@ -81,6 +81,11 @@ windows = { version = "=0.62.2", features = [
     "Win32_System_Performance",
 ] }
 
+# GetSystemTimes for the CPU usage examples/pipeline_latency.rs records on Windows
+# (tests/machine_load.rs). A dev-dependency, so the application's build gains nothing.
+[target.'cfg(windows)'.dev-dependencies]
+windows-sys = { version = "=0.61.2", features = ["Win32_Foundation", "Win32_System_Threading"] }
+
 [dev-dependencies]
 # Certificates for the WebSocket TLS settings are made at test time; no key is committed.
 rcgen = { version = "=0.13.2", default-features = false, features = ["ring", "pem"] }

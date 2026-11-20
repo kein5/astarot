@@ -25,7 +25,7 @@ const saved = (entry: SaveBarEntry | null | undefined) => {
 async function setup(context: TestContext) {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     const runtimes: HookRuntime[] = [];
-    context.onTestFinished(() => runtimes.forEach(runtime => runtime.unmount()));
+    context.onTestFinished(() => runtimes.forEach(runtime => { runtime.unmount(); }));
     stubGlobals(context, { window: eventTarget() });
     const owners = createSettingsWriteResponses(), requests: Request[] = [], entries: (SaveBarEntry | null)[] = [], forms: (() => ReactElement)[] = [];
     // What useVoice answers, as far as the two forms read it.
@@ -66,7 +66,7 @@ async function setup(context: TestContext) {
         forms.push(() => runtime.render(form, { title: "Output" }));
     }
     context.onTestFinished(() => owners.stop());
-    const render = () => { forms.forEach(form => form()); return forms.map(form => form()); };
+    const render = () => { forms.forEach(form => { form(); }); return forms.map(form => form()); };
     const edit = (index: number, value: string) => {
         const select = find(render()[index], node => node.type === "select");
         assert.ok(select);
@@ -101,7 +101,7 @@ for (const reverse of [false, true]) test(`VRChat forms save only their edits an
 test("a rejected route edit stays dirty when the output form saves successfully", async context => {
     const s = await setup(context);
     s.edit(0, "managed"); s.edit(1, "output-b");
-    s.entries.forEach(entry => saved(entry).save()); s.render();
+    s.entries.forEach(entry => { saved(entry).save(); }); s.render();
     await s.reply(0, 409); await s.reply(1, 200);
     assert.equal(s.state.settings.routing, "external");
     assert.equal(s.state.settings.output_device, "output-b");

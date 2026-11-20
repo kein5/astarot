@@ -91,7 +91,7 @@ export const Slider = (props: SliderProps) => {
     const calculateValue = useCallback((clientX: number, clientY: number) => {
         if (!trackRef.current) return localValue;
         const rect = trackRef.current.getBoundingClientRect();
-        let percentage;
+        let percentage: number;
         if (isVertical) {
             let y = clientY - rect.top;
             y = Math.max(0, Math.min(y, rect.height));
