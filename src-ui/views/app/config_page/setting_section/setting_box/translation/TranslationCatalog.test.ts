@@ -36,7 +36,7 @@ async function catalog(context: TestContext, hints = false, layout = "list") {
         "../_components/hint/Hint": { useHintDescriptions: () => hints },
         "../_components/fold/Fold": { Fold: "fold" },
         "../advanced_settings/catalogHeading": heading,
-        "../advanced_settings/catalogLayout": { useCatalogLayout: () => layout, CatalogList: "ul", CatalogFacts: "catalog-facts", CatalogLayoutSwitch: "catalog-layout-switch" },
+        "../advanced_settings/catalogLayout": { CatalogSection: "catalog-section", useCatalogLayout: () => layout, CatalogList: "ul", CatalogFacts: "catalog-facts", CatalogLayoutSwitch: "catalog-layout-switch" },
         "./TranslationLlamaRuntimes": { TranslationLlamaRuntimes: "llama-runtimes" },
     });
     // One component at a time: each is drawn from scratch, so no state of the last one is read.
@@ -97,15 +97,21 @@ test("an added entry's card is what it is, its facts, then its notes and actions
     assert.deepEqual([shipped.props.children].flat().filter(Boolean).map(classOf), ["card_head"]);
 });
 
-test("a group's help is its heading's hint on a page that shows hints, a line under the heading elsewhere", async context => {
-    for (const hints of [false, true]) {
-        const { groups } = await catalog(context, hints);
-        assert.equal(groups.length, 2);
-        const lines = groups.flatMap(group => nodesIn(group).filter(node => node.type === "p").map(node => node.props.children));
-        const marks = groups.flatMap(group => nodesIn(group).filter(node => node.type === "hint").map(node => node.props.text));
-        const help = ["translation_catalog.group_help.engine", "translation_catalog.group_help.api"];
-        assert.deepEqual(marks, hints ? help : []);
-        assert.deepEqual(help.map(text => lines.includes(text)), hints ? [false, false] : [true, true]);
-        assert.deepEqual(groups.map(group => nodesIn(group).filter(node => node.type === "h3").length), [1, 1]);
-    }
+test("an entry's state badge names its state, so whether it is on the PC is drawn by its shape and mark", async context => {
+    const { cards } = await catalog(context);
+    const state = (id: string) => findIn(cards.get(id), node => classOf(node) === "badge status").props["data-tone"];
+    // Not downloaded yet (an outline with an empty ring), can be used (filled, with a check), in use.
+    assert.deepEqual(["shipped", "cloud", "mine"].map(state), ["not_downloaded", "ready", "in_use"]);
+});
+
+test("each group is a part of the catalog, folded, with what it is for and how many entries it has", async context => {
+    const { groups } = await catalog(context);
+    assert.equal(groups.length, 2);
+    // The part (catalogLayout.tsx's CatalogSection) shows what the group is for as its name's hint
+    // or a line, as the page keeps descriptions (catalogLayout.test.ts).
+    const parts = groups.map(group => findIn(group, node => node.type === "catalog-section").props);
+    assert.deepEqual(parts.map(part => [part.title, part.level, part["data-catalog-group"], part.help, part.readout]), [
+        ["translation_catalog.group.engine", 3, "engine", ["translation_catalog.group_help.engine"], "translation_catalog.group_readout"],
+        ["translation_catalog.group.api", 3, "api", ["translation_catalog.group_help.api"], "translation_catalog.group_readout"],
+    ]);
 });

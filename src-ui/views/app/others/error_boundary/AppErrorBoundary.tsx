@@ -28,7 +28,7 @@ export const AppErrorBoundary = ({children}: { children?: ReactNode }) => {
 
     return (
         <ErrorBoundary
-            onError={(error, info) => setErrorInfo(info)}
+            onError={(_error, info) => setErrorInfo(info)}
             fallbackRender={({ error }) => (
                 <ErrorContainer error={error} errorInfo={errorInfo} />
             )

@@ -71,18 +71,18 @@ const QuickSettingsMenu = () => {
     useEffect(() => {
         if (!open) return;
         const leave = (event: Event) => { const menu: TargetHolder | null = root.current; if (!menu?.contains(event.target)) setOpen(false); };
-        const escape = (event: KeyboardEvent) => {
+        const closeOnEscape = (event: KeyboardEvent) => {
             if (event.key !== "Escape") return;
             setOpen(false);
             opener.current?.focus();
         };
         document.addEventListener("pointerdown", leave);
         document.addEventListener("focusin", leave);
-        document.addEventListener("keydown", escape);
+        document.addEventListener("keydown", closeOnEscape);
         return () => {
             document.removeEventListener("pointerdown", leave);
             document.removeEventListener("focusin", leave);
-            document.removeEventListener("keydown", escape);
+            document.removeEventListener("keydown", closeOnEscape);
         };
     }, [open]);
 

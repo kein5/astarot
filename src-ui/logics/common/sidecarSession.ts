@@ -189,7 +189,7 @@ export const createSidecarSessionOwner = ({ store, createCommand, setInterval, c
     };
     const retry = async () => {
         const session = store.backend_session;
-        if (!session || session.phase !== "failed" || session.retrying || !clients.size) return false;
+        if (session?.phase !== "failed" || session.retrying || !clients.size) return false;
         session.retrying = true;
         handlers()?.setStartupState("starting");
         // Do not spawn a replacement while an old spawn or kill is unresolved.

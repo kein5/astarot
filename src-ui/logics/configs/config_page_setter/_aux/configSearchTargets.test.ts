@@ -9,7 +9,7 @@ const read = (path: string) => readFileSync(new URL(path, import.meta.url), "utf
 const box = "../../../../views/app/config_page/setting_section/setting_box/";
 const pageSource = (dir: string) => readdirSync(new URL(box + dir, import.meta.url))
     .filter(name => /\.(jsx|tsx)$/.test(name) && !name.includes(".test.")).map(name => read(`${box}${dir}/${name}`)).join("\n");
-const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 // The search lists every labelled text under config_page.<page> (useConfigSearch.ts) and leads
 // to the element whose data-setting-id is its target, or else whose data-setting-label is its
@@ -23,11 +23,11 @@ for (const page of ["vr", "hotkeys", "ocr"]) test(`every ${page} result in the s
         && !(/_desc$/.test(key) && typeof texts[key] === "string" && (texts[key.replace(/_desc$/, "_title")] || texts[key.replace(/_desc$/, "_label")])));
     assert.ok(keys.length > 8, `${page}: ${keys.length} texts`);
     for (const key of keys) {
-        const id = escape(settingTarget(page, key));
+        const id = escapeRegExp(settingTarget(page, key));
         // By id: data-setting-id, or a template's setting_id / hotkey_id / dropdown_id, or a row list entry.
         const byId = new RegExp(`(data-setting-id|setting_id|hotkey_id|dropdown_id|settingId)[=:]\\s*\\{?["']${id}["']|\\[["']${id}["'],`).test(source);
         // By label: a template, form row or section heading given this text as its label.
-        const byLabel = new RegExp(`label(=\\{|:\\s*)t\\(["\`]config_page\\.${page}\\.${escape(key)}(\\.label)?["\`]\\)`).test(source);
+        const byLabel = new RegExp(`label(=\\{|:\\s*)t\\(["\`]config_page\\.${page}\\.${escapeRegExp(key)}(\\.label)?["\`]\\)`).test(source);
         assert.ok(byId || byLabel, `config_page.${page}.${key} -> ${settingTarget(page, key)}`);
     }
 });
