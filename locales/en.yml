@@ -2114,6 +2114,14 @@ model_downloads:
 
 # The model catalog (where models are chosen): groups by use, one card per model.
 model_catalog:
+    # The layouts of the catalogs' cards: a grid that shows more models at once, or a list that
+    # shows each model's facts beside it. In the grid the facts are a fold of the card.
+    layout:
+        label: "Catalog layout"
+        grid: "Grid"
+        list: "List"
+        facts: "Details"
+        facts_of: "Details ({{file}})"
     group:
         japanese: "Reading Japanese"
         multilingual: "Reading other languages"
@@ -2154,6 +2162,8 @@ model_catalog:
         recommended: "GPU recommended"
         not_needed: "no GPU needed"
     recommended_for: "Suggested for {{languages}}"
+    recommended_for_count_one: "Suggested for {{count}} language"
+    recommended_for_count_other: "Suggested for {{count}} languages"
     fits_memory: "Fits the free memory"
     hardware_warning:
         badge: "May be too heavy"

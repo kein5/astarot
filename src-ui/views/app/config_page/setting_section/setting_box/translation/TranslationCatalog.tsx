@@ -8,6 +8,8 @@ import { endpointDescription } from "../../../../../../logics/common/endpointPri
 import { SectionLabelComponent } from "../_components";
 import { useHintDescriptions } from "../_components/hint/Hint";
 import { catalogHeading } from "../advanced_settings/catalogHeading";
+import { CatalogFacts, CatalogLayoutSwitch, CatalogList, useCatalogLayout } from "../advanced_settings/catalogLayout";
+import type { CatalogLayout } from "../advanced_settings/catalogLayout";
 import { TranslationLlamaRuntimes } from "./TranslationLlamaRuntimes";
 import styles from "../advanced_settings/VoiceSettings.module.scss";
 import { Fold } from "../_components/fold/Fold";
@@ -32,18 +34,23 @@ const entriesOf = (catalog: TranslationCatalog, group: CatalogGroupId): CatalogE
 export const TranslationCatalogSection = () => {
     const { t } = useI18n();
     const { catalog, error, send } = useTranslationCatalog();
+    const layout = useCatalogLayout();
     // Asked again when the page opens: which entries can be used follows the keys and the
     // downloads set up elsewhere since.
     useEffect(() => { send("/get/data/translation_catalog"); }, [send]);
     return (
         <section className={styles.container} aria-label={t("translation_catalog.title")}>
-            <SectionLabelComponent label={t("translation_catalog.title")} />
+            {/* The cards' layout, chosen on the section's heading line, as on the model catalogs. */}
+            <div className={`${styles.catalog_head} ${styles.section_head}`}>
+                <SectionLabelComponent label={t("translation_catalog.title")} />
+                <CatalogLayoutSwitch />
+            </div>
             <p>{t("translation_catalog.intro")}</p>
             {error && <p role="alert">{errorText(t, error)}</p>}
             {catalog?.error_code && <p role="alert">{errorText(t, catalog.error_code)}</p>}
             {catalog ? <>
-                <CatalogGroup group="engine" catalog={catalog} />
-                <CatalogGroup group="api" catalog={catalog} />
+                <CatalogGroup group="engine" catalog={catalog} layout={layout} />
+                <CatalogGroup group="api" catalog={catalog} layout={layout} />
             </> : <p>{t("translation_catalog.loading")}</p>}
         </section>
     );
@@ -52,7 +59,7 @@ export const TranslationCatalogSection = () => {
 // i18next takes the first key it has: a code without its own text gets the general one.
 const errorText = (t: TFunction, code: string) => t([`translation_catalog.errors.${code}`, "translation_catalog.errors.other"], { code });
 
-const CatalogGroup = ({ group, catalog }: { group: CatalogGroupId; catalog: TranslationCatalog }) => {
+const CatalogGroup = ({ group, catalog, layout }: { group: CatalogGroupId; catalog: TranslationCatalog; layout: CatalogLayout }) => {
     const { t } = useI18n();
     const hints = useHintDescriptions();
     const { send } = useTranslationCatalog();
@@ -66,10 +73,10 @@ const CatalogGroup = ({ group, catalog }: { group: CatalogGroupId; catalog: Tran
             {/* What the group is: its heading's hint on a page that shows descriptions as hints, a line under it elsewhere. */}
             {catalogHeading(hints, "h3", t(`translation_catalog.group.${group}`), [t(`translation_catalog.group_help.${group}`)])}
             {own.length > 0
-                ? <ul className={styles.catalog}>{own.map(entry => <EntryCard key={entry.item.id} {...entry} />)}</ul>
+                ? <CatalogList layout={layout}>{own.map(entry => <EntryCard key={entry.item.id} {...entry} layout={layout} />)}</CatalogList>
                 : <p>{t("translation_catalog.none_added")}</p>}
             <Fold summary={t("translation_catalog.shipped_title", { count: shipped.length })}>
-                <ul className={styles.catalog}>{shipped.map(entry => <ShippedCard key={entry.item.id} {...entry} />)}</ul>
+                <CatalogList layout={layout}>{shipped.map(entry => <ShippedCard key={entry.item.id} {...entry} layout={layout} />)}</CatalogList>
             </Fold>
             {group === "engine" && (catalog.runtimes ?? []).includes("llamacpp") && <TranslationLlamaRuntimes onInstalled={askAgain} />}
             {group === "engine" ? <EngineForm runtimes={catalog.runtimes ?? []} /> : <ApiForm protocols={catalog.protocols ?? []} />}
@@ -78,18 +85,23 @@ const CatalogGroup = ({ group, catalog }: { group: CatalogGroupId; catalog: Tran
 };
 
 // An entry the app ships: its name and whether it can be used now. Its settings stay in the
-// sections above. The state ends the name's line, where every card of the catalog has it.
-const ShippedCard = ({ group, item }: CatalogEntry) => {
+// sections above. The state ends the name's line, where every card of the catalog has it; in the
+// grid the entry's kind is the line under it, so every card's state is in the same place.
+const ShippedCard = ({ group, item, layout }: CatalogEntry & { layout: CatalogLayout }) => {
     const { t } = useI18n();
     const state = item.in_use ? "in_use" : item.available ? "ready" : group === "engine" ? "not_downloaded" : "not_set";
+    const kind = <>
+        <span className={styles.badge}>{t("translation_catalog.badge.builtin")}</span>
+        {group === "api" && item.kind && <span className={styles.badge}>{t(`translation_catalog.kind.${item.kind}`)}</span>}
+        {"non_commercial" in item && item.non_commercial && <span className={styles.badge} data-tone="changed">{t("translation_catalog.badge.non_commercial")}</span>}
+    </>;
     return <li className={styles.card} data-catalog-item={item.id} data-status={state}>
         <div className={styles.card_head}>
             <strong>{item.name}</strong>
-            <span className={styles.badge}>{t("translation_catalog.badge.builtin")}</span>
-            {group === "api" && item.kind && <span className={styles.badge}>{t(`translation_catalog.kind.${item.kind}`)}</span>}
-            {"non_commercial" in item && item.non_commercial && <span className={styles.badge} data-tone="changed">{t("translation_catalog.badge.non_commercial")}</span>}
+            {layout === "list" && kind}
             <span className={`${styles.badge} ${styles.status}`} data-tone={state === "in_use" || state === "ready" ? state : undefined}>{t(`translation_catalog.state.${state}`)}</span>
         </div>
+        {layout === "grid" && <div className={styles.card_badges}>{kind}</div>}
     </li>;
 };
 
@@ -106,7 +118,7 @@ const keyText = (item: ApiItem) => item.key_in_memory ? "translation_catalog.key
     : item.has_key ? "translation_catalog.key_kept" : "translation_catalog.key_none";
 
 // An entry the user added: what it points at, and Use and Remove.
-const EntryCard = ({ group, item }: CatalogEntry) => {
+const EntryCard = ({ group, item, layout }: CatalogEntry & { layout: CatalogLayout }) => {
     const { t } = useI18n();
     const { send, pending } = useTranslationCatalog();
     const [removing, setRemoving] = useState(false);
@@ -115,12 +127,15 @@ const EntryCard = ({ group, item }: CatalogEntry) => {
     // Laid out as a card of the model catalog: what it is and its state, its facts, then its
     // notes and actions.
     return <li className={styles.card} data-catalog-item={item.id} data-status={state} tabIndex={-1} role="group" aria-label={item.name}>
+        {/* In the grid the "added by you" mark is the line under the name, as on the shipped cards. */}
         <div className={styles.card_intro}><div className={styles.card_head}>
             <strong>{item.name}</strong>
-            <span className={styles.badge} data-tone="own">{t("translation_catalog.badge.user")}</span>
+            {layout === "list" && <span className={styles.badge} data-tone="own">{t("translation_catalog.badge.user")}</span>}
             <span className={`${styles.badge} ${styles.status}`} data-tone={PROBLEMS.includes(state) ? "missing" : state}>{t(`translation_catalog.state.${state}`)}</span>
-        </div></div>
-        <dl className={`${styles.facts} ${styles.card_spec}`}>
+        </div>
+        {layout === "grid" && <div className={styles.card_badges}><span className={styles.badge} data-tone="own">{t("translation_catalog.badge.user")}</span></div>}
+        </div>
+        <CatalogFacts layout={layout}><dl className={`${styles.facts} ${styles.card_spec}`}>
             {group === "engine" ? <>
                 <div><dt>{t("translation_catalog.fact.runtime")}</dt><dd>{t(`translation_catalog.runtime.${item.runtime}`, { defaultValue: item.runtime })}</dd></div>
                 {item.file && <div><dt>{t("translation_catalog.fact.file")}</dt><dd><code>{item.file}</code></dd></div>}
@@ -134,7 +149,7 @@ const EntryCard = ({ group, item }: CatalogEntry) => {
                 <div><dt>{t("translation_catalog.fact.model")}</dt><dd>{item.model || t("translation_catalog.model_first")}</dd></div>
                 <div><dt>{t("translation_catalog.fact.key")}</dt><dd>{t(keyText(item))}</dd></div>
             </>}
-        </dl>
+        </dl></CatalogFacts>
         <div className={styles.card_foot}>
             {["missing", "unsupported", ...PROBLEMS].includes(state) && <p role="alert">{t(stateHelp(item, state))}</p>}
             {group === "api" && item.key_in_memory && <p>{t("translation_catalog.key_memory_help")}</p>}
