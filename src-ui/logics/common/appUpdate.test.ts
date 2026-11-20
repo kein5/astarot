@@ -8,14 +8,19 @@ const setup = (answers: Record<string, unknown>, mode: AppUpdateMode = "install"
     let state: AppUpdateState = { ...INITIAL_APP_UPDATE };
     const calls: string[] = [];
     const channels: ((message: AppUpdateInstallProgress) => void)[] = [];
+    // The test's answer to a command (or its failure).
+    const answerTo = (command: string, args?: Record<string, unknown>): unknown => {
+        if (command === "app_update_info") return { mode, kind: "appimage", channel: "stable", current_version: "0.4.0" };
+        const answer = answers[command];
+        if (typeof answer === "function") return answer(args);
+        if (answer instanceof Error || typeof answer === "string") throw answer;
+        return answer;
+    };
     // Tauri's invoke, answering each command with the test's data (or failing with it).
     const invoke = async <T,>(command: string, args?: Record<string, unknown>): Promise<T> => {
         calls.push(command);
-        if (command === "app_update_info") return unchecked<T>({ mode, kind: "appimage", channel: "stable", current_version: "0.4.0" });
-        const answer = answers[command];
-        if (typeof answer === "function") return unchecked<T>(answer(args));
-        if (answer instanceof Error || typeof answer === "string") throw answer;
-        return unchecked<T>(answer);
+        // Test data: the test's answer, in the shape the command returns.
+        return unchecked<T>(answerTo(command, args));
     };
     const updater = createAppUpdate({
         invoke,

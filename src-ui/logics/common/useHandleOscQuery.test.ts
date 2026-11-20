@@ -78,8 +78,8 @@ for (const language of ["en", "ja"]) {
         const subject = await loadModule<typeof import("./useIsOscAvailable.ts")>(new URL("./useIsOscAvailable.ts", import.meta.url), runtime, { "@store": stores });
         assert.equal(subject.oscUnavailableLabelKey("remote_destination"), "config_page.common.warning_labels.unable_to_use_osc_query_remote");
         assert.equal(subject.oscUnavailableLabelKey("turned_off"), "config_page.common.warning_labels.unable_to_use_osc_query_off");
-        // On purpose: undefined, a reason the backend left out.
         for (const why of ["setup_failed", null, undefined])
+            // On purpose: undefined, a reason the backend left out.
             assert.equal(subject.oscUnavailableLabelKey(unchecked(why)), "config_page.common.warning_labels.unable_to_use_osc_query");
         for (const why of ["remote_destination", "setup_failed", "turned_off"]) assert.equal(i18n.exists(subject.oscUnavailableLabelKey(why)), true);
         runtime.store.set(stores.Atom_OscUnavailableReason, { state: "ok", data: "remote_destination" });

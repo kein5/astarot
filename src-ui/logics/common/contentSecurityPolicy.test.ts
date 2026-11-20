@@ -5,11 +5,11 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { test } from "vitest";
 import { parse } from "@babel/parser";
+import { isNode } from "@babel/types";
 import type { MemberExpression, Node, OptionalMemberExpression } from "@babel/types";
-import { unchecked } from "../test/hookHarness.ts";
 
 // Static only: no DOM, application startup, network, or execution of bundle code.
-// @babel/parser is already installed by @vitejs/plugin-react (package-lock.json).
+// @babel/parser and @babel/types are already installed by @vitejs/plugin-react (package-lock.json).
 const root = fileURLToPath(new URL("../../../", import.meta.url));
 const read = (name: string) => readFileSync(path.join(root, name), "utf8");
 const config = JSON.parse(read("src-tauri/tauri.conf.json"));
@@ -34,10 +34,10 @@ function files(directory: string): string[] {
         return entry.isDirectory() ? files(name) : [name];
     });
 }
-// The walk meets Babel's nodes and the objects inside them; an object with a type is a node.
+// The walk meets Babel's nodes and the objects inside them; Babel tells which are nodes.
 function walk(node: unknown, visit: (node: Node) => void) {
     if (!node || typeof node !== "object") return;
-    if ("type" in node && node.type) visit(unchecked<Node>(node));
+    if (isNode(node)) visit(node);
     for (const [key, value] of Object.entries(node)) {
         if (["loc", "comments", "tokens"].includes(key)) continue;
         if (Array.isArray(value)) value.forEach(child => walk(child, visit));

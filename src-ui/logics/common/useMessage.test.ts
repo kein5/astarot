@@ -1,11 +1,10 @@
 import assert from "node:assert/strict";
 import { test, vi } from "vitest";
-import { readFileSync } from "node:fs";
 import i18next from "i18next";
-import yaml from "js-yaml";
 import type { i18n as I18n } from "i18next";
-import { find, hooks, loadModule, unchecked } from "../test/hookHarness.ts";
+import { asTimerFunction, find, hooks, isRecord, loadModule, unchecked } from "../test/hookHarness.ts";
 import { loadBridgeRoutes, deferred, flush } from "../test/bridgeHarness.ts";
+import { branchAt, readLocale, textAt } from "../test/locales.ts";
 import { keepRecentLogs } from "./messageLogLimit.ts";
 import * as chatboxLength from "./chatboxLength.ts";
 import { decodeLogUpdate, encodeLogUpdate } from "./vrPanelWire.ts";
@@ -29,7 +28,9 @@ async function setup(send: (...args: Sent) => unknown = async () => true, reset:
                     return reset(...args);
                 }
                 // A message is sent with its row.
-                const sent = unchecked<Sent>(args);
+                const [endpoint, data] = args;
+                assert.ok(typeof endpoint === "string" && isRecord(data), "a message goes with its row");
+                const sent: Sent = [endpoint, data];
                 writes.push(sent);
                 return send(...sent);
             } }) },
@@ -214,7 +215,7 @@ async function composer(subject: Subject, autoClear = false) {
 for (const success of [true, false]) for (const autoClear of [true, false]) {
     test(`desktop Enter resets typing with success=${success}, auto-clear=${autoClear}`, async context => {
         // The id the browser gives; the component never reads it.
-    vi.spyOn(globalThis, "setTimeout").mockImplementation(() => unchecked<ReturnType<typeof setTimeout>>(0));
+    vi.spyOn(globalThis, "setTimeout").mockImplementation(asTimerFunction("setTimeout", () => 0));
         const subject = await setup(async () => success), input = await composer(subject, autoClear);
         input.change("Hello");
         input.enter();
@@ -300,20 +301,17 @@ test("output failure warns without failing or resending a successful message row
     assert.deepEqual(subject.rows()[0].messages.original, original);
     assert.equal(subject.notices[0].type, "warning");
     // A notice's options name its category.
-    assert.equal(unchecked<{ category_id?: unknown }>(subject.notices[0].options).category_id, "MESSAGE_OUTPUT_FAILED.overlay_large");
+    assert.equal(subject.notices[0].options?.category_id, "MESSAGE_OUTPUT_FAILED.overlay_large");
     assert.equal(subject.writes.length, 1);
     assert.deepEqual(subject.reads, []);
 });
 
-// A locale file; these tests read its backend_errors texts by code.
-const locale = (language: string) =>
-    unchecked<{ backend_errors: Record<string, string> }>(yaml.load(readFileSync(new URL(`../../../locales/${language}.yml`, import.meta.url), "utf8")));
 // Every code the sidecar puts on /run/transcription_recognition_error.
 const RECOGNITION_FAILURES = ["AUDIO_OPEN_ERROR", "AUDIO_READ_ERROR", "VAD_INFERENCE_ERROR",
     "TRANSCRIBER_INIT_ERROR", "ASR_ERROR", "CLEANUP_TIMEOUT"];
 
 for (const language of ["en", "ja"]) test(`${language}: recognition failures are logged in the UI language, naming the Windows question for the microphone`, async () => {
-    const translation = locale(language);
+    const translation = readLocale(language);
     const i18n = i18next.createInstance();
     await i18n.init({ lng: language, resources: { [language]: { translation } }, interpolation: { escapeValue: false } });
     const subject = await setup(undefined, undefined, i18n);
@@ -324,13 +322,14 @@ for (const language of ["en", "ja"]) test(`${language}: recognition failures are
     log(failure("ASR_ERROR", "mic"));
     log({ message: "Mic speech recognition request failed. Check your network connection.", data: null });
     log(failure("NOT_A_CODE", "mic"));
-    const errors = translation.backend_errors;
+    // These tests read the backend_errors texts by code.
+    const errors = branchAt(translation, "backend_errors");
     assert.deepEqual(subject.rows().map(row => [row.category, row.messages.original.message]), [
         ["system", errors.AUDIO_OPEN_ERROR_mic], ["system", errors.AUDIO_OPEN_ERROR_speaker], ["system", errors.ASR_ERROR],
         ["system", "Mic speech recognition request failed. Check your network connection."], ["system", "English default"],
     ]);
-    assert.match(errors.AUDIO_OPEN_ERROR_mic, /Windows/);
-    assert.doesNotMatch(errors.AUDIO_OPEN_ERROR_speaker, /Windows/);
+    assert.match(textAt(errors, "AUDIO_OPEN_ERROR_mic"), /Windows/);
+    assert.doesNotMatch(textAt(errors, "AUDIO_OPEN_ERROR_speaker"), /Windows/);
     for (const code of RECOGNITION_FAILURES) assert.ok(errors[code], code);
     assert.deepEqual(subject.reads, []);
 });
@@ -340,7 +339,7 @@ const ENGINE_CAUSES = ["TRANSCRIPTION_API_AUTH_FAILED", "TRANSCRIPTION_API_RATE_
     "TRANSCRIPTION_API_SERVER_ERROR"];
 
 for (const language of ["en", "ja"]) test(`${language}: a cloud engine's reason for failing is logged instead of the general text`, async () => {
-    const translation = locale(language);
+    const translation = readLocale(language);
     const i18n = i18next.createInstance();
     await i18n.init({ lng: language, resources: { [language]: { translation } }, interpolation: { escapeValue: false } });
     const subject = await setup(undefined, undefined, i18n);
@@ -348,14 +347,15 @@ for (const language of ["en", "ja"]) test(`${language}: a cloud engine's reason 
     for (const cause of ENGINE_CAUSES) log({ error_code: "ASR_ERROR", stage: "asr", source: "mic", message: "English default", cause });
     // A cause the UI has no text for falls back to the general text.
     log({ error_code: "ASR_ERROR", stage: "asr", source: "mic", message: "English default", cause: "TRANSCRIPTION_API_SOMETHING_NEW" });
-    const errors = translation.backend_errors;
+    // These tests read the backend_errors texts by code.
+    const errors = branchAt(translation, "backend_errors");
     assert.deepEqual(subject.rows().map(row => row.messages.original.message), [...ENGINE_CAUSES.map(code => errors[code]), errors.ASR_ERROR]);
     for (const code of ENGINE_CAUSES) assert.notEqual(errors[code], errors.ASR_ERROR, code);
 });
 
 for (const accepted of [true, false]) test(`holding Enter and duplicate clicks send once until handoff settles (${accepted})`, async context => {
     // The id the browser gives; the component never reads it.
-    vi.spyOn(globalThis, "setTimeout").mockImplementation(() => unchecked<ReturnType<typeof setTimeout>>(0));
+    vi.spyOn(globalThis, "setTimeout").mockImplementation(asTimerFunction("setTimeout", () => 0));
     const handoff = deferred(), subject = await setup(() => handoff.promise), input = await composer(subject);
     input.change("同じ下書き");
     input.enter();
@@ -391,7 +391,7 @@ test("main input keeps IME and Shift+Enter guards", async () => {
 const sentRow = (id: string, message: unknown) => ({ id, category: "sent", messages: { original: { message } } });
 test("history eviction resets to the saved draft and never puts a non-string in the composer", async () => {
     const subject = await setup(), input = await composer(subject);
-    // Rows with only what the history reads: received rows have no text, and some rows no id.
+    // Test data: rows with only what the history reads: received rows have no text, and some rows no id.
     const setRows = (rows: unknown[]) => subject.runtime.store.set(subject.stores.Atom_MessageLogs, { state: "ok", data: unchecked<MessageLogRow[]>(rows) });
     let rows: unknown[] = [sentRow("oldest", "古い文"), sentRow("newer", "新しい文"),
         ...Array.from({ length: 998 }, (_, id) => ({ id: `received-${id}`, category: "received" }))];
@@ -413,7 +413,7 @@ test("history eviction resets to the saved draft and never puts a non-string in 
 
 test("history follows row identity through appended rows and partial eviction, then restores the draft", async () => {
     const subject = await setup(), input = await composer(subject);
-    // Rows with only what the history reads: received rows have no text, and some rows no id.
+    // Test data: rows with only what the history reads: received rows have no text, and some rows no id.
     const setRows = (rows: unknown[]) => subject.runtime.store.set(subject.stores.Atom_MessageLogs, { state: "ok", data: unchecked<MessageLogRow[]>(rows) });
     setRows([sentRow("a", "same"), sentRow("b", "same")]);
     input.change("draft");

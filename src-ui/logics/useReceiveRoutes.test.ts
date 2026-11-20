@@ -49,8 +49,8 @@ test("failed required initialization maps and scalars retain renderable defaults
         }), useIsMainPageCompactMode: () => ({ closeOverlay: () => {} }) },
     });
     for (const selector_key of ["your_language", "target_language"] as const) {
-        // Test data: the props the button is drawn with here: no is_turned_on, and a tag name for the icon.
         assert.doesNotThrow(() => s.runtime.render(LanguageSelectorOpenButton,
+            // Test data: the props the button is drawn with here: no is_turned_on, and a tag name for the icon.
             unchecked<Parameters<typeof LanguageSelectorOpenButton>[0]>({ selector_key, target_key: "1", TurnedOnSvgComponent: "svg" })));
     }
     assert.equal(s.notices.length, 1);

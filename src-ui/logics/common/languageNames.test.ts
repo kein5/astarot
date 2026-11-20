@@ -139,7 +139,7 @@ test("missing or invalid tags and absent Intl preserve English names", () => {
     const unknown = { language: "Future language", country: "Future region" };
     assert.equal(names.name(unknown).label, "Future language (Future region)");
     assert.equal(names.name({ ...japanese, code: "invalid_tag" }).label, "Japanese (Japan)");
-    // A platform without Intl's parts, on purpose.
+    // On purpose: a platform without Intl's parts.
     const noIntl = unchecked<typeof Intl>({});
     assert.equal(createLanguageNames("ja", noIntl).name(japanese).label, "Japanese (Japan)");
     assert.equal(createLanguageNames("ja", noIntl).fromCode("ja"), "ja");
@@ -161,7 +161,7 @@ test("DisplayNames returning nothing or throwing falls back independently for ea
                     return failure;
                 }
             } };
-            // Intl with only the parts the names use, and DisplayNames that fail on purpose.
+            // Test data: Intl with only the parts the names use, and DisplayNames that fail on purpose.
             const names = createLanguageNames("ja", unchecked<typeof Intl>(platform));
             assert.equal(names.name(japanese).label, failType === "language" ? "Japanese (日本)" : "日本語 (Japan)");
             assert.ok(names.matches(japanese, "Japanese Japan"));

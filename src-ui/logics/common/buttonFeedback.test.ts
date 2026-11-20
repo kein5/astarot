@@ -13,29 +13,24 @@ import * as featureLabel from "./featureLabel.ts";
 import { nextLogView, rowsBetween } from "./messageLogView.ts";
 import { speakerContinuations } from "./speakerNames.ts";
 import * as switchBlocksModule from "../main/switchBlocks.ts";
-import { find, typeScriptAware, unchecked } from "../test/hookHarness.ts";
-import type { TreeNode } from "../test/hookHarness.ts";
+import { find, findIn, held, loaded, refOf, typeScriptAware, unchecked } from "../test/hookHarness.ts";
+import type { Slot, TreeNode } from "../test/hookHarness.ts";
 
 type Deps = readonly unknown[] | undefined;
-// The memory of useMemo, useCallback, useRef and the effects: the dependencies and the value.
-interface MemoSlot {
-    deps: Deps;
-    value: unknown;
-}
 
 // Exercise the production JSX handlers without a WebView or a new test runtime.
 // Hooks retain state across explicit renders; IPC promises are controlled by tests.
 function hooks() {
-    const slots: unknown[] = [], effects: (() => unknown)[] = [];
+    // Slot i belongs to the i-th hook: hooks run in the same order on every render.
+    const slots: (Slot | undefined)[] = [], effects: (() => unknown)[] = [];
     let index = 0;
     const memo = <T,>(factory: () => T, deps: Deps): T => {
         const i = index++;
-        // Slot i belongs to this hook: hooks run in the same order on every render.
-        const slot = unchecked<MemoSlot | undefined>(slots[i]);
+        const slot = slots[i];
         if (!slot || !deps || deps.some((v, n) => !Object.is(v, slot.deps?.[n]))) {
             slots[i] = { deps, value: factory() };
         }
-        return unchecked<T>(unchecked<MemoSlot>(slots[i]).value);
+        return held<T>(slots[i] ?? {});
     };
     const effect = (fn: () => unknown, deps?: Deps) => memo(() => {
         effects.push(fn);
@@ -44,9 +39,14 @@ function hooks() {
     const api = { ...React,
         useState: <S,>(initial: S | (() => S)): [S, (value: S | ((previous: S) => S)) => void] => {
             const i = index++;
-            // React calls a function given to useState or to its setter instead of keeping it.
-            if (!(i in slots)) slots[i] = typeof initial === "function" ? unchecked<() => S>(initial)() : initial;
-            return [unchecked<S>(slots[i]), value => { slots[i] = typeof value === "function" ? unchecked<(previous: S) => S>(value)(unchecked<S>(slots[i])) : value; }];
+            // React calls a function given to useState or to its setter instead of keeping it. The slot
+            // keeps what it returns, which held reads back as the state.
+            const start: unknown = initial;
+            if (!(i in slots)) slots[i] = { value: typeof start === "function" ? start() : start };
+            return [held<S>(slots[i] ?? {}), value => {
+                const next: unknown = value;
+                slots[i] = { value: typeof next === "function" ? next(held<S>(slots[i] ?? {})) : next };
+            }];
         },
         useRef: <T,>(initial: T) => memo(() => ({ current: initial }), []),
         useMemo: memo, useCallback: <F,>(fn: F, deps: Deps) => memo(() => fn, deps),
@@ -93,17 +93,11 @@ async function load<M>(path: string, runtime: LocalRuntime, imports: Record<stri
     };
     const exports: Record<string, unknown> = {};
     new Function("require", "exports", code ?? "")(require, exports);
-    return unchecked<M>(exports);
+    return loaded<M>(exports);
 }
 
-// A node the test reads at once: when it is missing, the test fails here.
-const found = (tree: unknown, predicate: (node: TreeNode) => boolean) => {
-    const node = find(tree, predicate);
-    assert.ok(node);
-    return node;
-};
-const button = (tree: unknown) => found(tree, node => node.type === "button");
-const switchNode = (tree: unknown) => found(tree, node => node.props?.role === "switch");
+const button = (tree: unknown) => findIn(tree, node => node.type === "button");
+const switchNode = (tree: unknown) => findIn(tree, node => node.props?.role === "switch");
 type ActionButtonModule = typeof import("../../views/app/config_page/setting_section/setting_box/_components/action_button/ActionButton.tsx");
 type ActionButtonProps = import("../../views/app/config_page/setting_section/setting_box/_components/action_button/ActionButton.tsx").ActionButtonProps;
 const actionPath = "app/config_page/setting_section/setting_box/_components/action_button/ActionButton.tsx";
@@ -242,7 +236,7 @@ test("settings checkboxes reject pointer and keyboard repeats while retaining th
     const { Checkbox } = await load<typeof import("../../views/common_components/checkbox/Checkbox.tsx")>("common_components/checkbox/Checkbox.tsx", runtime);
     let calls = 0;
     const props = { label: "Auto select", variable: { state: "pending", data: false }, toggleFunction: () => { calls++; } };
-    const input = (tree: unknown) => found(tree, node => node.type === "input");
+    const input = (tree: unknown) => findIn(tree, node => node.type === "input");
     for (const confirmed of [false, true]) {
         props.variable.data = confirmed;
         const control = input(runtime.render(Checkbox, props));
@@ -286,7 +280,7 @@ test("main switches block pending repeats but TTS/RVC cancellation remains avail
     let calls = 0;
     const props: Partial<ComponentProps<typeof SwitchContainer>> = { currentState: { data: false, state: "pending" }, SvgComponent: icon, toggleFunction: () => { calls++; } };
     const press = () => {
-        // Only the fields the switch reads in this test.
+        // Test data: only the fields the switch reads in this test.
         const control = switchNode(runtime.render(SwitchContainer, unchecked<ComponentProps<typeof SwitchContainer>>(props)));
         control.props.onClick();
         control.props.onKeyDown({ key: "Enter", preventDefault() {} });
@@ -355,7 +349,7 @@ test("LogBox subscribes only to its log and resend setting; unchanged row props 
     const listeners: unknown[][] = [];
     Reflect.set(globalThis, "document", { addEventListener: (...args: unknown[]) => listeners.push(args), removeEventListener() {} });
     t.onTestFinished(() => { Reflect.deleteProperty(globalThis, "document"); });
-    const list = () => found(runtime.render(LogBox.type), node => node.type === Virtualizer).props;
+    const list = () => findIn(runtime.render(LogBox.type), node => node.type === Virtualizer).props;
     // virtua renders only the rows in view; build them all here.
     const rows = (): TreeNode[] => { const { data, children } = list(); return Array.from(data, children); };
     const initial = rows();
@@ -407,7 +401,7 @@ test("composer reads history only on explicit recall and sees the latest retaine
         "./ChatboxLengthWarning": { CHATBOX_LENGTH_WARNING_ID: "chatbox_length_warning" },
     });
     assert.equal(MessageInputBox.$$typeof, Symbol.for("react.memo"));
-    const render = () => found(runtime.render(MessageInputBox.type), node => node.type === "textarea");
+    const render = () => findIn(runtime.render(MessageInputBox.type), node => node.type === "textarea");
     const key = (name: string, shiftKey = false) => render().props.onKeyDown({ key: name, keyCode: name === "Enter" ? 13 : 0,
         shiftKey, nativeEvent: { isComposing: composing }, preventDefault() {} });
     render();
@@ -518,12 +512,12 @@ test("opening and closing settings keeps the same MainSection type and key mount
         "./main_section/message_container/log_box/StartupProgress": { StartupProgress: icon },
     });
     const focusFallback = { current: null };
-    const initial = found(runtime.render(MainPage, { focusFallback }), node => node.type === MainSection);
+    const initial = findIn(runtime.render(MainPage, { focusFallback }), node => node.type === MainSection);
     for (const state of [true, false]) {
         open = state;
         const page = runtime.render(MainPage, { focusFallback });
-        const section = found(page, node => node.type === MainSection);
-        assert.equal(Reflect.get(page, "ref"), focusFallback);
+        const section = findIn(page, node => node.type === MainSection);
+        assert.equal(refOf(page), focusFallback);
         assert.equal(page.props.tabIndex, -1, "quick-dialog fallback is programmatically focusable");
         assert.equal(page.props["aria-hidden"], state);
         // The packaged-app tests find the page and which one shows by these, not by hashed class names.
@@ -547,14 +541,15 @@ test("memoized log rows expose pending status and keep edit/resend explicit", as
     type Props = ComponentProps<typeof MessageContainer.type>;
     const props: Omit<Props, "id"> = { messages: { original: { message: "hello", transliteration: [] }, translations: [] },
         status: "pending", category: "sent", created_at: "12:00", showResendButton: true,
-        // Stand-ins that record what the row gives them.
+        // Test data: stand-ins that record what the row gives them.
         sendMessage: unchecked<Props["sendMessage"]>((text: string) => sent.push(text)),
+        // Test data: the same for the text put back into the composer.
         updateMessageInputValue: unchecked<Props["updateMessageInputValue"]>((text: string) => edited.push(text)) };
-    // A row without an id, which this test does not read.
+    // Test data: a row without an id, which this test does not read.
     const render = () => runtime.render(MessageContainer.type, unchecked<Props>(props));
     assert.ok(find(render(), node => node.props?.className === "loader"));
     assert.deepEqual(sent, []);
-    const controls = found(render(), node => node.type === menu);
+    const controls = findIn(render(), node => node.type === menu);
     controls.props.editFunction();
     controls.props.resendFunction();
     assert.deepEqual(edited, ["hello"]);

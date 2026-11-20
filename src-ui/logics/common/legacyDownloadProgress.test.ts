@@ -3,7 +3,7 @@ import { test, vi } from "vitest";
 import i18next from "i18next";
 import type { TOptions } from "i18next";
 import type { TestContext } from "vitest";
-import { hooks, loadModule, find, unchecked } from "../test/hookHarness.ts";
+import { hooks, loadModule, find, findIn, unchecked } from "../test/hookHarness.ts";
 import type { TreeNode } from "../test/hookHarness.ts";
 import { readLocale } from "../test/locales.ts";
 import type { DownloadButtonProps, DownloadOption } from "../../views/app/config_page/setting_section/setting_box/_components/_atoms/_download_button/_DownloadButton.tsx";
@@ -31,11 +31,7 @@ async function fixture(context: TestContext, language = "en", name = "ctranslate
             const node = find(tree, node => node.type === CircularProgress);
             return node && CircularProgress(node.props).props;
         },
-        status: (tree: TreeNode) => {
-            const node = find(tree, node => node.props?.role === "status");
-            assert.ok(node);
-            return node.props;
-        } };
+        status: (tree: TreeNode) => findIn(tree, node => node.props?.role === "status").props };
 }
 
 // The built-in downloads are the local translation weights; the Whisper ones went with the engine (#288).
