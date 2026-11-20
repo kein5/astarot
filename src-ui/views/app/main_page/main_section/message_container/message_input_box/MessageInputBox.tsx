@@ -10,6 +10,7 @@ import { useI18n } from "@useI18n";
 import { store, Atom_MessageLogs, useStore_MessageInputValue } from "@store";
 import { chatboxOverflowLength } from "../../../../../../logics/common/chatboxLength";
 import { CHATBOX_LENGTH_WARNING_ID } from "./ChatboxLengthWarning";
+import { Tooltip } from "../../../../../common_components/tooltip/Tooltip";
 import type { MessageLogRow } from "../../../../../../logics/transcription/realtimeCaptionState";
 
 // Enter in the box or a press of the send button. Only a key repeats.
@@ -144,15 +145,18 @@ export const MessageInputBox = memo(function MessageInputBox() {
 const SendMessageButton = ({ onSubmitFunction, pending }: { onSubmitFunction: (e: SubmitEvent) => void; pending: boolean }) => {
     const { t } = useI18n();
     return (
-        <button
-            className={styles.message_send_button}
-            aria-label={t("studio.send_message")}
-            type="button"
-            disabled={pending}
-            aria-busy={pending}
-            onClick={onSubmitFunction}
-        >
-            <SendMessageSvg aria-hidden="true" className={styles.message_send_icon} />
-        </button>
+        // An icon: its name is also its tooltip.
+        <Tooltip bare placement="top" title={t("studio.send_message")}>
+            <button
+                className={styles.message_send_button}
+                aria-label={t("studio.send_message")}
+                type="button"
+                disabled={pending}
+                aria-busy={pending}
+                onClick={onSubmitFunction}
+            >
+                <SendMessageSvg aria-hidden="true" className={styles.message_send_icon} />
+            </button>
+        </Tooltip>
     );
 };

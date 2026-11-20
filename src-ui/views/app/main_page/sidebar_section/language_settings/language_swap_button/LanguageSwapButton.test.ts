@@ -9,7 +9,7 @@ const childrenOf = (node: unknown): unknown => fieldOf(node, "props", "children"
 const text = (node: unknown): string => [childrenOf(node)].flat(Infinity)
     .map((child: unknown) => typeof child === "string" ? child : child && typeof child === "object" ? text(child) : "").join("");
 
-test("the swap button shows the same words at rest as its tooltip and accessible name (#569)", async () => {
+test("the swap button shows the same words at rest as its accessible name, and has no tooltip to repeat them (#569, #614)", async () => {
     const runtime = hooks(), swaps: string[] = [];
     const { LanguageSwapButton } = await loadModule<typeof import("./LanguageSwapButton.tsx")>(new URL("./LanguageSwapButton.tsx", import.meta.url), runtime, {
         "@logics_main": { useLanguageSettings: () => ({ canChangeLanguageSettings: () => true, isLanguageSettingsBusy: false,
@@ -18,7 +18,9 @@ test("the swap button shows the same words at rest as its tooltip and accessible
     const button = runtime.render(LanguageSwapButton).props.children;
     assert.equal(button.props.role, "button");
     assert.equal(button.props["aria-label"], "main_page.swap_button_label");
-    assert.equal(button.props.title, "main_page.swap_button_label");
+    // The words are in sight at every width, so no tooltip (and no title attribute) says them again.
+    assert.equal(button.props.title, undefined);
+    assert.equal(button.type, "div");
     assert.equal(text(button), "main_page.swap_button_label");
     assert.equal(button.props.onMouseEnter, undefined, "the words do not depend on the pointer");
     button.props.onClick();

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import type { ComponentType, ReactNode, SVGProps } from "react";
 import type { TFunction } from "i18next";
 import type { AtomStatus } from "@store";
@@ -32,6 +32,7 @@ import {
     useMainFunction,
 } from "@logics_main";
 import { ToggleSwitch } from "../../../../common_components/toggle_switch/ToggleSwitch";
+import { Tooltip } from "../../../../common_components/tooltip/Tooltip";
 
 type SvgComponent = ComponentType<SVGProps<SVGSVGElement>>;
 
@@ -191,19 +192,25 @@ export const MainFunctionSwitch = () => {
 };
 
 // Shows or hides the switches the uses picked in settings leave out. In the icon rail it is an
-// icon whose tooltip and name say the same.
+// icon whose tooltip and name say the same. What it does is its tooltip and its accessible
+// description (the words stay in the page while the tooltip is closed).
 export const MoreFeaturesButton = ({ count, expanded, onToggle }: { count: number; expanded: boolean; onToggle: () => void }) => {
     const { t } = useI18n();
     const { currentIsMainPageCompactMode } = useIsMainPageCompactMode();
     const compact = currentIsMainPageCompactMode.data;
     const label = expanded ? t("main_page.more_features_hide") : t("main_page.more_features", { number: count });
+    const hint = t("main_page.more_features_hint");
+    const hintId = useId();
     return (
-        <button type="button" className={clsx(styles.more_features, { [styles.is_compact_mode]: compact })}
-            aria-expanded={expanded} aria-label={label} title={`${label}: ${t("main_page.more_features_hint")}`}
-            data-more-features onClick={onToggle}>
-            <ArrowDownSvg aria-hidden="true" className={clsx(styles.more_features_svg, { [styles.is_open]: expanded })} />
-            {!compact && <span className={styles.more_features_label}>{label}</span>}
-        </button>
+        <Tooltip bare placement="right" title={`${label}: ${hint}`}>
+            <button type="button" className={clsx(styles.more_features, { [styles.is_compact_mode]: compact })}
+                aria-expanded={expanded} aria-label={label} aria-describedby={hintId}
+                data-more-features onClick={onToggle}>
+                <ArrowDownSvg aria-hidden="true" className={clsx(styles.more_features_svg, { [styles.is_open]: expanded })} />
+                {!compact && <span className={styles.more_features_label}>{label}</span>}
+                <span id={hintId} hidden>{hint}</span>
+            </button>
+        </Tooltip>
     );
 };
 
@@ -248,11 +255,14 @@ export const SwitchRow = ({ settingsLabel: label, openSettings, ...props }: Swit
             [styles.is_active]: active,
             [styles.is_unavailable]: unavailable || !!props.blockedReason,
         })}>
-            <button type="button" className={styles.settings_button} data-feature-settings={props.switch_id}
-                aria-label={label} title={label} onClick={openSettings}>
-                <SvgComponent aria-hidden="true" className={clsx(styles.switch_svg, {
-                    [styles.is_active]: active, [styles.is_pending]: pending })} />
-            </button>
+            {/* Beside the rail, level with the row: next to the icon it would cover the switch's name. */}
+            <Tooltip bare placement="right" beside={`.${styles.switch_row}`} title={label}>
+                <button type="button" className={styles.settings_button} data-feature-settings={props.switch_id}
+                    aria-label={label} onClick={openSettings}>
+                    <SvgComponent aria-hidden="true" className={clsx(styles.switch_svg, {
+                        [styles.is_active]: active, [styles.is_pending]: pending })} />
+                </button>
+            </Tooltip>
             <SwitchContainer {...props} inRow />
         </div>
     );
@@ -289,6 +299,9 @@ export const SwitchContainer = ({ switchLabel, switch_id, children, currentState
     const greyed = unavailable || !!blockedReason;
     // The icon rail has no label: its tooltip names the switch before the reason.
     const blockedTitle = blockedReason && (currentIsMainPageCompactMode.data ? `${switchLabel}: ${blockedReason}` : blockedReason);
+    // The tooltip: why the switch is held off, else its state, else its name in the icon rail.
+    // A state the wide rail prints under the name is not repeated in a bubble (Tooltip).
+    const tooltip = blockedTitle ?? statusText ?? (currentIsMainPageCompactMode.data ? switchLabel : undefined);
     const blocked = greyed || disabled || (!cancellable && pending);
 
     const getClassNames = (baseClass: string | undefined) => clsx(baseClass, {
@@ -301,43 +314,44 @@ export const SwitchContainer = ({ switchLabel, switch_id, children, currentState
     });
 
     return (
-        <div
-            className={getClassNames(styles.switch_container)}
-            role="switch" aria-label={unavailable && statusText ? `${switchLabel}: ${statusText}` : switchLabel} aria-checked={active}
-            aria-busy={pending} aria-disabled={blocked} tabIndex={0}
-            aria-describedby={blockedReason ? reasonId : undefined}
-            title={blockedTitle ?? statusText ?? (currentIsMainPageCompactMode.data ? switchLabel : undefined)}
-            onClick={() => { if (!blocked) toggleFunction(); }}
-            onKeyDown={event => {
-                if (event.key === " " || event.key === "Enter") {
-                    event.preventDefault();
-                    if (!event.repeat && !blocked) toggleFunction();
-                }
-            }}
-        >
-            <div className={styles.label_wrapper}>
-                {!inRow && <SvgComponent className={getClassNames(styles.switch_svg)} />}
-                <p className={getClassNames(styles.switch_label)}>
-                    {label.name}
-                    {label.abbr && <span className={getClassNames(styles.switch_label_abbr)}
-                        data-bracket={label.abbr.startsWith("（") || undefined}>{label.abbr}</span>}
-                </p>
-                {statusText && <span className={getClassNames(styles.switch_status)} role="status">{statusText}</span>}
-                {blockedReason && <span id={reasonId} className={styles.visually_hidden}>{blockedReason}</span>}
-                {children}
+        <Tooltip bare placement="right" title={tooltip}>
+            <div
+                className={getClassNames(styles.switch_container)}
+                role="switch" aria-label={unavailable && statusText ? `${switchLabel}: ${statusText}` : switchLabel} aria-checked={active}
+                aria-busy={pending} aria-disabled={blocked} tabIndex={0}
+                aria-describedby={blockedReason ? reasonId : undefined}
+                onClick={() => { if (!blocked) toggleFunction(); }}
+                onKeyDown={event => {
+                    if (event.key === " " || event.key === "Enter") {
+                        event.preventDefault();
+                        if (!event.repeat && !blocked) toggleFunction();
+                    }
+                }}
+            >
+                <div className={styles.label_wrapper}>
+                    {!inRow && <SvgComponent className={getClassNames(styles.switch_svg)} />}
+                    <p className={getClassNames(styles.switch_label)}>
+                        {label.name}
+                        {label.abbr && <span className={getClassNames(styles.switch_label_abbr)}
+                            data-bracket={label.abbr.startsWith("（") || undefined}>{label.abbr}</span>}
+                    </p>
+                    {statusText && <span className={getClassNames(styles.switch_status)} role="status">{statusText}</span>}
+                    {blockedReason && <span id={reasonId} className={styles.visually_hidden}>{blockedReason}</span>}
+                    {children}
+                </div>
+
+                <ToggleSwitch
+                    isActive={active}
+                    isPending={pending}
+                    skeleton={starting}
+                    className={getClassNames(styles.toggle_control)}
+                />
+
+                <div className={getClassNames(styles.switch_indicator)}></div>
+                {pending && (
+                    <span className={styles.loader}></span>
+                )}
             </div>
-
-            <ToggleSwitch
-                isActive={active}
-                isPending={pending}
-                skeleton={starting}
-                className={getClassNames(styles.toggle_control)}
-            />
-
-            <div className={getClassNames(styles.switch_indicator)}></div>
-            {pending && (
-                <span className={styles.loader}></span>
-            )}
-        </div>
+        </Tooltip>
     );
 };

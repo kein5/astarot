@@ -6,8 +6,9 @@ import styles from "./LanguageSwapButton.module.scss";
 import NarrowArrowDownSvg from "@images/narrow_arrow_down.svg?react";
 import { useLanguageSettings } from "@logics_main";
 
-// Always named and drawn as what pressing it does (#569): the visible words, the tooltip and the
-// accessible name are the same 「言語を入れ替え」, so the button is recognised without pointing at it.
+// Always named and drawn as what pressing it does (#569): the visible words and the accessible
+// name are the same 「言語を入れ替え」, so the button is recognised without pointing at it. It has
+// no tooltip: a tooltip does not repeat words that are in sight (#614).
 export const LanguageSwapButton = () => {
     const { t } = useI18n();
     const { canChangeLanguageSettings, isLanguageSettingsBusy, swapSelectedLanguages } = useLanguageSettings();
@@ -17,7 +18,6 @@ export const LanguageSwapButton = () => {
         <div className={styles.container}>
             <div
                 className={styles.swap_button_wrapper}
-                title={label}
                 aria-disabled={isLanguageSettingsBusy}
                 onClick={() => { if (canChangeLanguageSettings()) swapSelectedLanguages(); }}
                 role="button" tabIndex={0} aria-label={label}

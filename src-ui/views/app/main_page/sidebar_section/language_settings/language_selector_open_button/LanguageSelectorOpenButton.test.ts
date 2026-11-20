@@ -27,15 +27,21 @@ async function field(selector_key: OpenButtonProps["selector_key"]) {
     const button = find(tree, node => node.type === "button");
     assert.ok(button);
     const description = find(tree, node => node.props?.id !== undefined && node.props.id === button.props["aria-describedby"]);
-    return { button, description };
+    // The tooltip around the field: an element named "tooltip" that keeps the bubble's words (hookHarness).
+    const tip = find(tree, node => node.type === "tooltip");
+    return { button, description, tip };
 }
 
 // The swap button no longer says that the pair is translated both ways (#569): each language
 // field says what its language is for, in both directions, as its tooltip and its description.
 test("each language field is described by what its language is for, in both directions (#569)", async () => {
     for (const [selector_key, hint] of [["your_language", "main_page.your_language_hint"], ["target_language", "main_page.target_language_hint"]] as const) {
-        const { button, description } = await field(selector_key);
-        assert.equal(button.props.title, hint, selector_key);
+        const { button, description, tip } = await field(selector_key);
+        // The tooltip opens beside the rail, on the pointer and on keyboard focus; no title attribute is left.
+        assert.ok(tip, selector_key);
+        assert.deepEqual([tip.props.title, tip.props.placement], [hint, "right"], selector_key);
+        assert.ok(find(tip, node => node.type === "button"), "the tooltip is the field's");
+        assert.equal(button.props.title, undefined, selector_key);
         assert.ok(description, `${selector_key}: aria-describedby points at an element`);
         assert.equal(description.props.children, hint, selector_key);
         assert.equal(description.props.className, "visually_hidden", "the description takes no room in the rail");

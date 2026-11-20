@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import clsx from "clsx";
 import { useI18n } from "@useI18n";
 import ArrowLeftSvg from "@images/arrow_left.svg?react";
+import { Tooltip } from "../../../common_components/tooltip/Tooltip";
 
 import * as styles from "./SidebarSection.css.ts";
 import { useIsMainPageCompactMode } from "@logics_main";
@@ -63,10 +64,11 @@ export const SidebarSection = () => {
         <div ref={root} className={container_class_name}>
             <Logo />
             {/* The top bar's toggle is under the opened rail; this one is on it. */}
-            {is_overlay && <button type="button" className={styles.closeOverlay} aria-label={t("studio.close_sidebar")}
-                title={t("studio.close_sidebar")} onClick={close}>
-                <ArrowLeftSvg className={styles.closeOverlaySvg} preserveAspectRatio="none" aria-hidden="true" />
-            </button>}
+            {is_overlay && <Tooltip bare placement="right" title={t("studio.close_sidebar")}>
+                <button type="button" className={styles.closeOverlay} aria-label={t("studio.close_sidebar")} onClick={close}>
+                    <ArrowLeftSvg className={styles.closeOverlaySvg} preserveAspectRatio="none" aria-hidden="true" />
+                </button>
+            </Tooltip>}
             <div className={styles.scrollContainer}>
                 <MainFunctionSwitch />
                 {currentIsMainPageCompactMode.data ? <LanguageReadout /> : <LanguageSettings />}
