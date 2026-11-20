@@ -94,6 +94,15 @@ VRCT_PIPELINE_BMF=pipeline-latency.json cargo test --locked --manifest-path nati
 | `pipeline: end of speech to final` | 話し終わりから、認識の確定まで |
 | `pipeline: translation` | 翻訳 |
 
+### #556の目標の判定
+
+2026-11-20に、目標と比べる値の定義を次のとおり決めました（#556）。
+
+- 区間は`pipeline: end of speech to audible speech`（話し終わりから訳した声が聞こえ始めるまで）で、p50 0.7秒以下、p95 1.0秒以下を目標にします。
+- 途中で2つ以上に分かれた発話は数えません。分かれた発話では、後半の声が前半の読み上げの終わりを待つので、声の遅れとは別の時間が入るためです。`pipeline_latency`の要約と`--bmf`の値は分かれなかった発話だけから求め、分かれた件数を要約の`split_utterances`に出します。
+- 録音と再生のバッファ（Linuxの録音補助、PipeWire、WindowsのWASAPI）は含めません。`pipeline_latency`はこれらを通さずに測ります。実機での値は別の記録にします。
+- 負荷平均1以下で、VRChatを動かしていないときの値で判定します。要約の`load_average`に、計測を始めたときと終えたときの負荷平均（1分、5分、15分）を記録します。1を超えたときは、標準エラーにその旨を出します。VRChatを動かしたときの値は、別の目標として測ります。
+
 この計測はCIでは動きません。認識、翻訳、読み上げのモデル（合わせて約2.5 GB）、speech.cppの実行ファイル、ONNX Runtime、日本語の音声の素材が要ります。また、GitHubのランナーにはGPUがありません。書き出したファイルは、CIと同じ形でBencherへ送れます。testbedには、CIのtestbedと混ざらない名前を付けます。
 
 ```sh
