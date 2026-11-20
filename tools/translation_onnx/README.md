@@ -43,7 +43,7 @@ build/translation-onnx/venv/bin/python tools/translation_onnx/export.py m2m100_4
 
 ### 手元のモデルのフォルダから作る
 
-学習し直した M2M100 や NLLB など、transformers の形のフォルダ（`config.json`、重み、トークナイザのファイル）からも作れます。名前は書き出すフォルダの名前になり、ライセンスはそのまま `manifest.json` に書きます。できたフォルダは、利用者が `<データ>/translation-models/` に置くモデルとして使えます。
+学習し直した M2M100 や NLLB など、transformers の形のフォルダ（`config.json`、重み、トークナイザのファイル）からも作れます。名前は書き出すフォルダの名前になり、ライセンスはそのまま `manifest.json` に書きます。できたフォルダは、翻訳のカタログの「自分のモデルを追加」で足せます。
 
 ```sh
 build/translation-onnx/venv/bin/python tools/translation_onnx/export.py my-m2m100 \
@@ -65,12 +65,13 @@ build/translation-onnx/venv/bin/python tools/translation_onnx/tiny.py --output <
 ```sh
 python tools/translation_onnx/publish.py stage <フォルダ> --repo <持ち主>/<名前> --out <公開用のフォルダ> [--license-file <ライセンスの文>]
 python tools/translation_onnx/publish.py upload <公開用のフォルダ> --repo <持ち主>/<名前>       # HF_TOKEN が要る
-python tools/translation_onnx/publish.py catalog <フォルダ> --repo <持ち主>/<名前> --revision <コミット> --write
+python tools/translation_onnx/publish.py catalog <フォルダ> --repo <持ち主>/<名前> --revision <コミット> --write [--notice <文面の名前>]
 ```
 
 - `stage` は、各ファイルを `manifest.json` と照らし合わせてから写し、モデルカード（`README.md`）を書きます。カードには、元のモデルとその版、ライセンス（変えたものも同じライセンス）、変えたこと、作り方、各ファイルの SHA-256 が入ります。CC-BY-NC-4.0 のモデルには非商用であることも書きます。MIT のモデルはライセンスの文を写しに付ける必要があるので、`--license-file` が要ります。
 - `upload` は、`HF_TOKEN` の書き込みのトークンでリポジトリを作り、公開用のフォルダを 1 つのコミットで上げて、そのコミットを表示します。
-- `catalog` は、そのコミットのファイルの大きさと SHA-256 を Hugging Face から読み（小さなファイルは取得して計算します）、`manifest.json` と食い違えば止めます。`--write` で `native/ops/data/translation_models.json` に項目を書きます。そのあと `CATALOG_VERSION` を上げます（`native/ops/data/README.md`）。
+- `catalog` は、そのコミットのファイルの大きさと SHA-256 を Hugging Face から読み（小さなファイルは取得して計算します）、`manifest.json` と食い違えば止めます。`--write` で `native/ops/data/translation_models.json` に項目を書きます。そのあと `CATALOG_VERSION` を上げます（`native/ops/data/README.md`）。確認の画面にそのモデルだけの文面を出すときは `--notice` に名前を渡します（`catalog.rs` の `TRANSLATION_NOTICES` にある名前。文面は `locales/` の `model_downloads.notice_<名前>`）。
+- 2026-11-19 に `kein5/m2m100_418M-onnx-int8` と `kein5/nllb-200-distilled-600M-onnx-int8` を公開しました（`docs/voice-stack/licensing.md` の「公開したモデル（2026-11-19、#687）」）。
 
 ## 現行の CTranslate2 と比べる
 

@@ -490,7 +490,7 @@ config_page:
         requires: "Requires: {{name}}"
         no_results: "No matching settings found"
     common:
-        # The fold each settings page keeps its seldom-changed settings in (AdvancedSection.jsx).
+        # The fold each settings page keeps its seldom-changed settings in (AdvancedSection.tsx).
         advanced_section: "More settings"
         open_color_picker: "Choose color: {{label}}"
         duration_seconds_one: "{{count}} second"
@@ -672,6 +672,11 @@ config_page:
         section_label_external_api: "External translation API"
         section_label_local_llm: "Local LLM and compatible server"
         llm_privacy_desc: "LLM engines receive the text to translate and the prompt, plus up to five recent messages of the conversation: what you said in chat or into the microphone, and what the speaker transcription heard from others, each with the time it was said (hours and minutes). The conversation is kept in memory only and cleared when you change the engine, server or model, or turn translation off."
+        # Shown while the translation-models folder of earlier versions holds a folder (#597).
+        retired_models_folder:
+            label: "Models in the translation-models folder"
+            desc: "Models placed in the translation-models folder are no longer listed. Add them again with \"Add a model of your own\" in the translation catalog. The model's folder can be anywhere."
+            open_add_form: "Open \"Add a model of your own\""
 
         ctranslate2_weight_type:
             label: "Translation model"
@@ -680,7 +685,7 @@ config_page:
             large: "High accuracy model ({{capacity}})"
             license_commercial: "License: {{license}} (commercial use allowed)"
             license_non_commercial: "Non-commercial license ({{license}})"
-            custom_model: "Your own model (translation-models folder). Check its license yourself."
+            custom_model: "A model you added in the translation catalog. Check its license yourself."
             confirm_title: "Non-commercial license"
             confirm_body: "{{weight_type}} is licensed under {{license}}. It may not be used for commercial purposes. The M2M100 models (MIT license) have no such restriction."
             confirm_check: "I have read the license and will use this model only for non-commercial purposes."
@@ -1837,6 +1842,7 @@ vc_runtime:
     help_seed: "The Python environment and engine used for conversion. It needs an NVIDIA GPU. Review what it contains, then fetch it."
     help_onnx_cuda: "ONNX Runtime (CUDA 13 build) and NVIDIA's CUDA and cuDNN libraries, for running AI translation on an NVIDIA GPU. It needs NVIDIA driver 580 or later. Review what it contains, then fetch it."
     help_onnx_directml: "ONNX Runtime (DirectML build) and DirectML, for running AI translation on the GPU through DirectML. It also works with AMD and Intel GPUs. Review what it contains, then fetch it."
+    help_llamacpp_vulkan: "llama.cpp's server with Vulkan support. It runs a translation LLM such as TranslateGemma on the GPU (NVIDIA, AMD or Intel), or on the CPU. Review what it contains, then fetch it."
     outdated: "The runtime in this folder is of an earlier kind and can no longer be used. Review the download and set it up again."
     size: "Download about {{download}} · Free space needed about {{disk}}"
     gpu_missing: "No NVIDIA driver was found. This runtime only works with an NVIDIA GPU."
@@ -1857,9 +1863,12 @@ vc_runtime:
     notice_onnx_directml: "This fetches ONNX Runtime (DirectML build 1.24.4) and DirectML 1.15.4. ONNX Runtime is MIT. DirectML is under Microsoft's license and may be used on Windows only. That license says DirectML may collect information about you and your use of it and send it to Microsoft. None of this is part of the ASTAROT distribution: it comes straight from its providers. Once you choose it as the processing device, chat reading also runs on this ONNX Runtime."
     connection_notice_onnx_cuda: "This connects to the download servers of NuGet and PyPI. It is a large transfer and may cost data. Expect minutes to tens of minutes, depending on your connection."
     connection_notice_onnx_directml: "This connects to NuGet's download servers. It may cost data. Expect a few minutes, depending on your connection."
+    notice_llamacpp_vulkan: "This fetches the Vulkan build of llama.cpp's server (release b12125) from llama.cpp's GitHub release. llama.cpp is MIT. On Windows it also contains LLVM's OpenMP library, under Apache-2.0 with LLVM exceptions. It is not part of the ASTAROT distribution: it comes straight from its provider. No model comes with it: add a model file of your own to the translation catalog."
+    connection_notice_llamacpp_vulkan: "This connects to GitHub's download servers. It may cost data. Expect a few minutes, depending on your connection."
     no_start: "Fetching does not start conversion or use the microphone."
     no_start_onnx_cuda: "Fetching does not change the processing device translation uses."
     no_start_onnx_directml: "Fetching does not change the processing device translation uses."
+    no_start_llamacpp_vulkan: "Fetching does not start the server or change the translation engine."
     consent: "I have reviewed the provider, license terms, size and location, and I agree to the download."
     start: "Agree and download"
     phase_queued: "Starting"
@@ -1872,6 +1881,8 @@ vc_runtime:
     phase_verifying: "Checking that it runs on the GPU"
     phase_libraries_onnx_directml: "Fetching ONNX Runtime and DirectML"
     phase_verifying_onnx_directml: "Checking that it loads"
+    phase_libraries_llamacpp_vulkan: "Fetching llama.cpp's server"
+    phase_verifying_llamacpp_vulkan: "Checking that it runs and listing its devices"
     phase_cancelling: "Stopping"
     phase_cancelled: "Stopped. Resuming skips the steps already done"
     phase_failed: "Setup failed. Resuming skips the steps already done"
@@ -1887,6 +1898,8 @@ vc_runtime:
         vc_runtime_source_failed: "The engine could not be fetched, or it does not match the pinned version."
         vc_runtime_libraries_failed: "ONNX Runtime or the CUDA libraries could not be fetched, or they do not match the pinned version. Check your network and free space."
         vc_runtime_libraries_failed_onnx_directml: "ONNX Runtime or DirectML could not be fetched, or they do not match the pinned version. Check your network and free space."
+        vc_runtime_libraries_failed_llamacpp_vulkan: "llama.cpp's server could not be fetched, or it does not match the pinned release. Check your network and free space."
+        vc_runtime_check_failed_llamacpp_vulkan: "llama.cpp's server that was fetched did not run. On Linux it needs OpenSSL 3 and libgomp from your distribution. Fetch it again."
         vc_runtime_assets_failed: "The base models could not be fetched, or they do not match the pinned version."
         vc_runtime_gpu_unusable: "The runtime cannot use the GPU. Update your NVIDIA driver to 580 or later."
         vc_runtime_check_failed: "The runtime that was fetched could not be loaded. Fetch it again. If this repeats, setup.log in the destination folder has the details."
@@ -1894,6 +1907,7 @@ vc_runtime:
     warnings:
         vc_runtime_gpu_unusable_cpu: "The GPU could not be used, so conversion runs on the CPU, about 1.3 s behind your voice. Converting on the GPU needs an NVIDIA GeForce GTX 16 or RTX 20 series GPU or later and driver 580 or later. After updating the driver, start again to convert on the GPU."
         onnx_runtime_gpu_unusable: "It is set up, but the GPU could not be used. If you choose it as the processing device, translation runs on the CPU. Translating on the GPU needs an NVIDIA GeForce GTX 16 or RTX 20 series GPU or later and driver 580 or later."
+        llamacpp_no_gpu: "It is set up, but it found no GPU through Vulkan. Translation with it runs on the CPU. Updating the GPU driver may make the GPU usable."
 
 model_downloads:
     hardware_title: "GPU and memory"
@@ -1918,6 +1932,10 @@ model_downloads:
             title: "Non-commercial use only."
             note: "This model's license, {{license}}, allows only non-commercial use. You cannot use it for commercial purposes. Read the license before downloading."
             acknowledge: "I will use this model only for non-commercial purposes, as {{license}} requires."
+        gemma_terms:
+            title: "Gemma's terms of use apply."
+            note: "This model's license, {{license}}, includes the Gemma Terms of Use and the Gemma Prohibited Use Policy. These terms also apply to you when you use the model. Read both through the links below before downloading."
+            acknowledge: "I have read the Gemma Terms of Use and the Prohibited Use Policy and will use this model under them."
         other:
             title: "Its license restricts its use."
             note: "This model's license, {{license}}, has conditions that this version of the app cannot show or ask you to accept. It cannot be downloaded here."
@@ -1936,6 +1954,8 @@ model_downloads:
     notice_ppocr: "Text detection and recognition for Chat reading from PaddleOCR (PaddlePaddle), Apache-2.0. Runs on your PC's CPU; screen contents are never uploaded."
     notice_chatbox: "ASTAROT's own chatbox detector for Chat reading (YOLOX-Tiny), trained on ASTAROT's own screenshots and published under MIT. Runs on your PC's CPU; screen contents are never uploaded."
     notice_translation: "A local translation model for ONNX Runtime, converted from the model named above. It runs on your PC; the text you translate is never uploaded. Check the license of the original model."
+    # NLLB-200 distilled 600M (the notice of its translation_models.json entry); the size and memory were measured with that version.
+    notice_translation_nllb_600m: "A local translation model for ONNX Runtime, converted from NLLB-200 distilled 600M. It runs on your PC; the text you translate is never uploaded. Its license, CC-BY-NC-4.0, allows non-commercial use only. The download needs about 643 MB of free space, and translating uses about 1.4 GiB of memory. The default model stays M2M100; this model is used only when you choose it."
     notice_haas: "Japanese speech recognition with punctuation for speech.cpp 0.9.4 or later. Apache-2.0, by Third Intelligence, converted by sakasegawa. Review the model card before use."
     rvc_requirements: "This downloads only the RVC voice model and index. Conversion also needs the RVC runtime (Python environment, HuBERT and RMVPE). Download completion does not mean conversion is ready."
     notice_qwen_asr: "Speech recognition in 30 languages that detects the spoken language itself. Apache-2.0, by the Qwen team, converted by sakasegawa. 1.7B makes fewer mistakes than 0.6B (CER 9.49% against 11.89% on Common Voice Japanese in speech.cpp's measurement) but needs more space and memory. Review the model card before use."
@@ -2034,6 +2054,10 @@ model_downloads:
     scope_tts_native_vulkan: "Checked on Linux (speech.cpp 0.9.0, Vulkan): it reads a short sentence aloud. Other GPUs, long text and sound quality are not checked yet."
     scope_tts_http_vulkan: "Checked on Linux (speech.cpp 0.9.0, Vulkan): reading a short sentence, stopping midway and restarting the server. The path to your audio output and other GPUs are not checked yet."
     gpu_unverified: "This GPU differs from the tested GPU. The recommendation describes memory only."
+    tier_translation: "Local translation: runs on the CPU unless you choose a GPU"
+    memory_reference_translation: "Peak memory while translating 60 short sentences on a CPU (not a minimum)"
+    validation_passed_translation: "Checked on:"
+    scope_translation_onnx_cpu: "Checked on Windows 11 (ONNX Runtime 1.32, 4 CPU threads): it translates short English and Japanese sentences. GPUs, other languages and long text are not checked yet."
 
 # The model catalog (where models are chosen): groups by use, one card per model.
 model_catalog:
@@ -2061,6 +2085,9 @@ model_catalog:
     hardware: "Hardware"
     terms: "Provider and license"
     memory: "about {{memory}} of memory (measured on {{device}})"
+    memory_needed: "Memory"
+    translation_memory: "about {{memory}} while translating (measured on a CPU)"
+    translation_memory_unknown: "Not measured yet"
     tier:
         light: "Light"
         medium: "Medium"
@@ -2079,8 +2106,8 @@ model_catalog:
         badge: "May be too heavy"
         option: "may be too heavy"
         note: "Your PC may not be powerful enough for this model. {{reason}} This is only a guide. You can still choose and try it."
-        low_memory_gpu: "It uses about {{required}} of memory, which leaves little room on a GPU with {{available}} in total."
-        low_memory_cpu: "It uses about {{required}} of memory, which leaves little room in the {{available}} found in total."
+        low_memory_gpu: "It uses about {{required}} of memory. With about {{reserve}} kept for VRChat, that leaves little room on a GPU with {{available}} in total."
+        low_memory_cpu: "It uses about {{required}} of memory. With about {{reserve}} kept for the OS and VRChat, the {{available}} found in total leaves little room."
         no_gpu: "No GPU was found. On a CPU alone, this model may lag or break up."
         cpu_setting: "The engine is set to run on the CPU. On a CPU alone, this model may lag or break up."
     variant: "File type"
@@ -2208,10 +2235,13 @@ translation_catalog:
         api: "Translation services the app calls over the network, including servers on your PC or your local network. Add one by its address, model and key."
     none_added: "You have not added any yet."
     shipped_title: "Included with the app ({{count}})"
+    # llama.cpp's server for translation LLMs such as TranslateGemma (ADR-015).
+    llamacpp:
+        label: "llama.cpp's server for translation LLMs"
+        desc: "A translation LLM such as TranslateGemma runs on llama.cpp's server, which the app does not include. Fetch it here, then add your model file below. The server starts only when you turn translation on with that model."
     badge:
         builtin: "Included"
         user: "Added by you"
-        folder: "From the folder"
         non_commercial: "Non-commercial license"
     kind:
         cloud: "Online service"
@@ -2222,6 +2252,7 @@ translation_catalog:
         missing: "Folder not found"
         unsupported: "Not supported by this version"
         unavailable: "Cannot be read"
+        no_server: "Needs llama.cpp's server"
         no_key: "No API key"
         not_downloaded: "Not downloaded"
         not_set: "Not set up"
@@ -2229,16 +2260,24 @@ translation_catalog:
         missing: "The folder cannot be found. If you moved it, remove the entry and add it again."
         unsupported: "This entry was added with a newer version of the app. This version cannot use it."
         unavailable: "The model in the folder cannot be read, or none of its languages are offered. The log names the reason."
+        unavailable_llamacpp: "The model file cannot be read as a Gemma 3 GGUF file, or none of its languages are offered. The log names the reason."
+        no_server: "This model runs on llama.cpp's server. Fetch the server above first."
         no_key: "The API key could not be saved in the app's key store, so it was lost when the app closed. Remove the entry and add it again."
     fact:
         runtime: "Inference engine"
         folder: "Folder"
+        file: "Model file"
+        device: "Device"
         languages: "Languages"
         url: "Address"
         model: "Model"
         key: "API key"
     runtime:
         onnx: "ONNX Runtime (M2M100 and NLLB-200 format)"
+        llamacpp: "llama.cpp (TranslateGemma GGUF file)"
+    device:
+        auto: "Automatic (the GPU speech recognition would use, else the CPU)"
+        cpu: "CPU only"
     protocol:
         openai_compatible: "OpenAI-compatible API"
     languages_all: "Every language the model has"
@@ -2247,7 +2286,6 @@ translation_catalog:
     key_memory: "Only until you close the app (not saved)"
     key_memory_help: "The API key could not be saved in the app's key store, so the app holds it only until you close it. Once the key store works again, the app saves the key there by itself."
     key_none: "None"
-    folder_help: "This model is in the translation-models folder. To remove it, move its folder out of that folder."
     use:
         engine: "Use for translation on your PC"
         api: "Use as the OpenAI-compatible connection"
@@ -2264,6 +2302,7 @@ translation_catalog:
         api: "Add an API"
     add_help:
         engine: "Enter the folder that holds the model (manifest.json, the ONNX files and the tokenizer). The folder is not copied or moved. Leave the languages empty to offer every language the model has."
+        engine_llamacpp: "Enter the GGUF file of a TranslateGemma model. The file is not copied or moved. TranslateGemma is under the Gemma Terms of Use and the Prohibited Use Policy, which also apply to you. It translates one message at a time, without the conversation before it. Leave the languages empty to offer every language the app can name for it."
         api: "Enter an OpenAI-compatible API: a service on the internet, or a server on your PC or your local network. The key is kept in the app's key store, not in the settings file. Using the entry checks the address and the key first."
     terms_help: "This app has not checked where a model you add comes from or its license. Check its terms yourself."
     no_runtime: "This build cannot run models on your PC, so models cannot be added here."
@@ -2271,6 +2310,8 @@ translation_catalog:
     field:
         name: "Display name"
         folder: "Folder of the model"
+        file: "GGUF file of the model"
+        device: "Device"
         runtime: "Inference engine"
         languages: "Language codes (optional)"
         protocol: "Kind of API"
@@ -2287,6 +2328,7 @@ translation_catalog:
         name_missing: "Enter a name."
         name_long: "Names can be up to 80 characters."
         folder_missing: "Enter the folder of the model."
+        file_missing: "Enter the path of the model's .gguf file."
         languages_invalid: "Enter language codes such as ja or eng_Latn, separated by commas or spaces."
         url_missing: "Enter the address."
         url_invalid: "Enter an address that starts with http:// or https://."
@@ -2324,6 +2366,9 @@ translation_catalog:
         translation_file_missing: "A file that manifest.json lists is not in the folder."
         translation_bundle_modified: "A file in the folder differs from what manifest.json records."
         translation_languages_unknown: "None of the model's languages can be named, or none of the codes you entered is in the model."
+        translation_catalog_file_missing: "The model file cannot be found, or it is not a .gguf file. Check the path."
+        translation_catalog_device_invalid: "Choose the device again."
+        translation_catalog_gguf_invalid: "This file is not a GGUF file of a Gemma 3 model such as TranslateGemma."
 studio:
     toggle_sidebar: "Toggle sidebar"
     close_sidebar: "Close the sidebar"
@@ -2377,7 +2422,7 @@ legacy_model_downloads:
     revision: "Model revision"
     review_unavailable: "Model details could not be loaded. Close this dialog and try again."
     translation_not_published: "No translation model can be downloaded yet. The models for the new translation engine have not been published."
-    translation_own_model: "The user guide explains how to use a model of your own. Such a model goes into the folder below. You are responsible for that model's license."
+    translation_own_model: "To use a model of your own, add it with \"Add a model of your own\" in the translation catalog under Settings > Translation. The model's folder can be anywhere. You are responsible for that model's license."
     close: "Close"
     startup_skipped: "{{model}} was not downloaded at startup because consent for this model version is missing. Review its license and size in Settings > Translation or Speech recognition (ASR) to download it."
     consent: "I have reviewed the provider, license and size information and agree to download, including the additional files shown."

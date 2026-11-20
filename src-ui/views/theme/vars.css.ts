@@ -3,7 +3,7 @@ import { createGlobalThemeContract } from "@vanilla-extract/css";
 // The design tokens for vanilla-extract styles (ADR-010). The values stay where they are, in
 // views/app/_index_css/variables.css, which the SCSS modules read too; this contract only gives
 // the same custom properties typed names, so `vars.dark_850_color` is `var(--dark_850_color)`.
-// It emits no CSS. views/theme/vars.test.js checks that every name here is defined there.
+// It emits no CSS. views/theme/vars.test.ts checks that every name here is defined there.
 const NAMES = [
     "primary_100_color", "primary_150_color", "primary_200_color", "primary_250_color", "primary_300_color",
     "primary_350_color", "primary_400_color", "primary_450_color", "primary_500_color", "primary_550_color",

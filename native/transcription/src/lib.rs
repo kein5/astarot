@@ -8,14 +8,16 @@
 //!   server offers and the vocabulary.
 //! - [`terms`]: the vocabulary applied to recognised, translated and spoken text (#446).
 //! - [`capture`]: the devices behind one trait, so that tests feed PCM of their own.
+//! - [`diagnostics`]: counts and timings of speech, summed up in the log once a minute at most.
 //!
 //! Nothing here logs or returns recognised text, audio or a key in a diagnostic.
 
 pub mod capture;
+pub mod diagnostics;
 mod endpoint_choice;
 pub mod energy;
 #[cfg(target_os = "linux")]
-pub mod helper;
+pub mod linux;
 pub mod pcm;
 pub mod phrases;
 pub mod providers;

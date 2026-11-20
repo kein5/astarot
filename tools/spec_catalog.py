@@ -2,22 +2,22 @@
 """Generate the reference catalogs of the functional specification from source.
 
 The tables under docs/spec/reference/ list every IPC endpoint, error code and
-config key. They are read from the code (mainloop.py, errors.py, config.py and
-the UI route definitions), so they cannot drift from it unnoticed:
+config key:
 
     python tools/spec_catalog.py --write   # regenerate the tables
     python tools/spec_catalog.py --check   # exit 1 when they are out of date
 
-The parsing is static (ast and regular expressions); nothing is imported or run.
-
-What only the Rust core has (native/core; Python never had it) is listed in
-tools/spec_core_additions.json and appended after the rows read from Python.
+The rows of the Python backend are in tools/spec_python_baseline.json, read from
+src-python (mainloop.py, utils.py, errors.py, config.py) before it was removed
+in 0.6.0 (#285). What only the Rust core has (native/core) is in
+tools/spec_core_additions.json and comes after them. The UI's side (its routes
+and the error codes it handles) is read from src-ui with regular expressions;
+nothing is imported or run.
 """
 
 from __future__ import annotations
 
 import argparse
-import ast
 import json
 import re
 import sys
@@ -25,8 +25,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "docs" / "spec" / "reference"
-PY = ROOT / "src-python"
 UI = ROOT / "src-ui" / "logics"
+PYTHON_BASELINE = ROOT / "tools" / "spec_python_baseline.json"
 CORE_ADDITIONS = ROOT / "tools" / "spec_core_additions.json"
 
 HEADER = (
@@ -55,19 +55,16 @@ def core_additions() -> dict:
     return json.loads(CORE_ADDITIONS.read_text(encoding="utf-8"))
 
 
-def module_dict(tree: ast.Module, name: str) -> ast.Dict:
-    for node in tree.body:
-        targets = node.targets if isinstance(node, ast.Assign) else [node.target] if isinstance(node, ast.AnnAssign) else []
-        if any(isinstance(t, ast.Name) and t.id == name for t in targets) and isinstance(node.value, ast.Dict):
-            return node.value
-    raise SystemExit(f"{name} not found")
+def python_baseline() -> dict:
+    """The Python backend's endpoints, notifications, error codes and config keys."""
+    return json.loads(PYTHON_BASELINE.read_text(encoding="utf-8"))
 
 
 # --- IPC endpoints -------------------------------------------------------------
 
 def ui_routes() -> dict[str, str]:
-    """Endpoint -> UI handler, mirroring buildRouteMetaList() in useReceiveRoutes.js."""
-    routes_js = (UI / "useReceiveRoutes.js").read_text(encoding="utf-8")
+    """Endpoint -> UI handler, mirroring buildRouteMetaList() in useReceiveRoutes.ts."""
+    routes_js = (UI / "useReceiveRoutes.ts").read_text(encoding="utf-8")
     setter_js = (UI / "configs" / "config_page_setter" / "ui_config_setter.ts").read_text(encoding="utf-8")
     routes: dict[str, str] = {}
     static = re.findall(r'\{\s*endpoint:\s*"([^"]+)",\s*ns:\s*\w+,\s*hook_name:\s*(?:"(\w+)"|null),\s*method_name:\s*(?:"(\w+)"|null)', routes_js)
@@ -115,38 +112,21 @@ def kind_of(endpoint: str) -> str:
 
 
 def sensitive_markers() -> tuple[str, ...]:
-    tree = ast.parse((PY / "utils.py").read_text(encoding="utf-8"))
-    for node in tree.body:
-        if isinstance(node, ast.Assign) and any(isinstance(t, ast.Name) and t.id == "SENSITIVE_ENDPOINT_MARKERS" for t in node.targets):
-            return tuple(ast.literal_eval(node.value)) + tuple(core_additions().get("sensitive_markers", []))
-    raise SystemExit("SENSITIVE_ENDPOINT_MARKERS not found")
-
-
-def immediate_endpoints(tree: ast.Module) -> set[str]:
-    """Requests the receiver answers at once instead of queueing (Main.receiver)."""
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Set):
-            values = {e.value for e in node.elts if isinstance(e, ast.Constant)}
-            if "/run/stop_voice" in values:
-                return values
-    return set()
+    """`SENSITIVE_ENDPOINT_MARKERS`: Python's, then the core's."""
+    return tuple(python_baseline()["sensitive_markers"]) + tuple(core_additions().get("sensitive_markers", []))
 
 
 def render_endpoints() -> str:
-    tree = ast.parse((PY / "mainloop.py").read_text(encoding="utf-8"))
-    mapping = module_dict(tree, "mapping")
-    run_mapping = module_dict(tree, "run_mapping")
+    baseline = python_baseline()
     routes = ui_routes()
     markers = sensitive_markers()
-    immediate = immediate_endpoints(tree)
+    # Requests the receiver answers at once instead of queueing (Main.receiver).
+    immediate = set(baseline["immediate"])
 
     requests = []
-    for key, value in zip(mapping.keys, mapping.values):
-        endpoint = key.value
-        fields = {k.value: v for k, v in zip(value.keys, value.values)}
-        handler = fields["variable"]
-        handler_name = handler.attr if isinstance(handler, ast.Attribute) else ast.unparse(handler)
-        before_init = "可" if isinstance(fields["status"], ast.Constant) and fields["status"].value else "待つ"
+    for entry in baseline["endpoints"]:
+        endpoint, handler_name = entry["endpoint"], entry["handler"]
+        before_init = "可" if entry["before_init"] else "待つ"
         notes = []
         if endpoint in immediate:
             notes.append("即時（キューを通らない）")
@@ -166,13 +146,10 @@ def render_endpoints() -> str:
         requests.append([code(endpoint), kind_of(endpoint), code(entry["handler"]), "可" if entry["before_init"] else "待つ",
                          cell(routes.get(endpoint, "—")), cell("、".join(notes))])
 
-    pushes = []
-    for key, value in zip(run_mapping.keys, run_mapping.values):
-        endpoint = value.value
-        pushes.append([code(key.value), code(endpoint), cell(routes.get(endpoint, "—"))])
+    pushes = [[code(entry["name"]), code(entry["endpoint"]), cell(routes.get(entry["endpoint"], "—"))] for entry in baseline["notifications"]]
 
-    request_set = {k.value for k in mapping.keys} | {entry["endpoint"] for entry in core}
-    push_set = {v.value for v in run_mapping.values}
+    request_set = {entry["endpoint"] for entry in baseline["endpoints"]} | {entry["endpoint"] for entry in core}
+    push_set = {entry["endpoint"] for entry in baseline["notifications"]}
     unrouted = sorted((request_set | push_set) - set(routes))
     ui_only = sorted(e for e in routes if e not in request_set | push_set)
 
@@ -186,7 +163,7 @@ def render_endpoints() -> str:
            "メッセージの形、状態コード、ロックと再試行の規則は[IPCプロトコル](../ipc-protocol.md)にある。\n",
            "列の意味:\n",
            "- 初期化前: 「待つ」は初期化が終わるまでロックされる要求（サイドカーが約30秒まで入れ直し、解けなければ423を返す）。「可」は起動直後から受け付ける。",
-           "- UIの受信先: 200の応答を処理するUIのフック（`useReceiveRoutes.js`の静的ルートと`ui_config_setter.ts`の定義から生成）。「—」は受信先がない。",
+           "- UIの受信先: 200の応答を処理するUIのフック（`useReceiveRoutes.ts`の静的ルートと`ui_config_setter.ts`の定義から生成）。「—」は受信先がない。",
            "- ログで伏せる: `process.log`で値を`***MASKED***`に置き換える（`SENSITIVE_ENDPOINT_MARKERS`）。stdoutのIPCそのものは伏せない。",
            "- 中核のみ: Pythonになく、中核（`native/core`）で足したもの。`tools/spec_core_additions.json`から表の末尾に足した。\n",
            f"## 要求（{len(requests)}件: {summary}）\n",
@@ -206,100 +183,51 @@ def render_endpoints() -> str:
 
 # --- error codes ----------------------------------------------------------------
 
-def class_constants(tree: ast.Module, name: str) -> dict[str, str]:
-    for node in tree.body:
-        if isinstance(node, ast.ClassDef) and node.name == name:
-            return {t.id: s.value.value for s in node.body if isinstance(s, ast.Assign)
-                    for t in s.targets if isinstance(t, ast.Name) and isinstance(s.value, ast.Constant)}
-    raise SystemExit(f"class {name} not found")
-
-
 def render_errors() -> str:
-    tree = ast.parse((PY / "errors.py").read_text(encoding="utf-8"))
-    codes = class_constants(tree, "ErrorCode")
-    categories = class_constants(tree, "ErrorCategory")
-    metadata = module_dict(tree, "ERROR_METADATA")
-    handler_js = (UI / "_useBackendErrorHandling.js").read_text(encoding="utf-8")
+    baseline = python_baseline()
+    handler_js = (UI / "_useBackendErrorHandling.ts").read_text(encoding="utf-8")
     handled = set(re.findall(r'case "([A-Z0-9_]+)"', handler_js)) | set(re.findall(r"^\s+([A-Z0-9_]+):\s*\"common_error", handler_js, re.M))
 
-    rows, described = [], set()
-    for key, value in zip(metadata.keys, metadata.values):
-        name = key.attr
-        described.add(name)
-        fields = {k.value: v for k, v in zip(value.keys, value.values)}
-        category = fields.get("category")
-        category = categories.get(category.attr, category.attr) if isinstance(category, ast.Attribute) else ""
-        literal = lambda f: fields[f].value if f in fields and isinstance(fields[f], ast.Constant) else ""
-        rows.append([code(codes.get(name, name)), cell(category), cell(literal("message")), cell(literal("severity")),
-                     "要" if literal("user_action_required") is True else "", "あり" if codes.get(name, name) in handled else ""])
-    for entry in core_additions()["errors"]:
+    rows = []
+    for entry in baseline["errors"] + core_additions()["errors"]:
         rows.append([code(entry["code"]), cell(entry["category"]), cell(entry["message"]), cell(entry["severity"]),
                      "要" if entry["user_action_required"] else "", "あり" if entry["code"] in handled else ""])
-    missing = sorted(set(codes) - described)
+    missing = baseline["errors_without_metadata"]
 
     out = [HEADER, "# エラーコード一覧\n",
-           "`src-python/errors.py`の`ErrorCode`と`ERROR_METADATA`から生成した。"
+           "Pythonのバックエンドのコード（0.6.0で消した`src-python/errors.py`の`ErrorCode`と`ERROR_METADATA`を写した`tools/spec_python_baseline.json`）から生成した。"
            "中核（`native/core`）だけにあるコードは`tools/spec_core_additions.json`から表の末尾に足した。"
            "応答の形とUIでの見せ方は[横断的な振る舞い](../cross-cutting.md#エラーの扱い)にある。\n",
            "- 既定メッセージ: サイドカーが返す英語の`message`。UIは多くの場合`locales/`の文言に置き換えて表示する。",
-           "- UIの個別処理: `_useBackendErrorHandling.js`に専用の分岐（値の巻き戻しや翻訳した文言の表示）がある。"
+           "- UIの個別処理: `_useBackendErrorHandling.ts`に専用の分岐（値の巻き戻しや翻訳した文言の表示）がある。"
            "空欄のコードは、音声やモデル取得など別の経路で処理されるか、汎用の通知になる。\n",
            f"## コード（{len(rows)}件）\n",
            table(["コード", "分類", "既定メッセージ", "重大度", "利用者の対処", "UIの個別処理"], rows)]
     if missing:
         out += [f"\n## メタデータのないコード（{len(missing)}件）\n", "既定メッセージは`GENERAL_UNKNOWN`のものになる。\n",
-                "".join(f"- {code(codes[m])}\n" for m in missing)]
+                "".join(f"- {code(m)}\n" for m in missing)]
     return "\n".join(out)
 
 
 # --- config keys -----------------------------------------------------------------
 
-def render_config() -> str:
-    tree = ast.parse((PY / "config.py").read_text(encoding="utf-8"))
-    config = next(n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == "Config")
-    defaults: dict[str, str] = {}
-    for node in ast.walk(config):
-        if isinstance(node, ast.FunctionDef) and node.name == "init_config":
-            for stmt in ast.walk(node):
-                if isinstance(stmt, ast.Assign):
-                    for target in stmt.targets:
-                        if isinstance(target, ast.Attribute) and isinstance(target.value, ast.Name) \
-                                and target.value.id == "self" and target.attr.startswith("_"):
-                            defaults.setdefault(target.attr[1:], ast.unparse(stmt.value))
+def app_version() -> str:
+    return json.loads((ROOT / "package.json").read_text(encoding="utf-8"))["version"]
 
+
+def render_config() -> str:
     persisted, runtime = [], []
-    for stmt in config.body:
-        if not (isinstance(stmt, ast.Assign) and isinstance(stmt.value, ast.Call) and isinstance(stmt.value.func, ast.Name)):
-            continue
-        kind = stmt.value.func.id
-        if kind not in ("ManagedProperty", "ValidatedProperty"):
-            continue
-        name = stmt.targets[0].id
-        kw = {k.arg: k.value for k in stmt.value.keywords}
-        flag = lambda key, default=False: kw[key].value if key in kw and isinstance(kw[key], ast.Constant) else default
-        if kind == "ManagedProperty":
-            type_ = ast.unparse(kw["type_"]) if "type_" in kw else ""
-            check = type_ + (f"、許可値 {ast.unparse(kw['allowed'])}" if "allowed" in kw else "")
-        else:
-            validator = stmt.value.args[1] if len(stmt.value.args) > 1 else kw.get("validator")
-            check = f"検証 {ast.unparse(validator)}" if validator is not None else "検証"
-        default = defaults.get(name, "")
-        if len(default) > 90:
-            default = default[:87] + "…"
-        save = "即時" if flag("immediate_save") else "2秒後にまとめて"
-        row = [code(name), cell(check), code(default)]
-        if flag("readonly"):
-            runtime.append(row + ["読み取り専用"])
-        elif flag("serialize", True):
-            persisted.append(row + [save])
-        else:
-            runtime.append(row + ["保存しない"])
+    for entry in python_baseline()["config"]:
+        # The version the app reports, as Python's `self._VERSION` held it.
+        default = f"'{app_version()}'" if entry["key"] == "VERSION" else entry["default"]
+        row = [code(entry["key"]), cell(entry["check"]), code(default), entry["save"]]
+        (persisted if entry["persisted"] else runtime).append(row)
 
     for entry in core_additions()["config"]:
         persisted.append([code(entry["key"]), cell(entry["check"] + "（中核のみ）"), code(entry["default"]), cell(entry["save"])])
 
     out = [HEADER, "# 設定キー一覧\n",
-           "`src-python/config.py`の`Config`クラス（`ManagedProperty`と`ValidatedProperty`）と`init_config()`の既定値から生成した。"
+           "Pythonのバックエンドのキー（0.6.0で消した`src-python/config.py`の`Config`クラスと`init_config()`の既定値を写した`tools/spec_python_baseline.json`）から生成した。"
            "中核（`native/core`）だけにあるキーは`tools/spec_core_additions.json`から表の末尾に足した。"
            "保存の仕組み（2秒の遅延、置き換えによる書き込み、読み込み時の検証）は[データ形式と保存](../data-and-persistence.md)にある。\n",
            "チャット読み取りの`OCR_CAPTURE_REGION`はデスクトップウィンドウ用、`OCR_VR_CAPTURE_REGION`はSteamVRの左目側の映像用。"

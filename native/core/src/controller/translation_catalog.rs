@@ -1,10 +1,11 @@
 //! The translation catalog (#413): what translates, in two groups, with the entries the app
 //! ships and the ones the user adds side by side.
 //!
-//! - **engine**: models that run on an inference engine on this PC. The built-in weights, the
-//!   folders in `<data>/translation-models/`, and the engine entries the user added
-//!   (`vrct_ops::downloads::translation_catalog`). An engine entry is a local translation weight
-//!   named `user:<id>`, chosen like any other weight.
+//! - **engine**: models that run on an inference engine on this PC. The built-in weights and
+//!   the engine entries the user added (`vrct_ops::downloads::translation_catalog`). An engine
+//!   entry is a local translation weight named `user:<id>`, chosen like any other weight. The
+//!   folders in `<data>/translation-models/` that earlier versions listed are not (#597); the
+//!   view says only whether that folder holds one (`retired_folder_used`).
 //! - **api**: the providers the core calls (DeepL, Google Cloud, Papago, the LLM APIs, LM
 //!   Studio, Ollama and the OpenAI-compatible endpoint), and the API entries the user added. An
 //!   API entry is a named OpenAI-compatible endpoint (this PC, the LAN or the internet); using it
@@ -65,14 +66,21 @@ fn key_entry(id: &str) -> String {
     format!("TRANSLATION_CATALOG/{id}")
 }
 
-/// The runtimes this build can run: `onnx` with the `onnx-translation` feature.
+/// The runtimes this build can run: `onnx` with the `onnx-translation` feature, and `llamacpp`
+/// where llama.cpp's server can be set up (Windows and Linux on x86-64, ADR-015).
 fn runtimes() -> Vec<&'static str> {
-    if cfg!(feature = "onnx-translation") { catalog::RUNTIMES.to_vec() } else { Vec::new() }
+    catalog::RUNTIMES
+        .into_iter()
+        .filter(|runtime| if *runtime == catalog::LLAMACPP { super::translation_llama::offered() } else { cfg!(feature = "onnx-translation") })
+        .collect()
 }
 
-/// Checks an engine entry's folder before it is added (`onnx`: the folder holds a model with a
-/// language the entry offers).
+/// Checks an engine entry's folder or file before it is added (`onnx`: the folder holds a model with a
+/// language the entry offers; `llamacpp`: the file is a Gemma 3 GGUF file).
 fn inspect_engine(row: &Value) -> Result<(), &'static str> {
+    if row["runtime"] == catalog::LLAMACPP {
+        return super::translation_llama::inspect(row);
+    }
     #[cfg(feature = "onnx-translation")]
     {
         let folder = std::path::Path::new(row["folder"].as_str().unwrap_or_default());
@@ -94,9 +102,11 @@ impl Core {
         &self.ops().translation_catalog
     }
 
-    /// `{engine: [...], api: [...], runtimes, protocols}` and `error_code` when the user's file
-    /// cannot be read. Every item has `origin`: `builtin` (shipped), `folder` (a folder in
-    /// `<data>/translation-models/`) or `user` (an entry the user added).
+    /// `{engine: [...], api: [...], runtimes, protocols, retired_folder_used}` and `error_code`
+    /// when the user's file cannot be read. Every item has `origin`: `builtin` (shipped) or
+    /// `user` (an entry the user added). `retired_folder_used` says whether
+    /// `<data>/translation-models/` holds a folder, so that the page can point earlier users
+    /// to the add form; never which.
     pub(crate) fn translation_catalog_view(&self) -> Value {
         let config = self.config();
         let state = self.translation_catalog().state();
@@ -112,15 +122,16 @@ impl Core {
             .filter_map(Value::as_str)
             .filter(|weight| !weight.starts_with("user:"))
             .map(|weight| {
-                let folder = weight.strip_prefix("custom:");
                 json!({
-                    "id": weight, "weight": weight, "origin": if folder.is_some() { "folder" } else { "builtin" },
-                    "name": folder.unwrap_or(weight), "runtime": "onnx",
+                    "id": weight, "weight": weight, "origin": "builtin",
+                    "name": weight, "runtime": "onnx",
                     "non_commercial": super::lifecycle::non_commercial(weight),
                     "available": present[weight] == true, "in_use": weight == selected,
                 })
             })
             .collect();
+        // A translation LLM also needs llama.cpp's server, which the user sets up apart.
+        let servers = super::translation_llama::server(config.environment()).is_some();
         for entry in entries.iter().filter(|e| e["group"] == "engine") {
             let weight = entry_weight(entry["id"].as_str().unwrap_or_default());
             let mut item = entry.as_object().cloned().unwrap_or_default();
@@ -128,6 +139,9 @@ impl Core {
             item.insert("available".into(), json!(present[&weight] == true));
             item.insert("in_use".into(), json!(weight == selected));
             item.insert("weight".into(), json!(weight));
+            if entry["runtime"] == catalog::LLAMACPP {
+                item.insert("server_ready".into(), json!(servers));
+            }
             engine.push(Value::Object(item));
         }
 
@@ -167,6 +181,7 @@ impl Core {
         view.insert("api".into(), json!(api));
         view.insert("runtimes".into(), json!(runtimes()));
         view.insert("protocols".into(), json!(catalog::PROTOCOLS));
+        view.insert("retired_folder_used".into(), json!(super::translation::retired_folder_used(&config.environment().data_dir)));
         if let Some(code) = state.get("error_code") {
             view.insert("error_code".into(), code.clone());
         }
@@ -185,7 +200,7 @@ impl Core {
             .iter()
             .map(|id| {
                 // A built-in weight keeps what start-up and the downloads found.
-                let present = if id.starts_with("user:") || id.starts_with("custom:") || before.get(id).is_none() {
+                let present = if id.starts_with("user:") || before.get(id).is_none() {
                     (self.services().translation_weight_available)(id) || super::translation::default_weight_available(env, id)
                 } else {
                     before[id] == true
@@ -197,7 +212,8 @@ impl Core {
         config.put("SELECTABLE_CTRANSLATE2_WEIGHT_TYPE_DICT", Value::Object(dict));
     }
 
-    /// Adds an entry. Engine: `{group, name, runtime, folder, languages?}`. API: `{group, name,
+    /// Adds an entry. Engine: `{group, name, runtime, folder, languages?}` (`llamacpp`: `file` in
+    /// place of `folder`, and `device?`). API: `{group, name,
     /// protocol, url, model, auth_key}`; the key goes to the secret store. When the store does
     /// not take it, the entry is added all the same and its key is held in memory for this run
     /// (reported through `/run/secret_store_failed` and tried again, as a setting's key is).
@@ -322,7 +338,12 @@ impl Core {
 }
 
 pub(crate) fn add(b: &mut Builder<'_>) {
-    b.with("/get/data/translation_catalog", OPEN, |core, _| ok(core.translation_catalog_view()));
+    // Asked again when the page opens and after llama.cpp's server was set up: which entries can
+    // run follows the files and the server, so the list is found again first.
+    b.with("/get/data/translation_catalog", OPEN, |core, _| {
+        core.refresh_translation_weights();
+        ok(core.translation_catalog_view())
+    });
     b.with("/run/register_translation_catalog_entry", WAIT, |core, data| core.register_translation_entry(data));
     b.with("/run/remove_translation_catalog_entry", WAIT, |core, data| core.remove_translation_entry(data));
     b.with("/run/use_translation_catalog_entry", WAIT, |core, data| core.use_translation_entry(data));

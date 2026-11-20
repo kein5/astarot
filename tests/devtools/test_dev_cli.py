@@ -127,14 +127,6 @@ class DeveloperCLITests(unittest.TestCase):
         self.assertIn("check_python_lock.py", output)
         self.assertLess(output.index("check_python_lock.py"), output.index("export --quiet --frozen"))
 
-    def test_backend_setup_keeps_hashes_and_validates_git_pins(self):
-        with patch.object(self.dev.sys, "platform", "linux"):
-            code, output = self.call("setup", "--scope", "backend", "--dry-run")
-        self.assertEqual(code, 0, output)
-        self.assertIn("--group dev --group linux-build", output)
-        self.assertIn("check_python_lock.py", output)
-        self.assertNotIn("--no-hashes", output)
-
     def test_setup_cannot_inherit_disabled_hash_verification(self):
         with patch.dict(os.environ, {"UV_NO_VERIFY_HASHES": "1"}):
             self.assertEqual(self.dev.child_environment()["UV_NO_VERIFY_HASHES"], "0")

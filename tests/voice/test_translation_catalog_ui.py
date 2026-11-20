@@ -92,15 +92,24 @@ def ui(tmp_path):
         page.set_default_timeout(5000)
         page.set_default_navigation_timeout(60000)
         peer = SimpleNamespace(sent=[], replies=[], errors=[], entries=[], refuse=None, sequence=0, key_store_works=True,
-                               selected=WEIGHTS[0], weights={weight: False for weight in WEIGHTS}, models=[])
+                               selected=WEIGHTS[0], weights={weight: False for weight in WEIGHTS}, models=[],
+                               runtimes=["onnx"], vc_runtimes=[], server_ready=False, retired_folder_used=False)
         page.on("pageerror", lambda error: peer.errors.append(str(error)))
+        # The translation's saved device, and the hardware probe's answer (None: unanswered).
+        peer.device, peer.hardware = dict(device="cpu", device_index=0, device_name="CPU"), None
+
+        def engine_item(e):
+            item = dict(e, origin="user", weight=f"user:{e['id']}", available=True, in_use=e.get("in_use", False))
+            if e.get("runtime") == "llamacpp":
+                # A translation LLM runs only once llama.cpp's server is set up (ADR-015).
+                item.update(available=peer.server_ready, server_ready=peer.server_ready)
+            return item
 
         def catalog():
-            engine = copy.deepcopy(BUILTIN_ENGINE) + [
-                dict(e, origin="user", weight=f"user:{e['id']}", available=True,
-                     in_use=e.get("in_use", False)) for e in peer.entries if e["group"] == "engine"]
+            engine = copy.deepcopy(BUILTIN_ENGINE) + [engine_item(e) for e in peer.entries if e["group"] == "engine"]
             api = copy.deepcopy(BUILTIN_API) + [dict(e, origin="user") for e in peer.entries if e["group"] == "api"]
-            return dict(engine=engine, api=api, runtimes=["onnx"], protocols=["openai_compatible"])
+            return dict(engine=engine, api=api, runtimes=peer.runtimes, protocols=["openai_compatible"],
+                        retired_folder_used=peer.retired_folder_used)
 
         def reply(endpoint, result, status=200):
             peer.replies.append(dict(endpoint=endpoint, result=result, status=status))
@@ -138,13 +147,24 @@ def ui(tmp_path):
             elif ep == "/get/data/selectable_ctranslate2_weight_type_dict":
                 reply(ep, peer.weights)
             elif ep == "/get/data/model_download_catalog":
-                reply(ep, dict(catalog_version="test-catalog", models=peer.models, legacy_models=[],
-                               translation_models_folder="C:\\Data\\translation-models"))
+                reply(ep, dict(catalog_version="test-catalog", models=peer.models, legacy_models=[]))
             elif ep == "/get/data/model_download_state":
                 peer.sequence += 1
                 reply(ep, dict(observation_id=str(peer.sequence), jobs={}, downloaded={}))
             elif ep == "/get/data/user_models":
                 reply(ep, dict(models=[]))
+            # llama.cpp's server, offered by the runtime setup (ADR-015).
+            elif ep == "/get/data/vc_runtime_catalog":
+                reply(ep, dict(runtimes=peer.vc_runtimes))
+            elif ep == "/get/data/vc_runtime_state":
+                peer.sequence += 1
+                reply(ep, dict(observation_id=str(peer.sequence), jobs={}, installed={}))
+            elif ep == "/get/data/selected_translation_compute_device":
+                reply(ep, peer.device)
+            # The hardware probe (speech.cpp devices --json); unanswered unless a test sets it.
+            elif ep in ("/run/refresh_model_download_hardware", "/get/data/model_download_hardware") and peer.hardware:
+                peer.sequence += 1
+                reply(ep, dict(peer.hardware, observation_id=str(peer.sequence)))
             elif ep == "/run/start_model_download":
                 peer.sequence += 1
                 job = dict(job_id="job-1", phase="queued", received_bytes=0, total_bytes=1, paths={}, error_code=None)
@@ -206,6 +226,63 @@ def test_an_engine_entry_is_added_used_and_removed_with_a_confirmation(ui):
     expect(card.get_by_role("button", name="Remove")).to_be_disabled()
     # A switch reads back the local weights and the compatible engine the settings show.
     assert ("/get/data/selectable_ctranslate2_weight_type_dict", None) in peer.sent
+
+
+def llama_runtime(runtime_id, name, notice, download):
+    """A row of llama.cpp's server as the runtime setup lists it (vc_runtime_catalog)."""
+    return dict(id=runtime_id, name=name, version="0123456789abcdef", license="MIT, Apache-2.0 WITH LLVM-exception",
+                licenses=["https://github.com/ggml-org/llama.cpp/blob/b12125/LICENSE"], notice=notice,
+                download_bytes=download, disk_bytes=140_000_000, destination=f"C:\\State\\vc_runtimes\\{runtime_id}",
+                gpu_ready=False, requires_gpu=False, device="vulkan" if "vulkan" in runtime_id else "cpu")
+
+
+def test_a_translation_llm_is_a_gguf_file_that_waits_for_llama_cpps_server(ui):
+    """ADR-015: llama.cpp's server is offered beside the models and fetched only after its
+    review; a TranslateGemma entry is one .gguf file with its device, and cannot be used before
+    the server is set up."""
+    from playwright.sync_api import expect
+
+    page, peer = ui
+    peer.runtimes = ["onnx", "llamacpp"]
+    # Only the Vulkan build is offered (it runs on the CPU too).
+    peer.vc_runtimes = [llama_runtime("rvc", "RVC", "rvc_cpu", 1), llama_runtime("llamacpp-vulkan", "llama.cpp · Vulkan", "llamacpp_vulkan", 37_683_656)]
+    page.reload()
+    servers = page.get_by_role("group", name="llama.cpp's server for translation LLMs")
+    expect(servers.get_by_text("llama.cpp · Vulkan runtime", exact=True)).to_be_visible()
+    expect(servers.get_by_text("RVC runtime")).to_have_count(0)
+    expect(servers.get_by_role("button", name="Review download")).to_have_count(1)
+    servers.get_by_role("button", name="Review download").click()
+    dialog = page.get_by_role("dialog")
+    expect(dialog).to_contain_text("release b12125")
+    expect(dialog.get_by_role("link", name="https://github.com/ggml-org/llama.cpp/blob/b12125/LICENSE")).to_be_visible()
+    expect(dialog.get_by_role("button", name="Agree and download")).to_be_disabled()
+    dialog.get_by_role("button", name="Back").click()
+    assert sent(peer, "/run/start_vc_runtime_setup") == []
+
+    form = page.locator("[data-catalog-add=engine]")
+    form.locator("summary").click()
+    form.get_by_label("Inference engine").select_option("llamacpp")
+    expect(form.get_by_text("Enter the GGUF file of a TranslateGemma model.", exact=False)).to_be_visible()
+    expect(form.get_by_label("Folder of the model")).to_have_count(0)
+    form.get_by_label("Display name").fill("TranslateGemma 4B")
+    form.get_by_label("GGUF file of the model").fill("C:\\Models\\translategemma")
+    form.get_by_role("button", name="Add").click()
+    expect(form.get_by_text("Enter the path of the model's .gguf file.")).to_be_visible()
+    assert sent(peer, "/run/register_translation_catalog_entry") == []
+    form.get_by_label("GGUF file of the model").fill('"C:\\Models\\translategemma-4b-it.Q4_K_M.gguf"')
+    form.get_by_label("Device").select_option("cpu")
+    form.get_by_role("button", name="Add").click()
+    card = page.get_by_role("group", name="TranslateGemma 4B", exact=True)
+    expect(card).to_be_visible()
+    assert sent(peer, "/run/register_translation_catalog_entry") == [
+        dict(group="engine", name="TranslateGemma 4B", runtime="llamacpp", file="C:\\Models\\translategemma-4b-it.Q4_K_M.gguf",
+             languages=[], device="cpu")]
+    expect(card.get_by_text("Model file")).to_be_visible()
+    expect(card.get_by_text("CPU only")).to_be_visible()
+    expect(card.get_by_text("Needs llama.cpp's server")).to_be_visible()
+    expect(card.get_by_role("alert")).to_contain_text("Fetch the server above first.")
+    expect(card.get_by_role("button", name="Use for translation on your PC")).to_be_disabled()
+    assert sent(peer, "/run/use_translation_catalog_entry") == []
 
 
 def test_an_api_entry_sends_its_key_once_and_shows_only_that_it_is_kept(ui):
@@ -278,9 +355,9 @@ def test_an_api_entry_whose_key_the_store_refused_says_how_long_its_key_lasts(ui
     expect(card.get_by_role("button", name="Remove")).to_be_enabled()
 
 
-def open_translation_page(page):
+def open_translation_page(page, query=""):
     """The whole translation page; its 「モデルと処理デバイス」 opened as a user would."""
-    page.goto(page.url.replace("/translation-catalog-ui-entry/", "/translation-page-ui-entry/"))
+    page.goto(page.url.split("?")[0].replace("/translation-catalog-ui-entry/", "/translation-page-ui-entry/") + query)
     # A cold Vite may optimize the page's dependencies and load it again; wait until that is over.
     page.wait_for_load_state("networkidle")
     setup = page.locator("details[data-setup]").first
@@ -315,7 +392,10 @@ def test_without_a_published_model_only_the_selected_one_and_yours_are_listed(ui
     from playwright.sync_api import expect
 
     page, peer = ui
-    peer.weights["custom:my-model"] = True
+    # A model added in the translation catalog is listed under its own name.
+    peer.entries.append(dict(id="tr-5", group="engine", name="my-model", runtime="onnx", folder="C:\\Models\\mine",
+                             languages=[], status="ok", registered_at=None))
+    peer.weights["user:tr-5"] = True
     # Another target's entry offers no translation model.
     peer.models = [dict(translation_entry("rvc-example", "Example voice"), target="rvc")]
     setup = open_translation_page(page)
@@ -384,6 +464,117 @@ def test_a_published_model_gets_its_row_and_its_review_opens_the_shared_download
         dict(id="m2m100-418m-onnx-int8", consent=True, catalog_version="test-catalog")]
 
 
+GIB = 1024 ** 3
+# NLLB-200 distilled 600M int8's guidance as native/ops/src/downloads/guidance.rs gives it.
+NLLB_GUIDANCE = dict(tier="translation", reference_memory_bytes=1_490_300_928, validation=dict(
+    state="passed", scope="translation_onnx_cpu", device="Intel Core i7-1255U", sampled_peak_bytes=1_490_300_928))
+UNMEASURED = dict(tier="unknown", reference_memory_bytes=None, validation=dict(state="pending", scope=None, device=None))
+
+
+def probe(ram, gpus=()):
+    """What /get/data/model_download_hardware answers: speech.cpp's devices, the CPU's RAM last."""
+    devices = [dict(name=f"Vulkan{i}", description=description, kind="gpu", memory_total=total, memory_free=total)
+               for i, (description, total) in enumerate(gpus)]
+    devices.append(dict(name="CPU", description="Test CPU", kind="cpu", memory_total=ram, memory_free=ram // 2))
+    return dict(phase="ready", devices=devices, measured_at_ms=int(time.time() * 1000), error_code=None)
+
+
+def review_translation_models(page, peer, hardware, device=None):
+    """The translation page with the published NLLB and M2M100 entries; the NLLB row's review open."""
+    peer.models = [dict(translation_entry("m2m100-418m-onnx-int8", "M2M100 418M · int8"), guidance=UNMEASURED),
+                   dict(translation_entry("nllb-200-distilled-600m-onnx-int8", "NLLB-200 distilled 600M · int8", "CC-BY-NC-4.0"),
+                        guidance=NLLB_GUIDANCE)]
+    peer.hardware = hardware
+    if device:
+        peer.device = device
+    setup = open_translation_page(page)
+    reviews = setup.get_by_role("radiogroup", name="Translation model").get_by_role("button", name="Review download")
+    reviews.last.click()
+    review = page.get_by_role("dialog", name="Model download and terms").first
+    card = review.get_by_role("group", name="NLLB-200 distilled 600M")
+    return review, card
+
+
+def test_a_translation_model_shows_the_memory_it_needs_and_fits_a_large_ram(ui):
+    from playwright.sync_api import expect
+
+    page, peer = ui
+    review, card = review_translation_models(page, peer, probe(32 * GIB, [("NVIDIA GeForce GT 1030", 2 * GIB)]))
+    expect(card.get_by_text("about 1.39 GiB while translating (measured on a CPU)")).to_be_visible()
+    # The translation runs on the CPU: the small GPU does not matter, and no GPU advice is given.
+    expect(card.get_by_text("May be too heavy")).to_have_count(0)
+    expect(card.get_by_text("Fits the free memory")).to_have_count(0)
+    card.get_by_text("Memory needs and testing").click()
+    expect(card.get_by_text("Local translation: runs on the CPU unless you choose a GPU")).to_be_visible()
+    expect(card.get_by_text("Peak memory while translating 60 short sentences on a CPU (not a minimum): 1.39 GiB")).to_be_visible()
+    expect(card.get_by_text("Checked on Windows 11 (ONNX Runtime 1.32, 4 CPU threads)", exact=False)).to_be_visible()
+    expect(card.get_by_text("This GPU differs from the tested GPU", exact=False)).to_have_count(0)
+    assert ("/run/refresh_model_download_hardware", {}) in peer.sent
+    if os.environ.get("VRCT_TEST_SCREENSHOTS"):
+        page.screenshot(path=os.path.join(os.environ["VRCT_TEST_SCREENSHOTS"], "translation-memory-fits.png"))
+
+    # M2M100 has not been measured: it says so and is never warned about.
+    review.get_by_role("button", name="Close").click()
+    setup = page.locator("details[data-setup]").first
+    setup.get_by_role("radiogroup", name="Translation model").get_by_role("button", name="Review download").first.click()
+    m2m100 = page.get_by_role("dialog", name="Model download and terms").first.get_by_role("group", name="M2M100 418M")
+    expect(m2m100.get_by_text("Not measured yet")).to_be_visible()
+    expect(m2m100.get_by_text("May be too heavy")).to_have_count(0)
+
+
+def test_a_small_ram_is_warned_about_before_the_download_by_keyboard(ui):
+    from playwright.sync_api import expect
+
+    page, peer = ui
+    # An 8 GiB PC: 1.39 GiB fits, but not with the 13 GiB kept for the OS and VRChat.
+    review, card = review_translation_models(page, peer, probe(8 * GIB))
+    note = ("It uses about 1.39 GiB of memory. With about 13.00 GiB kept for the OS and VRChat, "
+            "the 8.00 GiB found in total leaves little room.")
+    expect(card.get_by_text("May be too heavy")).to_be_visible()
+    expect(card.get_by_text(note, exact=False)).to_be_visible()
+    # The keyboard reaches the review; the consent repeats the warning and holds the focus.
+    card.get_by_role("button", name="Review download").focus()
+    page.keyboard.press("Enter")
+    consent = page.get_by_role("dialog", name="Model download and terms").last
+    expect(consent.get_by_text(note, exact=False)).to_be_visible()
+    inside = """() => document.activeElement?.closest('dialog')?.textContent.includes('I have reviewed the source')"""
+    assert page.evaluate(inside)
+    page.keyboard.press("Tab")
+    assert page.evaluate(inside)
+    expect(consent.get_by_role("button", name="Agree and download")).to_be_disabled()
+    page.keyboard.press("Escape")
+    expect(page.locator("dialog[open]").filter(has_text="I have reviewed the source")).to_have_count(0)
+    # Only a guide: nothing was downloaded.
+    assert sent(peer, "/run/start_model_download") == []
+    if os.environ.get("VRCT_TEST_SCREENSHOTS"):
+        page.screenshot(path=os.path.join(os.environ["VRCT_TEST_SCREENSHOTS"], "translation-memory-warning.png"))
+
+
+def test_a_translation_on_a_gpu_is_compared_with_that_gpu(ui):
+    from playwright.sync_api import expect
+
+    page, peer = ui
+    hardware = probe(32 * GIB, [("NVIDIA GeForce GT 1030", GIB)])
+    _review, card = review_translation_models(page, peer, hardware, dict(device="cuda", device_index=0, device_name="CUDA"))
+    expect(card.get_by_text("on a GPU with 1.00 GiB in total", exact=False)).to_be_visible()
+
+
+def test_the_translation_warning_fits_a_narrow_window(ui):
+    from playwright.sync_api import expect
+
+    page, peer = ui
+    page.set_viewport_size({"width": 480, "height": 1600})
+    _review, card = review_translation_models(page, peer, probe(GIB))
+    expect(card.get_by_text("May be too heavy")).to_be_visible()
+    card.get_by_role("button", name="Review download").click()
+    consent = page.get_by_role("dialog", name="Model download and terms").last
+    expect(consent.get_by_text("It uses about 1.39 GiB", exact=False)).to_be_visible()
+    overflow = page.evaluate("""() => [document.documentElement, ...document.querySelectorAll('dialog[open]')]
+        .map(el => el.scrollWidth - el.clientWidth)""")
+    assert max(overflow) <= 0, overflow
+    if os.environ.get("VRCT_TEST_SCREENSHOTS"):
+        page.screenshot(path=os.path.join(os.environ["VRCT_TEST_SCREENSHOTS"], "translation-memory-narrow.png"))
+
 def test_the_catalog_fits_a_narrow_window(ui, tmp_path):
     from playwright.sync_api import expect
 
@@ -404,3 +595,60 @@ def test_the_catalog_fits_a_narrow_window(ui, tmp_path):
     assert overflow <= 0, overflow
     if os.environ.get("VRCT_TEST_SCREENSHOTS"):
         page.screenshot(path=os.path.join(os.environ["VRCT_TEST_SCREENSHOTS"], "translation-catalog-narrow.png"), full_page=True)
+
+
+def test_the_retired_folder_note_shows_only_while_the_folder_holds_something(ui):
+    """#597: models placed in translation-models are no longer listed. The core says only
+    whether that folder holds a folder; the page then says so above the model list."""
+    from playwright.sync_api import expect
+
+    page, peer = ui
+    setup = open_translation_page(page)
+    expect(setup.get_by_role("radiogroup", name="Translation model")).to_be_visible()
+    assert ("/get/data/translation_catalog", None) in peer.sent
+    expect(page.locator("[data-retired-models-folder]")).to_have_count(0)
+
+
+def test_the_retired_folder_note_leads_to_the_add_form_by_keyboard_in_a_narrow_japanese_window(ui):
+    from playwright.sync_api import expect
+
+    page, peer = ui
+    peer.retired_folder_used = True
+    page.set_viewport_size({"width": 480, "height": 900})
+    setup = open_translation_page(page, "?lang=ja")
+    note = setup.locator("[data-retired-models-folder]")
+    expect(note).to_be_visible()
+    expect(note).to_contain_text("translation-modelsフォルダーに置いたモデルは一覧に出なくなりました。")
+    expect(note).to_contain_text("「自分のモデルを追加」で追加し直してください。")
+    # Above the model list, which no longer has the folder's models.
+    models = setup.get_by_role("radiogroup", name="翻訳モデル")
+    note_box, models_box = note.bounding_box(), models.bounding_box()
+    assert note_box["y"] + note_box["height"] <= models_box["y"] + 1, (note_box, models_box)
+    # The add form sits folded at the catalog's end, out of sight.
+    form = page.locator("[data-catalog-add=engine]")
+    name = form.get_by_label("表示する名前")
+    expect(name).not_to_be_visible()
+    overflow = page.evaluate("() => document.documentElement.scrollWidth - document.documentElement.clientWidth")
+    assert overflow <= 0, overflow
+    if os.environ.get("VRCT_TEST_SCREENSHOTS"):
+        page.screenshot(path=os.path.join(os.environ["VRCT_TEST_SCREENSHOTS"], "translation-retired-folder-note.png"))
+
+    # Reached with Tab and pressed with Enter, as a keyboard user would.
+    button = note.get_by_role("button", name="「自分のモデルを追加」を開く")
+    page.locator("body").focus()
+    for _ in range(80):
+        page.keyboard.press("Tab")
+        if button.evaluate("el => el === document.activeElement"):
+            break
+    else:
+        raise AssertionError("the note's button is not reachable with Tab")
+    page.keyboard.press("Enter")
+    # Every fold around the form opens, the form is in view and its first field has the focus.
+    expect(form).to_have_attribute("open", "")
+    assert form.evaluate("el => { for (let d = el; d; d = d.parentElement) if (d.tagName === 'DETAILS' && !d.open) return false; return true; }")
+    expect(name).to_be_focused()
+    expect(name).to_be_in_viewport()
+    if os.environ.get("VRCT_TEST_SCREENSHOTS"):
+        page.screenshot(path=os.path.join(os.environ["VRCT_TEST_SCREENSHOTS"], "translation-retired-folder-add-form.png"))
+    # Nothing was sent by going there.
+    assert sent(peer, "/run/register_translation_catalog_entry") == []

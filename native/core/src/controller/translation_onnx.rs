@@ -6,9 +6,10 @@
 //! `docs/voice-stack/core-integration.md`), read like this:
 //!
 //! - `CTRANSLATE2_WEIGHT_TYPE` names the model: a built-in name (`m2m100_418M-ct2-int8`, the
-//!   model `m2m100_418M`), a model the user put in `<data>/translation-models/<folder>/`
-//!   (`custom:<folder>`) or an engine entry the user added to the translation catalog
-//!   (`user:<id>`, #413), whose folder may be anywhere.
+//!   model `m2m100_418M`) or an engine entry the user added to the translation catalog
+//!   (`user:<id>`, #413), whose folder may be anywhere. Models placed in
+//!   `<data>/translation-models/` (`custom:<folder>`) are no longer read (#597): a saved
+//!   `custom:` selection is not in the list and goes back to the default model.
 //! - `SELECTED_TRANSLATION_COMPUTE_DEVICE.device` is the ONNX Runtime execution provider
 //!   (`cpu`, `directml`, `cuda`, `openvino`, `migraphx`, `webgpu`) and `device_index` its device.
 //! - `SELECTED_TRANSLATION_COMPUTE_TYPE` chooses the quantization variant among the folders of
@@ -31,12 +32,6 @@ use vrct_ops::downloads::translation_catalog::{self, TranslationCatalog};
 use vrct_translate_onnx::accelerate::{self, compute_types};
 use vrct_translate_onnx::{codes, runtime, Accelerator, Bundle, Fallback, Manifest, Provider, Translator, Variant};
 
-/// Where a user's own models go, under the data folder.
-pub const CUSTOM_DIR: &str = "translation-models";
-/// The weight name of a user's model: this and its folder's name.
-pub const CUSTOM_PREFIX: &str = "custom:";
-/// A folder whose name is not plain (letters, digits, `.`, `_`, `-`, 64 at most).
-pub const NAME_INVALID: &str = "translation_model_name_invalid";
 /// A model whose languages the app cannot name (no `language_names`, and none of its codes in
 /// the table of its architecture).
 pub const LANGUAGES_UNKNOWN: &str = "translation_languages_unknown";
@@ -108,21 +103,14 @@ fn installed(env: &Environment, model: &str) -> Vec<(Variant, Bundle)> {
 
 // ------------------------------------------------------------------------- the user's models
 
-/// A model the user put in `<data>/translation-models/<folder>/`.
+/// A model the user added to the translation catalog as an engine entry.
 #[derive(Clone, Debug)]
 pub struct CustomModel {
-    /// `custom:<folder>`, the weight name the settings keep.
+    /// `user:<id>`, the weight name the settings keep.
     pub id: String,
     pub bundle: Bundle,
     /// `{"source": {name: code}, "target": {name: code}}`, as the language table has it.
     pub languages: Value,
-}
-
-/// A plain folder name, so that the weight name stays a plain string.
-fn plain_name(name: &str) -> bool {
-    (1..=64).contains(&name.len())
-        && !name.starts_with('.')
-        && name.chars().all(|c| c.is_ascii_alphanumeric() || "._-".contains(c))
 }
 
 /// The language table of a user's model: its own names, else the built-in table of its
@@ -146,40 +134,6 @@ fn custom_languages(manifest: &Manifest) -> Value {
         }
     };
     json!({ "source": names.clone(), "target": names })
-}
-
-/// The user's models, sorted by folder name, and the folders refused with their reason (one
-/// of `vrct_translate_onnx::codes`, [`NAME_INVALID`] or [`LANGUAGES_UNKNOWN`]). Sizes are
-/// checked here; hashes when a model is loaded.
-pub fn discover(data_dir: &Path) -> (Vec<CustomModel>, Vec<(String, &'static str)>) {
-    let (mut models, mut refused) = (Vec::new(), Vec::new());
-    let Ok(entries) = std::fs::read_dir(data_dir.join(CUSTOM_DIR)) else { return (models, refused) };
-    let mut folders: Vec<(String, PathBuf)> = entries
-        .filter_map(Result::ok)
-        .filter(|entry| entry.file_type().is_ok_and(|t| t.is_dir()))
-        .map(|entry| (entry.file_name().to_string_lossy().into_owned(), entry.path()))
-        .collect();
-    folders.sort();
-    for (name, path) in folders {
-        if !plain_name(&name) {
-            refused.push((name, NAME_INVALID));
-            continue;
-        }
-        let bundle = match Bundle::open(&path) {
-            Ok(bundle) => bundle,
-            Err(error) => {
-                refused.push((name, error.code));
-                continue;
-            }
-        };
-        let languages = custom_languages(bundle.manifest());
-        if languages["source"].as_object().is_none_or(Map::is_empty) {
-            refused.push((name, LANGUAGES_UNKNOWN));
-            continue;
-        }
-        models.push(CustomModel { id: format!("{CUSTOM_PREFIX}{name}"), bundle, languages });
-    }
-    (models, refused)
 }
 
 /// The weight name of an engine entry of the translation catalog (#413): this and its id.
@@ -239,12 +193,9 @@ pub fn registered(env: &Environment) -> (Vec<CustomModel>, Vec<(String, &'static
     (models, refused)
 }
 
-/// The user's models of both kinds: the folders in `<data>/translation-models/`, then the
-/// engine entries of the translation catalog.
+/// The user's models: the engine entries of the translation catalog that can run.
 fn every_custom(env: &Environment) -> Vec<CustomModel> {
-    let mut models = discover(&env.data_dir).0;
-    models.extend(registered(env).0);
-    models
+    registered(env).0
 }
 
 /// Every weight the settings may name: the built-in ones, then the user's models.
@@ -255,20 +206,17 @@ pub fn weight_ids(env: &Environment) -> Vec<String> {
 }
 
 /// Whether a weight's model is on this PC: some variant of a built-in model, or a user's
-/// model that passed [`discover`] or [`registered`].
+/// model that passed [`registered`].
 pub fn weight_available(env: &Environment, weight: &str) -> bool {
-    if weight.starts_with(CUSTOM_PREFIX) {
-        return discover(&env.data_dir).0.iter().any(|m| m.id == weight);
-    }
     if weight.starts_with(USER_PREFIX) {
         return registered(env).0.iter().any(|m| m.id == weight);
     }
     builtin_model(weight).is_some_and(|model| !installed(env, model).is_empty())
 }
 
-/// Whether a weight is one of the user's models (a folder or a catalog entry).
+/// Whether a weight is one of the user's models (a catalog entry).
 pub fn is_users(weight: &str) -> bool {
-    weight.starts_with(CUSTOM_PREFIX) || weight.starts_with(USER_PREFIX)
+    weight.starts_with(USER_PREFIX)
 }
 
 // ------------------------------------------------------------------------- devices
@@ -426,6 +374,10 @@ impl LocalTranslation for OnnxTranslation {
         *self.custom.lock().unwrap() = every_custom(&self.env);
     }
 
+    fn unload(&self) {
+        *self.loaded.lock().unwrap() = None;
+    }
+
     fn translate(&self, text: &str, source: &str, target: &str) -> Result<String, LocalError> {
         let mut loaded = self.loaded.lock().unwrap();
         let loaded = loaded.as_mut().ok_or(LocalError::Failed)?;
@@ -494,10 +446,9 @@ mod tests {
     }
 
     #[test]
-    fn folder_names_stay_plain() {
-        assert!(plain_name("my-model_v2.1"));
-        for name in ["", ".hidden", "a b", "日本語", "a:b", &"x".repeat(65)] {
-            assert!(!plain_name(name), "{name}");
-        }
+    fn a_folder_weight_of_earlier_versions_is_not_the_users_model() {
+        assert!(is_users("user:tr-1"));
+        assert!(!is_users("custom:mine"));
+        assert!(!is_users("m2m100_418M-ct2-int8"));
     }
 }

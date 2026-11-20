@@ -26,16 +26,18 @@ export interface FlowRecognition {
     engine?: string | null;
 }
 
+// The core sends each lane's translation with its targets, empty while it is off
+// (translation() in native/core/src/controller/voice/flow.rs).
 export interface FlowTranslation {
     on: boolean;
     source?: string | null;
-    targets?: string[];
+    targets: string[];
 }
 
 export interface FlowLane {
     on: boolean;
     recognition?: FlowRecognition;
-    translation?: FlowTranslation;
+    translation: FlowTranslation;
     outputs?: FlowOutputRow[];
 }
 

@@ -64,7 +64,10 @@ pixels; `Debug` output of words, messages and pictures shows sizes only.
 
 `cargo test` runs everything below. The conformance tests compare with the Python
 implementation and report themselves as skipped until the fixtures exist; set
-`OCR_REQUIRE_REFERENCE=1` to make that a failure.
+`OCR_REQUIRE_REFERENCE=1` to make that a failure. The fixtures were made with the scripts
+below, which ran the Python backend's OCR (`src-python/models/ocr`); they went with it in
+0.6.0 (#285), so new fixtures can no longer be made this way. The commands and results are
+the record of how the core was checked (the scripts are in the v0.5.2 tag).
 
 ```sh
 python native/ocr-runtime/reference/setup_reference.py      # models and venv, ~/.cache/vrct-vox/ocr-reference
@@ -158,8 +161,8 @@ file. Which ONNX Runtime build ships is open (below).
 ## Open questions
 
 1. **Bridge to the application.** The core runs the pipeline in the application process
-   (#285); `src-python/models/ocr` goes with the Python sidecar. The chatbox lab's
-   `label.py` still uses the Python reader.
+   (#285); `src-python/models/ocr` went with the Python backend in 0.6.0, and with it the
+   chatbox lab's `label.py`, which used the Python reader.
 2. **ONNX Runtime build.** `ort`'s own ONNX Runtime 1.31.0 made detection 19 % and
    recognition 73 % slower than the official 1.31.1 library on this machine, and some
    scores differ by 1e-5. The core loads the library at run time (`load-dynamic`), so

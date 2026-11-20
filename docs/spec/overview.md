@@ -44,7 +44,7 @@ flowchart LR
 | 設定 | `native/core/src/config/` | 設定の宣言、検証（`config/schema.rs`）、保存 |
 | エラー | `native/core/src/errors/` | エラーコードと既定の文言 |
 | ネイティブの補助 | `native/`、`build/` | `vrct-rvc-worker`、Linuxの`vrct-voice-gate`・`vrct-source-bridge`・`vrct-asr-capture`・`vrct-screen-capture`（ウィンドウ共有）、speech.cppのバイナリ |
-| Pythonバックエンド（0.4まで） | `src-python/` | 0.5.0の配布物には入らず、起動もしない。`reference/`の一覧の生成元（`mainloop.py`、`errors.py`、`config.py`）と、その試験として残している。中核との対応は`native/core/README.md`にある |
+| Pythonバックエンド（0.4まで） | `src-python/`（0.6.0で消した） | 0.5.0の配布物には入らず、起動もしない。0.6.0でリポジトリからも消した（#285）。`reference/`の一覧のPythonの行は`tools/spec_python_baseline.json`に写した。中核との対応は`native/core/README.md`にある |
 
 ## 画面
 

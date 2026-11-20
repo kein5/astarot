@@ -18,6 +18,8 @@ struct State {
     /// How long each 20 ms piece of speech waits before it is sent.
     pace: Mutex<Duration>,
     seconds: Mutex<f64>,
+    /// Seconds of silence before the tone, as speech.cpp's speech starts.
+    leading: Mutex<f64>,
 }
 
 /// A fake server; it stops answering when dropped.
@@ -39,7 +41,9 @@ impl FakeTts {
             ("POST", "/v1/audio/speech") => {
                 state.requests.lock().unwrap().push(serde_json::from_slice(body).unwrap_or(Value::Null));
                 let samples = (24000.0 * *state.seconds.lock().unwrap()) as usize;
-                let pcm: Vec<u8> = (0..samples).flat_map(|i| (((i % 60) as i16 - 30) * 200).to_le_bytes()).collect();
+                let silent = (24000.0 * *state.leading.lock().unwrap()) as usize;
+                let tone = (0..samples).map(|i| ((i % 60) as i16 - 30) * 200);
+                let pcm: Vec<u8> = std::iter::repeat_n(0i16, silent).chain(tone).flat_map(i16::to_le_bytes).collect();
                 (200, "audio/pcm", vec![("X-Sample-Rate".into(), "24000".into())], pcm.chunks(960).map(<[u8]>::to_vec).collect())
             }
             _ => (404, "text/plain", Vec::new(), vec![Vec::new()]),
@@ -71,7 +75,8 @@ impl FakeTts {
         std::thread::spawn(move || {
             while !stopped.load(Ordering::SeqCst) {
                 let Ok((socket, _)) = listener.accept() else {
-                    std::thread::sleep(Duration::from_millis(5));
+                    // Briefly: a request waits for this in the pipeline's measured time.
+                    std::thread::sleep(Duration::from_millis(1));
                     continue;
                 };
                 let (route, state) = (route.clone(), served.clone());
@@ -132,6 +137,11 @@ impl FakeTts {
     /// How many seconds of speech each later request answers with.
     pub fn set_seconds(&self, seconds: f64) {
         *self.state.seconds.lock().unwrap() = seconds;
+    }
+
+    /// Seconds of silence each later speech starts with, before its tone.
+    pub fn set_leading_silence(&self, seconds: f64) {
+        *self.state.leading.lock().unwrap() = seconds;
     }
 
     pub fn requests(&self) -> Vec<Value> {

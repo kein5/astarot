@@ -1,0 +1,99 @@
+.copyText {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  max-width: 100%;
+  vertical-align: baseline;
+}
+
+.copyText code {
+  overflow-wrap: anywhere;
+}
+
+.copyText button {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--rp-c-text-2);
+  cursor: pointer;
+  transition:
+    background-color var(--vox-motion-fast) var(--vox-ease),
+    color var(--vox-motion-fast) var(--vox-ease);
+}
+
+.copyText button:hover {
+  background: var(--vox-surface);
+  color: var(--rp-c-text-1);
+}
+
+.copyText button:focus-visible {
+  outline: 2px solid var(--vox-focus);
+  outline-offset: 1px;
+}
+
+.copyText svg {
+  position: absolute;
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition:
+    opacity var(--vox-motion-fast) var(--vox-ease),
+    transform var(--vox-motion) var(--vox-ease-settle);
+}
+
+/* Copied: the copy icon shrinks away and a check pops in. */
+.iconDone {
+  opacity: 0;
+  transform: scale(0.4);
+  stroke-width: 2.4;
+  color: var(--vox-mine);
+}
+
+.copied .iconCopy {
+  opacity: 0;
+  transform: scale(0.4) rotate(-20deg);
+}
+
+.copied .iconDone {
+  opacity: 1;
+  transform: none;
+}
+
+/* The words float above the value for as long as the check shows. */
+.status {
+  position: absolute;
+  bottom: calc(100% + 4px);
+  right: 0;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: var(--vox-surface);
+  border: 1px solid var(--vox-border);
+  font-size: 12px;
+  line-height: 18px;
+  white-space: nowrap;
+  color: var(--rp-c-text-1);
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(4px);
+  transition:
+    opacity var(--vox-motion-fast) var(--vox-ease),
+    transform var(--vox-motion) var(--vox-ease);
+}
+
+.copied .status,
+.select .status {
+  opacity: 1;
+  transform: none;
+}

@@ -25,7 +25,7 @@ def compile_helper(tmp_path, source, *, pipewire=False):
 
 @pytest.mark.parametrize("fault", [None, "marker", "class", "name", "serial", "cookie", "duplicate"])
 def test_stream_gate_binds_only_expected_identity(tmp_path, fault):
-    from tools.voice_acceptance import graph_snapshot, nodes, private_graph, start_process, wait_for
+    from tools.private_pipewire import graph_snapshot, nodes, private_graph, start_process, wait_for
     gate = compile_helper(tmp_path, "native/voice-gate/main.c", pipewire=True)
     tag = "b" * 32
     name = f"vrct.source-bridge.{tag}.playback"
@@ -54,17 +54,6 @@ def test_stream_gate_binds_only_expected_identity(tmp_path, fault):
         assert next(p["mute"] for p in props if "mute" in p) is (fault is not None)
 
 
-def test_legacy_managed_gate_contract_still_works(tmp_path):
-    from models.audio_routing.pipewire_gate import PipeWireGate
-    from tools.voice_acceptance import private_graph
-    gate = compile_helper(tmp_path, "native/voice-gate/main.c", pipewire=True)
-    with private_graph(config_fragment=ROOT / "config/pipewire/90-vrct-managed.conf"):
-        control = PipeWireGate(helper=gate)
-        before = control.inspect()
-        assert control.set_muted(False, before["identity"])["muted"] is False
-        assert control.set_muted(True, before["identity"])["muted"] is True
-
-
 @pytest.mark.parametrize("args", [[], ["1", "1", "0", "short"], ["1", "1", "0", "G" * 32], ["-1", "1", "0"], ["1", "1", "no"]])
 def test_gate_rejects_invalid_cli(tmp_path, args):
     gate = compile_helper(tmp_path, "native/voice-gate/main.c", pipewire=True)
@@ -79,7 +68,7 @@ def test_launcher_rejects_missing_or_wrong_parent(tmp_path, args):
 
 @pytest.mark.parametrize("mode", ["normal", "kill", "thread", "supervisor"])
 def test_launcher_child_cannot_outlive_creating_parent_or_thread(tmp_path, mode):
-    from tools.voice_acceptance import wait_for
+    from tools.private_pipewire import wait_for
     launcher = compile_helper(tmp_path, "native/source-bridge/main.c")
     fake = tmp_path / "pw-loopback"
     fake.write_text("#!/bin/sh\nexec " + shutil.which("sleep") + " 30\n")

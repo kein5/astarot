@@ -257,6 +257,8 @@ NOTICEに「RVC base models」の節を足して、出所を示した。
 
 中核が`native/transcription`（音声認識）を使うようになった。リポジトリ内のクレートで、VRCT-VOXのコードとして扱う。使う外部のクレート（`tungstenite`、`serde_json`、`libc`）と`native/translation`のHTTPクライアントは、どれもすでに`src-tauri/Cargo.lock`にあった版で、アプリのロックファイルに新しい外部のクレートは増えていない。音量による発話の切り出しはSpeechRecognition 3.10.4（BSD-3-Clause）の処理を、`rms`と`ratecv`はCPythonの`audioop`（PSF-2.0）を、結果が同じになるように書き直したもの。ソースファイルの複写はない。表示は[NOTICE](../../NOTICE.md#rust-crates-in-vrct-vox-builds)に書いた。Googleの音声認識（SpeechRecognitionの既定のキーで送るもの）は移していない（[core-integration.md](core-integration.md)の「決まったこと」の「Google の Web 音声認識」）。Silero VADのモデルは中核では使わない（同じ節の20）。
 
+音声認識のクラウドの通信がプロキシを使うようになった（2026-11-19、core-integration.md の 15 の (4)）。Windows のインターネットの設定を読むため、`native/translation`が Windows でだけ`windows-sys` 0.61.2（MIT OR Apache-2.0）の`Win32_System_Registry`を使う。この版はすでに`src-tauri/Cargo.lock`にあり、アプリのロックファイルに新しい外部のクレートは増えていない。プロキシの認証の Base64 は自前で書いた。
+
 ## rmvpe.onnxの承認（2026-11-16、#322）
 
 #322の残課題へのオーナーの決定で、`rmvpe.onnx`は使い続けることになった。承認記録の[rvc-base-artifacts.proposal.json](rvc-base-artifacts.proposal.json)では、`status`を`approved_for_app_fetch_after_user_consent`に変え、`consent`にこの決定を足した。取得の形は変わらない。固定revisionから利用者の同意を得てから取得し、配布物には含めない。再配布の承認ではない。
@@ -342,7 +344,7 @@ CTranslate2翻訳はM2M100とその文章分割ファイルがMIT、NLLBとそ�
 
 | 候補 | エンジンのライセンス | モデルのライセンス | 扱い |
 |---|---|---|---|
-| `native/translate-onnx`（`ort`、ONNX Runtime、`tokenizers`） | VRCT-VOXのコード（MIT）。`ort`はMIT OR Apache-2.0、ONNX RuntimeはMIT、`tokenizers`はApache-2.0 | M2M100はMIT、NLLB-200はCC-BY-NC-4.0（既定にしない） | **採用**（2026-11-16）。アプリに入れた。モデルは未公開。利用者が自分で置くモデルのライセンスは利用者が確かめる |
+| `native/translate-onnx`（`ort`、ONNX Runtime、`tokenizers`） | VRCT-VOXのコード（MIT）。`ort`はMIT OR Apache-2.0、ONNX RuntimeはMIT、`tokenizers`はApache-2.0 | M2M100はMIT、NLLB-200はCC-BY-NC-4.0（既定にしない） | **採用**（2026-11-16）。アプリに入れた。モデルは2026-11-19に公開した（下の「公開したモデル（2026-11-19、#687）」）。利用者が自分で置くモデルのライセンスは利用者が確かめる |
 | `ct2rs` 0.11.2（CTranslate2 4.8.5を同梱して静的にビルド） | `ct2rs`・`ct2rs-sys`・CTranslate2はMIT。同梱のcpu_features・ruyはApache-2.0、spdlogはMIT。oneDNN（`onednn-src`）はApache-2.0、SentencePiece（`sentencepiece-sys`）はApache-2.0 | 既存のCTranslate2の重み（上の一覧と同じ） | 候補。入れるときは、C++のソースから作るライブラリのライセンス文を`tools/rust_licenses.py`の一覧の外で収める必要がある |
 | `ct2rs`の機能`mkl`（Intel oneMKL） | IntelのEULA（再配布できるがOSSではない） | 同上 | 計っていない。入れるならEULAの条件を台帳に書く |
 | `candle-transformers` 0.11.1 | MIT OR Apache-2.0 | M2M100とNLLBの実装がない。Opus-MTはCC-BY-4.0、MADLAD-400はApache-2.0 | モデルの取り直しと品質の確認が要るので候補から外した |
@@ -357,8 +359,8 @@ NLLBを差し替えるかの検討（#288の未決事項）のために、ロー
 
 | モデル | リポジトリと版 | ライセンス | 商用の利用 | 今の`native/translate-onnx`で動くか | 扱い |
 |---|---|---|---|---|---|
-| M2M100 418M、1.2B | `facebook/m2m100_418M`@`55c2e61b`、`facebook/m2m100_1.2B`@`7b361841` | MIT | できる | 動く | 採用済み。既定は418M。モデルは未公開 |
-| NLLB-200 distilled 600M、1.3B、3.3B | `facebook/nllb-200-distilled-600M`@`f8d333a0`、`-1.3B`@`7be3e246`、`facebook/nllb-200-3.3B`@`1a07f7d1` | CC-BY-NC-4.0 | できない | 動く | 採用済み。既定にせず、選ぶときに非商用のライセンスを示して同意を得る。公開するかは未決（core-integration.mdの判断78） |
+| M2M100 418M、1.2B | `facebook/m2m100_418M`@`55c2e61b`、`facebook/m2m100_1.2B`@`7b361841` | MIT | できる | 動く | 採用済み。既定は418M。418Mのint8を2026-11-19に公開した |
+| NLLB-200 distilled 600M、1.3B、3.3B | `facebook/nllb-200-distilled-600M`@`f8d333a0`、`-1.3B`@`7be3e246`、`facebook/nllb-200-3.3B`@`1a07f7d1` | CC-BY-NC-4.0 | できない | 動く | 採用済み。既定にせず、選ぶときに非商用のライセンスを示して同意を得る。distilled 600Mのint8を2026-11-19に公開した（判断78）。1.3Bは後から足し、3.3Bは今は公開しない |
 | MADLAD-400 3B MT、7B MT | `google/madlad400-3b-mt`@`fa184c67`、`google/madlad400-7b-mt`@`1ff63ce7` | Apache-2.0 | できる | 動かない（T5の形） | 候補。T5の形とSentencePieceのunigramを足す必要がある。3Bは約29億のパラメータ |
 | SMaLL-100 | `alirezamsh/small100`@`8ab680e2` | MIT | できる | 一部だけ（訳先の言語のトークンを原文の側に付ける） | 候補。約3.3億のパラメータ |
 | mBART-50 many-to-many | `facebook/mbart-large-50-many-to-many-mmt`@`e30b6cb8` | モデルカードにライセンスの記載がない | 確かめられない | 動かない（MBartの形） | 対象外。ライセンスを確かめられないため |
@@ -393,6 +395,17 @@ NLLBのCC-BY-NC-4.0について確かめたこと:
 
 公開するモデルの記録は、公開した版とファイルのSHA-256を`native/ops/data/translation_models.json`に固定したときに、この節に足す。
 
+#### 公開したモデル（2026-11-19、#687）
+
+判断78の決定（2026-11-19）で、NLLB-200 distilled 600Mと既定のM2M100 418Mのint8を公開し、カタログに載せた。どちらも`tools/translation_onnx/export.py`で書き出し、`publish.py stage`のモデルカード（元のモデルと版、作者、ライセンス、変えたこと、各ファイルのSHA-256）を添えた。ファイルごとの大きさとSHA-256は`native/ops/data/translation_models.json`に固定した。
+
+| カタログのid | 公開先と版 | 元のモデル | ライセンス | 大きさ（全ファイル） | 扱い |
+|---|---|---|---|---|---|
+| `m2m100-418m-onnx-int8` | `kein5/m2m100_418M-onnx-int8`@`edfdb3e670e257cee60858861031fe40e2e17934` | `facebook/m2m100_418M`@`55c2e61b` | MIT（`LICENSE`にfairseqのMITの文を添えた） | 505,722,914 bytes | 既定のモデル |
+| `nllb-200-distilled-600m-onnx-int8` | `kein5/nllb-200-distilled-600M-onnx-int8`@`3c6d40d6ebd424d17d69f0e3236a8a7f8be9a170` | `facebook/nllb-200-distilled-600M`@`f8d333a0` | CC-BY-NC-4.0（非商用） | 642,621,286 bytes | 既定にしない。取得の前に非商用の確認を求める。取得の画面の注記（`translation_nllb_600m`）で、容量と翻訳の間のメモリー（約1.4 GiB）を示す |
+
+1.3Bは別の作業で後から足す。3.3Bは今は公開しない。
+
 ### TranslateGemma（2026-11-18、#412）
 
 翻訳のカタログに載せる候補として、上の表の行より詳しく調べた。**載せていない**。カタログ（`native/ops/data/translation_models.json`）、NOTICE、`tools/rust_licenses.py`の一覧は変わらない。重みは取得しておらず、大きさはHugging FaceとOllamaのレジストリのAPIが2026-11-18に返した値である。経路と重みの入手の比較は[TranslateGemmaを翻訳に使う道筋](translategemma.md)にある。
@@ -406,6 +419,22 @@ NLLBのCC-BY-NC-4.0について確かめたこと:
 | 再配布の条件 | 3.1節。利用の制限を強制できる条項として課すこと、規約の写しを渡すこと、変更したファイルにその旨を示すこと、決まった一文の`Notice`ファイルを添えること |
 | 扱い | 候補。カタログには載せていない。載せるなら既定にはしない。アプリの中で動かすには`native/translate-onnx`にdecoder-onlyの生成を足す必要があり、重みはプロジェクトが変換して規約を添えて公開する形を推奨した（公開は保守担当者が決める）。規約の写しを添えていない第三者の変換からは取得しない |
 
+2026-11-19の追記：保守担当者はLLM用の実行基盤で動かすと決めた（ADR-015）。段階3では、利用者が自分のGGUFのファイルを翻訳のカタログに追加し、llama.cppのサーバー（下の節）で動かせるようにした。組み込みの項目はまだ載せていない。カタログの取得でGemmaの利用規約に従う翻訳のモデルは、同意とは別に規約の確認（`gemma_terms`）を求める。Irodori-TTS v4 Largeにはこの確認を付けない（翻訳のモデルだけに限ると2026-11-19に決めた）。同意画面のライセンスと規約のリンクは今までどおり示す。
+
+### llama.cppのサーバー（2026-11-19、ADR-015の段階3）
+
+翻訳のLLMを動かす`llama-server`。同梱しない。利用者が同意したときだけ、固定のリリースのアーカイブを取得して`vc_runtimes/llamacpp-vulkan/`の`lib/`に必要なファイルだけを取り出す。出すのはVulkan版だけである。版、大きさ、SHA-256は[モデルの取得](model-downloads.md#llamacppのサーバーの取得)の表にある。
+
+| 項目 | 内容 |
+|---|---|
+| 取得元 | GitHubの`ggml-org/llama.cpp`のリリース b12125（2026-11-04）。`github.com`から`release-assets.githubusercontent.com`へ転送される |
+| llama.cppとggml | MIT（Copyright (c) 2023-2026 The ggml authors）。Linuxのアーカイブは`LICENSE`として持つ。Windowsのアーカイブにはこの文がないので、確認の画面はタグの`LICENSE`へリンクする |
+| `libomp.dll`（Windowsだけ） | LLVMのOpenMPのランタイム。Apache-2.0 WITH LLVM-exception（古いコードはNCSAとMITの二重）。アーカイブの`LICENSE-LLVM-OpenMP`を`lib/`に取り出す |
+| サーバーのライブラリに含まれるもの | 2026-11-19にバイナリの文字列で確かめた。cpp-httplib（MIT）、nlohmann/json（MIT）、WindowsではBoringSSL（Apache-2.0と、OpenSSLとISCのライセンス）。これらのライセンスの文はアーカイブにない |
+| Linuxで使うシステムのライブラリ | `libssl.so.3`と`libcrypto.so.3`（OpenSSL 3、Apache-2.0）、`libgomp.so.1`（GCCの実行時ライブラリの例外付きGPL-3.0）、Vulkan版は`libvulkan.so.1`。アプリは取得も同梱もしない |
+| 取り出さないもの | CLI、量子化やベンチマークの道具、RPCのサーバー（`ggml-rpc`）、マルチモーダルの道具 |
+| 扱い | アプリの配布物には入らない。利用者が提供元から直接取得する。確認の画面にライセンスと「ASTAROTの配布物ではない」ことを書いた |
+
 ## Silero VADの同梱（2026-11-15）
 
 マイクとスピーカーの文字起こしで発話区間を見つけるSilero VADのモデルは、これまでfaster-whisper 1.1.1のパッケージに入っていたものを読み込んでいた。faster-whisperをやめる前提作業として（#288）、同じ2ファイルをアプリの一部として同梱する。確率の計算は変わらない。
@@ -414,7 +443,7 @@ NLLBのCC-BY-NC-4.0について確かめたこと:
 |---|---|
 | モデル | [Silero VAD](https://github.com/snakers4/silero-vad) v5。MIT、Copyright (c) 2020-present Silero Team。ライセンス文はタグv5.1.2のもの |
 | 2グラフへの分割 | [faster-whisper](https://github.com/SYSTRAN/faster-whisper)。MIT、Copyright (c) 2023 SYSTRAN。v1.1.1（commit `9e657b47cb71ed7aa32ce115ef0dca953ca39ae5`）のファイルを無加工で使う。PyPIのwheel（SHA-256 `5808dc33…`）と照合した |
-| ファイル | `silero_encoder_v5.onnx` 713,415 bytes、`silero_decoder_v5.onnx` 532,505 bytes。SHA-256は[通知](../../licenses/silero-vad/NOTICE.md)にあり、読み込むたびに照合する |
+| ファイル | `silero_encoder_v5.onnx` 713,415 bytes、`silero_decoder_v5.onnx` 532,505 bytes。SHA-256は[通知](https://github.com/kein5/astarot/blob/v0.5.2/licenses/silero-vad/NOTICE.md)にあり、読み込むたびに照合する |
 | 置き場所 | リポジトリは`src-python/models/transcription/silero_vad/`、配布物は`_internal/models/transcription/silero_vad/`。ライセンス文と通知は`licenses/silero-vad/` |
 
 ## Outfit（ASTAROTのブランド書体、2026-11-16）
@@ -605,6 +634,16 @@ Rustのクレートの一覧から`tauri-plugin-shell`とその依存（`os_pipe
 - RVCの参照環境（`native/rvc-runtime/reference/`）: 以前の`integrations/rvc/requirements.in`と同じ依存を`native/rvc-runtime/reference/requirements.in`に移した。numpy、scipy、praat-parselmouth（0.4.6から0.4.7、GPL-3.0-or-later）を上げた。適合の試験の参照を作るためだけの環境で、配布物とアプリの実行には使わない。
 - 翻訳モデルを書き出す環境（`tools/translation_onnx/`）: 固定した版のままで、どの依存にも3.14のwheelがある。
 - チャットボックスの学習環境（`tools/chatbox_lab/`）: PyTorch 2.9（CUDA 12.6）とtorchvision 0.24（どちらもBSD-3-Clause）にした。どちらも3.14のwheelがある最初の版。
+
+## Pythonのバックエンドを消した（2026-11-20、#285）
+
+Pythonのバックエンド（`src-python/`）と、それだけが使っていたものを消した。配布物には0.5.0からPythonが入っていないので、配布物とNOTICEの部品の表は変わらない。
+
+- `uv.lock`から、アプリの依存とその間接の依存の102のパッケージが外れた（ctranslate2、transformers、rapidocr、SpeechRecognitionのフォーク、PyAudioWPatch、pyinstallerなど）。残ったのは開発の道具と試験の依存で、版は変わっていない。`pyproject.toml`の`cuda`のextraと`linux-build`のグループもなくした。
+- `voice-test`のグループに2つ足した。`python-osc` 1.10.2（Unlicense。実機の試験のチャットボックスの補助の試験が使う）と、pyopenvr（`openvr` 2.12.1401、BSD-3-Clause。中核のOpenVRの関数表の写しを照らす試験が使う。配布物の`libopenvr_api_64`はこのwheelから取り出す）。どちらも前はアプリの依存として`uv.lock`にあった。
+- Silero VADのONNXのモデル（`src-python/models/transcription/silero_vad/`）とライセンス文（`licenses/silero-vad/`）を消した。0.4.xの配布物の分は、そのタグに残る。
+- Seed-VCの統合（`integrations/seed_vc/`、GPL-3.0-onlyの表示のあるファイルを含む）を消した。0.4.xまでの配布物に入っていた分のソースの提供の約束は、上の節のとおり続く。
+- 翻訳の比較の道具（`tools/translation_onnx/compare.py`）が照らすCTranslate2のモデルの固定値は、`tools/translation_onnx/ctranslate2_pins.py`に移した。
 
 ## 読みの解析器と辞書（2026-11-16）
 

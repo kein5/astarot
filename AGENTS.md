@@ -1,6 +1,6 @@
 # ASTAROT 開発エージェント向けガイド
 
-ASTAROT（旧名 VRCT-VOX）は、VRChat 向けに音声認識（ASR）、読み上げ（TTS）、声質変換（RVC）、チャット読み取り（OCR）、翻訳をまとめたデスクトップアプリです。React 18 の UI を Tauri で動かし、バックエンドは Rust の中核（`native/core`）がアプリのプロセスの中で受け持ちます。0.5.0 から配布物に Python は入りません。`src-python/` の Python のバックエンドは、移植の仕様として残しているものです（`docs/voice-stack/core-integration.md`）。アプリの表示名は ASTAROT です（ADR-011）。リポジトリ名、実行ファイル名、アプリ ID、設定の保存先などの識別子は VRCT-VOX のままで、リポジトリ名は 0.5.0 の正式公開のときに変えます。[VRCT](https://github.com/misyaguziya/VRCT) から派生したプロジェクトで、上流の追従や互換性は目標にしていません。
+ASTAROT（旧名 VRCT-VOX）は、VRChat 向けに音声認識（ASR）、読み上げ（TTS）、声質変換（RVC）、チャット読み取り（OCR）、翻訳をまとめたデスクトップアプリです。React 18 の UI を Tauri で動かし、バックエンドは Rust の中核（`native/core`）がアプリのプロセスの中で受け持ちます。0.5.0 から配布物に Python は入りません。Python のバックエンド（`src-python/`）は 0.6.0 で消しました。移植の記録は `docs/voice-stack/core-integration.md` にあります。アプリの表示名は ASTAROT です（ADR-011）。リポジトリ名、実行ファイル名、アプリ ID、設定の保存先などの識別子は VRCT-VOX のままで、リポジトリ名は 0.5.0 の正式公開のときに変えます。[VRCT](https://github.com/misyaguziya/VRCT) から派生したプロジェクトで、上流の追従や互換性は目標にしていません。
 
 この文書は作業の入口です。詳しい内容は、下の表の正本を読んでください。
 
@@ -49,9 +49,8 @@ UI の監査、文章の推敲、実機での画面の確認、図の作成な�
 
 | 変更したもの | 追加で実行するもの |
 |---|---|
-| 音声、モデル取得の Python のコードとその試験（`src-python/`、`tests/voice/`）、配布の検査（`tools/`） | `check --scope voice`（新しい Linux の checkout では先に `python tools/build_voice_gate.py`） |
+| Python の道具とその試験（`tools/`、`tests/voice/`）、配布の検査 | `check --scope voice`（新しい Linux の checkout では先に `python tools/build_voice_gate.py`） |
 | UI（`src-ui/`）や文言 | `check --scope ui` |
-| 移植の仕様として残している Python のバックエンド全体（`src-python/`） | `check --scope backend --python <アプリ依存のある Python>` |
 | Rust のバックエンド中核（`native/core`）と `native/` のクレート、Tauri（`src-tauri/`） | `check --scope rust`（対象のクレートは `tools/dev.py` の `NATIVE_CRATES`。ほかのクレートは `cargo test --manifest-path native/<crate>/Cargo.toml`） |
 | 複数の領域、統合の前 | `check --scope all` |
 | コミット | `check --scope commits --base origin/develop` |
@@ -110,7 +109,7 @@ UI の監査、文章の推敲、実機での画面の確認、図の作成な�
 詳しい内容は、それぞれの正本にあります。ここには要点だけを挙げます。
 
 - **外部への操作**: 上流 VRCT への連絡、取り込みの打診、PR の作成（draft を含む）は、明示の指示がある場合だけ行います（`publication-and-upstream.md`）。push、PR、Release の公開、Hugging Face へのアップロードは、依頼の範囲に含まれているときに行います。Release は保守担当者が確認してから公開します（`release-candidates.md`）。
-- **配布物とライセンス**: 上流のチャット吹き出し検出モデルを含む OCR の重み、許諾のないモデル、Mia2026 の音声を配布物に入れません。依存や同梱物を変えたら、`NOTICE.md` とライセンス台帳を確認します。ダウンロードできるモデルは、版、サイズ、SHA-256、ライセンスを固定してカタログ（`src-python/models/model_downloads/catalog.py`）に載せます。アプリが読むのは Rust の写し（`native/ops/src/downloads/catalog.rs`、OCR は `native/ocr-runtime/src/models.rs`）なので、同じ変更をそちらにも入れます（食い違いは `tests/voice/test_native_ops_reference.py` などが検出します）。非商用など制限のあるライセンスのモデルは既定にしません。
+- **配布物とライセンス**: 上流のチャット吹き出し検出モデルを含む OCR の重み、許諾のないモデル、Mia2026 の音声を配布物に入れません。依存や同梱物を変えたら、`NOTICE.md` とライセンス台帳を確認します。ダウンロードできるモデルは、版、サイズ、SHA-256、ライセンスを固定してカタログ（`native/ops/src/downloads/catalog.rs`）に載せます。OCR のモデルはチャット読み取りの表（`native/ocr-runtime/src/models.rs`）にも同じ項目を入れます（食い違いは `native/core/tests/downloads.rs` が検出します）。非商用など制限のあるライセンスのモデルは既定にしません。
 - **互換性**: 内部識別子の `VRCT`、設定の形式、IPC と OSC の契約は、名前を変えるという理由だけで一括置換しません。保存先やアプリ ID などの識別子を変えるときは、移行の処理も用意します（`project-rename.md`）。
 - **ユーザーの操作と同意**: モデルの取得は、ライセンスとサイズを示して同意を得てから行います。UI の変更によって、マイクの有効化、モデルの取得、メッセージの送信、音声経路の変更が勝手に起きないようにします。
 - **音声 AI のランタイム**: 新しい音声 AI モデルは、まず speech.cpp への上流の貢献で入れます。アプリ固有の推論エンジンや独立したランタイムは、既存の基盤で実現できない技術的な理由と、性能・保守・配布のコストでの明確な優位性の両方を確かめ、例外ごとの ADR で承認したときだけ足します。分担は、音声 AI の推論（ASR、TTS、VAD、話者、音声強調）が speech.cpp、OCR とローカル翻訳が ONNX Runtime、音声の入出力と AI でない DSP が Rust と OS の機能、字幕や OSC など固有の制御がアプリです。RVC は管理対象の例外として ONNX Runtime の実装を続け、移行は義務にしません。手順、非機能要件、検証は ADR-012（`docs/adr/adr-012-audio-ai-runtime-consolidation.md`）にあります。

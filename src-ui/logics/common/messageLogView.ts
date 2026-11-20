@@ -14,14 +14,14 @@ export interface LogViewRow {
     gone?: boolean;
 }
 
-// The empty row left where a row was removed.
-export interface GoneRow {
-    id: unknown;
+// The empty row left where a row was removed. It keeps the removed row's id.
+export interface GoneRow<Id = unknown> {
+    id: Id;
     gone: true;
 }
 
-export interface LogView<T> {
-    rows: (T | GoneRow)[];
+export interface LogView<T extends LogViewRow> {
+    rows: (T | GoneRow<T["id"]>)[];
     shift: boolean;
 }
 
@@ -31,13 +31,13 @@ export interface RowEnds {
     to: string;
 }
 
-export const nextLogView = <T extends LogViewRow>(shown: (T | GoneRow)[], rows: T[], keepGone = true): LogView<T> => {
+export const nextLogView = <T extends LogViewRow>(shown: (T | GoneRow<T["id"]>)[], rows: T[], keepGone = true): LogView<T> => {
     if (!rows.length) return { rows, shift: false };
     const dropped = shown.findIndex(row => row.id === rows[0].id);
     if (dropped > 0) return { rows: shown.slice(dropped), shift: true };
     const order = new Map(rows.map((row, index) => [row.id, index]));
     if (!keepGone || !shown.some(row => order.has(row.id))) return { rows, shift: false };
-    const next: (T | GoneRow)[] = [];
+    const next: (T | GoneRow<T["id"]>)[] = [];
     let taken = 0;
     for (const row of shown) {
         const index = order.get(row.id);

@@ -23,6 +23,7 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, OnceLock, Weak};
 use vrct_audio_routing::identity::{Device, capture_key};
 use vrct_transcription::providers::{self, Candidate, Engine, Recognizer};
+use vrct_transcription::diagnostics::{Diagnostics, Event as Diagnosed, Stage};
 use vrct_transcription::recorder::{Event, Failure, Recorder, Settings};
 
 /// The Whisper APIs whose models come from `/models` (`TRANSCRIPTION_API_ENGINES`).
@@ -71,6 +72,9 @@ struct Legacy {
     energy: bool,
     /// The device the running capture has open.
     active: Option<Device>,
+    /// Stopped recorders whose engine request ran past the stop's wait (`_cleanup_workers`):
+    /// a handoff waits for them.
+    lingering: Vec<Recorder>,
 }
 
 /// Why the recorder could not start.
@@ -101,17 +105,29 @@ pub struct Transcription {
     /// Whether mic mute sync holds the microphone back now.
     mic_paused: Arc<AtomicBool>,
     pub(crate) realtime: super::realtime_asr::Realtime,
+    /// `utterance_diagnostics`: the speech timings of both paths, summed up in `process.log`
+    /// (decision 15).
+    pub(crate) diagnostics: Diagnostics,
 }
 
 impl Transcription {
     pub(crate) fn new(config: &crate::config::Config) -> Arc<Transcription> {
-        Arc::new(Transcription {
-            core: OnceLock::new(),
-            legacy: [Mutex::default(), Mutex::default()],
-            revisions: [AtomicU64::new(0), AtomicU64::new(0)],
-            epochs: [AtomicU64::new(0), AtomicU64::new(0)],
-            mic_paused: Arc::new(AtomicBool::new(false)),
-            realtime: super::realtime_asr::Realtime::new(config),
+        Arc::new_cyclic(|area: &Weak<Transcription>| {
+            let area = area.clone();
+            let log = Arc::new(move |line: &str| {
+                if let Some(core) = area.upgrade().and_then(|area| area.core()) {
+                    core.step(line);
+                }
+            });
+            Transcription {
+                core: OnceLock::new(),
+                legacy: [Mutex::default(), Mutex::default()],
+                revisions: [AtomicU64::new(0), AtomicU64::new(0)],
+                epochs: [AtomicU64::new(0), AtomicU64::new(0)],
+                mic_paused: Arc::new(AtomicBool::new(false)),
+                realtime: super::realtime_asr::Realtime::new(config),
+                diagnostics: Diagnostics::new(log),
+            }
         })
     }
 
@@ -121,6 +137,12 @@ impl Transcription {
         let area = Arc::downgrade(self);
         services.vrc_mic_mute = Arc::new(move |held| {
             if let Some(area) = area.upgrade() {
+                // Decision 55 (`_applyMuteStatusLocked`): when VRChat starts holding the
+                // microphone back, what it had admitted is not delivered, even once the mute is
+                // lifted. Called on each change only, under the mute lock.
+                if held {
+                    area.revoke(Source::Mic);
+                }
                 area.mic_paused.store(held, Ordering::SeqCst);
             }
             muted(held);
@@ -161,14 +183,39 @@ impl Transcription {
         Arc::new(move || area.upgrade().is_some_and(|area| area.epochs[index(source)].load(Ordering::SeqCst) == epoch))
     }
 
-    /// `stop_for_handoff`: stops the recorder; false when its device was not confirmed released.
+    /// `stop_for_handoff`: stops the recorder; false when its device was not confirmed released
+    /// or an engine request of a stopped recorder still runs.
     pub(crate) fn stop_legacy(&self, source: Source) -> bool {
         let mut legacy = self.legacy(source);
         legacy.transcript = false;
         legacy.energy = false;
         legacy.active = None;
         self.revisions[index(source)].fetch_add(1, Ordering::SeqCst);
-        legacy.recorder.take().is_none_or(|mut recorder| recorder.stop())
+        self.stop_recorder(source, &mut legacy)
+    }
+
+    /// `_stop`: stops the recorder and waits up to `Services::recorder_stop_wait` (15 s) for an
+    /// engine request in flight (decision 15 (1)); its result is dropped. A request still running
+    /// is kept until it ends, and the answer is false until then, as it is when the device was not
+    /// confirmed released.
+    fn stop_recorder(&self, source: Source, legacy: &mut Legacy) -> bool {
+        let core = self.core();
+        let stopped = match legacy.recorder.take() {
+            Some(mut recorder) => {
+                let wait = core.as_ref().map_or(vrct_transcription::recorder::STOP_WAIT, |core| core.services().recorder_stop_wait);
+                let stopped = recorder.stop_within(wait);
+                if !recorder.settled() {
+                    if let Some(core) = &core {
+                        core.step(&format!("{}: an engine request did not end within the stop's wait", source.as_str()));
+                    }
+                    legacy.lingering.push(recorder);
+                }
+                stopped
+            }
+            None => true,
+        };
+        legacy.lingering.retain(|recorder| !recorder.settled());
+        stopped && legacy.lingering.is_empty()
     }
 }
 
@@ -340,7 +387,7 @@ impl Core {
             // The local engine listens through realtime recognition, not this recorder.
             _ => return Err("TRANSCRIPTION_ENGINE_UNAVAILABLE"),
         };
-        Ok(Recognizer::new(built, self.services().translation_transport.clone()))
+        Ok(Recognizer::new(built, self.services().transcription_transport.clone()))
     }
 
     /// The settings of a source's recorder (`_create_recorder`, `_create_transcriber`).
@@ -359,6 +406,7 @@ impl Core {
             // cannot detect speech the energy listener cuts phrases and the user is told. The
             // volume meter alone needs no detection.
             vad: (transcribing && config.get_bool(&format!("{}_ENABLE_VAD", upper(source)))).then(|| self.recorder_vad(source)).flatten(),
+            diagnostics: transcribing.then(|| self.transcription.diagnostics.clone()),
         }
     }
 
@@ -419,9 +467,7 @@ impl Core {
             legacy = area.legacy(source);
         }
         area.revisions[index(source)].fetch_add(1, Ordering::SeqCst);
-        if let Some(mut recorder) = legacy.recorder.take() {
-            recorder.stop();
-        }
+        area.stop_recorder(source, &mut legacy);
         legacy.active = None;
         legacy.transcript = new_transcript;
         legacy.energy = new_energy;
@@ -431,17 +477,23 @@ impl Core {
             return Ok(Reconfigured::Off);
         }
         let Some(requested) = resolved else {
-            // `_start(device=None)`: no device to listen to.
+            // `_start(device=None)`: no device to listen to. Decision 15 (2): as in Python, the
+            // microphone's recognition alone tells nothing here (its message came after its
+            // delivery was revoked); the speaker and the volume meters say which device is missing.
             legacy.transcript = false;
             legacy.energy = false;
             drop(legacy);
-            self.notify_device_error(source);
+            if source == Source::Speaker || new_energy {
+                self.notify_device_error(source);
+            }
             return Err(StartError::Device);
         };
         let recognize = if new_transcript {
             match self.recognizer() {
                 Ok(recognizer) => {
                     let core = Arc::downgrade(self);
+                    // `asr_attempts` and `asr_successes` of this recorder, for `[ASR-stats]`.
+                    let (mut attempts, mut successes) = (0u64, 0u64);
                     let recognize: vrct_transcription::recorder::Recognize = Box::new(move |mono: &[i16], rate: u32| {
                         let Some(core) = core.upgrade() else { return Ok(None) };
                         let engine = recognizer.engine.name().to_string();
@@ -450,9 +502,32 @@ impl Core {
                             super::python_float(&core.config().get(&format!("{}_AVG_LOGPROB", upper(source)))).unwrap_or(-0.8),
                             super::python_float(&core.config().get(&format!("{}_NO_SPEECH_PROB", upper(source)))).unwrap_or(0.6),
                         );
+                        let asked = std::time::Instant::now();
                         let result = recognizer.recognize(mono, rate, &candidates, logprob, silence, table());
-                        if let Err(failed) = &result {
-                            core.step(&format!("[ASR-error][{}][{engine}] {}", source.as_str(), failed.error.code()));
+                        let asr_ms = asked.elapsed().as_millis();
+                        let diagnostics = &core.transcription.diagnostics;
+                        let name = source.as_str();
+                        match &result {
+                            Err(failed) => {
+                                diagnostics.record(name, Diagnosed::AsrError, &[(Stage::Asr, asr_ms as f64)], None, false);
+                                core.step(&format!("[ASR-error][{name}][{engine}] {}", failed.error.code()));
+                            }
+                            Ok(heard) => {
+                                attempts += 1;
+                                successes += u64::from(heard.is_some());
+                                let outcome = if heard.is_some() { "success" } else { "failure" };
+                                diagnostics.record(
+                                    name,
+                                    if heard.is_some() { Diagnosed::AsrSuccess } else { Diagnosed::AsrFailure },
+                                    &[(Stage::Asr, asr_ms as f64)],
+                                    Some(format!(
+                                        "[ASR-stats][{name}][{engine}] this_call={outcome} attempts={attempts} successes={successes} rate={:.1}% asr={asr_ms}ms",
+                                        successes as f64 * 100.0 / attempts as f64
+                                    )),
+                                    // A call that heard nothing is told at once, as in Python.
+                                    heard.is_none(),
+                                );
+                            }
                         }
                         result
                     });
@@ -731,6 +806,7 @@ impl Core {
                 self.step("shutdown: a recorder did not stop in time");
             }
         }
+        self.transcription.diagnostics.flush(None, "shutdown");
     }
 
     // ------------------------------------------------------------------------- keys
@@ -749,7 +825,7 @@ impl Core {
         if key.is_empty() {
             return refused(self);
         }
-        let transport = &self.services().translation_transport;
+        let transport = &self.services().transcription_transport;
         let (models, languages) = if engine == "Deepgram" {
             if !providers::deepgram_key_valid(transport, &base_url, &key) {
                 return refused(self);
@@ -835,7 +911,7 @@ impl Core {
         };
         let checked = match &key {
             Some(key) => {
-                let Ok(models) = providers::compatible_models(&self.services().translation_transport, &url, key, false) else {
+                let Ok(models) = providers::compatible_models(&self.services().transcription_transport, &url, key, false) else {
                     return refused(self);
                 };
                 if models.is_empty() || models.iter().any(|m| m.trim().is_empty()) {
@@ -921,7 +997,7 @@ impl Core {
     fn check_transcription_engine(&self, engine: &str) -> TranscriptionCheck {
         let config = self.config();
         let key = config.get("TRANSCRIPTION_AUTH_KEYS")[engine].as_str().unwrap_or("").to_string();
-        let transport = &self.services().translation_transport;
+        let transport = &self.services().transcription_transport;
         let endpoints = &self.services().transcription_endpoints;
         let none = TranscriptionCheck::default();
         match engine {

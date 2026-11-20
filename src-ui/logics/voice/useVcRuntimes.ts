@@ -7,22 +7,47 @@ import type { ObservedSnapshot } from "../common/polledState.ts";
 // The voice conversion runtime replies of the core, as far as this hook reads them. They are
 // not checked here; the setup page reads the other fields.
 
+// One runtime the backend can prepare (native/voice-conversion/src/runtime.rs, catalog): the sizes are
+// in bytes, `destination` is the folder it goes to and `notice` names its own wording.
+export interface VcRuntimeEntry {
+    readonly id: string;
+    readonly name: string;
+    readonly version: string;
+    readonly license: string;
+    readonly licenses: readonly string[];
+    readonly notice: string;
+    readonly download_bytes: number;
+    readonly disk_bytes: number;
+    readonly destination: string;
+    readonly gpu_ready: boolean;
+    readonly requires_gpu: boolean;
+    readonly device: string;
+}
+
 // /get/data/vc_runtime_catalog.
 export interface VcRuntimeCatalog {
+    readonly runtimes?: readonly VcRuntimeEntry[];
     readonly [key: string]: unknown;
 }
 
-// One setup of a runtime; phase is one of activeSetupPhases while it runs.
+// One setup of a runtime (runtime.rs): phase is one of activeSetupPhases while it runs; step counts
+// its steps, and the bytes count the download of the step that downloads.
 export interface VcRuntimeJob {
-    readonly phase?: unknown;
-    readonly error_code?: unknown;
+    readonly job_id: string;
+    readonly phase: string;
+    readonly step: number;
+    readonly steps: number;
+    readonly received_bytes: number;
+    readonly total_bytes: number;
+    readonly error_code?: string | null;
+    readonly warning_code?: string | null;
     readonly [key: string]: unknown;
 }
 
-// /get/data/vc_runtime_state, polled.
+// /get/data/vc_runtime_state, polled. installed: the folder of each runtime that is ready.
 export interface VcRuntimeState extends ObservedSnapshot {
     readonly jobs: Readonly<Record<string, VcRuntimeJob>>;
-    readonly installed: Readonly<Record<string, unknown>>;
+    readonly installed: Readonly<Record<string, string>>;
     readonly [key: string]: unknown;
 }
 

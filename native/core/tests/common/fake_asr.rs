@@ -10,7 +10,7 @@ use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::sync::atomic::{AtomicBool, AtomicU16, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 pub const KEY: &str = "good-key";
 
@@ -36,6 +36,8 @@ pub enum RealtimeFault {
 pub struct Behaviour {
     /// Recognition answers 500 (the APIs, Deepgram).
     pub fail: AtomicBool,
+    /// How long the transcription APIs hold their answer, as a slow engine does.
+    pub transcription_hold: Mutex<Duration>,
     /// The text every engine recognises.
     pub text: Mutex<String>,
     /// The speech.cpp model list (`/v1/models`).
@@ -46,6 +48,11 @@ pub struct Behaviour {
     pub deepgram_models: Mutex<Value>,
     /// Realtime: audio blocks to receive before an utterance is announced (0: never).
     pub realtime_after: AtomicUsize,
+    /// Realtime: utterances to announce at the next audio blocks, one each, whatever
+    /// `realtime_after` says.
+    pub realtime_announce: AtomicUsize,
+    /// Realtime: when each utterance was announced, just before its events were sent.
+    pub realtime_announced: Mutex<Vec<Instant>>,
     /// The status of the Realtime handshake; 0 accepts.
     pub realtime_refuse: AtomicU16,
     /// Realtime: the connection is held without an answer to its handshake, as a server that
@@ -224,6 +231,7 @@ impl FakeAsr {
                 if failing {
                     return Self::json(&mut stream, 500, json!({ "error": "down" }));
                 }
+                std::thread::sleep(*self.behaviour.transcription_hold.lock().unwrap());
                 Self::json(
                     &mut stream,
                     200,
@@ -361,7 +369,8 @@ impl FakeAsr {
                     if unfinished {
                         continue;
                     }
-                    if after > 0 && counted == after {
+                    let asked = self.behaviour.realtime_announce.try_update(Ordering::SeqCst, Ordering::SeqCst, |n| n.checked_sub(1)).is_ok();
+                    if asked || (after > 0 && counted == after) {
                         counted = 0;
                         item += 1;
                         let id = format!("item_{item}");
@@ -385,6 +394,7 @@ impl FakeAsr {
                             }
                             continue;
                         }
+                        self.behaviour.realtime_announced.lock().unwrap().push(Instant::now());
                         for message in [
                             next("input_audio_buffer.speech_started", json!({ "item_id": id })),
                             next(&format!("{prefix}delta"), json!({ "item_id": id, "delta": half })),

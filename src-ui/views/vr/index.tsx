@@ -3,7 +3,7 @@
 // バックエンドへの送信はメインウィンドウ経由で行う (useStdoutToPython)。
 import { StrictMode } from "react";
 import ReactDOM from "react-dom/client";
-import "@root/locales/config.js";
+import "@root/locales/config.ts";
 import "../app/_index_css/root.css";
 
 import { store } from "@store";

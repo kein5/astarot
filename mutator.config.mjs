@@ -2,8 +2,8 @@
 // re-run the results is in docs/development.md ("UIのミューテーションテスト").
 //
 // mutator instruments sources through Vite. Only modules that the tests import go through Vite;
-// sources that tests load with loadModule (src-ui/logics/test/hookHarness.js) or
-// loadBridgeRoutes (bridgeHarness.js), or read as text, are evaluated outside Vite and get no
+// sources that tests load with loadModule (src-ui/logics/test/hookHarness.ts) or
+// loadBridgeRoutes (bridgeHarness.ts), or read as text, are evaluated outside Vite and get no
 // mutants that any test can reach. They are excluded below so that the score covers what the
 // tests can be measured on. Move a file out of `exclude` when its tests import it.
 export default {

@@ -1,0 +1,57 @@
+import assert from "node:assert/strict";
+import { test } from "vitest";
+import { hooks, loadModule } from "../../../../../../logics/test/hookHarness.ts";
+import { missingLanguagesText } from "../../../../../../logics/common/fontLanguages.ts";
+
+interface Options {
+    selected?: string;
+    missing?: string[];
+    open?: boolean;
+    fonts?: Record<string, string>;
+}
+
+async function render({ selected = "", missing = [], open = true, fonts = { "Noto Sans": "Noto Sans" } }: Options = {}) {
+    const runtime = hooks(), asked: boolean[] = [], chosen: unknown[] = [];
+    const { OverlayFontFamily } = await loadModule<typeof import("./OverlayFontFamily.tsx")>(new URL("./OverlayFontFamily.tsx", import.meta.url), runtime, {
+        "@store": { useStore_SelectableFontFamilyList: () => ({ currentSelectableFontFamilyList: { data: fonts } }) },
+        "@logics_configs": { useVr: () => ({
+            currentOverlayFontFamily: { data: selected, state: "ok" },
+            setOverlayFontFamily: (value: unknown) => chosen.push(value),
+            currentOverlayFontMissingLanguages: { data: missing },
+            getOverlayFontMissingLanguages: () => asked.push(true),
+        }) },
+        "@logics_common": { useIsOpenedConfigPage: () => ({ currentIsOpenedConfigPage: { data: open } }) },
+        "../_templates/Templates": { DropdownMenuContainer: "dropdown" },
+        "../../../../../../logics/common/fontLanguages.ts": { missingLanguagesText },
+    });
+    const tree = runtime.render(OverlayFontFamily, {});
+    return { props: tree.props, asked, chosen };
+}
+
+test("the list offers automatic first, then this PC's fonts, and a saved font that is gone", async () => {
+    const auto = await render();
+    assert.deepEqual(Object.keys(auto.props.list), ["", "Noto Sans"]);
+    assert.equal(auto.props.selected_id, "");
+    auto.props.selectFunction({ selected_id: "Noto Sans" });
+    assert.deepEqual(auto.chosen, ["Noto Sans"]);
+
+    const gone = await render({ selected: "Gone Sans" });
+    assert.deepEqual(Object.keys(gone.props.list), ["", "Gone Sans", "Noto Sans"]);
+    assert.equal(gone.props.list["Gone Sans"], "config_page.vr.overlay_font_family.not_installed");
+});
+
+test("a warning says when no font here can show a language, asked for when the settings open", async () => {
+    const fine = await render();
+    assert.equal(fine.props.desc, "config_page.vr.overlay_font_family.desc");
+    assert.deepEqual(fine.props.add_warnings, []);
+    assert.equal(fine.asked.length, 1);
+
+    // A warning under the label, not part of the description: it stays in sight where the
+    // description is the label's hint (#614).
+    const missing = await render({ missing: ["Japanese"] });
+    assert.equal(missing.props.desc, "config_page.vr.overlay_font_family.desc");
+    assert.deepEqual(missing.props.add_warnings, [{ label: "config_page.vr.overlay_font_family.missing" }]);
+
+    const closed = await render({ open: false });
+    assert.equal(closed.asked.length, 0);
+});

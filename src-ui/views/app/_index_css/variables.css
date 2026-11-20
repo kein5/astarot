@@ -6,7 +6,7 @@
        The primary scale is the Lilac hue. 600 is the Lilac fill, 450-550 lighter hover fills,
        650/700 pressed fills; all of 450-700 carry --vox_on_primary (Dark Plum) text at 4.5:1 or more.
        750-900 are deep violets for fills that carry light text. The light end is text, links and focus.
-       brandPalette.test.js checks the rule and these pairs against the canvas and the surface. */
+       brandPalette.test.ts checks the rule and these pairs against the canvas and the surface. */
     --primary_100_color: #eee8fe;
     --primary_150_color: #e2d9fe;
     --primary_200_color: #d9c8fc;

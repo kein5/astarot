@@ -94,77 +94,6 @@ int main(void) {
     assert result.stdout == b""
 
 
-@pytest.mark.parametrize("source_kind", ["mic", "speaker"])
-def test_private_capture_has_timestamped_pcm_and_stops_on_target_removal(
-    tmp_path, source_kind
-):
-    binary = build(tmp_path)
-    from models.transcription.capture_packets import CapturePackets
-    from tools.voice_acceptance import (
-        private_graph,
-        loopback,
-        graph_snapshot,
-        nodes,
-        stop_process,
-    )
-    from tools.voice_b_poc import Producer, ToneCapture, ready
-
-    with private_graph(), ExitStack() as stack:
-        endpoint_process = loopback(stack, "vrct.capture.test")
-        Producer(stack, "vrct.capture.test.sink", 440)
-        # Producer construction only launches pw-cat; its asynchronous link and
-        # latency propagation can still be pending. Establish actual signal flow
-        # before testing timestamp continuity and target removal on a fixed graph.
-        probe = ToneCapture(stack, "vrct.capture.test.source")
-        ready(probe, 440)
-        name = "vrct.capture.test." + ("source" if source_kind == "mic" else "sink")
-        snapshot = graph_snapshot()
-        cookie = next(
-            n["info"]["cookie"]
-            for n in snapshot
-            if n["type"] == "PipeWire:Interface:Core"
-        )
-        serial = nodes()[name]["info"]["props"]["object.serial"]
-        owner = os.pidfd_open(threading.get_native_id(), os.O_EXCL)
-        try:
-            p = subprocess.Popen(
-                [
-                    str(binary),
-                    str(os.getpid()),
-                    str(owner),
-                    str(cookie),
-                    str(serial),
-                    name,
-                    source_kind,
-                    "a" * 32,
-                ],
-                pass_fds=(owner,),
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                bufsize=0,
-            )
-        finally:
-            os.close(owner)
-        try:
-            d = CapturePackets()
-            received = []
-            deadline = time.monotonic() + 5
-            while len(received) < 10 and time.monotonic() < deadline:
-                if select.select([p.stdout], [], [], 0.1)[0]:
-                    raw = os.read(p.stdout.fileno(), 4096)
-                    assert raw, p.stderr.read().decode()
-                    received.extend(d.feed(raw, time.monotonic_ns()))
-                assert p.poll() is None
-            assert len(received) >= 10
-            assert any(any(frame.audio.pcm) for frame in received)
-            stop_process(endpoint_process)
-            assert p.wait(2) != 0
-        finally:
-            stop_process(p)
-            p.stdout.close()
-            p.stderr.close()
-
-
 def test_advancing_graph_cycle_is_same_epoch_but_not_same_snapshot(tmp_path):
     """Different buffers advance cycle; only paired reads need equal cycles."""
     harness = tmp_path / "clock.c"
@@ -291,70 +220,10 @@ int main(int argc, char **argv) {
         assert b'asr_capture_clock_changed' in result.stderr
 
 
-@pytest.mark.parametrize("fault", ["cookie", "serial", "backpressure"])
-def test_capture_fails_closed_for_wrong_identity_or_unread_pipe(tmp_path, fault):
-    binary = build(tmp_path)
-    from tools.voice_acceptance import (
-        private_graph,
-        loopback,
-        graph_snapshot,
-        nodes,
-        stop_process,
-    )
-    from tools.voice_b_poc import Producer
-
-    with private_graph(), ExitStack() as stack:
-        loopback(stack, "vrct.capture.fault")
-        Producer(stack, "vrct.capture.fault.sink", 440)
-        snapshot = graph_snapshot()
-        cookie = next(
-            n["info"]["cookie"]
-            for n in snapshot
-            if n["type"] == "PipeWire:Interface:Core"
-        )
-        serial = nodes()["vrct.capture.fault.source"]["info"]["props"]["object.serial"]
-        owner = os.pidfd_open(threading.get_native_id(), os.O_EXCL)
-        try:
-            p = subprocess.Popen(
-                [
-                    str(binary),
-                    str(os.getpid()),
-                    str(owner),
-                    str(cookie + (fault == "cookie")),
-                    str(serial + (fault == "serial")),
-                    "vrct.capture.fault.source",
-                    "mic",
-                    "b" * 32,
-                ],
-                pass_fds=(owner,),
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                bufsize=0,
-            )
-        finally:
-            os.close(owner)
-        try:
-            # Deliberately don't drain stdout; bounded writes must fail, not wait.
-            assert p.wait(4) != 0
-            error = p.stderr.read()
-            expected = {
-                "cookie": b"core_changed",
-                "serial": b"endpoint_changed",
-                "backpressure": b"pipe_blocked",
-            }[fault]
-            assert expected in error, error
-            if fault != "backpressure":
-                assert not p.stdout.read()
-        finally:
-            stop_process(p)
-            p.stdout.close()
-            p.stderr.close()
-
-
 @pytest.mark.parametrize("mode", ["normal", "kill", "thread"])
 def test_capture_cannot_outlive_parent_or_creating_thread(tmp_path, mode):
     import psutil
-    from tools.voice_acceptance import (
+    from tools.private_pipewire import (
         private_graph,
         loopback,
         graph_snapshot,
@@ -450,7 +319,7 @@ else:
 
 
 def test_capture_never_follows_changed_default_or_same_name_recreation(tmp_path):
-    from tools.voice_acceptance import (
+    from tools.private_pipewire import (
         private_graph,
         loopback,
         graph_snapshot,

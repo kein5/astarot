@@ -606,3 +606,25 @@ fn bad_user_model_requests_fail_with_a_code_and_write_nothing() {
     assert!(!ui.dir.join("user_models.json").exists());
     ui.stop();
 }
+/// Chat reading resolves its models from a table of its own (`ocr_runtime::models::CATALOG`),
+/// which repeats the OCR entries of the download catalog: the same models, revisions and files.
+/// Python's catalog was the reference until 0.6.0 (`ocr-runtime/tests/models.rs` compared them);
+/// the download catalog is now.
+#[test]
+fn chat_reading_s_table_repeats_the_ocr_entries_of_the_download_catalog() {
+    let downloads: Vec<Value> = vrct_ops::downloads::catalog::catalog()
+        .into_iter()
+        .filter(|m| m.target == "ocr")
+        .map(|m| json!([m.id, m.revision, m.artifacts.iter().map(|a| json!([a.filename, a.size, a.sha256, a.role])).collect::<Vec<_>>()]))
+        .collect();
+    let reading: Vec<Value> = ocr_runtime::models::CATALOG
+        .iter()
+        .map(|e| json!([e.id, e.revision, e.artifacts.iter().map(|a| json!([a.filename, a.size, a.sha256, a.role])).collect::<Vec<_>>()]))
+        .collect();
+    assert!(!reading.is_empty());
+    assert_eq!(reading, downloads);
+    assert_eq!(
+        (ocr_runtime::models::DETECTOR_MODEL_ID, ocr_runtime::models::DETECTOR_FILE_NAME),
+        (vrct_ops::downloads::catalog::DETECTOR_MODEL_ID, vrct_ops::downloads::catalog::DETECTOR_FILE_NAME)
+    );
+}

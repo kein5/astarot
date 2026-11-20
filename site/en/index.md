@@ -1,5 +1,6 @@
 ---
-layout: home
+pageType: home
+description: How to use ASTAROT, a translation, speech recognition, text-to-speech, voice conversion and chat-reading app for VRChat
 hero:
   name: ASTAROT
   text: Translation, captions and speech for your VRChat conversations

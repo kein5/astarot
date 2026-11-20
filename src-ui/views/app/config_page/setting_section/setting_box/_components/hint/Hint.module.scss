@@ -1,3 +1,5 @@
+@import "@scss_mixins";
+
 // The question mark after a label: quiet, in the description color, the size of a small mark.
 .hint {
     display: inline-flex;
@@ -21,29 +23,18 @@
     &:focus-visible { outline: .2rem solid var(--primary_200_color); outline-offset: .2rem; }
 }
 
-// The bubble, drawn like the app's other tooltips (common_components/tooltip): anchored to the
-// label line that holds it ([data-hint-host] is positioned), under it, as wide as its words up
-// to a measure that reads comfortably.
+// The bubble, the app's one tooltip look (the tooltip_content mixin, shared with
+// common_components/tooltip): anchored to the label line that holds it ([data-hint-host] is
+// positioned), under it. The mixin makes it as wide as its words up to a reading measure, not
+// as narrow as its host: an option's label is a few characters wide, and its bubble would be a
+// column of single words.
 .tip {
     display: none;
     position: absolute;
     z-index: 1500;
     top: calc(100% + .6rem);
     left: 0;
-    // As wide as its words up to a reading measure, not as narrow as its host: an option's
-    // label is a few characters wide, and its bubble would be a column of single words.
-    width: max-content;
-    max-width: min(36rem, 90cqi);
-    padding: .8rem 1.2rem;
-    border-radius: var(--vox_radius, .8rem);
-    background-color: var(--dark_700_color);
-    color: var(--dark_basic_text_color);
-    font-size: 1.2rem;
-    font-weight: 500;
-    line-height: 1.6;
-    text-align: left;
-    white-space: pre-line;
-    overflow-wrap: anywhere;
+    @include tooltip_content;
     pointer-events: none;
     animation: appear var(--vox_motion_fast, 120ms) var(--vox_ease, ease-out);
     @media (prefers-reduced-motion: reduce) { animation: none; }
@@ -56,7 +47,9 @@
 :global([data-hint-host]):hover .tip,
 :global([data-hint-host]):has(:focus-visible) .tip,
 // Keyboard focus in a row opens the hint of the row's label, not those of its options.
-:global([data-hint-row]):has(:focus-visible) .tip_row {
+:global([data-hint-row]):has(:focus-visible) .tip_row,
+// A row that takes focus itself, such as a fold's summary, opens its title's hint the same way.
+:global([data-hint-row]):focus-visible .tip_row {
     display: block;
 }
 

@@ -17,7 +17,7 @@
 
 ### ダウンロード
 
-- 取得できるのはカタログ（`downloads::catalog`）の固定のファイルだけです。版、サイズ、SHA-256 は `catalog.py` と同じで、`tests/catalog_reference.rs` が Python の出力（`tests/data/python_reference.json`）と1項目ずつ照合します。音声認識のエントリは `data/speechcpp_models.json`（speech.cpp のカタログの写し）と `data/speechcpp_asr.json`（出す名前とライセンスの審査）から作ります（`downloads/speechcpp.rs`。欄の説明は `data/README.md`）。Python の `catalog.py` も同じファイルを読みます。`catalog.py` を変えたら `python native/ops/reference/dump_reference.py` で基準を作り直し、`catalog.rs` を同じに直します（`tests/voice/test_native_ops_reference.py` が基準の古さを検出します）。
+- 取得できるのはカタログ（`downloads::catalog`）の固定のファイルだけです。版、サイズ、SHA-256 はカタログが正本です。`tests/catalog_reference.rs` は、0.6.0 で消した Python のカタログの写し（`tests/data/python_reference.json`）と1項目ずつ照合します。カタログの項目を変えたら、この写しも手で直します（写しを作る `reference/dump_reference.py` は Python と一緒に消しました）。音声認識のエントリは `data/speechcpp_models.json`（speech.cpp のカタログの写し）と `data/speechcpp_asr.json`（出す名前とライセンスの審査）から作ります（`downloads/speechcpp.rs`。欄の説明は `data/README.md`）。
 - 要求は `{id, consent, catalog_version}` の3項目だけで、`consent` が `true`、版が現在のカタログと一致しなければ、ファイルにもネットワークにも触れません。
 - 取得は `.partial-<32桁の16進>` の作業フォルダに書き、全ファイルのサイズと SHA-256 が合ってから `<root>/<id>/<revision>/` に名前を変えて公開します。失敗、取り消し、終了のときは何も公開せず、作業フォルダを消してから結果を報告します。
 - 根元のフォルダには所有の印（`.download.lock`）を取ります。Python 版と同じロック（Linux は `flock`、Windows は先頭1バイトのロック）なので、移行中に両方が動いても互いを排除します。中断されたプロセスが残した作業フォルダは、印（`owner.json`）がカタログの項目と完全に一致し、その項目のファイルだけを含む場合に限り、次の所有者が片付けます。リンクはたどらず、見覚えのないものは消しません。

@@ -25,6 +25,7 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, OnceLock, RwLock};
 use std::time::Instant;
+use vrct_transcription::diagnostics::{Event as Diagnosed, Stage};
 use vrct_translation::transliteration::Tokenizer;
 
 // ------------------------------------------------------------------------- readings
@@ -302,6 +303,10 @@ pub struct SpokenMessage {
 
 /// An output the other areas plug in. `Err` reports a failed output.
 pub type Hook<T> = Arc<dyn Fn(&T) -> Result<(), ()> + Send + Sync>;
+
+/// Runs an output of a realtime final through its delivery (`output_progress`): the action
+/// gives true when what it sent went out ([`vrct_transcription::realtime::delivery::Output`]).
+pub(crate) type RunOutput<'a> = &'a dyn Fn(&mut dyn FnMut() -> bool) -> bool;
 
 /// The outbound hooks; unset ones do nothing.
 #[derive(Clone, Default)]
@@ -601,7 +606,7 @@ impl Core {
         asr_ms: Option<u64>,
         guard: Option<Guard>,
     ) -> Option<Value> {
-        self.process_message_stamped(spec, message, language, id, asr_ms, guard, None, None, None, None)
+        self.process_message_stamped(spec, message, language, id, asr_ms, guard, None, None, None, None, None)
     }
 
     /// Takes the settings of a message and its place in the chatbox order. `chatbox` false
@@ -631,8 +636,21 @@ impl Core {
         admitted: Admitted,
         mic_voice: Option<MicVoice>,
         received_ns: i64,
+        output: RunOutput<'_>,
     ) -> Option<Value> {
-        self.process_message_stamped(spec, message, None, Some(id), None, Some(guard), None, Some(admitted), mic_voice.as_ref(), Some(received_ns))
+        self.process_message_stamped(
+            spec,
+            message,
+            None,
+            Some(id),
+            None,
+            Some(guard),
+            None,
+            Some(admitted),
+            mic_voice.as_ref(),
+            Some(received_ns),
+            Some(output),
+        )
     }
 
     /// [`Core::process_message`] with the speech generation the receiver stamped, or with what
@@ -650,6 +668,7 @@ impl Core {
         admitted: Option<Admitted>,
         mic_voice: Option<&MicVoice>,
         received_ns: Option<i64>,
+        output: Option<RunOutput<'_>>,
     ) -> Option<Value> {
         let mic = spec.kind == "mic";
         // A message refused at admission stays refused after unmute.
@@ -703,6 +722,10 @@ impl Core {
             let translate_started = Instant::now();
             let result = self.translate_message(spec, &snapshot, message);
             translate_ms = translate_started.elapsed().as_millis();
+            if !current() || result.is_err() {
+                // Slow translation is kept even when the message goes no further.
+                self.record_latency(spec, asr_ms, translate_ms, started.elapsed().as_millis(), true);
+            }
             if !current() {
                 return None;
             }
@@ -803,12 +826,20 @@ impl Core {
                         if snapshot.send_only_translated && snapshot.translation_enabled { "" } else { message };
                     let text = format_message(&snapshot.format_parts, &translations, original);
                     let chatbox_current = || current() && self.config().get_bool(gate);
-                    let sent = self
-                        .messages()
-                        .chatbox
-                        .lock()
-                        .unwrap()
-                        .send(sequence, || self.chatbox_send(&text, &chatbox_current));
+                    let send = || self.messages().chatbox.lock().unwrap().send(sequence, || self.chatbox_send(&text, &chatbox_current));
+                    // A realtime final that reached the chatbox is delivered even if it expires
+                    // after (`output_progress`, decision 15).
+                    let sent = match output {
+                        Some(output) => {
+                            let mut sent = Ok(false);
+                            output(&mut || {
+                                sent = send();
+                                matches!(sent, Ok(true))
+                            });
+                            sent
+                        }
+                        None => send(),
+                    };
                     if let Ok(sent) = &sent {
                         Self::io_trace_chatbox(trace.as_ref(), Some(*sent));
                     }
@@ -942,17 +973,39 @@ impl Core {
         let translated = snapshot.translation_enabled.then_some(translations.as_slice());
         let failed: Vec<Value> = payload.get("output_failures").and_then(Value::as_array).cloned().unwrap_or_default();
         self.io_trace_publish(trace, translated, translate_ms, total.saturating_sub(translate_ms), &failed);
-        let asr = asr_ms.map(|ms| format!("asr={ms}ms ")).unwrap_or_default();
-        self.step(&format!(
-            "[latency][{}] {asr}translate={translate_ms}ms output={}ms total={}ms",
-            spec.kind,
-            total.saturating_sub(translate_ms),
-            total + u128::from(asr_ms.unwrap_or(0))
-        ));
+        self.record_latency(spec, asr_ms, translate_ms, total, false);
         if spec.push.is_none() {
             return Some(Value::Object(payload));
         }
         None
+    }
+
+    /// `_recordMessageLatency`: the times of a message, without its text. Typed chat and the
+    /// chat's reading write their line every time; recognised speech is counted in the speech
+    /// diagnostics, and its line written only when a stage is slow (or recognition took 5 s or
+    /// more). `pipeline_ms` runs from after the word filter to the last output; the total adds
+    /// recognition. `aborted`: the message went no further than its translation.
+    fn record_latency(&self, spec: &Spec, asr_ms: Option<u64>, translate_ms: u128, pipeline_ms: u128, aborted: bool) {
+        let output_ms = pipeline_ms.saturating_sub(translate_ms);
+        let total_ms = pipeline_ms + u128::from(asr_ms.unwrap_or(0));
+        let asr = asr_ms.map(|ms| format!("asr={ms}ms ")).unwrap_or_default();
+        let mut detail = format!("[latency][{}] {asr}translate={translate_ms}ms output={output_ms}ms total={total_ms}ms", spec.kind);
+        if !matches!(spec.kind, "mic" | "speaker") {
+            self.step(&detail);
+            return;
+        }
+        let translate = if spec.realtime { Stage::RealtimeTranslate } else { Stage::Translate };
+        let mut stages = vec![(translate, translate_ms as f64), (Stage::Output, output_ms as f64)];
+        // Realtime recognition's time is not known: the server does not give it.
+        if !spec.realtime {
+            stages.push((Stage::Total, total_ms as f64));
+        }
+        if aborted {
+            detail.push_str(" publication=aborted");
+        }
+        let event = if aborted { Diagnosed::MessageAborted } else { Diagnosed::Message };
+        let slow_asr = asr_ms.is_some_and(|ms| ms as f64 >= vrct_transcription::diagnostics::SLOW_ASR_MS);
+        self.transcription.diagnostics.record(spec.kind, event, &stages, Some(detail), slow_asr);
     }
 
     /// The translations of a message to every destination (`getInputTranslate`,
@@ -1126,7 +1179,7 @@ impl Core {
         }
         // The receiver's stamp: a stop while this waited in the queue refuses its speech.
         let stamped = data.get("_voice_generation").and_then(Value::as_u64);
-        match self.process_message_stamped(&CHAT, text, None, Some(id_text), None, None, stamped, None, None, None) {
+        match self.process_message_stamped(&CHAT, text, None, Some(id_text), None, None, stamped, None, None, None, None) {
             Some(mut result) => {
                 // The id goes back as the UI sent it.
                 result["id"] = id.clone();

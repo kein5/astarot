@@ -1,6 +1,6 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import "@root/locales/config.js";
+import "@root/locales/config.ts";
 import "./_index_css/root.css";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 

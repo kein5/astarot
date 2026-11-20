@@ -4,7 +4,7 @@ ASTAROTが他のプログラムとやり取りする口。UIとサイドカー�
 
 ## VRChatへのOSC
 
-`src-python/models/osc/osc.py`（python-osc、OSCQueryは任意のtinyoscquery）。
+`native/adapters/src/osc/`（0.5まではPythonの`osc.py`。python-osc、OSCQueryは任意のtinyoscquery）。
 
 | 方向 | アドレス | 引数 | 送る条件 |
 |---|---|---|---|
@@ -36,7 +36,7 @@ ASTAROTが他のプログラムとやり取りする口。UIとサイドカー�
 
 ## WebSocketサーバー
 
-`src-python/models/websocket/websocket_server.py`。他のアプリに会話を配信する。
+`native/adapters/src/websocket.rs`。他のアプリに会話を配信する。
 
 | 項目 | 内容 |
 |---|---|
@@ -53,7 +53,7 @@ ASTAROTが他のプログラムとやり取りする口。UIとサイドカー�
 
 ### この PC の外での待ち受け
 
-ループバック以外のアドレスで待ち受けると、同じネットワークで通信を見られる人がトークンと会話を読めてしまう（セキュリティ監査 SEC-01）。そのため WebSocket と OBS は、ループバック以外では TLS だけで待ち受ける（`src-python/models/websocket/tls.py`）。
+ループバック以外のアドレスで待ち受けると、同じネットワークで通信を見られる人がトークンと会話を読めてしまう（セキュリティ監査 SEC-01）。そのため WebSocket と OBS は、ループバック以外では TLS だけで待ち受ける（`native/adapters/src/tls.rs`）。
 
 - 証明書と秘密鍵は`WEBSOCKET_TLS_CERT_FILE`と`WEBSOCKET_TLS_KEY_FILE`（PEMのファイルのパス、既定は空）。同じファイルに両方が入っていてもよい。パスフレーズ付きの鍵は使えない（コンソールで尋ねて止まらないよう、空のパスフレーズで読む）。1 MiBを超えるファイル、通常のファイルでないもの、空のファイルは読まない。
 - `/set/data/websocket_tls`は`{"cert_file", "key_file"}`を受け取り、両方を読み込めたときだけ保存する。片方だけ、形の違う要求、読み込めない組は`WEBSOCKET_TLS_INVALID`。両方を空にすると未設定に戻るが、ホストがループバック以外の間は`WEBSOCKET_HOST_NEEDS_TLS`で拒否する。ループバック以外で動いているサーバーは、新しい組で起動し直してから保存する。起動し直せなければ前の組で立て直し、`WEBSOCKET_SERVER_UNAVAILABLE`を返す。エラーの`data`は保存済みの組。
@@ -81,7 +81,7 @@ ASTAROTが他のプログラムとやり取りする口。UIとサイドカー�
 
 ## OBSブラウザソース
 
-`src-python/models/obs/obs_browser_source_server.py`。配信画面に字幕を出すHTMLを配る。
+`native/adapters/src/obs/`。配信画面に字幕を出すHTMLを配る。
 
 - `OBS_BROWSER_SOURCE`（既定オフ）、`OBS_BROWSER_SOURCE_PORT`（既定2232、整数の1〜65535）。待ち受けるアドレスは`WEBSOCKET_HOST`と同じ。ループバック以外ではWebSocketと同じ証明書でHTTPSだけを使う（[この PC の外での待ち受け](#この-pc-の外での待ち受け)）。
 - 表示設定の数値は整数に限る。最大メッセージ数は1〜50、表示時間は1〜120秒、フェードアウト時間は0〜120秒、文字サイズは10〜200px、縁取りの太さは0〜20px。IPCでは整数の文字列も受け付け、成功応答と配信通知には保存した整数を返す。範囲外・小数・真偽値は既存の`OBS_BROWSER_SOURCE_*_INVALID`で拒否し、保存も配信もしない。保存ファイルに無効な値があれば、読み込み時に既定値へ戻す。初回表示と開いているページへの更新も同じ範囲を使う。
@@ -267,7 +267,7 @@ TTSのスイッチをオフにしたときは、そのスイッチが起動し�
 
 | エンジン | 既定のURL | 使うAPI |
 |---|---|---|
-| VOICEVOX、SHAREVOX、AivisSpeech | `127.0.0.1`の50021、50025、10101 | `GET /version`、`GET /speakers`、`POST /audio_query`、`POST /synthesis`（`src-python/models/tts/voicevox_tts.py`） |
+| VOICEVOX、SHAREVOX、AivisSpeech | `127.0.0.1`の50021、50025、10101 | `GET /version`、`GET /speakers`、`POST /audio_query`、`POST /synthesis`（`native/tts/src/engines.rs`） |
 | COEIROINK v2 | `127.0.0.1:50032` | `GET /v1/engine_info`、`GET /v1/speakers_path_variant`、`POST /v1/synthesis`（`coeiroink_tts.py`） |
 
 - 読み上げる文は文末（`。`、`！`、`？`など）と改行で分け、40文字を超える文は読点でも分ける。1つずつ合成し、読み上げている間に次の文を合成する（`external_engine.py`）。エンジンは文ごとにWAVをまとめて返すので、分けないとマイクの読み上げが5秒の開始期限に間に合わない。
@@ -297,8 +297,8 @@ TTSのスイッチをオフにしたときは、そのスイッチが起動し�
 
   既定値はVOICEVOXの`/audio_query`が返す値で、既定のままの項目は書き換えない。範囲はVOICEVOXの画面の調整の範囲である。設定画面では、選んだエンジンの「〈エンジン名〉の読み方」に4つの値が出る。保存した値は次の読み上げから使う。既定のままの項目は`config.json`に書かない。0.5は知らない項目があると`VOICE_SETTINGS`全体を捨てるので、変えていなければ0.5に戻しても声の設定が残る。
 - WAVは16ビットのPCMだけを受け付け、約0.2秒ずつに分けて流す。1件の読み上げは60秒まで。エラーには安全なコードだけを使い、読み上げる文、音声、応答の本文を含めない。
-- 設定画面（`src-ui/.../tts/TtsEngine.jsx`）は、エンジンを選んだときと「再確認」を押したときに`/get/data/tts_engine_voices`へ`{engine, url, request_id}`を送る。保存前の編集中のエンジンとURLを使い、エンジンには版と声の一覧だけを問い合わせる。文は送らず、合成もしない。応答の`request_id`が最新の問い合わせと同じときだけ画面に使う。声は500件まで返し、保存できない名前やIDの声は除く。
-- モデルカタログの外部エンジンのカード（`EngineCatalog.jsx`）も同じエンドポイントで接続できるかを確かめる。保存済みのURL（未設定ならエンジンの既定）を使い、`request_id`は`catalog-`で始める。結果はエンジンごとに持ち、上の欄の問い合わせを置き換えない。保存済みの設定が届いたときに1回と、「再確認」を押したときに問い合わせる。
+- 設定画面（`src-ui/.../tts/TtsEngine.tsx`）は、エンジンを選んだときと「再確認」を押したときに`/get/data/tts_engine_voices`へ`{engine, url, request_id}`を送る。保存前の編集中のエンジンとURLを使い、エンジンには版と声の一覧だけを問い合わせる。文は送らず、合成もしない。応答の`request_id`が最新の問い合わせと同じときだけ画面に使う。声は500件まで返し、保存できない名前やIDの声は除く。
+- モデルカタログの外部エンジンのカード（`EngineCatalog.tsx`）も同じエンドポイントで接続できるかを確かめる。保存済みのURL（未設定ならエンジンの既定）を使い、`request_id`は`catalog-`で始める。結果はエンジンごとに持ち、上の欄の問い合わせを置き換えない。保存済みの設定が届いたときに1回と、「再確認」を押したときに問い合わせる。
 
 ## デスクトップとの統合
 
@@ -339,7 +339,7 @@ WindowsのWebView2は、全ウィンドウを同じ起動引数で作る（`src-
 
 `devCsp`だけはViteのReact Refresh用inline script、HMR用style、および`ws://localhost:1420`、`ws://127.0.0.1:1420`、`ws://localhost:1421`、`ws://127.0.0.1:1421`を許す。通常のdev URLは`http://localhost:1420`。`TAURI_DEV_HOST`に別のホストを指定する場合は、開発用のローカルTauri設定で`devCsp.connect-src`にそのホストのHMR URL（ポート1421）を明記する。配布用CSPを広げない。
 
-静的検査は`src-ui/logics/common/contentSecurityPolicy.test.js`にある。設定、ソースの危険な呼び出しと資源の読み込み、依存のCSSハッシュを検査する。`dist/`があれば、生成JSにeval/Wasm/Workerがないこと、生成CSS/HTMLが同梱資源だけを参照すること、生成JS内のCSSも同じハッシュになることを追加で確かめる。`dist/`がない場合は生成物の検査だけをスキップするため、Viteビルド後にも単独で実行する。静的検査は任意の動的URLのデータフローやWebview実装の挙動までは証明しない。[配布ビルドでのCSP検証](../readme_build.md#配布ビルドでのcsp検証)を別途実行する。
+静的検査は`src-ui/logics/common/contentSecurityPolicy.test.ts`にある。設定、ソースの危険な呼び出しと資源の読み込み、依存のCSSハッシュを検査する。`dist/`があれば、生成JSにeval/Wasm/Workerがないこと、生成CSS/HTMLが同梱資源だけを参照すること、生成JS内のCSSも同じハッシュになることを追加で確かめる。`dist/`がない場合は生成物の検査だけをスキップするため、Viteビルド後にも単独で実行する。静的検査は任意の動的URLのデータフローやWebview実装の挙動までは証明しない。[配布ビルドでのCSP検証](../readme_build.md#配布ビルドでのcsp検証)を別途実行する。
 
 ### Tauriのコマンド
 
@@ -362,7 +362,7 @@ WindowsのWebView2は、全ウィンドウを同じ起動引数で作る（`src-
 
 Quick Chatのコンテキストは、`ready`、`language`、`enter_to_send`、`clear_on_send`に加え、保存済みの`ui_scaling`（整数、40〜200%）と`font_family`（空白だけではなく、制御文字を含まない256文字以内のローカルフォント名）を持つ。Rustは呼び出し元と値を検証してから置き換える。新しい2項目を省略した要求は100%と`Yu Gothic UI`を使う。小窓はフォント名をCSSの文字列として扱い、既存のNoto／システムフォントへのフォールバックを保つ。設定ファイルのキーやPython側のIPC形式は変更しない。
 
-VRパネルの要求は`main`が中継する（セキュリティ監査 SEC-02）。中継するのは、VRパネルが実際に送る操作として`VR_PANEL_RELAY_PATHS`（`src-ui/logics/common/vrPanelWire.ts`）に載せたものだけで、載っていない操作は新しいエンドポイントも含めて中継しない。載せているのは、VRパネル自身の窓と操作バー、ランチャーの4つのスイッチ、言語の窓、VRの設定の窓が変える設定（デバイスとしきい値、翻訳・音声認識・チャット読み取りの選択、AI翻訳のモデルの選択、音声認識の区切りの秒数と最大語数、VRChatのチャットボックスのスイッチ、メッセージの変換、VRの字幕、表示言語とフォント）である。アプリの終了と更新、ファイルを開く操作、モデルや実行環境の取得、認証キーとトークン、接続先（URL、WebSocket・OBS・OSCのホストとポート、証明書）、音声の設定、テレメトリの有効化と同意は載せない。`main`は中継する要求に`"origin": "vr_panel"`を付け、バックエンドも同じ一覧（core は`native/core/src/dispatch.rs`の`vr_panel_endpoints`、Python は`src-python/models/vr_panel_policy.py`）で確かめる。一覧にない要求は解釈せず、403と`vr_panel_request_refused`を返す。`origin`のない要求は`main`自身のもので、`vr_panel`以外の`origin`は拒否する。3つの一覧が同じことは試験で確かめる。イベントを送る権限を持つのは`main`のウィンドウだけである（`src-tauri/capabilities`）。VRパネルが持つのはイベントを聞く権限だけで、`vr-panel-stdout`などの3つのイベントは`vr_panel_send`に渡し、Rustが`main`へ送る（[ウィンドウ間の連携](#ウィンドウ間の連携)）。VRパネルへ写す状態にも、認証キーとトークンは入れない（[VRパネルへ写す状態](#vrパネルへ写す状態)）。ウィンドウの共有を戻すトークン（`ocr_portal_restore_token`）も、中継と写しの対象から外す。
+VRパネルの要求は`main`が中継する（セキュリティ監査 SEC-02）。中継するのは、VRパネルが実際に送る操作として`VR_PANEL_RELAY_PATHS`（`src-ui/logics/common/vrPanelWire.ts`）に載せたものだけで、載っていない操作は新しいエンドポイントも含めて中継しない。載せているのは、VRパネル自身の窓と操作バー、ランチャーの4つのスイッチ、言語の窓、VRの設定の窓が変える設定（デバイスとしきい値、翻訳・音声認識・チャット読み取りの選択、AI翻訳のモデルの選択、音声認識の区切りの秒数と最大語数、VRChatのチャットボックスのスイッチ、メッセージの変換、VRの字幕、表示言語とフォント）である。アプリの終了と更新、ファイルを開く操作、モデルや実行環境の取得、認証キーとトークン、接続先（URL、WebSocket・OBS・OSCのホストとポート、証明書）、音声の設定、テレメトリの有効化と同意は載せない。`main`は中継する要求に`"origin": "vr_panel"`を付け、バックエンドも同じ一覧（`native/core/src/dispatch.rs`の`vr_panel_endpoints`）で確かめる。一覧にない要求は解釈せず、403と`vr_panel_request_refused`を返す。`origin`のない要求は`main`自身のもので、`vr_panel`以外の`origin`は拒否する。3つの一覧が同じことは試験で確かめる。イベントを送る権限を持つのは`main`のウィンドウだけである（`src-tauri/capabilities`）。VRパネルが持つのはイベントを聞く権限だけで、`vr-panel-stdout`などの3つのイベントは`vr_panel_send`に渡し、Rustが`main`へ送る（[ウィンドウ間の連携](#ウィンドウ間の連携)）。VRパネルへ写す状態にも、認証キーとトークンは入れない（[VRパネルへ写す状態](#vrパネルへ写す状態)）。ウィンドウの共有を戻すトークン（`ocr_portal_restore_token`）も、中継と写しの対象から外す。
 
 ### ウィンドウ間の連携
 
@@ -388,7 +388,7 @@ VRパネルの要求は`main`が中継する（セキュリティ監査 SEC-02�
 
 - VRパネルは起動すると`vr_panel_state_subscribe`にチャンネルを渡し、受け付けられたら`vr-panel-ready`を送る。受け付けるのは`vr_panel`のウィンドウからの呼び出しだけで、開き直したパネルのチャンネルが前のものに替わる。
 - `main`は`vr_panel_state_push`で状態を送る。受け付けるのは`main`からの呼び出しだけ。購読しているパネルがなければ`false`を返し、次の会話ログは全件で送る。パネルのウィンドウを閉じるとチャンネルを捨てる。
-- 送るのは、VRパネルの画面が読む状態だけ（`src-ui/logics/common/vrPanelWire.ts`の`vrPanelStateNames`）。設定は、VRパネルが丸ごと読むカテゴリ（表示、デバイス、翻訳、音声認識、チャット読み取り、VR、その他）のもの。そのほかは会話ログ、ランチャーと言語の窓の状態（前提が足りないスイッチとその理由の識別子を含む）、メーター、入力と出力の表示など、名前で挙げたatomだけ。高度な設定（WebSocket、OBS、OSC、テレメトリ）、更新、ホットキーは送らない。認証キーとトークンは、カテゴリに入っていても送らない。VRパネルのコードが新しいatomを読むようになると、ソースを読む試験（`src-ui/logics/test/vrPanelStateScan.js`）が一覧に足すまで失敗する。
+- 送るのは、VRパネルの画面が読む状態だけ（`src-ui/logics/common/vrPanelWire.ts`の`vrPanelStateNames`）。設定は、VRパネルが丸ごと読むカテゴリ（表示、デバイス、翻訳、音声認識、チャット読み取り、VR、その他）のもの。そのほかは会話ログ、ランチャーと言語の窓の状態（前提が足りないスイッチとその理由の識別子を含む）、メーター、入力と出力の表示など、名前で挙げたatomだけ。高度な設定（WebSocket、OBS、OSC、テレメトリ）、更新、ホットキーは送らない。認証キーとトークンは、カテゴリに入っていても送らない。VRパネルのコードが新しいatomを読むようになると、ソースを読む試験（`src-ui/logics/test/vrPanelStateScan.ts`）が一覧に足すまで失敗する。
 - 会話ログだけは前に送ったログとの差分で送る。通し番号が合わなければ、VRパネルが`vr-panel-ready`で全件を頼み直す。
 
 VRパネルで会話ログを閉じている間も、状態の受信とログの更新は続ける。閉じた領域は描画せず、操作も受け付けない。ログ本体の購読を外し、開き直すと保存した表示位置と末尾への追従状態を戻す。上へスクロールして読んでいた場合はその位置を保ち、それ以外は最新の末尾に追従する。保存中に古い行が保持上限を超えた場合は、通常のログ更新と同じように位置を補正する。
@@ -425,4 +425,4 @@ VRパネルで会話ログを閉じている間も、状態の受信とログの
 
 `src-tauri/capabilities/`で、`main`にウィンドウ操作、ショートカット、許可したサイトを開くことを許す。ファイル、HTTP、プログラムの起動（shell）のプラグインはアプリに入っていない。バックエンドの`backend_*`コマンドは`main`だけが呼べることをRust側で確かめる。`quick_chat`にはイベントの受信だけを許し、コマンドは呼び出し元のウィンドウ名をRust側で確かめる。
 
-ブラウザーでURLを開けるのは`main`だけで、開けるのは`vrct_capability.json`の`opener:allow-open-url`に挙げたURLだけである（第2回セキュリティ監査 SEC-02）。同じウィンドウに当たる権限は合わさるので、`opener:default`のような広い権限はどのファイルにも入れない。一覧には、アプリが表示するリンクの行き先を挙げる。ユーザー向けドキュメント、このリポジトリ、元のVRCTと貢献者のページ、APIキーを作るページ、Hugging Faceのモデルカード、ライセンスの本文である。`..`を含むパス、パーセントで符号化した`.`と`\`、`@`を含むURLは拒否する。照合はglobで行い、Windowsでは`\`と`/`を同じ文字とみなす。UIに書いたURLと、Pythonのカタログが渡す取得元とライセンスのリンクがどれも一覧に入っていることは、試験で確かめる（`src-ui/logics/common/openerScope.test.js`、`tests/voice/test_url_open_scope.py`、`src-tauri/src/opener_scope_tests.rs`）。新しいリンクを足したら、一覧にも足す。
+ブラウザーでURLを開けるのは`main`だけで、開けるのは`vrct_capability.json`の`opener:allow-open-url`に挙げたURLだけである（第2回セキュリティ監査 SEC-02）。同じウィンドウに当たる権限は合わさるので、`opener:default`のような広い権限はどのファイルにも入れない。一覧には、アプリが表示するリンクの行き先を挙げる。ユーザー向けドキュメント、このリポジトリ、元のVRCTと貢献者のページ、APIキーを作るページ、Hugging Faceのモデルカード、ライセンスの本文である。`..`を含むパス、パーセントで符号化した`.`と`\`、`@`を含むURLは拒否する。照合はglobで行い、Windowsでは`\`と`/`を同じ文字とみなす。UIに書いたURLと、Pythonのカタログが渡す取得元とライセンスのリンクがどれも一覧に入っていることは、試験で確かめる（`src-ui/logics/common/openerScope.test.js`、`src-tauri/src/opener_scope_tests.rs`）。新しいリンクを足したら、一覧にも足す。

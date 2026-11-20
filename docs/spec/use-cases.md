@@ -69,7 +69,7 @@
 - 設定変更の順序: しきい値、範囲、検出器などの要求が別のエンドポイントから重なっても、設定の読み出し、検出器の選択、ワーカーへの予約を共通のロックで直列化する。次のtickで予約を反映し、遅れた要求が古い広い範囲を最後に上書きすることを防ぐ。言語の変更と開始・停止も同じロックで順序を保つ。
 - 開始と配送: モデルの準備後も、Controllerが有効化を確定するまでは最初のtickを実行しない。停止・終了の通知は待機中も受け付ける。Controllerが受け付けた結果だけを配送済みとして記録し、拒否された文は次のtickで再度配送を試す。配送処理の例外はtickの失敗として記録・表示し、下記の待ち時間を置いて再試行する。失敗した文を配送済みにはしない。配送epochによる古い出力の抑止は維持する。
 - 重複判定と処理順: 候補がないtickやフレームがないtickも間隔を測り、配送済みの記録を期限切れにする。通常のポーリング中に30秒を超えて見えなかった文は、再出現すると新しい発言になる。実際に処理が遅い場合の保持時間の下限はtick間隔の2倍のままとする。短い文（5文字未満）は完全一致だけで判定し、長い文の編集距離は短い方の文字数の2割（切り捨て）、最大2文字までを許す。検出器の信頼度上位6候補を前回の矩形との重なりで対応付け、まだ試していない候補、最後に試した順が古い候補を先に読む。信頼度順の入れ替わりや小さな移動でも順番を引き継ぐ。前の画像は持ち越さず、そのtickの画像に写る候補だけを使う。
-- 同じ画像の再利用: 候補の全画素・形状・データ型と読み取り条件が同じなら、直近の認識結果を最大32件のLRUから再利用する。20秒経った結果は次の処理可能なtickで読み直す。設定、言語・モデル・推論器、取り込み元・バックエンド、読み取り範囲・検出器の変更時と停止・開始時に破棄する。再利用した文も通常の重複判定を通して「最後に見た時刻」を更新するため、表示され続ける文が30秒ごとに再配送されることはない。再利用の有無にかかわらず、消えた文は上記の保持期限で判定する。詳しくは[認識結果の再利用](../../src-python/docs/details/ocr.md#認識結果の再利用)を参照。
+- 同じ画像の再利用: 候補の全画素・形状・データ型と読み取り条件が同じなら、直近の認識結果を最大32件のLRUから再利用する。20秒経った結果は次の処理可能なtickで読み直す。設定、言語・モデル・推論器、取り込み元・バックエンド、読み取り範囲・検出器の変更時と停止・開始時に破棄する。再利用した文も通常の重複判定を通して「最後に見た時刻」を更新するため、表示され続ける文が30秒ごとに再配送されることはない。再利用の有無にかかわらず、消えた文は上記の保持期限で判定する。詳しくは[認識結果の再利用](https://github.com/kein5/astarot/blob/v0.5.2/src-python/docs/details/ocr.md#認識結果の再利用)を参照。
 - 読み直し待ちの候補: 上位6候補のうち、画素が保存済みの認識結果と一致する候補は、認識の時間予算とは別に配送済みの文の「最後に見た時刻」を更新する。6候補を一巡するのに30秒以上かかっても、同じ画像に出続ける文は再配送しない。この確認では文の配送や認識期限の延長は行わない。画素が変わった候補や画面から消えた候補は更新の対象にしない。
 - うまくいかないとき: 起動時に認識モデルがない、言語が対応していない、ウィンドウが見つからない、取り込めない、のどれかなら理由を示してスイッチを戻す。モデルは設定の「チャット読み取り」ページで取得する。スイッチを押して認識モデルがなかったとき（`OCR_DISABLED_MODEL_MISSING`）は、通知の代わりにメイン画面で案内のダイアログを開き、足りないことと、取得すると使えることを示す（#305）。「モデルの欄を開く」で設定の「チャット読み取り」ページを開き、モデルの欄へフォーカスを移す。取得はその欄の確認画面で同意を得てから行い、案内のダイアログ自体は何も取得しない。スイッチはオフのままで、取得後に利用者がもう一度オンにする。言語の変更など、スイッチ以外で同じコードが返ったときは従来どおり通知で知らせる。動いている途中で認識が例外になったときは、そのtickの残りの候補を読まない。3回続けて失敗すると、次に試すまでの間を1秒、2秒、4秒と延ばしていく（上限30秒）。待っている間も停止と設定の変更は受け付け、成功するか、オフにしてオンにし直すと待ちを解く。「読める文字がない」は成功として扱う。
 - 再利用と失敗: 認識の例外はキャッシュせず、それまでの認識キャッシュも全て捨てる。再利用だけでは推論器の復旧とみなさず、実際の読み取りが成功したときだけ連続失敗と待ち時間を解く。これにより過去の成功で継続中の故障を隠さない。まだ判明していない故障は、画像の変化か20秒ごとの読み直しで検出する。
@@ -116,7 +116,7 @@
 - 主な流れ: サイドカーがキーでモデル一覧を取れるか確かめ、通ればキーを保存し、モデルの一覧を送る。エンジンを選べるようになる。
 - うまくいかないとき: キーを確かめられなければ知らせて、欄を保存してあるキーに戻す。保存してあるキーは消さない（確認の失敗はオフラインや一時的な障害でも起きる）。利用者がキーを消すと、そのエンジンを選んでいた場合は既定のエンジンに戻る。
 - 関係: `/set/data/*_auth_key`、`/delete/data/*_auth_key`、`/get/data/selectable_transcription_engines`。
-- 翻訳のカタログ（#413）: 翻訳のページの「翻訳のカタログ」に、翻訳に使うものが2つのグループで並ぶ。お使いのPCで動かすモデル（推論エンジン系）と、API（API系）である。アプリに含まれる項目と、利用者が足した項目は印で見分ける。推論エンジン系にはモデルのフォルダーと推論エンジンと言語（省略するとモデルのすべて）を、API系には名前とOpenAI互換のアドレスとモデルとキーを入れて足す。足しても覚えるだけで、取得も切り替えもしない。「お使いのPCの翻訳に使う」はその重み（`user:<ID>`）を選ぶ。「OpenAI互換の接続先にする」はアドレスとキーを確かめてから、OpenAI互換のエンジンの接続先をその項目に替える。使用中のモデルは削除できない。関係: `/get/data/translation_catalog`、`/run/register_translation_catalog_entry`、`/run/use_translation_catalog_entry`、`/run/remove_translation_catalog_entry`。
+- 翻訳のカタログ（#413）: 翻訳のページの「翻訳のカタログ」に、翻訳に使うものが2つのグループで並ぶ。お使いのPCで動かすモデル（推論エンジン系）と、API（API系）である。アプリに含まれる項目と、利用者が足した項目は印で見分ける。推論エンジン系にはモデルのフォルダーと推論エンジンと言語（省略するとモデルのすべて）を、API系には名前とOpenAI互換のアドレスとモデルとキーを入れて足す。足しても覚えるだけで、取得も切り替えもしない。「お使いのPCの翻訳に使う」はその重み（`user:<ID>`）を選ぶ。「OpenAI互換の接続先にする」はアドレスとキーを確かめてから、OpenAI互換のエンジンの接続先をその項目に替える。使用中のモデルは削除できない。以前の版は`translation-models`フォルダーに置いたモデルも一覧に出したが、#597からは出さない。そのフォルダーにフォルダーがあるあいだは、翻訳のページのモデルの一覧の上に、そのことと「自分のモデルを追加」で追加し直せることを示す。そのボタンは追加の欄を開き、そこへスクロールしてフォーカスを移す。推論エンジン系の推論エンジンにllama.cppを選ぶと、フォルダーの代わりにTranslateGemmaのGGUFのファイルと機器を入れる（ADR-015）。その項目は、同じ欄にあるllama.cppのサーバーを同意して取得するまで使えない。サーバーは翻訳を始めたときにだけ起動する。関係: `/get/data/translation_catalog`、`/get/data/vc_runtime_catalog`、`/run/start_vc_runtime_setup`、`/run/register_translation_catalog_entry`、`/run/use_translation_catalog_entry`、`/run/remove_translation_catalog_entry`。
 - 音声認識の2つの系（#414）: 音声認識のページはエンジンの選択の下に「お使いのPCで動かす（speech.cpp）」と「API（クラウドや自分のサーバー）」をこの順に並べる。speech.cpp系には「モデルとサーバー」（カタログのモデルと、ファイルの場所で登録した自分のモデル）が、API系にはプロバイダごとの畳み（キー、モデル）と「Whisperの認識結果のふるい分け」が入る。エンジンの選択も同じ2つの名前の下に選択肢を分けるが、選ぶのは1つで、APIのエンジンはキーが受け付けられるまで選べない。利用者のWhisperサーバーは最後に並び、自分の接続先の印が付く。APIの項目を何件も足す形にはなっていない（自分のサーバーの1枠）。関係: `/set/data/selected_transcription_engine`、`/get/data/selectable_transcription_engines`、[音声認識の2つの系](../voice-stack/model-downloads.md#音声認識の2つの系414)。
 
 ## UC-11 モデルを取得する
@@ -187,7 +187,7 @@
 - 見つけ方: WASAPIの出力と入力のうち、同じ仮想ドライバーの両端を組にする（`models/audio_routing/virtual_mic.py`、Rustの中核では `native/audio-routing/src/virtual_mic.rs`）。Steam Streaming Microphone は帰還の判定では仮想ケーブルとして扱うが、Remote Play のものなので案内には出さない。Linuxでは案内を出さない（アプリが仮想マイクを作る）。
 - 守ること: テスト音は押したときだけ流す。ミュート中は流さず（`virtual_mic_voice_muted`）、読み上げ停止とミュートで止める。録音側の音はその場で音量にするだけで、保存、ログ、テレメトリーに出さない。デバイスの選択と設定は変えない。VRChatで同じマイクをすでに使っていれば、テスト音はほかの人にも聞こえることを案内に書く。
 - 閉じ方: 「後で」とEscapeは、この起動の間だけ閉じる。「完了」と「今後は自動で表示しない」は`/set/disable/virtual_mic_notice`を送り、以後は自分では開かない。テストの間は閉じられない。
-- 関係: `/get/data/virtual_mic_notice`、`/set/disable/virtual_mic_notice`、`/get/data/virtual_mic_status`、`/run/virtual_mic_test`、`/run/virtual_mic_level`、`src-ui/views/app/_app_controllers/VirtualMicGuideController.jsx`。Rustの中核は一覧とテストも持つ（`native/core/src/controller/audio_devices.rs`）。録音側の読み方の違いは[中核の統合](../voice-stack/core-integration.md)の「判断が要ること」の12にある。
+- 関係: `/get/data/virtual_mic_notice`、`/set/disable/virtual_mic_notice`、`/get/data/virtual_mic_status`、`/run/virtual_mic_test`、`/run/virtual_mic_level`、`src-ui/views/app/_app_controllers/VirtualMicGuideController.tsx`。Rustの中核は一覧とテストも持つ（`native/core/src/controller/audio_devices.rs`）。録音側の読み方の違いは[中核の統合](../voice-stack/core-integration.md)の「判断が要ること」の12にある。
 
 ## UC-18 初期設定で基本機能を準備する
 
@@ -196,7 +196,7 @@
 - まとめて準備する: 表示言語に合わせ、speech.cpp が最初に勧める認識モデル（日本語なら ReazonSpeech v2 の Q8_0、言語に勧めがなければ英語のもの）と VAD（Silero VAD）を選ぶ。パスがすでに入っているものは選ばない。それぞれの名前、提供元、ライセンスとその原文へのリンク、容量と、合計の容量を示し、チェックボックスで同意してから「準備を始める」を押す。同意は開いたときのカタログの版に結び付く（`catalog_version`）。始めると、モデルごとに取得、照合、設定への適用を順に行い、続いてリアルタイム音声認識のサーバーを同梱のものに、音声認識エンジンを speech.cpp にする。取得と適用は設定画面のカタログと同じエンドポイントを使う。マイクや音声認識はオンにしない。ほかのモデルを選ぶときは「音声認識（ASR）」の設定を開く。
 - 失敗とやり直し: 途中の段で失敗したら（通信、容量、照合、取消、適用の拒否、設定の保存の失敗）、その段で止め、理由を示す。「やり直す」は保存済みの設定と取得の状態から次にすることを決め直すので、済んだ段は飛ばす。取得は専用の一時フォルダーへ書き、容量と SHA-256 が合ってから公開し、適用はその後なので、失敗しても前の設定とモデルは変わらない（#517）。閉じても取得は続き、開き直すと進み具合を示す。
 - 閉じ方: 「後で」と Escape は、この起動の間だけ閉じる。準備が終わったあとの「完了」と「今後は自動で表示しない」は`/set/disable/first_run_setup`を送り、以後は自分では開かない。
-- 関係: `/get/data/first_run_setup`、`/set/disable/first_run_setup`、`/run/start_model_download`、`/run/apply_model_download`、`/run/cancel_model_download`、`/set/data/realtime_asr_settings`、`/set/data/selected_transcription_engine`、`src-ui/views/app/_app_controllers/FirstRunSetupController.jsx`、`src-ui/logics/setup/firstRunSetup.ts`。
+- 関係: `/get/data/first_run_setup`、`/set/disable/first_run_setup`、`/run/start_model_download`、`/run/apply_model_download`、`/run/cancel_model_download`、`/set/data/realtime_asr_settings`、`/set/data/selected_transcription_engine`、`src-ui/views/app/_app_controllers/FirstRunSetupController.tsx`、`src-ui/logics/setup/firstRunSetup.ts`。
 
 ## UC-19 読み上げの声を試聴する
 
@@ -206,4 +206,4 @@
 - 守ること: 押したときだけ鳴らす。ミュート中は断り（`voice_audition_muted`）、読み上げ停止、ミュート、試聴の停止（`/run/stop_voice_audition`。キューを通らない）、アプリの終了で止める。一度に1つだけ鳴らす。鳴っている間にもう一度押すと、同じカードでもほかのカードでも、前のものを止めて新しく鳴らす。30秒で終わらなければ止める（`voice_audition_timeout`）。文と音声は、ログ、ファイル、テレメトリーに出さない。要求と答えには文がなく、状態の問い合わせは診断ログに書かない。同梱サーバーが止まっていれば断り（`voice_audition_server_not_ready`）、自分では起動しない。
 - 使えないとき: 未取得のカードには何も足さない（先に取得する）。使用中でないカード、サーバーが止まっているとき、モニターがオフのとき、ミュート中は、ボタンの代わりに理由を1行で出す。中核が断ったときと再生に失敗したときは、そのカードに理由を出す。
 - まだないこと: RVCのカードの試聴（変換するサンプルの声と一時的なworkerが要る）、使用中でないモデルの試聴（そのモデルでサーバーを起動し直すことになる）。
-- 関係: `/run/start_voice_audition`、`/run/stop_voice_audition`、`/get/data/voice_audition_state`、`native/core/src/controller/voice/audition.rs`、`src-ui/views/app/config_page/setting_section/setting_box/advanced_settings/VoiceAudition.jsx`、`src-ui/logics/voice/voiceAudition.ts`。
+- 関係: `/run/start_voice_audition`、`/run/stop_voice_audition`、`/get/data/voice_audition_state`、`native/core/src/controller/voice/audition.rs`、`src-ui/views/app/config_page/setting_section/setting_box/advanced_settings/VoiceAudition.tsx`、`src-ui/logics/voice/voiceAudition.ts`。

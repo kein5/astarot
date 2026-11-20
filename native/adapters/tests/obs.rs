@@ -47,8 +47,8 @@ fn the_page_is_the_python_page_byte_for_byte() {
 
 #[test]
 fn an_open_page_refreshes_the_port_without_a_notification() {
-    // The Python test runs the page's script under Node; run the same script on this page.
-    let script = format!("{}/../../src-python/test/obs_reconnect.mjs", env!("CARGO_MANIFEST_DIR"));
+    // The page's script runs under Node (`test_obs_reconnect.py` of the Python backend did the same).
+    let script = format!("{}/tests/fixtures/obs_reconnect.mjs", env!("CARGO_MANIFEST_DIR"));
     if !std::path::Path::new(&script).exists() {
         return;
     }

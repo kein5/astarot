@@ -88,7 +88,7 @@ export const App = () => {
 // and the window geometry is not saved over the one the engine will restore.
 const Contents = ({ locked }: { locked: boolean }) => {
     const { currentIsSoftwareUpdating } = useIsSoftwareUpdating();
-    const mainPage = useRef<HTMLElement>(null);
+    const mainPage = useRef<HTMLDivElement>(null);
     return (
         <>
             <WindowGeometryController saveGeometry={!locked} />

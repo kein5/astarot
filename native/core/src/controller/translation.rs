@@ -95,6 +95,8 @@ pub trait LocalTranslation: Send + Sync {
     }
     /// Finds the user's models again: the translation catalog changed (#413).
     fn refresh(&self) {}
+    /// Drops the loaded model: another kind of model is about to load (ADR-015).
+    fn unload(&self) {}
 }
 
 /// No local translation in this build: nothing loads.
@@ -117,44 +119,60 @@ impl LocalTranslation for NoLocalTranslation {
 /// Makes the local translation for a run (`Services::local_translation`).
 pub type LocalTranslationSource = Arc<dyn Fn(&crate::config::Environment) -> Arc<dyn LocalTranslation> + Send + Sync>;
 
-/// The default: ONNX Runtime with the `onnx-translation` feature, else none.
+/// The default: ONNX Runtime with the `onnx-translation` feature, else none; in front of it,
+/// llama.cpp's server for the translation LLMs the user added (ADR-015).
 pub fn default_local_translation(env: &crate::config::Environment) -> Arc<dyn LocalTranslation> {
     #[cfg(feature = "onnx-translation")]
-    {
-        Arc::new(super::translation_onnx::OnnxTranslation::new(env))
-    }
+    let inner: Arc<dyn LocalTranslation> = Arc::new(super::translation_onnx::OnnxTranslation::new(env));
     #[cfg(not(feature = "onnx-translation"))]
-    {
-        let _ = env;
-        Arc::new(NoLocalTranslation)
-    }
+    let inner: Arc<dyn LocalTranslation> = Arc::new(NoLocalTranslation);
+    Arc::new(super::translation_llama::Routed::new(env, inner))
 }
 
-/// Whether a weight's local model is on this PC (`Services::translation_weight_available`).
+/// Whether a weight's local model is on this PC (`Services::translation_weight_available`):
+/// for a translation LLM, also whether llama.cpp's server is set up.
 pub fn default_weight_available(env: &crate::config::Environment, weight: &str) -> bool {
+    if super::translation_llama::weight_available(env, weight) {
+        return true;
+    }
     #[cfg(feature = "onnx-translation")]
     {
         super::translation_onnx::weight_available(env, weight)
     }
     #[cfg(not(feature = "onnx-translation"))]
     {
-        let _ = (env, weight);
         false
     }
 }
 
+/// Where earlier versions found the user's own translation models, under the data folder
+/// (`custom:<folder>`). Since #597 nothing in it is listed or loaded; the folder and its files
+/// are left as they are.
+pub const RETIRED_MODELS_DIR: &str = "translation-models";
+/// The weight name earlier versions gave a model of [`RETIRED_MODELS_DIR`].
+pub const RETIRED_WEIGHT_PREFIX: &str = "custom:";
+/// Logged (a fixed code, never the folder's name) when the saved selection named such a model
+/// and went back to the default model.
+pub const RETIRED_SELECTION_RESET: &str = "translation_models_folder_retired";
+
+/// Whether [`RETIRED_MODELS_DIR`] holds at least one folder (not one whose name starts with a
+/// dot, which earlier versions never listed): the translation page then points to the
+/// catalog's add form. Only this is told; folder names are the user's data.
+pub fn retired_folder_used(data_dir: &std::path::Path) -> bool {
+    std::fs::read_dir(data_dir.join(RETIRED_MODELS_DIR)).into_iter().flatten().filter_map(Result::ok).any(|entry| {
+        entry.file_type().is_ok_and(|t| t.is_dir()) && !entry.file_name().to_string_lossy().starts_with('.')
+    })
+}
+
 /// The weights the settings may name (`SELECTABLE_CTRANSLATE2_WEIGHT_TYPE_LIST`): the built-in
-/// ones, then the models the user added (`custom:<folder>`).
+/// ones, then the engine entries the user added (`user:<id>`: ONNX folders and translation LLMs).
 pub fn weight_ids(env: &crate::config::Environment) -> Vec<String> {
     #[cfg(feature = "onnx-translation")]
-    {
-        super::translation_onnx::weight_ids(env)
-    }
+    let mut ids = super::translation_onnx::weight_ids(env);
     #[cfg(not(feature = "onnx-translation"))]
-    {
-        let _ = env;
-        crate::languages::TRANSLATION_WEIGHTS.iter().map(|w| w.to_string()).collect()
-    }
+    let mut ids: Vec<String> = crate::languages::TRANSLATION_WEIGHTS.iter().map(|w| w.to_string()).collect();
+    ids.extend(super::translation_llama::weight_ids(env));
+    ids
 }
 
 /// The translation compute devices for [`crate::config::Environment::compute_devices`]: the
@@ -191,20 +209,15 @@ pub fn with_gpu_builds(devices: Vec<Value>, state_dir: &std::path::Path) -> Vec<
     }
 }
 
-/// The user's model folders that were refused, with the fixed reason, for the log, then the
-/// engine entries of the translation catalog that were refused (by id).
+/// The engine entries of the translation catalog that were refused (by id, never their name or
+/// folder), with the fixed reason, for the log.
 pub fn refused_models(env: &crate::config::Environment) -> Vec<(String, &'static str)> {
     #[cfg(feature = "onnx-translation")]
-    {
-        let mut refused = super::translation_onnx::discover(&env.data_dir).1;
-        refused.extend(super::translation_onnx::registered(env).1);
-        refused
-    }
+    let mut refused = super::translation_onnx::registered(env).1;
     #[cfg(not(feature = "onnx-translation"))]
-    {
-        let _ = env;
-        Vec::new()
-    }
+    let mut refused = Vec::new();
+    refused.extend(super::translation_llama::registered(env).1);
+    refused
 }
 
 // ------------------------------------------------------------------------- the providers
@@ -1152,7 +1165,8 @@ impl Core {
             // Papago translates only some pairs of its languages directly.
             Err(providers::Error::UnsupportedPair) => Attempt::Unsupported,
             Err(_) => {
-                self.step("Translation: the provider failed");
+                // Decision 58: the provider's name, as Python's `errorLogging(provider=...)`.
+                self.step_with("Translation: the provider failed", &json!({ "provider": engine }));
                 Attempt::Failed
             }
         }
@@ -1246,10 +1260,17 @@ impl Core {
                 Ok(Translated { text: text.to_string(), success: true, provenance: "unsupported" })
             }
             Attempt::Unsupported => {
-                self.step("Translation failed and the local model cannot translate this language pair");
+                self.step_with("Translation failed and the local model cannot translate this language pair", &json!({ "provider": engine }));
                 Ok(Translated { text: text.to_string(), success: false, provenance: "failed" })
             }
-            Attempt::Failed => Ok(Translated { text: text.to_string(), success: false, provenance: "failed" }),
+            Attempt::Failed => {
+                // Decision 58: the engine lacked the pair and the local model failed too (Python
+                // logged the local failure once). A provider failure was logged as it failed.
+                if !primary_failed {
+                    self.step_with("Translation: the engine lacks the language pair and the local model failed", &json!({ "provider": engine }));
+                }
+                Ok(Translated { text: text.to_string(), success: false, provenance: "failed" })
+            }
         }
     }
 }

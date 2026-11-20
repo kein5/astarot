@@ -63,7 +63,7 @@ cargo test --locked --manifest-path native/adapters/Cargo.toml
 python tools/dev.py check --scope rust
 ```
 
-試験は 127.0.0.1 の実際のソケットを使います。mDNS の試験は 5353 番ポートとマルチキャストを使い、ポートを開けない環境では何もせずに通ります。OBS ページの再接続の試験は Node があれば実行します（`src-python/test/obs_reconnect.mjs` を使う）。
+試験は 127.0.0.1 の実際のソケットを使います。mDNS の試験は 5353 番ポートとマルチキャストを使い、ポートを開けない環境では何もせずに通ります。OBS ページの再接続の試験は Node があれば実行します（`tests/fixtures/obs_reconnect.mjs` を使う）。
 
 次の2つは、指定したときだけ動きます。
 

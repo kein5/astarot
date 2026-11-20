@@ -1,7 +1,7 @@
 // The settings menu: its pages in four groups, in the order a conversation uses them
 // (#554, docs/design/information-architecture/README.md, decisions Q-02 and Q-03).
 //
-// Each id is a page of SettingBox.jsx; its name is config_page.side_menu_labels.<id>, and the
+// Each id is a page of SettingBox.tsx; its name is config_page.side_menu_labels.<id>, and the
 // group's heading is config_page.side_menu_groups.<group id> (in en.yml and ja.yml). The usage
 // presets (usagePresets.ts) choose which of these pages the menu shows.
 //
