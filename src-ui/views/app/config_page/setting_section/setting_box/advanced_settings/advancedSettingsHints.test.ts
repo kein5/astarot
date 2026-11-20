@@ -72,11 +72,14 @@ test("the general descriptions are left to become hints: the rows that carry one
     ]);
 });
 
-test("the OSC heading says what the destination is, and the notes that are not rows stay as they were", async () => {
+test("the OSC and GPU check headings carry what their sections are as hints; the usage data's contents stay", async () => {
     const { ofType } = await rows();
     const described = ofType("section-label").filter(node => node.props.desc !== undefined);
-    assert.deepEqual(described.map(node => [node.props.label, node.props.desc]),
-        [[key("section_label_osc"), "config_page.vrchat.osc_pointer.desc"]], "only the OSC heading has a description");
+    assert.deepEqual(described.map(node => [node.props.label, node.props.desc]), [
+        // What the check is for, how it measures and what its result holds, one to a line.
+        [key("section_label_gpu_check"), [key("gpu_check.desc"), key("gpu_check.what"), key("gpu_check.privacy")].join("\n")],
+        [key("section_label_osc"), "config_page.vrchat.osc_pointer.desc"],
+    ], "no other heading has a description");
     // The note under the OBS address is drawn by itself and unfolded, with or without hints.
     assert.deepEqual(ofType("description").map(note => [note.props.text, note.props.fold]), [[key("obs_browser_source_url.desc"), false]]);
     // The GPU check and the usage data's contents are parts of their own.

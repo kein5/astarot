@@ -1167,8 +1167,9 @@ config_page:
         section_label_gpu_check: "GPU report"
         gpu_check:
             desc: "Checks whether speech and speech recognition run correctly on your GPUs, and lets you report the result to the developers. Results from GPUs the developers do not have, AMD GPUs above all, are wanted."
-            what: "With the speech and speech recognition models you have downloaded, it runs one short fixed sentence on the CPU and on each GPU, and measures how long each took and how far the results differ. It can take a few minutes. It does not use the microphone, the speakers or VRChat, and downloads no model."
-            privacy: "The result holds only the app and OS versions, the CPU and GPU names, the amount of memory, the GPU driver versions, the model names, and the times and differences measured. It holds no user name, no file location, and no text spoken or heard. Nothing is sent by itself: you read all of it first, then choose whether to send it."
+            what: "With the speech and speech recognition models you have downloaded, it runs one short fixed sentence on the CPU and on each GPU, and measures how long each took and how far the results differ. It downloads no model."
+            privacy: "The result holds only the app and OS versions, the CPU and GPU names, the amount of memory, the GPU driver versions, the model names, and the times and differences measured. It holds no user name, no file location, and no text spoken or heard."
+            before: "It can take a few minutes. It does not use the microphone, the speakers or VRChat. Nothing is sent by itself: you read the whole result first, then choose whether to send it."
             start: "Run the check"
             stop: "Stop"
             step_environment: "Listing the GPUs…"

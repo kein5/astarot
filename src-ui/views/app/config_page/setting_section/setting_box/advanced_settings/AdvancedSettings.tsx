@@ -81,7 +81,10 @@ export const AdvancedSettings = () => {
             {/* The GPU check, next to the usage data: both say what leaves the PC (#288). It
                 sends nothing itself; the user reads the report and may send it on GitHub. */}
             <div>
-                <SectionLabelComponent label={t("config_page.advanced_settings.section_label_gpu_check")} />
+                {/* What the check is for, how it measures and what its result holds are the heading's
+                    hint; what is known before pressing stays under it (#614). */}
+                <SectionLabelComponent label={t("config_page.advanced_settings.section_label_gpu_check")}
+                    desc={["desc", "what", "privacy"].map(name => t(`config_page.advanced_settings.gpu_check.${name}`)).join("\n")} />
                 <GpuCheck />
             </div>
             {/* Where messages go to VRChat: set once, if ever, like the other connections below.
