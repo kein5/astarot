@@ -4,13 +4,22 @@ import { vars } from "../../../../../../theme/vars.css.ts";
 // The app's one fold (Fold.tsx), in two sizes.
 // - bar: a part of a page (a setup fold, 「詳細設定」, a list, a form). Closed, it is a raised bar
 //   with a hairline all round, the title and its readout at the start and "Open" with a chevron at
-//   the end; the whole bar opens it. Open, the bar stays at the head of what it holds, which follows
-//   at the page's own indent, so its rows keep the page's field column.
+//   the end; the whole bar opens it. Open, the hairline goes round the bar and what it holds, and
+//   the bar is the frame's head (#820). What it holds sits inside the frame, and its rows still
+//   start their fields where the page's other rows do (the inset below).
 // - link: a few more words (「詳細」 of a description, a model's guidance, a raw record). A quiet
 //   line with a chevron after it.
 // The chevron turns as the fold opens, and keeps still with reduced motion.
 
-const hairline = `.1rem solid ${fallbackVar(vars.dark_800_color, "#344662")}`;
+const line = ".1rem";
+const hairline = `${line} solid ${fallbackVar(vars.dark_800_color, "#344662")}`;
+const radius = fallbackVar(vars.vox_radius, ".8rem");
+// The inset of what an open bar holds, from the frame's outer edge (its hairline included), at the
+// start; the end's is 1.6 times it. A setting row splits its width 1 : 1.6 between the label and
+// the field (DESIGN.md, "Field widths"), so insets in that same ratio leave the field column's
+// start where it is outside the fold, at any width and however deep the folds nest: only the
+// labels move in.
+const inset = "1.6rem";
 const motion = `${fallbackVar(vars.vox_motion_fast, "120ms")} ${fallbackVar(vars.vox_ease, "ease-out")}`;
 
 export const fold = style({ minWidth: 0 });
@@ -37,8 +46,16 @@ globalStyle(`${bar} > ${summary}`, {
     fontWeight: 400,
     background: fallbackVar(vars.vox_surface, "#332341"),
     border: hairline,
-    borderRadius: fallbackVar(vars.vox_radius, ".8rem"),
+    borderRadius: radius,
     transition: `background-color ${motion}`,
+});
+// Open: one frame round the bar and what it holds. The bar keeps its raised surface as the head,
+// a hairline under it; what the fold holds is on the page's own background.
+globalStyle(`${bar}[open]`, { border: hairline, borderRadius: radius });
+globalStyle(`${bar}[open] > ${summary}`, {
+    border: "none",
+    borderBottom: hairline,
+    borderRadius: `calc(${radius} - ${line}) calc(${radius} - ${line}) 0 0`,
 });
 globalStyle(`${bar} > ${summary}:hover`, { background: fallbackVar(vars.vox_secondary_hover, "#3a2a4a") });
 globalStyle(`${bar} > ${summary}:focus-visible`, {
@@ -107,5 +124,12 @@ globalStyle(`${bar} > ${summary}`, { "@media": { "(prefers-reduced-motion: reduc
 
 // What the fold holds.
 export const body = style({ display: "grid", minWidth: 0 });
-globalStyle(`${bar} > ${body}`, { gap: "1.6rem", paddingTop: "1.2rem" });
+globalStyle(`${bar} > ${body}`, {
+    gap: "1.6rem",
+    padding: `1.6rem calc(${inset} * 1.6 - ${line}) 1.6rem calc(${inset} - ${line})`,
+    // Where the rows stack (DESIGN.md: under 42rem of content or a 700px window) there is no field
+    // column to keep: the same inset at both ends.
+    "@container": { "(max-width: 42rem)": { paddingInline: `calc(${inset} - ${line})` } },
+    "@media": { "(max-width: 700px)": { paddingInline: `calc(${inset} - ${line})` } },
+});
 globalStyle(`${link} > ${body}`, { gap: ".4rem", paddingTop: ".4rem" });
