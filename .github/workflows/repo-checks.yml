@@ -1,0 +1,34 @@
+name: Repository checks
+# Checks of the repository itself, each a scope of tools/dev.py with a tool mise.toml pins
+# (docs/development.md). One job runs them all, one step each, so they take one runner between
+# them; every step runs even when an earlier one fails.
+on:
+  pull_request:
+  push:
+    branches: [develop, main]
+  merge_group:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: repo-checks-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  checks:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
+        with:
+          version: 2026.11.8
+          install_args: actionlint zizmor
+      # The token lets zizmor ask GitHub about the actions the workflows use (impostor commits,
+      # known vulnerable versions); it can read public data only.
+      - name: Workflows (actionlint, zizmor)
+        if: ${{ !cancelled() }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 tools/dev.py check --scope workflows

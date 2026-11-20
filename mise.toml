@@ -78,6 +78,10 @@ run = "python tools/dev.py check --scope ui"
 description = "cargo check and cargo test of the Tauri app and the native crates"
 run = "python tools/dev.py check --scope rust"
 
+[tasks."check:workflows"]
+description = "Workflows and the repository's own actions (actionlint, zizmor)"
+run = "python tools/dev.py check --scope workflows"
+
 [tasks."check:commits"]
 description = "Commit messages since origin/develop (fetch it first)"
 run = "python tools/dev.py check --scope commits --base origin/develop"

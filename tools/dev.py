@@ -21,9 +21,9 @@ import tomllib
 
 
 ROOT = Path(__file__).resolve().parents[1]
-SCOPES = ("quick", "tooling", "node", "ui", "voice", "lint", "rust", "commits", "all")
+SCOPES = ("quick", "tooling", "node", "ui", "voice", "lint", "rust", "workflows", "commits", "all")
 GROUPS = {"quick": ("tooling", "node", "lint"),
-          "all": ("tooling", "node", "ui", "voice", "lint", "rust")}
+          "all": ("tooling", "node", "ui", "voice", "lint", "rust", "workflows")}
 # Rust crates outside the Tauri app, each with its own Cargo.lock and tests.
 NATIVE_CRATES = ("native/app-identity", "native/speech-server", "native/ops", "native/audio-routing", "native/adapters", "native/translation",
                  "native/transcription", "native/openvr-client", "native/onnx-runtime", "native/vr-overlay", "native/voice-conversion",
@@ -189,6 +189,14 @@ def checks_plan(args, root):
             for crate in NATIVE_CRATES:
                 steps.append(Step(f"Cargo test {crate}", ["cargo", "test", "--locked", "--offline",
                     "--manifest-path", f"{crate}/Cargo.toml"]))
+        elif scope == "workflows":
+            # actionlint: syntax, expressions and types. Its shellcheck and pyflakes passes stay off:
+            # mise.toml pins neither, so they would change with whatever the PC has. zizmor:
+            # security problems, with the exceptions in .github/zizmor.yml; without GH_TOKEN it
+            # skips the audits that ask GitHub (impostor commits, known vulnerable actions).
+            steps.append(Step("actionlint", ["actionlint", "-shellcheck=", "-pyflakes="]))
+            steps.append(Step("zizmor", ["zizmor", *(["--format", "github"]
+                if os.environ.get("GITHUB_ACTIONS") == "true" else []), "."]))
         elif scope == "commits":
             if not args.base or args.base.startswith("-"):
                 raise DevError("commits requires --base REF (for example origin/develop); old history is not rewritten.")
@@ -225,7 +233,8 @@ def pinned_versions(root):
     """Tool versions pinned in mise.toml, keyed by the name doctor looks up on PATH."""
     tools = mise_versions(root)
     return {command: tools[name] for name, command in
-            (("node", "node"), ("cocogitto", "cog"), ("rust", "cargo"), ("uv", "uv")) if name in tools}
+            (("node", "node"), ("cocogitto", "cog"), ("rust", "cargo"), ("uv", "uv"),
+             ("actionlint", "actionlint"), ("zizmor", "zizmor")) if name in tools}
 
 
 def python_series(root):
@@ -289,6 +298,8 @@ def doctor(args, root, *, preflight=False):
                         "Install native prerequisites explicitly; setup does not install system packages.")
     if "commits" in selected:
         needed_tools.update(("cog", "git"))
+    if "workflows" in selected:
+        needed_tools.update(("actionlint", "zizmor"))
     pinned = pinned_versions(root)
     for tool_name in sorted(needed_tools):
         tool(tool_name, pinned.get(tool_name))
@@ -410,7 +421,7 @@ def parser():
     for command in ("doctor", "check"):
         sub = commands.add_parser(command, help="Inspect local prerequisites" if command == "doctor" else "Run selected model-free checks")
         sub.add_argument("--scope", choices=(*SCOPES, "browser") if command == "doctor" else SCOPES,
-                         default="quick", help="quick = tooling + node + lint; all also runs ui, voice and Rust (default: quick)")
+                         default="quick", help="quick = tooling + node + lint; all also runs ui, voice, Rust and workflows (default: quick)")
         sub.add_argument("--python", help="Existing environment's Python executable; never installs packages")
         if command == "doctor":
             sub.add_argument("--json", action="store_true", help="Machine-readable diagnostics; missing prerequisites exit 2")

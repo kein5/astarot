@@ -67,6 +67,8 @@ jobs:
             mv "$RUNNER_TEMP/free-disk.status.partial" "$RUNNER_TEMP/free-disk.status"
           ) < /dev/null > "$RUNNER_TEMP/free-disk.log" 2>&1 &
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       # Node, Rust, Python (for the build and test tools) and uv at the versions in mise.toml and mise.lock.
       - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
         with:
