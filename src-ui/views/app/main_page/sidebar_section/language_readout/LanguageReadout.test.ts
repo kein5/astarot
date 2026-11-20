@@ -2,14 +2,34 @@ import assert from "node:assert/strict";
 import { test } from "vitest";
 import { readFileSync } from "node:fs";
 import { hooks, loadModule, find } from "../../../../../logics/test/hookHarness.ts";
+import type { TreeNode } from "../../../../../logics/test/hookHarness.ts";
 import * as languageNames from "../../../../../logics/common/languageNames.ts";
 
-const entry = (language, country, enable = true) => ({ language, country, enable });
-const t = (key, options) => options ? `${options.from} → ${options.to}` : key;
+interface Entry {
+    language: string;
+    country: string;
+    enable: boolean;
+}
+interface ReadoutSetup {
+    ui?: string;
+    yours?: Entry | null;
+    targets?: Record<number, Entry> | null;
+    preset?: string;
+}
 
-async function setup({ ui = "ja", yours = entry("Japanese", "Japan"), targets = { 1: entry("English", "United States"), 2: entry("Korean", "South Korea", false), 3: entry("French", "France", false) }, preset = "1" } = {}) {
-    const runtime = hooks(), toggled = [];
-    const { LanguageReadout } = await loadModule(new URL("./LanguageReadout.tsx", import.meta.url), runtime, {
+const entry = (language: string, country: string, enable = true): Entry => ({ language, country, enable });
+const t = (key: string, options?: { from: string; to: string }) => options ? `${options.from} → ${options.to}` : key;
+
+// node?.props?.[key], for a rendered node of any kind.
+const propOf = (node: unknown, key: string): unknown => {
+    if (node === null || node === undefined) return undefined;
+    const props: unknown = Reflect.get(Object(node), "props");
+    return props === null || props === undefined ? undefined : Reflect.get(Object(props), key);
+};
+
+async function setup({ ui = "ja", yours = entry("Japanese", "Japan"), targets = { 1: entry("English", "United States"), 2: entry("Korean", "South Korea", false), 3: entry("French", "France", false) }, preset = "1" }: ReadoutSetup = {}) {
+    const runtime = hooks(), toggled: boolean[] = [];
+    const { LanguageReadout } = await loadModule<typeof import("./LanguageReadout.tsx")>(new URL("./LanguageReadout.tsx", import.meta.url), runtime, {
         "@useI18n": { useI18n: () => ({ t, i18n: { language: ui } }) },
         "../../../../../logics/common/languageNames.ts": languageNames,
         "@logics_main": {
@@ -21,11 +41,15 @@ async function setup({ ui = "ja", yours = entry("Japanese", "Japan"), targets = 
     });
     return { button: runtime.render(LanguageReadout), toggled };
 }
-const names = button => button.props.children.filter(child => child?.props?.className === "name").map(child => child.props.children);
+const names = (button: TreeNode | null) => {
+    assert.ok(button);
+    return button.props.children.filter((child: unknown) => propOf(child, "className") === "name").map((child: unknown) => propOf(child, "children"));
+};
 
 test("the icon rail shows your language and the other side's, in the UI language", async () => {
     const s = await setup();
     assert.deepEqual(names(s.button), ["日本語", "英語"]);
+    assert.ok(s.button);
     assert.equal(s.button.props.title, "日本語 → 英語");
     assert.equal(s.button.props["aria-label"], "main_page.language_settings: 日本語 → 英語");
     assert.equal(find(s.button, node => node.props?.className === "more"), null);
@@ -35,13 +59,17 @@ test("the icon rail shows your language and the other side's, in the UI language
 test("more languages on the other side are counted, and disabled ones are not", async () => {
     const s = await setup({ targets: { 1: entry("English", "United States"), 2: entry("Korean", "South Korea"), 3: entry("French", "France", false) } });
     assert.deepEqual(names(s.button), ["日本語", "英語"]);
-    assert.equal(find(s.button, node => node.props?.className === "more").props.children.join(""), "+1");
+    const more = find(s.button, node => node.props?.className === "more");
+    assert.ok(more);
+    assert.equal(more.props.children.join(""), "+1");
+    assert.ok(s.button);
     assert.equal(s.button.props.title, "日本語 → 英語 +1");
 });
 
 test("it follows the selected preset and opens the rail when pressed", async () => {
     const s = await setup({ preset: "2" });
     assert.deepEqual(names(s.button), ["英語", "日本語"]);
+    assert.ok(s.button);
     s.button.props.onClick();
     assert.deepEqual(s.toggled, [true]);
     assert.equal(s.button.props.type, "button");

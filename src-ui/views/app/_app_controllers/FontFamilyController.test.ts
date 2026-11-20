@@ -3,14 +3,14 @@ import { test } from "vitest";
 import { hooks, loadModule, stubGlobals } from "../../../logics/test/hookHarness.ts";
 
 test("the selected font family is set as one CSS string, so non-identifier names still apply", async context => {
-    const runtime = hooks(), properties = new Map();
-    let font = "Yu Gothic UI";
+    const runtime = hooks(), properties = new Map<string, string>();
+    let font: string | undefined = "Yu Gothic UI";
     stubGlobals(context, { document: { documentElement: { style: {
-        setProperty: (name, value) => properties.set(name, value),
-        removeProperty: name => properties.delete(name),
+        setProperty: (name: string, value: string) => properties.set(name, value),
+        removeProperty: (name: string) => properties.delete(name),
     } } } });
     context.onTestFinished(() => runtime.unmount());
-    const { FontFamilyController } = await loadModule(new URL("./FontFamilyController.tsx", import.meta.url), runtime, {
+    const { FontFamilyController } = await loadModule<typeof import("./FontFamilyController.tsx")>(new URL("./FontFamilyController.tsx", import.meta.url), runtime, {
         "@logics_configs": { useAppearance: () => ({ currentSelectedFontFamily: { data: font } }) },
     });
     for (const [name, css] of [

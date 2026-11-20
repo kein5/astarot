@@ -2,14 +2,28 @@ import assert from "node:assert/strict";
 import { test } from "vitest";
 import { hooks, loadModule, find } from "../../../../../../logics/test/hookHarness.ts";
 
-const render = async ({ step = 0, downloads = [] } = {}) => {
+interface StartupDownload {
+    kind: string;
+    id: string;
+    progress: number | string;
+}
+
+// node?.props?.children, for a rendered node of any kind.
+const childrenOf = (node: unknown): unknown => {
+    if (node === null || node === undefined) return undefined;
+    const props: unknown = Reflect.get(Object(node), "props");
+    return props === null || props === undefined ? undefined : Reflect.get(Object(props), "children");
+};
+
+const texts = (node: unknown): string[] => !node || typeof node !== "object" ? (typeof node === "string" ? [node] : [])
+    : Array.isArray(node) ? node.flatMap(texts) : texts(childrenOf(node));
+
+const render = async ({ step = 0, downloads = [] }: { step?: number; downloads?: StartupDownload[] } = {}) => {
     const runtime = hooks();
-    const { StartupProgress } = await loadModule(new URL("./StartupProgress.tsx", import.meta.url), runtime, {
+    const { StartupProgress } = await loadModule<typeof import("./StartupProgress.tsx")>(new URL("./StartupProgress.tsx", import.meta.url), runtime, {
         "../../../../../../logics/common/useStartupProgress": { useStartupProgress: () => ({ step, downloads }), STARTUP_STEPS: 4 },
     });
     const tree = runtime.render(StartupProgress);
-    const texts = node => !node || typeof node !== "object" ? (typeof node === "string" ? [node] : [])
-        : Array.isArray(node) ? node.flatMap(texts) : texts(node.props?.children);
     return { tree, texts: texts(tree) };
 };
 

@@ -1,25 +1,27 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
+import type { TestContext } from "vitest";
 import { hooks, loadModule, find } from "../../../logics/test/hookHarness.ts";
+import type { TreeNode } from "../../../logics/test/hookHarness.ts";
 
 const TelemetryContents = () => null;
 
-async function setup(context, notice) {
-    const runtime = hooks(), sent = [], refreshed = [];
+async function setup(context: TestContext, notice: unknown) {
+    const runtime = hooks(), sent: unknown[] = [], refreshed: boolean[] = [];
     const state = { current: notice };
-    const { TelemetryNoticeController } = await loadModule(new URL("./TelemetryNoticeController.tsx", import.meta.url), runtime, {
+    const { TelemetryNoticeController } = await loadModule<typeof import("./TelemetryNoticeController.tsx")>(new URL("./TelemetryNoticeController.tsx", import.meta.url), runtime, {
         "@logics_configs": { useOthers: () => ({
             currentTelemetryNotice: state.current,
-            setTelemetryNotice: async value => { sent.push(value); },
+            setTelemetryNotice: async (value: unknown) => { sent.push(value); },
             getTelemetry: () => refreshed.push(true),
         }) },
-        "../../../logics/common/useConsentDialog": { useConsentDialog: open => ({ dialog: { current: null, open } }) },
+        "../../../logics/common/useConsentDialog": { useConsentDialog: (open: unknown) => ({ dialog: { current: null, open } }) },
         "../config_page/setting_section/setting_box/_components/telemetry/TelemetryContents": { TelemetryContents },
     });
     context.onTestFinished(() => runtime.unmount());
     const render = () => runtime.render(TelemetryNoticeController);
     const buttons = () => {
-        const found = [];
+        const found: TreeNode[] = [];
         find(render(), node => { if (node.type === "button") found.push(node); return false; });
         return found;
     };
@@ -38,8 +40,9 @@ test("the notice is asked only while the backend says it is pending", async cont
     }
     const s = await setup(context, { state: "ok", data: { pending: true, enabled: true } });
     const dialog = find(s.render(), node => node.type === "dialog");
+    assert.ok(dialog);
     assert.equal(dialog.props["aria-label"], "telemetry_notice.title");
-    const texts = [];
+    const texts: unknown[] = [];
     find(dialog, node => { if (node.type === "p") texts.push(node.props.children); return false; });
     // Why it is asked, what is sent, what is not, and where to change it.
     assert.deepEqual(texts, ["telemetry_notice.purpose", "telemetry_notice.what", "telemetry_notice.not_sent", "telemetry_notice.change"]);
@@ -53,7 +56,7 @@ test("the notice is asked only while the backend says it is pending", async cont
 });
 
 test("each answer is sent once", async context => {
-    for (const [index, send] of [[0, true], [1, false]]) {
+    for (const [index, send] of [[0, true], [1, false]] as const) {
         const s = await setup(context, { state: "ok", data: { pending: true, enabled: true } });
         await s.buttons()[index].props.onClick();
         assert.deepEqual(s.sent, [{ send }]);
@@ -78,14 +81,16 @@ test("Decide later and Escape put the notice away for this run without answering
 
     const escape = await setup(context, { state: "ok", data: { pending: true, enabled: true } });
     let prevented = false;
-    find(escape.render(), node => node.type === "dialog").props.onCancel({ preventDefault: () => { prevented = true; } });
+    const dialog = find(escape.render(), node => node.type === "dialog");
+    assert.ok(dialog);
+    dialog.props.onCancel({ preventDefault: () => { prevented = true; } });
     // The page closes the dialog itself (so focus goes back where it was), and no answer is sent.
     assert.equal(prevented, true);
     assert.equal(escape.render(), null);
     assert.deepEqual(escape.sent, []);
 });
 
-// #563: changing the UI language draws the main page again (App.jsx), and the notice put away
+// #563: changing the UI language draws the main page again (App.tsx), and the notice put away
 // opened again at once.
 test("a notice put away stays away when the main page is drawn again", async context => {
     const s = await setup(context, { state: "ok", data: { pending: true, enabled: true } });

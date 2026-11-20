@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "vitest";
+import type { TestContext } from "vitest";
 import yaml from "js-yaml";
 import { hooks, loadModule, find } from "../../../logics/test/hookHarness.ts";
+import type { TreeNode } from "../../../logics/test/hookHarness.ts";
 import * as logic from "../../../logics/setup/firstRunSetup.ts";
 
 const CATALOG = {
@@ -17,36 +19,56 @@ const CATALOG = {
 };
 
 // A world the dialog reads: the saved settings, the download state and what it sent.
-function world(values = {}) {
+interface World {
+    notice: boolean;
+    settled: boolean;
+    opened: boolean;
+    telemetryPending: boolean;
+    engine: string | null;
+    server: string;
+    paths: { model: string; vad_model: string };
+    catalog: object;
+    jobs: Record<string, object>;
+    downloadError: string | null;
+    realtimeError: string | null;
+    sent: [string, unknown][];
+    calls: unknown[];
+}
+
+function world(values: Partial<World> = {}): World {
     return { notice: true, settled: false, opened: false, telemetryPending: false,
         engine: null, server: "external", paths: { model: "", vad_model: "" }, catalog: CATALOG, jobs: {},
         downloadError: null, realtimeError: null, sent: [], calls: [], ...values };
 }
 
-async function setup(context, w = world()) {
+// value?.[key], for a value read from a locale file.
+const fieldOf = (value: unknown, key: string): unknown =>
+    value === null || value === undefined ? undefined : Reflect.get(Object(value), key);
+
+async function setup(context: TestContext, w = world()) {
     const runtime = hooks();
-    const record = (endpoint, data) => { w.sent.push([endpoint, data]); };
-    const { FirstRunSetupController } = await loadModule(new URL("./FirstRunSetupController.tsx", import.meta.url), runtime, {
-        "@useI18n": { useI18n: () => ({ t: key => Array.isArray(key) ? key[0] : key, i18n: { language: "ja" } }) },
+    const record = (endpoint: string, data: unknown) => { w.sent.push([endpoint, data]); };
+    const { FirstRunSetupController } = await loadModule<typeof import("./FirstRunSetupController.tsx")>(new URL("./FirstRunSetupController.tsx", import.meta.url), runtime, {
+        "@useI18n": { useI18n: () => ({ t: (key: string | string[]) => Array.isArray(key) ? key[0] : key, i18n: { language: "ja" } }) },
         "@tauri-apps/api/core": { isTauri: () => false },
         "@tauri-apps/plugin-opener": { openUrl: () => assert.fail("no link opens in this test") },
         "@logics_configs": {
             useOthers: () => ({ currentTelemetryNotice: { state: "ok", data: { pending: w.telemetryPending } } }),
-            useTranscription: () => ({ setSelectedTranscriptionEngine: async engine => { record("/set/data/selected_transcription_engine", engine); return true; } }),
+            useTranscription: () => ({ setSelectedTranscriptionEngine: async (engine: unknown) => { record("/set/data/selected_transcription_engine", engine); return true; } }),
             useSettingValue: () => ({ state: "ok", data: "Microphone (USB)" }),
         },
         "@store": {
             useStore_IsBackendReady: () => ({ currentIsBackendReady: { data: true } }),
-            useStore_IsOpenedConfigPage: () => ({ updateIsOpenedConfigPage: value => w.calls.push(["opened", value]) }),
-            useStore_SelectedConfigTabId: () => ({ updateSelectedConfigTabId: value => w.calls.push(["tab", value]) }),
+            useStore_IsOpenedConfigPage: () => ({ updateIsOpenedConfigPage: (value: unknown) => w.calls.push(["opened", value]) }),
+            useStore_SelectedConfigTabId: () => ({ updateSelectedConfigTabId: (value: unknown) => w.calls.push(["tab", value]) }),
         },
-        "../../../logics/common/useConsentDialog": { useConsentDialog: open => ({ dialog: { current: null, open }, close: () => w.calls.push("closed") }) },
+        "../../../logics/common/useConsentDialog": { useConsentDialog: (open: unknown) => ({ dialog: { current: null, open }, close: () => w.calls.push("closed") }) },
         "../../../logics/transcription/useRealtimeASR": { useRealtimeASR: () => ({
             settings: { version: 1, server: w.server, base_url: "http://127.0.0.1:8080" }, error: w.realtimeError,
-            send: async (endpoint, data) => { record(endpoint, data); w.realtimeError = null; return true; } }) },
+            send: async (endpoint: string, data: unknown) => { record(endpoint, data); w.realtimeError = null; return true; } }) },
         "../../../logics/voice/useModelDownloads": { useModelDownloads: () => ({
             catalog: w.catalog, state: { jobs: w.jobs }, error: w.downloadError,
-            send: async (endpoint, data) => { record(endpoint, data); if (endpoint.startsWith("/run/")) w.downloadError = null; } }) },
+            send: async (endpoint: string, data: unknown) => { record(endpoint, data); if (endpoint.startsWith("/run/")) w.downloadError = null; } }) },
         "../../../logics/voice/useVirtualMic": { useVirtualMic: () => ({ status: { supported: true, cables: [], error: null }, openGuide: () => w.calls.push("guide") }) },
         "../../../logics/main/useSetupNeeds": { useSetupNeeds: () => ({ needs: [] }) },
         "../../../logics/translation/useOpenTranslatorList": { useOpenTranslatorList: () => () => w.calls.push("translators") },
@@ -64,10 +86,19 @@ async function setup(context, w = world()) {
     });
     context.onTestFinished(() => runtime.unmount());
     // Renders until the effects stop changing what is drawn (each effect may set state).
-    const render = () => { let tree; for (let i = 0; i < 4; i += 1) tree = runtime.render(FirstRunSetupController); return tree; };
-    const buttons = tree => { const found = []; find(tree, node => { if (node.type === "button") found.push(node); return false; }); return found; };
-    const button = (tree, label) => buttons(tree).find(node => [node.props.children].flat().includes(label));
-    const part = (tree, name) => find(tree, node => node.type?.name === name);
+    const render = () => { let tree: unknown; for (let i = 0; i < 4; i += 1) tree = runtime.render(FirstRunSetupController); return tree; };
+    const buttons = (tree: unknown) => { const found: TreeNode[] = []; find(tree, node => { if (node.type === "button") found.push(node); return false; }); return found; };
+    const button = (tree: unknown, label: string) => {
+        const found = buttons(tree).find(node => [node.props.children].flat().includes(label));
+        assert.ok(found, label);
+        return found;
+    };
+    // A part the dialog draws from a function of its own, found by that function's name.
+    const part = (tree: unknown, name: string) => {
+        const found = find(tree, node => typeof node.type === "function" && node.type.name === name);
+        assert.ok(found, name);
+        return found;
+    };
     return { render, button, buttons, part };
 }
 
@@ -97,13 +128,14 @@ test("nothing downloads before the consent; the run downloads, applies and switc
     assert.equal(start.props.disabled, true, "the start waits for the consent");
     start.props.onClick();
     s.render();
-    assert.deepEqual(w.sent, []);
+    // <unknown> keeps the assertion from narrowing w.sent, which the run goes on adding to.
+    assert.deepEqual<unknown>(w.sent, []);
 
     recognition.props.setConsent(true);
     tree = s.render();
     s.button(tree, "first_run_setup.recognition.start").props.onClick();
     s.render();
-    assert.deepEqual(w.sent, [["/run/start_model_download", { id: "reazonspeech-v2-q8", consent: true, catalog_version: "2026-11-16.3" }]]);
+    assert.deepEqual<unknown>(w.sent, [["/run/start_model_download", { id: "reazonspeech-v2-q8", consent: true, catalog_version: "2026-11-16.3" }]]);
 
     // Downloading, then verified: applied once against the saved (empty) path.
     w.jobs = { "reazonspeech-v2-q8": { job_id: "j1", phase: "downloading", received_bytes: 1, total_bytes: 2 } };
@@ -122,7 +154,9 @@ test("nothing downloads before the consent; the run downloads, applies and switc
     assert.deepEqual(w.sent.at(-1), ["/run/start_model_download", { id: "silero-vad-v62", consent: true, catalog_version: "2026-11-16.3" }]);
     w.jobs = { ...w.jobs, "silero-vad-v62": { job_id: "v1", phase: "ready" } };
     s.render();
-    assert.deepEqual(w.sent.at(-1)[0], "/run/apply_model_download");
+    const last = w.sent.at(-1);
+    assert.ok(last);
+    assert.deepEqual(last[0], "/run/apply_model_download");
     w.paths = { model: "/m/reazon.gguf", vad_model: "/m/vad.gguf" };
     s.render();
     assert.deepEqual(w.sent.at(-1), ["/set/data/realtime_asr_settings", { version: 1, server: "bundled", base_url: "http://127.0.0.1:8080" }]);
@@ -182,7 +216,9 @@ test("Later puts it away for this run without dismissing it; Don't show again do
     assert.deepEqual(w.calls.filter(call => call === "dismiss" || call === "close"), ["close"]);
     const v = world();
     s = await setup(context, v);
-    find(s.render(), node => node.props?.className === "alternative").props.children.props.onClick();
+    const alternative = find(s.render(), node => node.props?.className === "alternative");
+    assert.ok(alternative);
+    alternative.props.children.props.onClick();
     assert.ok(v.calls.includes("dismiss"));
 });
 
@@ -195,10 +231,10 @@ test("every string it uses is in both languages", () => {
     for (const language of ["en", "ja"]) {
         const messages = yaml.load(readFileSync(new URL(`../../../../locales/${language}.yml`, import.meta.url), "utf8"));
         for (const key of keys) {
-            const value = key.split(".").reduce((node, part) => node?.[part], messages);
+            const value = key.split(".").reduce<unknown>((node, part) => fieldOf(node, part), messages);
             assert.equal(typeof value, "string", `${language}: ${key}`);
         }
         // Japanese text never says "this PC" (このPC); it names the user's own computer.
-        if (language === "ja") assert.ok(!JSON.stringify(messages.first_run_setup).includes("このPC"));
+        if (language === "ja") assert.ok(!JSON.stringify(fieldOf(messages, "first_run_setup")).includes("このPC"));
     }
 });

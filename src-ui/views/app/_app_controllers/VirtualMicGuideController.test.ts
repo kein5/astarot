@@ -1,33 +1,48 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "vitest";
+import type { TestContext } from "vitest";
 import yaml from "js-yaml";
 import { hooks, loadModule, find } from "../../../logics/test/hookHarness.ts";
+import type { TreeNode } from "../../../logics/test/hookHarness.ts";
 import * as shapes from "../../../logics/voice/virtualMic.ts";
 import * as firstRunLogic from "../../../logics/setup/firstRunSetup.ts";
 
-const id = name => JSON.stringify(["Windows WASAPI", name]);
+interface GuideSetup {
+    notice?: boolean;
+    current?: object;
+    opened?: boolean;
+    telemetryPending?: boolean;
+    check?: object;
+    firstRun?: { notice: boolean; settled: boolean };
+}
+
+const id = (name: string) => JSON.stringify(["Windows WASAPI", name]);
 const CABLE = { playback: id("CABLE Input (VB-Audio Virtual Cable)"), recording: id("CABLE Output (VB-Audio Virtual Cable)"),
     playback_label: "CABLE Input (VB-Audio Virtual Cable)", recording_label: "CABLE Output (VB-Audio Virtual Cable)" };
 const IDLE = { phase: "idle", playback: null, level: 0, result: null, error: null };
-const status = (extra = {}) => ({ supported: true, cables: [], error: null, tts_output: null, tts_output_is_cable: false, ...extra });
+const status = (extra: object = {}) => ({ supported: true, cables: [], error: null, tts_output: null, tts_output_is_cable: false, ...extra });
 
-async function setup(context, { notice = true, current = status(), opened = false, telemetryPending = false, check = IDLE,
-    firstRun = { notice: false, settled: false } } = {}) {
-    const runtime = hooks(), calls = [];
+// value?.[key], for a value read from a locale file.
+const fieldOf = (value: unknown, key: string): unknown =>
+    value === null || value === undefined ? undefined : Reflect.get(Object(value), key);
+
+async function setup(context: TestContext, { notice = true, current = status(), opened = false, telemetryPending = false, check = IDLE,
+    firstRun = { notice: false, settled: false } }: GuideSetup = {}) {
+    const runtime = hooks(), calls: unknown[] = [];
     const state = { notice, status: current, check, opened,
-        refreshStatus: () => calls.push("refresh"), startCheck: playback => calls.push(["check", playback]),
+        refreshStatus: () => calls.push("refresh"), startCheck: (playback: unknown) => calls.push(["check", playback]),
         resetCheck: () => calls.push("reset"), dismissNotice: () => { calls.push("dismiss"); state.notice = false; },
         closeGuide: () => { calls.push("close"); state.opened = false; } };
-    const { VirtualMicGuideController, VB_CABLE_URL } = await loadModule(new URL("./VirtualMicGuideController.tsx", import.meta.url), runtime, {
+    const { VirtualMicGuideController, VB_CABLE_URL } = await loadModule<typeof import("./VirtualMicGuideController.tsx")>(new URL("./VirtualMicGuideController.tsx", import.meta.url), runtime, {
         "@tauri-apps/api/core": { isTauri: () => false },
         "@tauri-apps/plugin-opener": { openUrl: () => assert.fail("no link opens in this test") },
         "@logics_configs": { useOthers: () => ({ currentTelemetryNotice: { state: "ok", data: { pending: telemetryPending } } }) },
         "@store": {
-            useStore_IsOpenedConfigPage: () => ({ updateIsOpenedConfigPage: value => calls.push(["opened", value]) }),
-            useStore_SelectedConfigTabId: () => ({ updateSelectedConfigTabId: value => calls.push(["tab", value]) }),
+            useStore_IsOpenedConfigPage: () => ({ updateIsOpenedConfigPage: (value: unknown) => calls.push(["opened", value]) }),
+            useStore_SelectedConfigTabId: () => ({ updateSelectedConfigTabId: (value: unknown) => calls.push(["tab", value]) }),
         },
-        "../../../logics/common/useConsentDialog": { useConsentDialog: open => ({ dialog: { current: null, open }, close: () => calls.push("closed") }) },
+        "../../../logics/common/useConsentDialog": { useConsentDialog: (open: unknown) => ({ dialog: { current: null, open }, close: () => calls.push("closed") }) },
         "../../../logics/voice/useVirtualMic": { useVirtualMic: () => state },
         "../../../logics/voice/virtualMic.ts": shapes,
         "../../../logics/setup/useFirstRunSetup": { useFirstRunSetup: () => firstRun },
@@ -36,15 +51,15 @@ async function setup(context, { notice = true, current = status(), opened = fals
     context.onTestFinished(() => runtime.unmount());
     // The first render decides; the second shows what that decision opened.
     const render = () => { runtime.render(VirtualMicGuideController); return runtime.render(VirtualMicGuideController); };
-    const all = (tree, type) => {
-        const found = [];
+    const all = (tree: unknown, type: string) => {
+        const found: TreeNode[] = [];
         find(tree, node => { if (node.type === type) found.push(node); return false; });
         return found;
     };
     return { render, all, calls, state, url: VB_CABLE_URL, remount: runtime.remount };
 }
 
-const text = node => [node.props.children].flat().filter(item => typeof item === "string").join("");
+const text = (node: TreeNode) => [node.props.children].flat().filter((item: unknown) => typeof item === "string").join("");
 
 test("at start-up it opens by itself only without a cable, and after the other first-run notices", async context => {
     assert.notEqual((await setup(context)).render(), null);
@@ -90,7 +105,7 @@ test("Later puts it away for this run; Don't show again stops it opening by itse
     assert.ok(never.calls.includes("dismiss"));
 });
 
-// #563: changing the UI language draws the main page again (App.jsx), and the guide put away
+// #563: changing the UI language draws the main page again (App.tsx), and the guide put away
 // with Later opened again at once.
 test("a guide put away with Later stays away when the main page is drawn again", async context => {
     const s = await setup(context);
@@ -116,6 +131,7 @@ test("with a cable it shows both ends, checks with the tone and ends at VRChat's
     buttons[1].props.onClick();
     assert.deepEqual(s.calls.at(-1), ["check", CABLE.playback]);
     const meter = find(tree, node => node.props?.role === "meter");
+    assert.ok(meter);
     assert.equal(meter.props["aria-valuenow"], 0);
     buttons[0].props.onClick();
     assert.deepEqual(s.calls.slice(-2), [["tab", "tts"], ["opened", true]]);
@@ -125,16 +141,20 @@ test("while a check runs the meter follows it and the dialog cannot be put away"
     const s = await setup(context, { notice: false, opened: true, current: status({ cables: [CABLE], tts_output: CABLE.playback, tts_output_is_cable: true }),
         check: { ...IDLE, phase: "running", playback: CABLE.playback, level: 0.62 } });
     const tree = s.render();
-    assert.equal(find(tree, node => node.props?.role === "meter").props["aria-valuenow"], 62);
+    const meter = find(tree, node => node.props?.role === "meter");
+    assert.ok(meter);
+    assert.equal(meter.props["aria-valuenow"], 62);
     const buttons = s.all(tree, "button");
     // TTS already plays into the cable: no settings button.
     assert.deepEqual(buttons.map(button => button.props.disabled), [true, true, true]);
-    find(tree, node => node.type === "dialog").props.onCancel({ preventDefault() {} });
+    const dialog = find(tree, node => node.type === "dialog");
+    assert.ok(dialog);
+    dialog.props.onCancel({ preventDefault() {} });
     assert.ok(!s.calls.includes("close"));
 });
 
 test("every text the guide shows exists in English and Japanese", () => {
-    const keys = new Set();
+    const keys = new Set<string>();
     const source = readFileSync(new URL("./VirtualMicGuideController.tsx", import.meta.url), "utf8")
         + readFileSync(new URL("../config_page/setting_section/setting_box/tts/VirtualMicEntry.tsx", import.meta.url), "utf8");
     for (const [, key] of source.matchAll(/"(virtual_mic\.[a-z_.]+)"/g)) keys.add(key);
@@ -143,7 +163,7 @@ test("every text the guide shows exists in English and Japanese", () => {
     for (const language of ["en", "ja"]) {
         const strings = yaml.load(readFileSync(new URL(`../../../../locales/${language}.yml`, import.meta.url), "utf8"));
         for (const key of keys) {
-            const value = key.split(".").reduce((node, part) => node?.[part], strings);
+            const value = key.split(".").reduce<unknown>((node, part) => fieldOf(node, part), strings);
             assert.equal(typeof value, "string", `${language}: ${key}`);
         }
     }
