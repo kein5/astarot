@@ -75,9 +75,10 @@ pub const RVC_PROFILES: [&str; 2] = ["low", "cpu"];
 pub const MAX_LATENCY_MS: i64 = 10_000;
 
 /// Why a worker could not become ready, from a fixed list.
-pub const WORKER_FAILURES: [&str; 8] = [
+pub const WORKER_FAILURES: [&str; 9] = [
     "vc_gpu_unavailable",
     "vc_directml_unavailable",
+    "vc_cpu_too_slow",
     "vc_model_missing",
     "vc_runtime_version_unsupported",
     "vc_checkpoint_incomplete",

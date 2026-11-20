@@ -104,7 +104,7 @@ PR #788 の worker を、アプリと同じく VVC1 のパイプで動かしま�
 1. RVC の worker に DirectML を足す。DirectML 版の ONNX Runtime が 1.24.4 で止まっている点と、デスクトップ PC での順位が未確認な点は実装時に扱う（PR #788）。
 2. CUDA の TF32 は既定のまま使う。
 3. WebGPU の検討はやめる。
-4. この程度の CPU の PC では、CPU での変換は出さない。
+4. この程度の CPU の PC では、CPU での変換は出さない。worker は CPU で変換を始める前に、試しの音で 0.5 秒のブロックを変換して時間を測る。ブロックの長さのうちに変換できなければ `vc_cpu_too_slow` で開始しない（`native/rvc-runtime/README.md` の「CPU speed check」）。この PC の CPU では1ブロックに 1.07 秒かかり、開始しなかった。
 5. CUDA Graph は今は入れない。
 
 ### 2回目（2026-11-20、PR #788 の判断が要る点に対して）

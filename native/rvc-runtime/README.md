@@ -490,6 +490,12 @@ vrct-rvc-worker --runtime <dir> --probe [--device cuda|directml|cpu|auto]   # ex
   unconverted. When more than half of the last eight blocks were late or dropped, the
   worker sends `failed` with `vc_capture_overrun` instead of the next answer and stops, as
   the owner stops a GPU worker that falls behind.
+- **CPU speed check** (2026-11-20): before `ready`, the CPU converts one 0.5 s block of a
+  test tone to settle its first runs, then two more, timed. When the faster of the two takes
+  at least the block's 0.5 s, the CPU cannot keep up from the start and the worker sends
+  `failed` with `vc_cpu_too_slow` instead of `ready`. An Intel Core i7-1255U took 1.07 s.
+  It applies to `--device cpu` and to `auto` when no GPU can be used; it adds two blocks'
+  time to the start (about 0.6 s on a CPU that keeps up).
 - Both: index blend from the user's index rate, speaker 0, random synthesis noise; the
   input high-pass of the specification is on (`--highpass off` matches the external runtime,
   for measurements); 48 kHz to 16 kHz in and the model's rate to 48 kHz out with
