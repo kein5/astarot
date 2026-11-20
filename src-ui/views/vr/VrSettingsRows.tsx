@@ -118,15 +118,20 @@ export const StepperRow = ({ label, sub, variable, setValue, min, max, step, for
     );
 };
 
+// One choice of a segment: a mark may stand before its name (the hand of a hand choice).
+export interface SegmentOption extends PickerOption {
+    icon?: ReactNode;
+}
+
 interface SegmentRowProps {
     label: string;
     sub?: string;
     variable: RowValue;
-    options: readonly PickerOption[];
+    options: readonly SegmentOption[];
     onSelect: (id: string) => unknown;
 }
 
-// 2〜3択を並べて直接選ぶ (選んでいるものは塗り)。options: [{ id, label }]
+// 2〜3択を並べて直接選ぶ (選んでいるものは塗り)。options: [{ id, label, icon? }]
 export const SegmentRow = ({ label, sub, variable, options, onSelect }: SegmentRowProps) => {
     const { t } = useI18n();
     const is_pending = variable.state === "pending";
@@ -144,7 +149,7 @@ export const SegmentRow = ({ label, sub, variable, options, onSelect }: SegmentR
                         aria-disabled={is_pending} aria-pressed={option.id === variable.data}
                         onClick={() => !is_pending && option.id !== variable.data && onSelect(option.id)}
                     >
-                        {option.label}
+                        {option.icon}{option.label}
                     </button>
                 ))}
             </div>

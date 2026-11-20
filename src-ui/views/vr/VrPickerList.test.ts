@@ -538,7 +538,7 @@ test("font selection reaches the existing appearance setter and closes the setti
             state: "ok", data: Object.fromEntries(fonts.map(option => [option.id, option.label])),
         } }) },
         "@ui_configs": { ui_configs: { selectable_ui_languages: [] } },
-        "./VrWindow": { VrWindow: () => null }, "./VrSettingsRows": rows,
+        "./VrWindow": { VrWindow: () => null }, "./VrSettingsRows": rows, "./VrHandIcon": { VrHandIcon: () => null },
         "../app/config_page/setting_section/setting_box/_components/compute_device/computeDeviceOptions": {},
         "../../logics/configs/cloudTranscription": {}, "../../logics/configs/ctranslate2License": {},
     });

@@ -22,6 +22,7 @@ import WarningSvg from "@images/warning.svg?react";
 import { VrWindow } from "./VrWindow";
 import { Disclosure, Picker, SectionLabel, SegmentRow, SelectRow, StepperRow, ThresholdRow, ToggleRow } from "./VrSettingsRows";
 import type { PickerOption, RowValue } from "./VrSettingsRows";
+import { VrHandIcon } from "./VrHandIcon";
 import { buildComputeDeviceOptions } from "../app/config_page/setting_section/setting_box/_components/compute_device/computeDeviceOptions";
 import type { ComputeDeviceChoice, ComputeDeviceList } from "../app/config_page/setting_section/setting_box/_components/compute_device/computeDeviceOptions";
 import { CLOUD_TRANSCRIPTION_ENGINES } from "../../logics/configs/cloudTranscription";
@@ -349,7 +350,11 @@ const TranscriptionSettings = ({ t, openPicker }: CategoryProps) => {
                 is_pending={tr.currentSelectedTranscriptionEngine.state === "pending"}
                 onOpen={() => openPicker(engine_label, engines, tr.currentSelectedTranscriptionEngine.data, tr.setSelectedTranscriptionEngine)} />
             {timeoutRows("mic", micRows, 30)}
-            <Disclosure label={t("config_page.transcription.section_label_speaker")} summary={t("vr_panel.settings.speaker_adjustments")}>
+            {/* The fold says the values in use, as the processing settings' fold does (#614). */}
+            <Disclosure label={t("config_page.transcription.section_label_speaker")}
+                summary={t("vr_panel.settings.speaker_values", { record: speakerRows.record.variable.data,
+                    phrase: speakerRows.phrase.variable.data, max: speakerRows.maxWords.variable.data })}
+                is_pending={[speakerRows.record, speakerRows.phrase, speakerRows.maxWords].some(row => row.variable.state === "pending")}>
                 {timeoutRows("speaker", speakerRows, 60)}
             </Disclosure>
         </>
@@ -413,11 +418,12 @@ const VrSettings = ({ t }: { t: Translate }) => {
                 variable={vr.currentOverlayShowOnlyTranslatedMessages} onToggle={vr.toggleOverlayShowOnlyTranslatedMessages} />
 
             <SectionLabel label={t("vr_panel.launcher")} />
-            <SegmentRow label={t("vr_panel.launcher_hand")} sub={t("vr_panel.launcher_hand_desc")}
+            {/* Each hand is drawn as the toolbar draws it, so the choice needs no line under its name (#614). */}
+            <SegmentRow label={t("vr_panel.launcher_hand")}
                 variable={vr.currentOverlayVrLauncherHand} onSelect={vr.setOverlayVrLauncherHand}
                 options={[
-                    { id: "LeftHand", label: t("vr_panel.anchor_left_hand") },
-                    { id: "RightHand", label: t("vr_panel.anchor_right_hand") },
+                    { id: "LeftHand", label: t("vr_panel.anchor_left_hand"), icon: <VrHandIcon className={styles.segment_icon} /> },
+                    { id: "RightHand", label: t("vr_panel.anchor_right_hand"), icon: <VrHandIcon right className={styles.segment_icon} /> },
                 ]} />
             <ToggleRow label={t("vr_panel.launcher_auto_hide")}
                 variable={vr.currentOverlayVrLauncherAutoHide} onToggle={vr.toggleOverlayVrLauncherAutoHide} />
