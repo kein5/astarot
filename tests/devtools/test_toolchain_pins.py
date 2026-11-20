@@ -6,10 +6,10 @@ import unittest
 
 
 ROOT = Path(__file__).resolve().parents[2]
-TOOLS = ("node", "rust", "python", "uv", "cocogitto")
+TOOLS = ("node", "rust", "python", "uv", "cocogitto", "biome")
 # Downloaded archives mise.lock checks by SHA-256. Rust comes through rustup, which has no
 # archive checksum in the lock.
-LOCKED_ARCHIVES = ("node", "python", "uv", "cocogitto")
+LOCKED_ARCHIVES = ("node", "python", "uv", "cocogitto", "biome")
 PLATFORMS = ("linux-x64", "windows-x64")
 
 

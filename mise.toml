@@ -18,6 +18,8 @@ rust = { version = "1.100.0", profile = "minimal", components = "clippy,rustfmt"
 python = "3.14.10"
 uv = "0.13.5"
 cocogitto = "7.0.0"
+# Lints and formats the UI's TypeScript and JavaScript (biome.json; `python tools/dev.py check --scope ui`).
+biome = "2.6.6"
 
 # No uv settings in [env]: mise exports [env] to every program it starts. Tasks that create
 # environments set them for themselves instead.
