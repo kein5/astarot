@@ -3,8 +3,15 @@ import { readFileSync } from "node:fs";
 import { test } from "vitest";
 import yaml from "js-yaml";
 import { CLOUD_TRANSCRIPTION_ENGINES } from "./cloudTranscription.ts";
+import { unchecked } from "../test/hookHarness.ts";
 
-const read = path => readFileSync(new URL(path, import.meta.url), "utf8");
+// A locale file (locales/*.yml) as this test reads it: mappings down to the texts, each key
+// read or checked for truth.
+interface LocaleTree {
+    readonly [key: string]: LocaleTree | undefined;
+}
+
+const read = (path: string) => readFileSync(new URL(path, import.meta.url), "utf8");
 const setter = read("./config_page_setter/ui_config_setter.ts");
 // The backend's endpoints: the spec's list, which the core's endpoint_coverage test keeps equal
 // to what the core serves.
@@ -49,13 +56,13 @@ test("the API engines list the services the app provides, then the user's own se
 
 for (const language of ["en", "ja"]) {
     test(`${language}: every cloud engine has its labels`, () => {
-        const transcription = yaml.load(read(`../../../locales/${language}.yml`)).config_page.transcription;
-        assert.ok(transcription.select_transcription_engine.desc);
-        assert.ok(transcription.cloud_section.label && transcription.cloud_section.desc);
-        assert.ok(transcription.speechcpp_section.label && transcription.speechcpp_section.desc);
+        const transcription = unchecked<LocaleTree>(yaml.load(read(`../../../locales/${language}.yml`))).config_page?.transcription;
+        assert.ok(transcription?.select_transcription_engine?.desc);
+        assert.ok(transcription.cloud_section?.label && transcription.cloud_section.desc);
+        assert.ok(transcription.speechcpp_section?.label && transcription.speechcpp_section.desc);
         assert.ok(transcription.select_transcription_engine.badge_own);
         for (const { key, has_url } of CLOUD_TRANSCRIPTION_ENGINES) {
-            assert.ok(transcription.select_transcription_engine.engines[key], `${language}: engine label ${key}`);
+            assert.ok(transcription.select_transcription_engine.engines?.[key], `${language}: engine label ${key}`);
             assert.ok(transcription[`${key}_auth_key`]?.label, `${language}: ${key}_auth_key.label`);
             assert.ok(transcription[`select_${key}_model`]?.label, `${language}: select_${key}_model.label`);
             if (has_url) assert.ok(transcription[`${key}_url`]?.label, `${language}: ${key}_url.label`);

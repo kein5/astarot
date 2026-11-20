@@ -2,12 +2,12 @@ import assert from "node:assert/strict";
 import { test } from "vitest";
 import { shownTelemetry, telemetryUnanswered, toggleTelemetryOrAnswer } from "./telemetryToggle.ts";
 
-const switchWith = (enabled, pending) => {
-    const calls = [];
+const switchWith = (enabled: boolean, pending: boolean) => {
+    const calls: unknown[][] = [];
     return { calls, others: {
         currentTelemetry: { data: enabled }, currentTelemetryNotice: { data: { pending, enabled } },
         toggleTelemetry: () => calls.push(["toggle"]),
-        setTelemetryNotice: answer => { calls.push(["answer", answer]); return Promise.resolve(); },
+        setTelemetryNotice: (answer: unknown) => { calls.push(["answer", answer]); return Promise.resolve(); },
         getTelemetry: () => calls.push(["read"]),
     } };
 };
@@ -24,7 +24,7 @@ test("one press while the notice is unanswered answers send, whatever the settin
 });
 
 test("until the notice is answered the switch shows off, as nothing is sent", () => {
-    const notice = pending => ({ state: "ok", data: { pending, enabled: true } });
+    const notice = (pending: boolean) => ({ state: "ok", data: { pending, enabled: true } });
     assert.deepEqual(shownTelemetry({ state: "ok", data: true }, notice(true)), { state: "ok", data: false });
     assert.equal(telemetryUnanswered(notice(true)), true);
     // Answered (or VRCT_TELEMETRY=off, which reports no pending notice): the setting as it is.

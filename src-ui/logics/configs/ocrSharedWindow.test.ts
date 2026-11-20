@@ -6,19 +6,49 @@ import {
     createSharedWindowActions, endedNotice, INITIAL_SHARED_WINDOW, nextRestoreToken, RESTORE_LIMIT_MS, shareErrorKey,
     sharedWindowView, shouldHoldSwitch, shouldRestoreSharing, shouldStopSharing, startErrorKey,
 } from "./ocrSharedWindow.ts";
+import type { ScreencastReply, SharedWindowState, SharedWindowView, TimerHandle } from "./ocrSharedWindow.ts";
+import { unchecked } from "../test/hookHarness.ts";
 
-const locale = name => yaml.load(readFileSync(new URL(`../../../locales/${name}.yml`, import.meta.url), "utf8"));
-const lookup = (tree, key) => key.split(".").reduce((node, part) => node?.[part], tree);
+const locale = (name: string): unknown => yaml.load(readFileSync(new URL(`../../../locales/${name}.yml`, import.meta.url), "utf8"));
+const lookup = (tree: unknown, key: string) => key.split(".").reduce<unknown>((node, part) => node && typeof node === "object" ? Reflect.get(node, part) : undefined, tree);
+// A text of the locale file; anything else fails here, as assert.match did.
+const textAt = (tree: unknown, key: string) => {
+    const value = lookup(tree, key);
+    assert.ok(typeof value === "string", key);
+    return value;
+};
+// Test data: states with only the fields the view reads.
+const viewOf = (state: Partial<SharedWindowState>) => sharedWindowView(unchecked<SharedWindowState>(state));
+// A view the section draws; the hidden one has none of the fields read below, which then failed
+// their assertions as this one does.
+const shown = (view: SharedWindowView) => {
+    assert.ok(view.visible);
+    return view;
+};
+
+// The page's pieces around the actions, as the tests read them.
+interface Page {
+    state: SharedWindowState;
+    token: string;
+    calls: [string, unknown][];
+    saved: string[];
+}
+interface HarnessOptions {
+    token?: string;
+    state?: Partial<SharedWindowState>;
+    commands?: Record<string, unknown>;
+}
 
 // The page's pieces around the actions: the atom, the saved token, and a scripted Tauri side.
-const harness = ({ token = "", state = {}, commands = {} } = {}) => {
-    const page = { state: { ...INITIAL_SHARED_WINDOW, ...state }, token, calls: [], saved: [] };
+const harness = ({ token = "", state = {}, commands = {} }: HarnessOptions = {}) => {
+    const page: Page = { state: { ...INITIAL_SHARED_WINDOW, ...state }, token, calls: [], saved: [] };
     const actions = createSharedWindowActions({
         invoke: async (command, args) => {
             page.calls.push([command, args]);
             const answer = commands[command];
             if (answer instanceof Error) throw answer.message;
-            return typeof answer === "function" ? answer(args) : answer;
+            // The scripted answers stand in for the app's replies.
+            return unchecked<ScreencastReply>(typeof answer === "function" ? answer(args) : answer);
         },
         read: () => page.state,
         write: next => { page.state = next; },
@@ -27,6 +57,9 @@ const harness = ({ token = "", state = {}, commands = {} } = {}) => {
     });
     return { page, actions };
 };
+// Fake timers number their handles.
+const handle = (index: number) => unchecked<TimerHandle>(index);
+const indexOf = (timer: TimerHandle) => unchecked<number>(timer);
 
 test("the section is only shown where a window can be shared", () => {
     assert.deepEqual(sharedWindowView(null), { visible: false });
@@ -39,21 +72,21 @@ test("the section is only shown where a window can be shared", () => {
 });
 
 test("the section says what is shared and which buttons work", () => {
-    const asking = sharedWindowView({ supported: true, active: false, busy: true, error: null });
+    const asking = shown(viewOf({ supported: true, active: false, busy: true, error: null }));
     assert.equal(asking.statusKey, "config_page.ocr.shared_window.status_asking");
     assert.equal(asking.canShare, false);
     assert.equal(asking.canStop, false);
-    const active = sharedWindowView({ supported: true, active: true, busy: false, error: null });
+    const active = shown(viewOf({ supported: true, active: true, busy: false, error: null }));
     assert.equal(active.statusKey, "config_page.ocr.shared_window.status_active");
     assert.equal(active.tone, "active");
     assert.equal(active.shareKey, "config_page.ocr.shared_window.share_another");
     assert.equal(active.canStop, true);
-    const failed = sharedWindowView({ supported: true, active: false, busy: false, error: "screencast_helper_failed" });
+    const failed = shown(viewOf({ supported: true, active: false, busy: false, error: "screencast_helper_failed" }));
     assert.equal(failed.tone, "failed");
     assert.equal(failed.errorKey, "config_page.ocr.shared_window.error_failed");
     assert.equal(failed.errorCode, "screencast_helper_failed");
     // An old error is not shown over a sharing that works.
-    assert.equal(sharedWindowView({ supported: true, active: true, busy: false, error: "portal_timeout" }).errorKey, null);
+    assert.equal(shown(viewOf({ supported: true, active: true, busy: false, error: "portal_timeout" })).errorKey, null);
 });
 
 test("cancelling the desktop's dialog is not an error", () => {
@@ -113,7 +146,7 @@ test("a cancelled dialog leaves no error, and spends only a token that was sent"
     await restored.actions.share();
     assert.deepEqual(restored.page.saved, [""]);
     assert.deepEqual(restored.page.state, { supported: true, active: false, busy: false, error: "portal_cancelled", restoring: false });
-    assert.equal(sharedWindowView(restored.page.state).errorKey, null);
+    assert.equal(shown(sharedWindowView(restored.page.state)).errorKey, null);
     // "Choose another window…" sent no token, so the saved one still restores the earlier window.
     const chosen = harness({ token: "old", state: { supported: true, active: true }, commands });
     await chosen.actions.share({ choose: true });
@@ -174,13 +207,14 @@ test("English and Japanese have every string the section uses", () => {
     for (const name of ["en", "ja"]) {
         const tree = locale(name);
         for (const key of keys) assert.equal(typeof lookup(tree, key), "string", `${name}: ${key}`);
-        assert.match(lookup(tree, "config_page.ocr.shared_window.error_failed"), /\{\{code\}\}/);
-        assert.match(lookup(tree, "config_page.ocr.capture_source.shared"), /\{\{status\}\}/);
+        assert.match(textAt(tree, "config_page.ocr.shared_window.error_failed"), /\{\{code\}\}/);
+        assert.match(textAt(tree, "config_page.ocr.capture_source.shared"), /\{\{status\}\}/);
     }
 });
 
 test("only window-not-found reads differently where a window can be shared", () => {
-    const wayland = { supported: true }, elsewhere = { supported: false };
+    // Test data: states with only the field startErrorKey reads.
+    const wayland = unchecked<SharedWindowState>({ supported: true }), elsewhere = unchecked<SharedWindowState>({ supported: false });
     assert.equal(startErrorKey("OCR_DISABLED_WINDOW_NOT_FOUND", wayland), "common_error.ocr_window_not_found_wayland");
     assert.equal(startErrorKey("OCR_DISABLED_WINDOW_NOT_FOUND", elsewhere), null);
     assert.equal(startErrorKey("OCR_DISABLED_WINDOW_NOT_FOUND", null), null);
@@ -207,14 +241,14 @@ test("the remembered window is shared again only when chat reading found nothing
 });
 
 test("restoring sends the saved token, keeps the new one, and reports that a window is shared", async () => {
-    const timers = [];
-    const page = { state: { ...INITIAL_SHARED_WINDOW, supported: true }, token: "saved", calls: [], saved: [] };
+    const timers: { run: () => void; ms: number; cancelled?: boolean }[] = [];
+    const page: Page = { state: { ...INITIAL_SHARED_WINDOW, supported: true }, token: "saved", calls: [], saved: [] };
     const actions = createSharedWindowActions({
         invoke: async (command, args) => { page.calls.push([command, args]); return { restore_token: "next" }; },
         read: () => page.state, write: next => { page.state = next; },
         token: () => page.token, saveToken: value => { page.saved.push(value); page.token = value; },
-        later: (run, ms) => { timers.push({ run, ms, cancelled: false }); return timers.length - 1; },
-        cancel: handle => { timers[handle].cancelled = true; },
+        later: (run, ms) => { timers.push({ run, ms, cancelled: false }); return handle(timers.length - 1); },
+        cancel: timer => { timers[indexOf(timer)].cancelled = true; },
     });
     assert.equal(await actions.restore(), true);
     assert.deepEqual(page.calls, [["screencast_start", { restoreToken: "saved" }]]);
@@ -234,19 +268,20 @@ test("restoring never asks the desktop without a saved choice or while another r
 });
 
 test("a desktop that asks instead of restoring is given a limit, then the request is withdrawn", async () => {
-    const timers = [];
-    let reject;
-    const page = { state: { ...INITIAL_SHARED_WINDOW, supported: true }, token: "saved", calls: [], saved: [] };
+    const timers: { run: () => void; ms: number }[] = [];
+    // Set when the start is asked for, before the stop uses it.
+    let reject: (reason?: unknown) => void = () => {};
+    const page: Page = { state: { ...INITIAL_SHARED_WINDOW, supported: true }, token: "saved", calls: [], saved: [] };
     const actions = createSharedWindowActions({
         invoke: (command, args) => {
             page.calls.push([command, args]);
-            if (command === "screencast_start") return new Promise((_, fail) => { reject = fail; });
+            if (command === "screencast_start") return new Promise<ScreencastReply>((_, fail) => { reject = fail; });
             if (command === "screencast_stop") reject("portal_cancelled");
             return Promise.resolve(command === "screencast_support" ? { supported: true, active: false } : undefined);
         },
         read: () => page.state, write: next => { page.state = next; },
         token: () => page.token, saveToken: value => { page.saved.push(value); page.token = value; },
-        later: (run, ms) => { timers.push({ run, ms }); return timers.length - 1; },
+        later: (run, ms) => { timers.push({ run, ms }); return handle(timers.length - 1); },
         cancel: () => {},
     });
     const restoring = actions.restore({ limit: 5000 });
@@ -263,7 +298,7 @@ test("a desktop that asks instead of restoring is given a limit, then the reques
     assert.equal(page.state.busy, false);
     assert.equal(page.state.restoring, false);
     // Withdrawing is not an error to show in the settings.
-    assert.equal(sharedWindowView(page.state).errorKey, null);
+    assert.equal(shown(sharedWindowView(page.state)).errorKey, null);
 });
 
 test("a failed restore leaves the reason in the settings and the token for the next try", async () => {
@@ -271,7 +306,7 @@ test("a failed restore leaves the reason in the settings and the token for the n
         commands: { screencast_start: new Error("screencast_stream_timeout"), screencast_support: { supported: true, active: false } } });
     assert.equal(await actions.restore(), false);
     assert.deepEqual(page.saved, []);
-    assert.equal(sharedWindowView(page.state).errorKey, "config_page.ocr.shared_window.error_timeout");
+    assert.equal(shown(sharedWindowView(page.state)).errorKey, "config_page.ocr.shared_window.error_timeout");
 });
 
 test("chat reading's switch waits only while the remembered window is being shared again", () => {
