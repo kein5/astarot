@@ -247,6 +247,7 @@ test("settings keep the selected engine in sight under the radio row's label and
         "../_atoms/_open_webpage_button/_OpenWebpageButton": { _OpenWebpageButton: "webpage" },
         "../description/Description": { Description: "description" },
         "../hint/Hint": { Hint: "hint", useHintDescriptions: () => false },
+        "../lead/Lead": { Lead: "lead" },
     });
     const { RadioButton } = await loadModule<typeof import("../../views/app/config_page/setting_section/setting_box/_components/radio_button/RadioButton.tsx")>(new URL("_components/radio_button/RadioButton.tsx", root), rowRuntime, {
         "../hint/Hint": { Hint: "hint", useHintDescriptions: () => false },

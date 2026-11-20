@@ -111,9 +111,10 @@ export const Updater = () => {
                 <CheckboxContainer
                     setting_id="check_software_updates"
                     label={t("app_update.check_at_start")}
+                    // That the app asks at each start is read before the box is ticked: that sentence
+                    // stays on screen. Whom it asks and what the question carries are the label's hint.
+                    lead={t("app_update.check_at_start_lead")}
                     desc={t("app_update.check_at_start_desc")}
-                    // Whom the app asks at each start is read before the box is ticked: it stays on screen.
-                    keep_desc
                     variable={currentEnableCheckSoftwareUpdates}
                     toggleFunction={toggleEnableCheckSoftwareUpdates}
                 />}

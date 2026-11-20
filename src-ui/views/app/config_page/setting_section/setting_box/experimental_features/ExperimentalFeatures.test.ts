@@ -116,7 +116,9 @@ test("every listed feature has a name and a description in English and Japanese"
         assert.match(text, /^ {8}experimental_features: ".+"$/m, `${language}: side menu label`);
         assert.match(text, /^ {4}experimental_features:\n {8}notice: ".+"\n {8}empty: ".+"/m, `${language}: page text`);
         for (const { id } of registry.EXPERIMENTAL_FEATURES) {
-            assert.match(text, new RegExp(`^ {12}${id}:\\n {16}label: ".+"\\n {16}desc: ".+"`, "m"), `${language}: ${id}`);
+            // A feature that changes something beyond itself has a lead between the two (#614).
+            const lead = registry.experimentalFeatureLeadKey(id) ? ' {16}lead: ".+"\\n' : "";
+            assert.match(text, new RegExp(`^ {12}${id}:\\n {16}label: ".+"\\n${lead} {16}desc: ".+"`, "m"), `${language}: ${id}`);
         }
     }
 });
@@ -275,17 +277,19 @@ test("the page is not empty while the VR panel is listed", async context => {
     assert.equal(children(list).some(item => item.props?.children === "config_page.experimental_features.empty"), false);
 });
 
-// #614: the features' descriptions are their labels' hints. The tray companion's stays on screen:
-// it says the app starts in the tray from then on, which is read before it is turned on.
-test("the features' descriptions are left to become hints, except the tray companion's", async context => {
+// #614: the features' descriptions are their labels' hints. The tray companion keeps one sentence
+// on screen: the app starts in the tray from then on, which is read before it is turned on.
+test("the features' descriptions are left to become hints; the tray companion keeps the sentence about the next start on screen", async context => {
     const s = await load(context);
     const tray = children(inside(draw(s.runtime.render(s.module.ExperimentalFeatures, {})))).filter(item => item.type === "checkbox");
-    assert.deepEqual(tray.map(item => [item.props.setting_id, item.props.keep_desc]), [["experimental_features.tray_companion", true]]);
-    // A feature that changes nothing about the start keeps no description on screen.
+    const item = "config_page.experimental_features.items.tray_companion";
+    assert.deepEqual(tray.map(row => [row.props.setting_id, row.props.lead, row.props.desc, row.props.keep_desc]),
+        [["experimental_features.tray_companion", `${item}.lead`, `${item}.desc`, undefined]]);
+    // A feature that changes nothing about the start keeps nothing on screen.
     const fake = await load(context, fakeRegistry);
     const others = children(fake.render({ features: FAKE_IDS.map(id => ({ id })), current: fake.current, setValues: () => {} }))
         .filter(item => item.type === "checkbox");
-    assert.deepEqual(others.map(item => item.props.keep_desc), [false, false]);
+    assert.deepEqual(others.map(item => [item.props.lead, item.props.keep_desc]), [[undefined, undefined], [undefined, undefined]]);
     // The VR panel and the settings under a feature that is on: descriptions, and no keep.
     const list = s.render({ features: [{ id: "tray_companion" }], current: { state: "ok", data: { tray_companion: true } }, setValues: () => {},
         edge: { current: { state: "ok", data: "right" }, set: () => {} }, vrPanel: { current: { state: "ok", data: true }, toggle: () => {}, resetLauncher: () => {} } });

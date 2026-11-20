@@ -34,6 +34,11 @@ export const isExperimentalFeatureEnabled = (values: unknown, id: string): boole
 
 export const experimentalFeatureLabelKey = (id: string): string => `config_page.experimental_features.items.${id}.label`;
 export const experimentalFeatureDescKey = (id: string): string => `config_page.experimental_features.items.${id}.desc`;
+// What turning a feature on changes beyond the feature, in a sentence that stays on screen
+// (#614): the tray companion makes the app start in the tray. The others have none.
+const FEATURES_WITH_LEAD: readonly string[] = ["tray_companion"];
+export const experimentalFeatureLeadKey = (id: string): string | null =>
+    FEATURES_WITH_LEAD.includes(id) ? `config_page.experimental_features.items.${id}.lead` : null;
 
 // The request that turns one feature on or off; the backend keeps the others as they are.
 export const experimentalFeatureRequest = (id: string, enabled: unknown): ExperimentalFeatureValues =>

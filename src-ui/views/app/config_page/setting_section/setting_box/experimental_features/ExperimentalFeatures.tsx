@@ -11,6 +11,7 @@ import {
     isExperimentalFeatureEnabled,
     experimentalFeatureLabelKey,
     experimentalFeatureDescKey,
+    experimentalFeatureLeadKey,
     experimentalFeatureRequest,
 } from "../../../../../../logics/configs/experimentalFeatures.ts";
 import type { ExperimentalFeature, ExperimentalFeatureValues } from "../../../../../../logics/configs/experimentalFeatures.ts";
@@ -65,7 +66,7 @@ export const ExperimentalFeatures = () => {
 };
 
 // The rows' general descriptions are hints here (#614). The notice that these are on trial stays
-// on screen, and so does a description that says the app will start differently.
+// on screen, and so does the sentence that says the app will start differently.
 export const ExperimentalFeatureList = ({ features, current, setValues, edge, monitor, vrPanel }: ListProps) => {
     const { t } = useI18n();
     return (
@@ -78,15 +79,16 @@ export const ExperimentalFeatureList = ({ features, current, setValues, edge, mo
                 ? <p className={styles.empty}>{t("config_page.experimental_features.empty")}</p>
                 : features.map(({ id }) => {
                     const enabled = isExperimentalFeatureEnabled(current.data, id);
+                    const lead = experimentalFeatureLeadKey(id);
                     return (
                         <div key={id}>
                             <CheckboxContainer
                                 setting_id={`experimental_features.${id}`}
                                 label={t(experimentalFeatureLabelKey(id))}
-                                desc={t(experimentalFeatureDescKey(id))}
                                 // The tray companion changes how the app starts, which is read before it is
-                                // turned on: its words stay on screen.
-                                keep_desc={id === "tray_companion"}
+                                // turned on: that sentence stays on screen, and how it is used is the hint.
+                                lead={lead ? t(lead) : undefined}
+                                desc={t(experimentalFeatureDescKey(id))}
                                 variable={{ state: current.state, data: enabled }}
                                 toggleFunction={() => setValues(experimentalFeatureRequest(id, !enabled))}
                             />

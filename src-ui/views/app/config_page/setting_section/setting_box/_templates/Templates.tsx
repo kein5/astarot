@@ -65,9 +65,11 @@ export interface TemplateControlProps {
 }
 
 // What useTemplateAccessibility reads: the ids already given (by the first row of a two-row
-// template) and what has a description or warnings.
+// template) and what has a lead, a description or warnings.
 interface AccessibilitySource {
     label_id?: string;
+    lead_id?: string;
+    lead?: string;
     description_id?: string;
     warnings_id?: string;
     desc?: ReactNode;
@@ -95,11 +97,13 @@ interface CommonContainerBase<T> extends TemplateRowProps {
 const useTemplateAccessibility = (props: AccessibilitySource) => {
     const id = useId();
     const label_id = props.label_id ?? `${id}-label`;
+    // The sentence that stays on screen is read before the details of the hint.
+    const lead_id = props.lead_id ?? (props.lead ? `${id}-lead` : undefined);
     const description_id = props.description_id ?? (props.desc ? `${id}-description` : undefined);
     const warnings_id = props.warnings_id ?? (props.add_warnings?.length ? `${id}-warnings` : undefined);
-    return { label_id, description_id, warnings_id,
+    return { label_id, lead_id, description_id, warnings_id,
         "aria-labelledby": label_id,
-        "aria-describedby": [...new Set([props["aria-describedby"], description_id, warnings_id].filter((value): value is string => Boolean(value)).flatMap(value => value.split(" ")))].join(" ") || undefined };
+        "aria-describedby": [...new Set([props["aria-describedby"], lead_id, description_id, warnings_id].filter((value): value is string => Boolean(value)).flatMap(value => value.split(" ")))].join(" ") || undefined };
 };
 
 export type DropdownMenuContainerProps = TemplateRowProps & DropdownMenuProps;

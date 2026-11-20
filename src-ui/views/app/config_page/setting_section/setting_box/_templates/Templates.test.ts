@@ -12,7 +12,7 @@ async function setup(hints = false) {
     const runtime = hooks();
     const { LabelComponent } = await loadModule<typeof import("../_components/label_component/LabelComponent.tsx")>(new URL(base + "label_component/LabelComponent.tsx", import.meta.url), hooks(), {
         "../_atoms/_open_webpage_button/_OpenWebpageButton": { _OpenWebpageButton: "webpage" },
-        "../description/Description": { Description: "description" }, ...hintModule(hints),
+        "../description/Description": { Description: "description" }, "../lead/Lead": { Lead: "lead" }, ...hintModule(hints),
     });
     const { RadioButton } = await loadModule<typeof import("../_components/radio_button/RadioButton.tsx")>(new URL(base + "radio_button/RadioButton.tsx", import.meta.url), hooks(), hintModule(hints));
     const { DownloadModels } = await loadModule<typeof import("../_components/download_models/DownloadModels.tsx")>(new URL(base + "download_models/DownloadModels.tsx", import.meta.url), hooks(), {
@@ -175,6 +175,37 @@ test("with hints on, a label's description is its hint, still the control's desc
     // A row is the host of keyboard focus for its label's hint.
     // The row is a CommonContainer, a function component of Templates.tsx.
     assert.equal(drawWith(s.runtime, tree).props["data-hint-row"], true);
+});
+
+// #614: what must be known before acting is one sentence that stays on screen (the row's lead);
+// the details are the hint after the sentence. The control is described by both, the sentence first.
+test("a row's lead stays on screen under the label, its details are the hint after it, and the control is described by both", async () => {
+    const s = await setup(true);
+    const props = { label: "Send usage data", lead: "Sends that the app started.", desc: "What goes with it.", "aria-describedby": "state" };
+    const tree = s.render("CheckboxContainer", props);
+    const label = findIn(tree, node => node.type === s.components.LabelComponent);
+    const control = tree.props.children[1];
+    const rendered = draw(label);
+    const lead = findIn(rendered, node => node.type === "lead");
+    assert.deepEqual([lead.props.text, lead.props.details, lead.props.row], ["Sends that the app started.", "What goes with it.", true]);
+    assert.equal(control.props["aria-describedby"], `state ${lead.props.id} ${lead.props.details_id}`);
+    assert.notEqual(lead.props.id, lead.props.details_id);
+    // The label carries no mark of its own: the hint follows the sentence, so its bubble opens
+    // under the sentence and does not cover it.
+    assert.ok(!find(rendered, node => node.type === "hint" || node.type === "description"));
+    assert.ok(!find(rendered, node => node.props?.["data-hint-host"]));
+    assert.equal(findIn(rendered, node => node.props?.id === label.props.label_id).props.children, "Send usage data");
+    // The ids hold through a second render, as the others do.
+    assert.equal(s.render("CheckboxContainer", props).props.children[1].props["aria-describedby"], control.props["aria-describedby"]);
+    // On a page that shows descriptions, the sentence comes first and the details are the description.
+    const shown = await setup(false);
+    const plain = draw(findIn(shown.render("CheckboxContainer", props), node => node.type === shown.components.LabelComponent));
+    const parts = nodesIn(plain).filter(node => node.type === "lead" || node.type === "description");
+    assert.deepEqual(parts.map(node => [node.type, node.props.text, node.props.details]),
+        [["lead", "Sends that the app started.", undefined], ["description", "What goes with it.", undefined]]);
+    // A row without a lead is described as before.
+    const none = s.render("CheckboxContainer", { label: "Setting", desc: "Help" });
+    assert.equal(none.props.children[1].props["aria-describedby"], findIn(draw(findIn(none, node => node.type === s.components.LabelComponent)), node => node.type === "hint").props.id);
 });
 
 test("with hints on, an option's description is its hint and its radio's description; a warning stays in sight", async () => {

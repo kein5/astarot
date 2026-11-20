@@ -66,7 +66,7 @@ async function fixture(context: TestContext, kind: Kind, openerState: OpenerStat
         "@logics_configs": {}, "../_templates/Templates": {}, "../_components": {},
         "../_components/compute_device/ComputeDevice": {}, "../_components/setup_section/SetupSection": {}, "../_components/advanced_section/AdvancedSection": {},
         "../_components/description/Description": {}, "../_components/custom_model_link/CustomModelLink": {},
-        "../_components/credential_pair/CredentialPair": {},
+        "../_components/credential_pair/CredentialPair": {}, "../_components/lead/Lead": {},
         "../_components/download_models/LegacyModelDownloadDialog": {}, "../shared_items/SharedItems": {},
         "../../advanced_settings/ModelDownloads": { ModelDownloads: () => null },
         "../custom_model_link/CustomModelLink": { CustomModelLink: () => null },

@@ -1,0 +1,13 @@
+// The sentence that stays on screen: the general description role (1.2rem / 400 in the
+// description color), with its hint's mark after the last word.
+.lead {
+    margin: 0;
+    font-size: 1.2rem;
+    font-weight: 400;
+    line-height: 1.6;
+    color: var(--vox_description_text);
+    overflow-wrap: anywhere;
+    text-wrap: pretty;
+}
+// Drawn by itself, between the parts of a page, it keeps a row's distance from them.
+.alone { padding: .8rem 0; }

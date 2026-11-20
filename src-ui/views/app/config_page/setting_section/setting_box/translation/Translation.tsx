@@ -44,6 +44,7 @@ import {
 import { ComputeDevice } from "../_components/compute_device/ComputeDevice";
 import { Description } from "../_components/description/Description";
 import { HintDescriptions } from "../_components/hint/Hint";
+import { Lead } from "../_components/lead/Lead";
 import { CustomModelLink } from "../_components/custom_model_link/CustomModelLink";
 import { SetupSection } from "../_components/setup_section/SetupSection";
 import { AdvancedSection } from "../_components/advanced_section/AdvancedSection";
@@ -88,6 +89,9 @@ export const Translation = () => {
             <AITranslation_Container />
             <AdvancedSection attention={inUse} status={t("config_page.advanced_status.translation", {
                 api: ready(EXTERNAL_API_PROVIDERS), llm: ready(LOCAL_LLM_PROVIDERS) })}>
+                {/* What an LLM engine is sent, once for the APIs and the local servers below: the sentence
+                    stays on screen, and which messages and how long they are kept are its hint. */}
+                <Lead text={t("config_page.translation.llm_privacy_lead")} details={t("config_page.translation.llm_privacy_desc")} />
                 <ExternalTranslationAPI_Container />
                 <LocalLLM_Container />
             </AdvancedSection>
@@ -168,7 +172,6 @@ const ExternalTranslationAPI_Container = () => {
     return (
         <div>
             <SectionLabelComponent sub label={t("config_page.translation.section_label_external_api")} />
-            <Description text={t("config_page.translation.llm_privacy_desc")} className={styles.privacy_description} />
 
             <Provider id="DeepL_API">
                 <DeepLAuthKey_Box />
@@ -209,7 +212,6 @@ const LocalLLM_Container = () => {
     return (
         <div>
             <SectionLabelComponent sub label={t("config_page.translation.section_label_local_llm")} />
-            <Description text={t("config_page.translation.llm_privacy_desc")} className={styles.privacy_description} />
             {/* A model you load into one of these servers yourself is how to translate with your own model. */}
             <CustomModelLink section="translation" />
 
