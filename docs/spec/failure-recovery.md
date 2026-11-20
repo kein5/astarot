@@ -48,7 +48,7 @@
 | 公開済みのファイルが壊れた、なくなった | 取得し直すと、そのフォルダーを作業用の名前に戻して消し、取り直して同じ場所に公開する | フォルダーにアプリが書いていないものがあれば、残して `size_mismatch` か `hash_mismatch` で失敗する。作業用の名前がほかのもので使われているとき、Windows でファイルが使用中のときも残す | `complete_cache_is_reverified_and_a_damaged_one_is_downloaded_again`、`a_damaged_cache_holding_anything_else_is_kept_and_fails`、`a_damaged_cache_whose_staging_name_is_taken_is_kept`、`a_damaged_cache_moved_aside_by_a_run_that_stopped_is_removed_by_the_next` |
 | 適用（設定に書く） | ファイルを確かめ直してから設定に書く | 確かめられなければ設定に書かず、取得は `ready` のまま残る | `tampered_file_cannot_be_applied`、`failed_setting_application_keeps_download_available` |
 
-公開済みのフォルダーを取り直してよいのは、中身がすべてアプリの書いたものだと確かめられたときだけである。確かめる条件は、中断した取得を片付ける条件と同じにしている。フォルダーの `owner.json` がそのモデルと公開前の作業用の名前を指し、中身がそのモデルのファイル、`owner.json`、`receipt.json` の通常のファイルだけであること。作業用の名前に戻すので、名前を変えた直後にアプリが止まっても、次に取得するときに片付く。
+公開済みのフォルダーを取り直してよいのは、中身がすべてアプリの書いたものだと確かめられたときだけである。確かめる条件は、中断した取得を片付ける条件と同じにしている。フォルダーの `owner.json` がそのモデルと公開前の作業用の名前を指し、中身がそのモデルのファイル、`owner.json`、`receipt.json` の通常のファイルだけであること。`owner.json` の `product` は 0.6.0 から `ASTAROT-model-download-v1` で、0.5.x が書いた `VRCT-VOX-model-download-v1` も同じに扱う（ADR-014）。作業用の名前に戻すので、名前を変えた直後にアプリが止まっても、次に取得するときに片付く。
 
 利用者が登録したモデル（`user_models.json`）は、一時ファイルに書いて置き換える。読めない、または版が違うときは書き換えずに残す（`native/ops/src/downloads/user_models.rs` の試験）。登録したファイルの大きさか更新時刻が変わったら、使えるものとして扱わない。
 
