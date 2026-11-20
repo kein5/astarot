@@ -1,5 +1,5 @@
 // A value the reader may paste somewhere (a folder, an address), with a copy button:
-// <CopyText>~/.config/vrct-vox</CopyText>. The copy icon turns into a check for a moment.
+// <CopyText>~/.config/astarot</CopyText>. The copy icon turns into a check for a moment.
 import { useLang } from '@rspress/core/runtime'
 import { type ReactNode, useEffect, useRef, useState } from 'react'
 import styles from './CopyText.module.css'

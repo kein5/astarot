@@ -71,7 +71,7 @@ Report bugs and ask questions on **[Issues](https://github.com/kein5/astarot/iss
 
 ## Names and storage
 
-The app is shown as ASTAROT, but executables and packages still use `vrct-vox` / `VRCT-VOX`, and the application ID is `io.github.kein5.vrct-vox`. On Linux, configuration, data and cache live in `vrct-vox` directories (`~/.config/vrct-vox` and so on). See [names and identifiers](/docs/voice-stack/project-rename.md).
+The app is shown as ASTAROT, but executables and packages still use `vrct-vox` / `VRCT-VOX`, and the application ID is `io.github.kein5.vrct-vox`. On Linux, settings and data live in `astarot` directories from 0.6.0 (`~/.config/astarot` and `~/.local/share/astarot`); the first start of 0.6.0 moves the `vrct-vox` directories of 0.5.x there and leaves links with the old names. See [names and identifiers](/docs/voice-stack/project-rename.md).
 
 ## Privacy and models
 

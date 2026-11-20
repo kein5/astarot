@@ -76,13 +76,14 @@ tar -xzf VRCT-VOX-<version>-linux-x64-vulkan-release.tar.gz
 Keep the contents of the unpacked `VRCT-VOX` folder together, as they are. WebKitGTK 4.1, GTK 3, PipeWire, Vulkan and similar libraries come from your system. It is not promised to work on every distribution.
 
 ::: details Where settings and data are stored (Linux)
-| Content | Location |
-|---|---|
-| Settings and logs | <CopyText>\~/.config/vrct-vox</CopyText> (under `$XDG_CONFIG_HOME` if set) |
-| Data | <CopyText>\~/.local/share/vrct-vox</CopyText> |
-| Cache | <CopyText>\~/.cache/vrct-vox</CopyText> |
+| Content | From 0.6.0 | Up to 0.5.x |
+|---|---|---|
+| Settings and logs | <CopyText>\~/.config/astarot</CopyText> | <CopyText>\~/.config/vrct-vox</CopyText> |
+| Data | <CopyText>\~/.local/share/astarot</CopyText> | <CopyText>\~/.local/share/vrct-vox</CopyText> |
 
-The deb, rpm, AppImage and tar.gz all use the same locations.
+If `$XDG_CONFIG_HOME` or `$XDG_DATA_HOME` is set, the folders are under it. The deb, rpm, AppImage and tar.gz all use the same locations.
+
+When you update from 0.5.x to 0.6.0, the first start moves each `vrct-vox` folder, with everything in it, to the name `astarot`. The old name stays as a link to the new folder, so opening the old location shows the same files. If the folder cannot be moved, for example because another ASTAROT is running, the app keeps using the old folder and tries again at the next start.
 :::
 
 ## Check your download
