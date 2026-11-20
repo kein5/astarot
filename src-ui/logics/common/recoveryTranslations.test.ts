@@ -1,20 +1,20 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import { test, vi } from "vitest";
 import i18next from "i18next";
-import type { ResourceKey } from "i18next";
-import yaml from "js-yaml";
-import { hooks, loadModule, find, stubGlobals, unchecked } from "../test/hookHarness.ts";
+import { componentName, componentOf, hooks, loadModule, find, stubGlobals, treeNode, unchecked } from "../test/hookHarness.ts";
+import { readLocale } from "../test/locales.ts";
 import { loadBridgeStore } from "../test/bridgeHarness.ts";
 import type { SidecarSessionHandlers } from "./sidecarSession.ts";
 
-// Draws a function component's element, as calling its type with no props always did.
-const draw = (element: unknown) => unchecked<{ type: () => unknown }>(element).type();
+// Draws a function component's element, as calling its type with no props always did. Something
+// that is not an element fails the test there, as reading its type did.
+const drawWithoutProps = (element: unknown) => {
+    const node = treeNode(element);
+    assert.ok(node, "not an element");
+    return componentOf(node)();
+};
 
-const resources = Object.fromEntries(["en", "ja"].map(language => [language, {
-    // A locale file, which is a mapping of keys to text.
-    translation: unchecked<ResourceKey>(yaml.load(readFileSync(new URL(`../../../locales/${language}.yml`, import.meta.url), "utf8"))),
-}]));
+const resources = Object.fromEntries(["en", "ja"].map(language => [language, { translation: readLocale(language) }]));
 const icon = () => null;
 
 for (const language of ["en", "ja"]) test(`${language}: recovery actions, stderr and startup use the selected locale with unchanged diagnostics`, async context => {
@@ -53,23 +53,22 @@ for (const language of ["en", "ja"]) test(`${language}: recovery actions, stderr
     assert.ok(copy);
     copy.props.onClick();
     assert.ok(copies[0].includes(error.stack));
-    // node.type?.name: a text type has no name.
-    const safeActions = find(tree, node => typeof node.type === "function" && node.type.name === "SafeActionButtons");
-    const actions = draw(safeActions);
-    assert.ok(find(draw(actions), node => node.props.children === t("common_error.check_issues")));
-    assert.ok(find(draw(actions), node => node.props.children === t("common_error.update_now")));
+    const safeActions = find(tree, node => componentName(node) === "SafeActionButtons");
+    const actions = drawWithoutProps(safeActions);
+    assert.ok(find(drawWithoutProps(actions), node => node.props.children === t("common_error.check_issues")));
+    assert.ok(find(drawWithoutProps(actions), node => node.props.children === t("common_error.update_now")));
     updating = true;
-    assert.ok(find(draw(actions), node => node.props.children === t("common_error.updating")));
+    assert.ok(find(drawWithoutProps(actions), node => node.props.children === t("common_error.updating")));
     // A copy updated by hand (ZIP, tar.gz) or by a package manager gets no update button.
     for (const other of ["manual", "package_manager", "disabled"]) {
         mode = other;
-        assert.equal(find(draw(actions), node => node.type === "button"), null, other);
+        assert.equal(find(drawWithoutProps(actions), node => node.type === "button"), null, other);
     }
     mode = "install";
 
     const b = await loadBridgeStore(), notices: unknown[] = [];
     let handlers: SidecarSessionHandlers | undefined;
-    // An owner with only attach, which is all the controller uses here.
+    // Test data: an owner with only attach, which is all the controller uses here.
     b.stores.store.backend_session_owner = unchecked({ attach: (get: () => SidecarSessionHandlers) => { handlers = get(); return () => {}; } });
     const controller = await loadModule<typeof import("../../views/app/_app_controllers/StartPythonController.tsx")>(new URL("../../views/app/_app_controllers/StartPythonController.tsx", import.meta.url), b.runtime, {
         "@useI18n": translations, "@store": b.stores, "@utils": {},
