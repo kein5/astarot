@@ -1,8 +1,7 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import { test } from "vitest";
 import i18next from "i18next";
-import yaml from "js-yaml";
+import { readLocale } from "../test/locales.ts";
 
 // The voice changer reports why it could not start as a code. Each code it can send says, in
 // both languages, what went wrong and what to do (voice.input_errors; the main screen's notice falls
@@ -12,14 +11,7 @@ import yaml from "js-yaml";
 const CODES = ["vc_start_failed", "vc_engine_unavailable", "source_bridge_stopping", "vc_worker_failed",
     "vc_model_missing", "vc_runtime_version_unsupported", "vc_checkpoint_incomplete", "vc_index_failed",
     "vc_engine_format_invalid", "vc_runtime_incomplete", "vc_router_timeout", "vc_router_failed", "vc_cleanup_failed", "vc_ready_invalid"];
-const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null;
-// A locale file, a mapping of keys to text. Anything else fails here.
-const translationOf = (language: string): Record<string, unknown> => {
-    const tree = yaml.load(readFileSync(new URL(`../../../locales/${language}.yml`, import.meta.url), "utf8"));
-    assert.ok(isRecord(tree), `locales/${language}.yml`);
-    return tree;
-};
-const resources = Object.fromEntries(["en", "ja"].map(language => [language, { translation: translationOf(language) }]));
+const resources = Object.fromEntries(["en", "ja"].map(language => [language, { translation: readLocale(language) }]));
 
 for (const language of ["en", "ja"]) test(`${language}: voice changer errors say what to do`, async () => {
     const i18n = i18next.createInstance();

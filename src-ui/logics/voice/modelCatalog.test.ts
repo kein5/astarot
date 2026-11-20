@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { catalogFamilies, downloadStatus, familyLabel, firstVariant, variantLabel } from "./modelCatalog.ts";
 import type { CatalogEntry, CatalogProfile } from "./modelCatalog.ts";
 import { unchecked } from "../test/hookHarness.ts";
+import { localeAt, readLocale } from "../test/locales.ts";
 
 const profile = (summary: string, extra: Partial<CatalogProfile> = {}): CatalogProfile => ({ summary, languages: ["ja"], recommended_for: [], memory_bytes: null,
     memory_measured_on: null, tier: null, cpu: "unverified", gpu: "recommended", ...extra });
@@ -58,21 +59,15 @@ test("download status after a restart comes from the files on disk, in use only 
     assert.equal(downloadStatus(entry, { phase: "applied", paths: { model: "/m.gguf" } }, undefined, { model: "/m.gguf" }), "in_use");
 });
 
-// A key of a mapping in a locale tree, or undefined.
-const child = (node: unknown, key: string): unknown =>
-    typeof node === "object" && node !== null ? Reflect.get(node, key) : undefined;
-
 test("every catalog group a settings page shows has its heading and help in en and ja", async () => {
-    const { readFileSync } = await import("node:fs");
-    const yaml = (await import("js-yaml")).default;
     // SpeechServers (japanese, multilingual, asr, vad, diarization), DirectVoiceSettings (rvc),
     // LegacyModelDownloadDialog (translation), and the speech engines group.
     const groups = ["japanese", "multilingual", "asr", "vad", "diarization", "rvc", "translation", "engines"];
     for (const language of ["en", "ja"]) {
-        const strings = child(yaml.load(readFileSync(new URL(`../../../locales/${language}.yml`, import.meta.url), "utf8")), "model_catalog");
+        const strings = readLocale(language);
         for (const group of groups) {
-            assert.equal(typeof child(child(strings, "group"), group), "string", `${language}: model_catalog.group.${group}`);
-            assert.equal(typeof child(child(strings, "group_help"), group), "string", `${language}: model_catalog.group_help.${group}`);
+            assert.equal(typeof localeAt(strings, `model_catalog.group.${group}`), "string", `${language}: model_catalog.group.${group}`);
+            assert.equal(typeof localeAt(strings, `model_catalog.group_help.${group}`), "string", `${language}: model_catalog.group_help.${group}`);
         }
     }
 });
