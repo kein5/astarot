@@ -31,6 +31,12 @@
 //! Times are the monotonic clock's (`vrct_tts::clock::monotonic_ns`), the clock of the flow
 //! panel's trace. "End of speech" is when the block holding the clip's last voiced sample
 //! (10 ms frames within 30 dB of the loudest) reached the core, less the rest of that block.
+//!
+//! The summary and `--bmf` count only the clips recognised as one utterance, as #556's target is
+//! judged (2026-11-20): a clip cut in two speaks its second part after the first one's speech,
+//! which is not how late the speech starts. `split_utterances` says how many were left out. The
+//! summary also records the load average when the measurement started and ended (Linux), since
+//! the target holds at a load average of 1 or less without VRChat.
 
 use serde_json::{Value, json};
 use std::collections::HashMap;
@@ -483,6 +489,13 @@ fn ms(ns: i64) -> f64 {
     (ns as f64 / 1e5).round() / 10.0
 }
 
+/// The load averages over 1, 5 and 15 minutes (`/proc/loadavg`); `null` where there is none.
+fn load_average() -> Value {
+    let Ok(text) = std::fs::read_to_string("/proc/loadavg") else { return Value::Null };
+    let loads: Vec<f64> = text.split_whitespace().take(3).filter_map(|v| v.parse().ok()).collect();
+    if loads.len() == 3 { json!(loads) } else { Value::Null }
+}
+
 /// Puts the translation model where the core looks for it, without copying it where that can
 /// be helped: a symbolic link on Unix; on Windows, where a symbolic link needs Developer Mode or
 /// administrator rights, a hard link to each file, or a copy when the model is on another drive.
@@ -628,6 +641,7 @@ fn main() {
         None => Box::new(std::io::stdout()),
     };
     let mut rows: Vec<Value> = Vec::new();
+    let load_at_start = load_average();
     // Clip 0 warms the recognition, the translation and the synthesis up and is not measured.
     let mut plan: Vec<(usize, usize)> = vec![(0, 0)];
     for run in 1..=args.runs {
@@ -711,8 +725,10 @@ fn main() {
         }
     }
 
+    // #556's target counts the clips recognised as one utterance; the others are counted apart.
+    let counted: Vec<&Value> = rows.iter().filter(|r| r["utterances"].as_u64() == Some(1)).collect();
     let summary_of = |pick: &dyn Fn(&Value) -> Option<f64>| -> Value {
-        let values: Vec<f64> = rows.iter().filter_map(pick).collect();
+        let values: Vec<f64> = counted.iter().copied().filter_map(pick).collect();
         if values.is_empty() {
             return Value::Null;
         }
@@ -732,12 +748,18 @@ fn main() {
         "first_write_after_end_ms": summary_of(&|r| r["first_write_after_end_ms"].as_f64()),
         "speech_after_end_ms": summary_of(&|r| r["speech_after_end_ms"].as_f64()),
         "cer": summary_of(&|r| r["cer"].as_f64()),
-        "split_utterances": rows.iter().filter(|r| r["utterances"].as_u64() != Some(1)).count(),
+        "clips": rows.len(),
+        "split_utterances": rows.len() - counted.len(),
+        "load_average": { "start": load_at_start, "end": load_average() },
     });
     writeln!(out, "{summary}").unwrap();
     eprintln!("[pipeline] {summary}");
+    let busiest = [&summary["load_average"]["start"], &summary["load_average"]["end"]].iter().filter_map(|l| l[0].as_f64()).fold(f64::NAN, f64::max);
+    if busiest > 1.0 {
+        eprintln!("[pipeline] the load average reached {busiest:.2}: #556's target is judged at 1 or less");
+    }
     if let Some(path) = &args.bmf {
-        let times = |pick: &dyn Fn(&Value) -> Option<f64>| -> Vec<f64> { rows.iter().filter_map(pick).collect() };
+        let times = |pick: &dyn Fn(&Value) -> Option<f64>| -> Vec<f64> { counted.iter().copied().filter_map(pick).collect() };
         let (voice, chatbox, final_, translate) = (
             times(&|r| r["speech_after_end_ms"].as_f64()),
             times(&|r| r["chatbox_after_end_ms"].as_f64()),
