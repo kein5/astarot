@@ -205,70 +205,74 @@ export const addTerm = (vocabulary: Vocabulary, builtin: readonly string[] | nul
 };
 
 // ------------------------------------------------------------------------ a dictionary file
-// The file the settings page writes out (the core's `vocabulary_file`) and reads back: one term a
-// line, "written=reading,reading", and a built-in term taken out as its written form after "-".
-// Lines starting with "#" are notes. A file is read into the dictionary: its terms are added, a
-// term of a written form already there takes the file's readings, and the terms it takes out are
-// taken out. Nothing of the dictionary is dropped.
+// The file the settings page writes out (the core's `vocabulary_file`) and reads back: the
+// dictionary in use, one term a line, "written=reading,reading", as the built-in terms' data file
+// has them. Lines starting with "#" are notes. Reading a file makes the dictionary in use the
+// file's terms (#792):
+// - a line that is a built-in term as it ships keeps that term as it ships, following a newer app;
+// - a line with a built-in term's written form and other readings changes that term's readings;
+// - any other line is a term of the user's own;
+// - a built-in term the file has no line for is taken out;
+// - the user's own terms the file does not have go.
+// Whether the built-in terms are used at all stays as it is: with them off, the file's built-in
+// terms as they ship are not used either, and the rest still is.
 
 // The largest file read: far more than 100 terms and their notes.
 export const MAX_IMPORT_BYTES = 256 * 1024;
 
 export type ImportResult = {
     vocabulary: Vocabulary;
-    // Terms added, terms whose readings the file changed, built-in terms it took out.
-    added: number;
+    // The dictionary after the file: the user's own terms, the built-in terms with changed
+    // readings, the built-in terms taken out.
+    own: number;
     changed: number;
     removed: number;
-    // Lines the rules of a term refuse, terms left out because the dictionary was full, and terms
-    // to take out that are not built-in ones.
+    // Lines left: not in the form of a term, a written form a line above already has, and terms
+    // over the limit of the user's terms.
     invalid: number;
+    duplicate: number;
     over: number;
-    notBuiltin: number;
+    // The file has no term: the dictionary is left as it is, not emptied.
+    empty: boolean;
+    // The dictionary is already what the file says.
+    unchanged: boolean;
 };
 
-// A built-in term's written form after "-", as the core keeps one taken out, or null.
-const takenOut = (line: string): string | null => {
-    const written = line.slice(1).split(/\s+/).filter(Boolean).join(" ");
-    return written && !written.includes("=") && parseTerm(written) === written ? written : null;
-};
+const sameList = (a: readonly string[], b: readonly string[]) => a.length === b.length && a.every((item, index) => item === b[index]);
 
-export const importVocabulary = (vocabulary: Vocabulary, builtin: readonly string[] | null, text: string): ImportResult => {
-    const terms = [...vocabulary.terms];
-    const removed = [...(vocabulary.removed ?? [])];
-    const result = { added: 0, changed: 0, removed: 0, invalid: 0, over: 0, notBuiltin: 0 };
-    const isBuiltin = (key: string) => builtin?.some(row => writtenKey(row) === key) ?? false;
+export const importVocabulary = (vocabulary: Vocabulary, builtin: readonly string[], text: string): ImportResult => {
+    const shipped = new Map(builtin.map(term => [writtenKey(term), term]));
+    const terms: string[] = [];
+    // The written forms the file has a line for, kept or not.
+    const named = new Set<string>();
+    const result = { own: 0, changed: 0, removed: 0, invalid: 0, duplicate: 0, over: 0 };
+    let kept = 0;
     for (const raw of text.split(/\r?\n/)) {
         const line = raw.trim();
         if (!line || line.startsWith("#")) continue;
-        if (line.startsWith("-")) {
-            const written = takenOut(line);
-            if (written === null) result.invalid += 1;
-            else if (removed.some(row => row.trim().toLowerCase() === written.toLowerCase())) {
-                // Taken out already.
-            } else if (builtin && !isBuiltin(written.toLowerCase())) {
-                result.notBuiltin += 1;
-            } else {
-                removed.push(written);
-                result.removed += 1;
-            }
-            continue;
-        }
         const term = parseTerm(line);
         if (term === null) { result.invalid += 1; continue; }
-        const at = terms.findIndex(row => writtenKey(row) === writtenKey(term));
-        if (at >= 0) {
-            if (terms[at] !== term) { terms[at] = term; result.changed += 1; }
-        } else if (builtin?.includes(term)) {
-            // A built-in term as it ships adds nothing.
-        } else if (terms.length >= MAX_USER_TERMS) {
-            result.over += 1;
-        } else {
-            terms.push(term);
-            // A built-in term with other readings changes its readings; any other term is added.
-            if (isBuiltin(writtenKey(term))) result.changed += 1;
-            else result.added += 1;
-        }
+        const key = writtenKey(term);
+        if (named.has(key)) { result.duplicate += 1; continue; }
+        named.add(key);
+        const ships = shipped.get(key);
+        if (ships === term) { kept += 1; continue; }
+        // A line over the limit is left, and a built-in term it names stays as it ships.
+        if (terms.length >= MAX_USER_TERMS) { result.over += 1; continue; }
+        terms.push(term);
+        if (ships === undefined) result.own += 1;
+        else result.changed += 1;
     }
-    return { vocabulary: settled(vocabulary, terms, removed), ...result };
+    if (!terms.length && !kept) {
+        return { vocabulary, ...result, own: 0, changed: 0, removed: 0, empty: true, unchanged: true };
+    }
+    const taken = builtin.filter(term => !named.has(writtenKey(term))).map(writtenOf);
+    result.removed = taken.length;
+    // The same terms taken out, in whatever order they were, are kept as they are.
+    const keys = (list: readonly string[]) => [...new Set(list.map(written => written.trim().toLowerCase()))].sort();
+    const sameTaken = sameList(keys(taken), keys((vocabulary.removed ?? []).filter(written => shipped.has(written.trim().toLowerCase()))));
+    const removed = sameTaken ? vocabulary.removed ?? [] : taken;
+    const next = settled(vocabulary, terms, removed);
+    const unchanged = sameList(next.terms, vocabulary.terms) && sameList(next.removed ?? [], vocabulary.removed ?? []);
+    return { vocabulary: next, ...result, empty: false, unchanged };
 };

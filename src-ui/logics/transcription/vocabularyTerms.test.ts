@@ -125,23 +125,35 @@ test("the user's own terms have their readings changed in their place, or are de
 
 // #792: a dictionary file read back into the dictionary: terms added or their readings changed, the
 // built-in terms it takes out taken out, and nothing of the dictionary dropped.
-test("a dictionary file adds its terms, changes the readings of those already there and takes out what it names", () => {
-    const start = { builtin: true, terms: ["猫丸=ねこまる", "黒猫"], removed: ["Vket"] };
-    const file = "# ASTAROT term dictionary\n\n 猫丸 = ねこ \r\nMidnight Rooftop=みっどないと\nVRChat=ブイアールチャット,ブイチャ\n"
-        + "Friends+=ふれぷら\n-Quest\n-vket\n-Midnight Rooftop\n-a=b\nx,y\n";
+test("a dictionary file becomes the dictionary: built-in terms kept, changed or taken out by it, the user's terms as it has them", () => {
+    const start = { builtin: true, terms: ["猫丸=ねこまる", "黒猫", "Quest=くえすと"], removed: ["Vket"] };
+    // The file of another dictionary: a built-in term as it ships, one with other readings, a new
+    // term, one the user had with other readings, and lines left.
+    const file = "# ASTAROT term dictionary\n\n 猫丸 = ねこ \r\nVRChat=ブイアールチャット,ブイチャ\nFriends+=ふれぷら\n"
+        + "Midnight Rooftop=みっどないと\nvrchat=ぶい\nx,y\n";
     const read = importVocabulary(start, BUILTIN, file);
-    assert.deepEqual(read.vocabulary, { builtin: true, terms: ["猫丸=ねこ", "黒猫", "Midnight Rooftop=みっどないと", "Friends+=ふれぷら"],
-        removed: ["Vket", "Quest"] });
-    // The built-in VRChat as it ships adds nothing, and Friends+ with other readings changes the
-    // built-in term's readings. Vket was taken out already; Midnight Rooftop is not a built-in term
-    // to take out.
-    assert.deepEqual([read.added, read.changed, read.removed, read.invalid, read.over, read.notBuiltin], [1, 2, 1, 2, 0, 1]);
-    // What the file says already, read again, changes nothing.
+    // 黒猫 and the changed Quest are not in the file: they go, and Quest, ワールド, which the file
+    // has no line for, are taken out; VRChat stays as it ships.
+    assert.deepEqual(read.vocabulary, { builtin: true, terms: ["猫丸=ねこ", "Friends+=ふれぷら", "Midnight Rooftop=みっどないと"],
+        removed: ["ワールド", "Quest"] });
+    assert.deepEqual([read.own, read.changed, read.removed, read.invalid, read.duplicate, read.over, read.empty, read.unchanged],
+        [2, 1, 2, 1, 1, 0, false, false]);
+    // The dictionary written out and read back is the same dictionary.
     const again = importVocabulary(read.vocabulary, BUILTIN, file);
+    assert.equal(again.unchanged, true);
     assert.deepEqual(again.vocabulary, read.vocabulary);
-    assert.deepEqual([again.added, again.changed, again.removed], [0, 0, 0]);
-    // A full dictionary leaves the new terms out and counts them.
-    const full = { terms: Array.from({ length: MAX_USER_TERMS }, (_, index) => `t${index}`) };
-    const over = importVocabulary(full, BUILTIN, "黒猫\nt1=てぃー\n");
-    assert.deepEqual([over.added, over.changed, over.over], [0, 1, 1]);
+    // A file that takes out the same built-in terms, in another order, keeps the list as it was.
+    const reordered = importVocabulary({ ...read.vocabulary, removed: ["Quest", "ワールド"] }, BUILTIN, file);
+    assert.equal(reordered.unchanged, true);
+    // A file with no term leaves the dictionary as it is, not empty.
+    const empty = importVocabulary(start, BUILTIN, "# notes only\n\nx,y\n");
+    assert.deepEqual([empty.vocabulary, empty.empty, empty.invalid], [start, true, 1]);
+    // Over the limit of the user's terms the lines are left, and a built-in term such a line
+    // names stays as it ships rather than being taken out.
+    const many = Array.from({ length: MAX_USER_TERMS }, (_, index) => `t${index}`).join("\n");
+    const over = importVocabulary({ terms: [] }, BUILTIN, `${many}\nQuest=くえ\nVRChat=ブイアールチャット,ブイチャ\n`);
+    assert.deepEqual([over.own, over.over, over.vocabulary.removed], [MAX_USER_TERMS, 1, ["ワールド", "Friends+"]]);
+    // With the built-in terms off the switch stays off; the file still decides what is taken out.
+    const off = importVocabulary({ builtin: false, terms: ["猫丸"] }, BUILTIN, "猫丸=ねこ\n");
+    assert.deepEqual(off.vocabulary, { builtin: false, terms: ["猫丸=ねこ"], removed: ["VRChat", "ワールド", "Friends+", "Quest"] });
 });

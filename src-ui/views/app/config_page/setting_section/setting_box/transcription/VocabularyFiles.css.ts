@@ -9,6 +9,9 @@ export const files = style({
     minWidth: 0,
 });
 
+// What the last one did: a line each, wrapping where it reads well.
+export const status = style({ textWrap: "pretty" });
+
 export const actions = style({
     display: "flex",
     flexWrap: "wrap",

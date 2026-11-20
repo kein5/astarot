@@ -8,14 +8,14 @@ import type { Vocabulary } from "../../../../../../logics/transcription/vocabula
 // and read back from a file the user picks into the draft.
 const BUILTIN = ["VRChat=ブイアールチャット,ブイチャ", "Quest=クエスト"];
 
-async function setup(reply: unknown = { status: 200, result: { file: "vocabulary-20261120-153000.txt" } }) {
+async function setup(reply: unknown = { status: 200, result: { file: "vocabulary-20261120-153000.txt" } }, builtin: readonly string[] | null = BUILTIN) {
     const runtime = hooks(), given: Vocabulary[] = [], sent: [string, unknown][] = [];
     const { VocabularyFiles } = await loadModule<typeof import("./VocabularyFiles.tsx")>(new URL("./VocabularyFiles.tsx", import.meta.url), runtime, {
         "@useI18n": { useI18n: () => ({ t: (key: string, options?: object) => options ? `${key}:${JSON.stringify(options)}` : key }) },
         "../../../../../../logics/transcription/vocabularyTerms.ts": vocabularyTerms,
     });
     const vocabulary: Vocabulary = { builtin: true, terms: ["猫丸=ねこまる"] };
-    const props = { builtin: BUILTIN, vocabulary, disabled: false,
+    const props = { builtin, vocabulary, disabled: false,
         onVocabulary: (next: Vocabulary) => { given.push(next); props.vocabulary = { builtin: true, ...next }; },
         send: async (endpoint: string, data?: unknown) => { sent.push([endpoint, data]); return reply; } };
     const render = () => runtime.render(VocabularyFiles, props);
@@ -32,18 +32,30 @@ async function setup(reply: unknown = { status: 200, result: { file: "vocabulary
     return { render, button, lines, pick, settle, props, given, sent };
 }
 
-test("a file read in adds to the draft and says what it did", async () => {
+test("a file read in becomes the draft's dictionary and says what it holds", async () => {
     const s = await setup();
     const field = findIn(s.render(), node => node.type === "input").props;
     assert.deepEqual([field.type, field.accept, field.hidden], ["file", ".txt,text/plain", true]);
-    await s.pick("# notes\n猫丸=ねこ\nMidnight Rooftop\n-Quest\nx,y\n");
+    await s.pick("# notes\n猫丸=ねこ\nMidnight Rooftop\nVRChat=ブイアールチャット,ブイチャ\nx,y\n");
+    // Quest, which the file has no line for, is taken out; VRChat stays as it ships.
     assert.deepEqual(s.given, [{ builtin: true, terms: ["猫丸=ねこ", "Midnight Rooftop"], removed: ["Quest"] }]);
-    assert.deepEqual(s.lines(), ["realtime.vocabulary_import_done:{\"added\":1,\"changed\":1,\"removed\":1}",
+    assert.deepEqual(s.lines(), ["realtime.vocabulary_import_done", "realtime.vocabulary_import_counts:{\"own\":2,\"changed\":0,\"removed\":1}",
         "realtime.vocabulary_import_skipped:{\"parts\":\"realtime.vocabulary_import_invalid:{\\\"count\\\":1}\"}"]);
-    // Nothing new: the draft is left as it is.
-    await s.pick("猫丸=ねこ\n");
+    // The same file again: the draft is left as it is.
+    await s.pick("猫丸=ねこ\nMidnight Rooftop\nVRChat=ブイアールチャット,ブイチャ\n");
     assert.equal(s.given.length, 1);
     assert.deepEqual(s.lines(), ["realtime.vocabulary_import_nothing"]);
+    // A file without a term changes nothing and says so as a problem.
+    await s.pick("# notes only\n");
+    assert.equal(s.given.length, 1);
+    assert.deepEqual(s.lines(), ["realtime.vocabulary_import_empty"]);
+    assert.equal(findIn(s.render(), node => node.props?.role === "status").props.className, "status problem");
+});
+
+test("a file is not read before the built-in terms are known", async () => {
+    const s = await setup(undefined, null);
+    assert.equal(s.button("realtime.vocabulary_import").disabled, true);
+    assert.equal(s.button("realtime.vocabulary_export").disabled, false);
 });
 
 test("a file too large is not read", async () => {
