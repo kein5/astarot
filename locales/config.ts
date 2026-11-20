@@ -1,12 +1,21 @@
 import yaml from "js-yaml";
 import i18n from "i18next";
+import type { ResourceKey } from "i18next";
 import { initReactI18next } from "react-i18next";
 
 import en_yml from "./en.yml?raw";
 import ja_yml from "./ja.yml?raw";
 
-const translation_en = yaml.load(en_yml);
-const translation_ja = yaml.load(ja_yml);
+// A locale file is a mapping of keys to text (tools/i18n_gate reads both). i18next takes a text or
+// a mapping; anything else in a locale file stops the start here, with the file's name.
+const translationOf = (name: string, text: string): ResourceKey => {
+    const translation: unknown = yaml.load(text);
+    if (typeof translation === "string" || (typeof translation === "object" && translation !== null)) return translation;
+    throw new TypeError(`locales/${name} holds no translations`);
+};
+
+const translation_en = translationOf("en.yml", en_yml);
+const translation_ja = translationOf("ja.yml", ja_yml);
 
 
 const resources = {

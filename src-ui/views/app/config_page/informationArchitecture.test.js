@@ -14,7 +14,7 @@ const read = path => readFileSync(box(path), "utf8");
 const locales = Object.fromEntries(["en", "ja"].map(language =>
     [language, yaml.load(readFileSync(new URL(`../../../../locales/${language}.yml`, import.meta.url), "utf8"))]));
 const loadSearch = runtime => loadModule(new URL("../../../logics/configs/config_page_setter/_aux/useConfigSearch.ts", import.meta.url), runtime, {
-    "@store": {}, "@logics_configs": {}, "@ui_configs": {}, "@root/locales/config.js": {},
+    "@store": {}, "@logics_configs": {}, "@ui_configs": {}, "@root/locales/config.ts": {},
     "../../../transcription/useRealtimeASR": {}, "../../../common/languageNames.ts": {}, "../../../voice/settingsNavigation": {},
     "./configSearchTargets.ts": searchTargets, "../../revealSetting.ts": revealSettingModule,
 });
@@ -148,7 +148,7 @@ const searchOver = async language => {
         "../../../voice/settingsNavigation": { requestSettingsNavigation: fn => fn() },
         "@ui_configs": { ui_configs: { selectable_ui_languages: [] } },
         "./configSearchTargets.ts": searchTargets, "../../revealSetting.ts": revealSettingModule,
-        "@root/locales/config.js": { getResource: lng => resources[lng] },
+        "@root/locales/config.ts": { getResource: lng => resources[lng] },
     });
     return query => {
         runtime.render(useConfigSearch).setQuery(query);
