@@ -7,9 +7,11 @@
 //! of 20; 80 ms, the external runtime's, when it is not given), and the `ready` packet says it
 //! in `block_frames`. With `--block-ms auto`, the application's default, the worker chooses:
 //! on a GPU the shortest of 40, 60, 80, 100, 120, 160 and 200 ms it converts in time with room
-//! to spare (timed on a test tone before `ready`), on the CPU 40 ms. It opens
-//! no audio device, downloads nothing and never writes audio, text or file paths anywhere but
-//! the output pipe.
+//! to spare (timed on a test tone before `ready`), on the CPU 40 ms. With `--block-cache <file>`
+//! it keeps that choice there, by voice model and GPU, and uses it again on a later start
+//! instead of timing the GPU. It opens no audio device, downloads nothing and never writes
+//! audio, text or file paths anywhere but the output pipe (the block cache holds hashes and
+//! lengths only).
 //!
 //! ONNX Runtime, the CUDA libraries and the two fixed networks come from the runtime
 //! folder the application sets up after the user's consent (`--runtime`):
@@ -268,6 +270,8 @@ struct Arguments {
     highpass: bool,
     /// `None`: `--block-ms auto`, chosen when the device is known.
     packets: Option<Packets>,
+    /// `--block-cache`: where `--block-ms auto` keeps the lengths it chose ([`BlockCache`]).
+    block_cache: Option<PathBuf>,
 }
 
 /// What `--device` asks for.
@@ -294,7 +298,7 @@ const USAGE: &str = "\
 Usage: vrct-rvc-worker --runtime <dir> --model <voice.pth> --session <32 hex digits>
                        [--index <file.index>] [--pitch <-24..24>] [--index-rate <0..1>]
                        [--device auto|cuda|directml|cpu] [--directml <dir>] [--threads <n>]
-                       [--highpass on|off] [--block-ms auto|<20..200, a multiple of 20>]
+                       [--highpass on|off] [--block-ms auto|<20..200, a multiple of 20>] [--block-cache <file>]
        vrct-rvc-worker --runtime <dir> --probe [--device cuda|directml|cpu|auto]
 ";
 
@@ -326,10 +330,11 @@ fn parse(mut values: HashMap<String, String>) -> Result<Arguments, String> {
         Some("auto") => None,
         Some(text) => Some(text.parse::<u32>().ok().and_then(Packets::of).ok_or("`--block-ms` must be auto, or 20 to 200 and a multiple of 20")?),
     };
+    let block_cache = take("block-cache").filter(|text| !text.is_empty()).map(PathBuf::from);
     if let Some(unknown) = values.keys().next() {
         return Err(format!("unknown option `--{unknown}`"));
     }
-    Ok(Arguments { runtime, directml, model, index, session, pitch, index_rate, device, threads, highpass, packets })
+    Ok(Arguments { runtime, directml, model, index, session, pitch, index_rate, device, threads, highpass, packets, block_cache })
 }
 
 fn options() -> Result<(HashMap<String, String>, bool), String> {
@@ -582,19 +587,30 @@ fn load(arguments: &Arguments) -> Result<(Stream, Profile), Failure> {
         log("conversion", &error);
         Failure::CheckpointIncomplete
     };
-    let (mut stream, profile) = match arguments.packets {
+    let (stream, profile) = match arguments.packets {
         Some(packets) => {
             let profile = Profile::of(device, packets);
             (stream_for(converter, profile)?, profile)
         }
         None if device.is_gpu() => {
-            // `--block-ms auto` (#531): the GPU's time for a block of the shortest length, back to
-            // back, then the shortest length it converts in time with room to spare.
+            // `--block-ms auto` (#531). The length chosen before for this voice model on this GPU
+            // is used again without timing.
+            let cache = arguments.block_cache.as_deref().and_then(|path| BlockCache::for_start(path, arguments, device));
+            if let Some(ms) = cache.as_ref().and_then(BlockCache::chosen) {
+                eprintln!("vrct-rvc-worker: converting in {ms} ms blocks, chosen before for this voice model on this GPU");
+                let profile = Profile::of(device, Packets::of(ms).expect("a valid block"));
+                return finish(stream_for(converter, profile)?, profile);
+            }
+            // The GPU's time for a block of the shortest length, back to back, then the shortest
+            // length it converts in time with room to spare.
             let first = Profile::of(device, Packets::of(AUTO_BLOCK_MS[0]).expect("a valid block"));
             let mut stream = stream_for(converter, first)?;
             let time = gpu_block_time(&mut stream).map_err(conversion_failed)?;
             let ms = auto_block_ms(time);
             eprintln!("vrct-rvc-worker: a {} ms block took {:.1} ms on the GPU; converting in {ms} ms blocks", AUTO_BLOCK_MS[0], time.as_secs_f64() * 1000.0);
+            if let Some(cache) = &cache {
+                cache.remember(ms);
+            }
             if ms == AUTO_BLOCK_MS[0] {
                 (stream, first)
             } else {
@@ -620,14 +636,103 @@ fn load(arguments: &Arguments) -> Result<(Stream, Profile), Failure> {
             (stream_for(converter, profile)?, profile)
         }
     };
+    finish(stream, profile)
+}
+
+/// The CPU's speed check before `ready`; a GPU's stream is ready as it is.
+fn finish(mut stream: Stream, profile: Profile) -> Result<(Stream, Profile), Failure> {
     if profile.device == Device::Cpu {
-        let fastest = cpu_block_time(&mut stream).map_err(conversion_failed)?;
+        let fastest = cpu_block_time(&mut stream).map_err(|error| {
+            eprintln!("vrct-rvc-worker: conversion: {error}");
+            Failure::CheckpointIncomplete
+        })?;
         if !cpu_keeps_up(fastest, profile.layout) {
             eprintln!("vrct-rvc-worker: a {} ms block took {} ms on the CPU", profile.layout.block * 10, fastest.as_millis());
             return Err(Failure::CpuTooSlow);
         }
     }
     Ok((stream, profile))
+}
+
+/// `--block-cache <file>`: the lengths `--block-ms auto` chose on a GPU, so that a later start
+/// with the same voice model on the same GPU converts in the same length without timing the GPU
+/// again (#531). An entry is found by a hash of the voice model (path, size and modification
+/// time), the index when it is used, the device, the GPU's name, the ONNX Runtime library and
+/// the CPU threads. The file holds only those hashes and the lengths: no path, model or GPU name.
+/// A file that cannot be read or written only means the GPU is timed again.
+struct BlockCache {
+    path: PathBuf,
+    key: String,
+}
+
+/// The entries kept; past that the file starts again from the newest.
+const BLOCK_CACHE_ENTRIES: usize = 64;
+/// Changes when the choice changes (`AUTO_BLOCK_MS`, `AUTO_HEADROOM` or how the GPU is timed), so
+/// lengths chosen another way are not used.
+const BLOCK_CACHE_VERSION: u64 = 1;
+
+impl BlockCache {
+    /// The entry of this start, when the GPU can be told apart from another.
+    fn for_start(path: &Path, arguments: &Arguments, device: Device) -> Option<Self> {
+        Some(BlockCache { path: path.to_path_buf(), key: Self::key(&backend::gpu_name(device)?, arguments, device)? })
+    }
+
+    /// The entry's key: `None` when a file it depends on cannot be read.
+    fn key(gpu: &str, arguments: &Arguments, device: Device) -> Option<String> {
+        let stamp = |file: &Path| -> Option<String> {
+            let meta = std::fs::metadata(file).ok()?;
+            let modified = meta.modified().ok()?.duration_since(std::time::UNIX_EPOCH).ok()?.as_nanos();
+            Some(format!("{}:{}:{modified}", file.display(), meta.len()))
+        };
+        let index = match (&arguments.index, arguments.index_rate > 0.0) {
+            (Some(index), true) => stamp(index)?,
+            _ => "-".into(),
+        };
+        let library = match device {
+            Device::DirectMl => arguments.directml.as_deref().map(|dir| dir.join(ORT_LIBRARY)),
+            _ => Some(arguments.runtime.join("lib").join(ORT_LIBRARY)),
+        };
+        let text = format!("{BLOCK_CACHE_VERSION}|{device:?}|{gpu}|{}|{index}|{}|{:?}", stamp(&arguments.model)?, library.as_deref().and_then(stamp).unwrap_or_default(), arguments.threads);
+        Some(format!("{:016x}", fnv1a(text.as_bytes())))
+    }
+
+    fn entries(&self) -> Map<String, Value> {
+        let read = std::fs::read(&self.path).ok().and_then(|bytes| serde_json::from_slice::<Value>(&bytes).ok());
+        match read {
+            Some(Value::Object(mut file)) if file.get("version") == Some(&Value::from(BLOCK_CACHE_VERSION)) => match file.remove("blocks") {
+                Some(Value::Object(blocks)) => blocks,
+                _ => Map::new(),
+            },
+            _ => Map::new(),
+        }
+    }
+
+    /// The length chosen before, when it is one `--block-ms auto` chooses from.
+    fn chosen(&self) -> Option<u32> {
+        let ms = self.entries().get(&self.key)?.get("block_ms")?.as_u64()?;
+        u32::try_from(ms).ok().filter(|ms| AUTO_BLOCK_MS.contains(ms))
+    }
+
+    /// Keeps `ms` for this start's entry, written whole into a new file that then replaces the old.
+    fn remember(&self, ms: u32) {
+        let mut blocks = self.entries();
+        if blocks.len() >= BLOCK_CACHE_ENTRIES && !blocks.contains_key(&self.key) {
+            blocks.clear();
+        }
+        blocks.insert(self.key.clone(), Value::Object(object(&[("block_ms", ms.into())])));
+        let file = object(&[("version", BLOCK_CACHE_VERSION.into()), ("blocks", Value::Object(blocks))]);
+        let partial = self.path.with_extension("json.partial");
+        let written = serde_json::to_vec_pretty(&Value::Object(file)).ok().is_some_and(|bytes| std::fs::write(&partial, bytes).is_ok()) && std::fs::rename(&partial, &self.path).is_ok();
+        if !written {
+            let _ = std::fs::remove_file(&partial);
+            eprintln!("vrct-rvc-worker: the chosen block length could not be kept");
+        }
+    }
+}
+
+/// FNV-1a, 64 bits: the same hash on every platform and in every version.
+fn fnv1a(bytes: &[u8]) -> u64 {
+    bytes.iter().fold(0xcbf2_9ce4_8422_2325, |hash, &byte| (hash ^ u64::from(byte)).wrapping_mul(0x0000_0100_0000_01b3))
 }
 
 /// A 220 Hz tone at -20 dB.
@@ -1374,5 +1479,46 @@ mod tests {
         assert_eq!(chosen(15), 40, "the desktop");
         // Between the steps, and a GPU that keeps up with none.
         assert_eq!((chosen(72), chosen(86), chosen(115), chosen(143), chosen(500)), (120, 160, 200, 200, 200));
+    }
+
+    #[test]
+    fn a_chosen_block_is_kept_for_the_same_voice_model_on_the_same_gpu() {
+        // FNV-1a's published values: the key is the same everywhere.
+        assert_eq!((fnv1a(b""), fnv1a(b"a")), (0xcbf2_9ce4_8422_2325, 0xaf63_dc4c_8601_ec8c));
+        let dir = std::env::temp_dir().join(format!("vrct-block-cache-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let model = dir.join("voice.pth");
+        std::fs::write(&model, b"model").unwrap();
+        let values: HashMap<String, String> =
+            [("runtime", dir.to_str().unwrap()), ("model", model.to_str().unwrap()), ("session", "0123456789abcdef0123456789abcdef"), ("block-ms", "auto")].iter().map(|(k, v)| (k.to_string(), v.to_string())).collect();
+        let arguments = parse(values).unwrap();
+        let key = |gpu: &str, device: Device| BlockCache::key(gpu, &arguments, device).unwrap();
+        let first = key("NVIDIA GeForce RTX 3060 Ti", Device::Cuda);
+        assert_eq!(first.len(), 16);
+        assert_eq!(first, key("NVIDIA GeForce RTX 3060 Ti", Device::Cuda), "the same start finds the same entry");
+        assert_ne!(first, key("NVIDIA GeForce RTX 4080 SUPER", Device::Cuda), "another GPU");
+        assert_ne!(first, key("NVIDIA GeForce RTX 3060 Ti", Device::DirectMl), "another device");
+        // Kept, found again, and nothing but the hash and the length is written.
+        let cache = BlockCache { path: dir.join("rvc-block-lengths.json"), key: first.clone() };
+        assert_eq!(cache.chosen(), None);
+        cache.remember(80);
+        assert_eq!(cache.chosen(), Some(80));
+        let written = std::fs::read_to_string(&cache.path).unwrap();
+        assert!(!written.contains("voice") && !written.contains("NVIDIA") && written.contains(&first), "{written}");
+        // Another GPU has an entry of its own; a length not chosen from is not used.
+        let other = BlockCache { path: cache.path.clone(), key: key("NVIDIA GeForce RTX 4080 SUPER", Device::Cuda) };
+        other.remember(40);
+        assert_eq!((cache.chosen(), other.chosen()), (Some(80), Some(40)));
+        std::fs::write(&cache.path, format!("{{\"version\": {BLOCK_CACHE_VERSION}, \"blocks\": {{\"{first}\": {{\"block_ms\": 30}}}}}}")).unwrap();
+        assert_eq!(cache.chosen(), None);
+        // A changed voice model is timed again.
+        std::fs::write(&model, b"another model").unwrap();
+        assert_ne!(first, key("NVIDIA GeForce RTX 3060 Ti", Device::Cuda));
+        // A file of another version, or not JSON, is as no file.
+        std::fs::write(&cache.path, b"not json").unwrap();
+        assert_eq!(cache.chosen(), None);
+        cache.remember(60);
+        assert_eq!(cache.chosen(), Some(60));
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

@@ -65,7 +65,15 @@ pub struct RvcOptions {
     /// The length of the blocks the microphone is cut into and converted in, in ms
     /// (`--block-ms`; [`crate::protocol::Block`]), or [`AUTO_BLOCK_MS`]: the worker chooses.
     pub block_ms: u32,
+    /// Where the worker keeps the lengths it chose ([`BLOCK_CACHE_FILE`] beside the runtime
+    /// folder), so it times the GPU once per voice model and GPU (`--block-cache`). Set by the
+    /// owner, never by a start.
+    pub block_cache: Option<PathBuf>,
 }
+
+/// The worker's file of chosen block lengths, beside the RVC runtime folder
+/// (`<state>/vc_runtimes/rvc-block-lengths.json`). It holds hashed keys and lengths only.
+pub const BLOCK_CACHE_FILE: &str = "rvc-block-lengths.json";
 
 /// What the worker's `--device` takes. `directml` runs on Windows with the DirectML runtime.
 pub const DEVICES: [&str; 4] = ["auto", "cuda", "directml", "cpu"];
@@ -115,6 +123,10 @@ pub fn arguments(options: &RvcOptions, rate_text: &str, session: &str) -> Vec<St
     // Without `--threads` the worker picks the count for the device it ends up on.
     if options.threads > 0 {
         args.extend(["--threads".into(), options.threads.to_string()]);
+    }
+    // Only the worker's own choice is kept.
+    if let (AUTO_BLOCK_MS, Some(cache)) = (options.block_ms, &options.block_cache) {
+        args.extend(["--block-cache".into(), cache.to_string_lossy().into_owned()]);
     }
     // Given whenever it is set up: `auto` may convert there too.
     if let Some(directml) = &options.directml {
@@ -240,6 +252,16 @@ mod tests {
         let (options, rate) = rvc_options(&zero).unwrap();
         assert_eq!(options.block_ms, AUTO_BLOCK_MS, "0 asks for the worker's choice");
         assert!(arguments(&options, &rate, "s").windows(2).any(|pair| pair == ["--block-ms", "auto"]));
+        // Where the worker keeps its choice: only for its own choice, and only as the owner says.
+        assert_eq!(options.block_cache, None, "a start never names the file");
+        let mut options = options;
+        options.block_cache = Some(PathBuf::from("/state/vc_runtimes").join(BLOCK_CACHE_FILE));
+        assert!(arguments(&options, &rate, "s").windows(2).any(|pair| pair[0] == "--block-cache" && pair[1].ends_with(BLOCK_CACHE_FILE)));
+        options.block_ms = 80;
+        assert!(!arguments(&options, &rate, "s").contains(&"--block-cache".to_string()));
+        let mut sneaky = base();
+        sneaky["block_cache"] = json!("/elsewhere");
+        assert_eq!(rvc_options(&sneaky).unwrap_err(), "vc_options_invalid");
     }
 
     #[test]

@@ -24,7 +24,7 @@ use vrct_audio_routing::sync::monotonic_ns;
 use vrct_audio_routing::windows_route::{Capture, CaptureCallbacks, RouteDevices, WindowsRoute};
 
 use crate::protocol::{self as p, ProtocolError};
-use crate::worker::{arguments, rate_text, runtime_complete, RvcOptions, WorkerPipe, AUTO_BLOCK_MS, DEFAULT_BLOCK_MS, DEVICES, MAX_THREADS};
+use crate::worker::{arguments, rate_text, runtime_complete, RvcOptions, WorkerPipe, AUTO_BLOCK_MS, BLOCK_CACHE_FILE, DEFAULT_BLOCK_MS, DEVICES, MAX_THREADS};
 
 /// Device route: a block older than this is dropped instead of sent. More than half of the
 /// blocks of the last six seconds late means the PC cannot keep up, and the voice stops.
@@ -314,7 +314,7 @@ pub fn rvc_options(options: &Value) -> Result<(RvcOptions, String), String> {
         return Err(invalid());
     }
     let rate = rate_text(index_rate, !rate.is_f64());
-    Ok((RvcOptions { runtime: PathBuf::from(runtime), directml: None, model: PathBuf::from(model), index, pitch, index_rate, device, threads, highpass, block_ms }, rate))
+    Ok((RvcOptions { runtime: PathBuf::from(runtime), directml: None, model: PathBuf::from(model), index, pitch, index_rate, device, threads, highpass, block_ms, block_cache: None }, rate))
 }
 
 fn resolve(path: &Path) -> Option<PathBuf> {
@@ -356,6 +356,8 @@ impl VcProcess {
             return Err("vc_runtime_missing".into());
         }
         options.directml = directml.map(Path::to_path_buf);
+        // Beside the runtime folder: it outlives a runtime set up again.
+        options.block_cache = options.runtime.parent().map(|folder| folder.join(BLOCK_CACHE_FILE));
         if options.device == "directml" && options.directml.is_none() {
             return Err("vc_directml_missing".into());
         }
@@ -1310,6 +1312,18 @@ mod tests {
         for device in ["auto", "cuda", "cpu"] {
             assert!(super::VcProcess::rvc(&options(device), &worker, None, route(), None).is_ok(), "{device}");
         }
+        // Left to the worker, the block it chooses is kept beside the runtime folder (#531); a
+        // length the start chose is not.
+        let args = |block_ms: u32| {
+            let mut value = options("auto");
+            value["block_ms"] = serde_json::json!(block_ms);
+            super::VcProcess::rvc(&value, &worker, None, route(), None).unwrap().shared.args.clone()
+        };
+        let cache = std::fs::canonicalize(&runtime).unwrap().parent().unwrap().join(super::BLOCK_CACHE_FILE);
+        let auto = args(0);
+        let at = auto.iter().position(|arg| arg == "--block-cache").expect("the cache is named");
+        assert_eq!(std::path::Path::new(&auto[at + 1]).file_name(), cache.file_name());
+        assert!(!args(80).contains(&"--block-cache".to_owned()));
         let _ = std::fs::remove_dir_all(&dir);
     }
 }
