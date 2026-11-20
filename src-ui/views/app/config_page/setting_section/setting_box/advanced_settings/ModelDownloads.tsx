@@ -42,8 +42,8 @@ export const measuredTime = (ms: number, language?: string) => new Date(ms).toLo
 const bytes = (value: number, t: Translate) => `${t("model_downloads.exact_bytes", { bytes: Number(value).toLocaleString("en-US") })} (${(value / 1073741824).toFixed(2)} GiB)`;
 // The page lists sizes in GiB; the consent dialog keeps the exact byte counts.
 const gib = (value: number) => `${(value / 1073741824).toFixed(2)} GiB`;
-// A size in a few words (a grid card's fold): a file under 0.01 GiB in MiB, so it is not "0.00 GiB".
-const shortSize = (value: number) => value < 0.01 * 1073741824 ? `${(value / 1048576).toFixed(1)} MiB` : gib(value);
+// A file's size in the facts: one under 0.01 GiB (a voice activity model) in MiB, not "0.00 GiB".
+const fileSize = (value: number) => value < 0.01 * 1073741824 ? `${(value / 1048576).toFixed(1)} MiB` : gib(value);
 
 const reserveBytes = (reserve: string) => (reserve === 'vr' ? 2 : .5) * 1024 ** 3;
 // The local translation runs on its own device (translationDeviceMode), mostly the CPU: the
@@ -115,7 +115,10 @@ export const HardwareReadout = ({ reserve, setReserve }: HardwareReadoutProps) =
 // languages, download size, hardware and whom it is suggested for. Rows outside speech.cpp
 // (RVC) have no profile and show their size and terms only.
 // guidance: the measured memory and where it was checked, as the hardware term's hint (#614).
-const ModelFacts = ({ entry, guidance }: { entry: ModelCatalogRow; guidance?: readonly string[] }) => {
+// part: the whole table, or a grid card's two parts of it: "key", the size and the hardware (and a
+// translation model's memory), on the card; "rest", the languages and the terms, in its fold.
+type FactsPart = "all" | "key" | "rest";
+const ModelFacts = ({ entry, guidance, part = "all", className }: { entry: ModelCatalogRow; guidance?: readonly string[]; part?: FactsPart; className?: string }) => {
     const { t } = useI18n();
     const languages = useLanguageList();
     const profile = entry.profile;
@@ -132,13 +135,14 @@ const ModelFacts = ({ entry, guidance }: { entry: ModelCatalogRow; guidance?: re
     const translationMemory = entry.target === "translation" && (isNumber(referenceMemory)
         ? t("model_catalog.translation_memory", { memory: gib(referenceMemory) })
         : t("model_catalog.translation_memory_unknown"));
-    return <dl className={styles.facts}>
-        {supported.length > 0 && <div><dt>{t("model_catalog.languages")}</dt><dd>{languages(supported, 12)}</dd></div>}
-        <div><dt>{t("model_catalog.size")}</dt><dd>{gib(entry.total_bytes)}</dd></div>
-        {hardware && <div><dt>{guidance?.length ? <span className={styles.hinted} data-hint-host><span>{t("model_catalog.hardware")}</span>
+    const key = part !== "rest", rest = part !== "key";
+    return <dl className={className ? `${styles.facts} ${className}` : styles.facts}>
+        {rest && supported.length > 0 && <div><dt>{t("model_catalog.languages")}</dt><dd>{languages(supported, 12)}</dd></div>}
+        {key && <div><dt>{t("model_catalog.size")}</dt><dd>{fileSize(entry.total_bytes)}</dd></div>}
+        {key && hardware && <div><dt>{guidance?.length ? <span className={styles.hinted} data-hint-host><span>{t("model_catalog.hardware")}</span>
             <Hint text={guidance.join("\n")} focusable /></span> : t("model_catalog.hardware")}</dt><dd>{hardware}</dd></div>}
-        {translationMemory && <div><dt>{t("model_catalog.memory_needed")}</dt><dd>{translationMemory}</dd></div>}
-        <div><dt>{t("model_catalog.terms")}</dt><dd>{entry.provider} · {entry.license}</dd></div>
+        {key && translationMemory && <div><dt>{t("model_catalog.memory_needed")}</dt><dd>{translationMemory}</dd></div>}
+        {rest && <div><dt>{t("model_catalog.terms")}</dt><dd>{entry.provider} · {entry.license}</dd></div>}
     </dl>;
 };
 
@@ -334,7 +338,7 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
             {family.rows.length === 1 && variantLabel(current) !== current.name &&
                 <p className={styles.variant}><span>{t("model_catalog.variant")}</span><span>{variantLabel(current)}</span></p>}
         </>;
-        const facts = <ModelFacts entry={current} guidance={guidanceHint ? guidance : undefined} />;
+        const factsGuidance = guidanceHint ? guidance : undefined;
         // Only after the user picks another file; the file in use shown first is not a choice.
         const manualChoice = choices[family.key] && hint.recommended && family.rows.some(entry => entry.id === hint.recommended) && current.id !== hint.recommended &&
             <p>{t('model_downloads.manual_choice')}</p>;
@@ -358,7 +362,8 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
         </>;
         // The card's parts in the order they are read (#614): what it is, its state and a warning,
         // the file and its facts, then what runs and what can be done. In the grid a card keeps
-        // what it is, the file it would get and what can be done; the rest is in its fold.
+        // what it is, its size and hardware, and what can be done; the file's choice, the
+        // languages, the terms and the notes are in its fold.
         return <li key={family.key} data-model-download tabIndex={-1} role="group" aria-label={label} className={styles.card} data-status={shownStatus}>
             <div className={styles.card_intro}>
                 {/* The name and the state on one line, so every card's state is at the same place;
@@ -375,15 +380,16 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
                 {current.profile?.summary && <p>{t(`model_downloads.summary.${current.profile.summary}`)}</p>}
                 {!grid && warning && <WarningNote warning={warning} />}
             </div>
+            {grid && <ModelFacts entry={current} guidance={factsGuidance} part="key" className={styles.card_key} />}
             {grid
-                ? <CatalogFacts layout="grid" summary={t("model_catalog.layout.facts_of", {
-                    file: [variantLabel(current) !== current.name && variantLabel(current), shortSize(current.total_bytes)].filter(Boolean).join(" · ") })}>
+                ? <CatalogFacts layout="grid" summary={variantLabel(current) !== current.name
+                    ? t("model_catalog.layout.facts_of", { file: variantLabel(current) }) : undefined}>
                     {warning && <WarningNote warning={warning} />}
-                    {file}{facts}{manualChoice}{prepareHint}
+                    {file}<ModelFacts entry={current} part="rest" />{manualChoice}{prepareHint}
                     <AuditionNote target={target} status={shownStatus} />
                     {guidanceFold}
                 </CatalogFacts>
-                : <div className={styles.card_spec}>{file}{facts}{manualChoice}</div>}
+                : <div className={styles.card_spec}>{file}<ModelFacts entry={current} guidance={factsGuidance} />{manualChoice}</div>}
             <div className={styles.card_foot}>
                 {run}
                 {!grid && prepareHint}

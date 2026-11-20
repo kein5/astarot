@@ -182,12 +182,16 @@ test("the cards take the layout chosen on the heading's line, and one model aske
     let tree = draw();
     assert.ok(find(tree, node => node.type === "catalog-layout-switch"), "the layout buttons on the heading's line");
     assert.equal(findIn(tree, node => node.type === "ul").props.layout, "grid");
-    // A grid card is three parts: what the model is, its details folded, and its actions.
+    // A grid card is four parts: what the model is, its size and hardware, its details folded,
+    // and its actions.
     const [model, other] = cards(tree);
-    assert.deepEqual(parts(model), ["card_intro", "catalog-facts", "card_foot"]);
+    assert.deepEqual(parts(model), ["card_intro", "card_key", "catalog-facts", "card_foot"]);
+    assert.equal(findIn(model, node => node.props?.className === "card_key").props.part, "key", "the size and the hardware on the card");
     const details = findIn(model, node => node.type === "catalog-facts");
-    assert.equal(details.props.summary, "model_catalog.layout.facts_of");
+    assert.equal(details.props.summary, "model_catalog.layout.facts_of", "the fold names the file type");
+    assert.equal(findIn(other, node => node.type === "catalog-facts").props.summary, undefined, "one file of the model's name: Details");
     assert.ok(find(details, node => node.type === "select"), "the choice of the file is in the fold");
+    assert.equal(findIn(details, node => componentName(node) === "ModelFacts").props.part, "rest", "the languages and the terms in the fold");
     assert.equal(find(findIn(model, node => node.props?.className === "card_intro"), node => node.type === "select"), null);
     assert.ok(find(findIn(model, node => node.props?.className === "card_foot"), node => node.type === "button"), "the actions stay on the card");
     // Whom it is suggested for is one short word: how many languages, or the one.

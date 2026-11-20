@@ -47,13 +47,17 @@ export const UserModelCards = ({ target, expected, blocked, busy, layout = "list
             </div>
             {layout === "grid" && <div className={styles.card_badges}><span className={styles.badge} data-tone="own">{t("user_models.badge")}</span></div>}
             </div>
-            {/* Laid out as a catalog card: what it is, its facts, then its notes and actions. */}
+            {/* Laid out as a catalog card: what it is, its facts, then its notes and actions. In
+                the grid its size is on the card, as a model's, and its files are in the fold. */}
+            {layout === "grid" && <dl className={`${styles.facts} ${styles.card_key}`}>
+                <div><dt>{t("user_models.size")}</dt><dd>{gib(model.total_bytes)}</dd></div>
+            </dl>}
             <CatalogFacts layout={layout}><dl className={`${styles.facts} ${styles.card_spec}`}>
                 {roles.filter(([role]) => model.paths[role]).map(([role]) => <div key={role}>
                     <dt>{t(`user_models.file.${role}`)}</dt>
                     <dd><code style={{ overflowWrap: "anywhere" }}>{model.paths[role]}</code></dd>
                 </div>)}
-                <div><dt>{t("user_models.size")}</dt><dd>{gib(model.total_bytes)}</dd></div>
+                {layout === "list" && <div><dt>{t("user_models.size")}</dt><dd>{gib(model.total_bytes)}</dd></div>}
             </dl></CatalogFacts>
             <div className={styles.card_foot}>
                 {["missing", "changed"].includes(status) && <p role="alert">{t(`user_models.status_help.${status}`)}</p>}
