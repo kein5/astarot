@@ -9,7 +9,7 @@ You can pass translations and captions to streaming software or your own tools. 
 "Enable OBS Browser Source" serves a page for OBS to load, which shows translations. Each line fades out after a while.
 
 1. Turn on "Enable OBS Browser Source".
-2. Press "OBS URL (click to copy)" in the app to copy the URL, including its key. With the default host and port, it has the form `http://127.0.0.1:2232/obs?token=<key>`. The key is masked on screen but included when copied.
+2. Press the copy button on the "OBS URL" row in the app to copy the URL, including its key. With the default host and port, it has the form `http://127.0.0.1:2232/obs?token=<key>`. The key is masked on screen but included when copied.
 3. In OBS, add a "Browser" source and paste the URL.
 
 If you already use an OBS browser source, copy the URL from the app again and replace the URL in OBS. URLs without the key no longer work. Keep the copied URL private: its key grants access to conversation messages.
@@ -18,7 +18,7 @@ You can change the maximum number of messages, display time, fade-out time, font
 
 ## Receive them in your own tools (WebSocket)
 
-"Enable WebSocket server" sends translations and captions over WebSocket, for your own tools and similar apps. With the default host and port, the URL has the form `ws://127.0.0.1:2231/?token=<key>`; copy it with "WebSocket URL (click to copy)". It uses the same key as the OBS URL.
+"Enable WebSocket server" sends translations and captions over WebSocket, for your own tools and similar apps. With the default host and port, the URL has the form `ws://127.0.0.1:2231/?token=<key>`; copy it with the copy button on the "WebSocket URL" row. It uses the same key as the OBS URL.
 
 While the OBS browser source is on, the WebSocket settings cannot be changed. Turn the OBS browser source off first.
 
