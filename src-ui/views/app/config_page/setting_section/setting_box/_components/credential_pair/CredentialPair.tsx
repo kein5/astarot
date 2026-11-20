@@ -24,6 +24,9 @@ export interface CredentialPairProps<B extends string> {
     // The endpoints' name: /set/data/<provider>_url and so on.
     provider: string;
     section: string;
+    // Keeps the URL's words on screen on a page that shows descriptions as hints, where they say
+    // more than what the field is (whose charges and risks another endpoint brings).
+    keepUrlDescription?: boolean;
 }
 
 const isCredential = (value: DraftWriteValue<Credential>): value is Credential =>
@@ -32,9 +35,9 @@ const isCredential = (value: DraftWriteValue<Credential>): value is Credential =
 // The value of a field as the form saves it: the record the backend answered, or a copy of it.
 const isAnswer = (value: unknown): value is Readonly<Record<string, unknown>> => typeof value === "object" && value !== null;
 
-export const CredentialPair = <B extends string>({ settings, base, provider, section }: CredentialPairProps<B>) => {
+export const CredentialPair = <B extends string>({ settings, base, provider, section, keepUrlDescription = false }: CredentialPairProps<B>) => {
     const { t } = useI18n();
-    const hints = useHintDescriptions();
+    const hints = useHintDescriptions() && !keepUrlDescription;
     const { asyncStdoutToPython } = useStdoutToPython();
     const [error, updateError] = useState<unknown>(null);
     // Explicit input may equal the saved key; equality alone cannot prove reentry.
@@ -107,6 +110,7 @@ export const CredentialPair = <B extends string>({ settings, base, provider, sec
     return <>
         <EntryWithSaveButtonContainer {...field("url")}
             desc={hints ? notices.description : endpointDescription(form.draft.url, urlDescription, t)}
+            keep_desc={keepUrlDescription}
             add_warnings={hints && notices.warning ? [{ label: notices.warning }] : undefined} />
         <AuthKeyContainer {...field("auth_key")}
             add_warnings={requiresKey(form.draft) ? [{ label: t("config_page.common.credential_reentry_required") }] : []}

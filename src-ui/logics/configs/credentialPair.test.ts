@@ -35,7 +35,8 @@ const isUpdate = <S>(next: S | ((previous: S) => S)): next is (previous: S) => S
 
 const providers = [["OpenAICompatible", "openai_compatible", "translation"], ["CustomWhisper", "custom_whisper", "transcription"]];
 // hints: whether the page keeps descriptions out of sight (#614).
-async function setup(context: TestContext, base: string, provider: string, section: string, hints = false) {
+// keepUrlDescription: whether that page keeps the URL's words on screen all the same.
+async function setup(context: TestContext, base: string, provider: string, section: string, hints = false, keepUrlDescription = false) {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     const runtime = hooks(), requests: SentWrite[] = [], owners = createSettingsWriteResponses();
     // Flush state updates as React would; a render that keeps rebasing a fresh
@@ -77,7 +78,7 @@ async function setup(context: TestContext, base: string, provider: string, secti
     const render = () => {
         for (let count = 0; count < 20; count++) {
             const previous = updates;
-            const tree = runtime.render(component.CredentialPair, { settings, base, provider, section });
+            const tree = runtime.render(component.CredentialPair, { settings, base, provider, section, keepUrlDescription });
             if (updates === previous) return tree;
         }
         assert.fail("credential form did not settle after 20 renders");
@@ -299,4 +300,18 @@ for (const hints of [false, true]) test(`${hints ? "hints" : "no hints"}: a plai
     }
     s.edit("url", "https://provider-b.example/v1");
     assert.equal(s.field("url").add_warnings, undefined);
+});
+
+// The translation page keeps the OpenAI-compatible URL's words on screen: they say whose charges
+// and risks another endpoint brings. The row is then drawn as on a page without hints.
+test("hints: a URL whose words are kept on screen keeps them whole, the warning with them", async context => {
+    const s = await setup(context, "OpenAICompatible", "openai_compatible", "translation", true, true);
+    s.edit("url", "http://192.168.0.10:8000/v1");
+    const url = s.field("url");
+    assert.equal(url.keep_desc, true);
+    assert.match(url.desc, /^config_page\.translation\.openai_compatible_url\.desc network_privacy\.save_notice network_privacy\.http_warning$/);
+    assert.equal(url.add_warnings, undefined);
+    // Without it, the same page shows the words as the label's hint.
+    const hinted = (await setup(context, "OpenAICompatible", "openai_compatible", "translation", true)).field("url");
+    assert.equal(hinted.keep_desc, false);
 });

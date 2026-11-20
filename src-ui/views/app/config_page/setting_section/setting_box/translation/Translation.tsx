@@ -1,5 +1,5 @@
 import { CredentialPair } from "../_components/credential_pair/CredentialPair";
-import { endpointDescription } from "../../../../../../logics/common/endpointPrivacy";
+import { endpointNotices } from "../../../../../../logics/common/endpointPrivacy";
 import { useRef, useState } from "react";
 import type { MouseEvent, ReactNode, RefObject } from "react";
 import { useI18n } from "@useI18n";
@@ -43,6 +43,7 @@ import {
 
 import { ComputeDevice } from "../_components/compute_device/ComputeDevice";
 import { Description } from "../_components/description/Description";
+import { HintDescriptions } from "../_components/hint/Hint";
 import { CustomModelLink } from "../_components/custom_model_link/CustomModelLink";
 import { SetupSection } from "../_components/setup_section/SetupSection";
 import { AdvancedSection } from "../_components/advanced_section/AdvancedSection";
@@ -79,7 +80,10 @@ export const Translation = () => {
     const ready = (ids: string[]) => engines.filter(engine => ids.includes(engine.id) && engine.is_available === true).length;
     const inUse = Object.values(currentSelectedTranslationEngines.data ?? {})
         .some(id => EXTERNAL_API_PROVIDERS.includes(id) || LOCAL_LLM_PROVIDERS.includes(id));
+    // Reviewed against #614: the rows' general descriptions are their labels' hints. A license, a
+    // warning, what a provider charges and what is sent out stay on screen.
     return (
+        <HintDescriptions>
         <div className={styles.container}>
             <AITranslation_Container />
             <AdvancedSection attention={inUse} status={t("config_page.advanced_status.translation", {
@@ -89,6 +93,7 @@ export const Translation = () => {
             </AdvancedSection>
             <TranslationCatalogSection />
         </div>
+        </HintDescriptions>
     );
 };
 
@@ -138,7 +143,7 @@ export const RetiredModelsFolderNote = () => {
     const { t } = useI18n();
     const key = (name: "label" | "desc" | "open_add_form") => `config_page.translation.retired_models_folder.${name}`;
     return <div data-retired-models-folder>
-        <FormRow group label={t(key("label"))} description={t(key("desc"))} fold={false}>
+        <FormRow group label={t(key("label"))} description={t(key("desc"))} fold={false} keepDescription>
             <button type="button" onClick={() => revealSetting({ setting_id: ENGINE_FORM_SETTING_ID })}>{t(key("open_add_form"))}</button>
         </FormRow>
     </div>;
@@ -208,14 +213,15 @@ const LocalLLM_Container = () => {
             {/* A model you load into one of these servers yourself is how to translate with your own model. */}
             <CustomModelLink section="translation" />
 
+            {/* In the order they are done: where the server is, whether it answers, then its model. */}
             <Provider id="LMStudio">
-                <LMStudioConnectionCheck_Box />
                 <LMStudioURL_Box />
+                <LMStudioConnectionCheck_Box />
                 <LMStudioModelContainer />
             </Provider>
             <Provider id="Ollama">
-                <OllamaConnectionCheck_Box />
                 <OllamaURL_Box />
+                <OllamaConnectionCheck_Box />
                 <OllamaModelContainer />
             </Provider>
             <Provider id="OpenAI_Compatible">
@@ -296,6 +302,7 @@ const CTranslate2WeightType_Box = () => {
                 ...item,
                 label: weightLabel(item.id, translationCatalog),
                 desc: t("config_page.translation.ctranslate2_weight_type.custom_model"),
+                keep_desc: true,
             };
         }
         return {
@@ -308,6 +315,8 @@ const CTranslate2WeightType_Box = () => {
                 { license: "license" in item ? item.license : undefined }
             ),
             desc_tone: non_commercial ? "warning" : undefined,
+            // A license is read before the model is chosen or downloaded: it is not a hint.
+            keep_desc: true,
         };
     });
 
@@ -468,6 +477,8 @@ const GoogleCloudAuthKey_Box = () => {
         <AuthKeyContainer
             label={t("config_page.translation.google_cloud_auth_key.label")}
             desc={t("config_page.translation.google_cloud_auth_key.desc")}
+            // It says who is charged, which is read before a key is entered: it stays on screen.
+            keep_desc
             webpage_url={google_cloud_auth_key_url}
             variable={entryText(variable)}
             state={currentGoogleCloudAuthKey.state}
@@ -860,13 +871,16 @@ const LMStudioURL_Box = () => {
     });
     // The URL as the entry shows it: an empty field for none.
     const variable = entryText(entered) ?? "";
+    // The save notice is the label's hint; the warning about plain HTTP on the LAN stays in sight.
+    const notices = endpointNotices(variable, "", t);
 
     return (
         <>
             <EntryWithSaveButtonContainer
                 label="LM Studio URL"
                 // label={t("config_page.translation.lmstudio_url.label")}
-                desc={endpointDescription(variable, "", t)}
+                desc={notices.description}
+                add_warnings={notices.warning ? [{ label: notices.warning }] : undefined}
                 variable={variable}
                 saveFunction={saveFunction}
                 onChangeFunction={onChangeFunction}
@@ -938,11 +952,14 @@ const OllamaURL_Box = () => {
     });
     // The URL as the entry shows it: an empty field for none.
     const variable = entryText(entered) ?? "";
+    // What the address may be is the label's hint; the warning about plain HTTP on the LAN stays in sight.
+    const notices = endpointNotices(variable, t("config_page.translation.ollama_url.desc"), t);
 
     return (
         <EntryWithSaveButtonContainer
             label={t("config_page.translation.ollama_url.label")}
-            desc={endpointDescription(variable, t("config_page.translation.ollama_url.desc"), t)}
+            desc={notices.description}
+            add_warnings={notices.warning ? [{ label: notices.warning }] : undefined}
             variable={variable}
             saveFunction={saveFunction}
             onChangeFunction={onChangeFunction}
@@ -985,7 +1002,8 @@ const OllamaModelContainer = () => {
 
 const OpenAICompatibleCredentials = () => {
     const settings = useTranslation();
-    return <CredentialPair settings={settings} base="OpenAICompatible" provider="openai_compatible" section="translation" />;
+    // The URL's words say whose charges and risks another endpoint brings: they stay on screen.
+    return <CredentialPair settings={settings} base="OpenAICompatible" provider="openai_compatible" section="translation" keepUrlDescription />;
 };
 const OpenAICompatibleModelContainer = () => {
     const { t } = useI18n();
