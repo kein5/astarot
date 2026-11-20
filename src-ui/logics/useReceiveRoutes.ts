@@ -854,7 +854,7 @@ const buildRouteMetaList = () => {
     const mergedMap = new Map<string, RouteMeta>();
 
     for (const item of STATIC_ROUTE_META_LIST) {
-        if (!item || !item.endpoint) continue;
+        if (!item?.endpoint) continue;
         mergedMap.set(item.endpoint, {
             endpoint: item.endpoint,
             ns: item.ns ?? null,
@@ -885,7 +885,7 @@ const buildRouteMetaList = () => {
 
 
     for (const item of STATIC_ROUTE_META_LIST) {
-        if (!item || !item.endpoint) continue;
+        if (!item?.endpoint) continue;
         const merged = mergedMap.get(item.endpoint);
         if (merged) {
             mergedList.push(merged);

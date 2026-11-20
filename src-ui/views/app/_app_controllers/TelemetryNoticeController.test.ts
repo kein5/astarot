@@ -79,15 +79,15 @@ test("Decide later and Escape put the notice away for this run without answering
     assert.deepEqual(later.sent, []);
     assert.deepEqual(later.refreshed, []);
 
-    const escape = await setup(context, { state: "ok", data: { pending: true, enabled: true } });
+    const dismissed = await setup(context, { state: "ok", data: { pending: true, enabled: true } });
     let prevented = false;
-    const dialog = find(escape.render(), node => node.type === "dialog");
+    const dialog = find(dismissed.render(), node => node.type === "dialog");
     assert.ok(dialog);
     dialog.props.onCancel({ preventDefault: () => { prevented = true; } });
     // The page closes the dialog itself (so focus goes back where it was), and no answer is sent.
     assert.equal(prevented, true);
-    assert.equal(escape.render(), null);
-    assert.deepEqual(escape.sent, []);
+    assert.equal(dismissed.render(), null);
+    assert.deepEqual(dismissed.sent, []);
 });
 
 // #563: changing the UI language draws the main page again (App.tsx), and the notice put away
