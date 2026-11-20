@@ -2,6 +2,23 @@
 
 lockfile_version = 4
 
+[[tools.biome]]
+version = "2.6.6"
+backend = "aqua:biomejs/biome"
+specifiers = ["2.6.6"]
+
+[tools.biome."platforms.linux-x64"]
+checksum = "sha256:69ca8e9ff548091b2bfbd178d6f73142b483a5257b07854de702c68fb7f8c06b"
+url = "https://github.com/biomejs/biome/releases/download/%40biomejs/biome%402.6.6/biome-linux-x64"
+url_api = "https://api.github.com/repos/biomejs/biome/releases/assets/717269715"
+provenance = "github-attestations"
+
+[tools.biome."platforms.windows-x64"]
+checksum = "sha256:d3aac0b55e1b52ce586892b7c64de6bd2fc3774fe5b71129426af92c8a3c0571"
+url = "https://github.com/biomejs/biome/releases/download/%40biomejs/biome%402.6.6/biome-win32-x64.exe"
+url_api = "https://api.github.com/repos/biomejs/biome/releases/assets/717269713"
+provenance = "github-attestations"
+
 [[tools.cocogitto]]
 version = "7.0.0"
 backend = "aqua:cocogitto/cocogitto"

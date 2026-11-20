@@ -175,7 +175,8 @@ export const TtsEngine = ({ draft, setDraft, saved }: TtsEngineProps) => {
     const url = spec ? draft[spec.url] ?? "" : "";
     const check = () => send("/get/data/tts_engine_voices", { engine, url });
     // Check when an engine is chosen or the page opens with one; a typed URL is checked with the button.
-    useEffect(() => { if (spec) check(); }, [engine]); // eslint-disable-line react-hooks/exhaustive-deps
+    // biome-ignore lint/correctness/useExhaustiveDependencies: only the engine starts a check (see above), not the typed URL.
+    useEffect(() => { if (spec) check(); }, [engine]);
 
     const choose = (value: string) => setDraft(current => {
         // A voice belongs to its engine. Coming back to the saved engine brings its saved voice back.
