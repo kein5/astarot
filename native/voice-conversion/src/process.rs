@@ -200,6 +200,8 @@ struct State {
     remainder: Vec<u8>,
     first: i64,
     last: i64,
+    /// The last block's start: the next one starts later.
+    block_start: i64,
     sequence: u64,
     sent: u64,
     speech: VecDeque<u8>,
@@ -369,6 +371,7 @@ impl VcProcess {
                     remainder: Vec::new(),
                     first: 0,
                     last: 0,
+                    block_start: 0,
                     sequence: 0,
                     sent: 0,
                     speech: VecDeque::new(),
@@ -641,7 +644,13 @@ fn audio(shared: &Shared, pcm: &[u8]) -> bool {
             };
             state.partial.extend_from_slice(&part);
             if state.partial.len() == shared.block.pcm_bytes() {
-                let info = match p::input_info(&shared.session, state.sequence, state.first, shared.block) {
+                // The block ends no later than its last part arrived. Its first part can have
+                // been handed over later after it began than this one (WASAPI read every 10 ms,
+                // then two packets at once): stamped from that part alone, the block would end
+                // in the future, which is refused as vc_block_expired.
+                let start = state.first.min(arrived - after - shared.block.ns()).max(state.block_start + 1);
+                state.block_start = start;
+                let info = match p::input_info(&shared.session, state.sequence, start, shared.block) {
                     Ok(mut info) => {
                         info.insert("pcm_bytes".into(), json!(shared.block.pcm_bytes()));
                         info
@@ -1121,6 +1130,26 @@ mod tests {
         assert!(arrived - end >= 1_000_000 && arrived - end < 20_000_000, "{}", arrived - end);
         assert_eq!(end - start, 40_000_000);
         crate::protocol::require_fresh(end, arrived, crate::protocol::MANAGED_MAX_AGE_NS).expect("a block handed over whole is fresh");
+    }
+
+    #[test]
+    fn a_block_whose_first_part_came_late_ends_when_its_last_part_arrived() {
+        // WASAPI is read every 10 ms: a part can be handed over late and the next one at once.
+        // Stamped from the late part alone, the block ended about 18 ms in the future and the
+        // conversion stopped with vc_block_expired on its second block (#531).
+        vrct_audio_routing::sync::monotonic_ns();
+        std::thread::sleep(std::time::Duration::from_millis(100));
+        let process = requested(40);
+        assert!(process.offer_audio(&vec![0u8; PART]));
+        std::thread::sleep(std::time::Duration::from_millis(2));
+        assert!(process.offer_audio(&vec![0u8; PART]));
+        let arrived = vrct_audio_routing::sync::monotonic_ns() as i64;
+        let state = process.shared.state.lock().unwrap();
+        let block = &state.queue[0];
+        let (start, end) = (block.info["start_ns"].as_i64().unwrap(), block.info["end_ns"].as_i64().unwrap());
+        assert!(end <= arrived, "the block ends {} ns in the future", end - arrived);
+        assert_eq!(end - start, 40_000_000);
+        crate::protocol::require_fresh(end, arrived, crate::protocol::DEVICE_MAX_AGE_NS).expect("the block is fresh when it is queued");
     }
 
     #[test]
