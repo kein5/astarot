@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import { nextLogView, rowsBetween } from "./messageLogView.ts";
+import type { LogView, LogViewRow } from "./messageLogView.ts";
 
-const rows = (...ids) => ids.map(id => ({ id }));
-const ids = view => view.rows.map(row => row.id);
+const rows = (...ids: unknown[]): LogViewRow[] => ids.map(id => ({ id }));
+const ids = (view: LogView<LogViewRow>) => view.rows.map(row => row.id);
 
 test("at the cap the dropped rows are shown first, then the rest", () => {
     const shown = rows(1, 2, 3);

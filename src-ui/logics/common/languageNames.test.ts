@@ -1,6 +1,7 @@
 import { test } from "vitest";
 import assert from "node:assert/strict";
 import { createLanguageNames, isLanguagePickKey } from "./languageNames.ts";
+import { unchecked } from "../test/hookHarness.ts";
 import { languageCodes } from "./languageCodes.ts";
 
 const japanese = Object.freeze({ language: "Japanese", country: "Japan" });
@@ -12,6 +13,7 @@ for (const locale of locales) {
         const names = createLanguageNames(locale);
         const language = new Intl.DisplayNames(locale, { type: "language" }).of("ja");
         const country = new Intl.DisplayNames(locale, { type: "region" }).of("JP");
+        assert.ok(language !== undefined && country !== undefined);
         assert.deepEqual(names.name(japanese), { language, country, label: `${language} (${country})` });
         for (const query of [language, country, "Japanese", "japan", "jApAnEsE JAPAN"]) {
             assert.equal(names.matches(japanese, query), true, query);
@@ -65,8 +67,8 @@ test("a language code narrows the list as it is typed: the ISO 639 code's beginn
 test("typing a code narrows the code matches at each letter over the real language list", () => {
     const names = createLanguageNames("en");
     const entries = Object.entries(languageCodes).flatMap(([language, countries]) => Object.keys(countries).map(country => ({ language, country })));
-    const codeMatches = query => entries.filter(entry => names.matchesCode(entry, query));
-    const tag = entry => Intl.getCanonicalLocales(languageCodes[entry.language][entry.country])[0].toLowerCase();
+    const codeMatches = (query: string) => entries.filter(entry => names.matchesCode(entry, query));
+    const tag = (entry: (typeof entries)[number]) => Intl.getCanonicalLocales(languageCodes[entry.language][entry.country])[0].toLowerCase();
     let previous = entries.length;
     for (const query of ["e", "en", "en-", "en-u", "en-us"]) {
         const found = codeMatches(query);
@@ -137,25 +139,30 @@ test("missing or invalid tags and absent Intl preserve English names", () => {
     const unknown = { language: "Future language", country: "Future region" };
     assert.equal(names.name(unknown).label, "Future language (Future region)");
     assert.equal(names.name({ ...japanese, code: "invalid_tag" }).label, "Japanese (Japan)");
-    assert.equal(createLanguageNames("ja", {}).name(japanese).label, "Japanese (Japan)");
-    assert.equal(createLanguageNames("ja", {}).fromCode("ja"), "ja");
+    // A platform without Intl's parts, on purpose.
+    const noIntl = unchecked<typeof Intl>({});
+    assert.equal(createLanguageNames("ja", noIntl).name(japanese).label, "Japanese (Japan)");
+    assert.equal(createLanguageNames("ja", noIntl).fromCode("ja"), "ja");
     assert.equal(createLanguageNames("bad_locale").name(japanese).label, "Japanese (Japan)");
     assert.equal(names.name(null).label, "");
-    assert.deepEqual(createLanguageNames("ja", {}).sorted([japanese, english]), [japanese, english]);
+    assert.deepEqual(createLanguageNames("ja", noIntl).sorted([japanese, english]), [japanese, english]);
 });
 
 test("DisplayNames returning nothing or throwing falls back independently for each part", () => {
     for (const failType of ["language", "region"]) {
-        for (const failure of [undefined, "", "throw"]) {
+        for (const failure of [undefined, "", "throw"] as const) {
             const platform = { Locale: Intl.Locale, Collator: Intl.Collator, DisplayNames: class {
-                constructor(locale, options) { this.type = options.type; this.real = new Intl.DisplayNames(locale, options); }
-                of(code) {
+                declare type: string;
+                declare real: Intl.DisplayNames;
+                constructor(locale: string, options: Intl.DisplayNamesOptions) { this.type = options.type; this.real = new Intl.DisplayNames(locale, options); }
+                of(code: string) {
                     if (this.type !== failType) return this.real.of(code);
                     if (failure === "throw") throw new RangeError();
                     return failure;
                 }
             } };
-            const names = createLanguageNames("ja", platform);
+            // Intl with only the parts the names use, and DisplayNames that fail on purpose.
+            const names = createLanguageNames("ja", unchecked<typeof Intl>(platform));
             assert.equal(names.name(japanese).label, failType === "language" ? "Japanese (日本)" : "日本語 (Japan)");
             assert.ok(names.matches(japanese, "Japanese Japan"));
         }

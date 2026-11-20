@@ -4,7 +4,7 @@ import { languageJumpGroups } from "./languageJumpGroups.ts";
 import { createLanguageNames } from "./languageNames.ts";
 import { languageCodes } from "./languageCodes.ts";
 
-const group = (name, locale = "ja") => languageJumpGroups([name], locale)[0]?.id;
+const group = (name: string | null | undefined, locale: string | undefined = "ja") => languageJumpGroups([name], locale)[0]?.id;
 
 test("Japanese katakana names use kana rows, with kanji and other scripts separate", () => {
     const names = Object.freeze(["アラビア語", "カタルーニャ語", "スペイン語", "タイ語", "ネパール語",
