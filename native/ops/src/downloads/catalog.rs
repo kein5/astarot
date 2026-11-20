@@ -693,6 +693,11 @@ mod translation_tests {
         assert_eq!(validate_catalog(&[entry(complete.clone())]), Ok(()));
         // Without its manifest, with a file type or a role no translation folder has.
         assert_eq!(validate_catalog(&[entry(complete[1..].to_vec())]), Err("catalog_invalid"));
+        // The manifest is `manifest.json` under the role `manifest`, not either one alone.
+        let renamed = [vec![file("other.json", "manifest")], complete[1..].to_vec()].concat();
+        assert_eq!(validate_catalog(&[entry(renamed)]), Err("catalog_invalid"));
+        let miscast = [vec![file("manifest.json", "data")], complete[1..].to_vec()].concat();
+        assert_eq!(validate_catalog(&[entry(miscast)]), Err("catalog_invalid"));
         assert_eq!(validate_catalog(&[entry(vec![file("manifest.json", "manifest"), file("model.gguf", "encoder")])]), Err("catalog_invalid"));
         assert_eq!(validate_catalog(&[entry(vec![file("manifest.json", "manifest"), file("encoder.onnx", "model")])]), Err("catalog_invalid"));
         // Two graphs over 2 GB each keep their weights beside them; no other role repeats.
