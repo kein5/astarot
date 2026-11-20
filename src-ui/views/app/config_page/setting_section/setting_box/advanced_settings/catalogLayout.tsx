@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { useI18n } from "@useI18n";
-import { useStore_CatalogLayout } from "@store";
+import { useAppearance } from "@logics_configs";
 import { Fold } from "../_components/fold/Fold";
 import styles from "./VoiceSettings.module.scss";
 import * as css from "./catalogLayout.css.ts";
@@ -10,16 +10,18 @@ import * as css from "./catalogLayout.css.ts";
 // - list: one card a row, read across: what the model is and what can be done, its facts beside.
 // - grid: cards side by side, read down: what the model is, its file and what can be done, its
 //   facts in a fold of the few-words size, so more models are seen at once.
-// One choice for every catalog (Atom_CatalogLayout), kept while the app runs. A catalog passes
-// the layout down to its list and its cards' facts.
+// One choice for every catalog, saved with the settings (CATALOG_LAYOUT, the Appearance setting
+// CatalogLayout); a new install starts with the grid. A catalog passes the layout down to its list
+// and its cards' facts.
 export type CatalogLayout = "list" | "grid";
 const LAYOUTS: readonly CatalogLayout[] = ["grid", "list"];
 
 // The layout chosen, for a catalog that offers the choice. One that does not (the translation
 // review, which shows one model) draws a list.
+// Until the saved choice arrives, the setting's default (the grid).
 export const useCatalogLayout = (): CatalogLayout => {
-    const { currentCatalogLayout } = useStore_CatalogLayout();
-    return currentCatalogLayout.data === "grid" ? "grid" : "list";
+    const { currentCatalogLayout } = useAppearance();
+    return currentCatalogLayout.data === "list" ? "list" : "grid";
 };
 
 // The list of a catalog's cards.
@@ -40,11 +42,11 @@ export const CatalogFacts = ({ layout, summary, children }: { layout: CatalogLay
 // Its words say the layout; the icon only repeats them.
 export const CatalogLayoutSwitch = () => {
     const { t } = useI18n();
-    const { updateCatalogLayout } = useStore_CatalogLayout();
+    const { setCatalogLayout } = useAppearance();
     const chosen = useCatalogLayout();
     return <div className={css.layoutSwitch} role="group" aria-label={t("model_catalog.layout.label")}>
         {LAYOUTS.map(layout => <button key={layout} type="button" className={css.option} aria-pressed={chosen === layout}
-            onClick={() => { if (chosen !== layout) updateCatalogLayout(layout); }}>
+            onClick={() => { if (chosen !== layout) setCatalogLayout(layout); }}>
             {layout === "grid"
                 ? <svg className={css.icon} viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="2" width="5" height="5" rx="1" />
                     <rect x="9" y="2" width="5" height="5" rx="1" /><rect x="2" y="9" width="5" height="5" rx="1" /><rect x="9" y="9" width="5" height="5" rx="1" /></svg>

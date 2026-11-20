@@ -3,15 +3,15 @@ import { test } from "vitest";
 import { find, findIn, hooks, loadModule, nodesIn } from "../../../../../../logics/test/hookHarness.ts";
 
 // The model catalogs' two layouts (catalogLayout.tsx): a list, one card a row with its facts
-// beside it, and a grid, cards side by side with their facts in a fold. One choice for every
-// catalog, kept in the app's state while it runs.
+// beside it, and a grid, cards side by side with their details in a fold. One choice for every
+// catalog, the Appearance setting CatalogLayout (saved by the core as CATALOG_LAYOUT).
 async function layouts(chosen: unknown) {
     const runtime = hooks();
     const store = { data: chosen, updates: [] as unknown[] };
     const module = await loadModule<typeof import("./catalogLayout.tsx")>(new URL("./catalogLayout.tsx", import.meta.url), runtime, {
         "@useI18n": { useI18n: () => ({ t: (key: string) => key }) },
-        "@store": { useStore_CatalogLayout: () => ({ currentCatalogLayout: { data: store.data },
-            updateCatalogLayout: (layout: unknown) => { store.updates.push(layout); store.data = layout; } }) },
+        "@logics_configs": { useAppearance: () => ({ currentCatalogLayout: { data: store.data },
+            setCatalogLayout: (layout: unknown) => { store.updates.push(layout); store.data = layout; } }) },
         "../_components/fold/Fold": { Fold: "fold" },
     });
     return { runtime, module, store };
@@ -34,8 +34,8 @@ test("the layout buttons say both layouts in words and press the one in use", as
     assert.deepEqual(buttons().map(button => button.props["aria-pressed"]), [true, false]);
 });
 
-test("anything but the grid is read as the list", async () => {
-    for (const [chosen, layout] of [["grid", "grid"], ["list", "list"], [undefined, "list"], ["tiles", "list"]]) {
+test("the grid until the list is chosen: the setting's default, and anything else, is the grid", async () => {
+    for (const [chosen, layout] of [["grid", "grid"], ["list", "list"], [undefined, "grid"], ["tiles", "grid"]]) {
         const { runtime, module } = await layouts(chosen);
         assert.equal(runtime.render(module.useCatalogLayout), layout, String(chosen));
     }

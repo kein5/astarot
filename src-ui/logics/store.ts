@@ -407,10 +407,6 @@ export const { atomInstance: Atom_SelectableFontFamilyList, useHook: useStore_Se
 
 
 export const { atomInstance: Atom_IsOpenedMicWordFilterList, useHook: useStore_IsOpenedMicWordFilterList } = createAtomWithHook(false, "IsOpenedMicWordFilterList");
-// How the model catalogs lay out their cards (#614 follow-up): "list", one card a row with its
-// facts beside it, or "grid", cards side by side with their facts folded. One choice for every
-// catalog, kept while the app runs.
-export const { atomInstance: Atom_CatalogLayout, useHook: useStore_CatalogLayout } = createAtomWithHook<"list" | "grid", "CatalogLayout">("list", "CatalogLayout", { is_state_ok: true });
 
 export const { atomInstance: Atom_MessageFormat_ExampleViewFilter, useHook: useStore_MessageFormat_ExampleViewFilter } = createAtomWithHook({
     send: "Simplified",
