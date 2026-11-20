@@ -11,7 +11,7 @@ UIからサイドカーへの要求（`mapping`）と、サイドカーからUI�
 - ログで伏せる: `process.log`で値を`***MASKED***`に置き換える（`SENSITIVE_ENDPOINT_MARKERS`）。stdoutのIPCそのものは伏せない。
 - 中核のみ: Pythonになく、中核（`native/core`）で足したもの。`tools/spec_core_additions.json`から表の末尾に足した。
 
-## 要求（469件: 削除 13、取得 210、実行 49、有効化 41、無効化 44、設定 112）
+## 要求（471件: 削除 13、取得 210、実行 51、有効化 41、無効化 44、設定 112）
 
 | エンドポイント | 種別 | 処理（controller） | 初期化前 | UIの受信先 | 備考 |
 |---|---|---|---|---|---|
@@ -484,6 +484,8 @@ UIからサイドカーへの要求（`mapping`）と、サイドカーからUI�
 | `/set/enable/osc_query` | 有効化 | `core: set_osc_query` | 可 | useAdvancedSettings.setSuccessEnableOscQuery | 中核のみ |
 | `/set/disable/osc_query` | 無効化 | `core: set_osc_query` | 可 | useAdvancedSettings.setSuccessEnableOscQuery | 中核のみ |
 | `/get/data/builtin_vocabulary` | 取得 | `core: speechcpp::vrchat_terms` | 可 | useRealtimeASR.updateBuiltinVocabulary | 中核のみ、ログで伏せる |
+| `/run/export_vocabulary` | 実行 | `core: export_vocabulary` | 可 | （受け取るだけ） | 中核のみ、ログで伏せる |
+| `/run/open_filepath_vocabulary_exports` | 実行 | `core: open_folder_reply` | 可 | useOpenFolder.openedFolder_VocabularyExports | 中核のみ、ログで伏せる |
 
 
 ## 通知（サイドカーからUIへ、89件）

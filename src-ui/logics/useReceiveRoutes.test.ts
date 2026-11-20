@@ -14,6 +14,20 @@ test("blocked config loading shows the persistent load-failure notice", async ()
         options: { hide_duration: null, category_id: "config_save_failed" } }]);
 });
 
+test("the dictionary written out, or not, is said by the button that asked, not by a notice", async () => {
+    const s = await loadBridgeRoutes();
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+        s.receiveRoutes({ endpoint: "/run/export_vocabulary", status: 200, result: { file: "vocabulary-20261120-153000.txt" } });
+        s.receiveRoutes({ endpoint: "/run/export_vocabulary", status: 500, result: "Internal error" });
+        s.receiveRoutes({ endpoint: "/run/export_vocabulary", status: 400, result: { error_code: "realtime_vocabulary_invalid" } });
+        assert.deepEqual(s.notices, []);
+        assert.deepEqual(error.mock.calls, [], "the reply has a route");
+    } finally {
+        error.mockRestore();
+    }
+});
+
 test("skipped speech warns when the backend count rises, not for earlier counts", async () => {
     const s = await loadBridgeRoutes();
     const status = (expired: number) => s.receiveRoutes({ endpoint: "/get/data/voice_status", status: 200, result: { expired } });
