@@ -10,7 +10,7 @@ import native_acceptance as subject  # noqa: E402
 
 # The plan writes paths into the environment as the OS spells them.
 IMAGE, COPY, DEV = Path("/candidates/app.AppImage"), Path("/out/candidate.AppImage"), Path("/dev/vrct-vox")
-ALL = {"ocr": "/m/ocr", "--vrchat": True}
+ALL = {"ocr": "/m/ocr", "--vrchat": True, "kde": True, "xdotool": "/usr/bin/xdotool"}
 
 
 def args(**changes):
@@ -29,14 +29,17 @@ class NativeAcceptancePlanTests(unittest.TestCase):
         rows = by_name(subject.plan(args(), {}))
         self.assertEqual([name for name, row in rows.items() if row[2] is None], ["appimage", "ui"])
         self.assertEqual(rows["vrchat"][2], "missing: --vrchat, ocr")
+        # Quick Chat's group needs KDE and xdotool; without them it is skipped, not failed.
+        self.assertEqual(rows["quick_chat"][2], "missing: kde, xdotool")
 
     def test_a_packaged_build_runs_the_image_itself(self):
         rows = by_name(subject.plan(args(), ALL))
         self.assertEqual(rows["appimage"][1]["ASTAROT_TEST_APPIMAGE"], str(IMAGE))
-        for name in ("ui", "vrchat"):
+        for name in ("ui", "vrchat", "quick_chat"):
             env = rows[name][1]
             self.assertEqual(env["ASTAROT_TEST_APP"], str(COPY), name)
             self.assertEqual(env["APPIMAGE_EXTRACT_AND_RUN"], "1", name)
+        self.assertEqual(rows["quick_chat"][1]["ASTAROT_TEST_NATIVE_QUICK_CHAT"], "1")
         self.assertTrue(all(reason is None for _, _, reason in rows.values()))
 
     def test_a_development_build_is_not_treated_as_an_image(self):
