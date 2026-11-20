@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import { readFileSync } from "node:fs";
-import yaml from "js-yaml";
-import { hooks, loadModule, find, unchecked } from "../../../logics/test/hookHarness.ts";
+import { hooks, loadModule, find, nodesIn, componentName, draw, drawWith } from "../../../logics/test/hookHarness.ts";
+import { readLocale, localeAt, textAt } from "../../../logics/test/locales.ts";
 import type { HookRuntime, TreeNode } from "../../../logics/test/hookHarness.ts";
 import * as featureLabel from "../../../logics/common/featureLabel.ts";
 import * as searchTargets from "../../../logics/configs/config_page_setter/_aux/configSearchTargets.ts";
@@ -10,21 +10,12 @@ import * as revealSettingModule from "../../../logics/configs/revealSetting.ts";
 import * as settingsMenu from "../../../logics/configs/settingsMenu.ts";
 import * as usagePresets from "../../../logics/configs/usagePresets.ts";
 
-// A locale file: texts under nested keys. The type lets a test both follow keys and read a text;
-// what is really there is what the tests check (typeof ... === "string"), as before.
-type Texts = string & { readonly [key: string]: Texts };
-// Test data: a locale file, read as the nested texts it is.
-const locale = (language: string) => unchecked<Texts>(yaml.load(readFileSync(new URL(`../../../../locales/${language}.yml`, import.meta.url), "utf8")));
-
-const all = (tree: unknown, predicate: (node: TreeNode) => boolean, found: TreeNode[] = []) => { find(tree, node => { if (predicate(node)) found.push(node); return false; }); return found; };
-// A node's own component: the pages' function components, drawn here as functions.
-const component = (node: TreeNode) => unchecked<(props: unknown) => TreeNode | null>(node.type);
-// Whether a node is drawn by the function component of that name.
-const named = (node: TreeNode, name: string) => typeof node.type === "function" && node.type.name === name;
+// The nodes of a tree the predicate picks, in the order find visits them.
+const all = (tree: unknown, predicate: (node: TreeNode) => unknown) => nodesIn(tree).filter(predicate);
 const icon = (name: string) => Object.assign(() => null, { icon: name });
 // The menu's tabs, group by group: SidebarSection draws the groups, each group its tabs.
 const menuTabs = (runtime: HookRuntime, tree: unknown) => all(tree, node => node.props?.group?.tabs)
-    .flatMap(group => all(runtime.render(component(group), group.props), node => typeof node.props?.tab_id === "string"));
+    .flatMap(group => all(drawWith(runtime, group), node => typeof node.props?.tab_id === "string"));
 
 test("chat reading has a page of its own, and search lists it there", async () => {
     const runtime = hooks();
@@ -90,12 +81,12 @@ test("the side menu groups its pages in the order a conversation uses them, each
     assert.ok(ocrIcon && vrchatIcon);
     assert.notEqual(ocrIcon.type, vrchatIcon.type);
     for (const language of ["en", "ja"]) {
-        const strings = locale(language);
-        assert.equal(typeof strings.config_page.side_menu_labels.ocr, "string");
+        const strings = readLocale(language);
+        assert.equal(typeof localeAt(strings, "config_page.side_menu_labels.ocr"), "string");
         // The menu and the settings search both name a page by this key; a missing one showed the raw key.
-        for (const id of tabs) assert.equal(typeof strings.config_page.side_menu_labels[id], "string", `${language}: ${id}`);
-        for (const group of groups) assert.equal(typeof strings.config_page.side_menu_groups[group.id], "string", `${language}: ${group.id}`);
-        for (const key of ["provider_in_use", "provider_ready", "provider_not_set"]) assert.equal(typeof strings.config_page.translation[key], "string");
+        for (const id of tabs) assert.equal(typeof localeAt(strings, `config_page.side_menu_labels.${id}`), "string", `${language}: ${id}`);
+        for (const group of groups) assert.equal(typeof localeAt(strings, `config_page.side_menu_groups.${group.id}`), "string", `${language}: ${group.id}`);
+        for (const key of ["provider_in_use", "provider_ready", "provider_not_set"]) assert.equal(typeof localeAt(strings, `config_page.translation.${key}`), "string");
     }
 });
 
@@ -116,7 +107,7 @@ test("a feature's settings menu tab shows its name on one line and keeps the who
         "@logics_configs": { useUsagePresets: () => ({ currentUsagePresets: { data: ["all"] } }) },
     });
     const [tab] = menuTabs(runtime, runtime.render(sidebar.SidebarSection)).filter(node => node.props.tab_id === "transcription");
-    const tree = runtime.render(component(tab), tab.props);
+    const tree = drawWith(runtime, tab);
     const button = find(tree, node => node.type === "button");
     assert.ok(button);
     assert.equal(button.props["aria-label"], "Speech recognition (ASR)");
@@ -125,7 +116,7 @@ test("a feature's settings menu tab shows its name on one line and keeps the who
     assert.equal(find(tree, node => node.type === "span"), null, "the short name has no second line");
     // A tab without a short name needs no tooltip: its text is its whole name.
     const [device] = menuTabs(runtime, runtime.render(sidebar.SidebarSection)).filter(node => node.props.tab_id === "device");
-    const deviceButton = find(runtime.render(component(device), device.props), node => node.type === "button");
+    const deviceButton = find(drawWith(runtime, device), node => node.type === "button");
     assert.ok(deviceButton);
     assert.equal(deviceButton.props.title, undefined);
 });
@@ -165,11 +156,11 @@ test("speech recognition opens on the engine choice and its two systems; the res
     const line = find(drawnPage, node => node.props?.status?.startsWith?.("config_page.advanced_status"));
     assert.ok(line);
     assert.equal(line.props.status, "config_page.advanced_status.transcription:5,4");
-    const mic = find(drawnPage, node => named(node, "Mic_Container"));
+    const mic = find(drawnPage, node => componentName(node) === "Mic_Container");
     assert.ok(mic);
-    const fold = find(component(mic)(mic.props), node => named(node, "TimingFold"));
+    const fold = find(draw(mic), node => componentName(node) === "TimingFold");
     assert.ok(fold);
-    const drawn = component(fold)(fold.props);
+    const drawn = draw(fold);
     assert.ok(drawn);
     assert.equal(drawn.type, SetupSection);
     assert.equal(drawn.props.title, "config_page.transcription.timing_title");
@@ -198,12 +189,12 @@ test("each API speech recognition provider is one fold; the selected one stays o
     // The folds are in the API group (#414), no longer inside 「詳細設定」.
     const group = find(page, node => node.props?.group === "api");
     assert.ok(group);
-    const cloud = find(group, node => named(node, "CloudTranscription_Container"));
+    const cloud = find(group, node => componentName(node) === "CloudTranscription_Container");
     assert.ok(cloud);
     // A value's children, read as node?.props?.children reads them.
     const childrenOf = (node: unknown): unknown => typeof node === "object" && node !== null ? Reflect.get(node, "props")?.children : undefined;
     const text = (node: unknown): string => typeof node === "string" ? node : [childrenOf(node)].flat().map(text).join("");
-    const folds = all(runtime.render(component(cloud), cloud.props), node => node.type === SetupSection)
+    const folds = all(drawWith(runtime, cloud), node => node.type === SetupSection)
         .map(node => [text(node.props.title), node.props.status.split(".").at(-1), node.props.attention]);
     assert.deepEqual(folds, [
         ["config_page.transcription.select_transcription_engine.engines.groq_whisper", "provider_ready", false],
@@ -211,12 +202,12 @@ test("each API speech recognition provider is one fold; the selected one stays o
         ["config_page.transcription.select_transcription_engine.engines.custom_whisper config_page.transcription.select_transcription_engine.badge_own", "provider_not_set", false],
     ]);
     // The mark is the catalogs' badge for what the user added (dashed edge).
-    const lastFold = all(runtime.render(component(cloud), cloud.props), node => node.type === SetupSection).at(-1);
+    const lastFold = all(drawWith(runtime, cloud), node => node.type === SetupSection).at(-1);
     assert.ok(lastFold);
     const badge = find(lastFold.props.title, node => node.props?.["data-tone"]);
     assert.ok(badge);
     assert.equal(badge.props["data-tone"], "own");
-    const groupDrawn = component(group)(group.props);
+    const groupDrawn = draw(group);
     assert.ok(groupDrawn);
     assert.equal(groupDrawn.props["data-engine-group"], "api");
     assert.equal(find(groupDrawn, node => node.props?.["data-setting-id"])?.props["data-setting-id"], "cloud_section", "the settings search still leads here");
@@ -227,8 +218,8 @@ test("the VRChat page no longer carries chat reading; it ends with the way to th
     const source = readFileSync(new URL("./setting_section/setting_box/vrchat/Vrchat.tsx", import.meta.url), "utf8");
     assert.doesNotMatch(source, /ocr\/Ocr/);
     const dependencies = Object.fromEntries([...source.matchAll(/from "([^"]+)"/g)].map(match => [match[1], {}]));
-    const ja = locale("ja");
-    const t = (key: string, values: Record<string, string>) => key.split(".").reduce<Texts>((node, part) => node?.[part], ja).replace(/\{\{(\w+)\}\}/g, (_, name: string) => values[name]);
+    const ja = readLocale("ja");
+    const t = (key: string, values: Record<string, string>) => textAt(ja, key).replace(/\{\{(\w+)\}\}/g, (_, name: string) => values[name]);
     const store = { "@store": { useStore_SelectedConfigTabId: () => ({ updateSelectedConfigTabId: (id: string) => opened.push(id) }) } };
     const pagePointer = await loadModule<typeof import("./setting_section/setting_box/_components/page_pointer/PagePointer.tsx")>(new URL("./setting_section/setting_box/_components/page_pointer/PagePointer.tsx", import.meta.url), runtime, {
         ...store, "@useI18n": { useI18n: () => ({ t }) }, "../form_row/FormRow": { FormRow: () => null },
@@ -259,9 +250,9 @@ test("the VRChat page no longer carries chat reading; it ends with the way to th
     button.props.onClick();
     assert.deepEqual(opened, ["ocr"]);
     for (const language of ["en", "ja"]) {
-        const strings = locale(language).config_page;
-        assert.equal(typeof strings.page_link.open, "string");
-        for (const key of ["timing_title", "timing_status"]) assert.equal(typeof strings.transcription[key], "string");
+        const strings = readLocale(language);
+        assert.equal(typeof localeAt(strings, "config_page.page_link.open"), "string");
+        for (const key of ["timing_title", "timing_status"]) assert.equal(typeof localeAt(strings, `config_page.transcription.${key}`), "string");
     }
 });
 
@@ -293,7 +284,7 @@ test("each translation provider is one fold that says whether it can be used; th
         const drawn = section.type(section.props);
         if (!drawn) continue;
         for (const provider of all(drawn, node => typeof node.props?.id === "string" && typeof node.type === "function")) {
-            const fold = component(provider)(provider.props);
+            const fold = draw(provider);
             assert.ok(fold);
             assert.equal(fold.type, SetupSection);
             folds.push([provider.props.id, fold.props.title, fold.props.status, fold.props.attention]);

@@ -1,9 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import type { TestContext } from "vitest";
-import { readFileSync } from "node:fs";
-import yaml from "js-yaml";
-import { hooks, loadModule, find, eventTarget, stubGlobals, unchecked } from "../../../../logics/test/hookHarness.ts";
+import { hooks, loadModule, find, eventTarget, stubGlobals } from "../../../../logics/test/hookHarness.ts";
+import { readLocale, localeAt, textAt } from "../../../../logics/test/locales.ts";
 
 const t = (key: string, options?: { changes?: string }) => options?.changes ? `${key}[${options.changes}]` : key;
 async function render(context: TestContext, entries: unknown, tab = "tts") {
@@ -70,10 +69,9 @@ test("#436: a page without a form says in the save bar's place that its changes 
 
 test("the wording exists in English and Japanese and names the change", () => {
     for (const language of ["en", "ja"]) {
-        // Test data: a locale file, read as the mapping of texts it is.
-        const strings = unchecked<{ voice_ui: Record<string, string> }>(yaml.load(readFileSync(new URL(`../../../../../locales/${language}.yml`, import.meta.url), "utf8"))).voice_ui;
-        assert.match(strings.applies_on_save, /\{\{changes\}\}/);
-        assert.equal(typeof strings.changes_separator, "string");
-        assert.equal(typeof strings.applies_now, "string");
+        const strings = readLocale(language);
+        assert.match(textAt(strings, "voice_ui.applies_on_save"), /\{\{changes\}\}/);
+        assert.equal(typeof localeAt(strings, "voice_ui.changes_separator"), "string");
+        assert.equal(typeof localeAt(strings, "voice_ui.applies_now"), "string");
     }
 });
