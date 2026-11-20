@@ -34,7 +34,19 @@ mise run check               # 軽量チェック
 
 設計判断の記録（ADR）の索引の表（[docs/adr/README.md](adr/README.md)）は、各 ADR の冒頭の front matter から生成します。ADR を足したり front matter を変えたりしたら `mise run adr` で作り直します。`check` は `tests/devtools/test_adr_catalog.py` で、番号の重複、項目と値、裏付けのパス、リンク、表の古さを確かめます。
 
-npmのスクリプト（`npm run doctor`、`npm run check` など）も当面は残します。中身は同じ `tools/dev.py` ですが、miseを通らないので、PATHにあるツールの版で動きます。アプリの起動（`npm run dev-fast` など）とWindowsの配布物のビルド（`npm run release`）は、今までどおりnpmのスクリプトです。miseを有効にしたシェル（`mise activate`）から呼ぶと、固定した版で動きます。
+開発CLI（`tools/dev.py`）の近道は、miseのタスクだけに置きます（2026-11-21）。npmのスクリプトに残すのは、npmでないと動かないものです。Vite、Tauri、アプリの起動（`npm run dev-fast` など）、Windowsの配布物のビルド（`npm run build`、`npm run release`）、UIの試験（`npm test`、Vitest）、型チェック（`npm run typecheck`）などです。miseを有効にしたシェル（`mise activate`）から呼ぶと、npmのスクリプトも固定した版で動きます。
+
+以前はnpmにも同じ近道があり、miseと食い違っていました（npmの `check:commits` は `--base` を渡さず、範囲の検査の名前は `test:*` でした）。npmの近道は、次のmiseのタスクに替わりました。
+
+| 以前のnpmのスクリプト | miseのタスク |
+| --- | --- |
+| `npm run doctor` | `mise run doctor` |
+| `npm run check`、`npm run check:all` | `mise run check`、`mise run check:all` |
+| `npm run check:commits` | `mise run check:commits` |
+| `npm run test:voice`、`npm run test:ui`、`npm run test:integration` | `mise run check:voice`、`mise run check:ui`、`mise run check:integration` |
+| `npm run setup:headless`、`npm run setup:browser` | `mise run setup:headless`、`mise run setup:browser` |
+
+`check:commits` は、cloneしたときの `origin/develop` と比べます。リモートの名前が違うときは、`mise run check:commits --base <リモート>/develop` のように後ろに `--base` を書くと、そちらが使われます。`tests/devtools/test_dev_shortcuts.py` が、npmのスクリプトから `tools/dev.py` を呼んでいないこと、範囲のタスクの名前が範囲の名前（`check:<範囲>`、`setup:<範囲>`）とそろっていること、npmへ渡すタスクが残っているスクリプトを指していることを確かめます。
 
 ## 用意するツール
 
