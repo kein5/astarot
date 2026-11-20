@@ -29,6 +29,7 @@ ASTAROT の設計判断の記録（ADR）の正本は、このディレクトリ
 | [014](adr-014-internal-identifier-migration.md) | 内部識別子を ASTAROT にそろえ、設定とモデルを引き継ぐ | 2026-11-19 | 採用 | 未着手 | 有効 | Rust の中核 |
 | [015](adr-015-translation-llm-runtime-exception.md) | TranslateGemma の翻訳を LLM 用の実行基盤で動かす（ADR-012 の例外） | 2026-11-19 | 採用 | 未着手 | 有効 | Rust の中核 |
 | [016](adr-016-user-guide-site-on-rspress.md) | 利用者向けのサイトの土台を VitePress から Rspress（React）に替える | 2026-11-20 | 採用 | 未着手 | 有効 | Rust の中核 |
+| [017](adr-017-integration-tests-through-the-core.md) | 画面から中核まで通す試験を Playwright の結合テストにし、配布物で通す試験だけを E2E と呼ぶ | 2026-11-20 | 採用 | 未着手 | 有効 | Rust の中核 |
 
 <!-- adr-index:end -->
 
@@ -137,6 +138,8 @@ ADR 001〜003 は、2026-10-27 に音声の最初の段階（P1）のために�
 [ADR-014: 内部識別子を ASTAROT にそろえ、設定とモデルを引き継ぐ](adr-014-internal-identifier-migration.md)は2026-11-19に採用した。ADR-011 の P2 にあたる。アプリ ID、保存先、Windows のインストール先とレジストリのキー、実行ファイル名、Linux のパッケージと音声経路、資格情報の名前、環境変数、配布物の名前を、0.6.0 で ASTAROT の名前へ移す。判断の項目は Issue #635 の決定のとおりである。Windows のインストール先を移すこととレジストリのキーを変えることは、#635 で推奨した案と逆の決定である。どちらも移行の処理（フォルダーを移すことと、旧のキーを読んで新しいキーへ移すこと）と一緒に入れる。移せないときは旧の場所と名前で動き続け、旧の名前は 0.6.x の間は読む。更新確認とテレメトリの送信先、チャット欄検出モデルの ID、設定と IPC と OSC の契約は変えない。実装は 0.6.0 で行い、12 の PR に分ける。
 
 [ADR-016: 利用者向けのサイトの土台を VitePress から Rspress（React）に替える](adr-016-user-guide-site-on-rspress.md)は2026-11-20に採用した。サイトの再設計（PR #701）の決定のうち、土台を VitePress のままにし部品を Vue で作るという前提だけを置き換える。アプリの UI と、部品を寄せる先の shadcn/ui が React なので、部品と知見を React にそろえる。配布済みのアプリが開く URL とアンカー、日英、全文検索、GitHub Pages への公開は保つ。Rspress は既定の言語のページを接頭辞なしで出すので、`/` だけを受け持つ既定の言語を置いて `/ja/` と `/en/` を保つ。
+
+[ADR-017: 画面から中核まで通す試験を Playwright の結合テストにし、配布物で通す試験だけを E2E と呼ぶ](adr-017-integration-tests-through-the-core.md)は2026-11-20に採用した。試験を、単体と契約（Vitest と Rust）、結合テスト、E2E の 3 つの層に分ける。結合テストは、画面を操作して中核と Rust のクレートを通り、外への出口と画面の結果までを確かめる試験で、Playwright で `tests/integration/` に書き、すべての PR で Linux と Windows、Chromium と WebKit で流す。画面の側は Tauri の公式の偽物で中核とのやり取りだけをホストへ流し、中核の側は試験の道具の専用のクレートが偽物の `Services` で中核を起動する。E2E は、配布物の形で殻と OS を通す試験だけを指す。
 
 ## 配置の移行（2026-11-18）
 
