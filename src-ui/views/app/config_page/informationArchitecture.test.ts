@@ -2,18 +2,24 @@ import assert from "node:assert/strict";
 import { test } from "vitest";
 import { readFileSync } from "node:fs";
 import yaml from "js-yaml";
-import { hooks, loadModule, find } from "../../../logics/test/hookHarness.ts";
+import { hooks, loadModule, find, unchecked } from "../../../logics/test/hookHarness.ts";
+import type { HookRuntime, TreeNode } from "../../../logics/test/hookHarness.ts";
 import * as searchTargets from "../../../logics/configs/config_page_setter/_aux/configSearchTargets.ts";
 import * as revealSettingModule from "../../../logics/configs/revealSetting.ts";
 
 // Where each setting lives after the information architecture review (#554,
 // docs/design/information-architecture/README.md and the decisions on the Issue).
 
-const box = path => new URL(`./setting_section/setting_box/${path}`, import.meta.url);
-const read = path => readFileSync(box(path), "utf8");
+// A locale file: texts under nested keys. The type lets a test both follow keys and read a text;
+// what is really there is what the tests check (typeof ... === "string"), as before.
+type Texts = string & { readonly [key: string]: Texts };
+
+const box = (path: string) => new URL(`./setting_section/setting_box/${path}`, import.meta.url);
+const read = (path: string) => readFileSync(box(path), "utf8");
+// Test data: the locale files, read as the nested texts they are.
 const locales = Object.fromEntries(["en", "ja"].map(language =>
-    [language, yaml.load(readFileSync(new URL(`../../../../locales/${language}.yml`, import.meta.url), "utf8"))]));
-const loadSearch = runtime => loadModule(new URL("../../../logics/configs/config_page_setter/_aux/useConfigSearch.ts", import.meta.url), runtime, {
+    [language, unchecked<Texts>(yaml.load(readFileSync(new URL(`../../../../locales/${language}.yml`, import.meta.url), "utf8")))]));
+const loadSearch = (runtime: HookRuntime) => loadModule<typeof import("../../../logics/configs/config_page_setter/_aux/useConfigSearch.ts")>(new URL("../../../logics/configs/config_page_setter/_aux/useConfigSearch.ts", import.meta.url), runtime, {
     "@store": {}, "@logics_configs": {}, "@ui_configs": {}, "@root/locales/config.js": {},
     "../../../transcription/useRealtimeASR": {}, "../../../common/languageNames.ts": {}, "../../../voice/settingsNavigation": {},
     "./configSearchTargets.ts": searchTargets, "../../revealSetting.ts": revealSettingModule,
@@ -28,16 +34,20 @@ test("Q-06: the OSC address and port are under Advanced; the VRChat page leads t
     assert.doesNotMatch(vrchat, /OscIpAddressContainer|OscPortContainer/);
     assert.match(vrchat, /<VrchatPresence \/>/, "the page still says whether VRChat is found, with the step that turns OSC on");
 
-    const runtime = hooks(), opened = [], revealed = [];
-    const pointer = await loadModule(box("_components/page_pointer/PagePointer.tsx"), runtime, {
-        "@store": { useStore_SelectedConfigTabId: () => ({ updateSelectedConfigTabId: id => opened.push(id) }) },
-        "../form_row/FormRow": { FormRow: props => ({ type: "row", props }) },
-        "../../../../../../../logics/configs/revealSetting.ts": { revealSetting: target => revealed.push(target) },
+    const runtime = hooks(), opened: string[] = [], revealed: unknown[] = [];
+    const pointer = await loadModule<typeof import("./setting_section/setting_box/_components/page_pointer/PagePointer.tsx")>(box("_components/page_pointer/PagePointer.tsx"), runtime, {
+        "@store": { useStore_SelectedConfigTabId: () => ({ updateSelectedConfigTabId: (id: string) => opened.push(id) }) },
+        "../form_row/FormRow": { FormRow: (props: object) => ({ type: "row", props }) },
+        "../../../../../../../logics/configs/revealSetting.ts": { revealSetting: (target: unknown) => revealed.push(target) },
         "../../../../sidebar_section/SidebarSection.tsx": { TabIcon: () => null },
     });
-    const press = row => {
+    const press = (row: unknown) => {
         const link = find(row, node => node.type === pointer.PageLinkButton);
-        find(runtime.render(link.type, link.props), node => node.type === "button").props.onClick();
+        assert.ok(link);
+        // PageLinkButton is a function component, drawn here as a function.
+        const button = find(runtime.render(unchecked<(props: unknown) => unknown>(link.type), link.props), node => node.type === "button");
+        assert.ok(button);
+        button.props.onClick();
     };
     press(runtime.render(pointer.PagePointer, { label: "OSC", description: "", tab: "advanced_settings", action: "Change" }));
     assert.deepEqual(opened, ["advanced_settings"]);
@@ -64,7 +74,7 @@ test("Q-07: input forwarding is in the RVC page's 「詳細設定」, no longer 
     const runtime = hooks();
     const DirectVoiceSettings = () => null, AdvancedSection = () => null;
     let voice = { directState: { active: true, mode: "passthrough" }, directOwner: "passthrough" };
-    const rvc = await loadModule(box("rvc/Rvc.tsx"), runtime, {
+    const rvc = await loadModule<typeof import("./setting_section/setting_box/rvc/Rvc.tsx")>(box("rvc/Rvc.tsx"), runtime, {
         "../../../../../../logics/voice/useVoice": { useVoice: () => voice },
         "../advanced_settings/DirectVoiceSettings": { DirectVoiceSettings },
         "../_components/advanced_section/AdvancedSection": { AdvancedSection },
@@ -94,7 +104,7 @@ test("Q-07: input forwarding is in the RVC page's 「詳細設定」, no longer 
 test("the TTS page wraps its form and its servers in the hints", async () => {
     const runtime = hooks();
     const VoiceSettings = () => null, SpeechServers = () => null;
-    const tts = await loadModule(box("tts/Tts.tsx"), runtime, {
+    const tts = await loadModule<typeof import("./setting_section/setting_box/tts/Tts.tsx")>(box("tts/Tts.tsx"), runtime, {
         "../advanced_settings/VoiceSettings": { VoiceSettings }, "../advanced_settings/SpeechServers": { SpeechServers },
         "../_components/hint/Hint": { HintDescriptions: "hints" },
     });
@@ -107,7 +117,16 @@ test("the TTS page wraps its form and its servers in the hints", async () => {
 });
 
 test("a fold marks its line while a row inside it has unsaved edits", async () => {
-    const element = (attributes = {}, children = []) => ({
+    // A row or a fold of the page, as far as marking reads it.
+    interface FakeElement {
+        attributes: Set<string>;
+        dataset: Record<string, string>;
+        children: FakeElement[];
+        toggleAttribute(name: string, on: boolean): void;
+        closest: () => null;
+        querySelector(selector: string): FakeElement | null;
+    }
+    const element = (attributes: Record<string, string> = {}, children: FakeElement[] = []): FakeElement => ({
         attributes: new Set(), dataset: attributes, children,
         toggleAttribute(name, on) { if (on) this.attributes.add(name); else this.attributes.delete(name); },
         closest: () => null,
@@ -118,39 +137,44 @@ test("a fold marks its line while a row inside it has unsaved edits", async () =
     });
     const changed = element({ settingLabel: "Pitch" }), untouched = element({ settingLabel: "Threads" });
     const open = element({}, [changed]), closed = element({}, [untouched]);
-    const root = { querySelectorAll: selector => ({ "[data-setting-label]": [changed, untouched], label: [], details: [open, closed] })[selector] };
+    const root = { querySelectorAll: (selector: string) => {
+        const lists: Record<string, FakeElement[]> = { "[data-setting-label]": [changed, untouched], label: [], details: [open, closed] };
+        return lists[selector];
+    } };
     const runtime = hooks();
-    const section = await loadModule(new URL("./setting_section/SettingSection.tsx", import.meta.url), runtime, {
+    const section = await loadModule<typeof import("./setting_section/SettingSection.tsx")>(new URL("./setting_section/SettingSection.tsx", import.meta.url), runtime, {
         "./setting_box/SettingBox": {}, "@store": {}, "@logics_configs": {}, "../../../../logics/voice/saveBar": {},
     });
-    section.markUnsavedRows(root, new Set(["Pitch"]));
+    // Test data: the page, with only what marking reads.
+    const page = unchecked<ParentNode>(root);
+    section.markUnsavedRows(page, new Set(["Pitch"]));
     assert.ok(changed.attributes.has("data-unsaved"));
     assert.ok(open.attributes.has("data-unsaved-inside"));
     assert.ok(!closed.attributes.has("data-unsaved-inside"));
-    section.markUnsavedRows(root, new Set());
+    section.markUnsavedRows(page, new Set());
     assert.ok(!open.attributes.has("data-unsaved-inside"));
 });
 
 // The settings search over the real texts, in Japanese, with the page names as keys.
-const searchOver = async language => {
+const searchOver = async (language: string) => {
     const runtime = hooks();
-    const resources = { en: locales.en, ja: locales[language] };
-    const lookup = (key, values) => {
-        const text = key.split(".").reduce((node, part) => node?.[part], locales[language]);
-        return typeof text === "string" ? text.replace(/\{\{(\w+)\}\}/g, (_, name) => values?.[name] ?? "") : key;
+    const resources: Record<string, Texts> = { en: locales.en, ja: locales[language] };
+    const lookup = (key: string, values?: Record<string, string>) => {
+        const text = key.split(".").reduce<Texts | undefined>((node, part) => node?.[part], locales[language]);
+        return typeof text === "string" ? text.replace(/\{\{(\w+)\}\}/g, (_, name: string) => values?.[name] ?? "") : key;
     };
-    const { useConfigSearch } = await loadModule(new URL("../../../logics/configs/config_page_setter/_aux/useConfigSearch.ts", import.meta.url), runtime, {
+    const { useConfigSearch } = await loadModule<typeof import("../../../logics/configs/config_page_setter/_aux/useConfigSearch.ts")>(new URL("../../../logics/configs/config_page_setter/_aux/useConfigSearch.ts", import.meta.url), runtime, {
         "@useI18n": { useI18n: () => ({ t: lookup, i18n: { language } }) },
         "@store": { useStore_SelectedConfigTabId: () => ({ currentSelectedConfigTabId: { data: "translation" }, updateSelectedConfigTabId() {} }) },
         "@logics_configs": { useOcr: () => ({ currentSelectableOcrSourceLanguageList: { data: {} }, currentOcrSourceLanguage: { data: "ja" } }) },
         "../../../transcription/useRealtimeASR": { useRealtimeASR: () => ({ models: {}, settings: {} }) },
-        "../../../common/languageNames.ts": { createLanguageNames: () => ({ fromCode: name => name, searchText: () => "", uiOptions: () => [] }) },
-        "../../../voice/settingsNavigation": { requestSettingsNavigation: fn => fn() },
+        "../../../common/languageNames.ts": { createLanguageNames: () => ({ fromCode: (name: string) => name, searchText: () => "", uiOptions: () => [] }) },
+        "../../../voice/settingsNavigation": { requestSettingsNavigation: (fn: () => void) => fn() },
         "@ui_configs": { ui_configs: { selectable_ui_languages: [] } },
         "./configSearchTargets.ts": searchTargets, "../../revealSetting.ts": revealSettingModule,
-        "@root/locales/config.js": { getResource: lng => resources[lng] },
+        "@root/locales/config.js": { getResource: (lng: string) => resources[lng] },
     });
-    return query => {
+    return (query: string) => {
         runtime.render(useConfigSearch).setQuery(query);
         return runtime.render(useConfigSearch).results.map(result => [result.tab, result.setting_id, result.prereq?.parent_id ?? null]);
     };
@@ -175,11 +199,11 @@ test("the settings search finds the experimental features, the VR panel among th
 
 // A page's own parts, by the names of the components it draws, with 「詳細設定」 as one part
 // that lists its own. Text and headings are left out.
-const pageParts = (source, name) => {
+const pageParts = (source: string, name: string) => {
     const page = source.split(`export const ${name} = () => {`)[1].split("\n};")[0];
     const body = page.slice(page.indexOf("return ("));
     const fold = body.includes("<AdvancedSection") ? body.split("<AdvancedSection")[1].split("</AdvancedSection>")[0] : "";
-    const names = text => [...text.matchAll(/<([A-Z][A-Za-z_]+)/g)].map(match => match[1])
+    const names = (text: string) => [...text.matchAll(/<([A-Z][A-Za-z_]+)/g)].map(match => match[1])
         // HintDescriptions only says how the page's descriptions are shown (#614).
         .filter(part => !["SectionLabelComponent", "AdvancedSection", "HintDescriptions"].includes(part));
     const outside = body.replace(fold, "");
@@ -261,7 +285,7 @@ test("text to speech keeps the engine, the voice and the output in sight; the mo
 
 test("「詳細設定」 starts closed, opens by itself for something in use, and can still be closed", async () => {
     const runtime = hooks();
-    const fold = await loadModule(box("_components/advanced_section/AdvancedSection.tsx"), runtime, {
+    const fold = await loadModule<typeof import("./setting_section/setting_box/_components/advanced_section/AdvancedSection.tsx")>(box("_components/advanced_section/AdvancedSection.tsx"), runtime, {
         "../setup_section/SetupSection.module.scss": {},
     });
     let tree = runtime.render(fold.AdvancedSection, { status: "line", children: "inside" });
@@ -269,7 +293,8 @@ test("「詳細設定」 starts closed, opens by itself for something in use, an
     assert.equal(tree.props.open, false);
     assert.ok("data-advanced" in tree.props);
     const summary = find(tree, node => node.type === "summary");
-    assert.deepEqual(summary.props.children.map(part => part?.props?.children), ["config_page.common.advanced_section", "line"]);
+    assert.ok(summary);
+    assert.deepEqual(summary.props.children.map((part: TreeNode | undefined) => part?.props?.children), ["config_page.common.advanced_section", "line"]);
     tree = runtime.render(fold.AdvancedSection, { status: "line", attention: true, children: "inside" });
     tree = runtime.render(fold.AdvancedSection, { status: "line", attention: true, children: "inside" });
     assert.equal(tree.props.open, true, "a provider in use opens it");
@@ -285,8 +310,12 @@ test("translation keeps its local model and its catalog in sight; the APIs and l
     assert.deepEqual(outside, ["AITranslation_Container", "TranslationCatalogSection"]);
     assert.ok(source.indexOf("<TranslationCatalogSection />") > source.indexOf("</AdvancedSection>"), "the catalog comes after 「詳細設定」");
     assert.deepEqual(fold, ["ExternalTranslationAPI_Container", "LocalLLM_Container"]);
-    const providers = name => [...source.split(`const ${name} = () => {`)[1].split("\n};")[0].matchAll(/<Provider id="(\w+)">/g)].map(match => match[1]);
-    const list = name => JSON.parse(source.match(new RegExp(`export const ${name} = (\\[[^\\]]*\\]);`))[1]);
+    const providers = (name: string) => [...source.split(`const ${name} = () => {`)[1].split("\n};")[0].matchAll(/<Provider id="(\w+)">/g)].map(match => match[1]);
+    const list = (name: string) => {
+        const match = source.match(new RegExp(`export const ${name} = (\\[[^\\]]*\\]);`));
+        assert.ok(match);
+        return JSON.parse(match[1]);
+    };
     assert.deepEqual(providers("ExternalTranslationAPI_Container"), list("EXTERNAL_API_PROVIDERS"));
     assert.deepEqual(providers("LocalLLM_Container"), list("LOCAL_LLM_PROVIDERS"));
 });

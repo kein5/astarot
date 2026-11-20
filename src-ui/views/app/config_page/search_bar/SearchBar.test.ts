@@ -1,41 +1,58 @@
 import assert from "node:assert/strict";
 import { test, vi } from "vitest";
+import type { TestContext } from "vitest";
 import { hooks, loadModule, find, stubGlobals, eventTarget } from "../../../../logics/test/hookHarness.ts";
+import type { TreeNode } from "../../../../logics/test/hookHarness.ts";
 import * as searchTargets from "../../../../logics/configs/config_page_setter/_aux/configSearchTargets.ts";
 import * as revealSettingModule from "../../../../logics/configs/revealSetting.ts";
 
-const key = name => ({ key: name, defaultPrevented: false,
+const key = (name: string) => ({ key: name, defaultPrevented: false,
     preventDefault() { this.defaultPrevented = true; }, stopPropagation() {} });
+// React's element type leaves out ref, which the search field carries.
+const refOf = (node: TreeNode): { current: unknown } | null | undefined => Reflect.get(node, "ref");
 
-async function setup(t, { reducedMotion = false, control = true, delayed = false, guarded = false } = {}) {
+// The page as far as the search reads it: what has the focus and where a setting's row is.
+interface FakeDocument extends ReturnType<typeof eventTarget> {
+    body: object;
+    activeElement?: unknown;
+    querySelector?: (selector: string) => unknown;
+}
+interface Options {
+    reducedMotion?: boolean;
+    control?: boolean;
+    delayed?: boolean;
+    guarded?: boolean;
+}
+
+async function setup(t: TestContext, { reducedMotion = false, control = true, delayed = false, guarded = false }: Options = {}) {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
-    const document = { ...eventTarget(), body: {} }, window = { matchMedia: query => {
+    const document: FakeDocument = { ...eventTarget(), body: {} }, window = { matchMedia: (query: string) => {
         assert.equal(query, "(prefers-reduced-motion: reduce)"); return { matches: reducedMotion };
     } };
-    let cleanup;
+    let cleanup: (() => void) | undefined;
     t.onTestFinished(() => cleanup?.());
-    stubGlobals(t, { document, window, CSS: { escape: value => value.replaceAll('"', '\\"') } });
+    stubGlobals(t, { document, window, CSS: { escape: (value: string) => value.replaceAll('"', '\\"') } });
     const ancestors = { tagName: "DETAILS", open: false, parentElement: { tagName: "DETAILS", open: false } };
-    const destination = { matches: selector => selector.startsWith("input,"), closest: () => null, getClientRects: () => [1],
+    const destination = { matches: (selector: string) => selector.startsWith("input,"), closest: () => null, getClientRects: () => [1],
         focus: () => { assert.equal(ancestors.open, true); document.activeElement = destination; } };
     const help = { ...destination, matches: () => false, focus: () => { document.activeElement = help; } };
-    const scrolls = [], classes = new Set(), attributes = new Map();
+    const scrolls: unknown[] = [], classes = new Set<string>(), attributes = new Map<string, string>();
     const row = { ...eventTarget(), parentElement: ancestors, querySelectorAll: () => control ? [help, destination] : [],
-        scrollIntoView: options => scrolls.push(options),
-        classList: { add: value => classes.add(value), remove: value => classes.delete(value) },
-        getAttribute: name => attributes.get(name) ?? null, setAttribute: (name, value) => attributes.set(name, value),
-        removeAttribute: name => attributes.delete(name), focus: () => { document.activeElement = row; } };
+        scrollIntoView: (options: unknown) => scrolls.push(options),
+        classList: { add: (value: string) => classes.add(value), remove: (value: string) => classes.delete(value) },
+        getAttribute: (name: string) => attributes.get(name) ?? null, setAttribute: (name: string, value: string) => attributes.set(name, value),
+        removeAttribute: (name: string) => attributes.delete(name), focus: () => { document.activeElement = row; } };
     let available = !delayed;
     document.querySelector = selector => available && selector.includes('data-setting-id="osc"') ? row : null;
-    const hookRuntime = hooks(), tabs = [];
-    let proceed;
-    const { useConfigSearch } = await loadModule(new URL("../../../../logics/configs/config_page_setter/_aux/useConfigSearch.ts", import.meta.url), hookRuntime, {
-        "@useI18n": { useI18n: () => ({ t: name => name, i18n: { language: "ja" } }) },
-        "@store": { useStore_SelectedConfigTabId: () => ({ currentSelectedConfigTabId: { data: "appearance" }, updateSelectedConfigTabId: tab => tabs.push(tab) }) },
+    const hookRuntime = hooks(), tabs: string[] = [];
+    let proceed: (() => void) | undefined;
+    const { useConfigSearch } = await loadModule<typeof import("../../../../logics/configs/config_page_setter/_aux/useConfigSearch.ts")>(new URL("../../../../logics/configs/config_page_setter/_aux/useConfigSearch.ts", import.meta.url), hookRuntime, {
+        "@useI18n": { useI18n: () => ({ t: (name: string) => name, i18n: { language: "ja" } }) },
+        "@store": { useStore_SelectedConfigTabId: () => ({ currentSelectedConfigTabId: { data: "appearance" }, updateSelectedConfigTabId: (tab: string) => tabs.push(tab) }) },
         "@logics_configs": { useOcr: () => ({ currentSelectableOcrSourceLanguageList: { data: {} }, currentOcrSourceLanguage: { data: "ja" } }) },
         "../../../transcription/useRealtimeASR": { useRealtimeASR: () => ({ models: {}, settings: {} }) },
-        "../../../common/languageNames.ts": { createLanguageNames: () => ({ fromCode: name => name }) },
-        "../../../voice/settingsNavigation": { requestSettingsNavigation: fn => { if (guarded) proceed = fn; else fn(); } },
+        "../../../common/languageNames.ts": { createLanguageNames: () => ({ fromCode: (name: string) => name }) },
+        "../../../voice/settingsNavigation": { requestSettingsNavigation: (fn: () => void) => { if (guarded) proceed = fn; else fn(); } },
         "@ui_configs": { ui_configs: {} },
         "./configSearchTargets.ts": searchTargets, "../../revealSetting.ts": revealSettingModule,
         "@root/locales/config.js": { getResource: () => ({ config_page: { advanced_settings: { osc: { label: "OSC", desc: "OSC port" } } } }) },
@@ -43,20 +60,28 @@ async function setup(t, { reducedMotion = false, control = true, delayed = false
     const runtime = hooks();
     let hook = hookRuntime.render(useConfigSearch);
     hook.setQuery("OSC"); hook = hookRuntime.render(useConfigSearch);
-    const { SearchBar } = await loadModule(new URL("./SearchBar.tsx", import.meta.url), runtime, {
+    const { SearchBar } = await loadModule<typeof import("./SearchBar.tsx")>(new URL("./SearchBar.tsx", import.meta.url), runtime, {
         "@store": { useStore_IsBreakPoint: () => ({ currentIsBreakPoint: { data: false } }) },
         "@logics_configs": { useConfigSearch: () => hook },
         "../sidebar_section/SidebarSection.tsx": { TabIcon: () => null },
         "@common_components": { Empty: "empty", EmptyDescription: "empty-description" },
     });
     const search = { focus: () => { document.activeElement = search; }, blur: () => { document.activeElement = document.body; } };
-    const render = () => find(runtime.render(SearchBar, {}, tree => {
-        find(tree, node => node.type === "input").ref.current = search;
-    }), node => node.type === "input");
+    const render = () => {
+        const field = find(runtime.render(SearchBar, {}, tree => {
+            const input = find(tree, node => node.type === "input");
+            assert.ok(input);
+            const ref = refOf(input);
+            assert.ok(ref);
+            ref.current = search;
+        }), node => node.type === "input");
+        assert.ok(field);
+        return field;
+    };
     search.focus(); render().props.onFocus();
     cleanup = () => { runtime.unmount(); hookRuntime.unmount(); };
     return { render, search, document, ancestors, destination, row, scrolls, classes, attributes, tabs,
-        setAvailable: () => { available = true; }, accept: () => proceed(), navigate: hook.navigateToSetting };
+        setAvailable: () => { available = true; }, accept: () => { assert.ok(proceed); proceed(); }, navigate: hook.navigateToSetting };
 }
 
 for (const reducedMotion of [false, true]) test(`search Enter opens ancestors and focuses destination (reduced motion: ${reducedMotion})`, async t => {
