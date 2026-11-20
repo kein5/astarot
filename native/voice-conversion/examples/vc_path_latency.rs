@@ -10,7 +10,7 @@
 //! ```text
 //! cargo run --release --example vc_path_latency -- --worker <vrct-rvc-worker.exe> \
 //!     --runtime <state>/vc_runtimes/rvc [--directml <state>/vc_runtimes/onnxruntime-directml/lib] \
-//!     --model <voice.pth> [--device cuda] [--block-ms 80] [--output app] [--bursts 15] \
+//!     --model <voice.pth> [--device cuda] [--block-ms 80|auto] [--output app] [--bursts 15] \
 //!     [--input-device "Speakers (Steam Streaming Microphone)"] \
 //!     [--output-device "Speakers (Steam Streaming Speakers)"]
 //! ```
@@ -97,7 +97,11 @@ mod windows_main {
             directml: values.get("directml").map(PathBuf::from),
             model: take("model", None),
             device: take("device", Some("cuda")),
-            block_ms: take("block-ms", Some("80")).parse().unwrap_or_else(|_| usage("--block-ms is a number")),
+            block_ms: match take("block-ms", Some("80")).as_str() {
+                // The worker chooses (`--block-ms auto`), as the application does by default.
+                "auto" => vrct_voice_conversion::worker::AUTO_BLOCK_MS,
+                ms => ms.parse().unwrap_or_else(|_| usage("--block-ms is auto or a number")),
+            },
             output,
             bursts: take("bursts", Some("15")).parse().unwrap_or_else(|_| usage("--bursts is a number")),
             input_device: take("input-device", Some("Speakers (Steam Streaming Microphone)")),
@@ -559,7 +563,7 @@ mod windows_main {
         println!(
             "{}",
             json!({
-                "device": args.device, "block_ms": args.block_ms, "output": output, "ready_s": (ready_s * 10.0).round() / 10.0,
+                "device": args.device, "block_ms": health.block_ms, "output": output, "ready_s": (ready_s * 10.0).round() / 10.0,
                 "bursts": onsets.len(), "found": delays.len(),
                 "onset_delay_ms": { "p50": percentile(&delays, 0.5), "p95": percentile(&delays, 0.95), "min": percentile(&delays, 0.0), "max": percentile(&delays, 1.0) },
                 "content_lag_ms": { "p50": percentile(&lags, 0.5), "min": percentile(&lags, 0.0), "max": percentile(&lags, 1.0) },
