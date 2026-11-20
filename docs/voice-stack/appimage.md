@@ -4,7 +4,7 @@ The Linux builder can also produce an x86_64 AppImage containing the release GUI
 runs the Rust backend core in its own process, and the `_internal` folder of the
 [Linux candidate](linux-build-pipeline.md): both pinned speech.cpp builds (CPU and Vulkan), the RVC worker and the
 audio and capture helpers. Since 0.5.0 no Python runtime is shipped. The
-[`v0.1.0-beta.1` prerelease](https://github.com/kein5/VRCT-VOX/releases/tag/v0.1.0-beta.1)
+[`v0.1.0-beta.1` prerelease](https://github.com/kein5/astarot/releases/tag/v0.1.0-beta.1)
 ships an AppImage built by the hosted Linux candidate workflow; an image you
 build locally is an unpublished candidate.
 It deploys GTK/WebKit dependencies before adding `_internal` under `usr/lib/vrct-vox/`, so
