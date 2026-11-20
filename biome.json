@@ -52,7 +52,6 @@
       "suspicious": {
         "noArrayIndexKey": "warn",
         "noAssignInExpressions": "warn",
-        "noControlCharactersInRegex": "warn",
         "noGlobalIsNan": "error",
         "noImplicitAnyLet": "warn",
         "useIterableCallbackReturn": "warn"
