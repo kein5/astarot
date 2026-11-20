@@ -1399,9 +1399,10 @@ export const SETTINGS_ARRAY = [
     },
     {
         // The block an RVC conversion cuts the microphone into, in ms (#531); read at Start.
+        // 0: Automatic, the worker's choice (the default).
         Category: "AdvancedSettings",
         Base_Name: "RvcBlockMs",
-        default_value: 40,
+        default_value: 0,
         ui_template_id: "input",
         logics_template_id: "get_set",
         base_endpoint_name: "rvc_block_ms",

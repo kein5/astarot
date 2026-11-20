@@ -148,7 +148,7 @@ Pythonのバックエンドのキー（0.6.0で消した`src-python/config.py`�
 | `PAPAGO_CLIENT_ID` | str（256 文字まで、制御文字なし）（中核のみ） | `''` | 2秒後にまとめて |
 | `OVERLAY_FONT_FAMILY` | str（空は自動。256 文字まで、制御文字なし）（中核のみ） | `''` | 2秒後にまとめて |
 | `USAGE_PRESETS` | list（basic、nonverbal、multilingual、voice_changer、all から1つ以上。知らない id は除き、この順に重複なしで保存）（中核のみ） | `['basic']（前の版から更新したときは ['all']）` | 即時 |
-| `RVC_BLOCK_MS` | int（20〜200 の 20 の倍数。RVC の変換を始めるときに読む）（中核のみ） | `40` | 2秒後にまとめて |
+| `RVC_BLOCK_MS` | int（0 は自動、または 20〜200 の 20 の倍数。RVC の変換を始めるときに読む）（中核のみ） | `0` | 2秒後にまとめて |
 | `OSC_QUERY` | bool（中核のみ） | `True` | 2秒後にまとめて |
 
 

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test, vi } from "vitest";
 import i18next from "i18next";
 import { parsePortInput, PORT_INPUT_LIMITS } from "./networkPortInput.ts";
+import { rvcBlockChoiceId, rvcBlockChoices } from "./rvcBlockChoices.ts";
 import { buildObsBrowserSourceUrl, buildWebsocketUrl } from "./obsBrowserSourceUrl.ts";
 import { hooks, loadModule, find, findIn, componentName, componentOf, forwardRefRender, unchecked } from "../test/hookHarness.ts";
 import type { TreeNode } from "../test/hookHarness.ts";
@@ -51,6 +52,7 @@ async function settingsHarness({ host = "127.0.0.1" } = {}) {
         "./GpuCheck.tsx": { GpuCheck: () => null },
         "../../../../../../logics/configs/obsBrowserSourceUrl": { buildObsBrowserSourceUrl, buildWebsocketUrl },
         "../../../../../../logics/configs/networkPortInput": { parsePortInput, PORT_INPUT_LIMITS },
+        "../../../../../../logics/configs/rvcBlockChoices": { rvcBlockChoiceId, rvcBlockChoices },
         // A minimal draft: the saved pair, edited in place, submitted through the given write.
         "../../../../../../logics/voice/useSettingsDraft": { useSettingsDraft: (saved: Record<string, unknown>, error: unknown, updateError: unknown, options: SettingsDraftOptions<unknown>) => {
             draftOptions = options;
@@ -79,7 +81,7 @@ async function settingsHarness({ host = "127.0.0.1" } = {}) {
                 return { variable: options.variable, onChangeFunction: (value: unknown) => drafts.push(value), saveFunction: () => {} };
             },
         },
-        "../_templates/Templates": { EntryWithSaveButtonContainer: () => null, ActionButtonContainer: () => null },
+        "../_templates/Templates": { EntryWithSaveButtonContainer: () => null, ActionButtonContainer: () => null, DropdownMenuContainer: "DropdownMenuContainer" },
         "../_components": { SectionLabelComponent: () => null },
         "../_components/hint/Hint": { HintDescriptions: "hints" },
     });
@@ -118,18 +120,36 @@ test("all three production port fields enforce range and send numeric IPC values
     }
 });
 
-test("the RVC block length is a number from 20 to 200 in steps of 20 under Advanced (#531)", async () => {
+test("the RVC block length is Automatic or 20 to 200 ms in steps of 20 under Advanced (#531)", async () => {
     const s = await settingsHarness();
     assert.ok(find(s.root, node => node.type === s.rvcBlockComponent), "the Advanced page shows it");
     const row = s.runtime.render(s.rvcBlockComponent);
-    assert.deepEqual([row.props.type, row.props.min, row.props.max, row.props.step, row.props.setting_id], ["number", 20, 200, 20, "rvc_block_ms"]);
-    // The backend checks the value and answers VALIDATION_RVC_BLOCK_MS with the saved one.
-    s.saveOptions.setFunction("60");
-    assert.deepEqual(s.sent.at(-1), ["RvcBlockMs", "60"]);
+    assert.equal(row.type, "DropdownMenuContainer");
+    assert.equal(row.props.setting_id, "rvc_block_ms");
+    // Automatic (0) first, then every length the backend accepts, in order.
+    assert.deepEqual(Object.keys(row.props.list), ["0", "20", "40", "60", "80", "100", "120", "140", "160", "180", "200"]);
+    assert.equal(row.props.list["0"], "config_page.advanced_settings.rvc_block_ms.automatic");
+    // A saved value the backend would not keep shows as Automatic, as the backend loads it.
+    assert.equal(row.props.selected_id, "0");
+    row.props.selectFunction({ dropdown_id: "rvc_block_ms", selected_id: "60" });
+    assert.deepEqual(s.sent.at(-1), ["RvcBlockMs", 60]);
+    row.props.selectFunction({ dropdown_id: "rvc_block_ms", selected_id: "0" });
+    assert.deepEqual(s.sent.at(-1), ["RvcBlockMs", 0]);
     for (const language of ["en", "ja"]) {
         const strings = readLocale(language);
-        assert.match(textAt(strings, "config_page.advanced_settings.rvc_block_ms.desc"), /20.*200.*40/s, language);
+        const key = (name: string) => textAt(strings, `config_page.advanced_settings.rvc_block_ms.${name}`);
+        assert.ok(key("desc").includes(key("automatic")), `${language}: the description says what Automatic does`);
+        assert.equal(key("length"), "{{ms}} ms", language);
         assert.equal(typeof localeAt(strings, "backend_errors.VALIDATION_RVC_BLOCK_MS"), "string", language);
+    }
+});
+
+test("the block choices keep a saved length and show anything else as Automatic", () => {
+    const list = rvcBlockChoices("Automatic", ms => `${ms} ms`);
+    assert.equal(list["0"], "Automatic");
+    assert.equal(list["120"], "120 ms");
+    for (const [saved, shown] of [[0, "0"], [40, "40"], [200, "200"], [30, "0"], [220, "0"], ["40", "0"], [null, "0"], [undefined, "0"]] as const) {
+        assert.equal(rvcBlockChoiceId(saved), shown, String(saved));
     }
 });
 

@@ -91,9 +91,15 @@ fn readonly(name: &'static str) -> Key {
     Key { name, serialize: false, readonly: true, immediate: false, check: None }
 }
 
-/// An RVC block a conversion may use: 20 to 200 ms in steps of 20 (`protocol::Block`).
+/// An RVC block a conversion may use: 0, the worker's choice (the default, #531), or 20 to
+/// 200 ms in steps of 20 (`protocol::Block`).
 pub fn is_valid_rvc_block_ms(value: &Value) -> bool {
-    value.is_u64() && value.as_u64().and_then(|ms| u32::try_from(ms).ok()).and_then(vrct_voice_conversion::protocol::Block::from_ms).is_some()
+    value.as_u64().filter(|_| value.is_u64()).and_then(|ms| u32::try_from(ms).ok()).is_some_and(is_valid_rvc_block)
+}
+
+/// `is_valid_rvc_block_ms` of a number.
+pub fn is_valid_rvc_block(ms: u32) -> bool {
+    ms == vrct_voice_conversion::worker::AUTO_BLOCK_MS || vrct_voice_conversion::protocol::Block::from_ms(ms).is_some()
 }
 
 pub fn is_valid_port(value: &Value) -> bool {
