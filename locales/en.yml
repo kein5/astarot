@@ -2122,6 +2122,11 @@ model_catalog:
         list: "List"
         facts: "Details"
         facts_of: "Details ({{file}})"
+    # A part's bar of a catalog: how many models (or engines) it has, and how many are on the PC.
+    group_readout_one: "{{count}} model · {{obtained}} downloaded"
+    group_readout_other: "{{count}} models · {{obtained}} downloaded"
+    engines_readout_one: "{{count}} engine"
+    engines_readout_other: "{{count}} engines"
     group:
         japanese: "Reading Japanese"
         multilingual: "Reading other languages"
@@ -2287,6 +2292,9 @@ user_models:
 
 # The translation catalog (#413): what translates, in two groups, with the entries users add.
 translation_catalog:
+    # A group's bar: how many entries it has, the user's and the app's.
+    group_readout_one: "{{count}} entry"
+    group_readout_other: "{{count}} entries"
     title: "Translation catalog"
     intro: "What translates comes in two groups: models that run on your PC and APIs the app calls. You can add your own to each group. Adding only remembers the entry; nothing is downloaded or switched."
     loading: "Loading the translation catalog."
