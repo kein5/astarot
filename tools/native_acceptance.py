@@ -30,6 +30,7 @@ The speech route is now checked by the core on a private PipeWire graph
 (native/core/tests/spoken_route_live.rs, in CI), and vrchat-voice here.
 """
 import argparse
+import contextlib
 import json
 import os
 from pathlib import Path
@@ -56,6 +57,10 @@ def groups():
                          ["--vrchat", "ocr", "managed_route", "pw-record"], "any"),
         "quick_chat": (["test_native_quick_chat.py"], {"ASTAROT_TEST_NATIVE_QUICK_CHAT": on}, ["kde", "xdotool"], "any"),
     }
+
+
+# The groups that run with the chatbox lab's two local VRChat clients.
+LAB_GROUPS = ("vrchat", "vrchat-voice")
 
 
 def assets(args):
@@ -185,7 +190,8 @@ def main(argv=None):
 
     results, failed = [], False
     rows = plan(args, have)
-    lab = VRChat(args) if any(name == "vrchat" and not reason for name, _, _, reason in rows) else None
+    # The lab's clients start before the first group that uses them and stop after the last.
+    lab, lab_started = contextlib.ExitStack(), False
     for name, tests, env, reason in rows:
         if reason:
             results.append({"group": name, "result": "skipped", "reason": reason})
@@ -193,11 +199,10 @@ def main(argv=None):
             continue
         started = time.monotonic()
         try:
-            if name == "vrchat":
-                with lab:
-                    code, tally = run_group(args, name, tests, env)
-            else:
-                code, tally = run_group(args, name, tests, env)
+            if name in LAB_GROUPS and not lab_started:
+                lab.enter_context(VRChat(args))
+                lab_started = True
+            code, tally = run_group(args, name, tests, env)
         except subprocess.TimeoutExpired:
             code, tally = 1, None
         row = {"group": name, "result": "passed" if code == 0 else "failed", "seconds": round(time.monotonic() - started),
@@ -208,6 +213,7 @@ def main(argv=None):
         results.append(row)
         detail = f"{tally[0]} passed, {tally[1]} failed, {tally[2]} skipped" if tally else "no report (see the log)"
         print(f"{name:10} {row['result']:8} {detail}  {row['seconds']} s", flush=True)
+    lab.close()
     summary = {"build": str(build), "packaged": bool(args.appimage), "groups": results}
     (args.output / "summary.json").write_text(json.dumps(summary, indent=2) + "\n")
     print(f"report: {args.output / 'summary.json'}")
