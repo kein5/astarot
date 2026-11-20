@@ -2,7 +2,7 @@
 // a settings folder of the test's own, and what every test checks at its end: no page error, and
 // no Tauri command the stand-ins have no answer for (app/tauriStandIns.ts).
 import { test as base, expect } from "@playwright/test";
-import type { Page } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
 import { spawn } from "node:child_process";
 import type { ChildProcess } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
@@ -101,6 +101,47 @@ export class App {
         await this.core.stop();
         this.core.url = "";
         await this.open();
+    }
+
+    /** The app quits, the given settings are written over the saved ones, and it starts again:
+     *  for settings that name what a test starts after the app (a stand-in's address). */
+    async restartWith(values: Record<string, unknown>) {
+        await this.page.goto("about:blank");
+        await this.core.stop();
+        this.core.url = "";
+        writeFileSync(path.join(this.state, "config.json"), JSON.stringify({ ...this.settings(), ...values }));
+        await this.open();
+    }
+
+    /** Turns a switch of the main window on or off with one press, as a user would, and waits
+     *  until the core reports it so. A press the app declines fails the test: it is not pressed
+     *  again. */
+    async setSwitch(name: string, on = true) {
+        const control = this.page.getByRole("switch", { name, exact: true });
+        // A switch that is still changing takes no press.
+        await expect(control).not.toHaveAttribute("aria-busy", "true");
+        if ((await control.getAttribute("aria-checked")) !== String(on)) await control.click();
+        await expect(control).toHaveAttribute("aria-checked", String(on), { timeout: 15_000 });
+    }
+
+    /** Opens the folds around a control (More settings, a setup section), outermost first, as a
+     *  user would (#554). */
+    async unfold(control: Locator) {
+        // The page may still be changing: the control is there before its folds are counted.
+        await control.waitFor({ state: "attached" });
+        const folds = control.locator("xpath=ancestor::details");
+        for (let i = 0; i < await folds.count(); i++) {
+            const fold = folds.nth(i);
+            if (!(await fold.evaluate(element => (element as HTMLDetailsElement).open))) await fold.locator(":scope > summary").click();
+            await expect(fold).toHaveJSProperty("open", true);
+        }
+        await expect(control).toBeVisible();
+    }
+
+    /** Leaves Settings for the main window. */
+    async closeSettings() {
+        await this.page.getByRole("button", { name: "Go back" }).click();
+        await expect(this.page.locator("[data-main-page][data-showing=main]")).toBeVisible();
     }
 
     /** Opens Settings and one of its pages, by the name the side menu shows. */
