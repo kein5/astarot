@@ -39,9 +39,9 @@ python tools/speechcpp_bundle.py --variant linux-x64-vulkan --archive /path/to/s
 python tools/speechcpp_bundle.py --variant linux-x64-cpu --archive /path/to/speech-0.11.0-linux-x64-cpu.zip --output build/speechcpp-cpu
 ```
 
-`build_voice_gate.py`は、`build/astarot-voice-gate`、`astarot-source-bridge`、`astarot-asr-capture`、`astarot-screen-capture`をビルドする。`libpipewire-0.3-dev`が必要。
+`build_voice_gate.py`は、`build/astarot-voice-gate`、`astarot-source-bridge`、`astarot-screen-capture`をビルドする。`libpipewire-0.3-dev`が必要。
 `astarot-screen-capture`がないと、チャット読み取りの「ウィンドウを共有…」は`screencast_helper_missing`で止まる（`src-tauri/src/portal_screencast.rs`）。
-0.5.xまでは`vrct-vc-worker`もビルドして同梱していた。0.4までのPythonバックエンドが同梱サーバーと声質変換の起動に使ったヘルパーで、0.5.0の中核は起動しなかったので、0.6.0で消した（ADR-014）。
+0.5.xまでは`vrct-vc-worker`と`vrct-asr-capture`もビルドして同梱していた。`vrct-vc-worker`は0.4までのPythonバックエンドが同梱サーバーと声質変換の起動に使ったヘルパー、`vrct-asr-capture`はLinuxの音声認識の録音のヘルパーで、中核はどちらも起動しなくなったので、0.6.0でソースごと消した（ADR-014、#809）。
 
 `speechcpp_bundle.py`は、版とSHA-256を固定した書庫から、`speech`本体と同梱のライセンス文書を出力先に置く。配布物と同じく、Vulkan版は`build/speechcpp`、CPU版は`build/speechcpp-cpu`に置く。どちらのビルドかは`bundle.json`で決まり、フォルダの名前では決まらない。
 書庫が手元になければ、`--archive`の代わりに`--download`を指定すると取得する。通信するのは`--download`を指定したときだけ。

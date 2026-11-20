@@ -30,7 +30,7 @@ except ImportError:
 ROOT = Path(__file__).resolve().parents[1]
 
 # Linux helper programs (build_voice_gate.py) the backend and the app start; staged when present.
-LINUX_HELPERS = ('astarot-voice-gate', 'astarot-source-bridge', 'astarot-asr-capture', 'astarot-screen-capture')
+LINUX_HELPERS = ('astarot-voice-gate', 'astarot-source-bridge', 'astarot-screen-capture')
 
 # The speech.cpp bundles (speechcpp_bundle.py), one folder per build. Windows ships the Vulkan
 # build only; Linux ships the Vulkan build and the CPU build, and the user chooses in the

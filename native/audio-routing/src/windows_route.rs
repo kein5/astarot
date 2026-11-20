@@ -43,7 +43,7 @@ pub trait Capture: Send {
 }
 
 /// The fixed codes a capture fails with (`_ERRORS` of `capture_pipewire.py`): those of the
-/// `astarot-asr-capture` helper, which the captures of this crate share, and those of its owner.
+/// `vrct-asr-capture` helper of 0.5.x, which the captures of this crate kept, and those of its owner.
 pub const CAPTURE_CODES: [&str; 36] = [
     "asr_capture_owner_gone",
     "asr_capture_stalled",
