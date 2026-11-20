@@ -57,3 +57,12 @@ globalStyle(`${icon} rect`, { fill: "none" });
 // stacks in the card's width (the card itself shares the list's rows and cannot be one).
 export const facts = style({});
 globalStyle(`${facts} > div:last-child`, { gap: ".8rem", paddingTop: ".8rem", containerType: "inline-size" });
+
+// What a catalog part's bar reads out beside its name: how many models and how many are on the
+// PC, quieter than the name, as a setup fold's status is.
+export const readout = style({
+    fontSize: "1.3rem",
+    fontWeight: 500,
+    fontVariantNumeric: "tabular-nums",
+    color: fallbackVar(vars.vox_secondary_text, "#c3cde0"),
+});

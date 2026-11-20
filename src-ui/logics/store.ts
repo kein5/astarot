@@ -8,9 +8,6 @@ import type { Atom, PrimitiveAtom } from "jotai";
 import type { ReactNode, RefObject } from "react";
 import type { Window as AppWindow } from "@tauri-apps/api/window";
 
-import {
-    generateTestConversationData,
-} from "./_test_data.ts";
 
 import {
     translator_status,

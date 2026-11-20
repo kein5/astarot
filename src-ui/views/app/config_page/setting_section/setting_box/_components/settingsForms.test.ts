@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import clsx from "clsx";
 import { rebaseDraft } from "../../../../../../logics/voice/draftRebase.ts";
 import { changedPaths } from "../../../../../../logics/voice/saveBar.ts";
-import { hooks, loadModule, find, findIn, nodesIn, draw, drawWith, componentNamed, forwardRefRender, refOf, setRef, stubGlobals, eventTarget } from "../../../../../../logics/test/hookHarness.ts";
+import { hooks, loadModule, findIn, nodesIn, draw, drawWith, componentNamed, forwardRefRender, refOf, setRef, stubGlobals, eventTarget } from "../../../../../../logics/test/hookHarness.ts";
 import type { TreeNode } from "../../../../../../logics/test/hookHarness.ts";
 
 // The nodes of a tree the predicate picks, in the order find visits them.

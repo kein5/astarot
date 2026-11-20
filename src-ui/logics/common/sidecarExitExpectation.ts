@@ -13,9 +13,12 @@ export const isBackendUpdate = (endpoint: string) => ["/run/update_software", "/
 export const expectBackendExit = (session: ExitExpectingSession | null | undefined, endpoint: string): ExpectedExitToken | null => {
     if (!session || (endpoint !== "/run/shutdown" && !isBackendUpdate(endpoint))) return null;
     const token = { endpoint };
-    if (!session.expectedExits.has(endpoint)) session.expectedExits.set(endpoint, new Set());
-    // The set was added just above when it was missing.
-    session.expectedExits.get(endpoint)!.add(token);
+    let tokens = session.expectedExits.get(endpoint);
+    if (!tokens) {
+        tokens = new Set();
+        session.expectedExits.set(endpoint, tokens);
+    }
+    tokens.add(token);
     return token;
 };
 

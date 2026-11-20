@@ -49,15 +49,15 @@ export const SidebarSection = () => {
             if (isElement(event.target) && event.target.closest(TOGGLE)) return;
             latest.current();
         };
-        const escape = (event: KeyboardEvent) => {
+        const closeOnEscape = (event: KeyboardEvent) => {
             if (event.key !== "Escape" || event.defaultPrevented) return;
             close();
         };
         document.addEventListener("pointerdown", outside);
-        document.addEventListener("keydown", escape);
+        document.addEventListener("keydown", closeOnEscape);
         return () => {
             document.removeEventListener("pointerdown", outside);
-            document.removeEventListener("keydown", escape);
+            document.removeEventListener("keydown", closeOnEscape);
         };
     }, [is_overlay]);
 

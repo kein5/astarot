@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import React, { useRef, forwardRef, useImperativeHandle } from "react";
+import { useRef, forwardRef, useImperativeHandle } from "react";
 import type { ChangeEvent, FocusEvent, HTMLAttributes, KeyboardEvent, ReactNode, WheelEvent } from "react";
 import styles from "./_Entry.module.scss";
 

@@ -7,9 +7,7 @@ import { useVoice } from "../../../../../../logics/voice/useVoice";
 import { TTS_ENGINES } from "../tts/TtsEngine";
 import type { TtsEngineSpec } from "../tts/TtsEngine";
 import { EnvReadout } from "../_components/env_readout/EnvReadout";
-import { useHintDescriptions } from "../_components/hint/Hint";
-import { catalogHeading } from "./catalogHeading";
-import { CatalogFacts, CatalogList } from "./catalogLayout";
+import { CatalogFacts, CatalogList, CatalogSection } from "./catalogLayout";
 import type { CatalogLayout } from "./catalogLayout";
 import styles from "./VoiceSettings.module.scss";
 
@@ -21,7 +19,6 @@ import styles from "./VoiceSettings.module.scss";
 // layout: the catalog's layout, which the engines' cards share with the models' above them.
 export const EngineCatalog = ({ layout = "list" }: { layout?: CatalogLayout }) => {
     const { t } = useI18n();
-    const hints = useHintDescriptions();
     const { settings, engineChecks, send } = useVoice();
     const [linkError, setLinkError] = useState<string | null>(null);
     const address = (spec: TtsEngineSpec) => settings?.[spec.url] || spec.example;
@@ -39,8 +36,9 @@ export const EngineCatalog = ({ layout = "list" }: { layout?: CatalogLayout }) =
         catch { setLinkError(link); }
     };
     const inUse = settings?.japanese_engine || "speechcpp";
-    return <section className={styles.catalog_group} aria-labelledby="model-catalog-engines">
-        {catalogHeading(hints, "h4", t("model_catalog.group.engines"), [t("model_catalog.group_help.engines")], "model-catalog-engines")}
+    // A part of the catalog of its own, folded as the models' parts are.
+    return <CatalogSection id="model-catalog-engines" level={4} title={t("model_catalog.group.engines")} help={[t("model_catalog.group_help.engines")]}
+        readout={t("model_catalog.engines_readout", { count: Object.keys(TTS_ENGINES).length })}>
         {/* The voices' credit terms are seen before an engine is used, so they stay on screen (#614). */}
         <p>{t("model_catalog.engine.terms_notice")}</p>
         {linkError && <p role="alert">{t("model_downloads.link_error")} <code>{linkError}</code></p>}
@@ -87,5 +85,5 @@ export const EngineCatalog = ({ layout = "list" }: { layout?: CatalogLayout }) =
                 </li>;
             })}
         </CatalogList>
-    </section>;
+    </CatalogSection>;
 };
