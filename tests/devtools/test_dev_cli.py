@@ -289,6 +289,11 @@ class DeveloperCLITests(unittest.TestCase):
         self.assertEqual(argv[1:], ["scan", "source", "--lockfile", "uv.lock", "--lockfile", "package-lock.json",
                                     "--lockfile", "native/core/Cargo.lock"])
 
+    def test_link_check_stays_offline_and_resolves_root_links_from_the_repository(self):
+        code, output = self.call("check", "--scope", "links", "--dry-run")
+        self.assertEqual(code, 0)
+        self.assertIn(f"lychee --offline --no-progress --root-dir {self.root.resolve()} .", output.replace("'", ""))
+
     def test_browser_setup_adds_dependencies_to_explicit_existing_python(self):
         code, output = self.call("setup", "--scope", "browser", "--python",
             sys.executable, "--dry-run")

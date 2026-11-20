@@ -1,0 +1,8 @@
+# lychee's settings (python tools/dev.py check --scope links; docs/development.md,
+# "リポジトリの検査"). It reads the repository's Markdown files, skipping what .gitignore skips.
+# The user guide (site/) links by route rather than by file; the site build checks those links
+# itself (tools/check_site_anchors.mjs on site/dist).
+exclude_path = ["site"]
+extensions = ["md"]
+# Headings too: a link to docs/development.md#... must name a heading that exists.
+include_fragments = "anchor-only"

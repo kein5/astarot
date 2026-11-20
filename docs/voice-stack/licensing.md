@@ -277,7 +277,7 @@ RVC-Project/Retrieval-based-Voice-Conversion-WebUI固定commit
 `integrations/rvc/blocks.py`のresampling/SOLAとloaderのsynthesizer構築は同commit由来のMITコード。
 [MIT原典](https://github.com/RVC-Project/Retrieval-based-Voice-Conversion-WebUI/blob/81eed5e8f68b6bed1789f682fe78cdd324495afc/LICENSE)
 と、RVCがSOLA出典として挙げる[DDSP-SVCのMIT](https://github.com/yxlllc/DDSP-SVC/blob/master/LICENSE)の通知を
-[LICENSE.upstream](../../integrations/rvc/LICENSE.upstream)に保持する。レビュー再現用の原典抜粋にも帰属を記載。
+[LICENSE.upstream](https://github.com/kein5/astarot/blob/a0ba2300c196016b046de5c59ad4c7cdabf145e2/integrations/rvc/LICENSE.upstream)（削除する前のコミット）に保持する。レビュー再現用の原典抜粋にも帰属を記載。
 
 基礎モデル候補は公式READMEが指す `lj1995/VoiceConversionWebUI` のHuBERT/RMVPE。
 [モデルカード](https://huggingface.co/lj1995/VoiceConversionWebUI)はMITを表示するが本文は空である。

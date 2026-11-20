@@ -86,6 +86,10 @@ run = "python tools/dev.py check --scope workflows"
 description = "Licenses and sources of every Cargo workspace's dependencies (cargo-deny; setup:rust first)"
 run = "python tools/dev.py check --scope crates"
 
+[tasks."check:links"]
+description = "Links between the Markdown files and to their headings (lychee; offline)"
+run = "python tools/dev.py check --scope links"
+
 [tasks."check:vulns"]
 description = "Known vulnerabilities of every lock file (osv-scanner; asks osv.dev)"
 run = "python tools/dev.py check --scope vulns"
