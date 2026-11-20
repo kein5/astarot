@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import { readFileSync, readdirSync } from "node:fs";
-import yaml from "js-yaml";
 import { hooks, loadModule, find } from "../../../../../../../logics/test/hookHarness.ts";
 import type { HookRuntime } from "../../../../../../../logics/test/hookHarness.ts";
+import { readLocale, localeAt } from "../../../../../../../logics/test/locales.ts";
 
 // A button on a settings page that opens another page names that page and what is done there
 // (#537), in one label: 「「デバイス」で音声経路を変更」, not 「音声経路を変更」, which looked as if
@@ -11,12 +11,8 @@ import type { HookRuntime } from "../../../../../../../logics/test/hookHarness.t
 
 type Language = "en" | "ja";
 const settingBox = new URL("../../", import.meta.url);
-const locales = Object.fromEntries((["en", "ja"] as const).map(language =>
-    [language, yaml.load(readFileSync(new URL(`../../../../../../../../locales/${language}.yml`, import.meta.url), "utf8"))]));
-// One step into the locale tree, as `node?.[part]` read it.
-const child = (node: unknown, part: string): unknown =>
-    typeof node === "object" && node !== null ? Reflect.get(node, part) : undefined;
-const lookup = (language: Language, key: string): unknown => key.split(".").reduce(child, locales[language]);
+const locales = { en: readLocale("en"), ja: readLocale("ja") };
+const lookup = (language: Language, key: string) => localeAt(locales[language], key);
 const translator = (language: Language) => (key: string, values: Record<string, unknown> = {}) => {
     const text = lookup(language, key);
     assert.equal(typeof text, "string", `${language}: ${key}`);

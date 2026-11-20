@@ -1,19 +1,10 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { hooks, loadModule, find } from "../../../../../../../logics/test/hookHarness.ts";
+import { hooks, loadModule, findIn, setRef } from "../../../../../../../logics/test/hookHarness.ts";
 import type { TreeNode } from "../../../../../../../logics/test/hookHarness.ts";
 import type { Hotkeys } from "../../../../../../../logics/store.ts";
 import type { HotkeysEntryProps } from "./HotkeysEntry.tsx";
 
-// The node a test reads: one that is missing fails the test where it is read.
-const found = (node: TreeNode | null | undefined) => { assert.ok(node); return node; };
-// The element's ref object, which React 18's element type leaves out. Setting current on a node
-// with no ref stops with a TypeError, as `node.ref.current = ...` did.
-const setRef = (node: TreeNode, value: unknown) => {
-    const ref: unknown = Reflect.get(node, "ref");
-    if (typeof ref !== "object" || ref === null) throw new TypeError("The element has no ref object");
-    Reflect.set(ref, "current", value);
-};
 interface KeyEvent {
     key: string;
     defaultPrevented: boolean;
@@ -34,13 +25,13 @@ async function setup() {
     let current: TreeNode | null | undefined;
     const render = () => {
         const tree = runtime.render(HotkeysEntry, props, tree => {
-            current = find(tree, node => node.type === Entry);
-            const entry = found(current);
+            const entry = findIn(tree, node => node.type === Entry);
+            current = entry;
             setRef(entry, { blur: () => entry.props.onBlur() });
         });
         return tree;
     };
-    const field = () => { render(); return found(current).props; };
+    const field = () => { render(); assert.ok(current); return current.props; };
     const key = (name: string, extra: Record<string, unknown> = {}) => {
         const event: KeyEvent = { key: name, defaultPrevented: false, stopped: false,
             preventDefault() { this.defaultPrevented = true; }, stopPropagation() { this.stopped = true; }, ...extra };
@@ -88,7 +79,7 @@ test("blur cancels a partial chord; a fresh chord and the clear button still sav
     subject.field().onFocus();
     subject.key("w", { ctrlKey: true });
     assert.deepEqual(subject.saves, [{ open_quick_chat: ["Ctrl", "W"] }]);
-    const clear = found(find(subject.render(), node => node.type === "button"));
+    const clear = findIn(subject.render(), node => node.type === "button");
     assert.equal(clear.props["aria-label"], "quick_chat.clear_shortcut");
     clear.props.onClick();
     assert.deepEqual(subject.saves.at(-1), { open_quick_chat: null });

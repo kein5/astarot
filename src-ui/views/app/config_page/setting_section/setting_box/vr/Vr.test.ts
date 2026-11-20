@@ -1,19 +1,15 @@
 import assert from "node:assert/strict";
 import { test, vi } from "vitest";
 import type { TestContext } from "vitest";
-import { hooks, loadModule, find, unchecked } from "../../../../../../logics/test/hookHarness.ts";
-import type { HookRuntime, TreeNode } from "../../../../../../logics/test/hookHarness.ts";
+import { hooks, loadModule, find, findIn, componentName, componentOf, drawWith } from "../../../../../../logics/test/hookHarness.ts";
+import type { HookRuntime } from "../../../../../../logics/test/hookHarness.ts";
 
-// The node the test reads next: one that is not there fails here, as reading it did.
-const found = (tree: unknown, predicate: (node: TreeNode) => boolean) => {
-    const node = find(tree, predicate);
-    assert.ok(node);
-    return node;
+// The hook of that name in the runtime: one the runtime does not have fails where it is called.
+const hookOf = (runtime: HookRuntime, name: string) => {
+    const hook: unknown = Reflect.get(runtime.api, name);
+    assert.ok(typeof hook === "function", name);
+    return hook;
 };
-// Whether a node is drawn by the page's own component of that name (a string type has no name).
-const named = (node: TreeNode, name: string) => typeof node.type === "function" && node.type.name === name;
-// One of the page's own components, which the test draws itself with the runtime.
-const component = (node: TreeNode) => unchecked<(props: unknown) => unknown>(node.type);
 
 async function setup(context: TestContext) {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
@@ -35,12 +31,13 @@ async function setup(context: TestContext) {
         "@logics_configs": { useVr: () => ({ currentOverlaySmallLogSettings: { data: saved, state: "ok" } }) },
         "@logics_common": { useIsOpenedConfigPage: () => ({ currentIsOpenedConfigPage: { data: true } }) },
     });
-    const node = found(parent.render(Vr), item => named(item, "OverlaySettingsContainer"));
+    const node = findIn(parent.render(Vr), item => componentName(item) === "OverlaySettingsContainer");
     active = controls;
-    const target = component(node);
+    // One of the page's own components, which the test draws itself with the runtime.
+    const target = componentOf(node);
     const props = { ...node.props, default_ui_configs: saved, setOverlaySettings: (value: Record<string, unknown>) => { writes.push(value); return true; } };
     const render = () => { controls.render(target, props); return controls.render(target, props); };
-    const handlers = () => found(render(), item => item.props?.selectFunction && item.props?.onChangeFunction).props;
+    const handlers = () => findIn(render(), item => item.props?.selectFunction && item.props?.onChangeFunction).props;
     return { props, handlers, writes, render, unmount: controls.unmount };
 }
 
@@ -91,7 +88,7 @@ test("closing settings stops the overlay sample text, and reopening does not res
     const runtimes = { vr: hooks(), overlay: hooks(), button: hooks() }, sent: string[] = [];
     let active = runtimes.vr, open = true;
     // The hook of that name in whichever runtime is drawing now, called as the page calls it.
-    const delegate = (name: string) => (...args: unknown[]) => unchecked<(...args: unknown[]) => unknown>(Reflect.get(active.api, name))(...args);
+    const delegate = (name: string) => (...args: unknown[]): unknown => Reflect.apply(hookOf(active, name), undefined, args);
     const api = { ...runtimes.button.api };
     for (const name of ["useState", "useRef", "useEffect", "useLayoutEffect", "useMemo", "useCallback", "useId"]) Reflect.set(api, name, delegate(name));
     context.onTestFinished(() => Object.values(runtimes).forEach(runtime => runtime.unmount()));
@@ -107,11 +104,11 @@ test("closing settings stops the overlay sample text, and reopening does not res
             sendTextToOverlay: (text: string) => sent.push(text) }) },
         "@logics_common": { useIsOpenedConfigPage: () => ({ currentIsOpenedConfigPage: { data: open } }) },
     });
-    const overlay = found(runtimes.vr.render(Vr), item => named(item, "OverlaySettingsContainer"));
+    const overlay = findIn(runtimes.vr.render(Vr), item => componentName(item) === "OverlaySettingsContainer");
     active = runtimes.overlay;
-    const sample = found(runtimes.overlay.render(component(overlay), overlay.props), item => named(item, "SendSampleTextToggleButton"));
+    const sample = findIn(drawWith(runtimes.overlay, overlay), item => componentName(item) === "SendSampleTextToggleButton");
     active = runtimes.button;
-    const button = () => found(runtimes.button.render(component(sample), {}), item => item.type === "button");
+    const button = () => findIn(drawWith(runtimes.button, sample, {}), item => item.type === "button");
 
     const START = "config_page.vr.sample_text_button.start", STOP = "config_page.vr.sample_text_button.stop";
     button().props.onClick();
@@ -162,8 +159,8 @@ test("the position and rotation diagram and the sample text are rows of the labe
     const axes = row("config_page.vr.position_rotation.label");
     assert.ok(axes, "the axes have a labelled row");
     assert.equal(axes.props.description, "config_page.vr.position_rotation.desc");
-    assert.ok(find(axes, item => named(item, "PositionControls")), "the diagram is in the row's field column");
-    assert.ok(find(axes, item => named(item, "PageSwitcherContainer")), "so is the position/rotation switch");
+    assert.ok(find(axes, item => componentName(item) === "PositionControls"), "the diagram is in the row's field column");
+    assert.ok(find(axes, item => componentName(item) === "PageSwitcherContainer"), "so is the position/rotation switch");
     const sample = row("config_page.vr.sample_text_button.label");
-    assert.ok(sample && find(sample, item => named(item, "SendSampleTextToggleButton")));
+    assert.ok(sample && find(sample, item => componentName(item) === "SendSampleTextToggleButton"));
 });
