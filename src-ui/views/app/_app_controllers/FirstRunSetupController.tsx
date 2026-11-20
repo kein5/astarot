@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import type { Dispatch, MouseEvent, SetStateAction } from "react";
+import type { Dispatch, MouseEvent, ReactNode, SetStateAction } from "react";
 import type { TFunction } from "i18next";
 import { useI18n } from "@useI18n";
 import { isTauri } from "@tauri-apps/api/core";
@@ -17,12 +17,11 @@ import { useRecognitionState } from "../../../logics/setup/useRecognitionState";
 import { setupPlan, planModels, planBytes, nextAction, stepState, setupOpensByItself }
     from "../../../logics/setup/firstRunSetup.ts";
 import type { RecognitionState, RunView, SetupStep } from "../../../logics/setup/firstRunSetup.ts";
-import { VrchatPresence } from "../others/vrchat_presence/VrchatPresence";
+import { useVrchatPresence } from "../others/vrchat_presence/VrchatPresence";
+import type { VrchatPresenceState } from "../others/vrchat_presence/VrchatPresence";
 import styles from "../config_page/setting_section/setting_box/advanced_settings/VoiceSettings.module.scss";
 import dialogStyles from "../config_page/setting_section/setting_box/_components/download_models/LegacyModelDownloadDialog.module.scss";
-import noticeStyles from "./TelemetryNoticeController.module.scss";
-import guideStyles from "./VirtualMicGuideController.module.scss";
-import setupStyles from "./FirstRunSetupController.module.scss";
+import * as ui from "./FirstRunSetupController.css.ts";
 
 const ACTIVE: readonly unknown[] = ["queued", "downloading", "verifying", "cancelling"];
 const finiteNumber = (value: unknown): value is number => Number.isFinite(value);
@@ -44,6 +43,10 @@ const gib = (value: number) => value < 0.1 * 1073741824 ? `${(value / 1048576).t
 //
 // "Later" and Escape put it away for this run; downloads already started go on. "Done" and
 // "Don't show again" stop it from opening by itself.
+//
+// It is drawn as shadcn/ui's Dialog with its parts, and what was found as an Item list: each
+// row has a mark that tells at a glance whether it is ready or needs the user, the name, what was
+// found in words, and its action under them (FirstRunSetupController.css.ts).
 
 // A model step of the plan.
 type ModelStep = Extract<SetupStep, { kind: "model" }>;
@@ -127,20 +130,20 @@ export const FirstRunSetupController = () => {
     };
 
     return <div className={`${styles.container} ${dialogStyles.host}`}>
-        <dialog ref={dialog} className={dialogStyles.dialog} aria-label={t("first_run_setup.title")}
+        <dialog ref={dialog} className={`${dialogStyles.dialog} ${ui.dialog}`} aria-label={t("first_run_setup.title")}
             onCancel={event => { event.preventDefault(); finish(false); }}>
-            <div className={noticeStyles.notice}>
-                <h3>{t("first_run_setup.title")}</h3>
-                <p className={noticeStyles.purpose}>{t("first_run_setup.purpose")}</p>
+            <div className={ui.header} data-slot="dialog-header">
+                <h3 className={ui.title} data-slot="dialog-title">{t("first_run_setup.title")}</h3>
+                <p className={ui.description} data-slot="dialog-description">{t("first_run_setup.purpose")}</p>
             </div>
             <Findings recognition={recognition} onLeave={() => finish(false)} />
-            {!["cloud", "own_server"].includes(recognition) && <section className={guideStyles.step} aria-labelledby="first-run-recognition">
-                <h4 id="first-run-recognition">{t("first_run_setup.recognition.heading")}</h4>
+            {!["cloud", "own_server"].includes(recognition) && <section className={ui.section} aria-labelledby="first-run-recognition">
+                <h4 id="first-run-recognition" className={ui.sectionTitle}>{t("first_run_setup.recognition.heading")}</h4>
                 {finished
-                    ? <p role="status" className={guideStyles.heard}>{t("first_run_setup.recognition.finished")}</p>
+                    ? <p role="status" className={ui.finished}>{t("first_run_setup.recognition.finished")}</p>
                     : <RecognitionSetup plan={plan} view={view} run={run} consent={consent} setConsent={setConsent}
                         catalogReady={!!downloads.catalog} />}
-                {!finished && <div className={styles.actions}>
+                {!finished && <div className={ui.actions}>
                     {!run && <button type="button" className="primary" disabled={(needsConsent && !consent) || !draftPlan?.length} onClick={begin}>
                         {t("first_run_setup.recognition.start")}</button>}
                     {running && <button type="button" onClick={stop}>{t("first_run_setup.recognition.stop")}</button>}
@@ -148,13 +151,15 @@ export const FirstRunSetupController = () => {
                     {!running && <OpenSettings tab="transcription" label={t("first_run_setup.recognition.choose_other")} onLeave={() => finish(false)} />}
                 </div>}
             </section>}
-            <div className={styles.actions}>
-                <button type="button" onClick={() => finish(false)}>{t("first_run_setup.later")}</button>
-                {finished && <button type="button" className="primary" autoFocus onClick={() => finish(true)}>{t("first_run_setup.done")}</button>}
+            <div className={ui.footer} data-slot="dialog-footer">
+                <div className={ui.actions}>
+                    <button type="button" onClick={() => finish(false)}>{t("first_run_setup.later")}</button>
+                    {finished && <button type="button" className="primary" autoFocus onClick={() => finish(true)}>{t("first_run_setup.done")}</button>}
+                </div>
+                {!finished && setup.notice === true && <div className={dialogStyles.alternative}>
+                    <button type="button" onClick={() => finish(true)}>{t("first_run_setup.dont_show")}</button>
+                </div>}
             </div>
-            {!finished && setup.notice === true && <div className={dialogStyles.alternative}>
-                <button type="button" onClick={() => finish(true)}>{t("first_run_setup.dont_show")}</button>
-            </div>}
         </dialog>
     </div>;
 };
@@ -220,49 +225,90 @@ const useRunner = ({ run, setRun, view, downloads, realtime, setSelectedTranscri
     }, [running, key, downloadError, realtimeError]);
 };
 
-// What was found. Each line only reads; the buttons lead to the place where it is set.
+// What was found. Each row only reads; its button leads to the place where it is set.
 const Findings = ({ recognition, onLeave }: { recognition: RecognitionState; onLeave: () => void }) => {
     const { t } = useI18n();
     const mic = useSettingValue("SelectedMicDevice");
+    const vrchat = useVrchatPresence();
     const { status: virtualMic, openGuide } = useVirtualMic();
     const { needs } = useSetupNeeds();
     const openTranslatorList = useOpenTranslatorList();
     const micName = mic?.state === "ok" && typeof mic.data === "string" && mic.data && mic.data !== "NoDevice" ? mic.data : null;
     const translation = needs.find(need => need.id === "translation");
     const cables = virtualMic?.supported === true && virtualMic.error === null ? virtualMic.cables.length : null;
-    return <section className={guideStyles.step} aria-labelledby="first-run-found">
-        <h4 id="first-run-found">{t("first_run_setup.found.heading")}</h4>
-        <dl className={dialogStyles.facts}>
-            <div className={dialogStyles.fact}>
-                <dt>{t("first_run_setup.found.mic")}</dt>
-                <dd>{micName ?? t("first_run_setup.found.mic_missing")}</dd>
-            </div>
-            <div className={dialogStyles.fact}>
-                <dt>{t("first_run_setup.found.vrchat")}</dt>
-                <dd><VrchatPresence /></dd>
-            </div>
-            {cables !== null && <div className={dialogStyles.fact}>
-                <dt>{t("first_run_setup.found.virtual_mic")}</dt>
-                <dd>
-                    {t(cables > 0 ? "first_run_setup.found.virtual_mic_found" : "first_run_setup.found.virtual_mic_missing")}
-                    {" "}<button type="button" onClick={() => { onLeave(); openGuide(); }}>{t("first_run_setup.found.virtual_mic_open")}</button>
-                </dd>
-            </div>}
-            <div className={dialogStyles.fact}>
-                <dt>{t("first_run_setup.found.translation")}</dt>
-                <dd>
-                    {t(translation ? "first_run_setup.found.translation_missing" : "first_run_setup.found.translation_ready")}
-                    {translation && <>{" "}<button type="button" onClick={() => { onLeave(); openTranslatorList(); }}>
-                        {t("first_run_setup.found.translation_choose")}</button></>}
-                </dd>
-            </div>
-            <div className={dialogStyles.fact}>
-                <dt>{t("first_run_setup.found.recognition")}</dt>
-                <dd>{t(`first_run_setup.found.recognition_${recognition}`)}</dd>
-            </div>
-        </dl>
+    return <section className={ui.section} aria-labelledby="first-run-found">
+        <h4 id="first-run-found" className={ui.sectionTitle}>{t("first_run_setup.found.heading")}</h4>
+        <ul className={ui.items} data-slot="item-group">
+            <Finding state={micName ? "ready" : "attention"} name={t("first_run_setup.found.mic")}>
+                {micName ?? t("first_run_setup.found.mic_missing")}
+            </Finding>
+            {/* The readout's words, as the other rows' (its frame stays on the VRChat page). They
+                change by themselves while the dialog is open, so they are announced. */}
+            <Finding state={VRCHAT_STATES[vrchat.state]} name={t("first_run_setup.found.vrchat")} live>
+                {vrchat.lines.map(line => <span key={line}>{line}</span>)}
+            </Finding>
+            {/* Only needed to bring the read-aloud and the voice changer's voice to VRChat. */}
+            {cables !== null && <Finding state={cables > 0 ? "ready" : "neutral"} name={t("first_run_setup.found.virtual_mic")}
+                action={<button type="button" onClick={() => { onLeave(); openGuide(); }}>{t("first_run_setup.found.virtual_mic_open")}</button>}>
+                {t(cables > 0 ? "first_run_setup.found.virtual_mic_found" : "first_run_setup.found.virtual_mic_missing")}
+            </Finding>}
+            <Finding state={translation ? "attention" : "ready"} name={t("first_run_setup.found.translation")}
+                action={translation && <button type="button" onClick={() => { onLeave(); openTranslatorList(); }}>
+                    {t("first_run_setup.found.translation_choose")}</button>}>
+                {t(translation ? "first_run_setup.found.translation_missing" : "first_run_setup.found.translation_ready")}
+            </Finding>
+            <Finding state={RECOGNITION_STATES[recognition]} name={t("first_run_setup.found.recognition")}>
+                {t(`first_run_setup.found.recognition_${recognition}`)}
+            </Finding>
+        </ul>
     </section>;
 };
+
+// How a row reads at a glance. ready: nothing to do; attention: the user has something to do
+// (its words say what); checking: not known yet; neutral: neither, such as a choice made
+// elsewhere or something only some uses need.
+type FindingState = "ready" | "attention" | "checking" | "neutral";
+const VRCHAT_STATES: Record<VrchatPresenceState, FindingState> = {
+    found: "ready", not_found: "attention", checking: "checking", unknown: "neutral", sending_off: "neutral", osc_query_off: "neutral",
+};
+const RECOGNITION_STATES: Record<RecognitionState, FindingState> = {
+    ready: "ready", needs_setup: "attention", unknown: "checking", cloud: "neutral", own_server: "neutral",
+};
+
+// One row (shadcn/ui's Item): the mark, the name over what was found, and the row's action.
+interface FindingProps {
+    state: FindingState;
+    name: string;
+    live?: boolean;
+    action?: ReactNode;
+    children: ReactNode;
+}
+const Finding = ({ state, name, live = false, action, children }: FindingProps) =>
+    <li className={ui.item} data-slot="item" data-state={state}>
+        <StateMark state={state} />
+        <div className={ui.content} data-slot="item-content">
+            <span className={ui.itemTitle} data-slot="item-title">{name}</span>
+            <span className={ui.itemDescription} data-slot="item-description" role={live ? "status" : undefined}>{children}</span>
+        </div>
+        {action && <div className={ui.itemActions} data-slot="item-actions">{action}</div>}
+    </li>;
+
+// The mark only repeats what the row's words say, so it is hidden from screen readers.
+const StateMark = ({ state }: { state: FindingState }) =>
+    <span className={ui.mark} data-slot="item-media" data-state={state} aria-hidden="true">
+        <svg viewBox="0 0 16 16">
+            {state === "ready" && <>
+                <circle className={ui.markShape.ready} cx="8" cy="8" r="7" />
+                <path className={ui.markShape.glyph} d="M4.6 8.3l2.3 2.3 4.5-4.6" />
+            </>}
+            {state === "attention" && <>
+                <circle className={ui.markShape.attention} cx="8" cy="8" r="7" />
+                <path className={ui.markShape.glyph} d="M8 4.4v4.4M8 11.4v.2" />
+            </>}
+            {state === "checking" && <circle className={ui.markShape.arc} cx="8" cy="8" r="6" />}
+            {state === "neutral" && <circle className={ui.markShape.ring} cx="8" cy="8" r="6.2" />}
+        </svg>
+    </span>;
 
 // The consent for the recognition models, then each step's progress.
 interface RecognitionSetupProps {
@@ -276,7 +322,7 @@ interface RecognitionSetupProps {
 const RecognitionSetup = ({ plan, view, run, consent, setConsent, catalogReady }: RecognitionSetupProps) => {
     const { t } = useI18n();
     const [linkFailed, setLinkFailed] = useState<string | null>(null);
-    if (!catalogReady || !plan) return <p role="status">{t("first_run_setup.recognition.loading")}</p>;
+    if (!catalogReady || !plan) return <p role="status" className={ui.text}>{t("first_run_setup.recognition.loading")}</p>;
     const models = planModels(plan);
     const openLink = async (event: MouseEvent<HTMLAnchorElement>, url: string) => {
         if (!isTauri()) return;
@@ -285,12 +331,12 @@ const RecognitionSetup = ({ plan, view, run, consent, setConsent, catalogReady }
     };
     const failedAt = run?.phase === "failed" ? run.failure?.step ?? null : null;
     return <>
-        <p>{t("first_run_setup.recognition.what")}</p>
-        {models.length > 0 && <ul className={setupStyles.models} aria-label={t("first_run_setup.recognition.models")}>
-            {models.map(entry => <li key={entry.id}>
-                <span className={setupStyles.model_name}>{entry.name}</span>
+        <p className={ui.text}>{t("first_run_setup.recognition.what")}</p>
+        {models.length > 0 && <ul className={ui.models} aria-label={t("first_run_setup.recognition.models")}>
+            {models.map(entry => <li key={entry.id} className={ui.model}>
+                <span className={ui.modelName}>{entry.name}</span>
                 {/* Each fact keeps its label and value together; a long provider name wraps inside its own item. */}
-                <span className={setupStyles.model_facts}>
+                <span className={ui.modelFacts}>
                     <span>{t("first_run_setup.recognition.model_provider", { provider: entry.provider ?? "" })}</span>
                     <span>{t("first_run_setup.recognition.model_license", { license: entry.license ?? "" })}</span>
                     <span>{t("first_run_setup.recognition.model_size", { size: gib(entry.total_bytes) })}</span>
@@ -300,23 +346,23 @@ const RecognitionSetup = ({ plan, view, run, consent, setConsent, catalogReady }
             </li>)}
         </ul>}
         {linkFailed && <p role="alert">{t("model_downloads.link_error")} <code className={dialogStyles.path}>{linkFailed}</code></p>}
-        {models.length > 0 && <p>{t("first_run_setup.recognition.total", { size: gib(planBytes(plan)),
+        {models.length > 0 && <p className={ui.total}>{t("first_run_setup.recognition.total", { size: gib(planBytes(plan)),
             bytes: planBytes(plan).toLocaleString("en-US") })}</p>}
         {!run && models.length > 0 && <label className={styles.checkLabel}>
             <input type="checkbox" autoFocus checked={consent} onChange={event => setConsent(event.target.checked)} />
             {t("first_run_setup.recognition.consent")}
         </label>}
-        {!run && models.length === 0 && plan.length > 0 && <p>{t("first_run_setup.recognition.no_download")}</p>}
-        {run && <ol className={setupStyles.steps} aria-label={t("first_run_setup.recognition.progress")}>
+        {!run && models.length === 0 && plan.length > 0 && <p className={ui.text}>{t("first_run_setup.recognition.no_download")}</p>}
+        {run && <ol className={ui.steps} aria-label={t("first_run_setup.recognition.progress")}>
             {plan.map((step, index) => {
                 const state = stepState(plan, index, view, failedAt);
                 const job = step.kind === "model" ? view.jobs[step.entry.id] : null;
                 const active = job && ACTIVE.includes(job.phase);
                 const label = step.kind === "model" ? t("first_run_setup.recognition.step_model", { name: step.entry.name })
                     : t(`first_run_setup.recognition.step_${step.kind}`);
-                return <li key={index} data-state={state}>
-                    <span>{label}</span>{" "}
-                    <span className={setupStyles.state} role={state === "failed" ? "alert" : undefined}>
+                return <li key={index} className={ui.step} data-state={state}>
+                    <span className={ui.stepLabel}>{label}</span>
+                    <span className={ui.stepState} role={state === "failed" ? "alert" : undefined}>
                         {state === "working" && active && job.phase === "downloading" && finiteNumber(job.total_bytes) && job.total_bytes > 0
                             ? t("first_run_setup.recognition.state_downloading", { done: gib(job.received_bytes ?? 0), total: gib(job.total_bytes) })
                             : state === "working" && active ? t(`model_downloads.phase_${job.phase}`)
@@ -324,11 +370,11 @@ const RecognitionSetup = ({ plan, view, run, consent, setConsent, catalogReady }
                             : t(`first_run_setup.recognition.state_${state}`)}
                     </span>
                     {state === "working" && active && job.phase === "downloading" && (job.total_bytes ?? 0) > 0 &&
-                        <progress value={job.received_bytes ?? 0} max={job.total_bytes} aria-label={label} />}
+                        <progress className={styles.progress} value={job.received_bytes ?? 0} max={job.total_bytes} aria-label={label} />}
                 </li>;
             })}
         </ol>}
-        {run?.phase === "failed" && <p>{t("first_run_setup.recognition.kept")}</p>}
+        {run?.phase === "failed" && <p className={ui.text}>{t("first_run_setup.recognition.kept")}</p>}
     </>;
 };
 

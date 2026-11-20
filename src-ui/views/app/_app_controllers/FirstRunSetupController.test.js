@@ -20,7 +20,8 @@ const CATALOG = {
 function world(values = {}) {
     return { notice: true, settled: false, opened: false, telemetryPending: false,
         engine: null, server: "external", paths: { model: "", vad_model: "" }, catalog: CATALOG, jobs: {},
-        downloadError: null, realtimeError: null, sent: [], calls: [], ...values };
+        downloadError: null, realtimeError: null, sent: [], calls: [],
+        mic: "Microphone (USB)", vrchat: "found", cables: [], needs: [], ...values };
 }
 
 async function setup(context, w = world()) {
@@ -33,7 +34,7 @@ async function setup(context, w = world()) {
         "@logics_configs": {
             useOthers: () => ({ currentTelemetryNotice: { state: "ok", data: { pending: w.telemetryPending } } }),
             useTranscription: () => ({ setSelectedTranscriptionEngine: async engine => { record("/set/data/selected_transcription_engine", engine); return true; } }),
-            useSettingValue: () => ({ state: "ok", data: "Microphone (USB)" }),
+            useSettingValue: () => ({ state: "ok", data: w.mic }),
         },
         "@store": {
             useStore_IsBackendReady: () => ({ currentIsBackendReady: { data: true } }),
@@ -47,8 +48,8 @@ async function setup(context, w = world()) {
         "../../../logics/voice/useModelDownloads": { useModelDownloads: () => ({
             catalog: w.catalog, state: { jobs: w.jobs }, error: w.downloadError,
             send: async (endpoint, data) => { record(endpoint, data); if (endpoint.startsWith("/run/")) w.downloadError = null; } }) },
-        "../../../logics/voice/useVirtualMic": { useVirtualMic: () => ({ status: { supported: true, cables: [], error: null }, openGuide: () => w.calls.push("guide") }) },
-        "../../../logics/main/useSetupNeeds": { useSetupNeeds: () => ({ needs: [] }) },
+        "../../../logics/voice/useVirtualMic": { useVirtualMic: () => ({ status: { supported: true, cables: w.cables, error: null }, openGuide: () => w.calls.push("guide") }) },
+        "../../../logics/main/useSetupNeeds": { useSetupNeeds: () => ({ needs: w.needs }) },
         "../../../logics/translation/useOpenTranslatorList": { useOpenTranslatorList: () => () => w.calls.push("translators") },
         "../../../logics/setup/useFirstRunSetup": { useFirstRunSetup: () => ({
             notice: w.notice, opened: w.opened, settled: w.settled,
@@ -60,7 +61,8 @@ async function setup(context, w = world()) {
             return { state, engine: w.engine, server: w.server, paths: w.paths };
         } },
         "../../../logics/setup/firstRunSetup.ts": logic,
-        "../others/vrchat_presence/VrchatPresence": { VrchatPresence: () => null },
+        "../others/vrchat_presence/VrchatPresence": { useVrchatPresence: () => ({ state: w.vrchat, tone: "neutral",
+            lines: [`vrchat_presence.${w.vrchat}`, ...(w.vrchat === "not_found" ? ["vrchat_presence.not_found_hint"] : [])] }) },
     });
     context.onTestFinished(() => runtime.unmount());
     // Renders until the effects stop changing what is drawn (each effect may set state).
@@ -184,6 +186,41 @@ test("Later puts it away for this run without dismissing it; Don't show again do
     s = await setup(context, v);
     find(s.render(), node => node.props?.className === "alternative").props.children.props.onClick();
     assert.ok(v.calls.includes("dismiss"));
+});
+
+// What was found reads at a glance (#557): each row is marked ready, needs the user, being checked
+// or neither, its words stay beside the mark, and its button sits under its words, never inside them.
+test("each finding is marked by its state, with its words and its action apart", async context => {
+    const rowsOf = async values => {
+        const w = world(values);
+        const s = await setup(context, w);
+        const findings = s.part(s.render(), "Findings");
+        const list = findings.type(findings.props);
+        const rows = [];
+        find(list, node => { if (node.type?.name === "Finding") rows.push(node.props); return false; });
+        return { w, rows: Object.fromEntries(rows.map(row => [row.name.split(".").at(-1), row])) };
+    };
+    let { rows } = await rowsOf({ mic: "NoDevice", vrchat: "not_found", cables: [], needs: [{ id: "translation", action: "choose" }] });
+    assert.deepEqual(Object.fromEntries(Object.entries(rows).map(([name, row]) => [name, row.state])),
+        { mic: "attention", vrchat: "attention", virtual_mic: "neutral", translation: "attention", recognition: "attention" });
+    assert.equal(rows.mic.children, "first_run_setup.found.mic_missing");
+    assert.deepEqual(rows.vrchat.children.map(line => line.props.children), ["vrchat_presence.not_found", "vrchat_presence.not_found_hint"]);
+    assert.equal(rows.vrchat.live, true, "the VRChat words change by themselves and are announced");
+    // The buttons are the rows' actions; the words around them are only the finding.
+    assert.equal(rows.translation.children, "first_run_setup.found.translation_missing");
+    assert.equal(rows.translation.action.props.children, "first_run_setup.found.translation_choose");
+    assert.equal(rows.virtual_mic.action.props.children, "first_run_setup.found.virtual_mic_open");
+
+    ({ rows } = await rowsOf({ engine: "SpeechCpp", server: "bundled", paths: { model: "/m/a.gguf", vad_model: "/m/v.gguf" }, opened: true,
+        cables: [{ playback: "CABLE Input", recording: "CABLE Output" }] }));
+    assert.deepEqual(Object.fromEntries(Object.entries(rows).map(([name, row]) => [name, row.state])),
+        { mic: "ready", vrchat: "ready", virtual_mic: "ready", translation: "ready", recognition: "ready" });
+    assert.equal(rows.mic.children, "Microphone (USB)");
+    assert.ok(!rows.translation.action, "nothing to do: no button");
+
+    // Not known yet, or a choice made elsewhere: neither ready nor needing the user here.
+    ({ rows } = await rowsOf({ vrchat: "checking", engine: "Deepgram", opened: true }));
+    assert.deepEqual([rows.vrchat.state, rows.recognition.state], ["checking", "neutral"]);
 });
 
 test("every string it uses is in both languages", () => {
