@@ -68,7 +68,7 @@ export const WordFilter = (props: { "aria-labelledby"?: string; "aria-describedb
     };
 
     const handleEnterPressed = () => {
-        if (!input_value || !input_value.trim()) return;
+        if (!input_value?.trim()) return;
         addWords();
     };
 

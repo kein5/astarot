@@ -224,6 +224,33 @@
     &[data-tone="hardware_warning"] { display: inline-flex; align-items: center; gap: .5rem;
         border-color: var(--vox_state_warning, #cb944f); color: var(--vox_state_warning, #cb944f); }
 }
+// A card's state at the end of its name's line: whether the model is on the PC is told by the
+// badge's shape and mark as well as its words, in both layouts and every catalog. On the PC
+// (downloaded, in use, checked and ready, an entry that can be used): a filled badge with a check.
+// The words of a filled badge are dark on its light fill.
+// Not yet (not downloaded, an API without its key): an outline with an empty ring, its words
+// quieter. The marks are drawn here, so they are never part of the words read out or searched.
+.badge.status {
+    &[data-tone="not_downloaded"], &[data-tone="not_set"], &[data-tone="downloaded"], &[data-tone="in_use"], &[data-tone="ready"] {
+        display: inline-flex; align-items: center; gap: .5rem;
+        &::before {
+            content: ""; flex: none; width: 1.2rem; height: 1.2rem; background-color: currentColor;
+            -webkit-mask: var(--status_mark) center / contain no-repeat; mask: var(--status_mark) center / contain no-repeat;
+        }
+    }
+    &[data-tone="not_downloaded"], &[data-tone="not_set"] {
+        --status_mark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='5.6' fill='none' stroke='black' stroke-width='1.6'/%3E%3C/svg%3E");
+        background: transparent; border-color: var(--dark_700_color, #4a5d7c); color: var(--vox_description_text, #a3adc0);
+    }
+    &[data-tone="downloaded"], &[data-tone="in_use"], &[data-tone="ready"] {
+        --status_mark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm3.4 5.3-4.1 4.2a.8.8 0 0 1-1.1 0L4.6 8.9a.8.8 0 1 1 1.1-1.1l1 1 3.6-3.6a.8.8 0 0 1 1.1 1.1z'/%3E%3C/svg%3E");
+    }
+    // On the PC: a solid light badge; in use: solid in the active color the card's frame has;
+    // checked and ready to apply, or an entry that can be used: the active outline, tinted.
+    &[data-tone="downloaded"] { background: var(--dark_300_color, #e0dbe6); border-color: var(--dark_300_color, #e0dbe6); color: var(--dark_950_color, #1c0f27); }
+    &[data-tone="in_use"] { background: var(--vox_state_active, #b797f8); border-color: var(--vox_state_active, #b797f8); color: var(--dark_950_color, #1c0f27); }
+    &[data-tone="ready"] { background: var(--vox_highlight_tint); }
+}
 // The "!" of a model that may be too heavy for the user's PC. The words beside it say the same.
 .warning_mark {
     display: inline-flex; flex: none; align-items: center; justify-content: center; width: 1.6rem; height: 1.6rem;
