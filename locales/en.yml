@@ -79,7 +79,7 @@ voice:
         vc_gpu_unavailable: "No NVIDIA GPU is available for voice conversion. Check the GPU driver, and that an external GPU is still connected, then start again."
         vc_directml_unavailable: "No GPU can be used through DirectML. Check the GPU driver, then start again. To convert on the CPU instead, set Convert on to Automatic or CPU."
         vc_directml_missing: "Converting through DirectML needs ONNX Runtime · DirectML. Fetch it under Models and runtime, or set Convert on to Automatic or CPU."
-        vc_cpu_too_slow: "This PC's CPU cannot convert the voice in time, so it did not start. An NVIDIA GPU, or a discrete GPU through DirectML, can convert it."
+        vc_cpu_too_slow: "Your PC's CPU cannot convert the voice in time, so it did not start. An NVIDIA GPU, or a discrete GPU through DirectML, can convert it."
         vc_capture_overrun: "Conversion could not keep up and stopped. Set the retrieval blend to 0, or close other apps that use the GPU or CPU, then start again."
         vc_block_expired: "Conversion fell too far behind and stopped. Close other apps that use the GPU or CPU, then start again."
         vc_start_failed: "Input forwarding could not start. Check that the runtime folder and the model files you set exist, then start again."

@@ -79,7 +79,7 @@ voice:
         vc_gpu_unavailable: "声の変換に使うNVIDIAのGPUが見つかりません。GPUのドライバーと、外付けのGPUが外れていないかを確かめてから、もう一度開始してください。"
         vc_directml_unavailable: "DirectMLで使えるGPUが見つかりません。GPUのドライバーを確かめてからもう一度開始してください。CPUで変換するときは「変換に使うデバイス」を自動かCPUにします。"
         vc_directml_missing: "DirectMLで変換するには「ONNX Runtime · DirectML」が必要です。「モデルと実行環境」から取得するか、「変換に使うデバイス」を自動かCPUにしてください。"
-        vc_cpu_too_slow: "このPCのCPUでは声の変換が間に合わないため、開始しませんでした。NVIDIAのGPUか、DirectMLで使える単体のGPUがあれば、そのGPUで変換できます。"
+        vc_cpu_too_slow: "お使いのPCのCPUでは声の変換が間に合わないため、開始しませんでした。NVIDIAのGPUか、DirectMLで使える単体のGPUがあれば、そのGPUで変換できます。"
         vc_capture_overrun: "変換が追いつかず停止しました。検索結果の混合率を0にするか、GPUやCPUを使う他のアプリを閉じてから、もう一度開始してください。"
         vc_block_expired: "変換が大きく遅れたため停止しました。GPUやCPUを使う他のアプリを閉じてから、もう一度開始してください。"
         vc_start_failed: "入力の転送を開始できませんでした。設定した実行環境のフォルダとモデルのファイルがあるかを確かめてから、もう一度開始してください。"
