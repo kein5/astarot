@@ -712,7 +712,7 @@ fn redirects_are_followed_only_to_the_fixed_hosts() {
     let sent = server.requests().into_iter().find(|r| r.path == "/start").unwrap();
     assert_eq!(
         sent.headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect::<Vec<_>>(),
-        [("Host", "huggingface.co"), ("User-Agent", "VRCT-VOX-model-download/1"), ("Accept-Encoding", "identity"), ("Connection", "close")]
+        [("Host", "huggingface.co"), ("User-Agent", "ASTAROT-model-download/1"), ("Accept-Encoding", "identity"), ("Connection", "close")]
     );
     // The first hop goes to the URL's own host only after it was checked.
     assert_eq!(code(open_via("https://evil.example/x", &HOSTS, &connect).err().unwrap()), "download_url_rejected");
