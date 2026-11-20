@@ -68,7 +68,7 @@ const ThresholdEntryInput = (props: ThresholdEntryProps) => {
         }
 
         let num = parseInt(String(val), 10);
-        if (isNaN(num)) {
+        if (Number.isNaN(num)) {
             const restored = lastSavedValueRef.current ?? "";
             setInputValue(restored);
             props.setUiThresholdFunction?.(restored);
@@ -103,7 +103,7 @@ const ThresholdEntryInput = (props: ThresholdEntryProps) => {
         }
 
         const num = parseInt(val, 10);
-        if (!isNaN(num)) {
+        if (!Number.isNaN(num)) {
             const clampedUi = props.max !== undefined && num > props.max
                 ? props.max
                 : (props.min !== undefined && num < props.min ? props.min : num);
@@ -111,7 +111,7 @@ const ThresholdEntryInput = (props: ThresholdEntryProps) => {
         }
 
         // max値を超えている場合は自動保存タイマーをセットしない（blur/Enterでの意図的な確定時にmax値へ丸めて保存）
-        if (props.max !== undefined && !isNaN(num) && num > props.max) {
+        if (props.max !== undefined && !Number.isNaN(num) && num > props.max) {
             return;
         }
 

@@ -13,6 +13,11 @@ test("an API entry is added, used against its server and removed, and its key is
         const page = app.page;
         await app.openSettings("Translation");
         const catalog = page.getByRole("region", { name: "Translation catalog" });
+        // The catalog's groups start closed, their bars reading out what they hold: the API group,
+        // where the entry is added and its card shown, is opened by its name first.
+        const api = catalog.locator("[data-catalog-group=api]");
+        await api.getByRole("heading", { name: "APIs", exact: true }).click();
+        await expect(api.locator(":scope > details")).toHaveJSProperty("open", true);
         const form = catalog.locator("[data-catalog-add=api]");
         await form.locator("summary").click();
         await form.getByLabel("Display name").fill("Home server");
