@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { loadModule, hooks, stubGlobals } from "../test/hookHarness.js";
+import { loadModule, hooks, stubGlobals } from "../test/hookHarness.ts";
 
 // StrictMode runs mount, cleanup and mount again with the same refs. The native
 // dialog's close() can leave focus on the body before the replayed effect runs.

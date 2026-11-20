@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { hooks, loadModule, find } from "../../../../../../logics/test/hookHarness.js";
+import { hooks, loadModule, find } from "../../../../../../logics/test/hookHarness.ts";
 
 // 「自動選択」 heads the field column of the microphone row and of the speaker row alike, over the
 // lists it chooses for, its box where the lists start. It was put beside the lists, between the

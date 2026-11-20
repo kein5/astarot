@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import { readFileSync } from "node:fs";
-import { hooks, loadModule, find } from "../../../../../logics/test/hookHarness.js";
+import { hooks, loadModule, find } from "../../../../../logics/test/hookHarness.ts";
 import * as languageNames from "../../../../../logics/common/languageNames.ts";
 
 const entry = (language, country, enable = true) => ({ language, country, enable });

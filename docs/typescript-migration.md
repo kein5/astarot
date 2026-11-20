@@ -36,7 +36,7 @@ git ls-files src-ui | grep -E '\.(js|jsx|mjs)$' | grep -v -E '\.test\.|/logics/t
 | 4 | `logics` の大きなモジュール（1 本ずつ） | 済み。受け取る値は実行時に新しく確かめず、宣言で渡す（下の第 4 段） |
 | 5 | `logics` の中の JSX（`.jsx` から `.tsx` へ） | 済み |
 | 6 | `views` | 済み |
-| 7 | 試験とテスト用のハーネス | 未着手（#550 の Vitest 移行は済み） |
+| 7 | 試験とテスト用のハーネス | ハーネスは済み。試験（`*.test.js`）が残り |
 | 8 | 仕上げ（`allowJs` を外し、検査を強める） | 未着手 |
 
 ### 第 1 段：`logics` の葉のモジュール
@@ -247,6 +247,16 @@ ADR-010 のとおり、画面を触る作業に合わせて移すのが基本で
 - ソースを移す PR では、試験のうち移したファイルを名指しする行だけを書き換えます（`./saveBar.js` を `./saveBar.ts` にするなど）。試験の書き方、実行の方法、ハーネスの API は変えません。
 - ソースを文字列として読んで書き換えてから読み込む試験（`useStdoutToPython.test.js`、`languageMutations.test.js`）は、`node:module` の `stripTypeScriptTypes` で型を消してから import の行を書き換えます。型だけの import は消えるので、書き換えるのは値の import です。
 - ハーネスの `loadModule` は `.ts` と `.tsx` を Babel で変換して読み込みます。型だけの import は消えるので、モックは要りません。依存の指定に拡張子がなくても、対応するモックを見つけます。
+
+ハーネスの 4 本（`hookHarness`、`bridgeHarness`、`vitestSetup`、`vrPanelStateScan`）を先に移しました。試験はこの上に、まとまりごとの PR で移します。
+
+- 試験と基盤は Node で動くので、型は `tsconfig.test.json` で検査します。Node の型（`@types/node`）を読むのはこの設定だけで、アプリのソースを検査する `tsconfig.json` からは試験と基盤を外しました。`npm run typecheck` は両方を走らせます。
+- 試験にも、アプリのソースと同じ規則（`strict`、`any` と二重のキャストと `@ts-...` を使わない）を当てます。`test_typescript_strictness.py` が試験も数えます。
+- `loadModule<M>` は、試験が名指すソースのモジュールの型（`typeof import("./Foo.tsx")`）を返します。読み込んだソースの輸出がその型を持つことは、`hookHarness.ts` の `loaded` のオーバーロードの 1 か所で宣言しています。確かめはしません。
+- 描いた木（`find` が探すもの）の節は React の要素（`ReactElement`）として扱います。木の中のオブジェクトはどれも要素なので、`hookHarness.ts` の `asNode` の 1 か所でそう宣言しています。要素の `props` は React の型のとおり、渡された値をそのまま持ちます。
+- フックの記憶（`useState` などのスロット）は、同じ順で同じフックが使うので、そのフックの型の値を持ちます。`hookHarness.ts` の `held` の 1 か所でそう宣言しています。
+- `@babel/standalone` には型がないので、基盤が使う `transform` だけを `src-ui/logics/test/babelStandalone.d.ts` で宣言しています。
+- 試験がコードに渡す値のうち、宣言された型を持たないもの（コードが読むフィールドだけを持つ試験用の値と、コードの振る舞いを見るためにわざと渡す形の違う値）は、`hookHarness.ts` の `unchecked<T>()` を通します。どちらなのかは、呼ぶ所に書きます。試験の中でキャストは使わず、この 1 か所で宣言します。
 
 ### 第 8 段：仕上げ
 

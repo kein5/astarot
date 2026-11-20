@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { hooks, loadModule, find } from "../../../../../../logics/test/hookHarness.js";
+import { hooks, loadModule, find } from "../../../../../../logics/test/hookHarness.ts";
 
 // The GPU builds of ONNX Runtime for translation (decision 2 (c)): offered only where the
 // backend offers them, set up through the runtime setup, and the device list asked for again

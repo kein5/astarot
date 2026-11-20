@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { hooks, loadModule, stubGlobals } from "../../../../logics/test/hookHarness.js";
+import { hooks, loadModule, stubGlobals } from "../../../../logics/test/hookHarness.ts";
 
 const setup = async context => {
     const runtime = hooks(), toasts = [], timers = [];

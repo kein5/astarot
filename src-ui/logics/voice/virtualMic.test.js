@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { hooks, loadModule } from "../test/hookHarness.js";
+import { hooks, loadModule } from "../test/hookHarness.ts";
 import * as shapes from "./virtualMic.ts";
 
 const id = name => JSON.stringify(["Windows WASAPI", name]);
@@ -103,7 +103,7 @@ test("dismissing the notice tells the backend; the settings can still open the g
 });
 
 test("the status, the level, the outcome and a refusal arrive through their own routes", async () => {
-    const { loadBridgeRoutes } = await import("../test/bridgeHarness.js");
+    const { loadBridgeRoutes } = await import("../test/bridgeHarness.ts");
     const subject = await loadBridgeRoutes();
     const state = () => subject.virtualMic();
     subject.receiveRoutes({ status: 200, endpoint: "/get/data/virtual_mic_notice", result: true });

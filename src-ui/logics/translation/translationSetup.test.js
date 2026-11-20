@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { hooks, loadModule } from "../test/hookHarness.js";
+import { hooks, loadModule } from "../test/hookHarness.ts";
 import { downloadProgress } from "../main/setupNeeds.ts";
 
 const noop = () => {};

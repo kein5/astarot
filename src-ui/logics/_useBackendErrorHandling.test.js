@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import i18next from "i18next";
 import yaml from "js-yaml";
 import { renderToStaticMarkup } from "react-dom/server";
-import { loadBridgeRoutes } from "./test/bridgeHarness.js";
+import { loadBridgeRoutes } from "./test/bridgeHarness.ts";
 
 test("credential reentry notices and field hints exist in every supported locale", () => {
     for (const language of ["en", "ja"]) {

@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import * as usagePresetsModule from "../../../logics/configs/usagePresets.ts";
 import { test } from "vitest";
-import { hooks, loadModule, find } from "../../../logics/test/hookHarness.js";
-import { loadBridgeStore } from "../../../logics/test/bridgeHarness.js";
+import { hooks, loadModule, find } from "../../../logics/test/hookHarness.ts";
+import { loadBridgeStore } from "../../../logics/test/bridgeHarness.ts";
 import { chunkArray } from "../../../logics/utils.ts";
 import * as routeState from "../../../logics/voice/routeState.ts";
 import * as rvcStartOptions from "../../../logics/voice/rvcStartOptions.ts";

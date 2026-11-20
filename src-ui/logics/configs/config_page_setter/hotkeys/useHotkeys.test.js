@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { stripTypeScriptTypes } from "node:module";
 import { test, vi } from "vitest";
-import { hooks, loadModule } from "../../../test/hookHarness.js";
+import { hooks, loadModule } from "../../../test/hookHarness.ts";
 
 const moduleUrl = source => `data:text/javascript;base64,${Buffer.from(source).toString("base64")}`;
 const deferred = () => {

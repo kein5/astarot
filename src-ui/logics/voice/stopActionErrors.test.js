@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { loadBridgeRoutes } from "../test/bridgeHarness.js";
+import { loadBridgeRoutes } from "../test/bridgeHarness.ts";
 
 // The top bar's stop and mute (and their hotkeys) are pressed away from the settings page that
 // shows voice errors, so a failure is said with a notice where the user is.

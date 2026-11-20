@@ -3,7 +3,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { test } from "vitest";
 import { decodeLogUpdate, decodeOrdered, diffLogRows, encodeLogUpdate, encodeOrdered, isLogUpdate, isRelayAllowed, isSecretAtomName,
     VR_PANEL_RELAY_PATHS, VR_PANEL_STATE_ATOMS, VR_PANEL_STATE_CATEGORIES, vrPanelStateNames } from "./vrPanelWire.ts";
-import { scanVrPanelState, settingsByCategory } from "../test/vrPanelStateScan.js";
+import { scanVrPanelState, settingsByCategory } from "../test/vrPanelStateScan.ts";
 
 // Tauri の emit を通ったときの変化を模す: キーを辞書順にし、undefined を落とし、NaN を null にする
 const sortKeysDeep = value => Array.isArray(value) ? value.map(sortKeysDeep)

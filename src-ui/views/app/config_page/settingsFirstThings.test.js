@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "vitest";
 import { readFileSync } from "node:fs";
 import yaml from "js-yaml";
-import { hooks, loadModule, find } from "../../../logics/test/hookHarness.js";
+import { hooks, loadModule, find } from "../../../logics/test/hookHarness.ts";
 import * as featureLabel from "../../../logics/common/featureLabel.ts";
 import * as searchTargets from "../../../logics/configs/config_page_setter/_aux/configSearchTargets.ts";
 import * as revealSettingModule from "../../../logics/configs/revealSetting.ts";

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test, vi } from "vitest";
-import { hooks, loadModule } from "../test/hookHarness.js";
+import { hooks, loadModule } from "../test/hookHarness.ts";
 import * as captions from "./realtimeCaptionState.ts";
 import { keepRecentLogs } from "../common/messageLogLimit.ts";
 

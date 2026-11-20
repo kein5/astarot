@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "vitest";
 import yaml from "js-yaml";
-import { hooks, loadModule, find } from "../../../../../../logics/test/hookHarness.js";
+import { hooks, loadModule, find } from "../../../../../../logics/test/hookHarness.ts";
 import * as telemetryToggle from "../../../../../../logics/configs/telemetryToggle.ts";
 
 // Settings → Advanced, "Send usage data". ENABLE_TELEMETRY starts true, and before the one-time

@@ -3,7 +3,7 @@ import { test } from "vitest";
 import { readFileSync } from "node:fs";
 import i18next from "i18next";
 import yaml from "js-yaml";
-import { hooks, loadModule, find, stubGlobals } from "../../../logics/test/hookHarness.js";
+import { hooks, loadModule, find, stubGlobals } from "../../../logics/test/hookHarness.ts";
 
 for (const language of ["en", "ja"]) {
     test(`${language}: close icon has a localized default, precise overrides and no SVG name`, async () => {

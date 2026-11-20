@@ -158,6 +158,7 @@ Pythonは専用venvを優先し、次に既存の `.venv` を探します。`--p
 
 - 新しく書くロジックとビューはTypeScript（`.ts`、JSXを含むものは `.tsx`）で書きます。新しいスタイルはvanilla-extract（`.css.ts`）で書きます。
 - 型チェックは `npm run typecheck` です。`check --scope ui` も実行し、CIでも動きます。TypeScriptのファイルは `strict` で検査します。JavaScriptのファイルは検査せず、型を推論して読むだけです。
+- 型チェックは2つの設定で走ります。アプリのソースは `tsconfig.json`、試験（`*.test.ts`）と試験の基盤（`src-ui/logics/test/`）は `tsconfig.test.json` です。試験と基盤はNodeで動くので、`tsconfig.test.json` だけがNodeの型（`@types/node`）を読みます。アプリのソースがNodeのAPIをうっかり使うと、`tsconfig.json` の検査で止まります。
 - `any`、`as unknown as`、`@ts-ignore`、`@ts-expect-error` は使いません。バックエンドから届く値は `unknown` として受けて絞り込みます。既存の実行時の形の検査も残します。`check --scope tooling` の `test_typescript_strictness.py` がこれらを数えます。
 - 移す順序と残りの範囲は [TypeScript 移行計画](typescript-migration.md) にあります。
 - 一部のUIの試験は、TypeScriptのソースを `data:` URL のモジュール経由でNodeにそのまま読ませます（Nodeの型の除去を使います）。このため、消去できる構文だけを使います（`enum`、`namespace`、コンストラクター引数のプロパティは使いません）。型だけのimportは `import type` にします。相対importは `./name.ts` のように拡張子まで書きます。
@@ -174,9 +175,9 @@ npm run test:coverage    # カバレッジ（build/coverage/ui に HTML と json
 ```
 
 - アサーションは `node:assert/strict` を使います。`test` と `vi` は `vitest` から import します。
-- 後片付けは `context.onTestFinished(fn)` で登録します。`src-ui/logics/test/vitestSetup.js` が、node:test の `after` と同じく登録した順に呼びます（Vitest の既定は逆順）。
+- 後片付けは `context.onTestFinished(fn)` で登録します。`src-ui/logics/test/vitestSetup.ts` が、node:test の `after` と同じく登録した順に呼びます（Vitest の既定は逆順）。
 - 時計の偽装は `vi.useFakeTimers({ toFake: [...] })` と `vi.advanceTimersByTime(ms)` です。テストが終わると実時間に戻ります。`vi.spyOn` は次のテストの前に元に戻ります（`restoreMocks`）。
-- `hookHarness.js` の `loadModule` で読むソースは、Babel で変換してから評価します。Vite を通らないため、カバレッジでは実行されていても0%と出ます。カバレッジの数字は、この読み込み方をしていないファイルだけを比べてください。
+- `hookHarness.ts` の `loadModule` で読むソースは、Babel で変換してから評価します。Vite を通らないため、カバレッジでは実行されていても0%と出ます。カバレッジの数字は、この読み込み方をしていないファイルだけを比べてください。
 - `data:` URL でNodeに直接読ませたモジュールと、テストファイルが import したモジュールは別の実体になります。シングルトンを共有するときは、テストの側も `data:` URL 経由で読みます（`useStdoutToPython.test.js` の `nativeImport`）。
 - 既存の `.js` を `.ts` に移すときは、同じコミットで参照をすべて書き換えます。ビューのimport、試験の読み込み、Pythonの試験やツールが指すパスが対象です。
 - デザイントークンの値は `src-ui/views/app/_index_css/variables.css` が正本です。vanilla-extractからは `src-ui/views/theme/vars.css.ts` の `vars` で同じ変数を参照します。トークンを足したら両方に書きます（`vars.test.js` が食い違いを検出します）。
@@ -194,7 +195,7 @@ npm run test:mutation -- --reporter agent > build/mutants.json         # 未検�
 npx mutator accept <キー> --reason "<等価と判断した理由>"               # 等価なミュータントを記録する
 ```
 
-対象は `mutator.config.mjs` に書いてあります。テストが import する純粋なロジック（`src-ui/logics` の `.ts` と `views/vr/vrPanelHover.ts`）です。mutator は Vite の変換の中で変異を入れるため、Vite を通らない読み込み方のファイルは対象にできません。`loadModule`（`hookHarness.js`）や `loadBridgeRoutes`（`bridgeHarness.js`）で読むフックと橋渡し、文字列として読むファイルは、理由を添えて `exclude` に入れてあります。テストがそのファイルを import するように変えたら、`exclude` から外してください。
+対象は `mutator.config.mjs` に書いてあります。テストが import する純粋なロジック（`src-ui/logics` の `.ts` と `views/vr/vrPanelHover.ts`）です。mutator は Vite の変換の中で変異を入れるため、Vite を通らない読み込み方のファイルは対象にできません。`loadModule`（`hookHarness.ts`）や `loadBridgeRoutes`（`bridgeHarness.ts`）で読むフックと橋渡し、文字列として読むファイルは、理由を添えて `exclude` に入れてあります。テストがそのファイルを import するように変えたら、`exclude` から外してください。
 
 結果の読み方:
 

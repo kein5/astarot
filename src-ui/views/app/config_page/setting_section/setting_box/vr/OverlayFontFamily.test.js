@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { hooks, loadModule } from "../../../../../../logics/test/hookHarness.js";
+import { hooks, loadModule } from "../../../../../../logics/test/hookHarness.ts";
 import { missingLanguagesText } from "../../../../../../logics/common/fontLanguages.ts";
 
 async function render({ selected = "", missing = [], open = true, fonts = { "Noto Sans": "Noto Sans" } } = {}) {

@@ -1,0 +1,11 @@
+{
+    // The UI tests (Vitest) and their harness (src-ui/logics/test). They run in Node, so Node's
+    // types are there as well; the rules are the app's (tsconfig.json, strict). The sources the
+    // tests import are checked again here, with the same settings.
+    "extends": "./tsconfig.json",
+    "compilerOptions": {
+        "types": ["vite/client", "vite-plugin-svgr/client", "node"]
+    },
+    "include": ["src-ui/**/*.test.ts", "src-ui/logics/test/**/*.ts", "src-ui/**/*.d.ts"],
+    "exclude": ["node_modules", "dist"]
+}

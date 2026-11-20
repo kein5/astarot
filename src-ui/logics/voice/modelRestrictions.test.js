@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "vitest";
 import yaml from "js-yaml";
-import { hooks, loadModule, find } from "../test/hookHarness.js";
+import { hooks, loadModule, find } from "../test/hookHarness.ts";
 import * as languageNames from "../common/languageNames.ts";
 import * as modelCatalog from "./modelCatalog.ts";
 import * as modelHardwareWarning from "./modelHardwareWarning.ts";

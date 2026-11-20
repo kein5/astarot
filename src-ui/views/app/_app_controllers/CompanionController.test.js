@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { hooks, loadModule } from "../../../logics/test/hookHarness.js";
-import { flush } from "../../../logics/test/bridgeHarness.js";
+import { hooks, loadModule } from "../../../logics/test/hookHarness.ts";
+import { flush } from "../../../logics/test/bridgeHarness.ts";
 import * as status from "../../../logics/companion/status.ts";
 import * as voice from "../../../logics/voice/voiceActions.ts";
 import * as switchBlocks from "../../../logics/main/switchBlocks.ts";

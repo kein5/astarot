@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "vitest";
 import { readFile } from "node:fs/promises";
 import yaml from "js-yaml";
-import { loadBridgeRoutes } from "../test/bridgeHarness.js";
+import { loadBridgeRoutes } from "../test/bridgeHarness.ts";
 import { legacyDownloadFailure } from "../configs/legacyModelConsent.ts";
 
 // Issue #305: a failed CTranslate2 download said only that it failed. It now says why and

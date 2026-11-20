@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test, vi } from "vitest";
-import { hooks, loadModule, find, stubGlobals, eventTarget } from "../../../../logics/test/hookHarness.js";
+import { hooks, loadModule, find, stubGlobals, eventTarget } from "../../../../logics/test/hookHarness.ts";
 import * as searchTargets from "../../../../logics/configs/config_page_setter/_aux/configSearchTargets.ts";
 import * as revealSettingModule from "../../../../logics/configs/revealSetting.ts";
 
