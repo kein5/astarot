@@ -7,6 +7,10 @@
 These tests are not part of `dev.py check`: they open the real app on this desktop. Each group runs
 in its own pytest process under tools/display_power_guard.py (a sleeping display stops drawing).
 
+The quick_chat group (CT-24) runs on KDE with xdotool and xprop: it opens a fullscreen window for a
+few seconds and presses the Quick Chat shortcut under X11 or XWayland, and on a Wayland desktop it
+also starts a development build on native Wayland. Elsewhere the group is reported as skipped.
+
 --vrchat starts the chatbox lab's two local VRChat clients (a hidden local instance), runs the
 round trip, and stops the clients it started. It reads the chat with the OCR models in
 ASTAROT_TEST_OCR_MODELS (default ~/.cache/vrct-vox-chatbox-lab/models); without them the group is
@@ -37,6 +41,7 @@ def groups():
         "appimage": (["test_appimage.py"], {"ASTAROT_TEST_APPIMAGE_FUSE": on, "ASTAROT_TEST_NATIVE_ROUTE": on}, [], "packaged"),
         "ui": (["test_native_ui.py", "test_native_tts_settings.py"], {"ASTAROT_TEST_NATIVE_ROUTE": on}, [], "any"),
         "vrchat": (["test_native_vrchat_roundtrip.py"], {"ASTAROT_TEST_NATIVE_VRCHAT_ROUNDTRIP": on}, ["--vrchat", "ocr"], "any"),
+        "quick_chat": (["test_native_quick_chat.py"], {"ASTAROT_TEST_NATIVE_QUICK_CHAT": on}, ["kde", "xdotool"], "any"),
     }
 
 
@@ -46,6 +51,9 @@ def assets(args):
     ocr = Path(os.environ.get("ASTAROT_TEST_OCR_MODELS", Path.home() / ".cache/vrct-vox-chatbox-lab/models"))
     have["ocr"] = ocr if ocr.is_dir() else None
     have["--vrchat"] = args.vrchat or None
+    # Quick Chat's window stacking and focus are read from KDE with xdotool and xprop.
+    have["kde"] = "KDE" in os.environ.get("XDG_CURRENT_DESKTOP", "").split(":") or None
+    have["xdotool"] = (shutil.which("xdotool") and shutil.which("xprop")) or None
     return {need: value for need, value in have.items() if value}
 
 
