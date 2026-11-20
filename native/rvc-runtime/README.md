@@ -450,10 +450,20 @@ vrct-rvc-worker --runtime <dir> --probe [--device cuda|directml|cpu|auto]   # ex
   ONNX Runtime, so the worker decides which folder to load before it loads anything, and
   loads `DirectML.dll` first. The DirectML provider takes the GPU DirectML ranks highest for
   performance (`HighPerformance`, GPUs only), so a laptop's discrete GPU over its integrated
-  one; memory patterns and parallel execution are off, as DirectML requires.
+  one; memory patterns and parallel execution are off, as DirectML requires. The DirectML
+  build of ONNX Runtime ends at 1.24.4 (DirectML is in sustained engineering); the worker's
+  `ort` 2.0.0-rc.15 runs it (API 22 on Windows, API 17 elsewhere). This limit was accepted on
+  2026-11-20; what to do is decided when the worker's `ort` needs a newer ONNX Runtime than
+  1.24.
+- **Integrated GPUs** (Windows): before converting under `auto`, the worker asks ONNX
+  Runtime's device discovery about the GPU DirectML would take (the first in DXGI's
+  high-performance order, `backend::directml_adapters`). When its `Discrete` is `0`, it
+  converts on the CPU instead: an Intel Iris Xe took about 240 ms for a 40 ms block
+  ([measurements](../../docs/voice-stack/rvc-execution-providers-2026-11-20.md)). `--device
+  directml` and `--probe` still take an integrated GPU.
 - **Where it converts** (`--device`, default `auto`): `auto` takes CUDA when the runtime has
-  the CUDA provider and its libraries load, else DirectML when a DirectML folder is there,
-  else the CPU; a GPU whose check graph cannot run then leaves the CPU of the library
+  the CUDA provider and its libraries load, else DirectML when a DirectML folder is there and
+  the GPU is not an integrated one, else the CPU; a GPU whose check graph cannot run then leaves the CPU of the library
   already loaded. On a PC with both, CUDA comes first, as before DirectML was offered. The
   `ready` packet says which (`profile`: `low` for a GPU, CUDA or DirectML, `cpu`) and the
   delay the worker adds (`latency_ms`); the application shows both. `--device cuda` and

@@ -2,6 +2,7 @@
 
 マイクから訳した声までの音声パイプライン全体の段ごとの遅延は、[音声パイプラインの遅延の計測と短縮（2026-11-18）](pipeline-latency-2026-11-18.md)にある。
 遅延のp50とp95をBencherで時系列に追う仕組み（CIで測る中核の時間と、実モデルの値の送り方）は、[音声パイプラインの遅延の継続計測](pipeline-latency-tracking.md)にある。
+RVCの推論を実行方式（CPU、CUDA、DirectML、WebGPU）ごとに比べた結果と、デスクトップPCで測る手順（`tools/rvc_worker_bench.py`）は、[RVCの推論の実行方式の比較（2026-11-20）](rvc-execution-providers-2026-11-20.md)にある。
 
 性能目標は仕様書 §8。Linuxの専用PipeWireグラフでは反復測定済み。
 UI→VRChatの性能ゲートは未判定。

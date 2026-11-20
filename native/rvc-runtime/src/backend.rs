@@ -144,6 +144,63 @@ pub fn check_device(device: Device) -> Result<()> {
     Ok(())
 }
 
+/// A GPU DirectML can use, as ONNX Runtime's device discovery describes it (its metadata keys
+/// `Description`, `Discrete` and `DxgiHighPerformanceIndex`). A value it does not give is `None`.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct DirectMlAdapter {
+    pub name: String,
+    /// False for an integrated GPU (one that shares the system's memory).
+    pub discrete: Option<bool>,
+    /// The place in DXGI's high-performance order; 0 is the GPU DirectML's high-performance
+    /// preference takes.
+    pub high_performance_index: Option<u32>,
+}
+
+/// The GPU [`Device::DirectMl`] runs on: the first in the high-performance order, else the
+/// first listed.
+pub fn preferred_adapter(adapters: &[DirectMlAdapter]) -> Option<&DirectMlAdapter> {
+    adapters.iter().filter(|adapter| adapter.high_performance_index.is_some()).min_by_key(|adapter| adapter.high_performance_index).or(adapters.first())
+}
+
+/// The GPUs of the loaded ONNX Runtime's DirectML provider. Empty when the library is not the
+/// DirectML build. Loads ONNX Runtime if it is not loaded yet.
+#[cfg(windows)]
+pub fn directml_adapters() -> Result<Vec<DirectMlAdapter>> {
+    use std::ffi::CStr;
+
+    use ort::AsPointer;
+    use ort::memory::DeviceType;
+
+    let api = ort::api();
+    let mut adapters = Vec::new();
+    for device in environment()?.devices() {
+        let hardware = device.hardware_device();
+        if device.ep().ok() != Some("DmlExecutionProvider") || hardware.ty() != DeviceType::GPU {
+            continue;
+        }
+        // SAFETY: the device and its metadata live as long as the environment, which is never
+        // released; a key ONNX Runtime does not set gives a null pointer.
+        let metadata = unsafe { (api.HardwareDevice_Metadata)(hardware.ptr()) };
+        let value = |key: &CStr| -> Option<String> {
+            if metadata.is_null() {
+                return None;
+            }
+            let text = unsafe { (api.GetKeyValue)(metadata, key.as_ptr()) };
+            (!text.is_null()).then(|| unsafe { CStr::from_ptr(text) }.to_string_lossy().into_owned())
+        };
+        adapters.push(DirectMlAdapter {
+            name: value(c"Description").unwrap_or_default(),
+            discrete: value(c"Discrete").and_then(|text| match text.as_str() {
+                "1" => Some(true),
+                "0" => Some(false),
+                _ => None,
+            }),
+            high_performance_index: value(c"DxgiHighPerformanceIndex").and_then(|text| text.parse().ok()),
+        });
+    }
+    Ok(adapters)
+}
+
 fn first_output(outputs: &ort::session::SessionOutputs, name: &str) -> Result<(Vec<usize>, Vec<f32>)> {
     let value = outputs.get(name).ok_or_else(|| Error::Backend(format!("the graph has no output named {name}")))?;
     let (shape, data) = value.try_extract_tensor::<f32>().map_err(backend)?;

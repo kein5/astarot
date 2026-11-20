@@ -48,9 +48,10 @@ thiserror = "2"
 
 # DirectML (`Device::DirectMl`): only the Rust side of the provider; whether it runs depends on
 # the ONNX Runtime library that is loaded (the DirectML build). Windows only, as in
-# native/translate-onnx.
+# native/translate-onnx. API 22 (ONNX Runtime 1.22 or later; the runtimes hold 1.24.4 and
+# 1.31.0) lists the GPUs ONNX Runtime found, to tell an integrated GPU (`backend::directml_adapters`).
 [target.'cfg(windows)'.dependencies]
-ort = { version = "=2.0.0-rc.15", default-features = false, features = ["directml"] }
+ort = { version = "=2.0.0-rc.15", default-features = false, features = ["directml", "api-22"] }
 
 [profile.dev]
 opt-level = 2
