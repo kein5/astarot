@@ -54,7 +54,7 @@ const resolveSpecifier = (from: string, spec: string): string | null => {
 };
 
 const IMPORT = /(?:import|export)\s+(?:type\s+)?([\w$]+\s*,?\s*)?(\{[^}]*\}|\*\s*(?:as\s+[\w$]+)?)?\s*from\s*["']([^"']+)["']/g;
-const names = (braces: string | undefined) => (braces && braces.startsWith("{") ? braces : "").replace(/[{}]/g, "").split(",")
+const names = (braces: string | undefined) => (braces?.startsWith("{") ? braces : "").replace(/[{}]/g, "").split(",")
     .map(part => part.trim().split(/\s+as\s+/)[0].trim()).filter(Boolean);
 
 // The file in a barrel (and the barrels it re-exports) that defines `name`.
@@ -67,10 +67,10 @@ const definingFile = (barrel: string | null, name: string, seen = new Set<string
         const [, , braces, spec] = match;
         const target = resolveSpecifier(barrel, spec);
         if (!target) continue;
-        if (braces && braces.startsWith("{") && names(braces).includes(name)) {
+        if (braces?.startsWith("{") && names(braces).includes(name)) {
             return definingFile(target, name, seen) ?? target;
         }
-        if (braces && braces.startsWith("*")) {
+        if (braces?.startsWith("*")) {
             const found = definingFile(target, name, seen);
             if (found) return found;
         }
@@ -118,7 +118,7 @@ export const scanVrPanelState = () => {
             if (isBarrel && resolved) {
                 const barrel = resolved;
                 // `import * as x` from a barrel could use anything in it: follow the whole barrel.
-                if (braces && braces.startsWith("*")) queue.push(barrel);
+                if (braces?.startsWith("*")) queue.push(barrel);
                 for (const name of names(braces)) {
                     if (CATEGORY_HOOKS[name]) categories.add(CATEGORY_HOOKS[name]);
                     else {
