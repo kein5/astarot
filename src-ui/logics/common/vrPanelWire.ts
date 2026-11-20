@@ -77,7 +77,7 @@ export const encodeLogUpdate = <T>(sent: SentLog<T> | null | undefined, value: L
     const patch = !full && sent?.rows ? diffLogRows(sent.rows, value.data) : null;
     const seq = (sent?.seq ?? 0) + 1;
     // patch is only made when sent has rows, so sent is set whenever patch is.
-    const message: LogUpdateMessage = { [LOG_MARK]: { seq, base: patch ? sent!.seq : null, state: value.state,
+    const message: LogUpdateMessage = { [LOG_MARK]: { seq, base: patch && sent ? sent.seq : null, state: value.state,
         drop: patch?.drop ?? 0, keep: patch?.keep ?? 0, rows: encodeOrdered(patch ? patch.rows : value.data) } };
     return { sent: { seq, rows: value.data } satisfies SentLog<T>, message };
 };

@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect, useCallback } from "react";
+import { useRef, useState, useEffect, useCallback } from "react";
 import type { KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent, ReactNode } from "react";
 import styles from "./Slider.module.scss";
 import clsx from "clsx";
@@ -75,7 +75,7 @@ export const Slider = (props: SliderProps) => {
     const [isHovered, setIsHovered] = useState(false);
     const [isFocused, setIsFocused] = useState(false);
 
-    const decimalPlaces = step && step.toString().includes('.')
+    const decimalPlaces = step?.toString().includes('.')
         ? step.toString().split('.')[1].length
         : 0;
 
@@ -241,7 +241,7 @@ export const Slider = (props: SliderProps) => {
                     ></div>
                 )}
 
-                {marks && marks.map((mark, i) => {
+                {marks?.map((mark, i) => {
                     const markPercent = Math.max(0, Math.min((mark.value - min) / (max - min), 1)) * 100;
                     return (
                         <div

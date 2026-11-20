@@ -61,7 +61,7 @@ const MarqueeText = ({ children, speed = 40, shouldAnimate = false, className = 
         const runOnce = () => {
             if (stopped) return;
             const curOverflow = content.scrollWidth - container.clientWidth;
-            const movePx = curOverflow > 0 ? curOverflow : 0;
+            const movePx = Math.max(curOverflow, 0);
             const duration = movePx / speed; // seconds
 
             // move left

@@ -62,7 +62,9 @@ export function languageJumpGroups(displayNames: readonly unknown[], uiLanguage?
         const id = groupFor(String(name ?? "").trim()) ?? "other";
         if (!firstIndexes.has(id)) firstIndexes.set(id, index);
     });
-    // The filter keeps only ids that are in firstIndexes.
-    return [...order, "other"].filter(id => firstIndexes.has(id))
-        .map(id => ({ id, index: firstIndexes.get(id)! }));
+    // Only the ids that some name falls in.
+    return [...order, "other"].flatMap(id => {
+        const index = firstIndexes.get(id);
+        return index === undefined ? [] : [{ id, index }];
+    });
 }

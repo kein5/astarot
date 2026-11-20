@@ -78,7 +78,7 @@ export const HotkeysEntry = (props: HotkeysEntryProps) => {
 
         (["Ctrl", "Shift", "Alt", "Meta"] as const).forEach((modKey) => {
             if (event[MODIFIER_FLAGS[modKey]] && !keys.includes(modKey)) {
-                let register_mod_key =  (modKey === "Meta") ? "Super" : modKey;
+                const register_mod_key =  (modKey === "Meta") ? "Super" : modKey;
                 keys.push(register_mod_key);
             }
         });

@@ -1,6 +1,4 @@
 import { createLanguageNames } from "../../../../../../logics/common/languageNames.ts";
-import clsx from "clsx";
-import { useEffect, useState } from "react";
 import { useI18n } from "@useI18n";
 import styles from "./Appearance.module.scss";
 import { ui_configs } from "@ui_configs";

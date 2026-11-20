@@ -2122,6 +2122,11 @@ model_catalog:
         list: "リスト"
         facts: "詳細"
         facts_of: "詳細（{{file}}）"
+    # A part's bar of a catalog: how many models (or engines) it has, and how many are on the PC.
+    group_readout_one: "{{count}}モデル · 取得済み {{obtained}}"
+    group_readout_other: "{{count}}モデル · 取得済み {{obtained}}"
+    engines_readout_one: "{{count}}件"
+    engines_readout_other: "{{count}}件"
     group:
         japanese: "日本語の読み上げ"
         multilingual: "日本語以外の読み上げ"
@@ -2287,6 +2292,9 @@ user_models:
 
 # 翻訳のカタログ（#413）。翻訳するものを2つのグループに分け、利用者が足した項目も並べる。
 translation_catalog:
+    # A group's bar: how many entries it has, the user's and the app's.
+    group_readout_one: "{{count}}件"
+    group_readout_other: "{{count}}件"
     title: "翻訳のカタログ"
     intro: "翻訳に使うものは2つのグループに分かれます。お使いのPCで動かすモデルと、アプリが呼び出すAPIです。どちらにも自分の項目を追加できます。追加しても項目を覚えるだけで、ダウンロードや切り替えはしません。"
     loading: "翻訳のカタログを読み込んでいます。"
