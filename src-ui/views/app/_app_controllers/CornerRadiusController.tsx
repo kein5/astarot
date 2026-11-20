@@ -54,5 +54,5 @@ export const CornerRadiusController = () => {
         document.body.style.borderRadius = radius;
     }, [is_win11, is_maximized]);
 
-    return null;;
+    return null;
 }

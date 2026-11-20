@@ -582,7 +582,7 @@ const PlamoModelContainer = () => {
     };
 
 
-    let selected_label = (!currentPlamoAuthKey.data && !currentSelectedPlamoModel.data) ? t("config_page.common.correct_auth_key_required") : currentSelectedPlamoModel.data;
+    const selected_label = (!currentPlamoAuthKey.data && !currentSelectedPlamoModel.data) ? t("config_page.common.correct_auth_key_required") : currentSelectedPlamoModel.data;
 
 
     return (
@@ -643,7 +643,7 @@ const GeminiModelContainer = () => {
         setSelectedGeminiModel(selected_data.selected_id);
     };
 
-    let selected_label = (!currentGeminiAuthKey.data && !currentSelectedGeminiModel.data)
+    const selected_label = (!currentGeminiAuthKey.data && !currentSelectedGeminiModel.data)
         ? t("config_page.common.correct_auth_key_required")
         : currentSelectedGeminiModel.data;
 
@@ -704,7 +704,7 @@ const OpenAIModelContainer = () => {
         setSelectedOpenAIModel(selected_data.selected_id);
     };
 
-    let selected_label = (!currentOpenAIAuthKey.data && !currentSelectedOpenAIModel.data)
+    const selected_label = (!currentOpenAIAuthKey.data && !currentSelectedOpenAIModel.data)
         ? t("config_page.common.correct_auth_key_required")
         : currentSelectedOpenAIModel.data;
 
@@ -765,7 +765,7 @@ const GroqModelContainer = () => {
         setSelectedGroqModel(selected_data.selected_id);
     };
 
-    let selected_label = (!currentGroqAuthKey.data && !currentSelectedGroqModel.data)
+    const selected_label = (!currentGroqAuthKey.data && !currentSelectedGroqModel.data)
         ? t("config_page.common.correct_auth_key_required")
         : currentSelectedGroqModel.data;
 
@@ -826,7 +826,7 @@ const OpenRouterModelContainer = () => {
         setSelectedOpenRouterModel(selected_data.selected_id);
     };
 
-    let selected_label = (!currentOpenRouterAuthKey.data && !currentSelectedOpenRouterModel.data)
+    const selected_label = (!currentOpenRouterAuthKey.data && !currentSelectedOpenRouterModel.data)
         ? t("config_page.common.correct_auth_key_required")
         : currentSelectedOpenRouterModel.data;
 
@@ -907,7 +907,7 @@ const LMStudioModelContainer = () => {
         setSelectedLMStudioModel(selected_data.selected_id);
     };
 
-    let selected_label = (!currentIsLMStudioConnected.data && !currentSelectedLMStudioModel.data)
+    const selected_label = (!currentIsLMStudioConnected.data && !currentSelectedLMStudioModel.data)
         ? t("config_page.translation.select_lmstudio_model.connection_required")
         : currentSelectedLMStudioModel.data;
 
@@ -985,7 +985,7 @@ const OllamaModelContainer = () => {
         setSelectedOllamaModel(selected_data.selected_id);
     };
 
-    let selected_label = (!currentIsOllamaConnected.data && !currentSelectedOllamaModel.data)
+    const selected_label = (!currentIsOllamaConnected.data && !currentSelectedOllamaModel.data)
         ? t("config_page.translation.select_ollama_model.connection_required")
         : currentSelectedOllamaModel.data;
 

@@ -11,6 +11,7 @@ export const isSidecarWarning = (line: unknown): boolean => {
         // ONNX Runtime logs native warnings itself, optionally ANSI-colored:
         // "2026-10-31 10:57:46.65 [W:onnxruntime:Default, file.cc:95 Fn] ..."
         return /^.+:\d+:\s+[A-Za-z]\w*Warning:\s/.test(line)
+            // biome-ignore lint/suspicious/noControlCharactersInRegex: \x1b starts the ANSI color the line may begin with.
             || /^(?:\x1b\[[0-9;]*m)?\d{4}-\d\d-\d\d [\d:.]+ \[W:onnxruntime:/.test(line);
     }
 };

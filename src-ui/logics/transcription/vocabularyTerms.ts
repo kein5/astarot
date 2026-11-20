@@ -12,6 +12,7 @@ const length = (text: string): number => [...text].length;
 
 // The canonical entry, or null when the core would refuse it.
 export const parseTerm = (value: string): string | null => {
+    // biome-ignore lint/suspicious/noControlCharactersInRegex: a term with a control character is what it refuses.
     if (/[\u0000-\u001f\u007f]/.test(value)) return null;
     const trimmed = value.trim();
     const at = trimmed.indexOf("=");

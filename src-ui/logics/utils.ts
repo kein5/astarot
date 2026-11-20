@@ -12,7 +12,7 @@ export const deviceOptionsToObject = (devices: readonly DeviceOption[]): Record<
     const counts = new Map<string, number>();
     for (const device of devices) counts.set(device.label, (counts.get(device.label) ?? 0) + 1);
     return Object.fromEntries(devices.map(({ id, label }) => [id,
-        counts.get(label)! > 1 ? `${label} (${id})` : label,
+        (counts.get(label) ?? 0) > 1 ? `${label} (${id})` : label,
     ]));
 };
 

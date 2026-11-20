@@ -57,7 +57,7 @@ async function fixture(context: TestContext) {
     const configs: Record<string, unknown> = { useTranslation: () => translation, ocrStartErrorKey: () => null, ocrShouldRestoreSharedWindow: () => false };
     for (const name of ["Transcription", "Others", "Ocr", "OcrSharedWindow", "AdvancedSettings"]) configs[`use${name}`] = () => api({});
     const common: Record<string, unknown> = { useNotificationStatus: () => api({
-        showNotification_Error: (message: unknown, options?: { category_id?: unknown }) => notices.push(["error", options?.category_id]),
+        showNotification_Error: (_message: unknown, options?: { category_id?: unknown }) => notices.push(["error", options?.category_id]),
         showNotification_Success: (message: unknown) => notices.push(["success", message]),
     }) };
     for (const name of ["Volume", "LLMConnection", "IsSoftwareUpdating"]) common[`use${name}`] = () => api({});

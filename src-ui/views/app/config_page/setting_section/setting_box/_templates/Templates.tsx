@@ -3,7 +3,7 @@ import { useId } from "react";
 import type { ComponentType, ReactNode } from "react";
 
 import styles from "./Templates.module.scss";
-import { useStore_IsOpenedDropdownMenu, useStore_IsBreakPoint } from "@store";
+import { useStore_IsBreakPoint } from "@store";
 import {
     LabelComponent,
     DropdownMenu,
