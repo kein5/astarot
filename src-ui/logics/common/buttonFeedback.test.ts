@@ -83,6 +83,8 @@ async function load<M>(path: string, runtime: LocalRuntime, imports: Record<stri
         if (name.endsWith(".css.ts") && !(name in dependencies)) return new Proxy({}, { get: (_, key) => key === "__esModule" ? true : key });
         if (name.endsWith(".svg?react")) return icon;
         if (name in dependencies) return dependencies[name];
+        // The common tooltip around a control: an element that keeps its words and its control (as hookHarness draws it).
+        if (/^(\.\.?\/)+common_components\/tooltip\/Tooltip$/.test(name)) return { Tooltip: "tooltip" };
         // A TypeScript view names its relative imports with their extension.
         const base = name.replace(/\.[jt]sx?$/, "");
         if (/^\.\.?\//.test(name) && base in dependencies) return dependencies[base];

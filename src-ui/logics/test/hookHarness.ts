@@ -147,6 +147,10 @@ export async function loadModule<M = Record<string, unknown>>(url: URL, runtime:
         if (name.endsWith(".css.ts") && !(name in dependencies)) return new Proxy({}, { get: (_, key) => key === "__esModule" ? true : key });
         if (name.endsWith(".svg?react")) return () => null;
         if (name in dependencies) return dependencies[name];
+        // The common tooltip around a control, unless the test hands in its own: an element named
+        // "tooltip" that keeps its words (title), its side and the control it wraps, so a test reads
+        // what the bubble says without a page to draw it on.
+        if (/^(\.\.?\/)+(views\/)?common_components\/tooltip\/Tooltip(\.tsx)?$/.test(name)) return { Tooltip: "tooltip" };
         // While modules move from .js to .ts (ADR-010), a test may still name a dependency
         // with its old extension, or with none, as the importing module once did.
         const base = name.replace(/\.[jt]sx?$/, "");
