@@ -1,0 +1,66 @@
+# osv-scanner's exceptions (python tools/dev.py check --scope vulns; docs/development.md,
+# "リポジトリの検査"). Decided on 2026-11-21 in #835: a notice that cannot be fixed now is listed
+# here with its reason and the day to look at it again (ignoreUntil); any other notice fails the
+# check. On that day the exception ends and the check fails until it is looked at again: fixed,
+# or listed again with a new day and the reason it still holds.
+#
+# None of these has a release that fixes it by updating within the same major version. Each was
+# checked on 2026-11-21 with `cargo tree -i` in the workspaces that hold it.
+
+# chrono: unmaintained (alternatives: jiff, time). vrct-core and vrct-ops call it themselves, so
+# the way out is to move that code to another crate; until that is planned it stays here.
+[[IgnoredVulns]]
+id = "RUSTSEC-2026-0543"
+ignoreUntil = 2027-02-21
+reason = "chrono is unmaintained; vrct-core and vrct-ops use it directly and a move to jiff or time is not planned yet"
+
+# ttf-parser: unmaintained (alternative: skrifa). It comes through ab_glyph, which draws the VR
+# subtitles in vrct-vr-overlay; leaving it means changing how the subtitles are drawn.
+[[IgnoredVulns]]
+id = "RUSTSEC-2026-0192"
+ignoreUntil = 2027-02-21
+reason = "ttf-parser comes through ab_glyph (vrct-vr-overlay's subtitles); no ab_glyph release leaves it"
+
+# zbus_names, zvariant, zvariant_derive: no longer separate crates; zbus 6 holds them. zbus 5
+# comes from vrct-core's Secret Service code, from the Tauri app's own crate (vrct-vox), and from
+# tauri-plugin-opener and tauri-plugin-single-instance, so the app keeps them until those plugins
+# move to zbus 6 too.
+[[IgnoredVulns]]
+id = "RUSTSEC-2026-0371"
+ignoreUntil = 2027-02-21
+reason = "zbus_names is part of zbus 6; zbus 5 comes from vrct-core, vrct-vox and Tauri's opener and single-instance plugins"
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2026-0370"
+ignoreUntil = 2027-02-21
+reason = "zvariant is part of zbus 6; zbus 5 comes from vrct-core, vrct-vox and Tauri's opener and single-instance plugins"
+
+[[IgnoredVulns]]
+id = "RUSTSEC-2026-0372"
+ignoreUntil = 2027-02-21
+reason = "zvariant_derive is part of zbus 6; zbus 5 comes from vrct-core, vrct-vox and Tauri's opener and single-instance plugins"
+
+# paste: unmaintained. It comes through tokenizers (the local translation's tokenizer).
+[[IgnoredVulns]]
+id = "RUSTSEC-2024-0436"
+ignoreUntil = 2027-02-21
+reason = "paste comes through tokenizers 0.23 (the local translation); no tokenizers release leaves it"
+
+# glib 0.18: unsound VariantStrIter, fixed in glib 0.20. It comes through GTK 3 (atk, cairo-rs,
+# gdk), which the Tauri app builds on for Linux; the GTK 3 bindings end at 0.18, so the app keeps
+# glib 0.18 while Tauri builds on GTK 3.
+[[IgnoredVulns]]
+id = "RUSTSEC-2024-0429"
+ignoreUntil = 2027-02-21
+reason = "glib 0.18 comes through GTK 3 (the Tauri app on Linux), whose bindings end at 0.18; the fix is in glib 0.20"
+
+[[IgnoredVulns]]
+id = "GHSA-wrw7-89jp-8q8g"
+ignoreUntil = 2027-02-21
+reason = "The same notice as RUSTSEC-2024-0429 (glib 0.18 through GTK 3)"
+
+# proc-macro-error: unmaintained. It comes through glib-macros and gtk3-macros (GTK 3).
+[[IgnoredVulns]]
+id = "RUSTSEC-2024-0370"
+ignoreUntil = 2027-02-21
+reason = "proc-macro-error comes through glib-macros and gtk3-macros (GTK 3, the Tauri app on Linux)"

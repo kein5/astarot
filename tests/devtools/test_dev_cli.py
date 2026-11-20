@@ -329,8 +329,21 @@ class DeveloperCLITests(unittest.TestCase):
             self.assertEqual(self.call("check", "--scope", "vulns")[0], 0)
         argv = run.call_args.args[0]
         # setUp writes a package-lock.json; site/ and the other workspaces have none here.
-        self.assertEqual(argv[1:], ["scan", "source", "--lockfile", "uv.lock", "--lockfile", "package-lock.json",
-                                    "--lockfile", "native/core/Cargo.lock"])
+        self.assertEqual(argv[1:], ["scan", "source", "--config", "osv-scanner.toml", "--lockfile", "uv.lock",
+                                    "--lockfile", "package-lock.json", "--lockfile", "native/core/Cargo.lock"])
+
+    def test_each_vulnerability_exception_says_why_and_when_to_look_again(self):
+        # osv-scanner.toml (#835): a notice that cannot be fixed now is listed with its reason
+        # and a day to look at it again; on that day the exception ends and the check fails.
+        import datetime
+        config = tomllib.loads((ROOT / "osv-scanner.toml").read_text(encoding="utf-8"))
+        entries = config["IgnoredVulns"]
+        self.assertTrue(entries)
+        self.assertEqual(len({entry["id"] for entry in entries}), len(entries), "each notice once")
+        for entry in entries:
+            self.assertEqual(set(entry), {"id", "ignoreUntil", "reason"}, entry["id"])
+            self.assertIsInstance(entry["ignoreUntil"], datetime.date, entry["id"])
+            self.assertTrue(entry["reason"].strip(), entry["id"])
 
     def test_browser_setup_adds_dependencies_to_explicit_existing_python(self):
         code, output = self.call("setup", "--scope", "browser", "--python",
