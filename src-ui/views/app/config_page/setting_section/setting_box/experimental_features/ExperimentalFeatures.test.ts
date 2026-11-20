@@ -25,6 +25,12 @@ interface Monitor {
     primary: boolean;
 }
 
+// The page shows its descriptions as hints (#614): the list is drawn inside HintDescriptions.
+const inside = (page: TreeNode): TreeNode => {
+    assert.equal(page.type, "hints");
+    return page.props.children;
+};
+
 async function load(context: TestContext, registryModule: typeof registry = registry) {
     const runtime = hooks();
     context.onTestFinished(() => runtime.unmount());
@@ -44,9 +50,10 @@ async function load(context: TestContext, registryModule: typeof registry = regi
         [REGISTRY_PATH]: registryModule,
         "../_templates/Templates": { CheckboxContainer: "checkbox", DropdownMenuContainer: "dropdown", ActionButtonContainer: "action" },
         "../_components": { SectionLabelComponent: "heading" },
+        "../_components/hint/Hint": { HintDescriptions: "hints" },
         "../../../../../../logics/companion/hexagram.ts": hexagram,
     });
-    const render = (props: ListProps) => runtime.render(module.ExperimentalFeatureList, props);
+    const render = (props: ListProps): TreeNode => inside(runtime.render(module.ExperimentalFeatureList, props));
     return { module, runtime, render, writes, current, vrPanel, vrPanelToggles, sent };
 }
 
@@ -117,7 +124,7 @@ test("every listed feature has a name and a description in English and Japanese"
 test("the tray companion is listed and stays off until the user turns it on", async context => {
     const s = await load(context);
     const tree = s.runtime.render(s.module.ExperimentalFeatures, {});
-    const list = draw(tree);
+    const list = inside(draw(tree));
     const switches = children(list).filter(item => item.type === "checkbox");
     assert.deepEqual(switches.map(item => item.props.setting_id), ["experimental_features.tray_companion"]);
     assert.equal(switches[0].props.label, "config_page.experimental_features.items.tray_companion.label");
@@ -232,7 +239,7 @@ test("when the monitor list cannot be read, the chosen monitor says so instead o
 test("#554 (Q-05): the VR panel is listed with the features on trial and keeps its own saved switch", async context => {
     const s = await load(context);
     const tree = s.runtime.render(s.module.ExperimentalFeatures, {});
-    const list = draw(tree);
+    const list = inside(draw(tree));
     const item = flat(list).find(node => typeof node.type === "function" && node.props.current === s.vrPanel);
     assert.ok(item, "the page lists the VR panel");
     const off = drawWith(s.runtime, item);
@@ -266,4 +273,26 @@ test("the page is not empty while the VR panel is listed", async context => {
     const vrPanel = { current: { state: "ok", data: false }, toggle: () => {}, resetLauncher: () => {} };
     const list = s.render({ features: [], current: s.current, setValues: () => {}, vrPanel });
     assert.equal(children(list).some(item => item.props?.children === "config_page.experimental_features.empty"), false);
+});
+
+// #614: the features' descriptions are their labels' hints. The tray companion's stays on screen:
+// it says the app starts in the tray from then on, which is read before it is turned on.
+test("the features' descriptions are left to become hints, except the tray companion's", async context => {
+    const s = await load(context);
+    const tray = children(inside(draw(s.runtime.render(s.module.ExperimentalFeatures, {})))).filter(item => item.type === "checkbox");
+    assert.deepEqual(tray.map(item => [item.props.setting_id, item.props.keep_desc]), [["experimental_features.tray_companion", true]]);
+    // A feature that changes nothing about the start keeps no description on screen.
+    const fake = await load(context, fakeRegistry);
+    const others = children(fake.render({ features: FAKE_IDS.map(id => ({ id })), current: fake.current, setValues: () => {} }))
+        .filter(item => item.type === "checkbox");
+    assert.deepEqual(others.map(item => item.props.keep_desc), [false, false]);
+    // The VR panel and the settings under a feature that is on: descriptions, and no keep.
+    const list = s.render({ features: [{ id: "tray_companion" }], current: { state: "ok", data: { tray_companion: true } }, setValues: () => {},
+        edge: { current: { state: "ok", data: "right" }, set: () => {} }, vrPanel: { current: { state: "ok", data: true }, toggle: () => {}, resetLauncher: () => {} } });
+    const rows = children(list).filter(item => typeof item.type === "function").flatMap(item => { s.runtime.remount(); return [drawWith(s.runtime, item)].flatMap(drawn => drawn.type === "div" ? flat(drawn) : [drawn]); });
+    assert.deepEqual(rows.map(row => [row.props.setting_id, typeof row.props.desc, row.props.keep_desc]), [
+        ["experimental_features.tray_companion.edge", "string", undefined],
+        ["experimental_features.vr_panel", "string", undefined],
+        ["experimental_features.vr_panel.reset_launcher", "string", undefined],
+    ]);
 });
