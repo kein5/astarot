@@ -47,6 +47,7 @@ miseを[公式の手順](https://mise.jdx.dev/getting-started.html)で入れ、�
 | Python | 3.14.10 | ビルドの道具と試験に使う。`pyproject.toml` の `requires-python` には同じマイナー版（3.14）を書く。0.5.0から配布物にPythonは入らない |
 | uv | 0.13.5 | |
 | Cocogitto | 7.0.0 | コマンド名は `cog` |
+| Biome | 2.6.6 | UIのTypeScriptとJavaScriptのlintと整形（[UIのlintと整形](#uiのlintと整形biome)） |
 | actionlint | 1.7.12 | ワークフローの書き方を確かめる |
 | zizmor | 1.32.0 | ワークフローの安全の問題を確かめる |
 | cargo-deny | 0.20.2 | Rustのクレートのライセンス、既知の脆弱性、取得元を確かめる |
@@ -60,7 +61,7 @@ miseを[公式の手順](https://mise.jdx.dev/getting-started.html)で入れ、�
 
 版の正本は `mise.toml` です。上の表は説明のために写したもので、食い違ったら `mise.toml` が正しいです。`mise.lock` はRust以外のツールの取得元のURLとSHA-256を、LinuxとWindowsのそれぞれについて記録しています。版を変えるときは `mise.toml` を書き換え、`mise lock --platform linux-x64,windows-x64` で `mise.lock` を作り直します。CIはこの2つのファイルから同じ版を入れます（後述）。`tests/devtools/test_toolchain_pins.py` は、版が完全に固定されていること、`mise.lock` と一致すること、ワークフローがmiseの外で版を決めていないことを確かめます。
 
-道具の版は、公開から14日（2週間）以上たった最新の版から選びます。`mise.toml` の道具も、Biomeのようにnpmなどで入れる開発の道具も同じで、足すときも、版を上げるときも同じです。出たばかりの版が取り下げられたり、乗っ取られて差し替えられたりしたときに、巻き込まれないためです。この決まりは2026-11-20に #828 で決めたもので（元は #582）、2026-11-21に #832 で、ここに書きました。
+道具の版は、公開から14日（2週間）以上たった最新の版から選びます。`mise.toml` で固定する道具（Biomeを含む）も、npmなどで入れる開発の道具も同じで、足すときも、版を上げるときも同じです。出たばかりの版が取り下げられたり、乗っ取られて差し替えられたりしたときに、巻き込まれないためです。この決まりは2026-11-20に #828 で決めたもので（元は #582）、2026-11-21に #832 で、ここに書きました。
 
 uvはmise以外で入れたPython（uvが自分で取得したものを含む）を先に見つけることがあります。環境を作るタスク（`setup:*`）は `UV_PYTHON_PREFERENCE=only-system` を付けて、PATHにあるmiseのPythonを使わせます。uvのコマンドにはPythonの版を書きません（`--python 3.14` などを付けない）。uvは `pyproject.toml` の `requires-python` に合うPythonをPATHから選び、`tools/dev.py` は `mise.toml` の版を読みます。Pythonの版を上げるときに書き換えるのは、`mise.toml`、`mise.lock`、`pyproject.toml` の `requires-python`、`uv.lock` です。`tests/devtools/test_toolchain_pins.py` は、CI、タスク、bat、`tools/dev.py` がuvに版を渡していないことも確かめます。`mise.toml` の `[env]` にはuvの設定を置いていません。`[env]` の値はmiseが起動するすべてのプログラムに引き継がれるため、環境を作るタスクだけが自分で設定します。
 
