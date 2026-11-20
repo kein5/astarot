@@ -1,26 +1,52 @@
 import assert from "node:assert/strict";
 import { test, vi } from "vitest";
-import { hooks, loadModule, find, stubGlobals } from "../../../../../../logics/test/hookHarness.ts";
+import type { TestContext } from "vitest";
+import { hooks, loadModule, find, stubGlobals, unchecked } from "../../../../../../logics/test/hookHarness.ts";
+import type { TreeNode } from "../../../../../../logics/test/hookHarness.ts";
 import { rebaseDraft } from "../../../../../../logics/voice/draftRebase.ts";
 import * as vocabularyTerms from "../../../../../../logics/transcription/vocabularyTerms.ts";
+import type { RealtimeAsrSettings } from "../../../../../../logics/transcription/useRealtimeASR.ts";
+
+// The node the test reads next: one that is not there fails here, as reading it did.
+const must = (node: TreeNode | null) => {
+    assert.ok(node);
+    return node;
+};
+
+// The realtime ASR hook, as far as the page reads it in these tests.
+interface Asr {
+    settings: RealtimeAsrSettings;
+    state: Record<string, unknown>;
+    endpoints: Record<string, unknown>;
+    models: Record<string, unknown>;
+    error: string | null;
+    send: (endpoint: string, data?: unknown) => unknown;
+    updateError: (error: string | null) => void;
+}
+interface Listener {
+    type: string;
+    fn: (event: unknown) => void;
+    capture: boolean;
+}
+type Reply = (answer: { status: number; result: unknown }) => void;
 
 // hints: whether the page keeps descriptions out of sight (#614).
-async function fixture(context, { hints = false } = {}) {
+async function fixture(context: TestContext, { hints = false }: { hints?: boolean } = {}) {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
-    const runtime = hooks(), barRuntime = hooks(), calls = [], listeners = [], responses = [];
+    const runtime = hooks(), barRuntime = hooks(), calls: [string, unknown][] = [], listeners: Listener[] = [], responses: Reply[] = [];
     const window = {
-        addEventListener(type, fn, options) { listeners.push({ type, fn, capture: !!options?.capture }); },
-        removeEventListener(type, fn) { const i = listeners.findIndex(row => row.type === type && row.fn === fn); if (i >= 0) listeners.splice(i, 1); },
-        dispatch(type, event) { [...listeners].sort((a, b) => Number(b.capture) - Number(a.capture))
+        addEventListener(type: string, fn: Listener["fn"], options?: { capture?: boolean }) { listeners.push({ type, fn, capture: !!options?.capture }); },
+        removeEventListener(type: string, fn: Listener["fn"]) { const i = listeners.findIndex(row => row.type === type && row.fn === fn); if (i >= 0) listeners.splice(i, 1); },
+        dispatch(type: string, event: unknown) { [...listeners].sort((a, b) => Number(b.capture) - Number(a.capture))
             .filter(row => row.type === type).forEach(row => row.fn(event)); },
     };
     stubGlobals(context, { window });
     runtime.api.useSyncExternalStore = (_, snapshot) => snapshot();
-    const saveBar = await loadModule(new URL("../../../../../../logics/voice/saveBar.ts", import.meta.url), runtime);
+    const saveBar = await loadModule<typeof import("../../../../../../logics/voice/saveBar.ts")>(new URL("../../../../../../logics/voice/saveBar.ts", import.meta.url), runtime);
     const draftHooks = await loadModule(new URL("../../../../../../logics/voice/useSettingsDraft.tsx", import.meta.url), runtime, {
         "./draftRebase": { rebaseDraft }, "./saveBar": saveBar,
     });
-    const asr = {
+    const asr: Asr = {
         settings: { server: "external", base_url: "http://localhost:8080", model: "asr-model",
             mic: { endpoint: null, follow_default: true, language: "ja" },
             speaker: { endpoint: null, follow_default: true, language: "ja" },
@@ -34,9 +60,9 @@ async function fixture(context, { hints = false } = {}) {
         updateError: error => { asr.error = error; },
     };
     const speech = { state: {}, send: () => {} };
-    const { RealtimeASRSettings } = await loadModule(new URL("./RealtimeASRSettings.tsx", import.meta.url), runtime, {
-        "@useI18n": { useI18n: () => ({ t: key => key, i18n: { language: "ja" } }) },
-        "../../../../../../logics/common/languageNames.ts": { createLanguageNames: () => ({ fromCode: code => code }) },
+    const { RealtimeASRSettings } = await loadModule<typeof import("./RealtimeASRSettings.tsx")>(new URL("./RealtimeASRSettings.tsx", import.meta.url), runtime, {
+        "@useI18n": { useI18n: () => ({ t: (key: string) => key, i18n: { language: "ja" } }) },
+        "../../../../../../logics/common/languageNames.ts": { createLanguageNames: () => ({ fromCode: (code: string) => code }) },
         "../../../../../../logics/transcription/useRealtimeASR": { useRealtimeASR: () => asr },
         "../../../../../../logics/voice/useSpeechServers": { useSpeechServers: () => speech },
         "../../../../../../logics/voice/useSettingsDraft": draftHooks,
@@ -49,32 +75,39 @@ async function fixture(context, { hints = false } = {}) {
         "./VocabularyBulk.tsx": { VocabularyBulk: "vocabulary-bulk" },
         "../../../../../../logics/transcription/vocabularyTerms.ts": vocabularyTerms,
     });
-    const { SaveBar } = await loadModule(new URL("../../../topbar/Topbar.tsx", import.meta.url), barRuntime, {
+    const { SaveBar } = await loadModule<typeof import("../../../topbar/Topbar.tsx")>(new URL("../../../topbar/Topbar.tsx", import.meta.url), barRuntime, {
         "@logics_common": {}, "../../../../logics/voice/saveBar": saveBar, "../../others/stop_actions/StopActions": {},
         "@store": { useStore_SelectedConfigTabId: () => ({ currentSelectedConfigTabId: { data: "transcription" } }) },
     });
-    let dialogProps;
-    const modal = { open: false, showModal() { this.open = true; }, close() { this.open = false; dialogProps.onClose(); } };
+    let dialogProps: { onClose: () => void } | null = null;
+    const modal = { open: false, showModal() { this.open = true; }, close() { this.open = false; assert.ok(dialogProps); dialogProps.onClose(); } };
     const bar = () => barRuntime.render(SaveBar, {}, tree => {
         const dialog = find(tree, node => node.type === "dialog");
-        if (dialog) { dialog.ref.current = modal; dialogProps = dialog.props; }
+        // The dialog's ref, which React would fill with the element: the stub stands in for it.
+        if (dialog) { unchecked<{ current: unknown }>(Reflect.get(dialog, "ref")).current = modal; dialogProps = dialog.props; }
     });
     const render = () => { runtime.render(RealtimeASRSettings); return runtime.render(RealtimeASRSettings); };
-    const field = label => find(render(), node => node.type === "input" && node.props["aria-label"] === label).props;
+    const field = (label: string) => must(find(render(), node => node.type === "input" && node.props["aria-label"] === label)).props;
     const entries = () => saveBar.useSaveBarEntries();
-    const status = () => find(bar(), node => node.props?.role === "status").props.children;
+    const status = () => must(find(bar(), node => node.props?.role === "status")).props.children;
     const changeURL = () => { field("realtime.url").onChange({ target: { value: "http://localhost:9090" } }); render(); };
-    const writes = () => calls.filter(([endpoint]) => endpoint.startsWith("/set/"));
-    const acknowledge = async value => {
+    // The page writes nothing but its settings, whole.
+    const writes = () => unchecked<[string, RealtimeAsrSettings][]>(calls.filter(([endpoint]) => endpoint.startsWith("/set/")));
+    const reply = () => {
+        const respond = responses.shift();
+        assert.ok(respond);
+        return respond;
+    };
+    const acknowledge = async (value: RealtimeAsrSettings) => {
         asr.settings = value;
-        responses.shift()({ status: 200, result: value });
+        reply()({ status: 200, result: value });
         for (let i = 0; i < 10; i++) await Promise.resolve();
         render();
     };
     // The backend refuses a write with its error code and a non-200 reply to that write.
-    const refuse = async code => {
+    const refuse = async (code: string) => {
         asr.error = code;
-        responses.shift()({ status: 400, result: { error_code: code } });
+        reply()({ status: 400, result: { error_code: code } });
         for (let i = 0; i < 10; i++) await Promise.resolve();
         render();
     };
@@ -89,9 +122,9 @@ test("realtime drafts register and unregister with the shared save bar, includin
     assert.equal(s.status(), "voice_ui.saved");
     s.changeURL();
     let tree = s.render();
-    find(tree, node => node.type === "input" && node.props.maxLength === 320).props.onChange({ target: { value: "VRChat=ブイアールチャット" } });
+    must(find(tree, node => node.type === "input" && node.props.maxLength === 320)).props.onChange({ target: { value: "VRChat=ブイアールチャット" } });
     tree = s.render();
-    find(tree, node => node.type === "button" && node.props.children === "realtime.vocabulary_add").props.onClick();
+    must(find(tree, node => node.type === "button" && node.props.children === "realtime.vocabulary_add")).props.onClick();
     tree = s.render();
     assert.equal(tree.props["data-unsaved"], true);
     assert.deepEqual(s.entries()[0].changes, ["realtime.url", "realtime.vocabulary_user"]);
@@ -107,21 +140,21 @@ test("terms added together join the draft and the save bar like one added term",
     // #446: the bulk add hands the whole list to the form; nothing is saved until the bar saves.
     const s = await fixture(context);
     let tree = s.render();
-    const bulk = find(tree, node => node.type === "vocabulary-bulk");
+    const bulk = must(find(tree, node => node.type === "vocabulary-bulk"));
     assert.deepEqual(bulk.props.terms, []);
     bulk.props.onTerms(["VRChat=ブイアールチャット", "Midnight Rooftop"]);
     tree = s.render();
-    assert.deepEqual(find(tree, node => node.type === "vocabulary-bulk").props.terms, ["VRChat=ブイアールチャット", "Midnight Rooftop"]);
+    assert.deepEqual(must(find(tree, node => node.type === "vocabulary-bulk")).props.terms, ["VRChat=ブイアールチャット", "Midnight Rooftop"]);
     assert.deepEqual(s.entries()[0].changes, ["realtime.vocabulary_user"]);
     assert.deepEqual(s.writes(), [], "adding never submits");
     // The single add takes an entry in the canonical form and refuses one already listed.
-    const input = () => find(s.render(), node => node.type === "input" && node.props.maxLength === 320).props;
-    const add = () => find(s.render(), node => node.type === "button" && node.props.children === "realtime.vocabulary_add").props;
+    const input = () => must(find(s.render(), node => node.type === "input" && node.props.maxLength === 320)).props;
+    const add = () => must(find(s.render(), node => node.type === "button" && node.props.children === "realtime.vocabulary_add")).props;
     input().onChange({ target: { value: "vrchat = ぶいちゃ" } });
     assert.equal(add().disabled, true, "the written form is listed already");
     input().onChange({ target: { value: " 猫丸 = ねこまる " } });
     add().onClick();
-    assert.deepEqual(find(s.render(), node => node.type === "vocabulary-bulk").props.terms,
+    assert.deepEqual(must(find(s.render(), node => node.type === "vocabulary-bulk")).props.terms,
         ["VRChat=ブイアールチャット", "Midnight Rooftop", "猫丸=ねこまる"]);
     // The form's listeners go while the window stub is still there.
     s.runtime.unmount();
@@ -143,11 +176,11 @@ test("the shared leave guard blocks category navigation until discard; keep edit
     let tree = leave();
     assert.equal(s.modal.open, true);
     assert.equal(find(s.render(), node => node.type === "dialog"), null, "capture guard owns the one leave dialog");
-    find(tree, node => node.type === "button" && node.props.children === "voice_ui.keep_editing").props.onClick();
+    must(find(tree, node => node.type === "button" && node.props.children === "voice_ui.keep_editing")).props.onClick();
     assert.equal(s.modal.open, false);
     assert.equal(s.field("realtime.url").value, "http://localhost:9090");
     tree = leave();
-    find(tree, node => node.type === "button" && node.props.children === "voice_ui.discard_leave").props.onClick();
+    must(find(tree, node => node.type === "button" && node.props.children === "voice_ui.discard_leave")).props.onClick();
     assert.equal(proceeded, 1);
     assert.equal(s.field("realtime.url").value, "http://localhost:8080");
     s.render();
@@ -160,13 +193,13 @@ for (const method of ["submit", "save bar"]) {
         const s = await fixture(context);
         s.changeURL();
         if (method === "submit") {
-            find(s.render(), node => node.type === "form").props.onSubmit({ preventDefault() {} });
+            must(find(s.render(), node => node.type === "form")).props.onSubmit({ preventDefault() {} });
         } else s.entries()[0].save();
         s.render();
         assert.equal(s.status(), "voice_ui.saving");
         assert.equal(s.field("realtime.url").readOnly, true);
-        assert.equal(find(s.render(), node => node.type === "button" && node.props.type === "submit").props.disabled, true);
-        find(s.render(), node => node.type === "form").props.onSubmit({ preventDefault() {} });
+        assert.equal(must(find(s.render(), node => node.type === "button" && node.props.type === "submit")).props.disabled, true);
+        must(find(s.render(), node => node.type === "form")).props.onSubmit({ preventDefault() {} });
         assert.equal(s.writes().length, 1);
         assert.equal(s.writes()[0][0], "/set/data/realtime_asr_settings");
         assert.equal(s.writes()[0][1].base_url, "http://localhost:9090");
@@ -181,14 +214,14 @@ test("canonical vocabulary acknowledgement clears the save bar and enables realt
     s.asr.state = { mic: { requested: false }, speaker: { requested: false } };
     s.asr.models = { server: "external", configured_url: s.asr.settings.base_url, base_url: s.asr.settings.base_url,
         models: [{ id: "asr-model", languages: ["ja"] }] };
-    find(s.render(), node => node.type === "input" && node.props.maxLength === 320).props.onChange({ target: { value: "VRChat = ブイアールチャット" } });
-    find(s.render(), node => node.type === "button" && node.props.children === "realtime.vocabulary_add").props.onClick();
+    must(find(s.render(), node => node.type === "input" && node.props.maxLength === 320)).props.onChange({ target: { value: "VRChat = ブイアールチャット" } });
+    must(find(s.render(), node => node.type === "button" && node.props.children === "realtime.vocabulary_add")).props.onClick();
     s.render(); s.entries()[0].save(); s.render();
     const sent = s.writes()[0][1];
     await s.acknowledge({ ...sent, vocabulary: { ...sent.vocabulary, terms: ["VRChat=ブイアールチャット"] } });
     assert.equal(s.entries()[0].dirty, false);
     assert.equal(s.status(), "voice_ui.saved");
-    assert.equal(find(s.render(), node => node.type === "button" && node.props.children === "realtime.start_mic").props.disabled, false);
+    assert.equal(must(find(s.render(), node => node.type === "button" && node.props.children === "realtime.start_mic")).props.disabled, false);
     vi.advanceTimersByTime(5000); s.render();
     assert.equal(s.asr.error, null);
 });
@@ -209,7 +242,7 @@ test("rejected and unconfirmed saves keep edits visible and guarded; refresh doe
     s.render();
     assert.equal(s.asr.error, "save_unconfirmed");
     assert.equal(s.status(), "voice_ui.save_failed");
-    const event = { defaultPrevented: false, preventDefault() { this.defaultPrevented = true; } };
+    const event: { defaultPrevented: boolean; returnValue?: unknown; preventDefault(): void } = { defaultPrevented: false, preventDefault() { this.defaultPrevented = true; } };
     s.window.dispatch("beforeunload", event);
     assert.equal(event.defaultPrevented, true);
     assert.equal(event.returnValue, "");
@@ -217,9 +250,9 @@ test("rejected and unconfirmed saves keep edits visible and guarded; refresh doe
     assert.equal(s.status(), "voice_ui.saved");
 });
 
-const silenceSelect = tree => find(tree, node => node.type === "select" && node.props["aria-label"] === "realtime.silence");
-const optionValues = node => {
-    const values = [];
+const silenceSelect = (tree: unknown) => must(find(tree, node => node.type === "select" && node.props["aria-label"] === "realtime.silence"));
+const optionValues = (node: unknown) => {
+    const values: unknown[] = [];
     find(node, child => { if (child.type === "option") values.push(child.props.value); return false; });
     return values;
 };
@@ -264,23 +297,26 @@ for (const hints of [false, true]) test(`${hints ? "hints" : "no hints"}: the ca
     const s = await fixture(context, { hints });
     s.asr.settings = { ...s.asr.settings, server: "bundled" };
     const tree = s.render();
-    const heading = find(tree, node => node.type === "section-label");
+    const heading = must(find(tree, node => node.type === "section-label"));
     assert.equal(heading.props.sub, true);
     assert.equal(heading.props.desc, "realtime.scope\nrealtime.server_help");
-    const row = label => find(tree, node => node.type === "form-row" && node.props.label === label).props;
+    const row = (label: string) => must(find(tree, node => node.type === "form-row" && node.props.label === label)).props;
     assert.equal(row("realtime.model").description, "realtime.auto_help");
     assert.equal(row("realtime.silence").description, "realtime.silence_help");
     // Following the system's default says what that does; the game audio says which output to pick.
     assert.equal(row("realtime.mic_input").description, "realtime.follow_default_help");
     assert.equal(row("realtime.speaker_input").description, "realtime.speaker_help\nrealtime.follow_default_help");
-    const check = find(tree, node => node.type === "hint-check").props;
+    const check = must(find(tree, node => node.type === "hint-check")).props;
     assert.deepEqual([check.label, check.description], ["realtime.start_server", "realtime.start_server_help"]);
-    const descriptions = [];
+    const descriptions: unknown[] = [];
     find(tree, node => { if (node.type === "description") descriptions.push(node.props.text); return false; });
     // Saving before Start is what the disabled Start waits for: it stays in sight.
     assert.deepEqual(descriptions, hints ? ["realtime.save_help"] : ["realtime.vocabulary_help", "realtime.save_help"]);
     const legend = find(tree, node => node.type === "legend" && JSON.stringify(node.props.children).includes("realtime.vocabulary\""));
     const mark = find(legend, node => node.type === "hint");
     assert.equal(Boolean(mark), hints);
-    if (hints) assert.deepEqual([mark.props.text, mark.props.focusable], ["realtime.vocabulary_help", true]);
+    if (hints) {
+        assert.ok(mark);
+        assert.deepEqual([mark.props.text, mark.props.focusable], ["realtime.vocabulary_help", true]);
+    }
 });

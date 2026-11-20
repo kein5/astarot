@@ -2,22 +2,32 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "vitest";
 import yaml from "js-yaml";
-import { hooks, loadModule, find } from "../../../../../../logics/test/hookHarness.ts";
+import { hooks, loadModule, find, unchecked } from "../../../../../../logics/test/hookHarness.ts";
+import type { TreeNode } from "../../../../../../logics/test/hookHarness.ts";
 import * as telemetryToggle from "../../../../../../logics/configs/telemetryToggle.ts";
+
+// The node the test reads next: one that is not there fails here, as reading it did.
+const found = (tree: unknown, predicate: (node: TreeNode) => boolean) => {
+    const node = find(tree, predicate);
+    assert.ok(node);
+    return node;
+};
+// One level down a locale file's tree; a key that is not there reads as undefined.
+const child = (value: unknown, key: string): unknown => typeof value === "object" && value !== null ? Reflect.get(value, key) : undefined;
 
 // Settings → Advanced, "Send usage data". ENABLE_TELEMETRY starts true, and before the one-time
 // notice is answered nothing is sent: the switch showed on, and pressing it answered "don't send".
-async function render({ enabled, pending }) {
-    const runtime = hooks(), calls = [];
+async function render({ enabled, pending }: { enabled: boolean; pending: boolean }) {
+    const runtime = hooks(), calls: unknown[][] = [];
     const others = {
         currentTelemetry: { state: "ok", data: enabled },
         currentTelemetryNotice: { state: "ok", data: { pending, enabled } },
         toggleTelemetry: () => calls.push(["toggle"]),
-        setTelemetryNotice: answer => { calls.push(["answer", answer]); return Promise.resolve(); },
+        setTelemetryNotice: (answer: unknown) => { calls.push(["answer", answer]); return Promise.resolve(); },
         getTelemetry: () => calls.push(["read"]),
     };
     const CheckboxContainer = () => null;
-    const module = await loadModule(new URL("./AdvancedSettings.tsx", import.meta.url), runtime, {
+    const module = await loadModule<typeof import("./AdvancedSettings.tsx")>(new URL("./AdvancedSettings.tsx", import.meta.url), runtime, {
         "./DirectVoiceSettings": { DirectVoiceSettings: () => null },
         "../shared_items/SharedItems": { AutoExportMessageLogsContainer: () => null },
         "../_components/description/Description": { Description: () => null },
@@ -34,9 +44,10 @@ async function render({ enabled, pending }) {
         "../_components": { SectionLabelComponent: () => null },
     });
     const page = runtime.render(module.AdvancedSettings);
-    const Telemetry = find(page, node => node.type?.name === "TelemetryContainer").type;
+    // The page's own telemetry row, a component that takes no props.
+    const Telemetry = unchecked<() => unknown>(found(page, node => typeof node.type === "function" && node.type.name === "TelemetryContainer").type);
     const tree = runtime.render(Telemetry);
-    const checkbox = find(tree, node => node.type === CheckboxContainer);
+    const checkbox = found(tree, node => node.type === CheckboxContainer);
     return { calls, checkbox };
 }
 
@@ -65,8 +76,8 @@ test("once answered the switch shows the setting and works as a switch", async (
 test("the note is worded in both languages", () => {
     for (const name of ["en", "ja"]) {
         const locale = yaml.load(readFileSync(new URL(`../../../../../../../locales/${name}.yml`, import.meta.url), "utf8"));
-        const text = locale.config_page.advanced_settings.telemetry.unanswered;
+        const text = child(child(child(child(locale, "config_page"), "advanced_settings"), "telemetry"), "unanswered");
         assert.equal(typeof text, "string", name);
-        assert.ok(text.length > 10, name);
+        assert.ok(typeof text === "string" && text.length > 10, name);
     }
 });

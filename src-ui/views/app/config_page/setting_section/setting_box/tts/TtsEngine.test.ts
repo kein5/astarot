@@ -1,40 +1,56 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { hooks, loadModule, find } from "../../../../../../logics/test/hookHarness.ts";
+import { hooks, loadModule, find, unchecked } from "../../../../../../logics/test/hookHarness.ts";
+import type { TreeNode } from "../../../../../../logics/test/hookHarness.ts";
+import type { EngineVoices, VoiceSettings } from "../../../../../../logics/voice/useVoice.ts";
+import type { TtsDraftSetter, TtsEngineId } from "./TtsEngine.tsx";
+
+// The node the test reads next: one that is not there fails here, as reading it did.
+const must = (node: TreeNode | null | undefined) => {
+    assert.ok(node);
+    return node;
+};
+
+interface Options {
+    draft: VoiceSettings;
+    saved?: VoiceSettings | null;
+    engineVoices?: EngineVoices | null;
+}
 
 // The engine part of the TTS page (ADR-008), with the voice hook and the readout stubbed.
-async function setup({ draft, saved = draft, engineVoices = null }) {
+async function setup({ draft, saved = draft, engineVoices = null }: Options) {
     const runtime = hooks();
-    const sent = [];
-    const state = { draft: { ...draft } };
-    const { TtsEngine, CoeiroinkOptions, AudioQueryOptions, validCoeiroinkOptions, validAudioQueryOptions, COEIROINK_DEFAULTS } = await loadModule(new URL("./TtsEngine.tsx", import.meta.url), runtime, {
+    const sent: [string, unknown][] = [];
+    const state: { draft: VoiceSettings } = { draft: { ...draft } };
+    const { TtsEngine, CoeiroinkOptions, AudioQueryOptions, validCoeiroinkOptions, validAudioQueryOptions, COEIROINK_DEFAULTS } = await loadModule<typeof import("./TtsEngine.tsx")>(new URL("./TtsEngine.tsx", import.meta.url), runtime, {
         "@tauri-apps/api/core": { isTauri: () => false },
         "@tauri-apps/plugin-opener": { openUrl: async () => {} },
-        "../../../../../../logics/voice/useVoice": { useVoice: () => ({ engineVoices, send: (endpoint, data) => sent.push([endpoint, data]) }) },
+        "../../../../../../logics/voice/useVoice": { useVoice: () => ({ engineVoices, send: (endpoint: string, data: unknown) => sent.push([endpoint, data]) }) },
         "../_components/env_readout/EnvReadout": { EnvReadout: "readout" },
         "../_components/form_row/FormRow": { FormRow: "row" },
         "../_components/description/Description": { Description: "description" },
         "../_components/setup_section/SetupSection": { SetupSection: "setup" },
     });
-    const setDraft = update => { state.draft = typeof update === "function" ? update(state.draft) : update; };
+    // Every edit of the page spreads the draft into a new one, so the draft it sets is always there.
+    const setDraft: TtsDraftSetter = update => { state.draft = unchecked<VoiceSettings>(typeof update === "function" ? update(state.draft) : update); };
     const render = () => runtime.render(TtsEngine, { draft: state.draft, setDraft, saved });
     // The harness does not render nested components: the COEIROINK part renders on its own.
     const coeiroink = hooks();
     const renderCoeiroink = () => coeiroink.render(CoeiroinkOptions, { draft: state.draft, setDraft });
     const scales = hooks();
-    const renderScales = engine => scales.render(AudioQueryOptions, { engine, draft: state.draft, setDraft });
+    const renderScales = (engine: TtsEngineId) => scales.render(AudioQueryOptions, { engine, draft: state.draft, setDraft });
     const unmount = () => { runtime.unmount(); coeiroink.unmount(); scales.unmount(); };
     return { runtime: { unmount }, sent, state, render, renderCoeiroink, renderScales, CoeiroinkOptions, AudioQueryOptions,
         validCoeiroinkOptions, validAudioQueryOptions, COEIROINK_DEFAULTS };
 }
 
-const selects = tree => {
-    const found = [];
+const selects = (tree: unknown) => {
+    const found: TreeNode[] = [];
     find(tree, node => { if (node.type === "select") found.push(node); return false; });
     return found;
 };
-const options = node => {
-    const found = [];
+const options = (node: unknown) => {
+    const found: TreeNode[] = [];
     find(node, child => { if (child.type === "option") found.push(child); return false; });
     return found;
 };
@@ -59,7 +75,7 @@ test("an installed engine is checked at once, and its voices are grouped by spea
     const tree = s.render();
     assert.deepEqual(s.sent, [["/get/data/tts_engine_voices", { engine: "voicevox", url: "http://127.0.0.1:50021" }]]);
     const voice = selects(tree)[1];
-    const groups = [];
+    const groups: unknown[] = [];
     find(voice, node => { if (node.type === "optgroup") groups.push(node.props.label); return false; });
     assert.deepEqual(groups, ["四国めたん", "ずんだもん"]);
     assert.equal(voice.props.value, "3");
@@ -89,17 +105,17 @@ test("only COEIROINK shows how it reads, starting from the values sent before th
     assert.ok(find(c.render(), node => node.type === c.CoeiroinkOptions));
     const tree = c.renderCoeiroink();
     assert.ok(find(tree, node => node.type === "setup"));
-    const numbers = [];
+    const numbers: TreeNode[] = [];
     find(tree, node => { if (node.type === "input" && node.props.type === "number") numbers.push(node); return false; });
     assert.deepEqual(numbers.map(node => node.props.value), ["1.0", "1.0", "0.0", "1.0", "0.1", "0.1"]);
     assert.ok(numbers.every(node => node.props["aria-invalid"] === false));
-    const rate = selects(tree).find(node => node.props.value === "24000");
+    const rate = must(selects(tree).find(node => node.props.value === "24000"));
     assert.deepEqual(options(rate).map(option => option.props.value), ["16000", "24000", "44100", "48000"]);
     numbers[0].props.onChange({ target: { value: "1.5" } });
     rate.props.onChange({ target: { value: "48000" } });
     assert.deepEqual([c.state.draft.coeiroink_speed, c.state.draft.coeiroink_sampling_rate], ["1.5", "48000"]);
     // Restoring the defaults is an edit for the save bar, like any other.
-    const reset = find(c.renderCoeiroink(), node => node.type === "button" && node.props.children === "voice_ui.engine.coeiroink.reset");
+    const reset = must(find(c.renderCoeiroink(), node => node.type === "button" && node.props.children === "voice_ui.engine.coeiroink.reset"));
     assert.equal(reset.props.disabled, false);
     reset.props.onClick();
     assert.deepEqual([c.state.draft.coeiroink_speed, c.state.draft.coeiroink_sampling_rate], ["1.0", "24000"]);
@@ -108,7 +124,7 @@ test("only COEIROINK shows how it reads, starting from the values sent before th
 
 test("COEIROINK numbers outside the core's ranges cannot be saved", async () => {
     const s = await setup({ draft: { japanese_engine: "coeiroink" } });
-    const valid = draft => s.validCoeiroinkOptions({ ...s.COEIROINK_DEFAULTS, ...draft });
+    const valid = (draft: VoiceSettings) => s.validCoeiroinkOptions({ ...s.COEIROINK_DEFAULTS, ...draft });
     assert.equal(s.validCoeiroinkOptions({}), true, "settings saved before these fields");
     assert.equal(valid({ coeiroink_speed: "2", coeiroink_pitch: "-0.15", coeiroink_post_phoneme: "1.5" }), true);
     for (const bad of [{ coeiroink_speed: "0.4" }, { coeiroink_speed: "" }, { coeiroink_speed: "1e0" }, { coeiroink_volume: "-0.1" },
@@ -119,12 +135,12 @@ test("COEIROINK numbers outside the core's ranges cannot be saved", async () => 
 
 test("VOICEVOX, AivisSpeech and SHAREVOX each show their own reading, from the engine's own values", async () => {
     const s = await setup({ draft: voicevox, engineVoices: connected });
-    const shown = find(s.render(), node => node.type === s.AudioQueryOptions);
+    const shown = must(find(s.render(), node => node.type === s.AudioQueryOptions));
     assert.equal(shown.props.engine, "voicevox");
     assert.ok(!find(s.render(), node => node.type === s.CoeiroinkOptions));
     // A file saved before these fields has none of them: the page shows the engine's defaults.
-    const numbers = tree => {
-        const found = [];
+    const numbers = (tree: unknown) => {
+        const found: TreeNode[] = [];
         find(tree, node => { if (node.type === "input" && node.props.type === "number") found.push(node); return false; });
         return found;
     };
@@ -135,7 +151,7 @@ test("VOICEVOX, AivisSpeech and SHAREVOX each show their own reading, from the e
     assert.equal(s.state.draft.voicevox_speed, "1.25");
     // AivisSpeech keeps its own values: VOICEVOX's speed is not AivisSpeech's.
     assert.equal(numbers(s.renderScales("aivis"))[0].props.value, "1.0");
-    const reset = find(s.renderScales("voicevox"), node => node.type === "button" && node.props.children === "voice_ui.engine.audio_query.reset");
+    const reset = must(find(s.renderScales("voicevox"), node => node.type === "button" && node.props.children === "voice_ui.engine.audio_query.reset"));
     assert.equal(reset.props.disabled, false);
     reset.props.onClick();
     assert.equal(s.state.draft.voicevox_speed, "1.0");
@@ -160,7 +176,7 @@ test("an engine that does not answer keeps the saved voice visible and says it i
     const tree = s.render();
     const voice = selects(tree)[1];
     assert.deepEqual(options(voice).map(option => option.props.value), ["", "3"]);
-    const readout = find(tree, node => node.type === "readout");
+    const readout = must(find(tree, node => node.type === "readout"));
     assert.equal(readout.props.tone, "warning");
     assert.equal(readout.props.progress, undefined);
     s.runtime.unmount();

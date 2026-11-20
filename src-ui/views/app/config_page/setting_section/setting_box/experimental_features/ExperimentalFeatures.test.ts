@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import { test, vi } from "vitest";
+import type { TestContext } from "vitest";
 import { readFileSync } from "node:fs";
-import { hooks, loadModule } from "../../../../../../logics/test/hookHarness.ts";
+import { hooks, loadModule, unchecked } from "../../../../../../logics/test/hookHarness.ts";
+import type { HookRuntime, TreeNode } from "../../../../../../logics/test/hookHarness.ts";
 import { flush } from "../../../../../../logics/test/bridgeHarness.ts";
 import * as registry from "../../../../../../logics/configs/experimentalFeatures.ts";
 import * as hexagram from "../../../../../../logics/companion/hexagram.ts";
@@ -11,36 +13,55 @@ const REGISTRY_PATH = "../../../../../../logics/configs/experimentalFeatures.ts"
 // The real list is empty until a feature graduates, so the tests list made-up ones.
 const FAKE_IDS = ["first_trial", "second_trial"];
 const fakeRegistry = { ...registry,
-    isExperimentalFeatureEnabled: (values, id) => FAKE_IDS.includes(id) && values?.[id] === true };
+    isExperimentalFeatureEnabled: (values: unknown, id: string) => FAKE_IDS.includes(id)
+        && typeof values === "object" && values !== null && Reflect.get(values, id) === true };
 
-async function load(context, registryModule = registry) {
+type ListProps = Parameters<typeof import("./ExperimentalFeatures.tsx").ExperimentalFeatureList>[0];
+interface Monitor {
+    id: string;
+    number: number;
+    width: number;
+    height: number;
+    primary: boolean;
+}
+
+async function load(context: TestContext, registryModule: typeof registry = registry) {
     const runtime = hooks();
     context.onTestFinished(() => runtime.unmount());
-    const writes = [], vrPanelToggles = [], sent = [];
+    const writes: unknown[] = [], vrPanelToggles: boolean[] = [], sent: string[] = [];
     const current = { state: "ok", data: {} };
     const vrPanel = { state: "ok", data: false };
-    const module = await loadModule(new URL("./ExperimentalFeatures.tsx", import.meta.url), runtime, {
+    const module = await loadModule<typeof import("./ExperimentalFeatures.tsx")>(new URL("./ExperimentalFeatures.tsx", import.meta.url), runtime, {
         "@tauri-apps/api/core": { invoke: async () => [] },
         "@logics_configs": { useExperimentalFeatures: () => ({
             currentExperimentalFeatures: current,
-            setExperimentalFeatures: value => { writes.push(value); },
+            setExperimentalFeatures: (value: unknown) => { writes.push(value); },
         }), useVr: () => ({
             currentIsEnabledOverlayVrPanel: vrPanel,
             toggleIsEnabledOverlayVrPanel: () => { vrPanelToggles.push(!vrPanel.data); },
         }) },
-        "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: async endpoint => { sent.push(endpoint); } }) },
+        "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: async (endpoint: string) => { sent.push(endpoint); } }) },
         [REGISTRY_PATH]: registryModule,
         "../_templates/Templates": { CheckboxContainer: "checkbox", DropdownMenuContainer: "dropdown", ActionButtonContainer: "action" },
         "../_components": { SectionLabelComponent: "heading" },
         "../../../../../../logics/companion/hexagram.ts": hexagram,
     });
-    const render = props => runtime.render(module.ExperimentalFeatureList, props);
+    const render = (props: ListProps) => runtime.render(module.ExperimentalFeatureList, props);
     return { module, runtime, render, writes, current, vrPanel, vrPanelToggles, sent };
 }
 
-const flat = tree => [tree.props.children].flat(Infinity).filter(Boolean);
+// A part of the page that is one of its own components, which return an element: drawn by the
+// runtime as React would, or called once as the list's own code calls it.
+const drawWith = (runtime: HookRuntime, item: TreeNode) => runtime.render(unchecked<(props: unknown) => TreeNode>(item.type), item.props);
+const call = (item: TreeNode) => unchecked<(props: unknown) => TreeNode>(item.type)(item.props);
+
+const flat = (tree: TreeNode | null): TreeNode[] => {
+    // The list the test reads next: one that is not drawn fails here, as reading it did.
+    assert.ok(tree);
+    return [tree.props.children].flat(Infinity).filter(Boolean);
+};
 // Each feature is a group: its checkbox, and below it any setting of its own.
-const children = tree => flat(tree).flatMap(item => (item.type === "div" ? flat(item) : [item]));
+const children = (tree: TreeNode | null) => flat(tree).flatMap(item => (item.type === "div" ? flat(item) : [item]));
 
 test("the page says there is nothing to try while no feature is listed", async context => {
     const s = await load(context);
@@ -67,7 +88,7 @@ test("each listed feature gets a checkbox with its name and description, off unt
 
 test("a checkbox asks the backend for that one feature only, and turns an on feature off", async context => {
     const s = await load(context, fakeRegistry);
-    const writes = [];
+    const writes: unknown[] = [];
     const tree = s.render({ features: FAKE_IDS.map(id => ({ id })), current: { state: "pending", data: { second_trial: true } },
         setValues: value => writes.push(value) });
     const [first, second] = children(tree).filter(item => item.type === "checkbox");
@@ -101,7 +122,7 @@ test("every listed feature has a name and a description in English and Japanese"
 test("the tray companion is listed and stays off until the user turns it on", async context => {
     const s = await load(context);
     const tree = s.runtime.render(s.module.ExperimentalFeatures, {});
-    const list = tree.type(tree.props);
+    const list = call(tree);
     const switches = children(list).filter(item => item.type === "checkbox");
     assert.deepEqual(switches.map(item => item.props.setting_id), ["experimental_features.tray_companion"]);
     assert.equal(switches[0].props.label, "config_page.experimental_features.items.tray_companion.label");
@@ -112,14 +133,15 @@ test("the tray companion is listed and stays off until the user turns it on", as
 
 test("while the tray companion is on, the edge its hexagram hides at can be chosen under its checkbox", async context => {
     const s = await load(context);
-    const edges = [];
-    const edge = { current: { state: "ok", data: "right" }, set: value => { edges.push(value); } };
+    const edges: unknown[] = [];
+    const edge = { current: { state: "ok", data: "right" }, set: (value: string) => { edges.push(value); } };
     const features = [{ id: "tray_companion" }];
     const off = s.render({ features, current: { state: "ok", data: { tray_companion: false } }, setValues: () => {}, edge });
     assert.equal(children(off).some(item => typeof item.type === "function"), false, "off: no edge to choose");
     const on = s.render({ features, current: { state: "ok", data: { tray_companion: true } }, setValues: () => {}, edge });
     const chooser = children(on).find(item => typeof item.type === "function");
-    const dropdown = chooser.type(chooser.props);
+    assert.ok(chooser);
+    const dropdown = call(chooser);
     assert.equal(dropdown.type, "dropdown");
     assert.equal(dropdown.props.selected_id, "right");
     assert.deepEqual(Object.keys(dropdown.props.list), ["right", "left", "top", "bottom"]);
@@ -131,25 +153,28 @@ test("while the tray companion is on, the edge its hexagram hides at can be chos
 test("the monitor is chosen under the edge: the primary one by default, one connected now, or one unplugged", async context => {
     vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
     const s = await load(context);
-    const saved = [];
+    const saved: unknown[] = [];
     let reads = 0;
     const connected = [
         { id: "\\\\.\\DISPLAY2", number: 1, width: 1920, height: 1080, primary: false },
         { id: "\\\\.\\DISPLAY1", number: 2, width: 2560, height: 1600, primary: true },
     ];
-    const monitor = (data) => ({ current: { state: "ok", data }, set: value => { saved.push(value); },
+    const monitor = (data: string) => ({ current: { state: "ok", data }, set: (value: string) => { saved.push(value); },
         list: async () => { reads++; return connected; } });
     const features = [{ id: "tray_companion" }];
     const on = { state: "ok", data: { tray_companion: true } };
-    const chooser = props => {
+    const chooser = (props: ListProps["monitor"]) => {
         const list = s.render({ features, current: on, setValues: () => {}, edge: undefined, monitor: props });
-        return children(list).find(item => typeof item.type === "function");
+        const item = children(list).find(item => typeof item.type === "function");
+        // The chooser the test draws next: one that is not there fails here, as drawing it did.
+        assert.ok(item);
+        return item;
     };
     // Rendered twice: the first render reads the list, the second shows it.
     let item = chooser(monitor(""));
-    s.runtime.render(item.type, item.props);
+    drawWith(s.runtime, item);
     await flush();
-    let dropdown = s.runtime.render(item.type, item.props);
+    let dropdown = drawWith(s.runtime, item);
     assert.equal(dropdown.type, "dropdown");
     assert.equal(dropdown.props.selected_id, "@primary", "nothing chosen: the primary monitor");
     assert.deepEqual(Object.keys(dropdown.props.list), ["@primary", "\\\\.\\DISPLAY2", "\\\\.\\DISPLAY1"]);
@@ -163,7 +188,7 @@ test("the monitor is chosen under the edge: the primary one by default, one conn
     assert.equal(reads, before + 1);
     // A chosen monitor that is unplugged stays chosen, listed as not connected.
     item = chooser(monitor("\\\\.\\DISPLAY3"));
-    dropdown = s.runtime.render(item.type, item.props);
+    dropdown = drawWith(s.runtime, item);
     assert.equal(dropdown.props.selected_id, "\\\\.\\DISPLAY3");
     assert.equal(dropdown.props.list["\\\\.\\DISPLAY3"], "config_page.experimental_features.items.tray_companion.monitor.missing");
 });
@@ -173,12 +198,13 @@ test("before the monitor list arrives, the chosen monitor is not called unplugge
     const features = [{ id: "tray_companion" }];
     const on = { state: "ok", data: { tray_companion: true } };
     // The list never answers (or is refused) yet.
-    const props = { current: { state: "ok", data: "\\\\.\\DISPLAY2" }, set: () => {}, list: () => new Promise(() => {}) };
+    const props = { current: { state: "ok", data: "\\\\.\\DISPLAY2" }, set: () => {}, list: () => new Promise<Monitor[]>(() => {}) };
     const list = s.render({ features, current: on, setValues: () => {}, edge: undefined, monitor: props });
     const item = children(list).find(entry => typeof entry.type === "function");
-    s.runtime.render(item.type, item.props);
+    assert.ok(item);
+    drawWith(s.runtime, item);
     await flush();
-    const dropdown = s.runtime.render(item.type, item.props);
+    const dropdown = drawWith(s.runtime, item);
     assert.equal(dropdown.props.selected_id, "\\\\.\\DISPLAY2");
     assert.equal(dropdown.props.list["\\\\.\\DISPLAY2"], "common.loading");
 });
@@ -186,34 +212,35 @@ test("before the monitor list arrives, the chosen monitor is not called unplugge
 // #563: the errors were dropped, so a list that kept failing showed "Loading" for good.
 test("when the monitor list cannot be read, the chosen monitor says so instead of loading for good", async context => {
     vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
-    context.onTestFinished(() => vi.useRealTimers());
+    context.onTestFinished(() => { vi.useRealTimers(); });
     const s = await load(context);
     const features = [{ id: "tray_companion" }];
     const on = { state: "ok", data: { tray_companion: true } };
-    let answer = () => Promise.reject(new Error("read_failed"));
+    let answer: () => Promise<Monitor[]> = () => Promise.reject(new Error("read_failed"));
     const props = { current: { state: "ok", data: "\\\\.\\DISPLAY2" }, set: () => {}, list: () => answer() };
     const list = s.render({ features, current: on, setValues: () => {}, edge: undefined, monitor: props });
     const item = children(list).find(entry => typeof entry.type === "function");
-    s.runtime.render(item.type, item.props);
+    assert.ok(item);
+    drawWith(s.runtime, item);
     await flush();
-    let dropdown = s.runtime.render(item.type, item.props);
+    let dropdown = drawWith(s.runtime, item);
     assert.equal(dropdown.props.selected_id, "\\\\.\\DISPLAY2", "the choice itself stays");
     assert.equal(dropdown.props.list["\\\\.\\DISPLAY2"], "config_page.experimental_features.items.tray_companion.monitor.unknown");
     // The next read that works shows the list again.
     answer = async () => [{ id: "\\\\.\\DISPLAY2", number: 1, width: 1920, height: 1080, primary: false }];
     vi.advanceTimersByTime(3000);
     await flush();
-    dropdown = s.runtime.render(item.type, item.props);
+    dropdown = drawWith(s.runtime, item);
     assert.match(dropdown.props.list["\\\\.\\DISPLAY2"], /monitor\.display/);
 });
 
 test("#554 (Q-05): the VR panel is listed with the features on trial and keeps its own saved switch", async context => {
     const s = await load(context);
     const tree = s.runtime.render(s.module.ExperimentalFeatures, {});
-    const list = tree.type(tree.props);
+    const list = call(tree);
     const item = flat(list).find(node => typeof node.type === "function" && node.props.current === s.vrPanel);
     assert.ok(item, "the page lists the VR panel");
-    const off = s.runtime.render(item.type, item.props);
+    const off = drawWith(s.runtime, item);
     const [checkbox, ...rest] = flat(off);
     assert.equal(checkbox.type, "checkbox");
     assert.equal(checkbox.props.setting_id, "experimental_features.vr_panel");
@@ -226,8 +253,9 @@ test("#554 (Q-05): the VR panel is listed with the features on trial and keeps i
     assert.deepEqual(s.writes, [], "the experimental features' dictionary is not written");
 
     s.vrPanel.data = true;
-    const on = s.runtime.render(item.type, item.props);
+    const on = drawWith(s.runtime, item);
     const action = flat(on).find(node => node.type === "action");
+    assert.ok(action);
     assert.equal(action.props.label, "config_page.experimental_features.items.vr_panel.reset_launcher.label");
     await action.props.onclickFunction();
     assert.deepEqual(s.sent, ["/run/vr_launcher_reset"]);
