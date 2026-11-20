@@ -1,25 +1,32 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
+import type { TestContext } from "vitest";
+import type { ToastOptions } from "react-toastify";
 import { hooks, loadModule, stubGlobals } from "../../../../logics/test/hookHarness.ts";
 
-const setup = async context => {
-    const runtime = hooks(), toasts = [], timers = [];
-    stubGlobals(context, { setTimeout: callback => { timers.push(callback); } });
+interface Notification {
+    state: string;
+    data: { status: string; is_open: boolean; message: string; category_id?: string | null; options?: object };
+}
+
+const setup = async (context: TestContext) => {
+    const runtime = hooks(), toasts: { message: unknown; options: ToastOptions }[] = [], timers: (() => void)[] = [];
+    stubGlobals(context, { setTimeout: (callback: () => void) => { timers.push(callback); } });
     context.onTestFinished(() => runtime.unmount());
-    const notification = runtime.jotai.atom({ state: "ok", data: { status: "", is_open: false, message: "" } });
+    const notification = runtime.jotai.atom<Notification>({ state: "ok", data: { status: "", is_open: false, message: "" } });
     let closes = 0;
     const page = { settings: false };
-    const { SnackbarController } = await loadModule(new URL("./SnackbarController.tsx", import.meta.url), runtime, {
+    const { SnackbarController } = await loadModule<typeof import("./SnackbarController.tsx")>(new URL("./SnackbarController.tsx", import.meta.url), runtime, {
         "@common_components": { CloseButton: "close-button" },
         "./ReactToastifyOverrideClass.scss": {},
-        "react-toastify": { ToastContainer: "toasts", cssTransition: () => ({}), toast: (message, options) => toasts.push({ message, options }) },
+        "react-toastify": { ToastContainer: "toasts", cssTransition: () => ({}), toast: (message: unknown, options: ToastOptions) => toasts.push({ message, options }) },
         "@store": { Atom_NotificationStatus: notification },
         "@logics_common": { useNotificationStatus: () => ({ closeNotification: () => {
             closes++;
             runtime.store.set(notification, old => ({ ...old, data: { ...old.data, is_open: false } }));
         } }), useIsOpenedConfigPage: () => ({ currentIsOpenedConfigPage: { state: "ok", data: page.settings } }) },
     });
-    const show = (message, extra = {}) => runtime.store.set(notification,
+    const show = (message: string, extra: Partial<Notification["data"]> = {}) => runtime.store.set(notification,
         { state: "ok", data: { status: "error", is_open: true, category_id: null, message, options: {}, ...extra } });
     const flush = () => timers.splice(0).forEach(callback => callback());
     return { runtime, render: () => runtime.render(SnackbarController), notification, toasts, show, flush, closes: () => closes, page };
@@ -44,7 +51,9 @@ test("closing or republishing a notification does not show it again, and unmount
     assert.equal(s.toasts.length, 1);
     // A republish keeps the same notification object.
     s.runtime.store.set(s.notification, old => ({ ...old }));
-    s.toasts[0].options.onClose();
+    const { onClose } = s.toasts[0].options;
+    assert.ok(onClose);
+    onClose();
     assert.equal(s.closes(), 1);
     s.render();
     s.flush();

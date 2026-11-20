@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "vitest";
 import { readFileSync } from "node:fs";
 
-const locale = language => readFileSync(new URL(`../../../locales/${language}.yml`, import.meta.url), "utf8");
+const locale = (language: string) => readFileSync(new URL(`../../../locales/${language}.yml`, import.meta.url), "utf8");
 
 // #437: the UI speaks to the user about their own PC ("お使いのPC", "your PC"), or leaves
 // the PC out where it adds nothing. "This PC" reads as the developer's machine.
@@ -15,7 +15,7 @@ const NAMES = new Set(`VRChat VRC ASTAROT OSC OSCQuery OBS Browser Source TTS RV
 test("#437: English labels and headings are in sentence case", () => {
     const labels = locale("en").split("\n")
         .map(line => /^\s*(label|section_label\w*|title\w*): "([^"]{1,60})"$/.exec(line))
-        .filter(Boolean).map(match => match[2]);
+        .filter(match => match !== null).map(match => match[2]);
     const titleCase = labels.filter(value => {
         const words = value.match(/[A-Za-z][\w'-]*/g) ?? [];
         return words.slice(1).filter(word => /^[A-Z]/.test(word) && !NAMES.has(word) && word !== word.toUpperCase()).length >= 2;
@@ -24,7 +24,7 @@ test("#437: English labels and headings are in sentence case", () => {
 });
 
 test("#437: user-facing strings do not say this PC", () => {
-    for (const [language, phrase] of [["ja", /この\s*(PC|パソコン|コンピューター)/], ["en", /\bthis (PC|computer|machine)\b/i]]) {
+    for (const [language, phrase] of [["ja", /この\s*(PC|パソコン|コンピューター)/], ["en", /\bthis (PC|computer|machine)\b/i]] as const) {
         const lines = locale(language).split("\n").filter(line => phrase.test(line));
         assert.deepEqual(lines, [], language);
     }
@@ -33,7 +33,7 @@ test("#437: user-facing strings do not say this PC", () => {
 // #461: the user meets "ASTAROTの処理部分" / "the ASTAROT engine", not the developers' word.
 // The credits say what each developer worked on, so they may keep it.
 test("#461: user-facing strings do not say backend", () => {
-    for (const [language, word] of [["ja", /バックエンド/], ["en", /\bback-?end\b/i]]) {
+    for (const [language, word] of [["ja", /バックエンド/], ["en", /\bback-?end\b/i]] as const) {
         const lines = locale(language).split("\n").filter(line => !line.trim().startsWith("#") && !/^\s*dev_\w+:/.test(line))
             // Keys may name the backend; only the text after the key counts.
             .filter(line => word.test(line.split('"').slice(1).join('"')));
