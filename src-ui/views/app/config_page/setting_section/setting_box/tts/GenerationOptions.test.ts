@@ -4,14 +4,8 @@ import * as rvcStartOptions from "../../../../../../logics/voice/rvcStartOptions
 import * as voiceErrorTextModule from "../../../../../../logics/voice/voiceErrorText.ts";
 import assert from "node:assert/strict";
 import { test, vi } from "vitest";
-import { hooks, loadModule, find } from "../../../../../../logics/test/hookHarness.ts";
+import { hooks, loadModule, find, findIn } from "../../../../../../logics/test/hookHarness.ts";
 import type { HookRuntime, TreeNode } from "../../../../../../logics/test/hookHarness.ts";
-
-// The node the test reads next: one that is not there fails here, as reading it did.
-const must = (node: TreeNode | null) => {
-    assert.ok(node);
-    return node;
-};
 
 interface Options {
     seed?: string;
@@ -37,7 +31,7 @@ test("invalid TTS seed and instruction point to the shared form error and clear 
     const s = await setup();
     let tree = s.render();
     for (const type of ["input", "textarea"]) {
-        const field = must(find(tree, node => node.type === type));
+        const field = findIn(tree, node => node.type === type);
         assert.equal(field.props["aria-invalid"], true);
         assert.equal(field.props["aria-describedby"], "options-error");
     }
@@ -45,7 +39,7 @@ test("invalid TTS seed and instruction point to the shared form error and clear 
     s.draft.japanese_seed = "42"; s.draft.japanese_instructions = "話す速さをゆっくりに";
     tree = s.render();
     for (const type of ["input", "textarea"]) {
-        const field = must(find(tree, node => node.type === type));
+        const field = findIn(tree, node => node.type === type);
         assert.equal(field.props["aria-invalid"], false);
         assert.equal(field.props["aria-describedby"], undefined);
     }
@@ -57,7 +51,7 @@ test("the seed and instruction fields show an example while they are empty", asy
     const s = await setup({ seed: "", instructions: "" });
     s.draft.japanese_seed = "0";
     const tree = s.render();
-    for (const type of ["input", "textarea"]) assert.equal(must(find(tree, node => node.type === type)).props.placeholder, "voice_ui.example");
+    for (const type of ["input", "textarea"]) assert.equal(findIn(tree, node => node.type === type).props.placeholder, "voice_ui.example");
     s.runtime.unmount();
 });
 
@@ -67,7 +61,7 @@ test("TTS model-specific seed range error is associated without changing the sav
         server: "external", configured_url: "http://local", options: { seed: { minimum: 0, maximum: 100 } },
     } } });
     s.draft.japanese_url = "http://local";
-    const tree = s.render(), input = must(find(tree, node => node.type === "input")), alert = must(find(tree, node => node.props?.role === "alert"));
+    const tree = s.render(), input = findIn(tree, node => node.type === "input"), alert = findIn(tree, node => node.props?.role === "alert");
     assert.equal(input.props["aria-invalid"], true);
     assert.equal(input.props["aria-describedby"], alert.props.id);
     assert.equal(s.validGenerationOptions(s.draft), true); // Model support is advisory, as before.
@@ -94,7 +88,7 @@ const loadVoiceSettings = (s: Setup, runtime: HookRuntime, hints = false) =>
 test("TTS form supplies an existing error ID to both language groups", async () => {
     const s = await setup(), runtime = hooks();
     const { VoiceSettings } = await loadVoiceSettings(s, runtime);
-    const tree = runtime.render(VoiceSettings), alert = must(find(tree, node => node.props?.role === "alert"));
+    const tree = runtime.render(VoiceSettings), alert = findIn(tree, node => node.props?.role === "alert");
     const groups: TreeNode[] = [];
     find(tree, node => { if (node.type === s.GenerationOptions) groups.push(node); return false; });
     assert.equal(groups.length, 2);
@@ -108,7 +102,7 @@ for (const hints of [false, true]) test(`${hints ? "hints" : "no hints"}: the TT
     const s = await setup({ seed: "", instructions: "" }), runtime = hooks();
     const { VoiceSettings } = await loadVoiceSettings(s, runtime, hints);
     const tree = runtime.render(VoiceSettings);
-    assert.equal(must(find(tree, node => node.type === "heading")).props.desc, "voice_ui.tts_description");
+    assert.equal(findIn(tree, node => node.type === "heading").props.desc, "voice_ui.tts_description");
     const descriptions: unknown[] = [];
     find(tree, node => { if (node.type === "description") descriptions.push(node.props.text); return false; });
     assert.deepEqual(descriptions, hints ? [] : ["voice.monitor_hint"]);
@@ -122,7 +116,7 @@ for (const hints of [false, true]) test(`${hints ? "hints" : "no hints"}: the TT
     const rows: unknown[][] = [];
     find(tree, node => { if (node.type === "row") rows.push([node.props.label, node.props.description]); return false; });
     assert.deepEqual(rows, [["voice.output_device", "voice_ui.output_hint"], ["voice.mic_mode", "voice.mic_hint"], ["voice.conversion", "voice.conversion_hint"]]);
-    const instruction = must(find(s.render(), node => node.type === "row"));
+    const instruction = findIn(s.render(), node => node.type === "row");
     assert.equal(instruction.props.keepDescription, true);
     runtime.unmount(); s.runtime.unmount();
 });
@@ -153,7 +147,7 @@ for (const [pitch, rate, threads] of [[25, 0.5, 0], [0, -1, 0], [NaN, NaN, 0], [
         "@useI18n": { useI18n: () => ({ t: (key: string, options?: object) => options ? `${key}:${JSON.stringify(options)}` : key }) },
     });
     const tree = runtime.render(DirectVoiceSettings, { variant: "rvc" });
-    const alert = must(find(tree, node => node.props?.children === "voice_ui.invalid_rvc_numbers"));
+    const alert = findIn(tree, node => node.props?.children === "voice_ui.invalid_rvc_numbers");
     const fields: TreeNode[] = [];
     find(tree, node => { if (node.type === "input" && node.props.type === "number") fields.push(node); return false; });
     assert.equal(fields.length, 3);

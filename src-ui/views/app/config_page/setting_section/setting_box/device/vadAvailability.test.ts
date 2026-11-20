@@ -1,22 +1,13 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { readFileSync } from "node:fs";
-import yaml from "js-yaml";
-import { hooks, loadModule, find, unchecked } from "../../../../../../logics/test/hookHarness.ts";
+import { hooks, loadModule, findIn, draw } from "../../../../../../logics/test/hookHarness.ts";
 import type { TreeNode } from "../../../../../../logics/test/hookHarness.ts";
+import { readLocale, localeAt } from "../../../../../../logics/test/locales.ts";
 
 // #391: without a VAD engine the VAD option says why it cannot be chosen, and a VAD switch
 // saved by an earlier version shows the volume mode that applies instead.
 const RadioButton = () => null, ThresholdComponent = () => null;
 
-// The node the test reads next: one that is not there fails here, as reading it did.
-const found = (tree: unknown, predicate: (node: TreeNode) => boolean) => {
-    const node = find(tree, predicate);
-    assert.ok(node);
-    return node;
-};
-// One level down a locale file's tree; a key that is not there reads as undefined.
-const child = (value: unknown, key: string): unknown => typeof value === "object" && value !== null ? Reflect.get(value, key) : undefined;
 
 const render = async (device: Record<string, unknown>) => {
     const runtime = hooks();
@@ -55,8 +46,8 @@ const render = async (device: Record<string, unknown>) => {
         .filter((node: TreeNode | null) => typeof node?.type === "function" && node.type.name.endsWith("Container"));
     return { toggled, sources: containers.map(node => {
         // A container of the page drawn as React would: its type is the page's own row component.
-        const tree = unchecked<(props: unknown) => unknown>(node.type)(node.props);
-        return { radio: found(tree, item => item.type === RadioButton).props, threshold: found(tree, item => item.type === ThresholdComponent).props };
+        const tree = draw(node);
+        return { radio: findIn(tree, item => item.type === RadioButton).props, threshold: findIn(tree, item => item.type === ThresholdComponent).props };
     }) };
 };
 
@@ -93,8 +84,8 @@ test("with a VAD engine the VAD option can be chosen and a saved switch shows VA
 
 test("the reason and the refusal are written in both languages", () => {
     for (const language of ["en", "ja"]) {
-        const strings = yaml.load(readFileSync(new URL(`../../../../../../../locales/${language}.yml`, import.meta.url), "utf8"));
-        assert.equal(typeof child(child(child(strings, "config_page"), "device"), "desc_vad_unavailable"), "string", language);
-        assert.equal(typeof child(child(strings, "backend_errors"), "VAD_UNAVAILABLE"), "string", language);
+        const strings = readLocale(language);
+        assert.equal(typeof localeAt(strings, "config_page.device.desc_vad_unavailable"), "string", language);
+        assert.equal(typeof localeAt(strings, "backend_errors.VAD_UNAVAILABLE"), "string", language);
     }
 });

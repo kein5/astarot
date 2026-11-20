@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import type { TestContext } from "vitest";
-import { hooks, loadModule, find } from "../../../../../../logics/test/hookHarness.ts";
+import { hooks, loadModule, find, nodesIn } from "../../../../../../logics/test/hookHarness.ts";
 import type { TreeNode } from "../../../../../../logics/test/hookHarness.ts";
 import * as modelCatalog from "../../../../../../logics/voice/modelCatalog.ts";
 
-const all = (tree: unknown, predicate: (node: TreeNode) => boolean, found: TreeNode[] = []) => { find(tree, node => { if (predicate(node)) found.push(node); return false; }); return found; };
+const all = (tree: unknown, predicate: (node: TreeNode) => boolean) => nodesIn(tree).filter(predicate);
 
 const model = (id: string, name: string) => ({ id, name, target: "japanese", paths: { model: `C:/m/${id}.gguf` }, total_bytes: 1, status: "ok" });
 type UserModel = ReturnType<typeof model>;

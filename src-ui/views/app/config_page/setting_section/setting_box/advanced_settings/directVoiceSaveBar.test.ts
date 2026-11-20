@@ -7,7 +7,7 @@ import { changedPaths } from "../../../../../../logics/voice/saveBar.ts";
 import type { SaveBarEntry } from "../../../../../../logics/voice/saveBar.ts";
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { hooks, loadModule, unchecked } from "../../../../../../logics/test/hookHarness.ts";
+import { hooks, loadModule, nodesIn } from "../../../../../../logics/test/hookHarness.ts";
 import type { TreeNode } from "../../../../../../logics/test/hookHarness.ts";
 import type { DirectVoiceSettingsProps } from "./DirectVoiceSettings.tsx";
 
@@ -91,10 +91,7 @@ test("input forwarding with RVC saved still shows forwarding, not the conversion
     page.runtime.unmount();
 });
 
-// Any object in the drawn tree other than an array is an element.
-const flatten = (node: unknown): TreeNode[] => !node || typeof node !== "object" ? [] :
-    Array.isArray(node) ? node.flatMap(flatten) : [unchecked<TreeNode>(node), ...flatten(unchecked<TreeNode>(node).props?.children)];
-const selectButton = (tree: unknown) => flatten(tree).find(node => node.type === "button" && node.props.children === "voice_ui.select_rvc");
+const selectButton = (tree: unknown) => nodesIn(tree).find(node => node.type === "button" && node.props.children === "voice_ui.select_rvc");
 
 test("#436: opening the RVC page with forwarding saved leaves the save bar empty and offers a button", async () => {
     const forwarding = await open("rvc", { ...rvcSettings, mode: "passthrough" });
@@ -125,14 +122,7 @@ test("#436: saving an RVC field with forwarding saved keeps forwarding", async (
 // #614: what each form is for, what to expect of the conversion and what the input does not do are
 // its heading's description (a hint on the RVC page); nothing repeats them as a paragraph. What
 // Start waits for and the monitor's line stay in sight.
-const all = (tree: unknown, predicate: (node: TreeNode) => boolean, found: TreeNode[] = []) => {
-    if (!tree || typeof tree !== "object") return found;
-    // Any other object in the drawn tree is an element (or an array of them, which has no props).
-    const node = unchecked<TreeNode>(tree);
-    if (predicate(node)) found.push(node);
-    for (const child of [node.props?.children].flat()) all(child, predicate, found);
-    return found;
-};
+const all = (tree: unknown, predicate: (node: TreeNode) => boolean) => nodesIn(tree).filter(predicate);
 const forms: [Variant, string, string][] = [
     ["rvc", "config_page.rvc.rvc_settings.label", "voice.vc_rvc_hint\nvoice_ui.rvc_latency_hint\nvoice.input_scope"],
     ["legacy", "voice.input_title", "voice.input_description\nvoice.input_scope"],

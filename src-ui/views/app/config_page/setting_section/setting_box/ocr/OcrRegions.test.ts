@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test, vi } from "vitest";
 import type { TestContext } from "vitest";
 import { readFile } from "node:fs/promises";
-import { hooks, loadModule, find, unchecked } from "../../../../../../logics/test/hookHarness.ts";
+import { hooks, loadModule, find, findIn, drawWith, unchecked } from "../../../../../../logics/test/hookHarness.ts";
 import type { TreeNode } from "../../../../../../logics/test/hookHarness.ts";
 import * as helpers from "../../../../../../logics/configs/ocrReadiness.ts";
 
@@ -19,12 +19,6 @@ interface CaptureStatus {
     stage?: string;
 }
 type OcrStatusProps = Parameters<typeof import("./OcrStatus.tsx").OcrStatus>[0];
-
-// The node the test reads next: one that is not there fails here, as reading it did.
-const must = (node: TreeNode | null) => {
-    assert.ok(node);
-    return node;
-};
 
 async function setup(t: TestContext, status: CaptureStatus | null, hints = false) {
     vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
@@ -49,11 +43,14 @@ async function setup(t: TestContext, status: CaptureStatus | null, hints = false
     const components = await loadModule<typeof import("./OcrRegions.tsx")>(new URL("./OcrRegions.tsx", import.meta.url), runtime, imports);
     const { OcrStatus } = await loadModule<typeof import("./OcrStatus.tsx")>(new URL("./OcrStatus.tsx", import.meta.url), runtime, imports);
     t.onTestFinished(() => runtime.unmount());
+    const isEditor = (source: string) => (node: TreeNode) => node.type === components.OcrRegionEditor && node.props.source === source;
     return { ...components, runtime, ocr, sent, polled,
         render: () => runtime.render(components.OcrRegions),
-        // Only the props each test gives: the status reads the others as missing.
+        // Test data: only the props each test gives; the status reads the others as missing.
         status: (props: Partial<OcrStatusProps> = {}) => runtime.render(OcrStatus, unchecked<OcrStatusProps>(props)),
-        editor: (source: string, tree: unknown) => find(tree, node => node.type === components.OcrRegionEditor && node.props.source === source),
+        editor: (source: string, tree: unknown) => find(tree, isEditor(source)),
+        // The editor the test reads next: one that is not there fails here, as reading it did.
+        editorIn: (source: string, tree: unknown) => findIn(tree, isEditor(source), `${source} editor`),
     };
 }
 
@@ -65,8 +62,8 @@ test("region editors share capture status without polling or adding a second rea
         status.source = source;
         const tree = s.render();
         assert.equal(find(tree, node => node.type === "readout"), null);
-        assert.deepEqual(must(s.editor("window", tree)).props.variable.data, windowRegion);
-        assert.deepEqual(must(s.editor("vr", tree)).props.variable.data, vrRegion);
+        assert.deepEqual(s.editorIn("window", tree).props.variable.data, windowRegion);
+        assert.deepEqual(s.editorIn("vr", tree).props.variable.data, vrRegion);
     }
     vi.advanceTimersByTime(3000);
     assert.deepEqual(s.polled, []);
@@ -76,7 +73,7 @@ test("region editors share capture status without polling or adding a second rea
 test("one live readout combines the source and runtime, including failure and recovery", async t => {
     const s = await setup(t, null);
     const readiness = { engine: true, language_supported: true, missing_models: [], capture: "ok" };
-    const render = () => must(s.status({ readiness }));
+    const render = () => { const status = s.status({ readiness }); assert.ok(status); return status; };
     assert.equal(render().props.children.props.children, `${prefix}capture_source.checking`);
     for (const source of ["window", "vr", null]) {
         for (const state of ["waiting", "reading", "retrying", "reading"]) {
@@ -101,14 +98,14 @@ test("edits and reset use the source's own setter, including when that source is
     const tree = s.render();
     for (const source of ["window", "vr"]) {
         const region = source === "window" ? windowRegion : vrRegion;
-        const editor = s.runtime.render(s.OcrRegionEditor, must(s.editor(source, tree)).props);
+        const editor = s.runtime.render(s.OcrRegionEditor, s.editorIn(source, tree).props);
         assert.equal(editor.props["aria-label"], `${prefix}region.${source}_label`);
-        must(find(editor, node => node.type === "slider" && node.props.label === `${prefix}region.width`))
+        findIn(editor, node => node.type === "slider" && node.props.label === `${prefix}region.width`)
             .props.setterFunction(10);
         assert.deepEqual(s.sent.at(-1), [source, { ...region, width: 0.1 }]);
-        must(find(editor, node => node.type === "button")).props.onClick();
+        findIn(editor, node => node.type === "button").props.onClick();
         assert.deepEqual(s.sent.at(-1), [source, helpers.FULL_REGION]);
-        const preview = must(find(editor, node => node.props?.role === "img"));
+        const preview = findIn(editor, node => node.props?.role === "img");
         assert.deepEqual(preview.props.children.props.style, {
             left: `${region.x * 100}%`, top: `${region.y * 100}%`,
             width: `${region.width * 100}%`, height: `${region.height * 100}%`,
@@ -146,7 +143,8 @@ test("status polling uses the current getter, starts once, and stops when the pa
 test("the refresh button still requests readiness without changing settings", async t => {
     const s = await setup(t, null);
     const refreshed: boolean[] = [];
-    const tree = must(s.status({ onRefresh: () => refreshed.push(true) }));
+    const tree = s.status({ onRefresh: () => refreshed.push(true) });
+    assert.ok(tree);
     tree.props.actions.props.onClick();
     assert.deepEqual(refreshed, [true]);
     assert.deepEqual(s.polled, ["initial"]);
@@ -158,7 +156,7 @@ test("reset is disabled while pending or already full", async t => {
     const variables: Parameters<typeof s.OcrRegionEditor>[0]["variable"][] = [{ data: windowRegion, state: "pending" }, { data: helpers.FULL_REGION, state: "ok" }];
     for (const variable of variables) {
         const tree = s.runtime.render(s.OcrRegionEditor, { source: "vr", variable, setRegion: () => {} });
-        assert.equal(must(find(tree, node => node.type === "button")).props.disabled, true);
+        assert.equal(findIn(tree, node => node.type === "button").props.disabled, true);
     }
 });
 
@@ -179,13 +177,13 @@ test("on a page reviewed against #614 a region's lines are its name's hint, the 
     const tree = s.render();
     assert.ok(!find(tree, node => node.type === "p"), "no line of text over the regions");
     const titleOf = (source: string) => {
-        const editor = s.runtime.render(s.OcrRegionEditor, must(s.editor(source, tree)).props);
-        const title = must(find(editor, node => node.type === s.RegionTitle));
+        const editor = s.runtime.render(s.OcrRegionEditor, s.editorIn(source, tree).props);
+        const title = findIn(editor, node => node.type === s.RegionTitle);
         // The region's title, a component of the page's own, drawn as React would.
-        return s.runtime.render(unchecked<(props: unknown) => unknown>(title.type), title.props);
+        return drawWith(s.runtime, title);
     };
-    const first = must(find(titleOf("window"), node => node.type === "hint"));
+    const first = findIn(titleOf("window"), node => node.type === "hint");
     assert.equal(first.props.text, `${prefix}region.source_switch\n${prefix}region.desc`);
     assert.equal(first.props.focusable, true, "no single field stands for the region: the mark takes focus");
-    assert.equal(must(find(titleOf("vr"), node => node.type === "hint")).props.text, `${prefix}region.vr_desc`);
+    assert.equal(findIn(titleOf("vr"), node => node.type === "hint").props.text, `${prefix}region.vr_desc`);
 });

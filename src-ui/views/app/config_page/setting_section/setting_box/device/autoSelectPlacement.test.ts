@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { hooks, loadModule, find, unchecked } from "../../../../../../logics/test/hookHarness.ts";
+import { hooks, loadModule, findIn, draw } from "../../../../../../logics/test/hookHarness.ts";
 import type { TreeNode } from "../../../../../../logics/test/hookHarness.ts";
 
 // 「自動選択」 heads the field column of the microphone row and of the speaker row alike, over the
@@ -8,14 +8,6 @@ import type { TreeNode } from "../../../../../../logics/test/hookHarness.ts";
 // label column and the field column, where it lined up with neither.
 const MultiDropdownMenuContainer = () => null, DropdownMenu = () => null, Checkbox = () => null;
 
-// The node the test reads next: one that is not there fails here, as reading it did.
-const found = (tree: unknown, predicate: (node: TreeNode) => boolean) => {
-    const node = find(tree, predicate);
-    assert.ok(node);
-    return node;
-};
-// A row of the page drawn as React would: its type is the page's own row component.
-const draw = (node: TreeNode) => unchecked<(props: unknown) => unknown>(node.type)(node.props);
 
 const load = async () => {
     const runtime = hooks();
@@ -41,13 +33,14 @@ const load = async () => {
     });
     const page = runtime.render(device.Device).props.children;
     // The device rows come first, before 「詳細設定」.
+    // Each row is the page's own row component, drawn as React would.
     const [mic, speaker] = page.props.children.slice(0, 2).map((node: TreeNode) => draw(node));
     return { device, mic, speaker };
 };
 
 test("the microphone's 自動選択 is the first part of the column of lists, over the host and the device", async () => {
     const { device, mic } = await load();
-    const settings = found(mic, node => node.type === MultiDropdownMenuContainer).props.dropdown_settings;
+    const settings = findIn(mic, node => node.type === MultiDropdownMenuContainer).props.dropdown_settings;
     assert.equal(settings[0].insert_component, device.AutoSelectCheckbox);
     assert.equal(settings[0].insert_to, undefined, "not beside the lists, but in their column");
     assert.deepEqual(settings.slice(1).map((row: { dropdown_id?: string }) => row.dropdown_id), ["mic_host", "mic_device"]);
@@ -58,7 +51,7 @@ test("the microphone's 自動選択 is the first part of the column of lists, ov
         "../_atoms/_dropdown_menu/_DropdownMenu": { _DropdownMenu: () => null },
     });
     const drawn = runtime.render(MultiDropdownMenu, { dropdown_settings: settings });
-    const column = found(drawn, node => node.props?.className === "wrapper");
+    const column = findIn(drawn, node => node.props?.className === "wrapper");
     const [first, ...lists] = column.props.children;
     assert.equal(first.type, device.AutoSelectCheckbox);
     assert.equal(lists.length, 2);
@@ -69,7 +62,7 @@ test("the microphone's 自動選択 is the first part of the column of lists, ov
 
 test("the speaker's 自動選択 sits over its list in the same way", async () => {
     const { device, speaker } = await load();
-    const contents = found(speaker, node => node.props?.className === "device_contents");
+    const contents = findIn(speaker, node => node.props?.className === "device_contents");
     const [check, list] = contents.props.children;
     assert.equal(check.type, device.AutoSelectCheckbox);
     assert.equal(list.type, DropdownMenu);
