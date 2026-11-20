@@ -1,7 +1,9 @@
+import { useId, useState } from "react";
 import type { ReactNode } from "react";
 import { useI18n } from "@useI18n";
 import { useAppearance } from "@logics_configs";
 import { Fold } from "../_components/fold/Fold";
+import { Hint, useHintDescriptions } from "../_components/hint/Hint";
 import styles from "./VoiceSettings.module.scss";
 import * as css from "./catalogLayout.css.ts";
 
@@ -55,4 +57,54 @@ export const CatalogLayoutSwitch = () => {
             <span>{t(`model_catalog.layout.${layout}`)}</span>
         </button>)}
     </div>;
+};
+
+// One part of a catalog under its heading (a use of the models, the speech engines, a group of
+// the translation catalog), folded as the setup folds are: a bar of the app's one fold with the
+// part's name, its readout (how many models, how many are on the PC) and what pressing does.
+// What the part is for is the name's hint on a page that keeps descriptions out of sight (#614),
+// otherwise the first lines inside. It starts open and keeps what the user chose while it is
+// drawn. A catalog that shows one model (the translation review) draws the part unfolded.
+// level: the heading's level, which the name keeps as a heading for assistive technology.
+export interface CatalogSectionProps {
+    title: string;
+    help: readonly string[];
+    readout?: string;
+    level: 3 | 4;
+    // The heading's id, when the page points at it.
+    id?: string;
+    fold?: boolean;
+    "data-catalog-group"?: string;
+    children: ReactNode;
+}
+
+export const CatalogSection = ({ title, help, readout, level, id, fold = true, children, ...data }: CatalogSectionProps) => {
+    const hints = useHintDescriptions();
+    const [opened, setOpened] = useState(true);
+    const own = useId();
+    const headingId = id ?? `${own}-heading`;
+    if (!fold) {
+        const Heading = level === 3 ? "h3" : "h4";
+        return <section className={styles.catalog_group} aria-labelledby={headingId} {...data}>
+            <Heading id={headingId}>{title}</Heading>
+            {help.map(text => <p key={text}>{text}</p>)}
+            {children}
+        </section>;
+    }
+    const hint = hints && help.length > 0 ? help.join("\n") : undefined;
+    const descriptionId = hint ? `${own}-description` : undefined;
+    // The name stays a heading, inside the bar: a summary may hold phrasing content only, so it is
+    // a heading by its role.
+    const heading = <span role="heading" aria-level={level} id={headingId}>{title}</span>;
+    return <section className={styles.catalog_group} aria-labelledby={headingId} {...data}>
+        <Fold data-catalog-fold open={opened} onToggle={event => setOpened(event.currentTarget.open)}
+            summaryProps={{ "data-hint-row": hint ? true : undefined, "aria-describedby": descriptionId }}
+            summary={<>
+                {hint ? <span data-hint-host>{heading}<Hint text={hint} id={descriptionId} row /></span> : heading}
+                {readout && <span className={css.readout}>{readout}</span>}
+            </>}>
+            {!hint && help.map(text => <p key={text}>{text}</p>)}
+            {children}
+        </Fold>
+    </section>;
 };

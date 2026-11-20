@@ -6,9 +6,7 @@ import { useTranslationCatalog } from "../../../../../../logics/translation/useT
 import { ENGINE_FORM_SETTING_ID, ENTRY_NAME_LIMIT, LLAMACPP, LLAMA_DEVICES, apiRequest, engineRequest, entryState } from "../../../../../../logics/translation/translationCatalog";
 import { endpointDescription } from "../../../../../../logics/common/endpointPrivacy";
 import { SectionLabelComponent } from "../_components";
-import { useHintDescriptions } from "../_components/hint/Hint";
-import { catalogHeading } from "../advanced_settings/catalogHeading";
-import { CatalogFacts, CatalogLayoutSwitch, CatalogList, useCatalogLayout } from "../advanced_settings/catalogLayout";
+import { CatalogFacts, CatalogLayoutSwitch, CatalogList, CatalogSection, useCatalogLayout } from "../advanced_settings/catalogLayout";
 import type { CatalogLayout } from "../advanced_settings/catalogLayout";
 import { TranslationLlamaRuntimes } from "./TranslationLlamaRuntimes";
 import styles from "../advanced_settings/VoiceSettings.module.scss";
@@ -61,7 +59,6 @@ const errorText = (t: TFunction, code: string) => t([`translation_catalog.errors
 
 const CatalogGroup = ({ group, catalog, layout }: { group: CatalogGroupId; catalog: TranslationCatalog; layout: CatalogLayout }) => {
     const { t } = useI18n();
-    const hints = useHintDescriptions();
     const { send } = useTranslationCatalog();
     // Which llama.cpp entries can run follows the server builds set up below.
     const askAgain = useCallback(() => send("/get/data/translation_catalog"), [send]);
@@ -69,9 +66,10 @@ const CatalogGroup = ({ group, catalog, layout }: { group: CatalogGroupId; catal
     const shipped = entries.filter(entry => entry.item.origin === "builtin");
     const own = entries.filter(entry => entry.item.origin !== "builtin");
     return (
-        <div className={styles.catalog_group} data-catalog-group={group}>
-            {/* What the group is: its heading's hint on a page that shows descriptions as hints, a line under it elsewhere. */}
-            {catalogHeading(hints, "h3", t(`translation_catalog.group.${group}`), [t(`translation_catalog.group_help.${group}`)])}
+        // A part of the catalog of its own, folded as the model catalogs' parts are. What the group is:
+        // its name's hint on a page that shows descriptions as hints, a line inside it elsewhere.
+        <CatalogSection level={3} data-catalog-group={group} title={t(`translation_catalog.group.${group}`)}
+            help={[t(`translation_catalog.group_help.${group}`)]} readout={t("translation_catalog.group_readout", { count: entries.length })}>
             {own.length > 0
                 ? <CatalogList layout={layout}>{own.map(entry => <EntryCard key={entry.item.id} {...entry} layout={layout} />)}</CatalogList>
                 : <p>{t("translation_catalog.none_added")}</p>}
@@ -80,7 +78,7 @@ const CatalogGroup = ({ group, catalog, layout }: { group: CatalogGroupId; catal
             </Fold>
             {group === "engine" && (catalog.runtimes ?? []).includes("llamacpp") && <TranslationLlamaRuntimes onInstalled={askAgain} />}
             {group === "engine" ? <EngineForm runtimes={catalog.runtimes ?? []} /> : <ApiForm protocols={catalog.protocols ?? []} />}
-        </div>
+        </CatalogSection>
     );
 };
 
