@@ -42,6 +42,8 @@ export const measuredTime = (ms: number, language?: string) => new Date(ms).toLo
 const bytes = (value: number, t: Translate) => `${t("model_downloads.exact_bytes", { bytes: Number(value).toLocaleString("en-US") })} (${(value / 1073741824).toFixed(2)} GiB)`;
 // The page lists sizes in GiB; the consent dialog keeps the exact byte counts.
 const gib = (value: number) => `${(value / 1073741824).toFixed(2)} GiB`;
+// A size in a few words (a grid card's fold): a file under 0.01 GiB in MiB, so it is not "0.00 GiB".
+const shortSize = (value: number) => value < 0.01 * 1073741824 ? `${(value / 1048576).toFixed(1)} MiB` : gib(value);
 
 const reserveBytes = (reserve: string) => (reserve === 'vr' ? 2 : .5) * 1024 ** 3;
 // The local translation runs on its own device (translationDeviceMode), mostly the CPU: the
@@ -375,7 +377,7 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
             </div>
             {grid
                 ? <CatalogFacts layout="grid" summary={t("model_catalog.layout.facts_of", {
-                    file: [variantLabel(current) !== current.name && variantLabel(current), gib(current.total_bytes)].filter(Boolean).join(" · ") })}>
+                    file: [variantLabel(current) !== current.name && variantLabel(current), shortSize(current.total_bytes)].filter(Boolean).join(" · ") })}>
                     {warning && <WarningNote warning={warning} />}
                     {file}{facts}{manualChoice}{prepareHint}
                     <AuditionNote target={target} status={shownStatus} />
