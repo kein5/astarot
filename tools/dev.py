@@ -21,7 +21,8 @@ import tomllib
 
 
 ROOT = Path(__file__).resolve().parents[1]
-SCOPES = ("quick", "tooling", "node", "ui", "voice", "lint", "rust", "workflows", "crates", "commits", "all")
+SCOPES = ("quick", "tooling", "node", "ui", "voice", "lint", "rust", "workflows", "crates", "vulns", "secrets", "commits",
+          "all")
 GROUPS = {"quick": ("tooling", "node", "lint"),
           "all": ("tooling", "node", "ui", "voice", "lint", "rust", "workflows", "crates")}
 # Rust crates outside the Tauri app, each with its own Cargo.lock and tests.
@@ -34,6 +35,11 @@ CARGO_WORKSPACES = ("src-tauri", *NATIVE_CRATES, "native/ocr-runtime", "native/r
 # cargo-deny's lints for a shared deny.toml: a license, exception or source one workspace has no
 # use for is not a mistake.
 DENY_UNUSED = ("license-not-encountered", "license-exception-not-encountered", "unmatched-source")
+# The lock files osv-scanner reads, named so that it never wanders into node_modules or target/.
+# tools/translation_onnx/requirements.txt is left out: it pins a local torch build (+cpu) that
+# osv-scanner cannot resolve, and nothing from it ships.
+OSV_LOCKFILES = ("uv.lock", "package-lock.json", "site/package-lock.json", "site/motion/package-lock.json",
+                 *(f"{workspace}/Cargo.lock" for workspace in CARGO_WORKSPACES))
 SETUP_SCOPES = ("headless", "ui", "browser", "rust", "resources")
 OWNER_FILE = ".vrct-vox-dev-env"
 OWNER = "VRCT-VOX developer environment v1\n"
@@ -215,22 +221,35 @@ def checks_plan(args, root):
                 steps.append(Step(f"cargo-deny {crate}", ["cargo-deny", "--frozen", "--manifest-path",
                     f"{crate}/Cargo.toml", "--config", "deny.toml", "check",
                     *(flag for lint in DENY_UNUSED for flag in ("-A", lint)), "licenses", "bans", "sources"]))
+        elif scope == "vulns":
+            # Known vulnerabilities (osv.dev) of every lock file: this asks osv.dev over the network.
+            # Exceptions go in osv-scanner.toml with a reason.
+            lockfiles = [name for name in OSV_LOCKFILES if args.dry_run or (root / name).is_file()]
+            steps.append(Step("osv-scanner", ["osv-scanner", "scan", "source",
+                *(flag for name in lockfiles for flag in ("--lockfile", name))]))
+        elif scope == "secrets":
+            # Keys and tokens in the commits after --base, as gitleaks finds them with
+            # .gitleaks.toml and .gitleaksignore. --redact keeps a found value out of the output.
+            steps.append(Step("secrets in new commits", ["gitleaks", "git", "--redact", "--no-banner",
+                "--log-opts", f"{commit_base(args, root, 'secrets')}..HEAD", "."]))
         elif scope == "commits":
-            if not args.base or args.base.startswith("-"):
-                raise DevError("commits requires --base REF (for example origin/develop); old history is not rewritten.")
-            if args.dry_run:
-                steps.append(Step("commit range (base resolved at execution)",
-                    ["cog", "check", f"{args.base}..HEAD"]))
-            else:
-                base = probe(["git", "rev-parse", "--verify", "--end-of-options",
-                              args.base + "^{commit}"], root)
-                if base.returncode:
-                    raise DevError("Cannot resolve --base locally. Fetch the intended base explicitly before checking.")
-                ancestor = probe(["git", "merge-base", base.stdout.strip(), "HEAD"], root)
-                if ancestor.returncode:
-                    raise DevError("No merge base with HEAD; inspect the local history/shallow checkout.")
-                steps.append(Step("new commits", ["cog", "check", ancestor.stdout.strip() + "..HEAD"]))
+            steps.append(Step("new commits", ["cog", "check", f"{commit_base(args, root, 'commits')}..HEAD"]))
     return steps
+
+
+def commit_base(args, root, scope):
+    """The merge base of --base and HEAD; in a dry run, --base as given (resolved when it runs)."""
+    if not args.base or args.base.startswith("-"):
+        raise DevError(f"{scope} requires --base REF (for example origin/develop); old history is not rewritten.")
+    if args.dry_run:
+        return args.base
+    base = probe(["git", "rev-parse", "--verify", "--end-of-options", args.base + "^{commit}"], root)
+    if base.returncode:
+        raise DevError("Cannot resolve --base locally. Fetch the intended base explicitly before checking.")
+    ancestor = probe(["git", "merge-base", base.stdout.strip(), "HEAD"], root)
+    if ancestor.returncode:
+        raise DevError("No merge base with HEAD; inspect the local history/shallow checkout.")
+    return ancestor.stdout.strip()
 
 
 def mise_versions(root):
@@ -253,7 +272,8 @@ def pinned_versions(root):
     return {command: tools[name] for name, command in
             (("node", "node"), ("cocogitto", "cog"), ("rust", "cargo"), ("uv", "uv"),
              ("actionlint", "actionlint"), ("zizmor", "zizmor"), ("cargo-deny", "cargo-deny"),
-             ("cargo-nextest", "cargo-nextest")) if name in tools}
+             ("cargo-nextest", "cargo-nextest"), ("osv-scanner", "osv-scanner"), ("gitleaks", "gitleaks"))
+            if name in tools}
 
 
 def python_series(root):
@@ -321,6 +341,10 @@ def doctor(args, root, *, preflight=False):
         needed_tools.update(("actionlint", "zizmor"))
     if "crates" in selected:
         needed_tools.update(("cargo", "cargo-deny"))
+    if "vulns" in selected:
+        needed_tools.add("osv-scanner")
+    if "secrets" in selected:
+        needed_tools.update(("gitleaks", "git"))
     pinned = pinned_versions(root)
     for tool_name in sorted(needed_tools):
         tool(tool_name, pinned.get(tool_name))
@@ -447,7 +471,7 @@ def parser():
         if command == "doctor":
             sub.add_argument("--json", action="store_true", help="Machine-readable diagnostics; missing prerequisites exit 2")
         else:
-            sub.add_argument("--base", help="Local Git ref for commits scope; uses its merge base with HEAD")
+            sub.add_argument("--base", help="Local Git ref for the commits and secrets scopes; uses its merge base with HEAD")
             sub.add_argument("--dry-run", action="store_true", help="Print commands without executing them")
     sub = commands.add_parser("setup", help="Explicitly install development dependencies (no system installs)")
     sub.add_argument("--scope", choices=SETUP_SCOPES, default="headless")

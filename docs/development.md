@@ -20,7 +20,8 @@ mise run check               # 軽量チェック
 | `doctor` | `python tools/dev.py doctor` |
 | `check`、`check:all` | `python tools/dev.py check`（`quick`）、`--scope all` |
 | `check:voice`、`check:ui`、`check:rust`、`check:workflows`、`check:crates` | `python tools/dev.py check --scope <名前>` |
-| `check:commits` | `python tools/dev.py check --scope commits --base origin/develop` |
+| `check:commits`、`check:secrets` | `python tools/dev.py check --scope <名前> --base origin/develop` |
+| `check:vulns` | `python tools/dev.py check --scope vulns`（osv.devに問い合わせる） |
 | `setup:headless`、`setup:ui`、`setup:browser`、`setup:rust`、`setup:resources` | `python tools/dev.py setup --scope <名前>` |
 | `spec` | 機能仕様書の一覧を作り直す（`python tools/spec_catalog.py --write`） |
 | `adr` | ADR の索引の表を作り直す（`python tools/adr_catalog.py --write`） |
@@ -158,6 +159,8 @@ python tools/dev.py check --scope rust --dry-run
 | `quick` | `tooling`、`node`、`lint`。既定値 |
 | `all` | 上記8対象。時間がかかるため統合時に明示実行 |
 | `commits` | `--base` からHEADまでの新規コミット形式を検証 |
+| `secrets` | `--base` からHEADまでの新規コミットに、鍵やトークンが入っていないかをgitleaksで検査（[リポジトリの検査](#リポジトリの検査)） |
+| `vulns` | ロックファイルの依存の既知の脆弱性を、osv-scannerで検査。osv.devに問い合わせるので `all` には入れない（[リポジトリの検査](#リポジトリの検査)） |
 
 Pythonは専用venvを優先し、次に既存の `.venv` を探します。`--python` があればその実行ファイルを使います。専用venvがない状態で `all` を実行しても、依存の不足を黙って省略しません。`doctor --scope all` で先に確認できます。
 
@@ -183,12 +186,16 @@ Pythonは専用venvを優先し、次に既存の `.venv` を探します。`--p
 | スコープ | 道具 | 確かめること | 例外の置き場所 |
 | --- | --- | --- | --- |
 | `workflows` | actionlint、zizmor | ワークフローの書き方、式、型（actionlint）。ワークフロー、自前のアクション、`dependabot.yml` の安全の問題（zizmor） | `.github/zizmor.yml`、または該当行の `# zizmor: ignore[<監査>] <理由>` |
+| `secrets` | gitleaks | `--base` からHEADまでの新規コミットの鍵やトークン。見つけた値は出力に出さない（`--redact`） | `.gitleaks.toml`（規則）、`.gitleaksignore`（過去のコミットの指紋） |
+| `vulns` | osv-scanner | `uv.lock`、`package-lock.json`（ルートと `site/` と `site/motion/`）、17の `Cargo.lock` の依存の既知の脆弱性（osv.dev） | `osv-scanner.toml`（いまはない） |
 | `crates` | cargo-deny | 17のCargoのワークスペース（`CARGO_WORKSPACES`）の依存のライセンス、取得元（crates.ioと、許可したgitのリポジトリ）、版を書かない依存。配布する2つのシステム（WindowsとLinuxのx64）で組む依存だけを見る | `deny.toml` |
 
 - actionlintのshellcheckとpyflakesの検査は切っています。どちらも `mise.toml` で版を固定していないので、PCによって結果が変わるためです。
 - zizmorは、`GH_TOKEN` があるとGitHubに問い合わせる監査（固定したコミットが本当にそのアクションのものか、既知の脆弱性のある版か）も行います。CIではワークフローのトークン（読み取りだけ）を渡します。手元では、`GH_TOKEN` がなければその監査を飛ばします。
 - 例外を足すときは、理由を必ず書きます。
 - `deny.toml` のライセンスは[ライセンス台帳](voice-stack/licensing.md)に合わせています。許容型（MIT、Apache-2.0、BSD、ISC、Zlib、Unicode-3.0など）はどのクレートにも認め、MPL-2.0とCDLA-Permissive-2.0は台帳で確かめたクレートだけに認めます。新しい依存で検査が止まったら、台帳に記録してから `deny.toml` に足します。既知の脆弱性はcargo-denyでは見ません。
+- gitleaksは、2026-11-21に履歴全体（4,806コミット）を調べたときの56件を、規則（計測結果のハッシュ、試験のWebSocketの値と暗号化した鍵）と、過去のコミットの指紋の一覧に分けて外しています。どれも秘密ではありませんでした。CIでは、PR、push、マージキューが足したコミットだけを見ます。
+- osv-scannerは `tools/translation_onnx/requirements.txt` を読みません。torchのローカルの版（`+cpu`）を解決できないためで、そこから配布物に入るものはありません。CIの `vulns` のステップは、見つかっても失敗にしません（2026-11-21の時点で、Rustのロックファイルに19件あります）。
 - CIでは `crates` だけを別のワークフロー `rust-crates.yml` で実行します。すべての依存の取得が要るので、`Cargo.toml`、`Cargo.lock`、`deny.toml` などを変えたPRと、developとmainへのpushだけで動きます。
 
 ## UIのTypeScriptとスタイル（移行中）

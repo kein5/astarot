@@ -267,6 +267,28 @@ class DeveloperCLITests(unittest.TestCase):
         for workspace in self.dev.CARGO_WORKSPACES:
             self.assertIn(f"--manifest-path {workspace}/Cargo.toml", output)
 
+    def test_secret_check_scans_only_the_new_commits_and_never_prints_a_value(self):
+        code, output = self.call("check", "--scope", "secrets", "--dry-run")
+        self.assertEqual(code, 2)
+        self.assertIn("secrets requires --base", output)
+        code, output = self.call("check", "--scope", "secrets", "--base", "origin/develop", "--dry-run")
+        self.assertEqual(code, 0)
+        self.assertIn("gitleaks git --redact --no-banner --log-opts origin/develop..HEAD .", output)
+
+    def test_vulnerability_check_names_each_lock_file_and_leaves_out_the_rest(self):
+        for name in ("uv.lock", "native/core/Cargo.lock"):
+            (self.root / name).parent.mkdir(parents=True, exist_ok=True)
+            (self.root / name).write_text("")
+        with patch.object(self.dev.shutil, "which", return_value=sys.executable), \
+             patch.object(self.dev, "doctor", return_value=0), \
+             patch.object(self.dev.subprocess, "run") as run:
+            run.return_value.returncode = 0
+            self.assertEqual(self.call("check", "--scope", "vulns")[0], 0)
+        argv = run.call_args.args[0]
+        # setUp writes a package-lock.json; site/ and the other workspaces have none here.
+        self.assertEqual(argv[1:], ["scan", "source", "--lockfile", "uv.lock", "--lockfile", "package-lock.json",
+                                    "--lockfile", "native/core/Cargo.lock"])
+
     def test_browser_setup_adds_dependencies_to_explicit_existing_python(self):
         code, output = self.call("setup", "--scope", "browser", "--python",
             sys.executable, "--dry-run")
