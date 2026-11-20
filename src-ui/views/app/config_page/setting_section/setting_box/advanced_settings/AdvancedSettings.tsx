@@ -480,7 +480,7 @@ const EnableObsBrowserSourceContainer = () => {
 const ObsBrowserSourceUrlContainer = () => {
     const { t } = useI18n();
     const { copyToClipboard } = useCopyToClipboard();
-    const { currentWebsocketHost, currentObsBrowserSourcePort, currentWebsocketAuthToken } = useAdvancedSettings();
+    const { currentWebsocketHost, currentObsBrowserSourcePort, currentWebsocketAuthToken, currentEnableObsBrowserSource } = useAdvancedSettings();
 
     const { url, shown } = buildObsBrowserSourceUrl(
         currentWebsocketHost.data, currentObsBrowserSourcePort.data, currentWebsocketAuthToken.data,
@@ -498,11 +498,12 @@ const ObsBrowserSourceUrlContainer = () => {
                 clicked_duration={1000}
                 onclickFunction={() => copyToClipboard(url)}
             />
-            <Description
+            {/* The address changed for those who use the source: said only while it is on. */}
+            {currentEnableObsBrowserSource.data === true && <Description
                 text={t("config_page.advanced_settings.obs_browser_source_url.desc")}
                 className={styles.obs_url_description}
                 fold={false}
-            />
+            />}
         </>
     );
 };
