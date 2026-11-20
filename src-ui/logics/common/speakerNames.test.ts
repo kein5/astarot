@@ -28,7 +28,7 @@ test("a name is tidied as the core keeps it and refused when too long or not one
 });
 
 test("rows of one session with the same voices go on from the row above them", () => {
-    const row = (id, speakers, extra = {}) => ({ id, category: "received", status: "ok", speakers,
+    const row = (id: string, speakers: string[], extra: Record<string, unknown> = {}) => ({ id, category: "received", status: "ok", speakers,
         realtime: { namespace: "n", generation: 1 }, ...extra });
     const rows = [
         row("1", ["A"]), row("2", ["A"]), row("3", ["A", "B"]), row("4", ["A", "B"]),

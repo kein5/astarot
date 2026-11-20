@@ -2,25 +2,30 @@ import assert from "node:assert/strict";
 import { test, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import i18next from "i18next";
+import type { ResourceKey } from "i18next";
 import yaml from "js-yaml";
-import { loadModule } from "../test/hookHarness.ts";
+import { loadModule, unchecked } from "../test/hookHarness.ts";
+
+// A notice is an element of a function component that returns its text.
+type NoticeElement = { type: (props: unknown) => string; props: unknown };
 import { loadBridgeStore, loadBridgeRoutes } from "../test/bridgeHarness.ts";
 
 for (const language of ["en", "ja"]) {
-    const translation = yaml.load(readFileSync(new URL(`../../../locales/${language}.yml`, import.meta.url), "utf8"));
+    // A locale file, which is a mapping of keys to text.
+    const translation = unchecked<ResourceKey>(yaml.load(readFileSync(new URL(`../../../locales/${language}.yml`, import.meta.url), "utf8")));
     test(`${language}: OSCQuery is unavailable until setup succeeds, and each warning says what happened`, async () => {
         const i18n = i18next.createInstance();
         await i18n.init({ lng: language, resources: { [language]: { translation } } });
         const { runtime, stores } = await loadBridgeStore();
-        const notices = [];
+        const notices: [string, unknown][] = [];
         const useI18n = { useI18n: () => ({ t: i18n.t.bind(i18n) }) };
-        const subject = await loadModule(new URL("./useHandleOscQuery.ts", import.meta.url), runtime, {
+        const subject = await loadModule<typeof import("./useHandleOscQuery.ts")>(new URL("./useHandleOscQuery.ts", import.meta.url), runtime, {
             "./TranslatedNotice": await loadModule(new URL("./TranslatedNotice.tsx", import.meta.url), runtime, { "@useI18n": useI18n }),
             "@logics_common": {
                 useIsOscAvailable: () => ({ ...stores.useStore_IsOscAvailable(), ...stores.useStore_OscUnavailableReason() }),
                 // The text is chosen when the notice is drawn: startup notices arrive
                 // before the saved UI language is applied.
-                useNotificationStatus: () => ({ showNotification_Warning: (notice, options) =>
+                useNotificationStatus: () => ({ showNotification_Warning: (notice: NoticeElement, options: unknown) =>
                     notices.push([notice.type(notice.props), options]) }),
             },
         });
@@ -34,7 +39,7 @@ for (const language of ["en", "ja"]) {
         assert.deepEqual([available(), reason()], [true, null]);
 
         // The last column: whether the text sends people to the settings tab.
-        const cases = [
+        const cases: [string, boolean, string, boolean][] = [
             ["setup_failed", true, "osc_query_failed_mic_stopped", true],
             ["setup_failed", false, "osc_query_failed", true],
             ["remote_destination", true, "osc_query_remote_mic_stopped", false],
@@ -73,11 +78,12 @@ for (const language of ["en", "ja"]) {
         const i18n = i18next.createInstance();
         await i18n.init({ lng: language, resources: { [language]: { translation } } });
         const { runtime, stores } = await loadBridgeStore();
-        const subject = await loadModule(new URL("./useIsOscAvailable.ts", import.meta.url), runtime, { "@store": stores });
+        const subject = await loadModule<typeof import("./useIsOscAvailable.ts")>(new URL("./useIsOscAvailable.ts", import.meta.url), runtime, { "@store": stores });
         assert.equal(subject.oscUnavailableLabelKey("remote_destination"), "config_page.common.warning_labels.unable_to_use_osc_query_remote");
         assert.equal(subject.oscUnavailableLabelKey("turned_off"), "config_page.common.warning_labels.unable_to_use_osc_query_off");
+        // undefined on purpose: a reason the backend left out.
         for (const why of ["setup_failed", null, undefined])
-            assert.equal(subject.oscUnavailableLabelKey(why), "config_page.common.warning_labels.unable_to_use_osc_query");
+            assert.equal(subject.oscUnavailableLabelKey(unchecked(why)), "config_page.common.warning_labels.unable_to_use_osc_query");
         for (const why of ["remote_destination", "setup_failed", "turned_off"]) assert.equal(i18n.exists(subject.oscUnavailableLabelKey(why)), true);
         runtime.store.set(stores.Atom_OscUnavailableReason, { state: "ok", data: "remote_destination" });
         assert.equal(runtime.render(subject.useIsOscAvailable).oscUnavailableLabelKey,

@@ -2,30 +2,34 @@ import assert from "node:assert/strict";
 import { test } from "vitest";
 import { loadModule, hooks, stubGlobals } from "../test/hookHarness.ts";
 
+type Effect = () => () => void;
+
 // StrictMode runs mount, cleanup and mount again with the same refs. The native
 // dialog's close() can leave focus on the body before the replayed effect runs.
 test("a StrictMode effect replay keeps the original opener for focus return", async t => {
-    const refs = [];
-    let effect = null, refIndex = 0;
+    const refs: { current: unknown }[] = [];
+    // Called before the hook has set it, it stops with a TypeError, as calling null did.
+    let effect: Effect = () => { throw new TypeError("effect is not a function"); }, refIndex = 0;
     const react = {
-        useRef: initial => (refs[refIndex] ??= { current: initial }, refs[refIndex++]),
-        useEffect: fn => { effect = fn; },
+        useRef: (initial: unknown) => (refs[refIndex] ??= { current: initial }, refs[refIndex++]),
+        useEffect: (fn: Effect) => { effect = fn; },
     };
     const body = { tagName: "BODY" };
-    const focused = [];
+    const focused: string[] = [];
     const opener = { isConnected: true, disabled: false, tabIndex: 0, matches: () => false,
         getAttribute: () => null, closest: () => null, focus: () => { focused.push("opener"); } };
-    const doc = { activeElement: opener, body };
+    const doc: { activeElement: object; body: object } = { activeElement: opener, body };
     stubGlobals(t, { document: doc });
     const modal = { open: false, contains: () => false,
         showModal() { this.open = true; doc.activeElement = { tagName: "A" }; },
         close() { this.open = false; doc.activeElement = body; } };
-    const { useConsentDialog } = await loadModule(new URL("./useConsentDialog.ts", import.meta.url), hooks(),
+    const { useConsentDialog } = await loadModule<typeof import("./useConsentDialog.ts")>(new URL("./useConsentDialog.ts", import.meta.url), hooks(),
         { react });
-    const render = open => {
+    const render = (open: boolean) => {
         refIndex = 0;
         const result = useConsentDialog(open, { current: null });
-        result.dialog.current = modal;
+        // React types the ref as read-only; the dialog's element is set as React sets it.
+        Reflect.set(result.dialog, "current", modal);
         return result;
     };
 
