@@ -10,7 +10,3 @@ rules:
     # Suggests GitHub's "$/" form for this repository's own actions. actionlint 1.7.12 does not
     # know it, and tests/voice/test_security_regressions.py reads "./" as this repository's code.
     disable: true
-  dependabot-cooldown:
-    # Whether Dependabot waits some days before proposing a new release is a decision of its own
-    # (asked in the pull request that added this file); until it is made, the audit is off.
-    disable: true
