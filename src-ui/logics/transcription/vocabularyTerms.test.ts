@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { MAX_USER_TERMS, addTerm, addTerms, builtinRows, changeOwnReadings, changeReadings, deleteOwn, dictionaryRows, ownTerms, parseTerm,
-    readingsText, restoreAllBuiltin, restoreBuiltin, takeOut, termsText, writtenKey } from "./vocabularyTerms.ts";
+import { MAX_USER_TERMS, addTerm, builtinRows, changeOwnReadings, changeReadings, deleteOwn, dictionaryRows, importVocabulary, ownTerms,
+    parseTerm, readingsText, restoreAllBuiltin, restoreBuiltin, takeOut, writtenKey } from "./vocabularyTerms.ts";
 
 test("an entry is made canonical as the core makes it, or refused", () => {
     assert.equal(parseTerm("  VRChat = ブイアールチャット , ブイチャ "), "VRChat=ブイアールチャット,ブイチャ");
@@ -13,22 +13,6 @@ test("an entry is made canonical as the core makes it, or refused", () => {
     }
     assert.equal(parseTerm("x".repeat(48)), "x".repeat(48));
     assert.equal(writtenKey("VRChat=ぶいちゃ"), "vrchat");
-});
-
-test("lines are added once each, up to the dictionary's limit, and the rest is counted", () => {
-    const result = addTerms(["VRChat=ブイチャ"], "猫丸=ねこまる\n\nvrchat\r\nMidnight Rooftop\n猫丸\n=bad\n");
-    assert.deepEqual(result, { terms: ["VRChat=ブイチャ", "猫丸=ねこまる", "Midnight Rooftop"], added: 2, duplicates: 2, invalid: 1, over: 0, rest: ["=bad"] });
-    const full = Array.from({ length: MAX_USER_TERMS - 1 }, (_, index) => `t${index}`);
-    const capped = addTerms(full, "a\nb\nc");
-    assert.equal(capped.terms.length, MAX_USER_TERMS);
-    assert.deepEqual([capped.added, capped.over, capped.rest], [1, 2, ["b", "c"]]);
-});
-
-test("the copied text is taken back as the same entries", () => {
-    const terms = ["VRChat=ブイアールチャット,ブイチャ", "Midnight Rooftop"];
-    assert.equal(termsText(terms), "VRChat=ブイアールチャット,ブイチャ\nMidnight Rooftop\n");
-    assert.deepEqual(addTerms([], termsText(terms)).terms, terms);
-    assert.equal(termsText([]), "");
 });
 
 // #792: the built-in terms as the app ships them, and the user's changes over them.
@@ -137,4 +121,39 @@ test("the user's own terms have their readings changed in their place, or are de
     assert.deepEqual(changed, { ok: true, vocabulary: { ...start, terms: ["猫丸=ねこまる", "黒猫=くろねこ,くろ"] } });
     assert.deepEqual(changeOwnReadings(start, "黒猫", "く=ろ"), { ok: false, reason: "invalid" });
     assert.deepEqual(deleteOwn(start, "猫丸=ねこまる"), { ...start, terms: ["黒猫"] }, "what is taken out stays");
+});
+
+// #792: a dictionary file read back into the dictionary: terms added or their readings changed, the
+// built-in terms it takes out taken out, and nothing of the dictionary dropped.
+test("a dictionary file becomes the dictionary: built-in terms kept, changed or taken out by it, the user's terms as it has them", () => {
+    const start = { builtin: true, terms: ["猫丸=ねこまる", "黒猫", "Quest=くえすと"], removed: ["Vket"] };
+    // The file of another dictionary: a built-in term as it ships, one with other readings, a new
+    // term, one the user had with other readings, and lines left.
+    const file = "# ASTAROT term dictionary\n\n 猫丸 = ねこ \r\nVRChat=ブイアールチャット,ブイチャ\nFriends+=ふれぷら\n"
+        + "Midnight Rooftop=みっどないと\nvrchat=ぶい\nx,y\n";
+    const read = importVocabulary(start, BUILTIN, file);
+    // 黒猫 and the changed Quest are not in the file: they go, and Quest, ワールド, which the file
+    // has no line for, are taken out; VRChat stays as it ships.
+    assert.deepEqual(read.vocabulary, { builtin: true, terms: ["猫丸=ねこ", "Friends+=ふれぷら", "Midnight Rooftop=みっどないと"],
+        removed: ["ワールド", "Quest"] });
+    assert.deepEqual([read.own, read.changed, read.removed, read.invalid, read.duplicate, read.over, read.empty, read.unchanged],
+        [2, 1, 2, 1, 1, 0, false, false]);
+    // The dictionary written out and read back is the same dictionary.
+    const again = importVocabulary(read.vocabulary, BUILTIN, file);
+    assert.equal(again.unchanged, true);
+    assert.deepEqual(again.vocabulary, read.vocabulary);
+    // A file that takes out the same built-in terms, in another order, keeps the list as it was.
+    const reordered = importVocabulary({ ...read.vocabulary, removed: ["Quest", "ワールド"] }, BUILTIN, file);
+    assert.equal(reordered.unchanged, true);
+    // A file with no term leaves the dictionary as it is, not empty.
+    const empty = importVocabulary(start, BUILTIN, "# notes only\n\nx,y\n");
+    assert.deepEqual([empty.vocabulary, empty.empty, empty.invalid], [start, true, 1]);
+    // Over the limit of the user's terms the lines are left, and a built-in term such a line
+    // names stays as it ships rather than being taken out.
+    const many = Array.from({ length: MAX_USER_TERMS }, (_, index) => `t${index}`).join("\n");
+    const over = importVocabulary({ terms: [] }, BUILTIN, `${many}\nQuest=くえ\nVRChat=ブイアールチャット,ブイチャ\n`);
+    assert.deepEqual([over.own, over.over, over.vocabulary.removed], [MAX_USER_TERMS, 1, ["ワールド", "Friends+"]]);
+    // With the built-in terms off the switch stays off; the file still decides what is taken out.
+    const off = importVocabulary({ builtin: false, terms: ["猫丸"] }, BUILTIN, "猫丸=ねこ\n");
+    assert.deepEqual(off.vocabulary, { builtin: false, terms: ["猫丸=ねこ"], removed: ["VRChat", "ワールド", "Friends+", "Quest"] });
 });

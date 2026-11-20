@@ -144,7 +144,8 @@ test("the receive router correlates Apply and Cancel acknowledgements", async t 
 const loadHeading = (runtime: HookRuntime) => loadModule<typeof import("../../views/app/config_page/setting_section/setting_box/advanced_settings/catalogHeading.tsx")>(new URL("../../views/app/config_page/setting_section/setting_box/advanced_settings/catalogHeading.tsx", import.meta.url), runtime,
     { "../_components/hint/Hint": { Hint: "hint" } });
 // hints: whether the page has been reviewed against #614 (HintDescriptions), so its descriptions are hints.
-const loadCatalog = async (s: { render: () => object }, ui: HookRuntime, hints = false) => loadModule<typeof import("../../views/app/config_page/setting_section/setting_box/advanced_settings/ModelDownloads.tsx")>(new URL("../../views/app/config_page/setting_section/setting_box/advanced_settings/ModelDownloads.tsx", import.meta.url), ui, {
+// layout: the catalogs' layout chosen (catalogLayout.tsx).
+const loadCatalog = async (s: { render: () => object }, ui: HookRuntime, hints = false, layout = "list") => loadModule<typeof import("../../views/app/config_page/setting_section/setting_box/advanced_settings/ModelDownloads.tsx")>(new URL("../../views/app/config_page/setting_section/setting_box/advanced_settings/ModelDownloads.tsx", import.meta.url), ui, {
     "@tauri-apps/api/core": { isTauri: () => false },
     "@tauri-apps/plugin-opener": {},
     "../../../../../../logics/voice/useModelDownloads": { useModelDownloads: s.render },
@@ -161,6 +162,50 @@ const loadCatalog = async (s: { render: () => object }, ui: HookRuntime, hints =
     "../_components/hint/Hint": { Hint: "hint", useHintDescriptions: () => hints },
     "../_components/fold/Fold": { Fold: "fold" },
     "./catalogHeading": await loadHeading(ui),
+    "./catalogLayout": { useCatalogLayout: () => layout, CatalogList: "ul", CatalogFacts: "catalog-facts", CatalogLayoutSwitch: "catalog-layout-switch" },
+});
+
+test("the cards take the layout chosen on the heading's line, and one model asked about stays a list", async t => {
+    const s = await setup(t), ui = hooks();
+    t.onTestFinished(() => ui.unmount());
+    const { ModelDownloads } = await loadCatalog(s, ui, false, "grid");
+    s.render().updateCatalog(catalog({ models: [
+        { id: "model-q8", target: "asr", name: "Model · Q8_0", total_bytes: 2 * 1073741824, profile: { recommended_for: ["ja", "en", "ko"], summary: "model" },
+            speech: { name: "model", label: "Model", type: "q8_0", default: true, languages: ["ja"], start: [] } },
+        { id: "model-q4", target: "asr", name: "Model · Q4_K", total_bytes: 1073741824,
+            speech: { name: "model", label: "Model", type: "q4_k", default: false, languages: ["ja"], start: [] } },
+        { id: "other", target: "asr", name: "Other", total_bytes: 10, profile: { recommended_for: ["ja"] } },
+    ] }));
+    const draw = (only?: string[]) => ui.render(ModelDownloads, { targets: ["asr"], expected: { asr: {} }, only });
+    const cards = (tree: object) => nodesIn(tree).filter(node => node.props?.["data-model-download"] !== undefined);
+    const parts = (card: TreeNode) => [card.props.children].flat(2).filter(Boolean).map(part => String(part.type === "catalog-facts" ? "catalog-facts" : part.props.className));
+    let tree = draw();
+    assert.ok(find(tree, node => node.type === "catalog-layout-switch"), "the layout buttons on the heading's line");
+    assert.equal(findIn(tree, node => node.type === "ul").props.layout, "grid");
+    // A grid card is four parts: what the model is, its size and hardware, its details folded,
+    // and its actions.
+    const [model, other] = cards(tree);
+    assert.deepEqual(parts(model), ["card_intro", "card_key", "catalog-facts", "card_foot"]);
+    assert.equal(findIn(model, node => node.props?.className === "card_key").props.part, "key", "the size and the hardware on the card");
+    const details = findIn(model, node => node.type === "catalog-facts");
+    assert.equal(details.props.summary, "model_catalog.layout.facts_of", "the fold names the file type");
+    assert.equal(findIn(other, node => node.type === "catalog-facts").props.summary, undefined, "one file of the model's name: Details");
+    assert.ok(find(details, node => node.type === "select"), "the choice of the file is in the fold");
+    assert.equal(findIn(details, node => componentName(node) === "ModelFacts").props.part, "rest", "the languages and the terms in the fold");
+    assert.equal(find(findIn(model, node => node.props?.className === "card_intro"), node => node.type === "select"), null);
+    assert.ok(find(findIn(model, node => node.props?.className === "card_foot"), node => node.type === "button"), "the actions stay on the card");
+    // Whom it is suggested for is one short word: how many languages, or the one.
+    const badge = (card: TreeNode) => findIn(card, node => node.props?.["data-tone"] === "recommended").props.children;
+    assert.equal(badge(model), "model_catalog.recommended_for_count");
+    assert.equal(badge(other), "model_catalog.recommended_for");
+    assert.equal(findIn(tree, node => node.type === "user-model-cards").props.layout, "grid");
+    // The translation review asks about one model: no choice, and its card is a list's.
+    tree = draw(["model-q8", "model-q4"]);
+    assert.equal(find(tree, node => node.type === "catalog-layout-switch"), null);
+    assert.equal(findIn(tree, node => node.type === "ul").props.layout, "list");
+    assert.deepEqual(parts(cards(tree)[0]), ["card_intro", "card_spec", "card_foot"]);
+    assert.equal(find(tree, node => node.type === "catalog-facts"), null);
+    assert.equal(badge(cards(tree)[0]), "model_catalog.recommended_for");
 });
 
 test("the production model card enables matching Cancel during Apply verification", async t => {

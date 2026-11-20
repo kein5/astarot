@@ -9,7 +9,7 @@ export { RadioButton } from "./radio_button/RadioButton";
 export { SectionLabelComponent } from "./section_label_component/SectionLabelComponent";
 export { Slider } from "./slider/Slider";
 export { ThresholdComponent } from "./threshold_component/ThresholdComponent";
-export { WordFilter, WordFilterListToggleComponent } from "./word_filter/WordFilter";
+export { WordFilter } from "./word_filter/WordFilter";
 export { DownloadModels } from "./download_models/DownloadModels";
 export { MessageFormat } from "./message_format/MessageFormat";
 export { ConnectionCheckButton } from "./connection_check_button/ConnectionCheckButton";

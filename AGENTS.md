@@ -52,6 +52,7 @@ UI の監査、文章の推敲、実機での画面の確認、図の作成な�
 | Python の道具とその試験（`tools/`、`tests/voice/`）、配布の検査 | `check --scope voice`（新しい Linux の checkout では先に `python tools/build_voice_gate.py`） |
 | UI（`src-ui/`）や文言 | `check --scope ui` |
 | Rust のバックエンド中核（`native/core`）と `native/` のクレート、Tauri（`src-tauri/`） | `check --scope rust`（対象のクレートは `tools/dev.py` の `NATIVE_CRATES`。ほかのクレートは `cargo test --manifest-path native/<crate>/Cargo.toml`） |
+| 画面から中核を通る流れ（`src-ui/` と `native/core` の両方にかかる変更）、結合テスト（`tests/integration/`、`native/browser-core-bridge`） | `check --scope integration`（先に `setup --scope integration`。ADR-017） |
 | 複数の領域、統合の前 | `check --scope all` |
 | コミット | `check --scope commits --base origin/develop` |
 

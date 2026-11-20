@@ -142,6 +142,38 @@
 // What the GPU reading says for this use, a readout of this session, in one block under the heading.
 .catalog_advice { display: grid; gap: .2rem; min-width: 0; }
 .catalog { display: grid; gap: 1.2rem; margin: 0; padding: 0; list-style: none; min-width: 0; }
+// The grid layout of a catalog (catalogLayout.tsx): the cards side by side, as many as fit at
+// 26rem or more, each read down in three parts: what the model is (its name, state and words), its
+// details in a fold, then what runs and its actions; a model's card has its size and hardware
+// between the first two. A card takes three (or four) rows of the list and shares
+// them with the cards beside it (subgrid), so their names, their folds and their actions start on
+// the same lines across a row. A card is not a container (containment would end the subgrid): its
+// fold is (catalogLayout.css.ts), so the facts in it stack as in a narrow window.
+.catalog[data-layout="grid"] {
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 26rem), 1fr));
+    > .card:has(> .card_foot) { grid-row: span 3; grid-template-rows: subgrid; row-gap: 1.2rem; }
+    // A model's card has a fourth part, its size and hardware, between what it is and its fold.
+    > .card:has(> .card_key) { grid-row: span 4; }
+    // A part shorter than the row it shares keeps its lines at the top, not spread over the row.
+    > .card > .card_intro, > .card > .card_key, > .card > .card_foot { align-content: start; }
+    // The size and the hardware on the card: each term over its value, in the card's width.
+    > .card > .card_key { grid-template-columns: minmax(0, 1fr); row-gap: .1rem; dd { margin-bottom: .4rem; } }
+    // The name's line is the name and the state, the state at the top right of every card: a long
+    // name wraps in its own column.
+    .card_head { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; }
+    // A card of a name alone (an entry the app ships) is one row; the cards of a row are as tall as each other.
+    > .card:not(:has(> .card_foot)) { align-content: start; }
+}
+// A catalog's heading and its layout buttons on one line; the buttons go under it where they do
+// not fit beside it.
+.catalog_head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .8rem 1.6rem; min-width: 0; }
+// A section's label (the translation catalog's) keeps its rule up to the buttons, which stand on
+// the label's line, above the space under it.
+.catalog_head.section_head {
+    align-items: flex-end;
+    > [data-section-label] { flex: 1 1 auto; }
+    > :last-child { margin-bottom: 1.2rem; }
+}
 .card {
     display: grid; gap: 1.2rem; min-width: 0; padding: 1.6rem;
     // The facts' terms take one width on every card, so their values start at one place down the list.
