@@ -321,13 +321,18 @@ npx mutator accept <キー> --reason "<等価と判断した理由>"            
 
 ### Rustのカバレッジとミューテーションテスト
 
-Rustのカバレッジは [cargo-llvm-cov](https://github.com/taiki-e/cargo-llvm-cov)、ミューテーションテストは [cargo-mutants](https://mutants.rs/) で測ります。どちらも `mise.toml` には入れていないので、使う人が入れます（2026-11-20に使った版は cargo-llvm-cov 0.9.1 と cargo-mutants 27.1.0）。CIでは回しません。リファクタリングの節目や、対象のモジュールを変えたときに手で回します（[Issue #550](https://github.com/kein5/astarot/issues/550)）。
+Rustのカバレッジは [cargo-llvm-cov](https://github.com/taiki-e/cargo-llvm-cov)、ミューテーションテストは [cargo-mutants](https://mutants.rs/) で測ります。どちらも `mise.toml` で版を固定しています（`cargo:cargo-llvm-cov`、`cargo:cargo-mutants`。cargo でソースから組むので、初めの1回は数分かかります）。[Issue #550](https://github.com/kein5/astarot/issues/550) と #871 の決定で、使い方は次のとおりです。
+
+- **カバレッジ**: CIの `voice-tests.yml` の `rust-coverage` のジョブが、PRと、developとmainへのpushごとに、クレートごとの数字を測り、ジョブの要約（Summary）に表で出します。しきい値はなく、数字が下がってもCIは失敗しません。手元でも同じ道具で測れます（`tools/rust_coverage.py`）。
+- **ミューテーションテスト**: CIでは回しません。対象のモジュールを変えたPRと、作り替えの節目に手で回します。
 
 ```sh
+mise install cargo:cargo-llvm-cov cargo:cargo-mutants
 rustup component add llvm-tools --toolchain 1.100.0
-cargo +1.100.0 install --locked cargo-llvm-cov@0.9.1 cargo-mutants@27.1.0
 
-# カバレッジ（クレートごと）
+# カバレッジ（全部のクレート、または --crate で絞る。CIのジョブと同じ表）
+python tools/rust_coverage.py
+python tools/rust_coverage.py --crate native/ops
 cargo llvm-cov --locked --manifest-path native/ops/Cargo.toml --summary-only
 cargo llvm-cov report --manifest-path native/ops/Cargo.toml --show-missing-lines   # 直前の実行の、通らなかった行
 
@@ -336,7 +341,7 @@ cd native/ops && cargo mutants -j 4 --cargo-arg=--locked -f src/downloads/catalo
 cd native/core && PROPTEST_DISABLE_FAILURE_PERSISTENCE=1 cargo mutants --in-place --cargo-arg=--locked -f src/voice_settings.rs -- --lib
 ```
 
-- `native/` のクレートは1つのワークスペースではなく、それぞれが `Cargo.lock` を持ちます。カバレッジはクレートごとに、そのクレートの試験だけで測ります。中核の統合試験から通っているコードも、そのクレートの数字には入りません。実機のPipeWireが要る試験（`--ignored`）も入りません。並列で落ちる試験（`native/adapters` のOSC）があるクレートは、`--ignore-run-fail` を付けて測ります。
+- `native/` のクレートは1つのワークスペースではなく、それぞれが `Cargo.lock` を持ちます。カバレッジはクレートごとに、そのクレートの試験だけで測ります。中核の統合試験から通っているコードも、そのクレートの数字には入りません。実機のPipeWireが要る試験（`--ignored`）も入りません。試験が落ちても測れるよう、`tools/rust_coverage.py` は `--ignore-run-fail` を付け、落ちたクレートは表に書きます。
 - cargo-mutants は、変異のない状態で試験がすべて通らないと何もしません。
 - cargo-mutants は既定でクレートを一時フォルダーに写して変異させます。`native/core` は、兄弟のクレートへの相対パスが通常の依存と試験用の依存で食い違い、写したものがビルドできません。そのため `--in-place`（その場で1件ずつ変異させる）で回します。回している間は、そのクレートのファイルを編集しないでください。
 - proptest は、落ちた入力を `proptest-regressions/` に書き残し、次の実行で先に試します。変異させたコードで落ちた入力は残す意味がないので、ミューテーションテストは `PROPTEST_DISABLE_FAILURE_PERSISTENCE=1` を付けて回します。
