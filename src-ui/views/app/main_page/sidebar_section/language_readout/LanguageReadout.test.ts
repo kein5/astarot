@@ -90,6 +90,7 @@ test("long names end in an ellipsis; on is tinted and named in the rail", () => 
     assert.match(switches, /&\.is_active \{\s*background-color: var\(--vox_highlight_tint\);/);
     assert.match(switches, /&\.is_active:not\(\.is_pending\) \{\s*color: var\(--vox_state_active\);/);
     const jsx = readFileSync(new URL("../main_function_switch/MainFunctionSwitch.tsx", import.meta.url), "utf8");
-    assert.match(jsx, /const tooltip = blockedTitle \?\? statusText \?\? \(currentIsMainPageCompactMode\.data \? switchLabel : undefined\);/);
+    // The icon rail's tooltip names the switch when nothing else is to be said.
+    assert.match(jsx, /const tooltip = blockedTitle \?\? \(unavailableTitle \|\| null\) \?\? statusText \?\? \(currentIsMainPageCompactMode\.data \? switchLabel : undefined\);/);
     assert.match(jsx, /<Tooltip bare placement="right" title=\{tooltip\}>/);
 });

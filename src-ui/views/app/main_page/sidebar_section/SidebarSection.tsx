@@ -9,6 +9,7 @@ import { useIsMainPageCompactMode } from "@logics_main";
 
 import { Logo } from "./logo/Logo";
 import { MainFunctionSwitch } from "./main_function_switch/MainFunctionSwitch";
+import { EngineReadout } from "./engine_readout/EngineReadout";
 import { LanguageSettings } from "./language_settings/LanguageSettings";
 import { LanguageReadout } from "./language_readout/LanguageReadout";
 import { OpenSettings } from "./open_settings/OpenSettings.tsx";
@@ -70,6 +71,8 @@ export const SidebarSection = () => {
                 </button>
             </Tooltip>}
             <div className={styles.scrollContainer}>
+                {/* Why every switch is greyed out, once, when the engine is gone. */}
+                <EngineReadout />
                 <MainFunctionSwitch />
                 {currentIsMainPageCompactMode.data ? <LanguageReadout /> : <LanguageSettings />}
             </div>

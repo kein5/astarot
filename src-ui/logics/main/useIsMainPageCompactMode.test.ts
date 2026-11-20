@@ -27,6 +27,7 @@ async function fixture(saved: boolean, context: TestContext) {
     const { SidebarSection } = await loadModule<typeof import("../../views/app/main_page/sidebar_section/SidebarSection.tsx")>(new URL("../../views/app/main_page/sidebar_section/SidebarSection.tsx", import.meta.url), runtime, {
         "@store": store, "@logics_main": logic, "./logo/Logo": { Logo: "logo" },
         "./main_function_switch/MainFunctionSwitch": { MainFunctionSwitch: "switches" },
+        "./engine_readout/EngineReadout": { EngineReadout: "engine-readout" },
         "./language_settings/LanguageSettings": { LanguageSettings: "languages" },
         "./language_readout/LanguageReadout": { LanguageReadout: "readout" },
         "./open_settings/OpenSettings": { OpenSettings: "settings" },

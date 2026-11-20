@@ -179,7 +179,8 @@ export const MainFunctionSwitch = () => {
                     blockedReason={blockedReason}
                     switchLabel={item.label}
                     currentState={item.currentState}
-                    statusText={ready ? item.statusText : starting ? null : t("main_page.backend_disconnected")}
+                    statusText={ready ? item.statusText : null}
+                    unavailableText={ready || starting ? null : t("main_page.backend_disconnected")}
                     toggleFunction={item.toggleFunction}
                     SvgComponent={item.SvgComponent}
                     settingsLabel={settingsLabel(destination, t)}
@@ -272,6 +273,8 @@ export const SwitchRow = ({ settingsLabel: label, openSettings, ...props }: Swit
 // then disabled and says so in its tooltip and to screen readers; it keeps its place in the
 // tab order so that the reason can be heard.
 // starting: the engine has not sent the switch's state yet; the toggle is a placeholder.
+// unavailableText: why no switch can be used (the engine is gone). The rail says it once at its
+// head (EngineReadout); the switch adds no line for it, and keeps it in its name and tooltip.
 // inRow: the icon is drawn by SwitchRow as its own button; the row draws the background.
 type SwitchContainerProps = {
     switchLabel: string;
@@ -285,11 +288,12 @@ type SwitchContainerProps = {
     unavailable?: boolean;
     starting?: boolean;
     statusText?: string | null;
+    unavailableText?: string | null;
     blockedReason?: string | null;
     inRow?: boolean;
 };
 
-export const SwitchContainer = ({ switchLabel, switch_id, children, currentState, toggleFunction, SvgComponent, cancellable = false, disabled = false, unavailable = false, starting = false, statusText = null, blockedReason = null, inRow = false }: SwitchContainerProps) => {
+export const SwitchContainer = ({ switchLabel, switch_id, children, currentState, toggleFunction, SvgComponent, cancellable = false, disabled = false, unavailable = false, starting = false, statusText = null, unavailableText = null, blockedReason = null, inRow = false }: SwitchContainerProps) => {
     const { currentIsMainPageCompactMode } = useIsMainPageCompactMode();
     const reasonId = `main_switch_${switch_id}_reason`;
     // A long name breaks before its short name in brackets, never in the middle of a word.
@@ -299,9 +303,10 @@ export const SwitchContainer = ({ switchLabel, switch_id, children, currentState
     const greyed = unavailable || !!blockedReason;
     // The icon rail has no label: its tooltip names the switch before the reason.
     const blockedTitle = blockedReason && (currentIsMainPageCompactMode.data ? `${switchLabel}: ${blockedReason}` : blockedReason);
-    // The tooltip: why the switch is held off, else its state, else its name in the icon rail.
-    // A state the wide rail prints under the name is not repeated in a bubble (Tooltip).
-    const tooltip = blockedTitle ?? statusText ?? (currentIsMainPageCompactMode.data ? switchLabel : undefined);
+    const unavailableTitle = unavailable && unavailableText && (currentIsMainPageCompactMode.data ? `${switchLabel}: ${unavailableText}` : unavailableText);
+    // The tooltip: why the switch is held off or cannot be used, else its state, else its name in
+    // the icon rail. A state the wide rail prints under the name is not repeated in a bubble (Tooltip).
+    const tooltip = blockedTitle ?? (unavailableTitle || null) ?? statusText ?? (currentIsMainPageCompactMode.data ? switchLabel : undefined);
     const blocked = greyed || disabled || (!cancellable && pending);
 
     const getClassNames = (baseClass: string | undefined) => clsx(baseClass, {
@@ -317,7 +322,7 @@ export const SwitchContainer = ({ switchLabel, switch_id, children, currentState
         <Tooltip bare placement="right" title={tooltip}>
             <div
                 className={getClassNames(styles.switch_container)}
-                role="switch" aria-label={unavailable && statusText ? `${switchLabel}: ${statusText}` : switchLabel} aria-checked={active}
+                role="switch" aria-label={unavailable && unavailableText ? `${switchLabel}: ${unavailableText}` : switchLabel} aria-checked={active}
                 aria-busy={pending} aria-disabled={blocked} tabIndex={0}
                 aria-describedby={blockedReason ? reasonId : undefined}
                 onClick={() => { if (!blocked) toggleFunction(); }}

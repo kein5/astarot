@@ -166,13 +166,19 @@ test("disconnected main switches hide retained activity and reject clicks, keys 
     }
     const disconnected = b.runtime.render(s.MainFunctionSwitch);
     for (const item of disconnected.props.children) {
-        const control = inTooltip(s.SwitchContainer(item.props));
+        const drawn = s.SwitchContainer(item.props);
+        const control = inTooltip(drawn);
         assert.equal(control.props["aria-disabled"], true);
         assert.equal(control.props["aria-checked"], false);
         assert.equal(control.props["aria-busy"], false);
         assert.match(control.props["aria-label"], /main_page.backend_disconnected/);
         assert.doesNotMatch(control.props.className, /is_active/);
-        assert.ok(find(control, node => node.props.children === "main_page.backend_disconnected"));
+        // The rail says it once at its head (EngineReadout): no line under the switch, so no row
+        // grows. The switch keeps the reason in its name (above) and in its tooltip.
+        assert.equal(item.props.statusText, null);
+        assert.equal(find(control, node => node.props.children === "main_page.backend_disconnected"), null);
+        assert.equal(find(control, node => node.props.role === "status"), null);
+        assert.equal(drawn.props.title, "main_page.backend_disconnected");
         control.props.onClick();
         keydown(control, "Enter");
         keydown(control, " ");
