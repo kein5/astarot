@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { MAX_USER_TERMS, addTerm, addTerms, builtinRows, changeOwnReadings, changeReadings, deleteOwn, dictionaryRows, ownTerms, parseTerm,
-    readingsText, restoreAllBuiltin, restoreBuiltin, takeOut, termsText, writtenKey } from "./vocabularyTerms.ts";
+import { MAX_USER_TERMS, addTerm, builtinRows, changeOwnReadings, changeReadings, deleteOwn, dictionaryRows, importVocabulary, ownTerms,
+    parseTerm, readingsText, restoreAllBuiltin, restoreBuiltin, takeOut, writtenKey } from "./vocabularyTerms.ts";
 
 test("an entry is made canonical as the core makes it, or refused", () => {
     assert.equal(parseTerm("  VRChat = ブイアールチャット , ブイチャ "), "VRChat=ブイアールチャット,ブイチャ");
@@ -13,22 +13,6 @@ test("an entry is made canonical as the core makes it, or refused", () => {
     }
     assert.equal(parseTerm("x".repeat(48)), "x".repeat(48));
     assert.equal(writtenKey("VRChat=ぶいちゃ"), "vrchat");
-});
-
-test("lines are added once each, up to the dictionary's limit, and the rest is counted", () => {
-    const result = addTerms(["VRChat=ブイチャ"], "猫丸=ねこまる\n\nvrchat\r\nMidnight Rooftop\n猫丸\n=bad\n");
-    assert.deepEqual(result, { terms: ["VRChat=ブイチャ", "猫丸=ねこまる", "Midnight Rooftop"], added: 2, duplicates: 2, invalid: 1, over: 0, rest: ["=bad"] });
-    const full = Array.from({ length: MAX_USER_TERMS - 1 }, (_, index) => `t${index}`);
-    const capped = addTerms(full, "a\nb\nc");
-    assert.equal(capped.terms.length, MAX_USER_TERMS);
-    assert.deepEqual([capped.added, capped.over, capped.rest], [1, 2, ["b", "c"]]);
-});
-
-test("the copied text is taken back as the same entries", () => {
-    const terms = ["VRChat=ブイアールチャット,ブイチャ", "Midnight Rooftop"];
-    assert.equal(termsText(terms), "VRChat=ブイアールチャット,ブイチャ\nMidnight Rooftop\n");
-    assert.deepEqual(addTerms([], termsText(terms)).terms, terms);
-    assert.equal(termsText([]), "");
 });
 
 // #792: the built-in terms as the app ships them, and the user's changes over them.
@@ -137,4 +121,27 @@ test("the user's own terms have their readings changed in their place, or are de
     assert.deepEqual(changed, { ok: true, vocabulary: { ...start, terms: ["猫丸=ねこまる", "黒猫=くろねこ,くろ"] } });
     assert.deepEqual(changeOwnReadings(start, "黒猫", "く=ろ"), { ok: false, reason: "invalid" });
     assert.deepEqual(deleteOwn(start, "猫丸=ねこまる"), { ...start, terms: ["黒猫"] }, "what is taken out stays");
+});
+
+// #792: a dictionary file read back into the dictionary: terms added or their readings changed, the
+// built-in terms it takes out taken out, and nothing of the dictionary dropped.
+test("a dictionary file adds its terms, changes the readings of those already there and takes out what it names", () => {
+    const start = { builtin: true, terms: ["猫丸=ねこまる", "黒猫"], removed: ["Vket"] };
+    const file = "# ASTAROT term dictionary\n\n 猫丸 = ねこ \r\nMidnight Rooftop=みっどないと\nVRChat=ブイアールチャット,ブイチャ\n"
+        + "Friends+=ふれぷら\n-Quest\n-vket\n-Midnight Rooftop\n-a=b\nx,y\n";
+    const read = importVocabulary(start, BUILTIN, file);
+    assert.deepEqual(read.vocabulary, { builtin: true, terms: ["猫丸=ねこ", "黒猫", "Midnight Rooftop=みっどないと", "Friends+=ふれぷら"],
+        removed: ["Vket", "Quest"] });
+    // The built-in VRChat as it ships adds nothing, and Friends+ with other readings changes the
+    // built-in term's readings. Vket was taken out already; Midnight Rooftop is not a built-in term
+    // to take out.
+    assert.deepEqual([read.added, read.changed, read.removed, read.invalid, read.over, read.notBuiltin], [1, 2, 1, 2, 0, 1]);
+    // What the file says already, read again, changes nothing.
+    const again = importVocabulary(read.vocabulary, BUILTIN, file);
+    assert.deepEqual(again.vocabulary, read.vocabulary);
+    assert.deepEqual([again.added, again.changed, again.removed], [0, 0, 0]);
+    // A full dictionary leaves the new terms out and counts them.
+    const full = { terms: Array.from({ length: MAX_USER_TERMS }, (_, index) => `t${index}`) };
+    const over = importVocabulary(full, BUILTIN, "黒猫\nt1=てぃー\n");
+    assert.deepEqual([over.added, over.changed, over.over], [0, 1, 1]);
 });

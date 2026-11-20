@@ -26,46 +26,6 @@ export const parseTerm = (value: string): string | null => {
 // The written form an entry is told apart by, without regard to letter case.
 export const writtenKey = (term: string): string => term.split("=")[0].trim().toLowerCase();
 
-export type BulkResult = {
-    terms: string[];
-    added: number;
-    // Lines whose written form is in the dictionary already (or earlier in the text).
-    duplicates: number;
-    // Lines the core would refuse.
-    invalid: number;
-    // Lines left out because the dictionary was full.
-    over: number;
-    // The refused and the left-out lines, as typed, to be put right and added again.
-    rest: string[];
-};
-
-// The lines of `text` added after `terms`, one entry a line. Blank lines are skipped.
-export const addTerms = (terms: readonly string[], text: string): BulkResult => {
-    const result: BulkResult = { terms: [...terms], added: 0, duplicates: 0, invalid: 0, over: 0, rest: [] };
-    const seen = new Set(terms.map(writtenKey));
-    for (const line of text.split(/\r?\n/)) {
-        if (!line.trim()) continue;
-        const term = parseTerm(line);
-        if (term === null) {
-            result.invalid += 1;
-            result.rest.push(line);
-        } else if (seen.has(writtenKey(term))) {
-            result.duplicates += 1;
-        } else if (result.terms.length >= MAX_USER_TERMS) {
-            result.over += 1;
-            result.rest.push(line);
-        } else {
-            seen.add(writtenKey(term));
-            result.terms.push(term);
-            result.added += 1;
-        }
-    }
-    return result;
-};
-
-// The user's entries as text, one a line, in the form the bulk add takes back.
-export const termsText = (terms: readonly string[]): string => terms.map(term => `${term}\n`).join("");
-
 // ------------------------------------------------------------------------- built-in terms (#792)
 // The built-in VRChat terms ship with the app (/get/data/builtin_vocabulary). The user does not
 // edit that list: their changes lie over it, so a newer app's list still reaches them.
@@ -242,4 +202,73 @@ export const addTerm = (vocabulary: Vocabulary, builtin: readonly string[] | nul
     if (vocabulary.terms.some(row => writtenKey(row) === key)) return { ok: false, reason: "duplicate" };
     if (vocabulary.terms.length >= MAX_USER_TERMS) return { ok: false, reason: "full" };
     return { ok: true, vocabulary: { ...vocabulary, terms: [...vocabulary.terms, term] }, kind: "added" };
+};
+
+// ------------------------------------------------------------------------ a dictionary file
+// The file the settings page writes out (the core's `vocabulary_file`) and reads back: one term a
+// line, "written=reading,reading", and a built-in term taken out as its written form after "-".
+// Lines starting with "#" are notes. A file is read into the dictionary: its terms are added, a
+// term of a written form already there takes the file's readings, and the terms it takes out are
+// taken out. Nothing of the dictionary is dropped.
+
+// The largest file read: far more than 100 terms and their notes.
+export const MAX_IMPORT_BYTES = 256 * 1024;
+
+export type ImportResult = {
+    vocabulary: Vocabulary;
+    // Terms added, terms whose readings the file changed, built-in terms it took out.
+    added: number;
+    changed: number;
+    removed: number;
+    // Lines the rules of a term refuse, terms left out because the dictionary was full, and terms
+    // to take out that are not built-in ones.
+    invalid: number;
+    over: number;
+    notBuiltin: number;
+};
+
+// A built-in term's written form after "-", as the core keeps one taken out, or null.
+const takenOut = (line: string): string | null => {
+    const written = line.slice(1).split(/\s+/).filter(Boolean).join(" ");
+    return written && !written.includes("=") && parseTerm(written) === written ? written : null;
+};
+
+export const importVocabulary = (vocabulary: Vocabulary, builtin: readonly string[] | null, text: string): ImportResult => {
+    const terms = [...vocabulary.terms];
+    const removed = [...(vocabulary.removed ?? [])];
+    const result = { added: 0, changed: 0, removed: 0, invalid: 0, over: 0, notBuiltin: 0 };
+    const isBuiltin = (key: string) => builtin?.some(row => writtenKey(row) === key) ?? false;
+    for (const raw of text.split(/\r?\n/)) {
+        const line = raw.trim();
+        if (!line || line.startsWith("#")) continue;
+        if (line.startsWith("-")) {
+            const written = takenOut(line);
+            if (written === null) result.invalid += 1;
+            else if (removed.some(row => row.trim().toLowerCase() === written.toLowerCase())) {
+                // Taken out already.
+            } else if (builtin && !isBuiltin(written.toLowerCase())) {
+                result.notBuiltin += 1;
+            } else {
+                removed.push(written);
+                result.removed += 1;
+            }
+            continue;
+        }
+        const term = parseTerm(line);
+        if (term === null) { result.invalid += 1; continue; }
+        const at = terms.findIndex(row => writtenKey(row) === writtenKey(term));
+        if (at >= 0) {
+            if (terms[at] !== term) { terms[at] = term; result.changed += 1; }
+        } else if (builtin?.includes(term)) {
+            // A built-in term as it ships adds nothing.
+        } else if (terms.length >= MAX_USER_TERMS) {
+            result.over += 1;
+        } else {
+            terms.push(term);
+            // A built-in term with other readings changes its readings; any other term is added.
+            if (isBuiltin(writtenKey(term))) result.changed += 1;
+            else result.added += 1;
+        }
+    }
+    return { vocabulary: settled(vocabulary, terms, removed), ...result };
 };
