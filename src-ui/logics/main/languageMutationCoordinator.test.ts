@@ -45,7 +45,7 @@ test("a log line or another non-final status keeps the write in flight", () => {
         const coordinator = setup();
         const write = request(String(status));
         coordinator.begin(write, snapshot);
-        // A status the backend may also leave out (undefined), given on purpose.
+        // On purpose: a status the backend may also leave out (undefined).
         assert.equal(coordinator.complete(unchecked<LanguageMutationResponse>({ endpoint: write.endpoint, status })), null);
         assert.equal(coordinator.getState().inFlight?.requestId, String(status));
     }
