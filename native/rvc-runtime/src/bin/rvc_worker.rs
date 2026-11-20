@@ -1175,16 +1175,16 @@ mod tests {
         assert!(!auto_skips_directml(backend::preferred_adapter(&[])));
     }
 
-    /// The GPUs of a DirectML build of ONNX Runtime on this PC (`VRCT_TEST_DIRECTML_LIB`: a
+    /// The GPUs of a DirectML build of ONNX Runtime on this PC (`ASTAROT_TEST_DIRECTML_LIB`: a
     /// folder with its `onnxruntime.dll` and `DirectML.dll`), as the worker judges them. Prints
     /// names and flags only.
     ///
-    ///     VRCT_TEST_DIRECTML_LIB=<dir> cargo test --no-default-features --features worker --bin vrct-rvc-worker -- --ignored --nocapture directml_lists
+    ///     ASTAROT_TEST_DIRECTML_LIB=<dir> cargo test --no-default-features --features worker --bin vrct-rvc-worker -- --ignored --nocapture directml_lists
     #[cfg(windows)]
     #[test]
     #[ignore = "needs the DirectML build of ONNX Runtime"]
     fn directml_lists_this_pcs_gpus() {
-        let Some(folder) = std::env::var_os("VRCT_TEST_DIRECTML_LIB").map(PathBuf::from) else { return };
+        let Some(folder) = std::env::var_os("ASTAROT_TEST_DIRECTML_LIB").map(PathBuf::from) else { return };
         assert!(preload_directml(&folder));
         backend::load_runtime(&folder.join(ORT_LIBRARY)).unwrap();
         let adapters = backend::directml_adapters().unwrap();

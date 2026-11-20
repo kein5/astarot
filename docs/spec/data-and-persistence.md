@@ -411,10 +411,10 @@ ASR/翻訳5,000ms、従来のtotal 10,000ms。
 | `ASTAROT_DATA_DIR`（0.6.xの間は`VRCT_DATA_DIR`も） | Linux配布版のデータの置き場所（`src-tauri/src/backend_host.rs`）。指定したフォルダーは移さない |
 | `XDG_CONFIG_HOME`、`XDG_DATA_HOME` | Linux配布版の既定の置き場所の元（その下の`astarot`。0.5.xまでは`vrct-vox`） |
 | `VRCT_CACHE_DIR`、`XDG_CACHE_HOME`、`HF_HOME` | 0.4までのPythonバックエンドがLinux配布版のキャッシュの置き場所に使った（`HF_HOME`は未設定なら`<キャッシュ>/huggingface`）。0.5.0のアプリと中核のコードは置き場所に使わない |
-| `VRCT_VOICE_TRACE`、`VRCT_VOICE_GC_DIAGNOSTICS` | 読み上げの時間計測とGCの記録（診断用） |
+| `ASTAROT_VOICE_TRACE`、`ASTAROT_VOICE_GC_DIAGNOSTICS` | 読み上げの時間計測とGCの記録（診断用） |
 | `WAYLAND_DISPLAY`、`XDG_SESSION_TYPE`、`GDK_BACKEND` | Quick Chatとホットキーの登録方法の判定 |
 | `DISPLAY` | X11でのOCRのキャプチャ |
-| `VRCT_VR_PANEL_DIR` | Tauriが起動時に決める、このプロセス専用の場所（`$XDG_RUNTIME_DIR/astarot/vr-panel-<pid>`、Linux）。バックエンドはここでVR画面の画素（`frame`）と、共有されたウィンドウの画素（`screen-frame`）を読む。利用者が設定するものではない |
+| `ASTAROT_VR_PANEL_DIR` | Tauriが起動時に決める、このプロセス専用の場所（`$XDG_RUNTIME_DIR/astarot/vr-panel-<pid>`、Linux）。バックエンドはここでVR画面の画素（`frame`）と、共有されたウィンドウの画素（`screen-frame`）を読む。利用者が設定するものではない |
 | `APPIMAGE`と`WEBKIT_DISABLE_DMABUF_RENDERER=1` | NVIDIA環境のAppImageでメインウィンドウを不透明にする |
 | `HTTPS_PROXY`、`ALL_PROXY`、`NO_PROXY`（小文字の名前が先） | 音声認識のクラウドのエンジンへの通信が通るHTTPのプロキシと、通さない宛先。`*_proxy`がどれもないときは、Windowsのインターネットの設定を読む。ローカルとLANの宛先は通さない。翻訳は使わない（`native/translation/src/proxy.rs`） |
 

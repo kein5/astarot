@@ -69,11 +69,11 @@ python tools/dev.py check --scope rust
 
 ```sh
 # python-zeroconf との相互の発見（zeroconf の入った Python を指定）
-VRCT_ZEROCONF_PYTHON=build/dev/backend-venv/bin/python \
+ASTAROT_ZEROCONF_PYTHON=build/dev/backend-venv/bin/python \
 cargo test --manifest-path native/adapters/Cargo.toml --test zeroconf_interop
 
 # Linux の実際の X11 ディスプレイでのウィンドウ検索（前面に出したりキーを送ったりはしない）
-VRCT_X11_WINDOW=<表示中のウィンドウの題名> \
+ASTAROT_X11_WINDOW=<表示中のウィンドウの題名> \
 cargo test --manifest-path native/adapters/Cargo.toml --lib -- --ignored finds_a_window
 ```
 

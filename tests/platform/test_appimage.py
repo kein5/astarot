@@ -12,14 +12,14 @@ import time
 import pytest
 
 pytestmark = pytest.mark.skipif(
-    sys.platform != 'linux' or not os.environ.get('VRCT_TEST_APPIMAGE')
-    or os.environ.get('VRCT_TEST_NATIVE_GUI') != '1',
+    sys.platform != 'linux' or not os.environ.get('ASTAROT_TEST_APPIMAGE')
+    or os.environ.get('ASTAROT_TEST_NATIVE_GUI') != '1',
     reason='opt-in built AppImage and GUI driver/display',
 )
 
 
 @pytest.fixture(params=[
-    pytest.param('fuse', marks=pytest.mark.skipif(os.environ.get('VRCT_TEST_APPIMAGE_FUSE') != '1',
+    pytest.param('fuse', marks=pytest.mark.skipif(os.environ.get('ASTAROT_TEST_APPIMAGE_FUSE') != '1',
                                                 reason='opt-in host FUSE mount')),
     'extract',
 ])
@@ -27,9 +27,9 @@ def appimage(request, tmp_path, monkeypatch):
     root = tmp_path / 'AppImage with spaces'
     root.mkdir()
     image = root / 'VRCT-VOX.AppImage'
-    shutil.copyfile(Path(os.environ['VRCT_TEST_APPIMAGE']), image)
+    shutil.copyfile(Path(os.environ['ASTAROT_TEST_APPIMAGE']), image)
     image.chmod(0o755)
-    monkeypatch.setenv('VRCT_TEST_APP', str(image))
+    monkeypatch.setenv('ASTAROT_TEST_APP', str(image))
     if request.param == 'extract':
         monkeypatch.setenv('APPIMAGE_EXTRACT_AND_RUN', '1')
     else:
@@ -54,7 +54,7 @@ def test_appimage_settings_open_save_and_fit_a_small_window(appimage, tmp_path, 
     test_split_settings_small_window_keyboard_and_long_paths(tmp_path, scaling)
 
 
-@pytest.mark.skipif(os.environ.get('VRCT_TEST_NATIVE_ROUTE') != '1', reason='private WirePlumber0.5 graph')
+@pytest.mark.skipif(os.environ.get('ASTAROT_TEST_NATIVE_ROUTE') != '1', reason='private WirePlumber0.5 graph')
 def test_appimage_settings_restart_muted(appimage, tmp_path):
     from test_native_ui import test_native_voice_settings_survive_restart_with_managed_route_muted
     test_native_voice_settings_survive_restart_with_managed_route_muted(tmp_path)

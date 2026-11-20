@@ -11,7 +11,7 @@ import os
 import subprocess
 from pathlib import Path
 
-CLIENTS = Path(os.environ.get("VRCT_TEST_VRCHAT_CLIENTS", Path.home() / ".cache/vrct-vox-chatbox-lab/clients.json"))
+CLIENTS = Path(os.environ.get("ASTAROT_TEST_VRCHAT_CLIENTS", Path.home() / ".cache/vrct-vox-chatbox-lab/clients.json"))
 TITLE = "VRChat"
 SPEAKER_TITLE = "Chatbox lab speaker"
 

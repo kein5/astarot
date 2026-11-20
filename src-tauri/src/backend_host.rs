@@ -95,7 +95,7 @@ fn resolve(executable: &Path) -> (Folders, Option<String>) {
     use app_identity::env::{CONFIG_DIR, DATA_DIR};
     let app_dir = executable.parent().map_or_else(|| PathBuf::from("."), Path::to_path_buf);
     #[cfg(target_os = "linux")]
-    if option_env!("VRCT_LINUX_BUNDLE") == Some("1") {
+    if option_env!("ASTAROT_LINUX_BUNDLE") == Some("1") {
         use vrct_core::storage::linux::{Location, other_instance, settle};
         let home = PathBuf::from(std::env::var_os("HOME").unwrap_or_default());
         // ASTAROT_CONFIG_DIR and ASTAROT_DATA_DIR, or the VRCT_ names 0.5.x documented, name a

@@ -3,8 +3,8 @@
   "about": [
     "The contract of the readings (transliteration, issue #277).",
     "`sentences` are texts; `morphemes` is what the analyzer gave for each ([surface, reading, first part of speech]) and `readings` and `readings_macron` what the Python Transliterator.analyze returned from them ([orig, kana, hira, hepburn]), with use_macron off and on. `hepburn` is katakana_to_hepburn of each kana string ([kana, without macron, with macron]).",
-    "Recorded from the Python code of src-python/models/transliteration/ by src-python/test/test_transliteration_contract.py (VRCT_TRANSLATION_CONTRACT_WRITE=1 records again), with SudachiPy and the dictionary named in `dictionary`.",
-    "native/translation/tests/transliteration_contract.rs gives the recorded morphemes to the Rust readings and compares; with a SudachiDict file at hand (VRCT_SUDACHI_DICTIONARY) it also compares sudachi.rs's morphemes."
+    "Recorded from the Python code of src-python/models/transliteration/ by src-python/test/test_transliteration_contract.py (ASTAROT_TRANSLATION_CONTRACT_WRITE=1 records again), with SudachiPy and the dictionary named in `dictionary`.",
+    "native/translation/tests/transliteration_contract.rs gives the recorded morphemes to the Rust readings and compares; with a SudachiDict file at hand (ASTAROT_SUDACHI_DICTIONARY) it also compares sudachi.rs's morphemes."
   ],
   "dictionary": {
     "name": "SudachiDict full",

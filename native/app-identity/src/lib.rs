@@ -147,25 +147,25 @@ pub mod env {
     pub const OPENVR_API: Variable = Variable { astarot: "ASTAROT_OPENVR_API", legacy: "VRCT_OPENVR_API" };
 
     // The variables below are for development, or are handed from the app to its own processes.
-    // ADR-014 renames each without keeping the old name, together with the tools and documents
-    // that use it (2.2).
+    // They took their ASTAROT names in 0.6.0 without keeping the old ones, together with the
+    // tools and documents that use them (ADR-014, 2.2).
 
     /// A loopback HTTP receiver that takes the usage events in place of the real one.
-    pub const TELEMETRY_URL: &str = "VRCT_TELEMETRY_URL";
+    pub const TELEMETRY_URL: &str = "ASTAROT_TELEMETRY_URL";
     /// A local file the speech timings are appended to while measuring.
-    pub const VOICE_TRACE: &str = "VRCT_VOICE_TRACE";
+    pub const VOICE_TRACE: &str = "ASTAROT_VOICE_TRACE";
     /// `1` adds the `gc_pauses` field to the records of [`VOICE_TRACE`] (empty in Rust; Python
     /// filled it).
-    pub const VOICE_GC_DIAGNOSTICS: &str = "VRCT_VOICE_GC_DIAGNOSTICS";
+    pub const VOICE_GC_DIAGNOSTICS: &str = "ASTAROT_VOICE_GC_DIAGNOSTICS";
     /// The folder through which the Linux app hands the VR panel's frames and the captured
     /// screen to the VR overlay and chat reading in the same process tree.
-    pub const VR_PANEL_DIR: &str = "VRCT_VR_PANEL_DIR";
+    pub const VR_PANEL_DIR: &str = "ASTAROT_VR_PANEL_DIR";
     /// The host's `LD_LIBRARY_PATH`, which `packaging/appimage/AppRun` keeps before it points the
     /// variable at the AppImage's own libraries.
-    pub const APPIMAGE_HOST_LD_LIBRARY_PATH: &str = "VRCT_APPIMAGE_HOST_LD_LIBRARY_PATH";
+    pub const APPIMAGE_HOST_LD_LIBRARY_PATH: &str = "ASTAROT_APPIMAGE_HOST_LD_LIBRARY_PATH";
     /// `x` when the host had `LD_LIBRARY_PATH` set at all (even to nothing), empty when not
     /// (`packaging/appimage/AppRun`).
-    pub const APPIMAGE_HOST_LD_LIBRARY_PATH_SET: &str = "VRCT_APPIMAGE_HOST_LD_LIBRARY_PATH_SET";
+    pub const APPIMAGE_HOST_LD_LIBRARY_PATH_SET: &str = "ASTAROT_APPIMAGE_HOST_LD_LIBRARY_PATH_SET";
 }
 
 /// The first bytes of the files the app's processes hand each other on Linux. Both ends are in
@@ -298,13 +298,13 @@ mod tests {
     }
 
     #[test]
-    fn the_names_handed_between_processes_are_those_of_0_5() {
-        assert_eq!(env::VR_PANEL_DIR, "VRCT_VR_PANEL_DIR");
-        assert_eq!(env::TELEMETRY_URL, "VRCT_TELEMETRY_URL");
-        assert_eq!(env::VOICE_TRACE, "VRCT_VOICE_TRACE");
-        assert_eq!(env::VOICE_GC_DIAGNOSTICS, "VRCT_VOICE_GC_DIAGNOSTICS");
-        assert_eq!(env::APPIMAGE_HOST_LD_LIBRARY_PATH, "VRCT_APPIMAGE_HOST_LD_LIBRARY_PATH");
-        assert_eq!(env::APPIMAGE_HOST_LD_LIBRARY_PATH_SET, "VRCT_APPIMAGE_HOST_LD_LIBRARY_PATH_SET");
+    fn the_development_and_handoff_names_are_astarot_and_the_frame_tags_are_0_5_s() {
+        assert_eq!(env::VR_PANEL_DIR, "ASTAROT_VR_PANEL_DIR");
+        assert_eq!(env::TELEMETRY_URL, "ASTAROT_TELEMETRY_URL");
+        assert_eq!(env::VOICE_TRACE, "ASTAROT_VOICE_TRACE");
+        assert_eq!(env::VOICE_GC_DIAGNOSTICS, "ASTAROT_VOICE_GC_DIAGNOSTICS");
+        assert_eq!(env::APPIMAGE_HOST_LD_LIBRARY_PATH, "ASTAROT_APPIMAGE_HOST_LD_LIBRARY_PATH");
+        assert_eq!(env::APPIMAGE_HOST_LD_LIBRARY_PATH_SET, "ASTAROT_APPIMAGE_HOST_LD_LIBRARY_PATH_SET");
         assert_eq!(handoff::VR_PANEL_FRAME, b"VRCTVRP1");
         assert_eq!(handoff::SCREEN_FRAME, b"VRCTSCR1");
     }

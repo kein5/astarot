@@ -2,7 +2,7 @@
 //! is counted and leaves ONNX Runtime usable. Its own test binary, because the environment is
 //! made once per process. Without the variable this test does nothing.
 //!
-//!     VRCT_TEST_ONNX_RUNTIME_LIBRARY=<onnxruntime library> cargo test --manifest-path native/onnx-runtime/Cargo.toml --test dependencies
+//!     ASTAROT_TEST_ONNX_RUNTIME_LIBRARY=<onnxruntime library> cargo test --manifest-path native/onnx-runtime/Cargo.toml --test dependencies
 
 #![cfg(feature = "load-dynamic")]
 
@@ -12,7 +12,7 @@ use vrct_onnx_runtime::{dependencies_missing, environment, library_path, use_lib
 
 #[test]
 fn a_dependency_that_does_not_load_leaves_onnx_runtime_usable() {
-    let Some(library) = std::env::var_os("VRCT_TEST_ONNX_RUNTIME_LIBRARY").map(PathBuf::from) else {
+    let Some(library) = std::env::var_os("ASTAROT_TEST_ONNX_RUNTIME_LIBRARY").map(PathBuf::from) else {
         return;
     };
     assert!(std::env::var_os(LIBRARY_VARIABLE).is_none_or(|value| value.is_empty()), "unset ORT_DYLIB_PATH for this test");

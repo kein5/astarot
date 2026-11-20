@@ -9,7 +9,7 @@ in its own pytest process under tools/display_power_guard.py (a sleeping display
 
 --vrchat starts the chatbox lab's two local VRChat clients (a hidden local instance), runs the
 round trip, and stops the clients it started. It reads the chat with the OCR models in
-VRCT_TEST_OCR_MODELS (default ~/.cache/vrct-vox-chatbox-lab/models); without them the group is
+ASTAROT_TEST_OCR_MODELS (default ~/.cache/vrct-vox-chatbox-lab/models); without them the group is
 reported as skipped.
 
 Until 0.6.0 this also fetched the models and runtimes of the voice, speech and recognition groups
@@ -34,16 +34,16 @@ def groups():
     """name -> (tests, extra environment, needs, kind). kind: "any" or "packaged"."""
     on = "1"
     return {
-        "appimage": (["test_appimage.py"], {"VRCT_TEST_APPIMAGE_FUSE": on, "VRCT_TEST_NATIVE_ROUTE": on}, [], "packaged"),
-        "ui": (["test_native_ui.py", "test_native_tts_settings.py"], {"VRCT_TEST_NATIVE_ROUTE": on}, [], "any"),
-        "vrchat": (["test_native_vrchat_roundtrip.py"], {"VRCT_TEST_NATIVE_VRCHAT_ROUNDTRIP": on}, ["--vrchat", "ocr"], "any"),
+        "appimage": (["test_appimage.py"], {"ASTAROT_TEST_APPIMAGE_FUSE": on, "ASTAROT_TEST_NATIVE_ROUTE": on}, [], "packaged"),
+        "ui": (["test_native_ui.py", "test_native_tts_settings.py"], {"ASTAROT_TEST_NATIVE_ROUTE": on}, [], "any"),
+        "vrchat": (["test_native_vrchat_roundtrip.py"], {"ASTAROT_TEST_NATIVE_VRCHAT_ROUNDTRIP": on}, ["--vrchat", "ocr"], "any"),
     }
 
 
 def assets(args):
     """need -> path or flag for everything that exists now."""
     have = {}
-    ocr = Path(os.environ.get("VRCT_TEST_OCR_MODELS", Path.home() / ".cache/vrct-vox-chatbox-lab/models"))
+    ocr = Path(os.environ.get("ASTAROT_TEST_OCR_MODELS", Path.home() / ".cache/vrct-vox-chatbox-lab/models"))
     have["ocr"] = ocr if ocr.is_dir() else None
     have["--vrchat"] = args.vrchat or None
     return {need: value for need, value in have.items() if value}
@@ -62,13 +62,13 @@ def plan(args, have):
             reason = "needs --appimage"
         elif missing:
             reason = "missing: " + ", ".join(missing)
-        env = {"VRCT_TEST_NATIVE_GUI": "1", "VRCT_TEST_DRIVER": str(args.driver), **extra}
+        env = {"ASTAROT_TEST_NATIVE_GUI": "1", "ASTAROT_TEST_DRIVER": str(args.driver), **extra}
         if name == "appimage":
-            env["VRCT_TEST_APPIMAGE"] = str(args.appimage)
+            env["ASTAROT_TEST_APPIMAGE"] = str(args.appimage)
         else:
-            env["VRCT_TEST_APP"] = str(args.copy if packaged else args.app)
+            env["ASTAROT_TEST_APP"] = str(args.copy if packaged else args.app)
             if packaged:
-                env.update(VRCT_TEST_APPIMAGE="1", APPIMAGE_EXTRACT_AND_RUN="1")
+                env.update(ASTAROT_TEST_APPIMAGE="1", APPIMAGE_EXTRACT_AND_RUN="1")
         rows.append((name, [PLATFORM + test for test in tests], env, reason))
     return rows
 
@@ -134,7 +134,7 @@ def main(argv=None):
     parser.add_argument("--vrchat", action="store_true", help="start two local VRChat clients and run the round trip")
     parser.add_argument("--output", type=Path, default=ROOT / "build/native-acceptance")
     parser.add_argument("--python", type=Path, default=Path(sys.executable), help="the Python that runs pytest (default: this one)")
-    parser.add_argument("--driver", type=Path, default=Path(os.environ.get("VRCT_TEST_DRIVER", ROOT / "tmp/tauri-driver/bin/tauri-driver")))
+    parser.add_argument("--driver", type=Path, default=Path(os.environ.get("ASTAROT_TEST_DRIVER", ROOT / "tmp/tauri-driver/bin/tauri-driver")))
     parser.add_argument("--timeout", type=int, default=1800, help="seconds for one group")
     args = parser.parse_args(argv)
     build = (args.appimage or args.app).resolve()

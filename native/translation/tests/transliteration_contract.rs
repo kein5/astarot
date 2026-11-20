@@ -4,7 +4,7 @@
 //! The recorded morphemes of each text go into the Rust readings ([`analyze`]), which must give
 //! the readings Python gave, with and without macrons; every kana string must give Python's
 //! Hepburn. This needs no dictionary. With the path of a SudachiDict `system.dic` in
-//! `VRCT_SUDACHI_DICTIONARY` (the version the file names), sudachi.rs must also give the recorded
+//! `ASTAROT_SUDACHI_DICTIONARY` (the version the file names), sudachi.rs must also give the recorded
 //! morphemes; without it that part does nothing.
 
 use serde_json::Value;
@@ -82,7 +82,7 @@ fn every_kana_reads_as_python_reads_it() {
 
 #[test]
 fn sudachi_gives_the_recorded_morphemes() {
-    let Some(path) = std::env::var_os("VRCT_SUDACHI_DICTIONARY").filter(|p| !p.is_empty()) else {
+    let Some(path) = std::env::var_os("ASTAROT_SUDACHI_DICTIONARY").filter(|p| !p.is_empty()) else {
         return;
     };
     let sudachi = Sudachi::open(std::path::Path::new(&path)).expect("the dictionary opens");

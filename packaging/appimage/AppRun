@@ -6,8 +6,8 @@ export APPDIR
 for name in LD_LIBRARY_PATH PATH GIO_EXTRA_MODULES GSETTINGS_SCHEMA_DIR GTK_PATH GTK_EXE_PREFIX GTK_DATA_PREFIX GTK_IM_MODULE_FILE GTK_THEME GDK_PIXBUF_MODULE_FILE GI_TYPELIB_PATH XDG_DATA_DIRS GDK_BACKEND WEBKIT_DISABLE_DMABUF_RENDERER GTK_IM_MODULE XMODIFIERS; do
     eval 'present=${'"$name"'+x}'
     eval 'value=${'"$name"'-}'
-    export "VRCT_APPIMAGE_HOST_${name}_SET=$present"
-    export "VRCT_APPIMAGE_HOST_${name}=$value"
+    export "ASTAROT_APPIMAGE_HOST_${name}_SET=$present"
+    export "ASTAROT_APPIMAGE_HOST_${name}=$value"
 done
 # Verified NVIDIA GBM allocation failure on this AppImage. Keep other GPUs and
 # explicit user choices unchanged; this affects WebKit rendering, not inference.
@@ -26,7 +26,7 @@ fi
 case "${GTK_IM_MODULE-}" in
     ''|fcitx|fcitx5|ibus|wayland) [ -z "${XMODIFIERS-}" ] || export GTK_IM_MODULE=xim ;;
 esac
-# The GUI's bundled libraries. The VRCT_APPIMAGE_HOST_* copies above keep the host values.
+# The GUI's bundled libraries. The ASTAROT_APPIMAGE_HOST_* copies above keep the host values.
 export LD_LIBRARY_PATH="$APPDIR/usr/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 export PATH="$APPDIR/usr/bin:$PATH"
 # The GTK plugin relocates WebKit's /usr paths to ././. Match AppImageKit's

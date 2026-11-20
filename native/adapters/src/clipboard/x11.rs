@@ -361,12 +361,12 @@ mod tests {
     }
 
     /// Looks windows up on the real display without focusing them or sending keys.
-    /// `[VRCT_X11_WINDOW=<title of a shown window>] cargo test -- --ignored finds_a_window`
+    /// `[ASTAROT_X11_WINDOW=<title of a shown window>] cargo test -- --ignored finds_a_window`
     #[test]
     #[ignore]
     fn finds_a_window_on_the_real_display() {
         let mut connection = super::X11Connection::open().expect("an X11 display with XTest");
-        if let Ok(name) = std::env::var("VRCT_X11_WINDOW") {
+        if let Ok(name) = std::env::var("ASTAROT_X11_WINDOW") {
             assert!(matches!(connection.find(&name), Ok(Some(_))));
         }
         assert!(matches!(connection.find("no window has this title 7c1f"), Ok(None)));

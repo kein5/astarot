@@ -24,7 +24,7 @@ def test_launcher_keeps_the_host_environment_beside_the_gui_one(tmp_path, librar
     # linuxdeploy's GUI launcher, renamed to AppRun.gui: report what the GUI process sees.
     report = ('import json,os,sys; print(json.dumps({"args": sys.argv[1:], "cwd": os.getcwd(), '
               '"ld": os.environ.get("LD_LIBRARY_PATH"), "xdg": os.environ.get("XDG_DATA_DIRS"), '
-              '"host": {k: v for k, v in os.environ.items() if k.startswith("VRCT_APPIMAGE_HOST_")}}))')
+              '"host": {k: v for k, v in os.environ.items() if k.startswith("ASTAROT_APPIMAGE_HOST_")}}))')
     (appdir / 'AppRun').write_text(f'#!{sys.executable}\n{report}\n')
     (appdir / 'AppRun').chmod(0o755)
     (appdir / 'vrct-vox.png').write_bytes(b'icon')
@@ -45,9 +45,9 @@ def test_launcher_keeps_the_host_environment_beside_the_gui_one(tmp_path, librar
     assert seen['cwd'] == str((appdir / 'usr').resolve())
     assert seen['ld'].startswith(str((appdir / 'usr/lib').resolve()))
     host = seen['host']
-    assert (host['VRCT_APPIMAGE_HOST_LD_LIBRARY_PATH_SET'], host['VRCT_APPIMAGE_HOST_LD_LIBRARY_PATH']) == \
+    assert (host['ASTAROT_APPIMAGE_HOST_LD_LIBRARY_PATH_SET'], host['ASTAROT_APPIMAGE_HOST_LD_LIBRARY_PATH']) == \
         ('x' if library_path is not None else '', library_path or '')
-    assert (host['VRCT_APPIMAGE_HOST_XDG_DATA_DIRS_SET'], host['VRCT_APPIMAGE_HOST_XDG_DATA_DIRS']) == \
+    assert (host['ASTAROT_APPIMAGE_HOST_XDG_DATA_DIRS_SET'], host['ASTAROT_APPIMAGE_HOST_XDG_DATA_DIRS']) == \
         ('x' if host_data is not None else '', host_data or '')
 
 

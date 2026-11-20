@@ -58,11 +58,11 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       # The installer from `npm run release` above has no hash built in. Bundle it again now
-      # that the package exists; VRCT_REQUIRE_PACKAGE_HASHES stops the build without it.
+      # that the package exists; ASTAROT_REQUIRE_PACKAGE_HASHES stops the build without it.
       - name: Build the installer with the package hash
         shell: pwsh
         env:
-          VRCT_REQUIRE_PACKAGE_HASHES: '1'
+          ASTAROT_REQUIRE_PACKAGE_HASHES: '1'
         run: |
           python tools/installer_package_hashes.py write --package VRCT-VOX.zip
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

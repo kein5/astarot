@@ -10,7 +10,7 @@ from native_webdriver import NativeWebDriver
 
 
 pytestmark = pytest.mark.skipif(
-    sys.platform != "linux" or os.environ.get("VRCT_TEST_NATIVE_GUI") != "1",
+    sys.platform != "linux" or os.environ.get("ASTAROT_TEST_NATIVE_GUI") != "1",
     reason="requires built native Tauri, tauri-driver and a graphical session",
 )
 

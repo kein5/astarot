@@ -28,7 +28,7 @@ from typing import Optional, Tuple
 
 import numpy as np
 
-DIRECTORY_ENV = "VRCT_VR_PANEL_DIR"
+DIRECTORY_ENV = "ASTAROT_VR_PANEL_DIR"
 FRAME_NAME = "screen-frame"
 
 _MAGIC = b"VRCTSCR1"

@@ -183,7 +183,7 @@ def main():
     run(['npm', 'ci', '--ignore-scripts', *(['--offline'] if args.offline else [])])
     run(['npm', 'run', 'vite-build'])
     workspace = tauri_workspace(work, internal)
-    env = dict(os.environ, VRCT_LINUX_BUNDLE='1', CARGO_TARGET_DIR=str(work / 'cargo'))
+    env = dict(os.environ, ASTAROT_LINUX_BUNDLE='1', CARGO_TARGET_DIR=str(work / 'cargo'))
     env.setdefault('CARGO_BUILD_JOBS', '4')
     if args.offline:
         env['CARGO_NET_OFFLINE'] = 'true'

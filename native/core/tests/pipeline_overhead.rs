@@ -12,11 +12,11 @@
 //! It runs only when asked:
 //!
 //! ```sh
-//! VRCT_PIPELINE_BMF=pipeline.json cargo test --locked --manifest-path native/core/Cargo.toml \
+//! ASTAROT_PIPELINE_BMF=pipeline.json cargo test --locked --manifest-path native/core/Cargo.toml \
 //!     --test pipeline_overhead -- --ignored --nocapture
 //! ```
 //!
-//! The percentiles go to the file `VRCT_PIPELINE_BMF` names, in Bencher Metric Format
+//! The percentiles go to the file `ASTAROT_PIPELINE_BMF` names, in Bencher Metric Format
 //! (`bmf`). CI measures in `voice-tests.yml` and sends them to Bencher in
 //! `pipeline-latency.yml`. It fails only when an utterance does not reach both outputs. Only
 //! times are printed, never a message.
@@ -256,7 +256,7 @@ fn the_core_s_own_time_from_a_final_to_the_chatbox_and_to_audible_speech() {
     for (name, values) in benchmarks {
         eprintln!("[pipeline] {name}: n={} p50={} ms p95={} ms", values.len(), bmf::percentile(values, 50.0), bmf::percentile(values, 95.0));
     }
-    if let Some(path) = std::env::var_os("VRCT_PIPELINE_BMF") {
+    if let Some(path) = std::env::var_os("ASTAROT_PIPELINE_BMF") {
         bmf::write(Path::new(&path), &benchmarks);
     }
 }

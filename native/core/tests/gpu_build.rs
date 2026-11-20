@@ -2,13 +2,13 @@
 //! 2 (c) of docs/voice-stack/core-integration.md). Its own test binary, because the library is
 //! chosen and loaded once per process. Without the variable this test does nothing.
 //!
-//! `VRCT_TEST_GPU_BUILD_STATE` names a settings folder whose `vc_runtimes/` holds the build set up
+//! `ASTAROT_TEST_GPU_BUILD_STATE` names a settings folder whose `vc_runtimes/` holds the build set up
 //! (`onnxruntime-directml/` or `onnxruntime-cuda/`, as the runtime setup leaves it); the test
-//! writes its `config.json`. `VRCT_TEST_GPU_BUILD_DEVICE` is `directml` (the default) or `cuda`.
-//! With `VRCT_TEST_GPU_BUILD_MODEL` a model folder is also translated on the device (device 0)
+//! writes its `config.json`. `ASTAROT_TEST_GPU_BUILD_DEVICE` is `directml` (the default) or `cuda`.
+//! With `ASTAROT_TEST_GPU_BUILD_MODEL` a model folder is also translated on the device (device 0)
 //! and on the CPU.
 //!
-//!     VRCT_TEST_GPU_BUILD_STATE=<folder> cargo test --manifest-path native/core/Cargo.toml --test gpu_build
+//!     ASTAROT_TEST_GPU_BUILD_STATE=<folder> cargo test --manifest-path native/core/Cargo.toml --test gpu_build
 
 #![cfg(feature = "onnx-translation")]
 
@@ -20,10 +20,10 @@ use vrct_translate_onnx::{Accelerator, Bundle, Provider, Translator};
 
 #[test]
 fn the_build_set_up_is_loaded_and_its_device_listed() {
-    let Some(state) = std::env::var_os("VRCT_TEST_GPU_BUILD_STATE").map(PathBuf::from) else {
+    let Some(state) = std::env::var_os("ASTAROT_TEST_GPU_BUILD_STATE").map(PathBuf::from) else {
         return;
     };
-    let device = match std::env::var("VRCT_TEST_GPU_BUILD_DEVICE").as_deref() {
+    let device = match std::env::var("ASTAROT_TEST_GPU_BUILD_DEVICE").as_deref() {
         Ok("cuda") => "cuda",
         _ => "directml",
     };
@@ -48,10 +48,10 @@ fn the_build_set_up_is_loaded_and_its_device_listed() {
     let providers = vrct_translate_onnx::runtime::available_providers().unwrap();
     assert!(providers.contains(&provider), "{providers:?}");
 
-    // With `VRCT_TEST_GPU_BUILD_MODEL` (a folder tools/translation_onnx/tiny.py or export.py
+    // With `ASTAROT_TEST_GPU_BUILD_MODEL` (a folder tools/translation_onnx/tiny.py or export.py
     // wrote), the provider starts from the libraries loaded here alone (no PATH) and decodes as
     // the CPU does.
-    let Some(folder) = std::env::var_os("VRCT_TEST_GPU_BUILD_MODEL") else { return };
+    let Some(folder) = std::env::var_os("ASTAROT_TEST_GPU_BUILD_MODEL") else { return };
     let bundle = Bundle::open(folder).unwrap();
     bundle.verify().unwrap();
     let at = Accelerator::new(provider, 0);
