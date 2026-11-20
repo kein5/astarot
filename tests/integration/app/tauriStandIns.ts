@@ -36,11 +36,19 @@ const settings = new Set([
     "vr_panel_send", "screencast_stop",
 ]);
 
-const windowAnswers: Record<string, unknown> = {
-    is_visible: true, is_focused: true, is_minimized: false, is_maximized: false, is_fullscreen: false, is_decorated: true,
-    scale_factor: 1, inner_size: { width: 1280, height: 800 }, outer_size: { width: 1280, height: 800 },
-    inner_position: { x: 0, y: 0 }, outer_position: { x: 0, y: 0 }, title: "ASTAROT", theme: "dark",
-};
+// The window is the page: its size and scale are those the browser gives the page, in physical
+// pixels as Tauri answers them. The app divides them by the page's scale for its breakpoint
+// (src-ui/logics/common/useWindow.ts), so a fixed answer would turn a browser with a scale of 2
+// into a narrow window.
+function windowAnswers(): Record<string, unknown> {
+    const scale = window.devicePixelRatio || 1;
+    const size = { width: Math.round(window.innerWidth * scale), height: Math.round(window.innerHeight * scale) };
+    return {
+        is_visible: true, is_focused: true, is_minimized: false, is_maximized: false, is_fullscreen: false, is_decorated: true,
+        scale_factor: scale, inner_size: size, outer_size: size,
+        inner_position: { x: 0, y: 0 }, outer_position: { x: 0, y: 0 }, title: "ASTAROT", theme: "dark",
+    };
+}
 
 export function standIn(command: string, payload: Record<string, unknown>): unknown {
     if (command in answers) return answers[command];
@@ -48,7 +56,8 @@ export function standIn(command: string, payload: Record<string, unknown>): unkn
     const [plugin, name = ""] = command.split("|");
     if (plugin === "plugin:window" || plugin === "plugin:webview") {
         // Setters and listeners of the window answer nothing; its state is that of a shown window.
-        return name in windowAnswers ? windowAnswers[name] : null;
+        const state = windowAnswers();
+        return name in state ? state[name] : null;
     }
     if (plugin === "plugin:global-shortcut") return name === "is_registered" ? false : null;
     if (plugin === "plugin:opener") {
