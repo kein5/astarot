@@ -11,9 +11,10 @@
 }
 
 // Non-commercial license confirmation (NLLB weights). Same native <dialog>
-// pattern as the model download warning in advanced_settings/ModelDownloads.
+// pattern as the model download warning in advanced_settings/ModelDownloads: shadcn/ui's
+// DialogContent width (sm:max-w-lg), and 1.6rem between its parts (gap-4), the words being one.
 .license_dialog {
-    max-width: min(46rem, calc(100vw - 3.2rem));
+    max-width: min(51.2rem, calc(100vw - 3.2rem));
     max-height: calc(100dvh - 3.2rem);
     overflow-y: auto;
     overflow-wrap: anywhere;
@@ -24,10 +25,16 @@
     color: var(--dark_200_color, #e5e7eb);
 
     &::backdrop { background: #0009; }
+    &[open] { display: grid; gap: 1.6rem; align-content: start; }
 
     h3 { font-size: 1.6rem; font-weight: 650; margin-bottom: 1.2rem; }
     p { font-size: 1.3rem; line-height: 1.6; overflow-wrap: anywhere; margin-bottom: 1rem; }
     a { color: var(--primary_300_color); }
+}
+
+.license_text {
+    min-width: 0;
+    > :last-child { margin-bottom: 0; }
 }
 
 .license_check {
@@ -55,7 +62,6 @@
     justify-content: flex-end;
     flex-wrap: wrap;
     gap: 1rem;
-    margin-top: 2rem;
 
     button {
         font: inherit;

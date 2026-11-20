@@ -1,7 +1,9 @@
 .host { padding: 0; border: 0; }
+// The app's dialog frame, at shadcn/ui's DialogContent width (sm:max-w-lg). The forms' `dialog`
+// rules (VoiceSettings.module.scss) give it its border, padding and the 1.6rem between its parts.
 .host dialog.dialog {
     box-sizing: border-box;
-    width: min(46rem, calc(100vw - 2.4rem));
+    width: min(51.2rem, calc(100vw - 2.4rem));
     max-width: calc(100vw - 2.4rem);
     max-height: calc(100dvh - 2.4rem);
     overflow-y: auto;
@@ -38,4 +40,7 @@
         text-decoration: underline; text-underline-offset: .3rem;
     }
     .alternative button:hover:enabled { color: var(--dark_50_color, #fff); }
+    // A part of the dialog itself is spaced by the dialog's gap alone, whatever its margins
+    // elsewhere (the usage data's contents keep theirs in the advanced settings).
+    > *, > .facts, > .alternative { margin-block: 0; }
 }

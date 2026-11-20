@@ -380,24 +380,26 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
         </details>}
         {engines && targets.includes("japanese") && <EngineCatalog />}
         {selected && <dialog ref={dialog} aria-label={t("model_downloads.warning_title")} onCancel={event => { event.preventDefault(); close(); }}>
-            <h3>{t("model_downloads.warning_title")}</h3>
-            <p>{selected.name} · {selected.provider}</p>
-            <p>{bytes(selected.total_bytes, t)} · {selected.license}</p>
-            {selectedRestrictions.map(kind => <RestrictionNote key={kind} kind={kind} license={selected.license} id={`${restrictionId}-${kind}`} />)}
-            {selected.downloaded && <p>{t("model_catalog.prepare_notice")}</p>}
-            {selectedWarning && <WarningNote warning={selectedWarning} />}
-            <p>{t(`model_downloads.notice_${selected.notice}`)}</p>
-            {selected.target === "rvc" && <p>{t("model_downloads.rvc_requirements")}</p>}
-            {selected.target === "asr" && <p>{t("model_downloads.asr_requirements")}</p>}
-            {selected.target === "vad" && <p>{t("model_downloads.vad_requirements")}</p>}
-            {selected.target === "diarization" && <p>{t("model_downloads.diarization_requirements")}</p>}
-            {!selected.downloaded && <p>{t("model_downloads.connection_notice")}</p>}
-            <p>{t("model_downloads.no_start")}</p>
-            <p>{t("model_downloads.source")}: <a href={selected.source} onClick={event => openLink(event, selected.source)} target="_blank" rel="noreferrer">{selected.repo}</a></p>
-            <p>{t("model_downloads.license_links")}: {selected.licenses.map((url, i) => <span key={url}> <a href={url} onClick={event => openLink(event, url)} target="_blank" rel="noreferrer">{linkLabel(selected, url, i)}</a> </span>)}</p>
-            {linkError && <div role="alert"><p>{t("model_downloads.link_error")}</p><code style={{ overflowWrap: "anywhere" }}>{linkError}</code></div>}
-            <p>{t("model_downloads.destination")}: <code style={{ overflowWrap: "anywhere" }}>{selected.destination}</code></p>
-            <ul>{selected.artifacts.map(file => <li key={file.filename}>{file.filename} · {bytes(file.size, t)}</li>)}</ul>
+            <div className={styles.dialog_text}>
+                <h3>{t("model_downloads.warning_title")}</h3>
+                <p>{selected.name} · {selected.provider}</p>
+                <p>{bytes(selected.total_bytes, t)} · {selected.license}</p>
+                {selectedRestrictions.map(kind => <RestrictionNote key={kind} kind={kind} license={selected.license} id={`${restrictionId}-${kind}`} />)}
+                {selected.downloaded && <p>{t("model_catalog.prepare_notice")}</p>}
+                {selectedWarning && <WarningNote warning={selectedWarning} />}
+                <p>{t(`model_downloads.notice_${selected.notice}`)}</p>
+                {selected.target === "rvc" && <p>{t("model_downloads.rvc_requirements")}</p>}
+                {selected.target === "asr" && <p>{t("model_downloads.asr_requirements")}</p>}
+                {selected.target === "vad" && <p>{t("model_downloads.vad_requirements")}</p>}
+                {selected.target === "diarization" && <p>{t("model_downloads.diarization_requirements")}</p>}
+                {!selected.downloaded && <p>{t("model_downloads.connection_notice")}</p>}
+                <p>{t("model_downloads.no_start")}</p>
+                <p>{t("model_downloads.source")}: <a href={selected.source} onClick={event => openLink(event, selected.source)} target="_blank" rel="noreferrer">{selected.repo}</a></p>
+                <p>{t("model_downloads.license_links")}: {selected.licenses.map((url, i) => <span key={url}> <a href={url} onClick={event => openLink(event, url)} target="_blank" rel="noreferrer">{linkLabel(selected, url, i)}</a> </span>)}</p>
+                {linkError && <div role="alert"><p>{t("model_downloads.link_error")}</p><code style={{ overflowWrap: "anywhere" }}>{linkError}</code></div>}
+                <p>{t("model_downloads.destination")}: <code style={{ overflowWrap: "anywhere" }}>{selected.destination}</code></p>
+                <ul>{selected.artifacts.map(file => <li key={file.filename}>{file.filename} · {bytes(file.size, t)}</li>)}</ul>
+            </div>
             <label className={styles.checkLabel}><input type="checkbox" checked={consent} onChange={event => setConsent(event.target.checked)} />{t("model_downloads.consent")}</label>
             {/* One more checkbox per restriction, each ticked on its own (#411). */}
             {selectedRestrictions.filter(kind => RESTRICTION_KINDS.includes(kind)).map(kind => <label key={kind} className={styles.checkLabel}>

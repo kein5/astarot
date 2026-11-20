@@ -208,7 +208,7 @@ VR パネルは px の段で描く別の画面（DESIGN.md「Typography」）な
 |---|---|---|---|
 | 土台 | ネイティブの `<dialog>` | Radix Dialog と AlertDialog（Portal、Overlay、Content、Header、Footer、Title、Description、Close） | 判断（D-23）。ネイティブの `<dialog>` は Baseline で、フォーカスの閉じ込めと Esc を持つ。Radix Dialog はスクロールを止めるために `<style>` を差し込む見込みがあり、入れる前に CSP への影響を確かめる |
 | パーツ | なし（ダイアログごとに書く） | Header、Footer、Title、Description | 寄せる。ネイティブの `<dialog>` のままでもパーツの部品は作れる |
-| 幅、余白、間 | `min(46rem, 100vw − 2.4rem)`、余白 2.4rem、間 .8rem | `max-w-[calc(100%-2rem)]`、`sm:max-w-lg`（51.2rem）、余白 `p-6`（2.4rem）、間 `gap-4`（1.6rem） | 余白は一致。最大幅と間は寄せる |
+| 幅、余白、間 | `min(51.2rem, 100vw − 2.4rem)`、余白 2.4rem、部品の間 1.6rem。同意と確認のダイアログでは、見出しと本文の段落が1つの部品で、その中の段落の間は .8rem | `max-w-[calc(100%-2rem)]`、`sm:max-w-lg`（51.2rem）、余白 `p-6`（2.4rem）、間 `gap-4`（1.6rem） | 一致（寄せた。一覧の 9） |
 | 角丸 | 12px（DESIGN.md の `rounded.dialog`） | `rounded-lg`（10px） | D-04 |
 | 地、枠、影 | `dark_875` の地、`dark_600` の `.1rem` の枠、影なし | `background` の地、`border`、`shadow-lg` | 判断（D-05、D-02）。ダイアログの地 `dark_875` は、DESIGN.md の 3:1 の基準に入っている |
 | 背景 | `#0009`（60% の黒） | `bg-black/50` | 寄せる |
@@ -407,7 +407,7 @@ kit（画面ではまだ使っていない部品）:
 6. スライダーの満ちた部分を描き、溝を .6rem にし、使えない状態を足す（#697。共通の `Slider` とフォームの `input[type=range]`。しきい値の部品は照合の外。D-41）。
 7. `_Entry` の塗り、枠、角丸、高さを kit の入力欄にそろえる（#691。左右の余白と使えない状態は D-37）。
 8. 色のポップオーバーと、設定の検索の結果の一覧の地を `--vox_surface` にする（設定の検索の結果の一覧は #695。色のポップオーバーは残っている）。
-9. ダイアログの間を 1.6rem、最大幅を 51.2rem、背景を 50% の黒にする。ダイアログのパーツ（Header、Footer、Title、Description）の部品を作る。初期設定（#557）のダイアログにだけ、間と最大幅と、パーツの `data-slot` を当てた。背景、パーツの部品、ほかのダイアログは残っている。
+9. ダイアログの間を 1.6rem、最大幅を 51.2rem、背景を 50% の黒にする。ダイアログのパーツ（Header、Footer、Title、Description）の部品を作る。間と最大幅は、クイック設定のモーダルと起動の失敗を除くすべてのダイアログにそろえた（初期設定（#557）は #759、ほかは #759 の判断項目 4 による）。見出しと本文の段落が平らに並んでいた同意と確認のダイアログでは、それらを1つの部品（`VoiceSettings.module.scss` の `.dialog_text`。翻訳のライセンスの確認は `Translation.module.scss` の `.license_text`）にまとめ、その中の段落の間は .8rem のままにした。パーツの `data-slot` は初期設定のダイアログにだけ付けている。背景とパーツの部品は残っている。
 10. ツールチップの余白と角丸をそろえ、`Tooltip` と `Hint` の見た目を1つにする（#721。文字の細部は今のまま。D-42）。
 11. プリセットの切り替えの `div role="button"` を `button` にする。
 12. `Separator`、`Badge`、`Spinner` をそれぞれ1つの部品にまとめる（見た目は今のまま）。

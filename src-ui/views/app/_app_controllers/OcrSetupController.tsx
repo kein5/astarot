@@ -29,9 +29,11 @@ export const OcrSetupController = () => {
     return <div className={`${styles.container} ${dialogStyles.host}`}>
         <dialog ref={dialog} className={dialogStyles.dialog} aria-label={t("ocr_setup.title")}
             onCancel={event => { event.preventDefault(); cancel(); }}>
-            <h3>{t("ocr_setup.title")}</h3>
-            <p>{t("ocr_setup.body")}</p>
-            <p>{t("ocr_setup.next")}</p>
+            <div className={styles.dialog_text}>
+                <h3>{t("ocr_setup.title")}</h3>
+                <p>{t("ocr_setup.body")}</p>
+                <p>{t("ocr_setup.next")}</p>
+            </div>
             <div className={styles.actions}>
                 <button type="button" autoFocus onClick={cancel}>{t("ocr_setup.close")}</button>
                 <button type="button" className="primary" onClick={review}>{t("ocr_setup.review")}</button>
