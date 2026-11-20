@@ -1069,8 +1069,6 @@ config_page:
         models:
             title: "認識モデル"
             desc: "チャット読み取りはPaddleOCRのモデルをお使いのPCで動かします。条件を確認して同意するまでダウンロードはしません。"
-            installed: "ダウンロード済み"
-            missing: "未ダウンロード"
             required: "いまの読み取り言語に必要"
             refresh: "再確認"
         runtime:

@@ -7,6 +7,7 @@ import { useModelDownloads } from "../../../../../../logics/voice/useModelDownlo
 import voiceStyles from "../advanced_settings/VoiceSettings.module.scss";
 import styles from "./Ocr.module.scss";
 import { EnvReadout } from "../_components/env_readout/EnvReadout";
+import { CatalogFacts, CatalogLayoutSwitch, CatalogList, CatalogSection, useCatalogLayout } from "../advanced_settings/catalogLayout";
 import { useConsentDialog } from "../../../../../../logics/common/useConsentDialog";
 
 const activePhases: readonly unknown[] = ["queued", "downloading", "verifying", "cancelling"];
@@ -53,6 +54,11 @@ type OcrModelsProps = {
 // detector). Same consent flow as the other default models: review source, terms,
 // size and destination, then agree. Nothing needs applying afterwards: chat
 // reading finds verified files by id.
+// The models are a part of a catalog, drawn as the model catalogs' (catalogLayout.tsx): a bar with
+// the part's name and readout, cards in the layout chosen for every catalog (the buttons at the top
+// of the part), each with its name and state, its size, its details and its download. The part
+// starts closed as the catalogs' parts do; its readout says how many are on the PC, and the chat
+// reading guide opens it on its way to a model's download (focusOcrModels).
 export const OcrModels = ({ ids, missing, onChanged, title, desc, note, settingId }: OcrModelsProps) => {
     const { t } = useI18n();
     const { catalog: downloadCatalog, state, error, pending, send } = useModelDownloads();
@@ -82,29 +88,60 @@ export const OcrModels = ({ ids, missing, onChanged, title, desc, note, settingI
         catch { setLinkError(url); }
     };
 
+    const layout = useCatalogLayout();
+    const installedOf = (entry: OcrCatalogModel) => !missing.includes(entry.id) || state.jobs[entry.id]?.phase === "ready";
+    const obtained = entries.filter(installedOf).length;
     return <section ref={section} tabIndex={-1} className={`${voiceStyles.container} ${styles.models}`} aria-label={title} data-setting-id={settingId}>
-        <h3>{title}</h3>
-        {desc && <p>{desc}</p>}
-        {!catalog && <p aria-busy="true">{t("model_downloads.loading")}</p>}
-        {entries.map(entry => {
-            const job = state.jobs[entry.id], active = activePhases.includes(job?.phase);
-            const installed = !missing.includes(entry.id) || job?.phase === "ready";
-            return <div key={entry.id} data-model-download tabIndex={-1} role="group" aria-label={entry.name} className={styles.modelRow}>
-                <strong>{entry.name}</strong>
-                <p>{entry.provider} · {megabytes(entry.total_bytes)} · {entry.license} · {note}</p>
-                <EnvReadout tone={installed ? "active" : job?.phase === "failed" ? "failed" : "warning"}>
-                    <p>{installed ? t("config_page.ocr.models.installed") : job ? t(`model_downloads.phase_${job.phase}`) : t("config_page.ocr.models.missing")}</p>
-                </EnvReadout>
-                {active && job && <><progress aria-label={t("model_downloads.progress")} value={bytesOf(job.received_bytes)} max={bytesOf(job.total_bytes)} />
-                    <button type="button" disabled={!!pending || job.phase === "cancelling"}
-                        onClick={() => send("/run/cancel_model_download", { id: entry.id, job_id: job.job_id })}>{t("model_downloads.cancel")}</button></>}
-                {!!job?.error_code && <p role="alert">{failure(job.error_code)}</p>}
-                {/* Opening a review is not the download itself: the same plain button as everywhere (#474). */}
-                {!installed && !active && <button type="button" disabled={busy}
-                    onClick={() => { setConsent(false); setSelected({ ...entry, catalog_version: catalog?.catalog_version }); }}>
-                    {t("model_downloads.review")}</button>}
-            </div>;
-        })}
+        <CatalogSection level={3} title={title} help={desc ? [desc] : []}
+            readout={t("model_catalog.group_readout", { count: entries.length, obtained })}>
+            <div className={styles.layout}><CatalogLayoutSwitch /></div>
+            {!catalog && <p aria-busy="true">{t("model_downloads.loading")}</p>}
+            <CatalogList layout={layout}>
+                {entries.map(entry => {
+                    const job = state.jobs[entry.id], active = activePhases.includes(job?.phase);
+                    const installed = installedOf(entry);
+                    const status = active ? "working" : installed ? "downloaded" : "not_downloaded";
+                    // The size is on the card in either layout; the terms are beside it in the list, in
+                    // the card's fold in the grid.
+                    const size = <div><dt>{t("model_catalog.size")}</dt><dd>{megabytes(entry.total_bytes)}</dd></div>;
+                    const terms = <div><dt>{t("model_catalog.terms")}</dt><dd>{entry.provider} · {entry.license}</dd></div>;
+                    // The card's parts in the order they are read (#614), as a model catalog's card:
+                    // what it is and its state, its size and terms, then what runs and the download.
+                    return <li key={entry.id} data-model-download tabIndex={-1} role="group" aria-label={entry.name}
+                        className={voiceStyles.card} data-status={status}>
+                        <div className={voiceStyles.card_intro}>
+                            <div className={voiceStyles.card_head}>
+                                <strong>{entry.name}</strong>
+                                <span className={`${voiceStyles.badge} ${voiceStyles.status}`} data-tone={status}>{t(`model_catalog.status.${status}`)}</span>
+                            </div>
+                            {/* Why the page lists it: needed for the reading language, or optional. */}
+                            <div className={voiceStyles.card_badges}><span className={voiceStyles.badge}>{note}</span></div>
+                        </div>
+                        {layout === "grid" && <dl className={`${voiceStyles.facts} ${voiceStyles.card_key}`}>{size}</dl>}
+                        {layout === "grid"
+                            ? <CatalogFacts layout="grid"><dl className={voiceStyles.facts}>{terms}</dl></CatalogFacts>
+                            : <dl className={`${voiceStyles.facts} ${voiceStyles.card_spec}`}>{size}{terms}</dl>}
+                        <div className={voiceStyles.card_foot}>
+                            {job && (active || job.phase === "failed") && <EnvReadout tone={job.phase === "failed" ? "failed" : "neutral"}
+                                progress={active && job.phase !== "cancelling" ? "working" : undefined}>
+                                <p>{t(`model_downloads.phase_${job.phase}`)}{active && ` · ${megabytes(bytesOf(job.received_bytes) ?? 0)} / ${megabytes(bytesOf(job.total_bytes) ?? 0)}`}</p>
+                            </EnvReadout>}
+                            {active && job && <progress className={voiceStyles.progress} aria-label={t("model_downloads.progress")}
+                                value={bytesOf(job.received_bytes)} max={bytesOf(job.total_bytes)} />}
+                            {!!job?.error_code && <p role="alert">{failure(job.error_code)}</p>}
+                            {/* Opening a review is not the download itself: the same plain button as everywhere (#474). */}
+                            <div className={voiceStyles.actions}>
+                                {active && job && <button type="button" disabled={!!pending || job.phase === "cancelling"}
+                                    onClick={() => send("/run/cancel_model_download", { id: entry.id, job_id: job.job_id })}>{t("model_downloads.cancel")}</button>}
+                                {!installed && !active && <button type="button" disabled={busy}
+                                    onClick={() => { setConsent(false); setSelected({ ...entry, catalog_version: catalog?.catalog_version }); }}>
+                                    {t("model_downloads.review")}</button>}
+                            </div>
+                        </div>
+                    </li>;
+                })}
+            </CatalogList>
+        </CatalogSection>
         {selected && <dialog ref={dialog} aria-label={t("model_downloads.warning_title")} onCancel={event => { event.preventDefault(); close(); }}>
             <div className={voiceStyles.dialog_text}>
                 <h3>{t("model_downloads.warning_title")}</h3>

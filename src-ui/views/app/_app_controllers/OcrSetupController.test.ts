@@ -61,10 +61,15 @@ test("closing, or Escape, leaves everything as it was", async context => {
     assert.deepEqual(s.events, [["close"], ["close"]]);
 });
 
-test("focusing the models waits for the section and lands on its first enabled action", async () => {
+test("focusing the models waits for the section, opens its part and lands on a model's first enabled action", async () => {
     const { focusOcrModels } = await loadModule<OcrSetupModule>(new URL("../../../logics/ocr/useOcrSetup.ts", import.meta.url), hooks());
     const focused: string[] = [], timers: (() => void)[] = [];
-    const button = (disabled: boolean, inDialog = false) => ({ disabled, closest: () => inDialog ? {} : null, focus: () => focused.push(disabled ? "disabled" : "review") });
+    // The models' part, closed at first as every catalog's part: open by the time the focus lands.
+    const part = { open: false };
+    const button = (disabled: boolean) => ({ disabled, focus: () => focused.push(disabled ? "disabled" : `review, part ${part.open ? "open" : "closed"}`) });
+    // The section's other buttons (the catalog's layout above the cards, the dialog's) are not where
+    // the download starts.
+    const layout = { disabled: false, focus: () => focused.push("layout") };
     let section: object | null = null;
     const doc = { querySelector: (selector: string) => selector === '[data-setting-id="ocr_models"]' ? section : null };
     // Test data: a page with only the section the code looks for, standing in for the document.
@@ -73,12 +78,14 @@ test("focusing the models waits for the section and lands on its first enabled a
     assert.ok(first);
     first();
     assert.equal(focused.length, 0);
-    section = { querySelectorAll: () => [button(true), button(false, true), button(false)], scrollIntoView: () => focused.push("scrolled"),
+    const found: Record<string, object[]> = { "details[data-catalog-fold]": [part], "[data-model-download] button": [button(true), button(false)] };
+    section = { querySelectorAll: (selector: string) => found[selector] ?? [layout, button(false)],
+        scrollIntoView: () => focused.push("scrolled"),
         focus: () => focused.push("section") };
     const second = timers.shift();
     assert.ok(second);
     second();
-    assert.deepEqual(focused, ["scrolled", "review"]);
+    assert.deepEqual(focused, ["scrolled", "review, part open"]);
 });
 
 for (const language of ["en", "ja"]) test(`${language}: the guide says chat reading stayed off and that downloading asks first`, async () => {
