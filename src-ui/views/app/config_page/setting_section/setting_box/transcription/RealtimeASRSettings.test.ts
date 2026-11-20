@@ -71,7 +71,7 @@ async function fixture(context: TestContext, { hints = false }: { hints?: boolea
         "../_components/section_label_component/SectionLabelComponent": { SectionLabelComponent: "section-label" },
         "../_components/hint/Hint": { Hint: "hint", useHintDescriptions: () => hints },
         "../_components/hint/HintCheck": { HintCheck: "hint-check" },
-        "./VocabularyBulk.tsx": { VocabularyBulk: "vocabulary-bulk" },
+        "./VocabularyFiles.tsx": { VocabularyFiles: "vocabulary-files" },
         "./VocabularyList.tsx": { VocabularyList: "vocabulary-list" },
         "../../../../../../logics/transcription/vocabularyTerms.ts": vocabularyTerms,
     });
@@ -159,23 +159,27 @@ test("realtime drafts register and unregister with the shared save bar, includin
     assert.equal(s.listeners.length, 0);
 });
 
-test("terms added together join the draft and the save bar like one added term", async context => {
-    // #446: the bulk add hands the whole list to the form; nothing is saved until the bar saves.
+test("a dictionary file read in joins the draft and the save bar, as a term added in the list does", async context => {
+    // #792: the file part hands the dictionary it read to the form; nothing is saved until the bar
+    // saves. It writes out the dictionary the page shows, through the page's own requests.
     const s = await fixture(context);
     let tree = s.render();
-    const bulk = findIn(tree, node => node.type === "vocabulary-bulk");
-    assert.deepEqual(bulk.props.terms, []);
-    bulk.props.onTerms(["VRChat=ブイアールチャット", "Midnight Rooftop"]);
+    const files = findIn(tree, node => node.type === "vocabulary-files");
+    assert.deepEqual(files.props.vocabulary, { builtin: true, terms: [] });
+    assert.equal(files.props.send, s.asr.send);
+    files.props.onVocabulary({ builtin: true, terms: ["VRChat=ブイアールチャット", "Midnight Rooftop"] });
     tree = s.render();
-    assert.deepEqual(findIn(tree, node => node.type === "vocabulary-bulk").props.terms, ["VRChat=ブイアールチャット", "Midnight Rooftop"]);
+    assert.deepEqual(findIn(tree, node => node.type === "vocabulary-files").props.vocabulary.terms, ["VRChat=ブイアールチャット", "Midnight Rooftop"]);
     assert.deepEqual(s.entries()[0].changes, ["realtime.vocabulary_user"]);
-    assert.deepEqual(s.writes(), [], "adding never submits");
+    assert.deepEqual(s.writes(), [], "reading a file never submits");
     // A term added in the list joins the same terms.
     const list = findIn(s.render(), node => node.type === "vocabulary-list");
     assert.deepEqual(list.props.vocabulary.terms, ["VRChat=ブイアールチャット", "Midnight Rooftop"]);
     list.props.onVocabulary({ ...list.props.vocabulary, terms: [...list.props.vocabulary.terms, "猫丸=ねこまる"] });
-    assert.deepEqual(findIn(s.render(), node => node.type === "vocabulary-bulk").props.terms,
+    assert.deepEqual(findIn(s.render(), node => node.type === "vocabulary-files").props.vocabulary.terms,
         ["VRChat=ブイアールチャット", "Midnight Rooftop", "猫丸=ねこまる"]);
+    // No bulk add and no copy of the terms remain.
+    assert.equal(find(s.render(), node => node.type === "textarea"), null);
     // The form's listeners go while the window stub is still there.
     s.runtime.unmount();
     s.barRuntime.unmount();

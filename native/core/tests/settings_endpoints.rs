@@ -355,6 +355,26 @@ fn an_update_from_a_version_without_usage_presets_shows_every_feature() {
 }
 
 #[test]
+fn the_catalogs_start_as_a_grid_and_keep_the_layout_chosen() {
+    // How the model catalogs lay out their cards: a grid at first, a list when chosen, kept for
+    // the next start.
+    let ui = Ui::with(Setup::default());
+    let snapshot = ui.ready();
+    assert_eq!(snapshot["/get/data/catalog_layout"], json!("grid"));
+    assert_eq!(ui.ok("/set/data/catalog_layout", Some(json!("list"))), json!("list"));
+    for bad in [json!("tiles"), json!(""), json!(1), json!(null)] {
+        let answer = ui.request("/set/data/catalog_layout", Some(bad.clone()));
+        assert_eq!(error_code(&answer), "VALIDATION_CONFIG_VALUE_INVALID", "{bad}");
+    }
+    ui.ok("/run/shutdown", None);
+    assert_eq!(ui.saved()["CATALOG_LAYOUT"], json!("list"));
+    ui.stop();
+    let ui = Ui::with(Setup { saved: Some(json!({ "UI_LANGUAGE": "ja", "CATALOG_LAYOUT": "list" })), ..Setup::default() });
+    assert_eq!(ui.ready()["/get/data/catalog_layout"], json!("list"));
+    ui.stop();
+}
+
+#[test]
 fn the_tray_companion_edge_is_one_of_the_four_and_starts_at_the_right() {
     let ui = Ui::with(Setup::default());
     let snapshot = ui.ready();

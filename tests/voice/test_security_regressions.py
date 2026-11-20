@@ -101,6 +101,23 @@ def test_workflows_pin_external_code_and_keep_inputs_out_of_scripts(workflow):
         keyed = [step for step in job["steps"] if "BENCHER_API_KEY" in step.get("env", {})]
         assert len(keyed) == 2
         assert all(step["run"].startswith("bencher run ") and "--error-on-alert" not in step["run"] for step in keyed)
+    elif workflow.name == "bencher-measures.yml":
+        # Issue #738: gives the two Bencher measures their units, by hand and on develop only. It
+        # checks out nothing, and the Bencher key reaches one step, which runs bencher measure
+        # commands and nothing else.
+        assert set(document["on"]) == {"workflow_dispatch"}
+        assert document["permissions"] == {"contents": "read"}
+        assert set(document["jobs"]) == {"measures"}
+        job = document["jobs"]["measures"]
+        assert "permissions" not in job
+        for condition in ("github.repository == 'kein5/astarot'", "github.ref == 'refs/heads/develop'"):
+            assert condition in job["if"], condition
+        assert all(not step.get("uses", "").startswith("actions/checkout@") for step in job["steps"])
+        keyed = [step for step in job["steps"] if "BENCHER_API_KEY" in step.get("env", {})]
+        assert len(keyed) == 1
+        commands = [line.strip() for line in keyed[0]["run"].splitlines() if "bencher " in line]
+        assert commands and all(re.search(r"(^|\s)bencher measure (view|update|create|list) ", command)
+                                for command in commands), commands
     elif workflow.name in ATTESTING_JOBS:
         # The candidate job signs build provenance (second security audit SEC-04): only that job
         # gets id-token and attestations, and only a manual run uses them.
@@ -128,9 +145,10 @@ def test_workflows_pin_external_code_and_keep_inputs_out_of_scripts(workflow):
                 assert re.fullmatch(r"[\w-]+/[\w./-]+@[0-9a-f]{40}", step["uses"]), step["uses"]
             assert "${{" not in step.get("run", ""), step.get("name", workflow.name)
             # Repository secrets: only the updater signing step of the release draft uses any, and
-            # the Bencher key the steps of pipeline-latency.yml that send with it.
+            # the Bencher key the steps of pipeline-latency.yml that send with it and the one step of
+            # bencher-measures.yml.
             if "secrets." in json.dumps(step):
-                assert workflow.name in ("prepare-release.yml", "pipeline-latency.yml"), step.get("name")
+                assert workflow.name in ("prepare-release.yml", "pipeline-latency.yml", "bencher-measures.yml"), step.get("name")
                 if workflow.name == "prepare-release.yml":
                     assert set(step["env"]) == {"TAURI_SIGNING_PRIVATE_KEY", "TAURI_SIGNING_PRIVATE_KEY_PASSWORD"}
                 else:

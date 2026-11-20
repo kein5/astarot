@@ -194,6 +194,31 @@ fn speech_follows_the_users_changes_of_the_built_in_terms() {
     run.ui.stop();
 }
 
+// #792: the dictionary the settings page shows is written out as the file the page reads back, in
+// a folder of its own beside the settings. What is written is checked as a saved dictionary is,
+// and none of it reaches the log.
+#[test]
+fn the_dictionary_is_written_out_to_a_file_the_settings_read_back() {
+    let run = start(json!({}), Platform::Windows);
+    let vocabulary = json!({ "builtin": true, "terms": ["猫丸 = ねこまる", "Quest=くえすと"], "removed": ["Vket"] });
+    let answer = run.ui.ok("/run/export_vocabulary", Some(vocabulary));
+    let file = answer["file"].as_str().unwrap();
+    assert!(file.starts_with("vocabulary-") && file.ends_with(".txt"), "{file}");
+    let text = std::fs::read_to_string(run.ui.dir.join("exports").join(file)).unwrap();
+    // The dictionary in use (#792): the user's terms first, then the built-in terms; the one taken
+    // out is not written.
+    let lines: Vec<&str> = text.lines().filter(|line| !line.starts_with('#')).collect();
+    assert_eq!(lines, vrct_transcription::speechcpp::merged_terms(&json!({ "builtin": true,
+        "terms": ["猫丸=ねこまる", "Quest=くえすと"], "removed": ["Vket"] })));
+    assert_eq!(lines[..2], ["猫丸=ねこまる", "Quest=くえすと"]);
+    assert!(lines.iter().any(|line| line.starts_with("VRChat=")) && !lines.iter().any(|line| line.starts_with("Vket")));
+    let refused = run.ui.request("/run/export_vocabulary", Some(json!({ "terms": ["a,b"] })));
+    assert_eq!((refused["status"].as_u64(), &refused["result"]["error_code"]), (Some(400), &json!("realtime_vocabulary_invalid")));
+    let log = run.process_log();
+    assert!(!log.contains("猫丸") && !log.contains("くえすと"), "a term reached process.log");
+    run.ui.stop();
+}
+
 #[test]
 fn a_stop_or_mute_cancels_speech_and_a_stale_stamp_is_refused() {
     let run = start(json!({}), Platform::Windows);

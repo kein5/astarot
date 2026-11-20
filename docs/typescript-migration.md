@@ -268,7 +268,7 @@ ADR-010 のとおり、画面を触る作業に合わせて移すのが基本で
 
 - `tsconfig.json` から `allowJs` を外します。第 7 段までで、`src-ui` のソースと試験、`locales` の 2 本（`config`、`@useI18n` が指す `useI18n`）はすべて TypeScript になったので、着手できます。リポジトリの直下の設定（`vite.config.js`、`vitest.config.js` など）と `tools/` のスクリプトは、型検査の対象の外です。
 - 型の検査を段階的に強めます。候補は `noUncheckedIndexedAccess`、`exactOptionalPropertyTypes`、`noImplicitReturns`、`noUnusedLocals`、`noUnusedParameters` です。1 つずつ有効にし、出たエラーを直してから次に進みます。
-- `.eslintrc.json` を TypeScript の構文に対応させるかどうかを決めます。
+- lint は ESLint をやめて Biome にしました（`biome.json`、[開発ガイド](development.md#uiのlintと整形biome)）。`.eslintrc.json` は外しました。
 
 ## 型の厳しさ
 

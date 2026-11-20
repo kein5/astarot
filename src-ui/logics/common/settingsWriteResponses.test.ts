@@ -43,6 +43,14 @@ test("a new connection key waits for the backend's reply", async () => {
     assert.equal(await request.response, reply);
 });
 
+test("the dictionary written out waits for the core's reply, which names the file", async () => {
+    const requests = createSettingsWriteResponses(), endpoint = "/run/export_vocabulary";
+    const request = begun(requests.begin(endpoint));
+    const reply = { endpoint, status: 200, result: { file: "vocabulary-20261120-153000.txt" } };
+    requests.receive(reply);
+    assert.equal(await request.response, reply);
+});
+
 test("pre-send failures release ownership while uncertain delivery blocks another write until its reply", async () => {
     const requests = createSettingsWriteResponses(), endpoint = "/set/data/voice_settings";
     const unsent = begun(requests.begin(endpoint));

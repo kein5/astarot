@@ -60,6 +60,7 @@ async function fixture(context: TestContext, kind: Kind, openerState: OpenerStat
         "../_components/hint/Hint": { Hint: "hint", useHintDescriptions: () => false },
         "../_components/fold/Fold": { Fold: "fold" },
         "./catalogHeading": await loadHeading(runtime),
+        "./catalogLayout": { useCatalogLayout: () => "list", CatalogList: "ul", CatalogFacts: "catalog-facts", CatalogLayoutSwitch: "catalog-layout-switch" },
         "../../../../../../logics/common/languageNames": languageNames,
         "../../../../../../../logics/configs/legacyModelConsent": legacyConsent,
         "../_components/env_readout/EnvReadout": { EnvReadout: "readout" },

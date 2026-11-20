@@ -15,9 +15,6 @@
             margin: 0;
             flex-shrink: 0;
         }
-        .show_more_container {
-            margin-top: 2rem;
-        }
         .example_container {
             gap: 0;
         }
@@ -80,32 +77,6 @@
     font-size: 1.2rem;
 }
 
-.show_more_container {
-    width: 100%;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    padding: 0.6rem 0;
-    cursor: pointer;
-    border-radius: var(--vox_radius);
-    &:hover {
-        background-color: var(--dark_850_color);
-    }
-    &:active {
-        background-color: var(--dark_875_color);
-    }
-}
-
-.arrow_left_svg {
-    width: 2rem;
-    color: var(--dark_450_color);
-    &.to_down {
-        transform: rotate(-90deg);
-    }
-    &.to_up {
-        transform: rotate(90deg);
-    }
-}
 
 .message_format_settings_container {
     flex-direction: column;
