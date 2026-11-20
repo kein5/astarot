@@ -1,17 +1,35 @@
 import assert from "node:assert/strict";
 import { test, vi } from "vitest";
-import { hooks, loadModule, stubGlobals, eventTarget, find } from "../test/hookHarness.ts";
+import type { TestContext } from "vitest";
+import { hooks, loadModule, stubGlobals, eventTarget, find, unchecked } from "../test/hookHarness.ts";
 import { flush, loadBridgeRoutes } from "../test/bridgeHarness.ts";
 import { rebaseDraft } from "../voice/draftRebase.ts";
 import { changedPaths } from "../voice/saveBar.ts";
 import { createSettingsWriteResponses } from "../common/settingsWriteResponses.ts";
 import { endpointDescription, endpointNotices } from "../common/endpointPrivacy.ts";
+import type { SettingsWriteRequest } from "../common/settingsWriteResponses.ts";
+import type { SaveBarEntry } from "../voice/saveBar.ts";
+import type { CredentialSettings } from "../../views/app/config_page/setting_section/setting_box/_components/credential_pair/CredentialPair.tsx";
+
+// A write the form asked for, with what it sent and the owner of its answer.
+interface SentWrite {
+    endpoint: string;
+    data: unknown;
+    request: SettingsWriteRequest | false | null;
+}
+// What a pair write sends; the tests read it after checking it.
+interface SentPair {
+    url: string;
+    auth_key: string;
+}
+// React calls a function given to a state setter instead of keeping it.
+const isUpdate = <S>(next: S | ((previous: S) => S)): next is (previous: S) => S => typeof next === "function";
 
 const providers = [["OpenAICompatible", "openai_compatible", "translation"], ["CustomWhisper", "custom_whisper", "transcription"]];
 // hints: whether the page keeps descriptions out of sight (#614).
-async function setup(context, base, provider, section, hints = false) {
+async function setup(context: TestContext, base: string, provider: string, section: string, hints = false) {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
-    const runtime = hooks(), requests = [], owners = createSettingsWriteResponses();
+    const runtime = hooks(), requests: SentWrite[] = [], owners = createSettingsWriteResponses();
     // Flush state updates as React would; a render that keeps rebasing a fresh
     // saved object must fail here instead of hiding an effect/render loop.
     const useState = runtime.api.useState;
@@ -19,30 +37,33 @@ async function setup(context, base, provider, section, hints = false) {
     runtime.api.useState = initial => {
         const [value, setValue] = useState(initial);
         return [value, next => setValue(previous => {
-            const resolved = typeof next === "function" ? next(previous) : next;
+            const resolved = isUpdate(next) ? next(previous) : next;
             if (!Object.is(previous, resolved)) updates++;
             return resolved;
         })];
     };
     context.onTestFinished(() => { runtime.unmount(); owners.stop(); });
-    stubGlobals(context, { window: eventTarget() });
-    let entry;
-    const draft = await loadModule(new URL("../voice/useSettingsDraft.tsx", import.meta.url), runtime, {
-        "./draftRebase": { rebaseDraft }, "./saveBar": { changedPaths, setSaveBarEntry: (_, value) => { entry = value; } },
+    const window = eventTarget();
+    stubGlobals(context, { window });
+    let entry: SaveBarEntry | null | undefined;
+    const draft = await loadModule<typeof import("../voice/useSettingsDraft.tsx")>(new URL("../voice/useSettingsDraft.tsx", import.meta.url), runtime, {
+        "./draftRebase": { rebaseDraft }, "./saveBar": { changedPaths, setSaveBarEntry: (_: string, value: SaveBarEntry | null) => { entry = value; } },
     });
-    const settings = {
+    const settings: CredentialSettings<string> = {
         [`current${base}URL`]: { state: "ok", data: "https://provider-a.example/v1" },
         [`current${base}AuthKey`]: { state: "ok", data: "FAKE-KEY-A" },
     };
-    const component = await loadModule(new URL("../../views/app/config_page/setting_section/setting_box/_components/credential_pair/CredentialPair.tsx", import.meta.url), runtime, {
+    const component = await loadModule<typeof import("../../views/app/config_page/setting_section/setting_box/_components/credential_pair/CredentialPair.tsx")>(new URL("../../views/app/config_page/setting_section/setting_box/_components/credential_pair/CredentialPair.tsx", import.meta.url), runtime, {
         "../../../../../../../logics/voice/useSettingsDraft": draft,
         "../../../../../../../logics/common/endpointPrivacy": { endpointDescription, endpointNotices },
         "../../_templates/Templates": { EntryWithSaveButtonContainer: "url", AuthKeyContainer: "key" },
         "../hint/Hint": { useHintDescriptions: () => hints },
-        "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: (endpoint, data) => {
+        "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: (endpoint: string, data?: unknown) => {
             const request = owners.begin(endpoint);
             requests.push({ endpoint, data, request });
-            return request.response;
+            // As request.response read it: nothing for false, a TypeError for null.
+            if (request === null) throw new TypeError("No owner for the write");
+            return request === false ? undefined : request.response;
         } }) },
     });
     const render = () => {
@@ -53,10 +74,14 @@ async function setup(context, base, provider, section, hints = false) {
         }
         assert.fail("credential form did not settle after 20 renders");
     };
-    const field = type => find(render(), node => node.type === type).props;
-    const edit = (type, value) => { field(type).onChangeFunction(value); render(); };
+    const field = (type: string) => {
+        const node = find(render(), node => node.type === type);
+        assert.ok(node);
+        return node.props;
+    };
+    const edit = (type: string, value: unknown) => { field(type).onChangeFunction(value); render(); };
     render();
-    return { requests, owners, edit, field, render, settings, entry: () => entry };
+    return { requests, owners, edit, field, render, settings, window, entry: () => entry };
 }
 
 for (const [base, provider, section] of providers) {
@@ -64,30 +89,31 @@ for (const [base, provider, section] of providers) {
         const s = await setup(context, base, provider, section);
         s.edit("url", "https://provider-b.example/v1");
         s.edit("key", "FAKE-KEY-B");
-        assert.equal(s.entry().changes.length, 2);
+        assert.equal(s.entry()?.changes.length, 2);
         if (enter) s.field("key").saveFunction();
-        else s.entry().save();
+        else s.entry()?.save();
         s.render();
         assert.equal(s.requests.length, 1);
         const request = s.requests[0];
         assert.equal(request.endpoint, `/set/data/${provider}_auth_key_and_url`);
         assert.deepEqual(request.data, { url: "https://provider-b.example/v1", auth_key: "FAKE-KEY-B" });
-        s.owners.receive({ endpoint: `/get/data/${provider}_url`, status: 200, result: request.data.url });
-        assert.equal(s.entry().saving, true);
-        s.settings[`current${base}URL`].data = request.data.url;
-        s.settings[`current${base}AuthKey`].data = request.data.auth_key;
-        s.owners.receive({ endpoint: request.endpoint, status: 200, result: request.data });
+        const sent = unchecked<SentPair>(request.data);
+        s.owners.receive({ endpoint: `/get/data/${provider}_url`, status: 200, result: sent.url });
+        assert.equal(s.entry()?.saving, true);
+        s.settings[`current${base}URL`].data = sent.url;
+        s.settings[`current${base}AuthKey`].data = sent.auth_key;
+        s.owners.receive({ endpoint: request.endpoint, status: 200, result: sent });
         await flush(); s.render();
-        assert.equal(s.entry().saveState, "saved");
-        assert.equal(s.entry().dirty, false);
+        assert.equal(s.entry()?.saveState, "saved");
+        assert.equal(s.entry()?.dirty, false);
     });
 
-    for (const [field, value, suffix, data] of [
+    for (const [field, value, suffix, data] of ([
         ["key", "FAKE-KEY-B", "auth_key", "FAKE-KEY-B"],
         ["key", "", "auth_key", undefined],
-    ]) test(`${provider}: editing only ${field} (${value || "delete"}) preserves the single-field endpoint`, async context => {
+    ] satisfies [string, string, string, string | undefined][])) test(`${provider}: editing only ${field} (${value || "delete"}) preserves the single-field endpoint`, async context => {
         const s = await setup(context, base, provider, section);
-        s.edit(field, value); s.entry().save(); s.render();
+        s.edit(field, value); s.entry()?.save(); s.render();
         assert.equal(s.requests.length, 1);
         assert.equal(s.requests[0].endpoint, `/${value ? "set" : "delete"}/data/${provider}_${suffix}`);
         assert.equal(s.requests[0].data, data);
@@ -97,13 +123,13 @@ for (const [base, provider, section] of providers) {
         const s = await setup(context, base, provider, section);
         s.edit("url", "https://provider-b.example/v1");
         assert.equal(s.field("key").variable, "");
-        assert.equal(s.entry().canSave, false);
+        assert.equal(s.entry()?.canSave, false);
         assert.deepEqual(s.field("key").add_warnings, [{ label: "config_page.common.credential_reentry_required" }]);
-        s.field("url").saveFunction(); s.field("key").saveFunction(); s.entry().save();
+        s.field("url").saveFunction(); s.field("key").saveFunction(); s.entry()?.save();
         await flush(); s.render();
         assert.equal(s.requests.length, 0);
         s.edit("key", "   ");
-        assert.equal(s.entry().canSave, false);
+        assert.equal(s.entry()?.canSave, false);
         s.field("key").saveFunction();
         assert.equal(s.requests.length, 0);
     });
@@ -118,7 +144,7 @@ for (const [base, provider, section] of providers) {
         assert.equal(s.field("key").variable, "");
         s.edit("url", `  ${savedURL}  `);
         assert.equal(s.field("key").variable, "FAKE-KEY-A");
-        assert.equal(s.entry().canSave, true);
+        assert.equal(s.entry()?.canSave, true);
         assert.deepEqual(s.field("key").add_warnings, []);
     });
 
@@ -132,17 +158,18 @@ for (const [base, provider, section] of providers) {
             assert.equal(s.field("key").variable, value);
             s.edit("url", "https://provider-c.example/v1");
             assert.equal(s.field("key").variable, value);
-            assert.equal(s.entry().canSave, true);
+            assert.equal(s.entry()?.canSave, true);
             s.field("key").saveFunction(); s.render();
             assert.equal(s.requests.length, 1);
             const request = s.requests[0];
             assert.equal(request.endpoint, `/set/data/${provider}_auth_key_and_url`);
             assert.deepEqual(request.data, { url: "https://provider-c.example/v1", auth_key: value });
-            s.settings[`current${base}URL`].data = request.data.url;
+            const sent = unchecked<SentPair>(request.data);
+            s.settings[`current${base}URL`].data = sent.url;
             s.settings[`current${base}AuthKey`].data = value;
-            s.owners.receive({ endpoint: request.endpoint, status: 200, result: request.data });
+            s.owners.receive({ endpoint: request.endpoint, status: 200, result: sent });
             await flush(); s.render();
-            assert.equal(s.entry().dirty, false);
+            assert.equal(s.entry()?.dirty, false);
             s.edit("url", "https://provider-d.example/v1");
             assert.equal(s.field("key").variable, "");
         });
@@ -158,23 +185,27 @@ for (const [base, provider, section] of providers) {
         assert.equal(s.field("key").variable, "");
         if (leave) {
             let proceeded = false, prevented = false;
-            window.dispatch("vrct:settings-leave", {
+            s.window.dispatch("vrct:settings-leave", {
                 preventDefault: () => { prevented = true; }, detail: { proceed: () => { proceeded = true; } },
             });
             const dialog = find(s.render(), node => node.type === "dialog");
             assert.equal(prevented, true);
-            find(dialog, node => node.type === "button" && node.props.children === "voice_ui.keep_editing").props.onClick();
+            const keep = find(dialog, node => node.type === "button" && node.props.children === "voice_ui.keep_editing");
+            assert.ok(keep);
+            keep.props.onClick();
             assert.equal(s.field("key").variable, "");
             assert.equal(proceeded, false);
-            window.dispatch("vrct:settings-leave", { preventDefault() {}, detail: { proceed: () => { proceeded = true; } } });
-            find(s.render(), node => node.type === "button" && node.props.children === "voice_ui.discard_leave").props.onClick();
+            s.window.dispatch("vrct:settings-leave", { preventDefault() {}, detail: { proceed: () => { proceeded = true; } } });
+            const discard = find(s.render(), node => node.type === "button" && node.props.children === "voice_ui.discard_leave");
+            assert.ok(discard);
+            discard.props.onClick();
             assert.equal(proceeded, true);
-        } else s.entry().discard();
+        } else s.entry()?.discard();
         s.render();
         assert.equal(s.field("url").variable, s.settings[`current${base}URL`].data);
         assert.equal(s.field("key").variable, "FAKE-KEY-A");
-        assert.equal(s.entry().dirty, false);
-        s.edit("key", "FAKE-KEY-B"); s.entry().discard(); s.render();
+        assert.equal(s.entry()?.dirty, false);
+        s.edit("key", "FAKE-KEY-B"); s.entry()?.discard(); s.render();
         s.edit("url", "https://provider-c.example/v1");
         assert.equal(s.field("key").variable, "");
         assert.equal(s.requests.length, 0);
@@ -182,15 +213,15 @@ for (const [base, provider, section] of providers) {
 
     test(`${provider}: deleting the saved key permits a later URL-only save`, async context => {
         const s = await setup(context, base, provider, section);
-        s.edit("key", ""); s.entry().save(); s.render();
+        s.edit("key", ""); s.entry()?.save(); s.render();
         const deletion = s.requests[0];
         assert.equal(deletion.endpoint, `/delete/data/${provider}_auth_key`);
         s.settings[`current${base}AuthKey`].data = null;
         s.owners.receive({ endpoint: deletion.endpoint, status: 200, result: null });
         await flush(); s.render();
         s.edit("url", "https://provider-b.example/v1");
-        assert.equal(s.entry().canSave, true);
-        s.entry().save(); s.render();
+        assert.equal(s.entry()?.canSave, true);
+        s.entry()?.save(); s.render();
         assert.equal(s.requests[1].endpoint, `/set/data/${provider}_url`);
         assert.equal(s.requests[1].data, "https://provider-b.example/v1");
     });
@@ -202,24 +233,24 @@ for (const [base, provider, section] of providers) {
         s.render();
         assert.equal(s.field("key").variable, "");
         assert.equal(s.field("url").variable, "https://provider-b.example/v1");
-        assert.equal(s.entry().canSave, false);
-        s.entry().discard(); s.render();
+        assert.equal(s.entry()?.canSave, false);
+        s.entry()?.discard(); s.render();
         assert.equal(s.field("key").variable, "FAKE-REFRESHED-KEY");
-        assert.equal(s.entry().dirty, false);
+        assert.equal(s.entry()?.dirty, false);
     });
 
     for (const failure of ["rejected", "transport"]) test(`${provider}: ${failure} pair remains editable without sending a fallback key`, async context => {
         const s = await setup(context, base, provider, section);
         s.edit("url", "https://provider-b.example/v1"); s.edit("key", "FAKE-KEY-B");
-        s.entry().save(); s.render();
+        s.entry()?.save(); s.render();
         const request = s.requests[0];
         if (failure === "transport") s.owners.fail(request.request, true);
         else s.owners.receive({ endpoint: request.endpoint, status: 400, result: { error_code: "auth_failed", data: "FAKE-KEY-A" } });
         await flush(); s.render();
         assert.equal(s.field("url").variable, "https://provider-b.example/v1");
         assert.equal(s.field("key").variable, "FAKE-KEY-B");
-        assert.equal(s.entry().dirty, true);
-        assert.equal(s.entry().saveState, "save_failed");
+        assert.equal(s.entry()?.dirty, true);
+        assert.equal(s.entry()?.saveState, "save_failed");
         assert.equal(s.requests.length, 1);
     });
 
@@ -227,9 +258,15 @@ for (const [base, provider, section] of providers) {
         const s = await loadBridgeRoutes();
         s.receiveRoutes({ endpoint: `/set/data/${provider}_auth_key_and_url`, status: 200,
             result: { url: "https://provider-b.example/v1", auth_key: "FAKE-KEY-B" } });
-        assert.deepEqual(s.runtime.store.get(s.stores.dynamicStoreRegistry[`Atom_${base}URL`]),
+        // The settings' atoms, which the registry keeps beside their hooks.
+        const atomAt = (name: string) => {
+            const target = s.stores.dynamicStoreRegistry[name];
+            assert.ok(target && typeof target !== "function");
+            return target;
+        };
+        assert.deepEqual(s.runtime.store.get(atomAt(`Atom_${base}URL`)),
             { state: "ok", data: "https://provider-b.example/v1" });
-        assert.deepEqual(s.runtime.store.get(s.stores.dynamicStoreRegistry[`Atom_${base}AuthKey`]),
+        assert.deepEqual(s.runtime.store.get(atomAt(`Atom_${base}AuthKey`)),
             { state: "ok", data: "FAKE-KEY-B" });
         assert.deepEqual(s.notices, []);
     });

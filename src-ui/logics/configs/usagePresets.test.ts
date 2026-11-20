@@ -7,14 +7,23 @@ import {
     pickedPresets, isSwitchShown, isTabShown, togglePreset, usagePresetLabelKey, usagePresetDescKey,
 } from "./usagePresets.ts";
 import { SETTINGS_MENU_TABS } from "./settingsMenu.ts";
+import { unchecked } from "../test/hookHarness.ts";
+
+// A locale file (locales/*.yml) as this test reads it: mappings down to the texts, each key
+// read or checked for truth.
+interface LocaleTree {
+    readonly [key: string]: LocaleTree | undefined;
+}
 
 const root = new URL("../../../", import.meta.url);
-const read = path => readFileSync(new URL(path, root), "utf8");
-const shown = (picked, list, isShown) => list.filter(id => isShown(picked, id));
+const read = (path: string) => readFileSync(new URL(path, root), "utf8");
+const shown = (picked: string[], list: readonly string[], isShown: (picked: string[], id: string) => boolean) => list.filter(id => isShown(picked, id));
 
 test("the presets are the ones the engine keeps, in the same order", () => {
     const schema = read("native/core/src/config/schema.rs");
-    const ids = JSON.parse(schema.match(/pub const USAGE_PRESET_IDS: &\[&str\] = &(\[[^\]]*\]);/)[1]);
+    const match = schema.match(/pub const USAGE_PRESET_IDS: &\[&str\] = &(\[[^\]]*\]);/);
+    assert.ok(match);
+    const ids = JSON.parse(match[1]);
     assert.deepEqual([...USAGE_PRESET_IDS], ids);
     assert.match(schema, /\("USAGE_PRESETS", json!\(\["basic"\]\)\)/, "a new install starts with the basic preset (Q-15)");
 });
@@ -79,8 +88,8 @@ test("picking and unpicking keeps the table's order and never leaves nothing pic
 
 test("every preset has a name and a description in both languages", () => {
     for (const language of ["en", "ja"]) {
-        const strings = yaml.load(read(`locales/${language}.yml`));
-        const lookup = key => key.split(".").reduce((node, part) => node?.[part], strings);
+        const strings = unchecked<LocaleTree>(yaml.load(read(`locales/${language}.yml`)));
+        const lookup = (key: string) => key.split(".").reduce<LocaleTree | undefined>((node, part) => node?.[part], strings);
         for (const id of USAGE_PRESET_IDS) {
             assert.equal(typeof lookup(usagePresetLabelKey(id)), "string", `${language}: ${id}`);
             assert.equal(typeof lookup(usagePresetDescKey(id)), "string", `${language}: ${id}`);

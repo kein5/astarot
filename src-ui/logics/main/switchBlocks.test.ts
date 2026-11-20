@@ -1,11 +1,12 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import { activeSwitchBlock, switchBlocks } from "./switchBlocks.ts";
+import type { SwitchBlocks, SwitchDirectSettings, SwitchDirectState, SwitchVoiceSettings } from "./switchBlocks.ts";
 
-const reasons = blocks => Object.fromEntries(Object.entries(blocks).map(([id, block]) => [id, block.reason]));
-const rvc = values => ({ mode: "converted", engine: "rvc", rvc_runtime: "/r/python", rvc_model: "/m/voice.pth", ...values });
-const direct = (settings, values) => ({ observation_id: "1", output_route: "managed", settings, ...values });
-const speech = values => ({ mode: "original", mic_mode: "off", routing: "managed", output_device: "", ...values });
+const reasons = (blocks: SwitchBlocks) => Object.fromEntries(Object.entries(blocks).map(([id, block]) => [id, block?.reason]));
+const rvc = (values?: SwitchDirectSettings): SwitchDirectSettings => ({ mode: "converted", engine: "rvc", rvc_runtime: "/r/python", rvc_model: "/m/voice.pth", ...values });
+const direct = (settings: SwitchDirectSettings, values?: SwitchDirectState): SwitchDirectState => ({ observation_id: "1", output_route: "managed", settings, ...values });
+const speech = (values?: SwitchVoiceSettings): SwitchVoiceSettings => ({ mode: "original", mic_mode: "off", routing: "managed", output_device: "", ...values });
 
 test("nothing known blocks nothing", () => {
     assert.deepEqual(switchBlocks(), {});
@@ -19,8 +20,8 @@ test("the setup needs block translation and both speech recognition switches", (
     ] });
     assert.deepEqual(reasons(blocks), { translation: "translation_model", transcription_send: "asr_models",
         transcription_receive: "asr_models" });
-    assert.equal(blocks.translation.action, "translation");
-    assert.equal(blocks.transcription_send.action, "transcription");
+    assert.equal(blocks.translation?.action, "translation");
+    assert.equal(blocks.transcription_send?.action, "transcription");
 });
 
 test("a translation model on its way says so, with nothing to press", () => {
@@ -36,8 +37,10 @@ test("a translation model that cannot be downloaded points to the translator lis
 });
 
 test("chat reading follows the start: language first, then its models", () => {
-    const ocr = values => switchBlocks({ ocr: { language: "Korean", language_supported: true, required_models: ["a", "b"],
-        missing_models: [], ...values } }).ocr;
+    const ocr = (values?: Record<string, unknown>) => {
+        const reply = { language: "Korean", language_supported: true, required_models: ["a", "b"], missing_models: [], ...values };
+        return switchBlocks({ ocr: reply }).ocr;
+    };
     assert.equal(ocr(), undefined);
     assert.deepEqual(ocr({ missing_models: ["b"] }), { reason: "ocr_models", action: "ocr_models" });
     assert.deepEqual(ocr({ language_supported: false, required_models: [], missing_models: [] }), { reason: "ocr_language", action: "ocr" });
@@ -53,7 +56,7 @@ test("speech is blocked only when nothing is chosen to read aloud", () => {
 });
 
 test("voice conversion needs its saved model and runtime, then its route", () => {
-    const block = (settings, voiceSettings = speech(), values) => switchBlocks({ voiceSettings, directState: direct(settings, values) }).rvc;
+    const block = (settings: SwitchDirectSettings, voiceSettings: SwitchVoiceSettings | null = speech(), values?: SwitchDirectState) => switchBlocks({ voiceSettings, directState: direct(settings, values) }).rvc;
     assert.equal(block(rvc()), undefined);
     for (const values of [{ rvc_model: "" }, { rvc_runtime: "" }, { engine: "seed-vc" }, { mode: "passthrough" }])
         assert.deepEqual(block(rvc(values)), { reason: "rvc_model", action: "rvc" });
@@ -72,7 +75,7 @@ test("voice conversion is not judged before the engine has reported its state", 
 });
 
 test("only a switch that is off and waits for nothing is held off", () => {
-    const blocks = { ocr: { reason: "ocr_models", action: "ocr_models" } };
+    const blocks: SwitchBlocks = { ocr: { reason: "ocr_models", action: "ocr_models" } };
     assert.deepEqual(activeSwitchBlock(blocks, "ocr", { state: "ok", data: false }), blocks.ocr);
     assert.equal(activeSwitchBlock(blocks, "ocr", { state: "ok", data: true }), undefined);
     assert.equal(activeSwitchBlock(blocks, "ocr", { state: "pending", data: false }), undefined);

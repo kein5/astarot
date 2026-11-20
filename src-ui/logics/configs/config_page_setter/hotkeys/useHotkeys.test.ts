@@ -3,10 +3,49 @@ import { readFile } from "node:fs/promises";
 import { stripTypeScriptTypes } from "node:module";
 import { test, vi } from "vitest";
 import { hooks, loadModule } from "../../../test/hookHarness.ts";
+import type { HookRuntime } from "../../../test/hookHarness.ts";
 
-const moduleUrl = source => `data:text/javascript;base64,${Buffer.from(source).toString("base64")}`;
+// The stand-ins' shared state (the module made from `dependencies` below), as the tests script and
+// read it.
+type Handler = (event: { payload: unknown }) => void;
+interface StubState {
+    ready: boolean;
+    settings: boolean;
+    updating: boolean;
+    actions: string[];
+    notices: unknown[][];
+    warnings: unknown[][];
+    registered: Map<string, (event: { state: string }) => unknown>;
+    removed: string[];
+    // What was written: the endpoint and the hotkeys.
+    writes: [string, Record<string, string[] | null>][];
+    // What the app was asked: the command and its arguments; only the bind's are read.
+    calls: [string, { shortcuts: Record<string, string[] | null> } | undefined][];
+    handlers: Set<Handler>;
+    lostHandlers: Set<Handler>;
+    removals: number;
+    cleanups: (() => void)[];
+    disposers: ((data: unknown) => void)[];
+    hotkeys: Record<string, string[] | null>;
+    runtime?: HookRuntime;
+    // What the scripted calls wait for or answer.
+    platformGate?: unknown;
+    registerGate?: unknown;
+    unregisterGate?: unknown;
+    listenGate?: Promise<unknown> | null;
+    writeGate?: unknown;
+    bind?: (args: unknown) => unknown;
+    minimized?: boolean;
+    unminimizeFails?: boolean;
+    unregisterFails?: boolean;
+    restoreFails?: boolean;
+    focusChanged?: (event: { payload: boolean }) => void;
+}
+
+const moduleUrl = (source: string) => `data:text/javascript;base64,${Buffer.from(source).toString("base64")}`;
 const deferred = () => {
-    let resolve, reject;
+    // Set by the promise below before the object is made.
+    let resolve: (value?: unknown) => void = () => {}, reject: (reason?: unknown) => void = () => {};
     const promise = new Promise((yes, no) => { resolve = yes; reject = no; });
     return { promise, resolve, reject };
 };
@@ -63,26 +102,28 @@ async function setup() {
         export const unregister = async key => { state.removed.push(key); state.registered.delete(key); };
         export const unregisterAll = async () => { await state.unregisterGate; if (state.unregisterFails) throw new Error('plugin'); state.removed.push(...state.registered.keys()); state.registered.clear(); };
     `) + `#${crypto.randomUUID()}`;
-    const { state, hot } = await import(dependencies);
+    const { state, hot }: { state: StubState; hot: { data: unknown } } = await import(dependencies);
     let instance = 0;
-    const load = async () => {
+    const importHook = async () => {
         let source = stripTypeScriptTypes(await readFile(new URL("./useHotkeys.ts", import.meta.url), "utf8"));
         source = source.replace(/from "[^"]+"/g, `from ${JSON.stringify(dependencies)}`);
         source = `import { hot } from ${JSON.stringify(dependencies)};\n` + source.replaceAll("import.meta.hot", "hot");
-        const module = await import(moduleUrl(source) + `#${instance++}`);
-        return state.runtime ? module.useHotkeys : module.useHotkeys();
+        const module: typeof import("./useHotkeys.ts") = await import(moduleUrl(source) + `#${instance++}`);
+        return module.useHotkeys;
     };
-    return { state, load, dispose: index => state.disposers[index](hot.data),
+    // Without the React stand-in the hook runs once, here; owner() gives it one and runs it there.
+    const load = async () => (await importHook())();
+    return { state, load, importHook, dispose: (index: number) => state.disposers[index](hot.data),
         emit: () => { for (const callback of state.handlers) callback({ payload: { id: "open_quick_chat" } }); },
         lost: () => { for (const callback of state.lostHandlers) callback({ payload: null }); } };
 }
 
-for (const boundary of ["platform", "unregister", "listen", "bind"]) {
+for (const boundary of ["platform", "unregister", "listen", "bind"] as const) {
     test(`pause during ${boundary} await prevents a late registration from enabling shortcuts`, async () => {
         const subject = await setup(), gate = deferred();
         const { state } = subject;
         if (boundary === "bind") state.bind = () => gate.promise;
-        else state[`${boundary}Gate`] = gate.promise;
+        else state[`${boundary}Gate` as const] = gate.promise;
         const hook = await subject.load();
         const registration = hook.registerShortcuts();
         await flush();
@@ -96,7 +137,7 @@ for (const boundary of ["platform", "unregister", "listen", "bind"]) {
     });
 }
 
-for (const [atom, value] of [["settings", true], ["ready", false], ["updating", true]]) {
+for (const [atom, value] of [["settings", true], ["ready", false], ["updating", true]] satisfies ["settings" | "ready" | "updating", boolean][]) {
     test(`current ${atom} state is rechecked after bind without waiting for controller effects`, async () => {
         const subject = await setup(), gate = deferred();
         subject.state.bind = () => gate.promise;
@@ -211,9 +252,9 @@ async function owner(platform = "native") {
     const subject = await setup(), runtime = hooks();
     subject.state.runtime = runtime;
     subject.state.platformGate = platform;
-    const useHotkeys = await subject.load();
-    let latest;
-    const { GlobalHotKeyController } = await loadModule(new URL("../../../../views/app/_app_controllers/GlobalHotKeyController.tsx", import.meta.url), runtime, {
+    const useHotkeys = await subject.importHook();
+    let latest: ReturnType<typeof useHotkeys> | undefined;
+    const { GlobalHotKeyController } = await loadModule<typeof import("../../../../views/app/_app_controllers/GlobalHotKeyController.tsx")>(new URL("../../../../views/app/_app_controllers/GlobalHotKeyController.tsx", import.meta.url), runtime, {
         "@logics_configs": { useHotkeys: () => { latest = useHotkeys(); return latest; } },
         "@logics_common": {
             useIsBackendReady: () => ({ currentIsBackendReady: { data: subject.state.ready } }),
@@ -222,24 +263,28 @@ async function owner(platform = "native") {
         },
     });
     return { ...subject, runtime, render: async () => { runtime.render(GlobalHotKeyController); await flush(); },
-        hook: () => latest };
+        // The hook's answer from the last draw; there is one once the controller has drawn.
+        hook: () => { assert.ok(latest); return latest; } };
 }
 
 for (const [action, oldKeys, newKeys] of [
     ["open_quick_chat", ["Ctrl", "Q"], ["Ctrl", "W"]],
     ["toggle_transcription_send", ["Ctrl", "M"], ["Ctrl", "N"]],
     ["toggle_transcription_send", ["Ctrl", "M"], null],
-]) test(`close before ${action} ${newKeys ? "replacement" : "deletion"} acknowledgement reconciles native bindings`, async () => {
+] satisfies [string, string[], string[] | null][]) test(`close before ${action} ${newKeys ? "replacement" : "deletion"} acknowledgement reconciles native bindings`, async () => {
     const subject = await owner();
     subject.state.hotkeys = { [action]: oldKeys };
     await subject.render();
     const oldShortcut = `Control+${oldKeys[1]}`;
     assert.deepEqual([...subject.state.registered.keys()], [oldShortcut]);
     const oldCallback = subject.state.registered.get(oldShortcut);
+    assert.ok(oldCallback);
     subject.state.settings = true;
     await subject.render();
     await subject.hook().setHotkeys({ [action]: newKeys });
-    const acknowledged = subject.state.writes.at(-1)[1];
+    const written = subject.state.writes.at(-1);
+    assert.ok(written);
+    const acknowledged = written[1];
     subject.state.settings = false;
     await subject.render();
     assert.deepEqual([...subject.state.registered.keys()], [oldShortcut]);
@@ -250,7 +295,9 @@ for (const [action, oldKeys, newKeys] of [
     await oldCallback({ state: action === "open_quick_chat" ? "Released" : "Pressed" });
     assert.deepEqual(subject.state.actions, []);
     if (newKeys) {
-        await subject.state.registered.get(`Control+${newKeys[1]}`)({ state: action === "open_quick_chat" ? "Released" : "Pressed" });
+        const callback = subject.state.registered.get(`Control+${newKeys[1]}`);
+        assert.ok(callback);
+        await callback({ state: action === "open_quick_chat" ? "Released" : "Pressed" });
         assert.deepEqual(subject.state.actions, [action === "open_quick_chat" ? "quick-chat" : "send"]);
     }
     subject.runtime.unmount();
@@ -291,7 +338,7 @@ test("portal reconciliation observes acknowledged content and does not rebind on
     subject.hook().setSuccessHotkeys({ open_quick_chat: ["Ctrl", "W"] });
     await subject.render();
     const binds = () => subject.state.calls.filter(([name]) => name === "portal_shortcuts_bind");
-    assert.deepEqual(binds().at(-1)[1].shortcuts, { open_quick_chat: ["Ctrl", "W"] });
+    assert.deepEqual(binds().at(-1)?.[1]?.shortcuts, { open_quick_chat: ["Ctrl", "W"] });
     const count = binds().length;
     subject.hook().setSuccessHotkeys({ open_quick_chat: ["Ctrl", "W"] });
     await subject.render();
@@ -403,6 +450,7 @@ test("on Wayland the visibility hotkey restores the window it minimized", async 
     await press();
     assert.deepEqual(state.actions, ["minimize", "restore", "focus-input", "minimize"]);
     // The user brought the window back by hand: the next press minimizes again.
+    assert.ok(state.focusChanged);
     state.focusChanged({ payload: true });
     await press();
     assert.deepEqual(state.actions, ["minimize", "restore", "focus-input", "minimize", "minimize"]);
@@ -480,7 +528,9 @@ test("the voice hotkeys press the controls the main window published", async () 
     const hook = await subject.load();
     await hook.registerShortcuts();
     await flush();
-    assert.deepEqual(Object.keys(state.calls.find(([command]) => command === "portal_shortcuts_bind")[1].shortcuts),
+    const bound = state.calls.find(([command]) => command === "portal_shortcuts_bind")?.[1];
+    assert.ok(bound);
+    assert.deepEqual(Object.keys(bound.shortcuts),
         ["stop_voice", "toggle_voice_mute", "toggle_tts", "toggle_rvc"]);
     for (const id of ["stop_voice", "toggle_voice_mute", "toggle_tts", "toggle_rvc"]) {
         for (const callback of state.handlers) callback({ payload: { id } });
