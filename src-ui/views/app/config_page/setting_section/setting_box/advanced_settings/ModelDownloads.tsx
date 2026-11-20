@@ -11,6 +11,8 @@ import { RESTRICTIONS, canStart, restrictionsOf, startRequest } from "../../../.
 import { catalogFamilies, downloadStatus, firstVariant, familyLabel, variantLabel } from "../../../../../../logics/voice/modelCatalog";
 import styles from "./VoiceSettings.module.scss";
 import { EnvReadout } from "../_components/env_readout/EnvReadout";
+import { Hint, useHintDescriptions } from "../_components/hint/Hint";
+import { catalogHeading } from "./catalogHeading";
 import { useConsentDialog } from "../../../../../../logics/common/useConsentDialog";
 import { createLanguageNames } from "../../../../../../logics/common/languageNames";
 import { EngineCatalog } from "./EngineCatalog";
@@ -108,7 +110,8 @@ export const HardwareReadout = ({ reserve, setReserve }: HardwareReadoutProps) =
 // What a user compares before choosing (the catalog row's `profile`, docs/voice-stack/model-downloads.md):
 // languages, download size, hardware and whom it is suggested for. Rows outside speech.cpp
 // (RVC) have no profile and show their size and terms only.
-const ModelFacts = ({ entry }: { entry: ModelCatalogRow }) => {
+// guidance: the measured memory and where it was checked, as the hardware term's hint (#614).
+const ModelFacts = ({ entry, guidance }: { entry: ModelCatalogRow; guidance?: readonly string[] }) => {
     const { t } = useI18n();
     const languages = useLanguageList();
     const profile = entry.profile;
@@ -128,17 +131,20 @@ const ModelFacts = ({ entry }: { entry: ModelCatalogRow }) => {
     return <dl className={styles.facts}>
         {supported.length > 0 && <div><dt>{t("model_catalog.languages")}</dt><dd>{languages(supported, 12)}</dd></div>}
         <div><dt>{t("model_catalog.size")}</dt><dd>{gib(entry.total_bytes)}</dd></div>
-        {hardware && <div><dt>{t("model_catalog.hardware")}</dt><dd>{hardware}</dd></div>}
+        {hardware && <div><dt>{guidance?.length ? <span className={styles.hinted} data-hint-host><span>{t("model_catalog.hardware")}</span>
+            <Hint text={guidance.join("\n")} focusable /></span> : t("model_catalog.hardware")}</dt><dd>{hardware}</dd></div>}
         {translationMemory && <div><dt>{t("model_catalog.memory_needed")}</dt><dd>{translationMemory}</dd></div>}
         <div><dt>{t("model_catalog.terms")}</dt><dd>{entry.provider} · {entry.license}</dd></div>
     </dl>;
 };
 
 // A short word on the card's head for the state of the shown file; the readout below says more.
+// It ends the name's line, in the same place on every card.
 const StatusBadge = ({ status }: { status: DownloadStatus }) => {
     const { t } = useI18n();
-    return <span className={styles.badge} data-tone={status}>{t(`model_catalog.status.${status}`)}</span>;
+    return <span className={`${styles.badge} ${styles.status}`} data-tone={status}>{t(`model_catalog.status.${status}`)}</span>;
 };
+
 
 // A model that looks too heavy for the user's PC (modelHardwareWarning.ts): a mark on the card's
 // head, and a plain note that says why. Only guidance: nothing here stops the choice or download.
@@ -196,6 +202,7 @@ export interface ModelDownloadsProps {
 
 export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode = 'auto', reserve: sharedReserve, engines = false, only, translationDevice }: ModelDownloadsProps) => {
     const { t, i18n } = useI18n();
+    const hints = useHintDescriptions();
     const languages = useLanguageList();
     const { catalog, state, hardware, error, pending, send, ensureHardware } = useModelDownloads();
     const [selected, setSelected] = useState<SelectedModel | null>(null), [consent, setConsent] = useState(false);
@@ -262,6 +269,7 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
         const suggested = family.rows.flatMap(entry => entry.profile?.recommended_for ?? []);
         const label = familyLabel(current);
         const warning = warningOf(current);
+        const fits = !!hint.recommended && family.rows.some(entry => entry.id === hint.recommended);
         const jobView = (entry: ModelCatalogRow, own: boolean) => {
             const job = state.jobs[entry.id], active = activePhases.includes(job?.phase);
             if (!job) return null;
@@ -285,57 +293,77 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
                 {job.phase === "ready" && blocked && <p>{t(blocked === "edited" ? "model_downloads.blocked_edited" : "model_downloads.blocked")}</p>}
             </div>;
         };
-        return <li key={family.key} data-model-download tabIndex={-1} role="group" aria-label={label} className={styles.card}>
-            <div className={styles.card_head}>
-                <strong>{label}</strong>
-                {suggested.length > 0 && <span className={styles.badge} data-tone="recommended">{t("model_catalog.recommended_for", { languages: languages(suggested, 3) })}</span>}
-                {hint.recommended && family.rows.some(entry => entry.id === hint.recommended) &&
-                    <span className={styles.badge} data-tone="recommended">{t("model_catalog.fits_memory")}</span>}
-                {warning && <WarningBadge />}
-                <StatusBadge status={shownStatus} />
+        // The measured memory and where it was checked (guidance.rs): the hardware term's hint on a
+        // reviewed page (#614), a fold at the card's foot elsewhere.
+        const guidance = current.guidance?.reference_memory_bytes ? [
+            // A tier's own wording where the speech models' (a GPU, a provider's figure) does not fit.
+            `${t(`model_downloads.tier_${current.guidance.tier}`)} · ${t([`model_downloads.memory_reference_${current.guidance.tier}`, 'model_downloads.memory_reference'])}: ${memory(current.guidance.reference_memory_bytes)}`,
+            `${t([`model_downloads.validation_${current.guidance.validation.state}_${current.guidance.tier}`, `model_downloads.validation_${current.guidance.validation.state}`])} ${current.guidance.validation.device ?? ''}`,
+            current.guidance.validation.scope && t(`model_downloads.scope_${current.guidance.validation.scope}`),
+            hint.device && hint.device.description !== current.guidance.validation.device && t('model_downloads.gpu_unverified'),
+        ].filter((line): line is string => typeof line === "string") : null;
+        // The hint needs the hardware row, which a row with a profile has.
+        const guidanceHint = hints && !!guidance && !!current.profile;
+        // The card's parts in the order they are read (#614): what it is, its state and a warning,
+        // the file and its facts, then what runs and what can be done.
+        return <li key={family.key} data-model-download tabIndex={-1} role="group" aria-label={label} className={styles.card} data-status={shownStatus}>
+            <div className={styles.card_intro}>
+                {/* The name and the state on one line, so every card's state is at the same place;
+                    what speaks for or against the model under it. */}
+                <div className={styles.card_head}>
+                    <strong>{label}</strong>
+                    <StatusBadge status={shownStatus} />
+                </div>
+                {(suggested.length > 0 || fits || warning) && <div className={styles.card_badges}>
+                    {suggested.length > 0 && <span className={styles.badge} data-tone="recommended">{t("model_catalog.recommended_for", { languages: languages(suggested, 3) })}</span>}
+                    {fits && <span className={styles.badge} data-tone="recommended">{t("model_catalog.fits_memory")}</span>}
+                    {warning && <WarningBadge />}
+                </div>}
+                {current.profile?.summary && <p>{t(`model_downloads.summary.${current.profile.summary}`)}</p>}
+                {warning && <WarningNote warning={warning} />}
             </div>
-            {current.profile?.summary && <p>{t(`model_downloads.summary.${current.profile.summary}`)}</p>}
-            {warning && <WarningNote warning={warning} />}
-            {family.rows.length > 1 && <label>{t("model_catalog.variant")}
-                <select aria-label={t("model_catalog.variant_of", { model: label })} value={current.id}
-                    onChange={event => setChoices(previous => ({ ...previous, [family.key]: event.target.value }))}>
-                    {family.rows.map(entry => <option key={entry.id} value={entry.id}>
-                        {[variantLabel(entry), gib(entry.total_bytes), entry.speech?.default && t("model_downloads.asr_type_default"),
-                            ["downloaded", "in_use"].includes(status(entry)) && t(`model_catalog.status.${status(entry)}`),
-                            warningOf(entry) && t("model_catalog.hardware_warning.option")].filter(Boolean).join(" · ")}
-                    </option>)}
-                </select></label>}
-            {family.rows.length === 1 && variantLabel(current) !== current.name && <p className={styles.variant}>{t("model_catalog.variant")}: {variantLabel(current)}</p>}
-            <ModelFacts entry={current} />
-            {current.guidance?.reference_memory_bytes && <details className={styles.more}><summary>{t('model_downloads.guidance_summary')}</summary>
-                {/* A tier's own wording where the speech models' (a GPU, a provider's figure) does not fit. */}
-                <p>{t(`model_downloads.tier_${current.guidance.tier}`)} · {t([`model_downloads.memory_reference_${current.guidance.tier}`, 'model_downloads.memory_reference'])}: {memory(current.guidance.reference_memory_bytes)}</p>
-                <p>{t([`model_downloads.validation_${current.guidance.validation.state}_${current.guidance.tier}`, `model_downloads.validation_${current.guidance.validation.state}`])} {current.guidance.validation.device ?? ''}</p>
-                {current.guidance.validation.scope && <p>{t(`model_downloads.scope_${current.guidance.validation.scope}`)}</p>}
-                {hint.device && hint.device.description !== current.guidance.validation.device && <p>{t('model_downloads.gpu_unverified')}</p>}
-            </details>}
-            {/* Only after the user picks another file; the file in use shown first is not a choice. */}
-            {choices[family.key] && hint.recommended && family.rows.some(entry => entry.id === hint.recommended) && current.id !== hint.recommended &&
-                <p>{t('model_downloads.manual_choice')}</p>}
-            {jobView(current, true)}
-            {others.map(entry => jobView(entry, false))}
-            <div className={styles.actions}>
-                <button type="button" disabled={busy} onClick={() => {
-                    setConsent(false);
-                    setAcknowledged([]);
-                    setSelected({ ...current, catalog_version: version, downloaded });
-                }}>{t(downloaded ? "model_catalog.prepare" : "model_downloads.review")}</button>
-                {/* The TTS models: a short sentence on the monitor output only (#415). */}
-                <AuditionButton target={target} status={shownStatus} />
+            <div className={styles.card_spec}>
+                {family.rows.length > 1 && <label className={styles.variant_choice}>{t("model_catalog.variant")}
+                    <select aria-label={t("model_catalog.variant_of", { model: label })} value={current.id}
+                        onChange={event => setChoices(previous => ({ ...previous, [family.key]: event.target.value }))}>
+                        {family.rows.map(entry => <option key={entry.id} value={entry.id}>
+                            {[variantLabel(entry), gib(entry.total_bytes), entry.speech?.default && t("model_downloads.asr_type_default"),
+                                ["downloaded", "in_use"].includes(status(entry)) && t(`model_catalog.status.${status(entry)}`),
+                                warningOf(entry) && t("model_catalog.hardware_warning.option")].filter(Boolean).join(" · ")}
+                        </option>)}
+                    </select></label>}
+                {/* One file: its type as the first fact, in the terms' column and the values'. */}
+                {family.rows.length === 1 && variantLabel(current) !== current.name &&
+                    <p className={styles.variant}><span>{t("model_catalog.variant")}</span><span>{variantLabel(current)}</span></p>}
+                <ModelFacts entry={current} guidance={guidanceHint ? guidance : undefined} />
+                {/* Only after the user picks another file; the file in use shown first is not a choice. */}
+                {choices[family.key] && hint.recommended && family.rows.some(entry => entry.id === hint.recommended) && current.id !== hint.recommended &&
+                    <p>{t('model_downloads.manual_choice')}</p>}
             </div>
-            {downloaded && !job && shownStatus !== "in_use" && <p>{t("model_catalog.prepare_hint")}</p>}
-            <AuditionNote target={target} status={shownStatus} />
+            {/* What runs comes first, with its own actions; the card's actions follow, as before. */}
+            <div className={styles.card_foot}>
+                {jobView(current, true)}
+                {others.map(entry => jobView(entry, false))}
+                <div className={styles.actions}>
+                    <button type="button" disabled={busy} onClick={() => {
+                        setConsent(false);
+                        setAcknowledged([]);
+                        setSelected({ ...current, catalog_version: version, downloaded });
+                    }}>{t(downloaded ? "model_catalog.prepare" : "model_downloads.review")}</button>
+                    {/* The TTS models: a short sentence on the monitor output only (#415). */}
+                    <AuditionButton target={target} status={shownStatus} />
+                </div>
+                {downloaded && !job && shownStatus !== "in_use" && <p>{t("model_catalog.prepare_hint")}</p>}
+                <AuditionNote target={target} status={shownStatus} />
+                {guidance && !guidanceHint && <details className={styles.more}><summary>{t('model_downloads.guidance_summary')}</summary>
+                    {guidance.map(line => <p key={line}>{line}</p>)}
+                </details>}
+            </div>
         </li>;
     };
 
     return <section ref={section} tabIndex={-1} className={styles.container} aria-label={t("model_downloads.title")}>
-        <h3>{t("model_downloads.title")}</h3>
-        <p>{t("model_downloads.help")}</p>
+        {catalogHeading(hints, "h3", t("model_downloads.title"), [t("model_downloads.help")])}
         {!catalog && <p aria-busy="true">{t("model_downloads.loading")}</p>}
         {hasTTS && !shared && <>
             <label>{t('model_downloads.headroom')}<select aria-label={t('model_downloads.headroom')} value={reserve} onChange={event => setReserve(event.target.value)}>
@@ -354,19 +382,22 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
             if (!families.length && !own) return null;
             const hint = advice[target], tts = ttsTargets.includes(target);
             const heading = `model-catalog-${target}`;
+            // What the use is for and how to choose in it; on a reviewed page, the heading's hint.
+            const help = [t(`model_catalog.group_help.${target}`),
+                tts && families.length > 1 && t(`model_downloads.choice_${target}`),
+                target === "asr" && t("model_downloads.asr_choice"),
+                ["rvc", "asr", "vad", "diarization"].includes(target) && t(`model_downloads.${target}_requirements`)]
+                .filter((text): text is string => typeof text === "string");
             return <section key={target} className={styles.catalog_group} aria-labelledby={heading}>
-                <h4 id={heading}>{t(`model_catalog.group.${target}`)}</h4>
-                <p>{t(`model_catalog.group_help.${target}`)}</p>
-                {tts && <>
+                {catalogHeading(hints, "h4", t(`model_catalog.group.${target}`), help, heading)}
+                {/* What the GPU reading says for this use: a readout of this session, so it stays on screen. */}
+                {tts && <div className={styles.catalog_advice}>
                     {!shared && hint.device && <p>{hint.device.name}: {hint.device.description} · {t('model_downloads.hardware_free')}: {memory(hint.device.memory_free)} / {t('model_downloads.hardware_total')}: {memory(hint.device.memory_total)}</p>}
                     {!shared && hardware.measured_at_ms && <p>{t('model_downloads.hardware_measured')}: {measuredTime(hardware.measured_at_ms, i18n?.language)}</p>}
                     <p>{t(`model_downloads.advice_${hint.reason}`)}</p>
                     {!shared && hint.multiple && <p>{t('model_downloads.multiple_gpus')}</p>}
                     {hint.recommended && <p><strong>{t('model_downloads.recommended')}</strong>: {matching.find(entry => entry.id === hint.recommended)?.name}</p>}
-                    {families.length > 1 && <p>{t(`model_downloads.choice_${target}`)}</p>}
-                </>}
-                {target === "asr" && <p>{t("model_downloads.asr_choice")}</p>}
-                {["rvc", "asr", "vad", "diarization"].includes(target) && <p>{t(`model_downloads.${target}_requirements`)}</p>}
+                </div>}
                 {/* The models of one's own sit in the same list, after the reviewed ones (#403). */}
                 <ul className={styles.catalog} role="list">
                     {families.map(family => card(target, family, catalog.catalog_version))}

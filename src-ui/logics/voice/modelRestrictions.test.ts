@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "vitest";
 import type { TestContext } from "vitest";
 import { hooks, loadModule, find, findIn, nodesIn, componentName } from "../test/hookHarness.ts";
+import type { HookRuntime } from "../test/hookHarness.ts";
 import { localeAt, readLocale, textAt } from "../test/locales.ts";
 import * as languageNames from "../common/languageNames.ts";
 import * as modelCatalog from "./modelCatalog.ts";
@@ -51,6 +52,10 @@ for (const language of ["en", "ja"]) test(`${language}: every restriction and it
     assert.equal(typeof localeAt(locale, "model_downloads.errors.model_download_restriction_unacknowledged"), "string");
 });
 
+// The catalog's headings as they are, with the hint mark as a name: the catalog draws them in place.
+const loadHeading = (runtime: HookRuntime) => loadModule<typeof import("../../views/app/config_page/setting_section/setting_box/advanced_settings/catalogHeading.tsx")>(new URL("../../views/app/config_page/setting_section/setting_box/advanced_settings/catalogHeading.tsx", import.meta.url), runtime,
+    { "../_components/hint/Hint": { Hint: "hint" } });
+
 async function dialog(context: TestContext, entry: object) {
     const runtime = hooks(), sent: [string, unknown][] = [];
     const downloads = { catalog: { models: [entry], catalog_version: "reviewed-catalog" }, state: { jobs: {} }, hardware: {},
@@ -69,6 +74,8 @@ async function dialog(context: TestContext, entry: object) {
         "./EngineCatalog": { EngineCatalog: "engines" },
         "./UserModels": { UserModelCards: "user-model-cards", UserModelRegistration: "user-model-registration" },
         "./VoiceAudition": { AuditionButton: "audition-button", AuditionNote: "audition-note" },
+        "../_components/hint/Hint": { Hint: "hint", useHintDescriptions: () => false },
+        "./catalogHeading": await loadHeading(runtime),
     });
     context.onTestFinished(() => runtime.unmount());
     const render = () => runtime.render(ModelDownloads, { targets: ["translation"], expected: { translation: {} } });

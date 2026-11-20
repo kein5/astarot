@@ -129,15 +129,52 @@
 .download_entry { display: grid; gap: .8rem; min-width: 0; }
 // The model catalog: one group per use (a subheading and space, no frame), one card per model.
 // A card is a real unit (one model or engine), so it keeps a quiet frame (DESIGN.md, Roles).
+// What a card is, what state it is in and what it offers are read from where its parts sit
+// (#614): its name with its state at the end of that line, in the same place on every card; what
+// speaks for or against it and what it is under the name; its file and facts in one table whose
+// values start at one place on every card; then what runs and its actions, starting at the card's
+// edge. The card in use carries the active color on its frame and the lilac tint, as a switch that is on.
 .catalog_group { display: grid; gap: .8rem; min-width: 0; }
+// What the GPU reading says for this use, a readout of this session, in one block under the heading.
+.catalog_advice { display: grid; gap: .2rem; min-width: 0; }
 .catalog { display: grid; gap: 1.2rem; margin: 0; padding: 0; list-style: none; min-width: 0; }
 .card {
-    display: grid; gap: .8rem; min-width: 0; padding: 1.2rem 1.6rem;
+    display: grid; gap: 1.2rem; min-width: 0; padding: 1.6rem;
+    // The facts' terms take one width on every card, so their values start at one place down the list.
+    // 14rem holds the longest Japanese term with its hint mark; a longer English one wraps.
+    --catalog_term: 14rem;
     border: .1rem solid var(--dark_800_color, #344662); border-radius: var(--vox_radius, .8rem);
     &:focus-visible { outline: .2rem solid var(--primary_200_color); outline-offset: .3rem; }
     > strong, .card_head > strong { font-size: 1.5rem; font-weight: 600; color: var(--dark_200_color); }
+    &[data-status="in_use"] { border-color: var(--vox_state_active, #b797f8); background: var(--vox_highlight_tint); }
+    // The memory guidance, where it is not a hint, is a quiet line at the card's foot.
+    details.more summary { padding: 0; }
 }
+// The name's line and what the model is, read as one; the file and its facts; the actions and
+// what they started. Each block is tight inside and apart from the next.
+.card_intro { display: grid; gap: .4rem; min-width: 0; }
+.card_spec, .card_foot { display: grid; gap: .8rem; min-width: 0; }
+// A wide card is read across, not down: what the model is and what can be done on the left, the
+// file and its facts on the right. A narrow one (a narrow window, the translation review) keeps
+// the one column.
+@container (min-width: 80rem) {
+    .card:has(> .card_spec) {
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
+        grid-template-rows: auto 1fr;
+        grid-template-areas: "intro spec" "foot spec";
+        column-gap: 3.2rem;
+        > .card_intro { grid-area: intro; }
+        > .card_spec { grid-area: spec; align-content: start; }
+        > .card_foot { grid-area: foot; align-content: start; }
+    }
+}
+// A warning under what the model is, with the space of the next block above it.
+.card_intro > .hardware_warning { margin-top: .8rem; }
 .card_head { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem 1rem; min-width: 0; }
+// The state badge ends the name's line, so the states of all cards are read down one edge.
+.status { margin-inline-start: auto; }
+// What speaks for or against a model (recommended, fits the memory, may be too heavy), under its name.
+.card_badges { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem; min-width: 0; }
 // A word on a card's head. Its words say the state; the color only repeats them.
 .badge {
     display: inline-block; padding: .1rem .8rem; border: .1rem solid var(--dark_700_color, #4a5d7c);
@@ -170,16 +207,27 @@
     > .warning_mark { margin-top: .2rem; }
 }
 .restriction_text { display: grid; gap: .2rem; min-width: 0; }
-// What a user compares: a term and its value per row; the rows stack in a narrow card.
+// What a user compares: a term and its value per row; the rows stack in a narrow card. In a card
+// the terms take the card's one width (--catalog_term), so a value is found at the same place on
+// every card.
 .facts {
-    display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: .4rem 1.6rem; margin: 0; min-width: 0;
+    display: grid; grid-template-columns: var(--catalog_term, max-content) minmax(0, 1fr); gap: .4rem 1.6rem; margin: 0; min-width: 0;
     > div { display: contents; }
-    dt { font-size: 1.2rem; color: var(--vox_description_text); }
+    dt { font-size: 1.2rem; font-weight: 400; color: var(--vox_description_text); }
     dd { margin: 0; font-size: 1.3rem; color: var(--dark_200_color); overflow-wrap: anywhere; min-width: 0; }
     code { overflow-wrap: anywhere; }
-    @container (max-width: 35.6rem) { grid-template-columns: minmax(0, 1fr); dd { margin-bottom: .4rem; } }
+    // Stacked where the forms' rows stack (DESIGN.md, Field widths), so a value keeps its width.
+    @container (max-width: 42rem) { grid-template-columns: minmax(0, 1fr); dd { margin-bottom: .4rem; } }
 }
-.variant { margin: 0; }
+// The file a card shows, as the first row of its facts: the term in the terms' column, the file
+// (or the choice of files) where the values start.
+.variant, .card label.variant_choice {
+    display: grid; grid-template-columns: var(--catalog_term) minmax(0, max-content); align-items: center; gap: .4rem 1.6rem;
+    margin: 0; padding: 0; font-size: 1.2rem; font-weight: 400; color: var(--vox_description_text);
+    > :last-child { font-size: 1.3rem; color: var(--dark_200_color); }
+    select { width: auto; max-width: 100%; }
+    @container (max-width: 42rem) { grid-template-columns: minmax(0, 1fr); }
+}
 // An official site, opened like the buttons beside it.
 .link_button { display: inline-flex; align-items: center; min-height: 4rem; }
 .progress { width: 100%; height: .6rem; appearance: none; -webkit-appearance: none; border: 0; border-radius: .3rem; overflow: hidden; background: var(--dark_825_color); }

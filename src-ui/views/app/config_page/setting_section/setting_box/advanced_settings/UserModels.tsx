@@ -33,36 +33,39 @@ export const UserModelCards = ({ target, expected, blocked, busy }: UserModelCar
         const status = userModelStatus(model, expected?.[target]);
         const roles = USER_MODEL_FILES[target] ?? [];
         const savedPaths = expected?.[target];
-        return <li key={model.id} data-user-model tabIndex={-1} role="group" aria-label={model.name} className={styles.card}>
-            <div className={styles.card_head}>
+        return <li key={model.id} data-user-model tabIndex={-1} role="group" aria-label={model.name} className={styles.card} data-status={status}>
+            <div className={styles.card_intro}><div className={styles.card_head}>
                 <strong>{model.name}</strong>
                 <span className={styles.badge} data-tone="own">{t("user_models.badge")}</span>
-                <span className={styles.badge} data-tone={status === "registered" ? "downloaded" : status}>{t(`user_models.status.${status}`)}</span>
-            </div>
-            <dl className={styles.facts}>
+                <span className={`${styles.badge} ${styles.status}`} data-tone={status === "registered" ? "downloaded" : status}>{t(`user_models.status.${status}`)}</span>
+            </div></div>
+            {/* Laid out as a catalog card: what it is, its facts, then its notes and actions. */}
+            <dl className={`${styles.facts} ${styles.card_spec}`}>
                 {roles.filter(([role]) => model.paths[role]).map(([role]) => <div key={role}>
                     <dt>{t(`user_models.file.${role}`)}</dt>
                     <dd><code style={{ overflowWrap: "anywhere" }}>{model.paths[role]}</code></dd>
                 </div>)}
                 <div><dt>{t("user_models.size")}</dt><dd>{gib(model.total_bytes)}</dd></div>
             </dl>
-            {["missing", "changed"].includes(status) && <p role="alert">{t(`user_models.status_help.${status}`)}</p>}
-            {status === "registered" && blocked && <p>{t(blocked === "edited" ? "user_models.blocked_edited" : "model_downloads.blocked")}</p>}
-            {removing === model.id ? <div className={styles.actions} role="group" aria-label={t("user_models.remove_confirm_label", { name: model.name })}>
-                <p>{t("user_models.remove_confirm")}</p>
-                <button type="button" autoFocus onClick={() => setRemoving(null)}>{t("model_downloads.back")}</button>
-                <button type="button" disabled={busy} onClick={() => {
-                    setRemoving(null); send("/run/remove_user_model", { id: model.id });
-                }}>{t("user_models.remove_do")}</button>
-            </div> : <div className={styles.actions}>
-                {status !== "in_use" && <button type="button" className="primary"
-                    disabled={busy || !!blocked || status !== "registered" || !savedPaths}
-                    onClick={() => send("/run/apply_user_model", { id: model.id, expected: savedPaths })}>{t("user_models.use")}</button>}
-                {/* A TTS model in use can be heard on the monitor output (#415). */}
-                <AuditionButton target={target} status={auditionStatus(status)} />
-                <button type="button" disabled={busy} onClick={() => setRemoving(model.id)}>{t("user_models.remove")}</button>
-            </div>}
-            {removing !== model.id && <AuditionNote target={target} status={auditionStatus(status)} />}
+            <div className={styles.card_foot}>
+                {["missing", "changed"].includes(status) && <p role="alert">{t(`user_models.status_help.${status}`)}</p>}
+                {status === "registered" && blocked && <p>{t(blocked === "edited" ? "user_models.blocked_edited" : "model_downloads.blocked")}</p>}
+                {removing === model.id ? <div className={styles.actions} role="group" aria-label={t("user_models.remove_confirm_label", { name: model.name })}>
+                    <p>{t("user_models.remove_confirm")}</p>
+                    <button type="button" autoFocus onClick={() => setRemoving(null)}>{t("model_downloads.back")}</button>
+                    <button type="button" disabled={busy} onClick={() => {
+                        setRemoving(null); send("/run/remove_user_model", { id: model.id });
+                    }}>{t("user_models.remove_do")}</button>
+                </div> : <div className={styles.actions}>
+                    {status !== "in_use" && <button type="button" className="primary"
+                        disabled={busy || !!blocked || status !== "registered" || !savedPaths}
+                        onClick={() => send("/run/apply_user_model", { id: model.id, expected: savedPaths })}>{t("user_models.use")}</button>}
+                    {/* A TTS model in use can be heard on the monitor output (#415). */}
+                    <AuditionButton target={target} status={auditionStatus(status)} />
+                    <button type="button" disabled={busy} onClick={() => setRemoving(model.id)}>{t("user_models.remove")}</button>
+                </div>}
+                {removing !== model.id && <AuditionNote target={target} status={auditionStatus(status)} />}
+            </div>
         </li>;
     });
 };
