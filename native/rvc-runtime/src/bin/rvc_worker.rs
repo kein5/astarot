@@ -46,6 +46,9 @@
 //!   When more than half of the last blocks came too late or had to be dropped, the PC
 //!   cannot keep up: the worker says so with a `failed` packet (`vc_capture_overrun`, as
 //!   the owner reports a GPU that falls behind) and stops, instead of answering silence.
+//!   Before `ready` it times the CPU on a test tone; a CPU that needs longer for a block
+//!   than the block lasts cannot keep up from the start, and the worker does not start
+//!   (`failed`, `vc_cpu_too_slow`).
 //!
 //! The `ready` packet names the device (`profile`: `low` for a GPU, CUDA or DirectML, `cpu`)
 //! and the delay the worker adds between a sample coming in and its converted counterpart
@@ -59,7 +62,7 @@ use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use std::sync::mpsc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use rvc_runtime::audio::StreamResampler;
 use rvc_runtime::{backend, Converter, Device, Error, FeatureExtractor, FeatureIndex, Layout, NoiseMode, Rmvpe, Stream, StreamOptions, Synthesizer, VoiceModel};
@@ -133,6 +136,12 @@ fn cpu_intra_threads() -> usize {
 const CPU_BACKLOG_BLOCKS: usize = 3;
 /// CPU: blocks looked back on to tell a PC that cannot keep up (4 s at 0.5 s blocks).
 const CPU_LATE_WINDOW: usize = 8;
+/// CPU: blocks timed before `ready`, after one that settles the first runs. The fastest must
+/// take less than the block lasts, or the PC cannot convert on the CPU in real time and the
+/// worker does not start (`vc_cpu_too_slow`): such a PC would only answer silence and stop with
+/// `vc_capture_overrun` a few seconds later (an Intel Core i7-1255U took 1.2 s for a 0.5 s
+/// block, 2026-11-20).
+const CPU_TIMED_BLOCKS: usize = 2;
 
 #[cfg(target_os = "linux")]
 const ORT_LIBRARY: &str = "libonnxruntime.so";
@@ -193,6 +202,9 @@ enum Failure {
     GpuUnavailable,
     /// DirectML was asked for and cannot run: no DirectML folder, or no GPU it can use.
     DirectMlUnavailable,
+    /// The conversion would run on the CPU, and the CPU cannot convert a block in the time
+    /// the block lasts ([`CPU_TIMED_BLOCKS`]).
+    CpuTooSlow,
     RuntimeIncomplete,
     ModelMissing,
     CheckpointIncomplete,
@@ -205,6 +217,7 @@ impl Failure {
         match self {
             Failure::GpuUnavailable => "vc_gpu_unavailable",
             Failure::DirectMlUnavailable => "vc_directml_unavailable",
+            Failure::CpuTooSlow => "vc_cpu_too_slow",
             Failure::RuntimeIncomplete => "vc_runtime_incomplete",
             Failure::ModelMissing => "vc_model_missing",
             Failure::CheckpointIncomplete => "vc_checkpoint_incomplete",
@@ -537,11 +550,46 @@ fn load(arguments: &Arguments) -> Result<(Stream, Profile), Failure> {
     })?;
     let converter = Converter { features, pitch: Box::new(pitch), synthesizer, index, version: model.version };
     let options = StreamOptions { transpose: arguments.pitch, index_rate: arguments.index_rate, speaker: 0, noise: NoiseMode::Random, layout: profile.layout, highpass: arguments.highpass };
-    let stream = Stream::new(converter, options).map_err(|error| {
+    let mut stream = Stream::new(converter, options).map_err(|error| {
         log("stream", &error);
         Failure::IndexFailed
     })?;
+    if profile.device == Device::Cpu {
+        let fastest = cpu_block_time(&mut stream).map_err(|error| {
+            log("conversion", &error);
+            Failure::CheckpointIncomplete
+        })?;
+        if !cpu_keeps_up(fastest, profile.layout) {
+            eprintln!("vrct-rvc-worker: a {} ms block took {} ms on the CPU", profile.layout.block * 10, fastest.as_millis());
+            return Err(Failure::CpuTooSlow);
+        }
+    }
     Ok((stream, profile))
+}
+
+/// A 220 Hz tone at -20 dB.
+fn tone(count: usize, rate: u32) -> Vec<f32> {
+    (0..count).map(|n| 0.1 * (n as f32 * 2.0 * std::f32::consts::PI * 220.0 / rate as f32).sin()).collect()
+}
+
+/// The CPU's time for one stream block: one block settles the networks' first runs, then the
+/// fastest of [`CPU_TIMED_BLOCKS`]. The stream is reset afterwards.
+fn cpu_block_time(stream: &mut Stream) -> Result<Duration, Error> {
+    let block = tone(stream.options().layout.block_samples(), INPUT_RATE);
+    stream.process(&block)?;
+    let mut fastest = Duration::MAX;
+    for _ in 0..CPU_TIMED_BLOCKS {
+        let started = Instant::now();
+        stream.process(&block)?;
+        fastest = fastest.min(started.elapsed());
+    }
+    stream.reset();
+    Ok(fastest)
+}
+
+/// Whether the CPU converts a block in less time than the block lasts.
+fn cpu_keeps_up(block_time: Duration, layout: Layout) -> bool {
+    block_time < Duration::from_millis(layout.block as u64 * 10)
 }
 
 /// The stream with its rate conversions: 48 kHz in and out, 16 kHz and the model's rate
@@ -779,8 +827,6 @@ enum Answers {
 
 impl Answers {
     fn new(mut live: Live, profile: Profile) -> Result<Self, Stop> {
-        // A 220 Hz tone at -20 dB.
-        let tone = |count: usize, rate: u32| -> Vec<f32> { (0..count).map(|n| 0.1 * (n as f32 * 2.0 * std::f32::consts::PI * 220.0 / rate as f32).sin()).collect() };
         if profile.device.is_gpu() {
             let block = tone(profile.packets.frames(), RATE);
             for _ in 0..WARMUP_BLOCKS {
@@ -789,11 +835,8 @@ impl Answers {
             live.reset();
             return Ok(Answers::Direct(live));
         }
-        let Live { mut stream, .. } = live;
-        let block = tone(stream.options().layout.block_samples(), INPUT_RATE);
-        // One block is enough to settle the CPU's first runs; each takes about half a second.
-        stream.process(&block).map_err(|_| Stop("vc_conversion_invalid"))?;
-        stream.reset();
+        // The CPU's first runs were settled when its speed was taken (`cpu_block_time`).
+        let Live { stream, .. } = live;
         let (to_thread, thread_input) = mpsc::channel();
         let (thread_output, from_thread) = mpsc::channel();
         let output_block = profile.layout.block_samples() * 3;
@@ -1100,6 +1143,19 @@ mod tests {
         // A folder without DirectML needs nothing loaded first.
         assert!(preload_directml(&dir));
         std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn a_cpu_that_cannot_convert_a_block_in_its_time_does_not_start() {
+        // 0.5 s blocks on the CPU.
+        assert!(cpu_keeps_up(Duration::from_millis(320), CPU_LAYOUT));
+        assert!(cpu_keeps_up(Duration::from_millis(499), CPU_LAYOUT));
+        assert!(!cpu_keeps_up(Duration::from_millis(500), CPU_LAYOUT));
+        // An Intel Core i7-1255U (2026-11-20).
+        assert!(!cpu_keeps_up(Duration::from_millis(1208), CPU_LAYOUT));
+        assert_eq!(Failure::CpuTooSlow.code(), "vc_cpu_too_slow");
+        // The test tone is the block it stands for.
+        assert_eq!(tone(CPU_LAYOUT.block_samples(), INPUT_RATE).len(), 8_000);
     }
 
     #[test]
