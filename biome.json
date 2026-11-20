@@ -42,6 +42,9 @@
         "useExhaustiveDependencies": "warn",
         "useHookAtTopLevel": "warn"
       },
+      "style": {
+        "useConst": "error"
+      },
       "suspicious": {
         "noArrayIndexKey": "warn",
         "noAssignInExpressions": "warn",
