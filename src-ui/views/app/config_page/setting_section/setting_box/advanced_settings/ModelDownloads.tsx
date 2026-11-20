@@ -14,13 +14,13 @@ import { Fold } from "../_components/fold/Fold";
 import { EnvReadout } from "../_components/env_readout/EnvReadout";
 import { Hint, useHintDescriptions } from "../_components/hint/Hint";
 import { catalogHeading } from "./catalogHeading";
-import { CatalogFacts, CatalogLayoutSwitch, CatalogList, useCatalogLayout } from "./catalogLayout";
+import { CatalogFacts, CatalogLayoutSwitch, CatalogList, CatalogSection, useCatalogLayout } from "./catalogLayout";
 import { useConsentDialog } from "../../../../../../logics/common/useConsentDialog";
 import { createLanguageNames } from "../../../../../../logics/common/languageNames";
 import { EngineCatalog } from "./EngineCatalog";
 import { UserModelCards, UserModelRegistration } from "./UserModels";
 import { AuditionButton, AuditionNote } from "./VoiceAudition";
-import { USER_MODEL_FILES } from "../../../../../../logics/voice/modelCatalog";
+import { USER_MODEL_FILES, userModelStatus } from "../../../../../../logics/voice/modelCatalog";
 import type { CatalogFamily, DownloadStatus } from "../../../../../../logics/voice/modelCatalog";
 import type { ModelCatalogRow, ModelDownloadJob } from "../../../../../../logics/voice/useModelDownloads";
 import type { HardwareWarning, TranslationDevice } from "../../../../../../logics/voice/modelHardwareWarning";
@@ -212,7 +212,7 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
     const { t, i18n } = useI18n();
     const hints = useHintDescriptions();
     const languages = useLanguageList();
-    const { catalog, state, hardware, error, pending, send, ensureHardware } = useModelDownloads();
+    const { catalog, state, hardware, error, pending, send, ensureHardware, userModels } = useModelDownloads();
     const [selected, setSelected] = useState<SelectedModel | null>(null), [consent, setConsent] = useState(false);
     // The restrictions of the selected model the user ticked, apart from the consent.
     const [acknowledged, setAcknowledged] = useState<string[]>([]);
@@ -419,14 +419,20 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
             if (!families.length && !own) return null;
             const hint = advice[target], tts = ttsTargets.includes(target);
             const heading = `model-catalog-${target}`;
+            // The part's bar reads out how many models it has and how many are on the PC (a
+            // registered model's files are, unless they went missing).
+            const ownRows = own ? userModels?.models?.filter(model => model.target === target) ?? [] : [];
+            const obtained = families.filter(family => family.rows.some(entry => ["downloaded", "in_use", "ready"].includes(status(entry)))).length
+                + ownRows.filter(model => userModelStatus(model, expected?.[target]) !== "missing").length;
             // What the use is for and how to choose in it; on a reviewed page, the heading's hint.
             const help = [t(`model_catalog.group_help.${target}`),
                 tts && families.length > 1 && t(`model_downloads.choice_${target}`),
                 target === "asr" && t("model_downloads.asr_choice"),
                 ["rvc", "asr", "vad", "diarization"].includes(target) && t(`model_downloads.${target}_requirements`)]
                 .filter((text): text is string => typeof text === "string");
-            return <section key={target} className={styles.catalog_group} aria-labelledby={heading}>
-                {catalogHeading(hints, "h4", t(`model_catalog.group.${target}`), help, heading)}
+            // A part of its own, folded; the translation review's one model is not.
+            return <CatalogSection key={target} id={heading} level={4} fold={!only} title={t(`model_catalog.group.${target}`)} help={help}
+                readout={t("model_catalog.group_readout", { count: families.length + ownRows.length, obtained })}>
                 {/* What the GPU reading says for this use: a readout of this session, so it stays on screen. */}
                 {tts && <div className={styles.catalog_advice}>
                     {!shared && hint.device && <p>{hint.device.name}: {hint.device.description} · {t('model_downloads.hardware_free')}: {memory(hint.device.memory_free)} / {t('model_downloads.hardware_total')}: {memory(hint.device.memory_total)}</p>}
@@ -441,7 +447,7 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
                     {own && <UserModelCards target={target} expected={expected} blocked={blocked} busy={busy} layout={layout} />}
                 </CatalogList>
                 {own && <UserModelRegistration target={target} busy={busy} />}
-            </section>;
+            </CatalogSection>;
         })}
         {hasTTS && !shared && <Fold size="link" className={styles.more} summary={t('model_downloads.memory_boundary_summary')}>
             <p>{t('model_downloads.memory_boundary')}</p>

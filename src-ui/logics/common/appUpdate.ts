@@ -140,6 +140,6 @@ export const createAppUpdate = ({ invoke, createChannel, get, set, log = () => {
 
 // Whole percent of a download, or null while its size is unknown.
 export const downloadPercent = (progress: AppUpdateProgress | null | undefined) => {
-    if (!progress || !progress.total) return null;
+    if (!progress?.total) return null;
     return Math.min(100, Math.floor(progress.downloaded * 100 / progress.total));
 };

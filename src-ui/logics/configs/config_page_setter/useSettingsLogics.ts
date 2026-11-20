@@ -317,7 +317,6 @@ export const useSliderLogic = ({
     postUpdateAction,
     min,
     max,
-    step = 1,
     show_label_values = null,
     marks_step,
     setter_timing = "on_change_committed",
@@ -362,7 +361,7 @@ export const useSliderLogic = ({
             for (let i = 0; i <= 1000; i++) {
                 if (current > max + (marks_step / 10)) break;
                 const fixedValue = parseFloat(current.toFixed(decimalPlaces));
-                const hasLabel = show_label_values && show_label_values.includes(fixedValue);
+                const hasLabel = show_label_values?.includes(fixedValue);
                 markMap.set(fixedValue, {
                     value: fixedValue,
                     label: hasLabel ? `${fixedValue}` : "",

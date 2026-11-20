@@ -54,7 +54,7 @@ async function settingsHarness({ host = "127.0.0.1" } = {}) {
         "../../../../../../logics/configs/networkPortInput": { parsePortInput, PORT_INPUT_LIMITS },
         "../../../../../../logics/configs/rvcBlockChoices": { rvcBlockChoiceId, rvcBlockChoices },
         // A minimal draft: the saved pair, edited in place, submitted through the given write.
-        "../../../../../../logics/voice/useSettingsDraft": { useSettingsDraft: (saved: Record<string, unknown>, error: unknown, updateError: unknown, options: SettingsDraftOptions<unknown>) => {
+        "../../../../../../logics/voice/useSettingsDraft": { useSettingsDraft: (saved: Record<string, unknown>, _error: unknown, _updateError: unknown, options: SettingsDraftOptions<unknown>) => {
             draftOptions = options;
             const draft = { ...saved };
             return { draft, dirty: true, saving: false, navigationDialog: null,
