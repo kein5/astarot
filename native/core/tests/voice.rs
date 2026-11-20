@@ -205,8 +205,13 @@ fn the_dictionary_is_written_out_to_a_file_the_settings_read_back() {
     let file = answer["file"].as_str().unwrap();
     assert!(file.starts_with("vocabulary-") && file.ends_with(".txt"), "{file}");
     let text = std::fs::read_to_string(run.ui.dir.join("exports").join(file)).unwrap();
+    // The dictionary in use (#792): the user's terms first, then the built-in terms; the one taken
+    // out is not written.
     let lines: Vec<&str> = text.lines().filter(|line| !line.starts_with('#')).collect();
-    assert_eq!(lines, ["猫丸=ねこまる", "Quest=くえすと", "-Vket"]);
+    assert_eq!(lines, vrct_transcription::speechcpp::merged_terms(&json!({ "builtin": true,
+        "terms": ["猫丸=ねこまる", "Quest=くえすと"], "removed": ["Vket"] })));
+    assert_eq!(lines[..2], ["猫丸=ねこまる", "Quest=くえすと"]);
+    assert!(lines.iter().any(|line| line.starts_with("VRChat=")) && !lines.iter().any(|line| line.starts_with("Vket")));
     let refused = run.ui.request("/run/export_vocabulary", Some(json!({ "terms": ["a,b"] })));
     assert_eq!((refused["status"].as_u64(), &refused["result"]["error_code"]), (Some(400), &json!("realtime_vocabulary_invalid")));
     let log = run.process_log();
