@@ -8,12 +8,15 @@
 |---|---|---|
 | `recorder` | 1 つの音源の録音。音量メーター、フレーズの切り出し、認識をまとめて動かす | `model.py` の `_AudioDeviceSession`、`transcription_recorder.py` |
 | `energy` | 音量によるフレーズの切り出し（しきい値、自動しきい値、`MIC_RECORD_TIMEOUT`） | `speech_recognition` の `listen_energy_and_audio` |
-| `vad` | VAD を差し込む口（`VadEngine`、`Segmenter`）。この版のエンジンはなし | `audio_vad.py` の `VadSegmenter` |
+| `vad` | VAD を差し込む口（`VadEngine`、`Segmenter`） | `audio_vad.py` の `VadRecognizerAdapter` |
+| `server_vad` | speech.cpp の Silero VAD で区切る VAD のエンジン（Realtime の `server_vad` だけのセッション）。使えないときは音量の区切りに替える | `audio_vad.py` の `VadSegmenter`、`SileroFrameProbability` |
 | `phrases` | フレーズをつないで発話にする（`MIC_PHRASE_TIMEOUT`、15 秒の上限、`MIC_MAX_PHRASES`） | `transcription_transcriber.py` の `transcribeAudioQueue` |
 | `providers` | OpenAI 互換の API（Groq、OpenAI、カスタム）と Deepgram。キーの確認とモデルの一覧 | `transcription_providers.py`、`transcription_openai_compatible.py`、`transcription_deepgram.py` |
 | `speechcpp` | speech.cpp のモデルの一覧と語彙（VRChat の用語を含む） | `speechcpp_asr.py`、`asr_vocabulary.py`、`vrchat_terms.py` |
+| `terms` | 語彙（用語辞書）を認識した文、読み上げる文、翻訳の指示に当てる（#446） | なし（中核で足した） |
 | `realtime` | speech.cpp の Realtime の WebSocket に音声を流し、字幕と確定した文を届ける | `realtime_session.py`、`speechcpp_realtime.py`、`realtime_audio.py`、`realtime_events.py`、`realtime_delivery.py` |
 | `capture` | 録音の口。Windows は WASAPI（スピーカーはループバック）、Linux は `vrct-asr-capture` | `capture_windows.py`、`capture_pipewire.py`、`capture_packets.py` |
+| `endpoint_choice` | Linux で録るノードの選び方。VRCT 自身のノードを断り、「既定に従う」では既定か、それが VRCT のものなら設定した既定を選ぶ。グラフを受け取るだけなので、どの OS でも試験できる | `capture_pipewire.py` の `_validate`、`_select`、`default_endpoint` |
 | `pcm` | 音量（`audioop.rms`）、モノラル化、サンプリング周波数の変換、WAV | `audioop`、`numpy`、`soxr` |
 
 ## Python と同じにしていること
@@ -22,7 +25,10 @@
 - 発話のまとめ方。キューが空になるたびに、それまでの発話をまとめて認識し直します。`MIC_PHRASE_TIMEOUT` より長い無音、15 秒の音声、または無音のまま `MIC_PHRASE_TIMEOUT` が過ぎたら発話を終えます。結果は `MIC_MAX_PHRASES` に 1 を足した数まで待たせ、あふれたら古いものから捨てます。録音から認識へのキューは 20 件で、あふれたら古いものを捨てます。
 - エンジンへの頼み方。候補の言語ごとに頼み、いちばん確かな結果を使います。言語が 1 つのときだけ言語を指定します。Whisper の API は `verbose_json` のセグメントを `MIC_AVG_LOGPROB` と `MIC_NO_SPEECH_PROB` で選びます（`gpt-*-transcribe` は `json`）。送る音声は 16 kHz の WAV です。
 - 失敗の扱い。認識できなかった候補は飛ばし、どの候補でも結果がなくエンジンが失敗したときは `ASR_ERROR` で、最初の失敗の理由（`TRANSCRIPTION_API_*`）を `Failure::cause` に添えます。キーの確認はモデルの一覧が取れるか（Deepgram は `/auth/token`）で決め、待ち時間は 3 秒です。認識の待ち時間は接続 10 秒、読み書き 60 秒です。
-- Realtime の約束事。24 kHz のモノラルを 20 ms ずつ送り、250 ms より古い音声は送りません。字幕の更新は 32 件、確定した文は 4 件まで待たせます。1 つの発話は 15 秒（接続して最初の発話は 120 秒）で終わらなければ失敗です。確定した文は受け取ってから 2 秒以内に届けられなければ「届けなかった」と字幕に書きます。
+- Realtime の約束事。24 kHz のモノラルを 20 ms ずつ送り、250 ms より古い音声は送りません。字幕の更新は 32 件、確定した文は 4 件まで待たせます。1 つの発話は 15 秒（接続して最初の発話は 120 秒）で終わらなければ失敗です。確定した文は受け取ってから 2 秒以内に届けられなければ「届けなかった」と字幕に書きます。マイクが開いてから 5 秒、最後の音声から 2 秒、何も渡さなければ失敗です（`capture_windows.py` と Linux の補助と同じ。スピーカーは除く）。
+- VAD の区間の最長。話し続ける発話は 7 秒で切ります（`vad::MAX_SPEECH_SECONDS`）。VAD の経路では `MIC_RECORD_TIMEOUT` を使いません。
+- speech.cpp のモデルの一覧。JSON の答え（`Content-Type` が `application/json`）だけを読み、1 MiB を超える答えと形の合わない一覧を断ります。言語の選択肢が `auto` を既定にして 2 つ以上あるモデルを、言語を検出するモデルとします。話者を分けるモデルは、GPU で動いているときだけ使えるとします。
+- Linux で録るノード。VRCT 自身のノード（名前と印）と、NUL を含む名前や 512 バイトを超える名前は録りません。
 
 ## Python と違う点
 
@@ -31,7 +37,8 @@
 - **停止**。Python は止めるときに認識の要求が終わるのを最大 15 秒待ちました。ここでは録音だけを止めて戻り、途中の要求の結果は捨てます。
 - **OpenAI 互換の API の再試行**。SDK と同じく、通信の失敗と 408、409、429、5xx のときに 2 回まで再試行します。Python の SDK の待ち時間（揺らぎつき）とは少し違います。
 - **Google のエンジン**。Python には API キーなしで使える Google のエンジンがありました。`speech_recognition` が持つ汎用のキーで非公式の Web 音声認識の窓口に音声を送るものです。公式の窓口ではなく、キーもほかのアプリに発行されたものではないので、移植していません（[core-integration.md](../../docs/voice-stack/core-integration.md) の「決まったこと」）。
-- **VAD**。Python は `MIC_ENABLE_VAD` のときに Silero VAD でフレーズを切っていました。`vad` に差し込み口があります。`VadEngine` を録音の設定（`Settings::vad`）に渡すと、音量の代わりにその `Segmenter` で切り、`Phrases::segmented` が Python の VAD の経路と同じにまとめます。自然な区切りで発話を確定し、上限で切れた区間は次とつなぎ（15 秒まで）、認識に送る音声の前に 0.3 秒、後に 0.5 秒の無音を足します。モデルと推論の仕組みが決まっていないので、`vad::bundled()` は何も返さず、音量による切り出しを使います（[core-integration.md](../../docs/voice-stack/core-integration.md) の「判断が要ること」の 13）。
+- **Realtime の発話の区切り**。Python は`turn_detection`に`server_vad`だけを送り、無音の長さと余白はサーバーの既定（500 ms と 300 ms）でした。ここでは無音の長さ（既定 400 ms、`REALTIME_ASR_SETTINGS.silence_duration_ms`で変更できる）と、その半分で 300 ms を超えない余白（`prefix_padding_ms`）を送ります。speech.cpp は余白の 2 倍のあいだに次の発話が始まらないと分かるまで発話を確定しないため、サーバーの既定と同じ無音 500 ms でも確定が早くなります。計測した PC では p50 で約 60 ms でした。既定の無音を 500 ms から 400 ms にすると、さらに約 100 ms 早くなります。そのかわり文の途中の間でも区切られやすくなります（#556、[音声パイプラインの遅延](../../docs/voice-stack/pipeline-latency-2026-11-18.md)）。
+- **VAD**。Python は `MIC_ENABLE_VAD` のときに Silero VAD でフレーズを切っていました。`vad` に差し込み口があります。`VadEngine` を録音の設定（`Settings::vad`）に渡すと、音量の代わりにその `Segmenter` で切り、`Phrases::segmented` が Python の VAD の経路と同じにまとめます。自然な区切りで発話を確定し、上限で切れた区間は次とつなぎ（15 秒まで）、認識に送る音声の前に 0.3 秒、後に 0.5 秒の無音を足します。エンジンは `server_vad` です（[core-integration.md](../../docs/voice-stack/core-integration.md) の「判断が要ること」の 13 の (c)）。speech.cpp のサーバーに文字起こしをしない Realtime のセッションを開き、Python と同じしきい値（0.25）、前の余白（160 ms）、無音（768 ms）を送って、`speech_started` と `speech_stopped` の時刻で録音の音声を切ります。Python と違うのは、最短の発話がサーバーの値（既定 250 ms、Python は 64 ms）であること、区間の終わりに含める無音がサーバーの余白までであること（Python は 768 ms すべて）、サーバーを使えないときに認識を止めず音量で区切ることです（同じ文書の 85、87）。
 
 ## 試験
 
@@ -39,6 +46,8 @@
 cargo test --manifest-path native/transcription/Cargo.toml
 ```
 
-単体の試験は音声の処理（音量、モノラル化、変換、フレーズの切り出しとまとめ方）、言語の照合、語彙、Realtime のイベントです。エンドポイントを通した試験は中核の `tests/transcription.rs` と `tests/realtime_asr.rs` にあり、偽のデバイスと 127.0.0.1 の偽のサーバを使います。
+単体の試験は音声の処理（音量、モノラル化、変換、フレーズの切り出しとまとめ方、締め切り）、言語の照合、エンジンの答え（偽の通信で）、speech.cpp のモデルの一覧（言語の検出、話者の分離、断る一覧）、語彙、Realtime のイベント（検出した言語を含む）と受け口、Linux の既定のノードの選び方です。エンドポイントを通した試験は中核の `tests/transcription.rs`、`tests/realtime_asr.rs`、`tests/recognition_revocation.rs` にあり、偽のデバイスと 127.0.0.1 の偽のサーバを使います。
+
+本物の speech.cpp とモデルで遅れを計るときは、中核の `examples/live_asr.rs` を使います（使い方はファイルの先頭）。
 
 認識した文、音声、API キーは、ログにも試験の出力にも入れません。

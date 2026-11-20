@@ -47,11 +47,11 @@ fn blocking(entered: Event) -> ProviderFactory {
 }
 
 fn original() -> VoiceSettings {
-    VoiceSettings { mode: "original".into(), output_device: "cable".into(), ..Default::default() }
+    VoiceSettings { mode: "original".into(), output_device: "cable".into(), ..external() }
 }
 
 fn speech_settings() -> VoiceSettings {
-    VoiceSettings { mic_mode: "translated".into(), direct_policy: "mix".into(), output_device: "cable".into(), ..Default::default() }
+    VoiceSettings { mic_mode: "translated".into(), direct_policy: "mix".into(), output_device: "cable".into(), ..external() }
 }
 
 fn bus(settings: VoiceSettings, sink: &Sink, configure: impl FnOnce(&mut BusOptions)) -> VoiceEventBus {
@@ -177,6 +177,40 @@ fn errors_are_private_and_worker_recovers() {
 }
 
 #[test]
+fn an_unexpected_provider_failure_is_private_and_the_worker_recovers() {
+    // The other half of Python's `test_errors_are_private_and_worker_recovers`: an arbitrary
+    // exception with secret text. Its Rust counterpart is a panic in the provider; neither
+    // the message nor the panic reaches the status or the failure report.
+    let sink = Sink::default();
+    let attempts = Arc::new(Mutex::new(0));
+    let reports: Arc<Mutex<Vec<String>>> = Arc::default();
+    let (counter, record) = (attempts.clone(), reports.clone());
+    let bus = bus(original(), &sink, |o| {
+        o.provider_factory = provider(move |_, _, _| {
+            let mut count = counter.lock().unwrap();
+            *count += 1;
+            if *count == 1 {
+                drop(count);
+                panic!("secret spoken text / path / token");
+            }
+            Ok(frames(vec![1, 0]))
+        });
+        o.on_failure = Some(Arc::new(move |code: &str| record.lock().unwrap().push(code.to_owned())));
+    });
+    bus.publish(chat("first"), None, None);
+    until2(|| bus.status().errors == 1);
+    let status = bus.status();
+    assert_eq!(status.last_error.as_deref(), Some("audio_output_error"));
+    assert!(!serde_json::to_string(&status).unwrap().contains("secret"));
+    assert_eq!(*reports.lock().unwrap(), vec!["audio_output_error"]);
+    bus.publish(chat("second"), None, None);
+    until2(|| bus.status().completed == 1);
+    assert_eq!(bus.status().last_error, None);
+    assert_eq!(sink.bytes(), vec![1, 0]);
+    close(&bus);
+}
+
+#[test]
 fn settings_errors_never_show_their_message() {
     // English without a multilingual server: a settings error, shown only by class.
     let bus = bus(original(), &Sink::default(), |_| {});
@@ -251,9 +285,12 @@ fn a_finished_utterances_timer_cannot_cancel_the_next() {
     });
     assert!(bus.publish(chat("first"), None, None));
     until2(|| bus.status().completed == 1);
+    // The first timer's deadline passes while the second utterance is held, well before the
+    // second's own: a first timer left running would set the first token, or the second's.
+    thread::sleep(ms(120));
     assert!(bus.publish(chat("second"), None, None));
     assert!(entered.wait(Some(Duration::from_secs(1))));
-    thread::sleep(ms(100));
+    thread::sleep(ms(60));
     let tokens_now = tokens.lock().unwrap().clone();
     assert!(!tokens_now[0].is_set() && !tokens_now[1].is_set());
     release.set();
@@ -448,22 +485,30 @@ fn start_deadline_includes_inference_and_output_open() {
     }
 }
 
+/// The start deadline of the two tests below. The first chunk must reach the bus before it (and,
+/// when it is sound, the output): connecting and opening the output can take more than Python's
+/// 150 ms on a loaded machine, and the deadline would then expire before the order these tests
+/// check.
+const START_DEADLINE: Duration = Duration::from_secs(1);
+
 #[test]
 fn start_deadline_never_truncates_started_speech() {
+    // Samples loud enough to be sound: near-silence before the voice is not written (#556).
     let server = PcmServer::start(ServerOptions {
-        chunks: vec![vec![1, 0], vec![2, 0]],
+        chunks: vec![vec![0, 16], vec![0, 32]],
         before_chunk: Some(Arc::new(|i| {
             if i == 1 {
-                thread::sleep(ms(250));
+                // Past the deadline: audible speech has started, so it is not cut.
+                thread::sleep(START_DEADLINE + ms(250));
             }
         })),
         ..Default::default()
     });
     let sink = Sink::default();
-    let bus = bus(VoiceSettings { multilingual_url: server.url.clone(), ..speech_settings() }, &sink, |o| o.max_age = ms(150));
+    let bus = bus(VoiceSettings { multilingual_url: server.url.clone(), ..speech_settings() }, &sink, |o| o.max_age = START_DEADLINE);
     assert!(bus.publish(mic("session:utterance"), None, None));
-    until2(|| bus.status().completed == 1);
-    assert_eq!(sink.bytes(), [1, 0, 2, 0]);
+    until(|| bus.status().completed == 1, Duration::from_secs(5));
+    assert_eq!(sink.bytes(), [0, 16, 0, 32]);
     assert_eq!(bus.status().errors, 0);
     close(&bus);
 }
@@ -473,7 +518,7 @@ fn silent_pcm_does_not_disable_start_deadline() {
     let release = Event::new();
     let gate = release.clone();
     let server = PcmServer::start(ServerOptions {
-        chunks: vec![vec![0, 0], vec![1, 0]],
+        chunks: vec![vec![0, 0], vec![0, 16]],
         before_chunk: Some(Arc::new(move |i| {
             if i == 1 {
                 gate.wait(Some(Duration::from_secs(10)));
@@ -482,11 +527,12 @@ fn silent_pcm_does_not_disable_start_deadline() {
         ..Default::default()
     });
     let sink = Sink::default();
-    let bus = bus(VoiceSettings { multilingual_url: server.url.clone(), ..speech_settings() }, &sink, |o| o.max_age = ms(150));
+    let bus = bus(VoiceSettings { multilingual_url: server.url.clone(), ..speech_settings() }, &sink, |o| o.max_age = START_DEADLINE);
     assert!(bus.publish(mic("session:utterance"), None, None));
-    until(|| bus.status().errors == 1, Duration::from_secs(3));
+    until(|| bus.status().errors == 1, Duration::from_secs(5));
     assert_eq!(bus.status().last_error.as_deref(), Some("speech_expired"));
-    assert_eq!(sink.bytes(), [0, 0]);
+    // The silence before the voice is held back, not played (#556).
+    assert_eq!(sink.bytes(), Vec::<u8>::new());
     assert_eq!(bus.status().last_first_write_ms, None);
     release.set();
     close(&bus);
@@ -495,7 +541,7 @@ fn silent_pcm_does_not_disable_start_deadline() {
 #[test]
 fn disabled_bus_rejects_both_sources_until_explicit_enable() {
     let sink = Sink::default();
-    let settings = VoiceSettings { mode: "original".into(), mic_mode: "translated".into(), output_device: "cable".into(), ..Default::default() };
+    let settings = VoiceSettings { mode: "original".into(), mic_mode: "translated".into(), output_device: "cable".into(), ..external() };
     let bus = bus(settings, &sink, |o| {
         o.enabled = false;
         o.provider_factory = provider(|_, _, _| Ok(frames(vec![1, 0])));
@@ -650,7 +696,7 @@ fn run_conversion(conversion: &str, available: bool) -> (usize, usize, Vec<bool>
     let mut options = BusOptions::new(device.clone());
     options.provider_factory = provider(|_, _, _| Ok(frames([1, 0].repeat(480))));
     options.converted_router = Some(converted.clone());
-    options.on_first_audio = Some(Arc::new(move |_event: &SpeechMessageEvent, _at: i64, through: bool| record.lock().unwrap().push(through)));
+    options.on_first_audio = Some(Arc::new(move |_event: &SpeechMessageEvent, _at: i64, through: bool, _asked: i64| record.lock().unwrap().push(through)));
     let settings = VoiceSettings { japanese_server: "external".into(), conversion: conversion.into(), ..original() };
     let bus = VoiceEventBus::new(settings, options);
     assert!(bus.publish(chat("e1"), None, None));
@@ -675,12 +721,35 @@ fn a_panicking_first_audio_readout_never_stops_speech() {
     let sink = Sink::default();
     let bus = bus(original(), &sink, |o| {
         o.provider_factory = provider(|_, _, _| Ok(frames(vec![1, 0])));
-        o.on_first_audio = Some(Arc::new(|_: &SpeechMessageEvent, _: i64, _: bool| panic!("readout failure")));
+        o.on_first_audio = Some(Arc::new(|_: &SpeechMessageEvent, _: i64, _: bool, _: i64| panic!("readout failure")));
     });
     assert!(bus.publish(chat("one"), None, None));
     until2(|| bus.status().completed == 1);
     assert_eq!(sink.bytes(), [1, 0]);
     close(&bus);
+}
+
+#[test]
+fn the_first_audio_readout_tells_when_synthesis_was_asked_for() {
+    let sink = Sink::default();
+    let times: Arc<Mutex<Vec<(i64, i64, i64)>>> = Arc::default();
+    let record = times.clone();
+    let bus = bus(original(), &sink, |o| {
+        o.provider_factory = provider(|_, _, _| {
+            thread::sleep(Duration::from_millis(30));
+            Ok(frames(vec![1, 0]))
+        });
+        o.on_first_audio = Some(Arc::new(move |event: &SpeechMessageEvent, at: i64, _: bool, asked: i64| record.lock().unwrap().push((event.timestamp_ns, asked, at))));
+    });
+    assert!(bus.publish(chat("one"), None, None));
+    until2(|| bus.status().completed == 1);
+    close(&bus);
+    let times = times.lock().unwrap().clone();
+    assert_eq!(times.len(), 1);
+    let (published, asked, at) = times[0];
+    assert!(published <= asked && asked <= at, "{times:?}");
+    // The engine's 30 ms come after the request, so they count as synthesis.
+    assert!(at - asked >= 25_000_000, "{times:?}");
 }
 
 #[test]
@@ -761,5 +830,50 @@ fn a_panic_outside_an_utterance_leaves_the_bus_usable() {
     assert!(!bus.status().active);
     assert!(bus.publish(chat("second"), None, None), "a new worker takes over");
     until2(|| bus.status().completed == 1);
+    close(&bus);
+}
+
+#[test]
+fn typed_chat_waiting_behind_a_long_utterance_does_not_expire_but_microphone_speech_does() {
+    // Decision 61 (b): typed chat leaves out the time it waited while the worker spoke an earlier
+    // message, so messages sent one after another are all spoken. Microphone speech keeps
+    // Python's rule and expires after `max_age` in the queue. `max_age` is 300 ms here; the first
+    // message takes 600 ms.
+    let (entered, release) = (Event::new(), Event::new());
+    let spoken: Arc<Mutex<Vec<String>>> = Arc::default();
+    let (record, hook_entered, hook_release) = (spoken.clone(), entered.clone(), release.clone());
+    let settings = VoiceSettings { mode: "original".into(), multilingual_url: "http://localhost:8081".into(), ..speech_settings() };
+    let bus = bus(settings, &Sink::default(), |o| {
+        o.max_age = ms(300);
+        o.provider_factory = provider(move |text, token, _| {
+            record.lock().unwrap().push(text.to_owned());
+            if text == "long" {
+                hook_entered.set();
+                assert!(hook_release.wait(Some(Duration::from_secs(2))));
+            }
+            token.check()?;
+            Ok(frames(vec![1, 0]))
+        });
+    });
+    let chat_event = |id: &str| SpeechMessageEvent { source_language: Some("ja".into()), ..SpeechMessageEvent::new(id, Source::Chat, id) };
+    assert!(bus.publish(chat_event("long"), None, None));
+    assert!(entered.wait(Some(Duration::from_secs(1))));
+    assert!(bus.publish(chat_event("next"), None, None));
+    assert!(bus.publish(chat_event("last"), None, None));
+    assert!(bus.publish(mic_event("heard", "heard"), None, None));
+    thread::sleep(ms(600));
+    release.set();
+    until2(|| {
+        let status = bus.status();
+        status.completed + status.dropped == 4 && !status.active && status.queued == 0
+    });
+    assert_eq!(*spoken.lock().unwrap(), ["long", "next", "last"]);
+    let status = bus.status();
+    assert_eq!((status.completed, status.expired), (3, 1), "only the microphone's message expired");
+
+    // Chat that waits while nothing speaks still expires (`expired_jobs_do_not_speak`).
+    assert!(bus.publish(SpeechMessageEvent { timestamp_ns: monotonic_ns() - 400_000_000, ..chat_event("stale") }, None, None));
+    until2(|| bus.status().expired == 2);
+    assert_eq!(spoken.lock().unwrap().len(), 3);
     close(&bus);
 }

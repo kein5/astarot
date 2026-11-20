@@ -2,7 +2,7 @@
 
 ASTAROT（旧名VRCT-VOX）は[misyaguziya/VRCT](https://github.com/misyaguziya/VRCT)を基にした派生プロジェクトです（MIT）。2026-10-31にGitHubのfork networkから外れましたが、元のライセンスと帰属表示は維持します。上流のVRCTと、上流の作者による別プロジェクト[VRCT-TTS](https://github.com/misyaguziya/VRCT-TTS)の名称は変更しません。
 
-表示名の移行の範囲は[ADR-011](adr-011-astarot-brand-and-multimodal-accessibility.md)にあり、旧名が出てくる場所は[表示名の棚卸し](astarot-rename-inventory.md)にまとめてあります。
+表示名の移行の範囲は[ADR-011](../adr/adr-011-astarot-brand-and-multimodal-accessibility.md)にあり、旧名が出てくる場所は[表示名の棚卸し](astarot-rename-inventory.md)にまとめてあります。
 
 ## 表示名
 
@@ -15,7 +15,7 @@ ASTAROT（旧名VRCT-VOX）は[misyaguziya/VRCT](https://github.com/misyaguziya/
 
 ## 旧名のまま使う名前
 
-次の名前は旧名のままです。リポジトリは0.5.0のリリースのときに`kein5/astarot`へ改名しました（[リポジトリ名の変更手順](repository-rename.md)）。旧名の`kein5/VRCT-VOX`はいま、転送ページと0.5.0のリリースの複製だけを持つ別のリポジトリで、GitHubは旧名から転送しません。ほかの名前は内部識別子として扱い、表示名と一緒には変えません。変えるときは、ADR-011のP2として別のADRで移行を決めます。配布物の名前は、インストーラーとupdaterが名前で探します。
+次の名前は旧名のままです。リポジトリは0.5.0のリリースのときに`kein5/astarot`へ改名しました（[リポジトリ名の変更手順](repository-rename.md)）。旧名の`kein5/VRCT-VOX`はいま、転送ページと0.5.0のリリースの複製だけを持つ別のリポジトリで、GitHubは旧名から転送しません。ほかの名前は内部識別子として扱い、表示名と一緒には変えません。0.6.0で、[ADR-014](../adr/adr-014-internal-identifier-migration.md)のとおりASTAROTの名前へ移します（ADR-011のP2）。この文書の表は、それぞれの変更が入るまで今の値を示します。配布物の名前は、インストーラーとupdaterが名前で探します。
 
 | 対象 | 名称 |
 |---|---|
@@ -29,7 +29,7 @@ Windowsの実行ファイルには`.exe`が付きます。
 
 ## 識別子と保存先
 
-次の値は設定・データの保存先やOSとの連携に使います。変更すると既存の設定や連携を引き継げなくなるため、変える場合は移行処理を伴わせてください。
+次の値は設定・データの保存先やOSとの連携に使います。変更すると既存の設定や連携を引き継げなくなるため、変える場合は移行処理を伴わせてください。Rustのコードが使う値は`native/app-identity`に、旧名とASTAROTの名前の組で定義してあります。名前を移すPRは、そこで書く名前を切り替えます。
 
 | 対象 | 値 |
 |---|---|
@@ -37,10 +37,10 @@ Windowsの実行ファイルには`.exe`が付きます。
 | Linuxの設定保存先 | `$XDG_CONFIG_HOME/vrct-vox`、既定は`~/.config/vrct-vox` |
 | Linuxのデータ保存先 | `$XDG_DATA_HOME/vrct-vox`、既定は`~/.local/share/vrct-vox` |
 | Linuxのキャッシュ保存先 | `$XDG_CACHE_HOME/vrct-vox`、既定は`~/.cache/vrct-vox` |
-| 環境変数 | `VRCT_CONFIG_DIR`、`VRCT_DATA_DIR`、`VRCT_CACHE_DIR`などの`VRCT_*` |
+| 環境変数 | `VRCT_CONFIG_DIR`、`VRCT_DATA_DIR`、`VRCT_CACHE_DIR`などの`VRCT_*`。利用者とパッケージ作成者向けの4つは、0.6.0から`ASTAROT_CONFIG_DIR`、`ASTAROT_DATA_DIR`、`ASTAROT_TELEMETRY`、`ASTAROT_OPENVR_API`を先に読み、なければ`VRCT_*`を読む。旧名は0.6.xの間読む。`ASTAROT_TELEMETRY`と`VRCT_TELEMETRY`は、どちらかが`off`なら送信を止める |
 | Windowsのインストール先を記録するキー | `VRCT-VOX` |
 | 音声経路と仮想マイク | `vrct.managed.*`ノード、`vrct-managed-*.service`、所有者識別子`vrct-vox-service-v1` |
-| モデル取得の所有マーカー | `VRCT-VOX-model-download-v1` |
+| モデル取得の所有マーカー | `VRCT-VOX-model-download-v1`。0.6.0から`ASTAROT-model-download-v1`も受け付ける（書くのは`VRCT-VOX-model-download-v1`のまま） |
 | Linuxビルド作業領域の所有マーカー | `VRCT-VOX Linux staging v1` |
 | Waylandのショートカット登録 | portalのアプリID`io.github.kein5.vrct-vox`、`~/.local/share/applications/io.github.kein5.vrct-vox.desktop` |
 

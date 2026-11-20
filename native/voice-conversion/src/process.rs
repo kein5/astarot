@@ -1,8 +1,9 @@
 //! One conversion session: the worker's owner (`process.py`, `rvc_process.py`, `isolated.py`).
 //!
-//! The microphone is captured in 80 ms blocks, each block goes to the worker, and only its
-//! checked, fresh answer reaches the output. No original-audio fallback exists. Capture never
-//! waits for the worker.
+//! The microphone is captured in blocks of the session's length (`block_ms` of the start, 40 ms
+//! unless chosen; Python's were 80 ms), each block goes to the worker, and only its checked,
+//! fresh answer reaches the output. No original-audio fallback exists. Capture never waits for
+//! the worker.
 //!
 //! Python ran this in a router process of its own, to keep its garbage collector and global
 //! lock away from the app. Here it runs on a thread of the app; the worker is still a process.
@@ -15,26 +16,32 @@ use std::time::Duration;
 
 use serde_json::{json, Value};
 use vrct_audio_routing::graph::Endpoint;
+use vrct_audio_routing::managed_vc::{self, ManagedVcDevices};
 use vrct_audio_routing::monitor::{MonitorFactory, MonitorOptions, MonitorSpec, MonitorTee};
 use vrct_audio_routing::router::{CancelToken, Output, PlaybackToken};
 use vrct_audio_routing::sync::monotonic_ns;
 use vrct_audio_routing::windows_route::{Capture, CaptureCallbacks, RouteDevices, WindowsRoute};
 
 use crate::protocol::{self as p, ProtocolError};
-use crate::worker::{arguments, rate_text, runtime_complete, RvcOptions, WorkerPipe, DEVICES, MAX_THREADS};
+use crate::worker::{arguments, rate_text, runtime_complete, RvcOptions, WorkerPipe, DEFAULT_BLOCK_MS, DEVICES, MAX_THREADS};
 
-/// Device route: a block older than this is dropped instead of sent. More than half of six
-/// seconds of blocks late means this PC cannot keep up, and the voice stops.
+/// Device route: a block older than this is dropped instead of sent. More than half of the
+/// blocks of the last six seconds late means the PC cannot keep up, and the voice stops.
 pub const LATE_NS: i64 = 240_000_000;
-pub const LATE_WINDOW: usize = 75;
-/// 20 ms parts of the microphone at 48 kHz mono s16le.
+const LATE_WINDOW_NS: i64 = 6_000_000_000;
+/// 20 ms parts of the microphone at 48 kHz mono s16le; a block is a whole number of them.
 pub const PART: usize = 1920;
 const PART_NS: i64 = 20_000_000;
-/// Speech through the conversion (ADR-007): what may wait to replace the microphone.
-const SPEECH_LIMIT: usize = p::PCM_BYTES * 25;
-/// One 80 ms block per send, at most this far ahead of real time, waited out by about two
+/// Speech through the conversion (ADR-007): what may wait to replace the microphone (2 s).
+const SPEECH_LIMIT: usize = 2 * p::RATE as usize * 2;
+/// 80 ms of speech per send, at most this far ahead of real time, waited out by about two
 /// conversion blocks.
 const SPEECH_FRAME: usize = 7680;
+
+/// The blocks of the last six seconds: what the lateness and the round trips are judged on.
+pub fn late_window(block: p::Block) -> usize {
+    (LATE_WINDOW_NS / block.ns()) as usize
+}
 const SPEECH_LEAD_NS: i64 = 400_000_000;
 const SPEECH_TAIL_NS: i64 = 250_000_000;
 
@@ -100,6 +107,47 @@ impl VcRoute for DeviceRoute {
     }
 }
 
+/// The managed VC input on Linux (`_PipeWireRoute`, decision 11): the microphone is captured
+/// from PipeWire and the converted voice goes into `vrct.managed.vc`, whose OS gate mutes it, so
+/// nothing is silenced here. One block waits for the worker; a second is an overrun.
+pub struct ManagedRoute {
+    devices: Arc<dyn ManagedVcDevices>,
+    monitor: MonitorFactory,
+}
+
+impl ManagedRoute {
+    pub fn new(devices: Arc<dyn ManagedVcDevices>, monitor: MonitorFactory) -> Self {
+        Self { devices, monitor }
+    }
+}
+
+impl VcRoute for ManagedRoute {
+    fn gates_output(&self) -> bool {
+        managed_vc::GATES_OUTPUT
+    }
+    fn drops_late_blocks(&self) -> bool {
+        managed_vc::DROPS_LATE_BLOCKS
+    }
+    fn ready_timeout(&self) -> Duration {
+        Duration::from_secs(managed_vc::READY_TIMEOUT_S)
+    }
+    fn input_blocks(&self) -> usize {
+        managed_vc::INPUT_BLOCKS
+    }
+    fn bind(&self, source: &Endpoint, wait: bool) -> Result<Endpoint, String> {
+        self.devices.bind(source, wait).map_err(|e| e.code)
+    }
+    fn output(&self, sink: &Endpoint) -> Result<Box<dyn Output>, String> {
+        self.devices.open_output(sink).map_err(|e| e.code)
+    }
+    fn capture(&self, source: &Endpoint, callbacks: CaptureCallbacks) -> Box<dyn Capture> {
+        self.devices.capture(source, callbacks)
+    }
+    fn monitor_factory(&self) -> MonitorFactory {
+        self.monitor.clone()
+    }
+}
+
 /// What the owner reports (`VCProcess.health`).
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Health {
@@ -116,6 +164,8 @@ pub struct Health {
     /// `gpu` or `cpu`, from the worker's ready packet.
     pub device: Option<String>,
     pub latency_ms: Option<i64>,
+    /// The session's block, once the worker has confirmed it.
+    pub block_ms: Option<i64>,
 }
 
 /// Why speech could not go through the conversion.
@@ -182,6 +232,8 @@ struct Shared {
     args: Vec<String>,
     session: String,
     engine: &'static str,
+    block: p::Block,
+    late_window: usize,
 }
 
 fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
@@ -203,12 +255,13 @@ fn new_session() -> String {
 }
 
 /// The checked options of an RVC start (`start_options('converted', ...)` with engine `rvc`).
-/// `device` (`auto`), `threads` (0: the worker's choice) and `highpass` (true) may be left out.
+/// `device` (`auto`), `threads` (0: the worker's choice), `highpass` (true) and `block_ms`
+/// ([`DEFAULT_BLOCK_MS`]) may be left out.
 pub fn rvc_options(options: &Value) -> Result<(RvcOptions, String), String> {
     let invalid = || "vc_options_invalid".to_owned();
     let object = options.as_object().ok_or_else(invalid)?;
     const REQUIRED: [&str; 6] = ["engine", "index", "index_rate", "model", "pitch", "runtime"];
-    const OPTIONAL: [&str; 3] = ["device", "threads", "highpass"];
+    const OPTIONAL: [&str; 4] = ["device", "threads", "highpass", "block_ms"];
     if !REQUIRED.iter().all(|key| object.contains_key(*key)) || object.keys().any(|key| !REQUIRED.contains(&key.as_str()) && !OPTIONAL.contains(&key.as_str())) || object["engine"] != "rvc" {
         return Err(invalid());
     }
@@ -226,6 +279,10 @@ pub fn rvc_options(options: &Value) -> Result<(RvcOptions, String), String> {
         Some(Value::Bool(on)) => *on,
         Some(_) => return Err(invalid()),
     };
+    let block_ms = match object.get("block_ms") {
+        None => DEFAULT_BLOCK_MS,
+        Some(value) => value.as_u64().filter(|_| value.is_u64()).and_then(|ms| u32::try_from(ms).ok()).and_then(p::Block::from_ms).ok_or_else(invalid)?.ms(),
+    };
     let text = |key: &str| -> Result<String, String> {
         let value = object[key].as_str().ok_or_else(invalid)?;
         if value.chars().count() > 4096 || value.chars().any(|c| (c as u32) < 32) {
@@ -241,7 +298,7 @@ pub fn rvc_options(options: &Value) -> Result<(RvcOptions, String), String> {
         return Err(invalid());
     }
     let rate = rate_text(index_rate, !rate.is_f64());
-    Ok((RvcOptions { runtime: PathBuf::from(runtime), model: PathBuf::from(model), index, pitch, index_rate, device, threads, highpass }, rate))
+    Ok((RvcOptions { runtime: PathBuf::from(runtime), model: PathBuf::from(model), index, pitch, index_rate, device, threads, highpass, block_ms }, rate))
 }
 
 fn resolve(path: &Path) -> Option<PathBuf> {
@@ -282,10 +339,11 @@ impl VcProcess {
         }
         let session = new_session();
         let args = arguments(&options, &rate, &session);
-        Ok(Self::with(worker.to_path_buf(), args, session, "rvc", route, monitor))
+        let block = p::Block::from_ms(options.block_ms).ok_or("vc_options_invalid")?;
+        Ok(Self::with(worker.to_path_buf(), args, session, "rvc", route, monitor, block))
     }
 
-    fn with(worker: PathBuf, args: Vec<String>, session: String, engine: &'static str, route: Arc<dyn VcRoute>, monitor_choice: Option<MonitorSpec>) -> Self {
+    fn with(worker: PathBuf, args: Vec<String>, session: String, engine: &'static str, route: Arc<dyn VcRoute>, monitor_choice: Option<MonitorSpec>, block: p::Block) -> Self {
         Self {
             shared: Arc::new(Shared {
                 state: Mutex::new(State {
@@ -326,6 +384,8 @@ impl VcProcess {
                 args,
                 session,
                 engine,
+                block,
+                late_window: late_window(block),
             }),
         }
     }
@@ -388,6 +448,8 @@ impl VcProcess {
             round_trip_ms: median_ms(&state.rounds),
             device: state.device.clone(),
             latency_ms: state.latency_ms,
+            // Known once the worker's ready packet has confirmed it.
+            block_ms: state.device.as_ref().map(|_| i64::from(self.shared.block.ms())),
         }
     }
 
@@ -530,15 +592,15 @@ fn fail(shared: &Shared, code: &str) {
     stop(shared);
 }
 
-fn too_late(state: &mut State, late: bool) -> bool {
+fn too_late(state: &mut State, late: bool, window: usize) -> bool {
     state.late.push_back(late);
-    while state.late.len() > LATE_WINDOW {
+    while state.late.len() > window {
         state.late.pop_front();
     }
-    state.late.iter().filter(|&&late| late).count() > LATE_WINDOW / 2
+    state.late.iter().filter(|&&late| late).count() > window / 2
 }
 
-/// Capture thread: cut the audio into 20 ms parts and the parts into 80 ms blocks.
+/// Capture thread: cut the audio into 20 ms parts and the parts into the session's blocks.
 fn audio(shared: &Shared, pcm: &[u8]) -> bool {
     let mut fault = None;
     {
@@ -547,10 +609,15 @@ fn audio(shared: &Shared, pcm: &[u8]) -> bool {
             return false;
         }
         state.remainder.extend_from_slice(pcm);
+        // The last sample arrived now. A capture can hand over several parts at once (PipeWire
+        // in quanta of its own), so each part is stamped back from now by what came after it:
+        // a block that ended as it arrived is never stamped as ending in the future.
+        let arrived = monotonic_ns() as i64;
         while state.remainder.len() >= PART {
             let part: Vec<u8> = state.remainder.drain(..PART).collect();
-            // A part is stamped with when it began: it ended as it arrived.
-            let stamp = (monotonic_ns() as i64 - PART_NS).max(state.last + 1);
+            // A part is stamped with when it began.
+            let after = state.remainder.len() as i64 * 1_000_000_000 / (2 * i64::from(p::RATE));
+            let stamp = (arrived - after - PART_NS).max(state.last + 1);
             state.last = stamp;
             if state.partial.is_empty() {
                 state.first = stamp;
@@ -567,10 +634,10 @@ fn audio(shared: &Shared, pcm: &[u8]) -> bool {
                 part
             };
             state.partial.extend_from_slice(&part);
-            if state.partial.len() == p::PCM_BYTES {
-                let info = match p::input_info(&shared.session, state.sequence, state.first) {
+            if state.partial.len() == shared.block.pcm_bytes() {
+                let info = match p::input_info(&shared.session, state.sequence, state.first, shared.block) {
                     Ok(mut info) => {
-                        info.insert("pcm_bytes".into(), json!(p::PCM_BYTES));
+                        info.insert("pcm_bytes".into(), json!(shared.block.pcm_bytes()));
                         info
                     }
                     Err(error) => {
@@ -588,7 +655,7 @@ fn audio(shared: &Shared, pcm: &[u8]) -> bool {
                 } else {
                     state.queue.pop_front();
                     state.queue.push_back(block);
-                    if too_late(&mut state, true) {
+                    if too_late(&mut state, true, shared.late_window) {
                         fault = Some("vc_capture_overrun".to_owned());
                         break;
                     }
@@ -611,7 +678,7 @@ fn next_block(shared: &Shared, info: p::Info) -> Result<Option<p::Info>, String>
     let end = info.get("end_ns").and_then(Value::as_i64).unwrap_or(0);
     let age = monotonic_ns() as i64 - end;
     let late = age > LATE_NS;
-    if too_late(&mut state, late) {
+    if too_late(&mut state, late, shared.late_window) {
         return Err("vc_capture_overrun".into());
     }
     if late {
@@ -708,6 +775,20 @@ fn offer_monitor(shared: &Arc<Shared>, converted: &[u8], start_ns: i64) {
     }
 }
 
+/// `_capture_failed`: how a capture's failure ends the conversion. One of the capture's fixed
+/// codes is shown as it is, as Python showed it (the settings explain some of them); a code it
+/// does not know, or its generic `asr_capture_failed`, is `vc_capture_failed`. A conversion's own
+/// code (`vc_*`) is kept.
+fn capture_failure(code: &str) -> String {
+    if code.starts_with("vc_") {
+        return code.to_owned();
+    }
+    match vrct_audio_routing::windows_route::capture_code(code) {
+        "asr_capture_failed" => "vc_capture_failed".to_owned(),
+        known => known.to_owned(),
+    }
+}
+
 fn code_of(error: vrct_audio_routing::Error) -> String {
     if error.code.starts_with("vc_") || error.code.starts_with("source_bridge_") || error.code.starts_with("output_") {
         error.code
@@ -775,7 +856,7 @@ fn session(shared: &Arc<Shared>, source: &Endpoint, worker_slot: &mut Option<Wor
     let worker = worker_slot.insert(WorkerPipe::start(&shared.worker, &shared.args, None).map_err(|_| "vc_worker_failed".to_owned())?);
     let check = || -> Result<(), ProtocolError> { cancelled(shared).map_err(ProtocolError) };
     let (info, pcm) = worker.read(route.ready_timeout(), &mut || check()).map_err(|e| e.0)?;
-    let (device, latency) = p::require_ready(&info, &pcm, &shared.session, shared.engine).map_err(|e| e.0)?;
+    let (device, latency) = p::require_ready(&info, &pcm, &shared.session, shared.engine, shared.block).map_err(|e| e.0)?;
     {
         let mut state = lock(&shared.state);
         state.device = device.map(str::to_owned);
@@ -793,7 +874,7 @@ fn session(shared: &Arc<Shared>, source: &Endpoint, worker_slot: &mut Option<Wor
         on_audio: Box::new(move |pcm| audio_to.upgrade().is_some_and(|shared| audio(&shared, pcm))),
         on_error: Box::new(move |code| {
             if let Some(shared) = errors_to.upgrade() {
-                fail(&shared, if code.starts_with("vc_") { code } else { "vc_capture_failed" });
+                fail(&shared, &capture_failure(code));
             }
         }),
     };
@@ -806,7 +887,7 @@ fn session(shared: &Arc<Shared>, source: &Endpoint, worker_slot: &mut Option<Wor
         }
     }
     cancelled(shared)?;
-    lock(&capture).start().map_err(|e| if e.code.starts_with("vc_") { e.code } else { "vc_capture_failed".into() })?;
+    lock(&capture).start().map_err(|e| capture_failure(&e.code))?;
     {
         let mut state = lock(&shared.state);
         cancelled(shared)?;
@@ -858,11 +939,11 @@ fn session(shared: &Arc<Shared>, source: &Endpoint, worker_slot: &mut Option<Wor
         {
             let mut state = lock(&shared.state);
             state.rounds.push_back(monotonic_ns() as i64 - sent_at);
-            while state.rounds.len() > LATE_WINDOW {
+            while state.rounds.len() > shared.late_window {
                 state.rounds.pop_front();
             }
         }
-        let converted_state = p::require_output(&result, &converted, &info, &pcm, monotonic_ns() as i64, route.max_age_ns()).map_err(|e| e.0)?;
+        let converted_state = p::require_output(&result, &converted, &info, &pcm, monotonic_ns() as i64, route.max_age_ns(), shared.block).map_err(|e| e.0)?;
         fresh().map_err(|e| e.0)?;
         let audible = audible(shared, converted, speech);
         output.write(&audible, &deadline).map_err(code_of)?;
@@ -881,12 +962,269 @@ fn session(shared: &Arc<Shared>, source: &Endpoint, worker_slot: &mut Option<Wor
 
 #[cfg(test)]
 mod tests {
-    use super::without_verbatim_prefix;
+    use super::{late_window, rvc_options, without_verbatim_prefix, PART};
+    use crate::protocol::Block;
+
+    #[test]
+    fn blocks_are_judged_on_six_seconds_whatever_their_length() {
+        // 75 blocks of 80 ms, as before the block could be chosen.
+        assert_eq!(late_window(Block::default()), 75);
+        assert_eq!(late_window(Block::from_ms(40).unwrap()), 150);
+        assert_eq!(late_window(Block::from_ms(200).unwrap()), 30);
+    }
+
+    #[test]
+    fn a_start_converts_in_40_ms_blocks_unless_it_chooses_another_length() {
+        let base = serde_json::json!({ "engine": "rvc", "runtime": "/r", "model": "/v.pth", "index": "", "pitch": 0, "index_rate": 0 });
+        assert_eq!(rvc_options(&base).unwrap().0.block_ms, 40);
+        let mut chosen = base.clone();
+        chosen["block_ms"] = serde_json::json!(120);
+        assert_eq!(rvc_options(&chosen).unwrap().0.block_ms, 120);
+        // Every block holds whole 20 ms capture parts.
+        for ms in [20, 40, 120, 200] {
+            assert_eq!(Block::from_ms(ms).unwrap().pcm_bytes() % PART, 0, "{ms}");
+        }
+    }
 
     #[test]
     fn a_share_keeps_its_double_backslash_and_a_drive_loses_the_verbatim_prefix() {
         assert_eq!(without_verbatim_prefix(r"\\?\UNC\nas\voices\model.pth"), r"\\nas\voices\model.pth");
         assert_eq!(without_verbatim_prefix(r"\\?\C:\voices\model.pth"), r"C:\voices\model.pth");
         assert_eq!(without_verbatim_prefix("/home/user/voices/model.pth"), "/home/user/voices/model.pth");
+    }
+
+    /// A route whose sink cannot be found: a session fails at once, without a worker.
+    struct Unbound;
+
+    impl super::VcRoute for Unbound {
+        fn gates_output(&self) -> bool {
+            false
+        }
+        fn drops_late_blocks(&self) -> bool {
+            true
+        }
+        fn ready_timeout(&self) -> std::time::Duration {
+            std::time::Duration::from_millis(100)
+        }
+        fn input_blocks(&self) -> usize {
+            8
+        }
+        fn bind(&self, _: &vrct_audio_routing::graph::Endpoint, _: bool) -> Result<vrct_audio_routing::graph::Endpoint, String> {
+            Err("vc_output_missing".into())
+        }
+        fn output(&self, _: &vrct_audio_routing::graph::Endpoint) -> Result<Box<dyn vrct_audio_routing::router::Output>, String> {
+            Err("vc_output_missing".into())
+        }
+        fn capture(&self, _: &vrct_audio_routing::graph::Endpoint, _: vrct_audio_routing::windows_route::CaptureCallbacks) -> Box<dyn vrct_audio_routing::windows_route::Capture> {
+            unreachable!("a session without a sink captures nothing")
+        }
+        fn monitor_factory(&self) -> vrct_audio_routing::monitor::MonitorFactory {
+            std::sync::Arc::new(|_: &str, _: u32, _: u16, _: &[String]| Err(vrct_audio_routing::Error::speech("monitor_output_missing")))
+        }
+    }
+
+    fn process(block_ms: u32) -> super::VcProcess {
+        let session = "0123456789abcdef0123456789abcdef".to_owned();
+        super::VcProcess::with("/nonexistent-worker".into(), Vec::new(), session, "rvc", std::sync::Arc::new(Unbound), None, Block::from_ms(block_ms).unwrap())
+    }
+
+    /// The process as a running session sees its capture: requested, nothing started.
+    fn requested(block_ms: u32) -> super::VcProcess {
+        let process = process(block_ms);
+        process.shared.state.lock().unwrap().requested = true;
+        process
+    }
+
+    fn queued(process: &super::VcProcess) -> Vec<(Vec<u8>, bool)> {
+        process.shared.state.lock().unwrap().queue.iter().map(|b| (b.pcm.clone(), b.speech)).collect()
+    }
+
+    #[test]
+    fn speech_replaces_the_microphone_part_for_part_and_an_underrun_inside_it_is_silence() {
+        // `test_vc_speech_through.py`: speech in place of the microphone, a gap inside an
+        // utterance as silence, never the microphone, and the microphone again after it.
+        let process = requested(40);
+        let microphone = vec![7u8; PART];
+        // One and a half parts of speech; the utterance is still open.
+        assert!(process.speech_chunk(&vec![9u8; PART + PART / 2]));
+        assert!(process.offer_audio(&microphone));
+        assert!(process.offer_audio(&microphone));
+        let blocks = queued(&process);
+        assert_eq!(blocks.len(), 1);
+        let (pcm, speech) = &blocks[0];
+        assert!(speech, "a block that carried speech says so");
+        assert!(pcm[..PART + PART / 2].iter().all(|&b| b == 9));
+        assert!(pcm[PART + PART / 2..].iter().all(|&b| b == 0), "the rest of the part is silence, not the microphone");
+        // Still open with nothing to say: silence.
+        assert!(process.offer_audio(&microphone));
+        assert!(process.offer_audio(&microphone));
+        let (pcm, speech) = &queued(&process)[1];
+        assert!(*speech && pcm.iter().all(|&b| b == 0));
+        // The utterance ends: the microphone again.
+        process.shared.state.lock().unwrap().speech_open = false;
+        assert!(process.offer_audio(&microphone));
+        assert!(process.offer_audio(&microphone));
+        let (pcm, speech) = &queued(&process)[2];
+        assert!(!*speech && pcm.iter().all(|&b| b == 7));
+    }
+
+    #[test]
+    fn speech_waits_only_while_a_session_runs_and_never_beyond_two_seconds() {
+        let idle = process(40);
+        assert!(!idle.speech_chunk(&[1, 2]), "no session, no speech");
+        assert!(!idle.offer_audio(&[0u8; PART]), "no session, no capture");
+        let process = requested(40);
+        let two_seconds = 2 * 48000 * 2;
+        assert!(process.speech_chunk(&vec![1u8; two_seconds - 2]));
+        assert!(!process.speech_chunk(&[1u8; 4]), "over the limit");
+        assert!(process.speech_chunk(&[1u8; 2]));
+    }
+
+    #[test]
+    fn the_microphone_is_cut_into_whole_blocks_of_the_sessions_length() {
+        // Any length in, blocks of 40 ms out, in order, stamped one after another.
+        let process = requested(40);
+        let pcm: Vec<u8> = (0..PART * 5).map(|i| (i % 251) as u8).collect();
+        for piece in pcm.chunks(1000) {
+            assert!(process.offer_audio(piece));
+        }
+        let blocks = queued(&process);
+        assert_eq!(blocks.len(), 2, "five parts make two blocks of two and one part waits");
+        assert_eq!(blocks[0].0, pcm[..PART * 2]);
+        assert_eq!(blocks[1].0, pcm[PART * 2..PART * 4]);
+        let state = process.shared.state.lock().unwrap();
+        let starts: Vec<i64> = state.queue.iter().map(|b| b.info["start_ns"].as_i64().unwrap()).collect();
+        assert!(starts[1] > starts[0]);
+        assert_eq!(state.queue.iter().map(|b| b.info["sequence"].as_u64().unwrap()).collect::<Vec<_>>(), [0, 1]);
+    }
+
+    #[test]
+    fn parts_handed_over_together_are_stamped_back_from_their_arrival() {
+        // PipeWire hands the microphone over in quanta of its own (decision 11): a whole block
+        // can come in one go. It ended as it arrived, so its end is now, never in the future.
+        vrct_audio_routing::sync::monotonic_ns();
+        std::thread::sleep(std::time::Duration::from_millis(100));
+        let process = requested(40);
+        assert!(process.offer_audio(&vec![0u8; PART * 2 + 100]));
+        let arrived = vrct_audio_routing::sync::monotonic_ns() as i64;
+        let state = process.shared.state.lock().unwrap();
+        let block = &state.queue[0];
+        let (start, end) = (block.info["start_ns"].as_i64().unwrap(), block.info["end_ns"].as_i64().unwrap());
+        assert!(end <= arrived, "the block ends {} ns in the future", end - arrived);
+        // 100 bytes (about 1 ms) came after the block.
+        assert!(arrived - end >= 1_000_000 && arrived - end < 20_000_000, "{}", arrived - end);
+        assert_eq!(end - start, 40_000_000);
+        crate::protocol::require_fresh(end, arrived, crate::protocol::MANAGED_MAX_AGE_NS).expect("a block handed over whole is fresh");
+    }
+
+    #[test]
+    fn a_capture_failure_is_shown_by_the_captures_own_code_as_python_showed_it() {
+        // `_capture_failed` over `capture_error_code` (decision 3 of #733).
+        assert_eq!(super::capture_failure("asr_capture_start_timeout"), "asr_capture_start_timeout");
+        assert_eq!(super::capture_failure("asr_capture_stream_create_failed"), "asr_capture_stream_create_failed");
+        assert_eq!(super::capture_failure("asr_capture_stalled"), "asr_capture_stalled");
+        assert_eq!(super::capture_failure("asr_capture_failed"), "vc_capture_failed");
+        assert_eq!(super::capture_failure("asr_capture_endpoint_invalid"), "vc_capture_failed");
+        assert_eq!(super::capture_failure("a driver's own words"), "vc_capture_failed");
+        assert_eq!(super::capture_failure("vc_source_changed"), "vc_source_changed");
+    }
+
+    #[test]
+    fn a_session_starts_once_and_a_failed_one_ends_with_its_code() {
+        // `test_vc_isolated.py`: `stop` never waits, a second start is refused (`vc_single_use`),
+        // and `close` reports how the session ended.
+        let process = process(40);
+        let source = vrct_audio_routing::graph::Endpoint { cookie: 1, serial: 2, name: "mic".into(), media_class: "Audio/Source".into() };
+        process.start(source.clone()).unwrap();
+        assert_eq!(process.start(source.clone()).unwrap_err(), "vc_single_use");
+        // The session fails on its own (no sink); a close before that would only stop it.
+        let began = std::time::Instant::now();
+        while process.health().pending {
+            assert!(began.elapsed() < std::time::Duration::from_secs(5), "the session did not end");
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        let health = process.health();
+        assert_eq!((health.state.as_str(), health.error.as_deref(), health.requested, health.active), ("failed", Some("vc_output_missing"), false, false));
+        assert!(process.close(std::time::Duration::from_secs(5)));
+        // Stopped, it does not start again either.
+        assert_eq!(process.start(source).unwrap_err(), "vc_single_use");
+        let stopped = super::VcProcess::with("/nonexistent-worker".into(), Vec::new(), "0123456789abcdef0123456789abcdef".into(), "rvc", std::sync::Arc::new(Unbound), None, Block::default());
+        let began = std::time::Instant::now();
+        stopped.stop();
+        assert!(began.elapsed() < std::time::Duration::from_millis(100), "stop waits for nothing");
+        assert_eq!(stopped.start(vrct_audio_routing::graph::Endpoint { cookie: 1, serial: 2, name: "mic".into(), media_class: "Audio/Source".into() }).unwrap_err(), "vc_single_use");
+    }
+
+    #[test]
+    fn options_outside_the_contract_are_refused_before_anything_starts() {
+        // `test_rvc_integration.py`: `invalid_rvc_options`.
+        let base = serde_json::json!({ "engine": "rvc", "runtime": "/r", "model": "/v.pth", "index": "", "pitch": 0, "index_rate": 0 });
+        assert!(rvc_options(&base).is_ok());
+        let with = |key: &str, value: serde_json::Value| {
+            let mut options = base.clone();
+            options[key] = value;
+            options
+        };
+        let without = |key: &str| {
+            let mut options = base.clone();
+            options.as_object_mut().unwrap().remove(key);
+            options
+        };
+        let refused = [
+            with("engine", serde_json::json!("seed-vc")),
+            with("pitch", serde_json::json!(25)),
+            with("pitch", serde_json::json!(-25)),
+            with("pitch", serde_json::json!(1.5)),
+            with("index_rate", serde_json::json!(1.5)),
+            with("index_rate", serde_json::json!(-0.1)),
+            // An index rate needs an index, and an index is a .index file.
+            with("index_rate", serde_json::json!(0.5)),
+            with("index", serde_json::json!("/v.bin")),
+            with("model", serde_json::json!("/v.onnx")),
+            with("runtime", serde_json::json!("  ")),
+            with("model", serde_json::json!("/v\u{1}.pth")),
+            with("model", serde_json::json!(format!("/{}.pth", "a".repeat(4096)))),
+            with("device", serde_json::json!("npu")),
+            with("threads", serde_json::json!(-1)),
+            with("threads", serde_json::json!(super::MAX_THREADS + 1)),
+            with("highpass", serde_json::json!("yes")),
+            with("block_ms", serde_json::json!(30)),
+            with("block_ms", serde_json::json!(220)),
+            with("other", serde_json::json!(1)),
+            without("model"),
+            without("index_rate"),
+            serde_json::json!([]),
+        ];
+        for options in refused {
+            assert_eq!(rvc_options(&options).unwrap_err(), "vc_options_invalid", "{options}");
+        }
+        let mut indexed = with("index", serde_json::json!("/v.INDEX"));
+        indexed["index_rate"] = serde_json::json!(0.75);
+        let (options, rate) = rvc_options(&indexed).unwrap();
+        assert_eq!((options.index.as_str(), options.index_rate, rate.as_str()), ("/v.INDEX", 0.75, "0.75"));
+    }
+
+    #[test]
+    fn a_start_checks_the_worker_the_runtime_and_the_users_files() {
+        // `test_rvc_integration.py`: `missing_runtime` and the files of the start.
+        let dir = std::env::temp_dir().join(format!("vrct-vc-files-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let worker = dir.join("worker");
+        let model = dir.join("voice.pth");
+        std::fs::write(&model, b"model").unwrap();
+        let options = |model: &std::path::Path, index: &str| {
+            serde_json::json!({ "engine": "rvc", "runtime": dir.join("runtime"), "model": model, "index": index, "pitch": 0, "index_rate": 0 })
+        };
+        let route = || -> std::sync::Arc<dyn super::VcRoute> { std::sync::Arc::new(Unbound) };
+        let code = |result: Result<super::VcProcess, String>| result.err().unwrap_or_default();
+        // No worker.
+        assert_eq!(code(super::VcProcess::rvc(&options(&model, ""), &worker, route(), None)), "vc_engine_unavailable");
+        std::fs::write(&worker, b"worker").unwrap();
+        // No model, no index file, then no runtime.
+        assert_eq!(code(super::VcProcess::rvc(&options(&dir.join("absent.pth"), ""), &worker, route(), None)), "vc_runtime_missing");
+        let absent_index = dir.join("absent.index").to_string_lossy().into_owned();
+        assert_eq!(code(super::VcProcess::rvc(&options(&model, &absent_index), &worker, route(), None)), "vc_runtime_missing");
+        assert_eq!(code(super::VcProcess::rvc(&options(&model, ""), &worker, route(), None)), "vc_runtime_missing");
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

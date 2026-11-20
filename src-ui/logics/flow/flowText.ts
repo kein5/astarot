@@ -47,8 +47,9 @@ export interface StripItem {
 
 const ENGINE_NAMES: Partial<Record<string, string>> = { rvc: "RVC", "seed-vc": "Seed-VC" };
 
-// What an output of the route map does now, or why it is not used.
-export const outputDetail = (row: FlowOutputRow, t: Translate, names: FlowNames): string => {
+// What an output of the route map does now, or why it is not used. The graph's live voice may
+// pass what stands in for a row the voice lane does not have (FlowRouteRow), so any field may be missing.
+export const outputDetail = (row: Partial<FlowOutputRow>, t: Translate, names: FlowNames): string => {
     if (!row.on) return t(`io_flow.reason.${row.reason}`);
     if (row.id === "chatbox") return t(`io_flow.content.${row.content}`);
     if (row.id === "speech") {
@@ -96,6 +97,11 @@ export const timelineRows = (trace: Trace | null | undefined, t: Translate): Tim
         start: segment.start, end: segment.start + segment.ms, off: false,
     }));
     for (const arrival of outputArrivals(trace)) {
+        // The synthesis is the last part of the way to the first sound, drawn on its own row.
+        if (arrival.kind === "speech" && arrival.synthesis !== null) {
+            rows.push({ kind: "synthesis", label: t("io_flow.synthesis"), value: formatMs(arrival.synthesis),
+                start: arrival.at - arrival.synthesis, end: arrival.at, off: false });
+        }
         rows.push({ kind: arrival.kind, label: t(`io_flow.output_short.${arrival.kind}`), value: formatMs(arrival.at),
             start: 0, end: arrival.at, off: false });
         if (arrival.conversion !== null && arrival.conversion !== undefined) {
@@ -129,7 +135,9 @@ export const stripItems = (traces: Trace[] | null | undefined, count: number, t:
         label: oneLine(t(`io_flow.${trace.input}`), 120),
         text: oneLine(trace.translation ? `${trace.text} → ${trace.translation}` : trace.text, 200),
         scale: Math.min(timelineScale(total ?? 0), 600000),
-        rows: timelineRows(trace, t).filter(row => row.kind !== "stage" || (["recognition", "translate"] as readonly (string | undefined)[]).includes(row.stage))
+        // The strip window draws stages, outputs and the conversion (caption_overlay.rs), not the synthesis.
+        rows: timelineRows(trace, t).filter(row => row.kind !== "synthesis")
+            .filter(row => row.kind !== "stage" || (["recognition", "translate"] as readonly (string | undefined)[]).includes(row.stage))
             .slice(0, 8).map(({ kind, label, value, start, end, off }) => ({
             kind, label: oneLine(label, 120), value: oneLine(value, 120),
             start: Math.min(start, 600000), end: Math.min(end, 600000), off })),

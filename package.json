@@ -1,10 +1,9 @@
 {
   "name": "vrct-vox",
   "private": true,
-  "version": "0.5.1",
+  "version": "0.5.2",
   "type": "module",
   "scripts": {
-    "setup-python": "bat\\install.bat",
     "build-resources": "bat\\build.bat",
     "stage-resources": "python tools/app_resources.py stage --allow-missing",
     "vite": "vite",
@@ -23,8 +22,6 @@
     "analyze-error": "node utils/analyze_ui_error.js",
     "build": "npm run task-kill && npm run clean-soft && npm run update-version && npm run build-resources && npm run vite-build && npm run tauri build",
     "release": "npm run update-version && npm run build && python utils\\zip.py --zip_name VRCT-VOX.zip",
-    "release-cuda": "npm run update-version && npm run build && python utils\\zip.py --zip_name VRCT-VOX_cuda.zip",
-    "release-all": "npm run update-version && npm run release && npm run release-cuda",
     "doctor": "python tools/dev.py doctor",
     "check": "python tools/dev.py check",
     "check:all": "python tools/dev.py check --scope all",
@@ -34,18 +31,21 @@
     "setup:headless": "python tools/dev.py setup --scope headless",
     "setup:browser": "python tools/dev.py setup --scope browser",
     "dev:web": "vite",
-    "typecheck": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.test.json",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "test:mutation": "mutator"
   },
   "dependencies": {
     "@babel/standalone": "7.27.0",
+    "@radix-ui/react-switch": "1.4.1",
     "@radix-ui/react-visually-hidden": "1.2.13",
     "@tauri-apps/api": "2.12.4",
     "@tauri-apps/plugin-global-shortcut": "2.4.1",
     "@tauri-apps/plugin-opener": "2.7.3",
     "@vanilla-extract/css": "1.21.3",
+    "@vanilla-extract/recipes": "0.5.7",
     "clsx": "2.1.1",
     "i18next": "25.0.1",
     "jotai": "3.0.2",
@@ -62,12 +62,15 @@
     "virtua": "0.54.2"
   },
   "devDependencies": {
+    "@babel/types": "7.29.11",
+    "@mizchi/mutator": "0.2.0",
     "@rollup/plugin-yaml": "4.1.2",
     "@tauri-apps/cli": "2.12.4",
+    "@types/node": "26.6.6",
     "@types/react": "18.3.31",
     "@types/react-dom": "18.3.7",
     "@vanilla-extract/vite-plugin": "5.2.6",
-    "@vitejs/plugin-react": "4.4.1",
+    "@vitejs/plugin-react": "6.3.0",
     "@vitest/coverage-v8": "5.1.0",
     "eslint": "9.39.5",
     "eslint-plugin-react": "7.37.5",
@@ -75,8 +78,16 @@
     "sass": "1.108.2",
     "source-map": "0.8.0",
     "typescript": "7.0.2",
-    "vite": "6.4.5",
-    "vite-plugin-svgr": "4.3.0",
+    "vite": "8.3.8",
+    "vite-plugin-svgr": "5.2.0",
     "vitest": "5.1.0"
+  },
+  "overrides": {
+    "i18next": {
+      "typescript": "$typescript"
+    },
+    "react-i18next": {
+      "typescript": "$typescript"
+    }
   }
 }

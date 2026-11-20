@@ -52,5 +52,6 @@
 ### ミューテーションテスト
 
 - 何をする: コードにわざと小さな変更（ミュータント）を入れ、テストが失敗するかを見る。テストが実際に不具合を見つけられるかを測る。画面側は[@mizchi/mutator](https://www.npmjs.com/package/@mizchi/mutator)を使い、Rust側は[cargo-mutants](https://mutants.rs/)を候補にしている。
-- いつ使う: リファクタリングの節目と、対象のモジュールを変えたとき。CIでは常には回さない。対象は小さな純粋なロジックにし、Rust側はタイミングに依存するテストのないモジュールから始める。画面側の純粋なロジックで、スコアの計測までを試した。
-- 正本: [Issue #550](https://github.com/kein5/astarot/issues/550)。0.6.0で導入を進めることが決まっている。画面側のテストはVitestで動く（[docs/development.md](development.md)の「UIの試験（Vitest）」）。`hookHarness.js` の `loadModule` で読むソースはViteを通らないため、カバレッジと同じく変異の対象にならない見込みで、対象は直接importされる純粋なロジックから選ぶ。実行の手順と対象の選び方は、導入が終わったらこの項目に書く。それまでは試行中として扱う。結果を報告するときは、対象の範囲と計測した条件を添え、スコアを品質の保証としては書かない。
+- いつ使う: リファクタリングの節目と、対象のモジュールを変えたとき。CIでは常には回さない。対象は小さな純粋なロジックにし、Rust側はタイミングに依存するテストのないモジュールから始める。
+- 画面側: `npm run test:mutation` で回す（mutator 0.2.0）。対象は `mutator.config.mjs` にあり、テストがimportする `src-ui/logics` の純粋なロジックに限る。`hookHarness.ts` の `loadModule` などで読むソースはViteを通らないため対象にできず、理由を添えて除外している。手順、結果の読み方、Vitestのキャッシュの注意は[docs/development.md](development.md)の「UIのミューテーションテスト」にある。
+- 正本: [Issue #550](https://github.com/kein5/astarot/issues/550)。0.6.0で導入を進めることが決まっている。Rust側は試行中で、運用の決め方（Phase 3）は未決。結果を報告するときは、対象の範囲と計測した条件を添え、スコアを品質の保証としては書かない。

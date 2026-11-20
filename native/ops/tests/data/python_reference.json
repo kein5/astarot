@@ -1,7 +1,7 @@
 {
  "root": "/vrct-ops-reference/downloaded_models",
  "catalog": {
-  "catalog_version": "2026-11-16.3",
+  "catalog_version": "2026-11-19.1",
   "models": [
    {
     "id": "irodori-v41-f16",
@@ -55,7 +55,8 @@
     },
     "sources": [
      "https://huggingface.co/sakasegawa/Irodori-TTS-v4.1-Small-MF-GGUF/tree/9db7da1bec3d1069ef8e29732e0497be60c7b047"
-    ]
+    ],
+    "restrictions": []
    },
    {
     "id": "qwen3-06b-q8",
@@ -126,7 +127,8 @@
     },
     "sources": [
      "https://huggingface.co/sakasegawa/Qwen3-TTS-12Hz-0.6B-CustomVoice-GGUF/tree/fd9df9364613a92a86b4137074bc281204823033"
-    ]
+    ],
+    "restrictions": []
    },
    {
     "id": "rvc-saisho",
@@ -173,7 +175,8 @@
     "profile": null,
     "sources": [
      "https://huggingface.co/Saisho-Utane/Saisho-Model-RVC/tree/7a61b17e4f014fc5013a489f2b5cd3a7ee9e2b1a"
-    ]
+    ],
+    "restrictions": []
    },
    {
     "id": "qwen3-asr-06b-q8",
@@ -352,7 +355,8 @@
     },
     "sources": [
      "https://huggingface.co/sakasegawa/Qwen3-ASR-0.6B-GGUF/tree/ee78f8709547f39bea3b924a16c72403826cac92"
-    ]
+    ],
+    "restrictions": []
    },
    {
     "id": "qwen3-asr-06b-q6",
@@ -501,7 +505,8 @@
     },
     "sources": [
      "https://huggingface.co/sakasegawa/Qwen3-ASR-0.6B-GGUF/tree/ee78f8709547f39bea3b924a16c72403826cac92"
-    ]
+    ],
+    "restrictions": []
    },
    {
     "id": "qwen3-asr-06b-q5",
@@ -650,7 +655,8 @@
     },
     "sources": [
      "https://huggingface.co/sakasegawa/Qwen3-ASR-0.6B-GGUF/tree/ee78f8709547f39bea3b924a16c72403826cac92"
-    ]
+    ],
+    "restrictions": []
    },
    {
     "id": "qwen3-asr-06b-q4",
@@ -799,7 +805,8 @@
     },
     "sources": [
      "https://huggingface.co/sakasegawa/Qwen3-ASR-0.6B-GGUF/tree/ee78f8709547f39bea3b924a16c72403826cac92"
-    ]
+    ],
+    "restrictions": []
    },
    {
     "id": "qwen3-asr-17b-q8",
@@ -918,7 +925,8 @@
     },
     "sources": [
      "https://huggingface.co/sakasegawa/Qwen3-ASR-1.7B-GGUF/tree/81e2423d24073cdeeccb5951df16accc89e075a2"
-    ]
+    ],
+    "restrictions": []
    },
    {
     "id": "qwen3-asr-17b-q6",
@@ -1037,7 +1045,8 @@
     },
     "sources": [
      "https://huggingface.co/sakasegawa/Qwen3-ASR-1.7B-GGUF/tree/81e2423d24073cdeeccb5951df16accc89e075a2"
-    ]
+    ],
+    "restrictions": []
    },
    {
     "id": "qwen3-asr-17b-q5",
@@ -1156,7 +1165,8 @@
     },
     "sources": [
      "https://huggingface.co/sakasegawa/Qwen3-ASR-1.7B-GGUF/tree/81e2423d24073cdeeccb5951df16accc89e075a2"
-    ]
+    ],
+    "restrictions": []
    },
    {
     "id": "qwen3-asr-17b-q4",
@@ -1275,7 +1285,8 @@
     },
     "sources": [
      "https://huggingface.co/sakasegawa/Qwen3-ASR-1.7B-GGUF/tree/81e2423d24073cdeeccb5951df16accc89e075a2"
-    ]
+    ],
+    "restrictions": []
    },
    {
     "id": "reazonspeech-v2-q8",
@@ -1340,7 +1351,8 @@
     },
     "sources": [
      "https://huggingface.co/sakasegawa/reazonspeech-nemo-v2-GGUF/tree/ed04d9ee2cd156414982a7c0f6123c6fd1093904"
-    ]
+    ],
+    "restrictions": []
    },
    {
     "id": "reazonspeech-v2-f16",
@@ -1403,7 +1415,8 @@
     },
     "sources": [
      "https://huggingface.co/sakasegawa/reazonspeech-nemo-v2-GGUF/tree/ed04d9ee2cd156414982a7c0f6123c6fd1093904"
-    ]
+    ],
+    "restrictions": []
    },
    {
     "id": "reazonspeech-v2-q6",
@@ -1466,7 +1479,8 @@
     },
     "sources": [
      "https://huggingface.co/sakasegawa/reazonspeech-nemo-v2-GGUF/tree/ed04d9ee2cd156414982a7c0f6123c6fd1093904"
-    ]
+    ],
+    "restrictions": []
    },
    {
     "id": "reazonspeech-v2-q5",
@@ -1529,7 +1543,8 @@
     },
     "sources": [
      "https://huggingface.co/sakasegawa/reazonspeech-nemo-v2-GGUF/tree/ed04d9ee2cd156414982a7c0f6123c6fd1093904"
-    ]
+    ],
+    "restrictions": []
    },
    {
     "id": "reazonspeech-v2-q4",
@@ -1592,7 +1607,8 @@
     },
     "sources": [
      "https://huggingface.co/sakasegawa/reazonspeech-nemo-v2-GGUF/tree/ed04d9ee2cd156414982a7c0f6123c6fd1093904"
-    ]
+    ],
+    "restrictions": []
    },
    {
     "id": "parakeet-tdt-ctc-06b-ja-q8",
@@ -1653,7 +1669,8 @@
     },
     "sources": [
      "https://huggingface.co/sakasegawa/parakeet-tdt_ctc-0.6b-ja-GGUF/tree/f7cb5387e1e76385456b7a792054565ecf177417"
-    ]
+    ],
+    "restrictions": []
    },
    {
     "id": "parakeet-tdt-ctc-06b-ja-f16",
@@ -1714,7 +1731,8 @@
     },
     "sources": [
      "https://huggingface.co/sakasegawa/parakeet-tdt_ctc-0.6b-ja-GGUF/tree/f7cb5387e1e76385456b7a792054565ecf177417"
-    ]
+    ],
+    "restrictions": []
    },
    {
     "id": "parakeet-tdt-ctc-06b-ja-q6",
@@ -1775,7 +1793,8 @@
     },
     "sources": [
      "https://huggingface.co/sakasegawa/parakeet-tdt_ctc-0.6b-ja-GGUF/tree/f7cb5387e1e76385456b7a792054565ecf177417"
-    ]
+    ],
+    "restrictions": []
    },
    {
     "id": "parakeet-tdt-ctc-06b-ja-q5",
@@ -1836,7 +1855,8 @@
     },
     "sources": [
      "https://huggingface.co/sakasegawa/parakeet-tdt_ctc-0.6b-ja-GGUF/tree/f7cb5387e1e76385456b7a792054565ecf177417"
-    ]
+    ],
+    "restrictions": []
    },
    {
     "id": "parakeet-tdt-ctc-06b-ja-q4",
@@ -1897,7 +1917,8 @@
     },
     "sources": [
      "https://huggingface.co/sakasegawa/parakeet-tdt_ctc-0.6b-ja-GGUF/tree/f7cb5387e1e76385456b7a792054565ecf177417"
-    ]
+    ],
+    "restrictions": []
    },
    {
     "id": "parakeet-tdt-06b-v3-f16",
@@ -2026,7 +2047,8 @@
     },
     "sources": [
      "https://huggingface.co/sakasegawa/parakeet-tdt-0.6b-v3-GGUF/tree/b7ed82dbfba6e63da0ef9cf5104f5fc67da44414"
-    ]
+    ],
+    "restrictions": []
    },
    {
     "id": "parakeet-tdt-06b-v3-q8",
@@ -2145,7 +2167,8 @@
     },
     "sources": [
      "https://huggingface.co/sakasegawa/parakeet-tdt-0.6b-v3-GGUF/tree/b7ed82dbfba6e63da0ef9cf5104f5fc67da44414"
-    ]
+    ],
+    "restrictions": []
    },
    {
     "id": "parakeet-tdt-06b-v3-q6",
@@ -2264,7 +2287,8 @@
     },
     "sources": [
      "https://huggingface.co/sakasegawa/parakeet-tdt-0.6b-v3-GGUF/tree/b7ed82dbfba6e63da0ef9cf5104f5fc67da44414"
-    ]
+    ],
+    "restrictions": []
    },
    {
     "id": "parakeet-tdt-06b-v3-q5",
@@ -2383,7 +2407,8 @@
     },
     "sources": [
      "https://huggingface.co/sakasegawa/parakeet-tdt-0.6b-v3-GGUF/tree/b7ed82dbfba6e63da0ef9cf5104f5fc67da44414"
-    ]
+    ],
+    "restrictions": []
    },
    {
     "id": "parakeet-tdt-06b-v3-q4",
@@ -2502,7 +2527,8 @@
     },
     "sources": [
      "https://huggingface.co/sakasegawa/parakeet-tdt-0.6b-v3-GGUF/tree/b7ed82dbfba6e63da0ef9cf5104f5fc67da44414"
-    ]
+    ],
+    "restrictions": []
    },
    {
     "id": "haas-ja-q8",
@@ -2563,7 +2589,8 @@
     },
     "sources": [
      "https://huggingface.co/sakasegawa/Haas-ja-v1.0-GGUF/tree/6b965d5007ba780585de51549d57a8c1c0d67c7e"
-    ]
+    ],
+    "restrictions": []
    },
    {
     "id": "haas-ja-f16",
@@ -2624,7 +2651,8 @@
     },
     "sources": [
      "https://huggingface.co/sakasegawa/Haas-ja-v1.0-GGUF/tree/6b965d5007ba780585de51549d57a8c1c0d67c7e"
-    ]
+    ],
+    "restrictions": []
    },
    {
     "id": "haas-ja-q6",
@@ -2685,7 +2713,8 @@
     },
     "sources": [
      "https://huggingface.co/sakasegawa/Haas-ja-v1.0-GGUF/tree/6b965d5007ba780585de51549d57a8c1c0d67c7e"
-    ]
+    ],
+    "restrictions": []
    },
    {
     "id": "haas-ja-q5",
@@ -2746,7 +2775,8 @@
     },
     "sources": [
      "https://huggingface.co/sakasegawa/Haas-ja-v1.0-GGUF/tree/6b965d5007ba780585de51549d57a8c1c0d67c7e"
-    ]
+    ],
+    "restrictions": []
    },
    {
     "id": "haas-ja-q4",
@@ -2807,7 +2837,8 @@
     },
     "sources": [
      "https://huggingface.co/sakasegawa/Haas-ja-v1.0-GGUF/tree/6b965d5007ba780585de51549d57a8c1c0d67c7e"
-    ]
+    ],
+    "restrictions": []
    },
    {
     "id": "nemotron-35-transcribe-iq4nl",
@@ -2946,7 +2977,8 @@
     },
     "sources": [
      "https://huggingface.co/sakasegawa/NVIDIA-Nemotron-3.5-Transcribe-30B-A4B-GGUF/tree/55d289085ed6b1acd1cfd2e6cf279fdeb32fee5f"
-    ]
+    ],
+    "restrictions": []
    },
    {
     "id": "nemotron-35-transcribe-f16",
@@ -3085,7 +3117,8 @@
     },
     "sources": [
      "https://huggingface.co/sakasegawa/NVIDIA-Nemotron-3.5-Transcribe-30B-A4B-GGUF/tree/55d289085ed6b1acd1cfd2e6cf279fdeb32fee5f"
-    ]
+    ],
+    "restrictions": []
    },
    {
     "id": "nemotron-35-transcribe-q8",
@@ -3224,7 +3257,8 @@
     },
     "sources": [
      "https://huggingface.co/sakasegawa/NVIDIA-Nemotron-3.5-Transcribe-30B-A4B-GGUF/tree/55d289085ed6b1acd1cfd2e6cf279fdeb32fee5f"
-    ]
+    ],
+    "restrictions": []
    },
    {
     "id": "silero-vad-v62",
@@ -3273,7 +3307,8 @@
     },
     "sources": [
      "https://huggingface.co/sakasegawa/silero-vad-GGUF/tree/7fcb7aa2a70c312f8579fc987b3e1cdecf9321ca"
-    ]
+    ],
+    "restrictions": []
    },
    {
     "id": "nemotron-3-diarization-q8",
@@ -3322,7 +3357,8 @@
     },
     "sources": [
      "https://huggingface.co/sakasegawa/Nemotron-3-Diarization-GGUF/tree/9096d41cb78bba7ac882b96d453e25239eac692b"
-    ]
+    ],
+    "restrictions": []
    },
    {
     "id": "irodori-v41-q8",
@@ -3375,7 +3411,8 @@
     },
     "sources": [
      "https://huggingface.co/sakasegawa/Irodori-TTS-v4.1-Small-MF-GGUF/tree/9db7da1bec3d1069ef8e29732e0497be60c7b047"
-    ]
+    ],
+    "restrictions": []
    },
    {
     "id": "qwen3-06b-q5",
@@ -3436,7 +3473,8 @@
     },
     "sources": [
      "https://huggingface.co/sakasegawa/Qwen3-TTS-12Hz-0.6B-CustomVoice-GGUF/tree/fd9df9364613a92a86b4137074bc281204823033"
-    ]
+    ],
+    "restrictions": []
    },
    {
     "id": "irodori-v41-small-f16",
@@ -3488,7 +3526,8 @@
     },
     "sources": [
      "https://huggingface.co/sakasegawa/Irodori-TTS-v4.1-Small-GGUF/tree/66fe2cde1973fd44e7202fbe36df722103958188"
-    ]
+    ],
+    "restrictions": []
    },
    {
     "id": "irodori-v4-large-q8",
@@ -3542,7 +3581,8 @@
     },
     "sources": [
      "https://huggingface.co/sakasegawa/Irodori-TTS-v4-Large-GGUF/tree/79cae5947a97e941c62912749e1387c8b35ec16b"
-    ]
+    ],
+    "restrictions": []
    },
    {
     "id": "qwen3-17b-q8",
@@ -3602,7 +3642,8 @@
     },
     "sources": [
      "https://huggingface.co/sakasegawa/Qwen3-TTS-12Hz-1.7B-CustomVoice-GGUF/tree/a72e6c6575d67652488cdffc1c863215a9899978"
-    ]
+    ],
+    "restrictions": []
    },
    {
     "id": "ppocrv6-small",
@@ -3670,7 +3711,8 @@
     "sources": [
      "https://huggingface.co/PaddlePaddle/PP-OCRv6_small_det_onnx/tree/28fe5895c24fd108c19eb3e8479f4ab385fbfc62",
      "https://huggingface.co/PaddlePaddle/PP-OCRv6_small_rec_onnx/tree/b8f84f0b80c529de40b4fbb3544b84fa7233a513"
-    ]
+    ],
+    "restrictions": []
    },
    {
     "id": "ppocrv5-korean",
@@ -3725,7 +3767,8 @@
     "profile": null,
     "sources": [
      "https://huggingface.co/PaddlePaddle/korean_PP-OCRv5_mobile_rec_onnx/tree/5c6f574b8e2230adf4287b33e736d71b9fabd28e"
-    ]
+    ],
+    "restrictions": []
    },
    {
     "id": "ppocrv5-cyrillic",
@@ -3780,7 +3823,8 @@
     "profile": null,
     "sources": [
      "https://huggingface.co/PaddlePaddle/cyrillic_PP-OCRv5_mobile_rec_onnx/tree/2cef88145434beb8afa9dd82d77d799eb1ad7b29"
-    ]
+    ],
+    "restrictions": []
    },
    {
     "id": "ppocrv5-thai",
@@ -3835,7 +3879,8 @@
     "profile": null,
     "sources": [
      "https://huggingface.co/PaddlePaddle/th_PP-OCRv5_mobile_rec_onnx/tree/1d4adbbafb1034a2fd6618498575b81ea7b69f69"
-    ]
+    ],
+    "restrictions": []
    },
    {
     "id": "ppocrv5-arabic",
@@ -3890,7 +3935,8 @@
     "profile": null,
     "sources": [
      "https://huggingface.co/PaddlePaddle/arabic_PP-OCRv5_mobile_rec_onnx/tree/14aaedcd75825982689ecf5cd64ab33ee083215a"
-    ]
+    ],
+    "restrictions": []
    },
    {
     "id": "ppocrv5-devanagari",
@@ -3945,7 +3991,8 @@
     "profile": null,
     "sources": [
      "https://huggingface.co/PaddlePaddle/devanagari_PP-OCRv5_mobile_rec_onnx/tree/251aec19e36739540d35e2cc943f6aa7503b98e5"
-    ]
+    ],
+    "restrictions": []
    },
    {
     "id": "vrct-vox-chatbox-detector",
@@ -3985,7 +4032,8 @@
     "profile": null,
     "sources": [
      "https://huggingface.co/kein5/vrct-vox-chatbox-detector/tree/3febea9f3ad213738730177c7907cc434dca2267"
-    ]
+    ],
+    "restrictions": []
    }
   ]
  },

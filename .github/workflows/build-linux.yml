@@ -6,8 +6,6 @@ on:
   pull_request:
     paths:
       - '.github/workflows/build-linux.yml'
-      # native/ops reads two backend files at compile time (tools/build_linux.py CRATE_INPUTS).
-      - 'src-python/models/model_downloads/**'
       - 'src-tauri/**'
       - 'src-ui/**'
       - 'locales/**'

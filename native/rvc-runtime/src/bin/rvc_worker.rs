@@ -1,10 +1,13 @@
 //! `vrct-rvc-worker`: the application's live RVC voice conversion process.
 //!
-//! It speaks the application's fixed live-VC pipe contract
-//! (`src-python/models/voice_conversion/protocol.py`, "VVC1"): one `ready` (or `failed`)
-//! packet once the voice model is loaded, then one `output` packet for every `input`
-//! packet, 80 ms of 48 kHz mono 16-bit audio each. It opens no audio device, downloads
-//! nothing and never writes audio, text or file paths anywhere but the output pipe.
+//! It speaks the application's live-VC pipe contract
+//! (`native/voice-conversion/src/protocol.rs`, "VVC1"): one `ready` (or `failed`) packet
+//! once the voice model is loaded, then one `output` packet for every `input` packet, each a
+//! block of 48 kHz mono 16-bit audio. The block is `--block-ms` long (20 to 200 ms in steps
+//! of 20; 80 ms, the external runtime's, when it is not given; the application passes its
+//! setting, 40 ms by default), and the `ready` packet confirms it in `block_frames`. It opens
+//! no audio device, downloads nothing and never writes audio, text or file paths anywhere but
+//! the output pipe.
 //!
 //! ONNX Runtime, the CUDA libraries and the two fixed networks come from the runtime
 //! folder the application sets up after the user's consent (`--runtime`):
@@ -19,9 +22,9 @@
 //! Where it converts (`--device`, default `auto`): on the GPU when the runtime has the
 //! CUDA provider and the GPU can be used, otherwise on the CPU.
 //!
-//! - **GPU**: every 80 ms packet is converted before it is answered, as the external
-//!   runtime did (80 ms blocks, 2 s of context).
-//! - **CPU**: the CPU cannot convert 80 ms blocks in real time, so the worker converts
+//! - **GPU**: every packet is converted before it is answered, as the external runtime did
+//!   (one stream block per packet, a crossfade of half the block, 2 s of context).
+//! - **CPU**: the CPU cannot convert such short blocks in real time, so the worker converts
 //!   0.5 s blocks on a thread of its own and answers each packet at once from what that
 //!   thread has finished, at a fixed delay that leaves a whole block's time for each
 //!   block. Until the first converted audio is due, answers are silence (`vad_silence`).
@@ -48,14 +51,51 @@ use rvc_runtime::{backend, Converter, Device, Error, FeatureExtractor, FeatureIn
 use serde_json::{Map, Value};
 
 const RATE: u32 = 48_000;
-const FRAMES: usize = 3_840;
-const PCM_BYTES: usize = FRAMES * 2;
-const BLOCK_NS: u64 = 80_000_000;
 const INPUT_RATE: u32 = 16_000;
 const MAX_HEADER: usize = 2_048;
-/// GPU: the layout of the external runtime this replaces, in 10 ms frames: 80 ms blocks,
-/// a 40 ms crossfade searched over 10 ms, and 2 s of context.
-const LAYOUT: Layout = Layout { block: 8, crossfade: 4, search: 1, extra: 200 };
+/// The packets of the external runtime this replaces, when `--block-ms` is not given.
+const DEFAULT_BLOCK_MS: u32 = 80;
+/// The longest packet's audio (200 ms).
+const MAX_PCM_BYTES: usize = (RATE as usize / 1000) * 200 * 2;
+
+/// The length of a session's packets (`--block-ms`): 20 to 200 ms in steps of 20, the
+/// owner's 20 ms capture parts (`Block` of `protocol.rs`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct Packets {
+    ms: u32,
+}
+
+impl Packets {
+    fn of(ms: u32) -> Option<Self> {
+        ((20..=200).contains(&ms) && ms.is_multiple_of(20)).then_some(Packets { ms })
+    }
+
+    /// 48 kHz samples per packet.
+    fn frames(self) -> usize {
+        (RATE as usize / 1000) * self.ms as usize
+    }
+
+    fn bytes(self) -> usize {
+        self.frames() * 2
+    }
+
+    fn ns(self) -> u64 {
+        u64::from(self.ms) * 1_000_000
+    }
+
+    /// 16 kHz samples per packet.
+    fn input(self) -> usize {
+        self.frames() / 3
+    }
+
+    /// GPU: one stream block per packet in 10 ms frames, a crossfade of half of it searched
+    /// over 10 ms, and 2 s of context. At 80 ms this is the external runtime's layout.
+    fn gpu_layout(self) -> Layout {
+        let block = self.ms as usize / 10;
+        Layout { block, crossfade: (block / 2).max(1), search: 1, extra: 200 }
+    }
+}
+
 /// CPU: the only layout of the Phase 2 measurements in which every block of a CPU took
 /// less time than it lasts (0.5 s blocks, 2.5 s of context; README, "Streaming").
 const CPU_LAYOUT: Layout = Layout { block: 50, crossfade: 5, search: 1, extra: 250 };
@@ -73,8 +113,6 @@ fn cpu_intra_threads() -> usize {
     let logical = std::thread::available_parallelism().map(|count| count.get()).unwrap_or(4);
     (logical / 2).clamp(2, 6)
 }
-/// 16 kHz samples per 80 ms packet.
-const PACKET_INPUT: usize = FRAMES / 3;
 /// CPU: blocks of input that may wait for conversion before the oldest is dropped, so a
 /// PC that falls behind loses audio instead of adding delay without end.
 const CPU_BACKLOG_BLOCKS: usize = 3;
@@ -175,6 +213,7 @@ struct Arguments {
     device: Choice,
     threads: Option<usize>,
     highpass: bool,
+    packets: Packets,
 }
 
 /// What `--device` asks for.
@@ -199,6 +238,7 @@ const USAGE: &str = "\
 Usage: vrct-rvc-worker --runtime <dir> --model <voice.pth> --session <32 hex digits>
                        [--index <file.index>] [--pitch <-24..24>] [--index-rate <0..1>]
                        [--device auto|cuda|cpu] [--threads <n>] [--highpass on|off]
+                       [--block-ms <20..200, a multiple of 20>]
        vrct-rvc-worker --runtime <dir> --probe [--device cuda|cpu|auto]
 ";
 
@@ -224,10 +264,14 @@ fn parse(mut values: HashMap<String, String>) -> Result<Arguments, String> {
         Some("off") => false,
         Some(_) => return Err("`--highpass` must be on or off".into()),
     };
+    let packets = match take("block-ms") {
+        None => Packets::of(DEFAULT_BLOCK_MS).expect("a valid default"),
+        Some(text) => text.parse::<u32>().ok().and_then(Packets::of).ok_or("`--block-ms` must be 20 to 200, a multiple of 20")?,
+    };
     if let Some(unknown) = values.keys().next() {
         return Err(format!("unknown option `--{unknown}`"));
     }
-    Ok(Arguments { runtime, model, index, session, pitch, index_rate, device, threads, highpass })
+    Ok(Arguments { runtime, model, index, session, pitch, index_rate, device, threads, highpass, packets })
 }
 
 fn options() -> Result<(HashMap<String, String>, bool), String> {
@@ -277,6 +321,13 @@ fn load_runtime(runtime: &Path, choice: Choice) -> Result<Device, Failure> {
         Choice::Cuda => true,
         Choice::Auto => has_provider && load_gpu_libraries(&lib),
     };
+    // The app's DirectML runtime (the DirectML build of ONNX Runtime, probed here on the CPU)
+    // needs DirectML.dll loaded first: the loader does not look beside onnxruntime.dll.
+    let directml = lib.join("DirectML.dll");
+    if directml.is_file() && ort::util::preload_dylib(&directml).is_err() {
+        eprintln!("vrct-rvc-worker: DirectML could not be loaded from the runtime");
+        return Err(Failure::RuntimeIncomplete);
+    }
     backend::load_runtime(&lib.join(ORT_LIBRARY)).map_err(|error| {
         eprintln!("vrct-rvc-worker: ONNX Runtime could not be loaded: {error}");
         Failure::RuntimeIncomplete
@@ -316,11 +367,12 @@ fn classify(error: &Error, otherwise: Failure) -> Failure {
 struct Profile {
     device: Device,
     layout: Layout,
+    packets: Packets,
 }
 
 impl Profile {
-    fn of(device: Device) -> Self {
-        Profile { device, layout: if device == Device::Cuda { LAYOUT } else { CPU_LAYOUT } }
+    fn of(device: Device, packets: Packets) -> Self {
+        Profile { device, layout: if device == Device::Cuda { packets.gpu_layout() } else { CPU_LAYOUT }, packets }
     }
 
     /// Packets answered with silence before the first converted audio is due (CPU): the
@@ -328,19 +380,19 @@ impl Profile {
     fn lead_packets(&self) -> usize {
         match self.device {
             Device::Cuda => 0,
-            Device::Cpu => (2 * self.layout.block_samples()).div_ceil(PACKET_INPUT) + 1,
+            Device::Cpu => (2 * self.layout.block_samples()).div_ceil(self.packets.input()) + 1,
         }
     }
 
     /// What the worker adds between a sample in and its converted counterpart out, in
     /// milliseconds: the stream's crossfade and search, the two rate conversions, and on
-    /// the CPU the fixed lead. The owner's own 80 ms of buffering and the round trip are
+    /// the CPU the fixed lead. The owner's own buffering of a packet and the round trip are
     /// not included.
     fn latency_ms(&self, model_rate: u32) -> u64 {
         let layout = self.layout;
         let stream = ((layout.crossfade + layout.search) * 10) as f64;
         let rates = StreamResampler::new(RATE, INPUT_RATE).delay() as f64 * 1000.0 / RATE as f64 + StreamResampler::new(model_rate, RATE).delay() as f64 * 1000.0 / model_rate as f64;
-        let lead = (self.lead_packets() * PACKET_INPUT) as f64 * 1000.0 / INPUT_RATE as f64;
+        let lead = (self.lead_packets() * self.packets.input()) as f64 * 1000.0 / INPUT_RATE as f64;
         (stream + rates + lead).round() as u64
     }
 }
@@ -355,7 +407,7 @@ fn load(arguments: &Arguments) -> Result<(Stream, Profile), Failure> {
         return Err(Failure::RuntimeIncomplete);
     }
     let device = load_runtime(&arguments.runtime, arguments.device)?;
-    let profile = Profile::of(device);
+    let profile = Profile::of(device, arguments.packets);
     // On the GPU the CPU side of a block is small; one thread per session kept the same
     // block times with a third less CPU and 8 threads instead of 77 (README, "Application
     // worker").
@@ -413,12 +465,13 @@ struct Live {
     stream: Stream,
     input: StreamResampler,
     output: StreamResampler,
+    frames: usize,
 }
 
 impl Live {
-    fn new(stream: Stream) -> Self {
+    fn new(stream: Stream, packets: Packets) -> Self {
         let rate = stream.sample_rate();
-        Live { stream, input: StreamResampler::new(RATE, INPUT_RATE), output: StreamResampler::new(rate, RATE) }
+        Live { stream, input: StreamResampler::new(RATE, INPUT_RATE), output: StreamResampler::new(rate, RATE), frames: packets.frames() }
     }
 
     fn reset(&mut self) {
@@ -427,11 +480,11 @@ impl Live {
         self.output.reset();
     }
 
-    /// One 80 ms packet in, its converted 80 ms out (GPU).
+    /// One packet in, its converted packet out (GPU).
     fn convert(&mut self, samples: &[f32]) -> Result<Vec<f32>, Stop> {
         let low = self.input.process(samples);
         let output = convert_block(&mut self.stream, &mut self.output, &low)?;
-        if output.len() != FRAMES {
+        if output.len() != self.frames {
             return Err(Stop("vc_conversion_invalid"));
         }
         Ok(output)
@@ -506,6 +559,8 @@ fn convert_in_background(mut stream: Stream, input: mpsc::Receiver<Vec<f32>>, ou
 struct Playout {
     lead_packets: usize,
     block: u64,
+    /// 48 kHz samples per packet.
+    frames: usize,
     packets: usize,
     /// Output position of `buffer[0]`; everything before it has been answered.
     start: u64,
@@ -513,8 +568,8 @@ struct Playout {
 }
 
 impl Playout {
-    fn new(lead_packets: usize, block: usize) -> Self {
-        Playout { lead_packets, block: block as u64, packets: 0, start: 0, buffer: VecDeque::new() }
+    fn new(lead_packets: usize, block: usize, frames: usize) -> Self {
+        Playout { lead_packets, block: block as u64, frames, packets: 0, start: 0, buffer: VecDeque::new() }
     }
 
     /// Places a converted block; false when part of it came after its place was answered.
@@ -536,16 +591,16 @@ impl Playout {
         answered == 0
     }
 
-    /// The next packet's 80 ms.
+    /// The next packet's audio.
     fn next(&mut self) -> Vec<f32> {
         self.packets += 1;
         if self.packets <= self.lead_packets {
-            return vec![0.0; FRAMES];
+            return vec![0.0; self.frames];
         }
-        let take = FRAMES.min(self.buffer.len());
+        let take = self.frames.min(self.buffer.len());
         let mut output: Vec<f32> = self.buffer.drain(..take).collect();
-        output.resize(FRAMES, 0.0);
-        self.start += FRAMES as u64;
+        output.resize(self.frames, 0.0);
+        self.start += self.frames as u64;
         output
     }
 }
@@ -586,7 +641,7 @@ fn read_packet(input: &mut impl Read) -> Result<Option<Packet>, Stop> {
     input.read_exact(&mut text).map_err(|_| Stop("vc_worker_eof"))?;
     let header: Map<String, Value> = serde_json::from_slice(&text).map_err(|_| Stop("vc_packet_invalid"))?;
     let size = header.get("pcm_bytes").and_then(Value::as_u64).ok_or(Stop("vc_packet_invalid"))? as usize;
-    if size > PCM_BYTES || !size.is_multiple_of(2) {
+    if size > MAX_PCM_BYTES || !size.is_multiple_of(2) {
         return Err(Stop("vc_packet_invalid"));
     }
     let mut pcm = vec![0u8; size];
@@ -600,18 +655,18 @@ fn integer(header: &Map<String, Value>, key: &str) -> Option<u64> {
 
 /// The same checks as `protocol.require_input`, except the age of the block, which the
 /// owner checks against its own clock when the output arrives.
-fn require_input(header: &Map<String, Value>, pcm: &[u8], session: &str, sequence: u64) -> Result<(), Stop> {
+fn require_input(header: &Map<String, Value>, pcm: &[u8], session: &str, sequence: u64, packets: Packets) -> Result<(), Stop> {
     let start = integer(header, "start_ns").filter(|&start| start > 0 && start < 1 << 63);
     let valid = header.len() == 8
         && header.get("type") == Some(&Value::from("input"))
         && header.get("session") == Some(&Value::from(session))
         && integer(header, "sequence") == Some(sequence)
         && start.is_some()
-        && integer(header, "end_ns") == start.map(|start| start + BLOCK_NS)
+        && integer(header, "end_ns") == start.map(|start| start + packets.ns())
         && integer(header, "rate") == Some(RATE as u64)
         && integer(header, "channels") == Some(1)
-        && integer(header, "pcm_bytes") == Some(PCM_BYTES as u64)
-        && pcm.len() == PCM_BYTES;
+        && integer(header, "pcm_bytes") == Some(packets.bytes() as u64)
+        && pcm.len() == packets.bytes();
     if valid {
         Ok(())
     } else {
@@ -642,7 +697,7 @@ impl Answers {
         // A 220 Hz tone at -20 dB.
         let tone = |count: usize, rate: u32| -> Vec<f32> { (0..count).map(|n| 0.1 * (n as f32 * 2.0 * std::f32::consts::PI * 220.0 / rate as f32).sin()).collect() };
         if profile.device == Device::Cuda {
-            let block = tone(FRAMES, RATE);
+            let block = tone(profile.packets.frames(), RATE);
             for _ in 0..WARMUP_BLOCKS {
                 live.convert(&block)?;
             }
@@ -658,7 +713,7 @@ impl Answers {
         let (thread_output, from_thread) = mpsc::channel();
         let output_block = profile.layout.block_samples() * 3;
         std::thread::spawn(move || convert_in_background(stream, thread_input, thread_output));
-        Ok(Answers::Background { input: StreamResampler::new(RATE, INPUT_RATE), to_thread, from_thread, playout: Playout::new(profile.lead_packets(), output_block), late: VecDeque::new() })
+        Ok(Answers::Background { input: StreamResampler::new(RATE, INPUT_RATE), to_thread, from_thread, playout: Playout::new(profile.lead_packets(), output_block, profile.packets.frames()), late: VecDeque::new() })
     }
 
     fn convert(&mut self, samples: &[f32]) -> Result<Vec<f32>, Stop> {
@@ -713,7 +768,7 @@ fn serve(live: Live, profile: Profile, session: &str) -> Result<(), Stop> {
         ("profile", (if profile.device == Device::Cuda { "low" } else { "cpu" }).into()),
         ("rate", RATE.into()),
         ("channels", 1.into()),
-        ("block_frames", FRAMES.into()),
+        ("block_frames", profile.packets.frames().into()),
         ("latency_ms", latency_ms.into()),
     ]);
     write_packet(&mut output, &ready, &[])?;
@@ -727,7 +782,7 @@ fn serve(live: Live, profile: Profile, session: &str) -> Result<(), Stop> {
             Err(mpsc::RecvTimeoutError::Timeout) => return Err(Stop("vc_worker_stalled")),
             Err(mpsc::RecvTimeoutError::Disconnected) => return Err(Stop("vc_worker_eof")),
         };
-        require_input(&header, &pcm, session, sequence)?;
+        require_input(&header, &pcm, session, sequence, profile.packets)?;
         let converted = to_pcm(&answers.convert(&to_samples(&pcm))?);
         // The owner refuses an output identical to a non-silent input; say so first.
         if converted == pcm && pcm.iter().any(|&byte| byte != 0) {
@@ -763,7 +818,7 @@ fn probe(runtime: &Path, choice: Choice) -> ExitCode {
 
 fn main() -> ExitCode {
     // SAFETY: first thing in main, before any other thread starts.
-    unsafe { rvc_runtime::backend::disable_telemetry_for_process() };
+    unsafe { vrct_onnx_runtime::disable_telemetry_for_process() };
     let (values, probing) = match options() {
         Ok(parsed) => parsed,
         Err(message) => {
@@ -803,7 +858,7 @@ fn main() -> ExitCode {
             return ExitCode::from(1);
         }
     };
-    match serve(Live::new(stream), profile, &arguments.session) {
+    match serve(Live::new(stream, profile.packets), profile, &arguments.session) {
         Ok(()) => ExitCode::SUCCESS,
         Err(Stop(code)) => {
             eprintln!("vrct-rvc-worker: stopped: {code}");
@@ -821,39 +876,64 @@ fn main() -> ExitCode {
 mod tests {
     use super::*;
 
-    fn input(session: &str, sequence: u64, start: u64) -> Map<String, Value> {
+    fn input(session: &str, sequence: u64, start: u64, packets: Packets) -> Map<String, Value> {
         object(&[
             ("type", "input".into()),
             ("session", session.into()),
             ("sequence", sequence.into()),
             ("start_ns", start.into()),
-            ("end_ns", (start + BLOCK_NS).into()),
+            ("end_ns", (start + packets.ns()).into()),
             ("rate", RATE.into()),
             ("channels", 1.into()),
-            ("pcm_bytes", PCM_BYTES.into()),
+            ("pcm_bytes", packets.bytes().into()),
         ])
     }
 
     #[test]
     fn packets_round_trip_and_inputs_are_checked() {
         let session = "0123456789abcdef0123456789abcdef";
-        let header = input(session, 3, 1_000);
-        let pcm = vec![1u8; PCM_BYTES];
+        let packets = Packets::of(80).unwrap();
+        let header = input(session, 3, 1_000, packets);
+        let pcm = vec![1u8; packets.bytes()];
         let packet = encode(&header, &pcm);
         let (read, data) = read_packet(&mut &packet[..]).unwrap().unwrap();
         assert_eq!(read, header);
         assert_eq!(data, pcm);
-        assert!(require_input(&read, &data, session, 3).is_ok());
-        assert!(require_input(&read, &data, session, 4).is_err());
-        assert!(require_input(&read, &data, "ffffffffffffffffffffffffffffffff", 3).is_err());
+        assert!(require_input(&read, &data, session, 3, packets).is_ok());
+        assert!(require_input(&read, &data, session, 4, packets).is_err());
+        assert!(require_input(&read, &data, "ffffffffffffffffffffffffffffffff", 3, packets).is_err());
+        // A packet of another length than the session's.
+        assert!(require_input(&read, &data, session, 3, Packets::of(40).unwrap()).is_err());
         let mut extra = read.clone();
         extra.insert("more".into(), 1.into());
-        assert!(require_input(&extra, &data, session, 3).is_err());
+        assert!(require_input(&extra, &data, session, 3, packets).is_err());
         let mut late = read.clone();
         late.insert("end_ns".into(), 2_000.into());
-        assert!(require_input(&late, &data, session, 3).is_err());
+        assert!(require_input(&late, &data, session, 3, packets).is_err());
         assert!(read_packet(&mut &b""[..]).unwrap().is_none());
         assert!(read_packet(&mut &b"XXXX\x01\0\0\0{"[..]).is_err());
+        // The longest packet is read; a longer one is refused.
+        let longest = Packets::of(200).unwrap();
+        assert_eq!(longest.bytes(), MAX_PCM_BYTES);
+        let mut too_long = input(session, 0, 1_000, longest);
+        too_long.insert("pcm_bytes".into(), (MAX_PCM_BYTES + 2).into());
+        assert!(read_packet(&mut &encode(&too_long, &vec![0u8; MAX_PCM_BYTES + 2])[..]).is_err());
+    }
+
+    #[test]
+    fn the_gpu_converts_one_stream_block_per_packet() {
+        // 80 ms: the external runtime's layout.
+        assert_eq!(Packets::of(80).unwrap().gpu_layout(), Layout { block: 8, crossfade: 4, search: 1, extra: 200 });
+        assert_eq!(Packets::of(40).unwrap().gpu_layout(), Layout { block: 4, crossfade: 2, search: 1, extra: 200 });
+        assert_eq!(Packets::of(20).unwrap().gpu_layout(), Layout { block: 2, crossfade: 1, search: 1, extra: 200 });
+        for ms in [20, 40, 80, 200] {
+            let packets = Packets::of(ms).unwrap();
+            // A packet's 16 kHz input is exactly one stream block.
+            assert_eq!(packets.gpu_layout().block_samples(), packets.input(), "{ms}");
+        }
+        for ms in [0, 10, 30, 210] {
+            assert!(Packets::of(ms).is_none(), "{ms}");
+        }
     }
 
     #[test]
@@ -864,19 +944,26 @@ mod tests {
 
     #[test]
     fn the_cpu_lead_leaves_a_block_of_time_for_each_block() {
-        let cpu = Profile::of(Device::Cpu);
-        let gpu = Profile::of(Device::Cuda);
+        let packets = Packets::of(80).unwrap();
+        let cpu = Profile::of(Device::Cpu, packets);
+        let gpu = Profile::of(Device::Cuda, packets);
         assert_eq!(gpu.lead_packets(), 0);
         // 0.5 s blocks: 2 x 8000 samples / 1280 per packet, rounded up, plus one.
         assert_eq!(cpu.lead_packets(), 14);
         assert_eq!(gpu.latency_ms(48_000), 52);
         assert_eq!(cpu.latency_ms(40_000), 1183);
+        // 40 ms packets: a shorter crossfade on the GPU; on the CPU the blocks stay 0.5 s.
+        let short = Packets::of(40).unwrap();
+        assert_eq!(Profile::of(Device::Cuda, short).latency_ms(48_000), 32);
+        assert_eq!(Profile::of(Device::Cpu, short).lead_packets(), 26);
+        assert_eq!(Profile::of(Device::Cpu, short).layout, CPU_LAYOUT);
     }
 
     #[test]
     fn playout_keeps_every_block_at_its_place() {
+        const FRAMES: usize = 3_840;
         let silence = vec![0.0; FRAMES];
-        let mut playout = Playout::new(2, 3 * FRAMES);
+        let mut playout = Playout::new(2, 3 * FRAMES, FRAMES);
         // The lead, then a packet whose audio is not there yet: silence.
         for _ in 0..3 {
             assert_eq!(playout.next(), silence);
@@ -918,5 +1005,10 @@ mod tests {
         assert_eq!(base(&[]).unwrap().device, Choice::Auto);
         assert_eq!(base(&[("device", "cpu")]).unwrap().device, Choice::Cpu);
         assert!(base(&[("device", "gpu")]).is_err());
+        assert_eq!(base(&[]).unwrap().packets.ms, 80, "the external runtime's packets");
+        assert_eq!(base(&[("block-ms", "40")]).unwrap().packets.ms, 40);
+        for bad in ["30", "0", "220", "40.0", "-40", "x"] {
+            assert!(base(&[("block-ms", bad)]).is_err(), "{bad}");
+        }
     }
 }

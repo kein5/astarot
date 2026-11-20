@@ -14,21 +14,18 @@ Pythonは標準ライブラリだけで発声でき、`pw-cat` / `pw-dump` が�
 ## ネイティブ起動の作業状況
 
 0.5.0からアプリのバックエンドはアプリの中で動くRustの中核で、開発用のPython sidecarはなくなった（[中核の統合](core-integration.md)）。
-以下のPython環境は、`src-python/`のPythonバックエンドとそのCLI・試験を動かすときだけ使う。
+PythonのバックエンドとそのPython環境（`.venv_linux`、`mise run setup:app`）、CLI、試験は0.6.0で消した（#285）。
 
-### Pythonバックエンド用の開発環境
+### 開発環境
 
-固定SpeechRecognition forkが使う`aifc`/`audioop`、既存NumPy/Pillowの版に合わせてPython 3.11を使う。
-既存の`.venv`と`.venv_cuda`を変更せず、Linux用環境を明示選択する。
 Python、uv、Rustの版は`mise.toml`で固定している（[開発ガイド](../development.md#用意するツール)）。
 
 ```sh
 mise install
-mise run setup:app        # .venv_linux を uv.lock に合わせる（uv sync --frozen）
+mise run setup:headless   # モデルなしの試験の依存（build/dev/headless-venv）
 mise run setup:resources  # tauri dev と cargo check が読む src-tauri/bin/_internal
 ```
 
-`setup:app`は`UV_PROJECT_ENVIRONMENT=.venv_linux uv sync --frozen --python 3.11`を、miseのPythonで実行する。
 `setup:resources`については[開発ガイド](../development.md#tauriが読む資源を用意する)を参照。
 
 ### 同梱サーバーと音声ヘルパーを用意する
@@ -69,15 +66,7 @@ Pythonの取得・package通信にはネットワークが必要。システム�
 同梱資源（`build/`）とUI資源の場所は変えない。既存設定を試験用ディレクトリへコピーする必要はない。
 0.4までは「その他」のモデル自動取得をONにすると、次回起動時に内蔵翻訳のモデルを取得した。0.5.0では起動時の自動取得をやめ、スイッチも設定画面から外した（設定のキーは互換のために残る）。モデルの取得は、同意の画面からの明示の操作だけで行う。
 
-Pythonバックエンド（`src-python/mainloop.py`。`VRCT_TEST_SIDECAR`を指定すればその実行ファイル）の起動の自動試験。0.5.0のアプリのバックエンド（Rustの中核）は試さない:
-
-```sh
-VRCT_TEST_NATIVE=1 uv run --no-project --python .venv_linux/bin/python -m pytest -q tests/platform/test_native_backend.py
-```
-
-試験は新規設定でテレメトリ、録音、自動デバイス選択、OSC送信をOFFにする。実サービスを差し替えず初期化し、
-日本語の音声設定を保存、shutdown後に再起動して復元と音声OFFを確認する。
-HTTPモデル取得の条件自体はネットワーク状態を注入した別の単体試験で検証する。
+Pythonバックエンドの起動の自動試験（`tests/platform/test_native_backend.py`）は、バックエンドと一緒に0.6.0で消した。中核の起動、設定の引き継ぎ、再起動は`native/core/tests/lifecycle.rs`などが確かめる。
 
 ## RVCの実行環境
 
@@ -90,7 +79,7 @@ Linux（x86-64）でも、RVCの実行環境をアプリから取得できます
 
 RVCの変換は、配布物に入っている`vrct-rvc-worker`（`native/rvc-runtime`）が行います（2026-11-15から）。RVCはドライバーがなくても取得できます。ドライバーがあるPCにはGPU用、ないPCにはCPU用の実行環境を出します。同意すると、次を順に行います。
 
-1. GPU用は、ONNX Runtime 1.31.0（CUDA 13版、Microsoftの公式リリース）と、NVIDIAのCUDA 13.4とcuDNN 9.26のライブラリ（PyPIの`nvidia-cuda-runtime`、`nvidia-cublas`、`nvidia-curand`、`nvidia-cuda-nvrtc`、`nvidia-cudnn-cu13`のwheel）を取得します。CPU用は、ONNX Runtime 1.31.0のCPU版だけです。アーカイブごとにサイズとSHA-256を照合し、ワーカーが読み込む`.so`だけを`lib/`に取り出して、アーカイブは消します。
+1. GPU用は、ONNX Runtime 1.31.0（CUDA 13版。NuGetにあるMicrosoftの公式パッケージ`Microsoft.ML.OnnxRuntime.Gpu.Linux`）と、NVIDIAのCUDA 13.4とcuDNN 9.26のライブラリ（PyPIの`nvidia-cuda-runtime`、`nvidia-cublas`、`nvidia-curand`、`nvidia-cuda-nvrtc`、`nvidia-cudnn-cu13`のwheel）を取得します。CPU用は、ONNX Runtime 1.31.0のCPU版（`Microsoft.ML.OnnxRuntime`）だけです。アーカイブごとにサイズとSHA-256を照合し、ワーカーが読み込む`.so`だけを`lib/`に取り出して、アーカイブは消します。2026-11-18まではONNX RuntimeをGitHubのリリースから取得していました。そのときに準備した実行環境は、`lib/`のファイルが同じ名前なので、準備し直さずにそのまま使えます。
 2. 基礎モデル（HuBERTの`config.json`と`pytorch_model.bin`、`rmvpe.onnx`）を取得して、ハッシュを検証します。
 3. ワーカーの`--probe`で、取得したライブラリが読み込めて計算できることを確かめます。GPU用でGPUを使えないとき（ドライバーが580より古い、GPUがTuring＝GTX 16・RTX 20シリーズより前）は、CPUで変換すると表示して完了します。
 4. 同じフォルダーに以前のPyTorch形式の実行環境があれば、そのファイル（`venv`、`python`、`engine`、`engine.zip`、固定の`rmvpe.pt`と`preprocessor_config.json`）を削除します。`engine`の中のモデルや音声のファイル（`.pth`、`.index`、`.wav`など）は残します。
@@ -120,7 +109,7 @@ Seed-VCの列は、2026-11-11に1台のPCで1回ずつ取得して測った値�
 
 確認できたのは、上のPCでの取得と、取得した実行環境でRVCとSeed-VCのワーカーを起動して、合成した音声を変換するところまでです。音質、ほかのディストリビューション、配布版（AppImage）からの取得は確かめていません。
 
-手動で用意する場合、RVCは`lib/`と`assets/`の構成（[Windowsの手順](local-setup-windows.md#手動で用意する場合)と同じで、`.so`の名前は`native/voice-conversion/src/runtime.rs`の`gpu_libraries`と`cpu_libraries`のとおり）を使います。0.4までのSeed-VCは[Seed-VCのREADME](../../integrations/seed_vc/README.md)の手順でした。以前のPyTorchを使うRVCの実行環境は使えなくなりました。
+手動で用意する場合、RVCは`lib/`と`assets/`の構成（[Windowsの手順](local-setup-windows.md#手動で用意する場合)と同じで、`.so`の名前は`native/voice-conversion/src/runtime.rs`の`gpu_libraries`と`cpu_libraries`のとおり）を使います。0.4までのSeed-VCは[Seed-VCのREADME](https://github.com/kein5/astarot/blob/v0.5.2/integrations/seed_vc/README.md)の手順でした。以前のPyTorchを使うRVCの実行環境は使えなくなりました。
 
 ## 一時的な仮想マイク
 
@@ -153,17 +142,9 @@ VRChatのマイクを **VRCT Virtual Microphone** に指定する。
 ユーザーが許諾確認して用意済みのローカルモデルで起動（以下はパス例）。
 参照音声を使わない場合は `none`。使う場合は本人同意済みのvoice.ggufを登録。
 
-```sh
-speech serve /path/to/Irodori-TTS-866M-MF-v4.1-F16.gguf --host 127.0.0.1 --port 8080
-uv run --no-project python tools/voice_cli.py doctor
-uv run --no-project python tools/voice_cli.py devices
-uv run --no-project python tools/voice_cli.py speak --device vrct.voice.sink --language ja --text 'こんにちは'
-```
-
-CLIは`X-Sample-Rate`の実rateを[pw-cat](https://docs.pipewire.org/page_man_pw-cat_1.html)へ渡し、
-必要なrate変換はPipeWireが行う。OS既定出力は使わない。
-`measurement_boundary=event_to_first_pcm_write` は仮想マイク到達の測定ではない。
-終了コード0はPCM出力処理の完了であり、VRChatの聞こえを保証しない。
+0.5まではPythonのバックエンドのCLI（`tools/voice_cli.py`）で読み上げを仮想マイクへ流した。0.6.0でバックエンドと一緒に消した（#285）。
+中核の読み上げを本物のspeech.cppと出力で流して測るには、`native/core/examples/live_speech.rs`を使う。
+Linuxでは`--route managed --private-pipewire`で、私用のPipeWireの管理された経路に流し、仮想マイクで聞こえ始める時刻を測る（使い方はファイルの先頭）。
 
 ## 手動受入とP2入口
 
@@ -219,15 +200,9 @@ VRCT全GUIのLinux対応完了を意味しない。後続のUI部品・stdio統�
    破損や書込み失敗はエラーとミュート要求として扱い、成功表示しない。
    書込み可能な状態へ修復後にミュートを要求し、確認されてから再開する。
 
-VRCT停止中の診断だけなら、同じstate fileを明示してCLIを使える。
-CLIは一回の操作だけで、切断監視を継続しない。起動中のVRCTは外部からの状態変更を検出すると
-ミュートへ戻すため、通常操作にはUIを使う。
-
-```sh
-uv run --no-project python tools/voice_route.py status --state-file /path/to/voice_mute_state.json
-uv run --no-project python tools/voice_route.py mute --state-file /path/to/voice_mute_state.json
-uv run --no-project python tools/voice_route.py resume --state-file /path/to/voice_mute_state.json
-```
+0.5までは、VRCTの停止中に同じstate fileを明示して状態を見たり変えたりするCLI（`tools/voice_route.py`）があった。
+PythonのバックエンドのPipeWireの部品を使っていたので、0.6.0でバックエンドと一緒に消した（#285）。
+起動中のVRCTは外部からの状態変更を検出するとミュートへ戻すため、通常操作にはUIを使う。
 
 戻すには、まずミュート確認後にVRCTを外部ケーブル設定へ戻し、VRChatで安全な入力を選び直す。
 配置した `~/.config/pipewire/pipewire.conf.d/90-vrct-managed.conf` **だけ**を削除し、

@@ -142,11 +142,14 @@ fn language(value: &Value) -> Result<String, &'static str> {
     if primary_ok && rest_ok { Ok(text.into()) } else { Err(INVALID) }
 }
 
-/// `realtime_settings.normalize_settings`.
+/// The silences that may end an utterance in realtime recognition, in milliseconds.
+pub const SILENCE_DURATION_MS: std::ops::RangeInclusive<u64> = 100..=2000;
+
+/// `realtime_settings.normalize_settings`, with `silence_duration_ms` of the core's own (#556).
 pub fn normalize_realtime(value: &Value) -> Result<Value, &'static str> {
     const INVALID: &str = "realtime_settings_invalid";
     let object = value.as_object().ok_or(INVALID)?;
-    const KEYS: [&str; 8] = ["version", "server", "start_server", "base_url", "model", "mic", "speaker", "vocabulary"];
+    const KEYS: [&str; 9] = ["version", "server", "start_server", "base_url", "model", "mic", "speaker", "vocabulary", "silence_duration_ms"];
     if object.keys().any(|k| !KEYS.contains(&k.as_str())) {
         return Err(INVALID);
     }
@@ -178,6 +181,16 @@ pub fn normalize_realtime(value: &Value) -> Result<Value, &'static str> {
     result.insert("base_url".into(), base_url.into());
     result.insert("model".into(), model(object.get("model"))?.into());
     result.insert("vocabulary".into(), normalize_vocabulary(object.get("vocabulary"))?);
+    // The silence that ends an utterance (#556): absent or null follows the default
+    // (`vrct_transcription`'s `DEFAULT_SILENCE_MS`, 400 ms), so changing the default moves
+    // only the settings that never chose one.
+    match object.get("silence_duration_ms") {
+        None | Some(Value::Null) => {}
+        Some(value) => {
+            let ms = value.as_u64().filter(|ms| SILENCE_DURATION_MS.contains(ms)).ok_or("realtime_silence_invalid")?;
+            result.insert("silence_duration_ms".into(), ms.into());
+        }
+    }
     for (source, default_language) in [("mic", "ja"), ("speaker", "auto")] {
         let empty = Map::new();
         let row = match object.get(source) {
@@ -231,6 +244,31 @@ pub fn file_direct(value: &Value) -> Value {
     let mut value = value.clone();
     if let Value::Object(object) = &mut value {
         for field in ADDED_IN_0_5 {
+            if object.get(field) == defaults.get(field) {
+                object.remove(field);
+            }
+        }
+    }
+    value
+}
+
+/// The fields 0.6 added to the speech settings: how VOICEVOX, AivisSpeech and SHAREVOX read
+/// (the Scale fields of their AudioQuery, #392).
+const VOICE_ADDED_IN_0_6: [&str; 12] = [
+    "voicevox_speed", "voicevox_volume", "voicevox_pitch", "voicevox_intonation",
+    "aivis_speed", "aivis_volume", "aivis_pitch", "aivis_intonation",
+    "sharevox_speed", "sharevox_volume", "sharevox_pitch", "sharevox_intonation",
+];
+
+/// The speech settings as `config.json` holds them: the fields 0.6 added are left out while they
+/// hold their defaults, which a load fills in again. 0.5 refuses the whole value when it finds a
+/// field it does not know and would reset every speech setting; so a file saved without those
+/// values changed stays readable by 0.5. A changed value is saved, and 0.5 then still resets.
+pub fn file_voice(value: &Value) -> Value {
+    let defaults = vrct_tts::settings::VoiceSettings::default().to_value();
+    let mut value = value.clone();
+    if let Value::Object(object) = &mut value {
+        for field in VOICE_ADDED_IN_0_6 {
             if object.get(field) == defaults.get(field) {
                 object.remove(field);
             }
@@ -322,12 +360,47 @@ mod tests {
     }
 
     #[test]
+    fn the_file_leaves_out_unchanged_engine_readings_so_0_5_still_reads_it() {
+        // 0.5 refuses VOICE_SETTINGS with a field it does not know, like 0.4 did with the direct
+        // voice settings (#428), and would reset every speech setting after a downgrade.
+        use vrct_tts::settings::VoiceSettings;
+        let settings = VoiceSettings::from_value(&json!({ "japanese_engine": "aivis", "engine_voice_id": "1", "coeiroink_speed": "1.5" })).unwrap().to_value();
+        let file = file_voice(&settings);
+        for field in VOICE_ADDED_IN_0_6 {
+            assert!(settings.get(field).is_some(), "{field} is a speech setting");
+            assert!(file.get(field).is_none(), "{field}");
+        }
+        assert_eq!(file["coeiroink_speed"], "1.5", "fields 0.5 knows stay");
+        assert_eq!(VoiceSettings::from_value(&file).unwrap().to_value(), settings, "loads back the same");
+        // A changed value is kept.
+        let chosen = VoiceSettings::from_value(&json!({ "aivis_speed": "1.25", "voicevox_pitch": "0.0" })).unwrap().to_value();
+        assert_eq!(file_voice(&chosen)["aivis_speed"], "1.25");
+        assert!(file_voice(&chosen).get("voicevox_pitch").is_none());
+        assert_eq!(VoiceSettings::from_value(&file_voice(&chosen)).unwrap().to_value(), chosen);
+    }
+
+    #[test]
     fn a_saved_seed_vc_engine_loads_as_rvc_and_a_new_one_is_refused() {
         let saved = json!({ "mode": "converted", "engine": "seed-vc", "runtime": "/seed", "rvc_model": "a.pth" });
         let loaded = load_direct(&saved).unwrap();
         assert_eq!((loaded["mode"].clone(), loaded["engine"].clone(), loaded["runtime"].clone()), (json!("converted"), json!("rvc"), json!("/seed")));
         assert_eq!(normalize_direct(&saved), None);
         assert_eq!(default_direct()["engine"], "rvc");
+    }
+
+    #[test]
+    fn the_silence_that_ends_an_utterance_is_left_out_unless_chosen() {
+        // Left out, the file stays as 0.4 reads it and the default applies (#556). A chosen
+        // value stays as chosen, the former default of 500 ms too.
+        let defaults = normalize_realtime(&json!({})).unwrap();
+        assert!(defaults.get("silence_duration_ms").is_none(), "{defaults}");
+        assert!(normalize_realtime(&json!({ "silence_duration_ms": null })).unwrap().get("silence_duration_ms").is_none());
+        for chosen in [300, 400, 500] {
+            assert_eq!(normalize_realtime(&json!({ "silence_duration_ms": chosen })).unwrap()["silence_duration_ms"], chosen);
+        }
+        for bad in [json!(99), json!(2001), json!(300.5), json!("300"), json!(-1), json!(true)] {
+            assert_eq!(normalize_realtime(&json!({ "silence_duration_ms": bad })), Err("realtime_silence_invalid"), "{bad}");
+        }
     }
 
     #[test]

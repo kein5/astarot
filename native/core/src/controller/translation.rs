@@ -93,6 +93,10 @@ pub trait LocalTranslation: Send + Sync {
     fn languages(&self, _weight: &str) -> Option<Value> {
         None
     }
+    /// Finds the user's models again: the translation catalog changed (#413).
+    fn refresh(&self) {}
+    /// Drops the loaded model: another kind of model is about to load (ADR-015).
+    fn unload(&self) {}
 }
 
 /// No local translation in this build: nothing loads.
@@ -115,49 +119,64 @@ impl LocalTranslation for NoLocalTranslation {
 /// Makes the local translation for a run (`Services::local_translation`).
 pub type LocalTranslationSource = Arc<dyn Fn(&crate::config::Environment) -> Arc<dyn LocalTranslation> + Send + Sync>;
 
-/// The default: ONNX Runtime with the `onnx-translation` feature, else none.
+/// The default: ONNX Runtime with the `onnx-translation` feature, else none; in front of it,
+/// llama.cpp's server for the translation LLMs the user added (ADR-015).
 pub fn default_local_translation(env: &crate::config::Environment) -> Arc<dyn LocalTranslation> {
     #[cfg(feature = "onnx-translation")]
-    {
-        Arc::new(super::translation_onnx::OnnxTranslation::new(env))
-    }
+    let inner: Arc<dyn LocalTranslation> = Arc::new(super::translation_onnx::OnnxTranslation::new(env));
     #[cfg(not(feature = "onnx-translation"))]
-    {
-        let _ = env;
-        Arc::new(NoLocalTranslation)
-    }
+    let inner: Arc<dyn LocalTranslation> = Arc::new(NoLocalTranslation);
+    Arc::new(super::translation_llama::Routed::new(env, inner))
 }
 
-/// Whether a weight's local model is on this PC (`Services::translation_weight_available`).
+/// Whether a weight's local model is on this PC (`Services::translation_weight_available`):
+/// for a translation LLM, also whether llama.cpp's server is set up.
 pub fn default_weight_available(env: &crate::config::Environment, weight: &str) -> bool {
+    if super::translation_llama::weight_available(env, weight) {
+        return true;
+    }
     #[cfg(feature = "onnx-translation")]
     {
         super::translation_onnx::weight_available(env, weight)
     }
     #[cfg(not(feature = "onnx-translation"))]
     {
-        let _ = (env, weight);
         false
     }
 }
 
+/// Where earlier versions found the user's own translation models, under the data folder
+/// (`custom:<folder>`). Since #597 nothing in it is listed or loaded; the folder and its files
+/// are left as they are.
+pub const RETIRED_MODELS_DIR: &str = "translation-models";
+/// The weight name earlier versions gave a model of [`RETIRED_MODELS_DIR`].
+pub const RETIRED_WEIGHT_PREFIX: &str = "custom:";
+/// Logged (a fixed code, never the folder's name) when the saved selection named such a model
+/// and went back to the default model.
+pub const RETIRED_SELECTION_RESET: &str = "translation_models_folder_retired";
+
+/// Whether [`RETIRED_MODELS_DIR`] holds at least one folder (not one whose name starts with a
+/// dot, which earlier versions never listed): the translation page then points to the
+/// catalog's add form. Only this is told; folder names are the user's data.
+pub fn retired_folder_used(data_dir: &std::path::Path) -> bool {
+    std::fs::read_dir(data_dir.join(RETIRED_MODELS_DIR)).into_iter().flatten().filter_map(Result::ok).any(|entry| {
+        entry.file_type().is_ok_and(|t| t.is_dir()) && !entry.file_name().to_string_lossy().starts_with('.')
+    })
+}
+
 /// The weights the settings may name (`SELECTABLE_CTRANSLATE2_WEIGHT_TYPE_LIST`): the built-in
-/// ones, then the models the user added (`custom:<folder>`).
+/// ones, then the engine entries the user added (`user:<id>`: ONNX folders and translation LLMs).
 pub fn weight_ids(env: &crate::config::Environment) -> Vec<String> {
     #[cfg(feature = "onnx-translation")]
-    {
-        super::translation_onnx::weight_ids(env)
-    }
+    let mut ids = super::translation_onnx::weight_ids(env);
     #[cfg(not(feature = "onnx-translation"))]
-    {
-        let _ = env;
-        crate::languages::TRANSLATION_WEIGHTS.iter().map(|w| w.to_string()).collect()
-    }
+    let mut ids: Vec<String> = crate::languages::TRANSLATION_WEIGHTS.iter().map(|w| w.to_string()).collect();
+    ids.extend(super::translation_llama::weight_ids(env));
+    ids
 }
 
 /// The translation compute devices for [`crate::config::Environment::compute_devices`]: the
-/// CPU, and the GPU execution providers of the ONNX Runtime library beside the app. The host
-/// calls this once at start.
+/// CPU, and the GPU execution providers of the ONNX Runtime library the app loads.
 pub fn compute_devices() -> Vec<Value> {
     #[cfg(feature = "onnx-translation")]
     {
@@ -169,17 +188,36 @@ pub fn compute_devices() -> Vec<Value> {
     }
 }
 
-/// The user's model folders that were refused, with the fixed reason, for the log.
-pub fn refused_models(env: &crate::config::Environment) -> Vec<(String, &'static str)> {
+/// [`compute_devices`] and the GPU builds of ONNX Runtime the user set up under `state_dir` that
+/// need the app started again (`restart_required`). The host calls this once at start, after
+/// [`crate::shipped_libraries::use_libraries`].
+pub fn compute_devices_for(state_dir: &std::path::Path) -> Vec<Value> {
+    with_gpu_builds(compute_devices(), state_dir)
+}
+
+/// `devices` and the devices of the GPU builds set up under `state_dir` that it lacks, which need
+/// the app started again (`restart_required`). The list is asked for again after a setup.
+pub fn with_gpu_builds(devices: Vec<Value>, state_dir: &std::path::Path) -> Vec<Value> {
     #[cfg(feature = "onnx-translation")]
     {
-        super::translation_onnx::discover(&env.data_dir).1
+        super::translation_onnx::with_gpu_builds(devices, state_dir)
     }
     #[cfg(not(feature = "onnx-translation"))]
     {
-        let _ = env;
-        Vec::new()
+        let _ = state_dir;
+        devices
     }
+}
+
+/// The engine entries of the translation catalog that were refused (by id, never their name or
+/// folder), with the fixed reason, for the log.
+pub fn refused_models(env: &crate::config::Environment) -> Vec<(String, &'static str)> {
+    #[cfg(feature = "onnx-translation")]
+    let mut refused = super::translation_onnx::registered(env).1;
+    #[cfg(not(feature = "onnx-translation"))]
+    let mut refused = Vec::new();
+    refused.extend(super::translation_llama::registered(env).1);
+    refused
 }
 
 // ------------------------------------------------------------------------- the providers
@@ -465,6 +503,11 @@ impl Translators {
             .or_else(|| self.local.languages(weight))
     }
 
+    /// The local translation finds the user's models again (the translation catalog changed).
+    pub(crate) fn refresh_local_models(&self) {
+        self.local.refresh();
+    }
+
     fn session(&self, provider: Provider) -> Option<Session> {
         self.clients.lock().unwrap().get(&provider).cloned()
     }
@@ -663,7 +706,7 @@ impl Core {
     }
 
     /// `_setTranslationEngineModel` (and `setOpenAICompatibleModel`).
-    fn set_model(&self, provider: Provider, data: &Value) -> Reply {
+    pub(super) fn set_model(&self, provider: Provider, data: &Value) -> Reply {
         let (_, selected, invalid) = model_keys(provider).expect("a provider with models");
         let model = python_str(data);
         let Some(mut session) = self.translation.session(provider) else {
@@ -720,7 +763,7 @@ impl Core {
 
     /// `_setEndpointCredential` for the OpenAI-compatible endpoint: the URL and the key are
     /// checked together before either is saved.
-    fn set_compatible_key_and_url(&self, data: &Value) -> Reply {
+    pub(super) fn set_compatible_key_and_url(&self, data: &Value) -> Reply {
         let engine = "OpenAI_Compatible";
         let current_key = || self.config().get("AUTH_KEYS")[engine].clone();
         let failed = || error("AUTH_OPENAI_COMPATIBLE_FAILED", current_key());
@@ -926,7 +969,7 @@ impl Core {
 
     /// `setCtranslate2WeightType`: a weight under a non-commercial licence needs the user's
     /// confirmation, unless it is already the selected one.
-    fn set_weight_type(&self, data: &Value) -> Reply {
+    pub(super) fn set_weight_type(&self, data: &Value) -> Reply {
         let (weight, accepted) = match data {
             Value::Object(object) => (
                 object.get("weight_type").map_or_else(|| "None".to_string(), python_str),
@@ -1108,14 +1151,22 @@ impl Core {
         }
         let Some(session) = self.translation.session(provider) else { return Attempt::Failed };
         let supported = Self::supported_languages(engine);
-        let request =
-            providers::Translation { text, source: &source, target: &target, supported_languages: &supported, history };
+        let glossary = self.translation_glossary(text);
+        let request = providers::Translation {
+            text,
+            source: &source,
+            target: &target,
+            supported_languages: &supported,
+            history,
+            glossary: &glossary,
+        };
         match self.translation.translate(provider, &session, &request) {
             Ok(text) => Attempt::Text(text),
             // Papago translates only some pairs of its languages directly.
             Err(providers::Error::UnsupportedPair) => Attempt::Unsupported,
             Err(_) => {
-                self.step("Translation: the provider failed");
+                // Decision 58: the provider's name, as Python's `errorLogging(provider=...)`.
+                self.step_with("Translation: the provider failed", &json!({ "provider": engine }));
                 Attempt::Failed
             }
         }
@@ -1209,10 +1260,17 @@ impl Core {
                 Ok(Translated { text: text.to_string(), success: true, provenance: "unsupported" })
             }
             Attempt::Unsupported => {
-                self.step("Translation failed and the local model cannot translate this language pair");
+                self.step_with("Translation failed and the local model cannot translate this language pair", &json!({ "provider": engine }));
                 Ok(Translated { text: text.to_string(), success: false, provenance: "failed" })
             }
-            Attempt::Failed => Ok(Translated { text: text.to_string(), success: false, provenance: "failed" }),
+            Attempt::Failed => {
+                // Decision 58: the engine lacked the pair and the local model failed too (Python
+                // logged the local failure once). A provider failure was logged as it failed.
+                if !primary_failed {
+                    self.step_with("Translation: the engine lacks the language pair and the local model failed", &json!({ "provider": engine }));
+                }
+                Ok(Translated { text: text.to_string(), success: false, provenance: "failed" })
+            }
         }
     }
 }
@@ -1490,4 +1548,90 @@ pub(crate) fn add(b: &mut Builder<'_>) {
 
     b.with("/set/data/selected_ctranslate2_weight_type", OPEN, |core, data| core.set_weight_type(data));
     b.with("/set/enable/translation", WAIT, |core, _| core.enable_translation());
+}
+
+/// What the Python tests of the translation checked against the Python tables and the UI, held
+/// against the core's own tables, so that the checks outlive `src-python/models/translation/`.
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::languages::{translation, DEFAULT_TRANSLATION_WEIGHT, TRANSLATION_WEIGHTS};
+
+    #[test]
+    fn the_prompt_lists_the_languages_the_contract_recorded() {
+        // The contract recorded each Python client's `supported_languages`; the core passes its
+        // own table's names, which must be the same, in the same order. Read when the test runs,
+        // so that the file is no input of the core's build.
+        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../translation/tests/contract/providers.json");
+        let contract: Value = serde_json::from_str(&std::fs::read_to_string(path).expect("the contract")).unwrap();
+        let recorded = contract["supported_languages"].as_object().unwrap();
+        assert!(!recorded.is_empty());
+        for (engine, names) in recorded {
+            let names: Vec<String> = names.as_array().unwrap().iter().map(|n| n.as_str().unwrap().to_string()).collect();
+            assert_eq!(Core::supported_languages(engine), names, "{engine}");
+        }
+    }
+
+    /// The rows of `ctranslate2_weight_type_status` in `src-ui/logics/ui_configs.ts`.
+    fn ui_weight_rows() -> Vec<(String, String)> {
+        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../src-ui/logics/ui_configs.ts");
+        let source = std::fs::read_to_string(path).expect("the UI settings");
+        let start = source.find("export const ctranslate2_weight_type_status").expect("the weight list");
+        let block = &source[start..];
+        let block = &block[..block.find("].map(").expect("the end of the list")];
+        block
+            .lines()
+            .filter_map(|line| {
+                let rest = line.trim().strip_prefix("{ id: \"")?;
+                let (id, rest) = rest.split_once('"')?;
+                Some((id.to_string(), rest.to_string()))
+            })
+            .collect()
+    }
+
+    #[test]
+    fn the_ui_lists_the_weights_with_their_licenses_and_default() {
+        // `test_ui_weight_list_matches_backend_licenses` of the Python tests.
+        let rows = ui_weight_rows();
+        let ids: Vec<&str> = rows.iter().map(|(id, _)| id.as_str()).collect();
+        assert_eq!(ids, TRANSLATION_WEIGHTS);
+        for (id, rest) in &rows {
+            let license = if super::super::lifecycle::non_commercial(id) { "...CC_BY_NC_4_0" } else { "...MIT" };
+            assert!(rest.contains(license), "{id}: {rest}");
+            assert_eq!(rest.contains("is_default: true"), id == DEFAULT_TRANSLATION_WEIGHT, "{id}");
+        }
+        assert!(!super::super::lifecycle::non_commercial(DEFAULT_TRANSLATION_WEIGHT), "the default allows commercial use");
+    }
+
+    /// `FAIRSEQ_LANGUAGE_CODES["m2m100"]` of transformers' M2M100 tokenizer.
+    const M2M100_CODES: [&str; 100] = [
+        "af", "am", "ar", "ast", "az", "ba", "be", "bg", "bn", "br", "bs", "ca", "ceb", "cs", "cy", "da", "de", "el", "en",
+        "es", "et", "fa", "ff", "fi", "fr", "fy", "ga", "gd", "gl", "gu", "ha", "he", "hi", "hr", "ht", "hu", "hy", "id",
+        "ig", "ilo", "is", "it", "ja", "jv", "ka", "kk", "km", "kn", "ko", "lb", "lg", "ln", "lo", "lt", "lv", "mg", "mk",
+        "ml", "mn", "mr", "ms", "my", "ne", "nl", "no", "ns", "oc", "or", "pa", "pl", "ps", "pt", "ro", "ru", "sd", "si",
+        "sk", "sl", "so", "sq", "sr", "ss", "su", "sv", "sw", "ta", "th", "tl", "tn", "tr", "uk", "ur", "uz", "vi", "wo",
+        "xh", "yi", "yo", "zh", "zu",
+    ];
+
+    #[test]
+    fn every_m2m100_code_is_a_language_of_the_model() {
+        // `M2M100LanguageMappingTests` of the Python tests.
+        let local = &translation()[LOCAL_ENGINE];
+        for weight in ["m2m100_418M-ct2-int8", "m2m100_1.2B-ct2-int8"] {
+            for side in ["source", "target"] {
+                for (language, code) in local[weight][side].as_object().unwrap() {
+                    assert!(M2M100_CODES.contains(&code.as_str().unwrap()), "{weight} {side} {language}: {code}");
+                }
+            }
+        }
+        let m2m100 = &local["m2m100_418M-ct2-int8"]["source"];
+        for (language, code) in [("Javanese", "jv"), ("Burmese", "my"), ("Japanese", "ja"), ("Filipino", "tl")] {
+            assert_eq!(m2m100[language], code, "{language}");
+        }
+        // M2M100 lacks these; NLLB has them, which is why changing the weight checks the languages again.
+        for language in ["Basque", "Telugu"] {
+            assert!(m2m100.get(language).is_none(), "{language}");
+            assert!(local["nllb-200-distilled-600M-ct2-int8"]["source"].get(language).is_some(), "{language}");
+        }
+    }
 }

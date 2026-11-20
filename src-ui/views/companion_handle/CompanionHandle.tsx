@@ -122,7 +122,7 @@ export const CompanionHandle = ({ bridge = companionBridge }: { bridge?: Compani
 
     return (
         <div className={styles.root} data-edge={edge} onWheel={turn}>
-            <svg className={styles.canvas} role="group" aria-label="VRCT-VOX">
+            <svg className={styles.canvas} role="group" aria-label="ASTAROT">
                 <g style={{ transform: `translate(${layout.x}px, ${layout.y}px)` }}>
                     <g className={styles.arrive}>
                         <circle className={styles.plate} r={OPEN_RADIUS * 1.22} />

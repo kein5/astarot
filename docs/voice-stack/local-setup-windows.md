@@ -44,7 +44,7 @@ RVCの設定画面、または「高度な設定」の入力の転送にある�
 
 RVCの変換は、配布物に入っている`vrct-rvc-worker.exe`（`native/rvc-runtime`）が行います（2026-11-15から）。RVCの実行環境の準備は、次のとおりです。NVIDIAのドライバー（`nvcuda.dll`）があるPCにはGPU用、ないPCにはCPU用を出します。
 
-1. GPU用は、ONNX Runtime 1.31.0（CUDA 13版、Microsoftの公式リリース）と、NVIDIAのCUDA 13.4とcuDNN 9.26のライブラリ（PyPIの`nvidia-cuda-runtime`、`nvidia-cublas`、`nvidia-curand`、`nvidia-cuda-nvrtc`、`nvidia-cudnn-cu13`のwheel）。CPU用は、ONNX Runtime 1.31.0のCPU版だけです。アーカイブごとにサイズとSHA-256を照合し、ワーカーが読み込むDLLだけを`lib\`に取り出します。アーカイブは取り出したあとに消します。
+1. GPU用は、ONNX Runtime 1.31.0（CUDA 13版。NuGetにあるMicrosoftの公式パッケージ`Microsoft.ML.OnnxRuntime.Gpu.Windows`）と、NVIDIAのCUDA 13.4とcuDNN 9.26のライブラリ（PyPIの`nvidia-cuda-runtime`、`nvidia-cublas`、`nvidia-curand`、`nvidia-cuda-nvrtc`、`nvidia-cudnn-cu13`のwheel）。CPU用は、ONNX Runtime 1.31.0のCPU版（`Microsoft.ML.OnnxRuntime`）だけです。アーカイブごとにサイズとSHA-256を照合し、ワーカーが読み込むDLLだけを`lib\`に取り出します。アーカイブは取り出したあとに消します。2026-11-18まではONNX RuntimeをGitHubのリリースから取得していました。そのときに準備した実行環境は、`lib\`のファイルが同じ名前なので、準備し直さずにそのまま使えます。
 2. 基礎モデル（HuBERTの`config.json`と`pytorch_model.bin`、`rmvpe.onnx`）を取得して、ハッシュを検証します。
 3. ワーカーの`--probe`で、取得したライブラリが読み込めて計算できることを確かめます。GPU用でGPUを使えないとき（ドライバーが580より古い、GPUがTuring＝GTX 16・RTX 20シリーズより前）は、CPUで変換すると表示して完了します。
 4. 同じフォルダーに以前のPyTorch形式の実行環境があれば、そのファイル（`venv`、`python`、`engine`、`engine.zip`、固定の`rmvpe.pt`と`preprocessor_config.json`）を削除します。`engine`の中のモデルや音声のファイル（`.pth`、`.index`、`.wav`など）は残します。
@@ -68,7 +68,7 @@ RVCの開始は、Linuxの検証PCでGPUなら2〜9秒（PCの混み具合で変
 
 RVCを止めている間も声を届けたいときは、入力の転送を使います。マイクの音をそのまま出力デバイスへ送ります。0.5.0ではアプリ（Rustの中核）が音声を運びます。0.4まではPythonが運んでいたので、PCが一瞬詰まると短く途切れることがありました。0.5.0での途切れ方は確かめていません。出力デバイスが2秒以上音声を受け取らないときは、外れたものとして止めます。
 
-変換の速さはGPUとCPUの空きに左右されます。1ブロックは80 msに収める必要があります。一時的に遅れたブロックは捨てて続け、声が短く途切れます。直近の半分以上が遅れると、`vc_capture_overrun`で停止します。声の代わりに原音を流すことはありません。0.4までのSeed-VCは、開始時に処理時間を測り、間に合わないときは参照音声の長さと拡散ステップを段階的に減らしていました。TTSや字幕を同じGPUで動かすと、余裕はさらに小さくなります。検証したPCでVRChat、TTS、字幕、RVCをすべてRTX 3060 Tiに載せた試験では、30分の4回のうち1回、RVCが約12分で止まりました。2時間の1回では止まっていません。Seed-VCを同じ構成で30分動かした1回では止まりませんでしたが、遅れて捨てたブロックは増えました。測定は[検証記録](windows-voice-report.md)にあります。
+変換の速さはGPUとCPUの空きに左右されます。1ブロックは、その長さ（「高度な設定」の`RVC_BLOCK_MS`。既定は40 msで、以前は80 msに固定）のうちに変換し終える必要があります。一時的に遅れたブロックは捨てて続け、声が短く途切れます。直近の半分以上が遅れると、`vc_capture_overrun`で停止します。声の代わりに原音を流すことはありません。0.4までのSeed-VCは、開始時に処理時間を測り、間に合わないときは参照音声の長さと拡散ステップを段階的に減らしていました。TTSや字幕を同じGPUで動かすと、余裕はさらに小さくなります。検証したPCでVRChat、TTS、字幕、RVCをすべてRTX 3060 Tiに載せた試験では、30分の4回のうち1回、RVCが約12分で止まりました。2時間の1回では止まっていません。Seed-VCを同じ構成で30分動かした1回では止まりませんでしたが、遅れて捨てたブロックは増えました。測定は[検証記録](windows-voice-report.md)にあります。
 
 ### 手動で用意する場合
 
@@ -107,4 +107,4 @@ mise run setup:headless
 mise run check:voice
 ```
 
-Windowsの実デバイスへ接続する場合はPyAudioWPatchが必要です。`mise run setup:app`（`npm run setup-python`と同じ`uv sync`）で作る`.venv`には入りますが、`headless`のvenvには入りません。
+このテストは実デバイスに接続しません。0.5まではPythonのバックエンドで実デバイスに接続するためのPyAudioWPatchを`mise run setup:app`の`.venv`に入れていましたが、バックエンドと一緒に0.6.0で消しました（#285）。

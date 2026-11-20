@@ -1,4 +1,4 @@
-// Where the settings search (useConfigSearch.js) leads for each text under config_page.<page>.
+// Where the settings search (useConfigSearch.ts) leads for each text under config_page.<page>.
 
 // Texts under a page's namespace that are not settings: a field's placeholder, an error, an
 // option of a choice. Listed, they would lead nowhere.
@@ -7,6 +7,13 @@ export const NOT_SETTINGS: ReadonlySet<string> = new Set([
     "hotkeys.error_in_use", "hotkeys.error_failed_to_register_at_launch", "hotkeys.error_failed_to_register_all",
     "hotkeys.error_window_restore_failed", "hotkeys.error_window_minimize_failed",
     "vr.hmd", "vr.left_hand", "vr.right_hand",
+    // What the buttons that open another page say is done there: the row they sit on is the
+    // result (PagePointer). The others are in their row's group (vr_panel_pointer, osc_pointer).
+    "vrchat.tts_output_action", "device.mute_sync_action",
+    // The sentence of a row that leads to another page; the row is found by its label.
+    "vrchat.tts_output_pointer", "device.mute_sync_pointer",
+    // The experimental features page's notice and empty state; its items are listed one by one.
+    "experimental_features.notice", "experimental_features.empty",
 ]);
 
 // Parts of a larger setting with no place of their own: the search leads to the setting.

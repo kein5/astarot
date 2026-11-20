@@ -1,6 +1,6 @@
 # ASTAROT 開発エージェント向けガイド
 
-ASTAROT（旧名 VRCT-VOX）は、VRChat 向けに音声認識（ASR）、読み上げ（TTS）、声質変換（RVC）、チャット読み取り（OCR）、翻訳をまとめたデスクトップアプリです。React 18 の UI を Tauri で動かし、バックエンドは Rust の中核（`native/core`）がアプリのプロセスの中で受け持ちます。0.5.0 から配布物に Python は入りません。`src-python/` の Python のバックエンドは、移植の仕様として残しているものです（`docs/voice-stack/core-integration.md`）。アプリの表示名は ASTAROT です（ADR-011）。リポジトリ名、実行ファイル名、アプリ ID、設定の保存先などの識別子は VRCT-VOX のままで、リポジトリ名は 0.5.0 の正式公開のときに変えます。[VRCT](https://github.com/misyaguziya/VRCT) から派生したプロジェクトで、上流の追従や互換性は目標にしていません。
+ASTAROT（旧名 VRCT-VOX）は、VRChat 向けに音声認識（ASR）、読み上げ（TTS）、声質変換（RVC）、チャット読み取り（OCR）、翻訳をまとめたデスクトップアプリです。React 18 の UI を Tauri で動かし、バックエンドは Rust の中核（`native/core`）がアプリのプロセスの中で受け持ちます。0.5.0 から配布物に Python は入りません。Python のバックエンド（`src-python/`）は 0.6.0 で消しました。移植の記録は `docs/voice-stack/core-integration.md` にあります。アプリの表示名は ASTAROT です（ADR-011）。リポジトリ名、実行ファイル名、アプリ ID、設定の保存先などの識別子は VRCT-VOX のままで、リポジトリ名は 0.5.0 の正式公開のときに変えます。[VRCT](https://github.com/misyaguziya/VRCT) から派生したプロジェクトで、上流の追従や互換性は目標にしていません。
 
 この文書は作業の入口です。詳しい内容は、下の表の正本を読んでください。
 
@@ -28,10 +28,10 @@ ASTAROT（旧名 VRCT-VOX）は、VRChat 向けに音声認識（ASR）、読み
 | ブランチ、PR、依存、ダウンロードするモデル、表示する文言 | `CONTRIBUTING.md` |
 | 同梱物、モデル、依存ライブラリのライセンス | `NOTICE.md`、`docs/voice-stack/licensing.md` |
 | Rust のバックエンド中核、Python からの移植の状況 | `docs/voice-stack/core-integration.md` |
-| 名前、識別子、保存先、上流 VRCT との関係 | `docs/voice-stack/project-rename.md`、`docs/voice-stack/publication-and-upstream.md`、ASTAROT への改名は `docs/voice-stack/adr-011-astarot-brand-and-multimodal-accessibility.md` |
+| 名前、識別子、保存先、上流 VRCT との関係 | `docs/voice-stack/project-rename.md`、`docs/voice-stack/publication-and-upstream.md`、ASTAROT への改名は `docs/adr/adr-011-astarot-brand-and-multimodal-accessibility.md` |
 | モデル取得の画面と同意 | `docs/voice-stack/model-downloads.md` |
 | Linux のビルド、AppImage、実機での GUI 試験 | `docs/voice-stack/linux-build-pipeline.md`、`docs/voice-stack/appimage.md` |
-| 音声まわりの設計判断 | `docs/voice-stack/decisions.md` と各 ADR（状態欄で、採用済みか提案かを確認する） |
+| 設計判断（ADR） | `docs/adr/README.md`（索引、項目の意味、新しい ADR の書き方）と各 ADR。状態は冒頭の front matter で確かめる |
 
 ## 開発と検証の入口
 
@@ -49,9 +49,8 @@ UI の監査、文章の推敲、実機での画面の確認、図の作成な�
 
 | 変更したもの | 追加で実行するもの |
 |---|---|
-| 音声、モデル取得の Python のコードとその試験（`src-python/`、`tests/voice/`）、配布の検査（`tools/`） | `check --scope voice`（新しい Linux の checkout では先に `python tools/build_voice_gate.py`） |
+| Python の道具とその試験（`tools/`、`tests/voice/`）、配布の検査 | `check --scope voice`（新しい Linux の checkout では先に `python tools/build_voice_gate.py`） |
 | UI（`src-ui/`）や文言 | `check --scope ui` |
-| 移植の仕様として残している Python のバックエンド全体（`src-python/`） | `check --scope backend --python <アプリ依存のある Python>` |
 | Rust のバックエンド中核（`native/core`）と `native/` のクレート、Tauri（`src-tauri/`） | `check --scope rust`（対象のクレートは `tools/dev.py` の `NATIVE_CRATES`。ほかのクレートは `cargo test --manifest-path native/<crate>/Cargo.toml`） |
 | 複数の領域、統合の前 | `check --scope all` |
 | コミット | `check --scope commits --base origin/develop` |
@@ -85,15 +84,35 @@ UI の監査、文章の推敲、実機での画面の確認、図の作成な�
 - `cog bump` は使いません。タグは作らず、push もしません。タグは保守担当者が GitHub Releases の下書きを公開したときにできます。
 - リリースの準備を頼まれたら、`package.json` の版、`npm run update-version` の順に進めます。正式版のときだけ、続けて `npm run changelog` を実行します。`chore(release): version X.Y.Z` で1つのコミットにします。
 
+## 設計判断の記録（ADR）
+
+書き方と項目の意味の正本は `docs/adr/README.md` です。ここには要点だけを挙げます。
+
+- ADR は `docs/adr/` だけに置きます。新しい ADR は `docs/adr/TEMPLATE.md` から作り、番号は使い直しません。
+- 冒頭の front matter で、採用の状態（`status`）と実装の確認状況（`implementation_status`）を分けて書きます。`accepted` だけを根拠に実装済みとはみなしません。裏付けのない値は作らず、確かめていなければ `unknown` にします。
+- 古い ADR を読むときは、先に `era`（書いた時点の前提）と `validity`（いまも有効か、実装の方式だけが変わったか、後続の ADR で置き換えられたか）を見ます。本文は書いた時点の記録なので書き換えず、変わったことは front matter、注記、後続の ADR で示します。
+- ADR を足したり front matter を変えたりしたら、`python tools/adr_catalog.py --write` で索引の表を作り直します。`check` の `tooling` が `--check` で、番号の重複、項目と値、裏付けのパス、リンク、表の古さを確かめます。
+- ファイルの移動やメタデータだけの変更と、判断の内容を変える変更は、別のプルリクエストに分けます。
+
+## スキル
+
+作業の手順をまとめたスキルを `skills/` に置いています。`.claude/skills` と `.agents/skills` は `skills/` へのシンボリックリンクです。作業が当てはまるときは、スキルを読んでから進めます。
+
+- `adr`: 設計判断を ADR に書く、読む、状態を直す、置き換えるとき
+- `pull-request`: ブランチを切ってから develop にマージするまで。PR の本文、マージの条件、積み重ねた PR、main から切るホットフィックスを含む
+- `release`: 版上げ、リリースノート、下書き、公開、公開後の確認、main を develop へ戻す統合
+
+シンボリックリンクを作らない設定の clone（Windows の Git の既定）では、リンクが中身 1 行のファイルになります。そのときは `skills/<名前>/SKILL.md` を直接読みます。スキルとほかの文書が食い違うときは、どちらかを機械的に正しいと決めず、確かめてから同じ PR で直します。
+
 ## 既存の重要な境界
 
 詳しい内容は、それぞれの正本にあります。ここには要点だけを挙げます。
 
 - **外部への操作**: 上流 VRCT への連絡、取り込みの打診、PR の作成（draft を含む）は、明示の指示がある場合だけ行います（`publication-and-upstream.md`）。push、PR、Release の公開、Hugging Face へのアップロードは、依頼の範囲に含まれているときに行います。Release は保守担当者が確認してから公開します（`release-candidates.md`）。
-- **配布物とライセンス**: 上流のチャット吹き出し検出モデルを含む OCR の重み、許諾のないモデル、Mia2026 の音声を配布物に入れません。依存や同梱物を変えたら、`NOTICE.md` とライセンス台帳を確認します。ダウンロードできるモデルは、版、サイズ、SHA-256、ライセンスを固定してカタログ（`src-python/models/model_downloads/catalog.py`）に載せます。アプリが読むのは Rust の写し（`native/ops/src/downloads/catalog.rs`、OCR は `native/ocr-runtime/src/models.rs`）なので、同じ変更をそちらにも入れます（食い違いは `tests/voice/test_native_ops_reference.py` などが検出します）。非商用など制限のあるライセンスのモデルは既定にしません。
+- **配布物とライセンス**: 上流のチャット吹き出し検出モデルを含む OCR の重み、許諾のないモデル、Mia2026 の音声を配布物に入れません。依存や同梱物を変えたら、`NOTICE.md` とライセンス台帳を確認します。ダウンロードできるモデルは、版、サイズ、SHA-256、ライセンスを固定してカタログ（`native/ops/src/downloads/catalog.rs`）に載せます。OCR のモデルはチャット読み取りの表（`native/ocr-runtime/src/models.rs`）にも同じ項目を入れます（食い違いは `native/core/tests/downloads.rs` が検出します）。非商用など制限のあるライセンスのモデルは既定にしません。
 - **互換性**: 内部識別子の `VRCT`、設定の形式、IPC と OSC の契約は、名前を変えるという理由だけで一括置換しません。保存先やアプリ ID などの識別子を変えるときは、移行の処理も用意します（`project-rename.md`）。
 - **ユーザーの操作と同意**: モデルの取得は、ライセンスとサイズを示して同意を得てから行います。UI の変更によって、マイクの有効化、モデルの取得、メッセージの送信、音声経路の変更が勝手に起きないようにします。
-- **音声 AI のランタイム**: 新しい音声 AI モデルは、まず speech.cpp への上流の貢献で入れます。アプリ固有の推論エンジンや独立したランタイムは、既存の基盤で実現できない技術的な理由と、性能・保守・配布のコストでの明確な優位性の両方を確かめ、例外ごとの ADR で承認したときだけ足します。分担は、音声 AI の推論（ASR、TTS、VAD、話者、音声強調）が speech.cpp、OCR とローカル翻訳が ONNX Runtime、音声の入出力と AI でない DSP が Rust と OS の機能、字幕や OSC など固有の制御がアプリです。RVC は管理対象の例外として ONNX Runtime の実装を続け、移行は義務にしません。手順、非機能要件、検証は ADR-012（`docs/voice-stack/adr-012-audio-ai-runtime-consolidation.md`）にあります。
+- **音声 AI のランタイム**: 新しい音声 AI モデルは、まず speech.cpp への上流の貢献で入れます。アプリ固有の推論エンジンや独立したランタイムは、既存の基盤で実現できない技術的な理由と、性能・保守・配布のコストでの明確な優位性の両方を確かめ、例外ごとの ADR で承認したときだけ足します。分担は、音声 AI の推論（ASR、TTS、VAD、話者、音声強調）が speech.cpp、OCR とローカル翻訳が ONNX Runtime、音声の入出力と AI でない DSP が Rust と OS の機能、字幕や OSC など固有の制御がアプリです。RVC は管理対象の例外として ONNX Runtime の実装を続け、移行は義務にしません。手順、非機能要件、検証は ADR-012（`docs/adr/adr-012-audio-ai-runtime-consolidation.md`）にあります。
 - **停止と独立した制御**: 停止・ミュート、TTS と RVC の独立したスイッチ、Quick Chat、VR パネル、ホットキーの振る舞いを保ちます（`PRODUCT.md`、`DESIGN.md`）。
 - **UI**: React 18、SCSS Modules、Jotai、i18next の構成を保ちます。TypeScript、vanilla-extract、Radix UI への段階移行は ADR-010 のとおりで、混在期の規約は `docs/development.md` にあります。フレームワークの移行や、リモートのフォントは入れません。表示する文言は `locales/` に置き、`en.yml` と `ja.yml` は必ず更新します。キーの不足、補間変数の食い違い、UI への直書きは `check` に含まれる文言の検査（`tools/i18n_gate/check.mjs`）が止めます。わざと訳さない文字列には理由を書きます（`docs/development.md` の「UIの文言と翻訳の検査」）。キーボード操作、フォーカスの表示、長い日本語の表示、狭いウィンドウも確認の対象です。Windows の WebView2 と Linux の WebKitGTK の両方で動くことを前提にします。Baseline Widely available の機能はそのまま使い、それより新しい機能は機能検出と代わりの表示を付けたときだけ使います。
 - **並行作業**: 別のセッションと担当を分けているときは、合意した範囲の外のファイルを編集・コミットしません。

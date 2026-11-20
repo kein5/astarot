@@ -19,17 +19,20 @@ mise run check               # 軽量チェック
 | --- | --- |
 | `doctor` | `python tools/dev.py doctor` |
 | `check`、`check:all` | `python tools/dev.py check`（`quick`）、`--scope all` |
-| `check:voice`、`check:ui`、`check:backend`、`check:rust` | `python tools/dev.py check --scope <名前>` |
+| `check:voice`、`check:ui`、`check:rust` | `python tools/dev.py check --scope <名前>` |
 | `check:commits` | `python tools/dev.py check --scope commits --base origin/develop` |
-| `setup:headless`、`setup:ui`、`setup:browser`、`setup:backend`、`setup:rust`、`setup:resources` | `python tools/dev.py setup --scope <名前>` |
-| `setup:app` | Pythonバックエンド（`src-python/`）の環境を `uv.lock` に合わせる。Windowsは `bat\install.bat`（`.venv` と `.venv_cuda`）、Linuxは `.venv_linux`。配布物には使わない |
+| `setup:headless`、`setup:ui`、`setup:browser`、`setup:rust`、`setup:resources` | `python tools/dev.py setup --scope <名前>` |
 | `spec` | 機能仕様書の一覧を作り直す（`python tools/spec_catalog.py --write`） |
+| `adr` | ADR の索引の表を作り直す（`python tools/adr_catalog.py --write`） |
 | `build:voice-gate`、`build:rvc-worker` | 音声の補助プログラムとRVCのワーカーを `build/` にビルドする |
 | `build:windows`、`build:linux` | `npm run build`、`python tools/build_linux.py` |
 | `changelog:print` | 次のリリースの変更を、書き込まずに表示する |
+| `changelog:notes` | 正式版のリリースノートの雛形を `docs/release-notes/<版>.md` に作る。既にあれば上書きしない（[リリースノートの書式](release-notes/README.md#雛形から書き始める)） |
 | `dev:web` | Web UIの開発サーバー（Vite）。検証には含めない |
 
 機能仕様書の一覧（`docs/spec/reference/` のエンドポイント、エラーコード、設定キー）はコードから生成します。エンドポイント、エラーコード、設定キーを変えたら `mise run spec` で作り直します。`check` はこの一覧が最新かどうかも確かめます。仕様書の入口は [docs/spec/README.md](spec/README.md) です。
+
+設計判断の記録（ADR）の索引の表（[docs/adr/README.md](adr/README.md)）は、各 ADR の冒頭の front matter から生成します。ADR を足したり front matter を変えたりしたら `mise run adr` で作り直します。`check` は `tests/devtools/test_adr_catalog.py` で、番号の重複、項目と値、裏付けのパス、リンク、表の古さを確かめます。
 
 npmのスクリプト（`npm run doctor`、`npm run check` など）も当面は残します。中身は同じ `tools/dev.py` ですが、miseを通らないので、PATHにあるツールの版で動きます。アプリの起動（`npm run dev-fast` など）とWindowsの配布物のビルド（`npm run release`）は、今までどおりnpmのスクリプトです。miseを有効にしたシェル（`mise activate`）から呼ぶと、固定した版で動きます。
 
@@ -41,17 +44,17 @@ miseを[公式の手順](https://mise.jdx.dev/getting-started.html)で入れ、�
 | --- | --- | --- |
 | Node.js | 26.13.1 | npmはNodeに付属するもの |
 | Rust | 1.100.0 | rustupを通して入れる（profileはminimal、clippyとrustfmtを追加）。`rust-toolchain.toml` は置かない |
-| Python | 3.11.18 | `pyproject.toml` の `requires-python`（3.11）に合わせる。ビルドの道具と試験に使う。0.5.0から配布物にPythonは入らない |
+| Python | 3.14.10 | ビルドの道具と試験に使う。`pyproject.toml` の `requires-python` には同じマイナー版（3.14）を書く。0.5.0から配布物にPythonは入らない |
 | uv | 0.13.5 | |
 | Cocogitto | 7.0.0 | コマンド名は `cog` |
 
 版の正本は `mise.toml` です。上の表は説明のために写したもので、食い違ったら `mise.toml` が正しいです。`mise.lock` はRust以外のツールの取得元のURLとSHA-256を、LinuxとWindowsのそれぞれについて記録しています。版を変えるときは `mise.toml` を書き換え、`mise lock --platform linux-x64,windows-x64` で `mise.lock` を作り直します。CIはこの2つのファイルから同じ版を入れます（後述）。`tests/devtools/test_toolchain_pins.py` は、版が完全に固定されていること、`mise.lock` と一致すること、ワークフローがmiseの外で版を決めていないことを確かめます。
 
-uvはmise以外で入れたPython（uvが自分で取得したものを含む）を先に見つけることがあります。環境を作るタスク（`setup:*`）は `UV_PYTHON_PREFERENCE=only-system` を付けて、PATHにあるmiseのPythonを使わせます。`mise.toml` の `[env]` にはuvの設定を置いていません。`[env]` の値はmiseが起動するすべてのプログラムに引き継がれるため、環境を作るタスクだけが自分で設定します。
+uvはmise以外で入れたPython（uvが自分で取得したものを含む）を先に見つけることがあります。環境を作るタスク（`setup:*`）は `UV_PYTHON_PREFERENCE=only-system` を付けて、PATHにあるmiseのPythonを使わせます。uvのコマンドにはPythonの版を書きません（`--python 3.14` などを付けない）。uvは `pyproject.toml` の `requires-python` に合うPythonをPATHから選び、`tools/dev.py` は `mise.toml` の版を読みます。Pythonの版を上げるときに書き換えるのは、`mise.toml`、`mise.lock`、`pyproject.toml` の `requires-python`、`uv.lock` です。`tests/devtools/test_toolchain_pins.py` は、CI、タスク、bat、`tools/dev.py` がuvに版を渡していないことも確かめます。`mise.toml` の `[env]` にはuvの設定を置いていません。`[env]` の値はmiseが起動するすべてのプログラムに引き継がれるため、環境を作るタスクだけが自分で設定します。
 
-`[env]` に置いているのは `ORT_DISABLE_TELEMETRY=1` だけです。`uv.lock` のONNX Runtime（Python版の1.32）は、何も設定しないとセッションを作った時点で `~/.cache/Microsoft/DeveloperTools/.onnxruntime/` に `deviceid` とイベントのデータベースを作り、Microsoftへ利用状況を送ろうとします。この値はすべてのプログラムに引き継がれてかまわないため、`[env]` に置きます。`tools/dev.py` の子プロセス、`src-python/conftest.py`、翻訳モデルの書き出し（`tools/translation_onnx/`）とHuBERTの書き出し（`native/rvc-runtime/reference/export_hubert_onnx.py`）も、自分で同じ値を設定します。miseを通さずにほかのスクリプトでONNX Runtimeを使うときは、先に `ORT_DISABLE_TELEMETRY=1` を設定してください。アプリに同梱するONNX Runtimeは、アプリが起動時に自分で止めます（`docs/spec/external-interfaces.md`）。
+`[env]` に置いているのは `ORT_DISABLE_TELEMETRY=1` だけです。ONNX Runtimeは、何も設定しないとセッションを作った時点で `~/.cache/Microsoft/DeveloperTools/.onnxruntime/` に `deviceid` とイベントのデータベースを作り、Microsoftへ利用状況を送ろうとします。この値はすべてのプログラムに引き継がれてかまわないため、`[env]` に置きます。`tools/dev.py` の子プロセス、翻訳モデルの書き出し（`tools/translation_onnx/`）とHuBERTの書き出し（`native/rvc-runtime/reference/export_hubert_onnx.py`）も、自分で同じ値を設定します。miseを通さずにほかのスクリプトでONNX Runtimeを使うときは、先に `ORT_DISABLE_TELEMETRY=1` を設定してください。アプリに同梱するONNX Runtimeは、アプリが起動時に自分で止めます（`docs/spec/external-interfaces.md`）。
 
-`setup` はOSのパッケージマネージャーやグローバルインストーラーを実行しません。Python本体の自動取得も無効にしているため、miseを使わない場合は、Python 3.11を先に用意します。miseを使わない場合の各ツールの公式手順は次のとおりです。
+`setup` はOSのパッケージマネージャーやグローバルインストーラーを実行しません。Python本体の自動取得も無効にしているため、miseを使わない場合は、`mise.toml` と同じマイナー版のPython（3.14）を先に用意します。miseを使わない場合の各ツールの公式手順は次のとおりです。
 
 | ツール | 公式手順 |
 | --- | --- |
@@ -74,15 +77,14 @@ Linuxのトレイ用ライブラリは `ayatana-appindicator3-0.1` または `ap
 | `headless` | `uv.lock` の `voice-test` グループだけを `build/dev/headless-venv` に同期 |
 | `ui` | `npm ci --ignore-scripts` でルートの `node_modules` を準備 |
 | `browser` | `uv.lock` の `voice-ui-test` グループを `build/dev/browser-venv` に同期。既存venvへの追加も可 |
-| `backend` | `uv.lock` の本体・`dev`・`linux-build` を `build/dev/backend-venv` に同期（Linux） |
-| `rust` | `cargo fetch --locked` でCargo.lockに従う依存を取得（`src-tauri` と、`tools/dev.py` の `NATIVE_CRATES` にある `native/` の11クレート。下の `check --scope rust` と同じ一覧） |
+| `rust` | `cargo fetch --locked` でCargo.lockに従う依存を取得（`src-tauri` と、`tools/dev.py` の `NATIVE_CRATES` にある `native/` のクレート。下の `check --scope rust` と同じ一覧） |
 | `resources` | `tools/app_resources.py stage --allow-missing` で `src-tauri/bin/_internal` を `build/` にあるもので作り直す |
 
 専用venvには所有マーカーを保存します。同じ場所にマーカーのない既存ディレクトリやシンボリックリンクがある場合は停止し、削除しません。Pythonのスコープはいずれも、`tools/check_python_lock.py`でロック全体のアーカイブのSHA-256とGit依存の完全なcommit SHAを検査します。続いて、`uv.lock` からハッシュと間接依存を含む一覧を `uv export` で `build/dev/<scope>-requirements.txt` に書き出し、専用venvへ `uv pip sync` で同期します。uvは一覧にあるハッシュを照合し、不一致なら停止します。Git依存にはアーカイブのハッシュを要求せず、固定commitを使います。`--python` で既存venvを指定した場合（`browser` のみ）は `uv pip install -r` で追加し、ほかのパッケージは削除しません。[uvの環境指定](https://docs.astral.sh/uv/pip/environments/)と[依存の固定・同期](https://docs.astral.sh/uv/pip/compile/)を参照してください。
 
 `setup --scope ui` は既存の `node_modules` をnpmの仕様どおり作り直します。package.jsonとpackage-lock.jsonに不一致があれば失敗し、lockを更新しません。[npm ciの仕様](https://docs.npmjs.com/cli/v11/commands/npm-ci)を参照してください。
 
-Windowsでも `headless`、`ui`、`browser`、`rust`、`resources` は同じ入口です。backend自動準備は現在Linuxのlockを使うため、Windowsでは診断を出して終了します。WindowsでPythonバックエンド（`src-python/`）とその試験の依存を入れるのは `mise run setup:app`（`npm run setup-python` と同じbat）です。アプリの起動とビルドには使いません。このbatは `uv sync --frozen` で `.venv` と `.venv_cuda` を `uv.lock` に合わせるため、lockにないパッケージは削除されます。既存環境を保持したい場合には実行せず、利用できる環境を `--python` で検証に渡してください。
+Windowsでも `headless`、`ui`、`browser`、`rust`、`resources` は同じ入口です。Pythonのバックエンドと、その環境を作る手順（`.venv`、`.venv_cuda`、`.venv_linux` を作っていた `mise run setup:app` と `bat\install.bat`）は0.6.0で消しました（#285）。`uv.lock` には道具と試験の依存だけが残っています。
 
 ### Tauriが読む資源を用意する
 
@@ -97,17 +99,17 @@ python tools/dev.py check --scope rust
 
 `setup --scope resources` はフォルダを作り直し、`build/` にあるspeech.cpp、RVCのworker、Rustのライセンス文と、リポジトリの `LICENSE`、`NOTICE.md` を写します。足りないものは表示しますが、失敗にはしません。開発用のビルド（debug）は、speech.cppなどをチェックアウトの `build/` から直接読みます（`native/core/src/resources.rs`）。配布物の中身をそろえるときは `npm run build-resources`（Windows）を使います。
 
-0.4までの開発用sidecar（`utils/dev_sidecar`、`setup --scope sidecar`、`npm run dev-fast` のPython起動）は、Pythonの同梱をやめたときに削除しました。Pythonバックエンドを動かして比べたいときは、0.4.xの配布物か、そのタグのcheckoutを使います。
+0.4までの開発用sidecar（`utils/dev_sidecar`、`setup --scope sidecar`、`npm run dev-fast` のPython起動）は、Pythonの同梱をやめたときに削除しました。Pythonのバックエンド（`src-python/`）は0.6.0で消しました。その振る舞いを確かめたいときは、0.5.xのタグのcheckoutか、0.4.xの配布物を使います。
 
 ### 既存Linux環境へUI試験の依存を追加する
 
 ```sh
-python tools/dev.py setup --scope browser --python .venv_linux/bin/python --dry-run
-python tools/dev.py setup --scope browser --python .venv_linux/bin/python
-python tools/dev.py doctor --scope browser --python .venv_linux/bin/python
+python tools/dev.py setup --scope browser --python path/to/venv/bin/python --dry-run
+python tools/dev.py setup --scope browser --python path/to/venv/bin/python
+python tools/dev.py doctor --scope browser --python path/to/venv/bin/python
 ```
 
-この操作は選んだPython 3.11のvenvに必要なパッケージを追加・更新します。無関係なパッケージをsyncで削除しません。システムPythonは拒否します。Windowsのvenvなら `.venv\Scripts\python.exe` のように実行ファイルを指定します。
+この操作は選んだvenv（`mise.toml` と同じPython 3.14）に必要なパッケージを追加・更新します。無関係なパッケージをsyncで削除しません。システムPythonは拒否します。Windowsのvenvなら `.venv\Scripts\python.exe` のように実行ファイルを指定します。
 
 PlaywrightのPythonパッケージとChromium実行ファイルは別です。`setup --scope browser` はChromiumやOSライブラリを取得しません。既存ブラウザを使う試験には `VRCT_TEST_CHROMIUM` の指定が必要です。ブラウザ試験の実行条件は[モデル取得UIの検証記録](voice-stack/model-downloads.md)を参照してください。通常の `check` は実機・ブラウザ試験の有効化変数を除外するため、専用試験は個別の手順で実行します。Windowsの長時間運転と実マイクの試験は[Windowsの実機試験](voice-stack/windows-field-tests.md)にあります。
 
@@ -118,7 +120,6 @@ python tools/dev.py check --scope tooling
 python tools/dev.py check --scope node
 python tools/dev.py check --scope voice
 python tools/dev.py check --scope ui
-python tools/dev.py check --scope backend --python .venv_linux/bin/python
 python tools/dev.py check --scope rust --dry-run
 ```
 
@@ -126,16 +127,15 @@ python tools/dev.py check --scope rust --dry-run
 | --- | --- |
 | `tooling` | 標準ライブラリのunittestで `tests/devtools` を検証 |
 | `node` | `src-ui` 以下の `.test.js` / `.test.mjs` / `.test.ts` と `tools/i18n_gate` の試験を Vitest で実行（`vitest.config.js`）。`node_modules` の Vitest を Node で直接起動し、取得はしない。未導入なら `setup --scope ui` を案内して止まる。続けて[文言の検査](#uiの文言と翻訳の検査)（`tools/i18n_gate/check.mjs`）を実行する |
-| `lint` | `tools/dev.py` の `LINT_PATHS`（`src-python/` の音声まわり、`tests/voice`、`tests/devtools`、音声・配布・開発の道具）をRuffで検査。自動修正なし。voice CIも同じスコープを実行する |
-| `voice` | `tests/voice/pytest.ini` を使ったモデルなしの契約試験と、`tests/platform`にある単体の試験4件 |
+| `lint` | `tools/dev.py` の `LINT_PATHS`（`tests/voice`、`tests/devtools`、音声・配布・開発の道具）をRuffで検査。自動修正なし。voice CIも同じスコープを実行する |
+| `voice` | `tests/voice/pytest.ini` を使ったモデルなしの契約試験と、`tests/platform`にある単体の試験3件 |
 | `ui` | UIの試験（Vitest）、型チェック（`npm run typecheck`）、`npm run vite-build`。ブラウザの操作は含まない |
-| `backend` | 既存 `pytest.ini` による `src-python/test` と、`tests/platform`の単体の試験1件。runtime依存が必要 |
-| `rust` | `src-tauri` の `cargo check --locked --offline` と、`native/speech-server`、`native/ops`、`native/audio-routing`、`native/adapters`、`native/translation`、`native/transcription`、`native/openvr-client`、`native/vr-overlay`、`native/voice-conversion`、`native/translate-onnx`、`native/core` の `cargo test --locked --offline`。キャッシュやOS依存（Linuxでは `libpipewire-0.3` の開発ファイルとlibclang。`src-tauri` も中核を通して使う）がなければ失敗 |
+| `rust` | `src-tauri` の `cargo check --locked --offline` と、`native/app-identity`、`native/speech-server`、`native/ops`、`native/audio-routing`、`native/adapters`、`native/translation`、`native/transcription`、`native/openvr-client`、`native/onnx-runtime`、`native/vr-overlay`、`native/voice-conversion`、`native/translate-onnx`、`native/tts`、`native/core` の `cargo test --locked --offline`。キャッシュやOS依存（Linuxでは `libpipewire-0.3` の開発ファイルとlibclang。`src-tauri` も中核を通して使う）がなければ失敗 |
 | `quick` | `tooling`、`node`、`lint`。既定値 |
-| `all` | 上記7対象。時間がかかるため統合時に明示実行 |
+| `all` | 上記6対象。時間がかかるため統合時に明示実行 |
 | `commits` | `--base` からHEADまでの新規コミット形式を検証 |
 
-Pythonは専用venvを優先し、次に既存 `.venv_linux`、`.venv` を探します。`--python` があればその実行ファイルを使います。backend専用venvがない状態で `all` を実行しても、依存の不足を黙って省略しません。`doctor --scope all` で先に確認できます。
+Pythonは専用venvを優先し、次に既存の `.venv` を探します。`--python` があればその実行ファイルを使います。専用venvがない状態で `all` を実行しても、依存の不足を黙って省略しません。`doctor --scope all` で先に確認できます。
 
 `doctor` と `check` は依存パッケージ・モデルを取得せず、アプリ、マイク、発声、GPU推論を起動しません。子プロセスでは `VRCT_` で始まる環境変数、pytest追加引数・外部pluginの自動読込みを除外し、Hugging Faceをofflineにします。これは試験の誤起動を防ぐ設定であり、任意のテストコードを封じるネットワークsandboxではありません。HTTP/UDP契約試験はローカルの一時ポートを使います。通信を禁止するsandboxではその試験が失敗します。
 
@@ -154,10 +154,11 @@ Pythonは専用venvを優先し、次に既存 `.venv_linux`、`.venv` を探し
 
 ## UIのTypeScriptとスタイル（移行中）
 
-[ADR-010](voice-stack/adr-010-frontend-stack.md)により、UIはJavaScriptからTypeScriptへ、SCSS Modulesからvanilla-extractへ段階的に移ります。移行が終わるまでは両方が混在します。混在期の規約は次のとおりです（第一段で定めた案で、レビューで確定します）。
+[ADR-010](adr/adr-010-frontend-stack.md)により、UIはJavaScriptからTypeScriptへ、SCSS Modulesからvanilla-extractへ段階的に移ります。移行が終わるまでは両方が混在します。混在期の規約は次のとおりです（第一段で定めた案で、レビューで確定します）。
 
 - 新しく書くロジックとビューはTypeScript（`.ts`、JSXを含むものは `.tsx`）で書きます。新しいスタイルはvanilla-extract（`.css.ts`）で書きます。
 - 型チェックは `npm run typecheck` です。`check --scope ui` も実行し、CIでも動きます。TypeScriptのファイルは `strict` で検査します。JavaScriptのファイルは検査せず、型を推論して読むだけです。
+- 型チェックは2つの設定で走ります。アプリのソースは `tsconfig.json`、試験（`*.test.ts`）と試験の基盤（`src-ui/logics/test/`）は `tsconfig.test.json` です。試験と基盤はNodeで動くので、`tsconfig.test.json` だけがNodeの型（`@types/node`）を読みます。アプリのソースがNodeのAPIをうっかり使うと、`tsconfig.json` の検査で止まります。
 - `any`、`as unknown as`、`@ts-ignore`、`@ts-expect-error` は使いません。バックエンドから届く値は `unknown` として受けて絞り込みます。既存の実行時の形の検査も残します。`check --scope tooling` の `test_typescript_strictness.py` がこれらを数えます。
 - 移す順序と残りの範囲は [TypeScript 移行計画](typescript-migration.md) にあります。
 - 一部のUIの試験は、TypeScriptのソースを `data:` URL のモジュール経由でNodeにそのまま読ませます（Nodeの型の除去を使います）。このため、消去できる構文だけを使います（`enum`、`namespace`、コンストラクター引数のプロパティは使いません）。型だけのimportは `import type` にします。相対importは `./name.ts` のように拡張子まで書きます。
@@ -168,19 +169,53 @@ UIの試験は Vitest で動きます。設定は `vitest.config.js` で、ア�
 
 ```sh
 npm test                 # 全件を1回実行する（check --scope node と同じ）
-npx vitest run src-ui/logics/common/meterValue.test.js   # ファイルを絞る
+npx vitest run src-ui/logics/common/meterValue.test.ts   # ファイルを絞る
 npm run test:watch       # 変更を監視して実行する
 npm run test:coverage    # カバレッジ（build/coverage/ui に HTML と json-summary）
 ```
 
 - アサーションは `node:assert/strict` を使います。`test` と `vi` は `vitest` から import します。
-- 後片付けは `context.onTestFinished(fn)` で登録します。`src-ui/logics/test/vitestSetup.js` が、node:test の `after` と同じく登録した順に呼びます（Vitest の既定は逆順）。
+- 後片付けは `context.onTestFinished(fn)` で登録します。`src-ui/logics/test/vitestSetup.ts` が、node:test の `after` と同じく登録した順に呼びます（Vitest の既定は逆順）。
 - 時計の偽装は `vi.useFakeTimers({ toFake: [...] })` と `vi.advanceTimersByTime(ms)` です。テストが終わると実時間に戻ります。`vi.spyOn` は次のテストの前に元に戻ります（`restoreMocks`）。
-- `hookHarness.js` の `loadModule` で読むソースは、Babel で変換してから評価します。Vite を通らないため、カバレッジでは実行されていても0%と出ます。カバレッジの数字は、この読み込み方をしていないファイルだけを比べてください。
-- `data:` URL でNodeに直接読ませたモジュールと、テストファイルが import したモジュールは別の実体になります。シングルトンを共有するときは、テストの側も `data:` URL 経由で読みます（`useStdoutToPython.test.js` の `nativeImport`）。
+- `hookHarness.ts` の `loadModule` で読むソースは、Babel で変換してから評価します。Vite を通らないため、カバレッジでは実行されていても0%と出ます。カバレッジの数字は、この読み込み方をしていないファイルだけを比べてください。
+- `data:` URL でNodeに直接読ませたモジュールと、テストファイルが import したモジュールは別の実体になります。シングルトンを共有するときは、テストの側も `data:` URL 経由で読みます（`useStdoutToPython.test.ts` の `nativeImport`）。
 - 既存の `.js` を `.ts` に移すときは、同じコミットで参照をすべて書き換えます。ビューのimport、試験の読み込み、Pythonの試験やツールが指すパスが対象です。
-- デザイントークンの値は `src-ui/views/app/_index_css/variables.css` が正本です。vanilla-extractからは `src-ui/views/theme/vars.css.ts` の `vars` で同じ変数を参照します。トークンを足したら両方に書きます（`vars.test.js` が食い違いを検出します）。
-- Radix UIは振る舞いとアクセシビリティに使い、見た目はvanilla-extractで付けます。Radixの部品を足すときは、実行時に `<style>` 要素を差し込むかどうかを確かめます。CSPは差し込まれるスタイルをハッシュで許可していて、`contentSecurityPolicy.test.js` がその数を数えています。
+- デザイントークンの値は `src-ui/views/app/_index_css/variables.css` が正本です。vanilla-extractからは `src-ui/views/theme/vars.css.ts` の `vars` で同じ変数を参照します。トークンを足したら両方に書きます（`vars.test.ts` が食い違いを検出します）。
+- Radix UIは振る舞いとアクセシビリティに使い、見た目はvanilla-extractで付けます。Radixの部品を足すときは、実行時に `<style>` 要素を差し込むかどうかを確かめます。CSPは差し込まれるスタイルをハッシュで許可していて、`contentSecurityPolicy.test.ts` がその数を数えています。
+
+### UIのミューテーションテスト
+
+ミューテーションテストは、ソースにわざと小さな変更（ミュータント）を入れ、どれかのテストが失敗するかを確かめます。カバレッジは「実行されたか」しか見ませんが、こちらは「値の違いをテストが見ているか」を測ります。道具は [@mizchi/mutator](https://www.npmjs.com/package/@mizchi/mutator)（0.2.0 に固定）です。CIでは回しません。リファクタリングの節目や、対象のモジュールを変えたときに手で回します（[Issue #550](https://github.com/kein5/astarot/issues/550)）。
+
+```sh
+npm run test:mutation                                                  # 対象の全体
+npm run test:mutation -- --include src-ui/logics/flow/flowGraph.ts    # ファイルを絞る
+npm run test:mutation -- --reporter text --reporter json               # 全件を .mutator/report/mutation.json にも書く
+npm run test:mutation -- --reporter agent > build/mutants.json         # 未検出の一覧（キー、場所、覆うテスト）
+npx mutator accept <キー> --reason "<等価と判断した理由>"               # 等価なミュータントを記録する
+```
+
+対象は `mutator.config.mjs` に書いてあります。テストが import する純粋なロジック（`src-ui/logics` の `.ts` と `views/vr/vrPanelHover.ts`）です。mutator は Vite の変換の中で変異を入れるため、Vite を通らない読み込み方のファイルは対象にできません。`loadModule`（`hookHarness.ts`）や `loadBridgeRoutes`（`bridgeHarness.ts`）で読むフックと橋渡し、文字列として読むファイルは、理由を添えて `exclude` に入れてあります。テストがそのファイルを import するように変えたら、`exclude` から外してください。
+
+結果の読み方:
+
+| 状態 | 意味 | 扱い |
+|---|---|---|
+| Killed / Timeout | どれかのテストが失敗した、または止まった | 検出 |
+| Survived | テストは実行したが、どれも失敗しなかった。`not infected` は、元と変異で値が変わる入力をどのテストも与えていない | 未検出 |
+| NoCoverage | どのテストもその行を実行しない | 未検出 |
+| CompileError | 型が合わないので実行しない（`tsc` で判定） | 分母に入れない |
+| Ignored | ログだけの処理（`console.*` など）か、`mutator.accepted.json` に記録した等価なもの | 分母に入れない |
+
+スコアは「検出 ÷（検出＋未検出）」です。
+
+- 未検出は1件ずつコードを読み、テストの不足か、どの入力でも結果が変わらない等価なミュータントかを判断します。等価なら `npx mutator accept` で理由と一緒に記録し、`mutator.accepted.json` をコミットします。記録した行が変わると、次の実行で「古い」と報告されます。
+- 変異の種類ごとの除外（`excludedMutators`）はしていません。文字列の置き換え（`StringLiteral`）は等価になりやすい一方、表のエンドポイント名やノードのIDなど、本物の穴も多く見つかったためです。
+- テストからは実行されていても、mutator には見えない経路があります。`data:` URL でNodeに直接読ませるモジュール（`useStdoutToPython.test.ts`）と、`loadModule` に差し替え品を渡すテストです。未検出が多いファイルは、等価か判断する前に、そのファイルを使うテストの読み込み方を確かめます。
+- Vitest 5 は変換したモジュールを `node_modules/.vitest-cache` に残します（`fsModuleCache`、既定で有効）。mutator はこのキャッシュと自分の計装を区別しません。そのため、対象を変えて回すと計装のないモジュールが読まれ、エラーなしで NoCoverage ばかりになり、スコアが0%近くまで落ちます。`npm run test:mutation` は `vitest.mutator.config.js`（このキャッシュを切った設定）を使います。`npx mutator --config vitest.config.js` のように、ほかの設定で回さないでください。
+- 結果のキャッシュは `.mutator/` にあり（Gitの対象外）、次の実行では関数とテストが変わっていないものを再利用します。0.2.0 は最後の実行の結果だけを持つので、`--include` で絞って回した後の全体の実行は、ほぼ全件を回し直します。`.mutator/` を共有するので、同じ作業ツリーで2つ同時に回さないでください。
+- 全体の実行には数分かかります。結果を報告するときは、対象の範囲と計測した条件（版、並列数、機材）を添え、スコアを品質の保証として書かないでください。
+- 0.2.0 には、Windows でパスの区切りが合わず計装されない問題が報告されています（Issue #550）。手順は Linux で確かめたものです。
 
 ## UIの文言と翻訳の検査
 
@@ -216,15 +251,7 @@ node tools/i18n_gate/check.mjs --update-baseline  # 直書きを減らしたあ�
 
 0.5.0からVRのオーバーレイはRustの中核（`native/vr-overlay`、`native/openvr-client`）が扱います。中核の試験は偽のSteamVR（`native/vr-overlay` の `runtime::fake::FakeVr`）を使います。コントローラの姿勢とボタンを持ち、置いたオーバーレイの位置からレーザーの当たりを答えます。試験は `native/vr-overlay/tests/interaction.rs` と `native/core/tests/vr_overlay.rs` で、`check --scope rust` に含まれます。詳しくは[クレートのREADME](../native/vr-overlay/README.md)にあります。
 
-以下のPythonの偽物は、`src-python/` のPythonバックエンドとその試験のためのものです。
-
-`src-python/test/fake_openvr.py` は、SteamVRの代わりになる偽のOpenVRです。pyopenvrの定数と構造体は本物を使い、`openvr.init`、`IVRSystem`、`IVROverlay` など、SteamVRにつながる入口だけを差し替えます。製品のコードと設定は変えません。頭と両手の姿勢、ボタン、オーバーレイの表示・位置・画像、SteamVRの終了（`VREvent_Quit`）を扱えます。
-
-試験では `with FakeOpenVR() as vr:` の中でオーバーレイを動かし、`vr.overlay_by_key("VRCT0")` などで結果を確かめます。本物にはない検査として、`shutdown` の後に古いインターフェースを使うと `vr.misuse` に、消さずに残したオーバーレイを `vr.leaked` に記録します。呼び出しの形が本物とずれていないかは `test_fake_openvr.py` が確かめます。使用例は `test_overlay_fake_vr.py` にあります。
-
-`tools/run_with_fake_vr.py` は、`tools/fake_vr_site` を `PYTHONPATH` に入れ、Pythonの `sitecustomize` でこの偽物を差し込んでからコマンドを実行します。差し込まれるのはPythonのバックエンド（`src-python/mainloop.py`）だけです。0.5.0のアプリはPythonのバックエンドを起動しないので、`python tools/run_with_fake_vr.py --out build/fake-vr -- npx tauri dev` のようにアプリを起動しても、アプリのVRは偽物につながりません。アプリ全体を偽のSteamVRで動かす手順は、今のところありません。
-
-`--out` には、ヘッドセットに出るはずの画像（オーバーレイごとのPNGと、VR画面のテクスチャ全体）と、オーバーレイの状態の `state.json` を1秒ごとに書き出します。`control.json` を書き換えると、コントローラの向きやボタンを操作できます。書き方は `tools/fake_vr_site/fake_vr_recorder.py` の先頭にあります。ミラー画面（OCRのVRの撮影）は扱いません。実機のSteamVRでの見え方や性能の確認の代わりにはなりません。
+Pythonのバックエンドの偽のSteamVR（`src-python/test/fake_openvr.py`）と、それをバックエンドに差し込む `tools/run_with_fake_vr.py` と `tools/fake_vr_site` は、0.6.0でバックエンドと一緒に消しました（#285）。0.5.0のアプリはPythonのバックエンドを起動しないので、これらはアプリのVRにはつながっていませんでした。アプリ全体を偽のSteamVRで動かす手順は、今のところありません。
 
 ## EditorConfigとコミット形式
 

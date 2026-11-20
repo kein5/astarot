@@ -10,6 +10,8 @@ pub mod audio_devices;
 pub mod clipboard;
 mod credentials;
 mod files;
+pub mod gpu_check;
+mod gpu_memory;
 pub mod ocr;
 mod overlay;
 mod languages;
@@ -18,9 +20,13 @@ mod lifecycle;
 pub mod messages;
 mod routes;
 mod settings;
+mod speakers;
 pub mod speech;
 mod telemetry;
+mod terms;
 pub mod translation;
+mod translation_catalog;
+pub mod translation_llama;
 mod transcription;
 mod realtime_asr;
 #[cfg(feature = "onnx-translation")]
@@ -29,6 +35,7 @@ pub mod updates;
 pub mod voice;
 
 pub use adapters::Osc;
+pub use realtime_asr::RealtimeLimits;
 pub use routes::routes;
 
 /// Launches the bundled speech.cpp servers from `folder` (a development checkout's bundle).
@@ -77,6 +84,9 @@ pub const RUN_MAPPING: &[(&str, &str)] = &[
     ("translation_compute_device_fallback", "/run/translation_compute_device_fallback"),
     ("word_filter", "/run/word_filter"),
     ("transcription_recognition_error", "/run/transcription_recognition_error"),
+    // The core's own (#278): the recorder's VAD could not use the speech.cpp server and cuts by
+    // volume (`VAD_UNAVAILABLE`, with the reason).
+    ("vad_unavailable", "/run/vad_unavailable"),
     ("download_progress_ctranslate2_weight", "/run/download_progress_ctranslate2_weight"),
     ("downloaded_ctranslate2_weight", "/run/downloaded_ctranslate2_weight"),
     ("error_ctranslate2_weight", "/run/error_ctranslate2_weight"),
@@ -165,7 +175,7 @@ pub struct Services {
     pub model_target_idle: Arc<dyn Fn(&str) -> bool + Send + Sync>,
     /// The usage-event sender, to VRCT-VOX's own receiver by default.
     pub telemetry: Arc<dyn Fn() -> vrct_ops::telemetry::Telemetry + Send + Sync>,
-    /// `VRCT_TELEMETRY=off` by default.
+    /// `ASTAROT_TELEMETRY=off` or `VRCT_TELEMETRY=off` by default.
     pub telemetry_forced_off: Arc<dyn Fn() -> bool + Send + Sync>,
     /// Opens the OSC link to VRChat for an address and a port ([`adapters::open_osc`]).
     pub osc: adapters::OpenOsc,
@@ -179,8 +189,13 @@ pub struct Services {
     /// Only the host running the core as the default backend sets it: while the Python sidecar
     /// is the default, its local translation keeps its weights.
     pub retire_legacy_translation_weights: bool,
-    /// How the translation providers reach the network ([`vrct_translation::http::direct`]).
+    /// How the translation providers reach the network ([`vrct_translation::http::direct`]),
+    /// and speech.cpp's server on this PC is asked for its models.
     pub translation_transport: vrct_translation::http::Transport,
+    /// How the cloud recognition engines reach the network: through the proxy of the
+    /// environment or Windows' Internet Settings ([`vrct_translation::http::system_proxy`],
+    /// decision 15 (4)). Tests keep it on this PC.
+    pub transcription_transport: vrct_translation::http::Transport,
     /// Where the providers with a fixed address are.
     pub translation_endpoints: vrct_translation::providers::Endpoints,
     /// The local translation model ([`translation::default_local_translation`]).
@@ -217,8 +232,9 @@ pub struct Services {
     pub transcription_capture: TranscriptionCapture,
     /// Where the cloud recognition engines are (Groq, OpenAI, Deepgram).
     pub transcription_endpoints: vrct_transcription::providers::Endpoints,
-    /// The VAD engine the recorders use while `*_ENABLE_VAD` is on: none in this build
-    /// ([`vrct_transcription::vad::bundled`], decision 13). Tests give a fake.
+    /// A VAD engine the recorders use while `*_ENABLE_VAD` is on, in place of Silero VAD on the
+    /// speech.cpp server of realtime recognition ([`vrct_transcription::server_vad`], decision
+    /// 13). `None` uses the server. Tests give a fake.
     pub vad: Option<vrct_transcription::vad::Vad>,
     /// Speech output, the monitor, the managed route's gate, direct voice and the RVC worker
     /// with its runtime downloads ([`voice::NativeVoice`]). Tests give fakes.
@@ -230,6 +246,14 @@ pub struct Services {
     ///
     /// [`MemoryStore`]: crate::config::secrets::MemoryStore
     pub secret_store: crate::config::secrets::StoreSource,
+    /// Reads the GPUs' memory for the flow panel ([`crate::gpu_memory`]); tests give a fixed one.
+    pub gpu_memory: crate::gpu_memory::Reader,
+    /// How long realtime recognition waits for speech.cpp and for its previous session; tests
+    /// shorten them.
+    pub realtime_limits: RealtimeLimits,
+    /// How long turning a recorder off waits for an engine request in flight
+    /// ([`vrct_transcription::recorder::STOP_WAIT`], 15 s); tests shorten it.
+    pub recorder_stop_wait: Duration,
 }
 
 impl Default for Services {
@@ -251,6 +275,7 @@ impl Default for Services {
             stop_mic_transcription: Arc::new(|| {}),
             retire_legacy_translation_weights: false,
             translation_transport: vrct_translation::http::direct(),
+            transcription_transport: vrct_translation::http::system_proxy(),
             translation_endpoints: vrct_translation::providers::Endpoints::default(),
             local_translation: Arc::new(translation::default_local_translation),
             transliteration: Arc::new(messages::shipped_readings),
@@ -265,9 +290,12 @@ impl Default for Services {
             software_updates: Arc::new(updates::Disabled),
             transcription_capture: Arc::new(default_transcription_capture),
             transcription_endpoints: vrct_transcription::providers::Endpoints::default(),
-            vad: vrct_transcription::vad::bundled(),
+            vad: None,
             voice: Arc::new(voice::NativeVoice),
             secret_store: Arc::new(crate::config::secrets::default_store),
+            gpu_memory: crate::gpu_memory::native_reader(),
+            realtime_limits: RealtimeLimits::default(),
+            recorder_stop_wait: vrct_transcription::recorder::STOP_WAIT,
         }
     }
 }
@@ -303,15 +331,20 @@ pub struct Core {
     transcription: Arc<transcription::Transcription>,
     /// Speech, direct voice and the voice route, made with the routes ([`voice`]).
     pub(crate) voice: std::sync::OnceLock<Arc<voice::Voice>>,
+    /// The GPU memory readings of the flow panel ([`gpu_memory`]).
+    gpu_memory: gpu_memory::GpuMemory,
+    /// The GPU check the user starts to report how speech.cpp runs here ([`gpu_check`], #288).
+    gpu_check: gpu_check::GpuCheck,
 }
 
 /// The captures of speech recognition for the settings' environment.
 pub type TranscriptionCapture =
     Arc<dyn Fn(&crate::config::Environment) -> Arc<dyn vrct_transcription::capture::CapturePlatform> + Send + Sync>;
 
-/// This computer's devices; on Linux the shipped `vrct-asr-capture` helper reads PipeWire.
-fn default_transcription_capture(env: &crate::config::Environment) -> Arc<dyn vrct_transcription::capture::CapturePlatform> {
-    Arc::new(vrct_transcription::capture::NativeCapture::new(crate::resources::locate(&env.app_dir, "build/vrct-asr-capture")))
+/// This computer's devices: WASAPI on Windows, the PipeWire capture of `vrct-audio-routing` on
+/// Linux (the `vrct-asr-capture` helper is no longer started; decision 2 of #733).
+fn default_transcription_capture(_env: &crate::config::Environment) -> Arc<dyn vrct_transcription::capture::CapturePlatform> {
+    Arc::new(vrct_transcription::capture::NativeCapture::new())
 }
 
 impl Core {
@@ -344,6 +377,8 @@ impl Core {
             ocr: Arc::default(),
             transcription,
             voice: std::sync::OnceLock::new(),
+            gpu_memory: gpu_memory::GpuMemory::default(),
+            gpu_check: gpu_check::GpuCheck::default(),
         })
     }
 
@@ -384,6 +419,12 @@ impl Core {
         self.log.step(text, None);
     }
 
+    /// [`Core::step`] with data on the line (masked as every logged value is). Never text or
+    /// keys of the user.
+    pub(crate) fn step_with(&self, text: &str, data: &Value) {
+        self.log.step(text, Some(data));
+    }
+
     /// Stamps a request before it waits in the queue (generations of the voice features).
     pub fn stamp(&self, endpoint: &str, data: &mut Value) {
         self.stamp_realtime(endpoint, data);
@@ -416,6 +457,7 @@ impl Core {
         }
         *done = true;
         self.step("Shutdown");
+        self.close_gpu_check();
         self.stop_transcription();
         self.close_voice();
         self.close_speech_servers();

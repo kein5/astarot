@@ -1,6 +1,7 @@
 //! Linux: the PipeWire session through its native client API.
 
 pub mod bridge;
+pub mod capture;
 pub mod devices;
 pub mod feed;
 pub mod gate;

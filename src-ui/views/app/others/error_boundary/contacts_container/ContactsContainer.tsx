@@ -1,0 +1,32 @@
+import styles from "./ContactsContainer.module.scss";
+
+export const ContactsContainer = () => {
+    return (
+        <div className={styles.container}>
+            <OpenLinkContainer className={styles.github_issues} href_id="github_issues" text="ASTAROT Issues"/>
+        </div>
+    );
+};
+
+import dev_github_icon from "@images/about_vrct/dev_github_icon.png";
+
+const contacts_links = {
+    github_issues: { img: dev_github_icon, href: "https://github.com/kein5/astarot/issues" },
+} satisfies Record<string, { img: string; href: string }>;
+
+type OpenLinkProps = {
+    className?: string;
+    href_id: keyof typeof contacts_links;
+    text: string;
+};
+
+const OpenLinkContainer = ({className, href_id, text}: OpenLinkProps) => {
+    const href = contacts_links[href_id].href;
+    const img = contacts_links[href_id].img;
+    return (
+        <a className={className} href={href} target="_blank" rel="noreferrer" >
+            <img className={styles.contact_button_icon} src={img} />
+            <p className={styles.contact_button_label}>{text}</p>
+        </a>
+    );
+};

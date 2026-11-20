@@ -1,5 +1,8 @@
 # 計測手順とP0設備
 
+マイクから訳した声までの音声パイプライン全体の段ごとの遅延は、[音声パイプラインの遅延の計測と短縮（2026-11-18）](pipeline-latency-2026-11-18.md)にある。
+遅延のp50とp95をBencherで時系列に追う仕組み（CIで測る中核の時間と、実モデルの値の送り方）は、[音声パイプラインの遅延の継続計測](pipeline-latency-tracking.md)にある。
+
 性能目標は仕様書 §8。Linuxの専用PipeWireグラフでは反復測定済み。
 UI→VRChatの性能ゲートは未判定。
 fakeサーバーのテスト所要時間はTTS推論速度・VRChat遅延とは異なる。
@@ -62,6 +65,8 @@ Windows、物理USB/Bluetooth抜き差し、VRChatの停止残留時間の代わ
 CLIに`--server`を渡すとこの実API障害smokeも反復測定の前に実行する。
 
 ## 反復CLI
+
+以下の`tools/voice_acceptance.py`は、Pythonのバックエンドの経路と読み上げを測る道具だった。2026-11-20にバックエンドと一緒に消した（#285）。この節は0.5までの手順の記録である。中核の読み上げは`native/core/examples/live_speech.rs`、パイプライン全体の遅延は`native/core/examples/pipeline_latency.rs`で測る。
 
 `pipewire`、`wireplumber`（policy profile対応）、`pw-loopback`、`pw-cat`、`pw-dump`、
 `pw-metadata`が必要。GUI、外部モデル、録音保存は不要。出力先は新しいディレクトリを指定する。

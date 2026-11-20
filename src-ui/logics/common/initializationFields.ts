@@ -1,4 +1,4 @@
-// How a setting of SETTINGS_ARRAY (ui_config_setter.js) talks to the backend.
+// How a setting of SETTINGS_ARRAY (ui_config_setter.ts) talks to the backend.
 export type SettingLogicsTemplateId =
     "get_only" | "get_list" | "get_set" | "get_set_delete" | "toggle_enable_disable" | "weight_download_status";
 
@@ -62,14 +62,15 @@ export const createInitializationValidators = (settings: readonly SettingDefinit
         selectable_translation_engines: Array.isArray,
         selectable_language_list: Array.isArray,
         selected_translation_compute_device: record,
-        local_asr_notice: boolean,
         virtual_mic_notice: boolean,
+        first_run_setup: boolean,
         virtual_mic_status: record,
-        old_whisper_weights: record,
         hotkeys: value => record(value) && ["open_quick_chat", "toggle_vrct_visibility", "toggle_translation",
             "toggle_transcription_send", "toggle_transcription_receive",
             "stop_voice", "toggle_voice_mute", "toggle_tts", "toggle_rvc"].every(key =>
             value[key] === null || (Array.isArray(value[key]) && value[key].every(string))),
+        // The usage presets: ids the UI filters itself (usagePresets.ts, pickedPresets).
+        usage_presets: value => Array.isArray(value) && value.every(string),
         compute_mode: string,
         version: string,
         message_box_ratio: number,

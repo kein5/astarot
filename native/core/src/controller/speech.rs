@@ -6,9 +6,9 @@
 //! the settings never starts a server: only `/run/start_speech_server` (or a feature through
 //! [`SpeechServers::hub`]) does.
 //!
-//! What is not here yet: TTS and realtime ASR, which in Python also start and stop these servers
-//! and react to their end. They hook in through [`SpeechServers::on_end`],
-//! [`SpeechServers::on_listener`], [`SpeechServers::hub`] and [`SpeechServers::start_options`].
+//! TTS and realtime ASR start and stop these servers and react to their end through
+//! [`SpeechServers::on_end`], [`SpeechServers::on_listener`] (TTS: a request to a started
+//! server ends with its run), [`SpeechServers::hub`] and [`SpeechServers::start_options`].
 
 use super::routes::{Builder, OPEN};
 use super::{Core, ok};
@@ -227,6 +227,16 @@ impl SpeechServers {
         json!({ "devices": rows, "cpu_build": survey.cpu_build, "gpu_build": survey.gpu_build })
     }
 
+    /// The builds the GPU check runs and the environment they start with: the checked bundles,
+    /// or a fixed executable (tests) as the one build.
+    pub(crate) fn check_builds(&self) -> (builds::Builds, devices::Environment) {
+        let builds = match &self.launch.binary {
+            Binary::Bundled(_) => self.launch.builds(),
+            Binary::Fixed(binary) => builds::Builds { vulkan: Some(binary.clone()), cpu: None },
+        };
+        (builds, self.environment.clone())
+    }
+
     fn stop(&self, profile: Profile) {
         // Not joined: the answer goes out at once, and the end is told to the listeners now,
         // with the run this Stop ended.
@@ -290,12 +300,14 @@ fn set_settings(core: &Core, data: &Value) -> Reply {
     let Ok(settings) = normalize_settings(data) else {
         return refused(400, codes::SETTINGS_INVALID);
     };
+    let vad = core.vad_available();
     {
         let _settings = core.speech.settings_lock.lock().unwrap();
         if core.config().set(SETTINGS_KEY, settings.to_json()).is_err() {
             return refused(400, codes::SETTINGS_INVALID);
         }
     }
+    core.vad_available_since(vad);
     get_settings(core)
 }
 

@@ -10,6 +10,7 @@
 | `prompt` | チャット型のプロバイダに渡すシステムプロンプトと会話の履歴 | `translation_settings/prompt/*.yml` |
 | `transliteration` | 読みの分け方、何（なに・なん）の規則、カタカナからひらがなとヘボン式 | `transliteration_*.py` |
 | `http` | プロバイダとの通信に使う小さな HTTP/1.1 クライアント | `models/network_policy.py` の一部 |
+| `translategemma` | TranslateGemma の公式のテンプレートの文を組み立て、アプリが起動した llama.cpp のサーバーの `/completion` に送る（ADR-015）。system を送らず、会話の文脈も送らず、温度 0 で生成する。エンジンの一覧のプロバイダではない。契約は `tests/translategemma.rs` と `tests/contract/translategemma.json` | （なし） |
 
 ## プロバイダの形
 
@@ -43,14 +44,19 @@ Google、Bing、Papago の Web 翻訳は、上流のライセンスにより VRC
 
 - キーの確かめ方。DeepL は `" "` を `EN-US` に訳してみます。`:fx` で終わるキーは無料版の API へ送ります。OpenRouter は `/auth/key` を、ほかはモデルの一覧を取得して確かめます。
 - モデルの絞り込み。各クライアントが除いていた語（`whisper`、`embedding` など）と、OpenAI の `gpt-` の条件をそのまま使います。一覧は名前の順に並べます。
-- 待ち時間。キーの確認とモデルの一覧は 3 秒（1 回の確認全体で 8 秒）、クラウドの翻訳は接続 5 秒・読み取り 30 秒、PC の中のサーバは読み取り 120 秒、DeepL は接続 5 秒・読み取り 10 秒です。LM Studio と Ollama が動いているかは 0.2 秒で確かめます。
-- 再試行。クラウドのプロバイダは、通信の失敗と 408、409、429、5xx のときに 1 回だけ再試行します。LM Studio と Ollama は再試行しません。
-- 長さの上限で切れた応答（`finish_reason` が `length`、Gemini の `MAX_TOKENS`）は、訳せなかったものとして空の文字列を返します。
+- 待ち時間。キーの確認とモデルの一覧は 3 秒（1 回の確認全体で 8 秒）、クラウドの翻訳は接続 5 秒・読み取り 30 秒、PC の中のサーバは読み取り 120 秒、DeepL は接続 5 秒・読み取り 10 秒です。Gemini の翻訳は Google の SDK と同じく接続も含めて 30 秒です。LM Studio と Ollama が動いているかは 0.2 秒で確かめます。
+- 再試行。クラウドのプロバイダは通信の失敗と次の状態コードのときに 1 回だけ再試行します。どの状態で再試行するかと、再試行の前にどれだけ待つかは、Python のクライアントが使っていた SDK の規則です（`providers/retry.rs`）。LM Studio と Ollama は再試行しません。
+  - OpenAI の SDK（PLaMo、OpenAI、Groq、OpenRouter、OpenAI 互換。中核で足した Google Cloud Translation と Papago も）: 408、409、429、5xx。応答に `x-should-retry` があればそれに従い、`retry-after` が 120 秒を超えるときは再試行しません。待つのは `retry-after-ms` か `retry-after`（秒か HTTP の日付）の値で、なければ 0.375〜0.5 秒です。
+  - DeepL の SDK: 429、5xx。2 回目は 1 回目を始めてから 1 秒後に始めます。
+  - Google の SDK（Gemini）: 408、429、500、502、503、504。1〜2 秒待ちます。
+- 長さの上限で切れた応答（`finish_reason` が `length`、Gemini の `MAX_TOKENS`、Ollama の `done_reason` が `length`、OpenAI と OpenAI 互換の Responses API の `incomplete_details`）は、訳せなかったものとして空の文字列を返します。
+- 要求の本文。Gemini には LangChain が送っていた生成の設定（`temperature` 0.7、候補 1 つ、空の `safetySettings`）を送ります。DeepL には SDK と同じく `show_billed_characters` を付け、Ollama には空の `options` と `tools` を付けます。
+- Responses API。LangChain は、名前が `gpt-5-pro`、`gpt-5.2-pro`、`gpt-5.4-pro`、`gpt-5.5-pro`、`gpt-5.6-sol` で始まるか `codex` を含むモデルを Chat Completions ではなく Responses API（`POST /responses`）で呼んでいました。OpenAI 形式のチャットのプロバイダは同じ規則で選びます（`chat::responses_only`）。
 - プロンプトの文面、言語の一覧の書き方（Python のリストの表記）、履歴の件数（5 件）と文字数（4000 字）。
 
 ## 公式の翻訳 API（中核で足したもの）
 
-Python にはなかったプロバイダです。どちらも機械翻訳の API で、モデルを選びません。待ち時間と再試行は DeepL と同じです。本物のサービスでは確かめていません。
+Python にはなかったプロバイダです。どちらも機械翻訳の API で、モデルを選びません。待ち時間は DeepL と同じ（接続 5 秒、読み取り 10 秒）で、再試行は OpenAI の SDK の規則に従います（上の「Python と同じにしていること」）。本物のサービスでは確かめていません。
 
 | プロバイダ | 送り方 | キーの確認 | 参照（2026-11-16 に確認） |
 |---|---|---|---|
@@ -73,7 +79,8 @@ LM Studio と Ollama はこの PC か LAN のサーバとして、再試行せ�
 ## Python と違う点
 
 - **プロキシ**。Python はクラウドのプロバイダへの通信で `HTTP(S)_PROXY` を使っていました。このクレートはプロキシを使いません（`native/ops` と同じ）。
-- **SDK の細かな違い**。LangChain や各社の SDK ではなく、各 API を直接呼びます。OpenAI は Chat Completions だけを使い、一部のモデルで SDK が選んでいた Responses API は使いません。
+- **SDK の細かな違い**。LangChain や各社の SDK ではなく各 API を直接呼びます。送る中身と再試行の規則は Python のクライアントと同じにしてあり、契約テスト（下の「試験」）で確かめます。SDK が自分で付けるヘッダー（`User-Agent`、`x-stainless-*` など）は送りません。
+- **この PC と LAN の OpenAI 互換のエンドポイント**。LM Studio と同じ待ち時間で再試行しません（上の「この PC と LAN」）。
 
 ## 読み（transliteration）
 
@@ -99,3 +106,18 @@ cargo test --locked --manifest-path native/translation/Cargo.toml
 `tests/providers.rs` は、ループバックに立てた偽のプロバイダ（機能 `fake-server` の `fake::FakeProviders`）を相手に、各プロバイダの型を直接呼んで、キーの確認、モデルの一覧、翻訳、失敗と再試行、Google Cloud Translation と Papago の要求の形を確かめます。実行時の名前からの呼び出しが型からの呼び出しと同じ要求を送ること、`incomplete_details` を見るのが OpenAI と OpenAI 互換だけであること、モデルのないチャットは何も送らないことも確かめます。外のネットワークには出ません。
 
 `tests/sudachi.rs` は、sudachi.rs の辞書の作成機能で数語の辞書をその場で作り、Sudachi の解析から読みまでを確かめます。ない辞書と壊れた辞書も確かめます。SudachiDict は取得しません。ビルドでは sudachi.rs を GitHub から取得します（C の依存はありません）。
+
+### 契約テスト（Python との同等性）
+
+Python の実装と同じに動くことは、`tests/contract/` の 2 つのファイルで確かめます。どちらも Python の実装から記録したもので、0.6.0 で Python を消したので、このファイルが仕様です。場面を足すときは、記録を手で書きます。
+
+| ファイル | 中身 | Rust の試験 | 記録した Python の試験（0.6.0 で消した） |
+|---|---|---|---|
+| `providers.json` | プロバイダごとの場面（頼む操作と、プロバイダが返す応答）と、そのとき Python のクライアントが送った要求（メソッド、URL、ヘッダー、本文、待ち時間）と返した結果 | `tests/contract.rs` | `src-python/test/test_translation_contract.py` |
+| `transliteration.json` | 文ごとの Sudachi の形態素と読み（マクロンありとなし）、かなごとのヘボン式 | `tests/transliteration_contract.rs` | `src-python/test/test_transliteration_contract.py` |
+
+- プロバイダの契約は通信を差し替えて実際のアドレスのまま記録します。外のネットワークには出ません。キーは作り物です。比べないのは、HTTP のライブラリや SDK が自分で付けるヘッダー（`User-Agent`、`Accept`、`x-stainless-*` など）と、本文のない要求の `Content-Type` だけです。Python の requests には書き込みの待ち時間がないので、その欄も比べません。
+- 応答には `retry-after` などのヘッダーを付けられます。再試行の前の待ちは SDK の規則に乱数が入るので、記録ではなく範囲（`retry_pause`）で書き、1 回目と 2 回目の要求の間の時間を Python と Rust の両方で確かめます。待つ場面があるので、Rust の試験は場面を並べて流します。
+- 中核が意図して Python と違う場面は、`python` の記録を残したまま `rust` に中核の記録を書き、`differences` にその理由と決めた場所を書きます（いまは、この PC と LAN の OpenAI 互換のエンドポイントの待ち時間と再試行だけです）。Google Cloud Translation と Papago は Python になかったので、各社の文書から書いた `expect` と比べます。
+- 読みの契約は記録した形態素を Rust の読みに渡して比べるので、辞書なしで動きます。`VRCT_SUDACHI_DICTIONARY` に SudachiDict の `system.dic`（ファイルに書いた版）を指定すると、sudachi.rs の解析結果も記録と比べます。2026-11-18 に Python の環境の SudachiDict full 20250825 で 170 文すべてが一致しました。
+- 場面を変えたときは、Python の環境で `VRCT_TRANSLATION_CONTRACT_WRITE=1` を付けて 2 つの Python の試験を流すと、記録を書き直します。Python のない環境では場面と記録を手で書きます。

@@ -1,6 +1,6 @@
 {
-  "_comment": "What the Rust core (native/core) has and the Python backend never had. tools/spec_catalog.py appends these to the catalogs it reads from src-python. Error codes must be in the order of native/core/src/errors/table.rs, after Python's.",
-  "sensitive_markers": ["client_id"],
+  "_comment": "What the Rust core (native/core) has and the Python backend never had. tools/spec_catalog.py appends these to the Python backend's rows (spec_python_baseline.json). An endpoint with \"immediate\": true skips the queue (IMMEDIATE_ENDPOINTS in native/core/src/dispatch.rs). Error codes must be in the order of native/core/src/errors/table.rs, after Python's.",
+  "sensitive_markers": ["client_id", "translation_catalog", "vocabulary", "speaker_names"],
   "endpoints": [
     { "endpoint": "/get/data/ollama_url", "handler": "core: OLLAMA_URL", "before_init": true },
     { "endpoint": "/set/data/ollama_url", "handler": "core: set_server_url", "before_init": true },
@@ -15,7 +15,26 @@
     { "endpoint": "/get/data/overlay_font_family", "handler": "core: OVERLAY_FONT_FAMILY", "before_init": true },
     { "endpoint": "/set/data/overlay_font_family", "handler": "core: set_overlay_font_family", "before_init": true },
     { "endpoint": "/get/data/overlay_font_missing_languages", "handler": "core: overlay_font_missing_languages", "before_init": true },
-    { "endpoint": "/get/data/vad_available", "handler": "core: services.vad", "before_init": true }
+    { "endpoint": "/get/data/vad_available", "handler": "core: vad_unavailable_reason", "before_init": true },
+    { "endpoint": "/get/data/translation_catalog", "handler": "core: translation_catalog_view", "before_init": true },
+    { "endpoint": "/run/register_translation_catalog_entry", "handler": "core: register_translation_entry", "before_init": false },
+    { "endpoint": "/run/remove_translation_catalog_entry", "handler": "core: remove_translation_entry", "before_init": false },
+    { "endpoint": "/run/use_translation_catalog_entry", "handler": "core: use_translation_entry", "before_init": false },
+    { "endpoint": "/get/data/gpu_memory", "handler": "core: gpu_memory", "before_init": true },
+    { "endpoint": "/get/data/usage_presets", "handler": "core: USAGE_PRESETS", "before_init": true },
+    { "endpoint": "/set/data/usage_presets", "handler": "core: USAGE_PRESETS", "before_init": true },
+    { "endpoint": "/set/data/speaker_names", "handler": "core: speakers::set_names", "before_init": true },
+    { "endpoint": "/get/data/voice_audition_state", "handler": "core: audition.status", "before_init": true },
+    { "endpoint": "/run/start_voice_audition", "handler": "core: start_audition", "before_init": true },
+    { "endpoint": "/run/stop_voice_audition", "handler": "core: stop_audition", "before_init": true, "immediate": true },
+    { "endpoint": "/get/data/rvc_block_ms", "handler": "core: RVC_BLOCK_MS", "before_init": true },
+    { "endpoint": "/set/data/rvc_block_ms", "handler": "core: RVC_BLOCK_MS", "before_init": true },
+    { "endpoint": "/get/data/gpu_check_state", "handler": "core: gpu_check.status", "before_init": true },
+    { "endpoint": "/run/start_gpu_check", "handler": "core: start_gpu_check", "before_init": true },
+    { "endpoint": "/run/stop_gpu_check", "handler": "core: gpu_check.stop", "before_init": true },
+    { "endpoint": "/get/data/osc_query", "handler": "core: OSC_QUERY", "before_init": true },
+    { "endpoint": "/set/enable/osc_query", "handler": "core: set_osc_query", "before_init": true },
+    { "endpoint": "/set/disable/osc_query", "handler": "core: set_osc_query", "before_init": true }
   ],
   "errors": [
     { "code": "AUTH_GOOGLE_CLOUD_INVALID", "category": "auth", "message": "Google Cloud Translation API key is not valid", "severity": "warning", "user_action_required": true },
@@ -24,11 +43,15 @@
     { "code": "AUTH_PAPAGO_FAILED", "category": "auth", "message": "Authentication failure of Papago Client ID and Client Secret", "severity": "error", "user_action_required": true },
     { "code": "CONNECTION_OLLAMA_URL_INVALID", "category": "connection", "message": "Ollama URL is not valid", "severity": "warning", "user_action_required": true },
     { "code": "OVERLAY_FONT_NOT_FOUND", "category": "general", "message": "The font is not installed on this PC", "severity": "warning", "user_action_required": true },
-    { "code": "VAD_UNAVAILABLE", "category": "transcription", "message": "Voice activity detection is not available in this version; phrases are cut by volume", "severity": "warning", "user_action_required": false }
+    { "code": "VAD_UNAVAILABLE", "category": "transcription", "message": "Voice activity detection needs the speech.cpp server with a recognition model and Silero VAD; phrases are cut by volume", "severity": "warning", "user_action_required": true },
+    { "code": "VALIDATION_RVC_BLOCK_MS", "category": "validation", "message": "RVC block length must be 20 to 200 ms in steps of 20", "severity": "warning", "user_action_required": true }
   ],
   "config": [
     { "key": "OLLAMA_URL", "check": "検証 valid_saved_api_url", "default": "'http://localhost:11434'", "save": "2秒後にまとめて" },
     { "key": "PAPAGO_CLIENT_ID", "check": "str（256 文字まで、制御文字なし）", "default": "''", "save": "2秒後にまとめて" },
-    { "key": "OVERLAY_FONT_FAMILY", "check": "str（空は自動。256 文字まで、制御文字なし）", "default": "''", "save": "2秒後にまとめて" }
+    { "key": "OVERLAY_FONT_FAMILY", "check": "str（空は自動。256 文字まで、制御文字なし）", "default": "''", "save": "2秒後にまとめて" },
+    { "key": "USAGE_PRESETS", "check": "list（basic、nonverbal、multilingual、voice_changer、all から1つ以上。知らない id は除き、この順に重複なしで保存）", "default": "['basic']（前の版から更新したときは ['all']）", "save": "即時" },
+    { "key": "RVC_BLOCK_MS", "check": "int（20〜200 の 20 の倍数。RVC の変換を始めるときに読む）", "default": "40", "save": "2秒後にまとめて" },
+    { "key": "OSC_QUERY", "check": "bool", "default": "True", "save": "2秒後にまとめて" }
   ]
 }

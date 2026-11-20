@@ -3,7 +3,7 @@
 # https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
 #
 # One maintainer owns everything for now. Add owners for specific areas
-# (for example src-ui/, src-python/, src-tauri/, site/) below this line
+# (for example src-ui/, src-tauri/, native/, site/) below this line
 # when other people start maintaining them.
 
 * @kein5

@@ -89,7 +89,7 @@
     align-items: center;
     gap: 6px;
     margin-right: 8px;
-    font-size: 17px;
+    font-size: 16px;
     font-weight: 600;
     color: var(--dark_400_color);
     white-space: nowrap;
@@ -122,6 +122,7 @@
     }
     &:active:not(:disabled):not([aria-disabled="true"]) {
         background-color: var(--primary_600_color);
+        color: var(--vox_on_primary);
         transition: none;
     }
 }

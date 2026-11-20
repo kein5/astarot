@@ -1,0 +1,15 @@
+# The inference dependencies of the RVC reference environment (setup_reference.py, Linux x86-64),
+# for the Python mise.toml pins. The earlier Python RVC runtime locked the same set in
+# integrations/rvc/requirements.in, removed with it; numpy, scipy and praat-parselmouth are moved up
+# to their first releases with Python 3.14 wheels. CPU PyTorch is installed from its own index first.
+# Make the lock with:
+#   uv pip compile --python-version 3.14 --python-platform x86_64-manylinux_2_28 --generate-hashes \
+#       native/rvc-runtime/reference/requirements.in -o native/rvc-runtime/reference/requirements.lock
+numpy==2.4.6
+scipy==1.16.3
+librosa==0.10.2.post1
+transformers==5.22.1
+faiss-cpu==1.13.0
+praat-parselmouth==0.4.7
+soundfile==0.13.1
+setuptools==84.2.1

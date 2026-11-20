@@ -71,32 +71,37 @@ struct Folders {
 fn folders(executable: &Path) -> Folders {
     let app_dir = executable.parent().map_or_else(|| PathBuf::from("."), Path::to_path_buf);
     let linux_bundle = cfg!(target_os = "linux") && option_env!("VRCT_LINUX_BUNDLE") == Some("1");
-    let xdg = |variable: &str, override_variable: &str, fallback: &str| {
-        if let Some(dir) = std::env::var_os(override_variable).filter(|v| !v.is_empty()) {
+    // ASTAROT_CONFIG_DIR and ASTAROT_DATA_DIR, or the VRCT_ names 0.5.x documented.
+    let xdg = |variable: &str, configured: app_identity::env::Variable, fallback: &str| {
+        if let Some(dir) = configured.value_os() {
             return PathBuf::from(dir);
         }
         let base = std::env::var_os(variable).map(PathBuf::from).filter(|p| p.is_absolute());
-        base.unwrap_or_else(|| PathBuf::from(std::env::var_os("HOME").unwrap_or_default()).join(fallback)).join("vrct-vox")
+        base.unwrap_or_else(|| PathBuf::from(std::env::var_os("HOME").unwrap_or_default()).join(fallback)).join(app_identity::LINUX_FOLDER.current())
     };
-    let configured = std::env::var_os("VRCT_CONFIG_DIR").filter(|v| !v.is_empty()).map(PathBuf::from);
+    let configured = app_identity::env::CONFIG_DIR.value_os().map(PathBuf::from);
     let state_dir = configured.unwrap_or_else(|| {
-        if linux_bundle { xdg("XDG_CONFIG_HOME", "VRCT_CONFIG_DIR", ".config") } else { app_dir.clone() }
+        if linux_bundle { xdg("XDG_CONFIG_HOME", app_identity::env::CONFIG_DIR, ".config") } else { app_dir.clone() }
     });
-    let data_dir = if linux_bundle { xdg("XDG_DATA_HOME", "VRCT_DATA_DIR", ".local/share") } else { app_dir.clone() };
+    let data_dir = if linux_bundle { xdg("XDG_DATA_HOME", app_identity::env::DATA_DIR, ".local/share") } else { app_dir.clone() };
     Folders { state_dir, app_dir, data_dir }
 }
 
 fn environment(executable: &Path, version: String) -> Environment {
     let Folders { state_dir, app_dir, data_dir } = folders(executable);
+    // The ONNX Runtime library first (the shipped CPU build, or the GPU build the user set up
+    // for translation): the compute devices are its execution providers.
+    vrct_core::shipped_libraries::use_libraries(&app_dir, &state_dir);
+    // The CPU, the GPU provider of the library chosen, and the GPU builds set up that need a
+    // restart.
+    let compute_devices = vrct_core::controller::translation::compute_devices_for(&state_dir);
     Environment {
         version,
         state_dir,
         app_dir,
         data_dir,
         platform: Platform::current(),
-        // The CPU, and the GPU execution providers of the ONNX Runtime library beside the app
-        // (none loaded when no library is there).
-        compute_devices: vrct_core::controller::translation::compute_devices(),
+        compute_devices,
         devices: None,
         websocket_token: None,
     }
@@ -111,11 +116,14 @@ static STARTING: tauri::async_runtime::Mutex<()> = tauri::async_runtime::Mutex::
 
 /// Starts a run for the UI session `session`. Its lines go to `lines`, its end to `exit`.
 ///
-/// Async, so that waiting for a failed run to stop (up to `RETRY_STOP_LIMIT`) does not hold up
-/// the main thread, which every window, the tray and the hotkeys need (Issue #456). The run itself
-/// is still started on the main thread, as it was when this command was synchronous: the compute
-/// devices start ONNX Runtime there, and moving that elsewhere is left until its effect on the
-/// Windows COM state is known (#433).
+/// Async, so that neither waiting for a failed run to stop (up to `RETRY_STOP_LIMIT`) nor the
+/// start itself holds up the main thread, which every window, the tray and the hotkeys need
+/// (Issues #456, #561). The start runs on a blocking worker thread. What it does before the run's
+/// own threads take over uses no COM and nothing tied to its thread: ONNX Runtime's environment
+/// and its list of execution providers (the compute devices), the log, `config.json` and the key
+/// store (DPAPI and the credential store). Audio devices (WASAPI) are listed later, on the run's
+/// threads, which set up their own COM. The tests and the example programs have always started
+/// runs from threads without COM.
 #[tauri::command]
 pub async fn backend_start(
     window: tauri::WebviewWindow,
@@ -138,18 +146,14 @@ pub async fn backend_start(
         .await
         .map_err(|error| error.to_string())?;
     }
-    let (started, result) = std::sync::mpsc::channel();
     let target = app.clone();
-    app.run_on_main_thread(move || {
-        let _ = started.send(start_run(&target, session, lines, exit, continue_logs));
-    })
-    .map_err(|error| error.to_string())?;
-    tauri::async_runtime::spawn_blocking(move || result.recv().unwrap_or_else(|_| Err("backend_start_failed".into())))
+    // A start that panics answers as one that never reported back did on the main thread.
+    tauri::async_runtime::spawn_blocking(move || start_run(&target, session, lines, exit, continue_logs))
         .await
-        .map_err(|error| error.to_string())?
+        .unwrap_or_else(|_| Err("backend_start_failed".into()))
 }
 
-/// The start itself, on the main thread.
+/// The start itself, on a blocking worker thread.
 fn start_run(
     app: &tauri::AppHandle,
     session: String,
@@ -166,17 +170,18 @@ fn start_run(
             let _ = exit.send(code);
         }),
     };
+    if cfg!(debug_assertions) {
+        // A development build runs from src-tauri/target; the files a package ships in
+        // `_internal` (build/speechcpp, the helper programs) are staged in the checkout's build/.
+        // Before the environment, which looks for the ONNX Runtime library.
+        vrct_core::resources::use_development_checkout(Path::new(env!("CARGO_MANIFEST_DIR")).join(".."));
+    }
     let mut options = Options::new(environment(&executable, app.package_info().version.to_string()));
     // A run started again keeps the failed run's record in process.log.
     options.continue_logs = continue_logs;
     options.services.retire_legacy_translation_weights = CORE_IS_DEFAULT;
     // The update endpoints use the update page's updater (app_update.rs; decision 20).
     options.services.software_updates = std::sync::Arc::new(crate::app_update::CoreUpdates::new(app.clone()));
-    if cfg!(debug_assertions) {
-        // A development build runs from src-tauri/target; the files a package ships in
-        // `_internal` (build/speechcpp, the helper programs) are staged in the checkout's build/.
-        vrct_core::resources::use_development_checkout(Path::new(env!("CARGO_MANIFEST_DIR")).join(".."));
-    }
     let backend = Backend::start(options, sink);
     let host = app.state::<BackendHost>();
     *host.session.lock().unwrap_or_else(|poisoned| poisoned.into_inner()) = Some((session, backend));

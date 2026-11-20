@@ -13,11 +13,12 @@
 
 use crate::Transcript;
 use crate::capture::{Capture, CapturePlatform, Source, Target};
+use crate::diagnostics::{Diagnostics, Event as Diagnosed, Stage};
 use crate::energy::EnergyListener;
 use crate::pcm;
-use crate::phrases::{Clip, Phrases};
+use crate::phrases::{Clip, Merge, Note, Phrases};
 use crate::providers::{ApiError, AsrFailed};
-use crate::vad::{Segmenter, Vad};
+use crate::vad::{Noted, Segmenter, Vad};
 use std::collections::VecDeque;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{Receiver, RecvTimeoutError, SyncSender, TrySendError, sync_channel};
@@ -29,6 +30,8 @@ use vrct_audio_routing::identity::Device;
 const AUDIO_QUEUE: usize = 20;
 /// How long the recorder waits for a device to open (`_MIC_OPEN_TIMEOUT_SEC`).
 pub const OPEN_TIMEOUT: Duration = Duration::from_secs(8);
+/// How long a stop waits for an engine request in flight (`TRANSCRIPT_STOP_JOIN_TIMEOUT`).
+pub const STOP_WAIT: Duration = Duration::from_secs(15);
 
 /// The settings a recorder starts with (`_create_recorder`, `_create_transcriber`).
 #[derive(Clone, Debug, PartialEq)]
@@ -42,6 +45,9 @@ pub struct Settings {
     /// The VAD that cuts phrases in place of the energy listener (`*_ENABLE_VAD` with an engine
     /// at hand); `None` cuts by energy.
     pub vad: Option<Vad>,
+    /// Where the queue, the VAD and the phrase builder are counted (`utterance_diagnostics`);
+    /// `None` counts nothing.
+    pub diagnostics: Option<Diagnostics>,
 }
 
 /// A failure of the pipeline, by its error code and stage (`AudioPipelineFailure`).
@@ -79,12 +85,17 @@ pub enum Event {
 pub type Recognize = Box<dyn FnMut(&[i16], u32) -> Result<Option<Transcript>, AsrFailed> + Send>;
 
 struct Shared {
+    source: Source,
+    diagnostics: Option<Diagnostics>,
     stop: AtomicBool,
     /// Mute sync holds the source back while set (shared with the owner, which sets it).
     paused: Arc<AtomicBool>,
     failed: AtomicBool,
     clips: Mutex<ClipQueue>,
     ready: Condvar,
+    /// An engine request is in flight ([`Asking`]); `answered` tells when it ends.
+    asking: Mutex<bool>,
+    answered: Condvar,
     on_event: Arc<dyn Fn(Event) + Send + Sync>,
 }
 
@@ -139,18 +150,22 @@ impl Recorder {
         on_event: Arc<dyn Fn(Event) + Send + Sync>,
     ) -> Result<Recorder, Failure> {
         let shared = Arc::new(Shared {
+            source,
+            diagnostics: settings.diagnostics.clone(),
             stop: AtomicBool::new(false),
             paused: paused.unwrap_or_default(),
             failed: AtomicBool::new(false),
             clips: Mutex::new(ClipQueue::default()),
             ready: Condvar::new(),
+            asking: Mutex::new(false),
+            answered: Condvar::new(),
             on_event,
         });
         let mut opened = None;
         for candidate in candidates {
             let (sender, receiver): (SyncSender<Chunk>, Receiver<Chunk>) = sync_channel(256);
             let feeding = Arc::clone(&shared);
-            let on_audio = Box::new(move |samples: &[i16], rate: u32, channels: u16| {
+            let on_audio = Box::new(move |samples: &[i16], rate: u32, channels: u16, _captured_ago: Option<Duration>| {
                 if !feeding.running() {
                     return false;
                 }
@@ -180,7 +195,14 @@ impl Recorder {
             let transcriber = Arc::clone(&shared);
             std::thread::Builder::new()
                 .name(format!("{}-transcription", source.as_str()))
-                .spawn(move || transcribe(transcriber, settings, recognize))
+                .spawn(move || {
+                    let (source, diagnostics) = (transcriber.source, transcriber.diagnostics.clone());
+                    transcribe(transcriber, settings, recognize);
+                    // A request that ran past the stop's wait is written when it ends (`endTranscript`).
+                    if let Some(diagnostics) = diagnostics {
+                        diagnostics.flush(Some(source.as_str()), "stop");
+                    }
+                })
                 .map_err(|_| Failure::OPEN)?;
         }
         Ok(Recorder { shared, capture: Some(capture), device })
@@ -190,15 +212,60 @@ impl Recorder {
         self.shared.running()
     }
 
-    /// Stops without waiting for an engine request in flight: its result is dropped. False
-    /// when the device could not be confirmed released.
+    /// Stops the capture, then waits up to [`STOP_WAIT`] for an engine request in flight, as
+    /// `_stop` joined the transcript thread (decision 15 (1)). Its result is dropped, and no new
+    /// request starts. What the transcriber is delivering is not waited for: the owner revokes
+    /// it. False when the device could not be confirmed released or the request is still
+    /// running ([`Recorder::settled`] tells when it ends).
     pub fn stop(&mut self) -> bool {
+        self.stop_within(STOP_WAIT)
+    }
+
+    /// [`Recorder::stop`], waiting up to `wait` for the request.
+    pub fn stop_within(&mut self, wait: Duration) -> bool {
         self.shared.stop.store(true, Ordering::SeqCst);
         self.shared.ready.notify_all();
-        match self.capture.take() {
+        let released = match self.capture.take() {
             Some(mut capture) => capture.stop(),
             None => true,
+        };
+        let asking = self.shared.asking.lock().unwrap_or_else(|e| e.into_inner());
+        let (asking, _) =
+            self.shared.answered.wait_timeout_while(asking, wait, |asking| *asking).unwrap_or_else(|e| e.into_inner());
+        let settled = !*asking;
+        drop(asking);
+        if let Some(diagnostics) = &self.shared.diagnostics {
+            diagnostics.flush(Some(self.shared.source.as_str()), "stop");
         }
+        released && settled
+    }
+
+    /// True once no engine request of this recorder is running.
+    pub fn settled(&self) -> bool {
+        !*self.shared.asking.lock().unwrap_or_else(|e| e.into_inner())
+    }
+}
+
+/// An engine request in flight, for a stop to wait on; ends when dropped, by return or by panic.
+struct Asking<'a>(&'a Shared);
+
+impl<'a> Asking<'a> {
+    /// `None` once the recorder is stopping: no request starts then. Checked under the lock a
+    /// stop waits with, so a stop either sees this request or this sees the stop.
+    fn begin(shared: &'a Shared) -> Option<Asking<'a>> {
+        let mut asking = shared.asking.lock().unwrap_or_else(|e| e.into_inner());
+        if !shared.running() {
+            return None;
+        }
+        *asking = true;
+        Some(Asking(shared))
+    }
+}
+
+impl Drop for Asking<'_> {
+    fn drop(&mut self) {
+        *self.0.asking.lock().unwrap_or_else(|e| e.into_inner()) = false;
+        self.0.answered.notify_all();
     }
 }
 
@@ -237,15 +304,19 @@ fn listen(shared: Arc<Shared>, receiver: Receiver<Chunk>, settings: Settings, en
         let channels = usize::from(channels.max(1));
         if listener.as_ref().is_none_or(|(_, r, c)| (*r, *c) != (rate, channels)) {
             let limit = settings.record_timeout.min(settings.phrase_timeout);
+            let energy = Box::new(EnergyListener::new(rate, channels, settings.threshold, settings.automatic_threshold, limit));
             let created: Box<dyn Segmenter> = match &settings.vad {
-                Some(vad) => vad.0.segmenter(rate, channels, limit),
-                None => Box::new(EnergyListener::new(rate, channels, settings.threshold, settings.automatic_threshold, limit)),
+                Some(vad) => vad.0.segmenter(rate, channels, crate::vad::MAX_SPEECH_SECONDS, energy),
+                None => energy,
             };
             listener = Some((created, rate, channels));
             shared.clips.lock().unwrap_or_else(|e| e.into_inner()).format = Some((rate, channels));
         }
         let (current, _, _) = listener.as_mut().expect("made above");
         let heard = current.feed(&samples);
+        if let Some(diagnostics) = &shared.diagnostics {
+            noticed(diagnostics, shared.source, &heard.noted);
+        }
         if energy {
             for value in heard.energies {
                 if !shared.running() {
@@ -256,7 +327,9 @@ fn listen(shared: Arc<Shared>, receiver: Receiver<Chunk>, settings: Settings, en
         }
         if transcribing && !heard.segments.is_empty() {
             let mut queue = shared.clips.lock().unwrap_or_else(|e| e.into_inner());
+            let mut dropped = Vec::with_capacity(heard.segments.len());
             for segment in heard.segments {
+                dropped.push(queue.clips.len() >= AUDIO_QUEUE);
                 if queue.clips.len() >= AUDIO_QUEUE {
                     queue.clips.pop_front();
                 }
@@ -264,6 +337,11 @@ fn listen(shared: Arc<Shared>, receiver: Receiver<Chunk>, settings: Settings, en
             }
             drop(queue);
             shared.ready.notify_all();
+            if let Some(diagnostics) = &shared.diagnostics {
+                for dropped in dropped {
+                    diagnostics.queue_result(shared.source.as_str(), dropped);
+                }
+            }
         }
     }
 }
@@ -295,8 +373,15 @@ fn transcribe(shared: Arc<Shared>, settings: Settings, mut recognize: Recognize)
         };
         let (builder, rate, channels) = phrases.as_mut().expect("made above");
         let (rate, channels) = (*rate, *channels);
-        let mut asr = |samples: &[i16]| recognize(&pcm::to_mono(samples, channels), rate);
+        let mut asr = |samples: &[i16]| match Asking::begin(&shared) {
+            Some(_asking) => recognize(&pcm::to_mono(samples, channels), rate),
+            // Stopping: what is left is not asked about, and nothing is delivered.
+            None => Ok(None),
+        };
         let drained = builder.drain(&mut pending, &mut asr);
+        if let Some(diagnostics) = &shared.diagnostics {
+            noted(diagnostics, shared.source, settings.vad.is_some(), builder.take_notes());
+        }
         // What was not drained goes back in front of anything newer.
         if !pending.is_empty() {
             let mut queue = shared.clips.lock().unwrap_or_else(|e| e.into_inner());
@@ -313,6 +398,68 @@ fn transcribe(shared: Arc<Shared>, settings: Settings, mut recognize: Recognize)
                 return;
             }
             (shared.on_event)(Event::Transcript(result));
+        }
+    }
+}
+
+fn milliseconds(duration: Duration) -> f64 {
+    duration.as_secs_f64() * 1000.0
+}
+
+/// What the VAD noticed (`audio_vad`'s `speech_start` and `speech_end`).
+fn noticed(diagnostics: &Diagnostics, source: Source, noted: &[Noted]) {
+    let name = source.as_str();
+    for noted in noted {
+        match *noted {
+            Noted::Start => diagnostics.record(name, Diagnosed::SpeechStart, &[], None, false),
+            Noted::End { cut, length, waited } => diagnostics.record(
+                name,
+                Diagnosed::SpeechEnd,
+                &[(Stage::Segment, milliseconds(length)), (Stage::VadWait, milliseconds(waited))],
+                Some(format!(
+                    "[VAD][{name}] speech_end reason={} duration_ms={:.1} wait_ms={:.1}",
+                    cut.reason(),
+                    milliseconds(length),
+                    milliseconds(waited)
+                )),
+                false,
+            ),
+        }
+    }
+}
+
+/// What the phrase builder did (`_recordQueueWait` and the `[VAD-merge]` choices of
+/// `transcribeAudioQueue`).
+fn noted(diagnostics: &Diagnostics, source: Source, vad: bool, notes: Vec<Note>) {
+    let name = source.as_str();
+    for note in notes {
+        match note {
+            Note::Waited(waited) => diagnostics.record(
+                name,
+                Diagnosed::AudioChunk,
+                &[(Stage::Queue, milliseconds(waited))],
+                Some(format!("[ASR-queue][{name}] wait={:.1}ms vad={vad}", milliseconds(waited))),
+                false,
+            ),
+            Note::Merged { merge, cut, gathered, bytes } => {
+                let (event, what) = match merge {
+                    Merge::Finalize => (Diagnosed::VadFinalize, "finalize"),
+                    Merge::SafetyFinalize => (Diagnosed::VadSafetyFinalize, "safety-net finalize"),
+                    Merge::Interim => (Diagnosed::VadInterim, "interim-send"),
+                    Merge::Accumulate => (Diagnosed::VadAccumulate, "accumulate"),
+                };
+                diagnostics.record(
+                    name,
+                    event,
+                    &[(Stage::VadBuffer, milliseconds(gathered))],
+                    Some(format!(
+                        "[VAD-merge][{name}] {what} reason={} accumulated={:.2}s bytes={bytes}",
+                        cut.reason(),
+                        gathered.as_secs_f64()
+                    )),
+                    false,
+                );
+            }
         }
     }
 }

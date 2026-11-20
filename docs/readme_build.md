@@ -4,7 +4,7 @@ Windows向けのビルド手順と、現在のCIを説明します。Linuxでは
 
 ## Windowsの準備
 
-Git、[mise](https://mise.jdx.dev/getting-started.html)、TauriのWindowsビルドに必要なVisual Studio C++ツールを用意します。Node.js、Rust、Python 3.11、uvは、`mise.toml`で固定した版をmiseが入れます。CIも同じ版を使います（[開発ガイド](development.md#用意するツール)）。依存関係は`package-lock.json`、`src-tauri/Cargo.lock`、`native/`の各`Cargo.lock`で管理しています。
+Git、[mise](https://mise.jdx.dev/getting-started.html)、TauriのWindowsビルドに必要なVisual Studio C++ツールを用意します。Node.js、Rust、Python、uvは、`mise.toml`で固定した版をmiseが入れます。CIも同じ版を使います（[開発ガイド](development.md#用意するツール)）。依存関係は`package-lock.json`、`src-tauri/Cargo.lock`、`native/`の各`Cargo.lock`で管理しています。
 
 ```sh
 git clone https://github.com/kein5/VRCT-VOX.git
@@ -16,7 +16,7 @@ mise exec -- npm ci
 
 `npm`のスクリプトでビルドや起動をするときは、miseを有効にしたシェル（`mise activate`）から呼ぶか、`mise exec -- npm run build`のように呼びます。そうしないと、PATHにある別の版のツールで動きます。
 
-0.5.0からバックエンドはアプリ（`vrct-vox.exe`）の中で動くRustの中核です（[中核の統合](voice-stack/core-integration.md)）。配布物にPythonは入りません。Pythonはビルドの道具と試験を動かすためだけに使います。`src-python/`のPythonバックエンドとその試験を動かすときだけ、`mise run setup:app`（`npm run setup-python`と同じbat）でアプリの依存を`.venv`に入れます。
+0.5.0からバックエンドはアプリ（`vrct-vox.exe`）の中で動くRustの中核です（[中核の統合](voice-stack/core-integration.md)）。配布物にPythonは入りません。Pythonはビルドの道具と試験を動かすためだけに使います。Pythonのバックエンド（`src-python/`）とアプリの依存の環境（`mise run setup:app`、`npm run setup-python`）は0.6.0で消しました。
 
 Windowsのビルドは、固定版のspeech.cpp（Vulkan版、約29 MB）を公式リリースから取得し、ハッシュを確かめてから同梱します。`build/speechcpp`に同じ版があれば取り直さず、別の版が残っていれば置き換えます（`speechcpp_bundle.py --replace`）。`build/`のほかのものには触れません。モデルの取得と本体のビルドは別の操作です。
 
@@ -40,21 +40,17 @@ npm run dev
 
 ```sh
 npm run release
-npm run release-cuda
-# 両方を順に作成する場合
-npm run release-all
 ```
 
 | 対象 | 出力 |
 |---|---|
-| Windows標準版 | `VRCT-VOX.zip` |
-| Windows CUDA版 | `VRCT-VOX_cuda.zip` |
+| Windows | `VRCT-VOX.zip` |
 | Windowsインストーラー | `src-tauri/target/release/bundle/nsis/ASTAROT_<version>_x64-setup.exe` |
 | Linux | `VRCT-VOX-<version>-linux-x64-release.tar.gz`と同名の`.AppImage`、`.deb`、`.rpm`。speech.cppのCPU版とVulkan版を両方入れる（0.4まではビルドごとに別の配布物） |
 
 WindowsのZIPには`vrct-vox.exe`と`_internal/`を収めます。ONNX Runtimeを動的にリンクするクレートがアプリに入った場合は、ビルドが`vrct-vox.exe`の隣に置いたONNX RuntimeとDirectMLのDLLも収めます。Linuxの実行名には`.exe`を付けません。配布物の作成時にはOCR重みなどの禁止資源を検査します。ソースツリー全体をそのまま配布ZIPにしないでください。
 
-CUDA版は0.4までPythonバックエンドのためにCUDAのライブラリを同梱していました。0.5.0からは標準版と同じ中身です。インストーラーのGPUの選択と、CUDA版から更新する利用者のために、同じ名前で作り続けています（[中核の統合](voice-stack/core-integration.md)の「判断が要ること」の20）。
+Windowsの配布物は1つです。0.5まではCUDA版（`VRCT-VOX_cuda.zip`）も作っていました。0.4まではPythonバックエンドのためにCUDAのライブラリを同梱していて、0.5.0からは標準版と同じ中身でした。#288でCUDA版をやめました。インストーラーは、0.5までのアプリが更新のときに渡すGPUの選択（`/EDITION=gpu`）を受け付け、`VRCT-VOX.zip`を取ります（[Windowsの配布物の一本化](voice-stack/single-package.md)）。
 
 `_internal/`の中身は次のとおりです（`tools/app_resources.py`）。
 
@@ -85,7 +81,7 @@ CSPの定義と許可理由は[外部インターフェース](spec/external-int
 
 ```sh
 python tools/dev.py check --scope ui
-npx vitest run src-ui/logics/common/contentSecurityPolicy.test.js
+npx vitest run src-ui/logics/common/contentSecurityPolicy.test.ts
 ```
 
 次に、対象OSの配布手順でproductionフロントエンドを埋め込んだrelease binaryを作る。配布資源（`src-tauri/bin/_internal`）を準備済みなら`npm run tauri build -- --no-bundle`で本体をビルドできる。`cargo check`は設定のparse確認であり、埋め込まれたCSPやWebviewの動作確認ではない。
@@ -128,7 +124,7 @@ window.addEventListener("securitypolicyviolation", event => {
 
 ## バージョン管理
 
-バージョンは`package.json`で管理し、次のコマンドで`src-tauri/tauri.conf.json`、`src-python/config.py`、`pyproject.toml`へ同期します。`src-python/`を削除するまでは、Pythonの側も同じ版にそろえます。`pyproject.toml`の版が変わったときは、このコマンドが`uv lock`も実行して`uv.lock`を更新します。設定キーの一覧（`docs/spec/reference/config-keys.md`）に版が載るので、最後に`tools/spec_catalog.py --write`も実行します。通常のビルドコマンドでも同期処理を実行します。
+バージョンは`package.json`で管理し、次のコマンドで`src-tauri/tauri.conf.json`と`pyproject.toml`へ同期します。`pyproject.toml`の版が変わったときは、このコマンドが`uv lock`も実行して`uv.lock`を更新します。設定キーの一覧（`docs/spec/reference/config-keys.md`）に版が載るので、最後に`tools/spec_catalog.py --write`も実行します。通常のビルドコマンドでも同期処理を実行します。
 
 ```sh
 npm run update-version
@@ -138,11 +134,11 @@ npm run update-version
 
 ## CIと公開先
 
-[voice-tests.yml](../.github/workflows/voice-tests.yml)はpushとpull requestで回帰試験を実行します。[build-linux.yml](../.github/workflows/build-linux.yml)は対象ファイルのpull requestと手動実行に対応し、Linux候補を作成・検査します。[release.yml](../.github/workflows/release.yml)はWindows候補を作成・検査するワークフローで、手動実行とmain宛てのpull requestで動きます。CUDA版を先にビルドし、続くCPU版のジョブが、両方のZIPのSHA-256を埋め込んだNSISインストーラーを作ります（`tools/installer_package_hashes.py`）。最後のジョブで全部を検査します。[windows-package.yml](../.github/workflows/windows-package.yml)は、`bat/`や同梱資源の道具を変えたdevelop宛てのpull requestと手動実行で、`_internal`の用意を試します。[installer-update-tests.yml](../.github/workflows/installer-update-tests.yml)は、NSISのテンプレートやインストーラーの試験を変えたpull requestと手動実行で、Windowsの更新の試験を動かします。[prepare-release.yml](../.github/workflows/prepare-release.yml)は、検査済みの候補からリリースの下書きを作る手動のワークフローです。
+[voice-tests.yml](../.github/workflows/voice-tests.yml)はpushとpull requestで回帰試験を実行します。[build-linux.yml](../.github/workflows/build-linux.yml)は対象ファイルのpull requestと手動実行に対応し、Linux候補を作成・検査します。[release.yml](../.github/workflows/release.yml)はWindows候補を作成・検査するワークフローで、手動実行とmain宛てのpull requestで動きます。ビルドのジョブが`VRCT-VOX.zip`と、そのSHA-256を埋め込んだNSISインストーラーを作ります（`tools/installer_package_hashes.py`）。最後のジョブで全部を検査します。[windows-package.yml](../.github/workflows/windows-package.yml)は、`bat/`や同梱資源の道具を変えたdevelop宛てのpull requestと手動実行で、`_internal`の用意を試します。[installer-update-tests.yml](../.github/workflows/installer-update-tests.yml)は、NSISのテンプレートやインストーラーの試験を変えたpull requestと手動実行で、Windowsの更新の試験を動かします。[prepare-release.yml](../.github/workflows/prepare-release.yml)は、検査済みの候補からリリースの下書きを作る手動のワークフローです。[release-draft-auto.yml](../.github/workflows/release-draft-auto.yml)は、`release/X.Y.Z`のPRをmainへマージしたときに、候補のビルドと`prepare-release.yml`を順に始めます。[release-back-merge.yml](../.github/workflows/release-back-merge.yml)は、正式版を公開したときに、mainをdevelopへ戻すPRを開きます（[配布候補の手順](voice-stack/release-candidates.md#公開したあと)）。
 
-ビルド候補はGitHub Actionsの成果物として保存します。これらのワークフローはGitHub ReleasesやHugging Faceへ自動公開しません。タグをpushしても公開処理は始まりません。権限は`contents: read`で、本家の公開用キーやテレメトリー用キーは使いません。
+ビルド候補はGitHub Actionsの成果物として保存します。これらのワークフローはGitHub ReleasesやHugging Faceへ自動公開しません。タグをpushしても公開処理は始まりません。候補をビルドするワークフローの権限は`contents: read`で、本家の公開用キーやテレメトリー用キーは使いません。
 
-配布先は[kein5/VRCT-VOX Releases](https://github.com/kein5/VRCT-VOX/releases)です。最初の公開版は`v0.1.0-beta.1`（プレリリース、developから作成）です。WindowsのNSISインストーラーは、このリポジトリのリリースから`VRCT-VOX.zip`または`VRCT-VOX_cuda.zip`を取得します。候補をビルドしただけでは、そのURLにファイルは存在しません。
+配布先は[kein5/VRCT-VOX Releases](https://github.com/kein5/VRCT-VOX/releases)です。最初の公開版は`v0.1.0-beta.1`（プレリリース、developから作成）です。WindowsのNSISインストーラーは、このリポジトリのリリースから`VRCT-VOX.zip`を取得します（0.5までのリリースには`VRCT-VOX_cuda.zip`もあります）。候補をビルドしただけでは、そのURLにファイルは存在しません。
 
 アプリ内の更新はTauriのupdaterで行い、リリースの`latest.json`を読みます。安定版の確認先はプロジェクトのWorker（`https://vrct-vox-updates.kei9d09.workers.dev/latest.json`）で、Workerが最新のリリースの`latest.json`へ転送します。ベータ版（版に`-beta`があるもの）は、GitHubのリリースの一覧から最も新しい版の`latest.json`を選びます。利用者が更新のチャネルを選ぶ機能はありません（[アプリの更新](spec/external-interfaces.md#アプリの更新)）。`latest.json`と署名は下書きを作るワークフローが作ります（[配布候補の手順](voice-stack/release-candidates.md#updaterの署名とlatestjson)）。
 

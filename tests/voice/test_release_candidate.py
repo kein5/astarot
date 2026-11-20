@@ -17,7 +17,6 @@ def candidate(tmp_path):
     assets = []
     for name in (
         "VRCT-VOX.zip",
-        "VRCT-VOX_cuda.zip",
         f"ASTAROT_{VERSION}_x64-setup.exe",
     ):
         path = tmp_path / name
@@ -57,7 +56,7 @@ def test_prepare_preserves_installer_checksums(candidate, tmp_path, monkeypatch)
 
     monkeypatch.setattr(subprocess, "run", download)
     payload = prepare(tmp_path / "draft", {"windows": "123"}, SHA, VERSION, "develop")
-    for name in ("VRCT-VOX.zip", "VRCT-VOX_cuda.zip", "VRCT-VOX_setup.exe"):
+    for name in ("VRCT-VOX.zip", "VRCT-VOX_setup.exe"):
         assert (payload / (name + ".sha256")).read_bytes() == (
             candidate / (name + ".sha256")
         ).read_bytes()
@@ -102,13 +101,24 @@ def test_every_candidate_file_needs_provenance_from_its_workflow_and_commit(cand
 
 def test_a_file_without_valid_provenance_stops_the_draft(candidate, tmp_path, monkeypatch):
     def refuse(argv):
-        if argv[3].endswith("VRCT-VOX_cuda.zip"):
+        if argv[3].endswith("VRCT-VOX_setup.exe"):
             raise subprocess.CalledProcessError(1, argv, stderr="no attestations found")
 
     _, run_prepare = _draft(candidate, tmp_path, monkeypatch, refuse)
     with pytest.raises(subprocess.CalledProcessError):
         run_prepare()
     assert not any((tmp_path / "draft" / "payload").iterdir())
+
+def test_a_windows_candidate_has_no_cuda_package(tmp_path):
+    # Up to 0.5 the candidate also carried VRCT-VOX_cuda.zip; one package now serves every PC.
+    assets = []
+    for name in ("VRCT-VOX.zip", "VRCT-VOX_cuda.zip", f"ASTAROT_{VERSION}_x64-setup.exe"):
+        path = tmp_path / name
+        path.write_bytes(b"inspected synthetic output")
+        assets.append(path)
+    with pytest.raises(ValueError, match="the ZIP and the stable setup asset"):
+        stage(tmp_path / "out", assets, "windows", SHA, VERSION)
+
 
 def test_checksum_newline_is_rejected(candidate):
     path = candidate / "VRCT-VOX.zip.sha256"

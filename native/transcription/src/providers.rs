@@ -5,9 +5,10 @@
 //! `AudioTranscriber._finalizeAndTranscribe` chose it. Python's Google web speech engine is not
 //! ported: it used an unofficial endpoint with the generic key of `speech_recognition`.
 //!
-//! Requests go through the HTTP client of `vrct-translation` (no proxy, no redirects, TLS with
-//! the Mozilla roots); tests give a transport that only reaches this PC. Nothing here logs or
-//! returns the audio, the text of a reply or a key.
+//! Requests go through the HTTP client of `vrct-translation` (no redirects, TLS with the Mozilla
+//! roots). The app gives `http::system_proxy`, which goes through the proxy of the environment or
+//! of Windows' Internet Settings as Python did (decision 15 (4)); tests give a transport that
+//! only reaches this PC. Nothing here logs or returns the audio, the text of a reply or a key.
 
 use crate::Transcript;
 use crate::pcm;
@@ -346,6 +347,7 @@ impl Recognizer {
                 ("Content-Type", format!("multipart/form-data; boundary={boundary}")),
             ],
             body: Some(multipart(&boundary, &fields, &wav)),
+            cancel: None,
         };
         // The SDK tried twice more after a broken connection, 408, 409, 429 or 5xx.
         let mut tries = 0;
@@ -422,6 +424,7 @@ impl Recognizer {
             url: &url,
             headers: vec![("Authorization", format!("Token {key}")), ("Content-Type", "audio/wav".to_string())],
             body: Some(wav),
+            cancel: None,
         };
         let response = self.send(&request, UPLOAD).map_err(ApiError::of_http)?;
         if response.status != 200 {
@@ -558,5 +561,172 @@ mod tests {
         assert_eq!(response_format("gpt-4o-transcribe"), "json");
         assert_eq!(response_format("whisper-large-v3"), "verbose_json");
         assert_eq!(response_format("custom"), "verbose_json");
+    }
+
+    // The engines against a transport that answers what each test gives, after
+    // `src-python/test/test_transcription_provider_regressions.py`.
+
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::{Arc, Mutex};
+
+    /// What the transport saw: (url, timeouts, body).
+    type Seen = Arc<Mutex<Vec<(String, Timeouts, Vec<u8>)>>>;
+
+    fn answering(answer: impl Fn(usize) -> Result<Response, HttpError> + Send + Sync + 'static) -> (Transport, Seen) {
+        let seen: Seen = Arc::default();
+        let calls = AtomicUsize::new(0);
+        let log = seen.clone();
+        let transport: Transport = Arc::new(move |request: &Request<'_>, timeouts: Timeouts| {
+            log.lock().unwrap().push((request.url.to_string(), timeouts, request.body.clone().unwrap_or_default()));
+            answer(calls.fetch_add(1, Ordering::SeqCst))
+        });
+        (transport, seen)
+    }
+
+    fn ok(body: Value) -> Result<Response, HttpError> {
+        Ok(Response::new(200, body.to_string().into_bytes()))
+    }
+
+    fn openai(model: &str) -> Engine {
+        Engine::Compatible { name: "OpenAI_Whisper".into(), key: "k".into(), base_url: "http://127.0.0.1:9/v1".into(), model: model.into() }
+    }
+
+    fn deepgram(languages: &[&str]) -> Engine {
+        Engine::Deepgram {
+            key: "k".into(),
+            model: "nova-3".into(),
+            languages: languages.iter().map(|l| l.to_string()).collect(),
+            base_url: "http://127.0.0.1:9/deepgram/v1".into(),
+        }
+    }
+
+    /// A Whisper API answer with one accepted segment and a detected language.
+    fn whisper_answer(language: Option<&str>) -> Value {
+        json!({ "text": "hello", "language": language, "segments": [{ "text": "hello", "avg_logprob": -0.1, "no_speech_prob": 0.1 }] })
+    }
+
+    fn deepgram_answer(detected: Option<&str>) -> Value {
+        json!({ "results": { "channels": [{ "alternatives": [{ "transcript": "hello", "confidence": 0.9 }], "detected_language": detected }] } })
+    }
+
+    fn two() -> [Candidate; 2] {
+        [candidate("Japanese", "ja-JP", "ja"), candidate("English", "en-GB", "en")]
+    }
+
+    fn recognize(engine: Engine, transport: Transport, candidates: &[Candidate]) -> Result<Option<Transcript>, AsrFailed> {
+        Recognizer::new(engine, transport).recognize(&[0i16; 1600], 16000, candidates, -0.8, 0.6, &table())
+    }
+
+    #[test]
+    fn a_detected_language_is_read_however_it_is_spelled_with_one_request() {
+        for spelled in ["en", " English ", "EN_us"] {
+            let (transport, seen) = answering(move |_| ok(whisper_answer(Some(spelled))));
+            let heard = recognize(openai("whisper-1"), transport, &two()).unwrap().unwrap();
+            assert_eq!(heard.language.as_deref(), Some("English"), "{spelled}");
+            assert_eq!(seen.lock().unwrap().len(), 1, "a definitive answer ends the candidates");
+        }
+    }
+
+    #[test]
+    fn an_unknown_or_unselected_detection_names_no_language() {
+        for detected in [None, Some(""), Some("unrecognized-code"), Some("fr")] {
+            let (transport, _) = answering(move |_| ok(whisper_answer(detected)));
+            let heard = recognize(openai("whisper-1"), transport, &two()).unwrap().unwrap();
+            assert_eq!(heard.language, None, "{detected:?} labelled the first candidate");
+        }
+        // gpt-4o-transcribe answers JSON with the text only.
+        let (transport, _) = answering(|_| ok(json!({ "text": "hello" })));
+        let heard = recognize(openai("gpt-4o-transcribe"), transport, &two()).unwrap().unwrap();
+        assert_eq!((heard.text.as_str(), heard.language.clone()), ("hello", None));
+    }
+
+    #[test]
+    fn a_single_language_is_forced_and_survives_a_missing_detection() {
+        let (transport, seen) = answering(|_| ok(whisper_answer(None)));
+        let heard = recognize(openai("whisper-1"), transport, &[candidate("Japanese", "ja-JP", "ja")]).unwrap().unwrap();
+        assert_eq!(heard.language.as_deref(), Some("Japanese"));
+        let body = String::from_utf8_lossy(&seen.lock().unwrap()[0].2).to_string();
+        assert!(body.contains("name=\"language\"\r\n\r\nja\r\n"), "the language was not sent");
+    }
+
+    #[test]
+    fn chinese_detections_follow_the_selected_country() {
+        let table = json!({
+            "Chinese Simplified": { "China": { "Google": "cmn-Hans-CN", "Whisper": "zh" } },
+            "Chinese Traditional": { "Taiwan": { "Google": "cmn-Hant-TW", "Whisper": "zh" }, "Hong Kong": { "Google": "yue-Hant-HK", "Whisper": "yue" } },
+        });
+        let simplified = candidate("Chinese Simplified", "cmn-Hans-CN", "zh");
+        for (detected, expected) in [
+            ("ZH_hant_TW", "Chinese Traditional"),
+            ("zh-TW", "Chinese Traditional"),
+            ("zh-Hant", "Chinese Traditional"),
+            ("Chinese Traditional", "Chinese Traditional"),
+            ("cmn-Hans-CN", "Chinese Simplified"),
+            ("chinese", "Chinese Simplified"),
+            ("cantonese", "Chinese Traditional"),
+        ] {
+            let traditional = if detected == "cantonese" {
+                candidate("Chinese Traditional", "yue-Hant-HK", "yue")
+            } else {
+                candidate("Chinese Traditional", "cmn-Hant-TW", "zh")
+            };
+            let (transport, _) = answering(move |_| ok(deepgram_answer(Some(detected))));
+            let heard = Recognizer::new(deepgram(&["zh", "zh-TW", "yue"]), transport)
+                .recognize(&[0i16; 1600], 16000, &[simplified.clone(), traditional], -0.8, 0.6, &table)
+                .unwrap()
+                .unwrap();
+            assert_eq!(heard.language.as_deref(), Some(expected), "{detected}");
+        }
+    }
+
+    #[test]
+    fn deepgram_detects_the_language_when_its_model_lists_no_single_one() {
+        let (transport, seen) = answering(|_| ok(deepgram_answer(None)));
+        let heard = recognize(deepgram(&["multi"]), transport, &[candidate("Japanese", "ja-JP", "ja")]).unwrap().unwrap();
+        assert_eq!((heard.text.as_str(), heard.language.clone()), ("hello", None), "a forced language was claimed");
+        assert!(seen.lock().unwrap()[0].0.ends_with("/listen?model=nova-3&detect_language=true"));
+    }
+
+    #[test]
+    fn a_malformed_deepgram_answer_is_a_server_error_and_silence_is_not() {
+        let malformed = [
+            json!({}),
+            json!({ "results": null }),
+            json!({ "results": { "channels": [] } }),
+            json!({ "results": { "channels": [{ "alternatives": [] }] } }),
+            json!({ "results": { "channels": [{ "alternatives": [{ "transcript": "hello" }] }] } }),
+            json!({ "results": { "channels": [{ "alternatives": [{ "confidence": 0.9 }] }] } }),
+            json!({ "results": { "channels": [{ "alternatives": [{ "transcript": 3, "confidence": 0.9 }] }] } }),
+            json!({ "results": { "channels": [{ "alternatives": [{ "transcript": "hello", "confidence": true }] }] } }),
+            json!({ "results": { "channels": [{ "alternatives": [{ "transcript": "hello", "confidence": "0.9" }] }] } }),
+            json!({ "results": { "channels": [{ "alternatives": [{ "transcript": "hello", "confidence": 1.5 }] }] } }),
+            json!({ "results": { "channels": [{ "alternatives": [{ "transcript": "hello", "confidence": -0.1 }] }] } }),
+            json!({ "error": "the key was sk-secret" }),
+        ];
+        for body in malformed {
+            let (transport, _) = answering(move |_| ok(body.clone()));
+            let failed = recognize(deepgram(&["ja"]), transport, &[candidate("Japanese", "ja-JP", "ja")]);
+            assert_eq!(failed, Err(AsrFailed { error: ApiError::Server }));
+        }
+        let (transport, _) = answering(|_| Ok(Response::new(200, b"not json".to_vec())));
+        assert_eq!(recognize(deepgram(&["ja"]), transport, &[candidate("Japanese", "ja-JP", "ja")]), Err(AsrFailed { error: ApiError::Server }));
+        // Silence: nothing understood, not a failure.
+        let silent = json!({ "results": { "channels": [{ "alternatives": [{ "transcript": "", "confidence": 0.0 }] }] } });
+        let (transport, _) = answering(move |_| ok(silent.clone()));
+        assert_eq!(recognize(deepgram(&["ja"]), transport, &[candidate("Japanese", "ja-JP", "ja")]), Ok(None));
+    }
+
+    #[test]
+    fn an_upload_has_bounded_timeouts_and_is_tried_three_times() {
+        let (transport, seen) = answering(|_| Err(HttpError::Timeout));
+        let failed = recognize(openai("whisper-1"), transport, &[candidate("Japanese", "ja-JP", "ja")]);
+        assert_eq!(failed, Err(AsrFailed { error: ApiError::Timeout }));
+        let seen = seen.lock().unwrap();
+        assert_eq!(seen.len(), 3);
+        for (url, timeouts, body) in seen.iter() {
+            assert!(url.ends_with("/v1/audio/transcriptions"), "{url}");
+            assert_eq!((timeouts.connect, timeouts.read, timeouts.write), (Duration::from_secs(10), Duration::from_secs(60), Duration::from_secs(60)));
+            assert!(String::from_utf8_lossy(body).contains("filename=\"audio.wav\""));
+        }
     }
 }

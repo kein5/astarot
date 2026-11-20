@@ -28,7 +28,7 @@
         // from .js to .ts without touching them.
         "paths": {
             "@root/*": ["./*"],
-            "@useI18n": ["./locales/useI18n.js"],
+            "@useI18n": ["./locales/useI18n"],
             "@useReceiveRoutes": ["./src-ui/logics/useReceiveRoutes"],
             "@useStdoutToPython": ["./src-ui/logics/common/useStdoutToPython"],
             "@ui_configs": ["./src-ui/logics/ui_configs"],
@@ -47,5 +47,7 @@
         }
     },
     "include": ["src-ui/**/*.ts", "src-ui/**/*.tsx"],
-    "exclude": ["node_modules", "dist"]
+    // The tests and their harness run in Node and are checked with its types in
+    // tsconfig.test.json, so the app's sources cannot reach Node's API by mistake.
+    "exclude": ["node_modules", "dist", "src-ui/**/*.test.ts", "src-ui/logics/test/**"]
 }

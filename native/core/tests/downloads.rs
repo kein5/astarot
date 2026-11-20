@@ -62,6 +62,8 @@ fn entries() -> Vec<Model> {
         model("ocr-x", "ocr", vec![artifact("det.onnx", 64, MODEL_SHA256, "det")]),
         model("slow-x", "multilingual", vec![artifact("slow.gguf", SLOW_SIZE, &"a".repeat(64), "model")]),
         model("bad-x", "multilingual", vec![artifact("bad.gguf", 64, &"0".repeat(64), "model")]),
+        // A non-commercial license, as NLLB-200's.
+        Model { license: "CC-BY-NC-4.0".into(), ..model("nc-x", "japanese", vec![gguf("nc.gguf")]) },
     ]
 }
 
@@ -194,7 +196,7 @@ fn the_catalog_lists_each_entry_with_its_size_destination_and_sources() {
     assert!(!models.is_empty());
     let root = root(&ui);
     for row in models {
-        for key in ["id", "target", "name", "provider", "repo", "revision", "license", "licenses", "notice", "artifacts", "guidance"] {
+        for key in ["id", "target", "name", "provider", "repo", "revision", "license", "licenses", "notice", "artifacts", "guidance", "restrictions"] {
             assert!(row.get(key).is_some(), "{key} in {row}");
         }
         let sizes: u64 = row["artifacts"].as_array().unwrap().iter().map(|a| a["size"].as_u64().unwrap()).sum();
@@ -243,6 +245,30 @@ fn a_start_without_consent_or_for_another_catalog_touches_no_file_or_network() {
     assert_eq!(jobs(&ui), json!({}));
     assert!(world.opened().is_empty(), "nothing was fetched");
     assert!(!root(&ui).exists(), "no folder was made");
+    ui.stop();
+}
+
+#[test]
+fn a_non_commercial_model_downloads_only_with_its_separate_acknowledgement() {
+    let world = World::default();
+    let ui = world.start();
+    let catalog = ui.ok("/get/data/model_download_catalog", None);
+    let restrictions = |id: &str| catalog["models"].as_array().unwrap().iter().find(|m| m["id"] == id).unwrap()["restrictions"].clone();
+    assert_eq!((restrictions("nc-x"), restrictions("voice-ja")), (json!(["non_commercial"]), json!([])));
+    let acknowledging = |id: &str, acknowledged: Value| json!({ "id": id, "consent": true, "catalog_version": CATALOG_VERSION, "acknowledged": acknowledged });
+    for (data, code) in [
+        (consent("nc-x"), "model_download_restriction_unacknowledged"),
+        (acknowledging("nc-x", json!([])), "model_download_restriction_unacknowledged"),
+        (acknowledging("nc-x", json!(["non_commercial", "unknown_terms"])), "download_request_invalid"),
+        // An unrestricted model takes no acknowledgement it does not carry.
+        (acknowledging("voice-ja", json!(["non_commercial"])), "download_request_invalid"),
+    ] {
+        assert_eq!(failure(&ui.request("/run/start_model_download", Some(data.clone()))), (400, code), "{data}");
+    }
+    assert_eq!(jobs(&ui), json!({}));
+    assert!(world.opened().is_empty() && !root(&ui).exists(), "a refused start fetches and writes nothing");
+    assert_eq!(ui.request("/run/start_model_download", Some(acknowledging("nc-x", json!(["non_commercial"]))))["status"], 200);
+    assert_eq!(wait_phase(&ui, "nc-x", &["ready", "failed"])["phase"], "ready");
     ui.stop();
 }
 
@@ -579,4 +605,26 @@ fn bad_user_model_requests_fail_with_a_code_and_write_nothing() {
     }
     assert!(!ui.dir.join("user_models.json").exists());
     ui.stop();
+}
+/// Chat reading resolves its models from a table of its own (`ocr_runtime::models::CATALOG`),
+/// which repeats the OCR entries of the download catalog: the same models, revisions and files.
+/// Python's catalog was the reference until 0.6.0 (`ocr-runtime/tests/models.rs` compared them);
+/// the download catalog is now.
+#[test]
+fn chat_reading_s_table_repeats_the_ocr_entries_of_the_download_catalog() {
+    let downloads: Vec<Value> = vrct_ops::downloads::catalog::catalog()
+        .into_iter()
+        .filter(|m| m.target == "ocr")
+        .map(|m| json!([m.id, m.revision, m.artifacts.iter().map(|a| json!([a.filename, a.size, a.sha256, a.role])).collect::<Vec<_>>()]))
+        .collect();
+    let reading: Vec<Value> = ocr_runtime::models::CATALOG
+        .iter()
+        .map(|e| json!([e.id, e.revision, e.artifacts.iter().map(|a| json!([a.filename, a.size, a.sha256, a.role])).collect::<Vec<_>>()]))
+        .collect();
+    assert!(!reading.is_empty());
+    assert_eq!(reading, downloads);
+    assert_eq!(
+        (ocr_runtime::models::DETECTOR_MODEL_ID, ocr_runtime::models::DETECTOR_FILE_NAME),
+        (vrct_ops::downloads::catalog::DETECTOR_MODEL_ID, vrct_ops::downloads::catalog::DETECTOR_FILE_NAME)
+    );
 }

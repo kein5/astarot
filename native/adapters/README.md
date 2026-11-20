@@ -41,6 +41,7 @@
 
 - **TLS の実装**。OpenSSL ではなく rustls（ring）です。TLS 1.2 以上という条件は同じですが、使える暗号スイートと鍵の形式が違います。鍵は PKCS#8、PKCS#1（RSA）、SEC1（EC）を読めます。OpenSSL なら読めた珍しい形式の証明書や鍵は、`load_failed` になることがあります。
 - **mDNS の名前の確認**。python-zeroconf は告知の前に、同じ名前がないかを問い合わせていました（probing）。Rust 版はこれを省き、すぐ3回告知します。名前にナノ秒を含むため、衝突は実際には起きない前提です。
+- **mDNS を PC の外へ出さない**（#559）。python-zeroconf は IP の TTL を 255 にして LAN にも告知し、LAN からの問い合わせにも答えていました。告知のアドレスは 127.0.0.1 なので、ほかの機器には使い道がなく、アプリが動いていることだけが伝わっていました。Rust 版は送るパケットの TTL を 0 にします。OS はこれを同じ PC のグループの参加者にだけ渡し、ネットワークには送りません。送り元が同じ PC（ループバックか PC 自身のアドレス）でないパケットは無視します。ループバックのインターフェースだけで参加して送る形では、VRChat（Windows のデスクトップモードで確認）と互いに見つけられませんでした。
 - **OSCQuery の HTTP**。GET 以外は 501 を返します。Python 版の土台（`SimpleHTTPRequestHandler`）は HEAD に対して作業フォルダのファイルを返す作りでした。
 - **HTTP の応答ヘッダ**。OBS と OSCQuery の応答に `Server` と `Date` を付けません。
 - **OBS のポートの再利用**。`SO_REUSEADDR` は Unix だけで設定します。Python の `HTTPServer` は Windows でも設定していましたが、Windows では使用中のポートにも bind できてしまう設定のため、付けていません。
@@ -62,7 +63,7 @@ cargo test --locked --manifest-path native/adapters/Cargo.toml
 python tools/dev.py check --scope rust
 ```
 
-試験は 127.0.0.1 の実際のソケットを使います。mDNS の試験は 5353 番ポートとマルチキャストを使い、ポートを開けない環境では何もせずに通ります。OBS ページの再接続の試験は Node があれば実行します（`src-python/test/obs_reconnect.mjs` を使う）。
+試験は 127.0.0.1 の実際のソケットを使います。mDNS の試験は 5353 番ポートとマルチキャストを使い、ポートを開けない環境では何もせずに通ります。OBS ページの再接続の試験は Node があれば実行します（`tests/fixtures/obs_reconnect.mjs` を使う）。
 
 次の2つは、指定したときだけ動きます。
 

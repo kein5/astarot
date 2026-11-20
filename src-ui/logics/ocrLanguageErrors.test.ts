@@ -1,0 +1,127 @@
+import assert from "node:assert/strict";
+import { test } from "vitest";
+import type { PrimitiveAtom } from "jotai/vanilla";
+import { flush, loadBridgeRoutes } from "./test/bridgeHarness.ts";
+import { unchecked } from "./test/hookHarness.ts";
+import type { AtomState } from "./store.ts";
+import type { SharedWindowState } from "./configs/ocrSharedWindow.ts";
+
+// The store's registry holds each setting's atom under its Atom_ name.
+const atomNamed = (registry: Record<string, unknown>, name: string) => unchecked<PrimitiveAtom<AtomState<unknown>>>(registry[name]);
+// A notice's options, read as notice.options.category_id always was.
+const optionsOf = (notice: { options: unknown } | undefined) => unchecked<{ category_id?: unknown }>(notice?.options);
+
+for (const error_code of ["OCR_DISABLED_MODEL_MISSING", "OCR_DISABLED_MODEL_LOAD_FAILED"]) {
+    test(`OCR language ${error_code} settles the previous language`, async () => {
+        const s = await loadBridgeRoutes();
+        const language = atomNamed(s.stores.dynamicStoreRegistry, "Atom_OcrSourceLanguage");
+        s.runtime.store.set(language, { state: "pending", data: "auto" });
+        s.receiveRoutes({ endpoint: "/set/data/ocr_source_language", status: 400,
+            result: { error_code, data: "auto" } });
+        assert.equal(s.runtime.store.get(language).data, "auto");
+        assert.equal(s.runtime.store.get(language).state, "ok");
+        assert.equal(s.notices.length, 1);
+        assert.equal(s.notices[0].type, "error");
+        assert.equal(optionsOf(s.notices[0]).category_id, error_code);
+        assert.deepEqual(s.reads, []);
+    });
+}
+
+// Linux on Wayland: a native Wayland window exists but cannot be found by name, so the notice says how to share it.
+const sharing: [boolean | null, string][] = [[true, "common_error.ocr_window_not_found_wayland"], [false, "common_error.ocr_window_not_found"],
+    [null, "common_error.ocr_window_not_found"]];
+for (const [supported, key] of sharing) {
+    test(`window not found names sharing only where a window can be shared (${supported})`, async () => {
+        const s = await loadBridgeRoutes();
+        // A sharing state with only what the notice reads.
+        s.runtime.store.set(s.stores.Atom_OcrSharedWindow, { state: "ok", data: unchecked<SharedWindowState>({ supported, active: false, busy: false, error: null }) });
+        s.receiveRoutes({ endpoint: "/set/enable/ocr_capture", status: 400,
+            result: { error_code: "OCR_DISABLED_WINDOW_NOT_FOUND", data: false } });
+        assert.equal(s.notices.length, 1);
+        assert.equal(s.notices[0].key, key);
+        assert.equal(s.stores.Atom_OcrCaptureStatus && s.runtime.store.get(s.stores.Atom_OcrCaptureStatus).data, false);
+    });
+}
+
+test("a capture failure keeps its own notice on Wayland", async () => {
+    const s = await loadBridgeRoutes();
+    // A sharing state with only what the notice reads.
+    s.runtime.store.set(s.stores.Atom_OcrSharedWindow, { state: "ok", data: unchecked<SharedWindowState>({ supported: true, active: false, busy: false, error: null }) });
+    s.receiveRoutes({ endpoint: "/set/enable/ocr_capture", status: 400,
+        result: { error_code: "OCR_DISABLED_CAPTURE_UNAVAILABLE", data: false } });
+    assert.equal(s.notices[0].key, "common_error.ocr_capture_unavailable");
+});
+
+// Linux on Wayland: the user turned chat reading on, no window was found by name, and the desktop
+// remembers the window shared before. It is shared again and chat reading is turned on once more.
+const restoring = async (restored: unknown, wanted = true) => {
+    const enabled: unknown[] = [], asked: unknown[] = [], settled: unknown[] = [];
+    const s = await loadBridgeRoutes(undefined, null, null, {
+        configs: {
+            ocrShouldRestoreSharedWindow: (code: unknown) => { asked.push(code); return wanted; },
+            useOcrSharedWindow: () => ({ restore: async () => { if (restored instanceof Error) throw restored; return restored; } }),
+        },
+        main: { useMainFunction: () => ({ updateOcrCaptureStatus: (value: unknown) => settled.push(value), setOcrCapture: (value: unknown) => enabled.push(value) }) },
+    });
+    return { s, enabled, asked, settled };
+};
+const windowNotFound = (endpoint: string) => ({ endpoint, status: 400, result: { error_code: "OCR_DISABLED_WINDOW_NOT_FOUND", data: false } });
+
+test("a remembered window is shared again and chat reading turned on once more, without a notice", async () => {
+    const { s, enabled, asked } = await restoring(true);
+    s.receiveRoutes(windowNotFound("/set/enable/ocr_capture"));
+    await flush();
+    assert.deepEqual(asked, ["OCR_DISABLED_WINDOW_NOT_FOUND"]);
+    assert.deepEqual(enabled, [true]);
+    assert.deepEqual(s.notices, []);
+});
+
+const outcomes: [string, unknown][] = [["could not be shared", false], ["failed", new Error("screencast_failed")]];
+for (const [name, outcome] of outcomes) {
+    test(`when the remembered window ${name}, chat reading stays off and the usual notice is shown`, async () => {
+        const { s, enabled, settled } = await restoring(outcome);
+        s.receiveRoutes(windowNotFound("/set/enable/ocr_capture"));
+        await flush();
+        assert.deepEqual(enabled, []);
+        // Off from the failed start, then off again to end the switch's waiting.
+        assert.deepEqual(settled, [false, false]);
+        assert.equal(s.notices.length, 1);
+        assert.equal(optionsOf(s.notices[0]).category_id, "OCR_DISABLED_WINDOW_NOT_FOUND");
+    });
+}
+
+test("nothing is shared again when there is no remembered window, or for a language change", async () => {
+    const none = await restoring(true, false);
+    none.s.receiveRoutes(windowNotFound("/set/enable/ocr_capture"));
+    await flush();
+    assert.deepEqual(none.enabled, []);
+    assert.equal(none.s.notices.length, 1);
+
+    const language = await restoring(true);
+    language.s.receiveRoutes(windowNotFound("/set/data/ocr_source_language"));
+    await flush();
+    assert.deepEqual(language.asked, []);
+    assert.deepEqual(language.enabled, []);
+    assert.equal(language.s.notices.length, 1);
+});
+
+// Issue #305: the switch used to end in a notice that vanished. Now it leads to the models section.
+test("turning chat reading on without its models opens the setup guide instead of a notice", async () => {
+    const s = await loadBridgeRoutes();
+    assert.equal(s.ocrSetup().open, false);
+    // The backend (the core and the Python one) tells the refusal on /run/enable_ocr_capture.
+    s.receiveRoutes({ endpoint: "/run/enable_ocr_capture", status: 400,
+        result: { error_code: "OCR_DISABLED_MODEL_MISSING", data: false } });
+    assert.equal(s.ocrSetup().open, true);
+    assert.deepEqual(s.notices, []);
+    assert.equal(s.runtime.store.get(s.stores.Atom_OcrCaptureStatus).data, false, "the switch settles off");
+    assert.deepEqual(s.reads, [], "nothing is downloaded or asked for");
+});
+
+test("a missing model after a language change stays a notice and opens no guide", async () => {
+    const s = await loadBridgeRoutes();
+    s.receiveRoutes({ endpoint: "/set/data/ocr_source_language", status: 400,
+        result: { error_code: "OCR_DISABLED_MODEL_MISSING", data: "auto" } });
+    assert.equal(s.ocrSetup().open, false);
+    assert.equal(s.notices.length, 1);
+});

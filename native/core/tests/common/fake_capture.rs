@@ -38,6 +38,8 @@ struct Inner {
     running: [AtomicUsize; 2],
     /// Failures to inject into the running capture of a source.
     fail: [AtomicBool; 2],
+    /// A source whose capture runs but delivers nothing, as a microphone that stopped.
+    stalled: [AtomicBool; 2],
     endpoints: Mutex<Vec<(Source, Endpoint, String)>>,
     default: Mutex<[Option<String>; 2]>,
 }
@@ -94,6 +96,11 @@ impl FakeCapture {
     /// The running capture of `source` fails as an unplugged device does.
     pub fn break_device(&self, source: Source) {
         self.0.fail[index(source)].store(true, Ordering::SeqCst);
+    }
+
+    /// The capture of `source` stays open but delivers nothing (`false` delivers again).
+    pub fn stall(&self, source: Source, stalled: bool) {
+        self.0.stalled[index(source)].store(stalled, Ordering::SeqCst);
     }
 
     pub fn add_endpoint(&self, source: Source, name: &str, label: &str) -> Endpoint {
@@ -164,6 +171,9 @@ impl CapturePlatform for FakeCapture {
                     std::thread::sleep(wait);
                 }
                 sent += 1;
+                if inner.stalled[index(source)].load(Ordering::SeqCst) {
+                    continue;
+                }
                 if current.as_ref().is_none_or(|(sound, played)| *played >= sound.duration) {
                     current = inner.script[index(source)].lock().unwrap().pop_front().map(|s| (s, Duration::ZERO));
                 }
@@ -176,7 +186,7 @@ impl CapturePlatform for FakeCapture {
                 };
                 let samples: Vec<i16> =
                     (0..block * usize::from(channels)).map(|i| if (i / usize::from(channels)) % 2 == 0 { level } else { -level }).collect();
-                if !on_audio(&samples, rate, channels) {
+                if !on_audio(&samples, rate, channels, None) {
                     break;
                 }
             }

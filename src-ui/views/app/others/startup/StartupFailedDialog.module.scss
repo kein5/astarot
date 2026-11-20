@@ -25,7 +25,7 @@
 
 .title {
     margin-bottom: 1rem;
-    font-size: 1.7rem;
+    font-size: 1.8rem;
     font-weight: 650;
     line-height: 1.5;
     color: var(--dark_100_color);
@@ -46,6 +46,7 @@
         padding: .8rem 1.4rem;
         border-radius: var(--vox_radius);
         font-size: 1.4rem;
+        font-weight: 500;
         cursor: pointer;
         &:focus-visible { outline: .2rem solid var(--primary_200_color); outline-offset: .2rem; }
     }
@@ -53,12 +54,14 @@
 
 .retry {
     background: var(--primary_600_color);
-    color: var(--dark_100_color);
+    color: var(--vox_on_primary);
     &:hover { background: var(--primary_550_color); }
 }
 
+// An outline beside Retry: with no fill, its border is its only edge, so it is the field
+// border (DESIGN.md "Colors"), not the hairline between regions.
 .quit {
-    border: .1rem solid var(--vox_border);
+    border: .1rem solid var(--vox_field_border);
     background: transparent;
     color: var(--dark_200_color);
     &:hover { background: var(--vox_secondary_hover); }

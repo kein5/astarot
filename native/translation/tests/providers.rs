@@ -19,11 +19,11 @@ fn languages() -> Vec<String> {
 
 /// A machine translation: codes, no prompt.
 fn plain<'a>(text: &'a str, source: &'a str, target: &'a str) -> Translation<'a> {
-    Translation { text, source, target, supported_languages: &[], history: &[] }
+    Translation { text, source, target, supported_languages: &[], history: &[], glossary: &[] }
 }
 
 fn ask<'a>(text: &'a str, supported: &'a [String], history: &'a [HistoryItem]) -> Translation<'a> {
-    Translation { text, source: "Japanese", target: "English", supported_languages: supported, history }
+    Translation { text, source: "Japanese", target: "English", supported_languages: supported, history, glossary: &[] }
 }
 
 #[test]
@@ -39,7 +39,7 @@ fn deepl_checks_the_key_and_translates_with_upper_case_codes() {
     assert_eq!(check.body["target_lang"], "EN-US");
 
     let ask_deepl =
-        Translation { text: "こんにちは", source: "ja", target: "en-US", supported_languages: &[], history: &[] };
+        Translation { text: "こんにちは", source: "ja", target: "en-US", supported_languages: &[], history: &[], glossary: &[] };
     assert_eq!(
         DeepL::translate(&net(), &Access::at(base).key("good:fx"), &ask_deepl).unwrap(),
         "deepl-free:EN-US:こんにちは"
@@ -298,27 +298,38 @@ fn canned(answer: serde_json::Value) -> (Transport, std::sync::Arc<std::sync::at
     let seen = count.clone();
     let transport: Transport = std::sync::Arc::new(move |_request, _timeouts| {
         seen.fetch_add(1, Ordering::SeqCst);
-        Ok(http::Response { status: 200, body: serde_json::to_vec(&answer).unwrap() })
+        Ok(http::Response::new(200, serde_json::to_vec(&answer).unwrap()))
     });
     (transport, count)
 }
 
 #[test]
 fn only_openai_and_the_compatible_endpoint_read_incomplete_details() {
+    // A Responses API answer (gpt-5-pro has only that API) cut by the output limit.
     let answer = serde_json::json!({
-        "choices": [{ "message": { "content": "訳" }, "finish_reason": "stop" }],
+        "status": "incomplete",
         "incomplete_details": { "reason": "max_output_tokens" },
+        "output": [{ "type": "message", "content": [{ "type": "output_text", "text": "訳" }] }],
     });
     let (net, _) = canned(answer);
     let supported = languages();
     let request = ask("文", &supported, &[]);
-    let access = Access::at("https://api.example.com/v1").key("k").model("m");
+    let access = Access::at("https://api.example.com/v1").key("k").model("gpt-5-pro");
     assert_eq!(OpenAi::translate(&net, &access, &request).unwrap(), "");
     assert_eq!(OpenAiCompatible::translate(&net, &access, &request).unwrap(), "");
     assert_eq!(Groq::translate(&net, &access, &request).unwrap(), "訳");
     assert_eq!(OpenRouter::translate(&net, &access, &request).unwrap(), "訳");
     assert_eq!(Plamo::translate(&net, &access, &request).unwrap(), "訳");
     assert_eq!(LmStudio::translate(&net, &access, &request).unwrap(), "訳");
+
+    // Chat Completions has no incomplete_details: one that comes anyway is not read.
+    let answer = serde_json::json!({
+        "choices": [{ "message": { "content": "訳" }, "finish_reason": "stop" }],
+        "incomplete_details": { "reason": "max_output_tokens" },
+    });
+    let (net, _) = canned(answer);
+    let access = Access::at("https://api.example.com/v1").key("k").model("gpt-4o");
+    assert_eq!(OpenAi::translate(&net, &access, &request).unwrap(), "訳");
 }
 
 #[test]

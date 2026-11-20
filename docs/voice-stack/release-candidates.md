@@ -2,6 +2,30 @@
 
 配布候補の作成と公開を分けています。最初の公開版は2026-10-31の`v0.1.0-beta.1`（developからのプレリリース）です。Linux・Windowsの候補を同じブランチの同じコミットから作り、検査後にGitHub Releasesの下書きへまとめます。公開は保守担当者が下書きを確認して行います。
 
+## 全体の流れ
+
+```mermaid
+flowchart TD
+    topic["トピックブランチ"] -->|"PR・必須のチェック"| develop[("develop")]
+
+    develop -->|"版を X.Y.Z-beta.N にする"| betaBuild["候補をビルド<br>Linux・Windows"]
+    betaBuild --> betaDraft["下書きを準備<br>Prepare verified ASTAROT release draft"]
+    betaDraft --> betaPublish["人が確かめて公開<br>プレリリース vX.Y.Z-beta.N"]
+
+    develop -->|"release/X.Y.Z を切る<br>版と CHANGELOG の節"| release["release/X.Y.Z"]
+    main[("main")] -.->|"急ぎの修正だけ<br>公開済みの版から切る"| release
+    release -->|"PR・必須のチェック<br>候補のビルドを含む"| main
+    main -->|"マージのコミット"| stableBuild["候補をビルド<br>Linux・Windows"]
+    stableBuild --> stableDraft["下書きを準備<br>Prepare verified ASTAROT release draft"]
+    stableDraft --> stablePublish["人が確かめて公開<br>正式版 vX.Y.Z"]
+    stablePublish --> back["main を develop へ戻す PR"]
+    back --> develop
+```
+
+ベータ版は`develop`から作ります。正式版は`develop`から切った`release/X.Y.Z`をPRで`main`へ統合し、そのマージのコミットから作ります。公開済みの版を急いで直すときだけ、`release/X.Y.Z`を`main`から切ります（[公開済みの版を急いで直す](#公開済みの版を急いで直す)）。ベータ版も正式版も、公開の前にタグ名、リリースノート、実機での動きを人が確かめます。各段の手順はこの下の節にあります。
+
+リリースの流れを変えたときは、この図も同じPRで直します。参加の流れの図は[CONTRIBUTING.md](../../CONTRIBUTING.md#pull-requests)にあります。
+
 ## ブランチとチャンネル
 
 | ブランチ | チャンネル | 版の形式 | GitHub Releases |
@@ -9,19 +33,32 @@
 | `main` | 正式版 | `X.Y.Z`（例: `0.1.0`） | 通常のリリース。最新版として表示 |
 | `develop` | ベータ版 | `X.Y.Z-beta.N`（例: `0.2.0-beta.1`） | プレリリース。最新版にはしない |
 
-ブランチと版の形式が一致しない場合、下書きは作成しません。アプリ内のリリースチャンネル判定も版の`-beta`で行います。正式版は、developから`release/X.Y.Z`ブランチを切って版だけを`X.Y.Z`に変え（`utils/update_version.py`）、mainへのPRで統合してから作成します。mainは保護されていて、必須チェックに通ったPRでしか変更できません。公開後はmainをdevelopへ統合し、developを次の`-beta.N`へ進めます。
+ブランチと版の形式が一致しない場合、下書きは作成しません。アプリ内のリリースチャンネル判定も版の`-beta`で行います。正式版は、developから`release/X.Y.Z`ブランチを切って版だけを`X.Y.Z`に変え（`utils/update_version.py`）、mainへのPRで統合してから作成します。mainは保護されていて、必須チェックに通ったPRでしか変更できません。PRをmainへマージすると、候補の作成と下書きの準備が自動で始まります（[下書きを作る](#下書きを作る)）。公開すると、mainをdevelopへ戻すPRが自動で開きます（[公開したあと](#公開したあと)）。そのPRをマージしてから、developを次の`-beta.N`へ進めます。公開済みの版を急いで直すときは、次の節のとおりmainから切ります。
+
+### 公開済みの版を急いで直す
+
+公開済みの版に急いで直す不具合があり、developにはすでに次の版の作業が入っているときの手順です。developから`release/X.Y.Z`を切ると次の版の変更まで入るので、公開済みの版の`main`から切ります。0.5.2はこの手順で準備しました（#617）。
+
+1. 修正は通常どおりdevelopへのPRでマージします。
+2. 公開済みの版の`main`から`release/X.Y.Z`を切ります。
+3. 取り込むのは、その修正と、`main`の状態でビルドするのに要る変更だけです。developのPRのコミットを`git cherry-pick -x`で取り込み、PRのブランチにdevelopを取り込んだマージは除きます。0.5.2では、ONNX RuntimeのGitHubの配布が取得できなくなって`main`のままでは配布物のビルドが取得の段で失敗したため、#610の修正（#613）のほかに、ONNX Runtimeの取得元をNuGetに切り替えた#609を取り込みました。取り込んだファイルがdevelopでマージした結果と同じかを`git diff`で確かめ、取り込んだPRと理由をリリースのPRに書きます。
+4. 版上げとリリースノートは通常の正式版と同じです（[候補を作る](#候補を作る)の1、[リリースノートの書式](../release-notes/README.md)）。`CHANGELOG.md`の節は前の正式版のタグからのコミットで作るので、取り込んだコミットだけが載ります。版上げのあとにコミットを足したときは、`python tools/changelog.py write --force`で節を書き直します。
+5. `main`へのPRはマージコミットで統合します。`CHANGELOG.md`の節は`release/X.Y.Z`のコミットにリンクしているので、squashやrebaseで統合するとリンク先が`main`に入りません。
+6. 候補は検証のために`release/X.Y.Z`で作って構いません。下書きを作れるのは`main`と`develop`の候補だけなので（[下書きを作る](#下書きを作る)）、正式な候補はマージしたあとに`main`で作ります。マージすると`main`での候補の作成と下書きの準備が自動で始まります。
+7. 公開すると、`main`をdevelopへ戻すPRが自動で開きます（[公開したあと](#公開したあと)）。developにも同じ修正が別のコミットとして入っているので、履歴には同じ変更が2回出ます。developの版が公開済みの版のままなら、統合でdevelopの版はこの手順で出した版（`X.Y.Z`）になります。そのあとdevelopを次の`-beta.N`へ進めます。developを先に次の`-beta.N`へ進めていたときは版の行が衝突するので、developの版を残します。
 
 ## 候補を作る
 
-1. `package.json`の版をリリースするブランチの形式にし、`npm run update-version`で`src-tauri/tauri.conf.json`、`src-python/config.py`、`pyproject.toml`、`uv.lock`へ反映します。版が載る仕様の一覧（`docs/spec/reference/config-keys.md`）も同じコマンドで作り直します。
+1. `package.json`の版をリリースするブランチの形式にし、`npm run update-version`で`src-tauri/tauri.conf.json`、`pyproject.toml`、`uv.lock`へ反映します。版が載る仕様の一覧（`docs/spec/reference/config-keys.md`）も同じコマンドで作り直します。
    正式版のときだけ、続けて`npm run changelog`で`CHANGELOG.md`にこの版の節を書きます。版の変更と一緒に`chore(release): version X.Y.Z`でコミットします。分類と手順は[CONTRIBUTING.md](../../CONTRIBUTING.md#changelog-and-releases)にあります。
+   正式版では`release/X.Y.Z`のPRを`main`へマージすると、次の2〜4と[下書きを作る](#下書きを作る)が自動で進みます。ベータ版のときと、自動の実行が止まって手で続けるときは、2から進めます。
 2. GitHub Actionsの「VRCT-VOX Linux candidate (no publication)」を`main`（正式版）または`develop`（ベータ版）で手動実行します。0.5.0からはspeech.cppのCPU版とVulkan版を両方入れた候補を1つ作るので、選ぶものはありません。ファイル名は`VRCT-VOX-<version>-linux-x64-release`に`.tar.gz`、`.AppImage`、`.deb`、`.rpm`を付けたものです（0.4までは`linux-x64-vulkan`か`linux-x64-cpu`）。
 3. 「Validate VRCT-VOX distribution」を同じコミットで手動実行し、Windows候補を作ります。このワークフローはmain宛てのPRでも動きますが、下書きに使えるのは手動実行の結果だけです。
 4. 両方の実行が成功したら、run IDを控えます。候補の保存期間は7日です。
 
 Linuxでは再配置したアーカイブとAppImageのGUI試験、WindowsではZIP・NSIS内の配布禁止ファイル検査が成功した後に、候補を保存します。Linuxの候補は、tar.gz、AppImage、deb、rpmの4つです。debとrpmはtar.gzと同じファイルを`/opt/vrct-vox`に入れるもので（`tools/linux_packages.py`）、ダイジェストで固定したUbuntu 24.04、Debian 13、Fedora 44のコンテナに、それぞれのパッケージマネージャーで推奨パッケージなしに入れて確かめます（`tools/ci/check_linux_package.sh`）。確かめるのは、メインの実行ファイルのライブラリがそろうこと、同梱の音声エンジンが起動すること、削除で何も残らないことです。0.5.0からバックエンドはメインの実行ファイルの中にあり、別に起動するものはありません。画面の表示は確かめません。各候補の`candidate-manifest.json`にはリポジトリ、コミット、版、ファイル名、容量、SHA-256を記録します。`SHA256SUMS`と、各配布物の`.sha256`も同梱します。インストーラー用の`.sha256`は改行なしの64 ASCII文字で保存します。
 
-Windowsの候補は、CUDA版のZIPを先に作り、続くジョブでCPU版のZIPとインストーラーを作ります。0.5.0から2つのZIPの中身は同じです（Pythonを同梱しないので、CUDAのライブラリもありません）。インストーラーのGPUの選択と、CUDA版から更新する利用者のために、CUDA版の名前でも作り続けます。インストーラーには両方のZIPのSHA-256を組み込みます（`tools/installer_package_hashes.py`が書く`src-tauri/nsis/package-hashes.nsh`。コミットしません）。インストーラーは自分と同じ版のZIPを、この組み込みのハッシュで照合します。リリースのページでZIPと`.sha256`を一緒に差し替えられても、そのZIPは展開しません。`/VERSION`で別の版を入れるときと、ハッシュを組み込まずに作ったインストーラーでは、従来どおりZIPの隣の`.sha256`で照合します。候補のジョブは、組み込んだハッシュと保存するZIPが一致するかを確かめます。ビルドの順番がこうなったため、Windowsの候補は以前より15分ほど長くかかります。
+Windowsの候補は、ビルドのジョブで`VRCT-VOX.zip`とインストーラーを作ります。0.5まではCUDA版のZIP（`VRCT-VOX_cuda.zip`）も作っていましたが、0.5.0から中身が同じだったので、#288でやめました（[Windowsの配布物の一本化](single-package.md)）。インストーラーにはZIPのSHA-256を組み込みます（`tools/installer_package_hashes.py`が書く`src-tauri/nsis/package-hashes.nsh`。コミットしません）。インストーラーは自分と同じ版のZIPを、この組み込みのハッシュで照合します。リリースのページでZIPと`.sha256`を一緒に差し替えられても、そのZIPは展開しません。`/VERSION`で別の版を入れるときと、ハッシュを組み込まずに作ったインストーラーでは、従来どおりZIPの隣の`.sha256`で照合します。候補のジョブは、組み込んだハッシュと保存するZIPが一致するかを確かめます。
 
 手動実行のときは、保存する前に候補の全ファイルへビルドの来歴を付けます（GitHub Artifact Attestations、`actions/attest-build-provenance`。第2回セキュリティ監査 SEC-04）。来歴には、ファイルのSHA-256、作ったワークフロー、コミット、ブランチ、実行が入り、GitHubがSigstoreで署名します。このリポジトリは公開しているので、署名はSigstoreの公開の透明性ログにも記録されます。SHA-256のファイルだけでは、リリースの資産を差し替えられる人がチェックサムも一緒に差し替えられます。来歴があれば、ファイルがこのリポジトリの候補のワークフローで作られたかを、リリースとは別に確かめられます。来歴を付ける権限（`id-token`と`attestations`）は、候補のジョブにだけ与えます。PRの実行では来歴を付けません。
 
@@ -69,13 +106,22 @@ Windowsの候補は、CUDA版のZIPを先に作り、続くジョブでCPU版の
 
 ## 下書きを作る
 
-「Prepare verified VRCT-VOX release draft」を同じブランチの同じコミットで手動実行し、Linux・Windowsのrun IDを指定します。別のコミットへ進んだ場合は、そのコミットで候補を作り直してください。
+正式版では`release/X.Y.Z`のPRを`main`へマージすると、「Start ASTAROT release draft」（`release-draft-auto.yml`、`tools/release_automation.py`）が次を順に進めます。
+
+1. マージのコミットで成功した手動実行の候補を、LinuxとWindowsのそれぞれで探します。作成から6日以内の成功した実行があればそれを使い、実行中のものがあれば終わるまで待ちます。どちらもなければ、候補のワークフローを`main`で手動実行と同じ形で始めます。手動実行と同じなので、候補にはビルドの来歴が付きます。
+2. 両方の候補が成功したら、そのrun IDで「Prepare verified ASTAROT release draft」を始め、終わるまで待ちます。
+
+照合はこれまでどおり「Prepare verified ASTAROT release draft」の側で行います（中身はこの節の後半）。候補が1つでも失敗するか、5時間で終わらなければ、そこで止まって下書きを作りません。候補を始める前に`main`がマージのコミットから進んでいたら、別のコミットの候補ができてしまうので何も始めません。同じコミットで下書きの準備がすでに成功していれば、二重には作りません。経過と各実行へのリンクはジョブの概要（Summary）に出ます。
+
+自動の実行が止まったときは、原因を直してから「Start ASTAROT release draft」を`main`で手動実行します。同じ手順をやり直し、成功した候補はそのまま使います。ベータ版の下書きもこのワークフローを`develop`で手動実行すれば同じ手順で準備できます。
+
+手で進めるときは、「Prepare verified ASTAROT release draft」を同じブランチの同じコミットで手動実行し、Linux・Windowsのrun IDを指定します。別のコミットへ進んだ場合は、そのコミットで候補を作り直してください。
 
 この処理は成功した手動ビルドだけを受け付け、元のリポジトリ、ワークフロー、ブランチ、コミット、ブランチと版の形式の対応を確認します。取得した候補についても版・ファイル集合・容量・SHA-256を照合し、差異があれば終了します。続けて全ファイルの来歴を`gh attestation verify`で確かめます。署名したのがそのプラットフォームの候補のワークフローであること、コミットとブランチが下書きのものと同じこと、GitHubのランナーで作ったことです。1つでも確かめられなければ下書きを作りません。ダウンロードしたコードは実行しません。
 
-作成するのは`v<version>`の下書きです。既存の同名タグがある場合は、対象コミットが同じでも停止します。新しい版を選んでください。タグ照会の失敗も続行せず、既存リリースの上書きや自動公開は行いません。下書きの説明は、正式版なら`CHANGELOG.md`のこの版の節から作ります（節がなければ下書きを作りません）。ベータ版なら前のタグからのコミットから作ります。公開する前に、本文を`docs/release-notes/<version>.md`のノート（0.5.0からの書式は[リリースノートの書式](../release-notes/README.md)）に差し替え、Windowsのインストール・旧版からの更新・アンインストールを確認してから公開してください。ビルド成功だけではWindowsのTTS/RVC実機動作まで確認したことになりません。確認の手順は[Windowsの音声機能](local-setup-windows.md)にあります。
+作成するのは`v<version>`の下書きです。既存の同名タグがある場合は、対象コミットが同じでも停止します。新しい版を選んでください。タグ照会の失敗も続行せず、既存リリースの上書きや自動公開は行いません。下書きの説明は、正式版なら`CHANGELOG.md`のこの版の節から作ります（節がなければ下書きを作りません）。ベータ版なら前のタグからのコミットから作ります。自動の処理は下書きを作るところまでで、公開はしません。公開する前に、下書きのタグ名が`v<version>`であることと、対象のコミットが候補を作ったコミットであることを確かめます（手順は[公開の直前にタグ名を書き直す](#公開の直前にタグ名を書き直す)）。公開するとそのタグができ、リリースのタグはあとから動かせません。続けて本文を`docs/release-notes/<version>.md`のノート（0.5.0からの書式は[リリースノートの書式](../release-notes/README.md)）に差し替え、Windowsのインストール・旧版からの更新・アンインストールを確認してから公開してください。ビルド成功だけではWindowsのTTS/RVC実機動作まで確認したことになりません。確認の手順は[Windowsの音声機能](local-setup-windows.md)にあります。
 
-Windowsのsetupは、下書きへまとめる際に`VRCT-VOX_setup.exe`へコピーします。インストーラーが取得する`VRCT-VOX.zip`と`VRCT-VOX_cuda.zip`の名前も維持してください。アプリ内の更新は`VRCT-VOX_setup.exe`とAppImageを使います（次の節）。
+Windowsのsetupは、下書きへまとめる際に`VRCT-VOX_setup.exe`へコピーします。インストーラーが取得する`VRCT-VOX.zip`の名前も維持してください。アプリ内の更新は`VRCT-VOX_setup.exe`とAppImageを使います（次の節）。
 
 ## updaterの署名とlatest.json
 
@@ -113,11 +159,11 @@ $env:WEBVIEW2_USER_DATA_FOLDER = (Resolve-Path "$d\webview").Path
 - `VRCT_CONFIG_DIR`を指定すると、設定とログがそのフォルダーに入り、インストール済みのアプリが動いていても別に起動します。モデルと`telemetry_state.json`は展開した`app`フォルダーの中に入ります。
 - OSCの送信先がこのPC（既定）だと、バックエンドがmDNSのためにポートを開き、新しい場所の実行ファイルにはWindowsのファイアウォールの確認が出ます。確認を出さずに見るときは、`state\config.json`に`"OSC_IP_ADDRESS": "127.0.0.2"`と`"SEND_MESSAGE_TO_VRC": false`を書いてから起動します。
 - 利用状況のお知らせで「送信する」を選ぶと、実際の受信サーバーへ1件送ります。送らずに見るときは`VRCT_TELEMETRY`に`off`を入れます。
-- 少なくとも次を確かめます。起動して版が表示されること。設定の「翻訳」のダウンロードを押すと、ローカル翻訳のモデルが未公開であることと、自分で用意したモデルを置くフォルダが出ること（翻訳のモデルを公開したあとは、取得の確認画面が開き、同意して取得が終わると翻訳がオンになって訳文が出ること）。設定の各ページが開くこと。閉じると、アプリが起動したプロセス（speech.cppのサーバーやRVCのワーカー）が残らないこと。`state\logs\error.log`ができていないこと。0.1.0までは、翻訳モデルがない状態で「翻訳」を押すたびに記録（`MissingCTranslate2Tokenizer`）が1件残りました。モデルがまだないのは最初の起動では当たり前の状態なので、いまは記録せず、利用状況のエラーの通知にも数えません。
+- 少なくとも次を確かめます。起動して版が表示されること。設定の「翻訳」のダウンロードを押すと、取得の確認画面が開き、同意して取得が終わると翻訳がオンになって訳文が出ること（翻訳のモデルは2026-11-19に公開しました。それより前の版では、未公開であることと自分で用意したモデルを置くフォルダが出ます）。設定の各ページが開くこと。閉じると、アプリが起動したプロセス（speech.cppのサーバーやRVCのワーカー）が残らないこと。`state\logs\error.log`ができていないこと。0.1.0までは、翻訳モデルがない状態で「翻訳」を押すたびに記録（`MissingCTranslate2Tokenizer`）が1件残りました。モデルがまだないのは最初の起動では当たり前の状態なので、いまは記録せず、利用状況のエラーの通知にも数えません。
 
 ## 公開前にLinuxのデスクトップで確かめる
 
-候補のビルドは、AppImageの起動、描画、設定画面の操作までを自動で確かめます。音声経路、音声認識、VRChatを使う試験は、PipeWireとWirePlumber 0.5、モデル、GPU、VRChatが要るので、CIでは実行しません。CIに含まれない試験は、画面を変えたあとに気づかないまま古くなります。0.1.0-beta.6では、公開の直前に補助コードが今の画面と合っていないことが分かり、一部を確かめないまま公開しました。その後に流し直すと、設定画面で音声認識サーバーを止めても、閉じると再開する不具合が見つかっています。公開の前に、下書きのAppImageをLinuxのデスクトップで実行してください。
+候補のビルドは、AppImageの起動、描画、設定画面の操作までを自動で確かめます。VRChatを使う試験はVRChatとOCRのモデルが要るので、CIでは実行しません。CIに含まれない試験は、画面を変えたあとに気づかないまま古くなります。0.1.0-beta.6では、公開の直前に補助コードが今の画面と合っていないことが分かり、一部を確かめないまま公開しました。その後に流し直すと、設定画面で音声認識サーバーを止めても、閉じると再開する不具合が見つかっています。公開の前に、下書きのAppImageをLinuxのデスクトップで実行してください。
 
 ```bash
 # 下書きのAppImageを取得し、SHA-256を確かめる
@@ -126,55 +172,91 @@ gh release download v<version> -R kein5/VRCT-VOX -p '*.AppImage' -p 'SHA256SUMS-
 sha256sum -c --ignore-missing SHA256SUMS-linux
 cd <リポジトリ>
 
-# モデルの要らない試験だけ
+# アプリだけで動く試験
 python tools/native_acceptance.py --appimage <AppImageの絶対パス>
 
-# 音声認識、読み上げ、VRChatの往復、モデルの取得も含める
-python tools/native_acceptance.py --appimage <AppImageの絶対パス> --fetch-models --vrchat --downloads
-
-# RVCとSeed-VCの実行環境、実際の音声経路でのVRChatも含める
-python tools/native_acceptance.py --appimage <AppImageの絶対パス> --fetch-models --fetch-runtimes \
-  --vrchat --vrchat-voice --downloads
-
-# VR UI（開発ビルドだけ）
-python tools/native_acceptance.py --app src-tauri/target/debug/vrct-vox --only vr-ui
+# VRChatの往復も含める
+python tools/native_acceptance.py --appimage <AppImageの絶対パス> --vrchat
 ```
 
-`tools/native_acceptance.py`は、試験のグループごとにpytestを起動し、成功、失敗、スキップの件数を表示します。結果は`build/native-acceptance/summary.json`、各グループのログは同じフォルダーの`<グループ>/pytest.log`です。試験は実際のアプリを画面に開きます。音声は試験専用のPipeWireグラフを通すため、実際のマイクやスピーカーには触れません。`tauri-driver` 2.1.0の場所は`--driver`か`VRCT_TEST_DRIVER`で指定します。
+`tools/native_acceptance.py`は、試験のグループごとにpytestを起動し、成功、失敗、スキップの件数を表示します。結果は`build/native-acceptance/summary.json`、各グループのログは同じフォルダーの`<グループ>/pytest.log`です。試験は実際のアプリを画面に開きます。`tauri-driver` 2.1.0の場所は`--driver`か`VRCT_TEST_DRIVER`で指定します。
 
 | グループ | 確かめること | 要るもの |
 |---|---|---|
 | `appimage` | FUSEと展開の両方式での起動、描画、終了、設定画面の操作、再起動後のミュート | AppImage |
 | `ui` | 基本画面と設定画面（表示倍率100%と150%） | なし |
-| `voice` | 読み上げが仮想マイクへちょうど1回届くこと、停止とミュート、直接入力、TTSの独立動作、バックエンドの起動 | なし（固定の音声） |
-| `tts-model` | 低遅延の待機、遅延の計測 | Irodori、GPU |
-| `asr` | リアルタイム字幕、内蔵の音声サーバー、音声翻訳 | Qwen3-ASR、Silero VAD、Qwen3-TTS、GPU |
-| `downloads` | 同意の画面、実際の取得（約336 MB）、SHA-256、適用、再起動後の保持 | `--downloads` |
-| `rvc` | アプリから起動した実際のRVCの変換、ミュート中の無音、停止 | RVCの実行環境とモデル、GPU |
-| `seed-vc` | アプリから起動した実際のSeed-VCの変換、停止、入力の消失。0.5.0のアプリはSeed-VCを使えない（中核が`vc_engine_unavailable`で断る。[中核の統合](core-integration.md)の「判断が要ること」の10） | Seed-VCの実行環境、GPU |
 | `vrchat` | アプリで入力した文が実際のVRChatの吹き出しに出て、チャット読み取りで読み戻せること | `--vrchat`、OCRのモデル |
-| `vrchat-voice` | 同じ送信で吹き出しと読み上げが1回ずつ届くこと、読み上げがVRChatのマイクに届いてVRChatの再生で1回だけ確認できること | `--vrchat-voice`、Irodori、GPU |
-| `vr-ui` | VR UIの表示と操作（偽のSteamVR）。偽のSteamVRはPythonバックエンドにだけ差し込まれるので、0.5.0のアプリのVRにはつながらない（[開発ガイド](../development.md#vrの機器なしでvrの処理を試す)） | 開発ビルド |
-
-モデルは、製品のカタログ（`src-python/models/model_downloads/catalog.py`）に載っているものだけです。`--fetch-models`を付けたときだけ、足りないモデルを製品と同じダウンローダーで`~/.cache/vrct-vox-acceptance`へ取得し、容量とSHA-256を照合します。取得する量は、全部で約3.6 GBです。付けなければ何も取得せず、モデルが足りないグループは、足りないものの名前を示してスキップします。音声認識の試験が聞く音声は、製品のTTSで合成するので、人の録音は要りません。
-
-`--fetch-runtimes`は、RVCとSeed-VCの実行環境を、Pythonバックエンドの準備の仕組み（`src-python/models/voice_conversion/runtime_setup.py`）で用意します。0.5.0のアプリの設定画面はRVCだけを、中核（`native/voice-conversion/src/runtime.rs`）で用意します。取得は約11 GB、ディスクは約17 GBです。uv、Pythonのパッケージ、ソース、モデルは、固定した版とハッシュで照合します。モデルの読み込みは、任意のコードを実行しない方式（`weights_only=True`）です。
 
 `--vrchat`は、チャットボックスのラボのVRChatを2つ、このPCの中だけの非公開のインスタンスで起動し、往復の試験を流してから終了します。VRChatのアカウントは、このPCでサインイン済みのものです。
 
-`--vrchat-voice`だけは、試験専用のPipeWireグラフではなく、このPCの実際の音声経路を使います。`tools/vrchat_voice_host.py`が次の準備をして、終わったら元へ戻します。
-
-- VRChatの再生だけが入る出力先（`vrct.native.replay`）を作り、VRChatの再生をそこへ移す。VRChatのマイクは、管理対象の仮想マイクのまま
-- 管理対象の経路をミュートにする
-- VRChatのメニューを専用のydotooldで操作し、「オーディオと声」のマイクテストを開く。試験の間だけ「ノイズを抑制」をオフにする（合成音声の一部を削るため）
-
-メニューの操作は位置で行い、手順ごとに画面を見本画像と照合する方式です。合わないときは、見えた画面を保存して止まります。VRChatの版や表示言語が変わったら、`python tools/vrchat_voice_host.py calibrate`で見本を撮り直してください。
-
-ストリームを移すと、WirePlumberはVRChatの出力先を覚えます。復元ではそれを消し、VRChatが既定の出力に従う状態へ戻します。試験が途中で止まったときは、`python tools/vrchat_voice_host.py restore`を実行してください。
+0.5までは、ほかに`voice`、`tts-model`、`asr`、`downloads`、`rvc`、`seed-vc`、`vrchat-voice`、`vr-ui`のグループと、モデルと実行環境を取得する`--fetch-models`、`--fetch-runtimes`がありました。これらは試験専用のPipeWireグラフでアプリの音声を流したり聞いたりするのに、Pythonのバックエンドの部品（PipeWireのゲート、読み上げの呼び出し、録音、取得と準備の仕組み）を使っていたので、0.6.0でバックエンドと一緒に消しました（#285）。音声経路、読み上げ、音声認識、RVCを実機で確かめる試験は、今はありません。読み上げと遅延は、中核の例（`native/core/examples/live_speech.rs`、`pipeline_latency.rs`）で測れます。
 
 実行した試験と実行しなかった試験を、リリースノートの「既知の制限」に書いてください。
 
 操作できなかった部品があるときは、試験の出力先の`blocked-<操作>.json`を見てください。何が覆っていたかと、開いていたダイアログを記録してあります。
+
+## 公開の直前にタグ名を書き直す
+
+下書きのあいだはタグがまだなく、公開したときに下書きの`tag_name`と`target_commitish`からタグができます。ワークフローが入れた値をそのまま使わず、版と候補を作ったコミットを書いて上書きし、読み直して確かめます。`<id>`は下書きのリリースのIDです（`gh api 'repos/{owner}/{repo}/releases?per_page=10' --jq '.[] | select(.draft) | {id, tag_name}'`で引けます）。
+
+```bash
+git ls-remote --tags origin v<version>   # 何も出ないこと
+gh api -X PATCH repos/{owner}/{repo}/releases/<id> \
+  -f tag_name=v<version> -f target_commitish=<候補を作ったコミットの40桁のSHA>
+gh api repos/{owner}/{repo}/releases/<id> \
+  --jq '{tag_name, target_commitish, draft, prerelease, name}'
+```
+
+読み直した結果で、`tag_name`が`v<version>`、`target_commitish`が候補を作ったコミット、`draft`が`true`であることを確かめます。`prerelease`は正式版で`false`、ベータ版で`true`です。同じ名前のタグがすでにあったら公開しません。
+
+公開は保守担当者が行います。APIで公開するときは、最新版にするかを`make_latest`の文字列で明示します。正式版は`-F draft=false -f make_latest=true`、ベータ版は`-F draft=false -f make_latest=false`を同じPATCHに渡します。
+
+## 公開してから確かめる
+
+公開したら、次の4つを確かめます。
+
+1. タグのコミットが候補を作ったコミットと同じこと。
+
+   ```bash
+   gh api repos/{owner}/{repo}/releases/tags/v<version> \
+     --jq '{tag_name, draft, prerelease, target_commitish, published_at}'
+   git fetch origin --tags && git rev-parse 'v<version>^{commit}'
+   ```
+
+2. 最新版の指定（`make_latest`）が効いていること。`gh api repos/{owner}/{repo}/releases/latest --jq .tag_name`が、正式版なら`v<version>`、ベータ版なら前の正式版のままです。違うときは`make_latest`をPATCHし直します。
+3. 更新確認のWorkerが新しい`latest.json`を返すこと。安定版のアプリは`src-tauri/tauri.conf.json`の`plugins.updater.endpoints`にあるWorkerを読み、Workerは`releases/latest`の`latest.json`へ302で転送します（[アプリの更新](../spec/external-interfaces.md#アプリの更新)）。正式版なら`<version>`、ベータ版なら前の正式版の版が出ます。
+
+   ```bash
+   url=$(jq -r '.plugins.updater.endpoints[0]' src-tauri/tauri.conf.json)
+   curl -sI "$url" | grep -i '^location'
+   curl -sL "$url" | jq -r .version
+   ```
+
+4. 資産の件数と名前が候補と合うこと。リリースの資産は、各候補の`candidate-<platform>.json`にある資産とその`.sha256`、プラットフォームごとの`candidate-<platform>.json`と`SHA256SUMS-<platform>`、`latest.json`です（`tools/prepare_release.py`と`prepare-release.yml`）。期待する件数は「2 ×（2つの候補の`assets`の数の合計）+ 5」です。
+
+   ```bash
+   d=$(mktemp -d)
+   gh release download v<version> -p 'candidate-*.json' -D "$d"
+   gh api repos/{owner}/{repo}/releases/tags/v<version> --jq '[.assets[].name]' > "$d/published.json"
+   jq -s --slurpfile pub "$d/published.json" '
+     ([.[] | .assets[].name | ., . + ".sha256"]
+      + [.[] | "candidate-\(.platform).json", "SHA256SUMS-\(.platform)"]
+      + ["latest.json"]) as $want
+     | {want: ($want | length), published: ($pub[0] | length),
+        missing: ($want - $pub[0]), extra: ($pub[0] - $want)}' "$d"/candidate-*.json
+   ```
+
+   `want`と`published`が同じで、`missing`と`extra`が空であることを確かめます。前の版と件数が違うときは、配布物の増減（なくした配布物、名前を変えた配布物）で説明がつくかを確かめます。下書きを作る手順が資産の組み方を変えたら、この式も直します。
+
+## 公開したあと
+
+正式版のリリースを公開すると、「Open ASTAROT back-merge pull request」（`release-back-merge.yml`、`tools/release_automation.py`）が`main`を`develop`へ戻すPRを開きます。リリースのタグのコミットに`chore/merge-main-back-X.Y.Z`のブランチを作り、そこから`develop`へのPRを`chore(release): merge main (X.Y.Z) back into develop`の題で開きます。ベータ版を公開したときは何もしません。`develop`がすでにそのコミットを含むときと、同じPRがすでに開いているときも、何もしません。同じ名前のブランチがあれば、作り直さずにそのまま使います。
+
+自動ではマージしません。競合したらそのブランチの上で解き、マージコミットで統合します。マージしたら、developを次の`-beta.N`へ進めます。
+
+このPRはGitHub Actionsのトークンで開くので、PRに対するワークフローは自動では始まりません。必須のチェックを動かすには、PRを一度閉じて開き直すか、競合を解いたコミットをpushします。チェックまで自動で始めるには、GitHub Appのトークンのような別の認証が要ります。Secretsを読むのは下書きの署名の手順だけにしているので（[updaterの署名とlatest.json](#updaterの署名とlatestjson)）、この仕組みには入れていません。
+
+リポジトリの設定で「Allow GitHub Actions to create and approve pull requests」（Settings → Actions → General → Workflow permissions）がオフのときは、ジョブがPRを開けません。そのときはブランチを作ったところで失敗し、PRを開くためのリンクをジョブの概要に出します。そのリンクから人がPRを開けば、チェックも始まります。
 
 ## WindowsのWebView2とインストール時の通信
 

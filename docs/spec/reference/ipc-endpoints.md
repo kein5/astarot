@@ -7,11 +7,11 @@ UIからサイドカーへの要求（`mapping`）と、サイドカーからUI�
 列の意味:
 
 - 初期化前: 「待つ」は初期化が終わるまでロックされる要求（サイドカーが約30秒まで入れ直し、解けなければ423を返す）。「可」は起動直後から受け付ける。
-- UIの受信先: 200の応答を処理するUIのフック（`useReceiveRoutes.js`の静的ルートと`ui_config_setter.js`の定義から生成）。「—」は受信先がない。
+- UIの受信先: 200の応答を処理するUIのフック（`useReceiveRoutes.ts`の静的ルートと`ui_config_setter.ts`の定義から生成）。「—」は受信先がない。
 - ログで伏せる: `process.log`で値を`***MASKED***`に置き換える（`SENSITIVE_ENDPOINT_MARKERS`）。stdoutのIPCそのものは伏せない。
 - 中核のみ: Pythonになく、中核（`native/core`）で足したもの。`tools/spec_core_additions.json`から表の末尾に足した。
 
-## 要求（447件: 削除 13、取得 201、実行 42、有効化 40、無効化 42、設定 109）
+## 要求（468件: 削除 13、取得 209、実行 49、有効化 41、無効化 44、設定 112）
 
 | エンドポイント | 種別 | 処理（controller） | 初期化前 | UIの受信先 | 備考 |
 |---|---|---|---|---|---|
@@ -251,12 +251,14 @@ UIからサイドカーへの要求（`mapping`）と、サイドカーからUI�
 | `/set/disable/speaker_vad_filter` | 無効化 | `setDisableSpeakerVadFilter` | 可 | useDevice.setSuccessSpeakerVadFilter |  |
 | `/set/enable/check_speaker_threshold` | 有効化 | `setEnableCheckSpeakerThreshold` | 可 | useVolume.updateSpeakerThresholdCheckStatus |  |
 | `/set/disable/check_speaker_threshold` | 無効化 | `setDisableCheckSpeakerThreshold` | 可 | useVolume.updateSpeakerThresholdCheckStatus |  |
-| `/get/data/local_asr_notice` | 取得 | `getLocalAsrNotice` | 可 | useLocalAsrMigration.updateNotice |  |
-| `/set/disable/local_asr_notice` | 無効化 | `setDisableLocalAsrNotice` | 可 | useLocalAsrMigration.updateNotice |  |
-| `/get/data/old_whisper_weights` | 取得 | `getOldWhisperWeights` | 可 | useLocalAsrMigration.updateWeights |  |
-| `/run/delete_old_whisper_weights` | 実行 | `deleteOldWhisperWeights` | 可 | useLocalAsrMigration.updateDeleted |  |
+| `/get/data/local_asr_notice` | 取得 | `getLocalAsrNotice` | 可 | — |  |
+| `/set/disable/local_asr_notice` | 無効化 | `setDisableLocalAsrNotice` | 可 | — |  |
+| `/get/data/old_whisper_weights` | 取得 | `getOldWhisperWeights` | 可 | — |  |
+| `/run/delete_old_whisper_weights` | 実行 | `deleteOldWhisperWeights` | 可 | — |  |
 | `/get/data/virtual_mic_notice` | 取得 | `getVirtualMicNotice` | 可 | useVirtualMic.updateNotice |  |
 | `/set/disable/virtual_mic_notice` | 無効化 | `setDisableVirtualMicNotice` | 可 | useVirtualMic.updateNotice |  |
+| `/get/data/first_run_setup` | 取得 | `getFirstRunSetup` | 可 | useFirstRunSetup.updateNotice |  |
+| `/set/disable/first_run_setup` | 無効化 | `setDisableFirstRunSetup` | 可 | useFirstRunSetup.updateNotice |  |
 | `/get/data/virtual_mic_status` | 取得 | `getVirtualMicStatus` | 可 | useVirtualMic.updateStatus |  |
 | `/run/virtual_mic_test` | 実行 | `runVirtualMicTest` | 可 | useVirtualMic.updateResult |  |
 | `/get/data/overlay_small_log` | 取得 | `getOverlaySmallLog` | 可 | useVr.updateFromBackendIsEnabledOverlaySmallLog |  |
@@ -461,7 +463,26 @@ UIからサイドカーへの要求（`mapping`）と、サイドカーからUI�
 | `/get/data/overlay_font_family` | 取得 | `core: OVERLAY_FONT_FAMILY` | 可 | useVr.updateFromBackendOverlayFontFamily | 中核のみ |
 | `/set/data/overlay_font_family` | 設定 | `core: set_overlay_font_family` | 可 | useVr.setSuccessOverlayFontFamily | 中核のみ |
 | `/get/data/overlay_font_missing_languages` | 取得 | `core: overlay_font_missing_languages` | 可 | useVr.updateFromBackendOverlayFontMissingLanguages | 中核のみ |
-| `/get/data/vad_available` | 取得 | `core: services.vad` | 可 | useDevice.updateFromBackendVadAvailable | 中核のみ |
+| `/get/data/vad_available` | 取得 | `core: vad_unavailable_reason` | 可 | useDevice.updateFromBackendVadAvailable | 中核のみ |
+| `/get/data/translation_catalog` | 取得 | `core: translation_catalog_view` | 可 | useTranslationCatalog.updateCatalog | 中核のみ、ログで伏せる |
+| `/run/register_translation_catalog_entry` | 実行 | `core: register_translation_entry` | 待つ | useTranslationCatalog.acknowledge | 中核のみ、ログで伏せる |
+| `/run/remove_translation_catalog_entry` | 実行 | `core: remove_translation_entry` | 待つ | useTranslationCatalog.acknowledge | 中核のみ、ログで伏せる |
+| `/run/use_translation_catalog_entry` | 実行 | `core: use_translation_entry` | 待つ | useTranslationCatalog.acknowledge | 中核のみ、ログで伏せる |
+| `/get/data/gpu_memory` | 取得 | `core: gpu_memory` | 可 | useGpuMemory.updateGpuMemory | 中核のみ |
+| `/get/data/usage_presets` | 取得 | `core: USAGE_PRESETS` | 可 | useUsagePresets.updateFromBackendUsagePresets | 中核のみ |
+| `/set/data/usage_presets` | 設定 | `core: USAGE_PRESETS` | 可 | useUsagePresets.setSuccessUsagePresets | 中核のみ |
+| `/set/data/speaker_names` | 設定 | `core: speakers::set_names` | 可 | useSpeakerNames.updateNames | 中核のみ、ログで伏せる |
+| `/get/data/voice_audition_state` | 取得 | `core: audition.status` | 可 | useVoiceAudition.updateState | 中核のみ |
+| `/run/start_voice_audition` | 実行 | `core: start_audition` | 可 | useVoiceAudition.updateState | 中核のみ |
+| `/run/stop_voice_audition` | 実行 | `core: stop_audition` | 可 | useVoiceAudition.updateState | 中核のみ、即時（キューを通らない） |
+| `/get/data/rvc_block_ms` | 取得 | `core: RVC_BLOCK_MS` | 可 | useAdvancedSettings.updateFromBackendRvcBlockMs | 中核のみ |
+| `/set/data/rvc_block_ms` | 設定 | `core: RVC_BLOCK_MS` | 可 | useAdvancedSettings.setSuccessRvcBlockMs | 中核のみ |
+| `/get/data/gpu_check_state` | 取得 | `core: gpu_check.status` | 可 | useGpuCheck.updateState | 中核のみ |
+| `/run/start_gpu_check` | 実行 | `core: start_gpu_check` | 可 | useGpuCheck.updateAnswer | 中核のみ |
+| `/run/stop_gpu_check` | 実行 | `core: gpu_check.stop` | 可 | useGpuCheck.updateAnswer | 中核のみ |
+| `/get/data/osc_query` | 取得 | `core: OSC_QUERY` | 可 | useAdvancedSettings.updateFromBackendEnableOscQuery | 中核のみ |
+| `/set/enable/osc_query` | 有効化 | `core: set_osc_query` | 可 | useAdvancedSettings.setSuccessEnableOscQuery | 中核のみ |
+| `/set/disable/osc_query` | 無効化 | `core: set_osc_query` | 可 | useAdvancedSettings.setSuccessEnableOscQuery | 中核のみ |
 
 
 ## 通知（サイドカーからUIへ、89件）
@@ -561,11 +582,14 @@ UIからサイドカーへの要求（`mapping`）と、サイドカーからUI�
 | `enable_osc_query` | `/run/enable_osc_query` | useHandleOscQuery.handleOscQuery |
 
 
-## UIに受信先がないエンドポイント（15件）
+## UIに受信先がないエンドポイント（19件）
 
 200で届いた場合にUIが`Invalid endpoint`としてコンソールに出すもの。ただし、400で届くエラーの通知（`/run/error_…`など）は`errorHandling_Backend`が処理し、`/run/initialization_complete`は`receiveRoutes`が個別に処理するので、このどちらかに当たるものは実害がない。
 
+- `/get/data/local_asr_notice`
+- `/get/data/old_whisper_weights`
 - `/run/ctranslate2_license_notice`
+- `/run/delete_old_whisper_weights`
 - `/run/enable_ocr_capture`
 - `/run/enable_transcription_receive`
 - `/run/enable_transcription_send`
@@ -580,11 +604,12 @@ UIからサイドカーへの要求（`mapping`）と、サイドカーからUI�
 - `/run/initialization_complete`
 - `/run/message_output_error`
 - `/run/translation_language_unsupported`
+- `/set/disable/local_asr_notice`
 
 
-## UIだけにあるルート（57件）
+## UIだけにあるルート（58件）
 
-UIに受信先が定義されているが、サイドカーの`mapping`と`run_mapping`にはないもの。多くは`ui_config_setter.js`の定義が機械的に作るルートで、使われない。
+UIに受信先が定義されているが、サイドカーの`mapping`と`run_mapping`にはないもの。多くは`ui_config_setter.ts`の定義が機械的に作るルートで、使われない。
 
 - `/get/data/ctranslate2_weight`
 - `/run/io_trace`
@@ -607,6 +632,7 @@ UIに受信先が定義されているが、サイドカーの`mapping`と`run_m
 - `/set/data/obs_browser_source`
 - `/set/data/ocr_chatbox_filter`
 - `/set/data/ocr_use_chatbox_detector`
+- `/set/data/osc_query`
 - `/set/data/overlay_desktop`
 - `/set/data/overlay_large_log`
 - `/set/data/overlay_show_only_translated_messages`

@@ -31,8 +31,29 @@ class ToolchainPinTests(unittest.TestCase):
 
     def test_python_satisfies_pyproject(self):
         requires = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]["requires-python"]
-        self.assertEqual(requires, "==3.11.*")
-        self.assertTrue(pinned()["python"].startswith("3.11."))
+        major, minor = pinned()["python"].split(".")[:2]
+        self.assertEqual(requires, f"=={major}.{minor}.*")
+
+    def test_uv_is_never_handed_a_python_version_of_its_own(self):
+        # uv takes the interpreter mise put on PATH (UV_PYTHON_PREFERENCE=only-system); a literal
+        # `--python 3.x` in a workflow, a task or a script would be a second place to update.
+        scripts = [*ci_files(), ROOT / "mise.toml", *ROOT.glob("bat/*.bat"), ROOT / "tools/dev.py"]
+        for path in scripts:
+            text = path.read_text(encoding="utf-8")
+            self.assertNotRegex(text, r"--python[ =]\"?\d", path.relative_to(ROOT))
+
+    def test_the_separate_environments_use_the_same_python(self):
+        # Environments with locks of their own (the RVC reference, the translation export, the
+        # chatbox lab) run on the minor version mise.toml pins too.
+        minor = pinned()["python"].split(".")[1]
+        for name in ("native/rvc-runtime/reference/requirements.in", "tools/translation_onnx/requirements.txt",
+                     "tools/translation_onnx/README.md", "tools/chatbox_lab/README.md"):
+            text = (ROOT / name).read_text(encoding="utf-8")
+            for found in re.findall(r"(?:Python |--python(?:-version)?[ =])3\.(\d+)", text):
+                self.assertEqual(found, minor, f"{name} names Python 3.{found}")
+        # The reference setup lets uv pick the version requires-python names.
+        for name in ("native/rvc-runtime/reference/setup_reference.py",):
+            self.assertNotRegex((ROOT / name).read_text(encoding="utf-8"), r"'--python', '\d", name)
 
     def test_rust_is_not_older_than_the_crates_require(self):
         major_minor = tuple(int(part) for part in pinned()["rust"].split(".")[:2])

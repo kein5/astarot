@@ -87,6 +87,16 @@ def test_oversized_prefixed_nested_zip_is_rejected(tmp_path, monkeypatch, contai
         _inspect_payload(tmp_path, container, "_internal/payload.dat", payload)
 
 
+@pytest.mark.parametrize("container", ["zip", "tar", "tree"])
+def test_a_damaged_prefixed_zip_is_not_taken_for_plain_data(tmp_path, container):
+    # The end record is there, the central directory is not. Python 3.14's zipfile.is_zipfile
+    # says this is no ZIP, which must not let the member through unread.
+    payload = _zip_bytes("ocr_onnx/chatbox_yolox_tiny.onnx", prefix=b"MZ executable preamble\n")
+    payload = payload.replace(b"PK\x01\x02", b"XX\x01\x02")
+    with pytest.raises(ValueError, match="Cannot inspect ZIP"):
+        _inspect_payload(tmp_path, container, "_internal/payload.dat", payload)
+
+
 @pytest.mark.parametrize("container", ["zip", "tar"])
 def test_large_non_archive_members_remain_allowed(tmp_path, monkeypatch, container):
     monkeypatch.setattr(guard, "MAX_NESTED_ZIP", 128)
@@ -155,6 +165,41 @@ def test_pyav_and_gpl_encoders_are_rejected(tmp_path, name, reason):
         archive.writestr(name, b"synthetic library")
     with pytest.raises(ValueError, match=reason):
         guard.check([tmp_path])
+
+
+@pytest.mark.parametrize("container", ["zip", "tar", "tree", "linux_tree"])
+@pytest.mark.parametrize("name,reason", [
+    # The 0.4 Windows package: the CTranslate2 wheel's own folder.
+    ("_internal/ctranslate2/ctranslate2.dll", "CTranslate2"),
+    ("_internal/ctranslate2/_ext.cp311-win_amd64.pyd", "CTranslate2"),
+    ("_internal/ctranslate2/libiomp5md.dll", "CTranslate2"),
+    # The Linux wheel keeps its libraries beside the package.
+    ("_internal/ctranslate2.libs/libgomp-a34b3233.so.1.0.0", "CTranslate2"),
+    ("_internal/ctranslate2.libs/libctranslate2-bc15bf3f.so.4.9.0", "CTranslate2"),
+    # The `cuda` extra (nvidia-cublas-cu12, nvidia-cudnn-cu12) and the same libraries elsewhere.
+    ("_internal/nvidia/cublas/bin/cublas64_12.dll", "CUDA"),
+    ("_internal/nvidia/cudnn/bin/cudnn_ops64_9.dll", "CUDA"),
+    ("_internal/nvidia/cuda_nvrtc/lib/libnvrtc.so.12", "CUDA"),
+    ("_internal/build/speechcpp/cudart64_12.dll", "CUDA"),
+    ("_internal/onnxruntime/cublasLt64_12.dll", "CUDA"),
+    ("usr/lib/vrct-vox/_internal/libcudnn.so.9", "CUDA"),
+])
+def test_ctranslate2_and_cuda_libraries_are_rejected(tmp_path, container, name, reason):
+    with pytest.raises(ValueError, match=reason):
+        _inspect_payload(tmp_path, container, name, b"synthetic library")
+
+
+def test_single_package_runtimes_and_cuda_notices_remain_allowed(tmp_path):
+    with zipfile.ZipFile(tmp_path / "package.zip", "w") as archive:
+        # What the 0.5 Windows package carries for local inference.
+        archive.writestr("_internal/onnxruntime/onnxruntime.dll", b"ort")
+        archive.writestr("_internal/onnxruntime/onnxruntime_providers_shared.dll", b"ort")
+        archive.writestr("_internal/build/speechcpp/speech.exe", b"speech.cpp")
+        archive.writestr("_internal/build/speechcpp/ggml-vulkan.dll", b"ggml")
+        # Notices may name the libraries; only the libraries themselves are refused.
+        archive.writestr("_internal/licenses/nvidia/cudnn-LICENSE.txt", "notice")
+        archive.writestr("_internal/licenses/ctranslate2/LICENSE", "notice")
+    guard.check([tmp_path])
 
 
 def test_lgpl_opencv_ffmpeg_libraries_remain_allowed(tmp_path):

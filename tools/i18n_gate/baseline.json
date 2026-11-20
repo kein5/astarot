@@ -2,19 +2,7 @@
   "src-ui/logics/ui_configs.ts": {
     "property:label|OpenAI Compatible": 1
   },
-  "src-ui/views/app/config_page/setting_section/setting_box/about_vrct/AboutVrct.jsx": {
-    "jsx-text|ASTAROT and VRCT are not endorsed by VRChat and do not reflect the views or opinions of VRChat or anyone officially involved in producing or managing VRChat properties. VRChat and all associated properties are trademarks or registered trademarks of VRChat Inc. VRChat © VRChat Inc.": 1
-  },
-  "src-ui/views/app/config_page/setting_section/setting_box/transcription/RealtimeASRSettings.jsx": {
+  "src-ui/views/app/config_page/setting_section/setting_box/transcription/RealtimeASRSettings.tsx": {
     "attribute:placeholder|VRChat=ブイアールチャット": 1
-  },
-  "src-ui/views/app/config_page/version_label/VersionLabel.jsx": {
-    "jsx-text|Beta": 1
-  },
-  "src-ui/views/companion_handle/CompanionHandle.tsx": {
-    "attribute:aria-label|VRCT-VOX": 1
-  },
-  "src-ui/views/companion_panel/CompanionPanel.tsx": {
-    "jsx-text|VRCT-VOX": 1
   }
 }

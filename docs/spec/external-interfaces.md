@@ -4,7 +4,7 @@ ASTAROTが他のプログラムとやり取りする口。UIとサイドカー�
 
 ## VRChatへのOSC
 
-`src-python/models/osc/osc.py`（python-osc、OSCQueryは任意のtinyoscquery）。
+`native/adapters/src/osc/`（0.5まではPythonの`osc.py`。python-osc、OSCQueryは任意のtinyoscquery）。
 
 | 方向 | アドレス | 引数 | 送る条件 |
 |---|---|---|---|
@@ -19,22 +19,24 @@ ASTAROTが他のプログラムとやり取りする口。UIとサイドカー�
 - OCRで読んだ文とリアルタイム字幕はVRChatへ送らない。
 - 「翻訳後のメッセージのみ送信する」がオンなら訳だけを送る。送る文の形は設定のVRChatページのメッセージフォーマットで決める。
 - 送信先と受信のbind先は独立している。OSCQueryは送信先が`127.0.0.1`か`localhost`のときだけ使い、UDP受信とHTTPを常に`127.0.0.1`の空きポートにbindする。`VRCT:<時刻>`という名前で受信口を公開する。送信先を別のマシンから戻した場合も、受信はloopbackで再開する。
+- 受信口の広告と探索（mDNS）は、PCの外へ出さない（#559）。送るパケットはすべてIPのTTLを0にする。OSはこれを同じPCのグループの参加者（VRChatを含む）にだけ渡し、ネットワークには送らない。送り元が同じPC（loopbackかPC自身のアドレス）でないパケットは無視するので、ほかのマシンの問い合わせには答えず、その広告も覚えない。広告のアドレスは`127.0.0.1`なので、ほかのマシンは前からこの受信口を使えなかった。参加と送信をloopbackのインターフェースだけにする形では、VRChat（Windowsのデスクトップモードで確認）と互いに見つけられない。
+- 利用者はOSCQueryを止められる（`OSC_QUERY`、既定はオン。設定の「高度な設定」。中核のみ、#559）。オフのあいだはUDP受信、HTTP、広告、探索のどれも始めない。送信先を変えても始めず、オフにしたときに動いていれば止めて広告を取り下げる。チャットボックスへの送信と入力中の表示は変わらない。VRCマイクミュート同期は使えず、VRChatの在席は`"unknown"`になる。オンに戻すと、今の送信先で受信を始める。エンドポイントは`/get/data/osc_query`、`/set/enable/osc_query`、`/set/disable/osc_query`で、どちらの切り替えのあとも`/run/enable_osc_query`で準備の結果を知らせる。
 - OSCの起動、IP・ポート変更、停止は同じライフサイクルロックで直列化する。新しい受信・広告を用意できてから設定を確定し、失敗したら前の受信・広告を復旧する。復旧も失敗した場合は設定値を保ち、capabilityを無効として知らせる。終了要求後の起動は拒否する。
 - bundleの時刻によって受信を待たせず、中のメッセージを受信時に処理する。受信は1本のスレッドで行い、そのスレッドは作成時のサーバーだけを使う。
 - HTTPには1要求あたり2秒の読み取り期限を設ける。交換・停止・途中の初期化失敗では、UDPとHTTPを閉じ、広告を解除してZeroconfを閉じ、探索ブラウザーも止める。後始末の待機は2秒まで。終わらなければ所有者への参照を保ち、後始末が終わるまで置き換えない。終了時に起動・設定変更のロックを待つ時間も2秒までとする。
-- capabilityは、UDP受信、HTTP、OSCQuery広告、探索ブラウザーの準備がすべて成功した場合だけ有効になる。UIの初期値も無効である。送信先が非ローカル、tinyoscqueryがない、bindや広告に失敗した場合は、起動時と設定変更後に`/run/enable_osc_query`で`{"data": false, "disabled_functions": ["vrc_mic_mute_sync"], "reason": …, "microphone_stopped": …}`を送る。`reason`は、送信先が別のマシンなら`remote_destination`、このPC宛てなのに準備に失敗したなら`setup_failed`。`microphone_stopped`は、同期がオンだったのでマイク入力を止めた場合に真になる。UIはこの2つで案内の文言を選び、設定画面の同期の欄にも`reason`に合った理由を表示する。別のマシン宛てのときは、OSCの設定を直す案内を出さない。同期がオンだった場合はマイク入力を停止してから同期をオフにし、両スイッチの状態も通知する。ただし、送信先を別のマシンにしたまま起動しただけで、同期がもともとオフだった場合は、`disabled_functions`を空にして送る。何も止めておらず、設定で選んだ状態なので、UIは案内を出さない。この場合もcapabilityは無効で、設定画面の同期の欄には理由を表示する。自動で文字起こしを再開しない。その状態で同期をオンにすると`VRC_MIC_MUTE_SYNC_OSC_DISABLED`になる。
+- capabilityは、UDP受信、HTTP、OSCQuery広告、探索ブラウザーの準備がすべて成功した場合だけ有効になる。UIの初期値も無効である。送信先が非ローカル、tinyoscqueryがない、bindや広告に失敗した場合は、起動時と設定変更後に`/run/enable_osc_query`で`{"data": false, "disabled_functions": ["vrc_mic_mute_sync"], "reason": …, "microphone_stopped": …}`を送る。`reason`は、利用者がOSCQueryをオフにしているなら`turned_off`（ほかの理由より先に選ぶ）、送信先が別のマシンなら`remote_destination`、このPC宛てなのに準備に失敗したなら`setup_failed`。`microphone_stopped`は、同期がオンだったのでマイク入力を止めた場合に真になる。UIはこの2つで案内の文言を選び、設定画面の同期の欄にも`reason`に合った理由を表示する。別のマシン宛てのときは、OSCの設定を直す案内を出さない。同期がオンだった場合はマイク入力を停止してから同期をオフにし、両スイッチの状態も通知する。ただし、送信先を別のマシンにしたまま、またはOSCQueryをオフにしたまま起動しただけで、同期がもともとオフだった場合は、`disabled_functions`を空にして送る。何も止めておらず、設定で選んだ状態なので、UIは案内を出さない。この場合もcapabilityは無効で、設定画面の同期の欄には理由を表示する。自動で文字起こしを再開しない。その状態で同期をオンにすると`VRC_MIC_MUTE_SYNC_OSC_DISABLED`になる。
 - ミュート同期がオンでVRChat側がミュート中のときは、マイクの認識結果を捨てる。
 - `MuteSelf=true`はすぐにミュート状態へ反映し、マイクの文字起こしを一時停止する。ミュート中に届いた`false`だけでは再開せず、下記の条件で確認したローカルのVRChatのOSCQueryで`/avatar/parameters/MuteSelf`を読み直し、真偽値の`false`を確認した場合だけ再開する。到達できない、値がない、値が真偽値でない、時間切れの場合はミュートを保ち、`printLog`に理由を記録する。
 - 探索結果は、解決済みのIPv4アドレスがすべてloopbackで、サービス名が`VRChat-Client`またはその識別子付きの名前に一致するものだけをHTTPで確認する。`HOST_INFO.NAME`がサービス名と一致し、`OSC_IP`がloopback、`OSC_PORT`が設定した送信ポート、`OSC_TRANSPORT`が`UDP`であることを確かめる。候補を1つに絞れなければ解除しない。LANの広告と名前の部分一致だけの広告は問い合わせず、HTTPのリダイレクトや環境変数のプロキシも使わない。これはローカルプロセスを信頼する境界であり、VRChatプロセスの暗号学的な認証ではない。
 - OSCQueryの待ち時間はサービス探索とライフサイクルロックの待機を含めて2秒。確認はOSCの受信スレッドとマイク操作のキューの外で行い、確認中に届いた`true`は古い結果より優先する。時間切れの結果は後から届いても使わない。通信自体を中断できないため、処理中の問い合わせは1件までとし、それが終わるまでは新しい問い合わせも値を取得できない扱いにする。
-- `/get/data/vrchat_osc_presence`は、このPCでOSCを有効にしたVRChatが見えているかを`"found"`・`"not_found"`・`"unknown"`で返す。VRChatは、OSCが有効なあいだだけOSCQueryを公開する。探索で見つけたローカルのVRChat（名前が`VRChat-Client`で始まり、アドレスがloopbackだけのもの）に`HOST_INFO`を問い合わせ、応答があれば`found`にする。閉じたVRChatも探索の結果にはしばらく残るため、応答で確かめる。応答するものがなければ`not_found`を返し、探索へ問い合わせ直す。VRChatは起動時に一度だけ自分を知らせるので、アプリより後に起動したVRChatは、この問い合わせ直しで次回に見つかる。OSCQueryを使っていない（送信先が別のマシン、受信を開始できていない）ときは`unknown`にする。起動時の一括取得には含めない。UIは、設定のVRChatページとメイン画面のクイック設定に言葉で表示し、表示しているあいだ5秒ごとに取得する。「VRChatにメッセージを送信する」がオフのときは取得せず、オフであることを表示する。会話ログの「送信」は送り出したことだけを表すため、届く状態かどうかはこの表示で示す。
+- `/get/data/vrchat_osc_presence`は、このPCでOSCを有効にしたVRChatが見えているかを`"found"`・`"not_found"`・`"unknown"`で返す。VRChatは、OSCが有効なあいだだけOSCQueryを公開する。探索で見つけたローカルのVRChat（名前が`VRChat-Client`で始まり、アドレスがloopbackだけのもの）に`HOST_INFO`を問い合わせ、応答があれば`found`にする。閉じたVRChatも探索の結果にはしばらく残るため、応答で確かめる。応答するものがなければ`not_found`を返し、探索へ問い合わせ直す。VRChatは起動時に一度だけ自分を知らせるので、アプリより後に起動したVRChatは、この問い合わせ直しで次回に見つかる。OSCQueryを使っていない（オフにしている、送信先が別のマシン、受信を開始できていない）ときは`unknown`にする。起動時の一括取得には含めない。UIは、設定のVRChatページとメイン画面のクイック設定に言葉で表示し、表示しているあいだ5秒ごとに取得する。「VRChatにメッセージを送信する」がオフのときは取得せず、オフであることを表示する。会話ログの「送信」は送り出したことだけを表すため、届く状態かどうかはこの表示で示す。
 - `/avatar/change`ではまずミュートにして、再読み込みを予約する。実行中または待機中のジョブは1件にまとめ、追加の通知は最新の世代だけを保持する。問い合わせ前と結果の反映前に世代を確かめ、後から届いた`true`を上書きしない。停止時には受付を閉じ、待機中のジョブを取り消し、executorも終了する。問い合わせから探索ブラウザーを作り直すことはない。
 - 同期のオン・オフ、起動時の同期、受信による変更は、マイクの開始・停止・デバイス変更と共通のControllerロックを通して一時停止・再開する。受信からの操作はマイク操作キューを使う。問い合わせを待つ間はマイクのロックを保持しない。起動時や同期をオンにした直後など状態が不明な間も、文字起こしを一時停止して結果の配送を止める。
 - 送る文の長さに上限や分割の処理はない。VRChat側の制限への対応は[未決事項](open-issues.md)にある。
 
 ## WebSocketサーバー
 
-`src-python/models/websocket/websocket_server.py`。他のアプリに会話を配信する。
+`native/adapters/src/websocket.rs`。他のアプリに会話を配信する。
 
 | 項目 | 内容 |
 |---|---|
@@ -51,7 +53,7 @@ ASTAROTが他のプログラムとやり取りする口。UIとサイドカー�
 
 ### この PC の外での待ち受け
 
-ループバック以外のアドレスで待ち受けると、同じネットワークで通信を見られる人がトークンと会話を読めてしまう（セキュリティ監査 SEC-01）。そのため WebSocket と OBS は、ループバック以外では TLS だけで待ち受ける（`src-python/models/websocket/tls.py`）。
+ループバック以外のアドレスで待ち受けると、同じネットワークで通信を見られる人がトークンと会話を読めてしまう（セキュリティ監査 SEC-01）。そのため WebSocket と OBS は、ループバック以外では TLS だけで待ち受ける（`native/adapters/src/tls.rs`）。
 
 - 証明書と秘密鍵は`WEBSOCKET_TLS_CERT_FILE`と`WEBSOCKET_TLS_KEY_FILE`（PEMのファイルのパス、既定は空）。同じファイルに両方が入っていてもよい。パスフレーズ付きの鍵は使えない（コンソールで尋ねて止まらないよう、空のパスフレーズで読む）。1 MiBを超えるファイル、通常のファイルでないもの、空のファイルは読まない。
 - `/set/data/websocket_tls`は`{"cert_file", "key_file"}`を受け取り、両方を読み込めたときだけ保存する。片方だけ、形の違う要求、読み込めない組は`WEBSOCKET_TLS_INVALID`。両方を空にすると未設定に戻るが、ホストがループバック以外の間は`WEBSOCKET_HOST_NEEDS_TLS`で拒否する。ループバック以外で動いているサーバーは、新しい組で起動し直してから保存する。起動し直せなければ前の組で立て直し、`WEBSOCKET_SERVER_UNAVAILABLE`を返す。エラーの`data`は保存済みの組。
@@ -79,7 +81,7 @@ ASTAROTが他のプログラムとやり取りする口。UIとサイドカー�
 
 ## OBSブラウザソース
 
-`src-python/models/obs/obs_browser_source_server.py`。配信画面に字幕を出すHTMLを配る。
+`native/adapters/src/obs/`。配信画面に字幕を出すHTMLを配る。
 
 - `OBS_BROWSER_SOURCE`（既定オフ）、`OBS_BROWSER_SOURCE_PORT`（既定2232、整数の1〜65535）。待ち受けるアドレスは`WEBSOCKET_HOST`と同じ。ループバック以外ではWebSocketと同じ証明書でHTTPSだけを使う（[この PC の外での待ち受け](#この-pc-の外での待ち受け)）。
 - 表示設定の数値は整数に限る。最大メッセージ数は1〜50、表示時間は1〜120秒、フェードアウト時間は0〜120秒、文字サイズは10〜200px、縁取りの太さは0〜20px。IPCでは整数の文字列も受け付け、成功応答と配信通知には保存した整数を返す。範囲外・小数・真偽値は既存の`OBS_BROWSER_SOURCE_*_INVALID`で拒否し、保存も配信もしない。保存ファイルに無効な値があれば、読み込み時に既定値へ戻す。初回表示と開いているページへの更新も同じ範囲を使う。
@@ -150,6 +152,20 @@ ASTAROTが他のプログラムとやり取りする口。UIとサイドカー�
 - 受け側は送信元のIPアドレスや端末の識別子を保存しない設計である（受け側の担当の説明による）。通信の相手として、Cloudflareは送信元のアドレスを扱う。
 - 受け側は通知ごとに、受信した時刻と接続元の国を記録する。国はクライアントが送る値ではなく、Cloudflareが接続元のアドレスから出す値である（2026-11-14に受け側の読み取り用のビューで確認した）。利用者に見せる説明にもこの2つを含める。
 
+### GPUの動作の報告
+
+設定の「詳細設定」→「GPUの動作の報告」（#288の判断6）。利用状況の通知とは別のもので、アプリは何も送らない。利用者が押したときだけ中核が計測し、結果を画面に出す。送るかどうかは利用者が選び、送るときは利用者自身がGitHubのIssueとして送る。
+
+| 項目 | 内容 |
+|---|---|
+| 始め方 | `/run/start_gpu_check`（設定の「確かめる」）。答えは`{state, run}`だけ。1つずつ動き、動いている間の開始はその回に合流する。`/run/stop_gpu_check`で止める |
+| 状態 | `/get/data/gpu_check_state`は`{state: idle\|running, run, step, outcome: done\|cancelled\|failed\|null, error_code, report, text}`。UIは動いている間だけ1秒ごとに読む。起動時の一覧には入れず、ログにも書かない |
+| 計測 | 同梱のspeech.cppのコマンド（`speech info`、`speech tts`、`speech asr`）を、設定済みの読み上げのモデル（`japanese`か`multilingual`）と音声認識のモデル（`asr`）で、CPUと計算に使えるGPU（4台まで）のそれぞれで動かす。読み上げは決まった短い文（日本語か英語）を一時フォルダのWAVEに書き、音声認識は最初に読み上げられた機器の音声を各機器で文字にする。モデルの取得、マイク、スピーカー、動いているサーバーには触れない。一時フォルダは終わりに消す |
+| `report` | `{report: "astarot-gpu-check", schema: 1, app_version, os, os_version, hardware, speechcpp: {version, builds}, devices: [{device, kind, name, memory_gb}], busy, translation: {devices, measured: false}, tts, asr}`。`hardware`は利用状況の通知の`hw`と同じ形。`tts`と`asr`は`{model, language, runs}`か`{skipped: no_model\|no_audio\|no_voice\|unsupported_language\|model_unreadable}`。`runs`の各行は`{device, ok, ran_on, load_s, audio_s, work_s, rtfx, first_audio_s, total_s, error}`で、音声認識には文との文字の誤り率`cer_to_sentence`とCPUの文字との誤り率`cer_to_cpu`が付く。`error`はspeech.cppの失敗の種類（`out_of_memory`など）か`timed_out`、`cancelled`、`exit_<コード>` |
+| 入れないもの | ファイルの場所、ユーザー名、PCの名前、読み上げた文と聞き取った文、音声、speech.cppが出したメッセージ。モデルはファイルが持つ名前と量子化の種類だけ（ASCIIの64文字まで） |
+| `text` | `report`を整形したJSON。画面に全文を出し、コピーとIssueにはこの文字列をそのまま使う |
+| 送り方 | 「GitHubで報告する」は、Issueの様式`gpu_report.yml`を`template`、タイトル、`report`の欄の値を付けたURLで開き（openerの許可は`https://github.com/kein5/astarot/**`）、同じ内容をクリップボードにも写す。URLが7000文字を超えるときは`report`を付けずに開き、貼り付けてもらう |
+
 ### ONNX Runtimeの利用状況の送信を止める
 
 同梱のONNX Runtime（チャット読み取り、ローカル翻訳、声質変換のワーカー）は、Microsoftの公式ビルドが持つ利用状況の送信を、アプリの同意の設定にかかわらず常に止める（#518）。
@@ -181,7 +197,11 @@ Microsoftの文書（[Data and privacy in WebView2](https://learn.microsoft.com/
 
 - 全ウィンドウの起動引数（`BROWSER_ARGS`）に`--disable-background-networking`を入れて、上の2つを止める。Chromiumのスイッチで、WebView2の公式の一覧にはないため、Runtimeの更新で効かなくなることがある。暫定の対策とし、Runtimeの版が大きく上がったら同じ方法で確かめ直す。
 - 環境変数ではなく起動引数に入れるのは、環境変数がサイドカーや起動した別のプログラムにも受け継がれるためである。WebView2から見ると、どちらも同じ起動引数の並びになる。利用者が`WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS`を設定していれば、その後ろに足される。
-- Windowsの診断データ（WebView2の文書がいうWindows data reporting）と、クラッシュダンプの送信は、この対策の外にある。前者はネットログに出ず、Windowsの設定に従う。後者を止めるには、WebView2の環境をアプリで作り（`with_environment`）、`IsCustomCrashReportingEnabled`を設定する必要がある。
+- Windowsの診断データ（WebView2の文書がいうWindows data reporting）は、この対策の外にある。ネットログに出ず、Windowsの設定に従う。
+- クラッシュダンプは送らない（#564）。全ウィンドウが共有するWebView2の環境をアプリが作り（`src-tauri/src/webview_environment.rs`）、`IsCustomCrashReportingEnabled`をオンにする。WebView2は異常終了の記録をMicrosoftへ送らず、ユーザーデータのフォルダーに残す。アプリはその記録を読まず、送りもしない。
+  - 環境の中身は、Tauriとwry（0.57）が作るものと同じにする。ユーザーデータのフォルダー（`app_local_data_dir`）、起動引数（`BROWSER_ARGS`）、言語（利用者のUIの言語）、拡張機能はオフ、スクロールバーは既定である。これにクラッシュダンプの設定を足す。
+  - 全ウィンドウがこの1つの環境を使う。同じユーザーデータのフォルダーに別の設定の環境を作ると、WebView2はそのウィンドウを作らない。そのためウィンドウは`webview_environment::window`と`webview_environment::main_window`だけで作る（ほかの場所でTauriのビルダーを直接使っていないことをテストで確かめる）。`main`は`tauri.conf.json`で`"create": false`にして、環境を作った後に`setup`で作る。
+  - 環境を作れなかったときは、起動ログに理由を書き、各ウィンドウはTauriが作る環境で開く（この変更の前と同じ）。そのときのクラッシュダンプの送信はWindowsの設定に従う。
 
 ### アプリの更新
 
@@ -189,7 +209,7 @@ Tauriのupdater（`tauri-plugin-updater`）で行う（`src-tauri/src/app_update
 
 | 入れ方 | 判定 | 更新でできること（`mode`） |
 |---|---|---|
-| Windowsのインストーラー | 実行ファイルの隣に`uninstall.exe`がある。`_internal/nvidia`があればCUDA版 | 確認して入れる（`install`）。インストーラーを`/P /UPDATE /R /ARGS …`と`/EDITION=cpu`または`/EDITION=gpu`で起動し、アプリは終了する |
+| Windowsのインストーラー | 実行ファイルの隣に`uninstall.exe`がある | 確認して入れる（`install`）。インストーラーを`/P /UPDATE /R /ARGS …`で起動し、アプリは終了する。0.5までのアプリは`/EDITION=cpu`か`/EDITION=gpu`も渡すが、インストーラーはどちらでも`VRCT-VOX.zip`を取る（#288） |
 | WindowsのZIP | 上のどれでもない | 確認して知らせるだけ（`manual`） |
 | AppImage | `APPIMAGE`があり、そのフォルダーに書き込める | 確認して入れる（`install`）。AppImageを置き換えて再起動する |
 | 書き込めない場所のAppImage | `APPIMAGE`のフォルダーに書き込めない | `manual` |
@@ -200,12 +220,12 @@ Tauriのupdater（`tauri-plugin-updater`）で行う（`src-tauri/src/app_update
 - 更新の情報はGitHubのリリースの`latest.json`である。安定版（版に`-beta`がない）は`https://vrct-vox-updates.kei9d09.workers.dev/latest.json`を読む。この宛先はプロジェクトのCloudflare Workersで、最新のリリース（`https://github.com/kein5/VRCT-VOX/releases/latest/download/latest.json`）へ転送する。プレリリースは「latest」にならない。ベータ版は`GET https://api.github.com/repos/kein5/VRCT-VOX/releases`から、`latest.json`を持つ下書きでないリリースのうち最も新しい版（ベータ版と安定版の両方）を選び、取れなければ安定版の`latest.json`を読む。どちらも認証なしで、ヘッダーはupdaterの既定とUser-Agentだけである。
 - `latest.json`の`platforms`は`windows-x86_64`（`VRCT-VOX_setup.exe`）と`linux-x86_64`（AppImage）を持つ。下書きを作るワークフロー（`prepare-release.yml`）が、検証済みの候補を`tauri signer sign --app-version`で署名し、`tools/updater_manifest.py`で書く。
 - 取得したファイルは`tauri.conf.json`の公開鍵（minisign、鍵ID `1178836E5C9F510B`）で検証し、署名の信頼済みコメントにある版が`latest.json`の版と一致することも求める（`requireSignedVersion`）。一致しなければ入れない。
-- インストーラーは`/UPDATE`のとき、言語とエディションのページを飛ばし、`installer_language.txt`を書かず、ショートカットを作り直さない。ZIPの取得とSHA-256の照合、段階的な置き換えは通常のインストールと同じである（[配布候補の手順](../voice-stack/release-candidates.md)）。
+- インストーラーは`/UPDATE`のとき、言語のページを飛ばし、`installer_language.txt`を書かず、ショートカットを作り直さない。ZIPの取得とSHA-256の照合、段階的な置き換えは通常のインストールと同じである（[配布候補の手順](../voice-stack/release-candidates.md)）。
 - 起動ログ（`startup_log`）には失敗の種類とURLだけを書く。会話や音声は扱わない。
 - バックエンドの更新のエンドポイントも同じupdaterを使う（`app_update.rs`の`CoreUpdates`を`backend_host.rs`が中核に渡す。[判断20](../voice-stack/core-integration.md#判断が要ること)）。
   - `/get/data/available_releases`は、上のGitHubのリリースの一覧（新しい30件）から、今の版のチャンネルが取るものを新しい順に`[{tag, version, is_prerelease, published_at}]`で返す。安定版は安定版だけ、ベータ版は両方。下書き、版でないタグ、`latest.json`がないもの、このリポジトリのダウンロードでないものは除く。確認しないコピー（deb、rpm、開発用のビルド）は通信せずに空を返す。
   - 起動時の`/run/software_update_info`（`{is_update_available, new_version}`）は、`CHECK_SOFTWARE_UPDATES`がオンのときだけupdaterで確かめる。オフなら通信せずに「更新なし」を送る。更新の画面の確認と同時に走るので、走っている確認の結果と、終わってから30秒以内の成功した結果は共有する。
-  - `/run/update_software`と`/run/update_cuda_software`は、今のチャンネルの最新版か、`data`の版（一覧にある版）を取得し、署名を確かめて入れる。エディションはどちらもそのコピーの入れ方のまま変えない。`mode`が`install`でないコピーでは入れない。署名の失敗は`UPDATE_SOFTWARE_VERIFY`、ほかの失敗は`UPDATE_SOFTWARE_DOWNLOAD`で、今の版のまま動き続ける。
+  - `/run/update_software`と`/run/update_cuda_software`は、今のチャンネルの最新版か、`data`の版（一覧にある版）を取得し、署名を確かめて入れる。配布物は1つなので、2つのエンドポイントは同じ動きである（`/run/update_cuda_software`はIPCの契約として残す。UIは`/run/update_software`だけを使う）。`mode`が`install`でないコピーでは入れない。署名の失敗は`UPDATE_SOFTWARE_VERIFY`、ほかの失敗は`UPDATE_SOFTWARE_DOWNLOAD`で、今の版のまま動き続ける。
 
 ### LLMでの翻訳
 
@@ -227,7 +247,7 @@ Plamo、Gemini、OpenAI、Groq、OpenRouter、OpenAI互換、LM Studio、Ollama�
 | 音声認識（REST） | — | `POST /v1/audio/transcriptions` |
 | リアルタイム音声認識 | — | `ws://…/v1/realtime`。`session.update`と`input_audio_buffer.append`、`commit`、`clear` |
 | 話者分離（任意） | `asr`プロファイルに話者分離モデルのパスがあれば、同じサーバーに3つ目のモデルとして読み込ませる | `/v1/models`がCPU以外の装置にある`diarization`を返すサーバーへのスピーカーの接続だけが、`session.update`の`audio.input.diarization`に`{}`を入れる。確定した発話の`speakers`（ラベル、開始、終了）を受け取る。マイクの接続は要求しない |
-| RVCワーカー | `build/vrct-rvc-worker`（Rust、`native/rvc-runtime`）。Linuxでは`build/vrct-vc-worker … rvc-native …`が起動する | stdin・stdoutでPCM（48kHz、3840フレーム単位）。制御はJSON行（32KiBまで）。ONNX RuntimeとCUDAのライブラリは実行環境のフォルダーの`lib/`から読み込む。GPUを使えなければCPUで変換する。readyで変換する場所（`profile`が`low`ならGPU、`cpu`ならCPU）と、加える遅れ（`latency_ms`）を伝える。CPUで追いつかないときは、出力の代わりに`failed`（`vc_capture_overrun`）を送って止まる |
+| RVCワーカー | `build/vrct-rvc-worker`（Rust、`native/rvc-runtime`）。Linuxでは`build/vrct-vc-worker … rvc-native …`が起動する | stdin・stdoutでPCM（48kHz、`--block-ms`の長さのブロック単位。中核は`RVC_BLOCK_MS`を渡し、既定は40 msで1920フレーム。指定がなければワーカーは80 msで3840フレーム。`ready`の`block_frames`で長さを返す）。制御はJSON行（32KiBまで）。ONNX RuntimeとCUDAのライブラリは実行環境のフォルダーの`lib/`から読み込む。GPUを使えなければCPUで変換する。readyで変換する場所（`profile`が`low`ならGPU、`cpu`ならCPU）と、加える遅れ（`latency_ms`）を伝える。CPUで追いつかないときは、出力の代わりに`failed`（`vc_capture_overrun`）を送って止まる |
 
 同梱TTSサーバーの停止・異常終了は、起動ごとの識別子と、その実行を使うTTSの世代を照合して処理する。現在のTTSが使うサーバーが終了したときは、TTSをオフにして待機中・再生中の読み上げを取り消し、従来どおり音声の状態取得でUIに伝える。同じ実行の停止直後と後処理後に通知が重なっても、無効化とTTSの世代更新は一度だけ行う。古い実行からの遅れた通知で、別の接続先や新しいサーバー実行を使うTTSをオフにしない。
 
@@ -239,19 +259,19 @@ Plamo、Gemini、OpenAI、Groq、OpenRouter、OpenAI互換、LM Studio、Ollama�
 
 TTSのスイッチをオフにしたときは、そのスイッチが起動した同梱サーバーだけを止める。設定画面から起動したサーバーと、独立したRVCのスイッチは維持する。
 
-設計の経緯は`docs/voice-stack/`の ADR にある。
+設計の経緯は[`docs/adr/`](../adr/README.md)の ADR にある。
 
 ### 利用者が入れた合成音声エンジン
 
-日本語の読み上げには、利用者が入れて起動したエンジンも使える（[ADR-008](../voice-stack/adr-008-external-speech-engines.md)）。アプリはエンジンを同梱せず、入れることも起動することもしない。接続先はループバックの`http`だけで、`local_url()`で確かめる。日本語以外は今までどおりspeech.cppで読む。
+日本語の読み上げには、利用者が入れて起動したエンジンも使える（[ADR-008](../adr/adr-008-external-speech-engines.md)）。アプリはエンジンを同梱せず、入れることも起動することもしない。接続先はループバックの`http`だけで、`local_url()`で確かめる。日本語以外は今までどおりspeech.cppで読む。
 
 | エンジン | 既定のURL | 使うAPI |
 |---|---|---|
-| VOICEVOX、SHAREVOX、AivisSpeech | `127.0.0.1`の50021、50025、10101 | `GET /version`、`GET /speakers`、`POST /audio_query`、`POST /synthesis`（`src-python/models/tts/voicevox_tts.py`） |
+| VOICEVOX、SHAREVOX、AivisSpeech | `127.0.0.1`の50021、50025、10101 | `GET /version`、`GET /speakers`、`POST /audio_query`、`POST /synthesis`（`native/tts/src/engines.rs`） |
 | COEIROINK v2 | `127.0.0.1:50032` | `GET /v1/engine_info`、`GET /v1/speakers_path_variant`、`POST /v1/synthesis`（`coeiroink_tts.py`） |
 
 - 読み上げる文は文末（`。`、`！`、`？`など）と改行で分け、40文字を超える文は読点でも分ける。1つずつ合成し、読み上げている間に次の文を合成する（`external_engine.py`）。エンジンは文ごとにWAVをまとめて返すので、分けないとマイクの読み上げが5秒の開始期限に間に合わない。
-- VOICEVOX系では`/audio_query`の応答を書き換えずに`/synthesis`へ渡す。AivisSpeechは書き換えた問い合わせを受け付けないことがあるため。COEIROINKの話者の一覧には画像を含まない`/v1/speakers_path_variant`を使う。`/v1/speakers`は画像をbase64で含み、話者1人で約1 MBになる。
+- VOICEVOX系では`/audio_query`の応答を`/synthesis`へ渡す。書き換えるのは、下の表で既定から変えたScaleの値だけである（ADR-008の5.2）。AivisSpeechはほかの部分を書き換えた問い合わせを受け付けないことがあるため。4つとも既定のままなら、応答のバイト列をそのまま渡す。COEIROINKの話者の一覧には画像を含まない`/v1/speakers_path_variant`を使う。`/v1/speakers`は画像をbase64で含み、話者1人で約1 MBになる。
 - 選んだ声はエンジンのID（COEIROINKは`speakerUuid:styleId`）と話者名、スタイル名で保存する。IDが見つからないか、IDの声の名前が変わっていれば名前で探し直す。見つからなければ`tts_engine_voice_missing`、声を選んでいなければ`tts_engine_voice_unset`、エンジンに接続できなければ`tts_engine_not_ready`で失敗する。歌うためのスタイルは一覧に出さない。
 - COEIROINKの`/v1/synthesis`には声の設定（`VOICE_SETTINGS`）の7つの値を送る。値は文字列の10進数で保存し、範囲外や`1e0`のような書き方は保存しない。
 
@@ -266,9 +286,19 @@ TTSのスイッチをオフにしたときは、そのスイッチが起動し�
   | `coeiroink_sampling_rate` | `outputSamplingRate`（Hz） | 16000、24000、44100、48000 | `24000` |
 
   既定値は設定できるようになる前に固定で送っていた値である。これらのキーがない古い設定は既定値で読む。設定画面ではCOEIROINKを選んだときだけ「COEIROINKの読み方」に7つの値が出る。保存した値は次の読み上げから使う。VOICEVOX系のエンジンには使わない。
+- VOICEVOX、AivisSpeech、SHAREVOXの読み方は、声の設定（`VOICE_SETTINGS`）にエンジンごとに4つずつ持つ（`<エンジン>`は`voicevox`、`aivis`、`sharevox`）。値は文字列の10進数で保存し、範囲外や`1e0`のような書き方は保存しない（#392）。
+
+  | 設定 | 書き換える項目 | 範囲 | 既定 |
+  |---|---|---|---|
+  | `<エンジン>_speed` | `speedScale` | 0.5〜2 | `1.0` |
+  | `<エンジン>_volume` | `volumeScale` | 0〜2 | `1.0` |
+  | `<エンジン>_pitch` | `pitchScale` | −0.15〜0.15 | `0.0` |
+  | `<エンジン>_intonation` | `intonationScale` | 0〜2 | `1.0` |
+
+  既定値はVOICEVOXの`/audio_query`が返す値で、既定のままの項目は書き換えない。範囲はVOICEVOXの画面の調整の範囲である。設定画面では、選んだエンジンの「〈エンジン名〉の読み方」に4つの値が出る。保存した値は次の読み上げから使う。既定のままの項目は`config.json`に書かない。0.5は知らない項目があると`VOICE_SETTINGS`全体を捨てるので、変えていなければ0.5に戻しても声の設定が残る。
 - WAVは16ビットのPCMだけを受け付け、約0.2秒ずつに分けて流す。1件の読み上げは60秒まで。エラーには安全なコードだけを使い、読み上げる文、音声、応答の本文を含めない。
-- 設定画面（`src-ui/.../tts/TtsEngine.jsx`）は、エンジンを選んだときと「再確認」を押したときに`/get/data/tts_engine_voices`へ`{engine, url, request_id}`を送る。保存前の編集中のエンジンとURLを使い、エンジンには版と声の一覧だけを問い合わせる。文は送らず、合成もしない。応答の`request_id`が最新の問い合わせと同じときだけ画面に使う。声は500件まで返し、保存できない名前やIDの声は除く。
-- モデルカタログの外部エンジンのカード（`EngineCatalog.jsx`）も同じエンドポイントで接続できるかを確かめる。保存済みのURL（未設定ならエンジンの既定）を使い、`request_id`は`catalog-`で始める。結果はエンジンごとに持ち、上の欄の問い合わせを置き換えない。保存済みの設定が届いたときに1回と、「再確認」を押したときに問い合わせる。
+- 設定画面（`src-ui/.../tts/TtsEngine.tsx`）は、エンジンを選んだときと「再確認」を押したときに`/get/data/tts_engine_voices`へ`{engine, url, request_id}`を送る。保存前の編集中のエンジンとURLを使い、エンジンには版と声の一覧だけを問い合わせる。文は送らず、合成もしない。応答の`request_id`が最新の問い合わせと同じときだけ画面に使う。声は500件まで返し、保存できない名前やIDの声は除く。
+- モデルカタログの外部エンジンのカード（`EngineCatalog.tsx`）も同じエンドポイントで接続できるかを確かめる。保存済みのURL（未設定ならエンジンの既定）を使い、`request_id`は`catalog-`で始める。結果はエンジンごとに持ち、上の欄の問い合わせを置き換えない。保存済みの設定が届いたときに1回と、「再確認」を押したときに問い合わせる。
 
 ## デスクトップとの統合
 
@@ -283,7 +313,7 @@ TTSのスイッチをオフにしたときは、そのスイッチが起動し�
 
 設定画面は別ウィンドウではなく、`main`の中のページである。
 
-WindowsのWebView2は、全ウィンドウを同じ起動引数で作る（`src-tauri/tauri.conf.json`の`main`と、`src-tauri/src/lib.rs`の`BROWSER_ARGS`。同じであることはテストで確かめる）。Tauri既定の`--disable-features`から`msSmartScreenProtection`を外し、SmartScreenを既定どおり動かす（第2回セキュリティ監査 SEC-03）。隠れたウィンドウの描画を止める機能（`CalculateNativeWinOcclusion`と、背景での描画の停止）は無効にする。VRパネルを画面の外に置いて撮影するためである。画面と関係なくMicrosoftへ出る通信は`--disable-background-networking`で減らす（[WebView2の通信](#webview2の通信)）。
+WindowsのWebView2は、全ウィンドウを同じ起動引数で作る（`src-tauri/tauri.conf.json`の`main`と、`src-tauri/src/lib.rs`の`BROWSER_ARGS`。同じであることはテストで確かめる）。全ウィンドウはアプリが作った1つのWebView2の環境を共有する（[WebView2の通信](#webview2の通信)）。Tauri既定の`--disable-features`から`msSmartScreenProtection`を外し、SmartScreenを既定どおり動かす（第2回セキュリティ監査 SEC-03）。隠れたウィンドウの描画を止める機能（`CalculateNativeWinOcclusion`と、背景での描画の停止）は無効にする。VRパネルを画面の外に置いて撮影するためである。画面と関係なくMicrosoftへ出る通信は`--disable-background-networking`で減らす（[WebView2の通信](#webview2の通信)）。
 
 ### WebviewのContent Security Policy（CSP）
 
@@ -309,7 +339,7 @@ WindowsのWebView2は、全ウィンドウを同じ起動引数で作る（`src-
 
 `devCsp`だけはViteのReact Refresh用inline script、HMR用style、および`ws://localhost:1420`、`ws://127.0.0.1:1420`、`ws://localhost:1421`、`ws://127.0.0.1:1421`を許す。通常のdev URLは`http://localhost:1420`。`TAURI_DEV_HOST`に別のホストを指定する場合は、開発用のローカルTauri設定で`devCsp.connect-src`にそのホストのHMR URL（ポート1421）を明記する。配布用CSPを広げない。
 
-静的検査は`src-ui/logics/common/contentSecurityPolicy.test.js`にある。設定、ソースの危険な呼び出しと資源の読み込み、依存のCSSハッシュを検査する。`dist/`があれば、生成JSにeval/Wasm/Workerがないこと、生成CSS/HTMLが同梱資源だけを参照すること、生成JS内のCSSも同じハッシュになることを追加で確かめる。`dist/`がない場合は生成物の検査だけをスキップするため、Viteビルド後にも単独で実行する。静的検査は任意の動的URLのデータフローやWebview実装の挙動までは証明しない。[配布ビルドでのCSP検証](../readme_build.md#配布ビルドでのcsp検証)を別途実行する。
+静的検査は`src-ui/logics/common/contentSecurityPolicy.test.ts`にある。設定、ソースの危険な呼び出しと資源の読み込み、依存のCSSハッシュを検査する。`dist/`があれば、生成JSにeval/Wasm/Workerがないこと、生成CSS/HTMLが同梱資源だけを参照すること、生成JS内のCSSも同じハッシュになることを追加で確かめる。`dist/`がない場合は生成物の検査だけをスキップするため、Viteビルド後にも単独で実行する。静的検査は任意の動的URLのデータフローやWebview実装の挙動までは証明しない。[配布ビルドでのCSP検証](../readme_build.md#配布ビルドでのcsp検証)を別途実行する。
 
 ### Tauriのコマンド
 
@@ -332,7 +362,7 @@ WindowsのWebView2は、全ウィンドウを同じ起動引数で作る（`src-
 
 Quick Chatのコンテキストは、`ready`、`language`、`enter_to_send`、`clear_on_send`に加え、保存済みの`ui_scaling`（整数、40〜200%）と`font_family`（空白だけではなく、制御文字を含まない256文字以内のローカルフォント名）を持つ。Rustは呼び出し元と値を検証してから置き換える。新しい2項目を省略した要求は100%と`Yu Gothic UI`を使う。小窓はフォント名をCSSの文字列として扱い、既存のNoto／システムフォントへのフォールバックを保つ。設定ファイルのキーやPython側のIPC形式は変更しない。
 
-VRパネルの要求は`main`が中継する（セキュリティ監査 SEC-02）。中継するのは、VRパネルが実際に送る操作として`VR_PANEL_RELAY_PATHS`（`src-ui/logics/common/vrPanelWire.ts`）に載せたものだけで、載っていない操作は新しいエンドポイントも含めて中継しない。載せているのは、VRパネル自身の窓と操作バー、ランチャーの4つのスイッチ、言語の窓、VRの設定の窓が変える設定（デバイスとしきい値、翻訳・音声認識・チャット読み取りの選択、AI翻訳のモデルの選択、音声認識の区切りの秒数と最大語数、VRChatのチャットボックスのスイッチ、メッセージの変換、VRの字幕、表示言語とフォント）である。アプリの終了と更新、ファイルを開く操作、モデルや実行環境の取得、認証キーとトークン、接続先（URL、WebSocket・OBS・OSCのホストとポート、証明書）、音声の設定、テレメトリの有効化と同意は載せない。`main`は中継する要求に`"origin": "vr_panel"`を付け、バックエンドも同じ一覧（core は`native/core/src/dispatch.rs`の`vr_panel_endpoints`、Python は`src-python/models/vr_panel_policy.py`）で確かめる。一覧にない要求は解釈せず、403と`vr_panel_request_refused`を返す。`origin`のない要求は`main`自身のもので、`vr_panel`以外の`origin`は拒否する。3つの一覧が同じことは試験で確かめる。イベントを送る権限を持つのは`main`のウィンドウだけである（`src-tauri/capabilities`）。VRパネルが持つのはイベントを聞く権限だけで、`vr-panel-stdout`などの3つのイベントは`vr_panel_send`に渡し、Rustが`main`へ送る（[ウィンドウ間の連携](#ウィンドウ間の連携)）。VRパネルへ写す状態にも、認証キーとトークンは入れない（[VRパネルへ写す状態](#vrパネルへ写す状態)）。ウィンドウの共有を戻すトークン（`ocr_portal_restore_token`）も、中継と写しの対象から外す。
+VRパネルの要求は`main`が中継する（セキュリティ監査 SEC-02）。中継するのは、VRパネルが実際に送る操作として`VR_PANEL_RELAY_PATHS`（`src-ui/logics/common/vrPanelWire.ts`）に載せたものだけで、載っていない操作は新しいエンドポイントも含めて中継しない。載せているのは、VRパネル自身の窓と操作バー、ランチャーの4つのスイッチ、言語の窓、VRの設定の窓が変える設定（デバイスとしきい値、翻訳・音声認識・チャット読み取りの選択、AI翻訳のモデルの選択、音声認識の区切りの秒数と最大語数、VRChatのチャットボックスのスイッチ、メッセージの変換、VRの字幕、表示言語とフォント）である。アプリの終了と更新、ファイルを開く操作、モデルや実行環境の取得、認証キーとトークン、接続先（URL、WebSocket・OBS・OSCのホストとポート、証明書）、音声の設定、テレメトリの有効化と同意は載せない。`main`は中継する要求に`"origin": "vr_panel"`を付け、バックエンドも同じ一覧（`native/core/src/dispatch.rs`の`vr_panel_endpoints`）で確かめる。一覧にない要求は解釈せず、403と`vr_panel_request_refused`を返す。`origin`のない要求は`main`自身のもので、`vr_panel`以外の`origin`は拒否する。3つの一覧が同じことは試験で確かめる。イベントを送る権限を持つのは`main`のウィンドウだけである（`src-tauri/capabilities`）。VRパネルが持つのはイベントを聞く権限だけで、`vr-panel-stdout`などの3つのイベントは`vr_panel_send`に渡し、Rustが`main`へ送る（[ウィンドウ間の連携](#ウィンドウ間の連携)）。VRパネルへ写す状態にも、認証キーとトークンは入れない（[VRパネルへ写す状態](#vrパネルへ写す状態)）。ウィンドウの共有を戻すトークン（`ocr_portal_restore_token`）も、中継と写しの対象から外す。
 
 ### ウィンドウ間の連携
 
@@ -358,7 +388,7 @@ VRパネルの要求は`main`が中継する（セキュリティ監査 SEC-02�
 
 - VRパネルは起動すると`vr_panel_state_subscribe`にチャンネルを渡し、受け付けられたら`vr-panel-ready`を送る。受け付けるのは`vr_panel`のウィンドウからの呼び出しだけで、開き直したパネルのチャンネルが前のものに替わる。
 - `main`は`vr_panel_state_push`で状態を送る。受け付けるのは`main`からの呼び出しだけ。購読しているパネルがなければ`false`を返し、次の会話ログは全件で送る。パネルのウィンドウを閉じるとチャンネルを捨てる。
-- 送るのは、VRパネルの画面が読む状態だけ（`src-ui/logics/common/vrPanelWire.ts`の`vrPanelStateNames`）。設定は、VRパネルが丸ごと読むカテゴリ（表示、デバイス、翻訳、音声認識、チャット読み取り、VR、その他）のもの。そのほかは会話ログ、ランチャーと言語の窓の状態（前提が足りないスイッチとその理由の識別子を含む）、メーター、入力と出力の表示など、名前で挙げたatomだけ。高度な設定（WebSocket、OBS、OSC、テレメトリ）、更新、ホットキーは送らない。認証キーとトークンは、カテゴリに入っていても送らない。VRパネルのコードが新しいatomを読むようになると、ソースを読む試験（`src-ui/logics/test/vrPanelStateScan.js`）が一覧に足すまで失敗する。
+- 送るのは、VRパネルの画面が読む状態だけ（`src-ui/logics/common/vrPanelWire.ts`の`vrPanelStateNames`）。設定は、VRパネルが丸ごと読むカテゴリ（表示、デバイス、翻訳、音声認識、チャット読み取り、VR、その他）のもの。そのほかは会話ログ、ランチャーと言語の窓の状態（前提が足りないスイッチとその理由の識別子を含む）、メーター、入力と出力の表示など、名前で挙げたatomだけ。高度な設定（WebSocket、OBS、OSC、テレメトリ）、更新、ホットキーは送らない。認証キーとトークンは、カテゴリに入っていても送らない。VRパネルのコードが新しいatomを読むようになると、ソースを読む試験（`src-ui/logics/test/vrPanelStateScan.ts`）が一覧に足すまで失敗する。
 - 会話ログだけは前に送ったログとの差分で送る。通し番号が合わなければ、VRパネルが`vr-panel-ready`で全件を頼み直す。
 
 VRパネルで会話ログを閉じている間も、状態の受信とログの更新は続ける。閉じた領域は描画せず、操作も受け付けない。ログ本体の購読を外し、開き直すと保存した表示位置と末尾への追従状態を戻す。上へスクロールして読んでいた場合はその位置を保ち、それ以外は最新の末尾に追従する。保存中に古い行が保持上限を超えた場合は、通常のログ更新と同じように位置を補正する。
@@ -395,4 +425,4 @@ VRパネルで会話ログを閉じている間も、状態の受信とログの
 
 `src-tauri/capabilities/`で、`main`にウィンドウ操作、ショートカット、許可したサイトを開くことを許す。ファイル、HTTP、プログラムの起動（shell）のプラグインはアプリに入っていない。バックエンドの`backend_*`コマンドは`main`だけが呼べることをRust側で確かめる。`quick_chat`にはイベントの受信だけを許し、コマンドは呼び出し元のウィンドウ名をRust側で確かめる。
 
-ブラウザーでURLを開けるのは`main`だけで、開けるのは`vrct_capability.json`の`opener:allow-open-url`に挙げたURLだけである（第2回セキュリティ監査 SEC-02）。同じウィンドウに当たる権限は合わさるので、`opener:default`のような広い権限はどのファイルにも入れない。一覧には、アプリが表示するリンクの行き先を挙げる。ユーザー向けドキュメント、このリポジトリ、元のVRCTと貢献者のページ、APIキーを作るページ、Hugging Faceのモデルカード、ライセンスの本文である。`..`を含むパス、パーセントで符号化した`.`と`\`、`@`を含むURLは拒否する。照合はglobで行い、Windowsでは`\`と`/`を同じ文字とみなす。UIに書いたURLと、Pythonのカタログが渡す取得元とライセンスのリンクがどれも一覧に入っていることは、試験で確かめる（`src-ui/logics/common/openerScope.test.js`、`tests/voice/test_url_open_scope.py`、`src-tauri/src/opener_scope_tests.rs`）。新しいリンクを足したら、一覧にも足す。
+ブラウザーでURLを開けるのは`main`だけで、開けるのは`vrct_capability.json`の`opener:allow-open-url`に挙げたURLだけである（第2回セキュリティ監査 SEC-02）。同じウィンドウに当たる権限は合わさるので、`opener:default`のような広い権限はどのファイルにも入れない。一覧には、アプリが表示するリンクの行き先を挙げる。ユーザー向けドキュメント、このリポジトリ、元のVRCTと貢献者のページ、APIキーを作るページ、Hugging Faceのモデルカード、ライセンスの本文である。`..`を含むパス、パーセントで符号化した`.`と`\`、`@`を含むURLは拒否する。照合はglobで行い、Windowsでは`\`と`/`を同じ文字とみなす。UIに書いたURLと、Pythonのカタログが渡す取得元とライセンスのリンクがどれも一覧に入っていることは、試験で確かめる（`src-ui/logics/common/openerScope.test.ts`、`src-tauri/src/opener_scope_tests.rs`）。新しいリンクを足したら、一覧にも足す。

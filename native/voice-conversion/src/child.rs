@@ -157,3 +157,45 @@ mod windows {
         Ok(super::Owned { child, _job: job })
     }
 }
+
+#[cfg(all(test, unix))]
+mod tests {
+    use std::os::unix::process::ExitStatusExt;
+    use std::process::Command;
+    use std::time::Duration;
+
+    use super::{end, spawn, wait};
+
+    fn sleep() -> Command {
+        let mut command = Command::new("sleep");
+        command.arg("30");
+        command
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn a_child_ends_with_the_thread_that_started_it() {
+        // `test_vc_worker_native.py`: the worker never outlives its owner, whatever the owner
+        // does with it. The thread hands the child out and ends.
+        let mut owned = std::thread::spawn(|| spawn(sleep()).unwrap()).join().unwrap();
+        let status = wait(&mut owned.child, Duration::from_secs(5)).unwrap().expect("the child outlived its thread");
+        assert_eq!(status.signal(), Some(libc::SIGKILL));
+    }
+
+    #[test]
+    fn end_asks_first_then_ends_a_child_that_does_not_listen() {
+        let mut polite = spawn(sleep()).unwrap();
+        assert!(end(&mut polite.child, Duration::from_secs(2)));
+        assert_eq!(polite.child.try_wait().unwrap().and_then(|s| s.signal()), Some(libc::SIGTERM));
+        let mut deaf = spawn({
+            let mut command = Command::new("sh");
+            command.args(["-c", "trap '' TERM; sleep 30"]);
+            command
+        })
+        .unwrap();
+        // The shell sets its trap before the test asks it to end.
+        std::thread::sleep(Duration::from_millis(200));
+        assert!(end(&mut deaf.child, Duration::from_millis(300)));
+        assert_eq!(deaf.child.try_wait().unwrap().and_then(|s| s.signal()), Some(libc::SIGKILL));
+    }
+}

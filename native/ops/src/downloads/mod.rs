@@ -14,6 +14,7 @@ pub mod hardware;
 mod manager;
 pub mod speechcpp;
 pub mod staging;
+pub mod translation_catalog;
 pub mod transport;
 pub mod user_models;
 pub mod verification;

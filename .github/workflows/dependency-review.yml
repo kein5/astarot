@@ -3,10 +3,15 @@ name: Dependency review
 # (GitHub Advisory Database); results appear in the job summary.
 on:
   pull_request:
+  # Required on develop, so the merge queue needs a result for it too.
+  merge_group:
 permissions:
   contents: read
 jobs:
   dependency-review:
+    # The review action needs a pull request to compare with. In the merge queue the job is
+    # skipped, which a required check counts as passed; the pull request ran it already.
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:

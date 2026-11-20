@@ -2,11 +2,11 @@
 
 # 設定キー一覧
 
-`src-python/config.py`の`Config`クラス（`ManagedProperty`と`ValidatedProperty`）と`init_config()`の既定値から生成した。中核（`native/core`）だけにあるキーは`tools/spec_core_additions.json`から表の末尾に足した。保存の仕組み（2秒の遅延、置き換えによる書き込み、読み込み時の検証）は[データ形式と保存](../data-and-persistence.md)にある。
+Pythonのバックエンドのキー（0.6.0で消した`src-python/config.py`の`Config`クラスと`init_config()`の既定値を写した`tools/spec_python_baseline.json`）から生成した。中核（`native/core`）だけにあるキーは`tools/spec_core_additions.json`から表の末尾に足した。保存の仕組み（2秒の遅延、置き換えによる書き込み、読み込み時の検証）は[データ形式と保存](../data-and-persistence.md)にある。
 
 チャット読み取りの`OCR_CAPTURE_REGION`はデスクトップウィンドウ用、`OCR_VR_CAPTURE_REGION`はSteamVRの左目側の映像用。旧版の単一範囲はウィンドウ用に保持し、未保存のVR側には全体を補う。[範囲の形と移行](../data-and-persistence.md#チャット読み取りの範囲)を参照。
 
-## config.jsonに保存するキー（136件）
+## config.jsonに保存するキー（140件）
 
 | キー | 型・検証 | 既定値 | 保存 |
 |---|---|---|---|
@@ -107,6 +107,7 @@
 | `LOCAL_ASR_MIGRATION` | int、許可値 lambda v, inst: not isinstance(v, bool) and 0 <= v <= LOCAL_ASR_MIGRATION_LATEST | `LOCAL_ASR_MIGRATION_LATEST` | 2秒後にまとめて |
 | `LOCAL_ASR_NOTICE_PENDING` | bool | `False` | 2秒後にまとめて |
 | `VIRTUAL_MIC_NOTICE_PENDING` | bool | `True` | 2秒後にまとめて |
+| `FIRST_RUN_SETUP_PENDING` | bool | `True` | 2秒後にまとめて |
 | `SELECTED_PLAMO_MODEL` | str、許可値 _allowed_in_populated('SELECTABLE_PLAMO_MODEL_LIST') | `None` | 2秒後にまとめて |
 | `SELECTED_GEMINI_MODEL` | str、許可値 _allowed_in_populated('SELECTABLE_GEMINI_MODEL_LIST') | `None` | 2秒後にまとめて |
 | `SELECTED_OPENAI_MODEL` | str、許可値 _allowed_in_populated('SELECTABLE_OPENAI_MODEL_LIST') | `None` | 2秒後にまとめて |
@@ -146,6 +147,9 @@
 | `OLLAMA_URL` | 検証 valid_saved_api_url（中核のみ） | `'http://localhost:11434'` | 2秒後にまとめて |
 | `PAPAGO_CLIENT_ID` | str（256 文字まで、制御文字なし）（中核のみ） | `''` | 2秒後にまとめて |
 | `OVERLAY_FONT_FAMILY` | str（空は自動。256 文字まで、制御文字なし）（中核のみ） | `''` | 2秒後にまとめて |
+| `USAGE_PRESETS` | list（basic、nonverbal、multilingual、voice_changer、all から1つ以上。知らない id は除き、この順に重複なしで保存）（中核のみ） | `['basic']（前の版から更新したときは ['all']）` | 即時 |
+| `RVC_BLOCK_MS` | int（20〜200 の 20 の倍数。RVC の変換を始めるときに読む）（中核のみ） | `40` | 2秒後にまとめて |
+| `OSC_QUERY` | bool（中核のみ） | `True` | 2秒後にまとめて |
 
 
 ## 保存しないキー（46件）
@@ -154,7 +158,7 @@
 
 | キー | 型・検証 | 既定値 | 扱い |
 |---|---|---|---|
-| `VERSION` |  | `'0.5.1'` | 読み取り専用 |
+| `VERSION` |  | `'0.5.2'` | 読み取り専用 |
 | `PATH_LOCAL` |  | `os_path.dirname(sys.executable)` | 読み取り専用 |
 | `PATH_DATA` |  | `str(data_root(self._PATH_LOCAL))` | 読み取り専用 |
 | `PATH_CONFIG` |  | `os_path.join(state_dir, 'config.json')` | 読み取り専用 |

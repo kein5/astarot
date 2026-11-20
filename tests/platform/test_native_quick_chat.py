@@ -7,7 +7,6 @@ import base64
 from contextlib import ExitStack, contextmanager
 import json
 import os
-from pathlib import Path
 import re
 import socket
 import subprocess
@@ -19,8 +18,8 @@ import pytest
 from native_webdriver import NativeWebDriver, ROOT
 from native_processes import sidecars
 from test_native_ui import initial_state
-from test_native_realtime import TranslationFixture
-from tools.voice_acceptance import private_graph, wait_for
+from native_translation import TranslationFixture
+from tools.private_pipewire import private_graph, wait_for
 
 pytestmark = pytest.mark.skipif(os.environ.get('VRCT_TEST_NATIVE_QUICK_CHAT') != '1', reason='opt-in desktop shortcut/private graph')
 

@@ -1,7 +1,7 @@
 # speech.cpp recognition models (downloadable, not shipped)
 
 VRCT-VOX does not ship these models. The download catalog
-(`src-python/models/model_downloads/speechcpp_asr.py`) offers every file that
+(`native/ops/data/speechcpp_asr.json`) offers every file that
 speech.cpp's own catalog lists for the names below. A file is fetched only
 after the user reads the review dialog (provider, license links, exact size,
 destination) and agrees. The file comes straight from the pinned Hugging Face
@@ -10,7 +10,7 @@ VRCT-VOX does not redistribute, modify or host any of them.
 
 The revisions, files, sizes and SHA-256 are speech.cpp 0.11.0's
 (`speech models --json`, copied by `tools/speechcpp_models.py` into
-`src-python/models/model_downloads/speechcpp_models.py`). This ledger records
+`native/ops/data/speechcpp_models.json`). This ledger records
 the license review, made on 2026-11-16 against the pinned revisions and the
 upstream model cards.
 
@@ -59,8 +59,8 @@ chosen by default.
 # speech.cpp speech synthesis models (downloadable, not shipped)
 
 The same terms apply: VRCT-VOX does not ship, redistribute, modify or host
-these files. They are pinned by hand in
-`src-python/models/model_downloads/catalog.py`, to the file speech.cpp
+these files. They are pinned by hand in the model download catalog
+(`native/ops/src/downloads/catalog.rs`), to the file speech.cpp
 0.10.0 and 0.11.0 fetch for each name (the revisions, sizes and SHA-256 are the
 same in both). The review was made on 2026-11-16 against the pinned revisions;
 the details are in `docs/voice-stack/licensing.md`

@@ -12,6 +12,12 @@
     width: 100%;
 }
 
+// The page's own parts span it like on every other settings page: the switches in sight,
+// 「詳細設定」 and the row that leads to the experimental features (#554).
+.container > * {
+    width: 100%;
+}
+
 // Setting rows span the page like on every other settings page; the
 // position and rotation controls keep their own centered width.
 .wrapper {
@@ -54,30 +60,51 @@
     font-size: 1.4rem;
 }
 
+// The position and rotation row (#568): the label and its description in the label column,
+// the switch and the diagram centred in the field column. The diagram's axis names and step
+// buttons reach out of its square, so the row stacks where the field column could not hold
+// them beside it.
+// The page's column is centred (the wrapper above), so these rows ask for its whole width.
+.axis_row.axis_row, .sample_row.sample_row { width: 100%; }
+.axis_row.axis_row {
+    padding-block: 2rem;
+    border-bottom: solid .1rem var(--dark_800_color);
+    > :last-child { justify-items: stretch; }
+    [role=group] { flex-direction: column; align-items: center; }
+}
+@container (max-width: 72rem) {
+    .axis_row.axis_row { grid-template-columns: minmax(0, 1fr); gap: .8rem; }
+}
+.axis_row .controller_type_switch { width: 100%; margin-top: 0; }
+
 .position_rotation_controls_box {
-    margin-top: 8rem;
+    margin-block: 8rem 7rem;
     position: relative;
     aspect-ratio: 1 / 1;
-    // Sized as when the overlay column was at most 56rem wide.
-    width: calc(min(100%, 56rem) * 0.36);
-    max-width: 36rem;
+    width: 20rem;
+    max-width: 100%;
     transform: translate(-10%);
 }
 
+// The sample text has its own row; the button sits where the fields start.
 .sample_text_button_wrapper {
-    position: absolute;
-    bottom: -12%;
-    left: -80%;
     display: flex;
-    justify-content: center;
     align-items: center;
-    flex-direction: column;
-    // transform: translate(-50%, -50%);
 }
 .sample_text_button {
+    display: inline-flex;
+    align-items: center;
+    gap: .8rem;
+    min-height: 4rem;
+    padding: .9rem 1.2rem;
+    font-size: 1.4rem;
+    font-weight: 500;
+    color: var(--dark_200_color);
     background-color: var(--dark_850_color);
-    padding: 1.8rem;
-    border-radius: 50%;
+    border: .1rem solid transparent;
+    border-radius: var(--vox_radius);
+    cursor: pointer;
+    &:focus-visible { outline: .2rem solid var(--primary_200_color); outline-offset: .2rem; }
     &:hover {
         background-color: var(--dark_800_color);
     }
@@ -86,6 +113,7 @@
     }
     &.is_started {
         background-color: var(--primary_600_color);
+        color: var(--vox_on_primary);
         &:hover {
             background-color: var(--primary_500_color);
         }
@@ -95,21 +123,11 @@
     }
 }
 .sample_text_button_triangle_svg, .sample_text_button_square_svg {
-    width: 2.4rem;
+    width: 1.4rem;
+    flex: none;
 }
 .sample_text_button_triangle_svg {
-    transform: translateX(10%) rotate(90deg);
-}
-.sample_text_button_label {
-    position: absolute;
-    left: 50%;
-    top: 110%;
-    // bottom: -2rem;
-    transform: translateX(-50%);
-    white-space: pre-wrap;
-    font-size: 1.2rem;
-    width: max-content;
-    text-align: center;
+    transform: rotate(90deg);
 }
 
 // .position_controls {
@@ -185,9 +203,11 @@
 
     &:hover {
         background-color: var(--primary_500_color);
+        color: var(--vox_on_primary);
     }
     &:active {
         background-color: var(--primary_600_color);
+        color: var(--vox_on_primary);
     }
     &.is_disabled {
         pointer-events: none;
@@ -357,9 +377,11 @@
 }
 
 // The same secondary button as the other settings forms (VoiceSettings).
+// Last in 「詳細設定」, centred under the overlay editor like it.
 .restore_default_settings_button {
+    justify-self: center;
     margin-top: 6rem;
-    font-size: 1.4rem; font-weight: 600; min-height: 4rem; padding: .9rem 1.2rem;
+    font-size: 1.4rem; font-weight: 500; min-height: 4rem; padding: .9rem 1.2rem;
     color: var(--dark_200_color); background: var(--dark_850_color); border: .1rem solid transparent;
     border-radius: var(--vox_radius); cursor: pointer;
     &:hover { background: var(--dark_600_color); }

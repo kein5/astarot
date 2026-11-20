@@ -5,7 +5,7 @@
 //! notice the same things (a file moved aside, URLs dropped, the local ASR notice). The expected
 //! results are `tests/data/python_config_reference.json`, written by the Python backend itself.
 //!
-//! Four differences are intended. API keys (`AUTH_KEYS`, `TRANSCRIPTION_AUTH_KEYS`) leave
+//! Five differences are intended. API keys (`AUTH_KEYS`, `TRANSCRIPTION_AUTH_KEYS`) leave
 //! `config.json` for the key store (`vrct_core::config::secrets`): the settings are compared
 //! without them, and the keys Python kept in the file must be in the store instead. A saved
 //! choice of the retired Google recognition engine loads as none (`retire_google_engine`). The
@@ -13,7 +13,11 @@
 //! settings added after the Python backend (Issue #390) are written with their defaults into the
 //! voice settings Python wrote: [`added`] lists them, and they are added to the expected results
 //! before the comparison. The RVC worker's choices added to the direct voice settings are not:
-//! left at their defaults they stay out of the file, which 0.4 reads (#428).
+//! left at their defaults they stay out of the file, which 0.4 reads (#428). And a key the core
+//! does not know stays in the file as it was, where Python dropped it, so that the version that
+//! wrote it finds it again (#560): [`without_unknown_keys`] checks that and leaves it out. And
+//! since 0.6.0 the local recognition migration of 0.3 to 0.5 and its notice are gone (#288):
+//! [`without_local_asr_migration`] takes them out of what Python did.
 
 use serde_json::{json, Map, Value};
 
@@ -39,7 +43,7 @@ fn with_added(settings: &mut Map<String, Value>) {
 }
 use std::path::Path;
 use vrct_core::config::secrets::{MemoryStore, SECRET_SETTINGS};
-use vrct_core::config::{Config, Environment, Platform};
+use vrct_core::config::{Config, Environment, Platform, RETIRED_KEYS};
 
 fn reference() -> Value {
     serde_json::from_str(include_str!("data/python_config_reference.json")).unwrap()
@@ -94,7 +98,11 @@ fn moved_keys(want: &mut Value) -> Vec<(String, String)> {
 
 /// What the core saves that Python never had (#277): the Ollama URL, Papago's Client ID, the subtitles' font and the
 /// keys of the official machine translation APIs. They are left out before comparing.
-const CORE_ONLY_KEYS: [&str; 3] = ["OLLAMA_URL", "PAPAGO_CLIENT_ID", "OVERLAY_FONT_FAMILY"];
+// USAGE_PRESETS (#554) is also one: the Python backend has no usage presets. RVC_BLOCK_MS
+// (#531) too: Python's RVC always cut 80 ms blocks.
+// OSC_QUERY (#559) too: the Python backend could not turn OSCQuery off.
+const CORE_ONLY_KEYS: [&str; 6] =
+    ["OLLAMA_URL", "PAPAGO_CLIENT_ID", "OVERLAY_FONT_FAMILY", "USAGE_PRESETS", "RVC_BLOCK_MS", "OSC_QUERY"];
 const CORE_ONLY_AUTH_KEYS: [&str; 2] = ["Google_Cloud_API", "Papago_API"];
 /// The engines the core adds after DeepL (the official APIs, #277).
 const CORE_ONLY_ENGINES: [&str; 2] = ["Google_Cloud_API", "Papago_API"];
@@ -122,6 +130,42 @@ fn retire_google_engine(want: &mut Value) {
     }
 }
 
+/// The sixth intended difference (#288): Python moved a saved Whisper choice (and, in a file
+/// older than the migration, a saved bundled realtime server) to speech.cpp, took the bundled
+/// server on Windows and set the notice `LOCAL_ASR_NOTICE_PENDING`. The core loads the saved
+/// choice as it is (Whisper as none) and writes no notice; the saved realtime server stays.
+fn without_local_asr_migration(want: &mut Value, input: &Value) {
+    let Some(changed) = want["changed"].as_object_mut() else { return };
+    changed.shift_remove("LOCAL_ASR_NOTICE_PENDING");
+    let Some(saved) = input.as_object() else { return };
+    let engine = |map: &Map<String, Value>| map.get("SELECTED_TRANSCRIPTION_ENGINE").and_then(Value::as_str).map(str::to_string);
+    if engine(changed).as_deref() == Some("SpeechCpp") && engine(saved).as_deref() != Some("SpeechCpp") {
+        changed.shift_remove("SELECTED_TRANSCRIPTION_ENGINE");
+        if !saved.contains_key("REALTIME_ASR_SETTINGS") {
+            changed.shift_remove("REALTIME_ASR_SETTINGS");
+        }
+    }
+}
+
+/// The fifth intended difference (#560): each key of the input the core does not know must be in
+/// the saved file with the input's value. Those keys are taken out of `saved`, which then holds
+/// what Python wrote.
+fn without_unknown_keys(mut saved: Map<String, Value>, input: &Value, case: &str, failures: &mut Vec<String>) -> Map<String, Value> {
+    let known: Vec<&str> = vrct_core::config::schema::keys().iter().map(|key| key.name).collect();
+    // Only a saved object has keys; `raw` and `raw_bytes` describe a file that is not one.
+    let saved_object = input.as_object().filter(|object| !object.contains_key("raw") && !object.contains_key("raw_bytes"));
+    for (key, value) in saved_object.into_iter().flatten() {
+        if known.contains(&key.as_str()) || RETIRED_KEYS.contains(&key.as_str()) {
+            continue;
+        }
+        match saved.shift_remove(key) {
+            Some(kept) if kept == *value => {}
+            kept => failures.push(format!("{case}: the unknown key {key} was not kept as it was: {kept:?}")),
+        }
+    }
+    saved
+}
+
 fn changes(saved:&Map<String, Value>, defaults: &Map<String, Value>) -> Map<String, Value> {
     saved.iter().filter(|(k, v)| defaults.get(*k) != Some(*v)).map(|(k, v)| (k.clone(), v.clone())).collect()
 }
@@ -135,6 +179,8 @@ fn check_platform(name: &str, platform: Platform) {
     // Intended (#391): Seed-VC, Python's default engine of direct voice, ended with Python, so
     // the core's default is RVC and a saved Seed-VC loads as RVC.
     defaults.get_mut("DIRECT_VOICE_SETTINGS").unwrap()["engine"] = json!("rvc");
+    // Intended (#288): the notice of the move to speech.cpp went in 0.6.0, with its key.
+    defaults.shift_remove("LOCAL_ASR_NOTICE_PENDING");
     let defaults = &defaults;
     let mut failures = Vec::new();
     let mut moved = 0;
@@ -148,12 +194,16 @@ fn check_platform(name: &str, platform: Platform) {
         write_input(dir.path(), &reference["inputs"][case], &expected["defaults"]);
         let store = MemoryStore::new();
         let config = Config::open_with(environment(dir.path(), platform, &reference), store.clone());
-        let saved: Map<String, Value> = without_core_additions(
+        let saved: Map<String, Value> = without_core_additions(without_unknown_keys(
             serde_json::from_str(&std::fs::read_to_string(dir.path().join("config.json")).unwrap()).unwrap(),
-        );
+            &reference["inputs"][case],
+            &format!("{name}/{case}"),
+            &mut failures,
+        ));
         let got_changes = changes(&saved, defaults);
         let mut want = want.clone();
         retire_google_engine(&mut want);
+        without_local_asr_migration(&mut want, &reference["inputs"][case]);
         let wanted_keys = moved_keys(&mut want);
         moved += wanted_keys.len();
         let kept_keys: Vec<(String, String)> = store.snapshot().into_iter().collect();
@@ -185,8 +235,9 @@ fn check_platform(name: &str, platform: Platform) {
         if serde_json::json!(config.invalid_saved_api_urls()) != want["invalid_saved_api_urls"] {
             failures.push(report("invalid urls", format!("{:?}", config.invalid_saved_api_urls()), want["invalid_saved_api_urls"].to_string()));
         }
-        if config.get("LOCAL_ASR_NOTICE_PENDING") != want["local_asr_notice_pending"] {
-            failures.push(report("notice", config.get("LOCAL_ASR_NOTICE_PENDING").to_string(), want["local_asr_notice_pending"].to_string()));
+        // Python's `local_asr_notice_pending` is not compared: the notice went in 0.6.0 (#288).
+        if saved.contains_key("LOCAL_ASR_NOTICE_PENDING") {
+            failures.push(format!("{name}/{case}: the retired notice LOCAL_ASR_NOTICE_PENDING is written"));
         }
         config.close();
     }

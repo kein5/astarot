@@ -34,8 +34,9 @@ fn without_a_host_updater_an_update_reports_that_it_could_not_download() {
         ("/run/update_cuda_software", Some(json!("0.5.1-beta.1")), json!("0.5.1-beta.1")),
     ] {
         let mark = ui.send(endpoint, data);
-        let answer = ui.wait_endpoint(mark, endpoint);
-        assert_eq!((answer["status"].clone(), answer["result"].clone()), (json!(200), json!(true)), "{endpoint}");
+        // The update runs on its own thread, so its failure can come before the answer.
+        let answer = ui.wait_from(mark, "the answer", |l| l["endpoint"] == endpoint && l["status"] == 200);
+        assert_eq!(answer["result"], json!(true), "{endpoint}");
         let failed = ui.wait_from(mark, "the failure", |l| l["endpoint"] == endpoint && l["status"] == 400);
         assert_eq!(error_code(&failed), "UPDATE_SOFTWARE_DOWNLOAD");
         assert_eq!(failed["result"]["data"], version, "{endpoint}");
@@ -47,16 +48,16 @@ fn without_a_host_updater_an_update_reports_that_it_could_not_download() {
 struct Recording {
     checks: AtomicUsize,
     listings: AtomicUsize,
-    installs: Mutex<Vec<(String, Option<String>)>>,
+    installs: Mutex<Vec<Option<String>>>,
 }
 
 impl Recording {
-    fn installs(&self) -> Vec<(String, Option<String>)> {
+    fn installs(&self) -> Vec<Option<String>> {
         self.installs.lock().unwrap().clone()
     }
 
     /// The install runs on its own thread after the answer.
-    fn wait_for_installs(&self, count: usize) -> Vec<(String, Option<String>)> {
+    fn wait_for_installs(&self, count: usize) -> Vec<Option<String>> {
         for _ in 0..250 {
             if self.installs.lock().unwrap().len() >= count {
                 break;
@@ -87,8 +88,8 @@ impl SoftwareUpdates for Fake {
         ]
     }
 
-    fn install(&self, edition: &str, target_version: Option<&str>) -> UpdateOutcome {
-        self.recording.installs.lock().unwrap().push((edition.into(), target_version.map(str::to_string)));
+    fn install(&self, target_version: Option<&str>) -> UpdateOutcome {
+        self.recording.installs.lock().unwrap().push(target_version.map(str::to_string));
         self.outcome
     }
 }
@@ -141,21 +142,22 @@ fn the_release_list_is_the_host_updaters_answer() {
 }
 
 #[test]
-fn a_launched_update_is_not_reported_and_gets_the_edition_and_the_version() {
+fn a_launched_update_is_not_reported_and_gets_the_version() {
     let (ui, recording) = with_updater(UpdateOutcome::Launched, None);
     ui.ready();
     let mark = ui.send("/run/update_software", None);
     let answer = ui.wait_endpoint(mark, "/run/update_software");
     assert_eq!((answer["status"].clone(), answer["result"].clone()), (json!(200), json!(true)));
-    assert_eq!(recording.wait_for_installs(1), [("cpu".to_string(), None)]);
+    assert_eq!(recording.wait_for_installs(1), [None]);
 
     let mark = ui.send("/run/update_software", Some(json!("0.5.0")));
     ui.wait_endpoint(mark, "/run/update_software");
-    assert_eq!(recording.wait_for_installs(2)[1], ("cpu".to_string(), Some("0.5.0".to_string())));
+    assert_eq!(recording.wait_for_installs(2)[1], Some("0.5.0".to_string()));
 
+    // The CUDA endpoint stays in the contract and makes the same update (#288).
     let mark = ui.send("/run/update_cuda_software", Some(json!("0.6.0")));
     ui.wait_endpoint(mark, "/run/update_cuda_software");
-    assert_eq!(recording.wait_for_installs(3)[2], ("gpu".to_string(), Some("0.6.0".to_string())));
+    assert_eq!(recording.wait_for_installs(3)[2], Some("0.6.0".to_string()));
 
     std::thread::sleep(std::time::Duration::from_millis(100));
     for endpoint in ["/run/update_software", "/run/update_cuda_software"] {
@@ -177,7 +179,7 @@ fn a_signature_that_does_not_verify_is_reported_with_the_version() {
         assert_eq!(error_code(&failed), "UPDATE_SOFTWARE_VERIFY", "{endpoint}");
         assert_eq!(failed["result"]["data"], version, "{endpoint}");
     }
-    assert_eq!(recording.installs(), [("cpu".to_string(), Some("0.6.0".to_string())), ("gpu".to_string(), None)]);
+    assert_eq!(recording.installs(), [Some("0.6.0".to_string()), None]);
     ui.stop();
 }
 
@@ -189,6 +191,6 @@ fn a_failed_download_is_reported_with_the_version() {
     let failed = ui.wait_from(mark, "the failure", |l| l["endpoint"] == "/run/update_software" && l["status"] == 400);
     assert_eq!(error_code(&failed), "UPDATE_SOFTWARE_DOWNLOAD");
     assert_eq!(failed["result"]["data"], "0.6.0");
-    assert_eq!(recording.installs(), [("cpu".to_string(), Some("0.6.0".to_string()))]);
+    assert_eq!(recording.installs(), [Some("0.6.0".to_string())]);
     ui.stop();
 }

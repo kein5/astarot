@@ -15,10 +15,15 @@ ONNX Runtime is linked in one of two ways, chosen by a feature:
   time and linked statically. This crate's tests and `ocr-read` use it. On Windows the
   build links `DirectML.dll`, which is copied next to the binaries.
 - `load-dynamic`: the library is loaded when the engine is first used, from
-  `ORT_DYLIB_PATH`, else `onnxruntime.dll` / `libonnxruntime.so` beside the executable,
-  else by name. A missing library is an error value (`engine::is_available()` is false),
-  not a panic. The core uses this; which ONNX Runtime the application ships is open
-  (`docs/voice-stack/core-integration.md`, item 2).
+  `ORT_DYLIB_PATH`, else the library the application ships (`_internal/onnxruntime`), else
+  `onnxruntime.dll` / `libonnxruntime.so` by name. A missing library is an error value
+  (`engine::is_available()` is false), not a panic. The core uses this.
+
+Either way the library and the process's one environment come from `native/onnx-runtime`
+(`vrct-onnx-runtime`), which the local translation (`native/translate-onnx`) and the RVC
+worker use too: `ort` keeps the first library a process loads and allows one environment per
+process. The binaries stop ONNX Runtime's usage reports first thing
+(`vrct_onnx_runtime::disable_telemetry_for_process`).
 
 ## What it does
 
@@ -44,7 +49,9 @@ pixels; `Debug` output of words, messages and pictures shows sizes only.
 - The OpenVR client library is loaded at run time: `VRCT_OPENVR_API`, else
   `openvr_api.dll` / `libopenvr_api.so` beside the executable, else by name. The
   interface versions are those of pyopenvr 2.12.1401 (`IVRCompositor_029`,
-  `IVRSystem_023`).
+  `IVRSystem_023`). Their functions are called by position; each position is declared
+  with its function's name (`vrct_openvr_client::fn_table!`) and checked against
+  pyopenvr's tables (`native/openvr-client/tests/data/pyopenvr_fn_tables.json`).
 - On Linux the mirror's OpenGL context comes from EGL (an offscreen pbuffer) instead of
   a hidden GLFW window.
 - The derived keys file (`downloaded_models/.ocr-keys/`) is not written; the character
@@ -57,7 +64,10 @@ pixels; `Debug` output of words, messages and pictures shows sizes only.
 
 `cargo test` runs everything below. The conformance tests compare with the Python
 implementation and report themselves as skipped until the fixtures exist; set
-`OCR_REQUIRE_REFERENCE=1` to make that a failure.
+`OCR_REQUIRE_REFERENCE=1` to make that a failure. The fixtures were made with the scripts
+below, which ran the Python backend's OCR (`src-python/models/ocr`); they went with it in
+0.6.0 (#285), so new fixtures can no longer be made this way. The commands and results are
+the record of how the core was checked (the scripts are in the v0.5.2 tag).
 
 ```sh
 python native/ocr-runtime/reference/setup_reference.py      # models and venv, ~/.cache/vrct-vox/ocr-reference
@@ -112,7 +122,7 @@ requires identical texts and boxes and scores within 1e-5; with
 and `ORT_DYLIB_PATH`) it requires everything to be identical.
 
 ```sh
-ORT_DYLIB_PATH=$REF/venv/lib/python3.11/site-packages/onnxruntime/capi/libonnxruntime.so.1.31.1 \
+ORT_DYLIB_PATH=$REF/venv/lib/python3.14/site-packages/onnxruntime/capi/libonnxruntime.so.1.31.1 \
 OCR_EXACT_REFERENCE=1 cargo test --release --features ort/load-dynamic --test engine_conformance
 ```
 
@@ -151,8 +161,8 @@ file. Which ONNX Runtime build ships is open (below).
 ## Open questions
 
 1. **Bridge to the application.** The core runs the pipeline in the application process
-   (#285); `src-python/models/ocr` goes with the Python sidecar. The chatbox lab's
-   `label.py` still uses the Python reader.
+   (#285); `src-python/models/ocr` went with the Python backend in 0.6.0, and with it the
+   chatbox lab's `label.py`, which used the Python reader.
 2. **ONNX Runtime build.** `ort`'s own ONNX Runtime 1.31.0 made detection 19 % and
    recognition 73 % slower than the official 1.31.1 library on this machine, and some
    scores differ by 1e-5. The core loads the library at run time (`load-dynamic`), so

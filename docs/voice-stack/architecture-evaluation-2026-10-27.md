@@ -4,7 +4,7 @@
 
 要求の基準は提供された `codex-implementation-spec.md`、`codex-start.md`、`imozuru-evidence-map.md`。この評価では、それらの実装順序・境界も再検討する。製品コード、依存関係、稼働中の音声経路は変更せず、新しい実機実験も行っていない。
 
-関連成果物: PoCと判定条件、[ADR 004案](adr-004-audio-integration-boundaries.md)、出典・調査記録。既存の実装記録と[計測記録](benchmarks.md)は履歴として保持する。
+関連成果物: PoCと判定条件、[ADR 004案](../adr/adr-004-audio-integration-boundaries.md)、出典・調査記録。既存の実装記録と[計測記録](benchmarks.md)は履歴として保持する。
 
 ## 1. 結論と判断の範囲
 
@@ -48,7 +48,7 @@ flowchart TB
     VIRTUAL --> VRCHAT["VRChat input"]
 ```
 
-主な証拠は [UI sidecar起動](../../src-ui/views/app/_app_controllers/StartPythonController.jsx)、[UI IPC](../../src-ui/logics/common/useStdoutToPython.js)、[Main](../../src-python/mainloop.py#L688)、[Controller](../../src-python/controller.py#L976)、[scheduler](../../src-python/models/tts/tts_scheduler.py)、[AudioRouter](../../src-python/models/audio_routing/audio_router.py)。
+主な証拠は [UI sidecar起動](../../src-ui/views/app/_app_controllers/StartPythonController.jsx)、[UI IPC](../../src-ui/logics/common/useStdoutToPython.ts)、[Main](https://github.com/kein5/astarot/blob/v0.5.2/src-python/mainloop.py#L688)、[Controller](https://github.com/kein5/astarot/blob/v0.5.2/src-python/controller.py#L976)、[scheduler](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/tts/tts_scheduler.py)、[AudioRouter](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/audio_routing/audio_router.py)。
 
 | 責務・境界 | 確認できた実装 | 評価 |
 |---|---|---|
@@ -63,7 +63,7 @@ flowchart TB
 | Windows出力 | host API名＋device名で一致を確認し、blocking `stream.write` | index再利用の誤接続対策はあるがendpoint GUIDではない。driverがwriteで止まる場合、tokenだけで割り込める保証はない |
 | 既存ASRとLinux | 既存の確定フレーズ型ASRを保持。Windows固有依存は残存 | Linux CLI成功をLinux GUI全体の対応完了とみなせない。新Realtime adapterは未実装 |
 
-Linuxのpipe容量4096 bytesは、mono s16leなら48kHzで約42.7ms、24kHzで約85.3ms分に相当する。これは容量からの**算術値**であって実際の占有量やE2E遅延ではない。HTTP、エンジン、OS、VRChatのbufferも別に存在する。[Linux実装](../../src-python/models/audio_routing/devices_pipewire.py)
+Linuxのpipe容量4096 bytesは、mono s16leなら48kHzで約42.7ms、24kHzで約85.3ms分に相当する。これは容量からの**算術値**であって実際の占有量やE2E遅延ではない。HTTP、エンジン、OS、VRChatのbufferも別に存在する。[Linux実装](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/audio_routing/devices_pipewire.py)
 
 依存の見方を分けると、静的依存はControllerとmodel/config、時間依存は翻訳後のTTS、実行時依存はGPUとOS音声、配布依存はPython側のWindowsモジュール・モデル・driverに集中している。組織上の担当分担や保守工数は資料がなく未確認。フォルダが分かれていることだけで疎結合と評価しない。
 
@@ -288,4 +288,4 @@ GNUのFAQも、別プログラムか結合物かの判断では通信方法だ�
 4. Linux GUIの全面移植は後でもよいが、起動import・設定・device列挙の移植性調査は早める。最終段階で初めて依存関係を発見する計画にはしない。
 5. Bで全契約を満たせればCを作らない。Bの安全性・停止・混合が満たせずCで改善を示せる場合に限り移行する。推論自体が遅い場合、IPC構成を増減する前にモデル・設定・要求を再検討する。
 
-この提案は既存ADR 001〜003の履歴を変更しない。採否と判断を覆す条件は[ADR 004案](adr-004-audio-integration-boundaries.md)に記録した。次の実装担当者は、未測定欄を「達成」に置き換えず、PoCの生記録と対象versionを追加して判断を更新する。
+この提案は既存ADR 001〜003の履歴を変更しない。採否と判断を覆す条件は[ADR 004案](../adr/adr-004-audio-integration-boundaries.md)に記録した。次の実装担当者は、未測定欄を「達成」に置き換えず、PoCの生記録と対象versionを追加して判断を更新する。

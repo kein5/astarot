@@ -10,23 +10,58 @@ use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::sync::atomic::{AtomicBool, AtomicU16, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 pub const KEY: &str = "good-key";
+
+/// How the Realtime stand-in fails a session once it is set up (the failures decision 81 found
+/// without tests).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum RealtimeFault {
+    #[default]
+    None,
+    /// `session.updated` names another model than the one asked for.
+    OtherModel,
+    /// After this many finished utterances, one starts and gets a partial but never finishes;
+    /// no other utterance comes after it.
+    NeverFinish(usize),
+    /// The connection is closed, without a close frame, when the first audio arrives.
+    Drop,
+    /// An event larger than 1 MiB is sent when the first audio arrives.
+    Oversized,
+}
 
 /// What the fake answers.
 #[derive(Default)]
 pub struct Behaviour {
     /// Recognition answers 500 (the APIs, Deepgram).
     pub fail: AtomicBool,
+    /// How long the transcription APIs hold their answer, as a slow engine does.
+    pub transcription_hold: Mutex<Duration>,
     /// The text every engine recognises.
     pub text: Mutex<String>,
     /// The speech.cpp model list (`/v1/models`).
     pub models: Mutex<Value>,
+    /// `/v1/models` is held without an answer until the client goes or 10 s pass.
+    pub models_silent: AtomicBool,
+    /// Deepgram's speech models (`/deepgram/v1/models`, the `stt` rows).
+    pub deepgram_models: Mutex<Value>,
     /// Realtime: audio blocks to receive before an utterance is announced (0: never).
     pub realtime_after: AtomicUsize,
+    /// Realtime: utterances to announce at the next audio blocks, one each, whatever
+    /// `realtime_after` says.
+    pub realtime_announce: AtomicUsize,
+    /// Realtime: when each utterance was announced, just before its events were sent.
+    pub realtime_announced: Mutex<Vec<Instant>>,
     /// The status of the Realtime handshake; 0 accepts.
     pub realtime_refuse: AtomicU16,
+    /// Realtime: the connection is held without an answer to its handshake, as a server that
+    /// is going away may do, until the client goes or 10 s pass.
+    pub realtime_silent: AtomicBool,
+    pub realtime_fault: Mutex<RealtimeFault>,
+    /// Realtime: who spoke each utterance, as a diarizing server says it
+    /// (`[{"speaker": "A", "start_ms": 0, "end_ms": 900}, ...]`); null sends none.
+    pub speakers: Mutex<Value>,
 }
 
 #[derive(Clone)]
@@ -38,6 +73,15 @@ pub struct FakeAsr {
     /// Bodies of the recognition requests (form fields and queries, not audio).
     pub fields: Arc<Mutex<Vec<String>>>,
     pub appends: Arc<AtomicUsize>,
+    /// The `turn_detection` of each `session.update`.
+    pub turn_detection: Arc<Mutex<Vec<Value>>>,
+    /// The `diarization` each `session.update` asked for (null when it asked for none).
+    pub diarization: Arc<Mutex<Vec<Value>>>,
+}
+
+/// A speaker diarization model as `/v1/models` lists it, on `device`.
+pub fn diarization_model(id: &str, device: &str) -> Value {
+    json!({ "id": id, "speech": { "task": "diarization", "device": device } })
 }
 
 pub fn recognition_model(id: &str, languages: &[&str], detects: bool, options: &[&str]) -> Value {
@@ -57,6 +101,11 @@ impl FakeAsr {
         let behaviour = Arc::new(Behaviour::default());
         *behaviour.text.lock().unwrap() = "こんにちは".into();
         *behaviour.models.lock().unwrap() = json!({ "data": [recognition_model("haas-ja", &["ja"], false, &["keywords"])] });
+        *behaviour.deepgram_models.lock().unwrap() = json!([
+            { "name": "nova-3", "batch": true, "languages": ["en", "ja"] },
+            { "name": "nova-2", "batch": true, "languages": ["multi"] },
+            { "name": "flux", "batch": false, "languages": ["en"] },
+        ]);
         behaviour.realtime_after.store(25, Ordering::SeqCst);
         let fake = FakeAsr {
             port,
@@ -64,6 +113,8 @@ impl FakeAsr {
             requests: Arc::default(),
             fields: Arc::default(),
             appends: Arc::default(),
+            turn_detection: Arc::default(),
+            diarization: Arc::default(),
         };
         let serving = fake.clone();
         std::thread::spawn(move || {
@@ -144,6 +195,11 @@ impl FakeAsr {
         let bearer = authorization == format!("Bearer {KEY}");
         match (method, path.as_str()) {
             ("GET", "/v1/models") => {
+                if self.behaviour.models_silent.load(Ordering::SeqCst) {
+                    let mut sink = [0u8; 64];
+                    while matches!(stream.read(&mut sink), Ok(size) if size > 0) {}
+                    return;
+                }
                 let models = self.behaviour.models.lock().unwrap().clone();
                 Self::json(&mut stream, 200, models)
             }
@@ -175,6 +231,7 @@ impl FakeAsr {
                 if failing {
                     return Self::json(&mut stream, 500, json!({ "error": "down" }));
                 }
+                std::thread::sleep(*self.behaviour.transcription_hold.lock().unwrap());
                 Self::json(
                     &mut stream,
                     200,
@@ -188,15 +245,10 @@ impl FakeAsr {
                 let status = if authorization == format!("Token {KEY}") { 200 } else { 401 };
                 Self::json(&mut stream, status, json!({}))
             }
-            ("GET", "/deepgram/v1/models") => Self::json(
-                &mut stream,
-                200,
-                json!({ "stt": [
-                    { "name": "nova-3", "batch": true, "languages": ["en", "ja"] },
-                    { "name": "nova-2", "batch": true, "languages": ["multi"] },
-                    { "name": "flux", "batch": false, "languages": ["en"] },
-                ] }),
-            ),
+            ("GET", "/deepgram/v1/models") => {
+                let models = self.behaviour.deepgram_models.lock().unwrap().clone();
+                Self::json(&mut stream, 200, json!({ "stt": models }))
+            }
             ("POST", "/deepgram/v1/listen") => {
                 self.fields.lock().unwrap().push(target.clone());
                 if authorization != format!("Token {KEY}") {
@@ -219,6 +271,11 @@ impl FakeAsr {
     fn realtime(&self, stream: TcpStream) {
         let refuse = self.behaviour.realtime_refuse.load(Ordering::SeqCst);
         let mut stream = stream;
+        if self.behaviour.realtime_silent.load(Ordering::SeqCst) {
+            let mut sink = [0u8; 4096];
+            while matches!(stream.read(&mut sink), Ok(size) if size > 0) {}
+            return;
+        }
         if refuse != 0 {
             let mut head = [0u8; 4096];
             let _ = stream.read(&mut head);
@@ -238,33 +295,110 @@ impl FakeAsr {
             return;
         }
         let after = self.behaviour.realtime_after.load(Ordering::SeqCst);
+        let fault = *self.behaviour.realtime_fault.lock().unwrap();
         let mut item = 0;
         let mut counted = 0usize;
+        let (mut unfinished, mut large_sent) = (false, false);
+        // A session without a transcription detects speech alone (the recorder's VAD): by
+        // volume here, in blocks of 20 ms, with server_vad's padding and silence.
+        let mut detecting: Option<Value> = None;
+        let (mut heard_ms, mut speech_from, mut quiet_since): (f64, Option<f64>, Option<f64>) = (0.0, None, None);
         while let Ok(message) = socket.read() {
             let tungstenite::Message::Text(text) = message else { continue };
             let Ok(value) = serde_json::from_str::<Value>(text.as_str()) else { continue };
             match value["type"].as_str() {
                 Some("session.update") => {
+                    self.turn_detection.lock().unwrap().push(value["session"]["audio"]["input"]["turn_detection"].clone());
+                    self.diarization.lock().unwrap().push(value["session"]["audio"]["input"]["diarization"].clone());
                     let mut session = value["session"].clone();
                     if session["audio"]["input"].get("diarization").is_none() {
                         session["audio"]["input"]["diarization"] = Value::Null;
                     }
+                    if fault == RealtimeFault::OtherModel {
+                        session["audio"]["input"]["transcription"]["model"] = json!("another-model");
+                    }
+                    if session["audio"]["input"]["transcription"].is_null() {
+                        detecting = Some(session["audio"]["input"]["turn_detection"].clone());
+                    }
                     let _ = socket.send(next("session.updated", json!({ "session": session })));
+                }
+                Some("input_audio_buffer.append") if detecting.is_some() => {
+                    self.appends.fetch_add(1, Ordering::SeqCst);
+                    let turn = detecting.clone().unwrap_or_default();
+                    let pad = turn["prefix_padding_ms"].as_f64().unwrap_or(300.0);
+                    let silence = turn["silence_duration_ms"].as_f64().unwrap_or(500.0);
+                    let bytes = base64::Engine::decode(&base64::engine::general_purpose::STANDARD, value["audio"].as_str().unwrap_or("")).unwrap_or_default();
+                    let samples: Vec<i16> = bytes.as_chunks::<2>().0.iter().map(|b| i16::from_le_bytes(*b)).collect();
+                    for block in samples.chunks(480) {
+                        let loud = block.iter().map(|s| i64::from(*s).abs()).max().unwrap_or(0) > 1000;
+                        if loud {
+                            quiet_since = None;
+                            if speech_from.is_none() {
+                                speech_from = Some(heard_ms);
+                                let started = json!({ "item_id": "vad", "audio_start_ms": (heard_ms - pad).max(0.0) });
+                                if socket.send(next("input_audio_buffer.speech_started", started)).is_err() {
+                                    return;
+                                }
+                            }
+                        } else if speech_from.is_some() {
+                            let since = *quiet_since.get_or_insert(heard_ms);
+                            if heard_ms - since >= silence {
+                                speech_from = None;
+                                quiet_since = None;
+                                let stopped = json!({ "item_id": "vad", "audio_end_ms": since + pad });
+                                if socket.send(next("input_audio_buffer.speech_stopped", stopped)).is_err() {
+                                    return;
+                                }
+                            }
+                        }
+                        heard_ms += block.len() as f64 / 24.0;
+                    }
                 }
                 Some("input_audio_buffer.append") => {
                     self.appends.fetch_add(1, Ordering::SeqCst);
+                    match fault {
+                        RealtimeFault::Drop => return,
+                        RealtimeFault::Oversized if !large_sent => {
+                            large_sent = true;
+                            let event = json!({ "event_id": "large", "type": "rate_limits.updated", "padding": "x".repeat(1024 * 1024) });
+                            let _ = socket.send(tungstenite::Message::text(event.to_string()));
+                        }
+                        _ => {}
+                    }
                     counted += 1;
-                    if after > 0 && counted == after {
+                    if unfinished {
+                        continue;
+                    }
+                    let asked = self.behaviour.realtime_announce.try_update(Ordering::SeqCst, Ordering::SeqCst, |n| n.checked_sub(1)).is_ok();
+                    if asked || (after > 0 && counted == after) {
                         counted = 0;
                         item += 1;
                         let id = format!("item_{item}");
                         let text = self.behaviour.text.lock().unwrap().clone();
                         let half: String = text.chars().take(text.chars().count() / 2).collect();
                         let prefix = "conversation.item.input_audio_transcription.";
+                        let mut completed = json!({ "item_id": id, "transcript": text, "stop": "complete", "languages": [{ "code": "ja" }] });
+                        let speakers = self.behaviour.speakers.lock().unwrap().clone();
+                        if !speakers.is_null() {
+                            completed["speakers"] = speakers;
+                        }
+                        if fault == RealtimeFault::NeverFinish(item - 1) {
+                            unfinished = true;
+                            for message in [
+                                next("input_audio_buffer.speech_started", json!({ "item_id": id })),
+                                next(&format!("{prefix}delta"), json!({ "item_id": id, "delta": half })),
+                            ] {
+                                if socket.send(message).is_err() {
+                                    return;
+                                }
+                            }
+                            continue;
+                        }
+                        self.behaviour.realtime_announced.lock().unwrap().push(Instant::now());
                         for message in [
                             next("input_audio_buffer.speech_started", json!({ "item_id": id })),
                             next(&format!("{prefix}delta"), json!({ "item_id": id, "delta": half })),
-                            next(&format!("{prefix}completed"), json!({ "item_id": id, "transcript": text, "stop": "complete", "languages": [{ "code": "ja" }] })),
+                            next(&format!("{prefix}completed"), completed),
                         ] {
                             if socket.send(message).is_err() {
                                 return;

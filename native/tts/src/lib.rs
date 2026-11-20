@@ -21,6 +21,7 @@ mod http;
 pub mod listener;
 pub mod message_hook;
 pub mod model_options;
+pub mod onset;
 pub mod playback;
 mod resample;
 pub mod scheduler;

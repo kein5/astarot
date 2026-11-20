@@ -4,6 +4,7 @@
     python tools/changelog.py print           # show the version's changes, write nothing
     python tools/changelog.py check           # a stable version needs its CHANGELOG.md section
     python tools/changelog.py release-notes --output notes.md
+    python tools/changelog.py scaffold-notes  # start docs/release-notes/<version>.md; never overwrites
 
 Only stable releases go into CHANGELOG.md. A stable section covers every commit since the
 previous stable release, its betas included. A beta (X.Y.Z-beta.N) gets no section; its release
@@ -12,6 +13,10 @@ commits (`cog changelog <tag>..HEAD` with tools/changelog_commits.tera); this fi
 readers. A section is written once: running it again gives the same file, and a section that
 would come out differently is not replaced unless --force is given. The rules are in
 CONTRIBUTING.md, "Changelog and releases".
+
+scaffold-notes starts the hand-written notes of a stable release in the format of
+docs/release-notes/README.md. It reads the same commits as `print` and lists, under the internal
+changes, the pull requests that merged them, so that the writer can lift the user-facing ones.
 """
 from __future__ import annotations
 
@@ -65,6 +70,18 @@ OLDER = f"""{OLDER_HEADING}
 
 Releases up to 0.1.0 are described in [GitHub Releases]({REPO_URL}/releases).
 """
+NOTES_DIR = Path("docs") / "release-notes"
+PRODUCT = "ASTAROT"
+# GitHub's merge commit names the pull request; its body is the pull request's title.
+MERGED_PULL = re.compile(r"^Merge pull request #(?P<number>\d+) from ")
+# A squashed or rebased pull request ends its subject with the number instead.
+SQUASHED_PULL = re.compile(r" \(#(?P<number>\d+)\)$")
+# The groups of the pull request list, most user-facing first, with what the writer does with each.
+NOTES_GROUPS = (
+    ("breaking", "互換性が変わる変更を含むPRです。見出しと段落で上の節に書き直し、利用者がすることを「⚠️ 更新するときの注意」に書いてください。"),
+    ("user", "利用者に関係のある変更を含むPRです。見出しと段落に書き直して上の節へ移してください。"),
+    ("internal", "内部の変更だけのPRです。1項目を短い1行に書き直してください。"),
+)
 
 
 class ChangelogError(Exception):
@@ -277,6 +294,94 @@ def _between(text, start, stop):
     return text[at:end if end >= 0 else len(text)].strip("\n")
 
 
+@dataclass(frozen=True)
+class PullRequest:
+    number: int
+    title: str
+
+
+@dataclass(frozen=True)
+class NotesEntry:
+    group: str  # "breaking", "user" or "internal", as in NOTES_GROUPS
+    title: str
+    refs: str  # "#627", or the short ids of commits that came in without a pull request
+
+
+def notes_entries(commits, pulls):
+    """One entry per pull request (by number), then one per commit that came in without one.
+
+    The same commits as CHANGELOG.md: a commit it leaves out is left out here, and a pull request
+    goes into the group of its most user-facing commit."""
+    rank = {group: index for index, (group, _) in enumerate(NOTES_GROUPS)}
+    found = {}  # key -> [group, title, refs]
+    for commit in commits:
+        place = classify(commit)
+        if place is None:
+            continue
+        group = "breaking" if place == (USER, "Breaking Changes") else "user" if place[0] == USER else "internal"
+        pull = pulls.get(commit.id)
+        if pull:
+            key, title, ref = (0, pull.number), pull.title, f"#{pull.number}"
+        else:
+            key = (1, commit.scope, commit.summary.strip().lower())
+            scope = f"({commit.scope})" if commit.scope else ""
+            title, ref = f"{commit.type}{scope}{'!' if commit.breaking else ''}: {commit.summary.strip()}", commit.id[:7]
+        entry = found.setdefault(key, [group, title, []])
+        entry[0] = min(entry[0], group, key=rank.get)
+        if ref not in entry[2]:
+            entry[2].append(ref)
+    # Pull requests by number; commits without one in the order they came.
+    order = sorted((key for key in found if key[0] == 0), key=lambda key: key[1]) + [key for key in found if key[0] == 1]
+    return [NotesEntry(found[key][0], found[key][1], ", ".join(found[key][2])) for key in order]
+
+
+def changelog_anchor(version, date):
+    """The id GitHub gives the heading "## [version] - date" of CHANGELOG.md."""
+    return re.sub(r"[^\w\- ]", "", f"[{version}] - {date}").lower().replace(" ", "-")
+
+
+def notes_scaffold(version, date, previous, entries, *, repo_url=REPO_URL):
+    """The start of docs/release-notes/<version>.md, in the order of docs/release-notes/README.md:
+    an opening paragraph, the user-facing headings, the upgrade notes and known issues, and the
+    internal changes. Every pull request starts under the internal changes; the writer moves the
+    user-facing ones up. Text in （） and the comments are for the writer and go before publishing."""
+    lines = [
+        "<!--",
+        "python tools/changelog.py scaffold-notes が docs/release-notes/README.md の書式で作った雛形です。",
+        f"「🔧 内部の変更」には{previous}から{version}までにマージしたPRを並べています。分類はCHANGELOG.mdと同じです。",
+        "（）で囲んだ置き場所を書き換えてください。使わない節とこのようなコメントは公開する前に消してください。",
+        "-->",
+        "",
+        f"{PRODUCT} {version}では（いちばん大きな変更）。（それで利用者に何ができるか）。",
+        "",
+        "## （絵文字1つ） （短い題）",
+        "",
+        "（段落）",
+        "",
+        "## ⚠️ 更新するときの注意",
+        "",
+        "（前の正式版から更新するときに利用者がすることと、互換性がなくなった点。書くことがなければ節ごと消す）",
+        "",
+        "## 🐞 既知の問題",
+        "",
+        "（制限と、公開する前に確かめられなかったこと。書くことがなければ節ごと消す）",
+        "",
+        "## 🔧 内部の変更",
+        "",
+    ]
+    if not entries:
+        lines += [f"<!-- {previous}のあとにマージしたPRは見つかりませんでした。 -->", ""]
+    for group, guide in NOTES_GROUPS:
+        listed = [entry for entry in entries if entry.group == group]
+        if listed:
+            lines += [f"<!-- {guide} -->", ""]
+            lines += [f"- {entry.title}（{entry.refs}）" for entry in listed]
+            lines.append("")
+    link = f"{repo_url}/blob/main/CHANGELOG.md#{changelog_anchor(version, date)}"
+    lines += [f"すべての変更は [CHANGELOG.md]({link}) にあります。", ""]
+    return "\n".join(lines)
+
+
 def require_version(version):
     if not VERSION.fullmatch(version):
         raise ChangelogError(f"'{version}' is not a version like 0.2.0 or 0.2.0-beta.1")
@@ -342,13 +447,57 @@ def build_section(root, version, text, date=None):
     return render_section(version, date, since, read_commits(root, since), included=pre_release_tags(root, version))
 
 
+def merged_pull_requests(root, since):
+    """The pull request that brought in each commit of since..HEAD, by commit id.
+
+    Walks HEAD's first-parent line oldest first. A merge commit "Merge pull request #N" brings in
+    the commits of its second parent that the first parent lacks; a squashed or rebased commit
+    ends with "(#N)". A commit belongs to the first pull request that brought it in."""
+    log = git(root, "log", "--first-parent", "--reverse", "--format=%H%x1f%P%x1f%s%x1f%b%x1e", f"{since}..HEAD")
+    if log is None:
+        raise ChangelogError(f"git log {since}..HEAD failed")
+    pulls = {}
+    for record in filter(None, (part.strip("\n") for part in log.split("\x1e"))):
+        commit_id, parents, subject, body = record.split("\x1f", 3)
+        parents = parents.split()
+        merged = MERGED_PULL.match(subject)
+        if merged and len(parents) == 2:
+            title = next((line.strip() for line in body.splitlines() if line.strip()), subject)
+            pull = PullRequest(int(merged["number"]), title)
+            for brought in (git(root, "rev-list", f"{parents[0]}..{parents[1]}") or "").split():
+                pulls.setdefault(brought, pull)
+            continue
+        squashed = SQUASHED_PULL.search(subject)
+        if squashed:
+            pulls.setdefault(commit_id, PullRequest(int(squashed["number"]), subject[:squashed.start()]))
+    return pulls
+
+
+def build_notes_scaffold(root, version, text, date=None):
+    """The scaffold of a stable version's notes, from the same commits as `print`."""
+    require_version(version)
+    if is_pre_release(version):
+        raise ChangelogError(f"{version} is a pre-release; {NOTES_DIR.as_posix()} holds the notes of stable releases "
+                             "(a beta's notes come from release-notes)")
+    if git(root, "rev-parse", "-q", "--verify", f"refs/tags/v{version}"):
+        raise ChangelogError(f"the tag v{version} already exists; set the next version in package.json first")
+    since = previous_tag(root, version)
+    if not since:
+        raise ChangelogError("no earlier release tag (v*) is reachable from HEAD")
+    written = section_date(text, version)
+    entries = notes_entries(read_commits(root, since), merged_pull_requests(root, since))
+    scaffold = notes_scaffold(version, written or date or datetime.date.today().isoformat(), since, entries)
+    return scaffold, written is not None
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("command", choices=("write", "print", "check", "release-notes"))
+    parser.add_argument("command", choices=("write", "print", "check", "release-notes", "scaffold-notes"))
     parser.add_argument("--version", help="defaults to package.json's version")
     parser.add_argument("--date", help="the date of a new section (YYYY-MM-DD); defaults to today")
     parser.add_argument("--force", action="store_true", help="replace a section that would come out differently")
-    parser.add_argument("--output", help="release-notes: the file to write")
+    parser.add_argument("--output", help="release-notes: the file to write; scaffold-notes: the file to start "
+                                         "instead of docs/release-notes/<version>.md (never overwritten)")
     parser.add_argument("--root", default=str(ROOT), help=argparse.SUPPRESS)
     args = parser.parse_args(argv)
     root = Path(args.root)
@@ -371,6 +520,23 @@ def main(argv=None):
                 Path(args.output).write_text(notes, encoding="utf-8", newline="\n")
             else:
                 sys.stdout.write(notes)
+        elif args.command == "scaffold-notes":
+            target = Path(args.output) if args.output else root / NOTES_DIR / f"{version}.md"
+            # Checked before the commits are read, and again by the exclusive open below: the file
+            # may already hold notes written by hand.
+            if target.exists():
+                raise ChangelogError(f"{target} already exists; it is never overwritten (delete it to start again)")
+            scaffold, dated = build_notes_scaffold(root, version, text, args.date)
+            target.parent.mkdir(parents=True, exist_ok=True)
+            try:
+                with target.open("x", encoding="utf-8", newline="\n") as file:
+                    file.write(scaffold)
+            except FileExistsError:
+                raise ChangelogError(f"{target} already exists; it is never overwritten (delete it to start again)") from None
+            print(f"started the notes for {version} in {target}")
+            if not dated:
+                print(f"CHANGELOG.md has no section for {version} yet: the link at the end uses the date "
+                      f"{args.date or 'of today'}; check it after `write`", file=sys.stderr)
         else:
             section = build_section(root, version, text, args.date)
             if args.command == "write" and is_pre_release(version):

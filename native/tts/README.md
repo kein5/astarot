@@ -22,6 +22,7 @@ until the sidecar is retired. See "Not in this crate" below for what plugs in.
 | `message_hook.py` | `src/message_hook.rs` | Chat and microphone speech events from pipeline values |
 | `external_engine.py`, `voicevox_tts.py`, `coeiroink_tts.py`, `engines.py` | `src/engines.rs` | Installed engines (ADR-008): VOICEVOX, SHAREVOX, AivisSpeech and COEIROINK v2; version, voice list, sentence-by-sentence WAV synthesis with one sentence prefetched |
 | `voice_trace.py` | `src/trace.rs` | Opt-in `VRCT_VOICE_TRACE` timing records |
+| (none) | `src/onset.rs` | speech.cpp speech starts at its first sound: the near-silence before it is dropped (#556) |
 
 Nothing is logged. Text, instructions, audio, server bodies and device names never go
 into errors, status or the trace; failures are short fixed codes.
@@ -35,14 +36,21 @@ These stay where they are and plug in through traits:
 | Opening an output device | `playback::OutputFactory`, `playback::OutputSink` | Audio routing (#280): PipeWire, WASAPI, the managed route |
 | Speech monitor (a local copy) | `playback::Monitor`, `scheduler::MonitorFactory` | Audio routing (#280): `MonitorTee` |
 | The running voice conversion | `converted::ConversionSpeaker` | Voice conversion (`DirectVoice`) |
-| A started speech.cpp process | `listener::ProcessExit`, `ListenerMonitors::own`/`forget` | The speech.cpp server owner (#276) |
-| Bundled server URL | `scheduler::ResolveServer` | The speech.cpp server owner (#276) |
+| A started speech.cpp process | `listener::ProcessExit`, `ListenerMonitors::own`/`forget` | The backend core, from the speech server's `on_listener` hook: a run owns its address until it ends |
+| Bundled server URL | `scheduler::ResolveServer` | The backend core, from the speech server hub |
 | Failure reports, flow panel | `BusOptions::on_failure`, `on_first_audio`, `on_monitor_error` | The application core |
 
 The backend core (`native/core`, `controller/voice.rs`) wires the bus to the output
 devices, the speech.cpp servers and the voice conversion.
 
 ## Differences from the Python version
+
+- **Leading silence.** speech.cpp's models begin their audio with near-silence (about
+  0.43 s from Qwen3-TTS 0.6B, up to 0.27 s from Irodori-TTS v4.1), which Python played
+  as it came. Here the samples at or below 64 (about -54 dBFS) before the first louder
+  one are dropped, except the last 20 ms and at most 1 s of them (`src/onset.rs`), so the
+  voice is heard that much sooner. The installed engines keep the silence their own
+  settings put first. The start deadline now counts from that first sound.
 
 - **Resampling for the conversion.** Python used soxr's `HQ` resampler. This crate has
   its own streaming windowed-sinc resampler (Kaiser window, pass band to 95% of the
@@ -81,5 +89,9 @@ health check), `test_tts_model_options.py` (the client and the bus),
 `test_external_speech_engines.py` (the settings and the scheduler),
 `test_voice_trace.py`, `test_listener_table_probe.py`, `test_speech_through_conversion.py`
 (the router and the bus) and `src-python/test/test_tts_listener_monitor.py`. They run a
-fake speech.cpp server on localhost; no model, GPU or audio device is needed.
-Controller, IPC and UI tests stay in Python until the speech path is wired in.
+fake speech.cpp server on localhost; no model, GPU or audio device is needed. CI runs
+them on Linux and Windows (`voice-tests.yml`, `core-integration`).
+
+The speech path through the backend core (the endpoints, the start delay, speech one
+after another, stops) is tested in `native/core/tests/voice.rs`. With a real speech.cpp
+server and output device, `native/core/examples/live_speech.rs` measures the same.

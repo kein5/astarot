@@ -35,7 +35,7 @@ are candidates from this workflow, published through the
 
 ## Build locally
 
-Use Linux x86_64, a C compiler and pkg-config. Node, Rust, Python 3.11 and uv come from
+Use Linux x86_64, a C compiler and pkg-config. Node, Rust, Python and uv come from
 `mise install` at the versions pinned in `mise.toml`, the same versions the workflow uses.
 Run the build from a shell where mise is active (`mise activate`), or through
 `mise run build:linux -- <options>`. Python runs the build tools only.
@@ -88,8 +88,8 @@ diagnostic; normal output is release.
 The builder installs no Python packages. It uses `npm ci --ignore-scripts` and builds
 Cargo with `--locked` in a copied workspace (`build/linux/workspace`), whose
 `src-tauri/bin/_internal` is the staged folder; it does not replace the checkout's
-`src-tauri/bin`. Two backend files under `src-python/models/model_downloads/` are copied
-too, because `native/ops` reads them at compile time. This is **not** a claim of
+`src-tauri/bin`. The one file outside the crates that a crate reads at compile time
+(`CRATE_INPUTS` of `tools/build_linux.py`) is copied too. This is **not** a claim of
 bit-for-bit reproducible builds.
 The Rust, Node, Python and uv versions are pinned in `mise.toml`; system libraries and
 actual ELF version requirements remain host dependent.

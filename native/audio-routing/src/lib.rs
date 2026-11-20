@@ -13,6 +13,7 @@ pub mod error;
 pub mod graph;
 pub mod graph_source;
 pub mod identity;
+pub mod managed_vc;
 pub mod manager;
 pub mod monitor;
 pub mod mute_state;

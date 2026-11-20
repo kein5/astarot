@@ -1,4 +1,5 @@
-//! Owns the bundled speech.cpp server processes: start, stop, restart and liveness.
+//! Owns the bundled speech.cpp server processes: start, stop, restart and liveness; and
+//! llama.cpp's server for a translation LLM, which the app fetches after consent ([`llama`]).
 //!
 //! The behaviour follows `src-python/models/speech_server/`, which this crate is to
 //! replace (issue #276): the same settings file, the same states and the same fixed
@@ -6,14 +7,18 @@
 //! that owns it lives here.
 //!
 //! Nothing in this crate logs or returns what the server prints, a model path, text
-//! or audio. A failure is one of the fixed codes in [`codes`].
+//! or audio. A failure is one of the fixed codes in [`codes`]. The one exception is
+//! [`check`]: a run of the command line hands its stdout (the recognized text) to the caller,
+//! which compares it and drops it.
 
 mod child;
 mod http;
 
 pub mod builds;
 pub mod bundle;
+pub mod check;
 pub mod devices;
+pub mod llama;
 pub mod server;
 pub mod servers;
 pub mod settings;

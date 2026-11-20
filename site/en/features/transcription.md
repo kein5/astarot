@@ -36,7 +36,7 @@ The bundled server uses one recognition model for both microphone captions and g
 
 ## First steps
 
-1. Open "Models and servers" near the bottom of Settings → "Speech recognition (ASR)", and download a recognition model and Silero VAD under "ASR + VAD".
+1. Open "Models and servers" under "On your PC (speech.cpp)" in Settings → "Speech recognition (ASR)", and download a recognition model and Silero VAD under "ASR + VAD".
 
    ![The "ASR + VAD" section of "Models and servers" in Settings → Speech recognition (ASR)](/screenshots/en/asr-models.webp)
 
@@ -46,7 +46,7 @@ The bundled server uses one recognition model for both microphone captions and g
 
    ![Settings → Speech recognition (ASR)](/screenshots/en/transcription.webp)
 
-3. On the main screen, the "Mic input" switch starts and stops microphone captions, and the "Listening" switch does the same for game audio captions. If you chose the bundled server, turning a switch on also starts the server. On Windows these switches run realtime captions while "Local (speech.cpp)" is the engine chosen under "Transcription Engine Used For Speech Recognition" ([Choose the speech recognition engine](#engines)).
+3. On the main screen, the "Mic input" switch starts and stops microphone captions, and the "Listening" switch does the same for game audio captions. If you chose the bundled server, turning a switch on also starts the server. On Windows these switches run realtime captions while "Local (speech.cpp)" is the engine chosen under "Transcription engine used for speech recognition" ([Choose the speech recognition engine](#engines)).
 
 After a restart, captions start off.
 
@@ -60,7 +60,8 @@ Game audio captions can show who is speaking. ASTAROT tells the voices apart and
 
 To use it, download and apply the diarization model under "Models and servers" → "ASR + VAD". This is the model that tells speakers apart (Nemotron 3 Diarization, about 106 MB, OpenMDW-1.1). It is used from the next time the server starts. To stop using it, clear "Diarization GGUF path (optional)".
 
-- The conversation log shows "Speaker A". In the desktop caption overlay, a letter comes before the words and each person gets their own colour.
+- The conversation log shows "Speaker A". In the desktop caption overlay, a letter comes before the words and each person gets their own colour. The VR large log shows it after "Receive".
+- When the same person keeps talking, the conversation log shows who it is on the first line only, so their lines read as one run.
 - Speakers are told apart by the sound of their voices, so their names are not known. People with similar voices can be taken for one person.
 - When two people speak with little pause, their words end up in one caption. It then shows both, as "Speaker A, B".
 - Each time you turn on "Listening", the letters are handed out again, so "Speaker A" may not be the same person as last time.
@@ -68,13 +69,29 @@ To use it, download and apply the diarization model under "Models and servers" �
 - A GPU is needed. A CPU alone cannot keep up, so while the server runs on the CPU, speakers are not told apart even with the model.
 - Microphone captions do not tell speakers apart.
 
+### Name the speakers
+
+Press "Speaker A" in the conversation log to give that voice a name. The name shows in the conversation log, the desktop caption overlay and the VR large log.
+
+Names last while this listening session runs and are not saved. When listening starts again, the letters are handed out again, so name the voices again too. The VR panel's conversation log cannot name voices.
+
 ## Add words to recognize
 
 Under "Term dictionary", add words you want recognized and how to write them. Common VRChat terms are built in.
 
+Proper nouns such as world names and your friends' names are worth adding. The dictionary is used beyond speech recognition:
+
+- Recognized text from any engine gets the written form you registered. A word written as one of its readings is changed too.
+- Japanese speech reads a term with the reading you registered.
+- AI translators (OpenAI, Gemini, Groq and the like) are told which of your terms a text holds, as names.
+
+A reading that is also an everyday word changes that word too, so choose readings that no other word shares.
+
+To add many terms, write them one per line under "Terms to add together" and press "Add all". "Copy terms" copies your terms in the same form, to move them to another PC or keep a copy. Added terms are used once you press "Save changes".
+
 ## Paste what you say into an input field
 
-With "Voice typing mode" on under Settings → "VR", what you say is transcribed and pasted into an input field in VRChat or another app. The paste goes through the clipboard.
+With "Voice typing mode" on under Settings → "Captions and VR", what you say is transcribed and pasted into an input field in VRChat or another app. The paste goes through the clipboard.
 
 - While SteamVR is running, it brings the window of the app SteamVR is running (VRChat, for example) to the front and pastes there.
 - When SteamVR is not running, the text is only copied to the clipboard.
@@ -83,23 +100,26 @@ On Linux it pastes into apps that run as X11/XWayland windows, such as VRChat un
 
 ## Choose the speech recognition engine (Windows) {#engines}
 
-On Windows, the speech recognition used by the main screen's "Mic input" and "Listening" switches is chosen under Settings → "Speech recognition (ASR)" → "Transcription Engine Used For Speech Recognition". If you turn transcription on before choosing an engine, a "Choose speech recognition" screen opens.
+On Windows, the speech recognition used by the main screen's "Mic input" and "Listening" switches is chosen under Settings → "Speech recognition (ASR)" → "Transcription engine used for speech recognition". If you turn transcription on before choosing an engine, a "Choose speech recognition" screen opens.
 
-- With "Local (speech.cpp)", audio is turned into text by a speech.cpp server on this PC, and the switches run realtime captions. It needs a recognition model and Silero VAD ([What you need](#what-you-need)).
-- With "Google", your microphone or speaker audio is sent to Google's speech service to be turned into text. No API key is needed.
-- Groq Whisper, OpenAI Whisper, Custom Whisper server and Deepgram can be chosen once you register an API key under "Cloud speech recognition". A Whisper server of your own works too ([Use your own models](../guide/custom-models#whisper-server)).
+The engines come in two systems. The choice lists them under the two names, and the page shows each system's settings below it in the same order.
+
+- "On your PC (speech.cpp)": with "Local (speech.cpp)", audio is turned into text by a speech.cpp server on your PC, and it never leaves your PC. The switches run realtime captions. It needs a recognition model and Silero VAD ([What you need](#what-you-need)). Download them under this system's "Models and servers", or register model files of your own ([Use your own models](../guide/custom-models#asr)); a model you registered is marked "Your model".
+- "API (cloud or your own server)": Groq Whisper, OpenAI Whisper, Deepgram and Custom Whisper server. Audio is sent to that service or server to be turned into text. An engine can be chosen once you open its line and register its API key. Custom Whisper server is a Whisper server you provide yourself, marked "Your server" ([Use your own models](../guide/custom-models#whisper-server)). At start the app contacts only the engine you have selected and servers running on your PC; any other engine has its key checked when you select it.
 
 The app never switches from the engine you chose to another one on its own. Switching between "Local (speech.cpp)" and another engine turns "Mic input" and "Listening" off if they were on. Turn them on again to start with the new engine.
 
-Local (speech.cpp) transcribes the languages its recognition model supports (30 languages with Qwen3-ASR, Japanese only with Haas-ja, ReazonSpeech and Parakeet ja). For other languages, use Google or a cloud engine.
+Local (speech.cpp) transcribes the languages its recognition model supports (30 languages with Qwen3-ASR, Japanese only with Haas-ja, ReazonSpeech and Parakeet ja). For other languages, use an API engine.
+
+"Bundled server" and "External server" under "ASR server" in "Realtime captions" (in "More settings") are both speech.cpp servers. The external server is a speech.cpp server you start yourself on your PC. Either way, audio stays on your PC.
 
 On Linux, "Mic input" and "Listening" always run realtime captions, whatever engine is chosen.
 
 ## If you used Whisper in an earlier version {#whisper}
 
-The Whisper that ran inside the app is gone. Speech is now turned into text on this PC by "Local (speech.cpp)". The cloud Whisper engines (Groq Whisper, OpenAI Whisper, Custom Whisper server) work as before.
+The Whisper that ran inside the app is gone. Speech is now turned into text on your PC by "Local (speech.cpp)". The cloud Whisper engines (Groq Whisper, OpenAI Whisper, Custom Whisper server) work as before.
 
-- If Whisper was your engine under "Transcription Engine Used For Speech Recognition", the first start after the update switches it to "Local (speech.cpp)". On Windows, "ASR server" under "Realtime captions" also becomes "Bundled server".
+- If Whisper was your engine under "Transcription engine used for speech recognition", the first start after the update switches it to "Local (speech.cpp)". On Windows, "ASR server" under "Realtime captions" also becomes "Bundled server".
 - The main screen then shows the notice "Local speech recognition now uses speech.cpp", once. It shows whether the two models it needs (a speech recognition model and a VAD model) are set, with a button "Open Speech recognition (ASR) settings". The notice never downloads a model. Models are downloaded only after you check their license and size under "Models and servers" and agree.
 - The Whisper model type, the recognition thresholds and the processing device settings are gone.
 

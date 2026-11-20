@@ -9,6 +9,8 @@ publish = false
 name = "vrct_vr_overlay"
 
 [dependencies]
+# The names the app goes by outside its code (ADR-014): the OpenVR library variable, the panel frame.
+app-identity = { path = "../app-identity" }
 ab_glyph = "=0.2.32"
 serde_json = "=1.0.154"
 unicode-segmentation = "=1.13.3"

@@ -3,7 +3,7 @@
 
 use serde_json::{Value, json};
 use std::time::Duration;
-use vrct_translation::http::{Request, Timeouts, Transport};
+use vrct_translation::http::{Cancel, HttpError, Request, Timeouts, Transport};
 
 /// A recognition model the server lists (`RecognitionModel`).
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -55,14 +55,32 @@ fn detects(options: &[Value]) -> bool {
     false
 }
 
-/// `_survey`: the recognition models, and whether a diarization model runs on a GPU. `Err`
-/// carries a fixed code (`transport_error`, `invalid_models`, `http_<status>`).
-pub fn survey(transport: &Transport, base_url: &str, timeout: Duration) -> Result<(Vec<Model>, bool), String> {
+/// `_survey`: the recognition models, and whether a diarization model runs on a GPU. Each step
+/// of the request (connecting, writing, each read) waits at most `timeout`; `cancel` ends it
+/// at once, as Python's `CancelToken` did. `Err` carries a fixed code (`cancelled`,
+/// `transport_error`, `http_<status>`, `expected_json`, `response_too_large`, `invalid_json`,
+/// `invalid_models`).
+pub fn survey(
+    transport: &Transport,
+    base_url: &str,
+    timeout: Duration,
+    cancel: Option<&Cancel>,
+) -> Result<(Vec<Model>, bool), String> {
     let url = format!("{}/v1/models", base_url.trim_end_matches('/'));
     let timeouts = Timeouts { connect: timeout, read: timeout, write: timeout };
-    let response = transport(&Request::get(&url), timeouts).map_err(|_| "transport_error".to_string())?;
+    let mut request = Request::get(&url);
+    if let Some(cancel) = cancel {
+        request = request.cancellable(cancel);
+    }
+    let response = transport(&request, timeouts)
+        .map_err(|error| if error == HttpError::Cancelled { "cancelled" } else { "transport_error" }.to_string())?;
     if response.status != 200 {
         return Err(format!("http_{}", response.status));
+    }
+    // As `_request`: only a JSON answer is read.
+    let content_type = response.header("Content-Type").unwrap_or("").split(';').next().unwrap_or("").trim().to_ascii_lowercase();
+    if content_type != "application/json" {
+        return Err("expected_json".into());
     }
     if response.body.len() > 1024 * 1024 {
         return Err("response_too_large".into());
@@ -237,6 +255,141 @@ mod tests {
         assert_eq!(request_options(&["prompt".into()], &terms)["prompt"], "VRChat用語: VRChat、集会");
         assert!(request_options(&["language".into()], &terms).is_empty());
         assert!(request_options(&["keywords".into()], &[]).is_empty());
+    }
+
+    // The option shapes speech.cpp 0.10.0 lists for Qwen3-ASR-0.6B and Haas-ja v1.0
+    // (`tests/voice/test_realtime_language.py`).
+    fn qwen_language() -> Value {
+        json!({ "name": "language", "type": "string", "required": false, "steers": true, "default": "auto", "choices": ["de", "en", "ja", "zh"] })
+    }
+
+    fn haas_language() -> Value {
+        json!({ "name": "language", "type": "string", "required": false, "steers": false, "default": "auto", "choices": ["ja"] })
+    }
+
+    #[test]
+    fn a_model_detects_when_its_language_defaults_to_auto_among_several() {
+        let mut ja_default = qwen_language();
+        ja_default["default"] = json!("ja");
+        let cases = [
+            (vec![qwen_language(), json!({ "name": "prompt", "default": "" })], true),
+            // One choice: nothing to detect.
+            (vec![haas_language(), json!({ "name": "keywords", "default": "" })], false),
+            (vec![ja_default], false),
+            (vec![json!({ "name": "language" })], false),
+            (vec![], false),
+        ];
+        for (options, want) in cases {
+            assert_eq!(detects(&options), want, "{options:?}");
+        }
+    }
+
+    /// A transport that answers every request with `status`, `content_type` and `body`.
+    fn answering(status: u16, content_type: &str, body: Value) -> Transport {
+        let content_type = content_type.to_string();
+        std::sync::Arc::new(move |request, _| {
+            assert!(request.url.ends_with("/v1/models"), "{}", request.url);
+            Ok(vrct_translation::http::Response {
+                status,
+                headers: vec![("Content-Type".to_string(), content_type.clone())],
+                body: serde_json::to_vec(&body).unwrap(),
+            })
+        })
+    }
+
+    fn listed(body: Value) -> Result<(Vec<Model>, bool), String> {
+        survey(&answering(200, "application/json; charset=utf-8", body), "http://127.0.0.1:8080/", Duration::from_secs(1), None)
+    }
+
+    #[test]
+    fn the_list_has_the_recognisers_with_detection_and_drops_the_other_tasks() {
+        let (models, diarizes) = listed(json!({ "data": [
+            { "id": "Qwen3-ASR-0.6B", "speech": { "task": "recognition", "languages": ["de", "en", "ja", "zh"], "options": [qwen_language()] } },
+            { "id": "Haas-616M-ja-v1.0", "speech": { "task": "recognition", "languages": ["ja"], "options": [haas_language(), { "name": "keywords" }] } },
+            { "id": "silero-vad", "speech": { "task": "detection", "languages": [], "options": [] } },
+        ] }))
+        .unwrap();
+        let rows: Vec<(&str, bool, bool)> = models.iter().map(|m| (m.id.as_str(), m.accepts_language, m.detects_language)).collect();
+        assert_eq!(rows, [("Qwen3-ASR-0.6B", true, true), ("Haas-616M-ja-v1.0", true, false)]);
+        assert_eq!(models[1].options, ["language", "keywords"]);
+        assert!(!diarizes);
+    }
+
+    #[test]
+    fn diarization_counts_only_on_a_gpu() {
+        let recogniser = json!({ "id": "asr", "speech": { "task": "recognition", "languages": ["ja"], "options": [] } });
+        for (device, want) in [(json!("Vulkan0"), true), (json!(" cuda0 "), true), (json!("CPU"), false), (json!(""), false), (Value::Null, false), (json!(7), false)] {
+            let mut diarizer = json!({ "id": "nemotron", "speech": { "task": "diarization", "languages": [], "options": [] } });
+            if !device.is_null() {
+                diarizer["speech"]["device"] = device.clone();
+            }
+            let (models, diarizes) = listed(json!({ "data": [recogniser, diarizer] })).unwrap();
+            assert_eq!((models.len(), diarizes), (1, want), "{device}");
+        }
+        // A detection model on a GPU is not a diarizer.
+        let vad = json!({ "id": "vad", "speech": { "task": "detection", "device": "Vulkan0" } });
+        assert!(!listed(json!({ "data": [recogniser, vad] })).unwrap().1);
+    }
+
+    #[test]
+    fn a_list_that_is_not_one_is_refused_with_its_code() {
+        let row = |id: Value, languages: Value, options: Value| json!({ "id": id, "speech": { "task": "recognition", "languages": languages, "options": options } });
+        let bad = [
+            json!({ "models": [] }),
+            json!({ "data": [{ "id": "asr" }] }),
+            json!({ "data": [row(json!(""), json!([]), json!([]))] }),
+            json!({ "data": [row(json!("a\u{1}"), json!([]), json!([]))] }),
+            json!({ "data": [row(json!("x".repeat(201)), json!([]), json!([]))] }),
+            json!({ "data": [row(json!("asr"), json!([]), json!([])), row(json!("asr"), json!([]), json!([]))] }),
+            json!({ "data": [row(json!("asr"), json!(["ja", 1]), json!([]))] }),
+            json!({ "data": [row(json!("asr"), json!(["ja"]), json!(["language"]))] }),
+            json!({ "data": [row(json!(3), json!(["ja"]), json!([]))] }),
+        ];
+        for body in bad {
+            assert_eq!(listed(body.clone()).unwrap_err(), "invalid_models", "{body}");
+        }
+        let base = "http://127.0.0.1:8080";
+        let second = Duration::from_secs(1);
+        assert_eq!(survey(&answering(503, "application/json", json!({})), base, second, None).unwrap_err(), "http_503");
+        // Only a JSON answer is read (`expected_json` in Python).
+        assert_eq!(survey(&answering(200, "text/html", json!({ "data": [] })), base, second, None).unwrap_err(), "expected_json");
+        assert_eq!(survey(&answering(200, "", json!({ "data": [] })), base, second, None).unwrap_err(), "expected_json");
+        let large = json!({ "data": [], "padding": "x".repeat(1024 * 1024) });
+        assert_eq!(survey(&answering(200, "application/json", large), base, second, None).unwrap_err(), "response_too_large");
+        let broken: Transport = std::sync::Arc::new(|_, _| {
+            Ok(vrct_translation::http::Response { status: 200, headers: vec![("content-type".into(), "application/json".into())], body: b"{".to_vec() })
+        });
+        assert_eq!(survey(&broken, base, second, None).unwrap_err(), "invalid_json");
+        let unreachable: Transport = std::sync::Arc::new(|_, _| Err(vrct_translation::http::HttpError::Unreachable));
+        assert_eq!(survey(&unreachable, base, second, None).unwrap_err(), "transport_error");
+        assert_eq!(listed(json!({ "data": [] })).unwrap(), (Vec::new(), false));
+    }
+
+    #[test]
+    fn a_cancel_ends_a_list_request_the_server_never_answers() {
+        // Decision 81: a server that takes the connection and says nothing (one going away)
+        // held the request for 5 s for each read; Python's `CancelToken` ended it at once.
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let base = format!("http://127.0.0.1:{}", listener.local_addr().unwrap().port());
+        std::thread::spawn(move || {
+            let mut held = Vec::new();
+            for stream in listener.incoming().flatten() {
+                held.push(stream);
+            }
+        });
+        let cancel = Cancel::new();
+        let cancelling = cancel.clone();
+        let timer = std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(100));
+            let at = std::time::Instant::now();
+            cancelling.cancel();
+            at
+        });
+        let listed = survey(&vrct_translation::http::direct(), &base, Duration::from_secs(5), Some(&cancel));
+        let ended = std::time::Instant::now();
+        assert_eq!(listed.unwrap_err(), "cancelled");
+        let late = ended.saturating_duration_since(timer.join().unwrap());
+        assert!(late < Duration::from_millis(100), "ended {late:?} after the cancel");
     }
 
     #[test]

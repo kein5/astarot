@@ -227,7 +227,18 @@ fn the_official_apis_translate_a_message_with_the_users_keys() {
     assert_eq!(result["translations"], json!([{ "message": "papago:en:こんにちは", "transliteration": [] }]));
     assert_eq!(run.chatbox_text(Duration::from_secs(5)).as_deref(), Some("こんにちは\ngoogle-cloud:en:こんにちは"));
 
+    // Decision 58: Papago does not translate Japanese to German directly and there is no local
+    // model. The original goes out, and the log says so once with the engine's name.
+    let mut targets = run.ui.ok("/get/data/selected_target_languages", None);
+    targets["1"]["1"]["language"] = json!("German");
+    targets["1"]["1"]["country"] = json!("Germany");
+    assert_eq!(run.ui.ok("/set/data/selected_target_languages", Some(targets))["1"]["1"]["language"], "German");
+    let result = run.chat("m-3", "こんにちは");
+    assert_eq!(result["translations"][0]["message"], "こんにちは");
     let log = run.process_log();
+    let lines: Vec<&str> = log.lines().filter(|l| l.contains("the engine lacks the language pair and the local model failed")).collect();
+    assert_eq!(lines.len(), 1, "{lines:?}");
+    assert!(lines[0].contains("\"provider\":\"Papago_API\""), "{}", lines[0]);
     assert!(!log.contains(&google) && !log.contains("secret-1") && !log.contains("こんにちは"), "the log has a key or text");
     run.ui.stop();
 }
@@ -247,6 +258,13 @@ fn a_failing_provider_falls_back_reports_and_sends_the_original() {
     assert_eq!((error["status"].as_u64(), error_code(&error)), (Some(400), "TRANSLATION_ENGINE_LIMIT"));
     // One retry, then the local model, which is not there.
     assert_eq!(run.fake.seen_under("/deepl-free/v2/translate").len() - before, 2);
+    // Decision 58: the failure (its retry included) is logged once with the provider's name,
+    // and never the text.
+    let log = run.process_log();
+    let failures: Vec<&str> = log.lines().filter(|l| l.contains("Translation: the provider failed")).collect();
+    assert_eq!(failures.len(), 1, "{failures:?}");
+    assert!(failures.iter().all(|l| l.contains("\"provider\":\"DeepL_API\"")), "{failures:?}");
+    assert!(!log.contains("こんにちは"), "the text reached the log");
     run.ui.stop();
 }
 
@@ -349,6 +367,64 @@ fn recognised_speech_is_filtered_deduplicated_and_pushed() {
     let stopped: Arc<dyn Fn() -> bool + Send + Sync> = Arc::new(|| false);
     assert!(!core.deliver_transcription(Source::Speaker, heard("べつの"), Some(stopped)));
     assert!(run.ui.on(mark, "/run/transcription_receive_speaker_message").is_empty());
+    run.ui.stop();
+}
+
+/// #446: the realtime settings' vocabulary, applied outside realtime recognition too.
+fn with_terms() -> Run {
+    let vocabulary = json!({ "builtin": false, "terms": ["猫丸=ねこまる", "Midnight Rooftop"] });
+    start(json!({ "REALTIME_ASR_SETTINGS": { "vocabulary": vocabulary } }), None)
+}
+
+#[test]
+fn recognised_speech_gets_the_written_forms_of_the_term_dictionary() {
+    let run = with_terms();
+    let core = run.ui.backend.core().clone();
+    let heard =
+        |text: &str| Recognized { text: text.into(), language: Some("Japanese".into()), ..Recognized::default() };
+
+    // A cloud engine's text gets the written forms and the registered letter case.
+    core.config().set("ENABLE_TRANSCRIPTION_SEND", json!(true)).unwrap();
+    let mark = run.ui.lines().len();
+    core.deliver_transcription(Source::Mic, heard("ねこまるとmidnight rooftopへ"), None);
+    let pushed = run.ui.wait_endpoint(mark, "/run/transcription_send_mic_message");
+    assert_eq!(pushed["result"]["original"]["message"], "猫丸とMidnight Rooftopへ");
+    assert_eq!(run.chatbox_text(Duration::from_secs(5)).as_deref(), Some("猫丸とMidnight Rooftopへ"));
+    // OCR reads what others typed, as they typed it.
+    core.config().set("ENABLE_OCR_CAPTURE", json!(true)).unwrap();
+    let mark = run.ui.lines().len();
+    core.deliver_transcription(Source::Ocr, Recognized { text: "ねこまる".into(), ..Recognized::default() }, None);
+    let read = run.ui.wait_endpoint(mark, "/run/transcription_ocr_message");
+    assert_eq!(read["result"]["original"]["message"], "ねこまる");
+
+    // The terms stay out of process.log, in the settings sent and answered.
+    let settings = run.ui.ok("/get/data/realtime_asr_settings", None);
+    run.ui.ok("/set/data/realtime_asr_settings", Some(settings));
+    let log = run.process_log();
+    assert!(log.contains("/set/data/realtime_asr_settings"));
+    assert!(!log.contains("猫丸") && !log.contains("Midnight"), "a term reached process.log");
+    run.ui.stop();
+}
+
+#[test]
+fn an_ai_translator_is_told_the_users_terms_that_the_text_holds() {
+    let run = with_terms();
+    let key = format!("gsk{}", "q".repeat(40));
+    run.fake.key("/groq/v1", &key).models("/groq/v1", &["llama"]);
+    assert_eq!(run.ui.ok("/set/data/groq_auth_key", Some(json!(key))), json!(key));
+    let mut engines = run.ui.ok("/get/data/selected_translation_engines", None);
+    engines["1"] = json!("Groq_API");
+    run.ui.ok("/set/data/selected_translation_engines", Some(engines));
+    assert_eq!(run.ui.ok("/set/enable/translation", None), true);
+    let system = |text: &str| {
+        run.chat("m", text);
+        let sent = run.fake.seen_under("/groq/v1/chat").pop().unwrap();
+        sent.body["messages"][0]["content"].as_str().unwrap().to_string()
+    };
+    let with_term = system("猫丸と行く");
+    assert!(with_term.contains("Treat each as a proper noun") && with_term.contains("\n- 猫丸\n"), "{with_term}");
+    assert!(!with_term.contains("Midnight Rooftop"), "a term not in the text was sent");
+    assert!(!system("こんにちは").contains("Treat each as a proper noun"));
     run.ui.stop();
 }
 

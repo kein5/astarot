@@ -5,6 +5,7 @@ from pathlib import Path
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -30,6 +31,39 @@ class RuntimeLibrariesTests(unittest.TestCase):
         for key in ("openvr-windows", "openvr-linux"):
             archive = runtime_libraries.ARCHIVES[key]
             self.assertIn(f'{archive["url"]}", hash = "sha256:{archive["sha256"]}", size = {archive["size"]}', lock, key)
+
+    def test_onnx_runtime_comes_from_its_nuget_package(self):
+        for platform, rid, names in (
+                ("windows", "win-x64", ("onnxruntime.dll", "onnxruntime_providers_shared.dll")),
+                ("linux", "linux-x64", ("libonnxruntime.so", "libonnxruntime_providers_shared.so"))):
+            archive = runtime_libraries.ARCHIVES[f"onnxruntime-{platform}"]
+            self.assertEqual(archive["url"], "https://api.nuget.org/v3-flatcontainer/microsoft.ml.onnxruntime/1.31.0/"
+                                             "microsoft.ml.onnxruntime.1.31.0.nupkg")
+            self.assertEqual(archive["files"], {
+                **{f"runtimes/{rid}/native/{name}": f"onnxruntime/{name}" for name in names},
+                "LICENSE": "licenses/onnxruntime/LICENSE",
+                "ThirdPartyNotices.txt": "licenses/onnxruntime/ThirdPartyNotices.txt"})
+
+    def test_a_nuget_package_stages_only_its_listed_files(self):
+        listed = runtime_libraries.ARCHIVES["onnxruntime-windows"]["files"]
+        data = io.BytesIO()
+        with zipfile.ZipFile(data, "w") as package:
+            for name in [*listed, "runtimes/linux-x64/native/libonnxruntime.so", "Microsoft.ML.OnnxRuntime.nuspec"]:
+                package.writestr(name, name.encode())
+        data = data.getvalue()
+        pinned = dict(runtime_libraries.ARCHIVES["onnxruntime-windows"], size=len(data),
+                      sha256=hashlib.sha256(data).hexdigest())
+        (self.base / "cache").mkdir()
+        (self.base / "cache" / pinned["name"]).write_bytes(data)
+        build = self.base / "build"
+        with patch.dict(runtime_libraries.ARCHIVES, {"onnxruntime-windows": pinned}), \
+                patch.dict(runtime_libraries.PLATFORMS, {"windows": ("onnxruntime-windows",)}):
+            written = runtime_libraries.stage("windows", build, self.base / "cache")
+        self.assertEqual(written, list(listed.values()))
+        self.assertEqual(sorted(path.relative_to(build).as_posix() for path in build.rglob("*") if path.is_file()),
+                         sorted(written))
+        for member, target in listed.items():
+            self.assertEqual((build / target).read_bytes(), member.encode())
 
     def test_each_platform_ships_its_own_libraries_and_their_licenses(self):
         self.assertEqual(runtime_libraries.shipped("windows"), [

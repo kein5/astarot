@@ -31,7 +31,7 @@ pub const ENDPOINT_LOCKED_MAX_RETRIES: u32 = 300;
 pub const WATCHDOG_FEED_ENDPOINT: &str = "/run/feed_watchdog";
 
 /// Answered as they arrive: they only signal workers, and must not wait behind a busy one.
-pub const IMMEDIATE_ENDPOINTS: [&str; 7] = [
+pub const IMMEDIATE_ENDPOINTS: [&str; 8] = [
     "/run/stop_voice",
     "/run/disable_tts",
     "/run/mute_voice",
@@ -39,6 +39,7 @@ pub const IMMEDIATE_ENDPOINTS: [&str; 7] = [
     "/run/stop_direct_voice",
     "/run/stop_realtime_asr",
     "/run/stop_speech_server",
+    "/run/stop_voice_audition",
 ];
 
 pub type Handler = Arc<dyn Fn(&Value) -> Reply + Send + Sync>;

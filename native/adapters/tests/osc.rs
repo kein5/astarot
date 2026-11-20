@@ -646,6 +646,54 @@ fn a_local_vrchat_found_over_mdns_gives_mute_and_presence() {
 }
 
 #[test]
+fn oscquery_turned_off_receives_and_announces_nothing_while_sending_goes_on() {
+    // #559: the user can turn OSCQuery off; messages still go to VRChat.
+    if !mdns_available() {
+        return;
+    }
+    let observer = Mdns::start().unwrap();
+    observer.browse(OSCJSON_TYPE);
+    let ours = || observer.discovered(OSCJSON_TYPE).iter().any(|s| s.name.starts_with("VRCT:"));
+    let (socket, port) = udp_listener();
+    let handler = OscHandler::new("127.0.0.1", port).unwrap();
+    handler.set_osc_query_allowed(false).unwrap();
+    assert!(!handler.is_osc_query_allowed());
+    handler.receive_osc_parameters().unwrap();
+    assert!(!handler.is_osc_query_enabled());
+    assert_eq!((handler.osc_server_port(), handler.http_port()), (None, None));
+    assert_eq!(handler.local_vrchat_presence(), None, "VRChat cannot be checked");
+    assert_eq!(handler.get_osc_parameter_mute_self(), None);
+    assert!(handler.send_message("hello", false, None).unwrap());
+    assert_eq!(receive(&socket)[0].address, "/chatbox/input");
+    // Setting the destination again (which restarts receiving) does not start it either.
+    handler.set_osc_ip_address("127.0.0.1").unwrap();
+    assert!(!handler.is_osc_query_enabled());
+    thread::sleep(Duration::from_millis(500));
+    assert!(!ours(), "announced while off");
+
+    // On: receiving, the HTTP server and the advertisement start for the destination.
+    handler.set_osc_query_allowed(true).unwrap();
+    assert!(handler.is_osc_query_enabled());
+    let http = handler.http_port().unwrap();
+    assert!(get_json(Ipv4Addr::LOCALHOST.into(), http, "/HOST_INFO").unwrap().is_some());
+    assert!(wait_until(ours, Duration::from_secs(5)), "not announced once on");
+    handler.set_osc_query_allowed(true).unwrap();
+    assert_eq!(handler.http_port(), Some(http), "on twice changes nothing");
+
+    // Off again: everything closes and the advertisement is withdrawn; sending goes on.
+    handler.set_osc_query_allowed(false).unwrap();
+    assert!(!handler.is_osc_query_enabled());
+    assert!(get_json(Ipv4Addr::LOCALHOST.into(), http, "/HOST_INFO").is_err());
+    assert!(wait_until(|| !ours(), Duration::from_secs(5)), "still announced once off");
+    handler.send_typing(true).unwrap();
+    assert_eq!(receive(&socket)[0].address, "/chatbox/typing");
+
+    handler.osc_server_stop().unwrap();
+    assert_eq!(handler.set_osc_query_allowed(true), Err(OscError::ShutDown));
+    observer.close();
+}
+
+#[test]
 fn a_service_withdrawn_right_after_registering_is_not_announced_again() {
     if !mdns_available() {
         return;

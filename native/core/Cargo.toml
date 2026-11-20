@@ -19,6 +19,8 @@ pipewire = ["vrct-audio-routing/pipewire", "vrct-transcription/pipewire"]
 onnx-translation = ["dep:vrct-translate-onnx"]
 
 [dependencies]
+# The names the app goes by outside its code (ADR-014): the saved keys, the package folder.
+app-identity = { path = "../app-identity" }
 base64 = "=0.22.1"
 chrono = { version = "=0.4.45", default-features = false, features = ["clock", "std"] }
 getrandom = "=0.3.4"
@@ -29,6 +31,9 @@ serde_json = { version = "=1.0.154", features = ["preserve_order"] }
 # Chat reading. ONNX Runtime is loaded when chat reading starts, not linked: see
 # docs/voice-stack/core-integration.md, item 2 of "判断が要ること".
 ocr-runtime = { path = "../ocr-runtime", default-features = false, features = ["load-dynamic"] }
+# The one ONNX Runtime library and environment of the process, which chat reading and the local
+# translation share (shipped_libraries.rs points it at the library the packages ship).
+vrct-onnx-runtime = { path = "../onnx-runtime", default-features = false, features = ["load-dynamic"] }
 vrct-adapters = { path = "../adapters" }
 # The audio devices. Without the `pipewire` feature below, Linux lists no devices: the tests
 # build that way and need no PipeWire; the application turns it on.
@@ -66,6 +71,15 @@ windows-sys = { version = "=0.61.2", features = [
     "Win32_System_IO",
     "Win32_UI_Shell",
 ] }
+# The GPU memory of the flow panel (src/gpu_memory/windows.rs): DXGI's adapters, the performance
+# counters and the process list. The same version the VR overlay already builds.
+windows = { version = "=0.62.2", features = [
+    "Win32_Foundation",
+    "Win32_Graphics_Dxgi",
+    "Win32_Graphics_Dxgi_Common",
+    "Win32_System_Diagnostics_ToolHelp",
+    "Win32_System_Performance",
+] }
 
 [dev-dependencies]
 # Certificates for the WebSocket TLS settings are made at test time; no key is committed.
@@ -89,6 +103,14 @@ doc = false
 [[bin]]
 name = "fake-rvc-worker"
 path = "tests/fixture/fake_rvc_worker.rs"
+test = false
+doc = false
+
+# A stand-in for llama.cpp's llama-server that tests/translation_llama.rs starts: the same file
+# as vrct-speech-server's. Never part of an application build.
+[[bin]]
+name = "fake-llama-core"
+path = "../speech-server/tests/fixture/fake_llama.rs"
 test = false
 doc = false
 

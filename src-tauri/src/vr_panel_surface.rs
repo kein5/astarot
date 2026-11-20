@@ -23,8 +23,8 @@ use gtk::prelude::*;
 use gtk::{cairo, gdk, glib};
 use webkit2gtk::{HardwareAccelerationPolicy, SettingsExt, WebViewExt};
 
-pub const DIRECTORY_ENV: &str = "VRCT_VR_PANEL_DIR";
-const MAGIC: &[u8; 8] = b"VRCTVRP1";
+pub const DIRECTORY_ENV: &str = app_identity::env::VR_PANEL_DIR;
+const MAGIC: &[u8; 8] = app_identity::handoff::VR_PANEL_FRAME;
 pub const HEADER_SIZE: usize = 64;
 /// The atlas the page draws before the backend asks for another size.
 const DEFAULT_SIZE: (i32, i32) =

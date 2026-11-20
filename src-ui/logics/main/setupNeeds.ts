@@ -70,16 +70,31 @@ export const setupNeeds = ({ translationEngine, translationWeights, translationW
 // The download catalog, as far as it is read here.
 export interface TranslationCatalog {
     legacy_models?: readonly { kind?: unknown; weight_type?: unknown }[] | null;
-    models?: readonly { target?: unknown }[] | null;
+    models?: readonly { id?: unknown; target?: unknown }[] | null;
 }
 
+// The quantization variants a built-in model may be published in (Variant::ALL in
+// native/translate-onnx).
+const VARIANTS = ["float32", "float16", "int8", "int4"];
+const BUILTIN_SUFFIX = "-ct2-int8";
+
+// The download catalog's ids of a built-in weight, one per variant: `m2m100_418M-ct2-int8` →
+// `m2m100-418m-onnx-int8`… (translation_onnx::catalog_id in the core). The settings keep the
+// CTranslate2 names; a user's model (`user:`, and `custom:` of earlier versions) has none.
+export const translationCatalogIds = (weightType: unknown): string[] => {
+    if (typeof weightType !== "string" || weightType.includes(":") || !weightType.endsWith(BUILTIN_SUFFIX)) return [];
+    const model = weightType.slice(0, -BUILTIN_SUFFIX.length).toLowerCase().replace(/[_.]/g, "-");
+    return VARIANTS.map(variant => `${model}-onnx-${variant}`);
+};
+
 // Whether a translation model can be downloaded: the catalog reviews this CTranslate2
-// weight, or lists a model for the translation engine (the review then offers those).
+// weight, or lists a translation model made from it (a variant of the same model).
 // null while the catalog is unknown, so nothing is hidden before it arrives.
 export const translationDownloadable = (catalog: TranslationCatalog | null | undefined, weightType: unknown): boolean | null => {
     if (!catalog) return null;
     if ((catalog.legacy_models ?? []).some(item => item.kind === "ctranslate2" && item.weight_type === weightType)) return true;
-    return (catalog.models ?? []).some(model => model.target === "translation");
+    const ids = translationCatalogIds(weightType);
+    return (catalog.models ?? []).some(model => model.target === "translation" && typeof model.id === "string" && ids.includes(model.id));
 };
 
 // "pending" until the first byte, then a whole percentage; null when nothing is being fetched.

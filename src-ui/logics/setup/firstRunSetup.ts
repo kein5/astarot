@@ -1,0 +1,160 @@
+// The first-run setup (#557): what the basic features still lack, and the one sequence that
+// prepares local speech recognition after a single consent.
+//
+// The sequence is derived again from the saved settings and the download state every time
+// something changes, so it can stop anywhere and start again where it stopped. Each model is
+// downloaded into the backend's staging folder, checked against its pinned size and SHA-256, and
+// only then written into the settings ("apply"), which keeps the previous working settings when
+// a step fails (#517). Nothing here downloads without the consent given in the dialog.
+
+import type { CatalogEntry } from "../voice/modelCatalog";
+
+export type SetupEntry = CatalogEntry & {
+    provider?: string;
+    license?: string;
+    licenses?: readonly string[];
+};
+
+export type SetupCatalog = { catalog_version?: string; models?: readonly SetupEntry[] } | null | undefined;
+
+export type AsrPaths = { model?: unknown; vad_model?: unknown } | null | undefined;
+
+// What the recognition needs, as the setup sees it.
+// "cloud": another engine was chosen; it needs a key, not a download, and is left alone.
+// "own_server": speech.cpp on a server of the user's own; its models are the server's.
+// "ready": speech.cpp on the bundled server with both model paths set.
+// "needs_setup": nothing chosen yet, or the bundled server without its models.
+export type RecognitionState = "cloud" | "own_server" | "ready" | "needs_setup" | "unknown";
+
+const LOCAL_ENGINE = "SpeechCpp";
+const ACTIVE = ["queued", "downloading", "verifying", "cancelling"];
+
+const set = (value: unknown): boolean => typeof value === "string" && value.trim() !== "";
+
+export const recognitionState = ({ engine, server, paths }: { engine: unknown; server: unknown; paths: AsrPaths }): RecognitionState => {
+    if (engine === undefined || (engine === LOCAL_ENGINE && (server === undefined || !paths))) return "unknown";
+    if (engine !== null && engine !== LOCAL_ENGINE) return "cloud";
+    if (engine === LOCAL_ENGINE && server === "external") return "own_server";
+    if (engine === LOCAL_ENGINE && server === "bundled" && set(paths?.model) && set(paths?.vad_model)) return "ready";
+    return "needs_setup";
+};
+
+// The UI language's primary subtag ("ja-JP" → "ja").
+const primary = (language: unknown): string => typeof language === "string" ? language.split(/[-_]/)[0].toLowerCase() : "";
+
+// The recognition model speech.cpp recommends first for this language: the file it fetches for
+// the model's name. Languages without a recommendation get the one for English.
+export const recommendedAsr = (catalog: SetupCatalog, language: unknown): SetupEntry | null => {
+    const rows = (catalog?.models ?? []).filter(entry => entry.target === "asr" && (entry.profile?.recommended_for?.length ?? 0) > 0);
+    const pick = (code: string) => rows.find(entry => entry.profile?.recommended_for?.includes(code) && entry.speech?.default !== false)
+        ?? rows.find(entry => entry.profile?.recommended_for?.includes(code));
+    return pick(primary(language)) ?? pick("en") ?? null;
+};
+
+export const vadEntry = (catalog: SetupCatalog): SetupEntry | null => (catalog?.models ?? []).find(entry => entry.target === "vad") ?? null;
+
+// One step of the recognition setup.
+export type SetupStep =
+    | { kind: "model"; target: "asr" | "vad"; entry: SetupEntry }
+    | { kind: "server" }
+    | { kind: "engine" };
+
+// The steps the setup will take, decided when the dialog shows its consent: models whose path
+// is still empty, then the bundled server, then the engine. A path the user already set is kept.
+export const setupPlan = ({ catalog, language, engine, server, paths }:
+    { catalog: SetupCatalog; language: unknown; engine: unknown; server: unknown; paths: AsrPaths }): SetupStep[] | null => {
+    const asr = recommendedAsr(catalog, language), vad = vadEntry(catalog);
+    if (!asr || !vad || !paths) return null;
+    const steps: SetupStep[] = [];
+    if (!set(paths.model)) steps.push({ kind: "model", target: "asr", entry: asr });
+    if (!set(paths.vad_model)) steps.push({ kind: "model", target: "vad", entry: vad });
+    if (server !== "bundled") steps.push({ kind: "server" });
+    if (engine !== LOCAL_ENGINE) steps.push({ kind: "engine" });
+    return steps;
+};
+
+// The models of a plan, for the consent: what will be downloaded and how large it is.
+export const planModels = (plan: SetupStep[] | null | undefined): SetupEntry[] =>
+    (plan ?? []).flatMap(step => step.kind === "model" ? [step.entry] : []);
+export const planBytes = (plan: SetupStep[] | null | undefined): number =>
+    planModels(plan).reduce((total, entry) => total + (Number.isFinite(entry.total_bytes) ? entry.total_bytes : 0), 0);
+
+export type DownloadJob = { job_id?: string; phase?: string; error_code?: string | null; received_bytes?: number; total_bytes?: number };
+
+export type RunView = {
+    engine: unknown;
+    server: unknown;
+    paths: AsrPaths;
+    jobs: Record<string, DownloadJob | undefined>;
+    // The model ids whose download this run has asked for, each with the job id the state showed
+    // when it asked (null for none): an older job's outcome is not this run's. And the job ids
+    // this run has asked to apply.
+    started: Readonly<Record<string, string | null>>;
+    applied: readonly string[];
+};
+
+export type NextAction =
+    | { kind: "start"; entry: SetupEntry }
+    | { kind: "apply"; entry: SetupEntry; jobId: string; expected: { model: string } }
+    | { kind: "server" }
+    | { kind: "engine" }
+    | { kind: "wait" }
+    | { kind: "failed"; step: number; code: string }
+    | { kind: "done" };
+
+export const stepDone = (step: SetupStep, view: Pick<RunView, "engine" | "server" | "paths">): boolean => {
+    if (step.kind === "server") return view.server === "bundled";
+    if (step.kind === "engine") return view.engine === LOCAL_ENGINE;
+    return set(step.target === "asr" ? view.paths?.model : view.paths?.vad_model);
+};
+
+const savedPath = (target: "asr" | "vad", paths: AsrPaths): string => {
+    const value = target === "asr" ? paths?.model : paths?.vad_model;
+    return typeof value === "string" ? value : "";
+};
+
+// What to do next: the first step not yet done decides. A download this run started that
+// ended in failure or was cancelled stops the run there; "やり直す" starts a new run, which
+// asks for it again. A finished download is applied once; its saved path then ends the step.
+export const nextAction = (plan: SetupStep[], view: RunView): NextAction => {
+    const index = plan.findIndex(step => !stepDone(step, view));
+    if (index < 0) return { kind: "done" };
+    const step = plan[index];
+    if (step.kind !== "model") return { kind: step.kind };
+    const { entry } = step;
+    const job = view.jobs[entry.id];
+    const asked = Object.hasOwn(view.started, entry.id);
+    // The job this run started: a new job id since the start was asked for.
+    const ours = asked && !!job?.job_id && job.job_id !== view.started[entry.id];
+    if (job && ACTIVE.includes(job.phase ?? "")) return { kind: "wait" };
+    if (job?.phase === "ready" && job.job_id) {
+        return view.applied.includes(job.job_id) ? { kind: "wait" }
+            : { kind: "apply", entry, jobId: job.job_id, expected: { model: savedPath(step.target, view.paths) } };
+    }
+    if (ours && ["failed", "cancelled"].includes(job?.phase ?? "")) {
+        return { kind: "failed", step: index, code: job?.error_code || (job?.phase === "cancelled" ? "cancelled" : "download_failed") };
+    }
+    // Asked and not answered yet, or applied and waiting for the saved path to come back.
+    if (asked) return { kind: "wait" };
+    return { kind: "start", entry };
+};
+
+// The state one step shows in the dialog.
+export type StepState = "done" | "working" | "waiting" | "failed";
+export const stepState = (plan: SetupStep[], index: number, view: RunView, failedAt: number | null): StepState => {
+    const step = plan[index];
+    if (stepDone(step, view)) return "done";
+    if (failedAt === index) return "failed";
+    const first = plan.findIndex(item => !stepDone(item, view));
+    return first === index && failedAt === null && (Object.keys(view.started).length + view.applied.length > 0) ? "working" : "waiting";
+};
+
+// Whether the setup may open by itself: still pending, the settings known, and the basic
+// features lacking something it prepares (the local recognition).
+export const setupOpensByItself = (pending: unknown, recognition: RecognitionState): boolean =>
+    pending === true && recognition === "needs_setup";
+
+// Whether another start-up dialog (the virtual microphone guide) should still wait: the setup is
+// pending and has neither been put away nor found not needed for this run.
+export const setupComesFirst = ({ notice, settled }: { notice: unknown; settled: unknown }): boolean =>
+    notice === true && settled !== true;

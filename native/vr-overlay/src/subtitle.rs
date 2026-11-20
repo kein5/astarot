@@ -509,8 +509,9 @@ impl Renderer {
         self.render_rows(rows, LARGE_WIDTH, clipped)
     }
 
-    /// The line above a message: the time and "Send" or "Receive" (`createTextImageMessageType`).
-    fn message_type(&self, direction: Direction, time: &str) -> Result<Block, TooLarge> {
+    /// The line above a message: the time and "Send" or "Receive" (`createTextImageMessageType`),
+    /// then who spoke a received message when the voices were told apart (#447).
+    fn message_type(&self, direction: Direction, time: &str, who: Option<&str>) -> Result<Block, TooLarge> {
         let fonts = self.fonts("Default", LARGE_FONT_SMALL);
         let height = i64::from(LARGE_FONT_SMALL) + LARGE_PADDING;
         let mut canvas = new_image(LARGE_WIDTH, height, [0, 0, 0, 0])?;
@@ -522,7 +523,12 @@ impl Renderer {
         match direction {
             Direction::Receive => {
                 time_line.draw(&mut canvas, 0.0, middle(&time_line), TEXT_TIME);
-                label.draw(&mut canvas, (text_width + character) as f64, middle(&label), direction.color());
+                let label_left = text_width + character;
+                label.draw(&mut canvas, label_left as f64, middle(&label), direction.color());
+                if let Some(who) = who.filter(|w| !w.is_empty()) {
+                    let speaker = fonts.layout(who);
+                    speaker.draw(&mut canvas, (label_left + label.width + character) as f64, middle(&speaker), TEXT);
+                }
             }
             Direction::Send => {
                 let time_right = LARGE_WIDTH - (text_width + character);
@@ -536,7 +542,7 @@ impl Renderer {
     fn large_entry(&self, entry: &Entry) -> Result<Block, TooLarge> {
         let message = &entry.subtitle;
         let language = message.language.as_deref().unwrap_or("Default");
-        let mut blocks = vec![self.message_type(entry.direction, &entry.time)];
+        let mut blocks = vec![self.message_type(entry.direction, &entry.time, entry.who.as_deref())];
         if !message.translations.is_empty() {
             if let Some(original) = &message.original {
                 blocks.push(self.large_text(entry.direction, false, original, language));
@@ -563,7 +569,7 @@ impl Renderer {
     /// text as five messages, alternating sides.
     pub fn large_sample(&self, text: &str, time: &str) -> Result<Canvas, TooLarge> {
         let subtitle = Subtitle { original: Some(text.to_string()), language: Some("Default".into()), ..Subtitle::default() };
-        let entry = |direction| Entry { direction, subtitle: subtitle.clone(), time: time.to_string(), caption: None };
+        let entry = |direction| Entry { direction, subtitle: subtitle.clone(), time: time.to_string(), caption: None, who: None };
         let entries = [entry(Direction::Send), entry(Direction::Receive), entry(Direction::Send), entry(Direction::Receive), entry(Direction::Send)];
         self.large_log(&entries.iter().collect::<Vec<_>>())
     }
@@ -616,6 +622,28 @@ pub struct Subtitle {
     /// The original's readings.
     pub readings: Vec<Reading>,
     pub translations: Vec<Translation>,
+    /// Who spoke a realtime caption, by the speech server's labels ("A", "B", ...), in the
+    /// order they spoke (#447). Empty when the voices were not told apart.
+    pub speakers: Vec<String>,
+}
+
+/// The most voices a session's names are kept for, and the sessions kept.
+const MAX_NAMED_SESSIONS: usize = 4;
+/// The longest line of speakers the large log draws, in characters.
+const MAX_WHO: usize = 48;
+
+/// Who spoke, as the large log writes it: each label's name if the user gave one, else the
+/// label, joined by "·" ("Mika·B").
+fn who(speakers: &[String], names: &[(String, String)]) -> Option<String> {
+    if speakers.is_empty() {
+        return None;
+    }
+    let parts: Vec<&str> = speakers
+        .iter()
+        .map(|label| names.iter().find(|(named, _)| named == label).map_or(label.as_str(), |(_, name)| name.as_str()))
+        .collect();
+    let joined = parts.join("·");
+    Some(if joined.chars().count() > MAX_WHO { format!("{}…", joined.chars().take(MAX_WHO - 1).collect::<String>()) } else { joined })
 }
 
 /// A realtime caption: its source ("mic" or "speaker"), namespace and item.
@@ -647,14 +675,18 @@ struct Entry {
     subtitle: Subtitle,
     time: String,
     caption: Option<CaptionId>,
+    /// Who spoke, as drawn; set when the log is drawn, from the speakers and their names.
+    who: Option<String>,
 }
 
-/// The large log's history (`message_log`, `caption_pending`, `_caption_latest`).
+/// The large log's history (`message_log`, `caption_pending`, `_caption_latest`) and the names
+/// the user gave the voices of the latest sessions (#447).
 #[derive(Clone, Debug, Default)]
 pub struct LargeLog {
     entries: Vec<Entry>,
     pending: Vec<(CaptionId, Entry)>,
     latest: Vec<(CaptionId, (u64, CaptionState))>,
+    names: Vec<(String, Vec<(String, String)>)>,
 }
 
 /// A rendered large log and the version it shows.
@@ -674,6 +706,24 @@ impl LargeLog {
 
     fn latest(&self, id: &CaptionId) -> Option<(u64, CaptionState)> {
         self.latest.iter().find(|(k, _)| k == id).map(|(_, v)| *v)
+    }
+
+    /// An entry with who spoke it written out, by the names of its caption's session.
+    fn named(&self, entry: &Entry) -> Entry {
+        let names = entry
+            .caption
+            .as_ref()
+            .and_then(|(_, namespace, _)| self.names.iter().find(|(named, _)| named == namespace))
+            .map_or(&[][..], |(_, names)| names.as_slice());
+        Entry { who: who(&entry.subtitle.speakers, names), ..entry.clone() }
+    }
+
+    /// Whether the log shows a caption of this session that names its speakers.
+    fn shows_speakers_of(&self, namespace: &str) -> bool {
+        self.entries
+            .iter()
+            .chain(self.pending.iter().map(|(_, e)| e))
+            .any(|e| !e.subtitle.speakers.is_empty() && e.caption.as_ref().is_some_and(|(_, n, _)| n == namespace))
     }
 }
 
@@ -700,8 +750,8 @@ impl Subtitles {
     }
 
     fn render(&self, log: &LargeLog, revision: &mut u64) -> Result<LargePicture, TooLarge> {
-        let mut all: Vec<&Entry> = log.entries.iter().collect();
-        all.extend(log.pending.iter().map(|(_, e)| e));
+        let named: Vec<Entry> = log.entries.iter().chain(log.pending.iter().map(|(_, e)| e)).map(|e| log.named(e)).collect();
+        let all: Vec<&Entry> = named.iter().collect();
         let canvas = self.renderer.large_log(&all)?;
         *revision += 1;
         Ok(LargePicture { canvas, revision: *revision })
@@ -718,7 +768,7 @@ impl Subtitles {
         let mut guard = self.state.lock().unwrap();
         let checkpoint = guard.0.clone();
         let (log, revision) = &mut *guard;
-        log.entries.push(Entry { direction, subtitle, time: (self.clock)(), caption: None });
+        log.entries.push(Entry { direction, subtitle, time: (self.clock)(), caption: None, who: None });
         trim(&mut log.entries);
         let picture = match self.render(log, revision) {
             Ok(picture) => picture,
@@ -767,7 +817,7 @@ impl Subtitles {
             .map(|i| log.entries[i].time.clone())
             .or_else(|| pending.map(|i| log.pending[i].1.time.clone()))
             .unwrap_or_else(|| (self.clock)());
-        let entry = Entry { direction, subtitle, time, caption: Some(id.clone()) };
+        let entry = Entry { direction, subtitle, time, caption: Some(id.clone()), who: None };
         log.remember(id.clone(), revision, state);
         if state == CaptionState::Partial {
             if pending.is_none() && log.pending.len() >= 16 {
@@ -817,6 +867,29 @@ impl Subtitles {
         }
         if let Ok(picture) = self.render(log, counter) {
             publish(&picture);
+        }
+    }
+
+    /// The names the user gave the voices of a realtime session (#447): `names` is the whole set
+    /// for that session, label and name. The large log is drawn again and offered to `publish`
+    /// when it shows a caption of that session with speakers. Returns whether it was drawn.
+    pub fn set_speaker_names(&self, namespace: &str, names: Vec<(String, String)>, publish: Publish) -> bool {
+        let mut guard = self.state.lock().unwrap();
+        let (log, counter) = &mut *guard;
+        log.names.retain(|(named, _)| named != namespace);
+        log.names.push((namespace.to_string(), names));
+        while log.names.len() > MAX_NAMED_SESSIONS {
+            log.names.remove(0);
+        }
+        if !log.shows_speakers_of(namespace) {
+            return false;
+        }
+        match self.render(log, counter) {
+            Ok(picture) => {
+                publish(&picture);
+                true
+            }
+            Err(_) => false,
         }
     }
 
@@ -926,6 +999,174 @@ mod tests {
         assert_eq!(subtitles.publish_caption(id.clone(), CaptionState::Partial, 1, Direction::Send, text("x"), &mut show), Ok(None));
         let bad: CaptionId = ("tv".into(), "n".into(), "1".into());
         assert_eq!(subtitles.publish_caption(bad, CaptionState::Final, 1, Direction::Send, text("x"), &mut show), Err(InvalidCaption));
+    }
+
+    // The caption cases of `tests/voice/test_realtime_overlay.py` and
+    // `src-python/test/test_realtime_overlay_publication.py`.
+
+    fn caption(source: &str, namespace: &str, item: &str) -> CaptionId {
+        (source.into(), namespace.into(), item.into())
+    }
+
+    fn said(t: &str) -> Subtitle {
+        Subtitle { original: Some(t.into()), ..Subtitle::default() }
+    }
+
+    /// The originals of the log's messages and of the captions still pending, in order.
+    fn held(subtitles: &Subtitles) -> (Vec<String>, Vec<String>) {
+        let state = subtitles.state.lock().unwrap();
+        let text = |e: &Entry| e.subtitle.original.clone().unwrap_or_default();
+        (state.0.entries.iter().map(text).collect(), state.0.pending.iter().map(|(_, e)| text(e)).collect())
+    }
+
+    fn strings(items: &[&str]) -> Vec<String> {
+        items.iter().map(|s| s.to_string()).collect()
+    }
+
+    #[test]
+    fn a_translation_rewrites_its_final_and_later_updates_change_nothing() {
+        let subtitles = renderer();
+        let id = caption("mic", "n", "1");
+        let mut show = |_: &LargePicture| true;
+        subtitles.publish_caption(id.clone(), CaptionState::Partial, 1, Direction::Send, said("こん"), &mut show).unwrap();
+        assert_eq!(held(&subtitles), (strings(&[]), strings(&["こん"])), "a partial waits, out of the history");
+        subtitles.publish_caption(id.clone(), CaptionState::Partial, 2, Direction::Send, said("こんにち"), &mut show).unwrap();
+        assert_eq!(held(&subtitles), (strings(&[]), strings(&["こんにち"])), "and is replaced in place");
+        subtitles.publish_caption(id.clone(), CaptionState::Final, 3, Direction::Send, said("こんにちは"), &mut show).unwrap();
+        assert_eq!(held(&subtitles), (strings(&["こんにちは"]), strings(&[])));
+        let translated = Subtitle {
+            translations: vec![Translation { text: "Hello".into(), language: "English".into(), readings: Vec::new() }],
+            ..said("こんにちは")
+        };
+        assert_eq!(subtitles.publish_caption(id.clone(), CaptionState::Translated, 4, Direction::Send, translated, &mut show), Ok(Some(true)));
+        {
+            let state = subtitles.state.lock().unwrap();
+            assert_eq!(state.0.entries.len(), 1, "the same entry, not a second one");
+            assert_eq!(state.0.entries[0].subtitle.translations[0].text, "Hello");
+        }
+        // A late partial or final after the translation changes nothing.
+        for (state, revision) in [(CaptionState::Partial, 5), (CaptionState::Final, 6)] {
+            assert_eq!(subtitles.publish_caption(id.clone(), state, revision, Direction::Send, said("late"), &mut show), Ok(None));
+        }
+        assert_eq!(held(&subtitles), (strings(&["こんにちは"]), strings(&[])));
+    }
+
+    #[test]
+    fn discarding_a_namespace_drops_only_its_pending_captions_for_good() {
+        let subtitles = renderer();
+        let mut show = |_: &LargePicture| true;
+        for (id, text) in [(caption("mic", "n1", "a"), "a"), (caption("mic", "n2", "b"), "b"), (caption("speaker", "n1", "c"), "c")] {
+            subtitles.publish_caption(id, CaptionState::Partial, 1, Direction::Send, said(text), &mut show).unwrap();
+        }
+        let mut sizes = Vec::new();
+        subtitles.discard_captions("mic", "n1", &mut |picture| {
+            sizes.push((picture.canvas.width, picture.canvas.height));
+            true
+        });
+        assert_eq!(held(&subtitles).1, strings(&["b", "c"]), "another namespace and the other source stay");
+        // The discarded caption never comes back.
+        let again = subtitles.publish_caption(caption("mic", "n1", "a"), CaptionState::Partial, 2, Direction::Send, said("a2"), &mut show);
+        assert_eq!(again, Ok(None));
+        subtitles.discard_captions("mic", "n2", &mut |_| true);
+        subtitles.discard_captions("speaker", "n1", &mut |picture| {
+            sizes.push((picture.canvas.width, picture.canvas.height));
+            assert!(picture.canvas.pixels.as_chunks::<4>().0.iter().all(|p| p[3] == 0), "an empty log is transparent");
+            true
+        });
+        assert_eq!(sizes.last(), Some(&(1, 1)));
+        assert_eq!(held(&subtitles), (strings(&[]), strings(&[])));
+    }
+
+    #[test]
+    fn a_final_pushed_out_of_the_log_cannot_come_back_as_a_translation() {
+        let subtitles = renderer();
+        let id = caption("speaker", "n", "1");
+        let mut show = |_: &LargePicture| true;
+        subtitles.publish_caption(id.clone(), CaptionState::Final, 1, Direction::Receive, said("old"), &mut show).unwrap();
+        for i in 0..5 {
+            subtitles.publish_message(Direction::Send, said(&format!("m{i}")), &mut show).unwrap();
+        }
+        assert_eq!(held(&subtitles).0, strings(&["m0", "m1", "m2", "m3", "m4"]));
+        let translated = Subtitle {
+            translations: vec![Translation { text: "古い".into(), language: "Japanese".into(), readings: Vec::new() }],
+            ..said("old")
+        };
+        assert_eq!(subtitles.publish_caption(id, CaptionState::Translated, 2, Direction::Receive, translated, &mut show), Ok(None));
+        assert_eq!(held(&subtitles).0, strings(&["m0", "m1", "m2", "m3", "m4"]));
+    }
+
+    #[test]
+    fn a_caption_that_was_not_shown_is_taken_back_and_never_returns() {
+        let subtitles = renderer();
+        let mut show = |_: &LargePicture| true;
+        let kept = caption("mic", "n", "kept");
+        subtitles.publish_caption(kept.clone(), CaptionState::Final, 1, Direction::Send, said("kept"), &mut show).unwrap();
+        for state in [CaptionState::Partial, CaptionState::Final] {
+            let id = caption("mic", "n", if state == CaptionState::Partial { "p" } else { "f" });
+            let refused = subtitles.publish_caption(id.clone(), state, 1, Direction::Send, said("refused"), &mut |_| false);
+            assert_eq!(refused, Ok(Some(false)));
+            assert_eq!(held(&subtitles), (strings(&["kept"]), strings(&[])), "{state:?} was rolled back");
+            assert_eq!(subtitles.publish_caption(id, CaptionState::Partial, 2, Direction::Send, said("again"), &mut show), Ok(None));
+        }
+        // A translation that was not shown leaves the final as it was shown.
+        let translated = Subtitle { translations: vec![Translation { text: "x".into(), ..Translation::default() }], ..said("kept") };
+        assert_eq!(subtitles.publish_caption(kept.clone(), CaptionState::Translated, 2, Direction::Send, translated, &mut |_| false), Ok(Some(false)));
+        // A later change of another source, or a clean-up, renders without the refused texts.
+        let mut rendered = Vec::new();
+        subtitles.publish_caption(caption("speaker", "m", "1"), CaptionState::Partial, 1, Direction::Receive, said("other"), &mut |_| {
+            rendered.push(());
+            true
+        }).unwrap();
+        subtitles.discard_captions("mic", "n", &mut |_| true);
+        assert_eq!(rendered.len(), 1);
+        assert_eq!(held(&subtitles), (strings(&["kept"]), strings(&["other"])));
+        let state = subtitles.state.lock().unwrap();
+        assert!(state.0.entries[0].subtitle.translations.is_empty(), "the refused translation is not kept");
+    }
+
+    #[test]
+    fn at_most_sixteen_captions_wait_and_the_oldest_goes_for_good() {
+        let subtitles = renderer();
+        let mut show = |_: &LargePicture| true;
+        for i in 0..17 {
+            subtitles.publish_caption(caption("mic", "n", &i.to_string()), CaptionState::Partial, 1, Direction::Send, said(&i.to_string()), &mut show).unwrap();
+        }
+        let pending = held(&subtitles).1;
+        assert_eq!((pending.len(), pending[0].as_str(), pending[15].as_str()), (16, "1", "16"));
+        assert_eq!(subtitles.publish_caption(caption("mic", "n", "0"), CaptionState::Final, 2, Direction::Send, said("0"), &mut show), Ok(None));
+    }
+
+    #[test]
+    fn who_spoke_is_written_with_the_names_given_else_the_labels() {
+        let labels = |l: &[&str]| l.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+        let names = vec![("A".to_string(), "ミカ".to_string())];
+        assert_eq!(who(&labels(&["A", "B"]), &names).as_deref(), Some("ミカ·B"));
+        assert_eq!(who(&labels(&["B"]), &[]).as_deref(), Some("B"));
+        assert_eq!(who(&[], &names), None);
+        let long = vec![("A".to_string(), "x".repeat(32)), ("B".to_string(), "y".repeat(32))];
+        let written = who(&labels(&["A", "B"]), &long).unwrap();
+        assert_eq!(written.chars().count(), MAX_WHO);
+        assert!(written.ends_with('…'));
+    }
+
+    #[test]
+    fn naming_a_voice_draws_the_large_log_again_only_for_its_session() {
+        let subtitles = renderer();
+        let id: CaptionId = ("speaker".into(), "n1".into(), "1".into());
+        let spoken = Subtitle { original: Some("こんにちは".into()), speakers: vec!["A".into()], ..Subtitle::default() };
+        let mut show = |_: &LargePicture| true;
+        assert_eq!(subtitles.publish_caption(id, CaptionState::Final, 1, Direction::Receive, spoken, &mut show), Ok(Some(true)));
+        let mut drawn = 0;
+        assert!(subtitles.set_speaker_names("n1", vec![("A".into(), "ミカ".into())], &mut |_| {
+            drawn += 1;
+            true
+        }));
+        assert_eq!(drawn, 1);
+        let state = subtitles.state.lock().unwrap();
+        assert_eq!(state.0.named(&state.0.entries[0]).who.as_deref(), Some("ミカ"));
+        drop(state);
+        // Another session's names change nothing on screen.
+        assert!(!subtitles.set_speaker_names("n2", vec![("A".into(), "別の人".into())], &mut |_| panic!("not drawn")));
     }
 
     #[test]

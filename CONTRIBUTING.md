@@ -11,21 +11,40 @@ Issues and pull requests are welcome in English or Japanese. Report security vul
 
 Create a topic branch from `develop` (for example `fix/quick-chat-focus`) and open a pull request to `develop`.
 
-A stable release starts from a `release/X.Y.Z` branch cut from `develop` whose only changes are the version (`X.Y.Z`, set with `utils/update_version.py`) and its CHANGELOG section. Its pull request to `main` must pass the required checks; after the release, `main` is merged back into `develop` and `develop` moves to the next `-beta.N`. See [Changelog and releases](#changelog-and-releases) and [release candidates](docs/voice-stack/release-candidates.md).
+A stable release starts from a `release/X.Y.Z` branch cut from `develop` whose only changes are the version (`X.Y.Z`, set with `utils/update_version.py`) and its CHANGELOG section. Its pull request to `main` must pass the required checks. Merging it starts the candidate builds and the release draft; publishing the release opens a pull request that merges `main` back into `develop`, and once that is merged, `develop` moves to the next `-beta.N`. See [Changelog and releases](#changelog-and-releases) and [release candidates](docs/voice-stack/release-candidates.md), which draws the whole release flow, betas included, as [one diagram](docs/voice-stack/release-candidates.md#全体の流れ).
+
+To fix a published release in a hurry while `develop` already holds the next version's work, cut `release/X.Y.Z` from `main` instead and bring in only the fix and what `main` needs to build. The steps are in [release candidates](docs/voice-stack/release-candidates.md#公開済みの版を急いで直す).
 
 ## Pull requests
+
+From an issue to a change in `develop`:
+
+```mermaid
+flowchart TD
+    issue["Issue: a bug report, an idea or a task<br>a small, clear fix may start at the branch"] --> branch["Topic branch from develop<br>e.g. fix/quick-chat-focus"]
+    branch --> commit["Commits as Conventional Commits<br>checked by the commit-msg hook"]
+    commit --> pr["Pull request to develop<br>what changed, what was verified and what was not"]
+    pr --> checks["Required checks<br>contract tests,<br>commit messages, dependency review"]
+    checks --> review["Review<br>every conversation resolved"]
+    review --> merge["Merged into develop<br>with a merge commit"]
+    merge --> ship["Ships in the next beta,<br>then in the stable release"]
+    checks -->|a check fails| commit
+    review -->|changes asked| commit
+```
+
+When a pull request changes this flow or the release flow, it updates the diagram in the same pull request: this one, or the release flow in [release candidates](docs/voice-stack/release-candidates.md#全体の流れ).
 
 - Write every commit message as a [Conventional Commit](#commit-messages). The commit-msg hook and CI check them.
 - Add or update tests for behavior changes, and describe what you verified and what you could not.
 - For a change that is OS-specific or changes what is supported (packages, OS, runtimes), state in the pull request the platforms it affects, where it was checked (CI, or a real PC with OS, version and package), where it was not, and any backward-compatibility impact. CI passing does not count as a real-PC check. Keep the [support matrix](site/en/guide/support.md) and its [verification records](docs/voice-stack/platform-verification.md) in step.
 - Do not commit secrets, API keys, voice recordings or model files without a redistribution license.
 - New or upgraded dependencies must have a compatible license; update [NOTICE.md](NOTICE.md) when bundled components change. The app's Rust crates are pinned in the `Cargo.lock` files (`src-tauri/`, `native/rvc-runtime/`). Python dependencies, used by the development tools and tests since 0.5.0, live in `pyproject.toml` and `uv.lock` (`uv lock`).
-- Models offered for download go into the download catalog (`native/ops/src/downloads/catalog.rs`; the tests compare it with `src-python/models/model_downloads/catalog.py`, so keep both the same) with a pinned revision, file sizes, SHA-256 and the license shown before download. Do not make a model with a non-commercial or otherwise restrictive license a default.
+- Models offered for download go into the download catalog (`native/ops/src/downloads/catalog.rs`; an OCR model also goes into chat reading's table, `native/ocr-runtime/src/models.rs`, and the core's tests compare the two) with a pinned revision, file sizes, SHA-256 and the license shown before download. Do not make a model with a non-commercial or otherwise restrictive license a default.
 - User-facing text goes into `locales/`. English (`en.yml`) and Japanese (`ja.yml`) are the only UI languages; update both in the same pull request, and do not fill a language you cannot translate with a guess. Korean and Chinese were dropped as UI languages in 0.2.0 (they remain translation languages).
 - The UI reads its text with `t()` and does not write it into the code. `tools/i18n_gate/check.mjs`, part of `python tools/dev.py check` and CI, fails on keys missing in one language, empty text, `{{variables}}` that differ between the languages, keys the UI names that do not exist, and new text hard-coded in the UI. Text that stays untranslated on purpose (product names, units) needs a reason: see [the i18n check](docs/development.md#uiの文言と翻訳の検査).
-- The app's icons and in-app logos are generated from `docs/brand/astarot/` with `tools/astarot_app_assets.py`, and the README logos from `docs/brand/` with `tools/brand_assets.py`; edit the sources there, not the generated files.
+- The brand assets are in `docs/brand/astarot/`. The app's icons and in-app logos are generated from them with `tools/astarot_app_assets.py`, and the README logos are the horizontal logo PNGs there; edit the sources in `docs/brand/astarot/`, not the generated files ([brand README](docs/brand/README.md)).
 
-Automated checks on every pull request: the model-free contract tests, the Rust backend core tests and the Python backend tests on Linux and Windows, the commit-message check, dependency review (known vulnerabilities and licenses), and CodeQL code scanning. Pull requests to `main` must pass the required checks before merging.
+Automated checks on every pull request: the model-free contract tests and the Rust backend core tests on Linux and Windows, the commit-message check, dependency review (known vulnerabilities and licenses), and CodeQL code scanning. Pull requests to `main` must pass the required checks before merging.
 
 ## Commit messages
 
@@ -91,8 +110,9 @@ CI checks the commits of every pull request, and the commits pushed to `develop`
 1. Set the version in `package.json` (`X.Y.Z-beta.N` on `develop`, `X.Y.Z` on a `release/X.Y.Z` branch) and run `npm run update-version`.
 2. For a stable release only, run `npm run changelog` (`python tools/changelog.py write`). It reads the commits since the previous stable release tag through Cocogitto and adds the version's section at the top of `CHANGELOG.md`, naming the betas it includes. Read the section; if a line is unclear, fix it in the file. The tool will not overwrite a section that differs from what it would write unless you pass `--force`. For a beta, skip this step; `write` refuses a beta.
 3. Commit as `chore(release): version X.Y.Z` and open the pull request. Release pull requests to `main` fail if the section is missing.
-4. Build the candidates and run "Prepare verified VRCT-VOX release draft" ([release candidates](docs/voice-stack/release-candidates.md)). A stable draft's notes are made from its CHANGELOG section; a beta's from its commits since the previous release tag. Run `python tools/changelog.py print` or `release-notes` to see them beforehand.
-5. Before publishing the draft, replace its body with the release notes in `docs/release-notes/X.Y.Z.md` ([format](docs/release-notes/README.md)). Publishing creates the `vX.Y.Z` tag.
+4. For a stable release, merging the release pull request into `main` starts "Start ASTAROT release draft": it builds the Linux and Windows candidates at the merge commit (or uses successful manual ones already there) and then runs "Prepare verified ASTAROT release draft" with them, which checks them as before and makes a draft only. For a beta, build the candidates and run "Prepare verified ASTAROT release draft" by hand, or run "Start ASTAROT release draft" on `develop` ([release candidates](docs/voice-stack/release-candidates.md#下書きを作る)). A stable draft's notes are made from its CHANGELOG section; a beta's from its commits since the previous release tag. Run `python tools/changelog.py print` or `release-notes` to see them beforehand.
+5. Before publishing the draft, check that its tag is `vX.Y.Z` and that it targets the commit the candidates were built from, and replace its body with the release notes in `docs/release-notes/X.Y.Z.md` ([format](docs/release-notes/README.md)). Publishing creates the `vX.Y.Z` tag, which cannot be moved afterwards. To start that file, run `python tools/changelog.py scaffold-notes` (`mise run changelog:notes`): it lays out the headings of the format and lists the pull requests merged since the previous stable release, sorted as in the CHANGELOG section, for you to rewrite. It never overwrites an existing file.
+6. After a stable release is published, "Open ASTAROT back-merge pull request" opens the pull request from `main` into `develop`. Close and reopen it (or push to it) to run its checks, resolve any conflict on its branch, and merge it with a merge commit ([after publishing](docs/voice-stack/release-candidates.md#公開したあと)).
 
 Running `write` again gives the same file. It stops if the tag `vX.Y.Z` already exists. Tags are created only by publishing a GitHub release; do not run `cog bump` and do not push tags by hand.
 
@@ -153,12 +173,13 @@ VRCT-VOX is derived from [VRCT](https://github.com/misyaguziya/VRCT) and no long
 
 ## 日本語での概要
 
-Issue や PR は日本語でも構いません。作業ブランチは `develop` から作り、PR は `develop` へ出してください。`main` は保護されています。正式版のときだけ、`develop` から切った `release/X.Y.Z` ブランチ（版の変更と CHANGELOG の節だけ）を PR で統合します。
+Issue や PR は日本語でも構いません。作業ブランチは `develop` から作り、PR は `develop` へ出してください。`main` は保護されています。正式版のときだけ、`develop` から切った `release/X.Y.Z` ブランチ（版の変更と CHANGELOG の節だけ）を PR で統合します。統合すると候補のビルドとリリースの下書きの準備が自動で始まり、公開すると `main` を `develop` へ戻す PR が自動で開きます。公開とその前の確認は人が行います。公開済みの版を急いで直すときは、`main` から切ります（[手順](docs/voice-stack/release-candidates.md#公開済みの版を急いで直す)）。
 
 - コミットは Conventional Commits の形式で書きます。種別の選び方と例は上の「Commit messages」にあります。
 - 形式の検査は commit-msg フックで行います。Cocogitto 7 を入れて、複製ごとに `cog install-hook commit-msg` を一度実行してください。CI も PR と、develop・main への push を検査します。
 - `CHANGELOG.md` に載せるのは正式版だけです。正式版のリリースを準備するときに `npm run changelog` で書きます。ベータ版の変更は GitHub のプレリリースのノートに載せます。機能のブランチでは編集しません。手順と分類は上の「Changelog and releases」にあります。
 - テストと確認した内容を PR に書いてください。
+- Issue から develop への統合までの流れは上の「Pull requests」に、リリースの流れは[配布候補とリリース下書き](docs/voice-stack/release-candidates.md#全体の流れ)に図があります。流れを変える PR では図も同じ PR で直します。
 - OS に依存する変更や、対応する範囲（配布形式、OS、ランタイム）を変える変更では、影響する OS、確かめた環境（CI か、実機なら OS と版と配布形式）、確かめていない環境、後方互換性への影響を PR に書きます。CI の成功は実機での確認に数えません。[サポートマトリクス](site/ja/guide/support.md)と[検証の記録](docs/voice-stack/platform-verification.md)も合わせて直します。
 - 表示する文言は `locales/` の英語と日本語の両方に、同じ PR で足します。訳せない文言を推測で埋めません。
 - UI は文言を `t()` で取り出し、コードに直接書きません。`python tools/dev.py check` と CI が `tools/i18n_gate/check.mjs` で検査します。片方の言語にないキー、空の値、言語で食い違う補間変数、存在しないキーの参照、新しい直書きがあると失敗します。わざと訳さない文字列（製品名や単位など）には理由を書きます。書き方は [docs/development.md](docs/development.md#uiの文言と翻訳の検査) にあります。

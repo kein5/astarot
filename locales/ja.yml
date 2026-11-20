@@ -9,6 +9,7 @@ vrchat_presence:
     not_found: "お使いのPCでOSCが有効なVRChatを検出できません。"
     not_found_hint: "VRChatを起動し、アクションメニューで「Options」→「OSC」を「Enabled」にしてください。"
     unknown: "VRChatの状態を確認できません。送信先が別のマシンのとき、またはOSCの受信を開始できていないときは確認できません。"
+    osc_query_off: "OSCQueryをオフにしているので、VRChatの状態を確認できません。メッセージは送ります。"
     sending_off: "VRChatへのメッセージ送信はオフです。"
 
 voice:
@@ -264,7 +265,9 @@ backend_errors:
     AUDIO_OPEN_ERROR_speaker: "スピーカーの音を取り込めませんでした。スピーカーがつながっているかを確かめてからもう一度試してください。"
     AUDIO_READ_ERROR: "デバイスのエラーで、音声の取り込みが止まりました。デバイスがつながっているかを確かめてからもう一度試してください。"
     VAD_INFERENCE_ERROR: "発話の検出に失敗したため、音声認識を止めました。もう一度試してください。繰り返し起きるときはASTAROTを再起動してください。"
-    VAD_UNAVAILABLE: "この版ではVADを使えないため、オンにしませんでした。音声は音量で区切ります。"
+    VAD_UNAVAILABLE: "VADには音声認識サーバー（speech.cpp）のSilero VADを使います。サーバーの準備ができていないため、オンにしませんでした。"
+    VAD_UNAVAILABLE_recording: "音声認識サーバー（speech.cpp）のVADを使えないため、音声は音量で区切ります。"
+    VALIDATION_RVC_BLOCK_MS: "20で割り切れる20〜200の整数を入力してください。"
     TRANSCRIBER_INIT_ERROR: "音声認識を開始できませんでした。設定の「音声認識（ASR）」でエンジンとモデルを確かめてから、もう一度試してください。"
     ASR_ERROR: "音声認識に失敗したため、認識を止めました。設定の「音声認識（ASR）」でエンジンを確かめてください。オンラインのエンジンなら、ネットワークの接続も確かめてから、もう一度試してください。"
     TRANSCRIPTION_API_AUTH_FAILED: "音声認識のサービスがAPIキーを受け付けなかったため、認識を止めました。設定の「音声認識（ASR）」でキーを確かめてください。"
@@ -338,6 +341,8 @@ common_warning:
     osc_query_remote_mic_stopped: "送信先が別のマシンなので、VRChatのミュート状態を確認できません。「{{sync}}」をオフにして、「{{microphone}}」を止めました。必要なときに、「{{microphone}}」をオンにし直してください。"
     osc_query_failed: "OSCの受信を始められなかったため、「{{sync}}」を使えません。設定の「{{settings}}」でOSCの設定を確認し、保存し直してください。"
     osc_query_failed_mic_stopped: "OSCの受信を始められず、VRChatのミュート状態を確認できません。「{{sync}}」をオフにして、「{{microphone}}」を止めました。設定の「{{settings}}」でOSCの設定を確認して保存し直してから、「{{microphone}}」をオンにしてください。"
+    osc_query_off: "OSCQueryをオフにしているので「{{sync}}」を使えません。使うときは設定の「{{settings}}」でOSCQueryをオンにしてください。"
+    osc_query_off_mic_stopped: "OSCQueryをオフにしたので、VRChatのミュート状態を確認できません。「{{sync}}」をオフにして、「{{microphone}}」を止めました。必要なときに「{{microphone}}」をオンにし直してください。"
 
 main_page:
     backend_disconnected: "エンジンとの接続が切れました"
@@ -351,6 +356,10 @@ main_page:
     quick_settings: "クイック設定"
     quick_settings_on: "{{count}}件オン"
     quick_settings_all_off: "すべてオフ"
+    # The row under the main switches that shows the ones the usage presets hide (#554, Q-10).
+    more_features: "ほかの機能（{{number}}）"
+    more_features_hide: "ほかの機能を隠す"
+    more_features_hint: "設定の「用途」で隠している機能です。ここで出しても、設定は変わりません。"
 
     # The icon button beside each main switch: its name and tooltip.
     # A switch whose setup is missing sends the icon to the place that provides it.
@@ -376,10 +385,11 @@ main_page:
     language_settings: "言語設定"
     language_pair: "{{from}} → {{to}}"
     your_language: "あなたの言語"
-    translate_each_other_label: "双方向に翻訳"
+    your_language_hint: "自分が話したり入力したりする言語です。相手の発言はこの言語に訳します。"
     swap_button_label: "言語を入れ替え"
     help_link: "ASTAROTの使い方を開く"
     target_language: "相手の言語"
+    target_language_hint: "相手が話したり書いたりする言語です。自分の発言はこの言語に訳します。"
     add_target_language: "相手の言語を追加"
     remove_target_language: "最後の相手の言語を削除"
     translator: "翻訳エンジン"
@@ -407,6 +417,14 @@ main_page:
         received_ocr: "受信(チャット読み取り)"
         speakers: "話者{{speakers}}"
         speakers_separator: "・"
+        speaker_label: "話者{{label}}"
+        speaker_names_edit: "{{speakers}}に名前を付ける"
+        speaker_names_tooltip: "声の記号に名前を付けます。名前はログ、デスクトップの字幕、VRの大きいログに出します。"
+        speaker_name_field: "話者{{label}}の名前"
+        speaker_names_hint: "名前は今の聞き取りの間だけ使い、保存しません。空にすると記号に戻ります。"
+        speaker_names_save: "名前を付ける"
+        speaker_names_cancel: "キャンセル"
+        speaker_names_failed: "話者の名前を付けられませんでした。名前は32文字までです。"
         system: "システム"
 
         resend_button_on_hover_desc: "長押しで送信"
@@ -463,6 +481,7 @@ config_page:
             licenses: "ライセンスと表記"
         original_heading: "本家VRCT"
         original_desc: "ASTAROTはVRCTをもとに作られています。VRCTの開発者、貢献者、支えてくださった皆さんに感謝します。"
+        vrchat_disclaimer: "（参考訳）ASTAROTとVRCTはVRChatの承認を受けたものではなく、VRChatやVRChatの制作物の制作と管理に公式に関わる人の見解や意見を表すものでもありません。VRChatとその関連する制作物はすべてVRChat Inc.の商標または登録商標です。VRChat © VRChat Inc."
     search:
         placeholder: "設定を検索..."
         label: "設定を検索"
@@ -471,6 +490,8 @@ config_page:
         requires: "要: {{name}}"
         no_results: "一致する設定が見つかりませんでした"
     common:
+        # The fold each settings page keeps its seldom-changed settings in (AdvancedSection.tsx).
+        advanced_section: "詳細設定"
         open_color_picker: "{{label}}の色を選択"
         duration_seconds_one: "{{count}}秒"
         duration_seconds_other: "{{count}}秒"
@@ -494,10 +515,56 @@ config_page:
             type_template_auto: "自動"
             type_template_low: "{{type_name}}（精度が悪く、処理は早い）"
             type_template_high: "{{type_name}}（精度が良く、処理は遅い）"
+            after_restart: "{{device}}（再起動後に使えます）"
         warning_labels:
             unable_to_use_osc_query: "OSC受信またはOSCQueryの公開を開始できていません。ローカルのOSC設定を確認し、保存し直してください。"
             unable_to_use_osc_query_remote: "送信先が別のマシンのときは使えません。VRChatのミュート状態を確認できるのは、VRChatが同じPCで動いているときだけです。"
+            unable_to_use_osc_query_off: "OSCQueryをオフにしているので使えません。「高度な設定」でオンにできます。"
 
+    # The line beside each page's 「詳細設定」 / "More settings" fold: the values in use there.
+    advanced_status:
+        on: "オン"
+        off: "オフ"
+        vrchat: "通知音 {{sfx}} · ミュート同期 {{sync}}"
+        vr: "翻訳だけ表示 {{only}} · 音声タイピング {{typing}}"
+        device: "マイクの感度 {{mic}} · スピーカーの感度 {{speaker}}"
+        ocr: "読み取りの間隔 {{interval}} ms · 信頼度の下限 {{confidence}}"
+        tts: "モニター {{monitor}} · マイクの字幕の読み上げ {{mic}}"
+        transcription: "マイクの区切り {{phrase}}秒 · スピーカーの区切り {{speaker}}秒"
+        translation: "設定済みの翻訳API {{api}}件 · ローカルのLLM {{llm}}件"
+        appearance: "ログの文字 {{log}}% · 透明度 {{transparency}}%"
+        hotkeys_one: "{{count}}件にキーを割り当て済み"
+        hotkeys_other: "{{count}}件にキーを割り当て済み"
+    # The usage presets at the top of the settings menu (src-ui/logics/configs/usagePresets.ts, #554).
+    # The names are provisional until users have tried them (Q-14).
+    usage_presets:
+        title: "用途"
+        button_label: "用途：{{names}}。メイン画面とこのメニューに出す機能を選びます"
+        list_separator: "、"
+        help: "選んだ用途で使う機能だけを、メイン画面のスイッチとこのメニューに出します。いくつ選んでもかまいません。機能のオン・オフや設定は変わりません。隠したページも、上の検索で見つかります。"
+        items:
+            basic:
+                label: "基本"
+                desc: "自分の声を認識して翻訳し、字幕とチャットボックスに出す"
+            nonverbal:
+                label: "無言勢向け"
+                desc: "声を出さずに文字で話す。相手の声やチャットを読む"
+            multilingual:
+                label: "多言語会話向け"
+                desc: "いくつもの言語の相手と、声で会話する"
+            voice_changer:
+                label: "RVC向け"
+                desc: "自分の声を変えて話す。翻訳は使っても使わなくてもよい"
+            all:
+                label: "すべて表示"
+                desc: "すべての機能とページを出す"
+    side_menu_label: "設定のページ"
+    # The settings menu's groups (src-ui/logics/configs/settingsMenu.ts).
+    side_menu_groups:
+        conversation: "会話の基本"
+        voice_and_reading: "声と読み取り"
+        comfort: "使い心地"
+        app: "アプリ"
     side_menu_labels:
         vrchat: "VRChat"
         device: "デバイス"
@@ -513,7 +580,14 @@ config_page:
         updater: "アップデート"
         about_vrct: "ASTAROTについて"
         ocr: "チャット読み取り（OCR）"
-        vr: "VR"
+        vr: "字幕とVR"
+
+    # A button that opens another settings page names the page and what is done there (#537).
+    # page is the tab's name above; action says what is done there (「音声経路を変更」).
+    # Without an action the page as a whole is the reason to go.
+    page_link:
+        do: "「{{page}}」で{{action}}"
+        open: "「{{page}}」を開く"
 
     tts:
         tts_settings:
@@ -526,6 +600,10 @@ config_page:
     device:
         section_label_mic: "マイク"
         section_label_speaker: "スピーカー"
+        section_label_mic_sensitivity: "マイクの感度"
+        section_label_speaker_sensitivity: "スピーカーの感度"
+        mute_sync_pointer: "VRChatでミュートしている間は、マイクの音声認識を止めます。"
+        mute_sync_action: "ミュート同期を設定"
         check_volume: "音量チェック"
         label_auto_select: "自動選択"
         label_host: "ホスト/ドライバー"
@@ -541,7 +619,7 @@ config_page:
             option_vad: "VAD (自動)"
             option_auto: "自動"
             option_manual: "手動"
-            desc_for_vad: "AI（Silero VAD）を用いて人の声を検出し、話し終わるごとに音声認識へ送信します。BGMや環境音の誤認識を抑えやすくなります。"
+            desc_for_vad: "音声認識サーバー（speech.cpp）のSilero VADで人の声を検出し、話し終わるごとに音声認識へ送信します。BGMや環境音の誤認識を抑えやすくなります。同梱サーバーは自動では起動しないため、設定 → 音声認識（ASR） → モデルとサーバーで起動しておいてください。"
         speaker_device:
             label: "スピーカー（デバイス）"
         speaker_dynamic_energy_threshold:
@@ -551,10 +629,11 @@ config_page:
             option_vad: "VAD (自動)"
             option_auto: "自動"
             option_manual: "手動"
-            desc_for_vad: "AI（Silero VAD）を用いて人の声を検出し、話し終わるごとに音声認識へ送信します。BGMやゲーム音の誤認識を抑えやすくなります。"
-        desc_vad_unavailable: "この版では使えません。発話を検出するモデルをまだ同梱していないためです。音声は「自動」か「手動」の設定で音量から区切ります。"
+            desc_for_vad: "音声認識サーバー（speech.cpp）のSilero VADで人の声を検出し、話し終わるごとに音声認識へ送信します。BGMやゲーム音の誤認識を抑えやすくなります。同梱サーバーは自動では起動しないため、設定 → 音声認識（ASR） → モデルとサーバーで起動しておいてください。"
+        desc_vad_unavailable: "認識モデルとSilero VADを読み込んだ音声認識サーバー（speech.cpp）が要ります。設定 → 音声認識（ASR） → モデルとサーバー → ASR + VADで両方を取得して適用してください。それまで音声は「自動」か「手動」の設定で音量から区切ります。"
 
     appearance:
+        section_label_display_more: "文字と透明度"
         section_label_display: "表示"
         section_label_send_buttons: "送信ボタン"
         transparency:
@@ -585,7 +664,7 @@ config_page:
         setup_not_downloaded: "未ダウンロード"
         setup_unavailable: "まだダウンロードできません"
         download_unavailable: "まだ取得できません"
-        models_unavailable: "下のモデルは、まだダウンロードできません。翻訳には、外部翻訳APIかローカルLLMのエンジンを使ってください。"
+        models_unavailable: "標準の翻訳モデルはまだダウンロードできません。翻訳には下の「詳細設定」にある外部翻訳APIかローカルLLMを使ってください。"
         provider_in_use: "使用中"
         provider_ready: "使用できます"
         provider_not_set: "未設定"
@@ -593,15 +672,20 @@ config_page:
         section_label_external_api: "外部翻訳API"
         section_label_local_llm: "ローカルLLM・互換サーバー"
         llm_privacy_desc: "LLMのエンジンには翻訳する文とプロンプトのほかに、直近の会話を最大5件送ります。会話はチャットとマイクの自分の発言と、スピーカーから聞き取った相手の発言です。どれにも言った時刻（時:分）が付きます。会話はメモリにだけ置き、エンジンや接続先やモデルを変えたときと翻訳をオフにしたときに消します。"
+        # 以前の版のtranslation-modelsフォルダーに何か入っているあいだだけ出す（#597）。
+        retired_models_folder:
+            label: "translation-modelsフォルダーのモデル"
+            desc: "translation-modelsフォルダーに置いたモデルは一覧に出なくなりました。翻訳のカタログの「自分のモデルを追加」で追加し直してください。モデルのフォルダーはどこにあってもかまいません。"
+            open_add_form: "「自分のモデルを追加」を開く"
 
         ctranslate2_weight_type:
-            label: "{{ctranslate2}}のモデルタイプ"
-            desc: "翻訳エンジン「{{ctranslate2}}」で翻訳する際に使用する翻訳モデルを選択できます。"
+            label: "翻訳モデル"
+            desc: "お使いのPCで翻訳するモデルを選びます。ダウンロード済みのモデル、ダウンロードできるモデル、自分で追加したモデルが並びます。"
             small: "通常モデル（{{capacity}}）"
             large: "高精度モデル（{{capacity}}）"
             license_commercial: "ライセンス: {{license}}（商用利用可）"
             license_non_commercial: "非商用ライセンス（{{license}}）"
-            custom_model: "自分で追加したモデル（translation-modelsフォルダ）です。ライセンスは自分で確認してください。"
+            custom_model: "翻訳のカタログで追加したモデルです。ライセンスは自分で確認してください。"
             confirm_title: "非商用ライセンス"
             confirm_body: "{{weight_type}}のライセンスは{{license}}です。商用目的では使用できません。M2M100モデル（MITライセンス）にはこの制限はありません。"
             confirm_check: "ライセンスを確認し、非商用目的でのみ使用します。"
@@ -613,6 +697,10 @@ config_page:
             non_commercial_notice: "現在の{{ctranslate2}}モデル{{weight_type}}は非商用ライセンス（{{license}}）です。以前のバージョンの既定値で、設定は変更していません。商用利用する場合は、設定 > 翻訳でM2M100モデル（MIT）を選んでください。"
         translation_compute_device:
             label: "AI翻訳の処理デバイス"
+            restart_note: "選んだ処理デバイスは、ASTAROTを再起動すると使えます。それまで翻訳はCPUで動きます。"
+        gpu_runtimes:
+            label: "GPUで翻訳するためのONNX Runtime"
+            desc: "AI翻訳をGPUで動かすには、ONNX RuntimeのGPU版を取得します。取得したら上の処理デバイスで選び、ASTAROTを再起動してください。チャット読み取りも同じONNX Runtimeを使います。"
 
         deepl_auth_key:
             label: "DeepL APIキー"
@@ -715,16 +803,22 @@ config_page:
             desc: "無音区間を検出してから音声を認識処理に送ります。ゲーム音やボイスチャットが連続して流れる際に文字起こしが止まる、または「音声認識のリクエストに失敗しました」と表示される場合は、この設定を無効にしてください。"
         select_transcription_engine:
             label: "音声認識で使用するエンジン"
-            desc: "クラウドエンジンは、下の「クラウド音声認識」でAPIキーを登録すると選べます。「ローカル（speech.cpp）」は、お使いのPCのspeech.cppサーバーで音声を認識します。モデルとサーバーの設定は、このページの下の「リアルタイム字幕」と「モデルとサーバー」にあります。"
+            desc: "APIのエンジンは下の「API（クラウドや自分のサーバー）」でAPIキーを登録すると選べます。「ローカル（speech.cpp）」はお使いのPCのspeech.cppサーバーで音声を認識します。そのモデルは下の「モデルとサーバー」に、サーバーの選び方は「詳細設定」の「リアルタイム字幕」にあります。"
+            # The mark on the own Whisper server's fold: the user's connection, not a service the app provides (#414).
+            badge_own: "自分のサーバー"
             engines:
                 speechcpp: "ローカル（speech.cpp）"
                 groq_whisper: "Groq Whisper"
                 openai_whisper: "OpenAI Whisper"
                 custom_whisper: "カスタムWhisperサーバー"
                 deepgram: "Deepgram"
+        # The engines' two systems (#414), in the order the page shows them.
+        speechcpp_section:
+            label: "お使いのPCで動かす（speech.cpp）"
+            desc: "音声はお使いのPCの外に出ません。カタログのモデルを取得するか、お使いのPCにある自分のモデルのファイルを登録して使います。"
         cloud_section:
-            label: "クラウド音声認識"
-            desc: "ここでAPIキーを登録すると、上の「音声認識で使用するエンジン」で選べるようになります。"
+            label: "API（クラウドや自分のサーバー）"
+            desc: "音声をサービスや自分のサーバーへ送って文字にします。APIキーを登録すると、上の「音声認識で使用するエンジン」で選べます。キーは設定のファイルではなくアプリのキーの保管場所に置きます。"
         groq_whisper_auth_key:
             label: "Groq Whisper APIキー"
         openai_whisper_auth_key:
@@ -764,7 +858,8 @@ config_page:
     vr:
         single_line: "一行"
         multi_lines: "複数行"
-        overlay_enable: "有効にする"
+        overlay_enable_single: "字幕（一行）を表示する"
+        overlay_enable_multi: "字幕（複数行）を表示する"
         restore_default_settings: "初期値に戻す"
         position: "位置"
         rotation: "回転"
@@ -774,8 +869,13 @@ config_page:
         x_rotation: "X軸の回転"
         y_rotation: "Y軸の回転"
         z_rotation: "Z軸の回転"
+        position_rotation:
+            label: "位置と回転"
+            desc: "軸ごとにスライダーか横のボタンで動かします。"
         sample_text_button:
-            start: "サンプルの文を\n字幕オーバーレイに送る"
+            label: "見え方の確認"
+            desc: "調整しているあいだ、サンプルの文を1秒ごとに字幕オーバーレイへ送ります。設定を閉じると止まります。"
+            start: "サンプルの文を字幕オーバーレイに送る"
             stop: "送信を停止"
             sample_text: "サンプルテキスト"
         opacity: "透明度"
@@ -783,8 +883,8 @@ config_page:
         display_duration: "表示時間"
         fadeout_duration: "フェードアウト時間"
         common_settings: "共通設定"
-        vr_ui_beta: "VR UI（β版機能）"
         section_label_overlay: "字幕オーバーレイ"
+        section_label_overlay_look: "字幕オーバーレイの位置と見た目"
         tracker: "表示するトラッカーの位置"
         hmd: "HMD"
         left_hand: "左手"
@@ -811,12 +911,10 @@ config_page:
         desktop_overlay_opacity:
             label: "字幕の背景の濃さ"
             desc: "0%にすると背景の板が消えて、縁取りのある文字だけになります。"
-        vr_panel:
-            label: "VR UIを表示する"
-            desc: "VRの中に、機能のオン／オフやログ・言語・設定を操作できる手首のランチャーとウィンドウを表示します。字幕のオーバーレイとは別に使えます。"
-        reset_launcher:
-            label: "ランチャーの位置と大きさを初期に戻す"
-            desc: "VRの中でランチャーが見つからなくなったときに使います。左手の手首に初期の位置と大きさで戻ります。"
+        vr_panel_pointer:
+            label: "VR UI（VRの中の操作パネル）"
+            desc: "手首のランチャーとウィンドウで、まだ試験中の機能です。"
+            action: "VR UIを設定"
         voice_typing_mode:
             label: "音声タイピングモード"
             desc: "文字起こしされたテキストをアクティブな入力欄へと自動的に貼り付けます。\n※クリップボードを使います。LinuxではX11／XWaylandのウィンドウ（Protonで動くVRChatなど）に貼り付けます。入力デバイスの操作を許可するか、デスクトップが最初に確認することがあります。"
@@ -890,8 +988,14 @@ config_page:
     vrchat:
         section_label_chatbox: "チャットボックスへの送信"
         section_label_tts_output: "読み上げの出力先"
-        chat_reading_moved: "VRChatのチャットを読み取る設定は、「チャット読み取り（OCR）」のページにあります。"
-        open_chat_reading: "「チャット読み取り（OCR）」の設定を開く"
+        osc_pointer:
+            label: "OSCの送信先"
+            desc: "メッセージを送るIPアドレスとポートです。VRChatの初期設定と同じなので、ふつうは変えません。"
+            action: "送信先を変更"
+        section_label_more: "VRChatとの連携"
+        section_label_elsewhere: "ほかのページにある設定"
+        tts_output_pointer: "読み上げの声をVRChatのマイクへ届ける出力先です。"
+        tts_output_action: "出力先を選ぶ"
 
     ocr:
         section_title: "VRChatチャット読み取り"
@@ -991,10 +1095,10 @@ config_page:
     hotkeys:
         input_placeholder: "キーの組み合わせを入力"
         unassigned_placeholder: "未割り当て"
-        disabled_notice: "※設定画面を開いている間は、キーの誤作動を防ぐためホットキー機能が一時的に無効化されます。"
+        disabled_notice: "設定画面を開いている間は、誤作動を防ぐためにホットキーを止めています。"
         section_label_quick_chat: "入力の小窓"
         section_label_toggles: "ウィンドウと機能の切り替え"
-        section_label_voice: "読み上げと声"
+        section_label_stop: "停止とミュート"
         error_in_use: "「{{action_name}}」のホットキー（{{hotkey}}）は他で使用されているため登録できません。"
         error_failed_to_register_at_launch: "「{{action_name}}」のホットキー（{{hotkey}}）は他のアプリケーションで使用されているため利用できません。"
         error_failed_to_register_all: "ホットキーを登録できなかったため、どのホットキーも使えません。設定を開いて閉じると、もう一度登録します。"
@@ -1039,6 +1143,14 @@ config_page:
                     display: "ディスプレイ {{number}}（{{width}}×{{height}}）"
                     is_primary: "（メイン）"
                     missing: "接続されていないモニター（前に選んだもの）"
+                    unknown: "前に選んだモニター（一覧を読み取れません）"
+            # Not in experimentalFeatures.ts: the VR panel keeps its own switch (OVERLAY_VR_PANEL).
+            vr_panel:
+                label: "VR UIを表示する"
+                desc: "VRの中に、機能のオン／オフやログ・言語・設定を操作できる手首のランチャーとウィンドウを表示します。字幕のオーバーレイとは別に使えます。試験中の機能です。"
+                reset_launcher:
+                    label: "ランチャーの位置と大きさを初期に戻す"
+                    desc: "VRの中でランチャーが見つからなくなったときに使います。左手の手首に初期の位置と大きさで戻ります。"
 
     advanced_settings:
         section_label_osc: "OSC"
@@ -1049,10 +1161,44 @@ config_page:
             label: "利用状況を送信する"
             desc: "起動したことと、起きたエラーの種類（エラーコード）を開発者へ送ります。アプリのバージョン、OSの種類とバージョン、表示言語、PCの構成（CPU、メモリ、GPUとそのドライバのバージョン）が付きます。会話の文字や音声、マイクやスピーカーの名前、ユーザー名は送りません。送信元のIPアドレスやPCを見分ける番号は保存しません。受信サーバーは受信した時刻と接続元の国を記録します。同じ日の同じ内容は1回だけ送ります。"
             unanswered: "送信するかどうかはまだ選ばれていません。いまは何も送っていません。チェックを入れると送信を始めます。"
+        section_label_gpu_check: "GPUの動作の報告"
+        gpu_check:
+            desc: "読み上げと音声認識がお使いのGPUで正しく動くかを確かめて、その結果を開発者に報告できます。開発者の手元にないGPU、とくにAMDのGPUの結果を集めています。"
+            what: "ダウンロード済みの読み上げと音声認識のモデルで、決まった短い文をCPUと各GPUで処理し、かかった時間と結果のずれを計ります。数分かかることがあります。マイクとスピーカーとVRChatは使わず、モデルもダウンロードしません。"
+            privacy: "結果に入るのはアプリとOSのバージョン、CPUとGPUの名前、メモリの量、GPUのドライバのバージョン、モデルの名前、計った時間とずれだけです。ユーザー名やファイルの場所、読み上げた文や聞き取った文は入りません。結果は自動では送りません。全文を確かめてから送るかどうかを選べます。"
+            start: "確かめる"
+            stop: "止める"
+            step_environment: "GPUの一覧を調べています…"
+            step_tts: "読み上げを試しています…"
+            step_asr: "音声認識を試しています…"
+            cancelled: "途中で止めました。"
+            failed: "確かめられませんでした（{{code}}）。"
+            error_no_speech_build: "同梱のspeech.cppが見つかりません。アプリを入れ直してください。"
+            error_devices_unreadable: "speech.cppがGPUの一覧を返しませんでした。"
+            table_caption: "機器ごとの結果"
+            column_device: "機器"
+            column_tts: "読み上げ"
+            column_asr: "音声認識"
+            cpu: "CPU"
+            run_ok: "動いた"
+            run_failed: "動かなかった（{{code}}）"
+            run_speed: "実時間の{{rtfx}}倍の速さ"
+            run_match: "CPUとの違いは{{percent}}%"
+            separator: "、"
+            report_label: "送る内容（全文）"
+            copy: "コピー"
+            copied: "コピーしました"
+            open_issue: "GitHubで報告する"
+            issue_note: "この内容を入れた状態でGitHubの報告の画面を開きます。送る前にもう一度確かめられます。送るにはGitHubのアカウントが要ります。内容はクリップボードにもコピーします。"
+            issue_note_paste: "GitHubの報告の画面を開きます。内容が長いので、クリップボードにコピーした内容を「報告の内容」の欄に貼り付けてください。送るにはGitHubのアカウントが要ります。"
+            link_failed: "ブラウザを開けませんでした。次のアドレスを開いてください。"
         osc_ip_address:
             label: "OSCの送信先IPアドレス"
         osc_port:
             label: "OSCの送信先ポート"
+        osc_query:
+            label: "OSCQueryを使う"
+            desc: "VRChatを見つけてミュートの状態を読むのに使います。オフにするとVRCマイクミュート同期とVRChatの検出は使えません。メッセージはオフでも送ります。"
         open_config_filepath:
             label: "設定ファイルを開く"
         enable_websocket:
@@ -1108,6 +1254,10 @@ config_page:
             desc: "0〜20の整数を入力してください。"
         obs_browser_source_font_outline_color:
             label: "縁取りの色（#RRGGBB）"
+        section_label_rvc: "ボイスチェンジャー（RVC）"
+        rvc_block_ms:
+            label: "変換する単位の長さ（ms）"
+            desc: "マイクの音声をこの長さずつ区切って変換します。短いほど声の遅れは小さくなりますが、GPUの処理が間に合わないと声が途切れやすくなります。20で割り切れる20〜200の整数を入力してください。既定は40です。次に変換を開始したときから使います。"
 
     notifications:
         save_success: "設定を保存しました。"
@@ -1285,14 +1435,31 @@ realtime:
   follow_default_mic: "システムの既定の入力に従う"
   follow_default_speaker: "システムの既定の出力に従う"
   follow_default_help: "字幕の開始時にシステムの既定を読み取り、停止するまでそのデバイスを使います。ASTAROTの仮想デバイスと、既定のマイクになっている仮想ケーブルは対象にしません。"
+  silence: "話し終わりとみなす無音の長さ"
+  silence_default: "既定（0.4秒）"
+  silence_seconds: "{{seconds}}秒"
+  silence_help: "この長さの無音が続くと発話を確定し、翻訳やチャットボックス、読み上げに送ります。短くすると結果が早く出ますが、文の途中の間でも区切られやすくなり、1つの文が複数のメッセージに分かれることがあります。変更すると両方の字幕を停止します。"
   vocabulary: "用語辞書"
-  vocabulary_help: "認識モデルに聞き取ってほしい用語とその書き方です。Haas-jaにはキーワードとして、Qwen3-ASRには短いヒントとして渡します。1項目に1語を書き、必要なら「=」のあとに読みをカンマ区切りで続けます（例: VRChat=ブイアールチャット,ブイチャ）。登録した語ごとに、言っていない語が書かれる可能性が少し増えるため、必要な語だけにしてください。辞書を変えると動作中の字幕は停止します。"
+  vocabulary_help: "音声認識と読み上げと翻訳で、用語の書き方と読みをそろえます。音声認識の結果はどのエンジンでも登録した書き方に直し、日本語の読み上げは登録した読みで読みます。AIの翻訳エンジンには文に出てくる語を名前として伝えます。1項目に1語を書き、必要なら「=」のあとに読みをカンマ区切りで続けます（例: VRChat=ブイアールチャット,ブイチャ）。読みが普段の言葉と同じだと、その言葉も書き換わります。Haas-jaにはキーワードとして、Qwen3-ASRには短いヒントとして渡します。登録した語ごとに、言っていない語が書かれる可能性が少し増えるため、必要な語だけにしてください。辞書を変えると動作中の字幕は停止します。"
   vocabulary_builtin: "内蔵のVRChat用語を使う"
   vocabulary_user: "追加した用語"
   vocabulary_term: "追加する用語"
   vocabulary_add: "用語を追加"
   vocabulary_remove: "{{term}}を削除"
   vocabulary_remove_short: "削除"
+  vocabulary_bulk: "まとめて追加する用語"
+  vocabulary_bulk_help: "1行に1語を、1語ずつ追加するときと同じ書き方で書きます。コピーした用語の一覧もそのまま貼り付けられます。"
+  vocabulary_bulk_placeholder: "VRChat=ブイアールチャット\nMidnight Rooftop"
+  vocabulary_bulk_add: "まとめて追加"
+  vocabulary_bulk_added: "{{count}}語を追加しました。保存すると使われます。"
+  vocabulary_bulk_skipped: "追加しなかった行：{{parts}}。"
+  vocabulary_bulk_separator: "、"
+  vocabulary_bulk_duplicates: "登録済みの{{count}}行"
+  vocabulary_bulk_invalid: "書き方が合わない{{count}}行"
+  vocabulary_bulk_over: "上限の100語を超えた{{count}}行"
+  vocabulary_bulk_rest: "書き方が合わない行と上限を超えた行は、直せるように欄に残しています。"
+  vocabulary_copy: "用語をコピー"
+  vocabulary_copied: "コピーしました"
 
 realtime_toggle:
   save_unconfirmed: "設定の保存を確認できませんでした。内容を確認してもう一度保存してください。"
@@ -1452,7 +1619,7 @@ voice_ui:
     engine:
         label: "日本語を読み上げるエンジン"
         description: "VOICEVOXなどのエンジンを自分で入れて起動すると、その声で日本語を読み上げられます。アプリはエンジンを入れたり起動したりしません。"
-        description_speechcpp: "AIボイスは、speech.cppのTTSサーバーで読み上げます。下の「モデルとサーバー」で、同梱サーバーを選んでモデルを取得するか、自分で起動したサーバーのURLを入れてください。"
+        description_speechcpp: "AIボイスはspeech.cppのTTSサーバーで読み上げます。はじめは同梱サーバーを使うので、下の「モデルとサーバー」でモデルを取得してください。自分で起動したサーバーを使うときは「外部サーバー」を選んでURLを入れます。"
         speechcpp: "AIボイス（speech.cpp）"
         url: "エンジンのURL"
         url_hint: "お使いのPCで動くエンジンのURLです。ふつうはエンジンの既定のままで使えます。"
@@ -1486,6 +1653,17 @@ voice_ui:
             rate_option: "{{rate}} Hz"
             invalid: "範囲内の数値を入れてください。"
             reset: "初期値に戻す"
+        # VOICEVOX、AivisSpeech、SHAREVOXの読み方。AudioQueryのScaleの値で、エンジンごとに持つ。
+        audio_query:
+            title: "{{engine}}の読み方"
+            status: "話速 {{speed}}"
+            description: "{{engine}}に読み上げを頼むときの値です。初期値のままの項目はエンジンが返した値で読みます。保存すると次の読み上げから使います。"
+            speed: "話速（0.5〜2）"
+            volume: "音量（0〜2）"
+            pitch: "音高（-0.15〜0.15）"
+            intonation: "抑揚（0〜2）"
+            invalid: "範囲内の数値を入れてください。"
+            reset: "初期値に戻す"
     check_needs_url: "サーバーURLを入力して保存すると確認できます"
     check_needs_server: "同梱サーバーが起動すると確認できます"
     setup_rvc: "モデルと実行環境"
@@ -1512,6 +1690,7 @@ voice_ui:
     mute_row: "ミュート"
     mute_row_description: "{{scope}}画面上部の「ミュート」と同じ操作です。"
     monitor_heading: "モニター"
+    generation_heading: "生成の設定"
     topbar_stop: "読み上げを停止"
     topbar_stop_count: "読み上げを停止（{{count}}）"
     topbar_stop_short: "読み上げを停止"
@@ -1526,7 +1705,7 @@ voice_ui:
     tts_server_starting: "サーバー起動中…"
     output_hint: "自分で聞く場合はイヤホン、VRChatへ送る場合は仮想ケーブルを選びます。管理された経路では直接音声と出力先を共有します。"
     edit_route: "音声経路を変更"
-    route_current: "いまの経路: {{route}}。変えるときは「デバイス」のページで選びます。"
+    route_current: "いまの経路: {{route}}"
     route_hint_device: "TTSと直接音声はどちらも「テキスト読み上げ（TTS）」の設定で選んだ出力デバイスで再生します。変更前に直接入力を停止してください。"
     route_hint: "TTSと直接音声で共有する経路です。変更前に直接入力を停止してください。外部ケーブルへ切り替えると管理された入力接続を解除します。"
     save_route: "音声経路を保存"
@@ -1610,7 +1789,7 @@ voice_ui:
     invalid_rvc_numbers: "ピッチは−24〜24の整数、検索結果の混合率は0〜1の数値、CPUのスレッド数は0〜64の整数で指定してください。"
     rvc_worker_title: "変換に使うデバイスと処理"
     rvc_worker_status: "{{device}} · スレッド {{threads}} · ハイパス{{highpass}}"
-    rvc_worker_hint: "ここの設定は「開始」を押したときに使います。NVIDIAのGPUを選ぶと、GPUを使えないときは開始できません。スレッド数を0にすると、GPUでは1、CPUでは論理CPUの半分（2〜6）を使います。ハイパスフィルターを切ると、以前の外部の実行環境と同じ音になります。"
+    rvc_worker_hint: "ここの設定は「開始」を押したときに使います。NVIDIAのGPUを選ぶと、GPUを使えないときは開始できません。スレッド数を0にすると、GPUでは1、CPUでは論理CPUの半分（2〜6）を使います。ハイパスフィルターを切ると、以前の外部の実行環境と同じ音になります。変換する単位の長さは「高度な設定」で変えられます。"
     rvc_threads_auto: "自動"
     rvc_highpass_on: "あり"
     rvc_highpass_off: "なし"
@@ -1661,6 +1840,9 @@ vc_runtime:
     help_rvc_cpu: "変換に使うONNX Runtime（CPU版）と、基礎モデル（HuBERTとRMVPE）です。内容を確認してから取得します。"
     cpu_only: "NVIDIAのドライバーが見つからないので、CPUで変換する実行環境を取得します。CPUでは、変換した声が約1.3秒遅れて届きます。"
     help_seed: "変換に使うPython環境とエンジン本体です。NVIDIAのGPUが必要です。内容を確認してから取得します。"
+    help_onnx_cuda: "AI翻訳をNVIDIAのGPUで動かすためのONNX Runtime（CUDA 13版）と、NVIDIAのCUDAとcuDNNのライブラリです。NVIDIAのドライバー580以降が必要です。内容を確認してから取得します。"
+    help_onnx_directml: "DirectMLを通してAI翻訳をGPUで動かすためのONNX Runtime（DirectML版）とDirectMLです。AMDやIntelのGPUでも使えます。内容を確認してから取得します。"
+    help_llamacpp_vulkan: "Vulkanの処理部を含むllama.cppのサーバーです。TranslateGemmaのような翻訳のLLMをGPU（NVIDIA、AMD、Intel）かCPUで動かします。内容を確認してから取得します。"
     outdated: "このフォルダの実行環境は以前の形式のため、もう使えません。内容を確認して取得し直してください。"
     size: "通信量 約{{download}} · 必要な空き容量 約{{disk}}"
     gpu_missing: "NVIDIAのドライバーが見つかりません。この実行環境はNVIDIAのGPUでだけ動きます。"
@@ -1673,11 +1855,20 @@ vc_runtime:
     warning_title: "実行環境の取得と利用条件"
     notice_rvc: "ONNX Runtime（CUDA 13版）、NVIDIAのCUDA 13とcuDNNのライブラリ、HuBERT、RMVPEを取得します。ONNX RuntimeはMIT、HuBERTとRMVPEの提供元の表示はMITです。CUDAとcuDNNのライブラリはNVIDIAのライセンスに従います。GPUで変換するにはNVIDIAのドライバー580以降が必要です。これらはASTAROTの配布物ではなく、提供元から直接取得します。変換の処理そのものはASTAROTに含まれています。以前の形式の実行環境のファイルが同じフォルダにあれば、取得が終わったあとに削除します。"
     notice_rvc_cpu: "ONNX Runtime（CPU版）、HuBERT、RMVPEを取得します。ONNX RuntimeはMIT、HuBERTとRMVPEの提供元の表示はMITです。これらはASTAROTの配布物ではなく、提供元から直接取得します。変換の処理そのものはASTAROTに含まれています。以前の形式の実行環境のファイルが同じフォルダにあれば、取得が終わったあとに削除します。"
-    notice_seed: "Python 3.11、PyTorch（CUDA版）、Seed-VC本体、5種類のモデルを取得します。Seed-VCの本体とモデルはGPL-3.0、ほかのモデルはApache-2.0、PyTorchはBSD-3-Clauseです。PyTorchのCUDA版にはNVIDIAのライブラリが含まれ、NVIDIAのライセンスに従います。これらはASTAROTの配布物ではなく、提供元から直接取得します。試験的なエンジンで、実時間に間に合わないPCがあります。"
+    notice_seed: "Python 3.14、PyTorch（CUDA版）、Seed-VC本体、5種類のモデルを取得します。Seed-VCの本体とモデルはGPL-3.0、ほかのモデルはApache-2.0、PyTorchはBSD-3-Clauseです。PyTorchのCUDA版にはNVIDIAのライブラリが含まれ、NVIDIAのライセンスに従います。これらはASTAROTの配布物ではなく、提供元から直接取得します。試験的なエンジンで、実時間に間に合わないPCがあります。"
     connection_notice_rvc: "GitHub、Hugging Face、PyPIの配布サーバーに接続します。大容量の通信が発生し、通信料がかかる場合があります。時間は回線によって数分から数十分です。"
     connection_notice_rvc_cpu: "GitHubとHugging Faceの配布サーバーに接続します。通信料がかかる場合があります。時間は回線によって数分です。"
     connection_notice_seed: "GitHub、Hugging Face、PyPI、PyTorchの配布サーバーに接続します。大容量の通信が発生し、通信料がかかる場合があります。時間は回線によって数分から数十分です。"
+    notice_onnx_cuda: "ONNX Runtime（CUDA 13版）と、NVIDIAのCUDA 13とcuDNNのライブラリを取得します。ONNX RuntimeはMITです。CUDAとcuDNNのライブラリはNVIDIAのライセンスに従います。NVIDIAのドライバー580以降が必要です。これらはASTAROTの配布物ではなく、提供元から直接取得します。処理デバイスで選ぶと、チャット読み取りも同じONNX Runtimeで動きます。"
+    notice_onnx_directml: "ONNX Runtime（DirectML版 1.24.4）とDirectML 1.15.4を取得します。ONNX RuntimeはMITです。DirectMLはMicrosoftのライセンスに従い、Windowsでだけ使えます。このライセンスには、DirectMLが利用者と使い方の情報を集めてMicrosoftに送ることがあると書かれています。これらはASTAROTの配布物ではなく、提供元から直接取得します。処理デバイスで選ぶと、チャット読み取りも同じONNX Runtimeで動きます。"
+    connection_notice_onnx_cuda: "NuGetとPyPIの配布サーバーに接続します。大容量の通信が発生し、通信料がかかる場合があります。時間は回線によって数分から数十分です。"
+    connection_notice_onnx_directml: "NuGetの配布サーバーに接続します。通信料がかかる場合があります。時間は回線によって数分です。"
+    notice_llamacpp_vulkan: "llama.cppのサーバーのVulkan版（リリースb12125）を、llama.cppのGitHubのリリースから取得します。llama.cppはMITです。Windows版にはLLVMのOpenMPのライブラリも含まれ、LLVMの例外付きのApache-2.0に従います。これはASTAROTの配布物ではなく、提供元から直接取得します。モデルは含まれません。モデルのファイルは自分で翻訳のカタログに追加します。"
+    connection_notice_llamacpp_vulkan: "GitHubの配布サーバーに接続します。通信料がかかる場合があります。時間は回線によって数分です。"
     no_start: "取得だけでは変換の開始やマイクの使用は行いません。"
+    no_start_onnx_cuda: "取得だけでは、翻訳に使う処理デバイスは変わりません。"
+    no_start_onnx_directml: "取得だけでは、翻訳に使う処理デバイスは変わりません。"
+    no_start_llamacpp_vulkan: "取得だけではサーバーの起動も翻訳エンジンの切り替えもしません。"
     consent: "提供元・利用条件・容量・保存先を確認し、取得に同意します。"
     start: "同意して取得"
     phase_queued: "開始しています"
@@ -1688,6 +1879,10 @@ vc_runtime:
     phase_libraries: "ONNX RuntimeとCUDAのライブラリを取得しています。時間がかかります"
     phase_assets: "基礎モデルを取得しています"
     phase_verifying: "GPUで動くか確認しています"
+    phase_libraries_onnx_directml: "ONNX RuntimeとDirectMLを取得しています"
+    phase_verifying_onnx_directml: "読み込めるか確認しています"
+    phase_libraries_llamacpp_vulkan: "llama.cppのサーバーを取得しています"
+    phase_verifying_llamacpp_vulkan: "動くかと使える機器を確認しています"
     phase_cancelling: "中止しています"
     phase_cancelled: "中止しました。再開すると終わった手順は飛ばします"
     phase_failed: "準備できませんでした。再開すると終わった手順は飛ばします"
@@ -1702,12 +1897,17 @@ vc_runtime:
         vc_runtime_packages_failed: "パッケージを取得できませんでした。ネットワークと空き容量を確認してください。詳細は保存先のsetup.logにあります。"
         vc_runtime_source_failed: "エンジン本体を取得できないか、内容が固定の版と一致しません。"
         vc_runtime_libraries_failed: "ONNX RuntimeかCUDAのライブラリを取得できないか、内容が固定の版と一致しません。ネットワークと空き容量を確認してください。"
+        vc_runtime_libraries_failed_onnx_directml: "ONNX RuntimeかDirectMLを取得できないか、内容が固定の版と一致しません。ネットワークと空き容量を確認してください。"
+        vc_runtime_libraries_failed_llamacpp_vulkan: "llama.cppのサーバーを取得できないか、内容が固定のリリースと一致しません。ネットワークと空き容量を確認してください。"
+        vc_runtime_check_failed_llamacpp_vulkan: "取得したllama.cppのサーバーが動きませんでした。LinuxではディストリビューションのOpenSSL 3とlibgompが必要です。もう一度取得してください。"
         vc_runtime_assets_failed: "基礎モデルを取得できないか、内容が固定の版と一致しません。"
         vc_runtime_gpu_unusable: "実行環境からGPUを使えません。NVIDIAのドライバーを580以降に更新してください。"
         vc_runtime_check_failed: "取得した実行環境を読み込めませんでした。もう一度取得してください。繰り返すときは、保存先のsetup.logに詳細があります。"
         backend_unavailable: "ASTAROTの処理部分が停止しています。"
     warnings:
         vc_runtime_gpu_unusable_cpu: "GPUを使えなかったため、CPUで変換します。声の遅れは約1.3秒です。GPUで変換するには、GeForce GTX 16・RTX 20シリーズ以降のNVIDIAのGPUと、ドライバー580以降が必要です。ドライバーを更新したら、開始し直すとGPUで変換します。"
+        onnx_runtime_gpu_unusable: "準備はできましたが、GPUを使えませんでした。処理デバイスで選んでも、翻訳はCPUで動きます。GPUで翻訳するには、GeForce GTX 16・RTX 20シリーズ以降のNVIDIAのGPUと、ドライバー580以降が必要です。"
+        llamacpp_no_gpu: "準備はできましたが、VulkanでGPUが見つかりませんでした。これを使う翻訳はCPUで動きます。GPUのドライバーを更新するとGPUを使えることがあります。"
 
 model_downloads:
     hardware_title: "GPUとメモリ"
@@ -1725,6 +1925,20 @@ model_downloads:
     connection_notice: "Hugging Faceとそのファイル配信サービスに接続します。大容量の通信と空き容量が必要です。通信料が発生する場合があります。"
     no_start: "取得とパスの適用だけでは、モデルの読込み・発声・サーバー起動・マイク開始は行いません。"
     consent: "提供元・利用条件・容量・保存先を確認し、ダウンロードに同意します。"
+    # モデルのライセンスにある制限（カタログの行の restrictions）。確認の画面で示し、
+    # 上の同意とは別のチェックを求める（#411）。
+    restriction:
+        non_commercial:
+            title: "非商用の利用に限ります。"
+            note: "このモデルのライセンス（{{license}}）は非商用の利用だけを認めています。商用の目的には使えません。取得する前にライセンスを確認してください。"
+            acknowledge: "{{license}}に従い、このモデルを非商用の目的にだけ使います。"
+        gemma_terms:
+            title: "Gemmaの利用規約が適用されます。"
+            note: "このモデルのライセンス（{{license}}）にはGemmaの利用規約と禁止用途のポリシーが含まれます。この条件はモデルを使う人にも及びます。取得する前に下のリンクから両方を読んでください。"
+            acknowledge: "Gemmaの利用規約と禁止用途のポリシーを読み、その条件に従ってこのモデルを使います。"
+        other:
+            title: "ライセンスに利用の制限があります。"
+            note: "このバージョンのアプリはこのモデルのライセンス（{{license}}）の条件を示せず、同意も確かめられません。ここでは取得できません。"
     start: "同意してダウンロード"
     back: "戻る"
     cancel: "ダウンロードを取消"
@@ -1740,6 +1954,8 @@ model_downloads:
     notice_ppocr: "チャット読み取り用の文字検出・認識モデルです。PaddleOCR（PaddlePaddle）提供、Apache-2.0です。お使いのPCのCPUで動き、画面の内容を送信することはありません。"
     notice_chatbox: "チャット読み取り用の、ASTAROT独自の吹き出し検出モデル（YOLOX-Tiny）です。ASTAROT自身のスクリーンショットで学習し、MITで公開しています。お使いのPCのCPUで動き、画面の内容を送信することはありません。"
     notice_translation: "ONNX Runtime用のローカル翻訳モデルです。上に書いた元のモデルから変換しました。お使いのPCで動き、翻訳する文章を送信することはありません。元のモデルのライセンスを確認してください。"
+    # NLLB-200 distilled 600M（translation_models.json の notice）。容量とメモリはその版で測った値。
+    notice_translation_nllb_600m: "NLLB-200 distilled 600MをONNX Runtime用に変換したローカル翻訳モデルです。お使いのPCで動き、翻訳する文章を送信することはありません。ライセンスはCC-BY-NC-4.0で、非商用の利用に限ります。取得には約643 MBの空き容量が要り、翻訳の間は約1.4 GiBのメモリを使います。既定のM2M100は変わらず、このモデルは選んだときだけ使います。"
     notice_haas: "speech.cpp 0.9.4以降用の、句読点付きで書き起こす日本語音声認識モデルです。Third Intelligence提供、sakasegawa変換、Apache-2.0です。利用前にモデルカードを確認してください。"
     rvc_requirements: "取得するのはRVC音声モデルと検索インデックス（.index）だけです。変換にはRVCの実行環境（Python環境・HuBERT・RMVPE）も必要です。取得完了だけでは変換の準備完了になりません。"
     notice_qwen_asr: "30言語を認識し、話している言語も自動で判定する音声認識モデルです。Qwenチーム提供、sakasegawa変換、Apache-2.0です。1.7Bは0.6Bより誤りが少ない一方で容量とメモリを多く使います（speech.cppによるCommon Voice日本語での測定ではCER 9.49%と11.89%）。利用前にモデルカードを確認してください。"
@@ -1796,6 +2012,7 @@ model_downloads:
         download_not_ready: "モデルの取得・検証がまだ完了していません。"
         catalog_changed: "モデル一覧が変更されています。取得内容の確認をやり直してください。"
         consent_required: "利用条件を確認し、明示的に同意してから取得してください。"
+        model_download_restriction_unacknowledged: "このモデルのライセンスには利用の制限があります。取得内容の確認をもう一度開き、その制限のチェックも入れてください。"
         stale_job: "この取得要求は古くなっています。状態を再確認してください。"
         downloads_closed: "ASTAROTの処理部分が終了の途中のため取得できません。"
         download_apply_failed: "モデルパスを保存できませんでした。ファイルのアクセス権を確認してください。"
@@ -1837,6 +2054,10 @@ model_downloads:
     scope_tts_native_vulkan: "Linux（speech.cpp 0.9.0、Vulkan）で短い文を読み上げられることを確かめました。ほかのGPU、長い文、音質はまだ確かめていません。"
     scope_tts_http_vulkan: "Linux（speech.cpp 0.9.0、Vulkan）で、短い文の読み上げ、途中で止めること、サーバーの再起動を確かめました。音を出す先までの流れと、ほかのGPUはまだ確かめていません。"
     gpu_unverified: "現在のGPUは検証したGPUと異なります。この推奨はメモリ容量に基づくものです。"
+    tier_translation: "ローカル翻訳：GPUを選ばなければCPUで動きます"
+    memory_reference_translation: "CPUで短い文を60件訳したときの最大のメモリ（最低限の量ではありません）"
+    validation_passed_translation: "動作を確かめたCPU："
+    scope_translation_onnx_cpu: "Windows 11（ONNX Runtime 1.32、CPUの4スレッド）で英語と日本語の短い文を訳せることを確かめました。GPU、ほかの言語、長い文はまだ確かめていません。"
 
 # モデルカタログ（モデルを選ぶ画面）。用途ごとのまとまりと、モデルごとのカード。
 model_catalog:
@@ -1864,6 +2085,9 @@ model_catalog:
     hardware: "ハードウェアの目安"
     terms: "提供元とライセンス"
     memory: "メモリ約{{memory}}（{{device}}で測定）"
+    memory_needed: "使うメモリ"
+    translation_memory: "翻訳の間に約{{memory}}（CPUで測定）"
+    translation_memory_unknown: "まだ測っていません"
     tier:
         light: "軽い"
         medium: "中くらい"
@@ -1882,8 +2106,8 @@ model_catalog:
         badge: "性能不足の可能性"
         option: "性能不足の可能性"
         note: "お使いのPCでは性能が足りない可能性があります。{{reason}}あくまで目安なので、選んで試すこともできます。"
-        low_memory_gpu: "このモデルはメモリを約{{required}}使います。GPUのメモリは全部で{{available}}なので余裕がありません。"
-        low_memory_cpu: "このモデルはメモリを約{{required}}使います。見つかったメモリは全部で{{available}}なので余裕がありません。"
+        low_memory_gpu: "このモデルはメモリを約{{required}}使います。VRChatの分として約{{reserve}}を残すと、GPUのメモリ（全部で{{available}}）では余裕がありません。"
+        low_memory_cpu: "このモデルはメモリを約{{required}}使います。OSとVRChatの分として約{{reserve}}を残すと、見つかったメモリ（全部で{{available}}）では余裕がありません。"
         no_gpu: "GPUが見つかりませんでした。このモデルはCPUだけだと遅れたり途切れたりすることがあります。"
         cpu_setting: "エンジンがCPUで動かす設定になっています。このモデルはCPUだけだと遅れたり途切れたりすることがあります。"
     variant: "ファイルの種類"
@@ -1916,6 +2140,34 @@ model_catalog:
             coeiroink: "無料で使える日本語の音声合成ソフトです。対応するのはv2です。「COEIROINK:声の名前」のクレジットが必要です。"
             aivis: "日本語の音声合成ソフトです。声のモデルを追加して使い、モデルごとにライセンスがあります。"
             sharevox: "無料で使える日本語の音声合成ソフトで、VOICEVOXと同じ方式でつなぎます。声によってはクレジットが必要です。"
+
+# 読み上げのモデルの試聴（#415）。決まった短い文を、モニター出力先だけで再生する。
+voice_audition:
+    play: "試聴する"
+    pending: "試聴を準備中"
+    stop: "試聴を止める"
+    tooltip: "使用中のモデルが決まった短い文を読み上げます。モニター出力先だけで再生し、VRChatへは送りません。"
+    blocked:
+        not_in_use: "試聴できるのは使用中のモデルだけです。"
+        server_stopped: "下の「サーバーを起動」を押すと試聴できます。"
+        monitor_off: "試聴はモニター出力先で再生します。「自分のスピーカーでも聞く」をオンにすると試聴できます。"
+        muted: "ミュート中は試聴できません。「ミュートを解除」を押すと試聴できます。"
+    errors:
+        voice_audition_failed: "試聴の音声を作れませんでした。サーバーの状態を確かめてもう一度押してください。"
+        voice_audition_unconfirmed: "試聴の応答がありません。もう一度押してください。"
+        voice_audition_request_invalid: "試聴の要求が正しくありません。"
+        voice_audition_closed: "アプリの終了中は試聴できません。"
+        voice_audition_muted: "ミュート中は試聴できません。「ミュートを解除」を押してから試してください。"
+        voice_audition_monitor_off: "モニター出力がオフです。「自分のスピーカーでも聞く」をオンにしてください。"
+        voice_audition_monitor_blocked: "モニター出力先が声の出力先か仮想ケーブルです。スピーカーかヘッドホンを選んでください。"
+        voice_audition_devices_unavailable: "音声デバイスの一覧を読めないため試聴できません。少し待ってからもう一度押してください。"
+        voice_audition_server_not_ready: "このモデルのサーバーが動いていません。先に「サーバーを起動」を押してください。"
+        voice_audition_timeout: "試聴が30秒で終わらなかったので止めました。"
+        monitor_output_missing: "モニター出力先が見つかりません。選び直してください。"
+        monitor_output_disconnected: "モニター出力先が切断されました。"
+        monitor_feedback_blocked: "モニター出力先が声の出力先か仮想ケーブルです。スピーカーかヘッドホンを選んでください。"
+        monitor_output_error: "モニター出力先で再生できませんでした。"
+        backend_unavailable: "エンジンが止まっているため試聴できません。"
 
 # 利用者が用意したモデル（#403）。カタログのカードと同じ一覧に並べる。
 user_models:
@@ -1970,6 +2222,153 @@ user_models:
         user_models_unreadable: "登録の一覧（user_models.json）を読めません。ファイルはそのまま残しています。"
         user_models_write_failed: "登録の一覧を保存できませんでした。保存先のアクセス権を確かめてください。"
 
+# 翻訳のカタログ（#413）。翻訳するものを2つのグループに分け、利用者が足した項目も並べる。
+translation_catalog:
+    title: "翻訳のカタログ"
+    intro: "翻訳に使うものは2つのグループに分かれます。お使いのPCで動かすモデルと、アプリが呼び出すAPIです。どちらにも自分の項目を追加できます。追加しても項目を覚えるだけで、ダウンロードや切り替えはしません。"
+    loading: "翻訳のカタログを読み込んでいます。"
+    group:
+        engine: "お使いのPCで動かすモデル"
+        api: "API"
+    group_help:
+        engine: "お使いのPCの推論エンジンで動かす翻訳のモデルです。手元のモデルはフォルダーを指定して追加します。"
+        api: "アプリがネットワーク越しに呼び出す翻訳のサービスです。お使いのPCやLANの中のサーバーも含みます。アドレスとモデルとキーを指定して追加します。"
+    none_added: "まだ追加していません。"
+    shipped_title: "アプリに含まれる項目（{{count}}件）"
+    # TranslateGemmaのような翻訳のLLMを動かすllama.cppのサーバー（ADR-015）。
+    llamacpp:
+        label: "翻訳のLLMを動かすllama.cppのサーバー"
+        desc: "TranslateGemmaのような翻訳のLLMは、llama.cppのサーバーで動きます。サーバーはアプリに含まれていません。ここでサーバーを取得してから、下でモデルのファイルを追加してください。サーバーが起動するのは、そのモデルで翻訳をオンにしたときだけです。"
+    badge:
+        builtin: "標準"
+        user: "自分で追加"
+        non_commercial: "非商用のライセンス"
+    kind:
+        cloud: "オンラインのサービス"
+        local_server: "自分で動かすサーバー"
+    state:
+        ready: "使えます"
+        in_use: "使用中"
+        missing: "フォルダーがありません"
+        unsupported: "この版では使えません"
+        unavailable: "読み込めません"
+        no_server: "llama.cppのサーバーが必要です"
+        no_key: "APIキーがありません"
+        not_downloaded: "未ダウンロード"
+        not_set: "未設定"
+    state_help:
+        missing: "フォルダーが見つかりません。移動したときは項目を削除してから追加し直してください。"
+        unsupported: "新しい版のアプリで追加した項目です。この版では使えません。"
+        unavailable: "フォルダーのモデルを読み込めないか、示す言語がモデルにありません。理由はログに出ています。"
+        unavailable_llamacpp: "モデルのファイルをGemma 3のGGUFとして読めないか、示す言語がありません。理由はログに出ています。"
+        no_server: "このモデルはllama.cppのサーバーで動きます。先に上でサーバーを取得してください。"
+        no_key: "APIキーをアプリのキーの保管場所に保存できなかったので、アプリを閉じたときにキーがなくなりました。項目を削除して追加し直してください。"
+    fact:
+        runtime: "推論エンジン"
+        folder: "フォルダー"
+        file: "モデルのファイル"
+        device: "機器"
+        languages: "言語"
+        url: "アドレス"
+        model: "モデル"
+        key: "APIキー"
+    runtime:
+        onnx: "ONNX Runtime（M2M100とNLLB-200の形式）"
+        llamacpp: "llama.cpp（TranslateGemmaのGGUFのファイル）"
+    device:
+        auto: "自動（音声認識が使うGPU。なければCPU）"
+        cpu: "CPUだけ"
+    protocol:
+        openai_compatible: "OpenAI互換のAPI"
+    languages_all: "モデルにあるすべての言語"
+    model_first: "サーバーの一覧の最初のモデル"
+    key_kept: "アプリのキーの保管場所にあります"
+    key_memory: "アプリを閉じるまで使えます（保存できていません）"
+    key_memory_help: "APIキーをアプリのキーの保管場所に保存できなかったので、アプリを閉じるまでのあいだだけ持っています。保管場所が使えるようになれば、アプリが自動でそこに保存します。"
+    key_none: "なし"
+    use:
+        engine: "お使いのPCの翻訳に使う"
+        api: "OpenAI互換の接続先にする"
+    remove: "削除"
+    remove_confirm:
+        engine: "項目だけを削除します。フォルダーとファイルはそのまま残ります。"
+        api: "項目とそのAPIキーをアプリから削除します。サービスの側は変わりません。"
+    remove_confirm_label: "{{name}}の削除"
+    remove_do: "削除する"
+    remove_in_use: "このモデルを削除するには、先に別の翻訳のモデルを選んでください。"
+    back: "戻る"
+    add:
+        engine: "自分のモデルを追加"
+        api: "APIを追加"
+    add_help:
+        engine: "モデルのあるフォルダーを入れてください。manifest.jsonとONNXのファイルとトークナイザーがあるフォルダーです。フォルダーはコピーも移動もしません。言語を空にするとモデルにあるすべての言語を使えます。"
+        engine_llamacpp: "TranslateGemmaのモデルのGGUFのファイルを入れてください。ファイルはコピーも移動もしません。TranslateGemmaはGemmaの利用規約と禁止用途のポリシーに従い、この条件は使う人にも及びます。会話の流れは送らず、メッセージを1つずつ訳します。言語を空にすると、アプリが名前を付けられるすべての言語を使えます。"
+        api: "OpenAI互換のAPIを入れてください。インターネットのサービスでも、お使いのPCやLANの中のサーバーでもかまいません。キーは設定のファイルではなくアプリのキーの保管場所に置きます。使うときは先にアドレスとキーを確かめます。"
+    terms_help: "追加したモデルの出どころとライセンスは、このアプリでは確かめていません。利用条件はご自身で確認してください。"
+    no_runtime: "このビルドではお使いのPCでモデルを動かせないので、ここにはモデルを追加できません。"
+    url_help: "http://はお使いのPCとLANの中だけに使えます。ほかはhttps://を使ってください。"
+    field:
+        name: "表示する名前"
+        folder: "モデルのフォルダー"
+        file: "モデルのGGUFのファイル"
+        device: "機器"
+        runtime: "推論エンジン"
+        languages: "言語のコード（省略可）"
+        protocol: "APIの種類"
+        url: "アドレス（URL）"
+        model: "モデルの名前（省略可）"
+        key: "APIキー"
+    placeholder:
+        engine_name: "例：自分のNLLB 1.3B"
+        api_name: "例：家の翻訳サーバー"
+        languages: "例：ja, en"
+        model: "空にすると一覧の最初のモデルを使います"
+    add_do: "追加"
+    problem:
+        name_missing: "名前を入れてください。"
+        name_long: "名前は80文字までです。"
+        folder_missing: "モデルのフォルダーを入れてください。"
+        file_missing: "モデルの.ggufのファイルの場所を入れてください。"
+        languages_invalid: "jaやeng_Latnのような言語のコードを、コンマか空白で区切って入れてください。"
+        url_missing: "アドレスを入れてください。"
+        url_invalid: "http://かhttps://で始まるアドレスを入れてください。"
+        model_long: "モデルの名前は200文字までです。"
+        key_missing: "APIキーを入れてください。キーのないサーバーには好きな文字を入れてください。"
+    errors:
+        other: "要求を完了できませんでした（{{code}}）。"
+        backend_unavailable: "ASTAROTの処理部分が応答しません。少し待ってからもう一度試してください。"
+        translation_catalog_invalid: "項目の内容が正しくありません。入力を確かめてください。"
+        translation_catalog_name_invalid: "名前に使えない文字があります。前後の空白や改行を除いてください。"
+        translation_catalog_path_invalid: "フォルダーはドライブ名やルートから始まる完全なパスで入れてください。"
+        translation_catalog_folder_missing: "フォルダーが見つかりません。パスを確かめてください。"
+        translation_catalog_languages_invalid: "言語のコードが正しくありません。"
+        translation_catalog_url_invalid: "このアドレスは使えません。http://はお使いのPCとLANの中だけに使えます。"
+        translation_catalog_model_invalid: "このモデルの名前は使えません。"
+        translation_catalog_runtime_unsupported: "この推論エンジンはこの版では使えません。"
+        translation_catalog_protocol_unsupported: "この種類のAPIはこの版では使えません。"
+        translation_catalog_exists: "同じ名前かフォルダー、または同じアドレスとモデルの項目がこのグループにあります。"
+        translation_catalog_limit: "追加できる項目は100件までです。使わない項目を削除してください。"
+        translation_catalog_unknown: "この項目が見つかりません。画面を開き直してください。"
+        translation_catalog_unreadable: "項目の一覧（translation_catalog.json）を読めません。ファイルはそのまま残しています。"
+        translation_catalog_write_failed: "項目の一覧を保存できませんでした。保存先のアクセス権を確かめてください。"
+        translation_catalog_key_required: "APIキーを入れてください。"
+        translation_catalog_key_missing: "この項目のAPIキーがキーの保管場所にありません。項目を削除して追加し直してください。"
+        translation_catalog_key_unreadable: "アプリのキーの保管場所からこの項目のAPIキーを読めませんでした。何も変えていません。Linuxでは鍵束（GNOME KeyringやKWalletなど）を起動してロックを解除してからもう一度試してください。"
+        translation_catalog_unusable: "この項目はいま使えません。フォルダーを確かめるか項目を削除してください。"
+        translation_catalog_in_use: "このモデルは使用中です。先に別の翻訳のモデルを選んでください。"
+        translation_catalog_connect_failed: "アドレスが応答しないか、APIキーが受け付けられませんでした。何も変えていません。"
+        translation_catalog_use_failed: "このモデルを選べませんでした。"
+        translation_catalog_model_not_listed: "接続先は切り替えましたが、項目のモデルがサーバーの一覧にありません。別のモデルを選んだので、OpenAI互換の設定でモデルを確かめてください。"
+        translation_manifest_missing: "フォルダーにmanifest.jsonがありません。tools/translation_onnx/export.pyが書き出したフォルダーを選んでください。"
+        translation_bundle_invalid: "フォルダーのmanifest.jsonが正しくありません。"
+        translation_architecture_unsupported: "この形式のモデルはまだ動かせません。追加できるのはM2M100とNLLB-200のモデルです。"
+        translation_variant_unsupported: "このモデルの量子化の形には対応していません。"
+        translation_file_missing: "manifest.jsonにあるファイルがフォルダーにありません。"
+        translation_bundle_modified: "フォルダーのファイルがmanifest.jsonの記録と違います。"
+        translation_languages_unknown: "モデルの言語の名前が分からないか、入れた言語のコードがモデルにありません。"
+        translation_catalog_file_missing: "モデルのファイルが見つからないか、.ggufのファイルではありません。場所を確認してください。"
+        translation_catalog_device_invalid: "機器を選び直してください。"
+        translation_catalog_gguf_invalid: "このファイルは、TranslateGemmaのようなGemma 3のモデルのGGUFではありません。"
 studio:
     toggle_sidebar: "サイドバーを切り替える"
     close_sidebar: "サイドバーを閉じる"
@@ -1983,6 +2382,8 @@ studio:
     setup_open_settings: "音声認識（ASR）の設定を開く"
     setup_preparing: "取得を準備しています"
     setup_downloading: "取得中 {{progress}}%"
+    setup_first_run: "音声認識の準備ができていません。初期設定でまとめて準備できます。"
+    setup_first_run_open: "初期設定を開く"
     startup_label: "起動の状況"
     startup_status: "ASTAROTを起動しています。準備ができると操作できます。"
     startup_step: "手順 {{step}}/{{total}}"
@@ -2021,7 +2422,7 @@ legacy_model_downloads:
     revision: "モデルの版"
     review_unavailable: "モデルの情報を読み込めませんでした。この画面を閉じてもう一度お試しください。"
     translation_not_published: "翻訳モデルはまだダウンロードできません。新しい翻訳エンジン用のモデルを公開していないためです。"
-    translation_own_model: "自分で用意したモデルを使う方法はマニュアルで説明しています。用意したモデルは下のフォルダに置きます。そのモデルのライセンスは自分で確かめてください。"
+    translation_own_model: "自分で用意したモデルは、設定の「翻訳」にある翻訳のカタログの「自分のモデルを追加」で追加します。モデルのフォルダーはどこにあってもかまいません。そのモデルのライセンスは自分で確かめてください。"
     close: "閉じる"
     startup_skipped: "{{model}} のこの版にはまだ同意していないため、起動時にはダウンロードしませんでした。設定の「翻訳」または「音声認識（ASR）」でライセンスと容量を確認してから、ダウンロードしてください。"
     consent: "提供元・ライセンス・容量を確認しました。表示された追加のファイルも含めて、ダウンロードに同意します。"
@@ -2104,27 +2505,6 @@ ocr_setup:
     next: "設定の「チャット読み取り（OCR）」にあるモデルの欄で、提供元・ライセンス・容量を確かめてからダウンロードしてください。終わったら、もう一度「チャット読み取り（OCR）」をオンにしてください。"
     close: "閉じる"
     review: "モデルの欄を開く"
-local_asr_notice:
-    title: "ローカルの音声認識はspeech.cppに変わりました"
-    removed: "WhisperはASTAROTに含まれなくなりました。音声認識エンジンにWhisperを選んでいたので、ローカル（speech.cpp）に切り替えました。"
-    needs: "同梱のASRサーバーで使うには、次の2つのモデルが要ります。設定 → 音声認識（ASR） → モデルとサーバーでライセンスとサイズを確認して同意するまで、何もダウンロードしません。"
-    asr_model: "音声認識モデル"
-    vad_model: "VADモデル（発話の始まりと終わりを見つける）"
-    set: "設定済み"
-    unset: "未設定"
-    open_settings: "音声認識（ASR）の設定を開く"
-    close: "閉じる"
-old_whisper_weights:
-    label: "古いWhisperモデル"
-    desc: "以前の版がダウンロードしたWhisperモデルが、お使いのPCで {{size}} を使っています。もう使わないので削除できます。"
-    delete: "古いWhisperモデルを削除"
-    confirm: "Whisperモデル（{{size}}）を削除しますか？元には戻せません。この版ではもう使いません。"
-    confirm_delete: "削除する"
-    cancel: "キャンセル"
-    deleting: "削除しています…"
-    deleted: "古いWhisperモデルを削除しました（{{size}}）。"
-    failed: "{{size}} を削除できませんでした。このファイルを使っていそうなプログラムを閉じてから、もう一度試してください。"
-    unavailable: "古いWhisperモデルを確認または削除できませんでした。"
 network_privacy:
     http_warning: "この接続は暗号化されません。文章・音声・APIキーをネットワーク上の第三者に読み取られる可能性があります。"
     save_notice: "URLは保存時に確認します。APIキーを入力して保存するとこのURLに送信して認証します。"
@@ -2172,6 +2552,22 @@ io_flow:
     median: "直近 {{count}} 件の中央値 {{value}}"
     conversion_guide: "ボイスチェンジャー（目安）"
     conversion_live: "ボイスチェンジャーの往復 {{ms}} ms（直近の中央値）"
+    synthesis: "音声合成"
+    gpu:
+        title: "GPUのメモリ（VRAM）"
+        app: "ASTAROTが使う量 {{size}}"
+        app_shared: "ASTAROTが使う共有メモリ {{size}}"
+        whole: "GPU全体 {{used}} / {{total}}"
+        none: "専用のメモリを持つGPUが見つかりませんでした。"
+        note: "このパネルを開いている間だけ、2秒ごとに読み取ります。「そのほか」はアプリ本体（翻訳、チャットの読み取り、画面）の分です。"
+        part:
+            speech: "音声認識と読み上げ {{size}}"
+            conversion: "ボイスチェンジャー {{size}}"
+            other: "そのほか {{size}}"
+        state:
+            measuring: "VRAMの使用量を読み取っています。"
+            unsupported: "VRAMの使用量を読めるGPUが見つかりませんでした。"
+            failed: "VRAMの使用量を読めませんでした。"
     stage:
         recognition: "音声認識"
         wait: "待ち"
@@ -2285,6 +2681,61 @@ virtual_mic:
         found: "VRChatへ声を届ける仮想ケーブルのつながりをテスト音で確かめます。"
         missing: "仮想ケーブルが見つかりません。入れ方を案内します。"
         open: "仮想マイクを確かめる"
+
+# 初期設定（#557）。起動時に一度だけ開き、最初の画面からも開ける。
+first_run_setup:
+    title: "初期設定"
+    purpose: "音声認識と翻訳とVRChatへの送信を使えるようにします。足りないものを調べて、できるところはまとめて準備します。"
+    later: "後で"
+    done: "完了"
+    dont_show: "今後は自動で表示しない（最初の画面から開けます）"
+    found:
+        heading: "いまの状態"
+        mic: "マイク"
+        mic_missing: "見つかりません。マイクをつないでください。設定の「デバイス」でも選べます。"
+        vrchat: "VRChat"
+        virtual_mic: "仮想マイク"
+        virtual_mic_found: "見つかりました。"
+        virtual_mic_missing: "見つかりません。読み上げとボイスチェンジャーの声をVRChatへ届けるときだけ要ります。"
+        virtual_mic_open: "仮想マイクの案内を開く"
+        translation: "翻訳"
+        translation_ready: "選んでいる翻訳エンジンで使えます。"
+        translation_missing: "選んでいる翻訳エンジンはまだ使えません。ほかの翻訳エンジンを選んでください。"
+        translation_choose: "翻訳エンジンを選ぶ"
+        recognition: "音声認識"
+        recognition_ready: "準備できています。"
+        recognition_cloud: "クラウドのエンジンを選んでいます。キーは設定の「音声認識（ASR）」で登録します。"
+        recognition_own_server: "自分で用意したspeech.cppのサーバーを使う設定です。"
+        recognition_needs_setup: "準備が要ります。下のボタンでまとめて準備できます。"
+        recognition_unknown: "確かめています…"
+    recognition:
+        heading: "音声認識をまとめて準備する"
+        what: "話した声をお使いのコンピューターの中で文字にします。音声は外部へ送りません。次のモデルをダウンロードして設定に入れ、同梱の音声認識サーバーを使うように切り替えます。マイクはオンにしません。"
+        loading: "モデルの一覧を読み込んでいます…"
+        models: "ダウンロードするモデル"
+        model_provider: "提供元：{{provider}}"
+        model_license: "ライセンス：{{license}}"
+        model_size: "容量：{{size}}"
+        model_card: "モデルカードとライセンス"
+        total: "合計 {{size}}（{{bytes}} バイト）"
+        consent: "提供元とライセンスと容量を確かめ、ダウンロードに同意します。"
+        no_download: "ダウンロードするモデルはありません。サーバーとエンジンの設定だけを切り替えます。"
+        start: "準備を始める"
+        stop: "中止"
+        retry: "やり直す"
+        choose_other: "ほかのモデルを選ぶ（「音声認識（ASR）」の設定を開く）"
+        progress: "準備の進み具合"
+        step_model: "{{name}}をダウンロードして設定に入れる"
+        step_server: "同梱の音声認識サーバーを使う"
+        step_engine: "音声認識エンジンをspeech.cppにする"
+        state_waiting: "待機中"
+        state_working: "進めています…"
+        state_downloading: "ダウンロード中 {{done}} / {{total}}"
+        state_done: "完了"
+        state_failed: "できませんでした。"
+        state_stopped: "中止しました。"
+        kept: "設定は前のままです。原因を取り除いてから「やり直す」を押すと、済んだところは飛ばして続きから進めます。"
+        finished: "音声認識の準備ができました。メイン画面の「マイク入力」をオンにすると使えます。"
 
 # 実験中のコンパニオン形態（トレイ、字幕、コントロールパネル）。Issue #355
 companion:

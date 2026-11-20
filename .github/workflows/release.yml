@@ -27,59 +27,14 @@ jobs:
           persist-credentials: false
       - run: python tools/changelog.py check
 
-  # The CUDA package builds first. The CPU job then builds its package and the NSIS installer,
-  # which has the SHA-256 of both packages built in (tools/installer_package_hashes.py): the
-  # installer refuses a package that was replaced on the release page, even with its .sha256.
+  # The build job makes the one Windows package, VRCT-VOX.zip, and the NSIS installer, which has
+  # the package's SHA-256 built in (tools/installer_package_hashes.py): the installer refuses a
+  # package that was replaced on the release page, even with its .sha256.
   # The candidate job below inspects everything together and records the candidate.
-  # Since 0.5.0 both packages hold the same files (no Python, so no CUDA libraries); the CUDA
-  # package stays so that the installer's GPU choice and older GPU installs keep a download
-  # (decision 20 in docs/voice-stack/core-integration.md).
-  build-cuda:
-    name: Windows cuda build
-    runs-on: windows-latest
-    timeout-minutes: 75
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - name: Build and inspect VRCT-VOX_cuda.zip
-        uses: ./.github/actions/windows-package
-        with:
-          variant: cuda
-          script: release-cuda
-          package: VRCT-VOX_cuda.zip
-
-      - name: Collect build outputs
-        shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Force build/windows-output, build/cuda-hash | Out-Null
-          $hash = (Get-FileHash -Algorithm SHA256 VRCT-VOX_cuda.zip).Hash.ToLowerInvariant()
-          Set-Content -NoNewline -Encoding ascii -Path build/cuda-hash/VRCT-VOX_cuda.zip.sha256 -Value $hash
-          Move-Item VRCT-VOX_cuda.zip build/windows-output/
-
-      - name: Hand over the package
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: windows-cuda-build
-          if-no-files-found: error
-          retention-days: 1
-          compression-level: 0
-          path: build/windows-output/*
-
-      # Only the hash goes to the CPU job, which builds it into the installer.
-      - name: Hand over the package hash
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: windows-cuda-hash
-          if-no-files-found: error
-          retention-days: 1
-          path: build/cuda-hash/VRCT-VOX_cuda.zip.sha256
-
-  build-cpu:
-    name: Windows cpu build
-    needs: build-cuda
+  # Up to 0.5 a CUDA package (VRCT-VOX_cuda.zip) was built too; from 0.5.0 it held the same
+  # files, and #288 dropped it. The installer reads its GPU choice (/EDITION=gpu) as this package.
+  build:
+    name: Windows build
     runs-on: windows-latest
     timeout-minutes: 75
     steps:
@@ -91,7 +46,6 @@ jobs:
       - name: Build and inspect VRCT-VOX.zip
         uses: ./.github/actions/windows-package
         with:
-          variant: cpu
           script: release
           package: VRCT-VOX.zip
 
@@ -103,20 +57,14 @@ jobs:
           python tools/check_voice_distribution.py VRCT-VOX-source.zip
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-      - name: Receive the CUDA package hash
-        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        with:
-          name: windows-cuda-hash
-          path: build/cuda-hash
-
-      # The installer from `npm run release` above has no hashes built in. Bundle it again now
-      # that both packages exist; VRCT_REQUIRE_PACKAGE_HASHES stops the build without them.
-      - name: Build the installer with both package hashes
+      # The installer from `npm run release` above has no hash built in. Bundle it again now
+      # that the package exists; VRCT_REQUIRE_PACKAGE_HASHES stops the build without it.
+      - name: Build the installer with the package hash
         shell: pwsh
         env:
           VRCT_REQUIRE_PACKAGE_HASHES: '1'
         run: |
-          python tools/installer_package_hashes.py write --cpu VRCT-VOX.zip --gpu build/cuda-hash/VRCT-VOX_cuda.zip.sha256
+          python tools/installer_package_hashes.py write --package VRCT-VOX.zip
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           # The Tauri CLI directly: through npm, pwsh runs npm.ps1 and drops the "--", so npm
           # takes --bundles as its own option and Tauri gets "bundle nsis".
@@ -134,7 +82,7 @@ jobs:
       - name: Hand over build outputs
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: windows-cpu-build
+          name: windows-build
           if-no-files-found: error
           retention-days: 1
           compression-level: 0
@@ -142,7 +90,7 @@ jobs:
 
   candidate:
     name: Windows candidate (not a release)
-    needs: [build-cuda, build-cpu]
+    needs: build
     runs-on: windows-latest
     timeout-minutes: 30
     # id-token and attestations sign the build provenance of a manual candidate (second security
@@ -185,15 +133,6 @@ jobs:
             $failed = $true
           }
 
-          $configContent = Get-Content src-python/config.py -Raw
-          if ($configContent -notmatch 'self\._VERSION\s*=\s*"([^"]+)"') {
-            Write-Host "::error::could not find self._VERSION in src-python/config.py"
-            $failed = $true
-          } elseif ($Matches[1] -ne $expected) {
-            Write-Host "::error::src-python/config.py VERSION ($($Matches[1])) does not match candidate version ($expected)"
-            $failed = $true
-          }
-
           if ($failed) {
             Write-Host "::error::Version mismatch detected. Set every version field to $expected before building."
             exit 1
@@ -208,23 +147,22 @@ jobs:
       - name: Receive build outputs
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          pattern: windows-*-build
-          merge-multiple: true
+          name: windows-build
           path: build/windows-output
 
-      # The hashes the CPU job built into the installer must be those of the packages
-      # released next to it.
-      - name: Check the installer's built-in package hashes
+      # The hash the build job built into the installer must be that of the package released
+      # next to it.
+      - name: Check the installer's built-in package hash
         shell: pwsh
         run: |
-          python tools/installer_package_hashes.py check --cpu build/windows-output/VRCT-VOX.zip --gpu build/windows-output/VRCT-VOX_cuda.zip --include build/windows-output/package-hashes.nsh
+          python tools/installer_package_hashes.py check --package build/windows-output/VRCT-VOX.zip --include build/windows-output/package-hashes.nsh
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-      - name: Inspect CPU and CUDA ZIPs and completed NSIS installer
+      - name: Inspect the ZIP and the completed NSIS installer
         shell: pwsh
         run: |
           $installer = "build/windows-output/ASTAROT_$($env:VERSION)_x64-setup.exe"
-          python tools/check_voice_distribution.py build/windows-output/VRCT-VOX.zip build/windows-output/VRCT-VOX_cuda.zip --nsis $installer
+          python tools/check_voice_distribution.py build/windows-output/VRCT-VOX.zip --nsis $installer
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Stage release names and candidate identity
@@ -233,7 +171,7 @@ jobs:
         shell: pwsh
         run: |
           $installer = "build/windows-output/ASTAROT_$($env:VERSION)_x64-setup.exe"
-          python tools/release_candidate.py stage build/release-candidate --platform windows --commit $env:CANDIDATE_COMMIT --asset build/windows-output/VRCT-VOX.zip --asset build/windows-output/VRCT-VOX_cuda.zip --asset $installer
+          python tools/release_candidate.py stage build/release-candidate --platform windows --commit $env:CANDIDATE_COMMIT --asset build/windows-output/VRCT-VOX.zip --asset $installer
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python tools/release_candidate.py verify build/release-candidate --platform windows --commit $env:CANDIDATE_COMMIT
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

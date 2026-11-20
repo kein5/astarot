@@ -65,15 +65,38 @@ fn history_block(history: &[HistoryItem]) -> String {
     format!("Conversation context (recent {HISTORY_MAX_MESSAGES} messages):\n{blob}\n")
 }
 
-/// The system prompt for one translation.
-pub fn system_prompt(plamo: bool, supported: &[String], input: &str, output: &str, history: &[HistoryItem]) -> String {
+/// The names and terms of the user's term dictionary that appear in the text (#446). Only the
+/// written forms already in the text are listed, so nothing is sent that the text does not hold.
+fn glossary_block(glossary: &[String]) -> String {
+    if glossary.is_empty() {
+        return String::new();
+    }
+    let lines: Vec<String> = glossary.iter().map(|term| format!("- {term}")).collect();
+    format!(
+        "Registered names and terms in the text. Treat each as a proper noun: do not translate its \
+         meaning; keep its spelling, or write it in the output language's script if that language \
+         needs another one.\n{}\n\n",
+        lines.join("\n")
+    )
+}
+
+/// The system prompt for one translation. `glossary` is empty unless the user's term dictionary
+/// has words in the text; without it the prompt is the one Python sent.
+pub fn system_prompt(
+    plamo: bool,
+    supported: &[String],
+    input: &str,
+    output: &str,
+    history: &[HistoryItem],
+    glossary: &[String],
+) -> String {
     let template = if plamo { PLAMO } else { GENERAL };
     let prompt = template
         .replace("{supported_languages}", &python_list(supported))
         .replace("{input_lang}", input)
         .replace("{output_lang}", output);
     // The header is never empty, so it is always added (as in Python).
-    format!("{prompt}\n\n{}", history_block(history))
+    format!("{prompt}\n\n{}{}", glossary_block(glossary), history_block(history))
 }
 
 #[cfg(test)]
@@ -86,7 +109,7 @@ mod tests {
 
     #[test]
     fn the_prompt_matches_the_python_template() {
-        let prompt = system_prompt(false, &["Japanese".into(), "English".into()], "Japanese", "English", &[]);
+        let prompt = system_prompt(false, &["Japanese".into(), "English".into()], "Japanese", "English", &[], &[]);
         assert_eq!(
             prompt,
             "You are a helpful translation assistant.\nSupported languages:\n['Japanese', 'English']\n\n\
@@ -94,6 +117,14 @@ mod tests {
              Return ONLY the translated text. Do not add quotes or extra commentary.\n\n\n\
              Conversation context (recent 5 messages):\n\n"
         );
+    }
+
+    #[test]
+    fn the_terms_in_the_text_come_before_the_history() {
+        let prompt = system_prompt(false, &[], "Japanese", "English", &[item("chat", "前")], &["猫丸".into(), "Midnight Rooftop".into()]);
+        let terms = prompt.find("- 猫丸\n- Midnight Rooftop\n").expect("the terms are listed");
+        assert!(prompt[..terms].contains("Treat each as a proper noun"));
+        assert!(terms < prompt.find("Conversation context").unwrap());
     }
 
     #[test]

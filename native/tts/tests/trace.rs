@@ -67,7 +67,7 @@ impl OutputSink for ObservedSink {
 fn run_message(url: &str, sink: &ObservedSink, event_id: &str) -> (SpeechMessageEvent, VoiceStatus) {
     let output = sink.clone();
     let factory = move |_: &str, _: u32, _: u16| -> Result<Box<dyn OutputSink>, TtsError> { Ok(Box::new(output.clone())) };
-    let settings = VoiceSettings { mode: "original".into(), output_device: "test".into(), japanese_url: url.to_owned(), ..Default::default() };
+    let settings = VoiceSettings { mode: "original".into(), output_device: "test".into(), japanese_url: url.to_owned(), ..external() };
     let bus = VoiceEventBus::new(settings, BusOptions::new(Arc::new(AudioRouter::new(Arc::new(factory)))));
     let event = SpeechMessageEvent { source_language: Some("ja".into()), ..SpeechMessageEvent::new(event_id, Source::Chat, "PRIVATE TEXT") };
     assert!(bus.publish(event.clone(), None, None));

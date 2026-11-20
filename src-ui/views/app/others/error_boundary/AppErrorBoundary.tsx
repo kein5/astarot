@@ -1,0 +1,163 @@
+import { useState } from "react";
+import type { ErrorInfo, ReactNode } from "react";
+import { useI18n } from "@useI18n";
+import { ErrorBoundary } from "react-error-boundary";
+
+import CopySvg from "@images/copy.svg?react";
+import CheckMarkSvg from "@images/check_mark.svg?react";
+import ExternalLinkSvg from "@images/external_link.svg?react";
+
+import { ContactsContainer } from "./contacts_container/ContactsContainer";
+
+import {
+    useWindow,
+    useUpdateSoftware,
+    useIsSoftwareUpdating,
+    useSoftwareVersion,
+    useCopyToClipboard,
+} from "@logics_common";
+import { CloseButton } from "@common_components";
+import { useAppUpdate } from "../../../../logics/common/useAppUpdate";
+
+import styles from "./AppErrorBoundary.module.scss";
+
+const VRCT_STATUS_URL = "https://github.com/kein5/astarot/issues";
+
+export const AppErrorBoundary = ({children}: { children?: ReactNode }) => {
+    const [errorInfo, setErrorInfo] = useState<ErrorInfo | null>(null);
+
+    return (
+        <ErrorBoundary
+            onError={(error, info) => setErrorInfo(info)}
+            fallbackRender={({ error }) => (
+                <ErrorContainer error={error} errorInfo={errorInfo} />
+            )
+        }>
+            {children}
+        </ErrorBoundary>
+    );
+};
+
+const ErrorContainer =({error, errorInfo}: { error: unknown; errorInfo: ErrorInfo | null }) => {
+    const { t } = useI18n();
+    // A broken window is not put away in the tray: this ends the app.
+    const { asyncQuitApp } = useWindow();
+    const { currentSoftwareVersion } = useSoftwareVersion();
+    const { is_copied, copyToClipboard } = useCopyToClipboard({ show_error_notification: false });
+
+    const formatted_stack = error ? formatStackTrace(stackOf(error)) : "Unknown error";
+    const app_version = currentSoftwareVersion?.data || "Unknown";
+
+    const error_log_text = [
+        `Version: ${app_version}`,
+        `Date: ${new Date().toISOString().replace('T', ' ').split('.')[0]}`,
+        "",
+        "=== Error Stack ===",
+        formatted_stack,
+        "",
+        "=== Component Stack ===",
+        errorInfo?.componentStack ? formatStackTrace(errorInfo.componentStack) : "Not available",
+    ].join("\n");
+
+    const onCopyErrorLog = () => {
+        copyToClipboard(error_log_text);
+    };
+
+    return (
+        <div className={styles.container}>
+            <div className={styles.drag_able_area} data-tauri-drag-region></div>
+            <CloseButton variant="active_error" aria-label={t("studio.close")} onClick={asyncQuitApp} />
+            <div className={styles.wrapper}>
+                <p className={styles.error_message}>{t("common_error.recovery_instructions")}</p>
+                <SafeActionButtons />
+                {error ?
+                    <div className={styles.error_detail_container}>
+                        <div className={styles.error_stack_container}>
+                            <p className={styles.error_stack}>
+                                {error_log_text}
+                            </p>
+                        </div>
+                        <button className={styles.copy_error_message_button} onClick={onCopyErrorLog}>
+                            <p className={styles.copy_text}>{t("common_error.copy_error_log")}</p>
+                            {is_copied
+                                ? <CheckMarkSvg className={styles.check_mark_svg}/>
+                                : <CopySvg className={styles.copy_svg}/>
+                            }
+                        </button>
+                    </div>
+                : null}
+                <ContactsContainer />
+            </div>
+        </div>
+    );
+};
+
+
+const SafeActionButtons = () => {
+    try {
+        return <ActionButtons />;
+    } catch {
+        return null;
+    }
+};
+
+const ActionButtons = () => {
+    const { t } = useI18n();
+    const { updateSoftware } = useUpdateSoftware();
+    const { currentIsSoftwareUpdating, updateIsSoftwareUpdating } = useIsSoftwareUpdating();
+    const { currentLatestSoftwareVersionInfo } = useSoftwareVersion();
+    const { appUpdate } = useAppUpdate();
+
+    // The backend's start-up check (/run/software_update_info) found a newer version, and this
+    // copy updates itself (the installer or a writable AppImage; src-tauri/src/app_update.rs).
+    // A ZIP, a tar.gz or a package is updated by hand: the button would only fail there.
+    const is_update_available = currentLatestSoftwareVersionInfo?.data?.is_update_available === true
+        && appUpdate.info?.mode === "install";
+    const is_updating = currentIsSoftwareUpdating?.data === true;
+
+    const onClickUpdate = () => {
+        try {
+            updateIsSoftwareUpdating(true);
+            // One package for every PC (#288).
+            updateSoftware();
+        } catch (e) {
+            console.error("[AppErrorBoundary] Update failed:", e);
+        }
+    };
+
+
+    return (
+        <div className={styles.action_buttons_container}>
+            {is_update_available && (
+                <button
+                    className={styles.update_button}
+                    onClick={onClickUpdate}
+                    disabled={is_updating}
+                >
+                    {is_updating ? t("common_error.updating") : t("common_error.update_now")}
+                </button>
+            )}
+            <a
+                className={styles.status_link_button}
+                href={VRCT_STATUS_URL}
+                target="_blank"
+                rel="noreferrer"
+            >
+                <span>{t("common_error.check_issues")}</span>
+                <ExternalLinkSvg className={styles.external_link_svg} />
+            </a>
+        </div>
+    );
+};
+
+// What was thrown is not always an Error; only an Error-like value has a stack.
+const stackOf = (error: unknown): string | undefined =>
+    typeof error === "object" && error !== null && "stack" in error && typeof error.stack === "string" ? error.stack : undefined;
+
+const formatStackTrace = (stack: string | null | undefined) => {
+    if (!stack) return "";
+    // フルパスの除去（例として window.location.origin や絶対パス部分を削除）
+    const formatted = stack.replace(new RegExp(window.location.origin, "g"), "");
+
+    return formatted;
+};

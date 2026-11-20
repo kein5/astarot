@@ -21,7 +21,7 @@ flowchart LR
 ```
 
 - サイドカーと話すのは`main`ウィンドウだけである。VRパネルとQuick Chatは`main`を経由する（[外部インターフェース](external-interfaces.md#ウィンドウ間の連携)）。
-- 起動は`backend_start`（`src-tauri/src/backend_host.rs`）で、UIは`backendCommand.ts`を通して0.4までの`Command.sidecar`と同じ形で扱う（`src-ui/views/app/_app_controllers/StartPythonController.jsx`）。要求は`backend_write`、終了は`backend_kill`で、応答と通知は順序を保つチャネルで届く。行の形式と規則は0.4までと変わらない（[中核の統合](../voice-stack/core-integration.md)）。下で「stdin」「stdout」と書くのは、この要求と応答の向きのことである。
+- 起動は`backend_start`（`src-tauri/src/backend_host.rs`）で、UIは`backendCommand.ts`を通して0.4までの`Command.sidecar`と同じ形で扱う（`src-ui/views/app/_app_controllers/StartPythonController.tsx`）。要求は`backend_write`、終了は`backend_kill`で、応答と通知は順序を保つチャネルで届く。行の形式と規則は0.4までと変わらない（[中核の統合](../voice-stack/core-integration.md)）。下で「stdin」「stdout」と書くのは、この要求と応答の向きのことである。
 
 ## メッセージの形
 
@@ -36,8 +36,8 @@ flowchart LR
 | `endpoint` | 文字列 | 要求するエンドポイント |
 | `data` | 文字列（省略可） | 値を`JSON.stringify`したものをBase64にした文字列。値がない要求では省略する |
 
-- 1行に1つのJSONを書き、改行で終える（`src-ui/logics/common/useStdoutToPython.js`）。
-- サイドカーは`data`をBase64から戻してJSONとして読む（`encodeBase64`、`src-python/utils.py`）。読めないときは空の辞書になる。
+- 1行に1つのJSONを書き、改行で終える（`src-ui/logics/common/useStdoutToPython.ts`）。
+- サイドカーは`data`をBase64から戻してJSONとして読む（`native/core/src/protocol.rs`。Pythonの`encodeBase64`と同じ）。読めないときは空の辞書になる。
 - 要求に通し番号はない。応答は`endpoint`で対応づける。言語の変更は後述の所有者で管理する。音声・RVC・音声サーバー・リアルタイム音声認識の設定とホットキーの保存は、同じエンドポイント内で送信順に応答を対応づける。状態の取得応答では保存を確定しない。書き込み中の輸送エラーで到達したか分からなくなった場合は、その応答が届くかセッションが終わるまで、同じ保存先への追加送信を止める。
 
 ### 応答と通知（サイドカー → UI、stdout）
@@ -70,11 +70,11 @@ flowchart LR
 - 集約用のキーは最大64件。不明な形、未知の通知、枠がない新規キーは通常の行として保持し、別の字幕行などを捨てない。このため、保持が必要な行の総数・総バイト数に上限はない。
 - 別の監視スレッドが、未配送の行（書き込み中を含む）がある状態で20秒書き込みを完了できなかったことを、`error.log`に1回記録する。保持行、集約行、診断ログ、書き込み中、累積欠落の件数を添える。次に書き込みを完了すると復旧を1回記録する。writerと監視は別の条件変数で待つ。監視を通知で起こすのは、期限未設定時の最初の投入、詰まりを報告したあとの最初の成功、停止だけである。通常の投入・完了では起こさず、設定済みの期限に達してから最新の進捗時刻を読む。その時点でキューが空なら期限なしの待機に戻り、詰まりの報告後も復旧まで期限なしで待つ。詰まりだけでは終了・再起動・要求の再実行をしない。
 - 一時的な`OSError`（WindowsのErrno 22など）は同じ出力行を最大3回試す。途中まで出た行と次のJSONが連結しないよう、失敗後は改行の書き込みとflushを成功させてから次の試行へ進む。改行の失敗も試行回数に含める。壊れたパイプ・閉じたstdoutなどはその行の試行を打ち切る。配送を断念した行は累積欠落件数とともに`error.log`に記録し、後続の成功でその記録や累計を消さない。50行の連続失敗で既存のフロントエンド消失コールバックを呼ぶ（未登録時は終了）。成功で連続失敗数だけを戻す。
-- UIの`StartPythonController.jsx`が使う`sidecarSession.ts`は空行を無視し、不正なJSONの行を記録して後続の行を読む。flushの失敗時には、行全体がすでに届いている可能性もある。再試行による重複は受信確認のない現行形式では判別できず、厳密な一度限りの配送は保証しない。輸送の診断が失敗してもstdoutへ書き戻さない。
+- UIの`StartPythonController.tsx`が使う`sidecarSession.ts`は空行を無視し、不正なJSONの行を記録して後続の行を読む。flushの失敗時には、行全体がすでに届いている可能性もある。再試行による重複は受信確認のない現行形式では判別できず、厳密な一度限りの配送は保証しない。輸送の診断が失敗してもstdoutへ書き戻さない。
 
 ### 状態コード
 
-| `status` | 意味 | UIの扱い（`useReceiveRoutes.js`） |
+| `status` | 意味 | UIの扱い（`useReceiveRoutes.ts`） |
 |---|---|---|
 | 200 | 成功 | エンドポイントに登録された受信先へ`result`を渡す。受信先がなければ`Invalid endpoint`としてコンソールに出す |
 | 400 | 想定されたエラー | `result.error_code`で振り分ける（[横断的な振る舞い](cross-cutting.md#エラーの扱い)） |
@@ -112,7 +112,7 @@ OpenAI互換とCustom WhisperのURL単独の設定要求（`/set/data/openai_com
 }}
 ```
 
-- `VRCTError.create_error_response`（`src-python/errors.py`）が作る。`message`は英語の既定文で、UIは多くの場合`locales/`の文言に置き換える。
+- 中核の`native/core/src/errors/mod.rs`が作る（Pythonの`VRCTError.create_error_response`と同じ形）。`message`は英語の既定文で、UIは多くの場合`locales/`の文言に置き換える。
 - `data`は「元に戻すべき値」である。設定の検証エラーでは保存前の値が入り、UIはその値で画面を巻き戻す。
 - 音声系の409は`{"error_code": "..."}`だけを返すことがある。
 - 例外から作ったエラーは`details.exception_type`を持つ。
@@ -128,7 +128,7 @@ OpenAI互換とCustom WhisperのURL単独の設定要求（`/set/data/openai_com
 | `/run/<名前>` | 操作、または通知 | `/run/send_message_box`、`/run/initialization_complete` |
 
 - `/run/…`は要求にも通知にも使う。どちらであるかは[一覧](reference/ipc-endpoints.md)で区別している。
-- 通知の名前は`run_mapping`（`src-python/mainloop.py`）にあり、サイドカーは`controller.run(status, run_mapping[名前], result)`で送る。`run_mapping`にない名前を使うと送る時点で例外になるため、`src-python/test/test_controller_run_mapping_contract.py`が名前の存在を確かめる。
+- 通知の名前は中核の`RUN_MAPPING`（`native/core/src/controller/mod.rs`。Pythonの`run_mapping`と同じ名前）にあり、表にない名前は送る時点で止まる。名前の一覧は[IPCエンドポイント一覧](reference/ipc-endpoints.md)の「通知」にある。
 
 ## 起動と初期化
 
@@ -159,7 +159,7 @@ sequenceDiagram
 ```
 
 1. サイドカーは受信スレッド、処理ワーカー、監視の知らせを処理するスレッドを動かしてから`controller.init()`を実行する。初期化の間に届いた要求のうち、`mapping`で`"status": False`のもの（翻訳・音声認識のオンオフ、メッセージ送信など）はロック中として扱う。
-2. 初期化の最後に、ほぼすべての`/get/data/…`の結果を1つにまとめた`/run/initialization_complete`を送る。ネットワークを使う`available_releases`と`realtime_asr_models`、画面の調査をする`ocr_readiness`、実行中の状態を示す`ocr_capture_status`、`vrchat_osc_presence`、`telemetry_preview`、`tts_engine_voices`、システムの書体を調べる`overlay_font_missing_languages`の8つは含めない（中核の`controller/lifecycle.rs`の`INIT_EXCLUDED`）。`realtime_asr_models`は、UIが`/run/initialization_complete`を受けた後に要求する。値を取れなかった項目は`null`になる。
+2. 初期化の最後に、ほぼすべての`/get/data/…`の結果を1つにまとめた`/run/initialization_complete`を送る。ネットワークを使う`available_releases`と`realtime_asr_models`、画面の調査をする`ocr_readiness`、実行中の状態を示す`ocr_capture_status`、`vrchat_osc_presence`、`telemetry_preview`、`tts_engine_voices`、システムの書体を調べる`overlay_font_missing_languages`、GPUのメモリーを読む`gpu_memory`の9つは含めない（中核の`controller/lifecycle.rs`の`INIT_EXCLUDED`）。`realtime_asr_models`は、UIが`/run/initialization_complete`を受けた後に要求する。値を取れなかった項目は`null`になる。
 3. UIは`/run/initialization_complete`の各項目を対応する受信先に配り、`IsBackendReady`を真にしてメイン画面の操作を有効にする（それまでは操作できない仮の表示。[初期化中の扱い](cross-cutting.md#初期化中オフライン能力の不足)）。各取得先が必要とする配列・オブジェクト・文字列・数値・真偽値の形を先に確かめる。APIキーや未選択のモデルなど、未設定を表す`null`は受け付ける。必須の値が欠けている、形が違う、または反映時に例外が出た場合は、その項目の安全な初期値を残して後続の項目へ進む。言語の初期値には全タブの表示枠を用意し、取得できていない言語名は既存の読み込み中の表示にする。失敗した項目名と理由を1回ずつコンソールに記録し、値自体は記録しない。失敗があれば、同じ結果に含まれるUIの言語で、一部の設定を読み込めなかったことを既存の消えない警告通知で知らせる。音声・音声サーバー・リアルタイム音声認識・モデル取得の状態は、このときUIから改めて取りに行く。
 4. 全エンドポイントのロックが外れるのは`init()`が戻ったあとである。
 
@@ -171,9 +171,9 @@ Rustの中核は、準備の途中で止まったときも終了コードで知�
 
 `failed`と`stopped`のどちらでも`IsBackendReady`を偽にし、グローバルホットキーとQuick Chatの送信を無効にする。初期化後に終了した場合はメイン画面を残し、起動中の操作できない表示には戻さない。メインの機能スイッチは最後に確認した値を保持するが、動作中とは表示せず、接続が切れたことを文言とアクセシブル名で示して操作を無効にする。サイドカーがない間は、これらのスイッチから要求を送らない。
 
-中核の起動・入力・終了は、Tauriのコマンド`backend_start`、`backend_write`、`backend_kill`で行う（`src-tauri/src/backend_host.rs`）。3つとも`main`ウィンドウからの呼び出しだけを受け付け、ほかのウィンドウには`backend_forbidden`を返す。入力と終了は、起動のときに渡したセッションIDが今の実行と一致するときだけ働く。新しく起動すると、前の実行を止めてから始める。アプリはshellプラグインを入れない（0.4まではPythonのサイドカーの起動に使っていた）。リンクはopenerプラグインの一覧だけで開く。UIはファイルの読み書きとHTTPの要求を自分でしないので、fsとhttpのプラグインはアプリに入れない（セキュリティ監査SEC-05）。`src-ui/logics/common/appPermissions.test.js`が、権限の一覧とUIの呼び出し方を照合する。
+中核の起動・入力・終了は、Tauriのコマンド`backend_start`、`backend_write`、`backend_kill`で行う（`src-tauri/src/backend_host.rs`）。3つとも`main`ウィンドウからの呼び出しだけを受け付け、ほかのウィンドウには`backend_forbidden`を返す。入力と終了は、起動のときに渡したセッションIDが今の実行と一致するときだけ働く。新しく起動すると、前の実行を止めてから始める。アプリはshellプラグインを入れない（0.4まではPythonのサイドカーの起動に使っていた）。リンクはopenerプラグインの一覧だけで開く。UIはファイルの読み書きとHTTPの要求を自分でしないので、fsとhttpのプラグインはアプリに入れない（セキュリティ監査SEC-05）。`src-ui/logics/common/appPermissions.test.ts`が、権限の一覧とUIの呼び出し方を照合する。
 
-これらは`src-ui/logics/useReceiveRoutes.test.js`、`src-ui/logics/common/sidecarSession.test.js`、`useStdoutToPython.test.js`で、spawnと子プロセスのイベントを模擬して検証する。
+これらは`src-ui/logics/useReceiveRoutes.test.ts`、`src-ui/logics/common/sidecarSession.test.ts`、`useStdoutToPython.test.ts`で、spawnと子プロセスのイベントを模擬して検証する。
 
 ## 並行性とロック
 
@@ -183,7 +183,7 @@ Rustの中核は、準備の途中で止まったときも終了コードで知�
 - OBSとWebSocketのオン・オフ、WebSocketのホスト・ポート、OBSのポートへの書き込みは、依存するサーバーを途中で止めないように同じロックを使う。待ち受けの確認、設定の確定、失敗時の復旧が終わるまで次の操作を入れない。待機の上限は通常のエンドポイントロックと同じである。
 - 入力中表示の開始（`/run/typing_message_box`）と停止（`/run/stop_typing_message_box`）は、共通の`/lock/typing_message_box`で受信順に処理する。先の開始を取り出したワーカーが処理を始める前でも、後の停止が追い越すことはない。要求と応答の形式、通常のロック待機上限は変えない。
 - 初期化前のロック（`"status": False`）に当たった要求は同じロックの先頭に保持し、0.1秒ごとに再試行する。300回（約30秒）で423を返す。再試行までの待機もワーカーを専有しない。
-- 次の要求はキューを通らず、受信した時点で処理する。止める操作が、ほかの重い処理の後ろで待たないためである: `/run/stop_voice`、`/run/disable_tts`、`/run/mute_voice`、`/run/resume_voice`、`/run/stop_direct_voice`、`/run/stop_realtime_asr`、`/run/stop_speech_server`。
+- 次の要求はキューを通らず、受信した時点で処理する。止める操作が、ほかの重い処理の後ろで待たないためである: `/run/stop_voice`、`/run/disable_tts`、`/run/mute_voice`、`/run/resume_voice`、`/run/stop_direct_voice`、`/run/stop_realtime_asr`、`/run/stop_speech_server`、`/run/stop_voice_audition`（中核のみ）。
 - `/run/feed_watchdog`もキューを通らず、専用のスレッドが受信順に処理する。3本のワーカーが重い処理で埋まっても監視への知らせが遅れず、動いているサイドカーを監視が止めないためである。
 - 受信スレッドは一部の要求に世代番号を付ける（`/run/send_message_box`の`_voice_generation`など）。キューで待つ間に停止操作があった要求の音声を、あとから鳴らさないためである（[横断的な振る舞い](cross-cutting.md#停止とミュート)）。
 - `/run/start_realtime_asr`と、リアルタイム音声認識を使うメインスイッチ（`/set/enable/transcription_send`、`/set/enable/transcription_receive`）には、受信時の`_realtime_generation`を付ける。サーバーの準備中もその世代を保ち、後から届いた停止で古くなった要求は録音を開始しない。メインスイッチでは既存の400 `TRANSCRIPTION_SEND_NOT_READY` / `TRANSCRIPTION_RECEIVE_NOT_READY`（`data: false`、`details.reason: realtime_stale_start`）を返す。取り消された要求が起動した内蔵サーバーは、別の開始処理や動作中の音声認識が使っていなければ解放する。
@@ -195,16 +195,16 @@ Rustの中核は、準備の途中で止まったときも終了コードで知�
 ## 監視と終了
 
 - UIは起動後20秒ごとに`/run/feed_watchdog`を送る。セッションごとのタイマーは1つで、最後のコントローラーが外れると解除し、再接続時に再開する。アンマウント後にspawnが完了しても、コントローラーがなければタイマーを作らない。サイドカーは60秒届かなければ自分を止める（`WATCHDOG_TIMEOUT`、`WATCHDOG_INTERVAL`）。止める処理が30秒で終わらなければプロセスを強制終了する。
-- メインウィンドウを閉じるときは、閉じるボタンでも、Alt+F4やタスクバーからでも、`/run/shutdown`を1回だけ送り、2秒待ってからウィンドウを破棄する（`src-ui/logics/common/useWindow.js`の`WindowCloseController`）。2秒で終わらなかった終了処理は、アプリの終了時に中核の実行を止める（`BackendHost::shutdown`）ため、最後まで実行されない。
+- メインウィンドウを閉じるときは、閉じるボタンでも、Alt+F4やタスクバーからでも、`/run/shutdown`を1回だけ送り、2秒待ってからウィンドウを破棄する（`src-ui/logics/common/useWindow.ts`の`WindowCloseController`）。2秒で終わらなかった終了処理は、アプリの終了時に中核の実行を止める（`BackendHost::shutdown`）ため、最後まで実行されない。
 - stdinが閉じたら（EOF）、サイドカーはUIが終わったとみなし、監視の期限を待たずに監視の期限切れと同じ終了処理（`escalateShutdown`）に入る。停止を頼まれた後のEOFでは何もしない。UIが止まったまま出力を読まない場合に止めるのは、引き続き監視の役目である。
 - サイドカーのプロセスが終わると、UIは通常のatom、言語変更、TTS/RVC、音声サーバー、リアルタイムASR、モデル取得の待機を解除する。動作中だったダウンロードやサーバーには利用不可の状態を表示し、待機中だった操作を再送しない。停止後のポーリングは送信しない。
-- `/run/shutdown`、`/run/update_software`、`/run/update_cuda_software`による予定された終了でない限り、処理部分が停止したので再起動が要ることを既存の消えない通知で知らせる（`StartPythonController.jsx`）。予定された終了でも待機は解除する。終了予定はセッションごと、エンドポイントごとに保持し、送信失敗や200以外の応答で解除する。更新のダウンロード・検証失敗も解除の対象で、更新中の画面も戻す。その後のクラッシュは通常どおり通知する。終了予定は次のセッションへ持ち越さない。
+- `/run/shutdown`、`/run/update_software`、`/run/update_cuda_software`による予定された終了でない限り、処理部分が停止したので再起動が要ることを既存の消えない通知で知らせる（`StartPythonController.tsx`）。予定された終了でも待機は解除する。終了予定はセッションごと、エンドポイントごとに保持し、送信失敗や200以外の応答で解除する。更新のダウンロード・検証失敗も解除の対象で、更新中の画面も戻す。その後のクラッシュは通常どおり通知する。終了予定は次のセッションへ持ち越さない。
 
 ## stderrとログ
 
 - stderrの行のうち、警告と判定したもの（`src-ui/logics/common/sidecarDiagnostics.ts`）は無視する。それ以外の行は、消えないエラー通知として表示する。
 - status 348の行はログで、UIは表示しない。同じ内容が`process.log`にも書かれる。
-- UIが0.5〜1秒ごとに問い合わせる状態（`POLLED_ENDPOINTS`。音声の状態、経路、声質変換の状態、音声サーバー、リアルタイム音声認識、モデル取得）は、成功した応答（200）を`process.log`にもstatus 348の行にも書かない。応答そのものはUIへ送る。失敗した応答は書く。設定の音量チェックが送る音量の値（`/run/check_mic_volume`、`/run/check_speaker_volume`）も、成功したものは`process.log`に書かない。
-- UIの2つの音量メーターは、値と`state`がともに同じならatomのオブジェクトを再利用する。受信側はメーターの値を購読せず、書き込みだけを行う。他のatomの再通知の意味は変えない（`src-ui/logics/common/meterValue.test.js`）。
+- UIが0.5〜1秒ごとに問い合わせる状態（`POLLED_ENDPOINTS`。音声の状態、経路、声質変換の状態、音声サーバー、リアルタイム音声認識、モデル取得、読み上げの試聴）は、成功した応答（200）を`process.log`にもstatus 348の行にも書かない。応答そのものはUIへ送る。失敗した応答は書く。設定の音量チェックが送る音量の値（`/run/check_mic_volume`、`/run/check_speaker_volume`）も、成功したものは`process.log`に書かない。
+- UIの2つの音量メーターは、値と`state`がともに同じならatomのオブジェクトを再利用する。受信側はメーターの値を購読せず、書き込みだけを行う。他のatomの再通知の意味は変えない（`src-ui/logics/common/meterValue.test.ts`）。
 - 応答をJSONにできなかったときは、500をUIへ送り、`process.log`には値を除いた形（型の並び）だけを書く。
 - ログではAPIキーなどの値を伏せる（`SENSITIVE_ENDPOINT_MARKERS`）。会話の本文は`process.log`に書かない。stdoutのIPCそのものは伏せない。

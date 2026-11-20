@@ -38,10 +38,12 @@ pub mod openrouter;
 pub mod papago;
 pub mod plamo;
 
+pub mod retry;
+
 use crate::http::{HttpError, Response, Timeouts, Transport};
 use crate::prompt::HistoryItem;
 use serde_json::Value;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 pub use deepl::DeepL;
 pub use gemini::Gemini;
@@ -146,14 +148,41 @@ pub trait Api {
     /// Translates one text. Codes as the engine's language table gives them.
     fn translate(transport: &Transport, access: &Access<'_>, request: &Translation<'_>) -> Result<String, Error>;
 
+    /// Whether a failed translation is tried once more, and after how long: the rule of the SDK
+    /// the Python client used (`docs/spec/cross-cutting.md`: the SDK's own judgement and
+    /// backoff). `answer` is what the provider answered, if it answered; `since_start` the time
+    /// since the first try began. The default is the OpenAI SDK's ([`retry::openai`]).
+    fn backoff(error: Error, answer: Option<&Response>, since_start: Duration) -> Option<Duration> {
+        let _ = since_start;
+        retry::openai(error, answer)
+    }
+
     /// Runs one translation request: a local address once with [`LOCAL_CHAT`], else with
-    /// [`Api::TRANSLATE_WAIT`] and one more try when the failure is worth it (the SDKs'
-    /// `max_retries=1`).
-    fn attempt<T>(base: &str, mut once: impl FnMut(Timeouts) -> Result<T, Error>) -> Result<T, Error> {
+    /// [`Api::TRANSLATE_WAIT`] and, when [`Api::backoff`] says so, once more after its pause (the
+    /// SDKs' `max_retries=1`). `once` sends through the transport it is given, so that the
+    /// answer's retry headers can be read.
+    fn attempt<T>(
+        transport: &Transport,
+        base: &str,
+        mut once: impl FnMut(&Transport, Timeouts) -> Result<T, Error>,
+    ) -> Result<T, Error> {
         if Self::local(base) {
-            once(LOCAL_CHAT)
-        } else {
-            retry_once(|| once(Self::TRANSLATE_WAIT))
+            return once(transport, LOCAL_CHAT);
+        }
+        let (watching, last) = retry::watch(transport);
+        let started = Instant::now();
+        match once(&watching, Self::TRANSLATE_WAIT) {
+            Err(error) => {
+                let answer = last.lock().unwrap_or_else(|e| e.into_inner()).take();
+                match Self::backoff(error, answer.as_ref(), started.elapsed()) {
+                    Some(pause) => {
+                        std::thread::sleep(pause);
+                        once(transport, Self::TRANSLATE_WAIT)
+                    }
+                    None => Err(error),
+                }
+            }
+            done => done,
         }
     }
 }
@@ -387,12 +416,20 @@ impl Error {
         matches!(self, Error::Http(HttpError::Unreachable))
     }
 
-    /// Worth one more try at run time (`max_retries=1`; the SDKs' retry rules).
+    /// Worth one more try by the OpenAI SDK's statuses (`max_retries=1`): a connection that
+    /// failed or timed out, and 408, 409, 429 and 5xx. The answer's headers can say otherwise
+    /// ([`retry::openai`]); the providers whose Python client used another SDK have their own
+    /// rule in [`Api::backoff`].
     pub fn retryable(self) -> bool {
+        self.retryable_with(|status| matches!(status, 408 | 409 | 429) || status >= 500)
+    }
+
+    /// Worth one more try: a connection that failed or timed out, or a status `statuses` takes.
+    pub fn retryable_with(self, statuses: impl Fn(u16) -> bool) -> bool {
         match self {
             Error::Http(HttpError::Url) => false,
             Error::Http(_) => true,
-            Error::Status(status) => matches!(status, 408 | 409 | 429) || status >= 500,
+            Error::Status(status) => statuses(status),
             _ => false,
         }
     }
@@ -446,6 +483,9 @@ pub struct Translation<'a> {
     /// The source languages of the engine, for the prompt.
     pub supported_languages: &'a [String],
     pub history: &'a [HistoryItem],
+    /// Names and terms from the user's term dictionary that appear in `text` (#446), for the
+    /// prompt; only the AI providers read it. Empty adds nothing to the prompt.
+    pub glossary: &'a [String],
 }
 
 // ------------------------------------------------------------------------- leaf helpers
@@ -468,14 +508,6 @@ pub(crate) fn json_of(response: &Response) -> Result<Value, Error> {
     response.json().ok_or(Error::Answer)
 }
 
-/// Runs a request once more when the first failure is worth it (the SDKs' `max_retries=1`).
-pub(crate) fn retry_once<T>(mut attempt: impl FnMut() -> Result<T, Error>) -> Result<T, Error> {
-    match attempt() {
-        Err(error) if error.retryable() => attempt(),
-        other => other,
-    }
-}
-
 /// Percent-encodes a query or path value.
 pub(crate) fn percent(text: &str) -> String {
     let mut out = String::new();
@@ -487,6 +519,12 @@ pub(crate) fn percent(text: &str) -> String {
         }
     }
     out
+}
+
+/// A query value as a form encodes it (Python's `quote_plus`, which the Google SDK used): a
+/// space becomes `+`, the rest as [`percent`].
+pub(crate) fn form_value(text: &str) -> String {
+    text.split(' ').map(percent).collect::<Vec<_>>().join("+")
 }
 
 /// The sorted `field` of each entry of `array` in the answer of a local server, without a key;

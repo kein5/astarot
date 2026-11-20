@@ -152,13 +152,13 @@ export const isSecretAtomName = (name: string): boolean => /(Auth(Key|Token)|Res
 // VR画面へ写してよい状態 (SEC-03)。VR画面が読む設定のカテゴリ (useVr、useDevice などで丸ごと読む)
 // と、VR画面がそのほかに読む atom だけを送る。高度な設定 (WebSocket、OSC、テレメトリ)、更新、
 // ホットキーなどは送らない。VR画面のコードが新しい atom を読むようになったら、ここに足すまでは
-// テストが失敗する (vrPanelStateScan.js がVR画面のソースから読んでいる atom を集める)
+// テストが失敗する (vrPanelStateScan.ts がVR画面のソースから読んでいる atom を集める)
 export const VR_PANEL_STATE_CATEGORIES: readonly string[] = Object.freeze([
     "Appearance", "Device", "Ocr", "Others", "Transcription", "Translation", "Vr",
 ]);
 export const VR_PANEL_STATE_ATOMS: readonly string[] = Object.freeze([
-    // The log, the launcher and its switches.
-    "MessageLogs", "MessageInputValue", "TranslationStatus", "TranscriptionSendStatus", "TranscriptionReceiveStatus",
+    // The log (and the names given to its speakers, #447), the launcher and its switches.
+    "MessageLogs", "SpeakerNames", "MessageInputValue", "TranslationStatus", "TranscriptionSendStatus", "TranscriptionReceiveStatus",
     "OcrCaptureStatus", "ForegroundStatus", "IsBackendReady", "IsOpenedConfigPage", "NotificationStatus",
     "IsOscAvailable", "OscUnavailableReason", "VrPanelLauncherIntro", "VrPanelLogOutOfView",
     // Which switches cannot be turned on yet and why (reason codes only; worked out in the main window).
@@ -180,7 +180,7 @@ export interface VrPanelSettingEntry {
     Base_Name: string;
 }
 
-// settingsArray は SETTINGS_ARRAY (src-ui/logics/configs/config_page_setter/ui_config_setter.js)
+// settingsArray は SETTINGS_ARRAY (src-ui/logics/configs/config_page_setter/ui_config_setter.ts)
 export const vrPanelStateNames = (settingsArray: readonly VrPanelSettingEntry[]): Set<string> => {
     const names = new Set(VR_PANEL_STATE_ATOMS);
     for (const setting of settingsArray) {
