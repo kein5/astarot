@@ -55,6 +55,8 @@ cargo-nextest = "github:nextest-rs/nextest"
 ORT_DISABLE_TELEMETRY = "1"
 
 # Every task forwards extra arguments to its command, e.g. `mise run check -- --dry-run`.
+# The shortcuts to tools/dev.py live here only; package.json keeps the scripts that need npm
+# (tests/devtools/test_dev_shortcuts.py).
 
 [tasks.doctor]
 description = "Show missing tools and dependencies (no downloads)"
