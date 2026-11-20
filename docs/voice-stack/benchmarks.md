@@ -68,7 +68,7 @@ CLIに`--server`を渡すとこの実API障害smokeも反復測定の前に実�
 
 ## 反復CLI
 
-以下の`tools/voice_acceptance.py`は、Pythonのバックエンドの経路と読み上げを測る道具だった。2026-11-20にバックエンドと一緒に消した（#285）。この節は0.5までの手順の記録である。中核の読み上げは`native/core/examples/live_speech.rs`、パイプライン全体の遅延は`native/core/examples/pipeline_latency.rs`で測る。
+以下の`tools/voice_acceptance.py`は、Pythonのバックエンドの経路と読み上げを測る道具だった。2026-11-20にバックエンドと一緒に消した（#285）。その出力を集計する`tools/voice_latency.py`も、読むCSVを書く道具がなくなったので消した（#810）。この節は0.5までの手順の記録である。中核の読み上げは`native/core/examples/live_speech.rs`、パイプライン全体の遅延は`native/core/examples/pipeline_latency.rs`で測る。
 
 `pipewire`、`wireplumber`（policy profile対応）、`pw-loopback`、`pw-cat`、`pw-dump`、
 `pw-metadata`が必要。GUI、外部モデル、録音保存は不要。出力先は新しいディレクトリを指定する。
@@ -106,7 +106,7 @@ load/warmup 15.67秒の終了後、CLIのテスト文を一時PipeWire sink/sour
 この1回からp50/p95/p99やVRChat E2E性能は判断しない。Windows、VRChat、HMD、
 GPU競合、品質、長時間稼働は未検証。サーバーbinary/モデルhashをJSONに記録した。
 
-`tools/voice_latency.py` は以下のCSVを集計する（音声・本文を含めない）。
+`tools/voice_latency.py`（#810で消した）は以下のCSVを集計していた（音声・本文を含めない）。
 
 ```csv
 metric,environment,warm,start_ns,end_ns
@@ -114,7 +114,7 @@ metric,environment,warm,start_ns,end_ns
 
 同じmonotonic clockで測った開始・終了を記録する。
 `uv run --no-project python tools/voice_latency.py measurements.csv` はmetric /
-environment / warm別にnearest-rank p50/p95/p99と件数を出す。空データから数値は作らない。
+environment / warm別にnearest-rank p50/p95/p99と件数を出していた。空データから数値は作らない。
 環境IDに対応する別JSONへOS、CPU/GPU、driver、VRAM、VRChat FPS、speech.cppの
 commit/binary hash、モデルID/hash、voice ID（音声自体は保存しない）、rate、device、
 backend、server設定、warmup回数、サンプル数を記録する。

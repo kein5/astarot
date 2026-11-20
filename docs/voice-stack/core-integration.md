@@ -146,6 +146,8 @@ Python の `src-python/test/test_native_core_reference.py` は、Python 側の�
 
 `tools/measure_backend_startup.py` が、展開した Windows の配布物を相手にサイズと起動時間を計ります。中核の起動は `native/core/examples/startup_time.rs` で計ります。アプリと同じ `Environment` で `Backend::start` を呼び、`/run/initialization_complete` までの時間を返します。
 
+`tools/measure_backend_startup.py` は、この基準値を計るための道具だったので消しました（#810）。下のコマンドは 2026-11-16 の手順の記録です。中核の起動時間は、今も `startup_time.rs` を単独で動かして計れます。
+
 ```sh
 cargo build --release --locked --manifest-path native/core/Cargo.toml --example startup_time
 python tools/measure_backend_startup.py --package <展開した配布物> \
