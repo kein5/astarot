@@ -7,6 +7,8 @@ import type { DrawnComponent } from "../../../../../logics/test/hookHarness.ts";
 import { localeAt, readLocale } from "../../../../../logics/test/locales.ts";
 import type { TreeNode } from "../../../../../logics/test/hookHarness.ts";
 import { voiceActions } from "../../../../../logics/voice/voiceActions.ts";
+import * as stopShapes from "../../../../../logics/voice/stopVoice.ts";
+import type { StopPress } from "../../../../../logics/voice/stopVoice.ts";
 
 interface MenuState {
     foreground: boolean;
@@ -21,6 +23,20 @@ interface MenuState {
     version?: string;
 }
 const all = (tree: unknown, predicate: (node: TreeNode) => boolean) => nodesIn(tree).filter(predicate);
+
+// What StopActions reads besides the voice: the audition, the virtual microphone's check and the
+// stop's own press (#937). The press pushes the endpoint it would send.
+interface StopWorld { audition: string; check: string; stop: StopPress; sent: string[] }
+const stopDependencies = (world: StopWorld) => ({
+    "../../../../logics/voice/useVoiceAudition": { useVoiceAudition: () => ({ audition: { phase: world.audition } }) },
+    "../../../../logics/voice/useVirtualMic": { useVirtualMic: () => ({ check: { phase: world.check } }) },
+    "../../../../logics/voice/useStopVoice": { useStopVoice: () => ({ stop: world.stop, press: () => world.sent.push("/run/stop_voice") }) },
+    "../../../../logics/voice/stopVoice.ts": stopShapes,
+    "../../../common_components/stable_words/StableWords": { StableWords: "stable-words" },
+});
+// The words a button draws, by their class: a span's text, or the word its StableWords shows.
+const words = (button: TreeNode) => Object.fromEntries(all(button, node => node.type === "span" && node.props.className !== undefined)
+    .map(node => [node.props.className, node.props.children?.type === "stable-words" ? node.props.children.props.current : node.props.children]));
 const t = (key: string, options?: object) => options ? `${key}:${JSON.stringify(options)}` : key;
 // A control inside its tooltip, an element named "tooltip" that keeps the bubble's words in
 // `title` and its side in `placement` (hookHarness): the control, the words and the side.
@@ -183,9 +199,10 @@ test("the main bar leads with stop and mute, drawn with its own short and shorte
     const runtime = hooks(), sent: string[] = [];
     const voice: { status: object; route: Record<string, boolean>; send: (path: string) => number } =
         { status: { queued: 2, active: true }, route: { requested_muted: true, ready: true, pending: false, managed: true }, send: path => sent.push(path) };
+    const world: StopWorld = { audition: "idle", check: "idle", stop: stopShapes.IDLE_STOP, sent };
     const actions = await loadModule<typeof import("../../../others/stop_actions/StopActions.tsx")>(new URL("../../../others/stop_actions/StopActions.tsx", import.meta.url), runtime, {
         "@useI18n": { useI18n: () => ({ t }) }, "../../../../logics/voice/useVoice": { useVoice: () => voice },
-        "../../../../logics/voice/voiceActions.ts": { voiceActions },
+        "../../../../logics/voice/voiceActions.ts": { voiceActions }, ...stopDependencies(world),
     });
     const { TopBar } = await loadModule<typeof import("./TopBar.tsx")>(new URL("./TopBar.tsx", import.meta.url), runtime, {
         "./sidebar_compact_mode_button/SidebarCompactModeButton": { SidebarCompactModeButton: "compact" },
@@ -200,8 +217,6 @@ test("the main bar leads with stop and mute, drawn with its own short and shorte
     assert.equal(second.type, actions.StopActions);
     const group = runtime.render(second.type, second.props);
     const [stop, mute] = all(group, node => node.type === "button");
-    // The words a button draws, by their class (its description is a span without one).
-    const words = (button: TreeNode) => Object.fromEntries(all(button, node => node.type === "span" && node.props.className !== undefined).map(node => [node.props.className, node.props.children]));
     assert.deepEqual(words(stop), { long: 'voice_ui.topbar_stop_count:{"count":2}', short: 'voice_ui.topbar_stop_short_count:{"count":2}',
         tiny: 'voice_ui.topbar_stop_tiny_count:{"count":2}' });
     assert.equal(stop.props["aria-label"], 'voice_ui.topbar_stop_count:{"count":2}', "the name stays the full words");
@@ -240,17 +255,101 @@ test("the main bar leads with stop and mute, drawn with its own short and shorte
     assert.equal(sent.length, before);
 });
 
+// #937: stop is offered only while something it stops runs, and answers its press.
+test("stop reads as disabled with nothing to stop, and answers its press with stopping, then stopped", async () => {
+    // sent: the presses only (the bar's own reads of the voice status go elsewhere).
+    const runtime = hooks(), sent: string[] = [];
+    const voice: { status: object; route: object; send: () => void } = { status: {}, route: {}, send: () => {} };
+    const world: StopWorld = { audition: "idle", check: "idle", stop: stopShapes.IDLE_STOP, sent };
+    const { StopActions } = await loadModule<typeof import("../../../others/stop_actions/StopActions.tsx")>(new URL("../../../others/stop_actions/StopActions.tsx", import.meta.url), runtime, {
+        "@useI18n": { useI18n: () => ({ t }) }, "../../../../logics/voice/useVoice": { useVoice: () => voice },
+        "../../../../logics/voice/voiceActions.ts": { voiceActions }, ...stopDependencies(world),
+    });
+    const classes = { stop_actions: "stop_actions", stop: "stop", long: "long", short: "short", tiny: "tiny", is_attention: "is_attention",
+        is_pressed: "is_pressed", is_stopping: "is_stopping", is_stopped: "is_stopped", is_idle: "is_idle", muted_badge: "muted_badge",
+        stop_status: "stop_status" };
+    const draw = () => {
+        const group = runtime.render(StopActions, { classes });
+        const stop = all(group, node => node.type === "button")[0];
+        const status = find(group, node => node.props?.role === "status");
+        assert.ok(status);
+        return { stop, tip: tipped(all(group, node => node.type === "tooltip")[0]), status: status.props.children };
+    };
+    // Nothing runs: disabled to the eye and to a screen reader, still focusable, and its tooltip
+    // says when it can be pressed. Neither the button nor the hotkey sends anything.
+    const idle = draw();
+    assert.equal(idle.stop.props["aria-disabled"], true);
+    assert.equal(idle.stop.props.disabled, undefined, "it keeps its place in the tab order and its tooltip");
+    assert.match(idle.stop.props.className, /is_idle/);
+    assert.equal(idle.tip.words, "voice_ui.topbar_stop_idle");
+    idle.stop.props.onClick(); voiceActions.stop?.();
+    assert.deepEqual(sent, []);
+    // An audition or the virtual microphone's test tone is stopped too, so either offers it.
+    for (const running of [{ audition: "playing" }, { check: "running" }]) {
+        Object.assign(world, { audition: "idle", check: "idle" }, running);
+        assert.equal(draw().stop.props["aria-disabled"], undefined, JSON.stringify(running));
+    }
+    world.audition = "idle"; world.check = "idle";
+    voice.status = { active: true, queued: 0 };
+    const offered = draw();
+    assert.deepEqual([offered.stop.props["aria-disabled"], offered.tip.words], [undefined, "voice.stop"]);
+    offered.stop.props.onClick();
+    assert.deepEqual(sent, ["/run/stop_voice"]);
+    // Waiting for the answer: it says so in the room its words keep, sinks and takes no press;
+    // the shortest words stay, so the narrowest bar does not grow.
+    world.stop = { phase: "stopping", press: 1 };
+    const stopping = draw();
+    assert.deepEqual(words(stopping.stop), { long: "voice_ui.topbar_stopping", short: "voice_ui.topbar_stopping", tiny: "voice_ui.topbar_stop_tiny" });
+    assert.match(stopping.stop.props.className, /is_stopping/);
+    assert.doesNotMatch(stopping.stop.props.className, /is_attention/);
+    assert.deepEqual([stopping.stop.props["aria-busy"], stopping.stop.props["aria-disabled"]], [true, true]);
+    stopping.stop.props.onClick();
+    assert.equal(sent.length, 1);
+    const kept = find(stopping.stop, node => node.type === "stable-words");
+    assert.ok(kept);
+    // The room also holds a two-digit queue, so the queue emptying does not move mute either.
+    assert.deepEqual(kept.props.words, ["voice_ui.topbar_stop", 'voice_ui.topbar_stop_count:{"count":99}', "voice_ui.topbar_stopping", "voice_ui.topbar_stopped"]);
+    // Answered: "stopped" with the lilac flash, and a line for screen readers.
+    world.stop = { phase: "stopped", press: 1 };
+    voice.status = { active: false, queued: 0 };
+    const stopped = draw();
+    assert.equal(words(stopped.stop).long, "voice_ui.topbar_stopped");
+    assert.match(stopped.stop.props.className, /is_stopped/);
+    assert.equal(stopped.status, "voice_ui.topbar_stopped_announce");
+    assert.equal(stopped.stop.props["aria-disabled"], true, "nothing more to press until something runs again");
+    world.stop = { phase: "idle", press: 1 };
+    assert.equal(draw().status, "");
+});
+
+test("the stop's answer is styled alike in both bars, and its words are in en and ja", () => {
+    for (const sheet of ["./TopBar.module.scss", "../../../config_page/topbar/Topbar.module.scss"]) {
+        const css = readFileSync(new URL(sheet, import.meta.url), "utf8");
+        assert.match(css, /\.stop\.is_stopping, \.stop\.is_stopping:hover:not\(:disabled\) \{ background: var\(--dark_925_color\); cursor: progress; \}/, sheet);
+        assert.match(css, /\.stop\.is_stopped, [^{]*\{ color: var\(--primary_200_color\); border-color: var\(--primary_600_color\); animation: stop_answered \.8s ease-out; \}/, sheet);
+        assert.match(css, /@keyframes stop_answered \{ from \{ background: var\(--vox_highlight_tint\); \} \}/, sheet);
+        assert.match(css, /prefers-reduced-motion: reduce\) \{ \.stop\.is_stopped \{ animation: none; \} \}/, sheet);
+        assert.match(css, /\.stop\.is_idle, [^{]*\{ opacity: \.5; cursor: not-allowed;/, sheet);
+        assert.match(css, /\.stop_status \{ position: absolute; width: 1px; height: 1px;/, sheet);
+    }
+    for (const language of ["en", "ja"]) {
+        const strings = readLocale(language);
+        for (const key of ["topbar_stopping", "topbar_stopped", "topbar_stop_idle", "topbar_stopped_announce"])
+            assert.equal(typeof localeAt(strings, `voice_ui.${key}`), "string", `${language} ${key}`);
+    }
+});
+
 test("the settings bar draws the same actions without the shortest words", async () => {
     const runtime = hooks();
     const voice = { status: {}, route: {}, send() {} };
     const { StopActions } = await loadModule<typeof import("../../../others/stop_actions/StopActions.tsx")>(new URL("../../../others/stop_actions/StopActions.tsx", import.meta.url), runtime, {
         "@useI18n": { useI18n: () => ({ t }) }, "../../../../logics/voice/useVoice": { useVoice: () => voice },
-        "../../../../logics/voice/voiceActions.ts": { voiceActions },
+        "../../../../logics/voice/voiceActions.ts": { voiceActions }, ...stopDependencies({ audition: "idle", check: "idle", stop: stopShapes.IDLE_STOP, sent: [] }),
     });
     const classes = { stop_actions: "stop_actions", stop: "stop", long: "long", short: "short", is_attention: "is_attention",
         is_pressed: "is_pressed", muted_badge: "muted_badge" };
     const group = runtime.render(StopActions, { classes });
-    assert.deepEqual(all(group, node => node.type === "span" && node.props.className !== undefined).map(node => node.props.className), ["long", "short", "long", "short"]);
+    assert.deepEqual(all(group, node => node.type === "span" && node.props.className !== undefined).map(node => node.props.className),
+        ["long", "short", "long", "short"]);
     const [, mute] = all(group, node => node.type === "button");
     assert.equal(mute.props["aria-pressed"], undefined, "no reported state, no toggle");
 });

@@ -34,6 +34,16 @@
 // Amber while something is spoken or queued, and while muted; the words say which.
 .stop.is_attention, .stop.is_pressed { color: var(--vox_state_warning); border-color: var(--vox_state_warning); }
 .stop:disabled { opacity: .5; cursor: not-allowed; }
+// The stop answers its press (#937), as the hexagram's switches do (#911): sunk while the core is
+// asked, then a short lilac flash with "stopped". Not offered, it reads as disabled and keeps its
+// tooltip (aria-disabled, not disabled).
+.stop.is_stopping, .stop.is_stopping:hover:not(:disabled) { background: var(--dark_925_color); cursor: progress; }
+.stop.is_stopped, .stop.is_stopped:hover:not(:disabled) { color: var(--primary_200_color); border-color: var(--primary_600_color); animation: stop_answered .8s ease-out; }
+@keyframes stop_answered { from { background: var(--vox_highlight_tint); } }
+@media (prefers-reduced-motion: reduce) { .stop.is_stopped { animation: none; } }
+.stop.is_idle, .stop.is_idle:hover:not(:disabled), .stop.is_idle:active:not(:disabled) { opacity: .5; cursor: not-allowed; background: var(--vox_surface); }
+// Read, not seen: what the stop's press did.
+.stop_status { position: absolute; width: 1px; height: 1px; margin: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .muted_badge { padding: .1rem .6rem; border-radius: .4rem; font-size: 1.2rem; color: var(--dark_1000_color); background: var(--vox_state_warning); }
 // This bar has no room for the long words. A narrow conversation column draws the
 // shortest ones; the accessible name and the tooltip stay the full words. The
