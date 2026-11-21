@@ -1,6 +1,6 @@
 import { test } from "vitest";
 import assert from "node:assert/strict";
-import { catalogFamilies, downloadStatus, familyLabel, firstVariant, variantLabel } from "./modelCatalog.ts";
+import { catalogFamilies, downloadStatus, familyLabel, firstVariant, showsValidation, variantLabel } from "./modelCatalog.ts";
 import type { CatalogEntry, CatalogProfile } from "./modelCatalog.ts";
 import { unchecked } from "../test/hookHarness.ts";
 import { localeAt, readLocale } from "../test/locales.ts";
@@ -57,6 +57,20 @@ test("download status after a restart comes from the files on disk, in use only 
     assert.equal(downloadStatus(entry, { phase: "failed" }, {}, undefined), "not_downloaded");
     // An answer from an older backend has no `downloaded`; an applied job still counts.
     assert.equal(downloadStatus(entry, { phase: "applied", paths: { model: "/m.gguf" } }, undefined, { model: "/m.gguf" }), "in_use");
+});
+
+test("a card says where its model was checked when it has a figure, a passed check, or is a speech model (#566)", () => {
+    const guided = (target: string, reference_memory_bytes: number | null, state: string) => ({ target, guidance: { reference_memory_bytes, validation: { state } } });
+    // Measured: always, beside the figure.
+    assert.equal(showsValidation(guided("asr", 1024, "pending")), true);
+    // No figure: a check that passed (the voice changer's), or a speech model's check still to come.
+    assert.equal(showsValidation(guided("rvc", null, "passed")), true);
+    assert.equal(showsValidation(guided("japanese", null, "pending")), true);
+    assert.equal(showsValidation(guided("multilingual", null, "pending")), true);
+    // Nothing to say: a recognizer never checked, or a row without a record.
+    assert.equal(showsValidation(guided("asr", null, "pending")), false);
+    assert.equal(showsValidation({ target: "japanese", guidance: null }), false);
+    assert.equal(showsValidation({ target: "japanese" }), false);
 });
 
 test("every catalog group a settings page shows has its heading and help in en and ja", async () => {

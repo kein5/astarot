@@ -8,7 +8,7 @@ import { modelAdvice } from "../../../../../../logics/voice/modelHardwareAdvice"
 import type { ModelAdvice } from "../../../../../../logics/voice/modelHardwareAdvice";
 import { hardwareWarning, translationDeviceMode } from "../../../../../../logics/voice/modelHardwareWarning";
 import { RESTRICTIONS, canStart, restrictionsOf, startRequest } from "../../../../../../logics/voice/modelRestrictions";
-import { catalogFamilies, downloadStatus, firstVariant, familyLabel, variantLabel } from "../../../../../../logics/voice/modelCatalog";
+import { catalogFamilies, showsValidation, downloadStatus, firstVariant, familyLabel, variantLabel } from "../../../../../../logics/voice/modelCatalog";
 import styles from "./VoiceSettings.module.scss";
 import { Fold } from "../_components/fold/Fold";
 import { EnvReadout } from "../_components/env_readout/EnvReadout";
@@ -306,13 +306,18 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
             </div>;
         };
         // The measured memory and where it was checked (guidance.rs): the hardware term's hint on a
-        // reviewed page (#614), a fold at the card's foot elsewhere.
-        const guidance = current.guidance?.reference_memory_bytes ? [
+        // reviewed page (#614), a fold at the card's foot elsewhere. A model checked without a
+        // figure says where it was checked alone (showsValidation, #566).
+        const record = current.guidance;
+        const measured = isNumber(record?.reference_memory_bytes) ? record.reference_memory_bytes : null;
+        const guidance = record && showsValidation(current) ? [
             // A tier's own wording where the speech models' (a GPU, a provider's figure) does not fit.
-            `${t(`model_downloads.tier_${current.guidance.tier}`)} · ${t([`model_downloads.memory_reference_${current.guidance.tier}`, 'model_downloads.memory_reference'])}: ${memory(current.guidance.reference_memory_bytes)}`,
-            `${t([`model_downloads.validation_${current.guidance.validation.state}_${current.guidance.tier}`, `model_downloads.validation_${current.guidance.validation.state}`])} ${current.guidance.validation.device ?? ''}`,
-            current.guidance.validation.scope && t(`model_downloads.scope_${current.guidance.validation.scope}`),
-            hint.device && hint.device.description !== current.guidance.validation.device && t('model_downloads.gpu_unverified'),
+            measured !== null && `${t(`model_downloads.tier_${record.tier}`)} · ${t([`model_downloads.memory_reference_${record.tier}`, 'model_downloads.memory_reference'])}: ${memory(measured)}`,
+            // A check that names no device (the voice changer's) says what it covered in its scope.
+            (record.validation.state !== "passed" || record.validation.device)
+                && `${t([`model_downloads.validation_${record.validation.state}_${record.tier}`, `model_downloads.validation_${record.validation.state}`])} ${record.validation.device ?? ''}`.trim(),
+            record.validation.scope && t(`model_downloads.scope_${record.validation.scope}`),
+            measured !== null && hint.device && hint.device.description !== record.validation.device && t('model_downloads.gpu_unverified'),
         ].filter((line): line is string => typeof line === "string") : null;
         // The hint needs the hardware row, which a row with a profile has.
         const guidanceHint = hints && !!guidance && !!current.profile;
@@ -343,7 +348,8 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
         const manualChoice = choices[family.key] && hint.recommended && family.rows.some(entry => entry.id === hint.recommended) && current.id !== hint.recommended &&
             <p>{t('model_downloads.manual_choice')}</p>;
         const prepareHint = downloaded && !job && shownStatus !== "in_use" && <p>{t("model_catalog.prepare_hint")}</p>;
-        const guidanceFold = guidance && !guidanceHint && <Fold size="link" className={styles.more} summary={t('model_downloads.guidance_summary')}>
+        const guidanceFold = guidance && !guidanceHint && <Fold size="link" className={styles.more}
+            summary={t(measured !== null ? 'model_downloads.guidance_summary' : 'model_downloads.validation_summary')}>
             {guidance.map(line => <p key={line}>{line}</p>)}
         </Fold>;
         // What runs comes first, with its own actions; the card's actions follow, as before.
