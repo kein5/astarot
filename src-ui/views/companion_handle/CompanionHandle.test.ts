@@ -106,17 +106,19 @@ test("each triangle carries its feature's icon, lit while the switch is on and u
 
 // #536, as decided: a switch that is off has an Off-White triangle and icon; one that is on turns
 // its triangle Lilac (every edge of it, and a faint tint inside, as the green of the first draft
-// did) and its icon Lilac, and its outline thicker, which does not rest on colour.
-test("a switch that is on turns its triangle and its icon Lilac and its outline thicker", () => {
+// did) and its icon Lilac. Its outline is as wide as when it is off.
+test("a switch that is on turns its triangle and its icon Lilac, its outline as wide as before", () => {
     const css = readFileSync(new URL("./CompanionHandle.css.ts", import.meta.url), "utf8");
     const rules = (name: string) => css.split(`export const ${name} = style(`)[1].split("\n});")[0];
     assert.match(css, /const ON = "#A47AF5";/);
     assert.match(css, /const OFF_WHITE = "#FAFAFC";/);
     assert.match(css, /const ON_TINT = "rgba\(164, 122, 245, 0\.16\)";/, "the tint is the Lilac of ON");
     assert.match(rules("point"), /fill: "transparent", stroke: OFF_WHITE, strokeWidth: 2\.4/);
-    // The triangle keeps the tint and the width the pointer finds; its outline is drawn over the star.
-    assert.match(rules("point"), /'&\[data-on="true"\]': \{ fill: ON_TINT, stroke: "transparent", strokeWidth: 4 \}/);
-    assert.match(rules("outline"), /fill: "none", stroke: "transparent", strokeWidth: 4, strokeLinejoin: "round", pointerEvents: "none"/);
+    // The triangle keeps the tint and the width the pointer finds; its outline is drawn over the star,
+    // as wide as an outline that is off.
+    assert.match(rules("point"), /'&\[data-on="true"\]': \{ fill: ON_TINT, stroke: "transparent" \}/);
+    assert.match(rules("outline"), /fill: "none", stroke: "transparent", strokeWidth: 2\.4, strokeLinejoin: "round", pointerEvents: "none"/);
+    assert.doesNotMatch(rules("point") + rules("outline"), /'&\[data-on="true"\][^']*': \{[^}]*strokeWidth/, "an outline that is on is not wider");
     assert.match(rules("outline"), /'&\[data-on="true"\]': \{ stroke: ON \}/);
     assert.match(rules("icon"), /fill: OFF_WHITE, color: OFF_WHITE/);
     assert.match(rules("icon"), /'&\[data-on="true"\]': \{ fill: ON, color: ON \}/);

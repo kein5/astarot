@@ -10,9 +10,9 @@ const PLATE = "rgba(38, 22, 51, 0.72)";
 const LINE = "#E3DDE9";
 const ON = "#A47AF5";
 // The brand's Off-White: the triangles and the icons of features that are off. A feature that is
-// on turns its triangle Lilac (ON): the outline, and a faint tint of it over the plate, which keeps
-// the Lilac icon at 4.2:1 (5.4:1 against the plate alone). Its outline is thicker too, which tells
-// it apart without its colour (#536).
+// on turns its triangle Lilac (ON): every edge of the outline, as wide as when it is off, and a
+// faint tint of it over the plate, which keeps the Lilac icon at 4.2:1 (5.4:1 against the plate
+// alone) (#536).
 const OFF_WHITE = "#FAFAFC";
 const ON_TINT = "rgba(164, 122, 245, 0.16)";
 
@@ -53,9 +53,9 @@ export const point = style({
     transition: "fill .15s, stroke .15s, stroke-width .15s, opacity .15s",
     selectors: {
         // On: a faint Lilac tint, so the Lilac icon stays readable (#536); it was a full lilac fill
-        // before the icons. Its Lilac outline, thicker, is `outline`, drawn over the rest of the
-        // star. This one stays as wide and unseen, so that the pointer finds the same triangle.
-        '&[data-on="true"]': { fill: ON_TINT, stroke: "transparent", strokeWidth: 4 },
+        // before the icons. Its Lilac outline is `outline`, drawn over the rest of the star. This
+        // one stays, unseen, so that the pointer finds the triangle as it does when it is off.
+        '&[data-on="true"]': { fill: ON_TINT, stroke: "transparent" },
         '&[data-pending="true"]': { opacity: 0.5 },
         // Its main switch is greyed out: a broken outline, not a filled one (#562).
         '&[data-blocked="true"]': { strokeDasharray: "4 4", opacity: 0.6 },
@@ -70,7 +70,7 @@ export const point = style({
 // and all the triangles, whose outlines share its lines, so that every edge of it is Lilac. It
 // takes no pointer: the triangle under it does. A switch that is off draws none here.
 export const outline = style({
-    fill: "none", stroke: "transparent", strokeWidth: 4, strokeLinejoin: "round", pointerEvents: "none",
+    fill: "none", stroke: "transparent", strokeWidth: 2.4, strokeLinejoin: "round", pointerEvents: "none",
     transition: "stroke .15s, opacity .15s",
     selectors: {
         '&[data-on="true"]': { stroke: ON },

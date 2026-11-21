@@ -21,7 +21,7 @@ import { FROM_X, FROM_Y } from "./CompanionHandle.css.ts";
 // of the hexagram comes out over the edge (src-tauri/src/companion.rs). The mouse wheel turns it
 // a point at a time; three of its six triangles show at once, one for each of the main switches.
 // Each triangle carries its feature's icon. A switch that is off has an Off-White triangle and
-// icon; one that is on has a Lilac triangle, with a thicker outline, and a Lilac icon (#536).
+// icon; one that is on has a Lilac triangle and a Lilac icon (#536).
 // Hovering one docks that feature out towards the middle of the screen; pressing the docked label
 // runs the main window's own switch.
 // Hovering the hexagon in the middle docks out the common settings (the edge to hide at, the main
