@@ -7,12 +7,12 @@ config key:
     python tools/spec_catalog.py --write   # regenerate the tables
     python tools/spec_catalog.py --check   # exit 1 when they are out of date
 
-The rows of the Python backend are in tools/spec_python_baseline.json, read from
-src-python (mainloop.py, utils.py, errors.py, config.py) before it was removed
-in 0.6.0 (#285). What only the Rust core has (native/core) is in
-tools/spec_core_additions.json and comes after them. The UI's side (its routes
-and the error codes it handles) is read from src-ui with regular expressions;
-nothing is imported or run.
+What the Rust core answers, pushes and keeps is in tools/spec_core_catalog.json,
+which native/core/tests/spec_catalog.rs writes from the core and keeps current
+(VRCT_SPEC_CATALOG_WRITE=1 cargo test --test spec_catalog in native/core). The
+checks of the config keys are read from native/core/src/config/schema.rs, and the
+UI's side (its routes and the error codes it handles) from src-ui; both with
+regular expressions. Nothing is built, imported or run.
 """
 
 from __future__ import annotations
@@ -26,8 +26,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "docs" / "spec" / "reference"
 UI = ROOT / "src-ui" / "logics"
-PYTHON_BASELINE = ROOT / "tools" / "spec_python_baseline.json"
-CORE_ADDITIONS = ROOT / "tools" / "spec_core_additions.json"
+CORE_CATALOG = ROOT / "tools" / "spec_core_catalog.json"
+SCHEMA = ROOT / "native" / "core" / "src" / "config" / "schema.rs"
 
 HEADER = (
     "<!-- 自動生成。手で編集しない。`python tools/spec_catalog.py --write`で更新する。 -->\n"
@@ -50,14 +50,9 @@ def table(head: list[str], rows: list[list[str]]) -> str:
     return "\n".join(lines) + "\n"
 
 
-def core_additions() -> dict:
-    """Endpoints, error codes and config keys only the Rust core has."""
-    return json.loads(CORE_ADDITIONS.read_text(encoding="utf-8"))
-
-
-def python_baseline() -> dict:
-    """The Python backend's endpoints, notifications, error codes and config keys."""
-    return json.loads(PYTHON_BASELINE.read_text(encoding="utf-8"))
+def core_catalog() -> dict:
+    """The core's endpoints, notifications, error codes and config keys."""
+    return json.loads(CORE_CATALOG.read_text(encoding="utf-8"))
 
 
 # --- IPC endpoints -------------------------------------------------------------
@@ -111,45 +106,27 @@ def kind_of(endpoint: str) -> str:
     return "その他"
 
 
-def sensitive_markers() -> tuple[str, ...]:
-    """`SENSITIVE_ENDPOINT_MARKERS`: Python's, then the core's."""
-    return tuple(python_baseline()["sensitive_markers"]) + tuple(core_additions().get("sensitive_markers", []))
-
-
 def render_endpoints() -> str:
-    baseline = python_baseline()
+    catalog = core_catalog()
     routes = ui_routes()
-    markers = sensitive_markers()
-    # Requests the receiver answers at once instead of queueing (Main.receiver).
-    immediate = set(baseline["immediate"])
+    markers = tuple(catalog["sensitive_markers"])
 
     requests = []
-    for entry in baseline["endpoints"]:
-        endpoint, handler_name = entry["endpoint"], entry["handler"]
-        before_init = "可" if entry["before_init"] else "待つ"
-        notes = []
-        if endpoint in immediate:
-            notes.append("即時（キューを通らない）")
-        if any(m in endpoint.lower() for m in markers):
-            notes.append("ログで伏せる")
-        requests.append([code(endpoint), kind_of(endpoint), code(handler_name), before_init,
-                         cell(routes.get(endpoint, "—")), cell("、".join(notes))])
-
-    core = core_additions()["endpoints"]
-    for entry in core:
+    for entry in catalog["endpoints"]:
         endpoint = entry["endpoint"]
-        notes = ["中核のみ"]
-        if entry.get("immediate"):
+        notes = []
+        if entry["immediate"]:
             notes.append("即時（キューを通らない）")
         if any(m in endpoint.lower() for m in markers):
             notes.append("ログで伏せる")
-        requests.append([code(endpoint), kind_of(endpoint), code(entry["handler"]), "可" if entry["before_init"] else "待つ",
+        requests.append([code(endpoint), kind_of(endpoint), "待つ" if entry["wait_for_init"] else "可",
                          cell(routes.get(endpoint, "—")), cell("、".join(notes))])
 
-    pushes = [[code(entry["name"]), code(entry["endpoint"]), cell(routes.get(entry["endpoint"], "—"))] for entry in baseline["notifications"]]
+    pushes = [[code(entry["name"]), code(entry["endpoint"]), cell(routes.get(entry["endpoint"], "—"))]
+              for entry in catalog["notifications"]]
 
-    request_set = {entry["endpoint"] for entry in baseline["endpoints"]} | {entry["endpoint"] for entry in core}
-    push_set = {entry["endpoint"] for entry in baseline["notifications"]}
+    request_set = {entry["endpoint"] for entry in catalog["endpoints"]}
+    push_set = {entry["endpoint"] for entry in catalog["notifications"]}
     unrouted = sorted((request_set | push_set) - set(routes))
     ui_only = sorted(e for e in routes if e not in request_set | push_set)
 
@@ -159,24 +136,26 @@ def render_endpoints() -> str:
     summary = "、".join(f"{k} {n}" for k, n in sorted(kinds.items()))
 
     out = [HEADER, "# IPCエンドポイント一覧\n",
-           "UIからサイドカーへの要求（`mapping`）と、サイドカーからUIへの通知（`run_mapping`）の一覧。"
+           "UIから中核への要求と、中核からUIへの通知（`RUN_MAPPING`）の一覧。"
+           "中核（`native/core`）が`tests/spec_catalog.rs`で書き出した`tools/spec_core_catalog.json`から生成した。"
            "メッセージの形、状態コード、ロックと再試行の規則は[IPCプロトコル](../ipc-protocol.md)にある。\n",
            "列の意味:\n",
-           "- 初期化前: 「待つ」は初期化が終わるまでロックされる要求（サイドカーが約30秒まで入れ直し、解けなければ423を返す）。「可」は起動直後から受け付ける。",
+           "- 初期化前: 「待つ」は初期化が終わるまでロックされる要求（中核が約30秒まで入れ直し、解けなければ423を返す）。「可」は起動直後から受け付ける。",
            "- UIの受信先: 200の応答を処理するUIのフック（`useReceiveRoutes.ts`の静的ルートと`ui_config_setter.ts`の定義から生成）。「—」は受信先がない。",
-           "- ログで伏せる: `process.log`で値を`***MASKED***`に置き換える（`SENSITIVE_ENDPOINT_MARKERS`）。stdoutのIPCそのものは伏せない。",
-           "- 中核のみ: Pythonになく、中核（`native/core`）で足したもの。`tools/spec_core_additions.json`から表の末尾に足した。\n",
+           "- ログで伏せる: `process.log`で値を`***MASKED***`に置き換える（`log::SENSITIVE_ENDPOINT_MARKERS`）。stdoutのIPCそのものは伏せない。\n",
            f"## 要求（{len(requests)}件: {summary}）\n",
-           table(["エンドポイント", "種別", "処理（controller）", "初期化前", "UIの受信先", "備考"], requests),
-           f"\n## 通知（サイドカーからUIへ、{len(pushes)}件）\n",
-           "要求への応答とは別に、サイドカーが自分から送るメッセージ。`controller.run(status, run_mapping[名前], result)`で送る。\n",
+           "並びは中核が経路を足した順（`controller/routes.rs`）。\n",
+           table(["エンドポイント", "種別", "初期化前", "UIの受信先", "備考"], requests),
+           f"\n## 通知（中核からUIへ、{len(pushes)}件）\n",
+           "要求への応答とは別に、中核が自分から送るメッセージ。`Core::notify(名前, 結果)`で送り、名前は`controller/mod.rs`の`RUN_MAPPING`で終点に変わる。"
+           "表にない名前は送る時点で止まる（契約のCT-02、`tests/run_mapping.rs`）。\n",
            table(["名前", "エンドポイント", "UIの受信先"], pushes),
            f"\n## UIに受信先がないエンドポイント（{len(unrouted)}件）\n",
            "200で届いた場合にUIが`Invalid endpoint`としてコンソールに出すもの。ただし、400で届くエラーの通知（`/run/error_…`など）は`errorHandling_Backend`が処理し、"
            "`/run/initialization_complete`は`receiveRoutes`が個別に処理するので、このどちらかに当たるものは実害がない。\n",
            "".join(f"- {code(e)}\n" for e in unrouted) or "なし\n",
            f"\n## UIだけにあるルート（{len(ui_only)}件）\n",
-           "UIに受信先が定義されているが、サイドカーの`mapping`と`run_mapping`にはないもの。多くは`ui_config_setter.ts`の定義が機械的に作るルートで、使われない。\n",
+           "UIに受信先が定義されているが、中核の要求と通知にはないもの。多くは`ui_config_setter.ts`の定義が機械的に作るルートで、使われない。\n",
            "".join(f"- {code(e)}\n" for e in ui_only) or "なし\n"]
     return "\n".join(out)
 
@@ -184,28 +163,22 @@ def render_endpoints() -> str:
 # --- error codes ----------------------------------------------------------------
 
 def render_errors() -> str:
-    baseline = python_baseline()
     handler_js = (UI / "_useBackendErrorHandling.ts").read_text(encoding="utf-8")
     handled = set(re.findall(r'case "([A-Z0-9_]+)"', handler_js)) | set(re.findall(r"^\s+([A-Z0-9_]+):\s*\"common_error", handler_js, re.M))
 
     rows = []
-    for entry in baseline["errors"] + core_additions()["errors"]:
+    for entry in core_catalog()["errors"]:
         rows.append([code(entry["code"]), cell(entry["category"]), cell(entry["message"]), cell(entry["severity"]),
                      "要" if entry["user_action_required"] else "", "あり" if entry["code"] in handled else ""])
-    missing = baseline["errors_without_metadata"]
 
     out = [HEADER, "# エラーコード一覧\n",
-           "Pythonのバックエンドのコード（0.6.0で消した`src-python/errors.py`の`ErrorCode`と`ERROR_METADATA`を写した`tools/spec_python_baseline.json`）から生成した。"
-           "中核（`native/core`）だけにあるコードは`tools/spec_core_additions.json`から表の末尾に足した。"
+           "中核のコードの表（`native/core/src/errors/table.rs`）から、`tools/spec_core_catalog.json`を通して生成した。"
            "応答の形とUIでの見せ方は[横断的な振る舞い](../cross-cutting.md#エラーの扱い)にある。\n",
-           "- 既定メッセージ: サイドカーが返す英語の`message`。UIは多くの場合`locales/`の文言に置き換えて表示する。",
+           "- 既定メッセージ: 中核が返す英語の`message`。UIは多くの場合`locales/`の文言に置き換えて表示する。",
            "- UIの個別処理: `_useBackendErrorHandling.ts`に専用の分岐（値の巻き戻しや翻訳した文言の表示）がある。"
            "空欄のコードは、音声やモデル取得など別の経路で処理されるか、汎用の通知になる。\n",
            f"## コード（{len(rows)}件）\n",
            table(["コード", "分類", "既定メッセージ", "重大度", "利用者の対処", "UIの個別処理"], rows)]
-    if missing:
-        out += [f"\n## メタデータのないコード（{len(missing)}件）\n", "既定メッセージは`GENERAL_UNKNOWN`のものになる。\n",
-                "".join(f"- {code(m)}\n" for m in missing)]
     return "\n".join(out)
 
 
@@ -215,21 +188,107 @@ def app_version() -> str:
     return json.loads((ROOT / "package.json").read_text(encoding="utf-8"))["version"]
 
 
-def render_config() -> str:
-    persisted, runtime = [], []
-    for entry in python_baseline()["config"]:
-        # The version the app reports, as Python's `self._VERSION` held it.
-        default = f"'{app_version()}'" if entry["key"] == "VERSION" else entry["default"]
-        row = [code(entry["key"]), cell(entry["check"]), code(default), entry["save"]]
-        (persisted if entry["persisted"] else runtime).append(row)
+def schema_checks() -> dict[str, str]:
+    """Key -> the check expression of its entry in `keys()` of config/schema.rs."""
+    text = SCHEMA.read_text(encoding="utf-8")
+    body = text[text.index("pub fn keys() -> Vec<Key>"):]
+    body = body[body.index("vec![") + len("vec!["):]
+    entries, depth, current, quote, comment = [], 0, [], False, False
+    for index, char in enumerate(body):
+        if comment:
+            comment = char != "\n"
+            continue
+        if quote:
+            current.append(char)
+            if char == '"' and current[-2:-1] != ["\\"]:
+                quote = False
+            continue
+        if body.startswith("//", index):
+            comment = True
+            continue
+        if char == '"':
+            quote = True
+        elif char in "([{":
+            depth += 1
+        elif char in ")]}":
+            if depth == 0:
+                break
+            depth -= 1
+        elif char == "," and depth == 0:
+            entries.append("".join(current))
+            current = []
+            continue
+        current.append(char)
+    checks = {}
+    for entry in entries:
+        entry = re.sub(r"\s+", " ", entry).strip()
+        match = re.fullmatch(r'(?:key|runtime|immediate|readonly)\("([A-Z0-9_]+)"(?:, (.*))?\)', entry)
+        if match:
+            checks[match.group(1)] = match.group(2) or ""
+    return checks
 
-    for entry in core_additions()["config"]:
-        persisted.append([code(entry["key"]), cell(entry["check"] + "（中核のみ）"), code(entry["default"]), cell(entry["save"])])
+
+TYPES = {"Bool": "bool", "Int": "int", "Num": "number", "Str": "str", "Dict": "dict", "List": "list"}
+
+
+def describe_check(expression: str) -> str:
+    """The check of a key in words where its form is a common one, else the function it calls."""
+    if not expression:
+        return ""
+    if expression == "b()":
+        return "bool"
+    if match := re.fullmatch(r"plain\(Ty::(\w+)\)", expression):
+        return TYPES[match.group(1)]
+    if match := re.fullmatch(r"(int|num)_in\((.+), (.+)\)", expression):
+        return f"{'int' if match.group(1) == 'int' else 'number'}（{match.group(2)}〜{match.group(3)}）"
+    if match := re.fullmatch(r'one_of\("(\w+)"\)', expression):
+        return f"str（`{match.group(1)}`のどれか）"
+    if match := re.fullmatch(r'in_populated\("(\w+)"\)', expression):
+        return f"str か null（`{match.group(1)}`のどれか。一覧が空なら問わない）"
+    called = re.search(r"(?<![.\w])([A-Za-z_][\w:]*)\(v[,)]", expression)
+    own = f"検証 `{called.group(1)}`" if called else "独自の検証"
+    if match := re.fullmatch(r"managed\(Ty::(\w+), (true|false), (.*)\)", expression):
+        kind = TYPES[match.group(1)] + (" か null" if match.group(2) == "true" else "")
+        rest = match.group(3)
+        if re.fullmatch(r"[a-z_][\w:]*", rest):
+            return f"{kind}、検証 `{rest}`"
+        return f"{kind}、{own}"
+    if match := re.fullmatch(r"validated\(([a-z_][\w:]*)\)", expression):
+        return f"検証 `{match.group(1)}`"
+    if expression.startswith("validated("):
+        return own
+    if match := re.fullmatch(r"([a-z_]\w*)\(.*\)", expression):
+        return f"検証 `{match.group(1)}`"
+    return own
+
+
+def default_text(key: str, value: object) -> str:
+    if key == "VERSION":
+        value = app_version()
+    return code(json.dumps(value, ensure_ascii=False, separators=(", ", ": ")))
+
+
+SAVE = {"saved": "2秒後にまとめて", "immediate": "即時", "runtime": "保存しない", "readonly": "読み取り専用"}
+
+
+def render_config() -> str:
+    checks = schema_checks()
+    persisted, runtime = [], []
+    for entry in core_catalog()["config"]:
+        key = entry["key"]
+        if key not in checks:
+            raise ValueError(f"{key} is not in keys() of {SCHEMA.relative_to(ROOT)}")
+        row = [code(key), cell(describe_check(checks[key])), default_text(key, entry["default"]), SAVE[entry["kind"]]]
+        (persisted if entry["kind"] in ("saved", "immediate") else runtime).append(row)
 
     out = [HEADER, "# 設定キー一覧\n",
-           "Pythonのバックエンドのキー（0.6.0で消した`src-python/config.py`の`Config`クラスと`init_config()`の既定値を写した`tools/spec_python_baseline.json`）から生成した。"
-           "中核（`native/core`）だけにあるキーは`tools/spec_core_additions.json`から表の末尾に足した。"
+           "中核のキーの表（`native/core/src/config/schema.rs`の`keys()`）と既定値（`defaults()`）から生成した。"
+           "既定値は`tools/spec_core_catalog.json`を通し、型・検証は`keys()`の式から読む。"
            "保存の仕組み（2秒の遅延、置き換えによる書き込み、読み込み時の検証）は[データ形式と保存](../data-and-persistence.md)にある。\n",
+           "- 型・検証: よく使う形（`int_in`、`one_of`など）は言葉にした。それ以外は、検証に使う関数の名前か「独自の検証」で、中身は`schema.rs`にある。",
+           "- 既定値: 中核が`config.json`に書くJSON。Windowsのもの。PCで決まるものは仮の値で示す"
+           "（`<app>`はアプリのフォルダー、`<data>`はモデルなどのデータのフォルダー、`<state>`は設定とログのフォルダー、`<token>`は最初の起動で作る値）。"
+           "翻訳の計算機器はCPUだけの場合。\n",
            "チャット読み取りの`OCR_CAPTURE_REGION`はデスクトップウィンドウ用、`OCR_VR_CAPTURE_REGION`はSteamVRの左目側の映像用。"
            "旧版の単一範囲はウィンドウ用に保持し、未保存のVR側には全体を補う。"
            "[範囲の形と移行](../data-and-persistence.md#チャット読み取りの範囲)を参照。\n",

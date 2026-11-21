@@ -12,7 +12,7 @@
 | CT-02 | サイドカーが送る通知の名前はすべて`run_mapping`に定義する | 送る時点の例外を防ぐ | `native/core/src/controller/mod.rs`の`RUN_MAPPING`（通知の名前は1つの表にあり、表にない名前は送る時点で止まる）。`native/core/tests/run_mapping.rs`が、送る箇所に書いた名前、`format!`のひな形から作る名前、設定のキーから作るモデルの一覧と選択の名前を表と照らす |
 | CT-03 | 既存のエンドポイント名、設定キー、OSCのアドレス、内部の識別子`VRCT`は、名前を変えるという理由だけで置き換えない。保存先やアプリIDを変えるときは移行の処理を用意する | `AGENTS.md`「互換性」、`docs/voice-stack/project-rename.md` | `tests/voice/test_fork_distribution_identity.py`、`tests/voice/test_config_and_distribution.py` |
 | CT-04 | `config.json`は壊れた値や知らないキーがあっても起動できる。無効な値は保存しない | `native/core/src/config/` | `native/core/tests/config_versions.rs`、`config_reference.rs`、`settings_endpoints.rs` |
-| CT-05 | 仕様書の一覧（`docs/spec/reference/`）はコードから生成したものと一致する | この仕様書 | `tests/devtools/test_spec_catalog.py`（`python tools/spec_catalog.py --check`） |
+| CT-05 | 仕様書の一覧（`docs/spec/reference/`）はコードから生成したものと一致する | この仕様書 | 中核の一覧（`tools/spec_core_catalog.json`）が中核と一致することは`native/core/tests/spec_catalog.rs`、一覧がそれとUIのコードから作ったものと一致することは`tests/devtools/test_spec_catalog.py`（`python tools/spec_catalog.py --check`） |
 
 ## 利用者の操作と同意
 

@@ -1,8 +1,8 @@
 //! The endpoints the core answers are those of the specification
-//! (`docs/spec/reference/ipc-endpoints.md`): none is invented, each waits for start-up exactly
-//! when the specification says so, and the immediate ones skip the queue. The ones not wired
-//! yet are listed in `docs/voice-stack/core-integration.md`; this test fails when that list
-//! and the core disagree, so the list stays the true state of the migration.
+//! (`docs/spec/reference/ipc-endpoints.md`, written from the core by `tests/spec_catalog.rs` and
+//! `tools/spec_catalog.py`): none is missing or left over, each waits for start-up exactly when
+//! the specification says so, and the immediate ones skip the queue. The endpoints retired with
+//! the Python backend are listed in `docs/voice-stack/core-integration.md`; none of them is wired.
 
 mod common;
 
@@ -26,8 +26,8 @@ fn spec() -> Vec<Spec> {
             let cells: Vec<&str> = line.trim_matches('|').split(" | ").map(str::trim).collect();
             Spec {
                 endpoint: cells[0].trim_matches('`').to_string(),
-                waits: cells[3] == "待つ",
-                immediate: cells[5].contains("即時"),
+                waits: cells[2] == "待つ",
+                immediate: cells[4].contains("即時"),
             }
         })
         .collect()
@@ -142,18 +142,16 @@ fn the_ui_receives_the_answer_of_every_voice_endpoint_the_core_serves() {
 }
 
 #[test]
-fn the_remaining_endpoints_are_listed_in_the_migration_document() {
+fn the_specification_lists_what_is_wired_and_none_of_the_retired() {
     let spec: BTreeSet<String> = spec().into_iter().map(|s| s.endpoint).collect();
-    let routes = routes();
-    let wired: BTreeSet<String> = routes.endpoints().map(str::to_string).collect();
-    let remaining: BTreeSet<String> = spec.difference(&wired).cloned().collect();
-    let retired = listed("retired-endpoints");
-    assert!(retired.is_disjoint(&wired), "a retired endpoint is wired: {:?}", retired.intersection(&wired).collect::<Vec<_>>());
-    let listed: BTreeSet<String> = listed("remaining-endpoints").union(&retired).cloned().collect();
-    let missing: Vec<_> = remaining.difference(&listed).collect();
-    let stale: Vec<_> = listed.difference(&remaining).collect();
-    assert!(
-        missing.is_empty() && stale.is_empty(),
-        "docs/voice-stack/core-integration.md is out of date.\nNot listed but not wired: {missing:?}\nListed but wired (or not in the specification): {stale:?}"
+    let wired: BTreeSet<String> = routes().endpoints().map(str::to_string).collect();
+    assert_eq!(
+        spec.symmetric_difference(&wired).collect::<Vec<_>>(),
+        Vec::<&String>::new(),
+        "docs/spec/reference/ipc-endpoints.md is not the core's; write it again (tests/spec_catalog.rs)"
     );
+    let retired = listed("retired-endpoints");
+    assert!(!retired.is_empty(), "the retired endpoints were not read");
+    assert!(retired.is_disjoint(&wired), "a retired endpoint is wired: {:?}", retired.intersection(&wired).collect::<Vec<_>>());
+    assert_eq!(listed("remaining-endpoints"), BTreeSet::new(), "docs/voice-stack/core-integration.md lists endpoints left to wire");
 }

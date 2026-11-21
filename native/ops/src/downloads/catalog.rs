@@ -1,8 +1,8 @@
 //! Reviewed public artifacts (`catalog.py`). Revision, size and hash change together, in a
 //! review, never at run time; a change bumps [`CATALOG_VERSION`] so a stale consent fails.
 //!
-//! `tests/catalog_reference.rs` checks every entry against what the Python module answers
-//! (`reference/dump_reference.py`), so the two cannot drift while both exist.
+//! The rules every entry keeps are checked by [`validate_catalog`]'s tests here, and
+//! `tests/catalog_policy.rs` checks that only reviewed public artifacts are offered.
 
 use serde::{Serialize, Serializer};
 

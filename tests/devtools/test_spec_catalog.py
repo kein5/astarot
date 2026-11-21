@@ -43,6 +43,30 @@ class SpecCatalogTests(unittest.TestCase):
             self.assertIn(heading, text, name)
             self.assertGreater(text.count("\n| `"), 10, name)
 
+    def test_every_key_of_the_core_has_its_check_read(self):
+        module = load_catalog()
+        checks = module.schema_checks()
+        keys = [entry["key"] for entry in module.core_catalog()["config"]]
+        self.assertGreater(len(keys), 150)
+        self.assertEqual(sorted(set(keys) - set(checks)), [])
+
+    def test_the_checks_of_common_forms_are_put_in_words(self):
+        module = load_catalog()
+        cases = {
+            "": "",
+            "b()": "bool",
+            "plain(Ty::Num)": "number",
+            "int_in(0, 30)": "int（0〜30）",
+            'one_of("TRAY_COMPANION_EDGE_LIST")': "str（`TRAY_COMPANION_EDGE_LIST`のどれか）",
+            "managed(Ty::Str, false, |v, _| valid_saved_api_url(v))": "str、検証 `valid_saved_api_url`",
+            "managed(Ty::Str, true, |v, ctx| { ctx.list(x).contains(v) })": "str か null、独自の検証",
+            "managed(Ty::Dict, false, ocr_region)": "dict、検証 `ocr_region`",
+            "validated(|v, _| voice_settings::load_direct(v))": "検証 `voice_settings::load_direct`",
+            'overlay_log("OVERLAY_SMALL_LOG_SETTINGS")': "検証 `overlay_log`",
+        }
+        for expression, words in cases.items():
+            self.assertEqual(module.describe_check(expression), words, expression)
+
     def test_write_uses_lf_and_skips_current_tables(self):
         module = load_catalog()
         with tempfile.TemporaryDirectory() as folder:
