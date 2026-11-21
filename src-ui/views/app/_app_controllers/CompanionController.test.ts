@@ -105,7 +105,7 @@ test("while the overlay feature is off it only serves the app's tray icon", asyn
     // The tray menu's words and the microphone's state, for the tray icon every run has.
     const reported = s.published();
     assert.equal(reported.ready, true);
-    assert.deepEqual(reported.mic, { on: true, pending: false });
+    assert.deepEqual(reported.mic, { on: true, pending: false, blocked: false });
     assert.equal(reported.menu.quit, "companion.menu_quit");
     // The tray's "start or stop recognition" and "quit" work.
     s.state.queue.push("toggle_mic");
@@ -148,13 +148,13 @@ test("turned on, it starts the overlay, reports the switches and runs what the t
     await s.render();
     const reported = s.published();
     assert.equal(reported.ready, true);
-    assert.deepEqual(reported.mic, { on: true, pending: false });
+    assert.deepEqual(reported.mic, { on: true, pending: false, blocked: false });
     assert.equal(reported.language, "ja");
     assert.equal(reported.edge, "right");
     s.state.edge = "top";
     await s.render();
     assert.equal(s.published().edge, "top", "a changed edge is reported");
-    assert.deepEqual(reported.ocr, { on: true, pending: false });
+    assert.deepEqual(reported.ocr, { on: true, pending: false, blocked: false });
     voice.voiceActions.toggleTts = () => s.toggles.push("tts");
     voice.voiceActions.toggleRvc = () => s.toggles.push("rvc");
     context.onTestFinished(() => { voice.voiceActions.toggleTts = null; voice.voiceActions.toggleRvc = null; });
@@ -162,7 +162,7 @@ test("turned on, it starts the overlay, reports the switches and runs what the t
     voice.voiceSwitchStates.publish({ tts: { on: true, pending: false }, rvc: { on: false, pending: false } });
     context.onTestFinished(() => voice.voiceSwitchStates.publish({ tts: { on: false, pending: false }, rvc: { on: false, pending: false } }));
     await s.render();
-    assert.deepEqual(s.published().tts, { on: true, pending: false });
+    assert.deepEqual(s.published().tts, { on: true, pending: false, blocked: false });
     s.state.queue.push("toggle_mic", "toggle_translation", "toggle_listening", "toggle_ocr", "toggle_tts", "toggle_rvc", "unknown");
     await s.listener("companion-requested")();
     assert.deepEqual(s.toggles, ["mic", "translation", "listening", "ocr", "tts", "rvc"]);
@@ -214,6 +214,9 @@ test("a switch the main window greys out is not pressed from the tray; the main 
     assert.deepEqual(s.toggles, ["ocr", "translation"]);
     assert.deepEqual(s.notices, [["main_page.transcription_send: main_page.switch_blocked.asr_models", { category_id: "companion_blocked_mic" }]]);
     assert.equal(s.of("companion_show_main").length, 1);
+    // The panel and the hexagram draw the microphone as greyed out; OCR, on, can still be turned off (#562).
+    const reported = s.published();
+    assert.deepEqual([reported.mic.blocked, reported.ocr.blocked, reported.translation.blocked], [true, false, false]);
 });
 
 test("an error notice that answers a switch pressed from the tray brings the main window forward", async context => {

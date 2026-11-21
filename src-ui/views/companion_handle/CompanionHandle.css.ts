@@ -47,6 +47,8 @@ export const point = style({
     selectors: {
         '&[data-on="true"]': { fill: ON, stroke: ON },
         '&[data-pending="true"]': { opacity: 0.5 },
+        // Its main switch is greyed out: a broken outline, not a filled one (#562).
+        '&[data-blocked="true"]': { strokeDasharray: "4 4", opacity: 0.6 },
         '&[data-docked="true"]': { stroke: "#ffffff", strokeWidth: 3.2 },
         '&[data-docked="true"]:not([data-on="true"])': { fill: "rgba(227, 221, 233, 0.22)" },
         // Turned beyond the edge: half off the screen, not one to aim at.
@@ -83,6 +85,7 @@ export const dock = style({
         '&[aria-pressed="true"]': { borderColor: ON, boxShadow: `inset 0 0 0 1px ${ON}` },
         "&:hover:not(:disabled)": { background: "rgba(38, 22, 51, 0.9)" },
         "&:disabled": { opacity: 0.6, cursor: "default" },
+        '&[data-blocked="true"]': { opacity: 0.75 },
     },
     ...quick,
 });

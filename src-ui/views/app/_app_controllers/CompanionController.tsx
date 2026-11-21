@@ -10,7 +10,7 @@ import { useBackendStartup } from "../../../logics/common/useBackendStartup";
 import { useTranscriptionConsent } from "../../../logics/transcription/useTranscriptionConsent";
 import { useTranslationSetup } from "../../../logics/translation/useTranslationSetup";
 import { activeSwitchBlock } from "../../../logics/main/switchBlocks.ts";
-import { companionStatus, runAction, SWITCH_IDS, type Feature } from "../../../logics/companion/status.ts";
+import { companionStatus, FEATURES, runAction, SWITCH_IDS, type Feature } from "../../../logics/companion/status.ts";
 import { watchOpenDialogs } from "../../../logics/companion/dialogs.ts";
 import { voiceActions, voiceSwitchStates, type VoiceSwitchStates } from "../../../logics/voice/voiceActions.ts";
 
@@ -51,15 +51,22 @@ export const CompanionController = () => {
         return voiceSwitchStates.subscribe(() => setVoiceStates(voiceSwitchStates.get()));
     }, []);
 
-    // A switch whose main switch is greyed out (logics/main/switchBlocks.ts) is not pressed from
-    // the tray either: the main window comes forward and says why, as its switch does.
-    const refuse = (feature: Feature): boolean => {
-        if (currentIsBackendReady.data !== true) return false;
+    // The block a feature's main switch shows now (logics/main/switchBlocks.ts), if any.
+    const blockOf = (feature: Feature) => {
+        if (currentIsBackendReady.data !== true) return undefined;
         const voiceState = feature === "tts" || feature === "rvc" ? voiceStates[feature] : null;
         const status = voiceState ? { data: voiceState.on, state: voiceState.pending ? "pending" : "ok" }
             : { mic: main.currentTranscriptionSendStatus, translation: main.currentTranslationStatus,
                 listening: main.currentTranscriptionReceiveStatus, ocr: main.currentOcrCaptureStatus }[feature as "mic"];
-        const block = activeSwitchBlock(currentSwitchBlocks.data, SWITCH_IDS[feature], status);
+        return activeSwitchBlock(currentSwitchBlocks.data, SWITCH_IDS[feature], status);
+    };
+    // The switches greyed out now: the panel and the hexagram draw them so (#562).
+    const blocked = Object.fromEntries(FEATURES.map(feature => [feature, !!blockOf(feature)]));
+    const blockedKey = FEATURES.filter(feature => blocked[feature]).join(",");
+    // A switch whose main switch is greyed out is not pressed from the tray either: the main
+    // window comes forward and says why, as its switch does.
+    const refuse = (feature: Feature): boolean => {
+        const block = blockOf(feature);
         if (!block) return false;
         showNotification_Error(`${t(`main_page.${SWITCH_IDS[feature]}`)}: ${t(`main_page.switch_blocked.${block.reason}`)}`,
             { category_id: `companion_blocked_${feature}` });
@@ -149,10 +156,10 @@ export const CompanionController = () => {
     useEffect(() => {
         invoke("companion_publish", { status: companionStatus({
             ready: currentIsBackendReady.data, mic, translation, listening, ocr, tts: voiceStates.tts, rvc: voiceStates.rvc,
-            edge: edge?.data, monitor: monitor?.data, language: i18n.language, t,
+            blocked, edge: edge?.data, monitor: monitor?.data, language: i18n.language, t,
         }) }).catch(error => console.error("Companion state could not be reported", error));
     }, [currentIsBackendReady.data, mic.data, mic.state, translation.data, translation.state, listening?.data, listening?.state,
-        ocr?.data, ocr?.state, voiceStates, edge?.data, monitor?.data, i18n.language, t]);
+        ocr?.data, ocr?.state, voiceStates, blockedKey, edge?.data, monitor?.data, i18n.language, t]);
 
     // Any dialog the main window opens (the start-up notices among them) needs the user. The main
     // window may be put away in the tray in any run, so this watches in every run.

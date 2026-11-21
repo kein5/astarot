@@ -4,7 +4,7 @@ import { actionFor, companionStatus, edgeAction, FEATURES, panelState, runAction
 import { unchecked } from "../test/hookHarness.ts";
 
 const t = (key: string) => `t:${key}`;
-const off = { on: false, pending: false };
+const off = { on: false, pending: false, blocked: false };
 
 test("the reported state holds only the six switches, the UI language and the tray's words", () => {
     const status = companionStatus({ ready: true, mic: { state: "ok", data: true },
@@ -13,12 +13,12 @@ test("the reported state holds only the six switches, the UI language and the tr
         edge: "bottom", monitor: "\\\\.\\DISPLAY2", language: "ja", t });
     assert.deepEqual(status, {
         ready: true,
-        mic: { on: true, pending: false },
-        translation: { on: false, pending: true },
-        listening: { on: true, pending: false },
+        mic: { on: true, pending: false, blocked: false },
+        translation: { on: false, pending: true, blocked: false },
+        listening: { on: true, pending: false, blocked: false },
         ocr: off,
-        tts: { on: true, pending: false },
-        rvc: { on: false, pending: true },
+        tts: { on: true, pending: false, blocked: false },
+        rvc: { on: false, pending: true, blocked: false },
         language: "ja",
         edge: "bottom",
         monitor: "\\\\.\\DISPLAY2",
@@ -36,6 +36,12 @@ test("an unknown language or edge falls back to English and the right edge, and 
     assert.equal(status.edge, "right");
     assert.equal(status.monitor, "", "no monitor chosen: the primary one");
     for (const feature of FEATURES) assert.deepEqual(status[feature], off, feature);
+});
+
+test("a switch whose main switch is greyed out is reported as such, the others as not (#562)", () => {
+    const status = companionStatus({ ready: true, mic: { state: "ok", data: false }, translation: { state: "ok", data: false },
+        tts: { on: false, pending: false }, blocked: { mic: true, tts: true }, language: "ja", t });
+    assert.deepEqual(FEATURES.filter(feature => status[feature].blocked), ["mic", "tts"]);
 });
 
 test("the panel says starting until the backend is ready, then whether the microphone listens", () => {

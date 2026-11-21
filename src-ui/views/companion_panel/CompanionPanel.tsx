@@ -82,13 +82,16 @@ type SwitchRowProps = {
     t: (key: string) => string;
 };
 
+// A switch whose main switch is greyed out (blocked) says it cannot be used and stays pressable:
+// pressing it brings the main window forward with the reason, as the tray does (#562).
 const SwitchRow = ({ label, value, disabled, onClick, buttonRef, t }: SwitchRowProps) => {
-    const on = value?.on === true, pending = value?.pending === true;
+    const on = value?.on === true, pending = value?.pending === true, blocked = value?.blocked === true;
     return (
         <button ref={buttonRef} type="button" role="switch" aria-checked={on} aria-busy={pending}
+            aria-disabled={blocked || undefined} data-blocked={blocked}
             disabled={disabled || pending} className={styles.switchRow} onClick={onClick}>
             <span className={styles.switchLabel}>{label}</span>
-            <span className={styles.switchValue}>{t(on ? "companion.on" : "companion.off")}</span>
+            <span className={styles.switchValue}>{t(blocked ? "companion.unavailable" : on ? "companion.on" : "companion.off")}</span>
             <span className={styles.track} aria-hidden="true"><span className={styles.thumb} /></span>
         </button>
     );

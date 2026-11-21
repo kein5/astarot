@@ -46,6 +46,8 @@ export const switchRow = style({
     selectors: {
         "&:hover:not(:disabled)": { background: fallbackVar(vars.dark_850_color, "#222d40") },
         "&:disabled": { opacity: 0.55, cursor: "default" },
+        // Its main switch is greyed out: drawn as such, still pressable to hear why (#562).
+        '&[data-blocked="true"]': { opacity: 0.55 },
         '&[aria-busy="true"]': { opacity: 0.75 },
     },
 });
