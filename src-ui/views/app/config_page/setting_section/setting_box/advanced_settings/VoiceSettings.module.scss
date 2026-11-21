@@ -80,6 +80,9 @@
     summary { cursor: pointer; padding: .8rem 0; font-weight: 600; }
     details.more { color: var(--dark_400_color, #adbed6); }
     [role="alert"] { border: .1rem solid var(--warning_color); border-radius: var(--vox_radius); padding: .8rem 1.2rem; overflow-wrap: anywhere; font-size: 1.3rem; color: var(--dark_200_color); }
+    // Under a form's button, the line kept for its problem: one line of the problem's frame (its
+    // text, padding and border), so nothing moves when the problem appears (#912).
+    .problem_slot { min-height: calc(1.3rem * 1.6 + 1.8rem); }
     label.checkLabel { display: flex; align-items: flex-start; gap: 1.2rem; cursor: pointer; }
     input[type="checkbox"] { appearance: auto; -webkit-appearance: checkbox; accent-color: var(--primary_400_color); width: 2rem; height: 2rem; min-height: 2rem; padding: 0; margin-top: .2rem; flex-shrink: 0; }
     // A checkbox among a form's fields is at least 24px high, like the other controls there.

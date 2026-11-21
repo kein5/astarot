@@ -24,7 +24,7 @@ async function ocrModels(layout: "grid" | "list", jobs: Record<string, object> =
             CatalogLayoutSwitch: "catalog-layout-switch", CatalogSection: "catalog-section" },
         "../../../../../../logics/common/useConsentDialog": { useConsentDialog: () => ({ dialog: { current: null }, close() {} }) },
     });
-    const draw = (props: { missing: string[] }) => runtime.render(OcrModels,
+    const draw = (props: { missing: string[]; checking?: boolean; ids?: string[] }) => runtime.render(OcrModels,
         { ids: ["ppocr"], onChanged: () => {}, title: "Recognition models", desc: "What they are", note: "Needed", ...props });
     return { draw, sent };
 }
@@ -45,6 +45,15 @@ test("the models are a part of a catalog, folded as every catalog's part, with t
     assert.ok(find(tree, node => node.type === "catalog-layout-switch"), "the layout buttons at the head of the part");
     tree = s.draw({ missing: [] });
     assert.equal(part(tree).readout, 'model_catalog.group_readout:{"count":1,"obtained":1}');
+});
+
+test("until the page hears which models it needs, the part's bar keeps its place and says it is checking (#912)", async () => {
+    const s = await ocrModels("list");
+    // While checking the page knows no model yet (Ocr.tsx passes the empty list).
+    const tree = s.draw({ missing: [], checking: true, ids: [] });
+    assert.equal(part(tree).readout, "config_page.ocr.readiness.checking");
+    assert.equal(part(tree).title, "Recognition models");
+    assert.equal(find(tree, node => node.props?.["data-model-download"] !== undefined), null, "no card until the answer");
 });
 
 test("a model's card says its state by the catalogs' badges, why it is listed, its size and terms, and its download", async () => {

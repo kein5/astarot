@@ -24,7 +24,7 @@ async function setup(context: TestContext) {
     const { Vr } = await loadModule<typeof import("./Vr.tsx")>(new URL("./Vr.tsx", import.meta.url), bindings, {
         "@ui_configs": { ui_configs: {} }, "../_components": { Slider: "slider", SectionLabelComponent: "section" }, "../_components/form_row/FormRow": { FormRow: "form-row" },
         "../_templates/Templates": { RadioButtonContainer: "radio", CheckboxContainer: "checkbox", ActionButtonContainer: "action" },
-        "@common_components": { ResetButton: "reset" }, "../_components/page_pointer/PagePointer": { PagePointer: "pointer" }, "../_components/advanced_section/AdvancedSection": { AdvancedSection: "advanced" }, "@utils": {},
+        "@common_components": { ResetButton: "reset" }, "../../../../../common_components/stable_words/StableWords": { StableWords: "stable-words" }, "../_components/page_pointer/PagePointer": { PagePointer: "pointer" }, "../_components/advanced_section/AdvancedSection": { AdvancedSection: "advanced" }, "@utils": {},
         "../_components/hint/Hint": { HintDescriptions: "hints", Hint: "hint", useHintDescriptions: () => false },
         "./DesktopCaptionOverlay": { DesktopCaptionOverlay: "desktop" },
         "./OverlayFontFamily": { OverlayFontFamily: "font" },
@@ -98,7 +98,7 @@ test("closing settings stops the overlay sample text, and reopening does not res
         "./OverlayFontFamily": { OverlayFontFamily: "font" },
         "@ui_configs": { ui_configs: {} }, "../_components": { Slider: "slider", SectionLabelComponent: "section" }, "../_components/form_row/FormRow": { FormRow: "form-row" },
         "../_templates/Templates": { RadioButtonContainer: "radio", CheckboxContainer: "checkbox", ActionButtonContainer: "action" },
-        "@common_components": { ResetButton: "reset" }, "../_components/page_pointer/PagePointer": { PagePointer: "pointer" }, "../_components/advanced_section/AdvancedSection": { AdvancedSection: "advanced" }, "@utils": { randomIntMinMax: () => 1 },
+        "@common_components": { ResetButton: "reset" }, "../../../../../common_components/stable_words/StableWords": { StableWords: "stable-words" }, "../_components/page_pointer/PagePointer": { PagePointer: "pointer" }, "../_components/advanced_section/AdvancedSection": { AdvancedSection: "advanced" }, "@utils": { randomIntMinMax: () => 1 },
         "../_components/hint/Hint": { HintDescriptions: "hints", Hint: "hint", useHintDescriptions: () => false },
         "@logics_configs": { useVr: () => ({ currentOverlaySmallLogSettings: { data: saved, state: "ok" },
             sendTextToOverlay: (text: string) => sent.push(text) }) },
@@ -111,8 +111,12 @@ test("closing settings stops the overlay sample text, and reopening does not res
     const button = () => findIn(drawWith(runtimes.button, sample, {}), item => item.type === "button");
 
     const START = "config_page.vr.sample_text_button.start", STOP = "config_page.vr.sample_text_button.stop";
+    // #912: the words keep the longer one's width, so the button does not shrink when pressed.
+    const words = () => findIn(button(), item => item.type === "stable-words").props;
+    assert.deepEqual([words().current, words().words], [START, [START, STOP]]);
     button().props.onClick();
     assert.equal(button().props["aria-label"], STOP);
+    assert.deepEqual([words().current, words().words], [STOP, [START, STOP]]);
     vi.advanceTimersByTime(2000);
     assert.equal(sent.length, 2);
 

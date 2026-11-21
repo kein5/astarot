@@ -1,9 +1,11 @@
 import styles from "./ConnectionCheckButton.module.scss";
 import { useI18n } from "@useI18n";
 import { EnvReadout } from "../env_readout/EnvReadout";
+import { StableWords } from "../../../../../../common_components/stable_words/StableWords";
 
 // The connection state is an environment readout in words (DESIGN.md); its
-// color repeats the words. The check is the shared secondary settings button.
+// color repeats the words. The check is the shared secondary settings button. The words take the
+// longest state's width, so the button beside them stays put while a check runs (#912).
 export interface ConnectionCheckButtonProps {
     // true while the last check reached the server.
     variable?: boolean;
@@ -12,6 +14,8 @@ export interface ConnectionCheckButtonProps {
     checkFunction?: () => void;
     "aria-describedby"?: string;
 }
+
+const STATES = ["checking", "connected", "disconnected"] as const;
 
 export const ConnectionCheckButton = (props: ConnectionCheckButtonProps) => {
     const { t } = useI18n();
@@ -28,7 +32,8 @@ export const ConnectionCheckButton = (props: ConnectionCheckButtonProps) => {
                 </button>
             }
         >
-            <p>{t(`config_page.common.connection_check.${state}`)}</p>
+            <p><StableWords current={t(`config_page.common.connection_check.${state}`)}
+                words={STATES.map(word => t(`config_page.common.connection_check.${word}`))} /></p>
         </EnvReadout>
     );
 };

@@ -73,9 +73,11 @@ const Main_Container = () => {
             <OcrSourceLanguage_Box />
             {/* Wayland only: without a shared window there is nothing to read. */}
             <OcrSharedWindow />
-            {readiness && required.length > 0 &&
-                <OcrModels ids={required} missing={readiness.missing_models ?? []} onChanged={refresh}
-                    settingId={OCR_MODELS_SETTING_ID}
+            {/* Until the readiness arrives, the models' bar keeps its place (checking), so the
+                rows under it do not move when the answer comes (#912). */}
+            {(!readiness || required.length > 0) &&
+                <OcrModels ids={required} missing={readiness?.missing_models ?? []} onChanged={refresh}
+                    settingId={OCR_MODELS_SETTING_ID} checking={!readiness}
                     title={t("config_page.ocr.models.title")} desc={t("config_page.ocr.models.desc")}
                     note={t("config_page.ocr.models.required")} />}
         </div>

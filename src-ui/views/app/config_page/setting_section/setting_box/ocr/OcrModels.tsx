@@ -48,6 +48,9 @@ type OcrModelsProps = {
     desc?: string;
     note: string;
     settingId?: string;
+    // The page has not heard yet which models the language needs: the part's bar is drawn with
+    // that in its readout, so the page does not move when the answer comes (#912).
+    checking?: boolean;
 };
 
 // Chat reading downloads (PP-OCR for the current language, or the optional chatbox
@@ -59,7 +62,7 @@ type OcrModelsProps = {
 // of the part), each with its name and state, its size, its details and its download. The part
 // starts closed as the catalogs' parts do; its readout says how many are on the PC, and the chat
 // reading guide opens it on its way to a model's download (focusOcrModels).
-export const OcrModels = ({ ids, missing, onChanged, title, desc, note, settingId }: OcrModelsProps) => {
+export const OcrModels = ({ ids, missing, onChanged, title, desc, note, settingId, checking = false }: OcrModelsProps) => {
     const { t } = useI18n();
     const { catalog: downloadCatalog, state, error, pending, send } = useModelDownloads();
     const catalog: OcrCatalog | null = downloadCatalog;
@@ -93,7 +96,7 @@ export const OcrModels = ({ ids, missing, onChanged, title, desc, note, settingI
     const obtained = entries.filter(installedOf).length;
     return <section ref={section} tabIndex={-1} className={`${voiceStyles.container} ${styles.models}`} aria-label={title} data-setting-id={settingId}>
         <CatalogSection level={3} title={title} help={desc ? [desc] : []}
-            readout={t("model_catalog.group_readout", { count: entries.length, obtained })}>
+            readout={checking ? t("config_page.ocr.readiness.checking") : t("model_catalog.group_readout", { count: entries.length, obtained })}>
             <div className={styles.layout}><CatalogLayoutSwitch /></div>
             {!catalog && <p aria-busy="true">{t("model_downloads.loading")}</p>}
             <CatalogList layout={layout}>

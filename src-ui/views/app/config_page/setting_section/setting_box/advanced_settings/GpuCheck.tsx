@@ -63,7 +63,7 @@ export const GpuCheck = () => {
                 <button type="button" disabled={running} onClick={() => void start()}>{t(key("start"))}</button>
                 {running && <button type="button" onClick={() => void stop()}>{t(key("stop"))}</button>}
             </div>
-            <div role="status">
+            <div role="status" className={styles.status}>
                 {running && <p>{t(key(`step_${check.step ?? "environment"}`))}</p>}
                 {!running && check.outcome === "cancelled" && <p>{t(key("cancelled"))}</p>}
                 {!running && check.error && <p className={styles.failed}>{errorText(t, check.error)}</p>}

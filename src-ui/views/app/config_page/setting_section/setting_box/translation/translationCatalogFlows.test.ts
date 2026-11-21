@@ -105,6 +105,17 @@ const labelled = (tree: TreeNode, key: string) => {
 const type = (tree: TreeNode, key: string, value: string) => labelled(tree, key).props.onChange({ target: { value } });
 const button = (tree: TreeNode, key: string) => findIn(tree, node => node.type === "button" && textOf(node) === key, `the button ${key}`);
 const alerts = (tree: TreeNode) => nodesIn(tree).filter(node => node.props?.role === "alert").map(textOf);
+// #912: a form's problem is said under its button, so the button stays under the pointer when the
+// problem appears.
+const underButton = (tree: TreeNode, words: string) => {
+    const nodes = nodesIn(tree);
+    const at = nodes.findIndex(node => node.type === "button" && textOf(node) === words);
+    const alert = nodes.findIndex(node => node.props?.role === "alert");
+    assert.ok(at >= 0 && alert > at, `the problem (${alert}) after the button (${at})`);
+    // In the line kept for it, which the form has before any problem.
+    const slot = find(tree, node => node.props?.className === "problem_slot");
+    assert.ok(slot && find(slot, node => node.props?.role === "alert"), "the problem in the line kept for it");
+};
 // Enter in a field of the form, as a keyboard user adds an entry.
 const pressEnter = (tree: TreeNode) => findIn(tree, node => node.props?.role === "group").props.onKeyDown(
     { key: "Enter", target: { tagName: "INPUT" }, preventDefault: () => {} });
@@ -146,8 +157,10 @@ test("each group says when nothing was added, and keeps the entries the app ship
 test("an engine entry is not sent without a name; Enter sends it once, cleaned, and the form empties after the answer", async context => {
     reset(catalogWith());
     const draw = await form(context, "engine");
+    assert.ok(find(draw(), node => node.props?.className === "problem_slot"), "a line kept for a problem before any (#912)");
     button(draw(), "translation_catalog.add_do").props.onClick();
     assert.deepEqual(alerts(draw()), ["translation_catalog.problem.name_missing"]);
+    underButton(draw(), "translation_catalog.add_do");
     assert.deepEqual(sentTo(REGISTER), []);
     type(draw(), "translation_catalog.field.name", "My NLLB");
     type(draw(), "translation_catalog.field.folder", '"C:\\Models\\nllb 1.3B"');
@@ -221,6 +234,7 @@ test("an API entry asks for its key, keeps what was typed when the backend refus
     type(draw(), "translation_catalog.field.url", "http://192.168.1.5:8000/v1");
     button(draw(), "translation_catalog.add_do").props.onClick();
     assert.deepEqual(alerts(draw()), ["translation_catalog.problem.key_missing"]);
+    underButton(draw(), "translation_catalog.add_do");
     type(draw(), "translation_catalog.field.key", " secret-key ");
     button(draw(), "translation_catalog.add_do").props.onClick();
     const request = { group: "api", name: "Home server", protocol: "openai_compatible", url: "http://192.168.1.5:8000/v1", model: "", auth_key: "secret-key" };

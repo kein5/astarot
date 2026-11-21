@@ -11,8 +11,10 @@ import { MessageActionsProvider } from "@logics_common";
 
 export const MessageContainer = memo(function MessageContainer() {
     const { currentMessageInputBoxRatio, asyncSetMessageInputBoxRatio } = useMessageInputBoxRatio();
-    // The input box's height in percent of the column; false until the first ratio arrives.
-    const [ui_message_box_ratio, setUiMessageBoxRatio] = useState<number | false>(false);
+    // The input box's height in percent of the column. It starts at the ratio already known (the
+    // saved one, or the store's default until it arrives), not at the stylesheet's own height: the
+    // log above would otherwise jump once the first frame is drawn (#912).
+    const [ui_message_box_ratio, setUiMessageBoxRatio] = useState<number | false>(() => currentMessageInputBoxRatio.data ?? false);
     const [is_hovered, setIsHovered] = useState(false);
 
     const container_ref = useRef<HTMLDivElement>(null);

@@ -38,6 +38,8 @@ const vrct_vox_links = [
     { id: "licenses", href: `${vrct_vox_url}/blob/main/NOTICE.md` },
 ];
 
+// Every picture carries its natural size (width, height), so the page keeps its place before the
+// pictures are decoded and nothing below them moves when they arrive (#912).
 export const AboutVrct = () => {
     const { t } = useI18n();
     const { currentUiLanguage } = useAppearance();
@@ -45,7 +47,7 @@ export const AboutVrct = () => {
     return (
         <div className={styles.container}>
             <section className={styles.vrct_vox_section}>
-                <img src={astarot_logo} className={styles.vrct_vox_logo} alt="ASTAROT" />
+                <img src={astarot_logo} width={1474} height={300} className={styles.vrct_vox_logo} alt="ASTAROT" />
                 <p className={styles.vrct_vox_subtitle} lang="en" translate="no">{ASTAROT_SUBTITLE}</p>
                 {currentSoftwareVersion.data && (
                     <p className={styles.vrct_vox_version}>{t("config_page.common.version", { version: currentSoftwareVersion.data })}</p>
@@ -64,15 +66,15 @@ export const AboutVrct = () => {
             <h2 className={styles.original_heading}>{t("config_page.about_vrct.original_heading")}</h2>
             <p className={styles.vrct_vox_text}>{t("config_page.about_vrct.original_desc")}</p>
             <div className={styles.dev_section}>
-                <img src={dev_section_title} alt={t("config_page.about_vrct.credits.dev_section_title")} className={clsx(styles.section_title, styles.the_developers)} />
+                <img src={dev_section_title} width={208} height={27} alt={t("config_page.about_vrct.credits.dev_section_title")} className={clsx(styles.section_title, styles.the_developers)} />
                 <div className={styles.dev_section_wrapper}>
                     <div className={styles.dev_card_wrapper}>
-                        <img src={dev_misya} alt={t("config_page.about_vrct.credits.dev_misya")} className={styles.dev_card_img} />
+                        <img src={dev_misya} width={692} height={300} alt={t("config_page.about_vrct.credits.dev_misya")} className={styles.dev_card_img} />
                         <OpenLinkContainer className={styles.dev_misya_x} href_id="dev_misya_x" />
                         <OpenLinkContainer className={styles.dev_misya_github} href_id="dev_misya_github" />
                     </div>
                     <div className={styles.dev_card_wrapper}>
-                        <img src={dev_shiina} alt={t("config_page.about_vrct.credits.dev_shiina")} className={styles.dev_card_img} />
+                        <img src={dev_shiina} width={692} height={300} alt={t("config_page.about_vrct.credits.dev_shiina")} className={styles.dev_card_img} />
                         <OpenLinkContainer className={styles.dev_shiina_x} href_id="dev_shiina_x" />
                     </div>
                 </div>
@@ -80,7 +82,7 @@ export const AboutVrct = () => {
 
             <div className={styles.project_links_and_logo_section}>
                 <div className={styles.about_vrct_logo_wrapper}>
-                    <img src={vrct_logo_for_about_vrct} alt="VRCT" className={styles.about_vrct_logo} />
+                    <img src={vrct_logo_for_about_vrct} width={400} height={107} alt="VRCT" className={styles.about_vrct_logo} />
                 </div>
                 <div className={styles.project_links_wrapper}>
                     <OpenLinkContainer className={styles.project_link} href_id="project_link_documents" />
@@ -89,43 +91,43 @@ export const AboutVrct = () => {
             </div>
 
             <div className={styles.contributors_section}>
-                <img src={contributors_section_title} alt={t("config_page.about_vrct.credits.contributors_section_title")} className={clsx(styles.section_title, styles.contributors)} />
+                <img src={contributors_section_title} width={180} height={26} alt={t("config_page.about_vrct.credits.contributors_section_title")} className={clsx(styles.section_title, styles.contributors)} />
                 <div className={styles.contributors_img_wrapper}>
                     <div className={styles.contributor_card_wrapper}>
-                        <img src={contributor_done} alt={t("config_page.about_vrct.credits.contributor_done")} className={clsx(styles.contributors_img, styles.contributors)} />
+                        <img src={contributor_done} width={800} height={360} alt={t("config_page.about_vrct.credits.contributor_done")} className={clsx(styles.contributors_img, styles.contributors)} />
                         <OpenLinkContainer className={styles.contributors_done_san_x} href_id="contributors_done_san_x" />
                     </div>
                     <div className={styles.contributor_card_wrapper}>
-                        <img src={contributor_iya} alt={t("config_page.about_vrct.credits.contributor_iya")} className={clsx(styles.contributors_img, styles.contributors)} />
+                        <img src={contributor_iya} width={800} height={360} alt={t("config_page.about_vrct.credits.contributor_iya")} className={clsx(styles.contributors_img, styles.contributors)} />
                         <OpenLinkContainer className={styles.contributors_iya_x} href_id="contributors_iya_x" />
                     </div>
                     <div className={styles.contributor_card_wrapper}>
-                        <img src={contributor_rera} alt={t("config_page.about_vrct.credits.contributor_rera")} className={clsx(styles.contributors_img, styles.contributors)} />
+                        <img src={contributor_rera} width={800} height={360} alt={t("config_page.about_vrct.credits.contributor_rera")} className={clsx(styles.contributors_img, styles.contributors)} />
                         <OpenLinkContainer className={styles.contributors_rera_x} href_id="contributors_rera_x" />
                         <OpenLinkContainer className={styles.contributors_rera_github} href_id="contributors_rera_github" />
                     </div>
                     <div className={styles.contributor_card_wrapper}>
-                        <img src={contributor_poposuke} alt={t("config_page.about_vrct.credits.contributor_poposuke")} className={clsx(styles.contributors_img, styles.contributors)} />
+                        <img src={contributor_poposuke} width={800} height={360} alt={t("config_page.about_vrct.credits.contributor_poposuke")} className={clsx(styles.contributors_img, styles.contributors)} />
                         <OpenLinkContainer className={styles.contributors_poposuke_x} href_id="contributors_poposuke_x" />
                     </div>
                     <div className={styles.contributor_card_wrapper}>
-                        <img src={contributor_kumaguma} alt={t("config_page.about_vrct.credits.contributor_kumaguma")} className={clsx(styles.contributors_img, styles.contributors)} />
+                        <img src={contributor_kumaguma} width={800} height={360} alt={t("config_page.about_vrct.credits.contributor_kumaguma")} className={clsx(styles.contributors_img, styles.contributors)} />
                         <OpenLinkContainer className={styles.contributors_kumaguma_x} href_id="contributors_kumaguma_x" />
                     </div>
                     <div className={styles.contributor_card_wrapper}>
-                        <img src={contributor_riku} alt={t("config_page.about_vrct.credits.contributor_riku")} className={clsx(styles.contributors_img, styles.contributors)} />
+                        <img src={contributor_riku} width={800} height={360} alt={t("config_page.about_vrct.credits.contributor_riku")} className={clsx(styles.contributors_img, styles.contributors)} />
                         <OpenLinkContainer className={styles.contributors_riku_x} href_id="contributors_riku_x" />
                     </div>
                 </div>
             </div>
 
             <div className={styles.special_thanks_section}>
-                <img src={special_thanks_section_title} alt={t("config_page.about_vrct.credits.special_thanks_section_title")} className={clsx(styles.section_title, styles.special_thanks)} />
-                <img src={special_thanks_members} alt={t("config_page.about_vrct.credits.special_thanks_members")} className={styles.special_thanks_members_img} />
+                <img src={special_thanks_section_title} width={202} height={28} alt={t("config_page.about_vrct.credits.special_thanks_section_title")} className={clsx(styles.section_title, styles.special_thanks)} />
+                <img src={special_thanks_members} width={1440} height={128} alt={t("config_page.about_vrct.credits.special_thanks_members")} className={styles.special_thanks_members_img} />
                 {
                     currentUiLanguage.data === "ja"
-                    ? <img src={special_thanks_message_ja} alt={t("config_page.about_vrct.credits.special_thanks_message")} className={styles.special_thanks_message_img} />
-                    : <img src={special_thanks_message_en} alt={t("config_page.about_vrct.credits.special_thanks_message")} className={styles.special_thanks_message_img} />
+                    ? <img src={special_thanks_message_ja} width={1440} height={25} alt={t("config_page.about_vrct.credits.special_thanks_message")} className={styles.special_thanks_message_img} />
+                    : <img src={special_thanks_message_en} width={1440} height={27} alt={t("config_page.about_vrct.credits.special_thanks_message")} className={styles.special_thanks_message_img} />
                 }
             </div>
 
@@ -153,20 +155,20 @@ import project_link_documents from "@images/about_vrct/project_link_documents.pn
 import project_link_vrct_github from "@images/about_vrct/project_link_vrct_github.png";
 
 const about_vrct_links = {
-    dev_misya_x: { img: dev_x_icon, href: "https://twitter.com/misya_ai" },
-    dev_misya_github: { img: dev_github_icon, href: "https://github.com/misyaguziya" },
-    dev_shiina_x: { img: dev_x_icon, href: "https://twitter.com/Shiina_12siy" },
+    dev_misya_x: { img: dev_x_icon, size: [40, 40], href: "https://twitter.com/misya_ai" },
+    dev_misya_github: { img: dev_github_icon, size: [40, 40], href: "https://github.com/misyaguziya" },
+    dev_shiina_x: { img: dev_x_icon, size: [40, 40], href: "https://twitter.com/Shiina_12siy" },
 
-    project_link_documents: { img: project_link_documents, href: upstream_vrct_document_url },
-    project_link_vrct_github: { img: project_link_vrct_github, href: "https://github.com/misyaguziya/VRCT" },
+    project_link_documents: { img: project_link_documents, size: [188, 35], href: upstream_vrct_document_url },
+    project_link_vrct_github: { img: project_link_vrct_github, size: [428, 35], href: "https://github.com/misyaguziya/VRCT" },
 
-    contributors_done_san_x: { img: contributors_x_icon, href: "https://twitter.com/done_vrc" },
-    contributors_iya_x: { img: contributors_x_icon, href: "https://twitter.com/IYAA_HHHH" },
-    contributors_rera_x: { img: contributors_x_icon, href: "https://twitter.com/rerassi" },
-    contributors_rera_github: { img: contributors_github_icon, href: "https://github.com/soumt-r" },
-    contributors_poposuke_x: { img: contributors_x_icon, href: "https://twitter.com/sig_popo" },
-    contributors_kumaguma_x: { img: contributors_x_icon, href: "https://twitter.com/K_kumaguma_A" },
-    contributors_riku_x: { img: contributors_x_icon, href: "https://twitter.com/Riku7302" },
+    contributors_done_san_x: { img: contributors_x_icon, size: [32, 32], href: "https://twitter.com/done_vrc" },
+    contributors_iya_x: { img: contributors_x_icon, size: [32, 32], href: "https://twitter.com/IYAA_HHHH" },
+    contributors_rera_x: { img: contributors_x_icon, size: [32, 32], href: "https://twitter.com/rerassi" },
+    contributors_rera_github: { img: contributors_github_icon, size: [32, 32], href: "https://github.com/soumt-r" },
+    contributors_poposuke_x: { img: contributors_x_icon, size: [32, 32], href: "https://twitter.com/sig_popo" },
+    contributors_kumaguma_x: { img: contributors_x_icon, size: [32, 32], href: "https://twitter.com/K_kumaguma_A" },
+    contributors_riku_x: { img: contributors_x_icon, size: [32, 32], href: "https://twitter.com/Riku7302" },
 };
 
 type OpenLinkContainerProps = {
@@ -182,8 +184,8 @@ const OpenLinkContainer = ({className, href_id}: OpenLinkContainerProps) => {
     const img = link.img;
     return (
         <a aria-label={t(`config_page.about_vrct.image_links.${href_id}`)} className={className} href={href} target="_blank" rel="noreferrer" >
-            {/* for adjust size to their parent component's width. */}
-            <img style={ {height: "100%", width: "100%", "objectFit": "contain" }} src={img} alt="" />
+            {/* for adjust size to their parent component's width. Its natural size keeps the place before it is decoded. */}
+            <img style={ {height: "100%", width: "100%", "objectFit": "contain" }} src={img} width={link.size[0]} height={link.size[1]} alt="" />
         </a>
     );
 };
