@@ -26,7 +26,7 @@ jobs:
       - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
         with:
           version: 2026.11.8
-          install_args: actionlint zizmor gitleaks osv-scanner lychee
+          install_args: actionlint zizmor gitleaks osv-scanner lychee hk
       # The token lets zizmor ask GitHub about the actions the workflows use (impostor commits,
       # known vulnerable versions); it can read public data only.
       - name: Workflows (actionlint, zizmor)
@@ -38,6 +38,10 @@ jobs:
       - name: Links in the documents (lychee)
         if: ${{ !cancelled() }}
         run: python3 tools/dev.py check --scope links
+      # hk.pkl, the settings of the Git hooks contributors install with `hk install`.
+      - name: Git hook settings (hk)
+        if: ${{ !cancelled() }}
+        run: python3 tools/dev.py check --scope hooks
       # Keys and tokens in the commits this run adds: a pull request's, a push's or the merge
       # queue's. A new branch's push has no earlier commit; its pull request is checked instead.
       - name: Secrets in new commits (gitleaks)

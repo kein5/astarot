@@ -1,0 +1,57 @@
+// hk's Git hooks (docs/development.md, "Gitのフック"). Install them once per clone with
+// `python tools/dev.py setup --scope hooks` (`hk install`); `HK=0 git commit ...` skips them for
+// one commit. Each step runs on the files the
+// commit changes, with the settings `python tools/dev.py check` uses; none of them changes a file.
+// The package version follows hk's pin in mise.toml (tests/devtools/test_toolchain_pins.py).
+amends "package://github.com/jdx/hk/releases/download/v2.11.1/hk@2.11.1#/Config.pkl"
+
+// `hk run pre-commit --all` runs these on every file (gitleaks still reads only staged changes;
+// `python tools/dev.py check --scope secrets` reads commits).
+local checks = new Mapping<String, Step> {
+  // Keys and tokens in the staged changes (.gitleaks.toml, .gitleaksignore). --redact keeps a
+  // found value out of the terminal.
+  ["gitleaks"] {
+    check = "gitleaks git --pre-commit --staged --redact --no-banner ."
+  }
+  // The workflows, as `check --scope workflows`: actionlint without shellcheck and pyflakes,
+  // zizmor offline with the exceptions in .github/zizmor.yml.
+  ["actionlint"] {
+    glob = List(".github/workflows/*.yml")
+    check = "actionlint -shellcheck= -pyflakes= {{files}}"
+  }
+  ["zizmor"] {
+    glob = List(".github/workflows/*.yml", ".github/actions/*/action.yml", ".github/dependabot.yml")
+    check = "zizmor --offline {{files}}"
+  }
+  // The UI's TypeScript and JavaScript, as `check --scope ui` runs Biome (biome.json): its lint
+  // rules, then the format of the files its formatter covers. Biome passes over a file biome.json
+  // leaves out, and the rules not fixed yet are warnings, so they do not stop a commit (#837).
+  ["biome-lint"] {
+    glob = List("**/*.js", "**/*.mjs", "**/*.ts", "**/*.tsx")
+    check = "biome lint --no-errors-on-unmatched {{files}}"
+  }
+  ["biome-format"] {
+    glob = List("**/*.js", "**/*.mjs", "**/*.ts", "**/*.tsx")
+    check = "biome format --no-errors-on-unmatched {{files}}"
+  }
+  // Links in the Markdown files, offline, as `check --scope links` (lychee.toml).
+  ["lychee"] {
+    glob = List("**/*.md")
+    exclude = List("site/**")
+    check = "lychee --offline --no-progress --root-dir \"$PWD\" {{files}}"
+  }
+}
+
+hooks {
+  ["pre-commit"] {
+    steps = checks
+  }
+  // Conventional Commits, as cog.toml sets them and CI checks them.
+  ["commit-msg"] {
+    steps {
+      ["cocogitto"] {
+        check = "cog --quiet verify --file {{commit_msg_file}}"
+      }
+    }
+  }
+}

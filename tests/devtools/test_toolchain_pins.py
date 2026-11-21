@@ -92,6 +92,13 @@ class ToolchainPinTests(unittest.TestCase):
         lock = tomllib.loads((ROOT / "mise.lock").read_text(encoding="utf-8"))["tools"]
         self.assertEqual(lock["cargo-nextest"][0]["backend"], "github:nextest-rs/nextest")
 
+    def test_hk_settings_amend_the_package_of_the_pinned_hk(self):
+        version = pinned()["hk"]
+        text = (ROOT / "hk.pkl").read_text(encoding="utf-8")
+        packages = re.findall(r"package://github\.com/jdx/hk/releases/download/v([\d.]+)/hk@([\d.]+)#", text)
+        self.assertTrue(packages, "hk.pkl names no hk package")
+        self.assertEqual(set(packages), {(version, version)})
+
     def test_ci_installs_the_toolchains_through_mise(self):
         uses_mise = False
         for path in ci_files():

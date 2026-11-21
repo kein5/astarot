@@ -103,6 +103,10 @@ run = "python tools/dev.py check --scope crates"
 description = "Links between the Markdown files and to their headings (lychee; offline)"
 run = "python tools/dev.py check --scope links"
 
+[tasks."check:hooks"]
+description = "The Git hooks' settings in hk.pkl (hk validate)"
+run = "python tools/dev.py check --scope hooks"
+
 [tasks."check:vulns"]
 description = "Known vulnerabilities of every lock file (osv-scanner; asks osv.dev)"
 run = "python tools/dev.py check --scope vulns"
@@ -140,6 +144,10 @@ run = "python tools/dev.py setup --scope integration"
 [tasks."setup:resources"]
 description = "src-tauri/bin/_internal for tauri dev and cargo check (stages what build/ has)"
 run = "python tools/dev.py setup --scope resources"
+
+[tasks."setup:hooks"]
+description = "Git hooks from hk.pkl in this clone (hk install; only when asked)"
+run = "python tools/dev.py setup --scope hooks"
 
 [tasks.spec]
 description = "Regenerate the spec reference (docs/spec/reference/): the core's catalog, then the tables"
