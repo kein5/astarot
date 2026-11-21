@@ -314,7 +314,7 @@ impl TranslationCatalog {
         }
         let id = format!("tr-{}", &uuid::Uuid::new_v4().simple().to_string()[..12]);
         row.insert("id".into(), json!(id));
-        row.insert("registered_at".into(), json!(chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, false)));
+        row.insert("registered_at".into(), json!(super::registered_at(jiff::Timestamp::now())));
         let row = Value::Object(row);
         if !valid_row(&row) {
             return Err(Error::Code(codes::INVALID));

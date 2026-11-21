@@ -214,7 +214,7 @@ impl UserModels {
             return Err(Error::Code("user_model_exists"));
         }
         let id = format!("user-{}", &uuid::Uuid::new_v4().simple().to_string()[..12]);
-        let registered_at = chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, false);
+        let registered_at = super::registered_at(jiff::Timestamp::now());
         models.push(json!({ "id": id, "target": target, "name": name, "files": files, "registered_at": registered_at }));
         self.write(models)?;
         Ok(self.state_locked())

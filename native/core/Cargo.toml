@@ -22,8 +22,10 @@ onnx-translation = ["dep:vrct-translate-onnx"]
 # The names the app goes by outside its code (ADR-014): the saved keys, the package folder.
 app-identity = { path = "../app-identity" }
 base64 = "=0.22.1"
-chrono = { version = "=0.4.45", default-features = false, features = ["clock", "std"] }
 getrandom = "=0.3.4"
+# Local times in file names and the conversation log (src/local_time.rs). The newest release that
+# had been out for 14 days (2026-11-21, #879; docs/development.md); chrono is unmaintained.
+jiff = "=0.2.39"
 serde = { version = "=1.0.229", features = ["derive"] }
 # The backend answered with Python dicts, whose keys keep their order; the UI shows some of
 # them in that order (the translation weights, the initialization snapshot). See README.md.

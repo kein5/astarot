@@ -169,3 +169,23 @@ pub fn free_space(path: &Path) -> io::Result<u64> {
         Ok(free)
     }
 }
+
+/// When a row of the user's models or of the translation catalog was registered
+/// (`registered_at`): RFC 3339 in UTC, to the second, with the offset written out
+/// (`2026-11-21T00:05:03+00:00`), as chrono wrote it until #879.
+pub(crate) fn registered_at(at: jiff::Timestamp) -> String {
+    at.strftime("%Y-%m-%dT%H:%M:%S%:z").to_string()
+}
+
+#[cfg(test)]
+mod registered_at_tests {
+    use super::registered_at;
+
+    #[test]
+    fn a_registration_time_is_utc_to_the_second_with_the_offset_written_out() {
+        let at: jiff::Timestamp = "2026-11-21T09:05:03.999+09:00".parse().unwrap();
+        assert_eq!(registered_at(at), "2026-11-21T00:05:03+00:00");
+        let at: jiff::Timestamp = "2027-01-02T03:04:05Z".parse().unwrap();
+        assert_eq!(registered_at(at), "2027-01-02T03:04:05+00:00");
+    }
+}

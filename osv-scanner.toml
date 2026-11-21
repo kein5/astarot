@@ -7,12 +7,15 @@
 # None of these has a release that fixes it by updating within the same major version. Each was
 # checked on 2026-11-21 with `cargo tree -i` in the workspaces that hold it.
 
-# chrono: unmaintained (alternatives: jiff, time). vrct-core and vrct-ops call it themselves, so
-# the way out is to move that code to another crate; until that is planned it stays here.
+# chrono: unmaintained (alternatives: jiff, time). Since #879 no crate of this repository uses it:
+# vrct-core and vrct-ops moved to jiff. It stays only in src-tauri/Cargo.lock, as an optional
+# dependency of serde_with that the app does not turn on (`cargo tree -i chrono` prints nothing).
+# Cargo keeps unused optional dependencies in a lock file, and osv-scanner reads the lock file.
+# tests/devtools/test_lockfile_exceptions.py fails if chrono comes back into the build.
 [[IgnoredVulns]]
 id = "RUSTSEC-2026-0543"
 ignoreUntil = 2027-02-21
-reason = "chrono is unmaintained; vrct-core and vrct-ops use it directly and a move to jiff or time is not planned yet"
+reason = "chrono is only in src-tauri/Cargo.lock as an optional dependency of serde_with that the app does not build; no crate of this repository uses it since #879"
 
 # ttf-parser: unmaintained (alternative: skrifa). It comes through ab_glyph, which draws the VR
 # subtitles in vrct-vr-overlay; leaving it means changing how the subtitles are drawn.

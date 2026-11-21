@@ -10,8 +10,10 @@ publish = false
 [dependencies]
 # The names the app goes by outside its code (ADR-014): the owner marker of a download.
 app-identity = { path = "../app-identity" }
-chrono = { version = "=0.4.45", default-features = false, features = ["clock", "std"] }
 httparse = "=1.10.1"
+# The registration times and the telemetry's times. The newest release that had been out for 14
+# days (2026-11-21, #879; docs/development.md); chrono is unmaintained.
+jiff = "=0.2.39"
 rustls = { version = "=0.23.46", default-features = false, features = ["ring", "std", "tls12"] }
 serde = { version = "=1.0.229", features = ["derive"] }
 serde_json = "=1.0.154"
