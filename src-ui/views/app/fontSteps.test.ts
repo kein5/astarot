@@ -6,21 +6,22 @@ import { test } from "vitest";
 import { fontSizes, isStylesheet } from "../../logics/test/fontSizes.ts";
 
 // The app window's text takes the steps DESIGN.md names (#568), in its stylesheets and in its
-// vanilla-extract files (ADR-010). The VR windows have steps of their own (vr/fontSteps.test.ts).
-// The caption overlay draws its captions at the size its user picks; its fixed text, and the tray
-// companion's hexagram, take the app's steps in px, since those windows do not follow the UI size.
-// Sizes relative to their parent (em, %) and 0 (hidden text) follow the parent.
+// vanilla-extract files (ADR-010). The VR windows and the tray companion's hexagram have steps of
+// their own (vr/fontSteps.test.ts, companion_handle/fontSteps.test.ts). The caption overlay draws
+// its captions at the size its user picks; its fixed text takes the app's steps in px, since that
+// window does not follow the UI size. Sizes relative to their parent (em, %) and 0 (hidden text)
+// follow the parent.
 const views = fileURLToPath(new URL("..", import.meta.url));
 const design = readFileSync(new URL("../../../DESIGN.md", import.meta.url), "utf8");
 const steps = new Set([...design.split("rounded:")[0].matchAll(/fontSize: "([\d.]+rem)"/g)].map(([, size]) => size));
-// The windows drawn in px, which do not follow the UI size.
-const PX_WINDOWS = ["caption_overlay", "companion_handle"];
+// The windows with steps of their own, and the caption overlay, drawn in the app's steps in px.
+const OWN_STEPS = ["vr", "companion_handle"], OVERLAY = "caption_overlay";
 // The log's base size, which the log font size setting replaces from JavaScript.
 const allowed = new Set(["app/main_page/main_section/message_container/log_box/LogBox.module.scss:1rem"]);
 
 const sources = (dir: string): string[] => readdirSync(dir).flatMap((name): string[] => {
     const path = join(dir, name);
-    if (statSync(path).isDirectory()) return PX_WINDOWS.concat("vr").includes(name) && dir === views ? [] : sources(path);
+    if (statSync(path).isDirectory()) return [...OWN_STEPS, OVERLAY].includes(name) && dir === views ? [] : sources(path);
     return isStylesheet(name) ? [path] : [];
 });
 
@@ -42,23 +43,21 @@ test("the app window's font sizes are on DESIGN.md's steps", () => {
     assert.deepEqual(off, []);
 });
 
-test("the caption overlay's fixed font sizes, and the hexagram's, are the app's steps in px", () => {
+test("the caption overlay's fixed font sizes are the app's steps in px", () => {
+    const dir = join(views, OVERLAY);
+    const files = readdirSync(dir).filter(isStylesheet);
     // At the default UI size 1rem is 10px (root.css), so 1.4rem is 14px.
     const px = new Set([...steps].map(size => `${+(parseFloat(size) * 10).toFixed(2)}px`));
-    for (const window of PX_WINDOWS) {
-        const dir = join(views, window);
-        const files = readdirSync(dir).filter(isStylesheet);
-        const off = [];
-        let fixed = 0;
-        for (const file of files) {
-            for (const size of fontSizes(readFileSync(join(dir, file), "utf8"), file)) {
-                // The captions' own size (var(--caption_font_size, ...)), and sizes relative to it.
-                if (!/^[\d.]+(rem|px)$/.test(size)) continue;
-                fixed += 1;
-                if (!px.has(size)) off.push(`${window}/${file}: ${size}`);
-            }
+    const off = [];
+    let fixed = 0;
+    for (const file of files) {
+        for (const size of fontSizes(readFileSync(join(dir, file), "utf8"), file)) {
+            // The captions' own size (var(--caption_font_size, ...)), and sizes relative to it.
+            if (!/^[\d.]+(rem|px)$/.test(size)) continue;
+            fixed += 1;
+            if (!px.has(size)) off.push(`${OVERLAY}/${file}: ${size}`);
         }
-        assert.ok(files.length >= 1 && fixed >= 1, `${window}: ${files.join(" ")} ${fixed}`);
-        assert.deepEqual(off, []);
     }
+    assert.ok(files.length >= 2 && fixed >= 1, `${files.join(" ")} ${fixed}`);
+    assert.deepEqual(off, []);
 });
