@@ -14,6 +14,7 @@ import { useIsOpenedConfigPage } from '@logics_common';
 import { LANGUAGE_RESPONSE_WAIT_MS } from '../../logics/main/languageMutations';
 import { createLanguageNames, isLanguagePickKey } from '../../logics/common/languageNames.ts';
 import { languageJumpGroups } from '../../logics/common/languageJumpGroups.ts';
+import { LOCAL_TRANSLATION_ENGINE_NAME_KEY, translatorLabel } from '../../logics/main/translatorLabel.ts';
 import { VrPickerList, VR_PICKER_WINDOW_THRESHOLD } from './VrPickerList';
 import type { VrPickerNavigation } from './VrPickerList';
 import styles from './VrLanguageWindow.module.scss';
@@ -52,7 +53,7 @@ const keys = ['1', '2', '3'];
 const same = (a: Language | null | undefined, b: Language | null | undefined) => a?.language === b?.language && a?.country === b?.country;
 const unique = <T extends Language>(entries: readonly T[]) => entries.filter((entry, index) => entries.findIndex(other => same(entry, other)) === index);
 // A label may break in more than one place; every break becomes a space.
-const engineLabel = (engine: TranslatorStatus | null | undefined) => engine?.label?.replaceAll('\n', ' ') ?? '';
+const engineLabel = (engine: TranslatorStatus | null | undefined, t: Translate) => translatorLabel(engine, t).replaceAll('\n', ' ');
 // Buttons and the element that had the focus; focus() needs an element that can take it.
 const isFocusable = (element: Element | null | undefined): element is HTMLElement => !!element && 'focus' in element;
 
@@ -323,7 +324,7 @@ export function VrLanguageWindow({ onClose }: { onClose: () => void }) {
                 </section>
                 <button className={clsx(settingsStyles.row, settingsStyles.clickable, settingsStyles.select)} ref={mainRef('engine')} aria-disabled={busy ? true : undefined} onClick={() => open({ kind: 'engine' }, 'engine')}>
                     <span className={settingsStyles.label}>{t('main_page.translator')}{(sameLanguage || !selectedEngine?.is_available) && <span className={styles.engine_note}><WarningSvg aria-hidden="true" />{sameLanguage ? c('same_short') : c('unavailable')}</span>}</span>
-                    <span className={settingsStyles.select_value}>{engineLabel(selectedEngine)}</span><span className={settingsStyles.chevron} aria-hidden="true">›</span>
+                    <span className={settingsStyles.select_value}>{engineLabel(selectedEngine, t)}</span><span className={settingsStyles.chevron} aria-hidden="true">›</span>
                 </button>
             </fieldset>
             {ready && view.kind !== 'main' && <fieldset className={styles.picker} disabled={locked || syncError} aria-busy={busy && !syncError}>
@@ -352,7 +353,7 @@ export function VrLanguageWindow({ onClose }: { onClose: () => void }) {
                 </div>}
                 <div ref={pickerScroll} className={styles.picker_scroll}>
                     {view.kind === 'engine' ? <>
-                        {sameLanguage && <p className={styles.warning}><WarningSvg aria-hidden="true" />{c('same_reason')}</p>}
+                        {sameLanguage && <p className={styles.warning}><WarningSvg aria-hidden="true" />{c('same_reason', { engine: t(LOCAL_TRANSLATION_ENGINE_NAME_KEY) })}</p>}
                         <h3 className={settingsStyles.section_label}>{c('available')}</h3>
                         <div className={styles.choice_grid}>{engines.data.filter(engine => engine.is_available).map(engine => <EngineChoice key={engine.id} engine={engine} current={selectedEngine?.id} busy={busy} t={t} c={c}
                             onPick={() => save(() => settings.setSelectedTranslationEngines(engine.id), { returnToMain: true })} />)}</div>
@@ -400,8 +401,8 @@ interface EngineChoiceProps {
 function EngineChoice({ engine, current, busy, t, c, onPick }: EngineChoiceProps) {
     const selected = engine.id === current;
     return <button className={clsx(settingsStyles.row, settingsStyles.clickable, settingsStyles.option, styles.choice, selected && settingsStyles.is_selected)} disabled={!engine.is_available || (selected && !busy)} aria-pressed={selected} aria-disabled={busy && engine.is_available ? true : undefined}
-        aria-label={`${engineLabel(engine)}${selected ? ` · ${c('selected')}` : ''}`} onClick={() => !busy && onPick?.()}>
-        <span className={settingsStyles.label}><span>{engineLabel(engine)}</span><span className={settingsStyles.sub}>{engine.is_default ? t('common.default_label') : selected ? c('selected') : '\u00a0'}</span></span>
+        aria-label={`${engineLabel(engine, t)}${selected ? ` · ${c('selected')}` : ''}`} onClick={() => !busy && onPick?.()}>
+        <span className={settingsStyles.label}><span>{engineLabel(engine, t)}</span><span className={settingsStyles.sub}>{engine.is_default ? t('common.default_label') : selected ? c('selected') : '\u00a0'}</span></span>
         {selected && <span className={styles.check} aria-hidden="true">✓</span>}
     </button>;
 }

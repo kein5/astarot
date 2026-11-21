@@ -2,12 +2,15 @@
 //! the controller parts of `tests/voice/test_tts_toggle.py`, `test_tts_toggle_server.py`,
 //! `test_spoken_controls.py`, `test_direct_voice_controller.py`, `test_io_flow_controller.py`,
 //! `test_managed_controller.py`, `test_vc_runtime_setup.py` and
-//! `src-python/test/test_voice_settings_patches.py`, `test_voice_route_monitor_mute.py`.
+//! [`src-python/test/test_voice_settings_patches.py`], [`test_voice_route_monitor_mute.py`].
 //!
 //! Speech servers are fakes on loopback ports (`common::fake_tts`) or the speech.cpp stand-in
 //! (`fake-speech-core`); outputs, microphones and the managed route's gate are in memory
 //! (`common::fake_voice`); the RVC worker is the `fake-rvc-worker` stand-in. No model, GPU,
 //! audio device or network outside this PC.
+//!
+//! [`src-python/test/test_voice_settings_patches.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/test/test_voice_settings_patches.py
+//! [`test_voice_route_monitor_mute.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/test/test_voice_route_monitor_mute.py
 
 mod common;
 
@@ -1043,11 +1046,17 @@ fn a_conversion_converts_in_the_block_of_the_advanced_settings() {
         });
         assert_eq!(run.ui.ok("/get/data/direct_voice_state", None)["conversion_block_ms"], Value::Null);
     };
+    let asked_to_time = || run.ui.dir.join("vc_runtimes").join("rvc-block-lengths.remeasure").is_file();
     assert_eq!(run.ui.ok("/get/data/rvc_block_ms", None), 0);
     converts_in("auto", 80);
+    assert!(!asked_to_time(), "the default asks for nothing");
     assert_eq!(run.ui.ok("/set/data/rvc_block_ms", Some(json!(120))), 120);
     converts_in("120", 120);
+    assert!(!asked_to_time(), "a chosen length asks for nothing");
+    // Choosing Automatic again asks the worker to time the GPU again at the next start (it
+    // removes the request; the stand-in worker does not).
     assert_eq!(run.ui.ok("/set/data/rvc_block_ms", Some(json!(0))), 0);
+    assert!(asked_to_time());
     converts_in("auto", 80);
     assert_eq!(run.ui.ok("/set/data/rvc_block_ms", Some(json!(120))), 120);
     // Anything but 0 or 20 to 200 ms in steps of 20 is refused, and the saved block stays.
@@ -1349,6 +1358,159 @@ fn a_failed_runtime_setup_names_its_step() {
     std::fs::write(Path::new(&destination).join("probe-exit"), "4").unwrap();
     run.ui.ok("/run/start_vc_runtime_setup", Some(json!({ "id": "rvc", "consent": true, "version": vrct_voice_conversion::runtime::version_of(&runtime) })));
     assert_eq!(wait_phase(&run, "failed")["jobs"]["rvc"]["error_code"], "vc_runtime_check_failed");
+    run.ui.stop();
+}
+
+/// A run of the core on the settings folder `dir`, with `voice`'s runtime setup (#517).
+fn start_in(dir: &Path, voice: FakeVoice) -> Run {
+    let mut setup = Setup { saved: Some(json!({})), platform: Platform::Windows, dir: Some(dir.to_path_buf()), ..Setup::default() };
+    setup.services.voice = voice.platform();
+    let ui = Ui::with(setup);
+    ui.ready();
+    Run { ui, voice }
+}
+
+fn set_up_rvc(run: &Run, runtime: &Runtime) -> std::path::PathBuf {
+    run.ui.ok("/run/start_vc_runtime_setup", Some(json!({ "id": "rvc", "consent": true, "version": vrct_voice_conversion::runtime::version_of(runtime) })));
+    let state = wait_phase(run, "ready");
+    std::path::PathBuf::from(state["installed"]["rvc"].as_str().unwrap())
+}
+
+#[test]
+fn a_repair_puts_the_new_libraries_in_place_of_the_old_ones() {
+    let voice = FakeVoice::new();
+    let runtime = small_runtime(&voice, b"the asset");
+    voice.set_runtime(runtime.clone());
+    let run = start_with(json!({}), Platform::Windows, voice, FakeAudio::new(), false);
+    let folder = set_up_rvc(&run, &runtime);
+    // Something only the earlier libraries hold: the repair's own folder replaces it.
+    std::fs::write(folder.join("lib/earlier-only"), b"x").unwrap();
+    let again = set_up_rvc(&run, &runtime);
+    assert_eq!(again, folder);
+    assert_eq!(std::fs::read(folder.join("lib/onnxruntime.dll")).unwrap(), b"onnx runtime");
+    assert!(!folder.join("lib/earlier-only").exists(), "the earlier libraries were kept in lib");
+    for leftover in ["lib.previous", "lib.part", "downloads", "receipt.json.part"] {
+        assert!(!folder.join(leftover).exists(), "{leftover} was left");
+    }
+    run.ui.stop();
+}
+
+#[test]
+fn libraries_a_stopped_repair_moved_aside_come_back_at_start() {
+    let dir = tempfile::tempdir().unwrap();
+    let voice = FakeVoice::new();
+    let runtime = small_runtime(&voice, b"the asset");
+    voice.set_runtime(runtime.clone());
+    let run = start_in(dir.path(), voice);
+    let folder = set_up_rvc(&run, &runtime);
+    run.ui.stop();
+
+    // A repair stopped between its two renames: the earlier libraries aside, the new ones
+    // half unpacked, no lib.
+    std::fs::rename(folder.join("lib"), folder.join("lib.previous")).unwrap();
+    std::fs::create_dir_all(folder.join("lib.part")).unwrap();
+    std::fs::write(folder.join("lib.part/onnxruntime.dll"), b"half").unwrap();
+    let voice = FakeVoice::new();
+    voice.set_runtime(runtime.clone());
+    let run = start_in(dir.path(), voice);
+    assert_eq!(run.ui.ok("/get/data/vc_runtime_state", None)["installed"]["rvc"], folder.to_str().unwrap(), "the runtime set up before is not usable");
+    assert_eq!(std::fs::read(folder.join("lib/onnxruntime.dll")).unwrap(), b"onnx runtime");
+    assert!(!folder.join("lib.previous").exists());
+    assert!(run.voice.fetched().is_empty(), "something was fetched to get it back");
+
+    // A receipt cut short by a stop is no receipt: the runtime is not offered as set up.
+    std::fs::write(folder.join("receipt.json"), b"{\"version\": \"").unwrap();
+    assert_eq!(run.ui.ok("/get/data/vc_runtime_state", None)["installed"], json!({}));
+    run.ui.stop();
+}
+
+fn repair_rvc(run: &Run, runtime: &Runtime) -> Value {
+    run.ui.ok("/run/start_vc_runtime_setup", Some(json!({ "id": "rvc", "consent": true, "version": vrct_voice_conversion::runtime::version_of(runtime) })));
+    wait_phase(run, "failed")
+}
+
+/// On Windows the app's own ONNX Runtime keeps its folder until the app exits. A repair of the
+/// runtime that holds it says so before it fetches anything, and the runtime stays usable (#880).
+#[test]
+fn a_repair_of_libraries_the_app_has_loaded_is_refused_before_anything_is_fetched() {
+    let voice = FakeVoice::new();
+    let runtime = small_runtime(&voice, b"the asset");
+    voice.set_runtime(runtime.clone());
+    let run = start_with(json!({}), Platform::Windows, voice, FakeAudio::new(), false);
+    let folder = set_up_rvc(&run, &runtime);
+    run.voice.set_loaded(vec![folder.join("lib/onnxruntime.dll")]);
+    let fetched = run.voice.fetched().len();
+
+    let state = repair_rvc(&run, &runtime);
+    assert_eq!(state["jobs"]["rvc"]["error_code"], "vc_runtime_loaded");
+    assert_eq!(run.voice.fetched().len(), fetched, "something was fetched");
+    assert_eq!(state["installed"]["rvc"], folder.to_str().unwrap(), "the runtime set up before is not usable");
+    assert_eq!(std::fs::read(folder.join("lib/onnxruntime.dll")).unwrap(), b"onnx runtime");
+    for leftover in ["lib.previous", "lib.part"] {
+        assert!(!folder.join(leftover).exists(), "{leftover} was left");
+    }
+
+    // A library loaded from elsewhere (the shipped CPU build) does not hold the runtime up.
+    run.voice.set_loaded(vec![folder.parent().unwrap().join("elsewhere/onnxruntime.dll")]);
+    assert_eq!(set_up_rvc(&run, &runtime), folder);
+    run.ui.stop();
+}
+
+/// A repair whose new libraries could not take the old ones' place keeps what it unpacked: the
+/// next start puts them in place without fetching them again (#880). Here the folder the old
+/// libraries are moved to cannot be emptied.
+#[cfg(unix)]
+#[test]
+fn a_repair_that_could_not_swap_the_libraries_resumes_without_fetching_them_again() {
+    use std::os::unix::fs::PermissionsExt;
+    let voice = FakeVoice::new();
+    let runtime = small_runtime(&voice, b"the asset");
+    voice.set_runtime(runtime.clone());
+    let run = start_with(json!({}), Platform::Windows, voice, FakeAudio::new(), false);
+    let folder = set_up_rvc(&run, &runtime);
+    let stuck = folder.join("lib.previous");
+    std::fs::create_dir_all(stuck.join("inner")).unwrap();
+    std::fs::write(stuck.join("inner/file"), b"x").unwrap();
+    std::fs::set_permissions(stuck.join("inner"), std::fs::Permissions::from_mode(0o555)).unwrap();
+    let fetched = run.voice.fetched().len();
+
+    let state = repair_rvc(&run, &runtime);
+    assert_eq!(state["jobs"]["rvc"]["error_code"], "vc_runtime_libraries_failed");
+    assert_eq!(std::fs::read(folder.join("lib/onnxruntime.dll")).unwrap(), b"onnx runtime");
+    let fetched_by_the_repair = run.voice.fetched().len() - fetched;
+    assert!(fetched_by_the_repair > 0, "the repair fetched nothing");
+
+    std::fs::set_permissions(stuck.join("inner"), std::fs::Permissions::from_mode(0o755)).unwrap();
+    assert_eq!(set_up_rvc(&run, &runtime), folder);
+    let libraries = runtime.libraries.iter().map(|library| library.url.as_str()).collect::<Vec<_>>();
+    let fetched_again = run.voice.fetched()[fetched + fetched_by_the_repair..].to_vec();
+    assert!(fetched_again.iter().all(|url| !libraries.contains(&url.as_str())), "the libraries were fetched again: {fetched_again:?}");
+    assert!(!folder.join("lib/.archives.json").exists(), "the record was left in lib");
+    run.ui.stop();
+}
+
+/// On Windows a folder that holds an open file cannot be moved: the old libraries stay where
+/// they are, the setup says they are in use, and the next start resumes (#880).
+#[cfg(windows)]
+#[test]
+fn a_repair_the_old_libraries_hold_up_says_they_are_in_use_and_keeps_them() {
+    use std::os::windows::fs::OpenOptionsExt;
+    let voice = FakeVoice::new();
+    let runtime = small_runtime(&voice, b"the asset");
+    voice.set_runtime(runtime.clone());
+    let run = start_with(json!({}), Platform::Windows, voice, FakeAudio::new(), false);
+    let folder = set_up_rvc(&run, &runtime);
+    // Opened as a loaded library is: others may read it, nobody may move or delete it.
+    const FILE_SHARE_READ: u32 = 1;
+    let held = std::fs::OpenOptions::new().read(true).share_mode(FILE_SHARE_READ).open(folder.join("lib/onnxruntime.dll")).unwrap();
+
+    let state = repair_rvc(&run, &runtime);
+    assert_eq!(state["jobs"]["rvc"]["error_code"], "vc_runtime_in_use");
+    assert_eq!(state["installed"]["rvc"], folder.to_str().unwrap(), "the runtime set up before is not usable");
+    assert_eq!(std::fs::read(folder.join("lib/onnxruntime.dll")).unwrap(), b"onnx runtime");
+
+    drop(held);
+    assert_eq!(set_up_rvc(&run, &runtime), folder);
     run.ui.stop();
 }
 

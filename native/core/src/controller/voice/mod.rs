@@ -1,4 +1,4 @@
-//! TTS, direct voice, voice conversion and the voice route (`controller.py`: `getVoice*`,
+//! TTS, direct voice, voice conversion and the voice route ([`controller.py`]: `getVoice*`,
 //! `setVoiceSettings`, `enableTts`, `disableTts`, `stopVoice`, `muteVoice`, `resumeVoice`,
 //! `get/set/start/stopDirectVoice*`, `getVcRuntime*`, `getIoFlow`, `_publishChatVoice`,
 //! `_publishMicVoice` and `_speechServerEnded` for the TTS profiles).
@@ -8,6 +8,8 @@
 //! What reaches the PC's devices is behind [`VoicePlatform`].
 //!
 //! Nothing here writes text, audio, device names or paths to the log.
+//!
+//! [`controller.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/controller.py
 
 mod audition;
 mod flow;
@@ -347,6 +349,10 @@ impl Voice {
             worker: platform.rvc_worker(&app_dir),
             free_space: Arc::new(|path: &Path| vrct_ops::downloads::free_space(path).ok()),
             entries: platform.runtime_entries(),
+            loaded: {
+                let platform = platform.clone();
+                Arc::new(move || platform.loaded_libraries())
+            },
         });
         let voice = Arc::new(Voice {
             core: weak,
@@ -1482,7 +1488,9 @@ pub(crate) fn add(b: &mut Builder<'_>) {
         realtime.upgrade().is_some_and(|core| core.realtime_requested(super::audio_devices::Source::Mic))
     }));
     // A request to a TTS server this app started ends when the server does, and its port is not
-    // probed while it speaks (`listener_monitors.own` in `runtime.py`).
+    // probed while it speaks (`listener_monitors.own` in [`runtime.py`]).
+    //
+    // [`runtime.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/speech_server/runtime.py
     let owners = ServerOwners::default();
     core.speech_servers().on_listener(Arc::new(move |profile, listener| owners.heard(vrct_tts::listener::listener_monitors(), profile, listener)));
     // A TTS server that ends turns TTS off.

@@ -214,12 +214,12 @@ common_error:
     transcription_model_invalid: "That speech recognition model is not available."
     transcription_custom_url_invalid: "Could not reach the custom Whisper server or find a model there. Check the URL."
     ctranslate2_license_consent_required: "{{weight_type}} has a non-commercial license (CC-BY-NC-4.0). Confirm the license in Settings > Translation first."
-    translation_language_unsupported: "{{model}} cannot translate {{languages}}, so the language was reset. To use it, choose another translation engine or {{ctranslate2}} model."
+    translation_language_unsupported: "{{model}} cannot translate {{languages}}, so the language was reset. To use it, choose another translation engine or translation model."
     no_device_mic: "No mic device detected."
     no_device_speaker: "No speaker device detected."
     copy_to_clipboard_failed: "Failed to copy to the clipboard."
     threshold_invalid_value: "You can set it with a value between {{min}} to {{max}}."
-    failed_download_weight_ctranslate2: "CTranslate2 weight download error."
+    failed_download_weight_ctranslate2: "The translation model could not be downloaded."
     retry_download: "Review and retry"
     failed_update_software: "Failed to download the installer. Please try again later."
     failed_update_software_verify: "The downloaded installer did not match its published checksum, so the update was cancelled."
@@ -399,7 +399,7 @@ main_page:
     translator: "Translator"
 
     translator_selector:
-        is_selected_same_language: "You are selecting the same language for '{{your_language}}' and '{{target_language}}' so only '{{ctranslate2}}' is available."
+        is_selected_same_language: "You are selecting the same language for '{{your_language}}' and '{{target_language}}' so only '{{local_engine}}' is available."
         unavailable_hint: "Engines you can't select don't work with these languages or your current settings. Check API keys and other setup in Settings > Translation."
 
     message_log:
@@ -704,7 +704,8 @@ config_page:
             confirm_cancel: "Cancel"
             license_link: "License terms"
             model_card_link: "Model card"
-            non_commercial_notice: "Your {{ctranslate2}} model, {{weight_type}}, has a non-commercial license ({{license}}). It was the default in earlier versions, and your setting has not been changed. For commercial use, select an M2M100 model (MIT) in Settings > Translation."
+            non_commercial_notice: "Your translation model, {{weight_type}}, has a non-commercial license ({{license}}). It was the default in earlier versions, and your setting has not been changed. For commercial use, select an M2M100 model (MIT) in Settings > Translation."
+            retired_reset: "The translation model you had chosen ({{weight_type}}) is no longer offered, so the default, {{selected}}, is used instead."
         translation_compute_device:
             label: "Processing device for AI translation"
             restart_note: "The processing device you chose is used once ASTAROT restarts. Until then, translation runs on the CPU."
@@ -1069,8 +1070,6 @@ config_page:
         models:
             title: "Recognition models"
             desc: "Chat reading runs PaddleOCR models on your PC. Nothing is downloaded until you review the terms and agree."
-            installed: "Downloaded"
-            missing: "Not downloaded"
             required: "Needed for the current source language"
             refresh: "Check again"
         runtime:
@@ -1274,7 +1273,7 @@ config_page:
         section_label_rvc: "Voice changer (RVC)"
         rvc_block_ms:
             label: "Conversion block length"
-            desc: "The microphone is converted in pieces of this length. Shorter pieces make the voice lag less, but the voice breaks up more easily when the GPU cannot keep up. Automatic times the GPU when conversion starts and picks the shortest length it keeps up with. The default is Automatic. It applies from the next time conversion starts."
+            desc: "The microphone is converted in pieces of this length. Shorter pieces make the voice lag less, but the voice breaks up more easily when the GPU cannot keep up. Automatic times the GPU once for each voice model and GPU and keeps the shortest length it keeps up with. Choose Automatic again to have the GPU timed again the next time conversion starts. The default is Automatic. It applies from the next time conversion starts."
             automatic: "Automatic"
             length: "{{ms}} ms"
 
@@ -1394,7 +1393,7 @@ vr_panel:
         available: "Available engines"
         unavailable: "Unavailable engines"
         unavailable_hint: "Unavailable for these languages or current settings. Check the required setup on your PC."
-        same_reason: "Only CTranslate2 is available when your language matches a recipient language. This also applies to different countries."
+        same_reason: "Only {{engine}} is available when your language matches a recipient language. This also applies to different countries."
         full: "3 / 3 selected"
         success: "Changes applied"
         external: "Switched to preset {{n}}"
@@ -1861,6 +1860,7 @@ quick_chat:
     portal_key_kept: "The desktop did not accept {{wanted}} for \"{{action_name}}\" (it may be used by another shortcut). It currently responds to {{hotkey}}. Choose another key."
     portal_lost_reconnecting: "The connection to the desktop's shortcuts was lost, so the hotkeys stopped working. Registering them again…"
     portal_lost: "The connection to the desktop's shortcuts was lost again, so the hotkeys do not work. Open and close Settings to register them again. You can open the quick chat with the button."
+    portal_not_restored: "The hotkeys could not be registered, and the previous keys could not be restored either. No hotkey works now. Open and close Settings to register them again. You can open the quick chat with the button."
     portal_errors:
         portal_cancelled: "Registration was cancelled in the desktop's dialog. Open and close Settings to see the dialog again."
         portal_timeout: "The desktop's dialog was not answered. Open and close Settings to register again."
@@ -1868,6 +1868,7 @@ quick_chat:
         portal_app_id_unavailable: "The desktop did not accept ASTAROT's registration, so its shortcuts are unavailable. This needs a recent xdg-desktop-portal that can find ASTAROT's desktop file. You can open the quick chat with the button."
         portal_desktop_file_failed: "The desktop file needed for shortcuts could not be created. Check that ~/.local/share/applications is writable."
         portal_unavailable: "Could not connect to the desktop portal. Check that xdg-desktop-portal is running."
+        portal_shortcut_invalid: "A shortcut uses a key the desktop cannot take, so the shortcuts were not registered. Record that shortcut again with another key. You can open the quick chat with the button."
     xwayland_hint: "XWayland: the desktop may block the shortcut or focus when another Wayland application is active."
     platform_unknown: "The shortcut platform could not be detected. Reopen settings to try again."
     open_failed: "The input window could not be opened or focused. Try opening it again from Hotkeys settings."
@@ -1944,6 +1945,8 @@ vc_runtime:
         vc_runtime_busy: "Another runtime is being set up. Start this one when it finishes."
         vc_runtime_changed: "The download contents were updated. Review them again."
         vc_runtime_space: "Not enough free space. Free some on the destination drive and start again."
+        vc_runtime_in_use: "The current libraries are in use, so they were not replaced. The current runtime still works. Stop voice conversion and translation, then start again."
+        vc_runtime_loaded: "ASTAROT has loaded this runtime's ONNX Runtime for AI translation, so it cannot be replaced while ASTAROT runs. The current runtime still works. Set the processing device for AI translation to CPU, restart ASTAROT, then start again."
         vc_runtime_tools_failed: "The download tool could not be prepared. Check your network."
         vc_runtime_python_failed: "Python could not be prepared. Check your network. Details are in setup.log in the destination folder."
         vc_runtime_packages_failed: "The packages could not be fetched. Check your network and free space. Details are in setup.log in the destination folder."
@@ -2009,6 +2012,7 @@ model_downloads:
     notice_translation: "A local translation model for ONNX Runtime, converted from the model named above. It runs on your PC; the text you translate is never uploaded. Check the license of the original model."
     # NLLB-200 distilled 600M (the notice of its translation_models.json entry); the size and memory were measured with that version.
     notice_translation_nllb_600m: "A local translation model for ONNX Runtime, converted from NLLB-200 distilled 600M. It runs on your PC; the text you translate is never uploaded. Its license, CC-BY-NC-4.0, allows non-commercial use only. The download needs about 643 MB of free space, and translating uses about 1.4 GiB of memory. The default model stays M2M100; this model is used only when you choose it."
+    notice_translation_nllb_1_3b: "A local translation model for ONNX Runtime, converted from NLLB-200 distilled 1.3B. It runs on your PC; the text you translate is never uploaded. Its license, CC-BY-NC-4.0, allows non-commercial use only. The download needs about 1.4 GB of free space, and translating uses about 2.6 GiB of memory. The default model stays M2M100; this model is used only when you choose it."
     notice_haas: "Japanese speech recognition with punctuation for speech.cpp 0.9.4 or later. Apache-2.0, by Third Intelligence, converted by sakasegawa. Review the model card before use."
     rvc_requirements: "This downloads only the RVC voice model and index. Conversion also needs the RVC runtime (Python environment, HuBERT and RMVPE). Download completion does not mean conversion is ready."
     notice_qwen_asr: "Speech recognition in 30 languages that detects the spoken language itself. Apache-2.0, by the Qwen team, converted by sakasegawa. 1.7B makes fewer mistakes than 0.6B (CER 9.49% against 11.89% on Common Voice Japanese in speech.cpp's measurement) but needs more space and memory. Review the model card before use."
@@ -2098,6 +2102,7 @@ model_downloads:
     memory_boundary: "This is capacity guidance, not a reservation or a guarantee. It adds 25% to the larger of the reference measurement and our sampled peak, then leaves the selected headroom. Other TTS, RVC, ASR, games and longer text can need more memory. GPU and driver compatibility must also be checked."
     memory_boundary_summary: "How the recommendation is calculated"
     guidance_summary: "Memory needs and testing"
+    validation_summary: "Testing"
     tier_standard: "Standard weights"
     tier_compact: "Compact weights: less memory; speech and accuracy may change"
     tier_large: "Large model: more GPU memory and a longer wait for the first audio"
@@ -2106,11 +2111,13 @@ model_downloads:
     validation_pending: "Execution check pending."
     scope_tts_native_vulkan: "Checked on Linux (speech.cpp 0.9.0, Vulkan): it reads a short sentence aloud. Other GPUs, long text and sound quality are not checked yet."
     scope_tts_http_vulkan: "Checked on Linux (speech.cpp 0.9.0, Vulkan): reading a short sentence, stopping midway and restarting the server. The path to your audio output and other GPUs are not checked yet."
+    scope_rvc_runtime: "Checked on Linux (AppImage): converting a voice and passing it on, and staying silent while muted. Sound quality, Windows and other GPUs are not checked yet."
     gpu_unverified: "This GPU differs from the tested GPU. The recommendation describes memory only."
     tier_translation: "Local translation: runs on the CPU unless you choose a GPU"
     memory_reference_translation: "Peak memory while translating 60 short sentences on a CPU (not a minimum)"
     validation_passed_translation: "Checked on:"
     scope_translation_onnx_cpu: "Checked on Windows 11 (ONNX Runtime 1.32, 4 CPU threads): it translates short English and Japanese sentences. GPUs, other languages and long text are not checked yet."
+    scope_translation_onnx_cpu_linux: "Checked on Linux (ONNX Runtime 1.32, 4 CPU threads): it translates English and Japanese sentences. Windows, GPUs and other languages are not checked yet."
 
 # The model catalog (where models are chosen): groups by use, one card per model.
 model_catalog:
@@ -2816,6 +2823,8 @@ companion:
     translation: "Translation"
     "on": "On"
     "off": "Off"
+    # A switch whose main switch is greyed out (as the VR panel says it): pressing it shows why in the main window.
+    unavailable: "Needs setup"
     open_main: "Open ASTAROT"
     close: "Close"
     handle: "Open the control panel"

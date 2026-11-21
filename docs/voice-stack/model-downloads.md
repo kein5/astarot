@@ -30,9 +30,9 @@ Gemmaの重みと、そこから作ったモデルはGemma Terms of Useに従う
 
 ## 内蔵CTranslate2と文章分割ファイル
 
-0.5.0の中核では、この取得を引退させた。ローカル翻訳はONNX Runtime（`native/translate-onnx`）で動き、そのモデルは上の固定カタログの対象`translation`から、ほかのモデルと同じ確認と同意を経て取得する。2026-11-19に、M2M100 418Mのint8（既定、MIT、約506 MB）とNLLB-200 distilled 600Mのint8（CC-BY-NC-4.0、約643 MB）を公開し、カタログに載せた（#687）。NLLBの確認には、非商用のライセンス、取得に要る空き容量、翻訳中のメモリー（約1.4 GiB）を書いた専用の文面を出す。設定の「翻訳」のダウンロードは、項目があれば共通の取得の画面を出し、なければ未公開であることと、自分で用意したモデルは翻訳のカタログの「自分のモデルを追加」で足せることを示す（#597までは置き場所の`translation-models`フォルダーを示した）。
+0.5.0の中核では、この取得を引退させた。ローカル翻訳はONNX Runtime（`native/translate-onnx`）で動き、そのモデルは上の固定カタログの対象`translation`から、ほかのモデルと同じ確認と同意を経て取得する。2026-11-19に、M2M100 418Mのint8（既定、MIT、約506 MB）とNLLB-200 distilled 600Mのint8（CC-BY-NC-4.0、約643 MB）を公開し、カタログに載せた（#687）。2026-11-21にNLLB-200 distilled 1.3Bのint8（CC-BY-NC-4.0、約1.4 GB）も載せた（#411）。NLLBの確認には、非商用のライセンス、取得に要る空き容量、翻訳中のメモリー（600Mは約1.4 GiB、1.3Bは約2.6 GiB）を書いた専用の文面を出す。設定の「翻訳」のダウンロードは、項目があれば共通の取得の画面を出し、なければ未公開であることと、自分で用意したモデルは翻訳のカタログの「自分のモデルを追加」で足せることを示す（#597までは置き場所の`translation-models`フォルダーを示した）。
 
-設定の「翻訳」のモデルの一覧（#565）には、取得済みのモデル、自分で追加したモデル、カタログに項目がある組み込みのモデルだけを並べる。組み込みのモデルに項目があるかは、そのモデルのカタログのID（`<モデル>-onnx-<形>`）で決める。ダウンロードのボタンが出るのは項目がある行だけで、押すとそのモデルの項目を共通の取得の画面で示す。選んでいるモデルは、取得できなくても「まだ取得できません」を付けて残す。組み込みのモデルを1つも取得できず、選んでいるモデルも使えないときは、外部翻訳APIかローカルLLMを使うよう案内する。モデルを公開してカタログに載せる手順は`tools/translation_onnx/README.md`の「公開の手順」にある。
+設定の「翻訳」のモデルの一覧（#565）には、取得済みのモデル、自分で追加したモデル、カタログに項目がある組み込みのモデルだけを並べる。翻訳のカタログの「アプリに含まれる項目」も同じ規則で並べ、行とカードは取得のカタログの項目の名前（「NLLB-200 distilled 600M · int8」）で示す（2026-11-21）。公開しないNLLB-200 3.3Bは組み込みの一覧から外した。それを選んでいた設定は既定で読み込まれ、一度だけ知らせる。組み込みのモデルに項目があるかは、そのモデルのカタログのID（`<モデル>-onnx-<形>`）で決める。ダウンロードのボタンが出るのは項目がある行だけで、押すとそのモデルの項目を共通の取得の画面で示す。選んでいるモデルは、取得できなくても「まだ取得できません」を付けて残す。組み込みのモデルを1つも取得できず、選んでいるモデルも使えないときは、外部翻訳APIかローカルLLMを使うよう案内する。モデルを公開してカタログに載せる手順は`tools/translation_onnx/README.md`の「公開の手順」にある。
 
 経緯は[中核の統合](core-integration.md)の「判断が要ること」の1、29、33。この節の以下の記述は、0.4までのPythonの取得のもの。
 
@@ -66,7 +66,7 @@ CTranslate2の文章分割ファイル（tokenizer）は、重みと同じリポ
 
 - revision、ファイル、容量、SHA-256、対応言語、既定のファイルはspeech.cppのカタログ（`speech models --json`）を正とする。`tools/speechcpp_models.py`が同梱するバージョンの出力を`native/ops/data/speechcpp_models.json`へ写す。手で書き写さない。speech.cppのバージョンを上げたら、同梱するバージョンでこのツールを実行し直して`CATALOG_VERSION`も上げる。
 - アプリ側に書くのは、どの名前を出すかとライセンスの審査（`native/ops/data/speechcpp_asr.json`の`offers`）だけである。審査の記録は[licensing.md](licensing.md#speechcppの音声認識モデル2026-11-16)と`licenses/speechcpp-models/NOTICE.md`にある。
-- `native/ops`も同じ2つのファイルの文字列を読む（`downloads/speechcpp.rs`）。`python_reference.json`との照合は従来どおり。
+- `native/ops`も同じ2つのファイルの文字列を読む（`downloads/speechcpp.rs`）。Pythonのカタログの写し（`python_reference.json`）との照合は、0.6.0で引退させた（#746）。
 - エントリのidは`<名前>-<種類>`（例：`reazonspeech-v2-q8`、`nemotron-35-transcribe-iq4nl`）。以前からある`haas-ja-q8`と`qwen3-asr-06b-q8`は同じidのままなので、取得済みのフォルダーをそのまま使える。
 - 画面では「認識モデル」と「ファイルの種類（量子化）」を選ぶ。最初はspeech.cppが名前で取得するファイルを選んだ状態になり、対応言語とspeech.cppの推奨言語を表示する。取得には従来どおり確認画面での同意が要る。選んだだけでは何も取得しない。
 - 実行時の扱いは変わらない。認識サーバーは選んだファイルを読み込み、言語や語彙のオプションは`/v1/models`の申告に従う。VAD（silero-vad）と話者分離のエントリも変えていない。2つのファイルがspeech.cppのカタログと一致することは試験で確かめている。
@@ -118,8 +118,8 @@ CTranslate2の文章分割ファイル（tokenizer）は、重みと同じリポ
   - OSの5 GiB：8 GBのノートPCで起動した直後のWindows 11は5.3 GB（25H2）、26H2では4.1 GBを使った（[Windows Central](https://www.windowscentral.com/microsoft/windows-11/windows-11-25h2-26h2-tested-8gb-pc)）。メモリーの多いPCほど使う量は増えるが、そのPCには余裕もあるので、8 GBのPCの値に合わせた。
   - VRChatの8 GiB：VRChatの使う量はワールドと周りのアバターで大きく変わる。メモリーが16 GB、32 GB、64 GBのPCでVRChatをVRで試した例（2025年12月の記事。ブラウザー、Discord、Unityも開いたまま）では、PC全体の使用量が16 GBで12.6〜14.3 GB、32 GBと64 GBで17.9〜21.1 GBだった（[VRChatに必要なメモリ容量の実測](https://note.com/jackvrclove/n/n473be2e7d494)）。32 GB以上のPCの値からOSとほかのアプリの分を除くと、VRChatは8 GB以上を使っていると見られる（推定）。16 GBのPCでは使える量に抑えられ、余裕がなかった。この下のほうの値として8 GiBにした。
   - それまでの値（OSとVRChatそれぞれ4 GiB）は、Windows 11とSteamのVRChatのページの最小要件のメモリー（どちらも4 GB）だった。最小要件は実際に使う量よりかなり少ないので見直した。
-  - この余裕を足すと、NLLB-200 distilled 600M（約1.39 GiB）には約14.7 GiB、M2M100 418M（約0.97 GiB）には約14.2 GiBのRAMが要る。8 GBのPCでは警告が出る。16 GBのPC（Windowsで約15.8 GiBと出る）では出ないが、内蔵GPUにメモリーを分けて15 GiBを下回るPCでは出る。
-- GPUのVRChatの4 GiBは決定の値である。このリポジトリの計測では、RTX 3060 Ti（8 GB）で読み上げ、字幕、RVCを動かした約4.8 GBが、デスクトップ表示のVRChatを足すと約6.1 GB、いちばん多いときで約7.2 GBになった（[動作環境](../../site/ja/guide/requirements.md)）。VRChatが増やした量は約1.3〜2.4 GBなので、デスクトップ表示には足りる。VRのヘッドセットで動かしたときの量は測っていない。
+  - この余裕を足すと、NLLB-200 distilled 600M（約1.39 GiB）には約14.7 GiB、M2M100 418M（約0.97 GiB）には約14.2 GiBのRAMが要る。8 GBのPCでは警告が出る。16 GBのPC（Windowsで約15.8 GiBと出る）では出ないが、内蔵GPUにメモリーを分けて15 GiBを下回るPCでは出る。NLLB-200 distilled 1.3B（約2.65 GiB）には約16.3 GiBが要るので、16 GBのPCでも警告が出る。
+- GPUのVRChatの4 GiBは決定の値である。このリポジトリの計測では、RTX 3060 Ti（8 GB）で読み上げ、字幕、RVCを動かした約4.8 GBが、デスクトップ表示のVRChatを足すと約6.1 GB、いちばん多いときで約7.2 GBになった（[動作環境](../../site/ja/guide/requirements.mdx)）。VRChatが増やした量は約1.3〜2.4 GBなので、デスクトップ表示には足りる。VRのヘッドセットで動かしたときの量は測っていない。
 - 検出していない、失敗した、メモリーが分からないときと、数値のないモデル（RVCなど）には警告しない。分からないことを性能不足とは書かない。
 - このため、音声認識やボイスチェンジャーのページでも、開いたときにハードウェアの検出（`/run/refresh_model_download_hardware`）を1回走らせる。検出はspeech.cppの`devices --json`を動かすだけで、モデルの取得や設定の変更はしない。
 ##### ローカル翻訳のモデル（#597）
@@ -129,7 +129,8 @@ CTranslate2の文章分割ファイル（tokenizer）は、重みと同じリポ
 - 目安の値は中核の`native/ops/src/downloads/guidance.rs`がカタログのIDごとに返す。Pythonのバックエンドには翻訳の項目がないので足していない。
 - NLLB-200 distilled 600M int8（`nllb-200-distilled-600m-onnx-int8`）は1,490,300,928バイト（約1.39 GiB）。アプリと同じ実行部`vrct-translate`で英日と日英を各30文訳したときの作業集合の最大で、Windows 11、Intel Core i7-1255U、CPUの4スレッド、ONNX Runtime 1.32.0で測った。PR #687の取得の注記（約1.4 GiB）と同じ値である。
 - 既定のM2M100 418M int8（`m2m100-418m-onnx-int8`）は1,044,295,680バイト（約0.97 GiB）。同じ方法と環境で測った（PR #687）。M2M100は翻訳の共通の注記を使うので、注記には数値を書いていない。
-- ほかの翻訳のモデル（NLLB-200 distilled 1.3Bなど）は測っていないので`unknown`のままにする。カードには「まだ測っていません」と出し、警告もしない。測ったら`guidance.rs`に足す。
+- NLLB-200 distilled 1.3B int8（`nllb-200-distilled-1-3b-onnx-int8`）は2,841,083,904バイト（約2.65 GiB）。公開したファイルを`vrct-translate`で読み込み、英日と日英の各30文に61文を足して訳したときの常駐メモリーの最大（VmHWM。読み込みの間に達する）で、Linux、AMD Ryzen 9 9950X3D、CPUの4スレッド、ONNX Runtime 1.32.0で測った（2026-11-21）。上の2つのWindowsの作業集合とは測り方が違うので、検証の範囲は`translation_onnx_cpu_linux`として分けた。取得の注記（`translation_nllb_1_3b`）には約2.6 GiBと書いた。
+- ほかの翻訳のモデル（M2M100 1.2Bなど）は測っていないので`unknown`のままにする。カードには「まだ測っていません」と出し、警告もしない。測ったら`guidance.rs`に足す。
 - カードの「使うメモリ」の行に、翻訳の間に使うメモリを出す。「必要メモリと動作確認」の中は、読み上げのモデル向けの文（GPU、提供元の測定）ではなく、翻訳用の文を出す（`tier`が`translation`）。
 - 比べる相手は翻訳の計算に使う機器（`SELECTED_TRANSLATION_COMPUTE_DEVICE`）で決める（`translationDeviceMode`）。既定のCPUならハードウェアの検出のCPUの行（RAMの総量）と比べる。GPUを選んでいればそのGPUのメモリの総量と比べる。CUDAとTensorRTはNVIDIAのGPUを、MIGraphXはAMDのGPUを、DirectMLとWebGPUはすべてのGPUを、検出の順に`device_index`番目として数える。そのGPUが検出の行にないときと、CPUでもGPUでも動くOpenVINOのときは比べない。
 - 読み上げのモデル向けの「空きメモリーに合う」の案内（`modelHardwareAdvice.ts`）は、空いているGPUのメモリを見るので翻訳には出さない。

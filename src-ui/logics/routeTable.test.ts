@@ -4,8 +4,8 @@ import { test, vi } from "vitest";
 import { loadBridgeRoutes } from "./test/bridgeHarness.ts";
 
 // The endpoints of the IPC reference (docs/spec/reference/ipc-endpoints.md), which
-// tools/spec_catalog.py writes from the sidecar's mapping and the UI's routes and CI keeps
-// current: the requests, the notices the sidecar sends, and the routes only the UI defines.
+// tools/spec_catalog.py writes from the core's routes and the UI's and CI keeps current: the
+// requests, the notices the core sends, and the routes only the UI defines.
 const reference = readFileSync(new URL("../../docs/spec/reference/ipc-endpoints.md", import.meta.url), "utf8");
 const section = (title: string) => {
     const start = reference.indexOf(`## ${title}`);

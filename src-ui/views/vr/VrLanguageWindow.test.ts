@@ -5,6 +5,7 @@ import { hooks, loadModule, nodesIn, stubGlobals } from "../../logics/test/hookH
 import type { TreeNode } from "../../logics/test/hookHarness.ts";
 import * as languageNames from "../../logics/common/languageNames.ts";
 import * as languageJumpGroups from "../../logics/common/languageJumpGroups.ts";
+import * as translatorLabel from '../../logics/main/translatorLabel.ts';
 
 // #614: the language window says a thing once. The count beside the heading is the range, the
 // chevron of a row says where a language is changed, "Applying changes…" is the wait, and the
@@ -41,6 +42,7 @@ async function languageWindow(context: TestContext, targets: number) {
         "../../logics/main/languageMutations": { LANGUAGE_RESPONSE_WAIT_MS: 1000 },
         "../../logics/common/languageNames.ts": languageNames,
         "../../logics/common/languageJumpGroups.ts": languageJumpGroups,
+        "../../logics/main/translatorLabel.ts": translatorLabel,
         "./VrWindow": { VrWindow: "window" },
         "./VrPickerList": { VrPickerList: "picker-list", VR_PICKER_WINDOW_THRESHOLD: 100 },
     });

@@ -1,5 +1,5 @@
-//! The update endpoints of the Python backend (`controller.py`: `listAvailableReleases`,
-//! `updateSoftware`, `updateCudaSoftware`, `checkSoftwareUpdated`; `model.py`).
+//! The update endpoints of the Python backend ([`controller.py`]: `listAvailableReleases`,
+//! `updateSoftware`, `updateCudaSoftware`, `checkSoftwareUpdated`; [`model.py`]).
 //!
 //! The updater itself belongs to the host: the core cannot reach Tauri's updater, so it takes
 //! one from [`super::Services::software_updates`]. The app (`src-tauri/src/app_update.rs`)
@@ -16,6 +16,9 @@
 //! `/run/update_cuda_software` stays in the IPC contract and does what `/run/update_software`
 //! does. Python switched to the CUDA package there; from 0.5.0 that package held the same files,
 //! and since #288 there is no CUDA package at all.
+//!
+//! [`controller.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/controller.py
+//! [`model.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/model.py
 
 use super::routes::{Builder, OPEN};
 use super::{Core, ok, ok_true};
@@ -35,7 +38,9 @@ pub enum UpdateOutcome {
     VerifyFailed,
 }
 
-/// The app's own updater, as the Python backend's `model.py` saw it.
+/// The app's own updater, as the Python backend's [`model.py`] saw it.
+///
+/// [`model.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/model.py
 pub trait SoftwareUpdates: Send + Sync {
     /// `checkSoftwareUpdated`: `{"is_update_available": bool, "new_version": str}`. May reach
     /// the network; it runs off the start-up path, and only while `CHECK_SOFTWARE_UPDATES` is on.

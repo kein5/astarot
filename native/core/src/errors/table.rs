@@ -36,6 +36,7 @@ pub(super) const CODES: &[CodeInfo] = &[
     CodeInfo { code: "WEIGHT_CTRANSLATE2_DOWNLOAD", category: Category::Weight, message: "CTranslate2 weight download error", severity: Severity::Error, user_action_required: true, reported: true },
     CodeInfo { code: "WEIGHT_DOWNLOAD_CONSENT_REQUIRED", category: Category::Weight, message: "Review the model license and size in Settings and consent to this exact model manifest before downloading", severity: Severity::Warning, user_action_required: true, reported: true },
     CodeInfo { code: "WEIGHT_CTRANSLATE2_LICENSE_CONSENT_REQUIRED", category: Category::Weight, message: "This translation model has a non-commercial license (CC-BY-NC-4.0) and must be confirmed explicitly", severity: Severity::Warning, user_action_required: true, reported: true },
+    CodeInfo { code: "WEIGHT_CTRANSLATE2_RETIRED", category: Category::Weight, message: "The selected translation model is no longer offered; the default model is used", severity: Severity::Warning, user_action_required: false, reported: false },
     CodeInfo { code: "WEIGHT_CTRANSLATE2_NON_COMMERCIAL_NOTICE", category: Category::Weight, message: "The selected translation model has a non-commercial license (CC-BY-NC-4.0)", severity: Severity::Warning, user_action_required: false, reported: true },
     CodeInfo { code: "UPDATE_SOFTWARE_DOWNLOAD", category: Category::General, message: "Software update download error", severity: Severity::Error, user_action_required: true, reported: true },
     CodeInfo { code: "UPDATE_SOFTWARE_VERIFY", category: Category::General, message: "Software update verification error", severity: Severity::Error, user_action_required: true, reported: true },
@@ -109,8 +110,7 @@ pub(super) const CODES: &[CodeInfo] = &[
     CodeInfo { code: "OCR_DISABLED_UNKNOWN", category: Category::Ocr, message: "OCR disabled due to an unknown error", severity: Severity::Error, user_action_required: false, reported: true },
     CodeInfo { code: "GENERAL_EXCEPTION", category: Category::General, message: "An error occurred", severity: Severity::Error, user_action_required: false, reported: true },
     CodeInfo { code: "GENERAL_UNKNOWN", category: Category::General, message: "Unknown error", severity: Severity::Error, user_action_required: false, reported: true },
-    // Core only (#277): the official translation APIs and the Ollama URL. tools/spec_core_additions.json
-    // adds them to the generated specification, after Python's codes.
+    // Core only (#277): the official translation APIs and the Ollama URL.
     CodeInfo { code: "AUTH_GOOGLE_CLOUD_INVALID", category: Category::Auth, message: "Google Cloud Translation API key is not valid", severity: Severity::Warning, user_action_required: true, reported: true },
     CodeInfo { code: "AUTH_GOOGLE_CLOUD_FAILED", category: Category::Auth, message: "Authentication failure of Google Cloud Translation API key", severity: Severity::Error, user_action_required: true, reported: true },
     CodeInfo { code: "AUTH_PAPAGO_INVALID", category: Category::Auth, message: "Papago Client ID or Client Secret is not valid", severity: Severity::Warning, user_action_required: true, reported: true },

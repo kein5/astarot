@@ -1,6 +1,6 @@
 //! Windows direct voice: a chosen output device stands in for the managed sink.
 //!
-//! Port of `src-python/models/audio_routing/windows_route.py`. Windows has no
+//! Port of [`src-python/models/audio_routing/windows_route.py`]. Windows has no
 //! private virtual microphone to create, so the user's cable is the route: voice is
 //! written to its playback end and VRChat records from the other. No OS gate sits
 //! behind that device, so mute is applied here by writing silence, which keeps the
@@ -8,6 +8,8 @@
 //!
 //! The device access is behind [`RouteDevices`], so the queueing, stall and mute
 //! rules are the same, and tested, on every platform.
+//!
+//! [`src-python/models/audio_routing/windows_route.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/audio_routing/windows_route.py
 
 use std::collections::VecDeque;
 use std::sync::{Arc, Condvar, Mutex};
@@ -42,8 +44,10 @@ pub trait Capture: Send {
     }
 }
 
-/// The fixed codes a capture fails with (`_ERRORS` of `capture_pipewire.py`): those of the
+/// The fixed codes a capture fails with (`_ERRORS` of [`capture_pipewire.py`]): those of the
 /// `vrct-asr-capture` helper of 0.5.x, which the captures of this crate kept, and those of its owner.
+///
+/// [`capture_pipewire.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/transcription/capture_pipewire.py
 pub const CAPTURE_CODES: [&str; 36] = [
     "asr_capture_owner_gone",
     "asr_capture_stalled",

@@ -134,7 +134,7 @@ export const CompanionHandle = ({ bridge = companionBridge }: { bridge?: Compani
                                 const shown = facesInward(angleOf(index, rotation), edge);
                                 return (
                                     <polygon key={feature} className={styles.point} points={polygon(pointTriangle(OPEN_RADIUS, index))}
-                                        data-on={value?.on === true} data-pending={value?.pending === true}
+                                        data-on={value?.on === true} data-pending={value?.pending === true} data-blocked={value?.blocked === true}
                                         data-docked={docked === feature} data-shown={shown}
                                         aria-label={t(LABEL_KEYS[feature])} aria-hidden={!shown}
                                         onPointerEnter={() => { if (shown) aim(feature); }} onPointerLeave={unaim} />
@@ -152,10 +152,11 @@ export const CompanionHandle = ({ bridge = companionBridge }: { bridge?: Compani
             {feature && dock && (
                 <button key={`${feature}-${rotation}`} type="button" className={styles.dock} data-side={dock.side}
                     aria-pressed={dockState?.on === true} disabled={!ready || dockState?.pending === true}
+                    aria-disabled={dockState?.blocked === true || undefined} data-blocked={dockState?.blocked === true}
                     style={{ left: `${layout.x + dock.at.x}px`, top: `${layout.y + dock.at.y}px`, ...slide(dockAngle) } as CSSProperties}
                     onClick={() => ask(actionFor(feature))}>
                     <span className={styles.dockLabel}>{t(LABEL_KEYS[feature])}</span>
-                    <span className={styles.dockState}>{t(dockState?.on ? "companion.on" : "companion.off")}</span>
+                    <span className={styles.dockState}>{t(dockState?.blocked ? "companion.unavailable" : dockState?.on ? "companion.on" : "companion.off")}</span>
                 </button>
             )}
             {menu && (

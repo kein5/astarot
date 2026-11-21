@@ -17,7 +17,7 @@ const ready = { ready: true, language: "ja", edge: "right", mic: { on: true, pen
 // A callback the handle registers; calling it before that stops with a TypeError.
 const notYet = async (): Promise<void> => { throw new TypeError("the handle has not registered this callback"); };
 
-async function setup(context: TestContext, { layout = { out: true, edge: "right", x: 330, y: 120 } }: { layout?: HandleLayout } = {}) {
+async function setup(context: TestContext, { layout = { out: true, edge: "right", x: 330, y: 120 }, current = ready }: { layout?: HandleLayout; current?: object } = {}) {
     vi.useFakeTimers({ toFake: ["Date", "setTimeout", "clearTimeout"], now: 1_000_000 });
     const runtime = hooks(), calls: string[][] = [];
     const callbacks: { changed: () => unknown; layout: () => unknown } = { changed: notYet, layout: notYet };
@@ -27,7 +27,7 @@ async function setup(context: TestContext, { layout = { out: true, edge: "right"
     // Test data: the status carries only what the hexagram shows, and the bridge only what the
     // handle calls.
     const bridge = unchecked<CompanionBridge>({
-        status: async () => unchecked<CompanionStatus>(ready),
+        status: async () => unchecked<CompanionStatus>(current),
         layout: async () => state.layout,
         request: async (action: string) => { calls.push(["request", action]); },
         togglePanel: async () => { calls.push(["panel"]); },
@@ -103,6 +103,20 @@ test("hovering a point that shows docks its feature out towards the screen; only
     const waiting = s.dock();
     assert.ok(waiting);
     assert.equal(waiting.props.disabled, true, "a switch waiting for the backend cannot be pressed again");
+});
+
+test("a switch whose main switch is greyed out is drawn so and says it needs setup; a press still asks, to hear why (#562)", async context => {
+    const s = await setup(context, { current: { ...ready, listening: { on: false, pending: false, blocked: true } } });
+    assert.equal(s.point("main_page.transcription_receive").props["data-blocked"], true);
+    assert.equal(s.point("main_page.rvc").props["data-blocked"], false);
+    await s.rest(s.point("main_page.transcription_receive"));
+    const dock = s.dock();
+    assert.ok(dock);
+    assert.deepEqual([dock.props["aria-disabled"], dock.props.disabled], [true, false]);
+    assert.equal(findIn(dock, node => node.props?.className === "dockState").props.children, "companion.unavailable");
+    dock.props.onClick();
+    await flush();
+    assert.deepEqual(s.calls, [["request", "toggle_listening"]], "the main window says why");
 });
 
 test("a click on the hexagon in the middle opens the control panel, and going back in clears the docked label", async context => {

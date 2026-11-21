@@ -546,9 +546,11 @@ fn valid_store_id(id: &str) -> bool {
 }
 
 /// Writes a file only its owner can read (0600 on Unix), through a new temporary file and a
-/// rename, so that a crash leaves the old file or the new one.
+/// rename, so that a crash leaves the old file or the new one. The callers hold the file's lock,
+/// so the temporary files an earlier crash left are removed first: they may hold keys.
 pub(super) fn write_private(path: &Path, bytes: &[u8]) -> io::Result<()> {
     let directory = path.parent().unwrap_or(Path::new("."));
+    super::remove_leftover_temporaries(path);
     let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("file");
     let (temporary, mut file) = loop {
         let candidate = directory.join(format!("{name}.{}.tmp", super::random_suffix()));
@@ -701,6 +703,23 @@ mod tests {
             use std::os::unix::fs::PermissionsExt;
             assert_eq!(fs::metadata(&path).unwrap().permissions().mode() & 0o777, 0o600);
         }
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn a_write_removes_the_temporary_files_a_stopped_write_left() {
+        let dir = tempfile_dir();
+        let path = dir.join(FILE_NAME);
+        // What a crash between writing and renaming left: it may hold keys.
+        let left = dir.join(format!("{FILE_NAME}.0123456789ab.tmp"));
+        fs::write(&left, br#"{"version": 1, "protection": "none", "entries": {"AUTH_KEYS/DeepL_API": "old"}}"#).unwrap();
+        let other = dir.join("config.json.0123456789ab.tmp");
+        fs::write(&other, b"x").unwrap();
+        FileStore::new(path.clone()).write("AUTH_KEYS/DeepL_API", "new-value").unwrap();
+        assert!(!left.exists(), "the leftover was kept");
+        assert!(other.exists(), "another file's leftover is not this store's to remove");
+        let names: Vec<String> = fs::read_dir(&dir).unwrap().filter_map(|e| e.ok()?.file_name().into_string().ok()).filter(|n| n.ends_with(".tmp")).collect();
+        assert_eq!(names, ["config.json.0123456789ab.tmp"], "this write left a temporary file");
         let _ = fs::remove_dir_all(dir);
     }
 

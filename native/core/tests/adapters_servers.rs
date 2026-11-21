@@ -1,7 +1,10 @@
 //! The WebSocket server and the OBS browser source through the IPC surface (Issue #285), on
 //! real sockets on loopback addresses. The behaviours are those of
-//! `src-python/test/test_websocket_*.py`, `test_obs_*.py`, `test_security_audit_fixes.py` and
-//! the WebSocket parts of `test_endpoints.py`.
+//! `src-python/test/test_websocket_*.py`, `test_obs_*.py`, [`test_security_audit_fixes.py`] and
+//! the WebSocket parts of [`test_endpoints.py`].
+//!
+//! [`test_security_audit_fixes.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/test/test_security_audit_fixes.py
+//! [`test_endpoints.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/test/test_endpoints.py
 
 mod common;
 

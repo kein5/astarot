@@ -106,6 +106,10 @@ pub struct Switch {
     /// The backend has not confirmed the last change yet.
     #[serde(default)]
     pending: bool,
+    /// Its main switch is greyed out with a reason, so turning it on is refused; the panel and the
+    /// hexagram draw it so (#562). A main window that does not report it means not greyed out.
+    #[serde(default)]
+    blocked: bool,
 }
 
 /// The tray menu's words, in the UI language; the main window has the translations.
@@ -1181,15 +1185,20 @@ mod linux_tray {
         asked.is_ok() && receiver.recv_timeout(ASK_FOR).unwrap_or(false)
     }
 
+    /// Runs on a thread of its own ([`shown`]); zbus 6 has no blocking API, so it waits here.
     fn watcher_present() -> bool {
-        let Ok(connection) = zbus::blocking::Connection::session() else { return false };
-        WATCHERS.iter().any(|name| {
-            connection
-                .call_method(Some("org.freedesktop.DBus"), "/org/freedesktop/DBus", Some("org.freedesktop.DBus"),
-                    "NameHasOwner", &(*name,))
-                .ok()
-                .and_then(|reply| reply.body().deserialize::<bool>().ok())
-                .unwrap_or(false)
+        zbus::block_on(async {
+            let Ok(connection) = zbus::Connection::session().await else { return false };
+            for name in WATCHERS {
+                let reply = connection
+                    .call_method(Some("org.freedesktop.DBus"), "/org/freedesktop/DBus", Some("org.freedesktop.DBus"),
+                        "NameHasOwner", &(name,))
+                    .await;
+                if reply.ok().and_then(|reply| reply.body().deserialize::<bool>().ok()).unwrap_or(false) {
+                    return true;
+                }
+            }
+            false
         })
     }
 }
@@ -1486,6 +1495,20 @@ mod tests {
         older.remove("edge");
         let read: Status = serde_json::from_value(serde_json::Value::Object(older)).unwrap();
         assert_eq!(read.edge, "right");
+    }
+
+    #[test]
+    fn a_greyed_out_switch_reaches_the_panel_and_an_older_report_means_none() {
+        // The panel and the hexagram read the status back through companion_status.
+        let mut status = Status::default();
+        status.ocr.blocked = true;
+        let value = serde_json::to_value(&status).unwrap();
+        assert_eq!(value["ocr"]["blocked"], true);
+        assert_eq!(serde_json::from_value::<Status>(value.clone()).unwrap(), status);
+        // A switch reported before the field existed.
+        let mut older = value;
+        older["ocr"].as_object_mut().unwrap().remove("blocked");
+        assert!(!serde_json::from_value::<Status>(older).unwrap().ocr.blocked);
     }
 
     fn display(name: &str, x: i32, primary: bool) -> Display {

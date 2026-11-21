@@ -1,7 +1,9 @@
 //! Every setting: its default, whether it is saved, and the check a new value must pass
-//! (`ManagedProperty` and `ValidatedProperty` in `src-python/config.py`).
+//! (`ManagedProperty` and `ValidatedProperty` in [`src-python/config.py`]).
 //!
 //! The order of [`keys`] is the order of the Python class, which is the order of `config.json`.
+//!
+//! [`src-python/config.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/config.py
 
 use super::{Ctx, Environment, Platform};
 use crate::languages;
@@ -438,8 +440,10 @@ fn hotkeys() -> Check {
     })
 }
 
-/// Experimental features the user turns on one by one (`src-python/models/experimental_features.py`,
+/// Experimental features the user turns on one by one ([`src-python/models/experimental_features.py`],
 /// Issue #361). The Python backend and the UI list the same ids; a backend test keeps them equal.
+///
+/// [`src-python/models/experimental_features.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/experimental_features.py
 pub const EXPERIMENTAL_FEATURE_IDS: &[&str] = &["tray_companion"];
 
 fn experimental_features_default() -> Value {

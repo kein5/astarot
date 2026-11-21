@@ -1,4 +1,4 @@
-//! Model downloads and the hardware probe behind them (`controller.py`: `getModelDownload*`,
+//! Model downloads and the hardware probe behind them ([`controller.py`]: `getModelDownload*`,
 //! `startModelDownload`, `cancelModelDownload`, `applyModelDownload`; `vrct_ops::downloads`).
 //!
 //! A download starts only from the user's consent to one entry of the current catalog, and for
@@ -9,6 +9,8 @@
 //! hold what the user saw (`expected`) and nothing runs on that target. The failures answer
 //! `{"error_code": ...}` without the error body, as Python's `_modelDownloadFailure` did: 409
 //! for a state that may pass, 400 otherwise.
+//!
+//! [`controller.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/controller.py
 
 use super::routes::{Builder, OPEN};
 use super::{Core, Services, ok};

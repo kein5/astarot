@@ -1,4 +1,4 @@
-//! VRCT-VOX's own chatbox detector (`ocr_bubble_detector.py`, `ocr_chatbox_detector.py`).
+//! VRCT-VOX's own chatbox detector ([`ocr_bubble_detector.py`], [`ocr_chatbox_detector.py`]).
 //!
 //! A YOLOX-Tiny trained on VRCT-VOX's own frames (tools/chatbox_lab), MIT, loaded only
 //! from its hash-verified download. The upstream VRCT detector
@@ -7,6 +7,9 @@
 //!
 //! Decoding (grid and strides) is inside the exported graph; here are the letterbox,
 //! the threshold, non-maximum suppression and the mapping back to frame pixels.
+//!
+//! [`ocr_bubble_detector.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/ocr/ocr_bubble_detector.py
+//! [`ocr_chatbox_detector.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/ocr/ocr_chatbox_detector.py
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;

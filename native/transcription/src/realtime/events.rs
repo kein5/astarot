@@ -1,5 +1,7 @@
-//! The caption state of one realtime connection (`realtime_events.py`): only items the server
+//! The caption state of one realtime connection ([`realtime_events.py`]): only items the server
 //! announced can produce a final, at most once while tracked. No audio, translation or output.
+//!
+//! [`realtime_events.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/transcription/realtime_events.py
 
 use serde_json::Value;
 use std::collections::{HashMap, VecDeque};

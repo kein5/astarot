@@ -1,9 +1,11 @@
 //! Windows output identities and the virtual-cable rules.
 //!
-//! Port of the pure parts of `src-python/models/audio_routing/devices_windows.py`.
+//! Port of the pure parts of [`src-python/models/audio_routing/devices_windows.py`].
 //! An output identity is the JSON text `["<host>", "<device name>"]`, exactly as
 //! Python's `json.dumps([host, name], ensure_ascii=False)` writes it, because saved
 //! settings hold it.
+//!
+//! [`src-python/models/audio_routing/devices_windows.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/audio_routing/devices_windows.py
 
 /// Drivers that connect a playback device straight to a recording device.
 const CABLE_DRIVERS: [&str; 4] = ["cable", "virtual", "steam streaming", "voicemeeter"];

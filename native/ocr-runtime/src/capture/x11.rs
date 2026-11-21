@@ -1,4 +1,4 @@
-//! The VRChat window by title on X11 / XWayland (Linux; `ocr_capture_x11.py`).
+//! The VRChat window by title on X11 / XWayland (Linux; [`ocr_capture_x11.py`]).
 //!
 //! VRChat under Proton is an X11 client, so on a Wayland desktop it is an XWayland
 //! window. GetImage on the window reads the window's own contents, not the screen, so
@@ -12,6 +12,8 @@
 //!
 //! Not covered: native Wayland windows (gamescope, Wine's Wayland driver); those are
 //! read through the ScreenCast portal once the user shares them ([`super::portal`]).
+//!
+//! [`ocr_capture_x11.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/ocr/ocr_capture_x11.py
 
 use x11rb::connection::Connection;
 use x11rb::protocol::xproto::{AtomEnum, ConnectionExt, ImageFormat, ImageOrder, MapState, Window};

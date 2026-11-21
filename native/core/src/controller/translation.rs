@@ -1,23 +1,27 @@
 //! The translation engines (#277): the keys and models of the online providers, LM Studio and
 //! Ollama, the local translation, the switch, the start-up check and the translation itself
-//! (`controller.py`: `_setTranslationEngineAuthKey`, `_setTranslationEngineModel`,
+//! ([`controller.py`]: `_setTranslationEngineAuthKey`, `_setTranslationEngineModel`,
 //! `_checkTranslationEngineConnection`, `setDeeplAuthKey`, `setOpenAICompatibleAuthKey`,
 //! `_setEndpointCredential`, `setTranslatorLMStudioURL`, `setCtranslate2WeightType`,
 //! `setEnableTranslation`, `changeToCTranslate2Process` and the engine part of `init`;
-//! `model.py`: `getTranslate`, `getInputTranslate`, `getOutputTranslate` and the history).
+//! [`model.py`]: `getTranslate`, `getInputTranslate`, `getOutputTranslate` and the history).
 //!
 //! The provider clients are in `native/translation`: one unit struct per provider implementing
 //! the `Api` trait, with the shared requests written once as default methods (zero-cost
 //! abstraction: generics and static dispatch, no `dyn`). [`Translators::check`],
 //! [`Translators::models`] and [`Translators::translate`] pass the engine named in the settings
 //! to `Provider::check` and the others, which reach the provider's type with one `match` (as
-//! `translation_translator.py` chose the client). Google Cloud Translation and Papago (NAVER Cloud Platform) are core additions
+//! [`translation_translator.py`] chose the client). Google Cloud Translation and Papago (NAVER Cloud Platform) are core additions
 //! (#277); the Ollama URL is a core addition (`OLLAMA_URL`). The local translation is a
 //! [`LocalTranslation`] given by [`super::Services::local_translation`]: ONNX Runtime
 //! (`native/translate-onnx`) when the core is built with the `onnx-translation` feature, else
 //! nothing (see "判断が要ること" 1 and 2 in `docs/voice-stack/core-integration.md`).
 //!
 //! Keys, URLs with their queries and the user's text never reach the log.
+//!
+//! [`controller.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/controller.py
+//! [`model.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/model.py
+//! [`translation_translator.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/translation/translation_translator.py
 
 use super::languages::LOCAL_ENGINE;
 use super::routes::{Builder, OPEN, WAIT};
@@ -1587,6 +1591,31 @@ mod tests {
                 Some((id.to_string(), rest.to_string()))
             })
             .collect()
+    }
+
+    #[test]
+    fn the_ui_names_each_weight_as_the_download_catalog_names_its_model() {
+        // #565: Settings → Translation and the translation catalog show a built-in model by the
+        // download catalog's name of its int8 entry ("NLLB-200 distilled 600M · int8"), which the
+        // UI keeps in ui_configs.ts. A model not in the catalog yet keeps the same form of name.
+        let names: std::collections::HashMap<String, String> = ui_weight_rows()
+            .into_iter()
+            .map(|(id, rest)| {
+                let name = rest.split_once("name: \"").and_then(|(_, r)| r.split_once('"')).map(|(n, _)| n.to_string());
+                let name = name.unwrap_or_else(|| panic!("{id} has no name"));
+                assert!(name.ends_with(" · int8"), "{id}: {name}");
+                (id, name)
+            })
+            .collect();
+        let mut checked = 0;
+        for entry in vrct_ops::downloads::catalog::translation_models() {
+            let Some((weight, variant)) = super::super::translation_onnx::weight_of_catalog_id(&entry.id) else { continue };
+            if variant.name() == "int8" {
+                assert_eq!(names[weight], entry.name, "{weight}");
+                checked += 1;
+            }
+        }
+        assert!(checked > 0, "the shipped catalog names at least one built-in model");
     }
 
     #[test]

@@ -273,14 +273,28 @@ test("the main bar's stylesheet hides the long words and swaps to the shortest w
     }
 });
 
-test("stop and mute keep their width in a narrow bar; the update button keeps only its arrow there", async context => {
+test("stop and mute keep their width in a narrow bar, and nothing runs past it; the update button keeps only its arrow there", async context => {
     const css = readFileSync(new URL("./TopBar.module.scss", import.meta.url), "utf8");
-    const leadingRule = css.match(/\.leading \{([^}]*)\}/);
-    assert.ok(leadingRule);
-    const leading = leadingRule[1];
-    assert.match(leading, /flex-shrink: 0/, "the right-hand buttons can no longer slide over stop and mute");
-    assert.doesNotMatch(leading, /min-width: 0/);
+    // A rule at the top level of a stylesheet: the declarations between its braces.
+    const rule = (sheet: string, selector: string) => {
+        const lines = sheet.split("\n"), start = lines.findIndex(line => line.startsWith(`${selector} {`));
+        assert.ok(start >= 0, selector);
+        const rest = lines.slice(start).join("\n");
+        return rest.slice(rest.indexOf("{") + 1, rest.indexOf("}"));
+    };
+    // #562: the bar takes a second line rather than run past the column; the buttons on the right
+    // go there, at its end, and never over stop and mute.
+    const bar = rule(css, ".container");
+    assert.match(bar, /flex-wrap: wrap/);
+    assert.match(bar, /min-height: var\(--main_page_topbar_height\)/);
+    assert.doesNotMatch(bar, /(^|[^-])height: var/, "a second line makes it taller");
+    // A narrower column still: mute goes under stop, and neither button gets narrower than its words.
+    assert.match(rule(css, ".stop_actions"), /flex-wrap: wrap/);
+    assert.match(rule(css, ".stop"), /flex-shrink: 0/);
     const right = readFileSync(new URL("./right_side_components/RightSideComponents.module.scss", import.meta.url), "utf8");
+    const group = rule(right, ".container");
+    assert.match(group, /margin-inline-start: auto/, "at the bar's end on either line");
+    assert.match(group, /flex-shrink: 0/);
     const narrow = right.split("@mixin narrow_menu")[1].split("@container")[0];
     assert.match(narrow, /\.software_update_label \{[^}]*clip-path: inset\(50%\)/);
     // The icon and its mark stay in a narrow bar: only the words are clipped.

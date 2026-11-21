@@ -1,10 +1,12 @@
 //! Which PipeWire node realtime recognition captures on Linux (`_validate`, `_select` and
-//! `default_endpoint` of `capture_pipewire.py`): never one of VRCT's own nodes, and for "follow
+//! `default_endpoint` of [`capture_pipewire.py`]): never one of VRCT's own nodes, and for "follow
 //! the default" the session's default or, when that is VRCT's own, the configured default.
 //!
 //! The graph is a list in the shape `pw-dump` prints. Nothing here reads PipeWire, so the
 //! choice is tested on every platform; the helper (`helper.rs`, Linux) reads the graph and
 //! calls it.
+//!
+//! [`capture_pipewire.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/transcription/capture_pipewire.py
 #![cfg_attr(not(target_os = "linux"), allow(dead_code))]
 
 use crate::capture::{Source, media_class};

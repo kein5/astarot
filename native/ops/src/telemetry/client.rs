@@ -1,4 +1,4 @@
-//! Sends VRCT-VOX's usage events to VRCT-VOX's own receiver (`client.py`).
+//! Sends VRCT-VOX's usage events to VRCT-VOX's own receiver ([`client.py`]).
 //!
 //! Two events exist and the receiver takes no others: `app_started`, and `error` with its fixed
 //! error code. Each carries the time (ISO 8601, UTC), the app's version, the OS and its
@@ -7,6 +7,8 @@
 //!
 //! [`build_event`] is the only place an event is put together: what the app shows the user as
 //! "what is sent" and what is posted come from the same call, and differ only in the time.
+//!
+//! [`client.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/telemetry/client.py
 
 use std::sync::Arc;
 use std::time::Duration;

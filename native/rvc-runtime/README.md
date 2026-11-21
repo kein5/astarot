@@ -419,7 +419,7 @@ small change if the specification decides otherwise.
 
 `astarot-rvc-worker` is what the application starts for the voice changer. It speaks the
 application's live-VC pipe contract (`native/voice-conversion/src/protocol.rs`, "VVC1"; up
-to 0.4 `src-python/models/voice_conversion/protocol.py`): a `ready` packet, or a `failed`
+to 0.4 [`src-python/models/voice_conversion/protocol.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/voice_conversion/protocol.py)): a `ready` packet, or a `failed`
 packet with a fixed code, then one `output` packet of 48 kHz mono 16-bit audio for every
 `input` packet. Every packet is one block of `--block-ms` (20 to 200 ms in steps of 20; 80 ms
 when it is not given, the external runtime's). The application passes its Advanced setting
@@ -436,7 +436,10 @@ keeps each choice there under a hash of the voice model (path, size, modificatio
 index when one is used, the device, the GPU's name (CUDA device 0 from the NVIDIA driver,
 DirectML's preferred adapter), the ONNX Runtime library and the thread count, and a later start
 with the same hash converts in that length without timing the GPU (no reload on DirectML
-either). The file holds only the hashes and the lengths. Delete it to have the GPU timed again. `ready` then says the chosen block and the owner
+either). The file holds only the hashes and the lengths. When the user chooses Automatic again,
+the application puts `rvc-block-lengths.remeasure` beside it; the next automatic start then
+times the GPU instead of using its kept length, replaces that entry and removes the file
+(decided 2026-11-21). Delete the cache to have every pair timed again. `ready` then says the chosen block and the owner
 converts in it. The 1.4 leaves room for the round trip at the microphone's pace, when the
 GPU idles between blocks and clocks down ([the measurements](../../docs/voice-stack/rvc-low-latency-2026-11-20.md)). The owner, the Linux
 launch helper (`native/vc-worker`, mode `rvc-native`), the router process, the managed sink,
@@ -449,7 +452,7 @@ astarot-rvc-worker --runtime <dir> --probe [--device cuda|directml|cpu|auto]   #
 ```
 
 - **Runtime folder** (set up by `native/voice-conversion/src/runtime.rs` after consent; up to
-  0.4 by `src-python/models/voice_conversion/runtime_setup.py`). On a PC with an NVIDIA
+  0.4 by [`src-python/models/voice_conversion/runtime_setup.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/voice_conversion/runtime_setup.py)). On a PC with an NVIDIA
   driver: `lib/` holds ONNX Runtime 1.31.0 (CUDA 13 build, Microsoft's NuGet package
   `Microsoft.ML.OnnxRuntime.Gpu.Windows` or `.Gpu.Linux`; its GitHub release until
   2026-11-18) with CUDA 13.4 Update 1 and cuDNN 9.26 (NVIDIA's PyPI wheels; driver
@@ -522,7 +525,7 @@ astarot-rvc-worker --runtime <dir> --probe [--device cuda|directml|cpu|auto]   #
 ### Measurements (2026-11-15)
 
 Same machine as above (Ryzen 9 9900X, RTX 4080 SUPER, driver 620.70), CUDA, the worker
-driven through the application's contract module (`protocol.py`) with a 22.9 s speech file
+driven through the application's contract module ([`protocol.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/voice_conversion/protocol.py)) with a 22.9 s speech file
 (the two public clips, twice, with pauses), fed in real time. Load average 1 – 16 from
 unrelated work during the runs. Round trip is the time from writing a block to reading its
 output.

@@ -75,6 +75,18 @@ jobs:
       - name: Realtime recognition's capture on a private PipeWire graph
         if: runner.os == 'Linux'
         run: cargo test --locked --manifest-path native/transcription/Cargo.toml --features pipewire --test pipewire_capture_private -- --ignored
+      # The core on the same kind of graph, with its own voice platform and the real
+      # astarot-voice-gate (#746): typed chat is heard once on the managed microphone, and a stop,
+      # a mute, the switch and a failed speech server silence it; a conversion plays into the
+      # managed VC input (decision 11). Until 0.6.0 the app's window checked the speech in
+      # tests/platform/test_native_voice.py, with the Python backend's PipeWire parts.
+      - if: runner.os == 'Linux'
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          workspaces: native/core
+      - name: The core's speech and conversion on the managed route of a private PipeWire graph
+        if: runner.os == 'Linux'
+        run: cargo test --locked --manifest-path native/core/Cargo.toml --features pipewire --test spoken_route_live --test voice_managed_live -- --ignored
       - run: npm ci --ignore-scripts
       - run: uv run --no-project python tools/dev.py check --scope ui
   # The Rust backend core through the connection the UI uses (Issue #285): start-up and
@@ -147,6 +159,75 @@ jobs:
       - run: cargo test --locked --manifest-path native/translate-onnx/Cargo.toml
       # Speech requests, the speech queue and the listener monitor (Issue #279).
       - run: cargo test --locked --manifest-path native/tts/Cargo.toml
+  # The crates no other job tests (#550, decision 3 of #871): the downloads and operations
+  # (ops), the owner of the speech servers, the OSC and OBS adapters, chat reading's OCR and the
+  # RVC worker's runtime. ocr-runtime and rvc-runtime link the ONNX Runtime that ort downloads at
+  # build time (pyke's mirror, not ONNX Runtime's GitHub releases).
+  crates:
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
+        with:
+          version: 2026.11.8
+          install_args: rust
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          workspaces: |
+            native/ops
+            native/speech-server
+            native/adapters
+            native/ocr-runtime
+            native/rvc-runtime
+      - run: cargo test --locked --manifest-path native/ops/Cargo.toml
+      - run: cargo test --locked --manifest-path native/speech-server/Cargo.toml
+      - run: cargo test --locked --manifest-path native/adapters/Cargo.toml
+      - run: cargo test --locked --manifest-path native/ocr-runtime/Cargo.toml
+      - run: cargo test --locked --manifest-path native/rvc-runtime/Cargo.toml
+  # The line, function and region coverage of each Rust crate with its own tests (#550, decision 1
+  # of #871), in this job's summary. It is reported, never held to a threshold: the job never
+  # fails the workflow, also when a crate cannot be measured. audio-routing builds against
+  # libpipewire, so the same PipeWire as headless's is prepared first.
+  rust-coverage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
+        with:
+          version: 2026.11.8
+          install_args: python rust cargo:cargo-llvm-cov
+      - run: rustup component add llvm-tools
+      - run: |
+          for attempt in 1 2 3 4; do
+            sudo apt-get update && sudo apt-get install -y pkg-config gcc g++ meson ninja-build libsndfile1-dev libglib2.0-dev liblua5.4-dev libclang-dev && break
+            if [ "$attempt" = 4 ]; then exit 1; fi
+            sleep $((attempt * 20))
+          done
+      - run: |
+          bash tools/ci/setup_pipewire.sh "$RUNNER_TEMP/vrct-pipewire"
+          cat "$RUNNER_TEMP/vrct-pipewire/environment" >> "$GITHUB_ENV"
+          echo "$RUNNER_TEMP/vrct-pipewire/prefix/bin" >> "$GITHUB_PATH"
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          workspaces: |
+            native/core
+            native/ops
+            native/audio-routing
+            native/rvc-runtime
+            native/ocr-runtime
+      - name: Measure each crate's coverage
+        run: python tools/rust_coverage.py --summary "$GITHUB_STEP_SUMMARY"
   # The integration tests (ADR-017): the app's screens, operated in Chromium and WebKit, through
   # the real core and crates, with stand-ins for the devices and the services outside the app
   # (tests/integration, native/browser-core-bridge).

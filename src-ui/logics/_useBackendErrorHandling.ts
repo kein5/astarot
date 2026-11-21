@@ -2,6 +2,7 @@ import { useTranscriptionConsent } from "./transcription/useTranscriptionConsent
 import { useTranslationSetup } from "./translation/useTranslationSetup";
 import { useOcrSetup } from "./ocr/useOcrSetup";
 import { createElement } from "react";
+import { translatorName } from "./main/translatorLabel";
 import { useI18n } from "@useI18n";
 import { useStdoutToPython } from "@useStdoutToPython";
 
@@ -91,6 +92,14 @@ const ENDPOINT_URL_ERRORS = new Set([
 const EndpointUrlErrorNotice = ({ translationKey, fallback }: { translationKey: string; fallback: string | undefined }) => {
     const { t, i18n } = useI18n();
     return i18n.exists(translationKey) ? t(translationKey) : fallback;
+};
+
+// A saved choice of a translation model the app no longer offers went back to the default (#565).
+// Sent at start-up with the URL repairs, so it too is translated when it renders.
+const RetiredWeightNotice = ({ retired, selected }: { retired: unknown; selected: unknown }) => {
+    const { t } = useI18n();
+    const name = (weight: unknown) => translatorName(typeof weight === "string" ? weight : "", null, t);
+    return t("config_page.translation.ctranslate2_weight_type.retired_reset", { weight_type: name(retired), selected: name(selected) });
 };
 
 type DownloadFailureNoticeProps = {
@@ -282,9 +291,8 @@ export const _useBackendErrorHandling = () => {
                 // only explains why it changed.
                 const languages = fieldOf(data, "languages") ?? [];
                 showNotification_Warning(t("common_error.translation_language_unsupported", {
-                    model: fieldOf(data, "weight_type") ?? fieldOf(data, "engine"),
+                    model: translatorName(fieldOf(data, "weight_type"), fieldOf(data, "engine"), t),
                     languages: Array.isArray(languages) ? languages.join(", ") : "",
-                    ctranslate2: "CTranslate2",
                 }), { category_id: error_code, hide_duration: null });
                 return;
             }
@@ -392,13 +400,18 @@ export const _useBackendErrorHandling = () => {
                         item.id === fieldOf(data, "weight_type") ? { ...item, is_pending: false, progress: null } : item
                     ));
                 }
-                showNotification_Warning(t("common_error.ctranslate2_license_consent_required", { weight_type: fieldOf(data, "weight_type") }), { category_id: error_code });
+                showNotification_Warning(t("common_error.ctranslate2_license_consent_required", { weight_type: translatorName(fieldOf(data, "weight_type"), null, t) }), { category_id: error_code });
                 return;
             case "WEIGHT_CTRANSLATE2_NON_COMMERCIAL_NOTICE":
                 showNotification_Warning(t("config_page.translation.ctranslate2_weight_type.non_commercial_notice", {
-                    ctranslate2: "CTranslate2",
-                    weight_type: fieldOf(data, "weight_type"),
+                    weight_type: translatorName(fieldOf(data, "weight_type"), null, t),
                     license: fieldOf(data, "license"),
+                }), { category_id: error_code, hide_duration: null });
+                return;
+            case "WEIGHT_CTRANSLATE2_RETIRED":
+                // The core already loaded the default; the selection the UI reads is the default.
+                showNotification_Warning(createElement(RetiredWeightNotice, {
+                    retired: fieldOf(data, "weight_type"), selected: fieldOf(data, "selected"),
                 }), { category_id: error_code, hide_duration: null });
                 return;
 

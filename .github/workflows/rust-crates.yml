@@ -1,0 +1,37 @@
+name: Rust crate licenses and sources
+# cargo-deny on every Cargo workspace (python tools/dev.py check --scope crates; deny.toml). It
+# needs every dependency's package, so it runs only when a manifest, a lock file or its settings
+# change, and on the pushes to develop and main.
+on:
+  pull_request:
+    paths:
+      - '**/Cargo.toml'
+      - '**/Cargo.lock'
+      - 'deny.toml'
+      - 'mise.toml'
+      - 'mise.lock'
+      - 'tools/dev.py'
+      - '.github/workflows/rust-crates.yml'
+  push:
+    branches: [develop, main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: rust-crates-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  deny:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
+        with:
+          version: 2026.11.8
+          install_args: rust cargo-deny
+      # cargo fetch --locked for each workspace; the check itself stays offline.
+      - run: python3 tools/dev.py setup --scope rust
+      - run: python3 tools/dev.py check --scope crates

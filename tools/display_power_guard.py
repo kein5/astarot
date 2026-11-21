@@ -35,8 +35,8 @@ def connected_outputs():
     state = {}
     for connector in sorted(DRM.glob("card*-*")):
         status, dpms = connector / "status", connector / "dpms"
-        if status.is_file() and status.read_text().strip() == "connected":
-            state[connector.name] = dpms.read_text().strip() if dpms.is_file() else "Unknown"
+        if status.is_file() and status.read_text(encoding="utf-8").strip() == "connected":
+            state[connector.name] = dpms.read_text(encoding="utf-8").strip() if dpms.is_file() else "Unknown"
     return state
 
 

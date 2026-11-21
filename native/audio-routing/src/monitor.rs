@@ -1,9 +1,11 @@
 //! An optional local monitor of the speech written to the virtual microphone.
 //!
-//! Port of `src-python/models/audio_routing/monitor_output.py`. The main write path
+//! Port of [`src-python/models/audio_routing/monitor_output.py`]. The main write path
 //! only appends PCM to a bounded queue. Opening, volume and writing run on the
 //! monitor's own thread with its own token, so a missing, unplugged or stalled
 //! monitor never delays, cancels or fails the main output.
+//!
+//! [`src-python/models/audio_routing/monitor_output.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/audio_routing/monitor_output.py
 
 use std::collections::VecDeque;
 use std::sync::{Arc, Condvar, Mutex};

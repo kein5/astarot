@@ -1,5 +1,8 @@
-//! Mirrors `src-python/test/test_osc_*.py` and `test_model_osc_mute_sync.py` (the parts
-//! about `osc.py`): wire format, trust in the local VRChat, receive and lifecycle.
+//! Mirrors `src-python/test/test_osc_*.py` and [`test_model_osc_mute_sync.py`] (the parts
+//! about [`osc.py`]): wire format, trust in the local VRChat, receive and lifecycle.
+//!
+//! [`test_model_osc_mute_sync.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/test/test_model_osc_mute_sync.py
+//! [`osc.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/osc/osc.py
 
 use std::collections::HashMap;
 use std::io::{Read, Write};
@@ -616,6 +619,9 @@ fn changing_the_destination_moves_the_receiver_and_a_failure_keeps_the_old_one()
     drop(socket);
 }
 
+// Two of this crate's mDNS endpoints find each other only where they receive on port 5353: not
+// on Windows (#442), where the tests below with `LoopbackPeer` take their place.
+#[cfg(not(windows))]
 #[test]
 fn a_local_vrchat_found_over_mdns_gives_mute_and_presence() {
     if !mdns_available() {
@@ -645,6 +651,7 @@ fn a_local_vrchat_found_over_mdns_gives_mute_and_presence() {
     assert_eq!(handler.local_vrchat_presence(), None);
 }
 
+#[cfg(not(windows))]
 #[test]
 fn oscquery_turned_off_receives_and_announces_nothing_while_sending_goes_on() {
     // #559: the user can turn OSCQuery off; messages still go to VRChat.
@@ -693,6 +700,7 @@ fn oscquery_turned_off_receives_and_announces_nothing_while_sending_goes_on() {
     observer.close();
 }
 
+#[cfg(not(windows))]
 #[test]
 fn a_service_withdrawn_right_after_registering_is_not_announced_again() {
     if !mdns_available() {
@@ -757,4 +765,269 @@ fn a_chunked_reply_cut_after_a_chunk_is_read_without_failing() {
         stream.write_all(b"\r\n2\r\n1}\r\n0\r\n\r\n").unwrap();
     });
     assert_eq!(get_json(Ipv4Addr::LOCALHOST.into(), port, "/x"), Ok(Some(json!({"a": 1}))));
+}
+
+// ---------------------------------------------------------------- Windows: nothing received on port 5353 (#442)
+
+/// VRChat's mDNS (MeaMod.DNS) as far as this crate meets it, on the loopback interface only so
+/// that the test raises no firewall question: it hears what is sent to 224.0.0.251:5353 there,
+/// and answers questions for its own records to whoever asked, as it does for a question from a
+/// port other than 5353 (legacy unicast).
+#[cfg(windows)]
+struct LoopbackPeer {
+    stop: Arc<std::sync::atomic::AtomicBool>,
+    heard: Arc<Mutex<HashMap<String, Heard>>>,
+    answers: Arc<Mutex<Vec<mdns::Record>>>,
+    askers: Arc<Mutex<Vec<std::net::SocketAddr>>>,
+    socket: UdpSocket,
+    thread: Option<thread::JoinHandle<()>>,
+}
+
+/// What a [`LoopbackPeer`] heard of one announced instance.
+#[cfg(windows)]
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct Heard {
+    /// The TTL of the last PTR record (0: a goodbye).
+    ttl: u32,
+    /// How many announcements carried it.
+    count: usize,
+    /// The port of its SRV record.
+    port: Option<u16>,
+    first: Instant,
+}
+
+#[cfg(windows)]
+impl LoopbackPeer {
+    fn start(answers: Vec<mdns::Record>) -> Self {
+        use socket2::{Domain, Protocol, Socket, Type};
+        let socket = Socket::new(Domain::IPV4, Type::DGRAM, Some(Protocol::UDP)).unwrap();
+        socket.set_reuse_address(true).unwrap();
+        socket.bind(&std::net::SocketAddr::from((Ipv4Addr::LOCALHOST, mdns::MDNS_PORT)).into()).unwrap();
+        socket.join_multicast_v4(&mdns::MDNS_GROUP, &Ipv4Addr::LOCALHOST).unwrap();
+        let socket: UdpSocket = socket.into();
+        socket.set_read_timeout(Some(Duration::from_millis(50))).unwrap();
+        let (stop, heard, answers, askers) = (
+            Arc::new(std::sync::atomic::AtomicBool::new(false)),
+            Arc::new(Mutex::new(HashMap::<String, Heard>::new())),
+            Arc::new(Mutex::new(answers)),
+            Arc::new(Mutex::new(Vec::new())),
+        );
+        let thread = {
+            let (socket, stop, heard, answers, askers) =
+                (socket.try_clone().unwrap(), stop.clone(), heard.clone(), answers.clone(), askers.clone());
+            thread::spawn(move || {
+                let mut buffer = [0u8; 9000];
+                while !stop.load(Ordering::SeqCst) {
+                    let Ok((size, from)) = socket.recv_from(&mut buffer) else { continue };
+                    let Some(message) = mdns::decode(&buffer[..size]) else { continue };
+                    if message.is_response() {
+                        let mut heard = heard.lock().unwrap();
+                        for record in &message.answers {
+                            if let mdns::RData::Ptr(instance) = &record.data {
+                                let port =
+                                    message.answers.iter().chain(&message.additionals).find_map(|r| match &r.data {
+                                        mdns::RData::Srv { port, .. } if r.name.eq_ignore_ascii_case(instance) => {
+                                            Some(*port)
+                                        }
+                                        _ => None,
+                                    });
+                                let before = heard.get(instance).copied();
+                                heard.insert(
+                                    instance.clone(),
+                                    Heard {
+                                        ttl: record.ttl,
+                                        count: before.map_or(0, |h| h.count) + 1,
+                                        port: port.or(before.and_then(|h| h.port)),
+                                        first: before.map_or_else(Instant::now, |h| h.first),
+                                    },
+                                );
+                            }
+                        }
+                        continue;
+                    }
+                    let records = answers.lock().unwrap().clone();
+                    let asked: Vec<mdns::Record> = records
+                        .iter()
+                        .filter(|r| message.questions.iter().any(|q| q.name.eq_ignore_ascii_case(&r.name)))
+                        .cloned()
+                        .collect();
+                    if asked.is_empty() {
+                        continue;
+                    }
+                    // The rest of the service goes with the answer, as MeaMod.DNS's name server sends it.
+                    let additionals = records.iter().filter(|r| !asked.contains(r)).cloned().collect();
+                    let reply = mdns::Message {
+                        id: message.id,
+                        flags: 0x8400,
+                        questions: message.questions.clone(),
+                        answers: asked,
+                        authorities: vec![],
+                        additionals,
+                    };
+                    let _ = socket.send_to(&mdns::encode(&reply), from);
+                    let mut askers = askers.lock().unwrap();
+                    if !askers.contains(&from) {
+                        askers.push(from);
+                    }
+                }
+            })
+        };
+        Self { stop, heard, answers, askers, socket, thread: Some(thread) }
+    }
+
+    /// What was heard of the instance starting with `prefix`.
+    fn heard(&self, prefix: &str) -> Option<Heard> {
+        self.heard.lock().unwrap().iter().find(|(instance, _)| instance.starts_with(prefix)).map(|(_, heard)| *heard)
+    }
+
+    /// What was heard of the instance served on `port` (tests running at the same time announce
+    /// services of their own).
+    fn heard_port(&self, port: u16) -> Option<Heard> {
+        self.heard.lock().unwrap().values().find(|heard| heard.port == Some(port)).copied()
+    }
+
+    /// Stops answering and says goodbye to everyone who asked (TTL 0).
+    fn withdraw(&self) {
+        let records = std::mem::take(&mut *self.answers.lock().unwrap());
+        let goodbye = mdns::Message {
+            flags: 0x8400,
+            answers: records.into_iter().map(|r| mdns::Record { ttl: 0, ..r }).collect(),
+            ..Default::default()
+        };
+        for asker in self.askers.lock().unwrap().iter() {
+            let _ = self.socket.send_to(&mdns::encode(&goodbye), asker);
+        }
+    }
+}
+
+#[cfg(windows)]
+impl Drop for LoopbackPeer {
+    fn drop(&mut self) {
+        self.stop.store(true, Ordering::SeqCst);
+        if let Some(thread) = self.thread.take() {
+            let _ = thread.join();
+        }
+    }
+}
+
+/// VRChat's OSCQuery service records, as its mDNS answers a question for them.
+#[cfg(windows)]
+fn vrchat_records(name: &str, port: u16) -> Vec<mdns::Record> {
+    let instance = format!("{name}.{OSCJSON_TYPE}");
+    let host = format!("{name}.oscjson.local.");
+    vec![
+        mdns::Record {
+            name: OSCJSON_TYPE.into(),
+            rtype: 12,
+            class: 1,
+            ttl: 10,
+            data: mdns::RData::Ptr(instance.clone()),
+        },
+        mdns::Record {
+            name: instance.clone(),
+            rtype: 33,
+            class: 1,
+            ttl: 10,
+            data: mdns::RData::Srv { priority: 0, weight: 0, port, target: host.clone() },
+        },
+        mdns::Record {
+            name: instance,
+            rtype: 16,
+            class: 1,
+            ttl: 10,
+            data: mdns::RData::Txt(b"\x09txtvers=1".to_vec()),
+        },
+        mdns::Record { name: host, rtype: 1, class: 1, ttl: 10, data: mdns::RData::A(Ipv4Addr::LOCALHOST) },
+    ]
+}
+
+#[cfg(windows)]
+#[test]
+fn on_windows_a_local_vrchat_is_found_by_asking_it_without_receiving_on_the_mdns_port() {
+    // #442: no socket on port 5353, so no firewall question; VRChat answers the questions to the
+    // port they came from, and its goodbye reaches the same port.
+    assert!(!mdns::LISTENS_ON_MDNS_PORT);
+    let (_socket, port) = udp_listener();
+    let name = format!("VRChat-Client-W{}", std::process::id());
+    let vrchat = fake_vrchat(vrchat_answers(host(&name, "127.0.0.1", json!(port), "UDP"), "[true]"));
+    let peer = LoopbackPeer::start(vrchat_records(&name, vrchat.port));
+    let handler = OscHandler::new("127.0.0.1", port).unwrap();
+    handler.receive_osc_parameters().unwrap();
+    assert!(wait_until(|| handler.local_vrchat_presence() == Some(true), Duration::from_secs(5)));
+    assert_eq!(handler.get_osc_parameter_mute_self(), Some(true));
+    // This app's own service is announced to VRChat, though VRChat's question is not heard.
+    let http = handler.http_port().unwrap();
+    assert!(wait_until(|| peer.heard_port(http).is_some_and(|h| h.ttl > 0), Duration::from_secs(5)));
+    // Withdrawn: the service leaves discovery.
+    peer.withdraw();
+    assert!(wait_until(|| handler.local_vrchat_presence() == Some(false), Duration::from_secs(5)));
+    // Stopping says goodbye to VRChat.
+    handler.osc_server_stop().unwrap();
+    assert!(wait_until(|| peer.heard_port(http).is_some_and(|h| h.ttl == 0), Duration::from_secs(5)));
+    assert_eq!(handler.local_vrchat_presence(), None);
+}
+
+#[cfg(windows)]
+#[test]
+fn on_windows_services_are_announced_again_for_a_vrchat_started_later() {
+    // #442: VRChat's own question when it starts is not heard; the announcement comes again.
+    let peer = LoopbackPeer::start(Vec::new());
+    let name = format!("Repeated-T{}", std::process::id());
+    let advertiser = Mdns::start().unwrap();
+    advertiser.register(ServiceSpec {
+        service_type: OSCJSON_TYPE.into(),
+        instance: format!("{name}.{OSCJSON_TYPE}"),
+        host: format!("{name}.oscjson.local."),
+        port: 1,
+        txt: vec!["txtvers=1".into()],
+        address: Ipv4Addr::LOCALHOST,
+    });
+    assert!(
+        wait_until(|| peer.heard(&name).is_some_and(|h| h.count >= 3), Duration::from_secs(2)),
+        "the first three announcements"
+    );
+    let first = peer.heard(&name).unwrap().count;
+    assert!(
+        wait_until(
+            || peer.heard(&name).is_some_and(|h| h.count > first),
+            mdns::REANNOUNCE_EVERY + Duration::from_secs(2)
+        ),
+        "announced again"
+    );
+    // Withdrawn: a goodbye, and no more announcements.
+    advertiser.unregister_all();
+    assert!(wait_until(|| peer.heard(&name).is_some_and(|h| h.ttl == 0), Duration::from_secs(2)));
+    thread::sleep(mdns::REANNOUNCE_EVERY + Duration::from_secs(1));
+    assert_eq!(peer.heard(&name).unwrap().ttl, 0, "announced again after the goodbye");
+    advertiser.close();
+}
+
+#[cfg(windows)]
+#[test]
+fn on_windows_oscquery_turned_off_announces_nothing_while_sending_goes_on() {
+    // #559 with #442's way of announcing. Other tests announce services of their own at the
+    // same time, so this one's is told by its HTTP port and by when it was first heard.
+    let peer = LoopbackPeer::start(Vec::new());
+    let (socket, port) = udp_listener();
+    let handler = OscHandler::new("127.0.0.1", port).unwrap();
+    handler.set_osc_query_allowed(false).unwrap();
+    handler.receive_osc_parameters().unwrap();
+    assert!(!handler.is_osc_query_enabled());
+    assert!(handler.send_message("hello", false, None).unwrap());
+    assert_eq!(receive(&socket)[0].address, "/chatbox/input");
+    thread::sleep(Duration::from_millis(500));
+    let turned_on = Instant::now();
+    handler.set_osc_query_allowed(true).unwrap();
+    let http = handler.http_port().unwrap();
+    assert!(
+        wait_until(|| peer.heard_port(http).is_some_and(|h| h.ttl > 0), Duration::from_secs(5)),
+        "not announced once on"
+    );
+    assert!(peer.heard_port(http).unwrap().first >= turned_on, "announced while off");
+    handler.set_osc_query_allowed(false).unwrap();
+    assert!(
+        wait_until(|| peer.heard_port(http).is_some_and(|h| h.ttl == 0), Duration::from_secs(5)),
+        "no goodbye once off"
+    );
+    handler.osc_server_stop().unwrap();
 }

@@ -273,11 +273,33 @@ fn settings_of_an_older_version_are_migrated_and_the_user_is_told() {
 }
 
 #[test]
+fn a_saved_choice_of_a_model_no_longer_offered_loads_as_the_default_and_the_user_is_told_once() {
+    // #565: NLLB-200 3.3B is not offered (it will not be published). A saved choice of it fails
+    // the list's check, the default is used, and the UI is told which model went and what is used.
+    let saved = json!({ "CTRANSLATE2_WEIGHT_TYPE": "nllb-200-3.3B-ct2-int8" });
+    let ui = Ui::with(Setup { saved: Some(saved), ..Setup::default() });
+    let snapshot = ui.ready();
+    assert_eq!(snapshot["/get/data/selected_ctranslate2_weight_type"], "m2m100_418M-ct2-int8");
+    let list = snapshot["/get/data/selectable_ctranslate2_weight_type_dict"].as_object().unwrap();
+    assert!(!list.contains_key("nllb-200-3.3B-ct2-int8"), "{list:?}");
+    let notice = ui.wait_endpoint(0, "/run/translation_model_retired");
+    assert_eq!((notice["status"].clone(), error_code(&notice)), (json!(400), "WEIGHT_CTRANSLATE2_RETIRED"));
+    assert_eq!(notice["result"]["data"], json!({ "weight_type": "nllb-200-3.3B-ct2-int8", "selected": "m2m100_418M-ct2-int8" }));
+    ui.ok("/run/shutdown", None);
+    // The file now holds the default, so the next start says nothing.
+    let saved = ui.saved();
+    assert_ne!(saved["CTRANSLATE2_WEIGHT_TYPE"], "nllb-200-3.3B-ct2-int8");
+    ui.stop();
+}
+
+#[test]
 fn a_saved_whisper_choice_loads_as_none_without_a_notice() {
     // Up to 0.5 a saved choice of the removed Whisper engine moved to speech.cpp once, with a
-    // notice (`test_local_asr_migration.py`). That migration, its notice and the screen that
+    // notice ([`test_local_asr_migration.py`]). That migration, its notice and the screen that
     // removed the old Whisper weights went in 0.6.0 (#288): the choice loads as none, like the
     // retired Google engine, and the realtime server stays as saved.
+    //
+    // [`test_local_asr_migration.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/test/test_local_asr_migration.py
     for platform in [Platform::Windows, Platform::Linux] {
         let dir = tempfile::tempdir().unwrap();
         let saved = json!({

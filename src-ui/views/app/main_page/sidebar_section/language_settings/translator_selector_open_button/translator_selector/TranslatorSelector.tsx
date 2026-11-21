@@ -7,6 +7,7 @@ import { chunkArray } from "@utils";
 import { useStore_IsOpenedTranslatorSelector } from "@store";
 import { useLanguageSettings } from "@logics_main";
 import type { TranslatorStatus } from "@ui_configs";
+import { LOCAL_TRANSLATION_ENGINE_NAME_KEY, translatorLabel } from "../../../../../../../logics/main/translatorLabel.ts";
 
 type TranslatorSelectorProps = {
     selected_id: string | undefined;
@@ -39,7 +40,7 @@ export const TranslatorSelector = ({selected_id, translation_engines, is_selecte
                                 <TranslatorBox
                                     key={id}
                                     id={id}
-                                    label={label}
+                                    label={translatorLabel({ id, label }, t)}
                                     is_available={is_available}
                                     is_default={is_default}
                                     is_selected={(id === selected_id)}
@@ -55,7 +56,7 @@ export const TranslatorSelector = ({selected_id, translation_engines, is_selecte
                             {t("main_page.translator_selector.is_selected_same_language", {
                                 your_language: t("main_page.your_language"),
                                 target_language: t("main_page.target_language"),
-                                ctranslate2: "CTranslate2",
+                                local_engine: t(LOCAL_TRANSLATION_ENGINE_NAME_KEY),
                             })}
                         </p>
                     </div>

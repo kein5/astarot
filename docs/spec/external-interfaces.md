@@ -4,7 +4,7 @@ ASTAROTが他のプログラムとやり取りする口。UIとサイドカー�
 
 ## VRChatへのOSC
 
-`native/adapters/src/osc/`（0.5まではPythonの`osc.py`。python-osc、OSCQueryは任意のtinyoscquery）。
+`native/adapters/src/osc/`（0.5まではPythonの[`osc.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/osc/osc.py)。python-osc、OSCQueryは任意のtinyoscquery）。
 
 | 方向 | アドレス | 引数 | 送る条件 |
 |---|---|---|---|
@@ -20,6 +20,7 @@ ASTAROTが他のプログラムとやり取りする口。UIとサイドカー�
 - 「翻訳後のメッセージのみ送信する」がオンなら訳だけを送る。送る文の形は設定のVRChatページのメッセージフォーマットで決める。
 - 送信先と受信のbind先は独立している。OSCQueryは送信先が`127.0.0.1`か`localhost`のときだけ使い、UDP受信とHTTPを常に`127.0.0.1`の空きポートにbindする。`ASTAROT:<時刻>`（0.5.xまでは`VRCT:<時刻>`）という名前で受信口を公開する。送信先を別のマシンから戻した場合も、受信はloopbackで再開する。
 - 受信口の広告と探索（mDNS）は、PCの外へ出さない（#559）。送るパケットはすべてIPのTTLを0にする。OSはこれを同じPCのグループの参加者（VRChatを含む）にだけ渡し、ネットワークには送らない。送り元が同じPC（loopbackかPC自身のアドレス）でないパケットは無視するので、ほかのマシンの問い合わせには答えず、その広告も覚えない。広告のアドレスは`127.0.0.1`なので、ほかのマシンは前からこの受信口を使えなかった。参加と送信をloopbackのインターフェースだけにする形では、VRChat（Windowsのデスクトップモードで確認）と互いに見つけられない。
+- Windowsでは、mDNSはUDP 5353番で受け取らない（#442）。5353番で待ち受けると、Windowsのファイアウォールが実行ファイルのパスごとに受信を許可するかを確認するためである。インターフェースごとに`0.0.0.0`とOSが選ぶポートのソケットを作り、送るだけにする。公開しているサービスは5秒ごとに知らせ直し、アプリより後に起動したVRChatにも届ける。探索の問い合わせは5353番以外のポートから送るので、答えは問い合わせたソケットに直接届く（RFC 6762の6.7節のlegacy unicast）。この答えのTTLは10秒までなので、問い合わせの間隔は5秒までにする。受け取らないものどうしは互いを見つけられない。Linuxは5353番で受け取る。
 - 利用者はOSCQueryを止められる（`OSC_QUERY`、既定はオン。設定の「高度な設定」。中核のみ、#559）。オフのあいだはUDP受信、HTTP、広告、探索のどれも始めない。送信先を変えても始めず、オフにしたときに動いていれば止めて広告を取り下げる。チャットボックスへの送信と入力中の表示は変わらない。VRCマイクミュート同期は使えず、VRChatの在席は`"unknown"`になる。オンに戻すと、今の送信先で受信を始める。エンドポイントは`/get/data/osc_query`、`/set/enable/osc_query`、`/set/disable/osc_query`で、どちらの切り替えのあとも`/run/enable_osc_query`で準備の結果を知らせる。
 - OSCの起動、IP・ポート変更、停止は同じライフサイクルロックで直列化する。新しい受信・広告を用意できてから設定を確定し、失敗したら前の受信・広告を復旧する。復旧も失敗した場合は設定値を保ち、capabilityを無効として知らせる。終了要求後の起動は拒否する。
 - bundleの時刻によって受信を待たせず、中のメッセージを受信時に処理する。受信は1本のスレッドで行い、そのスレッドは作成時のサーバーだけを使う。
@@ -44,7 +45,7 @@ ASTAROTが他のプログラムとやり取りする口。UIとサイドカー�
 | 待ち受け | `WEBSOCKET_HOST`（既定`127.0.0.1`。IPv4のみ。`0.0.0.0`、IPv6、ホスト名は拒否）、`WEBSOCKET_PORT`（既定2231、整数の1〜65535） |
 | 暗号化 | ループバック（127.0.0.0/8）では`ws://`のまま。それ以外のアドレスでは、利用者が指定した証明書と秘密鍵で`wss://`（TLS 1.2以上）だけを使う。使える証明書がなければ待ち受けない（[この PC の外での待ち受け](#この-pc-の外での待ち受け)） |
 | 認証 | 接続時に`?token=<WEBSOCKET_AUTH_TOKEN>`を付ける。合わなければ接続前にHTTP 403。トークンは初回起動時に作り、設定画面では伏せて表示する。保存値がnull・空白だけ・空文字列・文字列以外なら、新しく生成した既定の秘密値を保存する。空でないトークンがなければサーバーを起動しない。`/run/regenerate_websocket_auth_token`で作り直すと、古いトークンでの接続をすぐに切り、以後は拒否する |
-| 受信 | 使わない。アプリは受信の処理を登録せず、受け取ったメッセージはイベントループの上で捨てる（ワーカースレッドに渡さない）。1メッセージの上限は64 KiB。接続ごとに平均で毎秒10件と128 KiBまで、一時的には20件と256 KiBまで受け付ける。どちらかを超えた接続は1008（policy violation）で閉じ、2秒待っても閉じなければtransportをabortする（セキュリティ監査 SEC-06）。上限は`websocket_server.py`の`_INCOMING_*`の定数 |
+| 受信 | 使わない。アプリは受信の処理を登録せず、受け取ったメッセージはイベントループの上で捨てる（ワーカースレッドに渡さない）。1メッセージの上限は64 KiB。接続ごとに平均で毎秒10件と128 KiBまで、一時的には20件と256 KiBまで受け付ける。どちらかを超えた接続は1008（policy violation）で閉じ、2秒待っても閉じなければtransportをabortする（セキュリティ監査 SEC-06）。上限は[`websocket_server.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/websocket/websocket_server.py)の`_INCOMING_*`の定数 |
 | 送信 | 処理したメッセージごとに[メッセージの形](data-and-persistence.md#websocketとobsへ送るメッセージ)を全クライアントへ送る。OBSの表示設定が変わると`SETTINGS_UPDATED`を送る |
 
 ホストとポートは[ネットワーク設定](data-and-persistence.md#ネットワーク設定)の検証に通ってから保存・再起動する。WebSocketとOBSをIPv4に統一し、bindの事前確認とコピーするURLの形式をそろえる。
@@ -67,7 +68,7 @@ ASTAROTが他のプログラムとやり取りする口。UIとサイドカー�
 
 ### 送信の上限
 
-上限は`websocket_server.py`の定数で定める。会話本文を切り詰めたり、待っているメッセージを黙って捨てたりはしない。
+上限は[`websocket_server.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/websocket/websocket_server.py)の定数で定める。会話本文を切り詰めたり、待っているメッセージを黙って捨てたりはしない。
 
 | 対象 | 上限・動作 |
 |---|---|
@@ -268,9 +269,9 @@ TTSのスイッチをオフにしたときは、そのスイッチが起動し�
 | エンジン | 既定のURL | 使うAPI |
 |---|---|---|
 | VOICEVOX、SHAREVOX、AivisSpeech | `127.0.0.1`の50021、50025、10101 | `GET /version`、`GET /speakers`、`POST /audio_query`、`POST /synthesis`（`native/tts/src/engines.rs`） |
-| COEIROINK v2 | `127.0.0.1:50032` | `GET /v1/engine_info`、`GET /v1/speakers_path_variant`、`POST /v1/synthesis`（`coeiroink_tts.py`） |
+| COEIROINK v2 | `127.0.0.1:50032` | `GET /v1/engine_info`、`GET /v1/speakers_path_variant`、`POST /v1/synthesis`（[`coeiroink_tts.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/tts/coeiroink_tts.py)） |
 
-- 読み上げる文は文末（`。`、`！`、`？`など）と改行で分け、40文字を超える文は読点でも分ける。1つずつ合成し、読み上げている間に次の文を合成する（`external_engine.py`）。エンジンは文ごとにWAVをまとめて返すので、分けないとマイクの読み上げが5秒の開始期限に間に合わない。
+- 読み上げる文は文末（`。`、`！`、`？`など）と改行で分け、40文字を超える文は読点でも分ける。1つずつ合成し、読み上げている間に次の文を合成する（[`external_engine.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/tts/external_engine.py)）。エンジンは文ごとにWAVをまとめて返すので、分けないとマイクの読み上げが5秒の開始期限に間に合わない。
 - VOICEVOX系では`/audio_query`の応答を`/synthesis`へ渡す。書き換えるのは、下の表で既定から変えたScaleの値だけである（ADR-008の5.2）。AivisSpeechはほかの部分を書き換えた問い合わせを受け付けないことがあるため。4つとも既定のままなら、応答のバイト列をそのまま渡す。COEIROINKの話者の一覧には画像を含まない`/v1/speakers_path_variant`を使う。`/v1/speakers`は画像をbase64で含み、話者1人で約1 MBになる。
 - 選んだ声はエンジンのID（COEIROINKは`speakerUuid:styleId`）と話者名、スタイル名で保存する。IDが見つからないか、IDの声の名前が変わっていれば名前で探し直す。見つからなければ`tts_engine_voice_missing`、声を選んでいなければ`tts_engine_voice_unset`、エンジンに接続できなければ`tts_engine_not_ready`で失敗する。歌うためのスタイルは一覧に出さない。
 - COEIROINKの`/v1/synthesis`には声の設定（`VOICE_SETTINGS`）の7つの値を送る。値は文字列の10進数で保存し、範囲外や`1e0`のような書き方は保存しない。
@@ -374,6 +375,7 @@ VRパネルの要求は`main`が中継する（セキュリティ監査 SEC-02�
 | `quick-chat-context-changed` | Rust → `quick_chat` | 設定が更新された。ペイロードは使わず、`quick_chat_context`で検証済みの設定を読み直す。フォーカスは移動しない |
 | `portal-shortcut` | Rust → `main` | Waylandでホットキーが押された |
 | `portal-shortcuts-lost` | Rust → `main` | Waylandでホットキーを預けたポータルのセッションが、アプリが頼んでいないのに終わった（ポータルの停止や再起動）。ペイロードはない。`main`は通知を出し、3秒後に1回だけ登録し直す。1分以内にまた切れたときは登録し直さず、設定を開いて閉じるよう案内する |
+| `portal-shortcuts-not-restored` | Rust → `main` | Waylandでポータルへの登録が失敗し、前に登録していたキーも登録し直せなかった。どのホットキーも効かない。ペイロードはない。`main`は、登録の失敗の知らせに続けて「前のキーにも戻せなかった」と知らせ、設定を開いて閉じるよう案内する。より新しい登録が始まっていたときは送らない。ホットキーを止めている間（設定を開いているときなど）に届いたときは、知らせない（#561） |
 | `vr-panel-ready` | `vr_panel` → Rust（`vr_panel_send`） → `main` | VRパネルの準備ができた。`main`は状態を送り直す |
 | `vr-panel-stdout` | `vr_panel` → Rust（`vr_panel_send`） → `main` | VRパネルからの要求。`main`が許可したものだけをサイドカーへ渡す |
 | `vr-panel-config-page` | `vr_panel` → Rust（`vr_panel_send`） → `main` | VR内の設定を開いた・閉じた |
@@ -418,6 +420,7 @@ VRパネルで会話ログを閉じている間も、状態の受信とログの
 - 動作は9つ: 小窓を開く、ASTAROTの最小化と再表示、翻訳・マイク・スピーカーのオンオフ、読み上げの停止、音声のミュートと再開、TTSとRVCのオンオフ。既定ではどれも割り当てない。
 - 読み上げの停止、ミュート、TTS、RVCのホットキーは、メイン画面の同じボタンとスイッチを押したのと同じ処理を通る。押した時点の状態で判断し、同じ確認とお知らせが出る。ミュート中に経路の準備ができていなければ、再開はしない。
 - X11とXWaylandではTauriのグローバルショートカット、ネイティブのWaylandではXDG GlobalShortcuts portalで登録する。KDEでは設定したキーをデスクトップ側にも反映し、反映できなかったときはお知らせを出す。
+- ポータルでの登録が失敗したとき（確認画面で断った、時間切れ、ポータルの失敗）は、前に登録していたキーを新しいセッションで登録し直す。前のセッションは新しい登録の前に閉じているので、そのままではすべてのキーが消えるためである（#423）。デスクトップが確認画面を出すのは、まだ見ていない動作を含む登録のときだけである。登録し直すのは前に成功した登録の動作なので、確認画面はもう一度出ない（KDE Plasma 6.8 と GNOME 51 で確かめた。#561）。新しいセッションで登録してから古いセッションを閉じる方法は使わない。KDEでは、同じ動作を持つ2つのセッションのどちらかを閉じると、その動作のキーが効かなくなる。登録し直しも失敗したときは、そのことを知らせる（`portal-shortcuts-not-restored`）。
 - 設定画面を開いている間と、サイドカーの準備ができるまでは無効にする。
 - デスクトップの字幕の文字の大きさを変えるキー（Ctrlと`=`、Ctrl+Shiftと`=`、Ctrlとテンキーの`+`、Ctrlと`-`、Ctrlとテンキーの`-`）は、Ctrlキーを押したまま字幕のウィンドウの上にマウスがあるか、ドラッグしている間だけ、Rustがグローバルショートカットとして登録する。それ以外のときはほかのアプリに届く。利用者がホットキーに割り当て済みのキーは登録しない。
 

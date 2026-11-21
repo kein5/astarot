@@ -61,6 +61,12 @@ typography:
     fontSize: "22px"
   vr-symbol:
     fontSize: "26px"
+  hexagram-small:
+    fontSize: "12px"
+  hexagram-menu:
+    fontSize: "13px"
+  hexagram-label:
+    fontSize: "14px"
 rounded:
   hairline: "2px"
   small: "4px"
@@ -142,7 +148,7 @@ Contrast (WCAG 2.x, measured on the canvas, the surface and the rail): text, sec
 
 Keep the user's configured UI font, scaling and log-font preferences. Local Noto/system fallbacks support Japanese without remote font requests. Section headings give long forms a readable hierarchy; technical paths wrap inside their containers.
 
-Text in the app window takes the sizes in the front matter's `typography` (#568): 1.2, 1.3, 1.4, 1.5, 1.6, 1.8, 2 and 2.4rem (the last only for the empty conversation's greeting). A size in between is moved to the nearest step, not added; small marks and tooltips use 1.2rem. Sizes relative to their parent (em, %) follow the parent, such as the log, whose base size the log font size setting replaces. The desktop caption overlay draws its captions at the size its user picks; its one fixed text, the size shown while the overlay is moved, takes a step in px (1.4rem is 14px), because that window does not follow the UI size. `src-ui/views/app/fontSteps.test.ts` checks the app window and the caption overlay.
+Text in the app window takes the sizes in the front matter's `typography` (#568): 1.2, 1.3, 1.4, 1.5, 1.6, 1.8, 2 and 2.4rem (the last only for the empty conversation's greeting). A size in between is moved to the nearest step, not added; small marks and tooltips use 1.2rem. Sizes relative to their parent (em, %) follow the parent, such as the log, whose base size the log font size setting replaces. The desktop caption overlay draws its captions at the size its user picks; its one fixed text, the size shown while the overlay is moved, takes a step in px (1.4rem is 14px), because that window does not follow the UI size. The tray companion's hexagram has steps of its own (below). `src-ui/views/app/fontSteps.test.ts` checks the app window and the caption overlay, in stylesheets and in vanilla-extract files (ADR-010) alike, sizes inside a `font` shorthand included.
 
 The VR panel draws into the headset in pixels of its own, which the window's width in VR scales: at the default sizes a pixel is about 0.44 mm (the log window is 0.4 m wide for 900px, and the toolbar keeps that scale). It has four steps of its own, the front matter's `vr-*` (#568):
 
@@ -154,6 +160,16 @@ The VR panel draws into the headset in pixels of its own, which the window's wid
 | 26px | Buttons that are only a symbol (−, +, A−, A＋, ›) |
 
 Each step is about 1.17 times the one under it, so two steps differ at a glance; weight and color tell text of one step apart. 16px is the smallest: running text such as notes and tooltip help was already 16px, and only marks and short abbreviations were smaller. A size in between moves to the nearest step, not added. Left out are the log's text, which is the size picked with A−／A＋ (14 to 28px, 17px by default); the inputs and outputs window, which draws the desktop flow view (rem) 1.1 times larger; and the one-line and multi-line subtitle overlays, pictures that the native overlay draws at sizes of their own (`native/vr-overlay/src/subtitle.rs`). `src-ui/views/vr/fontSteps.test.ts` checks the VR panel.
+
+The tray companion's hexagram (an experimental feature) is a small window at the screen's edge, drawn in px of its own that do not follow the UI size. It has three steps of its own, the front matter's `hexagram-*` (#568):
+
+| Step | Use |
+|---|---|
+| 12px | The state beside a feature's name on its label (オン, オフ, 未準備), and the common settings' title |
+| 13px | The common settings: their rows and buttons |
+| 14px | A feature's name on its label |
+
+The steps are the sizes the hexagram had when they were named. They are close to one another, so weight and opacity tell them apart as well: the name on a label is bold, the state beside it fainter. `src-ui/views/companion_handle/fontSteps.test.ts` checks the hexagram, in stylesheets and vanilla-extract files alike.
 
 Nothing inside a VR window opens a tooltip: the VR tooltip is drawn for the launcher and the toolbar only. So in the windows, what a control is and what it acts on are said by where it stands and by a mark, not by a line under its name (#614). The choice of the hand the launcher is on draws each hand as the toolbar does, the right one mirrored. A fold's summary is the values in use (the processing device and type; the speaker's record limit, phrase wait and queue). The language window's swap stands on the recipients' heading line, between your language above and recipient 1 below, the two it exchanges, between an up and a down arrow as on the main screen; its accessible name still names both. The recipients' rows are 64px tall so that three of them, the line under them and the translator stay in the window with the swap; every laser target stays at least 56px tall. A line stays under a name only for a state, a warning, the reason a control is unavailable, or what no placement can say (the switch that turns the tooltips off). On the launcher, a tooltip that carries what is said nowhere else shows even when the tooltips are turned off: a blocked switch's missing setup, and the log button's, which is the only place that says its long press recalls the log.
 

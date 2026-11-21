@@ -1,9 +1,11 @@
-//! The tooltip over the launcher and the toolbar (`overlay_tooltip.py`).
+//! The tooltip over the launcher and the toolbar ([`overlay_tooltip.py`]).
 //!
 //! The VR page draws the tooltip into its own region of the atlas, with a row of black and
 //! white cells that spell the request's epoch and revision. The overlay shows the tooltip only
 //! once a captured picture carries the marker of the request it last accepted, so a stale
 //! picture never shows a tooltip for another button.
+//!
+//! [`overlay_tooltip.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/overlay/overlay_tooltip.py
 use serde_json::{Map, Value};
 
 use super::layout::{round_half_even, VrLayout, LAUNCHER_WIDTH_PX};

@@ -8,7 +8,7 @@
 | 対象 | 確認した根拠 | 今回の扱い |
 |---|---|---|
 | VRCTコード | [LICENSE](../../LICENSE), [NOTICE](../../NOTICE.md) | MIT帰属を維持 |
-| upstream OCR検出重み | [モデルライセンス](https://github.com/kein5/VRCT-VOX/blob/250cec9681752c2f897d9a15a38e647c38561842/src-python/models/ocr/onnx/LICENSE.txt) | fork成果物から除外。0.2.0でリポジトリからも削除（0.1.0までのコミットには残る） |
+| upstream OCR検出重み | [モデルライセンス](https://github.com/kein5/astarot/blob/250cec9681752c2f897d9a15a38e647c38561842/src-python/models/ocr/onnx/LICENSE.txt) | fork成果物から除外。0.2.0でリポジトリからも削除（0.1.0までのコミットには残る） |
 | speech.cpp | [検証済みv0.11.0のMIT](https://github.com/nyosegawa/speech.cpp/blob/v0.11.0/LICENSE) | 2026-10-29承認後、固定CPU/Vulkan実行ファイルと依存通知の配布部品を作成・検証。Linux配布物に同梱し、0.1.0-beta.1で公開。2026-11-15に0.11.0へ更新。下記追記参照 |
 | Irodori v4.1 Small MF | [モデルカード](https://huggingface.co/Aratako/Irodori-TTS-v4.1-Small-MF) | 日本語のみ。MIT表示に加え、声の本人の明示同意・なりすまし/誤情報禁止の記載を確認。ユーザー管理のvoiceだけ利用 |
 | Irodori Large | [モデル説明](https://github.com/nyosegawa/speech.cpp/blob/main/docs/models/irodori-tts.md) | Smallと条件を混同しない。今回は同梱・検証なし |
@@ -277,7 +277,7 @@ RVC-Project/Retrieval-based-Voice-Conversion-WebUI固定commit
 `integrations/rvc/blocks.py`のresampling/SOLAとloaderのsynthesizer構築は同commit由来のMITコード。
 [MIT原典](https://github.com/RVC-Project/Retrieval-based-Voice-Conversion-WebUI/blob/81eed5e8f68b6bed1789f682fe78cdd324495afc/LICENSE)
 と、RVCがSOLA出典として挙げる[DDSP-SVCのMIT](https://github.com/yxlllc/DDSP-SVC/blob/master/LICENSE)の通知を
-[LICENSE.upstream](../../integrations/rvc/LICENSE.upstream)に保持する。レビュー再現用の原典抜粋にも帰属を記載。
+[LICENSE.upstream](https://github.com/kein5/astarot/blob/a0ba2300c196016b046de5c59ad4c7cdabf145e2/integrations/rvc/LICENSE.upstream)（削除する前のコミット）に保持する。レビュー再現用の原典抜粋にも帰属を記載。
 
 基礎モデル候補は公式READMEが指す `lj1995/VoiceConversionWebUI` のHuBERT/RMVPE。
 [モデルカード](https://huggingface.co/lj1995/VoiceConversionWebUI)はMITを表示するが本文は空である。
@@ -345,7 +345,7 @@ CTranslate2翻訳はM2M100とその文章分割ファイルがMIT、NLLBとそ�
 
 | 候補 | エンジンのライセンス | モデルのライセンス | 扱い |
 |---|---|---|---|
-| `native/translate-onnx`（`ort`、ONNX Runtime、`tokenizers`） | VRCT-VOXのコード（MIT）。`ort`はMIT OR Apache-2.0、ONNX RuntimeはMIT、`tokenizers`はApache-2.0 | M2M100はMIT、NLLB-200はCC-BY-NC-4.0（既定にしない） | **採用**（2026-11-16）。アプリに入れた。モデルは2026-11-19に公開した（下の「公開したモデル（2026-11-19、#687）」）。利用者が自分で置くモデルのライセンスは利用者が確かめる |
+| `native/translate-onnx`（`ort`、ONNX Runtime、`tokenizers`） | VRCT-VOXのコード（MIT）。`ort`はMIT OR Apache-2.0、ONNX RuntimeはMIT、`tokenizers`はApache-2.0 | M2M100はMIT、NLLB-200はCC-BY-NC-4.0（既定にしない） | **採用**（2026-11-16）。アプリに入れた。モデルは2026-11-19と2026-11-21に公開した（下の「公開したモデル（2026-11-19、#687）」と「NLLB-200 distilled 1.3Bの公開（2026-11-21）」）。利用者が自分で置くモデルのライセンスは利用者が確かめる |
 | `ct2rs` 0.11.2（CTranslate2 4.8.5を同梱して静的にビルド） | `ct2rs`・`ct2rs-sys`・CTranslate2はMIT。同梱のcpu_features・ruyはApache-2.0、spdlogはMIT。oneDNN（`onednn-src`）はApache-2.0、SentencePiece（`sentencepiece-sys`）はApache-2.0 | 既存のCTranslate2の重み（上の一覧と同じ） | 候補。入れるときは、C++のソースから作るライブラリのライセンス文を`tools/rust_licenses.py`の一覧の外で収める必要がある |
 | `ct2rs`の機能`mkl`（Intel oneMKL） | IntelのEULA（再配布できるがOSSではない） | 同上 | 計っていない。入れるならEULAの条件を台帳に書く |
 | `candle-transformers` 0.11.1 | MIT OR Apache-2.0 | M2M100とNLLBの実装がない。Opus-MTはCC-BY-4.0、MADLAD-400はApache-2.0 | モデルの取り直しと品質の確認が要るので候補から外した |
@@ -361,7 +361,7 @@ NLLBを差し替えるかの検討（#288の未決事項）のために、ロー
 | モデル | リポジトリと版 | ライセンス | 商用の利用 | 今の`native/translate-onnx`で動くか | 扱い |
 |---|---|---|---|---|---|
 | M2M100 418M、1.2B | `facebook/m2m100_418M`@`55c2e61b`、`facebook/m2m100_1.2B`@`7b361841` | MIT | できる | 動く | 採用済み。既定は418M。418Mのint8を2026-11-19に公開した |
-| NLLB-200 distilled 600M、1.3B、3.3B | `facebook/nllb-200-distilled-600M`@`f8d333a0`、`-1.3B`@`7be3e246`、`facebook/nllb-200-3.3B`@`1a07f7d1` | CC-BY-NC-4.0 | できない | 動く | 採用済み。既定にせず、選ぶときに非商用のライセンスを示して同意を得る。distilled 600Mのint8を2026-11-19に公開した（判断78）。1.3Bは後から足し、3.3Bは今は公開しない |
+| NLLB-200 distilled 600M、1.3B、3.3B | `facebook/nllb-200-distilled-600M`@`f8d333a0`、`-1.3B`@`7be3e246`、`facebook/nllb-200-3.3B`@`1a07f7d1` | CC-BY-NC-4.0 | できない | 動く | 採用済み。既定にせず、選ぶときに非商用のライセンスを示して同意を得る。distilled 600Mのint8を2026-11-19に（判断78）、1.3Bのint8を2026-11-21に公開した。3.3Bは公開しない（2026-11-20に決まった） |
 | MADLAD-400 3B MT、7B MT | `google/madlad400-3b-mt`@`fa184c67`、`google/madlad400-7b-mt`@`1ff63ce7` | Apache-2.0 | できる | 動かない（T5の形） | 候補。T5の形とSentencePieceのunigramを足す必要がある。3Bは約29億のパラメータ |
 | SMaLL-100 | `alirezamsh/small100`@`8ab680e2` | MIT | できる | 一部だけ（訳先の言語のトークンを原文の側に付ける） | 候補。約3.3億のパラメータ |
 | mBART-50 many-to-many | `facebook/mbart-large-50-many-to-many-mmt`@`e30b6cb8` | モデルカードにライセンスの記載がない | 確かめられない | 動かない（MBartの形） | 対象外。ライセンスを確かめられないため |
@@ -388,6 +388,8 @@ NLLBのCC-BY-NC-4.0について確かめたこと:
 | `nllb-200-distilled-1-3b-onnx-int8` | `facebook/nllb-200-distilled-1.3B` | 1,402 MB |
 | `nllb-200-3-3b-onnx-int8` | `facebook/nllb-200-3.3B` | 3,380 MB |
 
+3.3Bは公開しないと決まり（2026-11-20、#803）、アプリの組み込みのモデルの一覧からも外した（2026-11-21、#565）。上の予定のidは使わない。
+
 - 非商用のライセンスなので、既定のモデルにしない。
 - 取得にはふつうの同意とは別に、非商用に限ることの確認が要る。カタログの行の`restrictions`はライセンスの文字列から決まり、CC-BY-NC-4.0なら`non_commercial`になる。確認の画面はライセンスの名前を示して2つ目のチェックを求め、開始の要求にその確認（`acknowledged`）がなければ何も書かずに断る（`model_download_restriction_unacknowledged`）。仕組みは[モデル取得](model-downloads.md#非商用のライセンスの確認)にある。
 - 選ぶときの確認（翻訳の設定のNLLBの確認と、中核の`WEIGHT_CTRANSLATE2_LICENSE_CONSENT_REQUIRED`）は残す。取得のときの確認とは別にもう一度求める。
@@ -405,7 +407,24 @@ NLLBのCC-BY-NC-4.0について確かめたこと:
 | `m2m100-418m-onnx-int8` | `kein5/m2m100_418M-onnx-int8`@`edfdb3e670e257cee60858861031fe40e2e17934` | `facebook/m2m100_418M`@`55c2e61b` | MIT（`LICENSE`にfairseqのMITの文を添えた） | 505,722,914 bytes | 既定のモデル |
 | `nllb-200-distilled-600m-onnx-int8` | `kein5/nllb-200-distilled-600M-onnx-int8`@`3c6d40d6ebd424d17d69f0e3236a8a7f8be9a170` | `facebook/nllb-200-distilled-600M`@`f8d333a0` | CC-BY-NC-4.0（非商用） | 642,621,286 bytes | 既定にしない。取得の前に非商用の確認を求める。取得の画面の注記（`translation_nllb_600m`）で、容量と翻訳の間のメモリー（約1.4 GiB）を示す |
 
-1.3Bは別の作業で後から足す。3.3Bは今は公開しない。
+3.3Bは公開しない（2026-11-20に決まった。判断78のまま）。
+
+#### NLLB-200 distilled 1.3Bの公開（2026-11-21）
+
+2026-11-21に、NLLB-200 distilled 1.3Bのint8を公開すると決まった。判断の材料は`tools/translation_onnx/README.md`の「英語と日本語の確認（2026-11-20）」にある。公開の前に、ほかのモデルと同じ3つの観点でライセンスを確かめた。無料で使えるか、非商用などの制限があるか、同意を得てカタログから取得する配り方に合うか、である。
+
+- 元のモデル`facebook/nllb-200-distilled-1.3B`@`7be3e24664b38ce1cac29b8aeed6911aa0cf0576`のモデルカードの`license`の欄は`cc-by-nc-4.0`だった。Hugging FaceのAPIが2026-11-21に返した値で、カードの本文にも「License: CC-BY-NC」とある。アクセス制限（gated）はなく、取得にログインや利用規約への同意は要らない。
+- 無料で使えるか：CC-BY-NC-4.0は使用料のかからないライセンスで、無料で使える。
+- 制限：非商用（NonCommercial）に限る。600Mと同じライセンスなので、上の「NLLB-200をカタログに載せるときの決まり」がそのまま当てはまる。既定にせず、取得の前に非商用の確認を求め、選ぶときの確認も残す。
+- 配り方：変換したもの（ONNXへの書き出しとint8の量子化）を、作者、ライセンス、変えたことを示して、同じライセンスで配る。`publish.py stage`のモデルカードがこれを書く。カードは600Mのものと、改行の形を除いて同じ文面になった。Hugging Faceの固定した版から1ファイルずつ取得する今のカタログの形に合う。
+- 元のモデルのカードの「Intended Use」は、研究用のモデルで本番の運用向けには公開していない、と書いている。ライセンスの条件ではない。600Mのカードにも同じ文があり、2つのカードの違いは版のタグと指標へのリンクだけだった。この文の扱いは、公開のPRの判断に残した。
+- 以上から、公開を止める問題はないと判断した。
+
+確かめたあと、`export.py`で書き出し、`publish.py stage`のモデルカードを添えて公開し、カタログに載せた。公開した版のファイルをトークンなしで取り直し、大きさとSHA-256がカタログと一致することを確かめた。
+
+| カタログのid | 公開先と版 | 元のモデル | ライセンス | 大きさ（全ファイル） | 扱い |
+|---|---|---|---|---|---|
+| `nllb-200-distilled-1-3b-onnx-int8` | `kein5/nllb-200-distilled-1.3B-onnx-int8`@`12e90eb5cf137f1312d3b57037f6d904c43102f7` | `facebook/nllb-200-distilled-1.3B`@`7be3e246` | CC-BY-NC-4.0（非商用） | 1,401,617,741 bytes | 既定にしない。取得の前に非商用の確認を求める。取得の画面の注記（`translation_nllb_1_3b`）で、容量と翻訳の間のメモリー（約2.6 GiB）を示す |
 
 ### TranslateGemma（2026-11-18、#412）
 

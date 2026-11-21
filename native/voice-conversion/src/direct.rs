@@ -1,8 +1,10 @@
 //! One direct producer at a time, independently of ASR, TTS and global mute
-//! (`direct_voice.py`).
+//! ([`direct_voice.py`]).
 //!
 //! Start, stop and health never block: slow work belongs to a backend's own thread, and
 //! `close` reaps it. Endpoint connectivity is never taken as proof of conversion.
+//!
+//! [`direct_voice.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/voice_conversion/direct_voice.py
 
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::Duration;

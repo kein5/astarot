@@ -1,4 +1,4 @@
-//! The backend's watchdog (`src-python/models/watchdog/watchdog.py`).
+//! The backend's watchdog ([`src-python/models/watchdog/watchdog.py`]).
 //!
 //! The UI feeds it every 20 seconds (`/run/feed_watchdog`). When no feed has come for longer
 //! than the timeout (60 seconds), the callback runs, and again at every check until fed: the
@@ -8,6 +8,8 @@
 //! holds it back. A wait between two checks that took far longer than the interval means the
 //! PC slept: the timer then starts again instead of stopping the backend before the woken UI has
 //! had a chance to feed it.
+//!
+//! [`src-python/models/watchdog/watchdog.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/watchdog/watchdog.py
 
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::sync::{Arc, Condvar, Mutex};

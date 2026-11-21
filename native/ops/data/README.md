@@ -28,11 +28,11 @@ speech.cpp のカタログにないことだけを書きます。手で書くデ
   - `id`、`ids`: VAD と話者の分離の項目は `catalog.rs` で id を固定しています（`id`）。読み上げの項目も `catalog.rs` で固定し、1 つの名前の複数のファイルにそれぞれの id があります（`ids` はファイルの種類から id への表）。
   - `recommended_for`: speech.cpp の開始の言語の代わりに使う言語です。日本語は Irodori、ほかの言語は Qwen3-TTS で読むためです（読み上げの `japanese` と `multilingual` のプロファイル）。開始の言語と同じく、speech.cpp が最初に取得するファイルにだけ付けます。
 
-Python のバックエンド（`src-python/models/model_downloads/speechcpp_asr.py`、`speechcpp_models.py`）も同じファイルを読んでいました。0.6.0 でバックエンドと一緒に消しました（#285）。
+Python のバックエンド（[`src-python/models/model_downloads/speechcpp_asr.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/model_downloads/speechcpp_asr.py)、[`speechcpp_models.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/model_downloads/speechcpp_models.py)）も同じファイルを読んでいました。0.6.0 でバックエンドと一緒に消しました（#285）。
 
 ## `translation_models.json`
 
-ローカル翻訳のモデル（`native/translate-onnx` のフォルダ）を取得する項目です。`src/downloads/catalog.rs` の `translation_models` が読み、カタログの末尾に足します。対象は `translation` で、ファイルには書きません。`notice` も既定は `translation` で書きませんが、モデルごとの確認の文面を使う項目だけは `notice` を書きます（`catalog.rs` の `TRANSLATION_NOTICES` にある名前だけ。NLLB の `translation_nllb_600m`）。2026-11-19 に M2M100 418M と NLLB-200 distilled 600M の int8 を載せました。
+ローカル翻訳のモデル（`native/translate-onnx` のフォルダ）を取得する項目です。`src/downloads/catalog.rs` の `translation_models` が読み、カタログの末尾に足します。対象は `translation` で、ファイルには書きません。`notice` も既定は `translation` で書きませんが、モデルごとの確認の文面を使う項目だけは `notice` を書きます（`catalog.rs` の `TRANSLATION_NOTICES` にある名前だけ。NLLB の `translation_nllb_600m` と `translation_nllb_1_3b`）。2026-11-19 に M2M100 418M と NLLB-200 distilled 600M の int8 を、2026-11-21 に NLLB-200 distilled 1.3B の int8 を載せました。
 
 項目は手で書かず、公開したリポジトリの固定した版から `tools/translation_onnx/publish.py catalog --write` で作ります（文面を変えるときは `--notice <名前>`）。道具は、公開されたファイルの大きさと SHA-256 をフォルダの `manifest.json` と照らし合わせてから書きます。
 
@@ -40,4 +40,4 @@ Python のバックエンド（`src-python/models/model_downloads/speechcpp_asr.
 - `artifacts`: `manifest.json` と、マニフェストにあるすべてのファイルです。役割は `manifest`、`encoder`、`decoder`、`tokenizer`、`vocabulary`、`weights`（`vocabulary.data`）、`data`（2 GB を超えるグラフの `.onnx_data`。グラフごとに 1 つ）です。
 - `licenses`: 固定した版のモデルカードと、MIT なら `LICENSE`、CC-BY-NC-4.0 なら Creative Commons の説明のページです。
 
-項目を足したり変えたりしたら、`catalog.rs` の `CATALOG_VERSION` を上げます。Python のカタログの写し（`tests/data/python_reference.json`）と比べる試験（`tests/catalog_reference.rs`）があるので、変えた項目と `CATALOG_VERSION` を写しにも手で入れます。写しを作っていた Python のカタログと `reference/dump_reference.py` は 0.6.0 で消しました。翻訳の項目は写しにないので、試験は翻訳の項目を除いて比べます。
+項目を足したり変えたりしたら、`catalog.rs` の `CATALOG_VERSION` を上げます。Python のカタログの写しと比べる試験は、0.6.0 で引退させました（#746）。

@@ -60,6 +60,22 @@ export function firstVariant<T extends CatalogEntry>(rows: T[], recommended: str
 
 // A model the user registered under a name (models/model_downloads/user_models.py, #403).
 // The backend checks the files; `status` is its answer, never computed again here.
+// The speech output models (TTS). The manual's table lists each one with its check (#566), so
+// each card says it too, checked or not yet.
+const SPEECH_OUTPUT: readonly string[] = ["japanese", "multilingual"];
+type GuidedEntry = { target: string; guidance?: { reference_memory_bytes?: number | null; validation?: { state: string } | null } | null };
+
+// Whether a card says where its model was checked (native/ops/src/downloads/guidance.rs). A model
+// with a measured memory always does, beside the figure. Without one the record stands on its own
+// when it says something: a check that passed (the voice changer's), or a speech model's check
+// still to come. Other models without a figure (speech recognition, voice activity…) say nothing.
+export const showsValidation = (entry: GuidedEntry): boolean => {
+    const guidance = entry.guidance;
+    if (!guidance?.validation) return false;
+    if (typeof guidance.reference_memory_bytes === "number") return true;
+    return guidance.validation.state === "passed" || SPEECH_OUTPUT.includes(entry.target);
+};
+
 export type UserModel = {
     id: string;
     target: string;

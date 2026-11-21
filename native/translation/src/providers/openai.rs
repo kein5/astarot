@@ -1,10 +1,12 @@
-//! OpenAI (`translation_openai.py`).
+//! OpenAI ([`translation_openai.py`]).
 //!
 //! The key is checked by listing the models. Only `gpt-` models (and fine-tunes of them) are
 //! kept, without the words the Python client left out (case-sensitive, as in Python).
 //! Translation is one Chat Completions request with one retry (the Responses API for the models
 //! that have only it, [`super::chat::responses_only`]); a Responses API answer cut by
 //! `max_output_tokens` also counts as no translation.
+//!
+//! [`translation_openai.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/translation/translation_openai.py
 
 use super::chat::{ChatCompletions, NOT_FOR_TEXT};
 use super::{contains_any, Access, Api, Error, Provider, Translation};

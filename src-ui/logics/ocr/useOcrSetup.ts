@@ -27,9 +27,10 @@ export interface FocusOcrModelsOptions {
 }
 
 // The models section appears once the OCR settings have asked which models the
-// language needs, a moment after the tab opens. Wait for it, then bring it into
-// view and put focus on its first action, so the keyboard lands where the
-// download review starts.
+// language needs, a moment after the tab opens. Wait for it, open its part (closed
+// at first, as every catalog's part), then bring it into view and put focus on a
+// model's first action, so the keyboard lands where the download review starts,
+// not on the catalog's layout buttons above the cards.
 export const OCR_MODELS_SETTING_ID = "ocr_models";
 export const focusOcrModels = ({ doc = globalThis.document, wait = setTimeout, attempts = 75, delay = 40 }: FocusOcrModelsOptions = {}): void => {
     const step = (left: number): void => {
@@ -38,7 +39,8 @@ export const focusOcrModels = ({ doc = globalThis.document, wait = setTimeout, a
             if (left > 0) wait(() => step(left - 1), delay);
             return;
         }
-        const action = [...section.querySelectorAll("button")].find(button => !button.disabled && !button.closest("dialog"));
+        for (const fold of section.querySelectorAll<HTMLDetailsElement>("details[data-catalog-fold]")) fold.open = true;
+        const action = [...section.querySelectorAll<HTMLButtonElement>("[data-model-download] button")].find(button => !button.disabled);
         const reducedMotion = globalThis.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
         section.scrollIntoView?.({ behavior: reducedMotion ? "instant" : "smooth", block: "center" });
         const target = action ?? section;

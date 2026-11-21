@@ -1,5 +1,5 @@
 //! Phrases into utterances: `AudioTranscriber.transcribeAudioQueue` of
-//! `transcription_transcriber.py`.
+//! [`transcription_transcriber.py`].
 //!
 //! The energy path: the recorder hands over phrases of at most `MIC_RECORD_TIMEOUT` seconds.
 //! They are joined into one utterance while the quiet between them stays within
@@ -13,6 +13,8 @@
 //! so the phrase timeout plays no part. A segment that ended naturally ends the utterance; one
 //! cut at the VAD's limit is kept and joined with what follows, up to 15 seconds. Each
 //! recognition gets 0.3 s of silence before and 0.5 s after (`_padWithSilenceForVad`).
+//!
+//! [`transcription_transcriber.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/transcription/transcription_transcriber.py
 
 use crate::vad::Cut;
 use std::collections::VecDeque;
@@ -339,7 +341,9 @@ mod tests {
         assert_eq!(*sent.borrow(), vec![(600, 32000, 1000), (600, 16000, 1000)]);
     }
 
-    // The phrase deadline, after `src-python/test/test_model_transcription_wait.py`.
+    // The phrase deadline, after [`src-python/test/test_model_transcription_wait.py`].
+    //
+    // [`src-python/test/test_model_transcription_wait.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/test/test_model_transcription_wait.py
 
     #[test]
     fn the_vad_paths_choices_and_the_queue_waits_are_noted_for_the_diagnostics() {

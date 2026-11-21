@@ -1,10 +1,12 @@
 //! Realtime recognition on speech.cpp (#288): its settings, endpoints, models, state, start and
 //! stop, and the main switches where they run it (Linux always, Windows with the local engine).
 //!
-//! Port of the realtime parts of `src-python/controller.py` (`_initRealtimeASR` to
+//! Port of the realtime parts of [`src-python/controller.py`] (`_initRealtimeASR` to
 //! `_startRealtime`). The session, its transport and the delivery of captions are in
 //! `vrct_transcription::realtime`. Captions go to the UI as `/run/realtime_caption` and to the
 //! VR large log; finals go through the message pipeline (`REALTIME_MIC`, `REALTIME_SPEAKER`).
+//!
+//! [`src-python/controller.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/controller.py
 
 use super::audio_devices::Source;
 use super::messages::{REALTIME_MIC, REALTIME_SPEAKER, Snapshot};
@@ -421,7 +423,9 @@ impl Core {
     }
 
     /// Stamps a request before it waits in the queue, so that a fast stop also cancels its
-    /// preparation (`mainloop.py`).
+    /// preparation ([`mainloop.py`]).
+    ///
+    /// [`mainloop.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/mainloop.py
     pub(crate) fn stamp_realtime(&self, endpoint: &str, data: &mut Value) {
         let source = match endpoint {
             "/set/enable/transcription_send" => Some(Source::Mic),

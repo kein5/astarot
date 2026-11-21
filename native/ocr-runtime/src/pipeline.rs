@@ -1,5 +1,5 @@
 //! The OCR loop: capture → candidates → OCR → bubbles → dedup → callback
-//! (`ocr_pipeline.py`).
+//! ([`ocr_pipeline.py`]).
 //!
 //! Without a detector the configured region is read whole and PP-OCR's lines are
 //! grouped into bubbles afterwards; with VRCT-VOX's chatbox detector each detected
@@ -9,6 +9,8 @@
 //! [`PipelineCore`] is the worker's state machine (one tick at a time, everything
 //! injectable); [`OcrPipeline`] runs it on its own thread with the start checks, the
 //! settings queue and the stop handshake of the Python class.
+//!
+//! [`ocr_pipeline.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/ocr/ocr_pipeline.py
 
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};

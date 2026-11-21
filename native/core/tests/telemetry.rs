@@ -1,8 +1,10 @@
 //! The usage events over the connection the UI uses (the controller side of
-//! `tests/voice/test_telemetry_client.py` and `src-python/test/test_telemetry.py`).
+//! `tests/voice/test_telemetry_client.py` and [`src-python/test/test_telemetry.py`]).
 //!
 //! Every test has its own receiver on 127.0.0.1, so nothing leaves the PC; the hardware in the
 //! events comes from the system alone (no speech.cpp is run).
+//!
+//! [`src-python/test/test_telemetry.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/test/test_telemetry.py
 
 mod common;
 

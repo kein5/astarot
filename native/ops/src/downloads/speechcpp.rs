@@ -2,8 +2,7 @@
 //!
 //! The data is in `data/` (its README describes the fields): the snapshot of `speech models
 //! --json` (`speechcpp_models.json`, written by tools/speechcpp_models.py) and the reviewed offers
-//! and profiles (`speechcpp_asr.json`). `tests/catalog_reference.rs` checks the entries built here
-//! against Python's.
+//! and profiles (`speechcpp_asr.json`).
 
 use std::sync::OnceLock;
 
@@ -67,7 +66,9 @@ struct Offer {
 struct Profile {
     summary: String,
     id: Option<String>,
-    /// File type -> catalog id, for a name whose files are pinned in `catalog.py` (the speech models).
+    /// File type -> catalog id, for a name whose files are pinned in [`catalog.py`] (the speech models).
+    ///
+    /// [`catalog.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/model_downloads/catalog.py
     ids: Option<std::collections::BTreeMap<String, String>>,
     /// Replaces speech.cpp's start languages.
     recommended_for: Option<Vec<String>>,
@@ -223,4 +224,20 @@ pub fn speech_model(id: &str) -> Json {
         }
     }
     Json::from(None::<Json>)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::type_slug;
+
+    #[test]
+    fn a_quantization_type_becomes_its_short_slug() {
+        for (kind, slug) in [("q8_0", "q8"), ("q5_k", "q5"), ("q4_0", "q4"), ("f16", "f16"), ("iq4_nl", "iq4nl"), ("bf16", "bf16")] {
+            assert_eq!(type_slug(kind), slug, "{kind}");
+        }
+        // Only `q<digit>_0` and `q<digit>_k` shorten; anything else keeps its letters and digits.
+        for (kind, slug) in [("q4_1", "q41"), ("x8_0", "x80"), ("qx_0", "qx0"), ("q8x0", "q8x0"), ("q8_00", "q800"), ("Q8_0", "80")] {
+            assert_eq!(type_slug(kind), slug, "{kind}");
+        }
+    }
 }

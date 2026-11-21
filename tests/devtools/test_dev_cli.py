@@ -284,6 +284,76 @@ class DeveloperCLITests(unittest.TestCase):
         self.assertIn("mise install (mise.toml pins 1.7.12)", output)
         self.assertIn("mise install (mise.toml pins 1.32.0)", output)
 
+    def test_rust_check_runs_the_native_tests_with_nextest_and_keeps_the_doctests(self):
+        (self.root / "native/core/src").mkdir(parents=True)
+        (self.root / "native/core/src/lib.rs").write_text("")
+        code, output = self.call("check", "--scope", "rust", "--dry-run")
+        self.assertEqual(code, 0)
+        self.assertIn("cargo nextest run --locked --offline --manifest-path native/core/Cargo.toml", output)
+        self.assertNotIn("cargo test --locked", output)
+        # nextest does not run doctests: a crate with a library runs them with cargo test --doc.
+        self.assertIn("cargo test --doc --locked --offline --manifest-path native/core/Cargo.toml", output)
+        self.assertNotIn("--doc --locked --offline --manifest-path native/tts/Cargo.toml", output)
+
+    def test_crate_check_runs_cargo_deny_offline_on_every_cargo_workspace(self):
+        code, output = self.call("check", "--scope", "crates", "--dry-run")
+        self.assertEqual(code, 0)
+        lines = [line for line in output.splitlines() if line.startswith("[cargo-deny ")]
+        self.assertEqual(len(lines), len(self.dev.CARGO_WORKSPACES))
+        for workspace in ("src-tauri", "native/core", "native/ocr-runtime", "native/rvc-runtime"):
+            self.assertIn(f"--manifest-path {workspace}/Cargo.toml --config deny.toml check", output)
+        self.assertTrue(all("--frozen" in line and line.endswith("licenses bans sources") for line in lines))
+
+    def test_rust_setup_fetches_every_workspace_cargo_deny_reads(self):
+        code, output = self.call("setup", "--scope", "rust", "--dry-run")
+        self.assertEqual(code, 0)
+        for workspace in self.dev.CARGO_WORKSPACES:
+            self.assertIn(f"--manifest-path {workspace}/Cargo.toml", output)
+
+    def test_secret_check_scans_only_the_new_commits_and_never_prints_a_value(self):
+        code, output = self.call("check", "--scope", "secrets", "--dry-run")
+        self.assertEqual(code, 2)
+        self.assertIn("secrets requires --base", output)
+        code, output = self.call("check", "--scope", "secrets", "--base", "origin/develop", "--dry-run")
+        self.assertEqual(code, 0)
+        self.assertIn("gitleaks git --redact --no-banner --log-opts origin/develop..HEAD .", output)
+
+    def test_vulnerability_check_names_each_lock_file_and_leaves_out_the_rest(self):
+        for name in ("uv.lock", "native/core/Cargo.lock"):
+            (self.root / name).parent.mkdir(parents=True, exist_ok=True)
+            (self.root / name).write_text("")
+        with patch.object(self.dev.shutil, "which", return_value=sys.executable), \
+             patch.object(self.dev, "doctor", return_value=0), \
+             patch.object(self.dev.subprocess, "run") as run:
+            run.return_value.returncode = 0
+            self.assertEqual(self.call("check", "--scope", "vulns")[0], 0)
+        argv = run.call_args.args[0]
+        # setUp writes a package-lock.json; site/ and the other workspaces have none here.
+        self.assertEqual(argv[1:], ["scan", "source", "--config", "osv-scanner.toml", "--lockfile", "uv.lock",
+                                    "--lockfile", "package-lock.json", "--lockfile", "native/core/Cargo.lock"])
+
+    def test_each_vulnerability_exception_says_why_and_when_to_look_again(self):
+        # osv-scanner.toml (#835): a notice that cannot be fixed now is listed with its reason
+        # and a day to look at it again; on that day the exception ends and the check fails.
+        import datetime
+        config = tomllib.loads((ROOT / "osv-scanner.toml").read_text(encoding="utf-8"))
+        entries = config["IgnoredVulns"]
+        self.assertTrue(entries)
+        self.assertEqual(len({entry["id"] for entry in entries}), len(entries), "each notice once")
+        for entry in entries:
+            self.assertEqual(set(entry), {"id", "ignoreUntil", "reason"}, entry["id"])
+            self.assertIsInstance(entry["ignoreUntil"], datetime.date, entry["id"])
+            self.assertTrue(entry["reason"].strip(), entry["id"])
+
+    def test_link_check_stays_offline_and_resolves_root_links_from_the_repository(self):
+        code, _ = self.call("check", "--scope", "links", "--dry-run")
+        self.assertEqual(code, 0)
+        # The planned argv, not the printed line: the temporary folder's name has spaces, which
+        # POSIX shells and Windows quote differently.
+        args = self.dev.parser().parse_args(["check", "--scope", "links", "--dry-run"])
+        (step,) = self.dev.checks_plan(args, self.root)
+        self.assertEqual(step.argv, ["lychee", "--offline", "--no-progress", "--root-dir", str(self.root.resolve()), "."])
+
     def test_browser_setup_adds_dependencies_to_explicit_existing_python(self):
         code, output = self.call("setup", "--scope", "browser", "--python",
             sys.executable, "--dry-run")

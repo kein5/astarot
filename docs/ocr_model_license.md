@@ -5,8 +5,8 @@
 `src-python/models/ocr/onnx/chatbox_yolox_tiny.onnx` の権利関係をまとめる。
 リポジトリ全体は MIT だが、**このファイルだけは MIT の対象外**で、VRCT 専用の
 利用許諾が適用される。正式な表記は [`NOTICE.md`](../NOTICE.md)、条文は
-[`LICENSE.txt`](https://github.com/kein5/VRCT-VOX/blob/250cec9681752c2f897d9a15a38e647c38561842/src-python/models/ocr/onnx/LICENSE.txt)（日本語・正文）と
-[`LICENSE.en.txt`](https://github.com/kein5/VRCT-VOX/blob/250cec9681752c2f897d9a15a38e647c38561842/src-python/models/ocr/onnx/LICENSE.en.txt)（英訳）。リンク先は削除の直前のコミット。
+[`LICENSE.txt`](https://github.com/kein5/astarot/blob/250cec9681752c2f897d9a15a38e647c38561842/src-python/models/ocr/onnx/LICENSE.txt)（日本語・正文）と
+[`LICENSE.en.txt`](https://github.com/kein5/astarot/blob/250cec9681752c2f897d9a15a38e647c38561842/src-python/models/ocr/onnx/LICENSE.en.txt)（英訳）。リンク先は削除の直前のコミット。
 
 ## 現状
 

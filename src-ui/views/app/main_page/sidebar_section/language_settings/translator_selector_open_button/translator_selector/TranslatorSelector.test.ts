@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "vitest";
 import { hooks, loadModule, find, componentName, drawWith } from "../../../../../../../logics/test/hookHarness.ts";
 import type { TreeNode } from "../../../../../../../logics/test/hookHarness.ts";
+import * as translatorLabel from "../../../../../../../logics/main/translatorLabel.ts";
 
 const engines = [
     { id: "CTranslate2", label: "CTranslate2", is_available: true, is_default: true },
@@ -19,6 +20,7 @@ async function setup(selected: unknown[] = [], closed: unknown[] = []) {
         "@store": { useStore_IsOpenedTranslatorSelector: () => ({ updateIsOpenedTranslatorSelector: (value: unknown) => closed.push(value) }) },
         "@logics_main": { useLanguageSettings: () => ({ canChangeLanguageSettings: () => true, isLanguageSettingsBusy: false,
             setSelectedTranslationEngines: (id: unknown) => selected.push(id) }) },
+        "../../../../../../../logics/main/translatorLabel.ts": translatorLabel,
     });
     return { runtime, TranslatorSelector };
 }

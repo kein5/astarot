@@ -1,10 +1,12 @@
 //! Linux capture for realtime recognition (decision 2 of #733): one PipeWire node through the
 //! capture stream of `vrct-audio-routing` (`pipewire::capture::PipeWireCapture`), the same
 //! capture the voice conversion uses. Python started the `vrct-asr-capture` helper for it
-//! (`capture_pipewire.py`); the checks of the endpoint before it starts are that helper's, and
+//! ([`capture_pipewire.py`]); the checks of the endpoint before it starts are that helper's, and
 //! so are the failure codes (`asr_capture_*`).
 //!
 //! Without the `pipewire` feature nothing is listed and nothing opens.
+//!
+//! [`capture_pipewire.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/transcription/capture_pipewire.py
 
 use crate::capture::{Capture, OnAudio, OnError, Source, media_class};
 use crate::endpoint_choice;

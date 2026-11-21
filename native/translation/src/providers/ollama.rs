@@ -1,4 +1,4 @@
-//! Ollama on this PC or the LAN (`translation_ollama.py`), at `OLLAMA_URL`.
+//! Ollama on this PC or the LAN ([`translation_ollama.py`]), at `OLLAMA_URL`.
 //!
 //! Python always used `http://localhost:11434`; the core keeps that as the default and lets the
 //! user choose another address, as for LM Studio. It has no key: the server counts as there
@@ -7,6 +7,8 @@
 //! `stream: false`, the long local wait and no retry. The body also has the empty `options` and
 //! `tools` the LangChain client of Python sent: no sampling settings of its own, so the model's
 //! defaults apply.
+//!
+//! [`translation_ollama.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/translation/translation_ollama.py
 
 use super::{
     checked, join, json_of, listed, reply_text, Access, Api, Error, Provider, Translation, LOCAL_PROBE, OLLAMA_TAGS,

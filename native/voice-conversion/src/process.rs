@@ -1,4 +1,4 @@
-//! One conversion session: the worker's owner (`process.py`, `rvc_process.py`, `isolated.py`).
+//! One conversion session: the worker's owner ([`process.py`], [`rvc_process.py`], [`isolated.py`]).
 //!
 //! The microphone is captured in blocks of the session's length (`block_ms` of the start; when
 //! the start leaves it, the RVC worker chooses and says so in `ready`; Python's were 80 ms),
@@ -8,6 +8,10 @@
 //!
 //! Python ran this in a router process of its own, to keep its garbage collector and global
 //! lock away from the app. Here it runs on a thread of the app; the worker is still a process.
+//!
+//! [`process.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/voice_conversion/process.py
+//! [`rvc_process.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/voice_conversion/rvc_process.py
+//! [`isolated.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/voice_conversion/isolated.py
 
 use std::collections::VecDeque;
 use std::path::{Path, PathBuf};
@@ -65,7 +69,9 @@ pub trait VcRoute: Send + Sync {
     }
 }
 
-/// A chosen output device in place of the managed sink (Windows, `windows_route.py`).
+/// A chosen output device in place of the managed sink (Windows, [`windows_route.py`]).
+///
+/// [`windows_route.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/audio_routing/windows_route.py
 pub struct DeviceRoute {
     route: WindowsRoute,
     devices: Arc<dyn RouteDevices>,

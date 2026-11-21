@@ -1,0 +1,4878 @@
+{
+  "_comment": "Written by native/core/tests/spec_catalog.rs from the core; tools/spec_catalog.py makes docs/spec/reference/ from it. Do not edit by hand.",
+  "endpoints": [
+    {
+      "endpoint": "/get/data/foreground",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/enable/foreground",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/disable/foreground",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/selected_tab_no",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/selected_tab_no",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/main_window_sidebar_compact_mode",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/enable/main_window_sidebar_compact_mode",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/disable/main_window_sidebar_compact_mode",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/selectable_translation_engines",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/selectable_language_list",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/selected_translation_engines",
+      "wait_for_init": true,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/selected_translation_engines",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/selected_your_languages",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/selected_your_languages",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/selected_target_languages",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/selected_target_languages",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/selectable_transcription_engines",
+      "wait_for_init": true,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/selected_transcription_engine",
+      "wait_for_init": true,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/selected_transcription_engine",
+      "wait_for_init": true,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/selectable_groq_whisper_model_list",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/selected_groq_whisper_model",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/selected_groq_whisper_model",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/selectable_openai_whisper_model_list",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/selected_openai_whisper_model",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/selected_openai_whisper_model",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/custom_whisper_url",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/selectable_custom_whisper_model_list",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/selected_custom_whisper_model",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/selected_custom_whisper_model",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/selectable_deepgram_model_list",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/selected_deepgram_model",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/selected_deepgram_model",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/selectable_release_channels",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/release_channel",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/release_channel",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/telemetry",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/auto_download_models",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/enable/auto_download_models",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/disable/auto_download_models",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/run/shutdown",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/run/swap_your_language_and_target_language",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/disable/translation",
+      "wait_for_init": true,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/auto_mic_select",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/auto_speaker_select",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/selected_mic_host",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/selected_mic_device",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/selected_mic_device_id",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/selected_speaker_device",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/selected_speaker_device_id",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/voice_settings",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/rvc_block_ms",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/rvc_block_ms",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/version",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/transparency",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/transparency",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/ui_scaling",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/ui_scaling",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/textbox_ui_scaling",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/textbox_ui_scaling",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/message_box_ratio",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/message_box_ratio",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/send_message_button_type",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/send_message_button_type",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/show_resend_button",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/enable/show_resend_button",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/disable/show_resend_button",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/font_family",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/font_family",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/ui_language",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/ui_language",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/main_window_geometry",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/main_window_geometry",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/compute_mode",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/selectable_translation_compute_device_list",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/selected_translation_compute_device",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/selected_translation_compute_device",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/selectable_ctranslate2_weight_type_dict",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/selected_ctranslate2_weight_type",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/selected_translation_compute_type",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/selected_translation_compute_type",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/convert_message_to_romaji",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/enable/convert_message_to_romaji",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/disable/convert_message_to_romaji",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/convert_message_to_hiragana",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/enable/convert_message_to_hiragana",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/disable/convert_message_to_hiragana",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/mic_threshold",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/mic_threshold",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/mic_automatic_threshold",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/enable/mic_automatic_threshold",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/disable/mic_automatic_threshold",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/mic_record_timeout",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/mic_record_timeout",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/mic_phrase_timeout",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/mic_phrase_timeout",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/mic_max_phrases",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/mic_max_phrases",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/hotkeys",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/hotkeys",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/experimental_features",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/experimental_features",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/usage_presets",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/usage_presets",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/catalog_layout",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/catalog_layout",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/tray_companion_edge",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/tray_companion_edge",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/tray_companion_monitor",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/tray_companion_monitor",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/mic_avg_logprob",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/mic_avg_logprob",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/mic_no_speech_prob",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/mic_no_speech_prob",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/mic_vad_filter",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/enable/mic_vad_filter",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/disable/mic_vad_filter",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/mic_word_filter",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/mic_word_filter",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/speaker_threshold",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/speaker_threshold",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/speaker_automatic_threshold",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/enable/speaker_automatic_threshold",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/disable/speaker_automatic_threshold",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/speaker_record_timeout",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/speaker_record_timeout",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/speaker_phrase_timeout",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/speaker_phrase_timeout",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/speaker_max_phrases",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/speaker_max_phrases",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/speaker_avg_logprob",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/speaker_avg_logprob",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/speaker_no_speech_prob",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/speaker_no_speech_prob",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/speaker_vad_filter",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/enable/speaker_vad_filter",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/disable/speaker_vad_filter",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/vad_available",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/virtual_mic_notice",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/disable/virtual_mic_notice",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/first_run_setup",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/disable/first_run_setup",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/overlay_vr_panel_opacity",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/overlay_vr_panel_anchor",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/overlay_vr_panel_locked",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/overlay_vr_panel_font_size",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/overlay_vr_launcher_hand",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/overlay_vr_launcher_auto_hide",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/overlay_vr_tooltip",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/enable/overlay_vr_tooltip",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/disable/overlay_vr_tooltip",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/overlay_vr_panel_font_size",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/overlay_small_log",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/overlay_small_log_settings",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/overlay_large_log",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/overlay_vr_panel",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/overlay_large_log_settings",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/overlay_desktop",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/enable/overlay_desktop",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/disable/overlay_desktop",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/overlay_desktop_settings",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/overlay_desktop_settings",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/overlay_desktop_placement",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/overlay_desktop_placement",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/io_flow_overlay_settings",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/io_flow_overlay_settings",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/overlay_show_only_translated_messages",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/enable/overlay_show_only_translated_messages",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/disable/overlay_show_only_translated_messages",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/send_message_format_parts",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/send_message_format_parts",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/received_message_format_parts",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/received_message_format_parts",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/auto_clear_message_box",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/enable/auto_clear_message_box",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/disable/auto_clear_message_box",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/send_only_translated_messages",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/enable/send_only_translated_messages",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/disable/send_only_translated_messages",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/check_software_updates",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/enable/check_software_updates",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/disable/check_software_updates",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/vrc_mic_mute_sync",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/send_message_to_vrc",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/send_received_message_to_vrc",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/enable/send_received_message_to_vrc",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/disable/send_received_message_to_vrc",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/websocket_host",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/websocket_port",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/websocket_auth_token",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/websocket_tls",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/websocket_server",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/obs_browser_source",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/obs_browser_source_port",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/obs_browser_source_max_messages",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/obs_browser_source_display_duration",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/obs_browser_source_fadeout_duration",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/obs_browser_source_font_size",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/obs_browser_source_font_color",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/obs_browser_source_font_outline_thickness",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/obs_browser_source_font_outline_color",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/clipboard",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/enable/clipboard",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/disable/clipboard",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/selectable_ocr_source_languages",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/ocr_source_language",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/ocr_window_title",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/ocr_poll_interval_ms",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/ocr_min_confidence",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/ocr_bubble_min_text_length",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/ocr_capture_region",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/ocr_vr_capture_region",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/ocr_chatbox_filter",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/ocr_use_chatbox_detector",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/ocr_portal_restore_token",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/ocr_portal_restore_token",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/osc_ip_address",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/osc_port",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/osc_query",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/notification_vrc_sfx",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/enable/notification_vrc_sfx",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/disable/notification_vrc_sfx",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/run/feed_watchdog",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/speech_server_settings",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/speech_server_settings",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/speech_server_devices",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/speech_server_state",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/run/start_speech_server",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/run/stop_speech_server",
+      "wait_for_init": false,
+      "immediate": true
+    },
+    {
+      "endpoint": "/set/enable/telemetry",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/disable/telemetry",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/telemetry_notice",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/telemetry_notice",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/telemetry_preview",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/model_download_catalog",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/model_download_hardware",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/run/refresh_model_download_hardware",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/model_download_state",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/run/start_model_download",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/run/cancel_model_download",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/run/apply_model_download",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/user_models",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/run/register_user_model",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/run/remove_user_model",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/run/apply_user_model",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/run/typing_message_box",
+      "wait_for_init": true,
+      "immediate": false
+    },
+    {
+      "endpoint": "/run/stop_typing_message_box",
+      "wait_for_init": true,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/enable/vrc_mic_mute_sync",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/disable/vrc_mic_mute_sync",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/enable/send_message_to_vrc",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/disable/send_message_to_vrc",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/vrchat_osc_presence",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/osc_ip_address",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/osc_port",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/enable/osc_query",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/disable/osc_query",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/websocket_host",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/websocket_port",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/run/regenerate_websocket_auth_token",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/websocket_tls",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/enable/websocket_server",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/disable/websocket_server",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/enable/obs_browser_source",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/disable/obs_browser_source",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/obs_browser_source_port",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/obs_browser_source_max_messages",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/obs_browser_source_display_duration",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/obs_browser_source_fadeout_duration",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/obs_browser_source_font_size",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/obs_browser_source_font_outline_thickness",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/obs_browser_source_font_color",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/obs_browser_source_font_outline_color",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/deepl_auth_key",
+      "wait_for_init": true,
+      "immediate": false
+    },
+    {
+      "endpoint": "/delete/data/deepl_auth_key",
+      "wait_for_init": true,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/plamo_auth_key",
+      "wait_for_init": true,
+      "immediate": false
+    },
+    {
+      "endpoint": "/delete/data/plamo_auth_key",
+      "wait_for_init": true,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/selectable_plamo_model_list",
+      "wait_for_init": true,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/selected_plamo_model",
+      "wait_for_init": true,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/gemini_auth_key",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/delete/data/gemini_auth_key",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/selectable_gemini_model_list",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/selected_gemini_model",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/openai_auth_key",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/delete/data/openai_auth_key",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/selectable_openai_model_list",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/selected_openai_model",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/groq_auth_key",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/delete/data/groq_auth_key",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/selectable_groq_model_list",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/selected_groq_model",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/openrouter_auth_key",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/delete/data/openrouter_auth_key",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/selectable_openrouter_model_list",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/selected_openrouter_model",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/openai_compatible_auth_key",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/delete/data/openai_compatible_auth_key",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/openai_compatible_url",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/openai_compatible_url",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/selectable_openai_compatible_model_list",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/selected_openai_compatible_model",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/lmstudio_url",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/selected_lmstudio_model",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/selected_ollama_model",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/ollama_url",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/google_cloud_auth_key",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/delete/data/google_cloud_auth_key",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/papago_client_id",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/papago_auth_key",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/delete/data/papago_auth_key",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/groq_whisper_auth_key",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/delete/data/groq_whisper_auth_key",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/openai_whisper_auth_key",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/delete/data/openai_whisper_auth_key",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/custom_whisper_auth_key",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/delete/data/custom_whisper_auth_key",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/deepgram_auth_key",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/delete/data/deepgram_auth_key",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/custom_whisper_url",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/ocr_window_title",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/ocr_poll_interval_ms",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/ocr_min_confidence",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/ocr_bubble_min_text_length",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/ocr_capture_region",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/ocr_vr_capture_region",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/enable/ocr_chatbox_filter",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/disable/ocr_chatbox_filter",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/enable/ocr_use_chatbox_detector",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/disable/ocr_use_chatbox_detector",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/enable/ocr_capture",
+      "wait_for_init": true,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/disable/ocr_capture",
+      "wait_for_init": true,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/ocr_source_language",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/ocr_capture_status",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/ocr_readiness",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/ocr_model_readiness",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/run/send_text_overlay",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/enable/overlay_small_log",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/disable/overlay_small_log",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/run/vr_panel_tooltip",
+      "wait_for_init": true,
+      "immediate": false
+    },
+    {
+      "endpoint": "/run/vr_panel_windows",
+      "wait_for_init": true,
+      "immediate": false
+    },
+    {
+      "endpoint": "/run/vr_panel_recall_log",
+      "wait_for_init": true,
+      "immediate": false
+    },
+    {
+      "endpoint": "/run/vr_launcher_reset",
+      "wait_for_init": true,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/vr_panel_layout",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/run/vr_panel_layout_rendered",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/overlay_vr_panel_anchor",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/overlay_vr_launcher_hand",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/enable/overlay_vr_launcher_auto_hide",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/enable/overlay_vr_panel_locked",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/disable/overlay_vr_launcher_auto_hide",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/disable/overlay_vr_panel_locked",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/overlay_vr_panel_opacity",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/overlay_small_log_settings",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/enable/overlay_vr_panel",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/disable/overlay_vr_panel",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/enable/overlay_large_log",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/disable/overlay_large_log",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/overlay_large_log_settings",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/overlay_font_family",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/overlay_font_family",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/overlay_font_missing_languages",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/speaker_names",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/run/open_filepath_config_file",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/run/open_filepath_logs",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/run/export_vocabulary",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/run/open_filepath_vocabulary_exports",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/gpu_check_state",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/run/start_gpu_check",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/run/stop_gpu_check",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/deepl_auth_key",
+      "wait_for_init": true,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/plamo_auth_key",
+      "wait_for_init": true,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/selected_plamo_model",
+      "wait_for_init": true,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/gemini_auth_key",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/selected_gemini_model",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/openai_auth_key",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/selected_openai_model",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/groq_auth_key",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/selected_groq_model",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/openrouter_auth_key",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/selected_openrouter_model",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/google_cloud_auth_key",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/papago_client_id",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/papago_auth_key",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/connected_lmstudio",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/run/lmstudio_connection",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/selectable_lmstudio_model_list",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/selected_lmstudio_model",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/lmstudio_url",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/openai_compatible_auth_key",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/openai_compatible_auth_key_and_url",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/selected_openai_compatible_model",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/connected_ollama",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/run/ollama_connection",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/selectable_ollama_model_list",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/selected_ollama_model",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/ollama_url",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/selected_ctranslate2_weight_type",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/enable/translation",
+      "wait_for_init": true,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/translation_catalog",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/run/register_translation_catalog_entry",
+      "wait_for_init": true,
+      "immediate": false
+    },
+    {
+      "endpoint": "/run/remove_translation_catalog_entry",
+      "wait_for_init": true,
+      "immediate": false
+    },
+    {
+      "endpoint": "/run/use_translation_catalog_entry",
+      "wait_for_init": true,
+      "immediate": false
+    },
+    {
+      "endpoint": "/run/send_message_box",
+      "wait_for_init": true,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/logger_feature",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/enable/logger_feature",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/disable/logger_feature",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/selectable_mic_host_list",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/selectable_mic_device_list",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/selectable_speaker_device_list",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/enable/auto_mic_select",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/disable/auto_mic_select",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/selectable_mic_device_options",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/selected_mic_device",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/selected_mic_device_id",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/enable/auto_speaker_select",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/disable/auto_speaker_select",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/selectable_speaker_device_options",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/selected_speaker_device",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/selected_speaker_device_id",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/selected_mic_host",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/virtual_mic_status",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/run/virtual_mic_test",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/available_releases",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/run/update_software",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/run/update_cuda_software",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/enable/transcription_send",
+      "wait_for_init": true,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/disable/transcription_send",
+      "wait_for_init": true,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/enable/check_mic_threshold",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/disable/check_mic_threshold",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/enable/transcription_receive",
+      "wait_for_init": true,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/disable/transcription_receive",
+      "wait_for_init": true,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/enable/check_speaker_threshold",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/disable/check_speaker_threshold",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/groq_whisper_auth_key",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/openai_whisper_auth_key",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/custom_whisper_auth_key",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/custom_whisper_auth_key_and_url",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/deepgram_auth_key",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/realtime_asr_settings",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/realtime_asr_settings",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/realtime_asr_endpoints",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/realtime_asr_models",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/builtin_vocabulary",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/realtime_asr_state",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/run/start_realtime_asr",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/run/stop_realtime_asr",
+      "wait_for_init": false,
+      "immediate": true
+    },
+    {
+      "endpoint": "/set/data/voice_settings",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/voice_status",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/tts_model_options",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/tts_engine_voices",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/voice_output_devices",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/run/stop_voice",
+      "wait_for_init": false,
+      "immediate": true
+    },
+    {
+      "endpoint": "/run/enable_tts",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/run/disable_tts",
+      "wait_for_init": false,
+      "immediate": true
+    },
+    {
+      "endpoint": "/get/data/voice_route",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/run/mute_voice",
+      "wait_for_init": false,
+      "immediate": true
+    },
+    {
+      "endpoint": "/run/resume_voice",
+      "wait_for_init": false,
+      "immediate": true
+    },
+    {
+      "endpoint": "/get/data/direct_voice_sources",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/direct_voice_settings",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/direct_voice_state",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/io_flow",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/run/start_direct_voice",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/run/stop_direct_voice",
+      "wait_for_init": false,
+      "immediate": true
+    },
+    {
+      "endpoint": "/get/data/voice_audition_state",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/run/start_voice_audition",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/run/stop_voice_audition",
+      "wait_for_init": false,
+      "immediate": true
+    },
+    {
+      "endpoint": "/get/data/vc_runtime_catalog",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/vc_runtime_state",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/run/start_vc_runtime_setup",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/run/cancel_vc_runtime_setup",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/gpu_memory",
+      "wait_for_init": false,
+      "immediate": false
+    }
+  ],
+  "notifications": [
+    {
+      "name": "enable_translation",
+      "endpoint": "/run/enable_translation"
+    },
+    {
+      "name": "enable_transcription_send",
+      "endpoint": "/run/enable_transcription_send"
+    },
+    {
+      "name": "enable_transcription_receive",
+      "endpoint": "/run/enable_transcription_receive"
+    },
+    {
+      "name": "disable_transcription_send",
+      "endpoint": "/set/disable/transcription_send"
+    },
+    {
+      "name": "disable_transcription_receive",
+      "endpoint": "/set/disable/transcription_receive"
+    },
+    {
+      "name": "disable_check_mic_threshold",
+      "endpoint": "/set/disable/check_mic_threshold"
+    },
+    {
+      "name": "disable_check_speaker_threshold",
+      "endpoint": "/set/disable/check_speaker_threshold"
+    },
+    {
+      "name": "connected_network",
+      "endpoint": "/run/connected_network"
+    },
+    {
+      "name": "enable_ai_models",
+      "endpoint": "/run/enable_ai_models"
+    },
+    {
+      "name": "update_software",
+      "endpoint": "/run/update_software"
+    },
+    {
+      "name": "update_cuda_software",
+      "endpoint": "/run/update_cuda_software"
+    },
+    {
+      "name": "transcription_mic",
+      "endpoint": "/run/transcription_send_mic_message"
+    },
+    {
+      "name": "transcription_speaker",
+      "endpoint": "/run/transcription_receive_speaker_message"
+    },
+    {
+      "name": "transcription_ocr",
+      "endpoint": "/run/transcription_ocr_message"
+    },
+    {
+      "name": "enable_ocr_capture",
+      "endpoint": "/run/enable_ocr_capture"
+    },
+    {
+      "name": "check_mic_volume",
+      "endpoint": "/run/check_mic_volume"
+    },
+    {
+      "name": "check_speaker_volume",
+      "endpoint": "/run/check_speaker_volume"
+    },
+    {
+      "name": "audio_device_switched",
+      "endpoint": "/run/audio_device_switched"
+    },
+    {
+      "name": "error_device",
+      "endpoint": "/run/error_device"
+    },
+    {
+      "name": "error_translation_engine",
+      "endpoint": "/run/error_translation_engine"
+    },
+    {
+      "name": "message_output_error",
+      "endpoint": "/run/message_output_error"
+    },
+    {
+      "name": "error_translation_enable_vram_overflow",
+      "endpoint": "/run/error_translation_enable_vram_overflow"
+    },
+    {
+      "name": "error_translation_chat_vram_overflow",
+      "endpoint": "/run/error_translation_chat_vram_overflow"
+    },
+    {
+      "name": "error_translation_mic_vram_overflow",
+      "endpoint": "/run/error_translation_mic_vram_overflow"
+    },
+    {
+      "name": "error_translation_speaker_vram_overflow",
+      "endpoint": "/run/error_translation_speaker_vram_overflow"
+    },
+    {
+      "name": "translation_compute_device_fallback",
+      "endpoint": "/run/translation_compute_device_fallback"
+    },
+    {
+      "name": "word_filter",
+      "endpoint": "/run/word_filter"
+    },
+    {
+      "name": "transcription_recognition_error",
+      "endpoint": "/run/transcription_recognition_error"
+    },
+    {
+      "name": "vad_unavailable",
+      "endpoint": "/run/vad_unavailable"
+    },
+    {
+      "name": "download_progress_ctranslate2_weight",
+      "endpoint": "/run/download_progress_ctranslate2_weight"
+    },
+    {
+      "name": "downloaded_ctranslate2_weight",
+      "endpoint": "/run/downloaded_ctranslate2_weight"
+    },
+    {
+      "name": "error_ctranslate2_weight",
+      "endpoint": "/run/error_ctranslate2_weight"
+    },
+    {
+      "name": "ctranslate2_license_notice",
+      "endpoint": "/run/ctranslate2_license_notice"
+    },
+    {
+      "name": "translation_model_retired",
+      "endpoint": "/run/translation_model_retired"
+    },
+    {
+      "name": "translation_language_unsupported",
+      "endpoint": "/run/translation_language_unsupported"
+    },
+    {
+      "name": "selected_mic_host",
+      "endpoint": "/run/selected_mic_host"
+    },
+    {
+      "name": "selected_mic_device_id",
+      "endpoint": "/run/selected_mic_device_id"
+    },
+    {
+      "name": "selectable_mic_device_options",
+      "endpoint": "/run/selectable_mic_device_options"
+    },
+    {
+      "name": "selected_mic_device",
+      "endpoint": "/run/selected_mic_device"
+    },
+    {
+      "name": "selected_speaker_device_id",
+      "endpoint": "/run/selected_speaker_device_id"
+    },
+    {
+      "name": "selectable_speaker_device_options",
+      "endpoint": "/run/selectable_speaker_device_options"
+    },
+    {
+      "name": "selected_speaker_device",
+      "endpoint": "/run/selected_speaker_device"
+    },
+    {
+      "name": "selected_translation_engines",
+      "endpoint": "/run/selected_translation_engines"
+    },
+    {
+      "name": "translation_engines",
+      "endpoint": "/run/translation_engines"
+    },
+    {
+      "name": "selected_your_languages",
+      "endpoint": "/run/selected_your_languages"
+    },
+    {
+      "name": "selected_target_languages",
+      "endpoint": "/run/selected_target_languages"
+    },
+    {
+      "name": "selectable_language_list",
+      "endpoint": "/run/selectable_language_list"
+    },
+    {
+      "name": "selected_translation_compute_type",
+      "endpoint": "/run/selected_translation_compute_type"
+    },
+    {
+      "name": "selectable_plamo_model_list",
+      "endpoint": "/run/selectable_plamo_model_list"
+    },
+    {
+      "name": "selected_plamo_model",
+      "endpoint": "/run/selected_plamo_model"
+    },
+    {
+      "name": "selectable_gemini_model_list",
+      "endpoint": "/run/selectable_gemini_model_list"
+    },
+    {
+      "name": "selected_gemini_model",
+      "endpoint": "/run/selected_gemini_model"
+    },
+    {
+      "name": "selectable_openai_model_list",
+      "endpoint": "/run/selectable_openai_model_list"
+    },
+    {
+      "name": "selected_openai_model",
+      "endpoint": "/run/selected_openai_model"
+    },
+    {
+      "name": "selectable_groq_model_list",
+      "endpoint": "/run/selectable_groq_model_list"
+    },
+    {
+      "name": "selected_groq_model",
+      "endpoint": "/run/selected_groq_model"
+    },
+    {
+      "name": "selectable_openrouter_model_list",
+      "endpoint": "/run/selectable_openrouter_model_list"
+    },
+    {
+      "name": "selected_openrouter_model",
+      "endpoint": "/run/selected_openrouter_model"
+    },
+    {
+      "name": "selectable_lmstudio_model_list",
+      "endpoint": "/run/selectable_lmstudio_model_list"
+    },
+    {
+      "name": "selected_lmstudio_model",
+      "endpoint": "/run/selected_lmstudio_model"
+    },
+    {
+      "name": "selectable_openai_compatible_model_list",
+      "endpoint": "/run/selectable_openai_compatible_model_list"
+    },
+    {
+      "name": "selected_openai_compatible_model",
+      "endpoint": "/run/selected_openai_compatible_model"
+    },
+    {
+      "name": "selectable_ollama_model_list",
+      "endpoint": "/run/selectable_ollama_model_list"
+    },
+    {
+      "name": "selected_ollama_model",
+      "endpoint": "/run/selected_ollama_model"
+    },
+    {
+      "name": "selectable_groq_whisper_model_list",
+      "endpoint": "/run/selectable_groq_whisper_model_list"
+    },
+    {
+      "name": "selected_groq_whisper_model",
+      "endpoint": "/run/selected_groq_whisper_model"
+    },
+    {
+      "name": "selectable_openai_whisper_model_list",
+      "endpoint": "/run/selectable_openai_whisper_model_list"
+    },
+    {
+      "name": "selected_openai_whisper_model",
+      "endpoint": "/run/selected_openai_whisper_model"
+    },
+    {
+      "name": "selectable_custom_whisper_model_list",
+      "endpoint": "/run/selectable_custom_whisper_model_list"
+    },
+    {
+      "name": "selected_custom_whisper_model",
+      "endpoint": "/run/selected_custom_whisper_model"
+    },
+    {
+      "name": "selectable_deepgram_model_list",
+      "endpoint": "/run/selectable_deepgram_model_list"
+    },
+    {
+      "name": "selected_deepgram_model",
+      "endpoint": "/run/selected_deepgram_model"
+    },
+    {
+      "name": "overlay_small_log_settings",
+      "endpoint": "/run/overlay_small_log_settings"
+    },
+    {
+      "name": "vr_panel_pointer",
+      "endpoint": "/run/vr_panel_pointer"
+    },
+    {
+      "name": "vr_panel_log_out_of_view",
+      "endpoint": "/run/vr_panel_log_out_of_view"
+    },
+    {
+      "name": "overlay_vr_launcher_hand",
+      "endpoint": "/run/overlay_vr_launcher_hand"
+    },
+    {
+      "name": "vr_panel_launcher_intro",
+      "endpoint": "/run/vr_panel_launcher_intro"
+    },
+    {
+      "name": "overlay_vr_panel_anchor",
+      "endpoint": "/run/overlay_vr_panel_anchor"
+    },
+    {
+      "name": "vr_panel_layout",
+      "endpoint": "/run/vr_panel_layout"
+    },
+    {
+      "name": "overlay_large_log_settings",
+      "endpoint": "/run/overlay_large_log_settings"
+    },
+    {
+      "name": "selectable_mic_host_list",
+      "endpoint": "/run/selectable_mic_host_list"
+    },
+    {
+      "name": "selectable_mic_device_list",
+      "endpoint": "/run/selectable_mic_device_list"
+    },
+    {
+      "name": "selectable_speaker_device_list",
+      "endpoint": "/run/selectable_speaker_device_list"
+    },
+    {
+      "name": "software_update_info",
+      "endpoint": "/run/software_update_info"
+    },
+    {
+      "name": "virtual_mic_level",
+      "endpoint": "/run/virtual_mic_level"
+    },
+    {
+      "name": "initialization_progress",
+      "endpoint": "/run/initialization_progress"
+    },
+    {
+      "name": "initialization_complete",
+      "endpoint": "/run/initialization_complete"
+    },
+    {
+      "name": "config_file_unreadable",
+      "endpoint": "/run/config_file_unreadable"
+    },
+    {
+      "name": "config_save_failed",
+      "endpoint": "/run/config_save_failed"
+    },
+    {
+      "name": "config_save_recovered",
+      "endpoint": "/run/config_save_recovered"
+    },
+    {
+      "name": "secret_store_failed",
+      "endpoint": "/run/secret_store_failed"
+    },
+    {
+      "name": "enable_osc_query",
+      "endpoint": "/run/enable_osc_query"
+    }
+  ],
+  "sensitive_markers": [
+    "auth_key",
+    "api_key",
+    "password",
+    "token",
+    "secret",
+    "voice_settings",
+    "instructions",
+    "client_id",
+    "user_model",
+    "translation_catalog",
+    "vocabulary",
+    "speaker_names"
+  ],
+  "errors": [
+    {
+      "code": "OVERLAY_RUNTIME_FAILED",
+      "category": "general",
+      "message": "The VR overlay stopped after a rendering or capture failure. Check SteamVR and the VR window, then enable it again.",
+      "severity": "error",
+      "user_action_required": true
+    },
+    {
+      "code": "OVERLAY_VR_PANEL_UNSUPPORTED",
+      "category": "general",
+      "message": "The VR UI is not available in this environment. Subtitle overlays are not affected.",
+      "severity": "error",
+      "user_action_required": false
+    },
+    {
+      "code": "MESSAGE_OUTPUT_FAILED",
+      "category": "general",
+      "message": "One message output failed; other outputs continued. Resending may duplicate delivery.",
+      "severity": "warning",
+      "user_action_required": false
+    },
+    {
+      "code": "DEVICE_NO_MIC",
+      "category": "device",
+      "message": "No mic device detected",
+      "severity": "error",
+      "user_action_required": true
+    },
+    {
+      "code": "DEVICE_NO_SPEAKER",
+      "category": "device",
+      "message": "No speaker device detected",
+      "severity": "error",
+      "user_action_required": true
+    },
+    {
+      "code": "AUDIO_OPEN_ERROR",
+      "category": "device",
+      "message": "Audio device could not be opened",
+      "severity": "error",
+      "user_action_required": true
+    },
+    {
+      "code": "AUDIO_READ_ERROR",
+      "category": "device",
+      "message": "Audio capture failed",
+      "severity": "error",
+      "user_action_required": true
+    },
+    {
+      "code": "VAD_INFERENCE_ERROR",
+      "category": "transcription",
+      "message": "Voice activity detection failed",
+      "severity": "error",
+      "user_action_required": true
+    },
+    {
+      "code": "TRANSCRIBER_INIT_ERROR",
+      "category": "transcription",
+      "message": "Speech recognizer initialization failed",
+      "severity": "error",
+      "user_action_required": true
+    },
+    {
+      "code": "ASR_ERROR",
+      "category": "transcription",
+      "message": "Speech recognition failed",
+      "severity": "error",
+      "user_action_required": true
+    },
+    {
+      "code": "CLEANUP_TIMEOUT",
+      "category": "transcription",
+      "message": "Audio transcription cleanup timed out",
+      "severity": "error",
+      "user_action_required": true
+    },
+    {
+      "code": "AUDIO_TRACKER_STOP_TIMEOUT",
+      "category": "device",
+      "message": "Audio endpoint tracker cleanup timed out",
+      "severity": "warning",
+      "user_action_required": false
+    },
+    {
+      "code": "TRANSLATION_ENGINE_LIMIT",
+      "category": "translation",
+      "message": "Translation engine limit error",
+      "severity": "warning",
+      "user_action_required": false
+    },
+    {
+      "code": "TRANSLATION_VRAM_CHAT",
+      "category": "translation",
+      "message": "VRAM out of memory during translation of chat",
+      "severity": "critical",
+      "user_action_required": true
+    },
+    {
+      "code": "TRANSLATION_VRAM_MIC",
+      "category": "translation",
+      "message": "VRAM out of memory during translation of mic",
+      "severity": "critical",
+      "user_action_required": true
+    },
+    {
+      "code": "TRANSLATION_VRAM_SPEAKER",
+      "category": "translation",
+      "message": "VRAM out of memory during translation of speaker",
+      "severity": "critical",
+      "user_action_required": true
+    },
+    {
+      "code": "TRANSLATION_VRAM_ENABLE",
+      "category": "translation",
+      "message": "VRAM out of memory enabling translation",
+      "severity": "critical",
+      "user_action_required": true
+    },
+    {
+      "code": "TRANSLATION_DISABLED_VRAM",
+      "category": "translation",
+      "message": "Translation disabled due to VRAM overflow",
+      "severity": "critical",
+      "user_action_required": true
+    },
+    {
+      "code": "TRANSLATION_MODEL_MISSING",
+      "category": "translation",
+      "message": "The CTranslate2 model is not downloaded; translation was not enabled",
+      "severity": "error",
+      "user_action_required": true
+    },
+    {
+      "code": "TRANSLATION_MODEL_LOAD_FAILED",
+      "category": "translation",
+      "message": "The CTranslate2 model could not be loaded; translation was not enabled",
+      "severity": "error",
+      "user_action_required": true
+    },
+    {
+      "code": "TRANSLATION_LANGUAGE_UNSUPPORTED",
+      "category": "translation",
+      "message": "The selected translation model does not support a selected language; it was reset",
+      "severity": "warning",
+      "user_action_required": false
+    },
+    {
+      "code": "TRANSCRIPTION_SEND_NOT_READY",
+      "category": "transcription",
+      "message": "Realtime microphone recognition is not ready",
+      "severity": "error",
+      "user_action_required": true
+    },
+    {
+      "code": "TRANSCRIPTION_RECEIVE_NOT_READY",
+      "category": "transcription",
+      "message": "Realtime speaker recognition is not ready",
+      "severity": "error",
+      "user_action_required": true
+    },
+    {
+      "code": "TRANSCRIPTION_ENGINE_NOT_SELECTED",
+      "category": "transcription",
+      "message": "Choose a speech recognition engine before enabling transcription.",
+      "severity": "warning",
+      "user_action_required": true
+    },
+    {
+      "code": "TRANSCRIPTION_ENGINE_UNAVAILABLE",
+      "category": "transcription",
+      "message": "The selected speech recognition engine could not start. Check its settings.",
+      "severity": "error",
+      "user_action_required": true
+    },
+    {
+      "code": "TRANSCRIPTION_API_AUTH_FAILED",
+      "category": "transcription",
+      "message": "Transcription API rejected the configured API key",
+      "severity": "error",
+      "user_action_required": true
+    },
+    {
+      "code": "TRANSCRIPTION_API_RATE_LIMITED",
+      "category": "transcription",
+      "message": "Transcription API rate limit exceeded",
+      "severity": "warning",
+      "user_action_required": false
+    },
+    {
+      "code": "TRANSCRIPTION_API_TIMEOUT",
+      "category": "transcription",
+      "message": "Transcription API request timed out",
+      "severity": "warning",
+      "user_action_required": false
+    },
+    {
+      "code": "TRANSCRIPTION_API_SERVER_ERROR",
+      "category": "transcription",
+      "message": "Transcription API returned a server error",
+      "severity": "warning",
+      "user_action_required": false
+    },
+    {
+      "code": "WEIGHT_CTRANSLATE2_DOWNLOAD",
+      "category": "weight",
+      "message": "CTranslate2 weight download error",
+      "severity": "error",
+      "user_action_required": true
+    },
+    {
+      "code": "WEIGHT_DOWNLOAD_CONSENT_REQUIRED",
+      "category": "weight",
+      "message": "Review the model license and size in Settings and consent to this exact model manifest before downloading",
+      "severity": "warning",
+      "user_action_required": true
+    },
+    {
+      "code": "WEIGHT_CTRANSLATE2_LICENSE_CONSENT_REQUIRED",
+      "category": "weight",
+      "message": "This translation model has a non-commercial license (CC-BY-NC-4.0) and must be confirmed explicitly",
+      "severity": "warning",
+      "user_action_required": true
+    },
+    {
+      "code": "WEIGHT_CTRANSLATE2_RETIRED",
+      "category": "weight",
+      "message": "The selected translation model is no longer offered; the default model is used",
+      "severity": "warning",
+      "user_action_required": false
+    },
+    {
+      "code": "WEIGHT_CTRANSLATE2_NON_COMMERCIAL_NOTICE",
+      "category": "weight",
+      "message": "The selected translation model has a non-commercial license (CC-BY-NC-4.0)",
+      "severity": "warning",
+      "user_action_required": false
+    },
+    {
+      "code": "UPDATE_SOFTWARE_DOWNLOAD",
+      "category": "general",
+      "message": "Software update download error",
+      "severity": "error",
+      "user_action_required": true
+    },
+    {
+      "code": "UPDATE_SOFTWARE_VERIFY",
+      "category": "general",
+      "message": "Software update verification error",
+      "severity": "error",
+      "user_action_required": true
+    },
+    {
+      "code": "VALIDATION_MIC_THRESHOLD",
+      "category": "validation",
+      "message": "Mic energy threshold value is out of range",
+      "severity": "warning",
+      "user_action_required": true
+    },
+    {
+      "code": "VALIDATION_SPEAKER_THRESHOLD",
+      "category": "validation",
+      "message": "Speaker energy threshold value is out of range",
+      "severity": "warning",
+      "user_action_required": true
+    },
+    {
+      "code": "VALIDATION_MIC_RECORD_TIMEOUT",
+      "category": "validation",
+      "message": "Mic record timeout value is out of range",
+      "severity": "warning",
+      "user_action_required": true
+    },
+    {
+      "code": "VALIDATION_MIC_PHRASE_TIMEOUT",
+      "category": "validation",
+      "message": "Mic phrase timeout value is out of range",
+      "severity": "warning",
+      "user_action_required": true
+    },
+    {
+      "code": "VALIDATION_MIC_MAX_PHRASES",
+      "category": "validation",
+      "message": "Mic max phrases value is out of range",
+      "severity": "warning",
+      "user_action_required": true
+    },
+    {
+      "code": "VALIDATION_SPEAKER_RECORD_TIMEOUT",
+      "category": "validation",
+      "message": "Speaker record timeout value is out of range",
+      "severity": "warning",
+      "user_action_required": true
+    },
+    {
+      "code": "VALIDATION_SPEAKER_PHRASE_TIMEOUT",
+      "category": "validation",
+      "message": "Speaker phrase timeout value is out of range",
+      "severity": "warning",
+      "user_action_required": true
+    },
+    {
+      "code": "VALIDATION_SPEAKER_MAX_PHRASES",
+      "category": "validation",
+      "message": "Speaker max phrases value is out of range",
+      "severity": "warning",
+      "user_action_required": true
+    },
+    {
+      "code": "VALIDATION_INVALID_IP",
+      "category": "validation",
+      "message": "Invalid IP address",
+      "severity": "warning",
+      "user_action_required": true
+    },
+    {
+      "code": "VALIDATION_CANNOT_SET_IP",
+      "category": "validation",
+      "message": "Cannot set IP address",
+      "severity": "error",
+      "user_action_required": true
+    },
+    {
+      "code": "VALIDATION_OSC_PORT_INVALID",
+      "category": "validation",
+      "message": "OSC port must be a number",
+      "severity": "warning",
+      "user_action_required": true
+    },
+    {
+      "code": "VALIDATION_CONFIG_VALUE_INVALID",
+      "category": "validation",
+      "message": "The provided value was rejected",
+      "severity": "warning",
+      "user_action_required": true
+    },
+    {
+      "code": "AUTH_DEEPL_LENGTH",
+      "category": "auth",
+      "message": "DeepL auth key length is not correct",
+      "severity": "warning",
+      "user_action_required": true
+    },
+    {
+      "code": "AUTH_DEEPL_FAILED",
+      "category": "auth",
+      "message": "Authentication failure of deepL auth key",
+      "severity": "error",
+      "user_action_required": true
+    },
+    {
+      "code": "AUTH_PLAMO_LENGTH",
+      "category": "auth",
+      "message": "Plamo auth key length is not correct",
+      "severity": "warning",
+      "user_action_required": true
+    },
+    {
+      "code": "AUTH_PLAMO_FAILED",
+      "category": "auth",
+      "message": "Authentication failure of plamo auth key",
+      "severity": "error",
+      "user_action_required": true
+    },
+    {
+      "code": "AUTH_GEMINI_LENGTH",
+      "category": "auth",
+      "message": "Gemini auth key length is not correct",
+      "severity": "warning",
+      "user_action_required": true
+    },
+    {
+      "code": "AUTH_GEMINI_FAILED",
+      "category": "auth",
+      "message": "Authentication failure of gemini auth key",
+      "severity": "error",
+      "user_action_required": true
+    },
+    {
+      "code": "AUTH_OPENAI_INVALID",
+      "category": "auth",
+      "message": "OpenAI auth key is not valid",
+      "severity": "warning",
+      "user_action_required": true
+    },
+    {
+      "code": "AUTH_OPENAI_FAILED",
+      "category": "auth",
+      "message": "Authentication failure of OpenAI auth key",
+      "severity": "error",
+      "user_action_required": true
+    },
+    {
+      "code": "AUTH_OPENAI_COMPATIBLE_INVALID",
+      "category": "auth",
+      "message": "OpenAI-compatible auth key is not valid",
+      "severity": "warning",
+      "user_action_required": true
+    },
+    {
+      "code": "AUTH_OPENAI_COMPATIBLE_FAILED",
+      "category": "auth",
+      "message": "Authentication failure of OpenAI-compatible endpoint (check URL and auth key)",
+      "severity": "error",
+      "user_action_required": true
+    },
+    {
+      "code": "AUTH_GROQ_INVALID",
+      "category": "auth",
+      "message": "Groq auth key is not valid",
+      "severity": "warning",
+      "user_action_required": true
+    },
+    {
+      "code": "AUTH_GROQ_FAILED",
+      "category": "auth",
+      "message": "Authentication failure of Groq auth key",
+      "severity": "error",
+      "user_action_required": true
+    },
+    {
+      "code": "AUTH_OPENROUTER_INVALID",
+      "category": "auth",
+      "message": "OpenRouter auth key is not valid",
+      "severity": "warning",
+      "user_action_required": true
+    },
+    {
+      "code": "AUTH_OPENROUTER_FAILED",
+      "category": "auth",
+      "message": "Authentication failure of OpenRouter auth key",
+      "severity": "error",
+      "user_action_required": true
+    },
+    {
+      "code": "MODEL_PLAMO_INVALID",
+      "category": "model",
+      "message": "Plamo model is not valid",
+      "severity": "warning",
+      "user_action_required": true
+    },
+    {
+      "code": "MODEL_GEMINI_INVALID",
+      "category": "model",
+      "message": "Gemini model is not valid",
+      "severity": "warning",
+      "user_action_required": true
+    },
+    {
+      "code": "MODEL_OPENAI_INVALID",
+      "category": "model",
+      "message": "OpenAI model is not valid",
+      "severity": "warning",
+      "user_action_required": true
+    },
+    {
+      "code": "MODEL_OPENAI_COMPATIBLE_INVALID",
+      "category": "model",
+      "message": "OpenAI-compatible model is not valid",
+      "severity": "warning",
+      "user_action_required": true
+    },
+    {
+      "code": "MODEL_GROQ_INVALID",
+      "category": "model",
+      "message": "Groq model is not valid",
+      "severity": "warning",
+      "user_action_required": true
+    },
+    {
+      "code": "MODEL_OPENROUTER_INVALID",
+      "category": "model",
+      "message": "OpenRouter model is not valid",
+      "severity": "warning",
+      "user_action_required": true
+    },
+    {
+      "code": "MODEL_LMSTUDIO_INVALID",
+      "category": "model",
+      "message": "LMStudio model is not valid",
+      "severity": "warning",
+      "user_action_required": true
+    },
+    {
+      "code": "MODEL_OLLAMA_INVALID",
+      "category": "model",
+      "message": "ollama model is not valid",
+      "severity": "warning",
+      "user_action_required": true
+    },
+    {
+      "code": "MODEL_TRANSCRIPTION_INVALID",
+      "category": "model",
+      "message": "Transcription API model is not valid",
+      "severity": "warning",
+      "user_action_required": true
+    },
+    {
+      "code": "CONNECTION_LMSTUDIO_FAILED",
+      "category": "connection",
+      "message": "Cannot connect to LMStudio server",
+      "severity": "error",
+      "user_action_required": true
+    },
+    {
+      "code": "CONNECTION_OLLAMA_FAILED",
+      "category": "connection",
+      "message": "Cannot connect to ollama server",
+      "severity": "error",
+      "user_action_required": true
+    },
+    {
+      "code": "CONNECTION_LMSTUDIO_URL_INVALID",
+      "category": "connection",
+      "message": "LMStudio URL is not valid",
+      "severity": "warning",
+      "user_action_required": true
+    },
+    {
+      "code": "CONNECTION_OPENAI_COMPATIBLE_URL_INVALID",
+      "category": "connection",
+      "message": "OpenAI-compatible endpoint URL is not valid",
+      "severity": "warning",
+      "user_action_required": true
+    },
+    {
+      "code": "CONNECTION_TRANSCRIPTION_CUSTOM_URL_INVALID",
+      "category": "connection",
+      "message": "Custom transcription server URL is not valid",
+      "severity": "warning",
+      "user_action_required": true
+    },
+    {
+      "code": "CREDENTIAL_REENTRY_REQUIRED",
+      "category": "auth",
+      "message": "Enter the API key again for the new URL, or delete the saved key before changing the URL for a server without a key",
+      "severity": "warning",
+      "user_action_required": true
+    },
+    {
+      "code": "SECRET_STORE_FAILED",
+      "category": "auth",
+      "message": "The API keys could not be kept in their secure storage. They work until the app closes; check the system's credential store and the settings folder, then enter a missing key again",
+      "severity": "error",
+      "user_action_required": true
+    },
+    {
+      "code": "WEBSOCKET_HOST_INVALID",
+      "category": "websocket",
+      "message": "WebSocket server host is not available",
+      "severity": "error",
+      "user_action_required": true
+    },
+    {
+      "code": "WEBSOCKET_PORT_UNAVAILABLE",
+      "category": "websocket",
+      "message": "WebSocket server port is not available",
+      "severity": "error",
+      "user_action_required": true
+    },
+    {
+      "code": "WEBSOCKET_PORT_INVALID",
+      "category": "websocket",
+      "message": "WebSocket server port must be a number",
+      "severity": "warning",
+      "user_action_required": true
+    },
+    {
+      "code": "WEBSOCKET_SERVER_UNAVAILABLE",
+      "category": "websocket",
+      "message": "WebSocket server host or port is not available",
+      "severity": "error",
+      "user_action_required": true
+    },
+    {
+      "code": "WEBSOCKET_HOST_NEEDS_TLS",
+      "category": "websocket",
+      "message": "Listening beyond this PC needs a TLS certificate and key",
+      "severity": "error",
+      "user_action_required": true
+    },
+    {
+      "code": "WEBSOCKET_HOST_RESET_WITHOUT_TLS",
+      "category": "websocket",
+      "message": "The WebSocket host went back to 127.0.0.1: listening beyond this PC needs a TLS certificate and key",
+      "severity": "warning",
+      "user_action_required": true
+    },
+    {
+      "code": "WEBSOCKET_TLS_INVALID",
+      "category": "websocket",
+      "message": "The TLS certificate or key cannot be used",
+      "severity": "error",
+      "user_action_required": true
+    },
+    {
+      "code": "OBS_BROWSER_SOURCE_HOST_UNAVAILABLE",
+      "category": "obs_browser_source",
+      "message": "OBS Browser Source server host is not available",
+      "severity": "error",
+      "user_action_required": true
+    },
+    {
+      "code": "OBS_BROWSER_SOURCE_PORT_UNAVAILABLE",
+      "category": "obs_browser_source",
+      "message": "OBS Browser Source server port is not available",
+      "severity": "error",
+      "user_action_required": true
+    },
+    {
+      "code": "OBS_BROWSER_SOURCE_PORT_INVALID",
+      "category": "obs_browser_source",
+      "message": "OBS Browser Source port must be a number",
+      "severity": "warning",
+      "user_action_required": true
+    },
+    {
+      "code": "OBS_BROWSER_SOURCE_SERVER_UNAVAILABLE",
+      "category": "obs_browser_source",
+      "message": "OBS Browser Source server is not available",
+      "severity": "error",
+      "user_action_required": true
+    },
+    {
+      "code": "OBS_BROWSER_SOURCE_FONT_COLOR_INVALID",
+      "category": "obs_browser_source",
+      "message": "OBS Browser Source font color is not valid (#RRGGBB)",
+      "severity": "warning",
+      "user_action_required": true
+    },
+    {
+      "code": "OBS_BROWSER_SOURCE_FONT_OUTLINE_COLOR_INVALID",
+      "category": "obs_browser_source",
+      "message": "OBS Browser Source outline color is not valid (#RRGGBB)",
+      "severity": "warning",
+      "user_action_required": true
+    },
+    {
+      "code": "OBS_BROWSER_SOURCE_MAX_MESSAGES_INVALID",
+      "category": "obs_browser_source",
+      "message": "OBS Browser Source max messages must be a number",
+      "severity": "warning",
+      "user_action_required": true
+    },
+    {
+      "code": "OBS_BROWSER_SOURCE_DISPLAY_DURATION_INVALID",
+      "category": "obs_browser_source",
+      "message": "OBS Browser Source display duration must be a number",
+      "severity": "warning",
+      "user_action_required": true
+    },
+    {
+      "code": "OBS_BROWSER_SOURCE_FADEOUT_DURATION_INVALID",
+      "category": "obs_browser_source",
+      "message": "OBS Browser Source fadeout duration must be a number",
+      "severity": "warning",
+      "user_action_required": true
+    },
+    {
+      "code": "OBS_BROWSER_SOURCE_FONT_SIZE_INVALID",
+      "category": "obs_browser_source",
+      "message": "OBS Browser Source font size must be a number",
+      "severity": "warning",
+      "user_action_required": true
+    },
+    {
+      "code": "OBS_BROWSER_SOURCE_FONT_OUTLINE_THICKNESS_INVALID",
+      "category": "obs_browser_source",
+      "message": "OBS Browser Source outline thickness must be a number",
+      "severity": "warning",
+      "user_action_required": true
+    },
+    {
+      "code": "VRC_MIC_MUTE_SYNC_OSC_DISABLED",
+      "category": "vrc",
+      "message": "Cannot enable VRC mic mute sync while OSC query is disabled",
+      "severity": "warning",
+      "user_action_required": true
+    },
+    {
+      "code": "OCR_DISABLED_ENGINE_UNAVAILABLE",
+      "category": "ocr",
+      "message": "OCR disabled: OCR engine or its dependencies are unavailable",
+      "severity": "error",
+      "user_action_required": false
+    },
+    {
+      "code": "OCR_DISABLED_MODEL_LOAD_FAILED",
+      "category": "ocr",
+      "message": "OCR disabled: failed to load OCR model",
+      "severity": "error",
+      "user_action_required": false
+    },
+    {
+      "code": "OCR_DISABLED_UNSUPPORTED_LANGUAGE",
+      "category": "ocr",
+      "message": "OCR disabled: source language is not supported",
+      "severity": "error",
+      "user_action_required": false
+    },
+    {
+      "code": "OCR_DISABLED_MODEL_MISSING",
+      "category": "ocr",
+      "message": "OCR disabled: the OCR models for this language have not been downloaded",
+      "severity": "error",
+      "user_action_required": true
+    },
+    {
+      "code": "OCR_DISABLED_WINDOW_NOT_FOUND",
+      "category": "ocr",
+      "message": "OCR disabled: the VRChat window was not found",
+      "severity": "error",
+      "user_action_required": true
+    },
+    {
+      "code": "OCR_DISABLED_CAPTURE_UNAVAILABLE",
+      "category": "ocr",
+      "message": "OCR disabled: window capture is not available in this session",
+      "severity": "error",
+      "user_action_required": true
+    },
+    {
+      "code": "OCR_DISABLED_UNKNOWN",
+      "category": "ocr",
+      "message": "OCR disabled due to an unknown error",
+      "severity": "error",
+      "user_action_required": false
+    },
+    {
+      "code": "GENERAL_EXCEPTION",
+      "category": "general",
+      "message": "An error occurred",
+      "severity": "error",
+      "user_action_required": false
+    },
+    {
+      "code": "GENERAL_UNKNOWN",
+      "category": "general",
+      "message": "Unknown error",
+      "severity": "error",
+      "user_action_required": false
+    },
+    {
+      "code": "AUTH_GOOGLE_CLOUD_INVALID",
+      "category": "auth",
+      "message": "Google Cloud Translation API key is not valid",
+      "severity": "warning",
+      "user_action_required": true
+    },
+    {
+      "code": "AUTH_GOOGLE_CLOUD_FAILED",
+      "category": "auth",
+      "message": "Authentication failure of Google Cloud Translation API key",
+      "severity": "error",
+      "user_action_required": true
+    },
+    {
+      "code": "AUTH_PAPAGO_INVALID",
+      "category": "auth",
+      "message": "Papago Client ID or Client Secret is not valid",
+      "severity": "warning",
+      "user_action_required": true
+    },
+    {
+      "code": "AUTH_PAPAGO_FAILED",
+      "category": "auth",
+      "message": "Authentication failure of Papago Client ID and Client Secret",
+      "severity": "error",
+      "user_action_required": true
+    },
+    {
+      "code": "CONNECTION_OLLAMA_URL_INVALID",
+      "category": "connection",
+      "message": "Ollama URL is not valid",
+      "severity": "warning",
+      "user_action_required": true
+    },
+    {
+      "code": "OVERLAY_FONT_NOT_FOUND",
+      "category": "general",
+      "message": "The font is not installed on this PC",
+      "severity": "warning",
+      "user_action_required": true
+    },
+    {
+      "code": "VAD_UNAVAILABLE",
+      "category": "transcription",
+      "message": "Voice activity detection needs the speech.cpp server with a recognition model and Silero VAD; phrases are cut by volume",
+      "severity": "warning",
+      "user_action_required": true
+    },
+    {
+      "code": "VALIDATION_RVC_BLOCK_MS",
+      "category": "validation",
+      "message": "RVC block length must be automatic (0) or 20 to 200 ms in steps of 20",
+      "severity": "warning",
+      "user_action_required": true
+    }
+  ],
+  "config": [
+    {
+      "key": "VERSION",
+      "kind": "readonly",
+      "default": "<version>"
+    },
+    {
+      "key": "PATH_LOCAL",
+      "kind": "readonly",
+      "default": "<app>"
+    },
+    {
+      "key": "PATH_DATA",
+      "kind": "readonly",
+      "default": "<data>"
+    },
+    {
+      "key": "PATH_CONFIG",
+      "kind": "readonly",
+      "default": "<state>/config.json"
+    },
+    {
+      "key": "PATH_LOGS",
+      "kind": "readonly",
+      "default": "<state>/logs"
+    },
+    {
+      "key": "GITHUB_URL",
+      "kind": "readonly",
+      "default": "https://api.github.com/repos/kein5/astarot/releases/latest"
+    },
+    {
+      "key": "GITHUB_RELEASES_LIST_URL",
+      "kind": "readonly",
+      "default": "https://api.github.com/repos/kein5/astarot/releases"
+    },
+    {
+      "key": "MIN_SUPPORTED_VERSION",
+      "kind": "readonly",
+      "default": "0.1.0"
+    },
+    {
+      "key": "SELECTABLE_RELEASE_CHANNEL_LIST",
+      "kind": "readonly",
+      "default": [
+        "stable",
+        "beta"
+      ]
+    },
+    {
+      "key": "MAX_MIC_THRESHOLD",
+      "kind": "readonly",
+      "default": 2000
+    },
+    {
+      "key": "MAX_SPEAKER_THRESHOLD",
+      "kind": "readonly",
+      "default": 2000
+    },
+    {
+      "key": "WATCHDOG_TIMEOUT",
+      "kind": "readonly",
+      "default": 60
+    },
+    {
+      "key": "WATCHDOG_INTERVAL",
+      "kind": "readonly",
+      "default": 20
+    },
+    {
+      "key": "SELECTABLE_TAB_NO_LIST",
+      "kind": "readonly",
+      "default": [
+        "1",
+        "2",
+        "3"
+      ]
+    },
+    {
+      "key": "SELECTED_TAB_TARGET_LANGUAGES_NO_LIST",
+      "kind": "readonly",
+      "default": [
+        "1",
+        "2",
+        "3"
+      ]
+    },
+    {
+      "key": "SELECTABLE_CTRANSLATE2_WEIGHT_TYPE_LIST",
+      "kind": "readonly",
+      "default": [
+        "m2m100_418M-ct2-int8",
+        "m2m100_1.2B-ct2-int8",
+        "nllb-200-distilled-600M-ct2-int8",
+        "nllb-200-distilled-1.3B-ct2-int8"
+      ]
+    },
+    {
+      "key": "SELECTABLE_TRANSLATION_ENGINE_LIST",
+      "kind": "readonly",
+      "default": [
+        "DeepL_API",
+        "Google_Cloud_API",
+        "Papago_API",
+        "CTranslate2",
+        "Plamo_API",
+        "Gemini_API",
+        "OpenAI_API",
+        "LMStudio",
+        "OpenAI_Compatible",
+        "Ollama",
+        "Groq_API",
+        "OpenRouter_API"
+      ]
+    },
+    {
+      "key": "SELECTABLE_TRANSCRIPTION_ENGINE_LIST",
+      "kind": "readonly",
+      "default": [
+        "SpeechCpp",
+        "Groq_Whisper",
+        "OpenAI_Whisper",
+        "Custom_Whisper",
+        "Deepgram"
+      ]
+    },
+    {
+      "key": "SELECTABLE_UI_LANGUAGE_LIST",
+      "kind": "readonly",
+      "default": [
+        "en",
+        "ja"
+      ]
+    },
+    {
+      "key": "SELECTABLE_OCR_SOURCE_LANGUAGE_LIST",
+      "kind": "readonly",
+      "default": [
+        "auto",
+        "Arabic",
+        "Hindi",
+        "Korean",
+        "Russian",
+        "Thai",
+        "Ukrainian"
+      ]
+    },
+    {
+      "key": "COMPUTE_MODE",
+      "kind": "readonly",
+      "default": "cpu"
+    },
+    {
+      "key": "SELECTABLE_COMPUTE_DEVICE_LIST",
+      "kind": "readonly",
+      "default": [
+        {
+          "device": "cpu",
+          "device_index": 0,
+          "device_name": "cpu",
+          "compute_types": [
+            "auto",
+            "float32",
+            "int8",
+            "int8_float32"
+          ]
+        }
+      ]
+    },
+    {
+      "key": "SEND_MESSAGE_BUTTON_TYPE_LIST",
+      "kind": "readonly",
+      "default": [
+        "show",
+        "hide",
+        "show_and_disable_enter_key"
+      ]
+    },
+    {
+      "key": "TRAY_COMPANION_EDGE_LIST",
+      "kind": "readonly",
+      "default": [
+        "right",
+        "left",
+        "top",
+        "bottom"
+      ]
+    },
+    {
+      "key": "ENABLE_TRANSLATION",
+      "kind": "runtime",
+      "default": false
+    },
+    {
+      "key": "ENABLE_TRANSCRIPTION_SEND",
+      "kind": "runtime",
+      "default": false
+    },
+    {
+      "key": "ENABLE_TRANSCRIPTION_RECEIVE",
+      "kind": "runtime",
+      "default": false
+    },
+    {
+      "key": "ENABLE_OCR_CAPTURE",
+      "kind": "runtime",
+      "default": false
+    },
+    {
+      "key": "ENABLE_FOREGROUND",
+      "kind": "saved",
+      "default": false
+    },
+    {
+      "key": "ENABLE_CHECK_ENERGY_SEND",
+      "kind": "runtime",
+      "default": false
+    },
+    {
+      "key": "ENABLE_CHECK_ENERGY_RECEIVE",
+      "kind": "runtime",
+      "default": false
+    },
+    {
+      "key": "SELECTABLE_CTRANSLATE2_WEIGHT_TYPE_DICT",
+      "kind": "runtime",
+      "default": {
+        "m2m100_418M-ct2-int8": false,
+        "m2m100_1.2B-ct2-int8": false,
+        "nllb-200-distilled-600M-ct2-int8": false,
+        "nllb-200-distilled-1.3B-ct2-int8": false
+      }
+    },
+    {
+      "key": "SELECTABLE_TRANSLATION_ENGINE_STATUS",
+      "kind": "runtime",
+      "default": {
+        "DeepL_API": false,
+        "Google_Cloud_API": false,
+        "Papago_API": false,
+        "CTranslate2": false,
+        "Plamo_API": false,
+        "Gemini_API": false,
+        "OpenAI_API": false,
+        "LMStudio": false,
+        "OpenAI_Compatible": false,
+        "Ollama": false,
+        "Groq_API": false,
+        "OpenRouter_API": false
+      }
+    },
+    {
+      "key": "SELECTABLE_TRANSCRIPTION_ENGINE_STATUS",
+      "kind": "runtime",
+      "default": {
+        "SpeechCpp": false,
+        "Groq_Whisper": false,
+        "OpenAI_Whisper": false,
+        "Custom_Whisper": false,
+        "Deepgram": false
+      }
+    },
+    {
+      "key": "SELECTABLE_PLAMO_MODEL_LIST",
+      "kind": "runtime",
+      "default": []
+    },
+    {
+      "key": "SELECTABLE_GEMINI_MODEL_LIST",
+      "kind": "runtime",
+      "default": []
+    },
+    {
+      "key": "SELECTABLE_OPENAI_MODEL_LIST",
+      "kind": "runtime",
+      "default": []
+    },
+    {
+      "key": "SELECTABLE_GROQ_MODEL_LIST",
+      "kind": "runtime",
+      "default": []
+    },
+    {
+      "key": "SELECTABLE_OPENROUTER_MODEL_LIST",
+      "kind": "runtime",
+      "default": []
+    },
+    {
+      "key": "SELECTABLE_LMSTUDIO_MODEL_LIST",
+      "kind": "runtime",
+      "default": []
+    },
+    {
+      "key": "SELECTABLE_OPENAI_COMPATIBLE_MODEL_LIST",
+      "kind": "runtime",
+      "default": []
+    },
+    {
+      "key": "SELECTABLE_OLLAMA_MODEL_LIST",
+      "kind": "runtime",
+      "default": []
+    },
+    {
+      "key": "SELECTABLE_GROQ_WHISPER_MODEL_LIST",
+      "kind": "runtime",
+      "default": []
+    },
+    {
+      "key": "SELECTABLE_OPENAI_WHISPER_MODEL_LIST",
+      "kind": "runtime",
+      "default": []
+    },
+    {
+      "key": "SELECTABLE_CUSTOM_WHISPER_MODEL_LIST",
+      "kind": "runtime",
+      "default": []
+    },
+    {
+      "key": "SELECTABLE_DEEPGRAM_MODEL_LIST",
+      "kind": "runtime",
+      "default": []
+    },
+    {
+      "key": "DEEPGRAM_MODEL_LANGUAGES",
+      "kind": "runtime",
+      "default": {}
+    },
+    {
+      "key": "CONVERT_MESSAGE_TO_ROMAJI",
+      "kind": "saved",
+      "default": false
+    },
+    {
+      "key": "CONVERT_MESSAGE_TO_HIRAGANA",
+      "kind": "saved",
+      "default": false
+    },
+    {
+      "key": "MAIN_WINDOW_SIDEBAR_COMPACT_MODE",
+      "kind": "saved",
+      "default": false
+    },
+    {
+      "key": "TRANSPARENCY",
+      "kind": "saved",
+      "default": 100
+    },
+    {
+      "key": "UI_SCALING",
+      "kind": "saved",
+      "default": 100
+    },
+    {
+      "key": "TEXTBOX_UI_SCALING",
+      "kind": "saved",
+      "default": 100
+    },
+    {
+      "key": "MESSAGE_BOX_RATIO",
+      "kind": "immediate",
+      "default": 10
+    },
+    {
+      "key": "SEND_MESSAGE_BUTTON_TYPE",
+      "kind": "saved",
+      "default": "show"
+    },
+    {
+      "key": "SHOW_RESEND_BUTTON",
+      "kind": "saved",
+      "default": false
+    },
+    {
+      "key": "FONT_FAMILY",
+      "kind": "saved",
+      "default": "Yu Gothic UI"
+    },
+    {
+      "key": "UI_LANGUAGE",
+      "kind": "saved",
+      "default": "en"
+    },
+    {
+      "key": "MAIN_WINDOW_GEOMETRY",
+      "kind": "immediate",
+      "default": {
+        "x_pos": 0,
+        "y_pos": 0,
+        "width": 870,
+        "height": 654
+      }
+    },
+    {
+      "key": "MIC_THRESHOLD",
+      "kind": "saved",
+      "default": 300
+    },
+    {
+      "key": "MIC_AUTOMATIC_THRESHOLD",
+      "kind": "saved",
+      "default": false
+    },
+    {
+      "key": "MIC_RECORD_TIMEOUT",
+      "kind": "saved",
+      "default": 3
+    },
+    {
+      "key": "MIC_PHRASE_TIMEOUT",
+      "kind": "saved",
+      "default": 3
+    },
+    {
+      "key": "MIC_MAX_PHRASES",
+      "kind": "saved",
+      "default": 10
+    },
+    {
+      "key": "MIC_AVG_LOGPROB",
+      "kind": "saved",
+      "default": -0.8
+    },
+    {
+      "key": "MIC_NO_SPEECH_PROB",
+      "kind": "saved",
+      "default": 0.6
+    },
+    {
+      "key": "HOTKEYS",
+      "kind": "immediate",
+      "default": {
+        "open_quick_chat": null,
+        "toggle_vrct_visibility": null,
+        "toggle_translation": null,
+        "toggle_transcription_send": null,
+        "toggle_transcription_receive": null,
+        "stop_voice": null,
+        "toggle_voice_mute": null,
+        "toggle_tts": null,
+        "toggle_rvc": null
+      }
+    },
+    {
+      "key": "EXPERIMENTAL_FEATURES",
+      "kind": "immediate",
+      "default": {
+        "tray_companion": false
+      }
+    },
+    {
+      "key": "USAGE_PRESETS",
+      "kind": "immediate",
+      "default": [
+        "basic"
+      ]
+    },
+    {
+      "key": "CATALOG_LAYOUT",
+      "kind": "saved",
+      "default": "grid"
+    },
+    {
+      "key": "TRAY_COMPANION_EDGE",
+      "kind": "saved",
+      "default": "right"
+    },
+    {
+      "key": "TRAY_COMPANION_MONITOR",
+      "kind": "saved",
+      "default": ""
+    },
+    {
+      "key": "SPEAKER_THRESHOLD",
+      "kind": "saved",
+      "default": 300
+    },
+    {
+      "key": "SPEAKER_AUTOMATIC_THRESHOLD",
+      "kind": "saved",
+      "default": false
+    },
+    {
+      "key": "SPEAKER_RECORD_TIMEOUT",
+      "kind": "saved",
+      "default": 3
+    },
+    {
+      "key": "SPEAKER_PHRASE_TIMEOUT",
+      "kind": "saved",
+      "default": 3
+    },
+    {
+      "key": "SPEAKER_MAX_PHRASES",
+      "kind": "saved",
+      "default": 10
+    },
+    {
+      "key": "SPEAKER_AVG_LOGPROB",
+      "kind": "saved",
+      "default": -0.8
+    },
+    {
+      "key": "SPEAKER_NO_SPEECH_PROB",
+      "kind": "saved",
+      "default": 0.6
+    },
+    {
+      "key": "MIC_ENABLE_VAD",
+      "kind": "saved",
+      "default": false
+    },
+    {
+      "key": "SPEAKER_ENABLE_VAD",
+      "kind": "saved",
+      "default": false
+    },
+    {
+      "key": "AUTH_KEYS",
+      "kind": "saved",
+      "default": {
+        "DeepL_API": null,
+        "Plamo_API": null,
+        "Gemini_API": null,
+        "OpenAI_API": null,
+        "OpenAI_Compatible": null,
+        "Groq_API": null,
+        "OpenRouter_API": null,
+        "Google_Cloud_API": null,
+        "Papago_API": null
+      }
+    },
+    {
+      "key": "LMSTUDIO_URL",
+      "kind": "saved",
+      "default": "http://127.0.0.1:1234/v1"
+    },
+    {
+      "key": "OLLAMA_URL",
+      "kind": "saved",
+      "default": "http://localhost:11434"
+    },
+    {
+      "key": "PAPAGO_CLIENT_ID",
+      "kind": "saved",
+      "default": ""
+    },
+    {
+      "key": "OPENAI_COMPATIBLE_URL",
+      "kind": "saved",
+      "default": "https://api.openai.com/v1"
+    },
+    {
+      "key": "TRANSCRIPTION_AUTH_KEYS",
+      "kind": "saved",
+      "default": {
+        "Groq_Whisper": null,
+        "OpenAI_Whisper": null,
+        "Custom_Whisper": null,
+        "Deepgram": null
+      }
+    },
+    {
+      "key": "TRANSCRIPTION_CUSTOM_URL",
+      "kind": "saved",
+      "default": ""
+    },
+    {
+      "key": "OVERLAY_SMALL_LOG_SETTINGS",
+      "kind": "saved",
+      "default": {
+        "x_pos": 0.0,
+        "y_pos": 0.0,
+        "z_pos": 0.0,
+        "x_rotation": 0.0,
+        "y_rotation": 0.0,
+        "z_rotation": 0.0,
+        "display_duration": 5,
+        "fadeout_duration": 2,
+        "opacity": 1.0,
+        "ui_scaling": 1.0,
+        "tracker": "HMD"
+      }
+    },
+    {
+      "key": "OVERLAY_LARGE_LOG_SETTINGS",
+      "kind": "saved",
+      "default": {
+        "x_pos": 0.0,
+        "y_pos": 0.0,
+        "z_pos": 0.0,
+        "x_rotation": 0.0,
+        "y_rotation": 0.0,
+        "z_rotation": 0.0,
+        "display_duration": 5,
+        "fadeout_duration": 2,
+        "opacity": 1.0,
+        "ui_scaling": 1.0,
+        "tracker": "LeftHand"
+      }
+    },
+    {
+      "key": "OVERLAY_DESKTOP_SETTINGS",
+      "kind": "saved",
+      "default": {
+        "position": "bottom",
+        "font_size": 28,
+        "display_duration": 6,
+        "opacity": 0.6
+      }
+    },
+    {
+      "key": "OVERLAY_DESKTOP_PLACEMENT",
+      "kind": "saved",
+      "default": {
+        "x": null,
+        "y": null
+      }
+    },
+    {
+      "key": "IO_FLOW_OVERLAY_SETTINGS",
+      "kind": "saved",
+      "default": {
+        "desktop": false,
+        "count": 1
+      }
+    },
+    {
+      "key": "OVERLAY_VR_PANEL_SETTINGS",
+      "kind": "saved",
+      "default": {
+        "width": 900,
+        "height": 700,
+        "x_pos": 0.5209,
+        "y_pos": 0.6442,
+        "z_pos": -0.9509,
+        "x_rotation": 95.0133,
+        "y_rotation": 44.0232,
+        "z_rotation": 42.6138,
+        "display_duration": 5,
+        "fadeout_duration": 0,
+        "opacity": 1.0,
+        "ui_scaling": 0.4,
+        "tracker": "Playspace"
+      }
+    },
+    {
+      "key": "OVERLAY_VR_LAUNCHER_SETTINGS",
+      "kind": "saved",
+      "default": {
+        "x_pos": 0.0641,
+        "y_pos": -0.0416,
+        "z_pos": -0.0063,
+        "x_rotation": 9.3648,
+        "y_rotation": -22.0338,
+        "z_rotation": -17.1646,
+        "display_duration": 5,
+        "fadeout_duration": 0,
+        "opacity": 1.0,
+        "ui_scaling": 0.1984,
+        "tracker": "LeftHand"
+      }
+    },
+    {
+      "key": "SEND_MESSAGE_FORMAT_PARTS",
+      "kind": "saved",
+      "default": {
+        "message": {
+          "prefix": "",
+          "suffix": ""
+        },
+        "separator": "\n",
+        "translation": {
+          "prefix": "",
+          "separator": "\n",
+          "suffix": ""
+        },
+        "translation_first": false
+      }
+    },
+    {
+      "key": "RECEIVED_MESSAGE_FORMAT_PARTS",
+      "kind": "saved",
+      "default": {
+        "message": {
+          "prefix": "",
+          "suffix": ""
+        },
+        "separator": "\n",
+        "translation": {
+          "prefix": "",
+          "separator": "\n",
+          "suffix": ""
+        },
+        "translation_first": false
+      }
+    },
+    {
+      "key": "VOICE_SETTINGS",
+      "kind": "saved",
+      "default": {
+        "mode": "off",
+        "mic_mode": "off",
+        "direct_policy": "suppress",
+        "target_slot": "1",
+        "japanese_server": "bundled",
+        "japanese_url": "http://127.0.0.1:8080",
+        "japanese_voice": "none",
+        "multilingual_url": "",
+        "multilingual_voice": "ryan",
+        "multilingual_server": "bundled",
+        "japanese_seed": "",
+        "multilingual_seed": "",
+        "japanese_instructions": "",
+        "multilingual_instructions": "",
+        "output_device": "",
+        "routing": "external",
+        "monitor": "off",
+        "monitor_device": "",
+        "monitor_volume": "100",
+        "conversion": "off",
+        "japanese_engine": "speechcpp",
+        "voicevox_url": "http://127.0.0.1:50021",
+        "coeiroink_url": "http://127.0.0.1:50032",
+        "aivis_url": "http://127.0.0.1:10101",
+        "sharevox_url": "http://127.0.0.1:50025",
+        "engine_voice_id": "",
+        "engine_voice_speaker": "",
+        "engine_voice_style": "",
+        "coeiroink_speed": "1.0",
+        "coeiroink_volume": "1.0",
+        "coeiroink_pitch": "0.0",
+        "coeiroink_intonation": "1.0",
+        "coeiroink_pre_phoneme": "0.1",
+        "coeiroink_post_phoneme": "0.1",
+        "coeiroink_sampling_rate": "24000",
+        "voicevox_speed": "1.0",
+        "voicevox_volume": "1.0",
+        "voicevox_pitch": "0.0",
+        "voicevox_intonation": "1.0",
+        "aivis_speed": "1.0",
+        "aivis_volume": "1.0",
+        "aivis_pitch": "0.0",
+        "aivis_intonation": "1.0",
+        "sharevox_speed": "1.0",
+        "sharevox_volume": "1.0",
+        "sharevox_pitch": "0.0",
+        "sharevox_intonation": "1.0"
+      }
+    },
+    {
+      "key": "DIRECT_VOICE_SETTINGS",
+      "kind": "saved",
+      "default": {
+        "mode": "passthrough",
+        "runtime": "",
+        "reference": "",
+        "engine": "rvc",
+        "rvc_runtime": "",
+        "rvc_model": "",
+        "rvc_index": "",
+        "rvc_pitch": 0,
+        "rvc_index_rate": 0.0,
+        "rvc_device": "auto",
+        "rvc_threads": 0,
+        "rvc_highpass": true
+      }
+    },
+    {
+      "key": "RVC_BLOCK_MS",
+      "kind": "saved",
+      "default": 0
+    },
+    {
+      "key": "REALTIME_ASR_SETTINGS",
+      "kind": "saved",
+      "default": {
+        "version": 1,
+        "server": "external",
+        "start_server": true,
+        "base_url": "http://127.0.0.1:8080",
+        "model": "",
+        "vocabulary": {
+          "builtin": true,
+          "terms": []
+        },
+        "mic": {
+          "language": "ja",
+          "endpoint": null,
+          "follow_default": true
+        },
+        "speaker": {
+          "language": "auto",
+          "endpoint": null,
+          "follow_default": true
+        }
+      }
+    },
+    {
+      "key": "SPEECH_SERVER_SETTINGS",
+      "kind": "saved",
+      "default": {
+        "version": 1,
+        "profiles": {
+          "japanese": {
+            "model": "",
+            "vad_model": "",
+            "diarization_model": "",
+            "voice_file": "",
+            "device": "auto",
+            "low_latency": false
+          },
+          "multilingual": {
+            "model": "",
+            "vad_model": "",
+            "diarization_model": "",
+            "voice_file": "",
+            "device": "auto",
+            "low_latency": false
+          },
+          "asr": {
+            "model": "",
+            "vad_model": "",
+            "diarization_model": "",
+            "voice_file": "",
+            "device": "auto",
+            "low_latency": false
+          }
+        }
+      }
+    },
+    {
+      "key": "WEBSOCKET_SERVER",
+      "kind": "saved",
+      "default": false
+    },
+    {
+      "key": "OSC_IP_ADDRESS",
+      "kind": "saved",
+      "default": "127.0.0.1"
+    },
+    {
+      "key": "OSC_PORT",
+      "kind": "saved",
+      "default": 9000
+    },
+    {
+      "key": "OSC_QUERY",
+      "kind": "saved",
+      "default": true
+    },
+    {
+      "key": "AUTO_CLEAR_MESSAGE_BOX",
+      "kind": "saved",
+      "default": true
+    },
+    {
+      "key": "CHECK_SOFTWARE_UPDATES",
+      "kind": "saved",
+      "default": true
+    },
+    {
+      "key": "SEND_ONLY_TRANSLATED_MESSAGES",
+      "kind": "saved",
+      "default": false
+    },
+    {
+      "key": "OVERLAY_SMALL_LOG",
+      "kind": "saved",
+      "default": false
+    },
+    {
+      "key": "OVERLAY_LARGE_LOG",
+      "kind": "saved",
+      "default": false
+    },
+    {
+      "key": "OVERLAY_DESKTOP",
+      "kind": "saved",
+      "default": false
+    },
+    {
+      "key": "OVERLAY_VR_PANEL",
+      "kind": "saved",
+      "default": false
+    },
+    {
+      "key": "OVERLAY_VR_PANEL_LOCKED",
+      "kind": "saved",
+      "default": false
+    },
+    {
+      "key": "OVERLAY_VR_PANEL_FONT_SIZE",
+      "kind": "saved",
+      "default": 17
+    },
+    {
+      "key": "OVERLAY_VR_LAUNCHER_AUTO_HIDE",
+      "kind": "saved",
+      "default": true
+    },
+    {
+      "key": "OVERLAY_VR_TOOLTIP",
+      "kind": "saved",
+      "default": true
+    },
+    {
+      "key": "OVERLAY_FONT_FAMILY",
+      "kind": "saved",
+      "default": ""
+    },
+    {
+      "key": "OVERLAY_SHOW_ONLY_TRANSLATED_MESSAGES",
+      "kind": "saved",
+      "default": false
+    },
+    {
+      "key": "SEND_MESSAGE_TO_VRC",
+      "kind": "saved",
+      "default": true
+    },
+    {
+      "key": "SEND_RECEIVED_MESSAGE_TO_VRC",
+      "kind": "saved",
+      "default": false
+    },
+    {
+      "key": "LOGGER_FEATURE",
+      "kind": "saved",
+      "default": false
+    },
+    {
+      "key": "VRC_MIC_MUTE_SYNC",
+      "kind": "saved",
+      "default": false
+    },
+    {
+      "key": "NOTIFICATION_VRC_SFX",
+      "kind": "saved",
+      "default": true
+    },
+    {
+      "key": "WEBSOCKET_HOST",
+      "kind": "saved",
+      "default": "127.0.0.1"
+    },
+    {
+      "key": "WEBSOCKET_PORT",
+      "kind": "saved",
+      "default": 2231
+    },
+    {
+      "key": "WEBSOCKET_AUTH_TOKEN",
+      "kind": "saved",
+      "default": "<token>"
+    },
+    {
+      "key": "WEBSOCKET_TLS_CERT_FILE",
+      "kind": "saved",
+      "default": ""
+    },
+    {
+      "key": "WEBSOCKET_TLS_KEY_FILE",
+      "kind": "saved",
+      "default": ""
+    },
+    {
+      "key": "OBS_BROWSER_SOURCE",
+      "kind": "saved",
+      "default": false
+    },
+    {
+      "key": "OBS_BROWSER_SOURCE_PORT",
+      "kind": "saved",
+      "default": 2232
+    },
+    {
+      "key": "OBS_BROWSER_SOURCE_MAX_MESSAGES",
+      "kind": "saved",
+      "default": 14
+    },
+    {
+      "key": "OBS_BROWSER_SOURCE_DISPLAY_DURATION",
+      "kind": "saved",
+      "default": 60
+    },
+    {
+      "key": "OBS_BROWSER_SOURCE_FADEOUT_DURATION",
+      "kind": "saved",
+      "default": 12
+    },
+    {
+      "key": "OBS_BROWSER_SOURCE_FONT_SIZE",
+      "kind": "saved",
+      "default": 40
+    },
+    {
+      "key": "OBS_BROWSER_SOURCE_FONT_COLOR",
+      "kind": "saved",
+      "default": "#FFFFFF"
+    },
+    {
+      "key": "OBS_BROWSER_SOURCE_FONT_OUTLINE_THICKNESS",
+      "kind": "saved",
+      "default": 3
+    },
+    {
+      "key": "OBS_BROWSER_SOURCE_FONT_OUTLINE_COLOR",
+      "kind": "saved",
+      "default": "#000000"
+    },
+    {
+      "key": "ENABLE_TELEMETRY",
+      "kind": "saved",
+      "default": true
+    },
+    {
+      "key": "TELEMETRY_NOTICE",
+      "kind": "immediate",
+      "default": 0
+    },
+    {
+      "key": "AUTO_DOWNLOAD_MODELS",
+      "kind": "saved",
+      "default": false
+    },
+    {
+      "key": "LEGACY_MODEL_DOWNLOAD_CONSENTS",
+      "kind": "immediate",
+      "default": {}
+    },
+    {
+      "key": "SELECTED_TAB_NO",
+      "kind": "saved",
+      "default": "1"
+    },
+    {
+      "key": "SELECTED_TRANSCRIPTION_ENGINE",
+      "kind": "saved",
+      "default": null
+    },
+    {
+      "key": "SELECTED_RELEASE_CHANNEL",
+      "kind": "saved",
+      "default": "stable"
+    },
+    {
+      "key": "CTRANSLATE2_WEIGHT_TYPE",
+      "kind": "saved",
+      "default": "m2m100_418M-ct2-int8"
+    },
+    {
+      "key": "CTRANSLATE2_LICENSE_NOTICE_SHOWN",
+      "kind": "saved",
+      "default": false
+    },
+    {
+      "key": "LOCAL_ASR_MIGRATION",
+      "kind": "saved",
+      "default": 2
+    },
+    {
+      "key": "VIRTUAL_MIC_NOTICE_PENDING",
+      "kind": "saved",
+      "default": true
+    },
+    {
+      "key": "FIRST_RUN_SETUP_PENDING",
+      "kind": "saved",
+      "default": true
+    },
+    {
+      "key": "SELECTED_PLAMO_MODEL",
+      "kind": "saved",
+      "default": null
+    },
+    {
+      "key": "SELECTED_GEMINI_MODEL",
+      "kind": "saved",
+      "default": null
+    },
+    {
+      "key": "SELECTED_OPENAI_MODEL",
+      "kind": "saved",
+      "default": null
+    },
+    {
+      "key": "SELECTED_GROQ_MODEL",
+      "kind": "saved",
+      "default": null
+    },
+    {
+      "key": "SELECTED_OPENROUTER_MODEL",
+      "kind": "saved",
+      "default": null
+    },
+    {
+      "key": "SELECTED_LMSTUDIO_MODEL",
+      "kind": "saved",
+      "default": null
+    },
+    {
+      "key": "SELECTED_OPENAI_COMPATIBLE_MODEL",
+      "kind": "saved",
+      "default": null
+    },
+    {
+      "key": "SELECTED_OLLAMA_MODEL",
+      "kind": "saved",
+      "default": null
+    },
+    {
+      "key": "SELECTED_GROQ_WHISPER_MODEL",
+      "kind": "saved",
+      "default": null
+    },
+    {
+      "key": "SELECTED_OPENAI_WHISPER_MODEL",
+      "kind": "saved",
+      "default": null
+    },
+    {
+      "key": "SELECTED_CUSTOM_WHISPER_MODEL",
+      "kind": "saved",
+      "default": null
+    },
+    {
+      "key": "SELECTED_DEEPGRAM_MODEL",
+      "kind": "saved",
+      "default": null
+    },
+    {
+      "key": "MIC_WORD_FILTER",
+      "kind": "saved",
+      "default": []
+    },
+    {
+      "key": "SELECTED_TRANSLATION_ENGINES",
+      "kind": "saved",
+      "default": {
+        "1": "CTranslate2",
+        "2": "CTranslate2",
+        "3": "CTranslate2"
+      }
+    },
+    {
+      "key": "SELECTED_YOUR_LANGUAGES",
+      "kind": "saved",
+      "default": {
+        "1": {
+          "1": {
+            "language": "Japanese",
+            "country": "Japan",
+            "enable": true
+          }
+        },
+        "2": {
+          "1": {
+            "language": "Japanese",
+            "country": "Japan",
+            "enable": true
+          }
+        },
+        "3": {
+          "1": {
+            "language": "Japanese",
+            "country": "Japan",
+            "enable": true
+          }
+        }
+      }
+    },
+    {
+      "key": "SELECTED_TARGET_LANGUAGES",
+      "kind": "saved",
+      "default": {
+        "1": {
+          "1": {
+            "language": "English",
+            "country": "United States",
+            "enable": true
+          },
+          "2": {
+            "language": "English",
+            "country": "United States",
+            "enable": false
+          },
+          "3": {
+            "language": "English",
+            "country": "United States",
+            "enable": false
+          }
+        },
+        "2": {
+          "1": {
+            "language": "English",
+            "country": "United States",
+            "enable": true
+          },
+          "2": {
+            "language": "English",
+            "country": "United States",
+            "enable": false
+          },
+          "3": {
+            "language": "English",
+            "country": "United States",
+            "enable": false
+          }
+        },
+        "3": {
+          "1": {
+            "language": "English",
+            "country": "United States",
+            "enable": true
+          },
+          "2": {
+            "language": "English",
+            "country": "United States",
+            "enable": false
+          },
+          "3": {
+            "language": "English",
+            "country": "United States",
+            "enable": false
+          }
+        }
+      }
+    },
+    {
+      "key": "SELECTED_TRANSLATION_COMPUTE_TYPE",
+      "kind": "saved",
+      "default": "auto"
+    },
+    {
+      "key": "AUTO_MIC_SELECT",
+      "kind": "saved",
+      "default": true
+    },
+    {
+      "key": "AUTO_SPEAKER_SELECT",
+      "kind": "saved",
+      "default": true
+    },
+    {
+      "key": "SELECTED_MIC_HOST",
+      "kind": "saved",
+      "default": "NoHost"
+    },
+    {
+      "key": "SELECTED_MIC_DEVICE",
+      "kind": "saved",
+      "default": "NoDevice"
+    },
+    {
+      "key": "SELECTED_MIC_DEVICE_ID",
+      "kind": "saved",
+      "default": ""
+    },
+    {
+      "key": "SELECTED_SPEAKER_DEVICE_ID",
+      "kind": "saved",
+      "default": ""
+    },
+    {
+      "key": "SELECTED_SPEAKER_DEVICE",
+      "kind": "saved",
+      "default": "NoDevice"
+    },
+    {
+      "key": "SELECTED_TRANSLATION_COMPUTE_DEVICE",
+      "kind": "saved",
+      "default": {
+        "device": "cpu",
+        "device_index": 0,
+        "device_name": "cpu",
+        "compute_types": [
+          "auto",
+          "float32",
+          "int8",
+          "int8_float32"
+        ]
+      }
+    },
+    {
+      "key": "ENABLE_CLIPBOARD",
+      "kind": "saved",
+      "default": false
+    },
+    {
+      "key": "OCR_SOURCE_LANGUAGE",
+      "kind": "saved",
+      "default": "auto"
+    },
+    {
+      "key": "OCR_WINDOW_TITLE",
+      "kind": "saved",
+      "default": "VRChat"
+    },
+    {
+      "key": "OCR_POLL_INTERVAL_MS",
+      "kind": "saved",
+      "default": 750
+    },
+    {
+      "key": "OCR_MIN_CONFIDENCE",
+      "kind": "saved",
+      "default": 0.85
+    },
+    {
+      "key": "OCR_BUBBLE_MIN_TEXT_LENGTH",
+      "kind": "saved",
+      "default": 2
+    },
+    {
+      "key": "OCR_CAPTURE_REGION",
+      "kind": "saved",
+      "default": {
+        "x": 0.0,
+        "y": 0.0,
+        "width": 1.0,
+        "height": 1.0
+      }
+    },
+    {
+      "key": "OCR_VR_CAPTURE_REGION",
+      "kind": "saved",
+      "default": {
+        "x": 0.0,
+        "y": 0.0,
+        "width": 1.0,
+        "height": 1.0
+      }
+    },
+    {
+      "key": "OCR_CHATBOX_FILTER",
+      "kind": "saved",
+      "default": true
+    },
+    {
+      "key": "OCR_USE_CHATBOX_DETECTOR",
+      "kind": "saved",
+      "default": true
+    },
+    {
+      "key": "OCR_PORTAL_RESTORE_TOKEN",
+      "kind": "immediate",
+      "default": ""
+    }
+  ]
+}

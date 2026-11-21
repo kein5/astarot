@@ -1,8 +1,10 @@
-//! The endpoints and the work between them (`src-python/controller.py`).
+//! The endpoints and the work between them ([`src-python/controller.py`]).
 //!
 //! [`Core`] holds what the endpoints share: the settings, the way to notify the UI, the log and
 //! the services that reach outside the process. Each submodule adds the endpoints of one area;
 //! [`routes`] adds them in the order of Python's `mapping`.
+//!
+//! [`src-python/controller.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/controller.py
 
 mod downloads;
 pub mod adapters;
@@ -53,7 +55,9 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-/// The notifications, by the names the backend uses (`run_mapping` in `mainloop.py`).
+/// The notifications, by the names the backend uses (`run_mapping` in [`mainloop.py`]).
+///
+/// [`mainloop.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/mainloop.py
 pub const RUN_MAPPING: &[(&str, &str)] = &[
     ("enable_translation", "/run/enable_translation"),
     ("enable_transcription_send", "/run/enable_transcription_send"),
@@ -91,6 +95,8 @@ pub const RUN_MAPPING: &[(&str, &str)] = &[
     ("downloaded_ctranslate2_weight", "/run/downloaded_ctranslate2_weight"),
     ("error_ctranslate2_weight", "/run/error_ctranslate2_weight"),
     ("ctranslate2_license_notice", "/run/ctranslate2_license_notice"),
+    // The core's own (#565): a saved choice of a weight the app no longer offers loaded as the default.
+    ("translation_model_retired", "/run/translation_model_retired"),
     ("translation_language_unsupported", "/run/translation_language_unsupported"),
     ("selected_mic_host", "/run/selected_mic_host"),
     ("selected_mic_device_id", "/run/selected_mic_device_id"),

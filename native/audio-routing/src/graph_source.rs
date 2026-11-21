@@ -1,6 +1,6 @@
 //! One bounded, read-only PipeWire observation shared by every control reader.
 //!
-//! Port of `src-python/models/audio_routing/pipewire_graph.py`. While anyone is
+//! Port of [`src-python/models/audio_routing/pipewire_graph.py`]. While anyone is
 //! subscribed, one worker thread takes a snapshot of the graph every 100 ms and
 //! publishes it with the time taken *before* the snapshot started. Readers accept an
 //! observation only while it is younger than one second, and a reader confirming a
@@ -10,6 +10,8 @@
 //! Python ran `pw-dump` for each snapshot. Here a [`Snapshotter`] does it; the native
 //! one (`pipewire::observer`) keeps a registry connection and ends each snapshot with
 //! a server round trip, so a snapshot holds every change made before it began.
+//!
+//! [`src-python/models/audio_routing/pipewire_graph.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/audio_routing/pipewire_graph.py
 
 use std::sync::{Arc, Condvar, Mutex, MutexGuard};
 use std::time::Duration;

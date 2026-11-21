@@ -164,7 +164,7 @@ def main():
     parser.add_argument("--branch", required=True, choices=sorted(CHANNELS))
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
-    version = json.loads((ROOT / "package.json").read_text())["version"]
+    version = json.loads((ROOT / "package.json").read_text(encoding="utf-8"))["version"]
     payload = prepare(
         args.output,
         {"linux": args.linux_run, "windows": args.windows_run},

@@ -1,4 +1,4 @@
-//! The recorder of one source (`_AudioDeviceSession` of `model.py` with
+//! The recorder of one source (`_AudioDeviceSession` of [`model.py`] with
 //! `BaseEnergyAndAudioRecorder` and `AudioTranscriber`): one capture of the device feeds the
 //! volume meter, the energy listener and, when recognition is on, the phrase builder and the
 //! engine.
@@ -10,6 +10,8 @@
 //!
 //! Phrases are cut by the energy listener, or by a VAD engine when the settings carry one
 //! ([`crate::vad`]); the transcriber then joins them the way that path needs.
+//!
+//! [`model.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/model.py
 
 use crate::Transcript;
 use crate::capture::{Capture, CapturePlatform, Source, Target};

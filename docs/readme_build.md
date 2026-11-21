@@ -7,8 +7,8 @@ Windows向けのビルド手順と、現在のCIを説明します。Linuxでは
 Git、[mise](https://mise.jdx.dev/getting-started.html)、TauriのWindowsビルドに必要なVisual Studio C++ツールを用意します。Node.js、Rust、Python、uvは、`mise.toml`で固定した版をmiseが入れます。CIも同じ版を使います（[開発ガイド](development.md#用意するツール)）。依存関係は`package-lock.json`、`src-tauri/Cargo.lock`、`native/`の各`Cargo.lock`で管理しています。
 
 ```sh
-git clone https://github.com/kein5/VRCT-VOX.git
-cd VRCT-VOX
+git clone https://github.com/kein5/astarot.git
+cd astarot
 mise trust
 mise install
 mise exec -- npm ci
@@ -138,7 +138,7 @@ npm run update-version
 
 ビルド候補はGitHub Actionsの成果物として保存します。これらのワークフローはGitHub ReleasesやHugging Faceへ自動公開しません。タグをpushしても公開処理は始まりません。候補をビルドするワークフローの権限は`contents: read`で、本家の公開用キーやテレメトリー用キーは使いません。
 
-配布先は[kein5/VRCT-VOX Releases](https://github.com/kein5/VRCT-VOX/releases)です。最初の公開版は`v0.1.0-beta.1`（プレリリース、developから作成）です。WindowsのNSISインストーラーは、このリポジトリのリリースから`VRCT-VOX.zip`を取得します（0.5までのリリースには`VRCT-VOX_cuda.zip`もあります）。候補をビルドしただけでは、そのURLにファイルは存在しません。
+配布先は[kein5/astarot Releases](https://github.com/kein5/astarot/releases)です。最初の公開版は`v0.1.0-beta.1`（プレリリース、developから作成）です。WindowsのNSISインストーラーは、このリポジトリのリリースから`VRCT-VOX.zip`を取得します（0.5までのリリースには`VRCT-VOX_cuda.zip`もあります）。候補をビルドしただけでは、そのURLにファイルは存在しません。
 
 アプリ内の更新はTauriのupdaterで行い、リリースの`latest.json`を読みます。安定版の確認先はプロジェクトのWorker（`https://vrct-vox-updates.kei9d09.workers.dev/latest.json`）で、Workerが最新のリリースの`latest.json`へ転送します。ベータ版（版に`-beta`があるもの）は、GitHubのリリースの一覧から最も新しい版の`latest.json`を選びます。利用者が更新のチャネルを選ぶ機能はありません（[アプリの更新](spec/external-interfaces.md#アプリの更新)）。`latest.json`と署名は下書きを作るワークフローが作ります（[配布候補の手順](voice-stack/release-candidates.md#updaterの署名とlatestjson)）。
 
@@ -158,6 +158,6 @@ Tauriの失敗はRust・C++ツールと`src-tauri/bin/_internal`の有無、画�
 
 ## 共通の開発コマンドと下書き作成
 
-環境診断と検査の入口は[開発ガイド](development.md)にまとめています。`npm run check`で軽い検査、`npm run test:voice`でモデル不要の音声契約、`npm run test:ui`でNodeテストとViteビルドを実行します。
+環境診断と検査の入口は[開発ガイド](development.md)にまとめています。`mise run check`で軽い検査、`mise run check:voice`でモデル不要の音声契約、`mise run check:ui`でUIの試験、型チェック、Viteのビルドを実行します。
 
 候補の検査後は[配布手順](voice-stack/release-candidates.md)に従い、同じコミットのLinux・Windows成果物からリリース下書きを作成できます。公開は別途行います。

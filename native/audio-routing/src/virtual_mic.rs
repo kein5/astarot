@@ -1,6 +1,6 @@
 //! The virtual microphone check on Windows (#321).
 //!
-//! Port of `src-python/models/audio_routing/virtual_mic.py`. VRChat hears TTS and the
+//! Port of [`src-python/models/audio_routing/virtual_mic.py`]. VRChat hears TTS and the
 //! converted voice only through a virtual cable: VRCT-VOX plays into the cable's playback
 //! end (such as "CABLE Input") and VRChat records its other end ("CABLE Output"). This
 //! module pairs such ends and checks one pair: it plays a short test tone into the
@@ -8,6 +8,8 @@
 //!
 //! Only the generated tone is played. What is recorded is reduced to a level on the spot
 //! and never kept, logged or sent. Nothing here changes a saved device choice.
+//!
+//! [`src-python/models/audio_routing/virtual_mic.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/audio_routing/virtual_mic.py
 
 use std::sync::{Arc, Mutex};
 use std::time::Duration;

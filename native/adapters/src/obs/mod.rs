@@ -1,6 +1,6 @@
 //! The OBS browser source: a small HTTP server that hands OBS the overlay page.
 //!
-//! The same contract as `src-python/models/obs/obs_browser_source_server.py`:
+//! The same contract as [`src-python/models/obs/obs_browser_source_server.py`]:
 //!
 //! - `GET /` and `GET /obs` with `?token=<token>` return the page, which embeds the
 //!   WebSocket token. `GET /obs/connection` with `Authorization: Bearer <token>`
@@ -16,6 +16,8 @@
 //! - With a TLS configuration (listening beyond this PC) it speaks `https://`.
 //!
 //! Request URLs, tokens and the page are never logged.
+//!
+//! [`src-python/models/obs/obs_browser_source_server.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/obs/obs_browser_source_server.py
 
 pub mod page;
 pub mod settings;

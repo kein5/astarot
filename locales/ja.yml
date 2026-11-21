@@ -214,12 +214,12 @@ common_error:
     transcription_model_invalid: "その音声認識モデルは使えません。"
     transcription_custom_url_invalid: "カスタムWhisperサーバーに接続できないか、モデルが見つかりませんでした。URLを確認してください。"
     ctranslate2_license_consent_required: "{{weight_type}}は非商用ライセンス（CC-BY-NC-4.0）です。先に設定 > 翻訳でライセンスを確認してください。"
-    translation_language_unsupported: "{{model}}は{{languages}}を翻訳できないため、言語をリセットしました。この言語を使うには、別の翻訳エンジンか{{ctranslate2}}モデルを選んでください。"
+    translation_language_unsupported: "{{model}}は{{languages}}を翻訳できないため、言語をリセットしました。この言語を使うには、別の翻訳エンジンか翻訳モデルを選んでください。"
     no_device_mic: "マイクデバイスが検出されませんでした。"
     no_device_speaker: "スピーカーデバイスが検出されませんでした。"
     copy_to_clipboard_failed: "クリップボードへのコピーに失敗しました。"
     threshold_invalid_value: "{{min}}から{{max}}までの数値で設定できます。"
-    failed_download_weight_ctranslate2: "CTranslate2モデルのダウンロードに失敗しました。"
+    failed_download_weight_ctranslate2: "翻訳モデルのダウンロードに失敗しました。"
     retry_download: "確認して再試行"
     failed_update_software: "インストーラのダウンロードに失敗しました。しばらくしてからもう一度お試しください。"
     failed_update_software_verify: "ダウンロードしたインストーラが、公開されているチェックサムと一致しなかったため、更新を中止しました。"
@@ -399,7 +399,7 @@ main_page:
     translator: "翻訳エンジン"
 
     translator_selector:
-        is_selected_same_language: "「{{your_language}}」と「{{target_language}}」に同じ言語が選択されているため、「{{ctranslate2}}」のみが使用できます。"
+        is_selected_same_language: "「{{your_language}}」と「{{target_language}}」に同じ言語が選択されているため、「{{local_engine}}」のみが使用できます。"
         unavailable_hint: "選べないエンジンは、この言語や現在の設定では使えません。APIキーなどは設定の「翻訳」で確認できます。"
 
     message_log:
@@ -704,7 +704,8 @@ config_page:
             confirm_cancel: "キャンセル"
             license_link: "ライセンス条項"
             model_card_link: "モデルカード"
-            non_commercial_notice: "現在の{{ctranslate2}}モデル{{weight_type}}は非商用ライセンス（{{license}}）です。以前のバージョンの既定値で、設定は変更していません。商用利用する場合は、設定 > 翻訳でM2M100モデル（MIT）を選んでください。"
+            non_commercial_notice: "現在の翻訳モデル（{{weight_type}}）は非商用ライセンス（{{license}}）です。以前のバージョンの既定値で、設定は変更していません。商用利用する場合は、設定 > 翻訳でM2M100モデル（MIT）を選んでください。"
+            retired_reset: "選んでいた翻訳モデル（{{weight_type}}）は提供を終えたため、既定の{{selected}}に戻しました。"
         translation_compute_device:
             label: "AI翻訳の処理デバイス"
             restart_note: "選んだ処理デバイスは、ASTAROTを再起動すると使えます。それまで翻訳はCPUで動きます。"
@@ -1069,8 +1070,6 @@ config_page:
         models:
             title: "認識モデル"
             desc: "チャット読み取りはPaddleOCRのモデルをお使いのPCで動かします。条件を確認して同意するまでダウンロードはしません。"
-            installed: "ダウンロード済み"
-            missing: "未ダウンロード"
             required: "いまの読み取り言語に必要"
             refresh: "再確認"
         runtime:
@@ -1274,7 +1273,7 @@ config_page:
         section_label_rvc: "ボイスチェンジャー（RVC）"
         rvc_block_ms:
             label: "変換する単位の長さ"
-            desc: "マイクの音声をこの長さずつ区切って変換します。短いほど声の遅れは小さくなりますが、GPUの処理が間に合わないと声が途切れやすくなります。「自動」では変換を始めるときにGPUの速さを測り、間に合ういちばん短い長さを選びます。既定は「自動」です。次に変換を開始したときから使います。"
+            desc: "マイクの音声をこの長さずつ区切って変換します。短いほど声の遅れは小さくなりますが、GPUの処理が間に合わないと声が途切れやすくなります。「自動」では声のモデルとGPUの組み合わせごとに一度だけGPUの速さを測り、間に合ういちばん短い長さを選んで覚えます。「自動」を選び直すと、次に変換を始めるときに測り直します。既定は「自動」です。次に変換を開始したときから使います。"
             automatic: "自動"
             length: "{{ms}} ms"
 
@@ -1394,7 +1393,7 @@ vr_panel:
         available: "利用できるエンジン"
         unavailable: "利用できないエンジン"
         unavailable_hint: "この言語や現在の設定では利用できません。必要な設定をPC側で確認できます。"
-        same_reason: "あなたと相手に同じ言語があるため、CTranslate2のみ利用できます。国が違う場合も同じです。"
+        same_reason: "あなたと相手に同じ言語があるため、{{engine}}のみ利用できます。国が違う場合も同じです。"
         full: "3 / 3選択中"
         success: "変更を反映しました"
         external: "プリセット{{n}}に切替"
@@ -1861,6 +1860,7 @@ quick_chat:
     portal_key_kept: "「{{action_name}}」の{{wanted}}をデスクトップに設定できませんでした（他のショートカットと重複している可能性があります）。現在は{{hotkey}}で動作します。別のキーを設定してください。"
     portal_lost_reconnecting: "デスクトップのショートカット機能との接続が切れたため、ホットキーが効かなくなりました。もう一度登録しています…"
     portal_lost: "デスクトップのショートカット機能との接続がまた切れたため、ホットキーが効きません。設定を開いて閉じると、もう一度登録します。小窓はボタンから開けます。"
+    portal_not_restored: "ホットキーを登録できず、前のキーにも戻せませんでした。今はどのホットキーも効きません。設定を開いて閉じると、もう一度登録します。小窓はボタンから開けます。"
     portal_errors:
         portal_cancelled: "デスクトップの確認画面で登録が取り消されました。設定を開いて閉じるともう一度確認画面が開きます。"
         portal_timeout: "デスクトップの確認画面への応答がありませんでした。設定を開いて閉じるともう一度登録します。"
@@ -1868,6 +1868,7 @@ quick_chat:
         portal_app_id_unavailable: "デスクトップがASTAROTの登録を受け付けなかったため、ショートカットを使えません。ASTAROTのデスクトップファイルを見つけられる、新しいxdg-desktop-portalが必要です。ボタンから小窓を開けます。"
         portal_desktop_file_failed: "ショートカット登録に必要なデスクトップファイルを作れませんでした。~/.local/share/applicationsの書き込み権限を確認してください。"
         portal_unavailable: "デスクトップのportalに接続できませんでした。xdg-desktop-portalが動作しているか確認してください。"
+        portal_shortcut_invalid: "デスクトップで使えないキーがショートカットに入っているため、ショートカットを登録できませんでした。そのショートカットを別のキーで記録し直してください。小窓はボタンから開けます。"
     xwayland_hint: "XWaylandでは、別のWaylandアプリを操作中にデスクトップ側がキーやフォーカスの移動を制限する場合があります。"
     platform_unknown: "ショートカットの対応環境を確認できませんでした。設定画面を開き直してください。"
     open_failed: "小窓の表示または入力フォーカスの移動に失敗しました。ホットキー設定からもう一度開いてください。"
@@ -1944,6 +1945,8 @@ vc_runtime:
         vc_runtime_busy: "別の実行環境を準備しています。終わってから開始してください。"
         vc_runtime_changed: "取得内容が更新されました。内容を確認し直してください。"
         vc_runtime_space: "空き容量が足りません。保存先のドライブを空けてもう一度開始してください。"
+        vc_runtime_in_use: "前のライブラリが使用中のため、入れ替えられませんでした。前の実行環境はそのまま使えます。声の変換と翻訳を止めてから、もう一度開始してください。"
+        vc_runtime_loaded: "AI翻訳のために、ASTAROTがこの実行環境のONNX Runtimeを読み込んでいるので、動いている間は入れ替えられません。前の実行環境はそのまま使えます。AI翻訳の処理デバイスをCPUに変え、ASTAROTを再起動してから、もう一度開始してください。"
         vc_runtime_tools_failed: "取得用のツールを用意できませんでした。ネットワークを確認してください。"
         vc_runtime_python_failed: "Pythonを用意できませんでした。ネットワークを確認してください。詳細は保存先のsetup.logにあります。"
         vc_runtime_packages_failed: "パッケージを取得できませんでした。ネットワークと空き容量を確認してください。詳細は保存先のsetup.logにあります。"
@@ -2009,6 +2012,7 @@ model_downloads:
     notice_translation: "ONNX Runtime用のローカル翻訳モデルです。上に書いた元のモデルから変換しました。お使いのPCで動き、翻訳する文章を送信することはありません。元のモデルのライセンスを確認してください。"
     # NLLB-200 distilled 600M（translation_models.json の notice）。容量とメモリはその版で測った値。
     notice_translation_nllb_600m: "NLLB-200 distilled 600MをONNX Runtime用に変換したローカル翻訳モデルです。お使いのPCで動き、翻訳する文章を送信することはありません。ライセンスはCC-BY-NC-4.0で、非商用の利用に限ります。取得には約643 MBの空き容量が要り、翻訳の間は約1.4 GiBのメモリを使います。既定のM2M100は変わらず、このモデルは選んだときだけ使います。"
+    notice_translation_nllb_1_3b: "NLLB-200 distilled 1.3BをONNX Runtime用に変換したローカル翻訳モデルです。お使いのPCで動き、翻訳する文章を送信することはありません。ライセンスはCC-BY-NC-4.0で、非商用の利用に限ります。取得には約1.4 GBの空き容量が要り、翻訳の間は約2.6 GiBのメモリを使います。既定のM2M100は変わらず、このモデルは選んだときだけ使います。"
     notice_haas: "speech.cpp 0.9.4以降用の、句読点付きで書き起こす日本語音声認識モデルです。Third Intelligence提供、sakasegawa変換、Apache-2.0です。利用前にモデルカードを確認してください。"
     rvc_requirements: "取得するのはRVC音声モデルと検索インデックス（.index）だけです。変換にはRVCの実行環境（Python環境・HuBERT・RMVPE）も必要です。取得完了だけでは変換の準備完了になりません。"
     notice_qwen_asr: "30言語を認識し、話している言語も自動で判定する音声認識モデルです。Qwenチーム提供、sakasegawa変換、Apache-2.0です。1.7Bは0.6Bより誤りが少ない一方で容量とメモリを多く使います（speech.cppによるCommon Voice日本語での測定ではCER 9.49%と11.89%）。利用前にモデルカードを確認してください。"
@@ -2098,6 +2102,7 @@ model_downloads:
     memory_boundary: "容量の目安であり、メモリの予約や動作保証ではありません。参考測定値と本アプリで観測したピークの大きい方に25%を加え、選択した余裕を残す計算です。他のTTS・RVC・ASR・ゲームの併用や長文では、さらにメモリが必要になります。GPUとドライバーの対応も別途確認が必要です。"
     memory_boundary_summary: "推奨量の計算方法"
     guidance_summary: "必要メモリと動作確認"
+    validation_summary: "動作確認"
     tier_standard: "標準版"
     tier_compact: "省メモリ版：音声や精度が変わる場合があります"
     tier_large: "大型版：GPUメモリを多く使い、最初の音が出るまで時間がかかります"
@@ -2106,11 +2111,13 @@ model_downloads:
     validation_pending: "動作確認待ちです。"
     scope_tts_native_vulkan: "Linux（speech.cpp 0.9.0、Vulkan）で短い文を読み上げられることを確かめました。ほかのGPU、長い文、音質はまだ確かめていません。"
     scope_tts_http_vulkan: "Linux（speech.cpp 0.9.0、Vulkan）で、短い文の読み上げ、途中で止めること、サーバーの再起動を確かめました。音を出す先までの流れと、ほかのGPUはまだ確かめていません。"
+    scope_rvc_runtime: "Linux（AppImage）で、声を変換して流せることと、ミュート中は音を出さないことを確かめました。音質、Windows、ほかのGPUはまだ確かめていません。"
     gpu_unverified: "現在のGPUは検証したGPUと異なります。この推奨はメモリ容量に基づくものです。"
     tier_translation: "ローカル翻訳：GPUを選ばなければCPUで動きます"
     memory_reference_translation: "CPUで短い文を60件訳したときの最大のメモリ（最低限の量ではありません）"
     validation_passed_translation: "動作を確かめたCPU："
     scope_translation_onnx_cpu: "Windows 11（ONNX Runtime 1.32、CPUの4スレッド）で英語と日本語の短い文を訳せることを確かめました。GPU、ほかの言語、長い文はまだ確かめていません。"
+    scope_translation_onnx_cpu_linux: "Linux（ONNX Runtime 1.32、CPUの4スレッド）で英語と日本語の文を訳せることを確かめました。Windows、GPU、ほかの言語はまだ確かめていません。"
 
 # モデルカタログ（モデルを選ぶ画面）。用途ごとのまとまりと、モデルごとのカード。
 model_catalog:
@@ -2816,6 +2823,8 @@ companion:
     translation: "翻訳"
     "on": "オン"
     "off": "オフ"
+    # A switch whose main switch is greyed out (as the VR panel says it): pressing it shows why in the main window.
+    unavailable: "未準備"
     open_main: "ASTAROTを開く"
     close: "閉じる"
     handle: "コントロールパネルを開く"

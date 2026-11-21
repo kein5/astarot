@@ -267,3 +267,83 @@ fn a_translation_device_that_needs_a_restart_is_kept_for_the_next_start() {
     assert_eq!(config.get("SELECTED_TRANSLATION_COMPUTE_DEVICE"), cpu);
     config.close();
 }
+
+#[test]
+fn the_installer_s_language_is_taken_once_and_its_marker_goes() {
+    // The installer leaves the language it ran in next to the app (`installer_language.txt`).
+    // The first start takes it as the UI language and removes the file, so that a language
+    // chosen later in the settings stays. A value other than `en` or `ja` is not taken, and its
+    // file goes all the same.
+    let dir = tempfile::tempdir().unwrap();
+    let app = dir.path().join("app");
+    std::fs::create_dir_all(&app).unwrap();
+    let marker = app.join("installer_language.txt");
+    std::fs::write(&marker, " ja\n").unwrap();
+    let config = Config::open_with(environment(dir.path()), MemoryStore::new());
+    assert_eq!(config.get("UI_LANGUAGE"), "ja");
+    assert!(!marker.exists(), "the marker is used once");
+    config.set("UI_LANGUAGE", json!("en")).unwrap();
+    config.save_now();
+    config.close();
+    drop(config);
+
+    // The next start has no marker: the language chosen in the settings stays.
+    let config = Config::open_with(environment(dir.path()), MemoryStore::new());
+    assert_eq!(config.get("UI_LANGUAGE"), "en");
+    config.close();
+    drop(config);
+
+    // A language the app does not have is not taken, and its marker goes too.
+    std::fs::write(&marker, "fr").unwrap();
+    let config = Config::open_with(environment(dir.path()), MemoryStore::new());
+    assert_eq!(config.get("UI_LANGUAGE"), "en");
+    assert!(!marker.exists());
+    config.close();
+}
+
+/// A value a newer version saved that this version cannot use (here a choice of the catalog's
+/// layout this version does not have) is not used, but it is written back as it was, also after
+/// this version saved and started again, until it is changed here (#560). The file names the
+/// newest version that saved it, so it stays marked while this one runs. The same value saved by
+/// this version, or by one that did not mark the file, is dropped (CT-04).
+#[test]
+fn a_value_only_a_newer_version_accepts_is_written_back_until_it_is_changed_here() {
+    let dir = tempfile::tempdir().unwrap();
+    let mark = vrct_core::config::NEWEST_SAVING_VERSION;
+    let write = |saved: Value| std::fs::write(dir.path().join("config.json"), serde_json::to_string(&saved).unwrap()).unwrap();
+    let open = || Config::open_with(environment(dir.path()), MemoryStore::new());
+
+    write(json!({ mark: "0.7.0", "CATALOG_LAYOUT": "compact", "UI_LANGUAGE": "ja" }));
+    let config = open();
+    assert_eq!(config.get("CATALOG_LAYOUT"), "grid", "this version uses its default");
+    assert_eq!(config.get("UI_LANGUAGE"), "ja");
+    config.save_now();
+    let saved = read(dir.path());
+    assert_eq!((saved["CATALOG_LAYOUT"].clone(), saved[mark].clone()), (json!("compact"), json!("0.7.0")));
+    config.close();
+
+    // Started again, it is still the newer version's value in a file marked by that version.
+    let config = open();
+    config.save_now();
+    assert_eq!(read(dir.path())["CATALOG_LAYOUT"], "compact");
+    // Changed here, the new value is written.
+    config.set("CATALOG_LAYOUT", json!("list")).unwrap();
+    config.save_now();
+    let saved = read(dir.path());
+    assert_eq!((saved["CATALOG_LAYOUT"].clone(), saved[mark].clone()), (json!("list"), json!("0.7.0")));
+    config.close();
+
+    // Saved by this version, or by one that did not mark the file: not a newer version's value.
+    for marked in [Some("0.0.0"), None] {
+        let mut saved = json!({ "CATALOG_LAYOUT": "compact" });
+        if let Some(version) = marked {
+            saved[mark] = json!(version);
+        }
+        write(saved);
+        let config = open();
+        config.save_now();
+        let saved = read(dir.path());
+        assert_eq!((saved["CATALOG_LAYOUT"].clone(), saved[mark].clone()), (json!("grid"), json!("0.0.0")), "{marked:?}");
+        config.close();
+    }
+}

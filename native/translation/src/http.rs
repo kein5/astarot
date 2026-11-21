@@ -1,7 +1,7 @@
 //! A small blocking HTTP/1.1 client for the provider APIs.
 //!
 //! One request per connection (`Connection: close`), no redirects, no cookies. Plain HTTP is
-//! allowed only to a local address (as `models/network_policy.py` allows it); everything else
+//! allowed only to a local address (as [`models/network_policy.py`] allows it); everything else
 //! goes over TLS with the Mozilla roots. No proxy is used, except by [`system_proxy`], which
 //! speech recognition uses ([`crate::proxy`]). Errors carry a fixed kind, never the URL, a header
 //! or a body: the URL of a provider may carry a key in Python's SDKs, and the bodies carry the
@@ -9,6 +9,8 @@
 //!
 //! A request given a [`Cancel`] ends within about 20 ms of its cancel, whether it is connecting
 //! or waiting for the answer (decision 81 in `docs/voice-stack/core-integration.md`).
+//!
+//! [`models/network_policy.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/network_policy.py
 
 use crate::proxy::Proxy;
 use rustls::pki_types::ServerName;

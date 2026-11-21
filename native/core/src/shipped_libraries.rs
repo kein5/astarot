@@ -130,6 +130,9 @@ static CHOSEN: OnceLock<Choice> = OnceLock::new();
 pub fn use_libraries(app_dir: &Path, state_dir: &Path) -> String {
     CHOSEN
         .get_or_init(|| {
+            // A runtime repair stopped part way gets its earlier libraries back before they are
+            // looked for (#517), not only when the voice area starts.
+            runtimes::recover_libraries(&state_dir.join(RUNTIMES_FOLDER));
             let choice = choose(app_dir, state_dir);
             if let Some((library, dependencies)) = &choice.onnx_runtime {
                 vrct_onnx_runtime::use_library_with(library.clone(), dependencies.clone());
@@ -141,6 +144,17 @@ pub fn use_libraries(app_dir: &Path, state_dir: &Path) -> String {
         })
         .line
         .clone()
+}
+
+/// The ONNX Runtime library the start pointed this process at and those loaded before it: what a
+/// repair of the runtime that holds them cannot replace on Windows while the app runs (#880).
+/// Empty before [`use_libraries`].
+pub fn loaded_onnx_runtime() -> Vec<PathBuf> {
+    CHOSEN
+        .get()
+        .and_then(|choice| choice.onnx_runtime.as_ref())
+        .map(|(library, dependencies)| std::iter::once(library.clone()).chain(dependencies.iter().cloned()).collect())
+        .unwrap_or_default()
 }
 
 /// The ONNX Runtime library the process loads, as the start decided it.

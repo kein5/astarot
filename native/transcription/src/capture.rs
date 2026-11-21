@@ -65,7 +65,9 @@ pub fn media_class(source: Source) -> &'static str {
 }
 
 /// 48 kHz mono frames of 20 ms stamped with when their first sample was heard (`FrameBuilder`
-/// of `capture_windows.py`).
+/// of [`capture_windows.py`]).
+///
+/// [`capture_windows.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/transcription/capture_windows.py
 pub struct FrameBuilder {
     channels: usize,
     resampler: Resampler,

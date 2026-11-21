@@ -7,8 +7,10 @@
 //! switch on opens a Realtime session with no transcription and cuts where the server says
 //! speech started and stopped; when the server cannot be used the energy listener cuts and the
 //! user is told why (`/run/vad_unavailable`). A fake engine of the services stands in for the
-//! server in one test. The behaviours of `src-python/test/test_model_vad_recorder_selection.py`
+//! server in one test. The behaviours of [`src-python/test/test_model_vad_recorder_selection.py`]
 //! are those of the last two tests.
+//!
+//! [`src-python/test/test_model_vad_recorder_selection.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/test/test_model_vad_recorder_selection.py
 
 mod common;
 
@@ -193,7 +195,9 @@ fn an_engine_of_the_services_reaches_the_recorder_of_its_source_only() {
     assert!(engine.made.lock().unwrap().is_empty());
 
     // On: the next start asks the engine. The longest segment is Python's fixed 7 s, not the
-    // record timeout (`transcription_recorder.py`, `_MAX_SPEECH_DURATION_MS`).
+    // record timeout ([`transcription_recorder.py`], `_MAX_SPEECH_DURATION_MS`).
+    //
+    // [`transcription_recorder.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/transcription/transcription_recorder.py
     assert_eq!(run.ui.ok("/set/enable/speaker_vad_filter", None), true);
     run.hears_a_message("こんばんは");
     assert_eq!(*engine.made.lock().unwrap(), vec![(44100, 2, 7.0)]);

@@ -3,7 +3,8 @@ import type { ChangeEvent, KeyboardEvent } from "react";
 import type { TFunction } from "i18next";
 import { useI18n } from "@useI18n";
 import { useTranslationCatalog } from "../../../../../../logics/translation/useTranslationCatalog";
-import { ENGINE_FORM_SETTING_ID, ENTRY_NAME_LIMIT, LLAMACPP, LLAMA_DEVICES, apiRequest, engineRequest, entryState } from "../../../../../../logics/translation/translationCatalog";
+import { ENGINE_FORM_SETTING_ID, ENTRY_NAME_LIMIT, LLAMACPP, LLAMA_DEVICES, apiRequest, engineRequest, entryState, weightLabel } from "../../../../../../logics/translation/translationCatalog";
+import { useListedLocalWeights } from "../../../../../../logics/translation/useListedLocalWeights";
 import { endpointDescription } from "../../../../../../logics/common/endpointPrivacy";
 import { SectionLabelComponent } from "../_components";
 import { CatalogFacts, CatalogLayoutSwitch, CatalogList, CatalogSection, useCatalogLayout } from "../advanced_settings/catalogLayout";
@@ -62,7 +63,11 @@ const CatalogGroup = ({ group, catalog, layout }: { group: CatalogGroupId; catal
     const { send } = useTranslationCatalog();
     // Which llama.cpp entries can run follows the server builds set up below.
     const askAgain = useCallback(() => send("/get/data/translation_catalog"), [send]);
-    const entries = entriesOf(catalog, group);
+    // A built-in model is listed here as in the model list above (#565): only the ones the user has,
+    // can download, has selected or is downloading. The rest could only show "not downloaded".
+    const listed = useListedLocalWeights();
+    const entries = entriesOf(catalog, group).filter(entry =>
+        entry.group !== "engine" || entry.item.origin !== "builtin" || listed.has(entry.item.weight));
     const shipped = entries.filter(entry => entry.item.origin === "builtin");
     const own = entries.filter(entry => entry.item.origin !== "builtin");
     return (
@@ -95,7 +100,8 @@ const ShippedCard = ({ group, item, layout }: CatalogEntry & { layout: CatalogLa
     </>;
     return <li className={styles.card} data-catalog-item={item.id} data-status={state}>
         <div className={styles.card_head}>
-            <strong>{item.name}</strong>
+            {/* A built-in model by the download catalog's name of it (#565), not by the weight's id. */}
+            <strong>{group === "engine" ? weightLabel(item.weight, null) : item.name}</strong>
             {layout === "list" && kind}
             <span className={`${styles.badge} ${styles.status}`} data-tone={state}>{t(`translation_catalog.state.${state}`)}</span>
         </div>

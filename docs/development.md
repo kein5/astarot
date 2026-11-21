@@ -19,10 +19,11 @@ mise run check               # 軽量チェック
 | --- | --- |
 | `doctor` | `python tools/dev.py doctor` |
 | `check`、`check:all` | `python tools/dev.py check`（`quick`）、`--scope all` |
-| `check:voice`、`check:ui`、`check:rust`、`check:integration`、`check:workflows` | `python tools/dev.py check --scope <名前>` |
-| `check:commits` | `python tools/dev.py check --scope commits --base origin/develop` |
+| `check:voice`、`check:ui`、`check:rust`、`check:integration`、`check:workflows`、`check:crates`、`check:links` | `python tools/dev.py check --scope <名前>` |
+| `check:commits`、`check:secrets` | `python tools/dev.py check --scope <名前> --base origin/develop` |
+| `check:vulns` | `python tools/dev.py check --scope vulns`（osv.devに問い合わせる） |
 | `setup:headless`、`setup:ui`、`setup:browser`、`setup:rust`、`setup:resources`、`setup:integration` | `python tools/dev.py setup --scope <名前>` |
-| `spec` | 機能仕様書の一覧を作り直す（`python tools/spec_catalog.py --write`） |
+| `spec` | 機能仕様書の一覧を作り直す（中核の一覧`tools/spec_core_catalog.json`を書き直してから`python tools/spec_catalog.py --write`） |
 | `adr` | ADR の索引の表を作り直す（`python tools/adr_catalog.py --write`） |
 | `build:voice-gate`、`build:rvc-worker` | 音声の補助プログラムとRVCのワーカーを `build/` にビルドする |
 | `build:windows`、`build:linux` | `npm run build`、`python tools/build_linux.py` |
@@ -30,11 +31,23 @@ mise run check               # 軽量チェック
 | `changelog:notes` | 正式版のリリースノートの雛形を `docs/release-notes/<版>.md` に作る。既にあれば上書きしない（[リリースノートの書式](release-notes/README.md#雛形から書き始める)） |
 | `dev:web` | Web UIの開発サーバー（Vite）。検証には含めない |
 
-機能仕様書の一覧（`docs/spec/reference/` のエンドポイント、エラーコード、設定キー）はコードから生成します。エンドポイント、エラーコード、設定キーを変えたら `mise run spec` で作り直します。`check` はこの一覧が最新かどうかも確かめます。仕様書の入口は [docs/spec/README.md](spec/README.md) です。
+機能仕様書の一覧（`docs/spec/reference/` のエンドポイント、エラーコード、設定キー）は中核とUIのコードから生成します。エンドポイント、エラーコード、設定キーを変えたら `mise run spec` で作り直します。`check` はこの一覧が最新かどうかも確かめます。仕様書の入口は [docs/spec/README.md](spec/README.md) です。
 
 設計判断の記録（ADR）の索引の表（[docs/adr/README.md](adr/README.md)）は、各 ADR の冒頭の front matter から生成します。ADR を足したり front matter を変えたりしたら `mise run adr` で作り直します。`check` は `tests/devtools/test_adr_catalog.py` で、番号の重複、項目と値、裏付けのパス、リンク、表の古さを確かめます。
 
-npmのスクリプト（`npm run doctor`、`npm run check` など）も当面は残します。中身は同じ `tools/dev.py` ですが、miseを通らないので、PATHにあるツールの版で動きます。アプリの起動（`npm run dev-fast` など）とWindowsの配布物のビルド（`npm run release`）は、今までどおりnpmのスクリプトです。miseを有効にしたシェル（`mise activate`）から呼ぶと、固定した版で動きます。
+開発CLI（`tools/dev.py`）の近道は、miseのタスクだけに置きます（2026-11-21）。npmのスクリプトに残すのは、npmでないと動かないものです。Vite、Tauri、アプリの起動（`npm run dev-fast` など）、Windowsの配布物のビルド（`npm run build`、`npm run release`）、UIの試験（`npm test`、Vitest）、型チェック（`npm run typecheck`）などです。miseを有効にしたシェル（`mise activate`）から呼ぶと、npmのスクリプトも固定した版で動きます。
+
+以前はnpmにも同じ近道があり、miseと食い違っていました（npmの `check:commits` は `--base` を渡さず、範囲の検査の名前は `test:*` でした）。npmの近道は、次のmiseのタスクに替わりました。
+
+| 以前のnpmのスクリプト | miseのタスク |
+| --- | --- |
+| `npm run doctor` | `mise run doctor` |
+| `npm run check`、`npm run check:all` | `mise run check`、`mise run check:all` |
+| `npm run check:commits` | `mise run check:commits` |
+| `npm run test:voice`、`npm run test:ui`、`npm run test:integration` | `mise run check:voice`、`mise run check:ui`、`mise run check:integration` |
+| `npm run setup:headless`、`npm run setup:browser` | `mise run setup:headless`、`mise run setup:browser` |
+
+`check:commits` は、cloneしたときの `origin/develop` と比べます。リモートの名前が違うときは、`mise run check:commits --base <リモート>/develop` のように後ろに `--base` を書くと、そちらが使われます。`tests/devtools/test_dev_shortcuts.py` が、npmのスクリプトから `tools/dev.py` を呼んでいないこと、範囲のタスクの名前が範囲の名前（`check:<範囲>`、`setup:<範囲>`）とそろっていること、npmへ渡すタスクが残っているスクリプトを指していることを確かめます。
 
 ## 用意するツール
 
@@ -100,7 +113,7 @@ Linuxのトレイ用ライブラリは `ayatana-appindicator3-0.1` または `ap
 | `headless` | `uv.lock` の `voice-test` グループだけを `build/dev/headless-venv` に同期 |
 | `ui` | `npm ci --ignore-scripts` でルートの `node_modules` を準備 |
 | `browser` | `uv.lock` の `voice-ui-test` グループを `build/dev/browser-venv` に同期。既存venvへの追加も可 |
-| `rust` | `cargo fetch --locked` でCargo.lockに従う依存を取得（`src-tauri` と、`tools/dev.py` の `NATIVE_CRATES` にある `native/` のクレート。下の `check --scope rust` と同じ一覧） |
+| `rust` | `cargo fetch --locked` でCargo.lockに従う依存を取得（`tools/dev.py` の `CARGO_WORKSPACES`。`src-tauri`、`NATIVE_CRATES` にある `native/` のクレート、結合テストの `native/browser-core-bridge`、`native/ocr-runtime`、`native/rvc-runtime`。下の `check --scope crates` と同じ一覧） |
 | `resources` | `tools/app_resources.py stage --allow-missing` で `src-tauri/bin/_internal` を `build/` にあるもので作り直す |
 | `integration` | [結合テスト](#結合テストplaywright)の準備。`native/browser-core-bridge` の依存を `cargo fetch --locked` で取得し、Playwright の Chromium と WebKit を取得する（合わせて数百 MB）。先に `setup --scope ui` が要る。ブラウザが使う OS のライブラリは入れない |
 
@@ -155,12 +168,16 @@ python tools/dev.py check --scope integration
 | `lint` | `tools/dev.py` の `LINT_PATHS`（`tests/voice`、`tests/devtools`、音声・配布・開発の道具）をRuffで検査。自動修正なし。voice CIも同じスコープを実行する |
 | `voice` | `tests/voice/pytest.ini` を使ったモデルなしの契約試験と、`tests/platform`にある単体の試験3件 |
 | `ui` | UIの試験（Vitest）、[Biome](#uiのlintと整形biome)のlintと整形の検査、型チェック（`npm run typecheck`）、`npm run vite-build`。ブラウザの操作は含まない |
-| `rust` | `src-tauri` の `cargo check --locked --offline` と、`native/app-identity`、`native/speech-server`、`native/ops`、`native/audio-routing`、`native/adapters`、`native/translation`、`native/transcription`、`native/openvr-client`、`native/onnx-runtime`、`native/vr-overlay`、`native/voice-conversion`、`native/translate-onnx`、`native/tts`、`native/core` の `cargo test --locked --offline`。キャッシュやOS依存（Linuxでは `libpipewire-0.3` の開発ファイルとlibclang。`src-tauri` も中核を通して使う）がなければ失敗 |
+| `rust` | `src-tauri` の `cargo check --locked --offline` と、`native/app-identity`、`native/speech-server`、`native/ops`、`native/audio-routing`、`native/adapters`、`native/translation`、`native/transcription`、`native/openvr-client`、`native/onnx-runtime`、`native/vr-overlay`、`native/voice-conversion`、`native/translate-onnx`、`native/tts`、`native/core` の試験を、cargo-nextestで実行（`cargo nextest run --locked --offline`）。nextestはdoctestを流さないので、`src/lib.rs` のあるクレートは続けて `cargo test --doc` を実行する。キャッシュやOS依存（Linuxでは `libpipewire-0.3` の開発ファイルとlibclang。`src-tauri` も中核を通して使う）がなければ失敗 |
 | `integration` | [結合テスト](#結合テストplaywright)。`native/browser-core-bridge` を `cargo build --locked --offline` で組み、`tests/integration/vite.config.ts` で画面を組んでから、Playwright で Chromium と WebKit の試験を流す。ブラウザは取得しない。未導入なら `setup --scope integration` を案内して止まる |
 | `workflows` | ワークフローと自前のアクションを、actionlintとzizmorで検査（[リポジトリの検査](#リポジトリの検査)） |
+| `crates` | すべてのCargoのワークスペースの依存のライセンス、禁止の設定、取得元を、cargo-denyで検査（[リポジトリの検査](#リポジトリの検査)）。先に `setup --scope rust` が要る |
+| `links` | リポジトリのMarkdownのファイル同士のリンクと見出しへのリンクを、lycheeで検査。外部のサイトには問い合わせない（[リポジトリの検査](#リポジトリの検査)） |
 | `quick` | `tooling`、`node`、`lint`。既定値 |
-| `all` | 上記8対象。時間がかかるため統合時に明示実行 |
+| `all` | 上記10対象。時間がかかるため統合時に明示実行 |
 | `commits` | `--base` からHEADまでの新規コミット形式を検証 |
+| `secrets` | `--base` からHEADまでの新規コミットに、鍵やトークンが入っていないかをgitleaksで検査（[リポジトリの検査](#リポジトリの検査)） |
+| `vulns` | ロックファイルの依存の既知の脆弱性を、osv-scannerで検査。osv.devに問い合わせるので `all` には入れない（[リポジトリの検査](#リポジトリの検査)） |
 
 Pythonは専用venvを優先し、次に既存の `.venv` を探します。`--python` があればその実行ファイルを使います。専用venvがない状態で `all` を実行しても、依存の不足を黙って省略しません。`doctor --scope all` で先に確認できます。
 
@@ -186,10 +203,19 @@ Pythonは専用venvを優先し、次に既存の `.venv` を探します。`--p
 | スコープ | 道具 | 確かめること | 例外の置き場所 |
 | --- | --- | --- | --- |
 | `workflows` | actionlint、zizmor | ワークフローの書き方、式、型（actionlint）。ワークフロー、自前のアクション、`dependabot.yml` の安全の問題（zizmor） | `.github/zizmor.yml`、または該当行の `# zizmor: ignore[<監査>] <理由>` |
+| `links` | lychee | `site/` 以外のMarkdownのファイル同士のリンクと、見出しへのリンク（`#...`）。外部のサイトには問い合わせない | `lychee.toml` |
+| `secrets` | gitleaks | `--base` からHEADまでの新規コミットの鍵やトークン。見つけた値は出力に出さない（`--redact`） | `.gitleaks.toml`（規則）、`.gitleaksignore`（過去のコミットの指紋） |
+| `vulns` | osv-scanner | `uv.lock`、`package-lock.json`（ルートと `site/` と `site/motion/`）、18の `Cargo.lock` の依存の既知の脆弱性（osv.dev） | `osv-scanner.toml`（例外。理由と見直す日を書く） |
+| `crates` | cargo-deny | 18のCargoのワークスペース（`CARGO_WORKSPACES`）の依存のライセンス、取得元（crates.ioと、許可したgitのリポジトリ）、版を書かない依存。配布する2つのシステム（WindowsとLinuxのx64）で組む依存だけを見る | `deny.toml` |
 
 - actionlintのshellcheckとpyflakesの検査は切っています。どちらも `mise.toml` で版を固定していないので、PCによって結果が変わるためです。
 - zizmorは、`GH_TOKEN` があるとGitHubに問い合わせる監査（固定したコミットが本当にそのアクションのものか、既知の脆弱性のある版か）も行います。CIではワークフローのトークン（読み取りだけ）を渡します。手元では、`GH_TOKEN` がなければその監査を飛ばします。
 - 例外を足すときは、理由を必ず書きます。
+- `deny.toml` のライセンスは[ライセンス台帳](voice-stack/licensing.md)に合わせています。許容型（MIT、Apache-2.0、BSD、ISC、Zlib、Unicode-3.0など）はどのクレートにも認め、MPL-2.0とCDLA-Permissive-2.0は台帳で確かめたクレートだけに認めます。新しい依存で検査が止まったら、台帳に記録してから `deny.toml` に足します。既知の脆弱性はcargo-denyでは見ません。
+- gitleaksは、2026-11-21に履歴全体（4,806コミット）を調べたときの56件を、規則（計測結果のハッシュ、試験のWebSocketの値と暗号化した鍵）と、過去のコミットの指紋の一覧に分けて外しています。どれも秘密ではありませんでした。CIでは、PR、push、マージキューが足したコミットだけを見ます。
+- osv-scannerは `tools/translation_onnx/requirements.txt` を読みません。torchのローカルの版（`+cpu`）を解決できないためで、そこから配布物に入るものはありません。`osv-scanner.toml` に載っていない通知があると、CIの `vulns` のステップも失敗します（2026-11-21に #835 で決定）。いま直せない通知は、`osv-scanner.toml` に理由と見直す日（`ignoreUntil`）を書いて例外にします。その日を過ぎると例外が切れて検査が失敗するので、直すか、まだ直せない理由と新しい日を書いて例外を延ばします。2026-11-21の時点の例外は9件で、どれも同じメジャー版の中の更新では直らないものです（保守が終わったクレートと、GTK 3の `glib` 0.18）。
+- lycheeは `site/` を読みません。ガイドのページはファイルではなく道筋（`requirements` など）でつながっているためで、そのリンクはサイトのビルドのあとの検査（`tools/check_site_anchors.mjs`）が確かめます。リンク先のファイルを消したときは、日付の入った記録の中のリンクを、消す前のコミットに固定したGitHubのリンクに替えます。
+- CIでは `crates` だけを別のワークフロー `rust-crates.yml` で実行します。すべての依存の取得が要るので、`Cargo.toml`、`Cargo.lock`、`deny.toml` などを変えたPRと、developとmainへのpushだけで動きます。
 
 ## UIのTypeScriptとスタイル（移行中）
 
@@ -295,6 +321,36 @@ npx mutator accept <キー> --reason "<等価と判断した理由>"            
 - `--include` で絞って回した後に全体を回すときは、`--full-dry-run` を付けます。付けないと、カバレッジの収集の一部に絞った回の結果が使われ、そのときに対象でなかったファイルの変異が NoCoverage と数えられます（2026-11-21 に、64 ファイル・約 3,600 件で起きました）。
 - 全体を最初から回すと、手元（Linux、並列16）で35分ほどかかりました（2026-11-21、変異40,552件）。前の回の結果を使える部分が多ければ、数分で終わります。結果を報告するときは、対象の範囲と計測した条件（版、並列数、機材）を添え、スコアを品質の保証として書かないでください。
 - 0.2.0 には、Windows でパスの区切りが合わず計装されない問題が報告されています（Issue #550）。手順は Linux で確かめたものです。
+
+### Rustのカバレッジとミューテーションテスト
+
+Rustのカバレッジは [cargo-llvm-cov](https://github.com/taiki-e/cargo-llvm-cov)、ミューテーションテストは [cargo-mutants](https://mutants.rs/) で測ります。どちらも `mise.toml` で版を固定しています（`cargo:cargo-llvm-cov`、`cargo:cargo-mutants`。cargo でソースから組むので、初めの1回は数分かかります）。[Issue #550](https://github.com/kein5/astarot/issues/550) と #871 の決定で、使い方は次のとおりです。
+
+- **カバレッジ**: CIの `voice-tests.yml` の `rust-coverage` のジョブが、PRと、developとmainへのpushごとに、クレートごとの数字を測り、ジョブの要約（Summary）に表で出します。しきい値はなく、数字が下がってもCIは失敗しません。手元でも同じ道具で測れます（`tools/rust_coverage.py`）。
+- **ミューテーションテスト**: CIでは回しません。対象のモジュールを変えたPRと、作り替えの節目に手で回します。
+
+```sh
+mise install cargo:cargo-llvm-cov cargo:cargo-mutants
+rustup component add llvm-tools --toolchain 1.100.0
+
+# カバレッジ（全部のクレート、または --crate で絞る。CIのジョブと同じ表）
+python tools/rust_coverage.py
+python tools/rust_coverage.py --crate native/ops
+cargo llvm-cov --locked --manifest-path native/ops/Cargo.toml --summary-only
+cargo llvm-cov report --manifest-path native/ops/Cargo.toml --show-missing-lines   # 直前の実行の、通らなかった行
+
+# ミューテーションテスト（ファイルを絞る）
+cd native/ops && cargo mutants -j 4 --cargo-arg=--locked -f src/downloads/catalog.rs
+cd native/core && PROPTEST_DISABLE_FAILURE_PERSISTENCE=1 cargo mutants --in-place --cargo-arg=--locked -f src/voice_settings.rs -- --lib
+```
+
+- `native/` のクレートは1つのワークスペースではなく、それぞれが `Cargo.lock` を持ちます。カバレッジはクレートごとに、そのクレートの試験だけで測ります。中核の統合試験から通っているコードも、そのクレートの数字には入りません。実機のPipeWireが要る試験（`--ignored`）も入りません。試験が落ちても測れるよう、`tools/rust_coverage.py` は `--ignore-run-fail` を付け、落ちたクレートは表に書きます。
+- cargo-mutants は、変異のない状態で試験がすべて通らないと何もしません。
+- cargo-mutants は既定でクレートを一時フォルダーに写して変異させます。`native/core` は、兄弟のクレートへの相対パスが通常の依存と試験用の依存で食い違い、写したものがビルドできません。そのため `--in-place`（その場で1件ずつ変異させる）で回します。回している間は、そのクレートのファイルを編集しないでください。
+- proptest は、落ちた入力を `proptest-regressions/` に書き残し、次の実行で先に試します。変異させたコードで落ちた入力は残す意味がないので、ミューテーションテストは `PROPTEST_DISABLE_FAILURE_PERSISTENCE=1` を付けて回します。
+- 対象は純粋なロジックにし、時刻や待ちに頼る試験のあるモジュールは外します（ミュータントごとに結果がぶれるため）。`-- --lib` を付けると単体の試験だけを流します。統合試験だけが確かめている変異は検出されないので、結果を報告するときは流した試験の範囲も書きます。
+- 結果は `mutants.out/` の `caught.txt`（検出）、`missed.txt`（未検出）、`timeout.txt`、`unviable.txt`（ビルドできない変異。分母に入れない）にあります。未検出は1件ずつコードを読み、試験の不足か、どの入力でも結果が変わらない等価なミュータントかを判断します。
+- 純粋な関数の境界は、プロパティベーステスト（[proptest](https://proptest-rs.github.io/proptest/)。`native/core` の試験用の依存）で確かめられます。正規化の結果をもう一度正規化しても変わらないこと、保存して読み戻すと同じになることなど、入力を選ばない性質を書きます。
 
 ## UIの文言と翻訳の検査
 

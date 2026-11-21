@@ -1,8 +1,10 @@
-//! One owner per download root, across processes and interrupted runs (`staging.py`).
+//! One owner per download root, across processes and interrupted runs ([`staging.py`]).
 //!
 //! The lock is the same as the Python module's (`flock` on the whole file; on Windows a lock
 //! on its first byte, which is what `msvcrt.locking` takes), so a Python and a Rust owner of
 //! the same root exclude each other while both exist.
+//!
+//! [`staging.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/model_downloads/staging.py
 
 use std::fs::{self, File, OpenOptions};
 use std::io::{self, Write};

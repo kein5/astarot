@@ -1,5 +1,5 @@
-//! Chat reading: VRChat's chat bubbles read from the screen (`controller.py`: the OCR handlers,
-//! `startOcrCapture`, `ocrMessage`; `model.py`: `startOCRCapture`, `setOCRSourceLanguage`,
+//! Chat reading: VRChat's chat bubbles read from the screen ([`controller.py`]: the OCR handlers,
+//! `startOcrCapture`, `ocrMessage`; [`model.py`]: `startOCRCapture`, `setOCRSourceLanguage`,
 //! `updateOCRCaptureSettings`, `stopOCRCapture`). The capture, the engine and the pipeline are
 //! `native/ocr-runtime`; this module keeps the pipeline of the run, its settings and its
 //! notifications.
@@ -8,6 +8,9 @@
 //! files) goes through [`OcrPlatform`] in [`Services::ocr`](super::Services::ocr). Recognised
 //! lines leave through [`Services::ocr_message`](super::Services::ocr_message) to the message
 //! pipeline; nothing here logs them.
+//!
+//! [`controller.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/controller.py
+//! [`model.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/model.py
 
 pub use super::messages::Guard;
 use super::routes::{Builder, OPEN, WAIT};

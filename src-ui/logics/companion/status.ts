@@ -7,7 +7,9 @@ import { isEdge, type Edge } from "./hexagram.ts";
 const LANGUAGES = ["en", "ja", "ko", "zh-Hans", "zh-Hant"] as const;
 export type Language = (typeof LANGUAGES)[number];
 
-export type Switch = { on: boolean; pending: boolean };
+// blocked: its main switch is greyed out with a reason (logics/main/switchBlocks.ts), so turning it
+// on is refused; pressing it still asks, and the main window says why (#562).
+export type Switch = { on: boolean; pending: boolean; blocked: boolean };
 
 export type MenuLabels = {
     start: string; stop: string; panel: string; main: string; quit: string;
@@ -52,31 +54,33 @@ export const edgeAction = (edge: Edge): EdgeAction => `edge_${edge}`;
 // What the panel shows as the state of the app as a whole.
 export type PanelState = "starting" | "listening" | "idle";
 
-const toSwitch = (value: StoreValue): Switch => ({ on: value?.data === true, pending: value?.state === "pending" });
+const toSwitch = (value: StoreValue, blocked = false): Switch => ({ on: value?.data === true, pending: value?.state === "pending", blocked });
 
 const isLanguage = (value: unknown): value is Language => (LANGUAGES as readonly unknown[]).includes(value);
 
-export const companionStatus = ({ ready, mic, translation, listening, ocr, tts, rvc, edge, monitor, language, t }: {
+export const companionStatus = ({ ready, mic, translation, listening, ocr, tts, rvc, blocked = {}, edge, monitor, language, t }: {
     ready: unknown;
     mic: StoreValue;
     translation: StoreValue;
     listening?: StoreValue;
     ocr?: StoreValue;
     // Already worked out by the main page's switches (logics/voice/voiceActions.ts).
-    tts?: Switch;
-    rvc?: Switch;
+    tts?: Partial<Switch>;
+    rvc?: Partial<Switch>;
+    // The switches whose main switch is greyed out now (activeSwitchBlock).
+    blocked?: Partial<Record<Feature, boolean>>;
     edge?: unknown;
     monitor?: unknown;
     language: unknown;
     t: (key: string) => string;
 }): CompanionStatus => ({
     ready: ready === true,
-    mic: toSwitch(mic),
-    translation: toSwitch(translation),
-    listening: toSwitch(listening),
-    ocr: toSwitch(ocr),
-    tts: { on: tts?.on === true, pending: tts?.pending === true },
-    rvc: { on: rvc?.on === true, pending: rvc?.pending === true },
+    mic: toSwitch(mic, blocked.mic === true),
+    translation: toSwitch(translation, blocked.translation === true),
+    listening: toSwitch(listening, blocked.listening === true),
+    ocr: toSwitch(ocr, blocked.ocr === true),
+    tts: { on: tts?.on === true, pending: tts?.pending === true, blocked: blocked.tts === true },
+    rvc: { on: rvc?.on === true, pending: rvc?.pending === true, blocked: blocked.rvc === true },
     language: isLanguage(language) ? language : "en",
     edge: isEdge(edge) ? edge : "right",
     monitor: typeof monitor === "string" ? monitor : "",

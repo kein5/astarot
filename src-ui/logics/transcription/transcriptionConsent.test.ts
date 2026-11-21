@@ -7,6 +7,7 @@ import { localeAt, readLocale, textAt } from "../test/locales.ts";
 import * as endpointPrivacy from "../common/endpointPrivacy.ts";
 import type { BackendErrorReport } from "../_useBackendErrorHandling.ts";
 import type { RadioGroup, RadioOption } from "../../views/app/config_page/setting_section/setting_box/_components/radio_button/RadioButton.tsx";
+import * as translatorLabel from "../main/translatorLabel.ts";
 
 const noop = () => {};
 const api = <T extends object>(values: T) => new Proxy(values, { get: (object, name) => Reflect.get(object, name) ?? noop });
@@ -63,6 +64,7 @@ async function fixture(context: TestContext) {
         "@logics_common": common, "@logics_configs": configs, "@logics_main": main,
         "./ui_configs": {}, "./configs/legacyModelConsent": {}, "./configs/cloudTranscription": { CLOUD_TRANSCRIPTION_ENGINES: [] },
         "./transcription/useTranscriptionConsent": consent,
+        "./main/translatorLabel": translatorLabel,
         "./translation/useTranslationSetup": { useTranslationSetup: () => ({ open: noop }) },
         "./ocr/useOcrSetup": { useOcrSetup: () => ({ show: noop }) },
     });

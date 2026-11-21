@@ -30,6 +30,11 @@ zizmor = "1.32.0"
 # mise's registry has no cargo-nextest, so it comes from its GitHub releases (see [tool_alias]).
 cargo-deny = "0.20.2"
 cargo-nextest = { version = "0.9.151", version_prefix = "cargo-nextest-" }
+# Coverage and mutation tests of the Rust crates, run by hand and by the coverage job
+# (docs/development.md, "Rustのカバレッジとミューテーションテスト"; #550). Built with cargo
+# (cargo-binstall where it is installed); the versions are those #550 measured with.
+"cargo:cargo-llvm-cov" = "0.9.1"
+"cargo:cargo-mutants" = "27.1.0"
 # Secrets in the history and known vulnerabilities in the lock files.
 gitleaks = "8.30.1"
 osv-scanner = "2.7.0"
@@ -55,6 +60,8 @@ cargo-nextest = "github:nextest-rs/nextest"
 ORT_DISABLE_TELEMETRY = "1"
 
 # Every task forwards extra arguments to its command, e.g. `mise run check -- --dry-run`.
+# The shortcuts to tools/dev.py live here only; package.json keeps the scripts that need npm
+# (tests/devtools/test_dev_shortcuts.py).
 
 [tasks.doctor]
 description = "Show missing tools and dependencies (no downloads)"
@@ -77,7 +84,7 @@ description = "UI tests (Vitest), Biome (lint and format check), the type check 
 run = "python tools/dev.py check --scope ui"
 
 [tasks."check:rust"]
-description = "cargo check and cargo test of the Tauri app and the native crates"
+description = "cargo check of the Tauri app, and the native crates' tests (cargo-nextest and doctests)"
 run = "python tools/dev.py check --scope rust"
 
 [tasks."check:integration"]
@@ -87,6 +94,22 @@ run = "python tools/dev.py check --scope integration"
 [tasks."check:workflows"]
 description = "Workflows and the repository's own actions (actionlint, zizmor)"
 run = "python tools/dev.py check --scope workflows"
+
+[tasks."check:crates"]
+description = "Licenses and sources of every Cargo workspace's dependencies (cargo-deny; setup:rust first)"
+run = "python tools/dev.py check --scope crates"
+
+[tasks."check:links"]
+description = "Links between the Markdown files and to their headings (lychee; offline)"
+run = "python tools/dev.py check --scope links"
+
+[tasks."check:vulns"]
+description = "Known vulnerabilities of every lock file (osv-scanner; asks osv.dev)"
+run = "python tools/dev.py check --scope vulns"
+
+[tasks."check:secrets"]
+description = "Keys and tokens in the commits since origin/develop (gitleaks; fetch it first)"
+run = "python tools/dev.py check --scope secrets --base origin/develop"
 
 [tasks."check:commits"]
 description = "Commit messages since origin/develop (fetch it first)"
@@ -119,8 +142,9 @@ description = "src-tauri/bin/_internal for tauri dev and cargo check (stages wha
 run = "python tools/dev.py setup --scope resources"
 
 [tasks.spec]
-description = "Regenerate the spec reference (docs/spec/reference/) from the code"
-run = "python tools/spec_catalog.py --write"
+description = "Regenerate the spec reference (docs/spec/reference/): the core's catalog, then the tables"
+env = { VRCT_SPEC_CATALOG_WRITE = "1" }
+run = "cargo test --locked --manifest-path native/core/Cargo.toml --test spec_catalog && python tools/spec_catalog.py --write"
 
 [tasks.adr]
 description = "Regenerate the ADR index table (docs/adr/README.md) from the front matter"

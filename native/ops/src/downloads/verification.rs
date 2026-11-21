@@ -1,4 +1,6 @@
-//! File verification shared by catalog and built-in model transactions (`verification.py`).
+//! File verification shared by catalog and built-in model transactions ([`verification.py`]).
+//!
+//! [`verification.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/model_downloads/verification.py
 
 use std::fs::{self, File};
 use std::io::Read;
@@ -61,4 +63,63 @@ pub(crate) fn verify_file_chunked<E: From<Error>>(path: &Path, size: u64, sha256
 
 pub(crate) fn hex(bytes: &[u8]) -> String {
     bytes.iter().map(|b| format!("{b:02x}")).collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn sha(data: &[u8]) -> String {
+        hex(&Sha256::digest(data))
+    }
+
+    fn checked(path: &Path, size: u64, sha256: &str) -> Result<(), Error> {
+        verify_file(path, size, sha256, || Ok(()))
+    }
+
+    fn code(result: Result<(), Error>) -> String {
+        result.unwrap_err().to_string()
+    }
+
+    #[test]
+    fn a_file_passes_only_as_a_regular_file_of_its_size_and_hash() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("model.gguf");
+        fs::write(&path, b"weights").unwrap();
+        assert!(checked(&path, 7, &sha(b"weights")).is_ok());
+        assert_eq!(code(checked(&path, 8, &sha(b"weights"))), "size_mismatch");
+        assert_eq!(code(checked(&path, 7, &sha(b"weighTs"))), "hash_mismatch");
+        assert_eq!(code(checked(dir.path(), 0, &sha(b""))), "unsafe_destination");
+        assert!(matches!(checked(&dir.path().join("none.gguf"), 7, &sha(b"weights")), Err(Error::Io(_))));
+        #[cfg(unix)]
+        {
+            let link = dir.path().join("link.gguf");
+            std::os::unix::fs::symlink(&path, &link).unwrap();
+            assert_eq!(code(checked(&link, 7, &sha(b"weights"))), "unsafe_destination", "a link is not followed");
+        }
+    }
+
+    #[test]
+    fn the_checkpoint_runs_between_blocks_and_its_error_stops_the_hash() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("model.gguf");
+        let data = vec![7u8; 10];
+        fs::write(&path, &data).unwrap();
+        // Before, once per block of 4 bytes (three blocks) and after.
+        let mut calls = 0;
+        verify_file_chunked(&path, 10, &sha(&data), &mut || {
+            calls += 1;
+            Ok::<(), Error>(())
+        }, 4)
+        .unwrap();
+        assert_eq!(calls, 5);
+        // A cancel in the middle ends it with the checkpoint's own error.
+        let mut calls = 0;
+        let stopped = verify_file_chunked(&path, 10, &sha(&data), &mut || {
+            calls += 1;
+            if calls == 3 { Err(Error::Code("cancelled")) } else { Ok(()) }
+        }, 4);
+        assert_eq!(code(stopped), "cancelled");
+        assert_eq!(calls, 3);
+    }
 }
