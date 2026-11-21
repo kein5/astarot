@@ -136,7 +136,15 @@ export const createAppUpdate = ({ invoke, createChannel, get, set, log = () => {
         }
     };
 
-    return { loadInfo, check, install };
+    // The update channel was set again (#466): what the other channel found goes, and the new one
+    // is checked at once. A download or an install under way is left to finish.
+    const switchChannel = async (channel: string | null) => {
+        if (BUSY.has(get().status) && get().status !== "checking") return get();
+        patch({ status: "idle", version: null, release_url: null, error: null });
+        return check({ silent: true, channel });
+    };
+
+    return { loadInfo, check, install, switchChannel };
 };
 
 // Whole percent of a download, or null while its size is unknown.

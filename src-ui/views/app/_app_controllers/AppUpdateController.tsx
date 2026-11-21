@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { useI18n } from "@useI18n";
 import { useIsBackendReady, useNotificationStatus } from "@logics_common";
@@ -18,7 +18,7 @@ export const AppUpdateController = () => {
     const { currentIsBackendReady } = useIsBackendReady();
     const { currentEnableCheckSoftwareUpdates } = useOthers();
     const { currentReleaseChannel } = useExperimentalFeatures();
-    const { loadAppUpdateInfo, checkAppUpdate } = useAppUpdate();
+    const { loadAppUpdateInfo, checkAppUpdate, switchAppUpdateChannel } = useAppUpdate();
     const ready = currentIsBackendReady.data === true;
     const enabled = currentEnableCheckSoftwareUpdates.data === true;
 
@@ -43,6 +43,17 @@ export const AppUpdateController = () => {
         // The channel came with the settings, before the backend was ready (#466).
         checkAppUpdate({ silent: true, channel: currentReleaseChannel.data ?? null });
     }, [ready, enabled]);
+
+    // A channel the user sets is checked at once (#466): the user asked about updates, so the check
+    // at start being off does not hold it back. The channel the settings came with is not a change.
+    const channel = currentReleaseChannel.data ?? null;
+    const lastChannel = useRef<string | null | undefined>(undefined);
+    useEffect(() => {
+        if (!ready) return;
+        const before = lastChannel.current;
+        lastChannel.current = channel;
+        if (before !== undefined && before !== channel) void switchAppUpdateChannel(channel);
+    }, [ready, channel]);
 
     return null;
 };

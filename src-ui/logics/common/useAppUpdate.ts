@@ -27,5 +27,6 @@ export const useAppUpdate = () => {
         loadAppUpdateInfo: appUpdate.loadInfo,
         checkAppUpdate: appUpdate.check,
         installAppUpdate: appUpdate.install,
+        switchAppUpdateChannel: appUpdate.switchChannel,
     };
 };

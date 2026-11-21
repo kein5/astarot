@@ -129,3 +129,34 @@ test("the check asks for the update channel it is given, and for none without on
     await s.updater.check();
     assert.deepEqual(asked, ["beta", null]);
 });
+
+// #466: setting the channel again forgets what the other channel found and checks the new one.
+test("a channel set again forgets the other channel's update and checks the new one", async () => {
+    const asked: unknown[] = [];
+    const s = setup({ app_update_check: (args: Record<string, unknown> | undefined) => {
+        asked.push(args?.channel);
+        return args?.channel === "beta" ? { available: true, version: "0.6.1-beta.1" } : { available: false };
+    } });
+    await s.updater.switchChannel("beta");
+    assert.equal(s.state().status, "available");
+    assert.equal(s.state().version, "0.6.1-beta.1");
+    // Back to Stable: the beta found before is not offered.
+    await s.updater.switchChannel("stable");
+    assert.deepEqual(asked, ["beta", "stable"]);
+    assert.equal(s.state().status, "up_to_date");
+    assert.equal(s.state().version, null);
+});
+
+test("a failed check after a channel change offers nothing of the other channel", async () => {
+    let calls = 0;
+    const s = setup({ app_update_check: () => {
+        calls += 1;
+        if (calls === 1) return { available: true, version: "0.6.1-beta.1" };
+        throw "update_check_failed";
+    } });
+    await s.updater.check({ channel: "beta" });
+    assert.equal(s.state().status, "available");
+    await s.updater.switchChannel("stable");
+    assert.equal(s.state().status, "idle", "a silent failure keeps no offer of the other channel");
+    assert.equal(s.state().version, null);
+});
