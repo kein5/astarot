@@ -27,6 +27,12 @@ export const pointTriangle = (radius: number, index: number): readonly [Point, P
     return [at(radius, angle), at(inner, angle - 30), at(inner, angle + 30)];
 };
 
+// The middle of a triangle (its centroid): where a feature's icon sits in its triangle (#536).
+export const centroid = (points: readonly Point[]): Point => ({
+    x: round(points.reduce((sum, { x }) => sum + x, 0) / points.length),
+    y: round(points.reduce((sum, { y }) => sum + y, 0) / points.length),
+});
+
 // The hexagon in the middle, where the two triangles cross.
 export const innerHexagon = (radius: number): readonly Point[] =>
     Array.from({ length: 6 }, (_, index) => at(radius / Math.sqrt(3), -60 + 60 * index));

@@ -279,6 +279,9 @@ pub fn routes(core: &Arc<Core>) -> Routes {
     b.get("/get/data/tray_companion_monitor", OPEN, "TRAY_COMPANION_MONITOR");
     let monitor = store(core, "TRAY_COMPANION_MONITOR", "VALIDATION_CONFIG_VALUE_INVALID");
     b.add("/set/data/tray_companion_monitor", OPEN, monitor);
+    b.get("/get/data/tray_companion_wheel_hint_shown", OPEN, "TRAY_COMPANION_WHEEL_HINT_SHOWN");
+    let hinted = store(core, "TRAY_COMPANION_WHEEL_HINT_SHOWN", "VALIDATION_CONFIG_VALUE_INVALID");
+    b.add("/set/data/tray_companion_wheel_hint_shown", OPEN, hinted);
     b.get("/get/data/mic_avg_logprob", OPEN, "MIC_AVG_LOGPROB");
     let logprob = threshold(core, "MIC_AVG_LOGPROB", "Mic average logprob must be finite and between -2 and 0");
     b.add("/set/data/mic_avg_logprob", OPEN, logprob);

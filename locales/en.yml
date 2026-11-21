@@ -2861,6 +2861,12 @@ companion:
     "off": "Off"
     # A switch whose main switch is greyed out (as the VR panel says it): pressing it shows why in the main window.
     unavailable: "Needs setup"
+    # A hexagram label pressed, until the main window answers (#536).
+    switching: "Switching…"
+    # A hexagram label whose request could not be sent to the main window (#536).
+    failed: "Could not switch"
+    # Said for a moment the first time the hexagram ever comes out (#536).
+    wheel_hint: "Turn the wheel to see the other three"
     open_main: "Open ASTAROT"
     close: "Close"
     handle: "Open the control panel"

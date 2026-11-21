@@ -33,7 +33,7 @@ export const CompanionController = () => {
     const { t, i18n } = useI18n();
     const on = useExperimentalFeature(TRAY_COMPANION);
     const { currentTrayCompanionEdge: edge, setTrayCompanionEdge, currentTrayCompanionMonitor: monitor,
-        setTrayCompanionMonitor } = useExperimentalFeatures();
+        setTrayCompanionMonitor, currentTrayCompanionWheelHintShown: hinted, setTrayCompanionWheelHintShown } = useExperimentalFeatures();
     const { currentIsBackendReady } = useIsBackendReady();
     const main = useMainFunction();
     const { asyncQuitApp } = useWindow();
@@ -84,8 +84,8 @@ export const CompanionController = () => {
     // The switch last pressed from the tray, the hexagram or its panel, when, and how it was then;
     // null once answered, by an error notice or by the switch changing.
     const asked = useRef<{ at: number; feature: Feature; was: unknown } | null>(null);
-    const latest = useRef({ main, asyncQuitApp, setTrayCompanionEdge, setTrayCompanionMonitor, refuse, switchState });
-    latest.current = { main, asyncQuitApp, setTrayCompanionEdge, setTrayCompanionMonitor, refuse, switchState };
+    const latest = useRef({ main, asyncQuitApp, setTrayCompanionEdge, setTrayCompanionMonitor, setTrayCompanionWheelHintShown, refuse, switchState });
+    latest.current = { main, asyncQuitApp, setTrayCompanionEdge, setTrayCompanionMonitor, setTrayCompanionWheelHintShown, refuse, switchState };
     const wasOn = useRef(false);
 
     // The engine's refusal (VRChat not running, a language the chat reading cannot read) is an
@@ -137,7 +137,7 @@ export const CompanionController = () => {
                     const was = feature && Object.hasOwn(SWITCH_IDS, feature) ? latest.current.switchState(feature).on : undefined;
                     const ran = runAction(action, { ...latest.current.main, toggleTts: voiceActions.toggleTts, toggleRvc: voiceActions.toggleRvc,
                         setEdge: latest.current.setTrayCompanionEdge, setMonitor: latest.current.setTrayCompanionMonitor,
-                        refuse: latest.current.refuse });
+                        setHinted: () => latest.current.setTrayCompanionWheelHintShown(true), refuse: latest.current.refuse });
                     if (ran && feature) asked.current = { at: Date.now(), feature, was };
                 }
             } catch (error) { console.error("Companion request could not be taken", error); }
@@ -156,10 +156,12 @@ export const CompanionController = () => {
     useEffect(() => {
         invoke("companion_publish", { status: companionStatus({
             ready: currentIsBackendReady.data, mic, translation, listening, ocr, tts: voiceStates.tts, rvc: voiceStates.rvc,
-            blocked, edge: edge?.data, monitor: monitor?.data, language: i18n.language, t,
+            // The settings came with the backend's start, so until it is ready the hint is not known.
+            blocked, edge: edge?.data, monitor: monitor?.data, hinted: currentIsBackendReady.data === true ? hinted?.data : undefined,
+            language: i18n.language, t,
         }) }).catch(error => console.error("Companion state could not be reported", error));
     }, [currentIsBackendReady.data, mic.data, mic.state, translation.data, translation.state, listening?.data, listening?.state,
-        ocr?.data, ocr?.state, voiceStates, blockedKey, edge?.data, monitor?.data, i18n.language, t]);
+        ocr?.data, ocr?.state, voiceStates, blockedKey, edge?.data, monitor?.data, hinted?.data, i18n.language, t]);
 
     // Any dialog the main window opens (the start-up notices among them) needs the user. The main
     // window may be put away in the tray in any run, so this watches in every run.

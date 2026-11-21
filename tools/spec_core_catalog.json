@@ -567,6 +567,16 @@
       "immediate": false
     },
     {
+      "endpoint": "/get/data/tray_companion_wheel_hint_shown",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/tray_companion_wheel_hint_shown",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
       "endpoint": "/get/data/mic_avg_logprob",
       "wait_for_init": false,
       "immediate": false
@@ -4016,6 +4026,11 @@
       "key": "TRAY_COMPANION_MONITOR",
       "kind": "saved",
       "default": ""
+    },
+    {
+      "key": "TRAY_COMPANION_WHEEL_HINT_SHOWN",
+      "kind": "saved",
+      "default": false
     },
     {
       "key": "SPEAKER_THRESHOLD",

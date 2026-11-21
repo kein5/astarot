@@ -388,6 +388,19 @@ fn the_tray_companion_edge_is_one_of_the_four_and_starts_at_the_right() {
 }
 
 #[test]
+fn the_hexagram_tells_of_the_wheel_until_it_has_been_told_once() {
+    let ui = Ui::with(Setup::default());
+    let snapshot = ui.ready();
+    assert_eq!(snapshot["/get/data/tray_companion_wheel_hint_shown"], json!(false));
+    assert_eq!(ui.ok("/set/data/tray_companion_wheel_hint_shown", Some(json!(true))), json!(true));
+    let answer = ui.request("/set/data/tray_companion_wheel_hint_shown", Some(json!("yes")));
+    assert_eq!(error_code(&answer), "VALIDATION_CONFIG_VALUE_INVALID");
+    ui.ok("/run/shutdown", None);
+    assert_eq!(ui.saved()["TRAY_COMPANION_WHEEL_HINT_SHOWN"], json!(true));
+    ui.stop();
+}
+
+#[test]
 fn the_tray_companion_monitor_is_a_name_and_starts_empty_for_the_primary_one() {
     let ui = Ui::with(Setup::default());
     let snapshot = ui.ready();

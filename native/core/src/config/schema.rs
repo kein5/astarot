@@ -635,6 +635,8 @@ pub fn keys() -> Vec<Key> {
         key("TRAY_COMPANION_MONITOR", managed(Ty::Str, false, |v, _| {
             v.as_str().is_some_and(|s| s.chars().count() <= 256 && !s.chars().any(char::is_control))
         })),
+        // The hexagram has told, the first time it came out, that the wheel turns it (#536).
+        key("TRAY_COMPANION_WHEEL_HINT_SHOWN", b()),
         key("SPEAKER_THRESHOLD", managed(Ty::Int, false, |v, ctx| {
             v.as_i64().is_some_and(|v| v >= 0 && v <= ctx.get("MAX_SPEAKER_THRESHOLD").as_i64().unwrap_or(0))
         })),
@@ -894,6 +896,7 @@ pub fn defaults(env: &Environment) -> Map<String, Value> {
         ("CATALOG_LAYOUT", json!("grid")),
         ("TRAY_COMPANION_EDGE", json!("right")),
         ("TRAY_COMPANION_MONITOR", json!("")),
+        ("TRAY_COMPANION_WHEEL_HINT_SHOWN", json!(false)),
         ("SPEAKER_THRESHOLD", json!(300)),
         ("SPEAKER_AUTOMATIC_THRESHOLD", json!(false)),
         ("SPEAKER_RECORD_TIMEOUT", json!(3)),

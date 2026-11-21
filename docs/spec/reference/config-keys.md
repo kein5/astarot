@@ -9,7 +9,7 @@
 
 チャット読み取りの`OCR_CAPTURE_REGION`はデスクトップウィンドウ用、`OCR_VR_CAPTURE_REGION`はSteamVRの左目側の映像用。旧版の単一範囲はウィンドウ用に保持し、未保存のVR側には全体を補う。[範囲の形と移行](../data-and-persistence.md#チャット読み取りの範囲)を参照。
 
-## config.jsonに保存するキー（143件）
+## config.jsonに保存するキー（144件）
 
 | キー | 型・検証 | 既定値 | 保存 |
 |---|---|---|---|
@@ -39,6 +39,7 @@
 | `CATALOG_LAYOUT` | str、独自の検証 | `"grid"` | 2秒後にまとめて |
 | `TRAY_COMPANION_EDGE` | str（`TRAY_COMPANION_EDGE_LIST`のどれか） | `"right"` | 2秒後にまとめて |
 | `TRAY_COMPANION_MONITOR` | str、独自の検証 | `""` | 2秒後にまとめて |
+| `TRAY_COMPANION_WHEEL_HINT_SHOWN` | bool | `false` | 2秒後にまとめて |
 | `SPEAKER_THRESHOLD` | int、独自の検証 | `300` | 2秒後にまとめて |
 | `SPEAKER_AUTOMATIC_THRESHOLD` | bool | `false` | 2秒後にまとめて |
 | `SPEAKER_RECORD_TIMEOUT` | 検証 `asr_timeout` | `3` | 2秒後にまとめて |

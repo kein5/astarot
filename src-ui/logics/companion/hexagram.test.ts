@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { angleOf, baseRotation, dockAt, EDGES, facesInward, innerHexagon, inwardSide, pointAngle, pointTriangle, polygon, TURN } from "./hexagram.ts";
+import { angleOf, baseRotation, centroid, dockAt, EDGES, facesInward, innerHexagon, inwardSide, pointAngle, pointTriangle, polygon, TURN } from "./hexagram.ts";
 
 type Point = { x: number; y: number };
 
@@ -65,4 +65,18 @@ test("a feature docks out beyond its point, its label growing towards the middle
     const { at, side } = dockAt(72, 180, inwardSide("right"));
     assert.deepEqual(at, { x: -72, y: 0 });
     assert.equal(side, "left");
+});
+
+// #536: a feature's icon sits in the middle of its triangle, on the line from the centre to its tip.
+test("a triangle's middle is on the way to its tip, two thirds of the way out of the hexagon", () => {
+    const radius = 58;
+    for (let index = 0; index < 6; index++) {
+        const triangle = pointTriangle(radius, index);
+        const middle = centroid(triangle);
+        const angle = (pointAngle(index) * Math.PI) / 180;
+        const distance = Math.hypot(middle.x, middle.y);
+        assert.ok(Math.abs(Math.atan2(middle.y, middle.x) - Math.atan2(Math.sin(angle), Math.cos(angle))) < 1e-3, `${index}`);
+        // The tip at R and the two corners at R/√3, 30° to either side: (R + 2·R/√3·cos 30°) / 3 = 2R/3.
+        assert.ok(Math.abs(distance - (2 * radius) / 3) < 1e-2, `${index}: ${distance}`);
+    }
 });
