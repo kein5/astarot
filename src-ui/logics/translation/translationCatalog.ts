@@ -4,6 +4,7 @@
 // in the translation-models folder are no longer listed (#597). The backend checks everything;
 // this module only shapes the requests and refuses what cannot pass before it is sent.
 import { cleanPath } from "../voice/modelCatalog.ts";
+import { ctranslate2_weight_type_status, retired_weight_names } from "../ui_configs.ts";
 
 export type CatalogOrigin = "builtin" | "user";
 export type EntryStatus = "ok" | "missing" | "unsupported";
@@ -124,11 +125,17 @@ export function apiRequest(form: ApiForm): Checked<{ group: "api"; name: string;
 // A user's local weight (`user:<id>`), as the settings name it.
 export const isUsersWeight = (weight: string): boolean => weight.startsWith("user:");
 
-// The name to show for a local weight: an entry's own name, else the weight.
+// A built-in weight's name (#565): the download catalog's name of the model ("NLLB-200 distilled
+// 600M · int8"), also for a weight the app no longer offers. Not a built-in weight: undefined.
+export function builtinWeightName(weight: string): string | undefined {
+    return ctranslate2_weight_type_status.find(item => item.id === weight)?.name ?? retired_weight_names[weight];
+}
+
+// The name to show for a local weight: an entry's own name, a built-in weight's name, else the weight.
 export function weightLabel(weight: string, catalog: TranslationCatalog | null | undefined): string {
     const item = catalog?.engine?.find(entry => entry.weight === weight);
     if (item && item.origin !== "builtin") return item.name;
-    return weight;
+    return builtinWeightName(weight) ?? weight;
 }
 
 // Where the button of the note about the translation-models folder leads: the catalog's form

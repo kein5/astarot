@@ -81,7 +81,9 @@ export const translator_status: TranslatorStatus[] = [
     // Upstream VRCT's web translators (Google, Bing, Papago) are not listed: their module is
     // licensed for the official VRCT only, so VRCT-VOX could never run them.
     // i18n-exempt-start: names of translation engines and services
-    { id: "CTranslate2", label: `AI\nCTranslate2`, is_available: false, is_default: true },
+    // The local translation. Its id stays CTranslate2 for the settings; the UI shows it by the name of
+    // its section in Settings through translatorLabel (#565), so this label is only a fallback.
+    { id: "CTranslate2", label: `AI translation (local)`, is_available: false, is_default: true },
     { id: "DeepL_API", label: `DeepL API`, is_available: false },
     // The official APIs of Google and NAVER, called with the user's own keys (not the web translators).
     { id: "Google_Cloud_API", label: `Google Cloud Translation`, is_available: false },
@@ -107,6 +109,9 @@ const MIT = { license: "MIT", non_commercial: false };
 
 export interface CTranslate2WeightStatus {
     id: string;
+    // The name the UI shows (#565): the download catalog's name of the model's int8 entry. A test
+    // of the core (`the_ui_lists_the_weights_with_their_licenses_and_default`) checks they agree.
+    name: string;
     capacity: string;
     is_default: boolean;
     license: string;
@@ -117,13 +122,20 @@ export interface CTranslate2WeightStatus {
     progress: number | null;
 }
 
+// i18n-exempt-start: names of translation models
 export const ctranslate2_weight_type_status: CTranslate2WeightStatus[] = [
-    { id: "m2m100_418M-ct2-int8", capacity: "418MB", is_default: true, ...MIT, model_card_url: "https://huggingface.co/facebook/m2m100_418M" },
-    { id: "m2m100_1.2B-ct2-int8", capacity: "1.2GB", ...MIT, model_card_url: "https://huggingface.co/facebook/m2m100_1.2B" },
-    { id: "nllb-200-distilled-600M-ct2-int8", capacity: "600MB", ...CC_BY_NC_4_0, model_card_url: "https://huggingface.co/facebook/nllb-200-distilled-600M" },
-    { id: "nllb-200-distilled-1.3B-ct2-int8", capacity: "1.3GB", ...CC_BY_NC_4_0, model_card_url: "https://huggingface.co/facebook/nllb-200-distilled-1.3B" },
-    { id: "nllb-200-3.3B-ct2-int8", capacity: "3.3GB", ...CC_BY_NC_4_0, model_card_url: "https://huggingface.co/facebook/nllb-200-3.3B" },
+    { id: "m2m100_418M-ct2-int8", name: "M2M100 418M · int8", capacity: "418MB", is_default: true, ...MIT, model_card_url: "https://huggingface.co/facebook/m2m100_418M" },
+    { id: "m2m100_1.2B-ct2-int8", name: "M2M100 1.2B · int8", capacity: "1.2GB", ...MIT, model_card_url: "https://huggingface.co/facebook/m2m100_1.2B" },
+    { id: "nllb-200-distilled-600M-ct2-int8", name: "NLLB-200 distilled 600M · int8", capacity: "600MB", ...CC_BY_NC_4_0, model_card_url: "https://huggingface.co/facebook/nllb-200-distilled-600M" },
+    { id: "nllb-200-distilled-1.3B-ct2-int8", name: "NLLB-200 distilled 1.3B · int8", capacity: "1.3GB", ...CC_BY_NC_4_0, model_card_url: "https://huggingface.co/facebook/nllb-200-distilled-1.3B" },
 ].map(item => ({ is_default: false, ...item, is_downloaded: false, progress: null }));
+
+// The built-in weights the app no longer offers (#565: NLLB-200 3.3B), by name: the notice that a
+// saved choice of one went back to the default names it (RETIRED_TRANSLATION_WEIGHTS in the core).
+export const retired_weight_names: Readonly<Record<string, string>> = {
+    "nllb-200-3.3B-ct2-int8": "NLLB-200 3.3B · int8",
+};
+// i18n-exempt-end
 
 
 export const deepl_auth_key_url = "https://www.deepl.com/ja/your-account/keys";

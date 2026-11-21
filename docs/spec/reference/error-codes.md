@@ -7,7 +7,7 @@
 - 既定メッセージ: 中核が返す英語の`message`。UIは多くの場合`locales/`の文言に置き換えて表示する。
 - UIの個別処理: `_useBackendErrorHandling.ts`に専用の分岐（値の巻き戻しや翻訳した文言の表示）がある。空欄のコードは、音声やモデル取得など別の経路で処理されるか、汎用の通知になる。
 
-## コード（113件）
+## コード（114件）
 
 | コード | 分類 | 既定メッセージ | 重大度 | 利用者の対処 | UIの個別処理 |
 |---|---|---|---|---|---|
@@ -43,6 +43,7 @@
 | `WEIGHT_CTRANSLATE2_DOWNLOAD` | weight | CTranslate2 weight download error | error | 要 | あり |
 | `WEIGHT_DOWNLOAD_CONSENT_REQUIRED` | weight | Review the model license and size in Settings and consent to this exact model manifest before downloading | warning | 要 | あり |
 | `WEIGHT_CTRANSLATE2_LICENSE_CONSENT_REQUIRED` | weight | This translation model has a non-commercial license (CC-BY-NC-4.0) and must be confirmed explicitly | warning | 要 | あり |
+| `WEIGHT_CTRANSLATE2_RETIRED` | weight | The selected translation model is no longer offered; the default model is used | warning |  | あり |
 | `WEIGHT_CTRANSLATE2_NON_COMMERCIAL_NOTICE` | weight | The selected translation model has a non-commercial license (CC-BY-NC-4.0) | warning |  | あり |
 | `UPDATE_SOFTWARE_DOWNLOAD` | general | Software update download error | error | 要 | あり |
 | `UPDATE_SOFTWARE_VERIFY` | general | Software update verification error | error | 要 | あり |

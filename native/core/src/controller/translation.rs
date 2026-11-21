@@ -1594,6 +1594,31 @@ mod tests {
     }
 
     #[test]
+    fn the_ui_names_each_weight_as_the_download_catalog_names_its_model() {
+        // #565: Settings → Translation and the translation catalog show a built-in model by the
+        // download catalog's name of its int8 entry ("NLLB-200 distilled 600M · int8"), which the
+        // UI keeps in ui_configs.ts. A model not in the catalog yet keeps the same form of name.
+        let names: std::collections::HashMap<String, String> = ui_weight_rows()
+            .into_iter()
+            .map(|(id, rest)| {
+                let name = rest.split_once("name: \"").and_then(|(_, r)| r.split_once('"')).map(|(n, _)| n.to_string());
+                let name = name.unwrap_or_else(|| panic!("{id} has no name"));
+                assert!(name.ends_with(" · int8"), "{id}: {name}");
+                (id, name)
+            })
+            .collect();
+        let mut checked = 0;
+        for entry in vrct_ops::downloads::catalog::translation_models() {
+            let Some((weight, variant)) = super::super::translation_onnx::weight_of_catalog_id(&entry.id) else { continue };
+            if variant.name() == "int8" {
+                assert_eq!(names[weight], entry.name, "{weight}");
+                checked += 1;
+            }
+        }
+        assert!(checked > 0, "the shipped catalog names at least one built-in model");
+    }
+
+    #[test]
     fn the_ui_lists_the_weights_with_their_licenses_and_default() {
         // `test_ui_weight_list_matches_backend_licenses` of the Python tests.
         let rows = ui_weight_rows();

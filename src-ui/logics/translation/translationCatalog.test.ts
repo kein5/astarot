@@ -1,7 +1,7 @@
 import { test } from "vitest";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { ENGINE_FORM_SETTING_ID, apiRequest, engineRequest, entryState, isUsersWeight, languageCodes, weightLabel } from "./translationCatalog.ts";
+import { ENGINE_FORM_SETTING_ID, apiRequest, builtinWeightName, engineRequest, entryState, isUsersWeight, languageCodes, weightLabel } from "./translationCatalog.ts";
 import type { ApiForm, ApiItem, EngineForm, EngineItem, TranslationCatalog } from "./translationCatalog.ts";
 import { unchecked } from "../test/hookHarness.ts";
 import { isRelayAllowed } from "../common/vrPanelWire.ts";
@@ -66,7 +66,11 @@ test("a user's local weight shows the name it was added under", () => {
     assert.equal(weightLabel("user:tr-2", catalog), "user:tr-2");
     // A folder model of earlier versions is no longer the user's model (#597).
     assert.equal(weightLabel("custom:folder", null), "custom:folder");
-    assert.equal(weightLabel("m2m100_418M-ct2-int8", catalog), "m2m100_418M-ct2-int8");
+    // A built-in model by the download catalog's name of it, also one no longer offered (#565).
+    assert.equal(weightLabel("m2m100_418M-ct2-int8", catalog), "M2M100 418M · int8");
+    assert.equal(weightLabel("nllb-200-distilled-600M-ct2-int8", null), "NLLB-200 distilled 600M · int8");
+    assert.equal(weightLabel("nllb-200-3.3B-ct2-int8", null), "NLLB-200 3.3B · int8");
+    assert.equal(builtinWeightName("user:tr-1"), undefined);
     assert.ok(isUsersWeight("user:tr-1") && !isUsersWeight("custom:x") && !isUsersWeight("m2m100_418M-ct2-int8"));
 });
 

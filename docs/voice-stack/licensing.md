@@ -388,6 +388,8 @@ NLLBのCC-BY-NC-4.0について確かめたこと:
 | `nllb-200-distilled-1-3b-onnx-int8` | `facebook/nllb-200-distilled-1.3B` | 1,402 MB |
 | `nllb-200-3-3b-onnx-int8` | `facebook/nllb-200-3.3B` | 3,380 MB |
 
+3.3Bは公開しないと決まり（2026-11-20、#803）、アプリの組み込みのモデルの一覧からも外した（2026-11-21、#565）。上の予定のidは使わない。
+
 - 非商用のライセンスなので、既定のモデルにしない。
 - 取得にはふつうの同意とは別に、非商用に限ることの確認が要る。カタログの行の`restrictions`はライセンスの文字列から決まり、CC-BY-NC-4.0なら`non_commercial`になる。確認の画面はライセンスの名前を示して2つ目のチェックを求め、開始の要求にその確認（`acknowledged`）がなければ何も書かずに断る（`model_download_restriction_unacknowledged`）。仕組みは[モデル取得](model-downloads.md#非商用のライセンスの確認)にある。
 - 選ぶときの確認（翻訳の設定のNLLBの確認と、中核の`WEIGHT_CTRANSLATE2_LICENSE_CONSENT_REQUIRED`）は残す。取得のときの確認とは別にもう一度求める。

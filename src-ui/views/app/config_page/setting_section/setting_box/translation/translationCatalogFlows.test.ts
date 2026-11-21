@@ -50,6 +50,8 @@ const loadSection = async (runtime: HookRuntime) => {
         new URL("../advanced_settings/catalogHeading.tsx", import.meta.url), runtime, { "../_components/hint/Hint": { Hint: "hint" } });
     return loadModule<typeof import("./TranslationCatalog.tsx")>(new URL("./TranslationCatalog.tsx", import.meta.url), runtime, {
         "../../../../../../logics/translation/useTranslationCatalog": { useTranslationCatalog: () => hook },
+        // Every shipped model is one the model list shows here (#565).
+        "../../../../../../logics/translation/useListedLocalWeights": { useListedLocalWeights: () => new Set(shippedEngine.map(item => item.weight)) },
         "../../../../../../logics/translation/translationCatalog": translationCatalog,
         "../../../../../../logics/common/endpointPrivacy": { endpointDescription: () => "" },
         "../_components": { SectionLabelComponent: "section-label" },

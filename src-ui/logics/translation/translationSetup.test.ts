@@ -6,6 +6,7 @@ import { hooks, loadModule } from "../test/hookHarness.ts";
 import type { HookRuntime } from "../test/hookHarness.ts";
 import { downloadProgress } from "../main/setupNeeds.ts";
 import type { BackendErrorReport } from "../_useBackendErrorHandling.ts";
+import * as translatorLabel from "../main/translatorLabel.ts";
 
 const noop = () => {};
 const api = <T extends object>(values: T) => new Proxy(values, { get: (object, name) => Reflect.get(object, name) ?? noop });
@@ -67,6 +68,7 @@ async function fixture(context: TestContext) {
         "./ui_configs": {}, "./configs/legacyModelConsent": {}, "./configs/cloudTranscription": { CLOUD_TRANSCRIPTION_ENGINES: [] },
         "./transcription/useTranscriptionConsent": { useTranscriptionConsent: () => ({ setRequest: noop }) },
         "./translation/useTranslationSetup": setup,
+        "./main/translatorLabel": translatorLabel,
         "./ocr/useOcrSetup": { useOcrSetup: () => ({ show: noop }) },
     });
     const errorHandling = errors._useBackendErrorHandling().errorHandling_Backend;
