@@ -92,11 +92,15 @@ Changelog: user
 
 ### The commit-msg hook
 
-The hook rejects a message that is not a Conventional Commit before the commit is made. It is defined in [`cog.toml`](cog.toml) and installed per clone:
+The hook rejects a message that is not a Conventional Commit before the commit is made. It is one of the Git hooks in [`hk.pkl`](hk.pkl), run by [hk](https://hk.jdx.dev/), and is installed per clone:
 
-1. Install [Cocogitto](https://docs.cocogitto.io/) 7 (`mise install` installs the version in `mise.toml`; `cargo install cocogitto --version 7.0.0 --locked` or your package manager also work), so that `cog --version` prints `cog 7.x`.
-2. In the repository, run `cog install-hook commit-msg`. It writes `.git/hooks/commit-msg`, which every worktree of the clone shares.
-3. After `cog.toml` changes the hook, run `cog install-hook commit-msg --overwrite`.
+1. Run `mise install`. It installs the versions in `mise.toml`: hk, [Cocogitto](https://docs.cocogitto.io/) 7 and the tools the pre-commit hook runs.
+2. In the repository, run `python tools/dev.py setup --scope hooks` (or `mise run setup:hooks`). It runs `hk install`. With Git 2.54 or later the hooks go into the clone's Git config, and with an older Git into `.git/hooks`; either way every worktree of the clone shares them. Nothing else installs them.
+3. To skip the hooks for one commit, run `HK=0 git commit ...`. To remove them from the clone, run `hk uninstall`.
+
+The same command installs the pre-commit hook, which checks the staged files for keys and tokens, the workflows, the UI's TypeScript and JavaScript, and the links in Markdown ([docs/development.md](docs/development.md#gitのフック)).
+
+Without hk, `cog install-hook commit-msg` installs the same message check from [`cog.toml`](cog.toml) into `.git/hooks/commit-msg` (add `--overwrite` after `cog.toml` changes it). Install one or the other: with Git 2.54 or later both run, and the message is checked twice.
 
 Merge commits pass, as `cog check` ignores them. `fixup!`, `squash!` and `amend!` commits pass locally so that `git rebase --autosquash` keeps working; squash them before you open a pull request, because CI rejects them. To check a message by hand, run `cog verify "feat(ui): ..."`.
 
@@ -152,7 +156,7 @@ The CHANGELOG section is the full list of a stable release; the GitHub release h
 
 ### Troubleshooting
 
-- If the hook says Cocogitto is not installed, install Cocogitto 7 or make `cog` reachable from Git's shell (the hook also tries `mise exec -- cog`). To stop checking in this clone, delete `.git/hooks/commit-msg`.
+- If a hook cannot find `hk`, `cog` or another tool, run `mise install`. The hooks find the tools through mise's shims, so the versions are those in `mise.toml`. To stop checking in this clone, run `hk uninstall` (or, with `cog install-hook`, delete `.git/hooks/commit-msg`).
 - If `cog install-hook` refuses to replace a hook, another hook is already there. Check it, then add `--overwrite`.
 - If CI rejects a commit that the hook let through, it is a `fixup!`, `squash!` or `amend!` commit, or it was made without the hook. Rewrite your branch with `git rebase -i` before it is merged; never rewrite `develop` or `main`.
 - If the tool reports `changelog: no earlier release tag`, fetch the tags with `git fetch --tags`.
@@ -178,7 +182,7 @@ VRCT-VOX is derived from [VRCT](https://github.com/misyaguziya/VRCT) and no long
 Issue や PR は日本語でも構いません。作業ブランチは `develop` から作り、PR は `develop` へ出してください。`main` は保護されています。正式版のときだけ、`develop` から切った `release/X.Y.Z` ブランチ（版の変更と CHANGELOG の節だけ）を PR で統合します。統合すると候補のビルドとリリースの下書きの準備が自動で始まり、公開すると `main` を `develop` へ戻す PR が自動で開きます。公開とその前の確認は人が行います。公開済みの版を急いで直すときは、`main` から切ります（[手順](docs/voice-stack/release-candidates.md#公開済みの版を急いで直す)）。
 
 - コミットは Conventional Commits の形式で書きます。種別の選び方と例は上の「Commit messages」にあります。
-- 形式の検査は commit-msg フックで行います。Cocogitto 7 を入れて、複製ごとに `cog install-hook commit-msg` を一度実行してください。CI も PR と、develop・main への push を検査します。
+- 形式の検査は commit-msg フックで行います。`mise install` のあと、複製ごとに `python tools/dev.py setup --scope hooks`（hk のフックを入れる）を一度実行してください。hk を使わないときは `cog install-hook commit-msg` でも入れられますが、両方は入れないでください。CI も PR と、develop・main への push を検査します。
 - `CHANGELOG.md` に載せるのは正式版だけです。正式版のリリースを準備するときに `npm run changelog` で書きます。ベータ版の変更は GitHub のプレリリースのノートに載せます。機能のブランチでは編集しません。手順と分類は上の「Changelog and releases」にあります。
 - テストと確認した内容を PR に書いてください。
 - Issue から develop への統合までの流れは上の「Pull requests」に、リリースの流れは[配布候補とリリース下書き](docs/voice-stack/release-candidates.md#全体の流れ)に図があります。流れを変える PR では図も同じ PR で直します。
