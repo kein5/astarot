@@ -19,7 +19,7 @@ mise run check               # 軽量チェック
 | --- | --- |
 | `doctor` | `python tools/dev.py doctor` |
 | `check`、`check:all` | `python tools/dev.py check`（`quick`）、`--scope all` |
-| `check:voice`、`check:ui`、`check:rust`、`check:integration`、`check:workflows`、`check:crates` | `python tools/dev.py check --scope <名前>` |
+| `check:voice`、`check:ui`、`check:rust`、`check:integration`、`check:workflows`、`check:crates`、`check:links` | `python tools/dev.py check --scope <名前>` |
 | `check:commits`、`check:secrets` | `python tools/dev.py check --scope <名前> --base origin/develop` |
 | `check:vulns` | `python tools/dev.py check --scope vulns`（osv.devに問い合わせる） |
 | `setup:headless`、`setup:ui`、`setup:browser`、`setup:rust`、`setup:resources`、`setup:integration` | `python tools/dev.py setup --scope <名前>` |
@@ -172,8 +172,9 @@ python tools/dev.py check --scope integration
 | `integration` | [結合テスト](#結合テストplaywright)。`native/browser-core-bridge` を `cargo build --locked --offline` で組み、`tests/integration/vite.config.ts` で画面を組んでから、Playwright で Chromium と WebKit の試験を流す。ブラウザは取得しない。未導入なら `setup --scope integration` を案内して止まる |
 | `workflows` | ワークフローと自前のアクションを、actionlintとzizmorで検査（[リポジトリの検査](#リポジトリの検査)） |
 | `crates` | すべてのCargoのワークスペースの依存のライセンス、禁止の設定、取得元を、cargo-denyで検査（[リポジトリの検査](#リポジトリの検査)）。先に `setup --scope rust` が要る |
+| `links` | リポジトリのMarkdownのファイル同士のリンクと見出しへのリンクを、lycheeで検査。外部のサイトには問い合わせない（[リポジトリの検査](#リポジトリの検査)） |
 | `quick` | `tooling`、`node`、`lint`。既定値 |
-| `all` | 上記9対象。時間がかかるため統合時に明示実行 |
+| `all` | 上記10対象。時間がかかるため統合時に明示実行 |
 | `commits` | `--base` からHEADまでの新規コミット形式を検証 |
 | `secrets` | `--base` からHEADまでの新規コミットに、鍵やトークンが入っていないかをgitleaksで検査（[リポジトリの検査](#リポジトリの検査)） |
 | `vulns` | ロックファイルの依存の既知の脆弱性を、osv-scannerで検査。osv.devに問い合わせるので `all` には入れない（[リポジトリの検査](#リポジトリの検査)） |
@@ -202,6 +203,7 @@ Pythonは専用venvを優先し、次に既存の `.venv` を探します。`--p
 | スコープ | 道具 | 確かめること | 例外の置き場所 |
 | --- | --- | --- | --- |
 | `workflows` | actionlint、zizmor | ワークフローの書き方、式、型（actionlint）。ワークフロー、自前のアクション、`dependabot.yml` の安全の問題（zizmor） | `.github/zizmor.yml`、または該当行の `# zizmor: ignore[<監査>] <理由>` |
+| `links` | lychee | `site/` 以外のMarkdownのファイル同士のリンクと、見出しへのリンク（`#...`）。外部のサイトには問い合わせない | `lychee.toml` |
 | `secrets` | gitleaks | `--base` からHEADまでの新規コミットの鍵やトークン。見つけた値は出力に出さない（`--redact`） | `.gitleaks.toml`（規則）、`.gitleaksignore`（過去のコミットの指紋） |
 | `vulns` | osv-scanner | `uv.lock`、`package-lock.json`（ルートと `site/` と `site/motion/`）、18の `Cargo.lock` の依存の既知の脆弱性（osv.dev） | `osv-scanner.toml`（例外。理由と見直す日を書く） |
 | `crates` | cargo-deny | 18のCargoのワークスペース（`CARGO_WORKSPACES`）の依存のライセンス、取得元（crates.ioと、許可したgitのリポジトリ）、版を書かない依存。配布する2つのシステム（WindowsとLinuxのx64）で組む依存だけを見る | `deny.toml` |
@@ -212,6 +214,7 @@ Pythonは専用venvを優先し、次に既存の `.venv` を探します。`--p
 - `deny.toml` のライセンスは[ライセンス台帳](voice-stack/licensing.md)に合わせています。許容型（MIT、Apache-2.0、BSD、ISC、Zlib、Unicode-3.0など）はどのクレートにも認め、MPL-2.0とCDLA-Permissive-2.0は台帳で確かめたクレートだけに認めます。新しい依存で検査が止まったら、台帳に記録してから `deny.toml` に足します。既知の脆弱性はcargo-denyでは見ません。
 - gitleaksは、2026-11-21に履歴全体（4,806コミット）を調べたときの56件を、規則（計測結果のハッシュ、試験のWebSocketの値と暗号化した鍵）と、過去のコミットの指紋の一覧に分けて外しています。どれも秘密ではありませんでした。CIでは、PR、push、マージキューが足したコミットだけを見ます。
 - osv-scannerは `tools/translation_onnx/requirements.txt` を読みません。torchのローカルの版（`+cpu`）を解決できないためで、そこから配布物に入るものはありません。`osv-scanner.toml` に載っていない通知があると、CIの `vulns` のステップも失敗します（2026-11-21に #835 で決定）。いま直せない通知は、`osv-scanner.toml` に理由と見直す日（`ignoreUntil`）を書いて例外にします。その日を過ぎると例外が切れて検査が失敗するので、直すか、まだ直せない理由と新しい日を書いて例外を延ばします。2026-11-21の時点の例外は9件で、どれも同じメジャー版の中の更新では直らないものです（保守が終わったクレートと、GTK 3の `glib` 0.18）。
+- lycheeは `site/` を読みません。ガイドのページはファイルではなく道筋（`requirements` など）でつながっているためで、そのリンクはサイトのビルドのあとの検査（`tools/check_site_anchors.mjs`）が確かめます。リンク先のファイルを消したときは、日付の入った記録の中のリンクを、消す前のコミットに固定したGitHubのリンクに替えます。
 - CIでは `crates` だけを別のワークフロー `rust-crates.yml` で実行します。すべての依存の取得が要るので、`Cargo.toml`、`Cargo.lock`、`deny.toml` などを変えたPRと、developとmainへのpushだけで動きます。
 
 ## UIのTypeScriptとスタイル（移行中）

@@ -48,7 +48,7 @@ flowchart TB
     VIRTUAL --> VRCHAT["VRChat input"]
 ```
 
-主な証拠は [UI sidecar起動](../../src-ui/views/app/_app_controllers/StartPythonController.jsx)、[UI IPC](../../src-ui/logics/common/useStdoutToPython.ts)、[Main](https://github.com/kein5/astarot/blob/v0.5.2/src-python/mainloop.py#L688)、[Controller](https://github.com/kein5/astarot/blob/v0.5.2/src-python/controller.py#L976)、[scheduler](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/tts/tts_scheduler.py)、[AudioRouter](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/audio_routing/audio_router.py)。
+主な証拠は [UI sidecar起動](https://github.com/kein5/astarot/blob/637a2576099d39ecd722f3882242caeb199bae22/src-ui/views/app/_app_controllers/StartPythonController.jsx)、[UI IPC](../../src-ui/logics/common/useStdoutToPython.ts)、[Main](https://github.com/kein5/astarot/blob/v0.5.2/src-python/mainloop.py#L688)、[Controller](https://github.com/kein5/astarot/blob/v0.5.2/src-python/controller.py#L976)、[scheduler](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/tts/tts_scheduler.py)、[AudioRouter](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/audio_routing/audio_router.py)。
 
 | 責務・境界 | 確認できた実装 | 評価 |
 |---|---|---|
