@@ -3,6 +3,7 @@ import clsx from "clsx";
 import styles from "./ConfigPage.module.scss";
 
 import { useIsOpenedConfigPage } from "@logics_common";
+import { useOcr } from "@logics_configs";
 
 import { Topbar } from "./topbar/Topbar";
 import { SidebarSection } from "./sidebar_section/SidebarSection";
@@ -18,6 +19,15 @@ export const ConfigPage = () => {
     const root = useRef<HTMLDivElement>(null);
     const wasOpen = useRef(false);
     const isClosed = currentIsOpenedConfigPage.data === false;
+    const { getOcrCaptureStatus } = useOcr();
+    const askCaptureStatus = useRef(getOcrCaptureStatus);
+    askCaptureStatus.current = getOcrCaptureStatus;
+
+    // Where chat reading can read (the window, the headset) is asked as the settings open, so its
+    // page draws a reading area for each from the start, even with its folds opened before its own
+    // answers come (#912). The page asks again while it is open. It is not asked at start-up: the
+    // core looks for the headset to answer it.
+    useEffect(() => { if (!isClosed) askCaptureStatus.current(); }, [isClosed]);
 
     // Opening settings moves focus to the selected tab for keyboard users.
     // WebKit can draw that focus ring after a mouse click too, so the sidebar
