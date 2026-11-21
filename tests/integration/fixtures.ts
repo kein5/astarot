@@ -138,6 +138,16 @@ export class App {
         await expect(control).toBeVisible();
     }
 
+    /** Holds what the core sends until releaseCore: the page as it is before its answers. */
+    async holdCore() {
+        await this.page.evaluate(() => window.__holdCoreLines?.());
+    }
+
+    /** Lets what the core sent while held reach the page, in order. */
+    async releaseCore() {
+        await this.page.evaluate(() => window.__releaseCoreLines?.());
+    }
+
     /** Leaves Settings for the main window. */
     async closeSettings() {
         await this.page.getByRole("button", { name: "Go back" }).click();
