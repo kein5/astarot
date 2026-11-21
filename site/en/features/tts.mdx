@@ -32,7 +32,7 @@ Japanese can also be read in the voices of a speech engine you install and run y
 
 1. Install the engine and start it.
 2. Under Settings → "Text to speech (TTS)" → "Japanese TTS", choose the engine in "Engine that reads Japanese".
-3. When it says "Connected", choose a voice in "Voice". If it says "Not connected", check that the engine is running and check "Engine URL", then press "Check again". The engine's default URL usually works. Only addresses on this computer (`127.0.0.1`, `localhost`, `::1`) can be used.
+3. When it says "Connected", choose a voice in "Voice". If it says "Not connected", check that the engine is running and check "Engine URL", then press "Check again". The engine's default URL usually works. Only addresses that point to the PC that runs ASTAROT (`127.0.0.1`, `localhost`, `::1`) can be used.
 4. Save with "Save changes" at the top, then turn on "Text to speech (TTS)" on the main screen.
 
 While an engine is chosen, Japanese speech uses neither the speech.cpp server nor its model. Other languages are read by speech.cpp as before.

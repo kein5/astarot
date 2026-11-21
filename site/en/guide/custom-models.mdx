@@ -6,7 +6,7 @@ What you can use depends on the feature.
 
 | Feature | What you can use | Where to set it |
 |---|---|---|
-| Text to speech (TTS) | A <Term tip="A file format that holds an AI model in one file. speech.cpp reads it; the file name ends in .gguf.">GGUF</Term> model, and a voice GGUF (optional). Or a server you run on this computer | "Text to speech (TTS)" → "Models and servers" |
+| Text to speech (TTS) | A <Term tip="A file format that holds an AI model in one file. speech.cpp reads it; the file name ends in .gguf.">GGUF</Term> model, and a voice GGUF (optional). Or a server you run on your PC | "Text to speech (TTS)" → "Models and servers" |
 | Speech recognition (ASR) | A GGUF recognition model, VAD and diarization (optional). Or a server you run on your PC | "Speech recognition (ASR)" → "On your PC (speech.cpp)" → "Models and servers" → "ASR + VAD" |
 | Whisper | A Whisper server of your own (OpenAI compatible) | "Speech recognition (ASR)" → "API (cloud or your own server)" → "Custom Whisper server" |
 | Voice changer (RVC) | A `.pth` model and a `.index` (optional) | "Voice changer (RVC)" |
@@ -37,7 +37,7 @@ Before a model is downloaded from the settings, the app shows its provider, lice
 
 ### Use a server you run yourself
 
-If you run a speech.cpp server on this computer yourself, choose "External server" in "Japanese server" (or the other languages one) and enter its URL. The URL can only be `127.0.0.1`, `localhost` or `::1`.
+If you run a speech.cpp server yourself on the PC that runs ASTAROT, choose "External server" in "Japanese server" (or the other languages one) and enter its URL. The URL can only be `127.0.0.1`, `localhost` or `::1`.
 
 ### When it does not work
 
@@ -63,7 +63,7 @@ A wrong voice name gives an error with a number when speech plays. For a voice G
 3. Press "Save changes".
 4. Turn on "Mic input" or "Listening" on the main screen.
 
-If you run a recognition server of your own on this computer, choose the external server under "ASR server" in "Realtime captions", and enter its URL.
+If you run a recognition server of your own on your PC, choose the external server under "ASR server" in "Realtime captions", and enter its URL.
 
 ### When it does not work
 
@@ -82,7 +82,7 @@ Whisper does not run inside the app ([If you used Whisper in an earlier version]
    Saving checks that the server can be reached and reads its list of models.
 3. Choose a model, and choose "Custom Whisper server" as the engine above.
 
-Use HTTPS. HTTP works only for this computer (localhost) or an IP address on your local network.
+Use HTTPS. HTTP works only for the PC that runs ASTAROT (localhost) or an IP address on your local network.
 
 ## Voice changer (RVC) {#rvc}
 

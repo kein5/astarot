@@ -41,7 +41,7 @@ Some models cannot translate some languages. For example, M2M100 does not suppor
 You can use DeepL, Plamo, Gemini, OpenAI, Groq and OpenRouter. Register an API key for each, then choose it under "Translator" on the main screen.
 
 - The text to translate is sent to the service you choose.
-- API keys are stored in the settings file on this PC (`config.json`).
+- API keys are stored in the settings file on your PC (`config.json`).
 
 ## Use local LLMs and compatible servers
 

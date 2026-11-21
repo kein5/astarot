@@ -16,7 +16,7 @@
 
 ASTAROTはOSCという仕組みでVRChatのチャットボックスへ文字を送ります。VRChatのアクションメニューから「Options」→「OSC」を開き、「Enabled」にしてください。
 
-メイン画面の右上の「クイック設定」を開くと、OSCが有効なVRChatをこのPCで検出できたかが出ます。「設定」→「VRChat」の先頭にも同じ表示があります。
+メイン画面の右上の「クイック設定」を開くと、OSCが有効なVRChatをお使いのPCで検出できたかが出ます。「設定」→「VRChat」の先頭にも同じ表示があります。
 
 ![「クイック設定」を開いたところ。VRChatを検出したと表示されている](/screenshots/ja/quick-settings.webp)
 
