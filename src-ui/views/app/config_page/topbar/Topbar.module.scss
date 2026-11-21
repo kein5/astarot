@@ -5,7 +5,9 @@
 .back:hover { background: var(--dark_800_color); }
 .back:active { background: var(--dark_900_color); }
 
-.save_bar { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: .8rem; min-height: 4rem; padding: .4rem .4rem .4rem 1.4rem; border-radius: var(--vox_radius); background: var(--dark_900_color); border: .1rem solid var(--dark_800_color); }
+// As high as search, stop and back beside it (4rem with its buttons and border), so the row under
+// them does not move when a page with a form opens after one without (#912).
+.save_bar { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: .8rem; min-height: 4rem; padding: .3rem .4rem .3rem 1.4rem; border-radius: var(--vox_radius); background: var(--dark_900_color); border: .1rem solid var(--dark_800_color); }
 .save_bar.is_dirty { border-color: var(--primary_500_color); }
 // Wrap the state/count before squeezing the actions. The grid reserves the
 // resulting height, including long translations and large unsaved counts.

@@ -75,3 +75,22 @@ test("the wording exists in English and Japanese and names the change", () => {
         assert.equal(typeof localeAt(strings, "voice_ui.applies_now"), "string");
     }
 });
+
+// #912: the save bar is as high as search, stop and back beside it (4rem), so the row under the
+// header does not move when a page with a form opens after one without.
+test("the save bar with its buttons is 4rem high, as the other parts of the header row", async () => {
+    const { readFileSync } = await import("node:fs");
+    const css = readFileSync(new URL("./Topbar.module.scss", import.meta.url), "utf8");
+    const rule = (selector: string) => new RegExp(`^${selector.replace(".", "\\.")} \\{([^}]*)\\}`, "m").exec(css)?.[1] ?? "";
+    const rem = (text: string, property: string) => Number(new RegExp(`${property}: ([\\d.]+)rem`).exec(text)?.[1]);
+    const bar = rule(".save_bar"), buttons = rule(".discard, .save");
+    const padding = /padding: ([\d.]+)rem ([\d.]+)rem ([\d.]+)rem/.exec(bar);
+    assert.ok(padding, "the save bar's padding");
+    const [top, , bottom] = padding.slice(1).map(Number);
+    const border = Number(/border: ([\d.]+)rem solid/.exec(bar)?.[1]);
+    assert.equal(+(rem(buttons, "min-height") + top + bottom + 2 * border).toFixed(2), 4);
+    assert.equal(rem(bar, "min-height"), 4);
+    // The parts beside it: back and stop are 4rem high.
+    assert.equal(rem(rule(".back"), "min-height"), 4);
+    assert.equal(rem(rule(".stop"), "min-height"), 4);
+});
