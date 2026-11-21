@@ -15,6 +15,10 @@ REM ONNX Runtime (chat reading, local translation) and the OpenVR client library
 REM pinned by size and SHA-256 and kept in build/runtime-libraries.
 python tools/runtime_libraries.py --platform windows --download --output build
 if errorlevel 1 exit /b 1
+REM The readings' dictionary, SudachiDict full (decision 3 in docs/voice-stack/core-integration.md),
+REM pinned by size and SHA-256. A checked dictionary of that edition in build/sudachi is kept.
+python tools/sudachi_dictionary.py fetch --edition full --output build/sudachi
+if errorlevel 1 exit /b 1
 REM The license texts of the Rust crates in vrct-vox.exe and the worker (NOTICE.md).
 python tools/rust_licenses.py --output build/licenses/rust
 if errorlevel 1 exit /b 1

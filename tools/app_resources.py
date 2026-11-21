@@ -12,7 +12,7 @@ whole, also removes the Python runtime of an older version.
 `stage` copies from the build folder (build/speechcpp from speechcpp_bundle.py, and on Linux
 build/speechcpp-cpu beside it: the Vulkan build and the CPU build ship together; the RVC worker
 from build_rvc_worker.py, the Rust license texts from rust_licenses.py, the Linux helpers from
-build_voice_gate.py, the readings' dictionary from sudachi_dictionary.py when present, ONNX
+build_voice_gate.py, the readings' dictionary from sudachi_dictionary.py, ONNX
 Runtime and the OpenVR client library from runtime_libraries.py) and the
 repository (LICENSE, NOTICE.md, the NScurl notices). It downloads
 nothing. `check` lists what a package needs and is missing.
@@ -37,6 +37,9 @@ LINUX_HELPERS = ('astarot-voice-gate', 'astarot-source-bridge', 'astarot-screen-
 # settings which one runs (native/speech-server/src/builds.rs).
 SPEECH_BUNDLES = {'windows': ('speechcpp',), 'linux': ('speechcpp', 'speechcpp-cpu')}
 
+# The readings' dictionary and the texts its license asks to ship with it (sudachi_dictionary.py).
+SUDACHI_FILES = ('system.dic', 'LEGAL', 'LICENSE-2.0.txt', 'dictionary.json')
+
 
 def _exe(name, platform):
     return f'{name}.exe' if platform == 'windows' else name
@@ -51,6 +54,9 @@ def required(platform):
     # ONNX Runtime for chat reading and local translation, and the OpenVR client library for the
     # VR overlay and the headset view (tools/runtime_libraries.py, issue #509).
     names += runtime_libraries(platform)
+    # The readings' SudachiDict with the license texts it ships with (sudachi_dictionary.py;
+    # decision 3, issue #924). Without it messages have no readings, as in 0.5.0.
+    names += [f'build/sudachi/{name}' for name in SUDACHI_FILES]
     if platform == 'windows':
         names.append('licenses/nscurl/LICENSE.md')
     else:
@@ -73,8 +79,7 @@ def pairs(platform, build=ROOT / 'build', root=ROOT):
             notices = bundle / 'notices'
             if notices.is_dir():
                 result += [(file, f'build/{name}/notices/{file.name}') for file in sorted(notices.iterdir()) if file.is_file()]
-    # The readings' SudachiDict (sudachi_dictionary.py). Not required yet: which edition ships is
-    # decision 3 in docs/voice-stack/core-integration.md; without it messages have no readings.
+    # The readings' SudachiDict (sudachi_dictionary.py), required (SUDACHI_FILES).
     sudachi = build / 'sudachi'
     if sudachi.is_dir():
         result += [(file, f'build/sudachi/{file.name}') for file in sorted(sudachi.iterdir()) if file.is_file()]

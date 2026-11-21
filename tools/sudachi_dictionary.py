@@ -4,12 +4,15 @@ The Rust core analyzes text with sudachi.rs and reads `_internal/build/sudachi/s
 (native/core/src/controller/messages.rs, decision 3 in docs/voice-stack/core-integration.md).
 This tool downloads the official SudachiDict release at a fixed version, checks its size and
 SHA-256, and writes the dictionary with its license texts to build/sudachi, where
-tools/app_resources.py stages it. It runs when a package is built; the app never downloads it.
+tools/app_resources.py stages it. It runs when a package is built (bat/build.bat,
+tools/build_linux.py); the app never downloads it. A folder that already holds the same edition,
+checked, is kept.
 
-    python tools/sudachi_dictionary.py fetch --edition full
+    python tools/sudachi_dictionary.py fetch
     python tools/sudachi_dictionary.py check build/sudachi
 
-The editions hold the same analysis with fewer words: full is what the Python backend used.
+The editions hold the same analysis with fewer words: full is what the Python backend used, and
+the edition the packages ship (SHIPPED_EDITION).
 """
 import argparse
 import hashlib
@@ -36,10 +39,18 @@ EDITIONS = {
 }
 NOTICES = ('LEGAL', 'LICENSE-2.0.txt')
 MANIFEST = 'dictionary.json'
+# The edition the packages ship: decision 3 in docs/voice-stack/core-integration.md (2026-11-21,
+# issue #924). full keeps the readings 0.4 gave; core reads English words as they are written.
+SHIPPED_EDITION = 'full'
 
 
 def url(edition):
-    return f'{BASE}/sudachi-dictionary-{VERSION}-{edition}.zip'
+    return f'{BASE}/{archive_name(edition)}'
+
+
+def archive_name(edition):
+    """The official archive's file name, under which a build may keep it."""
+    return f'sudachi-dictionary-{VERSION}-{edition}.zip'
 
 
 def _digest(stream):
@@ -50,7 +61,7 @@ def _digest(stream):
     return size, digest.hexdigest()
 
 
-def download(edition, destination, *, opener=urlopen):
+def download_archive(edition, destination, *, opener=urlopen):
     """Downloads the archive of `edition` to `destination` and checks it."""
     expected = EDITIONS[edition]
     with opener(url(edition), timeout=60) as response, open(destination, 'wb') as file:
@@ -86,6 +97,25 @@ def stage(archive, edition, output):
     return record
 
 
+def ensure(edition, output, *, archive=None, download=True, opener=urlopen):
+    """Makes `output` hold `edition`, checked, and returns its record. A folder that already holds
+    it is kept. Otherwise the dictionary is staged from `archive`, which is downloaded there first
+    when it is missing and `download` allows it (a temporary file when `archive` is None)."""
+    output = Path(output)
+    if not check(output):
+        record = json.loads((output / MANIFEST).read_text(encoding='utf-8'))
+        if record.get('edition') == edition:
+            return record
+    with tempfile.TemporaryDirectory() as tmp:
+        source = Path(archive) if archive is not None else Path(tmp) / archive_name(edition)
+        if not source.is_file():
+            if not download:
+                raise SystemExit(f'{source}: missing (the SudachiDict {edition} archive)')
+            source.parent.mkdir(parents=True, exist_ok=True)
+            download_archive(edition, source, opener=opener)
+        return stage(source, edition, output)
+
+
 def check(folder):
     """What a staged folder lacks or got wrong; empty when it is complete."""
     folder = Path(folder)
@@ -108,9 +138,10 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     commands = parser.add_subparsers(dest='command', required=True)
     fetching = commands.add_parser('fetch', help='download and stage a pinned edition')
-    fetching.add_argument('--edition', choices=sorted(EDITIONS), default='full')
+    fetching.add_argument('--edition', choices=sorted(EDITIONS), default=SHIPPED_EDITION)
     fetching.add_argument('--output', type=Path, default=ROOT / 'build/sudachi')
-    fetching.add_argument('--archive', type=Path, help='an archive downloaded before (checked the same way)')
+    fetching.add_argument('--archive', type=Path,
+                          help='an archive downloaded before (checked the same way), or where to keep the download')
     checking = commands.add_parser('check', help='check a staged folder')
     checking.add_argument('folder', type=Path, nargs='?', default=ROOT / 'build/sudachi')
     args = parser.parse_args(argv)
@@ -121,12 +152,7 @@ def main(argv=None):
             return 1
         print(f'{args.folder} complete')
         return 0
-    with tempfile.TemporaryDirectory() as tmp:
-        archive = args.archive
-        if archive is None:
-            archive = Path(tmp) / 'sudachidict.zip'
-            download(args.edition, archive)
-        record = stage(archive, args.edition, args.output)
+    record = ensure(args.edition, args.output, archive=args.archive)
     print(f"SudachiDict {record['version']} {record['edition']} ({record['size']} bytes) in {args.output}")
     return 0
 

@@ -159,6 +159,17 @@ class LinuxStagingTests(unittest.TestCase):
         libraries = patch.object(build_linux, 'stage_runtime_libraries', side_effect=self.fake_runtime_libraries)
         self.runtime_libraries = libraries.start()
         self.addCleanup(libraries.stop)
+        # The readings' dictionary likewise (tools/sudachi_dictionary.py has its own tests).
+        dictionary = patch.object(build_linux, 'ensure_dictionary', side_effect=self.fake_dictionary)
+        self.dictionary = dictionary.start()
+        self.addCleanup(dictionary.stop)
+
+    @staticmethod
+    def fake_dictionary(edition, output, *, archive=None, download=True):
+        output.mkdir(parents=True)
+        for name in app_resources.SUDACHI_FILES:
+            (output / name).write_bytes(b'dictionary')
+        return dict(edition=edition)
 
     @staticmethod
     def fake_runtime_libraries(platform, build, *, download=False):
@@ -199,6 +210,10 @@ class LinuxStagingTests(unittest.TestCase):
             internal = build_linux.stage_internal(self.work, ARCHIVES)
         names = {path.relative_to(internal).as_posix() for path in internal.rglob('*') if path.is_file()}
         self.assertLessEqual(set(app_resources.required('linux')), names)
+        # The readings' dictionary is SudachiDict full (#924), kept beside the speech.cpp archives.
+        self.assertIn('build/sudachi/system.dic', names)
+        self.assertEqual(self.dictionary.call_args.args[0], 'full')
+        self.assertEqual(self.dictionary.call_args.kwargs['archive'], build_linux.dictionary_archive(self.work))
         # Both engine builds, each with its own pinned bundle and notices.
         for folder in ('speechcpp', 'speechcpp-cpu'):
             self.assertIn(f'build/{folder}/notices/LICENSE', names)
