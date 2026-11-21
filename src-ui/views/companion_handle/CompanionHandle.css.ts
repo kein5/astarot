@@ -15,6 +15,17 @@ const ON = "#A47AF5";
 // alone) (#536).
 const OFF_WHITE = "#FAFAFC";
 const ON_TINT = "rgba(164, 122, 245, 0.16)";
+// Feedback (#536): a triangle under the pointer, and pressed, is lit with its own colour, Off-White
+// or Lilac, more than it is at rest; a switch that turns on flashes Lilac, one that turns off
+// flashes Off-White, fading to the colour it rests at.
+const OFF_HOVER = "rgba(250, 250, 252, 0.2)";
+const OFF_PRESSED = "rgba(250, 250, 252, 0.32)";
+const ON_HOVER = "rgba(164, 122, 245, 0.34)";
+const ON_PRESSED = "rgba(164, 122, 245, 0.48)";
+const flashOn = keyframes({ from: { fill: "rgba(164, 122, 245, 0.62)" }, to: { fill: ON_TINT } });
+const flashOff = keyframes({ from: { fill: "rgba(250, 250, 252, 0.42)" }, to: { fill: "rgba(250, 250, 252, 0)" } });
+// The icon of a switch that changed grows and settles back.
+const pop = keyframes({ from: { scale: "1.45" }, to: { scale: "1" } });
 
 globalStyle("html, body, #root", { width: "100%", height: "100%", margin: 0, overflow: "hidden", background: "transparent" });
 globalStyle("body", { userSelect: "none", fontFamily: '"Yu Gothic UI", "Noto Sans", system-ui, sans-serif' });
@@ -56,12 +67,21 @@ export const point = style({
         // before the icons. Its Lilac outline is `outline`, drawn over the rest of the star. This
         // one stays, unseen, so that the pointer finds the triangle as it does when it is off.
         '&[data-on="true"]': { fill: ON_TINT, stroke: "transparent" },
+        "&:hover": { fill: OFF_HOVER },
+        '&[data-on="true"]:hover': { fill: ON_HOVER },
         '&[data-pending="true"]': { opacity: 0.5 },
         // Its main switch is greyed out: a broken outline, not a filled one (#562).
         '&[data-blocked="true"]': { strokeDasharray: "4 4", opacity: 0.6 },
-        // Docked out: white and a little wider, on or off (the outline of one that is on is `outline`).
+        // Docked out: lit and a little wider, on or off; white when it is off, Lilac when it is on
+        // (the outline of one that is on is `outline`), so that a switch turning shows there too.
         '&[data-docked="true"]': { strokeWidth: 3.2 },
         '&[data-docked="true"]:not([data-on="true"])': { stroke: "#ffffff", fill: "rgba(227, 221, 233, 0.22)" },
+        '&[data-docked="true"][data-on="true"]': { fill: ON_HOVER },
+        // Pressed (it docks its label at once), docked out or not.
+        '&:active:not([data-on="true"])': { fill: OFF_PRESSED },
+        '&[data-on="true"]:active': { fill: ON_PRESSED },
+        '&[data-flash="on"]': { animation: `${flashOn} .6s ease-out` },
+        '&[data-flash="off"]': { animation: `${flashOff} .6s ease-out` },
         // Turned beyond the edge: half off the screen, not one to aim at.
         '&[data-shown="false"]': { opacity: 0.35, pointerEvents: "none" },
     },
@@ -76,7 +96,7 @@ export const outline = style({
     transition: "stroke .15s, stroke-width .15s, opacity .15s",
     selectors: {
         '&[data-on="true"]': { stroke: ON },
-        '&[data-on="true"][data-docked="true"]': { stroke: "#ffffff", strokeWidth: 3.2 },
+        '&[data-on="true"][data-docked="true"]': { strokeWidth: 3.2 },
         '&[data-pending="true"]': { opacity: 0.5 },
         '&[data-blocked="true"]': { strokeDasharray: "4 4", opacity: 0.6 },
         '&[data-shown="false"]': { opacity: 0.35 },
@@ -90,9 +110,12 @@ export const outline = style({
 // colour is both the fill and the color.
 export const icon = style({
     fill: OFF_WHITE, color: OFF_WHITE, pointerEvents: "none",
-    transition: "transform .2s cubic-bezier(.2, .7, .3, 1), fill .15s, color .15s, opacity .15s",
+    transition: "transform .2s cubic-bezier(.2, .7, .3, 1), scale .15s, fill .15s, color .15s, opacity .15s",
     selectors: {
         '&[data-on="true"]': { fill: ON, color: ON },
+        // Its triangle under the pointer: a little larger.
+        [`${point}:hover + g &`]: { scale: "1.2" },
+        '&[data-flash="on"], &[data-flash="off"]': { animation: `${pop} .35s ease-out` },
         '&[data-pending="true"]': { opacity: 0.5 },
         '&[data-blocked="true"]': { opacity: 0.6 },
         '&[data-shown="false"]': { opacity: 0.35 },
@@ -101,8 +124,9 @@ export const icon = style({
 });
 
 export const core = style({
-    fill: "rgba(227, 221, 233, 0.08)", stroke: LINE, strokeWidth: 1.6, cursor: "pointer",
-    selectors: { "&:hover": { fill: "rgba(227, 221, 233, 0.24)" } },
+    fill: "rgba(227, 221, 233, 0.08)", stroke: LINE, strokeWidth: 1.6, cursor: "pointer", transition: "fill .15s",
+    selectors: { "&:hover": { fill: "rgba(227, 221, 233, 0.24)" }, "&:active": { fill: "rgba(227, 221, 233, 0.34)" } },
+    ...quick,
 });
 
 // Where the docked label starts its slide, as an offset towards the star. The page sets these two
@@ -116,6 +140,7 @@ const dockOut = keyframes({
 });
 
 export const dock = style({
+    transition: "scale .08s, background .15s",
     position: "absolute", display: "flex", alignItems: "baseline", gap: "8px", whiteSpace: "nowrap",
     padding: "6px 12px", margin: 0, font: "inherit", fontSize: "14px", lineHeight: 1.3, cursor: "pointer",
     color: LINE, background: PLATE, border: `1px solid ${LINE}`, borderRadius: "999px",
@@ -127,6 +152,8 @@ export const dock = style({
         '&[data-side="left"]': { transform: "translate(-100%, -50%)" },
         '&[aria-pressed="true"]': { borderColor: ON, boxShadow: `inset 0 0 0 1px ${ON}` },
         "&:hover:not(:disabled)": { background: "rgba(38, 22, 51, 0.9)" },
+        // Pressed: it gives under the pointer.
+        "&:active:not(:disabled)": { scale: "0.95", background: "rgba(38, 22, 51, 0.96)" },
         "&:disabled": { opacity: 0.6, cursor: "default" },
         '&[data-blocked="true"]': { opacity: 0.75 },
     },
@@ -137,7 +164,11 @@ export const dockLabel = style({ fontWeight: 600 });
 
 export const dockState = style({
     fontSize: "12px", opacity: 0.85,
-    selectors: { [`${dock}[aria-pressed="true"] &`]: { color: ON, opacity: 1 } },
+    selectors: {
+        [`${dock}[aria-pressed="true"] &`]: { color: ON, opacity: 1 },
+        // A request that could not be sent: said in full, not faint.
+        '&[data-failed="true"]': { color: OFF_WHITE, opacity: 1 },
+    },
 });
 
 // The common settings of the hexagram's middle: a small card instead of a pill, opening the same

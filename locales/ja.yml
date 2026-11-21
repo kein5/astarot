@@ -2861,6 +2861,10 @@ companion:
     "off": "オフ"
     # A switch whose main switch is greyed out (as the VR panel says it): pressing it shows why in the main window.
     unavailable: "未準備"
+    # A hexagram label pressed, until the main window answers (#536).
+    switching: "切り替え中…"
+    # A hexagram label whose request could not be sent to the main window (#536).
+    failed: "切り替えられませんでした"
     open_main: "ASTAROTを開く"
     close: "閉じる"
     handle: "コントロールパネルを開く"

@@ -23,7 +23,9 @@ import { FROM_X, FROM_Y } from "./CompanionHandle.css.ts";
 // Each triangle carries its feature's icon. A switch that is off has an Off-White triangle and
 // icon; one that is on has a Lilac triangle and a Lilac icon (#536).
 // Hovering one docks that feature out towards the middle of the screen; pressing the docked label
-// runs the main window's own switch.
+// runs the main window's own switch. Pressing a triangle docks its label at once. A triangle lights
+// up under the pointer; a label says that it is switching until the main window answers, or that
+// the request could not be sent; a switch that turns on or off flashes in its triangle (#536).
 // Hovering the hexagon in the middle docks out the common settings (the edge to hide at, the main
 // window, the control panel). Hovering alone changes nothing. The window never takes the focus.
 
@@ -37,9 +39,20 @@ export const TURN_EVERY_MS = 140;
 export const AIM_MS = 180;
 // The common settings dock out beyond the plate.
 const MENU_DISTANCE = OPEN_RADIUS * 1.22 + 10;
+// How long a switch that turned on or off flashes in its triangle (#536).
+export const FLASH_MS = 600;
+// A pressed label says that it is switching until the main window answers, at most this long: a
+// switch that cannot change (its main switch says why) answers nothing.
+export const ASK_MS = 4000;
+// How long a label says that its request could not be sent.
+export const FAILED_MS = 3000;
 
 // What is docked out: one of the six switches, or the common settings of the middle.
 type Docked = Feature | "common";
+// A label pressed and waiting, or one whose request failed; the id tells a later press apart.
+type Mark = { feature: Feature; id: number };
+// A switch that turned on or off, flashing in its triangle.
+type Flash = { to: "on" | "off"; id: number };
 
 // The same icons as the main window's switches, one in each triangle (#536). They stay upright
 // while the hexagram turns, and they are Lilac while the feature is on, Off-White while it is off.
@@ -70,6 +83,16 @@ export const CompanionHandle = ({ bridge = companionBridge }: { bridge?: Compani
     const [layout, setLayout] = useState<HandleLayout | null>(null);
     const [turns, setTurns] = useState(0);
     const [docked, setDocked] = useState<Docked | null>(null);
+    const [asking, setAsking] = useState<Mark | null>(null);
+    const [failed, setFailed] = useState<Mark | null>(null);
+    const [flash, setFlash] = useState<Partial<Record<Feature, Flash>>>({});
+    const lastStatus = useRef<CompanionStatus | null>(null);
+    const nextId = useRef(0);
+    const timers = useRef(new Set<ReturnType<typeof setTimeout>>());
+    const later = (ms: number, then: () => void) => {
+        const timer = setTimeout(() => { timers.current.delete(timer); then(); }, ms);
+        timers.current.add(timer);
+    };
     const lastTurn = useRef(0);
     const aimTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
     const unaim = () => {
@@ -80,16 +103,37 @@ export const CompanionHandle = ({ bridge = companionBridge }: { bridge?: Compani
         unaim();
         aimTimer.current = setTimeout(() => { aimTimer.current = null; setDocked(target); }, AIM_MS);
     };
-    useEffect(() => unaim, []);
+    useEffect(() => () => {
+        unaim();
+        for (const timer of timers.current) clearTimeout(timer);
+    }, []);
 
     useEffect(() => {
         let disposed = false;
+        // What changed between two states the main window published: a switch that turned on or
+        // off flashes, and a pressed label whose switch moved (on, off or waiting) has its answer.
+        const answered = (before: CompanionStatus, next: CompanionStatus) => {
+            const flipped = FEATURES.filter(feature => before[feature].on !== next[feature].on);
+            const moved = FEATURES.filter(feature => flipped.includes(feature) || before[feature].pending !== next[feature].pending);
+            if (moved.length > 0) setAsking(current => (current && moved.includes(current.feature) ? null : current));
+            if (flipped.length === 0) return;
+            const id = ++nextId.current;
+            setFlash(current => ({ ...current, ...Object.fromEntries(flipped.map(feature => [feature, { to: next[feature].on ? "on" : "off", id }])) }));
+            const timer = setTimeout(() => {
+                timers.current.delete(timer);
+                setFlash(current => Object.fromEntries(Object.entries(current).filter(([, value]) => value.id !== id)));
+            }, FLASH_MS);
+            timers.current.add(timer);
+        };
         const refresh = async () => {
             try {
                 const next = await bridge.status();
                 if (disposed) return;
                 if (next.language !== i18n.language) await i18n.changeLanguage(next.language);
                 setStatus(next);
+                const before = lastStatus.current;
+                lastStatus.current = next;
+                if (before) answered(before, next);
             } catch (error) { console.warn("Companion hexagram could not read the state", error); }
         };
         const place = async () => {
@@ -111,6 +155,24 @@ export const CompanionHandle = ({ bridge = companionBridge }: { bridge?: Compani
         };
     }, [bridge]);
 
+    // A press on a switch's label: the main window runs its own switch. Until it answers, the label
+    // says that it is switching and cannot be pressed again; a request that could not be sent says so.
+    const press = (target: Feature, blocked: boolean) => {
+        const id = ++nextId.current;
+        setFailed(current => (current?.feature === target ? null : current));
+        // A greyed-out switch does not change: the main window says why (#562).
+        if (!blocked) {
+            setAsking({ feature: target, id });
+            later(ASK_MS, () => setAsking(current => (current?.id === id ? null : current)));
+        }
+        bridge.request(actionFor(target)).catch(error => {
+            console.warn("Companion request failed", error);
+            setAsking(current => (current?.id === id ? null : current));
+            setFailed({ feature: target, id });
+            later(FAILED_MS, () => setFailed(current => (current?.id === id ? null : current)));
+        });
+    };
+
     if (!layout?.out) return null;
     const edge: Edge = isEdge(layout.edge) ? layout.edge : "right";
     const rotation = baseRotation(edge) + TURN * turns;
@@ -130,6 +192,12 @@ export const CompanionHandle = ({ bridge = companionBridge }: { bridge?: Compani
     const dockAngle = feature ? angleOf(FEATURES.indexOf(feature), rotation) : inwardAngle(edge);
     const dock = feature ? dockAt(DOCK_DISTANCE, dockAngle, side) : null;
     const dockState = feature && status ? status[feature] : null;
+    const waiting = (target: Feature) => status?.[target]?.pending === true || asking?.feature === target;
+    const dockWord = !feature || !dockState ? "companion.off"
+        : failed?.feature === feature ? "companion.failed"
+        : dockState.blocked ? "companion.unavailable"
+        : waiting(feature) ? "companion.switching"
+        : dockState.on ? "companion.on" : "companion.off";
     const menu = docked === "common" ? dockAt(MENU_DISTANCE, inwardAngle(edge), side) : null;
     const slide = (angle: number) => ({
         // It slides out from the hexagram, along the direction it opens to.
@@ -159,14 +227,16 @@ export const CompanionHandle = ({ bridge = companionBridge }: { bridge?: Compani
                                 return (
                                     <g key={feature}>
                                         <polygon className={styles.point} points={polygon(triangle)}
-                                            data-on={value?.on === true} data-pending={value?.pending === true} data-blocked={value?.blocked === true}
-                                            data-docked={docked === feature} data-shown={shown}
+                                            data-on={value?.on === true} data-pending={waiting(feature)} data-blocked={value?.blocked === true}
+                                            data-docked={docked === feature} data-shown={shown} data-flash={flash[feature]?.to}
                                             aria-label={t(LABEL_KEYS[feature])} aria-hidden={!shown}
-                                            onPointerEnter={() => { if (shown) aim(feature); }} onPointerLeave={unaim} />
+                                            onPointerEnter={() => { if (shown) aim(feature); }} onPointerLeave={unaim}
+                                            onClick={() => { if (!shown) return; unaim(); setDocked(feature); }} />
                                         {/* What the triangle is, and whether it is on, without docking it out (#536). */}
                                         <g transform={`translate(${middle.x} ${middle.y})`}>
                                             <g className={styles.icon} data-feature={feature} data-on={value?.on === true}
-                                                data-pending={value?.pending === true} data-blocked={value?.blocked === true} data-shown={shown}
+                                                data-pending={waiting(feature)} data-blocked={value?.blocked === true} data-shown={shown}
+                                                data-flash={flash[feature]?.to}
                                                 style={{ transform: `rotate(${-rotation}deg)` }}>
                                                 {/* The triangle carries the name; the picture adds nothing to read. */}
                                                 <Icon x={-ICON_SIZE / 2} y={-ICON_SIZE / 2} width={ICON_SIZE} height={ICON_SIZE} aria-hidden="true" focusable="false" />
@@ -188,7 +258,7 @@ export const CompanionHandle = ({ bridge = companionBridge }: { bridge?: Compani
                                 const value = status?.[feature];
                                 return (
                                     <polygon key={feature} className={styles.outline} points={polygon(pointTriangle(OPEN_RADIUS, index))}
-                                        data-outline={feature} data-on={value?.on === true} data-pending={value?.pending === true}
+                                        data-outline={feature} data-on={value?.on === true} data-pending={waiting(feature)}
                                         data-blocked={value?.blocked === true} data-docked={docked === feature}
                                         data-shown={facesInward(angleOf(index, rotation), edge)} />
                                 );
@@ -199,12 +269,12 @@ export const CompanionHandle = ({ bridge = companionBridge }: { bridge?: Compani
             </svg>
             {feature && dock && (
                 <button key={`${feature}-${rotation}`} type="button" className={styles.dock} data-side={dock.side}
-                    aria-pressed={dockState?.on === true} disabled={!ready || dockState?.pending === true}
+                    aria-pressed={dockState?.on === true} disabled={!ready || waiting(feature)}
                     aria-disabled={dockState?.blocked === true || undefined} data-blocked={dockState?.blocked === true}
                     style={{ left: `${layout.x + dock.at.x}px`, top: `${layout.y + dock.at.y}px`, ...slide(dockAngle) } as CSSProperties}
-                    onClick={() => ask(actionFor(feature))}>
+                    onClick={() => press(feature, dockState?.blocked === true)}>
                     <span className={styles.dockLabel}>{t(LABEL_KEYS[feature])}</span>
-                    <span className={styles.dockState}>{t(dockState?.blocked ? "companion.unavailable" : dockState?.on ? "companion.on" : "companion.off")}</span>
+                    <span className={styles.dockState} data-failed={failed?.feature === feature}>{t(dockWord)}</span>
                 </button>
             )}
             {menu && (

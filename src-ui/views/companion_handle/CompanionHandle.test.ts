@@ -18,7 +18,7 @@ const ready = { ready: true, language: "ja", edge: "right", mic: { on: true, pen
 // A callback the handle registers; calling it before that stops with a TypeError.
 const notYet = async (): Promise<void> => { throw new TypeError("the handle has not registered this callback"); };
 
-async function setup(context: TestContext, { layout = { out: true, edge: "right", x: 330, y: 120 }, current = ready }: { layout?: HandleLayout; current?: object } = {}) {
+async function setup(context: TestContext, { layout = { out: true, edge: "right", x: 330, y: 120 }, current = ready, refuse = false }: { layout?: HandleLayout; current?: object; refuse?: boolean } = {}) {
     vi.useFakeTimers({ toFake: ["Date", "setTimeout", "clearTimeout"], now: 1_000_000 });
     const runtime = hooks(), calls: string[][] = [];
     const callbacks: { changed: () => unknown; layout: () => unknown } = { changed: notYet, layout: notYet };
@@ -28,9 +28,13 @@ async function setup(context: TestContext, { layout = { out: true, edge: "right"
     // Test data: the status carries only what the hexagram shows, and the bridge only what the
     // handle calls.
     const bridge = unchecked<CompanionBridge>({
-        status: async () => unchecked<CompanionStatus>(current),
+        // A fresh state each time, as the app's command answers.
+        status: async () => unchecked<CompanionStatus>(structuredClone(current)),
         layout: async () => state.layout,
-        request: async (action: string) => { calls.push(["request", action]); },
+        request: async (action: string) => {
+            calls.push(["request", action]);
+            if (refuse) throw new Error("the main window is gone");
+        },
         togglePanel: async () => { calls.push(["panel"]); },
         onChanged: async (callback: () => void) => { callbacks.changed = callback; return () => {}; },
         onLayout: async (callback: () => void) => { callbacks.layout = callback; return () => {}; },
@@ -50,11 +54,13 @@ async function setup(context: TestContext, { layout = { out: true, edge: "right"
     const shown = () => [...FEATURE_LABELS].filter(label => point(label).props["data-shown"] === true);
     // The pointer rests on a triangle (or the middle) long enough for its dock to open.
     const rest = async (target: TreeNode) => { target.props.onPointerEnter(); vi.advanceTimersByTime(200); await settle(); };
+    // The state the docked label says beside its name.
+    const said = () => { const label = dock(); return label ? findIn(label, node => node.props?.className === "dockState").props.children : null; };
     const core = () => findIn(render(), node => node.type === "polygon" && node.props.role === "button");
     const menu = () => find(render(), node => node.type === "div" && node.props.role === "group");
     // The handle drawn while it is out: there is a tree to read.
     const tree = () => { const drawn = render(); assert.ok(drawn); return drawn; };
-    return { render, tree, calls, state, callbacks, point, dock, shown, settle, rest, core, menu, context };
+    return { render, tree, calls, state, callbacks, point, dock, said, shown, settle, rest, core, menu, context };
 }
 
 const FEATURE_LABELS = ["main_page.transcription_send", "main_page.translation", "main_page.tts",
@@ -119,9 +125,9 @@ test("a switch that is on turns its triangle and its icon Lilac, its outline as 
     assert.match(rules("point"), /'&\[data-on="true"\]': \{ fill: ON_TINT, stroke: "transparent" \}/);
     assert.match(rules("outline"), /fill: "none", stroke: "transparent", strokeWidth: 2\.4, strokeLinejoin: "round", pointerEvents: "none"/);
     assert.doesNotMatch(rules("point") + rules("outline"), /'&\[data-on="true"\]': \{[^}]*strokeWidth/, "an outline that is on is not wider");
-    // Docked out, it is as wide on as off.
+    // Docked out, it is as wide on as off, and Lilac when it is on.
     assert.match(rules("point"), /'&\[data-docked="true"\]': \{ strokeWidth: 3\.2 \}/);
-    assert.match(rules("outline"), /'&\[data-on="true"\]\[data-docked="true"\]': \{ stroke: "#ffffff", strokeWidth: 3\.2 \}/);
+    assert.match(rules("outline"), /'&\[data-on="true"\]\[data-docked="true"\]': \{ strokeWidth: 3\.2 \}/);
     assert.match(rules("outline"), /'&\[data-on="true"\]': \{ stroke: ON \}/);
     assert.match(rules("icon"), /fill: OFF_WHITE, color: OFF_WHITE/);
     assert.match(rules("icon"), /'&\[data-on="true"\]': \{ fill: ON, color: ON \}/);
@@ -146,6 +152,23 @@ test("the outline of a switch that is on is drawn over the hexagon in the middle
     assert.equal(outline("rvc").props["data-pending"], true);
     assert.equal(outline("ocr").props["data-shown"], s.point("main_page.ocr").props["data-shown"]);
     assert.ok(outlines.every(node => !node.props["aria-label"] && !node.props.role && !node.props.onPointerEnter));
+});
+
+// #536: the stylesheet answers the pointer: a triangle lights up under it and more when pressed, in
+// its own colour; its icon grows; a switch that turns flashes; a pressed label gives.
+test("a triangle and a label answer the pointer, and a switch that turns flashes", () => {
+    const css = readFileSync(new URL("./CompanionHandle.css.ts", import.meta.url), "utf8");
+    const rules = (name: string) => css.split(`export const ${name} = style(`)[1].split("\n});")[0];
+    assert.match(rules("point"), /"&:hover": \{ fill: OFF_HOVER \}/);
+    assert.match(rules("point"), /'&\[data-on="true"\]:hover': \{ fill: ON_HOVER \}/);
+    assert.match(rules("point"), /'&:active:not\(\[data-on="true"\]\)': \{ fill: OFF_PRESSED \}/);
+    assert.match(rules("point"), /'&\[data-on="true"\]:active': \{ fill: ON_PRESSED \}/);
+    assert.match(rules("point"), /'&\[data-flash="on"\]': \{ animation: `\$\{flashOn\} /);
+    assert.match(rules("point"), /'&\[data-flash="off"\]': \{ animation: `\$\{flashOff\} /);
+    assert.match(rules("icon"), /\[`\$\{point\}:hover \+ g &`\]: \{ scale: "1\.2" \}/);
+    assert.match(rules("dock"), /"&:active:not\(:disabled\)": \{ scale: "0\.95"/);
+    // The flashes and the growing icon go with reduced motion; the colours stay.
+    for (const name of ["point", "icon", "dock"]) assert.match(rules(name), /\.\.\.quick,/, name);
 });
 
 test("the wheel turns it a point at a time, bringing another switch into view", async context => {
@@ -180,6 +203,76 @@ test("hovering a point that shows docks its feature out towards the screen; only
     assert.equal(waiting.props.disabled, true, "a switch waiting for the backend cannot be pressed again");
 });
 
+// #536: pressing a triangle is answered at once: its label docks out without the rest that
+// hovering takes. Pressing it still changes nothing; its label does.
+test("pressing a triangle that shows docks its label at once; one beyond the edge does nothing", async context => {
+    const s = await setup(context);
+    s.point("main_page.transcription_send").props.onClick();
+    await s.settle();
+    assert.equal(s.dock(), null, "the mic's point is turned beyond the edge");
+    s.point("main_page.ocr").props.onClick();
+    await s.settle();
+    assert.ok(s.dock(), "no rest needed");
+    assert.equal(s.point("main_page.ocr").props["data-docked"], true);
+    assert.deepEqual(s.calls, [], "the press changed nothing");
+});
+
+// #536: after a press the label says that it is switching, and cannot be pressed again, until the
+// main window answers; the switch that turned on flashes in its triangle.
+test("a pressed label says it is switching until the switch turns, and the switch flashes as it turns", async context => {
+    const current = { ...ready };
+    const s = await setup(context, { current });
+    assert.equal(s.point("main_page.ocr").props["data-flash"], undefined, "nothing flashes as it is first drawn");
+    await s.rest(s.point("main_page.ocr"));
+    assert.equal(s.said(), "companion.off");
+    s.dock()?.props.onClick();
+    await s.settle();
+    assert.deepEqual(s.calls, [["request", "toggle_ocr"]]);
+    assert.equal(s.said(), "companion.switching");
+    assert.equal(s.dock()?.props.disabled, true, "pressed once, it waits");
+    assert.equal(s.point("main_page.ocr").props["data-pending"], true, "its triangle waits too");
+    // The main window turns it on.
+    Object.assign(current, { ocr: { on: true, pending: false } });
+    await s.callbacks.changed();
+    await s.settle();
+    assert.equal(s.said(), "companion.on");
+    assert.equal(s.dock()?.props.disabled, false);
+    assert.equal(s.point("main_page.ocr").props["data-flash"], "on");
+    const icon = findIn(s.render(), node => node.type === "g" && node.props["data-feature"] === "ocr");
+    assert.equal(icon.props["data-flash"], "on");
+    assert.equal(s.point("main_page.rvc").props["data-flash"], undefined, "only the switch that turned");
+    vi.advanceTimersByTime(700);
+    await s.settle();
+    assert.equal(s.point("main_page.ocr").props["data-flash"], undefined, "the flash ends");
+    // Turned off from elsewhere (the main window, a hotkey): it flashes too.
+    Object.assign(current, { ocr: { on: false, pending: false } });
+    await s.callbacks.changed();
+    await s.settle();
+    assert.equal(s.point("main_page.ocr").props["data-flash"], "off");
+});
+
+test("a label whose switch does not answer stops saying it is switching; one whose request fails says so", async context => {
+    const s = await setup(context);
+    await s.rest(s.point("main_page.ocr"));
+    s.dock()?.props.onClick();
+    await s.settle();
+    assert.equal(s.said(), "companion.switching");
+    vi.advanceTimersByTime(4100);
+    await s.settle();
+    assert.equal(s.said(), "companion.off", "no answer: it says the state it has");
+    assert.equal(s.dock()?.props.disabled, false);
+
+    const refused = await setup(context, { refuse: true });
+    await refused.rest(refused.point("main_page.ocr"));
+    refused.dock()?.props.onClick();
+    await refused.settle();
+    assert.equal(refused.said(), "companion.failed");
+    assert.equal(refused.dock()?.props.disabled, false, "it can be pressed again");
+    vi.advanceTimersByTime(3100);
+    await refused.settle();
+    assert.equal(refused.said(), "companion.off");
+});
+
 test("a switch whose main switch is greyed out is drawn so and says it needs setup; a press still asks, to hear why (#562)", async context => {
     const s = await setup(context, { current: { ...ready, listening: { on: false, pending: false, blocked: true } } });
     assert.equal(s.point("main_page.transcription_receive").props["data-blocked"], true);
@@ -192,6 +285,8 @@ test("a switch whose main switch is greyed out is drawn so and says it needs set
     dock.props.onClick();
     await flush();
     assert.deepEqual(s.calls, [["request", "toggle_listening"]], "the main window says why");
+    await s.settle();
+    assert.equal(s.said(), "companion.unavailable", "it does not wait for a switch that cannot turn");
 });
 
 test("a click on the hexagon in the middle opens the control panel, and going back in clears the docked label", async context => {
