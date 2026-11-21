@@ -748,12 +748,11 @@ fn stalled_server() -> (crate::testing::Server, Arc<Flag>, Arc<Flag>) {
     (server, entered, release)
 }
 
-// On Windows a read blocked on the socket does not end when another thread shuts the socket
-// down (`net::Abort`), so closing waits for the read's timeout (15 s) instead. A real fault of
-// the app, not of the test; the fix is a change of its own (#884). Until then the test is left
-// out there so that the crates CI job can run the rest.
+// A body that stalls after its first byte ends as soon as the manager closes, on Windows too:
+// there a read blocked on the socket did not end when another thread shut the socket down, and
+// closing waited for the read's timeout (15 s, #884). Reads now wait with poll and look whether
+// they were stopped (`net::Socket`).
 #[test]
-#[cfg_attr(windows, ignore = "a blocked read is not ended by shutdown on Windows (#884)")]
 fn real_stopped_http_body_is_aborted_on_close() {
     let s = setup();
     let (server, entered, release) = stalled_server();

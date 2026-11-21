@@ -2,8 +2,8 @@
 //!
 //! Model downloads and usage events each send one kind of request to a fixed kind of host.
 //! A client of our own gives what the Python code relied on and a general client does not
-//! offer together: the socket can be shut down from another thread to stop a stalled body
-//! at once (cancelling a download), every redirect target is checked before it is followed,
+//! offer together: another thread can stop a stalled body at once (cancelling a download),
+//! every redirect target is checked before it is followed,
 //! no proxy is ever used, and the request carries exactly the headers the Python code sent.
 //!
 //! Certificates are checked against the Mozilla roots of `webpki-roots`, the store the app's
@@ -11,8 +11,9 @@
 
 use std::io::{self, Read, Write};
 use std::net::{Shutdown, TcpStream, ToSocketAddrs};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, OnceLock};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use rustls::pki_types::ServerName;
 use rustls::{ClientConfig, ClientConnection, StreamOwned};
@@ -254,9 +255,86 @@ pub(crate) fn tls_config() -> Arc<ClientConfig> {
         .clone()
 }
 
+/// How often a read that waits for data looks whether it has been stopped (`Abort`).
+const STOP_CHECK: Duration = Duration::from_millis(50);
+
+/// A connected socket whose reads wait for data with `poll` (`WSAPoll` on Windows) a slice at a
+/// time, so that `Abort` from another thread ends a stalled read within a slice. Shutting the
+/// socket down ends a blocked read on Linux, but not on Windows (#884); and a read cut short by
+/// its own timeout leaves a Windows socket in no defined state, so the slices wait for data
+/// instead of reading with a short timeout. The socket's own read timeout stays as a backstop.
+pub(crate) struct Socket {
+    tcp: TcpStream,
+    stopped: Arc<AtomicBool>,
+    timeout: Duration,
+}
+
+impl Read for Socket {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        let deadline = Instant::now() + self.timeout;
+        loop {
+            if self.stopped.load(Ordering::Acquire) {
+                return Err(io::Error::new(io::ErrorKind::ConnectionAborted, "the connection was stopped"));
+            }
+            let left = deadline.saturating_duration_since(Instant::now());
+            if left.is_zero() {
+                return Err(io::Error::new(io::ErrorKind::TimedOut, "no data before the timeout"));
+            }
+            if readable(&self.tcp, left.min(STOP_CHECK))? {
+                return self.tcp.read(buf);
+            }
+        }
+    }
+}
+
+impl Write for Socket {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        self.tcp.write(buf)
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        self.tcp.flush()
+    }
+}
+
+/// Waits up to `wait` for the socket to have data, an end or an error to read; false when the
+/// time ran out first.
+#[cfg(unix)]
+fn readable(tcp: &TcpStream, wait: Duration) -> io::Result<bool> {
+    use std::os::fd::AsRawFd;
+    let mut fd = libc::pollfd { fd: tcp.as_raw_fd(), events: libc::POLLIN, revents: 0 };
+    let millis = libc::c_int::try_from(wait.as_millis().max(1)).unwrap_or(libc::c_int::MAX);
+    // SAFETY: one valid pollfd for a socket the TcpStream owns, for the length of the call.
+    match unsafe { libc::poll(&mut fd, 1, millis) } {
+        -1 => {
+            let error = io::Error::last_os_error();
+            if error.kind() == io::ErrorKind::Interrupted {
+                Ok(false)
+            } else {
+                Err(error)
+            }
+        }
+        ready => Ok(ready > 0),
+    }
+}
+
+#[cfg(windows)]
+fn readable(tcp: &TcpStream, wait: Duration) -> io::Result<bool> {
+    use std::os::windows::io::AsRawSocket;
+    use windows_sys::Win32::Networking::WinSock::{WSAGetLastError, WSAPoll, POLLRDNORM, SOCKET, SOCKET_ERROR, WSAPOLLFD};
+    let mut fd = WSAPOLLFD { fd: tcp.as_raw_socket() as SOCKET, events: POLLRDNORM, revents: 0 };
+    let millis = i32::try_from(wait.as_millis().max(1)).unwrap_or(i32::MAX);
+    // SAFETY: one valid WSAPOLLFD for a socket the TcpStream owns, for the length of the call.
+    match unsafe { WSAPoll(&mut fd, 1, millis) } {
+        // SAFETY: reads this thread's last Winsock error, right after the call that set it.
+        SOCKET_ERROR => Err(io::Error::from_raw_os_error(unsafe { WSAGetLastError() })),
+        ready => Ok(ready > 0),
+    }
+}
+
 pub(crate) enum Stream {
-    Plain(TcpStream),
-    Tls(Box<StreamOwned<ClientConnection, TcpStream>>),
+    Plain(Socket),
+    Tls(Box<StreamOwned<ClientConnection, Socket>>),
 }
 
 impl Read for Stream {
@@ -289,13 +367,18 @@ impl Write for Stream {
     }
 }
 
-/// Shuts the connection's socket down from any thread: a read blocked on it returns at once.
+/// Stops the connection from any thread: a read waiting on it returns within `STOP_CHECK`
+/// (`Socket`), and on Linux at once, where shutting the socket down also ends it.
 #[derive(Clone)]
-pub(crate) struct Abort(Arc<TcpStream>);
+pub(crate) struct Abort {
+    stopped: Arc<AtomicBool>,
+    socket: Arc<TcpStream>,
+}
 
 impl Abort {
     pub fn abort(&self) {
-        let _ = self.0.shutdown(Shutdown::Both);
+        self.stopped.store(true, Ordering::Release);
+        let _ = self.socket.shutdown(Shutdown::Both);
     }
 }
 
@@ -316,7 +399,9 @@ pub(crate) fn connect(host: &str, port: u16, timeout: Duration, tls: Option<Arc<
     let tcp = tcp.ok_or(last)?;
     tcp.set_read_timeout(Some(timeout))?;
     tcp.set_write_timeout(Some(timeout))?;
-    let abort = Abort(Arc::new(tcp.try_clone()?));
+    let stopped = Arc::new(AtomicBool::new(false));
+    let abort = Abort { stopped: stopped.clone(), socket: Arc::new(tcp.try_clone()?) };
+    let tcp = Socket { tcp, stopped, timeout };
     let stream = match tls {
         None => Stream::Plain(tcp),
         Some(config) => {
