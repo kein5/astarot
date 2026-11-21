@@ -1,20 +1,24 @@
 .container {
-    height: var(--main_page_topbar_height);
+    min-height: var(--main_page_topbar_height);
     display: flex;
+    flex-wrap: wrap;
     justify-content: space-between;
     align-items: center;
-    gap: 1.2rem;
+    column-gap: 1.2rem;
     flex-shrink: 0;
     margin: 0 2rem;
     border-bottom: .1rem solid var(--vox_border);
 }
 // Stop and mute never go under the buttons on the right (PRODUCT.md: always within
-// reach): the group keeps its width. When the column is narrower than the whole bar,
-// the right end runs past it and the column scrolls sideways.
-.leading { display: flex; align-items: center; gap: .8rem; flex-shrink: 0; }
+// reach), and nothing runs past the column (#562). When the column cannot hold the bar
+// on one line (a large UI size in a narrow window), the buttons on the right take a
+// second line of the bar's height, at its end (RightSideComponents.module.scss); in a
+// narrower column still, mute goes under stop. On one line the bar is as before.
+// A line is the bar's height; the bar's own border is under the last one.
+.leading { display: flex; align-items: center; gap: .8rem; flex: 0 1 auto; min-width: 0; min-height: calc(var(--main_page_topbar_height) - .1rem); }
 
 // Stop and mute (others/stop_actions). Quiet until there is something to stop.
-.stop_actions { display: flex; align-items: center; gap: .8rem; min-width: 0; }
+.stop_actions { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem .8rem; min-width: 0; padding-block: .4rem; }
 .stop {
     // Never narrower than its words: the bar switches to shorter words instead.
     flex-shrink: 0;
@@ -38,8 +42,9 @@
 // short words with the quick settings and the inputs and outputs buttons.
 .long, .tiny { display: none; }
 @mixin narrow_bar {
-    .container { margin: 0 1.2rem; gap: .8rem; }
-    .leading, .stop_actions { gap: .6rem; }
+    // The side margins the buttons on the right used to run into before they took a line of their own.
+    .container { margin: 0 .8rem; column-gap: .8rem; }
+    .leading, .stop_actions { column-gap: .6rem; }
     .stop { padding: .4rem .9rem; }
     .short { display: none; }
     .tiny { display: inline; }

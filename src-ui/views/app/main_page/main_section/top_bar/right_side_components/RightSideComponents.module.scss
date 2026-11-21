@@ -5,7 +5,11 @@
     flex-direction: row;
     align-items: center;
     gap: .8rem;
-    height: 100%;
+    // As high as the bar, on its line or on a second one of its own; at the bar's end either
+    // way (TopBar.module.scss, #562).
+    align-self: stretch;
+    min-height: calc(var(--main_page_topbar_height) - .1rem);
+    margin-inline-start: auto;
     flex-shrink: 0;
 }
 
