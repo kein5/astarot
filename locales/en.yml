@@ -2232,19 +2232,21 @@ voice_audition:
     pending: "Preparing sample"
     stop: "Stop sample"
     tooltip: "The model in use reads a short fixed sentence. It plays only on your monitor output and is never sent to VRChat."
-    # An RVC card's sample: the fixed sentence a TTS server reads, converted by that model.
-    rvc_tooltip: "A TTS server reads a short fixed sentence, and this model converts that voice. It uses the pitch shift and retrieval blend now in their fields without saving them. It plays only on your monitor output and is never sent to VRChat."
+    # An RVC card's sample: your voice, recorded on the press from the "Input to forward" microphone, converted by that model.
+    rvc_tooltip: "Records your voice for {{seconds}} seconds from the microphone chosen in \"Input to forward\", converts it with this model and plays it. The recording is not saved. It uses the pitch shift and retrieval blend now in their fields without saving them. It plays only on your monitor output and is never sent to VRChat."
+    rvc_recording: "Recording. Speak for {{seconds}} seconds."
     rvc_preparing: "Preparing the conversion. Loading the model takes a moment."
     rvc_blocked:
         values_invalid: "Fix the pitch shift and retrieval blend to play a sample."
         conversion_running: "Stop the conversion to play a sample."
-        tts_stopped: "The sample voice comes from a TTS server. Start one under \"Models and servers\" on the Text to speech (TTS) page to play a sample."
+        input_missing: "Choose a microphone in \"Input to forward\" to play a sample. Your voice is recorded with it."
     rvc_errors:
         voice_audition_failed: "The converted sample could not play. Press again."
         voice_audition_model_missing: "This model's files were not found. Download or register it again."
         voice_audition_conversion_running: "Stop the conversion before playing a sample."
-        voice_audition_server_not_ready: "No TTS server is running. Start one under \"Models and servers\" on the Text to speech (TTS) page."
-        voice_audition_sample_invalid: "The sample voice could not be made. Check the TTS server and press again."
+        voice_audition_recording_silent: "Almost nothing was heard in the recording. Check the microphone's volume and mute, then press again."
+        voice_audition_input_unavailable: "Recording from a microphone is not available on your system, so no sample plays."
+        asr_capture_failed: "Could not record from the microphone. Check the one chosen in \"Input to forward\", then press again."
         voice_audition_timeout: "The sample took longer than 2 minutes and was stopped."
         vc_runtime_missing: "The conversion runtime is missing. Get it under \"Models and runtime\" before playing a sample."
         vc_worker_stalled: "The conversion stopped answering and was stopped. Press again."

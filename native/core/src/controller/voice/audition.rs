@@ -3,10 +3,11 @@
 //!
 //! - TTS: a short fixed sentence, spoken by the running bundled speech.cpp server of one profile
 //!   with that profile's voice settings.
-//! - RVC: a sample converted by a downloaded or registered voice model, in an RVC worker of its
-//!   own ([`vrct_voice_conversion::audition`]). The sample is chosen by `source`; the only one so
-//!   far is `tts`, the TTS sentence read by a running bundled server. The pitch and the index rate
-//!   come with the request, so the values on the form can be heard before they are saved.
+//! - RVC: the user's own voice, recorded for a few seconds from the input chosen on the RVC page
+//!   on the press, converted by a downloaded or registered voice model in an RVC worker of its own
+//!   ([`vrct_voice_conversion::audition`]). The microphone opens only for that recording, and the
+//!   recording stays in memory until the audition ends; it is never saved. The pitch and the index
+//!   rate come with the request, so the values on the form can be heard before they are saved.
 //!
 //! Both:
 //!
@@ -22,11 +23,13 @@
 
 use std::sync::{Arc, Mutex};
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use serde_json::{Map, Value, json};
+use vrct_audio_routing::graph::{Endpoint, parse_source};
 use vrct_audio_routing::monitor::{MonitorFactory, check_monitor_target, scale_pcm};
 use vrct_audio_routing::router::Output;
+use vrct_audio_routing::windows_route::{Capture, CaptureCallbacks};
 use vrct_tts::playback::Frames;
 use vrct_tts::sync::Event;
 use vrct_tts::{CancelToken, SpeechCppTts, SpeechError, SynthesisOptions};
@@ -51,8 +54,19 @@ const RVC_TIMEOUT: Duration = Duration::from_secs(120);
 /// The reason a token carries when a newer audition took its place.
 const REPLACED: &str = "voice_audition_replaced";
 
-/// What an RVC audition converts. `tts`: the TTS sentence of a running bundled server.
-pub(super) const RVC_SOURCES: [&str; 1] = ["tts"];
+/// What an RVC audition converts. `recording`: the user's voice, recorded on the press.
+pub(super) const RVC_SOURCES: [&str; 1] = ["recording"];
+/// How long a recording may be, in whole seconds.
+pub(super) const RECORD_SECONDS: std::ops::RangeInclusive<u64> = 1..=10;
+/// A recording whose loudest sample stays under this (about -50 dBFS) heard nothing: the
+/// microphone is off, muted or another one.
+const SILENT_PEAK: u16 = 100;
+/// How long the microphone may take to give its first audio once it has started.
+const FIRST_AUDIO_WAIT: Duration = Duration::from_secs(5);
+
+/// Opens a capture of a microphone at 48 kHz mono s16le: the device route's on Windows, the
+/// managed route's on Linux.
+pub(super) type CaptureOpener = Arc<dyn Fn(&Endpoint, CaptureCallbacks) -> Box<dyn Capture> + Send + Sync>;
 
 /// What a start asks for, checked.
 #[derive(Debug, Clone, PartialEq)]
@@ -73,13 +87,18 @@ pub(super) struct RvcRequest {
     /// The model's catalog id, or the id of a model the user registered.
     pub entry: String,
     pub source: &'static str,
+    /// The microphone to record from: the input chosen on the RVC page.
+    pub input: Endpoint,
+    /// How long to record.
+    pub seconds: u64,
     pub pitch: i64,
     /// As sent: an integer stays one for the worker (`rate_text`).
     pub index_rate: Value,
 }
 
 /// `{"kind": "tts", "profile": "japanese"|"multilingual", "sentence": "ja"|"en"}` or
-/// `{"kind": "rvc", "entry", "source": "tts", "pitch": -24..=24, "index_rate": 0..=1}`.
+/// `{"kind": "rvc", "entry", "source": "recording", "input": {cookie, serial, name, media_class},
+/// "seconds": 1..=10, "pitch": -24..=24, "index_rate": 0..=1}`.
 pub(super) fn parse(data: &Value) -> Option<Request> {
     let object = data.as_object()?;
     match object.get("kind")?.as_str()? {
@@ -109,15 +128,17 @@ fn parse_tts(object: &Map<String, Value>) -> Option<TtsRequest> {
 }
 
 fn parse_rvc(object: &Map<String, Value>) -> Option<RvcRequest> {
-    if object.len() != 5 {
+    if object.len() != 7 {
         return None;
     }
     let entry = object.get("entry")?.as_str().filter(|id| (1..=128).contains(&id.len()) && id.bytes().all(|b| b.is_ascii_alphanumeric() || b"._:-".contains(&b)))?;
     let source = object.get("source")?.as_str()?;
     let source = *RVC_SOURCES.iter().find(|known| **known == source)?;
+    let input = parse_source(object.get("input")?).ok()?;
+    let seconds = object.get("seconds").filter(|value| value.is_u64())?.as_u64().filter(|seconds| RECORD_SECONDS.contains(seconds))?;
     let pitch = object.get("pitch").filter(|value| value.is_i64() || value.is_u64())?.as_i64().filter(|pitch| (-24..=24).contains(pitch))?;
     let index_rate = object.get("index_rate").filter(|value| value.as_f64().is_some_and(|rate| rate.is_finite() && (0.0..=1.0).contains(&rate)))?;
-    Some(RvcRequest { entry: entry.to_owned(), source, pitch, index_rate: index_rate.clone() })
+    Some(RvcRequest { entry: entry.to_owned(), source, input, seconds, pitch, index_rate: index_rate.clone() })
 }
 
 /// The sentence a TTS profile reads: `(language tag, text)`.
@@ -152,22 +173,34 @@ pub(super) struct Label {
     pub entry: Option<String>,
 }
 
-/// `preparing` until the first audio is written, then `playing`.
+/// `recording` while an RVC audition records, `preparing` until the first audio is written,
+/// then `playing`.
 #[derive(Clone)]
 pub(super) struct Stage(Arc<Mutex<&'static str>>);
 
 impl Stage {
-    fn new() -> Self {
-        Self(Arc::new(Mutex::new("preparing")))
+    fn new(initial: &'static str) -> Self {
+        Self(Arc::new(Mutex::new(initial)))
+    }
+
+    fn set(&self, stage: &'static str) {
+        *self.0.lock().unwrap() = stage;
     }
 
     fn playing(&self) {
-        *self.0.lock().unwrap() = "playing";
+        self.set("playing");
     }
 
     fn get(&self) -> &'static str {
         *self.0.lock().unwrap()
     }
+}
+
+/// What an RVC audition records: the microphone, how it opens, and for how long.
+pub(super) struct Recording {
+    pub open: CaptureOpener,
+    pub input: Endpoint,
+    pub seconds: u64,
 }
 
 type Job = Box<dyn FnOnce(&CancelToken, &Stage) -> Result<(), String> + Send>;
@@ -251,20 +284,20 @@ impl Audition {
     /// The TTS sentence of `speech`, on `target`.
     pub fn start_tts(self: &Arc<Self>, profile: &'static str, speech: Speech, target: Target) -> Result<Value, &'static str> {
         let label = Label { kind: "tts", profile: Some(profile), entry: None };
-        self.start(label, TIMEOUT, Box::new(move |token, stage| play_tts(&speech, &target, token, stage)))
+        self.start(label, TIMEOUT, "preparing", Box::new(move |token, stage| play_tts(&speech, &target, token, stage)))
     }
 
-    /// The TTS sentence of `speech` converted by the worker `prepared` describes, on `target`.
-    pub fn start_rvc(self: &Arc<Self>, entry: String, prepared: PreparedRvc, speech: Speech, target: Target) -> Result<Value, &'static str> {
+    /// The user's voice, recorded now, converted by the worker `prepared` describes, on `target`.
+    pub fn start_rvc(self: &Arc<Self>, entry: String, prepared: PreparedRvc, recording: Recording, target: Target) -> Result<Value, &'static str> {
         let label = Label { kind: "rvc", profile: None, entry: Some(entry) };
-        self.start(label, RVC_TIMEOUT, Box::new(move |token, stage| play_rvc(&prepared, &speech, &target, token, stage)))
+        self.start(label, RVC_TIMEOUT, "recording", Box::new(move |token, stage| play_rvc(&prepared, &recording, &target, token, stage)))
     }
 
     /// Starts `job` on its own thread, in place of the audition playing. Answers at once.
-    fn start(self: &Arc<Self>, label: Label, timeout: Duration, job: Job) -> Result<Value, &'static str> {
+    fn start(self: &Arc<Self>, label: Label, timeout: Duration, stage: &'static str, job: Job) -> Result<Value, &'static str> {
         let token = CancelToken::new();
         let finished = Event::new();
-        let stage = Stage::new();
+        let stage = Stage::new(stage);
         let run = {
             let mut state = self.state.lock().unwrap();
             if state.closed {
@@ -399,28 +432,80 @@ fn play_tts(speech: &Speech, target: &Target, token: &CancelToken, stage: &Stage
     monitor.close(result)
 }
 
-/// Converts the sentence with the voice model and writes the answers to the monitor only. The
-/// sentence is read while the worker loads.
-fn play_rvc(prepared: &PreparedRvc, speech: &Speech, target: &Target, token: &CancelToken, stage: &Stage) -> Result<(), String> {
+/// Records the user's voice, converts it with the voice model and writes the answers to the
+/// monitor only. The worker loads while the voice is recorded.
+fn play_rvc(prepared: &PreparedRvc, recording: &Recording, target: &Target, token: &CancelToken, stage: &Stage) -> Result<(), String> {
     let mut monitor = Monitor::new(target, token, stage);
     let check = || token.check().map_err(|error| speech_code(&error));
-    let mut sample = || -> Result<Vec<u8>, String> {
-        let mut pcm = Vec::new();
-        for chunk in vrct_tts::converted::to_conversion_rate(sentence_frames(speech, token)) {
-            pcm.extend(chunk.map_err(|error| speech_code(&error))?);
-            if pcm.len() > vrct_voice_conversion::audition::MAX_SAMPLE_BYTES {
-                return Err("voice_audition_sample_invalid".into());
-            }
-        }
-        check()?;
-        if pcm.is_empty() {
-            return Err("voice_audition_sample_invalid".into());
-        }
-        Ok(pcm)
-    };
+    let mut sample = || record(recording, token, stage);
     let mut write = |pcm: &[u8], _state: &'static str| monitor.write(pcm, (RATE, 1));
     let result = vrct_voice_conversion::audition::convert_sample(prepared, &mut sample, &mut write, &check).and_then(|()| check());
     monitor.close(result)
+}
+
+/// What a recording has taken so far.
+struct Taken {
+    pcm: Vec<u8>,
+    error: Option<String>,
+    done: bool,
+}
+
+/// Records `recording.seconds` of the chosen microphone, opening it now and closing it before
+/// this returns, whether the recording is whole, stopped or failed. The audio is only returned.
+fn record(recording: &Recording, token: &CancelToken, stage: &Stage) -> Result<Vec<u8>, String> {
+    let want = recording.seconds as usize * RATE as usize * 2;
+    let taken = Arc::new(Mutex::new(Taken { pcm: Vec::with_capacity(want), error: None, done: false }));
+    let (audio, errors) = (taken.clone(), taken.clone());
+    let callbacks = CaptureCallbacks {
+        on_audio: Box::new(move |pcm: &[u8]| {
+            let mut taken = audio.lock().unwrap();
+            if taken.done {
+                return false;
+            }
+            let room = want - taken.pcm.len();
+            taken.pcm.extend_from_slice(&pcm[..pcm.len().min(room)]);
+            taken.done = taken.pcm.len() >= want;
+            !taken.done
+        }),
+        on_error: Box::new(move |code: &str| {
+            let mut taken = errors.lock().unwrap();
+            taken.error.get_or_insert_with(|| vrct_audio_routing::windows_route::capture_code(code).to_owned());
+            taken.done = true;
+        }),
+    };
+    stage.set("recording");
+    let mut capture = (recording.open)(&recording.input, callbacks);
+    let result = (|| -> Result<(), String> {
+        capture.start().map_err(|error| vrct_audio_routing::windows_route::capture_code(&error.code).to_owned())?;
+        let started = Instant::now();
+        loop {
+            token.check().map_err(|error| speech_code(&error))?;
+            {
+                let taken = taken.lock().unwrap();
+                if let Some(code) = &taken.error {
+                    return Err(code.clone());
+                }
+                if taken.done {
+                    return Ok(());
+                }
+                // The device opened but gives nothing (Windows still asking for permission).
+                if taken.pcm.is_empty() && started.elapsed() > FIRST_AUDIO_WAIT {
+                    return Err("asr_capture_start_timeout".into());
+                }
+            }
+            thread::sleep(Duration::from_millis(20));
+        }
+    })();
+    capture.stop();
+    result?;
+    stage.set("preparing");
+    let mut pcm = std::mem::take(&mut taken.lock().unwrap().pcm);
+    pcm.truncate(pcm.len() & !1);
+    let peak = pcm.chunks_exact(2).map(|sample| i16::from_le_bytes([sample[0], sample[1]]).unsigned_abs()).max().unwrap_or(0);
+    if peak < SILENT_PEAK {
+        return Err("voice_audition_recording_silent".into());
+    }
+    Ok(pcm)
 }
 
 /// The monitor an audition plays on, or why there is none. `cables` is `None` when the virtual
@@ -496,16 +581,29 @@ mod tests {
         assert_eq!(sentence_of("multilingual").0, "en");
     }
 
+    fn microphone() -> Value {
+        json!({ "cookie": "1", "serial": "42", "name": "alsa_input.usb-mic", "media_class": "Audio/Source" })
+    }
+
     #[test]
     fn an_rvc_start_names_a_model_by_its_id_and_never_a_path() {
-        let rvc = json!({ "kind": "rvc", "entry": "rvc-saisho", "source": "tts", "pitch": -3, "index_rate": 0.5 });
+        let rvc = json!({ "kind": "rvc", "entry": "rvc-saisho", "source": "recording", "input": microphone(), "seconds": 5, "pitch": -3, "index_rate": 0.5 });
         let Some(Request::Rvc(request)) = parse(&rvc) else { panic!("refused") };
-        assert_eq!((request.entry.as_str(), request.source, request.pitch, request.index_rate.clone()), ("rvc-saisho", "tts", -3, json!(0.5)));
-        let Some(Request::Rvc(own)) = parse(&json!({ "kind": "rvc", "entry": "user-0123456789ab", "source": "tts", "pitch": 24, "index_rate": 1 })) else { panic!("refused") };
+        assert_eq!((request.entry.as_str(), request.source, request.seconds, request.pitch, request.index_rate.clone()), ("rvc-saisho", "recording", 5, -3, json!(0.5)));
+        assert_eq!(request.input.name, "alsa_input.usb-mic");
+        let mut own = rvc.clone();
+        own["entry"] = json!("user-0123456789ab");
+        own["index_rate"] = json!(1);
+        let Some(Request::Rvc(own)) = parse(&own) else { panic!("refused") };
         assert_eq!(own.index_rate, json!(1), "an integer rate stays one");
         let with = |key: &str, value: Value| {
             let mut changed = rvc.clone();
             changed[key] = value;
+            changed
+        };
+        let without = |key: &str| {
+            let mut changed = rvc.clone();
+            changed.as_object_mut().unwrap().remove(key);
             changed
         };
         for bad in [
@@ -513,8 +611,13 @@ mod tests {
             with("entry", json!("/voices/model.pth")),
             with("entry", json!("")),
             with("entry", json!("x".repeat(129))),
-            with("source", json!("recording")),
+            with("source", json!("tts")),
             with("source", json!("file")),
+            with("input", json!("Mic (Realtek)")),
+            with("input", json!({ "name": "alsa_input.usb-mic" })),
+            with("seconds", json!(0)),
+            with("seconds", json!(11)),
+            with("seconds", json!(2.5)),
             with("pitch", json!(25)),
             with("pitch", json!(1.5)),
             with("pitch", json!("3")),
@@ -522,7 +625,8 @@ mod tests {
             with("index_rate", json!(-0.1)),
             with("index_rate", json!("0.5")),
             with("model", json!("/voices/model.pth")),
-            json!({ "kind": "rvc", "entry": "rvc-saisho", "source": "tts", "pitch": 0 }),
+            without("input"),
+            without("seconds"),
         ] {
             assert!(parse(&bad).is_none(), "{bad}");
         }
@@ -530,7 +634,8 @@ mod tests {
 
     #[test]
     fn the_audition_uses_the_requests_values_and_the_saved_worker_choices() {
-        let request = RvcRequest { entry: "rvc-saisho".into(), source: "tts", pitch: 5, index_rate: json!(0.75) };
+        let input = parse_source(&microphone()).unwrap();
+        let request = RvcRequest { entry: "rvc-saisho".into(), source: "recording", input, seconds: 5, pitch: 5, index_rate: json!(0.75) };
         let direct = json!({ "rvc_pitch": 0, "rvc_index_rate": 0.0, "rvc_device": "cpu", "rvc_threads": 4, "rvc_highpass": false });
         let options = rvc_start_options(&request, "/r", "/v.pth", "/v.index", &direct);
         assert_eq!(options, json!({ "engine": "rvc", "runtime": "/r", "model": "/v.pth", "index": "/v.index", "pitch": 5, "index_rate": 0.75, "device": "cpu", "threads": 4, "highpass": false }));
@@ -539,6 +644,76 @@ mod tests {
         let options = rvc_start_options(&request, "/r", "/v.pth", "", &json!({}));
         assert_eq!((options["index_rate"].clone(), options.get("device")), (json!(0), None));
         assert!(vrct_voice_conversion::process::rvc_options(&options).is_ok());
+    }
+
+    /// A microphone that hands over `pcm` in 10 ms parts until it is stopped, or fails to start.
+    struct Feed {
+        part: Vec<u8>,
+        fails: Option<&'static str>,
+        callbacks: Option<CaptureCallbacks>,
+        stop: Arc<std::sync::atomic::AtomicBool>,
+        stopped: Arc<std::sync::atomic::AtomicBool>,
+        thread: Option<thread::JoinHandle<()>>,
+    }
+
+    impl Capture for Feed {
+        fn start(&mut self) -> vrct_audio_routing::Result<()> {
+            if let Some(code) = self.fails {
+                return Err(vrct_audio_routing::Error::runtime(code));
+            }
+            let (mut callbacks, part, stop) = (self.callbacks.take().unwrap(), self.part.clone(), self.stop.clone());
+            self.thread = Some(thread::spawn(move || {
+                while !stop.load(std::sync::atomic::Ordering::SeqCst) && (callbacks.on_audio)(&part) {
+                    thread::sleep(Duration::from_millis(1));
+                }
+            }));
+            Ok(())
+        }
+        fn request_stop(&self) {
+            self.stop.store(true, std::sync::atomic::Ordering::SeqCst);
+        }
+        fn stop(&mut self) {
+            self.request_stop();
+            if let Some(thread) = self.thread.take() {
+                let _ = thread.join();
+            }
+            self.stopped.store(true, std::sync::atomic::Ordering::SeqCst);
+        }
+    }
+
+    fn recording_of(sample: i16, fails: Option<&'static str>, seconds: u64) -> (Recording, Arc<std::sync::atomic::AtomicBool>) {
+        let stopped = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let closed = stopped.clone();
+        let open: CaptureOpener = Arc::new(move |_: &Endpoint, callbacks| {
+            Box::new(Feed { part: sample.to_le_bytes().repeat(480), fails, callbacks: Some(callbacks), stop: Default::default(), stopped: closed.clone(), thread: None }) as Box<dyn Capture>
+        });
+        (Recording { open, input: parse_source(&microphone()).unwrap(), seconds }, stopped)
+    }
+
+    #[test]
+    fn a_recording_is_as_long_as_asked_and_the_microphone_is_closed_after_it() {
+        let (token, stage) = (CancelToken::new(), Stage::new("recording"));
+        let (recording, stopped) = recording_of(2000, None, 1);
+        let pcm = record(&recording, &token, &stage).unwrap();
+        assert_eq!(pcm.len(), 48000 * 2, "one second at 48 kHz mono");
+        assert!(stopped.load(std::sync::atomic::Ordering::SeqCst), "the microphone was left open");
+        assert_eq!(stage.get(), "preparing");
+        // Nothing heard: the microphone is off or another one. It is closed all the same.
+        let (quiet, stopped) = recording_of(40, None, 1);
+        assert_eq!(record(&quiet, &token, &stage).unwrap_err(), "voice_audition_recording_silent");
+        assert!(stopped.load(std::sync::atomic::Ordering::SeqCst));
+        // A microphone that cannot start says so with the capture's code, a code it does not know
+        // as the generic one.
+        let (failing, _) = recording_of(2000, Some("asr_capture_stream_create_failed"), 1);
+        assert_eq!(record(&failing, &token, &stage).unwrap_err(), "asr_capture_stream_create_failed");
+        let (unknown, _) = recording_of(2000, Some("C:\\private\\path"), 1);
+        assert_eq!(record(&unknown, &token, &stage).unwrap_err(), "asr_capture_failed");
+        // A stop ends the recording at once and closes the microphone.
+        let stopping = CancelToken::new();
+        stopping.cancel();
+        let (long, stopped) = recording_of(2000, None, 10);
+        assert!(record(&long, &stopping, &stage).is_err());
+        assert!(stopped.load(std::sync::atomic::Ordering::SeqCst));
     }
 
     #[test]

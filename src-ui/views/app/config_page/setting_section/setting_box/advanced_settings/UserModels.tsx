@@ -11,7 +11,7 @@ import type { CatalogLayout } from "./catalogLayout";
 import { AuditionButton, AuditionNote } from "./VoiceAudition";
 import type { DownloadBlock, ExpectedPaths } from "./ModelDownloads";
 import type { UserModel, UserModelStatus } from "../../../../../../logics/voice/modelCatalog";
-import type { RvcAuditionValues } from "../../../../../../logics/voice/voiceAudition";
+import type { RvcAudition } from "../../../../../../logics/voice/voiceAudition";
 
 const gib = (value: number) => `${(value / 1073741824).toFixed(2)} GiB`;
 // A registered model's files are there, as a downloaded one's; a missing or changed one cannot play.
@@ -28,8 +28,8 @@ export interface UserModelCardsProps {
     busy: boolean;
     // The layout of the catalog the cards are in.
     layout?: CatalogLayout;
-    // The RVC form's pitch and index rate an audition converts with (#415); null while not valid.
-    audition?: RvcAuditionValues | null;
+    // What an RVC card's audition uses (#415): the RVC form's values and the chosen input.
+    audition?: RvcAudition | null;
 }
 
 export const UserModelCards = ({ target, expected, blocked, busy, layout = "list", audition }: UserModelCardsProps) => {
@@ -76,10 +76,10 @@ export const UserModelCards = ({ target, expected, blocked, busy, layout = "list
                         disabled={busy || !!blocked || status !== "registered" || !savedPaths}
                         onClick={() => send("/run/apply_user_model", { id: model.id, expected: savedPaths })}>{t("user_models.use")}</button>}
                     {/* A TTS model in use, or any RVC model whose files are there, can be heard on the monitor output (#415). */}
-                    <AuditionButton target={target} status={auditionStatus(status)} entry={model.id} values={audition} />
+                    <AuditionButton target={target} status={auditionStatus(status)} entry={model.id} values={audition?.values} input={audition?.input} />
                     <button type="button" disabled={busy} onClick={() => setRemoving(model.id)}>{t("user_models.remove")}</button>
                 </div>}
-                {removing !== model.id && <AuditionNote target={target} status={auditionStatus(status)} entry={model.id} values={audition} />}
+                {removing !== model.id && <AuditionNote target={target} status={auditionStatus(status)} entry={model.id} values={audition?.values} input={audition?.input} />}
             </div>
         </li>;
     });

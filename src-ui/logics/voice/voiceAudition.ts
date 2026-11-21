@@ -1,22 +1,29 @@
 // The voice auditions of the TTS and RVC catalogs (#415): which card may play one, and the core's
 // state (`/get/data/voice_audition_state`), checked before the UI uses it. The sentence and the
-// model's files are the core's; the UI names them by id only.
+// model's files are the core's; the UI names them by id only. An RVC audition records the user's
+// voice from the input chosen on the RVC page, on the press only; the core keeps nothing of it.
 
 export type AuditionProfile = "japanese" | "multilingual";
 export type AuditionKind = "tts" | "rvc";
-// `preparing` until the first sound plays (an RVC worker loads first), then `playing`.
-export type AuditionStage = "preparing" | "playing";
+// `recording` while an RVC audition records, `preparing` until the first sound plays (an RVC
+// worker loads first), then `playing`.
+export type AuditionStage = "recording" | "preparing" | "playing";
 
-// What an RVC audition converts. `tts`: the TTS sentence of a running bundled server.
-export const RVC_AUDITION_SOURCE = "tts";
+// What an RVC audition converts. `recording`: the user's voice, recorded on the press.
+export const RVC_AUDITION_SOURCE = "recording";
+// How long an RVC audition records the user's voice, in seconds (the core takes 1 to 10).
+export const RVC_AUDITION_SECONDS = 5;
 
 // Why a TTS card cannot play the audition now, in the order the user would fix it. `null`: it can.
 export type AuditionBlock = "not_downloaded" | "not_in_use" | "server_stopped" | "monitor_off" | "muted" | null;
 // The same for an RVC card.
-export type RvcAuditionBlock = "not_downloaded" | "values_invalid" | "conversion_running" | "tts_stopped" | "monitor_off" | "muted" | null;
+export type RvcAuditionBlock = "not_downloaded" | "values_invalid" | "conversion_running" | "input_missing" | "monitor_off" | "muted" | null;
 
 // The pitch and the index rate an RVC audition converts with.
 export type RvcAuditionValues = { pitch: number; index_rate: number };
+// What the RVC page gives its catalog's cards: the form's values (null while they are not valid)
+// and the chosen input's id, which the voice is recorded from (null while none is chosen).
+export type RvcAudition = { values: RvcAuditionValues | null; input: unknown };
 
 export type AuditionState = {
     state: "idle" | "playing";
@@ -71,7 +78,7 @@ export const normalizeAuditionState = (value: unknown): AuditionState | null => 
     const kind = row.kind === "tts" || row.kind === "rvc" ? row.kind : row.state === "playing" && profile ? "tts" : null;
     return {
         state: row.state, run, kind, profile, entry: entryId(row.entry),
-        stage: row.stage === "preparing" || row.stage === "playing" ? row.stage : null,
+        stage: row.stage === "recording" || row.stage === "preparing" || row.stage === "playing" ? row.stage : null,
         last_run: count(row.last_run), outcome, error_code: outcome === "failed" ? code(row.error_code) ?? "voice_audition_failed" : null,
     };
 };
@@ -89,14 +96,14 @@ export const auditionBlock = ({ status, server, monitor, muted }:
 };
 
 // An RVC card: any model on this PC may be heard, in use or not. `values` are the form's (null
-// when they are not valid); `converting` is a live conversion running; `ttsReady` a bundled TTS
-// server running, whose sentence is the sample.
-export const rvcAuditionBlock = ({ status, values, converting, ttsReady, monitor, muted }:
-    { status: string; values: RvcAuditionValues | null; converting: boolean; ttsReady: boolean; monitor: unknown; muted: boolean }): RvcAuditionBlock => {
+// when they are not valid); `converting` is a live conversion running; `input` the input chosen
+// on the RVC page, which the user's voice is recorded from.
+export const rvcAuditionBlock = ({ status, values, converting, input, monitor, muted }:
+    { status: string; values: RvcAuditionValues | null; converting: boolean; input: unknown; monitor: unknown; muted: boolean }): RvcAuditionBlock => {
     if (!["downloaded", "in_use", "ready"].includes(status)) return "not_downloaded";
     if (!values) return "values_invalid";
     if (converting) return "conversion_running";
-    if (!ttsReady) return "tts_stopped";
+    if (!input) return "input_missing";
     if (monitor !== "on") return "monitor_off";
     if (muted) return "muted";
     return null;

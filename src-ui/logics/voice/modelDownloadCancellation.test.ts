@@ -279,16 +279,17 @@ test("a model downloaded before a restart says so, and in use only when its file
     const dialog = find(render(), node => node.type === "dialog");
     assert.ok(find(dialog, node => node.props?.children === "model_catalog.prepare_notice"));
     // The audition (#415) follows the card's own action in its row, with the card's status and
-    // model id; the RVC form's values reach it when the page has them.
+    // model id; the RVC form's values and the chosen input reach it when the page has them.
     const row = findIn(cards[0], node => node.props?.className === "actions");
     assert.deepEqual(row.props.children.map((child: TreeNode | null) => child?.type), ["button", "audition-button"]);
+    const none = { values: undefined, input: undefined };
     assert.deepEqual(cards.map(card => findIn(card, node => node.type === "audition-note").props), [
-        { target: "rvc", status: "in_use", entry: "a", values: undefined }, { target: "rvc", status: "downloaded", entry: "b", values: undefined },
-        { target: "rvc", status: "not_downloaded", entry: "c", values: undefined }]);
-    const values = { pitch: 2, index_rate: 0.5 };
-    const withValues = nodesIn(ui.render(ModelDownloads, { targets: ["rvc"], expected: { rvc: { model: "/m/a.pth" } }, audition: values }))
+        { target: "rvc", status: "in_use", entry: "a", ...none }, { target: "rvc", status: "downloaded", entry: "b", ...none },
+        { target: "rvc", status: "not_downloaded", entry: "c", ...none }]);
+    const audition = { values: { pitch: 2, index_rate: 0.5 }, input: { cookie: "1", serial: "42", name: "Mic (Realtek)", media_class: "Audio/Source" } };
+    const withValues = nodesIn(ui.render(ModelDownloads, { targets: ["rvc"], expected: { rvc: { model: "/m/a.pth" } }, audition }))
         .filter(node => node.props?.["data-model-download"] !== undefined);
-    assert.deepEqual(findIn(withValues[1], node => node.type === "audition-button").props, { target: "rvc", status: "downloaded", entry: "b", values });
+    assert.deepEqual(findIn(withValues[1], node => node.type === "audition-button").props, { target: "rvc", status: "downloaded", entry: "b", ...audition });
 });
 
 test("the time of a GPU reading is written in the display language", async t => {

@@ -912,9 +912,9 @@ impl Voice {
     }
 
     /// A voice audition (#415), on the monitor output only: the fixed sentence by the profile's
-    /// running bundled server (TTS), or that sentence converted by a voice model (RVC). Refused
-    /// while muted, without the server or without a monitor; an RVC one also while a conversion
-    /// runs and without the runtime or the model's files.
+    /// running bundled server (TTS), or the user's voice recorded on the press and converted by a
+    /// voice model (RVC). Refused while muted or without a monitor; a TTS one also without its
+    /// server, an RVC one while a conversion runs and without the runtime or the model's files.
     fn start_audition(&self, core: &Core, data: &Value) -> Reply {
         let Some(request) = audition::parse(data) else { return refused(400, "voice_audition_request_invalid") };
         if self.audition.closed() || self.bus.status().closed {
@@ -939,17 +939,28 @@ impl Voice {
                     Ok(prepared) => prepared,
                     Err(code) => return refused(409, &code),
                 };
-                // The sample (`source` `tts`): the sentence of a running bundled server, the
-                // Japanese one first. None is started for it.
-                let Some(speech) = ROLES.into_iter().find_map(|role| audition_speech(core, &settings, role)) else {
-                    return refused(409, "voice_audition_server_not_ready");
-                };
-                self.audition.start_rvc(request.entry, prepared, speech, target)
+                // The sample (`source` `recording`): the user's voice from the input chosen on
+                // the RVC page, opened only now and as the live conversion captures it.
+                let Some(open) = self.audition_capture() else { return refused(409, "voice_audition_input_unavailable") };
+                let recording = audition::Recording { open, input: request.input.clone(), seconds: request.seconds };
+                self.audition.start_rvc(request.entry, prepared, recording, target)
             }
         };
         match started {
             Ok(state) => ok(state),
             Err(code) => refused(409, code),
+        }
+    }
+
+    /// How an RVC audition opens the microphone: the device route's capture on Windows, the
+    /// managed route's on Linux, as a live conversion captures it.
+    fn audition_capture(&self) -> Option<audition::CaptureOpener> {
+        if self.windows {
+            let devices = self.platform.route_devices()?;
+            Some(Arc::new(move |input: &vrct_audio_routing::graph::Endpoint, callbacks| devices.capture(input, callbacks)))
+        } else {
+            let devices = self.platform.managed_vc_devices()?;
+            Some(Arc::new(move |input: &vrct_audio_routing::graph::Endpoint, callbacks| devices.capture(input, callbacks)))
         }
     }
 

@@ -1,7 +1,7 @@
 import { atom, useAtom, useStore } from "jotai";
 import { useCallback } from "react";
 import { useStdoutToPython } from "@useStdoutToPython";
-import { IDLE_AUDITION, RVC_AUDITION_SOURCE, auditionAfterFailure, auditionAfterState, auditionSentence } from "./voiceAudition.ts";
+import { IDLE_AUDITION, RVC_AUDITION_SECONDS, RVC_AUDITION_SOURCE, auditionAfterFailure, auditionAfterState, auditionSentence } from "./voiceAudition.ts";
 import type { AuditionProfile, AuditionView, RvcAuditionValues } from "./voiceAudition.ts";
 
 // The voice auditions of the TTS and RVC catalogs (#415). One plays at a time in the core; the
@@ -39,9 +39,11 @@ export const useVoiceAudition = () => {
     // A TTS card: the profile's fixed sentence.
     const start = useCallback((profile: AuditionProfile) =>
         begin({ kind: "tts", profile, entry: null }, { kind: "tts", profile, sentence: auditionSentence(profile) }), [begin]);
-    // An RVC card: its model by id, with the form's pitch and index rate.
-    const startRvc = useCallback((entry: string, values: RvcAuditionValues) =>
-        begin({ kind: "rvc", profile: null, entry }, { kind: "rvc", entry, source: RVC_AUDITION_SOURCE, pitch: values.pitch, index_rate: values.index_rate }), [begin]);
+    // An RVC card: its model by id, the user's voice recorded from `input` (the RVC page's input),
+    // with the form's pitch and index rate. The microphone opens in the core on this press only.
+    const startRvc = useCallback((entry: string, values: RvcAuditionValues, input: unknown) =>
+        begin({ kind: "rvc", profile: null, entry }, { kind: "rvc", entry, source: RVC_AUDITION_SOURCE, input, seconds: RVC_AUDITION_SECONDS,
+            pitch: values.pitch, index_rate: values.index_rate }), [begin]);
     const stop = useCallback(() => asyncStdoutToPython("/run/stop_voice_audition"), [asyncStdoutToPython]);
     const poll = useCallback(() => asyncStdoutToPython("/get/data/voice_audition_state"), [asyncStdoutToPython]);
 

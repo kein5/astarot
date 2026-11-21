@@ -261,11 +261,12 @@ export const DirectVoiceSettings = ({ variant = "all", subheading = false }: Dir
                 <VcRuntimeSetup engine={DIRECTML_RUNTIME} disabled={busy || saving} />
             </>}
             {/* Other unsaved edits survive an apply; only edited model or index paths conflict. A
-                card's audition converts with the pitch and index rate on the form, saved or not (#415). */}
+                card's audition records the user's voice from the input chosen above and converts it
+                with the pitch and index rate on the form, saved or not (#415). */}
             {rvc && <ModelDownloads targets={["rvc"]} blocked={busy || saving ? "busy" :
                 draft.rvc_model !== savedForm(saved).rvc_model || draft.rvc_index !== savedForm(saved).rvc_index ? "edited" : false}
                 expected={{ rvc: { model: directState.settings?.rvc_model || "", index: directState.settings?.rvc_index || "" } }}
-                audition={rvcAuditionValues(draft.rvc_pitch, draft.rvc_index_rate)} />}
+                audition={{ values: rvcAuditionValues(draft.rvc_pitch, draft.rvc_index_rate), input: source?.id ?? null }} />}
             {deviceRoute && !routeReady && <Description text={t("voice.input_requires_output")} />}
             {/* The route is unknown until the first state arrives, and Windows has no microphone to prepare. */}
             {directState.observation_id && !managed && !deviceRoute && <><Description text={t("voice.input_requires_managed")} />

@@ -15,6 +15,7 @@ interface CardOptions {
 
 const VALUES = { pitch: 3, index_rate: 0.5 };
 const MODEL = "user-0123456789ab";
+const MIC = { cookie: "1", serial: "42", name: "Mic (Realtek)", media_class: "Audio/Source" };
 
 // The audition's button and note on a TTS or RVC card (#415), with the voice, the servers and the
 // audition as the card reads them.
@@ -26,17 +27,17 @@ async function card(context: TestContext, { monitor = "on", server = "ready", mu
             directState: converting ? { mode: "converted", requested: true } : { mode: "passthrough", requested: true } }) },
         "../../../../../../logics/voice/useSpeechServers": { useSpeechServers: () => ({ state: { japanese: { state: server } } }) },
         "../../../../../../logics/voice/useVoiceAudition": { useVoiceAudition: () => ({ audition,
-            start: (profile: string) => pressed.push(["start", profile]), startRvc: (entry: string, values: unknown) => pressed.push(["startRvc", entry, values]),
+            start: (profile: string) => pressed.push(["start", profile]), startRvc: (entry: string, values: unknown, input: unknown) => pressed.push(["startRvc", entry, values, input]),
             stop: () => pressed.push(["stop"]) }) },
         "../../../../../../logics/voice/voiceAudition": shapes,
     });
     const button = (status = "in_use", target = "japanese") => runtime.render(module.AuditionButton, { target, status });
     const note = (status = "in_use", target = "japanese") => runtime.render(module.AuditionNote, { target, status });
-    // An RVC card: its model's id and the form's values (null while they are not valid).
-    const rvcButton = (status = "downloaded", values: shapes.RvcAuditionValues | null = VALUES, entry = MODEL) =>
-        runtime.render(module.AuditionButton, { target: "rvc", status, entry, values });
-    const rvcNote = (status = "downloaded", values: shapes.RvcAuditionValues | null = VALUES, entry = MODEL) =>
-        runtime.render(module.AuditionNote, { target: "rvc", status, entry, values });
+    // An RVC card: its model's id, the form's values (null while they are not valid) and the input.
+    const rvcButton = (status = "downloaded", values: shapes.RvcAuditionValues | null = VALUES, entry = MODEL, input: unknown = MIC) =>
+        runtime.render(module.AuditionButton, { target: "rvc", status, entry, values, input });
+    const rvcNote = (status = "downloaded", values: shapes.RvcAuditionValues | null = VALUES, entry = MODEL, input: unknown = MIC) =>
+        runtime.render(module.AuditionNote, { target: "rvc", status, entry, values, input });
     return { button, note, rvcButton, rvcNote, pressed };
 }
 
@@ -120,7 +121,7 @@ test("a refused or failed audition says why on the card it was pressed on, until
     assert.equal(blocked.props.children, "voice_audition.blocked.muted");
 });
 
-test("an RVC card plays its model whether in use or not, with the form's values, on a press only", async context => {
+test("an RVC card plays its model whether in use or not, with the form's values and the chosen input, on a press only", async context => {
     const c = await card(context);
     for (const status of ["downloaded", "in_use", "ready"]) {
         const button = c.rvcButton(status);
@@ -131,29 +132,34 @@ test("an RVC card plays its model whether in use or not, with the form's values,
     }
     assert.deepEqual(c.pressed, [], "rendering pressed it");
     c.rvcButton()?.props.onClick();
-    assert.deepEqual(c.pressed, [["startRvc", MODEL, VALUES]]);
+    assert.deepEqual(c.pressed, [["startRvc", MODEL, VALUES, MIC]]);
     // Not on this PC: its download or registration is the step, and nothing more is said.
     assert.equal(c.rvcButton("not_downloaded"), null);
     assert.equal(c.rvcNote("missing"), null);
 });
 
-test("an RVC card says why it cannot play: the form's values, a conversion, the TTS server, the monitor, the mute", async context => {
-    const cases: [CardOptions, shapes.RvcAuditionValues | null, string][] = [[{}, null, "values_invalid"], [{ converting: true }, VALUES, "conversion_running"],
-        [{ server: "stopped" }, VALUES, "tts_stopped"], [{ monitor: "off" }, VALUES, "monitor_off"], [{ muted: true }, VALUES, "muted"]];
-    for (const [options, values, reason] of cases) {
+test("an RVC card says why it cannot play: the form's values, a conversion, no input, the monitor, the mute", async context => {
+    const cases: [CardOptions, shapes.RvcAuditionValues | null, unknown, string][] = [[{}, null, MIC, "values_invalid"], [{ converting: true }, VALUES, MIC, "conversion_running"],
+        [{}, VALUES, null, "input_missing"], [{ monitor: "off" }, VALUES, MIC, "monitor_off"], [{ muted: true }, VALUES, MIC, "muted"]];
+    for (const [options, values, input, reason] of cases) {
         const c = await card(context, options);
-        assert.equal(c.rvcButton("downloaded", values), null, reason);
-        const note = c.rvcNote("downloaded", values);
+        assert.equal(c.rvcButton("downloaded", values, MODEL, input), null, reason);
+        const note = c.rvcNote("downloaded", values, MODEL, input);
         assert.ok(note, reason);
         // Its own wording first; the monitor and the mute share the TTS cards'.
         assert.deepEqual(note.props.children, [`voice_audition.rvc_blocked.${reason}`, `voice_audition.blocked.${reason}`]);
     }
-    // Input forwarding without conversion does not hold the worker.
-    const forwarding = await card(context, { converting: false });
+    // Input forwarding without conversion does not hold the worker, and no TTS server is needed.
+    const forwarding = await card(context, { converting: false, server: "stopped" });
     assert.ok(forwarding.rvcButton());
 });
 
-test("an RVC audition says it prepares until the converted voice plays, and its failure names the conversion's code", async context => {
+test("an RVC audition says it records, then prepares, until the converted voice plays, and its failure names its code", async context => {
+    const recording = await card(context, { audition: rvc({ phase: "playing", stage: "recording", run: 4 }) });
+    assert.equal(recording.rvcButton()?.props.children, "voice_audition.stop", "the recording can be stopped");
+    const speak = recording.rvcNote();
+    assert.ok(speak);
+    assert.deepEqual([speak.props.role, speak.props.children], ["status", "voice_audition.rvc_recording"]);
     const preparing = await card(context, { audition: rvc({ phase: "playing", stage: "preparing", run: 4 }) });
     const stop = preparing.rvcButton();
     assert.ok(stop);
@@ -167,9 +173,12 @@ test("an RVC audition says it prepares until the converted voice plays, and its 
     assert.equal(preparing.rvcButton("downloaded", VALUES, "rvc-saisho")?.props.children, "voice_audition.play");
     const playing = await card(context, { audition: rvc({ phase: "playing", stage: "playing", run: 4 }) });
     assert.equal(playing.rvcNote(), null);
-    const failed = await card(context, { audition: rvc({ phase: "idle", run: 4, error: "vc_gpu_unavailable" }) });
-    const alert = failed.rvcNote();
-    assert.ok(alert);
-    assert.deepEqual(alert.props.children, ["voice_audition.rvc_errors.vc_gpu_unavailable", "voice_audition.errors.vc_gpu_unavailable",
-        "voice.input_errors.vc_gpu_unavailable", "voice_audition.rvc_errors.voice_audition_failed"]);
+    // The worker's code, or the microphone's (voice.input_errors has both).
+    for (const code of ["vc_gpu_unavailable", "asr_capture_stream_create_failed"]) {
+        const failed = await card(context, { audition: rvc({ phase: "idle", run: 4, error: code }) });
+        const alert = failed.rvcNote();
+        assert.ok(alert);
+        assert.deepEqual(alert.props.children, [`voice_audition.rvc_errors.${code}`, `voice_audition.errors.${code}`,
+            `voice.input_errors.${code}`, "voice_audition.rvc_errors.voice_audition_failed"]);
+    }
 });

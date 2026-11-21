@@ -25,7 +25,7 @@ import type { CatalogFamily, DownloadStatus } from "../../../../../../logics/voi
 import type { ModelCatalogRow, ModelDownloadJob } from "../../../../../../logics/voice/useModelDownloads";
 import type { HardwareWarning, TranslationDevice } from "../../../../../../logics/voice/modelHardwareWarning";
 import type { Translate } from "../../../../../../logics/voice/voiceErrorText.ts";
-import type { RvcAuditionValues } from "../../../../../../logics/voice/voiceAudition";
+import type { RvcAudition } from "../../../../../../logics/voice/voiceAudition";
 
 // Why the Apply of a ready download waits: the page is busy, or the field it writes was edited.
 export type DownloadBlock = false | "busy" | "edited";
@@ -207,9 +207,9 @@ export interface ModelDownloadsProps {
     engines?: boolean;
     only?: readonly string[];
     translationDevice?: TranslationDevice;
-    // The RVC form's pitch and index rate, which an RVC card's audition converts with (#415);
-    // null while they are not valid.
-    audition?: RvcAuditionValues | null;
+    // What an RVC card's audition uses (#415): the RVC form's pitch and index rate, and the input
+    // chosen on the page, which the user's voice is recorded from.
+    audition?: RvcAudition | null;
 }
 
 export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode = 'auto', reserve: sharedReserve, engines = false, only, translationDevice, audition }: ModelDownloadsProps) => {
@@ -367,10 +367,10 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
                     setSelected({ ...current, catalog_version: version, downloaded });
                 }}>{t(downloaded ? "model_catalog.prepare" : "model_downloads.review")}</button>
                 {/* The TTS models: a short sentence on the monitor output only; the RVC models: that sentence converted (#415). */}
-                <AuditionButton target={target} status={shownStatus} entry={current.id} values={audition} />
+                <AuditionButton target={target} status={shownStatus} entry={current.id} values={audition?.values} input={audition?.input} />
             </div>
         </>;
-        const auditionNote = <AuditionNote target={target} status={shownStatus} entry={current.id} values={audition} />;
+        const auditionNote = <AuditionNote target={target} status={shownStatus} entry={current.id} values={audition?.values} input={audition?.input} />;
         // The card's parts in the order they are read (#614): what it is, its state and a warning,
         // the file and its facts, then what runs and what can be done. In the grid a card keeps
         // what it is, its size and hardware, and what can be done; the file's choice, the
