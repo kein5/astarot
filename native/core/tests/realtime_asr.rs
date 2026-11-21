@@ -457,6 +457,32 @@ fn the_chosen_silence_ends_utterances_with_at_most_half_of_it_as_padding() {
 }
 
 #[test]
+fn the_chosen_speech_detection_threshold_is_sent_and_none_otherwise() {
+    // #392: left out, no threshold is sent and the server's own applies; a chosen one is sent
+    // and written. A change starts the sessions again, as the silence does.
+    for chosen in [None, Some(0.3)] {
+        let run = start(Platform::Linux, json!({}), true);
+        if let Some(threshold) = chosen {
+            let mut settings = run.ui.ok("/get/data/realtime_asr_settings", None);
+            settings["vad_threshold"] = json!(threshold);
+            assert_eq!(run.ui.ok("/set/data/realtime_asr_settings", Some(settings))["vad_threshold"], threshold);
+        }
+        assert_eq!(run.ui.ok("/set/enable/transcription_send", None), true);
+        eventually("the session is configured", || !run.asr.turn_detection.lock().unwrap().is_empty());
+        let sent = run.asr.turn_detection.lock().unwrap()[0].clone();
+        assert_eq!(sent.get("threshold").and_then(Value::as_f64), chosen);
+        run.ui.ok("/run/shutdown", None);
+        assert_eq!(run.ui.saved()["REALTIME_ASR_SETTINGS"].get("vad_threshold").and_then(Value::as_f64), chosen);
+        run.ui.stop();
+    }
+    let run = start(Platform::Linux, json!({}), true);
+    let mut settings = run.ui.ok("/get/data/realtime_asr_settings", None);
+    settings["vad_threshold"] = json!(1.5);
+    assert_eq!(error_code(&run.ui.request("/set/data/realtime_asr_settings", Some(settings))), "realtime_settings_invalid");
+    run.ui.stop();
+}
+
+#[test]
 fn a_saved_google_engine_leaves_realtime_recognition_as_it_was() {
     // Linux with a config.json that chose the retired Google engine: the main switch still streams.
     let run = start(Platform::Linux, json!({ "SELECTED_TRANSCRIPTION_ENGINE": "Google", "LOCAL_ASR_MIGRATION": 2 }), true);

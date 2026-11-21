@@ -58,6 +58,10 @@ pub struct Options {
     /// The silence that ends an utterance (`server_vad`'s `silence_duration_ms`); `None` is
     /// [`DEFAULT_SILENCE_MS`].
     pub silence_duration_ms: Option<u32>,
+    /// How sure the detection must be that it hears speech, in hundredths (`server_vad`'s
+    /// `threshold` is 0 to 1): lower picks up quieter speech, higher lets less noise through
+    /// (#392). `None` sends none, so the server's own applies.
+    pub vad_threshold_percent: Option<u8>,
     /// Whether that list had a diarization model on a GPU: a speaker's session then asks who
     /// speaks.
     pub diarizes: bool,
@@ -99,10 +103,15 @@ const MAX_PADDING_MS: u32 = 300;
 /// each once it is certain"). With its defaults, 500 ms of silence and 300 ms of padding, that
 /// is 600 ms after the speech, not 500 (#556). With the padding at most half the silence the
 /// utterance comes when the silence has lasted, and the silence alone still decides where
-/// utterances are cut.
-pub fn turn_detection(silence_duration_ms: Option<u32>) -> Value {
+/// utterances are cut. The threshold is sent only when the settings choose one (#392).
+pub fn turn_detection(silence_duration_ms: Option<u32>, threshold_percent: Option<u8>) -> Value {
     let silence = silence_duration_ms.unwrap_or(DEFAULT_SILENCE_MS);
-    json!({ "type": "server_vad", "silence_duration_ms": silence, "prefix_padding_ms": (silence / 2).min(MAX_PADDING_MS) })
+    let mut detection =
+        json!({ "type": "server_vad", "silence_duration_ms": silence, "prefix_padding_ms": (silence / 2).min(MAX_PADDING_MS) });
+    if let Some(percent) = threshold_percent {
+        detection["threshold"] = json!(f64::from(percent) / 100.0);
+    }
+    detection
 }
 
 #[derive(Clone, Debug)]
@@ -441,7 +450,7 @@ impl Session {
         let mut audio = json!({
             "format": { "type": "audio/pcm", "rate": RATE },
             "transcription": transcription,
-            "turn_detection": turn_detection(self.inner.options.silence_duration_ms),
+            "turn_detection": turn_detection(self.inner.options.silence_duration_ms, self.inner.options.vad_threshold_percent),
             "noise_reduction": null,
         });
         if diarization {
@@ -868,6 +877,7 @@ mod tests {
             language: "ja".into(),
             vocabulary: Vec::new(),
             silence_duration_ms: None,
+            vad_threshold_percent: None,
             diarizes: false,
             limits,
             diagnostics: None,
@@ -904,10 +914,13 @@ mod tests {
     #[test]
     fn the_padding_is_at_most_half_the_silence_so_the_utterance_comes_when_it_has_lasted() {
         let sent = |silence| {
-            let value = turn_detection(silence);
+            let value = turn_detection(silence, None);
             (value["silence_duration_ms"].as_u64().unwrap(), value["prefix_padding_ms"].as_u64().unwrap())
         };
-        assert_eq!(turn_detection(None)["type"], "server_vad");
+        assert_eq!(turn_detection(None, None)["type"], "server_vad");
+        // No threshold unless one is chosen (#392): the server's own applies.
+        assert!(turn_detection(None, None).get("threshold").is_none());
+        assert_eq!(turn_detection(Some(500), Some(30))["threshold"], 0.3);
         assert_eq!(sent(None), (400, 200));
         assert_eq!(sent(Some(500)), (500, 250));
         assert_eq!(sent(Some(300)), (300, 150));
