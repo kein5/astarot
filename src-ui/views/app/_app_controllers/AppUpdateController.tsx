@@ -28,9 +28,15 @@ export const AppUpdateController = () => {
     // the installer raised the "stopped unexpectedly" notice; that one goes, as the restart answers it.
     const { t } = useI18n();
     const { showNotification_Error, dismissNotification } = useNotificationStatus();
+    // The listener lives as long as the window, so it reads the latest of these. react-i18next
+    // fixes t to the language it was drawn in, and the first drawing comes before the saved UI
+    // language: a t kept from then would say the notice in the system's language.
+    const latest = useRef({ t, showNotification_Error, dismissNotification });
+    latest.current = { t, showNotification_Error, dismissNotification };
     useEffect(() => {
         let stop: (() => void) | null = null, gone = false;
         listen(UPDATE_RESTARTING_EVENT, () => {
+            const { t, showNotification_Error, dismissNotification } = latest.current;
             dismissNotification("backend_stopped");
             showNotification_Error(t("app_update.restarting_after_failure"), { hide_duration: null, category_id: "app_update_restarting" });
         }).then(unlisten => { if (gone) unlisten(); else stop = unlisten; }).catch(() => {});
