@@ -94,18 +94,34 @@ pub trait ChatCompletions: Api {
     /// `POST {base}/responses` for a model that has only the Responses API.
     fn chat(transport: &Transport, access: &Access<'_>, t: &Translation<'_>) -> Result<String, Error> {
         let model = access.chosen_model()?;
-        let system = prompt::system_prompt(Self::PLAMO_PROMPT, t.supported_languages, t.source, t.target, t.history, t.glossary);
+        let system = prompt::system_prompt(Self::PLAMO_PROMPT, t.supported_languages, t.source, t.target, t.history, t.glossary, t.instructions);
         if responses_only(model) {
+            // These are reasoning models, which take no temperature.
             return Self::respond(transport, access, model, &system, t.text);
         }
-        let url = join(access.base, "/chat/completions");
-        let body = json!({
+        let mut body = json!({
             "model": model,
             "stream": false,
             "messages": [{ "role": "system", "content": system }, { "role": "user", "content": t.text }],
         });
+        let Some(temperature) = t.temperature else { return Self::complete(transport, access, &body) };
+        body["temperature"] = json!(temperature);
+        match Self::complete(transport, access, &body) {
+            // A model that takes no temperature of its choosing (OpenAI's reasoning models, as
+            // gpt-5 or o3) refuses the request: it is sent again without one, as it was before.
+            Err(Error::Status(400)) => {
+                body.as_object_mut().expect("an object").remove("temperature");
+                Self::complete(transport, access, &body)
+            }
+            done => done,
+        }
+    }
+
+    /// `POST {base}/chat/completions` with `body`.
+    fn complete(transport: &Transport, access: &Access<'_>, body: &Value) -> Result<String, Error> {
+        let url = join(access.base, "/chat/completions");
         Self::attempt(transport, access.base, |send, wait| {
-            let request = Request::post_json(&url, &body).header("Authorization", Self::authorization(access.key));
+            let request = Request::post_json(&url, body).header("Authorization", Self::authorization(access.key));
             let answer = json_of(&checked(send(&request, wait)?)?)?;
             let choice = &answer["choices"][0];
             if choice["finish_reason"] == "length" {

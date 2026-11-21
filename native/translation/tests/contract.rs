@@ -189,6 +189,8 @@ fn run(document: &Value, case: &Value) -> (Value, Option<f64>) {
                 supported_languages: &supported,
                 history: &history,
                 glossary: &[],
+                temperature: None,
+                instructions: "",
             };
             match provider.translate(&transport, &call, &request) {
                 Ok(text) => json!({ "text": text }),

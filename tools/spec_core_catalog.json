@@ -527,6 +527,26 @@
       "immediate": false
     },
     {
+      "endpoint": "/get/data/llm_translation_temperature",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/llm_translation_temperature",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/get/data/llm_translation_instructions",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/llm_translation_instructions",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
       "endpoint": "/get/data/tray_companion_edge",
       "wait_for_init": false,
       "immediate": false
@@ -4635,6 +4655,16 @@
       "key": "SELECTED_OLLAMA_MODEL",
       "kind": "saved",
       "default": null
+    },
+    {
+      "key": "LLM_TRANSLATION_TEMPERATURE",
+      "kind": "saved",
+      "default": ""
+    },
+    {
+      "key": "LLM_TRANSLATION_INSTRUCTIONS",
+      "kind": "saved",
+      "default": ""
     },
     {
       "key": "SELECTED_GROQ_WHISPER_MODEL",

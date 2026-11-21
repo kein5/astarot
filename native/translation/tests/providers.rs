@@ -19,11 +19,11 @@ fn languages() -> Vec<String> {
 
 /// A machine translation: codes, no prompt.
 fn plain<'a>(text: &'a str, source: &'a str, target: &'a str) -> Translation<'a> {
-    Translation { text, source, target, supported_languages: &[], history: &[], glossary: &[] }
+    Translation { text, source, target, supported_languages: &[], history: &[], glossary: &[], temperature: None, instructions: "" }
 }
 
 fn ask<'a>(text: &'a str, supported: &'a [String], history: &'a [HistoryItem]) -> Translation<'a> {
-    Translation { text, source: "Japanese", target: "English", supported_languages: supported, history, glossary: &[] }
+    Translation { text, source: "Japanese", target: "English", supported_languages: supported, history, glossary: &[], temperature: None, instructions: "" }
 }
 
 #[test]
@@ -39,7 +39,7 @@ fn deepl_checks_the_key_and_translates_with_upper_case_codes() {
     assert_eq!(check.body["target_lang"], "EN-US");
 
     let ask_deepl =
-        Translation { text: "こんにちは", source: "ja", target: "en-US", supported_languages: &[], history: &[], glossary: &[] };
+        Translation { text: "こんにちは", source: "ja", target: "en-US", supported_languages: &[], history: &[], glossary: &[], temperature: None, instructions: "" };
     assert_eq!(
         DeepL::translate(&net(), &Access::at(base).key("good:fx"), &ask_deepl).unwrap(),
         "deepl-free:EN-US:こんにちは"
@@ -362,4 +362,65 @@ fn the_runtime_name_calls_the_same_code_as_the_type() {
     // A machine translation API has no models to ask for.
     assert_eq!(Provider::DeepL.models(&net(), &Access::at(&endpoints.deepl).key("k")), Vec::<String>::new());
     assert_eq!(fake.seen().len(), 3);
+}
+
+/// The temperature and the instructions the user chose for the AI providers (#392): sent when
+/// chosen, and nothing of them otherwise, so the requests stay the ones recorded from Python.
+#[test]
+fn the_ai_providers_send_the_temperature_and_the_instructions_the_user_chose() {
+    let fake = FakeProviders::start();
+    let endpoints = Endpoints::all_at(&fake.url());
+    let supported = languages();
+    let chosen = |t: Translation<'static>| Translation { temperature: Some(0.2), instructions: " Keep VRChat terms in English. ", ..t };
+    let system = |body: &serde_json::Value| body["messages"][0]["content"].as_str().unwrap().to_string();
+
+    fake.key("/openai/v1", "sk-good").models("/openai/v1", &["gpt-4o"]);
+    let openai = Access::at(&endpoints.openai).key("sk-good").model("gpt-4o");
+    OpenAi::translate(&net(), &openai, &chosen(ask("文", &[], &[]))).unwrap();
+    let sent = fake.seen_under("/openai/v1/chat").pop().unwrap();
+    assert_eq!(sent.body["temperature"], 0.2);
+    let prompt = system(&sent.body);
+    assert!(prompt.contains("Additional instructions from the user.") && prompt.contains("\nKeep VRChat terms in English.\n"), "{prompt}");
+    assert!(prompt.find("Return ONLY the translated text").unwrap() < prompt.find("Keep VRChat").unwrap(), "the rules come first");
+    OpenAi::translate(&net(), &openai, &ask("文", &supported, &[])).unwrap();
+    let sent = fake.seen_under("/openai/v1/chat").pop().unwrap();
+    assert!(sent.body.get("temperature").is_none(), "a temperature was sent unasked");
+    assert!(!system(&sent.body).contains("Additional instructions"));
+
+    fake.key("/gemini", "gemini-key").models("/gemini", &["gemini-2.5-flash"]);
+    let gemini = Access::at(&endpoints.gemini).key("gemini-key").model("gemini-2.5-flash");
+    Gemini::translate(&net(), &gemini, &chosen(ask("文", &[], &[]))).unwrap();
+    let sent = fake.seen_under("/gemini").pop().unwrap();
+    assert_eq!(sent.body["generationConfig"]["temperature"], 0.2);
+    assert!(sent.body["systemInstruction"]["parts"][0]["text"].as_str().unwrap().contains("Keep VRChat terms"));
+    Gemini::translate(&net(), &gemini, &ask("文", &supported, &[])).unwrap();
+    assert_eq!(fake.seen_under("/gemini").pop().unwrap().body["generationConfig"]["temperature"], 0.7, "LangChain's");
+
+    fake.models("/ollama", &["qwen"]);
+    let base = fake.url_of("/ollama");
+    Ollama::translate(&net(), &Access::at(&base).model("qwen"), &chosen(ask("文", &[], &[]))).unwrap();
+    let sent = fake.seen_under("/ollama/api/chat").pop().unwrap();
+    assert_eq!(sent.body["options"], serde_json::json!({ "temperature": 0.2 }));
+    assert!(system(&sent.body).contains("Keep VRChat terms"));
+}
+
+/// A model that takes no temperature of its choosing (OpenAI's reasoning models) refuses the
+/// request: it is asked again without one, as before the setting (#392).
+#[test]
+fn a_model_that_refuses_a_temperature_is_asked_again_without_one() {
+    let fake = FakeProviders::start();
+    let endpoints = Endpoints::all_at(&fake.url());
+    fake.key("/openai/v1", "sk-good").models("/openai/v1", &["gpt-5"]).refuse_temperature("/openai/v1", true);
+    let openai = Access::at(&endpoints.openai).key("sk-good").model("gpt-5");
+    let asked = Translation { temperature: Some(0.2), ..ask("文", &[], &[]) };
+    assert_eq!(OpenAi::translate(&net(), &openai, &asked).unwrap(), "openai/v1:English:文");
+    let sent = fake.seen_under("/openai/v1/chat");
+    assert_eq!(sent.len(), 2);
+    assert_eq!(sent[0].body["temperature"], 0.2);
+    assert!(sent[1].body.get("temperature").is_none());
+
+    // Without a temperature, a refusal is a refusal: it is not sent again.
+    fake.fail("/openai/v1", 400);
+    assert_eq!(OpenAi::translate(&net(), &openai, &ask("文", &[], &[])).unwrap_err(), Error::Status(400));
+    assert_eq!(fake.seen_under("/openai/v1/chat").len(), 3);
 }

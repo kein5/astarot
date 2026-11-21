@@ -775,6 +775,13 @@ config_page:
         select_ollama_model:
             label: "Select Ollama model"
             connection_required: "Ollama connection required"
+        section_label_llm_options: "What the LLM engines are asked"
+        llm_translation_temperature:
+            label: "Temperature"
+            desc: "How much the translation varies. Near 0, the same sentence gets the same translation; higher values vary the wording. 0 to 0.3 suits translation. Left empty, none is sent and each engine keeps its own default (0.7 for Gemini). A model that takes no temperature, such as OpenAI's reasoning models, is asked again without one."
+        llm_translation_instructions:
+            label: "Additional instructions"
+            desc: "Added after the prompt the LLM engines are sent. For example: \"Translate casually, without honorifics\" or \"Keep VRChat terms in English\". One line, up to 500 characters. The engines still return only the translation. This text is sent to the engine too."
 
     transcription:
         section_label_mic: "Mic"

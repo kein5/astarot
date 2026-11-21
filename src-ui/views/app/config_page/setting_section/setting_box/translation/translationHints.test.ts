@@ -57,6 +57,13 @@ test("the general descriptions are left to become hints", () => {
     const deepl = component("DeepLAuthKey_Box");
     assert.match(deepl, /"config_page\.translation\.deepl_auth_key\.desc"/);
     assert.doesNotMatch(deepl, /keep_desc/);
+    // What the LLM engines are asked besides the text (#392): what Temperature is, and examples
+    // of instructions, are the labels' hints, not kept on screen.
+    for (const [name, key] of [["LLMTranslationTemperature_Box", "llm_translation_temperature.desc"], ["LLMTranslationInstructions_Box", "llm_translation_instructions.desc"]]) {
+        const body = component(name);
+        assert.ok(body.includes(`desc={t("config_page.translation.${key}")}`), name);
+        assert.doesNotMatch(body, /keep_desc|lead=/, name);
+    }
 });
 
 test("the local servers are set up in order: the address, whether it answers, then the model", () => {

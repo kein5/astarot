@@ -302,8 +302,9 @@ test("translation keeps its local model and its catalog in sight; the APIs and l
     // The translation catalog (#413) is a section of its own after the fold (#597), not inside it.
     assert.deepEqual(outside, ["AITranslation_Container", "TranslationCatalogSection"]);
     assert.ok(source.indexOf("<TranslationCatalogSection />") > source.indexOf("</AdvancedSection>"), "the catalog comes after 「詳細設定」");
-    // What an LLM engine is sent leads the fold, once for the APIs and the local servers (#614).
-    assert.deepEqual(fold, ["Lead", "ExternalTranslationAPI_Container", "LocalLLM_Container"]);
+    // What an LLM engine is sent leads the fold, once for the APIs and the local servers (#614);
+    // what they are all asked besides the text closes it, once for both (#392).
+    assert.deepEqual(fold, ["Lead", "ExternalTranslationAPI_Container", "LocalLLM_Container", "LLMTranslationOptions_Container"]);
     const providers = (name: string) => [...source.split(`const ${name} = () => {`)[1].split("\n};")[0].matchAll(/<Provider id="(\w+)">/g)].map(match => match[1]);
     const list = (name: string) => {
         const match = source.match(new RegExp(`export const ${name} = (\\[[^\\]]*\\]);`));

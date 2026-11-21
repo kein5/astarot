@@ -151,6 +151,8 @@ export interface SettingValues {
     OllamaURL: string;
     SelectableOllamaModelList: SettingOptions;
     SelectedOllamaModel: string | null;
+    LLMTranslationTemperature: string;
+    LLMTranslationInstructions: string;
 
     // Transcription
     MicRecordTimeout: number;

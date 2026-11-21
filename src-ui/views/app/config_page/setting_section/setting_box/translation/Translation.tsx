@@ -94,6 +94,7 @@ export const Translation = () => {
                 <Lead text={t("config_page.translation.llm_privacy_lead")} details={t("config_page.translation.llm_privacy_desc")} />
                 <ExternalTranslationAPI_Container />
                 <LocalLLM_Container />
+                <LLMTranslationOptions_Container />
             </AdvancedSection>
             <TranslationCatalogSection />
         </div>
@@ -231,6 +232,67 @@ const LocalLLM_Container = () => {
                 <OpenAICompatibleModelContainer />
             </Provider>
         </div>
+    );
+};
+
+// What every AI translation engine above is asked besides the text (#392). Both are empty by
+// default, which asks for nothing more than before.
+const LLMTranslationOptions_Container = () => {
+    const { t } = useI18n();
+    return (
+        <div>
+            <SectionLabelComponent sub label={t("config_page.translation.section_label_llm_options")} />
+            <LLMTranslationTemperature_Box />
+            <LLMTranslationInstructions_Box />
+        </div>
+    );
+};
+
+const LLMTranslationTemperature_Box = () => {
+    const { t } = useI18n();
+    const { currentLLMTranslationTemperature, setLLMTranslationTemperature } = useTranslation();
+    const { variable, onChangeFunction, saveFunction } = useSaveButtonLogic({
+        variable: currentLLMTranslationTemperature.data,
+        state: currentLLMTranslationTemperature.state,
+        setFunction: setLLMTranslationTemperature,
+        label: t("config_page.translation.llm_translation_temperature.label"),
+    });
+    return (
+        <EntryWithSaveButtonContainer
+            label={t("config_page.translation.llm_translation_temperature.label")}
+            desc={t("config_page.translation.llm_translation_temperature.desc")}
+            type="number"
+            min={0}
+            max={2}
+            step={0.1}
+            width="8rem"
+            variable={entryText(variable) ?? ""}
+            saveFunction={saveFunction}
+            onChangeFunction={onChangeFunction}
+            state={currentLLMTranslationTemperature.state}
+        />
+    );
+};
+
+const LLMTranslationInstructions_Box = () => {
+    const { t } = useI18n();
+    const { currentLLMTranslationInstructions, setLLMTranslationInstructions } = useTranslation();
+    const { variable, onChangeFunction, saveFunction } = useSaveButtonLogic({
+        variable: currentLLMTranslationInstructions.data,
+        state: currentLLMTranslationInstructions.state,
+        setFunction: setLLMTranslationInstructions,
+        label: t("config_page.translation.llm_translation_instructions.label"),
+    });
+    return (
+        <EntryWithSaveButtonContainer
+            label={t("config_page.translation.llm_translation_instructions.label")}
+            desc={t("config_page.translation.llm_translation_instructions.desc")}
+            variable={entryText(variable) ?? ""}
+            saveFunction={saveFunction}
+            onChangeFunction={onChangeFunction}
+            state={currentLLMTranslationInstructions.state}
+            remove_border_bottom={true}
+        />
     );
 };
 

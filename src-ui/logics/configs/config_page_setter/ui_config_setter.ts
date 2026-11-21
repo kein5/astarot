@@ -575,6 +575,25 @@ export const SETTINGS_ARRAY = [
         add_endpoint_run_array: ["from_backend"],
         base_endpoint_name: "selected_ollama_model",
     },
+    // What the AI translation engines (the APIs with a model, LM Studio, Ollama, OpenAI compatible)
+    // are asked besides the text (#392): a temperature as text ("" sends none) and instructions
+    // added to their prompt ("" adds none).
+    {
+        Category: "Translation",
+        Base_Name: "LLMTranslationTemperature",
+        default_value: "",
+        ui_template_id: "input",
+        logics_template_id: "get_set",
+        base_endpoint_name: "llm_translation_temperature",
+    },
+    {
+        Category: "Translation",
+        Base_Name: "LLMTranslationInstructions",
+        default_value: "",
+        ui_template_id: "input",
+        logics_template_id: "get_set",
+        base_endpoint_name: "llm_translation_instructions",
+    },
 
     // Transcription
     // Mic

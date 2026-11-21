@@ -1156,6 +1156,10 @@ impl Core {
         let Some(session) = self.translation.session(provider) else { return Attempt::Failed };
         let supported = Self::supported_languages(engine);
         let glossary = self.translation_glossary(text);
+        // What the user asks the AI providers for besides the text (#392); the others ignore it.
+        let config = self.config();
+        let temperature = config.get_str("LLM_TRANSLATION_TEMPERATURE").parse::<f64>().ok();
+        let instructions = config.get_str("LLM_TRANSLATION_INSTRUCTIONS");
         let request = providers::Translation {
             text,
             source: &source,
@@ -1163,6 +1167,8 @@ impl Core {
             supported_languages: &supported,
             history,
             glossary: &glossary,
+            temperature,
+            instructions: &instructions,
         };
         match self.translation.translate(provider, &session, &request) {
             Ok(text) => Attempt::Text(text),

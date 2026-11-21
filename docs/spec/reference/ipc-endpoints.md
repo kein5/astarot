@@ -10,7 +10,7 @@ UIから中核への要求と、中核からUIへの通知（`RUN_MAPPING`）の
 - UIの受信先: 200の応答を処理するUIのフック（`useReceiveRoutes.ts`の静的ルートと`ui_config_setter.ts`の定義から生成）。「—」は受信先がない。
 - ログで伏せる: `process.log`で値を`***MASKED***`に置き換える（`log::SENSITIVE_ENDPOINT_MARKERS`）。stdoutのIPCそのものは伏せない。
 
-## 要求（468件: 削除 13、取得 209、実行 49、有効化 41、無効化 43、設定 113）
+## 要求（472件: 削除 13、取得 211、実行 49、有効化 41、無効化 43、設定 115）
 
 並びは中核が経路を足した順（`controller/routes.rs`）。
 
@@ -121,6 +121,10 @@ UIから中核への要求と、中核からUIへの通知（`RUN_MAPPING`）の
 | `/set/data/usage_presets` | 設定 | 可 | useUsagePresets.setSuccessUsagePresets |  |
 | `/get/data/catalog_layout` | 取得 | 可 | useAppearance.updateFromBackendCatalogLayout |  |
 | `/set/data/catalog_layout` | 設定 | 可 | useAppearance.setSuccessCatalogLayout |  |
+| `/get/data/llm_translation_temperature` | 取得 | 可 | useTranslation.updateFromBackendLLMTranslationTemperature |  |
+| `/set/data/llm_translation_temperature` | 設定 | 可 | useTranslation.setSuccessLLMTranslationTemperature |  |
+| `/get/data/llm_translation_instructions` | 取得 | 可 | useTranslation.updateFromBackendLLMTranslationInstructions | ログで伏せる |
+| `/set/data/llm_translation_instructions` | 設定 | 可 | useTranslation.setSuccessLLMTranslationInstructions | ログで伏せる |
 | `/get/data/tray_companion_edge` | 取得 | 可 | useExperimentalFeatures.updateFromBackendTrayCompanionEdge |  |
 | `/set/data/tray_companion_edge` | 設定 | 可 | useExperimentalFeatures.setSuccessTrayCompanionEdge |  |
 | `/get/data/tray_companion_monitor` | 取得 | 可 | useExperimentalFeatures.updateFromBackendTrayCompanionMonitor |  |

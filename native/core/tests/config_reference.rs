@@ -103,9 +103,19 @@ fn moved_keys(want: &mut Value) -> Vec<(String, String)> {
 // USAGE_PRESETS (#554) is also one: the Python backend has no usage presets. RVC_BLOCK_MS
 // (#531) too: Python's RVC always cut 80 ms blocks.
 // OSC_QUERY (#559) too: the Python backend could not turn OSCQuery off. CATALOG_LAYOUT too: the
-// Python backend's UI had no layouts of the model catalogs.
-const CORE_ONLY_KEYS: [&str; 7] =
-    ["OLLAMA_URL", "PAPAGO_CLIENT_ID", "OVERLAY_FONT_FAMILY", "USAGE_PRESETS", "RVC_BLOCK_MS", "OSC_QUERY", "CATALOG_LAYOUT"];
+// Python backend's UI had no layouts of the model catalogs. The AI translation's temperature and
+// instructions (#392) too: Python sent neither.
+const CORE_ONLY_KEYS: [&str; 9] = [
+    "OLLAMA_URL",
+    "PAPAGO_CLIENT_ID",
+    "OVERLAY_FONT_FAMILY",
+    "USAGE_PRESETS",
+    "RVC_BLOCK_MS",
+    "OSC_QUERY",
+    "CATALOG_LAYOUT",
+    "LLM_TRANSLATION_TEMPERATURE",
+    "LLM_TRANSLATION_INSTRUCTIONS",
+];
 const CORE_ONLY_AUTH_KEYS: [&str; 2] = ["Google_Cloud_API", "Papago_API"];
 /// The engines the core adds after DeepL (the official APIs, #277).
 const CORE_ONLY_ENGINES: [&str; 2] = ["Google_Cloud_API", "Papago_API"];

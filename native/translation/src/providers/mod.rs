@@ -486,6 +486,11 @@ pub struct Translation<'a> {
     /// Names and terms from the user's term dictionary that appear in `text` (#446), for the
     /// prompt; only the AI providers read it. Empty adds nothing to the prompt.
     pub glossary: &'a [String],
+    /// The sampling temperature the user chose for the AI providers (#392). `None` sends none,
+    /// so each provider keeps its own default (Gemini's is LangChain's 0.7).
+    pub temperature: Option<f64>,
+    /// What the user adds to the AI providers' system prompt (#392); empty adds nothing.
+    pub instructions: &'a str,
 }
 
 // ------------------------------------------------------------------------- leaf helpers
