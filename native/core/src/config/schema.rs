@@ -356,6 +356,27 @@ fn compute_type() -> Check {
     })
 }
 
+/// The longest instructions the AI translation providers are given (#392), in characters.
+pub const LLM_INSTRUCTIONS_MAX_CHARS: usize = 500;
+
+/// Empty, or a decimal from 0 to 2 with at most two places (`0`, `0.3`, `1.25`, `2`).
+fn llm_temperature_valid(text: &str) -> bool {
+    if text.is_empty() {
+        return true;
+    }
+    let (whole, places) = text.split_once('.').unwrap_or((text, ""));
+    let digits = |part: &str| part.bytes().all(|b| b.is_ascii_digit());
+    whole.len() == 1
+        && digits(whole)
+        && (text.len() == 1 || (!places.is_empty() && places.len() <= 2 && digits(places)))
+        && text.parse::<f64>().is_ok_and(|value| (0.0..=2.0).contains(&value))
+}
+
+/// One line of at most [`LLM_INSTRUCTIONS_MAX_CHARS`] characters, without control characters.
+fn llm_instructions_valid(text: &str) -> bool {
+    text.chars().count() <= LLM_INSTRUCTIONS_MAX_CHARS && !text.chars().any(char::is_control)
+}
+
 fn asr_timeout(source: &'static str, kind: &'static str) -> Check {
     managed(Ty::Int, false, move |value, ctx| {
         let Some(value) = value.as_i64() else { return false };
@@ -715,6 +736,11 @@ pub fn keys() -> Vec<Key> {
         key("SELECTED_LMSTUDIO_MODEL", in_populated("SELECTABLE_LMSTUDIO_MODEL_LIST")),
         key("SELECTED_OPENAI_COMPATIBLE_MODEL", in_populated("SELECTABLE_OPENAI_COMPATIBLE_MODEL_LIST")),
         key("SELECTED_OLLAMA_MODEL", in_populated("SELECTABLE_OLLAMA_MODEL_LIST")),
+        // What the AI translation providers (the chat APIs, Gemini, Ollama) are asked besides the
+        // text (#392). The temperature: a decimal from 0 to 2 as text, or empty to send none (each
+        // provider's own default). The instructions: added to the system prompt; empty adds none.
+        key("LLM_TRANSLATION_TEMPERATURE", managed(Ty::Str, false, |v, _| v.as_str().is_some_and(llm_temperature_valid))),
+        key("LLM_TRANSLATION_INSTRUCTIONS", managed(Ty::Str, false, |v, _| v.as_str().is_some_and(llm_instructions_valid))),
         key("SELECTED_GROQ_WHISPER_MODEL", in_populated("SELECTABLE_GROQ_WHISPER_MODEL_LIST")),
         key("SELECTED_OPENAI_WHISPER_MODEL", in_populated("SELECTABLE_OPENAI_WHISPER_MODEL_LIST")),
         key("SELECTED_CUSTOM_WHISPER_MODEL", in_populated("SELECTABLE_CUSTOM_WHISPER_MODEL_LIST")),
@@ -959,6 +985,8 @@ pub fn defaults(env: &Environment) -> Map<String, Value> {
         ("SELECTED_LMSTUDIO_MODEL", Value::Null),
         ("SELECTED_OPENAI_COMPATIBLE_MODEL", Value::Null),
         ("SELECTED_OLLAMA_MODEL", Value::Null),
+        ("LLM_TRANSLATION_TEMPERATURE", json!("")),
+        ("LLM_TRANSLATION_INSTRUCTIONS", json!("")),
         ("SELECTED_GROQ_WHISPER_MODEL", Value::Null),
         ("SELECTED_OPENAI_WHISPER_MODEL", Value::Null),
         ("SELECTED_CUSTOM_WHISPER_MODEL", Value::Null),

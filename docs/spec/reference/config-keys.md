@@ -9,7 +9,7 @@
 
 チャット読み取りの`OCR_CAPTURE_REGION`はデスクトップウィンドウ用、`OCR_VR_CAPTURE_REGION`はSteamVRの左目側の映像用。旧版の単一範囲はウィンドウ用に保持し、未保存のVR側には全体を補う。[範囲の形と移行](../data-and-persistence.md#チャット読み取りの範囲)を参照。
 
-## config.jsonに保存するキー（140件）
+## config.jsonに保存するキー（142件）
 
 | キー | 型・検証 | 既定値 | 保存 |
 |---|---|---|---|
@@ -125,6 +125,8 @@
 | `SELECTED_LMSTUDIO_MODEL` | str か null（`SELECTABLE_LMSTUDIO_MODEL_LIST`のどれか。一覧が空なら問わない） | `null` | 2秒後にまとめて |
 | `SELECTED_OPENAI_COMPATIBLE_MODEL` | str か null（`SELECTABLE_OPENAI_COMPATIBLE_MODEL_LIST`のどれか。一覧が空なら問わない） | `null` | 2秒後にまとめて |
 | `SELECTED_OLLAMA_MODEL` | str か null（`SELECTABLE_OLLAMA_MODEL_LIST`のどれか。一覧が空なら問わない） | `null` | 2秒後にまとめて |
+| `LLM_TRANSLATION_TEMPERATURE` | str、独自の検証 | `""` | 2秒後にまとめて |
+| `LLM_TRANSLATION_INSTRUCTIONS` | str、独自の検証 | `""` | 2秒後にまとめて |
 | `SELECTED_GROQ_WHISPER_MODEL` | str か null（`SELECTABLE_GROQ_WHISPER_MODEL_LIST`のどれか。一覧が空なら問わない） | `null` | 2秒後にまとめて |
 | `SELECTED_OPENAI_WHISPER_MODEL` | str か null（`SELECTABLE_OPENAI_WHISPER_MODEL_LIST`のどれか。一覧が空なら問わない） | `null` | 2秒後にまとめて |
 | `SELECTED_CUSTOM_WHISPER_MODEL` | str か null（`SELECTABLE_CUSTOM_WHISPER_MODEL_LIST`のどれか。一覧が空なら問わない） | `null` | 2秒後にまとめて |

@@ -431,6 +431,52 @@ fn an_ai_translator_is_told_the_users_terms_that_the_text_holds() {
     run.ui.stop();
 }
 
+/// The temperature and the instructions the user chose for the AI translators (#392): saved only
+/// in their forms, sent with every translation, and the instructions never in process.log.
+#[test]
+fn an_ai_translator_is_sent_the_temperature_and_the_instructions_the_user_chose() {
+    let run = start(json!({}), None);
+    let key = format!("gsk{}", "q".repeat(40));
+    run.fake.key("/groq/v1", &key).models("/groq/v1", &["llama"]);
+    assert_eq!(run.ui.ok("/set/data/groq_auth_key", Some(json!(key))), json!(key));
+    let mut engines = run.ui.ok("/get/data/selected_translation_engines", None);
+    engines["1"] = json!("Groq_API");
+    run.ui.ok("/set/data/selected_translation_engines", Some(engines));
+    assert_eq!(run.ui.ok("/set/enable/translation", None), true);
+    let sent = |text: &str| {
+        run.chat("m", text);
+        run.fake.seen_under("/groq/v1/chat").pop().unwrap().body
+    };
+    let first = sent("こんにちは");
+    assert!(first.get("temperature").is_none(), "nothing chosen, nothing sent");
+    assert!(!first["messages"][0]["content"].as_str().unwrap().contains("Additional instructions"));
+
+    let instructions = "猫丸のことはねこまると書く";
+    for value in ["0", "0.3", "1.25", "2", ""] {
+        assert_eq!(run.ui.ok("/set/data/llm_translation_temperature", Some(json!(value))), json!(value));
+    }
+    for value in [json!("2.5"), json!("-1"), json!("0.333"), json!(".5"), json!("1."), json!("abc"), json!(0.3), json!(null)] {
+        let answer = run.ui.request("/set/data/llm_translation_temperature", Some(value.clone()));
+        assert_eq!(error_code(&answer), "VALIDATION_CONFIG_VALUE_INVALID", "{value}");
+    }
+    for value in [json!("one\ntwo"), json!("x".repeat(501)), json!(null)] {
+        let answer = run.ui.request("/set/data/llm_translation_instructions", Some(value));
+        assert_eq!(error_code(&answer), "VALIDATION_CONFIG_VALUE_INVALID");
+    }
+    assert_eq!(run.ui.ok("/set/data/llm_translation_instructions", Some(json!("x".repeat(500)))), json!("x".repeat(500)));
+    run.ui.ok("/set/data/llm_translation_temperature", Some(json!("0.3")));
+    run.ui.ok("/set/data/llm_translation_instructions", Some(json!(instructions)));
+    assert_eq!(run.ui.ok("/get/data/llm_translation_temperature", None), json!("0.3"));
+    assert_eq!(run.ui.ok("/get/data/llm_translation_instructions", None), json!(instructions));
+
+    let chosen = sent("こんにちは");
+    assert_eq!(chosen["temperature"], 0.3);
+    let system = chosen["messages"][0]["content"].as_str().unwrap();
+    assert!(system.contains(&format!("\n{instructions}\n")), "{system}");
+    assert!(!run.process_log().contains(instructions), "the instructions reached process.log");
+    run.ui.stop();
+}
+
 #[test]
 fn the_translated_speech_is_asked_for_before_the_vr_overlay_is_drawn() {
     // Drawing an overlay's picture takes tens of milliseconds, which the voice waited for (#556).
