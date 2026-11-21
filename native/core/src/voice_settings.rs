@@ -211,11 +211,26 @@ fn language(value: &Value) -> Result<String, &'static str> {
 /// The silences that may end an utterance in realtime recognition, in milliseconds.
 pub const SILENCE_DURATION_MS: std::ops::RangeInclusive<u64> = 100..=2000;
 
+/// The thresholds realtime recognition's speech detection may take, in hundredths (#392).
+pub const VAD_THRESHOLD_PERCENT: std::ops::RangeInclusive<u8> = 5..=95;
+
+/// A saved `vad_threshold` (0.05 to 0.95, in hundredths) in hundredths; `None` for anything else.
+pub fn vad_threshold_percent(value: &Value) -> Option<u8> {
+    let hundredths = value.as_f64()? * 100.0;
+    let rounded = hundredths.round();
+    ((hundredths - rounded).abs() < 1e-6)
+        .then_some(rounded)
+        .filter(|percent| (0.0..=100.0).contains(percent))
+        .map(|percent| percent as u8)
+        .filter(|percent| VAD_THRESHOLD_PERCENT.contains(percent))
+}
+
 /// `realtime_settings.normalize_settings`, with `silence_duration_ms` of the core's own (#556).
 pub fn normalize_realtime(value: &Value) -> Result<Value, &'static str> {
     const INVALID: &str = "realtime_settings_invalid";
     let object = value.as_object().ok_or(INVALID)?;
-    const KEYS: [&str; 9] = ["version", "server", "start_server", "base_url", "model", "mic", "speaker", "vocabulary", "silence_duration_ms"];
+    const KEYS: [&str; 10] =
+        ["version", "server", "start_server", "base_url", "model", "mic", "speaker", "vocabulary", "silence_duration_ms", "vad_threshold"];
     if object.keys().any(|k| !KEYS.contains(&k.as_str())) {
         return Err(INVALID);
     }
@@ -255,6 +270,15 @@ pub fn normalize_realtime(value: &Value) -> Result<Value, &'static str> {
         Some(value) => {
             let ms = value.as_u64().filter(|ms| SILENCE_DURATION_MS.contains(ms)).ok_or("realtime_silence_invalid")?;
             result.insert("silence_duration_ms".into(), ms.into());
+        }
+    }
+    // How sure the speech detection must be that it hears speech (#392): absent or null sends
+    // none, so the server's own threshold applies.
+    match object.get("vad_threshold") {
+        None | Some(Value::Null) => {}
+        Some(value) => {
+            let percent = vad_threshold_percent(value).ok_or("realtime_vad_threshold_invalid")?;
+            result.insert("vad_threshold".into(), json!(f64::from(percent) / 100.0));
         }
     }
     for (source, default_language) in [("mic", "ja"), ("speaker", "auto")] {
@@ -531,6 +555,19 @@ mod tests {
         assert_eq!((loaded["mode"].clone(), loaded["engine"].clone(), loaded["runtime"].clone()), (json!("converted"), json!("rvc"), json!("/seed")));
         assert_eq!(normalize_direct(&saved), None);
         assert_eq!(default_direct()["engine"], "rvc");
+    }
+
+    #[test]
+    fn the_speech_detection_threshold_is_left_out_unless_chosen() {
+        // Left out, nothing is sent and the server's own threshold applies (#392).
+        assert!(normalize_realtime(&json!({})).unwrap().get("vad_threshold").is_none());
+        assert!(normalize_realtime(&json!({ "vad_threshold": null })).unwrap().get("vad_threshold").is_none());
+        for chosen in [0.05, 0.3, 0.5, 0.95] {
+            assert_eq!(normalize_realtime(&json!({ "vad_threshold": chosen })).unwrap()["vad_threshold"], chosen);
+        }
+        for bad in [json!(0.0), json!(0.04), json!(0.96), json!(1), json!(0.333), json!("0.5"), json!(-0.5), json!(true)] {
+            assert_eq!(normalize_realtime(&json!({ "vad_threshold": bad })), Err("realtime_vad_threshold_invalid"), "{bad}");
+        }
     }
 
     #[test]

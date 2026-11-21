@@ -462,9 +462,11 @@ impl Core {
             {
                 let mut state = self.realtime().state();
                 let old = state.settings.clone();
-                // The silence is sent when a session starts, so a change starts both again.
-                let shared =
-                    ["server", "base_url", "model", "vocabulary", "silence_duration_ms"].iter().any(|key| settings[*key] != old[*key]);
+                // The silence and the threshold are sent when a session starts, so a change starts
+                // both again.
+                let shared = ["server", "base_url", "model", "vocabulary", "silence_duration_ms", "vad_threshold"]
+                    .iter()
+                    .any(|key| settings[*key] != old[*key]);
                 for source in [Source::Mic, Source::Speaker] {
                     if shared || settings[source.as_str()] != old[source.as_str()] {
                         self.invalidate_locked(&mut state, source);
@@ -816,6 +818,7 @@ impl Core {
             language,
             vocabulary: speechcpp::merged_terms(&settings["vocabulary"]),
             silence_duration_ms: silence_duration(&settings),
+            vad_threshold_percent: settings.get("vad_threshold").and_then(crate::voice_settings::vad_threshold_percent),
             diarizes,
             limits: limits.session,
             diagnostics: Some(self.transcription().diagnostics.clone()),

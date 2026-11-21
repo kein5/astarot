@@ -25,6 +25,10 @@ const FOLLOW = "follow-default";
 // The silences that may end an utterance (ms); none chosen follows the core's default of 400 ms
 // (#556). 500 ms, the default before, stays a choice; a saved value off this list is shown too.
 const SILENCES = [300, 500, 700, 1000];
+// The speech detection's thresholds (#392); none chosen sends none, so the server's own applies.
+// Lower picks up quieter speech; higher lets less noise through. A saved value off this list is
+// shown too.
+const THRESHOLDS = [0.2, 0.3, 0.4, 0.5, 0.6, 0.7];
 const SOURCES: readonly CaptionSource[] = ["mic", "speaker"];
 
 // The message says what to do (shared with the main switches); the code stays for reports.
@@ -40,7 +44,7 @@ export const RealtimeASRSettings = () => {
     const label = ([group, field]: string[]) => {
         if (["mic", "speaker"].includes(group)) return t(`realtime.${group}_${field === "language" ? "language" : "input"}`);
         if (group === "vocabulary") return t(field === "builtin" || field === "removed" ? "realtime.vocabulary_builtin" : "realtime.vocabulary_user");
-        const fields: Partial<Record<string, string>> = { server: "speech_servers.asr_selection", base_url: "realtime.url", model: "realtime.model", silence_duration_ms: "realtime.silence" };
+        const fields: Partial<Record<string, string>> = { server: "speech_servers.asr_selection", base_url: "realtime.url", model: "realtime.model", silence_duration_ms: "realtime.silence", vad_threshold: "realtime.vad_threshold" };
         return t(fields[group] ?? "realtime.title");
     };
     const write = (value: DraftWriteValue<RealtimeAsrSettings>) => send("/set/data/realtime_asr_settings", value);
@@ -73,6 +77,11 @@ export const RealtimeASRSettings = () => {
         if (!draftNow) return draftNow;
         const { silence_duration_ms: _, ...previous } = draftNow;
         return value ? { ...previous, silence_duration_ms: Number(value) } : previous;
+    });
+    const updateThreshold = (value: string) => setDraft(draftNow => {
+        if (!draftNow) return draftNow;
+        const { vad_threshold: _, ...previous } = draftNow;
+        return value ? { ...previous, vad_threshold: Number(value) } : previous;
     });
     const vocabulary: RealtimeAsrVocabulary = draft?.vocabulary ?? { builtin: true, terms: [] };
     const updateVocabulary = (values: Partial<RealtimeAsrVocabulary>) => setDraft(previous => previous && { ...previous, vocabulary: { ...vocabulary, ...values } });
@@ -110,6 +119,15 @@ export const RealtimeASRSettings = () => {
                     {draft.silence_duration_ms && !SILENCES.includes(draft.silence_duration_ms) &&
                         <option value={draft.silence_duration_ms}>{t("realtime.silence_seconds", { seconds: draft.silence_duration_ms / 1000 })}</option>}
                     {SILENCES.map(ms => <option key={ms} value={ms}>{t("realtime.silence_seconds", { seconds: ms / 1000 })}</option>)}
+                </select>
+            </FormRow>
+            <FormRow label={t("realtime.vad_threshold")} description={t("realtime.vad_threshold_help")}>
+                <select disabled={saving} aria-label={t("realtime.vad_threshold")} value={draft.vad_threshold ?? ""}
+                    onChange={event => updateThreshold(event.target.value)}>
+                    <option value="">{t("realtime.vad_threshold_default")}</option>
+                    {draft.vad_threshold !== undefined && !THRESHOLDS.includes(draft.vad_threshold) &&
+                        <option value={draft.vad_threshold}>{draft.vad_threshold}</option>}
+                    {THRESHOLDS.map(value => <option key={value} value={value}>{value}</option>)}
                 </select>
             </FormRow>
             <button type="button" onClick={refreshDevices}>{t("realtime.refresh_devices")}</button>

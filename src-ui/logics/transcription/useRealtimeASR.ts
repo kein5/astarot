@@ -32,8 +32,8 @@ export interface RealtimeAsrVocabulary {
 
 // /get/data/realtime_asr_settings (native/core/src/controller/realtime_asr.rs), in the shape the
 // core saves it (voice_settings.rs normalize_realtime). The hook compares server, base_url, model,
-// mic and speaker; the settings page edits the rest. Declared, not checked. silence_duration_ms is
-// left out until one is chosen.
+// mic and speaker; the settings page edits the rest. Declared, not checked. silence_duration_ms and
+// vad_threshold are left out until one is chosen.
 export interface RealtimeAsrSettings {
     readonly version?: number;
     readonly server?: string;
@@ -44,6 +44,8 @@ export interface RealtimeAsrSettings {
     readonly speaker: RealtimeAsrSourceSettings;
     readonly vocabulary?: RealtimeAsrVocabulary;
     readonly silence_duration_ms?: number;
+    // How sure the speech detection must be that it hears speech, 0.05 to 0.95 (#392).
+    readonly vad_threshold?: number;
 }
 
 // One input the server can record from, with the name it is shown with.

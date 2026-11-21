@@ -397,7 +397,7 @@ fn main() {
             let (models, diarizes) = vrct_transcription::speechcpp::survey(&vrct_translation::http::direct(), &base_url, Duration::from_secs(5), None)
                 .expect("the server lists its models");
             let model = models.into_iter().find(|listed| listed.id == model).expect("the server lists the model");
-            let options = realtime::Options { base_url, model, language, vocabulary, silence_duration_ms: None, diarizes, limits: Default::default(), diagnostics: None };
+            let options = realtime::Options { base_url, model, language, vocabulary, silence_duration_ms: None, vad_threshold_percent: None, diarizes, limits: Default::default(), diagnostics: None };
             let session = realtime::Session::new(Source::Mic, options, endpoint(), Arc::new(player.clone()));
             let started = Instant::now();
             session.start().expect("the session starts");
