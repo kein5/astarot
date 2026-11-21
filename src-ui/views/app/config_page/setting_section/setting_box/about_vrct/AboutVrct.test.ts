@@ -127,3 +127,29 @@ test("all new locale keys exist in both files without relying on fallback", () =
         assert.ok(textAt(page, "transcription.mic_word_filter.remove_word").includes("{{word}}"));
     }
 });
+
+// #912: every picture on the page carries its natural size (width, height), so the page keeps its
+// place before the pictures are decoded. The sizes are read from the files themselves.
+test("every picture of the About page carries the natural size of its file", async () => {
+    const { readFileSync } = await import("node:fs");
+    const source = readFileSync(new URL("./AboutVrct.tsx", import.meta.url), "utf8");
+    const files = Object.fromEntries([...source.matchAll(/import (\w+) from "@images\/([^"]+\.(?:png|svg))";/g)].map(([, name, path]) => [name, path]));
+    const sizeOf = (path: string): [number, number] => {
+        const data = readFileSync(new URL(`../../../../../assets/${path}`, import.meta.url));
+        if (path.endsWith(".png")) return [data.readUInt32BE(16), data.readUInt32BE(20)];
+        const svg = data.toString("utf8", 0, 600);
+        return [Number(/\swidth="(\d+)"/.exec(svg)?.[1]), Number(/\sheight="(\d+)"/.exec(svg)?.[1])];
+    };
+    const pictures = [...source.matchAll(/<img src=\{(\w+)\}([^>]*)\/>/g)];
+    assert.ok(pictures.length >= 16, String(pictures.length));
+    for (const [, name, rest] of pictures.filter(([, name]) => name in files)) {
+        const size = /width=\{(\d+)\} height=\{(\d+)\}/.exec(rest);
+        assert.ok(size, `${name} has no width and height`);
+        assert.deepEqual([Number(size[1]), Number(size[2])], sizeOf(files[name]), name);
+    }
+    // The link pictures: their size beside each link, and on their img.
+    const links = [...source.matchAll(/\{ img: (\w+), size: \[(\d+), (\d+)\], href:/g)];
+    assert.ok(links.length >= 12, String(links.length));
+    for (const [, name, width, height] of links) assert.deepEqual([Number(width), Number(height)], sizeOf(files[name]), name);
+    assert.match(source, /src=\{img\} width=\{link\.size\[0\]\} height=\{link\.size\[1\]\}/);
+});
