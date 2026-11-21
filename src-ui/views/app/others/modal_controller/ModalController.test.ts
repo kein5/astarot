@@ -5,7 +5,7 @@ import { hooks, loadModule, find, stubGlobals, eventTarget, unchecked, refOf, se
 
 async function fixture(context: TestContext) {
     const runtime = hooks(), focus: string[] = [], changes: [string, boolean][] = [];
-    let opened = "overlay", dropdown = "";
+    let opened = "update_software", dropdown = "";
     const control = (name: string) => ({ isConnected: true, disabled: false, tabIndex: 0,
         getAttribute: () => null, closest: () => null, matches: () => false,
         focus: () => focus.push(name) });
@@ -20,7 +20,7 @@ async function fixture(context: TestContext) {
                 updateOpenedQuickSetting: (value: string) => { changes.push([value, modal.open]); opened = value; } }),
             useStore_IsOpenedDropdownMenu: () => ({ currentIsOpenedDropdownMenu: { data: dropdown } }),
         },
-        "@setting_box": { Vr: "vr-settings", Updater: "update-settings" },
+        "@setting_box": { Updater: "update-settings" },
     });
     const modal = { open: false, opens: 0, showModal() { this.open = true; this.opens++; },
         close() { this.open = false; } };
@@ -40,7 +40,8 @@ test("quick settings uses a named native modal with initial close focus", async 
     const s = await fixture(context), tree = s.render();
     assert.ok(tree);
     assert.equal(tree.type, "dialog", "native modal confines Tab/Shift+Tab and makes the background inert");
-    assert.equal(tree.props["aria-label"], "config_page.vr.section_label_overlay");
+    assert.equal(tree.props["aria-label"], "config_page.side_menu_labels.updater");
+    // #939: the subtitle overlay switches in place; this dialog shows only the update page.
     assert.equal(s.modal.open, true);
     assert.equal(s.modal.opens, 1);
     const close = find(tree, node => node.type === "button");

@@ -16,6 +16,8 @@ interface MenuState {
     osc: boolean;
     pending: boolean;
     flow: boolean;
+    // Either subtitle overlay is being switched.
+    overlayPending?: boolean;
     update?: string;
     // The version an update check found.
     version?: string;
@@ -53,18 +55,24 @@ async function menu(context: TestContext, values: Partial<MenuState> = {}) {
     });
     const { RightSideComponents } = await loadModule<typeof import("./right_side_components/RightSideComponents.tsx")>(new URL("./right_side_components/RightSideComponents.tsx", import.meta.url), runtime, {
         "@useI18n": { useI18n: () => ({ t }) },
-        "@store": { useStore_OpenedQuickSetting: () => ({ updateOpenedQuickSetting: (value: unknown) => calls.push(["open", value]) }) },
+        "@store": { useStore_OpenedQuickSetting: () => ({ updateOpenedQuickSetting: (value: unknown) => calls.push(["open", value]) }),
+            useStore_IsOpenedConfigPage: () => ({ updateIsOpenedConfigPage: (value: unknown) => calls.push(["settings", value]) }),
+            useStore_SelectedConfigTabId: () => ({ updateSelectedConfigTabId: (value: unknown) => calls.push(["tab", value]) }) },
         "@logics_common": {
             useIsOscAvailable: () => ({ currentIsOscAvailable: { data: state.osc }, oscUnavailableLabelKey: "why_unavailable" }),
         },
         "@logics_configs": {
             useAppearance: () => ({ currentUiLanguage: { data: "ja" } }),
-            useVr: () => ({ currentIsEnabledOverlaySmallLog: { data: state.small }, currentIsEnabledOverlayLargeLog: { data: state.large } }),
             useOthers: () => ({ currentEnableVrcMicMuteSync: { data: state.sync, state: "ok" }, toggleEnableVrcMicMuteSync: () => calls.push(["sync"]) }),
         },
         "@logics_main": { useMainFunction: () => ({ currentForegroundStatus: { data: state.foreground, state: state.pending ? "pending" : "ok" },
             toggleForeground: () => calls.push(["foreground"]) }) },
         "./_buttons/OpenQuickSettingButton": button,
+        "../../../../../../logics/configs/useOverlayQuickToggle": { useOverlayQuickToggle: () => ({ on: state.small || state.large,
+            pending: state.overlayPending === true, toggle: () => calls.push(["overlay"]) }) },
+        "../../../../../../logics/configs/revealSetting.ts": { revealSetting: (target: unknown) => calls.push(["reveal", target]) },
+        "../../../../config_page/setting_section/setting_box/_components/page_pointer/PagePointer": {
+            pageLinkLabel: (_t: unknown, tab: string, action: string) => `link:${tab}:${action}` },
         "../../../../../../logics/common/useAppUpdate": { useAppUpdate: () => ({ appUpdate: { status: state.update ?? "idle", version: state.version ?? null } }) },
         "../../../../others/vrchat_presence/VrchatPresence": { VrchatPresence: "vrchat-presence" },
         "@ui_configs": { generateLocalizedDocumentUrl: () => ({ vrct_document_ui_guide_url: "https://example.invalid/guide" }) },
@@ -112,8 +120,9 @@ test("the quick settings button says how many of its toggles are on, and opens t
     assert.equal(view.opener.props["aria-controls"], view.panel.props.id);
     assert.deepEqual(view.rows.map(row => [row.props.label, row.props.variable]), [
         ["main_page.foreground", true], ["config_page.others.vrc_mic_mute_sync.label", false], ["config_page.vr.section_label_overlay", true]]);
-    assert.deepEqual(view.rows.map(row => row.button.props["aria-pressed"]), [true, false, undefined]);
-    assert.equal(view.rows[2].button.props["aria-haspopup"], "dialog");
+    // #939: the subtitle overlay is a toggle too, switched in place: it reports pressed and opens no dialog.
+    assert.deepEqual(view.rows.map(row => row.button.props["aria-pressed"]), [true, false, true]);
+    assert.equal(view.rows[2].button.props["aria-haspopup"], undefined);
     assert.ok(find(view.panel, node => node.type === "vrchat-presence"), "the open menu says whether VRChat can be reached");
 });
 
@@ -124,17 +133,28 @@ test("nothing on reads as all off", async context => {
     assert.doesNotMatch(view.opener.props.className, /has_on/);
 });
 
-test("a toggle is pressed in the open menu; the overlay row closes it and opens its dialog", async context => {
+test("a toggle is pressed in the open menu, the subtitle overlay too; its settings are a link to the captions and VR page", async context => {
     const s = await menu(context);
     s.draw().opener.props.onClick();
     const view = s.draw();
     view.rows[0].button.props.onClick();
     view.rows[1].button.props.onClick();
-    assert.deepEqual(s.calls, [["foreground"], ["sync"]]);
+    view.rows[2].button.props.onClick();
+    assert.deepEqual(s.calls, [["foreground"], ["sync"], ["overlay"]]);
     assert.ok(s.draw().panel, "toggling keeps the menu open");
-    s.draw().rows[2].button.props.onClick();
-    assert.deepEqual(s.calls.at(-1), ["open", "overlay"]);
-    assert.equal(s.draw().panel, null);
+    // Under the overlay's row: the captions and VR page, opened on the overlays' position and look.
+    const link = find(s.draw().panel, node => node.type === "button" && node.props.className === "menu_link");
+    assert.ok(link);
+    assert.equal(link.props.children, "link:vr:main_page.overlay_settings_action");
+    link.props.onClick();
+    assert.deepEqual(s.calls.slice(-3), [["tab", "vr"], ["settings", true], ["reveal", { setting_id: "vr_overlay" }]]);
+    assert.equal(s.draw().panel, null, "the menu closes as the settings open");
+});
+
+test("while a subtitle overlay is switching, its row waits as the other toggles do", async context => {
+    const s = await menu(context, { overlayPending: true });
+    s.draw().opener.props.onClick();
+    assert.equal(s.draw().rows[2].button.props["aria-disabled"], true);
 });
 
 test("mute sync that cannot be used is disabled and says why", async context => {

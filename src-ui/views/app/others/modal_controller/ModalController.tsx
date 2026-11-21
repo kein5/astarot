@@ -3,9 +3,10 @@ import { useI18n } from "@useI18n";
 import { useConsentDialog } from "../../../../logics/common/useConsentDialog";
 import styles from "./ModalController.module.scss";
 import { useStore_OpenedQuickSetting, useStore_IsOpenedDropdownMenu } from "@store";
-import { Vr, Updater } from "@setting_box";
+import { Updater } from "@setting_box";
 
-// A modal dialog for the quick settings. It closes with its button, Escape
+// A modal dialog for the update page, opened from the update button of the top bar (the subtitle
+// overlay switches in place since #939, its settings on the captions and VR page). It closes with its button, Escape
 // (unless a dropdown inside is open, which Escape closes first) or a click
 // outside. Focus moves to the close button and back to the opener.
 export const ModalController = ({ fallback }: { fallback?: RefObject<HTMLElement | null> | null }) => {
@@ -21,7 +22,7 @@ export const ModalController = ({ fallback }: { fallback?: RefObject<HTMLElement
     };
 
     if (opened === "") return null;
-    const title = opened === "overlay" ? t("config_page.vr.section_label_overlay") : t("config_page.side_menu_labels.updater");
+    const title = t("config_page.side_menu_labels.updater");
     return (
         <dialog ref={dialog} className={styles.container} aria-label={title}
             onKeyDownCapture={event => {
@@ -45,8 +46,6 @@ const QuickSettingsController = () => {
     const { currentOpenedQuickSetting } = useStore_OpenedQuickSetting();
 
     switch (currentOpenedQuickSetting.data) {
-        case "overlay":
-            return <Vr />;
         case "update_software":
             return <Updater />;
         default:

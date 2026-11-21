@@ -360,6 +360,7 @@ main_page:
     quick_settings: "Quick settings"
     quick_settings_on: "{{count}} on"
     quick_settings_all_off: "All off"
+    overlay_settings_action: "set where they appear and how they look"
     # The row under the main switches that shows the ones the usage presets hide (#554, Q-10).
     more_features: "Other features ({{number}})"
     more_features_hide: "Hide other features"
