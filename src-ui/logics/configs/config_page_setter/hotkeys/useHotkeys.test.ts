@@ -314,6 +314,29 @@ test("a Space stored by older recordings as \" \" registers as Control+Space", a
     await flush();
 });
 
+test("a symbol or digit stored by older recordings as what Shift typed registers as its key (#563)", async () => {
+    const subject = await owner();
+    // Before 2026-11-18 a symbol was stored as the character Shift typed, which the registrar does
+    // not read; digits were before 2026-11-07. With Shift in the chord, each is read as its key.
+    subject.state.hotkeys = { open_quick_chat: ["Ctrl", "Shift", "?"], send_message_button: ["Ctrl", "Shift", "!"] };
+    await subject.render();
+    assert.deepEqual([...subject.state.registered.keys()].sort(), ["Control+Shift+/", "Control+Shift+1"]);
+    subject.runtime.unmount();
+    await flush();
+});
+
+test("without Shift in the chord, a stored character is passed on as it is", async () => {
+    const subject = await owner();
+    // Without Shift in the chord, the stored character is not reread: "Ctrl+?" was never typed with
+    // Shift, so it is passed on as stored.
+    subject.state.hotkeys = { open_quick_chat: ["Ctrl", "Shift", "/"], send_message_button: ["Ctrl", "?"] };
+    await subject.render();
+    assert.ok(subject.state.registered.has("Control+Shift+/"));
+    assert.ok(!subject.state.registered.has("Control+/"));
+    subject.runtime.unmount();
+    await flush();
+});
+
 test("an old native register completing after a new acknowledgement is released before the new binding", async () => {
     const subject = await owner(), gate = deferred();
     subject.state.registerGate = gate.promise;
