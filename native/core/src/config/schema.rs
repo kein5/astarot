@@ -723,6 +723,9 @@ pub fn keys() -> Vec<Key> {
             v.is_null() || ctx.list("SELECTABLE_TRANSCRIPTION_ENGINE_LIST").contains(v)
         })),
         key("SELECTED_RELEASE_CHANNEL", one_of("SELECTABLE_RELEASE_CHANNEL_LIST")),
+        // Whether the user chose the update channel (#466): until then it follows the running
+        // version at every start.
+        key("RELEASE_CHANNEL_CHOSEN", b()),
         key("CTRANSLATE2_WEIGHT_TYPE", one_of("SELECTABLE_CTRANSLATE2_WEIGHT_TYPE_LIST")),
         key("CTRANSLATE2_LICENSE_NOTICE_SHOWN", b()),
         key("LOCAL_ASR_MIGRATION", int_in(0, super::LOCAL_ASR_MIGRATION_LATEST)),
@@ -972,6 +975,7 @@ pub fn defaults(env: &Environment) -> Map<String, Value> {
         ("SELECTED_TAB_NO", json!("1")),
         ("SELECTED_TRANSCRIPTION_ENGINE", Value::Null),
         ("SELECTED_RELEASE_CHANNEL", json!("stable")),
+        ("RELEASE_CHANNEL_CHOSEN", json!(false)),
         ("CTRANSLATE2_WEIGHT_TYPE", json!(languages::DEFAULT_TRANSLATION_WEIGHT)),
         ("CTRANSLATE2_LICENSE_NOTICE_SHOWN", json!(false)),
         ("LOCAL_ASR_MIGRATION", json!(super::LOCAL_ASR_MIGRATION_LATEST)),

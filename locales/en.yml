@@ -1170,6 +1170,12 @@ config_page:
                 reset_launcher:
                     label: "Reset the launcher position and size"
                     desc: "Use this if you lose the launcher in VR. It returns to your left wrist at its default position and size."
+            # Not in experimentalFeatures.ts: the update channel keeps its own setting (SELECTED_RELEASE_CHANNEL, #466).
+            release_channel:
+                label: "Update channel"
+                desc: "Which versions the in-app update gets. Stable gets only stable releases; Beta gets beta releases too. Beta releases let you try new features first, but may still have bugs. Going back from Beta to Stable does not install an older version: the app updates when the next stable release is out. A feature on trial."
+                stable: "Stable (stable releases only, default)"
+                beta: "Beta (beta releases too)"
 
     advanced_settings:
         section_label_osc: "OSC"

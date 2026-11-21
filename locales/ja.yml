@@ -1170,6 +1170,12 @@ config_page:
                 reset_launcher:
                     label: "ランチャーの位置と大きさを初期に戻す"
                     desc: "VRの中でランチャーが見つからなくなったときに使います。左手の手首に初期の位置と大きさで戻ります。"
+            # Not in experimentalFeatures.ts: the update channel keeps its own setting (SELECTED_RELEASE_CHANNEL, #466).
+            release_channel:
+                label: "アップデートのチャンネル"
+                desc: "アプリ内のアップデートで受け取る版です。Stableは安定版だけを、Betaはベータ版も受け取ります。ベータ版は先に新しい機能を試せますが、不具合が残っていることがあります。BetaからStableに戻しても前の版には戻さず、次の安定版が出たときに更新します。試験中の機能です。"
+                stable: "Stable（安定版だけ、既定）"
+                beta: "Beta（ベータ版も受け取る）"
 
     advanced_settings:
         section_label_osc: "OSC"

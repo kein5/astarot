@@ -132,7 +132,9 @@ Windowsのsetupは、下書きへまとめる際に`VRCT-VOX_setup.exe`へコピ
 - 秘密鍵はリポジトリのSecretsの`TAURI_SIGNING_PRIVATE_KEY`（鍵ファイルの中身）、パスワードは`TAURI_SIGNING_PRIVATE_KEY_PASSWORD`（鍵にパスワードがなければ空）です。Secretsを読むのは、署名と`latest.json`の作成をする1つの手順だけです（`tests/voice/test_security_regressions.py`で確かめます）。候補のビルドとPRの実行では読みません。
 - 署名は`tauri signer sign --app-version <version>`で作り、署名に版を含めます。アプリは署名の版と`latest.json`の版が一致しないものを入れません（`requireSignedVersion`）。
 - `tools/updater_manifest.py`が、各署名の鍵IDと版を確かめ、`cryptography`でEd25519の署名を検証してから、`latest.json`を下書きに加えます。`.sig`ファイルは`latest.json`に入るので、下書きには残しません。`TAURI_SIGNING_PRIVATE_KEY`が設定されていないとき、またはアプリの公開鍵と合わないときは、下書きを作りません。
-- 安定版のアプリは「latest」のリリースの`latest.json`を読みます。ベータ版のアプリは、GitHub APIのリリース一覧から最も新しい版の`latest.json`を読みます。どちらも、下書きを公開するまでは読まれません。
+- 安定版のチャンネルは「latest」のリリースの`latest.json`を読みます。ベータ版のチャンネルは、Workerの`/beta/latest.json`から、ブランチ`updater-channels`の`beta/latest.json`を読みます。どちらも、下書きを公開するまでは読まれません。
+- リリースを公開すると、「Point the ASTAROT beta update channel」（`update-channels.yml`）が、公開済みのリリースのうち最も新しい版（ベータ版と安定版の両方）の`latest.json`を`updater-channels`の`beta/latest.json`に書きます。古い系統の修正版を公開しても、それより新しいベータ版があればそのままです。書き込むのはこのブランチの1つのファイルだけで、同じ内容なら何も書きません（#466）。
+- このブランチがまだないときは、このワークフローを手で1回実行して作ります。Workerの`/beta/latest.json`は`https://raw.githubusercontent.com/kein5/astarot/updater-channels/beta/latest.json`へ転送します（Workerはこのリポジトリの外にあり、保守担当者が設定します）。Workerがまだ転送しないか、ブランチがないときは、ベータ版のチャンネルのアプリは安定版の`latest.json`を読みます。
 
 鍵を替えるときは、新しい公開鍵をアプリに入れた版を古い鍵で署名して出し、その版が行き渡ってから新しい鍵での署名に切り替えます。秘密鍵をなくすと、それまでの版はアプリ内で更新できなくなります。秘密鍵とパスワードは、Secretsとは別の安全な場所にも保管してください。
 

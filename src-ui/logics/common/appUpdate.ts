@@ -91,13 +91,14 @@ export const createAppUpdate = ({ invoke, createChannel, get, set, log = () => {
     };
 
     // `silent`: the check at start. A failure there shows nothing; the page says it when asked.
-    const check = async ({ silent = false }: { silent?: boolean } = {}) => {
+    // `channel`: the update channel of the settings (#466); without one, the running build's.
+    const check = async ({ silent = false, channel = null }: { silent?: boolean; channel?: string | null } = {}) => {
         const info = await loadInfo();
         if (!info || !CHECKING_MODES.has(info.mode) || BUSY.has(get().status)) return get();
         const before = get();
         patch({ status: "checking", error: null });
         try {
-            const result = await invoke<AppUpdateCheckResult | null>("app_update_check");
+            const result = await invoke<AppUpdateCheckResult | null>("app_update_check", { channel });
             patch(result?.available
                 ? { status: "available", version: result.version, release_url: result.release_url }
                 : { status: "up_to_date", version: null, release_url: null });
@@ -135,7 +136,15 @@ export const createAppUpdate = ({ invoke, createChannel, get, set, log = () => {
         }
     };
 
-    return { loadInfo, check, install };
+    // The update channel was set again (#466): what the other channel found goes, and the new one
+    // is checked at once. A download or an install under way is left to finish.
+    const switchChannel = async (channel: string | null) => {
+        if (BUSY.has(get().status) && get().status !== "checking") return get();
+        patch({ status: "idle", version: null, release_url: null, error: null });
+        return check({ silent: true, channel });
+    };
+
+    return { loadInfo, check, install, switchChannel };
 };
 
 // Whole percent of a download, or null while its size is unknown.

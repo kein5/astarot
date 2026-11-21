@@ -330,11 +330,8 @@ export const STATIC_ROUTE_META_LIST: readonly RouteMeta[] = [
 
     // // Not Implemented.
     { endpoint: "/run/shutdown", ns: null, hook_name: null, method_name: null }, // Not implemented on UI.
-    // The release channel follows the installed build (the core decides it at start from the
-    // version), so there is nothing to choose; the app updater reads it from the install.
+    // The update channels are the two the settings offer (#466); the list adds nothing.
     { endpoint: "/get/data/selectable_release_channels", ns: null, hook_name: null, method_name: null },
-    { endpoint: "/get/data/release_channel", ns: null, hook_name: null, method_name: null },
-    { endpoint: "/set/data/release_channel", ns: null, hook_name: null, method_name: null },
     // The app updater (src-tauri/src/app_update.rs) lists releases itself; nothing asks the backend.
     { endpoint: "/get/data/available_releases", ns: null, hook_name: null, method_name: null },
 ];

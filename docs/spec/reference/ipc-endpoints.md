@@ -49,8 +49,8 @@ UIから中核への要求と、中核からUIへの通知（`RUN_MAPPING`）の
 | `/get/data/selected_deepgram_model` | 取得 | 可 | useTranscription.updateFromBackendSelectedDeepgramModel |  |
 | `/set/data/selected_deepgram_model` | 設定 | 可 | useTranscription.setSuccessSelectedDeepgramModel |  |
 | `/get/data/selectable_release_channels` | 取得 | 可 | （受け取るだけ） |  |
-| `/get/data/release_channel` | 取得 | 可 | （受け取るだけ） |  |
-| `/set/data/release_channel` | 設定 | 可 | （受け取るだけ） |  |
+| `/get/data/release_channel` | 取得 | 可 | useExperimentalFeatures.updateFromBackendReleaseChannel |  |
+| `/set/data/release_channel` | 設定 | 可 | useExperimentalFeatures.setSuccessReleaseChannel |  |
 | `/get/data/telemetry` | 取得 | 可 | useOthers.updateFromBackendTelemetry |  |
 | `/get/data/auto_download_models` | 取得 | 可 | useOthers.updateFromBackendAutoDownloadModels |  |
 | `/set/enable/auto_download_models` | 有効化 | 可 | useOthers.setSuccessAutoDownloadModels |  |

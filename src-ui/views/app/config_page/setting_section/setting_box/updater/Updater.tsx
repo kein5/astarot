@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useI18n } from "@useI18n";
 import { useSoftwareVersion, useNotificationStatus } from "@logics_common";
-import { useOthers } from "@logics_configs";
+import { useExperimentalFeatures, useOthers } from "@logics_configs";
 import { useAppUpdate } from "../../../../../../logics/common/useAppUpdate";
 import { downloadPercent } from "../../../../../../logics/common/appUpdate.ts";
 import type { AppUpdateInfo, AppUpdateState, AppUpdateStatus } from "../../../../../../logics/common/appUpdate.ts";
@@ -56,6 +56,8 @@ export const Updater = () => {
     const { currentSoftwareVersion } = useSoftwareVersion();
     const { showNotification_Error } = useNotificationStatus();
     const { currentEnableCheckSoftwareUpdates, toggleEnableCheckSoftwareUpdates } = useOthers();
+    // The update channel set on the experimental features page (#466).
+    const { currentReleaseChannel } = useExperimentalFeatures();
     const { appUpdate, loadAppUpdateInfo, checkAppUpdate, installAppUpdate } = useAppUpdate();
 
     useEffect(() => { loadAppUpdateInfo(); }, []);
@@ -97,7 +99,7 @@ export const Updater = () => {
                         <button type="button" className={styles.install_button} disabled={busy} onClick={install}>
                             {t("app_update.install", { version: appUpdate.version })}
                         </button>}
-                    <button type="button" className={styles.check_button} disabled={busy} onClick={() => checkAppUpdate()}>
+                    <button type="button" className={styles.check_button} disabled={busy} onClick={() => checkAppUpdate({ channel: currentReleaseChannel.data ?? null })}>
                         {t("app_update.check")}
                     </button>
                 </div>}

@@ -38,6 +38,10 @@ const OWNER: &str = "kein5";
 /// holds a copy of 0.5.0 and nothing newer (Issue #534), so the current name is used.
 const REPOSITORY: &str = "kein5/astarot";
 const STABLE_MANIFEST: &str = "https://vrct-vox-updates.kei9d09.workers.dev/latest.json";
+/// The beta channel's latest.json (#466): the Worker forwards it to beta/latest.json of the branch
+/// updater-channels, which a published release points at the newest release, beta or stable
+/// (`tools/update_channels.py`). The app no longer reads the release list for it.
+const BETA_MANIFEST: &str = "https://vrct-vox-updates.kei9d09.workers.dev/beta/latest.json";
 const RELEASES_API: &str = "https://api.github.com/repos/kein5/astarot/releases?per_page=30";
 const MANIFEST_NAME: &str = "latest.json";
 
@@ -147,10 +151,20 @@ fn directory_is_writable(directory: &Path) -> bool {
     }
 }
 
-/// The release channel follows the running version, like the release branches do:
-/// a `-beta.N` version is on the beta channel.
+/// The channel of the running build, like the release branches: a `-beta.N` version is on the
+/// beta channel. It is also the update channel until the user chooses one (#466).
 pub fn channel_of(version: &semver::Version) -> &'static str {
     if version.pre.is_empty() { "stable" } else { "beta" }
+}
+
+/// The update channel: the one named (`SELECTED_RELEASE_CHANNEL`, the user's choice or else the
+/// build's), or the build's when none or an unknown one is named (#466).
+pub fn update_channel(named: Option<&str>, version: &semver::Version) -> &'static str {
+    match named {
+        Some("beta") => "beta",
+        Some("stable") => "stable",
+        _ => channel_of(version),
+    }
 }
 
 #[derive(Debug, serde::Deserialize)]
@@ -216,7 +230,9 @@ fn foreign_manifests(releases: &[GithubRelease]) -> impl Iterator<Item = &str> {
         .filter(|url| !Url::parse(url).is_ok_and(|url| project_download(&url)))
 }
 
-/// The latest.json of the newest release the channel takes.
+/// The latest.json of the newest release the channel takes. The beta channel's is chosen so by
+/// `tools/update_channels.py` now (#466); kept for the tests of what a channel takes.
+#[cfg(test)]
 pub fn pick_manifest(releases: &[GithubRelease], channel: &str) -> Option<Url> {
     releases
         .iter()
@@ -291,10 +307,6 @@ async fn fetch_releases() -> Result<Vec<GithubRelease>, String> {
     Ok(releases)
 }
 
-async fn beta_manifest() -> Result<Option<Url>, String> {
-    Ok(pick_manifest(&fetch_releases().await?, "beta"))
-}
-
 /// How long a finished check answers a check that starts after it. The core's start-up check
 /// and the update page's check at start run at the same time; one request serves both.
 const CHECK_REUSE: Duration = Duration::from_secs(30);
@@ -305,9 +317,9 @@ type LatestCheck = Result<Option<Update>, String>;
 pub struct AppUpdateState {
     pending: Mutex<Option<Update>>,
     busy: AtomicBool,
-    /// The last check of the channel's newest release. Held while a check runs, so that a
-    /// second one waits for it instead of asking again.
-    last_check: tauri::async_runtime::Mutex<Option<(Instant, LatestCheck)>>,
+    /// The last check of a channel's newest release, with the channel. Held while a check runs, so
+    /// that a second one waits for it instead of asking again.
+    last_check: tauri::async_runtime::Mutex<Option<(Instant, &'static str, LatestCheck)>>,
 }
 
 struct BusyGuard<'a>(&'a AtomicBool);
@@ -405,18 +417,15 @@ fn download_error_code(error: &tauri_plugin_updater::Error) -> &'static str {
     }
 }
 
-/// Asks for the newest release of the running version's channel.
-async fn check_channel<R: Runtime>(app: &AppHandle<R>, target: &str) -> LatestCheck {
-    let channel = channel_of(&app.package_info().version);
+/// Asks for the newest release of `channel`. The updater offers only a version newer than the
+/// running one, so a stable channel on a beta build waits for the next stable release (#466).
+async fn check_channel<R: Runtime>(app: &AppHandle<R>, target: &str, channel: &'static str) -> LatestCheck {
     let stable = Url::parse(STABLE_MANIFEST).map_err(|error| error.to_string())?;
     let mut endpoints = Vec::new();
     if channel == "beta" {
-        match beta_manifest().await {
-            Ok(Some(url)) => endpoints.push(url),
-            Ok(None) => {}
-            // The stable manifest below still answers.
-            Err(error) => crate::startup_log(&format!("Update: release list unavailable: {error}")),
-        }
+        // The Worker's beta channel first; the updater asks the next endpoint when one fails, so
+        // the stable channel still answers while the beta one cannot (#466).
+        endpoints.push(Url::parse(BETA_MANIFEST).map_err(|error| error.to_string())?);
     }
     endpoints.push(stable);
     let updater = build_updater(app, target, endpoints, None)?;
@@ -426,17 +435,19 @@ async fn check_channel<R: Runtime>(app: &AppHandle<R>, target: &str) -> LatestCh
     })
 }
 
-/// [`check_channel`], sharing a check that runs or has just ended (`CHECK_REUSE`). A failed
-/// check is shared only with the checks that waited for it: asking again tries again.
-async fn check_latest<R: Runtime>(app: &AppHandle<R>, state: &AppUpdateState, target: &str) -> LatestCheck {
+/// [`check_channel`], sharing a check of the same channel that runs or has just ended
+/// (`CHECK_REUSE`). A failed check is shared only with the checks that waited for it: asking again
+/// tries again.
+async fn check_latest<R: Runtime>(app: &AppHandle<R>, state: &AppUpdateState, target: &str, channel: &'static str) -> LatestCheck {
     let mut last = state.last_check.lock().await;
-    if let Some((at, result)) = last.as_ref()
+    if let Some((at, checked, result)) = last.as_ref()
+        && *checked == channel
         && ((result.is_ok() && at.elapsed() < CHECK_REUSE) || at.elapsed() < Duration::from_secs(1))
     {
         return result.clone();
     }
-    let result = check_channel(app, target).await;
-    *last = Some((Instant::now(), result.clone()));
+    let result = check_channel(app, target, channel).await;
+    *last = Some((Instant::now(), channel, result.clone()));
     result
 }
 
@@ -633,6 +644,7 @@ pub async fn app_update_check<R: Runtime>(
     window: WebviewWindow<R>,
     app: AppHandle<R>,
     state: tauri::State<'_, AppUpdateState>,
+    channel: Option<String>,
 ) -> Result<CheckResult, String> {
     main_only(&window)?;
     let kind = install_kind(&app);
@@ -640,7 +652,9 @@ pub async fn app_update_check<R: Runtime>(
         return Err("update_unsupported".into());
     };
     let _busy = acquire(&state)?;
-    let update = check_latest(&app, &state, target).await?;
+    // The update channel the settings name (#466); the build's without one.
+    let channel = update_channel(channel.as_deref(), &app.package_info().version);
+    let update = check_latest(&app, &state, target, channel).await?;
     let result = CheckResult {
         available: update.is_some(),
         version: update.as_ref().map(|update| update.version.clone()),
@@ -719,7 +733,7 @@ impl<R: Runtime> CoreUpdates<R> {
         Self { app }
     }
 
-    async fn install_async(&self, target_version: Option<&str>) -> Result<(), &'static str> {
+    async fn install_async(&self, target_version: Option<&str>, channel: &'static str) -> Result<(), &'static str> {
         let app = &self.app;
         let kind = install_kind(app);
         // A ZIP, a tar.gz, a read-only AppImage or a package is updated by the user or the
@@ -731,9 +745,8 @@ impl<R: Runtime> CoreUpdates<R> {
         let state = app.state::<AppUpdateState>();
         let _busy = acquire(&state).map_err(|_| "update_busy")?;
         let update = match target_version {
-            None => check_latest(app, &state, target).await.map_err(|_| "update_check_failed")?,
+            None => check_latest(app, &state, target, channel).await.map_err(|_| "update_check_failed")?,
             Some(wanted) => {
-                let channel = channel_of(&app.package_info().version);
                 let releases = fetch_releases().await.map_err(|error| {
                     crate::startup_log(&format!("Update: release list unavailable: {error}"));
                     "update_check_failed"
@@ -753,21 +766,22 @@ impl<R: Runtime> CoreUpdates<R> {
 }
 
 impl<R: Runtime> SoftwareUpdates for CoreUpdates<R> {
-    fn check(&self) -> Value {
+    fn check(&self, channel: &str) -> Value {
         let kind = install_kind(&self.app);
         let Some(target) = kind.checking_target() else {
             return no_update();
         };
         let state = self.app.state::<AppUpdateState>();
-        let result = tauri::async_runtime::block_on(check_latest(&self.app, &state, target));
+        let channel = update_channel(Some(channel), &self.app.package_info().version);
+        let result = tauri::async_runtime::block_on(check_latest(&self.app, &state, target, channel));
         update_info(result.as_ref().map(|update| update.as_ref().map(|update| update.version.as_str())).map_err(String::as_str))
     }
 
-    fn releases(&self) -> Vec<Value> {
+    fn releases(&self, channel: &str) -> Vec<Value> {
         if install_kind(&self.app).checking_target().is_none() {
             return Vec::new();
         }
-        let channel = channel_of(&self.app.package_info().version);
+        let channel = update_channel(Some(channel), &self.app.package_info().version);
         match tauri::async_runtime::block_on(fetch_releases()) {
             Ok(releases) => list_releases(&releases, channel)
                 .into_iter()
@@ -781,8 +795,9 @@ impl<R: Runtime> SoftwareUpdates for CoreUpdates<R> {
     }
 
     /// Both update endpoints install the one package, as the update page does (#288).
-    fn install(&self, target_version: Option<&str>) -> UpdateOutcome {
-        match tauri::async_runtime::block_on(self.install_async(target_version)) {
+    fn install(&self, target_version: Option<&str>, channel: &str) -> UpdateOutcome {
+        let channel = update_channel(Some(channel), &self.app.package_info().version);
+        match tauri::async_runtime::block_on(self.install_async(target_version, channel)) {
             Ok(()) => {
                 // Linux: the AppImage is replaced. The restart ends the app through its normal
                 // exit, which stops the core.
@@ -1033,6 +1048,11 @@ mod tests {
         let stable = semver::Version::parse("0.4.0").unwrap();
         assert_eq!(channel_of(&beta), "beta");
         assert_eq!(channel_of(&stable), "stable");
+        // #466: the channel the settings name, the build's without one or for an unknown one.
+        assert_eq!(update_channel(Some("beta"), &stable), "beta");
+        assert_eq!(update_channel(Some("stable"), &beta), "stable");
+        assert_eq!(update_channel(None, &beta), "beta");
+        assert_eq!(update_channel(Some("nightly"), &stable), "stable");
     }
 
     #[test]

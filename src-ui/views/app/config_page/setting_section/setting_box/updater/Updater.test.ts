@@ -12,7 +12,8 @@ async function page(info: AppUpdateState["info"]) {
     const appUpdate: AppUpdateState = { ...appUpdateLogic.INITIAL_APP_UPDATE, info };
     const { Updater } = await loadModule<typeof import("./Updater.tsx")>(new URL("./Updater.tsx", import.meta.url), runtime, {
         "@logics_common": { useSoftwareVersion: () => ({ currentSoftwareVersion: { data: "0.6.0" } }), useNotificationStatus: () => ({ showNotification_Error() {} }) },
-        "@logics_configs": { useOthers: () => ({ currentEnableCheckSoftwareUpdates: { state: "ok", data: true }, toggleEnableCheckSoftwareUpdates() {} }) },
+        "@logics_configs": { useOthers: () => ({ currentEnableCheckSoftwareUpdates: { state: "ok", data: true }, toggleEnableCheckSoftwareUpdates() {} }),
+            useExperimentalFeatures: () => ({ currentReleaseChannel: { state: "ok", data: "stable" } }) },
         "../../../../../../logics/common/useAppUpdate": { useAppUpdate: () => ({ appUpdate, loadAppUpdateInfo() {}, checkAppUpdate() {}, installAppUpdate: async () => null }) },
         "../../../../../../logics/common/appUpdate.ts": appUpdateLogic,
         "../_components": { SectionLabelComponent: "heading" },

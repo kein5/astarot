@@ -41,17 +41,19 @@ pub enum UpdateOutcome {
 /// The app's own updater, as the Python backend's [`model.py`] saw it.
 ///
 /// [`model.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/model.py
+/// Each call names the update channel (`SELECTED_RELEASE_CHANNEL`, "stable" or "beta"): the one
+/// the user chose, or the running version's until a choice (#466).
 pub trait SoftwareUpdates: Send + Sync {
     /// `checkSoftwareUpdated`: `{"is_update_available": bool, "new_version": str}`. May reach
     /// the network; it runs off the start-up path, and only while `CHECK_SOFTWARE_UPDATES` is on.
-    fn check(&self) -> Value;
+    fn check(&self, channel: &str) -> Value;
     /// `listAvailableReleases`: `[{"tag", "version", "is_prerelease", "published_at"}, ...]`,
     /// newest first. May reach the network; the UI asks for it.
-    fn releases(&self) -> Vec<Value>;
+    fn releases(&self, channel: &str) -> Vec<Value>;
     /// `updateSoftware` and `updateCudaSoftware`, to the latest release of the channel or to
     /// `target_version`. Runs on its own thread. Downloads, verifies and starts the installer;
     /// the app then ends or restarts.
-    fn install(&self, target_version: Option<&str>) -> UpdateOutcome;
+    fn install(&self, target_version: Option<&str>, channel: &str) -> UpdateOutcome;
 }
 
 /// The start-up answer when nothing was asked: no update.
@@ -63,15 +65,15 @@ pub fn no_update() -> Value {
 pub struct Disabled;
 
 impl SoftwareUpdates for Disabled {
-    fn check(&self) -> Value {
+    fn check(&self, _channel: &str) -> Value {
         no_update()
     }
 
-    fn releases(&self) -> Vec<Value> {
+    fn releases(&self, _channel: &str) -> Vec<Value> {
         Vec::new()
     }
 
-    fn install(&self, _target_version: Option<&str>) -> UpdateOutcome {
+    fn install(&self, _target_version: Option<&str>, _channel: &str) -> UpdateOutcome {
         UpdateOutcome::DownloadFailed
     }
 }
@@ -89,9 +91,10 @@ impl Core {
         let updates = Arc::clone(&self.services().software_updates);
         let notify = self.notifier();
         let log = Arc::clone(self.log());
+        let channel = self.config().get_str("SELECTED_RELEASE_CHANNEL");
         std::thread::Builder::new()
             .name("software_update_check".into())
-            .spawn(move || match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| updates.check())) {
+            .spawn(move || match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| updates.check(&channel))) {
                 Ok(info) => notify("software_update_info", info),
                 Err(_) => log.step("[Background] Software update check failed", None),
             })
@@ -106,8 +109,9 @@ impl Core {
             .name("software_update".into())
             .spawn(move || {
                 let updates = Arc::clone(&core.services().software_updates);
+                let channel = core.config().get_str("SELECTED_RELEASE_CHANNEL");
                 let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                    updates.install(target_version.as_deref())
+                    updates.install(target_version.as_deref(), &channel)
                 }))
                 .unwrap_or(UpdateOutcome::DownloadFailed);
                 let code = match outcome {
@@ -131,7 +135,7 @@ fn target_version(data: &Value) -> Option<String> {
 pub(crate) fn add(b: &mut Builder<'_>) {
     b.with("/get/data/available_releases", OPEN, |core, _| {
         let updates = Arc::clone(&core.services().software_updates);
-        ok(Value::Array(updates.releases()))
+        ok(Value::Array(updates.releases(&core.config().get_str("SELECTED_RELEASE_CHANNEL"))))
     });
     b.with("/run/update_software", OPEN, |core, data| {
         core.run_software_update("/run/update_software", target_version(data));

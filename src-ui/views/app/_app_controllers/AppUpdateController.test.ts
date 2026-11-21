@@ -22,7 +22,10 @@ async function setup(context: TestContext) {
                 dismissNotification: (id: string) => dismissed.push(id),
             }),
         },
-        "@logics_configs": { useOthers: () => ({ currentEnableCheckSoftwareUpdates: { data: false } }) },
+        "@logics_configs": {
+            useOthers: () => ({ currentEnableCheckSoftwareUpdates: { data: false } }),
+            useExperimentalFeatures: () => ({ currentReleaseChannel: { data: null } }),
+        },
         "../../../logics/common/useAppUpdate": { useAppUpdate: () => ({ loadAppUpdateInfo: () => {}, checkAppUpdate: () => {} }) },
     });
     context.onTestFinished(() => runtime.unmount());

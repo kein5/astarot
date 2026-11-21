@@ -267,6 +267,7 @@ export interface SettingValues {
     ExperimentalFeatures: ExperimentalFeatureValues;
     TrayCompanionEdge: string;
     TrayCompanionMonitor: string;
+    ReleaseChannel: string;
 
     // UsagePresets: the ids the user picked; null until the backend answers.
     UsagePresets: string[] | null;
