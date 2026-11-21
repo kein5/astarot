@@ -298,6 +298,27 @@ test("the silence that ends an utterance is saved when chosen and left out for t
     assert.equal(select().value, "");
 });
 
+const thresholdSelect = (tree: unknown) => findIn(tree, node => node.type === "select" && node.props["aria-label"] === "realtime.vad_threshold");
+
+test("the speech detection threshold is saved when chosen and left out for the server's own", async context => {
+    // #392: none chosen sends none; a chosen one is saved as a number.
+    const s = await fixture(context);
+    const select = () => thresholdSelect(s.render()).props;
+    assert.equal(select().value, "", "the server's own by default");
+    assert.deepEqual(optionValues(thresholdSelect(s.render())), ["", 0.2, 0.3, 0.4, 0.5, 0.6, 0.7]);
+    select().onChange({ target: { value: "0.3" } });
+    assert.equal(select().value, 0.3);
+    assert.deepEqual(s.entries()[0].changes, ["realtime.vad_threshold"]);
+    s.entries()[0].save(); s.render();
+    assert.equal(s.writes()[0][1].vad_threshold, 0.3);
+    await s.acknowledge(s.writes()[0][1]);
+    select().onChange({ target: { value: "" } });
+    s.render(); s.entries()[0].save(); s.render();
+    assert.equal("vad_threshold" in s.writes()[1][1], false);
+    await s.acknowledge(s.writes()[1][1]);
+    assert.equal(select().value, "");
+});
+
 test("a silence saved before the default became 0.4 s stays chosen", async context => {
     // 0.4 s was a choice of its own before it became the default: a saved 400 stays saved and
     // shows as itself, so the setting does not move when the default changes again.
