@@ -777,7 +777,7 @@ config_page:
             connection_required: "Ollamaとの接続が必要"
         section_label_llm_options: "LLMのエンジンへの指示"
         llm_translation_temperature:
-            label: "温度（temperature）"
+            label: "Temperature"
             desc: "訳のぶれの大きさです。0に近いほど同じ文に同じ訳を返し、大きいほど言い回しが変わります。翻訳には0から0.3くらいが向きます。空欄のときは送らず、各エンジンの既定のままにします（Geminiは0.7）。温度を受け付けないモデル（OpenAIの推論モデルなど）には、温度を付けずに送り直します。"
         llm_translation_instructions:
             label: "追加の指示"
