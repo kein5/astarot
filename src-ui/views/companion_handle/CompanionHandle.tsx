@@ -20,8 +20,8 @@ import { FROM_X, FROM_Y } from "./CompanionHandle.css.ts";
 // setting TRAY_COMPANION_EDGE). When the pointer comes near, the app shows this window and half
 // of the hexagram comes out over the edge (src-tauri/src/companion.rs). The mouse wheel turns it
 // a point at a time; three of its six triangles show at once, one for each of the main switches.
-// Each triangle carries its feature's icon, green while the switch is on and off-white while it is
-// off (#536), and the triangles of the switches that are on are tinted. Hovering one docks that feature out
+// Each triangle carries its feature's icon, Lilac while the switch is on and Off-White while it is
+// off; the triangle of a switch that is on keeps its colour and has a thicker outline (#536). Hovering one docks that feature out
 // towards the middle of the screen; pressing the docked label runs the main window's own switch.
 // Hovering the hexagon in the middle docks out the common settings (the edge to hide at, the main
 // window, the control panel). Hovering alone changes nothing. The window never takes the focus.
@@ -41,7 +41,7 @@ const MENU_DISTANCE = OPEN_RADIUS * 1.22 + 10;
 type Docked = Feature | "common";
 
 // The same icons as the main window's switches, one in each triangle (#536). They stay upright
-// while the hexagram turns, and they are green while the feature is on, off-white while it is off.
+// while the hexagram turns, and they are Lilac while the feature is on, Off-White while it is off.
 export const FEATURE_ICONS: Record<Feature, ComponentType<SVGProps<SVGSVGElement>>> = {
     mic: MicSvg,
     translation: TranslationSvg,

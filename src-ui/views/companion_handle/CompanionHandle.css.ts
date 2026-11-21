@@ -2,17 +2,17 @@ import { globalStyle, keyframes, style } from "@vanilla-extract/css";
 
 // The hexagram's window is see-through: only the magic circle and a docked label are painted. Its
 // colours are the ASTAROT palette (docs/brand/astarot): the deep purple as the plate, the light
-// lilac as the lines, the violet for a feature that is on. Like the caption plates, it does not
-// follow the app's theme: it sits over a game, not over the app.
+// lilac as the rings, Off-White for the triangles and the icons of features that are off, Lilac
+// for the icons of features that are on (#536). Like the caption plates, it does not follow the
+// app's theme: it sits over a game, not over the app.
 
 const PLATE = "rgba(38, 22, 51, 0.72)";
 const LINE = "#E3DDE9";
 const ON = "#A47AF5";
-// A feature's icon in its triangle (#536): the brand's Off-White while the feature is off, green
-// while it is on. Green is not a brand colour; it was asked for so that "on" reads at a glance
-// over a game. It reaches 3:1 and more against the plate.
-const ICON_OFF = "#FAFAFC";
-const ICON_ON = "#5EE6A0";
+// The brand's Off-White: the triangles, on or off, and the icons of features that are off. A
+// feature that is on shows only in its icon, in Lilac (ON, 5.4:1 against the plate), and in a
+// thicker outline of its triangle, which tells it apart without its colour (#536).
+const OFF_WHITE = "#FAFAFC";
 
 globalStyle("html, body, #root", { width: "100%", height: "100%", margin: 0, overflow: "hidden", background: "transparent" });
 globalStyle("body", { userSelect: "none", fontFamily: '"Yu Gothic UI", "Noto Sans", system-ui, sans-serif' });
@@ -47,17 +47,16 @@ export const plate = style({ fill: PLATE });
 export const ring = style({ fill: "none", stroke: LINE, strokeWidth: 1.6, opacity: 0.7 });
 
 export const point = style({
-    fill: "transparent", stroke: LINE, strokeWidth: 2.4, strokeLinejoin: "round", cursor: "pointer",
-    transition: "fill .15s, opacity .15s",
+    fill: "transparent", stroke: OFF_WHITE, strokeWidth: 2.4, strokeLinejoin: "round", cursor: "pointer",
+    transition: "fill .15s, stroke-width .15s, opacity .15s",
     selectors: {
-        // On: the outline in the icon's green and a faint tint of it, so the green icon stays
-        // readable (it was a lilac fill before the icons, #536).
-        '&[data-on="true"]': { fill: "rgba(94, 230, 160, 0.16)", stroke: ICON_ON },
+        // On: the same colour, a thicker outline (#536). It was a lilac fill before the icons.
+        '&[data-on="true"]': { strokeWidth: 4 },
         '&[data-pending="true"]': { opacity: 0.5 },
         // Its main switch is greyed out: a broken outline, not a filled one (#562).
         '&[data-blocked="true"]': { strokeDasharray: "4 4", opacity: 0.6 },
-        '&[data-docked="true"]': { stroke: "#ffffff", strokeWidth: 3.2 },
-        '&[data-docked="true"]:not([data-on="true"])': { fill: "rgba(227, 221, 233, 0.22)" },
+        '&[data-docked="true"]': { stroke: "#ffffff", fill: "rgba(227, 221, 233, 0.22)" },
+        '&[data-docked="true"]:not([data-on="true"])': { strokeWidth: 3.2 },
         // Turned beyond the edge: half off the screen, not one to aim at.
         '&[data-shown="false"]': { opacity: 0.35, pointerEvents: "none" },
     },
@@ -69,10 +68,10 @@ export const point = style({
 // are drawn three ways (a plain fill, a fill of currentColor, a stroke of currentColor), so the
 // colour is both the fill and the color.
 export const icon = style({
-    fill: ICON_OFF, color: ICON_OFF, pointerEvents: "none",
+    fill: OFF_WHITE, color: OFF_WHITE, pointerEvents: "none",
     transition: "transform .2s cubic-bezier(.2, .7, .3, 1), fill .15s, color .15s, opacity .15s",
     selectors: {
-        '&[data-on="true"]': { fill: ICON_ON, color: ICON_ON },
+        '&[data-on="true"]': { fill: ON, color: ON },
         '&[data-pending="true"]': { opacity: 0.5 },
         '&[data-blocked="true"]': { opacity: 0.6 },
         '&[data-shown="false"]': { opacity: 0.35 },

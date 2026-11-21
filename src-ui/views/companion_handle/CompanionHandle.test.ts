@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { test, vi } from "vitest";
 import type { TestContext } from "vitest";
 import { hooks, loadModule, find, unchecked, findIn } from "../../logics/test/hookHarness.ts";
@@ -73,7 +74,7 @@ test("hidden at its edge it draws nothing; out, it draws the hexagram with the s
     assert.deepEqual(s.shown(), ["main_page.rvc", "main_page.transcription_receive", "main_page.ocr"]);
 });
 
-// #536: each triangle carries its feature's icon, green while the switch is on, off-white while it
+// #536: each triangle carries its feature's icon, Lilac while the switch is on, Off-White while it
 // is off (the colours are the stylesheet's, keyed by data-on). The icons stay upright as it turns.
 test("each triangle carries its feature's icon, lit while the switch is on and upright as the hexagram turns", async context => {
     const s = await setup(context);
@@ -101,6 +102,20 @@ test("each triangle carries its feature's icon, lit while the switch is on and u
     s.tree().props.onWheel({ deltaY: 100 });
     await s.settle();
     assert.equal(turned(icon("mic").props.style), -turned(findIn(s.render(), node => node.type === "g" && node.props.className === "star").props.style));
+});
+
+// #536, as decided: the triangle keeps its Off-White whether its switch is on or off; a switch that
+// is on shows in its icon, in Lilac, and in a thicker outline, which does not rest on colour.
+test("a switch that is on keeps its triangle's colour: its icon turns Lilac and its outline thicker", () => {
+    const css = readFileSync(new URL("./CompanionHandle.css.ts", import.meta.url), "utf8");
+    const rules = (name: string) => css.split(`export const ${name} = style(`)[1].split("\n});")[0];
+    assert.match(css, /const ON = "#A47AF5";/);
+    assert.match(css, /const OFF_WHITE = "#FAFAFC";/);
+    assert.match(rules("point"), /stroke: OFF_WHITE, strokeWidth: 2\.4/);
+    assert.match(rules("point"), /'&\[data-on="true"\]': \{ strokeWidth: 4 \}/);
+    assert.doesNotMatch(rules("point"), /'&\[data-on="true"\]': \{[^}]*(stroke:|fill:)/);
+    assert.match(rules("icon"), /fill: OFF_WHITE, color: OFF_WHITE/);
+    assert.match(rules("icon"), /'&\[data-on="true"\]': \{ fill: ON, color: ON \}/);
 });
 
 test("the wheel turns it a point at a time, bringing another switch into view", async context => {
