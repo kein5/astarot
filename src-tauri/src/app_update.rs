@@ -38,6 +38,10 @@ const OWNER: &str = "kein5";
 /// holds a copy of 0.5.0 and nothing newer (Issue #534), so the current name is used.
 const REPOSITORY: &str = "kein5/astarot";
 const STABLE_MANIFEST: &str = "https://vrct-vox-updates.kei9d09.workers.dev/latest.json";
+/// The beta channel's latest.json (#466): the Worker forwards it to beta/latest.json of the branch
+/// updater-channels, which a published release points at the newest release, beta or stable
+/// (`tools/update_channels.py`). The app no longer reads the release list for it.
+const BETA_MANIFEST: &str = "https://vrct-vox-updates.kei9d09.workers.dev/beta/latest.json";
 const RELEASES_API: &str = "https://api.github.com/repos/kein5/astarot/releases?per_page=30";
 const MANIFEST_NAME: &str = "latest.json";
 
@@ -226,7 +230,9 @@ fn foreign_manifests(releases: &[GithubRelease]) -> impl Iterator<Item = &str> {
         .filter(|url| !Url::parse(url).is_ok_and(|url| project_download(&url)))
 }
 
-/// The latest.json of the newest release the channel takes.
+/// The latest.json of the newest release the channel takes. The beta channel's is chosen so by
+/// `tools/update_channels.py` now (#466); kept for the tests of what a channel takes.
+#[cfg(test)]
 pub fn pick_manifest(releases: &[GithubRelease], channel: &str) -> Option<Url> {
     releases
         .iter()
@@ -299,10 +305,6 @@ async fn fetch_releases() -> Result<Vec<GithubRelease>, String> {
         crate::startup_log(&format!("Update: skipped a latest.json outside the project's downloads: {url}"));
     }
     Ok(releases)
-}
-
-async fn beta_manifest() -> Result<Option<Url>, String> {
-    Ok(pick_manifest(&fetch_releases().await?, "beta"))
 }
 
 /// How long a finished check answers a check that starts after it. The core's start-up check
@@ -421,12 +423,9 @@ async fn check_channel<R: Runtime>(app: &AppHandle<R>, target: &str, channel: &'
     let stable = Url::parse(STABLE_MANIFEST).map_err(|error| error.to_string())?;
     let mut endpoints = Vec::new();
     if channel == "beta" {
-        match beta_manifest().await {
-            Ok(Some(url)) => endpoints.push(url),
-            Ok(None) => {}
-            // The stable manifest below still answers.
-            Err(error) => crate::startup_log(&format!("Update: release list unavailable: {error}")),
-        }
+        // The Worker's beta channel first; the updater asks the next endpoint when one fails, so
+        // the stable channel still answers while the beta one cannot (#466).
+        endpoints.push(Url::parse(BETA_MANIFEST).map_err(|error| error.to_string())?);
     }
     endpoints.push(stable);
     let updater = build_updater(app, target, endpoints, None)?;
