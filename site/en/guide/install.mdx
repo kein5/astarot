@@ -31,26 +31,26 @@ The settings (`config.json`), logs and downloaded models are inside the folder t
 
 | Installed with | Location |
 |---|---|
-| Installer | <CopyText>%LOCALAPPDATA%\VRCT-VOX</CopyText> (unless you changed the folder) |
+| Installer | <CopyText>%LOCALAPPDATA%\ASTAROT</CopyText> for a new installation from 0.5.1. An update keeps the existing installation folder |
 | ZIP | The folder you unpacked it to |
 :::
 
 ## Linux
 
-There is an x64 <Term tip="A way for apps to draw and compute on the GPU. NVIDIA, AMD and Intel GPU drivers support it.">Vulkan</Term> build in four formats: deb, rpm, AppImage and tar.gz (deb and rpm from 0.3.0). To check that a download is intact, see [Check your download](#check-your-download).
+The x64 package includes both CPU and <Term tip="A way for apps to draw and compute on the GPU. NVIDIA, AMD and Intel GPU drivers support it.">Vulkan</Term> builds. Choose from four formats: deb, rpm, AppImage and tar.gz (deb and rpm from 0.3.0). To check that a download is intact, see [Check your download](#check-your-download).
 
 ### deb (Ubuntu, Debian)
 
 ```sh
-sudo apt install ./VRCT-VOX-<version>-linux-x64-vulkan-release.deb
+sudo apt install ./VRCT-VOX-<version>-linux-x64-release.deb
 ```
 
-The app goes to `/opt/vrct-vox` and shows up in your app list as VRCT-VOX. From a terminal, run `vrct-vox`. Install a new version with the same command. To remove it, run `sudo apt remove vrct-vox`.
+The app goes to `/opt/vrct-vox` and shows up in your app list as ASTAROT. From a terminal, run `vrct-vox`. Install a new version with the same command. To remove it, run `sudo apt remove vrct-vox`.
 
 ### rpm (Fedora)
 
 ```sh
-sudo dnf install ./VRCT-VOX-<version>-linux-x64-vulkan-release.rpm
+sudo dnf install ./VRCT-VOX-<version>-linux-x64-release.rpm
 ```
 
 It installs to the same place and starts the same way as the deb. To remove it, run `sudo dnf remove vrct-vox`.
@@ -60,8 +60,8 @@ The deb and rpm are tested on Ubuntu 24.04, Debian 13 and Fedora 44: they instal
 ### AppImage
 
 ```sh
-chmod +x VRCT-VOX-<version>-linux-x64-vulkan-release.AppImage
-./VRCT-VOX-<version>-linux-x64-vulkan-release.AppImage
+chmod +x VRCT-VOX-<version>-linux-x64-release.AppImage
+./VRCT-VOX-<version>-linux-x64-release.AppImage
 ```
 
 Without <Term tip="Lets a Linux app provide a file system without changing the kernel. An AppImage uses it to start.">FUSE</Term>, start it with <CopyText>APPIMAGE_EXTRACT_AND_RUN=1</CopyText>. This needs extra free disk space while the app is unpacked (about 1.7 GB for the version we tested).
@@ -69,7 +69,7 @@ Without <Term tip="Lets a Linux app provide a file system without changing the k
 ### tar.gz
 
 ```sh
-tar -xzf VRCT-VOX-<version>-linux-x64-vulkan-release.tar.gz
+tar -xzf VRCT-VOX-<version>-linux-x64-release.tar.gz
 ./VRCT-VOX/vrct-vox
 ```
 

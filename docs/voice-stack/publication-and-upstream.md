@@ -3,7 +3,7 @@
 
 ## 現在の方針
 
-リポジトリは[kein5/VRCT-VOX](https://github.com/kein5/VRCT-VOX)。repository IDは1435087352、default branchはdevelop。
+リポジトリは[kein5/astarot](https://github.com/kein5/astarot)。repository IDは1435087352、default branchはdevelop。
 2026-10-31にGitHubのfork networkから外れたため、「forked from misyaguziya/VRCT」とは表示されない。
 [misyaguziya/VRCT](https://github.com/misyaguziya/VRCT)をMITライセンスのもとで改変した派生プロジェクトであることは変わらず、
 元の[LICENSE](../../LICENSE)、[NOTICE](../../NOTICE.md)、著作権表示、原作者への謝辞を維持する。

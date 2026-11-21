@@ -1,6 +1,6 @@
 # 設定画面からの既定モデル取得
 
-TTS・ASRの「モデルとサーバー」（同梱speech.cppサーバーの欄）内とRVC設定画面に取得UIを追加。提供元、モデル名、正確な容量、利用条件へのリンク、用途・注意、保存先を表示し、チェックボックスへの同意と開始操作を必要とする。ローカル翻訳（ONNX Runtime）のモデルも、公開したあとは同じ確認画面で取得する。
+TTS・ASRの「モデルとサーバー」（同梱speech.cppサーバーの欄）内とRVC設定画面に取得UIを追加。提供元、モデル名、正確な容量、利用条件へのリンク、用途・注意、保存先を表示し、チェックボックスへの同意と開始操作を必要とする。カタログにあるローカル翻訳（ONNX Runtime）のモデルも同じ確認画面で取得する。
 
 同意は警告を開いた時点のカタログ版に結び付ける。更新された未確認の版で開始しない。
 
@@ -87,7 +87,7 @@ CTranslate2の文章分割ファイル（tokenizer）は、重みと同じリポ
 | おすすめ | `profile.recommended_for` | speech.cppのカタログの`start`。読み上げは`PROFILES`の`recommended_for` |
 
 - おすすめは、speech.cppが言語ごとに「最初に使うモデル」として示すものを使う。アプリでは別に決めない。2026-11-16時点では、日本語がreazonspeech-v2、ウクライナ語などヨーロッパの9言語がparakeet-tdt-0.6b-v3、ほかの言語がqwen3-asr-0.6bである。名前が取得するファイル（既定の種類）の行にだけ付く。
-- `memory_bytes`は、固定revisionのモデルカードにある種類ごとのピークメモリーである。測った機器は`memory_measured_on`に書く（Nemotron 3.5 TranscribeはH100、ほかはApple M5）。このPCでの値でも、必要量の保証でもない。`tier`は1.5 GiB以下をlight、4 GiB以下をmedium、それより大きいものをheavyとする。
+- `memory_bytes`は、固定revisionのモデルカードにある種類ごとのピークメモリーである。測った機器は`memory_measured_on`に書く（Nemotron 3.5 TranscribeはH100、ほかはApple M5）。お使いのPCでの実測値でも、必要量の保証でもない。`tier`は1.5 GiB以下をlight、4 GiB以下をmedium、それより大きいものをheavyとする。
 - `cpu`は、CPUで動かして確かめたものだけを書く。`slow`はASTAROTが測ったもの、`practical`はspeech.cppがCPUで動かす作りのもの（VAD）、ほかは`unverified`である。`gpu`はVAD以外を`recommended`にした。モデルカードの測定はどれもGPUで、下の測定でもGPUのほうがずっと速かった。
 - 2026-11-16の測定。Windows 11、Intel Core i7-1255U、NVIDIA RTX 3060 Ti（Thunderbolt接続、Vulkan1）、speech.cpp 0.11.0、Qwen3-ASR 0.6B Q8_0、言語は`ja`。Windowsの合成音声（10.2秒の日本語1文）を`speech asr`で認識させ、1ファイルと6ファイルの所要時間の差から1発話あたりを出した。各2回で、CPUは2.95秒と4.26秒、GPUは0.08秒と0.16秒だった。CPUでも動くが、字幕は発話の後に数秒遅れる。合成音声1文での測定で、精度の評価ではない。
 
@@ -300,6 +300,6 @@ overlay relayは新しいcatalog/state/start/cancel/applyとhardware取得/更�
 
 - 取得の仕組みは`native/ops`の`downloads`（カタログ、転送、置き場所、取得の管理、機器の情報、案内）と、中核の`native/core/src/controller/downloads.rs`の7ルート。0.5まではPythonのバックエンドの`src-python/models/model_downloads/`で、0.6.0で消した（#285）。
 - `ModelDownloads.tsx` / `useModelDownloads.ts`、SpeechServers/DirectVoiceSettingsへの小さな挿入。en/jaの独立namespace。
-- `modelHardwareAdvice.js`で取得値と候補から案内を算出。CPU・共有メモリ・容量不明/ゼロ・複数GPU・測定期限を区別する。
+- `modelHardwareAdvice.ts`で取得値と候補から案内を算出。CPU・共有メモリ・容量不明/ゼロ・複数GPU・測定期限を区別する。
 - IPC送信関数を安定させ、再描画に伴うcatalog/state再取得ループを修正。idle時の取得回数不変をブラウザで確認。
 - Apply後の確認済み保存値がcleanフォームへ反映されない問題は、`useSettingsDraft.tsx`で直前の保存値とdraftを比較する形に修正。未保存の編集は保持する。

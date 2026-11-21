@@ -19,7 +19,7 @@ The list shows the models you have downloaded, the ones you can download and the
 - The model you have selected stays in the list even when it cannot be downloaded, marked "Not available yet".
 - When no model can be downloaded and the selected one cannot be used, the page says so. To translate, use an external translation API or a local LLM under "More settings".
 
-These are the standard models the app works with. Each one appears in the list once it can be downloaded.
+The catalog offers the int8 versions of M2M100 418M, NLLB-200 distilled 600M and NLLB-200 distilled 1.3B. The table also lists the sizes of the other supported models.
 
 | Model | Approximate size (int8) | License |
 |---|---|---|
@@ -38,7 +38,7 @@ Some models cannot translate some languages. For example, M2M100 does not suppor
 
 ## Use an external translation API
 
-You can use DeepL, Plamo, Gemini, OpenAI, Groq and OpenRouter. Register an API key for each, then choose it under "Translator" on the main screen.
+You can use DeepL, PLaMo, Gemini, OpenAI, Groq, OpenRouter, Google Cloud Translation and Papago Translation (NAVER Cloud Platform). Register the credentials for your service (for Papago, the client ID and client secret), then choose it under "Translator" on the main screen.
 
 - The text to translate is sent to the service you choose.
 - API keys are stored in the settings file on your PC (`config.json`).

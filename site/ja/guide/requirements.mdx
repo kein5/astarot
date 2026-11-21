@@ -33,18 +33,18 @@ Linuxでアプリが管理する音声経路を使うには、Linux 6.9以降、
 | 機能 | 必要なGPU |
 |---|---|
 | 翻訳、チャット読み取り | 必要ありません。CPUで動きます |
-| 読み上げ、ローカルの音声認識とリアルタイム字幕、話した人を見分ける機能（アプリに入っているspeech.cpp） | <Term tip="GPUで描画や計算をするための仕組みです。NVIDIA、AMD、IntelのGPUのドライバーが対応しています。">Vulkan</Term>に対応したGPU。NVIDIA、AMD、Intelのどれでも、内蔵GPUでも動きます。GPUがなければCPUで動きますが、遅くなります |
-| ボイスチェンジャー（RVC） | GeForce GTX 16・RTX 20シリーズ以降のNVIDIAのGPUと、ドライバー580以降（CUDA 13）。GPUがなければCPUで動きますが、声の遅れが約0.2秒から約1.3秒になります（[次の節](#nvidiaのgpuでrvcを使うとき)） |
+| 読み上げ、ローカルの音声認識とリアルタイム字幕、話した人を見分ける機能（アプリに入っているspeech.cpp） | <Term tip="GPUで描画や計算をするための仕組みです。NVIDIA、AMD、IntelのGPUのドライバーが対応しています。">Vulkan</Term>に対応したNVIDIA、AMD、Intelの独立GPU。内蔵GPUだけのPCでは「自動」でCPUを使って読み上げや字幕を動かせます。話者の識別には対応するGPUが必要です |
+| ボイスチェンジャー（RVC） | 音声を遅れずに変換できるCPU、またはCUDA対応のNVIDIAのGPU（次の節）。Windowsでは0.6.0から、DirectMLの実行環境を取得するとDirectX 12対応のGPUも使えます |
 
 ## NVIDIAのGPUでRVCを使うとき
 
-0.4.0から、RVCをGPUで変換するにはNVIDIAのドライバー580以降が必要です。RVCが使うCUDAの版が13になったためです。ドライバーが古いときや対象外のGPUでは、RVCはCPUで変換します。声の遅れは約0.2秒から約1.3秒に増え、CPUの性能によっては変換が追いつかずに止まります。
+0.4.0から、RVCをCUDAで変換するにはNVIDIAのドライバー580以降が必要です。RVCが使うCUDAの版が13になったためです。CUDAを使えない場合は、CPUでも変換できます。声の遅れは約0.2秒から約1.3秒に増え、CPUの性能によっては変換が追いつかずに止まります。
 
 | | 条件 |
 |---|---|
 | ドライバー | 580以降。WindowsとLinuxのどちらも同じです |
-| GPUで変換できるGPU | GeForce GTX 16シリーズ、RTX 20シリーズとそれより新しいGPU |
-| GPUで変換できないGPU | GeForce GTX 10シリーズとそれより古いGPU（GTX 1080 Ti、GTX 1060、GTX 900シリーズなど）。同じ世代までの業務用のGPU（Quadro PシリーズやTITAN Vなど）も対象外です |
+| CUDA 13で変換できるGPU | GeForce GTX 16シリーズ、RTX 20シリーズとそれより新しいGPU |
+| CUDA 13の対象外のGPU | GeForce GTX 10シリーズとそれより古いGPU（GTX 1080 Ti、GTX 1060、GTX 900シリーズなど）。同じ世代までの業務用のGPU（Quadro PシリーズやTITAN Vなど）も対象外です |
 
 ドライバーの版はNVIDIAコントロールパネルの「システム情報」か、コマンド`nvidia-smi`で確かめられます。0.3以前のRVCはドライバーがCUDA 12.8に対応していれば動いたので、ドライバーを更新しないまま0.4.0にすると、それまでGPUで動いていたRVCがCPUで動くことがあります。GPUで使い続けるには、ドライバーを580以降に更新してください。
 

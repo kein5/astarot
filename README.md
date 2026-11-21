@@ -35,7 +35,7 @@ ASTAROT (formerly VRCT-VOX) is a desktop app for VRChat that combines speech rec
 
 - **Translated speech.** Speak your chat input and confirmed translations with [speech.cpp](https://github.com/nyosegawa/speech.cpp) TTS (Irodori for Japanese, Qwen3-TTS for other languages) into a virtual microphone that VRChat uses. Voice output and OSC chat text are configured independently, so you can, for example, keep your own voice while translated speech and text are added.
 - **Hear yourself.** Optionally play the same speech on your own speakers or headphones.
-- **Voice conversion.** Convert your microphone with RVC. On Windows and Linux the app fetches its runtime after showing its license and size. It converts on an NVIDIA GPU (GeForce GTX 16 or RTX 20 series or later, driver 580 or later) and otherwise on the CPU, with a longer delay. Seed-VC is no longer offered from 0.5.0; a saved Seed-VC setting switches to RVC.
+- **Voice conversion.** Convert your microphone with RVC. On Windows and Linux the app fetches its runtime after showing its license and size. CUDA conversion needs an NVIDIA GeForce GTX 16 or RTX 20 series GPU or later with driver 580 or later. From 0.6.0, Windows can also use DirectML on a DirectX 12 GPU. CPU conversion has a longer delay and requires a CPU fast enough for live audio. Seed-VC is no longer offered from 0.5.0; a saved Seed-VC setting switches to RVC.
 - **Realtime captions.** Transcribe your microphone and other players with bundled speech.cpp ASR servers.
 - **Bundled servers.** Save, start and stop speech.cpp servers from the settings.
 - **Model downloads.** Download fixed Irodori, Qwen3-TTS, RVC and speech recognition models (every recognizer speech.cpp offers, such as Qwen3-ASR, ReazonSpeech and Haas-ja) from Hugging Face. Each download asks for consent after showing its license and size. Files are checked by size and SHA-256 and applied separately. GPU/VRAM guidance suggests standard or lighter variants; it is a guide, not a guarantee.
@@ -81,9 +81,9 @@ No model is bundled. TTS, ASR and RVC models are downloaded only on request, or 
 
 ## License and acknowledgements
 
-ASTAROT is under the [MIT License](/LICENSE), and the original VRCT copyright and attribution are retained. External engines, model weights and the GPL-marked Seed-VC integration have their own terms, so the voice stack as a whole is not claimed to be MIT.
+ASTAROT is under the [MIT License](/LICENSE), and the original VRCT copyright and attribution are retained. External engines and model weights have their own terms.
 
-[NOTICE](/NOTICE.md#lgpl-and-gpl-components-in-vrct-vox-builds) lists the LGPL and GPL components in the builds, where to get their source and how to replace them. Two upstream components are deliberately left out:
+[NOTICE](/NOTICE.md#lgpl-and-gpl-components-in-vrct-vox-builds) lists the LGPL and GPL components included through 0.4.x, including the Seed-VC integration, with their sources and replacement instructions. Two upstream components are deliberately left out:
 - PyAV, because its wheels bundle the GPL x264/x265 encoders.
 - Upstream's `translator_engines`, which is licensed for official VRCT only. This is why the Google, Bing and Papago web translators are unavailable.
 

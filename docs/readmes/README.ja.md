@@ -35,7 +35,7 @@ ASTAROT（旧名VRCT-VOX）は音声認識（ASR）、読み上げ（TTS）、�
 
 - **翻訳した発声**: チャット入力や確定した翻訳を[speech.cpp](https://github.com/nyosegawa/speech.cpp)のTTS（日本語はIrodori、ほかの言語はQwen3-TTS）で読み上げ、VRChatが使う仮想マイクに流します。音声とOSCのチャット文字は別々に設定できるので、自分の声はそのままに、翻訳の音声と文字を足すといった使い方ができます。
 - **モニター出力**: 同じ読み上げ音声を自分のスピーカーやヘッドホンでも聞けます（任意）。
-- **ボイスチェンジ**: RVCでマイクの声を変換します。WindowsとLinuxではライセンスとサイズを確認したうえで、実行環境をアプリから取得できます。NVIDIAのGPU（GeForce GTX 16・RTX 20シリーズ以降とドライバー580以降）で変換し、それ以外ではCPUで変換します。CPUでは声の遅れが大きくなります。Seed-VCは0.5.0で廃止しました。保存してあったSeed-VCの設定はRVCに切り替わります。
+- **ボイスチェンジ**: RVCでマイクの声を変換します。WindowsとLinuxではライセンスとサイズを確認したうえで、実行環境をアプリから取得できます。CUDAでの変換にはGeForce GTX 16・RTX 20シリーズ以降のGPUとドライバー580以降が必要です。Windowsでは0.6.0から、DirectX 12対応のGPUもDirectMLで使えます。CPUでも処理が間に合えば変換できますが、声は遅れて届きます。Seed-VCは0.5.0で廃止しました。保存してあったSeed-VCの設定はRVCに切り替わります。
 - **リアルタイム字幕**: 同梱のspeech.cppの音声認識サーバーで自分のマイクとほかのプレイヤーの声を文字にします。
 - **同梱サーバー**: speech.cppのサーバーを設定画面から保存・起動・停止できます。
 - **モデルの取得**: Irodori、Qwen3-TTS、RVCの既定モデルと、speech.cppが扱う音声認識モデル（Qwen3-ASR、ReazonSpeech、Haas-jaなど）を、ライセンスと容量を確認して同意したうえでHugging Faceから取得できます。サイズとSHA-256を検証し、設定への適用は別の操作です。GPUとVRAMに応じて標準・軽量モデルの目安を出しますが、動作を保証するものではありません。
@@ -82,7 +82,7 @@ ASTAROTはオフにしない限り、2種類の利用状況の通知をASTAROT�
 
 ## ライセンスと謝辞
 
-ASTAROTは[MIT License](/LICENSE)で、本家VRCTの著作権表示を残しています。外部エンジン、モデル、GPL表示のSeed-VC連携にはそれぞれの条件があり、音声機能全体をMITとは主張しません。配布物に含まれるLGPL・GPLの部品、ソースの入手先、差し替え方法は[NOTICE](/NOTICE.md)にあります。GPLのx264/x265を含むPyAVと、公式VRCT専用ライセンスの`translator_engines`は配布しません。`translator_engines`を配布しないため、Google・Bing・PapagoのWeb翻訳は使えません。
+ASTAROTは[MIT License](/LICENSE)で、本家VRCTの著作権表示を残しています。外部エンジンとモデルの重みにはそれぞれのライセンスが適用されます。Seed-VC連携など0.4.xまで同梱していたLGPL・GPLの部品、ソースの入手先、差し替え方法は[NOTICE](/NOTICE.md)にあります。GPLのx264/x265を含むPyAVと、公式VRCT専用ライセンスの`translator_engines`は配布しません。`translator_engines`を配布しないため、Google・Bing・PapagoのWeb翻訳は使えません。
 
 本家VRCTの、みしゃ（misyaguziya）さん（メイン開発）、しいな（Shiina_12siy）さん（UI/UXとローカライズ）、レラ（soumt-r）さん（技術的な助言）、どね（done_vrc）さん（ロゴ）、そして[すべての貢献者](https://github.com/misyaguziya/VRCT/graphs/contributors)に感謝します。ASTAROTは皆さんの成果の上に成り立っています。現在は本家に追従しておらず、リポジトリの所有者が決めない限り本家へ何かを送ることはありません（[方針](/docs/voice-stack/publication-and-upstream.md)）。
 

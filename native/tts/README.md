@@ -1,12 +1,11 @@
 # vrct-tts
 
-Speech synthesis for VRCT-VOX in Rust (issue #279): requests to a local speech.cpp
+Speech synthesis for ASTAROT in Rust (issue #279): requests to a local speech.cpp
 server, one bounded speech worker, and the hand-off of streamed PCM to an output.
 It is the Rust counterpart of `src-python/models/tts/` and keeps its settings format,
 error codes, and queueing, interruption and expiry rules.
 
-The backend core (`native/core`) uses it for TTS; the Python speech path is unchanged
-until the sidecar is retired. See "Not in this crate" below for what plugs in.
+The backend core (`native/core`) uses this crate for TTS in the application process. See "Not in this crate" below for what plugs in.
 
 ## What it does
 
@@ -40,7 +39,7 @@ These stay where they are and plug in through traits:
 | Bundled server URL | `scheduler::ResolveServer` | The backend core, from the speech server hub |
 | Failure reports, flow panel | `BusOptions::on_failure`, `on_first_audio`, `on_monitor_error` | The application core |
 
-The backend core (`native/core`, `controller/voice.rs`) wires the bus to the output
+The backend core (`native/core`, `controller/voice/mod.rs`) wires the bus to the output
 devices, the speech.cpp servers and the voice conversion.
 
 ## Differences from the Python version

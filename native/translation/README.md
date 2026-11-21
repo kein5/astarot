@@ -38,7 +38,7 @@
 - `prompt`: チャット型のプロバイダに渡すプロンプトの文面と履歴。
 - `providers/mod.rs`: 固定のアドレス（`Endpoints`、試験では偽のサーバに向ける）、エラーの値、待ち時間、URL と JSON と 1 回の再試行とモデルの選び方の小さな関数。
 
-Google、Bing、Papago の Web 翻訳は、上流のライセンスにより VRCT-VOX では配布していません。Python でも動いていなかったので、このクレートにもありません。代わりに、各社の公式の API（Google Cloud Translation と Papago Translation）を利用者のキーで呼びます。
+Google、Bing、Papago の Web 翻訳は、上流のライセンスにより ASTAROT では配布していません。Python でも動いていなかったので、このクレートにもありません。代わりに、各社の公式の API（Google Cloud Translation と Papago Translation）を利用者のキーで呼びます。
 
 ## Python と同じにしていること
 

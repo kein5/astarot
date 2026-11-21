@@ -210,7 +210,7 @@ UI names come from `locales/en.yml`. The mapping between UI words and code names
 
 | Use | Avoid | Note |
 |---|---|---|
-| ASTAROT | VRCT-VOX (as the app's name) | Write VRCT-VOX for identifiers: repository name, executable, app ID, storage paths (ADR-011). |
+| ASTAROT | VRCT-VOX (as the app's name) | The repository is `kein5/astarot`. For executables, the app ID and storage paths, use the [documented identifiers](../voice-stack/project-rename.md). |
 | Text to speech (TTS) | speech synthesis (user-facing) | UI name. "TTS" after the first mention. |
 | Speech recognition (ASR) | transcription (as the feature's name) | UI name. |
 | Voice changer (RVC) | voice conversion (user-facing) | UI name. Developer documents may say voice conversion. |

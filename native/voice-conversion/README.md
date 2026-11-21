@@ -1,14 +1,13 @@
 # vrct-voice-conversion
 
-Direct voice and voice conversion for VRCT-VOX in Rust: one direct producer at a time
+Direct voice and voice conversion for ASTAROT in Rust: one direct producer at a time
 (the microphone passed through or converted), the owner of the RVC worker process
 (`astarot-rvc-worker`, built from `native/rvc-runtime`), and the consent-gated setup of the
 runtime that worker loads.
 
 The backend core (`native/core`, `controller/voice`) uses it for `/run/start_direct_voice`,
 `/run/stop_direct_voice`, `/get/data/direct_voice_state`, the speech that goes through a
-running conversion (ADR-007) and `/get/data/vc_runtime_*`, `/run/*_vc_runtime_setup`. The
-Python modules stay until the sidecar is retired.
+running conversion (ADR-007) and `/get/data/vc_runtime_*`, `/run/*_vc_runtime_setup`.
 
 ## What replaces what
 
@@ -26,9 +25,8 @@ Python modules stay until the sidecar is retired.
 
 - **No router process.** Mute, the direct-voice suppression and speech reach the owner by
   direct calls instead of control frames on a pipe.
-- **Linux capture.** The managed route of a conversion captures through PipeWire, which
-  `vrct-audio-routing` does not have yet. Until it does, the core offers the conversion on
-  the device route only (Windows); a Linux start fails with `vc_start_failed`.
+- **Linux capture.** The core opens the managed voice-conversion input through PipeWire.
+  On Windows it opens the selected input device.
 - **Archives.** Zip files are read with a small reader of their own (stored and deflate,
   ZIP64 sizes), gzip tars with the `tar` crate. Only the named regular files are taken.
 

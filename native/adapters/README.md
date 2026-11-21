@@ -2,11 +2,9 @@
 
 外部のツールとつなぐ部分（VRChat への OSC と OSCQuery、OBS のブラウザソース、ローカルの WebSocket サーバ、クリップボードへのコピーと自動貼り付け）を受け持つ Rust クレートです。Issue #283 の範囲で、`src-python/models/` の `osc/`、`obs/`、`websocket/`、`clipboard/` を置き換えます。
 
-## 現在の状態
+## アプリとの接続
 
-- ライブラリとして実装し、試験も通っています。**アプリにはまだ組み込んでいません。** 動作中のアプリでこれらを受け持っているのは、今も Python 側です。
-- アプリ（Python と Tauri）への接続は、このクレートでは行いません。ほかの移行 Issue と同じく、#285（中核の統合と Python 同梱の終了）でまとめて組み込み、そのときに Python の実装を削除します。
-- `src-tauri` はこのクレートに依存していません。配布物にも入りません。
+0.5.0から、アプリの中核（`native/core`）がこのクレートを使います。OSC、OBS、WebSocketの呼び出し元は `native/core/src/controller/adapters/`、クリップボードは `native/core/src/controller/clipboard.rs` です。
 
 ## Python 版との対応
 
@@ -31,8 +29,8 @@
 外部のツール側の設定は変えずに済むようにしています。
 
 - **VRChat（OSC）**: 送信先の既定は `127.0.0.1:9000`。チャットボックスは `/chatbox/input` に `[本文, True, 通知]`、入力中の表示は `/chatbox/typing` に `[flag]`。バイト列は python-osc と同じです（試験で照合）。
-- **VRChat（OSCQuery）**: 受信は送信先がこの PC（`127.0.0.1` か `localhost`）のときだけです。UDP の受信と HTTP のサーバはどちらも 127.0.0.1 の空きポートで待ち受け、`ASTAROT:<ナノ秒>`（0.5.x までは `VRCT:<ナノ秒>`）の名前で `_oscjson._tcp` と `_osc._udp` を mDNS で告知します。ツリーとホスト情報の JSON は tinyoscquery と同じ文字列です（試験で照合）。
-- **mDNS**: python-zeroconf の既定の動きに合わせています。すべての IPv4 アドレス（ループバックを含む）で 224.0.0.251:5353 に参加し、LAN 側のインターフェースでもアドレス 127.0.0.1 で告知します。既存のライブラリ（mdns-sd）は、インターフェースのサブネットに合わないアドレスを告知から外すため使っていません。python-zeroconf との相互の発見は試験で確かめています。
+- **VRChat（OSCQuery）**: 受信は送信先がループバック（`127.0.0.1` か `localhost`）のときだけです。UDP の受信と HTTP のサーバはどちらも 127.0.0.1 の空きポートで待ち受け、`ASTAROT:<ナノ秒>`（0.5.x までは `VRCT:<ナノ秒>`）の名前で `_oscjson._tcp` と `_osc._udp` を mDNS で告知します。ツリーとホスト情報の JSON は tinyoscquery と同じ文字列です（試験で照合）。
+- **mDNS**: python-zeroconf の既定の動きに合わせています。すべての IPv4 アドレス（ループバックを含む）で 224.0.0.251:5353 に参加し、ループバック以外のインターフェースでも127.0.0.1を告知します。パケットのTTLは0で、届くのは同じPCの中だけです。既存のライブラリ（mdns-sd）は、インターフェースのサブネットに合わないアドレスを告知から外すため使っていません。python-zeroconf との相互の発見は試験で確かめています。
 - **OBS**: ブラウザソースの URL（`/` または `/obs` に `?token=`）、`/obs/connection`（`Authorization: Bearer`）、`/health`、Host ヘッダの検査、応答ヘッダ、ページの HTML は同じです。HTML は、題名（0.6.0 から `ASTAROT OBS Browser Source`）のほかは Python 版が作ったものとバイト単位で一致することを、試験で確かめています。
 - **WebSocket**: `?token=` がなければハンドシェイクの前に 403。上限（受信 64 KiB、受信の速さ、送信 256 KiB、送信待ち 128 件と 4 MiB、クライアントごと 1 MiB）、1008 での切断、20 秒ごとの ping は同じです。
 - **証明書**: ループバックの IPv4 だけが平文で待ち受けます。それ以外は利用者が選んだ PEM の証明書と鍵が必要で、1 MiB まで、1つのファイルに両方を入れても使えます。パスフレーズ付きの鍵は使えません。失敗の理由は `missing`、`unreadable`、`not_a_file`、`size`、`load_failed` の文字列だけで返します。

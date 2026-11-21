@@ -1,6 +1,6 @@
 # Chatbox lab
 
-Tools for collecting VRChat chatbox screenshots to train VRCT-VOX's own chatbox detector. The upstream VRCT detector may not be shipped with VRCT-VOX, and its outputs may not be used for training, so the data comes only from this lab.
+Tools for collecting VRChat chatbox screenshots to train ASTAROT's own chatbox detector. The upstream VRCT detector may not be shipped with ASTAROT, and its outputs may not be used for training, so the data comes only from this lab.
 
 Capture only in the lab's own local test instance, or in an invite-only instance of the lab's private world joined by the lab's own accounts. Never capture other people, and do not publish the collected images, since avatars that appear in them belong to their creators.
 

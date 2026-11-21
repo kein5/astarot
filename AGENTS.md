@@ -1,6 +1,6 @@
 # ASTAROT 開発エージェント向けガイド
 
-ASTAROT（旧名 VRCT-VOX）は、VRChat 向けに音声認識（ASR）、読み上げ（TTS）、声質変換（RVC）、チャット読み取り（OCR）、翻訳をまとめたデスクトップアプリです。React 19 の UI を Tauri で動かし、バックエンドは Rust の中核（`native/core`）がアプリのプロセスの中で受け持ちます。0.5.0 から配布物に Python は入りません。Python のバックエンド（`src-python/`）は 0.6.0 で消しました。移植の記録は `docs/voice-stack/core-integration.md` にあります。アプリの表示名は ASTAROT です（ADR-011）。リポジトリ名、実行ファイル名、アプリ ID、設定の保存先などの識別子は VRCT-VOX のままで、リポジトリ名は 0.5.0 の正式公開のときに変えます。[VRCT](https://github.com/misyaguziya/VRCT) から派生したプロジェクトで、上流の追従や互換性は目標にしていません。
+ASTAROT（旧名 VRCT-VOX）は、VRChat 向けに音声認識（ASR）、読み上げ（TTS）、声質変換（RVC）、チャット読み取り（OCR）、翻訳をまとめたデスクトップアプリです。React 19 の UI を Tauri で動かし、バックエンドは Rust の中核（`native/core`）がアプリのプロセスの中で受け持ちます。0.5.0 から配布物に Python は入りません。Python のバックエンド（`src-python/`）は 0.6.0 で消しました。移植の記録は `docs/voice-stack/core-integration.md` にあります。アプリの表示名は ASTAROT です（ADR-011）。リポジトリは 0.5.0 の正式公開時に `kein5/astarot` へ改名しました。実行ファイル名、アプリ ID、OS ごとの保存先は `docs/voice-stack/project-rename.md` にあります。[VRCT](https://github.com/misyaguziya/VRCT) から派生したプロジェクトで、上流の追従や互換性は目標にしていません。
 
 この文書は作業の入口です。詳しい内容は、下の表の正本を読んでください。
 
