@@ -2818,6 +2818,8 @@ companion:
     translation: "Translation"
     "on": "On"
     "off": "Off"
+    # A switch whose main switch is greyed out (as the VR panel says it): pressing it shows why in the main window.
+    unavailable: "Needs setup"
     open_main: "Open ASTAROT"
     close: "Close"
     handle: "Open the control panel"

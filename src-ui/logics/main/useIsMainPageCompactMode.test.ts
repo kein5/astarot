@@ -18,8 +18,11 @@ async function fixture(saved: boolean, context: TestContext) {
             updateIsMainPageCompactMode: (value: boolean) => { saved = value; } }),
         useStore_IsOpenedLanguageSelector: () => ({ currentIsOpenedLanguageSelector: { data: selector },
             updateIsOpenedLanguageSelector: (value: unknown) => { selector = value; } }),
+        useStore_IsOpenedTranslatorSelector: () => ({ currentIsOpenedTranslatorSelector: { data: list },
+            updateIsOpenedTranslatorSelector: (value: boolean) => { list = value; } }),
     };
     let selector: unknown = {};
+    let list = false;
     const logic = await loadModule<typeof import("./useIsMainPageCompactMode.ts")>(new URL("./useIsMainPageCompactMode.ts", import.meta.url), runtime, {
         "@store": store, "@useStdoutToPython": { useStdoutToPython: () => ({
             asyncStdoutToPython: (endpoint: string) => requests.push(endpoint) }) },
@@ -48,7 +51,8 @@ async function fixture(saved: boolean, context: TestContext) {
         // On purpose: a tag name stands in for the icon component; the test only finds the button.
         language: LanguageSelectorOpenButton({ TurnedOnSvgComponent: unchecked<ComponentType<SVGProps<SVGSVGElement>>>("svg"),
             is_turned_on: true, selector_key: "your_language", target_key: "1" }) }));
-    return { render, requests, document, setNarrow: (value: boolean) => { narrow = value; }, saved: () => saved, selector: () => selector };
+    return { render, requests, document, setNarrow: (value: boolean) => { narrow = value; }, saved: () => saved, selector: () => selector,
+        setList: (value: boolean) => { list = value; } };
 }
 
 for (const saved of [false, true]) {
@@ -146,11 +150,34 @@ for (const saved of [false, true]) {
         assert.match(s.render().sidebar.props.className, /isOverlay/);
         assert.ok(find(s.render().sidebar, node => node.type === "languages"));
         assert.deepEqual(s.requests, []);
-        // Wide: the icon rail is the saved choice and is undone like its toggle; a full rail stays.
+        // Wide: the full rail while the list is open, and the saved choice is never changed (#562).
         s.setNarrow(false);
         s.render();
         s.render().hook.expandSidebar();
-        assert.deepEqual(s.requests, saved ? ["/set/disable/main_window_sidebar_compact_mode"] : []);
+        s.setList(true);
+        let tree = s.render();
+        assert.ok(find(tree.sidebar, node => node.type === "languages"), "the full rail, with the list's button");
+        assert.doesNotMatch(tree.sidebar.props.className, /isOverlay/, "beside the conversation, not over it");
+        assert.deepEqual(s.requests, [], "never saved");
+        // The list closed: the saved icon rail again.
+        s.setList(false);
+        s.render();
+        tree = s.render();
+        assert.equal(Boolean(find(tree.sidebar, node => node.type === "readout")), saved, saved ? "the saved icon rail" : "the full rail, as saved");
+        assert.deepEqual(s.requests, []);
+    });
+
+    test(`the rail widened for the translator list goes back to the saved icon rail by its toggle, unsaved (${saved})`, async context => {
+        const s = await fixture(saved, context);
+        s.setNarrow(false);
+        s.render();
+        s.render().hook.expandSidebar();
+        s.setList(true);
+        assert.ok(find(s.render().sidebar, node => node.type === "languages"));
+        s.render().button.props.onClick();
+        // Saved icon rail: the toggle undoes the widening only. A saved full rail: the toggle saves the icon rail, as before.
+        assert.deepEqual(s.requests, saved ? [] : ["/set/enable/main_window_sidebar_compact_mode"]);
+        if (saved) assert.ok(find(s.render().sidebar, node => node.type === "readout"), "the icon rail again");
     });
 }
 

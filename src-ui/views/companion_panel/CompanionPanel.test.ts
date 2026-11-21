@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "vitest";
 import type { TestContext } from "vitest";
 import { hooks, loadModule, find, eventTarget, stubGlobals, unchecked, findIn } from "../../logics/test/hookHarness.ts";
+import type { TreeNode } from "../../logics/test/hookHarness.ts";
 import { flush } from "../../logics/test/bridgeHarness.ts";
 import * as status from "../../logics/companion/status.ts";
 import type { CompanionStatus } from "../../logics/companion/status.ts";
@@ -50,6 +51,23 @@ test("the panel shows the switches as the main window reports them, in its langu
     assert.equal(s.row("companion.mic").value.on, false);
     assert.equal(s.row("companion.translation").value.on, true);
     assert.equal(s.row("companion.mic").disabled, false);
+});
+
+test("a switch whose main switch is greyed out says it needs setup and still asks, so the main window says why (#562)", async context => {
+    const s = await setup(context, { ...ready, mic: { on: false, pending: false, blocked: true } } as Status);
+    const row = find(s.render(), node => node.props?.label === "companion.mic");
+    assert.ok(row && typeof row.type === "function");
+    // The row draws no hooks: its button as the panel shows it.
+    const button = unchecked<(props: object) => TreeNode>(row.type)(row.props);
+    assert.deepEqual([button.props["aria-disabled"], button.props["data-blocked"], button.props.disabled], [true, true, false]);
+    assert.equal(findIn(button, node => node.props?.className === "switchValue").props.children, "companion.unavailable");
+    button.props.onClick();
+    await flush();
+    assert.deepEqual(s.requests, ["toggle_mic"]);
+    // Not greyed out: no mark.
+    const translation = find(s.render(), node => node.props?.label === "companion.translation");
+    assert.ok(translation && typeof translation.type === "function");
+    assert.equal(unchecked<(props: object) => TreeNode>(translation.type)(translation.props).props["aria-disabled"], undefined);
 });
 
 test("a switch asks the main window and changes only when the new state comes back", async context => {
