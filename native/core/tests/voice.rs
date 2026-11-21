@@ -1429,30 +1429,78 @@ fn repair_rvc(run: &Run, runtime: &Runtime) -> Value {
     wait_phase(run, "failed")
 }
 
+/// Repairs the RVC runtime the app is taken to have loaded: it ends waiting for the next start.
+fn repair_held_rvc(run: &Run, runtime: &Runtime, folder: &Path) -> Value {
+    run.voice.set_loaded(vec![folder.join("lib/onnxruntime.dll")]);
+    run.ui.ok("/run/start_vc_runtime_setup", Some(json!({ "id": "rvc", "consent": true, "version": vrct_voice_conversion::runtime::version_of(runtime) })));
+    wait_phase(run, "restart_required")
+}
+
 /// On Windows the app's own ONNX Runtime keeps its folder until the app exits. A repair of the
-/// runtime that holds it says so before it fetches anything, and the runtime stays usable (#880).
+/// runtime that holds it fetches the new libraries and leaves them for the next start, which puts
+/// them in place before anything loads them (#900).
 #[test]
-fn a_repair_of_libraries_the_app_has_loaded_is_refused_before_anything_is_fetched() {
+fn a_repair_of_libraries_the_app_has_loaded_puts_them_in_place_at_the_next_start() {
+    let dir = tempfile::tempdir().unwrap();
     let voice = FakeVoice::new();
     let runtime = small_runtime(&voice, b"the asset");
     voice.set_runtime(runtime.clone());
-    let run = start_with(json!({}), Platform::Windows, voice, FakeAudio::new(), false);
+    let run = start_in(dir.path(), voice);
     let folder = set_up_rvc(&run, &runtime);
-    run.voice.set_loaded(vec![folder.join("lib/onnxruntime.dll")]);
+    // Something only the earlier libraries hold.
+    std::fs::write(folder.join("lib/earlier-only"), b"x").unwrap();
     let fetched = run.voice.fetched().len();
 
-    let state = repair_rvc(&run, &runtime);
-    assert_eq!(state["jobs"]["rvc"]["error_code"], "vc_runtime_loaded");
-    assert_eq!(run.voice.fetched().len(), fetched, "something was fetched");
+    let state = repair_held_rvc(&run, &runtime, &folder);
+    assert_eq!(state["jobs"]["rvc"]["error_code"], Value::Null);
+    assert!(run.voice.fetched().len() > fetched, "nothing was fetched");
     assert_eq!(state["installed"]["rvc"], folder.to_str().unwrap(), "the runtime set up before is not usable");
+    assert!(folder.join("lib/earlier-only").exists(), "the libraries in use were touched");
+    assert_eq!(std::fs::read(folder.join("lib.part/onnxruntime.dll")).unwrap(), b"onnx runtime");
+    assert!(folder.join("lib.at-next-start.json").is_file());
+    // Started again before the next start: nothing is fetched twice, and it waits again.
+    let fetched = run.voice.fetched().len();
+    assert_eq!(repair_held_rvc(&run, &runtime, &folder)["jobs"]["rvc"]["error_code"], Value::Null);
+    assert_eq!(run.voice.fetched().len(), fetched, "something was fetched again");
+    run.ui.stop();
+
+    let voice = FakeVoice::new();
+    voice.set_runtime(runtime.clone());
+    let run = start_in(dir.path(), voice);
+    assert!(!folder.join("lib/earlier-only").exists(), "the new libraries were not put in place");
     assert_eq!(std::fs::read(folder.join("lib/onnxruntime.dll")).unwrap(), b"onnx runtime");
-    for leftover in ["lib.previous", "lib.part"] {
+    for leftover in ["lib.part", "lib.previous", "lib.at-next-start.json", ".steps.json", "lib/.archives.json", "downloads"] {
         assert!(!folder.join(leftover).exists(), "{leftover} was left");
     }
+    assert_eq!(run.ui.ok("/get/data/vc_runtime_state", None)["installed"]["rvc"], folder.to_str().unwrap());
+    assert!(run.voice.fetched().is_empty());
+    run.ui.stop();
+}
 
-    // A library loaded from elsewhere (the shipped CPU build) does not hold the runtime up.
-    run.voice.set_loaded(vec![folder.parent().unwrap().join("elsewhere/onnxruntime.dll")]);
+/// The runtime a repair is asked for is one that is no longer whole (here its receipt is gone).
+/// Its libraries put in place at the next start, a start of the setup only checks it, without
+/// fetching anything again (#900).
+#[test]
+fn a_held_repair_of_a_runtime_without_its_receipt_is_only_checked_after_the_next_start() {
+    let dir = tempfile::tempdir().unwrap();
+    let voice = FakeVoice::new();
+    let runtime = small_runtime(&voice, b"the asset");
+    voice.set_runtime(runtime.clone());
+    let run = start_in(dir.path(), voice);
+    let folder = set_up_rvc(&run, &runtime);
+    std::fs::remove_file(folder.join("receipt.json")).unwrap();
+    let state = repair_held_rvc(&run, &runtime, &folder);
+    assert_eq!(state["installed"], json!({}));
+    run.ui.stop();
+
+    let voice = FakeVoice::new();
+    voice.set_runtime(runtime.clone());
+    let run = start_in(dir.path(), voice);
+    assert_eq!(run.ui.ok("/get/data/vc_runtime_state", None)["installed"], json!({}), "set up without its check");
+    assert!(!folder.join("lib.part").exists());
     assert_eq!(set_up_rvc(&run, &runtime), folder);
+    assert!(run.voice.fetched().is_empty(), "something was fetched again: {:?}", run.voice.fetched());
+    assert!(folder.join("receipt.json").is_file());
     run.ui.stop();
 }
 

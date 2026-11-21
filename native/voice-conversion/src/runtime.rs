@@ -1056,18 +1056,15 @@ impl Shared {
 
     /// Each archive in turn: fetched, checked, its files taken, then deleted, so only one
     /// archive is on disk at a time. A resumed setup skips the archives it finished.
-    fn libraries(&self, runtime: &Runtime, cancel: &AtomicBool) -> Result<(), StepError> {
+    fn libraries(&self, runtime: &Runtime, cancel: &AtomicBool) -> Result<Libraries, StepError> {
         let folder = self.folder(runtime);
         let (staging, target, downloads) = (folder.join("lib.part"), folder.join("lib"), folder.join("downloads"));
         let record = staging.join(ARCHIVE_RECORD);
-        // On Windows the app's own ONNX Runtime keeps its folder for as long as the app runs, so
-        // nothing fetched could take its place: said before anything is fetched (#880).
-        if self.options.target == Some(Target::Windows)
+        // On Windows the app's own ONNX Runtime keeps its folder for as long as the app runs: the
+        // new libraries take its place at the next start, before anything loads them (#900).
+        let held = self.options.target == Some(Target::Windows)
             && target.is_dir()
-            && (self.options.loaded)().iter().any(|library| library.starts_with(&target))
-        {
-            return Err(StepError::Code("loaded"));
-        }
+            && (self.options.loaded)().iter().any(|library| library.starts_with(&target));
         let total: u64 = runtime.libraries.iter().map(|l| l.size).sum();
         self.update(runtime.id, |job| {
             job.insert("total_bytes".into(), json!(total));
@@ -1093,6 +1090,11 @@ impl Shared {
             done.push(library.sha256.clone());
             fs::write(&record, serde_json::to_string(&done).expect("strings serialize"))?;
         }
+        if held {
+            write_atomically(&folder.join(AT_NEXT_START), &json!({ "version": version_of(runtime) }))?;
+            let _ = fs::remove_dir_all(&downloads);
+            return Ok(Libraries::AtNextStart);
+        }
         swap_in(&staging, &target).map_err(|error| match error {
             SwapError::InUse => StepError::Code("in_use"),
             SwapError::Io(error) => StepError::Io(error),
@@ -1101,7 +1103,7 @@ impl Shared {
         // repair the old ones held up resumes without fetching them again (#880).
         let _ = fs::remove_file(target.join(ARCHIVE_RECORD));
         let _ = fs::remove_dir_all(&downloads);
-        Ok(())
+        Ok(Libraries::InPlace)
     }
 
     fn assets(&self, runtime: &Runtime, cancel: &AtomicBool) -> Result<(), StepError> {
@@ -1235,7 +1237,7 @@ impl Shared {
         let version = version_of(runtime);
         let mut lease = RootLease::new(&self.options.root);
         let mut step = STEPS[0];
-        let result = (|| -> Result<(), StepError> {
+        let result = (|| -> Result<Libraries, StepError> {
             fs::create_dir_all(&self.options.root)?;
             lease.acquire().map_err(|error| if error.code() == Some("download_busy") { StepError::Code("download_busy") } else { StepError::Failed })?;
             fs::create_dir_all(&folder)?;
@@ -1247,8 +1249,13 @@ impl Shared {
             if fresh && (self.options.free_space)(&self.options.root).is_some_and(|free| free < runtime.disk_bytes) {
                 return Err(StepError::Code("space"));
             }
+            let mut libraries = Libraries::InPlace;
             for (number, name) in STEPS.iter().enumerate() {
                 self.checkpoint(cancel)?;
+                // The libraries are checked where they run, so once they are in place.
+                if libraries == Libraries::AtNextStart && *name == "verifying" {
+                    break;
+                }
                 step = name;
                 self.update(runtime.id, |job| {
                     if job["phase"] != "cancelling" {
@@ -1262,7 +1269,13 @@ impl Shared {
                     continue;
                 }
                 match *name {
-                    "libraries" => self.libraries(runtime, cancel)?,
+                    "libraries" => {
+                        libraries = self.libraries(runtime, cancel)?;
+                        if libraries == Libraries::AtNextStart {
+                            // Finished once they are in place (`recover_libraries`).
+                            continue;
+                        }
+                    }
                     "assets" => self.assets(runtime, cancel)?,
                     _ => self.verifying(runtime, cancel)?,
                 }
@@ -1270,6 +1283,9 @@ impl Shared {
                 fs::write(&marker, finished.to_string())?;
             }
             self.checkpoint(cancel)?;
+            if libraries == Libraries::AtNextStart {
+                return Ok(Libraries::AtNextStart);
+            }
             write_receipt(&folder, &json!({ "version": version, "id": runtime.id }))?;
             // Steps resume a setup, not a finished runtime: a repair must run them again.
             let _ = fs::remove_file(&marker);
@@ -1277,12 +1293,14 @@ impl Shared {
             if runtime.id == "rvc" {
                 remove_earlier_rvc(&folder);
             }
-            Ok(())
+            Ok(Libraries::InPlace)
         })();
         lease.close();
         let cancelled = cancel.load(Ordering::SeqCst) || self.closing.load(Ordering::SeqCst);
         let terminal = match result {
-            Ok(()) => json!({ "phase": "ready", "path": folder.to_string_lossy(), "error_code": null }),
+            Ok(Libraries::InPlace) => json!({ "phase": "ready", "path": folder.to_string_lossy(), "error_code": null }),
+            // Not ready yet: the app is to start again. The runtime set up before stays as it is.
+            Ok(Libraries::AtNextStart) => json!({ "phase": "restart_required", "path": folder.to_string_lossy(), "error_code": null }),
             Err(StepError::Cancelled) => json!({ "phase": "cancelled" }),
             Err(_) if cancelled => json!({ "phase": "cancelled" }),
             Err(error) => {
@@ -1291,7 +1309,6 @@ impl Shared {
                     StepError::Code("space") => "vc_runtime_space",
                     // The earlier libraries are still in place and usable (#880).
                     StepError::Code("in_use") => "vc_runtime_in_use",
-                    StepError::Code("loaded") => "vc_runtime_loaded",
                     StepError::Io(error) if is_disk_full(error) => "vc_runtime_space",
                     _ if step == "libraries" => "vc_runtime_libraries_failed",
                     _ if step == "assets" => "vc_runtime_assets_failed",
@@ -1316,6 +1333,19 @@ const PREVIOUS_LIBRARIES: &str = "lib.previous";
 
 /// The archives already unpacked into `lib.part`, by SHA-256, so a stopped step resumes.
 const ARCHIVE_RECORD: &str = ".archives.json";
+
+/// Written beside `lib.part` when its libraries are to take `lib`'s place at the next start
+/// (`{"version"}`), because this process holds the old ones (Windows, #900).
+const AT_NEXT_START: &str = "lib.at-next-start.json";
+
+/// Where a run of the libraries step left the new libraries.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Libraries {
+    /// In `lib`.
+    InPlace,
+    /// In `lib.part`, put in place at the next start (#900).
+    AtNextStart,
+}
 
 /// Why [`swap_in`] did not put the new libraries in place. Either way the earlier ones are
 /// still there.
@@ -1363,32 +1393,87 @@ fn swap_in(staging: &Path, target: &Path) -> Result<(), SwapError> {
 
 /// A repair that stopped between the two renames of [`swap_in`] left `lib.previous` and no
 /// `lib`: the earlier libraries go back, so the runtime set up before is usable again. One that
-/// stopped after them left both: the new `lib` stays and the old copy goes. Called at start,
-/// for every runtime folder under `root`.
-pub fn recover_libraries(root: &Path) {
-    let Ok(folders) = fs::read_dir(root) else { return };
+/// stopped after them left both: the new `lib` stays and the old copy goes. Then the libraries a
+/// repair left for the next start take their place ([`put_in_place_at_start`]). Called at
+/// start, for every runtime folder under `root`, before anything loads a runtime's libraries.
+/// Answers what became of the libraries left for this start, by runtime folder.
+pub fn recover_libraries(root: &Path) -> Vec<(String, bool)> {
+    let Ok(folders) = fs::read_dir(root) else { return Vec::new() };
+    let mut put = Vec::new();
     for folder in folders.flatten().filter(|entry| entry.file_type().is_ok_and(|kind| kind.is_dir())) {
-        let (previous, lib) = (folder.path().join(PREVIOUS_LIBRARIES), folder.path().join("lib"));
-        if !previous.is_dir() {
-            continue;
+        let folder = folder.path();
+        let (previous, lib) = (folder.join(PREVIOUS_LIBRARIES), folder.join("lib"));
+        if previous.is_dir() {
+            if lib.exists() {
+                let _ = fs::remove_dir_all(&previous);
+            } else {
+                let _ = fs::rename(&previous, &lib);
+            }
         }
-        if lib.exists() {
-            let _ = fs::remove_dir_all(&previous);
-        } else {
-            let _ = fs::rename(&previous, &lib);
+        if let Some(done) = put_in_place_at_start(&folder) {
+            put.push((folder.file_name().unwrap_or_default().to_string_lossy().into_owned(), done));
         }
     }
+    put
+}
+
+/// Puts the libraries a repair left in `lib.part` for this start ([`AT_NEXT_START`]) in `lib`'s
+/// place (#900). Answers `None` when none were left, else whether they took its place; when they
+/// did not (still in use, say), everything stays for the next start and the old ones are used.
+///
+/// The libraries step is then finished. A runtime whose receipt names the version the repair set
+/// up is whole again: it is not checked once more, as that version was checked where it was set up
+/// and its files are the pinned ones. Without such a receipt the steps stay, so that a start of the
+/// setup only checks it, without fetching anything again.
+fn put_in_place_at_start(folder: &Path) -> Option<bool> {
+    let marker = folder.join(AT_NEXT_START);
+    let version = fs::read_to_string(&marker).ok()?;
+    let version = serde_json::from_str::<Value>(&version).ok().and_then(|value| value["version"].as_str().map(str::to_owned));
+    let (staging, lib) = (folder.join("lib.part"), folder.join("lib"));
+    let (Some(version), true) = (version, staging.join(ARCHIVE_RECORD).is_file()) else {
+        // Nothing complete to put in place.
+        let _ = fs::remove_file(&marker);
+        return None;
+    };
+    if swap_in(&staging, &lib).is_err() {
+        return Some(false);
+    }
+    let _ = fs::remove_file(lib.join(ARCHIVE_RECORD));
+    let steps = folder.join(".steps.json");
+    let receipt = fs::read_to_string(folder.join("receipt.json")).ok().and_then(|text| serde_json::from_str::<Value>(&text).ok());
+    if receipt.as_ref().and_then(|receipt| receipt["version"].as_str()) == Some(version.as_str()) {
+        let _ = fs::remove_file(&steps);
+    } else {
+        let mut finished = fs::read_to_string(&steps).ok().and_then(|text| serde_json::from_str::<Value>(&text).ok()).unwrap_or(Value::Null);
+        if finished["version"].as_str() != Some(version.as_str()) || !finished["steps"].is_array() {
+            finished = json!({ "version": version, "steps": [] });
+        }
+        let list = finished["steps"].as_array_mut().expect("an array");
+        if !list.iter().any(|step| step == "libraries") {
+            list.push(json!("libraries"));
+        }
+        let _ = fs::write(&steps, finished.to_string());
+    }
+    let _ = fs::remove_file(&marker);
+    Some(true)
 }
 
 /// Writes `receipt.json` through a temporary file and a rename: a stop leaves the earlier
 /// receipt or the new one, never part of one.
 fn write_receipt(folder: &Path, receipt: &Value) -> std::io::Result<()> {
-    let part = folder.join("receipt.json.part");
+    write_atomically(&folder.join("receipt.json"), receipt)
+}
+
+/// Writes `path` through `<path>.part` and a rename.
+fn write_atomically(path: &Path, value: &Value) -> std::io::Result<()> {
+    let mut part = path.as_os_str().to_owned();
+    part.push(".part");
+    let part = PathBuf::from(part);
     let mut file = File::create(&part)?;
-    file.write_all(receipt.to_string().as_bytes())?;
+    file.write_all(value.to_string().as_bytes())?;
     file.sync_all()?;
     drop(file);
-    fs::rename(&part, folder.join("receipt.json"))
+    fs::rename(&part, path)
 }
 
 fn is_disk_full(error: &std::io::Error) -> bool {

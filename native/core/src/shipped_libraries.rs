@@ -131,9 +131,14 @@ pub fn use_libraries(app_dir: &Path, state_dir: &Path) -> String {
     CHOSEN
         .get_or_init(|| {
             // A runtime repair stopped part way gets its earlier libraries back before they are
-            // looked for (#517), not only when the voice area starts.
-            runtimes::recover_libraries(&state_dir.join(RUNTIMES_FOLDER));
-            let choice = choose(app_dir, state_dir);
+            // looked for (#517), not only when the voice area starts, and one the app's own
+            // libraries held up last time puts its new ones in place before they are loaded (#900).
+            let put = runtimes::recover_libraries(&state_dir.join(RUNTIMES_FOLDER));
+            let mut choice = choose(app_dir, state_dir);
+            for (runtime, done) in put {
+                let outcome = if done { "put in place" } else { "still waiting" };
+                choice.line.push_str(&format!(", the repaired libraries of {runtime} {outcome}"));
+            }
             if let Some((library, dependencies)) = &choice.onnx_runtime {
                 vrct_onnx_runtime::use_library_with(library.clone(), dependencies.clone());
             }
@@ -147,7 +152,8 @@ pub fn use_libraries(app_dir: &Path, state_dir: &Path) -> String {
 }
 
 /// The ONNX Runtime library the start pointed this process at and those loaded before it: what a
-/// repair of the runtime that holds them cannot replace on Windows while the app runs (#880).
+/// repair of the runtime that holds them cannot replace on Windows while the app runs, so it puts
+/// them in place at the next start (#880, #900).
 /// Empty before [`use_libraries`].
 pub fn loaded_onnx_runtime() -> Vec<PathBuf> {
     CHOSEN
