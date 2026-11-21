@@ -148,6 +148,11 @@ export class App {
         await this.page.evaluate(() => window.__releaseCoreLines?.());
     }
 
+    /** Sends an event to the main window, as the app's other windows (the VR panel) do. */
+    async emit(event: string, payload: unknown) {
+        await this.page.evaluate(([event, payload]) => window.__TAURI_INTERNALS__.invoke("plugin:event|emit", { event, payload }), [event, payload] as const);
+    }
+
     /** Leaves Settings for the main window. */
     async closeSettings() {
         await this.page.getByRole("button", { name: "Go back" }).click();

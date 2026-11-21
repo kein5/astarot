@@ -93,7 +93,11 @@ test("closing settings stops the overlay sample text, and reopening does not res
     for (const name of ["useState", "useRef", "useEffect", "useLayoutEffect", "useMemo", "useCallback", "useId"]) Reflect.set(api, name, delegate(name));
     context.onTestFinished(() => Object.values(runtimes).forEach(runtime => { runtime.unmount(); }));
     const saved = { tracker: "HMD" };
+    // As react-i18next does, t stays the same function while the UI language does.
+    const words = { en: (key: string) => key, ja: (key: string) => `ja:${key}` };
+    let language: keyof typeof words = "en";
     const { Vr } = await loadModule<typeof import("./Vr.tsx")>(new URL("./Vr.tsx", import.meta.url), { ...runtimes.button, api }, {
+        "@useI18n": { useI18n: () => ({ t: words[language] }) },
         "./DesktopCaptionOverlay": { DesktopCaptionOverlay: "desktop" },
         "./OverlayFontFamily": { OverlayFontFamily: "font" },
         "@ui_configs": { ui_configs: {} }, "../_components": { Slider: "slider", SectionLabelComponent: "section" }, "../_components/form_row/FormRow": { FormRow: "form-row" },
@@ -112,11 +116,11 @@ test("closing settings stops the overlay sample text, and reopening does not res
 
     const START = "config_page.vr.sample_text_button.start", STOP = "config_page.vr.sample_text_button.stop";
     // #912: the words keep the longer one's width, so the button does not shrink when pressed.
-    const words = () => findIn(button(), item => item.type === "stable-words").props;
-    assert.deepEqual([words().current, words().words], [START, [START, STOP]]);
+    const shown = () => findIn(button(), item => item.type === "stable-words").props;
+    assert.deepEqual([shown().current, shown().words], [START, [START, STOP]]);
     button().props.onClick();
     assert.equal(button().props["aria-label"], STOP);
-    assert.deepEqual([words().current, words().words], [STOP, [START, STOP]]);
+    assert.deepEqual([shown().current, shown().words], [STOP, [START, STOP]]);
     vi.advanceTimersByTime(2000);
     assert.equal(sent.length, 2);
 
@@ -146,6 +150,18 @@ test("closing settings stops the overlay sample text, and reopening does not res
     assert.equal(button().props["aria-label"], START);
     vi.advanceTimersByTime(5000);
     assert.equal(sent.length, 3);
+
+    // #904: the VR panel's settings can change the UI language while this sends. The samples sent
+    // after it are in the new language.
+    const SAMPLE = "config_page.vr.sample_text_button.sample_text";
+    button().props.onClick();
+    assert.equal(button().props["aria-label"], STOP);
+    vi.advanceTimersByTime(1000);
+    assert.deepEqual(sent.slice(3), [SAMPLE]);
+    language = "ja";
+    button();
+    vi.advanceTimersByTime(1000);
+    assert.deepEqual(sent.slice(3), [SAMPLE, `ja:${SAMPLE}`]);
 });
 
 test("restoring all VR defaults cancels the editor's pending position write", async context => {

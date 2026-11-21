@@ -24,8 +24,8 @@ export interface TranslationSetup {
 // the selected one (retrying a failed download); null reviews the selected model.
 const requestAtom = atom<TranslationSetupRequest | null>(null);
 // The model whose arrival turns the switch on; null when nobody is waiting. Kept
-// outside the controller: changing the UI language draws the main page again, and
-// the user who asked for the switch is still waiting for it.
+// outside the controller: the engine starting again draws the controller again (the
+// start-up lock takes it away), and the user who asked for the switch is still waiting for it.
 const waitingAtom = atom<string | null>(null);
 // Counts the requests to open the translator list (the model cannot be downloaded yet,
 // so another engine is the way forward). TranslationSetupController opens the list; the

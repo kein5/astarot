@@ -10,7 +10,7 @@ export interface TauriChannel {
 
 declare global {
     interface Window {
-        __TAURI_INTERNALS__: { runCallback(id: number, data: unknown): void };
+        __TAURI_INTERNALS__: { runCallback(id: number, data: unknown): void; invoke(command: string, args?: unknown): Promise<unknown> };
         __holdCoreLines?: () => void;
         __releaseCoreLines?: () => void;
     }

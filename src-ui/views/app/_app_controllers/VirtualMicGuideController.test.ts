@@ -97,8 +97,8 @@ test("Later puts it away for this run; Don't show again stops it opening by itse
     assert.ok(never.calls.includes("dismiss"));
 });
 
-// #563: changing the UI language draws the main page again (App.tsx), and the guide put away
-// with Later opened again at once.
+// #563: changing the UI language drew the main page again (until #904), and the guide put away
+// with Later opened again at once. The engine starting again still draws it again (the start-up lock).
 test("a guide put away with Later stays away when the main page is drawn again", async context => {
     const s = await setup(context);
     s.all(s.render(), "button")[0].props.onClick();
