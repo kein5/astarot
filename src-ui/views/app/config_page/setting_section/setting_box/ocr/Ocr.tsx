@@ -21,6 +21,7 @@ import { OCR_MODELS_SETTING_ID } from "../../../../../../logics/ocr/useOcrSetup"
 import { OcrStatus } from "./OcrStatus";
 import { OcrSharedWindow } from "./OcrSharedWindow";
 import { AdvancedSection } from "../_components/advanced_section/AdvancedSection";
+import { StableWords } from "../../../../../common_components/stable_words/StableWords";
 import { HintDescriptions } from "../_components/hint/Hint";
 import type { DropdownSelection } from "../_components/_atoms/_dropdown_menu/_DropdownMenu";
 
@@ -96,8 +97,16 @@ const Detection_Container = () => {
     );
 };
 
+// The detector's states, whose line keeps the lines of the longest of them.
+const DETECTOR_STATES = ["on", "ready", "restart", "paused", "off", "missing"] as const;
+
 // VRCT-VOX's own chatbox detector: optional download, then a switch (on by default).
-const OcrChatboxDetector_Box = () => {
+// Until the readiness arrives, the part is drawn as it will be: the switch as saved but unavailable,
+// the line and the model's bar saying it is being checked. When the model turns out to be missing,
+// the switch is then cleared. The line keeps the lines of its longest state,
+// and the model's bar stays once the model is on the PC, saying so. The part keeps one size, so
+// the rows under it do not move when the answer comes (#912).
+export const OcrChatboxDetector_Box = () => {
     const { t } = useI18n();
     const { currentOcrReadiness, getOcrReadiness, currentOcrCaptureStatus,
         currentOcrUseChatboxDetector, toggleOcrUseChatboxDetector } = useOcr();
@@ -106,21 +115,25 @@ const OcrChatboxDetector_Box = () => {
     const refresh = useCallback(() => getReadiness.current(), []);
     const readiness = currentOcrReadiness.data;
     const status = detectorStatus(readiness, currentOcrUseChatboxDetector.data, currentOcrCaptureStatus.data ?? readiness?.runtime);
-    if (!status) return null;
+    // A core that names no detector has none to offer.
+    if (readiness && !status) return null;
+    const installed = status?.installed === true;
     return (
         <div className={styles.detector}>
             <CheckboxContainer
                 setting_id="ocr_use_chatbox_detector"
                 label={t("config_page.ocr.detector.label")}
                 desc={t("config_page.ocr.detector.desc")}
-                variable={{ ...currentOcrUseChatboxDetector, data: status.installed && status.preferred }}
-                is_available={status.installed}
-                toggleFunction={status.installed ? toggleOcrUseChatboxDetector : undefined}
+                variable={{ ...currentOcrUseChatboxDetector, data: status ? installed && status.preferred : currentOcrUseChatboxDetector.data !== false }}
+                is_available={installed}
+                toggleFunction={installed ? toggleOcrUseChatboxDetector : undefined}
             />
-            <p role="status" className={styles.detectorStatus} data-state={status.on ? "on" : "off"}>{t(status.key)}</p>
-            {!status.installed &&
-                <OcrModels ids={[status.model]} missing={[status.model]} onChanged={refresh}
-                    title={t("config_page.ocr.detector.models_title")} note={t("config_page.ocr.detector.optional")} />}
+            <p role="status" className={styles.detectorStatus} data-state={status?.on ? "on" : "off"}>
+                <StableWords align="start" current={t(status?.key ?? "config_page.ocr.readiness.checking")}
+                    words={DETECTOR_STATES.map(state => t(`config_page.ocr.detector.status_${state}`))} /></p>
+            <OcrModels ids={status ? [status.model] : []} missing={status && !installed ? [status.model] : []} onChanged={refresh}
+                checking={!status}
+                title={t("config_page.ocr.detector.models_title")} note={t("config_page.ocr.detector.optional")} />
         </div>
     );
 };
