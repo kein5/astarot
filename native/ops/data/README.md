@@ -32,7 +32,7 @@ Python のバックエンド（[`src-python/models/model_downloads/speechcpp_asr
 
 ## `translation_models.json`
 
-ローカル翻訳のモデル（`native/translate-onnx` のフォルダ）を取得する項目です。`src/downloads/catalog.rs` の `translation_models` が読み、カタログの末尾に足します。対象は `translation` で、ファイルには書きません。`notice` も既定は `translation` で書きませんが、モデルごとの確認の文面を使う項目だけは `notice` を書きます（`catalog.rs` の `TRANSLATION_NOTICES` にある名前だけ。NLLB の `translation_nllb_600m`）。2026-11-19 に M2M100 418M と NLLB-200 distilled 600M の int8 を載せました。
+ローカル翻訳のモデル（`native/translate-onnx` のフォルダ）を取得する項目です。`src/downloads/catalog.rs` の `translation_models` が読み、カタログの末尾に足します。対象は `translation` で、ファイルには書きません。`notice` も既定は `translation` で書きませんが、モデルごとの確認の文面を使う項目だけは `notice` を書きます（`catalog.rs` の `TRANSLATION_NOTICES` にある名前だけ。NLLB の `translation_nllb_600m` と `translation_nllb_1_3b`）。2026-11-19 に M2M100 418M と NLLB-200 distilled 600M の int8 を、2026-11-21 に NLLB-200 distilled 1.3B の int8 を載せました。
 
 項目は手で書かず、公開したリポジトリの固定した版から `tools/translation_onnx/publish.py catalog --write` で作ります（文面を変えるときは `--notice <名前>`）。道具は、公開されたファイルの大きさと SHA-256 をフォルダの `manifest.json` と照らし合わせてから書きます。
 

@@ -51,6 +51,57 @@
       ]
     },
     {
+      "id": "nllb-200-distilled-1-3b-onnx-int8",
+      "name": "NLLB-200 distilled 1.3B · int8",
+      "provider": "Meta / VRCT-VOX",
+      "repo": "kein5/nllb-200-distilled-1.3B-onnx-int8",
+      "revision": "12e90eb5cf137f1312d3b57037f6d904c43102f7",
+      "license": "CC-BY-NC-4.0",
+      "licenses": [
+        "https://huggingface.co/kein5/nllb-200-distilled-1.3B-onnx-int8/blob/12e90eb5cf137f1312d3b57037f6d904c43102f7/README.md",
+        "https://creativecommons.org/licenses/by-nc/4.0/"
+      ],
+      "notice": "translation_nllb_1_3b",
+      "artifacts": [
+        {
+          "filename": "manifest.json",
+          "size": 11761,
+          "sha256": "45c3000c927598c343ebebbbdcd53b488bf98f780f0a80e566feb548cbb41019",
+          "role": "manifest"
+        },
+        {
+          "filename": "decoder_model_merged_quantized.onnx",
+          "size": 609845622,
+          "sha256": "888b6376ec9dcd17ac3c4779c845eb0b7be40c787e3c58be9d6dc7f18a1b6da1",
+          "role": "decoder"
+        },
+        {
+          "filename": "encoder_model_quantized.onnx",
+          "size": 506798877,
+          "sha256": "cc116b2a8335e9fecff8f3c60319c2f8bdc3f03b42bf227217b1be485ba4a3b3",
+          "role": "encoder"
+        },
+        {
+          "filename": "tokenizer.json",
+          "size": 17331176,
+          "sha256": "e316b82de11d0f951f370943b3c438311629547285129b0b81dadabd01bca665",
+          "role": "tokenizer"
+        },
+        {
+          "filename": "vocab.json",
+          "size": 5275361,
+          "sha256": "4c89e13706a1f6e445dc2524b8fc0fe04f9c821d9f1da87b2af6f8fbbbd00fbd",
+          "role": "vocabulary"
+        },
+        {
+          "filename": "vocabulary.data",
+          "size": 262354944,
+          "sha256": "f1ebdaf5ae7eaf8839da5aaa691952b8dbcf3925e3ca78bffc0112e9bc514b7f",
+          "role": "weights"
+        }
+      ]
+    },
+    {
       "id": "nllb-200-distilled-600m-onnx-int8",
       "name": "NLLB-200 distilled 600M · int8",
       "provider": "Meta / VRCT-VOX",

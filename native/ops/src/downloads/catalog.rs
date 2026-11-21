@@ -11,7 +11,7 @@ use serde::{Serialize, Serializer};
 use super::speechcpp;
 use crate::net::quote;
 
-pub const CATALOG_VERSION: &str = "2026-11-19.1";
+pub const CATALOG_VERSION: &str = "2026-11-21.1";
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct Artifact {
@@ -153,7 +153,7 @@ pub const TRANSLATION_TARGET: &str = "translation";
 /// The notices a translation entry may name (`model_downloads.notice_<notice>` in locales/):
 /// the general one, and one per model whose download review says more, such as the size and
 /// memory of an NLLB-200 model next to its non-commercial licence.
-pub const TRANSLATION_NOTICES: [&str; 2] = [TRANSLATION_TARGET, "translation_nllb_600m"];
+pub const TRANSLATION_NOTICES: [&str; 3] = [TRANSLATION_TARGET, "translation_nllb_600m", "translation_nllb_1_3b"];
 /// The roles of a translation entry's files. `manifest` is required: it names the rest. `data`
 /// (the weights of a graph over 2 GB, `<graph>.onnx_data`) may come once per graph.
 pub const TRANSLATION_ROLES: [&str; 7] = ["manifest", "encoder", "decoder", "tokenizer", "vocabulary", "weights", "data"];
