@@ -141,6 +141,24 @@ pub trait Backend {
     fn close(&mut self);
 }
 
+/// What became of the keys in force before a bind that failed (Issue #423).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Restore {
+    /// Nothing to do: no key was in force, or a newer bind took over and decides what is bound.
+    NotNeeded,
+    /// They are in force again.
+    Restored,
+    /// They could not be bound again either (the code): no key works until the next bind.
+    Failed(String),
+}
+
+/// What a processed bind came to. Its caller has had the bind's own result already.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Processed {
+    Bound,
+    Failed(Restore),
+}
+
 pub struct Worker<P: Backend> {
     portal: Option<P>,
     bound: Option<(P::Binding, P::Assigned)>,
@@ -158,13 +176,15 @@ impl<P: Backend> Worker<P> {
         if let Some(mut portal) = self.portal.take() { portal.close(); }
     }
 
-    pub fn process(&mut self, job: Job<P::Binding, P::Assigned>, open: impl Fn(&Operation) -> Result<P, String>) {
+    pub fn process(&mut self, job: Job<P::Binding, P::Assigned>, open: impl Fn(&Operation) -> Result<P, String>) -> Processed {
         let previous = self.bound.clone();
         let result = self.attempt(&job.binding, &job.operation, &open);
         let failed = result.is_err();
         let _ = job.reply.send(result);
         if failed {
-            self.restore(previous, &job.operation, &open);
+            Processed::Failed(self.restore(previous, &job.operation, &open))
+        } else {
+            Processed::Bound
         }
     }
 
@@ -186,12 +206,23 @@ impl<P: Backend> Worker<P> {
     /// seen, and these are the ones the last successful bind had (KDE Plasma 6.8 and GNOME 51,
     /// Issue #561). Binding in a new session before the old one closes is not an option: KDE turns
     /// an action's keys off when either of two sessions that hold it closes.
-    fn restore(&mut self, previous: Option<(P::Binding, P::Assigned)>, failed: &Operation, open: &impl Fn(&Operation) -> Result<P, String>) {
-        let Some((binding, _)) = previous else { return };
-        if failed.superseded() || self.bound.as_ref().is_some_and(|(bound, _)| *bound == binding) {
-            return;
+    ///
+    /// Answers whether the keys in force before are again, so that the user can be told when
+    /// they are not (Issue #561): then no key works until the next bind.
+    fn restore(&mut self, previous: Option<(P::Binding, P::Assigned)>, failed: &Operation, open: &impl Fn(&Operation) -> Result<P, String>) -> Restore {
+        let Some((binding, _)) = previous else { return Restore::NotNeeded };
+        if failed.superseded() {
+            return Restore::NotNeeded;
         }
-        let _ = self.attempt(&binding, &failed.renewed(), open);
+        if self.bound.as_ref().is_some_and(|(bound, _)| *bound == binding) {
+            return Restore::Restored;
+        }
+        let renewed = failed.renewed();
+        match self.attempt(&binding, &renewed, open) {
+            Ok(_) => Restore::Restored,
+            Err(_) if renewed.superseded() => Restore::NotNeeded,
+            Err(code) => Restore::Failed(code),
+        }
     }
 
     fn bind(&mut self, binding: &P::Binding, operation: &Operation, open: &impl Fn(&Operation) -> Result<P, String>) -> Result<P::Assigned, String> {
@@ -253,6 +284,8 @@ mod tests {
         alive: AtomicBool,
         /// A binding the desktop refuses, as when its dialog is cancelled (0: none).
         refused: std::sync::atomic::AtomicU32,
+        /// The desktop refuses every binding.
+        refuses_all: AtomicBool,
     }
     #[derive(Clone, Copy)]
     enum Response { Ready, Pending, Cancel, Expire, Supersede }
@@ -295,7 +328,7 @@ mod tests {
             }
             // Mirrors the adapter's mutation boundary after the portal response.
             operation.check()?;
-            if self.state.refused.load(Ordering::Relaxed) == *binding {
+            if self.state.refused.load(Ordering::Relaxed) == *binding || self.state.refuses_all.load(Ordering::Relaxed) {
                 // The adapter closed the old session first and closes the refused request itself.
                 self.request = false;
                 return Err("portal_cancelled".into());
@@ -426,7 +459,7 @@ mod tests {
         assert_eq!(first.receive(), Ok(1));
         state.refused.store(2, Ordering::Relaxed);
         let changed = jobs.submit(2, Duration::from_secs(1));
-        worker.process(jobs.next(), open);
+        assert_eq!(worker.process(jobs.next(), open), Processed::Failed(Restore::Restored));
         assert_eq!(changed.receive(), Err("portal_cancelled".into()), "the caller still learns it failed");
         assert_eq!(state.binds.load(Ordering::Relaxed), 3, "the first set is bound again");
         assert_eq!(worker.bound.as_ref().map(|(binding, _)| *binding), Some(1));
@@ -449,7 +482,7 @@ mod tests {
         // The bind of the new set never answers; the deadline ends it and closes the portal.
         worker.portal.as_mut().unwrap().response = Response::Pending;
         let changed = jobs.submit(2, Duration::from_millis(200));
-        worker.process(jobs.next(), |_| Ok(FakePortal::open(&state, Response::Ready)));
+        assert_eq!(worker.process(jobs.next(), |_| Ok(FakePortal::open(&state, Response::Ready))), Processed::Failed(Restore::Restored));
         assert_eq!(changed.receive(), Err("portal_timeout".into()));
         assert_eq!(state.opens.load(Ordering::Relaxed), 2, "a new connection binds the first set");
         assert_eq!(worker.bound.as_ref().map(|(binding, _)| *binding), Some(1));
@@ -465,11 +498,37 @@ mod tests {
         assert_eq!(first.receive(), Ok(1));
         worker.portal.as_mut().unwrap().response = Response::Supersede;
         let changed = jobs.submit(2, Duration::from_secs(1));
-        worker.process(jobs.next(), |_| Ok(FakePortal::open(&state, Response::Ready)));
+        assert_eq!(worker.process(jobs.next(), |_| Ok(FakePortal::open(&state, Response::Ready))), Processed::Failed(Restore::NotNeeded));
         assert_eq!(changed.receive(), Err("portal_cancelled".into()));
         // The newer bind does the work: the first set is not bound again in between.
         assert_eq!(state.binds.load(Ordering::Relaxed), 2);
         assert!(worker.bound.is_none());
+    }
+
+    #[test]
+    fn a_bind_whose_previous_shortcuts_cannot_be_bound_again_says_so() {
+        // Issue #561: the change is refused and the desktop refuses the first set too, so no key
+        // works until the next bind; the main window is told.
+        let jobs = Mailbox::default();
+        let state = Arc::new(FakeState::default());
+        let mut worker = Worker::default();
+        let open = |_: &Operation| Ok(FakePortal::open(&state, Response::Ready));
+        let first = jobs.submit(1, Duration::from_secs(1));
+        assert_eq!(worker.process(jobs.next(), open), Processed::Bound);
+        assert_eq!(first.receive(), Ok(1));
+        state.refuses_all.store(true, Ordering::Relaxed);
+        let changed = jobs.submit(2, Duration::from_secs(1));
+        assert_eq!(worker.process(jobs.next(), open), Processed::Failed(Restore::Failed("portal_cancelled".into())));
+        assert_eq!(changed.receive(), Err("portal_cancelled".into()));
+        assert_eq!(state.binds.load(Ordering::Relaxed), 3, "the first set was not tried again");
+        assert!(worker.bound.is_none());
+
+        // A first bind that fails has nothing to restore.
+        let jobs = Mailbox::default();
+        let mut worker = Worker::default();
+        let refused = jobs.submit(3, Duration::from_secs(1));
+        assert_eq!(worker.process(jobs.next(), open), Processed::Failed(Restore::NotNeeded));
+        assert_eq!(refused.receive(), Err("portal_cancelled".into()));
     }
 
     #[test]

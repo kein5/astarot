@@ -24,7 +24,7 @@ use zbus::{Connection, MatchRule, MessageStream, Proxy};
 use zbus::export::futures_core::Stream;
 #[path = "portal_shortcut_worker.rs"]
 pub(crate) mod worker;
-use worker::{Backend, Mailbox, Operation, Worker};
+use worker::{Backend, Mailbox, Operation, Processed, Restore, Worker};
 use zbus::{OwnedObjectPath, OwnedVariant, Variant};
 
 /// Must match a desktop file the portal can find; see `ensure_desktop_file`.
@@ -594,11 +594,17 @@ fn listen(connection: Connection, mut signals: MessageStream, mut owners: Messag
 /// app asking for it. It carries nothing: the main window binds again through the command.
 pub(crate) const PORTAL_LOST_EVENT: &str = "portal-shortcuts-lost";
 
+/// Sent to the main window when a bind failed and the keys in force before it could not be
+/// bound again either: no key works until the next bind (Issue #561). It carries nothing.
+pub(crate) const PORTAL_NOT_RESTORED_EVENT: &str = "portal-shortcuts-not-restored";
+
 fn run(app: AppHandle, jobs: Arc<Jobs>) {
     let mut worker = Worker::<Portal>::default();
     loop {
         let job = jobs.next();
-        worker.process(job, |operation| Portal::open(app.clone(), operation));
+        if let Processed::Failed(Restore::Failed(_)) = worker.process(job, |operation| Portal::open(app.clone(), operation)) {
+            let _ = app.emit_to("main", PORTAL_NOT_RESTORED_EVENT, ());
+        }
     }
 }
 
