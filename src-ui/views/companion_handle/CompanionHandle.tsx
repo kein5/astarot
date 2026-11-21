@@ -180,6 +180,19 @@ export const CompanionHandle = ({ bridge = companionBridge }: { bridge?: Compani
                                 onPointerEnter={() => aim("common")} onPointerLeave={unaim} onClick={togglePanel}>
                                 <title>{centreLabel}</title>
                             </polygon>
+                            {/* The outline of a switch that is on, drawn over the rest of the star: the hexagon in
+                                the middle and the neighbouring triangles draw their own outlines on the same lines,
+                                and no edge of a triangle that is on may show their colour (#536). Unnamed, it is
+                                not read; the triangle under it carries the name. */}
+                            {FEATURES.map((feature, index) => {
+                                const value = status?.[feature];
+                                return (
+                                    <polygon key={feature} className={styles.outline} points={polygon(pointTriangle(OPEN_RADIUS, index))}
+                                        data-outline={feature} data-on={value?.on === true} data-pending={value?.pending === true}
+                                        data-blocked={value?.blocked === true} data-docked={docked === feature}
+                                        data-shown={facesInward(angleOf(index, rotation), edge)} />
+                                );
+                            })}
                         </g>
                     </g>
                 </g>

@@ -105,8 +105,8 @@ test("each triangle carries its feature's icon, lit while the switch is on and u
 });
 
 // #536, as decided: a switch that is off has an Off-White triangle and icon; one that is on turns
-// its triangle Lilac (the outline and a faint tint, as the green of the first draft did) and its
-// icon Lilac, and its outline thicker, which does not rest on colour.
+// its triangle Lilac (every edge of it, and a faint tint inside, as the green of the first draft
+// did) and its icon Lilac, and its outline thicker, which does not rest on colour.
 test("a switch that is on turns its triangle and its icon Lilac and its outline thicker", () => {
     const css = readFileSync(new URL("./CompanionHandle.css.ts", import.meta.url), "utf8");
     const rules = (name: string) => css.split(`export const ${name} = style(`)[1].split("\n});")[0];
@@ -114,9 +114,33 @@ test("a switch that is on turns its triangle and its icon Lilac and its outline 
     assert.match(css, /const OFF_WHITE = "#FAFAFC";/);
     assert.match(css, /const ON_TINT = "rgba\(164, 122, 245, 0\.16\)";/, "the tint is the Lilac of ON");
     assert.match(rules("point"), /fill: "transparent", stroke: OFF_WHITE, strokeWidth: 2\.4/);
-    assert.match(rules("point"), /'&\[data-on="true"\]': \{ fill: ON_TINT, stroke: ON, strokeWidth: 4 \}/);
+    // The triangle keeps the tint and the width the pointer finds; its outline is drawn over the star.
+    assert.match(rules("point"), /'&\[data-on="true"\]': \{ fill: ON_TINT, stroke: "transparent", strokeWidth: 4 \}/);
+    assert.match(rules("outline"), /fill: "none", stroke: "transparent", strokeWidth: 4, strokeLinejoin: "round", pointerEvents: "none"/);
+    assert.match(rules("outline"), /'&\[data-on="true"\]': \{ stroke: ON \}/);
     assert.match(rules("icon"), /fill: OFF_WHITE, color: OFF_WHITE/);
     assert.match(rules("icon"), /'&\[data-on="true"\]': \{ fill: ON, color: ON \}/);
+});
+
+// #536: no edge of a triangle that is on shows white. The hexagon in the middle and the next
+// triangles draw their outlines on its lines, so its outline is drawn after them.
+test("the outline of a switch that is on is drawn over the hexagon in the middle and the other triangles", async context => {
+    const s = await setup(context);
+    const star = findIn(s.render(), node => node.type === "g" && node.props.className === "star");
+    const drawn = [star.props.children].flat(Infinity).filter((child): child is TreeNode => Boolean(child) && typeof child === "object");
+    const core = drawn.findIndex(node => node.props.role === "button");
+    const outlines = drawn.filter(node => typeof node.props["data-outline"] === "string");
+    assert.ok(core >= 0, "the hexagon in the middle is drawn");
+    assert.deepEqual(outlines.map(node => node.props["data-outline"]), ["mic", "translation", "tts", "rvc", "listening", "ocr"]);
+    assert.ok(outlines.every(node => drawn.indexOf(node) > core), "an outline is drawn under the hexagon in the middle");
+    const outline = (feature: string) => outlines.find(node => node.props["data-outline"] === feature) as TreeNode;
+    // Each on its own triangle, lit by its switch, and nothing to point at or to read.
+    assert.equal(outline("mic").props.points, s.point("main_page.transcription_send").props.points);
+    assert.equal(outline("mic").props["data-on"], true);
+    assert.equal(outline("translation").props["data-on"], false);
+    assert.equal(outline("rvc").props["data-pending"], true);
+    assert.equal(outline("ocr").props["data-shown"], s.point("main_page.ocr").props["data-shown"]);
+    assert.ok(outlines.every(node => !node.props["aria-label"] && !node.props.role && !node.props.onPointerEnter));
 });
 
 test("the wheel turns it a point at a time, bringing another switch into view", async context => {

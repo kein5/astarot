@@ -52,16 +52,32 @@ export const point = style({
     fill: "transparent", stroke: OFF_WHITE, strokeWidth: 2.4, strokeLinejoin: "round", cursor: "pointer",
     transition: "fill .15s, stroke .15s, stroke-width .15s, opacity .15s",
     selectors: {
-        // On: a Lilac outline, thicker, and a faint Lilac tint, so the Lilac icon stays readable
-        // (#536). It was a full lilac fill before the icons.
-        '&[data-on="true"]': { fill: ON_TINT, stroke: ON, strokeWidth: 4 },
+        // On: a faint Lilac tint, so the Lilac icon stays readable (#536); it was a full lilac fill
+        // before the icons. Its Lilac outline, thicker, is `outline`, drawn over the rest of the
+        // star. This one stays as wide and unseen, so that the pointer finds the same triangle.
+        '&[data-on="true"]': { fill: ON_TINT, stroke: "transparent", strokeWidth: 4 },
         '&[data-pending="true"]': { opacity: 0.5 },
         // Its main switch is greyed out: a broken outline, not a filled one (#562).
         '&[data-blocked="true"]': { strokeDasharray: "4 4", opacity: 0.6 },
-        '&[data-docked="true"]': { stroke: "#ffffff" },
-        '&[data-docked="true"]:not([data-on="true"])': { fill: "rgba(227, 221, 233, 0.22)", strokeWidth: 3.2 },
+        '&[data-docked="true"]:not([data-on="true"])': { stroke: "#ffffff", fill: "rgba(227, 221, 233, 0.22)", strokeWidth: 3.2 },
         // Turned beyond the edge: half off the screen, not one to aim at.
         '&[data-shown="false"]': { opacity: 0.35, pointerEvents: "none" },
+    },
+    ...quick,
+});
+
+// The outline of a triangle whose switch is on (#536). It is drawn after the hexagon in the middle
+// and all the triangles, whose outlines share its lines, so that every edge of it is Lilac. It
+// takes no pointer: the triangle under it does. A switch that is off draws none here.
+export const outline = style({
+    fill: "none", stroke: "transparent", strokeWidth: 4, strokeLinejoin: "round", pointerEvents: "none",
+    transition: "stroke .15s, opacity .15s",
+    selectors: {
+        '&[data-on="true"]': { stroke: ON },
+        '&[data-on="true"][data-docked="true"]': { stroke: "#ffffff" },
+        '&[data-pending="true"]': { opacity: 0.5 },
+        '&[data-blocked="true"]': { strokeDasharray: "4 4", opacity: 0.6 },
+        '&[data-shown="false"]': { opacity: 0.35 },
     },
     ...quick,
 });
