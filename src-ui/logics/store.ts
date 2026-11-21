@@ -374,7 +374,9 @@ export const { atomInstance: Atom_MessageLogs, useHook: useStore_MessageLogs } =
 // The names the user gave the voices of the latest realtime sessions (#447); not saved.
 export const { atomInstance: Atom_SpeakerNames, useHook: useStore_SpeakerNames } = createAtomWithHook(initial<SpeakerNames>({}), "SpeakerNames", { is_state_ok: true });
 // export const { atomInstance: Atom_MessageLogs, useHook: useStore_MessageLogs } = createAtomWithHook(generateTestConversationData(20), "MessageLogs"); // For testing
-export const { atomInstance: Atom_MessageInputBoxRatio, useHook: useStore_MessageInputBoxRatio } = createAtomWithHook(20, "MessageInputBoxRatio");
+// The core's default (MESSAGE_BOX_RATIO, docs/spec/reference/config-keys.md), so a new settings folder draws the
+// composer at the height the core then confirms: nothing moves at start (#912).
+export const { atomInstance: Atom_MessageInputBoxRatio, useHook: useStore_MessageInputBoxRatio } = createAtomWithHook(10, "MessageInputBoxRatio");
 export const { atomInstance: Atom_MessageInputValue, useHook: useStore_MessageInputValue } = createAtomWithHook("", "MessageInputValue");
 
 
