@@ -68,7 +68,8 @@ export const VcRuntimeSetup = ({ engine, current, disabled, onUse }: VcRuntimeSe
                 onClick={() => send("/run/cancel_vc_runtime_setup", { id: engine, job_id: job.job_id })}>{t("vc_runtime.cancel")}</button>}
             {/* The translation's runtimes are chosen through the compute device, not here. */}
             {onUse && installed && installed !== current && <button type="button" disabled={disabled} onClick={() => onUse(installed)}>{t("vc_runtime.use")}</button>}
-            {!installed && !active && <button type="button" disabled={busy || (entry.requires_gpu !== false && !entry.gpu_ready)}
+            {/* Fetched and waiting for the next start (Windows, #900): starting again would only wait again. */}
+            {!installed && !active && job?.phase !== "restart_required" && <button type="button" disabled={busy || (entry.requires_gpu !== false && !entry.gpu_ready)}
                 onClick={() => { setConsent(false); setOpen(true); }}>{t(job ? "vc_runtime.resume" : "vc_runtime.review")}</button>}
         </div>
         {open && <dialog ref={dialog} aria-label={t("vc_runtime.warning_title")} onCancel={event => { event.preventDefault(); close(); }}>
