@@ -71,6 +71,15 @@ fn refused(status: u16, code: &str) -> Reply {
     Reply::status(status, json!({ "error_code": code }))
 }
 
+/// A voice audition's speech (#415): the sentence of `role`, read by that profile's running
+/// bundled server with its saved voice. `None` while that server does not run; none is started.
+fn audition_speech(core: &Core, settings: &VoiceSettings, role: &'static str) -> Option<audition::Speech> {
+    let client = core.speech_servers().hub().binding(profile(role)).ok().and_then(|url| SpeechCppTts::new(&url).ok())?;
+    let (voice, options) = audition::speech_options(settings, role);
+    let (language, text) = audition::sentence_of(role);
+    Some(audition::Speech { client, voice, options, language, text })
+}
+
 /// A request id the UI echoes: `[A-Za-z0-9_-]{1,64}`.
 fn request_id(value: &Value) -> Option<&str> {
     value.as_str().filter(|id| (1..=64).contains(&id.len()) && id.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_'))
@@ -902,8 +911,10 @@ impl Voice {
         ok(self.route_status())
     }
 
-    /// A voice audition (#415): the fixed sentence by the profile's running bundled server, on
-    /// the monitor output only. Refused while muted, without that server or without a monitor.
+    /// A voice audition (#415), on the monitor output only: the fixed sentence by the profile's
+    /// running bundled server (TTS), or the user's voice recorded on the press and converted by a
+    /// voice model (RVC). Refused while muted or without a monitor; a TTS one also without its
+    /// server, an RVC one while a conversion runs and without the runtime or the model's files.
     fn start_audition(&self, core: &Core, data: &Value) -> Reply {
         let Some(request) = audition::parse(data) else { return refused(400, "voice_audition_request_invalid") };
         if self.audition.closed() || self.bus.status().closed {
@@ -918,13 +929,61 @@ impl Voice {
             Ok(target) => target,
             Err(code) => return refused(409, code),
         };
-        let client = core.speech_servers().hub().binding(profile(request.profile)).ok().and_then(|url| SpeechCppTts::new(&url).ok());
-        let Some(client) = client else { return refused(409, "voice_audition_server_not_ready") };
-        let (voice, options) = audition::speech_options(&settings, request.profile);
-        match self.audition.start(request, audition::Speech { client, voice, options }, target) {
+        let started = match request {
+            audition::Request::Tts(request) => {
+                let Some(speech) = audition_speech(core, &settings, request.profile) else { return refused(409, "voice_audition_server_not_ready") };
+                self.audition.start_tts(request.profile, speech, target)
+            }
+            audition::Request::Rvc(request) => {
+                let prepared = match self.rvc_audition_worker(core, &request) {
+                    Ok(prepared) => prepared,
+                    Err(code) => return refused(409, &code),
+                };
+                // The sample (`source` `recording`): the user's voice from the input chosen on
+                // the RVC page, opened only now and as the live conversion captures it.
+                let Some(open) = self.audition_capture() else { return refused(409, "voice_audition_input_unavailable") };
+                let recording = audition::Recording { open, input: request.input.clone(), seconds: request.seconds };
+                self.audition.start_rvc(request.entry, prepared, recording, target)
+            }
+        };
+        match started {
             Ok(state) => ok(state),
             Err(code) => refused(409, code),
         }
+    }
+
+    /// How an RVC audition opens the microphone: the device route's capture on Windows, the
+    /// managed route's on Linux, as a live conversion captures it.
+    fn audition_capture(&self) -> Option<audition::CaptureOpener> {
+        if self.windows {
+            let devices = self.platform.route_devices()?;
+            Some(Arc::new(move |input: &vrct_audio_routing::graph::Endpoint, callbacks| devices.capture(input, callbacks)))
+        } else {
+            let devices = self.platform.managed_vc_devices()?;
+            Some(Arc::new(move |input: &vrct_audio_routing::graph::Endpoint, callbacks| devices.capture(input, callbacks)))
+        }
+    }
+
+    /// The checked worker of an RVC audition: the model's files by its id, the request's pitch and
+    /// index rate, the runtime and the worker's choices of the live conversion. Refused while a
+    /// conversion runs: it holds the GPU, and the audition would compete with the voice heard.
+    fn rvc_audition_worker(&self, core: &Core, request: &audition::RvcRequest) -> Result<vrct_voice_conversion::PreparedRvc, String> {
+        let health = self.direct.health();
+        if self.direct_engine.lock().unwrap().is_some() && (health.requested || health.pending || health.stopping) {
+            return Err("voice_audition_conversion_running".into());
+        }
+        let (model, index) = core.rvc_model_files(&request.entry).ok_or("voice_audition_model_missing")?;
+        let direct = core.config().get(DIRECT_KEY);
+        // The runtime the live conversion uses, or else the one the app set up.
+        let installed = self.runtimes.state()["installed"]["rvc"].as_str().unwrap_or_default().to_owned();
+        let runtime = [direct["rvc_runtime"].as_str().unwrap_or_default().to_owned(), installed]
+            .into_iter()
+            .find(|path| !path.trim().is_empty() && vrct_voice_conversion::worker::runtime_complete(Path::new(path)))
+            .ok_or("vc_runtime_missing")?;
+        let options = with_block(&audition::rvc_start_options(request, &runtime, &model, &index, &direct), Some(core.config().get("RVC_BLOCK_MS")));
+        let env = core.config().environment();
+        let directml = vrct_voice_conversion::runtime::directml_libraries(&env.state_dir.join("vc_runtimes")).map(|found| found.lib);
+        vrct_voice_conversion::process::prepare_rvc(&options, &self.platform.rvc_worker(&env.app_dir), directml.as_deref())
     }
 
     fn stop_audition(&self) -> Reply {
@@ -1016,6 +1075,10 @@ impl Voice {
                 return Err("source_bridge_closed".into());
             }
             let output = self.direct_output()?;
+            if mode == "converted" {
+                // The live conversion's worker comes first: an RVC audition ends (#415).
+                self.audition.stop_rvc();
+            }
             // One monitor setting covers TTS and converted voice; passthrough is never monitored.
             let monitor = if mode == "converted" { self.bus.settings().monitor_choice().map(|(device, volume)| MonitorSpec { device: device.to_owned(), volume }) } else { None };
             self.direct.start(source, generation, mode, options.clone(), monitor, output.as_deref())?;

@@ -255,6 +255,12 @@ fn a_stop_or_mute_cancels_speech_and_a_stale_stamp_is_refused() {
     eventually("the mute is saved", || std::fs::read_to_string(run.ui.dir.join("voice_mute_state.json")).is_ok_and(|t| t.contains("true")));
     // The virtual microphone check is refused while muted.
     assert_eq!(run.ui.request("/run/virtual_mic_test", Some(json!({ "output": "x", "input": "y" })))["status"], 409);
+    // The route takes a resume only once the mute is confirmed, which can come after it is saved
+    // (voice_route_not_ready before).
+    eventually("the mute is confirmed", || {
+        let route = run.ui.ok("/get/data/voice_route", None);
+        route["requested_muted"] == true && route["pending"] == false && route["ready"] == true
+    });
     let resumed = run.ui.ok("/run/resume_voice", None);
     assert_eq!(resumed["requested_muted"], false);
     eventually("the bus is unmuted", || run.status()["muted"] == false);
@@ -600,6 +606,127 @@ fn stop_mute_and_a_new_press_end_a_voice_audition_and_a_mute_refuses_one() {
     run.settings(json!({ "monitor": "on" }));
     let last = run.audition();
     assert_eq!(last["status"], 200, "{last}");
+    run.ui.stop();
+}
+
+/// A run for the RVC audition (#415): an RVC runtime the fake worker accepts saved as the live
+/// conversion's, a voice model of one's own registered, which the fake worker converts with, and
+/// a microphone that gives a quiet tone, with the output a live conversion needs.
+fn rvc_auditioning() -> (Run, tempfile::TempDir, String, Value) {
+    let (files, options) = rvc_files("convert");
+    let voice = FakeVoice::new();
+    voice.set_sources(Some(&["Mic (Realtek)"]));
+    voice.set_outputs(&[OUTPUT]);
+    let monitor = json!({ "output_device": OUTPUT, "monitor": "on", "monitor_device": MONITOR, "monitor_volume": "100" });
+    let direct = json!({ "rvc_runtime": options["runtime"], "rvc_device": "cpu", "rvc_threads": 2 });
+    let run = start_with(json!({ "VOICE_SETTINGS": monitor, "DIRECT_VOICE_SETTINGS": direct }), Platform::Windows, voice, FakeAudio::new(), false);
+    let registered = run.ui.ok("/run/register_user_model", Some(json!({ "target": "rvc", "name": "My voice", "paths": { "model": options["model"] } })));
+    let id = registered["models"][0]["id"].as_str().expect("registered").to_owned();
+    (run, files, id, options)
+}
+
+impl Run {
+    /// An RVC audition of `entry` that records `seconds` of the microphone.
+    fn rvc_audition(&self, entry: &str, seconds: u64, pitch: i64, index_rate: Value) -> Value {
+        let input = source("Mic (Realtek)").id.to_json();
+        let request = json!({ "kind": "rvc", "entry": entry, "source": "recording", "input": input, "seconds": seconds, "pitch": pitch, "index_rate": index_rate });
+        self.ui.request("/run/start_voice_audition", Some(request))
+    }
+}
+
+#[test]
+fn an_rvc_audition_records_the_users_voice_and_plays_it_converted_on_the_monitor_only() {
+    // #415: the RVC catalog's audition. The microphone opens only on the press, for the seconds
+    // asked; the recording goes through an RVC worker of its own with the request's pitch, and
+    // only the monitor hears the answers. No path reaches the UI or the log, and the live
+    // conversion and TTS stay untouched.
+    let (run, files, id, options) = rvc_auditioning();
+    assert_eq!(run.voice.captures(), 0, "the microphone opened before the press");
+    // What the audition writes to the log: the settings saved for this run name the runtime's
+    // path before it, as the live conversion's settings do.
+    let logged_before = run.process_log().len();
+    let answer = run.rvc_audition(&id, 1, 3, json!(0.5));
+    assert_eq!(answer["status"], 200, "{answer}");
+    let result = &answer["result"];
+    assert_eq!((result["state"].clone(), result["kind"].clone(), result["entry"].clone(), result["profile"].clone()), (json!("playing"), json!("rvc"), json!(id), Value::Null));
+    assert_eq!(result["stage"], "recording", "nothing plays while the voice is recorded");
+    assert!(!answer.to_string().contains("voice.pth"), "a path reached the UI: {answer}");
+    assert_eq!(run.audition_outcome(&result["run"]), json!(["completed", null]));
+    assert_eq!(run.voice.captures(), 1, "the microphone was opened once, for the recording");
+    // The worker had the request's pitch; without an index file the rate is 0.
+    assert_eq!(std::fs::read_to_string(files.path().join("rvc").join("asked-pitch")).unwrap(), "3 0");
+
+    let monitor = format!("monitor:{MONITOR}");
+    let played = run.voice.played();
+    assert!(!played.is_empty() && played.iter().all(|p| p.device == monitor), "the audition reached another output: {:?}", played.iter().map(|p| &p.device).collect::<Vec<_>>());
+    assert!(played.iter().all(|p| p.closed && (p.rate, p.channels) == (48000, 1)));
+    let heard: Vec<i16> = played.iter().flat_map(|p| samples(&p.bytes)).collect();
+    // A second of the tone and the silent tail. The fake worker turns each sample's sign and adds
+    // one: every sample heard is its answer, never the microphone itself.
+    assert!(heard.len() >= 48000, "the recording was not played whole: {} samples", heard.len());
+    assert!(heard.iter().all(|s| (s - 1) % 100 == 0), "a sample that was not the worker's answer was heard");
+    assert!(heard.iter().map(|s| s.unsigned_abs()).max().unwrap_or(0) > 1000, "the voice was not heard");
+    assert!(heard[heard.len() - 480..].iter().all(|s| *s == 1), "the tail was not the worker's answer to silence");
+
+    let status = run.status();
+    assert_eq!((status["tts_enabled"].clone(), status["accepted"].clone()), (json!(false), json!(0)), "the audition went through TTS: {status}");
+    assert_eq!(run.ui.ok("/get/data/direct_voice_state", None)["requested"], false);
+    let log = run.process_log();
+    let log = &log[logged_before..];
+    assert!(log.contains("/run/start_voice_audition"));
+    for private in [options["model"].as_str().unwrap(), options["runtime"].as_str().unwrap()] {
+        // As written, and as a JSON string writes it (a Windows path's backslashes doubled).
+        let escaped = serde_json::to_string(private).unwrap();
+        assert!(!log.contains(private) && !log.contains(escaped.trim_matches('"')), "a path reached the log: {log}");
+    }
+    run.ui.stop();
+}
+
+#[test]
+fn an_rvc_audition_needs_its_files_and_microphone_and_gives_way_to_a_conversion() {
+    let (run, _files, id, _) = rvc_auditioning();
+    // A model is named by its id: one that is not on this PC is refused, a catalog one before
+    // its download too.
+    for entry in ["rvc-saisho", "user-000000000000"] {
+        let answer = run.rvc_audition(entry, 1, 0, json!(0));
+        assert_eq!((answer["status"].clone(), error_code(&answer)), (json!(409), "voice_audition_model_missing"), "{entry}");
+    }
+    let mic = source("Mic (Realtek)").id.to_json();
+    let request = |input: Value, seconds: Value, source: &str| json!({ "kind": "rvc", "entry": id, "source": source, "input": input, "seconds": seconds, "pitch": 0, "index_rate": 0 });
+    for bad in [request(mic.clone(), json!(0), "recording"), request(mic.clone(), json!(11), "recording"), request(mic.clone(), json!(1), "tts"), request(json!(null), json!(1), "recording")] {
+        assert_eq!(error_code(&run.ui.request("/run/start_voice_audition", Some(bad))), "voice_audition_request_invalid");
+    }
+    assert_eq!(run.voice.captures(), 0, "a refused press opened the microphone");
+
+    // Its own stop ends it while the voice is recorded.
+    let first = run.rvc_audition(&id, 5, 0, json!(0));
+    assert_eq!(first["status"], 200, "{first}");
+    eventually("the microphone records", || run.voice.captures() == 1);
+    run.ui.ok("/run/stop_voice_audition", None);
+    assert_eq!(run.audition_outcome(&first["result"]["run"]), json!(["stopped", null]));
+
+    // A microphone that cannot be opened ends it with the capture's own code.
+    run.voice.fail_capture(Some("asr_capture_stream_create_failed"));
+    let failed = run.rvc_audition(&id, 1, 0, json!(0));
+    assert_eq!(run.audition_outcome(&failed["result"]["run"]), json!(["failed", "asr_capture_stream_create_failed"]));
+    run.voice.fail_capture(None);
+
+    // A live conversion takes the worker's place: the audition ends, and none starts beside it.
+    let second = run.rvc_audition(&id, 5, 0, json!(0));
+    assert_eq!(second["status"], 200, "{second}");
+    let (_live, live) = rvc_files("convert");
+    assert_eq!(start_direct(&run, json!({ "source": mic, "mode": "converted", "options": live }))["status"], 200);
+    assert_eq!(run.audition_outcome(&second["result"]["run"]), json!(["stopped", null]));
+    assert_eq!(error_code(&run.rvc_audition(&id, 1, 0, json!(0))), "voice_audition_conversion_running");
+    run.ui.ok("/run/stop_direct_voice", None);
+    eventually("the conversion has stopped", || {
+        let state = run.ui.ok("/get/data/direct_voice_state", None);
+        state["requested"] == false && state["pending"] == false && state["stopping"] == false
+    });
+
+    // Without a complete runtime there is no worker to start.
+    assert_eq!(run.ui.request("/set/data/direct_voice_settings", Some(json!({ "rvc_runtime": "" })))["status"], 200);
+    assert_eq!(error_code(&run.rvc_audition(&id, 1, 0, json!(0))), "vc_runtime_missing");
     run.ui.stop();
 }
 

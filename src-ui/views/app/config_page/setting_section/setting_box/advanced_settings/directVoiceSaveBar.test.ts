@@ -3,6 +3,7 @@ import * as rvcStartOptions from "../../../../../../logics/voice/rvcStartOptions
 import * as directVoiceDraft from "../../../../../../logics/voice/directVoiceDraft.ts";
 import * as draftRebase from "../../../../../../logics/voice/draftRebase.ts";
 import * as voiceErrorText from "../../../../../../logics/voice/voiceErrorText.ts";
+import * as voiceAudition from "../../../../../../logics/voice/voiceAudition.ts";
 import { changedPaths } from "../../../../../../logics/voice/saveBar.ts";
 import type { SaveBarEntry } from "../../../../../../logics/voice/saveBar.ts";
 import assert from "node:assert/strict";
@@ -52,6 +53,7 @@ async function open(variant: Variant, settings: typeof rvcSettings) {
         "../../../../../../logics/common/pathExample": { pathExample: (file: string) => file },
         "../../../../../../logics/voice/rvcStartOptions": rvcStartOptions,
         "../../../../../../logics/voice/useVcRuntimes": { useVcRuntimes: () => ({ catalog: null }) },
+        "../../../../../../logics/voice/voiceAudition": voiceAudition,
         "../../../../../../logics/voice/voiceErrorText.ts": voiceErrorText,
     });
     const render = () => runtime.render(DirectVoiceSettings, { variant });

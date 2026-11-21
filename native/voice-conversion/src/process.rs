@@ -338,42 +338,58 @@ fn without_verbatim_prefix(text: &str) -> String {
     text.strip_prefix(r"\\?\").unwrap_or(text).to_owned()
 }
 
+/// A checked RVC start: the worker, its arguments and session, and the block (`None` when the
+/// worker chooses it and says so in `ready`).
+#[derive(Debug, Clone)]
+pub struct PreparedRvc {
+    pub worker: PathBuf,
+    pub args: Vec<String>,
+    pub session: String,
+    pub block: Option<p::Block>,
+}
+
+/// Check the files before anything starts (`RVCProcess.__init__`): the worker, the runtime the
+/// worker loads and the user's model and index. `directml` is the `lib/` of the app's DirectML
+/// runtime when it is set up ([`crate::runtime::directml_libraries`]): the worker is told where
+/// it is, and DirectML cannot be chosen without it.
+pub fn prepare_rvc(options: &Value, worker: &Path, directml: Option<&Path>) -> Result<PreparedRvc, String> {
+    let (mut options, rate) = rvc_options(options)?;
+    if !worker.is_file() {
+        return Err("vc_engine_unavailable".into());
+    }
+    options.runtime = resolve(&options.runtime).unwrap_or(options.runtime);
+    options.model = resolve(&options.model).filter(|p| p.is_file()).ok_or("vc_runtime_missing")?;
+    if !options.index.is_empty() {
+        options.index = resolve(Path::new(&options.index)).filter(|p| p.is_file()).ok_or("vc_runtime_missing")?.to_string_lossy().into_owned();
+    }
+    if !runtime_complete(&options.runtime) {
+        return Err("vc_runtime_missing".into());
+    }
+    options.directml = directml.map(Path::to_path_buf);
+    // Beside the runtime folder: it outlives a runtime set up again.
+    options.block_cache = options.runtime.parent().map(|folder| folder.join(BLOCK_CACHE_FILE));
+    if options.device == "directml" && options.directml.is_none() {
+        return Err("vc_directml_missing".into());
+    }
+    let session = new_session();
+    let args = arguments(&options, &rate, &session);
+    let block = match options.block_ms {
+        AUTO_BLOCK_MS => None,
+        ms => Some(p::Block::from_ms(ms).ok_or("vc_options_invalid")?),
+    };
+    Ok(PreparedRvc { worker: worker.to_path_buf(), args, session, block })
+}
+
 /// A started conversion is single use: start once, stop, close.
 pub struct VcProcess {
     shared: Arc<Shared>,
 }
 
 impl VcProcess {
-    /// Check the files before anything starts (`RVCProcess.__init__`): the worker, the runtime
-    /// the worker loads and the user's model and index. `directml` is the `lib/` of the app's
-    /// DirectML runtime when it is set up ([`crate::runtime::directml_libraries`]): the worker
-    /// is told where it is, and DirectML cannot be chosen without it.
+    /// A conversion of the microphone on `route`, after [`prepare_rvc`]'s checks.
     pub fn rvc(options: &Value, worker: &Path, directml: Option<&Path>, route: Arc<dyn VcRoute>, monitor: Option<MonitorSpec>) -> Result<Self, String> {
-        let (mut options, rate) = rvc_options(options)?;
-        if !worker.is_file() {
-            return Err("vc_engine_unavailable".into());
-        }
-        options.runtime = resolve(&options.runtime).unwrap_or(options.runtime);
-        options.model = resolve(&options.model).filter(|p| p.is_file()).ok_or("vc_runtime_missing")?;
-        if !options.index.is_empty() {
-            options.index = resolve(Path::new(&options.index)).filter(|p| p.is_file()).ok_or("vc_runtime_missing")?.to_string_lossy().into_owned();
-        }
-        if !runtime_complete(&options.runtime) {
-            return Err("vc_runtime_missing".into());
-        }
-        options.directml = directml.map(Path::to_path_buf);
-        // Beside the runtime folder: it outlives a runtime set up again.
-        options.block_cache = options.runtime.parent().map(|folder| folder.join(BLOCK_CACHE_FILE));
-        if options.device == "directml" && options.directml.is_none() {
-            return Err("vc_directml_missing".into());
-        }
-        let session = new_session();
-        let args = arguments(&options, &rate, &session);
-        let block = match options.block_ms {
-            AUTO_BLOCK_MS => None,
-            ms => Some(p::Block::from_ms(ms).ok_or("vc_options_invalid")?),
-        };
-        Ok(Self::with(worker.to_path_buf(), args, session, "rvc", route, monitor, block))
+        let PreparedRvc { worker, args, session, block } = prepare_rvc(options, worker, directml)?;
+        Ok(Self::with(worker, args, session, "rvc", route, monitor, block))
     }
 
     /// `block`: `None` when the worker chooses it and says so in `ready`.

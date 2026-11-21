@@ -2,6 +2,7 @@ import * as routeState from "../../../../../../logics/voice/routeState.ts";
 import * as rvcStartOptions from "../../../../../../logics/voice/rvcStartOptions.ts";
 import * as directVoiceDraft from "../../../../../../logics/voice/directVoiceDraft.ts";
 import * as voiceErrorText from "../../../../../../logics/voice/voiceErrorText.ts";
+import * as voiceAudition from "../../../../../../logics/voice/voiceAudition.ts";
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import { hooks, loadModule, nodesIn } from "../../../../../../logics/test/hookHarness.ts";
@@ -35,6 +36,7 @@ async function render(catalog: unknown, device = "auto") {
         "../../../../../../logics/common/pathExample": { pathExample: (file: string) => file },
         "../../../../../../logics/voice/rvcStartOptions": rvcStartOptions,
         "../../../../../../logics/voice/useVcRuntimes": { useVcRuntimes: () => ({ catalog }) },
+        "../../../../../../logics/voice/voiceAudition": voiceAudition,
         "../../../../../../logics/voice/voiceErrorText.ts": voiceErrorText,
     });
     const nodes = nodesIn(runtime.render(DirectVoiceSettings, { variant: "rvc" }));

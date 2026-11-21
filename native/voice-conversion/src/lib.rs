@@ -7,6 +7,8 @@
 //!   ([`process.py`], [`rvc_process.py`], [`isolated.py`]).
 //! - [`protocol`]: the worker's pipe contract, "VVC1" ([`protocol.py`]).
 //! - [`runtime`]: the consent-gated setup of the worker's runtime ([`runtime_setup.py`]).
+//! - [`audition`]: a short sample converted by a worker of its own, for the voice audition of
+//!   the RVC catalog (#415).
 //!
 //! Nothing here logs audio, text or paths; failures are fixed codes.
 //!
@@ -21,6 +23,7 @@
 #![allow(clippy::type_complexity)]
 
 pub mod archive;
+pub mod audition;
 mod child;
 pub mod direct;
 pub mod process;
@@ -29,4 +32,4 @@ pub mod runtime;
 pub mod worker;
 
 pub use direct::{DirectBackend, DirectHealth, DirectVoice};
-pub use process::{DeviceRoute, Health, ManagedRoute, SpeakFailure, VcProcess, VcRoute};
+pub use process::{DeviceRoute, Health, ManagedRoute, PreparedRvc, SpeakFailure, VcProcess, VcRoute};

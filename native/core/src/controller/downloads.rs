@@ -183,6 +183,30 @@ impl Core {
 }
 
 impl Core {
+    /// The files of an RVC voice model for its audition (#415), by id: `(model, index)`, the
+    /// index empty when there is none. A catalog entry counts once its download is on this PC, a
+    /// registered model while its files are as registered. `None` otherwise, and for a model of
+    /// another use. The paths never leave the core.
+    pub(crate) fn rvc_model_files(&self, id: &str) -> Option<(String, String)> {
+        let ops = self.ops();
+        let files = if ops.downloads.entries().iter().any(|entry| entry.id == id) {
+            if !ops.downloads.entries().iter().any(|entry| entry.id == id && entry.target == "rvc") {
+                return None;
+            }
+            let downloaded = to_value(ops.downloads.downloaded());
+            downloaded.get(id)?.as_object()?.iter().map(|(role, path)| (role.clone(), path.as_str().unwrap_or_default().to_owned())).collect::<Vec<_>>()
+        } else {
+            let (target, paths) = ops.user_models.usable(id).ok()?;
+            if target != "rvc" {
+                return None;
+            }
+            paths
+        };
+        let path = |role: &str| files.iter().find(|(r, _)| r == role).map(|(_, path)| path.clone());
+        let model = path("model").filter(|model| !model.is_empty())?;
+        Some((model, path("index").unwrap_or_default()))
+    }
+
     /// A translation model of the catalog was applied: its weight is marked as downloaded, as
     /// the CTranslate2 download told the UI (`downloaded_ctranslate2_weight`). The manager has
     /// verified every file in its folder before this runs.

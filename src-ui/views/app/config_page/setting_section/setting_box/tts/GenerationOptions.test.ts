@@ -2,6 +2,7 @@ import * as routeState from "../../../../../../logics/voice/routeState.ts";
 import * as directVoiceDraft from "../../../../../../logics/voice/directVoiceDraft.ts";
 import * as rvcStartOptions from "../../../../../../logics/voice/rvcStartOptions.ts";
 import * as voiceErrorTextModule from "../../../../../../logics/voice/voiceErrorText.ts";
+import * as voiceAudition from "../../../../../../logics/voice/voiceAudition.ts";
 import assert from "node:assert/strict";
 import { test, vi } from "vitest";
 import { hooks, loadModule, find, findIn } from "../../../../../../logics/test/hookHarness.ts";
@@ -145,6 +146,7 @@ for (const [pitch, rate, threads] of [[25, 0.5, 0], [0, -1, 0], [NaN, NaN, 0], [
         "../../../../../../logics/common/pathExample": { pathExample: (file: string) => `/models/${file}` },
         "../../../../../../logics/voice/rvcStartOptions": rvcStartOptions,
         "../../../../../../logics/voice/useVcRuntimes": { useVcRuntimes: () => ({ catalog: null }) },
+        "../../../../../../logics/voice/voiceAudition": voiceAudition,
         "@useI18n": { useI18n: () => ({ t: (key: string, options?: object) => options ? `${key}:${JSON.stringify(options)}` : key }) },
     });
     const tree = runtime.render(DirectVoiceSettings, { variant: "rvc" });

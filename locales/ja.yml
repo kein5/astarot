@@ -2232,6 +2232,25 @@ voice_audition:
     pending: "試聴を準備中"
     stop: "試聴を止める"
     tooltip: "使用中のモデルが決まった短い文を読み上げます。モニター出力先だけで再生し、VRChatへは送りません。"
+    # RVCのカードの試聴。押したときだけ「転送する入力」のマイクで声を録り、そのモデルで変換する。
+    rvc_tooltip: "押すと{{seconds}}秒間、「転送する入力」で選んだマイクで声を録り、このモデルで変換して再生します。録った声は保存しません。「ピッチ変更」と「検索結果の混合率」は欄にいま入っている値を使い、保存はしません。モニター出力先だけで再生し、VRChatへは送りません。"
+    rvc_recording: "録音しています。{{seconds}}秒間、話してください。"
+    rvc_preparing: "変換の準備をしています。モデルの読み込みには少し時間がかかります。"
+    rvc_blocked:
+        values_invalid: "「ピッチ変更」と「検索結果の混合率」の値を直すと試聴できます。"
+        conversion_running: "変換を止めると試聴できます。"
+        input_missing: "「転送する入力」でマイクを選ぶと試聴できます。試聴の声はそのマイクで録ります。"
+    rvc_errors:
+        voice_audition_failed: "変換した声を再生できませんでした。もう一度押してください。"
+        voice_audition_model_missing: "このモデルのファイルが見つかりません。ダウンロードし直すか登録し直してください。"
+        voice_audition_conversion_running: "変換を止めてから試聴してください。"
+        voice_audition_recording_silent: "録った声がほとんど聞こえませんでした。マイクの音量とミュートを確かめて、もう一度押してください。"
+        voice_audition_input_unavailable: "お使いのシステムではマイクから録音できないため、試聴できません。"
+        asr_capture_failed: "マイクから録音できませんでした。「転送する入力」で選んだマイクを確かめて、もう一度押してください。"
+        voice_audition_timeout: "試聴が2分で終わらなかったので止めました。"
+        vc_runtime_missing: "変換の実行環境がありません。「モデルと実行環境」で実行環境を取得してから試聴してください。"
+        vc_worker_stalled: "変換の処理が応答しなくなったので止めました。もう一度押してください。"
+        vc_worker_eof: "変換の処理が途中で止まりました。もう一度押してください。"
     blocked:
         not_in_use: "試聴できるのは使用中のモデルだけです。"
         server_stopped: "下の「サーバーを起動」を押すと試聴できます。"
