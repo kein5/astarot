@@ -11,6 +11,7 @@ import { useRealtimeASR } from "../../../logics/transcription/useRealtimeASR";
 import { useModelDownloads } from "../../../logics/voice/useModelDownloads";
 import { useVirtualMic } from "../../../logics/voice/useVirtualMic";
 import { useSetupNeeds } from "../../../logics/main/useSetupNeeds";
+import { downloadProgress } from "../../../logics/main/setupNeeds";
 import { useOpenTranslatorList } from "../../../logics/translation/useOpenTranslatorList";
 import { useFirstRunSetup } from "../../../logics/setup/useFirstRunSetup";
 import { useRecognitionState } from "../../../logics/setup/useRecognitionState";
@@ -235,10 +236,15 @@ const Findings = ({ recognition, onLeave }: { recognition: RecognitionState; onL
     const mic = useSettingValue("SelectedMicDevice");
     const vrchat = useVrchatPresence();
     const { status: virtualMic, openGuide } = useVirtualMic();
-    const { needs } = useSetupNeeds();
+    const { needs, start } = useSetupNeeds();
     const openTranslatorList = useOpenTranslatorList();
     const micName = mic?.state === "ok" && typeof mic.data === "string" && mic.data && mic.data !== "NoDevice" ? mic.data : null;
     const translation = needs.find(need => need.id === "translation");
+    // The selected translator's model can be fetched: its review, as the empty conversation and the
+    // translation switch open it. It cannot be fetched yet: the translator list, where another
+    // engine can be chosen (#936). While it is fetched, how far it has come.
+    const reviewTranslation = translation?.action === "review";
+    const translationProgress = translation ? downloadProgress(translation.weight) : null;
     const cables = virtualMic?.supported === true && virtualMic.error === null ? virtualMic.cables.length : null;
     // No virtual cable needs the user, like the other things the setup looks for (decided in #759):
     // its row goes to the cards, and its words say when it is needed.
@@ -254,10 +260,14 @@ const Findings = ({ recognition, onLeave }: { recognition: RecognitionState; onL
         { id: "vrchat", state: VRCHAT_STATES[vrchat.state], name: t("first_run_setup.found.vrchat"), live: true,
             children: vrchat.lines.map(line => <span key={line}>{line}</span>) },
         ...(virtualMicRow ? [virtualMicRow] : []),
-        { id: "translation", state: translation ? "attention" : "ready", name: t("first_run_setup.found.translation"),
-            action: translation && <button type="button" onClick={() => { onLeave(); openTranslatorList(); }}>
-                {t("first_run_setup.found.translation_choose")}</button>,
-            children: t(translation ? "first_run_setup.found.translation_missing" : "first_run_setup.found.translation_ready") },
+        { id: "translation", state: !translation ? "ready" : translationProgress === null ? "attention" : "checking",
+            name: t("first_run_setup.found.translation"),
+            action: translation && translationProgress === null && <button type="button"
+                onClick={() => { onLeave(); if (reviewTranslation) start("translation"); else openTranslatorList(); }}>
+                {t(reviewTranslation ? "model_downloads.review" : "first_run_setup.found.translation_choose")}</button>,
+            children: !translation ? t("first_run_setup.found.translation_ready")
+                : translationProgress !== null ? t(translationProgress === "pending" ? "studio.setup_preparing" : "studio.setup_downloading", { progress: translationProgress })
+                    : t(reviewTranslation ? "first_run_setup.found.translation_model_missing" : "first_run_setup.found.translation_missing") },
         { id: "recognition", state: RECOGNITION_STATES[recognition], name: t("first_run_setup.found.recognition"),
             children: t(`first_run_setup.found.recognition_${recognition}`) },
     ];

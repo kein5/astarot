@@ -2814,6 +2814,7 @@ first_run_setup:
         translation: "翻訳"
         translation_ready: "選んでいる翻訳エンジンで使えます。"
         translation_missing: "選んでいる翻訳エンジンはまだ使えません。ほかの翻訳エンジンを選んでください。"
+        translation_model_missing: "翻訳のモデルがまだありません。取得すると、お使いのPCで翻訳できます。"
         translation_choose: "翻訳エンジンを選ぶ"
         recognition: "音声認識"
         recognition_ready: "準備できています。"

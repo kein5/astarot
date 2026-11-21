@@ -2814,6 +2814,7 @@ first_run_setup:
         translation: "Translation"
         translation_ready: "Works with the selected translator."
         translation_missing: "The selected translator cannot be used yet. Choose another translator."
+        translation_model_missing: "The translation model is not on your PC yet. Get it to translate on your PC."
         translation_choose: "Choose a translator"
         recognition: "Speech recognition"
         recognition_ready: "Ready."

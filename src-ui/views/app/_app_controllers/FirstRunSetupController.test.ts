@@ -6,6 +6,7 @@ import { hooks, loadModule, find, findIn, nodesIn, componentName, draw } from ".
 import type { TreeNode } from "../../../logics/test/hookHarness.ts";
 import { branchAt, localeAt, readLocale } from "../../../logics/test/locales.ts";
 import * as logic from "../../../logics/setup/firstRunSetup.ts";
+import * as needsLogic from "../../../logics/main/setupNeeds.ts";
 
 const CATALOG = {
     catalog_version: "2026-11-16.3",
@@ -73,7 +74,8 @@ async function setup(context: TestContext, w = world()) {
             catalog: w.catalog, state: { jobs: w.jobs }, error: w.downloadError,
             send: async (endpoint: string, data: unknown) => { record(endpoint, data); if (endpoint.startsWith("/run/")) w.downloadError = null; } }) },
         "../../../logics/voice/useVirtualMic": { useVirtualMic: () => ({ status: { supported: true, cables: w.cables, error: null }, openGuide: () => w.calls.push("guide") }) },
-        "../../../logics/main/useSetupNeeds": { useSetupNeeds: () => ({ needs: w.needs }) },
+        "../../../logics/main/useSetupNeeds": { useSetupNeeds: () => ({ needs: w.needs, start: (id: string) => w.calls.push(["start", id]) }) },
+        "../../../logics/main/setupNeeds": needsLogic,
         "../../../logics/translation/useOpenTranslatorList": { useOpenTranslatorList: () => () => w.calls.push("translators") },
         "../../../logics/setup/useFirstRunSetup": { useFirstRunSetup: () => ({
             notice: w.notice, opened: w.opened, settled: w.settled,
@@ -248,7 +250,7 @@ test("each finding is marked by its state, with its words and its action apart",
             const group = find(list, node => node.type === "ul" && node.props.className === className);
             return nodesIn(group).filter(isFinding).map(node => shortName(node.props));
         };
-        return { rows: Object.fromEntries(rows.map(row => [shortName(row), row])), urgent: placed("urgent"), settled: placed("items"), list };
+        return { rows: Object.fromEntries(rows.map(row => [shortName(row), row])), urgent: placed("urgent"), settled: placed("items"), list, calls: w.calls };
     };
     const states = (rows: Record<string, FindingRow>) => Object.fromEntries(Object.entries(rows).map(([name, row]) => [name, row.state]));
 
@@ -284,6 +286,26 @@ test("each finding is marked by its state, with its words and its action apart",
 
     // Not known yet, or a choice made elsewhere: neither ready nor needing the user here. The
     // cards and the quiet list then share the findings by state, each in its order.
+    // #936: the selected translator's model can be fetched (a new install): the row says so and
+    // its button opens the model's review, as the empty conversation and the switch do. The translator
+    // list would offer nothing to choose then. While the model is fetched, how far it has come.
+    const fetchable = await rowsOf({ needs: [{ id: "translation", action: "review", weight: { id: "m2m100_418M-ct2-int8" } }] });
+    assert.equal(fetchable.rows.translation.state, "attention");
+    assert.equal(fetchable.rows.translation.children, "first_run_setup.found.translation_model_missing");
+    const review = fetchable.rows.translation.action;
+    assert.ok(review);
+    assert.equal(review.props.children, "model_downloads.review");
+    const before = fetchable.calls.length;
+    review.props.onClick();
+    assert.deepEqual(fetchable.calls.slice(before), ["closed", "close", ["start", "translation"]]);
+    const fetching = await rowsOf({ needs: [{ id: "translation", action: "review", weight: { id: "m2m100_418M-ct2-int8", progress: 42 } }] });
+    assert.deepEqual([fetching.rows.translation.state, fetching.rows.translation.children, fetching.rows.translation.action],
+        ["checking", "studio.setup_downloading", false]);
+    // Not fetchable yet: the translator list, as before.
+    const before2 = needing.calls.length;
+    choose.props.onClick();
+    assert.deepEqual(needing.calls.slice(before2), ["closed", "close", "translators"]);
+
     const elsewhere = await rowsOf({ vrchat: "checking", engine: "Deepgram", opened: true,
         cables: [{ playback: "CABLE Input", recording: "CABLE Output" }], needs: [{ id: "translation", action: "choose" }] });
     assert.deepEqual([elsewhere.rows.vrchat.state, elsewhere.rows.recognition.state], ["checking", "neutral"]);
