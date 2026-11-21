@@ -605,7 +605,7 @@ Hugging Faceのファイルの大きさとSHA-256はAPIが示すLFSの値を2026
 |---|---|---|
 | `_internal/build/speechcpp/` | 固定版のspeech.cpp（Vulkan版）と依存の通知 | MITと通知の各ライセンス（上の各節） |
 | Linuxの`_internal/build/speechcpp-cpu/` | 固定版のspeech.cpp（CPU版）と依存の通知 | 同上（下の「Linuxの2つのspeech.cpp」） |
-| `_internal/build/sudachi/`（版が決まってから） | 読みの辞書SudachiDictと`LEGAL`、`LICENSE-2.0.txt` | Apache-2.0（下の「読みの解析器と辞書」） |
+| `_internal/build/sudachi/` | 読みの辞書SudachiDict fullと`LEGAL`、`LICENSE-2.0.txt` | Apache-2.0（下の「読みの解析器と辞書」） |
 | `_internal/build/astarot-rvc-worker(.exe)` | RVCの同梱ワーカー | MIT（VRCT-VOX）。Rustの依存は`licenses/rust` |
 | Linuxの`_internal/build/vrct-*` | 音声の補助プログラム（`astarot-voice-gate`など） | VRCT-VOX自身のコード |
 | `_internal/licenses/VRCT/` | `LICENSE`と`NOTICE.md` | |
@@ -690,7 +690,7 @@ Pythonのバックエンド（`src-python/`）と、それだけが使ってい�
 |---|---|---|---|
 | sudachi.rs 0.6.11（クレート`sudachi`） | アプリに組み込む。crates.ioにないので、GitHubのタグv0.6.11のコミット（`90fd6068`）をgitの依存で固定 | Apache-2.0（Works Applications） | パッケージのフォルダにライセンス文がないので、リポジトリの`LICENSE`を`licenses/rust/sudachi-0.6.11/`に置いた（`supplements.json`）。NOTICEファイルはない。組み込む設定と文字の定義（`resources/`）も同じライセンス |
 | sudachi.rsの依存（`fancy-regex`、`nom`、`yada`、`csv`、`memmap2`など） | アプリに組み込む | MIT、Apache-2.0、Unlicense/MITなど | `tools/rust_licenses.py`がWindowsとLinuxの両方で、ライセンス文の欠けなしに集められた |
-| SudachiDict 20250825（full、core、small） | 公式の配布（`d2ej7fkh96fzlu.cloudfront.net/sudachidict/`）から`tools/sudachi_dictionary.py`が固定の大きさとSHA-256で取得し、`_internal/build/sudachi/`に置く。版は未決 | Apache-2.0。語彙の一部はUniDic（BSD-3-Clause、UniDic Consortium）とmecab-unidic-NEologd（Apache-2.0）に由来し、配布の`LEGAL`がその表示を持つ | 配布の`LEGAL`と`LICENSE-2.0.txt`を辞書と一緒に置く。辞書はSudachiPyの`sudachidict_*` 20250825と同じバイト列 |
+| SudachiDict 20250825（full、core、small） | 公式の配布（`d2ej7fkh96fzlu.cloudfront.net/sudachidict/`）から`tools/sudachi_dictionary.py`が固定の大きさとSHA-256で取得し、`_internal/build/sudachi/`に置く。配布物に入れるのはfull（2026-11-21に決定、#924） | Apache-2.0。語彙の一部はUniDic（BSD-3-Clause、UniDic Consortium）とmecab-unidic-NEologd（Apache-2.0）に由来し、配布の`LEGAL`がその表示を持つ | 配布の`LEGAL`と`LICENSE-2.0.txt`を辞書と一緒に置く。辞書はSudachiPyの`sudachidict_*` 20250825と同じバイト列 |
 
 比べた候補のライセンス:
 

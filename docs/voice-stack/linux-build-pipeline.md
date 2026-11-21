@@ -73,9 +73,13 @@ before emitting PCM; compile-time checks give an explicit dependency error. This
 does not relax timestamp/discontinuity checks or validate every newer release.
 
 `--download-speech` authorizes acquisition of **only the two pinned engine archives**
-(`speech-0.11.0-linux-x64-vulkan.zip` and `speech-0.11.0-linux-x64-cpu.zip`).
-Alternatively use `--speech-archive-dir /absolute/path` with both archives under those names;
-the archive and executable hashes are checked against `speechcpp-bundle-artifacts.json`.
+(`speech-0.11.0-linux-x64-vulkan.zip` and `speech-0.11.0-linux-x64-cpu.zip`), the pinned
+runtime libraries (`tools/runtime_libraries.py`) and the readings' dictionary, SudachiDict full
+(`sudachi-dictionary-20250825-full.zip`, `tools/sudachi_dictionary.py`); never model weights.
+Alternatively use `--speech-archive-dir /absolute/path` with the engine archives and the
+dictionary archive under those names; the archive and executable hashes are checked against
+`speechcpp-bundle-artifacts.json`, and the dictionary against the size and SHA-256 pinned in
+`tools/sudachi_dictionary.py`.
 Since 0.5.0 one candidate carries both builds; there is no `--variant` any more. The user
 chooses CPU or GPU in the speech server settings: `cpu` runs the CPU build, `gpu` and a named
 GPU the Vulkan build, and `auto` the Vulkan build when it starts and lists a GPU, else the CPU
