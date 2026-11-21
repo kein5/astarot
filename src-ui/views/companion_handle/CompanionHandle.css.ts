@@ -3,16 +3,18 @@ import { globalStyle, keyframes, style } from "@vanilla-extract/css";
 // The hexagram's window is see-through: only the magic circle and a docked label are painted. Its
 // colours are the ASTAROT palette (docs/brand/astarot): the deep purple as the plate, the light
 // lilac as the rings, Off-White for the triangles and the icons of features that are off, Lilac
-// for the icons of features that are on (#536). Like the caption plates, it does not follow the
-// app's theme: it sits over a game, not over the app.
+// for the triangles and the icons of features that are on (#536). Like the caption plates, it does
+// not follow the app's theme: it sits over a game, not over the app.
 
 const PLATE = "rgba(38, 22, 51, 0.72)";
 const LINE = "#E3DDE9";
 const ON = "#A47AF5";
-// The brand's Off-White: the triangles, on or off, and the icons of features that are off. A
-// feature that is on shows only in its icon, in Lilac (ON, 5.4:1 against the plate), and in a
-// thicker outline of its triangle, which tells it apart without its colour (#536).
+// The brand's Off-White: the triangles and the icons of features that are off. A feature that is
+// on turns its triangle Lilac (ON): the outline, and a faint tint of it over the plate, which keeps
+// the Lilac icon at 4.2:1 (5.4:1 against the plate alone). Its outline is thicker too, which tells
+// it apart without its colour (#536).
 const OFF_WHITE = "#FAFAFC";
+const ON_TINT = "rgba(164, 122, 245, 0.16)";
 
 globalStyle("html, body, #root", { width: "100%", height: "100%", margin: 0, overflow: "hidden", background: "transparent" });
 globalStyle("body", { userSelect: "none", fontFamily: '"Yu Gothic UI", "Noto Sans", system-ui, sans-serif' });
@@ -48,15 +50,16 @@ export const ring = style({ fill: "none", stroke: LINE, strokeWidth: 1.6, opacit
 
 export const point = style({
     fill: "transparent", stroke: OFF_WHITE, strokeWidth: 2.4, strokeLinejoin: "round", cursor: "pointer",
-    transition: "fill .15s, stroke-width .15s, opacity .15s",
+    transition: "fill .15s, stroke .15s, stroke-width .15s, opacity .15s",
     selectors: {
-        // On: the same colour, a thicker outline (#536). It was a lilac fill before the icons.
-        '&[data-on="true"]': { strokeWidth: 4 },
+        // On: a Lilac outline, thicker, and a faint Lilac tint, so the Lilac icon stays readable
+        // (#536). It was a full lilac fill before the icons.
+        '&[data-on="true"]': { fill: ON_TINT, stroke: ON, strokeWidth: 4 },
         '&[data-pending="true"]': { opacity: 0.5 },
         // Its main switch is greyed out: a broken outline, not a filled one (#562).
         '&[data-blocked="true"]': { strokeDasharray: "4 4", opacity: 0.6 },
-        '&[data-docked="true"]': { stroke: "#ffffff", fill: "rgba(227, 221, 233, 0.22)" },
-        '&[data-docked="true"]:not([data-on="true"])': { strokeWidth: 3.2 },
+        '&[data-docked="true"]': { stroke: "#ffffff" },
+        '&[data-docked="true"]:not([data-on="true"])': { fill: "rgba(227, 221, 233, 0.22)", strokeWidth: 3.2 },
         // Turned beyond the edge: half off the screen, not one to aim at.
         '&[data-shown="false"]': { opacity: 0.35, pointerEvents: "none" },
     },

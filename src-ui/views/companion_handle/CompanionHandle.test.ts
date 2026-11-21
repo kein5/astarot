@@ -104,16 +104,17 @@ test("each triangle carries its feature's icon, lit while the switch is on and u
     assert.equal(turned(icon("mic").props.style), -turned(findIn(s.render(), node => node.type === "g" && node.props.className === "star").props.style));
 });
 
-// #536, as decided: the triangle keeps its Off-White whether its switch is on or off; a switch that
-// is on shows in its icon, in Lilac, and in a thicker outline, which does not rest on colour.
-test("a switch that is on keeps its triangle's colour: its icon turns Lilac and its outline thicker", () => {
+// #536, as decided: a switch that is off has an Off-White triangle and icon; one that is on turns
+// its triangle Lilac (the outline and a faint tint, as the green of the first draft did) and its
+// icon Lilac, and its outline thicker, which does not rest on colour.
+test("a switch that is on turns its triangle and its icon Lilac and its outline thicker", () => {
     const css = readFileSync(new URL("./CompanionHandle.css.ts", import.meta.url), "utf8");
     const rules = (name: string) => css.split(`export const ${name} = style(`)[1].split("\n});")[0];
     assert.match(css, /const ON = "#A47AF5";/);
     assert.match(css, /const OFF_WHITE = "#FAFAFC";/);
-    assert.match(rules("point"), /stroke: OFF_WHITE, strokeWidth: 2\.4/);
-    assert.match(rules("point"), /'&\[data-on="true"\]': \{ strokeWidth: 4 \}/);
-    assert.doesNotMatch(rules("point"), /'&\[data-on="true"\]': \{[^}]*(stroke:|fill:)/);
+    assert.match(css, /const ON_TINT = "rgba\(164, 122, 245, 0\.16\)";/, "the tint is the Lilac of ON");
+    assert.match(rules("point"), /fill: "transparent", stroke: OFF_WHITE, strokeWidth: 2\.4/);
+    assert.match(rules("point"), /'&\[data-on="true"\]': \{ fill: ON_TINT, stroke: ON, strokeWidth: 4 \}/);
     assert.match(rules("icon"), /fill: OFF_WHITE, color: OFF_WHITE/);
     assert.match(rules("icon"), /'&\[data-on="true"\]': \{ fill: ON, color: ON \}/);
 });
