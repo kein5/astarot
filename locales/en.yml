@@ -1272,7 +1272,7 @@ config_page:
         section_label_rvc: "Voice changer (RVC)"
         rvc_block_ms:
             label: "Conversion block length"
-            desc: "The microphone is converted in pieces of this length. Shorter pieces make the voice lag less, but the voice breaks up more easily when the GPU cannot keep up. Automatic times the GPU when conversion starts and picks the shortest length it keeps up with. The default is Automatic. It applies from the next time conversion starts."
+            desc: "The microphone is converted in pieces of this length. Shorter pieces make the voice lag less, but the voice breaks up more easily when the GPU cannot keep up. Automatic times the GPU once for each voice model and GPU and keeps the shortest length it keeps up with. Choose Automatic again to have the GPU timed again the next time conversion starts. The default is Automatic. It applies from the next time conversion starts."
             automatic: "Automatic"
             length: "{{ms}} ms"
 

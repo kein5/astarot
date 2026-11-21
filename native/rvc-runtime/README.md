@@ -436,7 +436,10 @@ keeps each choice there under a hash of the voice model (path, size, modificatio
 index when one is used, the device, the GPU's name (CUDA device 0 from the NVIDIA driver,
 DirectML's preferred adapter), the ONNX Runtime library and the thread count, and a later start
 with the same hash converts in that length without timing the GPU (no reload on DirectML
-either). The file holds only the hashes and the lengths. Delete it to have the GPU timed again. `ready` then says the chosen block and the owner
+either). The file holds only the hashes and the lengths. When the user chooses Automatic again,
+the application puts `rvc-block-lengths.remeasure` beside it; the next automatic start then
+times the GPU instead of using its kept length, replaces that entry and removes the file
+(decided 2026-11-21). Delete the cache to have every pair timed again. `ready` then says the chosen block and the owner
 converts in it. The 1.4 leaves room for the round trip at the microphone's pace, when the
 GPU idles between blocks and clocks down ([the measurements](../../docs/voice-stack/rvc-low-latency-2026-11-20.md)). The owner, the Linux
 launch helper (`native/vc-worker`, mode `rvc-native`), the router process, the managed sink,

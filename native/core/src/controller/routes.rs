@@ -155,7 +155,19 @@ pub fn routes(core: &Arc<Core>) -> Routes {
     // steps of 20; the saved value stays.
     b.get("/get/data/rvc_block_ms", OPEN, "RVC_BLOCK_MS");
     let rvc_block = integer(core, "RVC_BLOCK_MS", "VALIDATION_RVC_BLOCK_MS", |v, _| u32::try_from(v).is_ok_and(crate::config::schema::is_valid_rvc_block));
-    b.add("/set/data/rvc_block_ms", OPEN, rvc_block);
+    // Choosing Automatic, again or not, has the GPU timed again at the next start instead of
+    // using the length kept for that voice model and GPU (decided 2026-11-21).
+    let asking = Arc::clone(core);
+    b.add("/set/data/rvc_block_ms", OPEN, move |data: &Value| {
+        let reply = rvc_block(data);
+        let automatic = json!(vrct_voice_conversion::worker::AUTO_BLOCK_MS);
+        if super::python_int(data) == Some(0) && asking.config().get("RVC_BLOCK_MS") == automatic {
+            // Unwritten (a full disk), the kept length is used as before; the choice is saved.
+            let runtimes = asking.config().environment().state_dir.join(crate::shipped_libraries::RUNTIMES_FOLDER);
+            let _ = vrct_voice_conversion::worker::ask_block_timing(&runtimes);
+        }
+        reply
+    });
 
     // Appearance
     b.get("/get/data/version", OPEN, "VERSION");
