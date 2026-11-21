@@ -356,7 +356,7 @@ type CTranslate2LicenseDialogProps = {
     action: "select" | "download";
     onCancel: () => void;
     onConfirm: () => void;
-    fallback?: RefObject<HTMLElement> | null;
+    fallback?: RefObject<HTMLElement | null> | null;
 };
 
 export const CTranslate2LicenseDialog = ({ weight, action, onCancel, onConfirm, fallback }: CTranslate2LicenseDialogProps) => {

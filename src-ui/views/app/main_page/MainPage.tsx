@@ -18,7 +18,7 @@ import { VrchatOscHint } from "../others/vrchat_presence/VrchatOscHint";
 // The styles are vanilla-extract (ADR-010).
 type MainPageProps = {
     // Where focus goes when nothing on the page has it (App, ModalController).
-    focusFallback?: RefObject<HTMLDivElement>;
+    focusFallback?: RefObject<HTMLDivElement | null>;
     locked?: boolean;
 };
 

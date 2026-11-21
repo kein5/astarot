@@ -13,13 +13,13 @@ const available = (element: Element | null | undefined): element is Focusable =>
     element.getAttribute("aria-disabled") !== "true";
 
 export interface ConsentDialog {
-    dialog: RefObject<HTMLDialogElement>;
+    dialog: RefObject<HTMLDialogElement | null>;
     close: () => void;
 }
 
 // Close synchronously before removing the dialog. Restore focus after the commit,
 // when download startup may have disabled or replaced the review button.
-export function useConsentDialog(open: boolean, fallback?: RefObject<HTMLElement> | null): ConsentDialog {
+export function useConsentDialog(open: boolean, fallback?: RefObject<HTMLElement | null> | null): ConsentDialog {
     const dialog = useRef<HTMLDialogElement>(null);
     const opener = useRef<Focusable | null>(null);
     useEffect(() => {

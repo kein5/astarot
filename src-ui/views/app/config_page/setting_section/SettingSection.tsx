@@ -33,7 +33,7 @@ export const markUnsavedRows = (root: ParentNode, names: ReadonlySet<string>) =>
     });
 };
 
-const useUnsavedRowMarks = (ref: RefObject<HTMLElement>) => {
+const useUnsavedRowMarks = (ref: RefObject<HTMLElement | null>) => {
     const entries = useSaveBarEntries();
     const key = JSON.stringify([...new Set(entries.filter(entry => entry.dirty).flatMap(entry => entry.changes))]);
     useEffect(() => {

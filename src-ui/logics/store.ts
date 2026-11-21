@@ -32,9 +32,9 @@ import type { SpeakerNames } from "./common/speakerNames.ts";
 // What the windows share outside the atoms: the backend's session, elements and callbacks.
 export interface UiStore extends SidecarSessionStore {
     backend_session_owner: SidecarSessionOwner | null;
-    setting_box_scroll_container: RefObject<HTMLElement> | null;
+    setting_box_scroll_container: RefObject<HTMLElement | null> | null;
     scroll_log_to_bottom: (() => void) | null;
-    text_area_ref: RefObject<HTMLTextAreaElement> | null;
+    text_area_ref: RefObject<HTMLTextAreaElement | null> | null;
     last_executed_time_startTyping: number;
     // The count of expired speech the backend last reported (useReceiveRoutes).
     expired_speech: number | null;
