@@ -420,6 +420,35 @@ mod tests {
     }
 
     #[test]
+    fn a_detail_is_written_at_once_from_the_moment_its_stage_is_slow() {
+        let all = [
+            Stage::VadWait, Stage::VadBuffer, Stage::Queue, Stage::Asr, Stage::Translate, Stage::Output, Stage::Total,
+            Stage::RealtimePending, Stage::RealtimeQueue, Stage::RealtimeTranslate, Stage::RealtimeTotal,
+        ];
+        for stage in all {
+            let slow = slow_ms(stage).unwrap_or_else(|| panic!("{} has a threshold", stage.as_str()));
+            let setup = Setup::new();
+            setup.diagnostics.record("mic", Event::AsrSuccess, &[(stage, slow - 0.5)], Some("just under".into()), false);
+            assert!(setup.logs().is_empty(), "{}", stage.as_str());
+            setup.diagnostics.record("mic", Event::AsrSuccess, &[(stage, slow)], Some("at the threshold".into()), false);
+            assert_eq!(setup.logs(), ["at the threshold"], "{}", stage.as_str());
+        }
+        // A segment's length is never slow, however long.
+        assert_eq!(slow_ms(Stage::Segment), None);
+        let setup = Setup::new();
+        setup.diagnostics.record("speaker", Event::AsrSuccess, &[(Stage::Segment, 1e9)], Some("long".into()), false);
+        assert!(setup.logs().is_empty());
+    }
+
+    #[test]
+    fn diagnostics_are_equal_only_to_their_clones_and_show_none_of_their_content() {
+        let (one, other) = (Setup::new().diagnostics, Setup::new().diagnostics);
+        assert_eq!(one, one.clone());
+        assert_ne!(one, other);
+        assert_eq!(format!("{one:?}"), "Diagnostics");
+    }
+
+    #[test]
     fn a_window_closes_at_the_first_event_a_minute_later_with_counts_and_percentiles() {
         // `test_lazy_interval_counts_percentiles_and_no_catch_up`.
         let setup = Setup::new();

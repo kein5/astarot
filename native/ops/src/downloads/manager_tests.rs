@@ -198,9 +198,16 @@ fn a_non_commercial_entry_starts_only_with_its_acknowledgement() {
     assert_eq!(receipt, Json::from_serialize(&non_commercial()).to_python_indented());
 }
 
-/// The test entry as a local translation model, the only kind that asks for the Gemma terms.
+/// The test entry as a local translation model, the only kind that asks for the Gemma terms. A
+/// translation entry holds the folder's `manifest.json` and ONNX files (`validate_catalog`).
 fn translation_entry() -> Model {
-    Model { target: catalog::TRANSLATION_TARGET.into(), notice: "translation".into(), ..entry() }
+    let file = |filename: &str, role: &str| Artifact { filename: filename.into(), size: CONTENT.len() as u64, sha256: sha(CONTENT), role: role.into(), remote: None };
+    Model {
+        target: catalog::TRANSLATION_TARGET.into(),
+        notice: "translation".into(),
+        artifacts: vec![file("manifest.json", "manifest"), file("encoder.onnx", "encoder")],
+        ..entry()
+    }
 }
 
 #[test]

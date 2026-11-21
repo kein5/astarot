@@ -267,3 +267,36 @@ fn a_translation_device_that_needs_a_restart_is_kept_for_the_next_start() {
     assert_eq!(config.get("SELECTED_TRANSLATION_COMPUTE_DEVICE"), cpu);
     config.close();
 }
+
+#[test]
+fn the_installer_s_language_is_taken_once_and_its_marker_goes() {
+    // The installer leaves the language it ran in next to the app (`installer_language.txt`).
+    // The first start takes it as the UI language and removes the file, so that a language
+    // chosen later in the settings stays. A value other than `en` or `ja` is not taken, and its
+    // file goes all the same.
+    let dir = tempfile::tempdir().unwrap();
+    let app = dir.path().join("app");
+    std::fs::create_dir_all(&app).unwrap();
+    let marker = app.join("installer_language.txt");
+    std::fs::write(&marker, " ja\n").unwrap();
+    let config = Config::open_with(environment(dir.path()), MemoryStore::new());
+    assert_eq!(config.get("UI_LANGUAGE"), "ja");
+    assert!(!marker.exists(), "the marker is used once");
+    config.set("UI_LANGUAGE", json!("en")).unwrap();
+    config.save_now();
+    config.close();
+    drop(config);
+
+    // The next start has no marker: the language chosen in the settings stays.
+    let config = Config::open_with(environment(dir.path()), MemoryStore::new());
+    assert_eq!(config.get("UI_LANGUAGE"), "en");
+    config.close();
+    drop(config);
+
+    // A language the app does not have is not taken, and its marker goes too.
+    std::fs::write(&marker, "fr").unwrap();
+    let config = Config::open_with(environment(dir.path()), MemoryStore::new());
+    assert_eq!(config.get("UI_LANGUAGE"), "en");
+    assert!(!marker.exists());
+    config.close();
+}

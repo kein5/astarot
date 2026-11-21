@@ -450,6 +450,29 @@ mod tests {
     }
 
     #[test]
+    fn a_term_is_refused_one_past_each_limit() {
+        // The limits count characters, not bytes.
+        let term = |text: String| parse_term(&json!(text));
+        assert!(term("あ".repeat(MAX_WRITTEN)).is_ok());
+        assert!(term("あ".repeat(MAX_WRITTEN + 1)).is_err());
+        let readings = |count: usize| vec!["か"; count].join(",");
+        assert!(term(format!("x={}", readings(MAX_READINGS))).is_ok());
+        assert!(term(format!("x={}", readings(MAX_READINGS + 1))).is_err());
+        assert!(term(format!("x={}", "か".repeat(MAX_READING))).is_ok());
+        assert!(term(format!("x={}", "か".repeat(MAX_READING + 1))).is_err());
+        assert!(term("x=a,,b".into()).is_err(), "an empty reading");
+        assert!(term("x=a=b".into()).is_err(), "a second =");
+    }
+
+    #[test]
+    fn a_vocabulary_takes_up_to_its_limit_of_terms() {
+        let terms = |count: usize| json!({ "terms": (0..count).map(|i| format!("w{i}")).collect::<Vec<_>>() });
+        let full = normalize_vocabulary(Some(&terms(MAX_USER_TERMS))).unwrap();
+        assert_eq!(full["terms"].as_array().map(Vec::len), Some(MAX_USER_TERMS));
+        assert!(normalize_vocabulary(Some(&terms(MAX_USER_TERMS + 1))).is_err());
+    }
+
+    #[test]
     fn rvc_worker_choices_default_to_the_workers_own_and_are_checked() {
         let older = normalize_direct(&json!({ "mode": "converted", "engine": "rvc", "rvc_pitch": 3 })).unwrap();
         assert_eq!((&older["rvc_device"], &older["rvc_threads"], &older["rvc_highpass"]), (&json!("auto"), &json!(0), &json!(true)));
@@ -532,5 +555,219 @@ mod tests {
         assert!(normalize_endpoint(&endpoint, "speaker").is_err());
         let too_big = json!({ "cookie": "4294967296", "serial": "1", "name": "a", "media_class": "Audio/Source" });
         assert!(normalize_endpoint(&too_big, "mic").is_err());
+    }
+
+    #[test]
+    fn an_endpoint_number_is_written_in_plain_digits() {
+        // `u128::from_str` takes a leading +, so the digits are checked before it.
+        let endpoint = |cookie: &str| json!({ "cookie": cookie, "serial": "1", "name": "alsa", "media_class": "Audio/Source" });
+        for kept in ["0", "5"] {
+            assert!(normalize_endpoint(&endpoint(kept), "mic").is_ok(), "{kept:?}");
+        }
+        for refused in ["+5", "", "05", "5 ", "-0"] {
+            assert!(normalize_endpoint(&endpoint(refused), "mic").is_err(), "{refused:?}");
+        }
+    }
+
+    #[test]
+    fn an_endpoint_is_refused_without_a_name_or_when_it_is_one_of_the_app_s_own() {
+        let endpoint = |name: &str| json!({ "cookie": "1", "serial": "1", "name": name, "media_class": "Audio/Source" });
+        assert!(normalize_endpoint(&endpoint(&"a".repeat(512)), "mic").is_ok());
+        let refused = ["", "a\0b", &"a".repeat(513), "vrct.managed.tts", "vrct.source-bridge.mic", "vrct.asr.capture.mic"];
+        for name in refused {
+            assert_eq!(normalize_endpoint(&endpoint(name), "mic"), Err("asr_capture_endpoint_invalid"), "{}", name.len());
+        }
+    }
+
+    #[test]
+    fn realtime_settings_keep_the_model_and_refuse_an_unknown_version_or_server() {
+        let with = |field: &str, value: Value| {
+            let mut settings = json!({});
+            settings[field] = value;
+            normalize_realtime(&settings)
+        };
+        let model = |name: &str| with("model", json!(name)).map(|settings| settings["model"].clone());
+        for kept in ["large v3".to_string(), "あ".repeat(200)] {
+            assert_eq!(model(&kept), Ok(json!(kept)));
+        }
+        for refused in ["あ".repeat(201), "a\u{1f}".into(), "a\nb".into()] {
+            assert_eq!(model(&refused), Err("realtime_model_invalid"), "{}", refused.chars().count());
+        }
+        assert!(with("version", json!(1)).is_ok());
+        assert_eq!(with("version", json!(2)), Err("realtime_settings_version"));
+        assert_eq!(with("server", json!("remote")), Err("realtime_server_invalid"));
+    }
+
+    #[test]
+    fn a_direct_voice_path_may_hold_spaces_but_no_control_character() {
+        let model = |path: &str| normalize_direct(&json!({ "rvc_model": path })).map(|settings| settings["rvc_model"].clone());
+        for kept in ["C:/Program Files/voice.pth".to_string(), "a".repeat(4096)] {
+            assert_eq!(model(&kept), Some(json!(kept)));
+        }
+        for refused in ["a".repeat(4097), "a\nb".into(), "a\u{1f}".into()] {
+            assert_eq!(model(&refused), None, "{}", refused.len());
+        }
+    }
+
+    // Properties of the normalizers (#550): what is saved is the canonical form, so normalizing it
+    // again changes nothing, and a value that passes keeps the limits Python kept.
+    mod properties {
+        use super::super::*;
+        use proptest::prelude::*;
+
+        /// Text of terms: letters, kana, spaces, the separators and a control character now and then.
+        fn term_text() -> impl Strategy<Value = String> {
+            "[ a-zA-Zあいうえおカキ=,\\t]{0,60}"
+        }
+
+        fn written() -> impl Strategy<Value = String> {
+            "[a-zA-Zあい][a-zA-Zあい ]{0,10}"
+        }
+
+        proptest! {
+            #[test]
+            fn a_term_is_its_own_canonical_form(text in term_text()) {
+                if let Ok(term) = parse_term(&json!(text)) {
+                    prop_assert_eq!(parse_term(&json!(term.clone())), Ok(term.clone()));
+                    prop_assert_eq!(term.trim(), term.as_str());
+                    let (written, readings) = term.split_once('=').map_or((term.as_str(), None), |(w, r)| (w, Some(r)));
+                    prop_assert!((1..=MAX_WRITTEN).contains(&written.chars().count()));
+                    prop_assert!(!written.contains("  ") && !written.contains(','));
+                    if let Some(readings) = readings {
+                        let readings: Vec<&str> = readings.split(',').collect();
+                        prop_assert!(readings.len() <= MAX_READINGS);
+                        prop_assert!(readings.iter().all(|r| !r.is_empty() && r.chars().count() <= MAX_READING && r.trim() == *r));
+                    }
+                    prop_assert!(!term.chars().any(char::is_control));
+                }
+            }
+
+            #[test]
+            fn a_vocabulary_is_its_own_canonical_form(builtin in any::<bool>(), terms in prop::collection::vec(term_text(), 0..120)) {
+                let value = json!({ "builtin": builtin, "terms": terms });
+                if let Ok(vocabulary) = normalize_vocabulary(Some(&value)) {
+                    prop_assert_eq!(normalize_vocabulary(Some(&vocabulary)), Ok(vocabulary.clone()));
+                    prop_assert_eq!(&vocabulary["builtin"], &json!(builtin));
+                    let kept = vocabulary["terms"].as_array().unwrap();
+                    prop_assert!(kept.len() <= MAX_USER_TERMS);
+                    let folded: std::collections::HashSet<String> = kept.iter().map(|t| fold(written_form(t.as_str().unwrap()))).collect();
+                    prop_assert_eq!(folded.len(), kept.len(), "one term per written form");
+                } else {
+                    // Refused only for too many terms or a term that is refused on its own.
+                    prop_assert!(terms.len() > MAX_USER_TERMS || terms.iter().any(|t| parse_term(&json!(t)).is_err()));
+                }
+            }
+
+            #[test]
+            fn the_same_written_form_in_another_case_is_kept_once(word in written(), reading in "[あいう]{1,4}") {
+                let upper = word.to_uppercase();
+                let value = json!({ "terms": [word.clone(), format!("{upper}={reading}")] });
+                let vocabulary = normalize_vocabulary(Some(&value)).unwrap();
+                let first = parse_term(&json!(word)).unwrap();
+                prop_assert_eq!(&vocabulary["terms"], &json!([first]), "the first one wins");
+            }
+
+            #[test]
+            fn terms_with_different_written_forms_are_all_kept_in_order(
+                words in prop::collection::btree_set("[a-z]{1,8}", 0..20),
+                readings in prop::collection::vec(prop::option::of("[あいう]{1,4}"), 20),
+            ) {
+                let terms: Vec<String> =
+                    words.iter().zip(&readings).map(|(w, r)| r.as_ref().map_or(w.clone(), |r| format!("{w}={r}"))).collect();
+                let vocabulary = normalize_vocabulary(Some(&json!({ "terms": terms }))).unwrap();
+                prop_assert_eq!(&vocabulary["terms"], &json!(terms));
+            }
+
+            #[test]
+            fn an_endpoint_keeps_its_integers_exactly(cookie in any::<u32>(), serial in any::<u64>(), mic in any::<bool>(), name in "[a-z][a-z0-9_.]{0,30}") {
+                let (source, class) = if mic { ("mic", "Audio/Source") } else { ("speaker", "Audio/Sink") };
+                let endpoint = json!({ "cookie": cookie.to_string(), "serial": serial.to_string(), "name": name, "media_class": class });
+                let normalized = normalize_endpoint(&endpoint, source).unwrap();
+                prop_assert_eq!(&normalized, &endpoint);
+                prop_assert_eq!(normalize_endpoint(&normalized, source), Ok(normalized.clone()));
+                // The other source's media class, a leading zero and a number past the type are refused.
+                let other = if mic { "speaker" } else { "mic" };
+                prop_assert!(normalize_endpoint(&endpoint, other).is_err());
+                let mut padded = endpoint.clone();
+                padded["serial"] = json!(format!("0{serial}"));
+                prop_assert!(normalize_endpoint(&padded, source).is_err());
+                let mut past = endpoint;
+                past["cookie"] = json!((u64::from(cookie) + (1u64 << 32)).to_string());
+                prop_assert!(normalize_endpoint(&past, source).is_err());
+            }
+
+            #[test]
+            fn realtime_settings_are_their_own_canonical_form(
+                bundled in any::<bool>(),
+                start in any::<bool>(),
+                port in 1u16..,
+                silence in prop::option::of(0u64..2500),
+                mic_language in prop::sample::select(vec![
+                    "ja", "en", "auto", "zh-Hans", "pt-BR", "yue", "JA", "e", "abcd", "en-U", "en-", "en-a_b", "EN-US", "en-abcdefghi",
+                ]),
+                follow in any::<bool>(),
+            ) {
+                let mut value = json!({
+                    "server": if bundled { "bundled" } else { "external" }, "start_server": start,
+                    "base_url": format!("http://127.0.0.1:{port}"),
+                    "mic": { "language": mic_language, "follow_default": follow },
+                });
+                if let Some(ms) = silence {
+                    value["silence_duration_ms"] = json!(ms);
+                }
+                let bad_silence = silence.is_some_and(|ms| !SILENCE_DURATION_MS.contains(&ms));
+                let bad_language = ["JA", "e", "abcd", "en-U", "en-", "en-a_b", "EN-US", "en-abcdefghi"].contains(&mic_language);
+                match normalize_realtime(&value) {
+                    Ok(settings) => {
+                        prop_assert!(!bad_silence && !bad_language);
+                        prop_assert_eq!(normalize_realtime(&settings), Ok(settings.clone()));
+                        prop_assert_eq!(&settings["mic"]["language"], &json!(mic_language));
+                        prop_assert_eq!(&settings["speaker"]["language"], &json!("auto"));
+                        prop_assert_eq!(settings.get("silence_duration_ms").and_then(Value::as_u64), silence);
+                    }
+                    Err(code) => prop_assert!(bad_silence || bad_language, "{code}"),
+                }
+            }
+
+            #[test]
+            fn direct_voice_settings_survive_the_file_0_4_reads(
+                converted in any::<bool>(),
+                pitch in -24i64..=24,
+                rate in 0.0f64..=1.0,
+                device in prop::sample::select(vrct_voice_conversion::worker::DEVICES.to_vec()),
+                threads in 0u64..=u64::from(vrct_voice_conversion::worker::MAX_THREADS),
+                highpass in any::<bool>(),
+                model in "[a-zA-Z0-9_./]{0,40}",
+                seed_vc in any::<bool>(),
+            ) {
+                let value = json!({
+                    "mode": if converted { "converted" } else { "passthrough" }, "rvc_pitch": pitch, "rvc_index_rate": rate,
+                    "rvc_device": device, "rvc_threads": threads, "rvc_highpass": highpass, "rvc_model": model,
+                });
+                let settings = normalize_direct(&value).unwrap();
+                prop_assert_eq!(normalize_direct(&settings), Some(settings.clone()));
+                // The file leaves out what 0.4 does not know while it holds its default, and loads
+                // back the same.
+                let file = file_direct(&settings);
+                prop_assert_eq!(load_direct(&file), Some(settings.clone()));
+                for field in ADDED_IN_0_5 {
+                    prop_assert_eq!(file.get(field).is_some(), settings[field] != default_direct()[field], "{}", field);
+                }
+                // A Seed-VC engine an earlier version saved loads as RVC with the rest kept.
+                if seed_vc {
+                    let mut older = file.clone();
+                    older["engine"] = json!(RETIRED_ENGINE);
+                    prop_assert_eq!(load_direct(&older), Some(settings));
+                    prop_assert_eq!(normalize_direct(&older), None);
+                }
+            }
+
+            #[test]
+            fn direct_voice_values_out_of_range_are_refused(pitch in prop_oneof![-1000i64..-24, 25i64..1000], rate in prop_oneof![-10.0f64..-0.0001, 1.0001f64..10.0]) {
+                prop_assert_eq!(normalize_direct(&json!({ "rvc_pitch": pitch })), None);
+                prop_assert_eq!(normalize_direct(&json!({ "rvc_index_rate": rate })), None);
+                prop_assert_eq!(normalize_direct(&json!({ "unknown": true })), None);
+            }
+        }
     }
 }

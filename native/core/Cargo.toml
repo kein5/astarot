@@ -87,6 +87,8 @@ windows = { version = "=0.62.2", features = [
 windows-sys = { version = "=0.61.2", features = ["Win32_Foundation", "Win32_System_Threading"] }
 
 [dev-dependencies]
+# Property-based tests of the pure parts (#550): the normalizers of the saved settings.
+proptest = { version = "=1.12.0", default-features = false, features = ["std"] }
 # Certificates for the WebSocket TLS settings are made at test time; no key is committed.
 rcgen = { version = "=0.13.2", default-features = false, features = ["ring", "pem"] }
 tempfile = "=3.27.0"
