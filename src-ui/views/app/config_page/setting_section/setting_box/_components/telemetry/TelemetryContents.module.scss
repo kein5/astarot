@@ -7,6 +7,17 @@
     p { margin: .8rem 0; }
 }
 
+// Read, not seen: the words that the rows are being asked for (#912).
+.hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+}
+
 .rows {
     display: grid;
     gap: .6rem;

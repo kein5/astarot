@@ -1,4 +1,5 @@
 import { expect, test } from "./fixtures";
+import type { App } from "./fixtures";
 import type { Page } from "@playwright/test";
 
 // Opening a page moves nothing on it (#912): what the core answers as the page opens lands where
@@ -87,7 +88,12 @@ test("the main window does not move as it starts", async ({ app }) => {
     expect(await shiftsOf(app.page, "done")).toEqual([]);
 });
 
-test("opening each settings page moves nothing on it", async ({ app }) => {
+/** Opens every settings page in turn, the core's answers held until the page has been seen, and
+ *  checks that nothing on it moves once they come. With `unfold`, every fold of the page is opened
+ *  as soon as it shows, before its answers, as a user who opens one at once sees it. A fold whose
+ *  contents are asked for as it opens (data-asks-on-open) is left closed: what comes then answers
+ *  the user's opening, as a layout shift report leaves out what follows the user's input. */
+const checkPages = async (app: App, unfold: boolean) => {
     test.setTimeout(180_000);
     const reports = await observe(app.page);
     await app.page.locator("[data-open-settings]").click();
@@ -100,8 +106,16 @@ test("opening each settings page moves nothing on it", async ({ app }) => {
         const name = (await tabs.nth(i).innerText()).trim();
         await app.page.mouse.move(1279, 2999);
         await app.holdCore();
-        await shiftsOf(app.page, name);
+        if (!unfold) await shiftsOf(app.page, name);
         await tabs.nth(i).click();
+        if (unfold) {
+            // What opening the folds moves is the user's doing: the shifts counted begin after it.
+            await app.page.evaluate(() => new Promise(done => {
+                for (const fold of document.querySelectorAll<HTMLDetailsElement>("details:not([data-asks-on-open])")) fold.open = true;
+                requestAnimationFrame(() => requestAnimationFrame(done));
+            }));
+            await shiftsOf(app.page, name);
+        }
         await app.page.waitForTimeout(150);
         const opened = await places(app.page);
         await app.releaseCore();
@@ -110,4 +124,12 @@ test("opening each settings page moves nothing on it", async ({ app }) => {
         expect.soft(moved(opened, await places(app.page)), `${name}: parts that moved once the page had opened`).toEqual([]);
         if (reports) expect.soft(await shiftsOf(app.page, "ignored"), `${name}: layout shifts while the page opened`).toEqual([]);
     }
+};
+
+test("opening each settings page moves nothing on it", async ({ app }) => {
+    await checkPages(app, false);
+});
+
+test("opening each settings page with its folds opened at once moves nothing on it", async ({ app }) => {
+    await checkPages(app, true);
 });
