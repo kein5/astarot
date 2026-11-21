@@ -1,22 +1,22 @@
 # vrct-transcription
 
-音声認識の Rust クレートです。Issue #278 の範囲で、Python の `src-python/models/transcription/` と、`model.py` の録音の部分（`_AudioDeviceSession`）を置き換えます。中核（`native/core`）がこのクレートをエンドポイントにつなぎます（`controller::transcription` と `controller::realtime_asr`）。
+音声認識の Rust クレートです。Issue #278 の範囲で、Python の `src-python/models/transcription/` と、[`model.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/model.py) の録音の部分（`_AudioDeviceSession`）を置き換えます。中核（`native/core`）がこのクレートをエンドポイントにつなぎます（`controller::transcription` と `controller::realtime_asr`）。
 
 ## 内容
 
 | モジュール | 役割 | Python |
 |---|---|---|
-| `recorder` | 1 つの音源の録音。音量メーター、フレーズの切り出し、認識をまとめて動かす | `model.py` の `_AudioDeviceSession`、`transcription_recorder.py` |
+| `recorder` | 1 つの音源の録音。音量メーター、フレーズの切り出し、認識をまとめて動かす | [`model.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/model.py) の `_AudioDeviceSession`、[`transcription_recorder.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/transcription/transcription_recorder.py) |
 | `energy` | 音量によるフレーズの切り出し（しきい値、自動しきい値、`MIC_RECORD_TIMEOUT`） | `speech_recognition` の `listen_energy_and_audio` |
-| `vad` | VAD を差し込む口（`VadEngine`、`Segmenter`） | `audio_vad.py` の `VadRecognizerAdapter` |
-| `server_vad` | speech.cpp の Silero VAD で区切る VAD のエンジン（Realtime の `server_vad` だけのセッション）。使えないときは音量の区切りに替える | `audio_vad.py` の `VadSegmenter`、`SileroFrameProbability` |
-| `phrases` | フレーズをつないで発話にする（`MIC_PHRASE_TIMEOUT`、15 秒の上限、`MIC_MAX_PHRASES`） | `transcription_transcriber.py` の `transcribeAudioQueue` |
-| `providers` | OpenAI 互換の API（Groq、OpenAI、カスタム）と Deepgram。キーの確認とモデルの一覧 | `transcription_providers.py`、`transcription_openai_compatible.py`、`transcription_deepgram.py` |
-| `speechcpp` | speech.cpp のモデルの一覧と語彙。内蔵の VRChat の用語は `data/vrchat_terms.txt` にあり、ビルドのときに埋め込む（#792） | `speechcpp_asr.py`、`asr_vocabulary.py`、`vrchat_terms.py` |
+| `vad` | VAD を差し込む口（`VadEngine`、`Segmenter`） | [`audio_vad.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/transcription/audio_vad.py) の `VadRecognizerAdapter` |
+| `server_vad` | speech.cpp の Silero VAD で区切る VAD のエンジン（Realtime の `server_vad` だけのセッション）。使えないときは音量の区切りに替える | [`audio_vad.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/transcription/audio_vad.py) の `VadSegmenter`、`SileroFrameProbability` |
+| `phrases` | フレーズをつないで発話にする（`MIC_PHRASE_TIMEOUT`、15 秒の上限、`MIC_MAX_PHRASES`） | [`transcription_transcriber.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/transcription/transcription_transcriber.py) の `transcribeAudioQueue` |
+| `providers` | OpenAI 互換の API（Groq、OpenAI、カスタム）と Deepgram。キーの確認とモデルの一覧 | [`transcription_providers.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/transcription/transcription_providers.py)、[`transcription_openai_compatible.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/transcription/transcription_openai_compatible.py)、[`transcription_deepgram.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/transcription/transcription_deepgram.py) |
+| `speechcpp` | speech.cpp のモデルの一覧と語彙。内蔵の VRChat の用語は `data/vrchat_terms.txt` にあり、ビルドのときに埋め込む（#792） | [`speechcpp_asr.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/transcription/speechcpp_asr.py)、[`asr_vocabulary.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/transcription/asr_vocabulary.py)、[`vrchat_terms.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/transcription/vrchat_terms.py) |
 | `terms` | 語彙（用語辞書）を認識した文、読み上げる文、翻訳の指示に当てる（#446） | なし（中核で足した） |
-| `realtime` | speech.cpp の Realtime の WebSocket に音声を流し、字幕と確定した文を届ける | `realtime_session.py`、`speechcpp_realtime.py`、`realtime_audio.py`、`realtime_events.py`、`realtime_delivery.py` |
-| `capture` | 録音の口。Windows は WASAPI（スピーカーはループバック）、Linux は `vrct-audio-routing` の PipeWire の録音（0.5.x までは補助プログラム `vrct-asr-capture`） | `capture_windows.py`、`capture_pipewire.py`、`capture_packets.py` |
-| `endpoint_choice` | Linux で録るノードの選び方。VRCT 自身のノードを断り、「既定に従う」では既定か、それが VRCT のものなら設定した既定を選ぶ。グラフを受け取るだけなので、どの OS でも試験できる | `capture_pipewire.py` の `_validate`、`_select`、`default_endpoint` |
+| `realtime` | speech.cpp の Realtime の WebSocket に音声を流し、字幕と確定した文を届ける | [`realtime_session.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/transcription/realtime_session.py)、[`speechcpp_realtime.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/transcription/speechcpp_realtime.py)、[`realtime_audio.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/transcription/realtime_audio.py)、[`realtime_events.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/transcription/realtime_events.py)、[`realtime_delivery.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/transcription/realtime_delivery.py) |
+| `capture` | 録音の口。Windows は WASAPI（スピーカーはループバック）、Linux は `vrct-audio-routing` の PipeWire の録音（0.5.x までは補助プログラム `vrct-asr-capture`） | [`capture_windows.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/transcription/capture_windows.py)、[`capture_pipewire.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/transcription/capture_pipewire.py)、[`capture_packets.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/transcription/capture_packets.py) |
+| `endpoint_choice` | Linux で録るノードの選び方。VRCT 自身のノードを断り、「既定に従う」では既定か、それが VRCT のものなら設定した既定を選ぶ。グラフを受け取るだけなので、どの OS でも試験できる | [`capture_pipewire.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/transcription/capture_pipewire.py) の `_validate`、`_select`、`default_endpoint` |
 | `pcm` | 音量（`audioop.rms`）、モノラル化、サンプリング周波数の変換、WAV | `audioop`、`numpy`、`soxr` |
 
 ## Python と同じにしていること
@@ -25,7 +25,7 @@
 - 発話のまとめ方。キューが空になるたびに、それまでの発話をまとめて認識し直します。`MIC_PHRASE_TIMEOUT` より長い無音、15 秒の音声、または無音のまま `MIC_PHRASE_TIMEOUT` が過ぎたら発話を終えます。結果は `MIC_MAX_PHRASES` に 1 を足した数まで待たせ、あふれたら古いものから捨てます。録音から認識へのキューは 20 件で、あふれたら古いものを捨てます。
 - エンジンへの頼み方。候補の言語ごとに頼み、いちばん確かな結果を使います。言語が 1 つのときだけ言語を指定します。Whisper の API は `verbose_json` のセグメントを `MIC_AVG_LOGPROB` と `MIC_NO_SPEECH_PROB` で選びます（`gpt-*-transcribe` は `json`）。送る音声は 16 kHz の WAV です。
 - 失敗の扱い。認識できなかった候補は飛ばし、どの候補でも結果がなくエンジンが失敗したときは `ASR_ERROR` で、最初の失敗の理由（`TRANSCRIPTION_API_*`）を `Failure::cause` に添えます。キーの確認はモデルの一覧が取れるか（Deepgram は `/auth/token`）で決め、待ち時間は 3 秒です。認識の待ち時間は接続 10 秒、読み書き 60 秒です。
-- Realtime の約束事。24 kHz のモノラルを 20 ms ずつ送り、250 ms より古い音声は送りません。字幕の更新は 32 件、確定した文は 4 件まで待たせます。1 つの発話は 15 秒（接続して最初の発話は 120 秒）で終わらなければ失敗です。確定した文は受け取ってから 2 秒以内に届けられなければ「届けなかった」と字幕に書きます。マイクが開いてから 5 秒、最後の音声から 2 秒、何も渡さなければ失敗です（`capture_windows.py` と Linux の補助と同じ。スピーカーは除く）。
+- Realtime の約束事。24 kHz のモノラルを 20 ms ずつ送り、250 ms より古い音声は送りません。字幕の更新は 32 件、確定した文は 4 件まで待たせます。1 つの発話は 15 秒（接続して最初の発話は 120 秒）で終わらなければ失敗です。確定した文は受け取ってから 2 秒以内に届けられなければ「届けなかった」と字幕に書きます。マイクが開いてから 5 秒、最後の音声から 2 秒、何も渡さなければ失敗です（[`capture_windows.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/transcription/capture_windows.py) と Linux の補助と同じ。スピーカーは除く）。
 - VAD の区間の最長。話し続ける発話は 7 秒で切ります（`vad::MAX_SPEECH_SECONDS`）。VAD の経路では `MIC_RECORD_TIMEOUT` を使いません。
 - speech.cpp のモデルの一覧。JSON の答え（`Content-Type` が `application/json`）だけを読み、1 MiB を超える答えと形の合わない一覧を断ります。言語の選択肢が `auto` を既定にして 2 つ以上あるモデルを、言語を検出するモデルとします。話者を分けるモデルは、GPU で動いているときだけ使えるとします。
 - Linux で録るノード。VRCT 自身のノード（名前と印）と、NUL を含む名前や 512 バイトを超える名前は録りません。

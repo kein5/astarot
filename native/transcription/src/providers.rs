@@ -1,5 +1,5 @@
-//! The cloud engines of the recorder (`transcription_providers.py`,
-//! `transcription_openai_compatible.py`, `transcription_deepgram.py`): the OpenAI-compatible
+//! The cloud engines of the recorder ([`transcription_providers.py`],
+//! [`transcription_openai_compatible.py`], [`transcription_deepgram.py`]): the OpenAI-compatible
 //! transcription APIs (Groq, OpenAI, a custom server) and Deepgram. Each recognises one
 //! utterance for each candidate language and the best text wins, as
 //! `AudioTranscriber._finalizeAndTranscribe` chose it. Python's Google web speech engine is not
@@ -9,6 +9,10 @@
 //! roots). The app gives `http::system_proxy`, which goes through the proxy of the environment or
 //! of Windows' Internet Settings as Python did (decision 15 (4)); tests give a transport that
 //! only reaches this PC. Nothing here logs or returns the audio, the text of a reply or a key.
+//!
+//! [`transcription_providers.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/transcription/transcription_providers.py
+//! [`transcription_openai_compatible.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/transcription/transcription_openai_compatible.py
+//! [`transcription_deepgram.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/transcription/transcription_deepgram.py
 
 use crate::Transcript;
 use crate::pcm;
@@ -564,7 +568,9 @@ mod tests {
     }
 
     // The engines against a transport that answers what each test gives, after
-    // `src-python/test/test_transcription_provider_regressions.py`.
+    // [`src-python/test/test_transcription_provider_regressions.py`].
+    //
+    // [`src-python/test/test_transcription_provider_regressions.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/test/test_transcription_provider_regressions.py
 
     use std::sync::atomic::{AtomicUsize, Ordering};
     use std::sync::{Arc, Mutex};

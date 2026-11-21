@@ -1,5 +1,9 @@
-//! What a speech.cpp server offers for recognition (`speechcpp_asr.py`), and the vocabulary a
-//! realtime session sends it (`asr_vocabulary.py`, `vrchat_terms.py`).
+//! What a speech.cpp server offers for recognition ([`speechcpp_asr.py`]), and the vocabulary a
+//! realtime session sends it ([`asr_vocabulary.py`], [`vrchat_terms.py`]).
+//!
+//! [`speechcpp_asr.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/transcription/speechcpp_asr.py
+//! [`asr_vocabulary.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/transcription/asr_vocabulary.py
+//! [`vrchat_terms.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/transcription/vrchat_terms.py
 
 use serde_json::{Value, json};
 use std::sync::OnceLock;

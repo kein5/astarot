@@ -1,4 +1,4 @@
-//! The fixed live voice conversion pipe contract, "VVC1" (`protocol.py`).
+//! The fixed live voice conversion pipe contract, "VVC1" ([`protocol.py`]).
 //!
 //! A packet is `b"VVC1"`, the length of a JSON header as a little-endian u32, the header, then
 //! `pcm_bytes` of 48 kHz mono s16le audio. The worker answers `ready` (or `failed` with a fixed
@@ -8,6 +8,8 @@
 //! Every block of a session has the same length, a [`Block`]: the owner chooses it (the RVC
 //! worker's `--block-ms`) and the worker's `ready` packet confirms it in `block_frames`, or the
 //! owner leaves it to the RVC worker (`--block-ms auto`) and takes it from `ready`.
+//!
+//! [`protocol.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/voice_conversion/protocol.py
 
 use std::io::Read;
 

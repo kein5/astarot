@@ -1,5 +1,7 @@
 //! The overlay page OBS loads as a browser source, byte for byte the page of
-//! `_build_overlay_html` in `models/obs/obs_browser_source_server.py`.
+//! `_build_overlay_html` in [`models/obs/obs_browser_source_server.py`].
+//!
+//! [`models/obs/obs_browser_source_server.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/obs/obs_browser_source_server.py
 
 use super::settings::NumericSetting;
 

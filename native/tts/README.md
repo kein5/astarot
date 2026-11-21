@@ -12,16 +12,16 @@ until the sidecar is retired. See "Not in this crate" below for what plugs in.
 
 | Python | Rust | What |
 |---|---|---|
-| `settings.py` | `src/settings.rs` | `VoiceSettings` (same keys, all strings, unknown keys refused, including the installed-engine fields of ADR-008), `local_url`, language tags, `engine_for`, `options_for`, `request_for` |
-| `model_options.py` | `src/model_options.rs` | `/v1/models` capabilities: exactly one synthesis model, seed range, instructions |
-| `speechcpp_tts.py` | `src/client.rs`, `src/cancel.rs`, `src/http.rs` | Health check, model options, `POST /v1/audio/speech` with PCM streaming; `CancelToken` with the start deadline |
-| `listener_monitor.py`, `listener_table.py` | `src/listener.rs` | Notices a speech server that went away while its PCM is still being played: process exit for servers this app started, a shared 20 ms probe otherwise (Windows TCP table, then a refused connect) |
-| `tts_scheduler.py` | `src/scheduler.rs` | `VoiceEventBus`: capacity, chat before microphone, expiry, generations, stop/mute/enable, speech monitors, request timeout, Japanese to an installed engine |
+| [`settings.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/tts/settings.py) | `src/settings.rs` | `VoiceSettings` (same keys, all strings, unknown keys refused, including the installed-engine fields of ADR-008), `local_url`, language tags, `engine_for`, `options_for`, `request_for` |
+| [`model_options.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/tts/model_options.py) | `src/model_options.rs` | `/v1/models` capabilities: exactly one synthesis model, seed range, instructions |
+| [`speechcpp_tts.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/tts/speechcpp_tts.py) | `src/client.rs`, `src/cancel.rs`, `src/http.rs` | Health check, model options, `POST /v1/audio/speech` with PCM streaming; `CancelToken` with the start deadline |
+| [`listener_monitor.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/tts/listener_monitor.py), [`listener_table.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/tts/listener_table.py) | `src/listener.rs` | Notices a speech server that went away while its PCM is still being played: process exit for servers this app started, a shared 20 ms probe otherwise (Windows TCP table, then a refused connect) |
+| [`tts_scheduler.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/tts/tts_scheduler.py) | `src/scheduler.rs` | `VoiceEventBus`: capacity, chat before microphone, expiry, generations, stop/mute/enable, speech monitors, request timeout, Japanese to an installed engine |
 | `AudioRouter.play` (in `audio_routing/`) | `src/playback.rs` | The device-independent part: 10 ms blocks, first audible write, monitor copy, drain or discard |
-| `converted_router.py` | `src/converted.rs`, `src/resample.rs` | Speech through the running voice conversion (ADR-007): 48 kHz mono, one resampler per stream |
-| `message_hook.py` | `src/message_hook.rs` | Chat and microphone speech events from pipeline values |
-| `external_engine.py`, `voicevox_tts.py`, `coeiroink_tts.py`, `engines.py` | `src/engines.rs` | Installed engines (ADR-008): VOICEVOX, SHAREVOX, AivisSpeech and COEIROINK v2; version, voice list, sentence-by-sentence WAV synthesis with one sentence prefetched |
-| `voice_trace.py` | `src/trace.rs` | Opt-in `ASTAROT_VOICE_TRACE` timing records |
+| [`converted_router.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/tts/converted_router.py) | `src/converted.rs`, `src/resample.rs` | Speech through the running voice conversion (ADR-007): 48 kHz mono, one resampler per stream |
+| [`message_hook.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/tts/message_hook.py) | `src/message_hook.rs` | Chat and microphone speech events from pipeline values |
+| [`external_engine.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/tts/external_engine.py), [`voicevox_tts.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/tts/voicevox_tts.py), [`coeiroink_tts.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/tts/coeiroink_tts.py), [`engines.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/tts/engines.py) | `src/engines.rs` | Installed engines (ADR-008): VOICEVOX, SHAREVOX, AivisSpeech and COEIROINK v2; version, voice list, sentence-by-sentence WAV synthesis with one sentence prefetched |
+| [`voice_trace.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/tts/voice_trace.py) | `src/trace.rs` | Opt-in `ASTAROT_VOICE_TRACE` timing records |
 | (none) | `src/onset.rs` | speech.cpp speech starts at its first sound: the near-silence before it is dropped (#556) |
 
 Nothing is logged. Text, instructions, audio, server bodies and device names never go
@@ -88,7 +88,7 @@ health check), `test_tts_model_options.py` (the client and the bus),
 `test_tts_listener_failure.py`, `test_tts_playback_ownership.py`,
 `test_external_speech_engines.py` (the settings and the scheduler),
 `test_voice_trace.py`, `test_listener_table_probe.py`, `test_speech_through_conversion.py`
-(the router and the bus) and `src-python/test/test_tts_listener_monitor.py`. They run a
+(the router and the bus) and [`src-python/test/test_tts_listener_monitor.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/test/test_tts_listener_monitor.py). They run a
 fake speech.cpp server on localhost; no model, GPU or audio device is needed. CI runs
 them on Linux and Windows (`voice-tests.yml`, `core-integration`).
 

@@ -1,5 +1,5 @@
 //! The energy listener of the recorder: `Recognizer.listen_energy_and_audio` of the
-//! `speech_recognition` fork that `transcription_recorder.py` ran in the background.
+//! `speech_recognition` fork that [`transcription_recorder.py`] ran in the background.
 //!
 //! Audio is cut into buffers of 1024 frames (`Microphone.CHUNK`) at the device's rate and
 //! channels. Each buffer's [`rms`] is reported for the volume meter. A phrase starts at the
@@ -11,6 +11,8 @@
 //! starts over every second (`phrase_timeout=1` in the background listener), which forgets the
 //! quiet kept before the phrase. It is the recorder's [`crate::vad::Segmenter`] unless a VAD
 //! engine is in use.
+//!
+//! [`transcription_recorder.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/transcription/transcription_recorder.py
 
 use crate::pcm::rms;
 use std::collections::VecDeque;

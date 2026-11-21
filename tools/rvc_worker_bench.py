@@ -156,7 +156,7 @@ def gpu_libraries(pid: int) -> list[str]:
                 names.add(name.value.lower())
             kernel32.CloseHandle(handle)
         else:
-            names = {line.rsplit("/", 1)[-1].strip() for line in Path(f"/proc/{pid}/maps").read_text().splitlines() if "/" in line}
+            names = {line.rsplit("/", 1)[-1].strip() for line in Path(f"/proc/{pid}/maps").read_text(encoding="utf-8").splitlines() if "/" in line}
     except OSError:
         return []
     return sorted(names & GPU_LIBRARIES)
@@ -329,7 +329,7 @@ def main(argv: list[str] | None = None) -> int:
     print()
     print(markdown(results))
     if args.json:
-        args.json.write_text(json.dumps(results, indent=1))
+        args.json.write_text(json.dumps(results, indent=1), encoding="utf-8")
     return 0
 
 

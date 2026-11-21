@@ -1,9 +1,11 @@
 //! Mute control of the managed route: the OS gate and the durable intent.
 //!
-//! Port of `src-python/models/audio_routing/managed_route.py`. It never processes
+//! Port of [`src-python/models/audio_routing/managed_route.py`]. It never processes
 //! audio. Software output stays closed until the OS gate and the saved intent both
 //! confirm a resume; any doubt (a replaced endpoint, an external change, a failed
 //! control, a lost confirmation) mutes and requires another explicit resume.
+//!
+//! [`src-python/models/audio_routing/managed_route.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/audio_routing/managed_route.py
 
 use std::sync::{Arc, Condvar, Mutex, OnceLock};
 use std::time::Duration;

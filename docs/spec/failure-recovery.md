@@ -25,7 +25,7 @@
 
 | 操作 | 成功したとき | 失敗したとき | 守っている仕組み | 確かめている試験 |
 |---|---|---|---|---|
-| 保存 | `config.json` が新しい内容に置き換わる | 前の `config.json` が残る。値はメモリーにあり、その起動では使える。初めの1回だけ `/run/config_save_failed`（理由は `disk_full`、`permission_denied`、`read_only`、`write_failed`）を送り、30秒ごとに書き直す。書けたら `/run/config_save_recovered` を送る | 一時ファイル、`fsync`、置き換え（`config/mod.rs` の `write_config`）。`config.json.lock` のロック | `native/core/tests/lifecycle.rs` の `a_failed_save_is_reported_once_and_its_recovery_too` |
+| 保存 | `config.json` が新しい内容に置き換わる | 前の `config.json` が残る。値はメモリーにあり、その起動では使える。初めの1回だけ `/run/config_save_failed`（理由は `disk_full`、`permission_denied`、`read_only`、`write_failed`）を送り、30秒ごとに書き直す。書けたら `/run/config_save_recovered` を送る | 一時ファイル、`fsync`、置き換え（`config/mod.rs` の `write_config`）。`config.json.lock` のロック。書いている途中で止まった保存が残した一時ファイル（`config.json.<12桁の16進>.tmp`）は、次の保存がロックを持ったまま消す。名前が完全に一致する通常のファイルだけで、リンクやフォルダーには触れない。`secrets.json` の一時ファイルも、次に書くときに同じく消す（キーを含みうるため） | `native/core/tests/lifecycle.rs` の `a_failed_save_is_reported_once_and_its_recovery_too`、`config/mod.rs` の `a_save_removes_the_temporary_files_a_stopped_save_left_and_nothing_else`、`config/secrets.rs` の `a_write_removes_the_temporary_files_a_stopped_write_left` |
 | 読み込み（JSON として読めない） | — | 元のファイルを `config.json.unreadable-<日時>-<乱数>` に移して残し、既定値で起動する。UI に `/run/config_file_unreadable` で場所を知らせる | `move_aside` | `an_unreadable_settings_file_is_kept_aside_and_reported_after_start_up` |
 | 読み込み（権限がないなど、読めない理由がほかにある） | — | 元のファイルに触れず、その起動では保存しない。`load_failed` で知らせる | `load` | `a_settings_file_that_cannot_be_read_is_left_alone_and_never_overwritten` |
 | API キーの移し替えと保存 | `secrets.json` に書いて読み戻せたキーだけを `config.json` から除く | キーはどちらかのファイルに残る。メモリーのキーはその起動で使える。`/run/secret_store_failed` で知らせる | [API キーの保存先](data-and-persistence.md#apiキーの保存先) | `native/core/tests/secret_store.rs`、`config/secrets.rs` の単体試験 |
@@ -54,6 +54,18 @@
 
 翻訳のカタログに利用者が足した項目（`translation_catalog.json`、#413）も同じく、一時ファイルに書いて置き換え、読めないときは書き換えずに残す（`native/ops/src/downloads/translation_catalog.rs` の試験）。API の項目はキーを保管場所に書いて読み戻せなくても足し、キーは設定のキーと同じくその起動のあいだだけメモリーに持つ（ADR-013）。保管場所が使えるようになればキーを書き、項目の `key` を `true` にする。置けないままアプリを閉じた項目はキーのない項目として残り、キーを平文で残すことはない。保管場所が一時的に読めないときは、キーがないとは扱わずに何も変えない。推論エンジン系の項目のフォルダーが読めなくなったら、項目は残したまま重みを一覧から外し、選んでいた設定は既定のモデルに戻る。理由は項目の ID と固定のコードだけで `process.log` に書く（`native/core/tests/translation_catalog.rs`）。以前の版で `translation-models` フォルダーに置いたモデル（`custom:<フォルダー>`）を選んでいた設定も、同じく既定のモデルに戻る（#597）。起動は止めない。`process.log` には固定のコード `translation_models_folder_retired` だけを書き、フォルダーの名前は書かない。利用者への知らせは別に出さず、翻訳のページの案内に任せる（`native/core/tests/translation_models.rs`）。
 
+### 実行環境の準備（`vc_runtimes/`）
+
+RVC の worker が読む ONNX Runtime と 2 つのネットワーク、アプリの ONNX Runtime（CUDA と DirectML）、翻訳の llama.cpp は、同意のあとで `<状態のフォルダー>/vc_runtimes/<id>/` に用意する（`native/voice-conversion/src/runtime.rs`）。
+
+| 操作 | 成功したとき | 失敗したとき | 確かめている試験（`native/core/tests/voice.rs`） |
+|---|---|---|---|
+| 開始の要求 | — | 同意と版の一致がなければ、何も取得しない | `the_rvc_runtime_is_set_up_only_after_consent_and_checked_by_the_worker` |
+| 取得 | `<名前>.part` に書き、大きさと SHA-256 を確かめてから名前を変える | 公開しない。合わないファイルは消す。容量不足は取得の前と書いている途中の両方で `vc_runtime_space` | `a_failed_runtime_setup_names_its_step` |
+| ライブラリ | `lib.part` に展開し終えてから、前の `lib` を `lib.previous` に移し、新しい `lib` を置き、前のものを消す | 新しいものを置けなければ前の `lib` を戻す。Windows で前のライブラリが使用中（変換中の worker、アプリが読み込んだ ONNX Runtime）なら、何も消さずに `vc_runtime_libraries_failed` | `a_repair_puts_the_new_libraries_in_place_of_the_old_ones` |
+| 確認（worker か llama.cpp が実際に読み込む） | すべての段階が終わってから `receipt.json` を一時ファイルと置き換えで書く | `vc_runtime_check_failed`。受領書を書かないので、使えるものとして扱わない | `a_failed_runtime_setup_names_its_step` |
+| 途中で止まった後 | 終わった段階（`.steps.json`、`lib.part/.archives.json`）から続ける。2 つの名前の変更のあいだで止まったときは、起動のときに前の `lib` を戻す | 受領書が読めない、または受領書にあるファイルが欠けていれば、使えるものとして扱わない | `libraries_a_stopped_repair_moved_aside_come_back_at_start` |
+
 翻訳の LLM（`llamacpp` の項目、ADR-015）は llama.cpp のサーバーで動く。サーバーが起動できない（モデルを読めない、メモリー不足、時間切れ）ときは翻訳を有効にできず、メモリー不足は GPU のメモリー不足と同じ知らせになる。使っているあいだにサーバーが終わったら、次の翻訳で一度だけ起動し直し、それでも動かなければその翻訳を失敗として知らせる。サーバーはアプリと一緒に止まり、アプリが異常終了しても残らない（Windows はジョブ、Linux は親の終了で届くシグナル）。音声の経路とほかの翻訳エンジンには触れない（`native/core/tests/translation_llama.rs`、`native/speech-server/tests/llama.rs`）。
 
 ## アプリの更新
@@ -63,16 +75,15 @@
 | 入れ方 | 更新の責任 | 失敗したときに保つもの | 確かめているもの |
 |---|---|---|---|
 | Windows のインストーラー | アプリが署名を確かめたインストーラーを起動する。入れ替えはインストーラー | パッケージの SHA-256 が合わない、壊れている、途中で切れている、ファイルが使用中で入れ替えられないときは、前のインストールのまま。入れ替えの途中で止まったときは、次にインストーラーを動かすと前の状態に戻す | `tests/installer/windows_update_scenarios.py`（CI の `installer-update-tests.yml` で本物の NSIS を動かす） |
-| AppImage（書き込める場所） | アプリ（`tauri-plugin-updater` が AppImage を置き換える） | 署名の確認は置き換えの前に行う。書き込みに失敗したときは、退避した前の AppImage を戻す。アプリはそのまま動き続ける | 自動の試験はない（残課題） |
+| AppImage（書き込める場所） | アプリ。`tauri-plugin-updater` は取得と署名の確認だけで、置き換えはアプリが行う（`src-tauri/src/app_update.rs` の `replace_appimage`） | 署名と ELF であることを確かめてから、同じフォルダーの隠しファイル（`.<名前>.update-<番号>`）に書き、前の AppImage の権限を付け、`fsync` して名前を変えて置き換える。名前を変える前に失敗したり止まったりしても、前の AppImage はそのまま残る。止まったときの書きかけのファイルは、次の起動で消す。動いているアプリは前のファイルのまま動き続ける | `app_update.rs` の単体試験（`an_appimage_is_replaced_in_one_rename_and_keeps_its_permissions`、`a_failed_replacement_leaves_the_appimage_as_it_was`、`what_a_stopped_replacement_left_goes_and_nothing_else`）。`src-tauri` の試験は CI では動かない |
 | 書き込めない場所の AppImage、Windows の ZIP、Linux の tar.gz | 利用者 | アプリはファイルを置き換えない | `app_update.rs` の単体試験（入れ方の判定） |
 | deb、rpm | パッケージマネージャー | アプリは確認も置き換えもしない | 同上 |
+
+`tauri-plugin-updater` 自身が AppImage を原子的に置き換える（同じフォルダーに書いてから名前を変える）ようになったら、アプリの置き換え（`replace_appimage`）をやめ、Windows のインストーラーと同じくプラグインの `Update::install` に戻す（#881 で決定）。プラグインを上げるときは、その `install_appimage` を確かめる。
 
 どの入れ方でも、ダウンロードと署名の確認に失敗したときはファイルに触れず、今の版のまま理由のコード（`update_download_failed`、`update_signature_invalid` など）を返す。Windows でバックエンドを止めたあとにインストーラーを起動できなかったときは、アプリを起動し直してバックエンドのある状態に戻す。
 
 ## 残課題
 
-- AppImage の置き換えは `tauri-plugin-updater` の中で、元の場所に直接書き込む。書き込みの途中でアプリが落ちたり電源が切れたりすると、壊れた AppImage が元の場所に残る。退避した前の AppImage は一時フォルダーの `tauri_current_app*/current_app.AppImage` に残る。同じフォルダーで別の名前に書いてから名前を変えるには、プラグインに手を入れる必要がある。AppImage の更新の失敗を試す自動の試験もない。
 - 公開済みのモデルが同じ大きさのまま壊れたとき、取得の画面は取得し直すまで使えるものとして表示する。起動のたびに SHA-256 を確かめると、数 GB のモデルでは時間がかかる。
 - 新しい版の設定を古い版で開いても、知らないキーはファイルに残る（#560。この直しを含む版から）。ただし、新しい版で選択肢を足した設定のように、古い版の検査に通らない値は既定値に戻して保存する。そのため、更新に失敗して前の版に戻したときは、新しい版で変えた設定の一部がなくなることがある。この直しより前の版は、知らないキーも捨てて保存する。
-- RVC の実行環境の準備（`vc_runtimes/`）は、この文書の棚卸しにまだ入れていない。
-- 設定の一時ファイル（`config.json.<乱数>.tmp`）は、書いている途中でアプリが落ちると残る。読まれることはないが、片付けもしない。

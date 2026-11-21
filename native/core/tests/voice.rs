@@ -2,12 +2,15 @@
 //! the controller parts of `tests/voice/test_tts_toggle.py`, `test_tts_toggle_server.py`,
 //! `test_spoken_controls.py`, `test_direct_voice_controller.py`, `test_io_flow_controller.py`,
 //! `test_managed_controller.py`, `test_vc_runtime_setup.py` and
-//! `src-python/test/test_voice_settings_patches.py`, `test_voice_route_monitor_mute.py`.
+//! [`src-python/test/test_voice_settings_patches.py`], [`test_voice_route_monitor_mute.py`].
 //!
 //! Speech servers are fakes on loopback ports (`common::fake_tts`) or the speech.cpp stand-in
 //! (`fake-speech-core`); outputs, microphones and the managed route's gate are in memory
 //! (`common::fake_voice`); the RVC worker is the `fake-rvc-worker` stand-in. No model, GPU,
 //! audio device or network outside this PC.
+//!
+//! [`src-python/test/test_voice_settings_patches.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/test/test_voice_settings_patches.py
+//! [`test_voice_route_monitor_mute.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/test/test_voice_route_monitor_mute.py
 
 mod common;
 
@@ -1043,11 +1046,17 @@ fn a_conversion_converts_in_the_block_of_the_advanced_settings() {
         });
         assert_eq!(run.ui.ok("/get/data/direct_voice_state", None)["conversion_block_ms"], Value::Null);
     };
+    let asked_to_time = || run.ui.dir.join("vc_runtimes").join("rvc-block-lengths.remeasure").is_file();
     assert_eq!(run.ui.ok("/get/data/rvc_block_ms", None), 0);
     converts_in("auto", 80);
+    assert!(!asked_to_time(), "the default asks for nothing");
     assert_eq!(run.ui.ok("/set/data/rvc_block_ms", Some(json!(120))), 120);
     converts_in("120", 120);
+    assert!(!asked_to_time(), "a chosen length asks for nothing");
+    // Choosing Automatic again asks the worker to time the GPU again at the next start (it
+    // removes the request; the stand-in worker does not).
     assert_eq!(run.ui.ok("/set/data/rvc_block_ms", Some(json!(0))), 0);
+    assert!(asked_to_time());
     converts_in("auto", 80);
     assert_eq!(run.ui.ok("/set/data/rvc_block_ms", Some(json!(120))), 120);
     // Anything but 0 or 20 to 200 ms in steps of 20 is refused, and the saved block stays.
@@ -1349,6 +1358,69 @@ fn a_failed_runtime_setup_names_its_step() {
     std::fs::write(Path::new(&destination).join("probe-exit"), "4").unwrap();
     run.ui.ok("/run/start_vc_runtime_setup", Some(json!({ "id": "rvc", "consent": true, "version": vrct_voice_conversion::runtime::version_of(&runtime) })));
     assert_eq!(wait_phase(&run, "failed")["jobs"]["rvc"]["error_code"], "vc_runtime_check_failed");
+    run.ui.stop();
+}
+
+/// A run of the core on the settings folder `dir`, with `voice`'s runtime setup (#517).
+fn start_in(dir: &Path, voice: FakeVoice) -> Run {
+    let mut setup = Setup { saved: Some(json!({})), platform: Platform::Windows, dir: Some(dir.to_path_buf()), ..Setup::default() };
+    setup.services.voice = voice.platform();
+    let ui = Ui::with(setup);
+    ui.ready();
+    Run { ui, voice }
+}
+
+fn set_up_rvc(run: &Run, runtime: &Runtime) -> std::path::PathBuf {
+    run.ui.ok("/run/start_vc_runtime_setup", Some(json!({ "id": "rvc", "consent": true, "version": vrct_voice_conversion::runtime::version_of(runtime) })));
+    let state = wait_phase(run, "ready");
+    std::path::PathBuf::from(state["installed"]["rvc"].as_str().unwrap())
+}
+
+#[test]
+fn a_repair_puts_the_new_libraries_in_place_of_the_old_ones() {
+    let voice = FakeVoice::new();
+    let runtime = small_runtime(&voice, b"the asset");
+    voice.set_runtime(runtime.clone());
+    let run = start_with(json!({}), Platform::Windows, voice, FakeAudio::new(), false);
+    let folder = set_up_rvc(&run, &runtime);
+    // Something only the earlier libraries hold: the repair's own folder replaces it.
+    std::fs::write(folder.join("lib/earlier-only"), b"x").unwrap();
+    let again = set_up_rvc(&run, &runtime);
+    assert_eq!(again, folder);
+    assert_eq!(std::fs::read(folder.join("lib/onnxruntime.dll")).unwrap(), b"onnx runtime");
+    assert!(!folder.join("lib/earlier-only").exists(), "the earlier libraries were kept in lib");
+    for leftover in ["lib.previous", "lib.part", "downloads", "receipt.json.part"] {
+        assert!(!folder.join(leftover).exists(), "{leftover} was left");
+    }
+    run.ui.stop();
+}
+
+#[test]
+fn libraries_a_stopped_repair_moved_aside_come_back_at_start() {
+    let dir = tempfile::tempdir().unwrap();
+    let voice = FakeVoice::new();
+    let runtime = small_runtime(&voice, b"the asset");
+    voice.set_runtime(runtime.clone());
+    let run = start_in(dir.path(), voice);
+    let folder = set_up_rvc(&run, &runtime);
+    run.ui.stop();
+
+    // A repair stopped between its two renames: the earlier libraries aside, the new ones
+    // half unpacked, no lib.
+    std::fs::rename(folder.join("lib"), folder.join("lib.previous")).unwrap();
+    std::fs::create_dir_all(folder.join("lib.part")).unwrap();
+    std::fs::write(folder.join("lib.part/onnxruntime.dll"), b"half").unwrap();
+    let voice = FakeVoice::new();
+    voice.set_runtime(runtime.clone());
+    let run = start_in(dir.path(), voice);
+    assert_eq!(run.ui.ok("/get/data/vc_runtime_state", None)["installed"]["rvc"], folder.to_str().unwrap(), "the runtime set up before is not usable");
+    assert_eq!(std::fs::read(folder.join("lib/onnxruntime.dll")).unwrap(), b"onnx runtime");
+    assert!(!folder.join("lib.previous").exists());
+    assert!(run.voice.fetched().is_empty(), "something was fetched to get it back");
+
+    // A receipt cut short by a stop is no receipt: the runtime is not offered as set up.
+    std::fs::write(folder.join("receipt.json"), b"{\"version\": \"").unwrap();
+    assert_eq!(run.ui.ok("/get/data/vc_runtime_state", None)["installed"], json!({}));
     run.ui.stop();
 }
 

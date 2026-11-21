@@ -1,4 +1,6 @@
-//! Numeric limits shared by persistence, IPC and the OBS page (`models/obs/settings.py`).
+//! Numeric limits shared by persistence, IPC and the OBS page ([`models/obs/settings.py`]).
+//!
+//! [`models/obs/settings.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/obs/settings.py
 
 /// The settings with a numeric range, by their Python names.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

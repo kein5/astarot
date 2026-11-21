@@ -185,6 +185,29 @@ mod tests {
     }
 
     #[test]
+    fn a_sample_at_the_threshold_is_near_silence_and_one_above_is_sound() {
+        let lead = [vec![0; ms(100)], vec![THRESHOLD; ms(100)], vec![-THRESHOLD; ms(100)]].concat();
+        let out = samples(skip_leading_silence(frames(vec![lead, vec![THRESHOLD + 1; ms(10)]])));
+        assert_eq!(out.len(), ms(20) + ms(10), "the lead at the threshold goes");
+        assert_eq!(&out[ms(20)..], &vec![THRESHOLD + 1; ms(10)][..]);
+    }
+
+    #[test]
+    fn a_lead_of_any_length_is_dropped_in_whole_samples() {
+        // Leads whose length is not a multiple of 3 samples: what is dropped is a whole number of
+        // samples, so every kept sample is one that came in.
+        for extra in [1usize, 2, 4, 5, 7] {
+            let lead: Vec<i16> = (0..ms(20) + extra).map(|i| if i % 2 == 0 { 7 } else { -9 }).collect();
+            let voice = vec![1200i16; ms(10)];
+            let out = samples(skip_leading_silence(frames(vec![lead.clone(), voice.clone()])));
+            assert_eq!(out, [&lead[extra..], &voice[..]].concat(), "{extra}");
+            // A stream that ends before its first sound passes the whole samples it kept.
+            let out = samples(skip_leading_silence(frames(vec![lead.clone()])));
+            assert_eq!(out, &lead[extra..], "{extra}, no sound");
+        }
+    }
+
+    #[test]
     fn a_stream_without_sound_passes_what_was_kept() {
         let out = samples(skip_leading_silence(frames(vec![vec![5; ms(200)], vec![-5; ms(200)]])));
         assert_eq!(out, vec![-5; ms(20)]);

@@ -1,11 +1,13 @@
 //! Speech to one explicit WASAPI render endpoint, in shared mode.
 //!
-//! Port of `WindowsOutput` in `devices_windows.py`. PortAudio opened the device at the
+//! Port of `WindowsOutput` in [`devices_windows.py`]. PortAudio opened the device at the
 //! speech rate and, when WASAPI refused it, converted to the mix rate with soxr; mono
 //! was widened to stereo because PortAudio's mono path garbled WASAPI playback. Here
 //! the stream asks WASAPI itself to convert rate and channels
 //! (`AUTOCONVERTPCM | SRC_DEFAULT_QUALITY`), which covers both. The OS default is
 //! never used for speech.
+//!
+//! [`devices_windows.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/audio_routing/devices_windows.py
 
 use windows::Win32::Media::Audio::{
     eMultimedia, eRender, IAudioClient, IAudioRenderClient, AUDCLNT_SHAREMODE_SHARED, AUDCLNT_STREAMFLAGS_AUTOCONVERTPCM, AUDCLNT_STREAMFLAGS_SRC_DEFAULT_QUALITY, WAVEFORMATEX, WAVE_FORMAT_PCM,

@@ -1,4 +1,4 @@
-//! The subtitle fonts, grapheme boundaries and the measurement of a line (`overlay_fonts.py`).
+//! The subtitle fonts, grapheme boundaries and the measurement of a line ([`overlay_fonts.py`]).
 //!
 //! The Python sidecar shipped four Noto Sans CJK fonts (29.6 MB). The core bundles none: the
 //! subtitles use the fonts on the user's system. The family chosen in the settings
@@ -8,6 +8,8 @@
 //! that has the glyph. Families are found by the names in the fonts' `name` tables, as the app's
 //! font list (font-kit) names them. A character no font has is left out of the picture;
 //! [`FontLibrary::missing_languages`] tells which scripts that would hit.
+//!
+//! [`overlay_fonts.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/overlay/overlay_fonts.py
 
 use ab_glyph::{Font, FontVec, GlyphId, PxScale, ScaleFont, point};
 use std::collections::HashMap;

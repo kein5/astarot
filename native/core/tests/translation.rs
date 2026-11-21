@@ -1,12 +1,14 @@
 //! The translation engines through the IPC surface (#277): keys checked with the provider,
 //! model choices, LM Studio and Ollama, the OpenAI-compatible endpoint, the start-up check, the
 //! local model's weight and licence, and turning translation on. The behaviours are those of
-//! `controller.py` (`_setTranslationEngineAuthKey`, `_setTranslationEngineModel`,
+//! [`controller.py`] (`_setTranslationEngineAuthKey`, `_setTranslationEngineModel`,
 //! `_checkTranslationEngineConnection`, `setDeeplAuthKey`, `_setEndpointCredential`,
 //! `setTranslatorLMStudioURL`, `setCtranslate2WeightType`, `setEnableTranslation`, `init`).
 //!
 //! Every provider is a stand-in on a loopback port (`vrct_translation::fake`); nothing leaves
 //! this PC. The local model is a stand-in too.
+//!
+//! [`controller.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/controller.py
 
 mod common;
 
@@ -585,7 +587,9 @@ fn deepl_with_local_behind(fake: &FakeProviders) -> (Ui, Arc<FakeLocal>) {
 
 #[test]
 fn the_fallback_waits_for_a_loaded_model_only() {
-    // `test_model_translate_fallback_no_wait.py`.
+    // [`test_model_translate_fallback_no_wait.py`].
+    //
+    // [`test_model_translate_fallback_no_wait.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/test/test_model_translate_fallback_no_wait.py
     let fake = FakeProviders::start();
     let (ui, local) = deepl_with_local_behind(&fake);
     // A refusal DeepL does not try again, so that only the local model's waits are timed (a
@@ -615,7 +619,10 @@ fn the_fallback_waits_for_a_loaded_model_only() {
 
 #[test]
 fn a_language_no_engine_has_is_sent_as_it_is_without_a_failure() {
-    // `test_model_get_translate_unsupported_language.py`, `test_translation_unsupported_language.py`.
+    // [`test_model_get_translate_unsupported_language.py`], [`test_translation_unsupported_language.py`].
+    //
+    // [`test_model_get_translate_unsupported_language.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/test/test_model_get_translate_unsupported_language.py
+    // [`test_translation_unsupported_language.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/test/test_translation_unsupported_language.py
     let fake = FakeProviders::start();
     let (ui, local) = deepl_with_local_behind(&fake);
     // DeepL has no Arabic.
@@ -646,6 +653,40 @@ fn a_language_no_engine_has_is_sent_as_it_is_without_a_failure() {
 }
 
 #[test]
+fn swapping_exchanges_the_first_languages_of_the_tab_only() {
+    // `swapYourLanguageAndTargetLanguage`: the own language and the first target change places in
+    // the selected tab; the other targets and the other tabs stay, and both lists come back.
+    let fake = FakeProviders::start();
+    let (ui, _local) = deepl_with_local_behind(&fake);
+    let mut your = ui.ok("/get/data/selected_your_languages", None);
+    your["1"]["1"] = json!({ "language": "Japanese", "country": "Japan", "enable": true });
+    ui.ok("/set/data/selected_your_languages", Some(your));
+    let mut target = ui.ok("/get/data/selected_target_languages", None);
+    target["1"]["1"] = json!({ "language": "English", "country": "United States", "enable": true });
+    target["1"]["2"] = json!({ "language": "Korean", "country": "South Korea", "enable": true });
+    ui.ok("/set/data/selected_target_languages", Some(target));
+    let (your_before, target_before) = (ui.ok("/get/data/selected_your_languages", None), ui.ok("/get/data/selected_target_languages", None));
+
+    let swapped = ui.ok("/run/swap_your_language_and_target_language", None);
+    assert_eq!(swapped["your"]["1"]["1"], target_before["1"]["1"]);
+    assert_eq!(swapped["target"]["1"]["1"], your_before["1"]["1"]);
+    assert_eq!(swapped["target"]["1"]["2"], target_before["1"]["2"], "the other targets stay");
+    for tab in ["2", "3"] {
+        assert_eq!((&swapped["your"][tab], &swapped["target"][tab]), (&your_before[tab], &target_before[tab]), "tab {tab} stays");
+    }
+    assert_eq!(ui.ok("/get/data/selected_your_languages", None), swapped["your"], "it is kept");
+    assert_eq!(ui.ok("/get/data/selected_target_languages", None), swapped["target"]);
+    // A message now goes the other way.
+    let answer = ui.ok("/run/send_message_box", Some(json!({ "id": "m1", "message": "hello" })));
+    assert_eq!(answer["translations"][0]["message"], "deepl-free:JA:hello");
+
+    // Swapping again gives back what there was.
+    let back = ui.ok("/run/swap_your_language_and_target_language", None);
+    assert_eq!((back["your"].clone(), back["target"].clone()), (your_before, target_before));
+    ui.stop();
+}
+
+#[test]
 fn the_same_language_on_both_sides_is_not_translated() {
     let fake = FakeProviders::start();
     let (ui, local) = deepl_with_local_behind(&fake);
@@ -663,8 +704,10 @@ fn the_same_language_on_both_sides_is_not_translated() {
 
 #[test]
 fn several_destinations_translate_at_the_same_time_and_keep_their_slots() {
-    // `test_model_input_translate_parallel.py`.
+    // [`test_model_input_translate_parallel.py`].
     // An online provider: the local model is one model and translates one text at a time.
+    //
+    // [`test_model_input_translate_parallel.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/test/test_model_input_translate_parallel.py
     let fake = FakeProviders::start();
     let (ui, _local) = deepl_with_local_behind(&fake);
     let mut target = ui.ok("/get/data/selected_target_languages", None);

@@ -1,5 +1,7 @@
 //! Consent-gated file transactions; applying to the settings is a separate explicit call
-//! (`manager.py`).
+//! ([`manager.py`]).
+//!
+//! [`manager.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/model_downloads/manager.py
 
 use std::fs::{self, File, OpenOptions};
 use std::io::{self, Read, Write};
@@ -272,7 +274,9 @@ impl Downloads {
     }
 
     /// `{id: {role: path}}` for every entry whose files are on disk, including those of earlier
-    /// runs (`manager.py` `downloaded`).
+    /// runs ([`manager.py`] `downloaded`).
+    ///
+    /// [`manager.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/model_downloads/manager.py
     pub fn downloaded(&self) -> Json {
         let paths = |paths: Paths| paths.iter().fold(Object::new(), |o, (role, path)| o.with(role.as_str(), path.as_str()));
         self.inner.entries.iter().fold(Object::new(), |o, m| match self.inner.present(m) {

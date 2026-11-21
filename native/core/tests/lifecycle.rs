@@ -275,9 +275,11 @@ fn settings_of_an_older_version_are_migrated_and_the_user_is_told() {
 #[test]
 fn a_saved_whisper_choice_loads_as_none_without_a_notice() {
     // Up to 0.5 a saved choice of the removed Whisper engine moved to speech.cpp once, with a
-    // notice (`test_local_asr_migration.py`). That migration, its notice and the screen that
+    // notice ([`test_local_asr_migration.py`]). That migration, its notice and the screen that
     // removed the old Whisper weights went in 0.6.0 (#288): the choice loads as none, like the
     // retired Google engine, and the realtime server stays as saved.
+    //
+    // [`test_local_asr_migration.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/test/test_local_asr_migration.py
     for platform in [Platform::Windows, Platform::Linux] {
         let dir = tempfile::tempdir().unwrap();
         let saved = json!({

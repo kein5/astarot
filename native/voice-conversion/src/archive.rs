@@ -1,9 +1,11 @@
 //! Taking named files out of a pinned archive: a zip (a wheel, a NuGet package of ONNX
 //! Runtime) or a gzip tar (ONNX Runtime's GitHub archive for Linux until 2026-11-18), as
-//! `unpack_members` in `runtime_setup.py` did.
+//! `unpack_members` in [`runtime_setup.py`] did.
 //!
 //! The archive's hash is checked before this runs. A name that is missing, a link, a folder,
 //! an encrypted entry, or a file name that could leave the target refuses the whole archive.
+//!
+//! [`runtime_setup.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/voice_conversion/runtime_setup.py
 
 use std::fs::{self, File};
 use std::io::{self, Read, Seek, SeekFrom, Write};

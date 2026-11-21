@@ -44,7 +44,7 @@ def steam_library_paths():
     paths = [STEAM]
     library = STEAM / 'steamapps/libraryfolders.vdf'
     if library.is_file():
-        paths += [Path(p) for p in re.findall(r'"path"\s+"([^"]+)"', library.read_text())]
+        paths += [Path(p) for p in re.findall(r'"path"\s+"([^"]+)"', library.read_text(encoding='utf-8'))]
     return paths
 
 
@@ -58,7 +58,7 @@ def find_vrchat():
 
 def find_proton():
     """The compatibility tool Steam uses for VRChat."""
-    config = (STEAM / 'config/config.vdf').read_text(errors='replace')
+    config = (STEAM / 'config/config.vdf').read_text(encoding='utf-8', errors='replace')
     match = re.search(r'"CompatToolMapping".*?"' + APP_ID + r'"\s*\{\s*"name"\s+"([^"]+)"', config, re.DOTALL)
     name = match.group(1) if match else 'proton_experimental'
     candidates = [Path.home() / '.steam/root/compatibilitytools.d' / name, STEAM / 'compatibilitytools.d' / name]
@@ -81,7 +81,7 @@ def speaker_account():
     """The user id the speaker profile (0) last signed in with, from its VRChat log."""
     logs = sorted(VRCHAT_DATA.glob('output_log_*.txt'), key=lambda p: p.stat().st_mtime, reverse=True)
     for log in logs:
-        text = log.read_text(errors='replace')
+        text = log.read_text(encoding='utf-8', errors='replace')
         if 'Arg: --profile=0' not in text[:20000]:
             continue
         local = re.search(r'Initialized PlayerAPI "(.+)" is local', text)
@@ -101,7 +101,7 @@ def launch(args):
     if args.online:
         if not WORLD_ID.is_file():
             raise SystemExit(f'{WORLD_ID} is missing; upload the world and run unity_remote.py save-world-id')
-        world_id, owner = WORLD_ID.read_text().strip(), args.owner or speaker_account()
+        world_id, owner = WORLD_ID.read_text(encoding='utf-8').strip(), args.owner or speaker_account()
     elif not args.world.is_file():
         raise SystemExit(f'{args.world} is missing; build it in Unity with VRCT-VOX > Build Chatbox Lab World')
     library, install = find_vrchat()
@@ -110,7 +110,7 @@ def launch(args):
                STEAM_COMPAT_DATA_PATH=str(library / 'steamapps/compatdata' / APP_ID),
                STEAM_COMPAT_CLIENT_INSTALL_PATH=str(STEAM))
     # --add joins more clients to the running instance; it needs the same room.
-    state = json.loads(STATE.read_text()) if args.add and STATE.is_file() else {'clients': []}
+    state = json.loads(STATE.read_text(encoding='utf-8')) if args.add and STATE.is_file() else {'clients': []}
     room = state.get('room') or str(random.randint(10_000, 99_999) if args.online else random.randint(10_000_000, 99_999_999))
     clients = state['clients']
     first = len(clients)
@@ -123,7 +123,7 @@ def launch(args):
         if not args.online:
             command += ['--enable-sdk-log-levels', '--enable-udon-debug-logging']
         # The client keeps writing after this script exits.
-        with open(CACHE / f'client{index}.log', 'w') as log:
+        with open(CACHE / f'client{index}.log', 'w', encoding='utf-8') as log:
             process = subprocess.Popen(command, cwd=install, env=env, stdout=log, stderr=subprocess.STDOUT,
                                        start_new_session=True)
         clients.append({'profile': index, 'role': 'speaker' if index == 0 else 'camera', 'pid': process.pid,
@@ -132,7 +132,7 @@ def launch(args):
         # The speaker must be master, so it has to join first.
         if index == 0 and first + args.clients > 1:
             time.sleep(args.stagger)
-    STATE.write_text(json.dumps({'room': room, 'online': args.online, 'clients': clients}, indent=2))
+    STATE.write_text(json.dumps({'room': room, 'online': args.online, 'clients': clients}, indent=2), encoding='utf-8')
     if args.online:
         print(f'instance: {online_url(world_id, owner, room)}')
 
@@ -142,7 +142,7 @@ def stop(_args):
         return
     # Wine reparents VRChat.exe away from the launcher, so find the clients by
     # their profile argument as well as by the launcher's process group.
-    profiles = {f'--profile={c["profile"]}' for c in json.loads(STATE.read_text())['clients']}
+    profiles = {f'--profile={c["profile"]}' for c in json.loads(STATE.read_text(encoding='utf-8'))['clients']}
     for proc in Path('/proc').iterdir():
         if not proc.name.isdigit():
             continue
@@ -155,7 +155,7 @@ def stop(_args):
                 os.kill(int(proc.name), signal.SIGTERM)
             except ProcessLookupError:
                 pass
-    for client in json.loads(STATE.read_text())['clients']:
+    for client in json.loads(STATE.read_text(encoding='utf-8'))['clients']:
         try:
             os.killpg(client['pid'], signal.SIGTERM)
         except ProcessLookupError:

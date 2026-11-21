@@ -130,6 +130,9 @@ static CHOSEN: OnceLock<Choice> = OnceLock::new();
 pub fn use_libraries(app_dir: &Path, state_dir: &Path) -> String {
     CHOSEN
         .get_or_init(|| {
+            // A runtime repair stopped part way gets its earlier libraries back before they are
+            // looked for (#517), not only when the voice area starts.
+            runtimes::recover_libraries(&state_dir.join(RUNTIMES_FOLDER));
             let choice = choose(app_dir, state_dir);
             if let Some((library, dependencies)) = &choice.onnx_runtime {
                 vrct_onnx_runtime::use_library_with(library.clone(), dependencies.clone());

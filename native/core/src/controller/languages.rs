@@ -1,10 +1,13 @@
 //! Languages, tabs and the translation and recognition engines (the language parts of
-//! `controller.py` and `model.py`).
+//! [`controller.py`] and [`model.py`]).
 //!
 //! An engine is offered for a tab only when it is available and supports every enabled
 //! language of the tab. When a language changes to one the selected engine cannot take, the
 //! engine falls back to the local translation (CTranslate2, now ONNX); when an engine changes to
 //! one that cannot take a selected language, the language is reset and the UI told why.
+//!
+//! [`controller.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/controller.py
+//! [`model.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/model.py
 
 use super::{Core, ok};
 use crate::errors::ErrorReply;

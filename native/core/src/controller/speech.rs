@@ -1,5 +1,5 @@
 //! The bundled speech.cpp servers (`getSpeechServer*`, `startSpeechServer`,
-//! `stopSpeechServer` and `_speechServerEnded` in `src-python/controller.py`).
+//! `stopSpeechServer` and `_speechServerEnded` in [`src-python/controller.py`]).
 //!
 //! The processes themselves are owned by `vrct-speech-server`; this module keeps the hub, answers
 //! the Settings page and tells the features that use a server when one ends. Saving or restoring
@@ -9,6 +9,8 @@
 //! TTS and realtime ASR start and stop these servers and react to their end through
 //! [`SpeechServers::on_end`], [`SpeechServers::on_listener`] (TTS: a request to a started
 //! server ends with its run), [`SpeechServers::hub`] and [`SpeechServers::start_options`].
+//!
+//! [`src-python/controller.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/controller.py
 
 use super::routes::{Builder, OPEN};
 use super::{Core, ok};
@@ -30,8 +32,10 @@ const START_FAILED: &str = "speech_server_start_failed";
 const CLOSE_TIMEOUT: Duration = Duration::from_secs(3);
 
 /// Where the bundled servers come from, checked against the pinned hashes at each start
-/// (`runtime.py`, `BUNDLE` and `bundled_binary`): the bundles among the app's shipped files
+/// ([`runtime.py`], `BUNDLE` and `bundled_binary`): the bundles among the app's shipped files
 /// ([`crate::resources`]). Which build a start runs is [`vrct_speech_server::builds`].
+///
+/// [`runtime.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/speech_server/runtime.py
 pub fn bundled_launch(env: &Environment) -> Launch {
     Launch::bundles(bundle_folders(env))
 }

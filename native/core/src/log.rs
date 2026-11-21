@@ -1,6 +1,6 @@
 //! The diagnostic logs: `process.log` (requests, answers and steps) and `error.log`.
 //!
-//! The rules are those of `src-python/utils.py`:
+//! The rules are those of [`src-python/utils.py`]:
 //!
 //! - Values of endpoints whose name looks secret (`auth_key`, `token`, `voice_settings`, ...) are
 //!   written as `***MASKED***`, and so are such keys inside an aggregate answer.
@@ -10,6 +10,8 @@
 //! - Successful answers to the states the UI polls, and the volume meters, are not logged.
 //! - URLs lose their user info and their query values.
 //! - A file over 10 MB is emptied and written again from the start.
+//!
+//! [`src-python/utils.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/utils.py
 
 use serde_json::{Map, Value};
 use std::fs::{File, OpenOptions, create_dir_all};

@@ -4,7 +4,7 @@ ASTAROTが他のプログラムとやり取りする口。UIとサイドカー�
 
 ## VRChatへのOSC
 
-`native/adapters/src/osc/`（0.5まではPythonの`osc.py`。python-osc、OSCQueryは任意のtinyoscquery）。
+`native/adapters/src/osc/`（0.5まではPythonの[`osc.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/osc/osc.py)。python-osc、OSCQueryは任意のtinyoscquery）。
 
 | 方向 | アドレス | 引数 | 送る条件 |
 |---|---|---|---|
@@ -44,7 +44,7 @@ ASTAROTが他のプログラムとやり取りする口。UIとサイドカー�
 | 待ち受け | `WEBSOCKET_HOST`（既定`127.0.0.1`。IPv4のみ。`0.0.0.0`、IPv6、ホスト名は拒否）、`WEBSOCKET_PORT`（既定2231、整数の1〜65535） |
 | 暗号化 | ループバック（127.0.0.0/8）では`ws://`のまま。それ以外のアドレスでは、利用者が指定した証明書と秘密鍵で`wss://`（TLS 1.2以上）だけを使う。使える証明書がなければ待ち受けない（[この PC の外での待ち受け](#この-pc-の外での待ち受け)） |
 | 認証 | 接続時に`?token=<WEBSOCKET_AUTH_TOKEN>`を付ける。合わなければ接続前にHTTP 403。トークンは初回起動時に作り、設定画面では伏せて表示する。保存値がnull・空白だけ・空文字列・文字列以外なら、新しく生成した既定の秘密値を保存する。空でないトークンがなければサーバーを起動しない。`/run/regenerate_websocket_auth_token`で作り直すと、古いトークンでの接続をすぐに切り、以後は拒否する |
-| 受信 | 使わない。アプリは受信の処理を登録せず、受け取ったメッセージはイベントループの上で捨てる（ワーカースレッドに渡さない）。1メッセージの上限は64 KiB。接続ごとに平均で毎秒10件と128 KiBまで、一時的には20件と256 KiBまで受け付ける。どちらかを超えた接続は1008（policy violation）で閉じ、2秒待っても閉じなければtransportをabortする（セキュリティ監査 SEC-06）。上限は`websocket_server.py`の`_INCOMING_*`の定数 |
+| 受信 | 使わない。アプリは受信の処理を登録せず、受け取ったメッセージはイベントループの上で捨てる（ワーカースレッドに渡さない）。1メッセージの上限は64 KiB。接続ごとに平均で毎秒10件と128 KiBまで、一時的には20件と256 KiBまで受け付ける。どちらかを超えた接続は1008（policy violation）で閉じ、2秒待っても閉じなければtransportをabortする（セキュリティ監査 SEC-06）。上限は[`websocket_server.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/websocket/websocket_server.py)の`_INCOMING_*`の定数 |
 | 送信 | 処理したメッセージごとに[メッセージの形](data-and-persistence.md#websocketとobsへ送るメッセージ)を全クライアントへ送る。OBSの表示設定が変わると`SETTINGS_UPDATED`を送る |
 
 ホストとポートは[ネットワーク設定](data-and-persistence.md#ネットワーク設定)の検証に通ってから保存・再起動する。WebSocketとOBSをIPv4に統一し、bindの事前確認とコピーするURLの形式をそろえる。
@@ -67,7 +67,7 @@ ASTAROTが他のプログラムとやり取りする口。UIとサイドカー�
 
 ### 送信の上限
 
-上限は`websocket_server.py`の定数で定める。会話本文を切り詰めたり、待っているメッセージを黙って捨てたりはしない。
+上限は[`websocket_server.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/websocket/websocket_server.py)の定数で定める。会話本文を切り詰めたり、待っているメッセージを黙って捨てたりはしない。
 
 | 対象 | 上限・動作 |
 |---|---|
@@ -268,9 +268,9 @@ TTSのスイッチをオフにしたときは、そのスイッチが起動し�
 | エンジン | 既定のURL | 使うAPI |
 |---|---|---|
 | VOICEVOX、SHAREVOX、AivisSpeech | `127.0.0.1`の50021、50025、10101 | `GET /version`、`GET /speakers`、`POST /audio_query`、`POST /synthesis`（`native/tts/src/engines.rs`） |
-| COEIROINK v2 | `127.0.0.1:50032` | `GET /v1/engine_info`、`GET /v1/speakers_path_variant`、`POST /v1/synthesis`（`coeiroink_tts.py`） |
+| COEIROINK v2 | `127.0.0.1:50032` | `GET /v1/engine_info`、`GET /v1/speakers_path_variant`、`POST /v1/synthesis`（[`coeiroink_tts.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/tts/coeiroink_tts.py)） |
 
-- 読み上げる文は文末（`。`、`！`、`？`など）と改行で分け、40文字を超える文は読点でも分ける。1つずつ合成し、読み上げている間に次の文を合成する（`external_engine.py`）。エンジンは文ごとにWAVをまとめて返すので、分けないとマイクの読み上げが5秒の開始期限に間に合わない。
+- 読み上げる文は文末（`。`、`！`、`？`など）と改行で分け、40文字を超える文は読点でも分ける。1つずつ合成し、読み上げている間に次の文を合成する（[`external_engine.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/tts/external_engine.py)）。エンジンは文ごとにWAVをまとめて返すので、分けないとマイクの読み上げが5秒の開始期限に間に合わない。
 - VOICEVOX系では`/audio_query`の応答を`/synthesis`へ渡す。書き換えるのは、下の表で既定から変えたScaleの値だけである（ADR-008の5.2）。AivisSpeechはほかの部分を書き換えた問い合わせを受け付けないことがあるため。4つとも既定のままなら、応答のバイト列をそのまま渡す。COEIROINKの話者の一覧には画像を含まない`/v1/speakers_path_variant`を使う。`/v1/speakers`は画像をbase64で含み、話者1人で約1 MBになる。
 - 選んだ声はエンジンのID（COEIROINKは`speakerUuid:styleId`）と話者名、スタイル名で保存する。IDが見つからないか、IDの声の名前が変わっていれば名前で探し直す。見つからなければ`tts_engine_voice_missing`、声を選んでいなければ`tts_engine_voice_unset`、エンジンに接続できなければ`tts_engine_not_ready`で失敗する。歌うためのスタイルは一覧に出さない。
 - COEIROINKの`/v1/synthesis`には声の設定（`VOICE_SETTINGS`）の7つの値を送る。値は文字列の10進数で保存し、範囲外や`1e0`のような書き方は保存しない。

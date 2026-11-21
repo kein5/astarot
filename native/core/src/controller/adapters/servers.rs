@@ -1,6 +1,6 @@
 //! The WebSocket server and the OBS browser source (`setWebSocketHost`, `setWebSocketPort`,
-//! `setWebSocketTls`, `setEnableObsBrowserSource`, ... in `controller.py`, and
-//! `startWebSocketServer` and `startObsBrowserSourceServer` in `model.py`).
+//! `setWebSocketTls`, `setEnableObsBrowserSource`, ... in [`controller.py`], and
+//! `startWebSocketServer` and `startObsBrowserSourceServer` in [`model.py`]).
 //!
 //! - Both servers listen on `WEBSOCKET_HOST`. A loopback IPv4 address needs nothing more; any
 //!   other needs the user's certificate, without which nothing listens there.
@@ -9,6 +9,9 @@
 //! - A setting changes only once the servers listen on the new value. When they cannot, they
 //!   are started again on the saved one; when even that fails they are shown as off.
 //! - An error answer carries the saved value as `data`, for the UI to roll back to.
+//!
+//! [`controller.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/controller.py
+//! [`model.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/model.py
 
 use super::{Adapters, port_of};
 use crate::config::schema::{is_valid_port, is_valid_websocket_host};

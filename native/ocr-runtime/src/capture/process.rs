@@ -1,7 +1,9 @@
-//! Is a process running (SteamVR's `vrmonitor`)? (`process_check.py`)
+//! Is a process running (SteamVR's `vrmonitor`)? ([`process_check.py`])
 //!
 //! Python's psutil walk took about two seconds on a PC with ~460 processes; Windows uses
 //! a Toolhelp snapshot instead (~15 ms) and Linux reads `/proc/<pid>/comm`.
+//!
+//! [`process_check.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/process_check.py
 
 /// Whether a process named `name` runs. `false` when it cannot be told.
 pub fn is_process_running(name: &str) -> bool {

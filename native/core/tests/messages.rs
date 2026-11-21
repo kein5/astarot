@@ -2,7 +2,10 @@
 //! chatbox (a UDP socket on 127.0.0.2), the WebSocket clients and the conversation log, with
 //! translation off and on, a failing provider, readings, and the recognised text the other
 //! areas hand over (`Core::deliver_transcription`). The behaviours are those of
-//! `src-python/test/test_controller_message_pipeline.py` and `test_message_snapshot_and_sinks.py`.
+//! [`src-python/test/test_controller_message_pipeline.py`] and [`test_message_snapshot_and_sinks.py`].
+//!
+//! [`src-python/test/test_controller_message_pipeline.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/test/test_controller_message_pipeline.py
+//! [`test_message_snapshot_and_sinks.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/test/test_message_snapshot_and_sinks.py
 
 mod common;
 
@@ -524,8 +527,10 @@ fn the_chat_providers_get_the_recent_conversation() {
 
 #[test]
 fn a_message_still_being_translated_at_shutdown_goes_nowhere() {
-    // `test_message_delivery_revocation.py` (`shutdown_revokes_all_sources_before_cleanup`,
+    // [`test_message_delivery_revocation.py`] (`shutdown_revokes_all_sources_before_cleanup`,
     // `shutdown_closes_new_message_admission`).
+    //
+    // [`test_message_delivery_revocation.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/test/test_message_delivery_revocation.py
     let run = start(json!({ "LOGGER_FEATURE": true }), None);
     let (status, stream) = websocket("127.0.0.1", run.websocket_port, Some("test-token"));
     assert_eq!(status, 101);
@@ -561,7 +566,9 @@ fn a_message_still_being_translated_at_shutdown_goes_nowhere() {
 
 #[test]
 fn the_conversation_history_starts_again_when_the_translation_goes_elsewhere() {
-    // `test_translation_history_destination.py`.
+    // [`test_translation_history_destination.py`].
+    //
+    // [`test_translation_history_destination.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/test/test_translation_history_destination.py
     let run = start(json!({}), None);
     let key = format!("gsk{}", "q".repeat(40));
     run.fake.key("/groq/v1", &key).models("/groq/v1", &["llama"]);
@@ -608,7 +615,9 @@ fn the_conversation_history_starts_again_when_the_translation_goes_elsewhere() {
 
 #[test]
 fn the_conversation_log_is_written_only_while_it_is_on() {
-    // `test_conversation_logger.py` through the endpoints.
+    // [`test_conversation_logger.py`] through the endpoints.
+    //
+    // [`test_conversation_logger.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/test/test_conversation_logger.py
     let run = start(json!({}), None);
     run.chat("m-1", "記録しない");
     assert_eq!(run.ui.ok("/set/enable/logger_feature", None), true);

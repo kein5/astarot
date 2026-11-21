@@ -1,6 +1,6 @@
 //! Follows the endpoint that is actually playing (or recording) sound.
 //!
-//! Port of `src-python/active_endpoint_tracker.py`. Every endpoint's peak meter is
+//! Port of [`src-python/active_endpoint_tracker.py`]. Every endpoint's peak meter is
 //! polled; the loudest one over a rolling window is the active endpoint, with
 //! hysteresis so that a pause in the sound or a briefly louder device does not flip
 //! the choice. When everything is silent the previous choice stays.
@@ -9,6 +9,8 @@
 //! endpoint's peak only while some client has it open, so following microphones by
 //! peak does not work in practice. The device manager therefore runs a tracker only
 //! for speakers.
+//!
+//! [`src-python/active_endpoint_tracker.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/active_endpoint_tracker.py
 
 use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, Mutex};

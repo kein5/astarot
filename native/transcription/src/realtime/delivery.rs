@@ -1,7 +1,9 @@
-//! Captions and finals of a session (`realtime_delivery.py`): every update is shown as it
+//! Captions and finals of a session ([`realtime_delivery.py`]): every update is shown as it
 //! comes; a final is processed (translation, chatbox, logs) on a second thread, at most four
 //! waiting, and its caption row is settled once with an outcome. A final not processed within
 //! 2 seconds of its receipt, or one whose session or admission ended, is not delivered.
+//!
+//! [`realtime_delivery.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/transcription/realtime_delivery.py
 
 use super::events::Update;
 use super::session::Session;

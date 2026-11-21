@@ -1,9 +1,11 @@
-//! The pictures of the small and the large log (`overlay_image.py`).
+//! The pictures of the small and the large log ([`overlay_image.py`]).
 //!
 //! The small log shows the last message alone, centred, 3840 px wide. The large log keeps the
 //! last five messages (and the realtime captions still being recognised) as a chat, 960 px wide,
 //! sent ones on the right and received ones on the left. Readings (hiragana and romaji) go
 //! above the words they belong to. Limits as `docs/spec/overlay-subtitle-rendering.md`.
+//!
+//! [`overlay_image.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/overlay/overlay_image.py
 
 use crate::canvas::{Canvas, Rgba};
 use crate::fonts::{FontLibrary, FontSet, MAX_LINE_CODEPOINTS, MAX_TEXT_CODEPOINTS, TextLine, bounded_text, graphemes, word_tokens};
@@ -1002,7 +1004,9 @@ mod tests {
     }
 
     // The caption cases of `tests/voice/test_realtime_overlay.py` and
-    // `src-python/test/test_realtime_overlay_publication.py`.
+    // [`src-python/test/test_realtime_overlay_publication.py`].
+    //
+    // [`src-python/test/test_realtime_overlay_publication.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/test/test_realtime_overlay_publication.py
 
     fn caption(source: &str, namespace: &str, item: &str) -> CaptionId {
         (source.into(), namespace.into(), item.into())

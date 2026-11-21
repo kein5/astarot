@@ -9,7 +9,8 @@
 //! on a GPU the shortest of 40, 60, 80, 100, 120, 160 and 200 ms it converts in time with room
 //! to spare (timed on a test tone before `ready`), on the CPU 40 ms. With `--block-cache <file>`
 //! it keeps that choice there, by voice model and GPU, and uses it again on a later start
-//! instead of timing the GPU. It opens no audio device, downloads nothing and never writes
+//! instead of timing the GPU, unless the application asked for the GPU to be timed again (the
+//! user chose Automatic again; [`BlockCache`]). It opens no audio device, downloads nothing and never writes
 //! audio, text or file paths anywhere but the output pipe (the block cache holds hashes and
 //! lengths only).
 //!
@@ -594,9 +595,9 @@ fn load(arguments: &Arguments) -> Result<(Stream, Profile), Failure> {
         }
         None if device.is_gpu() => {
             // `--block-ms auto` (#531). The length chosen before for this voice model on this GPU
-            // is used again without timing.
+            // is used again without timing, unless the user chose Automatic again since.
             let cache = arguments.block_cache.as_deref().and_then(|path| BlockCache::for_start(path, arguments, device));
-            if let Some(ms) = cache.as_ref().and_then(BlockCache::chosen) {
+            if let Some(ms) = cache.as_ref().filter(|cache| !cache.timing_asked()).and_then(BlockCache::chosen) {
                 eprintln!("astarot-rvc-worker: converting in {ms} ms blocks, chosen before for this voice model on this GPU");
                 let profile = Profile::of(device, Packets::of(ms).expect("a valid block"));
                 return finish(stream_for(converter, profile)?, profile);
@@ -609,7 +610,10 @@ fn load(arguments: &Arguments) -> Result<(Stream, Profile), Failure> {
             let ms = auto_block_ms(time);
             eprintln!("astarot-rvc-worker: a {} ms block took {:.1} ms on the GPU; converting in {ms} ms blocks", AUTO_BLOCK_MS[0], time.as_secs_f64() * 1000.0);
             if let Some(cache) = &cache {
-                cache.remember(ms);
+                // This start's entry is the new length; the request to time again is answered.
+                if cache.remember(ms) {
+                    cache.timed_again();
+                }
             }
             if ms == AUTO_BLOCK_MS[0] {
                 (stream, first)
@@ -660,6 +664,11 @@ fn finish(mut stream: Stream, profile: Profile) -> Result<(Stream, Profile), Fai
 /// time), the index when it is used, the device, the GPU's name, the ONNX Runtime library and
 /// the CPU threads. The file holds only those hashes and the lengths: no path, model or GPU name.
 /// A file that cannot be read or written only means the GPU is timed again.
+///
+/// The application asks for the GPU to be timed again by putting a file beside the cache with
+/// its name and `.remeasure` (`rvc-block-lengths.remeasure`) when the user chooses Automatic
+/// again. The next start that would use a kept length times the GPU instead, keeps the new
+/// length for its own voice model and GPU, and removes that file; the other entries stay.
 struct BlockCache {
     path: PathBuf,
     key: String,
@@ -713,8 +722,26 @@ impl BlockCache {
         u32::try_from(ms).ok().filter(|ms| AUTO_BLOCK_MS.contains(ms))
     }
 
+    /// The file that asks for the GPU to be timed again.
+    fn timing_request(&self) -> PathBuf {
+        self.path.with_extension("remeasure")
+    }
+
+    /// Whether the user asked for the GPU to be timed again (chose Automatic again).
+    fn timing_asked(&self) -> bool {
+        self.timing_request().exists()
+    }
+
+    /// The GPU was timed again and the new length kept: the request is answered.
+    fn timed_again(&self) {
+        if self.timing_asked() && std::fs::remove_file(self.timing_request()).is_err() {
+            eprintln!("astarot-rvc-worker: the request to time the GPU again could not be removed");
+        }
+    }
+
     /// Keeps `ms` for this start's entry, written whole into a new file that then replaces the old.
-    fn remember(&self, ms: u32) {
+    /// False when it could not be written.
+    fn remember(&self, ms: u32) -> bool {
         let mut blocks = self.entries();
         if blocks.len() >= BLOCK_CACHE_ENTRIES && !blocks.contains_key(&self.key) {
             blocks.clear();
@@ -727,6 +754,7 @@ impl BlockCache {
             let _ = std::fs::remove_file(&partial);
             eprintln!("astarot-rvc-worker: the chosen block length could not be kept");
         }
+        written
     }
 }
 
@@ -1509,6 +1537,17 @@ mod tests {
         let other = BlockCache { path: cache.path.clone(), key: key("NVIDIA GeForce RTX 4080 SUPER", Device::Cuda) };
         other.remember(40);
         assert_eq!((cache.chosen(), other.chosen()), (Some(80), Some(40)));
+        // The user chose Automatic again: the next start times its GPU again, keeps the new
+        // length for its own entry, and the request is gone; the other entry stays.
+        assert!(!cache.timing_asked());
+        std::fs::write(dir.join("rvc-block-lengths.remeasure"), b"").unwrap();
+        assert!(cache.timing_asked() && other.timing_asked(), "whichever start comes next times again");
+        assert!(cache.remember(60));
+        cache.timed_again();
+        assert!(!dir.join("rvc-block-lengths.remeasure").exists());
+        assert_eq!((cache.chosen(), other.chosen()), (Some(60), Some(40)));
+        assert!(!cache.timing_asked());
+        cache.timed_again();
         std::fs::write(&cache.path, format!("{{\"version\": {BLOCK_CACHE_VERSION}, \"blocks\": {{\"{first}\": {{\"block_ms\": 30}}}}}}")).unwrap();
         assert_eq!(cache.chosen(), None);
         // A changed voice model is timed again.

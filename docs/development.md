@@ -23,7 +23,7 @@ mise run check               # 軽量チェック
 | `check:commits`、`check:secrets` | `python tools/dev.py check --scope <名前> --base origin/develop` |
 | `check:vulns` | `python tools/dev.py check --scope vulns`（osv.devに問い合わせる） |
 | `setup:headless`、`setup:ui`、`setup:browser`、`setup:rust`、`setup:resources`、`setup:integration` | `python tools/dev.py setup --scope <名前>` |
-| `spec` | 機能仕様書の一覧を作り直す（`python tools/spec_catalog.py --write`） |
+| `spec` | 機能仕様書の一覧を作り直す（中核の一覧`tools/spec_core_catalog.json`を書き直してから`python tools/spec_catalog.py --write`） |
 | `adr` | ADR の索引の表を作り直す（`python tools/adr_catalog.py --write`） |
 | `build:voice-gate`、`build:rvc-worker` | 音声の補助プログラムとRVCのワーカーを `build/` にビルドする |
 | `build:windows`、`build:linux` | `npm run build`、`python tools/build_linux.py` |
@@ -31,7 +31,7 @@ mise run check               # 軽量チェック
 | `changelog:notes` | 正式版のリリースノートの雛形を `docs/release-notes/<版>.md` に作る。既にあれば上書きしない（[リリースノートの書式](release-notes/README.md#雛形から書き始める)） |
 | `dev:web` | Web UIの開発サーバー（Vite）。検証には含めない |
 
-機能仕様書の一覧（`docs/spec/reference/` のエンドポイント、エラーコード、設定キー）はコードから生成します。エンドポイント、エラーコード、設定キーを変えたら `mise run spec` で作り直します。`check` はこの一覧が最新かどうかも確かめます。仕様書の入口は [docs/spec/README.md](spec/README.md) です。
+機能仕様書の一覧（`docs/spec/reference/` のエンドポイント、エラーコード、設定キー）は中核とUIのコードから生成します。エンドポイント、エラーコード、設定キーを変えたら `mise run spec` で作り直します。`check` はこの一覧が最新かどうかも確かめます。仕様書の入口は [docs/spec/README.md](spec/README.md) です。
 
 設計判断の記録（ADR）の索引の表（[docs/adr/README.md](adr/README.md)）は、各 ADR の冒頭の front matter から生成します。ADR を足したり front matter を変えたりしたら `mise run adr` で作り直します。`check` は `tests/devtools/test_adr_catalog.py` で、番号の重複、項目と値、裏付けのパス、リンク、表の古さを確かめます。
 
@@ -323,6 +323,31 @@ npx mutator accept <キー> --reason "<等価と判断した理由>"            
 - `--include` で絞って回した後に全体を回すときは、`--full-dry-run` を付けます。付けないと、カバレッジの収集の一部に絞った回の結果が使われ、そのときに対象でなかったファイルの変異が NoCoverage と数えられます（2026-11-21 に、64 ファイル・約 3,600 件で起きました）。
 - 全体を最初から回すと、手元（Linux、並列16）で35分ほどかかりました（2026-11-21、変異40,552件）。前の回の結果を使える部分が多ければ、数分で終わります。結果を報告するときは、対象の範囲と計測した条件（版、並列数、機材）を添え、スコアを品質の保証として書かないでください。
 - 0.2.0 には、Windows でパスの区切りが合わず計装されない問題が報告されています（Issue #550）。手順は Linux で確かめたものです。
+
+### Rustのカバレッジとミューテーションテスト
+
+Rustのカバレッジは [cargo-llvm-cov](https://github.com/taiki-e/cargo-llvm-cov)、ミューテーションテストは [cargo-mutants](https://mutants.rs/) で測ります。どちらも `mise.toml` には入れていないので、使う人が入れます（2026-11-20に使った版は cargo-llvm-cov 0.9.1 と cargo-mutants 27.1.0）。CIでは回しません。リファクタリングの節目や、対象のモジュールを変えたときに手で回します（[Issue #550](https://github.com/kein5/astarot/issues/550)）。
+
+```sh
+rustup component add llvm-tools --toolchain 1.100.0
+cargo +1.100.0 install --locked cargo-llvm-cov@0.9.1 cargo-mutants@27.1.0
+
+# カバレッジ（クレートごと）
+cargo llvm-cov --locked --manifest-path native/ops/Cargo.toml --summary-only
+cargo llvm-cov report --manifest-path native/ops/Cargo.toml --show-missing-lines   # 直前の実行の、通らなかった行
+
+# ミューテーションテスト（ファイルを絞る）
+cd native/ops && cargo mutants -j 4 --cargo-arg=--locked -f src/downloads/catalog.rs
+cd native/core && PROPTEST_DISABLE_FAILURE_PERSISTENCE=1 cargo mutants --in-place --cargo-arg=--locked -f src/voice_settings.rs -- --lib
+```
+
+- `native/` のクレートは1つのワークスペースではなく、それぞれが `Cargo.lock` を持ちます。カバレッジはクレートごとに、そのクレートの試験だけで測ります。中核の統合試験から通っているコードも、そのクレートの数字には入りません。実機のPipeWireが要る試験（`--ignored`）も入りません。並列で落ちる試験（`native/adapters` のOSC）があるクレートは、`--ignore-run-fail` を付けて測ります。
+- cargo-mutants は、変異のない状態で試験がすべて通らないと何もしません。
+- cargo-mutants は既定でクレートを一時フォルダーに写して変異させます。`native/core` は、兄弟のクレートへの相対パスが通常の依存と試験用の依存で食い違い、写したものがビルドできません。そのため `--in-place`（その場で1件ずつ変異させる）で回します。回している間は、そのクレートのファイルを編集しないでください。
+- proptest は、落ちた入力を `proptest-regressions/` に書き残し、次の実行で先に試します。変異させたコードで落ちた入力は残す意味がないので、ミューテーションテストは `PROPTEST_DISABLE_FAILURE_PERSISTENCE=1` を付けて回します。
+- 対象は純粋なロジックにし、時刻や待ちに頼る試験のあるモジュールは外します（ミュータントごとに結果がぶれるため）。`-- --lib` を付けると単体の試験だけを流します。統合試験だけが確かめている変異は検出されないので、結果を報告するときは流した試験の範囲も書きます。
+- 結果は `mutants.out/` の `caught.txt`（検出）、`missed.txt`（未検出）、`timeout.txt`、`unviable.txt`（ビルドできない変異。分母に入れない）にあります。未検出は1件ずつコードを読み、試験の不足か、どの入力でも結果が変わらない等価なミュータントかを判断します。
+- 純粋な関数の境界は、プロパティベーステスト（[proptest](https://proptest-rs.github.io/proptest/)。`native/core` の試験用の依存）で確かめられます。正規化の結果をもう一度正規化しても変わらないこと、保存して読み戻すと同じになることなど、入力を選ばない性質を書きます。
 
 ## UIの文言と翻訳の検査
 

@@ -1,6 +1,6 @@
 //! OSC towards VRChat, and the local-only OSCQuery receive and discovery resources.
 //!
-//! The same contract as `src-python/models/osc/osc.py`:
+//! The same contract as [`src-python/models/osc/osc.py`]:
 //!
 //! - Chatbox text goes to `/chatbox/input` as `[text, True, notification]`, typing to
 //!   `/chatbox/typing` as `[flag]`, over UDP to the configured address and port (9000
@@ -18,6 +18,8 @@
 //!   such services, or none, give no value. Values are not coerced.
 //! - Every lifecycle step is bounded: queries and stop wait at most 2 seconds; a
 //!   cleanup that has not finished keeps its resources and blocks replacements.
+//!
+//! [`src-python/models/osc/osc.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/osc/osc.py
 
 pub mod mdns;
 pub mod packet;

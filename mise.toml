@@ -141,8 +141,9 @@ description = "src-tauri/bin/_internal for tauri dev and cargo check (stages wha
 run = "python tools/dev.py setup --scope resources"
 
 [tasks.spec]
-description = "Regenerate the spec reference (docs/spec/reference/) from the code"
-run = "python tools/spec_catalog.py --write"
+description = "Regenerate the spec reference (docs/spec/reference/): the core's catalog, then the tables"
+env = { VRCT_SPEC_CATALOG_WRITE = "1" }
+run = "cargo test --locked --manifest-path native/core/Cargo.toml --test spec_catalog && python tools/spec_catalog.py --write"
 
 [tasks.adr]
 description = "Regenerate the ADR index table (docs/adr/README.md) from the front matter"

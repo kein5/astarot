@@ -1,4 +1,7 @@
-//! Mirrors the module tests of `src-python/test/test_websocket_tls.py` for `tls.py`.
+//! Mirrors the module tests of [`src-python/test/test_websocket_tls.py`] for [`tls.py`].
+//!
+//! [`src-python/test/test_websocket_tls.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/test/test_websocket_tls.py
+//! [`tls.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/websocket/tls.py
 
 mod common;
 

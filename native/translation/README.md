@@ -9,7 +9,7 @@
 | `providers` | DeepL、Google Cloud Translation、Papago（NAVER Cloud Platform）、Plamo、Gemini、OpenAI、Groq、OpenRouter、OpenAI 互換、LM Studio、Ollama のキーの確認、モデルの一覧、翻訳。プロバイダごとに 1 ファイル（`providers/deepl.rs` など）で、共通の部分はトレイト（`Api`、`ChatCompletions`）に書く | `translation_*.py` の各クライアント |
 | `prompt` | チャット型のプロバイダに渡すシステムプロンプトと会話の履歴 | `translation_settings/prompt/*.yml` |
 | `transliteration` | 読みの分け方、何（なに・なん）の規則、カタカナからひらがなとヘボン式 | `transliteration_*.py` |
-| `http` | プロバイダとの通信に使う小さな HTTP/1.1 クライアント | `models/network_policy.py` の一部 |
+| `http` | プロバイダとの通信に使う小さな HTTP/1.1 クライアント | [`models/network_policy.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/network_policy.py) の一部 |
 | `translategemma` | TranslateGemma の公式のテンプレートの文を組み立て、アプリが起動した llama.cpp のサーバーの `/completion` に送る（ADR-015）。system を送らず、会話の文脈も送らず、温度 0 で生成する。エンジンの一覧のプロバイダではない。契約は `tests/translategemma.rs` と `tests/contract/translategemma.json` | （なし） |
 
 ## プロバイダの形

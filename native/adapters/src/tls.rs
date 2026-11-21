@@ -1,10 +1,12 @@
 //! TLS for the WebSocket and OBS servers when they listen beyond this PC (SEC-01).
 //!
-//! The same rules as `src-python/models/websocket/tls.py`. On a loopback IPv4 address
+//! The same rules as [`src-python/models/websocket/tls.py`]. On a loopback IPv4 address
 //! (127.0.0.0/8) nothing leaves the PC, so both servers stay plain `ws://` and `http://`.
 //! Any other address needs a certificate and key that the user chose: the WebSocket
 //! server then speaks `wss://` and OBS `https://`. Without a usable certificate the
 //! servers do not listen there at all.
+//!
+//! [`src-python/models/websocket/tls.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/websocket/tls.py
 
 use std::fmt;
 use std::fs;
