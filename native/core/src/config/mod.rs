@@ -252,6 +252,27 @@ pub(crate) fn random_suffix() -> String {
     bytes.iter().map(|b| format!("{b:02x}")).collect()
 }
 
+/// Removes what a write of `path` that stopped part way left beside it: the regular files named
+/// `<file name>.<`[`random_suffix`]`>.tmp`. Called with `path`'s lock held, so no write of it is
+/// in progress and every such file is a leftover. A link or a folder by that name is left alone.
+pub(crate) fn remove_leftover_temporaries(path: &Path) {
+    let (Some(directory), Some(name)) = (path.parent(), path.file_name().and_then(|n| n.to_str())) else { return };
+    let Ok(entries) = fs::read_dir(directory) else { return };
+    for entry in entries.flatten() {
+        let entry_name = entry.file_name();
+        let leftover = entry_name
+            .to_str()
+            .and_then(|n| n.strip_prefix(name))
+            .and_then(|rest| rest.strip_prefix('.'))
+            .and_then(|rest| rest.strip_suffix(".tmp"))
+            .is_some_and(|suffix| suffix.len() == 12 && suffix.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b)));
+        // `DirEntry::file_type` does not follow a link.
+        if leftover && entry.file_type().is_ok_and(|kind| kind.is_file()) {
+            let _ = fs::remove_file(entry.path());
+        }
+    }
+}
+
 /// The reason a save failed, as the UI names it.
 fn failure_reason(error: &io::Error) -> &'static str {
     #[cfg(windows)]
@@ -1138,6 +1159,7 @@ fn owner_only(path: &Path) -> bool {
 pub(crate) fn write_config(path: &Path, value: &Value) -> io::Result<()> {
     let directory = path.parent().unwrap_or(Path::new("."));
     let _lock = lock::FileLock::acquire(&path.with_file_name("config.json.lock"))?;
+    remove_leftover_temporaries(path);
     let text = to_python_json(value);
     let (temporary, mut file) = loop {
         let candidate = directory.join(format!("config.json.{}.tmp", random_suffix()));
@@ -1164,6 +1186,44 @@ pub(crate) fn write_config(path: &Path, value: &Value) -> io::Result<()> {
         sync_directory(directory);
     }
     written
+}
+
+#[cfg(test)]
+mod leftover_tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn a_save_removes_the_temporary_files_a_stopped_save_left_and_nothing_else() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("config.json");
+        let left = dir.path().join("config.json.0123456789ab.tmp");
+        fs::write(&left, "{\"ENABLE_TRANSLATION\": tr").unwrap();
+        // Not a save's own name: another length or file, or (where names keep their case; on
+        // Windows it would be the leftover itself) another case.
+        let mut kept = vec!["config.json.0123.tmp", "config.json.0123456789ab.tmp.bak", "other.json.0123456789ab.tmp", "config.json.before-migration-3"];
+        if !cfg!(windows) {
+            kept.push("config.json.0123456789AB.tmp");
+        }
+        for name in kept.iter().copied() {
+            fs::write(dir.path().join(name), "x").unwrap();
+        }
+        // A folder, or a link, by a save's name is not a leftover of one.
+        fs::create_dir(dir.path().join("config.json.aaaaaaaaaaaa.tmp")).unwrap();
+        #[cfg(unix)]
+        std::os::unix::fs::symlink(dir.path().join("elsewhere"), dir.path().join("config.json.bbbbbbbbbbbb.tmp")).unwrap();
+
+        write_config(&path, &json!({ "ENABLE_TRANSLATION": true })).unwrap();
+        assert!(!left.exists(), "the leftover was kept");
+        for name in kept {
+            assert!(dir.path().join(name).exists(), "{name} was removed");
+        }
+        assert!(dir.path().join("config.json.aaaaaaaaaaaa.tmp").is_dir());
+        #[cfg(unix)]
+        assert!(dir.path().join("config.json.bbbbbbbbbbbb.tmp").symlink_metadata().is_ok());
+        let saved: Value = serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
+        assert_eq!(saved, json!({ "ENABLE_TRANSLATION": true }));
+    }
 }
 
 /// Linux: flushes the folder's entry after a rename, so a power cut does not bring the old file
