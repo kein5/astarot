@@ -13,6 +13,7 @@ on:
       - 'tools/app_resources.py'
       - 'tools/check_voice_distribution.py'
       - 'tools/speechcpp_bundle.py'
+      - 'tools/sudachi_dictionary.py'
       - 'tools/build_rvc_worker.py'
       - 'tools/rust_licenses.py'
       - '.github/workflows/windows-package.yml'

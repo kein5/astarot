@@ -89,7 +89,7 @@ LM Studio と Ollama はこの PC か LAN のサーバとして、再試行せ�
 - sudachi.rs は crates.io にないので、git の依存としてタグ v0.6.11 のコミットに固定しています。0.6 の系列は SudachiDict 20250825 の形式（V0）を読みます。0.7 は新しい形式（V1）だけを読むので、上げるときは辞書も一緒に替えます。
 - 辞書は `system.dic`（SudachiDict）をファイルのまま読み、メモリーに写像します（`Sudachi::open`）。設定（`sudachi.json`）と文字の定義（`char.def` など）は sudachi.rs に組み込まれたものを使います。SudachiPy が同梱していたものと同じです。
 - `SudachiFile` は最初の文で辞書を開きます。ファイルがない、または読めない（途中で切れたファイルを含む）ときは `Unavailable` を返し、`unavailable_reason` が理由（ファイルの場所だけで、文章は入りません）を返します。アプリをもう一度起動するまで開き直しません。
-- どの辞書（full、core、small）を配布物に入れるかは `docs/voice-stack/core-integration.md` の「判断が要ること」の 3 です。辞書は `tools/sudachi_dictionary.py` が公式の配布から固定の版で取得し、大きさと SHA-256 を確かめます。
+- 配布物には full を入れます（`docs/voice-stack/core-integration.md` の「判断が要ること」の 3、2026-11-21 に決定、#924）。辞書は `tools/sudachi_dictionary.py` が公式の配布から固定の版で取得し、大きさと SHA-256 を確かめます。
 
 解析のあとの処理（読みの分け方、文脈の規則、ひらがなとヘボン式）は Python と同じ結果を返します。152 文で SudachiPy の出力と比べ、SudachiDict full ではすべて一致しました（計測は `core-integration.md`）。
 

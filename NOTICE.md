@@ -327,11 +327,11 @@ SudachiDict system dictionary by Works Applications / the WAP Tokushima
 Laboratory of AI and NLP, licensed under the Apache License 2.0. Parts of the
 dictionary come from UniDic (Copyright (c) 2011-2013, The UniDic Consortium,
 BSD-3-Clause) and from mecab-unidic-NEologd (Toshinori Sato, Apache-2.0). When
-a build includes the dictionary, it is in `_internal/build/sudachi/` with the
-distribution's `LEGAL` and `LICENSE-2.0.txt`, which carry these notices.
-`tools/sudachi_dictionary.py` fetches it from the official release at a pinned
-version, size and SHA-256. Which edition (full, core or small) builds include
-is still open (`docs/voice-stack/core-integration.md`, item 3).
+dictionary ships in `_internal/build/sudachi/` with the distribution's `LEGAL`
+and `LICENSE-2.0.txt`, which carry these notices. Builds include the full
+edition, which `tools/sudachi_dictionary.py` fetches from the official release
+at a pinned version, size and SHA-256 (`docs/voice-stack/core-integration.md`,
+item 3; issue #924).
 
 ## RVC base models
 

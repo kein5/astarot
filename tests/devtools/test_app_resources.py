@@ -27,6 +27,9 @@ def _build(base, platform):
     for name in app_resources.runtime_libraries(platform):
         (build / name).parent.mkdir(parents=True, exist_ok=True)
         (build / name).write_bytes(b"library")
+    (build / "sudachi").mkdir()
+    for name in app_resources.SUDACHI_FILES:
+        (build / "sudachi" / name).write_bytes(b"dictionary")
     return build
 
 
@@ -90,6 +93,15 @@ class AppResourcesTests(unittest.TestCase):
         (build / "openvr/libopenvr_api_64.dll").unlink()
         absent = app_resources.stage(self.output, "windows", build, ROOT)
         self.assertEqual(absent, ["onnxruntime/onnxruntime.dll", "openvr/libopenvr_api_64.dll"])
+
+    def test_a_package_without_the_readings_dictionary_is_incomplete(self):
+        # 0.5.0 shipped without it, and messages had no readings (#924).
+        for platform in ("windows", "linux"):
+            self.assertIn("build/sudachi/system.dic", app_resources.required(platform))
+            self.assertIn("build/sudachi/LEGAL", app_resources.required(platform))
+        build = _build(self.base, "windows")
+        (build / "sudachi/system.dic").unlink()
+        self.assertEqual(app_resources.stage(self.output, "windows", build, ROOT), ["build/sudachi/system.dic"])
 
     def test_a_missing_engine_is_reported(self):
         build = self.base / "build"

@@ -74,7 +74,47 @@ class SudachiDictionaryTest(unittest.TestCase):
             self.assertEqual(url, sd.url("core"))
             return io.BytesIO(b"not the archive")
         with self.assertRaises(SystemExit):
-            sd.download("core", self.dir / "core.zip", opener=opener)
+            sd.download_archive("core", self.dir / "core.zip", opener=opener)
+
+    def test_the_packages_ship_full_and_fetch_takes_it_by_default(self):
+        # Decision 3 (2026-11-21, #924): the readings 0.4 gave.
+        self.assertEqual(sd.SHIPPED_EDITION, "full")
+        with mock.patch.object(sd, "ensure", return_value=dict(version=sd.VERSION, edition="full", size=1)) as ensure:
+            self.assertEqual(sd.main(["fetch", "--output", str(self.dir / "out")]), 0)
+        self.assertEqual(ensure.call_args.args[0], "full")
+        for name in ("bat/build.bat", "tools/build_linux.py"):
+            source = (ROOT / name).read_text(encoding="utf-8")
+            self.assertTrue("sudachi_dictionary.py fetch --edition full" in source or "SHIPPED_EDITION" in source, name)
+
+    def test_a_checked_folder_of_the_edition_is_kept_and_another_is_replaced(self):
+        served = io.BytesIO()
+        archive(served, "core", b"core bytes")
+        served = served.getvalue()
+        editions = {"small": dict(pinned(DICTIONARY), archive_size=0, archive_sha256=""),
+                    "core": dict(pinned(b"core bytes"), archive_size=len(served),
+                                 archive_sha256=hashlib.sha256(served).hexdigest())}
+        downloads = []
+
+        def opener(url, timeout):
+            downloads.append(url)
+            return io.BytesIO(served)
+        with mock.patch.dict(sd.EDITIONS, editions):
+            sd.stage(archive(self.dir / "small.zip"), "small", self.dir / "out")
+            # The same edition, checked: kept, nothing downloaded.
+            self.assertEqual(sd.ensure("small", self.dir / "out", opener=opener)["edition"], "small")
+            self.assertEqual(downloads, [])
+            # Another edition: downloaded to the archive given, then staged in place of it.
+            kept = self.dir / "archives" / sd.archive_name("core")
+            self.assertEqual(sd.ensure("core", self.dir / "out", archive=kept, opener=opener)["edition"], "core")
+            self.assertEqual(downloads, [sd.url("core")])
+            self.assertTrue(kept.is_file())
+            self.assertEqual(sd.check(self.dir / "out"), [])
+            # The archive kept before serves the next build without the network.
+            (self.dir / "out/system.dic").write_bytes(b"damaged")
+            sd.ensure("core", self.dir / "out", archive=kept, download=False, opener=opener)
+            self.assertEqual(downloads, [sd.url("core")])
+            with self.assertRaises(SystemExit):
+                sd.ensure("small", self.dir / "elsewhere", archive=self.dir / "none.zip", download=False)
 
     def test_a_staged_folder_without_its_record_is_incomplete(self):
         self.assertEqual(sd.check(self.dir), ["dictionary.json"])
