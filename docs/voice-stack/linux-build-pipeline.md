@@ -26,7 +26,8 @@ starts once the loader is installed, and removal leaves nothing behind. It does 
 AppImage acceptance instead.
 
 The GitHub Actions workflow `VRCT-VOX Linux candidate (no publication)` targets Ubuntu 24.04.
-It runs on relevant pull requests or manual dispatch, tests the relocated package,
+It runs on relevant pull requests or manual dispatch, runs the app's unit tests (`src-tauri`, which
+no other job runs), tests the relocated package,
 and the AppImage extraction fallback, then retains successful candidates for seven days. It has `contents: read`, no
 publishing credentials and no release/AUR actions. The Linux packages of the
 [`v0.1.0-beta.1` prerelease](https://github.com/kein5/astarot/releases/tag/v0.1.0-beta.1)
