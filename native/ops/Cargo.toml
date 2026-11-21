@@ -28,6 +28,7 @@ libc = "=0.2.191"
 windows-sys = { version = "=0.61.2", features = [
     "Wdk_System_SystemServices",
     "Win32_Foundation",
+    "Win32_Networking_WinSock",
     "Win32_Storage_FileSystem",
     "Win32_System_IO",
     "Win32_System_Registry",
