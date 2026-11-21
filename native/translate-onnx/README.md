@@ -6,7 +6,7 @@
 
 - アプリのローカル翻訳のエンジンです（2026-11-16 に決定。[core-integration.md](../../docs/voice-stack/core-integration.md) の「決まったこと」）。中核（`native/core`）の機能 `onnx-translation`（既定でオン）の裏にあり、アプリ（`src-tauri`）でも有効です。
 - ONNX Runtime は実行時に読み込みます（`ort` の `load-dynamic`）。ビルドでは何も取得もリンクもしません。配布物には公式の CPU 版 1.31.0 が入っています（`_internal/onnxruntime`）。GPU で動かすための CUDA 版と DirectML 版は同梱せず、利用者が同意してから取得します（2026-11-19。[core-integration.md](../../docs/voice-stack/core-integration.md) の「判断が要ること」の 2）。ライブラリが見つからないときはモデルを読み込めません（`translation_runtime_missing`。中核では `TRANSLATION_MODEL_LOAD_FAILED`）。
-- モデルは `tools/translation_onnx/export.py` で作ります。カタログから取得できるのは M2M100 418M と NLLB-200 distilled 600M の int8 版です。公開とカタログの項目の作成には `tools/translation_onnx/publish.py` を使い、項目は `native/ops/data/translation_models.json` に置きます。
+- モデルは `tools/translation_onnx/export.py` で作ります。カタログから取得できるのは M2M100 418M、NLLB-200 distilled 600M、NLLB-200 distilled 1.3B の int8 版です。公開とカタログの項目の作成には `tools/translation_onnx/publish.py` を使い、項目は `native/ops/data/translation_models.json` に置きます。
 
 ## 対象モデル
 

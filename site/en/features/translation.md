@@ -19,7 +19,7 @@ The list shows the models you have downloaded, the ones you can download and the
 - The model you have selected stays in the list even when it cannot be downloaded, marked "Not available yet".
 - When no model can be downloaded and the selected one cannot be used, the page says so. To translate, use an external translation API or a local LLM under "More settings".
 
-The catalog offers the int8 versions of M2M100 418M and NLLB-200 distilled 600M. The table also lists the sizes of the other supported models.
+The catalog offers the int8 versions of M2M100 418M, NLLB-200 distilled 600M and NLLB-200 distilled 1.3B. The table also lists the sizes of the other supported models.
 
 | Model | Approximate size (int8) | License |
 |---|---|---|
