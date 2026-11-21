@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import { recognitionState, recommendedAsr, vadEntry, setupPlan, planModels, planBytes, nextAction, stepState,
-    setupOpensByItself } from "./firstRunSetup.ts";
+    setupSuggested } from "./firstRunSetup.ts";
 import type { RunView, SetupCatalog } from "./firstRunSetup.ts";
 import { unchecked } from "../test/hookHarness.ts";
 
@@ -107,9 +107,9 @@ test("each step shows whether it is done, under way, waiting or failed", () => {
     assert.deepEqual(steps().map((_, i) => stepState(steps(), i, half, null)), ["done", "working", "waiting", "waiting"]);
 });
 
-test("the setup opens by itself only while pending and the recognition needs it", () => {
-    assert.equal(setupOpensByItself(true, "needs_setup"), true);
-    for (const state of ["ready", "cloud", "own_server", "unknown"] as const) assert.equal(setupOpensByItself(true, state), false);
-    assert.equal(setupOpensByItself(false, "needs_setup"), false);
-    assert.equal(setupOpensByItself(null, "needs_setup"), false);
+test("the first screen leads to the setup only while pending and the recognition needs it", () => {
+    assert.equal(setupSuggested(true, "needs_setup"), true);
+    for (const state of ["ready", "cloud", "own_server", "unknown"] as const) assert.equal(setupSuggested(true, state), false);
+    assert.equal(setupSuggested(false, "needs_setup"), false);
+    assert.equal(setupSuggested(null, "needs_setup"), false);
 });

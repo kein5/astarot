@@ -7,6 +7,7 @@ import { useSetupNeeds } from "../../../../../../logics/main/useSetupNeeds";
 import { downloadProgress } from "../../../../../../logics/main/setupNeeds";
 import { useRecognitionState } from "../../../../../../logics/setup/useRecognitionState";
 import { useFirstRunSetup } from "../../../../../../logics/setup/useFirstRunSetup";
+import { setupSuggested } from "../../../../../../logics/setup/firstRunSetup.ts";
 import { useStartupPlaceholder } from "../../../startupContext";
 import { useVrchatHint } from "../../../vrchatHintContext";
 import styles from "./LogBox.module.scss";
@@ -109,11 +110,14 @@ const Setup = () => {
     // Nothing chosen for the recognition yet, or the bundled server without its models:
     // the first-run setup prepares it in one go (#557).
     const { state: recognition } = useRecognitionState();
-    const { openSetup } = useFirstRunSetup();
+    const { openSetup, notice } = useFirstRunSetup();
     const firstRun = recognition === "needs_setup";
+    // The setup does not open by itself (#935). While it is still suggested, its line leads the
+    // first screen: framed in lilac, its button the lilac one, so the user sees where to start.
+    const lead = setupSuggested(notice, recognition);
     return <>
         {firstRun && <ul className={styles.setup} aria-label={t("studio.setup_label")}>
-            <li>
+            <li data-lead={lead || undefined}>
                 <span>{t("studio.setup_first_run")}</span>
                 <button type="button" onClick={openSetup}>{t("studio.setup_first_run_open")}</button>
             </li>

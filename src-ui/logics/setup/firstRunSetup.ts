@@ -149,12 +149,13 @@ export const stepState = (plan: SetupStep[], index: number, view: RunView, faile
     return first === index && failedAt === null && (Object.keys(view.started).length + view.applied.length > 0) ? "working" : "waiting";
 };
 
-// Whether the setup may open by itself: still pending, the settings known, and the basic
-// features lacking something it prepares (the local recognition).
-export const setupOpensByItself = (pending: unknown, recognition: RecognitionState): boolean =>
+// Whether the first screen leads to the setup: still pending, the settings known, and the basic
+// features lacking something it prepares (the local recognition). The setup never opens by itself
+// (#935); its line on the first screen is drawn to stand out instead, and the user opens it.
+export const setupSuggested = (pending: unknown, recognition: RecognitionState): boolean =>
     pending === true && recognition === "needs_setup";
 
 // Whether another start-up dialog (the virtual microphone guide) should still wait: the setup is
-// pending and has neither been put away nor found not needed for this run.
+// pending and its state for this run is not known yet, or it is open.
 export const setupComesFirst = ({ notice, settled }: { notice: unknown; settled: unknown }): boolean =>
     notice === true && settled !== true;

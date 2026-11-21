@@ -2801,7 +2801,7 @@ first_run_setup:
     purpose: "Get speech recognition, translation and sending to VRChat ready. The setup checks what is missing and prepares what it can in one go."
     later: "Later"
     done: "Done"
-    dont_show: "Don't show this automatically again (you can open it from the first screen)"
+    dont_show: "Stop highlighting \"Open setup\" on the first screen (you can still open it there)"
     found:
         heading: "What was found"
         mic: "Microphone"
