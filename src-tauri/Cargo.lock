@@ -5902,6 +5902,7 @@ dependencies = [
  "tauri-plugin-opener",
  "tauri-plugin-single-instance",
  "tauri-plugin-updater",
+ "tempfile",
  "vrct-core",
  "webkit2gtk",
  "webview2-com",
