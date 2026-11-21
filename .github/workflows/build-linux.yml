@@ -126,6 +126,13 @@ jobs:
           cd build/linux/artifacts
           sha256sum -c ./*.tar.gz.sha256
           sha256sum -c ./*.AppImage.sha256
+      # The app's own unit tests (src-tauri), which no other job runs: this job has the WebKitGTK
+      # and the other system libraries the app builds against (#881). The build above works in a
+      # workspace of its own, so the checkout's development _internal is staged from build/ first.
+      - name: App unit tests (src-tauri)
+        run: |
+          python tools/dev.py setup --scope resources
+          cargo test --locked --manifest-path src-tauri/Cargo.toml
       - name: Install pinned GUI test driver
         run: cargo install tauri-driver --version 2.1.0 --locked
       - name: Relocated read-only package acceptance
