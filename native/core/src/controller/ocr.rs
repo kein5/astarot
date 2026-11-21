@@ -418,7 +418,9 @@ impl Core {
         Ok(true)
     }
 
-    /// `_ocrModelReadiness`: whether the models of the selected language are on disk (sizes only).
+    /// `_ocrModelReadiness`: whether the models of the selected language are on disk (sizes only),
+    /// and the chatbox detector's model with whether it is on disk and wanted. Files only, so the
+    /// start-up settings carry it and the chat reading page is drawn at its size from the start.
     fn ocr_model_readiness(&self) -> Map<String, Value> {
         let language = self.config().get("OCR_SOURCE_LANGUAGE");
         let spec = language.as_str().and_then(ocr_runtime::languages::resolve_model_spec);
@@ -428,6 +430,9 @@ impl Core {
         map.insert("language_supported".into(), json!(spec.is_some()));
         map.insert("required_models".into(), json!(spec.map(|s| s.model_ids()).unwrap_or_default()));
         map.insert("missing_models".into(), json!(spec.map(|s| ocr_runtime::models::missing_models(&root, &s)).unwrap_or_default()));
+        map.insert("detector_model".into(), json!(ocr_runtime::models::DETECTOR_MODEL_ID));
+        map.insert("detector_installed".into(), json!(ocr_runtime::chatbox::is_detector_installed(&root)));
+        map.insert("detector_enabled".into(), json!(self.config().get("OCR_USE_CHATBOX_DETECTOR") == json!(true)));
         map
     }
 
@@ -451,9 +456,6 @@ impl Core {
         map.extend(self.ocr_model_readiness());
         map.insert("capture".into(), json!(capture));
         map.insert("window_title".into(), config.get("OCR_WINDOW_TITLE"));
-        map.insert("detector_model".into(), json!(ocr_runtime::models::DETECTOR_MODEL_ID));
-        map.insert("detector_installed".into(), json!(ocr_runtime::chatbox::is_detector_installed(&self.ocr_model_root())));
-        map.insert("detector_enabled".into(), json!(config.get("OCR_USE_CHATBOX_DETECTOR") == json!(true)));
         map.insert("runtime".into(), Value::Object(runtime_value(&self.ocr_runtime_status())));
         Value::Object(map)
     }
