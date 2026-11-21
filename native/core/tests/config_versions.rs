@@ -300,3 +300,50 @@ fn the_installer_s_language_is_taken_once_and_its_marker_goes() {
     assert!(!marker.exists());
     config.close();
 }
+
+/// A value a newer version saved that this version cannot use (here a choice of the catalog's
+/// layout this version does not have) is not used, but it is written back as it was, also after
+/// this version saved and started again, until it is changed here (#560). The file names the
+/// newest version that saved it, so it stays marked while this one runs. The same value saved by
+/// this version, or by one that did not mark the file, is dropped (CT-04).
+#[test]
+fn a_value_only_a_newer_version_accepts_is_written_back_until_it_is_changed_here() {
+    let dir = tempfile::tempdir().unwrap();
+    let mark = vrct_core::config::NEWEST_SAVING_VERSION;
+    let write = |saved: Value| std::fs::write(dir.path().join("config.json"), serde_json::to_string(&saved).unwrap()).unwrap();
+    let open = || Config::open_with(environment(dir.path()), MemoryStore::new());
+
+    write(json!({ mark: "0.7.0", "CATALOG_LAYOUT": "compact", "UI_LANGUAGE": "ja" }));
+    let config = open();
+    assert_eq!(config.get("CATALOG_LAYOUT"), "grid", "this version uses its default");
+    assert_eq!(config.get("UI_LANGUAGE"), "ja");
+    config.save_now();
+    let saved = read(dir.path());
+    assert_eq!((saved["CATALOG_LAYOUT"].clone(), saved[mark].clone()), (json!("compact"), json!("0.7.0")));
+    config.close();
+
+    // Started again, it is still the newer version's value in a file marked by that version.
+    let config = open();
+    config.save_now();
+    assert_eq!(read(dir.path())["CATALOG_LAYOUT"], "compact");
+    // Changed here, the new value is written.
+    config.set("CATALOG_LAYOUT", json!("list")).unwrap();
+    config.save_now();
+    let saved = read(dir.path());
+    assert_eq!((saved["CATALOG_LAYOUT"].clone(), saved[mark].clone()), (json!("list"), json!("0.7.0")));
+    config.close();
+
+    // Saved by this version, or by one that did not mark the file: not a newer version's value.
+    for marked in [Some("0.0.0"), None] {
+        let mut saved = json!({ "CATALOG_LAYOUT": "compact" });
+        if let Some(version) = marked {
+            saved[mark] = json!(version);
+        }
+        write(saved);
+        let config = open();
+        config.save_now();
+        let saved = read(dir.path());
+        assert_eq!((saved["CATALOG_LAYOUT"].clone(), saved[mark].clone()), (json!("grid"), json!("0.0.0")), "{marked:?}");
+        config.close();
+    }
+}

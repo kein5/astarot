@@ -164,6 +164,10 @@ fn without_unknown_keys(mut saved: Map<String, Value>, input: &Value, case: &str
             kept => failures.push(format!("{case}: the unknown key {key} was not kept as it was: {kept:?}")),
         }
     }
+    // Python did not mark the file; the core names the newest version that saved it (#560).
+    if saved.shift_remove(vrct_core::config::NEWEST_SAVING_VERSION).is_none() {
+        failures.push(format!("{case}: {} is not written", vrct_core::config::NEWEST_SAVING_VERSION));
+    }
     saved
 }
 
