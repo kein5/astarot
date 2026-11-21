@@ -4592,6 +4592,11 @@
       "default": "stable"
     },
     {
+      "key": "RELEASE_CHANNEL_CHOSEN",
+      "kind": "saved",
+      "default": false
+    },
+    {
       "key": "CTRANSLATE2_WEIGHT_TYPE",
       "kind": "saved",
       "default": "m2m100_418M-ct2-int8"

@@ -1096,8 +1096,12 @@ impl Config {
         self.put_loading("LOCAL_ASR_MIGRATION", json!(LOCAL_ASR_MIGRATION_LATEST));
         self.migrate_usage_presets(&saved);
         self.migrate_speech_servers(&saved);
-        let channel = if ["-beta", "-rc"].iter().any(|m| self.env.version.contains(m)) { "beta" } else { "stable" };
-        self.put_loading("SELECTED_RELEASE_CHANNEL", json!(channel));
+        // The update channel the user chose stays (#466); until a choice it follows the running
+        // version, as it always did: a beta build is on the beta channel.
+        if !self.get_bool("RELEASE_CHANNEL_CHOSEN") {
+            let channel = if ["-beta", "-rc"].iter().any(|m| self.env.version.contains(m)) { "beta" } else { "stable" };
+            self.put_loading("SELECTED_RELEASE_CHANNEL", json!(channel));
+        }
         self.apply_installer_language();
     }
 
