@@ -1217,7 +1217,7 @@ impl Core {
         {
             return;
         }
-        let time = chrono::Local::now().format("%H:%M").to_string();
+        let time = crate::local_time::message_time(&crate::local_time::now());
         history.items.push(Said { source: source.to_string(), text: text.to_string(), time });
         let excess = history.items.len().saturating_sub(HISTORY_ITEMS);
         history.items.drain(..excess);

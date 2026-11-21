@@ -42,7 +42,7 @@ impl Core {
             return Reply::status(400, json!({ "error_code": "realtime_vocabulary_invalid" }));
         };
         let dir = exports_dir(self);
-        let name = chrono::Local::now().format("vocabulary-%Y%m%d-%H%M%S.txt").to_string();
+        let name = crate::local_time::vocabulary_export_name(&crate::local_time::now());
         let written = std::fs::create_dir_all(&dir)
             .and_then(|()| std::fs::write(dir.join(&name), crate::voice_settings::vocabulary_file(&vocabulary)));
         match written {

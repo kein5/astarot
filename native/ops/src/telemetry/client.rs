@@ -13,7 +13,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
 use rustls::ClientConfig;
 
 use super::hardware::Hardware;
@@ -159,11 +159,11 @@ pub(crate) fn system_properties_for(app_version: &str, language: &str, hardware:
 
 /// The event as it is sent, or `None` for anything that is not one of the two. The timestamp
 /// is ISO 8601 in UTC, to the second: the moment the event is put together.
-pub fn build_event(name: &str, properties: &Object, error_code: Option<&str>, now: Option<DateTime<Utc>>) -> Option<Json> {
+pub fn build_event(name: &str, properties: &Object, error_code: Option<&str>, now: Option<Timestamp>) -> Option<Json> {
     if !EVENTS.contains(&name) {
         return None;
     }
-    let stamp = now.unwrap_or_else(Utc::now).format("%Y-%m-%dT%H:%M:%SZ").to_string();
+    let stamp = now.unwrap_or_else(Timestamp::now).strftime("%Y-%m-%dT%H:%M:%SZ").to_string();
     let mut body = Object::new().with("event", name).with("v", SCHEMA).with("timestamp", stamp);
     for (key, value) in properties.iter() {
         body.insert(key, value.clone());
@@ -351,7 +351,7 @@ mod tests {
 
     #[test]
     fn once_a_day_means_the_day_of_the_events_timestamp() {
-        let moment = DateTime::parse_from_rfc3339("2026-11-14T08:30:05+09:00").unwrap().with_timezone(&Utc);
+        let moment: Timestamp = "2026-11-14T08:30:05+09:00".parse().unwrap();
         let event = build_event("app_started", &system_properties("1.0", "ja", None), None, Some(moment)).unwrap();
         assert_eq!(event.get("timestamp"), Some(&Json::from("2026-11-13T23:30:05Z")));
     }

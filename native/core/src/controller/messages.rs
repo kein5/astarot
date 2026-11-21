@@ -330,7 +330,7 @@ const LOG_LIMIT: u64 = 10 * 1024 * 1024;
 
 impl ConversationLog {
     fn start(&mut self, directory: &Path) {
-        let name = chrono::Local::now().format("%Y-%m-%d_%H-%M-%S.log").to_string();
+        let name = crate::local_time::conversation_log_name(&crate::local_time::now());
         self.file = Some((directory.join(name), None));
     }
 
@@ -347,7 +347,7 @@ impl ConversationLog {
             *file = Some(OpenOptions::new().create(true).append(true).open(&*path)?);
         }
         let handle = file.as_mut().expect("opened above");
-        let line = format!("{} - log - INFO - {text}\n", chrono::Local::now().format("%Y-%m-%d %H:%M:%S,%3f"));
+        let line = format!("{} - log - INFO - {text}\n", crate::local_time::conversation_log_stamp(&crate::local_time::now()));
         if handle.metadata().map(|m| m.len()).unwrap_or(0) + line.len() as u64 > LOG_LIMIT {
             *handle = OpenOptions::new().create(true).write(true).truncate(true).open(&*path)?;
         }

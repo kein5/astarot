@@ -104,8 +104,8 @@ fn the_app_started_event_carries_where_it_came_from_and_nothing_else() {
     assert_eq!(event.get("v"), Some(&Json::from(2u64)));
     assert_eq!(event.get("hw"), Some(&hardware().to_json()));
     let stamp = event.get("timestamp").unwrap().as_str().unwrap();
-    let sent_at = chrono::NaiveDateTime::parse_from_str(stamp, "%Y-%m-%dT%H:%M:%SZ").unwrap().and_utc();
-    assert!((chrono::Utc::now() - sent_at).num_seconds().abs() < 60);
+    let sent_at = jiff::civil::DateTime::strptime("%Y-%m-%dT%H:%M:%SZ", stamp).unwrap().to_zoned(jiff::tz::TimeZone::UTC).unwrap();
+    assert!(jiff::Timestamp::now().duration_since(sent_at.timestamp()).as_secs().abs() < 60);
     // No cookie, credential or identifier: only what HTTP needs, the key and the app's name,
     // exactly as http.client sent them.
     let headers: Vec<(&str, &str)> = request.headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
