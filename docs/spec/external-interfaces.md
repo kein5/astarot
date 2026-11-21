@@ -219,14 +219,15 @@ Tauriのupdater（`tauri-plugin-updater`）で行う（`src-tauri/src/app_update
 | 開発用のビルド | debugビルド | 確認しない（`disabled`） |
 
 - 更新の情報はGitHubのリリースの`latest.json`である。安定版（版に`-beta`がない）は`https://vrct-vox-updates.kei9d09.workers.dev/latest.json`を読む。この宛先はプロジェクトのCloudflare Workersで、最新のリリース（`https://github.com/kein5/VRCT-VOX/releases/latest/download/latest.json`）へ転送する。プレリリースは「latest」にならない。ベータ版は`GET https://api.github.com/repos/kein5/VRCT-VOX/releases`から、`latest.json`を持つ下書きでないリリースのうち最も新しい版（ベータ版と安定版の両方）を選び、取れなければ安定版の`latest.json`を読む。どちらも認証なしで、ヘッダーはupdaterの既定とUser-Agentだけである。
+- 更新のチャンネル（#466）: 上の「安定版」「ベータ版」の読み方は、`SELECTED_RELEASE_CHANNEL`（`stable`か`beta`）に従う。利用者がまだ選んでいなければ、起動のたびに動いている版から決める（版に`-beta`か`-rc`があれば`beta`）。設定の実験的機能のページで選ぶと（`/set/data/release_channel`）、`RELEASE_CHANNEL_CHOSEN`を`true`にして、その値を次の起動からも保つ。Betaでは安定版の版からもプレリリースが候補になる。updaterは今の版より新しい版だけを候補にするので、ベータ版を使っていてStableに戻すと、前の版には戻さず、次の安定版が出たときに更新する。更新のページの確認は`app_update_check`の`channel`に、バックエンドの更新のエンドポイントは中核がこの設定を渡す。確認の結果を共有するのは同じチャンネルの確認どうしだけである。更新のページの版の横の「（ベータ）」は、動いている版のチャンネル（`app_update_info`の`channel`）を表す。
 - `latest.json`の`platforms`は`windows-x86_64`（`VRCT-VOX_setup.exe`）と`linux-x86_64`（AppImage）を持つ。下書きを作るワークフロー（`prepare-release.yml`）が、検証済みの候補を`tauri signer sign --app-version`で署名し、`tools/updater_manifest.py`で書く。
 - 取得したファイルは`tauri.conf.json`の公開鍵（minisign、鍵ID `1178836E5C9F510B`）で検証し、署名の信頼済みコメントにある版が`latest.json`の版と一致することも求める（`requireSignedVersion`）。一致しなければ入れない。
 - インストーラーは`/UPDATE`のとき、言語のページを飛ばし、`installer_language.txt`を書かず、ショートカットを作り直さない。ZIPの取得とSHA-256の照合、段階的な置き換えは通常のインストールと同じである（[配布候補の手順](../voice-stack/release-candidates.md)）。
 - 起動ログ（`startup_log`）には失敗の種類とURLだけを書く。会話や音声は扱わない。
 - バックエンドの更新のエンドポイントも同じupdaterを使う（`app_update.rs`の`CoreUpdates`を`backend_host.rs`が中核に渡す。[判断20](../voice-stack/core-integration.md#判断が要ること)）。
-  - `/get/data/available_releases`は、上のGitHubのリリースの一覧（新しい30件）から、今の版のチャンネルが取るものを新しい順に`[{tag, version, is_prerelease, published_at}]`で返す。安定版は安定版だけ、ベータ版は両方。下書き、版でないタグ、`latest.json`がないもの、このリポジトリのダウンロードでないものは除く。確認しないコピー（deb、rpm、開発用のビルド）は通信せずに空を返す。
+  - `/get/data/available_releases`は、上のGitHubのリリースの一覧（新しい30件）から、更新のチャンネルが取るものを新しい順に`[{tag, version, is_prerelease, published_at}]`で返す。Stableは安定版だけ、Betaは両方。下書き、版でないタグ、`latest.json`がないもの、このリポジトリのダウンロードでないものは除く。確認しないコピー（deb、rpm、開発用のビルド）は通信せずに空を返す。
   - 起動時の`/run/software_update_info`（`{is_update_available, new_version}`）は、`CHECK_SOFTWARE_UPDATES`がオンのときだけupdaterで確かめる。オフなら通信せずに「更新なし」を送る。更新の画面の確認と同時に走るので、走っている確認の結果と、終わってから30秒以内の成功した結果は共有する。
-  - `/run/update_software`と`/run/update_cuda_software`は、今のチャンネルの最新版か、`data`の版（一覧にある版）を取得し、署名を確かめて入れる。配布物は1つなので、2つのエンドポイントは同じ動きである（`/run/update_cuda_software`はIPCの契約として残す。UIは`/run/update_software`だけを使う）。`mode`が`install`でないコピーでは入れない。署名の失敗は`UPDATE_SOFTWARE_VERIFY`、ほかの失敗は`UPDATE_SOFTWARE_DOWNLOAD`で、今の版のまま動き続ける。
+  - `/run/update_software`と`/run/update_cuda_software`は、更新のチャンネルの最新版か、`data`の版（一覧にある版）を取得し、署名を確かめて入れる。配布物は1つなので、2つのエンドポイントは同じ動きである（`/run/update_cuda_software`はIPCの契約として残す。UIは`/run/update_software`だけを使う）。`mode`が`install`でないコピーでは入れない。署名の失敗は`UPDATE_SOFTWARE_VERIFY`、ほかの失敗は`UPDATE_SOFTWARE_DOWNLOAD`で、今の版のまま動き続ける。
 
 ### LLMでの翻訳
 
