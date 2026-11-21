@@ -101,8 +101,9 @@ const Detection_Container = () => {
 const DETECTOR_STATES = ["on", "ready", "restart", "paused", "off", "missing"] as const;
 
 // VRCT-VOX's own chatbox detector: optional download, then a switch (on by default).
-// Until the readiness arrives, the part is drawn as it will be: the switch unavailable, the line
-// and the model's bar saying it is being checked. The line keeps the lines of its longest state,
+// Until the readiness arrives, the part is drawn as it will be: the switch as saved but unavailable,
+// the line and the model's bar saying it is being checked. When the model turns out to be missing,
+// the switch is then cleared. The line keeps the lines of its longest state,
 // and the model's bar stays once the model is on the PC, saying so. The part keeps one size, so
 // the rows under it do not move when the answer comes (#912).
 export const OcrChatboxDetector_Box = () => {
@@ -123,7 +124,7 @@ export const OcrChatboxDetector_Box = () => {
                 setting_id="ocr_use_chatbox_detector"
                 label={t("config_page.ocr.detector.label")}
                 desc={t("config_page.ocr.detector.desc")}
-                variable={{ ...currentOcrUseChatboxDetector, data: installed && status?.preferred === true }}
+                variable={{ ...currentOcrUseChatboxDetector, data: status ? installed && status.preferred : currentOcrUseChatboxDetector.data !== false }}
                 is_available={installed}
                 toggleFunction={installed ? toggleOcrUseChatboxDetector : undefined}
             />

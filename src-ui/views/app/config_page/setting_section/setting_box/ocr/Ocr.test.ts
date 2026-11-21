@@ -10,16 +10,17 @@ const readiness = (installed: boolean) => ({ engine: true, detector_model: MODEL
     runtime: { active: false, state: "stopped" } });
 
 // #912: the chatbox detector's part has one size from the page's opening on: before the readiness
-// arrives it is drawn as it will be, its line keeps the lines of its longest state, and its model's
-// bar stays once the model is on the PC.
+// arrives it is drawn as it will be (its switch as saved, unavailable), its line keeps the lines of
+// its longest state, and its model's bar stays once the model is on the PC.
 test("the chatbox detector's part keeps one size before and after the readiness arrives", async () => {
     const runtime = hooks();
     let answer: object | null = null;
+    let saved = true;
     const { OcrChatboxDetector_Box } = await loadModule<typeof import("./Ocr.tsx")>(new URL("./Ocr.tsx", import.meta.url), runtime, {
         "../../../../../../logics/common/languageNames.ts": { createLanguageNames: () => ({ language: (id: string) => id }) },
         "@logics_configs": {
             useOcr: () => ({ currentOcrReadiness: { state: "ok", data: answer }, getOcrReadiness: () => undefined,
-                currentOcrCaptureStatus: { state: "ok", data: null }, currentOcrUseChatboxDetector: { state: "ok", data: true },
+                currentOcrCaptureStatus: { state: "ok", data: null }, currentOcrUseChatboxDetector: { state: "ok", data: saved },
                 toggleOcrUseChatboxDetector: () => undefined }),
             useSaveButtonLogic: () => ({}),
         },
@@ -45,8 +46,12 @@ test("the chatbox detector's part keeps one size before and after the readiness 
         return { checked: variable.data, is_available, toggles: !!toggleFunction, current, words, align, ids, missing, checking };
     };
     const line = { words: STATES, align: "start" };
-    assert.deepEqual(part(null), { checked: false, is_available: false, toggles: false, current: "config_page.ocr.readiness.checking", ...line,
+    assert.deepEqual(part(null), { checked: true, is_available: false, toggles: false, current: "config_page.ocr.readiness.checking", ...line,
         ids: [], missing: [], checking: true });
+    // Until the answer, the switch says what was saved: on above, off here.
+    saved = false;
+    assert.equal(part(null).checked, false);
+    saved = true;
     assert.deepEqual(part(readiness(false)), { checked: false, is_available: false, toggles: false, current: "config_page.ocr.detector.status_missing", ...line,
         ids: [MODEL], missing: [MODEL], checking: false });
     assert.deepEqual(part(readiness(true)), { checked: true, is_available: true, toggles: true, current: "config_page.ocr.detector.status_ready", ...line,
