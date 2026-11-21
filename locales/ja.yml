@@ -1640,6 +1640,7 @@ app_update:
         appimage_read_only: "このAppImageは書き込めない場所にあるため、アプリ内では更新できません。AppImageを置いた方法（パッケージなど）で更新してください。"
         package_manager: "パッケージマネージャー（deb・rpm）で入れたASTAROTです。更新もパッケージマネージャーで行います。アプリは更新を確認しません。"
         disabled: "この版では、アプリ内の更新を使いません。"
+    restarting_after_failure: "更新を入れられませんでした。今の版のままASTAROTを再起動します。"
     errors:
         update_check_failed: "更新を確認できませんでした。ネットワークの接続を確かめて、あとでもう一度確認してください。"
         update_metadata_missing: "リリースのページに、この版向けの更新の情報がまだありません。"

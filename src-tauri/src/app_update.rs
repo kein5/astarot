@@ -27,7 +27,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 use tauri::ipc::Channel;
-use tauri::{AppHandle, Manager, Runtime, Url, WebviewWindow};
+use tauri::{AppHandle, Emitter, Manager, Runtime, Url, WebviewWindow};
 use tauri_plugin_updater::{Update, Updater, UpdaterExt};
 use vrct_core::controller::updates::{SoftwareUpdates, UpdateOutcome, no_update};
 
@@ -444,15 +444,29 @@ async fn check_latest<R: Runtime>(app: &AppHandle<R>, state: &AppUpdateState, ta
 /// app has no backend left, so a failure to start the installer must not leave it running so.
 static CORE_STOPPED_FOR_INSTALLER: AtomicBool = AtomicBool::new(false);
 
+/// Sent to the main window when a failed install is about to restart the app (Issue #561). It
+/// carries nothing: the window says the update was not installed and the app restarts.
+pub(crate) const RESTARTING_EVENT: &str = "app-update-restarting";
+
+/// How long the main window has to say so before the app restarts.
+const RESTART_NOTICE: Duration = Duration::from_secs(5);
+
 /// After a failed install: when the core was already stopped for the installer (Windows: the
 /// installer could not start, or the user declined it), the app restarts as it is, with its
-/// backend, instead of going on without one (Issue #456). Answers whether it restarts.
+/// backend, instead of going on without one (Issue #456). The user did not ask for that restart,
+/// so the main window says it first ([`RESTARTING_EVENT`]) and the restart comes
+/// [`RESTART_NOTICE`] later (Issue #561). Answers whether it restarts.
 fn restart_if_core_stopped<R: Runtime>(app: &AppHandle<R>) -> bool {
     if !CORE_STOPPED_FOR_INSTALLER.swap(false, Ordering::SeqCst) {
         return false;
     }
     crate::startup_log("Update: the installer did not start after the backend stopped; restarting");
-    app.request_restart();
+    let _ = app.emit_to("main", RESTARTING_EVENT, ());
+    let app = app.clone();
+    std::thread::spawn(move || {
+        std::thread::sleep(RESTART_NOTICE);
+        app.request_restart();
+    });
     true
 }
 

@@ -166,7 +166,7 @@ mod tests {
             assert_eq!(check_panel_event(label, "vr-panel-ready", &Value::Null), Err(FORBIDDEN.to_string()), "{label}");
         }
         // The names Rust sends to the main window cannot be passed off as the panel's.
-        for event in ["portal-shortcut", "portal-shortcuts-lost", "caption-overlay-moved", "caption-overlay-font-step",
+        for event in ["portal-shortcut", "portal-shortcuts-lost", "app-update-restarting", "caption-overlay-moved", "caption-overlay-font-step",
             "quick-chat-requested", "screencast-ended", "vr-panel-pointer", "vr-panel-state", ""] {
             assert_eq!(check_panel_event(VR_PANEL, event, &Value::Null), Err(EVENT_INVALID.to_string()), "{event}");
         }
