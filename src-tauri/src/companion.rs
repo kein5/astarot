@@ -62,10 +62,11 @@ const MAX_MONITOR_NAME: usize = 256;
 const DISPLAYS_EVERY: u32 = 25;
 const LANGUAGES: [&str; 5] = ["en", "ja", "ko", "zh-Hans", "zh-Hant"];
 /// What the panel, the hexagram and the tray may ask the main window to do: a switch to toggle,
-/// or (from the hexagram's common settings) the edge it hides at.
-const ACTIONS: [&str; 10] = [
+/// (from the hexagram's common settings) the edge it hides at, or (from the hexagram, the first
+/// time it comes out) to keep that it has told the wheel turns it (#536).
+const ACTIONS: [&str; 11] = [
     "toggle_mic", "toggle_translation", "toggle_listening", "toggle_ocr", "toggle_tts", "toggle_rvc",
-    "edge_right", "edge_left", "edge_top", "edge_bottom",
+    "edge_right", "edge_left", "edge_top", "edge_bottom", "wheel_hint_seen",
 ];
 
 /// The id in the experimental features list (src-ui/logics/configs/experimentalFeatures.ts,
@@ -170,6 +171,10 @@ pub struct Status {
     /// (TRAY_COMPANION_MONITOR).
     #[serde(default)]
     monitor: String,
+    /// Whether the hexagram has told that the wheel turns it (TRAY_COMPANION_WHEEL_HINT_SHOWN);
+    /// none until the main window has the setting (#536).
+    #[serde(default)]
+    hinted: Option<bool>,
 }
 
 fn default_edge() -> String {
@@ -189,6 +194,7 @@ impl Default for Status {
             language: "en".into(),
             edge: default_edge(),
             monitor: String::new(),
+            hinted: None,
             menu: MenuLabels {
                 start: "Start recognition".into(),
                 stop: "Stop recognition".into(),
@@ -1509,6 +1515,20 @@ mod tests {
         let mut older = value;
         older["ocr"].as_object_mut().unwrap().remove("blocked");
         assert!(!serde_json::from_value::<Status>(older).unwrap().ocr.blocked);
+    }
+
+    #[test]
+    fn the_wheel_hint_reaches_the_hexagram_and_an_older_report_leaves_it_unknown() {
+        // #536: the hexagram tells of the wheel only when the main window says it has not yet.
+        let mut status = Status::default();
+        status.hinted = Some(false);
+        let value = serde_json::to_value(&status).unwrap();
+        assert_eq!(value["hinted"], false);
+        assert_eq!(serde_json::from_value::<Status>(value.clone()).unwrap(), status);
+        let mut older = value.as_object().unwrap().clone();
+        older.remove("hinted");
+        assert_eq!(serde_json::from_value::<Status>(serde_json::Value::Object(older)).unwrap().hinted, None);
+        assert!(ACTIONS.contains(&"wheel_hint_seen"));
     }
 
     fn display(name: &str, x: i32, primary: bool) -> Display {

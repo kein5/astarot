@@ -1474,6 +1474,15 @@ export const SETTINGS_ARRAY = [
         logics_template_id: "get_set",
         base_endpoint_name: "release_channel",
     },
+    {
+        // The hexagram has told, the first time it came out, that the wheel turns it (#536).
+        Category: "ExperimentalFeatures",
+        Base_Name: "TrayCompanionWheelHintShown",
+        default_value: false,
+        ui_template_id: "toggle",
+        logics_template_id: "get_set",
+        base_endpoint_name: "tray_companion_wheel_hint_shown",
+    },
 
     // The usage presets the user picked (usagePresets.ts, #554). null until the engine answers:
     // nothing is hidden while it is not known.

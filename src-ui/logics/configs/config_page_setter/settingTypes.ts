@@ -268,6 +268,7 @@ export interface SettingValues {
     TrayCompanionEdge: string;
     TrayCompanionMonitor: string;
     ReleaseChannel: string;
+    TrayCompanionWheelHintShown: boolean;
 
     // UsagePresets: the ids the user picked; null until the backend answers.
     UsagePresets: string[] | null;

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { actionFor, companionStatus, edgeAction, FEATURES, panelState, runAction, SWITCH_IDS } from "./status.ts";
+import { actionFor, companionStatus, edgeAction, FEATURES, panelState, runAction, SWITCH_IDS, WHEEL_HINT_SEEN } from "./status.ts";
 import { unchecked } from "../test/hookHarness.ts";
 
 const t = (key: string) => `t:${key}`;
@@ -10,7 +10,7 @@ test("the reported state holds only the six switches, the UI language and the tr
     const status = companionStatus({ ready: true, mic: { state: "ok", data: true },
         translation: { state: "pending", data: false }, listening: { state: "ok", data: true },
         ocr: { state: "ok", data: false }, tts: { on: true, pending: false }, rvc: { on: false, pending: true },
-        edge: "bottom", monitor: "\\\\.\\DISPLAY2", language: "ja", t });
+        edge: "bottom", monitor: "\\\\.\\DISPLAY2", hinted: true, language: "ja", t });
     assert.deepEqual(status, {
         ready: true,
         mic: { on: true, pending: false, blocked: false },
@@ -22,6 +22,7 @@ test("the reported state holds only the six switches, the UI language and the tr
         language: "ja",
         edge: "bottom",
         monitor: "\\\\.\\DISPLAY2",
+        hinted: true,
         menu: { start: "t:companion.menu_start", stop: "t:companion.menu_stop", panel: "t:companion.menu_panel",
             main: "t:companion.menu_main", quit: "t:companion.menu_quit", monitor: "t:companion.menu_monitor",
             primary: "t:companion.menu_monitor_primary", display: "t:companion.menu_monitor_display",
@@ -35,6 +36,7 @@ test("an unknown language or edge falls back to English and the right edge, and 
     assert.equal(status.language, "en");
     assert.equal(status.edge, "right");
     assert.equal(status.monitor, "", "no monitor chosen: the primary one");
+    assert.equal(status.hinted, null, "the wheel's hint is not known yet: the hexagram does not tell of it");
     for (const feature of FEATURES) assert.deepEqual(status[feature], off, feature);
 });
 
@@ -85,6 +87,17 @@ test("the hexagram's common settings may ask for one of the four edges, and noth
     assert.equal(runAction("edge_middle", toggles), false);
     assert.equal(runAction("edge_right", { ...toggles, setEdge: undefined }), false);
     assert.deepEqual(edges, ["right", "left", "top", "bottom"]);
+});
+
+// #536: the first time the hexagram comes out it tells that the wheel turns it, and asks the main
+// window to keep that it has.
+test("the hexagram's wheel hint, once told, is kept", () => {
+    let kept = 0;
+    const toggles = { toggleTranscriptionSend: () => {}, toggleTranslation: () => {}, setHinted: () => { kept += 1; } };
+    assert.equal(runAction(WHEEL_HINT_SEEN, toggles), true);
+    assert.equal(kept, 1);
+    assert.equal(runAction(WHEEL_HINT_SEEN, { ...toggles, setHinted: undefined }), false);
+    assert.equal(companionStatus({ ready: true, mic: undefined, translation: undefined, hinted: false, language: "ja", t }).hinted, false);
 });
 
 test("a monitor chosen in the tray menu is saved by name, and an empty name means the primary one", () => {

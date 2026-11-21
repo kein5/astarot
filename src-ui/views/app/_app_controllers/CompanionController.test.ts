@@ -29,6 +29,8 @@ interface State {
     edgeSaved: unknown[];
     monitor: string;
     monitorSaved: unknown[];
+    hinted: boolean;
+    hintedSaved: unknown[];
     tray: boolean;
 }
 
@@ -37,6 +39,7 @@ async function setup(context: TestContext, { on = false }: { on?: boolean } = {}
         toggles: string[] = [], notices: [string, unknown][] = [];
     const state: State = { on, ready: false, mic: { state: "ok", data: false }, request: null, setup: null, blocks: {}, notice: null,
         startup: "running", queue: [], quits: 0, edge: "right", edgeSaved: [], monitor: "", monitorSaved: [],
+        hinted: false, hintedSaved: [],
         // Whether the app has a tray icon to put the main window away in.
         tray: true };
     const store: { companion_hide?: () => Promise<void> } = {};
@@ -60,7 +63,9 @@ async function setup(context: TestContext, { on = false }: { on?: boolean } = {}
             useExperimentalFeatures: () => ({ currentTrayCompanionEdge: { state: "ok", data: state.edge },
                 setTrayCompanionEdge: (value: unknown) => { state.edgeSaved.push(value); },
                 currentTrayCompanionMonitor: { state: "ok", data: state.monitor },
-                setTrayCompanionMonitor: (value: unknown) => { state.monitorSaved.push(value); } }) },
+                setTrayCompanionMonitor: (value: unknown) => { state.monitorSaved.push(value); },
+                currentTrayCompanionWheelHintShown: { state: "ok", data: state.hinted },
+                setTrayCompanionWheelHintShown: (value: unknown) => { state.hintedSaved.push(value); } }) },
         "@logics_main": { useMainFunction: () => ({ currentTranscriptionSendStatus: state.mic,
             currentTranslationStatus: { state: "ok", data: false },
             currentTranscriptionReceiveStatus: { state: "ok", data: false }, currentOcrCaptureStatus: { state: "ok", data: true },
@@ -144,6 +149,7 @@ test("turned on, it starts the overlay, reports the switches and runs what the t
     await s.hide();
     assert.equal(s.of("companion_hide_main").length, 1);
     assert.equal(s.published().ready, false);
+    assert.equal(s.published().hinted, null, "before the backend is ready, the wheel's hint is not known (#536)");
     s.state.ready = true; s.state.mic = { state: "ok", data: true };
     await s.render();
     const reported = s.published();
@@ -151,6 +157,7 @@ test("turned on, it starts the overlay, reports the switches and runs what the t
     assert.deepEqual(reported.mic, { on: true, pending: false, blocked: false });
     assert.equal(reported.language, "ja");
     assert.equal(reported.edge, "right");
+    assert.equal(reported.hinted, false, "the hexagram has not told of the wheel yet");
     s.state.edge = "top";
     await s.render();
     assert.equal(s.published().edge, "top", "a changed edge is reported");
@@ -175,6 +182,13 @@ test("turned on, it starts the overlay, reports the switches and runs what the t
     s.state.monitor = "\\\\.\\DISPLAY2";
     await s.render();
     assert.equal(s.published().monitor, "\\\\.\\DISPLAY2", "the chosen monitor is reported");
+    // #536: the hexagram told of the wheel; the main window keeps it.
+    s.state.queue.push("wheel_hint_seen");
+    await s.listener("companion-requested")();
+    assert.deepEqual(s.state.hintedSaved, [true]);
+    s.state.hinted = true;
+    await s.render();
+    assert.equal(s.published().hinted, true);
     s.listener("companion-quit")();
     assert.equal(s.state.quits, 1);
 });

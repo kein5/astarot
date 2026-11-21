@@ -10,7 +10,7 @@ UIから中核への要求と、中核からUIへの通知（`RUN_MAPPING`）の
 - UIの受信先: 200の応答を処理するUIのフック（`useReceiveRoutes.ts`の静的ルートと`ui_config_setter.ts`の定義から生成）。「—」は受信先がない。
 - ログで伏せる: `process.log`で値を`***MASKED***`に置き換える（`log::SENSITIVE_ENDPOINT_MARKERS`）。stdoutのIPCそのものは伏せない。
 
-## 要求（472件: 削除 13、取得 211、実行 49、有効化 41、無効化 43、設定 115）
+## 要求（474件: 削除 13、取得 212、実行 49、有効化 41、無効化 43、設定 116）
 
 並びは中核が経路を足した順（`controller/routes.rs`）。
 
@@ -129,6 +129,8 @@ UIから中核への要求と、中核からUIへの通知（`RUN_MAPPING`）の
 | `/set/data/tray_companion_edge` | 設定 | 可 | useExperimentalFeatures.setSuccessTrayCompanionEdge |  |
 | `/get/data/tray_companion_monitor` | 取得 | 可 | useExperimentalFeatures.updateFromBackendTrayCompanionMonitor |  |
 | `/set/data/tray_companion_monitor` | 設定 | 可 | useExperimentalFeatures.setSuccessTrayCompanionMonitor |  |
+| `/get/data/tray_companion_wheel_hint_shown` | 取得 | 可 | useExperimentalFeatures.updateFromBackendTrayCompanionWheelHintShown |  |
+| `/set/data/tray_companion_wheel_hint_shown` | 設定 | 可 | useExperimentalFeatures.setSuccessTrayCompanionWheelHintShown |  |
 | `/get/data/mic_avg_logprob` | 取得 | 可 | useTranscription.updateFromBackendMicAvgLogprob |  |
 | `/set/data/mic_avg_logprob` | 設定 | 可 | useTranscription.setSuccessMicAvgLogprob |  |
 | `/get/data/mic_no_speech_prob` | 取得 | 可 | useTranscription.updateFromBackendMicNoSpeechProb |  |
@@ -613,7 +615,7 @@ UIから中核への要求と、中核からUIへの通知（`RUN_MAPPING`）の
 - `/run/vad_unavailable`
 
 
-## UIだけにあるルート（58件）
+## UIだけにあるルート（60件）
 
 UIに受信先が定義されているが、中核の要求と通知にはないもの。多くは`ui_config_setter.ts`の定義が機械的に作るルートで、使われない。
 
@@ -675,3 +677,5 @@ UIに受信先が定義されているが、中核の要求と通知にはない
 - `/set/data/telemetry`
 - `/set/data/vrc_mic_mute_sync`
 - `/set/data/websocket_server`
+- `/set/disable/tray_companion_wheel_hint_shown`
+- `/set/enable/tray_companion_wheel_hint_shown`
