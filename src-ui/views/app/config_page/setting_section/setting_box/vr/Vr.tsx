@@ -30,6 +30,7 @@ import TriangleSvg from "@images/triangle.svg?react";
 import { randomIntMinMax } from "@utils";
 import { DesktopCaptionOverlay } from "./DesktopCaptionOverlay";
 import { OverlayFontFamily } from "./OverlayFontFamily";
+import { StableWords } from "../../../../../common_components/stable_words/StableWords";
 import type { AtomState } from "@store";
 import type { StdoutResult } from "../../../../../../logics/common/useStdoutToPython.ts";
 import type { OverlayLogSettings } from "../../../../../../logics/configs/config_page_setter/settingTypes.ts";
@@ -769,7 +770,8 @@ const SendSampleTextToggleButton = () => {
         ? t("config_page.vr.sample_text_button.stop")
         : t("config_page.vr.sample_text_button.start");
 
-    // A plain button whose words say what pressing it does; the row beside it says why.
+    // A plain button whose words say what pressing it does; the row beside it says why. It keeps the
+    // width of the longer words, so it does not shrink under the pointer when pressed (#912).
     return (
         <div className={styles.sample_text_button_wrapper}>
             <button
@@ -783,7 +785,7 @@ const SendSampleTextToggleButton = () => {
                 ) : (
                     <TriangleSvg className={styles.sample_text_button_triangle_svg} aria-hidden="true" />
                 )}
-                {label}
+                <StableWords current={label} words={[t("config_page.vr.sample_text_button.start"), t("config_page.vr.sample_text_button.stop")]} />
             </button>
         </div>
     );

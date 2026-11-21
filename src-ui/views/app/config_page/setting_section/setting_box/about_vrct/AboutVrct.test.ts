@@ -86,7 +86,7 @@ for (const language of ["en", "ja"]) {
             "@ui_configs": { ui_configs: { overlay_small_log: controls } },
             "../_components": { Slider: "slider", SectionLabelComponent: "heading" }, "../_components/form_row/FormRow": { FormRow: "form-row" },
             "../_templates/Templates": { RadioButtonContainer: "radio", CheckboxContainer: "checkbox", ActionButtonContainer: "action" },
-            "@common_components": { ResetButton: "reset" }, "../_components/page_pointer/PagePointer": { PagePointer: "pointer" }, "../_components/advanced_section/AdvancedSection": { AdvancedSection: "advanced" }, "@utils": { randomIntMinMax: () => 0 },
+            "@common_components": { ResetButton: "reset" }, "../../../../../common_components/stable_words/StableWords": { StableWords: "stable-words" }, "../_components/page_pointer/PagePointer": { PagePointer: "pointer" }, "../_components/advanced_section/AdvancedSection": { AdvancedSection: "advanced" }, "@utils": { randomIntMinMax: () => 0 },
             "../_components/hint/Hint": { HintDescriptions: "hints", Hint: "hint", useHintDescriptions: () => false },
             "./DesktopCaptionOverlay": { DesktopCaptionOverlay: "desktop" },
             "./OverlayFontFamily": { OverlayFontFamily: "font" },
