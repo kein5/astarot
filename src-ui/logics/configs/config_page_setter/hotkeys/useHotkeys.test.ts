@@ -4,6 +4,7 @@ import { stripTypeScriptTypes } from "node:module";
 import { test, vi } from "vitest";
 import { hooks, loadModule } from "../../../test/hookHarness.ts";
 import type { HookRuntime } from "../../../test/hookHarness.ts";
+import { localeAt, readLocale } from "../../../test/locales.ts";
 
 // The stand-ins' shared state (the module made from `dependencies` below), as the tests script and
 // read it.
@@ -150,6 +151,19 @@ for (const [atom, value] of [["settings", true], ["ready", false], ["updating", 
         assert.deepEqual(subject.state.actions, []);
     });
 }
+
+test("a shortcut the desktop cannot take is told with its own message, in both languages (#563)", async () => {
+    const subject = await setup();
+    // The portal refuses a key it has no name for, and with it the whole bind.
+    subject.state.bind = () => Promise.reject("portal_shortcut_invalid");
+    const hook = await subject.load();
+    await hook.registerShortcuts();
+    assert.deepEqual(subject.state.notices.map(([message]) => message), ["quick_chat.portal_errors.portal_shortcut_invalid"]);
+    // The stand-in says every key exists; the message is in both locale files.
+    for (const language of ["en", "ja"]) {
+        assert.equal(typeof localeAt(readLocale(language), "quick_chat.portal_errors.portal_shortcut_invalid"), "string", language);
+    }
+});
 
 test("unmount removes the handler and late bind cannot dispatch or report a stale error", async () => {
     const subject = await setup(), gate = deferred();

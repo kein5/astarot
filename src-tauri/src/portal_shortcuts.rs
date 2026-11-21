@@ -75,11 +75,42 @@ pub(crate) fn failure(code: &str) -> impl Fn(zbus::Error) -> String + '_ {
     move |_| code.to_owned()
 }
 
+/// The symbol keys the UI records (a US layout's keys without Shift), with their XKB keysym names
+/// as the shortcuts specification names keys. Qt names each by its ASCII value.
+const SYMBOL_KEYS: [(char, &str); 11] = [
+    ('`', "grave"), ('-', "minus"), ('=', "equal"), ('[', "bracketleft"), (']', "bracketright"),
+    ('\\', "backslash"), (';', "semicolon"), ('\'', "apostrophe"), (',', "comma"), ('.', "period"), ('/', "slash"),
+];
+
+/// What Shift types on a US layout, and the key. Shortcuts saved before the UI recorded the key
+/// (digits before 2026-11-07, symbols before 2026-11-18) hold the typed character ("Shift+?").
+const SHIFTED_KEYS: [(char, char); 21] = [
+    ('~', '`'), ('!', '1'), ('@', '2'), ('#', '3'), ('$', '4'), ('%', '5'), ('^', '6'), ('&', '7'), ('*', '8'),
+    ('(', '9'), (')', '0'), ('_', '-'), ('+', '='), ('{', '['), ('}', ']'), ('|', '\\'), (':', ';'), ('"', '\''),
+    ('<', ','), ('>', '.'), ('?', '/'),
+];
+
+/// The key a one-character name stands for: with Shift in the shortcut, a character Shift types
+/// is read as its key, as the UI records it now.
+fn key_char(c: char, shifted: bool) -> char {
+    if shifted {
+        if let Some((_, key)) = SHIFTED_KEYS.iter().find(|(typed, _)| *typed == c) {
+            return *key;
+        }
+    }
+    c
+}
+
+fn shifted(keys: &[String]) -> bool {
+    keys.iter().any(|name| name == "Shift")
+}
+
 /// VRCT stores keys as shown in the UI ("Ctrl", "Shift", "Q"); the portal
 /// takes the shortcuts specification's names ("CTRL+SHIFT+q").
 fn trigger(keys: &[String]) -> Option<String> {
     let mut parts = Vec::new();
     let mut key = None;
+    let shifted = shifted(keys);
     for name in keys {
         match name.as_str() {
             "Ctrl" => parts.push("CTRL".to_owned()),
@@ -90,8 +121,10 @@ fn trigger(keys: &[String]) -> Option<String> {
                 let mut chars = other.chars();
                 key = Some(match (chars.next(), chars.next()) {
                     (Some(' '), None) => "space".to_owned(),
-                    (Some(c), None) if c.is_ascii_alphanumeric() => c.to_ascii_lowercase().to_string(),
-                    (Some(_), None) => return None,
+                    (Some(c), None) => match key_char(c, shifted) {
+                        c if c.is_ascii_alphanumeric() => c.to_ascii_lowercase().to_string(),
+                        c => SYMBOL_KEYS.iter().find(|(symbol, _)| *symbol == c)?.1.to_owned(),
+                    },
                     _ => match other {
                         "Space" => "space".to_owned(),
                         "Enter" => "Return".to_owned(),
@@ -126,6 +159,7 @@ const QT_NAMED: [(&str, i32); 15] = [
 fn qt_key(keys: &[String]) -> Option<i32> {
     let mut combined = 0;
     let mut key = None;
+    let shifted = shifted(keys);
     for name in keys {
         match name.as_str() {
             "Ctrl" => combined |= QT_CTRL,
@@ -136,7 +170,11 @@ fn qt_key(keys: &[String]) -> Option<i32> {
                 let mut chars = other.chars();
                 key = Some(match (chars.next(), chars.next()) {
                     (Some(' '), None) => 0x20,
-                    (Some(c), None) if c.is_ascii_alphanumeric() => c.to_ascii_uppercase() as i32,
+                    (Some(c), None) => match key_char(c, shifted) {
+                        c if c.is_ascii_alphanumeric() => c.to_ascii_uppercase() as i32,
+                        c if SYMBOL_KEYS.iter().any(|(symbol, _)| *symbol == c) => c as i32,
+                        _ => return None,
+                    },
                     _ => match other.strip_prefix('F').and_then(|n| n.parse::<i32>().ok()) {
                         Some(n @ 1..=35) => 0x0100_0030 + n - 1,
                         _ => QT_NAMED.iter().find(|(named, _)| *named == other)?.1,
@@ -724,6 +762,26 @@ mod tests {
         assert_eq!(trigger(&keys(&["Ctrl"])), None);
         assert_eq!(trigger(&keys(&["Ctrl", "A", "B"])), None);
         assert_eq!(trigger(&keys(&["Ctrl", "+"])), None);
+    }
+
+    #[test]
+    fn symbol_keys_become_their_keysym_names() {
+        // The 11 symbols the UI records, by the names the shortcuts specification gives them.
+        let named: Vec<_> = SYMBOL_KEYS.iter().map(|(symbol, _)| trigger(&keys(&["Ctrl", "Shift", &symbol.to_string()]))).collect();
+        assert_eq!(named, ["grave", "minus", "equal", "bracketleft", "bracketright", "backslash", "semicolon",
+            "apostrophe", "comma", "period", "slash"].map(|name| Some(format!("CTRL+SHIFT+{name}"))));
+        assert_eq!(trigger(&keys(&["Alt", "/"])).as_deref(), Some("ALT+slash"));
+        // Saved before the UI recorded the key: what Shift typed is read as the key.
+        assert_eq!(trigger(&keys(&["Ctrl", "Shift", "?"])).as_deref(), Some("CTRL+SHIFT+slash"));
+        assert_eq!(trigger(&keys(&["Ctrl", "Shift", "!"])).as_deref(), Some("CTRL+SHIFT+1"));
+        // Without Shift, a typed character is not a key the UI records.
+        assert_eq!(trigger(&keys(&["Ctrl", "?"])), None);
+        assert_eq!(trigger(&keys(&["Ctrl", "Shift", "¥"])), None);
+        assert_eq!(qt_key(&keys(&["Ctrl", "Shift", "/"])), Some(QT_CTRL | QT_SHIFT | 0x2F));
+        assert_eq!(qt_key(&keys(&["Ctrl", "Shift", "?"])), Some(QT_CTRL | QT_SHIFT | 0x2F));
+        assert_eq!(qt_key(&keys(&["Ctrl", "["])), Some(QT_CTRL | 0x5B));
+        assert_eq!(qt_key(&keys(&["Ctrl", "?"])), None);
+        assert_eq!(qt_text(QT_CTRL | QT_SHIFT | 0x2F), "Ctrl+Shift+/");
     }
 
     #[test]
