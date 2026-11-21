@@ -62,6 +62,7 @@ miseを[公式の手順](https://mise.jdx.dev/getting-started.html)で入れ、�
 | Cocogitto | 7.0.0 | コマンド名は `cog` |
 | Biome | 2.6.6 | UIのTypeScriptとJavaScriptのlintと整形（[UIのlintと整形](#uiのlintと整形biome)） |
 | actionlint | 1.7.12 | ワークフローの書き方を確かめる |
+| shellcheck | 0.11.0 | ワークフローの `run:` のシェルのスクリプトを確かめる（actionlintから呼ばれる） |
 | zizmor | 1.32.0 | ワークフローの安全の問題を確かめる |
 | cargo-deny | 0.20.2 | Rustのクレートのライセンス、既知の脆弱性、取得元を確かめる |
 | cargo-nextest | 0.9.151 | Rustの試験を流す。コマンドは `cargo nextest`。miseのレジストリにないので、`mise.toml` の `[tool_alias]` でGitHubのリリースから取る |
@@ -90,6 +91,7 @@ uvはmise以外で入れたPython（uvが自分で取得したものを含む）
 | Rust / Cargo | [Rust installation](https://www.rust-lang.org/tools/install) |
 | Cocogitto | [Cocogitto installation](https://docs.cocogitto.io/) |
 | actionlint | [actionlint installation](https://github.com/rhysd/actionlint/blob/main/docs/install.md) |
+| shellcheck | [ShellCheck installing](https://github.com/koalaman/shellcheck#installing) |
 | zizmor | [zizmor installation](https://docs.zizmor.sh/installation/) |
 | cargo-deny | [cargo-deny](https://embarkstudios.github.io/cargo-deny/) |
 | cargo-nextest | [cargo-nextest installation](https://nexte.st/docs/installation/pre-built-binaries/) |
@@ -171,7 +173,7 @@ python tools/dev.py check --scope integration
 | `ui` | UIの試験（Vitest）、[Biome](#uiのlintと整形biome)のlintと整形の検査、型チェック（`npm run typecheck`）、`npm run vite-build`。ブラウザの操作は含まない |
 | `rust` | `src-tauri` の `cargo check --locked --offline` と、`native/app-identity`、`native/speech-server`、`native/ops`、`native/audio-routing`、`native/adapters`、`native/translation`、`native/transcription`、`native/openvr-client`、`native/onnx-runtime`、`native/vr-overlay`、`native/voice-conversion`、`native/translate-onnx`、`native/tts`、`native/core` の試験を、cargo-nextestで実行（`cargo nextest run --locked --offline`）。nextestはdoctestを流さないので、`src/lib.rs` のあるクレートは続けて `cargo test --doc` を実行する。キャッシュやOS依存（Linuxでは `libpipewire-0.3` の開発ファイルとlibclang。`src-tauri` も中核を通して使う）がなければ失敗 |
 | `integration` | [結合テスト](#結合テストplaywright)。`native/browser-core-bridge` を `cargo build --locked --offline` で組み、`tests/integration/vite.config.ts` で画面を組んでから、Playwright で Chromium と WebKit の試験を流す。ブラウザは取得しない。未導入なら `setup --scope integration` を案内して止まる |
-| `workflows` | ワークフローと自前のアクションを、actionlintとzizmorで検査（[リポジトリの検査](#リポジトリの検査)） |
+| `workflows` | ワークフローと自前のアクションを、actionlint（shellcheckを含む）とzizmorで検査（[リポジトリの検査](#リポジトリの検査)） |
 | `crates` | すべてのCargoのワークスペースの依存のライセンス、禁止の設定、取得元を、cargo-denyで検査（[リポジトリの検査](#リポジトリの検査)）。先に `setup --scope rust` が要る |
 | `links` | リポジトリのMarkdownのファイル同士のリンクと見出しへのリンクを、lycheeで検査。外部のサイトには問い合わせない（[リポジトリの検査](#リポジトリの検査)） |
 | `hooks` | Gitのフックの設定（`hk.pkl`）を `hk validate` で検査（[Gitのフック](#gitのフック)） |
@@ -204,14 +206,14 @@ Pythonは専用venvを優先し、次に既存の `.venv` を探します。`--p
 
 | スコープ | 道具 | 確かめること | 例外の置き場所 |
 | --- | --- | --- | --- |
-| `workflows` | actionlint、zizmor | ワークフローの書き方、式、型（actionlint）。ワークフロー、自前のアクション、`dependabot.yml` の安全の問題（zizmor） | `.github/zizmor.yml`、または該当行の `# zizmor: ignore[<監査>] <理由>` |
+| `workflows` | actionlint、shellcheck、zizmor | ワークフローの書き方、式、型（actionlint）。`run:` のシェルのスクリプト（actionlintが呼ぶshellcheck）。ワークフロー、自前のアクション、`dependabot.yml` の安全の問題（zizmor） | `.github/zizmor.yml`、または該当行の `# zizmor: ignore[<監査>] <理由>` |
 | `links` | lychee | `site/` 以外のMarkdownのファイル同士のリンクと、見出しへのリンク（`#...`）。外部のサイトには問い合わせない | `lychee.toml` |
 | `hooks` | hk | Gitのフックの設定（`hk.pkl`）の書き方。`hk.pkl` が読むhkの設定のパッケージの版と、`mise.toml` のhkの版がそろっていること（`tests/devtools/test_toolchain_pins.py`） | なし |
 | `secrets` | gitleaks | `--base` からHEADまでの新規コミットの鍵やトークン。見つけた値は出力に出さない（`--redact`） | `.gitleaks.toml`（規則）、`.gitleaksignore`（過去のコミットの指紋） |
 | `vulns` | osv-scanner | `uv.lock`、`package-lock.json`（ルートと `site/` と `site/motion/`）、18の `Cargo.lock` の依存の既知の脆弱性（osv.dev） | `osv-scanner.toml`（例外。理由と見直す日を書く） |
 | `crates` | cargo-deny | 18のCargoのワークスペース（`CARGO_WORKSPACES`）の依存のライセンス、取得元（crates.ioと、許可したgitのリポジトリ）、版を書かない依存。配布する2つのシステム（WindowsとLinuxのx64）で組む依存だけを見る | `deny.toml` |
 
-- actionlintのshellcheckとpyflakesの検査は切っています。どちらも `mise.toml` で版を固定していないので、PCによって結果が変わるためです。
+- actionlintは、`mise.toml` で固定したshellcheck（0.11.0）で `run:` のスクリプトを確かめます（2026-11-21に #833 の判断3で決定）。版によって見つけるものが変わるので、`doctor` は固定した版のshellcheckだけを通します。pyflakesの検査は切っています（pyflakesが見る `shell: python` のステップがないため）。
 - zizmorは、`GH_TOKEN` があるとGitHubに問い合わせる監査（固定したコミットが本当にそのアクションのものか、既知の脆弱性のある版か）も行います。CIではワークフローのトークン（読み取りだけ）を渡します。手元では、`GH_TOKEN` がなければその監査を飛ばします。
 - 例外を足すときは、理由を必ず書きます。
 - `deny.toml` のライセンスは[ライセンス台帳](voice-stack/licensing.md)に合わせています。許容型（MIT、Apache-2.0、BSD、ISC、Zlib、Unicode-3.0など）はどのクレートにも認め、MPL-2.0とCDLA-Permissive-2.0は台帳で確かめたクレートだけに認めます。新しい依存で検査が止まったら、台帳に記録してから `deny.toml` に足します。既知の脆弱性はcargo-denyでは見ません。
@@ -429,7 +431,7 @@ CLIは指定refとHEADの共通祖先を求め、その後のコミットだけ�
 | フック | 手順 | 確かめること |
 | --- | --- | --- |
 | pre-commit | gitleaks | ステージした変更の鍵やトークン。見つけた値は表示しない |
-| pre-commit | actionlint、zizmor | 変えたワークフローと自前のアクション。`check --scope workflows` と同じ設定 |
+| pre-commit | actionlint（shellcheckを含む）、zizmor | 変えたワークフローと自前のアクション。`check --scope workflows` と同じ設定 |
 | pre-commit | Biome | 変えたUIのTypeScriptとJavaScriptのlintと整形。`check --scope ui` と同じ設定（`biome.json`）で、対象外のファイルは読まない。まだ直していない規則は警告なので、コミットは止まらない |
 | pre-commit | lychee | 変えたMarkdown（`site/` を除く）のリンク。外部のサイトには問い合わせない |
 | commit-msg | cocogitto | Conventional Commits（`cog.toml`） |

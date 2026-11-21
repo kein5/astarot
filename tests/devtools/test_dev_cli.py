@@ -268,8 +268,8 @@ class DeveloperCLITests(unittest.TestCase):
         with patch.dict(os.environ, {"GITHUB_ACTIONS": ""}):
             code, output = self.call("check", "--scope", "workflows", "--dry-run")
         self.assertEqual(code, 0)
-        # shellcheck and pyflakes are not pinned in mise.toml, so actionlint leaves them out.
-        self.assertIn("actionlint -shellcheck= -pyflakes=", output)
+        # shellcheck runs on the scripts in `run:` (pinned in mise.toml); pyflakes stays off.
+        self.assertIn("[actionlint] actionlint -pyflakes=\n", output)
         # The root, so that the composite actions and dependabot.yml are audited too.
         self.assertIn("[zizmor] zizmor .", output)
         with patch.dict(os.environ, {"GITHUB_ACTIONS": "true"}):
@@ -277,12 +277,24 @@ class DeveloperCLITests(unittest.TestCase):
         self.assertIn("zizmor --format github .", output)
 
     def test_workflow_check_names_the_missing_tools_and_their_pins(self):
-        (self.root / "mise.toml").write_text('[tools]\nactionlint = "1.7.12"\nzizmor = "1.32.0"\n')
+        (self.root / "mise.toml").write_text('[tools]\nactionlint = "1.7.12"\nzizmor = "1.32.0"\nshellcheck = "0.11.0"\n')
         with patch.object(self.dev.shutil, "which", return_value=None):
             code, output = self.call("doctor", "--scope", "workflows")
         self.assertEqual(code, 2)
         self.assertIn("mise install (mise.toml pins 1.7.12)", output)
         self.assertIn("mise install (mise.toml pins 1.32.0)", output)
+        self.assertIn("mise install (mise.toml pins 0.11.0)", output)
+
+    def test_doctor_reads_shellchecks_version_from_its_own_line_and_wants_the_pin(self):
+        (self.root / "mise.toml").write_text('[tools]\nshellcheck = "0.11.0"\n')
+        title = "ShellCheck - shell script analysis tool\n"
+        for version, status in (("0.11.0", "ok"), ("0.10.0", "missing")):
+            completed = subprocess.CompletedProcess([], 0, stdout=f"{title}version: {version}\nlicense: GPLv3\n", stderr="")
+            with patch.object(self.dev.shutil, "which", return_value="/usr/bin/shellcheck"), \
+                 patch.object(self.dev, "probe", return_value=completed):
+                _, output = self.call("doctor", "--scope", "workflows", "--json")
+            rows = {row["name"]: row for row in json.loads(output)["checks"]}
+            self.assertEqual((rows["shellcheck"]["status"], rows["shellcheck"]["detail"]), (status, f"version: {version}"), version)
 
     def test_rust_check_runs_the_native_tests_with_nextest_and_keeps_the_doctests(self):
         (self.root / "native/core/src").mkdir(parents=True)

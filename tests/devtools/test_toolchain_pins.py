@@ -8,7 +8,7 @@ import unittest
 ROOT = Path(__file__).resolve().parents[2]
 # The checks of the repository (workflows, crates, secrets, vulnerabilities, links, hooks) and the
 # migration and release helpers, pinned with the toolchains.
-CHECK_TOOLS = ("actionlint", "zizmor", "cargo-deny", "cargo-nextest", "gitleaks", "osv-scanner", "lychee", "hk",
+CHECK_TOOLS = ("actionlint", "shellcheck", "zizmor", "cargo-deny", "cargo-nextest", "gitleaks", "osv-scanner", "lychee", "hk",
                "ast-grep", "syft")
 # Built from crates.io with cargo (#550): mise.lock pins the version, and Cargo checks the crates.
 CARGO_TOOLS = ("cargo:cargo-llvm-cov", "cargo:cargo-mutants")
