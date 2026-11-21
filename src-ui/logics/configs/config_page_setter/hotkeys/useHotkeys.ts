@@ -56,6 +56,9 @@ let portalHandler: ActionRunner | null = null;
 // Rust says "portal-shortcuts-lost" when the desktop ended the session or its portal went away
 // (a crash or an update): the keys stop working without a word otherwise (#397).
 let portalLostHandler: (() => void) | null = null;
+// Rust says "portal-shortcuts-not-restored" when a bind failed and the keys in force before it
+// could not be bound again either: no hotkey works until the next bind (#561).
+let portalNotRestoredHandler: (() => void) | null = null;
 // One automatic bind per this long; a portal that keeps going away is left to the user.
 const PORTAL_RECONNECT_DELAY_MS = 3000;
 const PORTAL_RECONNECT_GAP_MS = 60000;
@@ -94,6 +97,7 @@ const pauseShortcuts = () => {
     portalHandler = null;
     // A loss while paused needs nothing: the next bind (closing settings) opens a new session.
     portalLostHandler = null;
+    portalNotRestoredHandler = null;
     clearTimeout(portalReconnectTimer);
     portalReconnectTimer = undefined;
 };
@@ -116,6 +120,10 @@ const ensurePortalListener = () => {
             }),
             listen("portal-shortcuts-lost", () => {
                 if (portalListener === listener && !portalPaused && portalLostHandler) portalLostHandler();
+            }),
+            // It follows a failed bind, which leaves the shortcuts paused.
+            listen("portal-shortcuts-not-restored", () => {
+                if (portalListener === listener && portalNotRestoredHandler) portalNotRestoredHandler();
             }),
         ]).then(results => {
             const stops = results.filter(result => result.status === "fulfilled").map(result => result.value);
@@ -187,6 +195,13 @@ export const useHotkeys = () => {
             portalReconnectTimer = undefined;
             void registerShortcuts();
         }, PORTAL_RECONNECT_DELAY_MS);
+    };
+
+    // The bind failed and the keys in force before it could not be bound again either. The bind's
+    // own failure was said already; this says what it left (#561).
+    const portalNotRestored = () => {
+        portalNotRestoredHandler = null;
+        showNotification_Error(t("quick_chat.portal_not_restored"), { hide_duration: 10000 });
     };
 
     const openQuickChat = async (activationToken: string | null = null) => {
@@ -297,6 +312,8 @@ export const useHotkeys = () => {
             await ensurePortalListener();
             if (!isCurrent()) return;
             portalBound = true;
+            // Rust answers a failed bind first, then tries the keys in force before it again.
+            portalNotRestoredHandler = portalNotRestored;
             // The desktop may show its confirmation dialog the first time.
             const assigned = await invoke<Record<string, PortalAssigned> | null>("portal_shortcuts_bind", { shortcuts });
             if (!isCurrent()) return;

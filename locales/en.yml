@@ -1859,6 +1859,7 @@ quick_chat:
     portal_key_kept: "The desktop did not accept {{wanted}} for \"{{action_name}}\" (it may be used by another shortcut). It currently responds to {{hotkey}}. Choose another key."
     portal_lost_reconnecting: "The connection to the desktop's shortcuts was lost, so the hotkeys stopped working. Registering them again…"
     portal_lost: "The connection to the desktop's shortcuts was lost again, so the hotkeys do not work. Open and close Settings to register them again. You can open the quick chat with the button."
+    portal_not_restored: "The hotkeys could not be registered, and the previous keys could not be restored either. No hotkey works now. Open and close Settings to register them again. You can open the quick chat with the button."
     portal_errors:
         portal_cancelled: "Registration was cancelled in the desktop's dialog. Open and close Settings to see the dialog again."
         portal_timeout: "The desktop's dialog was not answered. Open and close Settings to register again."
