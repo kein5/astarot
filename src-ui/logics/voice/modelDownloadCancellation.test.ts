@@ -348,6 +348,33 @@ test("a card says its state at the end of its name's line, and what speaks for i
     assert.equal(find(cards[1], node => node.props?.className === "card_badges"), null, "no empty line of badges");
 });
 
+// #566: the manual lists every speech model with its check, and the voice changer's model was
+// checked; their cards say so even without a measured memory.
+test("a model checked, or a speech model not checked yet, says so without a figure; other models say nothing", async t => {
+    const s = await setup(t);
+    const row = (id: string, target: string, state: string, scope: string | null) => ({ id, target, name: `${id} · Q8_0`, total_bytes: 1,
+        guidance: { tier: id === "rvc" ? "voice" : "unknown", reference_memory_bytes: null, validation: { state, scope, device: null } } });
+    s.render().updateCatalog(catalog({ models: [row("rvc", "rvc", "passed", "rvc_runtime"), row("tts", "multilingual", "pending", null),
+        row("asr", "asr", "pending", null)] }));
+    const ui = hooks();
+    t.onTestFinished(() => ui.unmount());
+    // The words a key falls back to (the last of a list), as the locales have them.
+    const { ModelDownloads } = await loadCatalog(s, ui, false, "list", { "@useI18n": { useI18n: () => ({ i18n: { language: "en" },
+        t: (key: string | string[]) => [key].flat().at(-1) }) } });
+    const cards = nodesIn(ui.render(ModelDownloads, { targets: ["rvc", "multilingual", "asr"], expected: {} }))
+        .filter(node => node.props?.["data-model-download"] !== undefined);
+    const record = (card: TreeNode) => {
+        const fold = find(card, node => node.type === "fold");
+        return fold && [fold.props.summary, nodesIn(fold).filter(node => node.type === "p").map(node => node.props.children)];
+    };
+    assert.deepEqual(Object.fromEntries(cards.map(card => [card.props["aria-label"] ?? card.key, record(card)])), {
+        // Checked with no device: what the check covered, under "Testing", with no GPU line.
+        "rvc": ["model_downloads.validation_summary", ["model_downloads.scope_rvc_runtime"]],
+        "tts": ["model_downloads.validation_summary", ["model_downloads.validation_pending"]],
+        "asr": null,
+    });
+});
+
 test("a model's measured memory is the hardware term's hint on a reviewed page, a fold elsewhere", async t => {
     const s = await setup(t);
     s.render().updateCatalog(catalog({ models: [{ id: "tts", target: "rvc", name: "TTS · F16", total_bytes: 1,
