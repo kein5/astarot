@@ -641,6 +641,9 @@ fn an_rvc_audition_converts_the_sentence_and_plays_it_on_the_monitor_only() {
     assert_eq!(run.ui.ok("/get/data/speech_server_state", None)["japanese"]["state"], "stopped");
     run.start_japanese_server();
 
+    // What the audition writes to the log: the settings saved for this run name the runtime's
+    // path before it, as the live conversion's settings do.
+    let logged_before = run.process_log().len();
     let answer = run.rvc_audition(&id, 3, json!(0.5));
     assert_eq!(answer["status"], 200, "{answer}");
     let result = &answer["result"];
@@ -666,9 +669,12 @@ fn an_rvc_audition_converts_the_sentence_and_plays_it_on_the_monitor_only() {
     assert_eq!(run.ui.ok("/get/data/direct_voice_state", None)["requested"], false);
     let sent: Value = serde_json::from_slice(&std::fs::read(models.path().join("tts.gguf.speech")).unwrap()).unwrap();
     let log = run.process_log();
+    let log = &log[logged_before..];
     assert!(log.contains("/run/start_voice_audition"));
     for private in [sent["input"].as_str().unwrap(), options["model"].as_str().unwrap(), options["runtime"].as_str().unwrap()] {
-        assert!(!log.contains(private), "the sentence or a path reached the log");
+        // As written, and as a JSON string writes it (a Windows path's backslashes doubled).
+        let escaped = serde_json::to_string(private).unwrap();
+        assert!(!log.contains(private) && !log.contains(escaped.trim_matches('"')), "the sentence or a path reached the log: {log}");
     }
     run.ui.stop();
 }
