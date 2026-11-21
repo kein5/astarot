@@ -34,14 +34,14 @@ test("closed log region is inert and unpainted while the receiver keeps its data
     assert.equal(log.props.open, false);
     const region = findIn(closed, node => node.props.name === "panel");
     const element = draw(region);
-    assert.equal(element.props.inert, "");
+    assert.equal(element.props.inert, true);
     assert.equal(element.props["aria-hidden"], true);
     assert.equal(element.props.style.visibility, "hidden");
     const receiver = findIn(closed, node => componentName(node) === "VrStateReceiver");
     findIn(closed, node => node.type === VrLauncher).props.openLog();
     const opened = runtime.render(VrApp);
     const openedRegion = findIn(opened, node => node.props.name === "panel");
-    assert.equal(draw(openedRegion).props.inert, undefined);
+    assert.equal(draw(openedRegion).props.inert, false);
     assert.equal(findIn(opened, node => node.type === VrLogWindow).props.open, true);
     runtime.unmount();
     // Run the receiver's standalone effect, without rendering any log body.

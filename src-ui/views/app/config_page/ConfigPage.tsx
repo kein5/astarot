@@ -41,7 +41,7 @@ export const ConfigPage = () => {
     }, [isClosed]);
 
     return (
-        <div ref={root} inert={isClosed ? "" : undefined} aria-hidden={isClosed} className={clsx(styles.page, { [styles.is_closed]: isClosed })}>
+        <div ref={root} inert={isClosed} aria-hidden={isClosed} className={clsx(styles.page, { [styles.is_closed]: isClosed })}>
             <div className={styles.container}>
                 <SidebarSection />
                 <div className={styles.content_wrapper}>
