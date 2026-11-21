@@ -203,18 +203,66 @@ test("hovering a point that shows docks its feature out towards the screen; only
     assert.equal(waiting.props.disabled, true, "a switch waiting for the backend cannot be pressed again");
 });
 
-// #536: pressing a triangle is answered at once: its label docks out without the rest that
-// hovering takes. Pressing it still changes nothing; its label does.
-test("pressing a triangle that shows docks its label at once; one beyond the edge does nothing", async context => {
+// #536, as decided: pressing a triangle switches it, as its label does, and docks its label at
+// once to say what happened. One turned beyond the edge, or one already waiting, is not pressed.
+test("pressing a triangle that shows switches it and docks its label; one beyond the edge does nothing", async context => {
     const s = await setup(context);
     s.point("main_page.transcription_send").props.onClick();
     await s.settle();
     assert.equal(s.dock(), null, "the mic's point is turned beyond the edge");
+    assert.deepEqual(s.calls, []);
     s.point("main_page.ocr").props.onClick();
     await s.settle();
+    assert.deepEqual(s.calls, [["request", "toggle_ocr"]]);
     assert.ok(s.dock(), "no rest needed");
     assert.equal(s.point("main_page.ocr").props["data-docked"], true);
-    assert.deepEqual(s.calls, [], "the press changed nothing");
+    assert.equal(s.said(), "companion.switching");
+    s.point("main_page.ocr").props.onClick();
+    await s.settle();
+    assert.deepEqual(s.calls, [["request", "toggle_ocr"]], "pressed again while it waits: not asked twice");
+    // The voice changer is waiting for the backend already.
+    s.point("main_page.rvc").props.onClick();
+    await s.settle();
+    assert.deepEqual(s.calls, [["request", "toggle_ocr"]]);
+});
+
+// #536, as decided: the first time the hexagram ever comes out it says, for a moment, that the
+// wheel turns it, and asks the main window to keep that it has. Not again, and not before the main
+// window knows.
+test("the first time it comes out it says that the wheel turns it, once", async context => {
+    const hint = (s: { render: () => TreeNode | null }) => find(s.render(), node => node.type === "p" && node.props.className === "hint");
+    const known = await setup(context, { current: { ...ready, hinted: true } });
+    assert.equal(hint(known), null, "told before");
+    const unknown = await setup(context, { current: { ...ready, hinted: null } });
+    assert.equal(hint(unknown), null, "the main window does not know yet");
+    assert.deepEqual(unknown.calls, []);
+
+    const s = await setup(context, { current: { ...ready, hinted: false } });
+    const said = hint(s);
+    assert.ok(said);
+    assert.equal(said.props.role, "status");
+    assert.equal(said.props.children, "companion.wheel_hint");
+    assert.equal(said.props["data-side"], "left", "at the right edge, into the screen");
+    assert.deepEqual(s.calls, [["request", "wheel_hint_seen"]], "kept at once");
+    vi.advanceTimersByTime(5100);
+    await s.settle();
+    assert.equal(hint(s), null, "for a moment");
+    // Going in and out again in the same run does not say it again, though the state still says untold.
+    s.state.layout = { out: false, edge: "right", x: 0, y: 0 };
+    await s.callbacks.layout();
+    await s.settle();
+    s.state.layout = { out: true, edge: "right", x: 330, y: 120 };
+    await s.callbacks.layout();
+    await s.settle();
+    assert.equal(hint(s), null);
+    assert.deepEqual(s.calls, [["request", "wheel_hint_seen"]]);
+
+    // The wheel ends it sooner.
+    const turned = await setup(context, { current: { ...ready, hinted: false } });
+    assert.ok(hint(turned));
+    turned.tree().props.onWheel({ deltaY: 100 });
+    await turned.settle();
+    assert.equal(hint(turned), null);
 });
 
 // #536: after a press the label says that it is switching, and cannot be pressed again, until the
@@ -241,7 +289,7 @@ test("a pressed label says it is switching until the switch turns, and the switc
     const icon = findIn(s.render(), node => node.type === "g" && node.props["data-feature"] === "ocr");
     assert.equal(icon.props["data-flash"], "on");
     assert.equal(s.point("main_page.rvc").props["data-flash"], undefined, "only the switch that turned");
-    vi.advanceTimersByTime(700);
+    vi.advanceTimersByTime(900);
     await s.settle();
     assert.equal(s.point("main_page.ocr").props["data-flash"], undefined, "the flash ends");
     // Turned off from elsewhere (the main window, a hotkey): it flashes too.

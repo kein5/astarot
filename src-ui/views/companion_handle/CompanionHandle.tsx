@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ComponentType, type CSSProperties, type SVGProps, type WheelEvent } from "react";
 import { useI18n } from "@useI18n";
 import { companionBridge, type CompanionBridge, type HandleLayout } from "../../logics/companion/bridge.ts";
-import { actionFor, edgeAction, FEATURES, type CompanionStatus, type Feature } from "../../logics/companion/status.ts";
+import { actionFor, edgeAction, FEATURES, WHEEL_HINT_SEEN, type CompanionStatus, type Feature } from "../../logics/companion/status.ts";
 import {
     angleOf, baseRotation, centroid, dockAt, EDGES, facesInward, innerHexagon, inwardAngle, inwardSide, isEdge, pointTriangle, polygon, TURN,
     type Edge,
@@ -22,10 +22,11 @@ import { FROM_X, FROM_Y } from "./CompanionHandle.css.ts";
 // a point at a time; three of its six triangles show at once, one for each of the main switches.
 // Each triangle carries its feature's icon. A switch that is off has an Off-White triangle and
 // icon; one that is on has a Lilac triangle and a Lilac icon (#536).
-// Hovering one docks that feature out towards the middle of the screen; pressing the docked label
-// runs the main window's own switch. Pressing a triangle docks its label at once. A triangle lights
-// up under the pointer; a label says that it is switching until the main window answers, or that
-// the request could not be sent; a switch that turns on or off flashes in its triangle (#536).
+// Hovering one docks that feature out towards the middle of the screen; pressing the triangle, or
+// its docked label, runs the main window's own switch (#536). A triangle lights up under the
+// pointer; a label says that it is switching until the main window answers, or that the request
+// could not be sent; a switch that turns on or off flashes in its triangle. The first time the
+// hexagram ever comes out, it says for a moment that the wheel turns it (#536).
 // Hovering the hexagon in the middle docks out the common settings (the edge to hide at, the main
 // window, the control panel). Hovering alone changes nothing. The window never takes the focus.
 
@@ -40,12 +41,14 @@ export const AIM_MS = 180;
 // The common settings dock out beyond the plate.
 const MENU_DISTANCE = OPEN_RADIUS * 1.22 + 10;
 // How long a switch that turned on or off flashes in its triangle (#536).
-export const FLASH_MS = 600;
+export const FLASH_MS = 800;
 // A pressed label says that it is switching until the main window answers, at most this long: a
 // switch that cannot change (its main switch says why) answers nothing.
 export const ASK_MS = 4000;
 // How long a label says that its request could not be sent.
 export const FAILED_MS = 3000;
+// How long the hexagram says, the first time it comes out, that the wheel turns it.
+export const HINT_MS = 5000;
 
 // What is docked out: one of the six switches, or the common settings of the middle.
 type Docked = Feature | "common";
@@ -86,6 +89,8 @@ export const CompanionHandle = ({ bridge = companionBridge }: { bridge?: Compani
     const [asking, setAsking] = useState<Mark | null>(null);
     const [failed, setFailed] = useState<Mark | null>(null);
     const [flash, setFlash] = useState<Partial<Record<Feature, Flash>>>({});
+    const [hint, setHint] = useState(false);
+    const told = useRef(false);
     const lastStatus = useRef<CompanionStatus | null>(null);
     const nextId = useRef(0);
     const timers = useRef(new Set<ReturnType<typeof setTimeout>>());
@@ -173,6 +178,21 @@ export const CompanionHandle = ({ bridge = companionBridge }: { bridge?: Compani
         });
     };
 
+    // The first time it comes out (the main window keeps whether it has, #536), it says that the
+    // wheel turns it, for a moment; the wheel or a docked label ends it sooner. It is said once
+    // in a run even before the main window has kept it.
+    const out = layout?.out === true;
+    const untold = status?.hinted === false;
+    useEffect(() => {
+        if (!out) { setHint(false); return; }
+        if (!untold || told.current) return;
+        told.current = true;
+        setHint(true);
+        bridge.request(WHEEL_HINT_SEEN).catch(error => console.warn("Companion hint could not be kept", error));
+        const timer = setTimeout(() => { timers.current.delete(timer); setHint(false); }, HINT_MS);
+        timers.current.add(timer);
+    }, [out, untold, bridge]);
+
     if (!layout?.out) return null;
     const edge: Edge = isEdge(layout.edge) ? layout.edge : "right";
     const rotation = baseRotation(edge) + TURN * turns;
@@ -186,6 +206,7 @@ export const CompanionHandle = ({ bridge = companionBridge }: { bridge?: Compani
         lastTurn.current = now;
         setTurns(value => value + Math.sign(event.deltaY));
         setDocked(null);
+        setHint(false);
     };
 
     const feature = docked && docked !== "common" ? docked : null;
@@ -199,6 +220,7 @@ export const CompanionHandle = ({ bridge = companionBridge }: { bridge?: Compani
         : waiting(feature) ? "companion.switching"
         : dockState.on ? "companion.on" : "companion.off";
     const menu = docked === "common" ? dockAt(MENU_DISTANCE, inwardAngle(edge), side) : null;
+    const hintAt = dockAt(MENU_DISTANCE, inwardAngle(edge), side);
     const slide = (angle: number) => ({
         // It slides out from the hexagram, along the direction it opens to.
         [FROM_X]: `${-Math.cos((angle * Math.PI) / 180) * 14}px`,
@@ -231,7 +253,13 @@ export const CompanionHandle = ({ bridge = companionBridge }: { bridge?: Compani
                                             data-docked={docked === feature} data-shown={shown} data-flash={flash[feature]?.to}
                                             aria-label={t(LABEL_KEYS[feature])} aria-hidden={!shown}
                                             onPointerEnter={() => { if (shown) aim(feature); }} onPointerLeave={unaim}
-                                            onClick={() => { if (!shown) return; unaim(); setDocked(feature); }} />
+                                            onClick={() => {
+                                                // A press switches it, as its label does, and docks the label to say so.
+                                                if (!shown) return;
+                                                unaim();
+                                                setDocked(feature);
+                                                if (ready && !waiting(feature)) press(feature, value?.blocked === true);
+                                            }} />
                                         {/* What the triangle is, and whether it is on, without docking it out (#536). */}
                                         <g transform={`translate(${middle.x} ${middle.y})`}>
                                             <g className={styles.icon} data-feature={feature} data-on={value?.on === true}
@@ -276,6 +304,12 @@ export const CompanionHandle = ({ bridge = companionBridge }: { bridge?: Compani
                     <span className={styles.dockLabel}>{t(LABEL_KEYS[feature])}</span>
                     <span className={styles.dockState} data-failed={failed?.feature === feature}>{t(dockWord)}</span>
                 </button>
+            )}
+            {hint && !docked && (
+                <p className={styles.hint} data-side={hintAt.side} role="status"
+                    style={{ left: `${layout.x + hintAt.at.x}px`, top: `${layout.y + hintAt.at.y}px`, ...slide(inwardAngle(edge)) } as CSSProperties}>
+                    {t("companion.wheel_hint")}
+                </p>
             )}
             {menu && (
                 <div key={`common-${edge}`} className={styles.menu} data-side={menu.side} role="group"

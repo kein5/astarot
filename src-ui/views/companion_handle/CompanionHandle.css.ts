@@ -17,13 +17,14 @@ const OFF_WHITE = "#FAFAFC";
 const ON_TINT = "rgba(164, 122, 245, 0.16)";
 // Feedback (#536): a triangle under the pointer, and pressed, is lit with its own colour, Off-White
 // or Lilac, more than it is at rest; a switch that turns on flashes Lilac, one that turns off
-// flashes Off-White, fading to the colour it rests at.
+// flashes Off-White, fading to the colour it has then (at rest, lit or docked out): the keyframes
+// give only where the flash starts.
 const OFF_HOVER = "rgba(250, 250, 252, 0.2)";
 const OFF_PRESSED = "rgba(250, 250, 252, 0.32)";
 const ON_HOVER = "rgba(164, 122, 245, 0.34)";
 const ON_PRESSED = "rgba(164, 122, 245, 0.48)";
-const flashOn = keyframes({ from: { fill: "rgba(164, 122, 245, 0.62)" }, to: { fill: ON_TINT } });
-const flashOff = keyframes({ from: { fill: "rgba(250, 250, 252, 0.42)" }, to: { fill: "rgba(250, 250, 252, 0)" } });
+const flashOn = keyframes({ from: { fill: "rgba(164, 122, 245, 0.85)" } });
+const flashOff = keyframes({ from: { fill: "rgba(250, 250, 252, 0.6)" } });
 // The icon of a switch that changed grows and settles back.
 const pop = keyframes({ from: { scale: "1.45" }, to: { scale: "1" } });
 
@@ -80,8 +81,8 @@ export const point = style({
         // Pressed (it docks its label at once), docked out or not.
         '&:active:not([data-on="true"])': { fill: OFF_PRESSED },
         '&[data-on="true"]:active': { fill: ON_PRESSED },
-        '&[data-flash="on"]': { animation: `${flashOn} .6s ease-out` },
-        '&[data-flash="off"]': { animation: `${flashOff} .6s ease-out` },
+        '&[data-flash="on"]': { animation: `${flashOn} .8s ease-out` },
+        '&[data-flash="off"]': { animation: `${flashOff} .8s ease-out` },
         // Turned beyond the edge: half off the screen, not one to aim at.
         '&[data-shown="false"]': { opacity: 0.35, pointerEvents: "none" },
     },
@@ -169,6 +170,29 @@ export const dockState = style({
         // A request that could not be sent: said in full, not faint.
         '&[data-failed="true"]': { color: OFF_WHITE, opacity: 1 },
     },
+});
+
+// The hexagram's first time out (#536): a line that the wheel turns it, where the common settings
+// open. It slides out like a label, stays, and fades in its last moment (HINT_MS, 5 s); it takes no
+// pointer. Lilac edges tell it from a label that can be pressed.
+const hintLife = keyframes({
+    "0%": { opacity: 0, translate: `var(${FROM_X}, 0) var(${FROM_Y}, 0)` },
+    "4%": { opacity: 1, translate: "0 0" },
+    "90%": { opacity: 1 },
+    "100%": { opacity: 0 },
+});
+
+export const hint = style({
+    position: "absolute", margin: 0, padding: "6px 12px", whiteSpace: "nowrap", pointerEvents: "none",
+    fontSize: "13px", lineHeight: 1.3, color: LINE, background: PLATE, border: `1px solid ${ON}`, borderRadius: "999px",
+    animation: `${hintLife} 5s ease-out forwards`,
+    selectors: {
+        '&[data-side="top"]': { transform: "translate(-50%, -100%)" },
+        '&[data-side="bottom"]': { transform: "translate(-50%, 0)" },
+        '&[data-side="right"]': { transform: "translate(0, -50%)" },
+        '&[data-side="left"]': { transform: "translate(-100%, -50%)" },
+    },
+    ...quick,
 });
 
 // The common settings of the hexagram's middle: a small card instead of a pill, opening the same
