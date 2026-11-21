@@ -18,9 +18,9 @@ test("every word lies in the one cell; only the current one is seen and read", a
     runtime.unmount();
 });
 
-test("the cell is a grid of one area, and a word not in use keeps its width hidden", () => {
+test("the cell is a grid of one area, a shorter word sits in its middle, and a word not in use keeps its width hidden", () => {
     const css = readFileSync(new URL("./StableWords.css.ts", import.meta.url), "utf8");
     assert.match(css, /stack = style\(\{ display: "inline-grid" \}\)/);
-    assert.match(css, /gridArea: "1 \/ 1"/);
+    assert.match(css, /gridArea: "1 \/ 1",\s*justifySelf: "center",/);
     assert.match(css, /'&\[aria-hidden="true"\]': \{ visibility: "hidden" \}/);
 });
