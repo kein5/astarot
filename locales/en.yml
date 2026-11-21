@@ -1942,6 +1942,8 @@ vc_runtime:
         vc_runtime_busy: "Another runtime is being set up. Start this one when it finishes."
         vc_runtime_changed: "The download contents were updated. Review them again."
         vc_runtime_space: "Not enough free space. Free some on the destination drive and start again."
+        vc_runtime_in_use: "The current libraries are in use, so they were not replaced. The current runtime still works. Stop voice conversion and translation, then start again."
+        vc_runtime_loaded: "ASTAROT has loaded this runtime's ONNX Runtime for AI translation, so it cannot be replaced while ASTAROT runs. The current runtime still works. Set the processing device for AI translation to CPU, restart ASTAROT, then start again."
         vc_runtime_tools_failed: "The download tool could not be prepared. Check your network."
         vc_runtime_python_failed: "Python could not be prepared. Check your network. Details are in setup.log in the destination folder."
         vc_runtime_packages_failed: "The packages could not be fetched. Check your network and free space. Details are in setup.log in the destination folder."

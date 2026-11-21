@@ -49,6 +49,10 @@ pub trait VoicePlatform: Send + Sync {
     fn runtime_entries(&self) -> Option<Vec<vrct_voice_conversion::runtime::Runtime>> {
         None
     }
+    /// The libraries this process loaded that a runtime may hold (#880).
+    fn loaded_libraries(&self) -> Vec<PathBuf> {
+        Vec::new()
+    }
 }
 
 /// This computer: WASAPI on Windows, PipeWire on Linux with the `pipewire` feature.
@@ -184,6 +188,10 @@ impl VoicePlatform for NativeVoice {
 
     fn runtime_target(&self) -> Option<Target> {
         Target::current()
+    }
+
+    fn loaded_libraries(&self) -> Vec<PathBuf> {
+        crate::shipped_libraries::loaded_onnx_runtime()
     }
 }
 
