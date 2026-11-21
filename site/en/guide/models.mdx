@@ -57,7 +57,7 @@ The "Text to speech (TTS)" page shows your GPU's name and its total and free mem
 
 ### Execution checks
 
-How far each speech model has been checked. For a model with a memory estimate, the settings show the same record under "Memory needs and testing" on its card.
+How far each speech model and the voice changer's model have been checked. The settings show the same record on each model's card, under "Memory needs and testing" ("Testing" for a model without a memory estimate).
 
 | Model | Checked on |
 |---|---|
@@ -69,11 +69,17 @@ How far each speech model has been checked. For a model with a memory estimate, 
 | Qwen3-TTS 12Hz 0.6B CustomVoice · Q5_K | NVIDIA GeForce RTX 4080 SUPER |
 | Qwen3-TTS 12Hz 1.7B CustomVoice · Q8_0 | Execution check pending |
 
-::: info What was checked
+::: info What was checked (speech models)
 Checked on Linux (speech.cpp 0.9.0, Vulkan): it reads a short sentence aloud. Other GPUs, long text and sound quality are not checked yet.
 :::
 
 When your GPU differs from the one in the table, the card says so, and its suggestion is based on memory only.
+
+The voice changer's model (Saisho Utane · RVC v2) has no memory estimate and no record of a GPU it was checked on. What was checked:
+
+::: info What was checked (voice changer)
+Checked on Linux (AppImage): converting a voice and passing it on, and staying silent while muted. Sound quality, Windows and other GPUs are not checked yet.
+:::
 
 ## Which GPUs are used
 
