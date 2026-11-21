@@ -24,6 +24,7 @@ interface StubState {
     calls: [string, { shortcuts: Record<string, string[] | null> } | undefined][];
     handlers: Set<Handler>;
     lostHandlers: Set<Handler>;
+    notRestoredHandlers: Set<Handler>;
     removals: number;
     cleanups: (() => void)[];
     disposers: ((data: unknown) => void)[];
@@ -57,7 +58,7 @@ async function setup() {
     // replaced; no plugin, portal, browser or application is started.
     const dependencies = moduleUrl(`
         export const state = { ready: true, settings: false, updating: false, actions: [], notices: [],
-            registered: new Map(), removed: [], writes: [], calls: [], handlers: new Set(), lostHandlers: new Set(), warnings: [], removals: 0, cleanups: [], disposers: [],
+            registered: new Map(), removed: [], writes: [], calls: [], handlers: new Set(), lostHandlers: new Set(), notRestoredHandlers: new Set(), warnings: [], removals: 0, cleanups: [], disposers: [],
             hotkeys: { open_quick_chat: ['Ctrl', 'Q'] } };
         export const hot = { data: {}, dispose: callback => state.disposers.push(callback) };
         export const useRef = value => state.runtime ? state.runtime.api.useRef(value) : ({ current: value });
@@ -90,8 +91,9 @@ async function setup() {
             }
         };
         export const listen = async (name, callback) => {
-            // "portal-shortcuts-lost" is kept apart, so the counts below are those of the key presses.
-            const handlers = name === 'portal-shortcuts-lost' ? state.lostHandlers : state.handlers;
+            // The portal's other events are kept apart, so the counts below are those of the key presses.
+            const handlers = name === 'portal-shortcuts-lost' ? state.lostHandlers
+                : name === 'portal-shortcuts-not-restored' ? state.notRestoredHandlers : state.handlers;
             handlers.add(callback);
             await state.listenGate;
             return () => { handlers.delete(callback); if (handlers === state.handlers) state.removals++; };
@@ -116,7 +118,8 @@ async function setup() {
     const load = async () => (await importHook())();
     return { state, load, importHook, dispose: (index: number) => state.disposers[index](hot.data),
         emit: () => { for (const callback of state.handlers) callback({ payload: { id: "open_quick_chat" } }); },
-        lost: () => { for (const callback of state.lostHandlers) callback({ payload: null }); } };
+        lost: () => { for (const callback of state.lostHandlers) callback({ payload: null }); },
+        notRestored: () => { for (const callback of state.notRestoredHandlers) callback({ payload: null }); } };
 }
 
 for (const boundary of ["platform", "unregister", "listen", "bind"] as const) {
@@ -598,6 +601,29 @@ test("a portal that goes away is said and the keys are bound again once; a secon
     await flush(); await flush();
     assert.equal(binds(), 2);
     assert.deepEqual(state.notices.map(([message]) => message), ["quick_chat.portal_lost"]);
+});
+
+test("a failed bind whose previous keys could not be bound again says no hotkey works, once", async () => {
+    // #561: Rust answers the failed bind, then says the keys in force before it are gone too.
+    const subject = await setup(), { state } = subject;
+    state.bind = () => { throw "portal_cancelled"; };
+    const hook = await subject.load();
+    await hook.registerShortcuts();
+    assert.deepEqual(state.notices.map(([message]) => message), ["quick_chat.portal_errors.portal_cancelled"]);
+    subject.notRestored();
+    subject.notRestored();
+    assert.deepEqual(state.notices.map(([message]) => message),
+        ["quick_chat.portal_errors.portal_cancelled", "quick_chat.portal_not_restored"]);
+});
+
+test("a report of keys not bound again after the shortcuts were paused says nothing", async () => {
+    const subject = await setup(), { state } = subject;
+    state.bind = () => { throw "portal_cancelled"; };
+    const hook = await subject.load();
+    await hook.registerShortcuts();
+    await hook.unregisterAll();
+    subject.notRestored();
+    assert.deepEqual(state.notices.map(([message]) => message), ["quick_chat.portal_errors.portal_cancelled"]);
 });
 
 test("a portal lost while the shortcuts are paused waits for the next bind", async () => {
