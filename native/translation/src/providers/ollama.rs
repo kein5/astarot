@@ -48,11 +48,13 @@ impl Api for Ollama {
     fn translate(transport: &Transport, a: &Access<'_>, t: &Translation<'_>) -> Result<String, Error> {
         let model = a.chosen_model()?;
         let url = join(a.base, "/api/chat");
-        let system = prompt::system_prompt(false, t.supported_languages, t.source, t.target, t.history, t.glossary);
+        let system = prompt::system_prompt(false, t.supported_languages, t.source, t.target, t.history, t.glossary, t.instructions);
+        // Ollama's sampling options; a temperature only when the user chose one (#392).
+        let options = t.temperature.map_or_else(|| json!({}), |temperature| json!({ "temperature": temperature }));
         let body = json!({
             "model": model,
             "stream": false,
-            "options": {},
+            "options": options,
             "messages": [{ "role": "system", "content": system }, { "role": "user", "content": t.text }],
             "tools": [],
         });

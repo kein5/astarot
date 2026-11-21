@@ -79,12 +79,12 @@ impl Api for Gemini {
     fn translate(transport: &Transport, a: &Access<'_>, t: &Translation<'_>) -> Result<String, Error> {
         let model = a.chosen_model()?;
         let url = join(a.base, &format!("/v1beta/models/{}:generateContent", super::percent(model)));
-        let system = prompt::system_prompt(false, t.supported_languages, t.source, t.target, t.history, t.glossary);
+        let system = prompt::system_prompt(false, t.supported_languages, t.source, t.target, t.history, t.glossary, t.instructions);
         let body = json!({
             "contents": [{ "parts": [{ "text": t.text }], "role": "user" }],
             "systemInstruction": { "parts": [{ "text": system }] },
             "safetySettings": [],
-            "generationConfig": { "temperature": TEMPERATURE, "candidateCount": 1 },
+            "generationConfig": { "temperature": t.temperature.unwrap_or(TEMPERATURE), "candidateCount": 1 },
         });
         Self::attempt(transport, a.base, |send, wait| {
             let request = Request::post_json(&url, &body).header("x-goog-api-key", a.key);

@@ -80,8 +80,22 @@ fn glossary_block(glossary: &[String]) -> String {
     )
 }
 
+/// What the user adds to the system prompt (#392), after the rules it cannot change. Empty adds
+/// nothing.
+fn instructions_block(instructions: &str) -> String {
+    let instructions = instructions.trim();
+    if instructions.is_empty() {
+        return String::new();
+    }
+    format!(
+        "Additional instructions from the user. Follow them as far as they do not change the rule \
+         above: return only the translated text.\n{instructions}\n\n"
+    )
+}
+
 /// The system prompt for one translation. `glossary` is empty unless the user's term dictionary
-/// has words in the text; without it the prompt is the one Python sent.
+/// has words in the text, and `instructions` unless the user wrote some; without them the prompt is
+/// the one Python sent.
 pub fn system_prompt(
     plamo: bool,
     supported: &[String],
@@ -89,6 +103,7 @@ pub fn system_prompt(
     output: &str,
     history: &[HistoryItem],
     glossary: &[String],
+    instructions: &str,
 ) -> String {
     let template = if plamo { PLAMO } else { GENERAL };
     let prompt = template
@@ -96,12 +111,19 @@ pub fn system_prompt(
         .replace("{input_lang}", input)
         .replace("{output_lang}", output);
     // The header is never empty, so it is always added (as in Python).
-    format!("{prompt}\n\n{}{}", glossary_block(glossary), history_block(history))
+    format!("{prompt}\n\n{}{}{}", instructions_block(instructions), glossary_block(glossary), history_block(history))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn instructions_of_nothing_but_spaces_add_nothing() {
+        let plain = system_prompt(false, &[], "Japanese", "English", &[], &[], "");
+        assert_eq!(system_prompt(false, &[], "Japanese", "English", &[], &[], " \n "), plain);
+        assert!(!plain.contains("Additional instructions"));
+    }
 
     fn item(source: &str, text: &str) -> HistoryItem {
         HistoryItem { source: source.into(), text: text.into(), time: "12:34".into() }
@@ -109,7 +131,7 @@ mod tests {
 
     #[test]
     fn the_prompt_matches_the_python_template() {
-        let prompt = system_prompt(false, &["Japanese".into(), "English".into()], "Japanese", "English", &[], &[]);
+        let prompt = system_prompt(false, &["Japanese".into(), "English".into()], "Japanese", "English", &[], &[], "");
         assert_eq!(
             prompt,
             "You are a helpful translation assistant.\nSupported languages:\n['Japanese', 'English']\n\n\
@@ -121,7 +143,7 @@ mod tests {
 
     #[test]
     fn the_terms_in_the_text_come_before_the_history() {
-        let prompt = system_prompt(false, &[], "Japanese", "English", &[item("chat", "前")], &["猫丸".into(), "Midnight Rooftop".into()]);
+        let prompt = system_prompt(false, &[], "Japanese", "English", &[item("chat", "前")], &["猫丸".into(), "Midnight Rooftop".into()], "");
         let terms = prompt.find("- 猫丸\n- Midnight Rooftop\n").expect("the terms are listed");
         assert!(prompt[..terms].contains("Treat each as a proper noun"));
         assert!(terms < prompt.find("Conversation context").unwrap());
