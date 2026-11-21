@@ -1650,6 +1650,7 @@ app_update:
         appimage_read_only: "This AppImage is in a folder you cannot write to, so it cannot update itself. Update it the way it was installed (for example its package)."
         package_manager: "This ASTAROT was installed by a package manager (deb or rpm), which also updates it. The app does not check for updates."
         disabled: "This build does not use in-app updates."
+    restarting_after_failure: "Could not install the update. ASTAROT is restarting with the current version."
     errors:
         update_check_failed: "Could not check for updates. Check your network connection and try again later."
         update_metadata_missing: "The releases page has no update information for this version yet."

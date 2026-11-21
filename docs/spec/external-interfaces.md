@@ -364,7 +364,7 @@ WindowsのWebView2は、全ウィンドウを同じ起動引数で作る（`src-
 | `screencast_stop` | `main` | 共有を終え、ヘルパーを止め、ポータルのセッションを閉じる |
 | `app_update_info` | `main` | `{kind, mode, channel, current_version, package_manager}`。このコピーの入れ方と、更新でできること（[アプリの更新](#アプリの更新)）。通信しない |
 | `app_update_check` | `main` | 新しい版を問い合わせ、`{available, version, release_url}`を返す。失敗は`update_check_failed`、`update_metadata_missing`などのコード |
-| `app_update_install` | `main` | 直前の確認で見つけた版を取得し、署名を確かめて入れる。進み具合は引数のチャンネル（`{phase: "download", downloaded, total}`、`{phase: "install"}`）で知らせる。Windowsではインストーラーに引き継いで終了し、Linuxでは再起動する。失敗したときは今の版のまま、コードを返す |
+| `app_update_install` | `main` | 直前の確認で見つけた版を取得し、署名を確かめて入れる。進み具合は引数のチャンネル（`{phase: "download", downloaded, total}`、`{phase: "install"}`）で知らせる。Windowsではインストーラーに引き継いで終了し、Linuxでは再起動する。失敗したときは今の版のまま、コードを返す。Windowsでインストーラーの前に中核を止めた後にインストーラーを起動できなかったときは、`app-update-restarting`で知らせてから5秒後に今の版のまま再起動する（#561） |
 | `caption_overlay_supported`、`caption_overlay_set`、`caption_overlay_update` | `main` | 字幕のウィンドウを使えるか調べる、開く・閉じる、描く内容を渡す。`caption_overlay_set`は`{open, position, placement}`を取る。`placement`は保存した左上の位置（物理ピクセル、`{x, y}`、各±100000以内）か`null`で、その位置の一部（縦横64ピクセル以上）がどれかのモニターの作業領域に残っていればそこに出し、残っていなければ`position`の帯に出す |
 | `caption_overlay_snapshot` | `caption_overlay` | 描く内容を読む。Ctrlキーで調整している間は`adjusting: true`が付く。`main`が渡した`adjusting`は捨てる |
 
@@ -383,6 +383,7 @@ VRパネルの要求は`main`が中継する（セキュリティ監査 SEC-02�
 | `portal-shortcut` | Rust → `main` | Waylandでホットキーが押された |
 | `portal-shortcuts-lost` | Rust → `main` | Waylandでホットキーを預けたポータルのセッションが、アプリが頼んでいないのに終わった（ポータルの停止や再起動）。ペイロードはない。`main`は通知を出し、3秒後に1回だけ登録し直す。1分以内にまた切れたときは登録し直さず、設定を開いて閉じるよう案内する |
 | `portal-shortcuts-not-restored` | Rust → `main` | Waylandでポータルへの登録が失敗し、前に登録していたキーも登録し直せなかった。どのホットキーも効かない。ペイロードはない。`main`は、登録の失敗の知らせに続けて「前のキーにも戻せなかった」と知らせ、設定を開いて閉じるよう案内する。より新しい登録が始まっていたときは送らない。ホットキーを止めている間（設定を開いているときなど）に届いたときは、知らせない（#561） |
+| `app-update-restarting` | Rust → `main` | 更新でインストーラーの前に中核を止めたあと、インストーラーを起動できなかった（#561）。ペイロードはない。`main`は中核の停止の知らせを閉じ、「更新を入れられませんでした。今の版のままASTAROTを再起動します。」と知らせる。アプリは5秒後に今の版のまま再起動する。利用者が頼んでいない再起動なので、先に知らせる |
 | `vr-panel-ready` | `vr_panel` → Rust（`vr_panel_send`） → `main` | VRパネルの準備ができた。`main`は状態を送り直す |
 | `vr-panel-stdout` | `vr_panel` → Rust（`vr_panel_send`） → `main` | VRパネルからの要求。`main`が許可したものだけをサイドカーへ渡す |
 | `vr-panel-config-page` | `vr_panel` → Rust（`vr_panel_send`） → `main` | VR内の設定を開いた・閉じた |
