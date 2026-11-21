@@ -75,6 +75,18 @@ jobs:
       - name: Realtime recognition's capture on a private PipeWire graph
         if: runner.os == 'Linux'
         run: cargo test --locked --manifest-path native/transcription/Cargo.toml --features pipewire --test pipewire_capture_private -- --ignored
+      # The core on the same kind of graph, with its own voice platform and the real
+      # astarot-voice-gate (#746): typed chat is heard once on the managed microphone, and a stop,
+      # a mute, the switch and a failed speech server silence it; a conversion plays into the
+      # managed VC input (decision 11). Until 0.6.0 the app's window checked the speech in
+      # tests/platform/test_native_voice.py, with the Python backend's PipeWire parts.
+      - if: runner.os == 'Linux'
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          workspaces: native/core
+      - name: The core's speech and conversion on the managed route of a private PipeWire graph
+        if: runner.os == 'Linux'
+        run: cargo test --locked --manifest-path native/core/Cargo.toml --features pipewire --test spoken_route_live --test voice_managed_live -- --ignored
       - run: npm ci --ignore-scripts
       - run: uv run --no-project python tools/dev.py check --scope ui
   # The Rust backend core through the connection the UI uses (Issue #285): start-up and
