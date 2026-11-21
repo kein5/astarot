@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { HARNESS_QUERY } from "./harnessModules.ts";
 import type { BabelOptions } from "@babel/standalone";
 import React from "react";
-import type { ReactElement } from "react";
+import type { JSX, ReactElement } from "react";
 import * as jsx from "react/jsx-runtime";
 import clsx from "clsx";
 import { atom, createStore } from "jotai/vanilla";
@@ -172,7 +172,9 @@ export function unchecked(value: unknown): unknown {
 }
 
 // A rendered tree, as React types it: an element's props are whatever its component was given.
-export type TreeNode = ReactElement;
+// React 18's ReactElement said so by default; React 19 says it on JSX.Element, the type of what a
+// component draws, so the props come from there and the type of the element stays as before.
+export type TreeNode = ReactElement<JSX.Element["props"]>;
 
 // Every object in a rendered tree is an element: React.Children.toArray keeps only elements among
 // the objects it is given. The search below reads the objects it meets as elements, as it always
@@ -242,15 +244,16 @@ export const draw = (node: TreeNode, props: unknown = node.props) => componentOf
 // The same, drawn by a runtime of the harness, so its hooks run there.
 export const drawWith = (runtime: HookRuntime, node: TreeNode, props: unknown = node.props) => runtime.render(componentOf(node), props);
 
-// The render function a forwardRef component wraps, which React 18's types leave out.
+// The render function a forwardRef component wraps, which React's types leave out.
 export function forwardRefRender(component: unknown): (props: unknown, ref: unknown) => TreeNode {
     const render: unknown = Reflect.get(Object(component), "render");
     if (typeof render !== "function") throw new TypeError("not a forwardRef component");
     return asComponent(render);
 }
 
-// An element's ref, which React 18's element type leaves out.
-export const refOf = (node: TreeNode): unknown => Reflect.get(node, "ref");
+// An element's ref. React 19 passes it among the props; reading element.ref warns that it is
+// going away.
+export const refOf = (node: TreeNode): unknown => fieldOf(node.props, "ref");
 // Puts the value where React would put the element it draws: into its ref object, or through its
 // ref function. An element without a ref stops with a TypeError, as setting .current on it did.
 export function setRef(node: TreeNode, value: unknown) {

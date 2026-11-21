@@ -1,9 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import type { TestContext } from "vitest";
-import type { ReactElement } from "react";
 import { hooks, loadModule } from "../test/hookHarness.ts";
-import type { HookRuntime } from "../test/hookHarness.ts";
+import type { HookRuntime, TreeNode } from "../test/hookHarness.ts";
 import { downloadProgress } from "../main/setupNeeds.ts";
 import type { BackendErrorReport } from "../_useBackendErrorHandling.ts";
 import * as translatorLabel from "../main/translatorLabel.ts";
@@ -110,7 +109,7 @@ async function fixture(context: TestContext) {
         assert.ok(review);
         return review;
     };
-    const accept = (review: ReactElement | null) => {
+    const accept = (review: TreeNode | null) => {
         assert.ok(review);
         review.props.onDownload({ weight_type: "small", consent: true }); review.props.onCancel(); render();
     };

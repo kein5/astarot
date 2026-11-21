@@ -61,7 +61,7 @@ async function dialogFixture(context: TestContext, language: string, reviewedEnt
         onCancel: () => events.closed++, onDownload: (data: LegacyDownloadRequest) => requests.push(data) };
     const modal = { open: false, showModal() { this.open = true; events.opened++; }, close() { this.open = false; } };
     const render = () => runtime.render(LegacyModelDownloadDialog, props, tree => {
-        // React 18's element type leaves out the ref the element carries.
+        // The fake modal goes where React would put the dialog: into the element's ref.
         setRef(findIn(tree, node => node.type === "dialog"), modal);
     });
     context.onTestFinished(() => runtime.unmount());

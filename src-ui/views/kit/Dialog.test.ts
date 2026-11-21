@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "vitest";
-import { hooks, loadModule, find, findIn, forwardRefRender, unchecked } from "../../logics/test/hookHarness.ts";
+import { hooks, loadModule, find, findIn, forwardRefRender, setRef, unchecked } from "../../logics/test/hookHarness.ts";
 import type { TreeNode } from "../../logics/test/hookHarness.ts";
 import type { DialogProps } from "./Dialog.tsx";
 
@@ -27,8 +27,8 @@ async function dialog() {
     const { element, calls } = fakeDialog();
     const render = (open: boolean) => runtime.render((props: DialogProps) => draw(props, null),
         { open, onOpenChange: (next: boolean) => changes.push(next), children: "words" },
-        // React 18 keeps an element's ref beside its props: the test attaches the fake there.
-        tree => { unchecked<{ ref: (node: unknown) => void }>(findIn(tree, node => node.type === "dialog")).ref(element); });
+        // The test attaches the fake where React would: through the element's ref.
+        tree => { setRef(findIn(tree, node => node.type === "dialog"), element); });
     const content = (tree: TreeNode) => findIn(tree, node => node.type === "dialog");
     return { runtime, render, content, element, calls, changes };
 }
