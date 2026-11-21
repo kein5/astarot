@@ -712,6 +712,11 @@ impl Core {
         let voice = (voice_generation, started_ns);
         let slots = snapshot.target_slots();
         let speaks = matches!(spec.kind, "chat" | "mic");
+        // The speech server gets ready while the text is translated, so that the translation's
+        // speech starts sooner (#556).
+        if snapshot.translation_enabled && (speaks || mic_voice.is_some()) {
+            self.warm_speech(mic_voice.is_some(), snapshot.destinations());
+        }
         if speaks {
             self.speak(SpeechStage::Original, spec, &snapshot, id.as_ref(), message, &[], voice, &current, &mut failures);
         }
