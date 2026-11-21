@@ -50,7 +50,7 @@ for (const first of [apply, cancel]) for (const failed of [false, true]) {
     });
 }
 
-test("only the matching job can cancel pending Apply; polls, errors and timeouts cannot release it", async t => {
+test("only the matching job can cancel pending Apply; polls and error replies cannot release it", async t => {
     const s = await setup(t);
     await s.render().send(apply, request);
     await s.render().send(cancel, { ...request, job_id: "old-job" });
@@ -67,7 +67,7 @@ test("only the matching job can cancel pending Apply; polls, errors and timeouts
 });
 
 // #431-7: a start that never got a reply blocked every later download command, silently.
-test("an unanswered start is released when it times out; a pending Apply stays with its Cancel", async t => {
+test("an unanswered start or Apply is released when it times out", async t => {
     const s = await setup(t);
     await s.render().send("/run/start_model_download", { id: "model" });
     await s.render().send("/run/start_model_download", { id: "other" });
@@ -80,43 +80,36 @@ test("an unanswered start is released when it times out; a pending Apply stays w
     s.render().acknowledge(downloadState({ observation_id: "1", jobs: {} }), "/run/start_model_download");
     await s.render().send(apply, request);
     await s.render().send(cancel, request);
-    s.render().expireUnconfirmed();
-    assert.deepEqual(s.render().pending?.map(item => item.endpoint), [apply]);
     await s.render().send("/run/start_model_download", { id: "other" });
-    assert.equal(s.calls.length, 4, "competing actions stay blocked during Apply");
-    await s.render().send(cancel, request);
-    assert.equal(s.calls.length, 5, "its Cancel can be sent again");
+    assert.equal(s.calls.length, 4, "competing actions stay blocked while Apply waits for its reply");
+    s.render().expireUnconfirmed();
+    assert.equal(s.render().pending, null, "Apply and its Cancel are let go with the rest");
+    await s.render().send("/run/start_model_download", { id: "other" });
+    assert.equal(s.calls.length, 5, "the user can act again");
 });
 
-// #563: an Apply whose reply was lost kept every other download command blocked, even after
-// the polls showed it had ended.
-test("an unanswered Apply is released once a later poll shows its job no longer verifying", async t => {
+// #563: an Apply whose reply was lost kept every other download command blocked. The timeout
+// lets it go even while the polls show its job verifying; the core refuses a start or another
+// Apply that would overlap it (download_busy).
+test("an unanswered Apply is released when it times out, even while its job is verifying", async t => {
     const s = await setup(t);
     s.render().updateState(downloadState({ observation_id: "1", jobs: { model: { ...request, phase: "ready" } } }));
     await s.render().send(apply, request);
-    s.render().expireUnconfirmed();
     s.render().updateState(downloadState({ observation_id: "2", jobs: { model: { ...request, phase: "verifying" } } }));
-    assert.deepEqual(s.render().pending?.map(item => item.endpoint), [apply], "still verifying: it stays");
     await s.render().send("/run/start_model_download", { id: "other" });
-    assert.equal(s.calls.length, 1, "competing actions stay blocked while it verifies");
-    // An older observation than the one shown says nothing about it.
-    s.render().updateState(downloadState({ observation_id: "1", jobs: { model: { ...request, phase: "applied" } } }));
-    assert.ok(s.render().pending);
-    s.render().updateState(downloadState({ observation_id: "3", jobs: { model: { ...request, phase: "applied" } } }));
+    assert.equal(s.calls.length, 1, "competing actions stay blocked until the timeout");
+    s.render().expireUnconfirmed();
     assert.equal(s.render().pending, null);
-    assert.equal(s.render().error, "request_unconfirmed", "the missing reply is still reported");
+    assert.equal(s.render().error, "request_unconfirmed", "the missing reply is reported");
     await s.render().send("/run/start_model_download", { id: "other" });
     assert.equal(s.calls.length, 2, "the user can act again");
 });
 
-test("a poll does not release an Apply that has not timed out, nor one of another job", async t => {
+test("a poll does not release an Apply that has not timed out", async t => {
     const s = await setup(t);
     await s.render().send(apply, request);
     s.render().updateState(downloadState({ observation_id: "1", jobs: { model: { ...request, phase: "applied" } } }));
-    assert.ok(s.render().pending, "the reply may still come: only a timed-out Apply is let go");
-    s.render().expireUnconfirmed();
-    s.render().updateState(downloadState({ observation_id: "2", jobs: { model: { ...request, job_id: "new-job", phase: "verifying" } } }));
-    assert.equal(s.render().pending, null, "a job that was replaced is not this Apply's");
+    assert.ok(s.render().pending, "the reply may still come: only the timeout lets it go");
 });
 
 test("a failed Cancel write retains pending Apply", async t => {
