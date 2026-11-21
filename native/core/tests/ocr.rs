@@ -220,7 +220,8 @@ fn model_readiness_follows_the_files_on_disk() {
     let readiness = ui.ok("/get/data/ocr_model_readiness", None);
     assert_eq!(
         readiness,
-        json!({ "language": "auto", "language_supported": true, "required_models": ["ppocrv6-small"], "missing_models": ["ppocrv6-small"] })
+        json!({ "language": "auto", "language_supported": true, "required_models": ["ppocrv6-small"], "missing_models": ["ppocrv6-small"],
+            "detector_model": "vrct-vox-chatbox-detector", "detector_installed": false, "detector_enabled": true })
     );
     // A file of the wrong size is not a download.
     install(&ui.dir, "ppocrv6-small");
@@ -242,8 +243,8 @@ fn model_readiness_follows_the_files_on_disk() {
     assert_eq!(
         keys,
         [
-            "engine", "language", "language_supported", "required_models", "missing_models", "capture", "window_title",
-            "detector_model", "detector_installed", "detector_enabled", "runtime",
+            "engine", "language", "language_supported", "required_models", "missing_models", "detector_model",
+            "detector_installed", "detector_enabled", "capture", "window_title", "runtime",
         ]
     );
     assert_eq!(full["engine"], true);
@@ -255,6 +256,8 @@ fn model_readiness_follows_the_files_on_disk() {
     assert_eq!(full["runtime"], json!({ "state": "stopped", "stage": null, "error_code": null, "detector": null }));
     install(&ui.dir, "vrct-vox-chatbox-detector");
     assert_eq!(ui.ok("/get/data/ocr_readiness", None)["detector_installed"], true);
+    // The start-up answer knows it too, without looking for the window.
+    assert_eq!(ui.ok("/get/data/ocr_model_readiness", None)["detector_installed"], true);
 
     *fake.probe.lock().unwrap() = CaptureStatus::WindowNotFound;
     fake.engine.store(false, Ordering::SeqCst);

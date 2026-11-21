@@ -52,9 +52,9 @@ export const Ocr = () => {
 };
 
 
-const Main_Container = () => {
+export const Main_Container = () => {
     const { t } = useI18n();
-    const { currentOcrReadiness, getOcrReadiness,
+    const { currentOcrReadiness, currentOcrModelReadiness, getOcrReadiness,
         currentOcrSourceLanguage, currentOcrWindowTitle } = useOcr();
     // useOcr() hands out new functions on every render; pin the latest one so
     // refreshing does not itself trigger another refresh.
@@ -65,8 +65,11 @@ const Main_Container = () => {
     // The models a language needs and whether VRChat is open change with these settings.
     useEffect(() => { refresh(); }, [refresh, language, title]);
     const readiness = currentOcrReadiness.data;
-    // The core sends both lists with every reply (an empty list when nothing is needed).
-    const required = readiness?.required_models ?? [];
+    // The models come with the start-up settings (files only), so the models' part is drawn with
+    // its cards from the start, even opened before the page's own answer comes (#912). The core
+    // sends both lists with every reply (an empty list when nothing is needed).
+    const models = readiness ?? currentOcrModelReadiness.data;
+    const required = models?.required_models ?? [];
     return (
         <div>
             <SectionLabelComponent label={t("config_page.ocr.section_title")} desc={t("config_page.ocr.section_desc")} />
@@ -74,11 +77,11 @@ const Main_Container = () => {
             <OcrSourceLanguage_Box />
             {/* Wayland only: without a shared window there is nothing to read. */}
             <OcrSharedWindow />
-            {/* Until the readiness arrives, the models' bar keeps its place (checking), so the
+            {/* Until the models are known, the models' bar keeps its place (checking), so the
                 rows under it do not move when the answer comes (#912). */}
-            {(!readiness || required.length > 0) &&
-                <OcrModels ids={required} missing={readiness?.missing_models ?? []} onChanged={refresh}
-                    settingId={OCR_MODELS_SETTING_ID} checking={!readiness}
+            {(!models || required.length > 0) &&
+                <OcrModels ids={required} missing={models?.missing_models ?? []} onChanged={refresh}
+                    settingId={OCR_MODELS_SETTING_ID} checking={!models}
                     title={t("config_page.ocr.models.title")} desc={t("config_page.ocr.models.desc")}
                     note={t("config_page.ocr.models.required")} />}
         </div>
@@ -101,21 +104,23 @@ const Detection_Container = () => {
 const DETECTOR_STATES = ["on", "ready", "restart", "paused", "off", "missing"] as const;
 
 // VRCT-VOX's own chatbox detector: optional download, then a switch (on by default).
-// Until the readiness arrives, the part is drawn as it will be: the switch as saved but unavailable,
-// the line and the model's bar saying it is being checked. When the model turns out to be missing,
-// the switch is then cleared. The line keeps the lines of its longest state,
-// and the model's bar stays once the model is on the PC, saying so. The part keeps one size, so
-// the rows under it do not move when the answer comes (#912).
+// Whether its model is on the PC comes with the start-up settings (files only), so the part is
+// drawn as it is from the start (#912). Should no answer have come yet, the part is drawn as it
+// will be: the switch as saved but unavailable, the line and the model's bar saying it is being
+// checked; when the model turns out to be missing, the switch is then cleared. The line keeps the
+// lines of its longest state, and the model's bar stays once the model is on the PC, saying so.
+// The part keeps one size, so the rows under it do not move when the answer comes.
 export const OcrChatboxDetector_Box = () => {
     const { t } = useI18n();
-    const { currentOcrReadiness, getOcrReadiness, currentOcrCaptureStatus,
+    const { currentOcrReadiness, currentOcrModelReadiness, getOcrReadiness, currentOcrCaptureStatus,
         currentOcrUseChatboxDetector, toggleOcrUseChatboxDetector } = useOcr();
     const getReadiness = useRef(getOcrReadiness);
     getReadiness.current = getOcrReadiness;
     const refresh = useCallback(() => getReadiness.current(), []);
     const readiness = currentOcrReadiness.data;
-    const status = detectorStatus(readiness, currentOcrUseChatboxDetector.data, currentOcrCaptureStatus.data ?? readiness?.runtime);
-    // A core that names no detector has none to offer.
+    const status = detectorStatus(readiness ?? currentOcrModelReadiness.data, currentOcrUseChatboxDetector.data,
+        currentOcrCaptureStatus.data ?? readiness?.runtime);
+    // A core whose readiness names no detector has none to offer.
     if (readiness && !status) return null;
     const installed = status?.installed === true;
     return (

@@ -14,12 +14,13 @@ const readiness = (installed: boolean) => ({ engine: true, detector_model: MODEL
 // its longest state, and its model's bar stays once the model is on the PC.
 test("the chatbox detector's part keeps one size before and after the readiness arrives", async () => {
     const runtime = hooks();
-    let answer: object | null = null;
+    let answer: object | null = null, startup: object | null = null;
     let saved = true;
-    const { OcrChatboxDetector_Box } = await loadModule<typeof import("./Ocr.tsx")>(new URL("./Ocr.tsx", import.meta.url), runtime, {
+    const { OcrChatboxDetector_Box, Main_Container } = await loadModule<typeof import("./Ocr.tsx")>(new URL("./Ocr.tsx", import.meta.url), runtime, {
         "../../../../../../logics/common/languageNames.ts": { createLanguageNames: () => ({ language: (id: string) => id }) },
         "@logics_configs": {
-            useOcr: () => ({ currentOcrReadiness: { state: "ok", data: answer }, getOcrReadiness: () => undefined,
+            useOcr: () => ({ currentOcrReadiness: { state: "ok", data: answer }, currentOcrModelReadiness: { state: "ok", data: startup },
+                getOcrReadiness: () => undefined, currentOcrSourceLanguage: { state: "ok", data: "Japanese" }, currentOcrWindowTitle: { state: "ok", data: "VRChat" },
                 currentOcrCaptureStatus: { state: "ok", data: null }, currentOcrUseChatboxDetector: { state: "ok", data: saved },
                 toggleOcrUseChatboxDetector: () => undefined }),
             useSaveButtonLogic: () => ({}),
@@ -56,7 +57,25 @@ test("the chatbox detector's part keeps one size before and after the readiness 
         ids: [MODEL], missing: [MODEL], checking: false });
     assert.deepEqual(part(readiness(true)), { checked: true, is_available: true, toggles: true, current: "config_page.ocr.detector.status_ready", ...line,
         ids: [MODEL], missing: [], checking: false });
-    // A core that names no detector has none to offer.
+    // The start-up answer already says whether the model is on the PC: the part is drawn as it is.
+    answer = null;
+    startup = { required_models: [], missing_models: [], detector_model: MODEL, detector_installed: true, detector_enabled: true };
+    assert.deepEqual(part(null), { checked: true, is_available: true, toggles: true, current: "config_page.ocr.detector.status_ready", ...line,
+        ids: [MODEL], missing: [], checking: false });
+    startup = null;
+    // The models' part takes the models from the start-up answer until the page's own one comes,
+    // so its cards are there from the start; with neither, it says it is checking.
+    const models = () => {
+        const { ids, missing, checking } = findIn(runtime.render(Main_Container, {}), (node: TreeNode) => node.type === "models", "models").props;
+        return { ids, missing, checking };
+    };
+    assert.deepEqual(models(), { ids: [], missing: [], checking: true });
+    startup = { required_models: ["ppocrv6-small"], missing_models: ["ppocrv6-small"] };
+    assert.deepEqual(models(), { ids: ["ppocrv6-small"], missing: ["ppocrv6-small"], checking: false });
+    answer = { required_models: ["ppocrv6-small"], missing_models: [] };
+    assert.deepEqual(models(), { ids: ["ppocrv6-small"], missing: [], checking: false });
+    startup = null;
+    // A core whose readiness names no detector has none to offer.
     answer = { engine: true };
     assert.equal(runtime.render(OcrChatboxDetector_Box, {}), null);
     runtime.unmount();
