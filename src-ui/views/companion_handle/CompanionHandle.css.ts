@@ -8,6 +8,11 @@ import { globalStyle, keyframes, style } from "@vanilla-extract/css";
 const PLATE = "rgba(38, 22, 51, 0.72)";
 const LINE = "#E3DDE9";
 const ON = "#A47AF5";
+// A feature's icon in its triangle (#536): the brand's Off-White while the feature is off, green
+// while it is on. Green is not a brand colour; it was asked for so that "on" reads at a glance
+// over a game. It reaches 3:1 and more against the plate.
+const ICON_OFF = "#FAFAFC";
+const ICON_ON = "#5EE6A0";
 
 globalStyle("html, body, #root", { width: "100%", height: "100%", margin: 0, overflow: "hidden", background: "transparent" });
 globalStyle("body", { userSelect: "none", fontFamily: '"Yu Gothic UI", "Noto Sans", system-ui, sans-serif' });
@@ -45,7 +50,9 @@ export const point = style({
     fill: "transparent", stroke: LINE, strokeWidth: 2.4, strokeLinejoin: "round", cursor: "pointer",
     transition: "fill .15s, opacity .15s",
     selectors: {
-        '&[data-on="true"]': { fill: ON, stroke: ON },
+        // On: the outline in the icon's green and a faint tint of it, so the green icon stays
+        // readable (it was a lilac fill before the icons, #536).
+        '&[data-on="true"]': { fill: "rgba(94, 230, 160, 0.16)", stroke: ICON_ON },
         '&[data-pending="true"]': { opacity: 0.5 },
         // Its main switch is greyed out: a broken outline, not a filled one (#562).
         '&[data-blocked="true"]': { strokeDasharray: "4 4", opacity: 0.6 },
@@ -53,6 +60,22 @@ export const point = style({
         '&[data-docked="true"]:not([data-on="true"])': { fill: "rgba(227, 221, 233, 0.22)" },
         // Turned beyond the edge: half off the screen, not one to aim at.
         '&[data-shown="false"]': { opacity: 0.35, pointerEvents: "none" },
+    },
+    ...quick,
+});
+
+// The icon stays upright while the hexagram turns: it turns back as fast as the star turns. It
+// takes no pointer, so the triangle under it is what the pointer rests on. The main window's icons
+// are drawn three ways (a plain fill, a fill of currentColor, a stroke of currentColor), so the
+// colour is both the fill and the color.
+export const icon = style({
+    fill: ICON_OFF, color: ICON_OFF, pointerEvents: "none",
+    transition: "transform .2s cubic-bezier(.2, .7, .3, 1), fill .15s, color .15s, opacity .15s",
+    selectors: {
+        '&[data-on="true"]': { fill: ICON_ON, color: ICON_ON },
+        '&[data-pending="true"]': { opacity: 0.5 },
+        '&[data-blocked="true"]': { opacity: 0.6 },
+        '&[data-shown="false"]': { opacity: 0.35 },
     },
     ...quick,
 });

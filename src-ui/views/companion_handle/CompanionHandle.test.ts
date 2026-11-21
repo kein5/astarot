@@ -73,6 +73,36 @@ test("hidden at its edge it draws nothing; out, it draws the hexagram with the s
     assert.deepEqual(s.shown(), ["main_page.rvc", "main_page.transcription_receive", "main_page.ocr"]);
 });
 
+// #536: each triangle carries its feature's icon, green while the switch is on, off-white while it
+// is off (the colours are the stylesheet's, keyed by data-on). The icons stay upright as it turns.
+test("each triangle carries its feature's icon, lit while the switch is on and upright as the hexagram turns", async context => {
+    const s = await setup(context);
+    const icons = () => {
+        const found: TreeNode[] = [];
+        find(s.render(), node => { if (node.type === "g" && typeof node.props["data-feature"] === "string") found.push(node); return false; });
+        return found;
+    };
+    assert.deepEqual(icons().map(node => node.props["data-feature"]), ["mic", "translation", "tts", "rvc", "listening", "ocr"]);
+    const icon = (feature: string) => findIn(s.render(), node => node.type === "g" && node.props["data-feature"] === feature);
+    assert.equal(icon("mic").props["data-on"], true);
+    assert.equal(icon("translation").props["data-on"], false);
+    assert.equal(icon("rvc").props["data-pending"], true);
+    // Each its own icon, the main window's: six different pictures, left out of what is read.
+    const pictures = icons().map(node => [node.props.children].flat().find(child => child && typeof child === "object"));
+    assert.equal(new Set(pictures.map(picture => picture?.type)).size, 6);
+    assert.ok(pictures.every(picture => picture?.props["aria-hidden"] === "true"));
+    // Shown with its triangle; the ones turned beyond the edge are faint like their triangles.
+    assert.equal(icon("ocr").props["data-shown"], s.point("main_page.ocr").props["data-shown"]);
+    assert.equal(icon("mic").props["data-shown"], s.point("main_page.transcription_send").props["data-shown"]);
+    // Turned back as far as the star turns, so it reads upright.
+    const star = findIn(s.render(), node => node.type === "g" && node.props.className === "star");
+    const turned = (style: { transform: string }) => Number(style.transform.match(/rotate\((-?[\d.]+)deg\)/)?.[1]);
+    assert.equal(turned(icon("mic").props.style), -turned(star.props.style));
+    s.tree().props.onWheel({ deltaY: 100 });
+    await s.settle();
+    assert.equal(turned(icon("mic").props.style), -turned(findIn(s.render(), node => node.type === "g" && node.props.className === "star").props.style));
+});
+
 test("the wheel turns it a point at a time, bringing another switch into view", async context => {
     const s = await setup(context);
     const before = s.shown();

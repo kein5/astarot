@@ -1,11 +1,17 @@
-import { useEffect, useRef, useState, type CSSProperties, type WheelEvent } from "react";
+import { useEffect, useRef, useState, type ComponentType, type CSSProperties, type SVGProps, type WheelEvent } from "react";
 import { useI18n } from "@useI18n";
 import { companionBridge, type CompanionBridge, type HandleLayout } from "../../logics/companion/bridge.ts";
 import { actionFor, edgeAction, FEATURES, type CompanionStatus, type Feature } from "../../logics/companion/status.ts";
 import {
-    angleOf, baseRotation, dockAt, EDGES, facesInward, innerHexagon, inwardAngle, inwardSide, isEdge, pointTriangle, polygon, TURN,
+    angleOf, baseRotation, centroid, dockAt, EDGES, facesInward, innerHexagon, inwardAngle, inwardSide, isEdge, pointTriangle, polygon, TURN,
     type Edge,
 } from "../../logics/companion/hexagram.ts";
+import MicSvg from "@images/mic.svg?react";
+import TranslationSvg from "@images/translation.svg?react";
+import TtsSpeakerSvg from "@images/tts_speaker.svg?react";
+import VoiceConversionSvg from "@images/voice_conversion.svg?react";
+import HeadphonesSvg from "@images/headphones.svg?react";
+import ChatTranscribeSvg from "@images/chat_transcribe.svg?react";
 import * as styles from "./CompanionHandle.css.ts";
 import { FROM_X, FROM_Y } from "./CompanionHandle.css.ts";
 
@@ -13,8 +19,9 @@ import { FROM_X, FROM_Y } from "./CompanionHandle.css.ts";
 // circle around a hexagram, the shape of the ASTAROT symbol. It hides at a screen edge (the
 // setting TRAY_COMPANION_EDGE). When the pointer comes near, the app shows this window and half
 // of the hexagram comes out over the edge (src-tauri/src/companion.rs). The mouse wheel turns it
-// a point at a time; three of its six triangles show at once, one for each of the main switches,
-// and the triangles of the switches that are on are filled. Hovering one docks that feature out
+// a point at a time; three of its six triangles show at once, one for each of the main switches.
+// Each triangle carries its feature's icon, green while the switch is on and off-white while it is
+// off (#536), and the triangles of the switches that are on are tinted. Hovering one docks that feature out
 // towards the middle of the screen; pressing the docked label runs the main window's own switch.
 // Hovering the hexagon in the middle docks out the common settings (the edge to hide at, the main
 // window, the control panel). Hovering alone changes nothing. The window never takes the focus.
@@ -32,6 +39,19 @@ const MENU_DISTANCE = OPEN_RADIUS * 1.22 + 10;
 
 // What is docked out: one of the six switches, or the common settings of the middle.
 type Docked = Feature | "common";
+
+// The same icons as the main window's switches, one in each triangle (#536). They stay upright
+// while the hexagram turns, and they are green while the feature is on, off-white while it is off.
+export const FEATURE_ICONS: Record<Feature, ComponentType<SVGProps<SVGSVGElement>>> = {
+    mic: MicSvg,
+    translation: TranslationSvg,
+    tts: TtsSpeakerSvg,
+    rvc: VoiceConversionSvg,
+    listening: HeadphonesSvg,
+    ocr: ChatTranscribeSvg,
+};
+// The icon's size (CSS px): it stays inside its triangle's inscribed circle.
+export const ICON_SIZE = 13;
 
 // The same words as the main window's switches.
 const LABEL_KEYS: Record<Feature, string> = {
@@ -132,12 +152,26 @@ export const CompanionHandle = ({ bridge = companionBridge }: { bridge?: Compani
                             {FEATURES.map((feature, index) => {
                                 const value = status?.[feature];
                                 const shown = facesInward(angleOf(index, rotation), edge);
+                                const triangle = pointTriangle(OPEN_RADIUS, index);
+                                const middle = centroid(triangle);
+                                const Icon = FEATURE_ICONS[feature];
                                 return (
-                                    <polygon key={feature} className={styles.point} points={polygon(pointTriangle(OPEN_RADIUS, index))}
-                                        data-on={value?.on === true} data-pending={value?.pending === true} data-blocked={value?.blocked === true}
-                                        data-docked={docked === feature} data-shown={shown}
-                                        aria-label={t(LABEL_KEYS[feature])} aria-hidden={!shown}
-                                        onPointerEnter={() => { if (shown) aim(feature); }} onPointerLeave={unaim} />
+                                    <g key={feature}>
+                                        <polygon className={styles.point} points={polygon(triangle)}
+                                            data-on={value?.on === true} data-pending={value?.pending === true} data-blocked={value?.blocked === true}
+                                            data-docked={docked === feature} data-shown={shown}
+                                            aria-label={t(LABEL_KEYS[feature])} aria-hidden={!shown}
+                                            onPointerEnter={() => { if (shown) aim(feature); }} onPointerLeave={unaim} />
+                                        {/* What the triangle is, and whether it is on, without docking it out (#536). */}
+                                        <g transform={`translate(${middle.x} ${middle.y})`}>
+                                            <g className={styles.icon} data-feature={feature} data-on={value?.on === true}
+                                                data-pending={value?.pending === true} data-blocked={value?.blocked === true} data-shown={shown}
+                                                style={{ transform: `rotate(${-rotation}deg)` }}>
+                                                {/* The triangle carries the name; the picture adds nothing to read. */}
+                                                <Icon x={-ICON_SIZE / 2} y={-ICON_SIZE / 2} width={ICON_SIZE} height={ICON_SIZE} aria-hidden="true" focusable="false" />
+                                            </g>
+                                        </g>
+                                    </g>
                                 );
                             })}
                             <polygon className={styles.core} points={polygon(innerHexagon(OPEN_RADIUS))} role="button"
