@@ -750,6 +750,8 @@ const SendSampleTextToggleButton = () => {
         if (!is_settings_open) setIsStarted(false);
     }, [is_settings_open]);
 
+    // t is the UI language's: the samples sent after a change of language (the VR panel's
+    // settings can change it while this sends) are in the new one (#904).
     useEffect(() => {
         if (!is_sending) return undefined;
         const interval_id = setInterval(() => {
@@ -760,7 +762,7 @@ const SendSampleTextToggleButton = () => {
             sendTextToOverlay(text_data);
         }, 1000);
         return () => clearInterval(interval_id);
-    }, [is_sending]);
+    }, [is_sending, t]);
 
     const toggleFunction = () => {
         setIsStarted(is_settings_open && !is_started);

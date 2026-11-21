@@ -47,6 +47,7 @@ const MicComponent = (props: ThresholdComponentProps) => {
     } = useVolume();
 
 
+    // The words for an automatic threshold are said again in a new UI language (#904).
     useEffect(() => {
         if (currentMicThreshold.state === "pending") return;
         if (currentEnableAutomaticMicThreshold.data === true || props.is_vad_active === true) {
@@ -54,7 +55,7 @@ const MicComponent = (props: ThresholdComponentProps) => {
         } else {
             setUiThreshold(currentMicThreshold.data);
         }
-    }, [currentMicThreshold, currentEnableAutomaticMicThreshold, props.is_vad_active]);
+    }, [currentMicThreshold, currentEnableAutomaticMicThreshold, props.is_vad_active, t]);
 
     const setUiThresholdFunction = (payload_ui_threshold: UiThreshold) => {
         setUiThreshold(payload_ui_threshold);
@@ -107,6 +108,7 @@ const SpeakerComponent = (props: ThresholdComponentProps) => {
         currentSpeakerThresholdCheckStatus,
     } = useVolume();
 
+    // The words for an automatic threshold are said again in a new UI language (#904).
     useEffect(() => {
         if (currentSpeakerThreshold.state === "pending") return;
         if (currentEnableAutomaticSpeakerThreshold.data === true || props.is_vad_active === true) {
@@ -114,7 +116,7 @@ const SpeakerComponent = (props: ThresholdComponentProps) => {
         } else {
             setUiThreshold(currentSpeakerThreshold.data);
         }
-    }, [currentSpeakerThreshold, currentEnableAutomaticSpeakerThreshold, props.is_vad_active]);
+    }, [currentSpeakerThreshold, currentEnableAutomaticSpeakerThreshold, props.is_vad_active, t]);
 
     const setUiThresholdFunction = (payload_ui_threshold: UiThreshold) => {
         setUiThreshold(payload_ui_threshold);

@@ -108,6 +108,31 @@ test("an already installed model stays quiet; unmount cancels pending announceme
     assert.equal(s.messages.length, count);
 });
 
+// #904: a change of the UI language no longer draws the page again. What was said in the language
+// before goes once nothing is downloading, and a download still going is said again in the new one.
+test("a change of the UI language clears the last words when idle and says the progress again when not", async context => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"], now: 0 });
+    const runtime = hooks();
+    const { useLegacyDownloadStatus } = await loadModule<typeof import("./useLegacyDownloadStatus.ts")>(new URL("./useLegacyDownloadStatus.ts", import.meta.url), runtime);
+    context.onTestFinished(() => runtime.unmount());
+    // As react-i18next does, t stays the same function while the UI language does.
+    const words = { en: (key: string) => `en:${key.split(".").pop()}`, ja: (key: string) => `ja:${key.split(".").pop()}` };
+    let language: keyof typeof words = "en";
+    let option = { progress: 50 as number | null, is_pending: false, is_downloaded: false };
+    const status = () => { runtime.render(() => useLegacyDownloadStatus(option, "base", words[language])); return runtime.render(() => useLegacyDownloadStatus(option, "base", words[language])); };
+    assert.equal(status(), "en:progress_downloading");
+    language = "ja";
+    status();
+    vi.advanceTimersByTime(1000);
+    assert.equal(status(), "ja:progress_downloading");
+    option = { progress: null, is_pending: false, is_downloaded: true };
+    assert.equal(status(), "ja:progress_complete");
+    language = "en";
+    assert.equal(status(), "");
+    vi.advanceTimersByTime(2000);
+    assert.equal(status(), "", "nothing is said again");
+});
+
 test("shared circular progress clamps determinate values and omits unknown values", async () => {
     const { CircularProgress } = await loadModule<typeof import("../../views/common_components/circular_progress/CircularProgress.tsx")>(new URL("../../views/common_components/circular_progress/CircularProgress.tsx", import.meta.url), hooks());
     const cases: [number | null, number | undefined][] = [[-5, 0], [108, 100], [NaN, undefined], [null, undefined]];

@@ -30,13 +30,21 @@ export const legacyDownloadPhase = (option: LegacyDownloadOption): LegacyDownloa
 export function useLegacyDownloadStatus(option: LegacyDownloadOption, model: string, t: StatusTranslate): string {
     const [status, setStatus] = useState("");
     const announced = useRef<Announcement>({ phase: null, model, at: 0, active: false });
+    // The t the status was said with.
+    const saidWith = useRef(t);
     const phase = legacyDownloadPhase(option);
     const progress = Math.floor(Math.max(0, Math.min(100, option.progress || 0)) / 10) * 10;
     useEffect(() => {
         const previous = announced.current;
         const active = phase === "pending" || phase === "downloading" || phase === "finalizing";
-        if (!active && (!previous.active || previous.model !== model)) return;
+        if (!active && (!previous.active || previous.model !== model)) {
+            // Nothing is downloading, so nothing is said again. Words said in a UI language the
+            // page no longer has go, as they did when a change of language drew the page again (#904).
+            if (saidWith.current !== t) { saidWith.current = t; setStatus(""); }
+            return;
+        }
         const publish = (): void => {
+            saidWith.current = t;
             setStatus(t(`legacy_model_downloads.progress_${phase}`, { model, progress }));
             announced.current = { phase, model, at: Date.now(), active };
         };
