@@ -90,8 +90,8 @@ test("Decide later and Escape put the notice away for this run without answering
     assert.deepEqual(dismissed.sent, []);
 });
 
-// #563: changing the UI language draws the main page again (App.tsx), and the notice put away
-// opened again at once.
+// #563: changing the UI language drew the main page again (until #904), and the notice put away
+// opened again at once. The engine starting again still draws it again (the start-up lock).
 test("a notice put away stays away when the main page is drawn again", async context => {
     const s = await setup(context, { state: "ok", data: { pending: true, enabled: true } });
     s.buttons()[2].props.onClick();

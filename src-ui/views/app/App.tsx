@@ -5,7 +5,6 @@ import { TelemetryNoticeController } from "./_app_controllers/TelemetryNoticeCon
 import { VirtualMicGuideController } from "./_app_controllers/VirtualMicGuideController";
 import { FirstRunSetupController } from "./_app_controllers/FirstRunSetupController";
 import { SwitchBlocksController } from "./_app_controllers/SwitchBlocksController";
-import { useI18n } from "@useI18n";
 import { useRef } from "react";
 
 import {
@@ -48,7 +47,6 @@ import { StartupAnnouncer } from "./others/startup/StartupAnnouncer";
 
 export const App = () => {
     const { phase } = useBackendStartup();
-    const { i18n } = useI18n();
 
     return (
         <div className={styles.container}>
@@ -72,8 +70,9 @@ export const App = () => {
                 <AppUpdateController />
 
                 {/* The main page is drawn from the first frame. Until the engine is
-                    ready it is locked, with placeholders where its settings go. */}
-                <Contents key={i18n.language} locked={isStartupLocked(phase)} />
+                    ready it is locked, with placeholders where its settings go. A new UI
+                    language draws the same pages in it: what is open, typed or focused stays (#904). */}
+                <Contents locked={isStartupLocked(phase)} />
                 {phase === "starting" && <StartupAnnouncer />}
                 {phase === "failed" && <StartupFailedDialog />}
 

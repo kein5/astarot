@@ -92,7 +92,8 @@ async function fixture(context: TestContext) {
     let { TranslationSetupController } = await controller(runtime);
     let owner = runtime;
     const render = () => owner.render(TranslationSetupController);
-    // Changing the UI language draws the main page again (App.jsx, Contents key).
+    // The engine starting again draws the controller again (the start-up lock takes it away), as a
+    // change of the UI language did until #904.
     const remount = async () => {
         owner.unmount();
         const next = hooks();

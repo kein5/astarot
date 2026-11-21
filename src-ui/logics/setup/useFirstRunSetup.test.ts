@@ -13,9 +13,10 @@ async function setup(context: TestContext) {
     return { runtime, sent, render: () => runtime.render(useFirstRunSetup) };
 }
 
-// #563: changing the UI language draws the main page again (App.tsx keys it by the language), and a
-// guide that kept "put away" in its own state opened again at once. The first-run setup keeps it in
-// atoms of its module, which outlive the page.
+// #563: changing the UI language drew the main page again (until #904), and a guide that kept "put
+// away" in its own state opened again at once. The page is still drawn again when the engine starts
+// again: the start-up lock takes the dialogs away. The first-run setup keeps it in atoms of its
+// module, which outlive the page.
 test("the setup put away with Later stays put away when the main page is drawn again", async context => {
     const s = await setup(context);
     s.render().updateNotice(true);
