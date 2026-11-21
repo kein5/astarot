@@ -1,5 +1,5 @@
 import { useRef } from "react";
-import type { MutableRefObject } from "react";
+import type { RefObject } from "react";
 import { useI18n } from "@useI18n";
 import { useVr } from "@logics_configs";
 
@@ -10,7 +10,7 @@ import type { SavedLogView } from "../app/main_page/main_section/message_contain
 import { VrWindow } from "./VrWindow";
 import styles from "./VrWindow.module.scss";
 
-type SavedView = MutableRefObject<SavedLogView | null>;
+type SavedView = RefObject<SavedLogView | null>;
 
 // ログウィンドウ。固定先・ロックなどは下の操作バー (VrToolbar) で変える
 export const VrLogWindow = ({ open, onClose }: { open: boolean; onClose: () => void }) => {

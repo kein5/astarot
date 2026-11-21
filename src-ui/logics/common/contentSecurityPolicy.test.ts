@@ -222,19 +222,26 @@ test("emitted production dependencies and HTML agree with the policy (run after 
     assert.deepEqual(built.filter(file => file.endsWith(".html")).sort(), ["dist/caption-overlay.html",
         "dist/companion-handle.html", "dist/companion-panel.html", "dist/index.html", "dist/quick-chat.html", "dist/vr.html"]);
     const hashes: string[] = [];
-    let styleInjectors = 0;
+    let styleInjectors = 0, precedenceStyles = 0;
     for (const file of built) {
         if (file.endsWith(".js")) {
-            assert.deepEqual(jsProblems(read(file), false), [], file);
-            hashes.push(...styleHashes(read(file)));
-            walk(ast(read(file)), node => {
-                if (node.type === "CallExpression" && member(node.callee) === "createElement"
-                    && literal(node.arguments[0]) === "style") styleInjectors++;
+            const code = read(file);
+            assert.deepEqual(jsProblems(code, false), [], file);
+            hashes.push(...styleHashes(code));
+            walk(ast(code), node => {
+                if (node.type !== "CallExpression" || member(node.callee) !== "createElement" || literal(node.arguments[0]) !== "style") return;
+                // react-dom 19 makes a <style> for a <style href precedence> that a component draws
+                // (its hoistable resources). The app's sources draw no <style> ("new JSX resource
+                // element" above), so it does not run; it carries no stylesheet to hash.
+                const start = node.start ?? 0;
+                if (code.slice(Math.max(0, start - 300), start).includes("data-precedence")) precedenceStyles++;
+                else styleInjectors++;
             });
         } else if (file.endsWith(".css")) assert.deepEqual(cssProblems(read(file)), [], file);
         else if (file.endsWith(".html")) assert.deepEqual(htmlProblems(read(file)), [], file);
         assert.ok(!/\.(?:wasm|woff2?|ttf|otf|mp[34]|wav|ogg|webm)$/.test(file), `${file}: new resource class needs review`);
     }
     assert.equal(styleInjectors, injectedStyles.length, "Review new or changed runtime style injectors");
+    assert.equal(precedenceStyles, 1, "Review react-dom's <style precedence> resource after a react-dom change");
     assert.deepEqual(hashes.sort(), sources(security.csp, "style-src").filter(value => value !== "'self'").sort());
 });

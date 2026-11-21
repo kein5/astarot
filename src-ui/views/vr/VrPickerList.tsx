@@ -1,5 +1,5 @@
 import { cloneElement, useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
-import type { MutableRefObject, ReactElement, RefObject } from "react";
+import type { ReactElement, RefObject } from "react";
 import { Virtualizer } from "virtua";
 import type { VirtualizerHandle } from "virtua";
 import styles from "./VrPickerList.module.scss";
@@ -19,7 +19,7 @@ export interface VrPickerListProps<T> {
     // The button for one choice.
     children: (option: T, index: number) => ReactElement;
     scrollRef: RefObject<HTMLElement | null>;
-    navigationRef?: MutableRefObject<VrPickerNavigation | null>;
+    navigationRef?: RefObject<VrPickerNavigation | null>;
     columns?: number;
     initialIndex?: number;
     stickyHeader?: boolean;

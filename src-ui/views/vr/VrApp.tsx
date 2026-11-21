@@ -47,7 +47,7 @@ type RegionProps = {
 const Region = ({ layout, name, children, hidden = false }: RegionProps) => {
     const [x, y, w, h] = layout.regions[name];
     return (
-        <div className={styles.region} data-vr-region={name} inert={hidden ? "" : undefined} aria-hidden={hidden || undefined}
+        <div className={styles.region} data-vr-region={name} inert={hidden} aria-hidden={hidden || undefined}
             style={{ left: x, top: y, width: w, height: h, visibility: hidden ? "hidden" : undefined }}>
             {children}
         </div>

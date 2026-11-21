@@ -10,7 +10,7 @@ import * as styles from "./CompanionPanel.css.ts";
 export const CompanionPanel = ({ bridge = companionBridge }: { bridge?: CompanionBridge }) => {
     const { t, i18n } = useI18n();
     const [status, setStatus] = useState<CompanionStatus | null>(null);
-    const first = useRef<HTMLButtonElement>(null) as RefObject<HTMLButtonElement>;
+    const first = useRef<HTMLButtonElement>(null);
     const titleId = useId();
 
     useEffect(() => {
@@ -78,7 +78,7 @@ type SwitchRowProps = {
     value: Switch | undefined;
     disabled: boolean;
     onClick: () => void;
-    buttonRef?: RefObject<HTMLButtonElement>;
+    buttonRef?: RefObject<HTMLButtonElement | null>;
     t: (key: string) => string;
 };
 

@@ -1,5 +1,5 @@
 import { memo, useRef, useState, useLayoutEffect, useEffect, useCallback, useMemo } from "react";
-import type { MutableRefObject } from "react";
+import type { RefObject } from "react";
 import { useAtomValue } from "jotai";
 import { Virtualizer } from "virtua";
 import type { CacheSnapshot, VirtualizerHandle } from "virtua";
@@ -33,7 +33,7 @@ export interface SavedLogView {
 }
 
 type LogBoxProps = {
-    savedView?: MutableRefObject<SavedLogView | null>;
+    savedView?: RefObject<SavedLogView | null>;
 };
 
 // An empty row where a row was removed while the user reads above it (nextLogView).
@@ -155,7 +155,7 @@ export const LogBox = memo(function LogBox({ savedView }: LogBoxProps = {}) {
 // The rows handed to virtua (see nextLogView). When the oldest rows leave,
 // virtua has to see that on its own, so that step is committed before the rest.
 // Removed rows stay as empty rows only while the user reads above the end.
-const useLogView = (rows: MessageLogRow[], followRef: MutableRefObject<boolean>, restoredView: LogViewState | undefined) => {
+const useLogView = (rows: MessageLogRow[], followRef: RefObject<boolean>, restoredView: LogViewState | undefined) => {
     const [view, setView] = useState<LogViewState>(() => restoredView ?? { rows, shift: false, source: rows });
     const restoring = view === restoredView;
     const next = restoring || view.source === rows || view.shift ? view

@@ -18,7 +18,7 @@ import { VrchatOscHint } from "../others/vrchat_presence/VrchatOscHint";
 // The styles are vanilla-extract (ADR-010).
 type MainPageProps = {
     // Where focus goes when nothing on the page has it (App, ModalController).
-    focusFallback?: RefObject<HTMLDivElement>;
+    focusFallback?: RefObject<HTMLDivElement | null>;
     locked?: boolean;
 };
 
@@ -27,7 +27,7 @@ export const MainPage = ({ focusFallback, locked = false }: MainPageProps) => {
     const hidden = currentIsOpenedConfigPage.data === true;
 
     return (
-        <div ref={focusFallback} tabIndex={-1} inert={hidden || locked ? "" : undefined} aria-hidden={hidden}
+        <div ref={focusFallback} tabIndex={-1} inert={hidden || locked} aria-hidden={hidden}
             aria-busy={locked || undefined} data-starting={locked ? "" : undefined}
             data-main-page="" data-showing={hidden ? "config" : "main"} className={clsx(styles.page, {
             [styles.showConfig]: hidden,

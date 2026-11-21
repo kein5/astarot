@@ -1,6 +1,6 @@
 import { useResizable } from "react-resizable-layout";
 import type { SeparatorProps } from "react-resizable-layout";
-import { memo, useRef, useEffect, useState, forwardRef } from "react";
+import { memo, useRef, useEffect, useState, forwardRef, startTransition } from "react";
 import styles from "./MessageContainer.module.scss";
 import { LogBox } from "./log_box/LogBox";
 import { MessageLogSettingsContainer } from "./message_log_settings_container/MessageLogSettingsContainer";
@@ -58,8 +58,13 @@ export const MessageContainer = memo(function MessageContainer() {
         }
     }, [position]);
 
+    // The saved height arrives from the core, and it is drawn as a transition. React 19 draws
+    // waiting updates along with a flushSync, and virtua flushes synchronously in the
+    // ResizeObserver callback where it measures the log: drawn there, the new height resizes the
+    // log inside that callback, and the browser reports "ResizeObserver loop completed with
+    // undelivered notifications". A flushSync leaves a transition for later.
     useEffect(() => {
-        setUiMessageBoxRatio(currentMessageInputBoxRatio.data);
+        startTransition(() => setUiMessageBoxRatio(currentMessageInputBoxRatio.data));
     }, [currentMessageInputBoxRatio]);
 
     return (

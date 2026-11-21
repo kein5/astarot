@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import type { MutableRefObject } from "react";
+import type { RefObject } from "react";
 import { useI18n } from "@useI18n";
 import clsx from "clsx";
 import styles from "./Vr.module.scss";
@@ -163,7 +163,7 @@ type OverlaySettingsContainerProps = {
     ui_configs: OverlayLimits;
     default_ui_configs: OverlayLogSettings;
     id: string;
-    resetRef: MutableRefObject<(() => void) | null>;
+    resetRef: RefObject<(() => void) | null>;
 };
 
 const OverlaySettingsContainer = ({
