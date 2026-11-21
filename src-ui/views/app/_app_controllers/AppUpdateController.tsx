@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { useI18n } from "@useI18n";
 import { useIsBackendReady, useNotificationStatus } from "@logics_common";
-import { useOthers } from "@logics_configs";
+import { useExperimentalFeatures, useOthers } from "@logics_configs";
 import { useAppUpdate } from "../../../logics/common/useAppUpdate";
 
 // Rust says this when an update stopped the backend for the installer and the installer did not
@@ -17,6 +17,7 @@ let checkedThisRun = false;
 export const AppUpdateController = () => {
     const { currentIsBackendReady } = useIsBackendReady();
     const { currentEnableCheckSoftwareUpdates } = useOthers();
+    const { currentReleaseChannel } = useExperimentalFeatures();
     const { loadAppUpdateInfo, checkAppUpdate } = useAppUpdate();
     const ready = currentIsBackendReady.data === true;
     const enabled = currentEnableCheckSoftwareUpdates.data === true;
@@ -39,7 +40,8 @@ export const AppUpdateController = () => {
     useEffect(() => {
         if (!ready || !enabled || checkedThisRun) return;
         checkedThisRun = true;
-        checkAppUpdate({ silent: true });
+        // The channel came with the settings, before the backend was ready (#466).
+        checkAppUpdate({ silent: true, channel: currentReleaseChannel.data ?? null });
     }, [ready, enabled]);
 
     return null;

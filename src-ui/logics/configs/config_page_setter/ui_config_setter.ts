@@ -1464,6 +1464,16 @@ export const SETTINGS_ARRAY = [
         logics_template_id: "get_set",
         base_endpoint_name: "tray_companion_monitor",
     },
+    {
+        // The update channel (#466): "stable" or "beta". The backend keeps the one set here; until
+        // then it is the running build's, set again at every start.
+        Category: "ExperimentalFeatures",
+        Base_Name: "ReleaseChannel",
+        default_value: "stable",
+        ui_template_id: "select",
+        logics_template_id: "get_set",
+        base_endpoint_name: "release_channel",
+    },
 
     // The usage presets the user picked (usagePresets.ts, #554). null until the engine answers:
     // nothing is hidden while it is not known.

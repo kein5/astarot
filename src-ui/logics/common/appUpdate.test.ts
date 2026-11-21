@@ -120,3 +120,12 @@ test("download percent waits for a known size", () => {
     assert.equal(downloadPercent({ downloaded: 10, total: null }), null);
     assert.equal(downloadPercent({ downloaded: 300, total: 200 }), 100);
 });
+
+// #466: the check asks for the channel of the settings; without one, the build's (the command's own).
+test("the check asks for the update channel it is given, and for none without one", async () => {
+    const asked: unknown[] = [];
+    const s = setup({ app_update_check: (args: Record<string, unknown> | undefined) => { asked.push(args?.channel); return { available: false }; } });
+    await s.updater.check({ channel: "beta" });
+    await s.updater.check();
+    assert.deepEqual(asked, ["beta", null]);
+});

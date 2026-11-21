@@ -31,6 +31,8 @@ type ListProps = {
     monitor?: { current: Current; set: (monitor: string) => unknown; list: () => Promise<MonitorInfo[]> };
     // The VR panel (VR UI), listed here with the features on trial (#554, Q-05).
     vrPanel?: VrPanelProps;
+    // The update channel (#466): Stable, the default, or Beta.
+    channel?: { current: Current; set: (channel: string) => unknown };
 };
 
 // The VR panel keeps its own saved switch (OVERLAY_VR_PANEL, /set/enable/overlay_vr_panel),
@@ -50,7 +52,7 @@ export const ExperimentalFeatures = () => {
     const { currentIsEnabledOverlayVrPanel, toggleIsEnabledOverlayVrPanel } = useVr();
     const { asyncStdoutToPython } = useStdoutToPython();
     const { currentExperimentalFeatures, setExperimentalFeatures, currentTrayCompanionEdge, setTrayCompanionEdge,
-        currentTrayCompanionMonitor, setTrayCompanionMonitor } = useExperimentalFeatures();
+        currentTrayCompanionMonitor, setTrayCompanionMonitor, currentReleaseChannel, setReleaseChannel } = useExperimentalFeatures();
     return (
         <ExperimentalFeatureList
             features={EXPERIMENTAL_FEATURES}
@@ -61,13 +63,14 @@ export const ExperimentalFeatures = () => {
                 list: () => invoke<MonitorInfo[]>("companion_monitors") }}
             vrPanel={{ current: currentIsEnabledOverlayVrPanel, toggle: toggleIsEnabledOverlayVrPanel,
                 resetLauncher: () => asyncStdoutToPython("/run/vr_launcher_reset") }}
+            channel={{ current: currentReleaseChannel, set: setReleaseChannel }}
         />
     );
 };
 
 // The rows' general descriptions are hints here (#614). The notice that these are on trial stays
 // on screen, and so does the sentence that says the app will start differently.
-export const ExperimentalFeatureList = ({ features, current, setValues, edge, monitor, vrPanel }: ListProps) => {
+export const ExperimentalFeatureList = ({ features, current, setValues, edge, monitor, vrPanel, channel }: ListProps) => {
     const { t } = useI18n();
     return (
         <HintDescriptions>
@@ -75,7 +78,7 @@ export const ExperimentalFeatureList = ({ features, current, setValues, edge, mo
             {/* Like every other page, it starts with its category heading, then the notice. */}
             <SectionLabelComponent label={t("config_page.experimental_features.section_label")} />
             <p className={styles.notice}>{t("config_page.experimental_features.notice")}</p>
-            {features.length === 0 && !vrPanel
+            {features.length === 0 && !vrPanel && !channel
                 ? <p className={styles.empty}>{t("config_page.experimental_features.empty")}</p>
                 : features.map(({ id }) => {
                     const enabled = isExperimentalFeatureEnabled(current.data, id);
@@ -98,8 +101,31 @@ export const ExperimentalFeatureList = ({ features, current, setValues, edge, mo
                     );
                 })}
             {vrPanel && <VrPanelItem {...vrPanel} />}
+            {channel && <ReleaseChannelItem {...channel} />}
         </div>
         </HintDescriptions>
+    );
+};
+
+// Which releases the in-app update offers (#466): Stable (the default) only the stable ones, Beta
+// the betas too. A channel set here stays; the app never goes back to an older version, so from
+// Beta back to Stable it waits for the next stable release.
+export const RELEASE_CHANNELS = ["stable", "beta"] as const;
+const ReleaseChannelItem = ({ current, set }: NonNullable<ListProps["channel"]>) => {
+    const { t } = useI18n();
+    const key = "config_page.experimental_features.items.release_channel";
+    const list = Object.fromEntries(RELEASE_CHANNELS.map(channel => [channel, t(`${key}.${channel}`)]));
+    return (
+        <DropdownMenuContainer
+            setting_id="experimental_features.release_channel"
+            dropdown_id="release_channel"
+            label={t(`${key}.label`)}
+            desc={t(`${key}.desc`)}
+            selected_id={current.data === "beta" ? "beta" : "stable"}
+            list={list}
+            selectFunction={(selected: { selected_id: string }) => set(selected.selected_id)}
+            state={current.state}
+        />
     );
 };
 

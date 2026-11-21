@@ -91,13 +91,14 @@ export const createAppUpdate = ({ invoke, createChannel, get, set, log = () => {
     };
 
     // `silent`: the check at start. A failure there shows nothing; the page says it when asked.
-    const check = async ({ silent = false }: { silent?: boolean } = {}) => {
+    // `channel`: the update channel of the settings (#466); without one, the running build's.
+    const check = async ({ silent = false, channel = null }: { silent?: boolean; channel?: string | null } = {}) => {
         const info = await loadInfo();
         if (!info || !CHECKING_MODES.has(info.mode) || BUSY.has(get().status)) return get();
         const before = get();
         patch({ status: "checking", error: null });
         try {
-            const result = await invoke<AppUpdateCheckResult | null>("app_update_check");
+            const result = await invoke<AppUpdateCheckResult | null>("app_update_check", { channel });
             patch(result?.available
                 ? { status: "available", version: result.version, release_url: result.release_url }
                 : { status: "up_to_date", version: null, release_url: null });

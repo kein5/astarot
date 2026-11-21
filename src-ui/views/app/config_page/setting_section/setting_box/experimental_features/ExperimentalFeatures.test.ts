@@ -42,6 +42,8 @@ async function load(context: TestContext, registryModule: typeof registry = regi
         "@logics_configs": { useExperimentalFeatures: () => ({
             currentExperimentalFeatures: current,
             setExperimentalFeatures: (value: unknown) => { writes.push(value); },
+            currentReleaseChannel: { state: "ok", data: "stable" },
+            setReleaseChannel: (value: unknown) => { writes.push(value); },
         }), useVr: () => ({
             currentIsEnabledOverlayVrPanel: vrPanel,
             toggleIsEnabledOverlayVrPanel: () => { vrPanelToggles.push(!vrPanel.data); },
@@ -268,6 +270,32 @@ test("#554 (Q-05): the VR panel is listed with the features on trial and keeps i
     const vr = readFileSync(new URL("../vr/Vr.tsx", import.meta.url), "utf8");
     assert.doesNotMatch(vr, /IsEnabledOverlayVrPanel|vr_launcher_reset/);
     assert.match(vr, /<PagePointer [^>]*tab="experimental_features"/);
+});
+
+// #466: which releases the in-app update offers. Stable by default; Beta gets the betas too.
+test("the update channel is chosen on the page: Stable by default, or Beta", async context => {
+    const s = await load(context);
+    const chosen: string[] = [];
+    const channelOf = (data: unknown) => ({ current: { state: "ok", data }, set: (value: string) => { chosen.push(value); } });
+    const dropdownOf = (data: unknown) => {
+        const list = s.render({ features: [], current: s.current, setValues: () => {}, channel: channelOf(data) });
+        assert.equal(children(list).some(item => item.props?.children === "config_page.experimental_features.empty"), false);
+        const chooser = children(list).find(item => typeof item.type === "function");
+        assert.ok(chooser);
+        return draw(chooser);
+    };
+    const dropdown = dropdownOf("stable");
+    assert.equal(dropdown.type, "dropdown");
+    assert.equal(dropdown.props.setting_id, "experimental_features.release_channel");
+    assert.deepEqual(Object.keys(dropdown.props.list), ["stable", "beta"]);
+    assert.equal(dropdown.props.list.beta, "config_page.experimental_features.items.release_channel.beta");
+    assert.equal(dropdown.props.desc, "config_page.experimental_features.items.release_channel.desc");
+    assert.equal(dropdown.props.selected_id, "stable");
+    // Not known yet, or anything else: Stable, the default.
+    assert.equal(dropdownOf(null).props.selected_id, "stable");
+    assert.equal(dropdownOf("beta").props.selected_id, "beta");
+    dropdown.props.selectFunction({ selected_id: "beta" });
+    assert.deepEqual(chosen, ["beta"]);
 });
 
 test("the page is not empty while the VR panel is listed", async context => {
