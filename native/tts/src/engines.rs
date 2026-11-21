@@ -1,11 +1,16 @@
 //! Clients for the speech engines a user installs and runs (ADR-008): VOICEVOX and the
 //! engines that keep its API (SHAREVOX, AivisSpeech), and COEIROINK v2.
 //!
-//! The Rust counterpart of `external_engine.py`, `voicevox_tts.py`, `coeiroink_tts.py` and
-//! `engines.py`. An engine answers a whole WAV per request, so the text is split into
+//! The Rust counterpart of [`external_engine.py`], [`voicevox_tts.py`], [`coeiroink_tts.py`] and
+//! [`engines.py`]. An engine answers a whole WAV per request, so the text is split into
 //! sentences and each sentence is synthesized and played in turn, the next one while the
 //! current one plays. Only loopback URLs are used, an engine is never started or installed
 //! by the app, and errors carry safe codes only: no text, audio or response body.
+//!
+//! [`external_engine.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/tts/external_engine.py
+//! [`voicevox_tts.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/tts/voicevox_tts.py
+//! [`coeiroink_tts.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/tts/coeiroink_tts.py
+//! [`engines.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/tts/engines.py
 
 use std::sync::mpsc::{sync_channel, Receiver, RecvTimeoutError, SyncSender, TrySendError};
 use std::sync::Arc;

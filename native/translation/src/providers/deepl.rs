@@ -1,9 +1,11 @@
-//! DeepL API (`translation_translator.py`'s DeepL branch and `authenticationDeepLAuthKey`).
+//! DeepL API ([`translation_translator.py`]'s DeepL branch and `authenticationDeepLAuthKey`).
 //!
 //! A key ending in `:fx` belongs to the free API. A key is checked by translating `" "` to
 //! `EN-US`. The codes are sent in capitals. Every request asks for `show_billed_characters`, as
 //! the DeepL SDK of the Python client did (the answer then also says how many characters were
 //! billed; nothing reads it).
+//!
+//! [`translation_translator.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/translation/translation_translator.py
 
 use super::{checked, join, json_of, retry, Access, Api, Error, Provider, Translation, DISCOVERY, MACHINE_TRANSLATION};
 use crate::http::{Request, Response, Timeouts, Transport};

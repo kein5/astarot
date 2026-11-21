@@ -1,8 +1,10 @@
 //! Bounded diagnostics for repeated OCR failures, and the per-stage retry schedule
-//! (`ocr_failure.py`).
+//! ([`ocr_failure.py`]).
 //!
 //! A failure streak logs the first occurrence in full, then at most one summary a minute,
 //! and one line on recovery. Only the error's kind and message are kept, never frames.
+//!
+//! [`ocr_failure.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/ocr/ocr_failure.py
 
 use std::sync::Arc;
 

@@ -1,5 +1,8 @@
-//! Mirrors `src-python/test/test_osc_*.py` and `test_model_osc_mute_sync.py` (the parts
-//! about `osc.py`): wire format, trust in the local VRChat, receive and lifecycle.
+//! Mirrors `src-python/test/test_osc_*.py` and [`test_model_osc_mute_sync.py`] (the parts
+//! about [`osc.py`]): wire format, trust in the local VRChat, receive and lifecycle.
+//!
+//! [`test_model_osc_mute_sync.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/test/test_model_osc_mute_sync.py
+//! [`osc.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/osc/osc.py
 
 use std::collections::HashMap;
 use std::io::{Read, Write};

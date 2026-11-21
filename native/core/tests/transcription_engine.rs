@@ -2,10 +2,15 @@
 //! and Deepgram's model, the list of languages the UI offers follows them too, an engine that
 //! cannot be used stays selected, and only an engine of the list can be chosen.
 //!
-//! The behaviours are those of `src-python/test/test_controller_transcription_language_fallback.py`,
-//! `test_controller_update_transcription_engine.py`, `test_model_transcription_language_support.py`
-//! and the choice in `test_asr_engine_consent.py`. The engines are `common::fake_asr` on 127.0.0.1;
+//! The behaviours are those of [`src-python/test/test_controller_transcription_language_fallback.py`],
+//! [`test_controller_update_transcription_engine.py`], [`test_model_transcription_language_support.py`]
+//! and the choice in [`test_asr_engine_consent.py`]. The engines are `common::fake_asr` on 127.0.0.1;
 //! its Deepgram lists the models a test gives it, with their languages.
+//!
+//! [`src-python/test/test_controller_transcription_language_fallback.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/test/test_controller_transcription_language_fallback.py
+//! [`test_controller_update_transcription_engine.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/test/test_controller_update_transcription_engine.py
+//! [`test_model_transcription_language_support.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/test/test_model_transcription_language_support.py
+//! [`test_asr_engine_consent.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/test/test_asr_engine_consent.py
 
 mod common;
 

@@ -1,5 +1,10 @@
-//! Mirrors `src-python/test/test_obs_http_lifecycle.py`, `test_obs_reconnect.py` and the
-//! OBS cases of `test_websocket_auth_and_bind_guard.py` and `test_websocket_tls.py`.
+//! Mirrors [`src-python/test/test_obs_http_lifecycle.py`], [`test_obs_reconnect.py`] and the
+//! OBS cases of [`test_websocket_auth_and_bind_guard.py`] and [`test_websocket_tls.py`].
+//!
+//! [`src-python/test/test_obs_http_lifecycle.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/test/test_obs_http_lifecycle.py
+//! [`test_obs_reconnect.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/test/test_obs_reconnect.py
+//! [`test_websocket_auth_and_bind_guard.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/test/test_websocket_auth_and_bind_guard.py
+//! [`test_websocket_tls.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/test/test_websocket_tls.py
 
 mod common;
 
@@ -47,7 +52,9 @@ fn the_page_is_the_python_page_byte_for_byte() {
 
 #[test]
 fn an_open_page_refreshes_the_port_without_a_notification() {
-    // The page's script runs under Node (`test_obs_reconnect.py` of the Python backend did the same).
+    // The page's script runs under Node ([`test_obs_reconnect.py`] of the Python backend did the same).
+    //
+    // [`test_obs_reconnect.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/test/test_obs_reconnect.py
     let script = format!("{}/tests/fixtures/obs_reconnect.mjs", env!("CARGO_MANIFEST_DIR"));
     if !std::path::Path::new(&script).exists() {
         return;

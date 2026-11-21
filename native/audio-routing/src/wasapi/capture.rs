@@ -1,8 +1,10 @@
 //! A WASAPI microphone as 48 kHz mono 16-bit PCM, for the direct voice bridge.
 //!
-//! The Python bridge used the transcription capture (`capture_windows.py`). This is a
+//! The Python bridge used the transcription capture ([`capture_windows.py`]). This is a
 //! smaller capture of its own: shared mode, converted by WASAPI to the bridge format,
 //! read every 10 ms on its own thread.
+//!
+//! [`capture_windows.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/transcription/capture_windows.py
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
@@ -82,8 +84,11 @@ fn read(stream: &Stream, on_audio: &mut dyn FnMut(&[u8]) -> bool) -> Result<bool
     }
 }
 
-/// Where a recognition capture reads from (`capture_windows.py`, the recorder of
-/// `transcription_recorder.py`).
+/// Where a recognition capture reads from ([`capture_windows.py`], the recorder of
+/// [`transcription_recorder.py`]).
+///
+/// [`capture_windows.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/transcription/capture_windows.py
+/// [`transcription_recorder.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/transcription/transcription_recorder.py
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DeviceTarget {
     /// A WASAPI endpoint by its native ID (`Device::endpoint_id`).
@@ -102,7 +107,9 @@ pub struct DeviceFormat {
 
 /// A microphone, or a speaker through its loopback, read every 10 ms on its own thread.
 /// A loopback delivers nothing while nothing plays; that gap is filled with silence, so a
-/// recognition can still hear an utterance end (as `capture_windows.py` did).
+/// recognition can still hear an utterance end (as [`capture_windows.py`] did).
+///
+/// [`capture_windows.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/transcription/capture_windows.py
 pub struct DeviceCapture {
     stop: Arc<AtomicBool>,
     worker: Option<Worker>,

@@ -1,4 +1,4 @@
-//! The consent-gated setup of the RVC worker's runtime (`runtime_setup.py`, the native kind).
+//! The consent-gated setup of the RVC worker's runtime ([`runtime_setup.py`], the native kind).
 //!
 //! The worker (`astarot-rvc-worker`) ships with the app. What it loads does not: ONNX Runtime
 //! (with its CUDA provider and NVIDIA's CUDA and cuDNN libraries on a PC with an NVIDIA
@@ -6,6 +6,8 @@
 //! sources after the user's consent, checked against their sizes and SHA-256, and unpacked
 //! into `<root>/rvc`. A failed or cancelled setup keeps each finished step and continues from
 //! there. The Seed-VC runtime (a Python environment) is not offered: it ended with Python.
+//!
+//! [`runtime_setup.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/voice_conversion/runtime_setup.py
 
 use std::collections::HashSet;
 use std::fs::{self, File};

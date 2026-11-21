@@ -1,10 +1,12 @@
-//! One run of the backend: start-up, the requests, and the end (`mainloop.py`).
+//! One run of the backend: start-up, the requests, and the end ([`mainloop.py`]).
 //!
 //! [`Backend::start`] reads the settings, starts the workers and runs the start-up sequence on
 //! its own thread; endpoints marked "wait" answer 423 inside until it ends. Lines from the UI go
 //! to [`Backend::write_line`]; answers and notifications come out through the [`Sink`]. The run
 //! ends when the watchdog is not fed, when the UI's input closes, or when the host stops it;
 //! the sink then hears the exit code, as the UI heard a sidecar process end.
+//!
+//! [`mainloop.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/mainloop.py
 
 use crate::config::{Config, Environment};
 use crate::controller::{self, Core, Services};

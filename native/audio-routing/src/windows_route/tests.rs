@@ -1,4 +1,6 @@
-//! Ports of the route and bridge cases of `src-python/test/test_windows_voice_devices.py`.
+//! Ports of the route and bridge cases of [`src-python/test/test_windows_voice_devices.py`].
+//!
+//! [`src-python/test/test_windows_voice_devices.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/test/test_windows_voice_devices.py
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Instant;

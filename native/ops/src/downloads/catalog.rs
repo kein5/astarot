@@ -1,8 +1,10 @@
-//! Reviewed public artifacts (`catalog.py`). Revision, size and hash change together, in a
+//! Reviewed public artifacts ([`catalog.py`]). Revision, size and hash change together, in a
 //! review, never at run time; a change bumps [`CATALOG_VERSION`] so a stale consent fails.
 //!
 //! The rules every entry keeps are checked by [`validate_catalog`]'s tests here, and
 //! `tests/catalog_policy.rs` checks that only reviewed public artifacts are offered.
+//!
+//! [`catalog.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/model_downloads/catalog.py
 
 use serde::{Serialize, Serializer};
 
@@ -79,7 +81,9 @@ pub fn restrictions_for(target: &str, license: &str) -> Vec<&'static str> {
 /// are listed. `non_commercial`: a Creative Commons NonCommercial license (CC-BY-NC-4.0 and its
 /// -SA and -ND variants). `gemma_terms`: the Gemma Terms of Use, whose Prohibited Use Policy
 /// binds whoever uses the model, not only who distributes it (ADR-015). A new kind is added
-/// here, in `catalog.py`'s `RESTRICTIONS` and in the UI's texts.
+/// here, in [`catalog.py`]'s `RESTRICTIONS` and in the UI's texts.
+///
+/// [`catalog.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/model_downloads/catalog.py
 pub const RESTRICTIONS: [&str; 2] = ["non_commercial", "gemma_terms"];
 
 /// The words of one part of a license string, in upper case.
@@ -263,8 +267,10 @@ fn remote(filename: &str, size: u64, sha256: &str, role: &str, (repo, revision, 
 }
 
 /// The catalog in the order the backend lists it. Comments for single entries are in
-/// `catalog.py`: Q8_0 for Qwen3-ASR and Nemotron is the file speech.cpp fetches for that name;
+/// [`catalog.py`]: Q8_0 for Qwen3-ASR and Nemotron is the file speech.cpp fetches for that name;
 /// the VAD and diarization entries apply to fields of the asr profile, not to its recognizer.
+///
+/// [`catalog.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/model_downloads/catalog.py
 pub fn catalog() -> Vec<Model> {
     let mut models = vec![
         model(

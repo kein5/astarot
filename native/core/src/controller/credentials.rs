@@ -1,5 +1,5 @@
 //! The saved credentials, URLs and model choices of the translation and recognition services
-//! (`controller.py`: `_getTranslationEngineAuthKey`, `_delTranslationEngineAuthKey`,
+//! ([`controller.py`]: `_getTranslationEngineAuthKey`, `_delTranslationEngineAuthKey`,
 //! `_getTranslationEngineModelList`, `_getTranslationEngineModel`, `delDeeplAuthKey`,
 //! `delOpenAICompatibleAuthKey`, `setOpenAICompatibleURL`, the transcription counterparts and
 //! `setCustomWhisperURL`).
@@ -9,6 +9,8 @@
 //! the service: [`super::translation`]. The recognition services wait for their clients (#278):
 //! those endpoints still answer 404, and a saved key is kept while its engine counts as
 //! unavailable.
+//!
+//! [`controller.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/controller.py
 
 use super::routes::{Builder, OPEN, WAIT};
 use super::{Core, error, ok};

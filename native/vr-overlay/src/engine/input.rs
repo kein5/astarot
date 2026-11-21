@@ -1,4 +1,4 @@
-//! The controllers on the overlays (`overlay.py`'s `updateGrab` and its helpers).
+//! The controllers on the overlays ([`overlay.py`]'s `updateGrab` and its helpers).
 //!
 //! Each tick, on the overlay thread:
 //! - The laser leaves each controller's tip (`tipOffset`), tilted 12 degrees up. SteamVR finds
@@ -17,6 +17,8 @@
 //! - The toolbar under the log shows after the log has been pointed at for a while.
 //!
 //! Nothing here logs user text; the log lines name hands, windows and states.
+//!
+//! [`overlay.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/overlay/overlay.py
 
 use super::{Event, Overlay, State, Surface};
 use crate::canvas;

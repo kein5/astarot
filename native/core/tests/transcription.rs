@@ -3,10 +3,14 @@
 //! sync, the engines' keys and the start-up check, and shutdown.
 //!
 //! The behaviours are those of `src-python/test/test_controller_transcription_*.py`,
-//! `test_model_audio_session*.py`, `test_transcription_providers.py`,
-//! `test_credential_commits.py` (recognition) and the transcription parts of
-//! `test_endpoints.py`. Devices are `common::fake_capture` (PCM paced like a device at 48 and
+//! `test_model_audio_session*.py`, [`test_transcription_providers.py`],
+//! [`test_credential_commits.py`] (recognition) and the transcription parts of
+//! [`test_endpoints.py`]. Devices are `common::fake_capture` (PCM paced like a device at 48 and
 //! 44.1 kHz) and `common::fake_audio`; the engines are `common::fake_asr` on 127.0.0.1.
+//!
+//! [`test_transcription_providers.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/test/test_transcription_providers.py
+//! [`test_credential_commits.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/test/test_credential_commits.py
+//! [`test_endpoints.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/test/test_endpoints.py
 
 mod common;
 

@@ -28,7 +28,7 @@ ASTAROTの機能、API、データ、振る舞いの約束をまとめた文書�
 
 | したいこと | 読むところ |
 |---|---|
-| あるエンドポイントが何をするか知る | [IPCエンドポイント一覧](reference/ipc-endpoints.md)で処理する関数（Pythonバックエンドの名前）を見て、`native/core/README.md`の対応表から中核のモジュール（`native/core/src/controller/`）を読む。Pythonの実装（`src-python/controller.py`）は0.6.0で消したので、0.5.xのタグで読む |
+| あるエンドポイントが何をするか知る | [IPCエンドポイント一覧](reference/ipc-endpoints.md)で処理する関数（Pythonバックエンドの名前）を見て、`native/core/README.md`の対応表から中核のモジュール（`native/core/src/controller/`）を読む。Pythonの実装（[`src-python/controller.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/controller.py)）は0.6.0で消したので、0.5.xのタグで読む |
 | 新しい設定を足す | [設定キー一覧](reference/config-keys.md)、[設定の保存](cross-cutting.md#設定の保存)、[データ形式と保存](data-and-persistence.md) |
 | 新しいエラーを足す | [エラーの扱い](cross-cutting.md#エラーの扱い)、[エラーコード一覧](reference/error-codes.md) |
 | 機能の流れを追う | [ユースケース](use-cases.md)から[シーケンス](sequences.md)へ |

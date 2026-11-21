@@ -1,5 +1,5 @@
 //! A window the user shares through the desktop's ScreenCast portal (Linux;
-//! `ocr_capture_portal.py`).
+//! [`ocr_capture_portal.py`]).
 //!
 //! The Tauri process asks the desktop on the user's request (portal_screencast.rs) and
 //! starts native/screen-capture, which copies the newest frame of the stream into
@@ -17,6 +17,8 @@
 //! A window that does not change sends no new frames, so an old frame is not a dead
 //! stream. The stream is over when the file is gone, its instance is 0, or the helper
 //! that wrote it no longer exists.
+//!
+//! [`ocr_capture_portal.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/ocr/ocr_capture_portal.py
 
 use std::io::{Read, Seek, SeekFrom};
 use std::path::PathBuf;

@@ -1,9 +1,11 @@
 //! The managed route's mute, read from the graph and changed by a native helper.
 //!
-//! Port of `PipeWireGate` in `src-python/models/audio_routing/pipewire_gate.py`.
+//! Port of `PipeWireGate` in [`src-python/models/audio_routing/pipewire_gate.py`].
 //! Every change goes through `astarot-voice-gate`, which acts only on the node with the
 //! expected core cookie and serial, so a replaced endpoint is never changed by name.
 //! A change counts only when a graph captured after the helper returned shows it.
+//!
+//! [`src-python/models/audio_routing/pipewire_gate.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/audio_routing/pipewire_gate.py
 
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};

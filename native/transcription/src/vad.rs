@@ -84,9 +84,11 @@ impl Segmenter for EnergyListener {
 }
 
 /// The longest segment a VAD cuts when speech never pauses (`_MAX_SPEECH_DURATION_MS` of
-/// `transcription_recorder.py`). It is fixed whatever `*_RECORD_TIMEOUT` says: on the VAD path
+/// [`transcription_recorder.py`]). It is fixed whatever `*_RECORD_TIMEOUT` says: on the VAD path
 /// the record timeout only bounded a read, and shorter cuts tried in Python called the engine so
 /// often that recognition got worse.
+///
+/// [`transcription_recorder.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/transcription/transcription_recorder.py
 pub const MAX_SPEECH_SECONDS: f64 = 7.0;
 
 /// A voice activity detector the recorder can use in place of the energy listener.

@@ -1,5 +1,7 @@
-//! Ports of `src-python/test/test_pipewire_graph.py`, with a substitute snapshotter
+//! Ports of [`src-python/test/test_pipewire_graph.py`], with a substitute snapshotter
 //! in place of `pw-dump`.
+//!
+//! [`src-python/test/test_pipewire_graph.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/test/test_pipewire_graph.py
 
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Instant;

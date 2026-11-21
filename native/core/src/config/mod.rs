@@ -1,4 +1,4 @@
-//! The settings, kept in `config.json` (`src-python/config.py`).
+//! The settings, kept in `config.json` ([`src-python/config.py`]).
 //!
 //! The file and its rules stay what the Python backend used, so a user's settings carry over:
 //!
@@ -28,6 +28,8 @@
 //!   store finds only in `secrets.json` (written by 0.5), are moved there when the settings are
 //!   read: each is written and read back first, and only then removed from where it was. A key
 //!   the store does not take stays where it was, stays usable, and is reported and tried again.
+//!
+//! [`src-python/config.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/config.py
 
 pub mod schema;
 pub mod secrets;
@@ -48,10 +50,12 @@ const RETIRED_UI_LANGUAGES: [&str; 3] = ["ko", "zh-Hant", "zh-Hans"];
 /// Settings an earlier version saved that this one retired. They are dropped, where any other
 /// unknown key is kept (#560). These are the keys of the local Whisper engine and its options,
 /// removed with it (#288; `docs/spec/data-and-persistence.md`): every tagged version's settings
-/// (the Python `config.py`, `ManagedProperty` and `ValidatedProperty`, and this schema) were
+/// (the Python [`config.py`], `ManagedProperty` and `ValidatedProperty`, and this schema) were
 /// compared with this schema, and they were the only ones it no longer had. The notice of that
 /// removal went in 0.6.0 (`LOCAL_ASR_NOTICE_PENDING`, #288). A key retired from now on goes in
 /// this list too, or the file keeps it for ever.
+///
+/// [`config.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/config.py
 pub const RETIRED_KEYS: [&str; 6] = [
     "WHISPER_WEIGHT_TYPE",
     "SELECTED_TRANSCRIPTION_COMPUTE_DEVICE",

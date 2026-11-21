@@ -1,6 +1,6 @@
 # vrct-translate-onnx
 
-ローカル翻訳（M2M100 と NLLB-200）を ONNX Runtime で動かす Rust クレートです。Python 側の CTranslate2 による翻訳（`src-python/models/translation/translation_translator.py` の `translateCTranslate2`）を置き換えます。
+ローカル翻訳（M2M100 と NLLB-200）を ONNX Runtime で動かす Rust クレートです。Python 側の CTranslate2 による翻訳（[`src-python/models/translation/translation_translator.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/translation/translation_translator.py) の `translateCTranslate2`）を置き換えます。
 
 ## 現在の状態
 

@@ -1,16 +1,19 @@
 //! Speech recognition (#278): the microphone and speaker switches, the volume meters, the cloud
 //! engines' keys and their start-up check, mic mute sync and device changes.
 //!
-//! Port of the recorder parts of `src-python/controller.py` (`setEnable/DisableTranscription*`,
+//! Port of the recorder parts of [`src-python/controller.py`] (`setEnable/DisableTranscription*`,
 //! `setEnable/DisableCheck*Threshold`, `_start*Locked`, `micMessage`, `speakerMessage`,
 //! `progressBar*Energy`, `_audioPipelineFailed*`, `_disableAudioAfterDeviceLossLocked`,
 //! `_setTranscriptionCredential`, `_setEndpointCredential` for the custom server, the engine
-//! check of `init`) and of `model.py` (`_AudioDeviceSession`). The recorder, the engines and
+//! check of `init`) and of [`model.py`] (`_AudioDeviceSession`). The recorder, the engines and
 //! realtime recognition are in `native/transcription`; realtime recognition is wired in
 //! [`super::realtime_asr`].
 //!
 //! Locks: a source's lock is the audio devices' (`_audioLock`); the recorder of a source is
 //! changed only under it. Nothing here logs recognised text, audio or a key.
+//!
+//! [`src-python/controller.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/controller.py
+//! [`model.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/model.py
 
 use super::audio_devices::{CaptureOwner, Reopened, Source, SourceGuard};
 use super::messages::{Guard, Recognized};

@@ -2,12 +2,15 @@
 //! the controller parts of `tests/voice/test_tts_toggle.py`, `test_tts_toggle_server.py`,
 //! `test_spoken_controls.py`, `test_direct_voice_controller.py`, `test_io_flow_controller.py`,
 //! `test_managed_controller.py`, `test_vc_runtime_setup.py` and
-//! `src-python/test/test_voice_settings_patches.py`, `test_voice_route_monitor_mute.py`.
+//! [`src-python/test/test_voice_settings_patches.py`], [`test_voice_route_monitor_mute.py`].
 //!
 //! Speech servers are fakes on loopback ports (`common::fake_tts`) or the speech.cpp stand-in
 //! (`fake-speech-core`); outputs, microphones and the managed route's gate are in memory
 //! (`common::fake_voice`); the RVC worker is the `fake-rvc-worker` stand-in. No model, GPU,
 //! audio device or network outside this PC.
+//!
+//! [`src-python/test/test_voice_settings_patches.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/test/test_voice_settings_patches.py
+//! [`test_voice_route_monitor_mute.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/test/test_voice_route_monitor_mute.py
 
 mod common;
 

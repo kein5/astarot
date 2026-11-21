@@ -1,7 +1,11 @@
 //! The saved forms of the realtime recognition settings and the direct voice (conversion)
-//! settings (`models/transcription/realtime_settings.py`, `asr_vocabulary.py` and
-//! `models/voice_conversion/settings.py`). Each `normalize_*` returns the canonical saved value,
+//! settings ([`models/transcription/realtime_settings.py`], [`asr_vocabulary.py`] and
+//! [`models/voice_conversion/settings.py`]). Each `normalize_*` returns the canonical saved value,
 //! or an error code for a value that is refused as a whole.
+//!
+//! [`models/transcription/realtime_settings.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/transcription/realtime_settings.py
+//! [`asr_vocabulary.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/transcription/asr_vocabulary.py
+//! [`models/voice_conversion/settings.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/voice_conversion/settings.py
 
 use serde_json::{Map, Value, json};
 

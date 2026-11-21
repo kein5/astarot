@@ -1,6 +1,8 @@
-//! The endpoints, in the order of Python's `mapping` (`mainloop.py`). An endpoint whose feature
+//! The endpoints, in the order of Python's `mapping` ([`mainloop.py`]). An endpoint whose feature
 //! is not wired yet is not listed and answers 404; `docs/voice-stack/core-integration.md` keeps
 //! the list of what is left.
+//!
+//! [`mainloop.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/mainloop.py
 
 use super::settings::{
     compute_device, get, integer, integer_or_message, store, store_text, switch, threshold, transcription_model,

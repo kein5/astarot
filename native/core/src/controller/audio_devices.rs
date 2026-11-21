@@ -1,7 +1,7 @@
 //! The audio devices: the lists, the choice of microphone and speaker, Auto Select following
 //! the OS default, and the virtual microphone guide (#321).
 //!
-//! Port of the device parts of `src-python/controller.py` (`_audioTarget`,
+//! Port of the device parts of [`src-python/controller.py`] (`_audioTarget`,
 //! `_publishAudioDeviceLocked`, `_queueAudioReconciliation`, `applyAuto*Select`,
 //! `setSelected*`, `getVirtualMicStatus`, `runVirtualMicTest`) and of `model.getList*`. The
 //! lists, the identities, the change watching and the checks live in `native/audio-routing`
@@ -34,6 +34,8 @@
 //!   it does, the saved mute intent `voice_mute_state.json` is read).
 //!
 //! Log lines are fixed strings: no device name or identity goes into the log.
+//!
+//! [`src-python/controller.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/controller.py
 
 use super::routes::{Builder, OPEN};
 use super::{Core, error, ok, run_endpoint};

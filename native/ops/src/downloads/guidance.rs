@@ -1,4 +1,4 @@
-//! Measured examples, not minimum requirements or cross-vendor guarantees (`guidance.py`).
+//! Measured examples, not minimum requirements or cross-vendor guarantees ([`guidance.py`]).
 //!
 //! Memory: speech.cpp v0.9.0 model docs, RTX 2080/Vulkan, 20 Japanese sentences, seed 1.
 //! Values are decimal GB. Validation is recorded separately per fixed artifact; no model is
@@ -8,6 +8,8 @@
 //! `vrct-translate` while translating 30 English→Japanese and 30 Japanese→English sentences on
 //! the CPU (Windows 11, ONNX Runtime 1.32.0, 4 threads), the figure of the download notice
 //! `translation_nllb_600m`. A model not measured that way stays `unknown`.
+//!
+//! [`guidance.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/model_downloads/guidance.py
 
 use crate::json::{Json, Object};
 
