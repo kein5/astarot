@@ -6,17 +6,46 @@ import { localeAt, readLocale } from "../test/locales.ts";
 import * as shapes from "./voiceAudition.ts";
 import type { AuditionProfile, AuditionState, AuditionView } from "./voiceAudition.ts";
 
-const playing = (run: number, profile: AuditionProfile = "japanese"): AuditionState => ({ state: "playing", run, profile, last_run: null, outcome: null, error_code: null });
-const ended = (run: number, last: number | null, outcome: AuditionState["outcome"], error_code: string | null = null): AuditionState => ({ state: "idle", run, profile: null, last_run: last, outcome, error_code });
+const playing = (run: number, profile: AuditionProfile = "japanese"): AuditionState =>
+    ({ state: "playing", run, kind: "tts", profile, entry: null, stage: "playing", last_run: null, outcome: null, error_code: null });
+const converting = (run: number, entry: string, stage: AuditionState["stage"] = "preparing"): AuditionState =>
+    ({ state: "playing", run, kind: "rvc", profile: null, entry, stage, last_run: null, outcome: null, error_code: null });
+const ended = (run: number, last: number | null, outcome: AuditionState["outcome"], error_code: string | null = null): AuditionState =>
+    ({ state: "idle", run, kind: null, profile: null, entry: null, stage: null, last_run: last, outcome, error_code });
 
 test("only a well-formed state is used, and only a failure carries a code", () => {
     assert.deepEqual(shapes.normalizeAuditionState(playing(2)), playing(2));
+    assert.deepEqual(shapes.normalizeAuditionState(converting(2, "rvc-saisho")), converting(2, "rvc-saisho"));
     assert.deepEqual(shapes.normalizeAuditionState(ended(3, 3, "failed", "monitor_output_missing")), ended(3, 3, "failed", "monitor_output_missing"));
     assert.equal(shapes.normalizeAuditionState(ended(3, 3, "completed", "x"))?.error_code, null);
-    // A code that is not a plain identifier is not shown as one.
+    // A code that is not a plain identifier is not shown as one, nor an entry that is not an id.
     assert.equal(shapes.normalizeAuditionState(ended(3, 3, "failed", "Device <b>"))?.error_code, "voice_audition_failed");
+    assert.equal(shapes.normalizeAuditionState(converting(2, "C:\\voices\\model.pth"))?.entry, null);
+    // A core from before the RVC audition names no kind or stage: a playing profile is TTS.
+    const older = { state: "playing", run: 4, profile: "multilingual", last_run: null, outcome: null, error_code: null };
+    assert.deepEqual(shapes.normalizeAuditionState(older), { ...playing(4, "multilingual"), stage: null });
     for (const bad of [null, "playing", {}, { state: "playing" }, { state: "busy", run: 1 }, { state: "idle", run: -1 }, { state: "idle", run: 1.5 }])
         assert.equal(shapes.normalizeAuditionState(bad), null, JSON.stringify(bad));
+});
+
+test("an RVC card plays any model on this PC with valid form values, no conversion running and a TTS server up", () => {
+    const values = { pitch: 3, index_rate: 0.5 };
+    const ok = { status: "downloaded", values, converting: false, ttsReady: true, monitor: "on", muted: false };
+    assert.equal(shapes.rvcAuditionBlock(ok), null);
+    assert.equal(shapes.rvcAuditionBlock({ ...ok, status: "in_use" }), null);
+    assert.equal(shapes.rvcAuditionBlock({ ...ok, status: "ready" }), null);
+    for (const status of ["not_downloaded", "working", "missing"]) assert.equal(shapes.rvcAuditionBlock({ ...ok, status }), "not_downloaded");
+    assert.equal(shapes.rvcAuditionBlock({ ...ok, values: null }), "values_invalid");
+    assert.equal(shapes.rvcAuditionBlock({ ...ok, converting: true }), "conversion_running");
+    assert.equal(shapes.rvcAuditionBlock({ ...ok, ttsReady: false }), "tts_stopped");
+    assert.equal(shapes.rvcAuditionBlock({ ...ok, monitor: "off" }), "monitor_off");
+    assert.equal(shapes.rvcAuditionBlock({ ...ok, muted: true }), "muted");
+    // The first thing to fix is named first.
+    assert.equal(shapes.rvcAuditionBlock({ ...ok, values: null, converting: true, ttsReady: false, monitor: "off", muted: true }), "values_invalid");
+    // The form's values, as the core takes them.
+    assert.deepEqual(shapes.rvcAuditionValues(-24, 1), { pitch: -24, index_rate: 1 });
+    for (const [pitch, rate] of [[25, 0], [1.5, 0], [Number.NaN, 0], [0, 1.2], [0, -0.1], [0, Number.NaN], ["3", 0], [0, "0.5"]])
+        assert.equal(shapes.rvcAuditionValues(pitch, rate), null, `${pitch} ${rate}`);
 });
 
 test("each profile reads the language it speaks in use, by id only", () => {
@@ -41,19 +70,26 @@ test("a card can play only the model in use, with its server running, the monito
 });
 
 test("a press waits for its own answer, plays, and ends with the outcome of its run", () => {
-    const pending: AuditionView = { phase: "pending", profile: "japanese", run: null, error: null };
+    const pending: AuditionView = { ...shapes.IDLE_AUDITION, phase: "pending", kind: "tts", profile: "japanese" };
     // A poll from before the press does not end it.
     assert.equal(shapes.auditionAfterState(pending, ended(0, null, null)), pending);
     const view = shapes.auditionAfterState(pending, playing(1));
-    assert.deepEqual(view, { phase: "playing", profile: "japanese", run: 1, error: null });
+    const shown = { phase: "playing", kind: "tts", profile: "japanese", entry: null, stage: "playing", run: 1, error: null };
+    assert.deepEqual(view, shown);
     // An older run's end is not this one's.
     const second = { ...view, run: 2 };
     assert.equal(shapes.auditionAfterState(second, ended(2, 1, "stopped")), second);
-    assert.deepEqual(shapes.auditionAfterState(view, ended(1, 1, "completed")), { phase: "idle", profile: "japanese", run: 1, error: null });
+    assert.deepEqual(shapes.auditionAfterState(view, ended(1, 1, "completed")), { ...shown, phase: "idle", stage: null });
     assert.deepEqual(shapes.auditionAfterState(view, ended(1, 1, "failed", "monitor_output_missing")),
-        { phase: "idle", profile: "japanese", run: 1, error: "monitor_output_missing" });
+        { ...shown, phase: "idle", stage: null, error: "monitor_output_missing" });
     // A later press elsewhere replaced it and has ended too: no error is pinned on this one.
-    assert.deepEqual(shapes.auditionAfterState(view, ended(2, 2, "failed", "x")), { phase: "idle", profile: "japanese", run: 1, error: null });
+    assert.deepEqual(shapes.auditionAfterState(view, ended(2, 2, "failed", "x")), { ...shown, phase: "idle", stage: null });
+    // An RVC card's audition prepares, plays, and keeps its model's id for its outcome.
+    const rvc = shapes.auditionAfterState({ ...shapes.IDLE_AUDITION, phase: "pending", kind: "rvc", entry: "user-0123456789ab" }, converting(7, "user-0123456789ab"));
+    assert.deepEqual([rvc.kind, rvc.entry, rvc.stage], ["rvc", "user-0123456789ab", "preparing"]);
+    assert.equal(shapes.auditionAfterState(rvc, converting(7, "user-0123456789ab", "playing")).stage, "playing");
+    assert.deepEqual(shapes.auditionAfterState(rvc, ended(7, 7, "failed", "vc_runtime_missing")),
+        { ...rvc, phase: "idle", stage: null, error: "vc_runtime_missing" });
     // A stale "playing" answer never moves the page back to a replaced run.
     const replaced = { ...view, run: 3 };
     assert.equal(shapes.auditionAfterState(replaced, playing(2)), replaced);
@@ -97,6 +133,19 @@ test("a press sends the sentence's id, never its text, and repeat presses wait f
     assert.deepEqual([use().audition.phase, use().audition.error], ["idle", "backend_unavailable"]);
 });
 
+test("an RVC press names its model by id with the form's values, never a path", async context => {
+    const sent: [string, unknown][] = [];
+    const use = await hook(context, sent);
+    await use().startRvc("rvc-saisho", { pitch: -5, index_rate: 0.75 });
+    assert.deepEqual(sent, [["/run/start_voice_audition", { kind: "rvc", entry: "rvc-saisho", source: "tts", pitch: -5, index_rate: 0.75 }]]);
+    assert.deepEqual([use().audition.phase, use().audition.kind, use().audition.entry, use().audition.profile], ["pending", "rvc", "rvc-saisho", null]);
+    // One waits for its answer, whichever card is pressed next.
+    await use().start("japanese");
+    assert.equal(sent.length, 1);
+    use().updateState(converting(3, "rvc-saisho"));
+    assert.deepEqual([use().audition.phase, use().audition.stage], ["playing", "preparing"]);
+});
+
 test("a refusal reaches the card through its own route, and only a playing audition is polled", async () => {
     const { loadBridgeRoutes } = await import("../test/bridgeHarness.ts");
     const subject = await loadBridgeRoutes();
@@ -124,9 +173,17 @@ const CODES = ["voice_audition_failed", "voice_audition_unconfirmed", "voice_aud
     "voice_audition_server_not_ready", "voice_audition_timeout", "monitor_output_missing", "monitor_feedback_blocked",
     "monitor_output_error", "backend_unavailable"];
 
+// The RVC audition's own codes and the worker's codes it may end with (the rest are the live
+// conversion's, in voice.input_errors).
+const RVC_CODES = ["voice_audition_failed", "voice_audition_model_missing", "voice_audition_conversion_running", "voice_audition_server_not_ready",
+    "voice_audition_sample_invalid", "voice_audition_timeout", "vc_runtime_missing", "vc_worker_stalled", "vc_worker_eof"];
+
 for (const language of ["en", "ja"]) test(`${language}: every reason and code of the audition has its text`, () => {
     const locale = readLocale(language);
-    for (const key of ["play", "pending", "stop", "tooltip"]) assert.equal(typeof localeAt(locale, `voice_audition.${key}`), "string", key);
+    for (const key of ["play", "pending", "stop", "tooltip", "rvc_tooltip", "rvc_preparing"]) assert.equal(typeof localeAt(locale, `voice_audition.${key}`), "string", key);
     for (const block of ["not_in_use", "server_stopped", "monitor_off", "muted"]) assert.equal(typeof localeAt(locale, `voice_audition.blocked.${block}`), "string", block);
+    // An RVC card's own reasons; it shares monitor_off and muted with the TTS cards.
+    for (const block of ["values_invalid", "conversion_running", "tts_stopped"]) assert.equal(typeof localeAt(locale, `voice_audition.rvc_blocked.${block}`), "string", block);
     for (const code of CODES) assert.equal(typeof localeAt(locale, `voice_audition.errors.${code}`), "string", code);
+    for (const code of RVC_CODES) assert.equal(typeof localeAt(locale, `voice_audition.rvc_errors.${code}`), "string", code);
 });

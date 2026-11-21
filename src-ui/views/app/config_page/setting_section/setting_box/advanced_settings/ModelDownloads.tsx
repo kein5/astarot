@@ -25,6 +25,7 @@ import type { CatalogFamily, DownloadStatus } from "../../../../../../logics/voi
 import type { ModelCatalogRow, ModelDownloadJob } from "../../../../../../logics/voice/useModelDownloads";
 import type { HardwareWarning, TranslationDevice } from "../../../../../../logics/voice/modelHardwareWarning";
 import type { Translate } from "../../../../../../logics/voice/voiceErrorText.ts";
+import type { RvcAuditionValues } from "../../../../../../logics/voice/voiceAudition";
 
 // Why the Apply of a ready download waits: the page is busy, or the field it writes was edited.
 export type DownloadBlock = false | "busy" | "edited";
@@ -206,9 +207,12 @@ export interface ModelDownloadsProps {
     engines?: boolean;
     only?: readonly string[];
     translationDevice?: TranslationDevice;
+    // The RVC form's pitch and index rate, which an RVC card's audition converts with (#415);
+    // null while they are not valid.
+    audition?: RvcAuditionValues | null;
 }
 
-export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode = 'auto', reserve: sharedReserve, engines = false, only, translationDevice }: ModelDownloadsProps) => {
+export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode = 'auto', reserve: sharedReserve, engines = false, only, translationDevice, audition }: ModelDownloadsProps) => {
     const { t, i18n } = useI18n();
     const hints = useHintDescriptions();
     const languages = useLanguageList();
@@ -362,10 +366,11 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
                     setAcknowledged([]);
                     setSelected({ ...current, catalog_version: version, downloaded });
                 }}>{t(downloaded ? "model_catalog.prepare" : "model_downloads.review")}</button>
-                {/* The TTS models: a short sentence on the monitor output only (#415). */}
-                <AuditionButton target={target} status={shownStatus} />
+                {/* The TTS models: a short sentence on the monitor output only; the RVC models: that sentence converted (#415). */}
+                <AuditionButton target={target} status={shownStatus} entry={current.id} values={audition} />
             </div>
         </>;
+        const auditionNote = <AuditionNote target={target} status={shownStatus} entry={current.id} values={audition} />;
         // The card's parts in the order they are read (#614): what it is, its state and a warning,
         // the file and its facts, then what runs and what can be done. In the grid a card keeps
         // what it is, its size and hardware, and what can be done; the file's choice, the
@@ -392,14 +397,14 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
                     ? t("model_catalog.layout.facts_of", { file: variantLabel(current) }) : undefined}>
                     {warning && <WarningNote warning={warning} />}
                     {file}<ModelFacts entry={current} part="rest" />{manualChoice}{prepareHint}
-                    <AuditionNote target={target} status={shownStatus} />
+                    {auditionNote}
                     {guidanceFold}
                 </CatalogFacts>
                 : <div className={styles.card_spec}>{file}<ModelFacts entry={current} guidance={factsGuidance} />{manualChoice}</div>}
             <div className={styles.card_foot}>
                 {run}
                 {!grid && prepareHint}
-                {!grid && <AuditionNote target={target} status={shownStatus} />}
+                {!grid && auditionNote}
                 {!grid && guidanceFold}
             </div>
         </li>;
@@ -450,7 +455,7 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
                 {/* The models of one's own sit in the same list, after the reviewed ones (#403). */}
                 <CatalogList layout={layout}>
                     {families.map(family => card(target, family, catalog.catalog_version))}
-                    {own && <UserModelCards target={target} expected={expected} blocked={blocked} busy={busy} layout={layout} />}
+                    {own && <UserModelCards target={target} expected={expected} blocked={blocked} busy={busy} layout={layout} audition={audition} />}
                 </CatalogList>
                 {own && <UserModelRegistration target={target} busy={busy} />}
             </CatalogSection>;

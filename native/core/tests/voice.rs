@@ -603,6 +603,120 @@ fn stop_mute_and_a_new_press_end_a_voice_audition_and_a_mute_refuses_one() {
     run.ui.stop();
 }
 
+/// A run for the RVC audition (#415): the Japanese bundled server serving `<stem>.gguf` (see the
+/// fixture), an RVC runtime the fake worker accepts saved as the live conversion's, and a voice
+/// model of one's own registered, which the fake worker converts with. `voice` has the
+/// microphones and outputs a live conversion needs.
+fn rvc_auditioning(stem: &str, voice: FakeVoice) -> (Run, tempfile::TempDir, tempfile::TempDir, String, Value) {
+    let (files, options) = rvc_files("convert");
+    let models = tempfile::tempdir().unwrap();
+    let tts = models.path().join(format!("{stem}.gguf"));
+    std::fs::write(&tts, b"GGUF\0\0\0\0\0\0\0\0").unwrap();
+    let tts = tts.canonicalize().unwrap();
+    let row = |model: &str| json!({ "model": model, "vad_model": "", "diarization_model": "", "voice_file": "", "device": "auto", "low_latency": false });
+    let speech = json!({ "version": 1, "profiles": { "japanese": row(tts.to_str().unwrap()), "multilingual": row(""), "asr": row("") } });
+    let monitor = json!({ "output_device": OUTPUT, "monitor": "on", "monitor_device": MONITOR, "monitor_volume": "100" });
+    let direct = json!({ "rvc_runtime": options["runtime"], "rvc_device": "cpu", "rvc_threads": 2 });
+    let saved = json!({ "SPEECH_SERVER_SETTINGS": speech, "VOICE_SETTINGS": monitor, "DIRECT_VOICE_SETTINGS": direct });
+    let run = start_with(saved, Platform::Windows, voice, FakeAudio::new(), true);
+    let registered = run.ui.ok("/run/register_user_model", Some(json!({ "target": "rvc", "name": "My voice", "paths": { "model": options["model"] } })));
+    let id = registered["models"][0]["id"].as_str().expect("registered").to_owned();
+    (run, files, models, id, options)
+}
+
+impl Run {
+    fn rvc_audition(&self, entry: &str, pitch: i64, index_rate: Value) -> Value {
+        self.ui.request("/run/start_voice_audition", Some(json!({ "kind": "rvc", "entry": entry, "source": "tts", "pitch": pitch, "index_rate": index_rate })))
+    }
+}
+
+#[test]
+fn an_rvc_audition_converts_the_sentence_and_plays_it_on_the_monitor_only() {
+    // #415: the RVC catalog's audition. The TTS sentence goes through an RVC worker of its own with
+    // the request's pitch; only the monitor hears the answers. Neither the model's path nor the
+    // sentence reaches the UI or the log, and the live conversion and TTS stay untouched.
+    let (run, files, models, id, options) = rvc_auditioning("tts", FakeVoice::new());
+    // The sample is the sentence of a running bundled server: none is started for it.
+    assert_eq!(error_code(&run.rvc_audition(&id, 3, json!(0.5))), "voice_audition_server_not_ready");
+    assert_eq!(run.ui.ok("/get/data/speech_server_state", None)["japanese"]["state"], "stopped");
+    run.start_japanese_server();
+
+    let answer = run.rvc_audition(&id, 3, json!(0.5));
+    assert_eq!(answer["status"], 200, "{answer}");
+    let result = &answer["result"];
+    assert_eq!((result["state"].clone(), result["kind"].clone(), result["entry"].clone(), result["profile"].clone()), (json!("playing"), json!("rvc"), json!(id), Value::Null));
+    assert_eq!(result["stage"], "preparing", "nothing plays before the worker answers");
+    assert!(!answer.to_string().contains("voice.pth"), "a path reached the UI: {answer}");
+    assert_eq!(run.audition_outcome(&result["run"]), json!(["completed", null]));
+    // The worker had the request's pitch; without an index file the rate is 0.
+    assert_eq!(std::fs::read_to_string(files.path().join("rvc").join("asked-pitch")).unwrap(), "3 0");
+
+    let monitor = format!("monitor:{MONITOR}");
+    let played = run.voice.played();
+    assert!(!played.is_empty() && played.iter().all(|p| p.device == monitor), "the audition reached another output: {:?}", played.iter().map(|p| &p.device).collect::<Vec<_>>());
+    assert!(played.iter().all(|p| p.closed && (p.rate, p.channels) == (48000, 1)));
+    let heard: Vec<i16> = played.iter().flat_map(|p| samples(&p.bytes)).collect();
+    assert!(heard.iter().map(|s| s.unsigned_abs()).max().unwrap_or(0) > 1000, "the sentence was not played");
+    // The fake worker answers silence with 1: the silent tail after the sentence was converted,
+    // which the sentence itself never is.
+    assert!(heard.len() >= 9600 && heard[heard.len() - 480..].iter().all(|s| *s == 1), "the tail was not the worker's answer");
+
+    let status = run.status();
+    assert_eq!((status["tts_enabled"].clone(), status["accepted"].clone()), (json!(false), json!(0)), "the audition went through TTS: {status}");
+    assert_eq!(run.ui.ok("/get/data/direct_voice_state", None)["requested"], false);
+    let sent: Value = serde_json::from_slice(&std::fs::read(models.path().join("tts.gguf.speech")).unwrap()).unwrap();
+    let log = run.process_log();
+    assert!(log.contains("/run/start_voice_audition"));
+    for private in [sent["input"].as_str().unwrap(), options["model"].as_str().unwrap(), options["runtime"].as_str().unwrap()] {
+        assert!(!log.contains(private), "the sentence or a path reached the log");
+    }
+    run.ui.stop();
+}
+
+#[test]
+fn an_rvc_audition_needs_its_files_and_gives_way_to_a_conversion() {
+    let voice = FakeVoice::new();
+    voice.set_sources(Some(&["Mic (Realtek)"]));
+    voice.set_outputs(&[OUTPUT]);
+    // A sentence that takes seconds to read: the audition is still on when it is ended.
+    let (run, _files, _models, id, _) = rvc_auditioning("tts-slow", voice);
+    run.start_japanese_server();
+    // A model is named by its id: one that is not on this PC is refused, a catalog one before
+    // its download too.
+    for entry in ["rvc-saisho", "user-000000000000"] {
+        let answer = run.rvc_audition(entry, 0, json!(0));
+        assert_eq!((answer["status"].clone(), error_code(&answer)), (json!(409), "voice_audition_model_missing"), "{entry}");
+    }
+    for bad in [json!({ "kind": "rvc", "entry": id, "source": "recording", "pitch": 0, "index_rate": 0 }), json!({ "kind": "rvc", "entry": id, "source": "tts", "pitch": 30, "index_rate": 0 })] {
+        assert_eq!(error_code(&run.ui.request("/run/start_voice_audition", Some(bad))), "voice_audition_request_invalid");
+    }
+
+    // Its own stop ends it while the sentence is still read.
+    let first = run.rvc_audition(&id, 0, json!(0));
+    assert_eq!(first["status"], 200, "{first}");
+    run.ui.ok("/run/stop_voice_audition", None);
+    assert_eq!(run.audition_outcome(&first["result"]["run"]), json!(["stopped", null]));
+
+    // A live conversion takes the worker's place: the audition ends, and none starts beside it.
+    let second = run.rvc_audition(&id, 0, json!(0));
+    assert_eq!(second["status"], 200, "{second}");
+    let (_live, live) = rvc_files("convert");
+    let mic = source("Mic (Realtek)").id.to_json();
+    assert_eq!(start_direct(&run, json!({ "source": mic, "mode": "converted", "options": live }))["status"], 200);
+    assert_eq!(run.audition_outcome(&second["result"]["run"]), json!(["stopped", null]));
+    assert_eq!(error_code(&run.rvc_audition(&id, 0, json!(0))), "voice_audition_conversion_running");
+    run.ui.ok("/run/stop_direct_voice", None);
+    eventually("the conversion has stopped", || {
+        let state = run.ui.ok("/get/data/direct_voice_state", None);
+        state["requested"] == false && state["pending"] == false && state["stopping"] == false
+    });
+
+    // Without a complete runtime there is no worker to start.
+    assert_eq!(run.ui.request("/set/data/direct_voice_settings", Some(json!({ "rvc_runtime": "" })))["status"], 200);
+    assert_eq!(error_code(&run.rvc_audition(&id, 0, json!(0))), "vc_runtime_missing");
+    run.ui.stop();
+}
+
 #[test]
 fn model_options_and_installed_engines_are_asked_without_speaking() {
     let run = start(json!({}), Platform::Windows);

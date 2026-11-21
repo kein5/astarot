@@ -2232,6 +2232,23 @@ voice_audition:
     pending: "Preparing sample"
     stop: "Stop sample"
     tooltip: "The model in use reads a short fixed sentence. It plays only on your monitor output and is never sent to VRChat."
+    # An RVC card's sample: the fixed sentence a TTS server reads, converted by that model.
+    rvc_tooltip: "A TTS server reads a short fixed sentence, and this model converts that voice. It uses the pitch shift and retrieval blend now in their fields without saving them. It plays only on your monitor output and is never sent to VRChat."
+    rvc_preparing: "Preparing the conversion. Loading the model takes a moment."
+    rvc_blocked:
+        values_invalid: "Fix the pitch shift and retrieval blend to play a sample."
+        conversion_running: "Stop the conversion to play a sample."
+        tts_stopped: "The sample voice comes from a TTS server. Start one under \"Models and servers\" on the Text to speech (TTS) page to play a sample."
+    rvc_errors:
+        voice_audition_failed: "The converted sample could not play. Press again."
+        voice_audition_model_missing: "This model's files were not found. Download or register it again."
+        voice_audition_conversion_running: "Stop the conversion before playing a sample."
+        voice_audition_server_not_ready: "No TTS server is running. Start one under \"Models and servers\" on the Text to speech (TTS) page."
+        voice_audition_sample_invalid: "The sample voice could not be made. Check the TTS server and press again."
+        voice_audition_timeout: "The sample took longer than 2 minutes and was stopped."
+        vc_runtime_missing: "The conversion runtime is missing. Get it under \"Models and runtime\" before playing a sample."
+        vc_worker_stalled: "The conversion stopped answering and was stopped. Press again."
+        vc_worker_eof: "The conversion stopped partway. Press again."
     blocked:
         not_in_use: "Only the model in use can play a sample."
         server_stopped: "Press \"Start server\" below to play a sample."
