@@ -1866,6 +1866,7 @@ quick_chat:
         portal_app_id_unavailable: "The desktop did not accept ASTAROT's registration, so its shortcuts are unavailable. This needs a recent xdg-desktop-portal that can find ASTAROT's desktop file. You can open the quick chat with the button."
         portal_desktop_file_failed: "The desktop file needed for shortcuts could not be created. Check that ~/.local/share/applications is writable."
         portal_unavailable: "Could not connect to the desktop portal. Check that xdg-desktop-portal is running."
+        portal_shortcut_invalid: "A shortcut uses a key the desktop cannot take, so the shortcuts were not registered. Record that shortcut again with another key. You can open the quick chat with the button."
     xwayland_hint: "XWayland: the desktop may block the shortcut or focus when another Wayland application is active."
     platform_unknown: "The shortcut platform could not be detected. Reopen settings to try again."
     open_failed: "The input window could not be opened or focused. Try opening it again from Hotkeys settings."

@@ -1866,6 +1866,7 @@ quick_chat:
         portal_app_id_unavailable: "デスクトップがASTAROTの登録を受け付けなかったため、ショートカットを使えません。ASTAROTのデスクトップファイルを見つけられる、新しいxdg-desktop-portalが必要です。ボタンから小窓を開けます。"
         portal_desktop_file_failed: "ショートカット登録に必要なデスクトップファイルを作れませんでした。~/.local/share/applicationsの書き込み権限を確認してください。"
         portal_unavailable: "デスクトップのportalに接続できませんでした。xdg-desktop-portalが動作しているか確認してください。"
+        portal_shortcut_invalid: "デスクトップで使えないキーがショートカットに入っているため、ショートカットを登録できませんでした。そのショートカットを別のキーで記録し直してください。小窓はボタンから開けます。"
     xwayland_hint: "XWaylandでは、別のWaylandアプリを操作中にデスクトップ側がキーやフォーカスの移動を制限する場合があります。"
     platform_unknown: "ショートカットの対応環境を確認できませんでした。設定画面を開き直してください。"
     open_failed: "小窓の表示または入力フォーカスの移動に失敗しました。ホットキー設定からもう一度開いてください。"
