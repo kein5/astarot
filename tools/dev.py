@@ -225,11 +225,11 @@ def checks_plan(args, root):
                     steps.append(Step(f"Cargo doctests {crate}", ["cargo", "test", "--doc", "--locked", "--offline",
                         "--manifest-path", f"{crate}/Cargo.toml"]))
         elif scope == "workflows":
-            # actionlint: syntax, expressions and types. Its shellcheck and pyflakes passes stay off:
-            # mise.toml pins neither, so they would change with whatever the PC has. zizmor:
+            # actionlint: syntax, expressions and types, and shellcheck on the scripts in `run:`
+            # (pinned in mise.toml). Its pyflakes pass stays off: no step has `shell: python`. zizmor:
             # security problems, with the exceptions in .github/zizmor.yml; without GH_TOKEN it
             # skips the audits that ask GitHub (impostor commits, known vulnerable actions).
-            steps.append(Step("actionlint", ["actionlint", "-shellcheck=", "-pyflakes="]))
+            steps.append(Step("actionlint", ["actionlint", "-pyflakes="]))
             steps.append(Step("zizmor", ["zizmor", *(["--format", "github"]
                 if os.environ.get("GITHUB_ACTIONS") == "true" else []), "."]))
         elif scope == "crates":
@@ -300,7 +300,7 @@ def pinned_versions(root):
             (("node", "node"), ("cocogitto", "cog"), ("rust", "cargo"), ("uv", "uv"), ("biome", "biome"),
              ("actionlint", "actionlint"), ("zizmor", "zizmor"), ("cargo-deny", "cargo-deny"),
              ("cargo-nextest", "cargo-nextest"), ("osv-scanner", "osv-scanner"), ("gitleaks", "gitleaks"),
-             ("lychee", "lychee"), ("hk", "hk"))
+             ("lychee", "lychee"), ("hk", "hk"), ("shellcheck", "shellcheck"))
             if name in tools}
 
 
@@ -335,6 +335,11 @@ def doctor(args, root, *, preflight=False):
         if name == "biome":
             # Another version formats and lints differently: only the pinned one passes.
             compatible = compatible and bool(expected) and version == f"Version: {expected}"
+        if name == "shellcheck":
+            # The first line is a title; the version is on its own line. Another version finds
+            # other things in the workflows' scripts, so only the pinned one passes.
+            version = next((line for line in value if line.startswith("version:")), version)
+            compatible = compatible and bool(expected) and version == f"version: {expected}"
         row(name, "ok" if compatible else "missing", version,
             f"Pinned in mise.toml: {expected} (mise install)" if expected else "")
 
@@ -373,7 +378,7 @@ def doctor(args, root, *, preflight=False):
     if "commits" in selected:
         needed_tools.update(("cog", "git"))
     if "workflows" in selected:
-        needed_tools.update(("actionlint", "zizmor"))
+        needed_tools.update(("actionlint", "shellcheck", "zizmor"))
     if "crates" in selected:
         needed_tools.update(("cargo", "cargo-deny"))
     if "links" in selected:

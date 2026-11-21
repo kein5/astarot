@@ -13,11 +13,11 @@ local checks = new Mapping<String, Step> {
   ["gitleaks"] {
     check = "gitleaks git --pre-commit --staged --redact --no-banner ."
   }
-  // The workflows, as `check --scope workflows`: actionlint without shellcheck and pyflakes,
+  // The workflows, as `check --scope workflows`: actionlint with shellcheck, without pyflakes,
   // zizmor offline with the exceptions in .github/zizmor.yml.
   ["actionlint"] {
     glob = List(".github/workflows/*.yml")
-    check = "actionlint -shellcheck= -pyflakes= {{files}}"
+    check = "actionlint -pyflakes= {{files}}"
   }
   ["zizmor"] {
     glob = List(".github/workflows/*.yml", ".github/actions/*/action.yml", ".github/dependabot.yml")

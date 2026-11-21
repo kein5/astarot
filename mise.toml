@@ -23,8 +23,10 @@ biome = "2.6.6"
 # Checks of the repository itself. Each takes the newest release that had been out for two weeks
 # when it was added (2026-11-21; docs/development.md); CI installs only the ones a job runs
 # (install_args).
-# The workflows: actionlint for syntax and expressions, zizmor for security problems.
+# The workflows: actionlint for syntax and expressions, zizmor for security problems. actionlint
+# runs shellcheck on the scripts in `run:` (0.11.0 was the newest release, out since 2025-08-04).
 actionlint = "1.7.12"
+shellcheck = "0.11.0"
 zizmor = "1.32.0"
 # The Rust crates: cargo-deny for licenses, advisories and sources; cargo-nextest runs the tests.
 # mise's registry has no cargo-nextest, so it comes from its GitHub releases (see [tool_alias]).
