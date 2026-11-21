@@ -80,6 +80,20 @@ def test_workflows_pin_external_code_and_keep_inputs_out_of_scripts(workflow):
         commands = "\n".join(step.get("run", "") for step in job["steps"])
         assert "tools.release_automation back-merge" in commands
         assert "gh pr merge" not in commands and "git push" not in commands
+    elif workflow.name == "update-channels.yml":
+        # Issue #466: a published release points the beta update channel at the newest release. It
+        # writes one file on the branch updater-channels through the API, and publishes nothing.
+        assert set(document["on"]) == {"release", "workflow_dispatch"}
+        assert document["on"]["release"] == {"types": ["published"]}
+        assert document["permissions"] == {"contents": "read"}
+        assert set(document["jobs"]) == {"beta"}
+        job = document["jobs"]["beta"]
+        assert job["permissions"] == {"contents": "write"}
+        assert "github.repository == 'kein5/astarot'" in job["if"]
+        commands = "\n".join(step.get("run", "") for step in job["steps"])
+        assert commands.strip() == "python3 -m tools.update_channels beta"
+        assert all(step.get("with", {}).get("persist-credentials") == "false"
+                   for step in job["steps"] if step.get("uses", "").startswith("actions/checkout@"))
     elif workflow.name == "pipeline-latency.yml":
         # Issue #738: after voice-tests.yml it sends the pipeline's measured times to Bencher. It
         # runs from develop's copy of the file, never a pull request's, checks out nothing, and
