@@ -96,17 +96,6 @@ const userModelsAtom = atom<UserModels | null>(null);
 const hasDevices = (value: ModelDownloadHardware | null | undefined): value is ModelDownloadHardware => Array.isArray(value?.devices);
 const hasModels = (value: UserModels | null | undefined): value is UserModels => Array.isArray(value?.models);
 
-// Apply requests whose reply did not come in time (#563). Each is let go once a later state
-// shows its job no longer verifying: the job was applied, failed or cancelled, or never left
-// "ready", so a new command cannot overlap it. Without this, a lost reply kept every other
-// download command blocked until a restart.
-const overdueApplies = new WeakSet<PendingModelRequest>();
-const APPLYING: readonly unknown[] = ["verifying", "cancelling"];
-const stillApplying = (request: PendingModelRequest, jobs: ModelDownloadState["jobs"]): boolean => {
-    const job = typeof request.id === "string" ? jobs[request.id] : undefined;
-    return job !== undefined && job.job_id === request.job_id && APPLYING.includes(job.phase);
-};
-
 export const useModelDownloads = () => {
     const store = useStore();
     const [catalog, setCatalog] = useAtom(catalogAtom), [state] = useAtom(stateAtom);
@@ -124,11 +113,6 @@ export const useModelDownloads = () => {
     const updateState = useCallback((value: ModelDownloadState | null | undefined) => {
         if (!value?.jobs || !acceptObservation(store, stateAtom, value)) return false;
         store.set(stateAtom, previous => sameSnapshot(previous, value) ? previous : value);
-        const pending = store.get(pendingAtom);
-        if (pending?.some(request => overdueApplies.has(request) && !stillApplying(request, value.jobs))) {
-            const remaining = pending.filter(request => !overdueApplies.has(request) || stillApplying(request, value.jobs));
-            store.set(pendingAtom, remaining.length ? remaining : null);
-        }
         return true;
     }, [store]);
     const settle = useCallback((endpoint: string) => {
@@ -158,17 +142,13 @@ export const useModelDownloads = () => {
         if (value && endpoint.includes("model_download_hardware"))
             store.set(hardwareAtom, previous => ({ ...previous, phase: "failed", error_code: value }));
     }, [store, setError, settle]);
-    // No reply in time (#431): say so, and release the commands whose effect the state poll
-    // shows anyway (start, cancel, the user's models), so the buttons work again. A pending
-    // Apply stays while the polls show its job verifying (that can take this long, and its
-    // Cancel is still allowed meanwhile); the next poll that shows it done releases it (#563).
+    // No reply in time (#431): say so, and release every command, Apply included (#563), so the
+    // buttons work again; the state poll shows what each one did. An Apply may still be
+    // verifying then: a start or another Apply sent meanwhile is refused by the core
+    // (download_busy), and its Cancel is still allowed.
     const expireUnconfirmed = useCallback(() => {
         setError("request_unconfirmed");
-        setPending(previous => {
-            const remaining = previous?.filter(request => request.endpoint === "/run/apply_model_download");
-            remaining?.forEach(request => { overdueApplies.add(request); });
-            return remaining?.length ? remaining : null;
-        });
+        setPending(null);
     }, [setError, setPending]);
     const backendStopped = useCallback(() => {
         updateError("backend_unavailable");
