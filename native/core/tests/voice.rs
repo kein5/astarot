@@ -255,6 +255,12 @@ fn a_stop_or_mute_cancels_speech_and_a_stale_stamp_is_refused() {
     eventually("the mute is saved", || std::fs::read_to_string(run.ui.dir.join("voice_mute_state.json")).is_ok_and(|t| t.contains("true")));
     // The virtual microphone check is refused while muted.
     assert_eq!(run.ui.request("/run/virtual_mic_test", Some(json!({ "output": "x", "input": "y" })))["status"], 409);
+    // The route takes a resume only once the mute is confirmed, which can come after it is saved
+    // (voice_route_not_ready before).
+    eventually("the mute is confirmed", || {
+        let route = run.ui.ok("/get/data/voice_route", None);
+        route["requested_muted"] == true && route["pending"] == false && route["ready"] == true
+    });
     let resumed = run.ui.ok("/run/resume_voice", None);
     assert_eq!(resumed["requested_muted"], false);
     eventually("the bus is unmuted", || run.status()["muted"] == false);
