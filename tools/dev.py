@@ -28,11 +28,10 @@ GROUPS = {"quick": ("tooling", "node", "lint"),
 # Rust crates outside the Tauri app, each with its own Cargo.lock and tests.
 NATIVE_CRATES = ("native/app-identity", "native/speech-server", "native/ops", "native/audio-routing", "native/adapters", "native/translation",
                  "native/transcription", "native/openvr-client", "native/onnx-runtime", "native/vr-overlay", "native/voice-conversion",
-                 "native/translate-onnx", "native/tts", "native/core")
-# Every Cargo workspace with a lock file of its own: the Tauri app, the crates above, the
-# integration tests' host (check --scope integration builds it), and the two whose tests
-# check --scope rust does not run yet (#812). cargo-deny reads them all.
-CARGO_WORKSPACES = ("src-tauri", *NATIVE_CRATES, "native/browser-core-bridge", "native/ocr-runtime", "native/rvc-runtime")
+                 "native/translate-onnx", "native/tts", "native/core", "native/ocr-runtime", "native/rvc-runtime")
+# Every Cargo workspace with a lock file of its own: the Tauri app, the crates above and the
+# integration tests' host (check --scope integration builds it). cargo-deny reads them all.
+CARGO_WORKSPACES = ("src-tauri", *NATIVE_CRATES, "native/browser-core-bridge")
 # cargo-deny's lints for a shared deny.toml: a license, exception or source one workspace has no
 # use for is not a mistake.
 DENY_UNUSED = ("license-not-encountered", "license-exception-not-encountered", "unmatched-source")
@@ -59,7 +58,7 @@ LINT_PATHS = [
     "tests/voice", "tools/private_pipewire.py", "tools/build_voice_gate.py",
     "tools/check_voice_distribution.py", "tools/release_candidate.py", "tools/native_acceptance.py",
     "tools/prepare_release.py", "tools/release_automation.py", "tools/changelog.py", "tools/dev.py", "tools/build_linux.py",
-    "tools/check_python_lock.py", "tools/rust_licenses.py", "tools/app_resources.py",
+    "tools/check_python_lock.py", "tools/rust_licenses.py", "tools/rust_coverage.py", "tools/app_resources.py",
     "tools/adr_catalog.py", "tools/rvc_worker_bench.py", "tests/devtools",
 ]
 

@@ -197,7 +197,9 @@ fn a_file_left_by_a_killed_helper_is_not_a_stream() {
     let path = frame_file("killed");
     write(&path, &picture(6, 5, 0), BGRX, 0, 2, INSTANCE);
     assert!(!SharedWindowCapture::new(Some(path)).with_alive_check(dead).is_active());
-    // The helper's process id is the upper half of the instance.
+    // The helper's process id is the upper half of the instance. The portal's helper runs on
+    // Linux only, and the check reads /proc.
+    #[cfg(target_os = "linux")]
     assert!(ocr_runtime::capture::portal::writer_alive((std::process::id() as u64) << 32 | 7));
 }
 

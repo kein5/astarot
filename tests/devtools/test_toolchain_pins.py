@@ -10,9 +10,11 @@ ROOT = Path(__file__).resolve().parents[2]
 # migration and release helpers, pinned with the toolchains.
 CHECK_TOOLS = ("actionlint", "zizmor", "cargo-deny", "cargo-nextest", "gitleaks", "osv-scanner", "lychee", "hk",
                "ast-grep", "syft")
-TOOLS = ("node", "rust", "python", "uv", "cocogitto", "biome", *CHECK_TOOLS)
-# Downloaded archives mise.lock checks by SHA-256. Rust comes through rustup, which has no
-# archive checksum in the lock.
+# Built from crates.io with cargo (#550): mise.lock pins the version, and Cargo checks the crates.
+CARGO_TOOLS = ("cargo:cargo-llvm-cov", "cargo:cargo-mutants")
+TOOLS = ("node", "rust", "python", "uv", "cocogitto", "biome", *CHECK_TOOLS, *CARGO_TOOLS)
+# Downloaded archives mise.lock checks by SHA-256. Rust comes through rustup, and the cargo tools
+# are built from source, so neither has an archive checksum in the lock.
 LOCKED_ARCHIVES = ("node", "python", "uv", "cocogitto", "biome", *CHECK_TOOLS)
 PLATFORMS = ("linux-x64", "windows-x64")
 
