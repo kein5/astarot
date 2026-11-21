@@ -1,6 +1,6 @@
 # Platform support
 
-Which systems ASTAROT supports, and how far each has been checked. This page describes 0.5.1 (2026-11-18).
+Which systems ASTAROT supports, and how far each has been checked. This page describes 0.5.2 (2026-11-18).
 
 Passing automated tests does not mean a feature has been seen working on a real PC. This page keeps the level of support apart from how it was checked, and says "not verified" wherever there is no record. Memory, GPU and disk space are on [System requirements](requirements).
 
@@ -34,7 +34,7 @@ How it was checked:
 | Windows 10 (x64) | The installer and the ZIP | Best effort | None | Not verified |
 | Ubuntu 24.04, Debian 13 (x64) | deb | Supported | Installed on a clean system: the libraries resolve, the bundled speech engine starts, removal leaves nothing. The window is not opened | Not verified |
 | Fedora 44 (x64) | rpm | Supported | Same as the deb | Not verified |
-| Linux (x64, glibc 2.39 or later) | AppImage | Supported | On a virtual X11 display on Ubuntu 24.04, started by extraction: start, drawing, the settings screen and shutdown. Starting through FUSE is not tested | Not verified on 0.5. Checked before 0.5 (CachyOS) |
+| Linux (x64, glibc 2.39 or later) | AppImage | Supported | On a virtual X11 display on Ubuntu 24.04, started by extraction: start, drawing, the settings screen and shutdown. Starting through FUSE is not tested | 0.5.2: start through FUSE and by extraction, drawing, the settings screen and shutdown (CachyOS, KDE Plasma on Wayland) |
 | Linux (x64, glibc 2.39 or later) | tar.gz | Best effort | On a virtual X11 display on Ubuntu 24.04, from a read-only location: start, drawing, the settings screen and shutdown | Not verified on 0.5 |
 | Other Linux (x64) | deb, rpm, AppImage, tar.gz | Best effort | None | Not verified |
 | ARM64 on Windows or Linux | None | Not supported | None | None |
@@ -46,7 +46,7 @@ Every Windows record comes from Windows 11 Insider Preview builds (build 26320 f
 
 | Desktop | Real PC | Notes |
 |---|---|---|
-| KDE Plasma (Wayland) | Checked before 0.5 | The app window runs through XWayland. Hotkeys are registered through the desktop portal (XDG Desktop Portal) |
+| KDE Plasma (Wayland) | 0.5.2: start, drawing and the settings screen of the AppImage | The app window runs through XWayland. Hotkeys are registered through the desktop portal (XDG Desktop Portal) |
 | GNOME and other desktops | Not verified | Where the tray cannot be shown, closing the main window quits the app |
 | X11 session | Not verified | CI runs on a virtual X11 display with no window manager |
 
@@ -65,7 +65,7 @@ The Windows and Linux columns show what has been checked on a real PC. Both buil
 
 | Feature | Windows | Linux | Checked in CI |
 |---|---|---|---|
-| Start, main screen, settings | Checked on 0.5.1 | Not verified on 0.5. Checked before 0.5 | Start and settings screen of the Linux tar.gz and AppImage. UI component tests and the build on both systems. No CI test opens the Windows window |
+| Start, main screen, settings | Checked on 0.5.1 | 0.5.2: start, main screen and settings of the AppImage | Start and settings screen of the Linux tar.gz and AppImage. UI component tests and the build on both systems. No CI test opens the Windows window |
 | Microphone input, speaker output | Not verified on 0.5. Checked before 0.5 with a built-in microphone | Not verified | Tests without devices only |
 | Virtual microphone | Not verified on 0.5. The app cannot create one, so install a virtual cable | Not verified on 0.5. Before 0.5, the voice reached VRChat's microphone. The app creates the virtual microphone with PipeWire | Linux: the audio helpers on a test PipeWire. Windows: none |
 | Translation | Not verified. Local translation models are not offered yet | Not verified. Same as Windows | Tests without devices or network only |

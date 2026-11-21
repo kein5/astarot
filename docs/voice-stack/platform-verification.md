@@ -2,7 +2,7 @@
 
 利用者向けの[対応環境と検証の範囲](../../site/ja/guide/support.md)（英語は[Platform support](../../site/en/guide/support.md)）の根拠にした記録の一覧です。マトリクスのどの欄もこの一覧のどれかの記録に基づきます。記録がない欄は「未検証」と書きます。
 
-作成日は 2026-11-18、対象の版は 0.5.1 です。
+作成日は 2026-11-18 です。対象の版は 0.5.2 で、2026-11-21 に更新しました。
 
 ## 言葉の決まり
 
@@ -38,11 +38,12 @@
 
 | 記録 | 版 | OS と形式 | 確かめたこと | 確かめなかったこと |
 |---|---|---|---|---|
+| [Issue #516 のコメント](https://github.com/kein5/astarot/issues/516#issuecomment-7042956469) | 0.5.2 | CachyOS（rolling、Linux 6.18 系）、KDE Plasma 6.8.2 の Wayland のセッション（アプリの窓は XWayland）、x64。AppImage | v0.5.2 の `tools/native_acceptance.py` の `appimage` と `ui` で、16 件のうち 11 件が成功。FUSE と展開の両方式での起動、描画、終了。表示倍率 100% と 150% での設定画面の保存と、小さい窓への収まり。待ったあとやマウスを載せたあとも窓が描かれたままであること。文の入力欄。分かれた設定画面のキーボードでの操作 | 管理された音声経路のミュートの解除（試験で確かめられず、製品と試験のどちらの問題かは切り分けていない）。デスクトップの字幕の窓（試験に要る `xwininfo` がなかった）。設定画面の開閉のくり返し（試験の補助コードが古い）。VRChat との往復。音声認識、読み上げ、RVC、仮想マイク。deb、rpm、tar.gz。Windows |
 | [PR #571 のコメント](https://github.com/kein5/astarot/pull/571#issuecomment-6956375435) の「候補のビルドと Windows での検証の結果」 | 0.5.1 の候補 | Windows 11 Home Insider Preview build 26320、x64。インストーラーと ZIP | 来歴と `.sha256` の照合。0.5.0 からの更新（取得先をローカルに替えた同じコミットのインストーラーで、`/P /UPDATE`）。「アプリと機能」の表示。更新後の起動。チャット読み取りの範囲読み（試験用のウィンドウ）。テレメトリを切った状態で ONNX Runtime が送信しないこと | 新規インストール、ローカル翻訳（モデルがカタログにない）、実際の VRChat での吹き出しの検出、音声認識、読み上げ、RVC、仮想マイク、VR。Linux |
 | [PR #520](https://github.com/kein5/astarot/pull/520) | 0.5.0-beta.5 と修正 | Windows 11、x64 | 0.5.0-beta.5 の実機確認で、読み上げを仮想マイクへ送ると `output_underflow` で無音になる不具合を見つけた。修正のあと、Steam Streaming の仮想デバイスへの再生を試験（`native/audio-routing/tests/wasapi_live.rs`）で確かめた | アプリの読み上げから VRChat まで届くことの通し確認。VB-CABLE などほかの仮想マイク |
 | [PR #453](https://github.com/kein5/astarot/pull/453) | 0.5.0-beta.2 と修正 | Linux（ディストリビューションとデスクトップの記録なし）、AppImage と tar.gz。Windows 11 の開発用のビルド | Linux の実機テストで、AppImage の起動直後のエンジンの通知、トレイがないときの閉じるボタンの名前、トレイの題を見つけた。Windows で窓の位置を確かめた | 修正のあとの Linux の実機での確認 |
 
-0.5 系の Linux の配布物を、修正のあとに実機で確かめた記録はありません。
+0.5 系の Linux の配布物を実機で確かめた記録は、0.5.2 の AppImage（上の表の最初の行）だけです。deb、rpm、tar.gz は実機では確かめていません。0.5.2 は Windows の実機では確かめていないので、マトリクスの Windows の欄は 0.5.1 の記録のままです。
 
 ### 0.5 より前の版
 
