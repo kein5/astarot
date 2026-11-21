@@ -117,13 +117,12 @@ On Linux, "Mic input" and "Listening" always run realtime captions, whatever eng
 
 ## If you used Whisper in an earlier version {#whisper}
 
-The Whisper that ran inside the app is gone. Speech is now turned into text on your PC by "Local (speech.cpp)". The cloud Whisper engines (Groq Whisper, OpenAI Whisper, Custom Whisper server) work as before.
+The Whisper that ran inside the app went away in 0.3.0. Speech is now turned into text on your PC by "Local (speech.cpp)". The cloud Whisper engines (Groq Whisper, OpenAI Whisper, Custom Whisper server) work as before.
 
-- If Whisper was your engine under "Transcription engine used for speech recognition", the first start after the update switches it to "Local (speech.cpp)". On Windows, "ASR server" under "Realtime captions" also becomes "Bundled server".
-- The main screen then shows the notice "Local speech recognition now uses speech.cpp", once. It shows whether the two models it needs (a speech recognition model and a VAD model) are set, with a button "Open Speech recognition (ASR) settings". The notice never downloads a model. Models are downloaded only after you check their license and size under "Models and servers" and agree.
+- If Whisper was your engine under "Transcription engine used for speech recognition" in 0.2 or earlier, 0.6.0 does not carry that choice over: no engine is selected. Choose one again in [First setup](../guide/first-setup) or Settings → "Speech recognition (ASR)". Versions 0.3 to 0.5 switched a Whisper choice to "Local (speech.cpp)" and showed a notice once.
 - The Whisper model type, the recognition thresholds and the processing device settings are gone.
 
-Whisper models downloaded by an earlier version are no longer used. While any remain on the PC, "Old Whisper models" appears at the bottom of Settings → "Speech recognition (ASR)" with the space they take. Press "Delete old Whisper models", then "Delete" in the confirmation, to remove them. This cannot be undone. Only the folders an earlier version made for Whisper models are removed; other files stay. The notice has the same delete button.
+Whisper models downloaded by 0.2 or earlier are no longer used. From 0.6.0 the app neither counts nor removes them. To free the space, delete the `whisper` folder in `weights` inside the data folder ("Where settings and data are stored" in [Install](../guide/install)).
 
 ::: details What was checked
 Telling speakers apart was checked on Windows 11 with conversations of two to six synthetic voices, not with human voices. The results are in the developers' [record](https://github.com/kein5/astarot/blob/develop/docs/voice-stack/speaker-diarization-2026-11-13.md) (in Japanese).
