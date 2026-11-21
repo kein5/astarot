@@ -1,11 +1,13 @@
 //! Forward graph observations to the isolated voice conversion process.
 //!
-//! Port of `src-python/models/audio_routing/pipewire_graph_pipe.py`. The parent sends
+//! Port of [`src-python/models/audio_routing/pipewire_graph_pipe.py`]. The parent sends
 //! each new observation through a pipe as one frame: a header of sequence (u64),
 //! capture time (f64) and length (u32), big-endian, then the JSON of the Core
 //! objects and the nodes the child cares about (duplicates included, so the child's
 //! checks still see ambiguity). An empty body means "unavailable". The child accepts
 //! a frame only while it is younger than one second; it never runs a dump itself.
+//!
+//! [`src-python/models/audio_routing/pipewire_graph_pipe.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/audio_routing/pipewire_graph_pipe.py
 
 use std::collections::BTreeSet;
 use std::io::{ErrorKind, Read, Write};

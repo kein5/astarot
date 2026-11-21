@@ -1,8 +1,10 @@
-//! OpenRouter (`translation_openrouter.py`).
+//! OpenRouter ([`translation_openrouter.py`]).
 //!
 //! The key is checked with `/auth/key` (status 200), then the models are listed. Every model is
 //! kept except those whose id (lower-cased) has a word the Python client left out. Translation
 //! is one Chat Completions request with one retry.
+//!
+//! [`translation_openrouter.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/translation/translation_openrouter.py
 
 use super::chat::{id_without, ChatCompletions, NOT_FOR_TEXT};
 use super::{join, Access, Api, Error, Provider, Translation, DISCOVERY};

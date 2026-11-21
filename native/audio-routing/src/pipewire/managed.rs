@@ -1,10 +1,12 @@
 //! Creating the managed endpoints as OS-owned user services.
 //!
-//! Port of `src-python/models/audio_routing/managed_microphone.py`. The route is
+//! Port of [`src-python/models/audio_routing/managed_microphone.py`]. The route is
 //! three `pw-loopback` user services, so it survives the application and does not
 //! depend on an AppImage mount. A route that already works (made by hand or by the
 //! daemon configuration) is used as it is. Foreign, partial or duplicate routes and
 //! unit files are never replaced, and nothing is installed for a private server.
+//!
+//! [`src-python/models/audio_routing/managed_microphone.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/audio_routing/managed_microphone.py
 
 use std::fs::{self, OpenOptions};
 use std::io::Write;

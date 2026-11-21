@@ -1,10 +1,12 @@
 //! Windows: find the target window, bring it forward and send Ctrl+V.
 //!
-//! The same steps as `models/clipboard/clipboard.py`: a window whose title contains the
+//! The same steps as [`models/clipboard/clipboard.py`]: a window whose title contains the
 //! name (ignoring case), else a window of a process with that name; `ShowWindow`
 //! (restore), then `BringWindowToTop` and `SetForegroundWindow` while this thread's
 //! input is attached to the foreground thread's (the documented way past the focus
 //! stealing guard); then `keybd_event` for Ctrl and V, releasing Ctrl even when V fails.
+//!
+//! [`models/clipboard/clipboard.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/clipboard/clipboard.py
 
 use std::time::Duration;
 

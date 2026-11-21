@@ -12,18 +12,18 @@
 
 | Python（`src-python/models/`） | Rust |
 |---|---|
-| `websocket/tls.py` | `tls` |
-| `websocket/websocket_server.py` の `WebSocketServer` | `websocket::WebSocketServer` |
-| `obs/obs_browser_source_server.py` の `ObsBrowserSourceServer` | `obs::ObsBrowserSourceServer` |
-| `obs/obs_browser_source_server.py` の `_build_overlay_html` | `obs::build_overlay_html`（テンプレートは `src/obs/page.html`） |
-| `obs/settings.py` | `obs::settings` |
-| `osc/osc.py` の `OSCHandler` | `osc::OscHandler` |
+| [`websocket/tls.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/websocket/tls.py) | `tls` |
+| [`websocket/websocket_server.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/websocket/websocket_server.py) の `WebSocketServer` | `websocket::WebSocketServer` |
+| [`obs/obs_browser_source_server.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/obs/obs_browser_source_server.py) の `ObsBrowserSourceServer` | `obs::ObsBrowserSourceServer` |
+| [`obs/obs_browser_source_server.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/obs/obs_browser_source_server.py) の `_build_overlay_html` | `obs::build_overlay_html`（テンプレートは `src/obs/page.html`） |
+| [`obs/settings.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/obs/settings.py) | `obs::settings` |
+| [`osc/osc.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/osc/osc.py) の `OSCHandler` | `osc::OscHandler` |
 | python-osc（送受信の形式） | `osc::packet` |
 | tinyoscquery（ツリーとホスト情報の JSON、HTTP） | `osc::query` |
 | python-zeroconf（告知と探索） | `osc::mdns` |
-| `clipboard/clipboard.py` の `Clipboard` | `clipboard::Clipboard` |
-| `clipboard/clipboard.py` の Windows の関数 | `clipboard::windows` |
-| `clipboard/x11_paste.py` と `ocr/ocr_capture_x11.py` のウィンドウ検索 | `clipboard::x11` |
+| [`clipboard/clipboard.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/clipboard/clipboard.py) の `Clipboard` | `clipboard::Clipboard` |
+| [`clipboard/clipboard.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/clipboard/clipboard.py) の Windows の関数 | `clipboard::windows` |
+| [`clipboard/x11_paste.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/clipboard/x11_paste.py) と [`ocr/ocr_capture_x11.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/ocr/ocr_capture_x11.py) のウィンドウ検索 | `clipboard::x11` |
 | pyperclip（コピーに使う外部コマンド） | `clipboard::copy` |
 
 ## 外部のツールから見て変わらないこと

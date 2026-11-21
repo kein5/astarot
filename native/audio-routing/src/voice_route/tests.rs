@@ -1,5 +1,7 @@
 //! Ports of `tests/voice/test_managed_route.py` and
-//! `src-python/test/test_voice_route_monitor_mute.py`.
+//! [`src-python/test/test_voice_route_monitor_mute.py`].
+//!
+//! [`src-python/test/test_voice_route_monitor_mute.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/test/test_voice_route_monitor_mute.py
 
 use std::time::Instant;
 

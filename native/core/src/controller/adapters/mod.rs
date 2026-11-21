@@ -1,7 +1,7 @@
 //! The external adapters wired to their endpoints: OSC and OSCQuery towards VRChat, the
 //! WebSocket server, the OBS browser source and the clipboard switch (`native/adapters`).
 //!
-//! The endpoints keep the rules of `src-python/controller.py` and the parts of `model.py` they
+//! The endpoints keep the rules of [`src-python/controller.py`] and the parts of [`model.py`] they
 //! call: the same checks, error codes and `data` to roll back to, the same order of stopping
 //! and restarting the servers, and the same notices at start-up. The clipboard switch is a
 //! plain setting ([`super::routes`]); the copy and paste run with the message pipeline.
@@ -13,6 +13,9 @@
 //! What reaches the network goes through [`Osc`] (replaceable in [`super::Services`]) and the
 //! servers of the adapters crate, which listen on the address the user chose. Log lines are
 //! fixed strings: no text, token, path or address goes into the log.
+//!
+//! [`src-python/controller.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/controller.py
+//! [`model.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/model.py
 
 mod osc;
 mod servers;

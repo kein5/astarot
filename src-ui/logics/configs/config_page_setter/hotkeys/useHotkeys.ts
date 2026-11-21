@@ -458,6 +458,14 @@ export const useHotkeys = () => {
     };
 };
 
+// The character a key gives with Shift on a US layout, and the key itself. Recordings before
+// 2026-11-07 (digits) and 2026-11-18 (symbols) stored what Shift typed ("Ctrl+Shift+?"), which the
+// registrar does not read (#563); with Shift held, it is read as the key ("/"), as recorded now.
+const SHIFTED_KEYS: Readonly<Record<string, string>> = {
+    "~": "`", "!": "1", "@": "2", "#": "3", "$": "4", "%": "5", "^": "6", "&": "7", "*": "8", "(": "9", ")": "0",
+    "_": "-", "+": "=", "{": "[", "}": "]", "|": "\\", ":": ";", "\"": "'", "<": ",", ">": ".", "?": "/",
+};
+
 // 修飾キーのパースを行う関数
 const parseHotkey = (hotkeyString: string[]) => {
     const keyMap: Readonly<Record<string, string>> = {
@@ -468,10 +476,10 @@ const parseHotkey = (hotkeyString: string[]) => {
         // Older recordings stored Space as " ", which leaves an empty token.
         " ": "Space",
     };
-
+    const shifted = hotkeyString.includes("Shift");
 
     return hotkeyString
-        .map((key) => keyMap[key] || key)
+        .map((key) => keyMap[key] || (shifted && Object.hasOwn(SHIFTED_KEYS, key) ? SHIFTED_KEYS[key] : key))
         .join("+");
 };
 

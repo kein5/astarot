@@ -1,9 +1,11 @@
-//! Katakana to Hepburn romaji (`transliteration_kana_to_hepburn.py`), rule for rule.
+//! Katakana to Hepburn romaji ([`transliteration_kana_to_hepburn.py`]), rule for rule.
 //!
 //! The Python function is ported as it is, quirks included, so that the readings the UI shows
 //! do not change: anything that is not katakana passes through, a passing `-` is read as a
 //! long-vowel mark, an `n` before `b`, `m` or `p` becomes `m` wherever it comes from, and the
 //! result is lower-cased.
+//!
+//! [`transliteration_kana_to_hepburn.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/transliteration/transliteration_kana_to_hepburn.py
 
 fn base(c: char) -> Option<&'static str> {
     Some(match c {
@@ -262,9 +264,11 @@ mod tests {
     use super::katakana_to_hepburn as h;
     use super::{base, digraph};
 
-    /// The `base` and `digraphs` tables of `transliteration_kana_to_hepburn.py`, copied out
+    /// The `base` and `digraphs` tables of [`transliteration_kana_to_hepburn.py`], copied out
     /// entry by entry (its multi-character `シェ` key never matches one character, so it is left
     /// out). Each entry is the kana followed by its romaji.
+    ///
+    /// [`transliteration_kana_to_hepburn.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/transliteration/transliteration_kana_to_hepburn.py
     const PYTHON_BASE: &str = "アa イi ウu エe オo カka キki クku ケke コko サsa シshi スsu セse ソso \
         タta チchi ツtsu テte トto ナna ニni ヌnu ネne ノno ハha ヒhi フfu ヘhe ホho マma ミmi ムmu \
         メme モmo ヤya ユyu ヨyo ラra リri ルru レre ロro ワwa ヲwo ンn ガga ギgi グgu ゲge ゴgo \

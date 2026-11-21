@@ -10,7 +10,8 @@ import native_acceptance as subject  # noqa: E402
 
 # The plan writes paths into the environment as the OS spells them.
 IMAGE, COPY, DEV = Path("/candidates/app.AppImage"), Path("/out/candidate.AppImage"), Path("/dev/vrct-vox")
-ALL = {"ocr": "/m/ocr", "--vrchat": True, "kde": True, "xdotool": "/usr/bin/xdotool"}
+ALL = {"ocr": "/m/ocr", "--vrchat": True, "kde": True, "xdotool": "/usr/bin/xdotool",
+       "managed_route": True, "pw-record": "/usr/bin/pw-record"}
 
 
 def args(**changes):
@@ -29,13 +30,15 @@ class NativeAcceptancePlanTests(unittest.TestCase):
         rows = by_name(subject.plan(args(), {}))
         self.assertEqual([name for name, row in rows.items() if row[2] is None], ["appimage", "ui"])
         self.assertEqual(rows["vrchat"][2], "missing: --vrchat, ocr")
+        # The voice round trip also needs the PC's managed route; it never sets one up.
+        self.assertEqual(rows["vrchat-voice"][2], "missing: --vrchat, ocr, managed_route, pw-record")
         # Quick Chat's group needs KDE and xdotool; without them it is skipped, not failed.
         self.assertEqual(rows["quick_chat"][2], "missing: kde, xdotool")
 
     def test_a_packaged_build_runs_the_image_itself(self):
         rows = by_name(subject.plan(args(), ALL))
         self.assertEqual(rows["appimage"][1]["ASTAROT_TEST_APPIMAGE"], str(IMAGE))
-        for name in ("ui", "vrchat", "quick_chat"):
+        for name in ("ui", "vrchat", "vrchat-voice", "quick_chat"):
             env = rows[name][1]
             self.assertEqual(env["ASTAROT_TEST_APP"], str(COPY), name)
             self.assertEqual(env["APPIMAGE_EXTRACT_AND_RUN"], "1", name)

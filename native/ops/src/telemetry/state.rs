@@ -1,5 +1,5 @@
 //! Whether sending is on, and the daily record that keeps each event to once a day
-//! (`state.py`).
+//! ([`state.py`]).
 //!
 //! The file (`telemetry_state.json`) keeps the Python module's shape, so either can read what
 //! the other wrote:
@@ -15,6 +15,8 @@
 //! Days are UTC, the day of the timestamp an event carries: the receiver counts by that day.
 //! `sent` is what went out, the latest [`SENT_LIMIT`], shown on the settings page; its `at` is
 //! this PC's local time.
+//!
+//! [`state.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/telemetry/state.py
 
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;

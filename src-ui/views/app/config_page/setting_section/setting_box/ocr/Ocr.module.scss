@@ -25,9 +25,11 @@
     padding-top: 0;
 }
 
-.modelRow {
-    display: grid;
-    gap: .6rem;
+// The catalogs' layout buttons at the head of the models' part, at its end, as on the catalogs'
+// heading lines.
+.layout {
+    display: flex;
+    justify-content: flex-end;
 }
 
 .detector {
@@ -37,6 +39,8 @@
     border-bottom: .1rem solid var(--dark_800_color, #34363b);
     // The download section below the status draws its own divider; one is enough.
     &:has(> section) { padding-bottom: 0; border-bottom: 0; }
+    // The download's bar a step below the status line it answers.
+    > .models { padding-top: .8rem; }
 }
 
 .detectorStatus {

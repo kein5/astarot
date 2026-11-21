@@ -1,12 +1,17 @@
 //! OSC towards VRChat through the IPC surface (Issue #285): the destination, typing, the switch
 //! to VRChat, VRChat's presence, mic mute sync and the `/run/enable_osc_query` notifications.
-//! The behaviours are those of `src-python/test/test_osc_controller_lifecycle.py`,
-//! `test_model_osc_mute_sync.py`, `test_osc_vrchat_presence.py` and the OSC parts of
-//! `test_endpoints.py`.
+//! The behaviours are those of [`src-python/test/test_osc_controller_lifecycle.py`],
+//! [`test_model_osc_mute_sync.py`], [`test_osc_vrchat_presence.py`] and the OSC parts of
+//! [`test_endpoints.py`].
 //!
 //! Packets go to UDP sockets the test binds on 127.0.0.2: a destination on this PC that is not
 //! `127.0.0.1`, so the real link never starts OSCQuery or mDNS. Receiving and VRChat's answers
 //! are played by `common::fake_osc` where a test needs them.
+//!
+//! [`src-python/test/test_osc_controller_lifecycle.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/test/test_osc_controller_lifecycle.py
+//! [`test_model_osc_mute_sync.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/test/test_model_osc_mute_sync.py
+//! [`test_osc_vrchat_presence.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/test/test_osc_vrchat_presence.py
+//! [`test_endpoints.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/test/test_endpoints.py
 
 mod common;
 
@@ -199,7 +204,9 @@ fn oscquery_turned_off_starts_nothing_and_messages_still_go_out() {
 
 #[test]
 fn only_an_indicator_the_app_turned_on_is_turned_off() {
-    // `test_controller_typing.py`.
+    // [`test_controller_typing.py`].
+    //
+    // [`test_controller_typing.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/test/test_controller_typing.py
     let (socket, port) = vrchat();
     let ui = Ui::with(Setup {
         saved: Some(json!({ "OSC_IP_ADDRESS": DESTINATION, "OSC_PORT": port, "SEND_MESSAGE_TO_VRC": false })),

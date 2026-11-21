@@ -61,8 +61,11 @@ pub(crate) fn state_dir(executable: &Path) -> PathBuf {
 }
 
 /// Where settings, logs and models live: the same folders the Python sidecar used, so that a
-/// user's settings carry over (`runtime_paths.py`, `config.py`). They are settled once per process
+/// user's settings carry over ([`runtime_paths.py`], [`config.py`]). They are settled once per process
 /// ([`settle_folders`]), and every reader gets the same answer.
+///
+/// [`runtime_paths.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/runtime_paths.py
+/// [`config.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/config.py
 #[derive(Clone)]
 struct Folders {
     state_dir: PathBuf,

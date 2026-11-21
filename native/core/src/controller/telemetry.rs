@@ -1,4 +1,4 @@
-//! The usage events: the switch, the notice and what is sent (`controller.py`:
+//! The usage events: the switch, the notice and what is sent ([`controller.py`]:
 //! `setEnableTelemetry`, `setDisableTelemetry`, `getTelemetryNotice`, `setTelemetryNotice`,
 //! `getTelemetryPreview`; `vrct_ops::telemetry`).
 //!
@@ -6,6 +6,8 @@
 //! consent (SEC-07), and only the answer can start sending for the first time.
 //! `ASTAROT_TELEMETRY=off` (or `VRCT_TELEMETRY=off`) turns it off for good and the notice is not
 //! asked either.
+//!
+//! [`controller.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/controller.py
 
 use super::routes::{Builder, OPEN};
 use super::{Core, ok};

@@ -1,6 +1,8 @@
-//! Mirrors `src-python/test/test_clipboard_focus_and_paste.py`: the order of focus,
+//! Mirrors [`src-python/test/test_clipboard_focus_and_paste.py`]: the order of focus,
 //! copy and paste, and what happens when any of them fails. A stand-in desktop
 //! records the steps; nothing touches the real clipboard or sends real keys.
+//!
+//! [`src-python/test/test_clipboard_focus_and_paste.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/test/test_clipboard_focus_and_paste.py
 
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};

@@ -3,11 +3,13 @@
 //! realtime recognition since decision 2 of #733).
 //!
 //! Python captured it with the `vrct-asr-capture` helper (`PipeWireCapture` of
-//! `capture_pipewire.py`); here it is a stream of the app, as the outputs are (`output.rs`). The
+//! [`capture_pipewire.py`]); here it is a stream of the app, as the outputs are (`output.rs`). The
 //! stream runs on its own thread with its own connection, targets the source's serial once the
 //! graph confirmed its identity, and is never moved, reconnected or fallen back to another
 //! input. A failure is told once, by the helper's codes (`asr_capture_*`): no audio within 5 s
 //! of the start, a gap of 2 s after it, or the stream ending. Nothing of the audio is logged.
+//!
+//! [`capture_pipewire.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/transcription/capture_pipewire.py
 
 use std::cell::RefCell;
 use std::rc::Rc;

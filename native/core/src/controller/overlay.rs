@@ -1,6 +1,6 @@
 //! The VR overlays: the small and the large subtitle log, the VR panel and its launcher
-//! (`controller.py`: `syncOverlayRunning`, the overlay switches and settings, `sendTextOverlay`,
-//! the VR panel's endpoints and the overlay's callbacks; `model.py`'s overlay part).
+//! ([`controller.py`]: `syncOverlayRunning`, the overlay switches and settings, `sendTextOverlay`,
+//! the VR panel's endpoints and the overlay's callbacks; [`model.py`]'s overlay part).
 //!
 //! The overlay itself is `native/vr-overlay`. It is made with the routes, as Python made it
 //! with the model, and runs while a subtitle log or the VR panel is on. Its thread waits for
@@ -8,6 +8,9 @@
 //!
 //! The message pipeline shows messages through [`Core::show_overlay_message`] and the realtime
 //! captions through [`Core::show_overlay_caption`] and [`Core::discard_overlay_captions`].
+//!
+//! [`controller.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/controller.py
+//! [`model.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/model.py
 
 use super::routes::{Builder, OPEN, WAIT};
 use super::settings::switch;

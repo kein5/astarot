@@ -1,4 +1,4 @@
-//! Gemini (`translation_gemini.py`).
+//! Gemini ([`translation_gemini.py`]).
 //!
 //! The key goes in `x-goog-api-key`. It is checked by listing the models, every page of them
 //! (8 seconds for all), with the page size the service chooses, as the Google SDK of the Python
@@ -9,6 +9,8 @@
 //! generation settings LangChain's `ChatGoogleGenerativeAI` sent (temperature 0.7, one
 //! candidate, no safety settings of its own), a wait of 30 seconds for each step and one retry;
 //! thought parts are left out of the reply.
+//!
+//! [`translation_gemini.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/translation/translation_gemini.py
 
 use super::{
     checked, form_value, join, json_of, reply_text, retry, Access, Api, Error, Provider, Translation, DISCOVERY,

@@ -6,20 +6,20 @@ speech.cpp の実行ファイルは従来どおり別プロセスです。この
 
 ## 現在の状態
 
-- ライブラリとして完成しており、試験も通っています。**アプリにはまだ組み込んでいません。** 動作中のアプリでサーバを所有しているのは、今も Python 側（`models/speech_server/runtime.py`）です。同じサーバを2か所から所有しないよう、Tauri 側の配線は、Python 側の呼び出しを置き換えるとき（#278 と協調）に行います。
+- ライブラリとして完成しており、試験も通っています。**アプリにはまだ組み込んでいません。** 動作中のアプリでサーバを所有しているのは、今も Python 側（[`models/speech_server/runtime.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/speech_server/runtime.py)）です。同じサーバを2か所から所有しないよう、Tauri 側の配線は、Python 側の呼び出しを置き換えるとき（#278 と協調）に行います。
 - `src-tauri` はこのクレートに依存していません。
 
 ## Python 版との対応
 
 | Python（`models/speech_server/`） | Rust |
 |---|---|
-| `settings.py`（`normalize_settings`、`start_options`） | `settings` |
-| `runtime.py` の `bundled_binary` | `bundle::bundled_binary` |
-| `runtime.py` の `parse_devices`、`preferred_gpu`、`resolve_device`、`list_gpus` | `devices` |
-| `runtime.py` の `SpeechServer` | `server::SpeechServer` |
-| `runtime.py` の `SpeechServers` | `servers::SpeechServers` |
-| `warmup.py` | `warmup` |
-| `low_latency.py` | `standby::LowLatencyStandby` |
+| [`settings.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/speech_server/settings.py)（`normalize_settings`、`start_options`） | `settings` |
+| [`runtime.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/speech_server/runtime.py) の `bundled_binary` | `bundle::bundled_binary` |
+| [`runtime.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/speech_server/runtime.py) の `parse_devices`、`preferred_gpu`、`resolve_device`、`list_gpus` | `devices` |
+| [`runtime.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/speech_server/runtime.py) の `SpeechServer` | `server::SpeechServer` |
+| [`runtime.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/speech_server/runtime.py) の `SpeechServers` | `servers::SpeechServers` |
+| [`warmup.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/speech_server/warmup.py) | `warmup` |
+| [`low_latency.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/speech_server/low_latency.py) | `standby::LowLatencyStandby` |
 | （Python 版にはない） | `builds`（Linux の2つのビルドから選ぶ） |
 
 設定ファイルの形、状態名（`stopped`、`preparing`、`ready`、`stopping`、`failed`）、エラーコードの文字列は Python 版と同じです。エラーコードは `codes` にまとめてあります。

@@ -1,4 +1,4 @@
-//! The overlay thread (`overlay.py`'s `Overlay`).
+//! The overlay thread ([`overlay.py`]'s `Overlay`).
 //!
 //! [`Overlay::start`] starts a thread that waits for SteamVR (checking every 10 seconds),
 //! connects, makes the overlays and runs a loop 16 times a second: subtitles fade out after
@@ -11,6 +11,8 @@
 //! opening animation), moves the log to another anchor or back in front of the eyes, and shows
 //! the tooltips. The controllers ([`input`]) point with a laser, click and scroll the page, grab,
 //! move and scale windows, resize the log by a corner and show the toolbar under the log.
+//!
+//! [`overlay.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/overlay/overlay.py
 
 mod input;
 

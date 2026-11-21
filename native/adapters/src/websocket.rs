@@ -1,7 +1,7 @@
 //! The local WebSocket server that pushes the conversation to the OBS page and other
 //! clients.
 //!
-//! The same contract as `src-python/models/websocket/websocket_server.py`:
+//! The same contract as [`src-python/models/websocket/websocket_server.py`]:
 //!
 //! - A client must give the token in the query (`/?token=...`). Without the right one
 //!   the handshake is refused with `403 Forbidden` before any WebSocket traffic. A web
@@ -17,6 +17,8 @@
 //!   speaks `wss://`. A TLS handshake must finish within 10 seconds.
 //!
 //! A new token closes every connection made with the old one.
+//!
+//! [`src-python/models/websocket/websocket_server.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/websocket/websocket_server.py
 
 use std::collections::HashMap;
 use std::fmt;

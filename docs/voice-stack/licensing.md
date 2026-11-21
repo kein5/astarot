@@ -345,7 +345,7 @@ CTranslate2翻訳はM2M100とその文章分割ファイルがMIT、NLLBとそ�
 
 | 候補 | エンジンのライセンス | モデルのライセンス | 扱い |
 |---|---|---|---|
-| `native/translate-onnx`（`ort`、ONNX Runtime、`tokenizers`） | VRCT-VOXのコード（MIT）。`ort`はMIT OR Apache-2.0、ONNX RuntimeはMIT、`tokenizers`はApache-2.0 | M2M100はMIT、NLLB-200はCC-BY-NC-4.0（既定にしない） | **採用**（2026-11-16）。アプリに入れた。モデルは2026-11-19に公開した（下の「公開したモデル（2026-11-19、#687）」）。利用者が自分で置くモデルのライセンスは利用者が確かめる |
+| `native/translate-onnx`（`ort`、ONNX Runtime、`tokenizers`） | VRCT-VOXのコード（MIT）。`ort`はMIT OR Apache-2.0、ONNX RuntimeはMIT、`tokenizers`はApache-2.0 | M2M100はMIT、NLLB-200はCC-BY-NC-4.0（既定にしない） | **採用**（2026-11-16）。アプリに入れた。モデルは2026-11-19と2026-11-21に公開した（下の「公開したモデル（2026-11-19、#687）」と「NLLB-200 distilled 1.3Bの公開（2026-11-21）」）。利用者が自分で置くモデルのライセンスは利用者が確かめる |
 | `ct2rs` 0.11.2（CTranslate2 4.8.5を同梱して静的にビルド） | `ct2rs`・`ct2rs-sys`・CTranslate2はMIT。同梱のcpu_features・ruyはApache-2.0、spdlogはMIT。oneDNN（`onednn-src`）はApache-2.0、SentencePiece（`sentencepiece-sys`）はApache-2.0 | 既存のCTranslate2の重み（上の一覧と同じ） | 候補。入れるときは、C++のソースから作るライブラリのライセンス文を`tools/rust_licenses.py`の一覧の外で収める必要がある |
 | `ct2rs`の機能`mkl`（Intel oneMKL） | IntelのEULA（再配布できるがOSSではない） | 同上 | 計っていない。入れるならEULAの条件を台帳に書く |
 | `candle-transformers` 0.11.1 | MIT OR Apache-2.0 | M2M100とNLLBの実装がない。Opus-MTはCC-BY-4.0、MADLAD-400はApache-2.0 | モデルの取り直しと品質の確認が要るので候補から外した |
@@ -361,7 +361,7 @@ NLLBを差し替えるかの検討（#288の未決事項）のために、ロー
 | モデル | リポジトリと版 | ライセンス | 商用の利用 | 今の`native/translate-onnx`で動くか | 扱い |
 |---|---|---|---|---|---|
 | M2M100 418M、1.2B | `facebook/m2m100_418M`@`55c2e61b`、`facebook/m2m100_1.2B`@`7b361841` | MIT | できる | 動く | 採用済み。既定は418M。418Mのint8を2026-11-19に公開した |
-| NLLB-200 distilled 600M、1.3B、3.3B | `facebook/nllb-200-distilled-600M`@`f8d333a0`、`-1.3B`@`7be3e246`、`facebook/nllb-200-3.3B`@`1a07f7d1` | CC-BY-NC-4.0 | できない | 動く | 採用済み。既定にせず、選ぶときに非商用のライセンスを示して同意を得る。distilled 600Mのint8を2026-11-19に公開した（判断78）。1.3Bは後から足し、3.3Bは今は公開しない |
+| NLLB-200 distilled 600M、1.3B、3.3B | `facebook/nllb-200-distilled-600M`@`f8d333a0`、`-1.3B`@`7be3e246`、`facebook/nllb-200-3.3B`@`1a07f7d1` | CC-BY-NC-4.0 | できない | 動く | 採用済み。既定にせず、選ぶときに非商用のライセンスを示して同意を得る。distilled 600Mのint8を2026-11-19に（判断78）、1.3Bのint8を2026-11-21に公開した。3.3Bは公開しない（2026-11-20に決まった） |
 | MADLAD-400 3B MT、7B MT | `google/madlad400-3b-mt`@`fa184c67`、`google/madlad400-7b-mt`@`1ff63ce7` | Apache-2.0 | できる | 動かない（T5の形） | 候補。T5の形とSentencePieceのunigramを足す必要がある。3Bは約29億のパラメータ |
 | SMaLL-100 | `alirezamsh/small100`@`8ab680e2` | MIT | できる | 一部だけ（訳先の言語のトークンを原文の側に付ける） | 候補。約3.3億のパラメータ |
 | mBART-50 many-to-many | `facebook/mbart-large-50-many-to-many-mmt`@`e30b6cb8` | モデルカードにライセンスの記載がない | 確かめられない | 動かない（MBartの形） | 対象外。ライセンスを確かめられないため |
@@ -405,7 +405,24 @@ NLLBのCC-BY-NC-4.0について確かめたこと:
 | `m2m100-418m-onnx-int8` | `kein5/m2m100_418M-onnx-int8`@`edfdb3e670e257cee60858861031fe40e2e17934` | `facebook/m2m100_418M`@`55c2e61b` | MIT（`LICENSE`にfairseqのMITの文を添えた） | 505,722,914 bytes | 既定のモデル |
 | `nllb-200-distilled-600m-onnx-int8` | `kein5/nllb-200-distilled-600M-onnx-int8`@`3c6d40d6ebd424d17d69f0e3236a8a7f8be9a170` | `facebook/nllb-200-distilled-600M`@`f8d333a0` | CC-BY-NC-4.0（非商用） | 642,621,286 bytes | 既定にしない。取得の前に非商用の確認を求める。取得の画面の注記（`translation_nllb_600m`）で、容量と翻訳の間のメモリー（約1.4 GiB）を示す |
 
-1.3Bは別の作業で後から足す。3.3Bは今は公開しない。
+3.3Bは公開しない（2026-11-20に決まった。判断78のまま）。
+
+#### NLLB-200 distilled 1.3Bの公開（2026-11-21）
+
+2026-11-21に、NLLB-200 distilled 1.3Bのint8を公開すると決まった。判断の材料は`tools/translation_onnx/README.md`の「英語と日本語の確認（2026-11-20）」にある。公開の前に、ほかのモデルと同じ3つの観点でライセンスを確かめた。無料で使えるか、非商用などの制限があるか、同意を得てカタログから取得する配り方に合うか、である。
+
+- 元のモデル`facebook/nllb-200-distilled-1.3B`@`7be3e24664b38ce1cac29b8aeed6911aa0cf0576`のモデルカードの`license`の欄は`cc-by-nc-4.0`だった。Hugging FaceのAPIが2026-11-21に返した値で、カードの本文にも「License: CC-BY-NC」とある。アクセス制限（gated）はなく、取得にログインや利用規約への同意は要らない。
+- 無料で使えるか：CC-BY-NC-4.0は使用料のかからないライセンスで、無料で使える。
+- 制限：非商用（NonCommercial）に限る。600Mと同じライセンスなので、上の「NLLB-200をカタログに載せるときの決まり」がそのまま当てはまる。既定にせず、取得の前に非商用の確認を求め、選ぶときの確認も残す。
+- 配り方：変換したもの（ONNXへの書き出しとint8の量子化）を、作者、ライセンス、変えたことを示して、同じライセンスで配る。`publish.py stage`のモデルカードがこれを書く。カードは600Mのものと、改行の形を除いて同じ文面になった。Hugging Faceの固定した版から1ファイルずつ取得する今のカタログの形に合う。
+- 元のモデルのカードの「Intended Use」は、研究用のモデルで本番の運用向けには公開していない、と書いている。ライセンスの条件ではない。600Mのカードにも同じ文があり、2つのカードの違いは版のタグと指標へのリンクだけだった。この文の扱いは、公開のPRの判断に残した。
+- 以上から、公開を止める問題はないと判断した。
+
+確かめたあと、`export.py`で書き出し、`publish.py stage`のモデルカードを添えて公開し、カタログに載せた。公開した版のファイルをトークンなしで取り直し、大きさとSHA-256がカタログと一致することを確かめた。
+
+| カタログのid | 公開先と版 | 元のモデル | ライセンス | 大きさ（全ファイル） | 扱い |
+|---|---|---|---|---|---|
+| `nllb-200-distilled-1-3b-onnx-int8` | `kein5/nllb-200-distilled-1.3B-onnx-int8`@`12e90eb5cf137f1312d3b57037f6d904c43102f7` | `facebook/nllb-200-distilled-1.3B`@`7be3e246` | CC-BY-NC-4.0（非商用） | 1,401,617,741 bytes | 既定にしない。取得の前に非商用の確認を求める。取得の画面の注記（`translation_nllb_1_3b`）で、容量と翻訳の間のメモリー（約2.6 GiB）を示す |
 
 ### TranslateGemma（2026-11-18、#412）
 

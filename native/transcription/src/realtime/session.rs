@@ -1,5 +1,5 @@
-//! One realtime recognition session (`realtime_session.py`, `speechcpp_realtime.py`,
-//! `realtime_audio.py`): the capture of one endpoint, streamed to a speech.cpp server over its
+//! One realtime recognition session ([`realtime_session.py`], [`speechcpp_realtime.py`],
+//! [`realtime_audio.py`]): the capture of one endpoint, streamed to a speech.cpp server over its
 //! Realtime WebSocket, with the caption updates waiting in a bounded mailbox.
 //!
 //! One thread owns the connection: it sends the audio as it comes (48 kHz frames converted to
@@ -8,6 +8,10 @@
 //! 15 s (120 s for the first one, while a GPU builds its kernels), a capture that fails or a
 //! microphone that delivers nothing (5 s after it opened, 2 s after its last audio) end the
 //! session with a fixed code. Nothing here logs audio or text.
+//!
+//! [`realtime_session.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/transcription/realtime_session.py
+//! [`speechcpp_realtime.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/transcription/speechcpp_realtime.py
+//! [`realtime_audio.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/transcription/realtime_audio.py
 
 use super::events::{Events, Update};
 use crate::capture::{Capture, CapturePlatform, FrameBuilder, Source, Target};
@@ -32,8 +36,10 @@ const MAILBOX: usize = 32;
 /// Windows can hold a microphone's open until the user answers its question.
 const CAPTURE_OPEN_TIMEOUT: Duration = Duration::from_secs(120);
 /// A microphone that delivers nothing this long after it opened, or this long after its last
-/// audio, has stopped (`_START_TIMEOUT_S` and `_STALL_NS` of `capture_windows.py`, and the
+/// audio, has stopped (`_START_TIMEOUT_S` and `_STALL_NS` of [`capture_windows.py`], and the
 /// same limits of the Linux helper). A speaker's loopback is filled with silence instead.
+///
+/// [`capture_windows.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/transcription/capture_windows.py
 const FIRST_AUDIO_TIMEOUT: Duration = Duration::from_secs(5);
 const STALL_TIMEOUT: Duration = Duration::from_secs(2);
 
@@ -734,7 +740,9 @@ mod tests {
     }
 
     // The ingress between the capture and the connection, after
-    // `src-python/test/test_realtime_ingress_wait.py`.
+    // [`src-python/test/test_realtime_ingress_wait.py`].
+    //
+    // [`src-python/test/test_realtime_ingress_wait.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/test/test_realtime_ingress_wait.py
 
     struct NoDevice;
 

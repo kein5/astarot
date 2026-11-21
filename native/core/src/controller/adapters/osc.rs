@@ -1,11 +1,13 @@
 //! OSC towards VRChat: the destination, typing, the switch to VRChat, VRChat's presence and mic
 //! mute sync (`setOscIpAddress`, `setOscPort`, `typingMessageBox`, `setEnableVrcMicMuteSync`,
-//! `_publishOscQueryReadiness`, `_initOscReceive` and the mute state of `model.py`).
+//! `_publishOscQueryReadiness`, `_initOscReceive` and the mute state of [`model.py`]).
 //!
 //! Mic mute sync keeps the microphone held back while VRChat's `MuteSelf` is on. A `true` from
 //! VRChat holds it at once; a `false` (or an avatar change) is believed only once OSCQuery
 //! confirms it, one query at a time. Anything unknown keeps the microphone held back. The core
 //! tells the recognition through [`super::super::Services::vrc_mic_mute`].
+//!
+//! [`model.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/model.py
 
 use super::{Adapters, port_of};
 use crate::config::schema::is_valid_port;

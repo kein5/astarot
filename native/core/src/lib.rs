@@ -2,7 +2,7 @@
 //!
 //! Codename: Ayperos (#689; the table is in `docs/voice-stack/project-rename.md`).
 //!
-//! It takes over what the Python sidecar's `mainloop.py`, `controller.py` and `config.py` did:
+//! It takes over what the Python sidecar's [`mainloop.py`], [`controller.py`] and [`config.py`] did:
 //! the requests from the UI and their answers ([`protocol`], [`dispatch`]), the error codes
 //! ([`errors`]), the settings and their migration from the Python era ([`config`]), the start-up
 //! and shut-down ([`backend`]) and the endpoints ([`controller`]). The feature crates under
@@ -11,6 +11,10 @@
 //! The application runs it in its own process: `src-tauri` hands it the request lines the UI
 //! writes and gives the UI the lines it answers, in the format the sidecar spoke over stdio.
 //! Nothing here logs the user's text or audio.
+//!
+//! [`mainloop.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/mainloop.py
+//! [`controller.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/controller.py
+//! [`config.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/config.py
 
 pub mod backend;
 pub mod config;

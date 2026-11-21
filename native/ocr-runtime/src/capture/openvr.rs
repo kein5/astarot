@@ -1,5 +1,5 @@
 //! The headset view from the OpenVR compositor's mirror texture
-//! (`ocr_capture_openvr.py`, `ocr_capture_d3d11.py`, `ocr_capture_gl.py`).
+//! ([`ocr_capture_openvr.py`], [`ocr_capture_d3d11.py`], [`ocr_capture_gl.py`]).
 //!
 //! Reads the left eye so OCR keeps working while VRChat's desktop window is minimized.
 //! Windows reads `GetMirrorTextureD3D11` (the OpenGL variant fails there: SteamVR cannot
@@ -19,6 +19,10 @@
 //!   released on the OCR worker thread.
 //! - Only VRChat's frames are read: while another scene app presents, `capture` gives
 //!   nothing so the facade falls back to the desktop window.
+//!
+//! [`ocr_capture_openvr.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/ocr/ocr_capture_openvr.py
+//! [`ocr_capture_d3d11.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/ocr/ocr_capture_d3d11.py
+//! [`ocr_capture_gl.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/ocr/ocr_capture_gl.py
 
 use std::ffi::c_void;
 use std::sync::Arc;

@@ -150,7 +150,7 @@ def pack(root, destination, *, require_runtime=True):
         inspect_tar(temporary)
         os.replace(temporary, destination)
         checksum = destination.with_name(destination.name + '.sha256')
-        checksum.write_text(f'{sha256(destination)}  {destination.name}\n')
+        checksum.write_text(f'{sha256(destination)}  {destination.name}\n', encoding='utf-8')
     finally:
         if temporary:
             temporary.unlink(missing_ok=True)

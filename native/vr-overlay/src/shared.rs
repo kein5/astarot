@@ -1,9 +1,11 @@
-//! One SteamVR connection for the whole process (`src-python/models/openvr_session.py`).
+//! One SteamVR connection for the whole process ([`src-python/models/openvr_session.py`]).
 //!
 //! OpenVR keeps one connection per process: `VR_ShutdownInternal` closes it for every caller.
 //! The overlays and the clipboard (which reads the scene application's name) therefore share
 //! it. [`SharedVr::connect`] opens the connection for the first holder and hands later holders
 //! the same one; the connection closes when the last holder drops its session.
+//!
+//! [`src-python/models/openvr_session.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/openvr_session.py
 
 use crate::math::{Mat34, Mat4, Vec3};
 use crate::runtime::{ControllerState, Device, Hand, Handle, Intersection, SceneApp, Session, TextureSlot, Vr, VrError};

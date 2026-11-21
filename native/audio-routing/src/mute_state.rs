@@ -1,9 +1,11 @@
 //! The durable mute intent, independent of the debounced application settings.
 //!
-//! Port of `src-python/models/audio_routing/mute_state.py`. The file holds
+//! Port of [`src-python/models/audio_routing/mute_state.py`]. The file holds
 //! `{"version": 1, "muted": <bool>}` and is replaced atomically: written to a new
 //! file next to it, flushed to disk, renamed over it, and (on Unix) the directory
 //! flushed too.
+//!
+//! [`src-python/models/audio_routing/mute_state.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/audio_routing/mute_state.py
 
 use std::fs::{self, OpenOptions};
 use std::io::{ErrorKind, Write};

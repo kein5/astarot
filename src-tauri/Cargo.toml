@@ -42,6 +42,9 @@ app-identity = { path = "../native/app-identity" }
 glob = "=0.3.4"
 # Already locked through tauri-plugin-updater; the tests decode the embedded public key.
 base64 = "=0.23.1"
+# Already locked through tauri-plugin-updater; the AppImage replacement's tests use a folder of
+# their own.
+tempfile = "=3.27.0"
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-global-shortcut = "=2.4.1"
@@ -63,7 +66,7 @@ windows = { version = "=0.62.2", features = ["Win32_Foundation", "Win32_Globaliz
 [target.'cfg(target_os = "linux")'.dependencies]
 gtk = "=0.18.2"
 # Already locked through tauri-plugin-opener; used for the GlobalShortcuts portal.
-zbus = "=5.19.0"
+zbus = "=6.2.1"
 gdkx11 = "=0.18.2"
 # Already locked through wry; used to move the VR page off the desktop.
 webkit2gtk = "=2.0.2"

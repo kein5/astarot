@@ -1,8 +1,11 @@
-//! Where the user's own voice and typed chat go with the current settings (`io_flow.py`), and
-//! how long each of those inputs took to reach each output (`io_trace.py`).
+//! Where the user's own voice and typed chat go with the current settings ([`io_flow.py`]), and
+//! how long each of those inputs took to reach each output ([`io_trace.py`]).
 //!
 //! The flow panel and its overlays draw both. Nothing here is logged (`/run/io_trace` is never
 //! written to `process.log`) and nothing leaves the PC.
+//!
+//! [`io_flow.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/io_flow.py
+//! [`io_trace.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/io_trace.py
 
 use serde_json::{Map, Value, json};
 use std::collections::VecDeque;

@@ -1,23 +1,27 @@
 //! The translation engines (#277): the keys and models of the online providers, LM Studio and
 //! Ollama, the local translation, the switch, the start-up check and the translation itself
-//! (`controller.py`: `_setTranslationEngineAuthKey`, `_setTranslationEngineModel`,
+//! ([`controller.py`]: `_setTranslationEngineAuthKey`, `_setTranslationEngineModel`,
 //! `_checkTranslationEngineConnection`, `setDeeplAuthKey`, `setOpenAICompatibleAuthKey`,
 //! `_setEndpointCredential`, `setTranslatorLMStudioURL`, `setCtranslate2WeightType`,
 //! `setEnableTranslation`, `changeToCTranslate2Process` and the engine part of `init`;
-//! `model.py`: `getTranslate`, `getInputTranslate`, `getOutputTranslate` and the history).
+//! [`model.py`]: `getTranslate`, `getInputTranslate`, `getOutputTranslate` and the history).
 //!
 //! The provider clients are in `native/translation`: one unit struct per provider implementing
 //! the `Api` trait, with the shared requests written once as default methods (zero-cost
 //! abstraction: generics and static dispatch, no `dyn`). [`Translators::check`],
 //! [`Translators::models`] and [`Translators::translate`] pass the engine named in the settings
 //! to `Provider::check` and the others, which reach the provider's type with one `match` (as
-//! `translation_translator.py` chose the client). Google Cloud Translation and Papago (NAVER Cloud Platform) are core additions
+//! [`translation_translator.py`] chose the client). Google Cloud Translation and Papago (NAVER Cloud Platform) are core additions
 //! (#277); the Ollama URL is a core addition (`OLLAMA_URL`). The local translation is a
 //! [`LocalTranslation`] given by [`super::Services::local_translation`]: ONNX Runtime
 //! (`native/translate-onnx`) when the core is built with the `onnx-translation` feature, else
 //! nothing (see "判断が要ること" 1 and 2 in `docs/voice-stack/core-integration.md`).
 //!
 //! Keys, URLs with their queries and the user's text never reach the log.
+//!
+//! [`controller.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/controller.py
+//! [`model.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/model.py
+//! [`translation_translator.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/translation/translation_translator.py
 
 use super::languages::LOCAL_ENGINE;
 use super::routes::{Builder, OPEN, WAIT};

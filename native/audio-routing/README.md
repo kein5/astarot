@@ -13,24 +13,24 @@ until the sidecar is retired.
 
 | Python | Rust | Notes |
 |---|---|---|
-| `audio_device_identity.py` | `src/identity.rs` | Same rules: the placeholder has no identity, a saved ID matches only itself, a legacy name migrates only when unique. |
-| `device_manager.py` | `src/manager.rs`, `src/snapshot.rs` | One snapshot swapped as a whole; the same change flags and callbacks; the same monitor timing (below); Auto Speaker Select through the peak tracker, Auto Microphone Select through the OS default only. |
-| `active_endpoint_tracker.py` | `src/tracker.rs` | Same 250 ms poll, 3 s window, ×2 ratio held 1 s, silence keeps the choice, meters activated once per endpoint, 2 s stop limit with the restart deferred until cleanup ends. |
-| `audio_routing/audio_router.py` | `src/router.rs` | Includes the cancellation token with the start deadline (`CancelToken` of `speechcpp_tts.py`). |
-| `audio_routing/monitor_output.py` | `src/monitor.rs` | |
-| `audio_routing/mute_state.py` | `src/mute_state.rs` | Same file and format. |
-| `audio_routing/managed_route.py` | `src/voice_route.rs` | |
-| `audio_routing/windows_route.py` | `src/windows_route.rs` | Device access behind a trait, so the queue, stall and mute rules are tested on every OS. |
-| `audio_routing/devices_windows.py` | `src/naming.rs` (rules), `src/wasapi/` (devices) | |
-| `audio_routing/devices_pipewire.py` | `src/pipewire/output.rs`, `src/graph.rs` | A native playback stream instead of `pw-cat`. |
-| `audio_routing/pipewire_graph.py` | `src/graph_source.rs`, `src/pipewire/observer.rs` | A registry connection with server round trips instead of running `pw-dump`. |
-| `audio_routing/pipewire_graph_pipe.py` | `src/pipewire/feed.rs` | Same wire format. |
-| `audio_routing/pipewire_gate.py` | `src/graph.rs` (`parse_managed`), `src/pipewire/gate.rs` | Still changes mute through `astarot-voice-gate`. |
-| `audio_routing/managed_microphone.py` | `src/pipewire/managed.rs` | Unit files byte for byte the same (checked against Python's output in `tests/data/managed_units.json`). |
-| `audio_routing/source_bridge.py` | `src/graph.rs` (selection, links), `src/pipewire/bridge.rs` | Still supervises `astarot-source-bridge`. |
-| `audio_routing/gc_guard.py` | — | Python's cyclic garbage collector paused playback; Rust has none. |
-| `audio_routing/virtual_mic.py` | `src/virtual_mic.rs`, `src/platform.rs` | The recording end is read as 48 kHz mono converted by WASAPI, not in its own format through PortAudio. |
-| The device choice in `controller.py` (`_selectedAudioDevice`, `_audioTarget`, the host of `_publishAudioDeviceLocked`) | `src/selection.rs` | Plus moving choices saved under other Windows hosts (`migrate_mic`, `migrate_speaker`). |
+| [`audio_device_identity.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/audio_device_identity.py) | `src/identity.rs` | Same rules: the placeholder has no identity, a saved ID matches only itself, a legacy name migrates only when unique. |
+| [`device_manager.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/device_manager.py) | `src/manager.rs`, `src/snapshot.rs` | One snapshot swapped as a whole; the same change flags and callbacks; the same monitor timing (below); Auto Speaker Select through the peak tracker, Auto Microphone Select through the OS default only. |
+| [`active_endpoint_tracker.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/active_endpoint_tracker.py) | `src/tracker.rs` | Same 250 ms poll, 3 s window, ×2 ratio held 1 s, silence keeps the choice, meters activated once per endpoint, 2 s stop limit with the restart deferred until cleanup ends. |
+| [`audio_routing/audio_router.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/audio_routing/audio_router.py) | `src/router.rs` | Includes the cancellation token with the start deadline (`CancelToken` of [`speechcpp_tts.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/tts/speechcpp_tts.py)). |
+| [`audio_routing/monitor_output.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/audio_routing/monitor_output.py) | `src/monitor.rs` | |
+| [`audio_routing/mute_state.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/audio_routing/mute_state.py) | `src/mute_state.rs` | Same file and format. |
+| [`audio_routing/managed_route.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/audio_routing/managed_route.py) | `src/voice_route.rs` | |
+| [`audio_routing/windows_route.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/audio_routing/windows_route.py) | `src/windows_route.rs` | Device access behind a trait, so the queue, stall and mute rules are tested on every OS. |
+| [`audio_routing/devices_windows.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/audio_routing/devices_windows.py) | `src/naming.rs` (rules), `src/wasapi/` (devices) | |
+| [`audio_routing/devices_pipewire.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/audio_routing/devices_pipewire.py) | `src/pipewire/output.rs`, `src/graph.rs` | A native playback stream instead of `pw-cat`. |
+| [`audio_routing/pipewire_graph.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/audio_routing/pipewire_graph.py) | `src/graph_source.rs`, `src/pipewire/observer.rs` | A registry connection with server round trips instead of running `pw-dump`. |
+| [`audio_routing/pipewire_graph_pipe.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/audio_routing/pipewire_graph_pipe.py) | `src/pipewire/feed.rs` | Same wire format. |
+| [`audio_routing/pipewire_gate.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/audio_routing/pipewire_gate.py) | `src/graph.rs` (`parse_managed`), `src/pipewire/gate.rs` | Still changes mute through `astarot-voice-gate`. |
+| [`audio_routing/managed_microphone.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/audio_routing/managed_microphone.py) | `src/pipewire/managed.rs` | Unit files byte for byte the same (checked against Python's output in `tests/data/managed_units.json`). |
+| [`audio_routing/source_bridge.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/audio_routing/source_bridge.py) | `src/graph.rs` (selection, links), `src/pipewire/bridge.rs` | Still supervises `astarot-source-bridge`. |
+| [`audio_routing/gc_guard.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/audio_routing/gc_guard.py) | — | Python's cyclic garbage collector paused playback; Rust has none. |
+| [`audio_routing/virtual_mic.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/audio_routing/virtual_mic.py) | `src/virtual_mic.rs`, `src/platform.rs` | The recording end is read as 48 kHz mono converted by WASAPI, not in its own format through PortAudio. |
+| The device choice in [`controller.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/controller.py) (`_selectedAudioDevice`, `_audioTarget`, the host of `_publishAudioDeviceLocked`) | `src/selection.rs` | Plus moving choices saved under other Windows hosts (`migrate_mic`, `migrate_speaker`). |
 
 Timing kept from Python: the monitoring thread waits for an OS notification for at
 most 2 s; without notifications (Linux, or a failed registration) every 2 s timeout
@@ -67,7 +67,7 @@ settled and are listed again under "Open questions".
   takes 30 ms at a time and two blocks right after the start (0.5.0-beta.5; measured
   with `tests/wasapi_live.rs`).
 - **Windows direct bridge capture.** The Python bridge borrowed the transcription
-  capture (`capture_windows.py`, outside this issue); here a small WASAPI capture of
+  capture ([`capture_windows.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/transcription/capture_windows.py), outside this issue); here a small WASAPI capture of
   its own delivers 48 kHz mono.
 - **Rows without native IDs on Windows.** Every WASAPI row now has its endpoint ID, so
   rows that Python could only identify by slot get stable IDs.

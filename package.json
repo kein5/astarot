@@ -54,7 +54,8 @@
     "virtua": "0.54.2"
   },
   "devDependencies": {
-    "@babel/types": "7.29.11",
+    "@babel/parser": "8.1.0",
+    "@babel/types": "8.1.0",
     "@mizchi/mutator": "0.2.0",
     "@playwright/test": "1.65.0",
     "@rollup/plugin-yaml": "5.0.1",

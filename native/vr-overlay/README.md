@@ -6,16 +6,16 @@ SteamVR のオーバーレイを受け持つ Rust クレートです。字幕の
 
 | Python（`src-python/models/overlay/`） | Rust |
 |---|---|
-| `overlay.py` の `Overlay`（起動と停止、SteamVR を待つこと、位置、フェード、VR パネル） | `engine::Overlay` |
-| `overlay.py` の `updateGrab` とその周り（レーザー、VR 画面への入力、掴む、拡大縮小、角での大きさの変更、操作バー） | `engine/input.rs` |
-| `overlay.py` の `computeVrLayout` などの並びと姿勢の計算 | `layout`、`math`、`placement`、`pose`、`timing` |
-| `overlay_tooltip.py` | `tooltip` |
-| `overlay_image.py` | `subtitle` |
-| `overlay_fonts.py` | `fonts` |
+| [`overlay.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/overlay/overlay.py) の `Overlay`（起動と停止、SteamVR を待つこと、位置、フェード、VR パネル） | `engine::Overlay` |
+| [`overlay.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/overlay/overlay.py) の `updateGrab` とその周り（レーザー、VR 画面への入力、掴む、拡大縮小、角での大きさの変更、操作バー） | `engine/input.rs` |
+| [`overlay.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/overlay/overlay.py) の `computeVrLayout` などの並びと姿勢の計算 | `layout`、`math`、`placement`、`pose`、`timing` |
+| [`overlay_tooltip.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/overlay/overlay_tooltip.py) | `tooltip` |
+| [`overlay_image.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/overlay/overlay_image.py) | `subtitle` |
+| [`overlay_fonts.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/overlay/overlay_fonts.py) | `fonts` |
 | pyopenvr | `openvr`（`openvr_api` を実行時に読み込む） |
-| `window_capture.py`、`window_capture_linux.py` | `surface` |
-| `models/process_check.py`（`vrmonitor` の確認） | `process` |
-| `models/openvr_session.py`（OpenVR の接続を参照数で共有する） | `shared::SharedVr` |
+| [`window_capture.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/overlay/window_capture.py)、[`window_capture_linux.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/overlay/window_capture_linux.py) | `surface` |
+| [`models/process_check.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/process_check.py)（`vrmonitor` の確認） | `process` |
+| [`models/openvr_session.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/openvr_session.py)（OpenVR の接続を参照数で共有する） | `shared::SharedVr` |
 
 `layout` から `tooltip` までは、以前は `src-tauri/src/vr_overlay/` にありました。Python の値と照らし合わせる試験（`src/reference_tests.rs` と `tests/vr_overlay_reference/`）もここへ移しました。
 

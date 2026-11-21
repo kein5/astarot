@@ -56,7 +56,7 @@ IPCでやり取りする主なデータの形と、ディスクに残すファ�
 
 ### 古い Whisper の重み
 
-0.2 以前の版が取得した Whisper の重みは`PATH_DATA`の`weights/whisper/<名前>`にある。名前は`tiny`、`base`、`small`、`medium`、`large-v1`、`large-v2`、`large-v3`、`large-v3-turbo-int8`、`large-v3-turbo`の9つ（`models/transcription/old_whisper_weights.py`の`WHISPER_WEIGHT_NAMES`）。いまの版は読まず、消しもしない。
+0.2 以前の版が取得した Whisper の重みは`PATH_DATA`の`weights/whisper/<名前>`にある。名前は`tiny`、`base`、`small`、`medium`、`large-v1`、`large-v2`、`large-v3`、`large-v3-turbo-int8`、`large-v3-turbo`の9つ（[`models/transcription/old_whisper_weights.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/transcription/old_whisper_weights.py)の`WHISPER_WEIGHT_NAMES`）。いまの版は読まず、消しもしない。
 
 0.3 から 0.5 までは、設定の「音声認識（ASR）」と移行のお知らせに「古い Whisper モデル」の欄があり、合計の容量を見せて、利用者が確かめてから消せた（`/get/data/old_whisper_weights`、`/run/delete_old_whisper_weights`）。0.6.0 でこの欄と2つのエンドポイントを外した（#288 の判断4）。残った重みは、利用者が`weights/whisper`のフォルダーを手で消せる。
 
@@ -145,7 +145,7 @@ VAD は、リアルタイム字幕と同じ speech.cpp のサーバーの Silero
 
 `DIRECT_VOICE_SETTINGS`の`engine`は`rvc`だけを受け付け、既定も`rvc`である。Seed-VCはPythonのバックエンドで動いていたので、Pythonとともに終わった。`/set/data/direct_voice_settings`に`engine: "seed-vc"`を送ると、何も保存せず400の`{"error_code": "vc_engine_unavailable", "settings": <保存値>}`を返す。そのほかの不正な値は従来どおり`vc_settings_invalid`である。以前の版が保存した`seed-vc`は、読み込むときに`rvc`へ移す。ほかの項目（`mode`、RVCのパス、Seed-VCの`runtime`と`reference`）はそのまま残すので、0.4の版でも読める。`mode`が`converted`だったときだけ、その起動のあいだ`/get/data/direct_voice_state`に`"notice": "seed_vc_moved_to_rvc"`を付け、RVCのページに「Seed-VCは使えなくなったため、声の変換をRVCに切り替えました」と出す。設定を保存し直すと消える。変換は自動では始めない。RVCのモデルが未設定なら、メイン画面のRVCのスイッチは設定を求める。
 
-RVCの変換でマイクの音声を区切る長さは、`DIRECT_VOICE_SETTINGS`とは別の`RVC_BLOCK_MS`に保存する（#531）。値はミリ秒の整数で、0（自動）か20〜200の20の倍数を受け付け、既定は0である。`DIRECT_VOICE_SETTINGS`に入れないのは、知らない項目があると以前の版がその値全体を読まず、モデルとインデックスのパスまで既定に戻すためである。最上位のキーなので、知らないキーを残す版（#629）はこのキーを残す。それより前の版は知らないキーとして消して保存するが、ほかの設定は変えない。設定画面の「高度な設定」で`/set/data/rvc_block_ms`を使って変える。画面では「自動」と20〜200 msから選ぶ。0でも範囲内の20の倍数でもない値と、整数に読めない値は保存せず、400の`VALIDATION_RVC_BLOCK_MS`と保存値を返す。`config.json`にそういう値があれば、読み込むときに既定の0に戻す。中核は変換を始めるたびにこの値を読み、ワーカーに`--block-ms`で渡す（0は`--block-ms auto`）。長さを選んだときは、ワーカーが`ready`の`block_frames`でその長さを返し、違えば開始は`vc_ready_invalid`で失敗する。自動のときは、ワーカーが読み込みの最後にテスト音で40 msのブロックをGPUで変換して時間を測る。40、60、80、100、120、160、200 msのうち、その時間の1.4倍が収まるいちばん短い長さを選んで`ready`の`block_frames`で返す。どれも収まらなければ200 msを使う。CPUでは40 msにする。中核はその長さで変換する。ワーカーは選んだ長さを`<state>/vc_runtimes/rvc-block-lengths.json`に記録し、同じ声のモデルと同じGPUで次に開始したときは、測り直さずにその長さを使う。記録の鍵は、声のモデル（パス、大きさ、更新日時）、使うときのインデックス、デバイス、GPUの名前、ONNX Runtimeのライブラリ、スレッド数をまとめたハッシュで、ファイルにはハッシュと長さだけを書く。読めないファイルは、ないものとして測り直す。測り直させるには、このファイルを消す（2026-11-20に決定、[ボイスチェンジャーの低遅延化](../voice-stack/rvc-low-latency-2026-11-20.md)）。この値は0.6.0より前のリリースにはないので、移し替えはしない。開発中のビルドで保存した長さも、利用者が選んだ長さとして扱う（2026-11-20に決定）。動いている変換の長さは`/get/data/direct_voice_state`の`conversion_block_ms`にあり、RVCのページの遅れの目安はこの値を足して出す。値を変えても、動いている変換は変えない。次に開始したときから使う。GPUでは1ブロックを1回で変換するので、短いほど遅れは小さいが、変換が間に合わないブロックが増える。CPUでは、この長さにかかわらず0.5秒ずつまとめて変換する。
+RVCの変換でマイクの音声を区切る長さは、`DIRECT_VOICE_SETTINGS`とは別の`RVC_BLOCK_MS`に保存する（#531）。値はミリ秒の整数で、0（自動）か20〜200の20の倍数を受け付け、既定は0である。`DIRECT_VOICE_SETTINGS`に入れないのは、知らない項目があると以前の版がその値全体を読まず、モデルとインデックスのパスまで既定に戻すためである。最上位のキーなので、知らないキーを残す版（#629）はこのキーを残す。それより前の版は知らないキーとして消して保存するが、ほかの設定は変えない。設定画面の「高度な設定」で`/set/data/rvc_block_ms`を使って変える。画面では「自動」と20〜200 msから選ぶ。0でも範囲内の20の倍数でもない値と、整数に読めない値は保存せず、400の`VALIDATION_RVC_BLOCK_MS`と保存値を返す。`config.json`にそういう値があれば、読み込むときに既定の0に戻す。中核は変換を始めるたびにこの値を読み、ワーカーに`--block-ms`で渡す（0は`--block-ms auto`）。長さを選んだときは、ワーカーが`ready`の`block_frames`でその長さを返し、違えば開始は`vc_ready_invalid`で失敗する。自動のときは、ワーカーが読み込みの最後にテスト音で40 msのブロックをGPUで変換して時間を測る。40、60、80、100、120、160、200 msのうち、その時間の1.4倍が収まるいちばん短い長さを選んで`ready`の`block_frames`で返す。どれも収まらなければ200 msを使う。CPUでは40 msにする。中核はその長さで変換する。ワーカーは選んだ長さを`<state>/vc_runtimes/rvc-block-lengths.json`に記録し、同じ声のモデルと同じGPUで次に開始したときは、測り直さずにその長さを使う。記録の鍵は、声のモデル（パス、大きさ、更新日時）、使うときのインデックス、デバイス、GPUの名前、ONNX Runtimeのライブラリ、スレッド数をまとめたハッシュで、ファイルにはハッシュと長さだけを書く。読めないファイルは、ないものとして測り直す。利用者が「高度な設定」で「自動」を選ぶと（すでに「自動」のときも）、中核は`/set/data/rvc_block_ms`で0を保存したあと、同じフォルダーに`rvc-block-lengths.remeasure`を置く。このファイルがあると、ワーカーは次に自動で開始したとき、記録した長さを使わずにGPUを測り直す。その声のモデルとGPUの記録を新しい長さで置き換え、ファイルを消す。ほかの組み合わせの記録は残す（2026-11-21に決定）。すべてを測り直させるには、記録のファイルを消す（2026-11-20に決定、[ボイスチェンジャーの低遅延化](../voice-stack/rvc-low-latency-2026-11-20.md)）。この値は0.6.0より前のリリースにはないので、移し替えはしない。開発中のビルドで保存した長さも、利用者が選んだ長さとして扱う（2026-11-20に決定）。動いている変換の長さは`/get/data/direct_voice_state`の`conversion_block_ms`にあり、RVCのページの遅れの目安はこの値を足して出す。値を変えても、動いている変換は変えない。次に開始したときから使う。GPUでは1ブロックを1回で変換するので、短いほど遅れは小さいが、変換が間に合わないブロックが増える。CPUでは、この長さにかかわらず0.5秒ずつまとめて変換する。
 
 ### 読み上げのサーバー
 
@@ -261,7 +261,7 @@ HTTPでプライベートLANやリンクローカルのアドレスへ接続す�
 
 ### 内蔵モデルの取得への同意
 
-`config.json`の`LEGACY_MODEL_DOWNLOAD_CONSENTS`は、モデルIDから確認済みの一覧を表すSHA-256文字列への辞書で、既定は`{}`。IDは`ctranslate2:m2m100_418M-ct2-int8`などで、対象はいまCTranslate2の翻訳モデルだけである。以前の版が記録した`whisper:…`の同意は、ファイルに残っていても使わない。値は`models/legacy_model_consent.py`がモデル名・提供元・ライセンス・重みのリポジトリと固定版・全ファイルの容量とSHA-256・同じ一式に含まれるtokenizerのリポジトリ・固定版・ファイル一覧をJSONにして計算する。ファイルのハッシュそのものではなく、確認した内容を識別する値である。
+`config.json`の`LEGACY_MODEL_DOWNLOAD_CONSENTS`は、モデルIDから確認済みの一覧を表すSHA-256文字列への辞書で、既定は`{}`。IDは`ctranslate2:m2m100_418M-ct2-int8`などで、対象はいまCTranslate2の翻訳モデルだけである。以前の版が記録した`whisper:…`の同意は、ファイルに残っていても使わない。値は[`models/legacy_model_consent.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/legacy_model_consent.py)がモデル名・提供元・ライセンス・重みのリポジトリと固定版・全ファイルの容量とSHA-256・同じ一式に含まれるtokenizerのリポジトリ・固定版・ファイル一覧をJSONにして計算する。ファイルのハッシュそのものではなく、確認した内容を識別する値である。
 
 `/get/data/model_download_catalog`の`legacy_models`に、確認画面用の名前、提供元、ライセンス、非商用の制限、正確な`total_bytes`、`tokenizer_size_unknown`、`manifest_version`を返す。CTranslate2のtokenizerには同じ取得元と固定版、ファイルの容量・SHA-256、bundled: trueが入る。tokenizer_size_unknownはfalse、容量は重複して足さない。`/run/download_ctranslate2_weight`には`{weight_type, consent: true, manifest_version}`を送る。現在の一覧と一致する明示的な同意を受け取ったときだけ記録し、取得前に即時保存を試みる。保存失敗は通常の設定保存と同じ通知・再試行で扱う。
 
@@ -311,7 +311,7 @@ CTranslate2の取得に失敗したとき（`WEIGHT_CTRANSLATE2_DOWNLOAD`）、`
 |---|---|
 | ワードフィルター | 文字列の配列。重複は順を保って除く。一致すると`/run/word_filter`に`{"message": "Detected by word filter: …"}` |
 | ホットキー | `{open_quick_chat, toggle_vrct_visibility, toggle_translation, toggle_transcription_send, toggle_transcription_receive, stop_voice, toggle_voice_mute, toggle_tts, toggle_rvc}`の各値が`["Ctrl","Shift","Q"]`のようなキーの配列か`null`。知らないキーを含むと全体を拒否する |
-| 実験的機能（`EXPERIMENTAL_FEATURES`） | `{機能のID: 真偽値}`。一覧にある機能をすべて持ち、既定はどれも`false`。要求に含めなかった機能は今の値のまま。一覧にないIDは捨てる（卒業や廃止で消えた機能の保存値が残っていても読み込める）。真偽値でない値を含むと全体を拒否する。機能の一覧は`src-ui/logics/configs/experimentalFeatures.ts`と`native/core/src/config/schema.rs`の2か所にある（0.5まではPythonの`src-python/models/experimental_features.py`にもあった）。今の機能は	ray_companion（[六芒星のオーバーレイ](cross-cutting.md#六芒星のオーバーレイtray_companion)）だけ |
+| 実験的機能（`EXPERIMENTAL_FEATURES`） | `{機能のID: 真偽値}`。一覧にある機能をすべて持ち、既定はどれも`false`。要求に含めなかった機能は今の値のまま。一覧にないIDは捨てる（卒業や廃止で消えた機能の保存値が残っていても読み込める）。真偽値でない値を含むと全体を拒否する。機能の一覧は`src-ui/logics/configs/experimentalFeatures.ts`と`native/core/src/config/schema.rs`の2か所にある（0.5まではPythonの[`src-python/models/experimental_features.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/experimental_features.py)にもあった）。今の機能は	ray_companion（[六芒星のオーバーレイ](cross-cutting.md#六芒星のオーバーレイtray_companion)）だけ |
 | 六芒星のオーバーレイで六芒星を隠す端（`TRAY_COMPANION_EDGE`） | `right`、`left`、`top`、`bottom` のどれか。既定は`right`。実験的機能の六芒星のオーバーレイがオフの間も値は残す。ほかの値は拒否する（[六芒星のオーバーレイ](cross-cutting.md#六芒星のオーバーレイtray_companion)） |
 | 六芒星のオーバーレイで六芒星を出すモニター（`TRAY_COMPANION_MONITOR`） | システムがモニターに付けた名前。空はメインのモニター（既定）。256文字までで、制御文字は拒否する。選んだモニターが外されていても値は残し、その間はメインのモニターを使う（[六芒星のオーバーレイ](cross-cutting.md#六芒星のオーバーレイtray_companion)） |
 | 用途（`USAGE_PRESETS`） | `basic`、`nonverbal`、`multilingual`、`voice_changer`、`all`のうち1つ以上の配列。この順に、重複なしで保存する。知らないIDは除き（後の版で増えたもの）、知っているIDが1つもなければ拒否する。保存は即時。新しく入れたときの既定は`["basic"]`で、前の版から更新したとき（保存した設定があり、このキーがない）は`["all"]`にする。表示する機能を絞るだけで、ほかの設定は変えない（[用途別プリセット](cross-cutting.md#用途別プリセット)） |
@@ -416,7 +416,7 @@ ASR/翻訳5,000ms、従来のtotal 10,000ms。
 これらは処理を打ち切る制限ではない。キュー落ちは最初の1件を即時記録し、連続した回数は集約し、
 次の正常投入で復旧を記録する。停止まで正常投入がなければ`recovery=unconfirmed`とする。
 音声や認識文は診断に含めず、文字起こしのIPC応答の既存の伏字処理も維持する。
-新しい設定や環境変数はない。実装は`native/transcription/src/diagnostics.rs`（2026-11-19に`models/transcription/utterance_diagnostics.py`から移した）。
+新しい設定や環境変数はない。実装は`native/transcription/src/diagnostics.rs`（2026-11-19に[`models/transcription/utterance_diagnostics.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/transcription/utterance_diagnostics.py)から移した）。
 中核では、Pythonと違って、エンジンの詳細行に言語ごとの呼び出しの一覧を出さない。`vad_wait_ms`は、speech.cppのサーバーが話し終わりを知らせた時点で話し終わりのあとに聞いていた音声の長さ。
 
 ## 環境変数

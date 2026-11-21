@@ -1,4 +1,4 @@
-//! Which API URLs the user may save (`src-python/models/network_policy.py`).
+//! Which API URLs the user may save ([`src-python/models/network_policy.py`]).
 //!
 //! The check is local: no DNS and no request. Plain HTTP is allowed only to this PC and the LAN
 //! ([`is_local_host`]: `localhost`, loopback, the private IPv4 ranges, link-local, IPv6 unique
@@ -6,6 +6,8 @@
 //! info, a fragment, a backslash, port 0 or a query parameter whose name looks like a secret.
 //! When it connects, the HTTP client of `vrct_translation` also refuses plain HTTP to a name
 //! that resolves outside this PC and the LAN.
+//!
+//! [`src-python/models/network_policy.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/network_policy.py
 
 /// The saved URLs checked when the settings are read.
 pub const CUSTOM_URL_KEYS: [&str; 4] = ["LMSTUDIO_URL", "OLLAMA_URL", "OPENAI_COMPATIBLE_URL", "TRANSCRIPTION_CUSTOM_URL"];
