@@ -15,6 +15,9 @@
     min-width: 0;
 }
 
+// A readout that keeps the mark's place: the words wrap beside the mark, which stays on their first line (#912).
+.readout.reserved { flex-wrap: nowrap; align-items: start; }
+
 .text {
     display: grid;
     gap: 0.4rem;
