@@ -37,13 +37,31 @@ async function form(context: TestContext, models: UserModel[]) {
     return { state, sent, render, inputs, type, submit };
 }
 
-test("a form's problem is said under its button, so the button stays under the pointer (#912)", async context => {
+test("a form's problem is said under its button, in a line kept for it, so nothing moves (#912)", async context => {
     const s = await form(context, []);
+    // The line is there before any problem.
+    const slot = (tree: TreeNode) => find(tree, node => node.props?.className === "problem_slot");
+    assert.ok(slot(s.render()), "a line kept for the problem");
+    assert.equal(find(s.render(), node => node.props?.role === "alert"), null);
     s.submit();
-    const nodes = nodesIn(s.render());
+    const tree = s.render();
+    const nodes = nodesIn(tree);
     const button = nodes.findIndex(node => node.type === "button"), alert = nodes.findIndex(node => node.props?.role === "alert");
     assert.ok(button >= 0 && alert > button, `the problem (${alert}) after the button (${button})`);
+    assert.ok(find(slot(tree), node => node.props?.role === "alert"), "the problem in that line");
     assert.deepEqual(s.sent, [], "nothing sent without a name");
+});
+
+test("the line kept for a form's problem is as high as the problem's frame of one line (#912)", async () => {
+    const { readFileSync } = await import("node:fs");
+    const css = readFileSync(new URL("./VoiceSettings.module.scss", import.meta.url), "utf8");
+    const alert = /\[role="alert"\] \{([^}]*)\}/.exec(css)?.[1] ?? "";
+    const size = /font-size: ([\d.]+)rem/.exec(alert)?.[1], padding = Number(/padding: ([\d.]+)rem/.exec(alert)?.[1]);
+    const border = Number(/border: ([\d.]+)rem/.exec(alert)?.[1]);
+    // The descriptions' line height, which the problem's text takes as a paragraph.
+    const line = /\n {4}p \{ font-size: [\d.]+rem; line-height: ([\d.]+);/.exec(css)?.[1];
+    assert.ok(size && line && padding && border, "the problem's frame");
+    assert.match(css, new RegExp(`\\.problem_slot \\{ min-height: calc\\(${size}rem \\* ${line} \\+ ${+(2 * padding + 2 * border).toFixed(2)}rem\\); \\}`));
 });
 
 test("a name already registered is refused without clearing what was typed", async context => {

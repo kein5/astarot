@@ -153,8 +153,10 @@ export const UserModelRegistration = ({ target, busy }: UserModelRegistrationPro
             <div className={`${styles.actions} ${styles.control_column}`}>
                 <button type="button" disabled={busy} onClick={submit}>{t("user_models.register")}</button>
             </div>
-            {/* The problem is said under the button, so the button stays under the pointer when it appears (#912). */}
-            {problem && <p id={`${id}-problem`} role="alert">{t(`user_models.problem.${problem}`, { kind: kinds.find(([role]) => problem.startsWith(role))?.[1] ?? "" })}</p>}
+            {/* The problem is said under the button, in a line kept for it, so nothing moves when it appears (#912). */}
+            <div className={styles.problem_slot}>
+                {problem && <p id={`${id}-problem`} role="alert">{t(`user_models.problem.${problem}`, { kind: kinds.find(([role]) => problem.startsWith(role))?.[1] ?? "" })}</p>}
+            </div>
         </div>
     </Fold>;
 };

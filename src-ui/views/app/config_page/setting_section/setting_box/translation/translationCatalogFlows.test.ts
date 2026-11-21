@@ -112,6 +112,9 @@ const underButton = (tree: TreeNode, words: string) => {
     const at = nodes.findIndex(node => node.type === "button" && textOf(node) === words);
     const alert = nodes.findIndex(node => node.props?.role === "alert");
     assert.ok(at >= 0 && alert > at, `the problem (${alert}) after the button (${at})`);
+    // In the line kept for it, which the form has before any problem.
+    const slot = find(tree, node => node.props?.className === "problem_slot");
+    assert.ok(slot && find(slot, node => node.props?.role === "alert"), "the problem in the line kept for it");
 };
 // Enter in a field of the form, as a keyboard user adds an entry.
 const pressEnter = (tree: TreeNode) => findIn(tree, node => node.props?.role === "group").props.onKeyDown(
@@ -154,6 +157,7 @@ test("each group says when nothing was added, and keeps the entries the app ship
 test("an engine entry is not sent without a name; Enter sends it once, cleaned, and the form empties after the answer", async context => {
     reset(catalogWith());
     const draw = await form(context, "engine");
+    assert.ok(find(draw(), node => node.props?.className === "problem_slot"), "a line kept for a problem before any (#912)");
     button(draw(), "translation_catalog.add_do").props.onClick();
     assert.deepEqual(alerts(draw()), ["translation_catalog.problem.name_missing"]);
     underButton(draw(), "translation_catalog.add_do");
