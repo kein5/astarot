@@ -181,6 +181,11 @@ impl<P: Backend> Worker<P> {
     /// cancelled in the desktop's dialog, times out or fails leaves no key at all, the unchanged
     /// ones included (Issue #423). Bind what was in force before again. A newer bind replaces
     /// both, so a superseded one restores nothing, and that newer bind cancels a restore too.
+    ///
+    /// The restore asks nothing again: a desktop shows its dialog only for actions it has not
+    /// seen, and these are the ones the last successful bind had (KDE Plasma 6.8 and GNOME 51,
+    /// Issue #561). Binding in a new session before the old one closes is not an option: KDE turns
+    /// an action's keys off when either of two sessions that hold it closes.
     fn restore(&mut self, previous: Option<(P::Binding, P::Assigned)>, failed: &Operation, open: &impl Fn(&Operation) -> Result<P, String>) {
         let Some((binding, _)) = previous else { return };
         if failed.superseded() || self.bound.as_ref().is_some_and(|(bound, _)| *bound == binding) {
