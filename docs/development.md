@@ -398,8 +398,8 @@ Pythonのバックエンドの偽のSteamVR（`src-python/test/fake_openvr.py`�
 CocogittoはConventional Commitsを扱うツールで、コマンド名が `cog` です。例えば `feat(dev): add developer checks` は機能追加、`fix(tts): preserve cancellation state` は不具合修正を表します。形式は[Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.0/)に従います。
 
 ```sh
-# この複製にcommit-msgフックを入れる（cog.tomlの[git_hooks.commit-msg]）
-cog install-hook commit-msg
+# この複製にGitのフックを入れる（hk.pkl。commit-msgとpre-commit。中身は hk install）
+python tools/dev.py setup --scope hooks
 
 # メッセージだけを検証。コミットは作らない
 cog verify "feat(dev): add developer checks"
@@ -419,7 +419,7 @@ CLIは指定refとHEADの共通祖先を求め、その後のコミットだけ�
 
 `CHANGELOG.md` は正式版のリリースを準備するときに `tools/changelog.py` が書きます。載せるのは正式版だけで、前の正式版からの変更をまとめます。ベータ版のノートは、前のタグからのコミットで作ります。コミットの解析はCocogittoの `cog changelog` に任せ、利用者向けと内部向けの分類と書式をこのスクリプトが決めます。種別ごとの見出しは `cog.toml` の `[commit_types]` にあります。試験は `tests/devtools/test_changelog.py` です。
 
-開発CLIはフックを自動では入れません。入れるときは、開発者が `setup --scope hooks`（[hk](#gitのフック)）を実行します。上の `cog install-hook commit-msg` の案内は、hkに寄せる別のPRで書き換えます（2026-11-21、#837の判断2）。履歴を書き換える `cog edit`、版とタグを作る `cog bump`、commit/push、公開hookも開発CLIに含めません。版は今までどおり `package.json` で決めて `npm run update-version` で反映し、タグはGitHub Releasesの下書きを公開したときにできます。
+開発CLIはフックを自動では入れません。入れるときは、開発者が `setup --scope hooks`（[hk](#gitのフック)）を実行します。hkを使わないときは、`cog install-hook commit-msg` で `cog.toml` の同じ検査を入れられます（2026-11-21、#837の判断2でhkに寄せました）。履歴を書き換える `cog edit`、版とタグを作る `cog bump`、commit/push、公開hookも開発CLIに含めません。版は今までどおり `package.json` で決めて `npm run update-version` で反映し、タグはGitHub Releasesの下書きを公開したときにできます。
 
 
 ## Gitのフック
@@ -432,10 +432,10 @@ CLIは指定refとHEADの共通祖先を求め、その後のコミットだけ�
 | pre-commit | actionlint、zizmor | 変えたワークフローと自前のアクション。`check --scope workflows` と同じ設定 |
 | pre-commit | Biome | 変えたUIのTypeScriptとJavaScriptのlintと整形。`check --scope ui` と同じ設定（`biome.json`）で、対象外のファイルは読まない。まだ直していない規則は警告なので、コミットは止まらない |
 | pre-commit | lychee | 変えたMarkdown（`site/` を除く）のリンク。外部のサイトには問い合わせない |
-| commit-msg | cocogitto | Conventional Commits（`cog.toml`） |
+| commit-msg | cocogitto | Conventional Commits（`cog.toml`）。`cog.toml` のフックと同じく、`fixup!`、`squash!`、`amend!` のコミットは通す（CIは拒否する） |
 
 - どの手順もファイルを書き換えません。1回だけ飛ばすときは `HK=0 git commit ...` です。
-- コミットメッセージのフックはhkに寄せます（2026-11-21、#837の判断2）。CONTRIBUTING.mdの `cog install-hook commit-msg` の案内は、別のPRで書き換えます。それまでに両方を入れた複製では、Git 2.54以降ではメッセージを2回確かめます（害はありません）。
+- コミットメッセージのフックはhkに寄せました（2026-11-21、#837の判断2）。hkを使わないときは `cog install-hook commit-msg` でも入れられます。両方を入れた複製では、Git 2.54以降ではメッセージを2回確かめます（害はありません）。hkのcommit-msgは、`git rebase --autosquash` のために `fixup!` などのコミットを通す手順をシェルで書いているので、Windowsでも `sh` で動かします。
 - すべてのファイルに流すときは `hk run pre-commit --all` です。gitleaksはそのときもステージした変更だけを見ます。コミットの範囲は `check --scope secrets` で確かめます。
 - `check --scope hooks` は `hk.pkl` を `hk validate` で確かめます。初回は、固定した版のhkの設定のパッケージをGitHubのリリースから取得します。
 ## CIでの利用と再現性

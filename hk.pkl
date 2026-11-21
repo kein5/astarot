@@ -46,11 +46,15 @@ hooks {
   ["pre-commit"] {
     steps = checks
   }
-  // Conventional Commits, as cog.toml sets them and CI checks them.
+  // Conventional Commits, as cog.toml sets them and CI checks them. As cog.toml's own hook does, a
+  // fixup!, squash! or amend! commit passes here so that `git rebase --autosquash` keeps working;
+  // CI rejects it, so it is squashed before the pull request. A POSIX shell on every system (on
+  // Windows hk would use cmd.exe; Git's own sh runs the hooks there).
   ["commit-msg"] {
     steps {
       ["cocogitto"] {
-        check = "cog --quiet verify --file {{commit_msg_file}}"
+        shell = "sh -o errexit -c"
+        check = #"case "$(sed -n '1p' '{{commit_msg_file}}')" in "fixup! "*|"squash! "*|"amend! "*) echo "commit-msg: kept for git rebase --autosquash; squash it before the pull request (CI rejects it)." >&2 ;; *) cog --quiet verify --file '{{commit_msg_file}}' ;; esac"#
       }
     }
   }
