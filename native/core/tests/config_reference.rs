@@ -17,7 +17,9 @@
 //! does not know stays in the file as it was, where Python dropped it, so that the version that
 //! wrote it finds it again (#560): [`without_unknown_keys`] checks that and leaves it out. And
 //! since 0.6.0 the local recognition migration of 0.3 to 0.5 and its notice are gone (#288):
-//! [`without_local_asr_migration`] takes them out of what Python did.
+//! [`without_local_asr_migration`] takes them out of what Python did. And NLLB-200 3.3B is not
+//! offered since #565 (it will not be published): the list of local translation models has the
+//! others, and a saved choice of it loads as the default (no saved file here chose it).
 
 use serde_json::{json, Map, Value};
 
@@ -281,6 +283,14 @@ fn the_lists_the_settings_are_checked_against_are_pythons() {
     }
     assert_eq!(config.get("SELECTABLE_TRANSLATION_ENGINE_LIST"), json!(engines));
     assert_eq!(config.get("SELECTABLE_OCR_SOURCE_LANGUAGE_LIST"), lists["selectable_ocr_source_languages"]);
-    assert_eq!(config.get("SELECTABLE_CTRANSLATE2_WEIGHT_TYPE_LIST"), lists["selectable_ctranslate2_weight_types"]);
+    // Python's list less the weights no longer offered (#565).
+    let weights: Vec<Value> = lists["selectable_ctranslate2_weight_types"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|w| !vrct_core::languages::RETIRED_TRANSLATION_WEIGHTS.contains(&w.as_str().unwrap()))
+        .cloned()
+        .collect();
+    assert_eq!(config.get("SELECTABLE_CTRANSLATE2_WEIGHT_TYPE_LIST"), json!(weights));
     config.close();
 }

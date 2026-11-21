@@ -21,6 +21,10 @@ const CATALOG = unchecked<TranslationCatalog>({
     runtimes: ["onnx"], protocols: ["openai_compatible"],
 });
 
+// What the drawn section reads: the catalog, and the local weights the model list shows (#565).
+let shownCatalog: TranslationCatalog = CATALOG;
+let listed: ReadonlySet<string> = new Set(["shipped"]);
+
 // The catalog's groups and cards, each drawn on its own. hints: whether the page shows
 // descriptions as hints (HintDescriptions).
 async function catalog(context: TestContext, hints = false, layout = "list") {
@@ -29,7 +33,8 @@ async function catalog(context: TestContext, hints = false, layout = "list") {
     const heading = await loadModule<typeof import("../advanced_settings/catalogHeading.tsx")>(
         new URL("../advanced_settings/catalogHeading.tsx", import.meta.url), runtime, { "../_components/hint/Hint": { Hint: "hint" } });
     const module = await loadModule<typeof import("./TranslationCatalog.tsx")>(new URL("./TranslationCatalog.tsx", import.meta.url), runtime, {
-        "../../../../../../logics/translation/useTranslationCatalog": { useTranslationCatalog: () => ({ catalog: CATALOG, error: null, pending: null, send: () => {} }) },
+        "../../../../../../logics/translation/useTranslationCatalog": { useTranslationCatalog: () => ({ catalog: shownCatalog, error: null, pending: null, send: () => {} }) },
+        "../../../../../../logics/translation/useListedLocalWeights": { useListedLocalWeights: () => listed },
         "../../../../../../logics/translation/translationCatalog": translationCatalog,
         "../../../../../../logics/common/endpointPrivacy": { endpointDescription: () => "" },
         "../_components": { SectionLabelComponent: "section-label" },
@@ -114,4 +119,28 @@ test("each group is a part of the catalog, folded, with what it is for and how m
         ["translation_catalog.group.engine", 3, "engine", ["translation_catalog.group_help.engine"], "translation_catalog.group_readout"],
         ["translation_catalog.group.api", 3, "api", ["translation_catalog.group_help.api"], "translation_catalog.group_readout"],
     ]);
+});
+
+test("the catalog lists a built-in model as the model list does, by the download catalog's name of it (#565)", async context => {
+    // Test data: two built-in models; the model list shows only the one the user can get. An
+    // entry the user added is listed whatever the list shows.
+    shownCatalog = unchecked<TranslationCatalog>({
+        engine: [
+            { id: "m2m100_418M-ct2-int8", weight: "m2m100_418M-ct2-int8", origin: "builtin", name: "m2m100_418M-ct2-int8", runtime: "onnx", available: false, in_use: true },
+            { id: "m2m100_1.2B-ct2-int8", weight: "m2m100_1.2B-ct2-int8", origin: "builtin", name: "m2m100_1.2B-ct2-int8", runtime: "onnx", available: false, in_use: false },
+            { id: "mine", weight: "user:mine", origin: "user", name: "Mine", runtime: "onnx", folder: "C:\\Models\\mine", languages: ["ja"], available: true, in_use: false },
+        ],
+        api: [], runtimes: ["onnx"], protocols: ["openai_compatible"],
+    });
+    listed = new Set(["m2m100_418M-ct2-int8"]);
+    context.onTestFinished(() => { shownCatalog = CATALOG; listed = new Set(["shipped"]); });
+    const { cards } = await catalog(context);
+    assert.deepEqual([...cards.keys()], ["mine", "m2m100_418M-ct2-int8"], "the model the list leaves out is not a card either");
+    const name = (id: string) => {
+        const card = cards.get(id);
+        assert.ok(card, id);
+        return findIn(head(card), node => node.type === "strong").props.children;
+    };
+    assert.equal(name("m2m100_418M-ct2-int8"), "M2M100 418M · int8");
+    assert.equal(name("mine"), "Mine");
 });

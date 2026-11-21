@@ -214,12 +214,12 @@ common_error:
     transcription_model_invalid: "その音声認識モデルは使えません。"
     transcription_custom_url_invalid: "カスタムWhisperサーバーに接続できないか、モデルが見つかりませんでした。URLを確認してください。"
     ctranslate2_license_consent_required: "{{weight_type}}は非商用ライセンス（CC-BY-NC-4.0）です。先に設定 > 翻訳でライセンスを確認してください。"
-    translation_language_unsupported: "{{model}}は{{languages}}を翻訳できないため、言語をリセットしました。この言語を使うには、別の翻訳エンジンか{{ctranslate2}}モデルを選んでください。"
+    translation_language_unsupported: "{{model}}は{{languages}}を翻訳できないため、言語をリセットしました。この言語を使うには、別の翻訳エンジンか翻訳モデルを選んでください。"
     no_device_mic: "マイクデバイスが検出されませんでした。"
     no_device_speaker: "スピーカーデバイスが検出されませんでした。"
     copy_to_clipboard_failed: "クリップボードへのコピーに失敗しました。"
     threshold_invalid_value: "{{min}}から{{max}}までの数値で設定できます。"
-    failed_download_weight_ctranslate2: "CTranslate2モデルのダウンロードに失敗しました。"
+    failed_download_weight_ctranslate2: "翻訳モデルのダウンロードに失敗しました。"
     retry_download: "確認して再試行"
     failed_update_software: "インストーラのダウンロードに失敗しました。しばらくしてからもう一度お試しください。"
     failed_update_software_verify: "ダウンロードしたインストーラが、公開されているチェックサムと一致しなかったため、更新を中止しました。"
@@ -399,7 +399,7 @@ main_page:
     translator: "翻訳エンジン"
 
     translator_selector:
-        is_selected_same_language: "「{{your_language}}」と「{{target_language}}」に同じ言語が選択されているため、「{{ctranslate2}}」のみが使用できます。"
+        is_selected_same_language: "「{{your_language}}」と「{{target_language}}」に同じ言語が選択されているため、「{{local_engine}}」のみが使用できます。"
         unavailable_hint: "選べないエンジンは、この言語や現在の設定では使えません。APIキーなどは設定の「翻訳」で確認できます。"
 
     message_log:
@@ -704,7 +704,8 @@ config_page:
             confirm_cancel: "キャンセル"
             license_link: "ライセンス条項"
             model_card_link: "モデルカード"
-            non_commercial_notice: "現在の{{ctranslate2}}モデル{{weight_type}}は非商用ライセンス（{{license}}）です。以前のバージョンの既定値で、設定は変更していません。商用利用する場合は、設定 > 翻訳でM2M100モデル（MIT）を選んでください。"
+            non_commercial_notice: "現在の翻訳モデル（{{weight_type}}）は非商用ライセンス（{{license}}）です。以前のバージョンの既定値で、設定は変更していません。商用利用する場合は、設定 > 翻訳でM2M100モデル（MIT）を選んでください。"
+            retired_reset: "選んでいた翻訳モデル（{{weight_type}}）は提供を終えたため、既定の{{selected}}に戻しました。"
         translation_compute_device:
             label: "AI翻訳の処理デバイス"
             restart_note: "選んだ処理デバイスは、ASTAROTを再起動すると使えます。それまで翻訳はCPUで動きます。"
@@ -1392,7 +1393,7 @@ vr_panel:
         available: "利用できるエンジン"
         unavailable: "利用できないエンジン"
         unavailable_hint: "この言語や現在の設定では利用できません。必要な設定をPC側で確認できます。"
-        same_reason: "あなたと相手に同じ言語があるため、CTranslate2のみ利用できます。国が違う場合も同じです。"
+        same_reason: "あなたと相手に同じ言語があるため、{{engine}}のみ利用できます。国が違う場合も同じです。"
         full: "3 / 3選択中"
         success: "変更を反映しました"
         external: "プリセット{{n}}に切替"

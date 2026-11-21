@@ -18,6 +18,7 @@ import * as virtualMicShapes from "../voice/virtualMic.ts";
 import * as voiceAuditionShapes from "../voice/voiceAudition.ts";
 import * as gpuCheckShapes from "../support/gpuCheck.ts";
 import * as voiceErrorTextModule from "../voice/voiceErrorText.ts";
+import * as translatorLabel from "../main/translatorLabel.ts";
 
 const messageFormat = { message: { prefix: "", suffix: "" }, separator: "\n",
     translation: { prefix: "", separator: "\n", suffix: "" }, translation_first: false };
@@ -136,6 +137,7 @@ export const loadBridgeRoutes = async (
         "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: send }) },
         "./ui_configs": { ui_configs: {} }, "./configs/cloudTranscription": { CLOUD_TRANSCRIPTION_ENGINES: [] },
         "./configs/legacyModelConsent": legacyModelConsent,
+        "./main/translatorLabel": translatorLabel,
         "./transcription/useTranscriptionConsent": transcriptionConsent,
         "./translation/useTranslationSetup": translationSetup,
         "./ocr/useOcrSetup": ocrSetup,

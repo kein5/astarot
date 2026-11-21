@@ -95,6 +95,8 @@ pub const RUN_MAPPING: &[(&str, &str)] = &[
     ("downloaded_ctranslate2_weight", "/run/downloaded_ctranslate2_weight"),
     ("error_ctranslate2_weight", "/run/error_ctranslate2_weight"),
     ("ctranslate2_license_notice", "/run/ctranslate2_license_notice"),
+    // The core's own (#565): a saved choice of a weight the app no longer offers loaded as the default.
+    ("translation_model_retired", "/run/translation_model_retired"),
     ("translation_language_unsupported", "/run/translation_language_unsupported"),
     ("selected_mic_host", "/run/selected_mic_host"),
     ("selected_mic_device_id", "/run/selected_mic_device_id"),

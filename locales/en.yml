@@ -214,12 +214,12 @@ common_error:
     transcription_model_invalid: "That speech recognition model is not available."
     transcription_custom_url_invalid: "Could not reach the custom Whisper server or find a model there. Check the URL."
     ctranslate2_license_consent_required: "{{weight_type}} has a non-commercial license (CC-BY-NC-4.0). Confirm the license in Settings > Translation first."
-    translation_language_unsupported: "{{model}} cannot translate {{languages}}, so the language was reset. To use it, choose another translation engine or {{ctranslate2}} model."
+    translation_language_unsupported: "{{model}} cannot translate {{languages}}, so the language was reset. To use it, choose another translation engine or translation model."
     no_device_mic: "No mic device detected."
     no_device_speaker: "No speaker device detected."
     copy_to_clipboard_failed: "Failed to copy to the clipboard."
     threshold_invalid_value: "You can set it with a value between {{min}} to {{max}}."
-    failed_download_weight_ctranslate2: "CTranslate2 weight download error."
+    failed_download_weight_ctranslate2: "The translation model could not be downloaded."
     retry_download: "Review and retry"
     failed_update_software: "Failed to download the installer. Please try again later."
     failed_update_software_verify: "The downloaded installer did not match its published checksum, so the update was cancelled."
@@ -399,7 +399,7 @@ main_page:
     translator: "Translator"
 
     translator_selector:
-        is_selected_same_language: "You are selecting the same language for '{{your_language}}' and '{{target_language}}' so only '{{ctranslate2}}' is available."
+        is_selected_same_language: "You are selecting the same language for '{{your_language}}' and '{{target_language}}' so only '{{local_engine}}' is available."
         unavailable_hint: "Engines you can't select don't work with these languages or your current settings. Check API keys and other setup in Settings > Translation."
 
     message_log:
@@ -704,7 +704,8 @@ config_page:
             confirm_cancel: "Cancel"
             license_link: "License terms"
             model_card_link: "Model card"
-            non_commercial_notice: "Your {{ctranslate2}} model, {{weight_type}}, has a non-commercial license ({{license}}). It was the default in earlier versions, and your setting has not been changed. For commercial use, select an M2M100 model (MIT) in Settings > Translation."
+            non_commercial_notice: "Your translation model, {{weight_type}}, has a non-commercial license ({{license}}). It was the default in earlier versions, and your setting has not been changed. For commercial use, select an M2M100 model (MIT) in Settings > Translation."
+            retired_reset: "The translation model you had chosen ({{weight_type}}) is no longer offered, so the default, {{selected}}, is used instead."
         translation_compute_device:
             label: "Processing device for AI translation"
             restart_note: "The processing device you chose is used once ASTAROT restarts. Until then, translation runs on the CPU."
@@ -1392,7 +1393,7 @@ vr_panel:
         available: "Available engines"
         unavailable: "Unavailable engines"
         unavailable_hint: "Unavailable for these languages or current settings. Check the required setup on your PC."
-        same_reason: "Only CTranslate2 is available when your language matches a recipient language. This also applies to different countries."
+        same_reason: "Only {{engine}} is available when your language matches a recipient language. This also applies to different countries."
         full: "3 / 3 selected"
         success: "Changes applied"
         external: "Switched to preset {{n}}"

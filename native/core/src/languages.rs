@@ -102,14 +102,19 @@ pub fn known_language(language: &str, country: &str) -> bool {
 }
 
 /// The local translation weights, by the names the settings keep (`ctranslate2_weights`).
-pub const TRANSLATION_WEIGHTS: [&str; 5] = [
+pub const TRANSLATION_WEIGHTS: [&str; 4] = [
     "m2m100_418M-ct2-int8",
     "m2m100_1.2B-ct2-int8",
     "nllb-200-distilled-600M-ct2-int8",
     "nllb-200-distilled-1.3B-ct2-int8",
-    "nllb-200-3.3B-ct2-int8",
 ];
 pub const DEFAULT_TRANSLATION_WEIGHT: &str = "m2m100_418M-ct2-int8";
+/// Built-in weights the app no longer offers, because they will not be published (#565: NLLB-200
+/// 3.3B, decided on 2026-11-20). A saved choice of one fails the list's check and loads as the
+/// default; the UI is told once ([`RETIRED_TRANSLATION_WEIGHT_RESET`]).
+pub const RETIRED_TRANSLATION_WEIGHTS: [&str; 1] = ["nllb-200-3.3B-ct2-int8"];
+/// The notice of a saved choice of a retired weight that loaded as the default.
+pub const RETIRED_TRANSLATION_WEIGHT_RESET: &str = "WEIGHT_CTRANSLATE2_RETIRED";
 
 /// The languages OCR can read beyond "auto" (`ocr_languages.SELECTABLE_LANGUAGES`).
 pub const OCR_SOURCE_LANGUAGES: [&str; 7] = ["auto", "Arabic", "Hindi", "Korean", "Russian", "Thai", "Ukrainian"];

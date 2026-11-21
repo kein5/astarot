@@ -13,6 +13,7 @@ import { languageJumpGroups } from "../../logics/common/languageJumpGroups.ts";
 import { trackVrPointerHover } from "./vrPanelHover.ts";
 import type { VrPointerHover } from "./vrPanelHover.ts";
 import type { VrPickerNavigation } from "./VrPickerList.tsx";
+import * as translatorLabel from '../../logics/main/translatorLabel.ts';
 
 const fonts = Array.from({ length: 743 }, (_, index) => ({ id: `font-${index}`, label: `Font ${index}` }));
 type Font = (typeof fonts)[number];
@@ -344,6 +345,7 @@ async function languageWindow(context: TestContext, h: Picker, locale = "en") {
         "@logics_common": { useIsOpenedConfigPage: () => ({ currentIsOpenedConfigPage: { data: false } }) },
         "../../logics/main/languageMutations": { LANGUAGE_RESPONSE_WAIT_MS: 30000 },
         "../../logics/common/languageJumpGroups.ts": { languageJumpGroups },
+        "../../logics/main/translatorLabel.ts": translatorLabel,
         "../../logics/common/languageNames.ts": { ...languageNames, createLanguageNames: (locale: string) => {
             const names = languageNames.createLanguageNames(locale);
             return { ...names, sorted: (entries: Iterable<LanguageEntry>) => { sorts.push(entries); return names.sorted(entries); },

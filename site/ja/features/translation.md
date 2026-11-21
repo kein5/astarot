@@ -23,11 +23,10 @@ route: translation
 
 | モデル | 容量の目安（int8） | ライセンス |
 |---|---|---|
-| m2m100_418M（初期設定） | 506 MB | MIT（商用利用可） |
-| m2m100_1.2B | 1.3 GB | MIT（商用利用可） |
-| nllb-200-distilled-600M | 643 MB | CC-BY-NC-4.0（非商用） |
-| nllb-200-distilled-1.3B | 1.4 GB | CC-BY-NC-4.0（非商用） |
-| nllb-200-3.3B | 3.4 GB | CC-BY-NC-4.0（非商用） |
+| M2M100 418M · int8（初期設定） | 506 MB | MIT（商用利用可） |
+| M2M100 1.2B · int8 | 1.3 GB | MIT（商用利用可） |
+| NLLB-200 distilled 600M · int8 | 643 MB | CC-BY-NC-4.0（非商用） |
+| NLLB-200 distilled 1.3B · int8 | 1.4 GB | CC-BY-NC-4.0（非商用） |
 
 ::: warning NLLBは非商用ライセンスです
 NLLBのモデルは商用目的では使えません。選ぶときや取得するときに確認が出るので、ライセンスを読んで同意したときだけ使えます。

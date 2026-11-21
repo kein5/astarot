@@ -7,6 +7,7 @@ import WarningSvg from "@images/warning.svg?react";
 import ArrowLeftSvg from "@images/arrow_left.svg?react";
 import clsx from "clsx";
 import { isSameLanguageSelected } from "../../../../../../logics/main/sameLanguage.ts";
+import { translatorLabel } from "../../../../../../logics/main/translatorLabel.ts";
 
 export const TranslatorSelectorOpenButton = () => {
     const { t } = useI18n();
@@ -37,7 +38,7 @@ export const TranslatorSelectorOpenButton = () => {
         const selected_engine = translation_engines.find(
             d => d.id === selected_engine_id
         );
-        return selected_engine?.label;
+        return translatorLabel(selected_engine, t);
     };
 
     const is_loading = currentTranslationEngines.state === "pending";

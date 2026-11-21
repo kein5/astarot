@@ -27,7 +27,8 @@ test("every built-in weight names the download catalog entries the core installs
     assert.ok(ids["m2m100_1.2B-ct2-int8"].includes("m2m100-1-2b-onnx-int8"));
     assert.ok(ids["nllb-200-distilled-600M-ct2-int8"].includes("nllb-200-distilled-600m-onnx-int8"));
     assert.ok(ids["nllb-200-distilled-1.3B-ct2-int8"].includes("nllb-200-distilled-1-3b-onnx-int8"));
-    assert.ok(ids["nllb-200-3.3B-ct2-int8"].includes("nllb-200-3-3b-onnx-int8"));
+    // NLLB-200 3.3B is not offered (#565): it is not a built-in weight any more.
+    assert.equal(ids["nllb-200-3.3B-ct2-int8"], undefined);
     for (const list of Object.values(ids)) assert.ok(list.every(id => /^[a-z0-9][a-z0-9-]*$/.test(id)), list.join());
 });
 
@@ -40,8 +41,8 @@ test("NLLB needs confirmation unless it is already the selected weight", () => {
 
 test("the opt-in payload carries the flag, the plain payload stays a bare id", () => {
     assert.equal(weightRequest("m2m100_418M-ct2-int8"), "m2m100_418M-ct2-int8");
-    const request = weightRequest("nllb-200-3.3B-ct2-int8", true);
-    assert.deepEqual(request, { weight_type: "nllb-200-3.3B-ct2-int8", accept_non_commercial_license: true });
-    assert.equal(weightIdOfRequest(request), "nllb-200-3.3B-ct2-int8");
+    const request = weightRequest("nllb-200-distilled-1.3B-ct2-int8", true);
+    assert.deepEqual(request, { weight_type: "nllb-200-distilled-1.3B-ct2-int8", accept_non_commercial_license: true });
+    assert.equal(weightIdOfRequest(request), "nllb-200-distilled-1.3B-ct2-int8");
     assert.equal(weightIdOfRequest("m2m100_418M-ct2-int8"), "m2m100_418M-ct2-int8");
 });

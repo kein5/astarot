@@ -13,6 +13,7 @@ import * as voiceErrorText from "../../../logics/voice/voiceErrorText.ts";
 import * as featureLabel from "../../../logics/common/featureLabel.ts";
 import * as switchBlocksModule from "../../../logics/main/switchBlocks.ts";
 import * as sameLanguage from "../../../logics/main/sameLanguage.ts";
+import * as translatorLabel from "../../../logics/main/translatorLabel.ts";
 
 type BridgeStore = Awaited<ReturnType<typeof loadBridgeStore>>;
 type SwitchModule = typeof import("./sidebar_section/main_function_switch/MainFunctionSwitch.tsx");
@@ -239,7 +240,9 @@ test("main language and log div buttons activate only on fresh Enter or Space pr
         "@store": { useStore_IsOpenedTranslatorSelector: () => ({ currentIsOpenedTranslatorSelector: { data: opened },
             updateIsOpenedTranslatorSelector: (value: unknown) => { opened = value; actions.push("open"); } }) },
         "./translator_selector/TranslatorSelector": {}, "@setting_box": { MessageLogUiScalingContainer: icon },
-        "../../../../../../logics/main/sameLanguage.ts": sameLanguage };
+        "../../../../../../logics/main/sameLanguage.ts": sameLanguage,
+        "../../../../../../logics/main/translatorLabel.ts": translatorLabel,
+        "../../../../../../../logics/main/translatorLabel.ts": translatorLabel };
     const cases = [
         ["sidebar_section/language_settings/preset_tab_selector/PresetTabSelector.tsx", "PresetTabSelector", {}],
         ["sidebar_section/language_settings/translator_selector_open_button/TranslatorSelectorOpenButton.tsx", "TranslatorSelectorOpenButton", {}],

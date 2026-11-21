@@ -176,7 +176,7 @@
 | `WATCHDOG_INTERVAL` |  | `20` | 読み取り専用 |
 | `SELECTABLE_TAB_NO_LIST` |  | `["1", "2", "3"]` | 読み取り専用 |
 | `SELECTED_TAB_TARGET_LANGUAGES_NO_LIST` |  | `["1", "2", "3"]` | 読み取り専用 |
-| `SELECTABLE_CTRANSLATE2_WEIGHT_TYPE_LIST` |  | `["m2m100_418M-ct2-int8", "m2m100_1.2B-ct2-int8", "nllb-200-distilled-600M-ct2-int8", "nllb-200-distilled-1.3B-ct2-int8", "nllb-200-3.3B-ct2-int8"]` | 読み取り専用 |
+| `SELECTABLE_CTRANSLATE2_WEIGHT_TYPE_LIST` |  | `["m2m100_418M-ct2-int8", "m2m100_1.2B-ct2-int8", "nllb-200-distilled-600M-ct2-int8", "nllb-200-distilled-1.3B-ct2-int8"]` | 読み取り専用 |
 | `SELECTABLE_TRANSLATION_ENGINE_LIST` |  | `["DeepL_API", "Google_Cloud_API", "Papago_API", "CTranslate2", "Plamo_API", "Gemini_API", "OpenAI_API", "LMStudio", "OpenAI_Compatible", "Ollama", "Groq_API", "OpenRouter_API"]` | 読み取り専用 |
 | `SELECTABLE_TRANSCRIPTION_ENGINE_LIST` |  | `["SpeechCpp", "Groq_Whisper", "OpenAI_Whisper", "Custom_Whisper", "Deepgram"]` | 読み取り専用 |
 | `SELECTABLE_UI_LANGUAGE_LIST` |  | `["en", "ja"]` | 読み取り専用 |
@@ -191,7 +191,7 @@
 | `ENABLE_OCR_CAPTURE` | bool | `false` | 保存しない |
 | `ENABLE_CHECK_ENERGY_SEND` | bool | `false` | 保存しない |
 | `ENABLE_CHECK_ENERGY_RECEIVE` | bool | `false` | 保存しない |
-| `SELECTABLE_CTRANSLATE2_WEIGHT_TYPE_DICT` | dict | `{"m2m100_418M-ct2-int8": false, "m2m100_1.2B-ct2-int8": false, "nllb-200-distilled-600M-ct2-int8": false, "nllb-200-distilled-1.3B-ct2-int8": false, "nllb-200-3.3B-ct2-int8": false}` | 保存しない |
+| `SELECTABLE_CTRANSLATE2_WEIGHT_TYPE_DICT` | dict | `{"m2m100_418M-ct2-int8": false, "m2m100_1.2B-ct2-int8": false, "nllb-200-distilled-600M-ct2-int8": false, "nllb-200-distilled-1.3B-ct2-int8": false}` | 保存しない |
 | `SELECTABLE_TRANSLATION_ENGINE_STATUS` | dict | `{"DeepL_API": false, "Google_Cloud_API": false, "Papago_API": false, "CTranslate2": false, "Plamo_API": false, "Gemini_API": false, "OpenAI_API": false, "LMStudio": false, "OpenAI_Compatible": false, "Ollama": false, "Groq_API": false, "OpenRouter_API": false}` | 保存しない |
 | `SELECTABLE_TRANSCRIPTION_ENGINE_STATUS` | dict | `{"SpeechCpp": false, "Groq_Whisper": false, "OpenAI_Whisper": false, "Custom_Whisper": false, "Deepgram": false}` | 保存しない |
 | `SELECTABLE_PLAMO_MODEL_LIST` | list | `[]` | 保存しない |

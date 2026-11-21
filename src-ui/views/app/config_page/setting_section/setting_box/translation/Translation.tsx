@@ -307,9 +307,10 @@ const CTranslate2WeightType_Box = () => {
                 keep_desc: true,
             };
         }
+        // A built-in model by the download catalog's name of it (#565), not by the weight's id.
         return {
             ...item,
-            label: item.id,
+            label: weightLabel(item.id, translationCatalog),
             desc: t(
                 non_commercial
                     ? "config_page.translation.ctranslate2_weight_type.license_non_commercial"
@@ -378,7 +379,7 @@ export const CTranslate2LicenseDialog = ({ weight, action, onCancel, onConfirm, 
         <dialog ref={dialog} className={styles.license_dialog} aria-label={t(key("confirm_title"))} onCancel={event => { event.preventDefault(); cancel(); }}>
             <div className={styles.license_text}>
                 <h3>{t(key("confirm_title"))}</h3>
-                <p>{t(key("confirm_body"), { weight_type: weight.id, license: weight.license })}</p>
+                <p>{t(key("confirm_body"), { weight_type: weightLabel(weight.id, null), license: weight.license })}</p>
                 <p>
                     <a href={weight.license_url} target="_blank" rel="noreferrer" onClick={event => openLink(event, weight.license_url)}>{t(key("license_link"))} ({weight.license})</a>
                     {" · "}

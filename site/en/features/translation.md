@@ -23,11 +23,10 @@ These are the standard models the app works with. Each one appears in the list o
 
 | Model | Approximate size (int8) | License |
 |---|---|---|
-| m2m100_418M (default) | 506 MB | MIT (commercial use allowed) |
-| m2m100_1.2B | 1.3 GB | MIT (commercial use allowed) |
-| nllb-200-distilled-600M | 643 MB | CC-BY-NC-4.0 (non-commercial) |
-| nllb-200-distilled-1.3B | 1.4 GB | CC-BY-NC-4.0 (non-commercial) |
-| nllb-200-3.3B | 3.4 GB | CC-BY-NC-4.0 (non-commercial) |
+| M2M100 418M · int8 (default) | 506 MB | MIT (commercial use allowed) |
+| M2M100 1.2B · int8 | 1.3 GB | MIT (commercial use allowed) |
+| NLLB-200 distilled 600M · int8 | 643 MB | CC-BY-NC-4.0 (non-commercial) |
+| NLLB-200 distilled 1.3B · int8 | 1.4 GB | CC-BY-NC-4.0 (non-commercial) |
 
 ::: warning NLLB is non-commercial
 NLLB models may not be used for commercial purposes. Selecting or downloading one asks for confirmation, so you can use it only after reading and accepting its license.

@@ -2476,6 +2476,10 @@
       "endpoint": "/run/ctranslate2_license_notice"
     },
     {
+      "name": "translation_model_retired",
+      "endpoint": "/run/translation_model_retired"
+    },
+    {
       "name": "translation_language_unsupported",
       "endpoint": "/run/translation_language_unsupported"
     },
@@ -2946,6 +2950,13 @@
       "message": "This translation model has a non-commercial license (CC-BY-NC-4.0) and must be confirmed explicitly",
       "severity": "warning",
       "user_action_required": true
+    },
+    {
+      "code": "WEIGHT_CTRANSLATE2_RETIRED",
+      "category": "weight",
+      "message": "The selected translation model is no longer offered; the default model is used",
+      "severity": "warning",
+      "user_action_required": false
     },
     {
       "code": "WEIGHT_CTRANSLATE2_NON_COMMERCIAL_NOTICE",
@@ -3609,8 +3620,7 @@
         "m2m100_418M-ct2-int8",
         "m2m100_1.2B-ct2-int8",
         "nllb-200-distilled-600M-ct2-int8",
-        "nllb-200-distilled-1.3B-ct2-int8",
-        "nllb-200-3.3B-ct2-int8"
+        "nllb-200-distilled-1.3B-ct2-int8"
       ]
     },
     {
@@ -3746,8 +3756,7 @@
         "m2m100_418M-ct2-int8": false,
         "m2m100_1.2B-ct2-int8": false,
         "nllb-200-distilled-600M-ct2-int8": false,
-        "nllb-200-distilled-1.3B-ct2-int8": false,
-        "nllb-200-3.3B-ct2-int8": false
+        "nllb-200-distilled-1.3B-ct2-int8": false
       }
     },
     {

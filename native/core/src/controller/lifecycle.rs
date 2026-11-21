@@ -9,7 +9,7 @@
 use super::Core;
 use crate::dispatch::Dispatcher;
 use crate::errors::ErrorReply;
-use crate::languages::TRANSLATION_WEIGHTS;
+use crate::languages::{RETIRED_TRANSLATION_WEIGHTS, RETIRED_TRANSLATION_WEIGHT_RESET, TRANSLATION_WEIGHTS};
 use serde_json::{Map, Value, json};
 
 /// Left out of `/run/initialization_complete`: they reach the network, a device or a server, or
@@ -183,6 +183,14 @@ impl Core {
             let error = ErrorReply::new("WEIGHT_CTRANSLATE2_NON_COMMERCIAL_NOTICE", json!({ "weight_type": weight, "license": "CC-BY-NC-4.0" }));
             self.run(400, super::run_endpoint("ctranslate2_license_notice"), error.into_body());
             let _ = config.set("CTRANSLATE2_LICENSE_NOTICE_SHOWN", json!(true));
+        }
+        // The saved choice named a weight the app no longer offers (#565): it failed the list's
+        // check and the default is used. Said once: the file then holds the default.
+        let saved = config.saved_at_start("CTRANSLATE2_WEIGHT_TYPE");
+        if let Some(retired) = saved.as_str().filter(|w| RETIRED_TRANSLATION_WEIGHTS.contains(w)) {
+            let data = json!({ "weight_type": retired, "selected": config.get_str("CTRANSLATE2_WEIGHT_TYPE") });
+            let error = ErrorReply::new(RETIRED_TRANSLATION_WEIGHT_RESET, data);
+            self.run(400, super::run_endpoint("translation_model_retired"), error.into_body());
         }
         for key in config.invalid_saved_api_urls() {
             let (endpoint, code) = match key.as_str() {

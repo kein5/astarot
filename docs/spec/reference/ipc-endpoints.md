@@ -486,7 +486,7 @@ UIから中核への要求と、中核からUIへの通知（`RUN_MAPPING`）の
 | `/get/data/gpu_memory` | 取得 | 可 | useGpuMemory.updateGpuMemory |  |
 
 
-## 通知（中核からUIへ、91件）
+## 通知（中核からUIへ、92件）
 
 要求への応答とは別に、中核が自分から送るメッセージ。`Core::notify(名前, 結果)`で送り、名前は`controller/mod.rs`の`RUN_MAPPING`で終点に変わる。表にない名前は送る時点で止まる（契約のCT-02、`tests/run_mapping.rs`）。
 
@@ -525,6 +525,7 @@ UIから中核への要求と、中核からUIへの通知（`RUN_MAPPING`）の
 | `downloaded_ctranslate2_weight` | `/run/downloaded_ctranslate2_weight` | useTranslation.downloadedCTranslate2WeightTypeStatus |
 | `error_ctranslate2_weight` | `/run/error_ctranslate2_weight` | — |
 | `ctranslate2_license_notice` | `/run/ctranslate2_license_notice` | — |
+| `translation_model_retired` | `/run/translation_model_retired` | — |
 | `translation_language_unsupported` | `/run/translation_language_unsupported` | — |
 | `selected_mic_host` | `/run/selected_mic_host` | useDevice.updateFromBackendSelectedMicHost |
 | `selected_mic_device_id` | `/run/selected_mic_device_id` | useDevice.updateFromBackendSelectedMicDeviceId |
@@ -585,7 +586,7 @@ UIから中核への要求と、中核からUIへの通知（`RUN_MAPPING`）の
 | `enable_osc_query` | `/run/enable_osc_query` | useHandleOscQuery.handleOscQuery |
 
 
-## UIに受信先がないエンドポイント（16件）
+## UIに受信先がないエンドポイント（17件）
 
 200で届いた場合にUIが`Invalid endpoint`としてコンソールに出すもの。ただし、400で届くエラーの通知（`/run/error_…`など）は`errorHandling_Backend`が処理し、`/run/initialization_complete`は`receiveRoutes`が個別に処理するので、このどちらかに当たるものは実害がない。
 
@@ -604,6 +605,7 @@ UIから中核への要求と、中核からUIへの通知（`RUN_MAPPING`）の
 - `/run/initialization_complete`
 - `/run/message_output_error`
 - `/run/translation_language_unsupported`
+- `/run/translation_model_retired`
 - `/run/vad_unavailable`
 
 
