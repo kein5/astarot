@@ -22,7 +22,7 @@ mise run check               # 軽量チェック
 | `check:voice`、`check:ui`、`check:rust`、`check:integration`、`check:workflows`、`check:crates`、`check:links`、`check:hooks` | `python tools/dev.py check --scope <名前>` |
 | `check:commits`、`check:secrets` | `python tools/dev.py check --scope <名前> --base origin/develop` |
 | `check:vulns` | `python tools/dev.py check --scope vulns`（osv.devに問い合わせる） |
-| `setup:headless`、`setup:ui`、`setup:browser`、`setup:rust`、`setup:resources`、`setup:integration` | `python tools/dev.py setup --scope <名前>` |
+| `setup:headless`、`setup:ui`、`setup:browser`、`setup:rust`、`setup:resources`、`setup:integration`、`setup:hooks` | `python tools/dev.py setup --scope <名前>` |
 | `spec` | 機能仕様書の一覧を作り直す（中核の一覧`tools/spec_core_catalog.json`を書き直してから`python tools/spec_catalog.py --write`） |
 | `adr` | ADR の索引の表を作り直す（`python tools/adr_catalog.py --write`） |
 | `build:voice-gate`、`build:rvc-worker` | 音声の補助プログラムとRVCのワーカーを `build/` にビルドする |
@@ -116,6 +116,7 @@ Linuxのトレイ用ライブラリは `ayatana-appindicator3-0.1` または `ap
 | `rust` | `cargo fetch --locked` でCargo.lockに従う依存を取得（`tools/dev.py` の `CARGO_WORKSPACES`。`src-tauri`、`NATIVE_CRATES` にある `native/` のクレート、結合テストの `native/browser-core-bridge`、`native/ocr-runtime`、`native/rvc-runtime`。下の `check --scope crates` と同じ一覧） |
 | `resources` | `tools/app_resources.py stage --allow-missing` で `src-tauri/bin/_internal` を `build/` にあるもので作り直す |
 | `integration` | [結合テスト](#結合テストplaywright)の準備。`native/browser-core-bridge` の依存を `cargo fetch --locked` で取得し、Playwright の Chromium と WebKit を取得する（合わせて数百 MB）。先に `setup --scope ui` が要る。ブラウザが使う OS のライブラリは入れない |
+| `hooks` | `hk.pkl` のGitのフックを `hk install` でこの複製に入れる（[Gitのフック](#gitのフック)）。ほかのスコープでは入れない |
 
 専用venvには所有マーカーを保存します。同じ場所にマーカーのない既存ディレクトリやシンボリックリンクがある場合は停止し、削除しません。Pythonのスコープはいずれも、`tools/check_python_lock.py`でロック全体のアーカイブのSHA-256とGit依存の完全なcommit SHAを検査します。続いて、`uv.lock` からハッシュと間接依存を含む一覧を `uv export` で `build/dev/<scope>-requirements.txt` に書き出し、専用venvへ `uv pip sync` で同期します。uvは一覧にあるハッシュを照合し、不一致なら停止します。Git依存にはアーカイブのハッシュを要求せず、固定commitを使います。`--python` で既存venvを指定した場合（`browser` のみ）は `uv pip install -r` で追加し、ほかのパッケージは削除しません。[uvの環境指定](https://docs.astral.sh/uv/pip/environments/)と[依存の固定・同期](https://docs.astral.sh/uv/pip/compile/)を参照してください。
 
@@ -413,22 +414,23 @@ CLIは指定refとHEADの共通祖先を求め、その後のコミットだけ�
 
 `CHANGELOG.md` は正式版のリリースを準備するときに `tools/changelog.py` が書きます。載せるのは正式版だけで、前の正式版からの変更をまとめます。ベータ版のノートは、前のタグからのコミットで作ります。コミットの解析はCocogittoの `cog changelog` に任せ、利用者向けと内部向けの分類と書式をこのスクリプトが決めます。種別ごとの見出しは `cog.toml` の `[commit_types]` にあります。試験は `tests/devtools/test_changelog.py` です。
 
-開発CLIはフックを自動では入れません。フックは開発者が `cog install-hook commit-msg` か、[hk](#gitのフック)で入れます。履歴を書き換える `cog edit`、版とタグを作る `cog bump`、commit/push、公開hookも開発CLIに含めません。版は今までどおり `package.json` で決めて `npm run update-version` で反映し、タグはGitHub Releasesの下書きを公開したときにできます。
+開発CLIはフックを自動では入れません。入れるときは、開発者が `setup --scope hooks`（[hk](#gitのフック)）を実行します。上の `cog install-hook commit-msg` の案内は、hkに寄せる別のPRで書き換えます（2026-11-21、#837の判断2）。履歴を書き換える `cog edit`、版とタグを作る `cog bump`、commit/push、公開hookも開発CLIに含めません。版は今までどおり `package.json` で決めて `npm run update-version` で反映し、タグはGitHub Releasesの下書きを公開したときにできます。
 
 
 ## Gitのフック
 
-`hk.pkl` は、hkで動かすGitのフックの設定です。開発CLIはフックを入れないので、使うときは複製ごとに一度 `hk install` を実行します。Git 2.54以降では、`.git/hooks/` を書き換えずにGitの設定（`hook.<名前>.command`）として入ります。入ったフックはmiseのshimを通るので、hkも各手順の道具も `mise.toml` の版で動きます（先に `mise install`）。
+`hk.pkl` は、hkで動かすGitのフックの設定です。使うときは、複製ごとに一度 `python tools/dev.py setup --scope hooks`（`mise run setup:hooks`。中身は `hk install`）を実行します。開発CLIは、ほかの準備やチェックではフックを入れません（2026-11-21、#837で決定）。Git 2.54以降では、`.git/hooks/` を書き換えずにGitの設定（`hook.<名前>.command`）として入ります。入ったフックはmiseのshimを通るので、hkも各手順の道具も `mise.toml` の版で動きます（先に `mise install`）。
 
 | フック | 手順 | 確かめること |
 | --- | --- | --- |
 | pre-commit | gitleaks | ステージした変更の鍵やトークン。見つけた値は表示しない |
 | pre-commit | actionlint、zizmor | 変えたワークフローと自前のアクション。`check --scope workflows` と同じ設定 |
+| pre-commit | Biome | 変えたUIのTypeScriptとJavaScriptのlintと整形。`check --scope ui` と同じ設定（`biome.json`）で、対象外のファイルは読まない。まだ直していない規則は警告なので、コミットは止まらない |
 | pre-commit | lychee | 変えたMarkdown（`site/` を除く）のリンク。外部のサイトには問い合わせない |
 | commit-msg | cocogitto | Conventional Commits（`cog.toml`） |
 
 - どの手順もファイルを書き換えません。1回だけ飛ばすときは `HK=0 git commit ...` です。
-- `cog install-hook commit-msg` で入れたフックもあると、Git 2.54以降ではそれも動くので、メッセージを2回確かめます。どちらか一方にするかは、まだ決めていません。
+- コミットメッセージのフックはhkに寄せます（2026-11-21、#837の判断2）。CONTRIBUTING.mdの `cog install-hook commit-msg` の案内は、別のPRで書き換えます。それまでに両方を入れた複製では、Git 2.54以降ではメッセージを2回確かめます（害はありません）。
 - すべてのファイルに流すときは `hk run pre-commit --all` です。gitleaksはそのときもステージした変更だけを見ます。コミットの範囲は `check --scope secrets` で確かめます。
 - `check --scope hooks` は `hk.pkl` を `hk validate` で確かめます。初回は、固定した版のhkの設定のパッケージをGitHubのリリースから取得します。
 ## CIでの利用と再現性

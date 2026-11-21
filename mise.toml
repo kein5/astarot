@@ -140,6 +140,10 @@ run = "python tools/dev.py setup --scope integration"
 description = "src-tauri/bin/_internal for tauri dev and cargo check (stages what build/ has)"
 run = "python tools/dev.py setup --scope resources"
 
+[tasks."setup:hooks"]
+description = "Git hooks from hk.pkl in this clone (hk install; only when asked)"
+run = "python tools/dev.py setup --scope hooks"
+
 [tasks.spec]
 description = "Regenerate the spec reference (docs/spec/reference/): the core's catalog, then the tables"
 env = { VRCT_SPEC_CATALOG_WRITE = "1" }

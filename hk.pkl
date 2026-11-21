@@ -1,5 +1,6 @@
 // hk's Git hooks (docs/development.md, "Gitのフック"). Install them once per clone with
-// `hk install`; `HK=0 git commit ...` skips them for one commit. Each step runs on the files the
+// `python tools/dev.py setup --scope hooks` (`hk install`); `HK=0 git commit ...` skips them for
+// one commit. Each step runs on the files the
 // commit changes, with the settings `python tools/dev.py check` uses; none of them changes a file.
 // The package version follows hk's pin in mise.toml (tests/devtools/test_toolchain_pins.py).
 amends "package://github.com/jdx/hk/releases/download/v2.11.1/hk@2.11.1#/Config.pkl"
@@ -21,6 +22,17 @@ local checks = new Mapping<String, Step> {
   ["zizmor"] {
     glob = List(".github/workflows/*.yml", ".github/actions/*/action.yml", ".github/dependabot.yml")
     check = "zizmor --offline {{files}}"
+  }
+  // The UI's TypeScript and JavaScript, as `check --scope ui` runs Biome (biome.json): its lint
+  // rules, then the format of the files its formatter covers. Biome passes over a file biome.json
+  // leaves out, and the rules not fixed yet are warnings, so they do not stop a commit (#837).
+  ["biome-lint"] {
+    glob = List("**/*.js", "**/*.mjs", "**/*.ts", "**/*.tsx")
+    check = "biome lint --no-errors-on-unmatched {{files}}"
+  }
+  ["biome-format"] {
+    glob = List("**/*.js", "**/*.mjs", "**/*.ts", "**/*.tsx")
+    check = "biome format --no-errors-on-unmatched {{files}}"
   }
   // Links in the Markdown files, offline, as `check --scope links` (lychee.toml).
   ["lychee"] {

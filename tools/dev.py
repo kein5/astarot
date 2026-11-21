@@ -41,7 +41,7 @@ DENY_UNUSED = ("license-not-encountered", "license-exception-not-encountered", "
 # osv-scanner cannot resolve, and nothing from it ships.
 OSV_LOCKFILES = ("uv.lock", "package-lock.json", "site/package-lock.json", "site/motion/package-lock.json",
                  *(f"{workspace}/Cargo.lock" for workspace in CARGO_WORKSPACES))
-SETUP_SCOPES = ("headless", "ui", "browser", "rust", "resources", "integration")
+SETUP_SCOPES = ("headless", "ui", "browser", "rust", "resources", "integration", "hooks")
 # The integration tests (ADR-017): the core's host for the screens in a browser, and the browsers.
 INTEGRATION_HOST = "native/browser-core-bridge"
 INTEGRATION_BROWSERS = ("chromium", "webkit")
@@ -443,6 +443,10 @@ def setup(args, root):
         raise DevError("setup --python is supported only with --scope browser (additive install). Other scopes use owned environments.")
     if args.scope == "resources":
         return setup_resources(args, root)
+    if args.scope == "hooks":
+        # hk's Git hooks (hk.pkl), only when asked (#837): Git 2.54 and later keep them in the
+        # clone's Git config; older Git gets them in .git/hooks.
+        return execute([Step("Git hooks (hk.pkl)", ["hk", "install"])], root, dry_run=args.dry_run)
     if args.scope == "ui":
         return execute([Step("locked UI packages", ["npm", "ci", "--ignore-scripts", "--no-audit", "--no-fund",
             *(["--offline"] if args.offline else [])])], root, dry_run=args.dry_run)

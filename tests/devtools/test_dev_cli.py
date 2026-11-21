@@ -304,6 +304,17 @@ class DeveloperCLITests(unittest.TestCase):
             self.assertIn(f"--manifest-path {workspace}/Cargo.toml --config deny.toml check", output)
         self.assertTrue(all("--frozen" in line and line.endswith("licenses bans sources") for line in lines))
 
+    def test_hooks_setup_installs_hk_hooks_only_when_asked(self):
+        # #837: the hooks go in through their own scope; no other setup scope installs them.
+        code, output = self.call("setup", "--scope", "hooks", "--dry-run")
+        self.assertEqual(code, 0)
+        self.assertIn("[Git hooks (hk.pkl)] hk install", output)
+        for scope in self.dev.SETUP_SCOPES:
+            if scope == "hooks":
+                continue
+            _, other = self.call("setup", "--scope", scope, "--dry-run")
+            self.assertNotIn("hk install", other, scope)
+
     def test_rust_setup_fetches_every_workspace_cargo_deny_reads(self):
         code, output = self.call("setup", "--scope", "rust", "--dry-run")
         self.assertEqual(code, 0)
