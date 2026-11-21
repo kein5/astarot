@@ -23,6 +23,20 @@
 //! - Browsing asks at once, then after 1, 2, 4, ... seconds up to an hour, and again
 //!   whenever asked to.
 //!
+//! On Windows nothing is received on port 5353 (#442). Windows Defender Firewall asks whether
+//! to let a program receive from the network the first time it receives on an address other
+//! than loopback, once for each program path, so every new folder of the app asked again. There
+//! each interface gets a socket on `0.0.0.0` with a port the OS picks, which only sends and
+//! hears what is sent back to it:
+//!
+//! - Services are announced again every [`REANNOUNCE_EVERY`] instead of answering queries,
+//!   so VRChat finds them when it starts after the app. VRChat's mDNS (MeaMod.DNS) takes an
+//!   answer whatever port it came from.
+//! - Questions go from the OS-picked port, which makes them legacy unicast queries: VRChat
+//!   answers them to that port (RFC 6762, 6.7), with TTLs of at most 10 seconds. Browsing
+//!   therefore asks at least every [`BROWSE_UNHEARD_LIMIT`].
+//! - Two programs that both only send, such as two of these, do not find each other.
+//!
 //! Names are compared without regard to ASCII case, as DNS does.
 
 use std::io;
@@ -62,6 +76,14 @@ const MAX_CACHE: usize = 1024;
 const MAX_ASKED: usize = 256;
 const RESOLVE_FIRST: Duration = Duration::from_secs(1);
 const RESOLVE_LIMIT: Duration = Duration::from_secs(60);
+/// Without a socket on port 5353 (Windows, #442): how often registered services are announced
+/// again, so VRChat started later finds them.
+pub const REANNOUNCE_EVERY: Duration = Duration::from_secs(5);
+/// Without a socket on port 5353: the longest wait between browsing questions. Legacy unicast
+/// answers live at most 10 seconds, and the answers to others' questions are not heard.
+pub const BROWSE_UNHEARD_LIMIT: Duration = Duration::from_secs(5);
+/// Whether this build receives on port 5353 (all but Windows, #442).
+pub const LISTENS_ON_MDNS_PORT: bool = !cfg!(windows);
 
 // ---------------------------------------------------------------- DNS messages
 
@@ -364,6 +386,8 @@ struct State {
     /// 1, 2, 4, ... seconds up to a minute, so an unresolvable service does not make
     /// every response on the network trigger a query.
     asked: Vec<(Question, Instant, u32)>,
+    /// Without a socket on port 5353: when the services were last announced.
+    announced: Option<Instant>,
 }
 
 impl State {
@@ -463,8 +487,11 @@ impl State {
 }
 
 struct Sockets {
-    listen: UdpSocket,
-    /// One sending socket for each IPv4 address of the PC.
+    /// `0.0.0.0:5353`, joined on every address; `None` where nothing is received on port 5353
+    /// ([`LISTENS_ON_MDNS_PORT`]).
+    listen: Option<UdpSocket>,
+    /// One sending socket for each IPv4 address of the PC: on that address and port 5353, or,
+    /// without the listening socket, on `0.0.0.0` and a port the OS picks.
     respond: Vec<(Ipv4Addr, UdpSocket)>,
     /// The PC's IPv4 addresses, and when they were read: what a packet from this PC comes from.
     own: Mutex<(Instant, Vec<Ipv4Addr>)>,
@@ -492,10 +519,18 @@ fn mdns_socket(bind: Ipv4Addr) -> io::Result<Socket> {
     Ok(socket)
 }
 
-/// The socket that sends from `address`, set up so that its packets stay on this PC; `None`
-/// when that cannot be set up (a socket that would send beyond the PC is not used).
-fn sending_socket(address: Ipv4Addr) -> Option<UdpSocket> {
-    let socket = mdns_socket(address).ok()?;
+/// The socket that sends through `address`, set up so that its packets stay on this PC; `None`
+/// when that cannot be set up (a socket that would send beyond the PC is not used). With
+/// `on_mdns_port` it is bound to `address` and port 5353; without, to `0.0.0.0` and a port the
+/// OS picks, which receives nothing but what is sent to it (no firewall question, #442).
+fn sending_socket(address: Ipv4Addr, on_mdns_port: bool) -> Option<UdpSocket> {
+    let socket = if on_mdns_port {
+        mdns_socket(address).ok()?
+    } else {
+        let socket = Socket::new(Domain::IPV4, Type::DGRAM, Some(Protocol::UDP)).ok()?;
+        socket.bind(&SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, 0)).into()).ok()?;
+        socket
+    };
     let configured = socket.set_multicast_if_v4(&address).is_ok()
         && socket.set_multicast_ttl_v4(MULTICAST_TTL).is_ok()
         && socket.set_multicast_loop_v4(true).is_ok()
@@ -519,20 +554,28 @@ fn local_ipv4_addresses() -> Vec<Ipv4Addr> {
 
 impl Sockets {
     fn open() -> io::Result<Self> {
+        let own = local_ipv4_addresses();
+        if !LISTENS_ON_MDNS_PORT {
+            let respond: Vec<(Ipv4Addr, UdpSocket)> =
+                own.iter().filter_map(|&address| Some((address, sending_socket(address, false)?))).collect();
+            if respond.is_empty() {
+                return Err(io::Error::new(io::ErrorKind::AddrNotAvailable, "no interface can send mDNS"));
+            }
+            return Ok(Self { listen: None, respond, own: Mutex::new((Instant::now(), own)) });
+        }
         let listen = mdns_socket(Ipv4Addr::UNSPECIFIED)?;
         let mut respond = Vec::new();
-        let own = local_ipv4_addresses();
         for &address in &own {
             // An interface that cannot join or send is skipped, as python-zeroconf does.
             if listen.join_multicast_v4(&MDNS_GROUP, &address).is_err() {
                 continue;
             }
-            if let Some(socket) = sending_socket(address) {
+            if let Some(socket) = sending_socket(address, true) {
                 respond.push((address, socket));
             }
         }
         listen.set_read_timeout(Some(TICK))?;
-        Ok(Self { listen: listen.into(), respond, own: Mutex::new((Instant::now(), own)) })
+        Ok(Self { listen: Some(listen.into()), respond, own: Mutex::new((Instant::now(), own)) })
     }
 
     /// Whether `from` is this PC. An unknown sender reads the PC's addresses again, at most
@@ -626,7 +669,9 @@ impl Shared {
             None => {
                 if state.asked.len() >= MAX_ASKED {
                     // The question asked longest ago makes room.
-                    if let Some(oldest) = state.asked.iter().enumerate().min_by_key(|(_, (_, last, _))| *last).map(|(i, _)| i) {
+                    if let Some(oldest) =
+                        state.asked.iter().enumerate().min_by_key(|(_, (_, last, _))| *last).map(|(i, _)| i)
+                    {
                         state.asked.swap_remove(oldest);
                     }
                 }
@@ -690,8 +735,21 @@ impl Shared {
     fn tick(&self) {
         let now = Instant::now();
         let mut due = Vec::new();
+        // Without a socket on port 5353 others' questions and announcements are not heard (#442).
+        let unheard = self.sockets.listen.is_none();
         {
             let mut state = self.state();
+            if unheard
+                && !state.services.is_empty()
+                && state.announced.is_none_or(|last| now.saturating_duration_since(last) >= REANNOUNCE_EVERY)
+            {
+                due.push(Message {
+                    flags: FLAGS_RESPONSE,
+                    answers: state.services.iter().flat_map(|s| s.records(1)).collect(),
+                    ..Default::default()
+                });
+                state.announced = Some(now);
+            }
             state.cache.retain(|c| c.expires > now);
             state.asked.retain(|(_, last, _)| now.saturating_duration_since(*last) < BROWSE_LIMIT);
             let mut index = 0;
@@ -706,7 +764,8 @@ impl Shared {
                 if browse.next <= now {
                     due.push(ptr_query(&browse.service_type));
                     browse.next = now + browse.interval;
-                    browse.interval = (browse.interval * 2).min(BROWSE_LIMIT);
+                    browse.interval =
+                        (browse.interval * 2).min(if unheard { BROWSE_UNHEARD_LIMIT } else { BROWSE_LIMIT });
                 }
             }
         }
@@ -730,18 +789,24 @@ pub struct Mdns {
 }
 
 impl Mdns {
-    /// Open the sockets and start listening. Fails when port 5353 cannot be bound.
+    /// Open the sockets and start listening. Fails when port 5353 cannot be bound (where it is
+    /// listened on), or when no interface can send.
     pub fn start() -> io::Result<Self> {
         let sockets = Sockets::open()?;
         let shared =
             Arc::new(Shared { sockets, state: Mutex::new(State::default()), stopping: AtomicBool::new(false) });
         let mut threads = Vec::new();
-        let count = 1 + shared.sockets.respond.len();
+        // The listening socket, when there is one, then each sending socket.
+        let listening = usize::from(shared.sockets.listen.is_some());
+        let count = listening + shared.sockets.respond.len();
         for index in 0..count {
             let receiving = shared.clone();
             let spawned = thread::Builder::new().name("mdns_receive".into()).spawn(move || {
                 let shared = receiving;
-                let socket = if index == 0 { &shared.sockets.listen } else { &shared.sockets.respond[index - 1].1 };
+                let socket = match (&shared.sockets.listen, index) {
+                    (Some(listen), 0) => listen,
+                    _ => &shared.sockets.respond[index - listening].1,
+                };
                 let mut buffer = vec![0u8; MAX_PACKET];
                 while !shared.stopping.load(Ordering::SeqCst) {
                     if let Ok((size, from)) = socket.recv_from(&mut buffer) {
@@ -790,6 +855,8 @@ impl Mdns {
             due += gap;
             state.pending.push(Pending { due, message: announcement.clone() });
         }
+        // The repeated announcements of all services start after these.
+        state.announced = Some(due);
         drop(state);
         self.shared.tick();
     }
@@ -871,7 +938,13 @@ mod tests {
     use super::*;
 
     fn a_record(index: u32, ttl: u32) -> Record {
-        Record { name: format!("host-{index}.local."), rtype: TYPE_A, class: CLASS_IN, ttl, data: RData::A(Ipv4Addr::from(index)) }
+        Record {
+            name: format!("host-{index}.local."),
+            rtype: TYPE_A,
+            class: CLASS_IN,
+            ttl,
+            data: RData::A(Ipv4Addr::from(index)),
+        }
     }
 
     #[test]
@@ -905,30 +978,78 @@ mod tests {
     /// An endpoint whose sockets are on loopback only: these tests open nothing on the network
     /// (and so raise no firewall question on Windows).
     fn shared_on_loopback() -> Shared {
-        let sockets = Sockets {
-            listen: UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).unwrap(),
-            respond: Vec::new(),
-            own: Mutex::new((Instant::now(), Vec::new())),
-        };
+        shared_with(Some(UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).unwrap()))
+    }
+
+    fn shared_with(listen: Option<UdpSocket>) -> Shared {
+        let sockets = Sockets { listen, respond: Vec::new(), own: Mutex::new((Instant::now(), Vec::new())) };
         Shared { sockets, state: Mutex::new(State::default()), stopping: AtomicBool::new(false) }
     }
 
     #[test]
     fn every_packet_sent_stays_on_this_pc() {
-        // #559: the announcements went out on every network the PC was on.
-        let Some(socket) = sending_socket(Ipv4Addr::LOCALHOST) else {
-            eprintln!("mDNS is not available here; skipped");
-            return;
+        // #559: the announcements went out on every network the PC was on. Both kinds of sending
+        // socket (#442).
+        for on_mdns_port in [true, false] {
+            let Some(socket) = sending_socket(Ipv4Addr::LOCALHOST, on_mdns_port) else {
+                eprintln!("mDNS is not available here; skipped");
+                return;
+            };
+            assert_eq!(socket.multicast_ttl_v4().unwrap(), MULTICAST_TTL);
+            assert!(socket.multicast_loop_v4().unwrap(), "this PC's own members still hear it");
+        }
+    }
+
+    #[test]
+    fn without_the_mdns_port_a_socket_only_sends_from_a_port_the_os_picked() {
+        // #442: Windows asks about a program that receives on an address other than loopback; a
+        // socket on 0.0.0.0 with a port the OS picks is not asked about.
+        let socket = sending_socket(Ipv4Addr::LOCALHOST, false).expect("a sending socket");
+        let address = socket.local_addr().unwrap();
+        assert!(address.ip().is_unspecified());
+        assert_ne!(address.port(), MDNS_PORT);
+        assert_eq!(LISTENS_ON_MDNS_PORT, !cfg!(windows));
+    }
+
+    #[test]
+    fn without_the_mdns_port_services_are_announced_again_and_browsing_asks_often() {
+        // #442: neither VRChat's question nor its announcements are heard there.
+        let spec = ServiceSpec {
+            service_type: "_oscjson._tcp.local.".into(),
+            instance: "VRCT:test._oscjson._tcp.local.".into(),
+            host: "VRCT:test.oscjson.local.".into(),
+            port: 4321,
+            txt: vec![],
+            address: Ipv4Addr::LOCALHOST,
         };
-        assert_eq!(socket.multicast_ttl_v4().unwrap(), MULTICAST_TTL);
-        assert!(socket.multicast_loop_v4().unwrap(), "this PC's own members still hear it");
+        for (listen, announces, limit) in [
+            (None, true, BROWSE_UNHEARD_LIMIT),
+            (Some(UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).unwrap()), false, BROWSE_LIMIT),
+        ] {
+            let shared = shared_with(listen);
+            {
+                let mut state = shared.state();
+                state.services.push(spec.clone());
+                state.announced = Some(Instant::now() - REANNOUNCE_EVERY);
+                state.browsing.push(Browse {
+                    service_type: spec.service_type.clone(),
+                    next: Instant::now(),
+                    interval: Duration::from_secs(4),
+                });
+            }
+            shared.tick();
+            let state = shared.state();
+            let announced_now = state.announced.is_some_and(|last| last.elapsed() < Duration::from_secs(1));
+            assert_eq!(announced_now, announces);
+            assert_eq!(state.browsing[0].interval, Duration::from_secs(8).min(limit));
+        }
     }
 
     #[test]
     fn a_packet_from_another_machine_is_ignored() {
         let shared = shared_on_loopback();
         let answer = encode(&Message { flags: FLAGS_RESPONSE, answers: vec![a_record(7, 120)], ..Default::default() });
-        let via = &shared.sockets.listen;
+        let via = shared.sockets.listen.as_ref().unwrap();
         // TEST-NET-1 (RFC 5737) is never one of the PC's own addresses.
         shared.handle(&answer, SocketAddr::new(Ipv4Addr::new(192, 0, 2, 7).into(), MDNS_PORT), via);
         assert!(shared.state().cache.is_empty(), "a record from the network was learnt");
@@ -951,7 +1072,7 @@ mod tests {
         let asker = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
         asker.set_read_timeout(Some(Duration::from_secs(2))).unwrap();
         let query = encode(&ptr_query("_oscjson._tcp.local."));
-        shared.handle(&query, asker.local_addr().unwrap(), &shared.sockets.listen);
+        shared.handle(&query, asker.local_addr().unwrap(), shared.sockets.listen.as_ref().unwrap());
         let mut buffer = [0u8; MAX_PACKET];
         let (size, _) = asker.recv_from(&mut buffer).expect("an answer");
         let reply = decode(&buffer[..size]).unwrap();
