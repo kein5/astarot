@@ -1,15 +1,15 @@
 {
-  "version": "0.5.2",
-  "notes": "https://github.com/kein5/astarot/releases/tag/v0.5.2",
-  "pub_date": "2026-11-18T09:49:56Z",
+  "version": "0.6.0-beta.1",
+  "notes": "https://github.com/kein5/astarot/releases/tag/v0.6.0-beta.1",
+  "pub_date": "2026-11-21T19:34:17Z",
   "platforms": {
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRTFVaOWNib040RVNLVWRUZitCbkMwMWF3UUJ1RFFzUjk0ZW1jZ0hMRG5FVVYxVlN4NldkZXNOcG0vcUttNXdHQXE1b0ZQMVpiWGo2bzl0M1V2UTVhLzExSk44MUN4RVFzPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzk0OTk1Mzk1CWZpbGU6VlJDVC1WT1hfc2V0dXAuZXhlCXZlcnNpb246MC41LjIKU2lHNVJRSmNRaVY4aVFzSTl0K2lQOVpOaFNQRzUxNERuamJqaUxCWlRuWk5Ua1lNeTNyTkxEbjRkaFhUYWR3bVBUMjlyT2l0V05Wa21ZOUtWZGNWRFE9PQo=",
-      "url": "https://github.com/kein5/astarot/releases/download/v0.5.2/VRCT-VOX_setup.exe"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRTFVaOWNib040RWRGSG9JU1NDNUpPQjNKUUF3dFI5OE9TL3pTMmhCc1BNMzJwenh3WndNUXVQSHVnRjRPZ0tzM2lyZ2duaEZVZXkxYTg5cXllMnVZaHViWlZPUHJoTkFBPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzk1Mjg5NjU2CWZpbGU6VlJDVC1WT1hfc2V0dXAuZXhlCXZlcnNpb246MC42LjAtYmV0YS4xCjBOVTVaMkpOZitxYzVUaXNjd2w2QnFVWDRxalZRczFtMFR3RGlLRTlEVVdFWFpOakdhWjdvVlkyTmxVamQwYjJVWFBYOVg1Z3JuejBObkR3TVQweUNRPT0K",
+      "url": "https://github.com/kein5/astarot/releases/download/v0.6.0-beta.1/VRCT-VOX_setup.exe"
     },
     "linux-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRTFVaOWNib040RVh5QjN4ZXNMQnBtd2d6dlZXa1NCaDA5NFJJWkVDTFhqQzNnRHVMYU1ieWxOSUt2S3B2dmtLSTVLMUV1NzM3WmNiRUt3NXl5Ti9qb3RKS1BxTm5nVlFRPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzk0OTk1Mzk1CWZpbGU6VlJDVC1WT1gtMC41LjItbGludXgteDY0LXJlbGVhc2UuQXBwSW1hZ2UJdmVyc2lvbjowLjUuMgpWZVFtT1h5aXJ0SU93QThKVkxrdEtwdHFlMzZGSXJORHpmTUlXY3poRHM3UXlEZnRyaVVDb1dDQzZYektsMGNFWUcvK1JqNFlhQmoyVldjQVAxeFdEdz09Cg==",
-      "url": "https://github.com/kein5/astarot/releases/download/v0.5.2/VRCT-VOX-0.5.2-linux-x64-release.AppImage"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRTFVaOWNib040RWZaUWMyaERmOS9mdWkxcUNLN0lxK0MwaVh0OFRkRTV5N0xnbWZ1bGFQVHBlRUV6QWlhTVZMNTE0NTMxVWFtd3dIcEIyK085Y2szOFM0YXZWYjdBVGc4PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzk1Mjg5NjU2CWZpbGU6VlJDVC1WT1gtMC42LjAtYmV0YS4xLWxpbnV4LXg2NC1yZWxlYXNlLkFwcEltYWdlCXZlcnNpb246MC42LjAtYmV0YS4xCnM5UVRQSjZoVFNOZUhwQkJZU1lXUDZKK0JFeW9MZm40ZHU5eHlSU3B5SVpvRXY2YjR4Y282ZDMwbGlVVWJ3UUJKZVVjMU5NdWozTGNHUFdLcTdMWUR3PT0K",
+      "url": "https://github.com/kein5/astarot/releases/download/v0.6.0-beta.1/VRCT-VOX-0.6.0-beta.1-linux-x64-release.AppImage"
     }
   }
 }
