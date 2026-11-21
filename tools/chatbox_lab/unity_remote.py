@@ -31,7 +31,7 @@ def main():
     FOLDER.mkdir(parents=True, exist_ok=True)
     result = FOLDER / 'result.json'
     result.unlink(missing_ok=True)
-    (FOLDER / 'command').write_text(args.command)
+    (FOLDER / 'command').write_text(args.command, encoding='utf-8')
     end = time.monotonic() + args.timeout
     while time.monotonic() < end:
         if result.is_file():

@@ -149,7 +149,7 @@ def main():
     parser.add_argument("--version")
     parser.add_argument("--asset", type=Path, action="append", default=[])
     args = parser.parse_args()
-    version = args.version or json.loads((ROOT / "package.json").read_text())["version"]
+    version = args.version or json.loads((ROOT / "package.json").read_text(encoding="utf-8"))["version"]
     if args.command == "stage":
         result = stage(args.directory, args.asset, args.platform, args.commit, version)
     else:

@@ -61,7 +61,7 @@ def _asset(value):
 
 def load_manifest(path=DEFAULT_MANIFEST):
     try:
-        value = json.loads(Path(path).read_text())
+        value = json.loads(Path(path).read_text(encoding='utf-8'))
         _require(type(value['schema']) is int and value['schema'] == 1)
         _require(value['component'] == 'speech.cpp' and value['version'] == VERSION)
         _require(value['source_commit'] == COMMIT)
@@ -177,7 +177,7 @@ def stage_bundle(archive, output, asset, *, notice_root=NOTICES):
         result = dict(schema=1, component='speech.cpp', version=VERSION, source_commit=COMMIT,
             variant=asset['id'], archive={k: asset[k] for k in ('name', 'size', 'sha256', 'url')},
             files=[dict(path=path, **_record(output/path)) for path in sorted(inventory(asset['id']))])
-        with (output/'bundle.json').open('x') as out:
+        with (output/'bundle.json').open('x', encoding='utf-8') as out:
             json.dump(result, out, indent=2)
             out.write('\n')
         verify_bundle(output)
@@ -200,7 +200,7 @@ def verify_bundle(root):
     _require(stat.S_ISREG((root/'bundle.json').lstat().st_mode), 'inventory')
     _require((root/'bundle.json').stat().st_size <= 64*1024, 'inventory')
     try:
-        value = json.loads((root/'bundle.json').read_text())
+        value = json.loads((root/'bundle.json').read_text(encoding='utf-8'))
         _require(type(value['schema']) is int and value['schema'] == 1, 'inventory')
         _require(value['component'] == 'speech.cpp' and value['version'] == VERSION
                  and value['source_commit'] == COMMIT, 'inventory')
@@ -227,7 +227,7 @@ def replaceable(root):
     if root.is_symlink() or not root.is_dir():
         return False
     try:
-        value = json.loads((root/'bundle.json').read_text())
+        value = json.loads((root/'bundle.json').read_text(encoding='utf-8'))
     except (OSError, ValueError):
         return False
     if not isinstance(value, dict) or value.get('component') != 'speech.cpp':
