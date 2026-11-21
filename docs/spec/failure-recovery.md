@@ -62,7 +62,7 @@ RVC の worker が読む ONNX Runtime と 2 つのネットワーク、アプリ
 |---|---|---|---|
 | 開始の要求 | — | 同意と版の一致がなければ、何も取得しない | `the_rvc_runtime_is_set_up_only_after_consent_and_checked_by_the_worker` |
 | 取得 | `<名前>.part` に書き、大きさと SHA-256 を確かめてから名前を変える | 公開しない。合わないファイルは消す。容量不足は取得の前と書いている途中の両方で `vc_runtime_space` | `a_failed_runtime_setup_names_its_step` |
-| ライブラリ | `lib.part` に展開し終えてから、前の `lib` を `lib.previous` に移し、新しい `lib` を置き、前のものを消す | 新しいものを置けなければ前の `lib` を戻す。Windows で前のライブラリが使用中（変換中の worker、アプリが読み込んだ ONNX Runtime）なら、何も消さずに `vc_runtime_libraries_failed` | `a_repair_puts_the_new_libraries_in_place_of_the_old_ones` |
+| ライブラリ | `lib.part` に展開し終えてから、前の `lib` を `lib.previous` に移し、新しい `lib` を置き、前のものを消す | 新しいものを置けなければ前の `lib` を戻す。どちらの場合も、展開した記録（`lib.part/.archives.json`）は残すので、もう一度開始すると取得し直さずに置き換える。Windows で前のライブラリが使用中（変換中の worker、翻訳の llama.cpp のサーバー）なら、何も消さずに `vc_runtime_in_use`。アプリが翻訳のために読み込んだ ONNX Runtime を持つ実行環境は、Windows ではアプリが動いている間は置き換えられないので、何も取得する前に `vc_runtime_loaded` で断る（#880） | `a_repair_puts_the_new_libraries_in_place_of_the_old_ones`、`a_repair_of_libraries_the_app_has_loaded_is_refused_before_anything_is_fetched`、`a_repair_that_could_not_swap_the_libraries_resumes_without_fetching_them_again`（Unix）、`a_repair_the_old_libraries_hold_up_says_they_are_in_use_and_keeps_them`（Windows） |
 | 確認（worker か llama.cpp が実際に読み込む） | すべての段階が終わってから `receipt.json` を一時ファイルと置き換えで書く | `vc_runtime_check_failed`。受領書を書かないので、使えるものとして扱わない | `a_failed_runtime_setup_names_its_step` |
 | 途中で止まった後 | 終わった段階（`.steps.json`、`lib.part/.archives.json`）から続ける。2 つの名前の変更のあいだで止まったときは、起動のときに前の `lib` を戻す | 受領書が読めない、または受領書にあるファイルが欠けていれば、使えるものとして扱わない | `libraries_a_stopped_repair_moved_aside_come_back_at_start` |
 

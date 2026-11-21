@@ -349,6 +349,10 @@ impl Voice {
             worker: platform.rvc_worker(&app_dir),
             free_space: Arc::new(|path: &Path| vrct_ops::downloads::free_space(path).ok()),
             entries: platform.runtime_entries(),
+            loaded: {
+                let platform = platform.clone();
+                Arc::new(move || platform.loaded_libraries())
+            },
         });
         let voice = Arc::new(Voice {
             core: weak,

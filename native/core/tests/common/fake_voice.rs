@@ -47,6 +47,8 @@ struct Inner {
     passthrough: Mutex<Vec<Option<String>>>,
     captures: Mutex<usize>,
     entries: Mutex<Option<Vec<Runtime>>>,
+    /// The libraries the app is taken to have loaded (`set_loaded`).
+    loaded: Mutex<Vec<PathBuf>>,
     /// No capture for a conversion on the managed route (a Linux build without PipeWire).
     no_managed_vc: AtomicBool,
     /// How the monitor's device fails.
@@ -125,6 +127,11 @@ impl FakeVoice {
     /// What the runtime setup offers, in place of the pinned runtime (before the start).
     pub fn set_runtime(&self, runtime: Runtime) {
         *self.0.entries.lock().unwrap() = Some(vec![runtime]);
+    }
+
+    /// The libraries the app is taken to have loaded (its ONNX Runtime).
+    pub fn set_loaded(&self, libraries: Vec<std::path::PathBuf>) {
+        *self.0.loaded.lock().unwrap() = libraries;
     }
 
     pub fn passthrough_starts(&self) -> Vec<Option<String>> {
@@ -434,5 +441,8 @@ impl VoicePlatform for FakeVoice {
     }
     fn runtime_entries(&self) -> Option<Vec<Runtime>> {
         self.0.entries.lock().unwrap().clone()
+    }
+    fn loaded_libraries(&self) -> Vec<std::path::PathBuf> {
+        self.0.loaded.lock().unwrap().clone()
     }
 }

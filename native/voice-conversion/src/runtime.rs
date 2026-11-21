@@ -710,6 +710,9 @@ pub struct SetupOptions {
     pub free_space: Arc<dyn Fn(&Path) -> Option<u64> + Send + Sync>,
     /// What is offered in place of the pinned runtime (tests).
     pub entries: Option<Vec<Runtime>>,
+    /// The libraries this process has loaded: the app's ONNX Runtime, which may be a runtime's
+    /// own (#880). On Windows a loaded library keeps its folder in place until the app exits.
+    pub loaded: Arc<dyn Fn() -> Vec<PathBuf> + Send + Sync>,
 }
 
 #[derive(Debug)]
@@ -1056,7 +1059,15 @@ impl Shared {
     fn libraries(&self, runtime: &Runtime, cancel: &AtomicBool) -> Result<(), StepError> {
         let folder = self.folder(runtime);
         let (staging, target, downloads) = (folder.join("lib.part"), folder.join("lib"), folder.join("downloads"));
-        let record = staging.join(".archives.json");
+        let record = staging.join(ARCHIVE_RECORD);
+        // On Windows the app's own ONNX Runtime keeps its folder for as long as the app runs, so
+        // nothing fetched could take its place: said before anything is fetched (#880).
+        if self.options.target == Some(Target::Windows)
+            && target.is_dir()
+            && (self.options.loaded)().iter().any(|library| library.starts_with(&target))
+        {
+            return Err(StepError::Code("loaded"));
+        }
         let total: u64 = runtime.libraries.iter().map(|l| l.size).sum();
         self.update(runtime.id, |job| {
             job.insert("total_bytes".into(), json!(total));
@@ -1082,8 +1093,13 @@ impl Shared {
             done.push(library.sha256.clone());
             fs::write(&record, serde_json::to_string(&done).expect("strings serialize"))?;
         }
-        fs::remove_file(&record)?;
-        swap_in(&staging, &target)?;
+        swap_in(&staging, &target).map_err(|error| match error {
+            SwapError::InUse => StepError::Code("in_use"),
+            SwapError::Io(error) => StepError::Io(error),
+        })?;
+        // The record of the unpacked archives stays until the new libraries are in place, so a
+        // repair the old ones held up resumes without fetching them again (#880).
+        let _ = fs::remove_file(target.join(ARCHIVE_RECORD));
         let _ = fs::remove_dir_all(&downloads);
         Ok(())
     }
@@ -1273,6 +1289,9 @@ impl Shared {
                 let code = match &error {
                     StepError::Code("download_busy") => "vc_runtime_busy",
                     StepError::Code("space") => "vc_runtime_space",
+                    // The earlier libraries are still in place and usable (#880).
+                    StepError::Code("in_use") => "vc_runtime_in_use",
+                    StepError::Code("loaded") => "vc_runtime_loaded",
                     StepError::Io(error) if is_disk_full(error) => "vc_runtime_space",
                     _ if step == "libraries" => "vc_runtime_libraries_failed",
                     _ if step == "assets" => "vc_runtime_assets_failed",
@@ -1295,25 +1314,46 @@ impl Shared {
 /// Where a repair moves the libraries it replaces until the new ones are in place.
 const PREVIOUS_LIBRARIES: &str = "lib.previous";
 
+/// The archives already unpacked into `lib.part`, by SHA-256, so a stopped step resumes.
+const ARCHIVE_RECORD: &str = ".archives.json";
+
+/// Why [`swap_in`] did not put the new libraries in place. Either way the earlier ones are
+/// still there.
+#[derive(Debug)]
+enum SwapError {
+    /// Something has the earlier libraries loaded, so their folder could not be moved aside:
+    /// the RVC worker during a conversion, the translation's llama.cpp server, or this process
+    /// (Windows only).
+    InUse,
+    Io(std::io::Error),
+}
+
+/// Whether a rename failed because a file under the folder is open: Windows refuses to move a
+/// folder that holds a loaded library (`ERROR_ACCESS_DENIED`, `ERROR_SHARING_VIOLATION`,
+/// `ERROR_LOCK_VIOLATION`). Elsewhere a folder moves with its files open.
+fn held_open(error: &std::io::Error) -> bool {
+    cfg!(windows) && matches!(error.raw_os_error(), Some(5 | 32 | 33))
+}
+
 /// Puts `staging` in the place of `target` without removing the libraries there first: the old
 /// folder is renamed aside, the new one renamed in, and only then the old one removed. On
 /// Windows a loaded library (the RVC worker's, or the app's own ONNX Runtime) keeps its folder
 /// from being renamed, so the swap fails before anything is removed and the runtime set up
 /// before stays as it was (#517).
-fn swap_in(staging: &Path, target: &Path) -> std::io::Result<()> {
+fn swap_in(staging: &Path, target: &Path) -> Result<(), SwapError> {
     let previous = target.with_file_name(PREVIOUS_LIBRARIES);
     if previous.exists() {
-        fs::remove_dir_all(&previous)?;
+        fs::remove_dir_all(&previous).map_err(SwapError::Io)?;
     }
     let had = target.exists();
     if had {
-        fs::rename(target, &previous)?;
+        fs::rename(target, &previous).map_err(|error| if held_open(&error) { SwapError::InUse } else { SwapError::Io(error) })?;
     }
     if let Err(error) = fs::rename(staging, target) {
         if had {
             let _ = fs::rename(&previous, target);
         }
-        return Err(error);
+        return Err(SwapError::Io(error));
     }
     if had {
         let _ = fs::remove_dir_all(&previous);
@@ -1531,6 +1571,7 @@ mod tests {
             worker: PathBuf::new(),
             free_space: Arc::new(|_| None),
             entries: Some(vec![runtime.clone()]),
+            loaded: Arc::new(Vec::new),
         });
         let folder = dir.path().join("rvc");
         if let Some(kept) = std::env::var_os("ASTAROT_TEST_RVC_DOWNLOADS") {
@@ -1588,6 +1629,7 @@ mod tests {
             worker: worker.clone().unwrap_or_default(),
             free_space: Arc::new(|_| None),
             entries: Some(vec![runtime.clone()]),
+            loaded: Arc::new(Vec::new),
         });
         let cancel = AtomicBool::new(false);
         setup.shared.libraries(&runtime, &cancel).expect("fetched, checked and unpacked");
@@ -1641,6 +1683,7 @@ mod tests {
             worker: dir.path().join("no-worker"),
             free_space: Arc::new(|_| None),
             entries: Some(vec![llamacpp_runtime(target)]),
+            loaded: Arc::new(Vec::new),
         });
         for runtime in [llamacpp_runtime(target)] {
             let version = version_of(&runtime);
@@ -1670,6 +1713,7 @@ mod tests {
             worker: root.join("no-worker"),
             free_space: Arc::new(|_| None),
             entries: None,
+            loaded: Arc::new(Vec::new),
         })
     }
 
