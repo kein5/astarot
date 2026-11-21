@@ -59,7 +59,9 @@ export const point = style({
         '&[data-pending="true"]': { opacity: 0.5 },
         // Its main switch is greyed out: a broken outline, not a filled one (#562).
         '&[data-blocked="true"]': { strokeDasharray: "4 4", opacity: 0.6 },
-        '&[data-docked="true"]:not([data-on="true"])': { stroke: "#ffffff", fill: "rgba(227, 221, 233, 0.22)", strokeWidth: 3.2 },
+        // Docked out: white and a little wider, on or off (the outline of one that is on is `outline`).
+        '&[data-docked="true"]': { strokeWidth: 3.2 },
+        '&[data-docked="true"]:not([data-on="true"])': { stroke: "#ffffff", fill: "rgba(227, 221, 233, 0.22)" },
         // Turned beyond the edge: half off the screen, not one to aim at.
         '&[data-shown="false"]': { opacity: 0.35, pointerEvents: "none" },
     },
@@ -71,10 +73,10 @@ export const point = style({
 // takes no pointer: the triangle under it does. A switch that is off draws none here.
 export const outline = style({
     fill: "none", stroke: "transparent", strokeWidth: 2.4, strokeLinejoin: "round", pointerEvents: "none",
-    transition: "stroke .15s, opacity .15s",
+    transition: "stroke .15s, stroke-width .15s, opacity .15s",
     selectors: {
         '&[data-on="true"]': { stroke: ON },
-        '&[data-on="true"][data-docked="true"]': { stroke: "#ffffff" },
+        '&[data-on="true"][data-docked="true"]': { stroke: "#ffffff", strokeWidth: 3.2 },
         '&[data-pending="true"]': { opacity: 0.5 },
         '&[data-blocked="true"]': { strokeDasharray: "4 4", opacity: 0.6 },
         '&[data-shown="false"]': { opacity: 0.35 },

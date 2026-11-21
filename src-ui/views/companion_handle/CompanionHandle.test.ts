@@ -118,7 +118,10 @@ test("a switch that is on turns its triangle and its icon Lilac, its outline as 
     // as wide as an outline that is off.
     assert.match(rules("point"), /'&\[data-on="true"\]': \{ fill: ON_TINT, stroke: "transparent" \}/);
     assert.match(rules("outline"), /fill: "none", stroke: "transparent", strokeWidth: 2\.4, strokeLinejoin: "round", pointerEvents: "none"/);
-    assert.doesNotMatch(rules("point") + rules("outline"), /'&\[data-on="true"\][^']*': \{[^}]*strokeWidth/, "an outline that is on is not wider");
+    assert.doesNotMatch(rules("point") + rules("outline"), /'&\[data-on="true"\]': \{[^}]*strokeWidth/, "an outline that is on is not wider");
+    // Docked out, it is as wide on as off.
+    assert.match(rules("point"), /'&\[data-docked="true"\]': \{ strokeWidth: 3\.2 \}/);
+    assert.match(rules("outline"), /'&\[data-on="true"\]\[data-docked="true"\]': \{ stroke: "#ffffff", strokeWidth: 3\.2 \}/);
     assert.match(rules("outline"), /'&\[data-on="true"\]': \{ stroke: ON \}/);
     assert.match(rules("icon"), /fill: OFF_WHITE, color: OFF_WHITE/);
     assert.match(rules("icon"), /'&\[data-on="true"\]': \{ fill: ON, color: ON \}/);
