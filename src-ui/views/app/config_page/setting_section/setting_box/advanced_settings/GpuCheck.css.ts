@@ -18,6 +18,12 @@ export const description = style({
     margin: 0,
 });
 
+// The line that says what the check does now (or how it ended) keeps one line of the text while it
+// says nothing, so the page under it does not move when the check starts (#912).
+export const status = style({
+    minHeight: "calc(1.4rem * 1.6)",
+});
+
 export const actions = style({
     display: "flex",
     flexWrap: "wrap",

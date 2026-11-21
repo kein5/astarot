@@ -54,6 +54,15 @@ test("it runs only on the user's press, and can be stopped while it runs", async
     assert.deepEqual(running.calls, ["stop"]);
     const status = find(tree, node => node.props?.role === "status");
     assert.ok(find(status, node => node.props?.children === key("step_tts")));
+    // #912: the status keeps one line of the text while it says nothing, so the page under it does
+    // not move when the check starts.
+    const idleStatus = find(idle.render(), node => node.props?.role === "status");
+    assert.equal(idleStatus?.props.className, "status");
+    assert.equal(status?.props.className, "status");
+    const { readFileSync } = await import("node:fs");
+    const css = readFileSync(new URL("./GpuCheck.css.ts", import.meta.url), "utf8");
+    const [, size, line] = /fontSize: "([\d.]+)rem",\s*lineHeight: ([\d.]+),/.exec(css) ?? [];
+    assert.match(css, new RegExp(`status = style\\(\\{\\s*minHeight: "calc\\(${size}rem \\* ${line}\\)",`));
 });
 
 test("the whole report is shown before it is copied or sent, and the issue carries it", async () => {
