@@ -31,18 +31,32 @@ test("what is sent is asked for when the user opens it, not before", async conte
     assert.equal(s.tree.type, "fold");
     assert.equal(s.tree.props.size, undefined);
     assert.equal(s.tree.props.summary, "telemetry_contents.show");
+    // The fold says that its contents are asked for as it opens (the layout test leaves it to the user).
+    assert.equal(s.tree.props["data-asks-on-open"], true);
     assert.deepEqual(s.asked, []);
     s.tree.props.onToggle({ currentTarget: { open: true } });
     assert.deepEqual(s.asked, [true]);
     // Closing it asks for nothing.
     s.tree.props.onToggle({ currentTarget: { open: false } });
     assert.deepEqual(s.asked, [true]);
-    // Until the answer comes there is a status, not an empty box.
+    // Until the answer comes, a screen reader hears that it is asked for, and the contents are drawn
+    // with the fields every event carries and no values, so the opened fold does not grow by
+    // them when the answer comes (#912).
+    const always = ["event", "v", "timestamp", "app_version", "os", "os_version", "locale"];
     for (const preview of [{ state: "ok", data: null }, { state: "pending", data: null }, { state: "pending", data: {} }]) {
-        const waiting = await setup(context, preview);
-        assert.equal(text(find(waiting.tree, node => node.props?.role === "status")), "telemetry_contents.loading");
-        assert.equal(find(waiting.tree, node => node.type === "dl"), null);
+        const waiting = await setup(context, preview, { with_sent: true });
+        const status = findIn(waiting.tree, node => node.props?.role === "status");
+        assert.deepEqual([text(status), status.props.className], ["telemetry_contents.loading", "hidden"]);
+        const list = findIn(waiting.tree, node => node.type === "dl");
+        assert.equal(list.props["aria-busy"], true);
+        assert.deepEqual(all(list, node => node.type === "dt").map(text), always.map(key => `telemetry_contents.fields.${key}`));
+        assert.deepEqual(all(list, node => node.type === "dd").map(text), always.map(() => "…"));
+        // The data itself and what was sent are not known yet either.
+        assert.equal(text(find(waiting.tree, node => node.type === "pre")), "…");
+        assert.deepEqual(all(findIn(waiting.tree, node => node.type === "section"), node => node.type === "p").map(text), ["…"]);
     }
+    // The fields every event carries come first in every event, in that order.
+    assert.deepEqual(rows.telemetryRows(EVENT, key => key).slice(0, always.length).map(row => row.key), always);
     const failed = await setup(context, { state: "ok", data: { endpoint: null, sent: [] } });
     assert.equal(text(find(failed.tree, node => node.props?.role === "status")), "telemetry_contents.unavailable");
 });
