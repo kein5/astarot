@@ -37,6 +37,15 @@ async function form(context: TestContext, models: UserModel[]) {
     return { state, sent, render, inputs, type, submit };
 }
 
+test("a form's problem is said under its button, so the button stays under the pointer (#912)", async context => {
+    const s = await form(context, []);
+    s.submit();
+    const nodes = nodesIn(s.render());
+    const button = nodes.findIndex(node => node.type === "button"), alert = nodes.findIndex(node => node.props?.role === "alert");
+    assert.ok(button >= 0 && alert > button, `the problem (${alert}) after the button (${button})`);
+    assert.deepEqual(s.sent, [], "nothing sent without a name");
+});
+
 test("a name already registered is refused without clearing what was typed", async context => {
     const s = await form(context, [model("old", "Voice")]);
     s.type(0, "Voice");

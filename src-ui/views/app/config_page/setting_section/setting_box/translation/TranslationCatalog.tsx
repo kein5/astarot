@@ -244,10 +244,11 @@ const EngineForm = ({ runtimes }: { runtimes: readonly string[] }) => {
                 <input type="text" value={form.languages} maxLength={4096} disabled={busy} spellCheck={false}
                     placeholder={t("translation_catalog.placeholder.languages")} onChange={set("languages")} />
             </label>
-            {problem && <p id={`${id}-problem`} role="alert">{t(`translation_catalog.problem.${problem}`)}</p>}
             <div className={`${styles.actions} ${styles.control_column}`}>
                 <button type="button" disabled={busy || runtimes.length === 0} onClick={submit}>{t("translation_catalog.add_do")}</button>
             </div>
+            {/* The problem is said under the button, so the button stays under the pointer when it appears (#912). */}
+            {problem && <p id={`${id}-problem`} role="alert">{t(`translation_catalog.problem.${problem}`)}</p>}
         </div>
     </Fold>;
 };
@@ -298,10 +299,11 @@ const ApiForm = ({ protocols }: { protocols: readonly string[] }) => {
                 <input type="password" value={form.auth_key} disabled={busy} autoComplete="off" spellCheck={false}
                     aria-describedby={problem ? `${id}-problem` : undefined} onChange={set("auth_key")} />
             </label>
-            {problem && <p id={`${id}-problem`} role="alert">{t(`translation_catalog.problem.${problem}`)}</p>}
             <div className={`${styles.actions} ${styles.control_column}`}>
                 <button type="button" disabled={busy} onClick={submit}>{t("translation_catalog.add_do")}</button>
             </div>
+            {/* The problem is said under the button, so the button stays under the pointer when it appears (#912). */}
+            {problem && <p id={`${id}-problem`} role="alert">{t(`translation_catalog.problem.${problem}`)}</p>}
         </div>
     </Fold>;
 };

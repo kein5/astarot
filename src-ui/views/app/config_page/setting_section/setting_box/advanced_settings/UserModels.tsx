@@ -150,10 +150,11 @@ export const UserModelRegistration = ({ target, busy }: UserModelRegistrationPro
                     aria-describedby={problem ? `${id}-problem` : undefined}
                     onChange={event => setPaths(current => ({ ...current, [role]: event.target.value }))} />
             </label>)}
-            {problem && <p id={`${id}-problem`} role="alert">{t(`user_models.problem.${problem}`, { kind: kinds.find(([role]) => problem.startsWith(role))?.[1] ?? "" })}</p>}
             <div className={`${styles.actions} ${styles.control_column}`}>
                 <button type="button" disabled={busy} onClick={submit}>{t("user_models.register")}</button>
             </div>
+            {/* The problem is said under the button, so the button stays under the pointer when it appears (#912). */}
+            {problem && <p id={`${id}-problem`} role="alert">{t(`user_models.problem.${problem}`, { kind: kinds.find(([role]) => problem.startsWith(role))?.[1] ?? "" })}</p>}
         </div>
     </Fold>;
 };
