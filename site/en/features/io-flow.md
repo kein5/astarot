@@ -23,6 +23,8 @@ Under the graph, a timeline for each of your voice and chat shows the latest mes
 
 While the microphone is off, the graph still shows where your voice would go once it is on. In a narrow window the graph scrolls sideways.
 
+The panel also shows the GPU memory (VRAM) in use: what ASTAROT uses, split into speech recognition and speech, the voice changer, and the rest (translation, chat reading, the screens), beside the whole GPU's use. It is read every 2 seconds, only while the panel is open.
+
 ### What the times mean
 
 | Item | Meaning |
@@ -32,6 +34,7 @@ While the microphone is off, the graph still shows where your voice would go onc
 | Translation | How long translation took |
 | Handing to outputs | From the end of translation until the message was handed to the chatbox, captions and the rest |
 | Chatbox | When the message was sent to VRChat |
+| Speech synthesis | The part of the way to the first sound spent making the voice, on its own row before "Text to speech". |
 | Text to speech | When the first sound of speech was played. Through the voice changer, when it began going to the voice changer. |
 | Voice changer (guide) | The voice changer's round trip: the recent median, not this message's own time |
 

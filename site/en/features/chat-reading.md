@@ -6,6 +6,8 @@ route: chat-reading
 
 Reads the text of chatboxes shown on the VRChat screen, so it can be logged or translated. The settings are under Settings → "Chat reading (OCR)".
 
+A new installation starts with "Basic" under "Used for", which hides the switch and the settings page of chat reading. Show them with "Other features (N)" on the main screen, or choose a use under "Used for" at the top of the settings menu. Hidden pages can also be opened from the settings search ([First setup](../guide/first-setup)).
+
 ## What you need
 
 - The text recognition models: PaddleOCR's PP-OCR (Apache-2.0). They do not come with the app; download them from the settings ([Model downloads](../guide/models)). Models of your own cannot replace them.
@@ -22,7 +24,7 @@ Reads the text of chatboxes shown on the VRChat screen, so it can be logged or t
 
 ## Choose the source language
 
-"auto" reads Japanese, English, Chinese and Latin-script languages with one model. Hangul, Cyrillic, Thai, Arabic and Devanagari need a separate model: choose that script and download its model. Arabic is less accurate for now.
+"Automatic (Japanese, English, Chinese and Latin scripts)" reads Japanese, English, Chinese and Latin-script languages with one model. Hangul, Cyrillic, Thai, Arabic and Devanagari need a separate model: choose that script and download its model. Arabic is less accurate for now.
 
 ## Narrow where to read
 
@@ -42,7 +44,7 @@ With "Use the chatbox detector (recommended when installed)" on, ASTAROT's own d
 ## Supported environments
 
 - On Linux it captures the VRChat window through X11/XWayland. With Proton's defaults VRChat runs under XWayland, so this works as is. A native Wayland window is read after you share it (see below). While SteamVR runs, what the headset shows is read as well. This has only been checked against a simulated SteamVR, not with a real headset.
-- On Windows it captures the VRChat window and reads it.
+- On Windows it captures the VRChat window and reads it. While SteamVR runs, it switches by itself to what the headset shows as well. The headset's reading area is set under "SteamVR headset reading area" and kept apart from the window's.
 
 ## Share a native Wayland window (Linux)
 
