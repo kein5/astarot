@@ -14,10 +14,11 @@ export interface VirtualMicCheck {
 }
 
 // The virtual microphone guide and its check on Windows (#321).
-// notice: whether the guide may still open by itself at start-up (null: not known yet).
+// notice: the engine's VIRTUAL_MIC_NOTICE_PENDING as sent (null: not known yet). Since #943 the
+// guide never opens by itself, so nothing reads it to open the guide.
 // status: the cables found and the TTS output (null: not read yet).
 // check: the test tone's phase, its live level and its outcome.
-// opened: the guide was opened from the settings, whatever the notice says.
+// opened: the user opened the guide (the first-run setup's row or the TTS settings).
 const noticeAtom = atom<boolean | null>(null);
 const statusAtom = atom<VirtualMicStatus | null>(null);
 const IDLE: VirtualMicCheck = { phase: "idle", playback: null, level: 0, result: null, error: null };
@@ -63,11 +64,6 @@ export const useVirtualMic = () => {
     }, [atoms, setCheck, asyncStdoutToPython, failCheck]);
     const resetCheck = useCallback(() => setCheck(IDLE), [setCheck]);
 
-    // Finished, or "do not show again": it does not open by itself any more.
-    const dismissNotice = useCallback(() => {
-        setNotice(false);
-        return asyncStdoutToPython("/set/disable/virtual_mic_notice");
-    }, [setNotice, asyncStdoutToPython]);
     const openGuide = useCallback(() => setOpened(true), [setOpened]);
     const closeGuide = useCallback(() => { setOpened(false); setCheck(IDLE); }, [setOpened, setCheck]);
 
@@ -80,5 +76,5 @@ export const useVirtualMic = () => {
     const backendStopped = useCallback(() => failCheck("backend_unavailable"), [failCheck]);
 
     return { notice, status, check, opened, updateNotice, updateStatus, updateLevel, updateResult, failCheck,
-        refreshStatus, startCheck, resetCheck, dismissNotice, openGuide, closeGuide, reset, backendStopped };
+        refreshStatus, startCheck, resetCheck, openGuide, closeGuide, reset, backendStopped };
 };

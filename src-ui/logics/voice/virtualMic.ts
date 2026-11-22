@@ -83,8 +83,3 @@ export const deviceName = (identity: string): string => {
         return identity;
     }
 };
-
-// Whether the guide opens by itself at start-up: Windows, not yet finished or put away for
-// good, and no cable found. A list that could not be read does not count as "no cable".
-export const guideOpensByItself = (notice: unknown, status: VirtualMicStatus | null | undefined): boolean => notice === true && status?.supported === true
-    && status.error === null && status.cables.length === 0;
