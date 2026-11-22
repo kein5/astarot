@@ -98,16 +98,28 @@ pub const MODEL_DOWNLOAD_OWNER: Renamed = Renamed::moved("VRCT-VOX-model-downloa
 /// makes the same nodes. The virtual microphone's description is what VRChat lists.
 ///
 /// The core of 0.6.0 and earlier made the route under the VRCT spellings. While
-/// [`READS_LEGACY`](audio_route::READS_LEGACY) is on, the core retires the units it made under
-/// them, finds a hand-placed configuration under either file name, and keeps nodes and streams
-/// under either prefix out of the input lists (ADR-014, 2.11).
+/// [`READS_LEGACY_NAMES`](audio_route::READS_LEGACY_NAMES) is on, the core finds a hand-placed
+/// configuration under either file name, reports an old route that is not its own, and keeps
+/// nodes and streams under either prefix out of the input lists (ADR-014, 2.11). Retiring the
+/// units that core made goes on after that, for as long as
+/// [`RETIRES_LEGACY_UNITS`](audio_route::RETIRES_LEGACY_UNITS) is on.
 pub mod audio_route {
     use super::Renamed;
 
-    /// Whether this build still handles the route's VRCT spellings. ADR-014 reads them during
-    /// 0.6.x (2.11); the version that ends that period turns this off, and every reader of a
-    /// legacy spelling below goes through it.
-    pub const READS_LEGACY: bool = true;
+    /// Whether this build reads the route's VRCT spellings: nodes and streams under the old
+    /// prefixes stay out of the input lists, a hand-placed configuration under the old file name
+    /// stops the automatic setup, and an old route that is not the core's is reported. Decided on
+    /// 2026-11-23 (ADR-014, note on 2.11): they are read during the release series that first
+    /// ships the ASTAROT names (0.7.x when that is 0.7.0). The version after it turns this off;
+    /// every reader of a legacy spelling below goes through it.
+    pub const READS_LEGACY_NAMES: bool = true;
+
+    /// Whether the core retires the units 0.6.0 and earlier made under the old names. It stops
+    /// and removes only a unit identical to what that core wrote (`native/audio-routing`,
+    /// `pipewire::managed`), so it has no end (decided on 2026-11-23, ADR-014, note on 2.11): an
+    /// install that skips versions still loses the old virtual microphone. It stays on when
+    /// [`READS_LEGACY_NAMES`] goes off.
+    pub const RETIRES_LEGACY_UNITS: bool = true;
 
     /// The first part of every node of the route: `<prefix>source` (the virtual microphone),
     /// `<prefix>tts`, `<prefix>vc`, `<prefix>mix` and the loopbacks' outputs.
@@ -143,12 +155,12 @@ pub mod audio_route {
     pub const SETUP_LOCK: Renamed = Renamed::moved("vrct-managed-setup.lock", "astarot-managed-setup.lock");
 
     /// The spellings of `name` to read: the current one, and the legacy one while
-    /// [`READS_LEGACY`] is on.
+    /// [`READS_LEGACY_NAMES`] is on.
     pub fn read(name: Renamed) -> impl Iterator<Item = &'static str> {
-        read_with(name, READS_LEGACY)
+        read_with(name, READS_LEGACY_NAMES)
     }
 
-    /// [`read`], with `legacy` in place of [`READS_LEGACY`] (tests).
+    /// [`read`], with `legacy` in place of [`READS_LEGACY_NAMES`] (tests).
     pub fn read_with(name: Renamed, legacy: bool) -> impl Iterator<Item = &'static str> {
         std::iter::once(name.current()).chain(legacy.then_some(name.other()))
     }
@@ -157,10 +169,10 @@ pub mod audio_route {
     /// spelling read: such a node feeds the virtual microphone, so it is never an input to
     /// choose, a monitor to play to or a device to record.
     pub fn is_route_name(node: &str) -> bool {
-        is_route_name_with(node, READS_LEGACY)
+        is_route_name_with(node, READS_LEGACY_NAMES)
     }
 
-    /// [`is_route_name`], with `legacy` in place of [`READS_LEGACY`] (tests).
+    /// [`is_route_name`], with `legacy` in place of [`READS_LEGACY_NAMES`] (tests).
     pub fn is_route_name_with(node: &str, legacy: bool) -> bool {
         starts_with_any(node, &[NODE_PREFIX, BRIDGE_PREFIX], legacy)
     }
@@ -168,10 +180,10 @@ pub mod audio_route {
     /// Whether `node` is one of the app's own nodes or streams under a spelling read: the
     /// route's, the source bridge's, or a capture for recognition. Recognition never records it.
     pub fn is_own_name(node: &str) -> bool {
-        is_own_name_with(node, READS_LEGACY)
+        is_own_name_with(node, READS_LEGACY_NAMES)
     }
 
-    /// [`is_own_name`], with `legacy` in place of [`READS_LEGACY`] (tests).
+    /// [`is_own_name`], with `legacy` in place of [`READS_LEGACY_NAMES`] (tests).
     pub fn is_own_name_with(node: &str, legacy: bool) -> bool {
         starts_with_any(node, &[NODE_PREFIX, BRIDGE_PREFIX, ASR_CAPTURE_PREFIX], legacy)
     }
@@ -457,10 +469,10 @@ mod tests {
             assert_eq!(audio_route::is_own_name_with("vrct.asr.capture.speaker", legacy), legacy);
             assert!(!audio_route::is_own_name_with("alsa_output.headphones", legacy));
         }
-        assert_eq!(audio_route::is_route_name("vrct.managed.mix"), audio_route::READS_LEGACY);
+        assert_eq!(audio_route::is_route_name("vrct.managed.mix"), audio_route::READS_LEGACY_NAMES);
         let markers: Vec<&str> = audio_route::markers().collect();
         assert!(markers.contains(&"astarot.managed.route") && markers.contains(&"astarot.source.bridge"));
-        assert_eq!(markers.contains(&"vrct.managed.route"), audio_route::READS_LEGACY);
+        assert_eq!(markers.contains(&"vrct.managed.route"), audio_route::READS_LEGACY_NAMES);
     }
 
     #[test]

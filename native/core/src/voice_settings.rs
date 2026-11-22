@@ -616,7 +616,7 @@ mod tests {
         let long = "a".repeat(513);
         let mut refused = vec!["", "a\0b", &long, "astarot.managed.tts", "astarot.source-bridge.mic", "astarot.asr.capture.mic"];
         // The names of 0.6.0 and earlier, while they are read (ADR-014, 2.11).
-        if app_identity::audio_route::READS_LEGACY {
+        if app_identity::audio_route::READS_LEGACY_NAMES {
             refused.extend(["vrct.managed.tts", "vrct.source-bridge.mic", "vrct.asr.capture.mic"]);
         }
         for name in refused {

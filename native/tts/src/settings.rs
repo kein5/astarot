@@ -816,7 +816,7 @@ mod tests {
         // The route of 0.6.0 and earlier, while its names are read (ADR-014, 2.11).
         for device in ["vrct.managed.x", "vrct.source-bridge.x.playback"] {
             let value = json!({"monitor": "on", "monitor_device": device});
-            assert_eq!(VoiceSettings::from_value_on(&value, Platform::Other).is_err(), app_identity::audio_route::READS_LEGACY, "{value}");
+            assert_eq!(VoiceSettings::from_value_on(&value, Platform::Other).is_err(), app_identity::audio_route::READS_LEGACY_NAMES, "{value}");
         }
     }
 

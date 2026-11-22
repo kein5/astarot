@@ -140,7 +140,8 @@ fn fixture(name: &str) -> Fixture {
         ManagedMicrophone::with_systemctl(Box::new(move || Ok(lock(&graph_state).graph.clone())), env, systemctl).on_retired(Box::new(move || *lock(&told) += 1));
     setup.timeout = Duration::from_millis(30);
     // The period of the old names is the build's; these tests say which they mean.
-    setup.legacy = true;
+    setup.reads_legacy = true;
+    setup.retires_legacy = true;
     Fixture { root, state, setup, retired }
 }
 
@@ -504,9 +505,26 @@ fn a_failed_retirement_is_retried_and_tells_once_the_units_stopped() {
 }
 
 #[test]
-fn once_the_period_ends_nothing_of_the_old_names_is_read() {
+fn once_the_old_names_are_no_longer_read_the_core_still_retires_its_old_units() {
+    // Decided on 2026-11-23: retiring the units the old core wrote has no end, so an install that
+    // skips the versions that read the old names still loses the old microphone.
     let mut f = fixture("period");
-    f.setup.legacy = false;
+    f.setup.reads_legacy = false;
+    place_legacy_units(&f, "/usr/bin/pw-loopback");
+    let manual = f.root.join("config/pipewire/pipewire.conf.d/90-vrct-managed.conf");
+    fs::create_dir_all(manual.parent().unwrap()).unwrap();
+    fs::write(&manual, "old").unwrap();
+    assert_eq!(f.setup.ensure().unwrap(), Prepared::Created, "the old hand-placed configuration is not read");
+    assert_eq!(*lock(&f.retired), 1);
+    assert_eq!(unit_files(&f).len(), 3);
+    assert!(unit_files(&f).keys().all(|name| name.starts_with("astarot-")), "{:?}", unit_files(&f).keys());
+}
+
+#[test]
+fn with_neither_reading_nor_retiring_nothing_of_the_old_names_is_touched() {
+    let mut f = fixture("period-off");
+    f.setup.reads_legacy = false;
+    f.setup.retires_legacy = false;
     place_legacy_units(&f, "/usr/bin/pw-loopback");
     let manual = f.root.join("config/pipewire/pipewire.conf.d/90-vrct-managed.conf");
     fs::create_dir_all(manual.parent().unwrap()).unwrap();

@@ -324,7 +324,7 @@ fn monitor_never_targets_the_virtual_microphone() {
     assert_eq!(check_monitor_target("alsa_output.headphones", &exclude).unwrap(), "alsa_output.headphones");
     // The route of 0.6.0 and earlier, while its names are read (ADR-014, 2.11).
     for target in ["vrct.managed.mix", "vrct.source-bridge.x.playback"] {
-        assert_eq!(check_monitor_target(target, &exclude).is_err(), app_identity::audio_route::READS_LEGACY, "{target}");
+        assert_eq!(check_monitor_target(target, &exclude).is_err(), app_identity::audio_route::READS_LEGACY_NAMES, "{target}");
     }
 }
 

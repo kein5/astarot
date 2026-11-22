@@ -23,7 +23,7 @@ fn selection_rejects_unsafe_or_ambiguous_source() {
     let ok = select_source(&graph(), "external.source").unwrap();
     assert_eq!(ok, Endpoint { cookie: 42, serial: 110, name: "external.source".into(), media_class: "Audio/Source".into() });
     for fault in ["absent", "duplicate", "class", "feedback", "cookie", "serial", "marked", "legacy_feedback", "legacy_marked"] {
-        if fault.starts_with("legacy") && !audio_route::READS_LEGACY {
+        if fault.starts_with("legacy") && !audio_route::READS_LEGACY_NAMES {
             continue;
         }
         let mut data = graph();

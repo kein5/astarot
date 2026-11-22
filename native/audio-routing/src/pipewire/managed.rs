@@ -7,13 +7,15 @@
 //! unit files are never replaced, and nothing is installed for a private server.
 //!
 //! The route took ASTAROT names in place of the VRCT ones (ADR-014, 2.8). The units the core of
-//! 0.6.0 and earlier made under the old names keep their virtual microphone alive, so while the
-//! old names are read ([`audio_route::READS_LEGACY`]) the core retires them: it stops, disables
-//! and removes a unit only when its name, its owner marker and its whole content are what that
-//! core wrote, and systemd loads that very file without drop-ins. Anything else under an old name
-//! is the user's. It stays, and while the new route is missing it is reported as
+//! 0.6.0 and earlier made under the old names keep their virtual microphone alive, so the core
+//! retires them ([`audio_route::RETIRES_LEGACY_UNITS`], with no end): it stops, disables and
+//! removes a unit only when its name, its owner marker and its whole content are what that core
+//! wrote, and systemd loads that very file without drop-ins. Any other unit under an old name is
+//! the user's. It stays, and while the new route is missing it is reported as
 //! `managed_setup_conflict`, because a new route beside it would be a second virtual microphone.
-//! A hand-placed configuration under either name stops the automatic setup the same way.
+//! While the old names are read ([`audio_route::READS_LEGACY_NAMES`]), old nodes that are not the
+//! core's are reported the same way, and a hand-placed configuration under either name stops the
+//! automatic setup.
 //!
 //! What to do is decided by [`look`] (before the lock, from files and the graph) and [`decide`]
 //! (under the lock, from a [`Survey`] that also asks systemd), so the tests drive every case.
@@ -379,7 +381,8 @@ pub struct Survey {
     pub ready: bool,
     pub nodes: Nodes,
     pub units: [Unit; 3],
-    /// The old route's nodes and units; `None` and `Absent` once the old names are not read.
+    /// The old route's nodes, `None` once the old names are not read, and its units, `Absent`
+    /// once they are not retired.
     pub legacy_nodes: Nodes,
     pub legacy_units: [Unit; 3],
 }
@@ -439,8 +442,10 @@ pub struct ManagedMicrophone {
     snapshot: Snapshot,
     pub env: ProcessEnv,
     pub timeout: Duration,
-    /// Whether the old names are read ([`audio_route::READS_LEGACY`]; tests turn it off).
-    pub legacy: bool,
+    /// Whether the old names are read ([`audio_route::READS_LEGACY_NAMES`]; tests turn it off).
+    pub reads_legacy: bool,
+    /// Whether the units of the old route are retired ([`audio_route::RETIRES_LEGACY_UNITS`]).
+    pub retires_legacy: bool,
     systemctl: Systemctl,
     retired: Option<Retired>,
 }
@@ -463,7 +468,15 @@ impl ManagedMicrophone {
 
     /// With a substitute for `systemctl` (tests).
     pub fn with_systemctl(snapshot: Snapshot, env: ProcessEnv, systemctl: Systemctl) -> Self {
-        Self { snapshot, env, timeout: Duration::from_secs(5), legacy: audio_route::READS_LEGACY, systemctl, retired: None }
+        Self {
+            snapshot,
+            env,
+            timeout: Duration::from_secs(5),
+            reads_legacy: audio_route::READS_LEGACY_NAMES,
+            retires_legacy: audio_route::RETIRES_LEGACY_UNITS,
+            systemctl,
+            retired: None,
+        }
     }
 
     /// Tells `retired` each time the units of the old route stop.
@@ -503,15 +516,16 @@ impl ManagedMicrophone {
 
     fn survey(&self, graph: &Graph, systemctl: &Path, directory: &Path, current: &[(&str, String)]) -> Result<Survey> {
         let units = self.units(systemctl, directory, &Names::CURRENT, |index, _| current.get(index).map(|(_, unit)| unit.clone()))?;
-        let (legacy_nodes, legacy_units) = if self.legacy {
+        let legacy_units = if self.retires_legacy {
             let legacy = |index, file: &UnitFile| match file {
                 UnitFile::Text(text) => written_unit(&Names::LEGACY, index, text),
                 _ => None,
             };
-            (nodes_of(graph, &Names::LEGACY), self.units(systemctl, directory, &Names::LEGACY, legacy)?)
+            self.units(systemctl, directory, &Names::LEGACY, legacy)?
         } else {
-            (Nodes::None, [Unit::Absent; 3])
+            [Unit::Absent; 3]
         };
+        let legacy_nodes = if self.reads_legacy { nodes_of(graph, &Names::LEGACY) } else { Nodes::None };
         Ok(Survey { ready: managed_ready(graph), nodes: nodes_of(graph, &Names::CURRENT), units, legacy_nodes, legacy_units })
     }
 
@@ -552,8 +566,8 @@ impl ManagedMicrophone {
                 || self.env.get("PIPEWIRE_RUNTIME_DIR").is_some_and(|dir| Some(dir) != runtime_dir),
             tools: tools.0.is_some() && tools.1.is_some(),
             session: runtime.is_absolute() && runtime.is_dir(),
-            legacy_files: self.legacy && Names::LEGACY.services.iter().any(|name| directory.join(name).symlink_metadata().is_ok()),
-            manual: manual_config(&[config.as_path(), Path::new("/etc")], self.legacy),
+            legacy_files: self.retires_legacy && Names::LEGACY.services.iter().any(|name| directory.join(name).symlink_metadata().is_ok()),
+            manual: manual_config(&[config.as_path(), Path::new("/etc")], self.reads_legacy),
         };
         if !look(&first).map_err(Error::runtime)? {
             return Ok(Prepared::Ready); // Routes the daemon owns need neither systemd nor files.
