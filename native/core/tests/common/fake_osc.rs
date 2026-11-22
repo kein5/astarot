@@ -5,9 +5,9 @@
 use std::io;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
-use vrct_adapters::osc::{OscArg, OscError, OscHandler, Target, uses_osc_query};
-use vrct_core::controller::Osc;
-use vrct_core::controller::adapters::OpenOsc;
+use astarot_adapters::osc::{OscArg, OscError, OscHandler, Target, uses_osc_query};
+use astarot_core::controller::Osc;
+use astarot_core::controller::adapters::OpenOsc;
 
 pub struct FakeOsc {
     sender: Mutex<(String, u16, OscHandler)>,
@@ -173,7 +173,7 @@ impl Opened {
     }
 }
 
-/// A factory for [`vrct_core::controller::Services::osc`] and the links it opened.
+/// A factory for [`astarot_core::controller::Services::osc`] and the links it opened.
 pub fn factory(receive_fails: bool) -> (OpenOsc, Opened) {
     let opened = Opened::default();
     let list = opened.clone();

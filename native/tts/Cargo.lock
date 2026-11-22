@@ -3,8 +3,20 @@
 version = 4
 
 [[package]]
-name = "app-identity"
+name = "astarot-app-identity"
 version = "0.0.0"
+
+[[package]]
+name = "astarot-tts"
+version = "0.1.0"
+dependencies = [
+ "astarot-app-identity",
+ "libc",
+ "serde",
+ "serde_json",
+ "uuid",
+ "windows-sys",
+]
 
 [[package]]
 name = "bumpalo"
@@ -193,18 +205,6 @@ dependencies = [
  "getrandom",
  "js-sys",
  "wasm-bindgen",
-]
-
-[[package]]
-name = "vrct-tts"
-version = "0.1.0"
-dependencies = [
- "app-identity",
- "libc",
- "serde",
- "serde_json",
- "uuid",
- "windows-sys",
 ]
 
 [[package]]

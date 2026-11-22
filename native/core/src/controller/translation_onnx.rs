@@ -27,10 +27,10 @@ use crate::languages::{self, TRANSLATION_WEIGHTS};
 use serde_json::{json, Map, Value};
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
-use vrct_ops::downloads::catalog::{self, TRANSLATION_TARGET};
-use vrct_ops::downloads::translation_catalog::{self, TranslationCatalog};
-use vrct_translate_onnx::accelerate::{self, compute_types};
-use vrct_translate_onnx::{codes, runtime, Accelerator, Bundle, Fallback, Manifest, Provider, Translator, Variant};
+use astarot_ops::downloads::catalog::{self, TRANSLATION_TARGET};
+use astarot_ops::downloads::translation_catalog::{self, TranslationCatalog};
+use astarot_translate_onnx::accelerate::{self, compute_types};
+use astarot_translate_onnx::{codes, runtime, Accelerator, Bundle, Fallback, Manifest, Provider, Translator, Variant};
 
 /// A model whose languages the app cannot name (no `language_names`, and none of its codes in
 /// the table of its architecture).
@@ -158,7 +158,7 @@ fn offered_table(manifest: &Manifest, entry: &Value) -> Value {
 
 /// Whether a folder holds a model the `onnx` runtime can run with at least one language the
 /// entry offers: the check made before an engine entry is added. The error is a fixed code
-/// (`vrct_translate_onnx::codes`, [`LANGUAGES_UNKNOWN`]). Sizes are checked; hashes when it loads.
+/// (`astarot_translate_onnx::codes`, [`LANGUAGES_UNKNOWN`]). Sizes are checked; hashes when it loads.
 pub fn inspect(folder: &Path, entry: &Value) -> Result<(), &'static str> {
     let bundle = Bundle::open(folder).map_err(|error| error.code)?;
     let table = offered_table(bundle.manifest(), entry);
@@ -248,7 +248,7 @@ pub fn compute_devices() -> Vec<Value> {
         OnnxRuntimeLibrary::Shipped => {}
         OnnxRuntimeLibrary::Gpu(device) => devices.extend(Provider::from_name(device).map(|p| device_entry(p, 0))),
         OnnxRuntimeLibrary::Other => {
-            if vrct_onnx_runtime::library_present()
+            if astarot_onnx_runtime::library_present()
                 && let Ok(providers) = runtime::available_providers()
             {
                 devices.extend(providers.into_iter().filter(|p| p.offered() && *p != Provider::Cpu).map(|p| device_entry(p, 0)));
@@ -312,7 +312,7 @@ impl OnnxTranslation {
         if is_users(&setup.weight) {
             let model = self.custom(&setup.weight).ok_or(LocalError::Missing)?;
             let variant = model.bundle.manifest().variant();
-            if accelerate::support(variant, requested.provider) == vrct_translate_onnx::Support::No {
+            if accelerate::support(variant, requested.provider) == astarot_translate_onnx::Support::No {
                 let fallback = Fallback { requested, code: codes::VARIANT_UNSUPPORTED };
                 return Ok((model.bundle, Accelerator::CPU, Some(fallback)));
             }

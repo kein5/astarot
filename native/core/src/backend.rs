@@ -60,7 +60,7 @@ impl Options {
         Self {
             env,
             workers: dispatch::DEFAULT_WORKER_COUNT,
-            watchdog: Some((vrct_ops::watchdog::TIMEOUT, vrct_ops::watchdog::INTERVAL)),
+            watchdog: Some((astarot_ops::watchdog::TIMEOUT, astarot_ops::watchdog::INTERVAL)),
             grace: Duration::from_secs(30),
             startup_limit: Some(STARTUP_LIMIT),
             logs: true,

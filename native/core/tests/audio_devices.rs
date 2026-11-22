@@ -11,12 +11,12 @@ use common::{Setup, Ui, error_code};
 use serde_json::{Value, json};
 use std::path::Path;
 use std::time::{Duration, Instant};
-use vrct_audio_routing::manager::Topology;
-use vrct_audio_routing::snapshot::RawLists;
-use vrct_core::controller::Services;
+use astarot_audio_routing::manager::Topology;
+use astarot_audio_routing::snapshot::RawLists;
+use astarot_core::controller::Services;
 use std::sync::{Arc, Mutex};
-use vrct_audio_routing::identity::Device;
-use vrct_core::controller::audio_devices::{CaptureOwner, Reopened, Source};
+use astarot_audio_routing::identity::Device;
+use astarot_core::controller::audio_devices::{CaptureOwner, Reopened, Source};
 
 const A: &str = "mic:Windows WASAPI:{a}";
 const H: &str = "mic:Windows WASAPI:{h}";

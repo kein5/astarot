@@ -9,8 +9,8 @@ use std::time::{Duration, Instant};
 
 use common::*;
 use serde_json::{json, Value};
-use vrct_tts::sync::Event;
-use vrct_tts::{AudioFrame, CancelToken, SpeechCppTts, SpeechError, SynthesisOptions};
+use astarot_tts::sync::Event;
+use astarot_tts::{AudioFrame, CancelToken, SpeechCppTts, SpeechError, SynthesisOptions};
 
 fn none() -> SynthesisOptions {
     SynthesisOptions::default()

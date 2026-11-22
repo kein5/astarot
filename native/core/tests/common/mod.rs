@@ -14,10 +14,10 @@ use serde_json::{Value, json};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Condvar, Mutex};
 use std::time::{Duration, Instant};
-use vrct_core::config::{Environment, Platform};
-use vrct_core::controller::Services;
-use vrct_core::protocol::request_line;
-use vrct_core::{Backend, Options, Sink};
+use astarot_core::config::{Environment, Platform};
+use astarot_core::controller::Services;
+use astarot_core::protocol::request_line;
+use astarot_core::{Backend, Options, Sink};
 
 pub const TIMEOUT: Duration = Duration::from_secs(10);
 pub const VERSION: &str = "0.4.0";
@@ -60,16 +60,16 @@ impl Default for Setup {
             // no VR panel page.
             services: Services {
                 osc: fake_osc::factory(false).0,
-                translation_transport: vrct_translation::http::loopback_only(),
-                transcription_transport: vrct_translation::http::loopback_only(),
-                translation_endpoints: vrct_translation::providers::Endpoints::all_at("http://provider.invalid"),
+                translation_transport: astarot_translation::http::loopback_only(),
+                transcription_transport: astarot_translation::http::loopback_only(),
+                translation_endpoints: astarot_translation::providers::Endpoints::all_at("http://provider.invalid"),
                 audio: fake_audio::FakeAudio::new().platform(),
-                vr: Arc::new(vrct_core::vr_overlay::runtime::fake::FakeVr::default()),
+                vr: Arc::new(astarot_core::vr_overlay::runtime::fake::FakeVr::default()),
                 vr_panel_surface: None,
                 steamvr_poll: Duration::from_millis(20),
                 // No real microphone or speaker, and no recognition service beyond this PC.
                 transcription_capture: fake_capture::FakeCapture::new().factory(),
-                transcription_endpoints: vrct_transcription::providers::Endpoints::all_at("http://provider.invalid"),
+                transcription_endpoints: astarot_transcription::providers::Endpoints::all_at("http://provider.invalid"),
                 // No speech output, microphone, gate or worker runtime of the PC.
                 voice: fake_voice::FakeVoice::new().platform(),
                 // The app's key store over `secrets.json`, with a stand-in for the OS store that
@@ -89,9 +89,9 @@ impl Default for Setup {
 }
 
 /// The stand-in OS key store of this test process. Each settings folder has its own id in it.
-pub fn shared_vault() -> Arc<vrct_core::config::secrets::MemoryStore> {
-    static VAULT: std::sync::OnceLock<Arc<vrct_core::config::secrets::MemoryStore>> = std::sync::OnceLock::new();
-    Arc::clone(VAULT.get_or_init(vrct_core::config::secrets::MemoryStore::new))
+pub fn shared_vault() -> Arc<astarot_core::config::secrets::MemoryStore> {
+    static VAULT: std::sync::OnceLock<Arc<astarot_core::config::secrets::MemoryStore>> = std::sync::OnceLock::new();
+    Arc::clone(VAULT.get_or_init(astarot_core::config::secrets::MemoryStore::new))
 }
 
 pub fn environment(dir: &Path, platform: Platform) -> Environment {

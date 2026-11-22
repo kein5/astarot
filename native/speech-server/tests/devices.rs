@@ -4,10 +4,10 @@
 use std::path::PathBuf;
 
 use serde_json::{json, Value};
-use vrct_speech_server::bundle::bundled_binary;
-use vrct_speech_server::codes;
-use vrct_speech_server::devices::{device_rows, list_gpus, parse_devices, preferred_gpu, resolve_device};
-use vrct_speech_server::settings::device_allowed;
+use astarot_speech_server::bundle::bundled_binary;
+use astarot_speech_server::codes;
+use astarot_speech_server::devices::{device_rows, list_gpus, parse_devices, preferred_gpu, resolve_device};
+use astarot_speech_server::settings::device_allowed;
 
 fn row(name: &str, description: &str, kind: &str, gigabytes: u64) -> Value {
     json!({"name": name, "description": description, "kind": kind, "memory_total": gigabytes << 30, "memory_free": gigabytes << 30})
@@ -170,7 +170,7 @@ fn a_bundle_is_admitted_only_with_its_pinned_executable() {
     let _ = std::fs::remove_dir_all(&folder);
     assert_eq!(bundled_binary(&folder).err(), Some(codes::BUNDLE));
     std::fs::create_dir_all(&folder).unwrap();
-    let binary = folder.join(vrct_speech_server::bundle::EXECUTABLE);
+    let binary = folder.join(astarot_speech_server::bundle::EXECUTABLE);
     std::fs::write(&binary, b"not the pinned executable").unwrap();
     #[cfg(unix)]
     {

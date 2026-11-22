@@ -25,9 +25,9 @@ const COLLECTION_INTERFACE: &str = "org.freedesktop.Secret.Collection";
 const ITEM_INTERFACE: &str = "org.freedesktop.Secret.Item";
 /// How long one call may take before the store counts as not answering.
 const TIMEOUT: Duration = Duration::from_secs(5);
-const APPLICATION: &str = app_identity::credentials::APPLICATION.current();
+const APPLICATION: &str = astarot_app_identity::credentials::APPLICATION.current();
 /// The attribute that holds the store ID.
-const STORE_ATTRIBUTE: &str = app_identity::credentials::STORE_ATTRIBUTE.current();
+const STORE_ATTRIBUTE: &str = astarot_app_identity::credentials::STORE_ATTRIBUTE.current();
 
 /// A secret as the spec sends it: (session, parameters, value, content type).
 type Secret = (OwnedObjectPath, Vec<u8>, Vec<u8>, String);
@@ -99,7 +99,7 @@ fn attributes<'a>(scope: &'a str, entry: &'a str) -> HashMap<&'static str, &'a s
 
 /// The label the keyring shows for `entry`.
 fn item_label(entry: &str) -> String {
-    format!("{} {entry}", app_identity::credentials::LABEL_PREFIX.current())
+    format!("{} {entry}", astarot_app_identity::credentials::LABEL_PREFIX.current())
 }
 
 /// A path the spec uses for "none" (no prompt, no collection).

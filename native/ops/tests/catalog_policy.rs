@@ -3,7 +3,7 @@
 //! revision (or a fixed license text), and every file has a size. Until 0.6.0 this sat with the
 //! comparison against the Python backend's catalog, which went with the backend (#746).
 
-use vrct_ops::downloads::catalog::{self, TARGETS, TRANSLATION_TARGET};
+use astarot_ops::downloads::catalog::{self, TARGETS, TRANSLATION_TARGET};
 
 #[test]
 fn the_catalog_holds_only_reviewed_public_artifacts() {

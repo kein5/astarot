@@ -1,4 +1,4 @@
-//! API keys live in a store of their own, not in `config.json` (`vrct_core::config::secrets`).
+//! API keys live in a store of their own, not in `config.json` (`astarot_core::config::secrets`).
 //! Through the protocol: keys saved by an older version (Python or an earlier core) move to the
 //! store, the endpoints answer as before, a failing store never loses a key silently, and a
 //! deleted key leaves the store. Keys in `secrets.json` (0.5) move to the OS store one at a
@@ -10,9 +10,9 @@ use common::{error_code, Setup, Ui};
 use serde_json::{Value, json};
 use std::path::Path;
 use std::sync::Arc;
-use vrct_core::config::secrets::{FILE_NAME, Faults, FileStore, MemoryStore, SecretStore};
-use vrct_core::controller::Services;
-use vrct_translation::fake::FakeProviders;
+use astarot_core::config::secrets::{FILE_NAME, Faults, FileStore, MemoryStore, SecretStore};
+use astarot_core::controller::Services;
+use astarot_translation::fake::FakeProviders;
 
 const DEEPL: &str = "0123456789abcdef0123456789abcdef0123:fx";
 const OPENAI: &str = "sk-older-version-openai-key";
@@ -141,7 +141,7 @@ fn a_key_the_store_refuses_stays_usable_for_the_run_and_is_reported() {
     let fake = FakeProviders::start();
     fake.key("/deepl-free", DEEPL);
     let services = Services {
-        translation_endpoints: vrct_translation::providers::Endpoints::all_at(&fake.url()),
+        translation_endpoints: astarot_translation::providers::Endpoints::all_at(&fake.url()),
         ..Setup::default().services
     };
     let dir = tempfile::tempdir().unwrap();
@@ -330,7 +330,7 @@ fn a_move_cut_short_continues_at_the_next_start() {
     let dir = tempfile::tempdir().unwrap();
     secrets_05(dir.path(), &[("AUTH_KEYS/DeepL_API", DEEPL), ("AUTH_KEYS/OpenAI_API", OPENAI)]);
     let vault = MemoryStore::new();
-    let store = vault.system_source()(&common::environment(dir.path(), vrct_core::config::Platform::current()));
+    let store = vault.system_source()(&common::environment(dir.path(), astarot_core::config::Platform::current()));
     store.write("TRANSCRIPTION_AUTH_KEYS/Deepgram", DEEPGRAM).unwrap();
     vault.insert(&MemoryStore::scoped(&store_id(dir.path()), "AUTH_KEYS/DeepL_API"), DEEPL);
     assert_eq!(file_entry(dir.path(), "AUTH_KEYS/DeepL_API").as_deref(), Some(DEEPL), "both places hold it");
@@ -355,7 +355,7 @@ fn a_locked_or_absent_os_store_at_start_is_reported_and_nothing_is_lost_or_writt
         let dir = tempfile::tempdir().unwrap();
         let vault = MemoryStore::new();
         // A key kept in the OS store by an earlier run.
-        let store = vault.system_source()(&common::environment(dir.path(), vrct_core::config::Platform::current()));
+        let store = vault.system_source()(&common::environment(dir.path(), astarot_core::config::Platform::current()));
         store.write("AUTH_KEYS/OpenAI_API", OPENAI).unwrap();
         let before = (vault.snapshot(), raw_secrets(dir.path()));
 
@@ -364,7 +364,7 @@ fn a_locked_or_absent_os_store_at_start_is_reported_and_nothing_is_lost_or_writt
             dir: Some(dir.path().to_path_buf()),
             services: Services {
                 secret_store: vault.system_source(),
-                translation_endpoints: vrct_translation::providers::Endpoints::all_at(&fake.url()),
+                translation_endpoints: astarot_translation::providers::Endpoints::all_at(&fake.url()),
                 ..Setup::default().services
             },
             ..Setup::default()
@@ -433,7 +433,7 @@ fn the_real_os_store_takes_the_keys_from_secrets_json_and_gives_them_back() {
     let start = || {
         let ui = Ui::with(Setup {
             dir: Some(dir.path().to_path_buf()),
-            services: Services { secret_store: std::sync::Arc::new(vrct_core::config::secrets::default_store), ..Setup::default().services },
+            services: Services { secret_store: std::sync::Arc::new(astarot_core::config::secrets::default_store), ..Setup::default().services },
             ..Setup::default()
         });
         ui.ready();
@@ -457,7 +457,7 @@ fn the_real_os_store_takes_the_keys_from_secrets_json_and_gives_them_back() {
     ui.ok("/run/shutdown", None);
     ui.stop();
 
-    let store = vrct_core::config::secrets::default_store(&common::environment(dir.path(), vrct_core::config::Platform::current()));
+    let store = astarot_core::config::secrets::default_store(&common::environment(dir.path(), astarot_core::config::Platform::current()));
     assert_eq!(store.read("AUTH_KEYS/DeepL_API"), Ok(None), "nothing left in the OS store");
     assert_eq!(store.read("TRANSCRIPTION_AUTH_KEYS/Deepgram"), Ok(None));
     assert!(![FIRST, SECOND].iter().any(|key| process_log(dir.path()).contains(key)), "a key reached the log");

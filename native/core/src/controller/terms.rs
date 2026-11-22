@@ -1,6 +1,6 @@
 //! The term dictionary in the pipeline (#446). The entries are the speech recognition
 //! vocabulary of the realtime settings (`REALTIME_ASR_SETTINGS.vocabulary`: the user's terms and,
-//! unless turned off, the built-in VRChat terms); `vrct_transcription::terms` applies them.
+//! unless turned off, the built-in VRChat terms); `astarot_transcription::terms` applies them.
 //!
 //! - Recognition: a realtime session corrects its own captions; the recorder's engines (cloud
 //!   Whisper, Deepgram) are corrected here, as their text enters the pipeline.
@@ -10,9 +10,9 @@
 //! Nothing here logs a term or a text.
 
 use super::Core;
-use vrct_transcription::speechcpp;
-use vrct_transcription::terms::Dictionary;
-use vrct_tts::SpeechMessageEvent;
+use astarot_transcription::speechcpp;
+use astarot_transcription::terms::Dictionary;
+use astarot_tts::SpeechMessageEvent;
 
 const SETTINGS_KEY: &str = "REALTIME_ASR_SETTINGS";
 /// The most terms one translation's prompt lists.

@@ -27,8 +27,8 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, OnceLock, RwLock};
 use std::time::Instant;
-use vrct_transcription::diagnostics::{Event as Diagnosed, Stage};
-use vrct_translation::transliteration::Tokenizer;
+use astarot_transcription::diagnostics::{Event as Diagnosed, Stage};
+use astarot_translation::transliteration::Tokenizer;
 
 // ------------------------------------------------------------------------- readings
 
@@ -42,7 +42,7 @@ pub const READINGS_DICTIONARY: &str = "build/sudachi/system.dic";
 /// Sudachi with the dictionary shipped beside the app, opened on the first message that asks
 /// for readings. Without it messages go out without readings.
 pub fn shipped_readings(env: &crate::config::Environment) -> Arc<dyn Tokenizer> {
-    Arc::new(vrct_translation::transliteration::sudachi::SudachiFile::new(crate::resources::locate(
+    Arc::new(astarot_translation::transliteration::sudachi::SudachiFile::new(crate::resources::locate(
         &env.app_dir,
         READINGS_DICTIONARY,
     )))
@@ -267,7 +267,7 @@ impl OverlayMessage {
 /// settings when it arrived and the final itself.
 pub(crate) struct MicVoice {
     pub snapshot: super::voice::MicVoiceSnapshot,
-    pub update: vrct_tts::message_hook::TranscriptUpdate,
+    pub update: astarot_tts::message_hook::TranscriptUpdate,
 }
 
 /// When a message reaches speech.
@@ -307,7 +307,7 @@ pub struct SpokenMessage {
 pub type Hook<T> = Arc<dyn Fn(&T) -> Result<(), ()> + Send + Sync>;
 
 /// Runs an output of a realtime final through its delivery (`output_progress`): the action
-/// gives true when what it sent went out ([`vrct_transcription::realtime::delivery::Output`]).
+/// gives true when what it sent went out ([`astarot_transcription::realtime::delivery::Output`]).
 pub(crate) type RunOutput<'a> = &'a dyn Fn(&mut dyn FnMut() -> bool) -> bool;
 
 /// The outbound hooks; unset ones do nothing.
@@ -707,7 +707,7 @@ impl Core {
         }
 
         let started = Instant::now();
-        let started_ns = vrct_tts::clock::monotonic_ns();
+        let started_ns = astarot_tts::clock::monotonic_ns();
         let trace = self.io_trace_begin(spec.kind, message, id.as_deref(), started_ns, asr_ms, received_ns);
         let voice = (voice_generation, started_ns);
         let slots = snapshot.target_slots();
@@ -1018,7 +1018,7 @@ impl Core {
             detail.push_str(" publication=aborted");
         }
         let event = if aborted { Diagnosed::MessageAborted } else { Diagnosed::Message };
-        let slow_asr = asr_ms.is_some_and(|ms| ms as f64 >= vrct_transcription::diagnostics::SLOW_ASR_MS);
+        let slow_asr = asr_ms.is_some_and(|ms| ms as f64 >= astarot_transcription::diagnostics::SLOW_ASR_MS);
         self.transcription.diagnostics.record(spec.kind, event, &stages, Some(detail), slow_asr);
     }
 
@@ -1090,7 +1090,7 @@ impl Core {
             .readings
             .get_or_init(|| (self.services().transliteration)(self.config().environment()))
             .clone();
-        match vrct_translation::transliteration::convert(tokenizer.as_ref(), text, snapshot.hiragana, snapshot.romaji) {
+        match astarot_translation::transliteration::convert(tokenizer.as_ref(), text, snapshot.hiragana, snapshot.romaji) {
             Ok(readings) => Value::Array(readings),
             Err(_) => {
                 if !self.messages().no_readings_noted.swap(true, Ordering::SeqCst) {

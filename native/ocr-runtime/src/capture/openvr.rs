@@ -12,7 +12,7 @@
 //!   time: `ASTAROT_OPENVR_API` (or `VRCT_OPENVR_API`) names it, else it is looked for next
 //!   to the executable, else by name. Without it there is no headset view.
 //! - The connection is the process's one, shared with the VR overlay through
-//!   `vrct-openvr-client` ([`acquire`]): `VR_Shutdown` ends it for the whole process, so
+//!   `astarot-openvr-client` ([`acquire`]): `VR_Shutdown` ends it for the whole process, so
 //!   only the last holder calls it.
 //! - The mirror is acquired once and reused; releasing it every frame makes SteamVR
 //!   serve stale frames (ValveSoftware/openvr#1888). Everything is created, read and
@@ -43,7 +43,7 @@ pub const QUIT_RETRY_SEC: f64 = 10.0;
 // Positions in the function tables (openvr_capi.h, SDK 2.12.14), each with the name of the
 // function there in pyopenvr. The tests below check every one, on either system: a wrong
 // position calls another function without any error (#610).
-vrct_openvr_client::fn_table! {
+astarot_openvr_client::fn_table! {
     COMPOSITOR_TABLE = COMPOSITOR_VERSION;
     COMPOSITOR_GET_CURRENT_SCENE_FOCUS_PROCESS = 24 => "getCurrentSceneFocusProcess",
     COMPOSITOR_GET_LAST_FRAME_RENDERER = 25 => "getLastFrameRenderer",
@@ -60,7 +60,7 @@ vrct_openvr_client::fn_table! {
     #[cfg(not(windows))]
     COMPOSITOR_UNLOCK_GL_SHARED_TEXTURE = 40 => "unlockGLSharedTextureForAccess",
 }
-vrct_openvr_client::fn_table! {
+astarot_openvr_client::fn_table! {
     SYSTEM_TABLE = SYSTEM_VERSION;
     #[cfg(windows)]
     SYSTEM_GET_DXGI_OUTPUT_INFO = 7 => "getDXGIOutputInfo",
@@ -76,7 +76,7 @@ fn library_name() -> &'static str {
 
 /// Where the OpenVR client library is.
 pub fn library_path() -> std::path::PathBuf {
-    if let Some(path) = app_identity::env::OPENVR_API.value_os() {
+    if let Some(path) = astarot_app_identity::env::OPENVR_API.value_os() {
         return path.into();
     }
     if let Some(beside) = std::env::current_exe().ok().and_then(|exe| exe.parent().map(|d| d.join(library_name()))) {
@@ -92,19 +92,19 @@ pub struct Session {
     compositor: *const *const c_void,
     #[cfg_attr(not(windows), allow(dead_code))]
     system: *const *const c_void,
-    lease: vrct_openvr_client::Lease,
+    lease: astarot_openvr_client::Lease,
 }
 
 // The tables are process-wide and thread-safe in the OpenVR client.
 unsafe impl Send for Session {}
 unsafe impl Sync for Session {}
 
-/// A hold on the process's OpenVR connection ([`vrct_openvr_client`]), which the VR overlay
+/// A hold on the process's OpenVR connection ([`astarot_openvr_client`]), which the VR overlay
 /// shares: the first holder initializes OpenVR as a background application (never stealing
 /// focus from the scene app), and the last one to let go shuts it down.
 pub fn acquire() -> Result<Arc<Session>, Failure> {
-    let lease = vrct_openvr_client::acquire(&[library_path()]).map_err(|error| match error {
-        vrct_openvr_client::Error::LibraryNotFound | vrct_openvr_client::Error::MissingSymbol(_) => {
+    let lease = astarot_openvr_client::acquire(&[library_path()]).map_err(|error| match error {
+        astarot_openvr_client::Error::LibraryNotFound | astarot_openvr_client::Error::MissingSymbol(_) => {
             Failure::new("OSError", format!("OpenVR client library: {error}"))
         }
         error => Failure::new("OpenVRError", format!("VR_Init failed ({error})")),
@@ -666,7 +666,7 @@ mod tests {
 
     /// The names of `interface`'s functions in table order, from pyopenvr 2.12.1401.
     fn reference(interface: &str) -> Vec<String> {
-        let tables: serde_json::Value = serde_json::from_str(vrct_openvr_client::REFERENCE_FN_TABLES).unwrap();
+        let tables: serde_json::Value = serde_json::from_str(astarot_openvr_client::REFERENCE_FN_TABLES).unwrap();
         let names = tables["tables"][interface]
             .as_array()
             .unwrap_or_else(|| panic!("no {interface} in the reference: add it to native/openvr-client/reference/dump_reference.py"));

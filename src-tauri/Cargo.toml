@@ -32,9 +32,9 @@ font-kit = "=0.14.3"
 # files and libclang are needed to build); it changes nothing on Windows. `onnx-translation`
 # is the local translation on ONNX Runtime, loaded at run time like chat reading's (nothing is
 # linked or fetched at build time; see docs/voice-stack/core-integration.md, decisions 1 and 2).
-vrct-core = { path = "../native/core", features = ["pipewire", "onnx-translation"] }
+astarot-core = { path = "../native/core", features = ["pipewire", "onnx-translation"] }
 # The names the app goes by outside its code (ADR-014): folders, the app ID, environment variables.
-app-identity = { path = "../native/app-identity" }
+astarot-app-identity = { path = "../native/app-identity" }
 
 [dev-dependencies]
 # Already locked through tauri-plugin-opener, which matches its URL scope with it; the tests use

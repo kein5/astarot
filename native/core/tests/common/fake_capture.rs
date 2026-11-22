@@ -7,8 +7,8 @@ use std::collections::VecDeque;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
-use vrct_audio_routing::graph::Endpoint;
-use vrct_transcription::capture::{Capture, CapturePlatform, OnAudio, OnError, Source, Target};
+use astarot_audio_routing::graph::Endpoint;
+use astarot_transcription::capture::{Capture, CapturePlatform, OnAudio, OnError, Source, Target};
 
 /// One stretch of sound: an amplitude for a while.
 #[derive(Clone, Copy, Debug)]
@@ -68,7 +68,7 @@ impl FakeCapture {
     }
 
     /// The services' factory.
-    pub fn factory(&self) -> vrct_core::controller::TranscriptionCapture {
+    pub fn factory(&self) -> astarot_core::controller::TranscriptionCapture {
         let fake = self.clone();
         Arc::new(move |_| Arc::new(fake.clone()) as Arc<dyn CapturePlatform>)
     }

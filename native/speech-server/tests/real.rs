@@ -5,8 +5,8 @@
 use std::time::{Duration, Instant};
 
 use serde_json::json;
-use vrct_speech_server::server::{Hooks, Launch, SpeechServer, State};
-use vrct_speech_server::settings::{start_options, Profile};
+use astarot_speech_server::server::{Hooks, Launch, SpeechServer, State};
+use astarot_speech_server::settings::{start_options, Profile};
 
 #[test]
 fn the_real_server_starts_answers_and_stops() {

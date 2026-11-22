@@ -10,10 +10,10 @@ use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::Duration;
 
 use serde_json::Value;
-use vrct_audio_routing::graph::{Endpoint, SourceId};
-use vrct_audio_routing::monitor::MonitorSpec;
-use vrct_audio_routing::sync::monotonic_ns;
-use vrct_audio_routing::windows_route::WindowsBridge;
+use astarot_audio_routing::graph::{Endpoint, SourceId};
+use astarot_audio_routing::monitor::MonitorSpec;
+use astarot_audio_routing::sync::monotonic_ns;
+use astarot_audio_routing::windows_route::WindowsBridge;
 
 use crate::process::{Health, SpeakFailure, VcProcess};
 

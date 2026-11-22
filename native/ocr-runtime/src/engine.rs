@@ -37,16 +37,16 @@ fn backend(error: impl std::fmt::Display) -> Error {
     Error::Backend(error.to_string())
 }
 
-/// The process's ONNX Runtime environment, shared with local translation (`vrct-onnx-runtime`:
+/// The process's ONNX Runtime environment, shared with local translation (`astarot-onnx-runtime`:
 /// `ort` allows one per process), made on first use.
 pub(crate) fn environment() -> Result<&'static Environment> {
-    vrct_onnx_runtime::environment().map_err(backend)
+    astarot_onnx_runtime::environment().map_err(backend)
 }
 
 /// Whether ONNX Runtime can be used in this process (`ocr_engine.isAvailable`). With the
 /// statically linked build this is always true; a dynamically loaded library may be missing.
 pub fn is_available() -> bool {
-    vrct_onnx_runtime::is_available()
+    astarot_onnx_runtime::is_available()
 }
 
 /// A CPU session with the options RapidOCR's ONNX Runtime engine sets: no memory arena,

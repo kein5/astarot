@@ -9,8 +9,8 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use serde_json::Value;
-use vrct_speech_server::llama::{codes, list_devices, Device, LlamaServer, Listed, Options};
-use vrct_speech_server::server::State;
+use astarot_speech_server::llama::{codes, list_devices, Device, LlamaServer, Listed, Options};
+use astarot_speech_server::server::State;
 
 const FAKE: &str = env!("CARGO_BIN_EXE_fake-llama");
 

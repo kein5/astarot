@@ -1,5 +1,5 @@
 [package]
-name = "vrct-speech-server"
+name = "astarot-speech-server"
 version = "0.0.0"
 description = "Owns the bundled speech.cpp server processes of VRCT-VOX: start, stop, restart and liveness (codename Sargatanas)"
 edition = "2024"
