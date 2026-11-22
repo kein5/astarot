@@ -7,19 +7,19 @@
 mod common;
 
 use common::{Setup, Ui, error_code};
-use ocr_runtime::BgrImage;
-use ocr_runtime::detection::Surface;
-use ocr_runtime::engine::Word;
-use ocr_runtime::failure::{Clock, Failure, Log, MonotonicClock};
-use ocr_runtime::languages::OcrModelSpec;
-use ocr_runtime::pipeline::{CaptureFactory, CaptureStatus, Detector, FrameSource, Reader, ReaderFactory};
+use astarot_ocr_runtime::BgrImage;
+use astarot_ocr_runtime::detection::Surface;
+use astarot_ocr_runtime::engine::Word;
+use astarot_ocr_runtime::failure::{Clock, Failure, Log, MonotonicClock};
+use astarot_ocr_runtime::languages::OcrModelSpec;
+use astarot_ocr_runtime::pipeline::{CaptureFactory, CaptureStatus, Detector, FrameSource, Reader, ReaderFactory};
 use serde_json::{Value, json};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
-use vrct_core::controller::Services;
-use vrct_core::controller::ocr::{Guard, OcrMessage, OcrPlatform, pipeline_delivery};
+use astarot_core::controller::Services;
+use astarot_core::controller::ocr::{Guard, OcrMessage, OcrPlatform, pipeline_delivery};
 
 /// A line handed to the message pipeline: text, language, id, and whether it was still current.
 type Delivered = (String, Option<String>, String, bool);
@@ -116,14 +116,14 @@ struct FakeReaders {
 }
 
 impl ReaderFactory for FakeReaders {
-    fn reader_for(&self, spec: &OcrModelSpec) -> Result<Arc<dyn Reader>, ocr_runtime::Error> {
+    fn reader_for(&self, spec: &OcrModelSpec) -> Result<Arc<dyn Reader>, astarot_ocr_runtime::Error> {
         self.fake.loading.store(true, Ordering::SeqCst);
         while self.fake.hold.load(Ordering::SeqCst) {
             std::thread::sleep(Duration::from_millis(10));
         }
-        let missing = ocr_runtime::models::missing_models(&self.root, spec);
+        let missing = astarot_ocr_runtime::models::missing_models(&self.root, spec);
         if !missing.is_empty() {
-            return Err(ocr_runtime::Error::ModelsMissing(missing));
+            return Err(astarot_ocr_runtime::Error::ModelsMissing(missing));
         }
         Ok(Arc::new(FakeReader(Arc::clone(&self.fake))))
     }
@@ -182,7 +182,7 @@ fn start(fake: &Arc<Fake>) -> Ui {
 /// Puts files of the catalog's sizes where the download manager keeps a model (no hashing is
 /// done before the reader loads them, and the fake reader loads nothing).
 fn install(dir: &Path, model_id: &str) {
-    let entry = ocr_runtime::models::catalog_entry(model_id).unwrap();
+    let entry = astarot_ocr_runtime::models::catalog_entry(model_id).unwrap();
     let folder = dir.join("downloaded_models").join(entry.id).join(entry.revision);
     std::fs::create_dir_all(&folder).unwrap();
     for artifact in entry.artifacts {
@@ -225,7 +225,7 @@ fn model_readiness_follows_the_files_on_disk() {
     );
     // A file of the wrong size is not a download.
     install(&ui.dir, "ppocrv6-small");
-    let entry = ocr_runtime::models::catalog_entry("ppocrv6-small").unwrap();
+    let entry = astarot_ocr_runtime::models::catalog_entry("ppocrv6-small").unwrap();
     let det = ui.dir.join("downloaded_models").join(entry.id).join(entry.revision).join("det.onnx");
     std::fs::File::create(&det).unwrap().set_len(10).unwrap();
     assert_eq!(ui.ok("/get/data/ocr_model_readiness", None)["missing_models"], json!(["ppocrv6-small"]));

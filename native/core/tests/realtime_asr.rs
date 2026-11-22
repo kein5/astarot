@@ -20,12 +20,12 @@ use std::sync::atomic::Ordering;
 use std::sync::mpsc::{Sender, channel};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
-use vrct_adapters::osc::{OscArg, decode_packet};
-use vrct_core::config::Platform;
-use vrct_core::controller::{RealtimeLimits, Services};
-use vrct_core::vr_overlay::runtime::fake::FakeVr;
-use vrct_translation::fake::FakeProviders;
-use vrct_transcription::capture::Source;
+use astarot_adapters::osc::{OscArg, decode_packet};
+use astarot_core::config::Platform;
+use astarot_core::controller::{RealtimeLimits, Services};
+use astarot_core::vr_overlay::runtime::fake::FakeVr;
+use astarot_translation::fake::FakeProviders;
+use astarot_transcription::capture::Source;
 
 const TRANSLATE: &str = "/deepl-free/v2/translate";
 
@@ -104,10 +104,11 @@ fn start_changed(
     }
     let mut services = Services { transcription_capture: capture.factory(), realtime_limits: limits, ..Setup::default().services };
     if let Some(vr) = vr {
+        common::warm_system_fonts();
         services.vr = Arc::new(vr);
     }
     if let Some(providers) = providers {
-        services.translation_endpoints = vrct_translation::providers::Endpoints::all_at(&providers.url());
+        services.translation_endpoints = astarot_translation::providers::Endpoints::all_at(&providers.url());
     }
     change(&mut services);
     let ui = Ui::with(Setup { saved: Some(saved), services, platform, ..Setup::default() });
@@ -297,7 +298,8 @@ fn captions_are_drawn_on_the_large_vr_log_and_one_it_cannot_show_is_told() {
     // [`test_overlay_lifecycle_publication.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/test/test_overlay_lifecycle_publication.py
     let fake = FakeVr::running();
     let run = start_with_vr(Platform::Linux, json!({ "OVERLAY_LARGE_LOG": true }), true, Some(fake.clone()));
-    eventually("the large log made", || fake.handle("ASTAROT1").is_some());
+    // Built, not only made: the large log's first, empty picture is not a caption's (#861).
+    eventually("the overlays built", || fake.built());
     let large = fake.handle("ASTAROT1").unwrap();
     let drawn = || fake.calls_on(large, "raw");
     let before = drawn().len();
@@ -308,7 +310,12 @@ fn captions_are_drawn_on_the_large_vr_log_and_one_it_cannot_show_is_told() {
     for state in ["partial", "final", "translated"] {
         run.caption(mark, state);
     }
-    eventually("each state drew the log", || drawn().len() >= before + 3);
+    // Each caption row was queued for the large log before it reached the UI (#861); the server
+    // goes on speaking, so later captions may still wait.
+    let core = run.ui.backend.core().clone();
+    let queued = core.overlay_captions_queued();
+    eventually("the captions drawn", || core.overlay_captions_drawn(queued));
+    assert!(drawn().len() >= before + 3, "each state drew the log");
     let last = drawn().last().cloned().unwrap();
     assert!(!last.ends_with(" 1x1"), "the log shows the caption: {last}");
     assert!(run.ui.on(mark, "/run/message_output_error").is_empty());
@@ -672,7 +679,7 @@ fn an_utterance_the_server_never_finishes_ends_the_session_after_its_limit() {
     // Decision 81: the first result may take 120 s (a GPU builds its kernels) and each later one
     // 15 s; shortened here. The limit is counted from the utterance's start.
     let limits = |first: u64, later: u64| RealtimeLimits {
-        session: vrct_transcription::realtime::Limits {
+        session: astarot_transcription::realtime::Limits {
             first_result: Duration::from_millis(first),
             pending: Duration::from_millis(later),
             ..Default::default()
@@ -771,7 +778,7 @@ fn a_switch_turned_off_and_on_while_the_server_does_not_answer_starts_again() {
     // that ends the wait lets the switch turn on again (the answer is 200, not that failure).
     let limits = RealtimeLimits {
         drain: Duration::from_millis(500),
-        session: vrct_transcription::realtime::Limits { setup: Duration::from_secs(10), ..Default::default() },
+        session: astarot_transcription::realtime::Limits { setup: Duration::from_secs(10), ..Default::default() },
         ..RealtimeLimits::default()
     };
     let run = start_with(Platform::Linux, json!({}), true, None, None, limits);
@@ -835,7 +842,7 @@ fn both_switches_turned_on_together_share_one_bundled_server_start() {
     let services = Services {
         transcription_capture: capture.factory(),
         speech_server_launch: std::sync::Arc::new(move |_| {
-            let mut launch = vrct_speech_server::server::Launch::fixed(fake);
+            let mut launch = astarot_speech_server::server::Launch::fixed(fake);
             launch.start_timeout = Duration::from_secs(10);
             launch
         }),

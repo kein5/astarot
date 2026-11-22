@@ -9,7 +9,7 @@ position. A wrong position calls another function without any error (#610). The 
 each interface version they call, the names of its functions in table order, as pyopenvr has
 them (its IVR*_FnTable structures, the order of openvr_capi.h). pyopenvr is pinned in uv.lock,
 and the app ships the client library from the same wheel. Each crate's tests check every
-position it declares against this file (vrct_openvr_client::fn_table!).
+position it declares against this file (astarot_openvr_client::fn_table!).
 
 Run with pyopenvr installed (the voice-test group of uv.lock has it:
 `python tools/dev.py setup --scope headless`). tests/voice/test_openvr_fn_tables.py runs the same

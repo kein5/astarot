@@ -7,11 +7,11 @@ use std::sync::atomic::{AtomicU32, Ordering};
 use std::time::{Duration, Instant};
 
 use serde_json::json;
-use vrct_speech_server::builds::{survey, Builds};
-use vrct_speech_server::bundle::{checked_bundle, file_sha256, Build, EXECUTABLE};
-use vrct_speech_server::server::{Hooks, Launch, SpeechServer, State};
-use vrct_speech_server::settings::{start_options, Profile};
-use vrct_speech_server::{codes, Code};
+use astarot_speech_server::builds::{survey, Builds};
+use astarot_speech_server::bundle::{checked_bundle, file_sha256, Build, EXECUTABLE};
+use astarot_speech_server::server::{Hooks, Launch, SpeechServer, State};
+use astarot_speech_server::settings::{start_options, Profile};
+use astarot_speech_server::{codes, Code};
 
 const FAKE: &str = env!("CARGO_BIN_EXE_fake-speech");
 
@@ -51,7 +51,7 @@ fn bundle(root: &Path, name: &str, variant: &str, pc: Pc) -> (String, String) {
     std::fs::create_dir_all(&folder).unwrap();
     let binary = folder.join(EXECUTABLE);
     std::fs::copy(FAKE, &binary).unwrap();
-    let meta = json!({"schema": 1, "version": vrct_speech_server::bundle::VERSION, "variant": variant});
+    let meta = json!({"schema": 1, "version": astarot_speech_server::bundle::VERSION, "variant": variant});
     std::fs::write(folder.join("bundle.json"), meta.to_string()).unwrap();
     let cpu = json!({"name": "CPU", "description": "Fake CPU", "kind": "cpu", "memory_total": 1u64 << 34});
     let rows = match pc {

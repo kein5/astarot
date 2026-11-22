@@ -3,8 +3,26 @@
 version = 4
 
 [[package]]
-name = "app-identity"
+name = "astarot-app-identity"
 version = "0.0.0"
+
+[[package]]
+name = "astarot-ops"
+version = "0.0.0"
+dependencies = [
+ "astarot-app-identity",
+ "httparse",
+ "jiff",
+ "libc",
+ "rustls",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tempfile",
+ "uuid",
+ "webpki-roots",
+ "windows-sys 0.61.2",
+]
 
 [[package]]
 name = "bitflags"
@@ -567,24 +585,6 @@ name = "version_check"
 version = "0.9.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
-
-[[package]]
-name = "vrct-ops"
-version = "0.0.0"
-dependencies = [
- "app-identity",
- "httparse",
- "jiff",
- "libc",
- "rustls",
- "serde",
- "serde_json",
- "sha2",
- "tempfile",
- "uuid",
- "webpki-roots",
- "windows-sys 0.61.2",
-]
 
 [[package]]
 name = "wasi"

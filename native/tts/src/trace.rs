@@ -29,7 +29,7 @@ pub fn canonical_uuid(value: &str) -> Option<String> {
 /// `first_write` is `(monotonic_ns, sample_rate)` of the first audible write.
 /// `outcome` is `completed`, `cancelled` or `error`.
 pub fn write_voice_trace(event_id: &str, started_ns: i64, first_write: Option<(i64, u32)>, outcome: &str) {
-    let Some(path) = std::env::var_os(app_identity::env::VOICE_TRACE).filter(|path| !path.is_empty()) else {
+    let Some(path) = std::env::var_os(astarot_app_identity::env::VOICE_TRACE).filter(|path| !path.is_empty()) else {
         return;
     };
     let mut row = json!({
@@ -40,7 +40,7 @@ pub fn write_voice_trace(event_id: &str, started_ns: i64, first_write: Option<(i
         "sample_rate": first_write.map(|(_, rate)| rate),
         "outcome": outcome,
     });
-    if std::env::var_os(app_identity::env::VOICE_GC_DIAGNOSTICS).is_some_and(|value| value == "1") {
+    if std::env::var_os(astarot_app_identity::env::VOICE_GC_DIAGNOSTICS).is_some_and(|value| value == "1") {
         // Python recorded garbage-collector pauses here. Rust has none; the
         // field stays so the record's shape does not depend on the runtime.
         row["gc_pauses"] = json!([]);

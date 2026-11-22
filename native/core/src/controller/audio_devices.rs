@@ -47,18 +47,18 @@ use crate::protocol::Reply;
 use serde_json::{Value, json};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, OnceLock};
-use vrct_audio_routing::graph::OutputOption;
-use vrct_audio_routing::identity::{Device, NO_DEVICE, device_id, device_options, resolve_device};
-use vrct_audio_routing::manager::DeviceManager;
-use vrct_audio_routing::mute_state::{MuteState, MuteStore};
-use vrct_audio_routing::naming::same_output;
-use vrct_audio_routing::platform::AudioPlatform;
-use vrct_audio_routing::report::Reporter;
-use vrct_audio_routing::selection::{self, Saved};
-use vrct_audio_routing::snapshot::DeviceSnapshot;
-use vrct_audio_routing::virtual_mic::{CablePair, VirtualMicCheck};
+use astarot_audio_routing::graph::OutputOption;
+use astarot_audio_routing::identity::{Device, NO_DEVICE, device_id, device_options, resolve_device};
+use astarot_audio_routing::manager::DeviceManager;
+use astarot_audio_routing::mute_state::{MuteState, MuteStore};
+use astarot_audio_routing::naming::same_output;
+use astarot_audio_routing::platform::AudioPlatform;
+use astarot_audio_routing::report::Reporter;
+use astarot_audio_routing::selection::{self, Saved};
+use astarot_audio_routing::snapshot::DeviceSnapshot;
+use astarot_audio_routing::virtual_mic::{CablePair, VirtualMicCheck};
 
-pub use vrct_audio_routing::selection::Source;
+pub use astarot_audio_routing::selection::Source;
 
 /// The capture of one source, owned by the speech recognition (`model._mic_session`).
 pub trait CaptureOwner: Send + Sync {
@@ -436,7 +436,7 @@ impl AudioDevices {
     }
 
     /// The outputs speech can play to.
-    pub fn outputs(&self, keep: &[String]) -> Result<Vec<OutputOption>, vrct_audio_routing::Error> {
+    pub fn outputs(&self, keep: &[String]) -> Result<Vec<OutputOption>, astarot_audio_routing::Error> {
         self.platform.outputs(keep)
     }
 

@@ -8,6 +8,7 @@ import { HomeActions, HomeShot, HomeShowcase } from './components/Home'
 import { RouteStrip } from './components/RouteStrip'
 import { TermTooltip } from './components/TermTooltip'
 import { LOCALE_KEY } from './lib/locale'
+import './tokens.css'
 import './custom.css'
 
 export * from '@rspress/core/theme-original'

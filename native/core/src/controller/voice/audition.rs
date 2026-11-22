@@ -5,7 +5,7 @@
 //!   with that profile's voice settings.
 //! - RVC: the user's own voice, recorded for a few seconds from the input chosen on the RVC page
 //!   on the press, converted by a downloaded or registered voice model in an RVC worker of its own
-//!   ([`vrct_voice_conversion::audition`]). The microphone opens only for that recording, and the
+//!   ([`astarot_voice_conversion::audition`]). The microphone opens only for that recording, and the
 //!   recording stays in memory until the audition ends; it is never saved. The pitch and the index
 //!   rate come with the request, so the values on the form can be heard before they are saved.
 //!
@@ -26,15 +26,15 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use serde_json::{Map, Value, json};
-use vrct_audio_routing::graph::{Endpoint, parse_source};
-use vrct_audio_routing::monitor::{MonitorFactory, check_monitor_target, scale_pcm};
-use vrct_audio_routing::router::Output;
-use vrct_audio_routing::windows_route::{Capture, CaptureCallbacks};
-use vrct_tts::playback::Frames;
-use vrct_tts::sync::Event;
-use vrct_tts::{CancelToken, SpeechCppTts, SpeechError, SynthesisOptions};
-use vrct_voice_conversion::PreparedRvc;
-use vrct_voice_conversion::protocol::RATE;
+use astarot_audio_routing::graph::{Endpoint, parse_source};
+use astarot_audio_routing::monitor::{MonitorFactory, check_monitor_target, scale_pcm};
+use astarot_audio_routing::router::Output;
+use astarot_audio_routing::windows_route::{Capture, CaptureCallbacks};
+use astarot_tts::playback::Frames;
+use astarot_tts::sync::Event;
+use astarot_tts::{CancelToken, SpeechCppTts, SpeechError, SynthesisOptions};
+use astarot_voice_conversion::PreparedRvc;
+use astarot_voice_conversion::protocol::RATE;
 
 use super::Token;
 
@@ -375,7 +375,7 @@ fn speech_code(error: &SpeechError) -> String {
 /// before the voice (#556), and an audition starts at the voice.
 fn sentence_frames(speech: &Speech, token: &CancelToken) -> Frames {
     let frames: Frames = Box::new(speech.client.synthesize_stream(speech.text, &speech.voice, speech.language, token, &speech.options));
-    vrct_tts::onset::skip_leading_silence(frames)
+    astarot_tts::onset::skip_leading_silence(frames)
 }
 
 /// The monitor, opened for the first audio and written in blocks of at most 10 ms.
@@ -394,7 +394,7 @@ impl<'a> Monitor<'a> {
     fn write(&mut self, pcm: &[u8], format: (u32, u16)) -> Result<(), String> {
         if self.output.is_none() {
             // Checked again here, for the OS default the factory resolves.
-            let device = (self.target.factory)(&self.target.device, format.0, format.1, &self.target.exclude).map_err(|error| vrct_audio_routing::monitor::error_code(&error))?;
+            let device = (self.target.factory)(&self.target.device, format.0, format.1, &self.target.exclude).map_err(|error| astarot_audio_routing::monitor::error_code(&error))?;
             self.output = Some((device, format));
             self.stage.playing();
         }
@@ -405,7 +405,7 @@ impl<'a> Monitor<'a> {
         let block = (format.0 as usize / 100).max(1) * format.1 as usize * 2;
         for pcm in pcm.chunks(block) {
             self.token.check().map_err(|error| speech_code(&error))?;
-            device.write(&scale_pcm(pcm, self.target.volume), &Token(self.token)).map_err(|error| vrct_audio_routing::monitor::error_code(&error))?;
+            device.write(&scale_pcm(pcm, self.target.volume), &Token(self.token)).map_err(|error| astarot_audio_routing::monitor::error_code(&error))?;
         }
         Ok(())
     }
@@ -413,7 +413,7 @@ impl<'a> Monitor<'a> {
     /// A finished audition plays out; a stopped one is cut.
     fn close(self, result: Result<(), String>) -> Result<(), String> {
         let Some((mut device, _)) = self.output else { return result };
-        let closed = device.close(result.is_ok(), &Token(self.token)).map_err(|error| vrct_audio_routing::monitor::error_code(&error));
+        let closed = device.close(result.is_ok(), &Token(self.token)).map_err(|error| astarot_audio_routing::monitor::error_code(&error));
         result.and(closed)
     }
 }
@@ -439,7 +439,7 @@ fn play_rvc(prepared: &PreparedRvc, recording: &Recording, target: &Target, toke
     let check = || token.check().map_err(|error| speech_code(&error));
     let mut sample = || record(recording, token, stage);
     let mut write = |pcm: &[u8], _state: &'static str| monitor.write(pcm, (RATE, 1));
-    let result = vrct_voice_conversion::audition::convert_sample(prepared, &mut sample, &mut write, &check).and_then(|()| check());
+    let result = astarot_voice_conversion::audition::convert_sample(prepared, &mut sample, &mut write, &check).and_then(|()| check());
     monitor.close(result)
 }
 
@@ -469,14 +469,14 @@ fn record(recording: &Recording, token: &CancelToken, stage: &Stage) -> Result<V
         }),
         on_error: Box::new(move |code: &str| {
             let mut taken = errors.lock().unwrap();
-            taken.error.get_or_insert_with(|| vrct_audio_routing::windows_route::capture_code(code).to_owned());
+            taken.error.get_or_insert_with(|| astarot_audio_routing::windows_route::capture_code(code).to_owned());
             taken.done = true;
         }),
     };
     stage.set("recording");
     let mut capture = (recording.open)(&recording.input, callbacks);
     let result = (|| -> Result<(), String> {
-        capture.start().map_err(|error| vrct_audio_routing::windows_route::capture_code(&error.code).to_owned())?;
+        capture.start().map_err(|error| astarot_audio_routing::windows_route::capture_code(&error.code).to_owned())?;
         let started = Instant::now();
         loop {
             token.check().map_err(|error| speech_code(&error))?;
@@ -510,7 +510,7 @@ fn record(recording: &Recording, token: &CancelToken, stage: &Stage) -> Result<V
 
 /// The monitor an audition plays on, or why there is none. `cables` is `None` when the virtual
 /// cables could not be listed on a PC that has them (Windows).
-pub(super) fn monitor_target(settings: &vrct_tts::VoiceSettings, cables: Option<Vec<String>>, factory: MonitorFactory) -> Result<Target, &'static str> {
+pub(super) fn monitor_target(settings: &astarot_tts::VoiceSettings, cables: Option<Vec<String>>, factory: MonitorFactory) -> Result<Target, &'static str> {
     // The monitor is off: the user chose no local output, and no other output is taken in its place.
     let (device, volume) = settings.monitor_choice().ok_or("voice_audition_monitor_off")?;
     let cables = cables.ok_or("voice_audition_devices_unavailable")?;
@@ -528,7 +528,7 @@ pub(super) fn monitor_target(settings: &vrct_tts::VoiceSettings, cables: Option<
 }
 
 /// The voice, seed and instructions of a profile, as the speech bus would send them.
-pub(super) fn speech_options(settings: &vrct_tts::VoiceSettings, profile: &str) -> (String, SynthesisOptions) {
+pub(super) fn speech_options(settings: &astarot_tts::VoiceSettings, profile: &str) -> (String, SynthesisOptions) {
     let (voice, seed, instructions) = if profile == "japanese" {
         (&settings.japanese_voice, &settings.japanese_seed, &settings.japanese_instructions)
     } else {
@@ -639,11 +639,11 @@ mod tests {
         let direct = json!({ "rvc_pitch": 0, "rvc_index_rate": 0.0, "rvc_device": "cpu", "rvc_threads": 4, "rvc_highpass": false });
         let options = rvc_start_options(&request, "/r", "/v.pth", "/v.index", &direct);
         assert_eq!(options, json!({ "engine": "rvc", "runtime": "/r", "model": "/v.pth", "index": "/v.index", "pitch": 5, "index_rate": 0.75, "device": "cpu", "threads": 4, "highpass": false }));
-        assert!(vrct_voice_conversion::process::rvc_options(&options).is_ok());
+        assert!(astarot_voice_conversion::process::rvc_options(&options).is_ok());
         // Without an index file there is nothing to blend.
         let options = rvc_start_options(&request, "/r", "/v.pth", "", &json!({}));
         assert_eq!((options["index_rate"].clone(), options.get("device")), (json!(0), None));
-        assert!(vrct_voice_conversion::process::rvc_options(&options).is_ok());
+        assert!(astarot_voice_conversion::process::rvc_options(&options).is_ok());
     }
 
     /// A microphone that hands over `pcm` in 10 ms parts until it is stopped, or fails to start.
@@ -657,9 +657,9 @@ mod tests {
     }
 
     impl Capture for Feed {
-        fn start(&mut self) -> vrct_audio_routing::Result<()> {
+        fn start(&mut self) -> astarot_audio_routing::Result<()> {
             if let Some(code) = self.fails {
-                return Err(vrct_audio_routing::Error::runtime(code));
+                return Err(astarot_audio_routing::Error::runtime(code));
             }
             let (mut callbacks, part, stop) = (self.callbacks.take().unwrap(), self.part.clone(), self.stop.clone());
             self.thread = Some(thread::spawn(move || {
@@ -718,8 +718,8 @@ mod tests {
 
     #[test]
     fn the_monitor_must_be_on_and_never_the_voice_output_or_a_cable() {
-        let factory: MonitorFactory = Arc::new(|_: &str, _: u32, _: u16, _: &[String]| Err(vrct_audio_routing::Error::speech("unused")));
-        let settings = |value: Value| vrct_tts::VoiceSettings::from_value_on(&value, vrct_tts::settings::Platform::Windows).unwrap();
+        let factory: MonitorFactory = Arc::new(|_: &str, _: u32, _: u16, _: &[String]| Err(astarot_audio_routing::Error::speech("unused")));
+        let settings = |value: Value| astarot_tts::VoiceSettings::from_value_on(&value, astarot_tts::settings::Platform::Windows).unwrap();
         let off = settings(json!({ "output_device": "Cable In" }));
         assert_eq!(monitor_target(&off, Some(vec![]), factory.clone()).err(), Some("voice_audition_monitor_off"));
         let on = settings(json!({ "output_device": "Cable In", "monitor": "on", "monitor_device": "Other Cable", "monitor_volume": "40" }));

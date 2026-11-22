@@ -1,7 +1,7 @@
 //! The translation catalog through the IPC surface (#413): the two groups (inference engines
 //! and APIs), the built-in entries next to the user's, and adding, using and removing an entry
 //! of each group. The OpenAI-compatible endpoint is a stand-in on a loopback port
-//! (`vrct_translation::fake`); the engine models are folders of tiny fake files, as in
+//! (`astarot_translation::fake`); the engine models are folders of tiny fake files, as in
 //! `translation_models.rs`. The OS credential store the keys go to is in memory, as in
 //! `secret_store.rs`: the PC's own is never touched. Nothing leaves this PC.
 
@@ -11,15 +11,15 @@ use common::{Setup, Ui};
 use serde_json::{Value, json};
 use std::path::Path;
 use std::sync::Arc;
-use vrct_core::config::secrets::{FILE_NAME, Faults, MemoryStore};
-use vrct_core::controller::Services;
-use vrct_translation::fake::FakeProviders;
-use vrct_translation::providers::Endpoints;
+use astarot_core::config::secrets::{FILE_NAME, Faults, MemoryStore};
+use astarot_core::controller::Services;
+use astarot_translation::fake::FakeProviders;
+use astarot_translation::providers::Endpoints;
 
 const FILES: [(&str, &str); 4] = [("encoder.onnx", "a"), ("decoder.onnx", "b"), ("tokenizer.json", "c"), ("vocab.json", "d")];
 
 fn sha(data: &[u8]) -> String {
-    vrct_voice_conversion::runtime::sha256_hex(data)
+    astarot_voice_conversion::runtime::sha256_hex(data)
 }
 
 fn write_model(dir: &Path, family: &str, languages: &[&str]) {
@@ -374,7 +374,7 @@ fn gguf(path: &Path, architecture: &str) {
 
 #[test]
 fn a_translation_llm_entry_waits_for_llama_cpps_server() {
-    use vrct_voice_conversion::runtime::{llama_server_name, llamacpp_runtime, version_of, Target};
+    use astarot_voice_conversion::runtime::{llama_server_name, llamacpp_runtime, version_of, Target};
     let temp = tempfile::tempdir().unwrap();
     let outside = tempfile::tempdir().unwrap();
     let services = Services { telemetry_forced_off: Arc::new(|| true), ..Setup::default().services };

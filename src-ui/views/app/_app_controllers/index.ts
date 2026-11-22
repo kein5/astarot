@@ -5,6 +5,7 @@ export { UiLanguageController } from "./UiLanguageController";
 export { ConfigPageCloseTriggerController } from "./ConfigPageCloseTriggerController";
 export { UiSizeController } from "./UiSizeController";
 export { FontFamilyController } from "./FontFamilyController";
+export { ThemeController } from "./ThemeController";
 export { TransparencyController } from "./TransparencyController";
 export { CornerRadiusController } from "./CornerRadiusController";
 export { VrPanelSyncController } from "./VrPanelSyncController";

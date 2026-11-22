@@ -1,4 +1,4 @@
-# vrct-adapters
+# astarot-adapters
 
 外部のツールとつなぐ部分（VRChat への OSC と OSCQuery、OBS のブラウザソース、ローカルの WebSocket サーバ、クリップボードへのコピーと自動貼り付け）を受け持つ Rust クレートです。Issue #283 の範囲で、`src-python/models/` の `osc/`、`obs/`、`websocket/`、`clipboard/` を置き換えます。
 

@@ -2,18 +2,18 @@
 //!
 //! A recognised message is copied, then pasted (Ctrl+V) into the window of the game SteamVR
 //! runs. The game is SteamVR's scene application, read through the OpenVR connection the VR
-//! overlays share ([`vrct_vr_overlay::shared`]): the connection is borrowed for the read and
+//! overlays share ([`astarot_vr_overlay::shared`]): the connection is borrowed for the read and
 //! given back, and closes then unless the overlays hold it. Python only took Steam's games
 //! (keys `steam.app.*`); so does this. Without SteamVR, without a game, or when the window does
 //! not come to the front, the text is only copied (the behaviour of
-//! [`vrct_adapters::clipboard::Clipboard`]).
+//! [`astarot_adapters::clipboard::Clipboard`]).
 //!
 //! Neither the text nor the game's name is logged.
 
 use std::sync::{Arc, OnceLock};
 
-use vrct_adapters::clipboard::{Clipboard, Desktop, VrAppName};
-use vrct_vr_overlay::runtime::Vr;
+use astarot_adapters::clipboard::{Clipboard, Desktop, VrAppName};
+use astarot_vr_overlay::runtime::Vr;
 
 /// Makes the desktop the clipboard works on (its copy, focus and keys); called once.
 pub type DesktopSource = Arc<dyn Fn() -> Box<dyn Desktop> + Send + Sync>;
@@ -27,7 +27,7 @@ pub struct SceneAppName {
 }
 
 impl SceneAppName {
-    /// `vr` should be the [`SharedVr`](vrct_vr_overlay::shared::SharedVr) the overlays use.
+    /// `vr` should be the [`SharedVr`](astarot_vr_overlay::shared::SharedVr) the overlays use.
     pub fn new(vr: Arc<dyn Vr>) -> Self {
         Self { vr }
     }

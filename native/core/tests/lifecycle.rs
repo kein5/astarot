@@ -6,8 +6,8 @@ use common::{Setup, Ui, error_code};
 use serde_json::{Value, json};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use vrct_core::config::Platform;
-use vrct_core::controller::Services;
+use astarot_core::config::Platform;
+use astarot_core::controller::Services;
 
 #[test]
 fn start_up_sends_its_notifications_in_order_and_then_opens_every_endpoint() {
@@ -122,7 +122,7 @@ fn a_start_up_that_panics_ends_the_run_so_the_ui_can_say_it_could_not_start() {
     };
     let dir = tempfile::tempdir().unwrap();
     let ui = Ui::with(Setup { services, dir: Some(dir.path().to_path_buf()), ..Setup::default() });
-    assert_eq!(ui.wait_exit(Duration::from_secs(5)), Some(vrct_core::STARTUP_FAILED_EXIT));
+    assert_eq!(ui.wait_exit(Duration::from_secs(5)), Some(astarot_core::STARTUP_FAILED_EXIT));
     assert!(ui.on(0, "/run/initialization_complete").is_empty());
     // The run is over: a request is not taken.
     let mark = ui.send("/get/data/version", None);
@@ -144,7 +144,7 @@ fn a_start_up_that_does_not_end_in_time_ends_the_run_and_never_opens() {
         ..Setup::default().services
     };
     let ui = Ui::with(Setup { services, startup_limit: Some(Duration::from_millis(200)), ..Setup::default() });
-    assert_eq!(ui.wait_exit(Duration::from_secs(5)), Some(vrct_core::STARTUP_TIMEOUT_EXIT));
+    assert_eq!(ui.wait_exit(Duration::from_secs(5)), Some(astarot_core::STARTUP_TIMEOUT_EXIT));
     // The start-up that ends later does not open the endpoints of a run that is over.
     std::thread::sleep(Duration::from_millis(2500));
     assert!(!ui.backend.dispatcher().is_open());
@@ -166,7 +166,7 @@ fn a_start_up_past_its_deadline_starts_nothing_once_it_goes_on() {
     };
     let dir = tempfile::tempdir().unwrap();
     let ui = Ui::with(Setup { services, startup_limit: Some(Duration::from_millis(200)), dir: Some(dir.path().to_path_buf()), ..Setup::default() });
-    assert_eq!(ui.wait_exit(Duration::from_secs(5)), Some(vrct_core::STARTUP_TIMEOUT_EXIT));
+    assert_eq!(ui.wait_exit(Duration::from_secs(5)), Some(astarot_core::STARTUP_TIMEOUT_EXIT));
     let log = || std::fs::read_to_string(dir.path().join("logs").join("process.log")).unwrap_or_default();
     common::net::eventually("the start-up ended", || {
         let log = log();

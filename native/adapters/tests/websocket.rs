@@ -14,7 +14,7 @@ use futures_util::{SinkExt, StreamExt};
 use tokio::net::TcpStream;
 use tokio_tungstenite::tungstenite::protocol::frame::coding::CloseCode;
 use tokio_tungstenite::tungstenite::Message;
-use vrct_adapters::websocket::{
+use astarot_adapters::websocket::{
     Incoming, SendError, StartError, WebSocketServer, INCOMING_MESSAGE_BURST, MAX_CLIENTS, MAX_INCOMING_MESSAGE_SIZE,
     MAX_OPENING_CONNECTIONS, MAX_OUTGOING_MESSAGE_SIZE, MAX_PENDING_MESSAGES,
 };
@@ -359,7 +359,7 @@ mod tls {
     use super::*;
     use rustls::pki_types::ServerName;
     use tokio_rustls::TlsConnector;
-    use vrct_adapters::tls::server_config;
+    use astarot_adapters::tls::server_config;
 
     async fn connect_tls(
         port: u16,
@@ -473,7 +473,7 @@ async fn a_client_over_the_limit_is_told_to_try_again_later() {
 async fn nothing_logged_holds_the_token_or_the_text() {
     let lines = Arc::new(Mutex::new(Vec::<&'static str>::new()));
     let sink = lines.clone();
-    vrct_adapters::log::set_sink(move |line| sink.lock().unwrap().push(line));
+    astarot_adapters::log::set_sink(move |line| sink.lock().unwrap().push(line));
     let (server, port) = started("secret-token-value");
     let mut flooder = connect(port, Some("secret-token-value")).await.unwrap();
     wait_for_clients(&server, 1);

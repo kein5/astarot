@@ -2,7 +2,7 @@
 //!
 //! `VR_InitInternal2` and `VR_ShutdownInternal` act on the whole process: the client library
 //! keeps one connection, and shutting it down invalidates every function table anyone fetched.
-//! The VR overlay (`vrct-vr-overlay`) and the OCR capture (`ocr-runtime`) both connect, so each
+//! The VR overlay (`astarot-vr-overlay`) and the OCR capture (`ocr-runtime`) both connect, so each
 //! takes a [`Lease`] here instead of calling them itself. The first lease initializes OpenVR as a
 //! background application, the last one dropped shuts it down, and a part that lets go never
 //! breaks the other's tables.
@@ -103,7 +103,7 @@ pub const REFERENCE_FN_TABLES: &str = include_str!("../tests/data/pyopenvr_fn_ta
 /// names, so that the tests can check every one against [`REFERENCE_FN_TABLES`].
 ///
 /// ```
-/// vrct_openvr_client::fn_table! {
+/// astarot_openvr_client::fn_table! {
 ///     SYSTEM = "IVRSystem_023";
 ///     POLL_NEXT_EVENT = 29 => "pollNextEvent",
 ///     #[cfg(windows)]
@@ -435,7 +435,7 @@ mod tests {
 
     #[test]
     fn no_candidate_means_no_library() {
-        let missing = std::env::temp_dir().join("vrct-openvr-client-test").join("no_such_openvr_api.dll");
+        let missing = std::env::temp_dir().join("astarot-openvr-client-test").join("no_such_openvr_api.dll");
         assert_eq!(load(&[missing]).err(), Some(Error::LibraryNotFound));
     }
 

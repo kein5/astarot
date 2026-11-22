@@ -295,7 +295,7 @@ node node_modules/@playwright/test/cli.js test --config tests/integration/playwr
 
 ### UIのミューテーションテスト
 
-ミューテーションテストは、ソースにわざと小さな変更（ミュータント）を入れ、どれかのテストが失敗するかを確かめます。カバレッジは「実行されたか」しか見ませんが、こちらは「値の違いをテストが見ているか」を測ります。道具は [@mizchi/mutator](https://www.npmjs.com/package/@mizchi/mutator)（0.2.0 に固定）です。CIでは回しません。リファクタリングの節目や、対象のモジュールを変えたときに手で回します（[Issue #550](https://github.com/kein5/astarot/issues/550)）。
+ミューテーションテストは、ソースにわざと小さな変更（ミュータント）を入れ、どれかのテストが失敗するかを確かめます。カバレッジは「実行されたか」しか見ませんが、こちらは「値の違いをテストが見ているか」を測ります。道具は [@mizchi/mutator](https://www.npmjs.com/package/@mizchi/mutator)（0.2.0 に固定）です。CIでは回さず、手で回します。回す場面は下の「ミューテーションテストを回す場面」にあります。
 
 ```sh
 npm run test:mutation                                                  # 対象の全体
@@ -333,7 +333,7 @@ npx mutator accept <キー> --reason "<等価と判断した理由>"            
 Rustのカバレッジは [cargo-llvm-cov](https://github.com/taiki-e/cargo-llvm-cov)、ミューテーションテストは [cargo-mutants](https://mutants.rs/) で測ります。どちらも `mise.toml` で版を固定しています（`cargo:cargo-llvm-cov`、`cargo:cargo-mutants`。cargo でソースから組むので、初めの1回は数分かかります）。[Issue #550](https://github.com/kein5/astarot/issues/550) と #871 の決定で、使い方は次のとおりです。
 
 - **カバレッジ**: CIの `voice-tests.yml` の `rust-coverage` のジョブが、PRと、developとmainへのpushごとに、クレートごとの数字を測り、ジョブの要約（Summary）に表で出します。しきい値はなく、数字が下がってもCIは失敗しません。手元でも同じ道具で測れます（`tools/rust_coverage.py`）。
-- **ミューテーションテスト**: CIでは回しません。対象のモジュールを変えたPRと、作り替えの節目に手で回します。
+- **ミューテーションテスト**: CIでは回さず、手で回します。回す場面は下の「ミューテーションテストを回す場面」にあります。
 
 ```sh
 mise install cargo:cargo-llvm-cov cargo:cargo-mutants
@@ -357,6 +357,41 @@ cd native/core && PROPTEST_DISABLE_FAILURE_PERSISTENCE=1 cargo mutants --in-plac
 - 対象は純粋なロジックにし、時刻や待ちに頼る試験のあるモジュールは外します（ミュータントごとに結果がぶれるため）。`-- --lib` を付けると単体の試験だけを流します。統合試験だけが確かめている変異は検出されないので、結果を報告するときは流した試験の範囲も書きます。
 - 結果は `mutants.out/` の `caught.txt`（検出）、`missed.txt`（未検出）、`timeout.txt`、`unviable.txt`（ビルドできない変異。分母に入れない）にあります。未検出は1件ずつコードを読み、試験の不足か、どの入力でも結果が変わらない等価なミュータントかを判断します。
 - 純粋な関数の境界は、プロパティベーステスト（[proptest](https://proptest-rs.github.io/proptest/)。`native/core` の試験用の依存）で確かめられます。正規化の結果をもう一度正規化しても変わらないこと、保存して読み戻すと同じになることなど、入力を選ばない性質を書きます。
+
+### 変えた所のミューテーションテスト
+
+`mise run mutation:changed`（`python tools/mutation_changed.py`）は、作業中の枝が変えた所だけをミューテーションテストにかけます。画面とRustの両方を見て、変えたものがある側だけを回します（[Issue #550](https://github.com/kein5/astarot/issues/550) の Phase 3）。
+
+```sh
+mise run mutation:changed                                 # origin/develop との分岐点からの変更
+mise run mutation:changed -- --base astarot/develop       # develop を別の名前のリモートで取っているとき
+mise run mutation:changed -- --dry-run                    # 何を回すかだけを表示する
+mise run mutation:changed -- --ui-only                    # 画面だけ（--rust-only でRustだけ）
+```
+
+- 変更は、`--base` と HEAD の分岐点から作業ツリーまでの差分です。コミットしていない変更も入ります。新しいファイルは `git add` してから数えられます。
+- 画面: mutator の `--since` で、差分の中の変異だけを回して報告します。対象は `mutator.config.mjs` と同じです。表示されるスコアは、変えた所のスコアです。
+- Rust: `tools/dev.py` の `NATIVE_CRATES` のうち `src/` が変わったクレートごとに、cargo-mutants の `--in-diff` で差分の中の変異だけを回します。`native/core` は、上の節のとおり `--in-place` で単体の試験（`-- --lib`）だけを流します。
+- Survived があっても失敗にはしません。1件ずつ読み、試験の不足か等価なミュータントかを判断します（上の2つの節）。道具が回せなかったとき（変異のない状態で試験が落ちるなど）だけ失敗します。
+- 結果は、画面が `.mutator/report/`、Rustが `<クレート>/mutants.out/` にあります。
+
+### ミューテーションテストを回す場面
+
+[Issue #550](https://github.com/kein5/astarot/issues/550) の Phase 3 で、次のように決まりました（2026-11-23、PR #975 の判断）。CIでは回しません。
+
+- **PR**: 画面のロジック（`src-ui/logics`、`src-ui/views`）か、Rustのクレートの `src/` を変えたPRでは、`mise run mutation:changed` を回すことを勧めます。必須ではありません。回したら、PRの本文の「確認したこと」に、Survived と NoCoverage の件数と、それを1件ずつ読んだかどうかを書きます。回さなかったときは、その理由を書きます（pull-requestスキル）。
+- **正式版の前**: 画面側の全体と、Rustの主なクレート（下の一覧）の全部を回します（releaseスキル）。ベータでは回しません。
+  - 画面: `npm run test:mutation -- --full-dry-run --reporter text --reporter json`。全件の結果は `.mutator/report/mutation.json` に出ます。手元（Linux、並列16）で40分から2時間半かかりました（機材の負荷によります）。長いので、端末から切り離して回します。
+  - Rust: 主なクレートの一覧を、節目ごとに全部回します（2026-11-23、PR #982 の判断）。一覧は、#871 と `native/translation/.cargo/mutants.toml` で対象にしてきた、時刻や待ちに頼らない純粋なロジックです。一覧を変えるときは、この表を直します。
+
+    | クレート | 対象 | 流す試験 | コマンド（クレートのフォルダーで） |
+    |---|---|---|---|
+    | `native/ops` | `src/downloads/` の `catalog.rs`、`speechcpp.rs`、`translation_catalog.rs`、`verification.rs`、`user_models.rs` | 全部 | `cargo mutants -j 4 --cargo-arg=--locked -f src/downloads/catalog.rs -f src/downloads/speechcpp.rs -f src/downloads/translation_catalog.rs -f src/downloads/verification.rs -f src/downloads/user_models.rs` |
+    | `native/core` | `src/voice_settings.rs`、`src/languages.rs` | 単体だけ | `PROPTEST_DISABLE_FAILURE_PERSISTENCE=1 cargo mutants --in-place --cargo-arg=--locked -f src/voice_settings.rs -f src/languages.rs -- --lib` |
+    | `native/tts` | `src/onset.rs` | 単体だけ | `cargo mutants -j 4 --cargo-arg=--locked -f src/onset.rs -- --lib` |
+    | `native/transcription` | `src/diagnostics.rs` | 単体だけ | `cargo mutants -j 4 --cargo-arg=--locked -f src/diagnostics.rs -- --lib` |
+    | `native/translation` | `src/transliteration/` の `hepburn.rs`、`mod.rs`（`.cargo/mutants.toml`） | 全部 | `cargo mutants -j 3 --cargo-arg=--locked` |
+- **結果の置き場**: 全体を回した結果は Issue に残します。いまは #550 にコメントし、#550 を閉じたあとは、節目ごとに記録の Issue を立てます。リポジトリの文書には置きません。数字は計測した条件（版、並列数、機材）に左右され、文書に置くと保証のように読まれやすいためです。報告には対象の範囲と条件を添え、スコアを品質の保証として書きません。
 
 ## UIの文言と翻訳の検査
 

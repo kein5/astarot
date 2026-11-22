@@ -7,8 +7,8 @@
 
 #![cfg(target_os = "linux")]
 
-use ocr_runtime::capture::x11::X11WindowCapture;
-use ocr_runtime::capture::WindowCapture;
+use astarot_ocr_runtime::capture::x11::X11WindowCapture;
+use astarot_ocr_runtime::capture::WindowCapture;
 use x11rb::connection::Connection;
 use x11rb::protocol::xproto::{AtomEnum, ChangeGCAux, ConnectionExt, CreateGCAux, CreateWindowAux, EventMask, PropMode, Rectangle, WindowClass};
 use x11rb::wrapper::ConnectionExt as _;

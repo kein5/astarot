@@ -44,7 +44,7 @@ pub fn folders(app_dir: &Path) -> Vec<PathBuf> {
     if cfg!(target_os = "linux") {
         // The AppImage: usr/bin/vrct-vox with its files in usr/lib/vrct-vox.
         if let Some(prefix) = app_dir.parent() {
-            folders.push(prefix.join("lib").join(app_identity::LINUX_PACKAGE.current()).join(FOLDER));
+            folders.push(prefix.join("lib").join(astarot_app_identity::LINUX_PACKAGE.current()).join(FOLDER));
         }
     }
     folders

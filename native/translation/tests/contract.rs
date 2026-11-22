@@ -14,9 +14,9 @@
 use serde_json::{json, Map, Value};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
-use vrct_translation::http::{HttpError, Request, Response, Timeouts, Transport};
-use vrct_translation::prompt::HistoryItem;
-use vrct_translation::providers::{deepl, Access, Endpoints, Provider, Translation};
+use astarot_translation::http::{HttpError, Request, Response, Timeouts, Transport};
+use astarot_translation::prompt::HistoryItem;
+use astarot_translation::providers::{deepl, Access, Endpoints, Provider, Translation};
 
 const CONTRACT: &str = include_str!("contract/providers.json");
 

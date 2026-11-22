@@ -8,6 +8,8 @@ Changes your microphone's voice into another voice and gets it to VRChat through
 
 It is experimental. Before relying on it, check in your own setup how it sounds and how long the changed voice takes to come through.
 
+A new installation starts with "Basic" under "Used for", which hides the switch and the settings page of the voice changer. Show them with "Other features (N)" on the main screen, or choose a use under "Used for" at the top of the settings menu. Hidden pages can also be opened from the settings search ([First setup](../guide/first-setup)).
+
 ## What you need
 
 - A CPU fast enough for live conversion, or a supported GPU. CUDA needs an NVIDIA GeForce GTX 16 or RTX 20 series GPU or later with driver 580 or later. From 0.6.0, Windows can also use a DirectX 12 GPU through DirectML.
@@ -31,7 +33,7 @@ The runtime that is fetched depends on whether the PC has an NVIDIA driver.
 
 | | PC with an NVIDIA driver (GPU runtime) | Without one (CPU runtime) |
 |---|---|---|
-| Download, about | 1.8 GB on Windows, 1.9 GB on Linux | 0.6 GB on Windows and Linux |
+| Download, about | 1.7 GB on Windows, 1.9 GB on Linux | 0.7 GB on Windows and Linux |
 | Free disk space needed, about | 2.7 GB on Windows, 3.3 GB on Linux | 0.8 GB |
 
 From 0.6.0 on Windows, you can download "ONNX Runtime · DirectML" under "Models and runtime". Automatic selection tries CUDA first, then DirectML on a dedicated GPU, then the CPU. To try DirectML on integrated graphics, select DirectML in the RVC settings. CPU conversion only starts if the speed check passes. See [System requirements](../guide/requirements#rvc-on-an-nvidia-gpu) for CUDA driver requirements.
@@ -83,7 +85,7 @@ Seed-VC was removed in 0.5.0, and RVC is now the only voice changer. Changing yo
 
 ## Speak in your changed voice
 
-Set "Speak through voice conversion" under Settings → "Text to speech (TTS)" to On. While the voice changer runs, the speech voice is changed by the voice changer too, before it reaches the virtual microphone.
+Set "Speak through voice conversion" under Settings → "Text to speech (TTS)" → "More settings" to On. While the voice changer runs, the speech voice is changed by the voice changer too, before it reaches the virtual microphone.
 
 Together with speaking the translation of what you say ("Speak final translations"), others hear the translation in your changed voice.
 
@@ -94,7 +96,15 @@ Together with speaking the translation of what you say ("Speak final translation
 
 ## Hear the changed voice yourself
 
-Turn on "Hear it on my speakers" under "Text to speech (TTS)".
+Under "Text to speech (TTS)" → "More settings" → "Monitor", turn on "Hear it on my speakers" and choose a "Monitor output".
+
+## Play a sample of a model
+
+Press "Play sample" on a model's card. It records 5 seconds from the "Input to forward" microphone, converts it with that model and plays it only on the monitor output. The recording is not kept and is never sent to VRChat. "Pitch shift" and "Retrieval blend" are used as they are in the fields, without saving them.
+
+## Conversion block length
+
+Your microphone is converted in pieces of a set length. With "Conversion block length" under Settings → "Advanced" left at the default, "Automatic", the app times the GPU once for each voice model and GPU and keeps the shortest length it keeps up with. Shorter pieces make the voice lag less, but the voice breaks up more easily when the GPU cannot keep up. Choose "Automatic" again to have the GPU timed again the next time conversion starts.
 
 ## Stop
 

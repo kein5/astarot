@@ -24,11 +24,11 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Condvar, Mutex, mpsc};
 use std::time::{Duration, Instant};
-use vrct_audio_routing::graph::Endpoint;
-use vrct_core::config::{Environment, Platform};
-use vrct_core::{Backend, Options, Sink};
-use vrct_transcription::capture::{Capture, CapturePlatform, OnAudio, OnError, Source, Target};
-use vrct_transcription::realtime;
+use astarot_audio_routing::graph::Endpoint;
+use astarot_core::config::{Environment, Platform};
+use astarot_core::{Backend, Options, Sink};
+use astarot_transcription::capture::{Capture, CapturePlatform, OnAudio, OnError, Source, Target};
+use astarot_transcription::realtime;
 
 const RATE: u32 = 48000;
 /// Silence after each utterance, so that the server's VAD ends it, and before the next.
@@ -315,7 +315,7 @@ fn main() {
                 std::thread::spawn(move || {
                     let mut buffer = [0u8; 4096];
                     while let Ok((size, _)) = chatbox.recv_from(&mut buffer) {
-                        let packets = vrct_adapters::osc::decode_packet(&buffer[..size]).unwrap_or_default();
+                        let packets = astarot_adapters::osc::decode_packet(&buffer[..size]).unwrap_or_default();
                         if packets.iter().any(|m| m.address == "/chatbox/input") {
                             // The last one: an utterance the server cut in two sends twice.
                             heard.lock().unwrap().chatbox = Some(Instant::now());
@@ -391,10 +391,10 @@ fn main() {
             })
         }
         "session" => {
-            let vocabulary = vrct_transcription::speechcpp::merged_terms(&json!({ "builtin": true, "terms": [] }));
+            let vocabulary = astarot_transcription::speechcpp::merged_terms(&json!({ "builtin": true, "terms": [] }));
             // The silence that ends an utterance is the core's default, as with unchanged settings.
             // The session takes the model as the server lists it, as the core's start gives it.
-            let (models, diarizes) = vrct_transcription::speechcpp::survey(&vrct_translation::http::direct(), &base_url, Duration::from_secs(5), None)
+            let (models, diarizes) = astarot_transcription::speechcpp::survey(&astarot_translation::http::direct(), &base_url, Duration::from_secs(5), None)
                 .expect("the server lists its models");
             let model = models.into_iter().find(|listed| listed.id == model).expect("the server lists the model");
             let options = realtime::Options { base_url, model, language, vocabulary, silence_duration_ms: None, vad_threshold_percent: None, diarizes, limits: Default::default(), diagnostics: None };

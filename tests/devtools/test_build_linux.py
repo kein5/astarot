@@ -31,7 +31,7 @@ source = {{ git = "https://example.invalid/source?rev={COMMIT}#{COMMIT}" }}
 '''
 PROJECT = '''
 [[package]]
-name = "vrct-vox"
+name = "astarot"
 version = "0.1.0"
 source = { virtual = "." }
 '''

@@ -1,4 +1,4 @@
-# vrct-ops
+# astarot-ops
 
 バックエンドの運用基盤を受け持つ Rust クレートです。Issue #284 の範囲で、次の Python モジュールの置き換え先です。
 
