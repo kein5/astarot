@@ -391,7 +391,25 @@ Windowsのインストーラー（`src-tauri/nsis/template.nsi`）は、画面�
 
 ZIP版は展開した場所で動く。前の版の上に展開すると`vrct-vox.exe`が残るので、利用者が消す。
 
-Linuxでは、debとrpmが`/opt/vrct-vox/astarot`を入れ、コマンド`/usr/bin/astarot`を置く。0.6.xまでのコマンド`/usr/bin/vrct-vox`も同じ実行ファイルを起動する。AppImageの中の実行ファイルは`usr/bin/astarot`である。パッケージのデスクトップファイルと、アプリがWaylandのportalのために書くデスクトップファイル（下の表の`io.github.kein5.astarot.desktop`）は、`StartupWMClass`を`astarot`にする。ウィンドウのクラスは実行ファイルの名前から決まるためである。パッケージのデスクトップファイルの`Exec`も`astarot`である。
+Linuxでは、debとrpmが`/opt/astarot/astarot`を入れ、コマンド`/usr/bin/astarot`を置く。0.6.xまでのコマンド`/usr/bin/vrct-vox`も同じ実行ファイルを起動する（下の[Linuxのパッケージの名前](#linuxのパッケージの名前)）。AppImageの中の実行ファイルは`usr/bin/astarot`である。パッケージのデスクトップファイルと、アプリがWaylandのportalのために書くデスクトップファイル（下の表の`io.github.kein5.astarot.desktop`）は、`StartupWMClass`を`astarot`にする。ウィンドウのクラスは実行ファイルの名前から決まるためである。パッケージのデスクトップファイルの`Exec`も`astarot`である。
+
+### Linuxのパッケージの名前
+
+0.7.0から、Linuxのパッケージの名前と置き場所は`astarot`である。0.6.xまでは`vrct-vox`だった（ADR-014の2.7）。設定とモデルはXDGのフォルダーにあり、パッケージの置き場所にはないので、パッケージの名前が変わってもそのまま読む。
+
+| 対象 | 0.7.0から | 0.6.xまで |
+|---|---|---|
+| debとrpmのパッケージ名 | `astarot` | `vrct-vox` |
+| debとrpmの置き場所 | `/opt/astarot`（`package-manager`の印もここ） | `/opt/vrct-vox` |
+| コマンド | `/usr/bin/astarot`。0.7.xの間は`/usr/bin/vrct-vox`も置く | `/usr/bin/vrct-vox` |
+| デスクトップファイルとアイコン | `astarot.desktop`、`astarot.png` | `vrct-vox.desktop`、`vrct-vox.png` |
+| AppImageの中の同梱のファイル | `usr/lib/astarot/_internal` | `usr/lib/vrct-vox/_internal` |
+| tar.gzを展開したフォルダー | `ASTAROT` | `VRCT-VOX` |
+
+- 新しいパッケージは旧のパッケージを置き換える。debは`vrct-vox`と衝突し（`Conflicts`）、置き換え（`Replaces`）、それを提供する（`Provides`）。rpmは`vrct-vox`を廃止し（`Obsoletes`、新しい版より前のもの）、それを提供する（`Provides`）。新しいファイルを`apt install`や`dnf install`で入れると旧のパッケージが消え、アプリの一覧にASTAROTが1つだけ出る。
+- `/usr/bin/vrct-vox`は0.8.0で外す（`tools/linux_packages.py`の`LEGACY_COMMAND_UNTIL`）。
+- アプリは同梱のファイルを実行ファイルの隣の`_internal`と、AppImageの`usr/lib/astarot/_internal`で探す（`native/core/src/resources.rs`）。どの版も自分の同梱のファイルを持つので、旧の名前の場所は探さない。
+- 更新の種類は、実行ファイルの隣の`package-manager`で判定する（[外部とのインターフェース](external-interfaces.md#アプリの更新)）。置き場所が変わっても判定は変わらない。
 
 ### APIキーの保存先
 

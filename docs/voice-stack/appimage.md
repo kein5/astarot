@@ -7,7 +7,8 @@ audio and capture helpers. Since 0.5.0 no Python runtime is shipped. The
 [`v0.1.0-beta.1` prerelease](https://github.com/kein5/astarot/releases/tag/v0.1.0-beta.1)
 ships an AppImage built by the hosted Linux candidate workflow; an image you
 build locally is an unpublished candidate.
-It deploys GTK/WebKit dependencies before adding `_internal` under `usr/lib/vrct-vox/`, so
+It deploys GTK/WebKit dependencies before adding `_internal` under `usr/lib/astarot/` (`usr/lib/vrct-vox/`
+up to 0.6.x), so
 GUI library rewriting never changes the engine or helper bytes. The core finds them there
 (`native/core/src/resources.rs`).
 
@@ -28,7 +29,7 @@ For an existing inspected Linux candidate:
 python tools/build_appimage.py --download-tools
 ```
 
-The second command uses `build/linux/candidate/VRCT-VOX`, `build/appimage` and
+The second command uses `build/linux/candidate/ASTAROT`, `build/appimage` and
 `build/appimage-tools`. The full builder instead keeps its AppImage staging and
 tools inside `build/linux`. The download flag fetches only the five build tools
 listed in [appimage-tools.json](appimage-tools.json), with fixed sizes and SHA-256.
@@ -72,7 +73,7 @@ image. A noexec temporary
 filesystem cannot run the extracted program. Both modes preserve settings/data
 in the [XDG locations](linux-build-pipeline.md#run-and-inspect); the image is not
 the writable model directory. The bundled PipeWire template is under
-`usr/lib/vrct-vox/_internal/config/pipewire/`; managed routing still requires
+`usr/lib/astarot/_internal/config/pipewire/`; managed routing still requires
 the explicit [host setup](local-setup-linux.md). No host audio service is restarted.
 
 The pinned GTK plugin uses X11, including XWayland on a Wayland desktop. On hosts
