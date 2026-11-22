@@ -66,7 +66,8 @@ implementation and report themselves as skipped until the fixtures exist; set
 `OCR_REQUIRE_REFERENCE=1` to make that a failure. The fixtures were made with the scripts
 below, which ran the Python backend's OCR (`src-python/models/ocr`); they went with it in
 0.6.0 (#285), so new fixtures can no longer be made this way. The commands and results are
-the record of how the core was checked (the scripts are in the v0.5.2 tag).
+the record of how the core was checked. The scripts are in the
+[`v0.5.2` tag](https://github.com/kein5/astarot/tree/v0.5.2/native/ocr-runtime/reference); run the commands in a checkout of that tag.
 
 ```sh
 python native/ocr-runtime/reference/setup_reference.py      # models and venv, ~/.cache/vrct-vox/ocr-reference
@@ -186,7 +187,7 @@ file. The packages ship the official CPU build of ONNX Runtime 1.31.0 (item 2 be
 The image operations follow the published source of OpenCV 4.10.0 (Apache-2.0), the box
 offset that of Clipper 6.4.2 as bundled by pyclipper 1.4.0 (Boost Software License 1.0),
 and the pre- and post-processing that of RapidOCR 3.9.2 (Apache-2.0), so that results
-match bit for bit; the conformance tests are the check. The Python scripts under
-`reference/` are test tooling and are not shipped. Rust dependencies: `ort` (MIT/Apache),
+match bit for bit; the conformance tests are the check. The Python scripts that were
+under `reference/` (in the [`v0.5.2` tag](https://github.com/kein5/astarot/tree/v0.5.2/native/ocr-runtime/reference)) were test tooling and were not shipped. Rust dependencies: `ort` (MIT/Apache),
 `x11rb`, `windows`, `unicode-bidi`, `caseless`, `sha2`, `png`, `serde_json`,
 `thiserror` (MIT/Apache), `libloading` (ISC).

@@ -4,8 +4,9 @@ The Linux builder can also produce an x86_64 AppImage containing the release GUI
 runs the Rust backend core in its own process, and the `_internal` folder of the
 [Linux candidate](linux-build-pipeline.md): both pinned speech.cpp builds (CPU and Vulkan), the RVC worker and the
 audio and capture helpers. Since 0.5.0 no Python runtime is shipped. The
+releases published since the
 [`v0.1.0-beta.1` prerelease](https://github.com/kein5/astarot/releases/tag/v0.1.0-beta.1)
-ships an AppImage built by the hosted Linux candidate workflow; an image you
+ship an AppImage built by the hosted Linux candidate workflow; an image you
 build locally is an unpublished candidate.
 It deploys GTK/WebKit dependencies before adding `_internal` under `usr/lib/vrct-vox/`, so
 GUI library rewriting never changes the engine or helper bytes. The core finds them there
@@ -143,7 +144,7 @@ Linux >=6.9. AppImage does not remove these requirements.
 OCR weights and Mia2026 are rejected by the package policy. No speech.cpp or RVC model
 is acquired or bundled by this builder. User models stay external. Original licenses are retained;
 GTK/WebKit, runtime static dependencies and the complete native/frontend/Rust
-license/SBOM review remain publication gates. A build-tool license does not cover
+license/SBOM review remain a check before each release ([release candidates](release-candidates.md)). A build-tool license does not cover
 all libraries copied into the image. patchelf is a build tool only and is not
 shipped in the runtime tree.
 

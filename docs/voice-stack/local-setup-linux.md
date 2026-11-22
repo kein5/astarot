@@ -48,7 +48,7 @@ Linux候補をビルド済みなら、`build/linux/build/speechcpp`と`build/lin
 アプリは起動のたびに版とハッシュを検査し、シンボリックリンクは受け付けないので、リンクではなくコピーにする。
 2つとも見つからないか検査に合わないと、同梱サーバーの起動は`speech_bundle_missing_or_invalid`で止まる。
 
-開発起動で取得したモデルは、`config.json`と同じフォルダの`downloaded_models/`に保存される。開発用のビルドでは、`VRCT_CONFIG_DIR`を指定しなければ実行ファイルのあるフォルダ（`src-tauri/target/debug/`など。gitの対象外）になる（`src-tauri/src/backend_host.rs`の`folders`）。0.4までのPythonバックエンドは`src-python/downloaded_models/`に保存していた。
+開発起動で取得したモデルは、`config.json`と同じフォルダの`downloaded_models/`に保存される。開発用のビルドでは、`ASTAROT_CONFIG_DIR`を指定しなければ実行ファイルのあるフォルダ（`src-tauri/target/debug/`など。gitの対象外）になる（`src-tauri/src/backend_host.rs`の`folders`）。0.4までのPythonバックエンドは`src-python/downloaded_models/`に保存していた。
 
 Linuxのチャット読み取りは、VRChatのウィンドウをX11/XWayland経由で取り込む。SteamVRが動いている間は、ヘッドセットの映像をOpenGLで読む（偽のSteamVRでだけ確認）。Waylandネイティブのウィンドウは、利用者が設定の「チャット読み取り」で共有すると読み取れる（XDG ScreenCast portal。開発ビルドは`build/astarot-screen-capture`を使う）。従来ASRの録音は未対応。
 2026-11-11に、Protonで動く実際のVRChat（ローカルの試験インスタンスにクライアントを2つ）と、実際のPP-OCRのモデルで確認した（CachyOS、KDE Plasma 6.8、Wayland）。X11/XWaylandの経路は、もう一方のクライアントが送ったチャットを読めた。共有の経路は、入れ子のXwayland（KWinから見るとWaylandネイティブのウィンドウ）の中で動かしたVRChatを共有して読めた。このとき「6文のうち5文（開発ビルド）、4文（AppImage）」と記録したが、読めなかったのではなく、確認の手順の誤りだった（2026-11-12に訂正）。会話ログは画面に見えている行だけを描くので、ログが画面を埋めたあとの行を数えられていなかった。gamescopeの中のVRChatと、WineのWaylandドライバーで動くVRChatでは確認できていない（gamescope 3.17はウィンドウが落ち、使ったProton-GEはWaylandドライバーの指定を受け付けなかった）。音声タイピングモードの貼り付けは、実際のVRChatのチャット欄に文字が入ることを確認した。GNOMEなど、KDE以外のデスクトップでは確認できていない。
@@ -58,7 +58,7 @@ Pythonの取得・package通信にはネットワークが必要。システム�
 [Tauri公式の準備手順](https://v2.tauri.app/start/prerequisites/)を参照。
 
 0.4までは、アプリの起動時に`VRCT_DEV_VENV=.venv_linux`でこの環境を選択できた。0.5.0のアプリはPythonを起動しないので、この変数を読まない。
-`VRCT_CONFIG_DIR=/absolute/path/to/state`は、`config.json`、ログ、`downloaded_models/`、`vc_runtimes/`の保存先を変える。指定しなければ従来の保存先を使う。
+`ASTAROT_CONFIG_DIR=/absolute/path/to/state`は（0.5.xまでの名前`VRCT_CONFIG_DIR`も0.6.xの間は読む）、`config.json`、ログ、`downloaded_models/`、`vc_runtimes/`の保存先を変える。指定しなければ従来の保存先を使う。
 同梱資源（`build/`）とUI資源の場所は変えない。既存設定を試験用ディレクトリへコピーする必要はない。
 0.4までは「その他」のモデル自動取得をONにすると、次回起動時に内蔵翻訳のモデルを取得した。0.5.0では起動時の自動取得をやめ、スイッチも設定画面から外した（設定のキーは互換のために残る）。モデルの取得は、同意の画面からの明示の操作だけで行う。
 
@@ -99,7 +99,7 @@ RVCの列は、2026-11-15に下と同じPCで1回ずつ取得した値です。�
 
 Seed-VCの列は、2026-11-11に1台のPCで1回ずつ取得して測った値です（CachyOS、RTX 4080 SUPER、NVIDIAドライバー620.70.06、btrfs、有線の回線）。通信量は、取得中にネットワーク機器が受信したバイト数です（RVCは4.83 GB、Seed-VCは6.28 GB）。必要な空き容量は、取得中のフォルダーの大きさ（`du -sb`）の最大値を切り上げた値で、RVCは15.6 GB、Seed-VCは17.5 GBでした。`uv`のキャッシュと導入先を別々に数えています。`uv`は、ファイルシステムが対応していれば両者でデータを共有するので（reflinkまたはハードリンク）、その場合に実際に使う容量はこれより小さくなります。かかった時間はRVCが62秒、Seed-VCが139秒ですが、回線の速さで大きく変わります。
 
-保存先は、`config.json`と同じフォルダーの`vc_runtimes`です。配布版では`~/.config/astarot/vc_runtimes`（0.5.xまでは`~/.config/vrct-vox/vc_runtimes`）、ソースからの開発起動では、`VRCT_CONFIG_DIR`を指定しなければ実行ファイルのあるフォルダーの`vc_runtimes`になります（`src-tauri/target/debug/`など。gitの対象外です。0.4までのPythonバックエンドでは`src-python/vc_runtimes`）。途中で失敗したり中止したりしても、終わった手順は次回に飛ばします。0.4までのSeed-VCでは、中止すると`uv`と`uv`が起動したプロセスをまとめて止め、アプリが異常終了したときも`uv`は一緒に終わりました。終わったら「この実行環境を使う」を押して保存します。消したいときは、このフォルダーを削除します。
+保存先は、`config.json`と同じフォルダーの`vc_runtimes`です。配布版では`~/.config/astarot/vc_runtimes`（0.5.xまでは`~/.config/vrct-vox/vc_runtimes`）、ソースからの開発起動では、`ASTAROT_CONFIG_DIR`を指定しなければ実行ファイルのあるフォルダーの`vc_runtimes`になります（`src-tauri/target/debug/`など。gitの対象外です。0.4までのPythonバックエンドでは`src-python/vc_runtimes`）。途中で失敗したり中止したりしても、終わった手順は次回に飛ばします。0.4までのSeed-VCでは、中止すると`uv`と`uv`が起動したプロセスをまとめて止め、アプリが異常終了したときも`uv`は一緒に終わりました。終わったら「この実行環境を使う」を押して保存します。消したいときは、このフォルダーを削除します。
 
 声のモデルは別です。RVCの設定画面の取得欄から取得するか、権利を確認したものを指定します。0.4までのSeed-VCには、利用が許可された参照音声（1〜30秒のWAV）を指定しました。
 

@@ -151,7 +151,7 @@ python tools/dev.py doctor --scope browser --python path/to/venv/bin/python
 
 この操作は選んだvenv（`mise.toml` と同じPython 3.14）に必要なパッケージを追加・更新します。無関係なパッケージをsyncで削除しません。システムPythonは拒否します。Windowsのvenvなら `.venv\Scripts\python.exe` のように実行ファイルを指定します。
 
-PlaywrightのPythonパッケージとChromium実行ファイルは別です。`setup --scope browser` はChromiumやOSライブラリを取得しません。既存ブラウザを使う試験には `ASTAROT_TEST_CHROMIUM` の指定が必要です。ブラウザ試験の実行条件は[モデル取得UIの検証記録](voice-stack/model-downloads.md)を参照してください。通常の `check` は実機・ブラウザ試験の有効化変数を除外するため、専用試験は個別の手順で実行します。Windowsの長時間運転と実マイクの試験は[Windowsの実機試験](voice-stack/windows-field-tests.md)にあります。
+PlaywrightのPythonパッケージとChromium実行ファイルは別です。`setup --scope browser` はChromiumやOSライブラリを取得しません。ブラウザ試験の実行条件は[モデル取得UIの検証記録](voice-stack/model-downloads.md)を参照してください。通常の `check` は実機・ブラウザ試験の有効化変数を除外するため、専用試験は個別の手順で実行します。Windowsの長時間運転と実マイクの試験は[Windowsの実機試験](voice-stack/windows-field-tests.md)にあります。
 
 ## 検証する対象を選ぶ
 
@@ -493,9 +493,9 @@ python tools/dev.py check --scope commits --base origin/develop
 
 このCLIはvoice gateのコンパイルを代行しません。Linux CIの `tools/build_voice_gate.py` と必要なOS依存の準備は既存の手順を維持します。ブラウザ試験、ネイティブアプリ、実GPU、マイク、配布物の受け入れ試験も別の明示的な工程です。
 
-新規のLinux checkoutで `check --scope voice` を実行する前には、Cコンパイラー、pkg-config、PipeWire開発ライブラリを用意し、次を実行してください。音声試験用の補助バイナリを `build/` に生成します。これを省くと、Python依存がそろっていてもcaptureなどの試験が失敗します。
+Linuxの補助プログラムは3つです（`astarot-voice-gate`、`astarot-source-bridge`、`astarot-screen-capture`）。次の `mise run build:voice-gate`（`tools/build_voice_gate.py`）が、これらを `build/` に作ります。`build/` の補助を使うのは、ソースから起動したアプリと、専用のPipeWireのグラフで流すRustの試験（`native/audio-routing` の `voice_gate_private` など。voice CIのLinuxのジョブ）です。`check --scope voice` のPythonの試験は、使う補助を一時フォルダーに自分でコンパイルするので、`build/` の補助には頼りません。どちらにも、Cコンパイラー、pkg-config、PipeWireの開発ファイル（`libpipewire-0.3`）が要ります。
 
-検証済みの音声基盤はPipeWire 1.6.10とWirePlumber 0.5.18です。Ubuntu 24.04標準のAPIではcaptureをコンパイルできません。[Linuxビルド手順](voice-stack/linux-build-pipeline.md)の隔離セットアップは、固定ハッシュの公式ソースから必要な版を作ります。ホストの音声サービスは変更しません。Python用の `setup --scope headless` とは別の明示操作です。
+検証済みの音声基盤はPipeWire 1.6.10とWirePlumber 0.5.18です。Ubuntu 24.04標準のPipeWireのAPIでは補助をコンパイルできないので、CIは固定の版を隔離した場所に作ってから組みます（`tools/ci/setup_pipewire.sh`）。[Linuxビルド手順](voice-stack/linux-build-pipeline.md)の隔離セットアップは、固定ハッシュの公式ソースから必要な版を作ります。ホストの音声サービスは変更しません。Python用の `setup --scope headless` とは別の明示操作です。
 
 ```sh
 mise run build:voice-gate

@@ -232,7 +232,7 @@ CTranslate2の文章分割ファイル（tokenizer）は、重みと同じリポ
 
 ## 固定カタログ
 
-版 `2026-10-31.1`。TTSは各2候補から選択でき、ASRはHaas-jaの1候補、RVCはSaishoの1候補（ASRは2026-11-16から上の節のとおり）。
+下の表は、最初のカタログ（版 `2026-10-31.1`）の記録である。今のカタログは`native/ops/src/downloads/catalog.rs`（版は`CATALOG_VERSION`）と`native/ops/data/*.json`にある。最初のカタログでは、TTSは各2候補から選択でき、ASRはHaas-jaの1候補、RVCはSaishoの1候補だった（ASRは2026-11-16から上の節のとおり）。
 
 | ID | リポジトリと固定revision | ファイル / bytes | SHA256 |
 |---|---|---|---|

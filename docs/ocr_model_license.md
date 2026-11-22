@@ -8,7 +8,7 @@
 [`LICENSE.txt`](https://github.com/kein5/astarot/blob/250cec9681752c2f897d9a15a38e647c38561842/src-python/models/ocr/onnx/LICENSE.txt)（日本語・正文）と
 [`LICENSE.en.txt`](https://github.com/kein5/astarot/blob/250cec9681752c2f897d9a15a38e647c38561842/src-python/models/ocr/onnx/LICENSE.en.txt)（英訳）。リンク先は削除の直前のコミット。
 
-## 現状
+## 0.1.0 までの状態
 
 | 要素 | 出所 | ライセンス |
 |---|---|---|

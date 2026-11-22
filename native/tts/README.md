@@ -76,9 +76,9 @@ devices, the speech.cpp servers and the voice conversion.
 ## Tests
 
 ```sh
-cargo test --locked
-cargo clippy --all-targets -- -D warnings
-cargo fmt --check
+cargo test --locked --manifest-path native/tts/Cargo.toml
+cargo clippy --manifest-path native/tts/Cargo.toml --all-targets -- -D warnings
+cargo fmt --manifest-path native/tts/Cargo.toml --check
 ```
 
 The tests port the Python tests that exercised this module (removed with the Python backend in
