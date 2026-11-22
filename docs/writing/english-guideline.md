@@ -89,6 +89,8 @@ Revise English text with [humanizer](https://github.com/blader/humanizer). It is
 
 ### Habits to remove
 
+<!-- writing-exempt-start: examples of what to avoid -->
+
 #### Filler openers and transitions
 
 | Remove | Instead |
@@ -193,6 +195,8 @@ Do not switch between words for the same thing to avoid repetition ("model", "en
 
 "Implement", "configure", and "initialize" are fine in developer documents when they are the precise word.
 
+<!-- writing-exempt-end -->
+
 ### Spelling and mechanics
 
 - American spelling: color, license (noun and verb), behavior, analyze. "Cancelled" keeps the double l, as `locales/en.yml` does.
@@ -275,7 +279,7 @@ Layout follows `DESIGN.md`, "The user guide (site/)". The text follows this sect
 - Put the outcome in the first sentence or two: done, blocked, or waiting for a decision.
 - Keep what you verified apart from what you infer. Write "not verified" and the reason instead of "this should work".
 - Write "done" or "fixed" only after a check confirmed it.
-- No openers or closers ("Sure!", "Great question", "Let me know if you need anything else").
+- No openers or closers ("Sure!", "Great question", "Let me know if you need anything else"). <!-- writing-exempt: examples of what to avoid -->
 - Quote only the relevant lines of command output, in a code block.
 - Give counts, file names, and issue or pull request numbers that you counted or looked up.
 - When you ask for a decision, give the options, their effects, and your recommendation. Do not ask what you can find out yourself.
@@ -284,11 +288,11 @@ Layout follows `DESIGN.md`, "The user guide (site/)". The text follows this sect
 
 ## Checklist
 
-When you finish, revise with humanizer, then check these points. No automated check covers this file yet.
+When you finish, revise with humanizer, then check these points. The writing gate (`tools/writing_gate/check.mjs`, see [the development guide](../development.md#文章の検査docswriting)) checks the rules a pattern can catch: some of the habits, spelling, quotes, dashes and terms. The rest, such as putting the point first, the argument and keeping the meaning when you revise, stays with you.
 
 1. The point comes first, and each sentence carries one idea.
 2. Each paragraph opens with its topic. Different things are not called the same, causes come with how they work, and claims stay within the examples.
-3. None of the [habits to remove](#habits-to-remove) are left: filler, chatbot phrases, promotional words, AI vocabulary, "serves as", trailing "-ing" clauses, padded triplets, needless contrasts, dashes.
+3. None of the [habits to remove](#habits-to-remove) are left: filler, chatbot phrases, promotional words, AI vocabulary, "serves as", trailing "-ing" clauses, padded triplets, needless contrasts, dashes. <!-- writing-exempt: examples of what to avoid -->
 4. One term per thing, matching `locales/en.yml` and the glossary.
 5. Spelling, numbers, dates, and quotes follow [Spelling and mechanics](#spelling-and-mechanics).
 6. Editing kept the claim, weight, strength, and function, and added no facts.
@@ -297,5 +301,5 @@ When you finish, revise with humanizer, then check these points. No automated ch
 ## References
 
 - Wikipedia contributors, "Wikipedia:Signs of AI writing". <https://en.wikipedia.org/wiki/Wikipedia:Signs_of_AI_writing> (accessed 2026-11-17)
-  - Used for the catalogue of habits: filler and chatbot phrases, promotional language, AI vocabulary, copula avoidance, trailing "-ing" analyses, the rule of three, negative parallelisms, vague attribution, elegant variation, and formatting signs such as title case, bold inline headers, emoji, and curly quotes. Also for its caveat that the signs are descriptive, not proof, and that removing them is not the same as fixing the text.
+  - Used for the catalogue of habits: filler and chatbot phrases, promotional language, AI vocabulary, copula avoidance, trailing "-ing" analyses, the rule of three, negative parallelisms, vague attribution, elegant variation, and formatting signs such as title case, bold inline headers, emoji, and curly quotes. Also for its caveat that the signs are descriptive, not proof, and that removing them is not the same as fixing the text. <!-- writing-exempt: examples of what to avoid -->
 - [japanese-guideline.md](japanese-guideline.md), the Japanese counterpart. Its sections on paragraphs and arguments, on meaning-preserving revision, and on adding nothing are mirrored here.

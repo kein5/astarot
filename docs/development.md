@@ -167,7 +167,7 @@ python tools/dev.py check --scope integration
 | スコープ | 内容 |
 | --- | --- |
 | `tooling` | 標準ライブラリのunittestで `tests/devtools` を検証 |
-| `node` | `src-ui` 以下の `.test.js` / `.test.mjs` / `.test.ts` と `tools/i18n_gate` の試験を Vitest で実行（`vitest.config.js`）。`node_modules` の Vitest を Node で直接起動し、取得はしない。未導入なら `setup --scope ui` を案内して止まる。続けて[文言の検査](#uiの文言と翻訳の検査)（`tools/i18n_gate/check.mjs`）を実行する |
+| `node` | `src-ui` 以下の `.test.js` / `.test.mjs` / `.test.ts` と `tools/i18n_gate`、`tools/writing_gate` の試験を Vitest で実行（`vitest.config.js`）。`node_modules` の Vitest を Node で直接起動し、取得はしない。未導入なら `setup --scope ui` を案内して止まる。続けて[文言の検査](#uiの文言と翻訳の検査)（`tools/i18n_gate/check.mjs`）と[文章の検査](#文章の検査docswriting)（`tools/writing_gate/check.mjs`）を実行する |
 | `lint` | `tools/dev.py` の `LINT_PATHS`（`tests/voice`、`tests/devtools`、音声・配布・開発の道具）をRuffで検査。自動修正なし。voice CIも同じスコープを実行する |
 | `voice` | `tests/voice/pytest.ini` を使ったモデルなしの契約試験と、`tests/platform`にある単体の試験3件 |
 | `ui` | UIの試験（Vitest）、[Biome](#uiのlintと整形biome)のlintと整形の検査、型チェック（`npm run typecheck`）、`npm run vite-build`。ブラウザの操作は含まない |
@@ -422,6 +422,33 @@ node tools/i18n_gate/check.mjs --update-baseline  # 直書きを減らしたあ�
 - 続く数行なら `// i18n-exempt-start: 理由` と `// i18n-exempt-end` で囲みます。
 
 利用者の入力、外部から受け取った名前、プロトコルの識別子、ログだけに出す文字列は、もともと翻訳の対象ではありません。検査もそれらを画面の文言とは見なしません。キーを組み立てて渡す箇所（`` t(`backend_errors.${code}`) `` など）は固定部分しか確かめられないので、試験で補います。
+
+## 文章の検査（docs/writing）
+
+文章の決まりの正本は [日本語の文章ルール](writing/japanese-guideline.md) と [英語の文章ルール](writing/english-guideline.md) です。そのうち形で確かめられる決まりを、`tools/writing_gate/check.mjs` が検査します。`check --scope node` に含まれ、`check`（軽量チェック）とCIでも動きます。失敗するとファイルと行と決まりを表示します。
+
+```sh
+node tools/writing_gate/check.mjs                      # 検査だけ
+node tools/writing_gate/check.mjs --inventory          # 見つかったものを決まりごと、場所ごとに数える
+node tools/writing_gate/check.mjs --update-baseline    # 違反を直したあとに基準を書き直す
+node tools/writing_gate/check.mjs --file <ファイル>     # PRの本文や報告のように、リポジトリの外の文章を確かめる（--user で利用者向けとして読む）
+```
+
+- 読むのは、gitが管理する Markdown、マニュアルの `.mdx`、`locales/*.yml` の文言です。コードブロック、インラインのコード、URL、リンクの行き先、HTML、引用（`>` の行）は読みません。生成するファイルと外から持ってきたファイルは `tools/writing_gate/exceptions.yml` で外します。
+- 決まりは `tools/writing_gate/rules.mjs` にあり、それぞれがガイドラインのどの節から来たかを書いています。日本語の決まりは仮名を含む行に、英語の決まりはラテン文字だけの行に当てます。利用者向けの決まりは、`site/`、`docs/readmes/`、リリースノート、`locales/` に当てます。
+- 文書の中で、悪い例として避ける形を挙げる所は、目印で外します。理由が要ります。
+
+  ```md
+  <!-- writing-exempt-start: 悪い例として避ける形を挙げている -->
+  ...
+  <!-- writing-exempt-end -->
+  | サーバ | サーバー | <!-- writing-exempt: 悪い例 -->
+  ```
+
+  行の末尾に置いた目印はその行を、それだけの行に置いた目印は次の行を外します。
+
+- 検査を始めたときにあった違反は `tools/writing_gate/baseline.json` に、ファイルと決まりと語ごとの件数で記録してあります。件数が増えると失敗します。減ったときも、直した形が戻らないように、`--update-baseline` で基準を書き直すまで失敗します。
+- 文書の立場、結論が先にあるか、論の向き、推敲で意味を変えていないかのように、人が判断する決まりは検査しません。ガイドラインの最後の確認の節（「書いたあとの確認」「Checklist」）で確かめ、PRの本文の「確認したこと」に、通したことと結果を書きます（pull-requestスキル）。
 
 ## VRの機器なしでVRの処理を試す
 
