@@ -380,9 +380,17 @@ mise run mutation:changed -- --ui-only                    # 画面だけ（--rus
 [Issue #550](https://github.com/kein5/astarot/issues/550) の Phase 3 で、次のように決まりました（2026-11-23、PR #975 の判断）。CIでは回しません。
 
 - **PR**: 画面のロジック（`src-ui/logics`、`src-ui/views`）か、Rustのクレートの `src/` を変えたPRでは、`mise run mutation:changed` を回すことを勧めます。必須ではありません。回したら、PRの本文の「確認したこと」に、Survived と NoCoverage の件数と、それを1件ずつ読んだかどうかを書きます。回さなかったときは、その理由を書きます（pull-requestスキル）。
-- **正式版の前**: 画面側の全体と、Rustで前の正式版から変わったところを回します（releaseスキル）。ベータでは回しません。
+- **正式版の前**: 画面側の全体と、Rustの主なクレート（下の一覧）の全部を回します（releaseスキル）。ベータでは回しません。
   - 画面: `npm run test:mutation -- --full-dry-run --reporter text --reporter json`。全件の結果は `.mutator/report/mutation.json` に出ます。手元（Linux、並列16）で40分から2時間半かかりました（機材の負荷によります）。長いので、端末から切り離して回します。
-  - Rust: `mise run mutation:changed -- --base v<前の正式版> --rust-only`。前の正式版のタグから `src/` が変わったクレートの、変わった所を回します。
+  - Rust: 主なクレートの一覧を、節目ごとに全部回します（2026-11-23、PR #982 の判断）。一覧は、#871 と `native/translation/.cargo/mutants.toml` で対象にしてきた、時刻や待ちに頼らない純粋なロジックです。一覧を変えるときは、この表を直します。
+
+    | クレート | 対象 | 流す試験 | コマンド（クレートのフォルダーで） |
+    |---|---|---|---|
+    | `native/ops` | `src/downloads/` の `catalog.rs`、`speechcpp.rs`、`translation_catalog.rs`、`verification.rs`、`user_models.rs` | 全部 | `cargo mutants -j 4 --cargo-arg=--locked -f src/downloads/catalog.rs -f src/downloads/speechcpp.rs -f src/downloads/translation_catalog.rs -f src/downloads/verification.rs -f src/downloads/user_models.rs` |
+    | `native/core` | `src/voice_settings.rs`、`src/languages.rs` | 単体だけ | `PROPTEST_DISABLE_FAILURE_PERSISTENCE=1 cargo mutants --in-place --cargo-arg=--locked -f src/voice_settings.rs -f src/languages.rs -- --lib` |
+    | `native/tts` | `src/onset.rs` | 単体だけ | `cargo mutants -j 4 --cargo-arg=--locked -f src/onset.rs -- --lib` |
+    | `native/transcription` | `src/diagnostics.rs` | 単体だけ | `cargo mutants -j 4 --cargo-arg=--locked -f src/diagnostics.rs -- --lib` |
+    | `native/translation` | `src/transliteration/` の `hepburn.rs`、`mod.rs`（`.cargo/mutants.toml`） | 全部 | `cargo mutants -j 3 --cargo-arg=--locked` |
 - **結果の置き場**: 全体を回した結果は Issue に残します。いまは #550 にコメントし、#550 を閉じたあとは、節目ごとに記録の Issue を立てます。リポジトリの文書には置きません。数字は計測した条件（版、並列数、機材）に左右され、文書に置くと保証のように読まれやすいためです。報告には対象の範囲と条件を添え、スコアを品質の保証として書きません。
 
 ## UIの文言と翻訳の検査
