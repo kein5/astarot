@@ -2,7 +2,7 @@
 
 `tools/build_linux.py` builds an x86_64 candidate: the `vrct-vox` app, which runs the Rust
 backend core (`native/core`) in its own process, and its `_internal` folder with both pinned
-speech.cpp 0.11.0 builds (Vulkan in `build/speechcpp`, CPU in `build/speechcpp-cpu`), the RVC worker, the C audio and capture helpers, the
+speech.cpp 0.11.2 builds (Vulkan in `build/speechcpp`, CPU in `build/speechcpp-cpu`), the RVC worker, the C audio and capture helpers, the
 PipeWire template and the license texts (`tools/app_resources.py` lists them). Since 0.5.0
 no Python runtime is frozen or shipped. The default output is a `tar.gz`, a SHA-256 file
 and a JSON file inventory. Keep `vrct-vox` and `_internal` together: the core finds
@@ -74,7 +74,7 @@ before emitting PCM; compile-time checks give an explicit dependency error. This
 does not relax timestamp/discontinuity checks or validate every newer release.
 
 `--download-speech` authorizes acquisition of **only the two pinned engine archives**
-(`speech-0.11.0-linux-x64-vulkan.zip` and `speech-0.11.0-linux-x64-cpu.zip`), the pinned
+(`speech-0.11.2-linux-x64-vulkan.zip` and `speech-0.11.2-linux-x64-cpu.zip`), the pinned
 runtime libraries (`tools/runtime_libraries.py`) and the readings' dictionary, SudachiDict full
 (`sudachi-dictionary-20250825-full.zip`, `tools/sudachi_dictionary.py`); never model weights.
 Alternatively use `--speech-archive-dir /absolute/path` with the engine archives and the
@@ -110,9 +110,9 @@ build/linux/artifacts/VRCT-VOX-<version>-linux-x64-release.manifest.json
 
 Until 0.4 the names carried the engine build (`linux-x64-vulkan`, `linux-x64-cpu`). Since 0.5.0
 `build-manifest.json` records `"variant": "linux-x64"` and both builds in `speech_builds`.
-Carrying both builds adds the CPU executable (9,965,440 bytes unpacked; 3,798,516 bytes
-deflated in the pinned 0.11.0 ZIP) and a second copy of the notices (about 47 KB) to each
-package. The Vulkan executable is 52,174,848 bytes unpacked. These are the sizes of the files
+Carrying both builds adds the CPU executable (9,980,104 bytes unpacked; 3,805,693 bytes
+deflated in the pinned 0.11.2 ZIP) and a second copy of the notices (about 47 KB) to each
+package. The Vulkan executable is 52,185,408 bytes unpacked. These are the sizes of the files
 in the pinned archives, not of a built package.
 
 ## Run and inspect

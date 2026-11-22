@@ -8,7 +8,7 @@ destination) and agrees. The file comes straight from the pinned Hugging Face
 revision to the user's PC and is checked against its size and SHA-256.
 VRCT-VOX does not redistribute, modify or host any of them.
 
-The revisions, files, sizes and SHA-256 are speech.cpp 0.11.0's
+The revisions, files, sizes and SHA-256 are speech.cpp 0.11.2's (the same as 0.11.0's)
 (`speech models --json`, copied by `tools/speechcpp_models.py` into
 `native/ops/data/speechcpp_models.json`). This ledger records
 the license review, made on 2026-11-16 against the pinned revisions and the
@@ -61,8 +61,8 @@ chosen by default.
 The same terms apply: VRCT-VOX does not ship, redistribute, modify or host
 these files. They are pinned by hand in the model download catalog
 (`native/ops/src/downloads/catalog.rs`), to the file speech.cpp
-0.10.0 and 0.11.0 fetch for each name (the revisions, sizes and SHA-256 are the
-same in both). The review was made on 2026-11-16 against the pinned revisions;
+0.10.0, 0.11.0 and 0.11.2 fetch for each name (the revisions, sizes and SHA-256 are the
+same in all three). The review was made on 2026-11-16 against the pinned revisions;
 the details are in `docs/voice-stack/licensing.md`
 ("speech.cppの読み上げモデルの追加").
 

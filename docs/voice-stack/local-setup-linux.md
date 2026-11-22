@@ -35,8 +35,8 @@ mise run setup:resources  # tauri dev と cargo check が読む src-tauri/bin/_i
 
 ```sh
 mise run build:voice-gate
-python tools/speechcpp_bundle.py --variant linux-x64-vulkan --archive /path/to/speech-0.11.0-linux-x64-vulkan.zip --output build/speechcpp
-python tools/speechcpp_bundle.py --variant linux-x64-cpu --archive /path/to/speech-0.11.0-linux-x64-cpu.zip --output build/speechcpp-cpu
+python tools/speechcpp_bundle.py --variant linux-x64-vulkan --archive /path/to/speech-0.11.2-linux-x64-vulkan.zip --output build/speechcpp
+python tools/speechcpp_bundle.py --variant linux-x64-cpu --archive /path/to/speech-0.11.2-linux-x64-cpu.zip --output build/speechcpp-cpu
 ```
 
 `build_voice_gate.py`は、`build/astarot-voice-gate`、`astarot-source-bridge`、`astarot-screen-capture`をビルドする。`libpipewire-0.3-dev`が必要。
