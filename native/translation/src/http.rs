@@ -3,7 +3,7 @@
 //! One request per connection (`Connection: close`), no redirects, no cookies. Plain HTTP is
 //! allowed only to a local address (as [`models/network_policy.py`] allows it); everything else
 //! goes over TLS with the Mozilla roots. No proxy is used, except by [`system_proxy`], which
-//! speech recognition uses ([`crate::proxy`]). Errors carry a fixed kind, never the URL, a header
+//! the core gives the translation providers and speech recognition ([`crate::proxy`]). Errors carry a fixed kind, never the URL, a header
 //! or a body: the URL of a provider may carry a key in Python's SDKs, and the bodies carry the
 //! user's text.
 //!
