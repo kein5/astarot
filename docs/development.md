@@ -357,6 +357,23 @@ cd native/core && PROPTEST_DISABLE_FAILURE_PERSISTENCE=1 cargo mutants --in-plac
 - 結果は `mutants.out/` の `caught.txt`（検出）、`missed.txt`（未検出）、`timeout.txt`、`unviable.txt`（ビルドできない変異。分母に入れない）にあります。未検出は1件ずつコードを読み、試験の不足か、どの入力でも結果が変わらない等価なミュータントかを判断します。
 - 純粋な関数の境界は、プロパティベーステスト（[proptest](https://proptest-rs.github.io/proptest/)。`native/core` の試験用の依存）で確かめられます。正規化の結果をもう一度正規化しても変わらないこと、保存して読み戻すと同じになることなど、入力を選ばない性質を書きます。
 
+### 変えた所のミューテーションテスト
+
+`mise run mutation:changed`（`python tools/mutation_changed.py`）は、作業中の枝が変えた所だけをミューテーションテストにかけます。画面とRustの両方を見て、変えたものがある側だけを回します（[Issue #550](https://github.com/kein5/astarot/issues/550) の Phase 3）。
+
+```sh
+mise run mutation:changed                                 # origin/develop との分岐点からの変更
+mise run mutation:changed -- --base astarot/develop       # develop を別の名前のリモートで取っているとき
+mise run mutation:changed -- --dry-run                    # 何を回すかだけを表示する
+mise run mutation:changed -- --ui-only                    # 画面だけ（--rust-only でRustだけ）
+```
+
+- 変更は、`--base` と HEAD の分岐点から作業ツリーまでの差分です。コミットしていない変更も入ります。新しいファイルは `git add` してから数えられます。
+- 画面: mutator の `--since` で、差分の中の変異だけを回して報告します。対象は `mutator.config.mjs` と同じです。表示されるスコアは、変えた所のスコアです。
+- Rust: `tools/dev.py` の `NATIVE_CRATES` のうち `src/` が変わったクレートごとに、cargo-mutants の `--in-diff` で差分の中の変異だけを回します。`native/core` は、上の節のとおり `--in-place` で単体の試験（`-- --lib`）だけを流します。
+- Survived があっても失敗にはしません。1件ずつ読み、試験の不足か等価なミュータントかを判断します（上の2つの節）。道具が回せなかったとき（変異のない状態で試験が落ちるなど）だけ失敗します。
+- 結果は、画面が `.mutator/report/`、Rustが `<クレート>/mutants.out/` にあります。
+
 ## UIの文言と翻訳の検査
 
 利用者に見せる文言は `locales/en.yml` と `locales/ja.yml` が正本です。UIは `t("キー")` で取り出し、コードに直接書きません。対象はラベル、ボタン、説明、通知、ダイアログ、検証のメッセージ、ツールチップ、読み上げ用の名前と説明、バックエンドのエラーを表示する文言です。
