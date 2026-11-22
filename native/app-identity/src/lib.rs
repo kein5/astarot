@@ -2,15 +2,16 @@
 //! the IDs it registers with the OS, the names of the API keys it saves, the marker on the model
 //! folders it owns, and the environment variables it reads (ADR-014).
 //!
-//! 0.6.0 moves these names from VRCT-VOX to ASTAROT, one pull request at a time (ADR-014, 5).
-//! A name that moves is a [`Renamed`]: the spelling 0.5.x used, the one ADR-014 gives it, and
-//! which of the two this build writes. The pull request that moves a name switches it to the
+//! These names move from VRCT-VOX to ASTAROT one pull request at a time (ADR-014, 5); 0.6.0
+//! shipped the first of them. A name that moves is a [`Renamed`]: the spelling earlier versions
+//! used, the one ADR-014 gives it, and which of the two this build writes. The pull request that moves a name switches it to the
 //! ASTAROT spelling together with the migration that name needs. Until then the build writes the
 //! VRCT-VOX spelling, so nothing changes for a user.
 //!
 //! What an earlier version wrote is still read where ADR-014 says so (2.11): the environment
 //! variables users and packagers set ([`env::Variable`]) and the owner marker of a model download
-//! ([`MODEL_DOWNLOAD_OWNER`]) are taken under either spelling.
+//! ([`MODEL_DOWNLOAD_OWNER`]) are taken under either spelling, and API keys saved under the
+//! [`credentials`] names of 0.6.0 are found and copied to the new ones.
 //!
 //! Not here: the names ADR-014 keeps (2.3: the update and telemetry Workers, the chat box
 //! detector's ID, the key file's DPAPI entropy, setting keys, the IPC endpoints and the OSC
@@ -20,7 +21,7 @@
 /// A name that moves from its VRCT-VOX spelling to its ASTAROT one.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Renamed {
-    /// The spelling 0.5.x and earlier used.
+    /// The spelling earlier versions used (0.5.x, and 0.6.0 for the names it did not move).
     pub legacy: &'static str,
     /// The spelling ADR-014 gives it (2.2).
     pub astarot: &'static str,
@@ -91,19 +92,21 @@ pub const LINUX_PACKAGE: Renamed = Renamed::not_moved("vrct-vox", "astarot");
 /// and reads only that, so it leaves alone what an interrupted download of 0.6.0 left.
 pub const MODEL_DOWNLOAD_OWNER: Renamed = Renamed::moved("VRCT-VOX-model-download-v1", "ASTAROT-model-download-v1");
 
-/// The names of the API keys in the OS credential store (ADR-013; ADR-014, 2.9).
+/// The names of the API keys in the OS credential store (ADR-013; ADR-014, 2.9). 0.6.0 kept its
+/// keys under the `legacy` names; this build writes the `astarot` ones, copies a key it finds only
+/// under the old names, and leaves the old item where it is while ADR-014 2.11 reads old names.
 pub mod credentials {
     use super::Renamed;
 
     /// The Windows Credential Manager: each key is `<prefix>/<store id>/<entry>`.
-    pub const WINDOWS_PREFIX: Renamed = Renamed::not_moved("VRCT-VOX", "ASTAROT");
+    pub const WINDOWS_PREFIX: Renamed = Renamed::moved("VRCT-VOX", "ASTAROT");
     /// Secret Service: the value of the `application` attribute.
-    pub const APPLICATION: Renamed = Renamed::not_moved("vrct-vox", "astarot");
+    pub const APPLICATION: Renamed = Renamed::moved("vrct-vox", "astarot");
     /// Secret Service: the attribute that holds the store ID.
-    pub const STORE_ATTRIBUTE: Renamed = Renamed::not_moved("vrct-vox-store", "astarot-store");
+    pub const STORE_ATTRIBUTE: Renamed = Renamed::moved("vrct-vox-store", "astarot-store");
     /// Secret Service: the first word of an item's label (`<prefix> <entry>`), which the keyring
     /// shows.
-    pub const LABEL_PREFIX: Renamed = Renamed::not_moved("VRCT-VOX", "ASTAROT");
+    pub const LABEL_PREFIX: Renamed = Renamed::moved("VRCT-VOX", "ASTAROT");
 }
 
 /// The environment variables the app reads.
@@ -202,7 +205,14 @@ mod tests {
 
     /// The names that moved, each in its own pull request with its migration (ADR-014, 5). The
     /// pull request that moves another one adds it here.
-    const MOVED: [&str; 2] = ["LINUX_FOLDER", "MODEL_DOWNLOAD_OWNER"];
+    const MOVED: [&str; 6] = [
+        "LINUX_FOLDER",
+        "MODEL_DOWNLOAD_OWNER",
+        "credentials::WINDOWS_PREFIX",
+        "credentials::APPLICATION",
+        "credentials::STORE_ATTRIBUTE",
+        "credentials::LABEL_PREFIX",
+    ];
 
     #[test]
     fn only_the_names_with_their_migration_are_written_the_astarot_way() {
@@ -215,17 +225,17 @@ mod tests {
     }
 
     #[test]
-    fn the_values_written_are_those_of_0_5_but_the_linux_folder() {
+    fn the_values_written_are_those_of_0_5_but_the_moved_names() {
         assert_eq!(APP_ID.current(), "io.github.kein5.vrct-vox");
         assert_eq!(DESKTOP_FILE_MARKER.current(), "X-VRCT-VOX-Generated");
         assert_eq!(LINUX_FOLDER.current(), "astarot");
         assert_eq!(EXECUTABLE.current(), "vrct-vox");
         assert_eq!(LINUX_PACKAGE.current(), "vrct-vox");
         assert_eq!(MODEL_DOWNLOAD_OWNER.current(), "ASTAROT-model-download-v1");
-        assert_eq!(credentials::WINDOWS_PREFIX.current(), "VRCT-VOX");
-        assert_eq!(credentials::APPLICATION.current(), "vrct-vox");
-        assert_eq!(credentials::STORE_ATTRIBUTE.current(), "vrct-vox-store");
-        assert_eq!(credentials::LABEL_PREFIX.current(), "VRCT-VOX");
+        assert_eq!(credentials::WINDOWS_PREFIX.current(), "ASTAROT");
+        assert_eq!(credentials::APPLICATION.current(), "astarot");
+        assert_eq!(credentials::STORE_ATTRIBUTE.current(), "astarot-store");
+        assert_eq!(credentials::LABEL_PREFIX.current(), "ASTAROT");
     }
 
     /// ADR-014, 2.2: paths, packages, executables and IDs in lower case `astarot`; what people
