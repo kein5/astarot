@@ -7,8 +7,8 @@
   display: inline-flex;
   gap: 2px;
   padding: 3px;
-  border: 1px solid var(--vox-hairline);
-  border-radius: 10px;
+  border: 1px solid var(--a-border);
+  border-radius: var(--a-radius-dialog);
   background: var(--rp-c-bg-soft);
 }
 
@@ -18,12 +18,12 @@
   top: 3px;
   bottom: 3px;
   left: 0;
-  border-radius: 7px;
-  background: var(--vox-surface);
-  box-shadow: inset 0 0 0 1px var(--vox-border);
+  border-radius: var(--a-radius-small);
+  background: var(--a-surface);
+  box-shadow: inset 0 0 0 1px var(--a-border);
   transition:
-    transform var(--vox-motion) var(--vox-ease-settle),
-    width var(--vox-motion) var(--vox-ease);
+    transform var(--a-motion) var(--a-ease-settle),
+    width var(--a-motion) var(--a-ease);
 }
 
 .segmented button {
@@ -32,7 +32,7 @@
   min-width: 88px;
   padding: 6px 14px;
   border: 0;
-  border-radius: 7px;
+  border-radius: var(--a-radius-small);
   background: none;
   font: inherit;
   font-size: 14px;
@@ -40,7 +40,7 @@
   line-height: 20px;
   color: var(--rp-c-text-2);
   cursor: pointer;
-  transition: color var(--vox-motion-fast) var(--vox-ease);
+  transition: color var(--a-motion-fast) var(--a-ease);
 }
 
 .segmented button[aria-selected='true'],
@@ -49,13 +49,13 @@
 }
 
 .segmented button:focus-visible {
-  outline: 2px solid var(--vox-focus);
+  outline: 2px solid var(--a-focus);
   outline-offset: 1px;
 }
 
 .panel {
   margin-top: 12px;
-  animation: os-panel-in var(--vox-motion) var(--vox-ease);
+  animation: os-panel-in var(--a-motion) var(--a-ease);
 }
 
 .panel > :first-child {
