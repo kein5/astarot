@@ -167,3 +167,22 @@ def test_a_folder_that_is_not_a_candidate_is_refused(tmp_path):
     with pytest.raises(ValueError, match="candidate"):
         lp.stage(tmp_path / "empty", tmp_path / "root", "deb")
 
+def test_the_stand_in_of_the_package_up_to_0_6_has_its_name_and_paths(tmp_path):
+    # tools/ci/legacy_linux_packages.py: what tools/ci/check_linux_package.sh installs first.
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "tools/ci"))
+    import legacy_linux_packages as legacy
+
+    fields = control_fields(legacy.deb_control())
+    assert fields["Package"] == "vrct-vox" and fields["Architecture"] == "amd64"
+    # Below every package of 0.7.0, its prereleases included.
+    assert legacy.VERSION == "0.6.99" and lp.package_version("0.7.0-beta.1") > legacy.VERSION
+    for kind in ("deb", "rpm"):
+        root = legacy.stage(tmp_path / kind, kind)
+        assert (root / "opt/vrct-vox/package-manager").read_text() == kind + "\n"
+        assert (root / "usr/bin/vrct-vox").read_text() == '#!/bin/sh\nexec /opt/vrct-vox/vrct-vox "$@"\n'
+        assert "Icon=vrct-vox" in (root / "usr/share/applications/vrct-vox.desktop").read_text().splitlines()
+    spec = legacy.rpm_spec(tmp_path / "rpm")
+    assert "Name: vrct-vox" in spec.splitlines() and "Version: 0.6.99" in spec.splitlines()
+    files = spec.split("%files\n", 1)[1].splitlines()
+    # The folder as a whole, as up to 0.6.x: removing the package removes it.
+    assert files[0] == "/opt/vrct-vox" and "/usr/bin/vrct-vox" in files
