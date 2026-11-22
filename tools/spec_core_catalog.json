@@ -2505,16 +2505,8 @@
       "endpoint": "/run/vad_unavailable"
     },
     {
-      "name": "download_progress_ctranslate2_weight",
-      "endpoint": "/run/download_progress_ctranslate2_weight"
-    },
-    {
       "name": "downloaded_ctranslate2_weight",
       "endpoint": "/run/downloaded_ctranslate2_weight"
-    },
-    {
-      "name": "error_ctranslate2_weight",
-      "endpoint": "/run/error_ctranslate2_weight"
     },
     {
       "name": "ctranslate2_license_notice",
@@ -2974,13 +2966,6 @@
       "message": "Transcription API returned a server error",
       "severity": "warning",
       "user_action_required": false
-    },
-    {
-      "code": "WEIGHT_CTRANSLATE2_DOWNLOAD",
-      "category": "weight",
-      "message": "CTranslate2 weight download error",
-      "severity": "error",
-      "user_action_required": true
     },
     {
       "code": "WEIGHT_DOWNLOAD_CONSENT_REQUIRED",
