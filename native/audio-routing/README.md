@@ -1,4 +1,4 @@
-# audio-routing
+# astarot-audio-routing
 
 Audio device enumeration, device identity, following the OS default devices, and
 voice routing, in Rust (issue #280). Windows uses WASAPI and the MMDevice API; Linux
@@ -114,5 +114,6 @@ checks that its removal is reported, compares the device manager's list with the
 graph, and keeps the observation fresh while short-lived streams come and go, as the
 gate helper's own do.
 
-The Windows code type-checks with `cargo check --target x86_64-pc-windows-msvc`; it
-has not been run on Windows yet.
+The Windows code type-checks with `cargo check --target x86_64-pc-windows-msvc`, and the
+core's tests run it on Windows in CI (`voice-tests.yml`, `core-integration`); the playback to a
+Windows device was measured with `tests/wasapi_live.rs` (above).

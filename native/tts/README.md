@@ -81,7 +81,8 @@ cargo clippy --all-targets -- -D warnings
 cargo fmt --check
 ```
 
-The tests port the Python tests that exercise this module: `tests/voice/test_tts.py`,
+The tests port the Python tests that exercised this module (removed with the Python backend in
+0.6.0; see the `v0.5.2` tag): `tests/voice/test_tts.py`,
 `test_scheduler.py`, `test_spoken_scheduler.py`, `test_tts_toggle.py` (the bus and the
 health check), `test_tts_model_options.py` (the client and the bus),
 `test_tts_listener_failure.py`, `test_tts_playback_ownership.py`,
