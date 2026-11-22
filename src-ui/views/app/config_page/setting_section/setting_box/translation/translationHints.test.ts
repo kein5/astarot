@@ -42,9 +42,10 @@ test("what an LLM engine is sent is said once, in the fold: the sentence on scre
     // Inside 「詳細設定」, before the APIs and the local servers it is about.
     const fold = page.split("<AdvancedSection")[1].split("</AdvancedSection>")[0];
     assert.ok(fold.indexOf("<Lead ") > 0 && fold.indexOf("<Lead ") < fold.indexOf("<ExternalTranslationAPI_Container />"));
-    // The form that adds an API shows the whole text before anything is added.
+    // The form that adds an API says it the same way, read before anything is added (decided in #951).
     const catalog = read("TranslationCatalog.tsx");
-    assert.match(catalog, /<p>\{t\("config_page\.translation\.llm_privacy_lead"\)\}<\/p>\s*<p>\{t\("config_page\.translation\.llm_privacy_desc"\)\}<\/p>/);
+    assert.equal([...catalog.matchAll(/<Lead text=\{t\("config_page\.translation\.llm_privacy_lead"\)\} details=\{t\("config_page\.translation\.llm_privacy_desc"\)\} \/>/g)].length, 1);
+    assert.doesNotMatch(catalog, /<p>\{t\("config_page\.translation\.llm_privacy/);
 });
 
 test("the general descriptions are left to become hints", () => {

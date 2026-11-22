@@ -13,6 +13,7 @@ import { TranslationLlamaRuntimes } from "./TranslationLlamaRuntimes";
 import styles from "../advanced_settings/VoiceSettings.module.scss";
 import { Fold } from "../_components/fold/Fold";
 import { useHintDescriptions } from "../_components/hint/Hint";
+import { Lead } from "../_components/lead/Lead";
 import type { ApiForm as ApiFields, ApiItem, EngineForm as EngineFields, EngineItem, TranslationCatalog }
     from "../../../../../../logics/translation/translationCatalog";
 
@@ -276,14 +277,13 @@ const ApiForm = ({ protocols }: { protocols: readonly string[] }) => {
         setProblem(null);
         send(REGISTER, checked.request);
     };
-    // What to fill in is the title's hint (#614); what is sent stays in view, read before adding.
+    // What to fill in is the title's hint (#614). What is sent is one sentence in view, read before
+    // adding, with its details as that sentence's hint, as everywhere else that says what leaves the PC.
     const hints = useHintDescriptions();
     return <Fold data-catalog-add="api" summary={t("translation_catalog.add.api")} hint={hints ? t("translation_catalog.add_help.api") : undefined}>
         <div role="group" aria-label={t("translation_catalog.add.api")} onKeyDown={onEnter(submit, busy)}>
             {!hints && <p>{t("translation_catalog.add_help.api")}</p>}
-            {/* Read before an API is added: the whole text, in view. */}
-            <p>{t("config_page.translation.llm_privacy_lead")}</p>
-            <p>{t("config_page.translation.llm_privacy_desc")}</p>
+            <Lead text={t("config_page.translation.llm_privacy_lead")} details={t("config_page.translation.llm_privacy_desc")} />
             <label>{t("translation_catalog.field.name")}
                 <input type="text" value={form.name} maxLength={ENTRY_NAME_LIMIT} disabled={busy} spellCheck={false}
                     placeholder={t("translation_catalog.placeholder.api_name")} onChange={set("name")} />

@@ -40,6 +40,7 @@ async function catalog(context: TestContext, hints = false, layout = "list") {
         "../_components": { SectionLabelComponent: "section-label" },
         "../_components/hint/Hint": { useHintDescriptions: () => hints },
         "../_components/fold/Fold": { Fold: "fold" },
+        "../_components/lead/Lead": { Lead: "lead" },
         "../advanced_settings/catalogHeading": heading,
         "../advanced_settings/catalogLayout": { CatalogSection: "catalog-section", useCatalogLayout: () => layout, CatalogList: "ul", CatalogFacts: "catalog-facts", CatalogLayoutSwitch: "catalog-layout-switch" },
         "./TranslationLlamaRuntimes": { TranslationLlamaRuntimes: "llama-runtimes" },
@@ -147,8 +148,9 @@ test("the catalog lists a built-in model as the model list does, by the download
 });
 
 // #614: what the catalog holds is its heading's hint, and what to fill in is each form's title
-// hint, on a page that keeps descriptions out of sight. Whose model it is and what an API is sent
-// stay in view, read before adding. Elsewhere the descriptions are lines, as before.
+// hint, on a page that keeps descriptions out of sight. Whose model it is stays in view, and what an
+// API is sent is one sentence in view with its details as its hint, read before adding. Elsewhere the
+// descriptions are lines, as before.
 test("the catalog's and its forms' descriptions are hints; the warnings stay in view", async context => {
     const lines = (tree: TreeNode) => nodesIn(tree).filter(node => node.type === "p").map(node => node.props.children)
         .filter((word): word is string => typeof word === "string");
@@ -160,8 +162,10 @@ test("the catalog's and its forms' descriptions are hints; the warnings stay in 
     const [engine, api] = hinted.forms;
     assert.deepEqual([engine.props.hint, api.props.hint], ["translation_catalog.add_help.engine", "translation_catalog.add_help.api"]);
     assert.deepEqual(lines(engine).filter(word => word.startsWith("translation_catalog.")), ["translation_catalog.terms_help"]);
-    assert.deepEqual(lines(api).filter(word => word.startsWith("config_page.translation.llm_privacy")),
-        ["config_page.translation.llm_privacy_lead", "config_page.translation.llm_privacy_desc"]);
+    // What an API is sent: one sentence in view and its details as its hint, as everywhere else (decided in #951).
+    const lead = findIn(api, node => node.type === "lead");
+    assert.deepEqual([lead.props.text, lead.props.details], ["config_page.translation.llm_privacy_lead", "config_page.translation.llm_privacy_desc"]);
+    assert.ok(!lines(api).some(word => word.startsWith("config_page.translation.llm_privacy")), "not as lines of their own");
     assert.ok(!lines(api).includes("translation_catalog.add_help.api"));
     const plain = await catalog(context, false);
     const [plainEngine, plainApi] = plain.forms;
