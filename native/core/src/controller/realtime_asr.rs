@@ -1082,7 +1082,8 @@ impl Core {
                         let arrived = speech_update(update);
                         let received_ns = arrived.received_ns;
                         let mic_voice = voice_snapshot.lock().unwrap().take().map(|snapshot| super::messages::MicVoice { snapshot, update: arrived });
-                        Ok(core.process_realtime(spec(source), &update.text, id, guard, arrival, mic_voice, received_ns, &*output))
+                        let voices = super::messages::Voices { session: update.namespace.clone(), speakers: update.speakers.clone() };
+                        Ok(core.process_realtime(spec(source), &update.text, id, guard, arrival, mic_voice, received_ns, voices, &*output))
                     })
                 };
                 Admission { publish, process, admitted }
@@ -1263,6 +1264,7 @@ fn caption_message(source: Source, payload: &Value, snapshot: &Snapshot) -> supe
             .as_array()
             .map(|labels| labels.iter().filter_map(Value::as_str).map(str::to_string).collect())
             .unwrap_or_default(),
+        session: payload["namespace"].as_str().map(str::to_string),
         only_translated: snapshot.overlay_only_translated,
     }
 }

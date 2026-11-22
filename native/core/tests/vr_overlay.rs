@@ -589,9 +589,9 @@ fn a_sent_message_is_drawn_on_the_running_large_log() {
 }
 
 #[test]
-fn the_game_audio_s_realtime_finals_reach_the_small_log() {
+fn the_game_audio_s_realtime_finals_reach_the_small_log_under_who_spoke() {
     // #447: the small log shows a realtime final of the game audio as it shows a message, once
-    // translated.
+    // translated, with the voices the server told apart written above it.
     use common::fake_asr::{FakeAsr, diarization_model, recognition_model};
     use common::fake_capture::{FakeCapture, speech};
     use vrct_transcription::capture::Source;
@@ -645,5 +645,11 @@ fn the_game_audio_s_realtime_finals_reach_the_small_log() {
     let translated = ui.wait_from(mark, "translated", |l| l["endpoint"] == "/run/realtime_caption" && l["result"]["state"] == "translated");
     assert_eq!(translated["result"]["speakers"], json!(["A", "B"]));
     wait("the final drawn on the small log", || !heights().is_empty());
+    let told_apart = heights()[0];
+
+    // Voices not told apart: the same message without the row of who spoke.
+    *asr.behaviour.speakers.lock().unwrap() = Value::Null;
+    capture.hear(Source::Speaker, &[speech(2000)]);
+    wait("a final drawn without who spoke", || heights().iter().any(|&height| height < told_apart));
     ui.stop();
 }

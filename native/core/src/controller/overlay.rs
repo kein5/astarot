@@ -87,7 +87,7 @@ fn warm_subtitle_fonts(vr: &VrOverlay) {
             translations: vec![Translation { text: "A".into(), language: "English".into(), readings: Vec::new() }],
             ..Subtitle::default()
         };
-        let _ = Renderer::new(library).small_log(&sample);
+        let _ = Renderer::new(library).small_log(&sample, None);
     });
 }
 
@@ -113,6 +113,9 @@ pub(crate) struct OverlayMessage {
     pub transliteration_translation: Value,
     /// Who spoke a realtime caption of the game audio, by the speech server's labels (#447).
     pub speakers: Vec<String>,
+    /// The realtime session the labels belong to: the small log writes the names the user gave
+    /// its voices. The large log has the session in the caption's id.
+    pub session: Option<String>,
     /// Only the translations are shown (`OVERLAY_SHOW_ONLY_TRANSLATED_MESSAGES` in the snapshot
     /// the message or the caption's utterance was admitted with; decision 80).
     pub only_translated: bool,
@@ -531,7 +534,7 @@ impl Core {
         let subtitle = message.subtitle();
         if small && message.small_log && config.get_bool("OVERLAY_SMALL_LOG") && vr.engine.initialized() {
             let token = vr.engine.publication_token(Surface::Small);
-            match vr.subtitles.renderer.small_log(&subtitle) {
+            match vr.subtitles.small_log(&subtitle, message.session.as_deref()) {
                 Ok(picture) => {
                     let still = || current() && config.get_bool("OVERLAY_SMALL_LOG");
                     if still() && vr.engine.update_image(Surface::Small, &picture.pixels, picture.width, picture.height, token, &still).is_err() {

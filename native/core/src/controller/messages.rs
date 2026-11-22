@@ -234,6 +234,10 @@ pub struct OverlayMessage {
     /// Only the translations are shown: the setting as the message was admitted with it, not as
     /// it is when the log is drawn.
     pub only_translated: bool,
+    /// Who spoke a realtime final of the game audio, by the speech server's labels (#447).
+    pub speakers: Vec<String>,
+    /// The realtime session the labels belong to, whose names the user gave.
+    pub session: Option<String>,
 }
 
 impl OverlayMessage {
@@ -260,11 +264,19 @@ impl OverlayMessage {
             target_languages,
             transliteration_message: self.transliteration_message.clone(),
             transliteration_translation: self.transliteration_translations.clone(),
-            // Only realtime captions name their speakers (`realtime_asr::caption_message`).
-            speakers: Vec::new(),
+            speakers: self.speakers.clone(),
+            session: self.session.clone(),
             only_translated: self.only_translated,
         }
     }
+}
+
+/// Who spoke a realtime final (#447): the session its labels belong to and the labels, in the
+/// order they spoke. Empty when the voices were not told apart.
+#[derive(Clone, Debug, Default)]
+pub(crate) struct Voices {
+    pub session: String,
+    pub speakers: Vec<String>,
 }
 
 /// What a realtime microphone final needs to become speech after its translation: the voice
@@ -612,7 +624,7 @@ impl Core {
         asr_ms: Option<u64>,
         guard: Option<Guard>,
     ) -> Option<Value> {
-        self.process_message_stamped(spec, message, language, id, asr_ms, guard, None, None, None, None, None)
+        self.process_message_stamped(spec, message, language, id, asr_ms, guard, None, None, None, None, None, None)
     }
 
     /// Takes the settings of a message and its place in the chatbox order. `chatbox` false
@@ -631,7 +643,8 @@ impl Core {
     /// `chatbox_sequence` of `_processMessage`), then, from the microphone, its translated
     /// speech when the voice settings let microphone finals speak (`mic_snapshot` and
     /// `speech_update`). `received_ns` is when the final arrived, on speech's clock: the flow
-    /// panel times the message from it (`speech_update.received_ns`).
+    /// panel times the message from it (`speech_update.received_ns`). `voices` spoke it; the
+    /// small log writes them above it (#447).
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn process_realtime(
         self: &Arc<Self>,
@@ -642,6 +655,7 @@ impl Core {
         admitted: Admitted,
         mic_voice: Option<MicVoice>,
         received_ns: i64,
+        voices: Voices,
         output: RunOutput<'_>,
     ) -> Option<Value> {
         self.process_message_stamped(
@@ -655,6 +669,7 @@ impl Core {
             Some(admitted),
             mic_voice.as_ref(),
             Some(received_ns),
+            Some(&voices),
             Some(output),
         )
     }
@@ -674,6 +689,7 @@ impl Core {
         admitted: Option<Admitted>,
         mic_voice: Option<&MicVoice>,
         received_ns: Option<i64>,
+        voices: Option<&Voices>,
         output: Option<RunOutput<'_>>,
     ) -> Option<Value> {
         let mic = spec.kind == "mic";
@@ -930,6 +946,8 @@ impl Core {
                     transliteration_message: readings_message.clone(),
                     transliteration_translations: Value::Array(readings_translations.clone()),
                     only_translated: snapshot.overlay_only_translated,
+                    speakers: voices.map(|v| v.speakers.clone()).unwrap_or_default(),
+                    session: voices.map(|v| v.session.clone()),
                 };
                 if hook(&event).is_err() {
                     let output = if log == OverlayLog::Small { "overlay_small" } else { "overlay_large" };
@@ -1195,7 +1213,7 @@ impl Core {
         }
         // The receiver's stamp: a stop while this waited in the queue refuses its speech.
         let stamped = data.get("_voice_generation").and_then(Value::as_u64);
-        match self.process_message_stamped(&CHAT, text, None, Some(id_text), None, None, stamped, None, None, None, None) {
+        match self.process_message_stamped(&CHAT, text, None, Some(id_text), None, None, stamped, None, None, None, None, None) {
             Some(mut result) => {
                 // The id goes back as the UI sent it.
                 result["id"] = id.clone();
