@@ -29,7 +29,7 @@ APP = "vrct-vox.exe"
 # installing a package that has one (a downgrade) keeps it.
 SIDECAR = "vrct-vox-sidecar.exe"
 PACKAGE = "VRCT-VOX.zip"
-# The keys up to 0.6.0, and the keys from ADR-014's step 5 on (2.5).
+# The keys up to 0.6.x, and the keys from ADR-014's step 5 on (2.5).
 OLD_UNINSTALL_KEY = r"Software\Microsoft\Windows\CurrentVersion\Uninstall\VRCT-VOX"
 OLD_PRODUCT_KEY = r"Software\kein5\VRCT-VOX"
 UNINSTALL_KEY = r"Software\Microsoft\Windows\CurrentVersion\Uninstall\ASTAROT"
@@ -494,7 +494,7 @@ def clear_registration():
 
 
 def register_old_keys(directory, language="1033"):
-    """The keys an installer up to 0.6.0 wrote for an install in `directory`."""
+    """The keys an installer up to 0.6.x wrote for an install in `directory`."""
     write_key(OLD_PRODUCT_KEY, {"": str(directory), "Installer Language": language})
     write_key(OLD_UNINSTALL_KEY, {"": str(directory), "DisplayVersion": "0.0.1", "DisplayName": "VRCT-VOX",
                                   "InstallLocation": f'"{directory}"',
@@ -686,7 +686,7 @@ def seed_install(installer, directory, temp):
 
 
 def expect_registration(directory, language=None):
-    """The keys of this version record `directory`; the keys up to 0.6.0 are gone; one Apps entry."""
+    """The keys of this version record `directory`; the keys up to 0.6.x are gone; one Apps entry."""
     product = read_key(PRODUCT_KEY)
     assert product is not None and same_path(product[""], directory), product
     if language is not None:
@@ -845,7 +845,7 @@ def move_scenarios(installer, work):
         print(f"PASS a move that stopped before the keys ({keys}) is finished at the next update", flush=True)
         reset_machine(new_dir)
 
-    # Keys up to 0.6.0 that record another install, which still has its uninstaller (0.5.0 put
+    # Keys up to 0.6.x that record another install, which still has its uninstaller (0.5.0 put
     # back beside a newer install), stay with it, through the update and the uninstall.
     other = work / "other install"
     other.mkdir()
@@ -859,7 +859,7 @@ def move_scenarios(installer, work):
     run_uninstall(new_dir)
     assert read_key(UNINSTALL_KEY) is None
     assert read_key(OLD_PRODUCT_KEY)[""] == str(other) and read_key(OLD_UNINSTALL_KEY) is not None
-    print("PASS keys up to 0.6.0 of another install stay with it", flush=True)
+    print("PASS keys up to 0.6.x of another install stay with it", flush=True)
     reset_machine(new_dir)
 
 

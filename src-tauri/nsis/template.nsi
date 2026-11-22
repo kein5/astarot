@@ -46,7 +46,7 @@ ${StrLoc}
 !define WEBVIEW2BOOTSTRAPPERPATH "{{webview2_bootstrapper_path}}"
 !define WEBVIEW2INSTALLERPATH "{{webview2_installer_path}}"
 ; Registry identity: upgrades find the stored install location by this key, and the Apps list
-; entry has the same name (ADR-014, 2.5). Up to 0.6.0 both were VRCT-VOX (OLDINSTALLREGNAME).
+; entry has the same name (ADR-014, 2.5). Up to 0.6.x both were VRCT-VOX (OLDINSTALLREGNAME).
 ; An update reads the new key first and then the old one, writes the new keys, and only then
 ; removes the old ones (RemoveOldKeys), so the Apps list keeps one entry.
 ; Settings and models live in the install folder on Windows. The only folder an update moves is
@@ -169,7 +169,7 @@ VIAddVersionKey "ProductVersion" "${VERSION}"
 Var UpdateMode
 
 ; ADR-014, 2.5: where the install is ($PrevInstallLocation), read from the key this version
-; writes or else from the one up to 0.6.0, and the Apps list entry that goes with it
+; writes or else from the one up to 0.6.x, and the Apps list entry that goes with it
 ; ($PrevUninstKey). An install in the default folder up to 0.5.0 ($MoveFrom) moves to the
 ; default folder of today ($MoveTo): RestorePreviousInstallLocation, MoveInstallFolder.
 Var PrevInstallLocation
@@ -234,7 +234,7 @@ FunctionEnd
 !macroend
 
 !macro OLD_KEYS_FUNCTION un
-; ADR-014, 2.5, 6: removes the keys an installer up to 0.6.0 wrote (the install location and the
+; ADR-014, 2.5, 6: removes the keys an installer up to 0.6.x wrote (the install location and the
 ; Apps list entry) once the keys of this version record the install, so that the Apps list shows
 ; one entry. Keys that record another install, in another folder that still has its
 ; uninstaller, stay with it.
@@ -377,7 +377,7 @@ Function PageReinstall
   wix_done:
 
   ; Check if there is an existing installation, if not, abort the reinstall page. Its entry may
-  ; still have the name up to 0.6.0 (ReadPreviousInstall).
+  ; still have the name up to 0.6.x (ReadPreviousInstall).
   ReadRegStr $R0 SHCTX "$PrevUninstKey" ""
   ReadRegStr $R1 SHCTX "$PrevUninstKey" "UninstallString"
   ${IfThen} "$R0$R1" == "" ${|} Abort ${|}
@@ -677,7 +677,7 @@ Function .onInit
   ; (via MUI_LANGDLL_REGISTRY_VALUENAME) and the initial value of the
   ; custom PageChooseLanguage default to it. The page is still shown so
   ; the user can change their mind before installing.
-  ; Before that, the language an installer up to 0.6.0 kept under its own key (ADR-014, 2.5, 1)
+  ; Before that, the language an installer up to 0.6.x kept under its own key (ADR-014, 2.5, 1)
   ; moves to the key the chrome reads, unless that key has one.
   ReadRegStr $0 HKCU "${MANUPRODUCTKEY}" "Installer Language"
   ${If} $0 == ""
@@ -707,7 +707,7 @@ Function .onInit
 
   !insertmacro SetContext
 
-  ; Where the install is, under the keys of this version or of one up to 0.6.0. Read with /D=
+  ; Where the install is, under the keys of this version or of one up to 0.6.x. Read with /D=
   ; too: the reinstall page and the old keys' removal need it.
   Call ReadPreviousInstall
 
@@ -1643,7 +1643,7 @@ Section Install
   WriteRegDWORD SHCTX "${UNINSTKEY}" "NoModify" "1"
   WriteRegDWORD SHCTX "${UNINSTKEY}" "NoRepair" "1"
   WriteRegDWORD SHCTX "${UNINSTKEY}" "EstimatedSize" "${ESTIMATEDSIZE}"
-  ; ADR-014, 2.5, 6: the keys up to 0.6.0 go only now that the new ones record this install.
+  ; ADR-014, 2.5, 6: the keys up to 0.6.x go only now that the new ones record this install.
   Call RemoveOldKeys
 
   ; Preserve the shortcut working directory after staging and cleanup.
@@ -1986,7 +1986,7 @@ Section Uninstall
   !else
     DeleteRegKey HKCU "${UNINSTKEY}"
   !endif
-  ; ADR-014, 2.5: and the keys up to 0.6.0 when they record this install, as an update that
+  ; ADR-014, 2.5: and the keys up to 0.6.x when they record this install, as an update that
   ; stopped half way may leave them.
   Call un.RemoveOldKeys
 
@@ -2007,7 +2007,7 @@ Section Uninstall
 SectionEnd
 
 ; ADR-014, 2.5, 1: where the install is, from the key this version writes, else from the one
-; up to 0.6.0; and the Apps list entry to read with it.
+; up to 0.6.x; and the Apps list entry to read with it.
 Function ReadPreviousInstall
   Push $0
   ReadRegStr $PrevInstallLocation SHCTX "${MANUPRODUCTKEY}" ""
