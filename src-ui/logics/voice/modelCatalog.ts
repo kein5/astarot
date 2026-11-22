@@ -133,6 +133,20 @@ export function registrationRequest(target: string, name: string, paths: Record<
     return { request: { target, name: cleanName, paths: chosen } };
 }
 
+// The targets whose downloads hold no path in the settings: the core finds a verified download
+// by its catalog id (`apply_model_paths`), and the local translation marks its model downloaded
+// when it is applied.
+const PATHLESS_TARGETS = ["translation", "ocr"];
+
+// Whether a card's model is ready to use, with nothing left to check or prepare (#947): set in
+// the settings ("in_use"), or, for a target that holds no path, on the PC and usable (`usable`:
+// the translation's model counts as downloaded in the core, which checks every file's SHA-256
+// before it does; the card's "downloaded" checks only the sizes, so a damaged file still offers
+// its check). A file on the PC that the settings do not point at (a recognition, speech or voice
+// model) still needs its check and its path applied, and one not on the PC needs its download.
+export const isPrepared = (target: string, status: DownloadStatus, usable = false): boolean =>
+    status === "in_use" || (status === "downloaded" && usable && PATHLESS_TARGETS.includes(target));
+
 // What the card says about one file. "in_use" needs the saved path (`expected.model`) to be the
 // downloaded file: a file that is on disk but not set anywhere is only "downloaded".
 export function downloadStatus(entry: CatalogEntry, job: DownloadJob | undefined,

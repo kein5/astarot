@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { MouseEvent, ReactNode } from "react";
 import { useI18n } from "@useI18n";
+import { useTranslation } from "@logics_configs";
 import { isTauri } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useModelDownloads } from "../../../../../../../logics/voice/useModelDownloads";
@@ -49,6 +50,7 @@ export interface LegacyModelDownloadDialogProps {
 export const LegacyModelDownloadDialog = ({ kind, weightType, onCancel, onDownload, extraAction = null, note = null, computeDevice }: LegacyModelDownloadDialogProps) => {
     const { t } = useI18n();
     const { catalog: downloadCatalog, error, send } = useModelDownloads();
+    const { currentCTranslate2WeightTypeStatus } = useTranslation();
     const catalog: ReviewCatalog | null = downloadCatalog;
     const [entry, setEntry] = useState<LegacyModelReview | null>(null), [consent, setConsent] = useState(false);
     const [linkError, setLinkError] = useState<string | null>(null);
@@ -77,6 +79,9 @@ export const LegacyModelDownloadDialog = ({ kind, weightType, onCancel, onDownlo
     const translationRows = translation ? (catalog.models ?? []).filter(model => model.target === "translation") : [];
     const variants = translationCatalogIds(weightType);
     const ownRows = translationRows.filter(model => variants.includes(model.id));
+    // The translation models the app can use: their weights count as downloaded in the core, which
+    // checks every file before it does. Their cards offer no check or preparation again (#947).
+    const usable = (currentCTranslate2WeightTypeStatus?.data ?? []).filter(item => item.is_downloaded).flatMap(item => translationCatalogIds(item.id));
     return <div className={`${styles.container} ${dialogStyles.host}`}>
         <dialog ref={dialog} className={dialogStyles.dialog} aria-label={t("model_downloads.warning_title")} onCancel={event => { event.preventDefault(); cancel(); }}>
             <h3>{t("model_downloads.warning_title")}</h3>
@@ -122,7 +127,7 @@ export const LegacyModelDownloadDialog = ({ kind, weightType, onCancel, onDownlo
                         ? "legacy_model_downloads.consent" : "legacy_model_downloads.consent_without_extra_files")}</label>
             </> : translation ? <>
                 {translationRows.length > 0
-                    ? <ModelDownloads targets={["translation"]} expected={{ translation: {} }}
+                    ? <ModelDownloads targets={["translation"]} expected={{ translation: {} }} usable={usable}
                         only={ownRows.length > 0 ? ownRows.map(model => model.id) : undefined} translationDevice={computeDevice} />
                     : <p role="status">{t("legacy_model_downloads.translation_not_published")}</p>}
                 {/* A model of one's own is added in the translation catalog, from any folder (#597). */}

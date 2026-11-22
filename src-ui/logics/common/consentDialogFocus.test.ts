@@ -66,7 +66,9 @@ async function fixture(context: TestContext, kind: Kind, openerState: OpenerStat
         "../../../../../../../logics/configs/legacyModelConsent": legacyConsent,
         "../_components/env_readout/EnvReadout": { EnvReadout: "readout" },
         "../../../../../../logics/configs/ctranslate2License": {},
-        "@logics_configs": {}, "../_templates/Templates": {}, "../_components": {},
+        // The translation review reads which translation models the app can use (#947).
+        "@logics_configs": { useTranslation: () => ({ currentCTranslate2WeightTypeStatus: { state: "ok", data: [] } }) },
+        "../_templates/Templates": {}, "../_components": {},
         "../_components/compute_device/ComputeDevice": {}, "../_components/setup_section/SetupSection": {}, "../_components/advanced_section/AdvancedSection": {},
         "../_components/description/Description": {}, "../_components/custom_model_link/CustomModelLink": {},
         "../_components/credential_pair/CredentialPair": {}, "../_components/lead/Lead": {},

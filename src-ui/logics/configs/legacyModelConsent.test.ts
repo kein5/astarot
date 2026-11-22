@@ -51,6 +51,7 @@ async function dialogFixture(context: TestContext, language: string, reviewedEnt
         "@tauri-apps/api/core": { isTauri: () => false },
         "@tauri-apps/plugin-opener": { openUrl: () => { throw new Error("No links should open in this test"); } },
         "../../../../../../../logics/voice/useModelDownloads": { useModelDownloads: () => downloads },
+        "@logics_configs": { useTranslation: () => ({ currentCTranslate2WeightTypeStatus: { state: "ok", data: [] } }) },
         "../../../../../../../logics/configs/legacyModelConsent": consentLogic,
         "../../../../../../../logics/main/setupNeeds": setupNeeds,
         "../../../../../../../logics/common/useConsentDialog": dialogHooks,

@@ -1,6 +1,6 @@
 import { test } from "vitest";
 import assert from "node:assert/strict";
-import { catalogFamilies, downloadStatus, familyLabel, firstVariant, showsValidation, variantLabel } from "./modelCatalog.ts";
+import { catalogFamilies, downloadStatus, familyLabel, firstVariant, isPrepared, showsValidation, variantLabel } from "./modelCatalog.ts";
 import type { CatalogEntry, CatalogProfile } from "./modelCatalog.ts";
 import { unchecked } from "../test/hookHarness.ts";
 import { localeAt, readLocale } from "../test/locales.ts";
@@ -57,6 +57,21 @@ test("download status after a restart comes from the files on disk, in use only 
     assert.equal(downloadStatus(entry, { phase: "failed" }, {}, undefined), "not_downloaded");
     // An answer from an older backend has no `downloaded`; an applied job still counts.
     assert.equal(downloadStatus(entry, { phase: "applied", paths: { model: "/m.gguf" } }, undefined, { model: "/m.gguf" }), "in_use");
+});
+
+// #947: a model ready to use offers no check or preparation. A recognition, speech or voice model
+// is ready when the settings point at its file; a translation or chat reading model holds no path,
+// so it is ready once it is on the PC and the app can use it (the core checked its files).
+test("a model is ready to use when it is in use, or on the PC and usable for a target that holds no path", () => {
+    for (const target of ["asr", "vad", "japanese", "rvc", "translation", "ocr"]) {
+        assert.equal(isPrepared(target, "in_use"), true, target);
+        for (const status of ["not_downloaded", "working", "ready"] as const) assert.equal(isPrepared(target, status, true), false, `${target} ${status}`);
+    }
+    for (const target of ["translation", "ocr"]) {
+        assert.equal(isPrepared(target, "downloaded", true), true, target);
+        assert.equal(isPrepared(target, "downloaded", false), false, `${target}: on the PC but not usable (a damaged file) still offers its check`);
+    }
+    for (const target of ["asr", "vad", "japanese", "rvc"]) assert.equal(isPrepared(target, "downloaded", true), false, `${target}: its path is still to apply`);
 });
 
 test("a card says where its model was checked when it has a figure, a passed check, or is a speech model (#566)", () => {
