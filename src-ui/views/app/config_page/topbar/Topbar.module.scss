@@ -35,6 +35,16 @@
 .stop:focus-visible, .back:focus-visible, .discard:focus-visible, .save:focus-visible { outline: .2rem solid var(--primary_200_color); outline-offset: .2rem; }
 // Amber only while something is being spoken or waits in the queue.
 .stop.is_attention { color: var(--vox_state_warning); border-color: var(--vox_state_warning); }
+// The stop answers its press (#937), as the hexagram's switches do (#911): sunk while the core is
+// asked, then a short lilac flash with "stopped". Not offered, it reads as disabled and keeps its
+// tooltip (aria-disabled, not disabled).
+.stop.is_stopping, .stop.is_stopping:hover:not(:disabled) { background: var(--dark_925_color); cursor: progress; }
+.stop.is_stopped, .stop.is_stopped:hover:not(:disabled) { color: var(--primary_200_color); border-color: var(--primary_600_color); animation: stop_answered .8s ease-out; }
+@keyframes stop_answered { from { background: var(--vox_highlight_tint); } }
+@media (prefers-reduced-motion: reduce) { .stop.is_stopped { animation: none; } }
+.stop.is_idle, .stop.is_idle:hover:not(:disabled), .stop.is_idle:active:not(:disabled) { opacity: .5; cursor: not-allowed; background: var(--dark_900_color); }
+// Read, not seen: what the stop's press did.
+.stop_status { position: absolute; width: 1px; height: 1px; margin: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .short { display: none; }
 @media (max-width: 1100px) {
     .stop .long { display: none; }

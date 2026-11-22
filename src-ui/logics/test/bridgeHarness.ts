@@ -16,6 +16,7 @@ import * as meterValue from "../common/meterValue.ts";
 import * as utils from "../utils.ts";
 import * as virtualMicShapes from "../voice/virtualMic.ts";
 import * as voiceAuditionShapes from "../voice/voiceAudition.ts";
+import * as stopVoiceShapes from "../voice/stopVoice.ts";
 import * as gpuCheckShapes from "../support/gpuCheck.ts";
 import * as voiceErrorTextModule from "../voice/voiceErrorText.ts";
 import * as translatorLabel from "../main/translatorLabel.ts";
@@ -165,6 +166,11 @@ export const loadBridgeRoutes = async (
         "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: async (endpoint: string, data?: unknown) => { sent.push([endpoint, data]); return true; } }) },
         "./voiceAudition.ts": voiceAuditionShapes,
     });
+    // The top bar's stop (#937): the real hook, which sends the press and takes its answer.
+    const stopVoice = await loadModule<typeof import("../voice/useStopVoice.ts")>(new URL("../voice/useStopVoice.ts", import.meta.url), localRuntime, {
+        "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: send }) },
+        "./stopVoice.ts": stopVoiceShapes,
+    });
     // The GPU check (#288): the real hook.
     const gpuCheck = await loadModule<typeof import("../support/useGpuCheck.ts")>(new URL("../support/useGpuCheck.ts", import.meta.url), localRuntime, {
         "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: send }) },
@@ -176,6 +182,7 @@ export const loadBridgeRoutes = async (
         "@store": stores, "@logics_common": common, "@logics_main": main, "@logics_configs": configs,
         "./transcription/useRealtimeASR": realtime, "./voice/useVirtualMic": virtualMic, "./voice/useVoice": voice,
         "./setup/useFirstRunSetup": firstRunSetup, "./voice/useVoiceAudition": voiceAudition, "./support/useGpuCheck": gpuCheck,
+        "./voice/useStopVoice": stopVoice,
         "./voice/useSpeechServers": speech, "./voice/useModelDownloads": downloads, "./voice/useVcRuntimes": runtimes,
         "./translation/useTranslationCatalog": { useTranslationCatalog: () => feature({ catalog: null, pending: null, fail: noop }) },
         "./flow/useIoFlow": { useIoFlow: () => feature({}) },
@@ -192,6 +199,7 @@ export const loadBridgeRoutes = async (
     return { ...subject, notices, reads, routeTable: routes.ROUTE_META_LIST, virtualMic: () => localRuntime.render(virtualMic.useVirtualMic),
         firstRunSetup: () => localRuntime.render(firstRunSetup.useFirstRunSetup),
         voiceAudition: () => localRuntime.render(voiceAudition.useVoiceAudition), auditionSent: sent,
+        stopVoice: () => localRuntime.render(stopVoice.useStopVoice),
         gpuCheck: () => localRuntime.render(gpuCheck.useGpuCheck),
         ocrSetup: () => runtime.render(ocrSetup.useOcrSetup), translationSetup: () => runtime.render(translationSetup.useTranslationSetup),
         ...runtime.render(routes.useReceiveRoutes) };
