@@ -217,5 +217,115 @@ class NsisAppProcessAndDataTests(unittest.TestCase):
 
 
 
+class NsisInstallFolderMoveTests(unittest.TestCase):
+    """ADR-014, 2.5: the keys move to ASTAROT, and the default folder up to 0.5.0 moves with them."""
+
+    def test_the_previous_install_is_read_from_the_new_keys_then_the_old_ones(self):
+        read = block("Function", "ReadPreviousInstall")
+        self.assertLess(read.index('SHCTX "${MANUPRODUCTKEY}" ""'), read.index('SHCTX "${OLDMANUPRODUCTKEY}" ""'))
+        self.assertLess(read.index('SHCTX "${UNINSTKEY}" "UninstallString"'),
+                        read.index('SHCTX "${OLDUNINSTKEY}" "UninstallString"'))
+        on_init = block("Function", ".onInit")
+        # Also with /D=: the reinstall page and the removal of the old keys use it.
+        self.assertLess(on_init.index("!insertmacro SetContext"), on_init.index("Call ReadPreviousInstall"))
+        self.assertLess(on_init.index("Call ReadPreviousInstall"), on_init.index('${If} $INSTDIR == ""'))
+        # The pages read the entry that was found, never one key alone.
+        for name in ("PageReinstall", "PageLeaveReinstall"):
+            code = block("Function", name)
+            self.assertNotIn('"${UNINSTKEY}"', code)
+            self.assertNotIn('"${MANUPRODUCTKEY}"', code)
+            self.assertIn('"$PrevUninstKey"', code)
+        self.assertIn("StrCpy $deferred_location $PrevInstallLocation", block("Function", "PageLeaveReinstall"))
+
+    def test_the_installer_language_moves_to_the_new_key_before_anything_reads_it(self):
+        on_init = block("Function", ".onInit")
+        carry = on_init.index('ReadRegStr $0 HKCU "${OLDMANUPRODUCTKEY}" "Installer Language"')
+        self.assertLess(on_init.index('ReadRegStr $0 HKCU "${MANUPRODUCTKEY}" "Installer Language"'), carry)
+        self.assertIn('WriteRegStr HKCU "${MANUPRODUCTKEY}" "Installer Language" $0', on_init)
+        # Before /UILANG= overrides it and before the language dialog reads it.
+        self.assertLess(carry, on_init.index('${If} $UILang == "en"'))
+        self.assertLess(carry, on_init.index("MUI_LANGDLL_DISPLAY"))
+        self.assertIn('!define MUI_LANGDLL_REGISTRY_KEY "${MANUPRODUCTKEY}"', SOURCE)
+
+    def test_only_the_old_default_folder_is_planned_to_move(self):
+        restore = block("Function", "RestorePreviousInstallLocation")
+        self.assertIn('!insertmacro SameFolder "" "$INSTDIR" "$LOCALAPPDATA\\${OLDINSTALLFOLDER}" $0', restore)
+        planned = restore.split('${If} $0 == "1"', 1)[1].split("${EndIf}", 1)[0]
+        self.assertLess(planned.index("StrCpy $MoveFrom $INSTDIR"), planned.index("StrCpy $INSTDIR $MoveTo"))
+        self.assertIn('StrCpy $MoveTo "$LOCALAPPDATA\\${PRODUCTNAME}"', restore)
+        # Folders are compared as Windows names them: long names, no trailing separator, no case.
+        normalize = SOURCE.split("Function ${un}NormalizeFolderPath\n", 1)[1].split("FunctionEnd", 1)[0]
+        self.assertIn("kernel32::GetLongPathName", normalize)
+        self.assertIn("kernel32::GetFullPathName", normalize)
+        self.assertNotIn("StrCmpS", SOURCE.split("!macro SameFolder", 1)[1].split("!macroend", 1)[0])
+
+    def test_the_install_is_updated_where_it_is_and_moves_once_the_new_files_are_in(self):
+        install = block("Section", "Install")
+        decide = install.split('StrCpy $move_pending "0"', 1)[1].split("StrCpy $existing_install", 1)[0]
+        self.assertIn('!insertmacro SameFolder "" "$INSTDIR" "$MoveTo" $0', decide)
+        self.assertIn('${AndIf} ${FileExists} "$MoveFrom\\*.*"', decide)
+        self.assertIn("StrCpy $INSTDIR $MoveFrom", decide)
+        # The processes stop and a leftover .upd is put right in the folder that moves, as before.
+        self.assertLess(install.index('StrCpy $move_pending "0"'), install.index("Call CheckAppIsRunning"))
+        self.assertLess(install.index('StrCpy $move_pending "0"'), install.index('RMDir /r "$INSTDIR\\.upd"'))
+        commit = install.split("install_ready:", 1)[1]
+        move = commit.index("Call MoveInstallFolder")
+        self.assertLess(commit.index('Delete "$INSTDIR\\.upd\\committing"'), move)
+        self.assertLess(commit.index('$deferred_kind == "nsis"'), move)
+        self.assertLess(commit.index("WriteUninstaller"), move)
+        # The shortcuts of an install that came from the old default folder lead to the new one
+        # before any key records it there; the old keys go only after the new ones are written.
+        repoint = commit.index("Call RepointShortcuts")
+        self.assertLess(move, repoint)
+        repointed = commit[:repoint].rsplit('${If} $MoveFrom != ""', 1)[1]
+        self.assertIn('!insertmacro SameFolder "" "$INSTDIR" "$MoveTo" $0', repointed)
+        self.assertIn('SetOutPath "$INSTDIR"', repointed)
+        self.assertLess(repoint, commit.index("WriteRegStr"))
+        self.assertEqual(commit.count("Call RepointShortcuts"), 1)
+        last_write = max(match.start() for match in re.finditer(r'WriteReg\w+ SHCTX "\$\{UNINSTKEY\}"', commit))
+        self.assertLess(last_write, commit.index("Call RemoveOldKeys"))
+
+    def test_the_folder_is_renamed_never_copied_and_nothing_is_left_behind(self):
+        move = block("Function", "MoveInstallFolder")
+        self.assertLess(move.index('SetOutPath "$TEMP"'), move.index("Rename "))
+        self.assertRegex(move, r'Rename "\$INSTDIR" "\$MoveTo"\n\s*IfErrors 0 move_renamed')
+        # Only an empty folder in the way is removed; data is never deleted or copied.
+        self.assertIn('RMDir "$MoveTo"', move)
+        for forbidden in ("RMDir /r", "RmDir /r", "CopyFiles", "mklink", "CreateSymbolicLink", "Junction"):
+            self.assertNotIn(forbidden, move)
+        self.assertNotIn("CopyFiles", SOURCE)
+        deletes = re.findall(r'(?m)^\s*Delete (.+)$', move)
+        self.assertEqual(set(deletes), {'"$INSTDIR\\${MOVEDFROMFILE}"'})
+        # The file for the app goes in before the rename, so that it moves with the files, and
+        # comes out again when the folder stays.
+        self.assertLess(move.index('FileOpen $0 "$INSTDIR\\${MOVEDFROMFILE}" w'), move.index("Rename "))
+        self.assertLess(move.index("FileWriteWord $0 65279"), move.index("FileWriteUTF16LE"))
+        failed = move.split('StrCpy $move_result "rename_failed"', 1)[1].split("Goto move_done", 1)[0]
+        self.assertIn('Delete "$INSTDIR\\${MOVEDFROMFILE}"', failed)
+        renamed = move.split("move_renamed:", 1)[1].split("Goto move_done", 1)[0]
+        self.assertIn("StrCpy $INSTDIR $MoveTo", renamed)
+
+    def test_the_old_keys_go_unless_they_record_another_install(self):
+        remove = SOURCE.split("Function ${un}RemoveOldKeys\n", 1)[1].split("FunctionEnd", 1)[0]
+        guard = remove.index('${AndIf} ${FileExists} "$0\\uninstall.exe"')
+        self.assertLess(guard, remove.index('DeleteRegKey SHCTX "${OLDUNINSTKEY}"'))
+        self.assertLess(guard, remove.index('DeleteRegKey SHCTX "${OLDMANUPRODUCTKEY}"'))
+        uninstall = block("Section", "Uninstall")
+        self.assertLess(uninstall.index('DeleteRegKey HKCU "${UNINSTKEY}"'), uninstall.index("Call un.RemoveOldKeys"))
+        self.assertIn('Delete "$INSTDIR\\${MOVEDFROMFILE}"', uninstall)
+
+    def test_only_shortcuts_that_are_there_are_pointed_at_the_new_place(self):
+        macro = SOURCE.split("!macro RepointShortcut shortcut\n", 1)[1].split("!macroend", 1)[0]
+        self.assertTrue(macro.strip().startswith('${If} ${FileExists} "${shortcut}"'))
+        self.assertIn('CreateShortcut "${shortcut}" "$INSTDIR\\${MAINBINARYNAME}.exe"', macro)
+        self.assertNotIn("Pin", block("Function", "RepointShortcuts"))
+
+    def test_the_helpers_stop_under_both_names(self):
+        macro = SOURCE.split("\n!macro CheckIfAppIsRunning\n", 1)[1].split("\n!macroend", 1)[0]
+        after_app = macro.split("app_check_done:", 1)[1]
+        for name in ("${OTHERBINARYNAME}.exe", "vrct-rvc-worker.exe", "astarot-rvc-worker.exe"):
+            self.assertIn(f'!insertmacro StopLeftoverProcess "{name}"', after_app)
+
+
 if __name__ == "__main__":
     unittest.main()
