@@ -145,9 +145,9 @@ voice:
     monitor_volume: "モニター音量"
     monitor_hint: "VRChatへ送る読み上げ音声とRVCの変換音声を、自分のスピーカーやヘッドホンでも再生します。VRChatへ送る音声は変わりません。マイクが拾わないようヘッドホンを使ってください。同じデバイスをスピーカー文字起こしに使うと、この音声も文字起こしされます。"
     monitor_error: "モニター出力を使えません。VRChatへ送る音声は続いています。"
-    vc_monitor_on: "変換音声はモニター出力（「テキスト読み上げ（TTS）」の設定）でも再生されます。変更は次回の開始時に反映されます。"
-    vc_monitor_off: "変換音声を自分でも聞くには、「テキスト読み上げ（TTS）」の設定でモニター出力をオンにしてください。"
-    vc_monitor_passthrough: "変換せずに転送する入力は、モニター出力では再生しません。"
+    vc_monitor_help: "変換音声は、「テキスト読み上げ（TTS）」の設定のモニター出力でも再生します。オンとオフの切り替えは、次に変換を始めたときに反映します。変換せずに転送する入力は再生しません。"
+    vc_monitor_not_converted: "転送する入力は再生しない"
+    vc_monitor_action: "モニターを変更"
     monitor_errors:
         monitor_output_missing: "モニター出力先が見つかりません。VRChatへ送る音声は続いています。"
         monitor_output_disconnected: "モニター出力先が切断されました。VRChatへ送る音声は続いています。"
