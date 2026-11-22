@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import styles from "./Checkbox.module.scss";
+import * as styles from "./Checkbox.css.ts";
 
 // A setting's value as the store holds it, as far as the box reads it.
 export interface CheckboxValue {

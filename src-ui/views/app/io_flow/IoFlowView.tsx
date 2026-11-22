@@ -11,7 +11,10 @@ import type { TimelineRow } from "../../../logics/flow/flowText.ts";
 import type { GpuMemory } from "../../../logics/flow/gpuMemory.ts";
 import { FlowGraph } from "./FlowGraph";
 import { Hint } from "../config_page/setting_section/setting_box/_components/hint/Hint";
-import styles from "./IoFlowView.module.scss";
+import * as styles from "./IoFlowView.css.ts";
+
+// The classes looked up by a name made at run time: a name with no class of its own gives none.
+const classNamed: Partial<Record<string, string>> = styles;
 
 const HISTORY = 20;
 
@@ -128,7 +131,7 @@ export const Timeline = ({ rows, scale, className }: { rows: TimelineRow[]; scal
         {rows.map((row, index) => <div key={index} role="listitem" className={clsx(styles.row, { [styles.is_off]: row.off })}>
             <span className={styles.row_label}>{row.label}</span>
             <span className={clsx(styles.track, { [styles.no_track]: row.off })} aria-hidden="true">
-                {!row.off && <span className={clsx(styles.bar, styles[`bar_${row.kind}`])}
+                {!row.off && <span className={clsx(styles.bar, classNamed[`bar_${row.kind}`])}
                     style={{ left: `${(row.start / scale) * 100}%`, width: `${Math.max(.5, ((row.end - row.start) / scale) * 100)}%` }} />}
             </span>
             <span className={styles.row_value}>{row.value}</span>

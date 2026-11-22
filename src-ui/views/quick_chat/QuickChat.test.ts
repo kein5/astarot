@@ -105,12 +105,12 @@ test('appearance updates preserve Quick Chat IME, repeat, pending and failed-han
 });
 
 test('minimum-size layout keeps scrollable overflow, wrapping actions and nonshrinking status text', async () => {
-    const css = await readFile(new URL('./QuickChat.module.scss', import.meta.url), 'utf8');
-    assert.match(css, /height: 100%;[^\n]*overflow: auto/);
-    assert.match(css, /textarea \{[^\n]*min-height: 3rem/);
-    assert.match(css, /\.actions \{\s*display: flex; flex-wrap: wrap; flex-shrink: 0/);
-    assert.match(css, /\.length_warning \{\s*display: flex; flex-wrap: wrap; flex-shrink: 0/);
-    assert.doesNotMatch(css, /https?:|@font-face/);
+    const css = await readFile(new URL('./QuickChat.css.ts', import.meta.url), 'utf8');
+    assert.match(css, /height: "100%",[^\n]*overflow: "auto"/);
+    assert.match(css, /textarea`, \{\s*flex: 1, minHeight: "3rem"/);
+    assert.match(css, /export const actions = style\(\{\s*display: "flex", flexWrap: "wrap", flexShrink: 0/);
+    assert.match(css, /export const length_warning = style\(\{\s*display: "flex", flexWrap: "wrap", flexShrink: 0/);
+    assert.doesNotMatch(css, /https?:|fontFace/);
 });
 
 test('main publishes saved appearance on initial configuration and later changes', async () => {
