@@ -32,7 +32,7 @@ ${StrLoc}
 ; installer still stops and removes the one an older install left behind.
 !define SIDECARBINARYNAME "vrct-vox-sidecar"
 !define BUNDLEID "{{bundle_id}}"
-; The app ID up to 0.6.0 (ADR-014, 2.6). Its data folders are removed with the app's own when
+; The app ID up to 0.6.x (ADR-014, 2.6). Its data folders are removed with the app's own when
 ; the user asks to delete the app data (2.5); native/app-identity's tests keep it in step.
 !define OLDBUNDLEID "io.github.kein5.vrct-vox"
 !define COPYRIGHT "{{copyright}}"

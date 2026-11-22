@@ -495,7 +495,7 @@ impl Portal {
         let action = [APP_ID, id, "ASTAROT", description];
         self.wait(operation, async {
             let accel = Proxy::new(&self.connection, "org.kde.kglobalaccel", "/kglobalaccel", "org.kde.KGlobalAccel").await.ok()?;
-            // The same shortcut, registered by 0.6.0 and earlier under the old app ID, would keep
+            // The same shortcut, registered by 0.6.x and earlier under the old app ID, would keep
             // the key: KDE refuses a key another component holds (ADR-014, 2.6). Taking it out of
             // the old component is all this does; there is nothing to do when it is not there.
             let _: zbus::Result<bool> = accel.call("unregister", &(astarot_app_identity::APP_ID.legacy, id)).await;
@@ -787,7 +787,7 @@ mod tests {
         assert_eq!(desktop_marker(), "X-ASTAROT-Generated=true");
     }
 
-    /// The file 0.6.0 and earlier wrote under the old app ID.
+    /// The file 0.6.x and earlier wrote under the old app ID.
     const EARLIER: &str = "[Desktop Entry]\nType=Application\nName=ASTAROT\n\
         Comment=Speech, voice conversion and translated chat\nExec=\"/opt/vrct-vox/vrct-vox\"\nIcon=vrct-vox\n\
         Terminal=false\nCategories=AudioVideo;Audio;Network;\nStartupWMClass=vrct-vox\nX-VRCT-VOX-Generated=true\n";
