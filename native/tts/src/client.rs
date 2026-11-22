@@ -293,7 +293,9 @@ impl PcmStream {
 
     fn next_frame(&mut self, streaming: &mut Streaming) -> Result<Option<AudioFrame>, SpeechError> {
         let token = &self.token;
+        let samples = streaming.samples;
         let transport = |error: HttpError, waiting: bool| -> SpeechError {
+            eprintln!("DIAG861 next_frame {error:?} waiting={waiting} samples={samples} token_set={}", token.check().is_err());
             if let Err(cancelled) = token.check() {
                 return cancelled;
             }

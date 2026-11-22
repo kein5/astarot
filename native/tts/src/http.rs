@@ -62,6 +62,9 @@ pub(crate) struct Connection {
     deadline: Option<Instant>,
     buffer: Vec<u8>,
     start: usize,
+    /// DIAG861: receives that timed out and were tried again, and bytes received.
+    pub(crate) diag_timeouts: u64,
+    pub(crate) diag_received: u64,
 }
 
 /// Resolve and connect within `timeout`, trying each address in turn.
@@ -73,7 +76,7 @@ pub(crate) fn connect(host: &str, port: u16, timeout: Duration) -> Result<Connec
             Ok(stream) => {
                 let _ = stream.set_nodelay(true);
                 let host_header = if host.contains(':') { format!("[{host}]:{port}") } else { format!("{host}:{port}") };
-                return Ok(Connection { stream: Arc::new(stream), flag: Arc::new(AtomicBool::new(false)), host_header, timeout: Some(timeout), deadline: None, buffer: Vec::new(), start: 0 });
+                return Ok(Connection { stream: Arc::new(stream), flag: Arc::new(AtomicBool::new(false)), host_header, timeout: Some(timeout), deadline: None, buffer: Vec::new(), start: 0, diag_timeouts: 0, diag_received: 0 });
             }
             Err(error) => last = error.into(),
         }
@@ -151,11 +154,21 @@ impl Connection {
                         self.start = 0;
                     }
                     self.buffer.extend_from_slice(&chunk[..count]);
+                    self.diag_received += count as u64;
+                    if count == 0 {
+                        eprintln!("DIAG861 fill eof received={} timeouts={}", self.diag_received, self.diag_timeouts);
+                    }
                     return Ok(count);
                 }
-                Err(error) if matches!(error.kind(), io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut) => continue,
+                Err(error) if matches!(error.kind(), io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut) => {
+                    self.diag_timeouts += 1;
+                    continue;
+                }
                 Err(error) if error.kind() == io::ErrorKind::Interrupted => continue,
-                Err(error) => return Err(self.classify(error)),
+                Err(error) => {
+                    eprintln!("DIAG861 fill error kind={:?} os={:?} received={} timeouts={} flag={}", error.kind(), error.raw_os_error(), self.diag_received, self.diag_timeouts, self.flag.load(Ordering::SeqCst));
+                    return Err(self.classify(error));
+                }
             }
         }
     }
@@ -296,9 +309,12 @@ impl Response {
                     return Ok(Vec::new());
                 }
                 if *remaining == 0 {
-                    let line = connection.read_line()?;
+                    let line = connection.read_line().inspect_err(|e| eprintln!("DIAG861 chunk size line {e:?} received={} timeouts={}", connection.diag_received, connection.diag_timeouts))?;
                     let size = line.split(';').next().unwrap_or("").trim();
-                    let size = u64::from_str_radix(size, 16).map_err(|_| HttpError::Transport)?;
+                    let size = u64::from_str_radix(size, 16).map_err(|_| {
+                        eprintln!("DIAG861 bad chunk size len={} hex={} received={} timeouts={}", line.len(), line.bytes().all(|b| b.is_ascii_hexdigit()), connection.diag_received, connection.diag_timeouts);
+                        HttpError::Transport
+                    })?;
                     if size == 0 {
                         // Trailers end with an empty line.
                         while !connection.read_line()?.is_empty() {}
@@ -308,6 +324,7 @@ impl Response {
                     *remaining = size;
                 }
                 if connection.buffered().is_empty() && connection.fill()? == 0 {
+                    eprintln!("DIAG861 eof inside a chunk remaining={} received={} timeouts={}", remaining, connection.diag_received, connection.diag_timeouts);
                     return Err(HttpError::Transport);
                 }
                 let take = connection.buffered().len().min(limit).min(*remaining as usize);
@@ -316,7 +333,9 @@ impl Response {
                 *remaining -= take as u64;
                 if *remaining == 0 {
                     // The CRLF after the chunk's data.
-                    if !connection.read_line()?.is_empty() {
+                    let after = connection.read_line().inspect_err(|e| eprintln!("DIAG861 crlf line {e:?} received={} timeouts={}", connection.diag_received, connection.diag_timeouts))?;
+                    if !after.is_empty() {
+                        eprintln!("DIAG861 no crlf after a chunk len={} received={} timeouts={}", after.len(), connection.diag_received, connection.diag_timeouts);
                         return Err(HttpError::Transport);
                     }
                 }

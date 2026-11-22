@@ -18,8 +18,8 @@ env:
   UV_PYTHON_PREFERENCE: only-system
   UV_PYTHON_DOWNLOADS: never
 jobs:
-  # Temporary check for Issue #861 (never merged): the fixed tests, run whole and repeatedly on
-  # Windows, in six jobs so that six of the runs meet the fonts cold.
+  # Temporary check for Issue #861 (never merged): where the speech through a conversion fails
+  # to read its stream on Windows, with the voice tests run whole and repeatedly.
   core-integration:
     timeout-minutes: 90
     strategy:
@@ -43,21 +43,19 @@ jobs:
             native/translation
             native/translate-onnx
             native/tts
-      - run: cargo test --locked --manifest-path native/core/Cargo.toml --test realtime_asr --test vr_overlay --test voice --no-run
-      - name: The three test binaries, whole, 5 times each
+      - run: cargo test --locked --manifest-path native/core/Cargo.toml --test voice --no-run
+      - name: The voice tests, whole, 20 times, with where a speech stream's read fails
         shell: bash
         run: |
           failed=0
-          for i in $(seq 1 5); do
-            for t in realtime_asr vr_overlay voice; do
-              if cargo test --locked --manifest-path native/core/Cargo.toml --test $t > out.log 2>&1; then
-                echo "run $i $t: $(grep -E '^test result' out.log)"
-              else
-                failed=$((failed + 1))
-                echo "run $i $t: FAILED"
-                grep -E -A1 "^test .* FAILED|panicked" out.log | head -12
-              fi
-            done
+          for i in $(seq 1 20); do
+            if cargo test --locked --manifest-path native/core/Cargo.toml --test voice > out.log 2>&1; then
+              echo "run $i: $(grep -E '^test result' out.log)"
+            else
+              failed=$((failed + 1))
+              echo "run $i: FAILED"
+              sed -n '/^failures:/,/^test result/p' out.log | grep -v "^note:" | head -60
+            fi
           done
           echo "failed runs: $failed"
           test "$failed" = 0
