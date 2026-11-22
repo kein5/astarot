@@ -1,6 +1,11 @@
 """Convert a local translation model to ONNX files for native/translate-onnx.
 
     python tools/translation_onnx/export.py m2m100_418M --output OUT [--variant int8]
+    python tools/translation_onnx/export.py NAME --source FOLDER --family m2m100|nllb --license LICENCE --output OUT
+
+The second form converts a model folder on this disk (a fine-tuned M2M100 or NLLB in the
+transformers layout) instead of a pinned download; the result is a folder a user can add with
+"Add a model of your own" in the translation catalog. Its licence is the one given, written to manifest.json as it is.
 
 The result is OUT/<name>-onnx-<variant>/ with (for int8):
 
@@ -29,7 +34,12 @@ The variants (--variant; manifest.json names it, schema 2), one folder each:
              on the CPU and its largest difference from float32 recorded.
 
 Only int8 has been made and measured with real models (2026-11-15). The others are written the
-same way from the same checked float32 graphs, but no folder of them has been made yet.
+same way from the same checked float32 graphs; all four have been made from the tiny model of
+tiny.py (2026-11-18), not yet from a real one.
+
+Every Reshape is written with allowzero=0 (graphs.clear_reshape_allowzero): ONNX Runtime's
+DirectML provider refuses the allowzero=1 torch.onnx.export writes. A folder made before
+2026-11-18 has allowzero=1 and does not run on DirectML.
 
 The graphs are written with torch.onnx.export from the model's own layers (graphs.py),
 and compared with transformers' forward pass before they are quantized: the encoder output
@@ -51,6 +61,7 @@ import gc
 import hashlib
 import json
 from pathlib import Path
+import re
 import shutil
 import sys
 import tempfile
@@ -81,6 +92,8 @@ MAX_INPUT_LENGTH = 1024
 MAX_DECODING_LENGTH = 256
 # How the app names a language to the tokenizer, and the token that stands for it.
 LANGUAGE_TOKEN = {"m2m100": "__{}__", "nllb": "{}"}
+# The folder name a user's model may have (native/translate-onnx, "自分で用意したモデル").
+NAME = re.compile(r"(?!\.)[A-Za-z0-9._-]{1,64}")
 ENCODER = "encoder_model_quantized.onnx"
 DECODER = "decoder_model_merged_quantized.onnx"
 PROTOBUF_LIMIT = graphs.PROTOBUF_LIMIT
@@ -290,7 +303,10 @@ def to_float16(source, target):
     model = onnx.load(str(source), load_external_data=True)
     # Softmax over the vocabulary and the layer norms keep float32 where ONNX Runtime's
     # converter keeps them by default.
-    save_model(convert_float_to_float16(model, keep_io_types=True, disable_shape_infer=True), target)
+    converted = convert_float_to_float16(model, keep_io_types=True, disable_shape_infer=True)
+    # The converter leaves the Cast of each float32 input after the nodes that read it.
+    graphs.sort_nodes(converted.graph)
+    save_model(converted, target)
 
 
 def to_int4(source, target):
@@ -304,13 +320,35 @@ def to_int4(source, target):
 
 
 def export(name, output, work, variant="int8"):
+    """A model of MODELS, fetched at its pinned commit."""
     from huggingface_hub import snapshot_download
-    from importlib.metadata import version
 
     spec = MODELS[name]
     source = Path(snapshot_download(spec["repo"], revision=spec["revision"], allow_patterns=[
         "config.json", "generation_config.json", "pytorch_model*", "tokenizer.json", "tokenizer_config.json",
         "special_tokens_map.json", "sentencepiece.bpe.model", "vocab.json"]))
+    return build(name, dict(spec, source=dict(repository=spec["repo"], revision=spec["revision"])), source,
+                 output, work, variant)
+
+
+def local_spec(source, family, license):
+    """The spec of a model folder on this disk (a fine-tuned M2M100 or NLLB, for instance)."""
+    if family not in LANGUAGE_TOKEN:
+        raise SystemExit(f"the family is one of {sorted(LANGUAGE_TOKEN)}")
+    if not license.strip():
+        raise SystemExit("name the licence of the weights (--license)")
+    return dict(family=family, license=license.strip(), source=dict(folder=Path(source).name))
+
+
+def build(name, spec, source, output, work, variant="int8"):
+    """Write OUTPUT/<name>-onnx-<variant>/ from a transformers model folder (`source`).
+
+    `spec` names the family, the licence and, for manifest.json, where the weights came from.
+    """
+    from importlib.metadata import version
+
+    if not NAME.fullmatch(f"{name}-onnx-{variant}"):
+        raise SystemExit("the name may hold letters, digits, '.', '_' and '-' (the folder name, 64 at most)")
     float_dir = work / (name + "-onnx-float")
     # The decoders are merged after quantization: merged in float they pass 2 GB.
     difference = float_graphs(source, float_dir)
@@ -371,7 +409,8 @@ def export(name, output, work, variant="int8"):
         vocabulary, languages = nllb_tokenizer(source, target)
     (target / "vocab.json").write_text(json.dumps(vocabulary, ensure_ascii=False, sort_keys=True), encoding="utf-8")
 
-    generation = json.loads((source / "generation_config.json").read_text(encoding="utf-8"))
+    generation_file = source / "generation_config.json"
+    generation = json.loads(generation_file.read_text(encoding="utf-8")) if generation_file.is_file() else {}
     inputs, outputs = decoder_io(target / decoder)
     files = {path.name: dict(size=path.stat().st_size, sha256=sha256(path))
              for path in sorted(target.iterdir()) if path.name != "manifest.json"}
@@ -381,7 +420,7 @@ def export(name, output, work, variant="int8"):
         family=spec["family"],
         variant=variant,
         license=spec["license"],
-        source=dict(repository=spec["repo"], revision=spec["revision"]),
+        source=spec["source"],
         encoder=encoder,
         decoder=decoder,
         decoder_inputs=inputs,
@@ -412,16 +451,30 @@ def export(name, output, work, variant="int8"):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    parser.add_argument("model", choices=sorted(MODELS))
+    parser.add_argument("model", help=f"one of {', '.join(sorted(MODELS))}; with --source, the name of the folder to write")
     parser.add_argument("--output", type=Path, required=True, help="folder to write <name>-onnx-<variant> into")
     parser.add_argument("--variant", choices=VARIANTS, default="int8", help="the quantization (default int8)")
     parser.add_argument("--float32", action="store_true", help="the same as --variant float32")
     parser.add_argument("--work", type=Path,
                         help="folder for the float export, kept for a second run; OUTPUT/work unless given")
+    parser.add_argument("--source", type=Path,
+                        help="a transformers model folder on this disk instead of a pinned download "
+                             "(M2M100ForConditionalGeneration: config.json, the weights, and the tokenizer files)")
+    parser.add_argument("--family", choices=sorted(LANGUAGE_TOKEN), help="with --source: m2m100 or nllb")
+    parser.add_argument("--license", help="with --source: the licence of the weights, written to manifest.json")
     args = parser.parse_args()
     work = args.work or args.output / "work"
     work.mkdir(parents=True, exist_ok=True)
-    target = export(args.model, args.output, work, variant="float32" if args.float32 else args.variant)
+    variant = "float32" if args.float32 else args.variant
+    if args.source is not None:
+        if args.family is None or args.license is None:
+            parser.error("--source needs --family and --license")
+        target = build(args.model, local_spec(args.source, args.family, args.license), args.source, args.output, work,
+                       variant)
+    elif args.model in MODELS:
+        target = export(args.model, args.output, work, variant=variant)
+    else:
+        parser.error(f"unknown model {args.model}; give --source for a model folder of your own")
     print(target)
     for name, pin in json.loads((target / "manifest.json").read_text(encoding="utf-8"))["files"].items():
         print(f"  {pin['sha256']}  {pin['size']:>12}  {name}")

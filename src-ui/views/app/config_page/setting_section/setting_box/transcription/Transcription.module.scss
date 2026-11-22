@@ -3,8 +3,14 @@
     flex-direction: column;
 }
 
-.engine_help {
+// One of the engines' two systems (#414): its subheading and what it is, then its parts, with a
+// hairline after it as after the page's other sections. The server section inside it ends
+// the group, so it draws no second line.
+.engine_group {
     display: flex;
     flex-direction: column;
-    gap: 0.4rem;
+    min-width: 0;
+    padding-bottom: 1.2rem;
+    border-bottom: .1rem solid var(--dark_800_color);
+    > section:last-child { padding-bottom: .8rem; border-bottom: 0; }
 }

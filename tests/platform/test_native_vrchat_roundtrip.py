@@ -26,11 +26,11 @@ from native_webdriver import NativeWebDriver
 from test_native_ui import initial_state
 
 pytestmark = pytest.mark.skipif(
-    sys.platform != "linux" or os.environ.get("VRCT_TEST_NATIVE_VRCHAT_ROUNDTRIP") != "1",
+    sys.platform != "linux" or os.environ.get("ASTAROT_TEST_NATIVE_VRCHAT_ROUNDTRIP") != "1",
     reason="opt-in: needs the chatbox lab's two local VRChat clients and the OCR models",
 )
 
-MODELS = Path(os.environ.get("VRCT_TEST_OCR_MODELS", Path.home() / ".cache/vrct-vox-chatbox-lab/models"))
+MODELS = Path(os.environ.get("ASTAROT_TEST_OCR_MODELS", Path.home() / ".cache/vrct-vox-chatbox-lab/models"))
 # Short and long, both scripts, digits. Each is made unique per run below.
 MESSAGES = ["Hello from VRCT-VOX", "こんにちは、テストです", "Linux and Wayland check",
             "今日はいい天気ですね", "これは少し長めの文章で、折り返されるかを確かめます", "last line"]

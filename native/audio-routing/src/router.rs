@@ -1,9 +1,12 @@
 //! Playing speech to an explicitly chosen output.
 //!
-//! Port of `src-python/models/audio_routing/audio_router.py` and of the cancellation
-//! token the Python speech scheduler hands it (`CancelToken` in `speechcpp_tts.py`).
+//! Port of [`src-python/models/audio_routing/audio_router.py`] and of the cancellation
+//! token the Python speech scheduler hands it (`CancelToken` in [`speechcpp_tts.py`]).
 //! The router never captures, mixes, or routes an unconverted microphone, and never
 //! falls back to the OS default output.
+//!
+//! [`src-python/models/audio_routing/audio_router.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/audio_routing/audio_router.py
+//! [`speechcpp_tts.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/tts/speechcpp_tts.py
 
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -165,9 +168,12 @@ pub fn open_output(device: &str, rate: u32, channels: u16) -> Result<Box<dyn Out
     if device.is_empty() {
         return Err(Error::speech("output_not_selected"));
     }
+    // Decision 62 (c): speech that cannot keep up with the output plays silence where it ran dry
+    // and goes on, instead of ending with `output_underflow` (Python's PortAudio
+    // `exception_on_underflow`). PipeWire's stream already plays silence when it is starved.
     #[cfg(windows)]
     {
-        Ok(Box::new(crate::wasapi::output::WindowsOutput::open(device, rate, channels, true)?))
+        Ok(Box::new(crate::wasapi::output::WindowsOutput::open(device, rate, channels, false)?))
     }
     #[cfg(all(target_os = "linux", feature = "pipewire"))]
     {

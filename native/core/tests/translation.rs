@@ -1,12 +1,14 @@
 //! The translation engines through the IPC surface (#277): keys checked with the provider,
 //! model choices, LM Studio and Ollama, the OpenAI-compatible endpoint, the start-up check, the
 //! local model's weight and licence, and turning translation on. The behaviours are those of
-//! `controller.py` (`_setTranslationEngineAuthKey`, `_setTranslationEngineModel`,
+//! [`controller.py`] (`_setTranslationEngineAuthKey`, `_setTranslationEngineModel`,
 //! `_checkTranslationEngineConnection`, `setDeeplAuthKey`, `_setEndpointCredential`,
 //! `setTranslatorLMStudioURL`, `setCtranslate2WeightType`, `setEnableTranslation`, `init`).
 //!
 //! Every provider is a stand-in on a loopback port (`vrct_translation::fake`); nothing leaves
 //! this PC. The local model is a stand-in too.
+//!
+//! [`controller.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/controller.py
 
 mod common;
 
@@ -27,6 +29,11 @@ pub struct FakeLocal {
     pub loads: Mutex<usize>,
     /// A target language whose translation panics (a bug in an engine).
     pub panics_for: Mutex<Option<String>>,
+    /// What every translation answers instead of `local:<target>:<text>`.
+    pub answer: Mutex<Option<Result<String, LocalError>>>,
+    /// How long each translation takes.
+    pub delay: Mutex<Option<std::time::Duration>>,
+    pub translations: Mutex<usize>,
 }
 
 impl LocalTranslation for FakeLocal {
@@ -48,6 +55,14 @@ impl LocalTranslation for FakeLocal {
         if self.panics_for.lock().unwrap().as_deref() == Some(target) {
             panic!("a bug in the translation engine");
         }
+        *self.translations.lock().unwrap() += 1;
+        let delay = *self.delay.lock().unwrap();
+        if let Some(delay) = delay {
+            std::thread::sleep(delay);
+        }
+        if let Some(answer) = self.answer.lock().unwrap().clone() {
+            return answer;
+        }
         Ok(format!("local:{target}:{text}"))
     }
 }
@@ -58,6 +73,7 @@ fn services(fake: &FakeProviders, local: Arc<FakeLocal>) -> Services {
         translation_transport: http::loopback_only(),
         translation_endpoints: Endpoints::all_at(&fake.url()),
         local_translation: Arc::new(move |_| local.clone() as Arc<dyn LocalTranslation>),
+        secret_store: common::shared_vault().system_source(),
         ..Services::default()
     }
 }
@@ -551,5 +567,175 @@ fn a_connected_provider_turns_translation_on_without_the_local_model() {
     assert_eq!(ui.ok("/set/data/selected_translation_engines", Some(engines))["1"], "DeepL_API");
     assert_eq!(ui.ok("/set/enable/translation", None), true);
     assert_eq!(*local.loads.lock().unwrap(), 0);
+    ui.stop();
+}
+
+/// DeepL selected and translation on, with the local model loaded behind it.
+fn deepl_with_local_behind(fake: &FakeProviders) -> (Ui, Arc<FakeLocal>) {
+    let key = format!("{}:fx", "d".repeat(36));
+    fake.key("/deepl-free", &key);
+    let (ui, local) = start(fake, json!({ "AUTH_KEYS": { "DeepL_API": key } }));
+    // The local model loads with translation on its own engine.
+    assert_eq!(ui.ok("/set/enable/translation", None), true);
+    let setup = local.loaded().expect("the local model is loaded");
+    let mut engines = ui.ok("/get/data/selected_translation_engines", None);
+    engines["1"] = json!("DeepL_API");
+    assert_eq!(ui.ok("/set/data/selected_translation_engines", Some(engines))["1"], "DeepL_API");
+    *local.loaded.lock().unwrap() = Some(setup);
+    (ui, local)
+}
+
+#[test]
+fn the_fallback_waits_for_a_loaded_model_only() {
+    // [`test_model_translate_fallback_no_wait.py`].
+    //
+    // [`test_model_translate_fallback_no_wait.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/test/test_model_translate_fallback_no_wait.py
+    let fake = FakeProviders::start();
+    let (ui, local) = deepl_with_local_behind(&fake);
+    // A refusal DeepL does not try again, so that only the local model's waits are timed (a
+    // retried failure would add the DeepL SDK's one-second backoff).
+    fake.fail("/deepl-free", 400);
+    *local.answer.lock().unwrap() = Some(Err(LocalError::Failed));
+
+    // A loaded model that fails is tried 20 times, 100 ms apart.
+    let started = std::time::Instant::now();
+    let mark = ui.lines().len();
+    let answer = ui.ok("/run/send_message_box", Some(json!({ "id": "m1", "message": "hello" })));
+    assert!(started.elapsed() >= std::time::Duration::from_millis(1900), "{:?}", started.elapsed());
+    assert_eq!(*local.translations.lock().unwrap(), 20);
+    assert_eq!(answer["translations"][0]["message"], "hello", "the original goes out");
+    assert_eq!(error_code(&ui.wait_endpoint(mark, "/run/error_translation_engine")), "TRANSLATION_ENGINE_LIMIT");
+
+    // Without a loaded model there is nothing to wait for: one look, no sleep.
+    *local.loaded.lock().unwrap() = None;
+    *local.translations.lock().unwrap() = 0;
+    let started = std::time::Instant::now();
+    let answer = ui.ok("/run/send_message_box", Some(json!({ "id": "m2", "message": "hello again" })));
+    assert!(started.elapsed() < std::time::Duration::from_millis(1500), "{:?}", started.elapsed());
+    assert_eq!(*local.translations.lock().unwrap(), 0, "a model that is not there is not asked");
+    assert_eq!(answer["translations"][0]["message"], "hello again");
+    ui.stop();
+}
+
+#[test]
+fn a_language_no_engine_has_is_sent_as_it_is_without_a_failure() {
+    // [`test_model_get_translate_unsupported_language.py`], [`test_translation_unsupported_language.py`].
+    //
+    // [`test_model_get_translate_unsupported_language.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/test/test_model_get_translate_unsupported_language.py
+    // [`test_translation_unsupported_language.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/test/test_translation_unsupported_language.py
+    let fake = FakeProviders::start();
+    let (ui, local) = deepl_with_local_behind(&fake);
+    // DeepL has no Arabic.
+    let mut your = ui.ok("/get/data/selected_your_languages", None);
+    your["1"]["1"]["language"] = json!("Arabic");
+    your["1"]["1"]["country"] = json!("Egypt");
+    assert_eq!(ui.ok("/set/data/selected_your_languages", Some(your))["1"]["1"]["language"], "Arabic");
+    let before = fake.seen_under("/deepl-free/v2/translate").len();
+
+    // The local model translates what DeepL cannot: a translation, not a failure.
+    let mark = ui.lines().len();
+    let answer = ui.ok("/run/send_message_box", Some(json!({ "id": "m1", "message": "مرحبا" })));
+    assert!(answer["translations"][0]["message"].as_str().unwrap().starts_with("local:"), "{answer}");
+    assert_eq!(fake.seen_under("/deepl-free/v2/translate").len(), before, "DeepL is not asked");
+
+    // Neither has the pair: the original goes out, and nothing failed.
+    *local.answer.lock().unwrap() = Some(Err(LocalError::Unsupported));
+    let answer = ui.ok("/run/send_message_box", Some(json!({ "id": "m2", "message": "مرحبا" })));
+    assert_eq!(answer["translations"][0]["message"], "مرحبا");
+    // An empty translation is a failure like any other.
+    *local.answer.lock().unwrap() = Some(Ok("  ".into()));
+    let answer = ui.ok("/run/send_message_box", Some(json!({ "id": "m3", "message": "مرحبا بكم" })));
+    assert_eq!(answer["translations"][0]["message"], "مرحبا بكم");
+    let engine_errors = ui.on(mark, "/run/error_translation_engine");
+    assert_eq!(engine_errors.len(), 1, "only the empty translation failed: {engine_errors:?}");
+    assert!(ui.on(mark, "/run/selected_translation_engines").len() <= 1);
+    ui.stop();
+}
+
+#[test]
+fn swapping_exchanges_the_first_languages_of_the_tab_only() {
+    // `swapYourLanguageAndTargetLanguage`: the own language and the first target change places in
+    // the selected tab; the other targets and the other tabs stay, and both lists come back.
+    let fake = FakeProviders::start();
+    let (ui, _local) = deepl_with_local_behind(&fake);
+    let mut your = ui.ok("/get/data/selected_your_languages", None);
+    your["1"]["1"] = json!({ "language": "Japanese", "country": "Japan", "enable": true });
+    ui.ok("/set/data/selected_your_languages", Some(your));
+    let mut target = ui.ok("/get/data/selected_target_languages", None);
+    target["1"]["1"] = json!({ "language": "English", "country": "United States", "enable": true });
+    target["1"]["2"] = json!({ "language": "Korean", "country": "South Korea", "enable": true });
+    ui.ok("/set/data/selected_target_languages", Some(target));
+    let (your_before, target_before) = (ui.ok("/get/data/selected_your_languages", None), ui.ok("/get/data/selected_target_languages", None));
+
+    let swapped = ui.ok("/run/swap_your_language_and_target_language", None);
+    assert_eq!(swapped["your"]["1"]["1"], target_before["1"]["1"]);
+    assert_eq!(swapped["target"]["1"]["1"], your_before["1"]["1"]);
+    assert_eq!(swapped["target"]["1"]["2"], target_before["1"]["2"], "the other targets stay");
+    for tab in ["2", "3"] {
+        assert_eq!((&swapped["your"][tab], &swapped["target"][tab]), (&your_before[tab], &target_before[tab]), "tab {tab} stays");
+    }
+    assert_eq!(ui.ok("/get/data/selected_your_languages", None), swapped["your"], "it is kept");
+    assert_eq!(ui.ok("/get/data/selected_target_languages", None), swapped["target"]);
+    // A message now goes the other way.
+    let answer = ui.ok("/run/send_message_box", Some(json!({ "id": "m1", "message": "hello" })));
+    assert_eq!(answer["translations"][0]["message"], "deepl-free:JA:hello");
+
+    // Swapping again gives back what there was.
+    let back = ui.ok("/run/swap_your_language_and_target_language", None);
+    assert_eq!((back["your"].clone(), back["target"].clone()), (your_before, target_before));
+    ui.stop();
+}
+
+#[test]
+fn the_same_language_on_both_sides_is_not_translated() {
+    let fake = FakeProviders::start();
+    let (ui, local) = deepl_with_local_behind(&fake);
+    let mut target = ui.ok("/get/data/selected_target_languages", None);
+    let your = ui.ok("/get/data/selected_your_languages", None);
+    target["1"]["1"]["language"] = your["1"]["1"]["language"].clone();
+    target["1"]["1"]["country"] = your["1"]["1"]["country"].clone();
+    ui.ok("/set/data/selected_target_languages", Some(target));
+    let before = (fake.seen_under("/deepl-free/v2/translate").len(), *local.translations.lock().unwrap());
+    let answer = ui.ok("/run/send_message_box", Some(json!({ "id": "m1", "message": "そのまま" })));
+    assert_eq!(answer["translations"][0]["message"], "そのまま");
+    assert_eq!((fake.seen_under("/deepl-free/v2/translate").len(), *local.translations.lock().unwrap()), before);
+    ui.stop();
+}
+
+#[test]
+fn several_destinations_translate_at_the_same_time_and_keep_their_slots() {
+    // [`test_model_input_translate_parallel.py`].
+    // An online provider: the local model is one model and translates one text at a time.
+    //
+    // [`test_model_input_translate_parallel.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/test/test_model_input_translate_parallel.py
+    let fake = FakeProviders::start();
+    let (ui, _local) = deepl_with_local_behind(&fake);
+    let mut target = ui.ok("/get/data/selected_target_languages", None);
+    target["1"]["1"] = json!({ "language": "English", "country": "United States", "enable": true });
+    target["1"]["2"] = json!({ "language": "Korean", "country": "South Korea", "enable": true });
+    target["1"]["3"] = json!({ "language": "French", "country": "France", "enable": true });
+    ui.ok("/set/data/selected_target_languages", Some(target));
+
+    // Three in a row would take three times as long.
+    let delay = std::time::Duration::from_millis(1000);
+    fake.reply(move |_, _, _| {
+        std::thread::sleep(delay);
+        None
+    });
+    let started = std::time::Instant::now();
+    let answer = ui.ok("/run/send_message_box", Some(json!({ "id": "m1", "message": "hello" })));
+    assert!(started.elapsed() < delay * 2, "the destinations waited for each other: {:?}", started.elapsed());
+    let texts: Vec<&str> =
+        answer["translations"].as_array().unwrap().iter().map(|t| t["message"].as_str().unwrap()).collect();
+    assert_eq!(texts, ["deepl-free:EN-US:hello", "deepl-free:KO:hello", "deepl-free:FR:hello"], "each stays in its slot");
+
+    // No destination on: nothing to translate.
+    let mut target = ui.ok("/get/data/selected_target_languages", None);
+    for slot in ["1", "2", "3"] {
+        target["1"][slot]["enable"] = json!(false);
+    }
+    ui.ok("/set/data/selected_target_languages", Some(target));
+    let answer = ui.ok("/run/send_message_box", Some(json!({ "id": "m2", "message": "hello" })));
+    assert_eq!(answer["translations"], json!([]));
     ui.stop();
 }

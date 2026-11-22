@@ -1,10 +1,12 @@
 //! Usage events as the receiver takes them, against a stand-in that keeps the receiver's rules
-//! (`tests/voice/test_telemetry_client.py` and `src-python/test/test_telemetry.py`).
+//! (`tests/voice/test_telemetry_client.py` and [`src-python/test/test_telemetry.py`]).
 //!
 //! The receiver's contract: POST /v1/events with X-Ingest-Key; only "app_started" and "error"
 //! are taken, and "error" needs error_code matching [A-Za-z0-9_.-]{1,64}. It answers 200
 //! {"ok": true, "accepted": N}, 401 without the key. Nothing here leaves the PC, and nothing
 //! asks the real hardware.
+//!
+//! [`src-python/test/test_telemetry.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/test/test_telemetry.py
 
 use std::net::TcpListener;
 use std::sync::Mutex;
@@ -102,8 +104,8 @@ fn the_app_started_event_carries_where_it_came_from_and_nothing_else() {
     assert_eq!(event.get("v"), Some(&Json::from(2u64)));
     assert_eq!(event.get("hw"), Some(&hardware().to_json()));
     let stamp = event.get("timestamp").unwrap().as_str().unwrap();
-    let sent_at = chrono::NaiveDateTime::parse_from_str(stamp, "%Y-%m-%dT%H:%M:%SZ").unwrap().and_utc();
-    assert!((chrono::Utc::now() - sent_at).num_seconds().abs() < 60);
+    let sent_at = jiff::civil::DateTime::strptime("%Y-%m-%dT%H:%M:%SZ", stamp).unwrap().to_zoned(jiff::tz::TimeZone::UTC).unwrap();
+    assert!(jiff::Timestamp::now().duration_since(sent_at.timestamp()).as_secs().abs() < 60);
     // No cookie, credential or identifier: only what HTTP needs, the key and the app's name,
     // exactly as http.client sent them.
     let headers: Vec<(&str, &str)> = request.headers.iter().map(|(n, v)| (n.as_str(), v.as_str())).collect();
@@ -111,7 +113,7 @@ fn the_app_started_event_carries_where_it_came_from_and_nothing_else() {
     let host = format!("127.0.0.1:{}", target.server.port);
     assert_eq!(
         headers,
-        [("Host", host.as_str()), ("Accept-Encoding", "identity"), ("Content-Type", "application/json"), ("Content-Length", length.as_str()), ("X-Ingest-Key", INGEST_KEY), ("User-Agent", "VRCT-VOX")]
+        [("Host", host.as_str()), ("Accept-Encoding", "identity"), ("Content-Type", "application/json"), ("Content-Length", length.as_str()), ("X-Ingest-Key", INGEST_KEY), ("User-Agent", "ASTAROT")]
     );
     // json.dumps(ensure_ascii=True, separators=(",", ":")).
     assert!(request.body.is_ascii() && !request.body.windows(2).any(|w| w == b", " || w == b": "));

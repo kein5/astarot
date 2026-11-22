@@ -1,4 +1,4 @@
-//! TTS, direct voice, voice conversion and the voice route (`controller.py`: `getVoice*`,
+//! TTS, direct voice, voice conversion and the voice route ([`controller.py`]: `getVoice*`,
 //! `setVoiceSettings`, `enableTts`, `disableTts`, `stopVoice`, `muteVoice`, `resumeVoice`,
 //! `get/set/start/stopDirectVoice*`, `getVcRuntime*`, `getIoFlow`, `_publishChatVoice`,
 //! `_publishMicVoice` and `_speechServerEnded` for the TTS profiles).
@@ -8,7 +8,10 @@
 //! What reaches the PC's devices is behind [`VoicePlatform`].
 //!
 //! Nothing here writes text, audio, device names or paths to the log.
+//!
+//! [`controller.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/controller.py
 
+mod audition;
 mod flow;
 pub mod platform;
 
@@ -34,6 +37,7 @@ use vrct_audio_routing::voice_route::{MuteBus, RouteOptions, VoiceRoute};
 use vrct_speech_server::Profile;
 use vrct_tts::converted::{Chunks, ConversionSpeaker, ConvertedSpeechRouter, SpeakError};
 use vrct_tts::engines::EngineClient;
+use vrct_tts::listener::{ListenerMonitor, ListenerMonitors, ProcessExit};
 use vrct_tts::message_hook::{TranscriptUpdate, TranslationTarget, chat_event, microphone_event};
 use vrct_tts::playback::{AudioRouter, FirstAudio, Monitor, OutputSink};
 use vrct_tts::scheduler::{BusOptions, MonitorRequest};
@@ -41,7 +45,7 @@ use vrct_tts::settings::{self as tts_settings, VoiceSettings};
 use vrct_tts::{CancelToken, SpeechCppTts, SpeechError, TtsError, VoiceEventBus};
 use vrct_voice_conversion::direct::{ConvertedFactory, PassthroughFactory};
 use vrct_voice_conversion::runtime::{RuntimeSetup, SetupOptions};
-use vrct_voice_conversion::{DeviceRoute, DirectVoice, SpeakFailure, VcProcess};
+use vrct_voice_conversion::{DeviceRoute, DirectVoice, ManagedRoute, SpeakFailure, VcProcess, VcRoute};
 
 const SETTINGS_KEY: &str = "VOICE_SETTINGS";
 const DIRECT_KEY: &str = "DIRECT_VOICE_SETTINGS";
@@ -67,6 +71,15 @@ fn refused(status: u16, code: &str) -> Reply {
     Reply::status(status, json!({ "error_code": code }))
 }
 
+/// A voice audition's speech (#415): the sentence of `role`, read by that profile's running
+/// bundled server with its saved voice. `None` while that server does not run; none is started.
+fn audition_speech(core: &Core, settings: &VoiceSettings, role: &'static str) -> Option<audition::Speech> {
+    let client = core.speech_servers().hub().binding(profile(role)).ok().and_then(|url| SpeechCppTts::new(&url).ok())?;
+    let (voice, options) = audition::speech_options(settings, role);
+    let (language, text) = audition::sentence_of(role);
+    Some(audition::Speech { client, voice, options, language, text })
+}
+
 /// A request id the UI echoes: `[A-Za-z0-9_-]{1,64}`.
 fn request_id(value: &Value) -> Option<&str> {
     value.as_str().filter(|id| (1..=64).contains(&id.len()) && id.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_'))
@@ -83,12 +96,15 @@ struct TtsOwner {
     waiting: usize,
 }
 
-/// The speech bus as the route's software mute.
-struct BusMute(Arc<VoiceEventBus>);
+/// The speech bus as the route's software mute. A mute also ends a voice audition.
+struct BusMute(Arc<VoiceEventBus>, Arc<audition::Audition>);
 
 impl MuteBus for BusMute {
     fn set_muted(&self, muted: bool) {
         self.0.set_muted(muted);
+        if muted {
+            self.1.stop();
+        }
     }
 }
 
@@ -113,6 +129,8 @@ pub struct Voice {
     /// A Seed-VC conversion saved by an earlier version was moved to RVC at this start; the
     /// direct voice state says so until the settings are saved again (#391).
     seed_vc_moved: AtomicBool,
+    /// The voice audition of the TTS catalog, on the monitor output only (#415).
+    audition: Arc<audition::Audition>,
 }
 
 // ---------------------------------------------------------------- devices
@@ -235,18 +253,31 @@ impl Voice {
         let converted: ConvertedFactory = {
             let platform = platform.clone();
             let worker = platform.rvc_worker(&app_dir);
+            let settings = weak.clone();
+            let runtimes_root = env.state_dir.join("vc_runtimes");
             Arc::new(move |options, monitor, output| {
                 // Seed-VC ran on Python and ended with it; a start of it fails as one whose
                 // runtime is missing did.
                 if options.get("engine").and_then(Value::as_str) != Some("rvc") {
                     return Err("vc_engine_unavailable".into());
                 }
-                // The managed route of a conversion needs a PipeWire capture the core does not
-                // have yet: only the device route runs (decision in core-integration.md).
-                let output = output.ok_or("vc_engine_unavailable")?;
-                let devices = platform.route_devices().ok_or("vc_engine_unavailable")?;
-                let route = Arc::new(DeviceRoute::new(output, devices, platform.monitor_output()));
-                Ok(Box::new(VcProcess::rvc(options, &worker, route, monitor)?) as Box<dyn vrct_voice_conversion::DirectBackend>)
+                let route: Arc<dyn VcRoute> = match output {
+                    // Windows: the chosen output device.
+                    Some(output) => {
+                        let devices = platform.route_devices().ok_or("vc_engine_unavailable")?;
+                        Arc::new(DeviceRoute::new(output, devices, platform.monitor_output()))
+                    }
+                    // Linux: the managed VC input, captured from PipeWire (decision 11).
+                    None => {
+                        let devices = platform.managed_vc_devices().ok_or("vc_engine_unavailable")?;
+                        Arc::new(ManagedRoute::new(devices, platform.monitor_output()))
+                    }
+                };
+                let options = with_block(options, settings.upgrade().map(|core| core.config().get("RVC_BLOCK_MS")));
+                // The DirectML runtime (shared with the translation), looked up at each start: it
+                // may have been set up since the app started.
+                let directml = vrct_voice_conversion::runtime::directml_libraries(&runtimes_root).map(|found| found.lib);
+                Ok(Box::new(VcProcess::rvc(&options, &worker, directml.as_deref(), route, monitor)?) as Box<dyn vrct_voice_conversion::DirectBackend>)
             })
         };
         let direct = Arc::new(DirectVoice::new(passthrough, Some(converted)));
@@ -290,19 +321,21 @@ impl Voice {
         options.on_failure = Some(Arc::new(|code: &str| crate::errors::report_failure("tts", code)));
         options.converted_router = Some(Arc::new(ConvertedSpeechRouter::new(Arc::new(Speaker(direct.clone())))));
         let started = weak.clone();
-        options.on_first_audio = Some(Arc::new(move |event, timestamp, converted| {
-            // The flow panel: when this message became audible, and by which path.
+        options.on_first_audio = Some(Arc::new(move |event, timestamp, converted, asked| {
+            // The flow panel: when this message became audible, how long its synthesis took,
+            // and by which path.
             if let Some(voice) = started.upgrade().and_then(|core| core.voice().cloned()) {
                 let conversion = if converted { voice.direct.health().round_trip_ms } else { None };
-                voice.traces.speech_started(&event.event_id, timestamp, converted, conversion);
+                voice.traces.speech_started(&event.event_id, timestamp, converted, conversion, Some(timestamp - asked));
             }
         }));
         let bus = Arc::new(VoiceEventBus::new(settings.clone(), options));
 
         let muted_direct = direct.clone();
         let store = MuteState::new(config.path().with_file_name("voice_mute_state.json"));
+        let audition = audition::Audition::new();
         let route = VoiceRoute::new(
-            Arc::new(BusMute(bus.clone())),
+            Arc::new(BusMute(bus.clone(), audition.clone())),
             platform.gate(&app_dir),
             Arc::new(store),
             RouteOptions { poll_interval: Duration::from_millis(100), on_muted: Some(Arc::new(move |muted| muted_direct.set_monitor_muted(muted))) },
@@ -325,6 +358,10 @@ impl Voice {
             worker: platform.rvc_worker(&app_dir),
             free_space: Arc::new(|path: &Path| vrct_ops::downloads::free_space(path).ok()),
             entries: platform.runtime_entries(),
+            loaded: {
+                let platform = platform.clone();
+                Arc::new(move || platform.loaded_libraries())
+            },
         });
         let voice = Arc::new(Voice {
             core: weak,
@@ -343,6 +380,7 @@ impl Voice {
             monitor_logged: Mutex::new(None),
             realtime_mic: Mutex::new(None),
             seed_vc_moved: AtomicBool::new(seed_vc_moved),
+            audition,
         });
         let _ = voice.route.configure(settings.routing == "managed", Duration::from_secs(3), voice.gate_suppresses_direct(&settings));
         voice.apply_direct_policy(&settings);
@@ -857,17 +895,101 @@ impl Voice {
 
     fn stop_voice(&self, core: &Core) -> Reply {
         self.bus.cancel();
+        self.audition.stop();
         core.audio_devices().stop_virtual_mic_check();
         ok(self.status())
     }
 
     fn mute(&self, core: &Core) -> Reply {
+        // Before the route: a mute that fails to reach the OS still silences the audition.
+        self.audition.stop();
         if self.route.mute().is_err() {
             // Python let a closed route raise.
             return Reply::status(500, "Internal error");
         }
         core.audio_devices().stop_virtual_mic_check();
         ok(self.route_status())
+    }
+
+    /// A voice audition (#415), on the monitor output only: the fixed sentence by the profile's
+    /// running bundled server (TTS), or the user's voice recorded on the press and converted by a
+    /// voice model (RVC). Refused while muted or without a monitor; a TTS one also without its
+    /// server, an RVC one while a conversion runs and without the runtime or the model's files.
+    fn start_audition(&self, core: &Core, data: &Value) -> Reply {
+        let Some(request) = audition::parse(data) else { return refused(400, "voice_audition_request_invalid") };
+        if self.audition.closed() || self.bus.status().closed {
+            return refused(409, "voice_audition_closed");
+        }
+        // As the virtual microphone check: nothing sounds while the voice is muted.
+        if self.route.status().requested_muted || self.bus.status().muted {
+            return refused(409, "voice_audition_muted");
+        }
+        let settings = self.bus.settings();
+        let target = match audition::monitor_target(&settings, core.audio_devices().cable_playbacks(), self.platform.monitor_output()) {
+            Ok(target) => target,
+            Err(code) => return refused(409, code),
+        };
+        let started = match request {
+            audition::Request::Tts(request) => {
+                let Some(speech) = audition_speech(core, &settings, request.profile) else { return refused(409, "voice_audition_server_not_ready") };
+                self.audition.start_tts(request.profile, speech, target)
+            }
+            audition::Request::Rvc(request) => {
+                let prepared = match self.rvc_audition_worker(core, &request) {
+                    Ok(prepared) => prepared,
+                    Err(code) => return refused(409, &code),
+                };
+                // The sample (`source` `recording`): the user's voice from the input chosen on
+                // the RVC page, opened only now and as the live conversion captures it.
+                let Some(open) = self.audition_capture() else { return refused(409, "voice_audition_input_unavailable") };
+                let recording = audition::Recording { open, input: request.input.clone(), seconds: request.seconds };
+                self.audition.start_rvc(request.entry, prepared, recording, target)
+            }
+        };
+        match started {
+            Ok(state) => ok(state),
+            Err(code) => refused(409, code),
+        }
+    }
+
+    /// How an RVC audition opens the microphone: the device route's capture on Windows, the
+    /// managed route's on Linux, as a live conversion captures it.
+    fn audition_capture(&self) -> Option<audition::CaptureOpener> {
+        if self.windows {
+            let devices = self.platform.route_devices()?;
+            Some(Arc::new(move |input: &vrct_audio_routing::graph::Endpoint, callbacks| devices.capture(input, callbacks)))
+        } else {
+            let devices = self.platform.managed_vc_devices()?;
+            Some(Arc::new(move |input: &vrct_audio_routing::graph::Endpoint, callbacks| devices.capture(input, callbacks)))
+        }
+    }
+
+    /// The checked worker of an RVC audition: the model's files by its id, the request's pitch and
+    /// index rate, the runtime and the worker's choices of the live conversion. Refused while a
+    /// conversion runs: it holds the GPU, and the audition would compete with the voice heard.
+    fn rvc_audition_worker(&self, core: &Core, request: &audition::RvcRequest) -> Result<vrct_voice_conversion::PreparedRvc, String> {
+        let health = self.direct.health();
+        if self.direct_engine.lock().unwrap().is_some() && (health.requested || health.pending || health.stopping) {
+            return Err("voice_audition_conversion_running".into());
+        }
+        let (model, index) = core.rvc_model_files(&request.entry).ok_or("voice_audition_model_missing")?;
+        let direct = core.config().get(DIRECT_KEY);
+        // The runtime the live conversion uses, or else the one the app set up.
+        let installed = self.runtimes.state()["installed"]["rvc"].as_str().unwrap_or_default().to_owned();
+        let runtime = [direct["rvc_runtime"].as_str().unwrap_or_default().to_owned(), installed]
+            .into_iter()
+            .find(|path| !path.trim().is_empty() && vrct_voice_conversion::worker::runtime_complete(Path::new(path)))
+            .ok_or("vc_runtime_missing")?;
+        let options = with_block(&audition::rvc_start_options(request, &runtime, &model, &index, &direct), Some(core.config().get("RVC_BLOCK_MS")));
+        let env = core.config().environment();
+        let directml = vrct_voice_conversion::runtime::directml_libraries(&env.state_dir.join("vc_runtimes")).map(|found| found.lib);
+        vrct_voice_conversion::process::prepare_rvc(&options, &self.platform.rvc_worker(&env.app_dir), directml.as_deref())
+    }
+
+    fn stop_audition(&self) -> Reply {
+        // Answered as it arrives: it only cancels.
+        self.audition.stop();
+        ok(self.audition.status())
     }
 
     fn resume(&self) -> Reply {
@@ -953,6 +1075,10 @@ impl Voice {
                 return Err("source_bridge_closed".into());
             }
             let output = self.direct_output()?;
+            if mode == "converted" {
+                // The live conversion's worker comes first: an RVC audition ends (#415).
+                self.audition.stop_rvc();
+            }
             // One monitor setting covers TTS and converted voice; passthrough is never monitored.
             let monitor = if mode == "converted" { self.bus.settings().monitor_choice().map(|(device, volume)| MonitorSpec { device: device.to_owned(), volume }) } else { None };
             self.direct.start(source, generation, mode, options.clone(), monitor, output.as_deref())?;
@@ -996,6 +1122,16 @@ impl Voice {
     }
 }
 
+/// An RVC start with the block of the settings (`RVC_BLOCK_MS`, #531) when the start does not
+/// name one. The Advanced settings keep it, not the start options the UI sends.
+fn with_block(options: &Value, saved: Option<Value>) -> Value {
+    let mut options = options.clone();
+    if let (Some(object), Some(ms)) = (options.as_object_mut(), saved.filter(crate::config::schema::is_valid_rvc_block_ms)) {
+        object.entry("block_ms").or_insert(ms);
+    }
+    options
+}
+
 /// `start_options(mode, options)`: nothing for a passthrough; the engine's fields for a
 /// conversion. Seed-VC's `{runtime, reference}` is still accepted, and fails to start.
 fn start_options(mode: &str, options: &Value) -> Result<Value, ()> {
@@ -1037,7 +1173,7 @@ impl Voice {
         let targets = targets_of(&event.destinations);
         let translations: Vec<Option<String>> = event.translations.iter().map(|t| Some(t.clone())).collect();
         let provenance: Vec<String> = event.provenance.iter().map(|p| (*p).to_owned()).collect();
-        let message = chat_event(
+        let mut message = chat_event(
             &event.message,
             &translations,
             &event.success,
@@ -1049,6 +1185,9 @@ impl Voice {
             &event.target_slots,
             &settings.target_slot,
         );
+        if let Some(core) = self.core.upgrade() {
+            super::terms::read_terms(&mut message, &core.term_dictionary());
+        }
         let queued = (settings.mode == "original" || message.translated_text.is_some()) && self.bus.publish(message, Some(generation), None);
         if let Some(trace) = event.id.as_deref().and_then(|id| self.traces.get(id)) {
             trace.speech_queued(queued);
@@ -1128,6 +1267,17 @@ impl Core {
     /// translation of the selected target speaks. `targets` is the target languages of the
     /// message's tab as they were when it was admitted. Returns whether it was queued.
     #[allow(clippy::too_many_arguments)]
+    /// Readies the speech server that will speak a message's translation while it is translated
+    /// (#556): the speech of `mic` (the microphone's translated voice) or of a typed or
+    /// recognised message, in the language of the speech's target slot among `destinations`.
+    pub(crate) fn warm_speech(&self, mic: bool, destinations: &Value) {
+        let Some(voice) = self.voice() else { return };
+        let settings = voice.bus.settings();
+        let Some(language) = destinations[&settings.target_slot]["language"].as_str() else { return };
+        let source = if mic { vrct_tts::events::Source::Mic } else { vrct_tts::events::Source::Chat };
+        voice.bus.warm(&source, language);
+    }
+
     pub fn publish_mic_voice(
         &self,
         snapshot: &MicVoiceSnapshot,
@@ -1153,7 +1303,8 @@ impl Core {
         }
         let usable: Vec<bool> = success.iter().zip(provenance).map(|(ok, origin)| *ok && *origin == "translated").collect();
         let translations: Vec<Option<String>> = translations.iter().map(|t| Some(t.clone())).collect();
-        let Some(event) = microphone_event(update, &translations, &usable, source_language, &targets_of(targets), slot) else { return false };
+        let Some(mut event) = microphone_event(update, &translations, &usable, source_language, &targets_of(targets), slot) else { return false };
+        super::terms::read_terms(&mut event, &self.term_dictionary());
         voice.bus.publish(event, Some(snapshot.generation), Some(snapshot.source_generation))
     }
 
@@ -1217,18 +1368,34 @@ impl Core {
     // ------------------------------------------------------------ the flow panel
 
     /// Begins a message's trace (`_beginIoTrace`): the microphone's and typed chat.
-    pub(crate) fn io_trace_begin(&self, kind: &str, message: &str, id: Option<&str>, started_ns: i64, asr_ms: Option<u64>) -> Option<Arc<IoTrace>> {
+    /// The flow panel's trace of a message (`_beginIoTrace`). A realtime microphone final is
+    /// timed from when it arrived (`received_ns`), with its wait before the message pipeline
+    /// took it; a recorder's from the start of its recognition (`asr_ms`).
+    pub(crate) fn io_trace_begin(
+        &self,
+        kind: &str,
+        message: &str,
+        id: Option<&str>,
+        started_ns: i64,
+        asr_ms: Option<u64>,
+        received_ns: Option<i64>,
+    ) -> Option<Arc<IoTrace>> {
         let voice = self.voice()?;
         let trace_id = id.map(str::to_owned).unwrap_or_else(uuid_text);
         match kind {
             "chat" => Some(voice.traces.begin(&trace_id, "chat", message, "send", started_ns)),
-            "mic" => Some(match asr_ms {
-                Some(asr) => {
+            "mic" => Some(match (received_ns.filter(|received| (1..=started_ns).contains(received)), asr_ms) {
+                (Some(received), _) => {
+                    let trace = voice.traces.begin(&trace_id, "voice", message, "final", received);
+                    trace.stage("wait", Some((started_ns - received) as f64 / 1e6));
+                    trace
+                }
+                (None, Some(asr)) => {
                     let trace = voice.traces.begin(&trace_id, "voice", message, "recognition", started_ns - (asr as i64) * 1_000_000);
                     trace.stage("recognition", Some(asr as f64));
                     trace
                 }
-                None => voice.traces.begin(&trace_id, "voice", message, "received", started_ns),
+                (None, None) => voice.traces.begin(&trace_id, "voice", message, "received", started_ns),
             }),
             _ => None,
         }
@@ -1308,6 +1475,9 @@ impl Core {
     /// before the speech servers close.
     pub(crate) fn close_voice(&self) {
         let Some(voice) = self.voice() else { return };
+        if !voice.audition.close(Duration::from_secs(2)) {
+            self.step("[voice] audition shutdown pending");
+        }
         voice.runtimes.request_close();
         if !voice.runtimes.close(Duration::from_secs(2)) {
             self.step("[voice] runtime setup shutdown pending");
@@ -1339,6 +1509,38 @@ fn uuid_text() -> String {
     format!("{}-{}-{}-{}-{}", &hex[..8], &hex[8..12], &hex[12..16], &hex[16..20], &hex[20..])
 }
 
+/// The end of a server run, as the speech server reports it: the run's listener is gone when
+/// its child has exited or is being stopped.
+struct RunEnd(vrct_tts::sync::Event);
+
+impl ProcessExit for RunEnd {
+    fn wait(&self) -> std::io::Result<()> {
+        self.0.wait(None);
+        Ok(())
+    }
+}
+
+/// The TTS servers this app started, each with the monitor its requests subscribe to.
+#[derive(Default)]
+struct ServerOwners(Mutex<HashMap<Profile, (ListenerMonitor, vrct_tts::sync::Event)>>);
+
+impl ServerOwners {
+    /// A server of `profile` listens on `(port, pid)`, or no longer does (`None`).
+    fn heard(&self, registry: &ListenerMonitors, profile: Profile, listener: Option<(u16, u32)>) {
+        let mut owners = self.0.lock().unwrap();
+        // A new run replaces an older one whose end was not told; that end is told now.
+        if let Some((monitor, end)) = owners.remove(&profile) {
+            end.set();
+            registry.forget(&monitor);
+        }
+        if let Some((port, _pid)) = listener {
+            let end = vrct_tts::sync::Event::new();
+            let monitor = registry.own(("127.0.0.1".to_owned(), port), Arc::new(RunEnd(end.clone())));
+            owners.insert(profile, (monitor, end));
+        }
+    }
+}
+
 fn with_voice(core: &Arc<Core>, handler: impl FnOnce(&Voice) -> Reply) -> Reply {
     match core.voice() {
         Some(voice) => handler(voice),
@@ -1359,6 +1561,12 @@ pub(crate) fn add(b: &mut Builder<'_>) {
     core.set_realtime_mic_probe(Arc::new(move || {
         realtime.upgrade().is_some_and(|core| core.realtime_requested(super::audio_devices::Source::Mic))
     }));
+    // A request to a TTS server this app started ends when the server does, and its port is not
+    // probed while it speaks (`listener_monitors.own` in [`runtime.py`]).
+    //
+    // [`runtime.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/speech_server/runtime.py
+    let owners = ServerOwners::default();
+    core.speech_servers().on_listener(Arc::new(move |profile, listener| owners.heard(vrct_tts::listener::listener_monitors(), profile, listener)));
     // A TTS server that ends turns TTS off.
     let ended = Arc::downgrade(core);
     core.speech_servers().on_end(Arc::new(move |end| {
@@ -1390,6 +1598,10 @@ pub(crate) fn add(b: &mut Builder<'_>) {
     b.with("/get/data/io_flow", OPEN, |core, _| core.io_flow());
     b.with("/run/start_direct_voice", OPEN, |core, data| with_voice(core, |voice| voice.start_direct(data)));
     b.with("/run/stop_direct_voice", OPEN, |core, _| with_voice(core, Voice::stop_direct));
+    // The voice audition of the TTS catalog (#415).
+    b.with("/get/data/voice_audition_state", OPEN, |core, _| with_voice(core, |voice| ok(voice.audition.status())));
+    b.with("/run/start_voice_audition", OPEN, |core, data| with_voice(core, |voice| voice.start_audition(core, data)));
+    b.with("/run/stop_voice_audition", OPEN, |core, _| with_voice(core, Voice::stop_audition));
 
     // The RVC worker's runtime (decision 6 in core-integration.md): set up after consent.
     b.with("/get/data/vc_runtime_catalog", OPEN, |core, _| with_voice(core, |voice| ok(voice.runtimes.catalog())));
@@ -1415,4 +1627,65 @@ pub(crate) fn add(b: &mut Builder<'_>) {
 /// 409 for a conflict, 400 for the rest (`_vcRuntimeFailure`).
 fn runtime_status(code: &str) -> u16 {
     if ["vc_runtime_busy", "vc_runtime_closed", "stale_job"].contains(&code) { 409 } else { 400 }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use vrct_tts::listener::{Address, Probe};
+    use vrct_tts::sync::Event;
+
+    /// A probe that must never run: an owned server's port is not probed.
+    fn no_probe() -> Probe {
+        Arc::new(|_: &Address, _: &Event| panic!("an owned server's port was probed"))
+    }
+
+    #[test]
+    fn a_request_to_a_started_server_ends_with_its_run_and_never_probes() {
+        // `test_tts_listener_monitor.py::test_owned_exit_interrupts_suspended_stream_without_connects`
+        // and `test_runtime_registers_owner_before_standby_uses_synthesis`, at the hook the
+        // speech server calls when its run listens and when it ends.
+        let registry = ListenerMonitors::new();
+        let owners = ServerOwners::default();
+        let address: Address = ("127.0.0.1".into(), 4321);
+        owners.heard(&registry, Profile::Japanese, Some((4321, 7)));
+        let owner = registry.owned(&address).expect("the started server is owned");
+        let tokens = [CancelToken::new(), CancelToken::new()];
+        let watches: Vec<_> = tokens.iter().map(|token| registry.watch(&address, token, Event::new(), no_probe(), Some(owner.clone()))).collect();
+        // The other profile's server is someone else's.
+        owners.heard(&registry, Profile::Multilingual, Some((4322, 8)));
+        owners.heard(&registry, Profile::Multilingual, None);
+        assert!(!tokens[0].wait(Duration::from_millis(50)), "another server's end cancelled the request");
+        assert!(registry.owned(&address).is_some());
+
+        owners.heard(&registry, Profile::Japanese, None);
+        for token in &tokens {
+            assert!(token.wait(Duration::from_secs(2)), "the server's end did not reach the request");
+            assert_eq!(token.reason(), "server_unavailable");
+        }
+        assert!(owner.join(Duration::from_secs(2)), "the run's waiter is left behind");
+        assert!(registry.owned(&address).is_none() && registry.external_count() == 0);
+        drop(watches);
+    }
+
+    #[test]
+    fn a_new_run_on_the_same_port_belongs_to_its_own_process() {
+        // `test_owned_exit_before_first_pcm_and_port_reuse_keep_process_identity`: a request
+        // sent to the new run is not cancelled by the old run's end.
+        let registry = ListenerMonitors::new();
+        let owners = ServerOwners::default();
+        let address: Address = ("127.0.0.1".into(), 4323);
+        owners.heard(&registry, Profile::Japanese, Some((4323, 7)));
+        let old = registry.owned(&address).unwrap();
+        // A restart whose old end was not told: the old run ends as the new one listens.
+        owners.heard(&registry, Profile::Japanese, Some((4323, 9)));
+        assert!(old.join(Duration::from_secs(2)));
+        let new = registry.owned(&address).expect("the new run is owned");
+        let token = CancelToken::new();
+        let _watch = registry.watch(&address, &token, Event::new(), no_probe(), Some(new.clone()));
+        assert!(!token.wait(Duration::from_millis(50)), "the old run's end cancelled a request to the new one");
+        owners.heard(&registry, Profile::Japanese, None);
+        assert!(token.wait(Duration::from_secs(2)));
+        assert!(new.join(Duration::from_secs(2)));
+    }
 }

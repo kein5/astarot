@@ -1,4 +1,4 @@
-//! Reading VRChat's picture (`ocr_capture.py` and the backends).
+//! Reading VRChat's picture ([`ocr_capture.py`] and the backends).
 //!
 //! The desktop window is read through PrintWindow on Windows ([`hwnd`]) and through
 //! X11/XWayland on Linux ([`x11`]). While SteamVR runs, the headset view is read from
@@ -8,6 +8,8 @@
 //! is read instead of the one found by name for as long as it is shared.
 //!
 //! [`OcrCapture::get`] never fails: failures are logged (boundedly) and give `None`.
+//!
+//! [`ocr_capture.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/ocr/ocr_capture.py
 
 pub mod openvr;
 pub mod portal;
@@ -133,7 +135,8 @@ impl Platform {
             window,
             shared,
             vr: Box::new(move || Box::new(openvr::OpenVrMirrorCapture::new(vr_log.clone(), vr_clock.clone())) as Box<dyn VrCapture>),
-            steamvr_running: Box::new(|| process::is_process_running(if cfg!(windows) { "vrmonitor.exe" } else { "vrmonitor" })),
+            // SteamVR's server or its status window, which a Steam Frame does not open (#944).
+            steamvr_running: Box::new(|| process::any_process_running(&vrct_openvr_client::STEAMVR_PROCESSES)),
         }
     }
 }

@@ -1,4 +1,6 @@
-//! Inspect the fixed speech.cpp device list, without models or network access (`hardware.py`).
+//! Inspect the fixed speech.cpp device list, without models or network access ([`hardware.py`]).
+//!
+//! [`hardware.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/model_downloads/hardware.py
 
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};

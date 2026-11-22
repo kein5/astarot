@@ -32,10 +32,10 @@ export default defineConfig(() => {
             host: host || false,
             hmr: host
                 ? {
-                    protocol: "ws",
-                    host,
-                    port: 1421,
-                }
+                      protocol: "ws",
+                      host,
+                      port: 1421,
+                  }
                 : undefined,
             watch: {
                 // 3. keep backend files and large local datasets/environments out of the watcher.
@@ -72,7 +72,7 @@ export default defineConfig(() => {
             alias: {
                 "@root": path.resolve(__dirname),
 
-                "@useI18n": path.resolve(__dirname, "locales/useI18n.js"),
+                "@useI18n": path.resolve(__dirname, "locales/useI18n.ts"),
 
                 // Logic modules without an extension, so a file can move from .js to .ts
                 // (ADR-010) without touching the alias; tsconfig.json has the same list.
@@ -89,7 +89,10 @@ export default defineConfig(() => {
                 "@logics_main": path.resolve(__dirname, "src-ui/logics/main"),
                 "@logics_configs": path.resolve(__dirname, "src-ui/logics/configs"),
 
-                "@setting_box": path.resolve(__dirname, "src-ui/views/app/config_page/setting_section/setting_box/index"),
+                "@setting_box": path.resolve(
+                    __dirname,
+                    "src-ui/views/app/config_page/setting_section/setting_box/index",
+                ),
                 "@common_components": path.resolve(__dirname, "src-ui/views/common_components/index"),
             },
         },
@@ -97,9 +100,9 @@ export default defineConfig(() => {
         css: {
             preprocessorOptions: {
                 scss: {
-                    api: "modern-compiler"
-                }
-            }
-        }
+                    api: "modern-compiler",
+                },
+            },
+        },
     };
 });

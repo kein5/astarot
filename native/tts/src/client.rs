@@ -18,6 +18,13 @@ use crate::model_options::{parse_options, ModelOptions, SynthesisOptions, SAFE_S
 use crate::settings::{has_unsafe_control, is_blank, local_url, SettingsError};
 use crate::sync::Event;
 
+/// What [`SpeechCppTts::warm_up`] asks to speak, cut to six frames of Qwen3-TTS (80 ms each).
+/// One frame was too little to raise the GPU's clocks: with the GPU at a middle power state
+/// between utterances, the next speech's first sound came 137 ms after its request with it and
+/// 138 ms without it, and 79 ms after six frames (#556, RTX 4080 SUPER).
+const WARM_UP_TEXT: &str = "The speech server gets ready.";
+const WARM_UP_SECONDS: f64 = 0.48;
+
 #[derive(Clone)]
 pub struct SpeechCppTts {
     base_url: String,
@@ -70,6 +77,30 @@ impl SpeechCppTts {
 
     fn address(&self) -> Address {
         (self.host.clone(), self.port)
+    }
+
+    /// Asks for half a second of speech and drops it (#556). Between utterances the GPU falls to
+    /// a power state with lower clocks, and the next speech's first frames are made about twice
+    /// as slowly; a short synthesis made just before it raises the clocks. Nothing is played, and
+    /// the text and voice go only into the request body.
+    /// `token` stops it, as speech that starts meanwhile does: the server then ends it once the
+    /// connection closes, so that the speech does not wait behind it.
+    pub fn warm_up(&self, voice: &str, language: &str, token: &CancelToken) -> Result<(), SpeechError> {
+        let failed = |_| SpeechError::new("transport_error");
+        token.check()?;
+        let mut connection = http::connect(&self.host, self.port, self.timeout).map_err(failed)?;
+        let interrupter = connection.interrupter();
+        token.register(move || interrupter.interrupt());
+        token.check()?;
+        connection.set_deadline(Some(Instant::now() + self.first_audio_timeout));
+        let body = serde_json::json!({ "input": WARM_UP_TEXT, "voice": voice, "language": language, "response_format": "pcm", "max_seconds": WARM_UP_SECONDS });
+        connection.send("POST", "/v1/audio/speech", Some(("application/json", body.to_string().as_bytes()))).map_err(failed)?;
+        let mut response = connection.response().map_err(failed)?;
+        if response.status != 200 {
+            return Err(SpeechError::http_status(response.status));
+        }
+        while !response.read_some(4096).map_err(failed)?.is_empty() {}
+        Ok(())
     }
 
     /// Bounded, local-only readiness probe; never loads or synthesizes a model.

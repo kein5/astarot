@@ -1,10 +1,13 @@
-//! Captions and finals of a session (`realtime_delivery.py`): every update is shown as it
+//! Captions and finals of a session ([`realtime_delivery.py`]): every update is shown as it
 //! comes; a final is processed (translation, chatbox, logs) on a second thread, at most four
 //! waiting, and its caption row is settled once with an outcome. A final not processed within
 //! 2 seconds of its receipt, or one whose session or admission ended, is not delivered.
+//!
+//! [`realtime_delivery.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/transcription/realtime_delivery.py
 
 use super::events::Update;
 use super::session::Session;
+use crate::diagnostics::{Event, Stage};
 use serde_json::{Value, json};
 use std::collections::{HashMap, VecDeque};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -16,9 +19,14 @@ const FINALS: usize = 4;
 
 /// Publishes a caption payload; false when it was not shown.
 pub type Publish = Arc<dyn Fn(Value) -> bool + Send + Sync>;
-/// Processes a final while `current` holds; `Ok(None)` when it was filtered, `Ok(Some)` the
-/// pipeline's result, `Err` a failure.
-pub type Process = Arc<dyn Fn(&Update, Current) -> Result<Option<Value>, ()> + Send + Sync>;
+/// Processes a final while `current` holds, running its outputs through [`Output`];
+/// `Ok(None)` when it was filtered, `Ok(Some)` the pipeline's result, `Err` a failure.
+pub type Process = Arc<dyn Fn(&Update, Current, Output) -> Result<Option<Value>, ()> + Send + Sync>;
+/// Runs an output of a final (`output_progress`): `action` runs only while the final may still
+/// be delivered, and gives true when what it sent went out. One that went out makes the final
+/// delivered, whatever comes after it (it can expire or be revoked later); while one runs, the
+/// final is not settled from outside. False when it did not run or sent nothing.
+pub type Output = Arc<dyn Fn(&mut dyn FnMut() -> bool) -> bool + Send + Sync>;
 /// Whether a final may still be delivered (its session, its admission and its 2 seconds).
 pub type Current = Arc<dyn Fn() -> bool + Send + Sync>;
 
@@ -43,6 +51,10 @@ struct Pending {
     deadline: Instant,
     admission: Admission,
     shown: bool,
+    /// An output is running ([`Output`]).
+    output_pending: bool,
+    /// An output went out: the final is delivered.
+    committed: bool,
 }
 
 struct Inner {
@@ -165,8 +177,14 @@ impl Delivery {
 
     /// `_settle`: the outcome of a final, told once on its caption row.
     fn settle(&self, update: &Update, outcome: &'static str, reason: Option<&str>, result: Option<Value>) {
-        let Some(pending) = self.inner.pending.lock().unwrap_or_else(|e| e.into_inner()).remove(&update.item_id) else {
-            return;
+        let pending = {
+            let mut pending = self.inner.pending.lock().unwrap_or_else(|e| e.into_inner());
+            match pending.get(&update.item_id) {
+                None => return,
+                // An output under way decides first; the worker settles after it.
+                Some(item) if item.output_pending && !item.committed => return,
+                Some(_) => pending.remove(&update.item_id).expect("looked up above"),
+            }
         };
         let chatbox_off = outcome == "delivered" && reason == Some("vrchat_off");
         let (mut outcome, mut reason, mut result) = (outcome, reason.map(str::to_string), result);
@@ -193,6 +211,11 @@ impl Delivery {
         if chatbox_off && outcome == "delivered" {
             reason = Some("vrchat_off".into());
         }
+        if pending.committed {
+            // What went out cannot be undone by a later expiry, revocation or failure.
+            outcome = "delivered";
+            reason = chatbox_off.then(|| "vrchat_off".to_string());
+        }
         if shown {
             (pending.admission.publish)(json!({
                 "source": update.source,
@@ -204,6 +227,36 @@ impl Delivery {
                 "reason": reason,
             }));
         }
+    }
+
+    /// `_output`: runs `action` while the final may still be delivered, and keeps whether it
+    /// went out.
+    fn output(&self, item: &str, action: &mut dyn FnMut() -> bool) -> bool {
+        let found = {
+            let pending = self.inner.pending.lock().unwrap_or_else(|e| e.into_inner());
+            pending.get(item).map(|p| (p.update.clone(), p.deadline, p.admission.clone()))
+        };
+        let Some((update, deadline, admission)) = found else { return false };
+        if self.reason(&update, deadline, &admission).is_some() {
+            return false;
+        }
+        match self.inner.pending.lock().unwrap_or_else(|e| e.into_inner()).get_mut(item) {
+            Some(pending) => pending.output_pending = true,
+            None => return false,
+        }
+        /// Ends the reservation however the output ends.
+        struct Running<'a>(&'a Delivery, &'a str, bool);
+        impl Drop for Running<'_> {
+            fn drop(&mut self) {
+                if let Some(pending) = self.0.inner.pending.lock().unwrap_or_else(|e| e.into_inner()).get_mut(self.1) {
+                    pending.committed |= self.2;
+                    pending.output_pending = false;
+                }
+            }
+        }
+        let mut running = Running(self, item, false);
+        running.2 = action();
+        running.2
     }
 
     fn settle_invalid(&self) {
@@ -261,7 +314,14 @@ impl Delivery {
             if update.is_final && !expired && !empty_final {
                 self.inner.pending.lock().unwrap_or_else(|e| e.into_inner()).insert(
                     update.item_id.clone(),
-                    Pending { update: update.clone(), deadline, admission: admission.clone(), shown },
+                    Pending {
+                        update: update.clone(),
+                        deadline,
+                        admission: admission.clone(),
+                        shown,
+                        output_pending: false,
+                        committed: false,
+                    },
                 );
                 if let Some(reason) = self.reason(&update, deadline, &admission) {
                     self.settle(&update, "not_delivered", Some(reason), None);
@@ -313,30 +373,61 @@ impl Delivery {
             let (guarded, still_admitted) = (update.clone(), admission.admitted.clone());
             let current: Current =
                 Arc::new(move || delivery.current(&guarded) && (still_admitted)() && Instant::now() < deadline);
+            let received = update.received.unwrap_or_else(Instant::now);
+            let queue_ms = received.elapsed().as_secs_f64() * 1000.0;
+            if let Some(diagnostics) = self.inner.session.diagnostics() {
+                diagnostics.record(
+                    update.source,
+                    Event::RealtimeDelivery,
+                    &[(Stage::RealtimeQueue, queue_ms)],
+                    Some(format!("[ASR-queue][{}] realtime wait={queue_ms:.1}ms", update.source)),
+                    false,
+                );
+            }
             if !current() {
                 self.settle(&update, "not_delivered", None, None);
                 continue;
             }
-            match (admission.process)(&update, current.clone()) {
-                Ok(None) => self.settle(&update, "not_delivered", Some("filtered"), None),
-                Ok(Some(result)) => {
-                    let outcome = match result["delivery_outcome"].as_str() {
-                        Some("failed") => "failed",
-                        Some("not_delivered") => "not_delivered",
-                        _ => "delivered",
-                    };
-                    let reason = result["delivery_reason"].as_str().map(str::to_string);
-                    let result = (outcome != "failed").then_some(result);
-                    self.settle(&update, outcome, reason.as_deref(), result);
-                }
-                Err(()) => {
-                    self.settle(&update, "failed", Some("processing_failed"), None);
-                    if current() {
-                        self.report("realtime_final_failed", false);
-                    }
+            self.process(&update, &admission, current);
+            if let Some(diagnostics) = self.inner.session.diagnostics() {
+                let total_ms = received.elapsed().as_secs_f64() * 1000.0;
+                diagnostics.record(
+                    update.source,
+                    Event::RealtimeProcessed,
+                    &[(Stage::RealtimeTotal, total_ms)],
+                    Some(format!("[latency][{}] realtime delivery={total_ms:.1}ms queue={queue_ms:.1}ms", update.source)),
+                    false,
+                );
+            }
+        }
+        if let Some(diagnostics) = self.inner.session.diagnostics() {
+            diagnostics.flush(Some(self.inner.session.source().as_str()), "stop");
+        }
+        self.finish();
+    }
+
+    /// Runs the message pipeline on a final and settles its caption with the outcome.
+    fn process(&self, update: &Update, admission: &Admission, current: Current) {
+        let (delivery, item) = (self.clone(), update.item_id.clone());
+        let output: Output = Arc::new(move |action: &mut dyn FnMut() -> bool| delivery.output(&item, action));
+        match (admission.process)(update, current.clone(), output) {
+            Ok(None) => self.settle(update, "not_delivered", Some("filtered"), None),
+            Ok(Some(result)) => {
+                let outcome = match result["delivery_outcome"].as_str() {
+                    Some("failed") => "failed",
+                    Some("not_delivered") => "not_delivered",
+                    _ => "delivered",
+                };
+                let reason = result["delivery_reason"].as_str().map(str::to_string);
+                let result = (outcome != "failed").then_some(result);
+                self.settle(update, outcome, reason.as_deref(), result);
+            }
+            Err(()) => {
+                self.settle(update, "failed", Some("processing_failed"), None);
+                if current() {
+                    self.report("realtime_final_failed", false);
                 }
             }
         }
-        self.finish();
     }
 }

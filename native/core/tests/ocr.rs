@@ -19,7 +19,7 @@ use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use vrct_core::controller::Services;
-use vrct_core::controller::ocr::{OcrMessage, OcrPlatform};
+use vrct_core::controller::ocr::{Guard, OcrMessage, OcrPlatform, pipeline_delivery};
 
 /// A line handed to the message pipeline: text, language, id, and whether it was still current.
 type Delivered = (String, Option<String>, String, bool);
@@ -40,6 +40,8 @@ struct Fake {
     roots: Mutex<Vec<PathBuf>>,
     /// Lines handed to the message pipeline.
     delivered: Mutex<Vec<Delivered>>,
+    /// The guard each delivered line came with, in the same order.
+    guards: Mutex<Vec<Guard>>,
     /// While set, loading a recogniser waits (a slow model load).
     hold: AtomicBool,
     loading: AtomicBool,
@@ -57,6 +59,7 @@ impl Fake {
             reads: Mutex::new(Vec::new()),
             roots: Mutex::new(Vec::new()),
             delivered: Mutex::new(Vec::new()),
+            guards: Mutex::new(Vec::new()),
             hold: AtomicBool::new(false),
             loading: AtomicBool::new(false),
         })
@@ -161,8 +164,9 @@ fn services(fake: &Arc<Fake>) -> Services {
     let sink = Arc::clone(fake);
     Services {
         ocr: Arc::new(Platform(Arc::clone(fake))),
-        ocr_message: Arc::new(move |_core, message: &OcrMessage, current: &dyn Fn() -> bool| {
+        ocr_message: Arc::new(move |_core, message: &OcrMessage, current: &Guard| {
             sink.delivered.lock().unwrap().push((message.text.clone(), message.language.clone(), message.id.clone(), current()));
+            sink.guards.lock().unwrap().push(Arc::clone(current));
         }),
         ..Setup::default().services
     }
@@ -216,7 +220,8 @@ fn model_readiness_follows_the_files_on_disk() {
     let readiness = ui.ok("/get/data/ocr_model_readiness", None);
     assert_eq!(
         readiness,
-        json!({ "language": "auto", "language_supported": true, "required_models": ["ppocrv6-small"], "missing_models": ["ppocrv6-small"] })
+        json!({ "language": "auto", "language_supported": true, "required_models": ["ppocrv6-small"], "missing_models": ["ppocrv6-small"],
+            "detector_model": "vrct-vox-chatbox-detector", "detector_installed": false, "detector_enabled": true })
     );
     // A file of the wrong size is not a download.
     install(&ui.dir, "ppocrv6-small");
@@ -238,8 +243,8 @@ fn model_readiness_follows_the_files_on_disk() {
     assert_eq!(
         keys,
         [
-            "engine", "language", "language_supported", "required_models", "missing_models", "capture", "window_title",
-            "detector_model", "detector_installed", "detector_enabled", "runtime",
+            "engine", "language", "language_supported", "required_models", "missing_models", "detector_model",
+            "detector_installed", "detector_enabled", "capture", "window_title", "runtime",
         ]
     );
     assert_eq!(full["engine"], true);
@@ -251,6 +256,8 @@ fn model_readiness_follows_the_files_on_disk() {
     assert_eq!(full["runtime"], json!({ "state": "stopped", "stage": null, "error_code": null, "detector": null }));
     install(&ui.dir, "vrct-vox-chatbox-detector");
     assert_eq!(ui.ok("/get/data/ocr_readiness", None)["detector_installed"], true);
+    // The start-up answer knows it too, without looking for the window.
+    assert_eq!(ui.ok("/get/data/ocr_model_readiness", None)["detector_installed"], true);
 
     *fake.probe.lock().unwrap() = CaptureStatus::WindowNotFound;
     fake.engine.store(false, Ordering::SeqCst);
@@ -337,6 +344,88 @@ fn a_read_line_is_told_to_the_ui_through_the_message_pipeline() {
     assert!(told[0]["result"]["id"].as_str().unwrap().starts_with("transcription-ocr-"));
     let log = std::fs::read_to_string(ui.dir.join("logs").join("process.log")).unwrap_or_default();
     assert!(!log.contains("line-one"), "read text stays out of the log");
+    ui.ok("/set/disable/ocr_capture", None);
+    ui.stop();
+}
+
+#[test]
+fn a_line_read_before_chat_reading_was_turned_off_stays_revoked_when_it_is_turned_on_again() {
+    // #278, item 65: the line's guard belongs to the run that read it. Turning chat reading off
+    // and on again starts a new run; the old line must not pass as one of it.
+    let fake = Fake::new();
+    *fake.lines.lock().unwrap() = vec!["before-off"];
+    let ui = start(&fake);
+    install(&ui.dir, "ppocrv6-small");
+    assert_eq!(ui.ok("/set/disable/ocr_chatbox_filter", None), false);
+    assert_eq!(enable(&ui).0["result"], true);
+    wait_until("the first line", || !fake.guards.lock().unwrap().is_empty());
+    let before = Arc::clone(&fake.guards.lock().unwrap()[0]);
+    assert!(before(), "current while chat reading stays on");
+
+    let mark = ui.send("/set/disable/ocr_capture", None);
+    assert_eq!(ui.wait_endpoint(mark, "/set/disable/ocr_capture")["result"], false);
+    assert!(!before(), "turning chat reading off revokes the line");
+    *fake.lines.lock().unwrap() = vec!["after-on"];
+    assert_eq!(enable(&ui).0["result"], true);
+    assert!(!before(), "turning it on again does not bring the line back");
+    wait_until("a line of the new run", || fake.delivered_texts().contains(&"after-on".to_string()));
+    let after = Arc::clone(fake.guards.lock().unwrap().last().unwrap());
+    assert!(after(), "a line of the new run is current");
+
+    ui.ok("/run/shutdown", None);
+    assert!(!after(), "shutting down revokes every line");
+    ui.stop();
+}
+
+#[test]
+fn the_message_pipeline_watches_a_read_line_with_the_guard_it_came_with() {
+    // #278, item 65: the application's delivery made a guard of its own by reading the run
+    // again. A line read before chat reading was turned off and on again could then pass as one
+    // of the new run. Here the guard the line came with turns false once it has answered the
+    // delivery's first check, as when the run ends right then: nothing may be told.
+    let fake = Fake::new();
+    *fake.lines.lock().unwrap() = vec!["revoked-line"];
+    let revoke_after_first_check = Arc::new(AtomicBool::new(true));
+    let finished = Arc::new(AtomicUsize::new(0));
+    let (revoke, done) = (Arc::clone(&revoke_after_first_check), Arc::clone(&finished));
+    let services = Services {
+        ocr: Arc::new(Platform(Arc::clone(&fake))),
+        ocr_message: Arc::new(move |core, message: &OcrMessage, current: &Guard| {
+            let guard: Guard = if revoke.load(Ordering::SeqCst) {
+                let (given, asked) = (Arc::clone(current), Arc::new(AtomicUsize::new(0)));
+                Arc::new(move || asked.fetch_add(1, Ordering::SeqCst) == 0 && given())
+            } else {
+                Arc::clone(current)
+            };
+            pipeline_delivery(core, message, &guard);
+            done.fetch_add(1, Ordering::SeqCst);
+        }),
+        ..Setup::default().services
+    };
+    let saved = json!({ "OCR_POLL_INTERVAL_MS": 100, "OCR_CHATBOX_FILTER": false });
+    let ui = Ui::with(Setup { saved: Some(saved), services, ..Setup::default() });
+    ui.ready();
+    install(&ui.dir, "ppocrv6-small");
+    let mark = ui.lines().len();
+    assert_eq!(enable(&ui).0["result"], true);
+    wait_until("the line handed over", || finished.load(Ordering::SeqCst) >= 1);
+    std::thread::sleep(Duration::from_millis(500));
+    assert!(ui.on(mark, "/run/transcription_ocr_message").is_empty(), "a revoked line was told");
+
+    // With the guard as it came, a new line is told: the delivery itself still works.
+    revoke_after_first_check.store(false, Ordering::SeqCst);
+    *fake.lines.lock().unwrap() = vec!["kept-line"];
+    let deadline = Instant::now() + WORKER_TIMEOUT;
+    let told = loop {
+        let told = ui.on(mark, "/run/transcription_ocr_message");
+        if !told.is_empty() {
+            break told;
+        }
+        assert!(Instant::now() < deadline, "the line was told within {WORKER_TIMEOUT:?}");
+        std::thread::sleep(Duration::from_millis(20));
+    };
+    assert_eq!(told.len(), 1);
+    assert_eq!(told[0]["result"]["original"]["message"], "kept-line");
     ui.ok("/set/disable/ocr_capture", None);
     ui.stop();
 }

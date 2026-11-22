@@ -1,0 +1,59 @@
+import assert from "node:assert/strict";
+import { test } from "vitest";
+import i18next from "i18next";
+import { branchAt, readLocale } from "../test/locales.ts";
+import type { LocaleBranch } from "../test/locales.ts";
+import { voiceErrorText } from "./voiceErrorText.ts";
+import type { Translate } from "./voiceErrorText.ts";
+
+const locales: Record<string, LocaleBranch> = Object.fromEntries(["en", "ja"].map(language => [language, readLocale(language)]));
+const resources = Object.fromEntries(Object.entries(locales).map(([language, translation]) => [language, { translation }]));
+
+for (const language of ["en", "ja"]) test(`${language}: every code the voice pages explain is explained on the main screen too`, async () => {
+    const i18n = i18next.createInstance();
+    await i18n.init({ lng: language, fallbackLng: false, resources });
+    const t: Translate = (key, params) => i18n.t(key, params), exists = (key: string) => i18n.exists(key);
+    const codes = Object.keys(branchAt(locales[language], "voice.input_errors"));
+    assert.ok(codes.includes("vc_gpu_unavailable"));
+    for (const code of codes) {
+        const text = voiceErrorText(code, "RVC", t, exists);
+        const key = exists(`voice_ui.errors.${code}`) ? `voice_ui.errors.${code}` : `voice.input_errors.${code}`;
+        assert.equal(text, `${t(key)} (${code})`, code);
+    }
+    // voice_ui.errors wins where both have the code.
+    assert.equal(voiceErrorText("voice_route_muted", "TTS", t, exists), `${t("voice_ui.errors.voice_route_muted")} (voice_route_muted)`);
+});
+
+// The TTS settings page shows why a save was refused. The core refuses with these codes
+// (native/core/src/controller/voice/mod.rs, set_settings and output_devices).
+for (const language of ["en", "ja"]) test(`${language}: a refused TTS settings save is explained, not shown as a code`, async () => {
+    const i18n = i18next.createInstance();
+    await i18n.init({ lng: language, fallbackLng: false, resources });
+    const t: Translate = (key, params) => i18n.t(key, params), exists = (key: string) => i18n.exists(key);
+    for (const code of ["VOICE_SETTINGS_INVALID", "direct_voice_stop_required", "voice_route_closed", "voice_request_failed",
+        "audio_devices_unavailable", "backend_unavailable"]) {
+        const text = voiceErrorText(code, "TTS", t, exists);
+        assert.ok(text.endsWith(` (${code})`) && !text.startsWith(code), `${code}: ${text}`);
+    }
+});
+
+// The codes the UI itself writes into the voice pages' alert lines (#460).
+for (const language of ["en", "ja"]) test(`${language}: the codes the UI makes are explained on the route and input lines`, async () => {
+    const i18n = i18next.createInstance();
+    await i18n.init({ lng: language, fallbackLng: false, resources });
+    const t: Translate = (key, params) => i18n.t(key, params), exists = (key: string) => i18n.exists(key);
+    for (const code of ["save_unconfirmed", "source_bridge_request_failed", "voice_request_failed", "voice_request_unconfirmed", "backend_unavailable"]) {
+        const text = voiceErrorText(code, "RVC", t, exists, ["voice_setup_errors"]);
+        assert.ok(text.endsWith(` (${code})`) && !text.startsWith(code), `${code}: ${text}`);
+    }
+    // The route's own setup codes come from voice_setup_errors.
+    assert.equal(voiceErrorText("managed_setup_timeout", "RVC", t, exists, ["voice_setup_errors"]),
+        `${t("voice_setup_errors.managed_setup_timeout")} (managed_setup_timeout)`);
+});
+
+test("an unknown code is shown as it is, with where to look", () => {
+    const t: Translate = (key, values) => `${key}:${String(values?.page ?? "")}`;
+    assert.equal(voiceErrorText("vc_new_failure", "RVC", t, () => false), "vc_new_failure · voice_ui.check_settings:RVC");
+    // Free text is never looked up as a key.
+    assert.equal(voiceErrorText("Some message.", "TTS", t, () => true), "Some message. · voice_ui.check_settings:TTS");
+});

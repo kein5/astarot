@@ -1,0 +1,25 @@
+name: GPU report / GPUの動作の報告
+description: The result of Settings → Advanced settings → GPU report. / 設定の「詳細設定」→「GPUの動作の報告」の結果。
+title: "GPU report: "
+labels: ["gpu-report"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you. The app filled in the field below with its report. Read it once more before you submit: it holds only versions, hardware names, memory sizes, driver versions, model names, times and differences. It holds no user name, file location, text or audio. Results from AMD GPUs are wanted most.
+        ありがとうございます。下の欄にはアプリが作った結果が入っています。送る前にもう一度確かめてください。入っているのはバージョン、機器の名前、メモリの量、ドライバのバージョン、モデルの名前、時間とずれだけです。ユーザー名、ファイルの場所、文や音声は入っていません。とくにAMDのGPUの結果を集めています。
+  - type: textarea
+    id: report
+    attributes:
+      label: Report / 報告の内容
+      description: Pasted by the app, or paste it from the clipboard. / アプリが入れた内容です。空のときはクリップボードから貼り付けてください。
+      render: json
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Anything you noticed (optional) / 気づいたこと（任意）
+      description: For example, the speech sounded broken on the GPU, or the PC slowed down. Do not write personal data. / たとえば、GPUで読み上げた声が乱れた、PCが重くなった、など。個人情報は書かないでください。
+    validations:
+      required: false

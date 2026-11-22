@@ -1,0 +1,108 @@
+name: Pipeline latency on Bencher
+# Sends the voice pipeline's times, measured by the core-integration job of voice-tests.yml, to
+# Bencher with one testbed for each OS (#738; docs/voice-stack/pipeline-latency-tracking.md).
+# develop's pushes build the history and keep its thresholds, a statistical test (t-test) on each
+# percentile; a pull request from this repository is compared with its base and told in a
+# comment. An alert fails no required check.
+#
+# It runs after that workflow from develop's copy of this file, never a pull request's, and
+# checks out nothing: what it takes from the measuring run is the JSON of the times. The pull
+# request's number, branches and commits come from GitHub's own record of that run. A pull
+# request from a fork is not sent. Without the BENCHER_API_KEY secret or the BENCHER_PROJECT
+# variable nothing is sent.
+on:
+  workflow_run:
+    workflows: ["VRCT-VOX voice contracts (no models)"]
+    types: [completed]
+permissions:
+  contents: read
+jobs:
+  send:
+    if: >-
+      github.repository == 'kein5/astarot' &&
+      github.event.workflow_run.conclusion != 'cancelled' &&
+      github.event.workflow_run.head_repository.full_name == github.repository && (
+        (github.event.workflow_run.event == 'push' && github.event.workflow_run.head_branch == 'develop') ||
+        github.event.workflow_run.event == 'pull_request')
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ubuntu-latest
+    permissions:
+      # The measuring run's artifacts, and the Bencher Report check and comment.
+      actions: read
+      checks: write
+      pull-requests: write
+    env:
+      BENCHER_PROJECT: ${{ vars.BENCHER_PROJECT }}
+      BENCHER_TESTBED: ${{ matrix.os }}
+      RESULTS: results/pipeline-latency.json
+    steps:
+      - id: results
+        continue-on-error: true
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: pipeline-latency-${{ matrix.os }}
+          path: results
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
+      - id: ready
+        env:
+          HAS_KEY: ${{ secrets.BENCHER_API_KEY != '' }}
+          PULL_REQUEST: ${{ github.event.workflow_run.pull_requests[0].number }}
+          EVENT: ${{ github.event.workflow_run.event }}
+        run: |
+          if [ "$HAS_KEY" != true ] || [ -z "$BENCHER_PROJECT" ]; then
+            echo "::notice title=Pipeline latency::Not sent to Bencher: the repository has no BENCHER_API_KEY secret or BENCHER_PROJECT variable."
+          elif [ ! -f "$RESULTS" ]; then
+            echo "::notice title=Pipeline latency::Not sent to Bencher: the measurement on $BENCHER_TESTBED left no results."
+          elif [ "$EVENT" = pull_request ] && [ -z "$PULL_REQUEST" ]; then
+            echo "::notice title=Pipeline latency::Not sent to Bencher: the run names no pull request of this repository."
+          else
+            echo "send=true" >> "$GITHUB_OUTPUT"
+          fi
+      # The CLI's version follows Bencher Cloud, as Bencher advises for it.
+      - if: steps.ready.outputs.send == 'true'
+        uses: bencherdev/bencher@7de3c69a85380826613050826b4bce062be2f07d # v0.6.16
+      # A failure to send is not a failure of develop or of the pull request.
+      # Only latency-p50 has a threshold (#738, decided 2026-11-21): latency-p95 is the second
+      # slowest of 40 utterances, so one hiccup of a runner makes it jump, and 21 of the first 22
+      # alerts were on it. It is still sent, kept and drawn; --thresholds-reset removes its old
+      # threshold, and a pull request copies develop's. The threshold alerts only once develop
+      # has 10 times of its own: fewer give limits so narrow that the runners' own spread would
+      # alert. develop's history starts over the first time a new
+      # BENCHER_START_POINT_IDEMPOTENCY_KEY is sent; later sends with the same key add to that
+      # history. Change the key when the measurement changes what it counts.
+      - name: Send develop's times and keep its thresholds
+        if: steps.ready.outputs.send == 'true' && github.event.workflow_run.event == 'push'
+        continue-on-error: true
+        env:
+          BENCHER_API_KEY: ${{ secrets.BENCHER_API_KEY }}
+          GITHUB_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          # Since the test's fake servers set TCP_NODELAY (2026-11-21): Linux lost about 20 ms.
+          BENCHER_START_POINT_IDEMPOTENCY_KEY: develop-2026-11-21-fake-servers-tcp-nodelay
+        run: >-
+          bencher run --branch develop --hash "$HEAD_SHA" --start-point-reset --adapter json --file "$RESULTS"
+          --threshold-measure latency-p50 --threshold-test t_test --threshold-min-sample-size 10
+          --threshold-max-sample-size 64 --threshold-lower-boundary _ --threshold-upper-boundary 0.99
+          --thresholds-reset --github-actions "$GITHUB_TOKEN"
+      - name: Send the pull request's times
+        if: steps.ready.outputs.send == 'true' && github.event.workflow_run.event == 'pull_request'
+        continue-on-error: true
+        env:
+          BENCHER_API_KEY: ${{ secrets.BENCHER_API_KEY }}
+          GITHUB_TOKEN: ${{ github.token }}
+          PULL_REQUEST: ${{ github.event.workflow_run.pull_requests[0].number }}
+          HEAD_REF: ${{ github.event.workflow_run.pull_requests[0].head.ref }}
+          HEAD_SHA: ${{ github.event.workflow_run.pull_requests[0].head.sha }}
+          BASE_REF: ${{ github.event.workflow_run.pull_requests[0].base.ref }}
+          BASE_SHA: ${{ github.event.workflow_run.pull_requests[0].base.sha }}
+        run: >-
+          bencher run --branch "$HEAD_REF" --hash "$HEAD_SHA"
+          --start-point "$BASE_REF" --start-point-hash "$BASE_SHA"
+          --start-point-clone-thresholds --start-point-reset
+          --adapter json --file "$RESULTS"
+          --github-actions "$GITHUB_TOKEN" --ci-number "$PULL_REQUEST"

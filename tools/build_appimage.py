@@ -48,10 +48,10 @@ def verify_tools(directory, *, download=False):
         raise ValueError('tool directory must not be a symlink')
     directory.mkdir(parents=True, exist_ok=True)
     result = {}
-    for row in json.loads(MANIFEST.read_text())['tools']:
+    for row in json.loads(MANIFEST.read_text(encoding='utf-8'))['tools']:
         target = directory / row['name']
         if not os.path.lexists(target) and download:
-            request = Request(row['url'], headers={'User-Agent': 'VRCT-VOX-AppImage-build'})
+            request = Request(row['url'], headers={'User-Agent': 'ASTAROT-AppImage-build'})
             with urlopen(request, timeout=60) as response:
                 data = response.read(row['size'] + 1)
             store_tool(directory, row, data)
@@ -75,7 +75,7 @@ def verify_tools(directory, *, download=False):
 
 def verify_runtime(image, runtime, *, digest_offset=None):
     expected = bytearray(Path(runtime).read_bytes())
-    offset = json.loads(MANIFEST.read_text())['runtime_digest_md5']['offset'] if digest_offset is None else digest_offset
+    offset = json.loads(MANIFEST.read_text(encoding='utf-8'))['runtime_digest_md5']['offset'] if digest_offset is None else digest_offset
     if offset < 0 or offset + 16 > len(expected):
         raise ValueError('invalid runtime digest section')
     with Path(image).open('rb') as source:
@@ -129,7 +129,7 @@ def inspect_image(image, runtime, work):
     with tempfile.TemporaryDirectory(dir=work, prefix='inspect-') as directory:
         env = dict(os.environ)
         env.pop('APPIMAGE_EXTRACT_AND_RUN', None)
-        with (Path(work) / 'extract.log').open('w') as log:
+        with (Path(work) / 'extract.log').open('w', encoding='utf-8') as log:
             subprocess.run([str(Path(image).resolve()), '--appimage-extract'], cwd=directory,
                            env=env, stdout=log, stderr=subprocess.STDOUT, check=True, timeout=180)
         root = Path(directory) / 'squashfs-root'
@@ -188,7 +188,7 @@ def main():
     normalize_modes(appdir)
     check_appdir(appdir)
     before = inventory(appdir)
-    source = json.loads((candidate / 'build-manifest.json').read_text())
+    source = json.loads((candidate / 'build-manifest.json').read_text(encoding='utf-8'))
     name = f'VRCT-VOX-{source["version"]}-{source["variant"]}-{source["profile"]}.AppImage'
     output = work / name
     output.unlink(missing_ok=True)
@@ -203,12 +203,12 @@ def main():
     shutil.copy2(output, destination)
     destination.chmod(0o755)
     digest = sha256(destination)
-    destination.with_name(name + '.sha256').write_text(f'{digest}  {name}\n')
+    destination.with_name(name + '.sha256').write_text(f'{digest}  {name}\n', encoding='utf-8')
     report = {'schema': 1, 'sha256': digest, 'bytes': destination.stat().st_size,
-              'source_candidate': source, 'tools': json.loads(MANIFEST.read_text()), 'files': after,
+              'source_candidate': source, 'tools': json.loads(MANIFEST.read_text(encoding='utf-8')), 'files': after,
               'limits': ['Host glibc/kernel/GPU drivers/PipeWire remain requirements.',
                          'Not a final dependency license/SBOM/security clearance.']}
-    destination.with_name(name + '.manifest.json').write_text(json.dumps(report, ensure_ascii=False, indent=2) + '\n')
+    destination.with_name(name + '.manifest.json').write_text(json.dumps(report, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
     print(f'Unpublished inspected AppImage: {destination.resolve()}')
 
 

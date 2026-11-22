@@ -1,8 +1,10 @@
-//! One owner per download root, across processes and interrupted runs (`staging.py`).
+//! One owner per download root, across processes and interrupted runs ([`staging.py`]).
 //!
 //! The lock is the same as the Python module's (`flock` on the whole file; on Windows a lock
 //! on its first byte, which is what `msvcrt.locking` takes), so a Python and a Rust owner of
 //! the same root exclude each other while both exist.
+//!
+//! [`staging.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/model_downloads/staging.py
 
 use std::fs::{self, File, OpenOptions};
 use std::io::{self, Write};
@@ -11,9 +13,9 @@ use std::path::{Path, PathBuf};
 use super::catalog::Model;
 use super::Error;
 use crate::json::{Json, Object};
+use app_identity::MODEL_DOWNLOAD_OWNER as PRODUCT;
 
 pub const LOCK_NAME: &str = ".download.lock";
-const PRODUCT: &str = "VRCT-VOX-model-download-v1";
 const MARKER: &str = "owner.json";
 const MARKER_LIMIT: u64 = 4096;
 
@@ -91,10 +93,10 @@ fn lock(file: &mut File) -> Result<(), Error> {
     }
 }
 
-/// The marker a staging directory carries, as Python's `mark_owned` writes it.
-fn marker(entry: &Model, directory: &str) -> Object {
+/// The marker a staging directory carries, as Python's `mark_owned` writes it, naming `product`.
+fn marker(product: &str, entry: &Model, directory: &str) -> Object {
     Object::new()
-        .with("product", PRODUCT)
+        .with("product", product)
         .with("id", entry.id.as_str())
         .with("revision", entry.revision.as_str())
         .with("files", entry.artifacts.iter().map(|a| Json::from(a.filename.as_str())).collect::<Vec<_>>())
@@ -104,7 +106,7 @@ fn marker(entry: &Model, directory: &str) -> Object {
 /// Writes `owner.json` (never over an existing one) and makes it durable.
 pub fn mark_owned(path: &Path, entry: &Model) -> Result<(), Error> {
     let name = path.file_name().and_then(|n| n.to_str()).unwrap_or_default();
-    let text = Json::from(marker(entry, name)).to_python_default();
+    let text = Json::from(marker(PRODUCT.current(), entry, name)).to_python_default();
     let mut out = OpenOptions::new().write(true).create_new(true).open(path.join(MARKER)).map_err(Error::Io)?;
     out.write_all(text.as_bytes()).map_err(Error::Io)?;
     out.flush().map_err(Error::Io)?;
@@ -145,11 +147,10 @@ pub fn recover_owned(root: &Path, entries: &[Model], extra_files: &[&str]) -> Re
     Ok(())
 }
 
-fn recover_one(path: &Path, name: &str, entries: &[Model], extra_files: &[&str]) -> Result<(), Error> {
-    const SKIP: Error = Error::Code("skip");
-    if !is_partial_name(name) || !fs::symlink_metadata(path).map_err(Error::Io)?.file_type().is_dir() {
-        return Err(SKIP);
-    }
+const SKIP: Error = Error::Code("skip");
+
+/// The marker of `path` as an object, or `skip` when there is none that could be one.
+fn read_marker(path: &Path) -> Result<Object, Error> {
     let marker_path = path.join(MARKER);
     let meta = fs::symlink_metadata(&marker_path).map_err(Error::Io)?;
     if !meta.file_type().is_file() || fs::metadata(&marker_path).map_err(Error::Io)?.len() > MARKER_LIMIT {
@@ -157,9 +158,66 @@ fn recover_one(path: &Path, name: &str, entries: &[Model], extra_files: &[&str])
     }
     let text = fs::read(&marker_path).map_err(Error::Io)?;
     let data = Json::parse_slice(&text).map_err(|_| SKIP)?;
-    let data = data.as_object().ok_or(SKIP)?;
+    data.as_object().cloned().ok_or(SKIP)
+}
+
+/// Moves a published entry whose files failed their check out of the way, so that it can be
+/// downloaded again. Answers whether it moved.
+///
+/// Only a folder this app wrote is moved: its marker names `entry` exactly and the staging name
+/// it was published from, and it holds nothing but the entry's files, the marker and the receipt
+/// (all regular files). It goes back to that staging name, which makes it what an interrupted
+/// download leaves, and is removed by the same rule as [`recover_owned`]; if the process stops in
+/// between, the next owner of the root removes it. Anything else stays where it is (`false`), as
+/// does a folder that cannot be moved now (a file in use on Windows). The caller holds the lease.
+pub fn reclaim_published(root: &Path, destination: &Path, entry: &Model) -> Result<bool, Error> {
+    let entries = std::slice::from_ref(entry);
+    let name = match read_marker(destination) {
+        Ok(data) => match data.get("directory").and_then(Json::as_str) {
+            Some(name) if is_partial_name(name) => name.to_string(),
+            _ => return Ok(false),
+        },
+        Err(Error::Io(e)) if e.kind() == io::ErrorKind::NotFound => return Ok(false),
+        Err(Error::Code("skip")) => return Ok(false),
+        Err(error) => return Err(error),
+    };
+    match check_owned(destination, &name, entries, &[]) {
+        Ok(_) => {}
+        Err(Error::Io(e)) if e.kind() == io::ErrorKind::NotFound => return Ok(false),
+        Err(Error::Code("skip")) => return Ok(false),
+        Err(error) => return Err(error),
+    }
+    let aside = root.join(&name);
+    if fs::symlink_metadata(&aside).is_ok() || fs::rename(destination, &aside).is_err() {
+        return Ok(false);
+    }
+    // A failure here leaves a staging folder the next owner of the root removes.
+    let _ = recover_one(&aside, &name, entries, &[]);
+    Ok(true)
+}
+
+fn recover_one(path: &Path, name: &str, entries: &[Model], extra_files: &[&str]) -> Result<(), Error> {
+    if !is_partial_name(name) || !fs::symlink_metadata(path).map_err(Error::Io)?.file_type().is_dir() {
+        return Err(SKIP);
+    }
+    let children = check_owned(path, name, entries, extra_files)?;
+    for child in &children {
+        fs::remove_file(child).map_err(Error::Io)?;
+    }
+    fs::remove_dir(path).map_err(Error::Io)
+}
+
+/// The children of `path` when its marker names an entry of `entries` and the staging name
+/// `name` exactly, and every child is a regular file the entry owns. `skip` otherwise.
+///
+/// The marker's product may have either spelling (ADR-014, 2.11): this build writes the VRCT-VOX
+/// one, and a build that moved to ASTAROT takes back what an older one left, and the other way
+/// round.
+fn check_owned(path: &Path, name: &str, entries: &[Model], extra_files: &[&str]) -> Result<Vec<PathBuf>, Error> {
+    let data = read_marker(path)?;
     let entry = data.get("id").and_then(Json::as_str).and_then(|id| entries.iter().find(|e| e.id == id)).ok_or(SKIP)?;
-    if !data.same_as(&marker(entry, name)) {
+    let product = data.get("product").and_then(Json::as_str).filter(|product| PRODUCT.accepts(product)).ok_or(SKIP)?;
+    if !data.same_as(&marker(product, entry, name)) {
         return Err(SKIP);
     }
     let mut children = Vec::new();
@@ -174,8 +232,5 @@ fn recover_one(path: &Path, name: &str, entries: &[Model], extra_files: &[&str])
             return Err(SKIP);
         }
     }
-    for child in &children {
-        fs::remove_file(child.path()).map_err(Error::Io)?;
-    }
-    fs::remove_dir(path).map_err(Error::Io)
+    Ok(children.iter().map(fs::DirEntry::path).collect())
 }

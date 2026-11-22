@@ -35,7 +35,7 @@ ASTAROT (formerly VRCT-VOX) is a desktop app for VRChat that combines speech rec
 
 - **Translated speech.** Speak your chat input and confirmed translations with [speech.cpp](https://github.com/nyosegawa/speech.cpp) TTS (Irodori for Japanese, Qwen3-TTS for other languages) into a virtual microphone that VRChat uses. Voice output and OSC chat text are configured independently, so you can, for example, keep your own voice while translated speech and text are added.
 - **Hear yourself.** Optionally play the same speech on your own speakers or headphones.
-- **Voice conversion.** Convert your microphone with RVC. On Windows and Linux the app fetches its runtime after showing its license and size. It converts on an NVIDIA GPU (GeForce GTX 16 or RTX 20 series or later, driver 580 or later) and otherwise on the CPU, with a longer delay. Seed-VC is no longer offered from 0.5.0; a saved Seed-VC setting switches to RVC.
+- **Voice conversion.** Convert your microphone with RVC. On Windows and Linux the app fetches its runtime after showing its license and size. CUDA conversion needs an NVIDIA GeForce GTX 16 or RTX 20 series GPU or later with driver 580 or later. From 0.6.0, Windows can also use DirectML on a DirectX 12 GPU. CPU conversion has a longer delay and requires a CPU fast enough for live audio. Seed-VC is no longer offered from 0.5.0; a saved Seed-VC setting switches to RVC.
 - **Realtime captions.** Transcribe your microphone and other players with bundled speech.cpp ASR servers.
 - **Bundled servers.** Save, start and stop speech.cpp servers from the settings.
 - **Model downloads.** Download fixed Irodori, Qwen3-TTS, RVC and speech recognition models (every recognizer speech.cpp offers, such as Qwen3-ASR, ReazonSpeech and Haas-ja) from Hugging Face. Each download asks for consent after showing its license and size. Files are checked by size and SHA-256 and applied separately. GPU/VRAM guidance suggests standard or lighter variants; it is a guide, not a guarantee.
@@ -47,8 +47,10 @@ RVC also needs its runtime, HuBERT and RMVPE. See [model downloads](/docs/voice-
 
 The latest release is on **[GitHub Releases](https://github.com/kein5/astarot/releases/latest)** (the release badge above shows its version). Versions count from 0.1.0, separately from upstream VRCT 3.x. Betas are published from `develop`, stable releases from `main`.
 
-- **Linux:** AppImage, tar.gz, deb and rpm (x64, Vulkan). These have been tested with real models on CachyOS (KDE Plasma Wayland).
-- **Windows:** installer and zip (CPU), and a CUDA zip. These have been tested with real models on a Windows 11 PC ([record](/docs/voice-stack/windows-voice-report.md)). They are not code-signed, so SmartScreen warns on first launch.
+- **Linux:** AppImage, tar.gz, deb and rpm (x64, Vulkan). Versions before 0.5 were tested with real models on CachyOS (KDE Plasma Wayland).
+- **Windows:** installer and zip, one package for every PC (releases up to 0.5 also have a CUDA zip with the same files). Versions before 0.5 were tested with real models on Windows 11 ([record](/docs/voice-stack/windows-voice-report.md)). They are not code-signed, so SmartScreen warns on first launch.
+
+What has been checked for the current version, per package and feature, and what CI covers versus a real PC, is on **[Platform support](https://kein5.github.io/astarot/en/guide/support)**.
 
 Every file has a `.sha256` and `SHA256SUMS-*` for checking downloads; these are not signatures. Installer and AppImage copies update themselves after checking the update's signature; ZIP and tar.gz copies are told about new versions; deb and rpm installs update through the package manager. An AUR package is planned but not submitted.
 
@@ -69,7 +71,7 @@ Report bugs and ask questions on **[Issues](https://github.com/kein5/astarot/iss
 
 ## Names and storage
 
-The app is shown as ASTAROT, but executables and packages still use `vrct-vox` / `VRCT-VOX`, and the application ID is `io.github.kein5.vrct-vox`. On Linux, configuration, data and cache live in `vrct-vox` directories (`~/.config/vrct-vox` and so on). See [names and identifiers](/docs/voice-stack/project-rename.md).
+The app is shown as ASTAROT, but executables and packages still use `vrct-vox` / `VRCT-VOX`, and the application ID is `io.github.kein5.vrct-vox`. On Linux, settings and data live in `astarot` directories from 0.6.0 (`~/.config/astarot` and `~/.local/share/astarot`); the first start of 0.6.0 moves the `vrct-vox` directories of 0.5.x there and leaves links with the old names. See [names and identifiers](/docs/voice-stack/project-rename.md).
 
 ## Privacy and models
 
@@ -79,9 +81,9 @@ No model is bundled. TTS, ASR and RVC models are downloaded only on request, or 
 
 ## License and acknowledgements
 
-ASTAROT is under the [MIT License](/LICENSE), and the original VRCT copyright and attribution are retained. External engines, model weights and the GPL-marked Seed-VC integration have their own terms, so the voice stack as a whole is not claimed to be MIT.
+ASTAROT is under the [MIT License](/LICENSE), and the original VRCT copyright and attribution are retained. External engines and model weights have their own terms.
 
-[NOTICE](/NOTICE.md#lgpl-and-gpl-components-in-vrct-vox-builds) lists the LGPL and GPL components in the builds, where to get their source and how to replace them. Two upstream components are deliberately left out:
+[NOTICE](/NOTICE.md#lgpl-and-gpl-components-in-vrct-vox-builds) lists the LGPL and GPL components included through 0.4.x, including the Seed-VC integration, with their sources and replacement instructions. Two upstream components are deliberately left out:
 - PyAV, because its wheels bundle the GPL x264/x265 encoders.
 - Upstream's `translator_engines`, which is licensed for official VRCT only. This is why the Google, Bing and Papago web translators are unavailable.
 

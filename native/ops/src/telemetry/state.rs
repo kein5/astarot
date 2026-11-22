@@ -1,5 +1,5 @@
 //! Whether sending is on, and the daily record that keeps each event to once a day
-//! (`state.py`).
+//! ([`state.py`]).
 //!
 //! The file (`telemetry_state.json`) keeps the Python module's shape, so either can read what
 //! the other wrote:
@@ -15,11 +15,13 @@
 //! Days are UTC, the day of the timestamp an event carries: the receiver counts by that day.
 //! `sent` is what went out, the latest [`SENT_LIMIT`], shown on the settings page; its `at` is
 //! this PC's local time.
+//!
+//! [`state.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/telemetry/state.py
 
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
-use chrono::{Local, Utc};
+use jiff::{Timestamp, Zoned};
 
 use crate::json::{Json, Object};
 
@@ -27,7 +29,17 @@ use crate::json::{Json, Object};
 pub const SENT_LIMIT: usize = 20;
 
 pub(crate) fn today() -> String {
-    Utc::now().date_naive().format("%Y-%m-%d").to_string()
+    day_of(Timestamp::now())
+}
+
+/// The UTC day of a moment, as the once-a-day events count it: `2026-11-20`.
+fn day_of(at: Timestamp) -> String {
+    at.strftime("%Y-%m-%d").to_string()
+}
+
+/// When an event went out, in the PC's local time, to the minute: `2026-11-21 09:05`.
+fn sent_at(at: &Zoned) -> String {
+    at.strftime("%Y-%m-%d %H:%M").to_string()
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -205,7 +217,7 @@ impl TelemetryState {
 
     /// Keeps what was sent, as it went out (the latest [`SENT_LIMIT`]).
     pub fn record_sent(&self, body: &Object, accepted: bool) {
-        let row = SentRow { at: Local::now().format("%Y-%m-%d %H:%M").to_string(), accepted, body: body.clone() };
+        let row = SentRow { at: sent_at(&Zoned::now()), accepted, body: body.clone() };
         let mut inner = self.inner.lock().unwrap();
         inner.data.sent.push(row);
         let skip = inner.data.sent.len().saturating_sub(SENT_LIMIT);
@@ -238,6 +250,16 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("telemetry_state.json");
         (dir, path)
+    }
+
+    #[test]
+    fn the_day_is_utc_and_the_sent_time_is_local_to_the_minute() {
+        // 08:30 in UTC+9 is still the day before in UTC.
+        let at: Timestamp = "2026-11-21T08:30:59+09:00".parse().unwrap();
+        assert_eq!(day_of(at), "2026-11-20");
+        let local = at.to_zoned(jiff::tz::TimeZone::fixed(jiff::tz::offset(9)));
+        assert_eq!(sent_at(&local), "2026-11-21 08:30");
+        assert_eq!(sent_at(&local.with_time_zone(jiff::tz::TimeZone::UTC)), "2026-11-20 23:30");
     }
 
     #[test]

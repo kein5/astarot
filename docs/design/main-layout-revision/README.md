@@ -1,6 +1,6 @@
 # メイン画面レイアウトの見直し（0.5.0）
 
-[レイアウト監査](../main-layout-audit/README.md)の指摘 L-01〜L-11 に対して、メイン画面の配置を見直した記録です。技術選定は [ADR-010](../../voice-stack/adr-010-frontend-stack.md) に従います。
+[レイアウト監査](../main-layout-audit/README.md)の指摘 L-01〜L-11 に対して、メイン画面の配置を見直した記録です。技術選定は [ADR-010](../../adr/adr-010-frontend-stack.md) に従います。
 
 - 比べたもの: 変更前は `develop`（`362783b2`）、変更後はこのブランチ
 - 撮り方: 監査と同じスクリプト（`../main-layout-audit/audit/`）で、同じ PC、同じ条件で撮りました。
@@ -127,8 +127,8 @@
 ```powershell
 $env:PYTHONUTF8 = "1"   # Windows で findings の JSON を書くため
 $env:AUDIT_OUT = "build/layout-audit"
-$env:VRCT_TEST_STUDIO_UI = "1"
-$env:VRCT_TEST_CHROMIUM = "<chrome.exe のパス>"
+$env:ASTAROT_TEST_STUDIO_UI = "1"
+$env:ASTAROT_TEST_CHROMIUM = "<chrome.exe のパス>"
 $env:PYTHONPATH = "tests/voice;docs/design/main-layout-audit/audit"
 build/dev/browser-venv/Scripts/python.exe -m pytest -c tests/voice/pytest.ini --rootdir . `
     docs/design/main-layout-audit/audit/layout_audit.py -q -p no:cacheprovider -p show_scrollbars

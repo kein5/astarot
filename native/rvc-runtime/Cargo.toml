@@ -20,7 +20,7 @@ path = "src/bin/rvc_stream.rs"
 
 # The application's live voice conversion process (VVC1 pipes, see src/bin/rvc_worker.rs).
 [[bin]]
-name = "vrct-rvc-worker"
+name = "astarot-rvc-worker"
 path = "src/bin/rvc_worker.rs"
 required-features = ["worker"]
 
@@ -30,18 +30,31 @@ default = ["download-binaries"]
 download-binaries = ["ort/download-binaries", "ort/tls-native", "ort/copy-dylibs"]
 # Run the ONNX graphs on CUDA when the ONNX Runtime build provides it.
 cuda = ["ort/cuda"]
-# Load ONNX Runtime from a library file at run time (`backend::load_runtime`) instead.
-load-dynamic = ["ort/load-dynamic"]
+# Load ONNX Runtime from a library file at run time (`backend::load_runtime`, through
+# native/onnx-runtime) instead.
+load-dynamic = ["vrct-onnx-runtime/load-dynamic"]
 # The application worker: no ONNX Runtime of its own, it loads the one set up with consent.
 worker = ["load-dynamic", "cuda"]
 
 [dependencies]
 hound = "3.5"
+# The NVIDIA driver's GPU name for the worker's block choice (`backend::gpu_name`); the version
+# `ort` already loads ONNX Runtime with.
+libloading = "=0.9.1"
 ort = { version = "=2.0.0-rc.15", default-features = false, features = ["std", "api-17"] }
+# The ONNX Runtime library and environment, as the app's chat reading and translation make them.
+vrct-onnx-runtime = { path = "../onnx-runtime", default-features = false }
 prost = "0.14"
 rustfft = "6.4"
 serde_json = "1"
 thiserror = "2"
+
+# DirectML (`Device::DirectMl`): only the Rust side of the provider; whether it runs depends on
+# the ONNX Runtime library that is loaded (the DirectML build). Windows only, as in
+# native/translate-onnx. API 22 (ONNX Runtime 1.22 or later; the runtimes hold 1.24.4 and
+# 1.31.0) lists the GPUs ONNX Runtime found, to tell an integrated GPU (`backend::directml_adapters`).
+[target.'cfg(windows)'.dependencies]
+ort = { version = "=2.0.0-rc.15", default-features = false, features = ["directml", "api-22"] }
 
 [profile.dev]
 opt-level = 2

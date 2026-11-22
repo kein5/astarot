@@ -17,11 +17,18 @@ keeping one copy of each weight they share.
 """
 import gc
 import hashlib
+import os
 from pathlib import Path
 
-import numpy as np
-import torch
-from torch import nn
+# The onnxruntime wheel in uv.lock (1.32) otherwise writes a device id under ~/.cache/Microsoft
+# and sends usage events when the first session or quantizer starts (#574). Set before torch
+# and onnxruntime are imported; export.py imports this module first. A value the caller set is
+# kept.
+os.environ.setdefault("ORT_DISABLE_TELEMETRY", "1")
+
+import numpy as np  # noqa: E402
+import torch  # noqa: E402
+from torch import nn  # noqa: E402
 
 OPSET = 18
 # ONNX keeps a model in one protobuf message only below 2 GB.
@@ -210,6 +217,78 @@ def export_float(model, folder):
         write(NextStep(model), (mask, ids[:, :2], hidden, cached), folder / "decoder_with_past_model.onnx",
               ["encoder_attention_mask", "input_ids", "encoder_hidden_states", *past_names(layers, "past_key_values")],
               outputs, (*common, past_shapes))
+    for name in ("encoder_model.onnx", "decoder_model.onnx", "decoder_with_past_model.onnx"):
+        clear_reshape_allowzero(folder / name)
+
+
+def _subgraphs(node):
+    from onnx import AttributeProto
+    for attribute in node.attribute:
+        if attribute.type == AttributeProto.GRAPH:
+            yield attribute.g
+        elif attribute.type == AttributeProto.GRAPHS:
+            yield from attribute.graphs
+
+
+def clear_reshape_allowzero(path):
+    """Set allowzero to 0 on every Reshape of a graph file, the branches of an If included.
+
+    torch.onnx.export writes each Reshape with allowzero=1. The two values differ only for a
+    0 in the target shape, and the shapes of these graphs are made of sizes that are never 0
+    (the batch, the source and decoder lengths, the heads and their width). ONNX Runtime's
+    DirectML provider refuses allowzero=1 ("The parameter is incorrect"), so every provider is
+    given 0. Returns how many were changed.
+    """
+    import onnx
+
+    model = onnx.load(str(path), load_external_data=False)
+    changed = 0
+
+    def walk(graph):
+        nonlocal changed
+        for node in graph.node:
+            if node.op_type == "Reshape":
+                for attribute in node.attribute:
+                    if attribute.name == "allowzero" and attribute.i != 0:
+                        attribute.i = 0
+                        changed += 1
+            for sub in _subgraphs(node):
+                walk(sub)
+
+    walk(model.graph)
+    if changed:
+        onnx.save(model, str(path))
+    return changed
+
+
+def sort_nodes(graph):
+    """Order a graph's nodes so that each comes after the nodes whose outputs it reads.
+
+    onnxruntime's float16 converter (keep_io_types) puts the Cast of an input after the nodes
+    that read it, which onnx.checker and the merge of the decoders refuse. Nodes already in
+    order keep their order.
+    """
+    available = {value.name for value in graph.input} | {tensor.name for tensor in graph.initializer} | {""}
+    pending, ordered = list(graph.node), []
+    while pending:
+        waiting = []
+        for node in pending:
+            # A branch may read values of the enclosing graph; those count as its inputs here.
+            needed = list(node.input)
+            for sub in _subgraphs(node):
+                inner = {value.name for value in sub.input} | {tensor.name for tensor in sub.initializer}
+                inner |= {output for child in sub.node for output in child.output}
+                needed += [name for child in sub.node for name in child.input if name not in inner]
+            if all(name in available for name in needed):
+                ordered.append(node)
+                available.update(node.output)
+            else:
+                waiting.append(node)
+        if len(waiting) == len(pending):
+            raise SystemExit("the graph has a node whose inputs no node makes")
+        pending = waiting
+    del graph.node[:]
+    graph.node.extend(ordered)
 
 
 def _session(path):

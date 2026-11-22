@@ -8,16 +8,15 @@
 | `src-python/models/telemetry/`（利用状況イベント `app_started` と `error`） | `telemetry` |
 | `src-python/models/watchdog/`（UI からの feed が途絶えたときにバックエンドを止める） | `watchdog` |
 
-## 現在の状態
+## アプリとの接続
 
-- ライブラリとして完成しており、試験も通っています。**アプリにはまだ組み込んでいません。** 動作中のアプリでダウンロード、テレメトリ、watchdog を受け持っているのは、今も Python 側です。`src-tauri` はこのクレートに依存しておらず、利用者から見た動作は変わりません。
-- 組み込みには、Python 側の呼び出し元（設定への適用、OCR・翻訳・声質変換のランタイム取得が共有している部品、watchdog の主体）を誰が持つかの決定が要ります。PR の残課題を見てください。
+0.5.0から、アプリの中核（`native/core`）がこのクレートでモデルの取得、利用状況イベントの送信、watchdogによるUIの監視を行います。モデルを設定に反映する処理は中核の `controller/downloads.rs` にあります。
 
 ## 守っている約束
 
 ### ダウンロード
 
-- 取得できるのはカタログ（`downloads::catalog`）の固定のファイルだけです。版、サイズ、SHA-256 は `catalog.py` と同じで、`tests/catalog_reference.rs` が Python の出力（`tests/data/python_reference.json`）と1項目ずつ照合します。音声認識のエントリは `catalog.py` と同じく `speechcpp_models.py` と `speechcpp_asr.py` の文字列から作ります（`downloads/speechcpp.rs`）。`catalog.py` を変えたら `python native/ops/reference/dump_reference.py` で基準を作り直し、`catalog.rs` を同じに直します（`tests/voice/test_native_ops_reference.py` が基準の古さを検出します）。
+- 取得できるのはカタログ（`downloads::catalog`）の固定のファイルだけです。版、サイズ、SHA-256 はカタログが正本です。カタログの規則は `downloads/catalog.rs` の試験が、公開して審査した物だけを載せていることは `tests/catalog_policy.rs` が確かめます（0.6.0 で消した Python のカタログの写しとの照合は、#746 の判断で引退させました）。音声認識のエントリは `data/speechcpp_models.json`（speech.cpp のカタログの写し）と `data/speechcpp_asr.json`（出す名前とライセンスの審査）から作ります（`downloads/speechcpp.rs`。欄の説明は `data/README.md`）。
 - 要求は `{id, consent, catalog_version}` の3項目だけで、`consent` が `true`、版が現在のカタログと一致しなければ、ファイルにもネットワークにも触れません。
 - 取得は `.partial-<32桁の16進>` の作業フォルダに書き、全ファイルのサイズと SHA-256 が合ってから `<root>/<id>/<revision>/` に名前を変えて公開します。失敗、取り消し、終了のときは何も公開せず、作業フォルダを消してから結果を報告します。
 - 根元のフォルダには所有の印（`.download.lock`）を取ります。Python 版と同じロック（Linux は `flock`、Windows は先頭1バイトのロック）なので、移行中に両方が動いても互いを排除します。中断されたプロセスが残した作業フォルダは、印（`owner.json`）がカタログの項目と完全に一致し、その項目のファイルだけを含む場合に限り、次の所有者が片付けます。リンクはたどらず、見覚えのないものは消しません。
@@ -34,7 +33,7 @@
 
 ### watchdog
 
-- 既定はタイムアウト60秒、確認間隔20秒です。feed が途絶えたら確認のたびにコールバックを呼びます。経過時間は Python 版と同じく壁時計で測ります。
+- 既定はタイムアウト60秒、確認間隔20秒です。feed が途絶えたら確認のたびにコールバックを呼びます。経過時間は単調時計で測ります。スリープで監視が長く途切れたときは、復帰時にタイマーをリセットします。
 
 ## Python 版と違う点
 

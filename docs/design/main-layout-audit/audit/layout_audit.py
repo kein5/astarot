@@ -5,7 +5,7 @@ answers with sample data only) in headless Chromium, resizes the viewport, takes
 and records what detect.js finds. Run it from the repository root after
 `python tools/dev.py setup --scope browser` and `npm ci`:
 
-    AUDIT_OUT=build/layout-audit VRCT_TEST_STUDIO_UI=1 VRCT_TEST_CHROMIUM=/path/to/chrome \
+    AUDIT_OUT=build/layout-audit ASTAROT_TEST_STUDIO_UI=1 ASTAROT_TEST_CHROMIUM=/path/to/chrome \
     PYTHONPATH=tests/voice build/dev/browser-venv/bin/python -m pytest -c tests/voice/pytest.ini \
         --rootdir . docs/design/main-layout-audit/audit/layout_audit.py -q -p no:cacheprovider
 

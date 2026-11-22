@@ -1,0 +1,61 @@
+name: Repository checks
+# Checks of the repository itself, each a scope of tools/dev.py with a tool mise.toml pins
+# (docs/development.md). One job runs them all, one step each, so they take one runner between
+# them; every step runs even when an earlier one fails.
+on:
+  pull_request:
+  push:
+    branches: [develop, main]
+  merge_group:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: repo-checks-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  checks:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The secrets step reads the commits since the base.
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
+        with:
+          version: 2026.11.8
+          install_args: actionlint shellcheck zizmor gitleaks osv-scanner lychee hk
+      # The token lets zizmor ask GitHub about the actions the workflows use (impostor commits,
+      # known vulnerable versions); it can read public data only.
+      - name: Workflows (actionlint, zizmor)
+        if: ${{ !cancelled() }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 tools/dev.py check --scope workflows
+      # Links between the Markdown files and to their headings, offline (lychee.toml).
+      - name: Links in the documents (lychee)
+        if: ${{ !cancelled() }}
+        run: python3 tools/dev.py check --scope links
+      # hk.pkl, the settings of the Git hooks contributors install with `hk install`.
+      - name: Git hook settings (hk)
+        if: ${{ !cancelled() }}
+        run: python3 tools/dev.py check --scope hooks
+      # Keys and tokens in the commits this run adds: a pull request's, a push's or the merge
+      # queue's. A new branch's push has no earlier commit; its pull request is checked instead.
+      - name: Secrets in new commits (gitleaks)
+        if: ${{ !cancelled() }}
+        env:
+          COMMIT_BASE: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before }}
+        run: |
+          if [ -z "$COMMIT_BASE" ] || [ "$COMMIT_BASE" = "0000000000000000000000000000000000000000" ]; then
+            echo "No earlier commit to compare with; nothing to scan."
+            exit 0
+          fi
+          python3 tools/dev.py check --scope secrets --base "$COMMIT_BASE"
+      # Known vulnerabilities of every lock file, from osv.dev. A notice not listed in
+      # osv-scanner.toml, or one whose day to look again has come, fails the step (#835).
+      - name: Known vulnerabilities (osv-scanner)
+        if: ${{ !cancelled() }}
+        run: python3 tools/dev.py check --scope vulns

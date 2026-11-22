@@ -195,7 +195,7 @@ def test_downloader_verifies_exact_bytes_before_completion(tmp_path, body):
         assert not dest.exists()
     assert (
         calls[0][0]
-        == "https://github.com/nyosegawa/speech.cpp/releases/download/v0.11.0/speech-0.11.0-linux-x64-cpu.zip"
+        == "https://github.com/nyosegawa/speech.cpp/releases/download/v0.11.2/speech-0.11.2-linux-x64-cpu.zip"
     )
     assert not list(tmp_path.glob("*.part"))
 
@@ -382,7 +382,7 @@ def test_replace_keeps_a_current_bundle_and_replaces_one_of_another_release(tmp_
     m = module()
     source = _windows_archive(tmp_path, monkeypatch)
     output = tmp_path / "build/speechcpp"
-    neighbour = tmp_path / "build/vrct-rvc-worker.exe"
+    neighbour = tmp_path / "build/astarot-rvc-worker.exe"
     neighbour.parent.mkdir()
     neighbour.write_bytes(b"other build output")
     args = ["--variant", "windows-x64-vulkan", "--archive", str(source), "--replace", "--output", str(output)]

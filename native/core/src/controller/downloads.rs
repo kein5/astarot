@@ -1,12 +1,16 @@
-//! Model downloads and the hardware probe behind them (`controller.py`: `getModelDownload*`,
+//! Model downloads and the hardware probe behind them ([`controller.py`]: `getModelDownload*`,
 //! `startModelDownload`, `cancelModelDownload`, `applyModelDownload`; `vrct_ops::downloads`).
 //!
-//! A download starts only from the user's consent to one entry of the current catalog; nothing
-//! here reaches the network or the disk otherwise. Applying a finished download is a separate
+//! A download starts only from the user's consent to one entry of the current catalog, and for
+//! an entry with restrictions (a non-commercial license) from their separate acknowledgement
+//! too ([`vrct_ops::downloads::Downloads::start`]); nothing here reaches the network or the disk
+//! otherwise. Applying a finished download is a separate
 //! request that writes the verified paths into the settings, and only when the settings still
 //! hold what the user saw (`expected`) and nothing runs on that target. The failures answer
 //! `{"error_code": ...}` without the error body, as Python's `_modelDownloadFailure` did: 409
 //! for a state that may pass, 400 otherwise.
+//!
+//! [`controller.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/controller.py
 
 use super::routes::{Builder, OPEN};
 use super::{Core, Services, ok};
@@ -18,6 +22,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use vrct_ops::downloads::catalog;
 use vrct_ops::downloads::hardware::{BinarySource, HardwareProbe};
+use vrct_ops::downloads::translation_catalog::{self, TranslationCatalog};
 use vrct_ops::downloads::user_models::{self, UserModels};
 use vrct_ops::downloads::{Downloads, Error};
 use vrct_ops::telemetry::Telemetry;
@@ -57,6 +62,9 @@ pub(crate) struct Ops {
     pub(super) telemetry: Telemetry,
     /// The models the user registered under a name (#403).
     pub(super) user_models: UserModels,
+    /// The translation entries the user added to the translation catalog (#413). Shared with
+    /// the settings, which record when the key store takes an entry's key.
+    pub(super) translation_catalog: Arc<TranslationCatalog>,
     /// Held while an apply checks and writes the settings (Python's `_speech_settings_lock` and
     /// `_voice_settings_lock`).
     apply_lock: Mutex<()>,
@@ -83,7 +91,8 @@ impl Ops {
         let reporter = telemetry.clone();
         let report_hook = crate::errors::register_report_hook(Arc::new(move |code| reporter.track_error(code)));
         let user_models = UserModels::new(env.state_dir.join(user_models::FILE_NAME));
-        Ops { downloads, hardware, telemetry, user_models, apply_lock: Mutex::new(()), report_hook }
+        let translation_catalog = Arc::new(TranslationCatalog::new(env.state_dir.join(translation_catalog::FILE_NAME)));
+        Ops { downloads, hardware, telemetry, user_models, translation_catalog, apply_lock: Mutex::new(()), report_hook }
     }
 
     /// Takes this run's hook away: the error codes of a later run are not counted here.
@@ -165,13 +174,39 @@ impl Core {
                 return Err(Error::Code("settings_changed"));
             }
             settings["profiles"][profile][field] = json!(path("model").unwrap_or_default());
+            let vad = self.vad_available();
             config.set("SPEECH_SERVER_SETTINGS", settings).map_err(|_| Error::Code("download_apply_failed"))?;
+            self.vad_available_since(vad);
         }
         Ok(())
     }
 }
 
 impl Core {
+    /// The files of an RVC voice model for its audition (#415), by id: `(model, index)`, the
+    /// index empty when there is none. A catalog entry counts once its download is on this PC, a
+    /// registered model while its files are as registered. `None` otherwise, and for a model of
+    /// another use. The paths never leave the core.
+    pub(crate) fn rvc_model_files(&self, id: &str) -> Option<(String, String)> {
+        let ops = self.ops();
+        let files = if ops.downloads.entries().iter().any(|entry| entry.id == id) {
+            if !ops.downloads.entries().iter().any(|entry| entry.id == id && entry.target == "rvc") {
+                return None;
+            }
+            let downloaded = to_value(ops.downloads.downloaded());
+            downloaded.get(id)?.as_object()?.iter().map(|(role, path)| (role.clone(), path.as_str().unwrap_or_default().to_owned())).collect::<Vec<_>>()
+        } else {
+            let (target, paths) = ops.user_models.usable(id).ok()?;
+            if target != "rvc" {
+                return None;
+            }
+            paths
+        };
+        let path = |role: &str| files.iter().find(|(r, _)| r == role).map(|(_, path)| path.clone());
+        let model = path("model").filter(|model| !model.is_empty())?;
+        Some((model, path("index").unwrap_or_default()))
+    }
+
     /// A translation model of the catalog was applied: its weight is marked as downloaded, as
     /// the CTranslate2 download told the UI (`downloaded_ctranslate2_weight`). The manager has
     /// verified every file in its folder before this runs.
@@ -230,9 +265,6 @@ pub(crate) fn add(b: &mut Builder<'_>) {
         // The reviews of the built-in CTranslate2 downloads (`legacyModelCatalog`) come with
         // that download, which the core does not run yet: none is offered.
         catalog["legacy_models"] = json!([]);
-        // Where a user puts a translation model of their own (the core's addition).
-        let folder = core.config().environment().data_dir.join("translation-models");
-        catalog["translation_models_folder"] = json!(folder.to_string_lossy());
         ok(catalog)
     });
     b.with("/get/data/model_download_hardware", OPEN, |core, _| ok(to_value(core.ops().hardware.state())));

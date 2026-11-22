@@ -45,7 +45,7 @@ Times count from a point that depends on the input. The panel says which.
 
 ## Show it on the desktop
 
-Under Settings → "VR" → "Desktop caption overlay", turn on "Show inputs and outputs on the desktop". Where your latest inputs went, and how long each step took, appear to the left of the captions: the input, translation and the outputs, joined by arrows. It works with the captions turned off too.
+Under Settings → "Captions and VR" → "Desktop caption overlay", turn on "Show inputs and outputs on the desktop". Where your latest inputs went, and how long each step took, appear to the left of the captions: the input, translation and the outputs, joined by arrows. It works with the captions turned off too.
 
 ![Inputs and outputs at the lower left of the screen, with captions on the right](/screenshots/en/flow-on-screen.webp)
 

@@ -1,10 +1,12 @@
-//! The error codes the backend answers with (`src-python/errors.py`).
+//! The error codes the backend answers with ([`src-python/errors.py`]).
 //!
 //! An expected failure answers with status 400 and a body built here:
 //! `{"error_code", "message", "data", "details", "category", "severity"}`. `data` is the value
 //! the UI rolls back to. The codes, their default English messages and their categories are a
-//! contract with the UI (`src-ui/logics/_useBackendErrorHandling.js`) and with
+//! contract with the UI (`src-ui/logics/_useBackendErrorHandling.ts`) and with
 //! `docs/spec/reference/error-codes.md`.
+//!
+//! [`src-python/errors.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/errors.py
 
 mod table;
 

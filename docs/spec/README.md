@@ -13,9 +13,10 @@ ASTAROTの機能、API、データ、振る舞いの約束をまとめた文書�
 | [横断的な振る舞い](cross-cutting.md) | エラー、保存、同意、秘密情報、国際化、停止とミュート、初期化中の扱い | 決まり | 手書き |
 | [データ形式と保存](data-and-persistence.md) | 主なデータの形、`config.json`、ログやモデルのファイル、環境変数 | 参照 | 手書き |
 | [外部インターフェース](external-interfaces.md) | OSC、WebSocket、OBS、クラウド、音声サーバー、ウィンドウ、Tauriのコマンドとイベント、ホットキー | 参照 | 手書き |
-| [ユースケース](use-cases.md) | 利用者がすること15件と、関係する画面・エンドポイント | シナリオ | 手書き |
+| [ユースケース](use-cases.md) | 利用者がすることと、関係する画面・エンドポイント | シナリオ | 手書き |
 | [シーケンス](sequences.md) | 起動、設定の変更、チャットの送信、文字起こし、読み上げと停止、APIキーの登録 | シナリオ | 手書き |
 | [契約](contracts.md) | 変えてはいけない約束と、確かめているテスト | 決まり | 手書き |
+| [失敗したときに保つもの](failure-recovery.md) | 設定、モデル、アプリの更新が途中で失敗したときに残る状態、入れ方ごとの更新の責任、保証しないこと | 決まり | 手書き |
 | [SteamVR subtitle images](overlay-subtitle-rendering.md) | Subtitle wrapping, raster budgets and local font fallback | 決まり | 手書き |
 | [未決事項](open-issues.md) | 調べて見つかった食い違いと、決まっていないこと | 記録 | 手書き |
 | [用語集](glossary.md) | 画面の言葉とコードの名前の対応 | 参照 | 手書き |
@@ -27,7 +28,7 @@ ASTAROTの機能、API、データ、振る舞いの約束をまとめた文書�
 
 | したいこと | 読むところ |
 |---|---|
-| あるエンドポイントが何をするか知る | [IPCエンドポイント一覧](reference/ipc-endpoints.md)で処理する関数（Pythonバックエンドの名前）を見て、`native/core/README.md`の対応表から中核のモジュール（`native/core/src/controller/`）を読む。Pythonの実装は`src-python/controller.py`にある |
+| あるエンドポイントが何をするか知る | [IPCエンドポイント一覧](reference/ipc-endpoints.md)で処理する関数（Pythonバックエンドの名前）を見て、`native/core/README.md`の対応表から中核のモジュール（`native/core/src/controller/`）を読む。Pythonの実装（[`src-python/controller.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/controller.py)）は0.6.0で消したので、0.5.xのタグで読む |
 | 新しい設定を足す | [設定キー一覧](reference/config-keys.md)、[設定の保存](cross-cutting.md#設定の保存)、[データ形式と保存](data-and-persistence.md) |
 | 新しいエラーを足す | [エラーの扱い](cross-cutting.md#エラーの扱い)、[エラーコード一覧](reference/error-codes.md) |
 | 機能の流れを追う | [ユースケース](use-cases.md)から[シーケンス](sequences.md)へ |
@@ -36,8 +37,17 @@ ASTAROTの機能、API、データ、振る舞いの約束をまとめた文書�
 
 ## 更新の決まり
 
-- `reference/`の3つの一覧はコードから生成する。手で編集せず、`python tools/spec_catalog.py --write`で作り直す。
-- `python tools/dev.py check`は`tests/devtools/test_spec_catalog.py`で一覧が最新かを確かめる。エンドポイント、エラーコード、設定キーを変えたら、同じ変更で一覧も作り直す。
+- `reference/`の3つの一覧は`tools/spec_catalog.py`が生成する。手で編集しない。入力は、中核（`native/core`）が書き出した`tools/spec_core_catalog.json`、設定キーの検証の式（`native/core/src/config/schema.rs`の`keys()`）、UIのコードである。
+- 中核のエンドポイント、通知、エラーコード、設定キーを変えたら、同じ変更で`mise run spec`を実行し、JSONと一覧を作り直す。中身は次の2つである。
+
+  ```sh
+  VRCT_SPEC_CATALOG_WRITE=1 cargo test --manifest-path native/core/Cargo.toml --test spec_catalog
+  python tools/spec_catalog.py --write
+  ```
+
+- 一覧が古いと、次の2つの試験が落ちる。
+  - 中核の試験`native/core/tests/spec_catalog.rs`: JSONが中核と一致するかを確かめる。CIの`core-integration`で流れる。
+  - `python tools/dev.py check`の`tests/devtools/test_spec_catalog.py`: 一覧がJSONとUIのコードから作ったものと一致するかを確かめる。
 - 手書きの文書は、振る舞いを変えた変更と同じプルリクエストで直す。文書は機能ごとに小さく保ち、同じことを2か所に書かず、リンクでつなぐ。
 - 実装と食い違う記述を見つけたら、どちらが正しいかを確かめる。決められなければ[未決事項](open-issues.md)に書く。
 - ファイルや関数の場所は、行番号ではなくファイル名と名前で書く。行番号はすぐに変わるためである。

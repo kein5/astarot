@@ -36,7 +36,10 @@ export const acceptObservation = (store: ObservationStore, target: Atom<Observed
     const id = (incoming as ObservedSnapshot | null | undefined)?.observation_id;
     if (typeof id !== "string" || !/^\d+$/.test(id)) return false;
     let cursors = observations.get(store);
-    if (!cursors) observations.set(store, cursors = new Map());
+    if (!cursors) {
+        cursors = new Map();
+        observations.set(store, cursors);
+    }
     const latest = cursors.get(target) ?? store.get(target).observation_id;
     if (latest != null && BigInt(id) <= BigInt(latest)) return false;
     cursors.set(target, id);

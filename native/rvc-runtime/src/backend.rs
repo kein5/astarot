@@ -3,7 +3,6 @@
 
 use std::path::Path;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::OnceLock;
 
 use ort::environment::Environment;
 use ort::session::Session;
@@ -27,51 +26,49 @@ pub enum Device {
     /// libraries), loading fails with [`Error::DeviceUnavailable`] instead of running on
     /// the CPU. ONNX Runtime's own behaviour would be to fall back silently.
     Cuda,
+    /// DirectML (Windows; NVIDIA, AMD and Intel GPUs), falling back to the CPU for operators
+    /// it lacks. Needs the DirectML build of ONNX Runtime, loaded after `DirectML.dll`.
+    ///
+    /// The GPU is the one DirectML ranks highest for performance, so a laptop's discrete GPU
+    /// is taken over its integrated one. If DirectML cannot start, loading fails with
+    /// [`Error::DeviceUnavailable`], as for CUDA.
+    DirectMl,
+}
+
+impl Device {
+    /// Whether the graphs run on a GPU.
+    pub fn is_gpu(self) -> bool {
+        self != Device::Cpu
+    }
 }
 
 fn backend(error: impl std::fmt::Display) -> Error {
     Error::Backend(error.to_string())
 }
 
-static ENVIRONMENT: OnceLock<std::result::Result<Environment, String>> = OnceLock::new();
 /// Threads of each session's intra-operator pool; 0 leaves ONNX Runtime's default.
 static INTRA_THREADS: AtomicUsize = AtomicUsize::new(0);
 
+/// The process's ONNX Runtime environment (`vrct-onnx-runtime`), made on first use. The
+/// worker's tools stop ONNX Runtime's usage reports first thing
+/// (`vrct_onnx_runtime::disable_telemetry_for_process`); the app sets the variable for the worker
+/// it starts as well.
 fn environment() -> Result<&'static Environment> {
-    ENVIRONMENT
-        .get_or_init(|| ort::init().with_name("rvc-runtime").with_telemetry(false).build().map_err(|error| error.to_string()))
-        .as_ref()
-        .map_err(backend)
-}
-
-/// Stops ONNX Runtime's usage reports for this process (issue #518): the official Linux build
-/// writes a `deviceid` and sends a first event when the environment is made, before the
-/// environment option (`with_telemetry(false)`, also set here) can apply. The app sets the
-/// variable for the worker it starts as well; the tools set it themselves.
-///
-/// # Safety
-///
-/// Changes the process environment: call at the start of `main`, before other threads run.
-pub unsafe fn disable_telemetry_for_process() {
-    unsafe { std::env::set_var("ORT_DISABLE_TELEMETRY", "1") };
+    vrct_onnx_runtime::environment().map_err(|error| match error {
+        vrct_onnx_runtime::Error::Unavailable(message) => Error::Backend(message),
+        other => backend(other),
+    })
 }
 
 /// Loads ONNX Runtime from `library` (`libonnxruntime.so`, `onnxruntime.dll`) instead of
-/// looking it up by name. Call before anything else of this crate; a second call, or a
-/// call after a network was loaded, returns an error and changes nothing.
+/// looking it up (`ORT_DYLIB_PATH` is ignored). Call before anything else of this crate; a
+/// second call, or a call after a network was loaded, returns an error and changes nothing.
 #[cfg(feature = "load-dynamic")]
 pub fn load_runtime(library: &Path) -> Result<()> {
-    let mut fresh = false;
-    let result = ENVIRONMENT.get_or_init(|| {
-        fresh = true;
-        let builder = ort::init_from(library).map_err(|error| error.to_string())?;
-        builder.with_name("rvc-runtime").with_telemetry(false).build().map_err(|error| error.to_string())
-    });
-    match (fresh, result) {
-        (true, Ok(_)) => Ok(()),
-        (true, Err(error)) => Err(Error::Backend(error.clone())),
-        (false, _) => Err(Error::invalid("ONNX Runtime was already loaded")),
-    }
+    vrct_onnx_runtime::load(library).map_err(|error| match error {
+        vrct_onnx_runtime::Error::Unavailable(message) => Error::Backend(message),
+        vrct_onnx_runtime::Error::AlreadyLoaded => Error::invalid("ONNX Runtime was already loaded"),
+    })
 }
 
 /// Limits the CPU threads each network's session uses within one operator (ONNX
@@ -93,14 +90,29 @@ fn session(source: Source, device: Device) -> Result<Session> {
     if threads > 0 {
         builder = builder.with_intra_threads(threads).map_err(backend)?;
     }
-    if device == Device::Cuda {
-        #[cfg(feature = "cuda")]
-        {
-            // error_on_failure: a provider that cannot start is an error, not the CPU.
-            builder = builder.with_execution_providers([ort::ep::CUDA::default().build().error_on_failure()]).map_err(|error| Error::DeviceUnavailable(error.to_string()))?;
+    match device {
+        Device::Cpu => {}
+        Device::Cuda => {
+            #[cfg(feature = "cuda")]
+            {
+                // error_on_failure: a provider that cannot start is an error, not the CPU.
+                builder = builder.with_execution_providers([ort::ep::CUDA::default().build().error_on_failure()]).map_err(|error| Error::DeviceUnavailable(error.to_string()))?;
+            }
+            #[cfg(not(feature = "cuda"))]
+            return Err(Error::invalid("this build has no CUDA support (enable the `cuda` feature)"));
         }
-        #[cfg(not(feature = "cuda"))]
-        return Err(Error::invalid("this build has no CUDA support (enable the `cuda` feature)"));
+        Device::DirectMl => {
+            #[cfg(windows)]
+            {
+                use ort::ep::directml::{DeviceFilter, PerformancePreference};
+                // DirectML needs both off (ONNX Runtime's DirectML documentation).
+                builder = builder.with_memory_pattern(false).map_err(backend)?.with_parallel_execution(false).map_err(backend)?;
+                let provider = ort::ep::DirectML::default().with_device_filter(DeviceFilter::Gpu).with_performance_preference(PerformancePreference::HighPerformance);
+                builder = builder.with_execution_providers([provider.build().error_on_failure()]).map_err(|error| Error::DeviceUnavailable(error.to_string()))?;
+            }
+            #[cfg(not(windows))]
+            return Err(Error::DeviceUnavailable("DirectML exists on Windows only".into()));
+        }
     }
     match source {
         Source::File(path) => builder.commit_from_file(path).map_err(backend),
@@ -118,8 +130,8 @@ pub fn check_device(device: Device) -> Result<()> {
     let y = graph.add(&x, &one);
     graph.output_f32("y", &y, &[crate::onnx::Dim::Fixed(1), crate::onnx::Dim::Fixed(4)]);
     // The graph is valid, so on the GPU any failure to create or run it is the device's.
-    let unavailable = |error: Error| match (device, error) {
-        (Device::Cuda, Error::Backend(message)) => Error::DeviceUnavailable(message),
+    let unavailable = |error: Error| match (device.is_gpu(), error) {
+        (true, Error::Backend(message)) => Error::DeviceUnavailable(message),
         (_, error) => error,
     };
     let mut session = session(Source::Memory(&graph.into_model()), device).map_err(unavailable)?;
@@ -130,6 +142,103 @@ pub fn check_device(device: Device) -> Result<()> {
         return Err(Error::Backend("the device returned a wrong result".into()));
     }
     Ok(())
+}
+
+/// A GPU DirectML can use, as ONNX Runtime's device discovery describes it (its metadata keys
+/// `Description`, `Discrete` and `DxgiHighPerformanceIndex`). A value it does not give is `None`.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct DirectMlAdapter {
+    pub name: String,
+    /// False for an integrated GPU (one that shares the system's memory).
+    pub discrete: Option<bool>,
+    /// The place in DXGI's high-performance order; 0 is the GPU DirectML's high-performance
+    /// preference takes.
+    pub high_performance_index: Option<u32>,
+}
+
+/// The GPU [`Device::DirectMl`] runs on: the first in the high-performance order, else the
+/// first listed.
+pub fn preferred_adapter(adapters: &[DirectMlAdapter]) -> Option<&DirectMlAdapter> {
+    adapters.iter().filter(|adapter| adapter.high_performance_index.is_some()).min_by_key(|adapter| adapter.high_performance_index).or(adapters.first())
+}
+
+/// The GPUs of the loaded ONNX Runtime's DirectML provider. Empty when the library is not the
+/// DirectML build. Loads ONNX Runtime if it is not loaded yet.
+#[cfg(windows)]
+pub fn directml_adapters() -> Result<Vec<DirectMlAdapter>> {
+    use std::ffi::CStr;
+
+    use ort::AsPointer;
+    use ort::memory::DeviceType;
+
+    let api = ort::api();
+    let mut adapters = Vec::new();
+    for device in environment()?.devices() {
+        let hardware = device.hardware_device();
+        if device.ep().ok() != Some("DmlExecutionProvider") || hardware.ty() != DeviceType::GPU {
+            continue;
+        }
+        // SAFETY: the device and its metadata live as long as the environment, which is never
+        // released; a key ONNX Runtime does not set gives a null pointer.
+        let metadata = unsafe { (api.HardwareDevice_Metadata)(hardware.ptr()) };
+        let value = |key: &CStr| -> Option<String> {
+            if metadata.is_null() {
+                return None;
+            }
+            let text = unsafe { (api.GetKeyValue)(metadata, key.as_ptr()) };
+            (!text.is_null()).then(|| unsafe { CStr::from_ptr(text) }.to_string_lossy().into_owned())
+        };
+        adapters.push(DirectMlAdapter {
+            name: value(c"Description").unwrap_or_default(),
+            discrete: value(c"Discrete").and_then(|text| match text.as_str() {
+                "1" => Some(true),
+                "0" => Some(false),
+                _ => None,
+            }),
+            high_performance_index: value(c"DxgiHighPerformanceIndex").and_then(|text| text.parse().ok()),
+        });
+    }
+    Ok(adapters)
+}
+
+/// The name of the GPU a device converts on, to tell one GPU from another (#531): CUDA's
+/// device 0, the one ONNX Runtime's CUDA provider uses, from the NVIDIA driver; for DirectML
+/// the [`preferred_adapter`]. `None` for the CPU or when the name cannot be read.
+pub fn gpu_name(device: Device) -> Option<String> {
+    match device {
+        Device::Cpu => None,
+        Device::Cuda => cuda_device_name(),
+        #[cfg(windows)]
+        Device::DirectMl => directml_adapters().ok().and_then(|adapters| preferred_adapter(&adapters).map(|adapter| adapter.name.clone())).filter(|name| !name.is_empty()),
+        #[cfg(not(windows))]
+        Device::DirectMl => None,
+    }
+}
+
+/// CUDA device 0's name from the driver library (`cuDeviceGetName`).
+fn cuda_device_name() -> Option<String> {
+    #[cfg(windows)]
+    const DRIVER: &str = "nvcuda.dll";
+    #[cfg(not(windows))]
+    const DRIVER: &str = "libcuda.so.1";
+    type Init = unsafe extern "C" fn(u32) -> i32;
+    type DeviceGet = unsafe extern "C" fn(*mut i32, i32) -> i32;
+    type DeviceGetName = unsafe extern "C" fn(*mut std::ffi::c_char, i32, i32) -> i32;
+    // SAFETY: the driver's documented C functions with their documented signatures; the name
+    // is written into a buffer of the length given and read up to its terminating zero.
+    unsafe {
+        let driver = libloading::Library::new(DRIVER).ok()?;
+        let init: libloading::Symbol<Init> = driver.get(b"cuInit\0").ok()?;
+        let device_get: libloading::Symbol<DeviceGet> = driver.get(b"cuDeviceGet\0").ok()?;
+        let device_get_name: libloading::Symbol<DeviceGetName> = driver.get(b"cuDeviceGetName\0").ok()?;
+        let mut device = 0i32;
+        let mut name = [0 as std::ffi::c_char; 256];
+        if init(0) != 0 || device_get(&mut device, 0) != 0 || device_get_name(name.as_mut_ptr(), name.len() as i32, device) != 0 {
+            return None;
+        }
+        let name = std::ffi::CStr::from_ptr(name.as_ptr()).to_string_lossy().into_owned();
+        (!name.is_empty()).then_some(name)
+    }
 }
 
 fn first_output(outputs: &ort::session::SessionOutputs, name: &str) -> Result<(Vec<usize>, Vec<f32>)> {

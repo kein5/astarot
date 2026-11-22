@@ -1,12 +1,15 @@
-# The packages export.py was run with (2026-11-15), CPU builds of PyTorch:
-#   uv venv --python 3.11 venv
-#   uv pip install --python venv/bin/python --index-strategy unsafe-best-match \
+# The packages export.py was run with (2026-11-15), CPU builds of PyTorch, on the Python
+# mise.toml pins (3.14 since 2026-11-19; uv picks it from requires-python when run from the
+# repository root). The same pins have Python 3.14 wheels, and tiny.py writes the same graphs
+# and weights with them as on the earlier Python (the files differ only in their metadata).
+#   uv venv build/translation-onnx/venv
+#   uv pip install --python build/translation-onnx/venv/bin/python --index-strategy unsafe-best-match \
 #       --extra-index-url https://download.pytorch.org/whl/cpu -r tools/translation_onnx/requirements.txt
 # The graphs are written with torch.onnx.export (graphs.py); optimum is not used, as no
 # optimum-onnx release supports a transformers without its known vulnerabilities (>= 5.10).
 # ctranslate2 converts a model to float32 for the decoding check (compare.py --ct2-model).
-# compare.py runs instead with the app's own pins from uv.lock (ctranslate2 4.8.4,
-# transformers 5.22.1, tokenizers 0.23.3, sentencepiece 0.2.1) plus sacrebleu 2.6.0.
+# compare.py runs with these too (it used the Python backend's pins from uv.lock until the
+# backend went in 0.6.0).
 torch==2.15.0+cpu
 transformers==5.22.1
 onnx==1.23.2

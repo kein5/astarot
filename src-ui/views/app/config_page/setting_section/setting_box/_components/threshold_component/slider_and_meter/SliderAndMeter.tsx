@@ -1,0 +1,119 @@
+import styles from "./SliderAndMeter.module.scss";
+import { useI18n } from "@useI18n";
+import {
+    useStore_MicVolume,
+    useStore_SpeakerVolume,
+} from "@store";
+import {
+    useDevice,
+} from "@logics_configs";
+
+// The threshold as the row shows it: the saved number, a number being typed or dragged, or the
+// text that says the threshold is set automatically.
+export type UiThreshold = number | string;
+
+export interface SliderAndMeterProps {
+    id: string;
+    min: number;
+    max: number;
+    ui_threshold: UiThreshold;
+    setUiThresholdFunction: (value: UiThreshold) => void;
+    setThresholdFunction: (value: UiThreshold) => void;
+}
+
+export const SliderAndMeter = (props: SliderAndMeterProps) => {
+    return (
+        <div className={styles.container}>
+            <div className={styles.meter_container}>
+                {props.id === "mic_threshold"
+                    ? <ThresholdVolumeMeter_Mic {...props}/>
+                    : <ThresholdVolumeMeter_Speaker {...props}/>
+                }
+            </div>
+        </div>
+    );
+};
+
+const toNumericThreshold = (val: unknown, fallback = 0) => {
+    const num = Number(val);
+    return Number.isFinite(num) ? num : fallback;
+};
+
+const ThresholdVolumeMeter_Mic = (props: SliderAndMeterProps) => {
+    const { t } = useI18n();
+    const { currentMicVolume } = useStore_MicVolume();
+
+    const { currentEnableAutomaticMicThreshold, currentMicVadFilter, currentVadAvailable } = useDevice();
+
+    const currentVolumeVariable = Math.min(Number(currentMicVolume.data), props.max);
+    const volume_width_percentage = (currentVolumeVariable / props.max) * 100;
+
+    // A saved VAD switch cuts nothing while this build has no VAD: the threshold applies.
+    const is_slider_hidden = currentEnableAutomaticMicThreshold.data === true || (currentMicVadFilter.data === true && currentVadAvailable.data === true);
+    const slider_value = toNumericThreshold(props.ui_threshold, props.min ?? 0);
+
+    return (
+        <>
+            <VolumeMeter volume_width_percentage={volume_width_percentage} volume={currentVolumeVariable} threshold={props.ui_threshold}/>
+            {is_slider_hidden === false &&
+                <input
+                    type="range"
+                    min={props.min}
+                    max={props.max}
+                    value={slider_value}
+                    onChange={(e) => props.setUiThresholdFunction(e.target.value)}
+                    onMouseUp={(e) => props.setThresholdFunction(e.currentTarget.value)}
+                    onKeyUp={(e) => props.setThresholdFunction(e.currentTarget.value)}
+                    aria-label={t(props.id === "mic_threshold" ? "vr_panel.mic_threshold" : "vr_panel.speaker_threshold")}
+                    className={styles.threshold_slider}
+                />
+            }
+        </>
+    );
+};
+
+const ThresholdVolumeMeter_Speaker = (props: SliderAndMeterProps) => {
+    const { t } = useI18n();
+    const { currentSpeakerVolume } = useStore_SpeakerVolume();
+
+    const { currentEnableAutomaticSpeakerThreshold, currentSpeakerVadFilter, currentVadAvailable } = useDevice();
+
+    const currentVolumeVariable = Math.min(Number(currentSpeakerVolume.data), props.max);
+    const volume_width_percentage = (currentVolumeVariable / props.max) * 100;
+
+    const is_slider_hidden = currentEnableAutomaticSpeakerThreshold.data === true || (currentSpeakerVadFilter.data === true && currentVadAvailable.data === true);
+    const slider_value = toNumericThreshold(props.ui_threshold, props.min ?? 0);
+
+    return (
+        <>
+            <VolumeMeter volume_width_percentage={volume_width_percentage} volume={currentVolumeVariable} threshold={props.ui_threshold} />
+            {is_slider_hidden === false &&
+                <input
+                    type="range"
+                    min={props.min}
+                    max={props.max}
+                    value={slider_value}
+                    onChange={(e) => props.setUiThresholdFunction(e.target.value)}
+                    onMouseUp={(e) => props.setThresholdFunction(e.currentTarget.value)}
+                    onKeyUp={(e) => props.setThresholdFunction(e.currentTarget.value)}
+                    aria-label={t(props.id === "mic_threshold" ? "vr_panel.mic_threshold" : "vr_panel.speaker_threshold")}
+                    className={styles.threshold_slider}
+                />
+            }
+        </>
+    );
+};
+
+const VolumeMeter = ({ volume_width_percentage, volume, threshold }: { volume_width_percentage: number; volume: number; threshold: UiThreshold }) => {
+    const numeric_threshold = toNumericThreshold(threshold, 0);
+
+    return (
+        <div
+            className={styles.volume_meter}
+            style={{
+                width: `${volume_width_percentage}%`,
+                backgroundColor: (volume < numeric_threshold) ? "var(--primary_750_color)" : "var(--primary_400_color)"
+            }}
+        />
+    );
+};

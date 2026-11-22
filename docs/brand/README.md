@@ -1,38 +1,65 @@
-# VRCT-VOX brand assets
+# ASTAROT brand assets
 
-"Caption Console": a microphone with caption lines on a blue rounded square. VRCT-VOX does five things, ASR, TTS, RVC, OCR and translation. The large icon and the logos show a glyph for each of them.
+The ASTAROT brand set is in `astarot/`. [ADR-011](../adr/adr-011-astarot-brand-and-multimodal-accessibility.md) records the name, the subtitle, the symbol and the colors. [`astarot/typography-and-lockup.md`](astarot/typography-and-lockup.md) gives the typeface and the rules for setting the wordmark with the subtitle.
 
-| File | Use |
+## Files
+
+| File in `astarot/` | Use |
 | --- | --- |
-| `icon.svg` | App icon from 256 px. The dock shows the TTS, RVC, OCR and translation glyphs. |
-| `icon-small.svg` | App icon up to 128 px: the microphone and two caption bars, without the dock. |
-| `glyphs/*.svg` | The five function glyphs on a 24-unit grid with a 1.8-unit round stroke. They use `currentColor`. |
-| `logo-<lang>-on-dark.svg`, `logo-<lang>-on-light.svg` | Logos with function labels in English (`en`) and Japanese (`ja`), the UI languages. Korean and Chinese logos were dropped with those UI languages in 0.2.0. They have a transparent background. |
+| `symbol-light.svg` | The master of the symbol: a ring, a hexagram and a speech bubble with three dots, in Dark Plum. The other SVGs reuse its path. |
+| `symbol-dark.svg`, `symbol-black.svg` | The symbol in white for dark backgrounds, and in near-black (`#151515`) for one-color use. |
+| `wordmark-reference-outline.svg` | The `ASTAROT` wordmark, outlined from Outfit Bold. The logos use it. |
+| `wordmark-alt-traced.svg` | A trace of the wordmark in the original reference image, kept for comparison. Nothing uses it. |
+| `logo-horizontal-light.svg`, `logo-horizontal-dark.svg` | The symbol, the wordmark and the subtitle on one line, for light and dark backgrounds. |
+| `logo-vertical-light.svg`, `logo-vertical-dark.svg` | The symbol above the wordmark, with the subtitle on two lines. |
+| `app-icon.svg`, `app-icon.ico`, `icon-<size>.png` | The app icon: the white symbol on a Dark Plum tile. The PNGs are 16 to 1024 px. |
+| `favicon.svg`, `favicon-<size>.png` | The favicon: the symbol in Dark Plum without a tile. The PNGs are 32 to 64 px. |
+| `favicon-16.svg`, `favicon-16.png` | The favicon drawn again for 16 px, with one-pixel lines and no dots in the bubble (see [Regenerating](#regenerating)). |
+| `favicon.ico` | The favicon at 16 px from `favicon-16.png`, and at 32 and 48 px from `favicon-32.png` and `favicon-48.png`. The user manual's pages use it. |
+| `brand-board.svg` | One sheet with the logos, the icon, the favicon, the colors and the typeface. |
 
-The app itself shows ASTAROT: its icons (`src-tauri/icons`) and in-app logos (`src-ui/views/assets/brand/`) are built from `docs/brand/astarot/` by `tools/astarot_app_assets.py`. The READMEs show the horizontal ASTAROT logo (`astarot/logo-horizontal-light.png` and `-dark.png`) and switch between them with `prefers-color-scheme`. They use the PNG files: the SVG logos set the subtitle as text in Outfit, and an SVG shown as an image falls back to another font unless the viewer has Outfit installed.
+The symbols, the logos and the brand board also come as PNG files with the same names. The PNG files are rendered from the SVG files. No tool in this repository renders them; after changing an SVG, render its PNG again at the same pixel size.
 
-All lettering is outlined, so the SVGs render the same without fonts. The Latin letters are drawn for this logo. The Japanese labels are outlines of Noto Sans CJK Bold (SIL Open Font License 1.1). The SVGs contain no embedded raster images or external references.
+The wordmark is outlined, so it looks the same without fonts. The subtitle in the logos and the brand board is SVG text in Outfit, which shows correctly only where Outfit is installed. The Outfit license and its use are recorded in `licenses/outfit/`.
 
-## Palette
+## Colors
 
-| Role | Hex |
-| --- | --- |
-| Icon background | `#2056BC` |
-| Icon mark | `#F5F5F7` |
-| Caption bars, glyphs on dark | `#B9D8FF` |
-| Dock | `#173A7C` |
-| Glyphs on light | `#174899` |
-| Text on light | `#13161C` |
-| Text on dark | `#F5F5F7` |
+| Color | Hex | Use |
+| --- | --- | --- |
+| Dark Plum | `#261633` | The symbol and the wordmark on light backgrounds, the app icon tile |
+| Lilac | `#A47AF5` | Small accents |
+| Off-White | `#FAFAFC` | Light backgrounds |
+| White | `#FFFFFF` | The symbol and the wordmark on dark backgrounds |
+
+## Where the set is used
+
+- **The app.** `tools/astarot_app_assets.py` builds the Tauri icons in `src-tauri/icons/` and the in-app SVGs in `src-ui/views/assets/brand/` from this set. The AppImage and the Linux packages take their desktop icon from `src-tauri/icons/128x128@2x.png` at build time.
+- **The READMEs.** They show the horizontal logo (`astarot/logo-horizontal-light.png` and `-dark.png`) and switch between them with `prefers-color-scheme`. They use the PNG files because an SVG shown as an image sets the subtitle in another font unless the viewer has Outfit installed.
+- **The user manual.** `site/public/manual/brand/` holds copies of `app-icon.svg` and `favicon.ico`, and WebP wordmarks that the manual's home page showed. The manual's pages now send readers to the guide and still use the ICO; the wordmarks wait for the merged home page (`docs/design/site-redesign`). Copy `app-icon.svg` again after changing it; `tools/astarot_favicon_small.py` writes the copy of `favicon.ico`.
 
 ## Regenerating
 
-After changing `icon.svg`, `icon-small.svg`, the glyphs or the labels, run:
+After changing `symbol-light.svg`, the wordmark or the lockup, rebuild the wordmark, the logos and the brand board:
 
 ```sh
-uv run --no-project --with fonttools python tools/brand_assets.py
+uv run --no-project --with fonttools==4.68.0 --with skia-pathops==0.9.2 \
+    python tools/astarot_brand_from_reference.py --font <Outfit Bold .ttf>
 ```
 
-This rewrites the logos in this folder. It needs `/usr/share/fonts/noto-cjk/NotoSansCJK-Bold.ttc`.
+The tool's docstring names the font file and its SHA-256. The tool does not write the symbol, icon or favicon files, or any PNG.
 
-For the app's ASTAROT icons and in-app logos, run `uv run --no-project --with pillow==13.0.0 python tools/astarot_app_assets.py` (add `--check` to compare without writing). The AppImage desktop icon is copied from `src-tauri/icons/128x128@2x.png` at build time.
+After changing the symbol, the wordmark, the app icon or its PNGs, rebuild the app's icons and in-app SVGs:
+
+```sh
+uv run --no-project --with pillow==13.0.0 python tools/astarot_app_assets.py
+```
+
+Add `--check` to either command to compare with the committed files without writing. `tests/devtools/test_astarot_app_assets.py` checks that the app's files match this set.
+
+The 16 px ASTAROT favicon is its own drawing, not the symbol scaled down: `astarot/favicon-16.svg` is drawn on the 16 px grid with one-pixel lines and no dots in the bubble (ADR-011, 3.1). `tools/astarot_favicon_small.py` builds it with `favicon-16.png` and `favicon.ico` (16 px from this variant, 32 and 48 px from `favicon-32.png` and `favicon-48.png`) and copies the ICO to `site/public/manual/brand/`. Run it after changing its drawing or `favicon-32.png` or `favicon-48.png`:
+
+```sh
+uv run --no-project --with pillow==13.0.0 python tools/astarot_favicon_small.py
+```
+
+Its `--check` compares the SVG byte for byte and the PNG and the ICO by their pixels, because zlib builds compress the same pixels to different bytes. `tests/devtools/test_astarot_favicon_small.py` runs the same comparison.

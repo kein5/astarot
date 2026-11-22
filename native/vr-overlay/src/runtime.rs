@@ -76,7 +76,8 @@ pub struct SceneApp {
 
 /// SteamVR on this machine.
 pub trait Vr: Send + Sync {
-    /// Whether SteamVR runs (its `vrmonitor` process). Cheap; polled every 10 seconds.
+    /// Whether SteamVR runs (its `vrserver` or `vrmonitor` process, #944). Cheap; polled every
+    /// 10 seconds.
     fn runtime_running(&self) -> bool;
     /// Connects as a background application. Fails while the headset is not found yet, and
     /// when the OpenVR library cannot be loaded.
@@ -150,7 +151,7 @@ pub mod fake {
         pub refuse_connect: bool,
         pub fail_raw: bool,
         /// Like `fail_raw`, but only for pictures larger than the 1×1 clear on the windows
-        /// (`VRCT0`…, not the pointer's `VRCT_pointer_*` marks): connecting still works, showing
+        /// (`ASTAROT0`…, not the pointer's `ASTAROT_pointer_*` marks): connecting still works, showing
         /// a message does not.
         pub fail_pictures: bool,
         pub quit: bool,

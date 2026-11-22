@@ -25,10 +25,11 @@ def digest(path):
 
 def names(platform, version, files):
     if platform == "windows":
-        expected = {"VRCT-VOX.zip", "VRCT-VOX_cuda.zip", "VRCT-VOX_setup.exe"}
+        # One package for every PC (#288); up to 0.5 there was VRCT-VOX_cuda.zip as well.
+        expected = {"VRCT-VOX.zip", "VRCT-VOX_setup.exe"}
         if set(files) != expected:
             raise ValueError(
-                "Windows candidate must include CPU/CUDA ZIPs and the stable setup asset"
+                "Windows candidate must include the ZIP and the stable setup asset"
             )
     elif platform == "linux":
         # One package per architecture carries both speech.cpp builds (CPU and Vulkan), so the
@@ -148,7 +149,7 @@ def main():
     parser.add_argument("--version")
     parser.add_argument("--asset", type=Path, action="append", default=[])
     args = parser.parse_args()
-    version = args.version or json.loads((ROOT / "package.json").read_text())["version"]
+    version = args.version or json.loads((ROOT / "package.json").read_text(encoding="utf-8"))["version"]
     if args.command == "stage":
         result = stage(args.directory, args.asset, args.platform, args.commit, version)
     else:

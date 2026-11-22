@@ -7,10 +7,10 @@
 //! function's name, and the tests check every one against pyopenvr's tables
 //! ([`vrct_openvr_client::fn_table!`]).
 //!
-//! Where the library is looked for (the first that loads): `VRCT_OPENVR_API`, the folders the
-//! host gives, next to the executable, the Python bundle's copy (`_internal/openvr`), then the
-//! system's library path. Shipping it with the app is an open decision
-//! (`docs/voice-stack/core-integration.md`).
+//! Where the library is looked for (the first that loads): `ASTAROT_OPENVR_API` (or
+//! `VRCT_OPENVR_API`), the folders the host gives, next to the executable, the Python bundle's
+//! copy (`_internal/openvr`), then the system's library path. Shipping it with the app is an
+//! open decision (`docs/voice-stack/core-integration.md`).
 
 use crate::math::{Mat34, Mat4, Vec3};
 use crate::runtime::{
@@ -184,7 +184,7 @@ impl OpenVr {
             ("libopenvr_api.so", "libopenvr_api_64.so")
         };
         let mut out = Vec::new();
-        if let Some(path) = std::env::var_os("VRCT_OPENVR_API").filter(|v| !v.is_empty()) {
+        if let Some(path) = app_identity::env::OPENVR_API.value_os() {
             out.push(PathBuf::from(path));
         }
         for folder in &self.folders {

@@ -1,11 +1,14 @@
-//! A stand-in for `vrct-rvc-worker`, for the voice tests: the same arguments and pipe contract
+//! A stand-in for `astarot-rvc-worker`, for the voice tests: the same arguments and pipe contract
 //! ("VVC1"), no model and no ONNX Runtime. It is never part of an application build.
 //!
 //! - `--probe`: exits with the number in `<runtime>/probe-exit` (0 without the file).
 //! - A conversion: the voice model file says how to behave. `cpu` answers ready on the CPU,
 //!   `fail:<code>` refuses to start with that code, `silence` answers every block as silence,
-//!   `stall` never answers a block; anything else converts on the "GPU". A converted block is
-//!   the input with every sample's sign turned, plus one, so it is never the input itself.
+//!   `stall` never answers a block, `block:<ms>` confirms that block instead of the one asked
+//!   for (`--block-ms`); anything else converts on the "GPU". A converted block is the input
+//!   with every sample's sign turned, plus one, so it is never the input itself. The block it
+//!   was asked for is written to `<runtime>/asked-block-ms`, its pitch and index rate to
+//!   `<runtime>/asked-pitch`.
 
 use std::io::{Read, Write};
 
@@ -39,7 +42,15 @@ fn main() {
         return;
     }
     let (profile, latency) = if behaviour == "cpu" { ("cpu", 1182) } else { ("low", 52) };
-    send(&mut stdout, p::ready_info(&session, "rvc", profile, latency).expect("a ready packet"), &[]);
+    // The block the owner asked for (`--block-ms`), as the real worker confirms it; the
+    // behaviour `block:<ms>` confirms another, which the owner must refuse.
+    let asked = argument(&args, "--block-ms").and_then(|ms| ms.parse().ok()).and_then(p::Block::from_ms).unwrap_or_default();
+    let block = behaviour.strip_prefix("block:").and_then(|ms| ms.parse().ok()).and_then(p::Block::from_ms).unwrap_or(asked);
+    // For the tests: the block, the pitch and the index rate it was asked for.
+    let _ = std::fs::write(std::path::Path::new(&runtime).join("asked-block-ms"), argument(&args, "--block-ms").unwrap_or_default());
+    let asked = format!("{} {}", argument(&args, "--pitch").unwrap_or_default(), argument(&args, "--index-rate").unwrap_or_default());
+    let _ = std::fs::write(std::path::Path::new(&runtime).join("asked-pitch"), asked);
+    send(&mut stdout, p::ready_info(&session, "rvc", profile, latency, block).expect("a ready packet"), &[]);
     let mut stdin = std::io::stdin().lock();
     loop {
         let Ok((info, pcm)) = p::read_packet(&mut stdin as &mut dyn Read) else { return };

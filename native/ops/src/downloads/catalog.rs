@@ -1,15 +1,17 @@
-//! Reviewed public artifacts (`catalog.py`). Revision, size and hash change together, in a
+//! Reviewed public artifacts ([`catalog.py`]). Revision, size and hash change together, in a
 //! review, never at run time; a change bumps [`CATALOG_VERSION`] so a stale consent fails.
 //!
-//! `tests/catalog_reference.rs` checks every entry against what the Python module answers
-//! (`reference/dump_reference.py`), so the two cannot drift while both exist.
+//! The rules every entry keeps are checked by [`validate_catalog`]'s tests here, and
+//! `tests/catalog_policy.rs` checks that only reviewed public artifacts are offered.
+//!
+//! [`catalog.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/model_downloads/catalog.py
 
 use serde::{Serialize, Serializer};
 
 use super::speechcpp;
 use crate::net::quote;
 
-pub const CATALOG_VERSION: &str = "2026-11-16.3";
+pub const CATALOG_VERSION: &str = "2026-11-21.1";
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct Artifact {
@@ -57,6 +59,51 @@ impl Model {
     pub fn total_bytes(&self) -> u64 {
         self.artifacts.iter().map(|a| a.size).sum()
     }
+
+    /// What the user acknowledges for this entry apart from the general consent
+    /// ([`restrictions_for`] its target and license).
+    pub fn restrictions(&self) -> Vec<&'static str> {
+        restrictions_for(&self.target, &self.license)
+    }
+}
+
+/// The restrictions an entry of `target` under `license` carries: those of
+/// [`license_restrictions`], except that the Gemma terms are asked for only by a translation
+/// entry (decided 2026-11-19 for the LLM runtime plan, decision 4). A speech model whose weights
+/// come from Gemma, such as Irodori-TTS v4 Large, shows its license and links as before but has
+/// no checkbox of its own.
+pub fn restrictions_for(target: &str, license: &str) -> Vec<&'static str> {
+    license_restrictions(license).into_iter().filter(|kind| *kind != "gemma_terms" || target == TRANSLATION_TARGET).collect()
+}
+
+/// The kinds of restriction a user acknowledges one by one, apart from the general consent,
+/// before a download starts (`acknowledged` of `/run/start_model_download`), in the order they
+/// are listed. `non_commercial`: a Creative Commons NonCommercial license (CC-BY-NC-4.0 and its
+/// -SA and -ND variants). `gemma_terms`: the Gemma Terms of Use, whose Prohibited Use Policy
+/// binds whoever uses the model, not only who distributes it (ADR-015). A new kind is added
+/// here, in [`catalog.py`]'s `RESTRICTIONS` and in the UI's texts.
+///
+/// [`catalog.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/model_downloads/catalog.py
+pub const RESTRICTIONS: [&str; 2] = ["non_commercial", "gemma_terms"];
+
+/// The words of one part of a license string, in upper case.
+fn license_words(part: &str) -> Vec<String> {
+    part.split(|c: char| !c.is_ascii_alphanumeric()).filter(|w| !w.is_empty()).map(str::to_ascii_uppercase).collect()
+}
+
+/// The restrictions a catalog license string carries, in [`RESTRICTIONS`] order. A license of
+/// several parts (`MIT + Apache-2.0`) carries those of every part. Derived from the reviewed
+/// string, so no field is added to [`Model`] or to `receipt.json`.
+pub fn license_restrictions(license: &str) -> Vec<&'static str> {
+    let parts: Vec<Vec<String>> = license.split(['+', ',']).map(license_words).collect();
+    // "CC-BY-NC-SA-4.0", "CC BY-NC 4.0"; "Attribution-NonCommercial" spelled out.
+    let non_commercial = parts.iter().any(|words| (words.first().is_some_and(|w| w == "CC") && words.iter().any(|w| w == "NC")) || words.concat().contains("NONCOMMERCIAL"));
+    // "Gemma Terms of Use", and Hugging Face's license id "gemma" on its own.
+    let gemma = parts.iter().any(|words| words.concat().contains("GEMMATERMS") || words.as_slice() == ["GEMMA"]);
+    RESTRICTIONS.into_iter().filter(|kind| match *kind {
+        "non_commercial" => non_commercial,
+        _ => gemma,
+    }).collect()
 }
 
 pub const IRODORI_REV: &str = "9db7da1bec3d1069ef8e29732e0497be60c7b047";
@@ -95,15 +142,88 @@ pub const DETECTOR_SHA256: &str = "160c4a505bee87d101564c569dff7f0bacd416b9006ec
 pub const TARGETS: [&str; 7] = ["japanese", "multilingual", "asr", "vad", "diarization", "rvc", "ocr"];
 
 /// The local translation models (`native/translate-onnx` folders). Kept apart from [`TARGETS`],
-/// which is Python's list: Python had no such entries. The shipped catalog has none until the
-/// models are published; an entry is one folder of `tools/translation_onnx/export.py`, its id
+/// which is Python's list: Python had no such entries. The entries are the reviewed data of
+/// `data/translation_models.json` ([`translation_models`]), which is empty until the models are
+/// published; an entry is one folder of `tools/translation_onnx/export.py`, its id
 /// `<model>-onnx-<variant>` in lower case with `_` and `.` as `-` (`m2m100-418m-onnx-int8`),
-/// its `notice` `translation` (the UI's `model_downloads.notice_translation`), and nothing goes
-/// into the settings when it is applied: the local translation finds verified downloads by
-/// catalog id, as chat reading does.
+/// its `notice` `translation` (the UI's `model_downloads.notice_translation`) unless the entry
+/// names one of [`TRANSLATION_NOTICES`], and nothing goes into the settings when it is applied:
+/// the local translation finds verified downloads by catalog id, as chat reading does.
 pub const TRANSLATION_TARGET: &str = "translation";
-/// The roles of a translation entry's files. `manifest` is required: it names the rest.
+/// The notices a translation entry may name (`model_downloads.notice_<notice>` in locales/):
+/// the general one, and one per model whose download review says more, such as the size and
+/// memory of an NLLB-200 model next to its non-commercial licence.
+pub const TRANSLATION_NOTICES: [&str; 3] = [TRANSLATION_TARGET, "translation_nllb_600m", "translation_nllb_1_3b"];
+/// The roles of a translation entry's files. `manifest` is required: it names the rest. `data`
+/// (the weights of a graph over 2 GB, `<graph>.onnx_data`) may come once per graph.
 pub const TRANSLATION_ROLES: [&str; 7] = ["manifest", "encoder", "decoder", "tokenizer", "vocabulary", "weights", "data"];
+
+const TRANSLATION_TEXT: &str = include_str!("../../data/translation_models.json");
+
+/// `data/translation_models.json`.
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct TranslationModels {
+    models: Vec<TranslationModel>,
+}
+
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct TranslationModel {
+    id: String,
+    name: String,
+    provider: String,
+    repo: String,
+    revision: String,
+    license: String,
+    licenses: Vec<String>,
+    /// One of [`TRANSLATION_NOTICES`]; left out, the general `translation`.
+    #[serde(default)]
+    notice: Option<String>,
+    artifacts: Vec<TranslationFile>,
+}
+
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct TranslationFile {
+    filename: String,
+    size: u64,
+    sha256: String,
+    role: String,
+}
+
+/// The entries of a `translation_models.json` text, in its order. A notice that is not one of
+/// [`TRANSLATION_NOTICES`] is refused: the review would show a text the UI does not have.
+fn parse_translation_models(text: &str) -> Result<Vec<Model>, String> {
+    let data: TranslationModels = serde_json::from_str(text).map_err(|error| error.to_string())?;
+    data.models
+        .into_iter()
+        .map(|entry| {
+            let notice = entry.notice.unwrap_or_else(|| TRANSLATION_TARGET.into());
+            if !TRANSLATION_NOTICES.contains(&notice.as_str()) {
+                return Err(format!("{}: unknown notice {notice}", entry.id));
+            }
+            Ok(Model {
+                id: entry.id,
+                target: TRANSLATION_TARGET.into(),
+                name: entry.name,
+                provider: entry.provider,
+                repo: entry.repo,
+                revision: entry.revision,
+                license: entry.license,
+                licenses: entry.licenses,
+                notice,
+                artifacts: entry.artifacts.into_iter().map(|file| artifact(&file.filename, file.size, &file.sha256, &file.role)).collect(),
+            })
+        })
+        .collect()
+}
+
+/// The published local translation models, from `data/translation_models.json` (written by
+/// `tools/translation_onnx/publish.py catalog`, reviewed like the rest of the catalog).
+pub fn translation_models() -> Vec<Model> {
+    parse_translation_models(TRANSLATION_TEXT).unwrap_or_else(|error| panic!("translation_models.json: {error}"))
+}
 
 /// Whether a catalog entry may name this target.
 pub fn known_target(target: &str) -> bool {
@@ -147,8 +267,10 @@ fn remote(filename: &str, size: u64, sha256: &str, role: &str, (repo, revision, 
 }
 
 /// The catalog in the order the backend lists it. Comments for single entries are in
-/// `catalog.py`: Q8_0 for Qwen3-ASR and Nemotron is the file speech.cpp fetches for that name;
+/// [`catalog.py`]: Q8_0 for Qwen3-ASR and Nemotron is the file speech.cpp fetches for that name;
 /// the VAD and diarization entries apply to fields of the asr profile, not to its recognizer.
+///
+/// [`catalog.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/model_downloads/catalog.py
 pub fn catalog() -> Vec<Model> {
     let mut models = vec![
         model(
@@ -195,8 +317,8 @@ pub fn catalog() -> Vec<Model> {
             ],
         ),
     ];
-    // Recognizers: every file of each offered speech.cpp name, read from the same text as
-    // speechcpp_asr.py (speechcpp.rs). Ids made before keep their folders.
+    // Recognizers: every file of each offered speech.cpp name (data/speechcpp_asr.json,
+    // speechcpp.rs). Ids made before keep their folders.
     models.extend(speechcpp::asr_models());
     models.extend(vec![
         model(
@@ -473,6 +595,7 @@ pub fn catalog() -> Vec<Model> {
             vec![artifact("vrct_vox_chatbox_yolox_tiny.onnx", 20184371, "160c4a505bee87d101564c569dff7f0bacd416b9006ec5aa70f8c9d221470ffd", "detector")],
         ),
     ]);
+    models.extend(translation_models());
     models
 }
 
@@ -531,10 +654,11 @@ pub fn validate_catalog(catalog: &[Model]) -> Result<(), &'static str> {
         for artifact in &model.artifacts {
             let suffix_ok = artifact.filename.rsplit_once('.').is_some_and(|(stem, suffix)| valid_name(stem) && suffixes.contains(&suffix));
             let remote_ok = artifact.remote.as_ref().is_none_or(|r| valid_repo(&r.repo) && hex(&r.revision, 40) && valid_name(&r.path) && !r.path.contains(".."));
+            let repeatable = model.target == TRANSLATION_TARGET && artifact.role == "data";
             if !suffix_ok
                 || artifact.filename.contains("..")
                 || names.contains(&artifact.filename)
-                || seen_roles.contains(&artifact.role)
+                || (seen_roles.contains(&artifact.role) && !repeatable)
                 || !roles.contains(&artifact.role.as_str())
                 || artifact.size == 0
                 || !hex(&artifact.sha256, 64)
@@ -575,10 +699,194 @@ mod translation_tests {
         assert_eq!(validate_catalog(&[entry(complete.clone())]), Ok(()));
         // Without its manifest, with a file type or a role no translation folder has.
         assert_eq!(validate_catalog(&[entry(complete[1..].to_vec())]), Err("catalog_invalid"));
+        // The manifest is `manifest.json` under the role `manifest`, not either one alone.
+        let renamed = [vec![file("other.json", "manifest")], complete[1..].to_vec()].concat();
+        assert_eq!(validate_catalog(&[entry(renamed)]), Err("catalog_invalid"));
+        let miscast = [vec![file("manifest.json", "data")], complete[1..].to_vec()].concat();
+        assert_eq!(validate_catalog(&[entry(miscast)]), Err("catalog_invalid"));
         assert_eq!(validate_catalog(&[entry(vec![file("manifest.json", "manifest"), file("model.gguf", "encoder")])]), Err("catalog_invalid"));
         assert_eq!(validate_catalog(&[entry(vec![file("manifest.json", "manifest"), file("encoder.onnx", "model")])]), Err("catalog_invalid"));
-        // The shipped catalog has no translation entry until the models are published.
-        assert!(catalog().iter().all(|m| m.target != TRANSLATION_TARGET));
+        // Two graphs over 2 GB each keep their weights beside them; no other role repeats.
+        let large = vec![
+            file("manifest.json", "manifest"),
+            file("encoder_model.onnx", "encoder"),
+            file("encoder_model.onnx_data", "data"),
+            file("decoder_model_merged.onnx", "decoder"),
+            file("decoder_model_merged.onnx_data", "data"),
+            file("tokenizer.json", "tokenizer"),
+            file("vocab.json", "vocabulary"),
+        ];
+        assert_eq!(validate_catalog(&[entry(large)]), Ok(()));
+        let twice = vec![file("manifest.json", "manifest"), file("a.onnx", "encoder"), file("b.onnx", "encoder")];
+        assert_eq!(validate_catalog(&[entry(twice)]), Err("catalog_invalid"));
         assert!(!TARGETS.contains(&TRANSLATION_TARGET) && known_target(TRANSLATION_TARGET));
     }
+
+    #[test]
+    fn the_shipped_translation_entries_are_the_reviewed_data() {
+        let shipped: Vec<Model> = catalog().into_iter().filter(|m| m.target == TRANSLATION_TARGET).collect();
+        assert_eq!(shipped, translation_models());
+        // The two models published on 2026-11-19 (`data/translation_models.json`).
+        let ids: Vec<&str> = shipped.iter().map(|m| m.id.as_str()).collect();
+        assert!(ids.contains(&"m2m100-418m-onnx-int8") && ids.iter().any(|id| id.starts_with("nllb-200-")), "{ids:?}");
+        assert_eq!(validate_catalog(&shipped), Ok(()));
+        for model in &shipped {
+            assert!(TRANSLATION_NOTICES.contains(&model.notice.as_str()), "{}", model.id);
+            let variant = model.id.rsplit_once("-onnx-").map(|(_, variant)| variant);
+            assert!(matches!(variant, Some("float32" | "float16" | "int8" | "int4")), "{}", model.id);
+            assert!(!model.licenses.is_empty(), "{}", model.id);
+        }
+    }
+
+    #[test]
+    fn a_data_file_entry_becomes_a_translation_entry() {
+        let text = format!(
+            r#"{{"models": [{{"id": "m2m100-418m-onnx-int8", "name": "M2M100 418M · int8", "provider": "Meta / VRCT-VOX",
+                "repo": "owner/m2m100_418M-onnx-int8", "revision": "{revision}", "license": "MIT",
+                "licenses": ["https://huggingface.co/owner/m2m100_418M-onnx-int8/blob/{revision}/LICENSE"],
+                "artifacts": [{{"filename": "manifest.json", "size": 3, "sha256": "{hash}", "role": "manifest"}},
+                              {{"filename": "encoder_model_quantized.onnx", "size": 5, "sha256": "{hash}", "role": "encoder"}}]}}]}}"#,
+            revision = "a".repeat(40),
+            hash = "b".repeat(64)
+        );
+        let models = parse_translation_models(&text).unwrap();
+        assert_eq!(models.len(), 1);
+        assert_eq!((models[0].target.as_str(), models[0].notice.as_str()), (TRANSLATION_TARGET, TRANSLATION_TARGET));
+        assert_eq!(models[0].artifacts[1], artifact("encoder_model_quantized.onnx", 5, &"b".repeat(64), "encoder"));
+        assert_eq!(validate_catalog(&models), Ok(()));
+        // A field the data file does not know is refused, not dropped.
+        assert!(parse_translation_models(r#"{"models": [], "extra": 1}"#).is_err());
+        // An entry may name a notice of its own, but only one the UI has words for.
+        let named = text.replace(r#""license": "MIT","#, r#""license": "MIT", "notice": "translation_nllb_600m","#);
+        assert_eq!(parse_translation_models(&named).unwrap()[0].notice, "translation_nllb_600m");
+        let unknown = text.replace(r#""license": "MIT","#, r#""license": "MIT", "notice": "something_else","#);
+        assert!(parse_translation_models(&unknown).unwrap_err().contains("unknown notice"));
+    }
+
+    #[test]
+    fn a_non_commercial_license_is_a_restriction_and_the_others_are_not() {
+        let non_commercial = ["CC-BY-NC-4.0", "CC-BY-NC-SA-4.0", "CC-BY-NC-ND-4.0", "CC BY-NC 4.0", "CC BY-NC-SA 4.0", "cc-by-nc-4.0", "MIT + CC-BY-NC-4.0"];
+        for license in non_commercial.into_iter().chain(["Creative Commons Attribution-NonCommercial 4.0"]) {
+            assert_eq!(license_restrictions(license), ["non_commercial"], "{license}");
+        }
+        for license in ["MIT + Apache-2.0", "CC BY 4.0", "CC-BY-SA-4.0", "CC0-1.0", "OpenMDW-1.1", "MIT", "Apache-2.0", "Gemmatic-1.0", ""] {
+            assert!(license_restrictions(license).is_empty(), "{license}");
+        }
+        assert_eq!(entry(Vec::new()).restrictions(), Vec::<&str>::new());
+        assert_eq!(Model { license: "CC-BY-NC-4.0".into(), ..entry(Vec::new()) }.restrictions(), ["non_commercial"]);
+    }
+
+    #[test]
+    fn the_gemma_terms_are_a_restriction_of_their_own() {
+        for license in ["Gemma Terms of Use", "Gemma Terms of Use + MIT + Apache-2.0", "gemma-terms-of-use", "gemma", "MIT, Gemma"] {
+            assert_eq!(license_restrictions(license), ["gemma_terms"], "{license}");
+        }
+        // Both kinds, in RESTRICTIONS order whatever the order of the parts.
+        assert_eq!(license_restrictions("Gemma Terms of Use + CC-BY-NC-4.0"), ["non_commercial", "gemma_terms"]);
+        // Only a translation entry asks for the Gemma terms (decision 4 of the LLM runtime plan).
+        let gemma = "Gemma Terms of Use + CC-BY-NC-4.0";
+        assert_eq!(restrictions_for(TRANSLATION_TARGET, gemma), ["non_commercial", "gemma_terms"]);
+        for target in TARGETS {
+            assert_eq!(restrictions_for(target, gemma), ["non_commercial"], "{target}");
+            assert!(restrictions_for(target, "Gemma Terms of Use + MIT").is_empty(), "{target}");
+        }
+        // So none of the speech, voice and chat-reading models the catalog offers carries one,
+        // Irodori-TTS v4 Large included, though its license still names the Gemma terms.
+        let restricted: Vec<(String, Vec<&str>)> =
+            catalog().into_iter().filter(|m| m.target != TRANSLATION_TARGET && !m.restrictions().is_empty()).map(|m| (m.id.clone(), m.restrictions())).collect();
+        assert_eq!(restricted, []);
+        let irodori = catalog().into_iter().find(|m| m.id == "irodori-v4-large-q8").unwrap();
+        assert_eq!(license_restrictions(&irodori.license), ["gemma_terms"]);
+        assert_eq!(irodori.restrictions(), Vec::<&str>::new());
+    }
 }
+
+/// `validate_catalog` field by field: one valid entry, then each field broken on its own.
+#[cfg(test)]
+mod validation_tests {
+    use super::*;
+
+    const REVISION: &str = "0123456789abcdef0123456789abcdef01234567";
+
+    fn sha() -> String {
+        "c0ffee".repeat(10) + "0123"
+    }
+
+    fn speech(artifacts: Vec<Artifact>) -> Model {
+        model("speech-model-q8", "japanese", "Speech", "Author", "Owner_1/model-name.v2", REVISION, "MIT", &["https://example.invalid/LICENSE"], "irodori", artifacts)
+    }
+
+    fn gguf() -> Artifact {
+        artifact("model-q8_0.gguf", 10, &sha(), "model")
+    }
+
+    fn valid() -> Model {
+        speech(vec![gguf()])
+    }
+
+    #[track_caller]
+    fn refused(model: Model, why: &str) {
+        assert_eq!(validate_catalog(&[model]), Err("catalog_invalid"), "{why}");
+    }
+
+    #[test]
+    fn a_valid_entry_passes_and_each_broken_field_is_refused() {
+        assert_eq!(validate_catalog(&[valid()]), Ok(()));
+        assert_eq!(validate_catalog(&[Model { id: "a-1".into(), ..valid() }]), Ok(()), "digits and an inner hyphen");
+        for id in ["", "Upper", "-leading", "under_score", "two words", "dot.ted"] {
+            refused(Model { id: id.into(), ..valid() }, id);
+        }
+        assert_eq!(validate_catalog(&[valid(), valid()]), Err("catalog_invalid"), "the same id twice");
+        for repo in ["a/b", "A_b-c/x.y_z-1"] {
+            assert_eq!(validate_catalog(&[Model { repo: repo.into(), ..valid() }]), Ok(()), "{repo}");
+        }
+        for repo in ["noslash", "/name", "owner/", "own er/name", "owner/na me", "owner/name/extra", "own.er/name", "owner/n@me"] {
+            refused(Model { repo: repo.into(), ..valid() }, repo);
+        }
+        for revision in [&REVISION[..39], &format!("{REVISION}0"), &REVISION.to_uppercase(), &"g".repeat(40)] {
+            refused(Model { revision: revision.to_string(), ..valid() }, revision);
+        }
+        refused(Model { target: "video".into(), ..valid() }, "an unknown target");
+        assert!(!known_target("video") && TARGETS.iter().all(|t| known_target(t)));
+        refused(speech(Vec::new()), "no files");
+    }
+
+    #[test]
+    fn each_file_is_a_fixed_name_of_its_target_s_kind_role_size_and_hash() {
+        let file = |name: &str, role: &str| artifact(name, 10, &sha(), role);
+        for name in ["model", ".gguf", "model.onnx", "../model.gguf", "a..b.gguf", "-model.gguf", "mo del.gguf", "model.GGUF"] {
+            refused(speech(vec![file(name, "model")]), name);
+        }
+        assert_eq!(validate_catalog(&[speech(vec![file("m_odel.v2-q8.gguf", "model")])]), Ok(()), "_ . - inside a name");
+        refused(speech(vec![gguf(), file("model-q8_0.gguf", "index")]), "the same file name twice");
+        refused(speech(vec![gguf(), file("other.gguf", "model")]), "the same role twice");
+        refused(speech(vec![file("model.gguf", "encoder")]), "a role speech models do not have");
+        refused(speech(vec![artifact("model.gguf", 0, &sha(), "model")]), "an empty file");
+        for hash in [sha()[..63].to_string(), sha().to_uppercase(), "z".repeat(64)] {
+            refused(speech(vec![artifact("model.gguf", 10, &hash, "model")]), &hash);
+        }
+        // RVC takes a model and an index of its own suffixes.
+        let rvc = Model { target: "rvc".into(), ..speech(vec![file("voice.pth", "model"), file("voice.index", "index")]) };
+        assert_eq!(validate_catalog(&[rvc]), Ok(()));
+        // Chat reading takes ONNX graphs and their YAML, under its own roles.
+        let ocr = |artifacts| Model { target: "ocr".into(), ..speech(artifacts) };
+        assert_eq!(validate_catalog(&[ocr(vec![file("det.onnx", "det"), file("rec.onnx", "rec"), file("rec.yml", "dict")])]), Ok(()));
+        refused(ocr(vec![file("det.gguf", "det")]), "a speech file in chat reading");
+        refused(ocr(vec![file("det.onnx", "model")]), "a speech role in chat reading");
+    }
+
+    #[test]
+    fn a_file_from_another_repository_is_pinned_like_the_entry() {
+        let pinned = |repo: &str, revision: &str, path: &str| {
+            speech(vec![remote("model.gguf", 10, &sha(), "model", (repo, revision, path))])
+        };
+        assert_eq!(validate_catalog(&[pinned("other/repo", REVISION, "sub-folder.v1")]), Ok(()));
+        refused(pinned("other", REVISION, "file.gguf"), "a repository without its owner");
+        refused(pinned("other/repo", &REVISION[1..], "file.gguf"), "a short revision");
+        refused(pinned("other/repo", REVISION, "a/../b.gguf"), "a path that climbs");
+        refused(pinned("other/repo", REVISION, "-file.gguf"), "a path that is not a name");
+        let entry = pinned("other/repo", REVISION, "sub-folder.v1");
+        assert_eq!(artifact_url(&entry, &entry.artifacts[0]), format!("https://huggingface.co/other/repo/resolve/{REVISION}/sub-folder.v1"));
+    }
+}
+

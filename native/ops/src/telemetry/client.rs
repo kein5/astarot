@@ -1,4 +1,4 @@
-//! Sends VRCT-VOX's usage events to VRCT-VOX's own receiver (`client.py`).
+//! Sends VRCT-VOX's usage events to VRCT-VOX's own receiver ([`client.py`]).
 //!
 //! Two events exist and the receiver takes no others: `app_started`, and `error` with its fixed
 //! error code. Each carries the time (ISO 8601, UTC), the app's version, the OS and its
@@ -7,11 +7,13 @@
 //!
 //! [`build_event`] is the only place an event is put together: what the app shows the user as
 //! "what is sent" and what is posted come from the same call, and differ only in the time.
+//!
+//! [`client.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/telemetry/client.py
 
 use std::sync::Arc;
 use std::time::Duration;
 
-use chrono::{DateTime, Utc};
+use jiff::Timestamp;
 use rustls::ClientConfig;
 
 use super::hardware::Hardware;
@@ -25,7 +27,7 @@ pub const ENDPOINT: &str = "https://vrct-vox-telemetry.kei9d09.workers.dev/v1/ev
 pub const INGEST_KEY: &str = "e77471acded45435be55c2fed04a05636e4eb00be5a277fb";
 /// A developer's stand-in receiver on this PC. Only a loopback HTTP address is taken, so the
 /// variable cannot send anyone's events to another host.
-pub const ENDPOINT_OVERRIDE: &str = "VRCT_TELEMETRY_URL";
+pub const ENDPOINT_OVERRIDE: &str = app_identity::env::TELEMETRY_URL;
 pub const EVENTS: [&str; 2] = ["app_started", "error"];
 /// The version of the event's shape. 1 had no "v" and no "hw".
 pub const SCHEMA: u64 = 2;
@@ -98,7 +100,7 @@ pub fn valid_error_code(code: &str) -> bool {
 }
 
 /// "Windows", "Linux" or "Other", and the OS version as Python's `platform` reports it.
-fn os_and_version() -> (&'static str, Option<String>) {
+pub fn os_and_version() -> (&'static str, Option<String>) {
     #[cfg(windows)]
     {
         ("Windows", windows_version())
@@ -157,11 +159,11 @@ pub(crate) fn system_properties_for(app_version: &str, language: &str, hardware:
 
 /// The event as it is sent, or `None` for anything that is not one of the two. The timestamp
 /// is ISO 8601 in UTC, to the second: the moment the event is put together.
-pub fn build_event(name: &str, properties: &Object, error_code: Option<&str>, now: Option<DateTime<Utc>>) -> Option<Json> {
+pub fn build_event(name: &str, properties: &Object, error_code: Option<&str>, now: Option<Timestamp>) -> Option<Json> {
     if !EVENTS.contains(&name) {
         return None;
     }
-    let stamp = now.unwrap_or_else(Utc::now).format("%Y-%m-%dT%H:%M:%SZ").to_string();
+    let stamp = now.unwrap_or_else(Timestamp::now).strftime("%Y-%m-%dT%H:%M:%SZ").to_string();
     let mut body = Object::new().with("event", name).with("v", SCHEMA).with("timestamp", stamp);
     for (key, value) in properties.iter() {
         body.insert(key, value.clone());
@@ -283,7 +285,8 @@ impl Sender {
                 ("Content-Type", "application/json"),
                 ("Content-Length", length.as_str()),
                 ("X-Ingest-Key", self.key.as_str()),
-                ("User-Agent", "VRCT-VOX"),
+                // The receiver does not read it (ADR-014, 8; checked against its source on 2026-11-20).
+                ("User-Agent", "ASTAROT"),
             ];
             net::send_request(&mut stream, "POST", &t.path, &headers, data.as_bytes())?;
             let mut response = net::read_response(stream, "POST")?;
@@ -348,7 +351,7 @@ mod tests {
 
     #[test]
     fn once_a_day_means_the_day_of_the_events_timestamp() {
-        let moment = DateTime::parse_from_rfc3339("2026-11-14T08:30:05+09:00").unwrap().with_timezone(&Utc);
+        let moment: Timestamp = "2026-11-14T08:30:05+09:00".parse().unwrap();
         let event = build_event("app_started", &system_properties("1.0", "ja", None), None, Some(moment)).unwrap();
         assert_eq!(event.get("timestamp"), Some(&Json::from("2026-11-13T23:30:05Z")));
     }

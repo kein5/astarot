@@ -1,6 +1,6 @@
 //! Capture identity, kept separate from a device's human-readable label.
 //!
-//! Port of `src-python/audio_device_identity.py`. The rules:
+//! Port of [`src-python/audio_device_identity.py`]. The rules:
 //!
 //! - The placeholder row named `NoDevice` has no identity.
 //! - A saved identity matches only the row with that identity. A saved name (from
@@ -10,6 +10,8 @@
 //! - Two snapshots describe the same capture only when every field of the
 //!   [`CaptureKey`] agrees. A changed slot, sample rate, channel count, native ID or
 //!   topology generation makes it a different capture even under the same label.
+//!
+//! [`src-python/audio_device_identity.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/audio_device_identity.py
 
 /// The name of the placeholder row shown when there is no device.
 pub const NO_DEVICE: &str = "NoDevice";

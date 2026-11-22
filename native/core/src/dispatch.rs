@@ -1,4 +1,4 @@
-//! Requests from the UI: the queue, the locks and the workers (`Main` in `src-python/mainloop.py`).
+//! Requests from the UI: the queue, the locks and the workers (`Main` in [`src-python/mainloop.py`]).
 //!
 //! The rules (`docs/spec/ipc-protocol.md`, "並行性とロック"):
 //!
@@ -13,6 +13,8 @@
 //!   every 0.1 s, still at the head of its line, and after 300 tries (about 30 s) answered 423.
 //! - The stop requests of the voice features skip the queue, and `/run/feed_watchdog` has its own
 //!   thread, so that busy workers delay neither.
+//!
+//! [`src-python/mainloop.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/mainloop.py
 
 use crate::protocol::{Incoming, Reply, Request, parse_line};
 use serde_json::{Value, json};
@@ -31,7 +33,7 @@ pub const ENDPOINT_LOCKED_MAX_RETRIES: u32 = 300;
 pub const WATCHDOG_FEED_ENDPOINT: &str = "/run/feed_watchdog";
 
 /// Answered as they arrive: they only signal workers, and must not wait behind a busy one.
-pub const IMMEDIATE_ENDPOINTS: [&str; 7] = [
+pub const IMMEDIATE_ENDPOINTS: [&str; 8] = [
     "/run/stop_voice",
     "/run/disable_tts",
     "/run/mute_voice",
@@ -39,6 +41,7 @@ pub const IMMEDIATE_ENDPOINTS: [&str; 7] = [
     "/run/stop_direct_voice",
     "/run/stop_realtime_asr",
     "/run/stop_speech_server",
+    "/run/stop_voice_audition",
 ];
 
 pub type Handler = Arc<dyn Fn(&Value) -> Reply + Send + Sync>;
@@ -125,7 +128,9 @@ pub fn canonical_lock_key(endpoint: &str) -> String {
     endpoint.to_string()
 }
 
-/// What the VR panel may ask for (`src-python/models/vr_panel_policy.py`, SEC-02 and SEC-07).
+/// What the VR panel may ask for ([`src-python/models/vr_panel_policy.py`], SEC-02 and SEC-07).
+///
+/// [`src-python/models/vr_panel_policy.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/vr_panel_policy.py
 pub const VR_PANEL_ORIGIN: &str = "vr_panel";
 
 pub fn vr_panel_endpoints() -> HashSet<String> {

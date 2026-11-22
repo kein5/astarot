@@ -10,6 +10,7 @@ use vrct_audio_routing::graph::Source;
 use vrct_audio_routing::monitor::MonitorFactory;
 use vrct_audio_routing::router::Output;
 use vrct_audio_routing::voice_route::{Gate, GatePair};
+use vrct_audio_routing::managed_vc::ManagedVcDevices;
 use vrct_audio_routing::windows_route::RouteDevices;
 use vrct_audio_routing::{Error, Result};
 use vrct_ops::downloads::transport::Transport;
@@ -32,7 +33,12 @@ pub trait VoicePlatform: Send + Sync {
     fn passthrough(&self, app_dir: &Path, output: Option<&str>) -> std::result::Result<Box<dyn DirectBackend>, String>;
     /// The capture and output devices of a conversion on a device route (Windows).
     fn route_devices(&self) -> Option<Arc<dyn RouteDevices>>;
-    /// The RVC worker the app ships (`build/vrct-rvc-worker`).
+    /// The capture of a conversion on the managed route and the managed VC input it plays into
+    /// (Linux, decision 11). A new one for each conversion: it observes the graph while it lives.
+    fn managed_vc_devices(&self) -> Option<Arc<dyn ManagedVcDevices>> {
+        None
+    }
+    /// The RVC worker the app ships (`build/astarot-rvc-worker`).
     fn rvc_worker(&self, app_dir: &Path) -> PathBuf;
     /// How the worker's runtime is downloaded.
     fn runtime_transport(&self) -> Arc<dyn Transport>;
@@ -42,6 +48,10 @@ pub trait VoicePlatform: Send + Sync {
     /// What the runtime setup offers in place of the pinned runtime (tests).
     fn runtime_entries(&self) -> Option<Vec<vrct_voice_conversion::runtime::Runtime>> {
         None
+    }
+    /// The libraries this process loaded that a runtime may hold (#880).
+    fn loaded_libraries(&self) -> Vec<PathBuf> {
+        Vec::new()
     }
 }
 
@@ -107,7 +117,7 @@ impl VoicePlatform for NativeVoice {
     fn gate(&self, app_dir: &Path) -> Arc<dyn Gate> {
         #[cfg(all(target_os = "linux", feature = "pipewire"))]
         {
-            let helper = crate::resources::locate(app_dir, "build/vrct-voice-gate");
+            let helper = crate::resources::locate(app_dir, "build/astarot-voice-gate");
             Arc::new(vrct_audio_routing::pipewire::gate::PipeWireGate::new(helper, vrct_audio_routing::process::ProcessEnv::default()))
         }
         #[cfg(not(all(target_os = "linux", feature = "pipewire")))]
@@ -150,6 +160,17 @@ impl VoicePlatform for NativeVoice {
         }
     }
 
+    fn managed_vc_devices(&self) -> Option<Arc<dyn ManagedVcDevices>> {
+        #[cfg(all(target_os = "linux", feature = "pipewire"))]
+        {
+            Some(Arc::new(vrct_audio_routing::managed_vc::PipeWireVcDevices::new()))
+        }
+        #[cfg(not(all(target_os = "linux", feature = "pipewire")))]
+        {
+            None
+        }
+    }
+
     fn rvc_worker(&self, app_dir: &Path) -> PathBuf {
         crate::resources::locate(app_dir, &format!("build/{}", vrct_voice_conversion::worker::worker_name()))
     }
@@ -167,6 +188,10 @@ impl VoicePlatform for NativeVoice {
 
     fn runtime_target(&self) -> Option<Target> {
         Target::current()
+    }
+
+    fn loaded_libraries(&self) -> Vec<PathBuf> {
+        crate::shipped_libraries::loaded_onnx_runtime()
     }
 }
 

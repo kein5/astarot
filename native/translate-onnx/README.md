@@ -1,12 +1,12 @@
 # vrct-translate-onnx
 
-ローカル翻訳（M2M100 と NLLB-200）を ONNX Runtime で動かす Rust クレートです。Python 側の CTranslate2 による翻訳（`src-python/models/translation/translation_translator.py` の `translateCTranslate2`）を置き換えます。
+ローカル翻訳（M2M100 と NLLB-200）を ONNX Runtime で動かす Rust クレートです。Python 側の CTranslate2 による翻訳（[`src-python/models/translation/translation_translator.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/translation/translation_translator.py) の `translateCTranslate2`）を置き換えます。
 
 ## 現在の状態
 
 - アプリのローカル翻訳のエンジンです（2026-11-16 に決定。[core-integration.md](../../docs/voice-stack/core-integration.md) の「決まったこと」）。中核（`native/core`）の機能 `onnx-translation`（既定でオン）の裏にあり、アプリ（`src-tauri`）でも有効です。
-- ONNX Runtime は実行時に読み込みます（`ort` の `load-dynamic`）。ビルドでは何も取得もリンクもしません。ライブラリはまだ配布物に入っていないので、ライブラリを置かないかぎりモデルを読み込めません（`translation_runtime_missing`。中核では `TRANSLATION_MODEL_LOAD_FAILED`）。
-- モデルは `tools/translation_onnx/export.py` で作ります。作ったモデルの公開とモデル取得カタログへの登録は、まだしていません（公開は保守担当者の確認が要る外部への操作です）。
+- ONNX Runtime は実行時に読み込みます（`ort` の `load-dynamic`）。ビルドでは何も取得もリンクもしません。配布物には公式の CPU 版 1.31.0 が入っています（`_internal/onnxruntime`）。GPU で動かすための CUDA 版と DirectML 版は同梱せず、利用者が同意してから取得します（2026-11-19。[core-integration.md](../../docs/voice-stack/core-integration.md) の「判断が要ること」の 2）。ライブラリが見つからないときはモデルを読み込めません（`translation_runtime_missing`。中核では `TRANSLATION_MODEL_LOAD_FAILED`）。
+- モデルは `tools/translation_onnx/export.py` で作ります。カタログから取得できるのは M2M100 418M、NLLB-200 distilled 600M、NLLB-200 distilled 1.3B の int8 版です。公開とカタログの項目の作成には `tools/translation_onnx/publish.py` を使い、項目は `native/ops/data/translation_models.json` に置きます。
 
 ## 対象モデル
 
@@ -22,13 +22,13 @@
 
 ## ONNX Runtime の読み込み
 
-`runtime.rs` が、チャットの読み取り（`native/ocr-runtime`）と同じ順でライブラリを探します。
+ライブラリの探し方と、プロセスに1つだけの環境は、`native/onnx-runtime`（`vrct-onnx-runtime`）が受け持ちます。チャットの読み取り（`native/ocr-runtime`）と声質変換のワーカー（`native/rvc-runtime`）も同じクレートを使います。探す順は次のとおりです。
 
 1. 環境変数 `ORT_DYLIB_PATH`
-2. 実行ファイルの隣の `onnxruntime.dll`（Linux は `libonnxruntime.so`）
-3. 名前だけでの検索
+2. 中核の `shipped_libraries.rs` が起動時に指定するライブラリ。翻訳の処理デバイスに CUDA か DirectML が選ばれていて、その版を準備済みなら設定フォルダーの `vc_runtimes/` にある GPU 版（先に読み込むライブラリと一緒に指定する）。そうでなければアプリが同梱する CPU 版（`_internal/onnxruntime`）
+3. 名前だけでの検索（`ort` はまず実行ファイルの隣を見ます）
 
-`ort` は1つのプロセスで最初に読み込んだライブラリを使い続けます。翻訳とチャットの読み取りは同じライブラリを共有します。どの実行プロバイダがあるかは、そのライブラリのビルドで決まります。`ort` の機能 `cuda`、`tensorrt`、`openvino`、`migraphx`、`webgpu`（Windows では `directml` も）は Rust 側の呼び出しを足すだけで、`load-dynamic` では何もリンクしません。`ort` の機能はアプリ全体で1つにまとまるので、このクレートの既定の機能も `load-dynamic` です。単体で `ort` の配るバイナリにリンクしたいときは `--no-default-features --features download-binaries` を使います。
+`ort` は1つのプロセスで最初に読み込んだライブラリを使い続け、環境も1つしか作れません。翻訳とチャットの読み取りは、どちらが先に始まっても同じライブラリと環境を使います。このクレートの `runtime.rs` は読み込んだライブラリにある実行プロバイダを調べるだけです。どの実行プロバイダがあるかは、そのライブラリのビルドで決まります。`ort` の機能 `cuda`、`tensorrt`、`openvino`、`migraphx`、`webgpu`（Windows では `directml` も）は Rust 側の呼び出しを足すだけで、`load-dynamic` では何もリンクしません。`ort` の機能はアプリ全体で1つにまとまるので、このクレートの既定の機能も `load-dynamic` です。単体で `ort` の配るバイナリにリンクしたいときは `--no-default-features --features download-binaries` を使います。
 
 `vrct-translate --providers` は、読み込んだライブラリの実行プロバイダを表示します。2026-11-16 に公式の `onnxruntime-win-x64-1.31.0.zip` では `["cpu"]`、NuGet の `Microsoft.ML.OnnxRuntime.DirectML` 1.24.4 では `["cpu","directml"]` と出ることを確かめました（Windows 11、モデルなし）。
 
@@ -36,18 +36,27 @@
 
 `accelerate.rs` が、設定の計算デバイスを実行プロバイダに読み替えます。選んだプロバイダが始められないとき（ライブラリにない、ドライバーがない、メモリーが足りないなど）は CPU で読み込み直し、その理由（固定の符号）を返します。中核はそれをログに書き、UI に知らせます。黙って切り替えることはありません。ただし、プロバイダが対応しない一部の演算を ONNX Runtime が CPU に回すことは、ONNX Runtime の中で起き、ここからは見えません。
 
+CPU 以外のプロバイダで読み込んだときは、使う前に一度だけ短く訳して確かめます（2026-11-19 から。`core-integration.md` の判断 76）。原文は言語のトークンと終了のトークンの 2 つで、エンコーダ、デコーダの最初のステップ、キャッシュ付きのステップを 1 回ずつ通します。どれかが失敗するか、出力が有限の数でないか、絶対値が float16 の最大の値（65504）を超えたときは、CPU で読み込み直し、理由を `translation_provider_check_failed` として返します。メモリーが足りないときは `translation_out_of_memory` のままです。読み込みでは失敗せず、最初の翻訳で失敗するか、おかしな値を出す場合（DirectML で見つかった 2 つの不具合がそうでした）を、使い始める前に見つけるためです。値が CPU の値と同じかどうかは比べません。確かめる分だけ、GPU での読み込みは少し長くなります。
+
 | 実行プロバイダ | Windows | Linux | 使える機器 | 要るもの（x64） | ライセンス | 保守の状況 | 計算デバイスの一覧 |
 |---|---|---|---|---|---|---|---|
 | CPU | ○ | ○ | すべての CPU | 公式の ONNX Runtime。`onnxruntime.dll` 17.3 MB（zip 82.9 MB）、Linux は tgz 11.4 MB | MIT | 主流 | いつも出す（`cpu`） |
-| DirectML | ○ | × | DirectX 12 の GPU（NVIDIA、AMD、Intel、Qualcomm） | NuGet の `Microsoft.ML.OnnxRuntime.DirectML`（1.24.4。`onnxruntime.dll` 17.3 MB）と `Microsoft.AI.DirectML`（1.15.4。`DirectML.dll` 18.5 MB） | ONNX Runtime は MIT。DirectML は Microsoft の再配布できるライセンス | 維持のみ（sustained engineering）。新しい機能は Windows ML へ移った。DirectML 版の ONNX Runtime は 1.24.4 で止まっている | ライブラリにあれば出す（`directml`） |
-| CUDA | ○ | ○ | NVIDIA | 公式の GPU 版（`gpu_cuda13`。Windows zip 309.5 MB、Linux tgz 244.6 MB）と CUDA 13 のランタイム、cuBLAS、cuDNN（合わせて 1 GB 前後。声質変換の実行環境と同じもの） | ONNX Runtime は MIT。CUDA と cuDNN は NVIDIA の EULA | 主流。1.31 からはプラグインの形も出ている | ライブラリにあれば出す（`cuda`） |
+| DirectML | ○ | × | DirectX 12 の GPU（NVIDIA、AMD、Intel、Qualcomm） | NuGet の `Microsoft.ML.OnnxRuntime.DirectML`（1.24.4。`onnxruntime.dll` 17.3 MB）と `Microsoft.AI.DirectML`（1.15.4。`DirectML.dll` 18.5 MB）。アプリは同意を得てから取得する（`vc_runtimes/onnxruntime-directml`） | ONNX Runtime は MIT。DirectML は Microsoft の再配布できるライセンス（Windows だけ。使用状況のデータを送ることがあるという定めがある） | 維持のみ（sustained engineering）。新しい機能は Windows ML へ移った。DirectML 版の ONNX Runtime は 1.24.4 で止まっている | 読み込んだ版にあれば出す（`directml`）。準備済みで読み込んでいなければ、再起動が要ると示して出す |
+| CUDA | ○ | ○ | NVIDIA | 公式の GPU 版（`gpu_cuda13`。Windows zip 309.5 MB、Linux tgz 244.6 MB）と CUDA 13 のランタイム、cuBLAS、cuDNN（合わせて 1 GB 前後。声質変換の実行環境と同じもの）。アプリは NuGet の包みと NVIDIA の wheel から、同意を得てから取得する（`vc_runtimes/onnxruntime-cuda`。RVC の GPU 用の実行環境があればそれを使う） | ONNX Runtime は MIT。CUDA と cuDNN は NVIDIA の EULA | 主流。1.31 からはプラグインの形も出ている | 読み込んだ版にあれば出す（`cuda`）。準備済みで読み込んでいなければ、再起動が要ると示して出す |
 | TensorRT | ○ | ○ | NVIDIA | CUDA 版に加えて TensorRT のライブラリ | NVIDIA の EULA | 主流 | 出さない。入力の形ごとにエンジンを作るので、ステップごとにキャッシュが伸びるデコーダに向かない |
 | OpenVINO | ○ | ○ | Intel の CPU、GPU、NPU | Intel の ONNX Runtime（Windows は NuGet の `Intel.ML.OnnxRuntime.OpenVino` 1.24.1、41.0 MB。Linux は `onnxruntime-openvino`）と OpenVINO のランタイム | ONNX Runtime は MIT、OpenVINO は Apache-2.0 | Intel が保守 | ライブラリにあれば出す（`openvino`、GPU を使う） |
 | ROCm | ― | ― | AMD | ― | ― | ONNX Runtime 1.23 で消えた | 出さない |
 | MIGraphX | × | ○ | AMD の GPU（ROCm を入れた Linux） | AMD の ONNX Runtime（`onnxruntime-migraphx`。ROCm 10 からはプラグイン）と ROCm 一式（システムに入れる） | ONNX Runtime は MIT、ROCm は部品ごと（多くは MIT か Apache-2.0） | AMD が保守。キャッシュ付きのデコーダで問題が出るという報告がある | ライブラリにあれば出す（`migraphx`） |
 | WebGPU | ○ | ○ | Direct3D 12 または Vulkan の GPU | WebGPU の実行プロバイダ（1.31 ではプラグインの別の包み）。公式の zip には入っていない。大きさは計っていない | MIT（Dawn は BSD-3-Clause） | 新しい。生成 AI 向けに盛んに手が入っている | ライブラリにあれば出す（`webgpu`） |
 
-大きさは 2026-11-16 の公式の配布物（GitHub と NuGet）の値です。1 MB は 10^6 バイトです。どのプロバイダも、この PC（Intel の内蔵 GPU）で実際のモデルを動かしてはいません。
+大きさは 2026-11-16 の公式の配布物（GitHub と NuGet）の値です。1 MB は 10^6 バイトです。CPUで実モデルを動かした条件と結果は[翻訳モデルの比較](../../tools/translation_onnx/README.md)にあります。
+
+DirectML は、乱数の小さなモデル（`tools/translation_onnx/tiny.py`）で、4 つの形すべてが Intel と NVIDIA の GPU で CPU と同じ訳の ID を出しました（2026-11-18、DirectML 版の ONNX Runtime 1.24.4）。そのために直したことが 2 つあります。
+
+- `export.py` は `Reshape` を `allowzero=0` で書き出します。DirectML は `allowzero=1` を断ります。2026-11-18 より前に作ったフォルダは DirectML では動きません。
+- キャッシュ付きのステップでは、原文の側のキーと値（`present.<層>.encoder.*`。行のない出力）を求めません。DirectML にこれを求めると、同じ実行のロジットとキャッシュがおかしな値になりました。
+
+詳しくは [ローカル翻訳の GPU と公開の準備](../../docs/voice-stack/local-translation-gpu-2026-11-18.md) にあります。
 
 ## 量子化の形
 
@@ -67,14 +76,18 @@
 |---|---|---|---|---|---|---|---|
 | float32 | 動く（計った） | 未確認 | 未確認 | 出さない | 未確認 | 未確認 | 未確認 |
 | float16 | 出さない（CPU にはほとんどの float16 の演算がない） | 未確認 | 未確認 | 出さない | 未確認 | 未確認 | 未確認 |
-| int8（動的量子化、`MatMulInteger`） | 動く（計った） | 出さない（一部の演算だけ） | 出さない（CPU に回る演算が多い） | 出さない | 出さない | 出さない | 出さない |
-| int4（重みだけ、`MatMulNBits`） | 未確認 | 出さない | 未確認 | 出さない | 出さない | 出さない | 出さない |
+| int8（動的量子化、`MatMulInteger`） | 動く（計った） | 未確認 | 出さない（CPU に回る演算が多い） | 出さない | 出さない | 出さない | 出さない |
+| int4（重みだけ、`MatMulNBits`） | 未確認 | 未確認 | 未確認 | 出さない | 出さない | 出さない | 出さない |
 
 「未確認」は ONNX Runtime にその演算の実装があり、計算型の一覧に出すものです。実際のモデルではまだ動かしていません。「出さない」は一覧に出しません。表は `accelerate.rs` の `support` と同じです。
 
+DirectML の int8 と int4 は 2026-11-19 から一覧に出します（`core-integration.md` の判断 75）。乱数の小さなモデル（`tools/translation_onnx/tiny.py`）では、どちらも DirectML で CPU と同じ訳の ID になりました。ONNX Runtime のプロファイルで実行したノードの置き場所を数えると、どの形でもエンコーダと最初のデコーダのステップの演算は DirectML で動き、CPU で動いたのは形の計算（`Concat` 7 つと `Squeeze` 1 つ）だけでした。量子化の演算（`MatMulInteger`、`DynamicQuantizeLinear`、`MatMulNBits`）も DirectML で動いています。実際のモデルでの速さと訳の質は計っていません。
+
+計算型が `auto` のとき、DirectML は float16、float32、int4、int8 の順に、取得済みの形から選びます。float の形がなく int8 だけがあるときは、int8 を DirectML で動かします（2026-11-18 までは CPU で動かして知らせていました）。
+
 ## 自分で用意したモデル
 
-利用者は、データのフォルダの `translation-models/<フォルダ名>/` にモデルを置けます。起動の時に探し、翻訳のモデルの一覧に `custom:<フォルダ名>` として出ます。新しく置いたモデルは、アプリを起動し直すと出ます。
+利用者は、翻訳のカタログの「自分のモデルを追加」でモデルのフォルダを指定して足せます（#413）。フォルダはどこにあってもかまいません。足したモデルは翻訳のモデルの一覧に `user:<ID>` として出ます。以前の版はデータのフォルダの `translation-models/<フォルダ名>/` に置いたモデルも `custom:<フォルダ名>` として出しましたが、#597 で外しました。そのフォルダは読みません。
 
 要件:
 
@@ -82,14 +95,12 @@
 - ファイルは `export.py` が書くものと同じ形です。エンコーダの ONNX（入力 `input_ids`、`attention_mask`）、過去のキー・値を受け取るデコーダの ONNX（`use_cache_branch` で初回とキャッシュ付きを切り替える1つのグラフ。`past_key_values.<層>.decoder|encoder.key|value` を受け取り `present.*` と `logits` を返す）、`tokenizer.json`、`vocab.json`、`manifest.json`。入出力は float32 です（float16 の形も入出力は float32 のまま）。
 - `manifest.json`（schema 2）には、`name`、`family`、`variant`、`license`、グラフのファイル名、層の数、注意の頭の数、隠れ層の大きさ、開始と終了と未知のトークン、言語のトークンの形（`{}` が言語の符号になる）、言語の符号の一覧 `languages`、ビーム数、入力と出力の上限、各ファイルの大きさと SHA-256（小文字の16進）を書きます。
 - 任意で `language_names`（アプリの言語の名前と符号の対応。`{"Japanese": "jpn_Jpan"}`）を書けます。ないときは、同じアーキテクチャの組み込みの表（M2M100 418M か NLLB 600M）から、`languages` にある符号だけを使います。
-- フォルダの名前は英数字と `.`、`_`、`-` で 64 文字まで（`.` で始まらない）。
 - ライセンスは利用者が確かめます。アプリは `license` を表示しません。非商用のモデルでも、組み込みの NLLB のような確認は出しません。
 
-確かめること（起動の時と読み込む時）と、断ったときの理由（`process.log` に「Translation model folder refused: <フォルダ名> (<理由>)」と1行書きます）:
+確かめること（足す時、起動の時、読み込む時）と、断ったときの理由（足す時は要求への答え、起動の時は `process.log` に「Translation model folder refused: <項目の ID> (<理由>)」と1行書きます。名前やフォルダは書きません）:
 
 | 理由 | 意味 |
 |---|---|
-| `translation_model_name_invalid` | フォルダの名前が上の規則に合わない |
 | `translation_manifest_missing` | `manifest.json` がない |
 | `translation_bundle_invalid` | JSON として読めない、欄が欠けている、値が合わない、フォルダの外を指すファイル名がある |
 | `translation_architecture_unsupported` | `family` が `m2m100` と `nllb` のどちらでもない |
@@ -98,7 +109,7 @@
 | `translation_bundle_modified` | ファイルの大きさが違う（読み込む時は SHA-256 も比べ、違えば「モデルがない」と同じ扱い） |
 | `translation_languages_unknown` | アプリが名前を付けられる言語が1つもない |
 
-## 現行の CTranslate2 と同じにしていること
+## 旧バックエンドの CTranslate2 と同じにしていること
 
 - 入力は 1024 トークンまでで、超えたら失敗にします（`translation_input_too_long`）。
 - 出力は 256 トークンまでです。言語トークンと終了トークンも数に含めます。終了トークンで終わらなかった訳文は失敗にします（`translation_unfinished`）。どちらもアプリが CTranslate2 で調べている条件と同じです。
@@ -128,9 +139,18 @@ cargo test --locked --manifest-path native/translate-onnx/Cargo.toml
 
 ```sh
 ORT_DYLIB_PATH=<onnxruntime のライブラリ> \
-VRCT_TRANSLATE_M2M100=<m2m100_418M-onnx-int8 のフォルダ> \
-VRCT_TRANSLATE_NLLB=<nllb-200-distilled-600M-onnx-int8 のフォルダ> \
+ASTAROT_TRANSLATE_M2M100=<m2m100_418M-onnx-int8 のフォルダ> \
+ASTAROT_TRANSLATE_NLLB=<nllb-200-distilled-600M-onnx-int8 のフォルダ> \
 cargo test --manifest-path native/translate-onnx/Cargo.toml
 ```
 
-現行の CTranslate2 との訳文の比較は `tools/translation_onnx/compare.py` で行います。手順は同じフォルダの README にあります。
+GPU の実行プロバイダで CPU と同じ訳になるかは、`a_device_decodes_as_the_cpu_does` で確かめます。フォルダは実際のモデルでも、`tools/translation_onnx/tiny.py` が作る乱数の小さなモデルでもかまいません。小さなモデルは取得が要らないので、どの PC でも確かめられます。ライブラリにはその実行プロバイダが要ります。DirectML 版では、`DirectML.dll` のあるフォルダも `PATH` に足します。
+
+```sh
+ORT_DYLIB_PATH=<DirectML 版の onnxruntime.dll> \
+ASTAROT_TRANSLATE_DEVICE=directml:0 \
+ASTAROT_TRANSLATE_DEVICE_MODEL=<tiny-nllb-onnx-float32 のフォルダ> \
+cargo test --manifest-path native/translate-onnx/Cargo.toml --test real a_device
+```
+
+旧バックエンドの CTranslate2 との訳文の比較は `tools/translation_onnx/compare.py` で行います。手順は同じフォルダの README にあります。

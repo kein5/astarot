@@ -1,14 +1,15 @@
 //! OSC towards VRChat, and the local-only OSCQuery receive and discovery resources.
 //!
-//! The same contract as `src-python/models/osc/osc.py`:
+//! The same contract as [`src-python/models/osc/osc.py`]:
 //!
 //! - Chatbox text goes to `/chatbox/input` as `[text, True, notification]`, typing to
 //!   `/chatbox/typing` as `[flag]`, over UDP to the configured address and port (9000
 //!   by default). Text is never logged.
 //! - Receiving (and OSCQuery) runs only when VRChat is on this PC (`127.0.0.1` or
 //!   `localhost`). A UDP server on 127.0.0.1 with an ephemeral port, an OSCQuery HTTP
-//!   server on another, both advertised by mDNS as `VRCT:<nanoseconds>` with the
-//!   address 127.0.0.1, and a browser for `_oscjson._tcp.local.`.
+//!   server on another, both advertised by mDNS as `ASTAROT:<nanoseconds>` with the
+//!   address 127.0.0.1, and a browser for `_oscjson._tcp.local.`. The user can turn all
+//!   of it off ([`OscHandler::set_osc_query_allowed`], #559); sending goes on.
 //! - Received packets, bundle contents included, are applied on receipt on the one
 //!   receive thread, whatever their time tag.
 //! - A parameter value is asked of exactly one VRChat service: advertised with
@@ -17,6 +18,8 @@
 //!   such services, or none, give no value. Values are not coerced.
 //! - Every lifecycle step is bounded: queries and stop wait at most 2 seconds; a
 //!   cleanup that has not finished keeps its resources and blocks replacements.
+//!
+//! [`src-python/models/osc/osc.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/osc/osc.py
 
 pub mod mdns;
 pub mod packet;
@@ -46,7 +49,9 @@ pub const LOOPBACK: &str = "127.0.0.1";
 pub const PARAMETER_MUTE_SELF: &str = "/avatar/parameters/MuteSelf";
 pub const CHATBOX_TYPING: &str = "/chatbox/typing";
 pub const CHATBOX_INPUT: &str = "/chatbox/input";
-pub const OSC_QUERY_SERVICE_NAME: &str = "VRCT";
+/// The name the receiver is advertised under, before `:<nanoseconds>`. Up to 0.5.x it was `VRCT`;
+/// nothing keeps it, so it changed without a migration (ADR-014, 2.2).
+pub const OSC_QUERY_SERVICE_NAME: &str = "ASTAROT";
 const RECEIVE_POLL: Duration = Duration::from_millis(100);
 /// socketserver's UDP packet size.
 const MAX_PACKET: usize = 8192;
@@ -446,6 +451,9 @@ struct Resources {
 struct State {
     generation: u64,
     enabled: bool,
+    /// The user lets OSCQuery run (#559). While false, nothing receives, advertises or browses,
+    /// whatever the destination; sending goes on.
+    query_allowed: bool,
     ip: String,
     port: u16,
     client: UdpClient,
@@ -474,6 +482,7 @@ impl OscHandler {
             state: Mutex::new(State {
                 generation: 0,
                 enabled: false,
+                query_allowed: true,
                 ip: ip_address.to_string(),
                 port,
                 client,
@@ -702,11 +711,42 @@ impl OscHandler {
         Ok(())
     }
 
+    /// Lets OSCQuery run or not, as the user chose (#559): receiving VRChat's parameters, the
+    /// advertisement over mDNS and the discovery of VRChat. Turned off, everything of it closes
+    /// (the services say goodbye) and nothing starts again, also when the destination changes;
+    /// turned on, receiving starts again for the current destination with the targets last set.
+    /// Sending to the chatbox is not affected. On failure to start, nothing is left running.
+    pub fn set_osc_query_allowed(&self, allowed: bool) -> Result<(), OscError> {
+        let _gate = self.gate.acquire(None);
+        if self.is_shut_down() {
+            return Err(OscError::ShutDown);
+        }
+        self.state().query_allowed = allowed;
+        if !allowed {
+            return self.stop_locked();
+        }
+        if self.state().enabled {
+            return Ok(());
+        }
+        self.stop_locked()?;
+        let ip = self.state().ip.clone();
+        if let Err(error) = self.start_locked(&ip) {
+            let _ = self.stop_locked();
+            return Err(error);
+        }
+        Ok(())
+    }
+
+    /// Whether the user lets OSCQuery run ([`set_osc_query_allowed`](Self::set_osc_query_allowed)).
+    pub fn is_osc_query_allowed(&self) -> bool {
+        self.state().query_allowed
+    }
+
     fn start_locked(&self, ip: &str) -> Result<(), OscError> {
         if self.is_shut_down() {
             return Err(OscError::ShutDown);
         }
-        if !uses_osc_query(ip) {
+        if !uses_osc_query(ip) || !self.state().query_allowed {
             return Ok(());
         }
         *self.query_cancel.lock().unwrap_or_else(|e| e.into_inner()) = Cancel::new();

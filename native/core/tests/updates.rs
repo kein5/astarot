@@ -34,8 +34,9 @@ fn without_a_host_updater_an_update_reports_that_it_could_not_download() {
         ("/run/update_cuda_software", Some(json!("0.5.1-beta.1")), json!("0.5.1-beta.1")),
     ] {
         let mark = ui.send(endpoint, data);
-        let answer = ui.wait_endpoint(mark, endpoint);
-        assert_eq!((answer["status"].clone(), answer["result"].clone()), (json!(200), json!(true)), "{endpoint}");
+        // The update runs on its own thread, so its failure can come before the answer.
+        let answer = ui.wait_from(mark, "the answer", |l| l["endpoint"] == endpoint && l["status"] == 200);
+        assert_eq!(answer["result"], json!(true), "{endpoint}");
         let failed = ui.wait_from(mark, "the failure", |l| l["endpoint"] == endpoint && l["status"] == 400);
         assert_eq!(error_code(&failed), "UPDATE_SOFTWARE_DOWNLOAD");
         assert_eq!(failed["result"]["data"], version, "{endpoint}");
@@ -47,16 +48,18 @@ fn without_a_host_updater_an_update_reports_that_it_could_not_download() {
 struct Recording {
     checks: AtomicUsize,
     listings: AtomicUsize,
-    installs: Mutex<Vec<(String, Option<String>)>>,
+    installs: Mutex<Vec<Option<String>>>,
+    /// The channel of every call, in order.
+    channels: Mutex<Vec<String>>,
 }
 
 impl Recording {
-    fn installs(&self) -> Vec<(String, Option<String>)> {
+    fn installs(&self) -> Vec<Option<String>> {
         self.installs.lock().unwrap().clone()
     }
 
     /// The install runs on its own thread after the answer.
-    fn wait_for_installs(&self, count: usize) -> Vec<(String, Option<String>)> {
+    fn wait_for_installs(&self, count: usize) -> Vec<Option<String>> {
         for _ in 0..250 {
             if self.installs.lock().unwrap().len() >= count {
                 break;
@@ -74,12 +77,14 @@ struct Fake {
 }
 
 impl SoftwareUpdates for Fake {
-    fn check(&self) -> Value {
+    fn check(&self, channel: &str) -> Value {
+        self.recording.channels.lock().unwrap().push(channel.into());
         self.recording.checks.fetch_add(1, Ordering::SeqCst);
         json!({ "is_update_available": true, "new_version": "0.6.0" })
     }
 
-    fn releases(&self) -> Vec<Value> {
+    fn releases(&self, channel: &str) -> Vec<Value> {
+        self.recording.channels.lock().unwrap().push(channel.into());
         self.recording.listings.fetch_add(1, Ordering::SeqCst);
         vec![
             json!({ "tag": "v0.6.0", "version": "0.6.0", "is_prerelease": false, "published_at": "2026-12-01T00:00:00Z" }),
@@ -87,8 +92,9 @@ impl SoftwareUpdates for Fake {
         ]
     }
 
-    fn install(&self, edition: &str, target_version: Option<&str>) -> UpdateOutcome {
-        self.recording.installs.lock().unwrap().push((edition.into(), target_version.map(str::to_string)));
+    fn install(&self, target_version: Option<&str>, channel: &str) -> UpdateOutcome {
+        self.recording.channels.lock().unwrap().push(channel.into());
+        self.recording.installs.lock().unwrap().push(target_version.map(str::to_string));
         self.outcome
     }
 }
@@ -141,21 +147,22 @@ fn the_release_list_is_the_host_updaters_answer() {
 }
 
 #[test]
-fn a_launched_update_is_not_reported_and_gets_the_edition_and_the_version() {
+fn a_launched_update_is_not_reported_and_gets_the_version() {
     let (ui, recording) = with_updater(UpdateOutcome::Launched, None);
     ui.ready();
     let mark = ui.send("/run/update_software", None);
     let answer = ui.wait_endpoint(mark, "/run/update_software");
     assert_eq!((answer["status"].clone(), answer["result"].clone()), (json!(200), json!(true)));
-    assert_eq!(recording.wait_for_installs(1), [("cpu".to_string(), None)]);
+    assert_eq!(recording.wait_for_installs(1), [None]);
 
     let mark = ui.send("/run/update_software", Some(json!("0.5.0")));
     ui.wait_endpoint(mark, "/run/update_software");
-    assert_eq!(recording.wait_for_installs(2)[1], ("cpu".to_string(), Some("0.5.0".to_string())));
+    assert_eq!(recording.wait_for_installs(2)[1], Some("0.5.0".to_string()));
 
+    // The CUDA endpoint stays in the contract and makes the same update (#288).
     let mark = ui.send("/run/update_cuda_software", Some(json!("0.6.0")));
     ui.wait_endpoint(mark, "/run/update_cuda_software");
-    assert_eq!(recording.wait_for_installs(3)[2], ("gpu".to_string(), Some("0.6.0".to_string())));
+    assert_eq!(recording.wait_for_installs(3)[2], Some("0.6.0".to_string()));
 
     std::thread::sleep(std::time::Duration::from_millis(100));
     for endpoint in ["/run/update_software", "/run/update_cuda_software"] {
@@ -177,7 +184,7 @@ fn a_signature_that_does_not_verify_is_reported_with_the_version() {
         assert_eq!(error_code(&failed), "UPDATE_SOFTWARE_VERIFY", "{endpoint}");
         assert_eq!(failed["result"]["data"], version, "{endpoint}");
     }
-    assert_eq!(recording.installs(), [("cpu".to_string(), Some("0.6.0".to_string())), ("gpu".to_string(), None)]);
+    assert_eq!(recording.installs(), [Some("0.6.0".to_string()), None]);
     ui.stop();
 }
 
@@ -189,6 +196,43 @@ fn a_failed_download_is_reported_with_the_version() {
     let failed = ui.wait_from(mark, "the failure", |l| l["endpoint"] == "/run/update_software" && l["status"] == 400);
     assert_eq!(error_code(&failed), "UPDATE_SOFTWARE_DOWNLOAD");
     assert_eq!(failed["result"]["data"], "0.6.0");
-    assert_eq!(recording.installs(), [("cpu".to_string(), Some("0.6.0".to_string()))]);
+    assert_eq!(recording.installs(), [Some("0.6.0".to_string())]);
     ui.stop();
+}
+
+/// #466: the channel follows the running version until the user chooses one; a chosen channel
+/// stays, also at the next start, and every call to the host updater names it.
+#[test]
+fn the_host_updater_gets_the_channel_the_user_chose_and_the_versions_until_then() {
+    let (ui, recording) = with_updater(UpdateOutcome::DownloadFailed, Some(json!({ "CHECK_SOFTWARE_UPDATES": false })));
+    ui.ready();
+    assert_eq!(ui.ok("/get/data/release_channel", None), "stable", "a stable build");
+    ui.ok("/get/data/available_releases", None);
+    assert_eq!(ui.ok("/set/data/release_channel", Some(json!("beta"))), "beta");
+    ui.ok("/get/data/available_releases", None);
+    let mark = ui.send("/run/update_software", None);
+    ui.wait_from(mark, "the failure", |l| l["endpoint"] == "/run/update_software" && l["status"] == 400);
+    assert_eq!(*recording.channels.lock().unwrap(), ["stable", "beta", "beta"]);
+    let refused = ui.request("/set/data/release_channel", Some(json!("nightly")));
+    assert_eq!(error_code(&refused), "VALIDATION_CONFIG_VALUE_INVALID");
+    assert_eq!(refused["result"]["data"], "beta");
+    ui.ok("/run/shutdown", None);
+    assert_eq!(ui.saved()["RELEASE_CHANNEL_CHOSEN"], true);
+    ui.stop();
+
+    // At the next start: a chosen channel stays; one only written for the version does not.
+    for (saved, expected) in [
+        (json!({ "SELECTED_RELEASE_CHANNEL": "beta", "RELEASE_CHANNEL_CHOSEN": true }), "beta"),
+        (json!({ "SELECTED_RELEASE_CHANNEL": "beta" }), "stable"),
+        (json!({ "SELECTED_RELEASE_CHANNEL": "stable", "RELEASE_CHANNEL_CHOSEN": true }), "stable"),
+    ] {
+        let mut saved = saved;
+        saved["CHECK_SOFTWARE_UPDATES"] = json!(false);
+        let (ui, recording) = with_updater(UpdateOutcome::DownloadFailed, Some(saved.clone()));
+        ui.ready();
+        assert_eq!(ui.ok("/get/data/release_channel", None), expected, "{saved}");
+        ui.ok("/get/data/available_releases", None);
+        assert_eq!(*recording.channels.lock().unwrap(), [expected]);
+        ui.stop();
+    }
 }

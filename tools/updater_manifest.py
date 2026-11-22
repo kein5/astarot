@@ -156,7 +156,7 @@ def main():
     parser.add_argument("--version")
     parser.add_argument("--require-verification", action="store_true")
     args = parser.parse_args()
-    version = args.version or json.loads((ROOT / "package.json").read_text())["version"]
+    version = args.version or json.loads((ROOT / "package.json").read_text(encoding="utf-8"))["version"]
     manifest = write(args.payload, version, require_verification=args.require_verification)
     print(json.dumps({key: value for key, value in manifest.items() if key != "platforms"}, indent=2))
     print("platforms:", ", ".join(manifest["platforms"]))

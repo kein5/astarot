@@ -8,14 +8,18 @@
 //! Only the folders the Python backend created are touched:
 //! `<data>/weights/ctranslate2/<name>` for the names below. A link or a junction is never
 //! followed, whether it is one of those folders or `ctranslate2` itself, and anything else
-//! under `ctranslate2` is left alone (`models/transcription/old_whisper_weights.py` keeps the
+//! under `ctranslate2` is left alone ([`models/transcription/old_whisper_weights.py`] keeps the
 //! same rules for the old Whisper weights).
+//!
+//! [`models/transcription/old_whisper_weights.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/transcription/old_whisper_weights.py
 
 use std::fs;
 use std::path::{Path, PathBuf};
 
 /// The folders of `ctranslate2_weights` (`directory_name`) and the two older folder names
-/// (`_LEGACY_DIRECTORIES`) in `models/translation/translation_utils.py`.
+/// (`_LEGACY_DIRECTORIES`) in [`models/translation/translation_utils.py`].
+///
+/// [`models/translation/translation_utils.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/translation/translation_utils.py
 pub const FOLDERS: [&str; 7] = [
     "m2m100_418M-ct2-int8",
     "m2m100_1.2B-ct2-int8",

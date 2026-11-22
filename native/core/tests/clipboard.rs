@@ -2,7 +2,10 @@
 //! pasted into the game SteamVR runs, read from a stand-in SteamVR through the connection the
 //! overlays share. A stand-in desktop records the focus, the copy and the keys; nothing touches
 //! the real clipboard, windows or keyboard. The behaviours are those of
-//! `src-python/models/clipboard/clipboard.py` and `src-python/test/test_clipboard_focus_and_paste.py`.
+//! [`src-python/models/clipboard/clipboard.py`] and [`src-python/test/test_clipboard_focus_and_paste.py`].
+//!
+//! [`src-python/models/clipboard/clipboard.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/clipboard/clipboard.py
+//! [`src-python/test/test_clipboard_focus_and_paste.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/test/test_clipboard_focus_and_paste.py
 
 mod common;
 

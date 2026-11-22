@@ -1,5 +1,5 @@
 //! The headset view from the OpenVR compositor's mirror texture
-//! (`ocr_capture_openvr.py`, `ocr_capture_d3d11.py`, `ocr_capture_gl.py`).
+//! ([`ocr_capture_openvr.py`], [`ocr_capture_d3d11.py`], [`ocr_capture_gl.py`]).
 //!
 //! Reads the left eye so OCR keeps working while VRChat's desktop window is minimized.
 //! Windows reads `GetMirrorTextureD3D11` (the OpenGL variant fails there: SteamVR cannot
@@ -9,8 +9,8 @@
 //! compositor, in Python as here.
 //!
 //! - The OpenVR client library (`openvr_api`, BSD-3-Clause, Valve) is loaded at run
-//!   time: `VRCT_OPENVR_API` names it, else it is looked for next to the executable,
-//!   else by name. Without it there is no headset view.
+//!   time: `ASTAROT_OPENVR_API` (or `VRCT_OPENVR_API`) names it, else it is looked for next
+//!   to the executable, else by name. Without it there is no headset view.
 //! - The connection is the process's one, shared with the VR overlay through
 //!   `vrct-openvr-client` ([`acquire`]): `VR_Shutdown` ends it for the whole process, so
 //!   only the last holder calls it.
@@ -19,6 +19,10 @@
 //!   released on the OCR worker thread.
 //! - Only VRChat's frames are read: while another scene app presents, `capture` gives
 //!   nothing so the facade falls back to the desktop window.
+//!
+//! [`ocr_capture_openvr.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/ocr/ocr_capture_openvr.py
+//! [`ocr_capture_d3d11.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/ocr/ocr_capture_d3d11.py
+//! [`ocr_capture_gl.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/ocr/ocr_capture_gl.py
 
 use std::ffi::c_void;
 use std::sync::Arc;
@@ -72,7 +76,7 @@ fn library_name() -> &'static str {
 
 /// Where the OpenVR client library is.
 pub fn library_path() -> std::path::PathBuf {
-    if let Some(path) = std::env::var_os("VRCT_OPENVR_API").filter(|p| !p.is_empty()) {
+    if let Some(path) = app_identity::env::OPENVR_API.value_os() {
         return path.into();
     }
     if let Some(beside) = std::env::current_exe().ok().and_then(|exe| exe.parent().map(|d| d.join(library_name()))) {

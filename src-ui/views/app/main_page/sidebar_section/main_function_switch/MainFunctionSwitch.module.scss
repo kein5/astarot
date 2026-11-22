@@ -76,6 +76,9 @@
     background-color: var(--dark_925_color);
     &.is_active { background-color: var(--vox_highlight_tint); }
     &.is_unavailable { background-color: var(--dark_925_color); }
+    // The first-run setup leads here (#955): the lilac frame and tint of its lead on the first screen
+    // (#940), until the switch is turned on.
+    &[data-lead] { box-shadow: inset 0 0 0 .1rem var(--primary_600_color); background-color: var(--vox_highlight_tint); }
 }
 
 // Opens the feature's settings. The same size whatever the state, so nothing moves when the
@@ -153,14 +156,11 @@ $pending_label_color: var(--dark_500_color);
         color: inherit;
     }
 }
+// A state of the switch's own, such as the TTS server starting. Why no switch can be used (the
+// engine is gone) is not a line here: the rail says it once at its head (EngineReadout).
 .switch_status {
     font-size: 1.2rem;
     color: $pending_label_color;
-    &.is_unavailable {
-        color: var(--dark_350_color);
-        flex-basis: 100%;
-        overflow-wrap: anywhere;
-    }
     &.is_compact_mode {
         display: none;
     }
@@ -214,3 +214,36 @@ $pending_label_color: var(--dark_500_color);
         opacity: .5;
     }
 }
+
+// Under the switches: shows the ones the uses picked in settings leave out (#554, Q-10). Quieter
+// than a switch: no surface at rest, the secondary text, the same height as a row's icon button.
+.more_features {
+    display: flex;
+    align-items: center;
+    gap: .8rem;
+    min-height: 3.2rem;
+    padding: .4rem 1.2rem;
+    border-radius: var(--vox_radius);
+    color: var(--vox_secondary_text);
+    font-size: 1.3rem;
+    text-align: left;
+    cursor: pointer;
+    &:hover { background-color: var(--dark_800_color); }
+    &:active { background-color: var(--dark_875_color); }
+    &:focus-visible { outline: .2rem solid var(--primary_200_color); outline-offset: -.2rem; }
+    &.is_compact_mode { justify-content: center; padding: .4rem; }
+}
+.more_features_svg {
+    width: 1rem;
+    flex: none;
+    color: var(--dark_400_color);
+    transition: transform .12s ease-out;
+    &.is_open { transform: rotate(180deg); }
+}
+.more_features_label {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+// The icon rail's switch the first-run setup leads to (#955), framed as the wide rail's row is.
+.switch_container[data-lead] { box-shadow: inset 0 0 0 .1rem var(--primary_600_color); background-color: var(--vox_highlight_tint); border-radius: var(--vox_radius); }

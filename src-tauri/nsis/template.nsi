@@ -58,26 +58,23 @@ ${StrLoc}
 !define UNINSTALLERSIGNCOMMAND "{{uninstaller_sign_cmd}}"
 !define ESTIMATEDSIZE "{{estimated_size}}"
 
-; The SHA-256 of the two packages this installer was released with, written into
-; nsis\package-hashes.nsh by tools/installer_package_hashes.py once both ZIPs exist
-; (release.yml). They make the installer refuse a package that was replaced on the release
-; page, even together with its .sha256 file. A release build sets VRCT_REQUIRE_PACKAGE_HASHES=1
-; so a missing file stops the build; other builds fall back to the published .sha256 files.
-!if "$%VRCT_REQUIRE_PACKAGE_HASHES%" == "1"
+; The SHA-256 of the package this installer was released with, written into
+; nsis\package-hashes.nsh by tools/installer_package_hashes.py once the ZIP exists
+; (release.yml). It makes the installer refuse a package that was replaced on the release
+; page, even together with its .sha256 file. A release build sets ASTAROT_REQUIRE_PACKAGE_HASHES=1
+; so a missing file stops the build; other builds fall back to the published .sha256 file.
+!if "$%ASTAROT_REQUIRE_PACKAGE_HASHES%" == "1"
   !include "..\..\..\..\nsis\package-hashes.nsh"
-  !ifndef PACKAGE_SHA256_CPU
-    !error "nsis\package-hashes.nsh must define PACKAGE_SHA256_CPU"
-  !endif
-  !ifndef PACKAGE_SHA256_GPU
-    !error "nsis\package-hashes.nsh must define PACKAGE_SHA256_GPU"
+  !ifndef PACKAGE_SHA256
+    !error "nsis\package-hashes.nsh must define PACKAGE_SHA256"
   !endif
 !else
   !include /NONFATAL "..\..\..\..\nsis\package-hashes.nsh"
 !endif
-!ifdef PACKAGE_SHA256_CPU
-  !echo "VRCT-VOX package checksums built in: CPU ${PACKAGE_SHA256_CPU}, GPU ${PACKAGE_SHA256_GPU}"
+!ifdef PACKAGE_SHA256
+  !echo "VRCT-VOX package checksum built in: ${PACKAGE_SHA256}"
 !else
-  !echo "VRCT-VOX package checksums not built in; the installer checks the published .sha256 files"
+  !echo "VRCT-VOX package checksum not built in; the installer checks the published .sha256 file"
 !endif
 
 Name "${PRODUCTNAME}"
@@ -148,9 +145,11 @@ VIAddVersionKey "ProductVersion" "${VERSION}"
 !define MUI_LANGDLL_REGISTRY_VALUENAME "Installer Language"
 
 ; The app's in-app updater (src-tauri/src/app_update.rs, through the Tauri
-; updater) runs this installer with /P /UPDATE /R /ARGS ... /EDITION=cpu|gpu.
+; updater) runs this installer with /P /UPDATE /R /ARGS ...
 ; An update keeps what the user chose at installation: the UI language
-; setting, the edition and the shortcuts. Set in .onInit.
+; setting and the shortcuts. Set in .onInit.
+; There is one app package. Apps up to 0.5 pass /EDITION=cpu|gpu when they
+; update themselves; the installer accepts the option and ignores it (#288).
 Var UpdateMode
 
 ; Installer pages, must be ordered as they appear
@@ -217,49 +216,6 @@ Function PageLeaveChooseLanguage
     ${ElseIf} "日本語" == $0
         StrCpy $SelectedLangage "ja"
         StrCpy $LANGUAGE ${LANG_JAPANESE}
-    ${EndIf}
-FunctionEnd
-
-; 4-2. Choose CPU/GPU edition page
-Var RadioCpuEdition
-Var RadioGpuEdition
-Var DialogChooseEdition
-Var SelectedEdition
-Page custom PageChooseEdition PageLeaveChooseEdition
-Function PageChooseEdition
-    ; The app names its own edition (/EDITION=) when it updates itself.
-    ${If} $UpdateMode == 1
-    ${AndIf} $SelectedEdition != ""
-        Abort
-    ${EndIf}
-    !insertmacro MUI_HEADER_TEXT "Initial Settings" "Choose the version of ${PRODUCTNAME} to install (can be changed later by reinstalling)."
-    nsDialogs::Create 1018
-    Pop $DialogChooseEdition
-
-    ${If} $DialogChooseEdition == error
-        Abort
-    ${EndIf}
-
-    ${NSD_CreateRadioButton} 0 20u 100% 12u "CPU version (smaller download, works on any PC)"
-    Pop $RadioCpuEdition
-    ${NSD_CreateRadioButton} 0 40u 100% 12u "GPU version (requires an NVIDIA GPU, larger download, faster recognition)"
-    Pop $RadioGpuEdition
-
-    ${If} $SelectedEdition == "gpu"
-        SendMessage $RadioGpuEdition ${BM_SETCHECK} ${BST_CHECKED} 0
-    ${Else}
-        SendMessage $RadioCpuEdition ${BM_SETCHECK} ${BST_CHECKED} 0
-    ${EndIf}
-
-    nsDialogs::Show
-FunctionEnd
-
-Function PageLeaveChooseEdition
-    ${NSD_GetState} $RadioGpuEdition $0
-    ${If} $0 == ${BST_CHECKED}
-        StrCpy $SelectedEdition "gpu"
-    ${Else}
-        StrCpy $SelectedEdition "cpu"
     ${EndIf}
 FunctionEnd
 
@@ -567,12 +523,8 @@ Function .onInit
   IfErrors +2 0
     StrCpy $UpdateMode 1
 
-  ; Preselect the CPU/GPU edition page when launched from within the app
-  ; (e.g. "/EDITION=gpu" from the in-app CPU/GPU switch button). The page
-  ; is still shown so the user can change their mind before installing.
-  ${GetOptions} $CMDLINE "/EDITION=" $0
-  IfErrors +2 0
-    StrCpy $SelectedEdition $0
+  ; /EDITION= (cpu or gpu, from apps up to 0.5) is not read: every edition
+  ; installs the same package, VRCT-VOX.zip.
 
   ; Pin the downloaded app package to a specific released version instead of
   ; always fetching the latest from the HF "main" revision (e.g.
@@ -596,7 +548,7 @@ Function .onInit
   ${EndIf}
 
   ; Launched from within the app (e.g. the user is on the beta channel and
-  ; clicks "reinstall"/"switch edition"): use VRCT's current channel setting
+  ; clicks "reinstall"): use VRCT's current channel setting
   ; instead of the baked-in default above.
   ${GetOptions} $CMDLINE "/CHANNEL=" $0
   IfErrors +2 0
@@ -850,20 +802,20 @@ Section Install
 
   !addplugindir "..\..\..\..\nsis\plugins\x86-unicode"
   ; 指定のURLからファイルをダウンロード
+  ; The one app package. Releases up to 0.5 also had VRCT-VOX_cuda.zip (the same
+  ; files since 0.5.0); /EDITION=gpu installs this package too, also with /VERSION.
   !define SOFTWARE_DOWNLOAD_FILENAME "VRCT-VOX.zip"
-  !define SOFTWARE_DOWNLOAD_FILENAME_GPU "VRCT-VOX_cuda.zip"
 
-  ; Free-space budget (MiB) per edition. The compressed archive is written to
+  ; Free-space budget (MiB). The compressed archive is written to
   ; %TEMP%, the new tree to $INSTDIR\.upd\new. The old installation stays
   ; on disk until commit finishes. These are additional FREE-space budgets:
   ; the install drive needs DOWNLOAD + EXTRACT beyond the existing tree.
-  ; Measured 2026-08: VRCT.zip ~485MB / ~1.5GB unpacked; VRCT_cuda.zip
-  ; ~3461MB / ~5757MB unpacked. Values below add headroom -- re-measure and
-  ; bump them when the packages grow.
-  !define REQ_DOWNLOAD_MB_CPU 1024
-  !define REQ_EXTRACT_MB_CPU 3072
-  !define REQ_DOWNLOAD_MB_GPU 4096
-  !define REQ_EXTRACT_MB_GPU 7168
+  ; Measured 2026-08: VRCT.zip ~485MB / ~1.5GB unpacked (0.4 with Python);
+  ; 0.5.1's VRCT-VOX.zip is ~36MB / ~0.1GB unpacked. Values below add
+  ; headroom and still cover /VERSION installs of 0.4 -- re-measure and bump
+  ; them when the package grows.
+  !define REQ_DOWNLOAD_MB 1024
+  !define REQ_EXTRACT_MB 3072
 
   Var /GLOBAL i
   Var /GLOBAL cmder_dl
@@ -897,15 +849,9 @@ Section Install
   Var /GLOBAL dl_resume
   ; Bytes the single-connection transfer had at the last look, for its stall watchdog.
   Var /GLOBAL dl_last_bytes
-  ${If} $SelectedEdition == "gpu"
-    StrCpy $file_name "${SOFTWARE_DOWNLOAD_FILENAME_GPU}"
-    StrCpy $req_dl_mb ${REQ_DOWNLOAD_MB_GPU}
-    StrCpy $req_extract_mb ${REQ_EXTRACT_MB_GPU}
-  ${Else}
-    StrCpy $file_name "${SOFTWARE_DOWNLOAD_FILENAME}"
-    StrCpy $req_dl_mb ${REQ_DOWNLOAD_MB_CPU}
-    StrCpy $req_extract_mb ${REQ_EXTRACT_MB_CPU}
-  ${EndIf}
+  StrCpy $file_name "${SOFTWARE_DOWNLOAD_FILENAME}"
+  StrCpy $req_dl_mb ${REQ_DOWNLOAD_MB}
+  StrCpy $req_extract_mb ${REQ_EXTRACT_MB}
 
   ; --- Pre-flight: refuse to start if either target volume is too small ---
   ; $TEMP holds the download; $INSTDIR\.upd holds the staged app alongside
@@ -924,20 +870,20 @@ Section Install
     ${If} $R2 >= 0
     ${AndIf} $R2 < $R4
       DetailPrint "Aborted: need $R4 MB free on $R0, only $R2 MB available"
-      MessageBox MB_OK|MB_ICONSTOP "Not enough free disk space on drive $R0 to install the $SelectedEdition version.$\r$\n$\r$\nRequired: about $R4 MB$\r$\nAvailable: $R2 MB$\r$\n$\r$\nFree up space (or pick an install folder on another drive) and run the installer again." /SD IDOK
+      MessageBox MB_OK|MB_ICONSTOP "Not enough free disk space on drive $R0 to install ${PRODUCTNAME}.$\r$\n$\r$\nRequired: about $R4 MB$\r$\nAvailable: $R2 MB$\r$\n$\r$\nFree up space (or pick an install folder on another drive) and run the installer again." /SD IDOK
       Abort
     ${EndIf}
   ${Else}
     ${If} $R2 >= 0
     ${AndIf} $R2 < $req_dl_mb
       DetailPrint "Aborted: need $req_dl_mb MB free on TEMP drive $R0, only $R2 MB available"
-      MessageBox MB_OK|MB_ICONSTOP "Not enough free space on the temporary-files drive $R0 to download the $SelectedEdition package.$\r$\n$\r$\nRequired: about $req_dl_mb MB$\r$\nAvailable: $R2 MB$\r$\n$\r$\nFree up space on $R0 and run the installer again." /SD IDOK
+      MessageBox MB_OK|MB_ICONSTOP "Not enough free space on the temporary-files drive $R0 to download the ${PRODUCTNAME} package.$\r$\n$\r$\nRequired: about $req_dl_mb MB$\r$\nAvailable: $R2 MB$\r$\n$\r$\nFree up space on $R0 and run the installer again." /SD IDOK
       Abort
     ${EndIf}
     ${If} $R3 >= 0
     ${AndIf} $R3 < $R4
       DetailPrint "Aborted: need $R4 MB free on install drive $R1, only $R3 MB available"
-      MessageBox MB_OK|MB_ICONSTOP "Not enough free space on the install drive $R1 for the $SelectedEdition version.$\r$\n$\r$\nRequired: about $R4 MB$\r$\nAvailable: $R3 MB$\r$\n$\r$\nFree up space (or choose another drive) and run the installer again." /SD IDOK
+      MessageBox MB_OK|MB_ICONSTOP "Not enough free space on the install drive $R1 for ${PRODUCTNAME}.$\r$\n$\r$\nRequired: about $R4 MB$\r$\nAvailable: $R3 MB$\r$\n$\r$\nFree up space (or choose another drive) and run the installer again." /SD IDOK
       Abort
     ${EndIf}
   ${EndIf}
@@ -959,13 +905,9 @@ Section Install
   ; Installing the release this installer came from: check the package against the
   ; hash built into the installer (see package-hashes.nsh at the top), not against a
   ; file on the same release page, which whoever can replace the package can replace too.
-  !ifdef PACKAGE_SHA256_CPU
+  !ifdef PACKAGE_SHA256
     ${If} $effective_version == "${VERSION}"
-      ${If} $SelectedEdition == "gpu"
-        StrCpy $expected_package_hash "${PACKAGE_SHA256_GPU}"
-      ${Else}
-        StrCpy $expected_package_hash "${PACKAGE_SHA256_CPU}"
-      ${EndIf}
+      StrCpy $expected_package_hash "${PACKAGE_SHA256}"
       StrCpy $package_hash_available "1"
       DetailPrint "Using the package checksum built into this installer"
       Goto package_hash_ready
@@ -1395,7 +1337,7 @@ Section Install
   install_ready:
   ; The archive is no longer needed once it is unpacked; reclaim the space,
   ; and the space of an archive an earlier failed install kept (several GB
-  ; for the CUDA edition).
+  ; for the CUDA package of 0.4 and earlier).
   Delete "$TEMP\$file_name"
   Delete "$TEMP\$file_name.bad"
 

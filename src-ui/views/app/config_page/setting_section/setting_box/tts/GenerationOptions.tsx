@@ -1,0 +1,89 @@
+import { useEffect, useId } from "react";
+import { useI18n } from "@useI18n";
+import { useVoice } from "../../../../../../logics/voice/useVoice";
+import { useSpeechServers } from "../../../../../../logics/voice/useSpeechServers";
+import type { VoiceModelRole, VoiceSettings } from "../../../../../../logics/voice/useVoice";
+import { EnvReadout } from "../_components/env_readout/EnvReadout";
+import { FormRow } from "../_components/form_row/FormRow";
+import styles from "../advanced_settings/VoiceSettings.module.scss";
+
+// Control characters other than tab, line feed and carriage return: an instruction with one is not valid.
+// biome-ignore lint/suspicious/noControlCharactersInRegex: the control characters are what it looks for.
+const CONTROL_CHARACTERS = /[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/;
+
+export const validGenerationOptions = (draft: VoiceSettings) => ["japanese", "multilingual"].every(role => {
+    const seed = draft[`${role}_seed`] || "", instruction = draft[`${role}_instructions`] || "";
+    return (!seed || (/^[0-9]{1,16}$/.test(seed) && BigInt(seed) <= 9007199254740991n)) &&
+        Array.from(instruction).length <= 4000 && !CONTROL_CHARACTERS.test(instruction);
+});
+
+// One role's generation fields (seed and instructions) in the TTS draft; `field` writes one field
+// of the draft and `errorId` names the page's message about invalid options.
+export interface GenerationOptionsProps {
+    role: VoiceModelRole;
+    draft: VoiceSettings;
+    field: (key: string, value: string) => void;
+    errorId: string;
+}
+
+export const GenerationOptions = ({ role, draft, field, errorId }: GenerationOptionsProps) => {
+    const { t } = useI18n();
+    const { settings, modelOptions, send } = useVoice();
+    const { state } = useSpeechServers();
+    const server = settings?.[`${role}_server`], url = settings?.[`${role}_url`];
+    const owner = state[role];
+    const reasonId = useId();
+    const seedRangeId = useId();
+    const countId = useId();
+    const generation = owner?.generation, phase = owner?.state;
+    const canQuery = server === "bundled" ? phase === "ready" : !!url;
+    useEffect(() => {
+        if (!canQuery) return;
+        const query = () => send("/get/data/tts_model_options", { role });
+        query();
+        const timer = setInterval(query, 10000);
+        return () => clearInterval(timer);
+    }, [role, server, url, generation, phase, canQuery, send]);
+    const row = modelOptions[role];
+    const matches = canQuery && row !== undefined && row.server === server && row.configured_url === url &&
+        (server !== "bundled" || (row.server_generation === generation && row.base_url === owner?.base_url)) &&
+        draft[`${role}_server`] === server && draft[`${role}_url`] === url;
+    const options = matches ? row.options : null;
+    const seedKey = `${role}_seed`, instructionKey = `${role}_instructions`;
+    const seed = draft[seedKey] || "", instructions = draft[instructionKey] || "";
+    const fixed = seed !== "";
+    const invalidSeed = !/^[0-9]{1,16}$/.test(seed) || BigInt(/^[0-9]{1,16}$/.test(seed) ? seed : "0") > 9007199254740991n;
+    const invalidInstructions = Array.from(instructions).length > 4000 || CONTROL_CHARACTERS.test(instructions);
+    const outsideSeedRange = options?.seed && fixed && /^[0-9]{1,16}$/.test(seed) &&
+        (BigInt(seed) < BigInt(options.seed.minimum) || BigInt(seed) > BigInt(options.seed.maximum));
+    const support = (value: unknown) => t(`voice_ui.${!options ? "not_confirmed" : value ? "supported" : "not_supported"}`);
+    return <>
+        <label>{t("voice_ui.seed_mode")}<select aria-label={t("voice_ui.seed_mode")} value={fixed ? "fixed" : "random"}
+            onChange={e => field(seedKey, e.target.value === "fixed" ? "0" : "")}>
+            <option value="random">{t("voice_ui.seed_random")}</option><option value="fixed">{t("voice_ui.seed_fixed")}</option>
+        </select></label>
+        {fixed && <label>{t("voice_ui.seed_value")}<input type="text" inputMode="numeric" value={seed} placeholder={t("voice_ui.example", { value: "12345" })}
+            aria-invalid={invalidSeed || !!outsideSeedRange}
+            aria-describedby={[invalidSeed ? errorId : null, outsideSeedRange ? seedRangeId : null].filter(Boolean).join(" ") || undefined}
+            onChange={e => field(seedKey, e.target.value)} /></label>}
+        {/* What the field is for is the label's hint (#614); the count of its characters stays in sight
+            under it, as they are typed, and is part of what the field says. */}
+        <FormRow label={t("voice_ui.instruction")} description={t("voice_ui.instruction_desc")} fold={false}
+            actions={<p id={countId} className={styles.count}>{t("voice_ui.instruction_count", { count: Array.from(instructions).length })}</p>}>
+            <textarea aria-invalid={invalidInstructions} aria-describedby={[countId, invalidInstructions ? errorId : null].filter(Boolean).join(" ")} aria-label={t("voice_ui.instruction")} value={instructions} maxLength={8000} rows={3}
+                placeholder={t("voice_ui.example", { value: t("voice_ui.instruction_example") })}
+                onChange={e => field(instructionKey, e.target.value)} />
+        </FormRow>
+        <EnvReadout><p>{t("voice_ui.option_support", { seed: support(options?.seed), instruction: support(options?.instructions) })}{options?.model ? ` · ${options.model}` : ""}</p></EnvReadout>
+        {(fixed || instructions.trim()) && (!options || (fixed && !options.seed) || (instructions.trim() && !options.instructions)) &&
+            <p>{t("voice_ui.options_warning")}</p>}
+        {outsideSeedRange && <p id={seedRangeId} role="alert">{t("voice_ui.seed_range", options?.seed ?? undefined)}</p>}
+        {/* In the control column, under the fields it checks (#473). */}
+        <div className={`${styles.actions} ${styles.control_column}`}>
+            <button type="button" disabled={!canQuery} aria-describedby={canQuery ? undefined : reasonId}
+                onClick={() => send("/get/data/tts_model_options", { role })}>{t("voice_ui.check_options")}</button>
+        </div>
+        {/* A disabled check says what it waits for: a saved URL, or the bundled server running. */}
+        {!canQuery && <p id={reasonId}>{t(server === "bundled" ? "voice_ui.check_needs_server" : "voice_ui.check_needs_url")}</p>}
+    </>;
+};

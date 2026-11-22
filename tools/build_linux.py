@@ -3,8 +3,9 @@
 The app runs the Rust backend core in its own process; no Python is frozen or shipped.
 `_internal` holds what tools/app_resources.py lists for Linux: both pinned speech.cpp builds
 (the Vulkan build in build/speechcpp, the CPU build in build/speechcpp-cpu; the user chooses in
-the settings which one runs), the RVC worker, the audio and capture helpers, the PipeWire
-configuration and the license texts. No models are fetched by this tool.
+the settings which one runs), the RVC worker, the audio and capture helpers, the readings'
+dictionary (SudachiDict full), the PipeWire configuration and the license texts. No models are
+fetched by this tool.
 System dependencies are documented in docs/voice-stack/linux-build-pipeline.md.
 """
 import argparse
@@ -21,11 +22,13 @@ try:
     from .linux_package import check_tree, inventory, normalize_modes, pack
     from .speechcpp_bundle import stage_bundle, fetch_archive, load_manifest, verify_bundle
     from .runtime_libraries import stage as stage_runtime_libraries
+    from .sudachi_dictionary import SHIPPED_EDITION, archive_name, ensure as ensure_dictionary
 except ImportError:
     from app_resources import stage as stage_resources
     from linux_package import check_tree, inventory, normalize_modes, pack
     from speechcpp_bundle import stage_bundle, fetch_archive, load_manifest, verify_bundle
     from runtime_libraries import stage as stage_runtime_libraries
+    from sudachi_dictionary import SHIPPED_EDITION, archive_name, ensure as ensure_dictionary
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -38,10 +41,10 @@ def prepare_work(path):
     marker = work / '.vrct-linux-build'
     if work == ROOT or work in ROOT.parents or work.is_relative_to(ROOT / 'src-tauri'):
         raise ValueError('choose a dedicated build directory')
-    if work.exists() and any(work.iterdir()) and (not marker.is_file() or marker.read_text() != 'VRCT-VOX Linux staging v1\n'):
+    if work.exists() and any(work.iterdir()) and (not marker.is_file() or marker.read_text(encoding='utf-8') != 'VRCT-VOX Linux staging v1\n'):
         raise ValueError('refusing an existing nonempty directory: choose a dedicated build directory')
     work.mkdir(parents=True, exist_ok=True)
-    marker.write_text('VRCT-VOX Linux staging v1\n')
+    marker.write_text('VRCT-VOX Linux staging v1\n', encoding='utf-8')
     return work
 
 
@@ -55,15 +58,12 @@ def run(argv, *, cwd=ROOT, env=None):
 # dependencies of those Cargo.toml files.
 # translate-onnx is an optional dependency of the core (feature onnx-translation, off), but Cargo
 # reads its manifest to resolve the core, so it is copied too.
-APP_CRATES = ('core', 'adapters', 'audio-routing', 'ocr-runtime', 'openvr-client', 'ops', 'speech-server', 'transcription',
-              'translation', 'translate-onnx', 'tts', 'voice-conversion', 'vr-overlay')
+APP_CRATES = ('core', 'adapters', 'app-identity', 'audio-routing', 'ocr-runtime', 'onnx-runtime', 'openvr-client', 'ops', 'speech-server',
+              'transcription', 'translation', 'translate-onnx', 'tts', 'voice-conversion', 'vr-overlay')
 # Files outside those crates that they read at compile time (include_str!), at the same path in
-# the workspace: native/ops builds the speech.cpp recognizers from the backend's own text, and
-# native/vr-overlay checks its layout against the VR page's.
+# the workspace: native/vr-overlay checks its layout against the VR page's.
 # tests/devtools/test_build_linux.py keeps this list equal to what the crates include.
-CRATE_INPUTS = ('src-python/models/model_downloads/speechcpp_models.py',
-                'src-python/models/model_downloads/speechcpp_asr.py',
-                'src-ui/views/vr/vr_layout.json')
+CRATE_INPUTS = ('src-ui/views/vr/vr_layout.json',)
 
 
 def tauri_workspace(work, internal):
@@ -98,12 +98,12 @@ def tauri_workspace(work, internal):
     binary.mkdir()
     # tauri.conf.json maps bin/_internal to the app's _internal folder.
     shutil.copytree(internal, binary / '_internal', symlinks=True)
-    config = json.loads((tauri / 'tauri.conf.json').read_text())
+    config = json.loads((tauri / 'tauri.conf.json').read_text(encoding='utf-8'))
     config['bundle']['targets'] = []
     # Nothing runs beside the app any more; a stale entry would name a missing binary.
     config['bundle'].pop('externalBin', None)
     config['bundle'].pop('windows', None)
-    (tauri / 'tauri.conf.json').write_text(json.dumps(config, indent=2))
+    (tauri / 'tauri.conf.json').write_text(json.dumps(config, indent=2), encoding='utf-8')
     return workspace
 
 
@@ -124,10 +124,16 @@ def speech_archives(manifest, directory):
     return {variant: Path(directory) / manifest['assets'][variant]['name'] for variant, _ in SPEECH_BUILDS}
 
 
-def stage_internal(work, archives, *, offline=False, download=False):
+def dictionary_archive(directory):
+    """Where the build keeps the archive of the shipped SudachiDict: beside the speech.cpp ones."""
+    return Path(directory) / archive_name(SHIPPED_EDITION)
+
+
+def stage_internal(work, archives, *, offline=False, download=False, dictionary=None):
     """Builds the helpers and returns the staged `_internal` folder (tools/app_resources.py).
 
-    `archives` maps each variant of SPEECH_BUILDS to its pinned speech.cpp archive."""
+    `archives` maps each variant of SPEECH_BUILDS to its pinned speech.cpp archive; `dictionary`
+    is the SudachiDict archive (`dictionary_archive`, in `work` when None)."""
     build = work / 'build'
     if build.exists():
         shutil.rmtree(build)
@@ -147,6 +153,9 @@ def stage_internal(work, archives, *, offline=False, download=False):
         verify_bundle(build / folder)
     # ONNX Runtime and the OpenVR client library, pinned like the engine binaries (issue #509).
     stage_runtime_libraries('linux', build, download=download)
+    # The readings' dictionary, the edition the packages ship (decision 3, issue #924).
+    ensure_dictionary(SHIPPED_EDITION, build / 'sudachi',
+                      archive=dictionary if dictionary is not None else dictionary_archive(work), download=download)
     internal = work / 'internal'
     missing = stage_resources(internal, 'linux', build=build)
     if missing:
@@ -164,8 +173,9 @@ def main():
     parser.add_argument('--output-dir', type=Path, default=ROOT / 'build/linux/artifacts')
     source = parser.add_mutually_exclusive_group()
     source.add_argument('--speech-archive-dir', type=Path,
-                        help='a folder holding both pinned speech.cpp archives under their release names')
-    source.add_argument('--download-speech', action='store_true', help='fetch only the pinned engine binaries and runtime libraries, never weights')
+                        help='a folder holding both pinned speech.cpp archives and the SudachiDict full archive '
+                             'under their release names')
+    source.add_argument('--download-speech', action='store_true', help='fetch only the pinned engine binaries, runtime libraries and readings dictionary, never weights')
     parser.add_argument('--profile', choices=('debug', 'release'), default='release')
     parser.add_argument('--resources-only', action='store_true',
                         help='stage and inspect _internal only; no distributable is produced')
@@ -178,15 +188,17 @@ def main():
     if not (args.speech_archive_dir or args.download_speech):
         parser.error('--speech-archive-dir or explicit --download-speech is required')
     work = prepare_work(args.work_dir)
-    archives = speech_archives(load_manifest(), args.speech_archive_dir.resolve() if args.speech_archive_dir else work)
-    internal = stage_internal(work, archives, offline=args.offline, download=args.download_speech)
+    archive_dir = args.speech_archive_dir.resolve() if args.speech_archive_dir else work
+    archives = speech_archives(load_manifest(), archive_dir)
+    internal = stage_internal(work, archives, offline=args.offline, download=args.download_speech,
+                              dictionary=dictionary_archive(archive_dir))
     if args.resources_only:
         print(f'Staged _internal ready: {internal}')
         return
     run(['npm', 'ci', '--ignore-scripts', *(['--offline'] if args.offline else [])])
     run(['npm', 'run', 'vite-build'])
     workspace = tauri_workspace(work, internal)
-    env = dict(os.environ, VRCT_LINUX_BUNDLE='1', CARGO_TARGET_DIR=str(work / 'cargo'))
+    env = dict(os.environ, ASTAROT_LINUX_BUNDLE='1', CARGO_TARGET_DIR=str(work / 'cargo'))
     env.setdefault('CARGO_BUILD_JOBS', '4')
     if args.offline:
         env['CARGO_NET_OFFLINE'] = 'true'
@@ -204,7 +216,7 @@ def main():
     check_tree(candidate, require_runtime=True)
     for _, folder in SPEECH_BUILDS:
         verify_bundle(candidate / '_internal/build' / folder)
-    version = json.loads((ROOT / 'package.json').read_text())['version']
+    version = json.loads((ROOT / 'package.json').read_text(encoding='utf-8'))['version']
     report = {'schema': 1, 'version': version, 'profile': args.profile, 'variant': PACKAGE_VARIANT,
               'speech_builds': [variant for variant, _ in SPEECH_BUILDS],
               'platform': platform.platform(), 'libc': platform.libc_ver(),
@@ -213,7 +225,7 @@ def main():
               'files': inventory(candidate),
               'limitations': ['Not a license clearance; review all native-library and dependency obligations before publication.',
                               'No Windows validation; Linux ABI requirements depend on the recorded build host.']}
-    (candidate / 'build-manifest.json').write_text(json.dumps(report, ensure_ascii=False, indent=2) + '\n')
+    (candidate / 'build-manifest.json').write_text(json.dumps(report, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
     (candidate / 'build-manifest.json').chmod(0o644)
     args.output_dir.mkdir(parents=True, exist_ok=True)
     output = args.output_dir / f'VRCT-VOX-{version}-{PACKAGE_VARIANT}-{args.profile}.tar.gz'

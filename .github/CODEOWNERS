@@ -1,9 +1,80 @@
-# Code owners are requested for review automatically when a pull request
-# changes their files. The last matching pattern takes precedence.
-# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+# Code owners review the pull requests that change what the project publishes: the release
+# builds, their signatures and notes, what the packages hold and the licenses shipped in them,
+# the models the app offers for download, and the public pages. The branch rulesets require a
+# code owner's approval for these files. Other files have no owner, and the pull-request skill
+# (skills/pull-request/SKILL.md, "CIとマージの条件") says who may merge them.
 #
-# One maintainer owns everything for now. Add owners for specific areas
-# (for example src-ui/, src-python/, src-tauri/, site/) below this line
-# when other people start maintaining them.
+# A pull request opened from a code owner's own account cannot be approved by that account, so
+# only a code owner merges it, past the ruleset. Keep the skill in step when this list changes.
+#
+# Each entry is a plain path from the repository root, a folder ending in "/", with no wildcards:
+# the skill matches a branch's files against these paths as they are written, and
+# tests/devtools/test_codeowners.py checks that each one exists.
+# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
 
-* @kein5
+# This list.
+/.github/CODEOWNERS @kein5
+
+# Building the candidates, then signing and publishing the release.
+/.github/workflows/build-linux.yml @kein5
+/.github/workflows/windows-package.yml @kein5
+/.github/actions/ @kein5
+/.github/workflows/release.yml @kein5
+/.github/workflows/prepare-release.yml @kein5
+/.github/workflows/release-draft-auto.yml @kein5
+/.github/workflows/release-back-merge.yml @kein5
+/tools/release_candidate.py @kein5
+/tools/prepare_release.py @kein5
+/tools/release_automation.py @kein5
+/tools/updater_manifest.py @kein5
+/tools/installer_package_hashes.py @kein5
+/utils/update_version.py @kein5
+
+# The release notes and the changelog, and the steps that publish a release.
+/CHANGELOG.md @kein5
+/tools/changelog.py @kein5
+/tools/changelog_commits.tera @kein5
+/cog.toml @kein5
+/docs/release-notes/ @kein5
+/docs/release-draft-template.md @kein5
+/docs/voice-stack/release-candidates.md @kein5
+/skills/release/ @kein5
+
+# What the packages hold: the bundle and update settings, the installer and the AppImage, and the
+# tools that gather and check the files that go in.
+/src-tauri/tauri.conf.json @kein5
+/src-tauri/src/app_update.rs @kein5
+/src-tauri/nsis/ @kein5
+/packaging/ @kein5
+/tools/build_linux.py @kein5
+/tools/build_appimage.py @kein5
+/tools/linux_package.py @kein5
+/tools/linux_packages.py @kein5
+/tools/app_resources.py @kein5
+/tools/build_rvc_worker.py @kein5
+/tools/speechcpp_bundle.py @kein5
+/tools/sudachi_dictionary.py @kein5
+/tools/runtime_libraries.py @kein5
+/tools/rust_licenses.py @kein5
+/tools/distribution_policy.py @kein5
+/tools/check_voice_distribution.py @kein5
+/docs/voice-stack/speechcpp-bundle-artifacts.json @kein5
+/docs/voice-stack/appimage-tools.json @kein5
+
+# The licenses and notices shipped with the packages.
+/LICENSE @kein5
+/NOTICE.md @kein5
+/licenses/ @kein5
+
+# The models the app offers for download, with their licenses, and the script that publishes the
+# translation models.
+/native/ops/src/downloads/catalog.rs @kein5
+/native/ocr-runtime/src/models.rs @kein5
+/tools/translation_onnx/publish.py @kein5
+
+# The public pages: the user documentation, deployed to GitHub Pages when it reaches develop, and
+# the repository's front page, which shows the default branch (develop).
+/site/ @kein5
+/.github/workflows/pages.yml @kein5
+/README.md @kein5
+/docs/readmes/ @kein5

@@ -1,3 +1,5 @@
+@import "@scss_mixins";
+
 .tooltipWrapper {
     position: relative;
     display: inline-flex;
@@ -5,28 +7,21 @@
     justify-content: center;
 }
 
+// The wrapper without a box: its control is laid out as the child of the wrapper's parent.
+.bare {
+    display: contents;
+}
+
+// Placed in the window by the component (left and top), at the end of the page.
 .tooltipBox {
-    position: absolute;
+    position: fixed;
     z-index: 1500;
     pointer-events: none;
-    background-color: var(--dark_700_color, rgba(97, 97, 97, 0.92));
-    color: var(--dark_basic_text_color, #fff);
-    border-radius: 0.4rem;
-    padding: 0.4rem 0.8rem;
-    font-size: 1.1rem;
-    line-height: 1.4em;
-    font-weight: 500;
-    white-space: nowrap;
+    @include tooltip_content;
     opacity: 0;
     animation: fadeIn 0.15s cubic-bezier(0.4, 0, 0.2, 1) forwards;
     animation-delay: 0.1s; // small delay
-}
-
-.placement-top {
-    bottom: 100%;
-    left: 50%;
-    transform: translateX(-50%);
-    margin-bottom: var(--margin-bottom, 0.8rem);
+    @media (prefers-reduced-motion: reduce) { animation: none; opacity: 1; }
 }
 
 @keyframes fadeIn {

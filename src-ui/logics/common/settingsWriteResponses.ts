@@ -9,10 +9,12 @@ const endpoints = new Set([
     "osc_ip_address", "osc_port", "websocket_host", "websocket_port", "websocket_tls", "ocr_window_title",
     "obs_browser_source_port", "obs_browser_source_max_messages", "obs_browser_source_display_duration",
     "obs_browser_source_fadeout_duration", "obs_browser_source_font_size", "obs_browser_source_font_color",
-    "obs_browser_source_font_outline_thickness", "obs_browser_source_font_outline_color",
+    "obs_browser_source_font_outline_thickness", "obs_browser_source_font_outline_color", "rvc_block_ms",
 ].map(name => `/set/data/${name}`).concat([
     // A new connection key: the button says it is done only when the backend says so.
     "/run/regenerate_websocket_auth_token",
+    // The dictionary written out (#792): the button says the file's name, or that it failed.
+    "/run/export_vocabulary",
 ]));
 const textEndpoints = new Set([
     "deepl_auth_key", "plamo_auth_key", "gemini_auth_key", "openai_auth_key", "groq_auth_key", "openrouter_auth_key",
@@ -62,8 +64,7 @@ export function createSettingsWriteResponses(): SettingsWriteResponses {
         if (!attempted) {
             const queue = queues.get(request.endpoint);
             const index = queue?.indexOf(request) ?? -1;
-            // index >= 0 only when the queue exists.
-            if (index >= 0) queue!.splice(index, 1);
+            if (queue && index >= 0) queue.splice(index, 1);
         }
     };
     const receive = (response: BackendResponse) => {

@@ -1,5 +1,7 @@
 //! Consent-gated file transactions; applying to the settings is a separate explicit call
-//! (`manager.py`).
+//! ([`manager.py`]).
+//!
+//! [`manager.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/model_downloads/manager.py
 
 use std::fs::{self, File, OpenOptions};
 use std::io::{self, Read, Write};
@@ -16,7 +18,7 @@ use sha2::{Digest, Sha256};
 use super::catalog::{self, artifact_url, Model, CATALOG_VERSION};
 use super::guidance::model_guidance;
 use super::speechcpp::{model_profile, speech_model};
-use super::staging::{mark_owned, recover_owned, RootLease};
+use super::staging::{mark_owned, reclaim_published, recover_owned, RootLease};
 use super::transport::{Aborter, Public, Transport};
 use super::verification::{hex, verify_file_chunked};
 use super::{absolute_root, create_private_dir, directory, is_disk_full, Error};
@@ -254,6 +256,8 @@ impl Downloads {
                 sources.sort();
                 sources.dedup();
                 row.insert("sources", sources.into_iter().map(Json::from).collect::<Vec<_>>());
+                // What the user acknowledges apart from the consent before it downloads.
+                row.insert("restrictions", m.restrictions().into_iter().map(Json::from).collect::<Vec<_>>());
                 Json::Object(row)
             })
             .collect::<Vec<_>>();
@@ -270,7 +274,9 @@ impl Downloads {
     }
 
     /// `{id: {role: path}}` for every entry whose files are on disk, including those of earlier
-    /// runs (`manager.py` `downloaded`).
+    /// runs ([`manager.py`] `downloaded`).
+    ///
+    /// [`manager.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/model_downloads/manager.py
     pub fn downloaded(&self) -> Json {
         let paths = |paths: Paths| paths.iter().fold(Object::new(), |o, (role, path)| o.with(role.as_str(), path.as_str()));
         self.inner.entries.iter().fold(Object::new(), |o, m| match self.inner.present(m) {
@@ -280,13 +286,20 @@ impl Downloads {
     }
 
     /// Starts downloading one entry. The request is exactly `{id, consent, catalog_version}`,
-    /// `consent` is `true`, and the version is the current catalog's.
+    /// with `acknowledged` besides when the entry carries restrictions ([`Model::restrictions`]):
+    /// `consent` is `true`, the version is the current catalog's, and `acknowledged` names exactly
+    /// the entry's restrictions. Left out, it names none, so a request for an unrestricted entry
+    /// is the same as before restrictions existed.
     ///
-    /// Errors: `download_request_invalid`, `consent_required`, `catalog_changed`,
-    /// `downloads_closed`, `download_busy`.
+    /// Errors: `download_request_invalid` (also for an `acknowledged` that is not a list of
+    /// distinct [`catalog::RESTRICTIONS`], or that names one the entry does not carry),
+    /// `consent_required`, `catalog_changed`, `model_download_restriction_unacknowledged`,
+    /// `downloads_closed`, `download_busy`. A refused request writes nothing.
     pub fn start(&self, request: &serde_json::Value) -> Result<Json, Error> {
-        let fields = request.as_object().filter(|o| o.len() == 3 && ["id", "consent", "catalog_version"].iter().all(|k| o.contains_key(*k)));
+        const REQUIRED: [&str; 3] = ["id", "consent", "catalog_version"];
+        let fields = request.as_object().filter(|o| REQUIRED.iter().all(|k| o.contains_key(*k)) && o.keys().all(|k| REQUIRED.contains(&k.as_str()) || k == "acknowledged"));
         let Some(fields) = fields else { return Err(Error::Code("download_request_invalid")) };
+        let Some(acknowledged) = fields.get("acknowledged").map_or(Some(Vec::new()), acknowledgement) else { return Err(Error::Code("download_request_invalid")) };
         if fields["consent"] != serde_json::Value::Bool(true) {
             return Err(Error::Code("consent_required"));
         }
@@ -295,6 +308,13 @@ impl Downloads {
             _ => None,
         };
         let Some(entry) = entry.cloned() else { return Err(Error::Code("catalog_changed")) };
+        let restrictions = entry.restrictions();
+        if acknowledged.iter().any(|kind| !restrictions.contains(kind)) {
+            return Err(Error::Code("download_request_invalid"));
+        }
+        if restrictions.iter().any(|kind| !acknowledged.contains(kind)) {
+            return Err(Error::Code("model_download_restriction_unacknowledged"));
+        }
         let mut state = self.inner.state.lock().unwrap();
         if state.closed || self.inner.closing.load(Ordering::SeqCst) {
             return Err(Error::Code("downloads_closed"));
@@ -562,13 +582,25 @@ impl Inner {
         lease.acquire()?;
         recover_owned(&self.root, &self.entries, &[])?;
         let destination = self.destination(entry);
-        if fs::symlink_metadata(&destination).is_ok() {
+        let mut published = fs::symlink_metadata(&destination).is_ok();
+        if published {
             directory(&destination)?;
             self.set_phase(job_id, &entry.id, "verifying");
-            for artifact in &entry.artifacts {
-                self.verify(&destination.join(&artifact.filename), artifact.size, &artifact.sha256, cancel)?;
+            let checked = entry.artifacts.iter().try_for_each(|artifact| self.verify(&destination.join(&artifact.filename), artifact.size, &artifact.sha256, cancel));
+            match checked {
+                Ok(()) => {}
+                // Files this app published that are now damaged or missing are moved out of the
+                // way and downloaded again; anything it does not recognize stays, and fails.
+                Err(Stop::Failed(error)) if is_damage(&error) => {
+                    if !reclaim_published(&self.root, &destination, entry)? {
+                        return Err(Stop::Failed(error));
+                    }
+                    published = false;
+                }
+                Err(stop) => return Err(stop),
             }
-        } else {
+        }
+        if !published {
             if (self.options.free_space)(&self.root)? < entry.total_bytes() + self.options.reserve_bytes {
                 return Err(Error::Code("insufficient_space").into());
             }
@@ -632,6 +664,7 @@ impl Inner {
             }
             fs::rename(dir, &destination)?;
             *staging = None;
+            super::sync_directory(destination.parent().expect("a destination has a parent"));
         }
         if let Some(job) = state.job(&entry.id).filter(|j| j.job_id == job_id) {
             job.phase = "ready";
@@ -639,6 +672,28 @@ impl Inner {
             job.paths = entry.artifacts.iter().map(|a| (a.role.clone(), destination.join(&a.filename).to_string_lossy().into_owned())).collect();
         }
         Ok(())
+    }
+}
+
+/// The restrictions a start request acknowledges: a list of distinct known kinds, or `None`.
+fn acknowledgement(value: &serde_json::Value) -> Option<Vec<&'static str>> {
+    let mut kinds = Vec::new();
+    for item in value.as_array()? {
+        let kind = catalog::RESTRICTIONS.into_iter().find(|k| item.as_str() == Some(*k))?;
+        if kinds.contains(&kind) {
+            return None;
+        }
+        kinds.push(kind);
+    }
+    Some(kinds)
+}
+
+/// A check that found the published files changed or gone, rather than one that could not run.
+fn is_damage(error: &Error) -> bool {
+    match error {
+        Error::Code(code) => ["size_mismatch", "hash_mismatch"].contains(code),
+        Error::Io(io) => io.kind() == io::ErrorKind::NotFound,
+        Error::Other(_) => false,
     }
 }
 

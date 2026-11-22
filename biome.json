@@ -1,0 +1,65 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.6.6/schema.json",
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
+  },
+  "files": {
+    "includes": ["src-ui/**/*.{ts,tsx}", "locales/*.ts", "tools/**/*.mjs", "*.js", "*.mjs"]
+  },
+  "formatter": {
+    "enabled": true,
+    "useEditorconfig": true,
+    "lineWidth": 120,
+    "includes": ["*.js", "*.mjs", "tools/**/*.mjs"]
+  },
+  "linter": {
+    "enabled": true,
+    "domains": {
+      "playwright": "none"
+    },
+    "rules": {
+      "preset": "recommended",
+      "a11y": {
+        "noAutofocus": "warn",
+        "noLabelWithoutControl": "warn",
+        "noNoninteractiveTabindex": "warn",
+        "noStaticElementInteractions": "warn",
+        "noSvgWithoutTitle": "warn",
+        "useAltText": "warn",
+        "useAriaPropsSupportedByRole": "warn",
+        "useButtonType": "warn",
+        "useFocusableInteractive": "warn",
+        "useKeyWithClickEvents": "warn",
+        "useKeyWithMouseEvents": "warn",
+        "useSemanticElements": "warn"
+      },
+      "complexity": {
+        "noCommaOperator": "error",
+        "useMathMinMax": "error",
+        "useOptionalChain": "error"
+      },
+      "correctness": {
+        "noComponentHookFactories": "warn",
+        "noUnusedFunctionParameters": "error",
+        "noUnusedImports": "error",
+        "noUnusedVariables": "error",
+        "useExhaustiveDependencies": "warn",
+        "useHookAtTopLevel": "warn"
+      },
+      "style": {
+        "noNonNullAssertion": "error",
+        "useConst": "error"
+      },
+      "suspicious": {
+        "noArrayIndexKey": "warn",
+        "noGlobalIsNan": "error",
+        "noTemplateCurlyInString": "error"
+      }
+    }
+  },
+  "assist": {
+    "enabled": false
+  }
+}

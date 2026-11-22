@@ -17,7 +17,7 @@ The PC's hardware means:
 
 ![The dialog that asks about usage data](/screenshots/en/telemetry-notice.webp)
 
-You can read what is sent in the app itself. The notice shown before anything is sent (above) and Settings → "Advanced" both have "See what is sent", which lists what this PC sends field by field and also shows the data itself. Under "Advanced" you can also read what has been sent so far.
+You can read what is sent in the app itself. The notice shown before anything is sent (above) and Settings → "Advanced" both have "See what is sent", which lists what your PC sends field by field and also shows the data itself. Under "Advanced" you can also read what has been sent so far.
 
 - The text and audio of conversations, the names of microphones and speakers, user names, the PC's name and file locations are never sent.
 - The receiver does not keep the sender's IP address or anything that tells one PC from another. The receiver runs on Cloudflare, though, and Cloudflare receives the sender's IP address as the other end of the connection.
@@ -34,27 +34,36 @@ Turning off usage reporting does not make every feature offline. Services you ch
 
 | Feature | Sent to | What is sent |
 |---|---|---|
-| External translation APIs (DeepL, Gemini, OpenAI and others) | The service you choose | The text to translate |
-| Google speech recognition engine (Windows) | Google | Your microphone or speaker audio |
+| Machine translation APIs (DeepL, Google Cloud, Papago) | The service you choose | The text to translate |
+| LLM translation engines (OpenAI, Gemini, Groq, OpenRouter, Plamo, OpenAI-compatible, LM Studio, Ollama) | The service or server you choose | The text to translate, plus up to five recent messages: what you said in chat or into the microphone, and what the speaker transcription heard from others. Each comes with the time it was said (hours and minutes) |
+| Checking translation and speech recognition engines | Services whose API key you saved | The API key and a request for the model list. At start only to the engines you have selected; to other engines when you select them. No conversation |
+| Cloud speech recognition (Groq Whisper, OpenAI Whisper, Deepgram, a custom Whisper server) | The service or server you choose | The audio of each utterance |
 | Model downloads | Hugging Face | The download request |
-| Sending to the chatbox | VRChat (OSC on this PC) | The text you send |
+| Voice changer (RVC) runtime download | Hugging Face, NuGet (`api.nuget.org`, for ONNX Runtime) and PyPI (`files.pythonhosted.org`, for the libraries an NVIDIA GPU needs) | The download request |
+| Sending to the chatbox | VRChat (OSC on your PC) | The text you send |
+| VRChat integration (OSCQuery, can be turned off) | Your PC only (mDNS; nothing leaves your PC) | A notice that the app is running, named `VRCT:<start time>` with its ports. It holds no PC name or user name |
 | Usage data (can be turned off) | The developers of ASTAROT (Cloudflare) | That the app started, the kind of an error, and the PC's hardware |
-| Update check (at start, can be turned off) and update download | The check goes through the developers of ASTAROT (Cloudflare) to GitHub; the download comes from GitHub | A request for the latest version and the download. No conversation, voice or settings. Not made by deb or rpm installs |
+| Update check (at start, can be turned off) and update download | A stable version asks GitHub through the developers of ASTAROT (Cloudflare); a beta asks the GitHub API directly. The download comes from GitHub | A request for the latest version and the download. No conversation, voice or settings. Not made by deb or rpm installs |
 
-Local translation models, the bundled speech.cpp servers (speech, local speech recognition and realtime captions) and chat reading run on this PC. The picture of a window you share for chat reading stays on this PC too.
+The translation engine you choose also translates what the speaker transcription hears from others and the chat bubbles that chat reading reads.
 
-You choose the speech recognition engine yourself the first time you turn transcription on. Audio is never sent to a service you did not choose, and the app does not switch to Google on its own when a Local (speech.cpp) model is missing.
+On Windows, the component that draws the window (WebView2) connects to Microsoft's servers. This is WebView2's own traffic, not the app's: safety checks (SmartScreen) and checks for updates to its components. The app's settings cannot stop it. WebView2's crash reports (crash dumps) are not sent to Microsoft; they stay on your PC. The optional diagnostic data WebView2 collects follows Windows' Settings → "Privacy & security" → "Diagnostics & feedback" → "Diagnostic data".
+
+Local translation models, the bundled speech.cpp servers (speech, local speech recognition and realtime captions), the voice changer (RVC) and chat reading run on your PC. The picture of a window you share for chat reading stays on your PC too.
+
+You choose the speech recognition engine yourself the first time you turn transcription on. Audio is never sent to a service you did not choose, and the app does not switch to another engine on its own when a Local (speech.cpp) model is missing.
 
 When you change the URL of an OpenAI-compatible endpoint or Custom Whisper, you enter the API key again. A saved key is never sent to the new URL on its own.
 
-## What is stored on this PC
+## What is stored on your PC
 
-- The settings file (`config.json`), which also holds your external translation API keys, the key for the OBS browser source and WebSocket, and, on Linux, what the desktop needs to share the same window again without its dialog.
+- The settings file (`config.json`), which holds the key for the OBS browser source and WebSocket and, on Linux, what the desktop needs to share the same window again without its dialog.
+- API keys for translation and speech recognition, which are kept in the operating system's credential store instead of the settings file: Credential Manager on Windows, the Secret Service (GNOME Keyring, KWallet and others) on Linux. Up to 0.5.2 the keys were kept in `secrets.json` in the same folder as the settings file (on Windows, encrypted so that only the signed-in user can read them back); the first start after updating moves them to the credential store.
 - Logs, recording what the app did. Remove personal data and conversation text before posting them in a report.
 - Conversation logs, saved as text files only when "Auto save message logs" under Settings → "Advanced" is on.
 
 For the locations, see [Install](./install) and [Troubleshooting](./troubleshooting).
 
-## Servers that run on this PC
+## Servers that run on your PC
 
-The OBS browser source and WebSocket run only when you turn them on, and by default can be reached only from this PC (`127.0.0.1`). Connecting needs the key in the URL (see [OBS and WebSocket](../features/integrations)).
+The OBS browser source and WebSocket run only when you turn them on, and by default can be reached only from your PC (`127.0.0.1`). Connecting needs the key in the URL (see [OBS and WebSocket](../features/integrations)).

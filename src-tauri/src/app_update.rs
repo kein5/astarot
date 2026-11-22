@@ -27,7 +27,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 use tauri::ipc::Channel;
-use tauri::{AppHandle, Manager, Runtime, Url, WebviewWindow};
+use tauri::{AppHandle, Emitter, Manager, Runtime, Url, WebviewWindow};
 use tauri_plugin_updater::{Update, Updater, UpdaterExt};
 use vrct_core::controller::updates::{SoftwareUpdates, UpdateOutcome, no_update};
 
@@ -38,6 +38,10 @@ const OWNER: &str = "kein5";
 /// holds a copy of 0.5.0 and nothing newer (Issue #534), so the current name is used.
 const REPOSITORY: &str = "kein5/astarot";
 const STABLE_MANIFEST: &str = "https://vrct-vox-updates.kei9d09.workers.dev/latest.json";
+/// The beta channel's latest.json (#466): the Worker forwards it to beta/latest.json of the branch
+/// updater-channels, which a published release points at the newest release, beta or stable
+/// (`tools/update_channels.py`). The app no longer reads the release list for it.
+const BETA_MANIFEST: &str = "https://vrct-vox-updates.kei9d09.workers.dev/beta/latest.json";
 const RELEASES_API: &str = "https://api.github.com/repos/kein5/astarot/releases?per_page=30";
 const MANIFEST_NAME: &str = "latest.json";
 
@@ -46,10 +50,10 @@ const MANIFEST_NAME: &str = "latest.json";
 pub enum InstallKind {
     /// A debug build: never checks.
     Development,
-    /// Installed by the NSIS installer (`uninstall.exe` beside the binary). `gpu` is the CUDA
-    /// edition, which the installer has to fetch again.
-    WindowsInstaller { gpu: bool },
-    /// Extracted from VRCT-VOX.zip or VRCT-VOX_cuda.zip.
+    /// Installed by the NSIS installer (`uninstall.exe` beside the binary). There is one package
+    /// (#288): a CUDA install from 0.4 or earlier updates as any other.
+    WindowsInstaller,
+    /// Extracted from VRCT-VOX.zip (or VRCT-VOX_cuda.zip up to 0.5).
     WindowsPortable,
     /// A writable AppImage.
     AppImage,
@@ -66,7 +70,7 @@ impl InstallKind {
     fn name(&self) -> &'static str {
         match self {
             Self::Development => "development",
-            Self::WindowsInstaller { .. } => "windows_installer",
+            Self::WindowsInstaller => "windows_installer",
             Self::WindowsPortable => "windows_portable",
             Self::AppImage => "appimage",
             Self::AppImageReadOnly => "appimage_read_only",
@@ -80,7 +84,7 @@ impl InstallKind {
     /// `package_manager`: no check, the package manager updates. `disabled`: no check.
     fn mode(&self) -> &'static str {
         match self {
-            Self::WindowsInstaller { .. } | Self::AppImage => "install",
+            Self::WindowsInstaller | Self::AppImage => "install",
             Self::WindowsPortable | Self::LinuxArchive | Self::AppImageReadOnly => "manual",
             Self::PackageManager(_) => "package_manager",
             Self::Development | Self::Unsupported => "disabled",
@@ -99,7 +103,7 @@ impl InstallKind {
     /// The `platforms` key of latest.json this copy reads.
     fn target(&self) -> Option<&'static str> {
         match self {
-            Self::WindowsInstaller { .. } | Self::WindowsPortable => Some("windows-x86_64"),
+            Self::WindowsInstaller | Self::WindowsPortable => Some("windows-x86_64"),
             Self::AppImage | Self::AppImageReadOnly | Self::LinuxArchive => Some("linux-x86_64"),
             _ => None,
         }
@@ -116,10 +120,7 @@ pub fn detect_install(executable: &Path, appimage: Option<&Path>, debug: bool) -
     };
     if cfg!(windows) {
         if directory.join("uninstall.exe").is_file() {
-            // The CUDA packages up to 0.4 carried the NVIDIA libraries in _internal/nvidia; from
-            // 0.5.0 both packages are the same and an updated CUDA install counts as CPU.
-            let gpu = directory.join("_internal").join("nvidia").is_dir();
-            return InstallKind::WindowsInstaller { gpu };
+            return InstallKind::WindowsInstaller;
         }
         return InstallKind::WindowsPortable;
     }
@@ -130,7 +131,7 @@ pub fn detect_install(executable: &Path, appimage: Option<&Path>, debug: bool) -
             return InstallKind::PackageManager(kind.to_owned());
         }
         if let Some(appimage) = appimage.filter(|path| path.is_file()) {
-            // The updater moves the AppImage aside and writes the new one in its place.
+            // The app writes the new AppImage beside it and renames it over ([`replace_appimage`]).
             let writable = appimage.parent().is_some_and(directory_is_writable);
             return if writable { InstallKind::AppImage } else { InstallKind::AppImageReadOnly };
         }
@@ -150,10 +151,20 @@ fn directory_is_writable(directory: &Path) -> bool {
     }
 }
 
-/// The release channel follows the running version, like the release branches do:
-/// a `-beta.N` version is on the beta channel.
+/// The channel of the running build, like the release branches: a `-beta.N` version is on the
+/// beta channel. It is also the update channel until the user chooses one (#466).
 pub fn channel_of(version: &semver::Version) -> &'static str {
     if version.pre.is_empty() { "stable" } else { "beta" }
+}
+
+/// The update channel: the one named (`SELECTED_RELEASE_CHANNEL`, the user's choice or else the
+/// build's), or the build's when none or an unknown one is named (#466).
+pub fn update_channel(named: Option<&str>, version: &semver::Version) -> &'static str {
+    match named {
+        Some("beta") => "beta",
+        Some("stable") => "stable",
+        _ => channel_of(version),
+    }
 }
 
 #[derive(Debug, serde::Deserialize)]
@@ -219,7 +230,9 @@ fn foreign_manifests(releases: &[GithubRelease]) -> impl Iterator<Item = &str> {
         .filter(|url| !Url::parse(url).is_ok_and(|url| project_download(&url)))
 }
 
-/// The latest.json of the newest release the channel takes.
+/// The latest.json of the newest release the channel takes. The beta channel's is chosen so by
+/// `tools/update_channels.py` now (#466); kept for the tests of what a channel takes.
+#[cfg(test)]
 pub fn pick_manifest(releases: &[GithubRelease], channel: &str) -> Option<Url> {
     releases
         .iter()
@@ -273,7 +286,7 @@ async fn fetch_releases() -> Result<Vec<GithubRelease>, String> {
         let _ = rustls::crypto::ring::default_provider().install_default();
     }
     let client = reqwest::Client::builder()
-        .user_agent("VRCT-VOX-updater")
+        .user_agent("ASTAROT-updater")
         .timeout(Duration::from_secs(20))
         .build()
         .map_err(|error| error.to_string())?;
@@ -294,10 +307,6 @@ async fn fetch_releases() -> Result<Vec<GithubRelease>, String> {
     Ok(releases)
 }
 
-async fn beta_manifest() -> Result<Option<Url>, String> {
-    Ok(pick_manifest(&fetch_releases().await?, "beta"))
-}
-
 /// How long a finished check answers a check that starts after it. The core's start-up check
 /// and the update page's check at start run at the same time; one request serves both.
 const CHECK_REUSE: Duration = Duration::from_secs(30);
@@ -308,9 +317,9 @@ type LatestCheck = Result<Option<Update>, String>;
 pub struct AppUpdateState {
     pending: Mutex<Option<Update>>,
     busy: AtomicBool,
-    /// The last check of the channel's newest release. Held while a check runs, so that a
-    /// second one waits for it instead of asking again.
-    last_check: tauri::async_runtime::Mutex<Option<(Instant, LatestCheck)>>,
+    /// The last check of a channel's newest release, with the channel. Held while a check runs, so
+    /// that a second one waits for it instead of asking again.
+    last_check: tauri::async_runtime::Mutex<Option<(Instant, &'static str, LatestCheck)>>,
 }
 
 struct BusyGuard<'a>(&'a AtomicBool);
@@ -329,11 +338,25 @@ fn acquire(state: &AppUpdateState) -> Result<BusyGuard<'_>, String> {
 
 fn install_kind<R: Runtime>(app: &AppHandle<R>) -> InstallKind {
     let executable = std::env::current_exe().unwrap_or_default();
+    detect_install(&executable, appimage_of(app).as_deref(), cfg!(debug_assertions))
+}
+
+/// The AppImage this copy runs from (`$APPIMAGE`), on Linux.
+fn appimage_of<R: Runtime>(app: &AppHandle<R>) -> Option<PathBuf> {
     #[cfg(target_os = "linux")]
-    let appimage = app.env().appimage.map(PathBuf::from);
+    {
+        app.env().appimage.map(PathBuf::from)
+    }
     #[cfg(not(target_os = "linux"))]
-    let appimage: Option<PathBuf> = { let _ = app; None };
-    detect_install(&executable, appimage.as_deref(), cfg!(debug_assertions))
+    {
+        let _ = app;
+        None
+    }
+}
+
+/// The AppImage an install replaces: this copy's, when it is a writable one.
+fn replaced_appimage<R: Runtime>(app: &AppHandle<R>) -> Option<PathBuf> {
+    (install_kind(app) == InstallKind::AppImage).then(|| appimage_of(app)).flatten()
 }
 
 /// An updater for this copy that reads `endpoints`. With `exactly`, the release of that version
@@ -341,21 +364,17 @@ fn install_kind<R: Runtime>(app: &AppHandle<R>) -> InstallKind {
 /// one is.
 fn build_updater<R: Runtime>(
     app: &AppHandle<R>,
-    kind: &InstallKind,
     target: &str,
     endpoints: Vec<Url>,
     exactly: Option<semver::Version>,
 ) -> Result<Updater, String> {
+    // The Windows installer fetches VRCT-VOX.zip again; there is no edition to name (#288).
     let mut builder = app
         .updater_builder()
         .target(target)
         .timeout(Duration::from_secs(30))
         .endpoints(endpoints)
         .map_err(|error| error.to_string())?;
-    if let InstallKind::WindowsInstaller { gpu } = kind {
-        // The installer fetches the app package again: keep the edition the user chose.
-        builder = builder.installer_arg(if *gpu { "/EDITION=gpu" } else { "/EDITION=cpu" });
-    }
     if let Some(wanted) = exactly {
         builder = builder.version_comparator(move |_, release| release.version == wanted);
     }
@@ -398,38 +417,37 @@ fn download_error_code(error: &tauri_plugin_updater::Error) -> &'static str {
     }
 }
 
-/// Asks for the newest release of the running version's channel.
-async fn check_channel<R: Runtime>(app: &AppHandle<R>, kind: &InstallKind, target: &str) -> LatestCheck {
-    let channel = channel_of(&app.package_info().version);
+/// Asks for the newest release of `channel`. The updater offers only a version newer than the
+/// running one, so a stable channel on a beta build waits for the next stable release (#466).
+async fn check_channel<R: Runtime>(app: &AppHandle<R>, target: &str, channel: &'static str) -> LatestCheck {
     let stable = Url::parse(STABLE_MANIFEST).map_err(|error| error.to_string())?;
     let mut endpoints = Vec::new();
     if channel == "beta" {
-        match beta_manifest().await {
-            Ok(Some(url)) => endpoints.push(url),
-            Ok(None) => {}
-            // The stable manifest below still answers.
-            Err(error) => crate::startup_log(&format!("Update: release list unavailable: {error}")),
-        }
+        // The Worker's beta channel first; the updater asks the next endpoint when one fails, so
+        // the stable channel still answers while the beta one cannot (#466).
+        endpoints.push(Url::parse(BETA_MANIFEST).map_err(|error| error.to_string())?);
     }
     endpoints.push(stable);
-    let updater = build_updater(app, kind, target, endpoints, None)?;
+    let updater = build_updater(app, target, endpoints, None)?;
     updater.check().await.map_err(|error| {
         crate::startup_log(&format!("Update check failed: {error}"));
         check_error_code(&error).to_string()
     })
 }
 
-/// [`check_channel`], sharing a check that runs or has just ended (`CHECK_REUSE`). A failed
-/// check is shared only with the checks that waited for it: asking again tries again.
-async fn check_latest<R: Runtime>(app: &AppHandle<R>, state: &AppUpdateState, kind: &InstallKind, target: &str) -> LatestCheck {
+/// [`check_channel`], sharing a check of the same channel that runs or has just ended
+/// (`CHECK_REUSE`). A failed check is shared only with the checks that waited for it: asking again
+/// tries again.
+async fn check_latest<R: Runtime>(app: &AppHandle<R>, state: &AppUpdateState, target: &str, channel: &'static str) -> LatestCheck {
     let mut last = state.last_check.lock().await;
-    if let Some((at, result)) = last.as_ref()
+    if let Some((at, checked, result)) = last.as_ref()
+        && *checked == channel
         && ((result.is_ok() && at.elapsed() < CHECK_REUSE) || at.elapsed() < Duration::from_secs(1))
     {
         return result.clone();
     }
-    let result = check_channel(app, kind, target).await;
-    *last = Some((Instant::now(), result.clone()));
+    let result = check_channel(app, target, channel).await;
+    *last = Some((Instant::now(), channel, result.clone()));
     result
 }
 
@@ -437,23 +455,39 @@ async fn check_latest<R: Runtime>(app: &AppHandle<R>, state: &AppUpdateState, ki
 /// app has no backend left, so a failure to start the installer must not leave it running so.
 static CORE_STOPPED_FOR_INSTALLER: AtomicBool = AtomicBool::new(false);
 
+/// Sent to the main window when a failed install is about to restart the app (Issue #561). It
+/// carries nothing: the window says the update was not installed and the app restarts.
+pub(crate) const RESTARTING_EVENT: &str = "app-update-restarting";
+
+/// How long the main window has to say so before the app restarts.
+const RESTART_NOTICE: Duration = Duration::from_secs(5);
+
 /// After a failed install: when the core was already stopped for the installer (Windows: the
 /// installer could not start, or the user declined it), the app restarts as it is, with its
-/// backend, instead of going on without one (Issue #456). Answers whether it restarts.
+/// backend, instead of going on without one (Issue #456). The user did not ask for that restart,
+/// so the main window says it first ([`RESTARTING_EVENT`]) and the restart comes
+/// [`RESTART_NOTICE`] later (Issue #561). Answers whether it restarts.
 fn restart_if_core_stopped<R: Runtime>(app: &AppHandle<R>) -> bool {
     if !CORE_STOPPED_FOR_INSTALLER.swap(false, Ordering::SeqCst) {
         return false;
     }
     crate::startup_log("Update: the installer did not start after the backend stopped; restarting");
-    app.request_restart();
+    let _ = app.emit_to("main", RESTARTING_EVENT, ());
+    let app = app.clone();
+    std::thread::spawn(move || {
+        std::thread::sleep(RESTART_NOTICE);
+        app.request_restart();
+    });
     true
 }
 
 /// Downloads `update`, verifies its signature and installs it. On Windows the installer takes
 /// over and this process exits; elsewhere it returns, and the caller restarts the app. A failure
 /// before the core is stopped leaves the running app as it was; a failure after it (the Windows
-/// installer did not start) restarts the app through [`restart_if_core_stopped`].
-async fn download_and_install(update: &Update, mut progress: impl FnMut(InstallProgress)) -> Result<(), &'static str> {
+/// installer did not start) restarts the app through [`restart_if_core_stopped`]. A writable
+/// AppImage (`appimage`) is replaced here, in one rename ([`replace_appimage`]), not by the
+/// updater, which writes the new file over the current one.
+async fn download_and_install(update: &Update, appimage: Option<&Path>, mut progress: impl FnMut(InstallProgress)) -> Result<(), &'static str> {
     let mut downloaded = 0u64;
     let bytes = update
         .download(
@@ -470,12 +504,101 @@ async fn download_and_install(update: &Update, mut progress: impl FnMut(InstallP
         })?;
     progress(InstallProgress::Install);
     crate::startup_log(&format!("Installing update {}", update.version));
-    // Windows: starts the installer and exits. Linux: replaces the AppImage, keeping the old
-    // one when writing the new one fails.
+    if let Some(appimage) = appimage {
+        // The same check the updater's own install makes, then a replacement in one rename.
+        update.verify(&bytes).map_err(|error| {
+            crate::startup_log(&format!("Update verification failed: {error}"));
+            "update_signature_invalid"
+        })?;
+        return replace_appimage(appimage, &bytes).map_err(|error| {
+            crate::startup_log(&format!("Update install failed: {}", error.kind()));
+            "update_install_failed"
+        });
+    }
+    // Windows: starts the installer and exits.
     update.install(bytes).map_err(|error| {
         crate::startup_log(&format!("Update install failed: {error}"));
         "update_install_failed"
     })
+}
+
+/// The prefix of the file a replacement of the AppImage `name` writes beside it.
+fn staged_prefix(name: &str) -> String {
+    format!(".{name}.update-")
+}
+
+/// Puts the verified AppImage `bytes` in place of `appimage` in one rename (#517). The new file
+/// is written beside it under a hidden name ([`staged_prefix`]), given the current file's
+/// permissions, flushed to disk and renamed over it; the folder is flushed after. A failure or
+/// a stop before the rename leaves the current AppImage as it was, and the file it left is
+/// removed at the next start ([`remove_appimage_leftovers`]). The running copy keeps its old
+/// file open, as the updater's own replacement does.
+///
+/// Decided in #881: once `tauri-plugin-updater` replaces an AppImage atomically itself (a new
+/// file beside it, then a rename), this goes and a writable AppImage is installed with
+/// `Update::install` again, as the Windows installer is. Check the plugin's `install_appimage`
+/// when it is updated.
+fn replace_appimage(appimage: &Path, bytes: &[u8]) -> std::io::Result<()> {
+    use std::io::Write;
+    // AppImages are ELF executables; anything else is not installed.
+    if !bytes.starts_with(b"\x7fELF") {
+        return Err(std::io::Error::new(std::io::ErrorKind::InvalidData, "not an AppImage"));
+    }
+    let directory = appimage.parent().ok_or_else(|| std::io::Error::other("the AppImage has no folder"))?;
+    let name = appimage.file_name().ok_or_else(|| std::io::Error::other("the AppImage has no name"))?.to_string_lossy();
+    let permissions = std::fs::metadata(appimage)?.permissions();
+    let (staged, mut file) = {
+        let mut attempt = 0u32;
+        loop {
+            let candidate = directory.join(format!("{}{}-{attempt}", staged_prefix(&name), std::process::id()));
+            match std::fs::OpenOptions::new().write(true).create_new(true).open(&candidate) {
+                Ok(file) => break (candidate, file),
+                Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists && attempt < 100 => attempt += 1,
+                Err(error) => return Err(error),
+            }
+        }
+    };
+    let written = (|| {
+        file.write_all(bytes)?;
+        file.set_permissions(permissions)?;
+        file.sync_all()?;
+        drop(file);
+        std::fs::rename(&staged, appimage)
+    })();
+    match written {
+        Ok(()) => {
+            #[cfg(unix)]
+            if let Ok(folder) = std::fs::File::open(directory) {
+                let _ = folder.sync_all();
+            }
+            Ok(())
+        }
+        Err(error) => {
+            let _ = std::fs::remove_file(&staged);
+            Err(error)
+        }
+    }
+}
+
+/// Removes what a replacement of `appimage` that stopped before its rename left beside it: the
+/// regular files named with [`staged_prefix`]. Nothing else in the folder is touched.
+fn remove_appimage_leftovers(appimage: &Path) {
+    let (Some(directory), Some(name)) = (appimage.parent(), appimage.file_name()) else { return };
+    let prefix = staged_prefix(&name.to_string_lossy());
+    let Ok(entries) = std::fs::read_dir(directory) else { return };
+    for entry in entries.flatten() {
+        let ours = entry.file_name().to_str().is_some_and(|n| n.starts_with(&prefix));
+        if ours && entry.file_type().is_ok_and(|kind| kind.is_file()) {
+            let _ = std::fs::remove_file(entry.path());
+        }
+    }
+}
+
+/// At start: the files an AppImage replacement left when it stopped part way.
+pub fn clean_up_after_updates<R: Runtime>(app: &AppHandle<R>) {
+    if let Some(appimage) = replaced_appimage(app) {
+        remove_appimage_leftovers(&appimage);
+    }
 }
 
 fn main_only<R: Runtime>(window: &WebviewWindow<R>) -> Result<(), String> {
@@ -521,6 +644,7 @@ pub async fn app_update_check<R: Runtime>(
     window: WebviewWindow<R>,
     app: AppHandle<R>,
     state: tauri::State<'_, AppUpdateState>,
+    channel: Option<String>,
 ) -> Result<CheckResult, String> {
     main_only(&window)?;
     let kind = install_kind(&app);
@@ -528,7 +652,9 @@ pub async fn app_update_check<R: Runtime>(
         return Err("update_unsupported".into());
     };
     let _busy = acquire(&state)?;
-    let update = check_latest(&app, &state, &kind, target).await?;
+    // The update channel the settings name (#466); the build's without one.
+    let channel = update_channel(channel.as_deref(), &app.package_info().version);
+    let update = check_latest(&app, &state, target, channel).await?;
     let result = CheckResult {
         available: update.is_some(),
         version: update.as_ref().map(|update| update.version.clone()),
@@ -570,7 +696,7 @@ pub async fn app_update_install<R: Runtime>(
         .map_err(|_| "update_install_failed".to_string())?
         .clone()
         .ok_or_else(|| "update_not_checked".to_string())?;
-    download_and_install(&update, |progress| {
+    download_and_install(&update, replaced_appimage(&app).as_deref(), |progress| {
         let _ = on_progress.send(progress);
     })
     .await
@@ -607,7 +733,7 @@ impl<R: Runtime> CoreUpdates<R> {
         Self { app }
     }
 
-    async fn install_async(&self, target_version: Option<&str>) -> Result<(), &'static str> {
+    async fn install_async(&self, target_version: Option<&str>, channel: &'static str) -> Result<(), &'static str> {
         let app = &self.app;
         let kind = install_kind(app);
         // A ZIP, a tar.gz, a read-only AppImage or a package is updated by the user or the
@@ -619,15 +745,14 @@ impl<R: Runtime> CoreUpdates<R> {
         let state = app.state::<AppUpdateState>();
         let _busy = acquire(&state).map_err(|_| "update_busy")?;
         let update = match target_version {
-            None => check_latest(app, &state, &kind, target).await.map_err(|_| "update_check_failed")?,
+            None => check_latest(app, &state, target, channel).await.map_err(|_| "update_check_failed")?,
             Some(wanted) => {
-                let channel = channel_of(&app.package_info().version);
                 let releases = fetch_releases().await.map_err(|error| {
                     crate::startup_log(&format!("Update: release list unavailable: {error}"));
                     "update_check_failed"
                 })?;
                 let (version, manifest) = find_release(&releases, channel, wanted).ok_or("update_not_listed")?;
-                let updater = build_updater(app, &kind, target, vec![manifest], Some(version))
+                let updater = build_updater(app, target, vec![manifest], Some(version))
                     .map_err(|_| "update_check_failed")?;
                 updater.check().await.map_err(|error| {
                     crate::startup_log(&format!("Update check failed: {error}"));
@@ -636,26 +761,27 @@ impl<R: Runtime> CoreUpdates<R> {
             }
         };
         let update = update.ok_or("update_not_found")?;
-        download_and_install(&update, |_| {}).await
+        download_and_install(&update, replaced_appimage(app).as_deref(), |_| {}).await
     }
 }
 
 impl<R: Runtime> SoftwareUpdates for CoreUpdates<R> {
-    fn check(&self) -> Value {
+    fn check(&self, channel: &str) -> Value {
         let kind = install_kind(&self.app);
         let Some(target) = kind.checking_target() else {
             return no_update();
         };
         let state = self.app.state::<AppUpdateState>();
-        let result = tauri::async_runtime::block_on(check_latest(&self.app, &state, &kind, target));
+        let channel = update_channel(Some(channel), &self.app.package_info().version);
+        let result = tauri::async_runtime::block_on(check_latest(&self.app, &state, target, channel));
         update_info(result.as_ref().map(|update| update.as_ref().map(|update| update.version.as_str())).map_err(String::as_str))
     }
 
-    fn releases(&self) -> Vec<Value> {
+    fn releases(&self, channel: &str) -> Vec<Value> {
         if install_kind(&self.app).checking_target().is_none() {
             return Vec::new();
         }
-        let channel = channel_of(&self.app.package_info().version);
+        let channel = update_channel(Some(channel), &self.app.package_info().version);
         match tauri::async_runtime::block_on(fetch_releases()) {
             Ok(releases) => list_releases(&releases, channel)
                 .into_iter()
@@ -668,10 +794,10 @@ impl<R: Runtime> SoftwareUpdates for CoreUpdates<R> {
         }
     }
 
-    /// The edition stays the one this copy was installed as (`/EDITION=gpu` only for a CUDA
-    /// install, as the update page does); `edition` only tells which endpoint asked.
-    fn install(&self, _edition: &str, target_version: Option<&str>) -> UpdateOutcome {
-        match tauri::async_runtime::block_on(self.install_async(target_version)) {
+    /// Both update endpoints install the one package, as the update page does (#288).
+    fn install(&self, target_version: Option<&str>, channel: &str) -> UpdateOutcome {
+        let channel = update_channel(Some(channel), &self.app.package_info().version);
+        match tauri::async_runtime::block_on(self.install_async(target_version, channel)) {
             Ok(()) => {
                 // Linux: the AppImage is replaced. The restart ends the app through its normal
                 // exit, which stops the core.
@@ -690,6 +816,74 @@ impl<R: Runtime> SoftwareUpdates for CoreUpdates<R> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// An AppImage of `content` in a folder of its own, executable as a downloaded one is made.
+    #[cfg(unix)]
+    fn appimage(content: &[u8]) -> (tempfile::TempDir, PathBuf) {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("ASTAROT.AppImage");
+        std::fs::write(&path, content).unwrap();
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).unwrap();
+        (dir, path)
+    }
+
+    #[cfg(unix)]
+    fn names(dir: &Path) -> Vec<String> {
+        let mut names: Vec<String> = std::fs::read_dir(dir).unwrap().map(|e| e.unwrap().file_name().to_string_lossy().into_owned()).collect();
+        names.sort();
+        names
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn an_appimage_is_replaced_in_one_rename_and_keeps_its_permissions() {
+        use std::io::Read;
+        use std::os::unix::fs::PermissionsExt;
+        let (dir, path) = appimage(b"\x7fELF old");
+        // The running copy keeps reading the file it started from.
+        let mut running = std::fs::File::open(&path).unwrap();
+        replace_appimage(&path, b"\x7fELF new").unwrap();
+        assert_eq!(std::fs::read(&path).unwrap(), b"\x7fELF new");
+        assert_eq!(std::fs::metadata(&path).unwrap().permissions().mode() & 0o777, 0o755);
+        assert_eq!(names(dir.path()), ["ASTAROT.AppImage"], "the staged file was left");
+        let mut old = Vec::new();
+        running.read_to_end(&mut old).unwrap();
+        assert_eq!(old, b"\x7fELF old");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_failed_replacement_leaves_the_appimage_as_it_was() {
+        use std::os::unix::fs::PermissionsExt;
+        let (dir, path) = appimage(b"\x7fELF old");
+        // Not an AppImage: refused before anything is written.
+        assert_eq!(replace_appimage(&path, b"PK\x03\x04 zip").unwrap_err().kind(), std::io::ErrorKind::InvalidData);
+        // A folder that cannot be written: the new file cannot be made beside it.
+        std::fs::set_permissions(dir.path(), std::fs::Permissions::from_mode(0o555)).unwrap();
+        let writable_anyway = std::fs::File::create(dir.path().join("probe")).is_ok();
+        if !writable_anyway {
+            assert!(replace_appimage(&path, b"\x7fELF new").is_err());
+        }
+        std::fs::set_permissions(dir.path(), std::fs::Permissions::from_mode(0o755)).unwrap();
+        let _ = std::fs::remove_file(dir.path().join("probe"));
+        assert_eq!(std::fs::read(&path).unwrap(), b"\x7fELF old");
+        assert_eq!(names(dir.path()), ["ASTAROT.AppImage"]);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn what_a_stopped_replacement_left_goes_and_nothing_else() {
+        let (dir, path) = appimage(b"\x7fELF current");
+        // A replacement stopped between writing and renaming: its file, then others' files.
+        std::fs::write(dir.path().join(".ASTAROT.AppImage.update-1234-0"), b"\x7fELF half").unwrap();
+        std::fs::create_dir(dir.path().join(".ASTAROT.AppImage.update-folder")).unwrap();
+        std::fs::write(dir.path().join(".Other.AppImage.update-1234-0"), b"x").unwrap();
+        std::fs::write(dir.path().join("ASTAROT.AppImage.update-1234-0"), b"x").unwrap();
+        remove_appimage_leftovers(&path);
+        assert_eq!(names(dir.path()), [".ASTAROT.AppImage.update-folder", ".Other.AppImage.update-1234-0", "ASTAROT.AppImage", "ASTAROT.AppImage.update-1234-0"]);
+        assert_eq!(std::fs::read(&path).unwrap(), b"\x7fELF current");
+    }
 
     fn release(tag: &str, prerelease: bool, manifest: bool) -> GithubRelease {
         let mut assets = vec![GithubAsset {
@@ -782,7 +976,7 @@ mod tests {
 
     #[test]
     fn only_copies_that_check_have_a_target() {
-        assert_eq!(InstallKind::WindowsInstaller { gpu: true }.checking_target(), Some("windows-x86_64"));
+        assert_eq!(InstallKind::WindowsInstaller.checking_target(), Some("windows-x86_64"));
         assert_eq!(InstallKind::WindowsPortable.checking_target(), Some("windows-x86_64"));
         assert_eq!(InstallKind::AppImageReadOnly.checking_target(), Some("linux-x86_64"));
         assert_eq!(InstallKind::PackageManager("deb".into()).checking_target(), None);
@@ -854,6 +1048,11 @@ mod tests {
         let stable = semver::Version::parse("0.4.0").unwrap();
         assert_eq!(channel_of(&beta), "beta");
         assert_eq!(channel_of(&stable), "stable");
+        // #466: the channel the settings name, the build's without one or for an unknown one.
+        assert_eq!(update_channel(Some("beta"), &stable), "beta");
+        assert_eq!(update_channel(Some("stable"), &beta), "stable");
+        assert_eq!(update_channel(None, &beta), "beta");
+        assert_eq!(update_channel(Some("nightly"), &stable), "stable");
     }
 
     #[test]
@@ -915,9 +1114,11 @@ mod tests {
         let binary = directory.join("vrct-vox.exe");
         assert_eq!(detect_install(&binary, None, false), InstallKind::WindowsPortable);
         std::fs::write(directory.join("uninstall.exe"), b"").unwrap();
-        assert_eq!(detect_install(&binary, None, false), InstallKind::WindowsInstaller { gpu: false });
+        assert_eq!(detect_install(&binary, None, false), InstallKind::WindowsInstaller);
+        // A CUDA install of 0.4 or earlier (NVIDIA's libraries in _internal/nvidia) is the same
+        // kind: it updates to the one package (#288).
         std::fs::create_dir_all(directory.join("_internal").join("nvidia")).unwrap();
-        assert_eq!(detect_install(&binary, None, false), InstallKind::WindowsInstaller { gpu: true });
+        assert_eq!(detect_install(&binary, None, false), InstallKind::WindowsInstaller);
         std::fs::remove_dir_all(&directory).unwrap();
     }
 

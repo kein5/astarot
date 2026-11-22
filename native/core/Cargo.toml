@@ -1,7 +1,7 @@
 [package]
 name = "vrct-core"
 version = "0.0.0"
-description = "The VRCT-VOX backend core: the UI request protocol, settings and their migration, start-up and shut-down"
+description = "The VRCT-VOX backend core: the UI request protocol, settings and their migration, start-up and shut-down (codename Ayperos)"
 edition = "2024"
 publish = false
 
@@ -19,9 +19,13 @@ pipewire = ["vrct-audio-routing/pipewire", "vrct-transcription/pipewire"]
 onnx-translation = ["dep:vrct-translate-onnx"]
 
 [dependencies]
+# The names the app goes by outside its code (ADR-014): the saved keys, the package folder.
+app-identity = { path = "../app-identity" }
 base64 = "=0.22.1"
-chrono = { version = "=0.4.45", default-features = false, features = ["clock", "std"] }
 getrandom = "=0.3.4"
+# Local times in file names and the conversation log (src/local_time.rs). The newest release that
+# had been out for 14 days (2026-11-21, #879; docs/development.md); chrono is unmaintained.
+jiff = "=0.2.39"
 serde = { version = "=1.0.229", features = ["derive"] }
 # The backend answered with Python dicts, whose keys keep their order; the UI shows some of
 # them in that order (the translation weights, the initialization snapshot). See README.md.
@@ -29,6 +33,9 @@ serde_json = { version = "=1.0.154", features = ["preserve_order"] }
 # Chat reading. ONNX Runtime is loaded when chat reading starts, not linked: see
 # docs/voice-stack/core-integration.md, item 2 of "判断が要ること".
 ocr-runtime = { path = "../ocr-runtime", default-features = false, features = ["load-dynamic"] }
+# The one ONNX Runtime library and environment of the process, which chat reading and the local
+# translation share (shipped_libraries.rs points it at the library the packages ship).
+vrct-onnx-runtime = { path = "../onnx-runtime", default-features = false, features = ["load-dynamic"] }
 vrct-adapters = { path = "../adapters" }
 # The audio devices. Without the `pipewire` feature below, Linux lists no devices: the tests
 # build that way and need no PipeWire; the application turns it on.
@@ -50,17 +57,40 @@ vrct-vr-overlay = { path = "../vr-overlay" }
 [target.'cfg(unix)'.dependencies]
 libc = "=0.2.191"
 
+# The API keys in the Secret Service (src/config/secrets/secret_service.rs). The same version the
+# application already locks for its portals; pure Rust, no libdbus.
+[target.'cfg(target_os = "linux")'.dependencies]
+zbus = "=5.19.0"
+
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "=0.61.2", features = [
     "Win32_Foundation",
-    # DPAPI for the API keys' file (src/config/secrets.rs).
+    # The API keys in the Credential Manager (src/config/secrets/credential_manager.rs).
+    "Win32_Security_Credentials",
+    # DPAPI for the API keys' file that keys move from (src/config/secrets.rs).
     "Win32_Security_Cryptography",
     "Win32_Storage_FileSystem",
     "Win32_System_IO",
     "Win32_UI_Shell",
 ] }
+# The GPU memory of the flow panel (src/gpu_memory/windows.rs): DXGI's adapters, the performance
+# counters and the process list. The same version the VR overlay already builds.
+windows = { version = "=0.62.2", features = [
+    "Win32_Foundation",
+    "Win32_Graphics_Dxgi",
+    "Win32_Graphics_Dxgi_Common",
+    "Win32_System_Diagnostics_ToolHelp",
+    "Win32_System_Performance",
+] }
+
+# GetSystemTimes for the CPU usage examples/pipeline_latency.rs records on Windows
+# (tests/machine_load.rs). A dev-dependency, so the application's build gains nothing.
+[target.'cfg(windows)'.dev-dependencies]
+windows-sys = { version = "=0.61.2", features = ["Win32_Foundation", "Win32_System_Threading"] }
 
 [dev-dependencies]
+# Property-based tests of the pure parts (#550): the normalizers of the saved settings.
+proptest = { version = "=1.12.0", default-features = false, features = ["std"] }
 # Certificates for the WebSocket TLS settings are made at test time; no key is committed.
 rcgen = { version = "=0.13.2", default-features = false, features = ["ring", "pem"] }
 tempfile = "=3.27.0"
@@ -82,6 +112,14 @@ doc = false
 [[bin]]
 name = "fake-rvc-worker"
 path = "tests/fixture/fake_rvc_worker.rs"
+test = false
+doc = false
+
+# A stand-in for llama.cpp's llama-server that tests/translation_llama.rs starts: the same file
+# as vrct-speech-server's. Never part of an application build.
+[[bin]]
+name = "fake-llama-core"
+path = "../speech-server/tests/fixture/fake_llama.rs"
 test = false
 doc = false
 

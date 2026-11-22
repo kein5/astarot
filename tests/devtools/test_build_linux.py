@@ -49,7 +49,7 @@ class LinuxDependencyTests(unittest.TestCase):
         self.write_lock(INDEX_PACKAGE + GIT_PACKAGE + PROJECT)
 
     def write_lock(self, packages):
-        self.lock.write_text('version = 1\nrevision = 5\nrequires-python = "==3.11.*"\n' + packages,
+        self.lock.write_text('version = 1\nrevision = 5\nrequires-python = "==3.14.*"\n' + packages,
                              encoding='utf-8')
 
     def test_valid_archives_git_and_uninstalled_root_are_accepted(self):
@@ -159,6 +159,17 @@ class LinuxStagingTests(unittest.TestCase):
         libraries = patch.object(build_linux, 'stage_runtime_libraries', side_effect=self.fake_runtime_libraries)
         self.runtime_libraries = libraries.start()
         self.addCleanup(libraries.stop)
+        # The readings' dictionary likewise (tools/sudachi_dictionary.py has its own tests).
+        dictionary = patch.object(build_linux, 'ensure_dictionary', side_effect=self.fake_dictionary)
+        self.dictionary = dictionary.start()
+        self.addCleanup(dictionary.stop)
+
+    @staticmethod
+    def fake_dictionary(edition, output, *, archive=None, download=True):
+        output.mkdir(parents=True)
+        for name in app_resources.SUDACHI_FILES:
+            (output / name).write_bytes(b'dictionary')
+        return dict(edition=edition)
 
     @staticmethod
     def fake_runtime_libraries(platform, build, *, download=False):
@@ -175,7 +186,7 @@ class LinuxStagingTests(unittest.TestCase):
             for name in app_resources.LINUX_HELPERS:
                 (output / name).write_bytes(b'helper')
         elif names[1].endswith('build_rvc_worker.py'):
-            (output / 'vrct-rvc-worker').write_bytes(b'worker')
+            (output / 'astarot-rvc-worker').write_bytes(b'worker')
         elif names[1].endswith('rust_licenses.py'):
             licenses = Path(names[names.index('--output') + 1])
             licenses.mkdir(parents=True)
@@ -199,6 +210,10 @@ class LinuxStagingTests(unittest.TestCase):
             internal = build_linux.stage_internal(self.work, ARCHIVES)
         names = {path.relative_to(internal).as_posix() for path in internal.rglob('*') if path.is_file()}
         self.assertLessEqual(set(app_resources.required('linux')), names)
+        # The readings' dictionary is SudachiDict full (#924), kept beside the speech.cpp archives.
+        self.assertIn('build/sudachi/system.dic', names)
+        self.assertEqual(self.dictionary.call_args.args[0], 'full')
+        self.assertEqual(self.dictionary.call_args.kwargs['archive'], build_linux.dictionary_archive(self.work))
         # Both engine builds, each with its own pinned bundle and notices.
         for folder in ('speechcpp', 'speechcpp-cpu'):
             self.assertIn(f'build/{folder}/notices/LICENSE', names)
@@ -224,14 +239,14 @@ class LinuxStagingTests(unittest.TestCase):
     def test_a_missing_helper_stops_the_build(self):
         def without_gate(argv, **options):
             self.fake_run(argv, **options)
-            gate = self.work / 'build/vrct-voice-gate'
+            gate = self.work / 'build/astarot-voice-gate'
             if gate.exists():
                 gate.unlink()
         with patch.object(build_linux, 'run', side_effect=without_gate), \
                 patch.object(build_linux, 'load_manifest', return_value=MANIFEST), \
                 patch.object(build_linux, 'stage_bundle', side_effect=self.fake_bundle), \
                 patch.object(build_linux, 'verify_bundle'):
-            with self.assertRaisesRegex(ValueError, 'vrct-voice-gate'):
+            with self.assertRaisesRegex(ValueError, 'astarot-voice-gate'):
                 build_linux.stage_internal(self.work, ARCHIVES)
 
     def test_the_tauri_workspace_ships_no_sidecar(self):

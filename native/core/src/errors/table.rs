@@ -36,6 +36,7 @@ pub(super) const CODES: &[CodeInfo] = &[
     CodeInfo { code: "WEIGHT_CTRANSLATE2_DOWNLOAD", category: Category::Weight, message: "CTranslate2 weight download error", severity: Severity::Error, user_action_required: true, reported: true },
     CodeInfo { code: "WEIGHT_DOWNLOAD_CONSENT_REQUIRED", category: Category::Weight, message: "Review the model license and size in Settings and consent to this exact model manifest before downloading", severity: Severity::Warning, user_action_required: true, reported: true },
     CodeInfo { code: "WEIGHT_CTRANSLATE2_LICENSE_CONSENT_REQUIRED", category: Category::Weight, message: "This translation model has a non-commercial license (CC-BY-NC-4.0) and must be confirmed explicitly", severity: Severity::Warning, user_action_required: true, reported: true },
+    CodeInfo { code: "WEIGHT_CTRANSLATE2_RETIRED", category: Category::Weight, message: "The selected translation model is no longer offered; the default model is used", severity: Severity::Warning, user_action_required: false, reported: false },
     CodeInfo { code: "WEIGHT_CTRANSLATE2_NON_COMMERCIAL_NOTICE", category: Category::Weight, message: "The selected translation model has a non-commercial license (CC-BY-NC-4.0)", severity: Severity::Warning, user_action_required: false, reported: true },
     CodeInfo { code: "UPDATE_SOFTWARE_DOWNLOAD", category: Category::General, message: "Software update download error", severity: Severity::Error, user_action_required: true, reported: true },
     CodeInfo { code: "UPDATE_SOFTWARE_VERIFY", category: Category::General, message: "Software update verification error", severity: Severity::Error, user_action_required: true, reported: true },
@@ -80,7 +81,7 @@ pub(super) const CODES: &[CodeInfo] = &[
     CodeInfo { code: "CONNECTION_OPENAI_COMPATIBLE_URL_INVALID", category: Category::Connection, message: "OpenAI-compatible endpoint URL is not valid", severity: Severity::Warning, user_action_required: true, reported: true },
     CodeInfo { code: "CONNECTION_TRANSCRIPTION_CUSTOM_URL_INVALID", category: Category::Connection, message: "Custom transcription server URL is not valid", severity: Severity::Warning, user_action_required: true, reported: true },
     CodeInfo { code: "CREDENTIAL_REENTRY_REQUIRED", category: Category::Auth, message: "Enter the API key again for the new URL, or delete the saved key before changing the URL for a server without a key", severity: Severity::Warning, user_action_required: true, reported: true },
-    CodeInfo { code: "SECRET_STORE_FAILED", category: Category::Auth, message: "The API keys could not be kept in their secure storage. They work until the app closes; check the settings folder, then enter a missing key again", severity: Severity::Error, user_action_required: true, reported: true },
+    CodeInfo { code: "SECRET_STORE_FAILED", category: Category::Auth, message: "The API keys could not be kept in their secure storage. They work until the app closes; check the system's credential store and the settings folder, then enter a missing key again", severity: Severity::Error, user_action_required: true, reported: true },
     CodeInfo { code: "WEBSOCKET_HOST_INVALID", category: Category::Websocket, message: "WebSocket server host is not available", severity: Severity::Error, user_action_required: true, reported: true },
     CodeInfo { code: "WEBSOCKET_PORT_UNAVAILABLE", category: Category::Websocket, message: "WebSocket server port is not available", severity: Severity::Error, user_action_required: true, reported: true },
     CodeInfo { code: "WEBSOCKET_PORT_INVALID", category: Category::Websocket, message: "WebSocket server port must be a number", severity: Severity::Warning, user_action_required: true, reported: true },
@@ -109,8 +110,7 @@ pub(super) const CODES: &[CodeInfo] = &[
     CodeInfo { code: "OCR_DISABLED_UNKNOWN", category: Category::Ocr, message: "OCR disabled due to an unknown error", severity: Severity::Error, user_action_required: false, reported: true },
     CodeInfo { code: "GENERAL_EXCEPTION", category: Category::General, message: "An error occurred", severity: Severity::Error, user_action_required: false, reported: true },
     CodeInfo { code: "GENERAL_UNKNOWN", category: Category::General, message: "Unknown error", severity: Severity::Error, user_action_required: false, reported: true },
-    // Core only (#277): the official translation APIs and the Ollama URL. tools/spec_core_additions.json
-    // adds them to the generated specification, after Python's codes.
+    // Core only (#277): the official translation APIs and the Ollama URL.
     CodeInfo { code: "AUTH_GOOGLE_CLOUD_INVALID", category: Category::Auth, message: "Google Cloud Translation API key is not valid", severity: Severity::Warning, user_action_required: true, reported: true },
     CodeInfo { code: "AUTH_GOOGLE_CLOUD_FAILED", category: Category::Auth, message: "Authentication failure of Google Cloud Translation API key", severity: Severity::Error, user_action_required: true, reported: true },
     CodeInfo { code: "AUTH_PAPAGO_INVALID", category: Category::Auth, message: "Papago Client ID or Client Secret is not valid", severity: Severity::Warning, user_action_required: true, reported: true },
@@ -118,6 +118,10 @@ pub(super) const CODES: &[CodeInfo] = &[
     CodeInfo { code: "CONNECTION_OLLAMA_URL_INVALID", category: Category::Connection, message: "Ollama URL is not valid", severity: Severity::Warning, user_action_required: true, reported: true },
     // Core only: the subtitles' font is chosen from the system's fonts (none is bundled).
     CodeInfo { code: "OVERLAY_FONT_NOT_FOUND", category: Category::General, message: "The font is not installed on this PC", severity: Severity::Warning, user_action_required: true, reported: true },
-    // Core only (#391): no VAD engine in this build, so the VAD switches cannot be turned on.
-    CodeInfo { code: "VAD_UNAVAILABLE", category: Category::Transcription, message: "Voice activity detection is not available in this version; phrases are cut by volume", severity: Severity::Warning, user_action_required: false, reported: false },
+    // Core only (#391, #278): Silero VAD runs on the speech.cpp server of realtime recognition;
+    // without one set up (a switch is refused) or running (a recording cuts by volume) it is told
+    // with the reason.
+    CodeInfo { code: "VAD_UNAVAILABLE", category: Category::Transcription, message: "Voice activity detection needs the speech.cpp server with a recognition model and Silero VAD; phrases are cut by volume", severity: Severity::Warning, user_action_required: true, reported: false },
+    // Core only (#531): the RVC block length of the Advanced settings.
+    CodeInfo { code: "VALIDATION_RVC_BLOCK_MS", category: Category::Validation, message: "RVC block length must be automatic (0) or 20 to 200 ms in steps of 20", severity: Severity::Warning, user_action_required: true, reported: true },
 ];

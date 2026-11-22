@@ -1,4 +1,4 @@
-//! The message pipeline (`Controller._processMessage` and its callers in `controller.py`): a
+//! The message pipeline (`Controller._processMessage` and its callers in [`controller.py`]): a
 //! typed message (`/run/send_message_box`) and the text the microphone, the speaker and OCR
 //! recognise go through the same steps.
 //!
@@ -13,6 +13,8 @@
 //! Other areas use [`Core::deliver_transcription`] (recognition and OCR), and get the
 //! messages through the hooks of [`MessageHooks`] (the VR overlay and speech), which do
 //! nothing until those areas set them.
+//!
+//! [`controller.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/controller.py
 
 use super::routes::{Builder, WAIT};
 use super::{ok, Core};
@@ -25,6 +27,7 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, OnceLock, RwLock};
 use std::time::Instant;
+use vrct_transcription::diagnostics::{Event as Diagnosed, Stage};
 use vrct_translation::transliteration::Tokenizer;
 
 // ------------------------------------------------------------------------- readings
@@ -224,6 +227,9 @@ pub struct OverlayMessage {
     pub languages: Value,
     pub transliteration_message: Value,
     pub transliteration_translations: Value,
+    /// Only the translations are shown: the setting as the message was admitted with it, not as
+    /// it is when the log is drawn.
+    pub only_translated: bool,
 }
 
 impl OverlayMessage {
@@ -250,6 +256,9 @@ impl OverlayMessage {
             target_languages,
             transliteration_message: self.transliteration_message.clone(),
             transliteration_translation: self.transliteration_translations.clone(),
+            // Only realtime captions name their speakers (`realtime_asr::caption_message`).
+            speakers: Vec::new(),
+            only_translated: self.only_translated,
         }
     }
 }
@@ -297,6 +306,10 @@ pub struct SpokenMessage {
 /// An output the other areas plug in. `Err` reports a failed output.
 pub type Hook<T> = Arc<dyn Fn(&T) -> Result<(), ()> + Send + Sync>;
 
+/// Runs an output of a realtime final through its delivery (`output_progress`): the action
+/// gives true when what it sent went out ([`vrct_transcription::realtime::delivery::Output`]).
+pub(crate) type RunOutput<'a> = &'a dyn Fn(&mut dyn FnMut() -> bool) -> bool;
+
 /// The outbound hooks; unset ones do nothing.
 #[derive(Clone, Default)]
 pub struct MessageHooks {
@@ -317,7 +330,7 @@ const LOG_LIMIT: u64 = 10 * 1024 * 1024;
 
 impl ConversationLog {
     fn start(&mut self, directory: &Path) {
-        let name = chrono::Local::now().format("%Y-%m-%d_%H-%M-%S.log").to_string();
+        let name = crate::local_time::conversation_log_name(&crate::local_time::now());
         self.file = Some((directory.join(name), None));
     }
 
@@ -334,7 +347,7 @@ impl ConversationLog {
             *file = Some(OpenOptions::new().create(true).append(true).open(&*path)?);
         }
         let handle = file.as_mut().expect("opened above");
-        let line = format!("{} - log - INFO - {text}\n", chrono::Local::now().format("%Y-%m-%d %H:%M:%S,%3f"));
+        let line = format!("{} - log - INFO - {text}\n", crate::local_time::conversation_log_stamp(&crate::local_time::now()));
         if handle.metadata().map(|m| m.len()).unwrap_or(0) + line.len() as u64 > LOG_LIMIT {
             *handle = OpenOptions::new().create(true).write(true).truncate(true).open(&*path)?;
         }
@@ -351,6 +364,22 @@ struct ChatboxOrder {
     sent: u64,
 }
 
+impl ChatboxOrder {
+    /// Sends message `sequence` unless a later one already reached the chatbox. Only a message
+    /// that went out moves the order on: one skipped at the last moment (a stop, VRChat turned
+    /// off) leaves room for an earlier one still on its way, as Python did.
+    fn send(&mut self, sequence: u64, send: impl FnOnce() -> std::io::Result<bool>) -> std::io::Result<bool> {
+        if sequence < self.sent {
+            return Ok(false);
+        }
+        let sent = send();
+        if let Ok(true) = sent {
+            self.sent = sequence;
+        }
+        sent
+    }
+}
+
 /// What the pipeline keeps between messages.
 #[derive(Default)]
 pub(crate) struct Messages {
@@ -363,7 +392,8 @@ pub(crate) struct Messages {
     no_readings_noted: AtomicBool,
 }
 
-/// The settings a message keeps from its admission to its last output (`MessageSnapshot`).
+/// The settings a message keeps from its admission to its last output (`MessageSnapshot`):
+/// its translation, its outputs and, for a realtime final, its caption rows all use them.
 #[derive(Clone, Debug)]
 pub(crate) struct Snapshot {
     pub tab: String,
@@ -383,7 +413,7 @@ pub(crate) struct Snapshot {
 }
 
 impl Snapshot {
-    fn capture(core: &Core, spec: &Spec, language: Option<&str>) -> Snapshot {
+    pub(crate) fn capture(core: &Core, spec: &Spec, language: Option<&str>) -> Snapshot {
         let _guard = core.language_lock.lock().unwrap();
         let config = core.config();
         let generation = config.history_generation();
@@ -433,6 +463,29 @@ impl Snapshot {
             .map(|o| o.iter().filter(|(_, t)| t["enable"] == true).map(|(slot, _)| slot.clone()).collect())
             .unwrap_or_default()
     }
+
+    /// The languages of the enabled destination slots, in order: the names the VR logs give the
+    /// translations.
+    pub(crate) fn target_languages(&self) -> Vec<String> {
+        self.destinations()
+            .as_object()
+            .into_iter()
+            .flat_map(|o| o.values())
+            .filter(|slot| slot["enable"] == true)
+            .filter_map(|slot| slot["language"].as_str().map(str::to_string))
+            .collect()
+    }
+}
+
+/// What a message is admitted with: its settings and its place in the chatbox order
+/// (`MessageSnapshot.capture` and `chatbox_order.admit()`). A realtime final takes it when it
+/// arrives, before it waits for translation (decision 80 in
+/// `docs/voice-stack/core-integration.md`); other messages when the pipeline takes them.
+#[derive(Clone, Debug)]
+pub(crate) struct Admitted {
+    pub snapshot: Snapshot,
+    /// `None` for a direction that never sends to the chatbox.
+    pub sequence: Option<u64>,
 }
 
 /// `messageFormatter`: the original and the translations joined as the format parts say.
@@ -531,9 +584,11 @@ impl Core {
             return false;
         }
         let language = recognized.language.as_deref().filter(|l| !l.is_empty());
+        // Speech gets the term dictionary's written forms (#446); OCR reads what others typed.
+        let text = if source == Source::Ocr { recognized.text.clone() } else { self.corrected_recognition(&recognized.text) };
         self.process_message(
             &spec,
-            &recognized.text,
+            &text,
             language,
             recognized.id.clone(),
             recognized.asr_ms,
@@ -553,24 +608,55 @@ impl Core {
         asr_ms: Option<u64>,
         guard: Option<Guard>,
     ) -> Option<Value> {
-        self.process_message_stamped(spec, message, language, id, asr_ms, guard, None, None)
+        self.process_message_stamped(spec, message, language, id, asr_ms, guard, None, None, None, None, None)
     }
 
-    /// A realtime microphone final: the pipeline, then its translated speech when the voice
-    /// settings let microphone finals speak (`mic_snapshot` and `speech_update` of
-    /// `_processMessage`).
-    pub(crate) fn process_realtime_mic(
+    /// Takes the settings of a message and its place in the chatbox order. `chatbox` false
+    /// leaves the order alone (a realtime partial, which is only shown).
+    pub(crate) fn admit_message(&self, spec: &Spec, language: Option<&str>, chatbox: bool) -> Admitted {
+        let snapshot = Snapshot::capture(self, spec, language);
+        let sequence = spec.chatbox.filter(|_| chatbox).map(|_| {
+            let mut order = self.messages().chatbox.lock().unwrap();
+            order.admitted += 1;
+            order.admitted
+        });
+        Admitted { snapshot, sequence }
+    }
+
+    /// A realtime final with what it was admitted with when it arrived (`settings_snapshot` and
+    /// `chatbox_sequence` of `_processMessage`), then, from the microphone, its translated
+    /// speech when the voice settings let microphone finals speak (`mic_snapshot` and
+    /// `speech_update`). `received_ns` is when the final arrived, on speech's clock: the flow
+    /// panel times the message from it (`speech_update.received_ns`).
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) fn process_realtime(
         self: &Arc<Self>,
+        spec: &Spec,
         message: &str,
-        language: Option<&str>,
-        id: Option<String>,
-        guard: Option<Guard>,
+        id: String,
+        guard: Guard,
+        admitted: Admitted,
         mic_voice: Option<MicVoice>,
+        received_ns: i64,
+        output: RunOutput<'_>,
     ) -> Option<Value> {
-        self.process_message_stamped(&REALTIME_MIC, message, language, id, None, guard, None, mic_voice.as_ref())
+        self.process_message_stamped(
+            spec,
+            message,
+            None,
+            Some(id),
+            None,
+            Some(guard),
+            None,
+            Some(admitted),
+            mic_voice.as_ref(),
+            Some(received_ns),
+            Some(output),
+        )
     }
 
-    /// [`Core::process_message`] with the speech generation the receiver stamped.
+    /// [`Core::process_message`] with the speech generation the receiver stamped, or with what
+    /// a realtime final was admitted with when it arrived (`language` is then in the snapshot).
     #[allow(clippy::too_many_arguments)]
     fn process_message_stamped(
         self: &Arc<Self>,
@@ -581,7 +667,10 @@ impl Core {
         asr_ms: Option<u64>,
         guard: Option<Guard>,
         voice_generation: Option<u64>,
+        admitted: Option<Admitted>,
         mic_voice: Option<&MicVoice>,
+        received_ns: Option<i64>,
+        output: Option<RunOutput<'_>>,
     ) -> Option<Value> {
         let mic = spec.kind == "mic";
         // A message refused at admission stays refused after unmute.
@@ -597,13 +686,8 @@ impl Core {
         }
         let config = self.config();
         let feature_enabled = spec.feature.is_none_or(|key| config.get_bool(key));
-        let snapshot = Snapshot::capture(self, spec, language);
+        let Admitted { snapshot, sequence } = admitted.unwrap_or_else(|| self.admit_message(spec, language, true));
         let voice_generation = voice_generation.or_else(|| self.voice_generation());
-        let sequence = spec.chatbox.map(|_| {
-            let mut order = self.messages().chatbox.lock().unwrap();
-            order.admitted += 1;
-            order.admitted
-        });
         let mut failures: Vec<Value> = Vec::new();
 
         if spec.word_filter && word_filtered(&config.get("MIC_WORD_FILTER"), message) {
@@ -624,10 +708,15 @@ impl Core {
 
         let started = Instant::now();
         let started_ns = vrct_tts::clock::monotonic_ns();
-        let trace = self.io_trace_begin(spec.kind, message, id.as_deref(), started_ns, asr_ms);
+        let trace = self.io_trace_begin(spec.kind, message, id.as_deref(), started_ns, asr_ms, received_ns);
         let voice = (voice_generation, started_ns);
         let slots = snapshot.target_slots();
         let speaks = matches!(spec.kind, "chat" | "mic");
+        // The speech server gets ready while the text is translated, so that the translation's
+        // speech starts sooner (#556).
+        if snapshot.translation_enabled && (speaks || mic_voice.is_some()) {
+            self.warm_speech(mic_voice.is_some(), snapshot.destinations());
+        }
         if speaks {
             self.speak(SpeechStage::Original, spec, &snapshot, id.as_ref(), message, &[], voice, &current, &mut failures);
         }
@@ -640,6 +729,10 @@ impl Core {
             let translate_started = Instant::now();
             let result = self.translate_message(spec, &snapshot, message);
             translate_ms = translate_started.elapsed().as_millis();
+            if !current() || result.is_err() {
+                // Slow translation is kept even when the message goes no further.
+                self.record_latency(spec, asr_ms, translate_ms, started.elapsed().as_millis(), true);
+            }
             if !current() {
                 return None;
             }
@@ -740,17 +833,19 @@ impl Core {
                         if snapshot.send_only_translated && snapshot.translation_enabled { "" } else { message };
                     let text = format_message(&snapshot.format_parts, &translations, original);
                     let chatbox_current = || current() && self.config().get_bool(gate);
-                    let sent = {
-                        let mut order = self.messages().chatbox.lock().unwrap();
-                        if sequence < order.sent {
-                            Ok(false)
-                        } else {
-                            let sent = self.chatbox_send(&text, &chatbox_current);
-                            if sent.is_ok() {
-                                order.sent = sequence;
-                            }
+                    let send = || self.messages().chatbox.lock().unwrap().send(sequence, || self.chatbox_send(&text, &chatbox_current));
+                    // A realtime final that reached the chatbox is delivered even if it expires
+                    // after (`output_progress`, decision 15).
+                    let sent = match output {
+                        Some(output) => {
+                            let mut sent = Ok(false);
+                            output(&mut || {
+                                sent = send();
+                                matches!(sent, Ok(true))
+                            });
                             sent
                         }
+                        None => send(),
                     };
                     if let Ok(sent) = &sent {
                         Self::io_trace_chatbox(trace.as_ref(), Some(*sent));
@@ -767,7 +862,34 @@ impl Core {
                     }
                 }
             }
+        }
 
+        // The translated speech, before the outputs that take time: drawing a VR overlay's
+        // picture takes tens of milliseconds, and the voice would wait for it (#556). Each request
+        // checks that the message is still current, and a stop drops speech already queued by its
+        // generation, as before.
+        if speaks {
+            let outcome: Vec<_> = outcomes.clone();
+            self.speak_translated(spec, &snapshot, id.as_ref(), message, &outcome, voice, &current, &mut failures);
+        }
+        if let Some(mic_voice) = mic_voice {
+            let translations: Vec<String> = outcomes.iter().map(|o| o.text.clone()).collect();
+            let success: Vec<bool> = outcomes.iter().map(|o| o.success).collect();
+            let provenance: Vec<&str> = outcomes.iter().map(|o| o.provenance).collect();
+            self.publish_mic_voice(
+                &mic_voice.snapshot,
+                &mic_voice.update,
+                &snapshot.tab,
+                snapshot.source_language.as_deref(),
+                &snapshot.target,
+                &translations,
+                &success,
+                &provenance,
+                &current,
+            );
+        }
+
+        if feature_enabled {
             // The VR overlay
             // The VR overlay area shows it unless a hook replaces it.
             let overlay_hook = self.messages().hooks.read().unwrap().overlay.clone();
@@ -804,6 +926,7 @@ impl Core {
                         languages: language_payload(snapshot.destinations()),
                         transliteration_message: readings_message.clone(),
                         transliteration_translations: Value::Array(readings_translations.clone()),
+                        only_translated: snapshot.overlay_only_translated,
                     };
                     if hook(&event).is_err() {
                         let output = if log == OverlayLog::Small { "overlay_small" } else { "overlay_large" };
@@ -857,26 +980,6 @@ impl Core {
         }
         self.add_history(spec.kind, message, &snapshot);
 
-        if speaks {
-            let outcome: Vec<_> = outcomes.clone();
-            self.speak_translated(spec, &snapshot, id.as_ref(), message, &outcome, voice, &current, &mut failures);
-        }
-        if let Some(mic_voice) = mic_voice {
-            let translations: Vec<String> = outcomes.iter().map(|o| o.text.clone()).collect();
-            let success: Vec<bool> = outcomes.iter().map(|o| o.success).collect();
-            let provenance: Vec<&str> = outcomes.iter().map(|o| o.provenance).collect();
-            self.publish_mic_voice(
-                &mic_voice.snapshot,
-                &mic_voice.update,
-                &snapshot.tab,
-                snapshot.source_language.as_deref(),
-                &snapshot.target,
-                &translations,
-                &success,
-                &provenance,
-                &current,
-            );
-        }
         if !failures.is_empty() {
             payload.insert("output_failures".into(), Value::Array(failures));
         }
@@ -884,17 +987,39 @@ impl Core {
         let translated = snapshot.translation_enabled.then_some(translations.as_slice());
         let failed: Vec<Value> = payload.get("output_failures").and_then(Value::as_array).cloned().unwrap_or_default();
         self.io_trace_publish(trace, translated, translate_ms, total.saturating_sub(translate_ms), &failed);
-        let asr = asr_ms.map(|ms| format!("asr={ms}ms ")).unwrap_or_default();
-        self.step(&format!(
-            "[latency][{}] {asr}translate={translate_ms}ms output={}ms total={}ms",
-            spec.kind,
-            total.saturating_sub(translate_ms),
-            total + u128::from(asr_ms.unwrap_or(0))
-        ));
+        self.record_latency(spec, asr_ms, translate_ms, total, false);
         if spec.push.is_none() {
             return Some(Value::Object(payload));
         }
         None
+    }
+
+    /// `_recordMessageLatency`: the times of a message, without its text. Typed chat and the
+    /// chat's reading write their line every time; recognised speech is counted in the speech
+    /// diagnostics, and its line written only when a stage is slow (or recognition took 5 s or
+    /// more). `pipeline_ms` runs from after the word filter to the last output; the total adds
+    /// recognition. `aborted`: the message went no further than its translation.
+    fn record_latency(&self, spec: &Spec, asr_ms: Option<u64>, translate_ms: u128, pipeline_ms: u128, aborted: bool) {
+        let output_ms = pipeline_ms.saturating_sub(translate_ms);
+        let total_ms = pipeline_ms + u128::from(asr_ms.unwrap_or(0));
+        let asr = asr_ms.map(|ms| format!("asr={ms}ms ")).unwrap_or_default();
+        let mut detail = format!("[latency][{}] {asr}translate={translate_ms}ms output={output_ms}ms total={total_ms}ms", spec.kind);
+        if !matches!(spec.kind, "mic" | "speaker") {
+            self.step(&detail);
+            return;
+        }
+        let translate = if spec.realtime { Stage::RealtimeTranslate } else { Stage::Translate };
+        let mut stages = vec![(translate, translate_ms as f64), (Stage::Output, output_ms as f64)];
+        // Realtime recognition's time is not known: the server does not give it.
+        if !spec.realtime {
+            stages.push((Stage::Total, total_ms as f64));
+        }
+        if aborted {
+            detail.push_str(" publication=aborted");
+        }
+        let event = if aborted { Diagnosed::MessageAborted } else { Diagnosed::Message };
+        let slow_asr = asr_ms.is_some_and(|ms| ms as f64 >= vrct_transcription::diagnostics::SLOW_ASR_MS);
+        self.transcription.diagnostics.record(spec.kind, event, &stages, Some(detail), slow_asr);
     }
 
     /// The translations of a message to every destination (`getInputTranslate`,
@@ -977,7 +1102,9 @@ impl Core {
         }
     }
 
-    fn output_failed(
+    /// One output of a message failed: kept in `failures` and told to the UI while the message
+    /// is still wanted (`_runMessageSink`).
+    pub(super) fn output_failed(
         &self,
         output: &str,
         spec: &Spec,
@@ -1066,7 +1193,7 @@ impl Core {
         }
         // The receiver's stamp: a stop while this waited in the queue refuses its speech.
         let stamped = data.get("_voice_generation").and_then(Value::as_u64);
-        match self.process_message_stamped(&CHAT, text, None, Some(id_text), None, None, stamped, None) {
+        match self.process_message_stamped(&CHAT, text, None, Some(id_text), None, None, stamped, None, None, None, None) {
             Some(mut result) => {
                 // The id goes back as the UI sent it.
                 result["id"] = id.clone();
@@ -1151,5 +1278,62 @@ mod tests {
         assert_eq!((REALTIME_SPEAKER.chatbox, REALTIME_MIC.chatbox), (None, Some("SEND_MESSAGE_TO_VRC")));
         let readings = [SPEAKER, MIC, REALTIME_MIC].map(|spec| spec.readings_by_own_language);
         assert_eq!(readings, [false, true, false]);
+    }
+
+    #[test]
+    fn only_a_message_that_went_out_moves_the_chatbox_order_on() {
+        // [`test_message_delivery_revocation.py`] (`osc_lifecycle_wait_rechecks_publication`).
+        //
+        // [`test_message_delivery_revocation.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/test/test_message_delivery_revocation.py
+        let mut order = ChatboxOrder::default();
+        let sent: std::cell::RefCell<Vec<u64>> = Default::default();
+        let mut send = |sequence: u64, goes_out: bool| {
+            order.send(sequence, || {
+                if goes_out {
+                    sent.borrow_mut().push(sequence);
+                }
+                Ok(goes_out)
+            })
+        };
+        // Message 3 is skipped at the last moment: message 2, admitted earlier, still goes out.
+        assert!(!send(3, false).unwrap());
+        assert!(send(2, true).unwrap());
+        // Message 4 went out: message 3 is late and is not sent after it.
+        assert!(send(4, true).unwrap());
+        assert!(!send(3, true).unwrap());
+        // A failed send does not move the order on either.
+        assert!(order.send(6, || Err(std::io::Error::other("closed"))).is_err());
+        let mut send = |sequence: u64| order.send(sequence, || Ok(true));
+        assert!(send(5).unwrap());
+        assert_eq!(*sent.borrow(), [2, 4]);
+    }
+
+    #[test]
+    fn each_start_of_the_conversation_log_writes_its_own_file_and_a_stop_writes_nowhere() {
+        // [`test_conversation_logger.py`].
+        //
+        // [`test_conversation_logger.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/test/test_conversation_logger.py
+        let first = tempfile::tempdir().unwrap();
+        let second = tempfile::tempdir().unwrap();
+        let mut log = ConversationLog::default();
+        assert!(!log.write("[CHAT] before").unwrap(), "off: nothing is written");
+        log.start(first.path());
+        assert!(log.write("[CHAT] one").unwrap());
+        // A new start replaces the open file without a stop.
+        log.start(second.path());
+        assert!(log.write("[CHAT] two").unwrap());
+        log.stop();
+        assert!(!log.write("[CHAT] after").unwrap());
+
+        let read = |dir: &tempfile::TempDir| -> String {
+            std::fs::read_dir(dir.path())
+                .unwrap()
+                .flatten()
+                .map(|entry| std::fs::read_to_string(entry.path()).unwrap())
+                .collect()
+        };
+        let (first, second) = (read(&first), read(&second));
+        assert!(first.ends_with(" - log - INFO - [CHAT] one\n") && first.lines().count() == 1, "{first}");
+        assert!(second.ends_with(" - log - INFO - [CHAT] two\n") && second.lines().count() == 1, "{second}");
     }
 }

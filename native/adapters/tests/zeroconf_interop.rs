@@ -1,5 +1,5 @@
 //! Interoperation with python-zeroconf, which the Python implementation used and which
-//! stands in for VRChat's own mDNS here. Runs only when `VRCT_ZEROCONF_PYTHON` names a
+//! stands in for VRChat's own mDNS here. Runs only when `ASTAROT_ZEROCONF_PYTHON` names a
 //! Python with `zeroconf` installed (for example the backend venv); otherwise it passes
 //! without doing anything.
 
@@ -12,7 +12,7 @@ use vrct_adapters::osc::mdns::{Mdns, ServiceSpec};
 use vrct_adapters::osc::query::OSCJSON_TYPE;
 
 fn python() -> Option<String> {
-    std::env::var("VRCT_ZEROCONF_PYTHON").ok().filter(|p| !p.is_empty())
+    std::env::var("ASTAROT_ZEROCONF_PYTHON").ok().filter(|p| !p.is_empty())
 }
 
 const BROWSE: &str = r#"

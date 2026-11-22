@@ -42,7 +42,7 @@ def test_no_package_carries_the_python_ocr_runtime():
 def test_linux_tree_without_weights_passes_and_a_weight_fails(tmp_path):
     package = tmp_path / "_internal/build"
     package.mkdir(parents=True)
-    (package / "vrct-rvc-worker").write_text("x")
+    (package / "astarot-rvc-worker").write_text("x")
     check_tree(tmp_path)
     (tmp_path / "_internal/rapidocr/models").mkdir(parents=True)
     (tmp_path / "_internal/rapidocr/models/PP-OCRv6_rec_small.onnx").write_bytes(b"weights")

@@ -16,13 +16,24 @@ const isPrivateLanHost = (host: string) => {
         || (first === 192 && second === 168) || (first === 169 && second === 254);
 };
 
-export const endpointDescription = (url: string, description: string | null | undefined, t: Translate) => {
-    const notices = [description, t("network_privacy.save_notice")];
+const isPlainLanHttp = (url: string) => {
     try {
         const endpoint = new URL(url);
-        if (endpoint.protocol === "http:" && isPrivateLanHost(endpoint.hostname)) notices.push(t("network_privacy.http_warning"));
-    } catch { /* Incomplete drafts are validated when saved. */ }
-    return notices.filter(Boolean).join(" ");
+        return endpoint.protocol === "http:" && isPrivateLanHost(endpoint.hostname);
+    } catch { return false; /* Incomplete drafts are validated when saved. */ }
+};
+
+// A URL row's words in two parts: what the row is, with the save notice, and the warning about
+// plain HTTP on the LAN (null when it does not apply). A page that keeps descriptions out of
+// sight (#614) makes the first the label's hint and keeps the warning in sight.
+export const endpointNotices = (url: string, description: string | null | undefined, t: Translate) => ({
+    description: [description, t("network_privacy.save_notice")].filter(Boolean).join(" "),
+    warning: isPlainLanHttp(url) ? t("network_privacy.http_warning") : null,
+});
+
+export const endpointDescription = (url: string, description: string | null | undefined, t: Translate) => {
+    const { description: text, warning } = endpointNotices(url, description, t);
+    return [text, warning].filter(Boolean).join(" ");
 };
 
 export const isNetworkDisconnected = (value: unknown) => value === false;

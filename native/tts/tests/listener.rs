@@ -4,7 +4,7 @@
 mod common;
 
 use std::io;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
@@ -98,7 +98,7 @@ fn server_loss_aborts_real_scheduler_output_instead_of_draining() {
     let (factory_writing, factory_closed) = (writing.clone(), closed.clone());
     let factory = move |_: &str, _: u32, _: u16| -> Result<Box<dyn OutputSink>, TtsError> { Ok(Box::new(SlowOutput { writing: factory_writing.clone(), closed: factory_closed.clone() })) };
     let mut server = BufferedServer::start(pcm());
-    let settings = VoiceSettings { mode: "original".into(), output_device: "test".into(), japanese_url: server.url().to_owned(), ..Default::default() };
+    let settings = VoiceSettings { mode: "original".into(), output_device: "test".into(), japanese_url: server.url().to_owned(), ..external() };
     let bus = VoiceEventBus::new(settings, BusOptions::new(Arc::new(AudioRouter::new(Arc::new(factory)))));
     let event = SpeechMessageEvent { source_language: Some("ja".into()), ..SpeechMessageEvent::new("fault", Source::Chat, "test") };
     assert!(bus.publish(event, None, None));
@@ -354,10 +354,14 @@ fn shared_probe_cancels_only_confirmed_address() {
         let registry = ListenerMonitors::new();
         let attempted = Event::new();
         let confirmed: Address = ("127.0.0.1".into(), a.server.port);
+        // The failing connect is put in only after both requests subscribed, as the Python test
+        // patched `create_connection` after counting the watches: a refusal before that ends the
+        // monitor before it can be counted.
+        let armed = Arc::new(AtomicBool::new(false));
         let probe: Probe = {
-            let (attempted, confirmed) = (attempted.clone(), confirmed.clone());
+            let (attempted, confirmed, armed) = (attempted.clone(), confirmed.clone(), armed.clone());
             Arc::new(move |address: &Address, _: &Event| {
-                if *address == confirmed {
+                if *address == confirmed && armed.load(Ordering::SeqCst) {
                     attempted.set();
                     return refused;
                 }
@@ -372,6 +376,7 @@ fn shared_probe_cancels_only_confirmed_address() {
             assert!(active.next().unwrap().is_ok());
         }
         assert_eq!(registry.external(&confirmed).unwrap().watch_count(), 2);
+        armed.store(true, Ordering::SeqCst);
         assert!(attempted.wait(Some(millis(500))));
         if refused {
             assert!(tokens[0].wait(millis(200)) && tokens[1].wait(millis(200)));
@@ -441,6 +446,9 @@ fn stop_during_probe_prevents_late_cancellation_and_overlapping_probes() {
     old.close();
     let new = registry.watch(&address, &new_token, Event::new(), probe, None);
     assert_eq!(calls.load(Ordering::SeqCst), 1);
+    // The new request joins the monitor whose probe is in flight (`new._monitor is old._monitor`).
+    assert_eq!(registry.external_count(), 1);
+    assert_eq!(old.monitor().watch_count(), 1, "the new request started another monitor");
     release.set();
     assert!(second_entered.wait(Some(millis(500))));
     // A new request must not receive the old request's in-flight observation.
@@ -467,10 +475,133 @@ fn a_stopped_subscription_never_cancels() {
 }
 
 #[test]
+fn the_last_subscriptions_stop_flag_ends_the_monitor_without_cancelling() {
+    // The `stopped` ending of `test_external_monitor_stops_only_after_last_subscription`: the
+    // first request has gone, then the last one's own stop flag is set while its server is gone.
+    let registry = ListenerMonitors::new();
+    let address: Address = ("127.0.0.1".into(), 9);
+    let gone = Arc::new(AtomicBool::new(false));
+    let probe: Probe = {
+        let gone = gone.clone();
+        Arc::new(move |_: &Address, _: &Event| gone.load(Ordering::SeqCst))
+    };
+    let tokens = [CancelToken::new(), CancelToken::new()];
+    let stops = [Event::new(), Event::new()];
+    let first = registry.watch(&address, &tokens[0], stops[0].clone(), probe.clone(), None);
+    let second = registry.watch(&address, &tokens[1], stops[1].clone(), probe, None);
+    let monitor = registry.external(&address).unwrap();
+    first.close();
+    assert!(!monitor.finished() && monitor.watch_count() == 1);
+    stops[1].set();
+    gone.store(true, Ordering::SeqCst);
+    assert!(monitor.join(millis(300)), "the monitor outlived its last subscription");
+    assert_eq!(registry.external_count(), 0);
+    assert!(!tokens[0].is_set() && !tokens[1].is_set(), "a stopped subscription was cancelled");
+    second.close();
+}
+
+#[test]
 fn the_default_probe_is_inconclusive_for_a_live_listener() {
     let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
     let address: Address = ("127.0.0.1".into(), listener.local_addr().unwrap().port());
     assert!(!listener_missing(&address, &Event::new()));
     drop(listener);
+    // Windows proves absence from the TCP table, and a probe reuses a table read begun within
+    // the last 20 ms: until then it still sees the listener of the first probe. Let that read
+    // age past the freshness, as the next 20 ms probe of a monitor would.
+    #[cfg(windows)]
+    thread::sleep(millis(50));
     assert!(listener_missing(&address, &Event::new()));
+}
+
+#[test]
+fn a_listener_table_decides_before_any_connect() {
+    // `windows_monitor_distinguishes_absent_listener_from_connect_failure`: with a listener table
+    // (Windows'), its answer is taken without a connect. A port missing from the table is gone
+    // although it listens, and a listed port is there although it is closed. The table's reads
+    // have 50 ms; one that misses it falls back to a connect, which would answer the other way,
+    // so each answer is waited for.
+    use std::collections::HashSet;
+    use vrct_tts::listener::{listener_missing_with, ListenerTableProbe};
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = listener.local_addr().unwrap().port();
+    let address: Address = ("127.0.0.1".into(), port);
+    let empty = ListenerTableProbe::new(|| Some(HashSet::new()), 0.0);
+    until2(|| listener_missing_with(&address, &Event::new(), Some(&empty)));
+    drop(listener);
+    let listed = ListenerTableProbe::new(move || Some(HashSet::from([("127.0.0.1".to_owned(), port)])), 0.0);
+    until2(|| !listener_missing_with(&address, &Event::new(), Some(&listed)));
+    // A watch on that table's answer ends both requests to the server it says is gone.
+    let registry = ListenerMonitors::new();
+    let probe: Probe = {
+        let empty = empty.clone();
+        Arc::new(move |address: &Address, stopped: &Event| listener_missing_with(address, stopped, Some(&empty)))
+    };
+    let tokens = [CancelToken::new(), CancelToken::new()];
+    let watches: Vec<_> = tokens.iter().map(|token| registry.watch(&address, token, Event::new(), probe.clone(), None)).collect();
+    assert!(tokens.iter().all(|token| token.wait(Duration::from_secs(2))));
+    assert!(tokens.iter().all(|token| token.reason() == "server_unavailable"));
+    for watch in &watches {
+        watch.close();
+    }
+    until2(|| registry.external_count() == 0);
+    assert!(empty.close(millis(500)) && listed.close(millis(500)));
+}
+
+#[test]
+fn headers_past_the_first_audio_budget_end_the_request_without_a_watch() {
+    // `header_time_counts_against_first_audio_budget`: headers that come after the 60 ms budget
+    // end the request with `first_audio_timeout` (decision 63: the budget covers the headers),
+    // before they come. The request never subscribed to a listener monitor and nothing probed
+    // the server.
+    let server = PcmServer::start(ServerOptions { before_headers: Some(Arc::new(|| thread::sleep(millis(300)))), ..Default::default() });
+    let registry = ListenerMonitors::new();
+    let (probe, calls) = counting_probe();
+    let client = SpeechCppTts::with_timeouts(&server.url, Duration::from_secs(2), millis(60)).unwrap().with_listener(registry.clone(), probe);
+    let token = CancelToken::new();
+    let started = Instant::now();
+    let error = stream(&client, &token).find_map(Result::err).expect("the request failed");
+    assert_eq!(error.code(), "first_audio_timeout");
+    assert!(started.elapsed() < millis(250), "{:?}", started.elapsed());
+    assert_eq!(registry.external_count(), 0);
+    thread::sleep(millis(100));
+    assert_eq!(calls.load(Ordering::SeqCst), 0);
+}
+
+#[test]
+fn one_probe_runs_per_address_whatever_the_number_of_requests() {
+    // `one_second_probe_counts`: a server's requests share one probe every 20 ms. Two requests
+    // to the same address in half a second are about 25 probes, not twice that.
+    let registry = ListenerMonitors::new();
+    let calls = Arc::new(AtomicUsize::new(0));
+    let probe: Probe = {
+        let calls = calls.clone();
+        Arc::new(move |_: &Address, _: &Event| {
+            calls.fetch_add(1, Ordering::SeqCst);
+            false
+        })
+    };
+    let address: Address = ("127.0.0.1".into(), 9);
+    let tokens = [CancelToken::new(), CancelToken::new()];
+    let watches: Vec<_> = tokens.iter().map(|token| registry.watch(&address, token, Event::new(), probe.clone(), None)).collect();
+    assert_eq!(registry.external(&address).unwrap().watch_count(), 2);
+    thread::sleep(millis(500));
+    for watch in &watches {
+        watch.close();
+    }
+    until2(|| registry.external_count() == 0);
+    let probes = calls.load(Ordering::SeqCst);
+    assert!((5..=35).contains(&probes), "{probes} probes in 500 ms for two requests");
+    assert!(tokens.iter().all(|token| !token.is_set()));
+}
+
+#[test]
+fn a_connect_that_times_out_or_fails_otherwise_proves_nothing() {
+    // `inconclusive_probe[TimeoutError, OSError]` with the default connect: only a refusal proves
+    // a server gone. An address nothing answers (TEST-NET-1: a timeout, or an unreachable
+    // network where there is no route) is inconclusive, within the 100 ms connect.
+    use vrct_tts::listener::listener_missing_with;
+    let started = Instant::now();
+    assert!(!listener_missing_with(&("192.0.2.1".into(), 9), &Event::new(), None));
+    assert!(started.elapsed() < millis(500), "{:?}", started.elapsed());
 }

@@ -1,0 +1,23 @@
+# gitleaks's settings (python tools/dev.py check --scope secrets; docs/development.md,
+# "リポジトリの検査"). gitleaks's own rules, with the values below known not to be secrets.
+# Findings older than these rules are listed by fingerprint in .gitleaksignore.
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Measurement results: file hashes and model names, not credentials"
+paths = [
+    '''^tools/translation_onnx/results/''',
+    '''^docs/voice-stack/measurements/''',
+]
+
+[[allowlists]]
+description = "WebSocket handshake nonces the tests send"
+regexTarget = "line"
+regexes = ['''Sec-WebSocket-Key: ''']
+
+[[allowlists]]
+description = "An encrypted key the TLS tests make up to see a passphrase refused"
+targetRules = ["private-key"]
+paths = ['''^native/adapters/tests/tls\.rs$''']

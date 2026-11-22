@@ -3,7 +3,7 @@ import { createGlobalThemeContract } from "@vanilla-extract/css";
 // The design tokens for vanilla-extract styles (ADR-010). The values stay where they are, in
 // views/app/_index_css/variables.css, which the SCSS modules read too; this contract only gives
 // the same custom properties typed names, so `vars.dark_850_color` is `var(--dark_850_color)`.
-// It emits no CSS. views/theme/vars.test.js checks that every name here is defined there.
+// It emits no CSS. views/theme/vars.test.ts checks that every name here is defined there.
 const NAMES = [
     "primary_100_color", "primary_150_color", "primary_200_color", "primary_250_color", "primary_300_color",
     "primary_350_color", "primary_400_color", "primary_450_color", "primary_500_color", "primary_550_color",
@@ -18,9 +18,9 @@ const NAMES = [
     "dark_950_color", "dark_975_color", "dark_1000_color",
     "dark_550_color_22", "dark_825_color_cc", "dark_1000_color_66", "dark_1000_color_aa", "dark_1000_color_dd",
     "title_bar_height", "main_page_topbar_height", "config_page_sidebar_width", "config_page_content_padding_top",
-    "vox_canvas", "vox_rail", "vox_surface", "vox_border", "vox_radius",
+    "vox_canvas", "vox_rail", "vox_surface", "vox_border", "vox_field_border", "vox_radius",
     "vox_secondary_text", "vox_description_text", "vox_state_active", "vox_state_warning", "vox_state_failed",
-    "vox_secondary_hover", "vox_readout_rule", "vox_shadow_overlay",
+    "vox_secondary_hover", "vox_readout_rule", "vox_shadow_overlay", "vox_on_primary", "vox_focus",
     "vox_ease", "vox_ease_settle", "vox_motion_fast", "vox_motion",
     "vox_highlight_tint", "vox_warning_tint", "vox_chatbox_preview", "vox_skeleton",
     "font_family",

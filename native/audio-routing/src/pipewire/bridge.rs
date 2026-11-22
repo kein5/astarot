@@ -1,11 +1,13 @@
 //! Explicit Linux source forwarding. Route health is not proof of voice conversion.
 //!
-//! Port of `src-python/models/audio_routing/source_bridge.py`. PCM stays inside the
-//! `vrct-source-bridge` helper (a `pw-loopback` with ownership checks). The thread
+//! Port of [`src-python/models/audio_routing/source_bridge.py`]. PCM stays inside the
+//! `astarot-source-bridge` helper (a `pw-loopback` with ownership checks). The thread
 //! that starts it owns its lifetime: the helper watches that thread through a pidfd
 //! and ends with it. The playback stream starts muted and is unmuted only after both
 //! streams are proven to be the helper's and linked exactly source → bridge → VC
 //! input. Any later loss ends the route; it never resumes by itself.
+//!
+//! [`src-python/models/audio_routing/source_bridge.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/audio_routing/source_bridge.py
 
 use std::any::Any;
 use std::io::Read;
@@ -437,7 +439,7 @@ impl BridgeSystem for PipeWireBridgeSystem {
             return Err(Error::runtime("source_bridge_thread_watch_unavailable"));
         }
         let owner = owner as libc::c_int;
-        let binary = self.build.join("vrct-source-bridge");
+        let binary = self.build.join("astarot-source-bridge");
         let args = launch_arguments(&binary.to_string_lossy(), owner, source, sink, tag);
         let mut command = self.env.command(&binary);
         command.args(&args[1..]).stdout(Stdio::piped());
@@ -465,7 +467,7 @@ impl BridgeSystem for PipeWireBridgeSystem {
     }
 
     fn unmute(&self, endpoint: &Endpoint, tag: &str) -> Result<()> {
-        let mut command = self.env.command(self.build.join("vrct-voice-gate"));
+        let mut command = self.env.command(self.build.join("astarot-voice-gate"));
         command.args([endpoint.cookie.to_string(), endpoint.serial.to_string(), "0".into(), tag.to_owned()]);
         run(command, Duration::from_millis(2500)).map(|_| ()).map_err(|_| Error::runtime("source_bridge_gate_failed"))
     }

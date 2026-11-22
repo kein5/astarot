@@ -2,7 +2,10 @@
 //! chatbox (a UDP socket on 127.0.0.2), the WebSocket clients and the conversation log, with
 //! translation off and on, a failing provider, readings, and the recognised text the other
 //! areas hand over (`Core::deliver_transcription`). The behaviours are those of
-//! `src-python/test/test_controller_message_pipeline.py` and `test_message_snapshot_and_sinks.py`.
+//! [`src-python/test/test_controller_message_pipeline.py`] and [`test_message_snapshot_and_sinks.py`].
+//!
+//! [`src-python/test/test_controller_message_pipeline.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/test/test_controller_message_pipeline.py
+//! [`test_message_snapshot_and_sinks.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/test/test_message_snapshot_and_sinks.py
 
 mod common;
 
@@ -91,6 +94,7 @@ fn start_in(saved: Value, tokenizer: Option<Arc<dyn Tokenizer>>, dir: Option<std
             copied.lock().unwrap().push(text.to_string());
             true
         }),
+        secret_store: common::shared_vault().system_source(),
         ..Services::default()
     };
     if let Some(tokenizer) = tokenizer {
@@ -226,7 +230,18 @@ fn the_official_apis_translate_a_message_with_the_users_keys() {
     assert_eq!(result["translations"], json!([{ "message": "papago:en:こんにちは", "transliteration": [] }]));
     assert_eq!(run.chatbox_text(Duration::from_secs(5)).as_deref(), Some("こんにちは\ngoogle-cloud:en:こんにちは"));
 
+    // Decision 58: Papago does not translate Japanese to German directly and there is no local
+    // model. The original goes out, and the log says so once with the engine's name.
+    let mut targets = run.ui.ok("/get/data/selected_target_languages", None);
+    targets["1"]["1"]["language"] = json!("German");
+    targets["1"]["1"]["country"] = json!("Germany");
+    assert_eq!(run.ui.ok("/set/data/selected_target_languages", Some(targets))["1"]["1"]["language"], "German");
+    let result = run.chat("m-3", "こんにちは");
+    assert_eq!(result["translations"][0]["message"], "こんにちは");
     let log = run.process_log();
+    let lines: Vec<&str> = log.lines().filter(|l| l.contains("the engine lacks the language pair and the local model failed")).collect();
+    assert_eq!(lines.len(), 1, "{lines:?}");
+    assert!(lines[0].contains("\"provider\":\"Papago_API\""), "{}", lines[0]);
     assert!(!log.contains(&google) && !log.contains("secret-1") && !log.contains("こんにちは"), "the log has a key or text");
     run.ui.stop();
 }
@@ -246,6 +261,13 @@ fn a_failing_provider_falls_back_reports_and_sends_the_original() {
     assert_eq!((error["status"].as_u64(), error_code(&error)), (Some(400), "TRANSLATION_ENGINE_LIMIT"));
     // One retry, then the local model, which is not there.
     assert_eq!(run.fake.seen_under("/deepl-free/v2/translate").len() - before, 2);
+    // Decision 58: the failure (its retry included) is logged once with the provider's name,
+    // and never the text.
+    let log = run.process_log();
+    let failures: Vec<&str> = log.lines().filter(|l| l.contains("Translation: the provider failed")).collect();
+    assert_eq!(failures.len(), 1, "{failures:?}");
+    assert!(failures.iter().all(|l| l.contains("\"provider\":\"DeepL_API\"")), "{failures:?}");
+    assert!(!log.contains("こんにちは"), "the text reached the log");
     run.ui.stop();
 }
 
@@ -351,6 +373,137 @@ fn recognised_speech_is_filtered_deduplicated_and_pushed() {
     run.ui.stop();
 }
 
+/// #446: the realtime settings' vocabulary, applied outside realtime recognition too.
+fn with_terms() -> Run {
+    let vocabulary = json!({ "builtin": false, "terms": ["猫丸=ねこまる", "Midnight Rooftop"] });
+    start(json!({ "REALTIME_ASR_SETTINGS": { "vocabulary": vocabulary } }), None)
+}
+
+#[test]
+fn recognised_speech_gets_the_written_forms_of_the_term_dictionary() {
+    let run = with_terms();
+    let core = run.ui.backend.core().clone();
+    let heard =
+        |text: &str| Recognized { text: text.into(), language: Some("Japanese".into()), ..Recognized::default() };
+
+    // A cloud engine's text gets the written forms and the registered letter case.
+    core.config().set("ENABLE_TRANSCRIPTION_SEND", json!(true)).unwrap();
+    let mark = run.ui.lines().len();
+    core.deliver_transcription(Source::Mic, heard("ねこまるとmidnight rooftopへ"), None);
+    let pushed = run.ui.wait_endpoint(mark, "/run/transcription_send_mic_message");
+    assert_eq!(pushed["result"]["original"]["message"], "猫丸とMidnight Rooftopへ");
+    assert_eq!(run.chatbox_text(Duration::from_secs(5)).as_deref(), Some("猫丸とMidnight Rooftopへ"));
+    // OCR reads what others typed, as they typed it.
+    core.config().set("ENABLE_OCR_CAPTURE", json!(true)).unwrap();
+    let mark = run.ui.lines().len();
+    core.deliver_transcription(Source::Ocr, Recognized { text: "ねこまる".into(), ..Recognized::default() }, None);
+    let read = run.ui.wait_endpoint(mark, "/run/transcription_ocr_message");
+    assert_eq!(read["result"]["original"]["message"], "ねこまる");
+
+    // The terms stay out of process.log, in the settings sent and answered.
+    let settings = run.ui.ok("/get/data/realtime_asr_settings", None);
+    run.ui.ok("/set/data/realtime_asr_settings", Some(settings));
+    let log = run.process_log();
+    assert!(log.contains("/set/data/realtime_asr_settings"));
+    assert!(!log.contains("猫丸") && !log.contains("Midnight"), "a term reached process.log");
+    run.ui.stop();
+}
+
+#[test]
+fn an_ai_translator_is_told_the_users_terms_that_the_text_holds() {
+    let run = with_terms();
+    let key = format!("gsk{}", "q".repeat(40));
+    run.fake.key("/groq/v1", &key).models("/groq/v1", &["llama"]);
+    assert_eq!(run.ui.ok("/set/data/groq_auth_key", Some(json!(key))), json!(key));
+    let mut engines = run.ui.ok("/get/data/selected_translation_engines", None);
+    engines["1"] = json!("Groq_API");
+    run.ui.ok("/set/data/selected_translation_engines", Some(engines));
+    assert_eq!(run.ui.ok("/set/enable/translation", None), true);
+    let system = |text: &str| {
+        run.chat("m", text);
+        let sent = run.fake.seen_under("/groq/v1/chat").pop().unwrap();
+        sent.body["messages"][0]["content"].as_str().unwrap().to_string()
+    };
+    let with_term = system("猫丸と行く");
+    assert!(with_term.contains("Treat each as a proper noun") && with_term.contains("\n- 猫丸\n"), "{with_term}");
+    assert!(!with_term.contains("Midnight Rooftop"), "a term not in the text was sent");
+    assert!(!system("こんにちは").contains("Treat each as a proper noun"));
+    run.ui.stop();
+}
+
+/// The temperature and the instructions the user chose for the AI translators (#392): saved only
+/// in their forms, sent with every translation, and the instructions never in process.log.
+#[test]
+fn an_ai_translator_is_sent_the_temperature_and_the_instructions_the_user_chose() {
+    let run = start(json!({}), None);
+    let key = format!("gsk{}", "q".repeat(40));
+    run.fake.key("/groq/v1", &key).models("/groq/v1", &["llama"]);
+    assert_eq!(run.ui.ok("/set/data/groq_auth_key", Some(json!(key))), json!(key));
+    let mut engines = run.ui.ok("/get/data/selected_translation_engines", None);
+    engines["1"] = json!("Groq_API");
+    run.ui.ok("/set/data/selected_translation_engines", Some(engines));
+    assert_eq!(run.ui.ok("/set/enable/translation", None), true);
+    let sent = |text: &str| {
+        run.chat("m", text);
+        run.fake.seen_under("/groq/v1/chat").pop().unwrap().body
+    };
+    let first = sent("こんにちは");
+    assert!(first.get("temperature").is_none(), "nothing chosen, nothing sent");
+    assert!(!first["messages"][0]["content"].as_str().unwrap().contains("Additional instructions"));
+
+    let instructions = "猫丸のことはねこまると書く";
+    for value in ["0", "0.3", "1.25", "2", ""] {
+        assert_eq!(run.ui.ok("/set/data/llm_translation_temperature", Some(json!(value))), json!(value));
+    }
+    for value in [json!("2.5"), json!("-1"), json!("0.333"), json!(".5"), json!("1."), json!("abc"), json!(0.3), json!(null)] {
+        let answer = run.ui.request("/set/data/llm_translation_temperature", Some(value.clone()));
+        assert_eq!(error_code(&answer), "VALIDATION_CONFIG_VALUE_INVALID", "{value}");
+    }
+    for value in [json!("one\ntwo"), json!("x".repeat(501)), json!(null)] {
+        let answer = run.ui.request("/set/data/llm_translation_instructions", Some(value));
+        assert_eq!(error_code(&answer), "VALIDATION_CONFIG_VALUE_INVALID");
+    }
+    assert_eq!(run.ui.ok("/set/data/llm_translation_instructions", Some(json!("x".repeat(500)))), json!("x".repeat(500)));
+    run.ui.ok("/set/data/llm_translation_temperature", Some(json!("0.3")));
+    run.ui.ok("/set/data/llm_translation_instructions", Some(json!(instructions)));
+    assert_eq!(run.ui.ok("/get/data/llm_translation_temperature", None), json!("0.3"));
+    assert_eq!(run.ui.ok("/get/data/llm_translation_instructions", None), json!(instructions));
+
+    let chosen = sent("こんにちは");
+    assert_eq!(chosen["temperature"], 0.3);
+    let system = chosen["messages"][0]["content"].as_str().unwrap();
+    assert!(system.contains(&format!("\n{instructions}\n")), "{system}");
+    assert!(!run.process_log().contains(instructions), "the instructions reached process.log");
+    run.ui.stop();
+}
+
+#[test]
+fn the_translated_speech_is_asked_for_before_the_vr_overlay_is_drawn() {
+    // Drawing an overlay's picture takes tens of milliseconds, which the voice waited for (#556).
+    let run = start(json!({ "OVERLAY_SMALL_LOG": true, "OVERLAY_LARGE_LOG": true }), None);
+    let order: Arc<Mutex<Vec<String>>> = Arc::default();
+    let (o, s) = (Arc::clone(&order), Arc::clone(&order));
+    run.ui.backend.core().set_message_hooks(
+        Some(Arc::new(move |event: &OverlayMessage| {
+            o.lock().unwrap().push(format!("overlay {:?}", event.log));
+            Ok(())
+        })),
+        Some(Arc::new(move |event: &SpokenMessage| {
+            s.lock().unwrap().push(format!("speech {:?}", event.stage));
+            Ok(())
+        })),
+    );
+    run.translate_with_deepl();
+    let mark = run.ui.send("/run/send_message_box", Some(json!({ "id": "m-1", "message": "こんにちは" })));
+    let answer = run.ui.wait_endpoint(mark, "/run/send_message_box");
+    assert!(answer["result"].get("output_failures").is_none(), "{}", answer["result"]["output_failures"]);
+    // The chatbox still comes first.
+    assert!(run.chatbox_text(Duration::from_secs(5)).is_some());
+    // A typed message goes to the large log only.
+    assert_eq!(*order.lock().unwrap(), ["speech Original", "speech Translated", "overlay Large"]);
+    run.ui.stop();
+}
+
 #[test]
 fn the_overlay_and_speech_hooks_get_each_message_and_a_failure_is_reported() {
     let run = start(json!({ "OVERLAY_LARGE_LOG": true }), None);
@@ -415,5 +568,118 @@ fn the_chat_providers_get_the_recent_conversation() {
     run.chat("m-3", "三つ目");
     let sent = run.fake.seen_under("/groq/v1/chat").pop().unwrap();
     assert!(!sent.body["messages"][0]["content"].as_str().unwrap().contains("最初の話"));
+    run.ui.stop();
+}
+
+#[test]
+fn a_message_still_being_translated_at_shutdown_goes_nowhere() {
+    // [`test_message_delivery_revocation.py`] (`shutdown_revokes_all_sources_before_cleanup`,
+    // `shutdown_closes_new_message_admission`).
+    //
+    // [`test_message_delivery_revocation.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/test/test_message_delivery_revocation.py
+    let run = start(json!({ "LOGGER_FEATURE": true }), None);
+    let (status, stream) = websocket("127.0.0.1", run.websocket_port, Some("test-token"));
+    assert_eq!(status, 101);
+    let mut stream = stream.unwrap();
+    run.translate_with_deepl();
+    let (release, held) = std::sync::mpsc::channel::<()>();
+    let held = Mutex::new(held);
+    run.fake.reply(move |_, _, _| {
+        let _ = held.lock().unwrap().recv_timeout(Duration::from_secs(10));
+        None
+    });
+    let before = run.fake.seen_under("/deepl-free/v2/translate").len();
+    let mark = run.ui.send("/run/send_message_box", Some(json!({ "id": "m-1", "message": "まだ訳している" })));
+    let deadline = std::time::Instant::now() + Duration::from_secs(5);
+    while run.fake.seen_under("/deepl-free/v2/translate").len() == before {
+        assert!(std::time::Instant::now() < deadline, "the translation never started");
+        std::thread::sleep(Duration::from_millis(10));
+    }
+    run.ui.send("/run/shutdown", None);
+    std::thread::sleep(Duration::from_millis(200));
+    release.send(()).unwrap();
+
+    let answer = run.ui.wait_endpoint(mark, "/run/send_message_box");
+    assert_eq!(answer["result"], Value::Null, "{answer}");
+    assert!(run.chatbox_text(Duration::from_millis(500)).is_none(), "the chatbox got it");
+    assert!(read_text(&mut stream, Duration::from_millis(300)).is_none(), "WebSocket got it");
+    assert!(!run.conversation_log().contains("まだ訳している"), "the conversation log got it");
+    // A message after shutdown is not taken.
+    assert_eq!(run.ui.request("/run/send_message_box", Some(json!({ "id": "m-2", "message": "後から" })))["result"], Value::Null);
+    assert!(run.chatbox_text(Duration::from_millis(300)).is_none());
+    run.ui.stop();
+}
+
+#[test]
+fn the_conversation_history_starts_again_when_the_translation_goes_elsewhere() {
+    // [`test_translation_history_destination.py`].
+    //
+    // [`test_translation_history_destination.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/test/test_translation_history_destination.py
+    let run = start(json!({}), None);
+    let key = format!("gsk{}", "q".repeat(40));
+    run.fake.key("/groq/v1", &key).models("/groq/v1", &["llama"]);
+    assert_eq!(run.ui.ok("/set/data/groq_auth_key", Some(json!(key))), json!(key));
+    let groq = |run: &Run| {
+        let mut engines = run.ui.ok("/get/data/selected_translation_engines", None);
+        engines["1"] = json!("Groq_API");
+        run.ui.ok("/set/data/selected_translation_engines", Some(engines));
+    };
+    groq(&run);
+    assert_eq!(run.ui.ok("/set/enable/translation", None), true);
+    let history = |run: &Run| -> String {
+        let sent = run.fake.seen_under("/groq/v1/chat").pop().unwrap();
+        sent.body["messages"][0]["content"].as_str().unwrap().to_string()
+    };
+
+    run.chat("m-1", "一つ目");
+    // Saving the same engine again keeps the history.
+    groq(&run);
+    run.chat("m-2", "二つ目");
+    assert!(history(&run).contains("][chat] 一つ目\n"), "{}", history(&run));
+
+    // Another engine and back: the history went with the other engine's turn.
+    let mut engines = run.ui.ok("/get/data/selected_translation_engines", None);
+    engines["1"] = json!("DeepL_API");
+    run.ui.ok("/set/data/selected_translation_engines", Some(engines));
+    groq(&run);
+    run.chat("m-3", "三つ目");
+    let after_switch = history(&run);
+    assert!(!after_switch.contains("一つ目") && !after_switch.contains("二つ目"), "{after_switch}");
+
+    // Another tab and back: the same.
+    run.chat("m-4", "四つ目");
+    assert!(history(&run).contains("][chat] 三つ目\n"), "{}", history(&run));
+    run.ui.ok("/set/data/selected_tab_no", Some(json!("2")));
+    run.ui.ok("/set/data/selected_tab_no", Some(json!("1")));
+    run.chat("m-5", "五つ目");
+    let after_tab = history(&run);
+    assert!(!after_tab.contains("三つ目") && !after_tab.contains("四つ目"), "{after_tab}");
+    // The history never reaches the diagnostic log.
+    assert!(!run.process_log().contains("つ目"));
+    run.ui.stop();
+}
+
+#[test]
+fn the_conversation_log_is_written_only_while_it_is_on() {
+    // [`test_conversation_logger.py`] through the endpoints.
+    //
+    // [`test_conversation_logger.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/test/test_conversation_logger.py
+    let run = start(json!({}), None);
+    run.chat("m-1", "記録しない");
+    assert_eq!(run.ui.ok("/set/enable/logger_feature", None), true);
+    run.chat("m-2", "記録する");
+    assert_eq!(run.ui.ok("/set/disable/logger_feature", None), false);
+    run.chat("m-3", "また記録しない");
+    let log = run.conversation_log();
+    assert!(log.contains("[CHAT] 記録する\n"), "{log}");
+    assert!(!log.contains("記録しない"), "{log}");
+    // On again: a new file of its own.
+    std::thread::sleep(Duration::from_millis(1100));
+    assert_eq!(run.ui.ok("/set/enable/logger_feature", None), true);
+    run.chat("m-4", "二度目");
+    let files: Vec<String> =
+        run.logs().into_iter().filter(|(name, _)| name.starts_with("20")).map(|(_, text)| text).collect();
+    assert_eq!(files.len(), 2, "{files:?}");
+    assert!(files.iter().any(|text| text.contains("二度目") && !text.contains("記録する")), "{files:?}");
     run.ui.stop();
 }

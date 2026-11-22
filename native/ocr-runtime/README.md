@@ -5,9 +5,8 @@ Chat-bubble OCR and VRChat frame capture in Rust (issue #281): a port of
 through `ort`, with RapidOCR's pre- and post-processing reproduced exactly.
 
 The backend core (`native/core`, `controller::ocr`) runs it in the application process
-when the core is the backend: the chat reading endpoints, the start checks, the status
-and the settings of a running pipeline. Read lines go to the core's message pipeline.
-The Python module is unchanged and is still what the Python sidecar uses.
+and handles chat reading requests, startup checks, status and settings for a running
+pipeline. Read lines go to the core's message pipeline.
 
 ONNX Runtime is linked in one of two ways, chosen by a feature:
 
@@ -15,22 +14,27 @@ ONNX Runtime is linked in one of two ways, chosen by a feature:
   time and linked statically. This crate's tests and `ocr-read` use it. On Windows the
   build links `DirectML.dll`, which is copied next to the binaries.
 - `load-dynamic`: the library is loaded when the engine is first used, from
-  `ORT_DYLIB_PATH`, else `onnxruntime.dll` / `libonnxruntime.so` beside the executable,
-  else by name. A missing library is an error value (`engine::is_available()` is false),
-  not a panic. The core uses this; which ONNX Runtime the application ships is open
-  (`docs/voice-stack/core-integration.md`, item 2).
+  `ORT_DYLIB_PATH`, else the library the application ships (`_internal/onnxruntime`), else
+  `onnxruntime.dll` / `libonnxruntime.so` by name. A missing library is an error value
+  (`engine::is_available()` is false), not a panic. The core uses this.
+
+Either way the library and the process's one environment come from `native/onnx-runtime`
+(`vrct-onnx-runtime`), which the local translation (`native/translate-onnx`) and the RVC
+worker use too: `ort` keeps the first library a process loads and allows one environment per
+process. The binaries stop ONNX Runtime's usage reports first thing
+(`vrct_onnx_runtime::disable_telemetry_for_process`).
 
 ## What it does
 
 | Python | Rust | Notes |
 |---|---|---|
-| `ocr_engine_rapidocr.py` + RapidOCR 3.9.2 | `engine.rs`, `det.rs`, `rec.rs`, `unclip.rs`, `numeric.rs` | Size bounds and vertical padding, DB detection and its post-processing, the perspective crop, batched CTC recognition, score rounding, Arabic display order, final filtering, `readtext_bgr_or_raise`. |
+| [`ocr_engine_rapidocr.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/ocr/ocr_engine_rapidocr.py) + RapidOCR 3.9.2 | `engine.rs`, `det.rs`, `rec.rs`, `unclip.rs`, `numeric.rs` | Size bounds and vertical padding, DB detection and its post-processing, the perspective crop, batched CTC recognition, score rounding, Arabic display order, final filtering, `readtext_bgr_or_raise`. |
 | OpenCV 4.10 calls RapidOCR makes | `cv/` | Bilinear and area resizing, contour tracing, convex hull, minimum-area rectangle, polygon filling, perspective warp with bicubic weights, 2×2 dilation, masked mean. Same arithmetic as `opencv-python-headless` 4.10.0.84. |
-| `ocr_models.py`, `ocr_languages.py` | `models.rs`, `languages.rs` | Catalog pins (checked against `catalog.py`), size and SHA-256 checks, the character list read from `inference.yml` as PyYAML reads the pinned files. |
-| `ocr_detection.py` | `detection.rs` | Reading regions per view, line grouping, block bounds, the chatbox style check. |
-| `ocr_bubble_detector.py`, `ocr_chatbox_detector.py` | `chatbox.rs` | VRCT-VOX's own detector only (the verified download's file name; the upstream detector is never loaded). |
-| `ocr_pipeline.py`, `ocr_failure.py` | `pipeline.rs`, `text.rs`, `failure.rs`, `priority.rs` | The tick, recognition reuse, deduplication, merging lines into a message, retries and backoff, settings while running, start checks with the `OCR_DISABLED_*` reasons, thread priority on Windows. |
-| `ocr_capture*.py`, `process_check.py` | `capture/` | The facade (headset view while SteamVR runs, else the desktop window), PrintWindow (Windows), X11/XWayland (Linux), the ScreenCast portal's frame file (Linux), the OpenVR mirror (D3D11 on Windows, OpenGL on Linux), blank frames, the start probe. |
+| [`ocr_models.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/ocr/ocr_models.py), [`ocr_languages.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/ocr/ocr_languages.py) | `models.rs`, `languages.rs` | Catalog pins (checked against [`catalog.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/model_downloads/catalog.py); now `native/core/tests/downloads.rs` checks them against the model download catalog), size and SHA-256 checks, the character list read from `inference.yml` as PyYAML reads the pinned files. |
+| [`ocr_detection.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/ocr/ocr_detection.py) | `detection.rs` | Reading regions per view, line grouping, block bounds, the chatbox style check. |
+| [`ocr_bubble_detector.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/ocr/ocr_bubble_detector.py), [`ocr_chatbox_detector.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/ocr/ocr_chatbox_detector.py) | `chatbox.rs` | ASTAROT's own detector only (the verified download's file name; the upstream detector is never loaded). |
+| [`ocr_pipeline.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/ocr/ocr_pipeline.py), [`ocr_failure.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/ocr/ocr_failure.py) | `pipeline.rs`, `text.rs`, `failure.rs`, `priority.rs` | The tick, recognition reuse, deduplication, merging lines into a message, retries and backoff, settings while running, start checks with the `OCR_DISABLED_*` reasons, thread priority on Windows. |
+| `ocr_capture*.py`, [`process_check.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/process_check.py) | `capture/` | The facade (headset view while SteamVR runs, else the desktop window), PrintWindow (Windows), X11/XWayland (Linux), the ScreenCast portal's frame file (Linux), the OpenVR mirror (D3D11 on Windows, OpenGL on Linux), blank frames, the start probe. |
 
 `ocr-read` reads PNG pictures and writes boxes, texts and scores to a JSON file; the
 terminal only gets counts and timings. Nothing in the crate logs recognised text or
@@ -41,7 +45,7 @@ pixels; `Debug` output of words, messages and pictures shows sizes only.
 - X11 is spoken directly (`x11rb`) instead of through `libX11` with ctypes. A vanished
   window or a lost server is an error value; there is no Xlib error handler that could
   exit the process.
-- The OpenVR client library is loaded at run time: `VRCT_OPENVR_API`, else
+- The OpenVR client library is loaded at run time: `ASTAROT_OPENVR_API` (or its legacy name `VRCT_OPENVR_API`), else
   `openvr_api.dll` / `libopenvr_api.so` beside the executable, else by name. The
   interface versions are those of pyopenvr 2.12.1401 (`IVRCompositor_029`,
   `IVRSystem_023`). Their functions are called by position; each position is declared
@@ -59,7 +63,10 @@ pixels; `Debug` output of words, messages and pictures shows sizes only.
 
 `cargo test` runs everything below. The conformance tests compare with the Python
 implementation and report themselves as skipped until the fixtures exist; set
-`OCR_REQUIRE_REFERENCE=1` to make that a failure.
+`OCR_REQUIRE_REFERENCE=1` to make that a failure. The fixtures were made with the scripts
+below, which ran the Python backend's OCR (`src-python/models/ocr`); they went with it in
+0.6.0 (#285), so new fixtures can no longer be made this way. The commands and results are
+the record of how the core was checked (the scripts are in the v0.5.2 tag).
 
 ```sh
 python native/ocr-runtime/reference/setup_reference.py      # models and venv, ~/.cache/vrct-vox/ocr-reference
@@ -114,7 +121,7 @@ requires identical texts and boxes and scores within 1e-5; with
 and `ORT_DYLIB_PATH`) it requires everything to be identical.
 
 ```sh
-ORT_DYLIB_PATH=$REF/venv/lib/python3.11/site-packages/onnxruntime/capi/libonnxruntime.so.1.31.1 \
+ORT_DYLIB_PATH=$REF/venv/lib/python3.14/site-packages/onnxruntime/capi/libonnxruntime.so.1.31.1 \
 OCR_EXACT_REFERENCE=1 cargo test --release --features ort/load-dynamic --test engine_conformance
 ```
 
@@ -153,8 +160,8 @@ file. Which ONNX Runtime build ships is open (below).
 ## Open questions
 
 1. **Bridge to the application.** The core runs the pipeline in the application process
-   (#285); `src-python/models/ocr` goes with the Python sidecar. The chatbox lab's
-   `label.py` still uses the Python reader.
+   (#285); `src-python/models/ocr` went with the Python backend in 0.6.0, and with it the
+   chatbox lab's `label.py`, which used the Python reader.
 2. **ONNX Runtime build.** `ort`'s own ONNX Runtime 1.31.0 made detection 19 % and
    recognition 73 % slower than the official 1.31.1 library on this machine, and some
    scores differ by 1e-5. The core loads the library at run time (`load-dynamic`), so

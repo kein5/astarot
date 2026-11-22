@@ -1,7 +1,7 @@
 //! The external adapters wired to their endpoints: OSC and OSCQuery towards VRChat, the
 //! WebSocket server, the OBS browser source and the clipboard switch (`native/adapters`).
 //!
-//! The endpoints keep the rules of `src-python/controller.py` and the parts of `model.py` they
+//! The endpoints keep the rules of [`src-python/controller.py`] and the parts of [`model.py`] they
 //! call: the same checks, error codes and `data` to roll back to, the same order of stopping
 //! and restarting the servers, and the same notices at start-up. The clipboard switch is a
 //! plain setting ([`super::routes`]); the copy and paste run with the message pipeline.
@@ -13,6 +13,9 @@
 //! What reaches the network goes through [`Osc`] (replaceable in [`super::Services`]) and the
 //! servers of the adapters crate, which listen on the address the user chose. Log lines are
 //! fixed strings: no text, token, path or address goes into the log.
+//!
+//! [`src-python/controller.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/controller.py
+//! [`model.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/model.py
 
 mod osc;
 mod servers;
@@ -44,8 +47,13 @@ pub trait Osc: Send + Sync {
     fn send_typing(&self, typing: bool) -> io::Result<()>;
     /// Sends chatbox text; `current` is asked right before sending. True when sent.
     fn send_message(&self, text: &str, notification: bool, current: Option<&dyn Fn() -> bool>) -> io::Result<bool>;
-    /// Starts receiving `targets` (and OSCQuery) when the destination is this PC.
+    /// Starts receiving `targets` (and OSCQuery) when the destination is this PC and OSCQuery
+    /// is allowed.
     fn receive(&self, targets: Vec<(String, Target)>) -> Result<(), OscError>;
+    /// Lets OSCQuery run or not (the setting `OSC_QUERY`, #559): off, receiving, the
+    /// advertisement and the discovery stop and stay stopped; on, receiving starts again for the
+    /// current destination with the targets last given. Sending is not affected.
+    fn set_query_allowed(&self, allowed: bool) -> Result<(), OscError>;
     /// Receiving and OSCQuery run.
     fn query_enabled(&self) -> bool;
     /// Whether a VRChat with OSC on is seen on this PC; `None` when that cannot be known.
@@ -78,6 +86,10 @@ impl Osc for OscHandler {
     fn receive(&self, targets: Vec<(String, Target)>) -> Result<(), OscError> {
         self.set_dict_filter_and_target(targets);
         self.receive_osc_parameters()
+    }
+
+    fn set_query_allowed(&self, allowed: bool) -> Result<(), OscError> {
+        self.set_osc_query_allowed(allowed)
     }
 
     fn query_enabled(&self) -> bool {
@@ -155,6 +167,10 @@ impl Adapters {
                 (fallback, true)
             }
         };
+        // OSCQuery turned off in the settings (#559) never starts, not even at start-up.
+        if let Some(osc) = osc.as_ref().filter(|_| !config.get_bool("OSC_QUERY")) {
+            let _ = osc.set_query_allowed(false);
+        }
         Arc::new(Self {
             config,
             output: Arc::clone(&core.output),

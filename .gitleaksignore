@@ -1,0 +1,20 @@
+# Findings in the history that are not secrets, by gitleaks fingerprint (commit:file:rule:line).
+# Checked on 2026-11-21: upstream VRCT code from 2023, the tests and the telemetry client of the
+# Python backend removed in 0.6.0, the generic Google key the speech_recognition library sends,
+# and API keys made up for tests. New findings go in .gitleaks.toml as a rule, with a reason.
+868c84a9eb7137ab8c87444de93dae50637a59c5:custom_speech_recognition/__init__.py:gcp-api-key:713
+6948691b47dd99887014ad3aa7acf6ee9934c5f2:main.py:generic-api-key:242
+cc1bcf171f752b97b1d7adbd8efc00ff14d50449:main.py:generic-api-key:240
+5eb467b35b21a234f561ffe6a09b986d6d40a092:controller.py:generic-api-key:366
+c2dfeda6fb36c40a6388a49f9f7886af49d0ce3b:controller.py:generic-api-key:380
+0edf84a49ddf6a7a7fa9109dc357f5fc9f93ed77:src-python/test_model_api_transcription_wiring.py:generic-api-key:67
+0edf84a49ddf6a7a7fa9109dc357f5fc9f93ed77:src-python/test_transcription_transcriber.py:generic-api-key:167
+0edf84a49ddf6a7a7fa9109dc357f5fc9f93ed77:src-python/test_transcription_transcriber.py:generic-api-key:216
+0edf84a49ddf6a7a7fa9109dc357f5fc9f93ed77:src-python/test_transcription_transcriber.py:generic-api-key:234
+0edf84a49ddf6a7a7fa9109dc357f5fc9f93ed77:src-python/test_transcription_transcriber.py:generic-api-key:252
+eb233e8ec3d49a1d8e17e0a848a115f4e84d6893:src-python/models/telemetry/client.py:generic-api-key:28
+bb0c5fe37c6c34f64171b45ad975f4f7538dba06:src-python/test/test_websocket_tls.py:generic-api-key:22
+bb0c5fe37c6c34f64171b45ad975f4f7538dba06:src-python/test/test_websocket_tls_lan.py:generic-api-key:30
+c34298ca022526cc417a6468279a0e06bd865d42:src-python/test/test_websocket_receive_limits.py:generic-api-key:15
+37fac05cdf053762f19feadf838656d14968aa8a:native/transcription/src/providers.rs:gcp-api-key:52
+6d8ef83c6f41fe875fde4bfb0c6d67121acd93af:native/translation/tests/providers.rs:generic-api-key:80

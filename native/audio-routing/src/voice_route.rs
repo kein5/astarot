@@ -1,9 +1,11 @@
 //! Mute control of the managed route: the OS gate and the durable intent.
 //!
-//! Port of `src-python/models/audio_routing/managed_route.py`. It never processes
+//! Port of [`src-python/models/audio_routing/managed_route.py`]. It never processes
 //! audio. Software output stays closed until the OS gate and the saved intent both
 //! confirm a resume; any doubt (a replaced endpoint, an external change, a failed
 //! control, a lost confirmation) mutes and requires another explicit resume.
+//!
+//! [`src-python/models/audio_routing/managed_route.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/audio_routing/managed_route.py
 
 use std::sync::{Arc, Condvar, Mutex, OnceLock};
 use std::time::Duration;
@@ -197,7 +199,7 @@ impl VoiceRoute {
         self.shared.set_muted(true);
         if state.worker.is_none() {
             let shared = self.shared.clone();
-            state.worker = Some(Worker::spawn("vrct-voice-gate", move || work(&shared)).map_err(|_| Error::runtime("voice_route_unavailable"))?);
+            state.worker = Some(Worker::spawn("astarot-voice-gate", move || work(&shared)).map_err(|_| Error::runtime("voice_route_unavailable"))?);
         }
         self.shared.wake.set();
         Ok(())

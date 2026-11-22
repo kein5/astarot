@@ -1,12 +1,18 @@
 //! The saved forms of the realtime recognition settings and the direct voice (conversion)
-//! settings (`models/transcription/realtime_settings.py`, `asr_vocabulary.py` and
-//! `models/voice_conversion/settings.py`). Each `normalize_*` returns the canonical saved value,
+//! settings ([`models/transcription/realtime_settings.py`], [`asr_vocabulary.py`] and
+//! [`models/voice_conversion/settings.py`]). Each `normalize_*` returns the canonical saved value,
 //! or an error code for a value that is refused as a whole.
+//!
+//! [`models/transcription/realtime_settings.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/transcription/realtime_settings.py
+//! [`asr_vocabulary.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/transcription/asr_vocabulary.py
+//! [`models/voice_conversion/settings.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/voice_conversion/settings.py
 
 use serde_json::{Map, Value, json};
 
 pub const MAX_USER_TERMS: usize = 100;
 pub const MAX_TERMS: usize = 150;
+/// The most built-in terms the user can take out (#792): more than the built-in list holds.
+pub const MAX_REMOVED: usize = 150;
 const MAX_WRITTEN: usize = 48;
 const MAX_READING: usize = 32;
 const MAX_READINGS: usize = 8;
@@ -40,12 +46,30 @@ fn written_form(term: &str) -> &str {
     term.split_once('=').map_or(term, |(w, _)| w)
 }
 
+/// A built-in term's written form the user took out (#792), as `parse_term` keeps a written form:
+/// trimmed, its spaces made single, at most 48 characters, without `,` or `=`.
+fn parse_written(value: &Value) -> Result<String, &'static str> {
+    const INVALID: &str = "realtime_vocabulary_invalid";
+    let text = value.as_str().ok_or(INVALID)?;
+    if text.chars().any(|c| (c as u32) < 32 || c as u32 == 127) {
+        return Err(INVALID);
+    }
+    let written = text.split_whitespace().collect::<Vec<_>>().join(" ");
+    let length = char_len(&written);
+    if length == 0 || length > MAX_WRITTEN || written.contains(',') || written.contains('=') {
+        return Err(INVALID);
+    }
+    Ok(written)
+}
+
 /// `str.casefold` for the comparisons of written forms.
 fn fold(text: &str) -> String {
     text.chars().flat_map(char::to_lowercase).collect::<String>().replace('ß', "ss")
 }
 
-/// `normalize_vocabulary`.
+/// `normalize_vocabulary`. `removed` lists the built-in terms the user took out, by their written
+/// forms (#792). It is left out of the saved value while it is empty, so a version without it
+/// still reads the settings as long as no built-in term is taken out.
 pub fn normalize_vocabulary(value: Option<&Value>) -> Result<Value, &'static str> {
     const INVALID: &str = "realtime_vocabulary_invalid";
     let default = json!({ "builtin": true, "terms": [] });
@@ -54,7 +78,7 @@ pub fn normalize_vocabulary(value: Option<&Value>) -> Result<Value, &'static str
         Some(value) => value,
     };
     let object = value.as_object().ok_or(INVALID)?;
-    if object.keys().any(|k| k != "builtin" && k != "terms") {
+    if object.keys().any(|k| k != "builtin" && k != "terms" && k != "removed") {
         return Err(INVALID);
     }
     let builtin = match object.get("builtin") {
@@ -79,7 +103,49 @@ pub fn normalize_vocabulary(value: Option<&Value>) -> Result<Value, &'static str
             result.push(Value::String(term));
         }
     }
-    Ok(json!({ "builtin": builtin, "terms": result }))
+    let removed = match object.get("removed") {
+        None | Some(Value::Null) => &empty,
+        Some(Value::Array(removed)) => removed,
+        Some(_) => return Err(INVALID),
+    };
+    if removed.len() > MAX_REMOVED {
+        return Err(INVALID);
+    }
+    let mut taken_out = Vec::new();
+    let mut seen = std::collections::HashSet::new();
+    for written in removed {
+        let written = parse_written(written)?;
+        if seen.insert(fold(&written)) {
+            taken_out.push(Value::String(written));
+        }
+    }
+    let mut saved = json!({ "builtin": builtin, "terms": result });
+    if !taken_out.is_empty() {
+        saved["removed"] = Value::Array(taken_out);
+    }
+    Ok(saved)
+}
+
+/// The head of a dictionary file the user writes out (#792). The lines after it are the form the
+/// settings page reads back: one term a line, as the built-in terms' data file has them. Lines
+/// starting with `#` are notes.
+const VOCABULARY_FILE_HEAD: &str = "\
+# ASTAROT term dictionary / 用語辞書
+# The terms in use, one a line: written=reading,reading. Reading this file in makes the dictionary these terms.
+# 使っている用語を1行に1語、「表記=読み,読み」で書いています。読み込むと、辞書がこのファイルの用語に置き換わります。
+";
+
+/// `vocabulary_file`: the dictionary in use as a file (#792): every term recognition uses, in the
+/// order it uses them (`merged_terms`): the user's terms, a built-in term's changed readings among
+/// them, then the built-in terms left as they ship. A built-in term taken out is not in use and
+/// not written. From a value already normalized (`normalize_vocabulary`).
+pub fn vocabulary_file(vocabulary: &Value) -> String {
+    let mut text = VOCABULARY_FILE_HEAD.to_string();
+    for term in vrct_transcription::speechcpp::merged_terms(vocabulary) {
+        text.push_str(&term);
+        text.push('\n');
+    }
+    text
 }
 
 const EXCLUDED: [&str; 3] = ["vrct.managed.", "vrct.source-bridge.", "vrct.asr.capture."];
@@ -142,11 +208,29 @@ fn language(value: &Value) -> Result<String, &'static str> {
     if primary_ok && rest_ok { Ok(text.into()) } else { Err(INVALID) }
 }
 
-/// `realtime_settings.normalize_settings`.
+/// The silences that may end an utterance in realtime recognition, in milliseconds.
+pub const SILENCE_DURATION_MS: std::ops::RangeInclusive<u64> = 100..=2000;
+
+/// The thresholds realtime recognition's speech detection may take, in hundredths (#392).
+pub const VAD_THRESHOLD_PERCENT: std::ops::RangeInclusive<u8> = 5..=95;
+
+/// A saved `vad_threshold` (0.05 to 0.95, in hundredths) in hundredths; `None` for anything else.
+pub fn vad_threshold_percent(value: &Value) -> Option<u8> {
+    let hundredths = value.as_f64()? * 100.0;
+    let rounded = hundredths.round();
+    ((hundredths - rounded).abs() < 1e-6)
+        .then_some(rounded)
+        .filter(|percent| (0.0..=100.0).contains(percent))
+        .map(|percent| percent as u8)
+        .filter(|percent| VAD_THRESHOLD_PERCENT.contains(percent))
+}
+
+/// `realtime_settings.normalize_settings`, with `silence_duration_ms` of the core's own (#556).
 pub fn normalize_realtime(value: &Value) -> Result<Value, &'static str> {
     const INVALID: &str = "realtime_settings_invalid";
     let object = value.as_object().ok_or(INVALID)?;
-    const KEYS: [&str; 8] = ["version", "server", "start_server", "base_url", "model", "mic", "speaker", "vocabulary"];
+    const KEYS: [&str; 10] =
+        ["version", "server", "start_server", "base_url", "model", "mic", "speaker", "vocabulary", "silence_duration_ms", "vad_threshold"];
     if object.keys().any(|k| !KEYS.contains(&k.as_str())) {
         return Err(INVALID);
     }
@@ -178,6 +262,25 @@ pub fn normalize_realtime(value: &Value) -> Result<Value, &'static str> {
     result.insert("base_url".into(), base_url.into());
     result.insert("model".into(), model(object.get("model"))?.into());
     result.insert("vocabulary".into(), normalize_vocabulary(object.get("vocabulary"))?);
+    // The silence that ends an utterance (#556): absent or null follows the default
+    // (`vrct_transcription`'s `DEFAULT_SILENCE_MS`, 400 ms), so changing the default moves
+    // only the settings that never chose one.
+    match object.get("silence_duration_ms") {
+        None | Some(Value::Null) => {}
+        Some(value) => {
+            let ms = value.as_u64().filter(|ms| SILENCE_DURATION_MS.contains(ms)).ok_or("realtime_silence_invalid")?;
+            result.insert("silence_duration_ms".into(), ms.into());
+        }
+    }
+    // How sure the speech detection must be that it hears speech (#392): absent or null sends
+    // none, so the server's own threshold applies.
+    match object.get("vad_threshold") {
+        None | Some(Value::Null) => {}
+        Some(value) => {
+            let percent = vad_threshold_percent(value).ok_or("realtime_vad_threshold_invalid")?;
+            result.insert("vad_threshold".into(), json!(f64::from(percent) / 100.0));
+        }
+    }
     for (source, default_language) in [("mic", "ja"), ("speaker", "auto")] {
         let empty = Map::new();
         let row = match object.get(source) {
@@ -239,6 +342,31 @@ pub fn file_direct(value: &Value) -> Value {
     value
 }
 
+/// The fields 0.6 added to the speech settings: how VOICEVOX, AivisSpeech and SHAREVOX read
+/// (the Scale fields of their AudioQuery, #392).
+const VOICE_ADDED_IN_0_6: [&str; 12] = [
+    "voicevox_speed", "voicevox_volume", "voicevox_pitch", "voicevox_intonation",
+    "aivis_speed", "aivis_volume", "aivis_pitch", "aivis_intonation",
+    "sharevox_speed", "sharevox_volume", "sharevox_pitch", "sharevox_intonation",
+];
+
+/// The speech settings as `config.json` holds them: the fields 0.6 added are left out while they
+/// hold their defaults, which a load fills in again. 0.5 refuses the whole value when it finds a
+/// field it does not know and would reset every speech setting; so a file saved without those
+/// values changed stays readable by 0.5. A changed value is saved, and 0.5 then still resets.
+pub fn file_voice(value: &Value) -> Value {
+    let defaults = vrct_tts::settings::VoiceSettings::default().to_value();
+    let mut value = value.clone();
+    if let Value::Object(object) = &mut value {
+        for field in VOICE_ADDED_IN_0_6 {
+            if object.get(field) == defaults.get(field) {
+                object.remove(field);
+            }
+        }
+    }
+    value
+}
+
 /// The saved direct voice settings as they load: a Seed-VC engine saved by an earlier version
 /// moves to RVC. The other fields stay, as 0.4 knew both engines ([`file_direct`]).
 pub fn load_direct(value: &Value) -> Option<Value> {
@@ -280,6 +408,62 @@ pub fn normalize_direct(value: &Value) -> Option<Value> {
 mod tests {
     use super::*;
 
+    // #792: the built-in terms live in a data file (vrct-transcription's data/vrchat_terms.txt).
+    // Each line keeps the rules of a user's term and is already in its canonical form, and no
+    // written form is there twice: an edit of the file that breaks them fails here. How many
+    // there are is not held to a number: a longer list only loses its last terms to the cap of
+    // the merge when the user has many of their own.
+    #[test]
+    fn the_built_in_terms_keep_the_rules_of_a_term() {
+        let terms = vrct_transcription::speechcpp::vrchat_terms();
+        assert!(!terms.is_empty());
+        let mut seen = std::collections::HashSet::new();
+        for term in terms {
+            assert_eq!(parse_term(&json!(term)).as_deref(), Ok(term.as_str()), "{term} is a canonical term");
+            assert!(seen.insert(fold(written_form(term))), "{term} is there once");
+        }
+    }
+
+    // #792: the built-in terms the user took out are kept by their written forms, made canonical
+    // and told apart without regard to letter case. Nothing taken out leaves the member out, so a
+    // version without it reads the settings as before.
+    #[test]
+    fn the_built_in_terms_taken_out_are_kept_and_left_out_when_there_are_none() {
+        let saved = normalize_vocabulary(Some(&json!({ "terms": [], "removed": ["  Friends+ ", "friends+", "Known   User"] }))).unwrap();
+        assert_eq!(saved, json!({ "builtin": true, "terms": [], "removed": ["Friends+", "Known User"] }));
+        assert_eq!(normalize_vocabulary(Some(&json!({ "terms": [], "removed": [] }))).unwrap(), json!({ "builtin": true, "terms": [] }));
+        assert_eq!(normalize_vocabulary(Some(&json!({ "terms": [], "removed": null }))).unwrap(), json!({ "builtin": true, "terms": [] }));
+        for refused in [json!("Quest"), json!([3]), json!(["a=b"]), json!(["a,b"]), json!([""]), json!(["x".repeat(49)]),
+            json!(vec!["x"; MAX_REMOVED + 1])] {
+            assert_eq!(normalize_vocabulary(Some(&json!({ "terms": [], "removed": refused }))), Err("realtime_vocabulary_invalid"), "{refused}");
+        }
+        let many: Vec<String> = (0..MAX_REMOVED).map(|i| format!("t{i}")).collect();
+        assert_eq!(normalize_vocabulary(Some(&json!({ "removed": many }))).unwrap()["removed"].as_array().unwrap().len(), MAX_REMOVED);
+    }
+
+    // #792: the file the user writes out: the head, then the dictionary in use, as recognition
+    // uses it. A built-in term taken out is not written.
+    #[test]
+    fn a_dictionary_file_holds_every_term_in_use() {
+        use vrct_transcription::speechcpp::{merged_terms, vrchat_terms};
+        let vocabulary = normalize_vocabulary(Some(&json!({ "terms": ["猫丸 = ねこまる", "Quest=くえすと"], "removed": ["Vket"] }))).unwrap();
+        let text = vocabulary_file(&vocabulary);
+        assert!(text.starts_with("# ASTAROT term dictionary"));
+        let lines: Vec<&str> = text.lines().filter(|line| !line.starts_with('#')).collect();
+        assert_eq!(lines, merged_terms(&vocabulary));
+        assert_eq!(lines[..2], ["猫丸=ねこまる", "Quest=くえすと"], "the user's terms first");
+        let shipped = |written: &str| vrchat_terms().iter().find(|term| term.split('=').next() == Some(written)).unwrap().as_str();
+        assert!(lines.contains(&shipped("VRChat")), "a built-in term as it ships");
+        assert!(!lines.contains(&shipped("Quest")), "a built-in term with changed readings is written once, changed");
+        assert!(!lines.iter().any(|line| line.starts_with("Vket")), "a built-in term taken out is not in use");
+        assert!(!lines.iter().any(|line| line.starts_with('-')));
+        // Without the built-in terms, only the user's.
+        let own = normalize_vocabulary(Some(&json!({ "builtin": false, "terms": ["猫丸=ねこまる"] }))).unwrap();
+        assert_eq!(vocabulary_file(&own).lines().filter(|line| !line.starts_with('#')).collect::<Vec<_>>(), ["猫丸=ねこまる"]);
+        let none = normalize_vocabulary(Some(&json!({ "builtin": false, "terms": [] }))).unwrap();
+        assert!(vocabulary_file(&none).lines().all(|line| line.starts_with('#')), "nothing but the head");
+    }
+
     #[test]
     fn terms_are_canonical() {
         assert_eq!(parse_term(&json!("  Avatar   Name = あ , い ")).unwrap(), "Avatar Name=あ,い");
@@ -287,6 +471,29 @@ mod tests {
         assert!(parse_term(&json!("x=")).is_ok());
         let vocabulary = normalize_vocabulary(Some(&json!({ "terms": ["VRChat", "vrchat=ぶい"] }))).unwrap();
         assert_eq!(vocabulary, json!({ "builtin": true, "terms": ["VRChat"] }));
+    }
+
+    #[test]
+    fn a_term_is_refused_one_past_each_limit() {
+        // The limits count characters, not bytes.
+        let term = |text: String| parse_term(&json!(text));
+        assert!(term("あ".repeat(MAX_WRITTEN)).is_ok());
+        assert!(term("あ".repeat(MAX_WRITTEN + 1)).is_err());
+        let readings = |count: usize| vec!["か"; count].join(",");
+        assert!(term(format!("x={}", readings(MAX_READINGS))).is_ok());
+        assert!(term(format!("x={}", readings(MAX_READINGS + 1))).is_err());
+        assert!(term(format!("x={}", "か".repeat(MAX_READING))).is_ok());
+        assert!(term(format!("x={}", "か".repeat(MAX_READING + 1))).is_err());
+        assert!(term("x=a,,b".into()).is_err(), "an empty reading");
+        assert!(term("x=a=b".into()).is_err(), "a second =");
+    }
+
+    #[test]
+    fn a_vocabulary_takes_up_to_its_limit_of_terms() {
+        let terms = |count: usize| json!({ "terms": (0..count).map(|i| format!("w{i}")).collect::<Vec<_>>() });
+        let full = normalize_vocabulary(Some(&terms(MAX_USER_TERMS))).unwrap();
+        assert_eq!(full["terms"].as_array().map(Vec::len), Some(MAX_USER_TERMS));
+        assert!(normalize_vocabulary(Some(&terms(MAX_USER_TERMS + 1))).is_err());
     }
 
     #[test]
@@ -322,6 +529,26 @@ mod tests {
     }
 
     #[test]
+    fn the_file_leaves_out_unchanged_engine_readings_so_0_5_still_reads_it() {
+        // 0.5 refuses VOICE_SETTINGS with a field it does not know, like 0.4 did with the direct
+        // voice settings (#428), and would reset every speech setting after a downgrade.
+        use vrct_tts::settings::VoiceSettings;
+        let settings = VoiceSettings::from_value(&json!({ "japanese_engine": "aivis", "engine_voice_id": "1", "coeiroink_speed": "1.5" })).unwrap().to_value();
+        let file = file_voice(&settings);
+        for field in VOICE_ADDED_IN_0_6 {
+            assert!(settings.get(field).is_some(), "{field} is a speech setting");
+            assert!(file.get(field).is_none(), "{field}");
+        }
+        assert_eq!(file["coeiroink_speed"], "1.5", "fields 0.5 knows stay");
+        assert_eq!(VoiceSettings::from_value(&file).unwrap().to_value(), settings, "loads back the same");
+        // A changed value is kept.
+        let chosen = VoiceSettings::from_value(&json!({ "aivis_speed": "1.25", "voicevox_pitch": "0.0" })).unwrap().to_value();
+        assert_eq!(file_voice(&chosen)["aivis_speed"], "1.25");
+        assert!(file_voice(&chosen).get("voicevox_pitch").is_none());
+        assert_eq!(VoiceSettings::from_value(&file_voice(&chosen)).unwrap().to_value(), chosen);
+    }
+
+    #[test]
     fn a_saved_seed_vc_engine_loads_as_rvc_and_a_new_one_is_refused() {
         let saved = json!({ "mode": "converted", "engine": "seed-vc", "runtime": "/seed", "rvc_model": "a.pth" });
         let loaded = load_direct(&saved).unwrap();
@@ -331,11 +558,253 @@ mod tests {
     }
 
     #[test]
+    fn the_speech_detection_threshold_is_left_out_unless_chosen() {
+        // Left out, nothing is sent and the server's own threshold applies (#392).
+        assert!(normalize_realtime(&json!({})).unwrap().get("vad_threshold").is_none());
+        assert!(normalize_realtime(&json!({ "vad_threshold": null })).unwrap().get("vad_threshold").is_none());
+        for chosen in [0.05, 0.3, 0.5, 0.95] {
+            assert_eq!(normalize_realtime(&json!({ "vad_threshold": chosen })).unwrap()["vad_threshold"], chosen);
+        }
+        for bad in [json!(0.0), json!(0.04), json!(0.96), json!(1), json!(0.333), json!("0.5"), json!(-0.5), json!(true)] {
+            assert_eq!(normalize_realtime(&json!({ "vad_threshold": bad })), Err("realtime_vad_threshold_invalid"), "{bad}");
+        }
+    }
+
+    #[test]
+    fn the_silence_that_ends_an_utterance_is_left_out_unless_chosen() {
+        // Left out, the file stays as 0.4 reads it and the default applies (#556). A chosen
+        // value stays as chosen, the former default of 500 ms too.
+        let defaults = normalize_realtime(&json!({})).unwrap();
+        assert!(defaults.get("silence_duration_ms").is_none(), "{defaults}");
+        assert!(normalize_realtime(&json!({ "silence_duration_ms": null })).unwrap().get("silence_duration_ms").is_none());
+        for chosen in [300, 400, 500] {
+            assert_eq!(normalize_realtime(&json!({ "silence_duration_ms": chosen })).unwrap()["silence_duration_ms"], chosen);
+        }
+        for bad in [json!(99), json!(2001), json!(300.5), json!("300"), json!(-1), json!(true)] {
+            assert_eq!(normalize_realtime(&json!({ "silence_duration_ms": bad })), Err("realtime_silence_invalid"), "{bad}");
+        }
+    }
+
+    #[test]
     fn endpoints_keep_exact_integers() {
         let endpoint = json!({ "cookie": "42", "serial": "18446744073709551615", "name": "alsa", "media_class": "Audio/Source" });
         assert!(normalize_endpoint(&endpoint, "mic").is_ok());
         assert!(normalize_endpoint(&endpoint, "speaker").is_err());
         let too_big = json!({ "cookie": "4294967296", "serial": "1", "name": "a", "media_class": "Audio/Source" });
         assert!(normalize_endpoint(&too_big, "mic").is_err());
+    }
+
+    #[test]
+    fn an_endpoint_number_is_written_in_plain_digits() {
+        // `u128::from_str` takes a leading +, so the digits are checked before it.
+        let endpoint = |cookie: &str| json!({ "cookie": cookie, "serial": "1", "name": "alsa", "media_class": "Audio/Source" });
+        for kept in ["0", "5"] {
+            assert!(normalize_endpoint(&endpoint(kept), "mic").is_ok(), "{kept:?}");
+        }
+        for refused in ["+5", "", "05", "5 ", "-0"] {
+            assert!(normalize_endpoint(&endpoint(refused), "mic").is_err(), "{refused:?}");
+        }
+    }
+
+    #[test]
+    fn an_endpoint_is_refused_without_a_name_or_when_it_is_one_of_the_app_s_own() {
+        let endpoint = |name: &str| json!({ "cookie": "1", "serial": "1", "name": name, "media_class": "Audio/Source" });
+        assert!(normalize_endpoint(&endpoint(&"a".repeat(512)), "mic").is_ok());
+        let refused = ["", "a\0b", &"a".repeat(513), "vrct.managed.tts", "vrct.source-bridge.mic", "vrct.asr.capture.mic"];
+        for name in refused {
+            assert_eq!(normalize_endpoint(&endpoint(name), "mic"), Err("asr_capture_endpoint_invalid"), "{}", name.len());
+        }
+    }
+
+    #[test]
+    fn realtime_settings_keep_the_model_and_refuse_an_unknown_version_or_server() {
+        let with = |field: &str, value: Value| {
+            let mut settings = json!({});
+            settings[field] = value;
+            normalize_realtime(&settings)
+        };
+        let model = |name: &str| with("model", json!(name)).map(|settings| settings["model"].clone());
+        for kept in ["large v3".to_string(), "あ".repeat(200)] {
+            assert_eq!(model(&kept), Ok(json!(kept)));
+        }
+        for refused in ["あ".repeat(201), "a\u{1f}".into(), "a\nb".into()] {
+            assert_eq!(model(&refused), Err("realtime_model_invalid"), "{}", refused.chars().count());
+        }
+        assert!(with("version", json!(1)).is_ok());
+        assert_eq!(with("version", json!(2)), Err("realtime_settings_version"));
+        assert_eq!(with("server", json!("remote")), Err("realtime_server_invalid"));
+    }
+
+    #[test]
+    fn a_direct_voice_path_may_hold_spaces_but_no_control_character() {
+        let model = |path: &str| normalize_direct(&json!({ "rvc_model": path })).map(|settings| settings["rvc_model"].clone());
+        for kept in ["C:/Program Files/voice.pth".to_string(), "a".repeat(4096)] {
+            assert_eq!(model(&kept), Some(json!(kept)));
+        }
+        for refused in ["a".repeat(4097), "a\nb".into(), "a\u{1f}".into()] {
+            assert_eq!(model(&refused), None, "{}", refused.len());
+        }
+    }
+
+    // Properties of the normalizers (#550): what is saved is the canonical form, so normalizing it
+    // again changes nothing, and a value that passes keeps the limits Python kept.
+    mod properties {
+        use super::super::*;
+        use proptest::prelude::*;
+
+        /// Text of terms: letters, kana, spaces, the separators and a control character now and then.
+        fn term_text() -> impl Strategy<Value = String> {
+            "[ a-zA-Zあいうえおカキ=,\\t]{0,60}"
+        }
+
+        fn written() -> impl Strategy<Value = String> {
+            "[a-zA-Zあい][a-zA-Zあい ]{0,10}"
+        }
+
+        proptest! {
+            #[test]
+            fn a_term_is_its_own_canonical_form(text in term_text()) {
+                if let Ok(term) = parse_term(&json!(text)) {
+                    prop_assert_eq!(parse_term(&json!(term.clone())), Ok(term.clone()));
+                    prop_assert_eq!(term.trim(), term.as_str());
+                    let (written, readings) = term.split_once('=').map_or((term.as_str(), None), |(w, r)| (w, Some(r)));
+                    prop_assert!((1..=MAX_WRITTEN).contains(&written.chars().count()));
+                    prop_assert!(!written.contains("  ") && !written.contains(','));
+                    if let Some(readings) = readings {
+                        let readings: Vec<&str> = readings.split(',').collect();
+                        prop_assert!(readings.len() <= MAX_READINGS);
+                        prop_assert!(readings.iter().all(|r| !r.is_empty() && r.chars().count() <= MAX_READING && r.trim() == *r));
+                    }
+                    prop_assert!(!term.chars().any(char::is_control));
+                }
+            }
+
+            #[test]
+            fn a_vocabulary_is_its_own_canonical_form(builtin in any::<bool>(), terms in prop::collection::vec(term_text(), 0..120)) {
+                let value = json!({ "builtin": builtin, "terms": terms });
+                if let Ok(vocabulary) = normalize_vocabulary(Some(&value)) {
+                    prop_assert_eq!(normalize_vocabulary(Some(&vocabulary)), Ok(vocabulary.clone()));
+                    prop_assert_eq!(&vocabulary["builtin"], &json!(builtin));
+                    let kept = vocabulary["terms"].as_array().unwrap();
+                    prop_assert!(kept.len() <= MAX_USER_TERMS);
+                    let folded: std::collections::HashSet<String> = kept.iter().map(|t| fold(written_form(t.as_str().unwrap()))).collect();
+                    prop_assert_eq!(folded.len(), kept.len(), "one term per written form");
+                } else {
+                    // Refused only for too many terms or a term that is refused on its own.
+                    prop_assert!(terms.len() > MAX_USER_TERMS || terms.iter().any(|t| parse_term(&json!(t)).is_err()));
+                }
+            }
+
+            #[test]
+            fn the_same_written_form_in_another_case_is_kept_once(word in written(), reading in "[あいう]{1,4}") {
+                let upper = word.to_uppercase();
+                let value = json!({ "terms": [word.clone(), format!("{upper}={reading}")] });
+                let vocabulary = normalize_vocabulary(Some(&value)).unwrap();
+                let first = parse_term(&json!(word)).unwrap();
+                prop_assert_eq!(&vocabulary["terms"], &json!([first]), "the first one wins");
+            }
+
+            #[test]
+            fn terms_with_different_written_forms_are_all_kept_in_order(
+                words in prop::collection::btree_set("[a-z]{1,8}", 0..20),
+                readings in prop::collection::vec(prop::option::of("[あいう]{1,4}"), 20),
+            ) {
+                let terms: Vec<String> =
+                    words.iter().zip(&readings).map(|(w, r)| r.as_ref().map_or(w.clone(), |r| format!("{w}={r}"))).collect();
+                let vocabulary = normalize_vocabulary(Some(&json!({ "terms": terms }))).unwrap();
+                prop_assert_eq!(&vocabulary["terms"], &json!(terms));
+            }
+
+            #[test]
+            fn an_endpoint_keeps_its_integers_exactly(cookie in any::<u32>(), serial in any::<u64>(), mic in any::<bool>(), name in "[a-z][a-z0-9_.]{0,30}") {
+                let (source, class) = if mic { ("mic", "Audio/Source") } else { ("speaker", "Audio/Sink") };
+                let endpoint = json!({ "cookie": cookie.to_string(), "serial": serial.to_string(), "name": name, "media_class": class });
+                let normalized = normalize_endpoint(&endpoint, source).unwrap();
+                prop_assert_eq!(&normalized, &endpoint);
+                prop_assert_eq!(normalize_endpoint(&normalized, source), Ok(normalized.clone()));
+                // The other source's media class, a leading zero and a number past the type are refused.
+                let other = if mic { "speaker" } else { "mic" };
+                prop_assert!(normalize_endpoint(&endpoint, other).is_err());
+                let mut padded = endpoint.clone();
+                padded["serial"] = json!(format!("0{serial}"));
+                prop_assert!(normalize_endpoint(&padded, source).is_err());
+                let mut past = endpoint;
+                past["cookie"] = json!((u64::from(cookie) + (1u64 << 32)).to_string());
+                prop_assert!(normalize_endpoint(&past, source).is_err());
+            }
+
+            #[test]
+            fn realtime_settings_are_their_own_canonical_form(
+                bundled in any::<bool>(),
+                start in any::<bool>(),
+                port in 1u16..,
+                silence in prop::option::of(0u64..2500),
+                mic_language in prop::sample::select(vec![
+                    "ja", "en", "auto", "zh-Hans", "pt-BR", "yue", "JA", "e", "abcd", "en-U", "en-", "en-a_b", "EN-US", "en-abcdefghi",
+                ]),
+                follow in any::<bool>(),
+            ) {
+                let mut value = json!({
+                    "server": if bundled { "bundled" } else { "external" }, "start_server": start,
+                    "base_url": format!("http://127.0.0.1:{port}"),
+                    "mic": { "language": mic_language, "follow_default": follow },
+                });
+                if let Some(ms) = silence {
+                    value["silence_duration_ms"] = json!(ms);
+                }
+                let bad_silence = silence.is_some_and(|ms| !SILENCE_DURATION_MS.contains(&ms));
+                let bad_language = ["JA", "e", "abcd", "en-U", "en-", "en-a_b", "EN-US", "en-abcdefghi"].contains(&mic_language);
+                match normalize_realtime(&value) {
+                    Ok(settings) => {
+                        prop_assert!(!bad_silence && !bad_language);
+                        prop_assert_eq!(normalize_realtime(&settings), Ok(settings.clone()));
+                        prop_assert_eq!(&settings["mic"]["language"], &json!(mic_language));
+                        prop_assert_eq!(&settings["speaker"]["language"], &json!("auto"));
+                        prop_assert_eq!(settings.get("silence_duration_ms").and_then(Value::as_u64), silence);
+                    }
+                    Err(code) => prop_assert!(bad_silence || bad_language, "{code}"),
+                }
+            }
+
+            #[test]
+            fn direct_voice_settings_survive_the_file_0_4_reads(
+                converted in any::<bool>(),
+                pitch in -24i64..=24,
+                rate in 0.0f64..=1.0,
+                device in prop::sample::select(vrct_voice_conversion::worker::DEVICES.to_vec()),
+                threads in 0u64..=u64::from(vrct_voice_conversion::worker::MAX_THREADS),
+                highpass in any::<bool>(),
+                model in "[a-zA-Z0-9_./]{0,40}",
+                seed_vc in any::<bool>(),
+            ) {
+                let value = json!({
+                    "mode": if converted { "converted" } else { "passthrough" }, "rvc_pitch": pitch, "rvc_index_rate": rate,
+                    "rvc_device": device, "rvc_threads": threads, "rvc_highpass": highpass, "rvc_model": model,
+                });
+                let settings = normalize_direct(&value).unwrap();
+                prop_assert_eq!(normalize_direct(&settings), Some(settings.clone()));
+                // The file leaves out what 0.4 does not know while it holds its default, and loads
+                // back the same.
+                let file = file_direct(&settings);
+                prop_assert_eq!(load_direct(&file), Some(settings.clone()));
+                for field in ADDED_IN_0_5 {
+                    prop_assert_eq!(file.get(field).is_some(), settings[field] != default_direct()[field], "{}", field);
+                }
+                // A Seed-VC engine an earlier version saved loads as RVC with the rest kept.
+                if seed_vc {
+                    let mut older = file.clone();
+                    older["engine"] = json!(RETIRED_ENGINE);
+                    prop_assert_eq!(load_direct(&older), Some(settings));
+                    prop_assert_eq!(normalize_direct(&older), None);
+                }
+            }
+
+            #[test]
+            fn direct_voice_values_out_of_range_are_refused(pitch in prop_oneof![-1000i64..-24, 25i64..1000], rate in prop_oneof![-10.0f64..-0.0001, 1.0001f64..10.0]) {
+                prop_assert_eq!(normalize_direct(&json!({ "rvc_pitch": pitch })), None);
+                prop_assert_eq!(normalize_direct(&json!({ "rvc_index_rate": rate })), None);
+                prop_assert_eq!(normalize_direct(&json!({ "unknown": true })), None);
+            }
+        }
     }
 }

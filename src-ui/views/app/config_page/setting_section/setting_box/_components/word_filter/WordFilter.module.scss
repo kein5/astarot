@@ -19,6 +19,13 @@
     max-height: 20rem;
 }
 
+// The list with no word: a quiet line in the fold.
+.empty {
+    margin: 0;
+    font-size: 1.4rem;
+    color: var(--vox_description_text);
+}
+
 .item_wrapper {
     display: flex;
     justify-content: center;
@@ -80,7 +87,9 @@
     min-height: 4rem;
     padding: 0.8rem 1.2rem;
     background-color: var(--primary_600_color);
+    color: var(--vox_on_primary);
     font-size: 1.4rem;
+    font-weight: 500;
     border-radius: var(--vox_radius, 0.8rem);
     text-align: center;
     flex-shrink: 0;
@@ -91,42 +100,5 @@
     }
     &:active {
         background-color: var(--primary_700_color);
-    }
-}
-
-
-
-// The count is a quiet line of body text beside a small disclosure arrow (#437).
-.toggle_button_container {
-    display: flex;
-    justify-content: flex-end;
-    align-items: center;
-    gap: 0.4rem;
-}
-
-.words_count_text {
-    font-size: 1.4rem;
-    color: var(--dark_400_color);
-}
-
-.toggle_button_wrapper {
-    display: flex;
-    padding: 0.8rem;
-    border-radius: var(--vox_radius, 0.8rem);
-    &:hover {
-        background-color: var(--dark_825_color);
-    }
-    &:active {
-        background-color: var(--dark_900_color);
-    }
-}
-
-.arrow_left_svg {
-    width: 1.6rem;
-    &.to_down {
-        transform: rotate(-90deg);
-    }
-    &.to_up {
-        transform: rotate(90deg);
     }
 }

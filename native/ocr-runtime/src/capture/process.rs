@@ -1,22 +1,30 @@
-//! Is a process running (SteamVR's `vrmonitor`)? (`process_check.py`)
+//! Is a process running (SteamVR's `vrserver` or `vrmonitor`, #944)? ([`process_check.py`])
 //!
 //! Python's psutil walk took about two seconds on a PC with ~460 processes; Windows uses
 //! a Toolhelp snapshot instead (~15 ms) and Linux reads `/proc/<pid>/comm`.
+//!
+//! [`process_check.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/process_check.py
 
 /// Whether a process named `name` runs. `false` when it cannot be told.
 pub fn is_process_running(name: &str) -> bool {
+    any_process_running(&[name])
+}
+
+/// Whether a process of any of these names runs; one look at the process list. `false` when it
+/// cannot be told.
+pub fn any_process_running(names: &[&str]) -> bool {
     #[cfg(windows)]
     unsafe {
         use windows::Win32::Foundation::CloseHandle;
         use windows::Win32::System::Diagnostics::ToolHelp::{CreateToolhelp32Snapshot, Process32FirstW, Process32NextW, PROCESSENTRY32W, TH32CS_SNAPPROCESS};
         let Ok(snapshot) = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0) else { return false };
-        let wanted = name.to_lowercase();
+        let wanted: Vec<String> = names.iter().map(|name| name.to_lowercase()).collect();
         let mut entry = PROCESSENTRY32W { dwSize: std::mem::size_of::<PROCESSENTRY32W>() as u32, ..Default::default() };
         let mut found = false;
         if Process32FirstW(snapshot, &mut entry).is_ok() {
             loop {
                 let len = entry.szExeFile.iter().position(|&c| c == 0).unwrap_or(entry.szExeFile.len());
-                if String::from_utf16_lossy(&entry.szExeFile[..len]).to_lowercase() == wanted {
+                if wanted.contains(&String::from_utf16_lossy(&entry.szExeFile[..len]).to_lowercase()) {
                     found = true;
                     break;
                 }
@@ -33,7 +41,8 @@ pub fn is_process_running(name: &str) -> bool {
         let Ok(entries) = std::fs::read_dir("/proc") else { return false };
         entries.flatten().any(|entry| {
             let file_name = entry.file_name();
-            file_name.to_str().is_some_and(|pid| pid.bytes().all(|b| b.is_ascii_digit())) && process_name(entry.path().join("comm")).as_deref() == Some(name)
+            file_name.to_str().is_some_and(|pid| pid.bytes().all(|b| b.is_ascii_digit()))
+                && process_name(entry.path().join("comm")).is_some_and(|comm| names.contains(&comm.as_str()))
         })
     }
 }
@@ -66,5 +75,21 @@ pub fn process_name_of(pid: u32) -> String {
     #[cfg(not(windows))]
     {
         process_name(std::path::PathBuf::from(format!("/proc/{pid}/comm"))).unwrap_or_default().to_lowercase()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn any_one_of_the_names_running_is_enough() {
+        // As SteamVR on a Steam Frame: its server runs, its status window does not (#944).
+        let me = if cfg!(windows) {
+            std::env::current_exe().unwrap().file_name().unwrap().to_string_lossy().into_owned()
+        } else {
+            std::fs::read_to_string("/proc/self/comm").unwrap().trim_end().to_string()
+        };
+        assert!(super::any_process_running(&["vrct-no-such-process-name", &me]));
+        assert!(!super::any_process_running(&["vrct-no-such-process-name", "vrct-nor-this-one"]));
+        assert!(super::is_process_running(&me));
     }
 }

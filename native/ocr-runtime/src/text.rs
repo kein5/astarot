@@ -1,5 +1,7 @@
 //! Turning recognised lines into one message, and comparing messages
-//! (`ocr_pipeline.py`: `_mergeWords`, `_lineJoiner`, `_similar`, `_textHash`).
+//! ([`ocr_pipeline.py`]: `_mergeWords`, `_lineJoiner`, `_similar`, `_textHash`).
+//!
+//! [`ocr_pipeline.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/ocr/ocr_pipeline.py
 
 use crate::engine::Word;
 use crate::numeric::py_strip;

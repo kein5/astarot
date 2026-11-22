@@ -17,6 +17,7 @@
 
 .download_button {
     pointer-events: auto;
+    font-weight: 500;
     background-color: var(--dark_800_color);
     padding: 0.8rem;
     flex-shrink: 0;
@@ -60,24 +61,6 @@
     user-select: none;
     pointer-events: none;
     white-space: nowrap;
-}
-
-.update_button {
-    pointer-events: auto;
-    background-color: var(--primary_400_color);
-    padding: 0.8rem;
-    flex-shrink: 0;
-    border-radius: 0.2rem;
-    width: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    &:hover {
-        background-color: var(--primary_450_color);
-    }
-    &:active {
-        background-color: var(--primary_500_color);
-    }
 }
 
 .default_badge {

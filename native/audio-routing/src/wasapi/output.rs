@@ -1,11 +1,13 @@
 //! Speech to one explicit WASAPI render endpoint, in shared mode.
 //!
-//! Port of `WindowsOutput` in `devices_windows.py`. PortAudio opened the device at the
+//! Port of `WindowsOutput` in [`devices_windows.py`]. PortAudio opened the device at the
 //! speech rate and, when WASAPI refused it, converted to the mix rate with soxr; mono
 //! was widened to stereo because PortAudio's mono path garbled WASAPI playback. Here
 //! the stream asks WASAPI itself to convert rate and channels
 //! (`AUTOCONVERTPCM | SRC_DEFAULT_QUALITY`), which covers both. The OS default is
 //! never used for speech.
+//!
+//! [`devices_windows.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/audio_routing/devices_windows.py
 
 use windows::Win32::Media::Audio::{
     eMultimedia, eRender, IAudioClient, IAudioRenderClient, AUDCLNT_SHAREMODE_SHARED, AUDCLNT_STREAMFLAGS_AUTOCONVERTPCM, AUDCLNT_STREAMFLAGS_SRC_DEFAULT_QUALITY, WAVEFORMATEX, WAVE_FORMAT_PCM,
@@ -79,8 +81,9 @@ fn lost(_: windows::core::Error) -> Error {
 }
 
 impl WindowsOutput {
-    /// `strict_underflow`: report a buffer that ran dry (the virtual microphone does);
-    /// a monitor tolerates it.
+    /// `strict_underflow`: report a buffer that ran dry (the virtual microphone check's tone
+    /// does); speech and a monitor tolerate it, and the engine plays silence until the next
+    /// write (decision 62).
     pub fn open(identity: &str, rate: u32, channels: u16, strict_underflow: bool) -> Result<Self> {
         let _com = Com::init()?;
         let mta = MtaUsage::new()?;

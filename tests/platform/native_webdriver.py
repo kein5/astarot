@@ -23,7 +23,7 @@ from tools.display_power_guard import check_displays_on as check_physical_displa
 def check_displays_on():
     # CI explicitly creates Xvfb; no DRM connector/DPMS state exists there.
     # A live server and rendered screenshot are still mandatory.
-    if os.environ.get('VRCT_TEST_XVFB') == '1':
+    if os.environ.get('ASTAROT_TEST_XVFB') == '1':
         if not os.environ.get('DISPLAY'):
             raise RuntimeError('Xvfb acceptance requires DISPLAY')
         subprocess.run(['xdpyinfo'], check=True, capture_output=True, timeout=5)
@@ -128,14 +128,21 @@ class NativeWebDriver:
         element = self.command("POST", "/element", {"using": "css selector", "value": selector})
         return self.element_command(element, "click")
 
-    def click_text(self, tag, text):
+    def click_text(self, tag, text, within=None):
         # Main and the hidden configuration page can expose the same label.
         # Select the visible control, retaining native WebDriver hit testing.
-        element = self.evaluate("return [...document.querySelectorAll(arguments[0])].find(e => e.textContent.trim() === arguments[1] && getComputedStyle(e).visibility === 'visible' && e.getClientRects().length);", tag, text)
+        # `within`: a selector for the part of the page that holds it, where a page has the
+        # same button twice (the RVC page's conversion and its input forwarding, #554).
+        element = self.evaluate("const root = arguments[2] ? document.querySelector(arguments[2]) : document;"
+                                " return root && [...root.querySelectorAll(arguments[0])].find(e => e.textContent.trim() === arguments[1] && getComputedStyle(e).visibility === 'visible' && e.getClientRects().length);",
+                                tag, text, within)
         return self.element_command(element, "click")
 
-    def control(self, label):
-        return self.evaluate("return [...document.querySelectorAll('input,select,textarea')].find(e => e.getAttribute('aria-label') === arguments[0]) || [...document.querySelectorAll('label')].find(e => e.firstChild?.textContent.trim() === arguments[0])?.querySelector('input,select,textarea');", label)
+    def control(self, label, within=None):
+        return self.evaluate("const root = arguments[1] ? document.querySelector(arguments[1]) : document;"
+                             " if (!root) return null;"
+                             " return [...root.querySelectorAll('input,select,textarea')].find(e => e.getAttribute('aria-label') === arguments[0]) || [...root.querySelectorAll('label')].find(e => e.firstChild?.textContent.trim() === arguments[0])?.querySelector('input,select,textarea');",
+                             label, within)
 
     def fill(self, label, value):
         control = self.control(label)
@@ -180,8 +187,8 @@ class NativeWebDriver:
                       " e.dispatchEvent(new Event('input', {bubbles: true})); return true;", element, expected)
         assert not strict or self.evaluate("return arguments[0].value", element) == expected, "the text did not reach the field"
 
-    def select(self, label, value):
-        option = self.evaluate("return [...arguments[0].options].find(e => e.value === arguments[1]);", self.control(label), value)
+    def select(self, label, value, within=None):
+        option = self.evaluate("return [...arguments[0].options].find(e => e.value === arguments[1]);", self.control(label, within), value)
         self.element_command(option, "click")
 
     def set_switch(self, label, on=True):
@@ -217,6 +224,19 @@ class NativeWebDriver:
             element = self.evaluate("return [...document.querySelectorAll('button[aria-label], [role=button]')].find(e => e.getAttribute('aria-label') === arguments[0] && e.getClientRects().length);", tab)
             self.element_command(element, "click")
         self.wait(f"return document.querySelector({json.dumps(selector)}) !== null")
+        self.open_fold_around(selector)
+
+    def open_fold_around(self, selector):
+        """Open the page's 「詳細設定」 around a setting, as a user would (#554).
+
+        What is set once sits in that fold. A closed <details> keeps it in the document, so the
+        setting is found, but a control that has to be seen to be pressed (click_text) is not.
+        """
+        summary = self.evaluate("const fold = document.querySelector(arguments[0])?.closest('details[data-advanced]');"
+                                " return fold && !fold.open ? fold.querySelector(':scope > summary') : null;", selector)
+        if summary:
+            self.element_command(summary, "click")
+            self.wait(f"return document.querySelector({json.dumps(selector)}).closest('details[data-advanced]').open")
 
     def open_voice_settings(self):
         self.open_voice_page("Text to speech (TTS)", '[data-setting-id="tts_settings"] select')
@@ -227,8 +247,12 @@ class NativeWebDriver:
     def open_rvc_settings(self):
         self.open_voice_page("Voice changer (RVC)", '[data-setting-id="rvc_settings"] input')
 
+    # Input forwarding: on the RVC page, in its 「詳細設定」 (#554). The page's conversion form has
+    # the same input and buttons; pass FORWARDING as `within` to use the forwarding form's.
+    FORWARDING = '[data-setting-id="direct_voice_settings"]'
+
     def open_original_voice_settings(self):
-        self.open_voice_page("Advanced", '[data-setting-id="direct_voice_settings"] select')
+        self.open_voice_page("Voice changer (RVC)", f'{self.FORWARDING} select')
 
     def close_app(self):
         """Quit the way the tray menu's Quit does, and verify exit before driver cleanup.
@@ -330,7 +354,7 @@ class NativeWebDriver:
         # Release/AppImage tests must not attach to an installed instance.
         env.setdefault("VRCT_CONFIG_DIR", str(self.output / "config/vrct-vox"))
         self.log = (self.output / "driver.log").open("w")
-        driver = os.environ.get("VRCT_TEST_DRIVER", str(ROOT / "tmp/voice-completion/tauri-driver/bin/tauri-driver"))
+        driver = os.environ.get("ASTAROT_TEST_DRIVER", str(ROOT / "tmp/voice-completion/tauri-driver/bin/tauri-driver"))
         self.process = subprocess.Popen(
             [driver, "--port", str(ports[0]), "--native-port", str(ports[1])],
             env=env, stdout=self.log, stderr=subprocess.STDOUT, start_new_session=True,
@@ -344,7 +368,7 @@ class NativeWebDriver:
                     if self.process.poll() is not None:
                         raise RuntimeError("tauri-driver exited before startup")
                     time.sleep(.1)
-            binary = os.environ.get("VRCT_TEST_APP", str(ROOT / "src-tauri/build/native-cargo/debug/vrct-vox"))
+            binary = os.environ.get("ASTAROT_TEST_APP", str(ROOT / "src-tauri/build/native-cargo/debug/vrct-vox"))
             result = self.request("POST", "/session", {"capabilities": {"alwaysMatch": {
                 "browserName": "wry", "tauri:options": {"application": binary}}}})
             self.session = result["sessionId"]
@@ -353,7 +377,7 @@ class NativeWebDriver:
             for child in psutil.Process(self.process.pid).children(recursive=True):
                 try:
                     if matches_launched_app(child.exe(), child.environ(), binary,
-                                            appimage=bool(os.environ.get('VRCT_TEST_APPIMAGE'))):
+                                            appimage=bool(os.environ.get('ASTAROT_TEST_APPIMAGE'))):
                         apps.append(child)
                 except (psutil.NoSuchProcess, psutil.AccessDenied):
                     pass  # A transient helper may finish, or run with other credentials, during discovery.

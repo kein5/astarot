@@ -7,7 +7,7 @@
     align-items: center;
     gap: 1.2rem;
     padding: 1.2rem 1.4rem;
-    border: .1rem solid var(--dark_650_color);
+    border: .1rem solid var(--vox_field_border);
     border-radius: var(--vox_radius);
     background: var(--vox_surface);
     color: var(--dark_200_color);
@@ -85,7 +85,7 @@
 .over {
     border-color: var(--vox_state_active);
     background: color-mix(in srgb, var(--vox_highlight_tint), var(--vox_surface));
-    .icon { transform: scale(1.08); background: var(--primary_600_color); color: var(--dark_50_color); }
+    .icon { transform: scale(1.08); background: var(--primary_600_color); color: var(--vox_on_primary); }
 }
 
 // Over this zone, or dropped on it, with only files it does not take.

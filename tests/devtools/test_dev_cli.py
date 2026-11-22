@@ -8,6 +8,7 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
+import tomllib
 import unittest
 from unittest.mock import patch
 
@@ -58,8 +59,54 @@ class DeveloperCLITests(unittest.TestCase):
 
     def test_doctor_runs_without_mise_toml(self):
         self.assertEqual(self.dev.pinned_versions(self.root), {})
+        self.assertIsNone(self.dev.python_series(self.root))
         (self.root / "mise.toml").write_text("not = [toml", encoding="utf-8")
         self.assertEqual(self.dev.pinned_versions(self.root), {})
+        self.assertIsNone(self.dev.python_series(self.root))
+
+    def test_the_python_version_comes_from_mise_toml_alone(self):
+        (self.root / "mise.toml").write_text('[tools]\npython = "3.14.10"\n', encoding="utf-8")
+        self.assertEqual(self.dev.python_series(self.root), (3, 14))
+        # A new owned environment asks uv for that version, never for a download.
+        code, output = self.call("setup", "--scope", "headless", "--dry-run")
+        self.assertEqual(code, 0, output)
+        self.assertIn("venv --python 3.14 --no-python-downloads", output)
+        # doctor holds the test environments to it.
+        target = self.root / "build/dev/headless-venv"
+        python = target / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
+        python.parent.mkdir(parents=True)
+        python.write_text("")
+        with patch.object(self.dev, "probe", return_value=subprocess.CompletedProcess([], 0, "3.14.10", "")) as probe:
+            self.call("doctor", "--scope", "voice", "--json")
+        self.assertIn("sys.version_info[:2] == (3, 14)", probe.call_args.args[0][-1])
+
+    def test_an_owned_environment_of_another_python_is_made_again(self):
+        (self.root / "mise.toml").write_text('[tools]\npython = "3.14.10"\n', encoding="utf-8")
+        target = self.root / "build/dev/headless-venv"
+        python = target / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
+        python.parent.mkdir(parents=True)
+        python.write_text("")
+        (target / self.dev.OWNER_FILE).write_text(self.dev.OWNER, encoding="utf8")
+        (target / "pyvenv.cfg").write_text("home = x\nversion_info = 3.11.18\n", encoding="utf-8")
+        code, output = self.call("setup", "--scope", "headless", "--dry-run")
+        self.assertEqual(code, 0, output)
+        self.assertIn("venv --python 3.14 --clear --no-python-downloads", output)
+        # One made with the pinned Python is only synced.
+        (target / "pyvenv.cfg").write_text("home = x\nversion_info = 3.14.10\n", encoding="utf-8")
+        code, output = self.call("setup", "--scope", "headless", "--dry-run")
+        self.assertEqual(code, 0, output)
+        self.assertNotIn(" venv ", output)
+        self.assertIn("pip sync", output)
+
+    def test_browser_setup_refuses_a_venv_of_another_python(self):
+        (self.root / "mise.toml").write_text('[tools]\npython = "3.14.10"\n', encoding="utf-8")
+        with patch.object(self.dev, "probe", return_value=subprocess.CompletedProcess(
+            [], 0, '{"venv":true,"version":[3,11]}', '')), \
+                patch.object(self.dev, "execute", return_value=0) as execute:
+            code, output = self.call("setup", "--scope", "browser", "--python", sys.executable)
+        self.assertEqual(code, 2)
+        self.assertIn("Python 3.14 virtual environment", output)
+        execute.assert_not_called()
 
     def test_dry_setup_can_be_reviewed_before_tools_are_installed(self):
         with patch.dict(os.environ, {"PATH": ""}):
@@ -80,17 +127,18 @@ class DeveloperCLITests(unittest.TestCase):
         self.assertIn("check_python_lock.py", output)
         self.assertLess(output.index("check_python_lock.py"), output.index("export --quiet --frozen"))
 
-    def test_backend_setup_keeps_hashes_and_validates_git_pins(self):
-        with patch.object(self.dev.sys, "platform", "linux"):
-            code, output = self.call("setup", "--scope", "backend", "--dry-run")
-        self.assertEqual(code, 0, output)
-        self.assertIn("--group dev --group linux-build", output)
-        self.assertIn("check_python_lock.py", output)
-        self.assertNotIn("--no-hashes", output)
-
     def test_setup_cannot_inherit_disabled_hash_verification(self):
         with patch.dict(os.environ, {"UV_NO_VERIFY_HASHES": "1"}):
             self.assertEqual(self.dev.child_environment()["UV_NO_VERIFY_HASHES"], "0")
+
+    def test_children_run_with_onnx_runtime_usage_reports_off(self):
+        # The onnxruntime wheel (1.32) sends usage events unless this is set (#574).
+        with patch.dict(os.environ, {"ORT_DISABLE_TELEMETRY": "0"}):
+            self.assertEqual(self.dev.child_environment()["ORT_DISABLE_TELEMETRY"], "1")
+
+    def test_mise_exports_onnx_runtime_usage_reports_off(self):
+        mise = tomllib.loads((ROOT / "mise.toml").read_text(encoding="utf-8"))
+        self.assertEqual(mise["env"], {"ORT_DISABLE_TELEMETRY": "1"})
 
     def test_missing_python_dependency_is_a_prerequisite_error(self):
         target = self.root / "build/dev/headless-venv"
@@ -122,19 +170,36 @@ class DeveloperCLITests(unittest.TestCase):
         self.assertEqual(code, 2)
         self.assertEqual(list(external.iterdir()), [])
 
-    def test_node_scope_discovers_new_tests_without_shell_globs(self):
+    def test_node_scope_runs_the_installed_vitest(self):
         folder = self.root / "src-ui/area with spaces"
         folder.mkdir(parents=True)
+        # Any one of the patterns in vitest.config.js counts as a test.
         for name in ("one.test.js", "future.test.mjs", "typed.test.ts"):
             (folder / name).write_text('')
+            code, output = self.call("check", "--scope", "node", "--dry-run")
+            self.assertEqual(code, 0, name)
+            # Vitest finds the files itself; Node runs the local copy.
+            self.assertIn("node_modules/vitest/vitest.mjs run", output)
+            self.assertNotIn("npx", output)
+            self.assertNotIn("npm ci", output)
+            (folder / name).unlink()
+
+    def test_node_scope_asks_for_setup_when_vitest_is_missing(self):
+        (self.root / "src-ui").mkdir(parents=True)
+        (self.root / "src-ui/one.test.js").write_text('')
+        code, output = self.call("check", "--scope", "node")
+        self.assertEqual(code, 2)
+        self.assertIn("setup --scope ui", output)
+
+    def test_node_scope_runs_the_i18n_gate_and_its_tests(self):
+        (self.root / "src-ui").mkdir(parents=True)
+        (self.root / "src-ui/one.test.js").write_text('')
         code, output = self.call("check", "--scope", "node", "--dry-run")
         self.assertEqual(code, 0)
-        self.assertIn("one.test.js", output)
-        self.assertIn("future.test.mjs", output)
-        self.assertIn("typed.test.ts", output)
-        # The tests import TypeScript sources directly (ADR-010).
-        self.assertIn("--experimental-strip-types", output)
-        self.assertNotIn("npm ci", output)
+        # The gate runs after the tests; Vitest runs the gate's own tests (vitest.config.js).
+        self.assertLess(output.index("vitest.mjs run"), output.index("tools/i18n_gate/check.mjs"))
+        config = (Path(__file__).resolve().parents[2] / "vitest.config.js").read_text(encoding="utf-8")
+        self.assertIn("tools/i18n_gate/**/*.test.mjs", config)
 
     def test_ui_scope_runs_the_type_check_before_the_build(self):
         folder = self.root / "src-ui"
@@ -144,10 +209,28 @@ class DeveloperCLITests(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertLess(output.index("typecheck"), output.index("vite-build"))
 
+    def test_ui_scope_runs_biome_before_the_type_check(self):
+        folder = self.root / "src-ui"
+        folder.mkdir(parents=True)
+        (folder / "one.test.js").write_text('')
+        code, output = self.call("check", "--scope", "ui", "--dry-run")
+        self.assertEqual(code, 0)
+        # Lint, then the format check (read-only: no --write), before the type check.
+        self.assertLess(output.index("biome lint"), output.index("biome format"))
+        self.assertLess(output.index("biome format"), output.index("typecheck"))
+        self.assertNotIn("--write", output)
+        # The node scope (part of quick) does not need Biome.
+        code, output = self.call("check", "--scope", "node", "--dry-run")
+        self.assertNotIn("biome", output)
+
+    def test_doctor_takes_biome_only_at_the_pinned_version(self):
+        (self.root / "mise.toml").write_text('[tools]\nbiome = "2.6.6"\n')
+        self.assertEqual(self.dev.pinned_versions(self.root).get("biome"), "2.6.6")
+
     def test_node_scope_does_not_pass_when_no_tests_were_found(self):
         code, output = self.call("check", "--scope", "node", "--dry-run")
         self.assertEqual(code, 2)
-        self.assertIn("No Node tests", output)
+        self.assertIn("No UI tests", output)
 
     def test_rust_check_uses_only_locked_cached_dependencies(self):
         code, output = self.call("check", "--scope", "rust", "--dry-run")
@@ -155,6 +238,150 @@ class DeveloperCLITests(unittest.TestCase):
         self.assertIn("--offline", output)
         self.assertIn("--locked", output)
         self.assertNotIn("cargo fetch", output)
+
+    def test_integration_builds_the_core_host_and_the_page_before_the_tests(self):
+        # ADR-017: the screens in Chromium and WebKit, through the core's host of its own crate.
+        code, output = self.call("check", "--scope", "integration", "--dry-run")
+        self.assertEqual(code, 0)
+        host = output.index("cargo build --locked --offline --manifest-path native/browser-core-bridge/Cargo.toml")
+        page = output.index("vite.js build --config tests/integration/vite.config.ts")
+        tests = output.index("@playwright/test/cli.js test --config tests/integration/playwright.config.ts")
+        self.assertLess(host, page)
+        self.assertLess(page, tests)
+        self.assertNotIn("playwright install", output, "a check never downloads the browsers")
+        self.assertIn("integration", self.dev.GROUPS["all"])
+
+    def test_integration_asks_for_setup_when_playwright_is_missing(self):
+        code, output = self.call("check", "--scope", "integration")
+        self.assertEqual(code, 2)
+        self.assertIn("setup --scope ui", output)
+
+    def test_integration_setup_fetches_the_host_crate_and_both_browsers(self):
+        (self.root / "node_modules/@playwright/test").mkdir(parents=True)
+        (self.root / "node_modules/@playwright/test/cli.js").write_text("")
+        code, output = self.call("setup", "--scope", "integration", "--dry-run")
+        self.assertEqual(code, 0)
+        self.assertIn("fetch --locked --manifest-path native/browser-core-bridge/Cargo.toml", output)
+        self.assertIn("@playwright/test/cli.js install chromium webkit", output)
+
+    def test_workflow_check_runs_actionlint_and_zizmor_on_the_whole_repository(self):
+        with patch.dict(os.environ, {"GITHUB_ACTIONS": ""}):
+            code, output = self.call("check", "--scope", "workflows", "--dry-run")
+        self.assertEqual(code, 0)
+        # shellcheck runs on the scripts in `run:` (pinned in mise.toml); pyflakes stays off.
+        self.assertIn("[actionlint] actionlint -pyflakes=\n", output)
+        # The root, so that the composite actions and dependabot.yml are audited too.
+        self.assertIn("[zizmor] zizmor .", output)
+        with patch.dict(os.environ, {"GITHUB_ACTIONS": "true"}):
+            _, output = self.call("check", "--scope", "workflows", "--dry-run")
+        self.assertIn("zizmor --format github .", output)
+
+    def test_workflow_check_names_the_missing_tools_and_their_pins(self):
+        (self.root / "mise.toml").write_text('[tools]\nactionlint = "1.7.12"\nzizmor = "1.32.0"\nshellcheck = "0.11.0"\n')
+        with patch.object(self.dev.shutil, "which", return_value=None):
+            code, output = self.call("doctor", "--scope", "workflows")
+        self.assertEqual(code, 2)
+        self.assertIn("mise install (mise.toml pins 1.7.12)", output)
+        self.assertIn("mise install (mise.toml pins 1.32.0)", output)
+        self.assertIn("mise install (mise.toml pins 0.11.0)", output)
+
+    def test_doctor_reads_shellchecks_version_from_its_own_line_and_wants_the_pin(self):
+        (self.root / "mise.toml").write_text('[tools]\nshellcheck = "0.11.0"\n')
+        title = "ShellCheck - shell script analysis tool\n"
+        for version, status in (("0.11.0", "ok"), ("0.10.0", "missing")):
+            completed = subprocess.CompletedProcess([], 0, stdout=f"{title}version: {version}\nlicense: GPLv3\n", stderr="")
+            with patch.object(self.dev.shutil, "which", return_value="/usr/bin/shellcheck"), \
+                 patch.object(self.dev, "probe", return_value=completed):
+                _, output = self.call("doctor", "--scope", "workflows", "--json")
+            rows = {row["name"]: row for row in json.loads(output)["checks"]}
+            self.assertEqual((rows["shellcheck"]["status"], rows["shellcheck"]["detail"]), (status, f"version: {version}"), version)
+
+    def test_rust_check_runs_the_native_tests_with_nextest_and_keeps_the_doctests(self):
+        (self.root / "native/core/src").mkdir(parents=True)
+        (self.root / "native/core/src/lib.rs").write_text("")
+        code, output = self.call("check", "--scope", "rust", "--dry-run")
+        self.assertEqual(code, 0)
+        self.assertIn("cargo nextest run --locked --offline --manifest-path native/core/Cargo.toml", output)
+        self.assertNotIn("cargo test --locked", output)
+        # nextest does not run doctests: a crate with a library runs them with cargo test --doc.
+        self.assertIn("cargo test --doc --locked --offline --manifest-path native/core/Cargo.toml", output)
+        self.assertNotIn("--doc --locked --offline --manifest-path native/tts/Cargo.toml", output)
+
+    def test_crate_check_runs_cargo_deny_offline_on_every_cargo_workspace(self):
+        code, output = self.call("check", "--scope", "crates", "--dry-run")
+        self.assertEqual(code, 0)
+        lines = [line for line in output.splitlines() if line.startswith("[cargo-deny ")]
+        self.assertEqual(len(lines), len(self.dev.CARGO_WORKSPACES))
+        for workspace in ("src-tauri", "native/core", "native/ocr-runtime", "native/rvc-runtime"):
+            self.assertIn(f"--manifest-path {workspace}/Cargo.toml --config deny.toml check", output)
+        self.assertTrue(all("--frozen" in line and line.endswith("licenses bans sources") for line in lines))
+
+    def test_hooks_setup_installs_hk_hooks_only_when_asked(self):
+        # #837: the hooks go in through their own scope; no other setup scope installs them.
+        code, output = self.call("setup", "--scope", "hooks", "--dry-run")
+        self.assertEqual(code, 0)
+        self.assertIn("[Git hooks (hk.pkl)] hk install", output)
+        for scope in self.dev.SETUP_SCOPES:
+            if scope == "hooks":
+                continue
+            _, other = self.call("setup", "--scope", scope, "--dry-run")
+            self.assertNotIn("hk install", other, scope)
+
+    def test_rust_setup_fetches_every_workspace_cargo_deny_reads(self):
+        code, output = self.call("setup", "--scope", "rust", "--dry-run")
+        self.assertEqual(code, 0)
+        for workspace in self.dev.CARGO_WORKSPACES:
+            self.assertIn(f"--manifest-path {workspace}/Cargo.toml", output)
+
+    def test_secret_check_scans_only_the_new_commits_and_never_prints_a_value(self):
+        code, output = self.call("check", "--scope", "secrets", "--dry-run")
+        self.assertEqual(code, 2)
+        self.assertIn("secrets requires --base", output)
+        code, output = self.call("check", "--scope", "secrets", "--base", "origin/develop", "--dry-run")
+        self.assertEqual(code, 0)
+        self.assertIn("gitleaks git --redact --no-banner --log-opts origin/develop..HEAD .", output)
+
+    def test_vulnerability_check_names_each_lock_file_and_leaves_out_the_rest(self):
+        for name in ("uv.lock", "native/core/Cargo.lock"):
+            (self.root / name).parent.mkdir(parents=True, exist_ok=True)
+            (self.root / name).write_text("")
+        with patch.object(self.dev.shutil, "which", return_value=sys.executable), \
+             patch.object(self.dev, "doctor", return_value=0), \
+             patch.object(self.dev.subprocess, "run") as run:
+            run.return_value.returncode = 0
+            self.assertEqual(self.call("check", "--scope", "vulns")[0], 0)
+        argv = run.call_args.args[0]
+        # setUp writes a package-lock.json; site/ and the other workspaces have none here.
+        self.assertEqual(argv[1:], ["scan", "source", "--config", "osv-scanner.toml", "--lockfile", "uv.lock",
+                                    "--lockfile", "package-lock.json", "--lockfile", "native/core/Cargo.lock"])
+
+    def test_each_vulnerability_exception_says_why_and_when_to_look_again(self):
+        # osv-scanner.toml (#835): a notice that cannot be fixed now is listed with its reason
+        # and a day to look at it again; on that day the exception ends and the check fails.
+        import datetime
+        config = tomllib.loads((ROOT / "osv-scanner.toml").read_text(encoding="utf-8"))
+        entries = config["IgnoredVulns"]
+        self.assertTrue(entries)
+        self.assertEqual(len({entry["id"] for entry in entries}), len(entries), "each notice once")
+        for entry in entries:
+            self.assertEqual(set(entry), {"id", "ignoreUntil", "reason"}, entry["id"])
+            self.assertIsInstance(entry["ignoreUntil"], datetime.date, entry["id"])
+            self.assertTrue(entry["reason"].strip(), entry["id"])
+
+    def test_link_check_stays_offline_and_resolves_root_links_from_the_repository(self):
+        code, _ = self.call("check", "--scope", "links", "--dry-run")
+        self.assertEqual(code, 0)
+        # The planned argv, not the printed line: the temporary folder's name has spaces, which
+        # POSIX shells and Windows quote differently.
+        args = self.dev.parser().parse_args(["check", "--scope", "links", "--dry-run"])
+        (step,) = self.dev.checks_plan(args, self.root)
+        self.assertEqual(step.argv, ["lychee", "--offline", "--no-progress", "--root-dir", str(self.root.resolve()), "."])
+
+    def test_hook_check_validates_the_settings_without_installing_any_hook(self):
+        code, output = self.call("check", "--scope", "hooks", "--dry-run")
+        self.assertEqual(code, 0)
+        self.assertIn("[hk validate] hk validate", output)
+        self.assertNotIn("hk install", output)
 
     def test_browser_setup_adds_dependencies_to_explicit_existing_python(self):
         code, output = self.call("setup", "--scope", "browser", "--python",
@@ -169,7 +396,7 @@ class DeveloperCLITests(unittest.TestCase):
 
     def test_browser_setup_refuses_system_interpreter(self):
         with patch.object(self.dev, "probe", return_value=subprocess.CompletedProcess(
-            [], 0, '{"venv":false,"version":[3,11]}', '')), \
+            [], 0, '{"venv":false,"version":[3,14]}', '')), \
                 patch.object(self.dev, "execute", return_value=0):
             code, output = self.call("setup", "--scope", "browser", "--python", sys.executable)
         self.assertEqual(code, 2)
@@ -181,7 +408,7 @@ class DeveloperCLITests(unittest.TestCase):
         python.parent.mkdir(parents=True)
         python.write_text("")
         with patch.object(self.dev, "probe", return_value=subprocess.CompletedProcess(
-            [], 0, '3.11.17\npytest 8.4.2\nplaywright 1.64.1', '')):
+            [], 0, '3.14.10\npytest 9.2.0\nplaywright 1.65.2', '')):
             code, output = self.call("doctor", "--scope", "browser", "--json")
         self.assertEqual(code, 0, output)
 
@@ -223,13 +450,13 @@ class DeveloperCLITests(unittest.TestCase):
             'class Probe(unittest.TestCase):\n'
             ' def test_environment(self):\n'
             '  self.assertNotIn("VRCT_SEED_POC", os.environ)\n'
-            '  self.assertNotIn("VRCT_TEST_NATIVE_GUI", os.environ)\n'
+            '  self.assertNotIn("ASTAROT_TEST_NATIVE_GUI", os.environ)\n'
             '  self.assertEqual(os.environ["HF_HUB_OFFLINE"], "1")\n'
             '  self.assertNotIn("PYTEST_ADDOPTS", os.environ)\n',
             encoding="utf8",
         )
         with patch.dict(os.environ, {
-            "VRCT_SEED_POC": "never-start", "VRCT_TEST_NATIVE_GUI": "1",
+            "VRCT_SEED_POC": "never-start", "ASTAROT_TEST_NATIVE_GUI": "1",
             "PYTEST_ADDOPTS": "--unwanted", "HF_HUB_OFFLINE": "0",
         }):
             code, _ = self.call("check", "--scope", "tooling")

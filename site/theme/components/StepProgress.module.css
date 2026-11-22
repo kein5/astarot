@@ -1,0 +1,233 @@
+/* ---------- The list with names ---------- */
+
+.stepProgress {
+  margin: 24px 0 8px;
+  padding: 4px 0 16px;
+  border-bottom: 1px solid var(--vox-hairline);
+}
+
+.stepProgress ol {
+  position: relative;
+  display: grid;
+  grid-auto-columns: 1fr;
+  grid-auto-flow: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* The track runs between the first and the last dot; the filled part grows to the current one. */
+.stepProgress ol::before,
+.stepProgress ol::after {
+  content: '';
+  position: absolute;
+  top: 13px;
+  left: calc(50% / var(--count, 5));
+  height: 2px;
+  border-radius: 1px;
+}
+
+.stepProgress ol::before {
+  right: calc(50% / var(--count, 5));
+  background: var(--vox-border);
+}
+
+.stepProgress ol::after {
+  width: calc((100% - 100% / var(--count, 5)) * var(--progress));
+  background: var(--vox-mine);
+  transition: width var(--vox-motion) var(--vox-ease);
+}
+
+/* The page gives list items a top margin; the steps sit on one line. */
+.stepProgress li {
+  position: relative;
+  z-index: 1;
+  margin: 0;
+  min-width: 0;
+}
+
+.stepProgress a {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 0 4px;
+  border-radius: 8px;
+  color: var(--rp-c-text-3);
+  font-weight: 400;
+  text-decoration: none;
+}
+
+.stepProgress a:focus-visible {
+  outline: 2px solid var(--vox-focus);
+  outline-offset: 2px;
+}
+
+.dot {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--vox-surface);
+  border: 1px solid var(--vox-border);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: var(--rp-c-text-2);
+  transition:
+    background-color var(--vox-motion) var(--vox-ease),
+    border-color var(--vox-motion) var(--vox-ease),
+    color var(--vox-motion) var(--vox-ease);
+}
+
+.dot svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.name {
+  max-width: 100%;
+  font-size: 12px;
+  line-height: 16px;
+  text-align: center;
+  text-wrap: balance;
+  word-break: auto-phrase;
+  transition: color var(--vox-motion) var(--vox-ease);
+}
+
+.done .dot {
+  background: var(--vox-mine);
+  border-color: var(--vox-mine);
+  color: var(--vox-on-light);
+}
+
+/* Every dot keeps one size; the current one stands out by its fill. */
+.current .dot {
+  background: var(--rp-c-text-1);
+  border-color: var(--rp-c-text-1);
+  color: var(--vox-on-light);
+}
+
+.stepProgress .done a,
+.stepProgress .current a {
+  color: var(--rp-c-text-1);
+}
+
+.stepProgress a:hover .dot {
+  border-color: var(--vox-mine);
+}
+
+/* Phones: the dots only; the slim bar names the step being read. */
+@media (max-width: 639px) {
+  .stepProgress .name {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+
+/* ---------- The slim bar ---------- */
+
+/* No height of its own, so the page does not move when the bar shows. */
+.stepDock {
+  position: sticky;
+  z-index: 10;
+  height: 0;
+}
+
+.dockBar {
+  position: absolute;
+  top: 0;
+  left: -8px;
+  right: -8px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  height: 44px;
+  padding: 0 8px;
+  background: var(--rp-c-bg);
+  border-bottom: 1px solid var(--vox-hairline);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-6px);
+  transition:
+    opacity var(--vox-motion-fast) var(--vox-ease),
+    transform var(--vox-motion) var(--vox-ease),
+    visibility 0s linear var(--vox-motion-fast);
+}
+
+.dockBar.shown {
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+  transition:
+    opacity var(--vox-motion-fast) var(--vox-ease),
+    transform var(--vox-motion) var(--vox-ease),
+    visibility 0s;
+}
+
+.dockBar ol {
+  display: flex;
+  align-items: center;
+  flex: none;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dockBar li {
+  display: flex;
+  align-items: center;
+  margin: 0;
+  cursor: pointer;
+}
+
+/* The track between two dots, filled up to the current one. */
+.dockBar li + li::before {
+  content: '';
+  width: 12px;
+  height: 2px;
+  background: var(--vox-border);
+  transition: background-color var(--vox-motion) var(--vox-ease);
+}
+
+.dockBar li.done + li::before {
+  background: var(--vox-mine);
+}
+
+.dockBar .dot {
+  width: 22px;
+  height: 22px;
+  font-size: 11px;
+}
+
+.dockBar .dot svg {
+  width: 12px;
+  height: 12px;
+}
+
+.dockBar li:hover .dot {
+  border-color: var(--vox-mine);
+}
+
+.now {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 20px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--rp-c-text-1);
+}

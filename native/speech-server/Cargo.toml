@@ -1,7 +1,7 @@
 [package]
 name = "vrct-speech-server"
 version = "0.0.0"
-description = "Owns the bundled speech.cpp server processes of VRCT-VOX: start, stop, restart and liveness"
+description = "Owns the bundled speech.cpp server processes of VRCT-VOX: start, stop, restart and liveness (codename Sargatanas)"
 edition = "2024"
 publish = false
 
@@ -25,5 +25,12 @@ windows-sys = { version = "=0.61.2", features = [
 [[bin]]
 name = "fake-speech"
 path = "tests/fixture/fake_speech.rs"
+test = false
+doc = false
+
+# A stand-in for llama.cpp's llama-server, for the same reason.
+[[bin]]
+name = "fake-llama"
+path = "tests/fixture/fake_llama.rs"
 test = false
 doc = false

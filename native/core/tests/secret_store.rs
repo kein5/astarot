@@ -1,7 +1,8 @@
 //! API keys live in a store of their own, not in `config.json` (`vrct_core::config::secrets`).
 //! Through the protocol: keys saved by an older version (Python or an earlier core) move to the
 //! store, the endpoints answer as before, a failing store never loses a key silently, and a
-//! deleted key leaves the store. The store here is in memory; the PC's own is never touched.
+//! deleted key leaves the store. Keys in `secrets.json` (0.5) move to the OS store one at a
+//! time, and only once read back. The OS store here is in memory; the PC's own is never touched.
 
 mod common;
 
@@ -9,7 +10,7 @@ use common::{error_code, Setup, Ui};
 use serde_json::{Value, json};
 use std::path::Path;
 use std::sync::Arc;
-use vrct_core::config::secrets::{Faults, MemoryStore};
+use vrct_core::config::secrets::{FILE_NAME, Faults, FileStore, MemoryStore, SecretStore};
 use vrct_core::controller::Services;
 use vrct_translation::fake::FakeProviders;
 
@@ -198,6 +199,268 @@ fn deleting_a_key_deletes_it_from_the_store() {
     let ui = start(dir.path(), &store, None);
     assert_eq!(ui.ok("/get/data/openai_auth_key", None), Value::Null, "a deleted key does not come back");
     ui.stop();
+}
+
+// ---- The app's store: the OS store, with `secrets.json` (0.5) as the place keys move from ----
+
+/// Starts with the app's store over `secrets.json`, `vault` standing in for the OS store.
+fn start_system(dir: &Path, vault: &Arc<MemoryStore>, saved: Option<Value>) -> Ui {
+    let ui = Ui::with(Setup {
+        saved,
+        dir: Some(dir.to_path_buf()),
+        services: Services { secret_store: vault.system_source(), ..Setup::default().services },
+        ..Setup::default()
+    });
+    ui.ready();
+    ui
+}
+
+/// `secrets.json` as 0.5 wrote it (DPAPI on Windows, plain text and 0600 on Linux).
+fn secrets_05(dir: &Path, entries: &[(&str, &str)]) {
+    let file = FileStore::new(dir.join(FILE_NAME));
+    for (entry, value) in entries {
+        file.write(entry, value).unwrap();
+    }
+}
+
+fn file_entry(dir: &Path, entry: &str) -> Option<String> {
+    FileStore::new(dir.join(FILE_NAME)).read(entry).unwrap()
+}
+
+fn raw_secrets(dir: &Path) -> String {
+    std::fs::read_to_string(dir.join(FILE_NAME)).unwrap_or_default()
+}
+
+fn store_id(dir: &Path) -> String {
+    let file: Value = serde_json::from_str(&raw_secrets(dir)).unwrap();
+    file["store_id"].as_str().expect("an id once a key is kept").to_string()
+}
+
+fn in_vault(vault: &MemoryStore, dir: &Path, entry: &str) -> Option<String> {
+    vault.get(&MemoryStore::scoped(&store_id(dir), entry))
+}
+
+#[test]
+fn keys_in_secrets_json_move_to_the_os_store_one_by_one_and_answer_as_before() {
+    let dir = tempfile::tempdir().unwrap();
+    secrets_05(dir.path(), &[("AUTH_KEYS/DeepL_API", DEEPL), ("AUTH_KEYS/OpenAI_API", OPENAI), ("TRANSCRIPTION_AUTH_KEYS/Deepgram", DEEPGRAM)]);
+    let vault = MemoryStore::new();
+    let ui = start_system(dir.path(), &vault, Some(json!({ "UI_LANGUAGE": "ja" })));
+
+    assert_eq!(ui.ok("/get/data/deepl_auth_key", None), DEEPL);
+    assert_eq!(ui.ok("/get/data/openai_auth_key", None), OPENAI);
+    assert_eq!(ui.ok("/get/data/deepgram_auth_key", None), DEEPGRAM);
+    assert!(ui.on(0, "/run/secret_store_failed").is_empty());
+    // In the OS store, read back, and gone from the file, which keeps only the id.
+    assert_eq!(in_vault(&vault, dir.path(), "AUTH_KEYS/DeepL_API").as_deref(), Some(DEEPL));
+    assert_eq!(in_vault(&vault, dir.path(), "AUTH_KEYS/OpenAI_API").as_deref(), Some(OPENAI));
+    assert_eq!(in_vault(&vault, dir.path(), "TRANSCRIPTION_AUTH_KEYS/Deepgram").as_deref(), Some(DEEPGRAM));
+    for entry in ["AUTH_KEYS/DeepL_API", "AUTH_KEYS/OpenAI_API", "TRANSCRIPTION_AUTH_KEYS/Deepgram"] {
+        assert_eq!(file_entry(dir.path(), entry), None, "{entry} left the file");
+    }
+    let text = raw_secrets(dir.path());
+    assert!(![DEEPL, OPENAI, DEEPGRAM].iter().any(|key| text.contains(key)));
+    assert!(!raw_config(dir.path()).contains(DEEPL));
+    ui.ok("/run/shutdown", None);
+    ui.stop();
+
+    // The next start reads the OS store.
+    let ui = start_system(dir.path(), &vault, None);
+    assert_eq!(ui.ok("/get/data/deepl_auth_key", None), DEEPL);
+    ui.ok("/run/shutdown", None);
+    ui.stop();
+    let log = process_log(dir.path());
+    assert!(![DEEPL, OPENAI, DEEPGRAM].iter().any(|key| log.contains(key)), "a key reached the log");
+}
+
+#[test]
+fn keys_from_an_older_config_json_go_to_the_os_store_without_passing_through_secrets_json() {
+    let dir = tempfile::tempdir().unwrap();
+    let vault = MemoryStore::new();
+    let ui = start_system(dir.path(), &vault, Some(python_era()));
+    assert_eq!(ui.ok("/get/data/deepl_auth_key", None), DEEPL);
+    assert_eq!(in_vault(&vault, dir.path(), "AUTH_KEYS/DeepL_API").as_deref(), Some(DEEPL));
+    assert_eq!(in_vault(&vault, dir.path(), "TRANSCRIPTION_AUTH_KEYS/Deepgram").as_deref(), Some(DEEPGRAM));
+    assert!(ui.saved().get("AUTH_KEYS").is_none());
+    assert!(![DEEPL, OPENAI, DEEPGRAM].iter().any(|key| raw_secrets(dir.path()).contains(key)));
+    ui.ok("/run/shutdown", None);
+    ui.stop();
+}
+
+#[test]
+fn a_move_the_os_store_does_not_take_leaves_the_key_in_secrets_json_working_and_is_tried_again() {
+    for faults in [
+        Faults { unavailable: true, ..Faults::default() },
+        Faults { locked: true, ..Faults::default() },
+        Faults { write: true, ..Faults::default() },
+        Faults { lose_writes: true, ..Faults::default() },
+    ] {
+        let dir = tempfile::tempdir().unwrap();
+        secrets_05(dir.path(), &[("AUTH_KEYS/DeepL_API", DEEPL), ("TRANSCRIPTION_AUTH_KEYS/Deepgram", DEEPGRAM)]);
+        let vault = MemoryStore::new();
+        vault.set_faults(faults);
+        let ui = start_system(dir.path(), &vault, None);
+
+        let failure = store_failure(&ui, "migrate");
+        assert_eq!(entries(&failure), ["AUTH_KEYS/DeepL_API", "TRANSCRIPTION_AUTH_KEYS/Deepgram"], "{faults:?}");
+        let reason = if faults.unavailable { "unavailable" } else if faults.locked { "locked" } else { "write_failed" };
+        assert_eq!(failure["reason"], reason, "{faults:?}");
+        assert!(!failure.to_string().contains(DEEPL));
+        // Nothing lost: the keys work and stay in the file.
+        assert_eq!(ui.ok("/get/data/deepl_auth_key", None), DEEPL, "{faults:?}");
+        assert_eq!(file_entry(dir.path(), "AUTH_KEYS/DeepL_API").as_deref(), Some(DEEPL), "{faults:?}");
+        assert_eq!(file_entry(dir.path(), "TRANSCRIPTION_AUTH_KEYS/Deepgram").as_deref(), Some(DEEPGRAM));
+
+        // Once the store answers, the next save moves them; reported once.
+        vault.set_faults(Faults::default());
+        ui.ok("/run/shutdown", None);
+        assert_eq!(in_vault(&vault, dir.path(), "AUTH_KEYS/DeepL_API").as_deref(), Some(DEEPL), "{faults:?}");
+        assert_eq!(file_entry(dir.path(), "AUTH_KEYS/DeepL_API"), None, "{faults:?}");
+        assert_eq!(file_entry(dir.path(), "TRANSCRIPTION_AUTH_KEYS/Deepgram"), None);
+        assert_eq!(ui.on(0, "/run/secret_store_failed").len(), 1, "{faults:?}: reported once");
+        ui.stop();
+        assert!(!process_log(dir.path()).contains(DEEPL), "a key reached the log");
+    }
+}
+
+#[test]
+fn a_move_cut_short_continues_at_the_next_start() {
+    // The state a crash can leave: the id written, one key in the OS store whose copy was not yet
+    // removed from the file, another not moved at all.
+    let dir = tempfile::tempdir().unwrap();
+    secrets_05(dir.path(), &[("AUTH_KEYS/DeepL_API", DEEPL), ("AUTH_KEYS/OpenAI_API", OPENAI)]);
+    let vault = MemoryStore::new();
+    let store = vault.system_source()(&common::environment(dir.path(), vrct_core::config::Platform::current()));
+    store.write("TRANSCRIPTION_AUTH_KEYS/Deepgram", DEEPGRAM).unwrap();
+    vault.insert(&MemoryStore::scoped(&store_id(dir.path()), "AUTH_KEYS/DeepL_API"), DEEPL);
+    assert_eq!(file_entry(dir.path(), "AUTH_KEYS/DeepL_API").as_deref(), Some(DEEPL), "both places hold it");
+
+    let ui = start_system(dir.path(), &vault, None);
+    assert_eq!(ui.ok("/get/data/deepl_auth_key", None), DEEPL);
+    assert_eq!(ui.ok("/get/data/openai_auth_key", None), OPENAI);
+    assert_eq!(ui.ok("/get/data/deepgram_auth_key", None), DEEPGRAM);
+    assert!(ui.on(0, "/run/secret_store_failed").is_empty());
+    assert_eq!(file_entry(dir.path(), "AUTH_KEYS/DeepL_API"), None, "the copy goes");
+    assert_eq!(file_entry(dir.path(), "AUTH_KEYS/OpenAI_API"), None, "the rest moves");
+    assert_eq!(in_vault(&vault, dir.path(), "AUTH_KEYS/OpenAI_API").as_deref(), Some(OPENAI));
+    ui.ok("/run/shutdown", None);
+    ui.stop();
+}
+
+#[test]
+fn a_locked_or_absent_os_store_at_start_is_reported_and_nothing_is_lost_or_written_in_plain_text() {
+    let fake = FakeProviders::start();
+    fake.key("/deepl-free", DEEPL);
+    for faults in [Faults { locked: true, ..Faults::default() }, Faults { unavailable: true, ..Faults::default() }] {
+        let dir = tempfile::tempdir().unwrap();
+        let vault = MemoryStore::new();
+        // A key kept in the OS store by an earlier run.
+        let store = vault.system_source()(&common::environment(dir.path(), vrct_core::config::Platform::current()));
+        store.write("AUTH_KEYS/OpenAI_API", OPENAI).unwrap();
+        let before = (vault.snapshot(), raw_secrets(dir.path()));
+
+        vault.set_faults(faults);
+        let ui = Ui::with(Setup {
+            dir: Some(dir.path().to_path_buf()),
+            services: Services {
+                secret_store: vault.system_source(),
+                translation_endpoints: vrct_translation::providers::Endpoints::all_at(&fake.url()),
+                ..Setup::default().services
+            },
+            ..Setup::default()
+        });
+        ui.ready();
+        let failure = store_failure(&ui, "read");
+        assert!(entries(&failure).contains(&"AUTH_KEYS/OpenAI_API".to_string()), "{faults:?}");
+        assert_eq!(failure["reason"], if faults.locked { "locked" } else { "unavailable" });
+        assert_eq!(ui.ok("/get/data/openai_auth_key", None), Value::Null, "{faults:?}: not known this run");
+        // A new key is kept for the run and reported; it is never written to the file instead.
+        ui.ok("/set/data/deepl_auth_key", Some(json!(DEEPL)));
+        let failure = store_failure(&ui, "write");
+        assert_eq!(entries(&failure), ["AUTH_KEYS/DeepL_API"]);
+        assert_eq!(ui.ok("/get/data/deepl_auth_key", None), DEEPL);
+        assert!(!raw_secrets(dir.path()).contains(DEEPL), "{faults:?}: no plain-text fallback");
+        ui.ok("/run/shutdown", None);
+        ui.stop();
+        assert_eq!((vault.snapshot(), raw_secrets(dir.path())), before, "{faults:?}: nothing changed");
+        assert!(!process_log(dir.path()).contains(DEEPL), "a key reached the log");
+
+        // Opened again: the kept key is there.
+        vault.set_faults(Faults::default());
+        let ui = start_system(dir.path(), &vault, None);
+        assert_eq!(ui.ok("/get/data/openai_auth_key", None), OPENAI, "{faults:?}");
+        ui.ok("/run/shutdown", None);
+        ui.stop();
+    }
+}
+
+#[test]
+fn deleting_a_key_removes_it_from_the_os_store_and_from_secrets_json() {
+    let dir = tempfile::tempdir().unwrap();
+    secrets_05(dir.path(), &[("AUTH_KEYS/DeepL_API", DEEPL), ("AUTH_KEYS/OpenAI_API", OPENAI)]);
+    let vault = MemoryStore::new();
+    // OpenAI's key cannot move this run.
+    vault.set_faults(Faults { locked: true, ..Faults::default() });
+    let ui = start_system(dir.path(), &vault, None);
+    store_failure(&ui, "migrate");
+    // Deleting it removes the plain-text copy at once; the OS store's part is tried again.
+    ui.ok("/delete/data/openai_auth_key", None);
+    assert_eq!(file_entry(dir.path(), "AUTH_KEYS/OpenAI_API"), None);
+    vault.set_faults(Faults::default());
+    ui.ok("/delete/data/deepl_auth_key", None);
+    ui.ok("/run/shutdown", None);
+    ui.stop();
+    assert!(vault.snapshot().is_empty(), "{:?}", vault.snapshot().keys());
+    assert_eq!(file_entry(dir.path(), "AUTH_KEYS/DeepL_API"), None);
+
+    let ui = start_system(dir.path(), &vault, None);
+    assert_eq!(ui.ok("/get/data/deepl_auth_key", None), Value::Null, "a deleted key does not come back");
+    assert_eq!(ui.ok("/get/data/openai_auth_key", None), Value::Null);
+    ui.stop();
+}
+
+/// The app's own store, with the PC's real OS store (the Credential Manager, or the Secret Service
+/// on the session bus): a 0.5 `secrets.json` moves there, the keys answer after a restart, and
+/// deleting them leaves nothing behind. The keys are made-up values under a settings folder of
+/// its own. Run with `cargo test --test secret_store -- --ignored`.
+#[test]
+#[ignore = "uses the signed-in user's OS credential store"]
+fn the_real_os_store_takes_the_keys_from_secrets_json_and_gives_them_back() {
+    const FIRST: &str = "test-only-value-1-not-a-real-key";
+    const SECOND: &str = "test-only-value-2-not-a-real-key";
+    let dir = tempfile::tempdir().unwrap();
+    secrets_05(dir.path(), &[("AUTH_KEYS/DeepL_API", FIRST), ("TRANSCRIPTION_AUTH_KEYS/Deepgram", SECOND)]);
+    let start = || {
+        let ui = Ui::with(Setup {
+            dir: Some(dir.path().to_path_buf()),
+            services: Services { secret_store: std::sync::Arc::new(vrct_core::config::secrets::default_store), ..Setup::default().services },
+            ..Setup::default()
+        });
+        ui.ready();
+        ui
+    };
+    let ui = start();
+    assert!(ui.on(0, "/run/secret_store_failed").is_empty(), "{:?}", ui.on(0, "/run/secret_store_failed"));
+    assert_eq!(ui.ok("/get/data/deepl_auth_key", None), FIRST);
+    assert_eq!(file_entry(dir.path(), "AUTH_KEYS/DeepL_API"), None, "moved out of the file");
+    assert_eq!(file_entry(dir.path(), "TRANSCRIPTION_AUTH_KEYS/Deepgram"), None);
+    assert!(![FIRST, SECOND].iter().any(|key| raw_secrets(dir.path()).contains(key)));
+    ui.ok("/run/shutdown", None);
+    ui.stop();
+
+    let ui = start();
+    assert_eq!(ui.ok("/get/data/deepl_auth_key", None), FIRST, "read back from the OS store");
+    assert_eq!(ui.ok("/get/data/deepgram_auth_key", None), SECOND);
+    ui.ok("/delete/data/deepl_auth_key", None);
+    ui.ok("/delete/data/deepgram_auth_key", None);
+    assert!(ui.on(0, "/run/secret_store_failed").is_empty());
+    ui.ok("/run/shutdown", None);
+    ui.stop();
+
+    let store = vrct_core::config::secrets::default_store(&common::environment(dir.path(), vrct_core::config::Platform::current()));
+    assert_eq!(store.read("AUTH_KEYS/DeepL_API"), Ok(None), "nothing left in the OS store");
+    assert_eq!(store.read("TRANSCRIPTION_AUTH_KEYS/Deepgram"), Ok(None));
+    assert!(![FIRST, SECOND].iter().any(|key| process_log(dir.path()).contains(key)), "a key reached the log");
 }
 
 #[test]

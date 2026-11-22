@@ -2,7 +2,7 @@
 
 `tools/build_linux.py` builds an x86_64 candidate: the `vrct-vox` app, which runs the Rust
 backend core (`native/core`) in its own process, and its `_internal` folder with both pinned
-speech.cpp 0.11.0 builds (Vulkan in `build/speechcpp`, CPU in `build/speechcpp-cpu`), the RVC worker, the C audio and capture helpers, the
+speech.cpp 0.11.2 builds (Vulkan in `build/speechcpp`, CPU in `build/speechcpp-cpu`), the RVC worker, the C audio and capture helpers, the
 PipeWire template and the license texts (`tools/app_resources.py` lists them). Since 0.5.0
 no Python runtime is frozen or shipped. The default output is a `tar.gz`, a SHA-256 file
 and a JSON file inventory. Keep `vrct-vox` and `_internal` together: the core finds
@@ -26,16 +26,17 @@ starts once the loader is installed, and removal leaves nothing behind. It does 
 AppImage acceptance instead.
 
 The GitHub Actions workflow `VRCT-VOX Linux candidate (no publication)` targets Ubuntu 24.04.
-It runs on relevant pull requests or manual dispatch, tests the relocated package,
+It runs on relevant pull requests or manual dispatch, runs the app's unit tests (`src-tauri`, which
+no other job runs), tests the relocated package,
 and the AppImage extraction fallback, then retains successful candidates for seven days. It has `contents: read`, no
 publishing credentials and no release/AUR actions. The Linux packages of the
-[`v0.1.0-beta.1` prerelease](https://github.com/kein5/VRCT-VOX/releases/tag/v0.1.0-beta.1)
+[`v0.1.0-beta.1` prerelease](https://github.com/kein5/astarot/releases/tag/v0.1.0-beta.1)
 are candidates from this workflow, published through the
 [release draft gate](release-candidates.md). A local build is an unpublished candidate.
 
 ## Build locally
 
-Use Linux x86_64, a C compiler and pkg-config. Node, Rust, Python 3.11 and uv come from
+Use Linux x86_64, a C compiler and pkg-config. Node, Rust, Python and uv come from
 `mise install` at the versions pinned in `mise.toml`, the same versions the workflow uses.
 Run the build from a shell where mise is active (`mise activate`), or through
 `mise run build:linux -- <options>`. Python runs the build tools only.
@@ -73,9 +74,13 @@ before emitting PCM; compile-time checks give an explicit dependency error. This
 does not relax timestamp/discontinuity checks or validate every newer release.
 
 `--download-speech` authorizes acquisition of **only the two pinned engine archives**
-(`speech-0.11.0-linux-x64-vulkan.zip` and `speech-0.11.0-linux-x64-cpu.zip`).
-Alternatively use `--speech-archive-dir /absolute/path` with both archives under those names;
-the archive and executable hashes are checked against `speechcpp-bundle-artifacts.json`.
+(`speech-0.11.2-linux-x64-vulkan.zip` and `speech-0.11.2-linux-x64-cpu.zip`), the pinned
+runtime libraries (`tools/runtime_libraries.py`) and the readings' dictionary, SudachiDict full
+(`sudachi-dictionary-20250825-full.zip`, `tools/sudachi_dictionary.py`); never model weights.
+Alternatively use `--speech-archive-dir /absolute/path` with the engine archives and the
+dictionary archive under those names; the archive and executable hashes are checked against
+`speechcpp-bundle-artifacts.json`, and the dictionary against the size and SHA-256 pinned in
+`tools/sudachi_dictionary.py`.
 Since 0.5.0 one candidate carries both builds; there is no `--variant` any more. The user
 chooses CPU or GPU in the speech server settings: `cpu` runs the CPU build, `gpu` and a named
 GPU the Vulkan build, and `auto` the Vulkan build when it starts and lists a GPU, else the CPU
@@ -88,8 +93,8 @@ diagnostic; normal output is release.
 The builder installs no Python packages. It uses `npm ci --ignore-scripts` and builds
 Cargo with `--locked` in a copied workspace (`build/linux/workspace`), whose
 `src-tauri/bin/_internal` is the staged folder; it does not replace the checkout's
-`src-tauri/bin`. Two backend files under `src-python/models/model_downloads/` are copied
-too, because `native/ops` reads them at compile time. This is **not** a claim of
+`src-tauri/bin`. The one file outside the crates that a crate reads at compile time
+(`CRATE_INPUTS` of `tools/build_linux.py`) is copied too. This is **not** a claim of
 bit-for-bit reproducible builds.
 The Rust, Node, Python and uv versions are pinned in `mise.toml`; system libraries and
 actual ELF version requirements remain host dependent.
@@ -105,9 +110,9 @@ build/linux/artifacts/VRCT-VOX-<version>-linux-x64-release.manifest.json
 
 Until 0.4 the names carried the engine build (`linux-x64-vulkan`, `linux-x64-cpu`). Since 0.5.0
 `build-manifest.json` records `"variant": "linux-x64"` and both builds in `speech_builds`.
-Carrying both builds adds the CPU executable (9,965,440 bytes unpacked; 3,798,516 bytes
-deflated in the pinned 0.11.0 ZIP) and a second copy of the notices (about 47 KB) to each
-package. The Vulkan executable is 52,174,848 bytes unpacked. These are the sizes of the files
+Carrying both builds adds the CPU executable (9,980,104 bytes unpacked; 3,805,693 bytes
+deflated in the pinned 0.11.2 ZIP) and a second copy of the notices (about 47 KB) to each
+package. The Vulkan executable is 52,185,408 bytes unpacked. These are the sizes of the files
 in the pinned archives, not of a built package.
 
 ## Run and inspect
@@ -126,10 +131,12 @@ ELF dependencies. This is a portable directory layout, **not** an AppImage or a
 promise of compatibility with all distributions. A build made on CachyOS may
 require newer glibc than the Ubuntu CI build; consult its manifest.
 
-Packaged Linux settings/logs go to `$XDG_CONFIG_HOME/vrct-vox` (default `~/.config/vrct-vox`),
-weights and other writable data to `$XDG_DATA_HOME/vrct-vox` (default `~/.local/share/vrct-vox`),
-and caches to `$XDG_CACHE_HOME/vrct-vox` (default `~/.cache/vrct-vox`). Explicit
-`VRCT_CONFIG_DIR`, `VRCT_DATA_DIR`, `VRCT_CACHE_DIR` override those directories.
+Packaged Linux settings/logs go to `$XDG_CONFIG_HOME/astarot` (default `~/.config/astarot`), and
+weights and other writable data to `$XDG_DATA_HOME/astarot` (default `~/.local/share/astarot`).
+Up to 0.5.x both were named `vrct-vox`; the first start of 0.6.0 moves them and leaves links with
+the old names ([the move](../spec/data-and-persistence.md#linuxの保存先の移動)). The app keeps no
+cache directory. `ASTAROT_CONFIG_DIR` and `ASTAROT_DATA_DIR` (or `VRCT_CONFIG_DIR` and
+`VRCT_DATA_DIR`) override those directories, and a directory named that way is never moved.
 An explicitly supplied `HF_HOME` is respected. Existing development/Windows paths are unchanged.
 
 Managed audio still needs the explicit PipeWire setup in `local-setup-linux.md`.
@@ -142,7 +149,7 @@ are no longer shipped.
 ## Acceptance and exclusions
 
 ```sh
-VRCT_TEST_LINUX_ARCHIVE=/absolute/path/candidate.tar.gz \
+ASTAROT_TEST_LINUX_ARCHIVE=/absolute/path/candidate.tar.gz \
   build/dev/headless-venv/bin/python -m pytest \
   -c tests/voice/pytest.ini tests/platform/test_linux_package.py -q
 ```
@@ -152,7 +159,7 @@ VRCT_TEST_LINUX_ARCHIVE=/absolute/path/candidate.tar.gz \
 containing spaces, makes the installation read-only, checks that no Python backend is
 present and that both bundled engine builds start, and verifies installation hashes did not
 change. For GUI tests also set
-`VRCT_TEST_NATIVE_GUI=1` and `VRCT_TEST_DRIVER` to a tauri-driver 2.1.0 executable.
+`ASTAROT_TEST_NATIVE_GUI=1` and `ASTAROT_TEST_DRIVER` to a tauri-driver 2.1.0 executable.
 The shared `NativeWebDriver` launcher passes `VRCT_CONFIG_DIR` explicitly, defaulting
 to its existing `$XDG_CONFIG_HOME/vrct-vox` location and preserving caller overrides.
 This lets release-build tests run beside the installed app: debug builds and launches
@@ -162,8 +169,8 @@ pointing to that same config directory; changing `XDG_*` alone does not bypass t
 To test duplicate-launch prevention itself, leave `VRCT_CONFIG_DIR` unset and use
 a release build with a working D-Bus session bus shared by both launches.
 On a physical desktop run under `tools/display_power_guard.py` via system Python/Gio.
-CI explicitly uses `VRCT_TEST_XVFB=1` with Xvfb, checks its server and real rendering.
-Setting `VRCT_TEST_NATIVE_ROUTE=1` additionally tests a private PipeWire graph and
+CI explicitly uses `ASTAROT_TEST_XVFB=1` with Xvfb, checks its server and real rendering.
+Setting `ASTAROT_TEST_NATIVE_ROUTE=1` additionally tests a private PipeWire graph and
 managed mute/resume/restart (requires WirePlumber 0.5's policy profile). This is a
 local acceptance option; Ubuntu 24.04 CI runs the remaining smoke cases and does
 not claim audio-graph acceptance. None of these tests record the physical microphone,
@@ -172,7 +179,7 @@ contact VRChat, or load inference models.
 The collector and final tree/tar checks reject OCR weights, Mia2026 assets, unsafe
 links, traversal, duplicate paths, special files and uninspectable nested archives.
 These are path/type checks, not a detector for deliberately renamed weights.
-Original licenses and notices are retained. The Rust crates built into `vrct-vox` and `vrct-rvc-worker` are listed with their
+Original licenses and notices are retained. The Rust crates built into `vrct-vox` and `astarot-rvc-worker` are listed with their
 license texts in `_internal/licenses/rust/` (`tools/rust_licenses.py`, which needs
 the Cargo registry sources, so `--offline` builds need them cached). The build
 stops if a crate publishes no license text and has no reviewed entry in
@@ -197,7 +204,7 @@ OCR weights are excluded regardless.
 
 - Inside the AppImage the GUI process runs with the bundled library path
   (`LD_LIBRARY_PATH`) and GTK settings. The launcher keeps the host values in
-  `VRCT_APPIMAGE_HOST_*`; a program the app starts should get them back, as the screen
+  `ASTAROT_APPIMAGE_HOST_*`; a program the app starts should get them back, as the screen
   capture helper does (`src-tauri/src/portal_screencast.rs`). See [AppImage](appimage.md#run).
 - [Tauri Linux prerequisites](https://v2.tauri.app/start/prerequisites/#linux) define the
   native WebKitGTK build boundary; [official WebDriver CI](https://v2.tauri.app/develop/tests/webdriver/ci/)

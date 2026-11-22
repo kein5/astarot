@@ -271,7 +271,7 @@ Issue #327 の監査レポートです。0.5.0 でメイン画面のレイアウ
 |---|---|---|
 | `src-tauri/tauri.conf.json` | 初期 450×220、最小 400×200 | L-02 |
 | `src-ui/logics/common/windowGeometry.ts` `BUILT_IN_GEOMETRY` | 初回 870×654 | — |
-| `src-ui/logics/common/useWindow.js` `asyncUpdateBreakPoint` と CSS の `@media (max-width: 800px)`（`TopBar`、`RightSideComponents`、`LogBox`） | ウィンドウ幅 800px×UI サイズ。メイン部分の幅ではない | L-01 |
+| `src-ui/logics/common/useWindow.ts` `asyncUpdateBreakPoint` と CSS の `@media (max-width: 800px)`（`TopBar`、`RightSideComponents`、`LogBox`） | ウィンドウ幅 800px×UI サイズ。メイン部分の幅ではない | L-01 |
 | `SidebarSection.module.scss` `.container` | 幅 24rem、アイコンの列は 7.2rem | L-01、L-03、L-10 |
 | `SidebarSection.module.scss` `.scroll_container` | `margin-bottom: calc(2rem + 1.6rem + 2rem)` を手で計算。`overflow-y: scroll` | L-03、L-04 |
 | `OpenSettings.module.scss` | `position: absolute; bottom: 0`、`min-height: 4rem`、`margin: 1rem` | L-04 |
@@ -312,7 +312,7 @@ Issue #327 の監査レポートです。0.5.0 でメイン画面のレイアウ
 ```sh
 python tools/dev.py setup --scope browser   # build/dev/browser-venv を用意する
 npm ci
-AUDIT_OUT=build/layout-audit VRCT_TEST_STUDIO_UI=1 VRCT_TEST_CHROMIUM=/path/to/chrome \
+AUDIT_OUT=build/layout-audit ASTAROT_TEST_STUDIO_UI=1 ASTAROT_TEST_CHROMIUM=/path/to/chrome \
 PYTHONPATH=tests/voice build/dev/browser-venv/bin/python -m pytest -c tests/voice/pytest.ini \
     --rootdir . docs/design/main-layout-audit/audit/layout_audit.py -q -p no:cacheprovider
 python docs/design/main-layout-audit/audit/summarize.py build/layout-audit > docs/design/main-layout-audit/findings.md

@@ -105,13 +105,14 @@
   - `allowzero` を 0 に変えた複製では、エンコーダと最初のステップは一致しました。
   - キャッシュ付きのステップは値が壊れ、ロジットが 1e35 や NaN になりました。
   - したがって、translate-onnx の README で DirectML の float32 と float16 を「未確認」としている組み合わせは、いまのグラフでは動かない見込みです。本物のモデルでは試していません。
+  - 2026-11-18 の追記（#277）: キャッシュ付きのステップが壊れた原因は、そのステップが返す行のない出力（`present.<層>.encoder.*`）でした。その出力を求めないようにし、`allowzero` も 0 で書き出すようにして、4 つの形すべてが両方の GPU で CPU と同じ訳の ID を出すようになりました。[ローカル翻訳の GPU と公開の準備](local-translation-gpu-2026-11-18.md) にあります。
 - **tract**: エンコーダは `CumSum` で「TDim is not a number」になりました。デコーダは `If` の 2 つの枝の出力の形が合わずに失敗しました。マージ前の最初のステップのグラフも `Square does not support TDim` で失敗しました。整数のテンソルを形の計算として扱うことが原因のようです。
 - **candle**: 外部データを読めませんでした。外部データのない float32 も「axis 2 is too large」で失敗しました。
 - **rten の int8**: float32 と int4 は一致したので、int8 の量子化の演算子の計算が ONNX Runtime と違うようです。どちらが仕様どおりかと、訳への影響は調べていません。
 
 ### `export.py` の不具合（途中で見つけたもの）
 
-`--variant float16` はデコーダをつなぐ所で失敗し、作れません。`onnx.checker.check_model` が「Nodes in a graph must be topologically sorted」を出します。`convert_float_to_float16(keep_io_types=True)` が、入力の `Cast` ノードを使う側より後ろに置くためです。今回はノードを並べ直して先へ進めました。直すなら、`to_float16` のあとに並べ直しを足します。
+`--variant float16` はデコーダをつなぐ所で失敗し、作れません。`onnx.checker.check_model` が「Nodes in a graph must be topologically sorted」を出します。`convert_float_to_float16(keep_io_types=True)` が、入力の `Cast` ノードを使う側より後ろに置くためです。今回はノードを並べ直して先へ進めました。直すなら、`to_float16` のあとに並べ直しを足します。2026-11-18 にその形で直しました（#277、`graphs.sort_nodes`）。
 
 ## 自前のランタイムの見込み
 

@@ -1,11 +1,13 @@
 //! Forward graph observations to the isolated voice conversion process.
 //!
-//! Port of `src-python/models/audio_routing/pipewire_graph_pipe.py`. The parent sends
+//! Port of [`src-python/models/audio_routing/pipewire_graph_pipe.py`]. The parent sends
 //! each new observation through a pipe as one frame: a header of sequence (u64),
 //! capture time (f64) and length (u32), big-endian, then the JSON of the Core
 //! objects and the nodes the child cares about (duplicates included, so the child's
 //! checks still see ambiguity). An empty body means "unavailable". The child accepts
 //! a frame only while it is younger than one second; it never runs a dump itself.
+//!
+//! [`src-python/models/audio_routing/pipewire_graph_pipe.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/audio_routing/pipewire_graph_pipe.py
 
 use std::collections::BTreeSet;
 use std::io::{ErrorKind, Read, Write};
@@ -71,7 +73,7 @@ impl GraphFeed {
         set_nonblocking(&writer);
         let stop = Arc::new(Event::new());
         let halt = stop.clone();
-        let worker = Worker::spawn("vrct-graph-feed", move || {
+        let worker = Worker::spawn("astarot-graph-feed", move || {
             let _user = user;
             let mut file = std::fs::File::from(writer);
             let _ = source.read(true, None);
@@ -171,7 +173,7 @@ impl RemoteGraph {
         let state = Arc::new((Mutex::new(RemoteState { observation: Observation { sequence: 0, captured: 0.0, data: None }, alive: true }), Condvar::new()));
         let stop = Arc::new(AtomicBool::new(false));
         let (shared, halt) = (state.clone(), stop.clone());
-        let worker = Worker::spawn("vrct-graph-receiver", move || {
+        let worker = Worker::spawn("astarot-graph-receiver", move || {
             let mut file = std::fs::File::from(reader.try_clone().expect("descriptor"));
             let mut previous = 0u64;
             let result = (|| -> Result<(), GraphUnavailable> {

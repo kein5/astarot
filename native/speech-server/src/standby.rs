@@ -70,7 +70,7 @@ impl LowLatencyStandby {
         }
         shared.started = true;
         let inner = self.inner.clone();
-        let thread = std::thread::Builder::new().name("vrct-vox-standby".into()).spawn(move || inner.run());
+        let thread = std::thread::Builder::new().name("astarot-standby".into()).spawn(move || inner.run());
         match thread {
             Ok(thread) => shared.thread = Some(thread),
             Err(_) => {

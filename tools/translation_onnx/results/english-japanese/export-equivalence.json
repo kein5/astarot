@@ -1,0 +1,84 @@
+{
+ "purpose": "The 1.3B and 3.3B folders were written on 2026-11-15, before export.py wrote Reshape with allowzero=0. The 600M folder of the same day and the published 600M (written later) give the same output ids on every sentence here, so on the CPU the older folders translate as a new export would.",
+ "before_folder": "nllb-200-distilled-600M-onnx-int8 written on 2026-11-15",
+ "after_folder": "kein5/nllb-200-distilled-600M-onnx-int8@3c6d40d6ebd424d17d69f0e3236a8a7f8be9a170",
+ "before": {
+  "name": "nllb-200-distilled-600M-onnx-int8",
+  "bytes": 642817349,
+  "files": {
+   "decoder_model_merged_quantized.onnx": "22b2a916cf922efac5ca7bbc488a78c14de9c2284c4f4aca4dd6987b26ed97ae",
+   "encoder_model_quantized.onnx": "d01f48f05b9abf5c202d6fc2c56bc6f325172f71eeb8fd76e26564e367ba204a",
+   "tokenizer.json": "e316b82de11d0f951f370943b3c438311629547285129b0b81dadabd01bca665",
+   "vocab.json": "4c89e13706a1f6e445dc2524b8fc0fe04f9c821d9f1da87b2af6f8fbbbd00fbd",
+   "vocabulary.data": "ab479b689766b640fe611565be288f15163ae7543c8bd5f279ed4bd68e3a3724"
+  }
+ },
+ "after": {
+  "name": "nllb-200-distilled-600M-onnx-int8",
+  "bytes": 642612521,
+  "files": {
+   "decoder_model_merged_quantized.onnx": "737cdb919ca1334846bffbd9ef15ea275823d98c74dd75c98dbe522fa880be8a",
+   "encoder_model_quantized.onnx": "b71b2f4bb77cc2e10be582f6d2230629fd4c93cac5d8afc1e3bc39db9910fcf9",
+   "tokenizer.json": "e316b82de11d0f951f370943b3c438311629547285129b0b81dadabd01bca665",
+   "vocab.json": "4c89e13706a1f6e445dc2524b8fc0fe04f9c821d9f1da87b2af6f8fbbbd00fbd",
+   "vocabulary.data": "ab479b689766b640fe611565be288f15163ae7543c8bd5f279ed4bd68e3a3724"
+  }
+ },
+ "source": {
+  "repository": "facebook/nllb-200-distilled-600M",
+  "revision": "f8d333a098d19b4fd9a8b18f94170487ad3f821d"
+ },
+ "sentences_per_direction": 100,
+ "test_set": "wmt20 (sacrebleu), first sentences of each direction",
+ "environment": {
+  "processor": "AMD Ryzen 9 9950X3D 16-Core Processor"
+ },
+ "directions": {
+  "en-ja": {
+   "same_ids": 100,
+   "before": {
+    "bleu": 27.79,
+    "chrf": 24.76
+   },
+   "after": {
+    "bleu": 27.79,
+    "chrf": 24.76
+   },
+   "before_failed": 0,
+   "after_failed": 0,
+   "before_seconds": 50.7,
+   "after_seconds": 66.3,
+   "backend": "{\"backend\":\"cpu\",\"fallback\":null,\"variant\":\"int8\"}",
+   "bleu_difference": 0.0,
+   "chrf_difference": 0.0
+  },
+  "ja-en": {
+   "same_ids": 100,
+   "before": {
+    "bleu": 11.34,
+    "chrf": 37.72
+   },
+   "after": {
+    "bleu": 11.34,
+    "chrf": 37.72
+   },
+   "before_failed": 0,
+   "after_failed": 0,
+   "before_seconds": 47.5,
+   "after_seconds": 57.4,
+   "backend": "{\"backend\":\"cpu\",\"fallback\":null,\"variant\":\"int8\"}",
+   "bleu_difference": 0.0,
+   "chrf_difference": 0.0
+  }
+ },
+ "totals": {
+  "sentences": 200,
+  "same_ids": 200,
+  "before_failed": 0,
+  "after_failed": 0,
+  "before_seconds": 98.2,
+  "after_seconds": 123.7,
+  "mean_bleu_difference": 0.0,
+  "mean_chrf_difference": 0.0
+ }
+}

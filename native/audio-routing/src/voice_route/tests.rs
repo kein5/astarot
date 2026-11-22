@@ -1,5 +1,7 @@
 //! Ports of `tests/voice/test_managed_route.py` and
-//! `src-python/test/test_voice_route_monitor_mute.py`.
+//! [`src-python/test/test_voice_route_monitor_mute.py`].
+//!
+//! [`src-python/test/test_voice_route_monitor_mute.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/test/test_voice_route_monitor_mute.py
 
 use std::time::Instant;
 
@@ -496,4 +498,79 @@ fn unreadable_saved_state_starts_muted_and_not_ready() {
     assert_eq!(status.error.as_deref(), Some("mute_state_unavailable"));
     assert!(control.resume().is_err());
     control.close(LONG);
+}
+
+/// A saved mute that stays saved: `write` waits for `release`, or fails.
+struct HeldStore {
+    entered: Event,
+    release: Event,
+    fail: bool,
+}
+impl MuteStore for HeldStore {
+    fn read(&self) -> Result<bool> {
+        Ok(true)
+    }
+    fn write(&self, _: bool) -> Result<()> {
+        self.entered.set();
+        if self.fail {
+            return Err(Error::value("disk unavailable"));
+        }
+        assert!(self.release.wait(Duration::from_secs(2)), "the write was never released");
+        Ok(())
+    }
+}
+
+fn monitor_calls() -> (Arc<Mutex<Vec<bool>>>, RouteOptions) {
+    let seen = Arc::new(Mutex::new(Vec::new()));
+    let record = seen.clone();
+    (seen, RouteOptions { poll_interval: Duration::from_millis(10), on_muted: Some(Arc::new(move |m| lock(&record).push(m))) })
+}
+
+#[test]
+fn a_resume_opens_the_monitor_only_once_its_mute_state_is_saved() {
+    // `test_saved_mute_reaches_monitor_before_any_start_and_resume_waits_for_persistence`.
+    let store = Arc::new(HeldStore { entered: Event::new(), release: Event::new(), fail: false });
+    let (seen, options) = monitor_calls();
+    let bus = Arc::new(Bus::default());
+    let control = VoiceRoute::new(bus.clone(), FakeGate::new(), store.clone(), options);
+    assert_eq!(*lock(&seen), [true]);
+    control.resume().unwrap();
+    assert!(store.entered.wait(Duration::from_secs(1)));
+    // While the unmute is being saved, the monitor stays muted.
+    assert_eq!(*lock(&seen), [true, true]);
+    assert!(control.status().pending);
+    store.release.set();
+    until(|| lock(&seen).last() == Some(&false));
+    assert_eq!(*lock(&seen), [true, true, false]);
+    assert!(!control.status().pending);
+    assert!(!bus.muted());
+    assert!(control.close(LONG));
+    // Closing mutes it again.
+    assert_eq!(lock(&seen).last(), Some(&true));
+}
+
+#[test]
+fn a_mute_state_that_cannot_be_saved_never_opens_the_monitor() {
+    // `test_failed_persistence_never_reopens_monitor`.
+    let store = Arc::new(HeldStore { entered: Event::new(), release: Event::new(), fail: true });
+    let (seen, options) = monitor_calls();
+    let control = VoiceRoute::new(Arc::new(Bus::default()), FakeGate::new(), store.clone(), options);
+    control.resume().unwrap();
+    assert!(store.entered.wait(Duration::from_secs(1)));
+    until(|| control.status().error.as_deref() == Some("mute_state_unavailable"));
+    // The close cannot save the final mute either: no confirmed shutdown.
+    assert!(!control.close(LONG));
+    let calls = lock(&seen).clone();
+    assert!(!calls.is_empty() && calls.iter().all(|muted| *muted), "{calls:?}");
+}
+
+#[test]
+fn a_saved_unmute_reaches_the_monitor_without_a_gate_worker_and_closing_mutes_it() {
+    // `test_saved_unmuted_state_is_forwarded_without_creating_a_gate_worker`.
+    let (seen, options) = monitor_calls();
+    let control = VoiceRoute::new(Arc::new(Bus::default()), FakeGate::new(), Store::new(false), options);
+    assert_eq!(*lock(&seen), [false]);
+    assert!(!control.is_working());
+    assert!(control.close(LONG));
+    assert_eq!(lock(&seen).last(), Some(&true));
 }

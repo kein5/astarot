@@ -1,10 +1,13 @@
-//! The usage events: the switch, the notice and what is sent (`controller.py`:
+//! The usage events: the switch, the notice and what is sent ([`controller.py`]:
 //! `setEnableTelemetry`, `setDisableTelemetry`, `getTelemetryNotice`, `setTelemetryNotice`,
 //! `getTelemetryPreview`; `vrct_ops::telemetry`).
 //!
 //! Nothing is sent before the user has answered the notice: turning the setting on is not
 //! consent (SEC-07), and only the answer can start sending for the first time.
-//! `VRCT_TELEMETRY=off` turns it off for good and the notice is not asked either.
+//! `ASTAROT_TELEMETRY=off` (or `VRCT_TELEMETRY=off`) turns it off for good and the notice is not
+//! asked either.
+//!
+//! [`controller.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/controller.py
 
 use super::routes::{Builder, OPEN};
 use super::{Core, ok};
@@ -16,14 +19,20 @@ use std::path::PathBuf;
 /// changes, so that everyone is told again (`TELEMETRY_NOTICE_VERSION`).
 pub const NOTICE_VERSION: i64 = 1;
 
-/// `VRCT_TELEMETRY=off` (any case, spaces around it ignored): the default of
+/// `ASTAROT_TELEMETRY=off` (any case, spaces around it ignored): the default of
 /// [`super::Services::telemetry_forced_off`].
 pub(crate) fn forced_off_by(value: Option<&str>) -> bool {
     value.is_some_and(|v| v.trim().eq_ignore_ascii_case("off"))
 }
 
+/// Off when either name says so. The variable only ever turns sending off, so an old
+/// `VRCT_TELEMETRY=off` still holds when `ASTAROT_TELEMETRY` is set to something else.
+pub(crate) fn forced_off_with(lookup: impl Fn(&str) -> Option<String>) -> bool {
+    app_identity::env::TELEMETRY.names().into_iter().any(|name| forced_off_by(lookup(name).as_deref()))
+}
+
 pub(crate) fn forced_off_from_environment() -> bool {
-    forced_off_by(std::env::var("VRCT_TELEMETRY").ok().as_deref())
+    forced_off_with(|name| std::env::var(name).ok())
 }
 
 impl Core {
@@ -126,12 +135,25 @@ pub(crate) fn add(b: &mut Builder<'_>) {
 
 #[cfg(test)]
 mod tests {
-    use super::forced_off_by;
+    use super::{forced_off_by, forced_off_with};
 
     #[test]
     fn only_off_forces_it_off() {
         for (value, forced) in [(Some("off"), true), (Some(" OFF "), true), (Some(""), false), (Some("on"), false), (Some("0"), false), (None, false)] {
             assert_eq!(forced_off_by(value), forced, "{value:?}");
         }
+    }
+
+    #[test]
+    fn either_name_turns_it_off() {
+        let set = |pairs: &'static [(&'static str, &'static str)]| {
+            move |name: &str| pairs.iter().find(|(key, _)| *key == name).map(|(_, value)| value.to_string())
+        };
+        assert!(!forced_off_with(set(&[])));
+        assert!(forced_off_with(set(&[("ASTAROT_TELEMETRY", "off")])));
+        assert!(forced_off_with(set(&[("VRCT_TELEMETRY", "off")])));
+        assert!(forced_off_with(set(&[("ASTAROT_TELEMETRY", ""), ("VRCT_TELEMETRY", "OFF")])));
+        assert!(forced_off_with(set(&[("ASTAROT_TELEMETRY", "on"), ("VRCT_TELEMETRY", "off")])));
+        assert!(!forced_off_with(set(&[("ASTAROT_TELEMETRY", "on"), ("VRCT_TELEMETRY", "0")])));
     }
 }

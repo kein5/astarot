@@ -26,3 +26,20 @@
 }
 
 .loader { @include loader(2rem, .2rem, left, 50%); }
+
+// The button's tooltip (action_label), the app's one tooltip look (the tooltip_content mixin):
+// under the button, from its right edge inwards, since the button stands at the row's end.
+.container { position: relative; }
+.tip {
+    display: none;
+    position: absolute;
+    z-index: 1500;
+    top: calc(100% + .4rem);
+    right: 0;
+    @include tooltip_content;
+    pointer-events: none;
+}
+.button_wrapper:hover + .tip,
+.button_wrapper:focus-visible + .tip {
+    display: block;
+}

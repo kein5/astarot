@@ -4,8 +4,8 @@
 
 設計判断はここには書きません。この制約から導いた判断は、それぞれの ADR にあります。
 
-- 仮想マイクと Microsoft Store: [ADR-009](adr-009-virtual-microphone-and-store.md)
-- 外部の合成音声エンジン: [ADR-008](adr-008-external-speech-engines.md)
+- 仮想マイクと Microsoft Store: [ADR-009](../adr/adr-009-virtual-microphone-and-store.md)
+- 外部の合成音声エンジン: [ADR-008](../adr/adr-008-external-speech-engines.md)
 
 ## 1. コード署名
 
@@ -43,7 +43,7 @@ Linux では、PipeWire のループバック（`pw-loopback`）で、ドライ�
 
 ## 4. GPU とランタイム
 
-- CTranslate2 は CUDA と CPU にしか対応していない。これが CPU 版と CUDA 版の 2 つの配布物に分かれる原因だった。解消の方針は Issue #288 にある（音声認識は speech.cpp の Vulkan など、ローカル翻訳は ONNX Runtime。Windows は DirectML で NVIDIA、AMD、Intel を 1 つのビルドで扱う）。
+- CTranslate2 は CUDA と CPU にしか対応していない。これが CPU 版と CUDA 版の 2 つの配布物に分かれる原因だった。解消の方針は Issue #288 にある（音声認識は speech.cpp の Vulkan など、ローカル翻訳は ONNX Runtime。Windows は DirectML で NVIDIA、AMD、Intel を 1 つのビルドで扱う）。0.5.0 から 2 つの配布物の中身は同じで、残りの作業は[Windows の配布物の一本化](single-package.md)にある。
 - RVC のランタイムを CUDA 13 に移すと（0.4.0）、NVIDIA ドライバは 580 以上が必要になる。対応しない古い GPU は CUDA による高速化の対象から外れる。必要環境に書く（Issue #321）。
 - モデルは、利用者の同意を得てから取得する。容量、提供元、ライセンスを示すことが前提になる。NLLB は CC-BY-NC なので、同意が必須である（[モデル取得](model-downloads.md)）。
 

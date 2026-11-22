@@ -1,5 +1,7 @@
 //! Public HTTPS only; never attach user credentials or execute downloaded content
-//! (`transport.py`).
+//! ([`transport.py`]).
+//!
+//! [`transport.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/model_downloads/transport.py
 
 use std::collections::HashMap;
 use std::io::{self, Read};
@@ -9,7 +11,7 @@ use super::Error;
 use crate::net::{self, Abort};
 
 pub const HOSTS: [&str; 6] = ["huggingface.co", "cdn-lfs.huggingface.co", "cdn-lfs-us-1.hf.co", "cdn-lfs-eu-1.hf.co", "cas-bridge.xethub.hf.co", "us.aws.cdn.hf.co"];
-pub const USER_AGENT: &str = "VRCT-VOX-model-download/1";
+pub const USER_AGENT: &str = "ASTAROT-model-download/1";
 pub const TIMEOUT: Duration = Duration::from_secs(15);
 /// As `PublicRedirect.max_redirections`.
 const MAX_REDIRECTIONS: usize = 5;

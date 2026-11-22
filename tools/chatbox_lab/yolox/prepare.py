@@ -35,7 +35,7 @@ def coco(entries):
     for image_id, (session, row, label) in enumerate(entries, start=1):
         height, width = row['shape'][:2]
         images.append({'id': image_id, 'file_name': f'raw/{session.name}/{row["file"]}', 'width': width, 'height': height})
-        for fields in (line.split() for line in label.read_text().splitlines() if line.strip()):
+        for fields in (line.split() for line in label.read_text(encoding='utf-8').splitlines() if line.strip()):
             cx, cy, bw, bh = (float(v) for v in fields[1:5])
             w, h = bw * width, bh * height
             annotations.append({'id': len(annotations) + 1, 'image_id': image_id, 'category_id': 1,
@@ -55,7 +55,7 @@ def main():
     out.mkdir(exist_ok=True)
     for name, items in split.items():
         data = coco(items)
-        (out / f'instances_{name}.json').write_text(json.dumps(data))
+        (out / f'instances_{name}.json').write_text(json.dumps(data), encoding='utf-8')
         positives = len({a['image_id'] for a in data['annotations']})
         print(f'{name}: {len(data["images"])} images ({positives} with a chatbox), {len(data["annotations"])} boxes')
 

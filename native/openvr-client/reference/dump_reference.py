@@ -11,8 +11,9 @@ them (its IVR*_FnTable structures, the order of openvr_capi.h). pyopenvr is pinn
 and the app ships the client library from the same wheel. Each crate's tests check every
 position it declares against this file (vrct_openvr_client::fn_table!).
 
-Run with the app's Python (pyopenvr installed). src-python/test/test_openvr_fn_tables.py runs
-the same comparison as --check.
+Run with pyopenvr installed (the voice-test group of uv.lock has it:
+`python tools/dev.py setup --scope headless`). tests/voice/test_openvr_fn_tables.py runs the same
+comparison as --check.
 """
 from importlib.metadata import version
 import json

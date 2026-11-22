@@ -2,10 +2,14 @@
 //!
 //! A graph is a list of objects in the shape `pw-dump` prints. The native observer in
 //! `pipewire::observer` builds the same shape from registry events, so the checks
-//! here are the Python checks of `source_bridge.py`, `pipewire_gate.py`,
-//! `devices_pipewire.py` and `device_manager._linuxMicDevices`, applied to the same
+//! here are the Python checks of [`source_bridge.py`], [`pipewire_gate.py`],
+//! [`devices_pipewire.py`] and `device_manager._linuxMicDevices`, applied to the same
 //! data. Every check that Python makes with `type(x) is int` refuses booleans and
 //! strings here too.
+//!
+//! [`source_bridge.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/audio_routing/source_bridge.py
+//! [`pipewire_gate.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/audio_routing/pipewire_gate.py
+//! [`devices_pipewire.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/audio_routing/devices_pipewire.py
 
 use serde_json::Value;
 

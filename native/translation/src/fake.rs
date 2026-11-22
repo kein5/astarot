@@ -40,6 +40,8 @@ struct State {
     status: HashMap<String, u16>,
     truncated: HashMap<String, bool>,
     down: HashMap<String, bool>,
+    /// Prefixes that refuse a request with a temperature, as OpenAI's reasoning models do.
+    no_temperature: HashMap<String, bool>,
     reply: Option<Reply>,
     seen: Vec<Seen>,
 }
@@ -116,6 +118,13 @@ impl FakeProviders {
 
     pub fn recover(&self, prefix: &str) -> &Self {
         self.state.lock().unwrap().status.remove(prefix);
+        self
+    }
+
+    /// The prefix answers 400 to a request whose body has a temperature, as OpenAI's reasoning
+    /// models do.
+    pub fn refuse_temperature(&self, prefix: &str, refuse: bool) -> &Self {
+        self.state.lock().unwrap().no_temperature.insert(prefix.into(), refuse);
         self
     }
 
@@ -206,7 +215,7 @@ fn serve(mut stream: TcpStream, state: &Mutex<State>) {
     };
     let prefix = PREFIXES.iter().find(|p| seen.path.starts_with(**p)).copied().unwrap_or("");
     let rest = seen.path[prefix.len()..].to_string();
-    let (key, models, status, truncated, down, reply) = {
+    let (key, models, status, truncated, down, no_temperature, reply) = {
         let mut state = state.lock().unwrap();
         state.seen.push(seen.clone());
         (
@@ -215,10 +224,16 @@ fn serve(mut stream: TcpStream, state: &Mutex<State>) {
             state.status.get(prefix).copied(),
             state.truncated.get(prefix).copied().unwrap_or(false),
             state.down.get(prefix).copied().unwrap_or(false),
+            state.no_temperature.get(prefix).copied().unwrap_or(false),
             state.reply.clone(),
         )
     };
     if down {
+        return;
+    }
+    if no_temperature && seen.body.get("temperature").is_some() {
+        let message = "Unsupported parameter: 'temperature' is not supported with this model.";
+        answer(&mut stream, 400, &json!({ "error": { "message": message, "type": "invalid_request_error" } }));
         return;
     }
     if let Some(status) = status {

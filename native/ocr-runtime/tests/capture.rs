@@ -99,7 +99,7 @@ fn pixels(bgr: &BgrImage, layout: u32, pad: usize) -> Vec<u8> {
 }
 
 fn write(path: &Path, bgr: &BgrImage, layout: u32, pad: usize, sequence: u64, instance: u64) {
-    let mut data = header(sequence, instance, bgr.width as u32, bgr.height as u32, (bgr.width * 4 + pad) as u32, layout, b"VRCTSCR1");
+    let mut data = header(sequence, instance, bgr.width as u32, bgr.height as u32, (bgr.width * 4 + pad) as u32, layout, b"ASTRSCR1");
     data.extend(pixels(bgr, layout, pad));
     std::fs::write(path, data).unwrap();
 }
@@ -173,7 +173,7 @@ fn a_frame_being_replaced_is_never_returned_half_written() {
 #[test]
 fn no_picture_before_the_first_frame() {
     let path = frame_file("first");
-    std::fs::write(&path, header(0, INSTANCE, 0, 0, 0, BGRX, b"VRCTSCR1")).unwrap();
+    std::fs::write(&path, header(0, INSTANCE, 0, 0, 0, BGRX, b"ASTRSCR1")).unwrap();
     let mut capture = shared(&path);
     assert!(capture.is_active());
     assert_eq!(capture.capture().unwrap(), None);
@@ -197,7 +197,9 @@ fn a_file_left_by_a_killed_helper_is_not_a_stream() {
     let path = frame_file("killed");
     write(&path, &picture(6, 5, 0), BGRX, 0, 2, INSTANCE);
     assert!(!SharedWindowCapture::new(Some(path)).with_alive_check(dead).is_active());
-    // The helper's process id is the upper half of the instance.
+    // The helper's process id is the upper half of the instance. The portal's helper runs on
+    // Linux only, and the check reads /proc.
+    #[cfg(target_os = "linux")]
     assert!(ocr_runtime::capture::portal::writer_alive((std::process::id() as u64) << 32 | 7));
 }
 
@@ -206,11 +208,11 @@ fn other_files_are_not_frames() {
     let path = frame_file("other");
     let contents: Vec<Vec<u8>> = vec![
         Vec::new(),
-        b"VRCTSCR1".to_vec(),
-        header(2, INSTANCE, 0, 0, 0, BGRX, b"VRCTVRP1"),
-        header(2, INSTANCE, 20000, 10, 80000, BGRX, b"VRCTSCR1"),
-        header(2, INSTANCE, 10, 10, 8, BGRX, b"VRCTSCR1"),
-        header(2, INSTANCE, 10, 0, 40, BGRX, b"VRCTSCR1"),
+        b"ASTRSCR1".to_vec(),
+        header(2, INSTANCE, 0, 0, 0, BGRX, b"ASTRVRP1"),
+        header(2, INSTANCE, 20000, 10, 80000, BGRX, b"ASTRSCR1"),
+        header(2, INSTANCE, 10, 10, 8, BGRX, b"ASTRSCR1"),
+        header(2, INSTANCE, 10, 0, 40, BGRX, b"ASTRSCR1"),
     ];
     for content in contents {
         std::fs::write(&path, &content).unwrap();
@@ -388,7 +390,7 @@ fn a_shared_window_works_without_any_x11_display() {
 #[test]
 fn no_frame_yet_is_waiting_not_a_failure() {
     let rig = Rig::new("waiting");
-    std::fs::write(&rig.path, header(0, INSTANCE, 0, 0, 0, BGRX, b"VRCTSCR1")).unwrap();
+    std::fs::write(&rig.path, header(0, INSTANCE, 0, 0, 0, BGRX, b"ASTRSCR1")).unwrap();
     let mut capture = rig.capture();
     assert_eq!(capture.get(), None);
     assert_eq!(capture.source(), None);

@@ -6,16 +6,16 @@ SteamVR のオーバーレイを受け持つ Rust クレートです。字幕の
 
 | Python（`src-python/models/overlay/`） | Rust |
 |---|---|
-| `overlay.py` の `Overlay`（起動と停止、SteamVR を待つこと、位置、フェード、VR パネル） | `engine::Overlay` |
-| `overlay.py` の `updateGrab` とその周り（レーザー、VR 画面への入力、掴む、拡大縮小、角での大きさの変更、操作バー） | `engine/input.rs` |
-| `overlay.py` の `computeVrLayout` などの並びと姿勢の計算 | `layout`、`math`、`placement`、`pose`、`timing` |
-| `overlay_tooltip.py` | `tooltip` |
-| `overlay_image.py` | `subtitle` |
-| `overlay_fonts.py` | `fonts` |
+| [`overlay.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/overlay/overlay.py) の `Overlay`（起動と停止、SteamVR を待つこと、位置、フェード、VR パネル） | `engine::Overlay` |
+| [`overlay.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/overlay/overlay.py) の `updateGrab` とその周り（レーザー、VR 画面への入力、掴む、拡大縮小、角での大きさの変更、操作バー） | `engine/input.rs` |
+| [`overlay.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/overlay/overlay.py) の `computeVrLayout` などの並びと姿勢の計算 | `layout`、`math`、`placement`、`pose`、`timing` |
+| [`overlay_tooltip.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/overlay/overlay_tooltip.py) | `tooltip` |
+| [`overlay_image.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/overlay/overlay_image.py) | `subtitle` |
+| [`overlay_fonts.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/overlay/overlay_fonts.py) | `fonts` |
 | pyopenvr | `openvr`（`openvr_api` を実行時に読み込む） |
-| `window_capture.py`、`window_capture_linux.py` | `surface` |
-| `models/process_check.py`（`vrmonitor` の確認） | `process` |
-| `models/openvr_session.py`（OpenVR の接続を参照数で共有する） | `shared::SharedVr` |
+| [`window_capture.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/overlay/window_capture.py)、[`window_capture_linux.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/overlay/window_capture_linux.py) | `surface` |
+| [`models/process_check.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/process_check.py)（`vrmonitor` の確認。今は `vrserver` も見る。Steam Frame の SteamVR は `vrmonitor` を開かないため、#944） | `process` |
+| [`models/openvr_session.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/openvr_session.py)（OpenVR の接続を参照数で共有する） | `shared::SharedVr` |
 
 `layout` から `tooltip` までは、以前は `src-tauri/src/vr_overlay/` にありました。Python の値と照らし合わせる試験（`src/reference_tests.rs` と `tests/vr_overlay_reference/`）もここへ移しました。
 
@@ -23,7 +23,7 @@ SteamVR のオーバーレイを受け持つ Rust クレートです。字幕の
 
 - OpenVR の C API（`openvr_api`）を、SteamVR が動いているときだけ読み込みます。ビルドに OpenVR SDK は要りません。関数表は OpenVR 2.12 のもの（`IVRSystem_023`、`IVROverlay_028`、`IVRApplications_007`、`IVRRenderModels_006`）で、Python が使っていた pyopenvr 2.12.1401 と同じ版です。関数は表の中の位置で呼びます。位置は関数の名前と一緒に宣言し（`vrct_openvr_client::fn_table!`）、試験で pyopenvr の関数表（`native/openvr-client/tests/data/pyopenvr_fn_tables.json`）と照らし合わせます。位置を間違えると、別の関数がエラーなしで呼ばれます（#610）。`IVRApplications` は音声タイピングの貼り付け先（SteamVR のシーンのアプリ）を読むためだけに使い、取れなくてもオーバーレイは動きます。
 - OpenVR の接続はプロセスに 1 つです。`shared::SharedVr` は最初の利用者のときに接続し、後の利用者には同じ接続を渡し、最後の利用者が手放したときに閉じます。中核はオーバーレイと音声タイピングのクリップボードでこれを共有します。
-- ライブラリは次の順に探します。環境変数 `VRCT_OPENVR_API`、中核が渡すフォルダ、実行ファイルの隣、Python の同梱物の中（`_internal/openvr`）、システムの検索パス。見つからないときは、SteamVR が動いているのにつなげなかったものとして `OVERLAY_RUNTIME_FAILED` を知らせます。配布物に入れるかどうかは未決です（`docs/voice-stack/core-integration.md` の「判断が要ること」）。
+- ライブラリは次の順に探します。環境変数 `ASTAROT_OPENVR_API`（旧名は `VRCT_OPENVR_API`）、中核が渡すフォルダ、実行ファイルの隣、アプリに同梱したライブラリ（`_internal/openvr`）、システムの検索パス。見つからないときは、SteamVR が動いているのにつなげなかったものとして `OVERLAY_RUNTIME_FAILED` を知らせます。Windows版とLinux版のどちらにもOpenVRクライアントライブラリを同梱します（`tools/runtime_libraries.py`）。
 - 字幕の画像とポインタの印は Python と同じく `SetOverlayRaw` で渡します。VR パネルの画面は、Windows では Direct3D 11 のテクスチャ 1 枚を各領域のオーバーレイ（操作バーと吹き出しを含む）で共有します（Python は OpenGL でした）。角で大きさを変えるときの枠は、別のテクスチャ 1 枚です。Linux ではまだ GPU のテクスチャを使わず、どちらも `SetOverlayRaw` で渡します（実機での確認は `docs/voice-stack/core-integration.md` の「判断が要ること」の 8）。
 
 ## 字幕の書体

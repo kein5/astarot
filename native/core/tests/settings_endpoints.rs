@@ -258,19 +258,20 @@ fn the_launcher_reset_and_the_overlay_switches() {
 }
 
 #[test]
-fn the_old_whisper_weights_are_shown_and_removed_on_request_only() {
+fn the_old_whisper_weights_are_left_alone() {
+    // Up to 0.5 the settings showed the Whisper weights of 0.2 and earlier and removed them on
+    // request. That screen went in 0.6.0 (#288): nothing looks at the folder or removes it.
     let temp = tempfile::tempdir().unwrap();
     let whisper = temp.path().join("data").join("weights").join("whisper");
     std::fs::create_dir_all(whisper.join("base")).unwrap();
     std::fs::write(whisper.join("base").join("model.bin"), vec![0u8; 64]).unwrap();
-    std::fs::create_dir_all(whisper.join("notes")).unwrap();
     let ui = Ui::with(Setup { dir: Some(temp.path().to_path_buf()), ..Setup::default() });
     let snapshot = ui.ready();
-    assert_eq!(snapshot["/get/data/old_whisper_weights"], json!({ "total_bytes": 64, "folders": ["base"] }));
-    assert!(whisper.join("base").exists(), "nothing is removed at start-up");
-    let result = ui.ok("/run/delete_old_whisper_weights", None);
-    assert_eq!(result, json!({ "total_bytes": 0, "folders": [], "freed_bytes": 64, "failed": [] }));
-    assert!(whisper.join("notes").exists(), "a folder the app did not make stays");
+    assert_eq!(snapshot.get("/get/data/old_whisper_weights"), None);
+    for removed in ["/get/data/old_whisper_weights", "/run/delete_old_whisper_weights"] {
+        assert_eq!(ui.request(removed, None)["status"], 404, "{removed}");
+    }
+    assert_eq!(std::fs::read(whisper.join("base").join("model.bin")).unwrap().len(), 64);
     ui.stop();
 }
 
@@ -318,6 +319,62 @@ fn experimental_features_are_all_off_and_a_bad_value_is_refused() {
 }
 
 #[test]
+fn usage_presets_start_with_the_basic_one_and_keep_the_known_ids_in_order() {
+    // Nothing saved: a new install shows the basic features (#554, Q-15).
+    let ui = Ui::with(Setup::default());
+    let snapshot = ui.ready();
+    assert_eq!(snapshot["/get/data/usage_presets"], json!(["basic"]));
+    let picked = json!(["nonverbal", "voice_changer"]);
+    // Several can be picked; each is kept once, in the list's order, and an id this version
+    // does not know is left out.
+    assert_eq!(ui.ok("/set/data/usage_presets", Some(json!(["voice_changer", "nonverbal", "nonverbal", "a_later_one"]))), picked);
+    for bad in [json!([]), json!(["a_later_one"]), json!("basic"), json!([1]), json!(null)] {
+        let answer = ui.request("/set/data/usage_presets", Some(bad.clone()));
+        assert_eq!(error_code(&answer), "VALIDATION_CONFIG_VALUE_INVALID", "{bad}");
+        assert_eq!(answer["result"]["data"], picked, "{bad}");
+    }
+    ui.ok("/run/shutdown", None);
+    assert_eq!(ui.saved()["USAGE_PRESETS"], picked);
+    ui.stop();
+}
+
+#[test]
+fn an_update_from_a_version_without_usage_presets_shows_every_feature() {
+    // Settings saved by an earlier version: what the screens show stays as it was (#554, Q-15).
+    let ui = Ui::with(Setup { saved: Some(json!({ "UI_LANGUAGE": "ja", "OVERLAY_VR_PANEL": true })), ..Setup::default() });
+    let snapshot = ui.ready();
+    assert_eq!(snapshot["/get/data/usage_presets"], json!(["all"]));
+    assert_eq!(snapshot["/get/data/overlay_vr_panel"], json!(true), "the VR panel keeps its saved value");
+    ui.ok("/run/shutdown", None);
+    assert_eq!(ui.saved()["USAGE_PRESETS"], json!(["all"]));
+    ui.stop();
+    // A saved choice is kept, also when it is not the default.
+    let ui = Ui::with(Setup { saved: Some(json!({ "UI_LANGUAGE": "ja", "USAGE_PRESETS": ["basic", "multilingual"] })), ..Setup::default() });
+    assert_eq!(ui.ready()["/get/data/usage_presets"], json!(["basic", "multilingual"]));
+    ui.stop();
+}
+
+#[test]
+fn the_catalogs_start_as_a_grid_and_keep_the_layout_chosen() {
+    // How the model catalogs lay out their cards: a grid at first, a list when chosen, kept for
+    // the next start.
+    let ui = Ui::with(Setup::default());
+    let snapshot = ui.ready();
+    assert_eq!(snapshot["/get/data/catalog_layout"], json!("grid"));
+    assert_eq!(ui.ok("/set/data/catalog_layout", Some(json!("list"))), json!("list"));
+    for bad in [json!("tiles"), json!(""), json!(1), json!(null)] {
+        let answer = ui.request("/set/data/catalog_layout", Some(bad.clone()));
+        assert_eq!(error_code(&answer), "VALIDATION_CONFIG_VALUE_INVALID", "{bad}");
+    }
+    ui.ok("/run/shutdown", None);
+    assert_eq!(ui.saved()["CATALOG_LAYOUT"], json!("list"));
+    ui.stop();
+    let ui = Ui::with(Setup { saved: Some(json!({ "UI_LANGUAGE": "ja", "CATALOG_LAYOUT": "list" })), ..Setup::default() });
+    assert_eq!(ui.ready()["/get/data/catalog_layout"], json!("list"));
+    ui.stop();
+}
+
+#[test]
 fn the_tray_companion_edge_is_one_of_the_four_and_starts_at_the_right() {
     let ui = Ui::with(Setup::default());
     let snapshot = ui.ready();
@@ -327,6 +384,19 @@ fn the_tray_companion_edge_is_one_of_the_four_and_starts_at_the_right() {
     assert_eq!(error_code(&answer), "VALIDATION_CONFIG_VALUE_INVALID");
     ui.ok("/run/shutdown", None);
     assert_eq!(ui.saved()["TRAY_COMPANION_EDGE"], json!("bottom"));
+    ui.stop();
+}
+
+#[test]
+fn the_hexagram_tells_of_the_wheel_until_it_has_been_told_once() {
+    let ui = Ui::with(Setup::default());
+    let snapshot = ui.ready();
+    assert_eq!(snapshot["/get/data/tray_companion_wheel_hint_shown"], json!(false));
+    assert_eq!(ui.ok("/set/data/tray_companion_wheel_hint_shown", Some(json!(true))), json!(true));
+    let answer = ui.request("/set/data/tray_companion_wheel_hint_shown", Some(json!("yes")));
+    assert_eq!(error_code(&answer), "VALIDATION_CONFIG_VALUE_INVALID");
+    ui.ok("/run/shutdown", None);
+    assert_eq!(ui.saved()["TRAY_COMPANION_WHEEL_HINT_SHOWN"], json!(true));
     ui.stop();
 }
 
@@ -342,5 +412,22 @@ fn the_tray_companion_monitor_is_a_name_and_starts_empty_for_the_primary_one() {
     }
     ui.ok("/run/shutdown", None);
     assert_eq!(ui.saved()["TRAY_COMPANION_MONITOR"], json!("\\\\.\\DISPLAY2"));
+    ui.stop();
+}
+
+#[test]
+fn speaker_names_are_checked_answered_kept_out_of_the_log_and_not_saved() {
+    // #447: names for the voices of one realtime session.
+    let ui = Ui::with(Setup::default());
+    ui.ready();
+    let named = ui.ok("/set/data/speaker_names", Some(json!({ "namespace": "0a1b2c", "names": { "A": " ミカ ", "B": "" } })));
+    assert_eq!(named, json!({ "namespace": "0a1b2c", "names": { "A": "ミカ" } }));
+    let answer = ui.request("/set/data/speaker_names", Some(json!({ "namespace": "0a1b2c", "names": { "a": "x" } })));
+    assert_eq!((answer["status"].clone(), error_code(&answer)), (json!(400), "speaker_names_invalid"));
+    ui.ok("/run/shutdown", None);
+    let logs = std::fs::read_to_string(ui.dir.join("logs").join("process.log")).unwrap();
+    assert!(logs.contains("/set/data/speaker_names"));
+    assert!(!logs.contains("ミカ"), "a name reached the log");
+    assert!(!ui.saved().to_string().contains("ミカ"), "a name was saved");
     ui.stop();
 }

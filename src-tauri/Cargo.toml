@@ -4,6 +4,8 @@ version = "0.0.0"
 description = "ASTAROT: speech, voice conversion and translated chat"
 authors = ["misyaguziya"]
 edition = "2024"
+# Never published: cargo-deny (deny.toml) treats it as this repository's own code.
+publish = false
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -31,6 +33,8 @@ font-kit = "=0.14.3"
 # is the local translation on ONNX Runtime, loaded at run time like chat reading's (nothing is
 # linked or fetched at build time; see docs/voice-stack/core-integration.md, decisions 1 and 2).
 vrct-core = { path = "../native/core", features = ["pipewire", "onnx-translation"] }
+# The names the app goes by outside its code (ADR-014): folders, the app ID, environment variables.
+app-identity = { path = "../native/app-identity" }
 
 [dev-dependencies]
 # Already locked through tauri-plugin-opener, which matches its URL scope with it; the tests use
@@ -38,6 +42,9 @@ vrct-core = { path = "../native/core", features = ["pipewire", "onnx-translation
 glob = "=0.3.4"
 # Already locked through tauri-plugin-updater; the tests decode the embedded public key.
 base64 = "=0.23.1"
+# Already locked through tauri-plugin-updater; the AppImage replacement's tests use a folder of
+# their own.
+tempfile = "=3.27.0"
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-global-shortcut = "=2.4.1"
@@ -49,10 +56,17 @@ reqwest = { version = "=0.13.5", default-features = false }
 rustls = { version = "=0.23.46", default-features = false, features = ["ring"] }
 semver = "=1.0.28"
 
+[target.'cfg(windows)'.dependencies]
+# Already locked through wry: the app makes the WebView2 environment that every window shares,
+# with WebView2's crash reports to Microsoft turned off (#564; see src/webview_environment.rs).
+# The features are a subset of the ones wry turns on.
+webview2-com = "=0.39.1"
+windows = { version = "=0.62.2", features = ["Win32_Foundation", "Win32_Globalization", "Win32_System_Com"] }
+
 [target.'cfg(target_os = "linux")'.dependencies]
 gtk = "=0.18.2"
 # Already locked through tauri-plugin-opener; used for the GlobalShortcuts portal.
-zbus = "=5.19.0"
+zbus = "=6.2.1"
 gdkx11 = "=0.18.2"
 # Already locked through wry; used to move the VR page off the desktop.
 webkit2gtk = "=2.0.2"

@@ -3,7 +3,7 @@
 Inference-only RVC voice conversion in Rust (issue #275; Phase 1: offline conversion,
 Phase 2: streaming conversion, Phase 3: the application's voice changer).
 
-The application runs it as `vrct-rvc-worker` (`src/bin/rvc_worker.rs`), a separate
+The application runs it as `astarot-rvc-worker` (`src/bin/rvc_worker.rs`), a separate
 process that replaces the external PyTorch runtime the voice changer used before. See
 [Application worker](#application-worker-phase-3).
 
@@ -82,7 +82,17 @@ run on the CPU.
 | `download-binaries` (default) | links the ONNX Runtime build `ort` downloads; tests and the two tools above |
 | `cuda` | the CUDA execution provider |
 | `load-dynamic` | no ONNX Runtime at build time: `backend::load_runtime(path)` loads `libonnxruntime.so` / `onnxruntime.dll` at run time |
-| `worker` | `load-dynamic` + `cuda`, and the `vrct-rvc-worker` binary |
+| `worker` | `load-dynamic` + `cuda`, and the `astarot-rvc-worker` binary |
+
+On Windows the DirectML provider's Rust side is always built in (`ort`'s `directml` feature as a
+Windows dependency, as in `native/translate-onnx`); whether it runs depends on the ONNX Runtime
+library that is loaded (the DirectML build).
+
+The library and the process's one environment come from `native/onnx-runtime`
+(`vrct-onnx-runtime`), the crate the application's chat reading and local translation use
+too. `backend::load_runtime(path)` loads exactly that file (`ORT_DYLIB_PATH` is ignored) and
+refuses once the environment exists. The binaries stop ONNX Runtime's usage reports first
+thing (`vrct_onnx_runtime::disable_telemetry_for_process`).
 
 `backend::set_intra_threads(Some(n))` limits each session's CPU thread pool (ONNX Runtime's
 default is one thread per physical core and ignores the process's CPU affinity);
@@ -407,21 +417,42 @@ small change if the specification decides otherwise.
 
 ## Application worker (Phase 3)
 
-`vrct-rvc-worker` is what the application starts for the voice changer. It speaks the
-application's fixed live-VC pipe contract (`src-python/models/voice_conversion/protocol.py`,
-"VVC1"): a `ready` packet, or a `failed` packet with a fixed code, then one `output` packet
-of 80 ms of 48 kHz mono 16-bit audio for every `input` packet. The owner, the Linux launch
-helper (`native/vc-worker`, mode `rvc-native`), the router process, the managed sink, mute
-and the speech-through-conversion path are the same as with the external runtime.
+`astarot-rvc-worker` is what the application starts for the voice changer. It speaks the
+application's live-VC pipe contract (`native/voice-conversion/src/protocol.rs`, "VVC1"; up
+to 0.4 [`src-python/models/voice_conversion/protocol.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/voice_conversion/protocol.py)): a `ready` packet, or a `failed`
+packet with a fixed code, then one `output` packet of 48 kHz mono 16-bit audio for every
+`input` packet. Every packet is one block of `--block-ms` (20 to 200 ms in steps of 20; 80 ms
+when it is not given, the external runtime's). The application passes its Advanced setting
+(`RVC_BLOCK_MS`, #531), and the `ready` packet confirms the block in `block_frames`; the
+owner refuses a worker that confirms another. By default the setting is automatic and the
+application passes `--block-ms auto`: before `ready` the worker times the GPU on 40 ms blocks
+of a test tone (one block to settle, then the median of three) and keeps the shortest of 40,
+60, 80, 100, 120, 160 and 200 ms that is at least 1.4 times that time, or 200 ms when none is;
+a longer block takes little longer to convert. On DirectML a length other than 40 ms gets the
+networks loaded again (about 3 s): DirectML converted blocks of a second length four to six
+times slower on the sessions that had run the first. On the CPU it uses 40 ms packets. The
+application also passes `--block-cache <state>/vc_runtimes/rvc-block-lengths.json`: the worker
+keeps each choice there under a hash of the voice model (path, size, modification time), the
+index when one is used, the device, the GPU's name (CUDA device 0 from the NVIDIA driver,
+DirectML's preferred adapter), the ONNX Runtime library and the thread count, and a later start
+with the same hash converts in that length without timing the GPU (no reload on DirectML
+either). The file holds only the hashes and the lengths. When the user chooses Automatic again,
+the application puts `rvc-block-lengths.remeasure` beside it; the next automatic start then
+times the GPU instead of using its kept length, replaces that entry and removes the file
+(decided 2026-11-21). Delete the cache to have every pair timed again. `ready` then says the chosen block and the owner
+converts in it. The 1.4 leaves room for the round trip at the microphone's pace, when the
+GPU idles between blocks and clocks down ([the measurements](../../docs/voice-stack/rvc-low-latency-2026-11-20.md)). The owner, the Linux
+launch helper (`native/vc-worker`, mode `rvc-native`), the router process, the managed sink,
+mute and the speech-through-conversion path are the same as with the external runtime.
 
 ```sh
-python tools/build_rvc_worker.py   # cargo build --no-default-features --features worker → build/vrct-rvc-worker
-vrct-rvc-worker --runtime <dir> --model voice.pth --session <32 hex> [--index f.index] [--pitch n] [--index-rate r] [--device auto|cuda|cpu]
-vrct-rvc-worker --runtime <dir> --probe [--device cuda|cpu|auto]   # exit 0 runs; 3 the GPU cannot be used (auto: the CPU can); 4 broken
+python tools/build_rvc_worker.py   # cargo build --no-default-features --features worker → build/astarot-rvc-worker
+astarot-rvc-worker --runtime <dir> --model voice.pth --session <32 hex> [--index f.index] [--pitch n] [--index-rate r] [--device auto|cuda|directml|cpu] [--directml <dir>] [--block-ms auto|40] [--block-cache <file>]
+astarot-rvc-worker --runtime <dir> --probe [--device cuda|directml|cpu|auto]   # exit 0 runs; 3 the GPU cannot be used (auto: the CPU can); 4 broken
 ```
 
 - **Runtime folder** (set up by `native/voice-conversion/src/runtime.rs` after consent; up to
-  0.4 by `src-python/models/voice_conversion/runtime_setup.py`). On a PC with an NVIDIA
+  0.4 by [`src-python/models/voice_conversion/runtime_setup.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/voice_conversion/runtime_setup.py)). On a PC with an NVIDIA
   driver: `lib/` holds ONNX Runtime 1.31.0 (CUDA 13 build, Microsoft's NuGet package
   `Microsoft.ML.OnnxRuntime.Gpu.Windows` or `.Gpu.Linux`; its GitHub release until
   2026-11-18) with CUDA 13.4 Update 1 and cuDNN 9.26 (NVIDIA's PyPI wheels; driver
@@ -429,26 +460,59 @@ vrct-rvc-worker --runtime <dir> --probe [--device cuda|cpu|auto]   # exit 0 runs
   one: only ONNX Runtime's CPU build. `assets/` holds `hubert_base` and `rmvpe.onnx`. The
   worker loads the CUDA libraries from `lib/` itself, then ONNX Runtime, so nothing depends
   on the system's library path.
-- **Where it converts** (`--device`, default `auto`): on the GPU when the runtime has the
-  CUDA provider, its libraries load and a CUDA session runs; otherwise on the CPU. The
-  `ready` packet says which (`profile`: `low` for the GPU as before, `cpu`) and the delay
-  the worker adds (`latency_ms`); the application shows both. `--device cuda` keeps the
-  strict form (`vc_gpu_unavailable`). Missing or broken libraries are
-  `vc_runtime_incomplete`.
-- **GPU layout**: the external runtime's profile: 80 ms blocks, 40 ms crossfade searched
-  over 10 ms, 2 s of context (`Layout { block: 8, crossfade: 4, search: 1, extra: 200 }`),
-  every packet converted before it is answered. Added delay 52 ms (crossfade, search and
-  the two rate conversions).
+- **DirectML folder** (Windows, `--directml`): the `lib/` of the app's "ONNX Runtime ·
+  DirectML" runtime, shared with the local translation (`onnxruntime-directml`: ONNX Runtime
+  1.24.4, the last DirectML build, and DirectML 1.15.4, from NuGet after consent). The owner
+  passes it at every start when it is set up; a start cannot name it. A process loads one
+  ONNX Runtime, so the worker decides which folder to load before it loads anything, and
+  loads `DirectML.dll` first. The DirectML provider takes the GPU DirectML ranks highest for
+  performance (`HighPerformance`, GPUs only), so a laptop's discrete GPU over its integrated
+  one; memory patterns and parallel execution are off, as DirectML requires. The DirectML
+  build of ONNX Runtime ends at 1.24.4 (DirectML is in sustained engineering); the worker's
+  `ort` 2.0.0-rc.15 runs it (API 22 on Windows, API 17 elsewhere). This limit was accepted on
+  2026-11-20; what to do is decided when the worker's `ort` needs a newer ONNX Runtime than
+  1.24.
+- **Integrated GPUs** (Windows): before converting under `auto`, the worker asks ONNX
+  Runtime's device discovery about the GPU DirectML would take (the first in DXGI's
+  high-performance order, `backend::directml_adapters`). When its `Discrete` is `0`, it
+  converts on the CPU instead: an Intel Iris Xe took about 240 ms for a 40 ms block
+  ([measurements](../../docs/voice-stack/rvc-execution-providers-2026-11-20.md)). `--device
+  directml` and `--probe` still take an integrated GPU.
+- **Where it converts** (`--device`, default `auto`): `auto` takes CUDA when the runtime has
+  the CUDA provider and its libraries load, else DirectML when a DirectML folder is there and
+  the GPU is not an integrated one, else the CPU; a GPU whose check graph cannot run then leaves the CPU of the library
+  already loaded. On a PC with both, CUDA comes first, as before DirectML was offered. The
+  `ready` packet says which (`profile`: `low` for a GPU, CUDA or DirectML, `cpu`) and the
+  delay the worker adds (`latency_ms`); the application shows both. `--device cuda` and
+  `--device directml` keep the strict form (`vc_gpu_unavailable`,
+  `vc_directml_unavailable`). Missing or broken libraries are `vc_runtime_incomplete`. The
+  setup probes the DirectML runtime with `--device auto` on DirectML (exit 3 and a warning
+  when no GPU can be used through it).
+- **GPU layout** (CUDA and DirectML): one stream block per packet, a crossfade of half the block searched over
+  10 ms, 2 s of context, every packet converted before it is answered. At 80 ms this is the
+  external runtime's profile (`Layout { block: 8, crossfade: 4, search: 1, extra: 200 }`,
+  added delay 52 ms: crossfade, search and the two rate conversions); at 40 ms it is
+  `Layout { block: 4, crossfade: 2, search: 1, extra: 200 }` with an added delay of 32 ms.
+  The 2026-11-18 measurements of `rvc-stream` ([pipeline latency](../../docs/voice-stack/pipeline-latency-2026-11-18.md),
+  "声の変換") converted a 40 ms block in about 11 ms on average, but a few blocks per run
+  took 55 to 72 ms and came too late.
 - **CPU layout**: 0.5 s blocks, 50 ms crossfade, 10 ms search, 2.5 s of context, the only
   layout of the Phase 2 measurements in which every CPU block took less time than it lasts.
-  The blocks are converted on a thread of their own; every packet is answered at once from
-  what that thread finished, a fixed 14 packets (1.12 s) later, which leaves a whole block's
-  time for converting each block. Added delay 1182 ms. Until the first converted audio is
+  The blocks are converted on a thread of their own, whatever the packets' length; every
+  packet is answered at once from what that thread finished, a fixed 14 packets (1.12 s) of
+  80 ms later (26 packets, 1.04 s, of 40 ms), which leaves a whole block's time for
+  converting each block. Added delay 1182 ms with 80 ms packets. Until the first converted audio is
   due, the answers are silence (`vad_silence`). A block that comes after its place was
   answered is dropped, and when more than three blocks of input wait, the oldest is dropped
   unconverted. When more than half of the last eight blocks were late or dropped, the
   worker sends `failed` with `vc_capture_overrun` instead of the next answer and stops, as
   the owner stops a GPU worker that falls behind.
+- **CPU speed check** (2026-11-20): before `ready`, the CPU converts one 0.5 s block of a
+  test tone to settle its first runs, then two more, timed. When the faster of the two takes
+  at least the block's 0.5 s, the CPU cannot keep up from the start and the worker sends
+  `failed` with `vc_cpu_too_slow` instead of `ready`. An Intel Core i7-1255U took 1.07 s.
+  It applies to `--device cpu` and to `auto` when no GPU can be used; it adds two blocks'
+  time to the start (about 0.6 s on a CPU that keeps up).
 - Both: index blend from the user's index rate, speaker 0, random synthesis noise; the
   input high-pass of the specification is on (`--highpass off` matches the external runtime,
   for measurements); 48 kHz to 16 kHz in and the model's rate to 48 kHz out with
@@ -461,7 +525,7 @@ vrct-rvc-worker --runtime <dir> --probe [--device cuda|cpu|auto]   # exit 0 runs
 ### Measurements (2026-11-15)
 
 Same machine as above (Ryzen 9 9900X, RTX 4080 SUPER, driver 620.70), CUDA, the worker
-driven through the application's contract module (`protocol.py`) with a 22.9 s speech file
+driven through the application's contract module ([`protocol.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/voice_conversion/protocol.py)) with a 22.9 s speech file
 (the two public clips, twice, with pauses), fed in real time. Load average 1 – 16 from
 unrelated work during the runs. Round trip is the time from writing a block to reading its
 output.

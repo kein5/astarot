@@ -4,7 +4,9 @@
 //! directory, checked for size and SHA-256, and only then renamed into
 //! `<root>/<id>/<revision>/`. A failed, cancelled or interrupted download publishes nothing and
 //! leaves no staging behind; what a killed process left is reclaimed by the next owner of the
-//! root. Applying a download to the settings is a separate, explicit call.
+//! root. A published entry whose files no longer pass the check is moved out of the way and
+//! downloaded again when this app wrote everything in it; otherwise it is kept and the download
+//! fails. Applying a download to the settings is a separate, explicit call.
 
 pub mod catalog;
 pub mod guidance;
@@ -12,6 +14,7 @@ pub mod hardware;
 mod manager;
 pub mod speechcpp;
 pub mod staging;
+pub mod translation_catalog;
 pub mod transport;
 pub mod user_models;
 pub mod verification;
@@ -113,6 +116,18 @@ pub(crate) fn create_private_dir(path: &Path) -> io::Result<()> {
     }
 }
 
+/// Makes a rename inside `directory` durable where the system needs it (Linux: the folder's own
+/// entry is flushed, so a power cut does not undo a publish). Best effort: the rename itself has
+/// already succeeded, and Windows has no such step.
+pub fn sync_directory(directory: &Path) {
+    #[cfg(unix)]
+    if let Ok(folder) = std::fs::File::open(directory) {
+        let _ = folder.sync_all();
+    }
+    #[cfg(not(unix))]
+    let _ = directory;
+}
+
 /// `Path(root).expanduser().absolute()`: `~` expanded, made absolute without resolving links.
 pub(crate) fn absolute_root(root: &Path) -> PathBuf {
     let text = root.to_string_lossy();
@@ -152,5 +167,25 @@ pub fn free_space(path: &Path) -> io::Result<u64> {
         }
         // CPython's nt._getdiskusage reports the volume's free bytes, not the caller's quota.
         Ok(free)
+    }
+}
+
+/// When a row of the user's models or of the translation catalog was registered
+/// (`registered_at`): RFC 3339 in UTC, to the second, with the offset written out
+/// (`2026-11-21T00:05:03+00:00`), as chrono wrote it until #879.
+pub(crate) fn registered_at(at: jiff::Timestamp) -> String {
+    at.strftime("%Y-%m-%dT%H:%M:%S%:z").to_string()
+}
+
+#[cfg(test)]
+mod registered_at_tests {
+    use super::registered_at;
+
+    #[test]
+    fn a_registration_time_is_utc_to_the_second_with_the_offset_written_out() {
+        let at: jiff::Timestamp = "2026-11-21T09:05:03.999+09:00".parse().unwrap();
+        assert_eq!(registered_at(at), "2026-11-21T00:05:03+00:00");
+        let at: jiff::Timestamp = "2027-01-02T03:04:05Z".parse().unwrap();
+        assert_eq!(registered_at(at), "2027-01-02T03:04:05+00:00");
     }
 }

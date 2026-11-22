@@ -1,5 +1,7 @@
-//! The caption state of one realtime connection (`realtime_events.py`): only items the server
+//! The caption state of one realtime connection ([`realtime_events.py`]): only items the server
 //! announced can produce a final, at most once while tracked. No audio, translation or output.
+//!
+//! [`realtime_events.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/transcription/realtime_events.py
 
 use serde_json::Value;
 use std::collections::{HashMap, VecDeque};
@@ -297,6 +299,31 @@ mod tests {
         // A replayed event id changes nothing.
         assert!(events.accept(&event(2, "input_audio_buffer.speech_started", "b", json!({}))).unwrap().is_empty());
         assert!(events.pending_ids().is_empty());
+    }
+
+    #[test]
+    fn only_a_final_carries_the_detected_language_and_only_a_well_formed_one() {
+        // `test_completed_events_carry_the_detected_language_only_on_finals`.
+        let mut events = Events::new("speaker", "ns".into());
+        events.accept(&event(1, "input_audio_buffer.speech_started", "a", json!({}))).unwrap();
+        let partial = events.accept(&event(2, &format!("{PREFIX}delta"), "a", json!({ "delta": "Guten", "languages": [{ "code": "de" }] }))).unwrap();
+        let done = json!({ "transcript": "Guten Abend.", "stop": "complete", "languages": [{ "code": "de" }, { "code": "en" }] });
+        let final_ = events.accept(&event(3, &format!("{PREFIX}completed"), "a", done)).unwrap();
+        assert_eq!((partial[0].language.as_str(), final_[0].language.as_str(), final_[0].text.as_str()), ("", "de", "Guten Abend."));
+        let malformed = [json!([]), json!([{ "code": "DE; drop" }]), json!("de"), json!([{ "code": 3 }]), Value::Null, json!([{ "code": "zh-Hant-TW" }]), json!([{ "code": "e" }])];
+        for (i, languages) in malformed.into_iter().enumerate() {
+            let (item, id) = (format!("b{i}"), 10 + 2 * i as u32);
+            events.accept(&event(id, "input_audio_buffer.speech_started", &item, json!({}))).unwrap();
+            let mut extra = json!({ "transcript": "x", "stop": "complete" });
+            if !languages.is_null() {
+                extra["languages"] = languages.clone();
+            }
+            let final_ = events.accept(&event(id + 1, &format!("{PREFIX}completed"), &item, extra)).unwrap();
+            assert_eq!(final_[0].language, "", "{languages}");
+        }
+        events.accept(&event(40, "input_audio_buffer.speech_started", "c", json!({}))).unwrap();
+        let region = json!({ "transcript": "x", "stop": "complete", "languages": [{ "code": "pt-BR" }] });
+        assert_eq!(events.accept(&event(41, &format!("{PREFIX}completed"), "c", region)).unwrap()[0].language, "pt-BR");
     }
 
     #[test]

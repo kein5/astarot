@@ -1,6 +1,6 @@
 //! Windows direct voice: a chosen output device stands in for the managed sink.
 //!
-//! Port of `src-python/models/audio_routing/windows_route.py`. Windows has no
+//! Port of [`src-python/models/audio_routing/windows_route.py`]. Windows has no
 //! private virtual microphone to create, so the user's cable is the route: voice is
 //! written to its playback end and VRChat records from the other. No OS gate sits
 //! behind that device, so mute is applied here by writing silence, which keeps the
@@ -8,6 +8,8 @@
 //!
 //! The device access is behind [`RouteDevices`], so the queueing, stall and mute
 //! rules are the same, and tested, on every platform.
+//!
+//! [`src-python/models/audio_routing/windows_route.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/audio_routing/windows_route.py
 
 use std::collections::VecDeque;
 use std::sync::{Arc, Condvar, Mutex};
@@ -36,6 +38,59 @@ pub trait Capture: Send {
     /// Ask to stop without waiting (safe from any thread).
     fn request_stop(&self);
     fn stop(&mut self);
+    /// After [`Capture::stop`]: whether the device was confirmed released.
+    fn released(&self) -> bool {
+        true
+    }
+}
+
+/// The fixed codes a capture fails with (`_ERRORS` of [`capture_pipewire.py`]): those of the
+/// `vrct-asr-capture` helper of 0.5.x, which the captures of this crate kept, and those of its owner.
+///
+/// [`capture_pipewire.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/transcription/capture_pipewire.py
+pub const CAPTURE_CODES: [&str; 36] = [
+    "asr_capture_owner_gone",
+    "asr_capture_stalled",
+    "asr_capture_core_changed",
+    "asr_capture_core_error",
+    "asr_capture_stream_disconnected",
+    "asr_capture_clock_changed",
+    "asr_capture_latency_removed",
+    "asr_capture_format_removed",
+    "asr_capture_format_invalid",
+    "asr_capture_latency_invalid",
+    "asr_capture_latency_changed",
+    "asr_capture_stream_identity_invalid",
+    "asr_capture_clock_snapshot_inconsistent",
+    "asr_capture_clock_position_missing",
+    "asr_capture_clock_invalid",
+    "asr_capture_buffer_corrupted",
+    "asr_capture_discontinuity",
+    "asr_capture_buffer_invalid",
+    "asr_capture_timestamp_invalid",
+    "asr_capture_stale_buffer",
+    "asr_capture_pipe_blocked",
+    "asr_capture_endpoint_changed",
+    "asr_capture_unexpected_link",
+    "asr_capture_endpoint_removed",
+    "asr_capture_link_removed",
+    "asr_capture_endpoint_missing",
+    "asr_capture_stream_create_failed",
+    "asr_capture_stream_connect_failed",
+    "asr_capture_pipewire_version_unsupported",
+    "asr_capture_single_use",
+    "asr_capture_start_timeout",
+    "asr_capture_stopped",
+    "asr_capture_consumer_busy",
+    "asr_capture_consumer_closed",
+    "asr_capture_helper_closed",
+    "asr_capture_failed",
+];
+
+/// `capture_error_code`: a capture's code if it is one of [`CAPTURE_CODES`], else
+/// `asr_capture_failed`. Anything else a capture says (a driver's text) is never shown.
+pub fn capture_code(code: &str) -> &'static str {
+    CAPTURE_CODES.iter().find(|known| **known == code).copied().unwrap_or("asr_capture_failed")
 }
 
 /// What a capture reports. `on_audio` returns `false` to end the capture.
@@ -181,7 +236,7 @@ impl QueuedOutput {
             output: Mutex::new(Some(output)),
         });
         let (worker_state, worker_clock) = (state.clone(), clock.clone());
-        let worker = Worker::spawn("vrct-vc-output", move || {
+        let worker = Worker::spawn("astarot-vc-output", move || {
             // The device is taken out for writing so that a stuck write holds nothing
             // the closing thread needs.
             let Some(mut output) = lock(&worker_state.output).take() else { return };
@@ -362,7 +417,7 @@ impl WindowsBridge {
         state.requested = true;
         state.pending = true;
         let shared = self.shared.clone();
-        let worker = Worker::spawn("vrct-windows-bridge", move || run(&shared, &source)).map_err(|_| Error::runtime("source_bridge_output_failed"))?;
+        let worker = Worker::spawn("astarot-windows-bridge", move || run(&shared, &source)).map_err(|_| Error::runtime("source_bridge_output_failed"))?;
         state.worker = Some(worker);
         Ok(())
     }

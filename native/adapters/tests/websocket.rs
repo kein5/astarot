@@ -1,5 +1,7 @@
 //! Mirrors the module tests of `src-python/test/test_websocket_*.py` for
-//! `websocket_server.py`: token checks, limits, slow clients, start and stop, TLS.
+//! [`websocket_server.py`]: token checks, limits, slow clients, start and stop, TLS.
+//!
+//! [`websocket_server.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/websocket/websocket_server.py
 
 mod common;
 

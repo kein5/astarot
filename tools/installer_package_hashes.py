@@ -1,16 +1,19 @@
-"""Build the expected package hashes into the Windows installer.
+"""Build the expected package hash into the Windows installer.
 
-The installer downloads VRCT-VOX.zip or VRCT-VOX_cuda.zip from the release it came from. With
-the hashes of those two files built in, it refuses a package that was replaced on the release
-page, even when its .sha256 file was replaced with it. release.yml builds both ZIPs first, then:
+The installer downloads VRCT-VOX.zip from the release it came from. With the hash of that file
+built in, it refuses a package that was replaced on the release page, even when its .sha256 file
+was replaced with it. release.yml builds the ZIP first, then:
 
-    python tools/installer_package_hashes.py write --cpu VRCT-VOX.zip --gpu VRCT-VOX_cuda.zip.sha256
-    (bundle the installer with VRCT_REQUIRE_PACKAGE_HASHES=1)
-    python tools/installer_package_hashes.py check --cpu VRCT-VOX.zip --gpu VRCT-VOX_cuda.zip
+    python tools/installer_package_hashes.py write --package VRCT-VOX.zip
+    (bundle the installer with ASTAROT_REQUIRE_PACKAGE_HASHES=1)
+    python tools/installer_package_hashes.py check --package VRCT-VOX.zip
 
-`--cpu` and `--gpu` take a package (hashed here) or a .sha256 file (its first word).
+`--package` takes the ZIP (hashed here) or a .sha256 file (its first word).
 `write` creates src-tauri/nsis/package-hashes.nsh, which src-tauri/nsis/template.nsi includes;
-`check` compares that file with the packages that are about to be released.
+`check` compares that file with the package that is about to be released.
+
+Until 0.5 there was a second package, VRCT-VOX_cuda.zip, with the same files since 0.5.0. It is
+no longer built (#288); the installer reads its GPU choice (/EDITION=gpu) as VRCT-VOX.zip.
 """
 import argparse
 import hashlib
@@ -21,7 +24,7 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 INCLUDE = ROOT / "src-tauri" / "nsis" / "package-hashes.nsh"
 HEX = re.compile(r"[0-9a-f]{64}")
-NAMES = {"cpu": "PACKAGE_SHA256_CPU", "gpu": "PACKAGE_SHA256_GPU"}
+NAME = "PACKAGE_SHA256"
 
 
 def digest(path):
@@ -41,45 +44,41 @@ def digest(path):
     return value
 
 
-def render(hashes):
-    lines = ["; Written by tools/installer_package_hashes.py for one release build. Do not commit."]
-    lines += [f'!define {NAMES[edition]} "{hashes[edition]}"' for edition in ("cpu", "gpu")]
-    return "\n".join(lines) + "\n"
+def render(value):
+    return ("; Written by tools/installer_package_hashes.py for one release build. Do not commit.\n"
+            f'!define {NAME} "{value}"\n')
 
 
 def parse(text):
-    found = dict(re.findall(r'^!define (PACKAGE_SHA256_(?:CPU|GPU)) "([0-9a-f]{64})"$', text, re.M))
-    return {edition: found.get(name) for edition, name in NAMES.items()}
+    found = re.findall(rf'^!define {NAME} "([0-9a-f]{{64}})"$', text, re.M)
+    return found[0] if len(found) == 1 else None
 
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n", 1)[0])
     parser.add_argument("command", choices=("write", "check"))
-    parser.add_argument("--cpu", required=True, help="VRCT-VOX.zip or its .sha256 file")
-    parser.add_argument("--gpu", required=True, help="VRCT-VOX_cuda.zip or its .sha256 file")
+    parser.add_argument("--package", required=True, help="VRCT-VOX.zip or its .sha256 file")
     parser.add_argument("--include", type=Path, default=INCLUDE, help=argparse.SUPPRESS)
     args = parser.parse_args(argv)
     try:
-        hashes = {"cpu": digest(args.cpu), "gpu": digest(args.gpu)}
+        value = digest(args.package)
     except (OSError, ValueError) as error:
         print(f"error: {error}", file=sys.stderr)
         return 2
     if args.command == "write":
-        args.include.write_text(render(hashes), encoding="ascii", newline="\n")
-        print(f"wrote {args.include.name}: CPU {hashes['cpu']}, GPU {hashes['gpu']}")
+        args.include.write_text(render(value), encoding="ascii", newline="\n")
+        print(f"wrote {args.include.name}: {value}")
         return 0
     try:
         built = parse(args.include.read_text(encoding="ascii"))
     except OSError as error:
         print(f"error: {error}", file=sys.stderr)
         return 2
-    wrong = [edition for edition in ("cpu", "gpu") if built[edition] != hashes[edition]]
-    for edition in wrong:
-        print(f"error: the installer has {built[edition]} for {edition.upper()}, the package is {hashes[edition]}",
-              file=sys.stderr)
-    if not wrong:
-        print("the installer's built-in hashes match both packages")
-    return 1 if wrong else 0
+    if built != value:
+        print(f"error: the installer has {built} built in, the package is {value}", file=sys.stderr)
+        return 1
+    print("the installer's built-in hash matches the package")
+    return 0
 
 
 if __name__ == "__main__":

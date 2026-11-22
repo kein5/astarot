@@ -4,7 +4,7 @@ use std::borrow::Cow;
 use std::path::Path;
 
 use ort::ep::ExecutionProviderDispatch;
-use ort::session::{Session, SessionInputValue};
+use ort::session::{HasSelectedOutputs, OutputSelector, RunOptions, Session, SessionInputValue};
 use ort::value::Tensor;
 
 use crate::accelerate::{self, Accelerator, Fallback, Provider, Variant};
@@ -83,9 +83,73 @@ pub struct Translator {
     beam_size: usize,
     max_input_length: usize,
     max_decoding_length: usize,
+    shape: Shape,
+}
+
+/// The decoder's cache dimensions.
+#[derive(Clone, Copy)]
+struct Shape {
     layers: usize,
     heads: usize,
     head_size: usize,
+}
+
+/// Logits beyond the largest finite float16 (65504) mean the provider computed garbage: no
+/// model's logits come near it, and a float16 graph could not even hold them.
+const LOGIT_LIMIT: f32 = 65504.0;
+
+/// Whether every logit is a finite number within [`LOGIT_LIMIT`].
+fn sane(logits: &[f32]) -> bool {
+    !logits.is_empty() && logits.iter().all(|value| value.is_finite() && value.abs() <= LOGIT_LIMIT)
+}
+
+/// The encoder's output for source ids, `1 × length × hidden`.
+fn encode(encoder: &mut Session, source_ids: &[u32]) -> Result<Vec<f32>> {
+    let length = source_ids.len();
+    let input: Vec<i64> = source_ids.iter().map(|id| *id as i64).collect();
+    let outputs = encoder
+        .run(ort::inputs![
+            "input_ids" => Tensor::from_array(([1, length], input)).map_err(failed)?,
+            "attention_mask" => Tensor::from_array(([1, length], vec![1i64; length])).map_err(failed)?,
+        ])
+        .map_err(failed)?;
+    let (_, data) = outputs[0].try_extract_tensor::<f32>().map_err(failed)?;
+    Ok(data.to_vec())
+}
+
+/// One short translation on a provider that has just started (decision 76): the encoder, the
+/// first decoder step and one cached step, the path every translation takes. A provider can
+/// load the graphs and still fail on the first run, or run and give garbage (both seen with
+/// DirectML, 2026-11-18). Either is [`codes::PROVIDER_CHECK_FAILED`], and the model is then
+/// loaded on the CPU instead; running out of memory keeps its own code. The values are only
+/// checked for being numbers of a sane size, not compared with the CPU's.
+fn check(
+    encoder: &mut Session,
+    decoder: &mut Session,
+    shape: Shape,
+    source_ids: &[u32],
+    tokens: [u32; 2],
+) -> Result<()> {
+    let refused = |error: Error| {
+        if error.code == codes::OUT_OF_MEMORY {
+            error
+        } else {
+            Error::new(codes::PROVIDER_CHECK_FAILED)
+        }
+    };
+    let hidden = encode(encoder, source_ids).map_err(refused)?;
+    if !sane(&hidden) {
+        return Err(Error::new(codes::PROVIDER_CHECK_FAILED));
+    }
+    let mut steps = Steps::new(decoder, hidden, source_ids.len(), shape);
+    steps.vocabulary = steps.probe_vocabulary().map_err(refused)?;
+    for token in tokens {
+        let logits = steps.run(&[token], &[0]).map_err(refused)?;
+        if !sane(&logits) {
+            return Err(Error::new(codes::PROVIDER_CHECK_FAILED));
+        }
+    }
+    Ok(())
 }
 
 impl Translator {
@@ -99,8 +163,23 @@ impl Translator {
         let start = tokens.id(&manifest.decoder_start_token).ok_or_else(invalid)?;
         let end = tokens.id(&manifest.end_token).ok_or_else(invalid)?;
         let (encoder_path, decoder_path) = (bundle.path(&manifest.encoder), bundle.path(&manifest.decoder));
-        // Both graphs on one provider: the encoder's output feeds the decoder.
-        let opened = accelerate::open_with_fallback(at, |at| Ok((session(&encoder_path, at)?, session(&decoder_path, at)?)))?;
+        let shape = Shape {
+            layers: manifest.decoder_layers,
+            heads: manifest.decoder_attention_heads,
+            head_size: manifest.hidden_size / manifest.decoder_attention_heads,
+        };
+        // The check's source: a language token and the end token (Tokens::load found them all).
+        let language = tokens.id(&manifest.language_token.replace("{}", &manifest.languages[0])).ok_or_else(invalid)?;
+        // Both graphs on one provider: the encoder's output feeds the decoder. A provider other
+        // than the CPU must also translate once before it is used (decision 76).
+        let opened = accelerate::open_with_fallback(at, |at| {
+            let mut encoder = session(&encoder_path, at)?;
+            let mut decoder = session(&decoder_path, at)?;
+            if at.provider != Provider::Cpu {
+                check(&mut encoder, &mut decoder, shape, &[language, end], [start, language])?;
+            }
+            Ok((encoder, decoder))
+        })?;
         let (encoder, decoder) = opened.value;
         Ok(Translator {
             tokens,
@@ -116,9 +195,7 @@ impl Translator {
             beam_size: manifest.beam_size,
             max_input_length: manifest.max_input_length,
             max_decoding_length: manifest.max_decoding_length,
-            layers: manifest.decoder_layers,
-            heads: manifest.decoder_attention_heads,
-            head_size: manifest.hidden_size / manifest.decoder_attention_heads,
+            shape,
         })
     }
 
@@ -160,20 +237,7 @@ impl Translator {
         if source_ids.len() > self.max_input_length {
             return Err(Error::new(codes::INPUT_TOO_LONG));
         }
-        let length = source_ids.len();
-        let input: Vec<i64> = source_ids.iter().map(|id| *id as i64).collect();
-        let mask = vec![1i64; length];
-        let hidden = {
-            let outputs = self
-                .encoder
-                .run(ort::inputs![
-                    "input_ids" => Tensor::from_array(([1, length], input)).map_err(failed)?,
-                    "attention_mask" => Tensor::from_array(([1, length], mask.clone())).map_err(failed)?,
-                ])
-                .map_err(failed)?;
-            let (_, data) = outputs[0].try_extract_tensor::<f32>().map_err(failed)?;
-            data.to_vec()
-        };
+        let hidden = encode(&mut self.encoder, source_ids)?;
         let settings = beam::Search {
             beam_size: self.beam_size,
             max_length: self.max_decoding_length,
@@ -181,18 +245,7 @@ impl Translator {
             end: self.end,
             prefix,
         };
-        let mut steps = Steps {
-            decoder: &mut self.decoder,
-            hidden,
-            length,
-            layers: self.layers,
-            heads: self.heads,
-            head_size: self.head_size,
-            vocabulary: 0,
-            own: Vec::new(),
-            cross: Vec::new(),
-            past: 0,
-        };
+        let mut steps = Steps::new(&mut self.decoder, hidden, source_ids.len(), self.shape);
         steps.vocabulary = steps.probe_vocabulary()?;
         Ok(beam::search(&mut steps, &settings)?.tokens)
     }
@@ -230,9 +283,46 @@ struct Steps<'a> {
     /// Per layer, key then value of the attention to the source: `1 × heads × length × head`.
     cross: Vec<Vec<f32>>,
     past: usize,
+    /// The outputs a cached step fetches, made at the first cached step.
+    cached_step: Option<RunOptions<HasSelectedOutputs>>,
+}
+
+/// What a cached step fetches: every output but the source's keys and values. The graph gives
+/// those with no rows after the first step (the first step's stay in use), and ONNX Runtime's
+/// DirectML provider, asked for an output with no elements, gives wrong values for the other
+/// outputs of the same run (seen with 1.24.4 on Intel and NVIDIA GPUs, 2026-11-18). Left out,
+/// every provider computes the same logits and cache.
+fn cached_step_options(layers: usize) -> Result<RunOptions<HasSelectedOutputs>> {
+    let mut selector = OutputSelector::default();
+    for layer in 0..layers {
+        for kind in ["key", "value"] {
+            selector = selector.without(format!("present.{layer}.encoder.{kind}"));
+        }
+    }
+    Ok(RunOptions::new().map_err(failed)?.with_outputs(selector))
 }
 
 type Inputs = Vec<(Cow<'static, str>, SessionInputValue<'static>)>;
+
+impl<'a> Steps<'a> {
+    /// The steps of one translation, before the first: no cache yet. Set `vocabulary` with
+    /// [`Steps::probe_vocabulary`] before the first step.
+    fn new(decoder: &'a mut Session, hidden: Vec<f32>, length: usize, shape: Shape) -> Steps<'a> {
+        Steps {
+            decoder,
+            hidden,
+            length,
+            layers: shape.layers,
+            heads: shape.heads,
+            head_size: shape.head_size,
+            vocabulary: 0,
+            own: Vec::new(),
+            cross: Vec::new(),
+            past: 0,
+            cached_step: None,
+        }
+    }
+}
 
 impl Steps<'_> {
     /// The vocabulary is the logits' width; it is known from the graph's output.
@@ -291,7 +381,14 @@ impl Steps<'_> {
                 inputs.push((format!("past_key_values.{layer}.encoder.{kind}").into(), cross));
             }
         }
-        let outputs = self.decoder.run(inputs).map_err(failed)?;
+        if !first && self.cached_step.is_none() {
+            self.cached_step = Some(cached_step_options(self.layers)?);
+        }
+        let outputs = match (&self.cached_step, first) {
+            (Some(options), false) => self.decoder.run_with_options(inputs, options),
+            _ => self.decoder.run(inputs),
+        }
+        .map_err(failed)?;
         let (shape, logits) = outputs["logits"].try_extract_tensor::<f32>().map_err(failed)?;
         if shape.len() != 3 || shape[0] as usize != beams || shape[1] != 1 || shape[2] as usize != self.vocabulary {
             return Err(Error::new(codes::RUNTIME_FAILED));
@@ -332,5 +429,39 @@ impl Scorer for Steps<'_> {
 
     fn step(&mut self, tokens: &[u32], origins: &[usize]) -> Result<Vec<f32>> {
         self.run(tokens, origins)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn only_finite_logits_of_a_sane_size_pass_the_check() {
+        assert!(sane(&[-30.5, 0.0, 12.25, LOGIT_LIMIT, -LOGIT_LIMIT]));
+        assert!(!sane(&[]));
+        assert!(!sane(&[1.0, f32::NAN]));
+        assert!(!sane(&[f32::INFINITY]));
+        assert!(!sane(&[f32::NEG_INFINITY, 0.0]));
+        // What DirectML gave from a cached step with an output of no elements (2026-11-18).
+        assert!(!sane(&[0.5, 1.8e34]));
+        assert!(!sane(&[LOGIT_LIMIT * 2.0]));
+    }
+
+    #[test]
+    fn a_failed_check_falls_back_to_the_cpu_and_says_why() {
+        // A provider every platform builds in (DirectML is Windows only: elsewhere it is
+        // unavailable before any check runs).
+        let gpu = Accelerator::new(Provider::Cuda, 1);
+        let opened = accelerate::open_with_fallback(gpu, |at| {
+            if at.provider == Provider::Cpu {
+                Ok(at)
+            } else {
+                Err(Error::new(codes::PROVIDER_CHECK_FAILED))
+            }
+        })
+        .unwrap();
+        assert_eq!(opened.used, Accelerator::CPU);
+        assert_eq!(opened.fallback, Some(Fallback { requested: gpu, code: codes::PROVIDER_CHECK_FAILED }));
     }
 }

@@ -10,7 +10,7 @@ import * as styles from "./CompanionPanel.css.ts";
 export const CompanionPanel = ({ bridge = companionBridge }: { bridge?: CompanionBridge }) => {
     const { t, i18n } = useI18n();
     const [status, setStatus] = useState<CompanionStatus | null>(null);
-    const first = useRef<HTMLButtonElement>(null) as RefObject<HTMLButtonElement>;
+    const first = useRef<HTMLButtonElement>(null);
     const titleId = useId();
 
     useEffect(() => {
@@ -49,7 +49,7 @@ export const CompanionPanel = ({ bridge = companionBridge }: { bridge?: Companio
     return (
         <main className={styles.panel} aria-labelledby={titleId}>
             <header className={styles.header}>
-                <h1 id={titleId} className={styles.title}>VRCT-VOX</h1>
+                <h1 id={titleId} className={styles.title}>ASTAROT</h1>
                 <p role="status" className={styles.state} data-state={state}>
                     <span className={styles.dot} aria-hidden="true" />
                     {t(`companion.state_${state}`)}
@@ -78,17 +78,20 @@ type SwitchRowProps = {
     value: Switch | undefined;
     disabled: boolean;
     onClick: () => void;
-    buttonRef?: RefObject<HTMLButtonElement>;
+    buttonRef?: RefObject<HTMLButtonElement | null>;
     t: (key: string) => string;
 };
 
+// A switch whose main switch is greyed out (blocked) says it cannot be used and stays pressable:
+// pressing it brings the main window forward with the reason, as the tray does (#562).
 const SwitchRow = ({ label, value, disabled, onClick, buttonRef, t }: SwitchRowProps) => {
-    const on = value?.on === true, pending = value?.pending === true;
+    const on = value?.on === true, pending = value?.pending === true, blocked = value?.blocked === true;
     return (
         <button ref={buttonRef} type="button" role="switch" aria-checked={on} aria-busy={pending}
+            aria-disabled={blocked || undefined} data-blocked={blocked}
             disabled={disabled || pending} className={styles.switchRow} onClick={onClick}>
             <span className={styles.switchLabel}>{label}</span>
-            <span className={styles.switchValue}>{t(on ? "companion.on" : "companion.off")}</span>
+            <span className={styles.switchValue}>{t(blocked ? "companion.unavailable" : on ? "companion.on" : "companion.off")}</span>
             <span className={styles.track} aria-hidden="true"><span className={styles.thumb} /></span>
         </button>
     );

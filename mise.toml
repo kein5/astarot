@@ -11,23 +11,66 @@ node = "26.13.1"
 # Installed through rustup. Cargo.toml's rust-version (1.92) is the oldest that builds;
 # this is the version development and CI use.
 rust = { version = "1.100.0", profile = "minimal", components = "clippy,rustfmt" }
-# pyproject.toml requires 3.11.*: the build tools, the tests and the Python backend kept as the
-# specification until it is removed (the packages carry no Python since 0.5.0).
-python = "3.11.18"
+# The one place the Python version is set: the build tools and the tests (the packages carry no
+# Python since 0.5.0, and the Python backend went in 0.6.0).
+# pyproject.toml's requires-python names the same minor version (tests/devtools/test_toolchain_pins.py),
+# and uv takes this interpreter from PATH instead of choosing a version of its own.
+python = "3.14.10"
 uv = "0.13.5"
 cocogitto = "7.0.0"
+# Lints and formats the UI's TypeScript and JavaScript (biome.json; `python tools/dev.py check --scope ui`).
+biome = "2.6.6"
+# Checks of the repository itself. Each takes the newest release that had been out for two weeks
+# when it was added (2026-11-21; docs/development.md); CI installs only the ones a job runs
+# (install_args).
+# The workflows: actionlint for syntax and expressions, zizmor for security problems. actionlint
+# runs shellcheck on the scripts in `run:` (0.11.0 was the newest release, out since 2025-08-04).
+actionlint = "1.7.12"
+shellcheck = "0.11.0"
+zizmor = "1.32.0"
+# The Rust crates: cargo-deny for licenses, advisories and sources; cargo-nextest runs the tests.
+# mise's registry has no cargo-nextest, so it comes from its GitHub releases (see [tool_alias]).
+cargo-deny = "0.20.2"
+cargo-nextest = { version = "0.9.151", version_prefix = "cargo-nextest-" }
+# Coverage and mutation tests of the Rust crates, run by hand and by the coverage job
+# (docs/development.md, "Rustのカバレッジとミューテーションテスト"; #550). Built with cargo
+# (cargo-binstall where it is installed); the versions are those #550 measured with.
+"cargo:cargo-llvm-cov" = "0.9.1"
+"cargo:cargo-mutants" = "27.1.0"
+# Secrets in the history and known vulnerabilities in the lock files.
+gitleaks = "8.30.1"
+osv-scanner = "2.7.0"
+# Links in the documents and the user guide.
+lychee = "0.24.2"
+# Git hooks.
+hk = "2.11.1"
+# Structural search and rewrite for migrations (ast-grep), and the software bill of materials of
+# a release (syft). Pinned for those tasks; no check runs them.
+ast-grep = "0.51.1"
+syft = "1.57.0"
+
+[tool_alias]
+cargo-nextest = "github:nextest-rs/nextest"
 
 # No uv settings in [env]: mise exports [env] to every program it starts. Tasks that create
 # environments set them for themselves instead.
+[env]
+# ONNX Runtime otherwise writes a device id under ~/.cache/Microsoft and sends usage events from
+# every tool and test that creates a session (#574): the Rust tests that load it, and the Python
+# environments of the translation export and the RVC reference. Exported to everything mise starts
+# on purpose; the app's own ONNX Runtime sets this itself.
+ORT_DISABLE_TELEMETRY = "1"
 
 # Every task forwards extra arguments to its command, e.g. `mise run check -- --dry-run`.
+# The shortcuts to tools/dev.py live here only; package.json keeps the scripts that need npm
+# (tests/devtools/test_dev_shortcuts.py).
 
 [tasks.doctor]
 description = "Show missing tools and dependencies (no downloads)"
 run = "python tools/dev.py doctor"
 
 [tasks.check]
-description = "Quick checks: developer tools, Node tests and Ruff"
+description = "Quick checks: developer tools, UI tests (Vitest) and Ruff"
 run = "python tools/dev.py check"
 
 [tasks."check:all"]
@@ -39,16 +82,40 @@ description = "Voice contract tests without models"
 run = "python tools/dev.py check --scope voice"
 
 [tasks."check:ui"]
-description = "Node tests and the Vite build"
+description = "UI tests (Vitest), Biome (lint and format check), the type check and the Vite build"
 run = "python tools/dev.py check --scope ui"
 
-[tasks."check:backend"]
-description = "Backend tests (pass --python for a venv with the app dependencies)"
-run = "python tools/dev.py check --scope backend"
-
 [tasks."check:rust"]
-description = "cargo check and cargo test of the Tauri app and the native crates"
+description = "cargo check of the Tauri app, and the native crates' tests (cargo-nextest and doctests)"
 run = "python tools/dev.py check --scope rust"
+
+[tasks."check:integration"]
+description = "Integration tests: the screens in Chromium and WebKit through the real core (Playwright)"
+run = "python tools/dev.py check --scope integration"
+
+[tasks."check:workflows"]
+description = "Workflows and the repository's own actions (actionlint, zizmor)"
+run = "python tools/dev.py check --scope workflows"
+
+[tasks."check:crates"]
+description = "Licenses and sources of every Cargo workspace's dependencies (cargo-deny; setup:rust first)"
+run = "python tools/dev.py check --scope crates"
+
+[tasks."check:links"]
+description = "Links between the Markdown files and to their headings (lychee; offline)"
+run = "python tools/dev.py check --scope links"
+
+[tasks."check:hooks"]
+description = "The Git hooks' settings in hk.pkl (hk validate)"
+run = "python tools/dev.py check --scope hooks"
+
+[tasks."check:vulns"]
+description = "Known vulnerabilities of every lock file (osv-scanner; asks osv.dev)"
+run = "python tools/dev.py check --scope vulns"
+
+[tasks."check:secrets"]
+description = "Keys and tokens in the commits since origin/develop (gitleaks; fetch it first)"
+run = "python tools/dev.py check --scope secrets --base origin/develop"
 
 [tasks."check:commits"]
 description = "Commit messages since origin/develop (fetch it first)"
@@ -68,28 +135,30 @@ description = "Python packages for the browser tests (build/dev/browser-venv)"
 run = "python tools/dev.py setup --scope browser"
 env = { UV_PYTHON_PREFERENCE = "only-system" }
 
-[tasks."setup:backend"]
-description = "Python packages for the backend tests on Linux (build/dev/backend-venv)"
-run = "python tools/dev.py setup --scope backend"
-env = { UV_PYTHON_PREFERENCE = "only-system" }
-
 [tasks."setup:rust"]
 description = "cargo fetch --locked for the Tauri app and the native crates"
 run = "python tools/dev.py setup --scope rust"
+
+[tasks."setup:integration"]
+description = "The core host's Rust dependencies and Playwright's Chromium and WebKit (several hundred MB)"
+run = "python tools/dev.py setup --scope integration"
 
 [tasks."setup:resources"]
 description = "src-tauri/bin/_internal for tauri dev and cargo check (stages what build/ has)"
 run = "python tools/dev.py setup --scope resources"
 
-[tasks."setup:app"]
-description = "App Python environments from uv.lock: .venv and .venv_cuda on Windows, .venv_linux on Linux"
-run = "uv sync --frozen --python 3.11"
-run_windows = "bat\\install.bat"
-env = { UV_PROJECT_ENVIRONMENT = ".venv_linux", UV_PYTHON_PREFERENCE = "only-system" }
+[tasks."setup:hooks"]
+description = "Git hooks from hk.pkl in this clone (hk install; only when asked)"
+run = "python tools/dev.py setup --scope hooks"
 
 [tasks.spec]
-description = "Regenerate the spec reference (docs/spec/reference/) from the code"
-run = "python tools/spec_catalog.py --write"
+description = "Regenerate the spec reference (docs/spec/reference/): the core's catalog, then the tables"
+env = { VRCT_SPEC_CATALOG_WRITE = "1" }
+run = "cargo test --locked --manifest-path native/core/Cargo.toml --test spec_catalog && python tools/spec_catalog.py --write"
+
+[tasks.adr]
+description = "Regenerate the ADR index table (docs/adr/README.md) from the front matter"
+run = "python tools/adr_catalog.py --write"
 
 [tasks."build:voice-gate"]
 description = "Linux audio helpers in build/ (needs the PipeWire development files)"
@@ -110,6 +179,10 @@ run = "python tools/build_linux.py"
 [tasks."changelog:print"]
 description = "Show the next release's changes without writing anything"
 run = "python tools/changelog.py print"
+
+[tasks."changelog:notes"]
+description = "Start docs/release-notes/<version>.md for a stable release (never overwrites)"
+run = "python tools/changelog.py scaffold-notes"
 
 [tasks."dev:web"]
 description = "Web UI development server (Vite)"

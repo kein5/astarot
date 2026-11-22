@@ -4,7 +4,7 @@ The Linux builder can also produce an x86_64 AppImage containing the release GUI
 runs the Rust backend core in its own process, and the `_internal` folder of the
 [Linux candidate](linux-build-pipeline.md): both pinned speech.cpp builds (CPU and Vulkan), the RVC worker and the
 audio and capture helpers. Since 0.5.0 no Python runtime is shipped. The
-[`v0.1.0-beta.1` prerelease](https://github.com/kein5/VRCT-VOX/releases/tag/v0.1.0-beta.1)
+[`v0.1.0-beta.1` prerelease](https://github.com/kein5/astarot/releases/tag/v0.1.0-beta.1)
 ships an AppImage built by the hosted Linux candidate workflow; an image you
 build locally is an unpublished candidate.
 It deploys GTK/WebKit dependencies before adding `_internal` under `usr/lib/vrct-vox/`, so
@@ -91,7 +91,7 @@ XIM module, so Mozc and other host input methods can type into the window.
 A user-set `XMODIFIERS` is kept.
 
 The launcher records the host's values of these variables, `LD_LIBRARY_PATH`, `PATH` and the
-GTK/GIO settings as `VRCT_APPIMAGE_HOST_<NAME>` and `VRCT_APPIMAGE_HOST_<NAME>_SET` before it
+GTK/GIO settings as `ASTAROT_APPIMAGE_HOST_<NAME>` and `ASTAROT_APPIMAGE_HOST_<NAME>_SET` before it
 changes them. Up to 0.4 a separate launcher gave them back to the Python backend. Now the
 backend runs inside the GUI process, and every program it starts (speech.cpp, the helpers,
 the RVC worker, `xdg-open`) inherits the GUI environment unless the code that starts it
@@ -109,14 +109,14 @@ Windows and other rendering paths retain their configured transparency.
 ## Acceptance and limits
 
 ```sh
-VRCT_TEST_APPIMAGE=/absolute/path/candidate.AppImage \
-VRCT_TEST_APPIMAGE_FUSE=1 VRCT_TEST_NATIVE_GUI=1 VRCT_TEST_NATIVE_ROUTE=1 \
+ASTAROT_TEST_APPIMAGE=/absolute/path/candidate.AppImage \
+ASTAROT_TEST_APPIMAGE_FUSE=1 ASTAROT_TEST_NATIVE_GUI=1 ASTAROT_TEST_NATIVE_ROUTE=1 \
 uv run --no-project --python /usr/bin/python3 tools/display_power_guard.py -- \
 build/dev/headless-venv/bin/python -m pytest \
   -c tests/voice/pytest.ini tests/platform/test_appimage.py -q
 ```
 
-Supply `VRCT_TEST_DRIVER` for a different tauri-driver 2.1.0 location. The system
+Supply `ASTAROT_TEST_DRIVER` for a different tauri-driver 2.1.0 location. The system
 Python running the display guard needs Gio. Tests copy the actual image to a
 path with spaces and cover native drawing/shutdown plus private managed routing,
 settings persistence and restart muted, for both FUSE and extraction. The
@@ -130,7 +130,7 @@ FUSE, physical audio or private routing acceptance on Ubuntu 24.04.
 
 Both the WebDriver and normal-launch tests pass `VRCT_CONFIG_DIR`, so they remain
 independent of an installed app. For manual AppImage tests with isolated `XDG_*`
-directories, also set `VRCT_CONFIG_DIR` to `$XDG_CONFIG_HOME/vrct-vox`, preserving
+directories, also set `ASTAROT_CONFIG_DIR` to `$XDG_CONFIG_HOME/astarot`, preserving
 the same state location. See the [Linux acceptance guide](linux-build-pipeline.md#acceptance-and-exclusions)
 for testing the single-instance guard itself and its D-Bus requirement.
 

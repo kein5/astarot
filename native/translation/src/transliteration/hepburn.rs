@@ -1,9 +1,11 @@
-//! Katakana to Hepburn romaji (`transliteration_kana_to_hepburn.py`), rule for rule.
+//! Katakana to Hepburn romaji ([`transliteration_kana_to_hepburn.py`]), rule for rule.
 //!
 //! The Python function is ported as it is, quirks included, so that the readings the UI shows
 //! do not change: anything that is not katakana passes through, a passing `-` is read as a
 //! long-vowel mark, an `n` before `b`, `m` or `p` becomes `m` wherever it comes from, and the
 //! result is lower-cased.
+//!
+//! [`transliteration_kana_to_hepburn.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/transliteration/transliteration_kana_to_hepburn.py
 
 fn base(c: char) -> Option<&'static str> {
     Some(match c {
@@ -260,6 +262,67 @@ pub fn katakana_to_hepburn(kata: &str, use_macron: bool) -> String {
 #[cfg(test)]
 mod tests {
     use super::katakana_to_hepburn as h;
+    use super::{base, digraph};
+
+    /// The `base` and `digraphs` tables of [`transliteration_kana_to_hepburn.py`], copied out
+    /// entry by entry (its multi-character `シェ` key never matches one character, so it is left
+    /// out). Each entry is the kana followed by its romaji.
+    ///
+    /// [`transliteration_kana_to_hepburn.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/transliteration/transliteration_kana_to_hepburn.py
+    const PYTHON_BASE: &str = "アa イi ウu エe オo カka キki クku ケke コko サsa シshi スsu セse ソso \
+        タta チchi ツtsu テte トto ナna ニni ヌnu ネne ノno ハha ヒhi フfu ヘhe ホho マma ミmi ムmu \
+        メme モmo ヤya ユyu ヨyo ラra リri ルru レre ロro ワwa ヲwo ンn ガga ギgi グgu ゲge ゴgo \
+        ザza ジji ズzu ゼze ゾzo ダda ヂji ヅzu デde ドdo バba ビbi ブbu ベbe ボbo パpa ピpi プpu \
+        ペpe ポpo ァa ィi ゥu ェe ォo ャya ュyu ョyo ッxtsu ー- ヴvu";
+    const PYTHON_DIGRAPHS: &str = "キャkya キュkyu キョkyo ギャgya ギュgyu ギョgyo シャsha シュshu \
+        ショsho ジャja ジュju ジョjo チャcha チュchu チョcho ニャnya ニュnyu ニョnyo ヒャhya ヒュhyu \
+        ヒョhyo ビャbya ビュbyu ビョbyo ピャpya ピュpyu ピョpyo ミャmya ミュmyu ミョmyo リャrya \
+        リュryu リョryo フャfya フュfyu フョfyo トゥtu ドゥdu ファfa フィfi フェfe フォfo シェshe \
+        チェche ティti ウァwa ウィwi ウェwe ウォwo スィsi ズィzi ツァtsa ツィtsi ツェtse ツォtso \
+        キェkye ギェgye ヴァva ヴィvi ヴェve ヴォvo ヴュvyu";
+
+    /// The katakana block, where every table key lies.
+    fn katakana() -> impl Iterator<Item = char> + Clone {
+        '\u{30a0}'..='\u{30ff}'
+    }
+
+    #[test]
+    fn every_kana_reads_as_in_the_python_table_and_no_other_does() {
+        let mut expected = std::collections::HashMap::new();
+        for entry in PYTHON_BASE.split_whitespace() {
+            let mut chars = entry.chars();
+            let kana = chars.next().unwrap();
+            assert!(expected.insert(kana, chars.as_str()).is_none(), "{kana} twice");
+        }
+        assert_eq!(expected.len(), 82);
+        for kana in katakana() {
+            assert_eq!(base(kana), expected.get(&kana).copied(), "{kana}");
+        }
+    }
+
+    #[test]
+    fn every_pair_reads_as_in_the_python_table_and_no_other_does() {
+        let mut expected = std::collections::HashMap::new();
+        for entry in PYTHON_DIGRAPHS.split_whitespace() {
+            let mut chars = entry.chars();
+            let pair = (chars.next().unwrap(), chars.next().unwrap());
+            assert!(expected.insert(pair, chars.as_str()).is_none(), "{pair:?} twice");
+        }
+        assert_eq!(expected.len(), 62);
+        for first in katakana() {
+            for second in katakana() {
+                assert_eq!(digraph(first, second), expected.get(&(first, second)).copied(), "{first}{second}");
+            }
+        }
+    }
+
+    #[test]
+    fn a_small_tsu_doubles_the_consonant_of_the_pair_or_kana_after_it() {
+        // ウァ is wa but ウ alone has no consonant, so only the pair gives the w.
+        assert_eq!(h("ッウァ", false), "wwa");
+        // When the next two make no pair, the next kana alone gives it.
+        assert_eq!(h("ッカア", false), "kkaa");
+    }
 
     #[test]
     fn the_python_examples_read_the_same() {

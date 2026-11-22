@@ -18,7 +18,7 @@ def _build(base, platform):
         (build / bundle / f"speech{exe}").write_bytes(b"engine")
         (build / bundle / "bundle.json").write_text("{}")
         (build / bundle / "notices/LICENSE.txt").write_text("notice")
-    (build / f"vrct-rvc-worker{exe}").write_bytes(b"worker")
+    (build / f"astarot-rvc-worker{exe}").write_bytes(b"worker")
     (build / "licenses/rust").mkdir(parents=True)
     (build / "licenses/rust/crates.json").write_text("[]")
     if platform == "linux":
@@ -27,6 +27,9 @@ def _build(base, platform):
     for name in app_resources.runtime_libraries(platform):
         (build / name).parent.mkdir(parents=True, exist_ok=True)
         (build / name).write_bytes(b"library")
+    (build / "sudachi").mkdir()
+    for name in app_resources.SUDACHI_FILES:
+        (build / "sudachi" / name).write_bytes(b"dictionary")
     return build
 
 
@@ -91,12 +94,21 @@ class AppResourcesTests(unittest.TestCase):
         absent = app_resources.stage(self.output, "windows", build, ROOT)
         self.assertEqual(absent, ["onnxruntime/onnxruntime.dll", "openvr/libopenvr_api_64.dll"])
 
+    def test_a_package_without_the_readings_dictionary_is_incomplete(self):
+        # 0.5.0 shipped without it, and messages had no readings (#924).
+        for platform in ("windows", "linux"):
+            self.assertIn("build/sudachi/system.dic", app_resources.required(platform))
+            self.assertIn("build/sudachi/LEGAL", app_resources.required(platform))
+        build = _build(self.base, "windows")
+        (build / "sudachi/system.dic").unlink()
+        self.assertEqual(app_resources.stage(self.output, "windows", build, ROOT), ["build/sudachi/system.dic"])
+
     def test_a_missing_engine_is_reported(self):
         build = self.base / "build"
         build.mkdir()
         absent = app_resources.stage(self.output, "windows", build, ROOT)
         self.assertIn("build/speechcpp/speech.exe", absent)
-        self.assertIn("build/vrct-rvc-worker.exe", absent)
+        self.assertIn("build/astarot-rvc-worker.exe", absent)
         self.assertEqual(app_resources.main(["--platform", "windows", "check", str(self.output)]), 1)
 
 

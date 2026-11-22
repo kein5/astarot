@@ -1,12 +1,17 @@
 //! OSC towards VRChat through the IPC surface (Issue #285): the destination, typing, the switch
 //! to VRChat, VRChat's presence, mic mute sync and the `/run/enable_osc_query` notifications.
-//! The behaviours are those of `src-python/test/test_osc_controller_lifecycle.py`,
-//! `test_model_osc_mute_sync.py`, `test_osc_vrchat_presence.py` and the OSC parts of
-//! `test_endpoints.py`.
+//! The behaviours are those of [`src-python/test/test_osc_controller_lifecycle.py`],
+//! [`test_model_osc_mute_sync.py`], [`test_osc_vrchat_presence.py`] and the OSC parts of
+//! [`test_endpoints.py`].
 //!
 //! Packets go to UDP sockets the test binds on 127.0.0.2: a destination on this PC that is not
 //! `127.0.0.1`, so the real link never starts OSCQuery or mDNS. Receiving and VRChat's answers
 //! are played by `common::fake_osc` where a test needs them.
+//!
+//! [`src-python/test/test_osc_controller_lifecycle.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/test/test_osc_controller_lifecycle.py
+//! [`test_model_osc_mute_sync.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/test/test_model_osc_mute_sync.py
+//! [`test_osc_vrchat_presence.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/test/test_osc_vrchat_presence.py
+//! [`test_endpoints.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/test/test_endpoints.py
 
 mod common;
 
@@ -135,6 +140,97 @@ fn typing_reaches_vrchat_and_turning_sending_off_ends_it() {
     assert_eq!(refused(&ui, "/set/enable/vrc_mic_mute_sync", Value::Null), ("VRC_MIC_MUTE_SYNC_OSC_DISABLED".into(), json!(false)));
     ui.ok("/run/shutdown", None);
     assert_eq!(ui.saved()["OSC_PORT"], other_port);
+    ui.stop();
+}
+
+/// A stand-in for VRChat's OSC port on 127.0.0.1, where OSCQuery is used.
+fn local_vrchat() -> (UdpSocket, u16) {
+    let socket = UdpSocket::bind(("127.0.0.1", 0)).unwrap();
+    let port = socket.local_addr().unwrap().port();
+    (socket, port)
+}
+
+#[test]
+fn oscquery_turned_off_starts_nothing_and_messages_still_go_out() {
+    // #559: the user turned OSCQuery off. VRChat is on this PC, but nothing receives, advertises
+    // or browses; mute sync cannot run and VRChat's presence is unknown.
+    let (socket, port) = local_vrchat();
+    let run = start(json!({ "OSC_PORT": port, "OSC_QUERY": false }), false);
+    let ui = &run.ui;
+    assert_eq!(ui.ready()["/get/data/osc_query"], false);
+    // A choice made in the settings: no warning at start-up with nothing stopped.
+    let notice = ui.wait_endpoint(0, "/run/enable_osc_query");
+    assert_eq!(
+        notice["result"],
+        json!({ "data": false, "disabled_functions": [], "reason": "turned_off", "microphone_stopped": false })
+    );
+    assert!(!run.osc().allowed.load(Ordering::SeqCst));
+    assert!(!vrct_core::controller::Osc::query_enabled(run.osc().as_ref()));
+    assert_eq!(ui.ok("/get/data/vrchat_osc_presence", None), "unknown");
+    assert_eq!(refused(ui, "/set/enable/vrc_mic_mute_sync", Value::Null), ("VRC_MIC_MUTE_SYNC_OSC_DISABLED".into(), json!(false)));
+    // Messages still go out.
+    ui.ok("/run/typing_message_box", None);
+    assert_eq!(received(&socket, Duration::from_secs(2)), Some(typing(true)));
+    ui.ok("/run/stop_typing_message_box", None);
+    assert_eq!(received(&socket, Duration::from_secs(2)), Some(typing(false)));
+
+    // On: receiving starts, VRChat is seen and mute sync can be turned on.
+    let mark = ui.lines().len();
+    assert_eq!(ui.ok("/set/enable/osc_query", None), true);
+    assert_eq!(ui.wait_endpoint(mark, "/run/enable_osc_query")["result"], json!({ "data": true, "disabled_functions": [] }));
+    assert!(vrct_core::controller::Osc::query_enabled(run.osc().as_ref()));
+    assert_eq!(ui.ok("/get/data/vrchat_osc_presence", None), "found");
+    assert_eq!(ui.ok("/set/enable/vrc_mic_mute_sync", None), true);
+    eventually("VRChat's unmute confirmed", || run.mic.last() == Some(false));
+
+    // Off with sync on: the microphone stops first, then sync goes off, and the UI is told why.
+    let mark = ui.lines().len();
+    assert_eq!(ui.ok("/set/disable/osc_query", None), false);
+    assert_eq!(
+        ui.wait_endpoint(mark, "/run/enable_osc_query")["result"],
+        json!({ "data": false, "disabled_functions": ["vrc_mic_mute_sync"], "reason": "turned_off", "microphone_stopped": true })
+    );
+    assert_eq!(run.mic.stopped.load(Ordering::SeqCst), 1);
+    assert_eq!(ui.ok("/get/data/vrc_mic_mute_sync", None), false);
+    assert!(!vrct_core::controller::Osc::query_enabled(run.osc().as_ref()));
+    assert_eq!(ui.ok("/get/data/vrchat_osc_presence", None), "unknown");
+    ui.ok("/run/typing_message_box", None);
+    assert_eq!(received(&socket, Duration::from_secs(2)), Some(typing(true)), "sending goes on");
+
+    ui.ok("/run/shutdown", None);
+    assert_eq!(ui.saved()["OSC_QUERY"], false);
+    run.ui.stop();
+}
+
+#[test]
+fn only_an_indicator_the_app_turned_on_is_turned_off() {
+    // [`test_controller_typing.py`].
+    //
+    // [`test_controller_typing.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/test/test_controller_typing.py
+    let (socket, port) = vrchat();
+    let ui = Ui::with(Setup {
+        saved: Some(json!({ "OSC_IP_ADDRESS": DESTINATION, "OSC_PORT": port, "SEND_MESSAGE_TO_VRC": false })),
+        services: Services { osc: Services::default().osc, ..Setup::default().services },
+        ..Setup::default()
+    });
+    ui.ready();
+    // Sending off: typing, stop and turning sending off again send nothing.
+    assert_eq!(ui.ok("/run/typing_message_box", None), true);
+    assert_eq!(ui.ok("/run/stop_typing_message_box", None), true);
+    assert_eq!(ui.ok("/set/disable/send_message_to_vrc", None), false);
+    assert_eq!(received(&socket, Duration::from_millis(300)), None, "the indicator was not the app's");
+
+    // Turning sending on does not start typing by itself.
+    assert_eq!(ui.ok("/set/enable/send_message_to_vrc", None), true);
+    assert_eq!(received(&socket, Duration::from_millis(300)), None);
+    // An indicator the app turned on is turned off even if sending went off in between.
+    ui.ok("/run/typing_message_box", None);
+    assert_eq!(received(&socket, Duration::from_secs(2)), Some(typing(true)));
+    ui.backend.core().config().set("SEND_MESSAGE_TO_VRC", json!(false)).unwrap();
+    ui.ok("/run/stop_typing_message_box", None);
+    assert_eq!(received(&socket, Duration::from_secs(2)), Some(typing(false)));
+    ui.ok("/run/stop_typing_message_box", None);
+    assert_eq!(received(&socket, Duration::from_millis(300)), None, "only once");
     ui.stop();
 }
 

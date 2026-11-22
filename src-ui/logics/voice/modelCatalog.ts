@@ -60,6 +60,22 @@ export function firstVariant<T extends CatalogEntry>(rows: T[], recommended: str
 
 // A model the user registered under a name (models/model_downloads/user_models.py, #403).
 // The backend checks the files; `status` is its answer, never computed again here.
+// The speech output models (TTS). The manual's table lists each one with its check (#566), so
+// each card says it too, checked or not yet.
+const SPEECH_OUTPUT: readonly string[] = ["japanese", "multilingual"];
+type GuidedEntry = { target: string; guidance?: { reference_memory_bytes?: number | null; validation?: { state: string } | null } | null };
+
+// Whether a card says where its model was checked (native/ops/src/downloads/guidance.rs). A model
+// with a measured memory always does, beside the figure. Without one the record stands on its own
+// when it says something: a check that passed (the voice changer's), or a speech model's check
+// still to come. Other models without a figure (speech recognition, voice activity…) say nothing.
+export const showsValidation = (entry: GuidedEntry): boolean => {
+    const guidance = entry.guidance;
+    if (!guidance?.validation) return false;
+    if (typeof guidance.reference_memory_bytes === "number") return true;
+    return guidance.validation.state === "passed" || SPEECH_OUTPUT.includes(entry.target);
+};
+
 export type UserModel = {
     id: string;
     target: string;
@@ -116,6 +132,20 @@ export function registrationRequest(target: string, name: string, paths: Record<
     }
     return { request: { target, name: cleanName, paths: chosen } };
 }
+
+// The targets whose downloads hold no path in the settings: the core finds a verified download
+// by its catalog id (`apply_model_paths`), and the local translation marks its model downloaded
+// when it is applied.
+const PATHLESS_TARGETS = ["translation", "ocr"];
+
+// Whether a card's model is ready to use, with nothing left to check or prepare (#947): set in
+// the settings ("in_use"), or, for a target that holds no path, on the PC and usable (`usable`:
+// the translation's model counts as downloaded in the core, which checks every file's SHA-256
+// before it does; the card's "downloaded" checks only the sizes, so a damaged file still offers
+// its check). A file on the PC that the settings do not point at (a recognition, speech or voice
+// model) still needs its check and its path applied, and one not on the PC needs its download.
+export const isPrepared = (target: string, status: DownloadStatus, usable = false): boolean =>
+    status === "in_use" || (status === "downloaded" && usable && PATHLESS_TARGETS.includes(target));
 
 // What the card says about one file. "in_use" needs the saved path (`expected.model`) to be the
 // downloaded file: a file that is on disk but not set anywhere is only "downloaded".

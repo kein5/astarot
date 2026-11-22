@@ -1,6 +1,8 @@
-//! The endpoints, in the order of Python's `mapping` (`mainloop.py`). An endpoint whose feature
+//! The endpoints, in the order of Python's `mapping` ([`mainloop.py`]). An endpoint whose feature
 //! is not wired yet is not listed and answers 404; `docs/voice-stack/core-integration.md` keeps
 //! the list of what is left.
+//!
+//! [`mainloop.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/mainloop.py
 
 use super::settings::{
     compute_device, get, integer, integer_or_message, store, store_text, switch, threshold, transcription_model,
@@ -84,6 +86,13 @@ pub fn routes(core: &Arc<Core>) -> Routes {
     b.get("/get/data/selected_transcription_engine", WAIT, "SELECTED_TRANSCRIPTION_ENGINE");
     b.with("/set/data/selected_transcription_engine", WAIT, |core, data| {
         let engine = super::settings::python_str(data);
+        // Only an engine of the list can be chosen. Anything else (the retired Whisper and
+        // Google, an unknown name, a value that is not a name) is refused and nothing stops:
+        // Python's setter raised and the request answered 500 (#278).
+        let listed = core.config().get("SELECTABLE_TRANSCRIPTION_ENGINE_LIST");
+        if !listed.as_array().is_some_and(|engines| engines.contains(&json!(engine))) {
+            return super::error("VALIDATION_CONFIG_VALUE_INVALID", core.config().get("SELECTED_TRANSCRIPTION_ENGINE"));
+        }
         // An engine the start-up left unchecked is checked first (#457); one that fails is
         // not selected.
         if !core.ensure_transcription_engine(&engine) {
@@ -110,8 +119,15 @@ pub fn routes(core: &Arc<Core>) -> Routes {
 
     b.get("/get/data/selectable_release_channels", OPEN, "SELECTABLE_RELEASE_CHANNEL_LIST");
     b.get("/get/data/release_channel", OPEN, "SELECTED_RELEASE_CHANNEL");
-    let release = store_text(core, "SELECTED_RELEASE_CHANNEL", "VALIDATION_CONFIG_VALUE_INVALID");
-    b.add("/set/data/release_channel", OPEN, release);
+    // A channel the user sets is theirs from then on: it no longer follows the version (#466).
+    b.with("/set/data/release_channel", OPEN, |core, data| {
+        let channel = json!(super::settings::python_str(data));
+        let config = core.config();
+        match config.set_many(&[("SELECTED_RELEASE_CHANNEL", channel), ("RELEASE_CHANNEL_CHOSEN", json!(true))]) {
+            Ok(()) => ok(config.get("SELECTED_RELEASE_CHANNEL")),
+            Err(_) => super::error("VALIDATION_CONFIG_VALUE_INVALID", config.get("SELECTED_RELEASE_CHANNEL")),
+        }
+    });
 
     b.get("/get/data/telemetry", OPEN, "ENABLE_TELEMETRY");
     b.switch("auto_download_models", "AUTO_DOWNLOAD_MODELS", true);
@@ -141,6 +157,24 @@ pub fn routes(core: &Arc<Core>) -> Routes {
         b.get(&format!("/get/data/{name}"), OPEN, key);
     }
     b.get("/get/data/voice_settings", OPEN, "VOICE_SETTINGS");
+    // Core only (#531): the block an RVC conversion cuts the microphone into, read when one
+    // starts: 0 (the default) lets the worker choose. Refused unless 0 or 20 to 200 ms in
+    // steps of 20; the saved value stays.
+    b.get("/get/data/rvc_block_ms", OPEN, "RVC_BLOCK_MS");
+    let rvc_block = integer(core, "RVC_BLOCK_MS", "VALIDATION_RVC_BLOCK_MS", |v, _| u32::try_from(v).is_ok_and(crate::config::schema::is_valid_rvc_block));
+    // Choosing Automatic, again or not, has the GPU timed again at the next start instead of
+    // using the length kept for that voice model and GPU (decided 2026-11-21).
+    let asking = Arc::clone(core);
+    b.add("/set/data/rvc_block_ms", OPEN, move |data: &Value| {
+        let reply = rvc_block(data);
+        let automatic = json!(vrct_voice_conversion::worker::AUTO_BLOCK_MS);
+        if super::python_int(data) == Some(0) && asking.config().get("RVC_BLOCK_MS") == automatic {
+            // Unwritten (a full disk), the kept length is used as before; the choice is saved.
+            let runtimes = asking.config().environment().state_dir.join(crate::shipped_libraries::RUNTIMES_FOLDER);
+            let _ = vrct_voice_conversion::worker::ask_block_timing(&runtimes);
+        }
+        reply
+    });
 
     // Appearance
     b.get("/get/data/version", OPEN, "VERSION");
@@ -172,7 +206,16 @@ pub fn routes(core: &Arc<Core>) -> Routes {
 
     // Compute device and the local translation
     b.get("/get/data/compute_mode", OPEN, "COMPUTE_MODE");
-    b.get("/get/data/selectable_translation_compute_device_list", OPEN, "SELECTABLE_COMPUTE_DEVICE_LIST");
+    b.with("/get/data/selectable_translation_compute_device_list", OPEN, |core, _| {
+        // A GPU build of ONNX Runtime set up during the run joins the list, for the next start.
+        let config = core.config();
+        let listed = config.get("SELECTABLE_COMPUTE_DEVICE_LIST").as_array().cloned().unwrap_or_default();
+        let devices = super::translation::with_gpu_builds(listed.clone(), &config.environment().state_dir);
+        if devices != listed {
+            config.put("SELECTABLE_COMPUTE_DEVICE_LIST", Value::Array(devices));
+        }
+        ok(config.get("SELECTABLE_COMPUTE_DEVICE_LIST"))
+    });
     b.get("/get/data/selected_translation_compute_device", OPEN, "SELECTED_TRANSLATION_COMPUTE_DEVICE");
     let device = compute_device(core);
     b.add("/set/data/selected_translation_compute_device", OPEN, device);
@@ -217,12 +260,28 @@ pub fn routes(core: &Arc<Core>) -> Routes {
     b.get("/get/data/experimental_features", OPEN, "EXPERIMENTAL_FEATURES");
     let experimental = store(core, "EXPERIMENTAL_FEATURES", "VALIDATION_CONFIG_VALUE_INVALID");
     b.add("/set/data/experimental_features", OPEN, experimental);
+    b.get("/get/data/usage_presets", OPEN, "USAGE_PRESETS");
+    let presets = store(core, "USAGE_PRESETS", "VALIDATION_CONFIG_VALUE_INVALID");
+    b.add("/set/data/usage_presets", OPEN, presets);
+    b.get("/get/data/catalog_layout", OPEN, "CATALOG_LAYOUT");
+    let layout = store(core, "CATALOG_LAYOUT", "VALIDATION_CONFIG_VALUE_INVALID");
+    b.add("/set/data/catalog_layout", OPEN, layout);
+    // What the AI translation providers are asked besides the text (#392).
+    b.get("/get/data/llm_translation_temperature", OPEN, "LLM_TRANSLATION_TEMPERATURE");
+    let temperature = store(core, "LLM_TRANSLATION_TEMPERATURE", "VALIDATION_CONFIG_VALUE_INVALID");
+    b.add("/set/data/llm_translation_temperature", OPEN, temperature);
+    b.get("/get/data/llm_translation_instructions", OPEN, "LLM_TRANSLATION_INSTRUCTIONS");
+    let instructions = store(core, "LLM_TRANSLATION_INSTRUCTIONS", "VALIDATION_CONFIG_VALUE_INVALID");
+    b.add("/set/data/llm_translation_instructions", OPEN, instructions);
     b.get("/get/data/tray_companion_edge", OPEN, "TRAY_COMPANION_EDGE");
     let edge = store(core, "TRAY_COMPANION_EDGE", "VALIDATION_CONFIG_VALUE_INVALID");
     b.add("/set/data/tray_companion_edge", OPEN, edge);
     b.get("/get/data/tray_companion_monitor", OPEN, "TRAY_COMPANION_MONITOR");
     let monitor = store(core, "TRAY_COMPANION_MONITOR", "VALIDATION_CONFIG_VALUE_INVALID");
     b.add("/set/data/tray_companion_monitor", OPEN, monitor);
+    b.get("/get/data/tray_companion_wheel_hint_shown", OPEN, "TRAY_COMPANION_WHEEL_HINT_SHOWN");
+    let hinted = store(core, "TRAY_COMPANION_WHEEL_HINT_SHOWN", "VALIDATION_CONFIG_VALUE_INVALID");
+    b.add("/set/data/tray_companion_wheel_hint_shown", OPEN, hinted);
     b.get("/get/data/mic_avg_logprob", OPEN, "MIC_AVG_LOGPROB");
     let logprob = threshold(core, "MIC_AVG_LOGPROB", "Mic average logprob must be finite and between -2 and 0");
     b.add("/set/data/mic_avg_logprob", OPEN, logprob);
@@ -270,21 +329,26 @@ pub fn routes(core: &Arc<Core>) -> Routes {
         threshold(core, "SPEAKER_NO_SPEECH_PROB", "Speaker no-speech probability must be finite and between 0 and 1");
     b.add("/set/data/speaker_no_speech_prob", OPEN, speaker_no_speech);
     b.vad_switch("speaker_vad_filter", "SPEAKER_ENABLE_VAD");
-    // Whether the VAD switches can be turned on: a VAD engine is in this build (decision 13).
-    b.with("/get/data/vad_available", OPEN, |core, _| ok(json!(core.services().vad.is_some())));
+    // Whether the VAD switches can be turned on: the speech.cpp server is set up for Silero VAD
+    // (decision 13).
+    b.with("/get/data/vad_available", OPEN, |core, _| ok(json!(core.vad_available())));
 
-    // The move from the removed Whisper engine to speech.cpp (#288)
-    b.get("/get/data/local_asr_notice", OPEN, "LOCAL_ASR_NOTICE_PENDING");
-    b.with("/set/disable/local_asr_notice", OPEN, |core, _| {
-        let _ = core.config().set("LOCAL_ASR_NOTICE_PENDING", json!(false));
-        ok(core.config().get("LOCAL_ASR_NOTICE_PENDING"))
-    });
+    // The notice of the move from the removed Whisper engine to speech.cpp
+    // (`/get/data/local_asr_notice`, `/set/disable/local_asr_notice`) went in 0.6.0 (#288).
 
     // The virtual microphone guide (#321); finding the cables and the check are in `audio_devices`.
     b.get("/get/data/virtual_mic_notice", OPEN, "VIRTUAL_MIC_NOTICE_PENDING");
     b.with("/set/disable/virtual_mic_notice", OPEN, |core, _| {
         let _ = core.config().set("VIRTUAL_MIC_NOTICE_PENDING", json!(false));
         ok(core.config().get("VIRTUAL_MIC_NOTICE_PENDING"))
+    });
+
+    // The first-run setup (#557): whether it may still open by itself. It downloads nothing
+    // without the user's consent in its own dialog.
+    b.get("/get/data/first_run_setup", OPEN, "FIRST_RUN_SETUP_PENDING");
+    b.with("/set/disable/first_run_setup", OPEN, |core, _| {
+        let _ = core.config().set("FIRST_RUN_SETUP_PENDING", json!(false));
+        ok(core.config().get("FIRST_RUN_SETUP_PENDING"))
     });
 
     // VR: the values the VR UI reads; the overlay itself is not wired yet (#282)
@@ -374,6 +438,8 @@ pub fn routes(core: &Arc<Core>) -> Routes {
     // Advanced settings
     b.get("/get/data/osc_ip_address", OPEN, "OSC_IP_ADDRESS");
     b.get("/get/data/osc_port", OPEN, "OSC_PORT");
+    // Turned on and off with the OSC link (`adapters::osc`, #559).
+    b.get("/get/data/osc_query", OPEN, "OSC_QUERY");
     b.switch("notification_vrc_sfx", "NOTIFICATION_VRC_SFX", true);
     b.with("/run/feed_watchdog", OPEN, |core, _| {
         core.feed_watchdog();
@@ -396,11 +462,15 @@ const AREAS: &[fn(&mut Builder<'_>)] = &[
     super::credentials::add,
     super::ocr::add,
     super::overlay::add,
+    super::speakers::add,
     super::files::add,
+    super::gpu_check::add,
     super::translation::add,
+    super::translation_catalog::add,
     super::messages::add,
     super::audio_devices::add,
     super::updates::add,
     super::transcription::add,
     super::voice::add,
+    super::gpu_memory::add,
 ];

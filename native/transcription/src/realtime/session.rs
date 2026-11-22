@@ -1,17 +1,23 @@
-//! One realtime recognition session (`realtime_session.py`, `speechcpp_realtime.py`,
-//! `realtime_audio.py`): the capture of one endpoint, streamed to a speech.cpp server over its
+//! One realtime recognition session ([`realtime_session.py`], [`speechcpp_realtime.py`],
+//! [`realtime_audio.py`]): the capture of one endpoint, streamed to a speech.cpp server over its
 //! Realtime WebSocket, with the caption updates waiting in a bounded mailbox.
 //!
 //! One thread owns the connection: it sends the audio as it comes (48 kHz frames converted to
 //! 24 kHz blocks of 20 ms) and reads the server's events between sends. Audio older than
 //! 250 ms, a mailbox of more than 32 updates, a server that does not finish an utterance in
-//! 15 s (120 s for the first one, while a GPU builds its kernels) or a capture that fails end
-//! the session with a fixed code. Nothing here logs audio or text.
+//! 15 s (120 s for the first one, while a GPU builds its kernels), a capture that fails or a
+//! microphone that delivers nothing (5 s after it opened, 2 s after its last audio) end the
+//! session with a fixed code. Nothing here logs audio or text.
+//!
+//! [`realtime_session.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/transcription/realtime_session.py
+//! [`speechcpp_realtime.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/transcription/speechcpp_realtime.py
+//! [`realtime_audio.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/transcription/realtime_audio.py
 
 use super::events::{Events, Update};
 use crate::capture::{Capture, CapturePlatform, FrameBuilder, Source, Target};
 use crate::pcm::{self, Resampler};
 use crate::speechcpp;
+use crate::terms::Dictionary;
 use serde_json::{Value, json};
 use std::collections::{HashMap, VecDeque};
 use std::net::{TcpStream, ToSocketAddrs};
@@ -21,26 +27,93 @@ use std::time::{Duration, Instant};
 use tungstenite::protocol::WebSocketConfig;
 use tungstenite::{Message, WebSocket};
 use vrct_audio_routing::graph::Endpoint;
-use vrct_translation::http::Transport;
+use vrct_translation::http::{Cancel, Watched};
 
 pub const RATE: u32 = 24000;
 const MAX_AGE: Duration = Duration::from_millis(250);
-const PENDING_TIMEOUT: Duration = Duration::from_secs(15);
-const FIRST_RESULT_TIMEOUT: Duration = Duration::from_secs(120);
 const MAX_EVENT: usize = 1024 * 1024;
 const MAILBOX: usize = 32;
 /// Windows can hold a microphone's open until the user answers its question.
 const CAPTURE_OPEN_TIMEOUT: Duration = Duration::from_secs(120);
+/// A microphone that delivers nothing this long after it opened, or this long after its last
+/// audio, has stopped (`_START_TIMEOUT_S` and `_STALL_NS` of [`capture_windows.py`], and the
+/// same limits of the Linux helper). A speaker's loopback is filled with silence instead.
+///
+/// [`capture_windows.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/transcription/capture_windows.py
+const FIRST_AUDIO_TIMEOUT: Duration = Duration::from_secs(5);
+const STALL_TIMEOUT: Duration = Duration::from_secs(2);
 
-/// What a session asks of the server (`SessionOptions`).
+/// What a session asks of the server (`SessionOptions`), and what the server listed for it.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Options {
     pub base_url: String,
-    pub model: String,
+    /// The recognition model, as the server listed it when the start was checked. The session
+    /// does not ask for the list again (decision 81 in `docs/voice-stack/core-integration.md`):
+    /// a model the server no longer has is refused when the session connects.
+    pub model: speechcpp::Model,
     /// A code, or "auto".
     pub language: String,
     /// The merged vocabulary terms.
     pub vocabulary: Vec<String>,
+    /// The silence that ends an utterance (`server_vad`'s `silence_duration_ms`); `None` is
+    /// [`DEFAULT_SILENCE_MS`].
+    pub silence_duration_ms: Option<u32>,
+    /// How sure the detection must be that it hears speech, in hundredths (`server_vad`'s
+    /// `threshold` is 0 to 1): lower picks up quieter speech, higher lets less noise through
+    /// (#392). `None` sends none, so the server's own applies.
+    pub vad_threshold_percent: Option<u8>,
+    /// Whether that list had a diarization model on a GPU: a speaker's session then asks who
+    /// speaks.
+    pub diarizes: bool,
+    pub limits: Limits,
+    /// Where the finals' waits are counted (`utterance_diagnostics`); `None` counts nothing.
+    pub diagnostics: Option<crate::diagnostics::Diagnostics>,
+}
+
+/// How long a session waits for the server. The app keeps [`Limits::default`], Python's values;
+/// tests shorten them (decision 81 in `docs/voice-stack/core-integration.md`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Limits {
+    /// Connecting to `/v1/realtime`, each read while the session is set up, and the setup as a
+    /// whole from before the connection to `session.updated` (2 s).
+    pub setup: Duration,
+    /// The first utterance's result, while a GPU builds its kernels (120 s).
+    pub first_result: Duration,
+    /// The result of each utterance after the first (15 s).
+    pub pending: Duration,
+}
+
+impl Default for Limits {
+    fn default() -> Limits {
+        Limits { setup: Duration::from_secs(2), first_result: Duration::from_secs(120), pending: Duration::from_secs(15) }
+    }
+}
+
+/// The silence that ends an utterance unless the settings choose another (#556). It is shorter
+/// than speech.cpp's and OpenAI's 500 ms: the utterance comes about 100 ms sooner, at the cost of
+/// a pause inside a sentence ending it more often. A saved choice is kept as it is.
+pub const DEFAULT_SILENCE_MS: u32 = 400;
+/// The padding speech.cpp keeps before an utterance's speech, and after it within the silence,
+/// by default (`prefix_padding_ms`).
+const MAX_PADDING_MS: u32 = 300;
+
+/// `server_vad` with the silence that ends an utterance and a padding of at most half of it.
+///
+/// speech.cpp 0.11.2 commits an utterance once the silence has lasted, and reads it while the
+/// silence goes on, from when the padding kept after the speech has passed; the commit takes
+/// that reading (speech.cpp #232 and #233). A shorter padding starts that reading sooner, so
+/// it more often ends before the commit (#556). Up to 0.11.1, speech.cpp gave an utterance only
+/// once no other could start within twice its padding of its end, 600 ms after the speech with
+/// its defaults; half the silence kept that wait within the silence. The silence alone decides
+/// where utterances are cut. The threshold is sent only when the settings choose one (#392).
+pub fn turn_detection(silence_duration_ms: Option<u32>, threshold_percent: Option<u8>) -> Value {
+    let silence = silence_duration_ms.unwrap_or(DEFAULT_SILENCE_MS);
+    let mut detection =
+        json!({ "type": "server_vad", "silence_duration_ms": silence, "prefix_padding_ms": (silence / 2).min(MAX_PADDING_MS) });
+    if let Some(percent) = threshold_percent {
+        detection["threshold"] = json!(f64::from(percent) / 100.0);
+    }
+    detection
 }
 
 #[derive(Clone, Debug)]
@@ -61,9 +134,11 @@ struct Inner {
     options: Options,
     endpoint: Endpoint,
     platform: Arc<dyn CapturePlatform>,
-    transport: Transport,
     status: Mutex<Status>,
     stop: AtomicBool,
+    /// Ends the connection and the reads of the setup when the session is stopped, so that a
+    /// server that does not answer cannot hold the thread (decision 81).
+    cancel: Cancel,
     updates: Mutex<VecDeque<Update>>,
     arrived: Condvar,
     ingress: Mutex<Ingress>,
@@ -100,6 +175,12 @@ impl Failure {
 
 static NAMESPACES: AtomicU64 = AtomicU64::new(0);
 
+/// When audio delivered at `now` was heard: `captured_ago` earlier when the capture says so,
+/// else as it is delivered.
+fn heard_at(now: Instant, captured_ago: Option<Duration>) -> Instant {
+    captured_ago.and_then(|ago| now.checked_sub(ago)).unwrap_or(now)
+}
+
 fn namespace() -> String {
     let nanos = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_nanos()).unwrap_or(0);
     let count = NAMESPACES.fetch_add(1, Ordering::SeqCst);
@@ -108,7 +189,7 @@ fn namespace() -> String {
 
 const BASE64: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
-fn base64(bytes: &[u8]) -> String {
+pub(crate) fn base64(bytes: &[u8]) -> String {
     let mut out = String::with_capacity(bytes.len().div_ceil(3) * 4);
     for chunk in bytes.chunks(3) {
         let n = (u32::from(chunk[0]) << 16)
@@ -131,25 +212,43 @@ fn percent(text: &str) -> String {
         .collect()
 }
 
-type Socket = WebSocket<TcpStream>;
+pub(crate) type Socket = WebSocket<Watched>;
+
+/// Opens `/v1/realtime` of a speech.cpp server on this computer, with `model` as the query when
+/// one is named (the server's recognition model otherwise). Connecting and each read wait at
+/// most `wait`. A `cancel` gives the connection up, and ends the handshake and each read
+/// within 20 ms until the socket is released ([`Watched::release`]).
+pub(crate) fn open_socket(base_url: &str, model: Option<&str>, wait: Duration, cancel: Option<&Cancel>) -> Option<Socket> {
+    let base = base_url.trim_end_matches('/');
+    let url = vrct_translation::http::Url::parse(base).ok()?;
+    let address = (url.host.trim_start_matches('[').trim_end_matches(']'), url.port).to_socket_addrs().ok()?.next()?;
+    let stream = match cancel {
+        Some(cancel) => cancel.connect(address, wait).ok()?,
+        None => TcpStream::connect_timeout(&address, wait).ok()?,
+    };
+    let _ = stream.set_nodelay(true);
+    stream.set_read_timeout(Some(wait)).ok()?;
+    stream.set_write_timeout(Some(Duration::from_secs(1))).ok()?;
+    let stream = Watched::new(stream, cancel.cloned(), Some(wait));
+    let mut target = format!("{}/v1/realtime", base.replacen("http://", "ws://", 1));
+    if let Some(model) = model {
+        target.push_str(&format!("?model={}", percent(model)));
+    }
+    let config = WebSocketConfig::default().max_message_size(Some(MAX_EVENT)).max_frame_size(Some(MAX_EVENT));
+    tungstenite::client::client_with_config(target, stream, Some(config)).ok().map(|(socket, _)| socket)
+}
 
 impl Session {
-    pub fn new(
-        source: Source,
-        options: Options,
-        endpoint: Endpoint,
-        platform: Arc<dyn CapturePlatform>,
-        transport: Transport,
-    ) -> Session {
+    pub fn new(source: Source, options: Options, endpoint: Endpoint, platform: Arc<dyn CapturePlatform>) -> Session {
         Session {
             inner: Arc::new(Inner {
                 source,
                 options,
                 endpoint,
                 platform,
-                transport,
                 status: Mutex::new(Status { state: "idle", error: None, namespace: None }),
                 stop: AtomicBool::new(false),
+                cancel: Cancel::new(),
                 updates: Mutex::new(VecDeque::new()),
                 arrived: Condvar::new(),
                 ingress: Mutex::new(Ingress { frames: VecDeque::new(), samples: 0, reason: None }),
@@ -157,6 +256,11 @@ impl Session {
                 finished: AtomicBool::new(false),
             }),
         }
+    }
+
+    /// Where its finals are counted.
+    pub fn diagnostics(&self) -> Option<&crate::diagnostics::Diagnostics> {
+        self.inner.options.diagnostics.as_ref()
     }
 
     pub fn source(&self) -> Source {
@@ -213,9 +317,11 @@ impl Session {
         Ok(())
     }
 
-    /// Invalidates the output now; [`close`](Self::close) waits for the resources.
+    /// Invalidates the output now and ends a wait for the server; [`close`](Self::close) waits
+    /// for the resources.
     pub fn request_stop(&self) {
         self.inner.stop.store(true, Ordering::SeqCst);
+        self.inner.cancel.cancel();
         self.inner.updates.lock().unwrap_or_else(|e| e.into_inner()).clear();
         {
             let mut status = self.status();
@@ -321,33 +427,32 @@ impl Session {
         self.inner.stop.load(Ordering::SeqCst)
     }
 
-    /// `_preflight`: the request options and whether to ask who speaks.
+    /// `_preflight` without its list request: the request options and whether to ask who
+    /// speaks, from the model the start listed. The start lists the models on its own thread,
+    /// where a stop of the source ends it, and checks the model and the language; the session's
+    /// thread only waits for the WebSocket (decision 81).
     fn preflight(&self) -> Result<(serde_json::Map<String, Value>, bool), Failure> {
-        let (models, diarizes) = speechcpp::survey(&self.inner.transport, &self.inner.options.base_url, Duration::from_secs(5))
-            .map_err(|_| Failure::Realtime("preflight_failed"))?;
-        let Some(model) = models.iter().find(|m| m.id == self.inner.options.model) else {
-            return Err(Failure::Session("realtime_model_unavailable"));
-        };
-        if !speechcpp::language_supported(model, &self.inner.options.language) {
-            return Err(Failure::Session(if self.inner.options.language == "auto" {
+        let options = &self.inner.options;
+        if !speechcpp::language_supported(&options.model, &options.language) {
+            return Err(Failure::Session(if options.language == "auto" {
                 "realtime_language_auto_unsupported"
             } else {
                 "realtime_language_unsupported"
             }));
         }
-        let options = speechcpp::request_options(&model.options, &self.inner.options.vocabulary);
-        Ok((options, diarizes && self.inner.source == Source::Speaker))
+        let request = speechcpp::request_options(&options.model.options, &options.vocabulary);
+        Ok((request, options.diarizes && self.inner.source == Source::Speaker))
     }
 
     fn settings(&self, options: &serde_json::Map<String, Value>, diarization: bool) -> Value {
-        let mut transcription = json!({ "model": self.inner.options.model, "language": self.inner.options.language });
+        let mut transcription = json!({ "model": self.inner.options.model.id, "language": self.inner.options.language });
         for (key, value) in options {
             transcription[key] = value.clone();
         }
         let mut audio = json!({
             "format": { "type": "audio/pcm", "rate": RATE },
             "transcription": transcription,
-            "turn_detection": { "type": "server_vad" },
+            "turn_detection": turn_detection(self.inner.options.silence_duration_ms, self.inner.options.vad_threshold_percent),
             "noise_reduction": null,
         });
         if diarization {
@@ -376,7 +481,7 @@ impl Session {
         event["type"] == "session.updated"
             && event["session"]["type"] == "transcription"
             && audio["format"] == json!({ "type": "audio/pcm", "rate": RATE })
-            && transcription["model"] == self.inner.options.model.as_str()
+            && transcription["model"] == self.inner.options.model.id.as_str()
             && transcription["language"] == self.inner.options.language.as_str()
             && options.iter().all(|(key, value)| transcription.get(key) == Some(value))
             && audio.get("noise_reduction").is_none_or(Value::is_null)
@@ -414,32 +519,29 @@ impl Session {
     }
 
     fn connect(&self) -> Result<Socket, Failure> {
-        let base = self.inner.options.base_url.trim_end_matches('/');
-        let url = vrct_translation::http::Url::parse(base).map_err(|_| Failure::Realtime("connection_failed"))?;
-        let address = (url.host.trim_start_matches('[').trim_end_matches(']'), url.port)
-            .to_socket_addrs()
-            .ok()
-            .and_then(|mut addresses| addresses.next())
-            .ok_or(Failure::Realtime("connection_failed"))?;
-        let stream = TcpStream::connect_timeout(&address, Duration::from_secs(2))
-            .map_err(|_| Failure::Realtime("connection_failed"))?;
-        let _ = stream.set_nodelay(true);
-        stream.set_read_timeout(Some(Duration::from_secs(2))).map_err(|_| Failure::Realtime("connection_failed"))?;
-        stream.set_write_timeout(Some(Duration::from_secs(1))).map_err(|_| Failure::Realtime("connection_failed"))?;
-        let target = format!("{}/v1/realtime?model={}", base.replacen("http://", "ws://", 1), percent(&self.inner.options.model));
-        let config = WebSocketConfig::default().max_message_size(Some(MAX_EVENT)).max_frame_size(Some(MAX_EVENT));
-        let (socket, _) = tungstenite::client::client_with_config(target, stream, Some(config))
-            .map_err(|_| Failure::Realtime("connection_failed"))?;
-        Ok(socket)
+        let options = &self.inner.options;
+        let socket = open_socket(&options.base_url, Some(&options.model.id), options.limits.setup, Some(&self.inner.cancel));
+        match socket {
+            Some(socket) => Ok(socket),
+            None if self.stopped() => Err(Failure::Stopped),
+            None => Err(Failure::Realtime("connection_failed")),
+        }
     }
 
-    fn recv_setup(socket: &mut Socket, deadline: Instant) -> Result<Value, Failure> {
+    /// The next event of the setup. A stop ends the wait within 20 ms.
+    fn recv_setup(&self, socket: &mut Socket, deadline: Instant) -> Result<Value, Failure> {
         loop {
+            if self.stopped() {
+                return Err(Failure::Stopped);
+            }
             if Instant::now() >= deadline {
                 return Err(Failure::Realtime("connection_failed"));
             }
-            if let Some(event) = Self::receive(socket)? {
-                return Ok(event);
+            match Self::receive(socket) {
+                Ok(Some(event)) => return Ok(event),
+                Ok(None) => {}
+                Err(_) if self.stopped() => return Err(Failure::Stopped),
+                Err(failure) => return Err(failure),
             }
         }
     }
@@ -452,20 +554,23 @@ impl Session {
         let namespace = namespace();
         let mut events = Events::new(self.inner.source.as_str(), namespace.clone());
         self.status().namespace = Some(namespace);
-        let deadline = Instant::now() + Duration::from_secs(2);
+        let deadline = Instant::now() + self.inner.options.limits.setup;
         let mut socket = self.connect()?;
-        let created = Self::recv_setup(&mut socket, deadline)?;
+        let created = self.recv_setup(&mut socket, deadline)?;
         if created["type"] != "session.created" {
             return Err(Failure::Realtime("session_not_created"));
         }
         let update = json!({ "type": "session.update", "session": self.settings(&options, diarization) });
         socket.send(Message::text(update.to_string())).map_err(|_| Failure::Realtime("send_failed"))?;
-        let answer = Self::recv_setup(&mut socket, deadline)?;
+        let answer = self.recv_setup(&mut socket, deadline)?;
         self.check_config(&answer, &options, diarization)?;
         if self.stopped() {
             let _ = socket.close(None);
             return Err(Failure::Stopped);
         }
+        // From here the stream looks at the stop itself every 10 ms, and closes the socket
+        // with a close frame.
+        socket.get_mut().release().map_err(|_| Failure::Realtime("stream_failed"))?;
         let result = self.stream(&mut socket, &mut events, &options, diarization);
         events.close();
         let _ = socket.close(None);
@@ -476,8 +581,10 @@ impl Session {
     fn open_capture(&self) -> Result<Box<dyn Capture>, Failure> {
         let builder = Arc::new(Mutex::new(None::<FrameBuilder>));
         let feeding = self.clone();
-        let on_audio = Box::new(move |samples: &[i16], rate: u32, channels: u16| {
-            let received = Instant::now();
+        let on_audio = Box::new(move |samples: &[i16], rate: u32, channels: u16, captured_ago: Option<Duration>| {
+            // Decision 70 (`RealtimeSession` took the helper's stamp): audio is as old as its
+            // capture says, so a delay before it got here counts against the 250 ms.
+            let received = heard_at(Instant::now(), captured_ago);
             let mut builder = builder.lock().unwrap_or_else(|e| e.into_inner());
             let frames = builder.get_or_insert_with(|| FrameBuilder::new(rate, usize::from(channels))).feed(samples, received);
             for (frame, heard) in frames {
@@ -508,6 +615,8 @@ impl Session {
         diarization: bool,
     ) -> Result<(), Failure> {
         socket.get_mut().set_read_timeout(Some(Duration::from_millis(10))).map_err(|_| Failure::Realtime("stream_failed"))?;
+        // The vocabulary also puts right what the model wrote (#446): partials and finals alike.
+        let terms = Dictionary::new(&self.inner.options.vocabulary);
         let mut capture = self.open_capture()?;
         let result = (|| {
             if self.stopped() {
@@ -523,6 +632,8 @@ impl Session {
             let mut resampler = Resampler::new(48000, RATE);
             let mut pending_since: HashMap<String, Instant> = HashMap::new();
             let mut first_result_seen = false;
+            let opened = Instant::now();
+            let mut last_audio: Option<Instant> = None;
             while !self.stopped() {
                 // Audio first: it must not wait behind the server's events.
                 let frames: Vec<(Vec<i16>, Instant)> = {
@@ -536,6 +647,17 @@ impl Session {
                     ingress.samples = 0;
                     ingress.frames.drain(..).collect()
                 };
+                if let Some((_, heard)) = frames.last() {
+                    last_audio = Some(*heard);
+                } else if self.inner.source == Source::Mic {
+                    let silent = match last_audio {
+                        Some(heard) => heard.elapsed() >= STALL_TIMEOUT,
+                        None => opened.elapsed() >= FIRST_AUDIO_TIMEOUT,
+                    };
+                    if silent {
+                        return Err(Failure::Session("realtime_capture_failed"));
+                    }
+                }
                 for (frame, heard) in frames {
                     if heard.elapsed() > MAX_AGE {
                         return Err(Failure::Realtime("stale_capture"));
@@ -546,7 +668,8 @@ impl Session {
                         socket.send(Message::text(message.to_string())).map_err(|_| Failure::Realtime("send_failed"))?;
                     }
                 }
-                let limit = if first_result_seen { PENDING_TIMEOUT } else { FIRST_RESULT_TIMEOUT };
+                let limits = self.inner.options.limits;
+                let limit = if first_result_seen { limits.pending } else { limits.first_result };
                 if pending_since.values().any(|since| since.elapsed() > limit) {
                     return Err(Failure::Realtime("utterance_timeout"));
                 }
@@ -559,7 +682,11 @@ impl Session {
                 for mut update in updates {
                     if update.is_final {
                         first_result |= !first_result_seen;
+                        if let Some(diagnostics) = &self.inner.options.diagnostics {
+                            final_waited(diagnostics, &update, pending_since.get(&update.item_id));
+                        }
                     }
+                    update.text = terms.corrected(&update.text);
                     update.received = Some(Instant::now());
                     let mut mailbox = self.inner.updates.lock().unwrap_or_else(|e| e.into_inner());
                     if self.stopped() {
@@ -594,6 +721,23 @@ impl Session {
     }
 }
 
+/// How long a final waited from the start of its utterance (`[ASR-realtime]`); unknown for an
+/// item never seen pending.
+fn final_waited(diagnostics: &crate::diagnostics::Diagnostics, update: &Update, since: Option<&Instant>) {
+    use crate::diagnostics::{Event, Stage};
+    let event = if update.text.trim().is_empty() { Event::RealtimeEmptyFinal } else { Event::RealtimeFinal };
+    let pending = since.map(|since| since.elapsed().as_secs_f64() * 1000.0);
+    let stages: Vec<(Stage, f64)> = pending.map(|ms| (Stage::RealtimePending, ms)).into_iter().collect();
+    let shown = pending.map_or_else(|| "unknown".to_string(), |ms| format!("{ms:.1}ms"));
+    diagnostics.record(
+        update.source,
+        event,
+        &stages,
+        Some(format!("[ASR-realtime][{}] state={} pending={shown}", update.source, update.state)),
+        false,
+    );
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -604,5 +748,186 @@ mod tests {
         assert_eq!(base64(b"f"), "Zg==");
         assert_eq!(base64(b"fo"), "Zm8=");
         assert_eq!(base64(b"foobar"), "Zm9vYmFy");
+    }
+
+    // The ingress between the capture and the connection, after
+    // [`src-python/test/test_realtime_ingress_wait.py`].
+    //
+    // [`src-python/test/test_realtime_ingress_wait.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/test/test_realtime_ingress_wait.py
+
+    struct NoDevice;
+
+    impl CapturePlatform for NoDevice {
+        fn open(&self, _: Source, _: &Target, _: Duration, _: crate::capture::OnAudio, _: crate::capture::OnError) -> Result<Box<dyn Capture>, String> {
+            Err("asr_capture_endpoint_missing".into())
+        }
+        fn endpoints(&self, _: Source) -> Result<Vec<(Endpoint, String)>, String> {
+            Ok(Vec::new())
+        }
+        fn default_endpoint(&self, _: Source) -> Result<Endpoint, String> {
+            Err("realtime_default_endpoint_missing".into())
+        }
+    }
+
+    fn session() -> Session {
+        session_at("http://127.0.0.1:9", Limits::default())
+    }
+
+    fn refused_for(session: &Session) -> Option<&'static str> {
+        session.inner.ingress.lock().unwrap().reason
+    }
+
+    #[test]
+    fn the_ingress_holds_at_most_200_ms_or_20_frames() {
+        let ten_ms_frames = session();
+        for _ in 0..10 {
+            assert!(ten_ms_frames.push(vec![0; 960], Instant::now()));
+        }
+        assert!(!ten_ms_frames.push(vec![0; 960], Instant::now()), "an 11th frame of 20 ms is past 200 ms");
+        assert_eq!(refused_for(&ten_ms_frames), Some("input_overflow"));
+        assert!(ten_ms_frames.inner.ingress.lock().unwrap().frames.is_empty(), "an overflow drops what waited");
+        assert!(!ten_ms_frames.push(vec![0; 10], Instant::now()), "and refuses everything after");
+
+        let small = session();
+        for _ in 0..20 {
+            assert!(small.push(vec![0; 10], Instant::now()));
+        }
+        assert!(!small.push(vec![0; 10], Instant::now()));
+        assert_eq!(refused_for(&small), Some("input_overflow"));
+    }
+
+    #[test]
+    fn audio_is_as_old_as_its_capture_says() {
+        // Decision 70: the helper's stamp, not the delivery, says when audio was heard; audio the
+        // pipe held back is refused as Python's ingress refused it.
+        let now = Instant::now();
+        assert_eq!(heard_at(now, None), now);
+        assert_eq!(heard_at(now, Some(Duration::from_millis(40))), now - Duration::from_millis(40));
+        let held_back = heard_at(now, Some(Duration::from_millis(300)));
+        assert!(held_back.elapsed() > MAX_AGE);
+    }
+
+    #[test]
+    fn the_ingress_refuses_audio_heard_more_than_250_ms_ago() {
+        let stale = session();
+        let heard = Instant::now().checked_sub(Duration::from_millis(300)).expect("the clock runs");
+        assert!(!stale.push(vec![0; 960], heard));
+        assert_eq!(refused_for(&stale), Some("invalid_capture"));
+    }
+
+    #[test]
+    fn a_stopped_session_takes_no_audio_and_cannot_start_again() {
+        let stopped = session();
+        assert!(stopped.push(vec![0; 960], Instant::now()));
+        stopped.request_stop();
+        assert!(!stopped.push(vec![0; 960], Instant::now()));
+        assert_eq!(refused_for(&stopped), Some("stopped"));
+        assert!(stopped.inner.ingress.lock().unwrap().frames.is_empty(), "the stop dropped what waited");
+        assert_eq!(stopped.start(), Err("realtime_session_single_use"));
+        assert_eq!(stopped.state(), "closed");
+    }
+
+    /// Where a stand-in speech.cpp stops answering.
+    #[derive(Clone, Copy, PartialEq)]
+    enum Silent {
+        /// The Realtime WebSocket's handshake.
+        Handshake,
+        /// The setup, after the handshake (`session.created` never comes).
+        Setup,
+    }
+
+    /// A speech.cpp stand-in on a loopback port that holds each connection open without a word
+    /// from where it falls `silent`. Gives its base URL, how many connections it holds and how
+    /// many asked for the model list.
+    fn unanswering(silent: Silent) -> (String, Arc<AtomicU64>, Arc<AtomicU64>) {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let base = format!("http://127.0.0.1:{}", listener.local_addr().unwrap().port());
+        let (held, listed) = (Arc::new(AtomicU64::new(0)), Arc::new(AtomicU64::new(0)));
+        let (holding, listing) = (held.clone(), listed.clone());
+        std::thread::spawn(move || {
+            for stream in listener.incoming().flatten() {
+                let (holding, listing) = (holding.clone(), listing.clone());
+                std::thread::spawn(move || {
+                    let mut head = [0u8; 64];
+                    let size = stream.peek(&mut head).unwrap_or(0);
+                    if head[..size].starts_with(b"GET /v1/models") {
+                        listing.fetch_add(1, Ordering::SeqCst);
+                    }
+                    holding.fetch_add(1, Ordering::SeqCst);
+                    let _kept = match silent {
+                        Silent::Handshake => Some(stream),
+                        Silent::Setup => tungstenite::accept(stream).ok().map(WebSocket::into_inner),
+                    };
+                    std::thread::sleep(Duration::from_secs(30));
+                });
+            }
+        });
+        (base, held, listed)
+    }
+
+    fn session_at(base_url: &str, limits: Limits) -> Session {
+        let model = speechcpp::Model {
+            id: "m".into(),
+            languages: vec!["ja".into()],
+            accepts_language: true,
+            detects_language: false,
+            options: vec!["language".into()],
+        };
+        let options = Options {
+            base_url: base_url.into(),
+            model,
+            language: "ja".into(),
+            vocabulary: Vec::new(),
+            silence_duration_ms: None,
+            vad_threshold_percent: None,
+            diarizes: false,
+            limits,
+            diagnostics: None,
+        };
+        let endpoint = Endpoint { cookie: 1, serial: 1, name: "mic".into(), media_class: "Audio/Source".into() };
+        Session::new(Source::Mic, options, endpoint, Arc::new(NoDevice))
+    }
+
+    #[test]
+    fn a_stop_ends_a_session_whose_server_does_not_answer_within_100_ms() {
+        // Decision 81: the session's thread waited for the WebSocket's setup without looking at
+        // the stop, and a start right after a stop then found the previous session busy
+        // (`realtime_previous_owner_busy`). A setup of 5 s shows a wait that a stop does not end.
+        let limits = Limits { setup: Duration::from_secs(5), ..Limits::default() };
+        for silent in [Silent::Handshake, Silent::Setup] {
+            let (base, held, listed) = unanswering(silent);
+            let session = session_at(&base, limits);
+            session.start().unwrap();
+            let started = Instant::now();
+            while held.load(Ordering::SeqCst) == 0 {
+                assert!(started.elapsed() < Duration::from_secs(5), "the server never got the connection");
+                std::thread::sleep(Duration::from_millis(5));
+            }
+            // In the wait, not just before it.
+            std::thread::sleep(Duration::from_millis(50));
+            assert_eq!(session.state(), "starting");
+            assert!(session.close(Duration::from_millis(100)), "a stop did not end the wait for the server");
+            assert_eq!((session.state(), session.error()), ("closed", None), "a stop is not a failure");
+            // The start listed the models; the session only connects.
+            assert_eq!(listed.load(Ordering::SeqCst), 0, "the session asked for the model list again");
+        }
+    }
+
+    #[test]
+    fn the_padding_is_at_most_half_the_silence_so_the_utterance_comes_when_it_has_lasted() {
+        let sent = |silence| {
+            let value = turn_detection(silence, None);
+            (value["silence_duration_ms"].as_u64().unwrap(), value["prefix_padding_ms"].as_u64().unwrap())
+        };
+        assert_eq!(turn_detection(None, None)["type"], "server_vad");
+        // No threshold unless one is chosen (#392): the server's own applies.
+        assert!(turn_detection(None, None).get("threshold").is_none());
+        assert_eq!(turn_detection(Some(500), Some(30))["threshold"], 0.3);
+        assert_eq!(sent(None), (400, 200));
+        assert_eq!(sent(Some(500)), (500, 250));
+        assert_eq!(sent(Some(300)), (300, 150));
+        assert_eq!(sent(Some(100)), (100, 50));
+        // Never more than speech.cpp's own 300 ms.
+        assert_eq!(sent(Some(1000)), (1000, 300));
     }
 }

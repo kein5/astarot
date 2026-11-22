@@ -1,8 +1,10 @@
-//! The RVC worker process (`vrct-rvc-worker`, `rvc_process.py`) and its pipes.
+//! The RVC worker process (`astarot-rvc-worker`, [`rvc_process.py`]) and its pipes.
 //!
 //! Reads and writes run on threads of their own, so that a stalled worker never blocks the
 //! owner: the owner waits on a channel with a deadline, and a stop ends the child, which
 //! ends both threads.
+//!
+//! [`rvc_process.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/voice_conversion/rvc_process.py
 
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -31,9 +33,9 @@ pub fn ort_library() -> &'static str {
 /// The worker's file name in the shipped `build/` folder.
 pub fn worker_name() -> &'static str {
     if cfg!(windows) {
-        "vrct-rvc-worker.exe"
+        "astarot-rvc-worker.exe"
     } else {
-        "vrct-rvc-worker"
+        "astarot-rvc-worker"
     }
 }
 
@@ -52,18 +54,51 @@ pub struct RvcOptions {
     pub index: String,
     pub pitch: i64,
     pub index_rate: f64,
-    /// `auto`, `cuda` or `cpu` (the worker's `--device`).
+    /// `auto`, `cuda`, `directml` or `cpu` (the worker's `--device`).
     pub device: String,
+    /// The `lib/` of the app's DirectML runtime (the DirectML build of ONNX Runtime and
+    /// `DirectML.dll`) when it is set up: the worker's `--directml`. The owner finds it; a start
+    /// never names it.
+    pub directml: Option<PathBuf>,
     /// CPU threads per network; 0 lets the worker choose.
     pub threads: u32,
     /// The causal input high-pass (`--highpass on|off`).
     pub highpass: bool,
+    /// The length of the blocks the microphone is cut into and converted in, in ms
+    /// (`--block-ms`; [`crate::protocol::Block`]), or [`AUTO_BLOCK_MS`]: the worker chooses.
+    pub block_ms: u32,
+    /// Where the worker keeps the lengths it chose ([`BLOCK_CACHE_FILE`] beside the runtime
+    /// folder), so it times the GPU once per voice model and GPU (`--block-cache`). Set by the
+    /// owner, never by a start.
+    pub block_cache: Option<PathBuf>,
 }
 
-/// What the worker's `--device` takes.
-pub const DEVICES: [&str; 3] = ["auto", "cuda", "cpu"];
+/// The worker's file of chosen block lengths, beside the RVC runtime folder
+/// (`<state>/vc_runtimes/rvc-block-lengths.json`). It holds hashed keys and lengths only.
+pub const BLOCK_CACHE_FILE: &str = "rvc-block-lengths.json";
+/// Beside [`BLOCK_CACHE_FILE`]: asks the worker to time the GPU again on the next automatic
+/// start that would use a kept length (the user chose Automatic again, #531). The worker keeps
+/// the new length for that start's voice model and GPU and removes this file.
+pub const BLOCK_REMEASURE_FILE: &str = "rvc-block-lengths.remeasure";
+
+/// Asks for the GPU to be timed again at the next automatic start ([`BLOCK_REMEASURE_FILE`] in
+/// `runtimes_root`, `<state>/vc_runtimes`).
+pub fn ask_block_timing(runtimes_root: &Path) -> std::io::Result<()> {
+    std::fs::create_dir_all(runtimes_root)?;
+    std::fs::write(runtimes_root.join(BLOCK_REMEASURE_FILE), b"")
+}
+
+/// What the worker's `--device` takes. `directml` runs on Windows with the DirectML runtime.
+pub const DEVICES: [&str; 4] = ["auto", "cuda", "directml", "cpu"];
 /// The most CPU threads per network a start may ask for.
 pub const MAX_THREADS: u32 = 64;
+/// A start's `block_ms` that leaves the block to the worker (`--block-ms auto`, #531): on a
+/// GPU the shortest it converts in time with room to spare, timed before `ready`, which then
+/// says the block. A fixed 40 ms block took longer to convert than it lasts on a slower GPU (an
+/// RTX 3060 Ti over Thunderbolt) and was dropped block after block.
+pub const AUTO_BLOCK_MS: u32 = 0;
+/// The block of a start that does not choose one: the worker's choice (decided 2026-11-20).
+pub const DEFAULT_BLOCK_MS: u32 = AUTO_BLOCK_MS;
 
 /// Python's `str()` of the index rate: `0` for an int, `0.5`, `1.0` for floats.
 pub fn rate_text(rate: f64, was_integer: bool) -> String {
@@ -91,6 +126,8 @@ pub fn arguments(options: &RvcOptions, rate_text: &str, session: &str) -> Vec<St
         options.pitch.to_string(),
         "--index-rate".into(),
         rate_text.into(),
+        "--block-ms".into(),
+        if options.block_ms == AUTO_BLOCK_MS { "auto".into() } else { options.block_ms.to_string() },
         "--device".into(),
         options.device.clone(),
         "--highpass".into(),
@@ -99,6 +136,14 @@ pub fn arguments(options: &RvcOptions, rate_text: &str, session: &str) -> Vec<St
     // Without `--threads` the worker picks the count for the device it ends up on.
     if options.threads > 0 {
         args.extend(["--threads".into(), options.threads.to_string()]);
+    }
+    // Only the worker's own choice is kept.
+    if let (AUTO_BLOCK_MS, Some(cache)) = (options.block_ms, &options.block_cache) {
+        args.extend(["--block-cache".into(), cache.to_string_lossy().into_owned()]);
+    }
+    // Given whenever it is set up: `auto` may convert there too.
+    if let Some(directml) = &options.directml {
+        args.extend(["--directml".into(), directml.to_string_lossy().into_owned()]);
     }
     args
 }
@@ -125,7 +170,7 @@ impl WorkerPipe {
         let mut stdout = owned.child.stdout.take().expect("piped");
         let mut stdin = owned.child.stdin.take().expect("piped");
         let (packet_sender, packets) = channel();
-        thread::Builder::new().name("vrct-vc-read".into()).spawn(move || loop {
+        thread::Builder::new().name("astarot-vc-read".into()).spawn(move || loop {
             let packet = read_packet(&mut stdout);
             let failed = packet.is_err();
             if packet_sender.send(packet).is_err() || failed {
@@ -135,7 +180,7 @@ impl WorkerPipe {
         let (writes, write_queue) = channel::<Vec<u8>>();
         let write_failed = Arc::new(AtomicBool::new(false));
         let failed = write_failed.clone();
-        thread::Builder::new().name("vrct-vc-write".into()).spawn(move || {
+        thread::Builder::new().name("astarot-vc-write".into()).spawn(move || {
             while let Ok(bytes) = write_queue.recv() {
                 if stdin.write_all(&bytes).and_then(|()| stdin.flush()).is_err() {
                     failed.store(true, Ordering::SeqCst);
@@ -213,6 +258,35 @@ mod tests {
         assert_eq!((options.device.as_str(), options.threads, options.highpass), ("auto", 0, true));
         let args = arguments(&options, &rate, "s");
         assert_eq!(args[args.len() - 4..], ["--device", "auto", "--highpass", "on"], "no --threads: the worker picks");
+        // The block is always passed: the worker's choice unless the start chose one (#531).
+        assert_eq!(args[args.len() - 6..args.len() - 4], ["--block-ms", "auto"]);
+        let mut zero = base();
+        zero["block_ms"] = json!(0);
+        let (options, rate) = rvc_options(&zero).unwrap();
+        assert_eq!(options.block_ms, AUTO_BLOCK_MS, "0 asks for the worker's choice");
+        assert!(arguments(&options, &rate, "s").windows(2).any(|pair| pair == ["--block-ms", "auto"]));
+        // Where the worker keeps its choice: only for its own choice, and only as the owner says.
+        assert_eq!(options.block_cache, None, "a start never names the file");
+        let mut options = options;
+        options.block_cache = Some(PathBuf::from("/state/vc_runtimes").join(BLOCK_CACHE_FILE));
+        assert!(arguments(&options, &rate, "s").windows(2).any(|pair| pair[0] == "--block-cache" && pair[1].ends_with(BLOCK_CACHE_FILE)));
+        options.block_ms = 80;
+        assert!(!arguments(&options, &rate, "s").contains(&"--block-cache".to_string()));
+        let mut sneaky = base();
+        sneaky["block_cache"] = json!("/elsewhere");
+        assert_eq!(rvc_options(&sneaky).unwrap_err(), "vc_options_invalid");
+    }
+
+    #[test]
+    fn choosing_automatic_again_asks_the_worker_to_time_the_gpu_again() {
+        // The worker finds the request beside its cache file, by the cache file's name (#531).
+        assert_eq!(Path::new(BLOCK_CACHE_FILE).with_extension("remeasure"), Path::new(BLOCK_REMEASURE_FILE));
+        let root = std::env::temp_dir().join(format!("vc-runtimes-remeasure-{}", std::process::id())).join("vc_runtimes");
+        let _ = std::fs::remove_dir_all(&root);
+        ask_block_timing(&root).unwrap();
+        assert!(root.join(BLOCK_REMEASURE_FILE).is_file(), "made with its folder");
+        ask_block_timing(&root).unwrap();
+        let _ = std::fs::remove_dir_all(root.parent().unwrap());
     }
 
     #[test]
@@ -221,15 +295,33 @@ mod tests {
         value["device"] = json!("cpu");
         value["threads"] = json!(6);
         value["highpass"] = json!(false);
+        value["block_ms"] = json!(80);
         let (options, rate) = rvc_options(&value).unwrap();
         let args = arguments(&options, &rate, "s");
-        assert_eq!(args[args.len() - 6..], ["--device", "cpu", "--highpass", "off", "--threads", "6"]);
+        assert_eq!(args[args.len() - 8..], ["--block-ms", "80", "--device", "cpu", "--highpass", "off", "--threads", "6"]);
+    }
+
+    #[test]
+    fn the_directml_runtime_reaches_the_worker_when_the_owner_found_it() {
+        let mut value = base();
+        value["device"] = json!("directml");
+        let (mut options, rate) = rvc_options(&value).unwrap();
+        assert_eq!((options.device.as_str(), options.directml.as_deref()), ("directml", None), "a start never names the folder");
+        assert!(!arguments(&options, &rate, "s").contains(&"--directml".to_string()));
+        options.directml = Some(PathBuf::from("/state/vc_runtimes/onnxruntime-directml/lib"));
+        let args = arguments(&options, &rate, "s");
+        assert_eq!(args[args.len() - 2..], ["--directml", "/state/vc_runtimes/onnxruntime-directml/lib"]);
+        // A start cannot sneak the folder in.
+        let mut sneaky = base();
+        sneaky["directml"] = json!("/elsewhere");
+        assert_eq!(rvc_options(&sneaky).unwrap_err(), "vc_options_invalid");
     }
 
     #[test]
     fn bad_worker_choices_are_refused() {
-        for (key, bad) in [("device", json!("gpu")), ("device", json!(null)), ("threads", json!(-1)), ("threads", json!(65)), ("threads", json!(1.5)),
-            ("highpass", json!("on")), ("other", json!(1))]
+        for (key, bad) in [("device", json!("gpu")), ("device", json!(null)), ("device", json!("DirectML")), ("threads", json!(-1)), ("threads", json!(65)), ("threads", json!(1.5)),
+            ("highpass", json!("on")), ("other", json!(1)), ("block_ms", json!(30)), ("block_ms", json!(-40)), ("block_ms", json!(220)),
+            ("block_ms", json!(40.0)), ("block_ms", json!(0.0)), ("block_ms", json!("40")), ("block_ms", json!("auto")), ("block_ms", json!(null))]
         {
             let mut value = base();
             value[key] = bad.clone();

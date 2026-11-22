@@ -6,8 +6,10 @@
 //! resolved, and only after their size and SHA-256 match the catalog. Nothing here
 //! downloads anything.
 //!
-//! The table below repeats the OCR block of `src-python/models/model_downloads/catalog.py`
+//! The table below repeats the OCR block of [`src-python/models/model_downloads/catalog.py`]
 //! (the download manager still lives there); `tests/catalog.rs` checks that they agree.
+//!
+//! [`src-python/models/model_downloads/catalog.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/model_downloads/catalog.py
 
 use std::collections::HashMap;
 use std::io::Read;

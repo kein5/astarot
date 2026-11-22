@@ -2,17 +2,18 @@
   "name": "vrct-vox-docs",
   "private": true,
   "type": "module",
-  "description": "User documentation for VRCT-VOX, built with VitePress and published on GitHub Pages.",
+  "description": "User documentation for ASTAROT (VRCT-VOX), built with Rspress and published on GitHub Pages.",
   "license": "MIT",
   "scripts": {
-    "dev": "vitepress dev",
-    "build": "vitepress build",
-    "preview": "vitepress preview"
+    "dev": "rspress dev",
+    "build": "rspress build",
+    "preview": "rspress preview"
+  },
+  "dependencies": {
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
   },
   "devDependencies": {
-    "vitepress": "1.6.4"
-  },
-  "overrides": {
-    "vite": "6.4.5"
+    "@rspress/core": "2.1.3"
   }
 }

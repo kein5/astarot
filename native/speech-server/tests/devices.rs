@@ -178,10 +178,10 @@ fn a_bundle_is_admitted_only_with_its_pinned_executable() {
         std::fs::set_permissions(&binary, std::fs::Permissions::from_mode(0o700)).unwrap();
     }
     for meta in [
-        json!({"schema": 1, "version": "0.11.0", "variant": "linux-x64-vulkan"}), // another file's hash
-        json!({"schema": 1, "version": "0.10.0", "variant": "linux-x64-vulkan"}),
-        json!({"schema": true, "version": "0.11.0", "variant": "linux-x64-vulkan"}),
-        json!({"schema": 1, "version": "0.11.0", "variant": "unknown"}),
+        json!({"schema": 1, "version": "0.11.2", "variant": "linux-x64-vulkan"}), // another file's hash
+        json!({"schema": 1, "version": "0.11.0", "variant": "linux-x64-vulkan"}),
+        json!({"schema": true, "version": "0.11.2", "variant": "linux-x64-vulkan"}),
+        json!({"schema": 1, "version": "0.11.2", "variant": "unknown"}),
         json!([]),
     ] {
         std::fs::write(folder.join("bundle.json"), meta.to_string()).unwrap();
@@ -190,11 +190,11 @@ fn a_bundle_is_admitted_only_with_its_pinned_executable() {
     let _ = std::fs::remove_dir_all(&folder);
 }
 
-/// With VRCT_SPEECHCPP_BUNDLE naming a real `build/speechcpp`, the pinned executable is
+/// With ASTAROT_SPEECHCPP_BUNDLE naming a real `build/speechcpp`, the pinned executable is
 /// admitted and lists this PC's devices. Skipped without it: the bundle is 30 MB.
 #[test]
 fn the_real_bundle_is_admitted_and_lists_devices() {
-    let Some(bundle) = std::env::var_os("VRCT_SPEECHCPP_BUNDLE") else { return };
+    let Some(bundle) = std::env::var_os("ASTAROT_SPEECHCPP_BUNDLE") else { return };
     let binary = bundled_binary(&PathBuf::from(bundle)).unwrap();
     let rows = device_rows(&binary, &None).unwrap();
     assert!(rows.iter().any(|row| row["kind"] == "cpu"), "{rows:?}");

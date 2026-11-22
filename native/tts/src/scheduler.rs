@@ -13,6 +13,11 @@
 //!   as expired. Microphone speech must also become audible within `max_age`
 //!   of its recognition, or it ends with `speech_expired`; speech that has
 //!   started is never cut short by that deadline.
+//! - Typed chat does not count the time it waited while the worker spoke an
+//!   earlier message (decision 61 of `docs/voice-stack/core-integration.md`):
+//!   messages sent one after another are spoken however long the earlier ones
+//!   are, and only one left waiting while nothing speaks expires. Python
+//!   counted that time for chat too.
 //! - Every utterance ends within `request_timeout` (`request_timeout`).
 //! - Stop, mute, unmute, disable, reconfigure and close cancel the utterance
 //!   in progress, empty the queue, silence speech monitors and advance the
@@ -51,6 +56,15 @@ impl Synthesizer for SpeechCppTts {
     }
 }
 
+/// Readies a speech.cpp server (base URL, voice, language tag) for the speech that follows
+/// ([`SpeechCppTts::warm_up`]).
+/// The token stops it.
+pub type WarmUp = Arc<dyn Fn(&str, &str, &str, &CancelToken) -> Result<(), TtsError> + Send + Sync>;
+
+/// How long a server stays ready after it last spoke or was readied: [`VoiceEventBus::warm`]
+/// sends nothing within it.
+const WARM_FOR: Duration = Duration::from_secs(1);
+
 /// A speech.cpp synthesizer for a server's base URL.
 pub type ProviderFactory = Arc<dyn Fn(&str) -> Result<Box<dyn Synthesizer>, TtsError> + Send + Sync>;
 
@@ -80,12 +94,16 @@ pub type MonitorFactory = Arc<dyn Fn(MonitorRequest) -> Result<Arc<dyn Monitor>,
 /// Receives a short fixed code (a failure or a monitor notice).
 pub type Notice = Arc<dyn Fn(&str) + Send + Sync>;
 
-/// `(event, first audible write in monotonic ns, spoken through the conversion)`.
-pub type FirstAudioHook = Arc<dyn Fn(&SpeechMessageEvent, i64, bool) + Send + Sync>;
+/// `(event, first audible write in monotonic ns, spoken through the conversion, when this
+/// message's synthesis was asked for in monotonic ns)`. The last one is taken when the worker
+/// picks the message from the queue, before the engine is reached, so that the time from it to
+/// the first write is the synthesis alone, without the wait in the queue.
+pub type FirstAudioHook = Arc<dyn Fn(&SpeechMessageEvent, i64, bool, i64) + Send + Sync>;
 
 /// Construction options. The defaults are the application's.
 pub struct BusOptions {
     pub provider_factory: ProviderFactory,
+    pub warm_up: WarmUp,
     /// Japanese from an installed engine. Without one, choosing an engine
     /// fails like an unknown engine does.
     pub engine_factory: Option<EngineFactory>,
@@ -109,6 +127,7 @@ impl BusOptions {
     pub fn new(router: Arc<dyn SpeechRouter>) -> Self {
         Self {
             provider_factory: Arc::new(|url: &str| -> Result<Box<dyn Synthesizer>, TtsError> { Ok(Box::new(SpeechCppTts::new(url)?)) }),
+            warm_up: Arc::new(|url: &str, voice: &str, language: &str, token: &CancelToken| -> Result<(), TtsError> { Ok(SpeechCppTts::new(url)?.warm_up(voice, language, token)?) }),
             engine_factory: None,
             router,
             capacity: 4,
@@ -173,6 +192,34 @@ struct Job {
     event: Arc<SpeechMessageEvent>,
     settings: Arc<VoiceSettings>,
     epoch: u64,
+    /// [`Busy::total`] when the message was queued.
+    busy_at_queue: i64,
+}
+
+/// How long the worker has spent on utterances, so that typed chat can leave out the time it
+/// waited behind them (decision 61).
+#[derive(Default)]
+struct Busy {
+    /// Nanoseconds of finished utterances.
+    done: i64,
+    /// When the utterance in progress was taken.
+    since: Option<i64>,
+}
+
+impl Busy {
+    fn total(&self, now: i64) -> i64 {
+        self.done + self.since.map_or(0, |since| (now - since).max(0))
+    }
+
+    fn start(&mut self, now: i64) {
+        self.since = Some(now);
+    }
+
+    fn end(&mut self, now: i64) {
+        if let Some(since) = self.since.take() {
+            self.done += (now - since).max(0);
+        }
+    }
 }
 
 type SeenKey = (Source, String);
@@ -193,6 +240,11 @@ struct State {
     epoch: u64,
     source_epochs: HashMap<Source, u64>,
     stats: Stats,
+    busy: Busy,
+    /// The [`VoiceEventBus::warm`] request under way, which speech that starts stops, and when
+    /// the speech server last spoke or was readied.
+    warming: Option<CancelToken>,
+    ready_at: Option<Instant>,
 }
 
 struct Hooks {
@@ -206,6 +258,7 @@ struct Inner {
     changed: Condvar,
     hooks: RwLock<Hooks>,
     provider_factory: ProviderFactory,
+    warm_up: WarmUp,
     engine_factory: Option<EngineFactory>,
     router: Arc<dyn SpeechRouter>,
     capacity: usize,
@@ -273,10 +326,14 @@ impl VoiceEventBus {
                     epoch: 0,
                     source_epochs: HashMap::new(),
                     stats: Stats::default(),
+                    busy: Busy::default(),
+                    warming: None,
+                    ready_at: None,
                 }),
                 changed: Condvar::new(),
                 hooks: RwLock::new(Hooks { converted_router: options.converted_router, on_first_audio: options.on_first_audio, monitor_factory: options.monitor_factory }),
                 provider_factory: options.provider_factory,
+                warm_up: options.warm_up,
                 engine_factory: options.engine_factory,
                 router: options.router,
                 capacity: options.capacity,
@@ -404,6 +461,44 @@ impl VoiceEventBus {
     }
 
     /// Offer a message. Returns whether it was queued.
+    /// Readies the speech.cpp server that will speak a message of `source` in `language` while
+    /// the message is still being translated (#556): between utterances the GPU falls to a power
+    /// state with lower clocks, the next speech's first frames are made about twice as slowly,
+    /// and a short synthesis during the translation's wait raises the clocks again. Sends one short request on a thread of its own
+    /// and plays nothing; nothing when speech is off or muted for `source`, an installed engine
+    /// speaks the language, speech is under way or queued, or the server spoke or was readied
+    /// within [`WARM_FOR`]. Whether a request was sent.
+    pub fn warm(&self, source: &Source, language: &str) -> bool {
+        let token = CancelToken::new();
+        let settings = {
+            let mut state = self.inner.state();
+            let ready = state.ready_at.is_some_and(|at| at.elapsed() < WARM_FOR);
+            if state.closed || state.muted || !state.tts_enabled || state.warming.is_some() || ready || state.active.is_some() || !state.queue.is_empty() {
+                return false;
+            }
+            state.warming = Some(token.clone());
+            state.settings.clone()
+        };
+        let resolve = self.inner.resolve_server.clone();
+        let resolver = resolve.as_ref().map(|resolve| &**resolve as &dyn Fn(&str) -> Result<String, TtsError>);
+        let Some((url, voice, language)) = settings.speechcpp_target(source, language, resolver) else {
+            finish_warm(&self.inner, &token, false);
+            return false;
+        };
+        let inner = self.inner.clone();
+        let running = token.clone();
+        let spawned = thread::Builder::new().name("vrct-tts-warm".into()).spawn(move || {
+            // A refusal or a server that is not there is left to the speech that follows to report.
+            let done = catch_unwind(AssertUnwindSafe(|| (inner.warm_up)(&url, &voice, language, &running))).is_ok_and(|r| r.is_ok());
+            finish_warm(&inner, &running, done);
+        });
+        if spawned.is_err() {
+            finish_warm(&self.inner, &token, false);
+            return false;
+        }
+        true
+    }
+
     pub fn publish(&self, event: SpeechMessageEvent, expected_generation: Option<u64>, expected_source_generation: Option<u64>) -> bool {
         let mut state = self.inner.state();
         if expected_generation.is_some_and(|generation| generation != state.epoch) {
@@ -461,7 +556,8 @@ impl VoiceEventBus {
             let (key, _) = state.seen_order.pop_front().expect("longer than 512");
             state.seen.remove(&key);
         }
-        let job = Job { event: Arc::new(event), settings: state.settings.clone(), epoch: state.epoch };
+        let busy_at_queue = state.busy.total(monotonic_ns());
+        let job = Job { event: Arc::new(event), settings: state.settings.clone(), epoch: state.epoch, busy_at_queue };
         state.queue.push_back(job);
         state.stats.accepted += 1;
         if state.worker.is_none() {
@@ -469,13 +565,14 @@ impl VoiceEventBus {
             state.worker = Some(finished.clone());
             let inner = self.inner.clone();
             thread::Builder::new()
-                .name("vrct-vox".into())
+                .name("astarot".into())
                 .spawn(move || {
                     // A panic outside one utterance must not leave a dead
                     // worker that close() waits for and publish() never replaces.
                     if catch_unwind(AssertUnwindSafe(|| work(&inner))).is_err() {
                         let mut state = inner.state();
                         state.worker = None;
+                        state.busy.end(monotonic_ns());
                         state.active = None;
                         state.active_source = None;
                         inner.changed.notify_all();
@@ -548,7 +645,7 @@ impl StartExpiry {
         let stopped = Event::new();
         let flag = stopped.clone();
         thread::Builder::new()
-            .name("vrct-vox-start-expiry".into())
+            .name("astarot-start-expiry".into())
             .spawn(move || {
                 run_start_expiry(deadline_ns, monotonic_ns, |remaining| flag.wait(Some(remaining)), || flag.is_set(), || token.expire_start());
             })
@@ -583,7 +680,7 @@ impl RequestTimer {
         let stopped = Event::new();
         let flag = stopped.clone();
         thread::Builder::new()
-            .name("vrct-vox-request-timeout".into())
+            .name("astarot-request-timeout".into())
             .spawn(move || {
                 if !flag.wait(Some(timeout)) {
                     token.cancel_with("request_timeout");
@@ -636,6 +733,18 @@ fn open_monitor(inner: &Arc<Inner>, settings: &VoiceSettings, epoch: u64) -> Opt
     }
 }
 
+/// Ends the warm-up `token` stops: only its own, as speech may have stopped it and another may
+/// have started since. `ready` when the server spoke it.
+fn finish_warm(inner: &Inner, token: &CancelToken, ready: bool) {
+    let mut state = inner.state();
+    if state.warming.as_ref().is_some_and(|warming| warming.same(token)) {
+        state.warming = None;
+    }
+    if ready {
+        state.ready_at = Some(Instant::now());
+    }
+}
+
 fn next_job(inner: &Arc<Inner>) -> Option<(Job, CancelToken, Option<i64>)> {
     let mut state = inner.state();
     loop {
@@ -658,13 +767,21 @@ fn next_job(inner: &Arc<Inner>) -> Option<(Job, CancelToken, Option<i64>)> {
         let next = state.queue.iter().position(|job| job.event.source == Source::Chat).unwrap_or(0);
         let job = state.queue.remove(next).expect("the queue is not empty");
         let max_age_ns = inner.max_age.as_nanos() as i64;
-        if monotonic_ns() - job.event.timestamp_ns > max_age_ns {
+        let now = monotonic_ns();
+        // Chat leaves out the time it waited behind earlier utterances (decision 61).
+        let behind = if job.event.source == Source::Chat { state.busy.total(now) - job.busy_at_queue } else { 0 };
+        if now - job.event.timestamp_ns - behind > max_age_ns {
             state.stats.dropped += 1;
             state.stats.expired += 1;
             continue;
         }
         let deadline = (job.event.source == Source::Mic).then(|| job.event.timestamp_ns + max_age_ns);
         let token = CancelToken::with_start_deadline(deadline);
+        // Speech that starts stops a warm-up still under way, so that it does not wait behind it.
+        if let Some(warming) = state.warming.take() {
+            warming.cancel();
+        }
+        state.busy.start(now);
         state.active = Some(token.clone());
         state.active_source = Some(job.event.source.clone());
         return Some((job, token, deadline));
@@ -721,13 +838,16 @@ fn work(inner: &Arc<Inner>) {
         }
         write_voice_trace(&job.event.event_id, job.event.timestamp_ns, first_write, outcome);
         let mut state = inner.state();
+        state.busy.end(monotonic_ns());
         state.active = None;
         state.active_source = None;
+        state.ready_at = Some(Instant::now());
         inner.changed.notify_all();
     }
 }
 
 fn speak(inner: &Arc<Inner>, job: &Job, token: &CancelToken, first_write: &mut Option<(i64, u32)>, monitor_slot: &mut Option<Arc<dyn Monitor>>) -> Result<(), TtsError> {
+    let synthesis_started = monotonic_ns();
     let event = &job.event;
     let settings = &job.settings;
     let resolve = inner.resolve_server.clone();
@@ -741,6 +861,9 @@ fn speak(inner: &Arc<Inner>, job: &Job, token: &CancelToken, first_write: &mut O
     };
     let options = settings.options_for(request.language)?;
     let frames = provider.synthesize_stream(&request, token, &options)?;
+    // speech.cpp's models put near-silence before the voice; it is heard as a wait (#556). The
+    // installed engines keep the silence their own settings put there.
+    let frames = if request.engine == SPEECHCPP { crate::onset::skip_leading_silence(frames) } else { frames };
     let (converted_router, on_first_audio) = {
         let hooks = inner.hooks.read().unwrap_or_else(|p| p.into_inner());
         (hooks.converted_router.clone(), hooks.on_first_audio.clone())
@@ -757,7 +880,7 @@ fn speak(inner: &Arc<Inner>, job: &Job, token: &CancelToken, first_write: &mut O
         if let Some(hook) = &on_first_audio {
             // The flow panel: when this message became audible, and by which
             // path. A readout never stops speech.
-            let _ = catch_unwind(AssertUnwindSafe(|| hook(event, timestamp, converted)));
+            let _ = catch_unwind(AssertUnwindSafe(|| hook(event, timestamp, converted, synthesis_started)));
         }
         Ok(())
     };

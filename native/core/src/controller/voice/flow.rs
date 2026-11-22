@@ -1,8 +1,11 @@
-//! Where the user's own voice and typed chat go with the current settings (`io_flow.py`), and
-//! how long each of those inputs took to reach each output (`io_trace.py`).
+//! Where the user's own voice and typed chat go with the current settings ([`io_flow.py`]), and
+//! how long each of those inputs took to reach each output ([`io_trace.py`]).
 //!
 //! The flow panel and its overlays draw both. Nothing here is logged (`/run/io_trace` is never
 //! written to `process.log`) and nothing leaves the PC.
+//!
+//! [`io_flow.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/io_flow.py
+//! [`io_trace.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/io_trace.py
 
 use serde_json::{Map, Value, json};
 use std::collections::VecDeque;
@@ -257,10 +260,15 @@ impl IoTraces {
     }
 
     /// The first audio of a message's speech was written (or sent to the conversion).
-    pub fn speech_started(&self, id: &str, timestamp_ns: i64, converted: bool, conversion_ms: Option<i64>) -> bool {
+    /// `synthesis_ns`: from asking the engine for this message to that first write, without
+    /// the wait in the speech queue.
+    pub fn speech_started(&self, id: &str, timestamp_ns: i64, converted: bool, conversion_ms: Option<i64>, synthesis_ns: Option<i64>) -> bool {
         let traces = self.traces.lock().unwrap();
         let Some(trace) = traces.iter().find(|t| t.id == id).cloned() else { return false };
         let mut detail = vec![("converted", json!(converted))];
+        if let Some(synthesis) = synthesis_ns {
+            detail.push(("synthesis_ms", json!(ms(synthesis))));
+        }
         if converted && let Some(conversion) = conversion_ms {
             detail.push(("conversion_ms", json!(conversion)));
         }

@@ -25,7 +25,7 @@ export interface SidecarSession {
     early?: Array<{ readonly [key: string]: unknown }>;
 }
 
-// The fields of the shared UI store (store.js) the session owner reads and writes.
+// The fields of the shared UI store (store.ts) the session owner reads and writes.
 export interface SidecarSessionStore {
     backend_session: SidecarSession | null;
     backend_subprocess: BackendChild | null;
@@ -77,10 +77,11 @@ export const createSidecarSessionOwner = ({ store, createCommand, setInterval, c
         }, 20000);
     };
     const retireChild = async (session: SidecarSession) => {
-        if (!session.child || session.closed) return true;
+        const child = session.child;
+        if (!child || session.closed) return true;
         if (!session.retirement) {
-            // The child was checked just above and is never cleared once set.
-            session.retirement = Promise.resolve().then(() => session.child!.kill()).then(() => true, error => {
+            // The child checked just above; a session's child is never cleared once set.
+            session.retirement = Promise.resolve().then(() => child.kill()).then(() => true, error => {
                 console.error("Could not stop failed sidecar attempt", error);
                 return false;
             });
@@ -154,8 +155,10 @@ export const createSidecarSessionOwner = ({ store, createCommand, setInterval, c
                     }
                     // A reply to a line may send requests; until the child is known they could
                     // not be written and would read as "engine unavailable".
-                    if (!session.child) (session.early ??= []).push(message);
-                    else deliver(message);
+                    if (!session.child) {
+                        session.early ??= [];
+                        session.early.push(message);
+                    } else deliver(message);
                 });
                 command.stderr.on("data", line => {
                     if (!isLive(session)) return;
@@ -188,7 +191,7 @@ export const createSidecarSessionOwner = ({ store, createCommand, setInterval, c
     };
     const retry = async () => {
         const session = store.backend_session;
-        if (!session || session.phase !== "failed" || session.retrying || !clients.size) return false;
+        if (session?.phase !== "failed" || session.retrying || !clients.size) return false;
         session.retrying = true;
         handlers()?.setStartupState("starting");
         // Do not spawn a replacement while an old spawn or kill is unresolved.
@@ -218,7 +221,8 @@ export const createSidecarSessionOwner = ({ store, createCommand, setInterval, c
         return () => {
             clients.delete(getHandlers);
             // attach() made sure a session exists, and nothing clears it afterwards.
-            if (!clients.size) stopFeeding(store.backend_session!);
+            const session = store.backend_session;
+            if (!clients.size && session) stopFeeding(session);
         };
     };
     return { attach, retry };

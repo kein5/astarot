@@ -1,7 +1,7 @@
 //! The audio devices: the lists, the choice of microphone and speaker, Auto Select following
 //! the OS default, and the virtual microphone guide (#321).
 //!
-//! Port of the device parts of `src-python/controller.py` (`_audioTarget`,
+//! Port of the device parts of [`src-python/controller.py`] (`_audioTarget`,
 //! `_publishAudioDeviceLocked`, `_queueAudioReconciliation`, `applyAuto*Select`,
 //! `setSelected*`, `getVirtualMicStatus`, `runVirtualMicTest`) and of `model.getList*`. The
 //! lists, the identities, the change watching and the checks live in `native/audio-routing`
@@ -34,6 +34,8 @@
 //!   it does, the saved mute intent `voice_mute_state.json` is read).
 //!
 //! Log lines are fixed strings: no device name or identity goes into the log.
+//!
+//! [`src-python/controller.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/controller.py
 
 use super::routes::{Builder, OPEN};
 use super::{Core, error, ok, run_endpoint};
@@ -637,6 +639,14 @@ impl AudioDevices {
     /// The stop and mute requests end a running check (`_stopVirtualMicCheck`).
     pub fn stop_virtual_mic_check(&self) {
         self.check.stop();
+    }
+
+    /// The playback sides of the virtual cables found, which an output for the user's ears only
+    /// (the voice audition, #415) must never be. Empty where the PC has no such check (Linux);
+    /// `None` when the list could not be read. Only reads the list.
+    pub(crate) fn cable_playbacks(&self) -> Option<Vec<String>> {
+        let Some(cables) = self.platform.cables() else { return Some(Vec::new()) };
+        cables.find_cables().ok().map(|pairs| pairs.into_iter().map(|pair| pair.playback).collect())
     }
 
     fn cable_json(pair: &CablePair) -> Value {

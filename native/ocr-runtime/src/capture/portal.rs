@@ -1,13 +1,13 @@
 //! A window the user shares through the desktop's ScreenCast portal (Linux;
-//! `ocr_capture_portal.py`).
+//! [`ocr_capture_portal.py`]).
 //!
 //! The Tauri process asks the desktop on the user's request (portal_screencast.rs) and
 //! starts native/screen-capture, which copies the newest frame of the stream into
-//! `<VRCT_VR_PANEL_DIR>/screen-frame`. This only reads that file; it never starts a
+//! `<ASTAROT_VR_PANEL_DIR>/screen-frame`. This only reads that file; it never starts a
 //! capture.
 //!
 //! File layout (little-endian): a 64-byte header, then the pixels.
-//!   0  "VRCTSCR1"
+//!   0  "ASTRSCR1"
 //!   8  sequence, odd while the pixels are being replaced
 //!   16 instance: 0 once the stream is gone; the upper half is the helper's process id
 //!   24 width, 28 height, 32 bytes per row, 36 layout (0 BGRx, 1 BGRA, 2 RGBx, 3 RGBA)
@@ -17,6 +17,8 @@
 //! A window that does not change sends no new frames, so an old frame is not a dead
 //! stream. The stream is over when the file is gone, its instance is 0, or the helper
 //! that wrote it no longer exists.
+//!
+//! [`ocr_capture_portal.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/ocr/ocr_capture_portal.py
 
 use std::io::{Read, Seek, SeekFrom};
 use std::path::PathBuf;
@@ -24,9 +26,9 @@ use std::path::PathBuf;
 use crate::failure::Failure;
 use crate::image::BgrImage;
 
-pub const DIRECTORY_ENV: &str = "VRCT_VR_PANEL_DIR";
+pub const DIRECTORY_ENV: &str = app_identity::env::VR_PANEL_DIR;
 pub const FRAME_NAME: &str = "screen-frame";
-const MAGIC: &[u8; 8] = b"VRCTSCR1";
+const MAGIC: &[u8; 8] = app_identity::handoff::SCREEN_FRAME;
 const HEADER_SIZE: usize = 64;
 const MAX_SIDE: u32 = 16384;
 const READ_TRIES: usize = 4;
@@ -100,7 +102,7 @@ pub struct SharedWindowCapture {
 }
 
 impl SharedWindowCapture {
-    /// `path` overrides the file announced through `VRCT_VR_PANEL_DIR`.
+    /// `path` overrides the file announced through `ASTAROT_VR_PANEL_DIR`.
     pub fn new(path: Option<PathBuf>) -> Self {
         SharedWindowCapture { path, cache: None, alive: writer_alive }
     }

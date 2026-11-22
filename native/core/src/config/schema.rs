@@ -1,7 +1,9 @@
 //! Every setting: its default, whether it is saved, and the check a new value must pass
-//! (`ManagedProperty` and `ValidatedProperty` in `src-python/config.py`).
+//! (`ManagedProperty` and `ValidatedProperty` in [`src-python/config.py`]).
 //!
 //! The order of [`keys`] is the order of the Python class, which is the order of `config.json`.
+//!
+//! [`src-python/config.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/config.py
 
 use super::{Ctx, Environment, Platform};
 use crate::languages;
@@ -89,6 +91,17 @@ fn immediate(name: &'static str, check: Check) -> Key {
 
 fn readonly(name: &'static str) -> Key {
     Key { name, serialize: false, readonly: true, immediate: false, check: None }
+}
+
+/// An RVC block a conversion may use: 0, the worker's choice (the default, #531), or 20 to
+/// 200 ms in steps of 20 (`protocol::Block`).
+pub fn is_valid_rvc_block_ms(value: &Value) -> bool {
+    value.as_u64().filter(|_| value.is_u64()).and_then(|ms| u32::try_from(ms).ok()).is_some_and(is_valid_rvc_block)
+}
+
+/// `is_valid_rvc_block_ms` of a number.
+pub fn is_valid_rvc_block(ms: u32) -> bool {
+    ms == vrct_voice_conversion::worker::AUTO_BLOCK_MS || vrct_voice_conversion::protocol::Block::from_ms(ms).is_some()
 }
 
 pub fn is_valid_port(value: &Value) -> bool {
@@ -343,6 +356,27 @@ fn compute_type() -> Check {
     })
 }
 
+/// The longest instructions the AI translation providers are given (#392), in characters.
+pub const LLM_INSTRUCTIONS_MAX_CHARS: usize = 500;
+
+/// Empty, or a decimal from 0 to 2 with at most two places (`0`, `0.3`, `1.25`, `2`).
+fn llm_temperature_valid(text: &str) -> bool {
+    if text.is_empty() {
+        return true;
+    }
+    let (whole, places) = text.split_once('.').unwrap_or((text, ""));
+    let digits = |part: &str| part.bytes().all(|b| b.is_ascii_digit());
+    whole.len() == 1
+        && digits(whole)
+        && (text.len() == 1 || (!places.is_empty() && places.len() <= 2 && digits(places)))
+        && text.parse::<f64>().is_ok_and(|value| (0.0..=2.0).contains(&value))
+}
+
+/// One line of at most [`LLM_INSTRUCTIONS_MAX_CHARS`] characters, without control characters.
+fn llm_instructions_valid(text: &str) -> bool {
+    text.chars().count() <= LLM_INSTRUCTIONS_MAX_CHARS && !text.chars().any(char::is_control)
+}
+
 fn asr_timeout(source: &'static str, kind: &'static str) -> Check {
     managed(Ty::Int, false, move |value, ctx| {
         let Some(value) = value.as_i64() else { return false };
@@ -427,8 +461,10 @@ fn hotkeys() -> Check {
     })
 }
 
-/// Experimental features the user turns on one by one (`src-python/models/experimental_features.py`,
+/// Experimental features the user turns on one by one ([`src-python/models/experimental_features.py`],
 /// Issue #361). The Python backend and the UI list the same ids; a backend test keeps them equal.
+///
+/// [`src-python/models/experimental_features.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/experimental_features.py
 pub const EXPERIMENTAL_FEATURE_IDS: &[&str] = &["tray_companion"];
 
 fn experimental_features_default() -> Value {
@@ -454,6 +490,26 @@ fn normalize_experimental_features(ids: &[&str], value: &Value, current: &Value)
 fn experimental_features() -> Check {
     validated(|value, ctx| {
         normalize_experimental_features(EXPERIMENTAL_FEATURE_IDS, value, &ctx.get("EXPERIMENTAL_FEATURES"))
+    })
+}
+
+/// The usage presets the user can pick at the top of the settings menu (#554). Each shows the
+/// features one way of using the app needs, in the settings menu and among the main switches;
+/// "all" shows every feature. The UI keeps what each one shows (`src-ui/logics/configs/usagePresets.ts`).
+pub const USAGE_PRESET_IDS: &[&str] = &["basic", "nonverbal", "multilingual", "voice_changer", "all"];
+
+/// Several presets can be picked; the menu and the switches show what any of them shows. The
+/// value is kept in the order above, each id once. An id this version does not know is left
+/// out (a later version may have one more), and a list with none it knows is refused.
+fn usage_presets() -> Check {
+    validated(|value, _| {
+        let given = value.as_array()?;
+        let mut ids = Vec::with_capacity(given.len());
+        for item in given {
+            ids.push(item.as_str()?);
+        }
+        let picked: Vec<Value> = USAGE_PRESET_IDS.iter().filter(|id| ids.contains(id)).map(|id| json!(id)).collect();
+        (!picked.is_empty()).then_some(Value::Array(picked))
     })
 }
 
@@ -568,12 +624,19 @@ pub fn keys() -> Vec<Key> {
         key("MIC_NO_SPEECH_PROB", num_in(0.0, 1.0)),
         immediate("HOTKEYS", hotkeys()),
         immediate("EXPERIMENTAL_FEATURES", experimental_features()),
+        // What the settings menu and the main switches show (#554). It changes no feature.
+        immediate("USAGE_PRESETS", usage_presets()),
+        // How the model catalogs lay out their cards: "grid" or "list" (the settings' catalogs). It
+        // changes no model and no feature.
+        key("CATALOG_LAYOUT", managed(Ty::Str, false, |v, _| matches!(v.as_str(), Some("grid" | "list")))),
         // The screen edge the tray companion's hexagram hides at (src-tauri/src/companion.rs).
         key("TRAY_COMPANION_EDGE", one_of("TRAY_COMPANION_EDGE_LIST")),
         // The monitor it shows on, by the system's name for it; empty for the primary monitor.
         key("TRAY_COMPANION_MONITOR", managed(Ty::Str, false, |v, _| {
             v.as_str().is_some_and(|s| s.chars().count() <= 256 && !s.chars().any(char::is_control))
         })),
+        // The hexagram has told, the first time it came out, that the wheel turns it (#536).
+        key("TRAY_COMPANION_WHEEL_HINT_SHOWN", b()),
         key("SPEAKER_THRESHOLD", managed(Ty::Int, false, |v, ctx| {
             v.as_i64().is_some_and(|v| v >= 0 && v <= ctx.get("MAX_SPEAKER_THRESHOLD").as_i64().unwrap_or(0))
         })),
@@ -605,11 +668,18 @@ pub fn keys() -> Vec<Key> {
         key("RECEIVED_MESSAGE_FORMAT_PARTS", message_format()),
         key("VOICE_SETTINGS", validated(tts_settings)),
         key("DIRECT_VOICE_SETTINGS", validated(|v, _| voice_settings::load_direct(v))),
+        // Core only (#531): the block, in ms, that an RVC conversion cuts the microphone into
+        // and converts. A key of its own: an older version that reads DIRECT_VOICE_SETTINGS
+        // refuses a field it does not know, and would reset the model and index with it.
+        key("RVC_BLOCK_MS", managed(Ty::Int, false, |v, _| is_valid_rvc_block_ms(v))),
         key("REALTIME_ASR_SETTINGS", validated(|v, _| voice_settings::normalize_realtime(v).ok())),
         key("SPEECH_SERVER_SETTINGS", validated(|v, _| vrct_speech_server::settings::normalize_settings(v).ok().map(|s| s.to_json()))),
         key("WEBSOCKET_SERVER", b()),
         key("OSC_IP_ADDRESS", plain(Ty::Str)),
         key("OSC_PORT", managed(Ty::Int, false, |v, _| is_valid_port(v))),
+        // Core only (#559): OSCQuery (receiving VRChat's parameters, the mDNS advertisement and
+        // the discovery of VRChat) runs; off, messages are still sent.
+        key("OSC_QUERY", b()),
         key("AUTO_CLEAR_MESSAGE_BOX", b()),
         // Whether the app looks for a new version at start (#343; the UI reads it).
         key("CHECK_SOFTWARE_UPDATES", b()),
@@ -655,11 +725,14 @@ pub fn keys() -> Vec<Key> {
             v.is_null() || ctx.list("SELECTABLE_TRANSCRIPTION_ENGINE_LIST").contains(v)
         })),
         key("SELECTED_RELEASE_CHANNEL", one_of("SELECTABLE_RELEASE_CHANNEL_LIST")),
+        // Whether the user chose the update channel (#466): until then it follows the running
+        // version at every start.
+        key("RELEASE_CHANNEL_CHOSEN", b()),
         key("CTRANSLATE2_WEIGHT_TYPE", one_of("SELECTABLE_CTRANSLATE2_WEIGHT_TYPE_LIST")),
         key("CTRANSLATE2_LICENSE_NOTICE_SHOWN", b()),
         key("LOCAL_ASR_MIGRATION", int_in(0, super::LOCAL_ASR_MIGRATION_LATEST)),
-        key("LOCAL_ASR_NOTICE_PENDING", b()),
         key("VIRTUAL_MIC_NOTICE_PENDING", b()),
+        key("FIRST_RUN_SETUP_PENDING", b()),
         key("SELECTED_PLAMO_MODEL", in_populated("SELECTABLE_PLAMO_MODEL_LIST")),
         key("SELECTED_GEMINI_MODEL", in_populated("SELECTABLE_GEMINI_MODEL_LIST")),
         key("SELECTED_OPENAI_MODEL", in_populated("SELECTABLE_OPENAI_MODEL_LIST")),
@@ -668,6 +741,11 @@ pub fn keys() -> Vec<Key> {
         key("SELECTED_LMSTUDIO_MODEL", in_populated("SELECTABLE_LMSTUDIO_MODEL_LIST")),
         key("SELECTED_OPENAI_COMPATIBLE_MODEL", in_populated("SELECTABLE_OPENAI_COMPATIBLE_MODEL_LIST")),
         key("SELECTED_OLLAMA_MODEL", in_populated("SELECTABLE_OLLAMA_MODEL_LIST")),
+        // What the AI translation providers (the chat APIs, Gemini, Ollama) are asked besides the
+        // text (#392). The temperature: a decimal from 0 to 2 as text, or empty to send none (each
+        // provider's own default). The instructions: added to the system prompt; empty adds none.
+        key("LLM_TRANSLATION_TEMPERATURE", managed(Ty::Str, false, |v, _| v.as_str().is_some_and(llm_temperature_valid))),
+        key("LLM_TRANSLATION_INSTRUCTIONS", managed(Ty::Str, false, |v, _| v.as_str().is_some_and(llm_instructions_valid))),
         key("SELECTED_GROQ_WHISPER_MODEL", in_populated("SELECTABLE_GROQ_WHISPER_MODEL_LIST")),
         key("SELECTED_OPENAI_WHISPER_MODEL", in_populated("SELECTABLE_OPENAI_WHISPER_MODEL_LIST")),
         key("SELECTED_CUSTOM_WHISPER_MODEL", in_populated("SELECTABLE_CUSTOM_WHISPER_MODEL_LIST")),
@@ -713,7 +791,8 @@ pub fn defaults(env: &Environment) -> Map<String, Value> {
     let engines = languages::translation_engines();
     let transcription_engines = languages::transcription_engines();
     let compute = Value::Array(env.compute_devices.clone());
-    let compute_mode = if env.compute_devices.iter().any(|d| d["device"] == "cuda") { "cuda" } else { "cpu" };
+    // A device that needs the app started again is not in use yet.
+    let compute_mode = if env.compute_devices.iter().any(|d| d["device"] == "cuda" && d["restart_required"] != true) { "cuda" } else { "cpu" };
     let target_slot = |slot: &str| json!({ "language": "English", "country": "United States", "enable": slot == "1" });
     let mut your = Map::new();
     let mut target = Map::new();
@@ -723,7 +802,7 @@ pub fn defaults(env: &Environment) -> Map<String, Value> {
         target.insert(tab.into(), json!({ "1": target_slot("1"), "2": target_slot("2"), "3": target_slot("3") }));
         selected_engines.insert(tab.into(), json!("CTranslate2"));
     }
-    // The built-in weights, then the models the user added (`custom:<folder>`).
+    // The built-in weights, then the engine entries the user added (`user:<id>`).
     let weights = crate::controller::translation::weight_ids(env);
     let weight_dict: Map<String, Value> = weights.iter().map(|w| (w.clone(), json!(false))).collect();
     let engine_status: Map<String, Value> = engines.iter().map(|e| (e.clone(), json!(false))).collect();
@@ -812,8 +891,12 @@ pub fn defaults(env: &Environment) -> Map<String, Value> {
             "toggle_voice_mute": null, "toggle_tts": null, "toggle_rvc": null,
         })),
         ("EXPERIMENTAL_FEATURES", experimental_features_default()),
+        // A new install starts with the basic features; an update shows all (Config::migrate_usage_presets).
+        ("USAGE_PRESETS", json!(["basic"])),
+        ("CATALOG_LAYOUT", json!("grid")),
         ("TRAY_COMPANION_EDGE", json!("right")),
         ("TRAY_COMPANION_MONITOR", json!("")),
+        ("TRAY_COMPANION_WHEEL_HINT_SHOWN", json!(false)),
         ("SPEAKER_THRESHOLD", json!(300)),
         ("SPEAKER_AUTOMATIC_THRESHOLD", json!(false)),
         ("SPEAKER_RECORD_TIMEOUT", json!(3)),
@@ -849,11 +932,13 @@ pub fn defaults(env: &Environment) -> Map<String, Value> {
         ("RECEIVED_MESSAGE_FORMAT_PARTS", format_parts),
         ("VOICE_SETTINGS", voice),
         ("DIRECT_VOICE_SETTINGS", voice_settings::default_direct()),
+        ("RVC_BLOCK_MS", json!(vrct_voice_conversion::worker::DEFAULT_BLOCK_MS)),
         ("REALTIME_ASR_SETTINGS", realtime),
         ("SPEECH_SERVER_SETTINGS", speech),
         ("WEBSOCKET_SERVER", json!(false)),
         ("OSC_IP_ADDRESS", json!("127.0.0.1")),
         ("OSC_PORT", json!(9000)),
+        ("OSC_QUERY", json!(true)),
         ("AUTO_CLEAR_MESSAGE_BOX", json!(true)),
         ("CHECK_SOFTWARE_UPDATES", json!(true)),
         ("SEND_ONLY_TRANSLATED_MESSAGES", json!(false)),
@@ -893,11 +978,12 @@ pub fn defaults(env: &Environment) -> Map<String, Value> {
         ("SELECTED_TAB_NO", json!("1")),
         ("SELECTED_TRANSCRIPTION_ENGINE", Value::Null),
         ("SELECTED_RELEASE_CHANNEL", json!("stable")),
+        ("RELEASE_CHANNEL_CHOSEN", json!(false)),
         ("CTRANSLATE2_WEIGHT_TYPE", json!(languages::DEFAULT_TRANSLATION_WEIGHT)),
         ("CTRANSLATE2_LICENSE_NOTICE_SHOWN", json!(false)),
         ("LOCAL_ASR_MIGRATION", json!(super::LOCAL_ASR_MIGRATION_LATEST)),
-        ("LOCAL_ASR_NOTICE_PENDING", json!(false)),
         ("VIRTUAL_MIC_NOTICE_PENDING", json!(true)),
+        ("FIRST_RUN_SETUP_PENDING", json!(true)),
         ("SELECTED_PLAMO_MODEL", Value::Null),
         ("SELECTED_GEMINI_MODEL", Value::Null),
         ("SELECTED_OPENAI_MODEL", Value::Null),
@@ -906,6 +992,8 @@ pub fn defaults(env: &Environment) -> Map<String, Value> {
         ("SELECTED_LMSTUDIO_MODEL", Value::Null),
         ("SELECTED_OPENAI_COMPATIBLE_MODEL", Value::Null),
         ("SELECTED_OLLAMA_MODEL", Value::Null),
+        ("LLM_TRANSLATION_TEMPERATURE", json!("")),
+        ("LLM_TRANSLATION_INSTRUCTIONS", json!("")),
         ("SELECTED_GROQ_WHISPER_MODEL", Value::Null),
         ("SELECTED_OPENAI_WHISPER_MODEL", Value::Null),
         ("SELECTED_CUSTOM_WHISPER_MODEL", Value::Null),

@@ -1,10 +1,12 @@
 //! Raw PCM to one explicit sink through a native PipeWire playback stream.
 //!
-//! Port of `PipeWireOutput` in `src-python/models/audio_routing/devices_pipewire.py`,
+//! Port of `PipeWireOutput` in [`src-python/models/audio_routing/devices_pipewire.py`],
 //! which ran `pw-cat`. The stream runs on its own thread with its own connection. It
 //! is never moved, never reconnected and never falls back to another sink, so a lost
 //! target ends playback with `output_disconnected` instead of playing elsewhere.
 //! Writes go to a bounded buffer of about 85 ms, the size of the pipe to `pw-cat`.
+//!
+//! [`src-python/models/audio_routing/devices_pipewire.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/audio_routing/devices_pipewire.py
 
 use std::collections::VecDeque;
 use std::sync::mpsc;
@@ -100,7 +102,7 @@ impl PipeWireOutput {
         let state = Arc::new(State { shared: Mutex::new(Shared { capacity, stride, quantum, ..Shared::default() }), changed: Condvar::new() });
         let (ready, started) = mpsc::channel();
         let (thread_state, target, node_name) = (state.clone(), target.to_owned(), node_name.to_owned());
-        let worker = Worker::spawn("vrct-pipewire-output", move || {
+        let worker = Worker::spawn("astarot-pipewire-output", move || {
             if let Err(error) = run(&thread_state, &target, rate, channels, &node_name, &ready) {
                 let _ = ready.send(Err(error));
             }

@@ -9,12 +9,12 @@
 use super::Core;
 use crate::dispatch::Dispatcher;
 use crate::errors::ErrorReply;
-use crate::languages::TRANSLATION_WEIGHTS;
+use crate::languages::{RETIRED_TRANSLATION_WEIGHTS, RETIRED_TRANSLATION_WEIGHT_RESET, TRANSLATION_WEIGHTS};
 use serde_json::{Map, Value, json};
 
 /// Left out of `/run/initialization_complete`: they reach the network, a device or a server, or
 /// they describe what runs. The UI asks for them itself (`_INIT_MAPPING_EXCLUDED_ENDPOINTS`).
-pub const INIT_EXCLUDED: [&str; 8] = [
+pub const INIT_EXCLUDED: [&str; 11] = [
     "/get/data/available_releases",
     "/get/data/ocr_readiness",
     "/get/data/ocr_capture_status",
@@ -24,6 +24,12 @@ pub const INIT_EXCLUDED: [&str; 8] = [
     "/get/data/tts_engine_voices",
     // Core only: reads the system's fonts (slow on the first call).
     "/get/data/overlay_font_missing_languages",
+    // Core only: reads the GPUs, and only while the flow panel is shown (#448).
+    "/get/data/gpu_memory",
+    // Core only: whether a voice audition plays (#415); asked only while one is pressed.
+    "/get/data/voice_audition_state",
+    // Core only: the GPU check (#288); asked only on its section of the settings.
+    "/get/data/gpu_check_state",
 ];
 
 /// The weights under a non-commercial license (CC-BY-NC-4.0).
@@ -63,10 +69,17 @@ impl Core {
         self.notify("initialization_progress", json!(2));
 
         self.step("Set Translation Engine");
-        // A folder in `<data>/translation-models` the local translation refused: its name and
+        // An engine entry of the translation catalog the local translation refused: its id and
         // the fixed reason, so that the user can find why a model of theirs is not listed.
-        for (folder, reason) in super::translation::refused_models(config.environment()) {
-            self.step(&format!("Translation model folder refused: {folder} ({reason})"));
+        for (id, reason) in super::translation::refused_models(config.environment()) {
+            self.step(&format!("Translation model folder refused: {id} ({reason})"));
+        }
+        // The saved selection named a model of the retired `translation-models` folder (#597):
+        // the setting went back to the default model. A fixed code only; the folder's name is
+        // the user's data.
+        let saved = config.saved_at_start("CTRANSLATE2_WEIGHT_TYPE");
+        if saved.as_str().is_some_and(|w| w.starts_with(super::translation::RETIRED_WEIGHT_PREFIX)) {
+            self.step(&format!("Translation model selection reset to the default ({})", super::translation::RETIRED_SELECTION_RESET));
         }
         let mut weights = Map::new();
         let candidates: Vec<String> = config
@@ -170,6 +183,14 @@ impl Core {
             let error = ErrorReply::new("WEIGHT_CTRANSLATE2_NON_COMMERCIAL_NOTICE", json!({ "weight_type": weight, "license": "CC-BY-NC-4.0" }));
             self.run(400, super::run_endpoint("ctranslate2_license_notice"), error.into_body());
             let _ = config.set("CTRANSLATE2_LICENSE_NOTICE_SHOWN", json!(true));
+        }
+        // The saved choice named a weight the app no longer offers (#565): it failed the list's
+        // check and the default is used. Said once: the file then holds the default.
+        let saved = config.saved_at_start("CTRANSLATE2_WEIGHT_TYPE");
+        if let Some(retired) = saved.as_str().filter(|w| RETIRED_TRANSLATION_WEIGHTS.contains(w)) {
+            let data = json!({ "weight_type": retired, "selected": config.get_str("CTRANSLATE2_WEIGHT_TYPE") });
+            let error = ErrorReply::new(RETIRED_TRANSLATION_WEIGHT_RESET, data);
+            self.run(400, super::run_endpoint("translation_model_retired"), error.into_body());
         }
         for key in config.invalid_saved_api_urls() {
             let (endpoint, code) = match key.as_str() {

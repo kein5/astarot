@@ -1,6 +1,6 @@
 # vrct-core
 
-Python のサイドカーの中核（`src-python/mainloop.py`、`controller.py`、`config.py`）を置き換える Rust クレートです。Issue #285 の範囲です。UI の要求を受けて答え、設定を読み書きし、起動と終了を受け持ちます。各機能の処理は `native/` のほかのクレートが担い、このクレートがそれらをエンドポイントにつなぎます。
+Python のサイドカーの中核（[`src-python/mainloop.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/mainloop.py)、[`controller.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/controller.py)、[`config.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/config.py)）を置き換える Rust クレートです。Issue #285 の範囲です。UI の要求を受けて答え、設定を読み書きし、起動と終了を受け持ちます。各機能の処理は `native/` のほかのクレートが担い、このクレートがそれらをエンドポイントにつなぎます。
 
 ## 現在の状態
 
@@ -12,35 +12,35 @@ Python のサイドカーの中核（`src-python/mainloop.py`、`controller.py`�
 
 | Python | Rust |
 |---|---|
-| `mainloop.py` の `Main`（受信、キュー、ワーカー、ロック） | `dispatch` |
-| `mainloop.py` の `run_mapping` | `controller::RUN_MAPPING` |
-| `utils.py` の `encodeBase64`、`printResponse` の形式 | `protocol` |
-| `utils.py` の `printLog`、`printResponse` のログ、伏せる規則 | `log` |
-| `errors.py` の `ErrorCode`、`ERROR_METADATA`、`VRCTError` | `errors` |
-| `config.py` の `Config` | `config`（キーと検査は `config::schema`） |
-| `models/network_policy.py` の URL の検査 | `net_policy` |
-| `models/transcription/realtime_settings.py`、`asr_vocabulary.py` の正規化 | `voice_settings` |
-| `models/voice_conversion/settings.py` の `DirectSettings` | `voice_settings` |
-| `languages.yml`、`transcription_languages.py` | `data/*.json`、`languages` |
-| `controller.py` の `init`、`shutdown`、各エンドポイント | `controller`、`backend` |
-| `controller.py` の `getSpeechServer*`、`startSpeechServer`、`stopSpeechServer`、`_speechServerEnded` | `controller::speech`（サーバのプロセスは `vrct-speech-server`） |
-| `controller.py` のモデル取得（`getModelDownload*`、`start`/`cancel`/`applyModelDownload`）とテレメトリ（`*Telemetry*`） | `controller::downloads`、`controller::telemetry`（処理は `vrct-ops`） |
-| `controller.py` の翻訳のキー・モデル・接続、`setEnableTranslation`、`setCtranslate2WeightType`、`model.py` の `getTranslate` と翻訳の履歴 | `controller::translation`（プロバイダは `vrct-translation`、ローカル翻訳は機能 `onnx-translation`（既定でオン）の `vrct-translate-onnx` と `controller::translation_onnx`。ONNX Runtime は実行時に読み込む。`docs/voice-stack/core-integration.md` の「決まったこと」） |
-| `controller.py` の `_processMessage`、`chatMessage`、ロガー、`model.py` の読み（`convertMessageToTransliteration`） | `controller::messages`（読みの規則は `vrct-translation`） |
-| `models/clipboard/clipboard.py` の `Clipboard`（音声タイピング）、`models/openvr_session.py` | `controller::clipboard`（コピーと貼り付けは `vrct_adapters::clipboard`、OpenVR の接続の共有は `vrct_vr_overlay::shared`） |
-| `device_manager.py`、`controller.py` のデバイスの選択（`_audioTarget`、`_publishAudioDeviceLocked`、`applyAuto*Select`、`setSelected*`）、`getVirtualMicStatus`、`runVirtualMicTest` | `controller::audio_devices`（一覧、識別、監視、選択の規則、仮想マイクの確認は `vrct-audio-routing`） |
-| `controller.py` と `model.py` のチャットの読み取り（`*Ocr*`、`ocrMessage`、`startOCRCapture`、`updateOCRCaptureSettings`） | `controller::ocr`（撮影、エンジン、パイプラインは `ocr-runtime`） |
-| `controller.py` の音声認識（`setEnable/DisableTranscription*`、`setEnable/DisableCheck*Threshold`、`micMessage`、`speakerMessage`、`_audioPipelineFailed*`、認識のキー、起動時のエンジンの確認）と `model.py` の `_AudioDeviceSession` | `controller::transcription`（録音、エンジン、フレーズは `vrct-transcription`） |
-| `controller.py` のリアルタイムの音声認識（`*RealtimeASR*`、`_enableRealtimeToggle`、`_startRealtime`、`_awaitAsrServer`） | `controller::realtime_asr`（セッションと字幕は `vrct_transcription::realtime`） |
-| `controller.py` と `model.py` の更新（`listAvailableReleases`、`checkSoftwareUpdated`、`updateSoftware`、`updateCudaSoftware`） | `controller::updates`（更新の仕組みは `Services::software_updates`。アプリは `src-tauri/src/app_update.rs` の `CoreUpdates` を渡す） |
-| `controller.py` の TTS、直接の音声、声質変換、音声の経路（`getVoice*`、`setVoiceSettings`、`enableTts`、`disableTts`、`stopVoice`、`muteVoice`、`resumeVoice`、`*DirectVoice*`、`*VcRuntime*`、`getIoFlow`、`_publishChatVoice`、`_publishMicVoice`、TTS の `_speechServerEnded`）、`io_flow.py`、`io_trace.py` | `controller::voice`（読み上げは `vrct-tts`、直接の音声と RVC の worker と実行環境の準備は `vrct-voice-conversion`、経路のミュートと出力は `vrct-audio-routing`） |
+| [`mainloop.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/mainloop.py) の `Main`（受信、キュー、ワーカー、ロック） | `dispatch` |
+| [`mainloop.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/mainloop.py) の `run_mapping` | `controller::RUN_MAPPING` |
+| [`utils.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/utils.py) の `encodeBase64`、`printResponse` の形式 | `protocol` |
+| [`utils.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/utils.py) の `printLog`、`printResponse` のログ、伏せる規則 | `log` |
+| [`errors.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/errors.py) の `ErrorCode`、`ERROR_METADATA`、`VRCTError` | `errors` |
+| [`config.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/config.py) の `Config` | `config`（キーと検査は `config::schema`） |
+| [`models/network_policy.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/network_policy.py) の URL の検査 | `net_policy` |
+| [`models/transcription/realtime_settings.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/transcription/realtime_settings.py)、[`asr_vocabulary.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/transcription/asr_vocabulary.py) の正規化 | `voice_settings` |
+| [`models/voice_conversion/settings.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/voice_conversion/settings.py) の `DirectSettings` | `voice_settings` |
+| `languages.yml`、[`transcription_languages.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/transcription/transcription_languages.py) | `data/*.json`、`languages` |
+| [`controller.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/controller.py) の `init`、`shutdown`、各エンドポイント | `controller`、`backend` |
+| [`controller.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/controller.py) の `getSpeechServer*`、`startSpeechServer`、`stopSpeechServer`、`_speechServerEnded` | `controller::speech`（サーバのプロセスは `vrct-speech-server`） |
+| [`controller.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/controller.py) のモデル取得（`getModelDownload*`、`start`/`cancel`/`applyModelDownload`）とテレメトリ（`*Telemetry*`） | `controller::downloads`、`controller::telemetry`（処理は `vrct-ops`） |
+| [`controller.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/controller.py) の翻訳のキー・モデル・接続、`setEnableTranslation`、`setCtranslate2WeightType`、[`model.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/model.py) の `getTranslate` と翻訳の履歴 | `controller::translation`（プロバイダは `vrct-translation`、ローカル翻訳は機能 `onnx-translation`（既定でオン）の `vrct-translate-onnx` と `controller::translation_onnx`。ONNX Runtime は実行時に読み込む。`docs/voice-stack/core-integration.md` の「決まったこと」） |
+| [`controller.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/controller.py) の `_processMessage`、`chatMessage`、ロガー、[`model.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/model.py) の読み（`convertMessageToTransliteration`） | `controller::messages`（読みの規則は `vrct-translation`） |
+| [`models/clipboard/clipboard.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/clipboard/clipboard.py) の `Clipboard`（音声タイピング）、[`models/openvr_session.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/openvr_session.py) | `controller::clipboard`（コピーと貼り付けは `vrct_adapters::clipboard`、OpenVR の接続の共有は `vrct_vr_overlay::shared`） |
+| [`device_manager.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/device_manager.py)、[`controller.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/controller.py) のデバイスの選択（`_audioTarget`、`_publishAudioDeviceLocked`、`applyAuto*Select`、`setSelected*`）、`getVirtualMicStatus`、`runVirtualMicTest` | `controller::audio_devices`（一覧、識別、監視、選択の規則、仮想マイクの確認は `vrct-audio-routing`） |
+| [`controller.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/controller.py) と [`model.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/model.py) のチャットの読み取り（`*Ocr*`、`ocrMessage`、`startOCRCapture`、`updateOCRCaptureSettings`） | `controller::ocr`（撮影、エンジン、パイプラインは `ocr-runtime`） |
+| [`controller.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/controller.py) の音声認識（`setEnable/DisableTranscription*`、`setEnable/DisableCheck*Threshold`、`micMessage`、`speakerMessage`、`_audioPipelineFailed*`、認識のキー、起動時のエンジンの確認）と [`model.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/model.py) の `_AudioDeviceSession` | `controller::transcription`（録音、エンジン、フレーズは `vrct-transcription`） |
+| [`controller.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/controller.py) のリアルタイムの音声認識（`*RealtimeASR*`、`_enableRealtimeToggle`、`_startRealtime`、`_awaitAsrServer`） | `controller::realtime_asr`（セッションと字幕は `vrct_transcription::realtime`） |
+| [`controller.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/controller.py) と [`model.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/model.py) の更新（`listAvailableReleases`、`checkSoftwareUpdated`、`updateSoftware`、`updateCudaSoftware`） | `controller::updates`（更新の仕組みは `Services::software_updates`。アプリは `src-tauri/src/app_update.rs` の `CoreUpdates` を渡す） |
+| [`controller.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/controller.py) の TTS、直接の音声、声質変換、音声の経路（`getVoice*`、`setVoiceSettings`、`enableTts`、`disableTts`、`stopVoice`、`muteVoice`、`resumeVoice`、`*DirectVoice*`、`*VcRuntime*`、`getIoFlow`、`_publishChatVoice`、`_publishMicVoice`、TTS の `_speechServerEnded`）、[`io_flow.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/io_flow.py)、[`io_trace.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/io_trace.py) | `controller::voice`（読み上げは `vrct-tts`、直接の音声と RVC の worker と実行環境の準備は `vrct-voice-conversion`、経路のミュートと出力は `vrct-audio-routing`） |
 
 ## 変わらないこと
 
 - 要求と応答の形式。1行の JSON で、`data` は Base64 にした JSON です。状態コード（200、400、404、409、423、500、403）とエラーの本体の形も同じです。
 - ロックの規則。同じロックの要求は受信順に1つずつ処理し、ロックの待ちが約 20 秒を超えたら 423、初期化前の待ちが約 30 秒を超えたら 423 を返します。停止の要求と watchdog の知らせはキューを通りません。VR パネルからの中継は、許した一覧のエンドポイントだけを通します。
 - `config.json` の場所、キー、既定値、並び、検査。Python が書いたファイルを読み、Python と同じ値を書き戻します。読めないファイルの退避、保存の遅延（2 秒）、すぐ保存するキー、`config.json.lock` のロック、保存失敗の通知と 30 秒ごとの再試行も同じです。
-- API キーは `config.json` に書かず、同じフォルダの `secrets.json` に置きます（`src/config/secrets.rs`。Windows は DPAPI で暗号化、Linux は 0600）。古い `config.json` にあるキーは起動時に移し、読み戻せたものだけをファイルから除きます。保存先は `Services::secret_store` で差し替えられ、試験はメモリーの保存先を使います。
+- API キーは `config.json` に書かず、OS の資格情報ストア（Windows は資格情報マネージャー、Linux は Secret Service）に置きます（`src/config/secrets.rs` と `src/config/secrets/`、ADR-013）。0.5 の `secrets.json`（Windows は DPAPI、Linux は 0600）と古い `config.json` にあるキーは起動時に 1 件ずつ移し、読み戻せたものだけを元の場所から除きます。保存先は `Services::secret_store` で差し替えられ、試験はメモリーの保存先を OS のストアの代わりに使います。本物の OS のストアを使う試験は `#[ignore]` で、`cargo test -- --ignored` で明示して実行します（CI では Linux は GNOME Keyring、Windows は資格情報マネージャー）。
 - 起動時の通知の順序と、`/run/initialization_complete` に入れるもの、入れないもの。
 
 ## Python 版と違う点
@@ -48,8 +48,8 @@ Python のサイドカーの中核（`src-python/mainloop.py`、`controller.py`�
 - **ステータス 348 のログ行**。UI に送りません。UI は表示せず捨てていました。`process.log` には書きます。
 - **ログの行の形式**。Python の辞書の表記ではなく JSON で書きます。伏せる規則は同じです。
 - **真偽値を数として扱わない**。Python では `True` が整数 1 として通る検査がありました（オーバーレイの表示秒数など）。Rust では数として扱いません。
-- **翻訳エンジンの確認**。翻訳のプロバイダ（#277）は Python と同じに起動時に確かめます。Web 翻訳（Google、Bing、Papago）は配布していないので、エンジンの一覧に出しません（Python は「使える」と示し、毎回失敗していました。`languages::RETIRED_WEB_TRANSLATORS`）。代わりに、各社の公式の API（Google Cloud Translation の `Google_Cloud_API` と NAVER Cloud Platform の Papago の `Papago_API`）を利用者のキーで呼びます。これと Ollama の URL（`OLLAMA_URL`、既定は Python と同じ `http://localhost:11434`）は Python になかったもので、エンドポイント、エラーコード、設定キーは仕様の一覧に「中核のみ」として載せています（`tools/spec_core_additions.json`）。平文の HTTP は、この PC と LAN（プライベートなアドレス、リンクローカル、IPv6 のユニークローカル、`.local` の名前）にだけ送ります（`net_policy`）。プロバイダは `vrct-translation` の型で、共通の要求はトレイトに 1 回だけ書いてあります（ゼロコスト抽象化。静的ディスパッチで `dyn` は使わない）。中核はエンジンの名前を `Provider::check`、`models`、`translate` に渡すだけで、プロバイダごとの分岐を持ちません。音声認識のエンジン（#278）も Python と同じに確かめます。Whisper の API と Deepgram はキーでモデルの一覧を取り、speech.cpp は確かめずに「使える」とします。API キーは Python と同じく残します。Python のキーなしの Google（Web 音声認識）は、非公式の窓口と汎用のキーを使っていたので移さず、一覧から外しました（`languages::RETIRED_GOOGLE_ENGINE`）。保存されていた Google の選択は未選択として読み込みます。
-- **読み（ひらがな・ローマ字）**。Python と同じく Sudachi（sudachi.rs）で解析します。辞書は同梱のファイル `_internal/build/sudachi/system.dic`（開発の checkout では `build/sudachi/system.dic`、`tools/sudachi_dictionary.py` が置く）を、読みを求める最初のメッセージで開きます（`Services::transliteration`、既定は `messages::shipped_readings`）。辞書がない、または読めないときは、読みのスイッチが入っていてもメッセージを読みなしで送り、理由を `process.log` に一度だけ書きます。Python は辞書を読めないと送信ごと失敗していました。どの辞書を配布物に入れるかは `docs/voice-stack/core-integration.md` の「判断が要ること」の 3 です。
+- **翻訳エンジンの確認**。翻訳のプロバイダ（#277）は Python と同じに起動時に確かめます。Web 翻訳（Google、Bing、Papago）は配布していないので、エンジンの一覧に出しません（Python は「使える」と示し、毎回失敗していました。`languages::RETIRED_WEB_TRANSLATORS`）。代わりに、各社の公式の API（Google Cloud Translation の `Google_Cloud_API` と NAVER Cloud Platform の Papago の `Papago_API`）を利用者のキーで呼びます。これと Ollama の URL（`OLLAMA_URL`、既定は Python と同じ `http://localhost:11434`）は Python になかったものです。エンドポイント、エラーコード、設定キーは、ほかと同じく中核から作る仕様の一覧に載ります（`tests/spec_catalog.rs`）。平文の HTTP は、この PC と LAN（プライベートなアドレス、リンクローカル、IPv6 のユニークローカル、`.local` の名前）にだけ送ります（`net_policy`）。プロバイダは `vrct-translation` の型で、共通の要求はトレイトに 1 回だけ書いてあります（ゼロコスト抽象化。静的ディスパッチで `dyn` は使わない）。中核はエンジンの名前を `Provider::check`、`models`、`translate` に渡すだけで、プロバイダごとの分岐を持ちません。音声認識のエンジン（#278）も Python と同じに確かめます。Whisper の API と Deepgram はキーでモデルの一覧を取り、speech.cpp は確かめずに「使える」とします。API キーは Python と同じく残します。Python のキーなしの Google（Web 音声認識）は、非公式の窓口と汎用のキーを使っていたので移さず、一覧から外しました（`languages::RETIRED_GOOGLE_ENGINE`）。保存されていた Google の選択は未選択として読み込みます。
+- **読み（ひらがな・ローマ字）**。Python と同じく Sudachi（sudachi.rs）で解析します。辞書は同梱のファイル `_internal/build/sudachi/system.dic`（開発の checkout では `build/sudachi/system.dic`、`tools/sudachi_dictionary.py` が置く）を、読みを求める最初のメッセージで開きます（`Services::transliteration`、既定は `messages::shipped_readings`）。辞書がない、または読めないときは、読みのスイッチが入っていてもメッセージを読みなしで送り、理由を `process.log` に一度だけ書きます。Python は辞書を読めないと送信ごと失敗していました。配布物には SudachiDict の full を入れます（`docs/voice-stack/core-integration.md` の「判断が要ること」の 3、2026-11-21 に決定、#924）。
 - **プロキシ**。翻訳のプロバイダへの通信は `HTTP(S)_PROXY` を使いません（「判断が要ること」の 18）。
 - **更新**。Python は自前の更新の仕組みを止めて出荷していました。中核の更新のエンドポイントは、アプリの更新の画面と同じ Tauri の updater を使います（core-integration.md の「判断が要ること」の 20）。起動時の確認は `CHECK_SOFTWARE_UPDATES` がオンのときだけ通信します。オフなら尋ねずに「更新なし」を送ります。
 - **声質変換**。変換の持ち主はアプリのプロセスのスレッドで動き、別の router プロセスはありません。Linux の管理された経路での変換は動きません（`vc_start_failed`）。Seed-VC は保存できず（`vc_engine_unavailable`）、以前の版が保存した Seed-VC は読み込むときに RVC へ移します。実行環境の準備は RVC だけを出します（core-integration.md の「判断が要ること」の 10、「Linux の声質変換」「声質変換の router プロセス」）。
@@ -59,11 +59,12 @@ Python のサイドカーの中核（`src-python/mainloop.py`、`controller.py`�
 ## ほかの領域から使うもの
 
 - `Core::deliver_transcription(Source::{Mic, Speaker, Ocr}, Recognized, guard)`: 音声認識と OCR の結果をメッセージの経路に渡します。ワードフィルタ、繰り返しの確認、翻訳、読み、チャットボックス、UI への通知、WebSocket、会話のログ、履歴まで行います。
-- `Core::process_message(&messages::REALTIME_MIC など, ...)`: 結果を返す向き（リアルタイムの音声認識）に使います。
+- `Core::process_message(&messages::MIC など, ...)`: どの向き（`messages::Spec`）のメッセージもこの経路を通します。設定はこの呼び出しの時点で控えます。結果を返す向きでは結果を返します。
+- `Core::admit_message(spec, language, chatbox)` と `Core::process_realtime(...)`: リアルタイムの音声認識の確定文は、受け取った時点で設定とチャットボックスの順番を控え（`messages::Admitted`）、翻訳と出力と VR の大きいログの字幕でその控えを使います（`docs/voice-stack/core-integration.md` の判断項目 80）。
 - `Core::realtime_toggles()`、`Core::realtime_requested(source)`、`Core::realtime_uses_bundled_server()`: リアルタイムの音声認識の状態。
 - 音声認識の録音は `AudioDevices::set_capture_owner` に登録してあり、デバイスの変更で移ります。
 - `Core::set_message_hooks(overlay, speech)`: VR のオーバーレイ（`OverlayMessage`）と音声（`SpokenMessage`、翻訳の前後の 2 回）の口です。設定されるまで何もしません。`Err` を返すと出力の失敗として通知します。音声の口は `controller::voice` が設定し、入力したチャットを読み上げます。オーバーレイの口を設定しないときは、メッセージの流れが VR の小さいログと大きいログに直接描きます（`Core::show_overlay_log`）。OCR の行は `Services::ocr_message` の既定（`ocr::pipeline_delivery`）でメッセージの流れに入ります。
-- `Core::mic_voice_snapshot()` と `Core::publish_mic_voice(...)`: リアルタイム認識のマイクの確定文を読み上げます（`_publishMicVoice`）。確定文が届いたときに前者を取り、翻訳のあとで後者を呼びます（`realtime_asr` が `Core::process_realtime_mic` を通して呼びます）。`Core::cancel_mic_voice()` はマイクの読み上げを取り消します（認識の停止や開始のとき）。`Core::set_realtime_mic_probe(...)` はフローパネルに、リアルタイム認識を求めているかを伝えます。
+- `Core::mic_voice_snapshot()` と `Core::publish_mic_voice(...)`: リアルタイム認識のマイクの確定文を読み上げます（`_publishMicVoice`）。確定文が届いたときに前者を取り、翻訳のあとで後者を呼びます（`realtime_asr` が `Core::process_realtime` を通して呼びます）。`Core::cancel_mic_voice()` はマイクの読み上げを取り消します（認識の停止や開始のとき）。`Core::set_realtime_mic_probe(...)` はフローパネルに、リアルタイム認識を求めているかを伝えます。
 - `Core::voice_target_idle(target)`: モデルの取得を適用してよいか（`japanese`・`multilingual` は TTS がそのサーバを使っていないか、`rvc` は声質変換が動いていないか）。
 
 ## 試験
@@ -90,5 +91,6 @@ cargo test --locked --manifest-path native/core/Cargo.toml
 - `tests/vr_overlay.rs`: VR のオーバーレイ。代わりの SteamVR で、字幕と VR パネルのオンとオフ、設定、失敗の通知、送ったメッセージが大きいログに描かれること。
 - `tests/updates.rs`: 更新のエンドポイント。偽の更新の仕組みで、リリースの一覧、起動時の確認（`CHECK_SOFTWARE_UPDATES` がオフなら尋ねずに「更新なし」）、更新の成功と失敗（ダウンロード、署名の検証）、版の指定。ホストが仕組みを渡さないときの、Python と同じく止めてある答え。
 - `tests/voice.rs`: TTS のスイッチと内蔵サーバ、音声の設定、チャットとマイクの確定文の読み上げ（偽の認識サーバからリアルタイムの確定文を流し、訳を読み上げるまで）、声を流しているケーブルを認識に使わせないこと、停止とミュート、直接の音声と声質変換、実行環境の準備、フローパネル、終了。出力とマイクは `tests/common/fake_voice.rs`、speech.cpp とエンジンは `tests/common/fake_tts.rs` と `fake-speech-core`、RVC の worker は小さな実行ファイル（`tests/fixture/fake_rvc_worker.rs`）です。どれもアプリのビルドには含まれません。
+- `tests/spoken_route_live.rs`: Linux の管理された経路の読み上げを、私用の PipeWire の上で端から端まで確かめます。本物の音声の土台（`NativeVoice`）と `astarot-voice-gate` を使い、管理された経路のマイク（`vrct.managed.source`）を録ります。確かめることは、チャットが 1 回だけ聞こえること、停止、ミュート、スイッチの off、サーバーの失敗で 500 ms 以内に無音になること、作り直したサーバーが古い音を流さないこと、中核の終了でマイクがミュートに戻ることです。0.6.0 までは `tests/platform/test_native_voice.py` がアプリの窓から確かめていました。`pipewire` の機能と `--ignored` で動き、Linux の CI の `headless` のジョブで流します（`voice_managed_live.rs` も同じ）。
 
 利用者の文章、音声、API キーは、ログにも試験の出力にも入れません。

@@ -10,6 +10,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use vrct_audio_routing::graph::{Endpoint, GateState, Source, SourceId};
+use vrct_audio_routing::managed_vc::ManagedVcDevices;
 use vrct_audio_routing::monitor::MonitorFactory;
 use vrct_audio_routing::router::{Output, PlaybackToken};
 use vrct_audio_routing::voice_route::{Gate, GatePair};
@@ -46,6 +47,27 @@ struct Inner {
     passthrough: Mutex<Vec<Option<String>>>,
     captures: Mutex<usize>,
     entries: Mutex<Option<Vec<Runtime>>>,
+    /// The libraries the app is taken to have loaded (`set_loaded`).
+    loaded: Mutex<Vec<PathBuf>>,
+    /// No capture for a conversion on the managed route (a Linux build without PipeWire).
+    no_managed_vc: AtomicBool,
+    /// How the monitor's device fails.
+    monitor_fault: Mutex<MonitorFault>,
+    /// A capture fails to start with this code.
+    capture_fails: Mutex<Option<String>>,
+}
+
+/// How the monitor's device fails (`test_monitor_vc.py`'s faults).
+#[derive(Clone, Default)]
+pub enum MonitorFault {
+    #[default]
+    None,
+    /// It does not open (`output_missing`).
+    Missing,
+    /// It opens, then every write fails (`output_disconnected`).
+    Unplugged,
+    /// It opens, then a write waits until the flag is set.
+    Stalled(Arc<AtomicBool>),
 }
 
 /// The fake; clone it to keep a handle after giving it to [`super::Setup`].
@@ -107,8 +129,30 @@ impl FakeVoice {
         *self.0.entries.lock().unwrap() = Some(vec![runtime]);
     }
 
+    /// The libraries the app is taken to have loaded (its ONNX Runtime).
+    pub fn set_loaded(&self, libraries: Vec<std::path::PathBuf>) {
+        *self.0.loaded.lock().unwrap() = libraries;
+    }
+
     pub fn passthrough_starts(&self) -> Vec<Option<String>> {
         self.0.passthrough.lock().unwrap().clone()
+    }
+
+    /// Captures fail to start with `code` (`None`: they start).
+    pub fn fail_capture(&self, code: Option<&str>) {
+        *self.0.capture_fails.lock().unwrap() = code.map(str::to_owned);
+    }
+
+    pub fn fail_monitor(&self, fail: bool) {
+        self.set_monitor_fault(if fail { MonitorFault::Missing } else { MonitorFault::None });
+    }
+
+    pub fn set_monitor_fault(&self, fault: MonitorFault) {
+        *self.0.monitor_fault.lock().unwrap() = fault;
+    }
+
+    pub fn set_managed_vc(&self, available: bool) {
+        self.0.no_managed_vc.store(!available, Ordering::SeqCst);
     }
 
     pub fn captures(&self) -> usize {
@@ -157,12 +201,41 @@ impl FakeVoice {
     }
 }
 
+/// A monitor's device that breaks as its fault says.
+struct FaultyOutput {
+    output: Box<dyn Output>,
+    fault: MonitorFault,
+}
+
+impl Output for FaultyOutput {
+    fn write(&mut self, pcm: &[u8], token: &dyn PlaybackToken) -> Result<()> {
+        match &self.fault {
+            MonitorFault::Unplugged => return Err(Error::speech("output_disconnected")),
+            MonitorFault::Stalled(release) => {
+                while !release.load(Ordering::SeqCst) {
+                    token.check()?;
+                    std::thread::sleep(Duration::from_millis(5));
+                }
+            }
+            MonitorFault::None | MonitorFault::Missing => {}
+        }
+        self.output.write(pcm, token)
+    }
+    fn close(&mut self, drain: bool, token: &dyn PlaybackToken) -> Result<()> {
+        self.output.close(drain, token)
+    }
+}
+
 /// The managed route's OS gate in memory.
 #[derive(Default)]
 pub struct FakeGate {
     pub source_muted: Mutex<bool>,
     pub direct_muted: Mutex<bool>,
     pub fail: AtomicBool,
+    /// A resume waits while this is set (for up to 5 s), as a slow OS gate would.
+    pub hold_resume: AtomicBool,
+    /// A resume has reached the gate.
+    pub resuming: AtomicBool,
 }
 
 impl FakeGate {
@@ -193,6 +266,11 @@ impl Gate for FakeGate {
         Ok(self.pair().direct)
     }
     fn resume(&self, _: (u64, u64), _: (u64, u64), suppress_direct: bool) -> Result<GatePair> {
+        self.resuming.store(true, Ordering::SeqCst);
+        let held = std::time::Instant::now();
+        while self.hold_resume.load(Ordering::SeqCst) && held.elapsed() < Duration::from_secs(5) {
+            std::thread::sleep(Duration::from_millis(5));
+        }
         self.check()?;
         *self.source_muted.lock().unwrap() = false;
         *self.direct_muted.lock().unwrap() = suppress_direct;
@@ -202,6 +280,8 @@ impl Gate for FakeGate {
 
 /// A microphone that gives 10 ms of a quiet tone every 10 ms until stopped.
 struct ToneCapture {
+    /// Its start fails with this code.
+    fails: Option<String>,
     callbacks: Option<CaptureCallbacks>,
     stop: Arc<AtomicBool>,
     thread: Option<std::thread::JoinHandle<()>>,
@@ -209,6 +289,9 @@ struct ToneCapture {
 
 impl Capture for ToneCapture {
     fn start(&mut self) -> Result<()> {
+        if let Some(code) = &self.fails {
+            return Err(Error::runtime(code));
+        }
         let mut callbacks = self.callbacks.take().ok_or_else(|| Error::runtime("vc_capture_failed"))?;
         let stop = self.stop.clone();
         self.thread = Some(std::thread::spawn(move || {
@@ -242,7 +325,23 @@ impl RouteDevices for FakeVoice {
     }
     fn capture(&self, _: &Endpoint, callbacks: CaptureCallbacks) -> Box<dyn Capture> {
         *self.0.captures.lock().unwrap() += 1;
-        Box::new(ToneCapture { callbacks: Some(callbacks), stop: Arc::new(AtomicBool::new(false)), thread: None })
+        let fails = self.0.capture_fails.lock().unwrap().clone();
+        Box::new(ToneCapture { fails, callbacks: Some(callbacks), stop: Arc::new(AtomicBool::new(false)), thread: None })
+    }
+}
+
+/// The managed VC input a Linux conversion plays into.
+pub const MANAGED_VC: &str = "vrct.managed.vc";
+
+impl ManagedVcDevices for FakeVoice {
+    fn bind(&self, _: &Endpoint, _: bool) -> Result<Endpoint> {
+        Ok(Endpoint { cookie: 1, serial: 2, name: MANAGED_VC.into(), media_class: "Audio/Sink".into() })
+    }
+    fn open_output(&self, sink: &Endpoint) -> Result<Box<dyn Output>> {
+        self.open(&sink.name, 48000, 1)
+    }
+    fn capture(&self, source: &Endpoint, callbacks: CaptureCallbacks) -> Box<dyn Capture> {
+        RouteDevices::capture(self, source, callbacks)
     }
 }
 
@@ -303,7 +402,14 @@ impl VoicePlatform for FakeVoice {
     }
     fn monitor_output(&self) -> MonitorFactory {
         let fake = self.clone();
-        Arc::new(move |device: &str, rate: u32, channels: u16, _: &[String]| fake.open(&format!("monitor:{device}"), rate, channels))
+        Arc::new(move |device: &str, rate: u32, channels: u16, _: &[String]| {
+            let fault = fake.0.monitor_fault.lock().unwrap().clone();
+            if let MonitorFault::Missing = fault {
+                return Err(Error::speech("output_missing"));
+            }
+            let output = fake.open(&format!("monitor:{device}"), rate, channels)?;
+            Ok(Box::new(FaultyOutput { output, fault }) as Box<dyn Output>)
+        })
     }
     fn gate(&self, _: &Path) -> Arc<dyn Gate> {
         self.0.gate.clone()
@@ -317,6 +423,9 @@ impl VoicePlatform for FakeVoice {
     }
     fn route_devices(&self) -> Option<Arc<dyn RouteDevices>> {
         Some(Arc::new(self.clone()))
+    }
+    fn managed_vc_devices(&self) -> Option<Arc<dyn ManagedVcDevices>> {
+        (!self.0.no_managed_vc.load(Ordering::SeqCst)).then(|| Arc::new(self.clone()) as Arc<dyn ManagedVcDevices>)
     }
     fn rvc_worker(&self, _: &Path) -> PathBuf {
         self.0.worker.lock().unwrap().clone()
@@ -332,5 +441,8 @@ impl VoicePlatform for FakeVoice {
     }
     fn runtime_entries(&self) -> Option<Vec<Runtime>> {
         self.0.entries.lock().unwrap().clone()
+    }
+    fn loaded_libraries(&self) -> Vec<std::path::PathBuf> {
+        self.0.loaded.lock().unwrap().clone()
     }
 }

@@ -2,45 +2,15 @@
 
 mod common;
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use common::{fixture, reference_dir};
 use ocr_runtime::languages::{resolve_model_spec, selectable_languages, BASE_MODEL_ID};
-use ocr_runtime::models::{characters, is_installed, missing_models, resolve_artifact, resolve_model_files, CATALOG, DETECTOR_FILE_NAME, DETECTOR_MODEL_ID};
+use ocr_runtime::models::{characters, is_installed, missing_models, resolve_artifact, resolve_model_files, CATALOG, DETECTOR_MODEL_ID};
 use ocr_runtime::Error;
 
-fn repo_root() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")
-}
-
-/// The Rust table must repeat the OCR block of the download catalog exactly.
-#[test]
-fn catalog_matches_the_download_catalog() {
-    let catalog = repo_root().join("src-python/models/model_downloads/catalog.py");
-    let script = format!(
-        "import importlib.util, json\n\
-         s = importlib.util.spec_from_file_location('c', r'{}')\n\
-         m = importlib.util.module_from_spec(s); s.loader.exec_module(m)\n\
-         print(json.dumps([[e.id, e.revision, [[a.filename, a.size, a.sha256, a.role] for a in e.artifacts]] for e in m.CATALOG if e.target == 'ocr']))\n\
-         print(json.dumps([m.DETECTOR_MODEL_ID, m.DETECTOR_FILE_NAME]))",
-        catalog.display()
-    );
-    let output = match std::process::Command::new("python3").args(["-I", "-c", &script]).output() {
-        Ok(output) if output.status.success() => output,
-        _ => {
-            eprintln!("SKIPPED: python3 could not read catalog.py");
-            return;
-        }
-    };
-    let text = String::from_utf8(output.stdout).unwrap();
-    let mut lines = text.lines();
-    let entries: serde_json::Value = serde_json::from_str(lines.next().unwrap()).unwrap();
-    let mine: Vec<serde_json::Value> =
-        CATALOG.iter().map(|e| serde_json::json!([e.id, e.revision, e.artifacts.iter().map(|a| serde_json::json!([a.filename, a.size, a.sha256, a.role])).collect::<Vec<_>>()])).collect();
-    assert_eq!(serde_json::Value::Array(mine), entries);
-    let detector: serde_json::Value = serde_json::from_str(lines.next().unwrap()).unwrap();
-    assert_eq!(detector, serde_json::json!([DETECTOR_MODEL_ID, DETECTOR_FILE_NAME]));
-}
+// That `CATALOG` repeats the OCR entries of the download catalog is checked where both are
+// known: `native/core/tests/downloads.rs`.
 
 /// The character lists read from inference.yml match what PyYAML gave the Python code.
 #[test]

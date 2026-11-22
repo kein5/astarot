@@ -1,8 +1,8 @@
 //! The endpoints the core answers are those of the specification
-//! (`docs/spec/reference/ipc-endpoints.md`): none is invented, each waits for start-up exactly
-//! when the specification says so, and the immediate ones skip the queue. The ones not wired
-//! yet are listed in `docs/voice-stack/core-integration.md`; this test fails when that list
-//! and the core disagree, so the list stays the true state of the migration.
+//! (`docs/spec/reference/ipc-endpoints.md`, written from the core by `tests/spec_catalog.rs` and
+//! `tools/spec_catalog.py`): none is missing or left over, each waits for start-up exactly when
+//! the specification says so, and the immediate ones skip the queue. The endpoints retired with
+//! the Python backend are listed in `docs/voice-stack/core-integration.md`; none of them is wired.
 
 mod common;
 
@@ -26,8 +26,8 @@ fn spec() -> Vec<Spec> {
             let cells: Vec<&str> = line.trim_matches('|').split(" | ").map(str::trim).collect();
             Spec {
                 endpoint: cells[0].trim_matches('`').to_string(),
-                waits: cells[3] == "待つ",
-                immediate: cells[5].contains("即時"),
+                waits: cells[2] == "待つ",
+                immediate: cells[4].contains("即時"),
             }
         })
         .collect()
@@ -35,7 +35,11 @@ fn spec() -> Vec<Spec> {
 
 fn routes() -> Routes {
     let dir = tempfile::tempdir().unwrap();
-    let config = vrct_core::config::Config::open(common::environment(dir.path(), vrct_core::config::Platform::current()));
+    // Only the routes are listed; the keys stay in memory, never in the PC's credential store.
+    let config = vrct_core::config::Config::open_with(
+        common::environment(dir.path(), vrct_core::config::Platform::current()),
+        vrct_core::config::secrets::MemoryStore::new(),
+    );
     struct Quiet;
     impl vrct_core::dispatch::Output for Quiet {
         fn answer(&self, _: u16, _: Option<&str>, _: &serde_json::Value) {}
@@ -108,19 +112,46 @@ fn the_vr_panel_list_is_the_uis_and_every_entry_is_wired() {
     }
 }
 
+/// The endpoints whose answers `src-ui/logics/useReceiveRoutes.ts` hands to a hook
+/// (`{ endpoint: "/...", ... }`).
+fn ui_received_endpoints() -> BTreeSet<String> {
+    let text = include_str!("../../../src-ui/logics/useReceiveRoutes.ts");
+    text.split("endpoint: \"").skip(1).map(|rest| rest.split('"').next().unwrap().to_string()).filter(|e| e.starts_with('/')).collect()
+}
+
+/// The voice endpoints (speech settings and status, the managed route, mute, direct voice, the
+/// voice audition): the UI hands the answer of each one the core serves to the voice hooks, and
+/// receives none the core does not serve. Until 0.6.0 tests/voice/test_headless_and_ui_contract.py
+/// held the UI to the Python backend's list.
 #[test]
-fn the_remaining_endpoints_are_listed_in_the_migration_document() {
-    let spec: BTreeSet<String> = spec().into_iter().map(|s| s.endpoint).collect();
-    let routes = routes();
-    let wired: BTreeSet<String> = routes.endpoints().map(str::to_string).collect();
-    let remaining: BTreeSet<String> = spec.difference(&wired).cloned().collect();
-    let retired = listed("retired-endpoints");
-    assert!(retired.is_disjoint(&wired), "a retired endpoint is wired: {:?}", retired.intersection(&wired).collect::<Vec<_>>());
-    let listed: BTreeSet<String> = listed("remaining-endpoints").union(&retired).cloned().collect();
-    let missing: Vec<_> = remaining.difference(&listed).collect();
-    let stale: Vec<_> = listed.difference(&remaining).collect();
-    assert!(
-        missing.is_empty() && stale.is_empty(),
-        "docs/voice-stack/core-integration.md is out of date.\nNot listed but not wired: {missing:?}\nListed but wired (or not in the specification): {stale:?}"
+fn the_ui_receives_the_answer_of_every_voice_endpoint_the_core_serves() {
+    let voice = |endpoint: &str| endpoint.contains("voice");
+    let ui: BTreeSet<String> = ui_received_endpoints().into_iter().filter(|e| voice(e)).collect();
+    assert!(ui.len() > 10, "the UI's routes were not read: {ui:?}");
+    let core: BTreeSet<String> = routes().endpoints().filter(|e| voice(e)).map(str::to_string).collect();
+    assert_eq!(
+        core.difference(&ui).collect::<Vec<_>>(),
+        Vec::<&String>::new(),
+        "the core serves these voice endpoints, but src-ui/logics/useReceiveRoutes.ts drops their answers"
     );
+    assert_eq!(
+        ui.difference(&core).collect::<Vec<_>>(),
+        Vec::<&String>::new(),
+        "src-ui/logics/useReceiveRoutes.ts waits for these voice endpoints, but the core does not serve them"
+    );
+}
+
+#[test]
+fn the_specification_lists_what_is_wired_and_none_of_the_retired() {
+    let spec: BTreeSet<String> = spec().into_iter().map(|s| s.endpoint).collect();
+    let wired: BTreeSet<String> = routes().endpoints().map(str::to_string).collect();
+    assert_eq!(
+        spec.symmetric_difference(&wired).collect::<Vec<_>>(),
+        Vec::<&String>::new(),
+        "docs/spec/reference/ipc-endpoints.md is not the core's; write it again (tests/spec_catalog.rs)"
+    );
+    let retired = listed("retired-endpoints");
+    assert!(!retired.is_empty(), "the retired endpoints were not read");
+    assert!(retired.is_disjoint(&wired), "a retired endpoint is wired: {:?}", retired.intersection(&wired).collect::<Vec<_>>());
+    assert_eq!(listed("remaining-endpoints"), BTreeSet::new(), "docs/voice-stack/core-integration.md lists endpoints left to wire");
 }

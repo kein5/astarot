@@ -1,6 +1,6 @@
 //! The VR overlays: the small and the large subtitle log, the VR panel and its launcher
-//! (`controller.py`: `syncOverlayRunning`, the overlay switches and settings, `sendTextOverlay`,
-//! the VR panel's endpoints and the overlay's callbacks; `model.py`'s overlay part).
+//! ([`controller.py`]: `syncOverlayRunning`, the overlay switches and settings, `sendTextOverlay`,
+//! the VR panel's endpoints and the overlay's callbacks; [`model.py`]'s overlay part).
 //!
 //! The overlay itself is `native/vr-overlay`. It is made with the routes, as Python made it
 //! with the model, and runs while a subtitle log or the VR panel is on. Its thread waits for
@@ -8,6 +8,9 @@
 //!
 //! The message pipeline shows messages through [`Core::show_overlay_message`] and the realtime
 //! captions through [`Core::show_overlay_caption`] and [`Core::discard_overlay_captions`].
+//!
+//! [`controller.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/controller.py
+//! [`model.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/model.py
 
 use super::routes::{Builder, OPEN, WAIT};
 use super::settings::switch;
@@ -16,11 +19,12 @@ use crate::config::schema::default_launcher;
 use crate::errors::ErrorReply;
 use crate::protocol::Reply;
 use serde_json::{Value, json};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Weak};
 use vrct_vr_overlay::engine::{self, Event, Options, Overlay, PANEL_ANCHORS, Surface, WindowSettings};
 use vrct_vr_overlay::fonts::{FontLibrary, valid_family_name};
 use vrct_vr_overlay::placement;
-use vrct_vr_overlay::subtitle::{CaptionId, CaptionState, Direction, LargePicture, Reading, Subtitle, Subtitles, Translation};
+use vrct_vr_overlay::subtitle::{CaptionId, CaptionState, Direction, LargePicture, Reading, Renderer, Subtitle, Subtitles, Translation};
 use vrct_vr_overlay::tooltip::validate_tooltip;
 
 /// The log window's default size and the range a corner drag allows (logical px).
@@ -63,6 +67,28 @@ pub(crate) struct VrOverlay {
     engine: Overlay,
     subtitles: Subtitles,
     supported: bool,
+    /// Whether the subtitle fonts were loaded ahead of the first message ([`warm_subtitle_fonts`]).
+    fonts_warmed: AtomicBool,
+}
+
+/// Loads the subtitle fonts on a thread of their own, once, when a log is first on. The first
+/// picture otherwise reads them, which took about 0.3 s on a PC with many fonts (#556) and kept
+/// the message's later outputs waiting. A log never turned on loads no font.
+fn warm_subtitle_fonts(vr: &VrOverlay) {
+    if vr.fonts_warmed.swap(true, Ordering::SeqCst) {
+        return;
+    }
+    let library = Arc::clone(vr.subtitles.renderer.library());
+    let _ = std::thread::Builder::new().name("overlay-fonts".into()).spawn(move || {
+        // The fonts of Japanese (the default group) and of Latin, as a sent message is drawn.
+        let sample = Subtitle {
+            original: Some("あA".into()),
+            language: Some("Japanese".into()),
+            translations: vec![Translation { text: "A".into(), language: "English".into(), readings: Vec::new() }],
+            ..Subtitle::default()
+        };
+        let _ = Renderer::new(library).small_log(&sample);
+    });
 }
 
 /// One message for the logs, as the message pipeline has it (what Python's `small_overlay` and
@@ -85,12 +111,18 @@ pub(crate) struct OverlayMessage {
     pub transliteration_message: Value,
     /// Each translation's readings: a list of such lists.
     pub transliteration_translation: Value,
+    /// Who spoke a realtime caption of the game audio, by the speech server's labels (#447).
+    pub speakers: Vec<String>,
+    /// Only the translations are shown (`OVERLAY_SHOW_ONLY_TRANSLATED_MESSAGES` in the snapshot
+    /// the message or the caption's utterance was admitted with; decision 80).
+    pub only_translated: bool,
 }
 
 #[allow(dead_code)]
 impl OverlayMessage {
-    /// What the logs show. Only the translations when `only_translated`.
-    fn subtitle(&self, only_translated: bool) -> Subtitle {
+    /// What the logs show. Only the translations when [`Self::only_translated`].
+    fn subtitle(&self) -> Subtitle {
+        let only_translated = self.only_translated;
         let readings = |i: usize| self.transliteration_translation.get(i).map(Reading::list).unwrap_or_default();
         Subtitle {
             original: (!only_translated).then(|| self.message.clone()),
@@ -103,6 +135,7 @@ impl OverlayMessage {
                 .enumerate()
                 .map(|(i, (text, language))| Translation { text: text.clone(), language: language.clone(), readings: readings(i) })
                 .collect(),
+            speakers: self.speakers.clone(),
         }
     }
 }
@@ -174,7 +207,7 @@ impl Core {
         let subtitles = Subtitles::new(fonts, Arc::new(vrct_vr_overlay::subtitle::local_time));
         // A saved family that is gone draws with the automatic fonts; the setting stays.
         subtitles.renderer.set_font_family(Some(&config.get_str("OVERLAY_FONT_FAMILY")));
-        let _ = core.vr.set(VrOverlay { engine, subtitles, supported });
+        let _ = core.vr.set(VrOverlay { engine, subtitles, supported, fonts_warmed: AtomicBool::new(false) });
     }
 
     /// `/set/data/overlay_font_family`: a family on this system, or "" for automatic. The
@@ -231,7 +264,11 @@ impl Core {
         vr.engine.set_vr_panel_enabled(vr_panel);
         vr.engine.set_panel_locked(config.get_bool("OVERLAY_VR_PANEL_LOCKED"));
         vr.engine.set_launcher_auto_hide(config.get_bool("OVERLAY_VR_LAUNCHER_AUTO_HIDE"));
-        if config.get_bool("OVERLAY_SMALL_LOG") || config.get_bool("OVERLAY_LARGE_LOG") || vr_panel {
+        let logs = config.get_bool("OVERLAY_SMALL_LOG") || config.get_bool("OVERLAY_LARGE_LOG");
+        if logs {
+            warm_subtitle_fonts(vr);
+        }
+        if logs || vr_panel {
             vr.engine.start()
         } else {
             vr.engine.shutdown();
@@ -446,7 +483,6 @@ impl Core {
         ok(data.clone())
     }
 
-    #[allow(dead_code)]
     fn publish_large(&self, vr: &VrOverlay, picture: &LargePicture, current: &dyn Fn() -> bool) -> bool {
         self.try_publish_large(vr, picture, current).unwrap_or(false)
     }
@@ -488,12 +524,11 @@ impl Core {
     fn show_overlay_logs(&self, message: &OverlayMessage, small: bool, large: bool, current: &dyn Fn() -> bool) -> Result<(), ()> {
         let Some(vr) = self.vr() else { return Ok(()) };
         let config = self.config();
-        let only_translated = config.get_bool("OVERLAY_SHOW_ONLY_TRANSLATED_MESSAGES");
-        if only_translated && message.translations.is_empty() {
+        if message.only_translated && message.translations.is_empty() {
             return Ok(());
         }
         let mut failed = false;
-        let subtitle = message.subtitle(only_translated);
+        let subtitle = message.subtitle();
         if small && message.small_log && config.get_bool("OVERLAY_SMALL_LOG") && vr.engine.initialized() {
             let token = vr.engine.publication_token(Surface::Small);
             match vr.subtitles.renderer.small_log(&subtitle) {
@@ -530,7 +565,10 @@ impl Core {
 
     /// Adds or updates a realtime caption in the large log (`publishRealtimeCaptionOverlay`).
     /// `source` is "mic" or "speaker"; `state` "partial", "final", "translated" or "discarded".
-    #[allow(clippy::too_many_arguments, dead_code)]
+    /// `Err` when the caption was refused or its picture could not be shown (Python raised, and
+    /// the caption's `overlay_large` sink reported `MESSAGE_OUTPUT_FAILED`); the history then
+    /// stays as it was shown.
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn show_overlay_caption(
         &self,
         source: &str,
@@ -540,29 +578,45 @@ impl Core {
         revision: u64,
         message: &OverlayMessage,
         current: &dyn Fn() -> bool,
-    ) {
-        let Some(vr) = self.vr() else { return };
+    ) -> Result<(), ()> {
+        let Some(vr) = self.vr() else { return Ok(()) };
         let config = self.config();
         if !(config.get_bool("OVERLAY_LARGE_LOG") && vr.engine.initialized() && current()) {
-            return;
+            return Ok(());
         }
-        let only_translated = config.get_bool("OVERLAY_SHOW_ONLY_TRANSLATED_MESSAGES");
-        let Some(state) = CaptionState::parse(state) else { return };
-        if only_translated && message.translations.is_empty() && state != CaptionState::Discarded {
-            return;
+        let Some(state) = CaptionState::parse(state) else {
+            self.step("overlay: a caption update was refused");
+            return Err(());
+        };
+        if message.only_translated && message.translations.is_empty() && state != CaptionState::Discarded {
+            return Ok(());
         }
         let id: CaptionId = (source.to_string(), namespace.to_string(), item.to_string());
         let direction = if source == "mic" { Direction::Send } else { Direction::Receive };
-        let subtitle = message.subtitle(only_translated);
-        let result = vr.subtitles.publish_caption(id, state, revision, direction, subtitle, &mut |picture| self.publish_large(vr, picture, current));
+        let subtitle = message.subtitle();
+        let upload_failed = std::cell::Cell::new(false);
+        let result = vr.subtitles.publish_caption(id, state, revision, direction, subtitle, &mut |picture| {
+            self.try_publish_large(vr, picture, current).unwrap_or_else(|()| {
+                upload_failed.set(true);
+                false
+            })
+        });
         if result.is_err() {
             self.step("overlay: a caption update was refused");
+            return Err(());
         }
+        if upload_failed.get() { Err(()) } else { Ok(()) }
+    }
+
+    /// The names the user gave the voices of a realtime session (#447): the large log draws
+    /// them in place of the labels, also on the captions it shows already.
+    pub(crate) fn name_overlay_speakers(&self, namespace: &str, names: Vec<(String, String)>) {
+        let Some(vr) = self.vr() else { return };
+        vr.subtitles.set_speaker_names(namespace, names, &mut |picture| self.publish_large(vr, picture, &|| true));
     }
 
     /// Drops the captions still being recognised for a source's namespace
     /// (`clearRealtimeCaptionOverlay`).
-    #[allow(dead_code)]
     pub(crate) fn discard_overlay_captions(&self, source: &str, namespace: &str) {
         let Some(vr) = self.vr() else { return };
         vr.subtitles.discard_captions(source, namespace, &mut |picture| self.publish_large(vr, picture, &|| true));
@@ -719,12 +773,12 @@ mod tests {
             transliteration_translation: json!([[{"orig": "Hello", "hira": "", "hepburn": ""}]]),
             ..OverlayMessage::default()
         };
-        let all = message.subtitle(false);
+        let all = message.subtitle();
         assert_eq!(all.original.as_deref(), Some("こんにちは"));
         assert_eq!(all.translations.len(), 1, "zip stops at the shorter list");
         assert_eq!(all.translations[0].readings.len(), 1);
         assert_eq!(all.readings[0].hepburn, "konnichiha");
-        let only = message.subtitle(true);
+        let only = OverlayMessage { only_translated: true, ..message }.subtitle();
         assert_eq!((only.original, only.language), (None, None));
     }
 }

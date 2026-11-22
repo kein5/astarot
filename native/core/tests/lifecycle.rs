@@ -6,6 +6,7 @@ use common::{Setup, Ui, error_code};
 use serde_json::{Value, json};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
+use vrct_core::config::Platform;
 use vrct_core::controller::Services;
 
 #[test]
@@ -249,8 +250,9 @@ fn settings_of_an_older_version_are_migrated_and_the_user_is_told() {
     });
     let ui = Ui::with(Setup { saved: Some(saved), ..Setup::default() });
     let snapshot = ui.ready();
-    assert_eq!(snapshot["/get/data/selected_transcription_engine"], "SpeechCpp");
-    assert_eq!(snapshot["/get/data/local_asr_notice"], true);
+    // The removed Whisper engine loads as none since 0.6.0 (#288): the user chooses again.
+    assert_eq!(snapshot["/get/data/selected_transcription_engine"], Value::Null);
+    assert_eq!(snapshot.get("/get/data/local_asr_notice"), None, "the notice of 0.3 to 0.5 is gone");
     assert_eq!(snapshot["/get/data/ui_language"], "en");
     assert_eq!(snapshot["/get/data/hotkeys"]["toggle_translation"], json!(["Ctrl", "T"]));
     assert_eq!(snapshot["/get/data/hotkeys"]["toggle_tts"], Value::Null, "new actions are added unset");
@@ -265,7 +267,150 @@ fn settings_of_an_older_version_are_migrated_and_the_user_is_told() {
     let saved = ui.saved();
     assert_eq!(ui.kept_key("AUTH_KEYS", "DeepL_API"), "kept-key", "a saved key is kept even while its engine is unavailable");
     assert_eq!(saved["CTRANSLATE2_LICENSE_NOTICE_SHOWN"], true, "the notice is shown once");
-    assert_eq!(saved["LOCAL_ASR_MIGRATION"], 2);
+    assert_eq!(saved["SELECTED_TRANSCRIPTION_ENGINE"], Value::Null);
+    assert_eq!(saved["LOCAL_ASR_MIGRATION"], 2, "written for 0.5 and earlier");
+    ui.stop();
+}
+
+#[test]
+fn a_saved_choice_of_a_model_no_longer_offered_loads_as_the_default_and_the_user_is_told_once() {
+    // #565: NLLB-200 3.3B is not offered (it will not be published). A saved choice of it fails
+    // the list's check, the default is used, and the UI is told which model went and what is used.
+    let saved = json!({ "CTRANSLATE2_WEIGHT_TYPE": "nllb-200-3.3B-ct2-int8" });
+    let ui = Ui::with(Setup { saved: Some(saved), ..Setup::default() });
+    let snapshot = ui.ready();
+    assert_eq!(snapshot["/get/data/selected_ctranslate2_weight_type"], "m2m100_418M-ct2-int8");
+    let list = snapshot["/get/data/selectable_ctranslate2_weight_type_dict"].as_object().unwrap();
+    assert!(!list.contains_key("nllb-200-3.3B-ct2-int8"), "{list:?}");
+    let notice = ui.wait_endpoint(0, "/run/translation_model_retired");
+    assert_eq!((notice["status"].clone(), error_code(&notice)), (json!(400), "WEIGHT_CTRANSLATE2_RETIRED"));
+    assert_eq!(notice["result"]["data"], json!({ "weight_type": "nllb-200-3.3B-ct2-int8", "selected": "m2m100_418M-ct2-int8" }));
+    ui.ok("/run/shutdown", None);
+    // The file now holds the default, so the next start says nothing.
+    let saved = ui.saved();
+    assert_ne!(saved["CTRANSLATE2_WEIGHT_TYPE"], "nllb-200-3.3B-ct2-int8");
+    ui.stop();
+}
+
+#[test]
+fn a_saved_whisper_choice_loads_as_none_without_a_notice() {
+    // Up to 0.5 a saved choice of the removed Whisper engine moved to speech.cpp once, with a
+    // notice ([`test_local_asr_migration.py`]). That migration, its notice and the screen that
+    // removed the old Whisper weights went in 0.6.0 (#288): the choice loads as none, like the
+    // retired Google engine, and the realtime server stays as saved.
+    //
+    // [`test_local_asr_migration.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/test/test_local_asr_migration.py
+    for platform in [Platform::Windows, Platform::Linux] {
+        let dir = tempfile::tempdir().unwrap();
+        let saved = json!({
+            "SELECTED_TRANSCRIPTION_ENGINE": "Whisper",
+            "LOCAL_ASR_MIGRATION": 1,
+            "LOCAL_ASR_NOTICE_PENDING": true,
+            "REALTIME_ASR_SETTINGS": { "server": "external" },
+            "WHISPER_WEIGHT_TYPE": "small",
+            "SELECTED_TRANSCRIPTION_COMPUTE_TYPE": "int8",
+            "SELECTED_TRANSCRIPTION_COMPUTE_DEVICE": { "device": "cpu" },
+            "MIC_NO_REPEAT_NGRAM_SIZE": 3,
+            "SPEAKER_NO_REPEAT_NGRAM_SIZE": 3,
+            "MIC_AVG_LOGPROB": -0.5,
+        });
+        let whisper = dir.path().join("data").join("weights").join("whisper").join("small");
+        std::fs::create_dir_all(&whisper).unwrap();
+        std::fs::write(whisper.join("model.bin"), b"weights of 0.2").unwrap();
+        let ui = Ui::with(Setup { platform, saved: Some(saved), dir: Some(dir.path().to_path_buf()), ..Setup::default() });
+        let snapshot = ui.ready();
+        assert_eq!(snapshot["/get/data/selected_transcription_engine"], Value::Null, "{platform:?}");
+        assert_eq!(ui.ok("/get/data/realtime_asr_settings", None)["server"], "external", "{platform:?}");
+        // The cloud engines still filter segments with this threshold.
+        assert_eq!(ui.ok("/get/data/mic_avg_logprob", None), -0.5);
+        // The endpoints of the removed engine, of its notice and of its old weights are gone.
+        for removed in [
+            "/get/data/selectable_whisper_weight_type_dict",
+            "/get/data/selected_whisper_weight_type",
+            "/set/data/selected_whisper_weight_type",
+            "/get/data/selected_transcription_compute_type",
+            "/set/data/selected_transcription_compute_type",
+            "/get/data/selectable_transcription_compute_device_list",
+            "/get/data/selected_transcription_compute_device",
+            "/set/data/selected_transcription_compute_device",
+            "/run/download_whisper_weight",
+            "/get/data/local_asr_notice",
+            "/set/disable/local_asr_notice",
+            "/get/data/old_whisper_weights",
+            "/run/delete_old_whisper_weights",
+        ] {
+            assert_eq!(ui.request(removed, None)["status"], 404, "{removed}");
+            assert_eq!(snapshot.get(removed), None, "{removed}");
+        }
+        ui.ok("/run/shutdown", None);
+        let file = ui.saved();
+        assert_eq!(file["LOCAL_ASR_MIGRATION"], 2, "written for 0.5 and earlier");
+        assert_eq!(file["SELECTED_TRANSCRIPTION_ENGINE"], Value::Null);
+        assert_eq!(file["MIC_AVG_LOGPROB"], -0.5);
+        for gone in [
+            "WHISPER_WEIGHT_TYPE",
+            "SELECTED_TRANSCRIPTION_COMPUTE_TYPE",
+            "SELECTED_TRANSCRIPTION_COMPUTE_DEVICE",
+            "MIC_NO_REPEAT_NGRAM_SIZE",
+            "SPEAKER_NO_REPEAT_NGRAM_SIZE",
+            "LOCAL_ASR_NOTICE_PENDING",
+        ] {
+            assert!(file.get(gone).is_none(), "{gone} is still written");
+        }
+        // The old weights are left where they are.
+        assert!(whisper.join("model.bin").is_file());
+        ui.stop();
+    }
+
+    // A new install writes the step too.
+    let ui = Ui::start();
+    let snapshot = ui.ready();
+    assert_eq!(snapshot["/get/data/selected_transcription_engine"], Value::Null);
+    ui.ok("/run/shutdown", None);
+    assert_eq!(ui.saved()["LOCAL_ASR_MIGRATION"], 2);
+    ui.stop();
+}
+
+#[test]
+fn a_settings_file_that_cannot_be_read_is_left_alone_and_never_overwritten() {
+    // Not a parse failure: something the app cannot read at all (here a folder in its place).
+    let dir = tempfile::tempdir().unwrap();
+    let blocked = dir.path().join("config.json");
+    std::fs::create_dir(&blocked).unwrap();
+    std::fs::write(blocked.join("inside"), "kept").unwrap();
+    let ui = Ui::with(Setup { dir: Some(dir.path().to_path_buf()), ..Setup::default() });
+    ui.ready();
+    assert_eq!(ui.wait_endpoint(0, "/run/config_save_failed")["result"]["reason"], "load_failed");
+    ui.ok("/set/data/main_window_geometry", Some(json!({ "x_pos": 1, "y_pos": 1, "width": 900, "height": 700 })));
+    ui.ok("/run/shutdown", None);
+    assert!(blocked.is_dir(), "not moved aside or replaced");
+    assert_eq!(std::fs::read_to_string(blocked.join("inside")).unwrap(), "kept");
+    assert!(ui.on(0, "/run/config_file_unreadable").is_empty(), "nothing was moved aside");
+    ui.stop();
+}
+
+#[test]
+fn no_copy_before_a_migration_is_written_any_more() {
+    // Up to 0.5 a file of an older step was copied to `config.json.before-migration-<step>`
+    // before the local recognition migration rewrote it. There is no such migration since 0.6.0
+    // (#288): the file is read and written as any other, and a copy an earlier version left stays.
+    let dir = tempfile::tempdir().unwrap();
+    let copy = dir.path().join("config.json.before-migration-1");
+    std::fs::write(&copy, "{\"kept\": \"from an earlier start\"}").unwrap();
+    let saved = json!({ "LOCAL_ASR_MIGRATION": 1, "UI_LANGUAGE": "ja", "SELECTED_TRANSCRIPTION_ENGINE": "Whisper" });
+    let ui = Ui::with(Setup { saved: Some(saved), dir: Some(dir.path().to_path_buf()), ..Setup::default() });
+    let snapshot = ui.ready();
+    assert_eq!(snapshot["/get/data/ui_language"], "ja");
+    assert_eq!(ui.saved()["LOCAL_ASR_MIGRATION"], 2, "saved");
+    assert_eq!(std::fs::read_to_string(&copy).unwrap(), "{\"kept\": \"from an earlier start\"}", "the older copy stays");
+    let copies: Vec<_> = std::fs::read_dir(dir.path())
+        .unwrap()
+        .flatten()
+        .map(|e| e.file_name().to_string_lossy().into_owned())
+        .filter(|name| name.contains("before-migration"))
+        .collect();
+    assert_eq!(copies, ["config.json.before-migration-1"]);
+    assert!(ui.on(0, "/run/config_save_failed").is_empty(), "{:?}", ui.on(0, "/run/config_save_failed"));
     ui.stop();
 }
 

@@ -1,0 +1,31 @@
+# When a release is published, points the beta channel at the newest published release (issue
+# #466): tools/update_channels.py writes its latest.json as beta/latest.json on the branch
+# updater-channels, which the update Worker serves at /beta/latest.json. A stable release newer
+# than every beta is what the beta channel gets too. Run it by hand once to start the branch.
+# It writes only that branch, and nothing when the file is already the one it would write.
+name: Point the ASTAROT beta update channel
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: update-channels
+  cancel-in-progress: false
+jobs:
+  beta:
+    if: github.repository == 'kein5/astarot'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      # Writes beta/latest.json on updater-channels through the Git data API.
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Point the beta channel at the newest release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 -m tools.update_channels beta

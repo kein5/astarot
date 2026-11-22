@@ -39,6 +39,7 @@
 .bar_stage { background: #5b92ff; }
 .bar_chatbox { background: #4fb8a8; }
 .bar_speech { background: #e0a656; }
+.bar_synthesis { background: #b9772a; }
 .bar_conversion { background: repeating-linear-gradient(90deg, #f08cc2 0 .4rem, transparent .4rem .6rem); }
 .axis { display: flex; justify-content: space-between; font-size: 1.2rem; color: var(--vox_description_text); font-variant-numeric: tabular-nums; }
 .axis_row > span:last-child { min-width: 6.4rem; }
@@ -49,6 +50,37 @@
 .spark.is_last { background: var(--vox_state_active); }
 .history_text { font-size: 1.2rem; color: var(--vox_secondary_text); font-variant-numeric: tabular-nums; }
 
+// The GPU memory: one row per GPU, the app's parts in the colours of their boxes, the rest of
+// the GPU's use in grey, on a track that stands for the GPU's whole memory.
+.gpu {
+    display: flex; flex-direction: column; gap: .6rem; padding: .8rem 1.2rem; margin: 0;
+    border-left: .3rem solid var(--vox_readout_rule); border-radius: var(--vox_radius); background: var(--vox_surface);
+}
+// The heading and its hint. The bubble opens above the heading at every width: the readout is
+// the last part of the panel, which clips what goes below it.
+.gpu_title {
+    display: flex; align-items: center; align-self: flex-start;
+    :global([data-slot="tooltip-content"]) { top: auto; bottom: calc(100% + .6rem); }
+}
+.gpu_list { display: grid; gap: .8rem; margin: 0; padding: 0; list-style: none; }
+.gpu_row { display: grid; gap: .3rem; }
+.gpu_head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .2rem 1.2rem; margin: 0; }
+.gpu_name { min-width: 0; overflow-wrap: anywhere; font-weight: 600; }
+.gpu_whole { white-space: nowrap; color: var(--vox_secondary_text); font-variant-numeric: tabular-nums; }
+.gpu_track { display: flex; height: 1rem; overflow: hidden; border-radius: .2rem; background: var(--vox_canvas); }
+.gpu_segment { height: 100%; }
+.gpu_speech { background: #e0a656; }
+.gpu_conversion { background: #f08cc2; }
+.gpu_other { background: #5b92ff; }
+.gpu_rest { background: var(--vox_border); }
+.gpu_app { margin: 0; font-size: 1.2rem; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+// The legend of the bar: one item per part the app uses, its swatch in the bar's colour.
+.gpu_parts { display: flex; flex-wrap: wrap; gap: .2rem 1.2rem; margin: 0; padding: 0; list-style: none;
+    font-size: 1.2rem; color: var(--vox_secondary_text); font-variant-numeric: tabular-nums; }
+.gpu_parts li { display: flex; align-items: center; gap: .5rem; }
+.gpu_swatch { flex-shrink: 0; width: .9rem; height: .9rem; border-radius: .2rem; }
+
 @media (prefers-reduced-motion: no-preference) {
     .bar { transition: width 120ms, left 120ms; }
+    .gpu_segment { transition: width 200ms; }
 }

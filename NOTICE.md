@@ -11,15 +11,15 @@ The fork supports external engines and a fixed speech.cpp binary bundle with
 separate third-party notices. Windows builds carry its Vulkan build; Linux builds
 carry its CPU build and its Vulkan build of the same release side by side, each
 with the same notices. RVC voice conversion is the fork's own
-reimplementation (`native/rvc-runtime`, MIT), shipped as `vrct-rvc-worker`; its
+reimplementation (`native/rvc-runtime`, MIT), shipped as `astarot-rvc-worker`; its
 Rust dependencies are listed with the app's (see "Rust crates in VRCT-VOX
 builds" below). The ONNX Runtime the worker runs on (Microsoft's NuGet
 packages), the NVIDIA CUDA and cuDNN libraries (NVIDIA's PyPI wheels) and the
 HuBERT and RMVPE weights it uses are not bundled: the app fetches them from
 their providers after the user's consent (see "RVC base models" below). Voice recordings and additional TTS/ASR/VC model weights are not
-bundled. Mia2026 is validation-only. The Seed-VC integration kept in the
-repository (`integrations/seed_vc/`) contains files marked GPL-3.0-only; builds
-up to 0.4.x carried it, and 0.5.0 and later builds do not. Engine dependencies
+bundled. Mia2026 is validation-only. The Seed-VC integration
+(`integrations/seed_vc/`, files marked GPL-3.0-only) was carried by builds up
+to 0.4.x and left the repository with the Python backend in 0.6.0. Engine dependencies
 and weights have their own licenses. See [voice licensing](docs/voice-stack/licensing.md) for component
 boundaries, original sources, and unresolved binary distribution obligations.
 Do not infer the complete stack's license from the main MIT license alone.
@@ -70,10 +70,11 @@ The microphone and speaker transcription finds speech with the Silero VAD v5
 model (MIT, Silero Team), as split into two ONNX graphs by faster-whisper (MIT,
 SYSTRAN). Builds up to 0.4.x ship those two files (about 1.2 MB in all) and
 their license texts in `licenses/silero-vad/`, which also lists their sizes,
-SHA-256 and sources. From 0.5.0 the speech recognition runs in Rust, which cuts
-phrases by energy and does not use this model, so the builds carry neither the
-files nor their texts; both remain in the repository
-(`src-python/models/transcription/silero_vad/`, `licenses/silero-vad/`).
+SHA-256 and sources. From 0.5.0 the speech recognition runs in Rust, which does
+not use these files, so the builds carry neither the files nor their texts. The
+repository kept both until 0.6.0 removed them with the Python backend; the
+0.4.x tags hold them. Voice activity detection on speech.cpp uses the Silero
+VAD GGUF of the model download catalog, downloaded after consent.
 
 ## Outfit typeface (ASTAROT brand)
 
@@ -83,6 +84,40 @@ Font License 1.1, Copyright 2021 The Outfit Project Authors. VRCT-VOX will
 bundle Outfit font files for the subtitle and other brand text; that is part
 of the P1 UI work, and no build ships them yet. The license text and the
 sources are in `licenses/outfit/`.
+
+## shadcn/ui (component design)
+
+The app's components are aligned with the components of
+[shadcn/ui](https://github.com/shadcn-ui/ui) (`DESIGN.md`, "Components"):
+their parts, `data-slot` names, sizes and state styles follow shadcn/ui's
+Radix and native components, translated from Tailwind into vanilla-extract
+and drawn in the ASTAROT colors. No shadcn/ui package is a dependency. The
+first aligned components are the settings kit in `src-ui/views/kit/`.
+shadcn/ui is licensed under the MIT License:
+
+```text
+MIT License
+
+Copyright (c) 2023 shadcn
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
 
 ## Whisper weights from earlier versions
 
@@ -115,8 +150,9 @@ selected one from Hugging Face into `weights/ctranslate2/`. Since 0.5.0 the
 builds contain no CTranslate2: the app neither downloads nor reads these
 weights, and removes those earlier versions downloaded after start-up. Local
 translation now runs on ONNX Runtime (`native/translate-onnx`, see "Rust crates
-in VRCT-VOX builds" below); the models for it are not published yet
-(`docs/voice-stack/core-integration.md`, item 1). The setting keeps the values
+in VRCT-VOX builds" below); its ONNX conversions of M2M100 418M and NLLB-200
+distilled 600M and 1.3B are offered through the consented model catalog (see
+that section). The setting keeps the values
 in the table, which now select the ONNX conversion of the same model, and
 Settings → Translation shows the license next to each model.
 
@@ -158,14 +194,14 @@ notice about its license.
 
 This table and the OCR table above cover **model weights** only. Since 0.5.0
 the builds contain no Python: the Python packages in `pyproject.toml` (resolved
-in `uv.lock`) are used only by the development tools, the tests and the Python
-backend source kept in the repository, and carry their own licenses.
+in `uv.lock`) are used only by the development tools and the tests, and carry
+their own licenses.
 JavaScript dependencies are listed in `package.json`. Rust dependencies are
 covered in the next section.
 
 ## Rust crates in VRCT-VOX builds
 
-The application (`vrct-vox`) and the RVC worker (`vrct-rvc-worker`) are built
+The application (`vrct-vox`) and the RVC worker (`astarot-rvc-worker`) are built
 from Rust crates. Every build lists the crates compiled into these two
 executables for its platform, with each crate's license, in
 `_internal/licenses/rust/README.md` (`crates.json` holds the same list), and
@@ -174,10 +210,10 @@ carries the license texts each crate publishes in
 the list from the lock files (`src-tauri/Cargo.lock`,
 `native/rvc-runtime/Cargo.lock`) when the package is built. The application
 also contains the backend core and the crates it uses (`native/core`,
-`native/adapters`, `native/audio-routing`, `native/ops`, `native/speech-server`,
+`native/adapters`, `native/app-identity`, `native/audio-routing`, `native/ops`, `native/speech-server`,
 `native/translation`, `native/translate-onnx`, `native/tts`,
 `native/voice-conversion`, `native/vr-overlay`, `native/openvr-client`,
-`native/ocr-runtime`, `native/transcription`); they are VRCT-VOX's own
+`native/ocr-runtime`, `native/onnx-runtime`, `native/transcription`); they are VRCT-VOX's own
 code under `LICENSE`, and the list marks them so.
 
 `native/ocr-runtime` (chat reading) reimplements, so that its results match
@@ -204,11 +240,54 @@ at run time. The packages ship `libopenvr_api_64` of OpenVR SDK 2.12.14
 uses `tokenizers` (Apache-2.0, Hugging Face) for SentencePiece segmentation and
 loads the same ONNX Runtime library as chat reading at run time (the CPU build
 above); the builds of ONNX Runtime with other execution providers (DirectML,
-CUDA, OpenVINO, MIGraphX, WebGPU) are not bundled. No translation model is bundled: the M2M100
-(MIT) and NLLB-200 (CC-BY-NC-4.0) conversions are offered only through the
-consented model catalog once published, and a model the user places in the
-`translation-models` folder is under its own license, which the user is
-responsible for.
+CUDA, OpenVINO, MIGraphX, WebGPU) are not bundled. For running translation on a
+GPU the app offers two of them, fetched from their providers only after the
+user's consent and kept in the settings folder (`vc_runtimes/`): the CUDA 13
+build of ONNX Runtime 1.31.0 (MIT, Microsoft's NuGet package) with NVIDIA's
+CUDA and cuDNN libraries (NVIDIA's PyPI wheels, under the CUDA EULA and the
+cuDNN license), the same files as the RVC GPU runtime, where an NVIDIA driver
+is found; and, on Windows, the DirectML build of ONNX Runtime 1.24.4 (MIT,
+NuGet package `Microsoft.ML.OnnxRuntime.DirectML`) with DirectML 1.15.4 (NuGet
+package `Microsoft.AI.DirectML`, under the Microsoft Software License Terms for
+DirectML, which allow its use on Windows only and say it may send usage data to
+Microsoft). The app loads one of them instead of the shipped CPU build at start
+when the user chose its device for translation; chat reading then uses it too.
+The RVC worker (`astarot-rvc-worker`) also loads the DirectML build, in its own
+process, when it converts through DirectML.
+No translation model is bundled: the int8 ONNX conversions of M2M100 418M
+(MIT, the default; `kein5/m2m100_418M-onnx-int8`, with the MIT licence text in
+`LICENSE`) and NLLB-200 distilled 600M and 1.3B (CC-BY-NC-4.0;
+`kein5/nllb-200-distilled-600M-onnx-int8`,
+`kein5/nllb-200-distilled-1.3B-onnx-int8`) are offered only through the
+consented model catalog, pinned by revision, size and SHA-256 in
+`native/ops/data/translation_models.json`, each with a model card that names
+the source model, its authors (Meta AI) and the changes made. A model the user
+adds to the translation catalog from a folder of their own is under its own
+license, which the user is responsible for. A model under a non-commercial license, such as NLLB-200, is
+never the default and downloads only after the user has also ticked a separate
+acknowledgement that names its license and allows only non-commercial use; the
+backend refuses the download without it. Selecting an NLLB-200 model keeps its
+own license confirmation. The planned entries are recorded in
+`docs/voice-stack/licensing.md`.
+
+A decoder-only translation LLM such as TranslateGemma runs on llama.cpp's
+`llama-server` (ADR-015), which is not bundled either. The app offers its
+release b12125 from llama.cpp's GitHub releases (`ggml-org/llama.cpp`), a
+Vulkan build and a CPU build for Windows and Linux on x86-64, fetched only
+after the user's consent and pinned by size and SHA-256, and keeps the server
+and the libraries it loads in the settings folder (`vc_runtimes/llamacpp-*`).
+llama.cpp and ggml are under the MIT license (Copyright (c) 2023-2026 The ggml
+authors; the Linux archives carry it as `LICENSE`). The Windows archives also
+carry LLVM's OpenMP runtime (`libomp.dll`, Apache-2.0 WITH LLVM-exception, with
+its license as `LICENSE-LLVM-OpenMP`). The server's libraries also contain
+cpp-httplib (MIT) and nlohmann/json (MIT), and on Windows BoringSSL (Apache-2.0
+and the OpenSSL and ISC licenses); their license texts are not in the archives.
+On Linux the server uses the distribution's OpenSSL 3, `libgomp` and Vulkan
+loader, which the app does not fetch. No model comes with it: the user adds a
+GGUF file of their own and answers for its source and license. TranslateGemma
+is under the Gemma Terms of Use and the Gemma Prohibited Use Policy, which
+also bind the person who uses it; a catalog model under those terms downloads
+only after a separate acknowledgement of them.
 
 `native/transcription` (speech recognition) reimplements, so that phrases are
 cut as before, the energy-based listening of SpeechRecognition 3.10.4
@@ -248,11 +327,11 @@ SudachiDict system dictionary by Works Applications / the WAP Tokushima
 Laboratory of AI and NLP, licensed under the Apache License 2.0. Parts of the
 dictionary come from UniDic (Copyright (c) 2011-2013, The UniDic Consortium,
 BSD-3-Clause) and from mecab-unidic-NEologd (Toshinori Sato, Apache-2.0). When
-a build includes the dictionary, it is in `_internal/build/sudachi/` with the
-distribution's `LEGAL` and `LICENSE-2.0.txt`, which carry these notices.
-`tools/sudachi_dictionary.py` fetches it from the official release at a pinned
-version, size and SHA-256. Which edition (full, core or small) builds include
-is still open (`docs/voice-stack/core-integration.md`, item 3).
+dictionary ships in `_internal/build/sudachi/` with the distribution's `LEGAL`
+and `LICENSE-2.0.txt`, which carry these notices. Builds include the full
+edition, which `tools/sudachi_dictionary.py` fetches from the official release
+at a pinned version, size and SHA-256 (`docs/voice-stack/core-integration.md`,
+item 3; issue #924).
 
 ## RVC base models
 

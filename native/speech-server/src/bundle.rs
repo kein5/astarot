@@ -9,13 +9,13 @@ use sha2::{Digest, Sha256};
 use crate::{codes, Code};
 
 /// The release the bundle has to be.
-pub const VERSION: &str = "0.11.0";
+pub const VERSION: &str = "0.11.2";
 
 /// SHA-256 of the executable of each variant, as in docs/voice-stack/speechcpp-bundle-artifacts.json.
 pub const HASHES: [(&str, &str); 3] = [
-    ("linux-x64-cpu", "bcd1a7b27dd9185a93eb0d8847524ae967d5ba35b315858d445c3317d5e5e768"),
-    ("linux-x64-vulkan", "9b765a785150bbbaf8297b51244f1d58581969f38110265533562a60b220f6fb"),
-    ("windows-x64-vulkan", "c88e3248f9a43ae1dac0e7c5a525c3cd6f245120110992d1b79df609aa8f9100"),
+    ("linux-x64-cpu", "e34eeb083306e7b01ecf16be89eb901f6308d6c6c20ee6f2ecd545aa22e1580e"),
+    ("linux-x64-vulkan", "d598440999a2348d3b1ddb3090a9597085e85dccb672be17608828910e92238f"),
+    ("windows-x64-vulkan", "89ffb275308a0ac4d1309be5865602497b5d029e5287e52ac65482348248d4c8"),
 ];
 
 pub const EXECUTABLE: &str = if cfg!(windows) { "speech.exe" } else { "speech" };

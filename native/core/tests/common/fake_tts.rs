@@ -17,7 +17,12 @@ struct State {
     requests: Mutex<Vec<Value>>,
     /// How long each 20 ms piece of speech waits before it is sent.
     pace: Mutex<Duration>,
+    /// Down, as a server that crashed: a speech being sent is cut off, and a new request is
+    /// closed unanswered.
+    down: AtomicBool,
     seconds: Mutex<f64>,
+    /// Seconds of silence before the tone, as speech.cpp's speech starts.
+    leading: Mutex<f64>,
 }
 
 /// A fake server; it stops answering when dropped.
@@ -39,7 +44,9 @@ impl FakeTts {
             ("POST", "/v1/audio/speech") => {
                 state.requests.lock().unwrap().push(serde_json::from_slice(body).unwrap_or(Value::Null));
                 let samples = (24000.0 * *state.seconds.lock().unwrap()) as usize;
-                let pcm: Vec<u8> = (0..samples).flat_map(|i| (((i % 60) as i16 - 30) * 200).to_le_bytes()).collect();
+                let silent = (24000.0 * *state.leading.lock().unwrap()) as usize;
+                let tone = (0..samples).map(|i| ((i % 60) as i16 - 30) * 200);
+                let pcm: Vec<u8> = std::iter::repeat_n(0i16, silent).chain(tone).flat_map(i16::to_le_bytes).collect();
                 (200, "audio/pcm", vec![("X-Sample-Rate".into(), "24000".into())], pcm.chunks(960).map(<[u8]>::to_vec).collect())
             }
             _ => (404, "text/plain", Vec::new(), vec![Vec::new()]),
@@ -71,12 +78,15 @@ impl FakeTts {
         std::thread::spawn(move || {
             while !stopped.load(Ordering::SeqCst) {
                 let Ok((socket, _)) = listener.accept() else {
-                    std::thread::sleep(Duration::from_millis(5));
+                    // Briefly: a request waits for this in the pipeline's measured time.
+                    std::thread::sleep(Duration::from_millis(1));
                     continue;
                 };
                 let (route, state) = (route.clone(), served.clone());
                 std::thread::spawn(move || {
                     socket.set_nonblocking(false).unwrap();
+                    // As speech.cpp's own server does (#556, #738).
+                    socket.set_nodelay(true).unwrap();
                     let mut reader = BufReader::new(socket.try_clone().unwrap());
                     let mut line = String::new();
                     if reader.read_line(&mut line).is_err() {
@@ -96,6 +106,9 @@ impl FakeTts {
                     }
                     let mut body = vec![0; length];
                     let _ = reader.read_exact(&mut body);
+                    if state.down.load(Ordering::SeqCst) {
+                        return;
+                    }
                     let (status, kind, headers, chunks) = route(&state, &method, &path, &body);
                     let mut socket = socket;
                     let mut head = format!("HTTP/1.1 {status} X\r\nContent-Type: {kind}\r\nTransfer-Encoding: chunked\r\nConnection: close\r\n");
@@ -109,6 +122,9 @@ impl FakeTts {
                     let pace = *state.pace.lock().unwrap();
                     for chunk in chunks.into_iter().filter(|c| !c.is_empty()) {
                         std::thread::sleep(pace);
+                        if state.down.load(Ordering::SeqCst) {
+                            return;
+                        }
                         if socket.write_all(format!("{:x}\r\n", chunk.len()).as_bytes()).and_then(|()| socket.write_all(&chunk)).and_then(|()| socket.write_all(b"\r\n")).is_err() {
                             return;
                         }
@@ -129,8 +145,29 @@ impl FakeTts {
         *self.state.pace.lock().unwrap() = pace;
     }
 
+    /// How many seconds of speech each later request answers with.
+    pub fn set_seconds(&self, seconds: f64) {
+        *self.state.seconds.lock().unwrap() = seconds;
+    }
+
+    /// Seconds of silence each later speech starts with, before its tone.
+    pub fn set_leading_silence(&self, seconds: f64) {
+        *self.state.leading.lock().unwrap() = seconds;
+    }
+
     pub fn requests(&self) -> Vec<Value> {
         self.state.requests.lock().unwrap().clone()
+    }
+
+    /// Fails as a crashed server does: the speech being sent stops mid-stream, and later
+    /// requests are closed unanswered until [`FakeTts::revive`].
+    pub fn kill(&self) {
+        self.state.down.store(true, Ordering::SeqCst);
+    }
+
+    /// Answers again on the same URL, as the server started again.
+    pub fn revive(&self) {
+        self.state.down.store(false, Ordering::SeqCst);
     }
 }
 

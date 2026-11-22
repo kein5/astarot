@@ -1,8 +1,10 @@
 //! A WASAPI microphone as 48 kHz mono 16-bit PCM, for the direct voice bridge.
 //!
-//! The Python bridge used the transcription capture (`capture_windows.py`). This is a
+//! The Python bridge used the transcription capture ([`capture_windows.py`]). This is a
 //! smaller capture of its own: shared mode, converted by WASAPI to the bridge format,
 //! read every 10 ms on its own thread.
+//!
+//! [`capture_windows.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/transcription/capture_windows.py
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
@@ -82,8 +84,11 @@ fn read(stream: &Stream, on_audio: &mut dyn FnMut(&[u8]) -> bool) -> Result<bool
     }
 }
 
-/// Where a recognition capture reads from (`capture_windows.py`, the recorder of
-/// `transcription_recorder.py`).
+/// Where a recognition capture reads from ([`capture_windows.py`], the recorder of
+/// [`transcription_recorder.py`]).
+///
+/// [`capture_windows.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/transcription/capture_windows.py
+/// [`transcription_recorder.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/transcription/transcription_recorder.py
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DeviceTarget {
     /// A WASAPI endpoint by its native ID (`Device::endpoint_id`).
@@ -102,7 +107,9 @@ pub struct DeviceFormat {
 
 /// A microphone, or a speaker through its loopback, read every 10 ms on its own thread.
 /// A loopback delivers nothing while nothing plays; that gap is filled with silence, so a
-/// recognition can still hear an utterance end (as `capture_windows.py` did).
+/// recognition can still hear an utterance end (as [`capture_windows.py`] did).
+///
+/// [`capture_windows.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/transcription/capture_windows.py
 pub struct DeviceCapture {
     stop: Arc<AtomicBool>,
     worker: Option<Worker>,
@@ -200,9 +207,13 @@ impl DeviceCapture {
     /// Opens `target` (a speaker's loopback when `loopback`) and starts delivering. Waits up
     /// to `open_timeout` for the device: Windows can hold the open until the user answers its
     /// microphone question. `on_audio` returns false to stop; `on_error` gets a fixed code.
+    /// `fill_silence`: a loopback that delivers nothing while the speaker plays nothing is
+    /// filled with silence (realtime recognition needs a steady stream; Python did this on that
+    /// path only, decision 15 (3)).
     pub fn start(
         target: DeviceTarget,
         loopback: bool,
+        fill_silence: bool,
         open_timeout: Duration,
         mut on_audio: Box<dyn FnMut(&[u8], DeviceFormat) -> bool + Send>,
         mut on_error: Box<dyn FnMut(&str) + Send>,
@@ -210,7 +221,7 @@ impl DeviceCapture {
         let stop = Arc::new(AtomicBool::new(false));
         let flag = stop.clone();
         let (opened, started) = std::sync::mpsc::channel();
-        let worker = Worker::spawn("vrct-asr-capture", move || {
+        let worker = Worker::spawn("astarot-asr-capture", move || {
             let Ok(_com) = Com::init() else {
                 let _ = opened.send(Err(Error::runtime("asr_capture_failed")));
                 return;
@@ -233,7 +244,7 @@ impl DeviceCapture {
                     Ok(Some(true)) => last = std::time::Instant::now(),
                     Ok(Some(false)) => {
                         let gap = last.elapsed();
-                        if loopback && gap >= SILENCE_AFTER {
+                        if loopback && fill_silence && gap >= SILENCE_AFTER {
                             let silence = vec![0u8; silence_bytes(gap, format)];
                             last = std::time::Instant::now();
                             if !on_audio(&silence, format) {
@@ -288,7 +299,7 @@ impl Capture for WasapiCapture {
         let Some(mut callbacks) = self.callbacks.take() else { return Err(Error::runtime("source_bridge_capture_failed")) };
         let (stop, identity) = (self.stop.clone(), self.identity.clone());
         let (opened, started) = std::sync::mpsc::channel();
-        let worker = Worker::spawn("vrct-windows-capture", move || {
+        let worker = Worker::spawn("astarot-windows-capture", move || {
             let Ok(_com) = Com::init() else {
                 let _ = opened.send(Err(Error::runtime("source_bridge_capture_failed")));
                 return;

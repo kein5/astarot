@@ -13,14 +13,14 @@ sys.path.insert(0, str(ROOT))
 from tools.linux_package import check_tree, inspect_tar, inventory  # noqa: E402
 
 pytestmark = pytest.mark.skipif(
-    sys.platform != 'linux' or not os.environ.get('VRCT_TEST_LINUX_ARCHIVE'),
+    sys.platform != 'linux' or not os.environ.get('ASTAROT_TEST_LINUX_ARCHIVE'),
     reason='requires built Linux candidate archive',
 )
 
 
 @pytest.fixture
 def installation(tmp_path, monkeypatch):
-    archive = Path(os.environ['VRCT_TEST_LINUX_ARCHIVE']).resolve()
+    archive = Path(os.environ['ASTAROT_TEST_LINUX_ARCHIVE']).resolve()
     inspect_tar(archive)
     location = tmp_path / 'relocated install with spaces'
     location.mkdir()
@@ -40,7 +40,7 @@ def installation(tmp_path, monkeypatch):
             path.chmod(path.stat().st_mode & ~0o222)
     assert not os.access(root, os.W_OK), 'run package acceptance as an unprivileged user'
     before = inventory(root)
-    monkeypatch.setenv('VRCT_TEST_APP', str(root / 'vrct-vox'))
+    monkeypatch.setenv('ASTAROT_TEST_APP', str(root / 'vrct-vox'))
     try:
         yield root
         assert inventory(root) == before, 'installation mutated during acceptance'
@@ -61,20 +61,20 @@ def test_no_python_backend_and_the_bundled_engines_start(installation, tmp_path)
         assert result.returncode == 0, (folder, result.stderr)
 
 
-@pytest.mark.skipif(os.environ.get('VRCT_TEST_NATIVE_GUI') != '1', reason='requires WebKit driver/display')
+@pytest.mark.skipif(os.environ.get('ASTAROT_TEST_NATIVE_GUI') != '1', reason='requires WebKit driver/display')
 def test_relocated_native_gui(installation, tmp_path):
     from test_native_ui import test_model_free_native_app_renders_text_input_without_fatal_warning
     test_model_free_native_app_renders_text_input_without_fatal_warning(tmp_path)
 
 
-@pytest.mark.skipif(os.environ.get('VRCT_TEST_NATIVE_GUI') != '1', reason='requires WebKit driver/display')
+@pytest.mark.skipif(os.environ.get('ASTAROT_TEST_NATIVE_GUI') != '1', reason='requires WebKit driver/display')
 def test_relocated_desktop_captions(installation, tmp_path):
     from test_native_ui import test_desktop_captions_are_an_unmanaged_window_above_the_others
     test_desktop_captions_are_an_unmanaged_window_above_the_others(tmp_path)
 
 
-@pytest.mark.skipif(os.environ.get('VRCT_TEST_NATIVE_GUI') != '1', reason='requires WebKit driver/display')
-@pytest.mark.skipif(os.environ.get('VRCT_TEST_NATIVE_ROUTE') != '1', reason='opt-in private PipeWire/WirePlumber 0.5 graph')
+@pytest.mark.skipif(os.environ.get('ASTAROT_TEST_NATIVE_GUI') != '1', reason='requires WebKit driver/display')
+@pytest.mark.skipif(os.environ.get('ASTAROT_TEST_NATIVE_ROUTE') != '1', reason='opt-in private PipeWire/WirePlumber 0.5 graph')
 def test_relocated_managed_route_restart_muted(installation, tmp_path):
     from test_native_ui import test_native_voice_settings_survive_restart_with_managed_route_muted
     test_native_voice_settings_survive_restart_with_managed_route_muted(tmp_path)

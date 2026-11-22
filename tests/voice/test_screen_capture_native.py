@@ -13,8 +13,8 @@ import sys
 import numpy as np
 import pytest
 
-from models.ocr import ocr_capture_portal
-from models.ocr.ocr_capture_portal import SharedWindowCapture, parseHeader
+import screen_frame as ocr_capture_portal
+from screen_frame import SharedWindowCapture, parseHeader
 
 ROOT = Path(__file__).resolve().parents[2]
 SOURCE = ROOT / "native/screen-capture/main.c"
@@ -134,7 +134,7 @@ def compile_c(source, binary):
 @pytest.fixture(scope="module")
 def helper(tmp_path_factory):
     assert SOURCE.is_file(), "the window-sharing helper is not implemented"
-    return compile_c(SOURCE, tmp_path_factory.mktemp("screen-capture") / "vrct-screen-capture")
+    return compile_c(SOURCE, tmp_path_factory.mktemp("screen-capture") / "astarot-screen-capture")
 
 
 @pytest.fixture(scope="module")

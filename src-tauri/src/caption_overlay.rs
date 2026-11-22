@@ -12,10 +12,7 @@ use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Mutex;
 use std::time::Duration;
-use tauri::{
-    Emitter, Manager, PhysicalPosition, PhysicalSize, State, WebviewUrl, WebviewWindow,
-    WebviewWindowBuilder,
-};
+use tauri::{Emitter, Manager, PhysicalPosition, PhysicalSize, State, WebviewUrl, WebviewWindow};
 
 pub const LABEL: &str = "caption_overlay";
 const TITLE: &str = "ASTAROT Captions";
@@ -50,6 +47,10 @@ pub struct Line {
     /// "B", in the order they speak. A label is a voice within one session, not a person.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     speakers: Vec<String>,
+    /// The name the user gave each of `speakers` for its session, or "" for a voice without one
+    /// (#447). Empty when no voice has a name.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    speaker_names: Vec<String>,
     /// Milliseconds since the epoch after which the line is no longer shown.
     until: f64,
 }
@@ -57,6 +58,16 @@ pub struct Line {
 /// One to three capital letters, as the speech server labels a voice.
 fn valid_speaker(label: &str) -> bool {
     (1..=3).contains(&label.len()) && label.bytes().all(|byte| byte.is_ascii_uppercase())
+}
+
+/// The longest name of a voice, as the core takes it (`native/core/src/controller/speakers.rs`).
+const MAX_SPEAKER_NAME: usize = 32;
+
+/// No names, or one per speaker, each short and on one line.
+fn valid_speaker_names(line: &Line) -> bool {
+    line.speaker_names.is_empty()
+        || (line.speaker_names.len() == line.speakers.len()
+            && line.speaker_names.iter().all(|name| valid_label(name, MAX_SPEAKER_NAME)))
 }
 
 /// One row of a flow item: a stage or an output, drawn as a bar from `start` to `end` ms.
@@ -218,6 +229,7 @@ fn validate(snapshot: &Snapshot) -> Result<(), String> {
             || line.translations.iter().any(|text| text.chars().count() > MAX_TEXT)
             || line.speakers.len() > MAX_SPEAKERS
             || !line.speakers.iter().all(|label| valid_speaker(label))
+            || !valid_speaker_names(line)
             // Only what was heard has several voices; the user's own line names no one.
             || (line.kind == "sent" && !line.speakers.is_empty())
             || !line.until.is_finite()
@@ -738,7 +750,7 @@ pub async fn caption_overlay_set(
     let created = existing.is_none();
     let overlay = match existing {
         Some(overlay) => overlay,
-        None => WebviewWindowBuilder::new(&app, LABEL, WebviewUrl::App("caption-overlay.html".into()))
+        None => crate::webview_environment::window(&app, LABEL, WebviewUrl::App("caption-overlay.html".into()))
             .title(TITLE)
             .decorations(false)
             .transparent(true)
@@ -749,7 +761,6 @@ pub async fn caption_overlay_set(
             .focused(false)
             .focusable(false)
             .visible(false)
-            .additional_browser_args(super::BROWSER_ARGS)
             .build()
             .map_err(|error| error.to_string())?,
     };
@@ -817,6 +828,7 @@ mod tests {
             translations: vec!["Hello".into()],
             pending: false,
             speakers: Vec::new(),
+            speaker_names: Vec::new(),
             until: 1_800_000_000_000.0,
         }
     }
@@ -845,6 +857,26 @@ mod tests {
         let mut own = heard(&["A"]);
         own.lines[0].kind = "sent".into();
         assert_eq!(validate(&own), Err("caption_overlay_invalid".into()));
+    }
+
+    #[test]
+    fn the_names_of_the_voices_are_one_per_speaker_short_and_on_one_line() {
+        // #447: the names the user gave the voices of the session.
+        let named = |names: &[&str]| {
+            let mut value = heard(&["A", "B"]);
+            value.lines[0].speaker_names = names.iter().map(|name| name.to_string()).collect();
+            value
+        };
+        let longest = "x".repeat(32);
+        for names in [vec![], vec!["ミカ", ""], vec!["", longest.as_str()]] {
+            assert!(validate(&named(&names)).is_ok(), "{names:?}");
+        }
+        let long = "x".repeat(33);
+        for names in [vec!["ミカ"], vec!["ミカ", "", ""], vec!["a\nb", ""], vec![long.as_str(), ""]] {
+            assert_eq!(validate(&named(&names)), Err("caption_overlay_invalid".into()), "{names:?}");
+        }
+        // A line without names is written as before.
+        assert!(serde_json::to_value(heard(&["A"])).unwrap()["lines"][0].get("speaker_names").is_none());
     }
 
     fn snapshot() -> Snapshot {

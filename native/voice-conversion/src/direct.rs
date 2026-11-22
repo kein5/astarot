@@ -1,8 +1,10 @@
 //! One direct producer at a time, independently of ASR, TTS and global mute
-//! (`direct_voice.py`).
+//! ([`direct_voice.py`]).
 //!
 //! Start, stop and health never block: slow work belongs to a backend's own thread, and
 //! `close` reaps it. Endpoint connectivity is never taken as proof of conversion.
+//!
+//! [`direct_voice.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/voice_conversion/direct_voice.py
 
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::Duration;
@@ -113,6 +115,8 @@ pub struct DirectHealth {
     pub round_trip_ms: Option<i64>,
     pub conversion_device: Option<String>,
     pub conversion_latency_ms: Option<i64>,
+    /// The block the microphone is cut into before it is converted (#531).
+    pub conversion_block_ms: Option<i64>,
 }
 
 impl DirectHealth {
@@ -134,6 +138,7 @@ impl DirectHealth {
             "round_trip_ms": self.round_trip_ms,
             "conversion_device": self.conversion_device,
             "conversion_latency_ms": self.conversion_latency_ms,
+            "conversion_block_ms": self.conversion_block_ms,
         });
         match value {
             Value::Object(map) => map,
@@ -348,6 +353,7 @@ impl DirectVoice {
             round_trip_ms: if converted { backend_health.round_trip_ms } else { None },
             conversion_device: if converted { backend_health.device } else { None },
             conversion_latency_ms: if converted { backend_health.latency_ms } else { None },
+            conversion_block_ms: if converted { backend_health.block_ms } else { None },
         }
     }
 }

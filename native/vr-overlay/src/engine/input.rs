@@ -1,4 +1,4 @@
-//! The controllers on the overlays (`overlay.py`'s `updateGrab` and its helpers).
+//! The controllers on the overlays ([`overlay.py`]'s `updateGrab` and its helpers).
 //!
 //! Each tick, on the overlay thread:
 //! - The laser leaves each controller's tip (`tipOffset`), tilted 12 degrees up. SteamVR finds
@@ -17,6 +17,8 @@
 //! - The toolbar under the log shows after the log has been pointed at for a while.
 //!
 //! Nothing here logs user text; the log lines name hands, windows and states.
+//!
+//! [`overlay.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/overlay/overlay.py
 
 use super::{Event, Overlay, State, Surface};
 use crate::canvas;
@@ -235,7 +237,7 @@ impl Overlay {
     /// with `setOverlayRaw` failed after about 190 times).
     pub(super) fn make_pointers(&self, state: &mut State) -> Result<(), VrError> {
         for icon in POINTER_ICONS {
-            let handle = self.create(state, &format!("VRCT_pointer_{}", icon.key()))?;
+            let handle = self.create(state, &format!("ASTAROT_pointer_{}", icon.key()))?;
             let session = state.session.as_mut().expect("connected");
             session.set_sort_order(handle, 100)?;
             session.set_raw(handle, &pointer_image(icon), 64, 64)?;
@@ -246,13 +248,13 @@ impl Overlay {
 
     /// The toolbar and the resize frame, made with the VR page's other overlays (`initVrResources`).
     pub(super) fn make_toolbar_and_ghost(&self, state: &mut State) -> Result<(), VrError> {
-        let toolbar = self.create(state, "VRCT_toolbar")?;
+        let toolbar = self.create(state, "ASTAROT_toolbar")?;
         let width = layout::region_width_m(Region::Toolbar, 0.0);
         self.submit(state, toolbar, "width", format!("{width}"), |s| s.set_width(toolbar, width as f32))?;
         self.submit(state, toolbar, "visibility", "hide".into(), |s| s.hide(toolbar))?;
         state.input.toolbar_handle = Some(toolbar);
         state.input.toolbar.reset();
-        let ghost = self.create(state, "VRCT_resize_ghost")?;
+        let ghost = self.create(state, "ASTAROT_resize_ghost")?;
         state.session.as_mut().expect("connected").set_sort_order(ghost, 50)?;
         self.submit(state, ghost, "visibility", "hide".into(), |s| s.hide(ghost))?;
         state.input.ghost_handle = Some(ghost);

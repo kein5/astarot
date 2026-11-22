@@ -1,6 +1,6 @@
 //! Device lists, change notification and following the OS default devices.
 //!
-//! Port of `src-python/device_manager.py`. One monitoring thread refreshes the lists
+//! Port of [`src-python/device_manager.py`]. One monitoring thread refreshes the lists
 //! when the OS reports a topology or default change (Windows endpoint notifications,
 //! PipeWire registry events), and also polls: every two seconds without
 //! notifications, and once a minute with them as a safety net for a missed event.
@@ -9,6 +9,8 @@
 //! Auto Speaker Select additionally follows the endpoint that is actually playing,
 //! through an [`ActiveEndpointTracker`]. Auto Microphone Select follows only the OS
 //! default (see `tracker.rs` for why).
+//!
+//! [`src-python/device_manager.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/device_manager.py
 
 use std::collections::{BTreeMap, HashMap};
 use std::panic::{catch_unwind, AssertUnwindSafe};
@@ -431,7 +433,7 @@ impl DeviceManager {
         self.stop.clear();
         self.notify.clear();
         let manager = self.clone();
-        match Worker::spawn("vrct-device-monitor", move || manager.monitoring()) {
+        match Worker::spawn("astarot-device-monitor", move || manager.monitoring()) {
             Ok(worker) => lifecycle.monitor = Some(worker),
             Err(_) => self.reporter.error("device_monitor_thread_unavailable"),
         }

@@ -1,6 +1,6 @@
 //! The real bundled speech.cpp with a real model, for a PC that has both. Skipped unless
-//! VRCT_SPEECHCPP_BUNDLE names a `build/speechcpp` folder and VRCT_SPEECH_MODEL a speech
-//! (synthesis) model file. VRCT_SPEECH_DEVICE picks the device, "cpu" unless given.
+//! ASTAROT_SPEECHCPP_BUNDLE names a `build/speechcpp` folder and ASTAROT_SPEECH_MODEL a speech
+//! (synthesis) model file. ASTAROT_SPEECH_DEVICE picks the device, "cpu" unless given.
 
 use std::time::{Duration, Instant};
 
@@ -11,11 +11,11 @@ use vrct_speech_server::settings::{start_options, Profile};
 #[test]
 fn the_real_server_starts_answers_and_stops() {
     let (Some(bundle), Some(model)) =
-        (std::env::var_os("VRCT_SPEECHCPP_BUNDLE"), std::env::var("VRCT_SPEECH_MODEL").ok())
+        (std::env::var_os("ASTAROT_SPEECHCPP_BUNDLE"), std::env::var("ASTAROT_SPEECH_MODEL").ok())
     else {
         return;
     };
-    let device = std::env::var("VRCT_SPEECH_DEVICE").unwrap_or_else(|_| "cpu".into());
+    let device = std::env::var("ASTAROT_SPEECH_DEVICE").unwrap_or_else(|_| "cpu".into());
     let settings = json!({"profiles": {"multilingual": {"model": model, "device": device}}});
     let options = start_options(&settings, Profile::Multilingual).unwrap();
     let server = SpeechServer::new(Profile::Multilingual, options, Launch::bundled(bundle), Hooks::default());

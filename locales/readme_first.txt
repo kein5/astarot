@@ -3,6 +3,10 @@ If you want to edit a language:
 - If it already exists: edit the corresponding [xx].yml file.
 - If it doesn’t exist: please open a GitHub issue or contact us through another channel. (If you know how to add a new language yourself, feel free to do so! Sorry for the complicated structure...)
 
+Keep the same keys and the same {{variables}} in every file. `python tools/dev.py check`
+(tools/i18n_gate/check.mjs) reports a key one language lacks, an empty value or a variable
+that differs.
+
 Languages currently supported:
 - en: English
 - ja: 日本語

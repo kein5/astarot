@@ -2,7 +2,8 @@
     display: flex;
     flex-direction: column;
     justify-content: center;
-    align-items: center;
+    align-items: stretch;
+    width: 100%;
     gap: 1rem;
     min-width: 0;
     max-width: 100%;
@@ -11,7 +12,7 @@
 
 .entry_section_wrapper {
     display: flex;
-    justify-content: center;
+    justify-content: flex-start;
     align-items: center;
     gap: 1rem;
     position: relative;
@@ -25,7 +26,8 @@
     right: 0;
     bottom: 0;
     left: 0;
-    border-radius: 0.4rem;
+    // Laid over the key's field, so it takes the field's corners.
+    border-radius: var(--vox_radius);
     background-color: var(--dark_1000_color_66);
     backdrop-filter: blur(4rem);
     border: solid 0.1rem var(--dark_700_color);

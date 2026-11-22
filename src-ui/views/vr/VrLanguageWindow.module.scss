@@ -11,6 +11,7 @@
 .language_window button:active:not(:disabled):not([aria-disabled='true']),
 .language_window summary:active:not(:disabled):not([aria-disabled='true']) {
     background-color: var(--primary_600_color);
+    color: var(--vox_on_primary);
     transition: none;
 }
 .language_window summary:focus-visible { outline: 3px solid var(--primary_100_color); outline-offset: -3px; }
@@ -19,36 +20,39 @@
 .main { overflow-y: auto; overscroll-behavior: contain; }
 .presets { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
 .preset_label { flex: 0 0 auto; }
-.preset { width: 64px; font-size: 21px; }
+.preset { width: 64px; font-size: 22px; }
 .status { margin-left: auto; font-size: 16px; line-height: 1.4; color: var(--primary_200_color); min-width: 0; overflow-wrap: anywhere; text-align: right; }
 .status.error { max-width: 220px; }
-.source_row { display: flex; gap: 12px; flex-shrink: 0; }
-.source { flex: 1; min-width: 0; }
+.source { min-width: 0; }
 .selected_value { text-align: right; font-weight: 500; }
-.swap { width: 152px; height: auto; min-height: 72px; flex-direction: column; gap: 4px; padding: 8px 12px; font-size: 18px; }
-.country { font-size: 15px; line-height: 1.3; font-weight: 400; color: var(--dark_350_color); text-align: center; overflow-wrap: anywhere; }
+// The swap stands on the recipients' heading line, between your language above and recipient 1
+// below: the two it exchanges. A laser target of its own, 56px tall like the other buttons.
+.swap { min-width: 152px; gap: 10px; padding: 0 18px; font-size: 19px; }
+.swap_arrow { width: 20px; height: 20px; flex-shrink: 0; fill: currentColor; }
+.swap_arrow_up { transform: rotate(180deg); }
 .targets { display: flex; flex-direction: column; gap: 8px; flex: 1 0 auto; }
-.target_heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-shrink: 0; }
-.target_heading h2 { margin-top: 8px; display: flex; align-items: baseline; gap: 12px; line-height: 1.3; }
-.target_heading h2 span { font-size: 15px; color: var(--dark_350_color); font-weight: 400; }
-.count { margin-top: 8px; font-size: 17px; font-variant-numeric: tabular-nums; flex-shrink: 0; color: var(--dark_350_color); }
-.count span { font-size: 15px; }
+// The heading, the swap in the middle of the window and the count at the right end.
+.target_heading { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 12px; flex-shrink: 0; }
+.target_heading h2 { margin-top: 0; line-height: 1.3; }
+.target_heading .count { justify-self: end; }
+.count { font-size: 16px; font-variant-numeric: tabular-nums; flex-shrink: 0; color: var(--dark_350_color); }
 .selected_rows { display: flex; flex-direction: column; gap: 8px; flex-shrink: 0; }
-.target_row { align-items: stretch; gap: 8px; }
+// The rows of the list are 64px, each button in them still 56px tall: with the swap on the heading
+// line, three recipients, the line under them and the translator stay in the window without scrolling.
+.target_row { align-items: stretch; gap: 8px; min-height: 64px; padding-block: 4px; }
 .target_change { flex: 1; display: flex; align-items: center; gap: 10px; min-width: 0; min-height: 56px; border-radius: 12px; text-align: left; background: transparent; color: inherit; }
-.order { flex-shrink: 0; width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 600; color: var(--dark_basic_text_color); background: var(--dark_750_color); }
-.remove { width: 64px; font-size: 15px; }
+.order { flex-shrink: 0; width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 19px; font-weight: 600; color: var(--dark_basic_text_color); background: var(--dark_750_color); }
+.remove { width: 64px; font-size: 16px; }
 .remove svg { width: 20px; height: 20px; fill: currentColor; }
 .remove:disabled { color: var(--dark_350_color); background: var(--dark_900_color); }
-.add { width: 100%; gap: 10px; font-size: 18px; }
+.add { width: 100%; gap: 10px; font-size: 19px; }
 .limit { min-height: 32px; display: flex; align-items: center; padding: 0 14px; font-size: 16px; line-height: 1.4; color: var(--dark_350_color); }
 .engine_note { margin-top: 5px; font-size: 16px; font-weight: 400; line-height: 1.4; color: var(--primary_200_color); display: flex; align-items: center; gap: 6px; }
 .engine_note svg { width: 20px; height: 20px; flex-shrink: 0; fill: currentColor; }
 .context { flex: 1; }
-.context > span { display: block; font-size: 15px; color: var(--dark_350_color); line-height: 1.3; }
-.context h2 { font-size: 17px; font-weight: 400; line-height: 1.3; overflow-wrap: anywhere; }
+.context > span { display: block; font-size: 16px; color: var(--dark_350_color); line-height: 1.3; }
+.context h2 { font-size: 16px; font-weight: 400; line-height: 1.3; overflow-wrap: anywhere; }
 .feedback { flex-shrink: 0; color: var(--primary_200_color); font-size: 16px; line-height: 1.4; padding: 10px 14px; border-radius: 12px; background: var(--dark_950_color); }
-.feedback span { color: var(--dark_350_color); }
 .retry { margin: 14px 16px 0; flex-shrink: 0; }
 .error { color: var(--warning_color); }
 .picker_scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding-right: 8px; display: flex; flex-direction: column; gap: 8px; scroll-padding-block: 8px; }
@@ -60,14 +64,12 @@
 .choice:disabled:not([aria-pressed='true']) { color: var(--dark_500_color); background: var(--dark_900_color); }
 .check { flex-shrink: 0; font-size: 22px; color: var(--primary_100_color); }
 .all_languages { flex-shrink: 0; font-size: 19px; font-weight: 600; }
-.all_languages > span:first-child { font-size: 19px; }
 .all_languages > span:last-child { margin-left: auto; }
 .warning { display: flex; align-items: flex-start; flex-shrink: 0; gap: 10px; padding: 10px 14px; border-radius: 12px; background: var(--dark_950_color); color: var(--warning_color); font-size: 16px; line-height: 1.4; }
 .warning svg { flex-shrink: 0; width: 22px; height: 22px; fill: currentColor; }
 .unavailable { margin-top: 8px; flex-shrink: 0; }
 .unavailable summary { cursor: pointer; }
 .unavailable summary::-webkit-details-marker { display: none; }
-.unavailable summary .count { margin-top: 0; }
 .unavailable .helper { margin: 8px 0; padding-left: 11px; border-left: 3px solid var(--primary_700_color); }
 .waiting { flex: 1; display: flex; align-items: center; justify-content: center; font-size: 19px; padding: 24px; }
 .sr_only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }

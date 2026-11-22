@@ -1,11 +1,13 @@
 # ONNX 版ローカル翻訳モデルの作成と比較
 
-`native/translate-onnx` が読み込むモデルを作り、現行の CTranslate2 と訳文を比べるための道具です。アプリの実行時には使いません。
+`native/translate-onnx` が読み込むモデルを作り、旧バックエンドの CTranslate2 と訳文を比べるための道具です。アプリの実行時には使いません。
 
 ## モデルを作る
 
+リポジトリの直下で実行します。uv は `pyproject.toml` の `requires-python` に合う Python（`mise.toml` の 3.14）を選びます。
+
 ```sh
-uv venv --python 3.11 build/translation-onnx/venv
+uv venv build/translation-onnx/venv
 uv pip install --python build/translation-onnx/venv/bin/python --index-strategy unsafe-best-match \
     --extra-index-url https://download.pytorch.org/whl/cpu -r tools/translation_onnx/requirements.txt
 build/translation-onnx/venv/bin/python tools/translation_onnx/export.py m2m100_418M --output <出力先>
@@ -35,11 +37,46 @@ build/translation-onnx/venv/bin/python tools/translation_onnx/export.py m2m100_4
   | `float16` | ONNX Runtime の `convert_float_to_float16`（`keep_io_types=True`）。入出力は float32 のまま | `encoder_model_fp16.onnx`、`decoder_model_merged_fp16.onnx` | GPU。CPU の実行プロバイダにはほとんどの float16 の演算がないので、ここでは動かさない |
   | `int4` | ONNX Runtime の `MatMulNBitsQuantizer`（32 個ずつの区切り、対称）。重みだけを int4 にする | `encoder_model_int4.onnx`、`decoder_model_merged_int4.onnx` | CPU と CUDA。float32 のグラフとの最大の差を `manifest.json` の `variant_max_difference` に書く |
 
-  実際のモデルで作って計ったのは int8 だけです（下の「比較の結果」）。float32、float16、int4 は同じ手順で書けるようにしましたが、まだ作っていません。作ったら、CTranslate2 との比較（`compare.py`）と、各実行プロバイダでの速さを計ってから使います。各形がどの実行プロバイダで動くかの表は `native/translate-onnx/README.md` にあります。
+  実際のモデルで作って計ったのは int8 だけです（下の「比較の結果」）。float32、float16、int4 は同じ手順で書けるようにしましたが、実際のモデルではまだ作っていません。作ったら、CTranslate2 との比較（`compare.py`）と、各実行プロバイダでの速さを計ってから使います。各形がどの実行プロバイダで動くかの表は `native/translate-onnx/README.md` にあります。
+- `Reshape` はすべて `allowzero=0` で書き出します（`graphs.clear_reshape_allowzero`）。ONNX Runtime の DirectML の実行プロバイダが `allowzero=1` を断るためです。このグラフの形は 0 にならない大きさでできているので、CPU の結果は変わりません。2026-11-18 より前に作ったフォルダは `allowzero=1` のままで、DirectML では動きません。
+- float16 の形は、変換のあとでノードを並べ直してから書きます（`graphs.sort_nodes`）。並べ直す前は、入力の `Cast` が使う側より後ろに置かれて、書き出せませんでした。
 
-## 現行の CTranslate2 と比べる
+### 手元のモデルのフォルダから作る
 
-比べるときの Python 環境は、アプリの `uv.lock` と同じ版にします（ctranslate2 4.8.4、transformers 5.22.1、tokenizers 0.23.3、sentencepiece 0.2.1）。これに sacrebleu 2.6.0 を足します。
+学習し直した M2M100 や NLLB など、transformers の形のフォルダ（`config.json`、重み、トークナイザのファイル）からも作れます。名前は書き出すフォルダの名前になり、ライセンスはそのまま `manifest.json` に書きます。できたフォルダは、翻訳のカタログの「自分のモデルを追加」で足せます。
+
+```sh
+build/translation-onnx/venv/bin/python tools/translation_onnx/export.py my-m2m100 \
+    --source <モデルのフォルダ> --family m2m100 --license <ライセンス> --output <出力先> --variant int8
+```
+
+### 乱数の小さなモデル
+
+`tiny.py` は、乱数の重みの小さなモデル（NLLB の形、2 層、幅 64、語彙 4400）を `export.py` と同じ道で書き出し、`<出力先>/tiny-nllb-onnx-<形>/` を 4 つの形で作ります。何も取得しません。訳と速さには意味がありませんが、グラフが実行プロバイダで動くかと、CPU と同じ訳の ID になるかを、どの PC でも確かめられます（`native/translate-onnx` の `tests/real.rs` の `a_device_decodes_as_the_cpu_does`）。
+
+```sh
+build/translation-onnx/venv/bin/python tools/translation_onnx/tiny.py --output <出力先>
+```
+
+## 公開してカタログに載せる
+
+`publish.py` が、`export.py` のフォルダを公開してモデル取得のカタログに載せるまでを受け持ちます。公開は外部への操作です。保守担当者が確かめてから行います。
+
+```sh
+python tools/translation_onnx/publish.py stage <フォルダ> --repo <持ち主>/<名前> --out <公開用のフォルダ> [--license-file <ライセンスの文>]
+python tools/translation_onnx/publish.py upload <公開用のフォルダ> --repo <持ち主>/<名前>       # HF_TOKEN が要る
+python tools/translation_onnx/publish.py catalog <フォルダ> --repo <持ち主>/<名前> --revision <コミット> --write [--notice <文面の名前>]
+```
+
+- `stage` は、各ファイルを `manifest.json` と照らし合わせてから写し、モデルカード（`README.md`）を書きます。カードには、元のモデルとその版、ライセンス（変えたものも同じライセンス）、変えたこと、作り方、各ファイルの SHA-256 が入ります。CC-BY-NC-4.0 のモデルには非商用であることも書きます。MIT のモデルはライセンスの文を写しに付ける必要があるので、`--license-file` が要ります。
+- `upload` は、`HF_TOKEN` の書き込みのトークンでリポジトリを作り、公開用のフォルダを 1 つのコミットで上げて、そのコミットを表示します。
+- `catalog` は、そのコミットのファイルの大きさと SHA-256 を Hugging Face から読み（小さなファイルは取得して計算します）、`manifest.json` と食い違えば止めます。`--write` で `native/ops/data/translation_models.json` に項目を書きます。そのあと `CATALOG_VERSION` を上げます（`native/ops/data/README.md`）。確認の画面にそのモデルだけの文面を出すときは `--notice` に名前を渡します（`catalog.rs` の `TRANSLATION_NOTICES` にある名前。文面は `locales/` の `model_downloads.notice_<名前>`）。
+- 2026-11-19 に `kein5/m2m100_418M-onnx-int8` と `kein5/nllb-200-distilled-600M-onnx-int8` を公開しました（`docs/voice-stack/licensing.md` の「公開したモデル（2026-11-19、#687）」）。
+- 2026-11-21 に `kein5/nllb-200-distilled-1.3B-onnx-int8` を公開しました（`docs/voice-stack/licensing.md` の「NLLB-200 distilled 1.3Bの公開（2026-11-21）」）。
+
+## 旧バックエンドの CTranslate2 と比べる
+
+比較には「モデルを作る」で用意したPython環境を使います。CTranslate2とsacrebleuを含む依存の版は `tools/translation_onnx/requirements.txt` にあります。
 
 ```sh
 cargo build --release --manifest-path native/translate-onnx/Cargo.toml
@@ -49,7 +86,7 @@ python tools/translation_onnx/compare.py m2m100_418M \
     --out <結果>.json
 ```
 
-CTranslate2 の側は、アプリが固定しているモデルを取得し、ピン留めと照合してから、`translation_translator.py` と同じ手順で翻訳します。比べる対象は、WMT20 の8方向（英語と日本語・中国語・ドイツ語・ロシア語の双方向）で、各方向の先頭 N 文です。結果のファイルには点数と件数だけを書き、文章は書きません。
+CTranslate2 の側は、旧バックエンドが使っていた版のモデルを取得し、ピン留めと照合してから、`translation_translator.py` と同じ手順で翻訳します。比べる対象は、WMT20 の8方向（英語と日本語・中国語・ドイツ語・ロシア語の双方向）で、各方向の先頭 N 文です。結果のファイルには点数と件数だけを書き、文章は書きません。
 
 `--directions en-ja,ja-en` のように指定すると、方向を絞れます。
 
@@ -89,6 +126,7 @@ python tools/translation_onnx/regression.py \
 
 - **失敗**は、どれも 256 トークンまでに終了トークンが出なかったものです。アプリが CTranslate2 で失敗として扱う条件と同じです。量子化の方式の違いによって、繰り返しに入る文が変わります。比較では失敗を空の訳文として数えるので、1文で BLEU が数点下がることがあります。NLLB 1.3B の zh→en（-3.32）がその例です。
 - **NLLB 3.3B** は、英語へ訳す4方向がすべてマイナスでした（BLEU -1.12〜-1.90）。optimum で書き出した前回も同じ傾向でした。各方向 50 文なのでぶれは大きいですが、回帰がないとまでは確認できていません。
+  - 2026-11-20 の追記: 英→日と日→英は、WMT20 の全文で差が見えませんでした（「英語と日本語の確認（2026-11-20）」）。独→英、露→英、中→英は確かめていません。
 
 ### float32 どうしの比較（探索の確認）
 
@@ -154,3 +192,61 @@ ONNX 版のモデルの取得量を減らす方法を3つ比べました。受�
 - 同じ PC の CPU で、スレッドは4つです。ほかのセッションの処理で、平均負荷は 2.6〜3.1 ありました。
 - 順番の影響を除くため、前と後の順を入れ替えて2回ずつ測り、平均しました。時間にはコマンドの起動とモデルの読み込みも含みます。
 - 30 文はすべて同じ出力 ID でした。
+
+## 英語と日本語の確認（2026-11-20）
+
+NLLB の 3 つの大きさを、英→日と日→英で比べた記録です。3.3B の英語へ訳す方向（`docs/voice-stack/core-integration.md` の判断 77）を確かめ、1.3B も同じ方法で測りました。結果のファイルは `results/english-japanese/` にあります。ファイルには点数と件数と時間だけを書き、文章は書いていません。
+
+- 比べたもの：ONNX 版（int8）は `vrct-translate` で、CTranslate2 版（int8）は `compare.py` と同じ手順で訳しました。どちらも CPU の 4 スレッドです。
+- ONNX 版の 600M は公開したもの（`kein5/nllb-200-distilled-600M-onnx-int8`）です。1.3B と 3.3B は、2026-11-15 に書き出したフォルダです。
+- 2026-11-15 のフォルダは、`Reshape` が `allowzero=1` のままです。同じ日に書き出した 600M と公開版の 600M では、英日と日英の 200 文すべてで出力 ID が一致しました（`export-equivalence.json`）。そのため、CPU では今の書き出しと同じ訳になると判断しました。
+- 文は WMT20 の全文（英→日 1,000 文、日→英 993 文）です。BLEU は、日本語を文字単位で、英語を 13a で区切ります。訳の失敗は、空の訳として数えます。
+- 差の区間は、文を選び直すブートストラップ 1,000 回の 2.5 と 97.5 パーセンタイルです。
+- 環境は Linux x86_64、AMD Ryzen 9 9950X3D、ONNX Runtime 1.32.0（PyPI）、ctranslate2 4.9.0、sacrebleu 2.6.0 です。訳の質の計測は、ほかの作業と並べて動かしたので、その時間は記録していません。
+
+### 訳の質（ONNX 版）
+
+| 方向 | 指標 | 600M | 1.3B | 3.3B |
+|---|---|---|---|---|
+| 英→日 | BLEU | 29.18 | 31.11 | 32.34 |
+| 英→日 | chrF | 25.67 | 27.27 | 28.19 |
+| 日→英 | BLEU | 12.74 | 15.32 | 16.25 |
+| 日→英 | chrF | 38.58 | 41.60 | 42.97 |
+
+| BLEU の差（95% 区間） | 英→日 | 日→英 |
+|---|---|---|
+| 1.3B − 600M | +1.93（+1.27〜+2.59） | +2.59（+1.92〜+3.28） |
+| 3.3B − 1.3B | +1.23（+0.65〜+1.83） | +0.93（+0.30〜+1.59） |
+| 3.3B − 600M | +3.16（+2.46〜+3.83） | +3.51（+2.78〜+4.25） |
+
+訳の失敗（256 トークンまでに終了トークンが出なかった文）は、600M が英→日で 1 文と日→英で 3 文、3.3B が日→英で 2 文でした。1.3B は 0 文でした。
+
+### ONNX 版と CTranslate2 版の差（判断 77）
+
+ONNX 版から CTranslate2 版を引いた BLEU の差です。どれも 95% 区間が 0 をまたぎます。2026-11-15 に 50 文で見えた 3.3B の日→英の −1.90 は、再現しませんでした。独→英、露→英、中→英は確かめていません。
+
+| モデル | 英→日 | 日→英 |
+|---|---|---|
+| 600M | +0.10（−0.27〜+0.47） | +0.29（−0.07〜+0.67） |
+| 1.3B | +0.15（−0.21〜+0.48） | +0.07（−0.30〜+0.45） |
+| 3.3B | −0.06（−0.43〜+0.32） | −0.09（−0.45〜+0.27） |
+
+### 速さとメモリー
+
+アプリと同じく、1 文ずつ訳しました。モデルは 1.3B、600M、3.3B、3.3B、600M、1.3B の順に読み込み、2 回の値を書いています。平均負荷は 4〜5 で、モデルのファイルはページキャッシュに載っていました。
+
+| | 600M | 1.3B | 3.3B |
+|---|---|---|---|
+| 取得の大きさ | 643 MB | 1,402 MB | 3,380 MB |
+| 読み込み（SHA-256 の照合を含む） | 1.4 秒 | 2.3〜2.6 秒 | 4.6〜5.4 秒 |
+| 短い文の英→日（中央値） | 0.14 秒 | 0.26〜0.27 秒 | 0.53 秒 |
+| 短い文の日→英（中央値） | 0.19 秒 | 0.31 秒 | 0.73 秒 |
+| WMT の先頭 30 文の英→日（中央値、最大） | 0.42 秒、1.8 秒 | 0.78〜0.81 秒、3.1〜3.2 秒 | 1.72〜1.75 秒、7.3 秒 |
+| WMT の先頭 30 文の日→英（中央値） | 0.34 秒 | 0.65〜0.67 秒 | 1.43 秒 |
+| 出力 1 トークンあたり | 12〜14 ms | 22〜26 ms | 46〜55 ms |
+| メモリーの最大（VmHWM。読み込みの間に達する） | 1.48 GiB | 2.65 GiB | 6.34 GiB |
+| 訳している間のメモリーの最大（VmRSS を 10 ms ごとに読む） | 1.12 GiB | 2.29 GiB | 5.52 GiB |
+
+- 短い文は、WMT20 の先頭 30 文より後ろで、原文が 6〜16 トークンの文を 30 文選びました。チャットの文に近い長さです。
+- メモリーは Linux の値です。アプリの目安（`native/ops/src/downloads/guidance.rs`）は Windows の作業集合で測っていて、600M は 1.39 GiB（Windows 11、Intel Core i7-1255U）です。同じ基準ではありません。
+- この PC での値で、ほかの PC での速さを保証するものではありません。

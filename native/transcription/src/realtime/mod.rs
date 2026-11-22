@@ -7,4 +7,4 @@ pub mod session;
 
 pub use delivery::{Admission, Delivery};
 pub use events::Update;
-pub use session::{Options, Session};
+pub use session::{Limits, Options, Session};

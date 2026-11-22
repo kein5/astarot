@@ -1,6 +1,6 @@
 # 設定画面からの既定モデル取得
 
-TTS・ASRの「モデルとサーバー」（同梱speech.cppサーバーの欄）内とRVC設定画面に取得UIを追加。提供元、モデル名、正確な容量、利用条件へのリンク、用途・注意、保存先を表示し、チェックボックスへの同意と開始操作を必要とする。ローカル翻訳（ONNX Runtime）のモデルも、公開したあとは同じ確認画面で取得する。
+TTS・ASRの「モデルとサーバー」（同梱speech.cppサーバーの欄）内とRVC設定画面に取得UIを追加。提供元、モデル名、正確な容量、利用条件へのリンク、用途・注意、保存先を表示し、チェックボックスへの同意と開始操作を必要とする。カタログにあるローカル翻訳（ONNX Runtime）のモデルも同じ確認画面で取得する。
 
 同意は警告を開いた時点のカタログ版に結び付ける。更新された未確認の版で開始しない。
 
@@ -8,9 +8,33 @@ TTS・ASRの「モデルとサーバー」（同梱speech.cppサーバーの欄�
 
 適用の再検証中も、同じジョブのキャンセルボタンを使える。適用とキャンセルの応答はそれぞれ確認し、両方の待機が終わるまで別の適用や取得を始めない。状態の定期取得や応答待ちの警告だけでは、操作の待機を解除しない。
 
+## 非商用のライセンスの確認
+
+非商用のライセンスのモデル（NLLB-200など）は、上の同意のほかに非商用に限ることの確認を求める（#411）。Gemmaの利用規約に従う翻訳のモデルも、同じ仕組みで規約の確認を求める（下の「Gemmaの利用規約の確認」）。
+
+- 中核（`native/ops`の`catalog.rs`）がカタログの各行に`restrictions`を付ける。ライセンスの文字列から決まり、Creative CommonsのNonCommercial（CC-BY-NC-4.0と、-SAや-NDの付くもの）なら`non_commercial`、Gemma Terms of Use（Hugging Faceのライセンスの表示`gemma`だけのものも）の翻訳のモデル（`target`が`translation`）なら`gemma_terms`を含む。読み上げなどほかの対象のモデルには`gemma_terms`を付けない（`restrictions_for`）。両方なら`["non_commercial", "gemma_terms"]`の順で、ほかは`[]`になる。`Model`の項目と`receipt.json`の形は変えない。別の種類を足すときも、この一覧に種類を足す。
+- 確認の画面はライセンスの名前を挙げ、非商用の利用だけが認められていることを警告の印を付けた段落で示す。同意のチェックの下に種類ごとのチェックを出し、すべてにチェックが入るまで開始できない。画面を開き直すと、どのチェックも外れている。
+- 開始の要求（`/run/start_model_download`）は確かめた種類を`acknowledged`に入れる。制限のあるモデルでその種類が欠けていると`model_download_restriction_unacknowledged`で断り、ファイルを書かず通信もしない。知らない種類、同じ種類の重複、そのモデルにない種類を入れた要求は`download_request_invalid`で断る。制限のないモデルの要求は今までと同じで、`acknowledged`は付けなくてよい（空の一覧も受け付ける）。
+- 確認は記録しない。`receipt.json`はカタログの項目のままで、取得のたびに確認を求める。
+- Pythonのバックエンドの`manager.py`も同じ要求を受け付け、同じ行を返す（`native/ops`の参照ファイルとの照合のため）。
+- 翻訳の設定でNLLBを選ぶときの確認（`CTranslate2LicenseDialog`と中核の`WEIGHT_CTRANSLATE2_LICENSE_CONSENT_REQUIRED`）は別にあり、そのまま残る。
+
+### Gemmaの利用規約の確認
+
+Gemmaの重みと、そこから作ったモデルはGemma Terms of Useに従う。規約の一部である禁止用途のポリシーは、配る側だけでなくモデルを使う人にも及ぶ（ADR-015、[TranslateGemmaを翻訳に使う道筋](translategemma.md)）。
+
+- `gemma_terms`の確認の画面は、ライセンスにGemmaの利用規約と禁止用途のポリシーが含まれること、その条件が使う人にも及ぶことを警告の印を付けた段落で示す。規約とポリシーは、確認の画面の「利用条件・ライセンス」に項目ごとのリンクとして並ぶ。
+- 同意とは別のチェック「Gemmaの利用規約と禁止用途のポリシーを読み、その条件に従ってこのモデルを使います。」が要る。開始の要求は`acknowledged: ["gemma_terms"]`を付け、欠けていれば中核が`model_download_restriction_unacknowledged`で断る。
+- この確認を求めるのは翻訳のモデルだけである（2026-11-19に決定。[翻訳のLLMの実行基盤の計画](translation-llm-runtime-plan.md)の判断項目4）。Irodori-TTS v4 Large（`irodori-v4-large-q8`、`Gemma Terms of Use + MIT + Apache-2.0`）は文章を読む部分がGemmaに由来するが、この確認は付かない。確認の画面はライセンスと規約のリンク（`GEMMA_TERMS_OF_USE.md`と`GEMMA_PROHIBITED_USE_POLICY.md`）を今までどおり示し、同意のチェックだけで取得できる。
+- TranslateGemmaの組み込みの項目は、プロジェクトが変換して公開するまで載せていない（判断項目3）。そのため2026-11-19の固定カタログにはこの確認が付く項目がない。
+
 ## 内蔵CTranslate2と文章分割ファイル
 
-0.5.0の中核では、この取得を引退させた。ローカル翻訳はONNX Runtime（`native/translate-onnx`）で動き、そのモデルは上の固定カタログの対象`translation`から、ほかのモデルと同じ確認と同意を経て取得する。モデルはまだ公開していないので、カタログに項目はない。設定の「翻訳」のダウンロードは、項目があれば共通の取得の画面を出し、なければ未公開であることと、自分で用意したモデルを置くフォルダ（`translation-models`）を示す。経緯は[中核の統合](core-integration.md)の「判断が要ること」の1、29、33。この節の以下の記述は、0.4までのPythonの取得のもの。
+0.5.0の中核では、この取得を引退させた。ローカル翻訳はONNX Runtime（`native/translate-onnx`）で動き、そのモデルは上の固定カタログの対象`translation`から、ほかのモデルと同じ確認と同意を経て取得する。2026-11-19に、M2M100 418Mのint8（既定、MIT、約506 MB）とNLLB-200 distilled 600Mのint8（CC-BY-NC-4.0、約643 MB）を公開し、カタログに載せた（#687）。2026-11-21にNLLB-200 distilled 1.3Bのint8（CC-BY-NC-4.0、約1.4 GB）も載せた（#411）。NLLBの確認には、非商用のライセンス、取得に要る空き容量、翻訳中のメモリー（600Mは約1.4 GiB、1.3Bは約2.6 GiB）を書いた専用の文面を出す。設定の「翻訳」のダウンロードは、項目があれば共通の取得の画面を出し、なければ未公開であることと、自分で用意したモデルは翻訳のカタログの「自分のモデルを追加」で足せることを示す（#597までは置き場所の`translation-models`フォルダーを示した）。
+
+設定の「翻訳」のモデルの一覧（#565）には、取得済みのモデル、自分で追加したモデル、カタログに項目がある組み込みのモデルだけを並べる。翻訳のカタログの「アプリに含まれる項目」も同じ規則で並べ、行とカードは取得のカタログの項目の名前（「NLLB-200 distilled 600M · int8」）で示す（2026-11-21）。公開しないNLLB-200 3.3Bは組み込みの一覧から外した。それを選んでいた設定は既定で読み込まれ、一度だけ知らせる。組み込みのモデルに項目があるかは、そのモデルのカタログのID（`<モデル>-onnx-<形>`）で決める。ダウンロードのボタンが出るのは項目がある行だけで、押すとそのモデルの項目を共通の取得の画面で示す。選んでいるモデルは、取得できなくても「まだ取得できません」を付けて残す。組み込みのモデルを1つも取得できず、選んでいるモデルも使えないときは、外部翻訳APIかローカルLLMを使うよう案内する。モデルを公開してカタログに載せる手順は`tools/translation_onnx/README.md`の「公開の手順」にある。
+
+経緯は[中核の統合](core-integration.md)の「判断が要ること」の1、29、33。この節の以下の記述は、0.4までのPythonの取得のもの。
 
 内蔵モデルの取得は、いまは翻訳（CTranslate2）だけである。以前の版は設定の「文字起こし」でローカルの Whisper の重みも同じ確認画面から取得していたが、#288 でローカルの Whisper を削除し、その取得もやめた。ローカルの音声認識（speech.cpp）のモデルは、上のカタログ取得で「音声認識（ASR）」の「モデルとサーバー」から取得する。以前の版が取得した`weights/whisper/`の重みは読まず、利用者が設定で削除を選んだときだけ消す（[古い Whisper の重み](../spec/data-and-persistence.md#古い-whisper-の重み)）。
 
@@ -40,9 +64,9 @@ CTranslate2の文章分割ファイル（tokenizer）は、重みと同じリポ
 
 カタログ版 `2026-11-16.1` から、同梱のspeech.cpp（0.11.0）が扱う認識モデル7種を、量子化の種類ごとにすべて取得できる（31件）。対象はqwen3-asr-0.6b、qwen3-asr-1.7b、reazonspeech-v2、parakeet-tdt_ctc-0.6b-ja、parakeet-tdt-0.6b-v3、haas-ja-v1.0、nemotron-3.5-transcribeである。
 
-- revision、ファイル、容量、SHA-256、対応言語、既定のファイルはspeech.cppのカタログ（`speech models --json`）を正とする。`tools/speechcpp_models.py`が同梱するバージョンの出力を`src-python/models/model_downloads/speechcpp_models.py`へ写す。手で書き写さない。speech.cppのバージョンを上げたら、同梱するバージョンでこのツールを実行し直して`CATALOG_VERSION`も上げる。
-- アプリ側に書くのは、どの名前を出すかとライセンスの審査（`speechcpp_asr.py`の`OFFERS`）だけである。審査の記録は[licensing.md](licensing.md#speechcppの音声認識モデル2026-11-16)と`licenses/speechcpp-models/NOTICE.md`にある。
-- `native/ops`も同じ2つのファイルの文字列を読む（`downloads/speechcpp.rs`）。`python_reference.json`との照合は従来どおり。
+- revision、ファイル、容量、SHA-256、対応言語、既定のファイルはspeech.cppのカタログ（`speech models --json`）を正とする。`tools/speechcpp_models.py`が同梱するバージョンの出力を`native/ops/data/speechcpp_models.json`へ写す。手で書き写さない。speech.cppのバージョンを上げたら、同梱するバージョンでこのツールを実行し直して`CATALOG_VERSION`も上げる。
+- アプリ側に書くのは、どの名前を出すかとライセンスの審査（`native/ops/data/speechcpp_asr.json`の`offers`）だけである。審査の記録は[licensing.md](licensing.md#speechcppの音声認識モデル2026-11-16)と`licenses/speechcpp-models/NOTICE.md`にある。
+- `native/ops`も同じ2つのファイルの文字列を読む（`downloads/speechcpp.rs`）。Pythonのカタログの写し（`python_reference.json`）との照合は、0.6.0で引退させた（#746）。
 - エントリのidは`<名前>-<種類>`（例：`reazonspeech-v2-q8`、`nemotron-35-transcribe-iq4nl`）。以前からある`haas-ja-q8`と`qwen3-asr-06b-q8`は同じidのままなので、取得済みのフォルダーをそのまま使える。
 - 画面では「認識モデル」と「ファイルの種類（量子化）」を選ぶ。最初はspeech.cppが名前で取得するファイルを選んだ状態になり、対応言語とspeech.cppの推奨言語を表示する。取得には従来どおり確認画面での同意が要る。選んだだけでは何も取得しない。
 - 実行時の扱いは変わらない。認識サーバーは選んだファイルを読み込み、言語や語彙のオプションは`/v1/models`の申告に従う。VAD（silero-vad）と話者分離のエントリも変えていない。2つのファイルがspeech.cppのカタログと一致することは試験で確かめている。
@@ -63,13 +87,13 @@ CTranslate2の文章分割ファイル（tokenizer）は、重みと同じリポ
 | おすすめ | `profile.recommended_for` | speech.cppのカタログの`start`。読み上げは`PROFILES`の`recommended_for` |
 
 - おすすめは、speech.cppが言語ごとに「最初に使うモデル」として示すものを使う。アプリでは別に決めない。2026-11-16時点では、日本語がreazonspeech-v2、ウクライナ語などヨーロッパの9言語がparakeet-tdt-0.6b-v3、ほかの言語がqwen3-asr-0.6bである。名前が取得するファイル（既定の種類）の行にだけ付く。
-- `memory_bytes`は、固定revisionのモデルカードにある種類ごとのピークメモリーである。測った機器は`memory_measured_on`に書く（Nemotron 3.5 TranscribeはH100、ほかはApple M5）。このPCでの値でも、必要量の保証でもない。`tier`は1.5 GiB以下をlight、4 GiB以下をmedium、それより大きいものをheavyとする。
+- `memory_bytes`は、固定revisionのモデルカードにある種類ごとのピークメモリーである。測った機器は`memory_measured_on`に書く（Nemotron 3.5 TranscribeはH100、ほかはApple M5）。お使いのPCでの実測値でも、必要量の保証でもない。`tier`は1.5 GiB以下をlight、4 GiB以下をmedium、それより大きいものをheavyとする。
 - `cpu`は、CPUで動かして確かめたものだけを書く。`slow`はASTAROTが測ったもの、`practical`はspeech.cppがCPUで動かす作りのもの（VAD）、ほかは`unverified`である。`gpu`はVAD以外を`recommended`にした。モデルカードの測定はどれもGPUで、下の測定でもGPUのほうがずっと速かった。
 - 2026-11-16の測定。Windows 11、Intel Core i7-1255U、NVIDIA RTX 3060 Ti（Thunderbolt接続、Vulkan1）、speech.cpp 0.11.0、Qwen3-ASR 0.6B Q8_0、言語は`ja`。Windowsの合成音声（10.2秒の日本語1文）を`speech asr`で認識させ、1ファイルと6ファイルの所要時間の差から1発話あたりを出した。各2回で、CPUは2.95秒と4.26秒、GPUは0.08秒と0.16秒だった。CPUでも動くが、字幕は発話の後に数秒遅れる。合成音声1文での測定で、精度の評価ではない。
 
 読み上げの行（2026-11-16に追加）：
 
-- `catalog.py`で手で固定した行なので、`PROFILES`の`ids`で、ファイルの種類ごとにカタログのIDを指す（Irodori MFのF16は`irodori-v41-f16`など）。
+- カタログで手で固定した行なので、`PROFILES`の`ids`で、ファイルの種類ごとにカタログのIDを指す（Irodori MFのF16は`irodori-v41-f16`など）。
 - おすすめは`PROFILES`の`recommended_for`で、speech.cppの`start`を置き換える。speech.cppは日本語にもQwen3-TTS 0.6Bを勧めるが、ASTAROTは日本語をIrodori（japaneseプロファイル）で、ほかの言語をQwen3-TTS（multilingualプロファイル）で読むためである。日本語はIrodori MFのF16、ほかの9言語はQwen3-TTS 0.6BのQ8_0で、どちらもアプリが最初から選ぶファイルである。ほかの読み上げの行は空。Irodori LargeはGemmaの利用規約に従うので、おすすめにしない。
 - `cpu`は`impractical`。i7-1255UのCPUでspeech.cpp 0.10.0を動かした（2026-11-16、短い日本語5文）。Irodori MF F16は最初の音まで3〜7秒で、生成は実時間の約4倍遅く、再生が途切れる。Qwen3-TTS 1.7B Q8_0は最初の音まで約1秒だが、生成は約3倍遅い。Irodori Small F16は最初の音まで20〜100秒だった。LargeとQwen3-TTS 0.6BはCPUで測っていないが、大きさから同じ扱いにした。`gpu`は`recommended`。
 - `memory_bytes`は、固定revisionのモデルカードにある種類ごとのピークメモリーで、どれもApple M5（Metal）での値である。
@@ -88,10 +112,31 @@ CTranslate2の文章分割ファイル（tokenizer）は、重みと同じリポ
 利用者のPCで動きそうにないモデルには、カードの見出しに「!」の印と「性能不足の可能性」を付け、カードの中に理由を書いた注記を出す（`src-ui/logics/voice/modelHardwareWarning.ts`）。目安なので、選ぶこと、取得、適用は止めない。取得の確認画面にも同じ注記を出す。ファイルの種類の選択肢にも「性能不足の可能性」を添え、軽い種類を見分けられるようにする。
 
 - 比べるのは、ハードウェアの検出（`hardware.py`）が返すメモリーの総量である。空き容量は時々で変わり、空き容量に合う種類は上の「空きメモリーに合う」が示すためである。
-- モデルのメモリーは、`profile.memory_bytes`、`guidance.reference_memory_bytes`、検証済みの`sampled_peak_bytes`のうち最も大きい値である。案内と同じく25%を足し、GPUのメモリーの総量を超えれば警告する（`low_memory`）。GPUが複数あれば最も大きいものと比べ、メモリーを足し合わせない。エンジンの設定でGPUを名前で選んでいれば、そのGPUと比べる。
-- GPUがないか、エンジンをCPUで動かす設定のときは、`profile.gpu`が`recommended`で`profile.cpu`が`impractical`か`slow`のモデルに警告する（`no_gpu`、`cpu_setting`）。CPUのメモリーの総量が分かれば、それとも比べる。
+- モデルのメモリーは、`profile.memory_bytes`、`guidance.reference_memory_bytes`、検証済みの`sampled_peak_bytes`のうち最も大きい値である。案内と同じく25%を足し、さらにVRChatの分として4 GiBを足した値が、GPUのメモリーの総量を超えれば警告する（`low_memory`、`GPU_RESERVE`。2026-11-20の決定）。GPUが複数あれば最も大きいものと比べ、メモリーを足し合わせない。エンジンの設定でGPUを名前で選んでいれば、そのGPUと比べる。
+- GPUがないか、エンジンをCPUで動かす設定のときは、`profile.gpu`が`recommended`で`profile.cpu`が`impractical`か`slow`のモデルに警告する（`no_gpu`、`cpu_setting`）。CPUのメモリー（RAM）の総量が分かれば、それとも比べる。
+- RAMと比べるときは、モデルのメモリーに25%を足した値に、OSの5 GiBとVRChatの8 GiB、合わせて13 GiBを足す（`RAM_RESERVE`）。余裕を足すことは2026-11-19に決まり、すべてのモデルに効かせることと、値を最小要件から見直すことが2026-11-20に決まった。注記には残す分も書く。
+  - OSの5 GiB：8 GBのノートPCで起動した直後のWindows 11は5.3 GB（25H2）、26H2では4.1 GBを使った（[Windows Central](https://www.windowscentral.com/microsoft/windows-11/windows-11-25h2-26h2-tested-8gb-pc)）。メモリーの多いPCほど使う量は増えるが、そのPCには余裕もあるので、8 GBのPCの値に合わせた。
+  - VRChatの8 GiB：VRChatの使う量はワールドと周りのアバターで大きく変わる。メモリーが16 GB、32 GB、64 GBのPCでVRChatをVRで試した例（2025年12月の記事。ブラウザー、Discord、Unityも開いたまま）では、PC全体の使用量が16 GBで12.6〜14.3 GB、32 GBと64 GBで17.9〜21.1 GBだった（[VRChatに必要なメモリ容量の実測](https://note.com/jackvrclove/n/n473be2e7d494)）。32 GB以上のPCの値からOSとほかのアプリの分を除くと、VRChatは8 GB以上を使っていると見られる（推定）。16 GBのPCでは使える量に抑えられ、余裕がなかった。この下のほうの値として8 GiBにした。
+  - それまでの値（OSとVRChatそれぞれ4 GiB）は、Windows 11とSteamのVRChatのページの最小要件のメモリー（どちらも4 GB）だった。最小要件は実際に使う量よりかなり少ないので見直した。
+  - この余裕を足すと、NLLB-200 distilled 600M（約1.39 GiB）には約14.7 GiB、M2M100 418M（約0.97 GiB）には約14.2 GiBのRAMが要る。8 GBのPCでは警告が出る。16 GBのPC（Windowsで約15.8 GiBと出る）では出ないが、内蔵GPUにメモリーを分けて15 GiBを下回るPCでは出る。NLLB-200 distilled 1.3B（約2.65 GiB）には約16.3 GiBが要るので、16 GBのPCでも警告が出る。
+- GPUのVRChatの4 GiBは決定の値である。このリポジトリの計測では、RTX 3060 Ti（8 GB）で読み上げ、字幕、RVCを動かした約4.8 GBが、デスクトップ表示のVRChatを足すと約6.1 GB、いちばん多いときで約7.2 GBになった（[動作環境](../../site/ja/guide/requirements.mdx)）。VRChatが増やした量は約1.3〜2.4 GBなので、デスクトップ表示には足りる。VRのヘッドセットで動かしたときの量は測っていない。
 - 検出していない、失敗した、メモリーが分からないときと、数値のないモデル（RVCなど）には警告しない。分からないことを性能不足とは書かない。
 - このため、音声認識やボイスチェンジャーのページでも、開いたときにハードウェアの検出（`/run/refresh_model_download_hardware`）を1回走らせる。検出はspeech.cppの`devices --json`を動かすだけで、モデルの取得や設定の変更はしない。
+##### ローカル翻訳のモデル（#597）
+
+翻訳の取得の確認画面（`LegacyModelDownloadDialog`から開くカタログの`translation`）でも同じ警告を出す。2026-11-19の決定による。
+
+- 目安の値は中核の`native/ops/src/downloads/guidance.rs`がカタログのIDごとに返す。Pythonのバックエンドには翻訳の項目がないので足していない。
+- NLLB-200 distilled 600M int8（`nllb-200-distilled-600m-onnx-int8`）は1,490,300,928バイト（約1.39 GiB）。アプリと同じ実行部`vrct-translate`で英日と日英を各30文訳したときの作業集合の最大で、Windows 11、Intel Core i7-1255U、CPUの4スレッド、ONNX Runtime 1.32.0で測った。PR #687の取得の注記（約1.4 GiB）と同じ値である。
+- 既定のM2M100 418M int8（`m2m100-418m-onnx-int8`）は1,044,295,680バイト（約0.97 GiB）。同じ方法と環境で測った（PR #687）。M2M100は翻訳の共通の注記を使うので、注記には数値を書いていない。
+- NLLB-200 distilled 1.3B int8（`nllb-200-distilled-1-3b-onnx-int8`）は2,841,083,904バイト（約2.65 GiB）。公開したファイルを`vrct-translate`で読み込み、英日と日英の各30文に61文を足して訳したときの常駐メモリーの最大（VmHWM。読み込みの間に達する）で、Linux、AMD Ryzen 9 9950X3D、CPUの4スレッド、ONNX Runtime 1.32.0で測った（2026-11-21）。上の2つのWindowsの作業集合とは測り方が違うので、検証の範囲は`translation_onnx_cpu_linux`として分けた。取得の注記（`translation_nllb_1_3b`）には約2.6 GiBと書いた。
+- ほかの翻訳のモデル（M2M100 1.2Bなど）は測っていないので`unknown`のままにする。カードには「まだ測っていません」と出し、警告もしない。測ったら`guidance.rs`に足す。
+- カードの「使うメモリ」の行に、翻訳の間に使うメモリを出す。「必要メモリと動作確認」の中は、読み上げのモデル向けの文（GPU、提供元の測定）ではなく、翻訳用の文を出す（`tier`が`translation`）。
+- 比べる相手は翻訳の計算に使う機器（`SELECTED_TRANSLATION_COMPUTE_DEVICE`）で決める（`translationDeviceMode`）。既定のCPUならハードウェアの検出のCPUの行（RAMの総量）と比べる。GPUを選んでいればそのGPUのメモリの総量と比べる。CUDAとTensorRTはNVIDIAのGPUを、MIGraphXはAMDのGPUを、DirectMLとWebGPUはすべてのGPUを、検出の順に`device_index`番目として数える。そのGPUが検出の行にないときと、CPUでもGPUでも動くOpenVINOのときは比べない。
+- 読み上げのモデル向けの「空きメモリーに合う」の案内（`modelHardwareAdvice.ts`）は、空いているGPUのメモリを見るので翻訳には出さない。
+- RAMは検出（speech.cppの`devices --json`）のCPUの行で分かる。翻訳そのものはspeech.cppを使わない。同梱のspeech.cppが見つからず検出が失敗したときは、ほかのモデルと同じく警告しない。
+- 警告の基準はほかのモデルと同じく、モデルのメモリに25%を足し、RAMと比べるときはOSとVRChatの分の13 GiB（上の`RAM_RESERVE`）、GPUと比べるときはVRChatの分の4 GiB（`GPU_RESERVE`）も足す。
+- 翻訳の項目は、PR #687（2026-11-19）が`translation_models.json`にM2M100とNLLBを書いたときにカタログに入った。それより前は目安を返すIDがカタログになく、画面に出なかった。
 
 #### 再起動後の取得済み
 
@@ -102,17 +147,35 @@ CTranslate2の文章分割ファイル（tokenizer）は、重みと同じリポ
 
 #### 外部の音声合成エンジン
 
-日本語の読み上げのまとまりの下に、VOICEVOX、COEIROINK、AivisSpeech、SHAREVOXのカードを並べる（[ADR-008](adr-008-external-speech-engines.md)）。
+日本語の読み上げのまとまりの下に、VOICEVOX、COEIROINK、AivisSpeech、SHAREVOXのカードを並べる（[ADR-008](../adr/adr-008-external-speech-engines.md)）。
 
 - ダウンロードはしない。カードには公式サイトと利用規約へのリンクを置き、利用条件は各エンジンと声の公式の規約に従うことを書く。
 - 取得の状態の代わりに、保存済みの接続先に接続できるかを出す。問い合わせは`/get/data/tts_engine_voices`で、版と声の一覧を聞くだけである。保存済みの設定が届いたときに1回と、「再確認」を押したときに問い合わせる。`request_id`は`catalog-`で始め、「日本語を読み上げるエンジン」の欄の問い合わせとは別に持つ。
 - エンジンを選ぶのは、従来どおり「日本語を読み上げるエンジン」の欄である。カードからは選択も保存も起動もしない。
 
+#### 読み上げの試聴（#415）
+
+日本語の読み上げと日本語以外の読み上げのまとまりで、使用中のモデルのカードに「試聴する」を置く。場所はカード自身の操作（取得内容の確認、使う準備）と同じ行のその後ろである。押すと、そのプロファイルで動いている同梱のspeech.cppサーバーが決まった短い文を読み、モニター出力先だけで鳴らす（[UC-19](../spec/use-cases.md#uc-19-読み上げの声を試聴する)）。
+
+- 鳴らせないカードはボタンの代わりに理由を1行で出す。使用中でない、サーバーが止まっている、「自分のスピーカーでも聞く」がオフ、ミュート中、の4つである。未取得のカードには何も足さない。取得が先だからである。
+- 自分で登録したモデルのカードも、使用中なら同じボタンを持つ。
+- 試聴は取得、適用、サーバーの起動、設定の保存のどれもしない。使用中でないモデルを試すには、そのモデルでサーバーを起動し直すことになる。そのため使用中のモデルだけにした。
+
+#### ボイスチェンジャーの声の試聴（#415）
+
+ボイスチェンジャー（RVC）のまとまりでは、取得したモデルのカードと自分で登録したモデルのカードに「試聴する」を置く。使用中でなくてもよい。押すと、同じページの「転送する入力」で選んだマイクで利用者の声を5秒間録り、その声をカードのモデルで変換して、モニター出力先だけで鳴らす（[UC-20](../spec/use-cases.md#uc-20-ボイスチェンジャーの声を試聴する)）。変換は試聴のためだけに起動するworkerで行い、終わればworkerも終える。
+
+- マイクを開くのは押したときだけで、録り終えたら閉じる。録った声は保存しない。
+- ピッチとインデックスの比率は、同じページのフォームにいま入っている値を使う。保存はしない。値が正しくなければ、ボタンの代わりにそれを直すよう出す。
+- 鳴らせないカードはボタンの代わりに理由を1行で出す。値が正しくない、ライブの変換が動いている、「転送する入力」が選ばれていない、「自分のスピーカーでも聞く」がオフ、ミュート中、の5つである。未取得のカードには何も足さない。
+- 録音のあいだはカードに「録音しています。5秒間、話してください。」と出し、録り終えてworkerを読み込むあいだは「変換の準備をしています」と出す。どちらのあいだも止めるボタンを出しておく。
+- 試聴は取得、適用、設定の保存、サーバーの起動のどれもしない。
+
 #### 自分のモデル（#403）
 
 カタログの各まとまりで、お使いのPCにあるモデルのファイルを名前を付けて登録できる。登録したモデルは公式のカードと同じ一覧の後ろに並び、「自分のモデル」の印と状態（登録済み、使用中、ファイルがありません、ファイルが変わりました）を付ける。
 
-- 対象：日本語の読み上げ、日本語以外の読み上げ、音声認識、VAD、話者の区別は`.gguf`のファイル1つ。ボイスチェンジャーの声は`.pth`と、任意で`.index`。翻訳とチャット読み取りは対象にしていない。
+- 対象：日本語の読み上げ、日本語以外の読み上げ、音声認識、VAD、話者の区別は`.gguf`のファイル1つ。ボイスチェンジャーの声は`.pth`と、任意で`.index`。チャット読み取りは対象にしていない。翻訳は下の「翻訳のカタログ」で扱う。
 - 登録はファイルの場所を覚えるだけで、コピー、移動、取得はしない。`config.json`と同じフォルダーの`user_models.json`に、名前、対象、パス、登録したときの容量と更新時刻を保存する（[データ形式と保存](../spec/data-and-persistence.md#そのほかのファイル)）。同じ対象に同じ名前か同じファイルは登録できない。200件まで。
 - 切り替えは「このモデルを使う」で行う。取得したモデルの「モデルパスを適用」と同じく、画面に出ている保存済みの値が今も保存されていることと、対象のサーバーや音声入力が止まっていることを確かめ、パスだけを保存する（`_applyModelPaths`、`apply_model_paths`）。RVCで`.index`を登録していないモデルに切り替えると、保存済みの`.index`は空にする。前の声のファイルだからである。
 - 状態を聞かれるたびに、ファイルがあるかと、容量と更新時刻が登録したときと同じかを確かめる。違えば「ファイルが変わりました」とし、切り替えは`user_model_changed`で断る。SHA-256は計算しない。モデルのファイルは数GiBになることがあり、計算に時間がかかるためである。
@@ -120,6 +183,53 @@ CTranslate2の文章分割ファイル（tokenizer）は、重みと同じリポ
 - 出どころとライセンスはアプリでは確かめない。登録の欄にそう書いている。
 - 名前とパスは利用者のデータなので、IPCの経路名に`user_model`を含め、`process.log`では値を伏せる（`SENSITIVE_ENDPOINT_MARKERS`）。
 - IPC：`/get/data/user_models`、`/run/register_user_model`（`{target, name, paths}`）、`/run/remove_user_model`（`{id}`）、`/run/apply_user_model`（`{id, expected}`）。どれも`{models: [...]}`を返し、失敗は`{error_code}`で返す。PythonとRustのコアは同じ答えを返す。
+
+#### 翻訳のカタログ（#413）
+
+翻訳は上の登録の対象に入れず、翻訳のページの「翻訳のカタログ」で扱う。翻訳に使うものの形が2つに分かれ、足すときに入れるものも違うからである。自分の翻訳のモデルの足し方はこの「種類ごとに合った形」で決着とする。中核だけの機能で、Pythonのバックエンドにはない。
+
+- **推論エンジン系**（`engine`）：お使いのPCの推論エンジンで動かすモデル。アプリの組み込みの重みと、利用者が足した項目（`user:<ID>`）が並ぶ。以前の版は`<データ>/translation-models/<フォルダー>/`に置いたモデル（`custom:<フォルダー>`）も並べたが、#597で外した。そのフォルダーにフォルダーがあるあいだは、翻訳のページが「自分のモデルを追加」への案内を出す（中核は`retired_folder_used`で、あるかどうかだけを伝える）。足すときはモデルのフォルダー、推論エンジン（`runtime`）、言語のコード（省略するとモデルのすべての言語）を入れる。フォルダーはどこにあってもよく、コピーも移動もしない。
+- **API系**（`api`）：中核が呼ぶプロバイダ（DeepL、Google Cloud、Papago、Gemini、OpenAI、Groq、OpenRouter、PLaMo、LM Studio、Ollama、OpenAI互換）と、利用者が足した項目が並ぶ。足すときは名前、種類（`protocol`）、アドレス、モデル、キーを入れる。アドレスはお使いのPCとLANの中なら`http://`も使える（`net_policy`の`validate_api_url`。OpenAI互換のエンジンと同じ）。
+- 項目は`config.json`と同じフォルダーの`translation_catalog.json`に置く（[データ形式と保存](../spec/data-and-persistence.md#そのほかのファイル)）。APIのキーはほかのAPIキーと同じ保管場所（[APIキーの保存先](../spec/data-and-persistence.md#apiキーの保存先)）の`TRANSLATION_CATALOG/<ID>`に置き、`translation_catalog.json`と`config.json`には書かない。保管場所に置けないときは、設定のキーと同じくその起動のあいだだけメモリーに持つ（ADR-013）。100件まで。グループの中で同じ名前、同じフォルダー、同じアドレスとモデルの組は足せない。
+- 項目を足しても中核は覚えるだけで、取得も切り替えもしない。推論エンジン系の項目は、足すときに中核がフォルダーを開いて、`native/translate-onnx`が読める形か、示す言語がモデルにあるかを確かめる（`translation_onnx::inspect`）。ファイルのSHA-256は読み込むときに確かめる。
+- 推論エンジン系の「お使いのPCの翻訳に使う」は、その重み（`user:<ID>`）を`/set/data/selected_ctranslate2_weight_type`と同じ処理で選ぶ。計算に使う機器（CPU、DirectML、CUDAなど）は、ほかのローカルの重みと同じ欄で選ぶ。利用者のモデルは量子化の形を1つだけ持ち、その形がGPUで動かないときはCPUで動かして知らせる。選んでいるモデルの項目は削除できない。
+- API系の「OpenAI互換の接続先にする」は、`/set/data/openai_compatible_auth_key_and_url`と同じ処理で、アドレスとキーを確かめてからOpenAI互換のエンジンの接続先を替える。項目のモデルがサーバーの一覧になければ、切り替えたうえで`translation_catalog_model_not_listed`を知らせる。項目ごとに別のエンジンとして並べることはしていない（PRの残課題）。
+- 組み込みの項目と、利用者が足した項目は`origin`（`builtin`、`user`）で見分け、画面では印を付ける。#597までは`translation-models`フォルダーのモデルを`folder`として並べた。
+- この版が知らない`runtime`や`protocol`の項目（新しい版が書いたもの）は消さずに残し、「この版では使えません」と見せる。新しい推論エンジン（MADLAD-400のようなT5系）や新しい種類のAPIは、中核で動かせるようになったときに`translation_catalog::RUNTIMES`と`PROTOCOLS`に足す。TranslateGemmaの実行の経路と重みの入手は[TranslateGemmaを翻訳に使う道筋](translategemma.md)で比べた（#412）。
+- **翻訳のLLM（`llamacpp`、ADR-015）**：推論エンジンにllama.cppを選ぶと、フォルダーの代わりにTranslateGemmaのGGUFのファイル1つ（項目の`file`）と、計算に使う機器（`auto`か`cpu`。中核は`Vulkan1`のような名前も受け付ける）を入れる。足すとき、中核はファイルの頭を読み、GGUFで`general.architecture`が`gemma3`であることを確かめる（違えば`translation_catalog_gguf_invalid`）。言語のコードはTranslateGemmaのテンプレートの符号（`ja`、`zh-Hans`など）で、省略するとアプリが名前を付けられるすべての言語になる。ファイルの出どころとライセンスは、ほかの自分のモデルと同じく利用者が確かめる。
+- この項目はllama.cppの`llama-server`で動く。サーバーはアプリに含めず、カタログの推論エンジン系の欄で同意して取得する（Vulkan版だけ。下の「llama.cppのサーバーの取得」）。サーバーがないあいだ、項目は「llama.cppのサーバーが必要です」と出て使えない（`server_ready: false`）。カタログを開くたびに、中核は項目とサーバーを確かめ直す。
+- 「お使いのPCの翻訳に使う」はその重み（`user:<ID>`）を選ぶだけで、サーバーは起動しない。翻訳を有効にしたとき（またはその重みでメッセージを訳すとき）に、中核がサーバーをお使いのPCの中だけで起動する（`127.0.0.1`、ポート0、起動ごとのAPIキー、Webの画面なし）。機器の`auto`は、speech.cppのサーバーが選ぶGPU（独立したGPUのうちメモリーが最も多いもの）をllama.cppの一覧で名前と説明から探し、なければCPUで動かす。別のモデルを読み込むとサーバーを止め、ONNX Runtimeのモデルも同時には持たない。
+- 訳すときは、TranslateGemmaの公式のテンプレートの英文（原文と訳文の言語の名前とISOの符号）と原文を`/completion`に送る。systemの役割も会話の文脈も送らず、温度0（貪欲法）で生成する。訳す文と訳文はログに出さない。
+
+#### llama.cppのサーバーの取得
+
+翻訳のLLMを動かす`llama-server`は、RVCの実行環境と同じ取得の仕組み（`native/voice-conversion/src/runtime.rs`）で、利用者が同意したときだけ取得する。
+
+| ID | 中身 | 取得元 | 大きさ / SHA-256 |
+|---|---|---|---|
+| `llamacpp-vulkan`（Windows） | `llama-b12125-bin-win-vulkan-x64.zip` | GitHub `ggml-org/llama.cpp`のリリース b12125 | 37,683,656 / `29db801266e784d17fbc9dd7ff9b6a350d2b665bdc5658216f37d91c09918f07` |
+| `llamacpp-vulkan`（Linux x64） | `llama-b12125-bin-ubuntu-vulkan-x64.tar.gz` | 同上 | 35,883,040 / `455ec2f079e0d175b29beef93975aeacd119d8c74bd3e40298afa9a98e5a75f1` |
+
+- 出すのはVulkan版だけである（2026-11-19に決定。計画の判断項目5）。Vulkan版はCPUの処理部も含み、機器に`cpu`を選んだ項目やGPUのないPCでは`--device none`でCPUだけで動く。CPU版との差は取得量で約13 MBだけなので、CPU版は出さない。
+- b12125は2026-11-04に公開されたリリースで、選んだ日（2026-11-19）より2週間以上前のものである。値はGitHubが示すダイジェストと、実際に取得したファイルの両方で確かめた。
+- 取得元はGitHubのリリースのままとする（2026-11-19に決定。計画の判断項目2）。ホストは`github.com`と、そのリダイレクト先の`release-assets.githubusercontent.com`を足した（取得の許可の一覧`SOURCE_HOSTS`）。
+- アーカイブからは、サーバーが読むファイルだけを`lib/`に取り出す。サーバー、`llama-server-impl`、`llama-common`、`llama`、`mtmd`、`ggml`、`ggml-base`、CPUの処理部14種、`ggml-vulkan`、Windowsでは`libomp.dll`と`LICENSE-LLVM-OpenMP`、Linuxでは`LICENSE`である。CLI、量子化の道具、RPCのサーバーなどは取り出さない。Linuxのアーカイブは版付きのファイルへのリンク（`libllama.so.0`→`libllama.so.0.9.0`）を含むので、リンクの名前でファイルを取り出す。
+- 確認では`llama-server --list-devices`を一度動かす。モデルは読まない。VulkanのGPUが見つからなければ、準備はできたままで「GPUが見つかりませんでした」と知らせる（`llamacpp_no_gpu`）。
+- Linuxのサーバーは、ディストリビューションのOpenSSL 3（`libssl.so.3`、`libcrypto.so.3`）、`libgomp.so.1`、`libvulkan.so.1`を使う。アプリはこれらを取得しない。
+- 2026-11-19に、Windowsで固定のアーカイブ（当時はCPU版も含む4つ）を取得し、Windowsの版を取得の仕組みそのもので展開して`--list-devices`まで通した（`llamacpp_sets_up_from_its_release`、無視の付いた試験）。Linuxの実機の確認はまだである。
+- 開発側で推論エンジン系の項目を足すとき（#411、#412）は、これまでどおり固定カタログ（`native/ops/data/translation_models.json`、対象`translation`。`tools/translation_onnx/publish.py catalog --write`で書く）に版、サイズ、SHA-256、ライセンスを固定して載せ、ライセンス台帳（`licensing.md`）と`NOTICE.md`に記録する。非商用などの制限があるモデルは既定にしない。非商用のモデル（NLLB-200）の取得には、上の[非商用のライセンスの確認](#非商用のライセンスの確認)が要る。NLLB-200を載せるときのidと決まりは、[ライセンス台帳](licensing.md#nllb-200をカタログに載せるときの決まり2026-11-18411)にある。利用者が足した項目は、出どころとライセンスをアプリでは確かめないことを追加の欄に書いている。
+- 名前、フォルダー、アドレス、キーは利用者のデータなので、IPCの経路名に`translation_catalog`を含め、`process.log`では値を伏せる。フォルダーが読めない項目は、IDと固定のコードだけをログに書く。
+- IPC：`/get/data/translation_catalog`（`{engine, api, runtimes, protocols}`）、`/run/register_translation_catalog_entry`、`/run/remove_translation_catalog_entry`（`{id}`）、`/run/use_translation_catalog_entry`（`{id}`）。どれもカタログ全体を返し、失敗は`{error_code}`で返す。
+
+#### 音声認識の2つの系（#414）
+
+音声認識のページも翻訳のカタログと同じ考え方で、エンジンを2つの系に分けて見せる。画面の並べ方だけを変えた。設定のキー、IPC、エンジンのID、中核は変えていない。
+
+- **speech.cpp系**（「お使いのPCで動かす（speech.cpp）」）：エンジン「ローカル（speech.cpp）」と、その「モデルとサーバー」。上のカタログの「音声認識」「発話区間の検出（VAD）」「話者の区別（任意）」のカードと、利用者が登録したモデル（#403、#407。「自分のモデル」の印）がここに並ぶ。足すときはファイルの場所を登録する。
+- **API系**（「API（クラウドや自分のサーバー）」）：Groq Whisper、OpenAI Whisper、Deepgramと、利用者のWhisperサーバー（カスタムWhisperサーバー）。プロバイダごとに1行の畳みで、キー（自分のサーバーはURLとキー）とモデルを入れる。「Whisperの認識結果のふるい分け」もこの系に置く。自分のサーバーは最後に並べ、利用者の接続先であることを「自分のサーバー」の印（カタログと同じ破線の印）で示す。アプリが用意したプロバイダには印を付けない。キーは`config.json`ではなくほかのAPIキーと同じ保管場所（[APIキーの保存先](../spec/data-and-persistence.md#apiキーの保存先)）に置く。これまでと同じである。
+- エンジンの選択（`/set/data/selected_transcription_engine`）は1つのままで、選択肢を2つの系の名前の下に分けて並べる。ラジオボタンは1組なので、矢印キーで系をまたいで動き、Tabで止まるのは1回である。APIのエンジンは、中核がキーを受け付けるまで選べない（`/get/data/selectable_transcription_engines`）。選択の同意の画面（`TranscriptionConsentController`）は変えていない。
+- リアルタイム字幕の設定は、一度決めたら触らないものなので「詳細設定」に残した。その「ASRサーバー」の「同梱サーバー」と「外部サーバー」は、どちらもspeech.cpp系である。同梱サーバーは上の「モデルとサーバー」のモデルで動く。外部サーバーは利用者がお使いのPCで別に起動したspeech.cppのサーバーで、アドレスはループバック（`localhost`、`127.0.0.1`など）の`http://`に限る（`speechcpp::local_url`）。音声はお使いのPCの外に出ないので、API系には入れない。Windowsでエンジンに「ローカル（speech.cpp）」を選ぶと、メイン画面のスイッチはこのサーバーでリアルタイム字幕を動かす。APIのエンジンを選んでいるときは従来の録音を使い、リアルタイム字幕はその欄にある開始ボタンで始める。Linuxのスイッチはエンジンの選択にかかわらずいつもリアルタイム字幕を使う。
+- 翻訳のカタログとの違い：APIの項目は利用者のWhisperサーバーの1枠だけで、翻訳のように何件も足すことはできない。speech.cppのモデルはファイルの場所で登録する（翻訳はフォルダーで足す）。新しい推論の実行部は加えていない。
 
 ## 固定カタログ
 
@@ -147,11 +257,11 @@ RVCのmetadataはv2/48 kHz/f0=1。初期の短時間試験後、長めのミュ�
 
 修正版AppImage `b8050d10c7243da5d57dda92d09784912947ad6516eccde152d11e4ef3bb4fe0` の `native-rvc-fixed-strict-3` は1 PASS（45.82秒）。ミュート中の全合成音声入力（非ゼロ138フレーム）に対し出力増分0、入力完了後の新鮮な稼働状態と同じgenerationを確認。解除後にも別の全入力を完了し、第三の入力中の停止と再起動OFFを確認した。無音判定はS16絶対値64以下、停止後2秒継続であり、全バイトゼロや知覚的な音質を確認した試験とは区別する。詳細は実機検証記録を参照。
 
-RVC音声モデル/indexだけでは動作しない。別途runtime（2026-11-15からはONNX Runtime、CUDA・cuDNNのライブラリ、HuBERT設定/重み、RMVPEのONNX。変換は同梱の`vrct-rvc-worker`）が必要。この取得機能はruntimeを入れず、pickleも読まない。WindowsとLinux（x86-64）では別の同意画面からruntimeを取得できる（0.5.0は中核の`native/voice-conversion/src/runtime.rs`、0.4まではPythonの`models/voice_conversion/runtime_setup.py`。[Windowsの音声機能](local-setup-windows.md#rvc)、[Linuxの手順](local-setup-linux.md#rvcの実行環境)）。
+RVC音声モデル/indexだけでは動作しない。別途runtime（2026-11-15からはONNX Runtime、CUDA・cuDNNのライブラリ、HuBERT設定/重み、RMVPEのONNX。変換は同梱の`astarot-rvc-worker`）が必要。この取得機能はruntimeを入れず、pickleも読まない。WindowsとLinux（x86-64）では別の同意画面からruntimeを取得できる（0.5.0は中核の`native/voice-conversion/src/runtime.rs`、0.4まではPythonの`models/voice_conversion/runtime_setup.py`。[Windowsの音声機能](local-setup-windows.md#rvc)、[Linuxの手順](local-setup-linux.md#rvcの実行環境)）。
 
 ## GPU・空きVRAMによる案内
 
-TTS設定を開くと、整合性確認済みの同梱speech.cpp（現在は0.11.0。この節の試験時は0.9.0）を `devices --json` で実行する。モデルはロードしない。GPU名、総容量・空き容量、確認時刻を表示し、再確認ボタンも設けた。実行はバックエンドの非同期処理で3秒timeout、終了時は所有する子プロセスだけをterminateし、応答しなければkillして回収する。固定実行ファイルの出力を受け取った後、64 KiB以内かとJSONの型・値域を検証する。任意の実行ファイルやURLは指定できない。
+TTS設定を開くと、整合性確認済みの同梱speech.cpp（現在は0.11.2。この節の試験時は0.9.0）を `devices --json` で実行する。モデルはロードしない。GPU名、総容量・空き容量、確認時刻を表示し、再確認ボタンも設けた。実行はバックエンドの非同期処理で3秒timeout、終了時は所有する子プロセスだけをterminateし、応答しなければkillして回収する。固定実行ファイルの出力を受け取った後、64 KiB以内かとJSONの型・値域を検証する。任意の実行ファイルやURLは指定できない。
 
 同じGGUFを各対応バックエンドで利用するため、GPUメーカー別にモデルを分けず、空き容量に応じて標準候補と軽量候補を案内する。ただし、実機検証はLinux / RTX 4080 SUPER / Vulkanに限る。AMD・Intel・Metal・CPUの実行成功を確認した表示にはしない。
 
@@ -197,8 +307,8 @@ overlay relayは新しいcatalog/state/start/cancel/applyとhardware取得/更�
 
 ## 実装と試験
 
-- `src-python/models/model_downloads/{catalog,transport,staging,manager,hardware,guidance}.py` とController/stdioの7ルート。
-- `ModelDownloads.jsx` / `useModelDownloads.js`、SpeechServers/DirectVoiceSettingsへの小さな挿入。en/jaの独立namespace。
-- `modelHardwareAdvice.js`で取得値と候補から案内を算出。CPU・共有メモリ・容量不明/ゼロ・複数GPU・測定期限を区別する。
+- 取得の仕組みは`native/ops`の`downloads`（カタログ、転送、置き場所、取得の管理、機器の情報、案内）と、中核の`native/core/src/controller/downloads.rs`の7ルート。0.5まではPythonのバックエンドの`src-python/models/model_downloads/`で、0.6.0で消した（#285）。
+- `ModelDownloads.tsx` / `useModelDownloads.ts`、SpeechServers/DirectVoiceSettingsへの小さな挿入。en/jaの独立namespace。
+- `modelHardwareAdvice.ts`で取得値と候補から案内を算出。CPU・共有メモリ・容量不明/ゼロ・複数GPU・測定期限を区別する。
 - IPC送信関数を安定させ、再描画に伴うcatalog/state再取得ループを修正。idle時の取得回数不変をブラウザで確認。
-- Apply後の確認済み保存値がcleanフォームへ反映されない問題は、`useSettingsDraft.jsx`で直前の保存値とdraftを比較する形に修正。未保存の編集は保持する。
+- Apply後の確認済み保存値がcleanフォームへ反映されない問題は、`useSettingsDraft.tsx`で直前の保存値とdraftを比較する形に修正。未保存の編集は保持する。

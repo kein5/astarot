@@ -119,6 +119,41 @@ fn requests_under_one_lock_run_in_order_and_others_run_beside_them() {
 }
 
 #[test]
+fn a_stop_of_typing_never_overtakes_its_start() {
+    // [`test_mainloop_typing_order.py`]: the start and the stop of the typing indicator share a
+    // lock, held until the handler ends, and keep their order while start-up is not over.
+    //
+    // [`test_mainloop_typing_order.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/test/test_mainloop_typing_order.py
+    let order = Arc::new(Mutex::new(Vec::new()));
+    let mut routes = Routes::new();
+    for (name, value) in [("/run/typing_message_box", true), ("/run/stop_typing_message_box", false)] {
+        let order = Arc::clone(&order);
+        routes.add(name, true, move |_| {
+            if value {
+                // A start that takes its time: a stop on another worker must wait for it.
+                std::thread::sleep(Duration::from_millis(150));
+            }
+            order.lock().unwrap().push(value);
+            Reply::ok(json!(true))
+        });
+    }
+    routes.add("/get/data/other", false, |_| Reply::ok(json!("other")));
+    let (dispatcher, lines) = dispatcher(routes);
+    for _ in 0..2 {
+        dispatcher.receive_line(&request_line("/run/typing_message_box", None));
+        dispatcher.receive_line(&request_line("/run/stop_typing_message_box", None));
+    }
+    dispatcher.receive_line(&request_line("/get/data/other", None));
+    std::thread::sleep(Duration::from_millis(300));
+    assert!(order.lock().unwrap().is_empty(), "nothing ran before start-up ended");
+    dispatcher.open();
+    let lines = lines.wait(5);
+    assert_eq!(*order.lock().unwrap(), [true, false, true, false]);
+    assert_eq!(lines[0].1.as_deref(), Some("/get/data/other"));
+    dispatcher.stop(Duration::from_secs(1));
+}
+
+#[test]
 fn an_endpoint_waiting_for_start_up_is_served_when_it_ends() {
     let mut routes = Routes::new();
     routes.add("/run/send_message_box", true, |_| Reply::ok(json!("sent")));

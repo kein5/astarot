@@ -77,7 +77,7 @@ fn the_overlay_starts_with_the_saved_switches_and_announces_the_vr_page_state() 
     assert_eq!(ui.on(0, "/run/vr_panel_launcher_intro")[0]["result"], "idle");
     wait("connected to SteamVR", || fake.with(|s| s.sessions_open) == 1);
     let keys: Vec<String> = fake.with(|s| s.created.iter().map(|(k, _)| k.clone()).collect());
-    assert_eq!(&keys[..5], ["VRCT0", "VRCT1", "VRCT2", "VRCT3", "VRCT4"]);
+    assert_eq!(&keys[..5], ["ASTAROT0", "ASTAROT1", "ASTAROT2", "ASTAROT3", "ASTAROT4"]);
     ui.ok("/run/shutdown", None);
     assert_eq!(fake.with(|s| s.sessions_open), 0, "the shut-down closes SteamVR");
     let calls = fake.with(|s| s.calls.len());
@@ -99,9 +99,9 @@ fn a_log_turns_on_without_steamvr_and_connects_once_it_runs() {
         s.running = true;
         s.hands_connected = true;
     });
-    wait("connected", || fake.with(|s| s.sessions_open) == 1 && fake.handle("VRCT1").is_some());
-    wait("overlays made", || fake.calls_on(fake.handle("VRCT1").unwrap(), "width").len() == 1);
-    let large = fake.handle("VRCT1").unwrap();
+    wait("connected", || fake.with(|s| s.sessions_open) == 1 && fake.handle("ASTAROT1").is_some());
+    wait("overlays made", || fake.calls_on(fake.handle("ASTAROT1").unwrap(), "width").len() == 1);
+    let large = fake.handle("ASTAROT1").unwrap();
     assert_eq!(fake.calls_on(large, "width"), [format!("width {large} 0.2500")], "the large log is a quarter of its stored width");
 
     assert_eq!(ui.ok("/run/send_text_overlay", Some(json!("サンプル"))), "サンプル");
@@ -124,8 +124,8 @@ fn settings_reach_the_running_overlay() {
     let ui = with_vr(Arc::new(fake.clone()), false, None);
     ui.ready();
     assert_eq!(ui.ok("/set/enable/overlay_small_log", None), true);
-    wait("connected", || fake.handle("VRCT0").is_some() && !fake.calls_on(fake.handle("VRCT0").unwrap(), "relative").is_empty());
-    let small = fake.handle("VRCT0").unwrap();
+    wait("connected", || fake.handle("ASTAROT0").is_some() && !fake.calls_on(fake.handle("ASTAROT0").unwrap(), "relative").is_empty());
+    let small = fake.handle("ASTAROT0").unwrap();
     let mut settings = ui.ok("/get/data/overlay_small_log_settings", None);
     settings["x_pos"] = json!(0.25);
     settings["ui_scaling"] = json!(1.5);
@@ -135,7 +135,7 @@ fn settings_reach_the_running_overlay() {
     assert_eq!(fake.calls_on(small, "width").last().unwrap(), &format!("width {small} 1.5000"));
 
     // The launcher moves to the other wrist.
-    let launcher = fake.handle("VRCT3").unwrap();
+    let launcher = fake.handle("ASTAROT3").unwrap();
     assert_eq!(ui.ok("/set/data/overlay_vr_launcher_hand", Some(json!("RightHand"))), "RightHand");
     assert!(fake.calls_on(launcher, "relative").last().unwrap().starts_with(&format!("relative {launcher} 2 ")));
     ui.stop();
@@ -171,8 +171,8 @@ fn the_vr_panel_shows_the_page_and_follows_its_requests() {
     let ui = with_vr(Arc::new(fake.clone()), true, None);
     ui.ready();
     assert_eq!(ui.ok("/set/enable/overlay_vr_panel", None), true);
-    wait("connected", || fake.handle("VRCT2").is_some());
-    let (panel, launcher) = (fake.handle("VRCT2").unwrap(), fake.handle("VRCT3").unwrap());
+    wait("connected", || fake.handle("ASTAROT2").is_some());
+    let (panel, launcher) = (fake.handle("ASTAROT2").unwrap(), fake.handle("ASTAROT3").unwrap());
     // The launcher shows once the page was captured, with its opening animation.
     wait("launcher shown", || fake.with(|s| s.visible.contains(&launcher)));
     assert!(!fake.calls_on(launcher, "texture").is_empty());
@@ -274,7 +274,7 @@ fn a_failure_turns_the_overlays_off_and_is_reported() {
     ui.ready();
     ui.ok("/set/enable/overlay_small_log", None);
     ui.ok("/set/enable/overlay_large_log", None);
-    wait("connected", || fake.with(|s| s.sessions_open) == 1 && fake.handle("VRCT4").is_some());
+    wait("connected", || fake.with(|s| s.sessions_open) == 1 && fake.handle("ASTAROT4").is_some());
     std::thread::sleep(Duration::from_millis(100));
     fake.with(|s| s.fail_raw = true);
     let mark = ui.send("/run/send_text_overlay", Some(json!("x")));
@@ -293,7 +293,7 @@ fn a_message_the_vr_log_cannot_show_is_reported_for_that_output() {
     let fake = FakeVr::running();
     let ui = with_vr(Arc::new(fake.clone()), false, Some(json!({ "OVERLAY_LARGE_LOG": true })));
     ui.ready();
-    wait("the large log made", || fake.handle("VRCT1").is_some());
+    wait("the large log made", || fake.handle("ASTAROT1").is_some());
     std::thread::sleep(Duration::from_millis(100));
     // SteamVR takes the reconnect but refuses the picture again.
     fake.with(|s| s.fail_pictures = true);
@@ -377,9 +377,9 @@ fn the_controllers_hover_click_and_move_the_log_and_the_place_is_saved() {
     let saved = json!({ "OVERLAY_VR_PANEL": true, "OVERLAY_VR_PANEL_SETTINGS": panel });
     let ui = Ui::with(Setup { services, saved: Some(saved), ..Setup::default() });
     ui.ready();
-    wait("connected", || fake.handle("VRCT2").is_some());
+    wait("connected", || fake.handle("ASTAROT2").is_some());
     ui.ok("/run/vr_panel_windows", Some(json!({ "log": true, "popup": false })));
-    let log = fake.handle("VRCT2").unwrap();
+    let log = fake.handle("ASTAROT2").unwrap();
     wait("log shown", || fake.with(|s| s.visible.contains(&log) && s.bounds.contains_key(&log)));
 
     // The right controller 60 cm in front of the log's centre, its laser on it.
@@ -490,14 +490,95 @@ fn the_subtitle_font_is_chosen_from_the_system_and_checked() {
 }
 
 #[test]
+fn a_diarized_caption_names_its_speakers_and_the_large_log_draws_their_names() {
+    // #447 end to end: a server with a diarization model on a GPU, the game audio's captions
+    // with speakers, a name given to one voice, and the VR large log drawn again with it.
+    use common::fake_asr::{FakeAsr, diarization_model, recognition_model};
+    use common::fake_capture::{FakeCapture, speech};
+    use vrct_transcription::capture::Source;
+
+    let asr = FakeAsr::start();
+    *asr.behaviour.models.lock().unwrap() = json!({ "data": [
+        recognition_model("haas-ja", &["ja"], false, &["keywords"]),
+        diarization_model("nemotron-3-diarization", "Vulkan0"),
+    ] });
+    *asr.behaviour.speakers.lock().unwrap() = json!([
+        { "speaker": "A", "start_ms": 0, "end_ms": 900 },
+        { "speaker": "B", "start_ms": 1000, "end_ms": 1800 },
+        // Too short to count while others spoke longer.
+        { "speaker": "C", "start_ms": 1800, "end_ms": 1900 },
+    ]);
+    let capture = FakeCapture::new();
+    capture.add_endpoint(Source::Mic, "alsa.mic", "USB Mic");
+    capture.add_endpoint(Source::Speaker, "alsa.out", "Speakers");
+    capture.set_default(Source::Mic, Some("alsa.mic"));
+    capture.set_default(Source::Speaker, Some("alsa.out"));
+    let fake = FakeVr::running();
+    let base = Setup::default();
+    let services = Services { vr: Arc::new(fake.clone()), transcription_capture: capture.factory(), ..base.services };
+    let saved = json!({
+        "OVERLAY_LARGE_LOG": true,
+        "OSC_IP_ADDRESS": "127.0.0.2",
+        "REALTIME_ASR_SETTINGS": {
+            "server": "external", "base_url": asr.base(), "model": "haas-ja",
+            "mic": { "language": "ja", "endpoint": null, "follow_default": true },
+            "speaker": { "language": "ja", "endpoint": null, "follow_default": true },
+            "vocabulary": { "builtin": false, "terms": [] },
+        },
+    });
+    let ui = Ui::with(Setup { services, saved: Some(saved), platform: vrct_core::config::Platform::Linux, ..Setup::default() });
+    ui.ready();
+    wait("the large log made", || fake.handle("ASTAROT1").is_some());
+    let large = fake.handle("ASTAROT1").unwrap();
+
+    let mark = ui.lines().len();
+    assert_eq!(ui.ok("/set/enable/transcription_receive", None), true);
+    wait("the game audio is captured", || capture.opened() == vec![(Source::Speaker, "alsa.out".to_string())]);
+    // The game audio's session asks the server to tell the voices apart.
+    wait("the session is configured", || !asr.diarization.lock().unwrap().is_empty());
+    assert_eq!(asr.diarization.lock().unwrap()[0], json!({}));
+    let before = fake.calls_on(large, "raw").len();
+    capture.hear(Source::Speaker, &[speech(2000)]);
+    let caption = |state: &str| {
+        ui.wait_from(mark, state, |l| l["endpoint"] == "/run/realtime_caption" && l["result"]["state"] == state)["result"].clone()
+    };
+    let final_ = caption("final");
+    assert_eq!(final_["speakers"], json!(["A", "B"]), "the voices that spoke long enough, in order");
+    assert_eq!(caption("partial")["speakers"], json!([]), "a partial caption names no one");
+    assert_eq!(caption("translated")["speakers"], json!(["A", "B"]));
+    wait("the caption drawn on the large log", || fake.calls_on(large, "raw").len() > before);
+
+    // Listening stops, so that no newer caption draws the log; the captions shown stay.
+    let namespace = final_["namespace"].as_str().unwrap().to_string();
+    assert_eq!(ui.ok("/set/disable/transcription_receive", None), false);
+    wait("the capture stopped", || capture.running(Source::Speaker) == 0);
+    std::thread::sleep(Duration::from_millis(300));
+    // A name for one voice of this session: answered as kept, and the large log drawn again.
+    let drawn = fake.calls_on(large, "raw").len();
+    let named = ui.ok("/set/data/speaker_names", Some(json!({ "namespace": namespace, "names": { "A": "ミカ" } })));
+    assert_eq!(named, json!({ "namespace": namespace, "names": { "A": "ミカ" } }));
+    wait("the large log drawn with the name", || fake.calls_on(large, "raw").len() > drawn);
+    // Another session's names change nothing on screen.
+    std::thread::sleep(Duration::from_millis(200));
+    let drawn = fake.calls_on(large, "raw").len();
+    ui.ok("/set/data/speaker_names", Some(json!({ "namespace": "another", "names": { "A": "別の人" } })));
+    std::thread::sleep(Duration::from_millis(300));
+    assert_eq!(fake.calls_on(large, "raw").len(), drawn);
+
+    let log = std::fs::read_to_string(ui.dir.join("logs").join("process.log")).unwrap_or_default();
+    assert!(!log.contains("ミカ") && !log.contains("別の人"), "a name reached process.log");
+    ui.stop();
+}
+
+#[test]
 fn a_sent_message_is_drawn_on_the_running_large_log() {
     let fake = FakeVr::running();
     let ui = with_vr(Arc::new(fake.clone()), false, Some(json!({ "OVERLAY_LARGE_LOG": true })));
     ui.ready();
-    wait("the large log made", || fake.handle("VRCT1").is_some());
-    let large = fake.handle("VRCT1").unwrap();
+    wait("the large log made", || fake.handle("ASTAROT1").is_some());
+    let large = fake.handle("ASTAROT1").unwrap();
     let before = fake.calls_on(large, "raw").len();
-    let small = fake.handle("VRCT0").unwrap();
+    let small = fake.handle("ASTAROT0").unwrap();
     let small_before = fake.calls_on(small, "raw").len();
     let answer = ui.ok("/run/send_message_box", Some(json!({ "id": "m1", "message": "hello" })));
     assert_eq!(answer["id"], "m1", "{answer}");

@@ -28,7 +28,7 @@ pub const FOLDER: &str = "_internal";
 static DEVELOPMENT_CHECKOUT: OnceLock<PathBuf> = OnceLock::new();
 
 /// A debug build of the app runs from `src-tauri/target`; its shipped files are staged in the
-/// checkout's `build/` (`build/speechcpp`, `build/vrct-rvc-worker.exe`). Set once, before the
+/// checkout's `build/` (`build/speechcpp`, `build/astarot-rvc-worker.exe`). Set once, before the
 /// backend starts. Packaged builds never call it, and tests leave it unset.
 pub fn use_development_checkout(root: PathBuf) {
     let _ = DEVELOPMENT_CHECKOUT.set(root);
@@ -44,7 +44,7 @@ pub fn folders(app_dir: &Path) -> Vec<PathBuf> {
     if cfg!(target_os = "linux") {
         // The AppImage: usr/bin/vrct-vox with its files in usr/lib/vrct-vox.
         if let Some(prefix) = app_dir.parent() {
-            folders.push(prefix.join("lib").join("vrct-vox").join(FOLDER));
+            folders.push(prefix.join("lib").join(app_identity::LINUX_PACKAGE.current()).join(FOLDER));
         }
     }
     folders

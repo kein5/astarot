@@ -1,14 +1,23 @@
-//! The settings, kept in `config.json` (`src-python/config.py`).
+//! The settings, kept in `config.json` ([`src-python/config.py`]).
 //!
 //! The file and its rules stay what the Python backend used, so a user's settings carry over:
 //!
 //! - The same keys, defaults and checks ([`schema`]). A saved value that fails its check is
-//!   dropped and the default kept; unknown keys, fixed values and runtime state are ignored.
-//! - The same migrations when the file is read: a removed UI language falls back to English, the
-//!   removed local Whisper engine moves to speech.cpp (with a one-time notice), a saved
-//!   `"bundled"` realtime server selects speech.cpp, saved API URLs that are no longer allowed
-//!   are emptied and reported, the release channel follows the running version, and the
-//!   installer's language marker is applied once.
+//!   dropped and the default kept; fixed values and runtime state are ignored.
+//! - A key this version does not know is not used, but it is written back as the file had it, so
+//!   the setting of a newer version is still there when that version runs again (#560). Keys an
+//!   earlier version saved and this one retired ([`RETIRED_KEYS`]) are dropped.
+//! - The file names the newest version that saved it ([`NEWEST_SAVING_VERSION`]). A value a
+//!   newer version saved that fails this version's check (a choice it added, say) is not used
+//!   either, but it is written back as it was until it is changed here, for the same reason
+//!   (#560). A value this or an older version saved that fails its check is dropped (CT-04).
+//! - The same migrations when the file is read: a removed UI language falls back to English,
+//!   saved API URLs that are no longer allowed are emptied and reported, the release channel
+//!   follows the running version, and the installer's language marker is applied once. A saved
+//!   choice of a removed recognition engine (the local Whisper of 0.2 and earlier, Google) loads
+//!   as none, so the user chooses again. Up to 0.5 the Whisper choice moved to speech.cpp with a
+//!   one-time notice (`LOCAL_ASR_MIGRATION`, with a copy `config.json.before-migration-<step>`);
+//!   that migration and its notice went in 0.6.0 (#288).
 //! - A file that is not JSON (or not an object, or not UTF-8) is moved aside as
 //!   `config.json.unreadable-<time>-<random>` and the app starts with defaults. Any other read
 //!   failure keeps the file untouched and blocks saving for the run.
@@ -16,10 +25,15 @@
 //!   old one, under the byte lock of `config.json.lock` that the Python backend also took. Most
 //!   changes are saved 2 s after the last one; a few at once. A failed save is reported once,
 //!   tried again every 30 s while the values stay in memory, and its recovery is reported too.
-//! - API keys are not written to `config.json` but to a store of their own ([`secrets`]). Keys
-//!   found in the file (written by an older version) are moved there when it is read: each is
-//!   written and read back first, and only then is `config.json` written without it. A key the
-//!   store does not take stays where it was, stays usable, and is reported and tried again.
+//!   At start the file is written only when that changes what it holds (or, on Unix, when others
+//!   may read it): the Python backend wrote it on every start (#560).
+//! - API keys are not written to `config.json` but to a store of their own ([`secrets`]: the OS
+//!   credential store). Keys found in the file (written by an older version), and keys the
+//!   store finds only in `secrets.json` (written by 0.5), are moved there when the settings are
+//!   read: each is written and read back first, and only then removed from where it was. A key
+//!   the store does not take stays where it was, stays usable, and is reported and tried again.
+//!
+//! [`src-python/config.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/config.py
 
 pub mod schema;
 pub mod secrets;
@@ -32,8 +46,66 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Condvar, Mutex, MutexGuard};
 use std::time::{Duration, Instant};
 
+/// The last step of the local recognition migration of 0.3 to 0.5. This version no longer
+/// migrates (#288), but it still writes this step as `LOCAL_ASR_MIGRATION`: 0.5 and earlier
+/// read it, and without it they would migrate the file again when someone goes back to them.
 pub const LOCAL_ASR_MIGRATION_LATEST: i64 = 2;
 const RETIRED_UI_LANGUAGES: [&str; 3] = ["ko", "zh-Hant", "zh-Hans"];
+/// The key of `config.json` naming the newest version that saved it. Each save writes the
+/// newer of the file's and this version's, so a file a newer version saved stays marked as such
+/// while an older one runs (#560). Not a setting: it is not in [`schema`].
+pub const NEWEST_SAVING_VERSION: &str = "NEWEST_SAVING_VERSION";
+
+/// Whether version `a` is newer than `b` (`0.6.0` > `0.6.0-beta.2` > `0.6.0-beta.1` > `0.5.2`).
+/// A version that is not `major.minor.patch[-pre]` is newer than nothing.
+pub fn version_newer(a: &str, b: &str) -> bool {
+    fn parse(version: &str) -> Option<([u64; 3], Option<Vec<&str>>)> {
+        let (core, pre) = version.split_once('-').map_or((version, None), |(c, p)| (c, Some(p)));
+        let mut parts = core.split('.').map(|part| part.parse::<u64>().ok());
+        let numbers = [parts.next()??, parts.next()??, parts.next()??];
+        (parts.next().is_none()).then_some((numbers, pre.map(|p| p.split('.').collect())))
+    }
+    let (Some((a_core, a_pre)), Some((b_core, b_pre))) = (parse(a), parse(b)) else { return false };
+    if a_core != b_core {
+        return a_core > b_core;
+    }
+    match (a_pre, b_pre) {
+        (None, Some(_)) => true,
+        (Some(a_pre), Some(b_pre)) => {
+            for (x, y) in a_pre.iter().zip(&b_pre) {
+                let order = match (x.parse::<u64>(), y.parse::<u64>()) {
+                    (Ok(x), Ok(y)) => x.cmp(&y),
+                    (Ok(_), Err(_)) => std::cmp::Ordering::Less,
+                    (Err(_), Ok(_)) => std::cmp::Ordering::Greater,
+                    (Err(_), Err(_)) => x.cmp(y),
+                };
+                if order != std::cmp::Ordering::Equal {
+                    return order.is_gt();
+                }
+            }
+            a_pre.len() > b_pre.len()
+        }
+        _ => false,
+    }
+}
+
+/// Settings an earlier version saved that this one retired. They are dropped, where any other
+/// unknown key is kept (#560). These are the keys of the local Whisper engine and its options,
+/// removed with it (#288; `docs/spec/data-and-persistence.md`): every tagged version's settings
+/// (the Python [`config.py`], `ManagedProperty` and `ValidatedProperty`, and this schema) were
+/// compared with this schema, and they were the only ones it no longer had. The notice of that
+/// removal went in 0.6.0 (`LOCAL_ASR_NOTICE_PENDING`, #288). A key retired from now on goes in
+/// this list too, or the file keeps it for ever.
+///
+/// [`config.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/config.py
+pub const RETIRED_KEYS: [&str; 6] = [
+    "WHISPER_WEIGHT_TYPE",
+    "SELECTED_TRANSCRIPTION_COMPUTE_DEVICE",
+    "SELECTED_TRANSCRIPTION_COMPUTE_TYPE",
+    "MIC_NO_REPEAT_NGRAM_SIZE",
+    "SPEAKER_NO_REPEAT_NGRAM_SIZE",
+    "LOCAL_ASR_NOTICE_PENDING",
+];
 const DEBOUNCE: Duration = Duration::from_secs(2);
 const SAVE_RETRY: Duration = Duration::from_secs(30);
 
@@ -68,7 +140,8 @@ pub trait DeviceLists: Send + Sync {
 #[derive(Clone)]
 pub struct Environment {
     pub version: String,
-    /// Where `config.json` and `logs/` live (`VRCT_CONFIG_DIR`, or the app's own folder).
+    /// Where `config.json` and `logs/` live (`ASTAROT_CONFIG_DIR` or `VRCT_CONFIG_DIR`, or the
+    /// app's own folder).
     pub state_dir: PathBuf,
     /// The application folder: where the installer leaves `installer_language.txt`.
     pub app_dir: PathBuf,
@@ -126,14 +199,30 @@ pub type SaveRecovered = Arc<dyn Fn() + Send + Sync>;
 /// Where a failure of the key store is reported: what failed (`"read"`, `"write"`, `"delete"`,
 /// `"migrate"`), the entries (names such as `AUTH_KEYS/DeepL_API`, never values) and the reason.
 pub type SecretFailed = Arc<dyn Fn(&str, &[String], &str) + Send + Sync>;
+/// Called once the store holds a key given to [`Config::keep_secret`].
+pub type SecretStored = Box<dyn FnOnce() + Send>;
+
+/// Where a key given to [`Config::keep_secret`] is.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Kept {
+    /// The store holds it.
+    Stored,
+    /// The store did not take it: it is in memory for this run, and tried again.
+    InMemory,
+}
 
 /// The keys on their way to or from the store.
 #[derive(Default)]
 struct Secrets {
     /// Changes not yet in the store: `Some` to write, `None` to delete.
     pending: std::collections::BTreeMap<String, Option<String>>,
+    /// What to do once the store holds a key of [`Config::keep_secret`].
+    on_stored: std::collections::BTreeMap<String, SecretStored>,
     /// Keys read from `config.json` that the store has not taken yet: they stay in the file.
     in_file: std::collections::BTreeSet<String>,
+    /// Keys the store read from an older place of its own (`secrets.json`) that have not moved
+    /// to the OS store yet: they stay there, and writing them again moves them.
+    unmoved: std::collections::BTreeSet<String>,
     /// Failures found before anyone listens: (operation, entry, reason).
     unreported: Vec<(&'static str, String, &'static str)>,
     /// Entries whose failure was reported and has not recovered (reported once).
@@ -141,6 +230,13 @@ struct Secrets {
     on_failed: Option<SecretFailed>,
     /// The keys were read at start-up: changes from now on go to the store.
     ready: bool,
+}
+
+impl Secrets {
+    /// Something waits for the store: a change, or a key still to move.
+    fn left(&self) -> bool {
+        !self.pending.is_empty() || !self.in_file.is_empty() || !self.unmoved.is_empty()
+    }
 }
 
 fn report_secret_failures(callback: &SecretFailed, failures: Vec<(&'static str, String, &'static str)>) {
@@ -162,6 +258,14 @@ struct State {
     loaded: bool,
     loading: bool,
     saved: Map<String, Value>,
+    /// The keys of the file this version does not know, in the file's order: written back as
+    /// they were (#560).
+    unknown: Map<String, Value>,
+    /// Values a newer version saved that fail this version's check: written back as they were
+    /// until the setting is changed here (#560).
+    newer: Map<String, Value>,
+    /// What the next save writes as [`NEWEST_SAVING_VERSION`].
+    newest_saving_version: String,
     save_due: Option<Instant>,
     retry_due: Option<Instant>,
     save_failed: bool,
@@ -193,10 +297,31 @@ pub fn new_token() -> String {
     base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(bytes)
 }
 
-fn random_suffix() -> String {
+pub(crate) fn random_suffix() -> String {
     let mut bytes = [0u8; 6];
     let _ = getrandom::fill(&mut bytes);
     bytes.iter().map(|b| format!("{b:02x}")).collect()
+}
+
+/// Removes what a write of `path` that stopped part way left beside it: the regular files named
+/// `<file name>.<`[`random_suffix`]`>.tmp`. Called with `path`'s lock held, so no write of it is
+/// in progress and every such file is a leftover. A link or a folder by that name is left alone.
+pub(crate) fn remove_leftover_temporaries(path: &Path) {
+    let (Some(directory), Some(name)) = (path.parent(), path.file_name().and_then(|n| n.to_str())) else { return };
+    let Ok(entries) = fs::read_dir(directory) else { return };
+    for entry in entries.flatten() {
+        let entry_name = entry.file_name();
+        let leftover = entry_name
+            .to_str()
+            .and_then(|n| n.strip_prefix(name))
+            .and_then(|rest| rest.strip_prefix('.'))
+            .and_then(|rest| rest.strip_suffix(".tmp"))
+            .is_some_and(|suffix| suffix.len() == 12 && suffix.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b)));
+        // `DirEntry::file_type` does not follow a link.
+        if leftover && entry.file_type().is_ok_and(|kind| kind.is_file()) {
+            let _ = fs::remove_file(entry.path());
+        }
+    }
 }
 
 /// The reason a save failed, as the UI names it.
@@ -218,8 +343,8 @@ fn failure_reason(error: &io::Error) -> &'static str {
 }
 
 impl Config {
-    /// Fills in the defaults, reads `config.json` and saves it back, as a start did. The keys
-    /// go to the app's store ([`secrets::default_store`]).
+    /// Fills in the defaults, reads `config.json` and saves it back when that changes it. The
+    /// keys go to the app's store ([`secrets::default_store`]).
     pub fn open(env: Environment) -> Arc<Config> {
         let store = secrets::default_store(&env);
         Self::open_with(env, store)
@@ -229,6 +354,7 @@ impl Config {
     pub fn open_with(env: Environment, store: Arc<dyn secrets::SecretStore>) -> Arc<Config> {
         let keys = schema::keys();
         let values = schema::defaults(&env);
+        let version = env.version.clone();
         debug_assert!(keys.iter().all(|k| values.contains_key(k.name)), "every key has a default");
         let config = Arc::new(Config {
             env,
@@ -238,6 +364,9 @@ impl Config {
                 loaded: false,
                 loading: false,
                 saved: Map::new(),
+                unknown: Map::new(),
+                newer: Map::new(),
+                newest_saving_version: version,
                 save_due: None,
                 retry_due: None,
                 save_failed: false,
@@ -334,6 +463,7 @@ impl Config {
             for (entry, new) in secrets::entries(name, &value) {
                 if old.get(&entry) != Some(&new) {
                     state.secrets.in_file.remove(&entry);
+                    state.secrets.unmoved.remove(&entry);
                     state.secrets.pending.insert(entry, new);
                 }
             }
@@ -350,22 +480,29 @@ impl Config {
     /// keeps the key in memory (usable), is reported once per entry, and is tried again with the
     /// next save and every 30 s. Returns whether a key left the file (the file needs writing).
     fn flush_secrets(&self) -> bool {
+        let (left_file, stored) = self.flush_secrets_locked();
+        // Told after the exchange with the store, so that they may use the settings again.
+        for hook in stored {
+            hook();
+        }
+        left_file
+    }
+
+    fn flush_secrets_locked(&self) -> (bool, Vec<SecretStored>) {
         let _io = self.store_lock.lock().unwrap();
-        let (pending, in_file) = {
+        let (pending, in_file, unmoved) = {
             let state = self.state.lock().unwrap();
             if !state.secrets.ready {
-                return false;
+                return (false, Vec::new());
             }
-            let in_file: Vec<(String, Option<String>)> = state
-                .secrets
-                .in_file
-                .iter()
-                .map(|entry| (entry.clone(), self.secret_value(&state, entry)))
-                .collect();
-            (state.secrets.pending.clone(), in_file)
+            let with_values = |entries: &std::collections::BTreeSet<String>| -> Vec<(String, Option<String>)> {
+                entries.iter().map(|entry| (entry.clone(), self.secret_value(&state, entry))).collect()
+            };
+            (state.secrets.pending.clone(), with_values(&state.secrets.in_file), with_values(&state.secrets.unmoved))
         };
         let mut failures = Vec::new();
         let mut recovered = Vec::new();
+        let mut stored = Vec::new();
         for (entry, value) in pending {
             let (operation, result) = match &value {
                 Some(key) => ("write", secrets::write_verified(self.store.as_ref(), &entry, key)),
@@ -376,6 +513,9 @@ impl Config {
                 Ok(()) => {
                     if state.secrets.pending.get(&entry) == Some(&value) {
                         state.secrets.pending.remove(&entry);
+                        if value.is_some() {
+                            stored.extend(state.secrets.on_stored.remove(&entry));
+                        }
                     }
                     recovered.push(entry);
                 }
@@ -397,8 +537,64 @@ impl Config {
                 Err(error) => failures.push(("migrate", entry, error.as_str())),
             }
         }
+        for (entry, value) in unmoved {
+            let result = match &value {
+                Some(key) => secrets::write_verified(self.store.as_ref(), &entry, key),
+                // Gone from memory without a change (cannot happen): nothing to move.
+                None => Ok(()),
+            };
+            let mut state = self.state.lock().unwrap();
+            match result {
+                Ok(()) => {
+                    state.secrets.unmoved.remove(&entry);
+                    recovered.push(entry);
+                }
+                Err(error) => failures.push(("migrate", entry, error.as_str())),
+            }
+        }
         self.secret_results(failures, recovered);
-        left_file
+        (left_file, stored)
+    }
+
+    /// Keeps a key that is not a setting (the key of a translation catalog entry, #413) as a
+    /// changed setting's key is kept (ADR-013): written to the store and read back now. When the
+    /// store does not take it, the key stays in memory for this run ([`Config::secret`] gives
+    /// it), the failure is reported once through the secret callback, and the write is tried
+    /// again with every save, every 30 s and at close. The key is never written to a file.
+    /// `on_stored` runs once the store holds it, now or with a later try.
+    pub fn keep_secret(&self, entry: &str, value: &str, on_stored: SecretStored) -> Kept {
+        {
+            let mut state = self.state.lock().unwrap();
+            state.secrets.pending.insert(entry.to_string(), Some(value.to_string()));
+            state.secrets.on_stored.insert(entry.to_string(), on_stored);
+        }
+        self.flush_secrets();
+        if self.secret_in_memory(entry) { Kept::InMemory } else { Kept::Stored }
+    }
+
+    /// Forgets a key given to [`Config::keep_secret`]: from memory now, and from the store now
+    /// or, when the store does not answer, with the same tries as a deleted setting's key.
+    pub fn forget_secret(&self, entry: &str) {
+        {
+            let mut state = self.state.lock().unwrap();
+            state.secrets.pending.insert(entry.to_string(), None);
+            state.secrets.on_stored.remove(entry);
+        }
+        self.flush_secrets();
+    }
+
+    /// Whether a key given to [`Config::keep_secret`] waits in memory for the store.
+    pub fn secret_in_memory(&self, entry: &str) -> bool {
+        matches!(self.state.lock().unwrap().secrets.pending.get(entry), Some(Some(_)))
+    }
+
+    /// The key of an entry that is not a setting: the one waiting in memory for the store, else
+    /// the store's.
+    pub fn secret(&self, entry: &str) -> Result<Option<String>, secrets::StoreError> {
+        if let Some(waiting) = self.state.lock().unwrap().secrets.pending.get(entry) {
+            return Ok(waiting.clone());
+        }
+        self.store.read(entry)
     }
 
     /// The value of one entry in memory.
@@ -423,7 +619,7 @@ impl Config {
                 fresh.push((operation, entry, reason));
             }
         }
-        if (!state.secrets.pending.is_empty() || !state.secrets.in_file.is_empty()) && state.retry_due.is_none() {
+        if state.secrets.left() && state.retry_due.is_none() {
             state.retry_due = Some(Instant::now() + SAVE_RETRY);
         }
         let callback = state.secrets.on_failed.clone();
@@ -477,8 +673,24 @@ impl Config {
                 }
             }
         }
+        // Keys the store found only in its older place (`secrets.json`) move now, one at a time:
+        // written, read back, and only then removed from there. One that does not move stays
+        // where it is, works for the run, and is tried again with every save.
+        let mut unmoved = Vec::new();
+        for entry in self.store.take_unmoved() {
+            let value = {
+                let state = self.state.lock().unwrap();
+                self.secret_value(&state, &entry)
+            };
+            let Some(key) = value else { continue };
+            if let Err(error) = secrets::write_verified(self.store.as_ref(), &entry, &key) {
+                failures.push(("migrate", entry.clone(), error.as_str()));
+                unmoved.push(entry);
+            }
+        }
         let mut state = self.state.lock().unwrap();
         state.secrets.in_file.extend(in_file);
+        state.secrets.unmoved.extend(unmoved);
         for (operation, entry, _) in &failures {
             if *operation == "migrate" {
                 // Tried again with every save: reported once until it succeeds.
@@ -487,6 +699,10 @@ impl Config {
         }
         state.secrets.unreported.extend(failures);
         state.secrets.ready = true;
+        // Tried again even when `config.json` cannot be saved this run.
+        if state.secrets.left() && state.retry_due.is_none() {
+            state.retry_due = Some(Instant::now() + SAVE_RETRY);
+        }
     }
 
     /// Checks and stores a value, then schedules the save. Returns the value as stored.
@@ -495,6 +711,7 @@ impl Config {
             let mut state = self.state.lock().unwrap();
             let stored = self.check(&state, name, &value)?;
             Self::store(&mut state, name, stored);
+            state.newer.remove(name);
             let key = self.key(name).expect("checked above");
             (key.immediate, key.serialize)
         };
@@ -520,6 +737,7 @@ impl Config {
                 immediate |= key.immediate;
                 serialize |= key.serialize;
                 Self::store(&mut state, name, value);
+                state.newer.remove(name);
             }
         }
         self.flush_changed_secrets();
@@ -532,7 +750,11 @@ impl Config {
     /// Stores a value without its check, for state the backend computes itself.
     pub fn put(&self, name: &str, value: Value) {
         let serialize = self.key(name).is_some_and(|k| k.serialize);
-        Self::store(&mut self.state.lock().unwrap(), name, value);
+        {
+            let mut state = self.state.lock().unwrap();
+            Self::store(&mut state, name, value);
+            state.newer.remove(name);
+        }
         self.flush_changed_secrets();
         if serialize {
             self.schedule_save(false);
@@ -604,9 +826,10 @@ impl Config {
         }
     }
 
-    /// The saved values, in the file's order.
+    /// The saved values, in the file's order, then the keys this version does not know.
     fn snapshot(&self, state: &State) -> Map<String, Value> {
-        self.keys
+        let mut snapshot: Map<String, Value> = self
+            .keys
             .iter()
             .filter(|k| k.serialize && !k.readonly)
             .filter_map(|k| {
@@ -619,17 +842,37 @@ impl Config {
                     // Readable by 0.4 while the new choices are unchanged.
                     return Some((k.name.to_string(), crate::voice_settings::file_direct(&value)));
                 }
-                Some((k.name.to_string(), value))
+                if k.name == "VOICE_SETTINGS" {
+                    // Readable by 0.5 while the new engine readings are unchanged.
+                    return Some((k.name.to_string(), crate::voice_settings::file_voice(&value)));
+                }
+                // A newer version's value this one cannot use goes back as it was.
+                Some((k.name.to_string(), state.newer.get(k.name).cloned().unwrap_or(value)))
             })
-            .collect()
+            .collect();
+        // The mark goes after this version's keys, the keys it does not know after it.
+        if !state.newest_saving_version.is_empty() {
+            snapshot.insert(NEWEST_SAVING_VERSION.into(), Value::String(state.newest_saving_version.clone()));
+        }
+        snapshot.extend(state.unknown.iter().map(|(key, value)| (key.clone(), value.clone())));
+        snapshot
     }
 
     /// Writes `config.json` now (`saveConfigToFile`), after handing changed keys to the store.
     pub fn save_now(&self) {
-        let has_secrets = {
-            let state = self.state.lock().unwrap();
-            !state.secrets.pending.is_empty() || !state.secrets.in_file.is_empty()
-        };
+        self.save(false);
+    }
+
+    /// The start-up save: as [`Config::save_now`], but the file is left alone when it already
+    /// holds what would be written (#560). Starting a version then does not rewrite the file of
+    /// another one, and does not touch it at all when nothing changed. On Unix a file others may
+    /// read is written anyway, so that it becomes the owner's only.
+    fn save_if_changed(&self) {
+        self.save(true);
+    }
+
+    fn save(&self, only_if_changed: bool) {
+        let has_secrets = self.state.lock().unwrap().secrets.left();
         if has_secrets {
             self.flush_secrets();
         }
@@ -639,7 +882,12 @@ impl Config {
             if !state.loaded {
                 return;
             }
-            self.snapshot(&state)
+            let snapshot = self.snapshot(&state);
+            // The comparison is by keys and values; the order of the keys does not matter.
+            if only_if_changed && snapshot == state.saved && owner_only(&self.path()) {
+                return;
+            }
+            snapshot
         };
         let result = write_config(&self.path(), &Value::Object(snapshot));
         let mut state = self.state.lock().unwrap();
@@ -649,8 +897,7 @@ impl Config {
                 state.save_failed = false;
                 state.failure_reason = None;
                 // Keys the store has not taken are tried again.
-                let keys_left = !state.secrets.pending.is_empty() || !state.secrets.in_file.is_empty();
-                state.retry_due = keys_left.then(|| Instant::now() + SAVE_RETRY);
+                state.retry_due = state.secrets.left().then(|| Instant::now() + SAVE_RETRY);
                 let callback = state.on_recovered.clone();
                 drop(state);
                 if recovered {
@@ -727,7 +974,7 @@ impl Config {
                 state.loading = false;
                 state.loaded = true;
                 drop(state);
-                self.save_now();
+                self.save_if_changed();
             }
             Err(_) => {
                 // The file stays as it is; the keys in the store are still used.
@@ -792,7 +1039,15 @@ impl Config {
             data.insert("OCR_VR_CAPTURE_REGION".into(), json!({ "x": 0.0, "y": 0.0, "width": 1.0, "height": 1.0 }));
         }
         let mut invalid_urls = Vec::new();
+        let mut unknown = Map::new();
+        let mut newer = Map::new();
+        // A file a newer version saved keeps that version's values this one cannot use (#560).
+        let marked = data.get(NEWEST_SAVING_VERSION).and_then(Value::as_str).map(str::to_string);
+        let from_newer = marked.as_deref().is_some_and(|v| version_newer(v, &self.env.version));
         for (key, value) in &data {
+            if key == NEWEST_SAVING_VERSION {
+                continue;
+            }
             if crate::net_policy::CUSTOM_URL_KEYS.contains(&key.as_str()) && !crate::net_policy::valid_saved_api_url(value) {
                 // Empty turns the lookup off; a saved key never moves to another host.
                 self.put_loading(key, json!(""));
@@ -802,26 +1057,51 @@ impl Config {
             if key == "UI_LANGUAGE" && value.as_str().is_some_and(|v| RETIRED_UI_LANGUAGES.contains(&v)) {
                 continue;
             }
-            if key == "SELECTED_TRANSCRIPTION_ENGINE" && value.as_str() == Some(crate::languages::RETIRED_WHISPER_ENGINE) {
+            // The retired engines load as none: the user chooses again, as on a first start. Up
+            // to 0.5 a saved Whisper moved to speech.cpp instead (#288).
+            if key == "SELECTED_TRANSCRIPTION_ENGINE"
+                && [crate::languages::RETIRED_WHISPER_ENGINE, crate::languages::RETIRED_GOOGLE_ENGINE]
+                    .iter()
+                    .any(|retired| value.as_str() == Some(retired))
+            {
                 continue;
             }
-            // The retired Google engine loads as none: the user chooses again, as on a first start.
-            if key == "SELECTED_TRANSCRIPTION_ENGINE" && value.as_str() == Some(crate::languages::RETIRED_GOOGLE_ENGINE) {
+            let Some(definition) = self.key(key) else {
+                // Not used, but kept for the version that wrote it (#560).
+                if !RETIRED_KEYS.contains(&key.as_str()) {
+                    unknown.insert(key.clone(), value.clone());
+                }
                 continue;
-            }
-            let Some(definition) = self.key(key) else { continue };
+            };
             if definition.readonly || !definition.serialize {
                 continue;
             }
             let mut state = self.state.lock().unwrap();
-            if let Ok(stored) = self.check(&state, key, value) {
-                Self::store(&mut state, key, stored);
+            match self.check(&state, key, value) {
+                Ok(stored) => Self::store(&mut state, key, stored),
+                Err(_) if from_newer => {
+                    newer.insert(key.clone(), value.clone());
+                }
+                Err(_) => {}
             }
         }
-        self.state.lock().unwrap().invalid_saved_api_urls = invalid_urls;
-        self.migrate_local_asr(&saved);
-        let channel = if ["-beta", "-rc"].iter().any(|m| self.env.version.contains(m)) { "beta" } else { "stable" };
-        self.put_loading("SELECTED_RELEASE_CHANNEL", json!(channel));
+        {
+            let mut state = self.state.lock().unwrap();
+            state.invalid_saved_api_urls = invalid_urls;
+            state.unknown = unknown;
+            state.newer = newer;
+            state.newest_saving_version = if from_newer { marked.unwrap_or_default() } else { self.env.version.clone() };
+        }
+        // Written for 0.5 and earlier, which migrate a file without it (`LOCAL_ASR_MIGRATION_LATEST`).
+        self.put_loading("LOCAL_ASR_MIGRATION", json!(LOCAL_ASR_MIGRATION_LATEST));
+        self.migrate_usage_presets(&saved);
+        self.migrate_speech_servers(&saved);
+        // The update channel the user chose stays (#466); until a choice it follows the running
+        // version, as it always did: a beta build is on the beta channel.
+        if !self.get_bool("RELEASE_CHANNEL_CHOSEN") {
+            let channel = if ["-beta", "-rc"].iter().any(|m| self.env.version.contains(m)) { "beta" } else { "stable" };
+            self.put_loading("SELECTED_RELEASE_CHANNEL", json!(channel));
+        }
         self.apply_installer_language();
     }
 
@@ -836,27 +1116,36 @@ impl Config {
         }
     }
 
-    /// `_migrateLocalASR`: brings the local recognition settings of an older version up to date, once.
-    fn migrate_local_asr(&self, saved: &Map<String, Value>) {
-        let step = if saved.is_empty() {
-            Value::from(LOCAL_ASR_MIGRATION_LATEST)
-        } else {
-            saved.get("LOCAL_ASR_MIGRATION").cloned().unwrap_or(Value::from(0))
-        };
-        let step = step.as_i64().filter(|s| step.is_i64() && (0..=LOCAL_ASR_MIGRATION_LATEST).contains(s)).unwrap_or(0);
-        if step < 1 && self.get("REALTIME_ASR_SETTINGS")["server"] == "bundled" {
-            self.set_loading("SELECTED_TRANSCRIPTION_ENGINE", json!(crate::languages::LOCAL_SPEECH_ENGINE));
+    /// The usage presets came in a later version (#554). Someone who updates keeps seeing every
+    /// feature, as before; a new install (nothing saved) keeps the default, the basic preset. A
+    /// file that could not be read loads as nothing saved, so it counts as a new install.
+    fn migrate_usage_presets(&self, saved: &Map<String, Value>) {
+        if !saved.is_empty() && !saved.contains_key("USAGE_PRESETS") {
+            self.set_loading("USAGE_PRESETS", json!(["all"]));
         }
-        if step < 2 && saved.get("SELECTED_TRANSCRIPTION_ENGINE").and_then(Value::as_str) == Some(crate::languages::RETIRED_WHISPER_ENGINE) {
-            self.set_loading("SELECTED_TRANSCRIPTION_ENGINE", json!(crate::languages::LOCAL_SPEECH_ENGINE));
-            if self.env.platform == Platform::Windows {
-                let mut realtime = self.get("REALTIME_ASR_SETTINGS");
-                realtime["server"] = json!("bundled");
-                self.set_loading("REALTIME_ASR_SETTINGS", realtime);
+    }
+
+    /// `_migrateSpeechServers`: new settings speak through the bundled server (#566). Before that a
+    /// missing choice meant the external server (Japanese at `http://127.0.0.1:8080`), so a saved
+    /// file whose speech settings do not name a server for a role keeps the external server for it:
+    /// an update does not move anyone off a server they run. Nothing saved, or a file that could not
+    /// be read, is a new install and stays on the bundled server.
+    fn migrate_speech_servers(&self, saved: &Map<String, Value>) {
+        if saved.is_empty() {
+            return;
+        }
+        let named = |field: &str| saved.get("VOICE_SETTINGS").and_then(Value::as_object).is_some_and(|voice| voice.contains_key(field));
+        let mut voice = self.get("VOICE_SETTINGS");
+        let mut changed = false;
+        for field in ["japanese_server", "multilingual_server"] {
+            if !named(field) {
+                voice[field] = json!("external");
+                changed = true;
             }
-            self.set_loading("LOCAL_ASR_NOTICE_PENDING", json!(true));
         }
-        self.set_loading("LOCAL_ASR_MIGRATION", json!(LOCAL_ASR_MIGRATION_LATEST));
+        if changed {
+            self.set_loading("VOICE_SETTINGS", voice);
+        }
     }
 
     /// The UI language the installer chose, written as a plain marker next to the app; used once.
@@ -933,10 +1222,26 @@ pub fn to_python_json(value: &Value) -> String {
     String::from_utf8(out).expect("serde_json writes UTF-8")
 }
 
+/// Whether only the owner may read the file, as [`write_config`] leaves it. Only Unix is checked:
+/// elsewhere the file keeps the folder's permissions however it is written.
+fn owner_only(path: &Path) -> bool {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        fs::metadata(path).is_ok_and(|metadata| metadata.permissions().mode() & 0o077 == 0)
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = path;
+        true
+    }
+}
+
 /// Writes the file under the shared lock, through a fresh temporary file and a rename.
-fn write_config(path: &Path, value: &Value) -> io::Result<()> {
+pub(crate) fn write_config(path: &Path, value: &Value) -> io::Result<()> {
     let directory = path.parent().unwrap_or(Path::new("."));
     let _lock = lock::FileLock::acquire(&path.with_file_name("config.json.lock"))?;
+    remove_leftover_temporaries(path);
     let text = to_python_json(value);
     let (temporary, mut file) = loop {
         let candidate = directory.join(format!("config.json.{}.tmp", random_suffix()));
@@ -959,8 +1264,80 @@ fn write_config(path: &Path, value: &Value) -> io::Result<()> {
     })();
     if written.is_err() {
         let _ = fs::remove_file(&temporary);
+    } else {
+        sync_directory(directory);
     }
     written
+}
+
+#[cfg(test)]
+mod leftover_tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn a_save_removes_the_temporary_files_a_stopped_save_left_and_nothing_else() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("config.json");
+        let left = dir.path().join("config.json.0123456789ab.tmp");
+        fs::write(&left, "{\"ENABLE_TRANSLATION\": tr").unwrap();
+        // Not a save's own name: another length or file, or (where names keep their case; on
+        // Windows it would be the leftover itself) another case.
+        let mut kept = vec!["config.json.0123.tmp", "config.json.0123456789ab.tmp.bak", "other.json.0123456789ab.tmp", "config.json.before-migration-3"];
+        if !cfg!(windows) {
+            kept.push("config.json.0123456789AB.tmp");
+        }
+        for name in kept.iter().copied() {
+            fs::write(dir.path().join(name), "x").unwrap();
+        }
+        // A folder, or a link, by a save's name is not a leftover of one.
+        fs::create_dir(dir.path().join("config.json.aaaaaaaaaaaa.tmp")).unwrap();
+        #[cfg(unix)]
+        std::os::unix::fs::symlink(dir.path().join("elsewhere"), dir.path().join("config.json.bbbbbbbbbbbb.tmp")).unwrap();
+
+        write_config(&path, &json!({ "ENABLE_TRANSLATION": true })).unwrap();
+        assert!(!left.exists(), "the leftover was kept");
+        for name in kept {
+            assert!(dir.path().join(name).exists(), "{name} was removed");
+        }
+        assert!(dir.path().join("config.json.aaaaaaaaaaaa.tmp").is_dir());
+        #[cfg(unix)]
+        assert!(dir.path().join("config.json.bbbbbbbbbbbb.tmp").symlink_metadata().is_ok());
+        let saved: Value = serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
+        assert_eq!(saved, json!({ "ENABLE_TRANSLATION": true }));
+    }
+}
+
+#[cfg(test)]
+mod version_tests {
+    use super::version_newer;
+
+    #[test]
+    fn versions_compare_as_releases_do() {
+        let ordered = ["0.5.2", "0.6.0-beta.1", "0.6.0-beta.2", "0.6.0-beta.10", "0.6.0-rc.1", "0.6.0", "0.6.1", "0.10.0", "1.0.0"];
+        for (i, older) in ordered.iter().enumerate() {
+            for newer in &ordered[i + 1..] {
+                assert!(version_newer(newer, older), "{newer} > {older}");
+                assert!(!version_newer(older, newer), "{older} < {newer}");
+            }
+            assert!(!version_newer(older, older), "{older} = {older}");
+        }
+        // Not a version: never newer, and never older than one.
+        for odd in ["", "<version>", "0.6", "0.6.0.1", "v0.6.0", "0.6.x"] {
+            assert!(!version_newer(odd, "0.5.0") && !version_newer("0.5.0", odd), "{odd:?}");
+        }
+    }
+}
+
+/// Linux: flushes the folder's entry after a rename, so a power cut does not bring the old file
+/// back. Best effort: the rename has already succeeded, and Windows has no such step.
+fn sync_directory(directory: &Path) {
+    #[cfg(unix)]
+    if let Ok(folder) = File::open(directory) {
+        let _ = folder.sync_all();
+    }
+    #[cfg(not(unix))]
+    let _ = directory;
 }
 
 mod lock {
