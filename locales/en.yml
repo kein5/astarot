@@ -715,6 +715,10 @@ config_page:
         gpu_runtimes:
             label: "ONNX Runtime for translating on the GPU"
             desc: "To run AI translation on the GPU, fetch a GPU build of ONNX Runtime. Then choose it as the processing device above and restart ASTAROT. Chat reading uses the same ONNX Runtime."
+            # Between the two builds, which are one choice (#945).
+            or: "or"
+            # The CUDA build where no NVIDIA driver is (#945).
+            needs_nvidia: "Needs an NVIDIA GPU"
 
         deepl_auth_key:
             label: "DeepL API key"
@@ -1917,6 +1921,9 @@ voice_setup_errors:
 
 vc_runtime:
     title: "{{name}} runtime"
+    # Where it is one of a pair of builds for different GPUs (#945): whether it fits the user's GPU.
+    fit_fits: "For your GPU"
+    fit_unneeded: "Not needed for your GPU"
     help_rvc: "ONNX Runtime, NVIDIA's CUDA and cuDNN libraries (CUDA 13) and the base models (HuBERT and RMVPE) used for conversion. Converting on the GPU needs NVIDIA driver 580 or later. Review what it contains, then fetch it."
     help_rvc_cpu: "ONNX Runtime (CPU build) and the base models (HuBERT and RMVPE) used for conversion. Review what it contains, then fetch it."
     cpu_only: "No NVIDIA driver was found, so this fetches the runtime that converts on the CPU. On the CPU the converted voice comes about 1.3 s after your voice. If the CPU is too slow to keep up, Start says so and does not convert."

@@ -51,3 +51,26 @@ test("a setup waiting for the next start says to restart and offers no start", a
     vc.state = { ...vc.state, jobs: { rvc: { ...job, phase: "failed", error_code: "vc_runtime_in_use" } } };
     assert.deepEqual(buttons(runtime.render(VcRuntimeSetup, { engine: "rvc" })), ["vc_runtime.resume"]);
 });
+
+// One of a pair of builds for different GPUs (the translation's, #945): a badge under the name
+// says whether it fits the user's GPU. The one that fits offers its review as the main action;
+// the other leaves its summary out and offers a plain one.
+test("a build that fits the GPU leads with the main action; one that is not needed is quieter", async () => {
+    const runtime = hooks();
+    const vc: VcRuntimes = { catalog: { runtimes: [entry] }, state: { observation_id: "1", jobs: {}, installed: {} }, error: null, pending: false, send: () => {} };
+    const VcRuntimeSetup = await load(runtime, vc);
+    const review = (tree: unknown) => nodesIn(tree).find(node => node.type === "button" && node.props.children === "vc_runtime.review");
+    const fits = runtime.render(VcRuntimeSetup, { engine: "rvc", fit: "fits" });
+    assert.equal(fits?.props["data-fit"], "fits");
+    assert.ok(nodesIn(fits).some(node => node.type === "span" && node.props["data-tone"] === "recommended" && node.props.children === "vc_runtime.fit_fits"));
+    assert.ok(words(fits).includes("vc_runtime.help_rvc_gpu"));
+    assert.equal(review(fits)?.props.className, "primary");
+    const unneeded = runtime.render(VcRuntimeSetup, { engine: "rvc", fit: "unneeded" });
+    assert.ok(nodesIn(unneeded).some(node => node.type === "span" && node.props["data-tone"] === undefined && node.props.children === "vc_runtime.fit_unneeded"));
+    assert.ok(!words(unneeded).includes("vc_runtime.help_rvc_gpu"), "its summary is left out");
+    assert.equal(review(unneeded)?.props.className, undefined);
+    // Alone (the voice changer's), it has neither the badge nor the main action.
+    const alone = runtime.render(VcRuntimeSetup, { engine: "rvc" });
+    assert.ok(!words(alone).some(word => word.startsWith("vc_runtime.fit_")));
+    assert.equal(review(alone)?.props.className, undefined);
+});
