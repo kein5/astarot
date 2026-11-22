@@ -511,3 +511,7 @@ mise run build:rvc-worker
 `native/rvc-runtime` 自体の試験（`cargo test`）は、ビルド時に `ort` がONNX Runtimeを取得します。手順は[クレートのREADME](../native/rvc-runtime/README.md)にあります。
 
 npm、Cargo、Pythonの依存はそれぞれ `package-lock.json`、`Cargo.lock`、`uv.lock` を使います。Pythonの検証対象はロックにある配布アーカイブとGitのcommitです。Node、Rust、Python本体、uv、Cocogittoの版は `mise.toml` で固定します。ソースビルド時に隔離環境へ追加されるビルド依存とOSライブラリは固定しません。同じビット列の配布物や全機種での動作を保証するものではありません。検証記録には `doctor --json` の結果、実行scope、commit、OSを併記します。
+
+### CIの失敗の週ごとの集計
+
+「Weekly CI failures」（`.github/workflows/ci-failures.yml`）が、毎週月曜に直近7日のCIの失敗を数え、ジョブの要約に表で出します。対象はdevelopへのpushとPRの実行で、ワークフローとジョブごとに、落ちた試行の数と、同じ実行の再実行で通った数を出します。再実行で通ったものは、揺らぐ試験か一時的な障害です。ログは読まないので、何が落ちたかは各ジョブのログで確かめます。手元では `python3 -m tools.ci_failures --days 7` で同じ表が出ます（`gh` のログインが要ります）。
