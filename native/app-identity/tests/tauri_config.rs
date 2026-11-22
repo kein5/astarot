@@ -27,3 +27,18 @@ fn the_tauri_build_uses_the_app_id_written_here() {
 fn the_tauri_build_names_the_executable_written_here() {
     assert_eq!(string_value(&tauri_config(), "mainBinaryName"), app_identity::EXECUTABLE.current());
 }
+
+#[test]
+fn the_uninstaller_also_removes_the_data_of_the_old_app_id() {
+    // ADR-014, 2.5: "delete the app data" takes the WebView folders of both app IDs.
+    let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../src-tauri/nsis/template.nsi");
+    let template = std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
+    let old = format!("!define OLDBUNDLEID \"{}\"", app_identity::APP_ID.legacy);
+    assert!(template.lines().any(|line| line == old), "{old}");
+    for folder in ["$APPDATA", "$LOCALAPPDATA"] {
+        for id in ["BUNDLEID", "OLDBUNDLEID"] {
+            let line = format!("RmDir /r \"{folder}\\${{{id}}}\"");
+            assert!(template.lines().any(|l| l.trim() == line), "{line}");
+        }
+    }
+}
