@@ -655,7 +655,7 @@ Function .onInit
     StrCpy $UpdateMode 1
 
   ; /EDITION= (cpu or gpu, from apps up to 0.5) is not read: every edition
-  ; installs the same package, VRCT-VOX.zip.
+  ; installs the same package, ASTAROT.zip (VRCT-VOX.zip up to 0.6.x).
 
   ; Pin the downloaded app package to a specific released version instead of
   ; always fetching the latest from the HF "main" revision (e.g.
@@ -996,7 +996,11 @@ Section Install
   ; 指定のURLからファイルをダウンロード
   ; The one app package. Releases up to 0.5 also had VRCT-VOX_cuda.zip (the same
   ; files since 0.5.0); /EDITION=gpu installs this package too, also with /VERSION.
-  !define SOFTWARE_DOWNLOAD_FILENAME "VRCT-VOX.zip"
+  ; ADR-014, 2.10: it is ASTAROT.zip from 0.7.0. A release up to 0.6.x, which /VERSION may
+  ; name, has it as VRCT-VOX.zip; tools/release_candidate.py keeps that name as a copy for a
+  ; while, but only on the releases from 0.7.0.
+  !define SOFTWARE_DOWNLOAD_FILENAME "ASTAROT.zip"
+  !define OLD_SOFTWARE_DOWNLOAD_FILENAME "VRCT-VOX.zip"
 
   ; Free-space budget (MiB). The compressed archive is written to
   ; %TEMP%, the new tree to $INSTDIR\.upd\new. The old installation stays
@@ -1088,6 +1092,23 @@ Section Install
     StrCpy $effective_version "${VERSION}"
   ${EndIf}
   StrCpy $release_revision "v$effective_version"
+  ; Another version (/VERSION) from 0.0 to 0.6 has the package under its name of then. This
+  ; installer's own version always has it under the new name, whatever its number.
+  ${If} $effective_version != "${VERSION}"
+    StrCpy $0 $effective_version 2
+    ${If} $0 == "0."
+      StrCpy $1 $effective_version "" 2
+      ${StrLoc} $2 $1 "." ">"
+      ${If} $2 != ""
+        StrCpy $1 $1 $2
+        IntOp $3 $1 + 0
+        ${If} "$3" == "$1"
+        ${AndIf} $3 < 7
+          StrCpy $file_name "${OLD_SOFTWARE_DOWNLOAD_FILENAME}"
+        ${EndIf}
+      ${EndIf}
+    ${EndIf}
+  ${EndIf}
   StrCpy $cmder_dl "https://github.com/kein5/astarot/releases/download/$release_revision/$file_name"
   DetailPrint "Got URL : $cmder_dl"
 
