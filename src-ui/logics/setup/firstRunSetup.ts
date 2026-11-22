@@ -13,6 +13,9 @@ export type SetupEntry = CatalogEntry & {
     provider?: string;
     license?: string;
     licenses?: readonly string[];
+    // The model's page (its card), and what its license restricts (modelRestrictions.ts).
+    source?: string;
+    restrictions?: unknown;
 };
 
 export type SetupCatalog = { catalog_version?: string; models?: readonly SetupEntry[] } | null | undefined;

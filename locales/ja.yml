@@ -2814,7 +2814,8 @@ first_run_setup:
         translation: "翻訳"
         translation_ready: "選んでいる翻訳エンジンで使えます。"
         translation_missing: "選んでいる翻訳エンジンはまだ使えません。ほかの翻訳エンジンを選んでください。"
-        translation_model_missing: "翻訳のモデルがまだありません。取得すると、お使いのPCで翻訳できます。"
+        translation_model_missing: "翻訳のモデルがまだありません。下の「翻訳を準備する」で取得できます。"
+        translation_preparing: "下の「翻訳を準備する」で準備しています…"
         translation_choose: "翻訳エンジンを選ぶ"
         recognition: "音声認識"
         recognition_ready: "準備できています。"
@@ -2822,6 +2823,13 @@ first_run_setup:
         recognition_own_server: "自分で用意したspeech.cppのサーバーを使う設定です。"
         recognition_needs_setup: "準備が要ります。下のボタンでまとめて準備できます。"
         recognition_unknown: "確かめています…"
+    translation:
+        heading: "翻訳を準備する"
+        what: "文を訳すモデルをダウンロードして、翻訳で使えるようにします。翻訳はお使いのPCの中で行い、文を外部へ送りません。翻訳はオンにしません。"
+        model: "ダウンロードするモデル"
+        step_model: "{{name}}をダウンロードして翻訳で使えるようにする"
+        finished: "翻訳の準備ができました。メイン画面の「翻訳」をオンにすると使えます。"
+        kept: "翻訳の設定は前のままです。原因を取り除いてから「やり直す」を押してください。"
     recognition:
         heading: "音声認識をまとめて準備する"
         what: "話した声をお使いのコンピューターの中で文字にします。音声は外部へ送りません。次のモデルをダウンロードして設定に入れ、同梱の音声認識サーバーを使うように切り替えます。マイクはオンにしません。"
