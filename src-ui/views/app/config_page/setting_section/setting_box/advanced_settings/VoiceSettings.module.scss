@@ -124,6 +124,8 @@
     @media (max-width: 700px) { label { grid-template-columns: minmax(0, 1fr); gap: .8rem; } }
 }
 .actions { display: flex; align-items: center; flex-wrap: wrap; gap: .8rem; }
+// How many characters a field holds, under it at its end, in the description's size and color.
+.count { justify-self: end; font-size: 1.2rem; color: var(--vox_description_text, #a3adc0); font-variant-numeric: tabular-nums; }
 // A name that no shared row draws, such as a legend, with its hint mark on its line (#614).
 .hinted { display: inline-flex; align-items: center; max-width: 100%; }
 // Buttons that belong to the fields above them start in the control column, where the

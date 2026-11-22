@@ -45,6 +45,7 @@ async function open(variant: Variant, settings: typeof rvcSettings) {
         "../_components/setup_section/SetupSection": { SetupSection: "setup" },
         "../_components/env_readout/EnvReadout": { EnvReadout: "readout" },
         "../_components/description/Description": { Description: "description" },
+        "../_components/lead/Lead": { Lead: "lead" },
         "../_components/form_row/FormRow": { FormRow: "row" },
         "../_components/custom_model_link/CustomModelLink": { CustomModelLink: "custom-model-link" },
         "../_components/file_drop_zone/FileDropZone": { FileDropZone: "file-drop" },

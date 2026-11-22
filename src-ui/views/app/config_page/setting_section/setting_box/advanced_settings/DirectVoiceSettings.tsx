@@ -13,6 +13,7 @@ import { StatusLine } from "./StatusLine";
 import { SetupSection } from "../_components/setup_section/SetupSection";
 import { EnvReadout } from "../_components/env_readout/EnvReadout";
 import { Description } from "../_components/description/Description";
+import { Lead } from "../_components/lead/Lead";
 import { FormRow } from "../_components/form_row/FormRow";
 import { voiceErrorText } from "../../../../../../logics/voice/voiceErrorText.ts";
 import { CustomModelLink } from "../_components/custom_model_link/CustomModelLink";
@@ -256,8 +257,9 @@ export const DirectVoiceSettings = ({ variant = "all", subheading = false }: Dir
             {converted && <VcRuntimeSetup engine={rvc ? "rvc" : "seed-vc"} current={rvc ? draft.rvc_runtime : draft.runtime} disabled={busy || saving}
                 onUse={path => setDraft({ ...draft, [rvc ? "rvc_runtime" : "runtime"]: path })} />}
             {/* DirectML (Windows) needs its own runtime, shared with the translation; the worker finds it at Start. */}
+            {/* What DirectML offers stays in one sentence; what it needs is that sentence's hint (#614). */}
             {converted && rvc && directmlOffered && <>
-                <Description text={t("voice_ui.rvc_directml_hint")} />
+                <Lead text={t("voice_ui.rvc_directml_lead")} details={t("voice_ui.rvc_directml_details")} />
                 <VcRuntimeSetup engine={DIRECTML_RUNTIME} disabled={busy || saving} />
             </>}
             {/* Other unsaved edits survive an apply; only edited model or index paths conflict. A

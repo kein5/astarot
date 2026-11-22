@@ -31,10 +31,13 @@ type Setup = Awaited<ReturnType<typeof setup>>;
 test("invalid TTS seed and instruction point to the shared form error and clear after correction", async () => {
     const s = await setup();
     let tree = s.render();
+    // The instruction's field also says how many characters it holds (its count under it).
+    const countId = () => findIn(s.render(), node => node.type === "row").props.actions.props.id;
+    const described = (field: TreeNode) => String(field.props["aria-describedby"] ?? "").split(" ").filter(Boolean);
     for (const type of ["input", "textarea"]) {
         const field = findIn(tree, node => node.type === type);
         assert.equal(field.props["aria-invalid"], true);
-        assert.equal(field.props["aria-describedby"], "options-error");
+        assert.deepEqual(described(field), type === "textarea" ? [countId(), "options-error"] : ["options-error"]);
     }
     assert.equal(s.validGenerationOptions(s.draft), false);
     s.draft.japanese_seed = "42"; s.draft.japanese_instructions = "話す速さをゆっくりに";
@@ -42,7 +45,7 @@ test("invalid TTS seed and instruction point to the shared form error and clear 
     for (const type of ["input", "textarea"]) {
         const field = findIn(tree, node => node.type === type);
         assert.equal(field.props["aria-invalid"], false);
-        assert.equal(field.props["aria-describedby"], undefined);
+        assert.deepEqual(described(field), type === "textarea" ? [countId()] : []);
     }
     assert.equal(s.validGenerationOptions(s.draft), true);
     s.runtime.unmount();
@@ -81,6 +84,7 @@ const loadVoiceSettings = (s: Setup, runtime: HookRuntime, hints = false) =>
         "./StatusLine": { StatusLine: "status" },
         "../_components/env_readout/EnvReadout": { EnvReadout: "readout" },
         "../_components/description/Description": { Description: "description" },
+        "../_components/lead/Lead": { Lead: "lead" },
         "../_components/form_row/FormRow": { FormRow: "row" },
         "../_components/advanced_section/AdvancedSection": { AdvancedSection: "advanced" },
         "../_components/hint/Hint": { Hint: "hint", useHintDescriptions: () => hints },
@@ -98,7 +102,8 @@ test("TTS form supplies an existing error ID to both language groups", async () 
 });
 
 // #614: what the TTS page reads is its heading's hint and what the monitor plays is its legend's;
-// the rows' words are their labels'. The instruction's line counts as it is typed, so it stays.
+// the rows' words are their labels'. What the instruction is for is its label's hint too; the count
+// of its characters stays in sight under the field, as they are typed.
 for (const hints of [false, true]) test(`${hints ? "hints" : "no hints"}: the TTS page's descriptions follow the page`, async () => {
     const s = await setup({ seed: "", instructions: "" }), runtime = hooks();
     const { VoiceSettings } = await loadVoiceSettings(s, runtime, hints);
@@ -118,7 +123,8 @@ for (const hints of [false, true]) test(`${hints ? "hints" : "no hints"}: the TT
     find(tree, node => { if (node.type === "row") rows.push([node.props.label, node.props.description]); return false; });
     assert.deepEqual(rows, [["voice.output_device", "voice_ui.output_hint"], ["voice.mic_mode", "voice.mic_hint"], ["voice.conversion", "voice.conversion_hint"]]);
     const instruction = findIn(s.render(), node => node.type === "row");
-    assert.equal(instruction.props.keepDescription, true);
+    assert.deepEqual([instruction.props.description, instruction.props.keepDescription], ["voice_ui.instruction_desc", undefined]);
+    assert.equal(instruction.props.actions.props.children, "voice_ui.instruction_count");
     runtime.unmount(); s.runtime.unmount();
 });
 
@@ -138,6 +144,7 @@ for (const [pitch, rate, threads] of [[25, 0.5, 0], [0, -1, 0], [NaN, NaN, 0], [
         "../_components/setup_section/SetupSection": { SetupSection: "setup" },
         "../_components/env_readout/EnvReadout": { EnvReadout: "readout" },
         "../_components/description/Description": { Description: "description" },
+        "../_components/lead/Lead": { Lead: "lead" },
         "../_components/form_row/FormRow": { FormRow: "row" },
         "../_components/custom_model_link/CustomModelLink": { CustomModelLink: "custom-model-link" },
         "../_components/file_drop_zone/FileDropZone": { FileDropZone: "file-drop" },

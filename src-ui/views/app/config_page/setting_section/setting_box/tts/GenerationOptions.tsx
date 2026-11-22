@@ -34,6 +34,7 @@ export const GenerationOptions = ({ role, draft, field, errorId }: GenerationOpt
     const owner = state[role];
     const reasonId = useId();
     const seedRangeId = useId();
+    const countId = useId();
     const generation = owner?.generation, phase = owner?.state;
     const canQuery = server === "bundled" ? phase === "ready" : !!url;
     useEffect(() => {
@@ -65,9 +66,11 @@ export const GenerationOptions = ({ role, draft, field, errorId }: GenerationOpt
             aria-invalid={invalidSeed || !!outsideSeedRange}
             aria-describedby={[invalidSeed ? errorId : null, outsideSeedRange ? seedRangeId : null].filter(Boolean).join(" ") || undefined}
             onChange={e => field(seedKey, e.target.value)} /></label>}
-        {/* The line counts the characters as they are typed, so it stays in sight (#614). */}
-        <FormRow label={t("voice_ui.instruction")} description={t("voice_ui.instruction_hint", { count: Array.from(instructions).length })} fold={false} keepDescription>
-            <textarea aria-invalid={invalidInstructions} aria-describedby={invalidInstructions ? errorId : undefined} aria-label={t("voice_ui.instruction")} value={instructions} maxLength={8000} rows={3}
+        {/* What the field is for is the label's hint (#614); the count of its characters stays in sight
+            under it, as they are typed, and is part of what the field says. */}
+        <FormRow label={t("voice_ui.instruction")} description={t("voice_ui.instruction_desc")} fold={false}
+            actions={<p id={countId} className={styles.count}>{t("voice_ui.instruction_count", { count: Array.from(instructions).length })}</p>}>
+            <textarea aria-invalid={invalidInstructions} aria-describedby={[countId, invalidInstructions ? errorId : null].filter(Boolean).join(" ")} aria-label={t("voice_ui.instruction")} value={instructions} maxLength={8000} rows={3}
                 placeholder={t("voice_ui.example", { value: t("voice_ui.instruction_example") })}
                 onChange={e => field(instructionKey, e.target.value)} />
         </FormRow>
