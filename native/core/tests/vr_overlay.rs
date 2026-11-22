@@ -657,9 +657,25 @@ fn the_game_audio_s_realtime_finals_reach_the_small_log_under_who_spoke() {
     wait("the final drawn on the small log", || !heights().is_empty());
     let told_apart = heights()[0];
 
-    // Voices not told apart: the same message without the row of who spoke.
+    // Voices not told apart: the same message without the row of who spoke. The caption comes
+    // first, so that a failure says whether the final or its picture did not come.
+    let mark = ui.lines().len();
     *asr.behaviour.speakers.lock().unwrap() = Value::Null;
     capture.hear(Source::Speaker, &[speech(2000)]);
-    wait("a final drawn without who spoke", || heights().iter().any(|&height| height < told_apart));
+    ui.wait_from(mark, "a translated caption without speakers", |l| {
+        l["endpoint"] == "/run/realtime_caption" && l["result"]["state"] == "translated" && l["result"]["speakers"] == json!([])
+    });
+    let deadline = Instant::now() + Duration::from_secs(10);
+    while !heights().iter().any(|&height| height < told_apart) {
+        if Instant::now() >= deadline {
+            let captions: Vec<String> = ui.lines()[mark..]
+                .iter()
+                .filter(|l| l["endpoint"] == "/run/realtime_caption")
+                .map(|l| format!("{} {}", l["result"]["state"], l["result"]["speakers"]))
+                .collect();
+            panic!("a final drawn without who spoke: told apart {told_apart}, heights {:?}, captions since {captions:?}", heights());
+        }
+        std::thread::sleep(Duration::from_millis(10));
+    }
     ui.stop();
 }
