@@ -121,8 +121,8 @@ UIから中核への要求と、中核からUIへの通知（`RUN_MAPPING`）の
 | `/set/data/usage_presets` | 設定 | 可 | useUsagePresets.setSuccessUsagePresets |  |
 | `/get/data/catalog_layout` | 取得 | 可 | useAppearance.updateFromBackendCatalogLayout |  |
 | `/set/data/catalog_layout` | 設定 | 可 | useAppearance.setSuccessCatalogLayout |  |
-| `/get/data/theme` | 取得 | 可 | — |  |
-| `/set/data/theme` | 設定 | 可 | — |  |
+| `/get/data/theme` | 取得 | 可 | useAppearance.updateFromBackendTheme |  |
+| `/set/data/theme` | 設定 | 可 | useAppearance.setSuccessTheme |  |
 | `/get/data/llm_translation_temperature` | 取得 | 可 | useTranslation.updateFromBackendLLMTranslationTemperature |  |
 | `/set/data/llm_translation_temperature` | 設定 | 可 | useTranslation.setSuccessLLMTranslationTemperature |  |
 | `/get/data/llm_translation_instructions` | 取得 | 可 | useTranslation.updateFromBackendLLMTranslationInstructions | ログで伏せる |
@@ -594,11 +594,10 @@ UIから中核への要求と、中核からUIへの通知（`RUN_MAPPING`）の
 | `enable_osc_query` | `/run/enable_osc_query` | useHandleOscQuery.handleOscQuery |
 
 
-## UIに受信先がないエンドポイント（19件）
+## UIに受信先がないエンドポイント（17件）
 
 200で届いた場合にUIが`Invalid endpoint`としてコンソールに出すもの。ただし、400で届くエラーの通知（`/run/error_…`など）は`errorHandling_Backend`が処理し、`/run/initialization_complete`は`receiveRoutes`が個別に処理するので、このどちらかに当たるものは実害がない。
 
-- `/get/data/theme`
 - `/run/ctranslate2_license_notice`
 - `/run/enable_ocr_capture`
 - `/run/enable_transcription_receive`
@@ -616,7 +615,6 @@ UIから中核への要求と、中核からUIへの通知（`RUN_MAPPING`）の
 - `/run/translation_language_unsupported`
 - `/run/translation_model_retired`
 - `/run/vad_unavailable`
-- `/set/data/theme`
 
 
 ## UIだけにあるルート（60件）

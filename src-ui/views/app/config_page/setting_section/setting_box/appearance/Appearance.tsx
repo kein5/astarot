@@ -1,6 +1,7 @@
 import { createLanguageNames } from "../../../../../../logics/common/languageNames.ts";
 import { useI18n } from "@useI18n";
 import styles from "./Appearance.module.scss";
+import { ThemeContainer } from "./ThemePicker";
 import { ui_configs } from "@ui_configs";
 import { useStore_SelectableFontFamilyList } from "@store";
 
@@ -37,7 +38,8 @@ export const Appearance = () => {
     const { currentMessageLogUiScaling, currentTransparency } = useAppearance();
 
     // The language and the size of the whole window are what a first start may need; the rest
-    // is set once to taste, in 「詳細設定」 (#554).
+    // is set once to taste, in 「詳細設定」 (#554). The theme (#965) is drawn as its colours, so
+    // it stays in sight with them.
     // Reviewed against #614: the rows' descriptions are their labels' hints.
     return (
         <HintDescriptions>
@@ -46,6 +48,7 @@ export const Appearance = () => {
                 <SectionLabelComponent label={t("config_page.appearance.section_label_display")} />
                 <UiLanguageContainer />
                 <UiScalingContainer />
+                <ThemeContainer />
             </div>
             <AdvancedSection status={t("config_page.advanced_status.appearance", {
                 log: currentMessageLogUiScaling.data ?? "-", transparency: currentTransparency.data ?? "-" })}>

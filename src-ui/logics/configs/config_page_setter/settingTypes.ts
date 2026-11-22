@@ -11,6 +11,7 @@ import type vr_layout from "../../../views/vr/vr_layout.json";
 import type { SettingLogicsTemplateId } from "../../common/initializationFields.ts";
 import type { TelemetryPreview } from "../../common/telemetryRows.ts";
 import type { ExperimentalFeatureValues } from "../experimentalFeatures.ts";
+import type { ThemeSetting } from "../../theme/themes.ts";
 import type { OcrReadiness, OcrRegion, OcrRuntime } from "../ocrReadiness.ts";
 import type { SETTINGS_ARRAY } from "./ui_config_setter";
 
@@ -111,6 +112,7 @@ export interface SettingValues {
     MessageLogUiScaling: number;
     SendMessageButtonType: string;
     CatalogLayout: string;
+    Theme: ThemeSetting;
     ShowResendButton: boolean;
     SelectedFontFamily: string;
     Transparency: number;
