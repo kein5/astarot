@@ -39,6 +39,14 @@
     background: var(--vox_surface); box-shadow: var(--vox_shadow_overlay);
 }
 .menu_readout { margin: .4rem; font-size: 1.2rem; }
+// Under the subtitle overlay's row: where its position and look are set (#939). A link, as the
+// guide links are: it leads to another place, it switches nothing.
+.menu_link {
+    display: block; margin: 0 .4rem .6rem auto; padding: .2rem .4rem; border: 0; background: none; cursor: pointer;
+    font-size: 1.2rem; text-align: end; color: var(--primary_300_color); text-decoration: underline;
+}
+.menu_link:hover { color: var(--primary_200_color); }
+.menu_link:focus-visible { outline: .2rem solid var(--primary_200_color); outline-offset: .2rem; border-radius: .4rem; }
 // A narrow column keeps the icon; the words stay the button's accessible name.
 // The same width as the stop actions' short words (TopBar.module.scss).
 @mixin narrow_menu {

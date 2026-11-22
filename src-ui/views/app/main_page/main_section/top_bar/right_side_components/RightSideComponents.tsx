@@ -7,7 +7,7 @@ import HelpSvg from "@images/help.svg?react";
 import TuneSvg from "@images/mui_discover_tune.svg?react";
 import FlowSvg from "@images/io_flow.svg?react";
 
-import { useStore_OpenedQuickSetting } from "@store";
+import { useStore_OpenedQuickSetting, useStore_IsOpenedConfigPage, useStore_SelectedConfigTabId } from "@store";
 import {
     useIsOscAvailable,
 } from "@logics_common";
@@ -15,9 +15,11 @@ import { useAppUpdate } from "../../../../../../logics/common/useAppUpdate";
 
 import {
     useAppearance,
-    useVr,
     useOthers,
 } from "@logics_configs";
+import { useOverlayQuickToggle } from "../../../../../../logics/configs/useOverlayQuickToggle";
+import { revealSetting } from "../../../../../../logics/configs/revealSetting.ts";
+import { pageLinkLabel } from "../../../../config_page/setting_section/setting_box/_components/page_pointer/PagePointer";
 import { useMainFunction } from "@logics_main";
 import { useIoFlow } from "../../../../../../logics/flow/useIoFlow";
 import { OpenQuickSettingButton } from "./_buttons/OpenQuickSettingButton";
@@ -54,6 +56,8 @@ export const RightSideComponents = () => {
 // The window and VRChat toggles a conversation rarely needs: always on top,
 // VRChat microphone mute sync and the subtitle overlay. One button opens them
 // and says how many are on, so the bar keeps its room for stop and mute.
+// Each is switched in place (#939): the subtitle overlay too, whose position and
+// look are set on the captions and VR page, which a line under it opens.
 // It closes with Escape (focus returns to the button), a press outside, or
 // when focus moves elsewhere. Its tooltip is its name: drawn where a narrow bar
 // hides the words, and left out where they are in sight (Tooltip).
@@ -62,8 +66,9 @@ const QuickSettingsMenu = () => {
     const { currentForegroundStatus, toggleForeground } = useMainFunction();
     const { currentIsOscAvailable, oscUnavailableLabelKey } = useIsOscAvailable();
     const { currentEnableVrcMicMuteSync, toggleEnableVrcMicMuteSync } = useOthers();
-    const { currentIsEnabledOverlaySmallLog, currentIsEnabledOverlayLargeLog } = useVr();
-    const { updateOpenedQuickSetting } = useStore_OpenedQuickSetting();
+    const overlay = useOverlayQuickToggle();
+    const { updateIsOpenedConfigPage } = useStore_IsOpenedConfigPage();
+    const { updateSelectedConfigTabId } = useStore_SelectedConfigTabId();
     const [open, setOpen] = useState(false);
     const root = useRef<HTMLDivElement>(null), opener = useRef<HTMLButtonElement>(null);
     const panel = useId();
@@ -86,8 +91,14 @@ const QuickSettingsMenu = () => {
         };
     }, [open]);
 
-    const overlay = currentIsEnabledOverlaySmallLog.data === true || currentIsEnabledOverlayLargeLog.data === true;
-    const on = [currentForegroundStatus.data, currentEnableVrcMicMuteSync.data, overlay].filter(value => value === true).length;
+    const on = [currentForegroundStatus.data, currentEnableVrcMicMuteSync.data, overlay.on].filter(value => value === true).length;
+    // The overlays' position, look and timing: the captions and VR page, opened on them.
+    const openOverlaySettings = () => {
+        setOpen(false);
+        updateSelectedConfigTabId("vr");
+        updateIsOpenedConfigPage(true);
+        revealSetting({ setting_id: "vr_overlay" });
+    };
     const sync_available = currentIsOscAvailable.data !== false;
 
     return (
@@ -125,10 +136,12 @@ const QuickSettingsMenu = () => {
                 <OpenQuickSettingButton
                     row
                     label={t("config_page.vr.section_label_overlay")}
-                    opens_dialog
-                    variable={overlay}
-                    onClickFunction={() => { setOpen(false); updateOpenedQuickSetting("overlay"); }}
+                    variable={overlay.on}
+                    is_pending={overlay.pending}
+                    onClickFunction={overlay.toggle}
                 />
+                <button type="button" className={styles.menu_link} onClick={openOverlaySettings}>
+                    {pageLinkLabel(t, "vr", t("main_page.overlay_settings_action"))}</button>
                 {/* Within reach of the conversation: can a message sent now arrive in VRChat? */}
                 <VrchatPresence className={styles.menu_readout} />
             </div>}

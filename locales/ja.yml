@@ -362,6 +362,7 @@ main_page:
     quick_settings: "クイック設定"
     quick_settings_on: "{{count}}件オン"
     quick_settings_all_off: "すべてオフ"
+    overlay_settings_action: "位置や見た目を設定"
     # The row under the main switches that shows the ones the usage presets hide (#554, Q-10).
     more_features: "ほかの機能（{{number}}）"
     more_features_hide: "ほかの機能を隠す"
