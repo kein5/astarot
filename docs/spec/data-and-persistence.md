@@ -378,7 +378,7 @@ WindowsとLinuxの開発ビルドは、これまでどおり実行ファイル�
 
 旧のユニットを止めたとき、中核は`MANAGED_ROUTE_RENAME_NOTICE_PENDING`（真偽値、既定は`false`、保存する）を真にし、`process.log`に`[voice] the managed route retired its legacy units`の1行を書く。真の間は`/get/data/voice_route`の応答に`"notice": "managed_route_renamed"`が付き、音声経路の欄にVRChatでマイクを選び直す案内が出る。利用者が案内を閉じると`/set/disable/managed_route_rename_notice`を送り、偽にする。応答は案内のない音声経路の状態である。新しい経路の準備に失敗しても、旧のユニットを止めたあとなら案内を残す。
 
-旧の名前を扱うのは`audio_route::READS_LEGACY`が真の間である。ADR-014の2.11は0.6.xの間としていた。偽にすると、旧のユニット、旧の名前の手で置いた設定、旧の接頭辞のノードには触れず、読みもしない。
+旧の名前を読む（旧の接頭辞のノードとストリームを候補から外す、旧の名前の手で置いた設定を見つける、中核のものでない旧の経路を知らせる）のは`audio_route::READS_LEGACY_NAMES`が真の間で、新しい名前を出した版の系列の間である（0.7.0で出せば0.7.xの間）。旧のユニットの片付け（0.6.0までの中核が書いたものと完全に一致するユニットだけを止めて消す）は`audio_route::RETIRES_LEGACY_UNITS`で切り替え、期限を設けない。版を飛ばして更新した環境でも、旧の仮想マイクが残らないようにするためである。どちらも2026-11-23の決定で、ADR-014の2.11の注記にある。
 
 ### APIキーの保存先
 
