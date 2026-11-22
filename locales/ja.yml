@@ -2496,6 +2496,8 @@ studio:
     setup_preparing: "取得を準備しています"
     setup_downloading: "取得中 {{progress}}%"
     setup_first_run: "音声認識の準備ができていません。初期設定でまとめて準備できます。"
+    setup_first_run_translation: "翻訳の準備ができていません。初期設定で準備できます。"
+    setup_first_run_both: "音声認識と翻訳の準備ができていません。初期設定でまとめて準備できます。"
     setup_first_run_open: "初期設定を開く"
     startup_label: "起動の状況"
     startup_status: "ASTAROTを起動しています。準備ができると操作できます。"

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import { recognitionState, recommendedAsr, vadEntry, setupPlan, planModels, planBytes, nextAction, stepState,
-    setupOpensByItself } from "./firstRunSetup.ts";
+    setupOpensByItself, setupWork, hasSetupWork } from "./firstRunSetup.ts";
 import type { RunView, SetupCatalog } from "./firstRunSetup.ts";
 import { unchecked } from "../test/hookHarness.ts";
 
@@ -107,9 +107,20 @@ test("each step shows whether it is done, under way, waiting or failed", () => {
     assert.deepEqual(steps().map((_, i) => stepState(steps(), i, half, null)), ["done", "working", "waiting", "waiting"]);
 });
 
-test("the setup opens by itself only while pending and the recognition needs it", () => {
-    assert.equal(setupOpensByItself(true, "needs_setup"), true);
-    for (const state of ["ready", "cloud", "own_server", "unknown"] as const) assert.equal(setupOpensByItself(true, state), false);
-    assert.equal(setupOpensByItself(false, "needs_setup"), false);
-    assert.equal(setupOpensByItself(null, "needs_setup"), false);
+test("the setup opens by itself only while pending and something it prepares is left", () => {
+    assert.equal(setupOpensByItself(true, setupWork("needs_setup", undefined)), true);
+    for (const state of ["ready", "cloud", "own_server", "unknown"] as const) assert.equal(setupOpensByItself(true, setupWork(state, undefined)), false);
+    assert.equal(setupOpensByItself(false, setupWork("needs_setup", undefined)), false);
+    assert.equal(setupOpensByItself(null, setupWork("needs_setup", undefined)), false);
+    // #936: the recognition ready and the translation's model missing (and fetchable): the setup prepares it.
+    assert.equal(setupOpensByItself(true, setupWork("ready", "review")), true);
+    assert.equal(setupOpensByItself(true, setupWork("ready", "choose")), false, "a model it cannot fetch is not its work");
+});
+
+test("what the setup has left: the recognition, the translation's model, or both", () => {
+    assert.deepEqual(setupWork("needs_setup", "review"), { recognition: true, translation: true });
+    assert.deepEqual(setupWork("cloud", "review"), { recognition: false, translation: true });
+    assert.deepEqual(setupWork("ready", undefined), { recognition: false, translation: false });
+    assert.equal(hasSetupWork(setupWork("ready", undefined)), false);
+    assert.equal(hasSetupWork(setupWork("own_server", "review")), true);
 });

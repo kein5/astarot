@@ -121,6 +121,10 @@ test("it opens by itself only while pending, after the other notices, and when t
     assert.equal((await setup(context, world({ telemetryPending: true }))).render(), null);
     assert.equal((await setup(context, world({ engine: "Deepgram" }))).render(), null);
     assert.equal((await setup(context, world({ engine: "SpeechCpp", server: "external" }))).render(), null);
+    // #936: the recognition ready and the translation's model left (fetchable): it opens for that.
+    const ready = { engine: "SpeechCpp", server: "bundled", paths: { model: "/m/a.gguf", vad_model: "/m/v.gguf" } };
+    assert.notEqual((await setup(context, world({ ...ready, needs: [{ id: "translation", action: "review", weight: { id: "m2m100_418M-ct2-int8" } }] }))).render(), null);
+    assert.equal((await setup(context, world({ ...ready, needs: [{ id: "translation", action: "choose", weight: { id: "x" } }] }))).render(), null);
     // Opened from the first screen it shows whatever the notice says.
     assert.notEqual((await setup(context, world({ notice: false, opened: true }))).render(), null);
 });

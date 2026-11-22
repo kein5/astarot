@@ -2496,6 +2496,8 @@ studio:
     setup_preparing: "Preparing the download"
     setup_downloading: "Downloading {{progress}}%"
     setup_first_run: "Speech recognition is not ready yet. The setup can prepare it in one go."
+    setup_first_run_translation: "Translation is not ready yet. The setup can prepare it."
+    setup_first_run_both: "Speech recognition and translation are not ready yet. The setup can prepare them in one go."
     setup_first_run_open: "Open setup"
     startup_label: "Starting up"
     startup_status: "Starting ASTAROT. You can use it once it is ready."

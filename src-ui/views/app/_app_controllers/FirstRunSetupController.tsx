@@ -15,7 +15,7 @@ import { downloadProgress } from "../../../logics/main/setupNeeds";
 import { useOpenTranslatorList } from "../../../logics/translation/useOpenTranslatorList";
 import { useFirstRunSetup } from "../../../logics/setup/useFirstRunSetup";
 import { useRecognitionState } from "../../../logics/setup/useRecognitionState";
-import { setupPlan, planModels, planBytes, nextAction, stepState, setupOpensByItself }
+import { setupPlan, planModels, planBytes, nextAction, stepState, setupOpensByItself, setupWork }
     from "../../../logics/setup/firstRunSetup.ts";
 import type { RecognitionState, RunView, SetupEntry, SetupStep } from "../../../logics/setup/firstRunSetup.ts";
 import { translationEntry, translationNext } from "../../../logics/setup/translationSetup.ts";
@@ -96,18 +96,22 @@ export const FirstRunSetupController = () => {
     const downloads = useModelDownloads();
     const ready = currentIsBackendReady.data === true;
     const { state: recognition, engine, server, paths } = useRecognitionState();
+    // What is left to prepare: the recognition, the translation's model, or both (#936).
+    const { needs } = useSetupNeeds();
+    const translationNeed = needs.find(need => need.id === "translation");
+    const work = setupWork(recognition, translationNeed?.action);
 
     // Other first-run notices come first; one dialog at a time.
     const othersFirst = currentTelemetryNotice.state === "ok" && currentTelemetryNotice.data?.pending === true;
-    const byItself = ready && !setup.settled && !othersFirst && setupOpensByItself(setup.notice, recognition);
+    const byItself = ready && !setup.settled && !othersFirst && setupOpensByItself(setup.notice, work);
     // Once open by itself it stays open until the user closes it, even when the run makes it ready.
     const [shown, setShown] = useState(false);
     useEffect(() => { if (byItself) setShown(true); }, [byItself]);
     // Known not to be needed: it will not open by itself this run, so the next notice may.
     const known = recognition !== "unknown" && setup.notice !== null;
     useEffect(() => {
-        if (ready && known && !shown && !setupOpensByItself(setup.notice, recognition)) setup.markSettled();
-    }, [ready, known, shown, setup.notice, recognition]);
+        if (ready && known && !shown && !setupOpensByItself(setup.notice, work)) setup.markSettled();
+    }, [ready, known, shown, setup.notice, work.recognition, work.translation]);
 
     const open = setup.opened || shown;
     const { dialog, close } = useConsentDialog(open);
@@ -125,9 +129,7 @@ export const FirstRunSetupController = () => {
     useRunner({ run, setRun, view, downloads, realtime, setSelectedTranscriptionEngine });
 
     // The translation's model: prepared here while the selected model can be downloaded (#936).
-    const { needs } = useSetupNeeds();
     const { currentSelectedCTranslate2WeightType } = useTranslation();
-    const translationNeed = needs.find(need => need.id === "translation");
     const [translationRun, setTranslationRun] = useState<TranslationRun | null>(null);
     const translationModel = translationRun?.entry
         ?? (translationNeed?.action === "review" ? translationEntry(downloads.catalog, currentSelectedCTranslate2WeightType.data) : null);
