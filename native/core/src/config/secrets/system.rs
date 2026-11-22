@@ -12,6 +12,10 @@
 //!   to `secrets.json` again: the file only loses keys.
 //! - Deleting removes the key from `secrets.json` first (so a plain-text copy goes even when the
 //!   OS store cannot answer), then from the OS store.
+//! - The OS store under the names of 0.6.0 ([`SystemStore::with_older_names`], ADR-014 2.9) is
+//!   read when the current names hold nothing, before `secrets.json`: a key found there is used
+//!   and named by [`SecretStore::take_unmoved`], and writing it copies it to the current names.
+//!   The old item stays, so 0.6.0 still finds the key; deleting removes it under both names.
 
 use super::{FileStore, ReadFailure, SecretStore, StoreError, Vault};
 use std::sync::{Arc, Mutex};
@@ -19,12 +23,19 @@ use std::sync::{Arc, Mutex};
 pub struct SystemStore {
     file: FileStore,
     vault: Arc<dyn Vault>,
+    /// The same OS store under the names 0.6.0 wrote, while they are read.
+    older: Option<Arc<dyn Vault>>,
     unmoved: Mutex<Vec<String>>,
 }
 
 impl SystemStore {
     pub fn new(file: FileStore, vault: Arc<dyn Vault>) -> Self {
-        Self { file, vault, unmoved: Mutex::new(Vec::new()) }
+        Self { file, vault, older: None, unmoved: Mutex::new(Vec::new()) }
+    }
+
+    /// Also reads the keys 0.6.0 kept under its names in `older`, and moves them.
+    pub fn with_older_names(self, older: Arc<dyn Vault>) -> Self {
+        Self { older: Some(older), ..self }
     }
 
     /// `secrets.json`, the place keys move from.
@@ -37,13 +48,27 @@ impl SystemStore {
         self.file.store_id().ok().flatten()
     }
 
-    /// A key read from `secrets.json`: used, and named as one to move.
-    fn from_file(&self, entry: &str, value: String) -> Result<Option<String>, StoreError> {
+    /// A key read from an older place (`secrets.json`, the names of 0.6.0): used, and named as
+    /// one to move.
+    fn unmoved(&self, entry: &str, value: String) -> Result<Option<String>, StoreError> {
         let mut unmoved = self.unmoved.lock().unwrap();
         if !unmoved.iter().any(|e| e == entry) {
             unmoved.push(entry.to_string());
         }
         Ok(Some(value))
+    }
+
+    /// The key under the names of 0.6.0, when they are read.
+    fn older_fetch(&self, scope: &str, entry: &str) -> Result<Option<String>, StoreError> {
+        self.older.as_ref().map_or(Ok(None), |older| older.fetch(scope, entry))
+    }
+
+    /// A key the file still holds, while the OS store cannot answer; otherwise that failure.
+    fn file_or(&self, entry: &str, error: StoreError) -> Result<Option<String>, StoreError> {
+        match self.file.lookup(entry) {
+            Ok(Some(value)) => self.unmoved(entry, value),
+            _ => Err(error),
+        }
     }
 }
 
@@ -61,7 +86,7 @@ impl SecretStore for SystemStore {
         };
         let Some(scope) = scope else {
             return match self.file.lookup(entry) {
-                Ok(Some(value)) => self.from_file(entry, value),
+                Ok(Some(value)) => self.unmoved(entry, value),
                 Ok(None) => Ok(None),
                 Err(_) => Err(StoreError::Unreadable),
             };
@@ -75,16 +100,18 @@ impl SecretStore for SystemStore {
                 }
                 Ok(Some(value))
             }
-            Ok(None) => match self.file.lookup(entry) {
-                Ok(Some(value)) => self.from_file(entry, value),
-                Ok(None) => Ok(None),
-                Err(_) => Err(StoreError::Unreadable),
+            Ok(None) => match self.older_fetch(&scope, entry) {
+                Ok(Some(value)) => self.unmoved(entry, value),
+                Ok(None) => match self.file.lookup(entry) {
+                    Ok(Some(value)) => self.unmoved(entry, value),
+                    Ok(None) => Ok(None),
+                    Err(_) => Err(StoreError::Unreadable),
+                },
+                // The old names cannot answer now: the key may be there, so "none" would be wrong.
+                Err(error) => self.file_or(entry, error),
             },
             // The OS store cannot answer now: a key the file still holds is used meanwhile.
-            Err(error) => match self.file.lookup(entry) {
-                Ok(Some(value)) => self.from_file(entry, value),
-                _ => Err(error),
-            },
+            Err(error) => self.file_or(entry, error),
         }
     }
 
@@ -116,7 +143,12 @@ impl SecretStore for SystemStore {
             Err(ReadFailure::Io) => Err(StoreError::WriteFailed),
         };
         let from_vault = match self.file.store_id() {
-            Ok(Some(scope)) => self.vault.remove(&scope, entry),
+            Ok(Some(scope)) => {
+                let current = self.vault.remove(&scope, entry);
+                // Under the old names too: a deleted key must not come back from there.
+                let older = self.older.as_ref().map_or(Ok(()), |older| older.remove(&scope, entry));
+                current.and(older)
+            }
             // No id that can be read: nothing of this folder's can be found in the OS store.
             Ok(None) | Err(ReadFailure::Undecodable) => Ok(()),
             Err(ReadFailure::Io) => Err(StoreError::WriteFailed),
@@ -160,6 +192,11 @@ mod tests {
 
         fn store(&self, vault: &Arc<MemoryStore>) -> SystemStore {
             SystemStore::new(FileStore::new(self.path()), Arc::clone(vault) as Arc<dyn Vault>)
+        }
+
+        /// The app's store, with `older` standing in for the OS store under the names of 0.6.0.
+        fn with_older(&self, vault: &Arc<MemoryStore>, older: &Arc<MemoryStore>) -> SystemStore {
+            self.store(vault).with_older_names(Arc::clone(older) as Arc<dyn Vault>)
         }
 
         /// `secrets.json` as 0.5 wrote it.
@@ -381,6 +418,93 @@ mod tests {
         assert!(file["store_id"].is_string(), "{file}");
         assert_eq!(folder.file_entry("AUTH_KEYS/DeepL_API").as_deref(), Some(KEY));
         assert_eq!(folder.file_entry("AUTH_KEYS/OpenAI_API").as_deref(), Some(OTHER));
+    }
+
+    #[test]
+    fn a_key_under_the_names_of_0_6_0_is_used_copied_when_written_and_left_for_0_6_0() {
+        let folder = Folder::new();
+        let (vault, older) = (MemoryStore::new(), MemoryStore::new());
+        // 0.6.0 kept the key in the OS store under its names.
+        folder.store(&older).write("AUTH_KEYS/DeepL_API", KEY).unwrap();
+        let scope = folder.store(&older).scope().unwrap();
+        let store = folder.with_older(&vault, &older);
+        assert_eq!(store.read("AUTH_KEYS/DeepL_API"), Ok(Some(KEY.into())));
+        assert_eq!(store.read("AUTH_KEYS/OpenAI_API"), Ok(None));
+        assert_eq!(store.take_unmoved(), ["AUTH_KEYS/DeepL_API"]);
+        assert!(vault.snapshot().is_empty(), "reading copies nothing");
+
+        write_verified(&store, "AUTH_KEYS/DeepL_API", KEY).unwrap();
+        assert_eq!(vault.get(&MemoryStore::scoped(&scope, "AUTH_KEYS/DeepL_API")).as_deref(), Some(KEY));
+        assert_eq!(older.get(&MemoryStore::scoped(&scope, "AUTH_KEYS/DeepL_API")).as_deref(), Some(KEY), "0.6.0 still finds it");
+        assert_eq!(store.read("AUTH_KEYS/DeepL_API"), Ok(Some(KEY.into())));
+        assert!(store.take_unmoved().is_empty(), "moved");
+        assert!(!folder.raw().contains(KEY), "never through the file");
+    }
+
+    #[test]
+    fn the_current_names_win_over_those_of_0_6_0() {
+        let folder = Folder::new();
+        let (vault, older) = (MemoryStore::new(), MemoryStore::new());
+        folder.store(&older).write("AUTH_KEYS/DeepL_API", OTHER).unwrap();
+        folder.store(&vault).write("AUTH_KEYS/DeepL_API", KEY).unwrap();
+        let store = folder.with_older(&vault, &older);
+        assert_eq!(store.read("AUTH_KEYS/DeepL_API"), Ok(Some(KEY.into())));
+        assert!(store.take_unmoved().is_empty());
+        assert_eq!(older.snapshot().len(), 1, "the old item is left alone");
+    }
+
+    #[test]
+    fn a_key_in_both_the_names_of_0_6_0_and_the_file_is_taken_from_the_os_store() {
+        // 0.6.0 moved the key to the OS store, and removing the file's copy failed.
+        let folder = Folder::new();
+        let (vault, older) = (MemoryStore::new(), MemoryStore::new());
+        folder.store(&older).write("AUTH_KEYS/DeepL_API", KEY).unwrap();
+        FileStore::new(folder.path()).write("AUTH_KEYS/DeepL_API", "an-older-copy").unwrap();
+        let store = folder.with_older(&vault, &older);
+        assert_eq!(store.read("AUTH_KEYS/DeepL_API"), Ok(Some(KEY.into())));
+        write_verified(&store, "AUTH_KEYS/DeepL_API", KEY).unwrap();
+        assert_eq!(folder.file_entry("AUTH_KEYS/DeepL_API"), None, "the file's copy goes with the move");
+    }
+
+    #[test]
+    fn deleting_removes_the_key_under_both_names() {
+        let folder = Folder::new();
+        let (vault, older) = (MemoryStore::new(), MemoryStore::new());
+        folder.store(&older).write("AUTH_KEYS/DeepL_API", KEY).unwrap();
+        folder.store(&older).write("AUTH_KEYS/OpenAI_API", OTHER).unwrap();
+        let store = folder.with_older(&vault, &older);
+        assert_eq!(store.read("AUTH_KEYS/DeepL_API"), Ok(Some(KEY.into())));
+        write_verified(&store, "AUTH_KEYS/DeepL_API", KEY).unwrap();
+
+        store.delete("AUTH_KEYS/DeepL_API").unwrap();
+        assert_eq!(store.read("AUTH_KEYS/DeepL_API"), Ok(None), "it does not come back from the old names");
+        // A key that never moved goes from the old names as well.
+        older.set_faults(Faults { locked: true, ..Faults::default() });
+        assert_eq!(store.delete("AUTH_KEYS/OpenAI_API"), Err(StoreError::Locked), "tried again later");
+        older.set_faults(Faults::default());
+        store.delete("AUTH_KEYS/OpenAI_API").unwrap();
+        assert!(vault.snapshot().is_empty(), "{:?}", vault.snapshot().keys());
+        assert!(older.snapshot().is_empty(), "{:?}", older.snapshot().keys());
+    }
+
+    #[test]
+    fn names_of_0_6_0_that_cannot_answer_are_not_taken_as_no_key() {
+        for faults in [Faults { unavailable: true, ..Faults::default() }, Faults { locked: true, ..Faults::default() }] {
+            let folder = Folder::new();
+            let (vault, older) = (MemoryStore::new(), MemoryStore::new());
+            folder.store(&older).write("AUTH_KEYS/DeepL_API", KEY).unwrap();
+            older.set_faults(faults);
+            let store = folder.with_older(&vault, &older);
+            let error = if faults.locked { StoreError::Locked } else { StoreError::Unavailable };
+            assert_eq!(store.read("AUTH_KEYS/DeepL_API"), Err(error), "{faults:?}");
+            // A key 0.5 left in the file is still used meanwhile.
+            FileStore::new(folder.path()).write("AUTH_KEYS/OpenAI_API", OTHER).unwrap();
+            assert_eq!(store.read("AUTH_KEYS/OpenAI_API"), Ok(Some(OTHER.into())), "{faults:?}");
+            assert!(vault.snapshot().is_empty(), "{faults:?}: nothing written");
+            // Once they answer, the key is found.
+            older.set_faults(Faults::default());
+            assert_eq!(store.read("AUTH_KEYS/DeepL_API"), Ok(Some(KEY.into())), "{faults:?}");
+        }
     }
 
     #[test]

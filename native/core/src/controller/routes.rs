@@ -266,6 +266,9 @@ pub fn routes(core: &Arc<Core>) -> Routes {
     b.get("/get/data/catalog_layout", OPEN, "CATALOG_LAYOUT");
     let layout = store(core, "CATALOG_LAYOUT", "VALIDATION_CONFIG_VALUE_INVALID");
     b.add("/set/data/catalog_layout", OPEN, layout);
+    b.get("/get/data/theme", OPEN, "THEME");
+    let theme = store(core, "THEME", "VALIDATION_CONFIG_VALUE_INVALID");
+    b.add("/set/data/theme", OPEN, theme);
     // What the AI translation providers are asked besides the text (#392).
     b.get("/get/data/llm_translation_temperature", OPEN, "LLM_TRANSLATION_TEMPERATURE");
     let temperature = store(core, "LLM_TRANSLATION_TEMPERATURE", "VALIDATION_CONFIG_VALUE_INVALID");
