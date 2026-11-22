@@ -8,7 +8,7 @@ import { findIn, hooks, loadModule, nodesIn } from "../../../../../../../logics/
 // is open. Every fold of the app is drawn with it.
 async function fold() {
     const runtime = hooks();
-    const { Fold } = await loadModule<typeof import("./Fold.tsx")>(new URL("./Fold.tsx", import.meta.url), runtime);
+    const { Fold } = await loadModule<typeof import("./Fold.tsx")>(new URL("./Fold.tsx", import.meta.url), runtime, { "../hint/Hint": { Hint: "hint" } });
     return (props: Parameters<typeof Fold>[0]) => runtime.render(Fold, props);
 }
 
@@ -42,6 +42,24 @@ test("a link is the words it opens on with a chevron after them, no Open or Clos
     const toggle = findIn(summary, node => node.props.className === "toggle");
     assert.equal(nodesIn(toggle).filter(node => typeof node.props.children === "string").length, 0);
     assert.ok(nodesIn(toggle).some(node => node.type === "svg"));
+});
+
+// A fold whose purpose is a hint (#614): the mark sits beside the title, inside the summary's
+// words, and the words are the summary's accessible description, as a setup section's title has it.
+test("a fold with a hint carries it beside its title, as the summary's description", async () => {
+    const draw = await fold();
+    const tree = draw({ summary: "Register a model", hint: "What registering does", children: "form" });
+    const [summary] = tree.props.children;
+    assert.equal(summary.props["data-hint-row"], true);
+    const host = findIn(summary, node => node.props["data-hint-host"] === true);
+    const hint = findIn(host, node => node.type === "hint");
+    assert.deepEqual([hint.props.text, hint.props.row], ["What registering does", true]);
+    assert.equal(summary.props["aria-describedby"], hint.props.id);
+    assert.equal(host.props.children[0], "Register a model", "the title comes first, the mark after it");
+    // Without one, nothing is added.
+    const plain = draw({ summary: "Register a model", children: "form" });
+    assert.equal(plain.props.children[0].props["aria-describedby"], undefined);
+    assert.ok(!nodesIn(plain).some(node => node.type === "hint"));
 });
 
 // No fold of the app's settings or catalogs is drawn without it: a bare <details> would bring back

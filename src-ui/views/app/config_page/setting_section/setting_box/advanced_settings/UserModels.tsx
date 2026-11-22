@@ -6,6 +6,7 @@ import { extensionOf } from "../../../../../../logics/common/fileDrop";
 import { FileDropZone } from "../_components/file_drop_zone/FileDropZone";
 import styles from "./VoiceSettings.module.scss";
 import { Fold } from "../_components/fold/Fold";
+import { useHintDescriptions } from "../_components/hint/Hint";
 import { CatalogFacts } from "./catalogLayout";
 import type { CatalogLayout } from "./catalogLayout";
 import { AuditionButton, AuditionNote } from "./VoiceAudition";
@@ -126,14 +127,16 @@ export const UserModelRegistration = ({ target, busy }: UserModelRegistrationPro
         setSentFor({ name: sent, before: (userModels?.models ?? []).filter(model => sameName(model, sent)).map(model => model.id) });
         send("/run/register_user_model", checked.request);
     };
-    return <Fold data-user-model-register summary={t("user_models.register_title")}>
+    // What registering does is the title's hint (#614); whose files they are stays in view, as a warning.
+    const hints = useHintDescriptions();
+    return <Fold data-user-model-register summary={t("user_models.register_title")} hint={hints ? t("user_models.register_help") : undefined}>
         {/* Not a <form>: the catalog sits inside the speech server settings form, and a nested
             form would submit (save) that one too. Enter in a field registers, as a form would. */}
         <div role="group" aria-label={t("user_models.register_label", { group: t(`model_catalog.group.${target}`) })}
             onKeyDown={event => {
                 if (event.key === "Enter" && tagOf(event.target) === "INPUT") { event.preventDefault(); if (!busy) submit(); }
             }}>
-            <p>{t("user_models.register_help")}</p>
+            {!hints && <p>{t("user_models.register_help")}</p>}
             <p>{t("user_models.terms_help")}</p>
             <label>{t("user_models.name")}
                 <input type="text" value={name} maxLength={USER_MODEL_NAME_LIMIT} disabled={busy} spellCheck={false}

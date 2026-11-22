@@ -57,6 +57,7 @@ const loadSection = async (runtime: HookRuntime) => {
         "../_components": { SectionLabelComponent: "section-label" },
         "../_components/hint/Hint": { useHintDescriptions: () => false },
         "../_components/fold/Fold": { Fold: "fold" },
+        "../_components/lead/Lead": { Lead: "lead" },
         "../advanced_settings/catalogHeading": heading,
         "../advanced_settings/catalogLayout": { CatalogSection: "catalog-section", useCatalogLayout: () => "list", CatalogList: "ul", CatalogFacts: "catalog-facts", CatalogLayoutSwitch: "catalog-layout-switch" },
         "./TranslationLlamaRuntimes": { TranslationLlamaRuntimes: "llama-runtimes" },
