@@ -19,7 +19,7 @@ ASTAROT（旧名VRCT-VOX）は[misyaguziya/VRCT](https://github.com/misyaguziya/
 
 | 対象 | 名称 |
 |---|---|
-| 本体の実行名 | `vrct-vox`（npmとCargoのパッケージは0.6.0より後の版から`astarot`。実行名は`[[bin]]`で`vrct-vox`に保つ） |
+| 本体の実行名 | `vrct-vox`（npmとCargoのパッケージ、開発用のPythonのプロジェクト（`pyproject.toml`）は0.6.0より後の版から`astarot`。実行名は`[[bin]]`で`vrct-vox`に保つ） |
 | Pythonバックエンドの実行名（0.4まで。0.5.0の配布物には入らない） | `vrct-vox-sidecar` |
 | Linuxの配布物 | `VRCT-VOX-<version>-linux-x64-release.tar.gz`、同名の`.AppImage`、`.deb`、`.rpm`（0.4までは`linux-x64-vulkan`か`linux-x64-cpu`） |
 | Windowsの配布物 | `VRCT-VOX.zip`、`VRCT-VOX_setup.exe`。0.5.xまでは `VRCT-VOX_cuda.zip` も配布。ビルドが作るインストーラーは0.5.1から`ASTAROT_<version>_x64-setup.exe`で、リリースでは`VRCT-VOX_setup.exe`の名前で載せる |
