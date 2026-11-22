@@ -165,11 +165,15 @@ impl Ui {
 
     /// The first line after `from` that matches.
     pub fn wait_from(&self, from: usize, what: &str, matches: impl Fn(&Value) -> bool) -> Value {
-        let deadline = Instant::now() + TIMEOUT;
+        let start = Instant::now();
+        let deadline = start + Duration::from_secs(60);
         let (lock, cond) = &*self.seen;
         let mut seen = lock.lock().unwrap();
         loop {
             if let Some(found) = seen.lines.iter().skip(from).find(|l| matches(l)) {
+                if start.elapsed() > Duration::from_millis(1000) {
+                    eprintln!("[861] wait_from: {what} took {} ms", start.elapsed().as_millis());
+                }
                 return found.clone();
             }
             let left = deadline.saturating_duration_since(Instant::now());

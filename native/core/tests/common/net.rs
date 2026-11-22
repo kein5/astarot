@@ -39,10 +39,14 @@ pub fn port_free(host: &str, port: u16) -> bool {
 
 /// Waits up to 5 s for `condition`.
 pub fn eventually(what: &str, mut condition: impl FnMut() -> bool) {
-    let deadline = Instant::now() + Duration::from_secs(5);
+    let start = Instant::now();
+    let deadline = start + Duration::from_secs(60);
     while !condition() {
-        assert!(Instant::now() < deadline, "{what} did not happen within 5 s");
+        assert!(Instant::now() < deadline, "{what} did not happen within 60 s");
         std::thread::sleep(Duration::from_millis(20));
+    }
+    if start.elapsed() > Duration::from_millis(1000) {
+        eprintln!("[861] eventually: {what} took {} ms", start.elapsed().as_millis());
     }
 }
 

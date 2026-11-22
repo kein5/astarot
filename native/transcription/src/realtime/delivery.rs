@@ -309,8 +309,11 @@ impl Delivery {
                     terminal.pop_front();
                 }
             }
+            let diag = Instant::now();
             let admission = (self.inner.admit)(&update);
+            let admit_ms = diag.elapsed().as_millis();
             let shown = (admission.publish)(shown_payload);
+            eprintln!("[861] read: {} {} admit {admit_ms} ms, publish {} ms, mailbox waited {} ms", update.item_id, update.state, diag.elapsed().as_millis() - admit_ms, received.elapsed().as_millis() - diag.elapsed().as_millis());
             if update.is_final && !expired && !empty_final {
                 self.inner.pending.lock().unwrap_or_else(|e| e.into_inner()).insert(
                     update.item_id.clone(),

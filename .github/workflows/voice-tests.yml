@@ -18,86 +18,15 @@ env:
   UV_PYTHON_PREFERENCE: only-system
   UV_PYTHON_DOWNLOADS: never
 jobs:
-  # The developer tools, the release and distribution checks and the UI (Python and Node), and on
-  # Linux the native helpers on a private PipeWire graph. The Python backend's own jobs
-  # (backend-windows, backend-linux) went with it in 0.6.0 (#285); the core is core-integration's.
-  headless:
-    timeout-minutes: 30
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest]
-    runs-on: ${{ matrix.os }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      # Cocogitto too: the tooling scope runs tools/changelog.py against real commits. Biome: the
-      # ui scope lints and checks the format of the UI's TypeScript. Rust on Linux: the voice gate
-      # helper's test on a private PipeWire graph (below).
-      - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
-        with:
-          version: 2026.11.8
-          install_args: ${{ runner.os == 'Linux' && 'node python uv cocogitto biome rust' || 'node python uv cocogitto biome' }}
-      - run: uv venv
-      - run: uv export --frozen --no-header --no-annotate --format requirements-txt --no-emit-project --only-group voice-test --output-file voice-test-requirements.txt
-      - run: uv pip sync --require-hashes voice-test-requirements.txt
-      - if: runner.os == 'Linux'
-        # The runner's package mirror sometimes cannot be resolved for a while. Try again before failing the job.
-        run: |
-          for attempt in 1 2 3 4; do
-            sudo apt-get update && sudo apt-get install -y pkg-config gcc g++ meson ninja-build libsndfile1-dev libglib2.0-dev liblua5.4-dev libclang-dev && break
-            if [ "$attempt" = 4 ]; then exit 1; fi
-            sleep $((attempt * 20))
-          done
-      - name: Prepare tested PipeWire API in an isolated prefix
-        if: runner.os == 'Linux'
-        run: |
-          bash tools/ci/setup_pipewire.sh "$RUNNER_TEMP/vrct-pipewire"
-          cat "$RUNNER_TEMP/vrct-pipewire/environment" >> "$GITHUB_ENV"
-          echo "$RUNNER_TEMP/vrct-pipewire/prefix/bin" >> "$GITHUB_PATH"
-      - if: runner.os == 'Linux'
-        run: uv run --no-project python tools/build_voice_gate.py
-      # On a PipeWire and WirePlumber of their own: the real astarot-voice-gate refuses what it was
-      # not given (decision 89) and, heard through the managed microphone, keeps speech audible
-      # while it suppresses the direct voice; a conversion on the managed route captures its
-      # microphone and plays into the managed VC input (decision 11;
-      # docs/voice-stack/core-integration.md).
-      # libclang: the crate binds libpipewire-0.3.
-      - name: Voice gate helper and managed conversion devices on a private PipeWire graph
-        if: runner.os == 'Linux'
-        run: cargo test --locked --manifest-path native/audio-routing/Cargo.toml --test voice_gate_private --test managed_vc_private --test direct_suppression_private -- --ignored
-      - run: uv run --no-project python tools/dev.py check --scope tooling
-      - run: uv run --no-project python tools/dev.py check --scope voice
-      - run: uv run --no-project python tools/dev.py check --scope lint
-      # Realtime recognition reads a microphone and a speaker's monitor through the PipeWire
-      # capture of vrct-audio-routing (decision 2 of #733), on a private graph.
-      - name: Realtime recognition's capture on a private PipeWire graph
-        if: runner.os == 'Linux'
-        run: cargo test --locked --manifest-path native/transcription/Cargo.toml --features pipewire --test pipewire_capture_private -- --ignored
-      # The core on the same kind of graph, with its own voice platform and the real
-      # astarot-voice-gate (#746): typed chat is heard once on the managed microphone, and a stop,
-      # a mute, the switch and a failed speech server silence it; a conversion plays into the
-      # managed VC input (decision 11). Until 0.6.0 the app's window checked the speech in
-      # tests/platform/test_native_voice.py, with the Python backend's PipeWire parts.
-      - if: runner.os == 'Linux'
-        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
-        with:
-          workspaces: native/core
-      - name: The core's speech and conversion on the managed route of a private PipeWire graph
-        if: runner.os == 'Linux'
-        run: cargo test --locked --manifest-path native/core/Cargo.toml --features pipewire --test spoken_route_live --test voice_managed_live -- --ignored
-      - run: npm ci --ignore-scripts
-      - run: uv run --no-project python tools/dev.py check --scope ui
-  # The Rust backend core through the connection the UI uses (Issue #285): start-up and
-  # shut-down, settings carried over from the Python backend, the error codes, and the request
-  # rules. No model, device or network.
+  # Temporary diagnostic run for Issue #861 (never merged): the Windows core tests that wait a
+  # fixed time, run whole and repeatedly, with timings of the font index, the caption drawing,
+  # the overlay upload and the realtime read loop.
   core-integration:
-    timeout-minutes: 30
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -114,179 +43,25 @@ jobs:
             native/translation
             native/translate-onnx
             native/tts
-      # The names the app goes by outside its code, and the VRCT-VOX ones they replace (ADR-014).
-      - run: cargo test --locked --manifest-path native/app-identity/Cargo.toml
-      - run: cargo test --locked --manifest-path native/core/Cargo.toml
-      # The time the voice pipeline adds of its own, on stand-ins for the engines (#738;
-      # docs/voice-stack/pipeline-latency-tracking.md). A measurement: its result never fails the
-      # job. pipeline-latency.yml sends it to Bencher once this workflow has finished.
-      - name: Measure the pipeline's own time
-        if: ${{ !cancelled() }}
-        continue-on-error: true
-        env:
-          ASTAROT_PIPELINE_BMF: ${{ runner.temp }}/pipeline-latency.json
-        run: cargo test --locked --manifest-path native/core/Cargo.toml --test pipeline_overhead -- --ignored --nocapture
-      - if: ${{ !cancelled() }}
-        continue-on-error: true
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: pipeline-latency-${{ matrix.os }}
-          path: ${{ runner.temp }}/pipeline-latency.json
-          if-no-files-found: ignore
-          retention-days: 14
-      # The OS stores the API keys go to (ADR-013). Linux: GNOME Keyring with an unlocked login
-      # keyring on a private session bus. Windows: the runner user's Credential Manager. Each test
-      # writes one item under a scope of its own and removes it. On the same bus, the move of the
-      # 0.5.x folders looks for a running app by its single-instance name (ADR-014).
-      - if: runner.os == 'Linux'
+      - run: cargo test --locked --manifest-path native/core/Cargo.toml --test realtime_asr --test voice --no-run
+      - name: Fonts on this runner
+        shell: bash
         run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends gnome-keyring dbus
-          dbus-run-session -- bash -c 'printf "ci" | gnome-keyring-daemon --unlock --components=secrets >/dev/null && cargo test --locked --manifest-path native/core/Cargo.toml --lib secret_service -- --ignored && cargo test --locked --manifest-path native/core/Cargo.toml --test secret_store -- --ignored && cargo test --locked --manifest-path native/core/Cargo.toml --test storage_linux -- --ignored'
-      - if: runner.os == 'Windows'
+          ls "$WINDIR/Fonts" | wc -l
+          ls "$WINDIR/Fonts" | grep -iE "yu|meiryo|msgothic|msmincho|malgun|yahei|simsun|jhenghei|segoeui|noto" || true
+      - name: realtime_asr, whole binary, 10 times
+        shell: bash
         run: |
-          cargo test --locked --manifest-path native/core/Cargo.toml --lib credential_manager -- --ignored
-          cargo test --locked --manifest-path native/core/Cargo.toml --test secret_store -- --ignored
-      - run: cargo test --locked --manifest-path native/openvr-client/Cargo.toml
-      # The ONNX Runtime library and environment chat reading, translation and the RVC worker share.
-      - run: cargo test --locked --manifest-path native/onnx-runtime/Cargo.toml
-      - run: cargo test --locked --manifest-path native/vr-overlay/Cargo.toml
-      - run: cargo test --locked --manifest-path native/transcription/Cargo.toml
-      - run: cargo test --locked --manifest-path native/voice-conversion/Cargo.toml
-      # The translation providers and the readings, held to the contract recorded from the Python
-      # clients (native/translation/tests/contract/), and the local translation without a model.
-      - run: cargo test --locked --manifest-path native/translation/Cargo.toml
-      - run: cargo test --locked --manifest-path native/translate-onnx/Cargo.toml
-      # Speech requests, the speech queue and the listener monitor (Issue #279).
-      - run: cargo test --locked --manifest-path native/tts/Cargo.toml
-  # The crates no other job tests (#550, decision 3 of #871): the downloads and operations
-  # (ops), the owner of the speech servers, the OSC and OBS adapters, chat reading's OCR and the
-  # RVC worker's runtime. ocr-runtime and rvc-runtime link the ONNX Runtime that ort downloads at
-  # build time (pyke's mirror, not ONNX Runtime's GitHub releases).
-  crates:
-    timeout-minutes: 30
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest]
-    runs-on: ${{ matrix.os }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
-        with:
-          version: 2026.11.8
-          install_args: rust
-      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
-        with:
-          workspaces: |
-            native/ops
-            native/speech-server
-            native/adapters
-            native/ocr-runtime
-            native/rvc-runtime
-      - run: cargo test --locked --manifest-path native/ops/Cargo.toml
-      - run: cargo test --locked --manifest-path native/speech-server/Cargo.toml
-      - run: cargo test --locked --manifest-path native/adapters/Cargo.toml
-      - run: cargo test --locked --manifest-path native/ocr-runtime/Cargo.toml
-      - run: cargo test --locked --manifest-path native/rvc-runtime/Cargo.toml
-  # The line, function and region coverage of each Rust crate with its own tests (#550, decision 1
-  # of #871), in this job's summary. It is reported, never held to a threshold: the job never
-  # fails the workflow, also when a crate cannot be measured. audio-routing builds against
-  # libpipewire, so the same PipeWire as headless's is prepared first.
-  rust-coverage:
-    runs-on: ubuntu-latest
-    timeout-minutes: 60
-    continue-on-error: true
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
-        with:
-          version: 2026.11.8
-          install_args: python rust cargo:cargo-llvm-cov
-      - run: rustup component add llvm-tools
-      - run: |
-          for attempt in 1 2 3 4; do
-            sudo apt-get update && sudo apt-get install -y pkg-config gcc g++ meson ninja-build libsndfile1-dev libglib2.0-dev liblua5.4-dev libclang-dev && break
-            if [ "$attempt" = 4 ]; then exit 1; fi
-            sleep $((attempt * 20))
+          for i in $(seq 1 10); do
+            echo "=== run $i"
+            cargo test --locked --manifest-path native/core/Cargo.toml --test realtime_asr -- --nocapture > rt.log 2>&1 || true
+            grep -E "\[861\]|^test result|FAILED|panicked" rt.log | grep -vE "update_image: lock 0 ms, set_raw 0 ms" || true
           done
-      - run: |
-          bash tools/ci/setup_pipewire.sh "$RUNNER_TEMP/vrct-pipewire"
-          cat "$RUNNER_TEMP/vrct-pipewire/environment" >> "$GITHUB_ENV"
-          echo "$RUNNER_TEMP/vrct-pipewire/prefix/bin" >> "$GITHUB_PATH"
-      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
-        with:
-          workspaces: |
-            native/core
-            native/ops
-            native/audio-routing
-            native/rvc-runtime
-            native/ocr-runtime
-      - name: Measure each crate's coverage
-        run: python tools/rust_coverage.py --summary "$GITHUB_STEP_SUMMARY"
-  # The integration tests (ADR-017): the app's screens, operated in Chromium and WebKit, through
-  # the real core and crates, with stand-ins for the devices and the services outside the app
-  # (tests/integration, native/browser-core-bridge).
-  integration:
-    timeout-minutes: 30
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest]
-    runs-on: ${{ matrix.os }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
-        with:
-          version: 2026.11.8
-          install_args: node python rust
-      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
-        with:
-          workspaces: native/browser-core-bridge
-      - run: npm ci --ignore-scripts
-      # The host's Rust dependencies and Playwright's Chromium and WebKit; on Linux also the
-      # system libraries they need.
-      - run: python tools/dev.py setup --scope integration
-      - if: runner.os == 'Linux'
-        run: node node_modules/@playwright/test/cli.js install-deps chromium webkit
-      - run: python tools/dev.py check --scope integration
-      - if: ${{ failure() }}
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: integration-${{ matrix.os }}
-          path: |
-            build/integration/results
-            build/integration/report
-          if-no-files-found: ignore
-          retention-days: 14
-  # Pull requests, and pushes to develop and main that did not come through one, so commits
-  # made without the local commit-msg hook are checked too.
-  commit-conventions:
-    if: github.event_name == 'pull_request' || (github.event_name == 'push' && (github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main'))
-    runs-on: ubuntu-24.04
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-      - name: Install pinned commit validator
-        uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
-        with:
-          version: 2026.11.8
-          install_args: cocogitto
-      - name: Check new commits only
-        env:
-          COMMIT_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+      - name: voice, whole binary, 10 times
+        shell: bash
         run: |
-          if [ "$COMMIT_BASE" = "0000000000000000000000000000000000000000" ]; then
-            echo "A new branch has no earlier commit to compare with; its pull request is checked instead."
-            exit 0
-          fi
-          python tools/dev.py check --scope commits --base "$COMMIT_BASE"
+          for i in $(seq 1 10); do
+            echo "=== run $i"
+            cargo test --locked --manifest-path native/core/Cargo.toml --test voice -- --nocapture > vo.log 2>&1 || true
+            grep -E "\[861\] eventually|\[861\] wait_from|^test result|FAILED|panicked" vo.log || true
+          done

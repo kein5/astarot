@@ -841,10 +841,14 @@ impl Subtitles {
             }
         }
         trim(&mut log.entries);
-        let shown = match self.render(log, counter) {
+        let diag = std::time::Instant::now();
+        let rendered = self.render(log, counter);
+        let render_ms = diag.elapsed().as_millis();
+        let shown = match rendered {
             Ok(picture) => publish(&picture),
             Err(_) => false,
         };
+        eprintln!("[861] caption {state:?} rev {revision}: render {render_ms} ms, publish {} ms", diag.elapsed().as_millis() - render_ms);
         if !shown {
             guard.0 = checkpoint;
             guard.1 += 1;

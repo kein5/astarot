@@ -165,6 +165,7 @@ impl FontLibrary {
 
     fn families(&self) -> &HashMap<String, Vec<FaceEntry>> {
         self.families.get_or_init(|| {
+            let diag = std::time::Instant::now();
             let mut found: HashMap<String, Vec<FaceEntry>> = HashMap::new();
             for path in self.every().iter() {
                 for (index, names) in names::read(path).into_iter().enumerate() {
@@ -174,6 +175,7 @@ impl FontLibrary {
                     }
                 }
             }
+            eprintln!("[861] fonts: families index of {} files in {} ms ({:?})", self.every().len(), diag.elapsed().as_millis(), std::thread::current().name());
             found
         })
     }
@@ -239,6 +241,15 @@ impl FontLibrary {
 
     /// The faces for a language: the chosen family, the language's own, then the fallbacks.
     pub fn faces(&self, language: &str) -> Vec<Arc<FontVec>> {
+        let diag = std::time::Instant::now();
+        let faces = self.faces_inner(language);
+        if diag.elapsed().as_millis() > 20 {
+            eprintln!("[861] fonts: faces({language}) {} faces in {} ms", faces.len(), diag.elapsed().as_millis());
+        }
+        faces
+    }
+
+    fn faces_inner(&self, language: &str) -> Vec<Arc<FontVec>> {
         let mut faces: Vec<Arc<FontVec>> = self.family().and_then(|family| self.family_face(&family)).into_iter().collect();
         for face in self.named(language_families(language)).into_iter().chain(self.named(FALLBACKS)) {
             if !faces.iter().any(|f| Arc::ptr_eq(f, &face)) {
@@ -250,6 +261,13 @@ impl FontLibrary {
 
     /// Any font that has every character of `cluster` (searched in every font file).
     fn covering(&self, cluster: &str) -> Option<Arc<FontVec>> {
+        let diag = std::time::Instant::now();
+        let found = self.covering_inner(cluster);
+        eprintln!("[861] fonts: covering scan for {} chars in {} ms found={}", cluster.chars().count(), diag.elapsed().as_millis(), found.is_some());
+        found
+    }
+
+    fn covering_inner(&self, cluster: &str) -> Option<Arc<FontVec>> {
         for path in self.every().iter().take(400) {
             let lower = path.to_string_lossy().to_lowercase();
             if lower.contains("emoji") && lower.contains("color") {

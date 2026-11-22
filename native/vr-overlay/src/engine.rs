@@ -916,12 +916,15 @@ impl Overlay {
         };
         for attempt in 0..2 {
             {
+                let diag = Instant::now();
                 let mut state = self.lock();
+                let lock_ms = diag.elapsed().as_millis();
                 if !valid(&state) || !state.initialized {
                     return Ok(false);
                 }
                 let handle = state.handles[&surface];
                 let result = state.session.as_mut().expect("initialized").set_raw(handle, rgba, width, height);
+                eprintln!("[861] update_image: lock {lock_ms} ms, set_raw {} ms ({width}x{height})", diag.elapsed().as_millis() - lock_ms);
                 match result {
                     Ok(()) => {
                         input::remember_image(&mut state, surface, rgba, width, height);
