@@ -375,6 +375,47 @@ fn the_catalogs_start_as_a_grid_and_keep_the_layout_chosen() {
 }
 
 #[test]
+fn the_theme_starts_as_dark_plum_and_keeps_the_preset_and_the_own_colours_chosen() {
+    // The app's theme (#965): the brand's Dark Plum at first, with its colours as the user's own;
+    // a preset and the user's own colours when chosen, kept for the next start. The colours are
+    // saved in lower case; the core checks the preset's form, not the UI's list of presets.
+    let ui = Ui::with(Setup::default());
+    let snapshot = ui.ready();
+    let default = json!({ "preset": "dark_plum", "custom": { "base": "#261633", "accent": "#a47af5" } });
+    assert_eq!(snapshot["/get/data/theme"], default);
+    let chosen = json!({ "preset": "custom", "custom": { "base": "#10272B", "accent": "#3fc8c2" } });
+    let saved = json!({ "preset": "custom", "custom": { "base": "#10272b", "accent": "#3fc8c2" } });
+    assert_eq!(ui.ok("/set/data/theme", Some(chosen)), saved);
+    assert_eq!(ui.ok("/set/data/theme", Some(json!({ "preset": "a_newer_preset_2", "custom": saved["custom"] })))["preset"],
+        "a_newer_preset_2");
+    for bad in [
+        json!("midnight"),
+        json!({ "preset": "midnight" }),
+        json!({ "preset": "Midnight", "custom": default["custom"] }),
+        json!({ "preset": "", "custom": default["custom"] }),
+        json!({ "preset": "2nd", "custom": default["custom"] }),
+        json!({ "preset": "a".repeat(33), "custom": default["custom"] }),
+        json!({ "preset": "custom", "custom": { "base": "#261633" } }),
+        json!({ "preset": "custom", "custom": { "base": "#261633", "accent": "#a47af5ff" } }),
+        json!({ "preset": "custom", "custom": { "base": "261633", "accent": "#a47af5" } }),
+        json!({ "preset": "custom", "custom": { "base": "#26163g", "accent": "#a47af5" } }),
+        json!({ "preset": "custom", "custom": { "base": "#261633", "accent": "#a47af5", "text": "#ffffff" } }),
+        json!({ "preset": "custom", "custom": default["custom"], "extra": true }),
+        json!(null),
+    ] {
+        let answer = ui.request("/set/data/theme", Some(bad.clone()));
+        assert_eq!(error_code(&answer), "VALIDATION_CONFIG_VALUE_INVALID", "{bad}");
+    }
+    ui.ok("/set/data/theme", Some(saved.clone()));
+    ui.ok("/run/shutdown", None);
+    assert_eq!(ui.saved()["THEME"], saved);
+    ui.stop();
+    let ui = Ui::with(Setup { saved: Some(json!({ "UI_LANGUAGE": "ja", "THEME": saved })), ..Setup::default() });
+    assert_eq!(ui.ready()["/get/data/theme"], saved);
+    ui.stop();
+}
+
+#[test]
 fn the_tray_companion_edge_is_one_of_the_four_and_starts_at_the_right() {
     let ui = Ui::with(Setup::default());
     let snapshot = ui.ready();

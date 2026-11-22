@@ -47,7 +47,7 @@ test("the switch is Radix's, the select is the system's", () => {
 test("each part carries the data-slot of its shadcn/ui counterpart", () => {
     // DESIGN.md "Components": a component takes its structure from shadcn/ui, a data-slot
     // naming each part included (docs/design/components/shadcn-alignment.md).
-    assert.match(read("Button.tsx"), /<button ref=\{ref\} type=\{type\} data-slot="button"/);
+    assert.match(read("Button.tsx"), /<button type=\{type\} data-slot="button"/);
     assert.match(read("TextField.tsx"), /data-slot="input"/);
     const select = read("Select.tsx");
     for (const slot of ["native-select-wrapper", "native-select", "native-select-icon", "native-select-option", "native-select-optgroup"]) {
@@ -56,8 +56,15 @@ test("each part carries the data-slot of its shadcn/ui counterpart", () => {
     // The option parts are exported beside the select, as NativeSelectOption and NativeSelectOptGroup are.
     assert.match(read("index.ts"), /export \{ Select, SelectOptGroup, SelectOption,/);
     const toggle = read("Switch.tsx");
-    assert.match(toggle, /<RadixSwitch\.Root ref=\{ref\} data-slot="switch"/);
+    assert.match(toggle, /<RadixSwitch\.Root data-slot="switch"/);
     assert.match(toggle, /<RadixSwitch\.Thumb data-slot="switch-thumb"/);
+});
+
+test("a part takes its ref as one of the props, as shadcn/ui's parts do on React 19", () => {
+    // DESIGN.md "Components": no forwardRef; the ref goes on with the rest of the props.
+    for (const file of ["Button.tsx", "Dialog.tsx", "Select.tsx", "Setting.tsx", "Switch.tsx", "TextField.tsx"]) {
+        assert.doesNotMatch(read(file), /forwardRef/, file);
+    }
 });
 
 test("the select is drawn like shadcn/ui's NativeSelect", () => {

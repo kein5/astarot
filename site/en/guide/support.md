@@ -1,6 +1,6 @@
 # Platform support
 
-Which systems ASTAROT supports, and how far each has been checked. This page describes 0.5.2 (2026-11-18).
+Which systems ASTAROT supports, and how far each has been checked. This page describes 0.6.0 (2026-11-22).
 
 Passing automated tests does not mean a feature has been seen working on a real PC. This page keeps the level of support apart from how it was checked, and says "not verified" wherever there is no record. Memory, GPU and disk space are on [System requirements](requirements).
 
@@ -30,7 +30,7 @@ How it was checked:
 |---|---|---|---|---|
 | Windows 11 (x64) | Installer (`VRCT-VOX_setup.exe`) | Supported | Contents checked. Install, update and rollback tested with a small stand-in payload | 0.5.1: update from 0.5.0 and start after the update. A fresh install is not verified |
 | Windows 11 (x64) | ZIP (`VRCT-VOX.zip`) | Supported | Contents checked | 0.5.1: unpacked and started |
-| Windows 11 (x64) | CUDA ZIP (releases up to 0.5 only) | Ended with 0.5 | None | Since 0.5.0 it holds the same files as the ZIP. The next version no longer makes it; every PC uses the ZIP or the installer above |
+| Windows 11 (x64) | CUDA ZIP (releases up to 0.5 only) | Ended with 0.5 | None | Since 0.5.0 it holds the same files as the ZIP. 0.6.0 no longer makes it; every PC uses the ZIP or the installer above |
 | Windows 10 (x64) | The installer and the ZIP | Best effort | None | Not verified |
 | Ubuntu 24.04, Debian 13 (x64) | deb | Supported | Installed on a clean system: the libraries resolve, the bundled speech engine starts, removal leaves nothing. The window is not opened | Not verified |
 | Fedora 44 (x64) | rpm | Supported | Same as the deb | Not verified |
@@ -56,24 +56,24 @@ The desktop caption overlay runs under X11 or XWayland. Start the tar.gz with `G
 
 | System | Needs |
 |---|---|
-| Windows | The WebView2 Runtime (the installer fetches it if missing). A virtual cable to send your voice to VRChat ([Windows audio route](windows-audio)). NVIDIA driver 580 or later for RVC on the GPU |
-| Linux | glibc 2.39 or later, GTK 3, WebKitGTK 4.1 and PipeWire. The Vulkan loader and a driver for GPU inference. FUSE for the AppImage (or `APPIMAGE_EXTRACT_AND_RUN=1`). Linux 6.9 or later and WirePlumber 0.5 for the audio route the app manages ([Linux audio route](linux-audio)) |
+| Windows | The WebView2 Runtime (the installer fetches it if missing). A virtual cable to send your voice to VRChat ([Windows audio route](windows-audio)). NVIDIA driver 580 or later for RVC and local translation on an NVIDIA GPU (CUDA). AMD and Intel GPUs through DirectML, after downloading the "ONNX Runtime · DirectML" runtime |
+| Linux | glibc 2.39 or later, GTK 3, WebKitGTK 4.1 and PipeWire. The Vulkan loader and a driver for GPU inference. An NVIDIA GPU with driver 580 or later for RVC and local translation on the GPU. FUSE for the AppImage (or `APPIMAGE_EXTRACT_AND_RUN=1`). Linux 6.9 or later and WirePlumber 0.5 for the audio route the app manages ([Linux audio route](linux-audio)) |
 
 ## Features
 
-The Windows and Linux columns show what has been checked on a real PC. Both builds ship the same features.
+The Windows and Linux columns show what has been checked on a real PC. Both builds ship nearly the same features: GPU work through DirectML is Windows only, and the virtual microphone the app manages is Linux only.
 
 | Feature | Windows | Linux | Checked in CI |
 |---|---|---|---|
-| Start, main screen, settings | Checked on 0.5.1 | 0.5.2: start, main screen and settings of the AppImage | Start and settings screen of the Linux tar.gz and AppImage. UI component tests and the build on both systems. No CI test opens the Windows window |
+| Start, main screen, settings | Checked on 0.5.1 | 0.5.2: start, main screen and settings of the AppImage | Start and settings screen of the Linux tar.gz and AppImage. UI component tests and the build on both systems. On both systems, integration tests drive the app's screens in Chromium and WebKit against the real core. No CI test opens the app's window (WebView2) on Windows |
 | Microphone input, speaker output | Not verified on 0.5. Checked before 0.5 with a built-in microphone | Not verified | Tests without devices only |
 | Virtual microphone | Not verified on 0.5. The app cannot create one, so install a virtual cable | Not verified on 0.5. Before 0.5, the voice reached VRChat's microphone. The app creates the virtual microphone with PipeWire | Linux: the audio helpers on a test PipeWire. Windows: none |
-| Translation | Not verified. Local translation models are not offered yet | Not verified. Same as Windows | Tests without devices or network only |
+| Translation | Not verified. From 0.6.0, local translation models (M2M100, NLLB-200) can be downloaded in the app | Not verified. Same as Windows | Tests without devices or network only |
 | Speech recognition (ASR) and realtime captions | Not verified on 0.5. Checked before 0.5 | Not verified on 0.5. Checked before 0.5 | Tests without models only |
 | Text to speech (TTS) | Not verified on 0.5. Checked before 0.5 | Not verified on 0.5. Checked before 0.5 | Tests without models only |
 | Voice changer (RVC) | Not verified on 0.5. Checked before 0.5 | Not verified on 0.5. Checked before 0.5 | Tests without models only |
 | Chat reading (OCR) | 0.5.1: reading a fixed area of a test window. Detecting chat bubbles in real VRChat is not verified | Not verified on 0.5. The VRChat window is read through XWayland; a native Wayland window is read after you share it | Tests without models only |
-| Sending messages to VRChat (OSC) | Not verified on 0.5. VRChat detection checked before 0.5 | Not verified | Tests without devices only |
+| Sending messages to VRChat (OSC) | Not verified on 0.5. VRChat detection checked before 0.5 | Not verified | Tests without devices, and an integration test with a stand-in OSC receiver (both systems) |
 | VR caption overlay and VR UI | Not verified on 0.5. Checked before 0.5 on SteamVR without a headset | Not verified. Before 0.5, checked only with a stand-in for SteamVR | Tests with a fake SteamVR. Neither system has been checked with a real headset |
 | Desktop caption overlay | Not verified on 0.5. Before 0.5, shown on top of VRChat | Not verified | Settings screen component tests only |
 | Hotkeys | Not verified on 0.5. Checked before 0.5 with keys sent by a program | Not verified | Settings screen component tests only |
@@ -90,7 +90,7 @@ On [Issues](https://github.com/kein5/astarot/issues), give your OS and its versi
 Reports on whether speech and speech recognition run on GPUs the developers do not have, AMD GPUs above all, are wanted. From 0.6.0 the app measures this itself and helps you report it.
 
 1. Download a speech model and a speech recognition model first ([Getting models](models)).
-2. In Settings → "Advanced settings" → "GPU report", press "Run the check". It runs one short fixed sentence on the CPU and on each GPU. It can take a few minutes, and it does not use the microphone, the speakers or VRChat.
+2. In Settings → "Advanced" → "GPU report", press "Run the check". It runs one short fixed sentence on the CPU and on each GPU. It can take a few minutes, and it does not use the microphone, the speakers or VRChat.
 3. When it ends, the results by device and all of the text that would be sent are shown. Read it, then press "Report on GitHub" to open the report form with the text filled in. Sending needs a GitHub account.
 
 The result holds only the app and OS versions, the CPU and GPU names, the amount of memory, the GPU driver versions, the model names, and the times and differences measured. It holds no user name, no file location, and no text spoken or heard. The app sends nothing: you see all of it before you choose whether to send it.

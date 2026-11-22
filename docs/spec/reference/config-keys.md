@@ -9,7 +9,7 @@
 
 チャット読み取りの`OCR_CAPTURE_REGION`はデスクトップウィンドウ用、`OCR_VR_CAPTURE_REGION`はSteamVRの左目側の映像用。旧版の単一範囲はウィンドウ用に保持し、未保存のVR側には全体を補う。[範囲の形と移行](../data-and-persistence.md#チャット読み取りの範囲)を参照。
 
-## config.jsonに保存するキー（144件）
+## config.jsonに保存するキー（145件）
 
 | キー | 型・検証 | 既定値 | 保存 |
 |---|---|---|---|
@@ -37,6 +37,7 @@
 | `EXPERIMENTAL_FEATURES` | 検証 `experimental_features` | `{"tray_companion": false}` | 即時 |
 | `USAGE_PRESETS` | 検証 `usage_presets` | `["basic"]` | 即時 |
 | `CATALOG_LAYOUT` | str、独自の検証 | `"grid"` | 2秒後にまとめて |
+| `THEME` | 検証 `theme` | `{"preset": "dark_plum", "custom": {"base": "#261633", "accent": "#a47af5"}}` | 2秒後にまとめて |
 | `TRAY_COMPANION_EDGE` | str（`TRAY_COMPANION_EDGE_LIST`のどれか） | `"right"` | 2秒後にまとめて |
 | `TRAY_COMPANION_MONITOR` | str、独自の検証 | `""` | 2秒後にまとめて |
 | `TRAY_COMPANION_WHEEL_HINT_SHOWN` | bool | `false` | 2秒後にまとめて |
@@ -165,7 +166,7 @@
 
 | キー | 型・検証 | 既定値 | 扱い |
 |---|---|---|---|
-| `VERSION` |  | `"0.6.0-beta.2"` | 読み取り専用 |
+| `VERSION` |  | `"0.6.0"` | 読み取り専用 |
 | `PATH_LOCAL` |  | `"<app>"` | 読み取り専用 |
 | `PATH_DATA` |  | `"<data>"` | 読み取り専用 |
 | `PATH_CONFIG` |  | `"<state>/config.json"` | 読み取り専用 |

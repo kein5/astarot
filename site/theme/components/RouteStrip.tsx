@@ -1,7 +1,7 @@
 // The route strip at the top of a feature page: where voice and text go through the part this
 // page sets up, with this page's step lit. A page names its route in its front matter
-// (`route: tts`); the routes are in ../lib/routes.ts. Blue lanes carry what you send, purple lanes
-// what comes back, as in the how-it-works diagram.
+// (`route: tts`); the routes are in ../lib/routes.ts. Only this page's step is lit; the lane's
+// name, not a colour, says whether it carries what you send or what comes back.
 import { useFrontmatter, useLang } from '@rspress/core/runtime'
 import { laneNames, routes } from '../lib/routes'
 import styles from './RouteStrip.module.css'
@@ -14,7 +14,7 @@ export function RouteStrip() {
   return (
     <div className={styles.routeStrip}>
       {lanes.map((lane) => (
-        <div key={lane.side} className={[styles.lane, styles[lane.side]].join(' ')} role="group" aria-label={laneNames[lane.side][key]}>
+        <div key={lane.side} className={styles.lane} role="group" aria-label={laneNames[lane.side][key]}>
           <span className={styles.laneName} aria-hidden="true">
             {laneNames[lane.side][key]}
           </span>

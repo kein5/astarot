@@ -217,7 +217,9 @@ export default defineConfig({
     return words
   },
   head: [
-    ['meta', { name: 'theme-color', content: '#111b2c' }],
+    // The browser's own bar takes the canvas colour of each scheme (theme/tokens.css).
+    ['meta', { name: 'theme-color', media: '(prefers-color-scheme: light)', content: '#fafafc' }],
+    ['meta', { name: 'theme-color', media: '(prefers-color-scheme: dark)', content: '#261633' }],
     ['link', { rel: 'apple-touch-icon', href: `${base}apple-touch-icon.png` }],
     (route) => (route.routePath === '/' ? `<script>${pickLanguage('/')}</script>` : undefined),
     (route) => xDefault(route.routePath),
@@ -283,8 +285,9 @@ export default defineConfig({
   // Screenshots open with the guide's own dialog, which keyboard users can open too.
   mediumZoom: false,
   themeConfig: {
-    // Dark only, as the guide was; the light scheme comes with the ASTAROT tokens.
-    darkMode: 'force-dark',
+    // Light and dark, following the OS, with Rspress's switch in the top bar (S-01 in
+    // docs/design/site-redesign). The colours are in theme/tokens.css.
+    darkMode: true,
     socialLinks: [{ icon: 'github', mode: 'link', content: repo }],
     locales: [
       { lang: DEFAULT_LANG, label: 'Language', nav: [], sidebar: {} },

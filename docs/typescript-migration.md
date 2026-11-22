@@ -299,14 +299,14 @@ ADR-010 のとおり、画面を触る作業に合わせて移すのが基本で
     - `asNode`: 描いた木の中のオブジェクトは要素である
     - `held`: フックのスロットは、そのフックの型の値を持つ
     - `unchecked`: 試験がコードに渡す、宣言された型を持たない値
-    - `asComponent`（`componentOf`、`componentNamed`、`forwardRefRender` の中）: 試験が自分で描く部品が、渡す props を受け取り、読む木を返す
+    - `asComponent`（`componentOf`、`componentNamed` の中）: 試験が自分で描く部品が、渡す props を受け取り、読む木を返す
     - `timerHandle`、`asTimerFunction`: 偽のタイマーの id は番号で、偽物は大域のタイマーの代わりになる
   - `bridgeHarness.ts`
     - `settingAtom`: 登録簿の設定の atom は、設定の状態のプリミティブな atom である
 - `unchecked` は 2 つの使い方だけに使います。(1) コードが読むフィールドだけを持つ試験用の値、(2) コードの振る舞いを見るためにわざと渡す形の違う値。呼ぶ所に、`Test data:` か `On purpose:` で始まるコメントを置きます。ほかの用途には、下の補助関数を使います。
 - 試験が繰り返し使う補助関数はハーネスにあります。
   - 木を探す: `find`、`findIn`（見つからなければ失敗）、`nodesIn`、`treeNode`、`componentName`
-  - 部品を描く: `componentOf`、`componentNamed`、`draw`、`drawWith`、`forwardRefRender`
+  - 部品を描く: `componentOf`、`componentNamed`、`draw`、`drawWith`。`ref` を受け取る部品も、React 19 では `ref` が props の 1 つなので、ほかの部品と同じに描きます
   - 要素の `ref`: `refOf`、`setRef`
   - 型の分からない値を読む: `isRecord`、`fieldOf`
   - 偽のタイマー: `timerHandle`、`timerNumber`、`asTimerFunction`

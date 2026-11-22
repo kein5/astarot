@@ -3,7 +3,7 @@
 .stepProgress {
   margin: 24px 0 8px;
   padding: 4px 0 16px;
-  border-bottom: 1px solid var(--vox-hairline);
+  border-bottom: 1px solid var(--a-border);
 }
 
 .stepProgress ol {
@@ -29,13 +29,13 @@
 
 .stepProgress ol::before {
   right: calc(50% / var(--count, 5));
-  background: var(--vox-border);
+  background: var(--a-border);
 }
 
 .stepProgress ol::after {
   width: calc((100% - 100% / var(--count, 5)) * var(--progress));
-  background: var(--vox-mine);
-  transition: width var(--vox-motion) var(--vox-ease);
+  background: var(--a-primary);
+  transition: width var(--a-motion) var(--a-ease);
 }
 
 /* The page gives list items a top margin; the steps sit on one line. */
@@ -52,14 +52,14 @@
   align-items: center;
   gap: 6px;
   padding: 0 4px;
-  border-radius: 8px;
+  border-radius: var(--a-radius-control);
   color: var(--rp-c-text-3);
   font-weight: 400;
   text-decoration: none;
 }
 
 .stepProgress a:focus-visible {
-  outline: 2px solid var(--vox-focus);
+  outline: 2px solid var(--a-focus);
   outline-offset: 2px;
 }
 
@@ -69,17 +69,17 @@
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  background: var(--vox-surface);
-  border: 1px solid var(--vox-border);
+  background: var(--a-surface);
+  border: 1px solid var(--a-border);
   font-size: 13px;
   font-weight: 600;
   line-height: 1;
   font-variant-numeric: tabular-nums;
   color: var(--rp-c-text-2);
   transition:
-    background-color var(--vox-motion) var(--vox-ease),
-    border-color var(--vox-motion) var(--vox-ease),
-    color var(--vox-motion) var(--vox-ease);
+    background-color var(--a-motion) var(--a-ease),
+    border-color var(--a-motion) var(--a-ease),
+    color var(--a-motion) var(--a-ease);
 }
 
 .dot svg {
@@ -99,20 +99,20 @@
   text-align: center;
   text-wrap: balance;
   word-break: auto-phrase;
-  transition: color var(--vox-motion) var(--vox-ease);
+  transition: color var(--a-motion) var(--a-ease);
 }
 
 .done .dot {
-  background: var(--vox-mine);
-  border-color: var(--vox-mine);
-  color: var(--vox-on-light);
+  background: var(--a-primary);
+  border-color: var(--a-primary);
+  color: var(--a-on-primary);
 }
 
 /* Every dot keeps one size; the current one stands out by its fill. */
 .current .dot {
   background: var(--rp-c-text-1);
   border-color: var(--rp-c-text-1);
-  color: var(--vox-on-light);
+  color: var(--a-canvas);
 }
 
 .stepProgress .done a,
@@ -121,7 +121,7 @@
 }
 
 .stepProgress a:hover .dot {
-  border-color: var(--vox-mine);
+  border-color: var(--a-state-active);
 }
 
 /* Phones: the dots only; the slim bar names the step being read. */
@@ -156,14 +156,14 @@
   height: 44px;
   padding: 0 8px;
   background: var(--rp-c-bg);
-  border-bottom: 1px solid var(--vox-hairline);
+  border-bottom: 1px solid var(--a-border);
   opacity: 0;
   visibility: hidden;
   transform: translateY(-6px);
   transition:
-    opacity var(--vox-motion-fast) var(--vox-ease),
-    transform var(--vox-motion) var(--vox-ease),
-    visibility 0s linear var(--vox-motion-fast);
+    opacity var(--a-motion-fast) var(--a-ease),
+    transform var(--a-motion) var(--a-ease),
+    visibility 0s linear var(--a-motion-fast);
 }
 
 .dockBar.shown {
@@ -171,8 +171,8 @@
   visibility: visible;
   transform: none;
   transition:
-    opacity var(--vox-motion-fast) var(--vox-ease),
-    transform var(--vox-motion) var(--vox-ease),
+    opacity var(--a-motion-fast) var(--a-ease),
+    transform var(--a-motion) var(--a-ease),
     visibility 0s;
 }
 
@@ -197,12 +197,12 @@
   content: '';
   width: 12px;
   height: 2px;
-  background: var(--vox-border);
-  transition: background-color var(--vox-motion) var(--vox-ease);
+  background: var(--a-border);
+  transition: background-color var(--a-motion) var(--a-ease);
 }
 
 .dockBar li.done + li::before {
-  background: var(--vox-mine);
+  background: var(--a-primary);
 }
 
 .dockBar .dot {
@@ -217,7 +217,7 @@
 }
 
 .dockBar li:hover .dot {
-  border-color: var(--vox-mine);
+  border-color: var(--a-state-active);
 }
 
 .now {

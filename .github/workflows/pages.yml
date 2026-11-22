@@ -10,6 +10,8 @@ on:
       - 'tools/check_site_anchors.mjs'
       - 'tools/check_site_downloads.mjs'
       - 'tools/check_site_manual.mjs'
+      - 'tools/site_tokens.mjs'
+      - 'DESIGN.md'
       - '.github/workflows/pages.yml'
   push:
     branches: [develop]
@@ -36,6 +38,9 @@ jobs:
         with:
           version: 2026.11.8
           install_args: node
+      # The colour tokens are what DESIGN.md and the light table make, and keep their hue, chroma
+      # and contrast rules (no packages needed).
+      - run: node tools/site_tokens.mjs --check
       - run: npm ci --ignore-scripts
         working-directory: site
       # Fails on dead links, dead images and links to missing headings (Rspress).

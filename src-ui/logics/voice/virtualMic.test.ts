@@ -34,17 +34,6 @@ test("levels are kept between 0 and 1, and results need their flags", () => {
     assert.equal(shapes.normalizeVirtualMicResult({ heard: true }), null);
 });
 
-test("the guide opens by itself only on Windows, while pending, with no cable and a readable list", () => {
-    const none = status({ cables: [] });
-    assert.equal(shapes.guideOpensByItself(true, none), true);
-    assert.equal(shapes.guideOpensByItself(true, status()), false);
-    assert.equal(shapes.guideOpensByItself(false, none), false);
-    assert.equal(shapes.guideOpensByItself(null, none), false);
-    assert.equal(shapes.guideOpensByItself(true, { ...none, supported: false }), false);
-    assert.equal(shapes.guideOpensByItself(true, { ...none, error: "audio_devices_unavailable" }), false);
-    assert.equal(shapes.guideOpensByItself(true, null), false);
-});
-
 test("the cable TTS already plays into is checked first, even under a cut MME name", () => {
     const other = { ...CABLE, playback: id("VoiceMeeter Input (VB-Audio VoiceMeeter VAIO)"), playback_label: "VoiceMeeter Input" };
     assert.equal(shapes.preferredCable(status({ cables: [other, CABLE] })), other);
@@ -96,18 +85,18 @@ test("a refused check shows its code, and a stopped backend ends a check under w
     assert.deepEqual([use().check.phase, use().check.error], ["failed", "backend_unavailable"]);
 });
 
-test("dismissing the notice tells the backend; the settings can still open the guide", async context => {
+// #943: the guide opens only when asked; the notice the engine keeps opens nothing and is not changed.
+test("the guide opens and closes when asked, and nothing is sent about the notice", async context => {
     const sent: [string, unknown][] = [];
     const use = await hook(context, sent);
     use().updateNotice(true);
     assert.equal(use().notice, true);
-    await use().dismissNotice();
-    assert.equal(use().notice, false);
-    assert.deepEqual(sent, [["/set/disable/virtual_mic_notice", undefined]]);
+    assert.equal(use().opened, false);
     use().openGuide();
     assert.equal(use().opened, true);
     use().closeGuide();
     assert.equal(use().opened, false);
+    assert.deepEqual(sent.filter(([endpoint]) => endpoint.includes("virtual_mic_notice")), []);
 });
 
 test("the status, the level, the outcome and a refusal arrive through their own routes", async () => {

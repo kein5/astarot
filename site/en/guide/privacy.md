@@ -24,7 +24,7 @@ You can read what is sent in the app itself. The notice shown before anything is
 - The receiver records when each event arrived and the country the connection came from, which Cloudflare derives from the sender's address.
 - No number that identifies a PC is sent, but an unusual combination of hardware can suggest that two events came from the same PC.
 - Before anything is sent, a dialog explains what is sent. Nothing is sent until you choose "Send" or "Don't send". "Decide later" puts the dialog away, and it comes back the next time the app starts.
-- Starting the app with the environment variable `VRCT_TELEMETRY` set to `off` sends nothing, whatever the setting says.
+- Starting the app with the environment variable `ASTAROT_TELEMETRY` set to `off` sends nothing, whatever the setting says. The earlier name, `VRCT_TELEMETRY`, works too.
 
 Upstream VRCT's usage reporting (Aptabase telemetry) is not used. Even when an old key file remains, nothing goes to upstream.
 
@@ -40,14 +40,18 @@ Turning off usage reporting does not make every feature offline. Services you ch
 | Cloud speech recognition (Groq Whisper, OpenAI Whisper, Deepgram, a custom Whisper server) | The service or server you choose | The audio of each utterance |
 | Model downloads | Hugging Face | The download request |
 | Voice changer (RVC) runtime download | Hugging Face, NuGet (`api.nuget.org`, for ONNX Runtime) and PyPI (`files.pythonhosted.org`, for the libraries an NVIDIA GPU needs) | The download request |
-| Sending to the chatbox | VRChat (OSC on your PC) | The text you send |
-| VRChat integration (OSCQuery, can be turned off) | Your PC only (mDNS; nothing leaves your PC) | A notice that the app is running, named `VRCT:<start time>` with its ports. It holds no PC name or user name |
+| Download of the runtime for translating on the GPU (ONNX Runtime's CUDA or DirectML build) | NuGet (`api.nuget.org`), and PyPI (`files.pythonhosted.org`) for NVIDIA's libraries with the CUDA build | The download request |
+| Download of llama.cpp's server for translation LLMs | GitHub (`github.com`, `release-assets.githubusercontent.com`) | The download request |
+| Sending to the chatbox | VRChat (OSC; your PC by default, or the device set in "OSC IP address") | The text you send |
+| VRChat integration (OSCQuery, can be turned off) | Your PC only (mDNS; nothing leaves your PC) | A notice that the app is running, named `ASTAROT:<start time>` with its ports. It holds no PC name or user name |
 | Usage data (can be turned off) | The developers of ASTAROT (Cloudflare) | That the app started, the kind of an error, and the PC's hardware |
-| Update check (at start, can be turned off) and update download | A stable version asks GitHub through the developers of ASTAROT (Cloudflare); a beta asks the GitHub API directly. The download comes from GitHub | A request for the latest version and the download. No conversation, voice or settings. Not made by deb or rpm installs |
+| Update check (at start, can be turned off) and update download | Both the Stable and the Beta channel ask GitHub through the developers of ASTAROT (Cloudflare). The download comes from GitHub | A request for the latest version and the download. No conversation, voice or settings. Not made by deb or rpm installs |
 
 The translation engine you choose also translates what the speaker transcription hears from others and the chat bubbles that chat reading reads.
 
-On Windows, the component that draws the window (WebView2) connects to Microsoft's servers. This is WebView2's own traffic, not the app's: safety checks (SmartScreen) and checks for updates to its components. The app's settings cannot stop it. WebView2's crash reports (crash dumps) are not sent to Microsoft; they stay on your PC. The optional diagnostic data WebView2 collects follows Windows' Settings → "Privacy & security" → "Diagnostics & feedback" → "Diagnostic data".
+On Windows, the component that draws the window (WebView2) connects to Microsoft's servers. This is WebView2's own traffic, not the app's: safety checks (SmartScreen) and checks for updates to its components. The app's settings cannot stop it. WebView2's crash reports (crash dumps) are not sent to Microsoft; they stay on your PC, where they pile up and can contain conversation text. The optional diagnostic data WebView2 collects follows Windows' Settings → "Privacy & security" → "Diagnostics & feedback" → "Diagnostic data".
+
+If you download "ONNX Runtime · DirectML", its license says DirectML may collect information about you and your use of it and send it to Microsoft.
 
 Local translation models, the bundled speech.cpp servers (speech, local speech recognition and realtime captions), the voice changer (RVC) and chat reading run on your PC. The picture of a window you share for chat reading stays on your PC too.
 
@@ -58,7 +62,7 @@ When you change the URL of an OpenAI-compatible endpoint or Custom Whisper, you 
 ## What is stored on your PC
 
 - The settings file (`config.json`), which holds the key for the OBS browser source and WebSocket and, on Linux, what the desktop needs to share the same window again without its dialog.
-- API keys for translation and speech recognition, which are kept in the operating system's credential store instead of the settings file: Credential Manager on Windows, the Secret Service (GNOME Keyring, KWallet and others) on Linux. Up to 0.5.2 the keys were kept in `secrets.json` in the same folder as the settings file (on Windows, encrypted so that only the signed-in user can read them back); the first start after updating moves them to the credential store.
+- API keys for translation and speech recognition, which are kept in the operating system's credential store instead of the settings file: Credential Manager on Windows, the Secret Service (GNOME Keyring, KWallet and others) on Linux. Up to 0.5.2 the keys were kept in `secrets.json` in the same folder as the settings file (on Windows, encrypted so that only the signed-in user can read them back); the first start after updating moves them to the credential store. A key that could not be moved stays in `secrets.json` and keeps working. On Linux, if no keyring is running or it is locked, a key you enter lasts only until the app closes.
 - Logs, recording what the app did. Remove personal data and conversation text before posting them in a report.
 - Conversation logs, saved as text files only when "Auto save message logs" under Settings → "Advanced" is on.
 
