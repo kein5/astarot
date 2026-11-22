@@ -22,6 +22,7 @@ import { SKIP, SPEECH_TARGETS, chosenEntry, featureOutcome, modelChoices, recomm
 import type { FeatureView, SetupFeature } from "../../../logics/setup/setupChoices.ts";
 import { canStart, restrictionsOf, startRequest } from "../../../logics/voice/modelRestrictions";
 import { familyLabel } from "../../../logics/voice/modelCatalog";
+import { hardwareWarning, translationDeviceMode } from "../../../logics/voice/modelHardwareWarning";
 import { useSpeechServers } from "../../../logics/voice/useSpeechServers";
 import { weightRequest } from "../../../logics/configs/ctranslate2License";
 import type { WeightRequest } from "../../../logics/configs/ctranslate2License";
@@ -136,12 +137,15 @@ export const FirstRunSetupController = () => {
 
     // Ask for the catalog when the dialog opens without it (it normally comes after the start).
     useEffect(() => { if (open && !downloads.catalog) downloads.send("/get/data/model_download_catalog"); }, [open, !!downloads.catalog]);
+    // What the PC has, for the choices' warnings: read once the dialog opens, as the catalogs do.
+    useEffect(() => { if (open) downloads.ensureHardware?.(); }, [open, downloads.hardware?.phase]);
 
     useRunner({ run, setRun, view, downloads, realtime, setSelectedTranscriptionEngine });
 
     // The translation's model: while the selected one is not on the PC, the setup prepares the one
     // chosen here (the default unless another is), and selects it (#936, #955).
-    const { currentSelectedCTranslate2WeightType, currentCTranslate2WeightTypeStatus, setSelectedCTranslate2WeightType } = useTranslation();
+    const { currentSelectedCTranslate2WeightType, currentCTranslate2WeightTypeStatus, setSelectedCTranslate2WeightType,
+        currentSelectedTranslationComputeDevice } = useTranslation();
     const downloadedWeights = (currentCTranslate2WeightTypeStatus.data ?? []).filter(item => item.is_downloaded).map(item => item.id);
     const defaultTranslation = translationEntry(downloads.catalog, DEFAULT_TRANSLATION_WEIGHT);
     const translationChoices = modelChoices(downloads.catalog, ["translation"], defaultTranslation?.id);
@@ -205,6 +209,12 @@ export const FirstRunSetupController = () => {
         else setRun(previous => previous && { ...previous, phase: "failed", failure: { step: plan.findIndex((_, i) => stepState(plan, i, view, null) !== "done"), code: "stopped" } });
     };
     const choiceLabel = t("first_run_setup.choice.label");
+    // A model that may be too heavy for the PC says so in its choice (#955), as in the catalogs: the
+    // speech models for where the speech engine runs (automatic), the translation's for its device.
+    const hardware = downloads.hardware;
+    const speechWarned = (entry: SetupEntry) => !!hardwareWarning(entry, hardware);
+    const translationMode = translationDeviceMode(currentSelectedTranslationComputeDevice?.data, hardware);
+    const translationWarned = (entry: SetupEntry) => translationMode !== null && !!hardwareWarning(entry, hardware, { deviceMode: translationMode });
     const recognitionDone = recognitionReady;
 
     return <div className={`${styles.container} ${dialogStyles.host}`}>
@@ -223,7 +233,7 @@ export const FirstRunSetupController = () => {
                     ? <p role="status" className={ui.finished}>{t("first_run_setup.recognition.finished")}</p>
                     : <>
                         {!run && recognition === "needs_setup" && recognitionChoices.length > 0 && <ModelChoice label={choiceLabel} choices={recognitionChoices}
-                            recommended={recommendedRecognition?.id} value={recognitionValue ?? SKIP} onChange={setRecognitionChoice} />}
+                            recommended={recommendedRecognition?.id} value={recognitionValue ?? SKIP} onChange={setRecognitionChoice} warned={speechWarned} />}
                         {recognitionSkipped && !run
                             ? <p className={ui.text}>{t("first_run_setup.recognition.skipped")}</p>
                             : <RecognitionSetup plan={plan} view={view} run={run} consent={consent} setConsent={setConsent}
@@ -239,13 +249,13 @@ export const FirstRunSetupController = () => {
             </section>}
             {(translationNeed || translationRun) && <ModelSetup words="translation" offer={translationOffered} run={translationRun} setRun={setTranslationRun}
                 choice={translationChoices.length > 0 && <ModelChoice label={choiceLabel} choices={translationChoices} recommended={defaultTranslation?.id}
-                    value={translationValue ?? SKIP} onChange={setTranslationChoice} />}
+                    value={translationValue ?? SKIP} onChange={setTranslationChoice} warned={translationWarned} />}
                 modelReady={!!translationOffered && downloadedWeights.includes(translationOffered.weight)} onLeave={() => finish(false)}
                 settingsTab="translation" settingsLabel={t("first_run_setup.found.translation_open_settings")}
                 version={downloads.catalog?.catalog_version} jobs={downloads.state.jobs} send={downloads.send} />}
             <ModelSetup words="speech" offer={speechOffered} run={speechRun} setRun={setSpeechRun} alreadyReady={speechReadyBefore}
                 choice={speechChoices.length > 0 && <ModelChoice label={choiceLabel} choices={speechChoices} recommended={recommendedVoice?.id}
-                    value={speechChoice} onChange={setSpeechChoice} groupOf={entry => t(`first_run_setup.speech.group_${entry.target}`)} />}
+                    value={speechChoice} onChange={setSpeechChoice} groupOf={entry => t(`first_run_setup.speech.group_${entry.target}`)} warned={speechWarned} />}
                 modelReady={speechDone} onLeave={() => finish(false)}
                 settingsTab="tts" settingsLabel={t("first_run_setup.speech.choose_other")}
                 version={downloads.catalog?.catalog_version} jobs={downloads.state.jobs} send={downloads.send} />
@@ -415,13 +425,17 @@ interface ModelChoiceProps {
     onChange: (value: string) => void;
     // The heading of a choice's group, when the list holds more than one kind (the text to speech's).
     groupOf?: (entry: SetupEntry) => string;
+    // Whether the model may be too heavy for the user's PC (modelHardwareWarning.ts): its option
+    // then says so, as the catalog's file choice does.
+    warned?: (entry: SetupEntry) => boolean;
 }
-const ModelChoice = ({ label, choices, recommended, value, onChange, groupOf }: ModelChoiceProps) => {
+const ModelChoice = ({ label, choices, recommended, value, onChange, groupOf, warned }: ModelChoiceProps) => {
     const { t } = useI18n();
     // The recommended mark is part of the words, so each language places it as it writes it.
     const option = (entry: SetupEntry) => <option key={entry.id} value={entry.id}>
-        {t(entry.id === recommended ? "first_run_setup.choice.option_recommended" : "first_run_setup.choice.option",
-            { name: familyLabel(entry), size: gib(entry.total_bytes) })}
+        {[t(entry.id === recommended ? "first_run_setup.choice.option_recommended" : "first_run_setup.choice.option",
+            { name: familyLabel(entry), size: gib(entry.total_bytes) }),
+            warned?.(entry) && t("model_catalog.hardware_warning.option")].filter(Boolean).join(" · ")}
     </option>;
     const groups = groupOf ? [...new Set(choices.map(groupOf))] : [];
     return <label className={ui.choice}>

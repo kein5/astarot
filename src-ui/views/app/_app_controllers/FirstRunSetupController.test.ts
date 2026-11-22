@@ -12,6 +12,7 @@ import * as restrictions from "../../../logics/voice/modelRestrictions.ts";
 import * as choicesLogic from "../../../logics/setup/setupChoices.ts";
 import * as catalogLogic from "../../../logics/voice/modelCatalog.ts";
 import * as licenseLogic from "../../../logics/configs/ctranslate2License.ts";
+import * as warningLogic from "../../../logics/voice/modelHardwareWarning.ts";
 
 const CATALOG = {
     catalog_version: "2026-11-16.3",
@@ -30,7 +31,8 @@ const CATALOG = {
             license: "Apache-2.0", licenses: ["https://example.invalid/qwen"], total_bytes: 800000000,
             speech: { name: "qwen3-asr-06b", default: true }, profile: { recommended_for: ["en"] } },
         { id: "irodori-v41-f16", target: "japanese", name: "Irodori-TTS v4.1 Small MF · F16", provider: "Irodori / sakasegawa",
-            license: "MIT", licenses: ["https://example.invalid/irodori"], total_bytes: 1900000000, profile: { summary: "mf", recommended_for: ["ja"] } },
+            license: "MIT", licenses: ["https://example.invalid/irodori"], total_bytes: 1900000000,
+            profile: { summary: "mf", recommended_for: ["ja"], gpu: "recommended", cpu: "impractical" } },
         { id: "qwen3-06b-q8", target: "multilingual", name: "Qwen3-TTS 12Hz 0.6B CustomVoice · Q8_0", provider: "Qwen / sakasegawa",
             license: "Apache-2.0", licenses: ["https://example.invalid/qwen-tts"], total_bytes: 1200000000, profile: { summary: "qwen", recommended_for: ["en"] } },
     ],
@@ -65,13 +67,15 @@ interface World {
     downloaded: string[];
     // The speech server profiles' models (the text to speech's, #955).
     speech: Record<string, { model: string }>;
+    // What the PC has, for the choices' warnings (#955).
+    hardware: object;
 }
 
 function world(values: Partial<World> = {}): World {
     return { notice: true, settled: false, opened: true, telemetryPending: false,
         engine: null, server: "external", paths: { model: "", vad_model: "" }, catalog: CATALOG, jobs: {},
         downloadError: null, realtimeError: null, sent: [], calls: [],
-        mic: "Microphone (USB)", vrchat: "found", cables: [], needs: [], weight: "m2m100_418M-ct2-int8", downloaded: [], speech: { japanese: { model: "" }, multilingual: { model: "" } }, ...values };
+        mic: "Microphone (USB)", vrchat: "found", cables: [], needs: [], weight: "m2m100_418M-ct2-int8", downloaded: [], speech: { japanese: { model: "" }, multilingual: { model: "" } }, hardware: { phase: "unknown", devices: [] }, ...values };
 }
 
 async function setup(context: TestContext, w = world()) {
@@ -99,7 +103,7 @@ async function setup(context: TestContext, w = world()) {
             settings: { version: 1, server: w.server, base_url: "http://127.0.0.1:8080" }, error: w.realtimeError,
             send: async (endpoint: string, data: unknown) => { record(endpoint, data); w.realtimeError = null; return true; } }) },
         "../../../logics/voice/useModelDownloads": { useModelDownloads: () => ({
-            catalog: w.catalog, state: { jobs: w.jobs }, error: w.downloadError,
+            catalog: w.catalog, state: { jobs: w.jobs }, error: w.downloadError, hardware: w.hardware, ensureHardware: () => w.calls.push("hardware"),
             send: async (endpoint: string, data: unknown) => { record(endpoint, data); if (endpoint.startsWith("/run/")) w.downloadError = null; } }) },
         "../../../logics/voice/useVirtualMic": { useVirtualMic: () => ({ status: { supported: true, cables: w.cables, error: null }, openGuide: () => w.calls.push("guide") }) },
         "../../../logics/main/useSetupNeeds": { useSetupNeeds: () => ({ needs: w.needs, start: (id: string) => w.calls.push(["start", id]) }) },
@@ -109,6 +113,7 @@ async function setup(context: TestContext, w = world()) {
         "../../../logics/setup/setupChoices.ts": choicesLogic,
         "../../../logics/voice/modelCatalog": catalogLogic,
         "../../../logics/configs/ctranslate2License": licenseLogic,
+        "../../../logics/voice/modelHardwareWarning": warningLogic,
         "../../../logics/voice/useSpeechServers": { useSpeechServers: () => ({ settings: { profiles: w.speech } }) },
         "../../../logics/setup/useFirstRunSetup": { useFirstRunSetup: () => ({
             notice: w.notice, opened: w.opened, settled: w.settled,
@@ -566,4 +571,21 @@ test("only text to speech: the setup ends with its switch to turn on and the oth
     assert.ok(done());
     // Nothing is turned on: no switch is sent.
     assert.ok(!w.sent.some(([endpoint]) => /enable|toggle/.test(endpoint)));
+});
+
+// #955: a model that may be too heavy for the PC says so in its choice, as the catalog's file choice does.
+test("a model that may be too heavy for the PC says so in its choice", async context => {
+    const w = world({ hardware: { phase: "ready", devices: [{ name: "cpu", kind: "cpu", description: "CPU", memory_total: 16 * 1073741824 }] } });
+    const s = await setup(context, w), local = hooks();
+    context.onTestFinished(() => local.unmount());
+    const speech = choiceIn(drawWith(local, s.modelPart(s.render(), "speech")))[0];
+    assert.ok(w.calls.includes("hardware"), "what the PC has is read when the dialog opens");
+    const byId = (id: string) => CATALOG.models.find(model => model.id === id);
+    // No GPU: the voice that needs one is marked; a speech model that runs on the CPU is not.
+    assert.equal(speech.props.warned(byId("irodori-v41-f16")), true);
+    assert.equal(speech.props.warned(byId("qwen3-06b-q8")), false);
+    // Nothing measured: nothing is marked.
+    w.hardware = { phase: "unknown", devices: [] };
+    const unmeasured = choiceIn(drawWith(local, s.modelPart(s.render(), "speech")))[0];
+    assert.equal(unmeasured.props.warned(byId("irodori-v41-f16")), false);
 });
