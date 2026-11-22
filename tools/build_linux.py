@@ -206,7 +206,8 @@ def main():
     env['CARGO_PROFILE_DEV_DEBUG_ASSERTIONS'] = 'false'
     run([ROOT / 'node_modules/.bin/tauri', 'build', '--no-bundle',
          *(['--debug'] if args.profile == 'debug' else []), '--', '--locked'], cwd=workspace, env=env)
-    candidate = work / 'candidate/VRCT-VOX'
+    # The tar.gz unpacks to this folder (VRCT-VOX up to 0.6.x).
+    candidate = work / 'candidate/ASTAROT'
     if candidate.exists():
         shutil.rmtree(candidate)
     candidate.mkdir(parents=True)

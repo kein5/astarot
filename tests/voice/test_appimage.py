@@ -20,14 +20,14 @@ def test_launcher_keeps_the_host_environment_beside_the_gui_one(tmp_path, librar
     from tools.build_appimage import install_launchers
     appdir = tmp_path / 'bundle with spaces.AppDir'
     (appdir / 'usr/bin').mkdir(parents=True)
-    (appdir / 'usr/lib/vrct-vox').mkdir(parents=True)
+    (appdir / 'usr/lib/astarot').mkdir(parents=True)
     # linuxdeploy's GUI launcher, renamed to AppRun.gui: report what the GUI process sees.
     report = ('import json,os,sys; print(json.dumps({"args": sys.argv[1:], "cwd": os.getcwd(), '
               '"ld": os.environ.get("LD_LIBRARY_PATH"), "xdg": os.environ.get("XDG_DATA_DIRS"), '
               '"host": {k: v for k, v in os.environ.items() if k.startswith("ASTAROT_APPIMAGE_HOST_")}}))')
     (appdir / 'AppRun').write_text(f'#!{sys.executable}\n{report}\n')
     (appdir / 'AppRun').chmod(0o755)
-    (appdir / 'vrct-vox.png').write_bytes(b'icon')
+    (appdir / 'astarot.png').write_bytes(b'icon')
     install_launchers(appdir)
     assert (appdir / '.DirIcon').read_bytes() == b'icon'
     assert not (appdir / 'usr/bin/vrct-vox-sidecar').exists(), 'no backend runs beside the GUI'
@@ -63,11 +63,11 @@ def test_gui_reaches_host_input_method_over_xim(tmp_path, host, daemon, gui):
     from tools.build_appimage import install_launchers
     appdir = tmp_path / 'App.AppDir'
     (appdir / 'usr/bin').mkdir(parents=True)
-    (appdir / 'usr/lib/vrct-vox').mkdir(parents=True)
+    (appdir / 'usr/lib/astarot').mkdir(parents=True)
     report = 'import json,os,sys; print(json.dumps({k: os.environ[k] for k in ("GTK_IM_MODULE", "XMODIFIERS") if k in os.environ}))'
     (appdir / 'AppRun').write_text(f'#!{sys.executable}\n{report}\n')
     (appdir / 'AppRun').chmod(0o755)
-    (appdir / 'vrct-vox.png').write_bytes(b'icon')
+    (appdir / 'astarot.png').write_bytes(b'icon')
     install_launchers(appdir)
     # A stand-in pgrep reports which input method daemon is running.
     tools = tmp_path / 'bin'
@@ -178,7 +178,7 @@ def test_backend_payload_is_copied_without_rewriting(tmp_path):
     (candidate / '_internal/build/speechcpp/speech').write_bytes(b'exact pinned engine')
     (candidate / '_internal/lib.so').symlink_to('build/speechcpp/speech')
     install_payload(candidate, appdir)
-    target = appdir / 'usr/lib/vrct-vox'
+    target = appdir / 'usr/lib/astarot'
     assert (target / '_internal/build/speechcpp/speech').read_bytes() == b'exact pinned engine'
     assert (target / '_internal/lib.so').is_symlink()
     assert not (target / 'astarot').exists(), 'do not include a duplicate unpatched GUI'

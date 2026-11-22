@@ -99,9 +99,11 @@ pub const INSTALLER_MOVED_FROM: &str = "installer_moved_from.txt";
 /// packages ship it under the new name only.
 pub const EXECUTABLE: Renamed = Renamed::moved("vrct-vox", "astarot");
 
-/// The Linux package: its name, `/opt/<name>`, the AppImage's `usr/lib/<name>` and the icon
-/// (ADR-014, 2.7).
-pub const LINUX_PACKAGE: Renamed = Renamed::not_moved("vrct-vox", "astarot");
+/// The Linux package: its name, `/opt/<name>`, the AppImage's `usr/lib/<name>`, the desktop file
+/// and the icon (ADR-014, 2.7). The deb and rpm replace the package of 0.6.x and earlier, whose
+/// name they declare (`tools/linux_packages.py`); the app looks for its shipped files under the
+/// new name only, as each version ships its own.
+pub const LINUX_PACKAGE: Renamed = Renamed::moved("vrct-vox", "astarot");
 
 /// The `product` in `owner.json`, the marker on a model download's folder. It tells a folder this
 /// app wrote, which it may remove after an interrupted download or move aside when its files
@@ -223,12 +225,13 @@ mod tests {
 
     /// The names that moved, each in its own pull request with its migration (ADR-014, 5). The
     /// pull request that moves another one adds it here.
-    const MOVED: [&str; 10] = [
+    const MOVED: [&str; 11] = [
         "APP_ID",
         "DESKTOP_FILE_MARKER",
         "LINUX_FOLDER",
         "WINDOWS_INSTALL",
         "EXECUTABLE",
+        "LINUX_PACKAGE",
         "MODEL_DOWNLOAD_OWNER",
         "credentials::WINDOWS_PREFIX",
         "credentials::APPLICATION",
@@ -253,7 +256,7 @@ mod tests {
         assert_eq!(LINUX_FOLDER.current(), "astarot");
         assert_eq!(WINDOWS_INSTALL.current(), "ASTAROT");
         assert_eq!(EXECUTABLE.current(), "astarot");
-        assert_eq!(LINUX_PACKAGE.current(), "vrct-vox");
+        assert_eq!(LINUX_PACKAGE.current(), "astarot");
         assert_eq!(MODEL_DOWNLOAD_OWNER.current(), "ASTAROT-model-download-v1");
         assert_eq!(credentials::WINDOWS_PREFIX.current(), "ASTAROT");
         assert_eq!(credentials::APPLICATION.current(), "astarot");
@@ -290,7 +293,7 @@ mod tests {
 
     #[test]
     fn a_moved_name_writes_astarot_and_still_knows_the_old_one() {
-        let moved = Renamed { writes_astarot: true, ..LINUX_PACKAGE };
+        let moved = Renamed { writes_astarot: true, ..Renamed::not_moved("vrct-vox", "astarot") };
         assert_eq!(moved.current(), "astarot");
         assert_eq!(moved.other(), "vrct-vox");
         assert!(moved.accepts("vrct-vox") && moved.accepts("astarot"));

@@ -182,7 +182,7 @@ def test_pyav_and_gpl_encoders_are_rejected(tmp_path, name, reason):
     ("_internal/nvidia/cuda_nvrtc/lib/libnvrtc.so.12", "CUDA"),
     ("_internal/build/speechcpp/cudart64_12.dll", "CUDA"),
     ("_internal/onnxruntime/cublasLt64_12.dll", "CUDA"),
-    ("usr/lib/vrct-vox/_internal/libcudnn.so.9", "CUDA"),
+    ("usr/lib/astarot/_internal/libcudnn.so.9", "CUDA"),
 ])
 def test_ctranslate2_and_cuda_libraries_are_rejected(tmp_path, container, name, reason):
     with pytest.raises(ValueError, match=reason):

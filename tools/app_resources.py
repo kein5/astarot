@@ -1,7 +1,7 @@
 """The files the app ships in its `_internal` folder, now that no Python backend is frozen.
 
 The Rust core and the app find them with native/core/src/resources.rs: `_internal` beside the
-binary, or `usr/lib/vrct-vox/_internal` in the Linux packages. The folder keeps the name of the
+binary, or `usr/lib/astarot/_internal` in the Linux packages. The folder keeps the name of the
 PyInstaller resources, so the Windows installer's update step, which replaces `_internal` as a
 whole, also removes the Python runtime of an older version.
 

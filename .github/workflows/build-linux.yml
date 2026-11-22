@@ -163,9 +163,9 @@ jobs:
             build/dev/headless-venv/bin/python -m pytest \
             -c tests/voice/pytest.ini tests/platform/test_appimage.py -q \
             --basetemp=build/linux/appimage-acceptance > appimage-acceptance.log 2>&1
-      # The same files as the tar.gz, installed under /opt/vrct-vox (tools/linux_packages.py).
+      # The same files as the tar.gz, installed under /opt/astarot (tools/linux_packages.py).
       - name: Build deb and rpm packages
-        run: python3 tools/linux_packages.py --candidate build/linux/candidate/VRCT-VOX --output-dir build/linux/artifacts
+        run: python3 tools/linux_packages.py --candidate build/linux/candidate/ASTAROT --output-dir build/linux/artifacts
       # Clean images pinned by digest; each installs with its own package manager and only the
       # declared requirements.
       - name: Install the packages in clean Ubuntu, Debian and Fedora
