@@ -48,7 +48,6 @@ async function setup({ needs = [], hint = true, vr = false, startup = null, sett
         "../../../../../../logics/setup/useFirstRunSetup": { useFirstRunSetup: () => ({ notice, openSetup: () => started.push("first_run") }) },
         "../../../../../../logics/setup/firstRunSetup.ts": setupLogic,
         "../../../../../../logics/main/setupNeeds": needsLogic,
-        "../../../../../../logics/setup/firstRunSetup.ts": setupLogic,
         "../../../startupContext": { useStartupPlaceholder: () => startup },
         "../../../vrchatHintContext": { useVrchatHint: () => hint ? VrchatLine : null },
     });
@@ -193,7 +192,6 @@ test("the greeting waits for the language and the narrow layout that the saved s
         "../../../../../../logics/setup/useFirstRunSetup": { useFirstRunSetup: () => ({ openSetup: () => {} }) },
         "../../../../../../logics/setup/firstRunSetup.ts": setupLogic,
         "../../../../../../logics/main/setupNeeds": needsLogic,
-        "../../../../../../logics/setup/firstRunSetup.ts": setupLogic,
         "../../../startupContext": { useStartupPlaceholder: () => null },
         "../../../vrchatHintContext": { useVrchatHint: () => null },
     });
@@ -225,7 +223,6 @@ test("a language or layout that does not follow holds the greeting back for a se
         "../../../../../../logics/setup/useFirstRunSetup": { useFirstRunSetup: () => ({ openSetup: () => {} }) },
         "../../../../../../logics/setup/firstRunSetup.ts": setupLogic,
         "../../../../../../logics/main/setupNeeds": needsLogic,
-        "../../../../../../logics/setup/firstRunSetup.ts": setupLogic,
         "../../../startupContext": { useStartupPlaceholder: () => null },
         "../../../vrchatHintContext": { useVrchatHint: () => null },
     });
