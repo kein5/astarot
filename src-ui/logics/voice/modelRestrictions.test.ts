@@ -56,9 +56,9 @@ for (const language of ["en", "ja"]) test(`${language}: every restriction and it
 const loadHeading = (runtime: HookRuntime) => loadModule<typeof import("../../views/app/config_page/setting_section/setting_box/advanced_settings/catalogHeading.tsx")>(new URL("../../views/app/config_page/setting_section/setting_box/advanced_settings/catalogHeading.tsx", import.meta.url), runtime,
     { "../_components/hint/Hint": { Hint: "hint" } });
 
-async function dialog(context: TestContext, entry: object) {
+async function dialog(context: TestContext, entry: object, state: object = { jobs: {} }, open = true, usable: string[] = []) {
     const runtime = hooks(), sent: [string, unknown][] = [];
-    const downloads = { catalog: { models: [entry], catalog_version: "reviewed-catalog" }, state: { jobs: {} }, hardware: {},
+    const downloads = { catalog: { models: [entry], catalog_version: "reviewed-catalog" }, state, hardware: {},
         ensureHardware: () => {}, send: (endpoint: string, data?: unknown) => sent.push([endpoint, data]) };
     const { ModelDownloads } = await loadModule<typeof import("../../views/app/config_page/setting_section/setting_box/advanced_settings/ModelDownloads.tsx")>(new URL("../../views/app/config_page/setting_section/setting_box/advanced_settings/ModelDownloads.tsx", import.meta.url), runtime, {
         "@tauri-apps/api/core": { isTauri: () => false },
@@ -80,10 +80,30 @@ async function dialog(context: TestContext, entry: object) {
         "./catalogLayout": { useCatalogLayout: () => "list", CatalogList: "ul", CatalogFacts: "catalog-facts", CatalogLayoutSwitch: "catalog-layout-switch" },
     });
     context.onTestFinished(() => runtime.unmount());
-    const render = () => runtime.render(ModelDownloads, { targets: ["translation"], expected: { translation: {} } });
-    findIn(render(), node => node.type === "button" && node.props.children === "model_downloads.review").props.onClick();
+    const render = () => runtime.render(ModelDownloads, { targets: ["translation"], expected: { translation: {} }, usable });
+    if (open) findIn(render(), node => node.type === "button" && node.props.children === "model_downloads.review").props.onClick();
     return { render, sent };
 }
+
+// #947: a translation model holds no path; once it is on the PC and the app can use it (applied
+// in this run, or found after a restart; the core checked its files), it is ready, and its card
+// offers no check or preparation again.
+test("a translation model on the PC that the app can use offers no check or preparation", async context => {
+    const buttonWords = (tree: unknown) => nodesIn(tree).filter(node => node.type === "button").map(node => node.props.children);
+    const words = (tree: unknown) => nodesIn(tree).flatMap(node => [node.props?.children].flat()).filter(child => typeof child === "string");
+    const offersNothing = (tree: unknown) => !buttonWords(tree).some(word => word === "model_catalog.prepare" || word === "model_downloads.review")
+        && !words(tree).includes("model_catalog.prepare_hint");
+    const applied = await dialog(context, nllb, { jobs: { [nllb.id]: { job_id: "j1", phase: "applied", paths: {} } } }, false, [nllb.id]);
+    assert.ok(offersNothing(applied.render()), "applied in this run");
+    const restarted = await dialog(context, nllb, { jobs: {}, downloaded: { [nllb.id]: {} } }, false, [nllb.id]);
+    assert.ok(offersNothing(restarted.render()), "found after a restart");
+    // Its files there by their sizes but not usable (a damaged file): its check, as before.
+    const damaged = await dialog(context, nllb, { jobs: {}, downloaded: { [nllb.id]: {} } }, false, []);
+    assert.ok(buttonWords(damaged.render()).includes("model_catalog.prepare"));
+    // Not on the PC: the review, as before.
+    const missing = await dialog(context, nllb, { jobs: {} }, false);
+    assert.ok(buttonWords(missing.render()).includes("model_downloads.review"));
+});
 
 const checkboxes = (tree: unknown) => nodesIn(tree).filter(node => node.type === "input" && node.props.type === "checkbox");
 const start = (tree: unknown) => findIn(tree, node => node.type === "button" && node.props.children === "model_downloads.start");

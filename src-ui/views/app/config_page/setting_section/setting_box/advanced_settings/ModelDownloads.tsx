@@ -8,7 +8,7 @@ import { modelAdvice } from "../../../../../../logics/voice/modelHardwareAdvice"
 import type { ModelAdvice } from "../../../../../../logics/voice/modelHardwareAdvice";
 import { hardwareWarning, translationDeviceMode } from "../../../../../../logics/voice/modelHardwareWarning";
 import { RESTRICTIONS, canStart, restrictionsOf, startRequest } from "../../../../../../logics/voice/modelRestrictions";
-import { catalogFamilies, showsValidation, downloadStatus, firstVariant, familyLabel, variantLabel } from "../../../../../../logics/voice/modelCatalog";
+import { catalogFamilies, showsValidation, downloadStatus, firstVariant, familyLabel, isPrepared, variantLabel } from "../../../../../../logics/voice/modelCatalog";
 import styles from "./VoiceSettings.module.scss";
 import { Fold } from "../_components/fold/Fold";
 import { EnvReadout } from "../_components/env_readout/EnvReadout";
@@ -198,6 +198,9 @@ const RestrictionNote = ({ kind, license, id }: { kind: string; license: string;
 // engines: also list the speech engines a user installs (the Japanese TTS catalog).
 // translationDevice: the saved device of the local translation, which the translation models'
 // warnings compare with (deviceMode is the speech engine's).
+// usable: the catalog ids of the models that hold no path and the app can use (the translation's
+// that count as downloaded in the core). On the PC, such a model is ready, and its card offers no
+// check or preparation (#947).
 export interface ModelDownloadsProps {
     targets: readonly string[];
     expected?: ExpectedPaths;
@@ -207,12 +210,13 @@ export interface ModelDownloadsProps {
     engines?: boolean;
     only?: readonly string[];
     translationDevice?: TranslationDevice;
+    usable?: readonly string[];
     // What an RVC card's audition uses (#415): the RVC form's pitch and index rate, and the input
     // chosen on the page, which the user's voice is recorded from.
     audition?: RvcAudition | null;
 }
 
-export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode = 'auto', reserve: sharedReserve, engines = false, only, translationDevice, audition }: ModelDownloadsProps) => {
+export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode = 'auto', reserve: sharedReserve, engines = false, only, translationDevice, usable, audition }: ModelDownloadsProps) => {
     const { t, i18n } = useI18n();
     const hints = useHintDescriptions();
     const languages = useLanguageList();
@@ -279,6 +283,8 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
         const job = state.jobs[current.id];
         const shownStatus = status(current);
         const downloaded = ["downloaded", "in_use"].includes(shownStatus);
+        // Ready to use: nothing to check or prepare, so no button offers it (#947).
+        const prepared = isPrepared(current.target, shownStatus, !!usable?.includes(current.id));
         // A download of another file of this model keeps its progress and actions in view.
         const others = family.rows.filter(entry => entry.id !== current.id &&
             (activePhases.includes(state.jobs[entry.id]?.phase) || state.jobs[entry.id]?.phase === "ready"));
@@ -351,7 +357,7 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
         // Only after the user picks another file; the file in use shown first is not a choice.
         const manualChoice = choices[family.key] && hint.recommended && family.rows.some(entry => entry.id === hint.recommended) && current.id !== hint.recommended &&
             <p>{t('model_downloads.manual_choice')}</p>;
-        const prepareHint = downloaded && !job && shownStatus !== "in_use" && <p>{t("model_catalog.prepare_hint")}</p>;
+        const prepareHint = downloaded && !prepared && !job && <p>{t("model_catalog.prepare_hint")}</p>;
         const guidanceFold = guidance && !guidanceHint && <Fold size="link" className={styles.more}
             summary={t(measured !== null ? 'model_downloads.guidance_summary' : 'model_downloads.validation_summary')}>
             {guidance.map(line => <p key={line}>{line}</p>)}
@@ -361,11 +367,11 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
             {jobView(current, true)}
             {others.map(entry => jobView(entry, false))}
             <div className={styles.actions}>
-                <button type="button" disabled={busy} onClick={() => {
+                {!prepared && <button type="button" disabled={busy} onClick={() => {
                     setConsent(false);
                     setAcknowledged([]);
                     setSelected({ ...current, catalog_version: version, downloaded });
-                }}>{t(downloaded ? "model_catalog.prepare" : "model_downloads.review")}</button>
+                }}>{t(downloaded ? "model_catalog.prepare" : "model_downloads.review")}</button>}
                 {/* The TTS models: a short sentence on the monitor output only; the RVC models: that sentence converted (#415). */}
                 <AuditionButton target={target} status={shownStatus} entry={current.id} values={audition?.values} input={audition?.input} />
             </div>

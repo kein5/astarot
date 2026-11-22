@@ -272,7 +272,12 @@ test("a model downloaded before a restart says so, and in use only when its file
     const cards = nodesIn(render()).filter(node => node.props?.["data-model-download"] !== undefined);
     assert.deepEqual(cards.map(status), ["in_use", "downloaded", "not_downloaded"]);
     const action = (card: TreeNode) => findIn(card, node => node.type === "button" && node.props.children?.startsWith?.("model_"));
-    assert.deepEqual(cards.map(card => action(card).props.children), ["model_catalog.prepare", "model_catalog.prepare", "model_downloads.review"]);
+    const actionOf = (card: TreeNode) => nodesIn(card).find(node => node.type === "button" && node.props.children?.startsWith?.("model_"))?.props.children ?? null;
+    // In use, it is ready: nothing to check or prepare, so no button offers it (#947). On the PC but
+    // not set, it still needs its check and its path; not on the PC, its review.
+    assert.deepEqual(cards.map(actionOf), [null, "model_catalog.prepare", "model_downloads.review"]);
+    assert.ok(!nodesIn(cards[0]).some(node => node.props?.children === "model_catalog.prepare_hint"));
+    assert.ok(nodesIn(cards[1]).some(node => node.props?.children === "model_catalog.prepare_hint"));
     // Getting a downloaded file ready still goes through the review and consent.
     action(cards[1]).props.onClick();
     assert.equal(s.calls.filter(([endpoint]) => endpoint.startsWith("/run/") && !endpoint.includes("hardware")).length, 0);
@@ -280,8 +285,11 @@ test("a model downloaded before a restart says so, and in use only when its file
     assert.ok(find(dialog, node => node.props?.children === "model_catalog.prepare_notice"));
     // The audition (#415) follows the card's own action in its row, with the card's status and
     // model id; the RVC form's values and the chosen input reach it when the page has them.
-    const row = findIn(cards[0], node => node.props?.className === "actions");
+    const row = findIn(cards[1], node => node.props?.className === "actions");
     assert.deepEqual(row.props.children.map((child: TreeNode | null) => child?.type), ["button", "audition-button"]);
+    // In use, the audition is the row's only control.
+    const used = findIn(cards[0], node => node.props?.className === "actions");
+    assert.deepEqual(used.props.children.filter(Boolean).map((child: TreeNode) => child.type), ["audition-button"]);
     const none = { values: undefined, input: undefined };
     assert.deepEqual(cards.map(card => findIn(card, node => node.type === "audition-note").props), [
         { target: "rvc", status: "in_use", entry: "a", ...none }, { target: "rvc", status: "downloaded", entry: "b", ...none },
