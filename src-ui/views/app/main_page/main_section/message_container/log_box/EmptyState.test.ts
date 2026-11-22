@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import { hooks, loadModule, find, unchecked, fieldOf } from "../../../../../../logics/test/hookHarness.ts";
 import type { TreeNode } from "../../../../../../logics/test/hookHarness.ts";
 import * as needsLogic from "../../../../../../logics/main/setupNeeds.ts";
+import * as setupLogic from "../../../../../../logics/setup/firstRunSetup.ts";
 import { localeAt, readLocale } from "../../../../../../logics/test/locales.ts";
 
 type EmptyStateModule = typeof import("./EmptyState.tsx");
@@ -44,6 +45,7 @@ async function setup({ needs = [], hint = true, vr = false, startup = null, sett
         "../../../../../../logics/setup/useRecognitionState": { useRecognitionState: () => ({ state: recognition }) },
         "../../../../../../logics/setup/useFirstRunSetup": { useFirstRunSetup: () => ({ openSetup: () => started.push("first_run") }) },
         "../../../../../../logics/main/setupNeeds": needsLogic,
+        "../../../../../../logics/setup/firstRunSetup.ts": setupLogic,
         "../../../startupContext": { useStartupPlaceholder: () => startup },
         "../../../vrchatHintContext": { useVrchatHint: () => hint ? VrchatLine : null },
     });
@@ -60,7 +62,8 @@ const greetingIn = (tree: unknown) => {
 };
 
 test("the empty conversation lists what the selected engines still need, each with the step that provides it", async () => {
-    const s = await setup({ needs: [{ id: "translation", weight: { id: "small" }, action: "review" },
+    // A translation model the setup does not prepare (not "review") keeps its own line.
+    const s = await setup({ needs: [{ id: "translation", weight: { id: "small" }, action: "download" },
         { id: "transcription", weight: { id: "base" }, action: "review" }] });
     const list = find(s.tree, node => node.type === "ul");
     assert.ok(list);
@@ -104,6 +107,21 @@ test("a recognition not set up yet offers the first-run setup in place of the ot
     }
 });
 
+// #936: the setup prepares the translation's model too, so it is led to while that is left, also
+// with the recognition ready; its line says which are left. A model it cannot fetch keeps its line.
+test("the translation's model left, the line leads to the setup and says what is left", async () => {
+    const review = { id: "translation", weight: { id: "m2m100_418M-ct2-int8" }, action: "review" };
+    const only = await setup({ recognition: "ready", needs: [review] });
+    assert.deepEqual(only.texts.filter(text => text.startsWith("studio.setup_")), ["studio.setup_first_run_translation", "studio.setup_first_run_open"]);
+    find(only.tree, node => node.type === "button")?.props.onClick();
+    assert.deepEqual(only.started, ["first_run"]);
+    const both = await setup({ recognition: "needs_setup", needs: [review, { id: "transcription", weight: null, action: "settings" }] });
+    assert.deepEqual(both.texts.filter(text => text.startsWith("studio.setup_")), ["studio.setup_first_run_both", "studio.setup_first_run_open"]);
+    const choose = await setup({ recognition: "needs_setup", needs: [{ id: "translation", weight: { id: "x" }, action: "choose" }] });
+    assert.deepEqual(choose.texts.filter(text => text.startsWith("studio.setup_")),
+        ["studio.setup_first_run", "studio.setup_first_run_open", "studio.setup_translation_unavailable", "studio.setup_other_translator"]);
+});
+
 test("the greeting is the heading alone: where to type is left to the composer under it", async () => {
     const s = await setup({ hint: false });
     assert.equal(find(s.tree, node => node.type === "ul"), null);
@@ -115,7 +133,7 @@ test("the greeting is the heading alone: where to type is left to the composer u
 
 test("under the list stands the main window's line about VRChat, which decides by itself when it has something to say", async () => {
     const s = await setup({ needs: [{ id: "translation", weight: { id: "small" }, action: "review" }] });
-    assert.deepEqual(s.texts, ["studio.empty_title", "studio.setup_translation", "model_downloads.review", "the line about VRChat"]);
+    assert.deepEqual(s.texts, ["studio.empty_title", "studio.setup_first_run_translation", "studio.setup_first_run_open", "the line about VRChat"]);
     const line = find(s.tree, node => node.type === "p" && node.props.children === "the line about VRChat");
     assert.ok(line);
     assert.equal(line.props.className, "hint", "drawn in the hint's place and look");
@@ -151,6 +169,7 @@ test("the greeting waits for the language and the narrow layout that the saved s
         "../../../../../../logics/setup/useRecognitionState": { useRecognitionState: () => ({ state: "ready" }) },
         "../../../../../../logics/setup/useFirstRunSetup": { useFirstRunSetup: () => ({ openSetup: () => {} }) },
         "../../../../../../logics/main/setupNeeds": needsLogic,
+        "../../../../../../logics/setup/firstRunSetup.ts": setupLogic,
         "../../../startupContext": { useStartupPlaceholder: () => null },
         "../../../vrchatHintContext": { useVrchatHint: () => null },
     });
@@ -181,6 +200,7 @@ test("a language or layout that does not follow holds the greeting back for a se
         "../../../../../../logics/setup/useRecognitionState": { useRecognitionState: () => ({ state: "ready" }) },
         "../../../../../../logics/setup/useFirstRunSetup": { useFirstRunSetup: () => ({ openSetup: () => {} }) },
         "../../../../../../logics/main/setupNeeds": needsLogic,
+        "../../../../../../logics/setup/firstRunSetup.ts": setupLogic,
         "../../../startupContext": { useStartupPlaceholder: () => null },
         "../../../vrchatHintContext": { useVrchatHint: () => null },
     });

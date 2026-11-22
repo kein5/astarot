@@ -4,19 +4,22 @@ import type { TFunction } from "i18next";
 import { useI18n } from "@useI18n";
 import { isTauri } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { useOthers, useTranscription, useSettingValue } from "@logics_configs";
+import { useOthers, useTranscription, useTranslation, useSettingValue } from "@logics_configs";
 import { useStore_IsBackendReady, useStore_IsOpenedConfigPage, useStore_SelectedConfigTabId } from "@store";
 import { useConsentDialog } from "../../../logics/common/useConsentDialog";
 import { useRealtimeASR } from "../../../logics/transcription/useRealtimeASR";
 import { useModelDownloads } from "../../../logics/voice/useModelDownloads";
 import { useVirtualMic } from "../../../logics/voice/useVirtualMic";
 import { useSetupNeeds } from "../../../logics/main/useSetupNeeds";
-import { useOpenTranslatorList } from "../../../logics/translation/useOpenTranslatorList";
+import { downloadProgress } from "../../../logics/main/setupNeeds";
 import { useFirstRunSetup } from "../../../logics/setup/useFirstRunSetup";
 import { useRecognitionState } from "../../../logics/setup/useRecognitionState";
-import { setupPlan, planModels, planBytes, nextAction, stepState, setupOpensByItself }
+import { setupPlan, planModels, planBytes, nextAction, stepState, setupOpensByItself, setupWork }
     from "../../../logics/setup/firstRunSetup.ts";
 import type { RecognitionState, RunView, SetupStep } from "../../../logics/setup/firstRunSetup.ts";
+import { translationNext, translationOffer } from "../../../logics/setup/translationSetup.ts";
+import type { TranslationOffer } from "../../../logics/setup/translationSetup.ts";
+import { startRequest } from "../../../logics/voice/modelRestrictions";
 import { useVrchatPresence } from "../others/vrchat_presence/VrchatPresence";
 import type { VrchatPresenceState } from "../others/vrchat_presence/VrchatPresence";
 import styles from "../config_page/setting_section/setting_box/advanced_settings/VoiceSettings.module.scss";
@@ -44,6 +47,12 @@ const gib = (value: number) => value < 0.1 * 1073741824 ? `${(value / 1048576).t
 // "Later" and Escape put it away for this run; downloads already started go on. "Done" and
 // "Don't show again" stop it from opening by itself.
 //
+// The local translation's model is prepared here too (#936), never by leaving the setup: when the
+// selected translation model can be downloaded, its own section shows the model's name,
+// provider, license and size with links to its card and license, takes the consent (and one per
+// license restriction, as the catalogs do), downloads it, applies it, and says the translation is
+// ready; the translation row above then reads as ready.
+//
 // It is drawn as shadcn/ui's Dialog with its parts, and what was found as an Item list: each
 // row has a mark that tells at a glance whether it is ready or needs the user, the name, what was
 // found in words, and its action under them (FirstRunSetupController.css.ts).
@@ -64,6 +73,20 @@ interface SetupRun {
     failure: { step: number; code: string } | null;
 }
 
+// One run of the translation's preparation (translationSetup.ts): what the consent was given for
+// (the model, whether the choice changes) with the catalog version, and how far it has come.
+// switched: it has asked to select the model.
+interface TranslationRun {
+    id: number;
+    phase: "running" | "done" | "failed";
+    offer: TranslationOffer;
+    version: unknown;
+    started: string | null | undefined;
+    applied: readonly string[];
+    switched: boolean;
+    failure: string | null;
+}
+
 export const FirstRunSetupController = () => {
     const { t, i18n } = useI18n();
     const setup = useFirstRunSetup();
@@ -74,18 +97,22 @@ export const FirstRunSetupController = () => {
     const downloads = useModelDownloads();
     const ready = currentIsBackendReady.data === true;
     const { state: recognition, engine, server, paths } = useRecognitionState();
+    // What is left to prepare: the recognition, the translation's model, or both (#936).
+    const { needs } = useSetupNeeds();
+    const translationNeed = needs.find(need => need.id === "translation");
+    const work = setupWork(recognition, translationNeed?.action);
 
     // Other first-run notices come first; one dialog at a time.
     const othersFirst = currentTelemetryNotice.state === "ok" && currentTelemetryNotice.data?.pending === true;
-    const byItself = ready && !setup.settled && !othersFirst && setupOpensByItself(setup.notice, recognition);
+    const byItself = ready && !setup.settled && !othersFirst && setupOpensByItself(setup.notice, work);
     // Once open by itself it stays open until the user closes it, even when the run makes it ready.
     const [shown, setShown] = useState(false);
     useEffect(() => { if (byItself) setShown(true); }, [byItself]);
     // Known not to be needed: it will not open by itself this run, so the next notice may.
     const known = recognition !== "unknown" && setup.notice !== null;
     useEffect(() => {
-        if (ready && known && !shown && !setupOpensByItself(setup.notice, recognition)) setup.markSettled();
-    }, [ready, known, shown, setup.notice, recognition]);
+        if (ready && known && !shown && !setupOpensByItself(setup.notice, work)) setup.markSettled();
+    }, [ready, known, shown, setup.notice, work.recognition, work.translation]);
 
     const open = setup.opened || shown;
     const { dialog, close } = useConsentDialog(open);
@@ -101,6 +128,16 @@ export const FirstRunSetupController = () => {
     useEffect(() => { if (open && !downloads.catalog) downloads.send("/get/data/model_download_catalog"); }, [open, !!downloads.catalog]);
 
     useRunner({ run, setRun, view, downloads, realtime, setSelectedTranscriptionEngine });
+
+    // The translation's model: while the selected one is not on the PC, the setup prepares the model
+    // it recommends (the default), as the recognition's section does, and selects it (#936).
+    const { currentSelectedCTranslate2WeightType, currentCTranslate2WeightTypeStatus, setSelectedCTranslate2WeightType } = useTranslation();
+    const downloadedWeights = (currentCTranslate2WeightTypeStatus.data ?? []).filter(item => item.is_downloaded).map(item => item.id);
+    const [translationRun, setTranslationRun] = useState<TranslationRun | null>(null);
+    const translationOffered = translationRun?.offer
+        ?? (translationNeed ? translationOffer(downloads.catalog, currentSelectedCTranslate2WeightType.data, downloadedWeights) : null);
+    useTranslationRunner({ run: translationRun, setRun: setTranslationRun, ready: !translationNeed, downloads,
+        modelReady: !!translationRun && downloadedWeights.includes(translationRun.offer.weight), select: setSelectedCTranslate2WeightType });
 
     if (!open) return null;
     const running = run?.phase === "running";
@@ -136,7 +173,9 @@ export const FirstRunSetupController = () => {
                 <h3 className={ui.title} data-slot="dialog-title">{t("first_run_setup.title")}</h3>
                 <p className={ui.description} data-slot="dialog-description">{t("first_run_setup.purpose")}</p>
             </div>
-            <Findings recognition={recognition} onLeave={() => finish(false)} />
+            <Findings recognition={recognition} onLeave={() => finish(false)}
+                translationPreparing={translationRun?.phase === "running"} translationHere={!!translationOffered}
+                translationSwitches={!!translationOffered?.switches} translationLoading={!!translationNeed && !translationOffered && !downloads.catalog} />
             {!["cloud", "own_server"].includes(recognition) && <section className={ui.section} aria-labelledby="first-run-recognition">
                 <h4 id="first-run-recognition" className={ui.sectionTitle}>{t("first_run_setup.recognition.heading")}</h4>
                 {finished
@@ -151,6 +190,9 @@ export const FirstRunSetupController = () => {
                     {!running && <OpenSettings tab="transcription" label={t("first_run_setup.recognition.choose_other")} onLeave={() => finish(false)} />}
                 </div>}
             </section>}
+            {translationOffered && <TranslationSetup offer={translationOffered} run={translationRun} setRun={setTranslationRun}
+                modelReady={downloadedWeights.includes(translationOffered.weight)} onLeave={() => finish(false)}
+                version={downloads.catalog?.catalog_version} jobs={downloads.state.jobs} send={downloads.send} />}
             <div className={ui.footer} data-slot="dialog-footer">
                 <div className={ui.actions}>
                     <button type="button" onClick={() => finish(false)}>{t("first_run_setup.later")}</button>
@@ -225,20 +267,205 @@ const useRunner = ({ run, setRun, view, downloads, realtime, setSelectedTranscri
     }, [running, key, downloadError, realtimeError]);
 };
 
+// Sends the translation run's next request, once each, and records how it ends (#936).
+interface TranslationRunnerProps {
+    run: TranslationRun | null;
+    setRun: Dispatch<SetStateAction<TranslationRun | null>>;
+    // The setup no longer needs the model.
+    ready: boolean;
+    // The offered model is on the PC.
+    modelReady: boolean;
+    downloads: ReturnType<typeof useModelDownloads>;
+    // Selects a translation model (/set/data/selected_ctranslate2_weight_type).
+    select: (weight: string) => unknown;
+}
+const useTranslationRunner = ({ run, setRun, ready, modelReady, downloads, select }: TranslationRunnerProps) => {
+    const sent = useRef(new Set<string | null>());
+    const running = run?.phase === "running";
+    const entry = run?.offer.entry ?? null;
+    const job = entry ? downloads.state.jobs[entry.id] : undefined;
+    const action = running ? translationNext({ job, started: run.started, applied: run.applied, ready, modelReady,
+        switches: run.offer.switches, switched: run.switched }) : null;
+    const key = action && run && JSON.stringify([run.id, action.kind, "jobId" in action ? action.jobId : null]);
+    const downloadError = useRunError(run?.id, running, downloads.error);
+    useEffect(() => {
+        if (!running || !run) { sent.current.clear(); return; }
+        if (downloadError) { setRun(previous => previous && { ...previous, phase: "failed", failure: downloadError }); return; }
+        if (!action || action.kind === "wait") return;
+        if (action.kind === "done") { setRun(previous => previous && { ...previous, phase: "done" }); return; }
+        if (action.kind === "failed") { setRun(previous => previous && { ...previous, phase: "failed", failure: action.code }); return; }
+        if (sent.current.has(key)) return;
+        sent.current.add(key);
+        if (action.kind === "switch") {
+            // As the recognition's section selects its engine: the model is on the PC, so the choice can change.
+            setRun(previous => previous && { ...previous, switched: true });
+            Promise.resolve(select(run.offer.weight)).then(result => {
+                if (result === false) setRun(previous => previous && { ...previous, phase: "failed", failure: "backend_unavailable" });
+            });
+        } else if (!entry) {
+            return;
+        } else if (action.kind === "start") {
+            setRun(previous => previous && { ...previous, started: job?.job_id ?? null });
+            // The recommended model's license allows any use, so the one consent is all, as the recognition's.
+            downloads.send("/run/start_model_download", startRequest({ id: entry.id, catalog_version: String(run.version ?? ""),
+                restrictions: entry.restrictions }, []));
+        } else {
+            setRun(previous => previous && { ...previous, applied: [...previous.applied, action.jobId] });
+            // The translation's download holds no path: nothing in the settings is expected.
+            downloads.send("/run/apply_model_download", { id: entry.id, job_id: action.jobId, expected: {} });
+        }
+    }, [running, key, downloadError]);
+};
+
+// The translation's own section (#936), laid out as the recognition's section above: what it
+// does, the model the setup recommends with its facts and total, the consent, then the steps
+// (download it; select it when another model is selected) and the way to the Translation
+// settings for other models. Nothing downloads before the consent, and the translation itself
+// is not turned on.
+interface TranslationSetupProps {
+    offer: TranslationOffer;
+    run: TranslationRun | null;
+    setRun: Dispatch<SetStateAction<TranslationRun | null>>;
+    // The offered model is on the PC.
+    modelReady: boolean;
+    onLeave: () => void;
+    version: unknown;
+    jobs: ReturnType<typeof useModelDownloads>["state"]["jobs"];
+    send: ReturnType<typeof useModelDownloads>["send"];
+}
+const TranslationSetup = ({ offer, run, setRun, modelReady, onLeave, version, jobs, send }: TranslationSetupProps) => {
+    const { t } = useI18n();
+    const [consent, setConsent] = useState(false);
+    const [linkFailed, setLinkFailed] = useState<string | null>(null);
+    const { entry, switches } = offer;
+    const job = entry ? jobs[entry.id] : undefined;
+    const active = !!job && ACTIVE.includes(job.phase);
+    const running = run?.phase === "running";
+    const failed = run?.phase === "failed";
+    // Nothing to download: no consent is asked, as the recognition's section with no model.
+    const ready = entry ? consent : true;
+    const openLink = async (event: MouseEvent<HTMLAnchorElement>, url: string) => {
+        if (!isTauri()) return;
+        event.preventDefault();
+        try { await openUrl(url); setLinkFailed(null); } catch { setLinkFailed(url); }
+    };
+    const begin = () => {
+        if (running || !ready) return;
+        setRun({ id: newRunId(), phase: "running", offer, version, started: undefined, applied: [], switched: false, failure: null });
+    };
+    const retry = () => setRun(previous => previous && { ...previous, id: newRunId(), phase: "running", started: undefined, applied: [], switched: false, failure: null });
+    const stop = () => {
+        if (active && job.phase !== "cancelling") send("/run/cancel_model_download", { id: entry?.id, job_id: job.job_id });
+        else setRun(previous => previous && { ...previous, phase: "failed", failure: "stopped" });
+    };
+    const card = entry ? entry.source ?? entry.licenses?.[0] : undefined;
+    const what = !entry ? t("first_run_setup.translation.what_switch_only", { name: offer.name })
+        : t(switches ? "first_run_setup.translation.what_switch" : "first_run_setup.translation.what");
+    // The steps, as the recognition's: the download, then the choice. One that failed says why.
+    const modelLabel = entry ? t("first_run_setup.translation.step_model", { name: entry.name }) : "";
+    const modelState = modelReady ? "done" : failed ? "failed" : "working";
+    const switchState = !modelReady ? "waiting" : failed ? "failed" : "working";
+    const stateText = (state: string) => state === "failed" ? failureText(t, run?.failure ?? undefined) : t(`first_run_setup.recognition.state_${state}`);
+    return <section className={ui.section} aria-labelledby="first-run-translation">
+        <h4 id="first-run-translation" className={ui.sectionTitle}>{t("first_run_setup.translation.heading")}</h4>
+        {run?.phase === "done"
+            ? <p role="status" className={ui.finished}>{t("first_run_setup.translation.finished")}</p>
+            : <>
+                <p className={ui.text}>{what}</p>
+                {entry && <ul className={ui.models} aria-label={t("first_run_setup.translation.model")}>
+                    <li className={ui.model}>
+                        <span className={ui.modelName}>{entry.name}</span>
+                        <span className={ui.modelFacts}>
+                            <span>{t("first_run_setup.recognition.model_provider", { provider: entry.provider ?? "" })}</span>
+                            <span>{t("first_run_setup.recognition.model_license", { license: entry.license ?? "" })}</span>
+                            <span>{t("first_run_setup.recognition.model_size", { size: gib(entry.total_bytes) })}</span>
+                            {card && <a href={card} target="_blank" rel="noreferrer" onClick={event => openLink(event, card)}>
+                                {t("first_run_setup.recognition.model_card")}</a>}
+                        </span>
+                    </li>
+                </ul>}
+                {linkFailed && <p role="alert">{t("model_downloads.link_error")} <code className={dialogStyles.path}>{linkFailed}</code></p>}
+                {entry && <p className={ui.total}>{t("first_run_setup.recognition.total", { size: gib(entry.total_bytes),
+                    bytes: Number.isFinite(entry.total_bytes) ? entry.total_bytes.toLocaleString("en-US") : "0" })}</p>}
+                {!run && entry && <label className={styles.checkLabel}>
+                    <input type="checkbox" checked={consent} onChange={event => setConsent(event.target.checked)} />
+                    {t("first_run_setup.recognition.consent")}
+                </label>}
+                {run && <ol className={ui.steps} aria-label={t("first_run_setup.recognition.progress")}>
+                    {entry && <li className={ui.step} data-state={modelState}>
+                        <span className={ui.stepLabel}>{modelLabel}</span>
+                        <span className={ui.stepState} role={modelState === "failed" ? "alert" : undefined}>
+                            {modelState === "working" && active && job.phase === "downloading" && finiteNumber(job.total_bytes) && job.total_bytes > 0
+                                ? t("first_run_setup.recognition.state_downloading", { done: gib(job.received_bytes ?? 0), total: gib(job.total_bytes) })
+                                : modelState === "working" && active ? t(`model_downloads.phase_${job.phase}`) : stateText(modelState)}
+                        </span>
+                        {running && active && job.phase === "downloading" && (job.total_bytes ?? 0) > 0 &&
+                            <progress className={styles.progress} value={job.received_bytes ?? 0} max={job.total_bytes} aria-label={modelLabel} />}
+                    </li>}
+                    {switches && <li className={ui.step} data-state={switchState}>
+                        <span className={ui.stepLabel}>{t("first_run_setup.translation.step_switch", { name: offer.name })}</span>
+                        <span className={ui.stepState} role={switchState === "failed" ? "alert" : undefined}>{stateText(switchState)}</span>
+                    </li>}
+                </ol>}
+                {failed && <p className={ui.text}>{t("first_run_setup.translation.kept")}</p>}
+                <div className={ui.actions}>
+                    {!run && <button type="button" className="primary" disabled={!ready} onClick={begin}>
+                        {t("first_run_setup.recognition.start")}</button>}
+                    {running && <button type="button" onClick={stop}>{t("first_run_setup.recognition.stop")}</button>}
+                    {failed && <button type="button" className="primary" onClick={retry}>{t("first_run_setup.recognition.retry")}</button>}
+                    {!running && <OpenSettings tab="translation" label={t("first_run_setup.found.translation_open_settings")} onLeave={onLeave} />}
+                </div>
+            </>}
+    </section>;
+};
+
 // What was found. Each row only reads; its button leads to the place where it is set.
 // Whether a row needs the user is told by the layout before the words are read (#614): what
 // needs the user comes first, each row a card of its own with the warning's amber rule and tint,
 // a larger mark and its name in full strength; the rest follow in one quiet frame, smaller and
 // muted. The words are the same in both.
-const Findings = ({ recognition, onLeave }: { recognition: RecognitionState; onLeave: () => void }) => {
+// translationHere: the translation's model is prepared in the setup's own section below (#936);
+// translationSwitches: that section selects the default model, another one being selected;
+// translationPreparing: that section's run is under way; translationLoading: the model's list
+// is not read yet.
+interface FindingsProps {
+    recognition: RecognitionState;
+    onLeave: () => void;
+    translationHere?: boolean;
+    translationSwitches?: boolean;
+    translationPreparing?: boolean;
+    translationLoading?: boolean;
+}
+const Findings = ({ recognition, onLeave, translationHere = false, translationSwitches = false, translationPreparing = false,
+    translationLoading = false }: FindingsProps) => {
     const { t } = useI18n();
     const mic = useSettingValue("SelectedMicDevice");
     const vrchat = useVrchatPresence();
     const { status: virtualMic, openGuide } = useVirtualMic();
     const { needs } = useSetupNeeds();
-    const openTranslatorList = useOpenTranslatorList();
+    const { updateIsOpenedConfigPage } = useStore_IsOpenedConfigPage();
+    const { updateSelectedConfigTabId } = useStore_SelectedConfigTabId();
     const micName = mic?.state === "ok" && typeof mic.data === "string" && mic.data && mic.data !== "NoDevice" ? mic.data : null;
     const translation = needs.find(need => need.id === "translation");
+    // The section below prepares the model the setup recommends, without leaving the setup
+    // (#936), and the row says where. With another model selected, the row also leads to the
+    // Translation settings, where an API key is registered or another model prepared (decided in
+    // #938). The model's list not read yet: the row waits for it. Nothing to prepare here: only
+    // the Translation settings. A download started elsewhere shows how far it has come.
+    const openTranslationSettings = <button type="button" onClick={() => { onLeave(); updateSelectedConfigTabId("translation"); updateIsOpenedConfigPage(true); }}>
+        {t("first_run_setup.found.translation_open_settings")}</button>;
+    const translationProgress = translation ? downloadProgress(translation.weight) : null;
+    const translationRow = (): Pick<FindingProps, "state" | "action" | "children"> => {
+        if (!translation) return { state: "ready", children: t("first_run_setup.found.translation_ready") };
+        if (translationPreparing) return { state: "checking", children: t("first_run_setup.found.translation_preparing") };
+        if (translationProgress !== null) return { state: "checking",
+            children: t(translationProgress === "pending" ? "studio.setup_preparing" : "studio.setup_downloading", { progress: translationProgress }) };
+        if (translationHere && translationSwitches) return { state: "attention", children: t("first_run_setup.found.translation_switch_here"),
+            action: openTranslationSettings };
+        if (translationHere) return { state: "attention", children: t("first_run_setup.found.translation_model_missing") };
+        if (translationLoading) return { state: "checking", children: t("first_run_setup.recognition.loading") };
+        return { state: "attention", children: t("first_run_setup.found.translation_missing"), action: openTranslationSettings };
+    };
     const cables = virtualMic?.supported === true && virtualMic.error === null ? virtualMic.cables.length : null;
     // No virtual cable needs the user, like the other things the setup looks for (decided in #759):
     // its row goes to the cards, and its words say when it is needed.
@@ -254,10 +481,7 @@ const Findings = ({ recognition, onLeave }: { recognition: RecognitionState; onL
         { id: "vrchat", state: VRCHAT_STATES[vrchat.state], name: t("first_run_setup.found.vrchat"), live: true,
             children: vrchat.lines.map(line => <span key={line}>{line}</span>) },
         ...(virtualMicRow ? [virtualMicRow] : []),
-        { id: "translation", state: translation ? "attention" : "ready", name: t("first_run_setup.found.translation"),
-            action: translation && <button type="button" onClick={() => { onLeave(); openTranslatorList(); }}>
-                {t("first_run_setup.found.translation_choose")}</button>,
-            children: t(translation ? "first_run_setup.found.translation_missing" : "first_run_setup.found.translation_ready") },
+        { id: "translation", name: t("first_run_setup.found.translation"), ...translationRow() },
         { id: "recognition", state: RECOGNITION_STATES[recognition], name: t("first_run_setup.found.recognition"),
             children: t(`first_run_setup.found.recognition_${recognition}`) },
     ];
