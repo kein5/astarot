@@ -752,6 +752,8 @@ there if you go back.
 
 #### Documentation
 
+- **release:** Add the real-machine checks to the 0.6.0 known issues ([ec38c02](https://github.com/kein5/astarot/commit/ec38c02a44712d354b4906103baeb6d615ec0495))
+- **release:** Add the 0.6.0 release notes ([d2eb2a2](https://github.com/kein5/astarot/commit/d2eb2a2b9667b3496a69bd7e79e2239f0719a154))
 - List Sergulath, the external check toolkit, among the code names ([c98affb](https://github.com/kein5/astarot/commit/c98affb7d09145b9648e3268b6b050403bbf12d9))
 - **site:** Say that 0.6.0 no longer brings up the firewall's question for VRChat ([247cd0f](https://github.com/kein5/astarot/commit/247cd0f04712126c499540486d77f3f109fa89a6))
 - **spec:** Name the translation model's endpoint in the setup ([cf436d1](https://github.com/kein5/astarot/commit/cf436d15c8f408027c3ccd404f972342859bd15f))
