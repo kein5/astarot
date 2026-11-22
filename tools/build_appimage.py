@@ -191,7 +191,7 @@ def main():
     check_appdir(appdir)
     before = inventory(appdir)
     source = json.loads((candidate / 'build-manifest.json').read_text(encoding='utf-8'))
-    name = f'VRCT-VOX-{source["version"]}-{source["variant"]}-{source["profile"]}.AppImage'
+    name = f'ASTAROT-{source["version"]}-{source["variant"]}-{source["profile"]}.AppImage'
     output = work / name
     output.unlink(missing_ok=True)
     run([tools['appimagetool-x86_64.AppImage'], '--runtime-file', tools['runtime-x86_64'],

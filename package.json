@@ -21,7 +21,7 @@
     "dev-ui": "npm run task-kill && npm-run-all --parallel vite tauri-dev",
     "analyze-error": "node utils/analyze_ui_error.js",
     "build": "npm run task-kill && npm run clean-soft && npm run update-version && npm run build-resources && npm run vite-build && npm run tauri build",
-    "release": "npm run update-version && npm run build && python utils\\zip.py --zip_name VRCT-VOX.zip",
+    "release": "npm run update-version && npm run build && python utils\\zip.py --zip_name ASTAROT.zip",
     "dev:web": "vite",
     "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.test.json && tsc -p tests/integration/tsconfig.json",
     "test": "vitest run",

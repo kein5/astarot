@@ -20,12 +20,12 @@ def test_the_installer_is_built_after_the_package_and_checked_against_it():
     bundle = next(step for step in steps if "installer_package_hashes.py write" in step.get("run", ""))
     assert bundle["env"]["ASTAROT_REQUIRE_PACKAGE_HASHES"] == "1"
     assert bundle["run"].index("installer_package_hashes.py write") < bundle["run"].index("bundle --bundles nsis")
-    assert "installer_package_hashes.py write --package VRCT-VOX.zip" in bundle["run"]
+    assert "installer_package_hashes.py write --package ASTAROT.zip" in bundle["run"]
     # In pwsh, "npm run tauri -- …" loses the "--" (npm.ps1), so npm eats --bundles: call the CLI directly.
     assert bundle["shell"] == "pwsh" and "npm run tauri" not in bundle["run"]
     assert "node node_modules/@tauri-apps/cli/tauri.js bundle --bundles nsis" in bundle["run"]
     names = [step.get("name", "") for step in steps]
-    assert names.index("Build and inspect VRCT-VOX.zip") < names.index(bundle["name"])
+    assert names.index("Build and inspect ASTAROT.zip") < names.index(bundle["name"])
     candidate = "\n".join(step.get("run", "") for step in jobs["candidate"]["steps"])
     assert "installer_package_hashes.py check" in candidate
     assert candidate.index("installer_package_hashes.py check") < candidate.index("release_candidate.py stage")
@@ -46,7 +46,7 @@ def test_the_package_job_uses_the_shared_steps():
     action = yaml.load((ROOT / ".github/actions/windows-package/action.yml").read_text(encoding="utf-8"),
                        Loader=yaml.BaseLoader)
     uses = [step for step in _workflow()["jobs"]["build"]["steps"] if step.get("uses") == "./.github/actions/windows-package"]
-    assert len(uses) == 1 and uses[0]["with"] == {"script": "release", "package": "VRCT-VOX.zip"}
+    assert len(uses) == 1 and uses[0]["with"] == {"script": "release", "package": "ASTAROT.zip"}
     assert set(action["inputs"]) == {"script", "package"}
     for step in action["runs"]["steps"]:
         if "uses" in step:

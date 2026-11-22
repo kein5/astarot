@@ -11,7 +11,9 @@ from tools import updater_manifest
 from tools.updater_manifest import ManifestError, public_key, write
 
 VERSION = "0.4.0"
-APPIMAGE = f"VRCT-VOX-{VERSION}-linux-x64-vulkan-release.AppImage"
+APPIMAGE = f"ASTAROT-{VERSION}-linux-x64-release.AppImage"
+# The copies under the names up to 0.6.x that a release of 0.7.x carries (ADR-014, 2.10).
+COPIES = ("VRCT-VOX_setup.exe", f"VRCT-VOX-{VERSION}-linux-x64-release.AppImage", "VRCT-VOX.zip")
 NOW = datetime.datetime(2026, 11, 15, 12, 0, tzinfo=datetime.timezone.utc)
 
 
@@ -45,13 +47,13 @@ class Key:
 
 @pytest.fixture
 def payload(tmp_path):
-    for name in ("VRCT-VOX_setup.exe", APPIMAGE, "VRCT-VOX.zip"):
+    for name in ("ASTAROT_setup.exe", APPIMAGE, "ASTAROT.zip", *COPIES):
         (tmp_path / name).write_bytes(name.encode() * 64)
     return tmp_path
 
 
 def sign_all(key, payload, version=VERSION):
-    key.sign(payload / "VRCT-VOX_setup.exe", version)
+    key.sign(payload / "ASTAROT_setup.exe", version)
     key.sign(payload / APPIMAGE, version)
 
 
@@ -69,8 +71,10 @@ def test_latest_json_points_at_the_release_files(payload):
     assert manifest["version"] == VERSION
     assert manifest["pub_date"] == "2026-11-15T12:00:00Z"
     base = f"https://github.com/kein5/astarot/releases/download/v{VERSION}/"
-    assert manifest["platforms"]["windows-x86_64"]["url"] == base + "VRCT-VOX_setup.exe"
+    assert manifest["platforms"]["windows-x86_64"]["url"] == base + "ASTAROT_setup.exe"
     assert manifest["platforms"]["linux-x86_64"]["url"] == base + APPIMAGE
+    # Only the new names: the copies are for links from outside, not for the updater.
+    assert "VRCT-VOX" not in (payload / "latest.json").read_text()
     assert json.loads((payload / "latest.json").read_text()) == manifest
     # The signatures moved into latest.json; the draft carries no loose .sig files.
     assert not list(payload.glob("*.sig"))
@@ -99,11 +103,12 @@ def test_the_signature_has_to_name_this_version(payload):
 
 def test_unsigned_or_missing_files_stop_the_draft(payload):
     key = Key()
-    key.sign(payload / "VRCT-VOX_setup.exe", VERSION)
+    key.sign(payload / "ASTAROT_setup.exe", VERSION)
     with pytest.raises(ManifestError, match="has no .sig"):
         write(payload, VERSION, key=key.pair)
+    # The copy under the name up to 0.6.x does not stand in for the AppImage.
     (payload / APPIMAGE).unlink()
-    with pytest.raises(ManifestError, match="exactly one AppImage"):
+    with pytest.raises(ManifestError, match=f"has no {APPIMAGE}"):
         write(payload, VERSION, key=key.pair)
 
 

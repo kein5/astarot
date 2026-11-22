@@ -54,7 +54,7 @@ def zip_files_and_directory(zip_name, file_paths, dir_paths, verbose=False):
 if __name__ == "__main__":
     start_time = time.time()
     parser = argparse.ArgumentParser(description="Create a zip file from specified files and directories.")
-    parser.add_argument("--zip_name", type=str, default="VRCT-VOX.zip", help="Name of the output zip file.")
+    parser.add_argument("--zip_name", type=str, default="ASTAROT.zip", help="Name of the output zip file.")
     parser.add_argument(
         "--file_paths",
         type=str,
