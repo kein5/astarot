@@ -45,7 +45,7 @@ Activatedの `activation_token` は対象ウィンドウをアクティブにす
 
 当初（2026-10-29）はネイティブWaylandで登録を試みず、ボタンでの開き方を案内していた。
 2026-10-31からはportalで登録する（`src-tauri/src/portal_shortcuts.rs`）。portalはインストール済みの
-desktop fileでアプリを識別するため、ほかに用意されていなければ `~/.local/share/applications/io.github.kein5.vrct-vox.desktop` を作る。
+desktop fileでアプリを識別するため、ほかに用意されていなければ `~/.local/share/applications/io.github.kein5.astarot.desktop` を作る（0.6.0までは `io.github.kein5.vrct-vox.desktop`）。
 押下はportalのシグナルとして受け取り、本体ウィンドウへ渡す。初回はデスクトップが確認画面を出す。
 KDEではportalの指定キーが新規登録時の初期値にしかならないため、VRCTのキーをkglobalaccelにも書き込み、
 KDEが実際に使うキーを読み戻す。別のキーが残った場合はその旨を表示する。

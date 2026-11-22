@@ -393,7 +393,7 @@ APIキーは`config.json`に書かない（0.5.0から）。いまはOSの資格
 | `config.json.before-migration-storage` | `config.json`と同じフォルダ | Linuxの保存先を移したときに、パスを付け替える前の`config.json`（APIキーを除く。権限0600）。アプリは読まない |
 | `voice_mute_state.json` | `config.json`と同じフォルダ | `{"version": 1, "muted": 真偽}`。すぐに書き、原子的に置き換える |
 | `telemetry_state.json` | `PATH_DATA` | 利用状況の通知をその日（UTC）に送ったかどうかの記録（起動の通知を送った日付と、その日に送ったエラーコード）と、送った内容そのものの直近20件（`sent`: このPCの時刻、本文、受け付けられたか） |
-| `io.github.kein5.vrct-vox.desktop` | `$XDG_DATA_HOME/applications/` | Waylandでショートカットを登録するためのデスクトップファイル |
+| `io.github.kein5.astarot.desktop` | `$XDG_DATA_HOME/applications/` | Waylandでショートカットを登録するためのデスクトップファイル。0.6.0までは`io.github.kein5.vrct-vox.desktop`で、`X-VRCT-VOX-Generated=true`の行があるもの（前の版が書いたもの）は、新しいファイルを書いたあとに消す。その行がないファイルは利用者かパッケージのものとして残す |
 
 UIは独自の状態を持たない（`localStorage`も使わない）。画面の状態はすべてサイドカーから受け取る。
 
