@@ -354,6 +354,32 @@ CTranslate2の取得に失敗したとき（`WEIGHT_CTRANSLATE2_DOWNLOAD`）、`
 
 WindowsとLinuxの開発ビルドは、これまでどおり実行ファイルのフォルダーを使い、移さない。
 
+### Linuxの音声経路の名前の移行
+
+0.6.0の次の版から、Linuxの管理対象の経路（仮想マイク）はASTAROTの名前で作る（ADR-014の2.8）。名前の定義は`native/app-identity`の`audio_route`にあり、旧名との組で持つ。
+
+| 対象 | 0.6.0まで | 新しい名前 |
+|---|---|---|
+| ノード | `vrct.managed.source`など | `astarot.managed.source`など |
+| ノードの説明（VRChatのマイクの一覧に出る） | `VRCT Managed Virtual Microphone`など | `ASTAROT Managed Virtual Microphone`など |
+| ノードの印と所有者 | `vrct.managed.route`、`vrct.managed.owner`=`vrct-vox-service-v1` | `astarot.managed.route`、`astarot.managed.owner`=`astarot-service-v1` |
+| systemdのユーザーユニット | `vrct-managed-{source,tts,vc}.service` | `astarot-managed-{source,tts,vc}.service` |
+| 手で置く設定 | `90-vrct-managed.conf` | `90-astarot-managed.conf` |
+| 一時のストリーム | `vrct.source-bridge.*`、`vrct.asr.capture.*`、`vrct.tts`など | `astarot.source-bridge.*`、`astarot.asr.capture.*`、`astarot.tts`など |
+
+中核は管理対象の経路を準備するたびに（経路を保存したとき、経路を保存してある起動のとき、経路のノードが見つからなくなったとき）次のとおり移す。利用者が経路を選んでいなければ、旧の経路には触れない。
+
+- 旧の名前のユニットは、名前、所有者識別子、中身がどれも0.6.0までの中核の書いたものと一致し、systemdがそのファイルをドロップインなしで読んでいるときだけ、止めて無効にし、消す。中身は`ExecStart`の`pw-loopback`のパスを除いてバイト単位で比べる。1つでも一致しないユニットがあれば3つとも利用者のものとして残す。新しい経路がまだないときは`managed_setup_conflict`を返し、新しい経路を作らない。仮想マイクが2つ並ぶのを避けるためである。
+- 旧の名前のノードのうち中核の所有者識別子がないもの（手で作った旧の経路）があるときも、`managed_setup_conflict`を返す。
+- 手で置いた設定は、新旧どちらの名前でも`$XDG_CONFIG_HOME/pipewire/pipewire.conf.d`と`/etc/pipewire/pipewire.conf.d`で探す。経路がまだないときに見つけたら、自動で作らない。新しい名前なら`managed_setup_manual_config_pending`、旧の名前なら`managed_setup_manual_config_legacy`を返す。
+- 旧のユニットを消したら、新しい名前で作り直す。新しい仮想マイクは今までどおりミュートで始まり、利用者が「ミュートを解除」を押すまで音を出さない。
+- 新しい経路がすでに動いていても、中核の旧のユニットが残っていれば止めて消す（0.6.0に戻して戻ってきたときなど）。
+- 旧の名前の接頭辞（`vrct.managed.`、`vrct.source-bridge.`、`vrct.asr.capture.`）と印のノードは、新しい名前と同じく入力、モニター、音声認識の候補から外す。
+
+旧のユニットを止めたとき、中核は`MANAGED_ROUTE_RENAME_NOTICE_PENDING`（真偽値、既定は`false`、保存する）を真にし、`process.log`に`[voice] the managed route retired its legacy units`の1行を書く。真の間は`/get/data/voice_route`の応答に`"notice": "managed_route_renamed"`が付き、音声経路の欄にVRChatでマイクを選び直す案内が出る。利用者が案内を閉じると`/set/disable/managed_route_rename_notice`を送り、偽にする。応答は案内のない音声経路の状態である。新しい経路の準備に失敗しても、旧のユニットを止めたあとなら案内を残す。
+
+旧の名前を扱うのは`audio_route::READS_LEGACY`が真の間である。ADR-014の2.11は0.6.xの間としていた。偽にすると、旧のユニット、旧の名前の手で置いた設定、旧の接頭辞のノードには触れず、読みもしない。
+
 ### APIキーの保存先
 
 APIキーは`config.json`に書かない（0.5.0から）。いまはOSの資格情報ストアに保存する（Issue #575）（[ADR-013](../adr/adr-013-secret-store.md)）。Windowsは資格情報マネージャー、LinuxはSecret Service（GNOME Keyring、KWalletなど）である。`AUTH_KEYS`（翻訳）と`TRANSCRIPTION_AUTH_KEYS`（音声認識）の値と`PAPAGO_CLIENT_ID`を1件ずつ保存する。項目の名前は`AUTH_KEYS/DeepL_API`のように辞書の名前とプロバイダ名をつないだものである。どちらの辞書に足したプロバイダも同じ扱いになる。キーを持つ設定を新しく足すときは`native/core/src/config/secrets.rs`の`SECRET_SETTINGS`に名前を加える。
