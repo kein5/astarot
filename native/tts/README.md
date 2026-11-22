@@ -1,4 +1,4 @@
-# vrct-tts
+# astarot-tts
 
 Speech synthesis for ASTAROT in Rust (issue #279): requests to a local speech.cpp
 server, one bounded speech worker, and the hand-off of streamed PCM to an output.

@@ -1,7 +1,7 @@
 //! The bundled speech.cpp servers (`getSpeechServer*`, `startSpeechServer`,
 //! `stopSpeechServer` and `_speechServerEnded` in [`src-python/controller.py`]).
 //!
-//! The processes themselves are owned by `vrct-speech-server`; this module keeps the hub, answers
+//! The processes themselves are owned by `astarot-speech-server`; this module keeps the hub, answers
 //! the Settings page and tells the features that use a server when one ends. Saving or restoring
 //! the settings never starts a server: only `/run/start_speech_server` (or a feature through
 //! [`SpeechServers::hub`]) does.
@@ -21,9 +21,9 @@ use serde_json::{Map, Value, json};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
-use vrct_speech_server::server::{Binary, Hooks, Launch};
-use vrct_speech_server::settings::{normalize_settings, start_options};
-use vrct_speech_server::{Code, Profile, StartOptions, builds, codes, devices};
+use astarot_speech_server::server::{Binary, Hooks, Launch};
+use astarot_speech_server::settings::{normalize_settings, start_options};
+use astarot_speech_server::{Code, Profile, StartOptions, builds, codes, devices};
 
 const SETTINGS_KEY: &str = "SPEECH_SERVER_SETTINGS";
 const REQUEST_INVALID: &str = "speech_server_request_invalid";
@@ -33,7 +33,7 @@ const CLOSE_TIMEOUT: Duration = Duration::from_secs(3);
 
 /// Where the bundled servers come from, checked against the pinned hashes at each start
 /// ([`runtime.py`], `BUNDLE` and `bundled_binary`): the bundles among the app's shipped files
-/// ([`crate::resources`]). Which build a start runs is [`vrct_speech_server::builds`].
+/// ([`crate::resources`]). Which build a start runs is [`astarot_speech_server::builds`].
 ///
 /// [`runtime.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/speech_server/runtime.py
 pub fn bundled_launch(env: &Environment) -> Launch {
@@ -74,7 +74,7 @@ struct Subscribers {
 
 /// The servers of the app and who hears of them.
 pub struct SpeechServers {
-    hub: vrct_speech_server::SpeechServers,
+    hub: astarot_speech_server::SpeechServers,
     launch: Launch,
     environment: devices::Environment,
     subscribers: Arc<Mutex<Subscribers>>,
@@ -107,7 +107,7 @@ impl SpeechServers {
         let subscribers = Arc::new(Mutex::new(Subscribers::default()));
         let on_end = Arc::clone(&subscribers);
         let on_listener = Arc::clone(&subscribers);
-        let hub = vrct_speech_server::SpeechServers::with_hooks(
+        let hub = astarot_speech_server::SpeechServers::with_hooks(
             launch.clone(),
             Some(Box::new(move |profile, run| tell_ended(&on_end, Ended { profile, run: Some(run), stopped: false }))),
             Some(Box::new(move |profile| {
@@ -131,7 +131,7 @@ impl SpeechServers {
 
     /// The hub, for a feature that starts or stops a server for its own use (the TTS toggle,
     /// realtime ASR) or binds to a ready one (`binding`, `current_run`).
-    pub fn hub(&self) -> &vrct_speech_server::SpeechServers {
+    pub fn hub(&self) -> &astarot_speech_server::SpeechServers {
         &self.hub
     }
 
@@ -151,7 +151,7 @@ impl SpeechServers {
     /// settings may not be replaced then (`model_target_busy`).
     pub fn is_running(&self, profile: Profile) -> bool {
         let state = &self.hub.state()[profile_index(profile)].1.health.state;
-        !matches!(state, vrct_speech_server::State::Stopped | vrct_speech_server::State::Failed)
+        !matches!(state, astarot_speech_server::State::Stopped | astarot_speech_server::State::Failed)
     }
 
     /// The options a start of `profile` would use, with its files checked.

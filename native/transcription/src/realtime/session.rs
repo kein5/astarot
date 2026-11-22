@@ -26,8 +26,8 @@ use std::sync::{Arc, Condvar, Mutex};
 use std::time::{Duration, Instant};
 use tungstenite::protocol::WebSocketConfig;
 use tungstenite::{Message, WebSocket};
-use vrct_audio_routing::graph::Endpoint;
-use vrct_translation::http::{Cancel, Watched};
+use astarot_audio_routing::graph::Endpoint;
+use astarot_translation::http::{Cancel, Watched};
 
 pub const RATE: u32 = 24000;
 const MAX_AGE: Duration = Duration::from_millis(250);
@@ -220,7 +220,7 @@ pub(crate) type Socket = WebSocket<Watched>;
 /// within 20 ms until the socket is released ([`Watched::release`]).
 pub(crate) fn open_socket(base_url: &str, model: Option<&str>, wait: Duration, cancel: Option<&Cancel>) -> Option<Socket> {
     let base = base_url.trim_end_matches('/');
-    let url = vrct_translation::http::Url::parse(base).ok()?;
+    let url = astarot_translation::http::Url::parse(base).ok()?;
     let address = (url.host.trim_start_matches('[').trim_end_matches(']'), url.port).to_socket_addrs().ok()?.next()?;
     let stream = match cancel {
         Some(cancel) => cancel.connect(address, wait).ok()?,

@@ -1,4 +1,4 @@
-# vrct-translation
+# astarot-translation
 
 オンラインの翻訳プロバイダと、かな・ローマ字の読みを扱う Rust クレートです。Issue #277 の範囲で、Python の `src-python/models/translation/` と `src-python/models/transliteration/` を置き換えます。中核（`native/core`）がこのクレートをエンドポイントにつなぎます。
 

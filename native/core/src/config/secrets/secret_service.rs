@@ -40,15 +40,15 @@ struct Names {
 impl Names {
     /// The names this build writes.
     const CURRENT: Names = Names {
-        application: app_identity::credentials::APPLICATION.current(),
-        store_attribute: app_identity::credentials::STORE_ATTRIBUTE.current(),
-        label_prefix: app_identity::credentials::LABEL_PREFIX.current(),
+        application: astarot_app_identity::credentials::APPLICATION.current(),
+        store_attribute: astarot_app_identity::credentials::STORE_ATTRIBUTE.current(),
+        label_prefix: astarot_app_identity::credentials::LABEL_PREFIX.current(),
     };
     /// The names 0.6.0 wrote (ADR-014, 2.9).
     const OLDER: Names = Names {
-        application: app_identity::credentials::APPLICATION.legacy,
-        store_attribute: app_identity::credentials::STORE_ATTRIBUTE.legacy,
-        label_prefix: app_identity::credentials::LABEL_PREFIX.legacy,
+        application: astarot_app_identity::credentials::APPLICATION.legacy,
+        store_attribute: astarot_app_identity::credentials::STORE_ATTRIBUTE.legacy,
+        label_prefix: astarot_app_identity::credentials::LABEL_PREFIX.legacy,
     };
 }
 

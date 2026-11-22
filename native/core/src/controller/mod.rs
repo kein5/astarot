@@ -41,8 +41,8 @@ pub use realtime_asr::RealtimeLimits;
 pub use routes::routes;
 
 /// Launches the bundled speech.cpp servers from `folder` (a development checkout's bundle).
-pub fn speech_launch_from(folder: std::path::PathBuf) -> vrct_speech_server::server::Launch {
-    vrct_speech_server::server::Launch::bundled(folder)
+pub fn speech_launch_from(folder: std::path::PathBuf) -> astarot_speech_server::server::Launch {
+    astarot_speech_server::server::Launch::bundled(folder)
 }
 
 use crate::config::Config;
@@ -167,7 +167,7 @@ pub struct Services {
     /// Whether the local translation model of a weight is present and complete.
     pub translation_weight_available: Arc<dyn Fn(&str) -> bool + Send + Sync>,
     /// How the speech.cpp servers are launched: the app's checked bundle, or a stand-in in tests.
-    pub speech_server_launch: Arc<dyn Fn(&crate::config::Environment) -> vrct_speech_server::server::Launch + Send + Sync>,
+    pub speech_server_launch: Arc<dyn Fn(&crate::config::Environment) -> astarot_speech_server::server::Launch + Send + Sync>,
     /// The model download manager of a root: the reviewed catalog over the public transport.
     /// Tests give a catalog and a transport of their own.
     pub model_downloads: downloads::DownloadsSource,
@@ -180,7 +180,7 @@ pub struct Services {
     /// The default says idle; the core also asks its own speech servers and voice area.
     pub model_target_idle: Arc<dyn Fn(&str) -> bool + Send + Sync>,
     /// The usage-event sender, to VRCT-VOX's own receiver by default.
-    pub telemetry: Arc<dyn Fn() -> vrct_ops::telemetry::Telemetry + Send + Sync>,
+    pub telemetry: Arc<dyn Fn() -> astarot_ops::telemetry::Telemetry + Send + Sync>,
     /// `ASTAROT_TELEMETRY=off` or `VRCT_TELEMETRY=off` by default.
     pub telemetry_forced_off: Arc<dyn Fn() -> bool + Send + Sync>,
     /// Opens the OSC link to VRChat for an address and a port ([`adapters::open_osc`]).
@@ -195,15 +195,15 @@ pub struct Services {
     /// Only the host running the core as the default backend sets it: while the Python sidecar
     /// is the default, its local translation keeps its weights.
     pub retire_legacy_translation_weights: bool,
-    /// How the translation providers reach the network ([`vrct_translation::http::direct`]),
+    /// How the translation providers reach the network ([`astarot_translation::http::direct`]),
     /// and speech.cpp's server on this PC is asked for its models.
-    pub translation_transport: vrct_translation::http::Transport,
+    pub translation_transport: astarot_translation::http::Transport,
     /// How the cloud recognition engines reach the network: through the proxy of the
-    /// environment or Windows' Internet Settings ([`vrct_translation::http::system_proxy`],
+    /// environment or Windows' Internet Settings ([`astarot_translation::http::system_proxy`],
     /// decision 15 (4)). Tests keep it on this PC.
-    pub transcription_transport: vrct_translation::http::Transport,
+    pub transcription_transport: astarot_translation::http::Transport,
     /// Where the providers with a fixed address are.
-    pub translation_endpoints: vrct_translation::providers::Endpoints,
+    pub translation_endpoints: astarot_translation::providers::Endpoints,
     /// The local translation model ([`translation::default_local_translation`]).
     pub local_translation: translation::LocalTranslationSource,
     /// The morphological analyzer of the readings for the settings' environment, made on the
@@ -216,14 +216,14 @@ pub struct Services {
     pub clipboard: clipboard::ClipboardFn,
     /// The PC's audio devices (`native/audio-routing`): the lists the device manager watches,
     /// the speech outputs and the virtual microphone check. Tests give fakes.
-    pub audio: Arc<dyn vrct_audio_routing::platform::AudioPlatform>,
+    pub audio: Arc<dyn astarot_audio_routing::platform::AudioPlatform>,
     /// SteamVR for the VR overlays and the clipboard: OpenVR, loaded when SteamVR runs
-    /// ([`overlay`]). One connection serves both ([`vrct_vr_overlay::shared::SharedVr`]).
-    pub vr: Arc<dyn vrct_vr_overlay::runtime::Vr>,
+    /// ([`overlay`]). One connection serves both ([`astarot_vr_overlay::shared::SharedVr`]).
+    pub vr: Arc<dyn astarot_vr_overlay::runtime::Vr>,
     /// Where the VR panel's page is captured; `None` where the VR panel cannot run.
-    pub vr_panel_surface: Option<Arc<dyn vrct_vr_overlay::surface::PanelSurface>>,
+    pub vr_panel_surface: Option<Arc<dyn astarot_vr_overlay::surface::PanelSurface>>,
     /// The subtitle fonts, from the settings' environment ([`overlay::default_fonts`]).
-    pub overlay_fonts: Arc<dyn Fn(&crate::config::Environment) -> Arc<vrct_vr_overlay::fonts::FontLibrary> + Send + Sync>,
+    pub overlay_fonts: Arc<dyn Fn(&crate::config::Environment) -> Arc<astarot_vr_overlay::fonts::FontLibrary> + Send + Sync>,
     /// How often the overlay looks for SteamVR while it does not run (10 seconds).
     pub steamvr_poll: Duration,
     /// Chat reading's screen, VR runtime, ONNX Runtime and model files ([`ocr::RealOcr`]).
@@ -234,14 +234,14 @@ pub struct Services {
     /// default, as Python shipped it; the app gives the updater of its update page.
     pub software_updates: Arc<dyn updates::SoftwareUpdates>,
     /// The microphone and speaker captures of speech recognition (WASAPI, or the PipeWire capture
-    /// of `vrct-audio-routing` on Linux); tests feed PCM of their own.
+    /// of `astarot-audio-routing` on Linux); tests feed PCM of their own.
     pub transcription_capture: TranscriptionCapture,
     /// Where the cloud recognition engines are (Groq, OpenAI, Deepgram).
-    pub transcription_endpoints: vrct_transcription::providers::Endpoints,
+    pub transcription_endpoints: astarot_transcription::providers::Endpoints,
     /// A VAD engine the recorders use while `*_ENABLE_VAD` is on, in place of Silero VAD on the
-    /// speech.cpp server of realtime recognition ([`vrct_transcription::server_vad`], decision
+    /// speech.cpp server of realtime recognition ([`astarot_transcription::server_vad`], decision
     /// 13). `None` uses the server. Tests give a fake.
-    pub vad: Option<vrct_transcription::vad::Vad>,
+    pub vad: Option<astarot_transcription::vad::Vad>,
     /// Speech output, the monitor, the managed route's gate, direct voice and the RVC worker
     /// with its runtime downloads ([`voice::NativeVoice`]). Tests give fakes.
     pub voice: Arc<dyn voice::VoicePlatform>,
@@ -258,15 +258,15 @@ pub struct Services {
     /// shorten them.
     pub realtime_limits: RealtimeLimits,
     /// How long turning a recorder off waits for an engine request in flight
-    /// ([`vrct_transcription::recorder::STOP_WAIT`], 15 s); tests shorten it.
+    /// ([`astarot_transcription::recorder::STOP_WAIT`], 15 s); tests shorten it.
     pub recorder_stop_wait: Duration,
 }
 
 impl Default for Services {
     fn default() -> Self {
         // OpenVR has one connection per process: the overlays and the clipboard share it.
-        let vr: Arc<dyn vrct_vr_overlay::runtime::Vr> = Arc::new(vrct_vr_overlay::shared::SharedVr::new(Arc::new(
-            vrct_vr_overlay::openvr::OpenVr::new(Vec::new()),
+        let vr: Arc<dyn astarot_vr_overlay::runtime::Vr> = Arc::new(astarot_vr_overlay::shared::SharedVr::new(Arc::new(
+            astarot_vr_overlay::openvr::OpenVr::new(Vec::new()),
         )));
         Self {
             translation_weight_available: Arc::new(|_| false),
@@ -274,34 +274,34 @@ impl Default for Services {
             model_downloads: Arc::new(downloads::default_downloads),
             speech_binary: Arc::new(downloads::default_speech_binary),
             model_target_idle: Arc::new(|_| true),
-            telemetry: Arc::new(vrct_ops::telemetry::Telemetry::default),
+            telemetry: Arc::new(astarot_ops::telemetry::Telemetry::default),
             telemetry_forced_off: Arc::new(telemetry::forced_off_from_environment),
             osc: Arc::new(adapters::open_osc),
             vrc_mic_mute: Arc::new(|_| {}),
             stop_mic_transcription: Arc::new(|| {}),
             retire_legacy_translation_weights: false,
-            translation_transport: vrct_translation::http::direct(),
-            transcription_transport: vrct_translation::http::system_proxy(),
-            translation_endpoints: vrct_translation::providers::Endpoints::default(),
+            translation_transport: astarot_translation::http::direct(),
+            transcription_transport: astarot_translation::http::system_proxy(),
+            translation_endpoints: astarot_translation::providers::Endpoints::default(),
             local_translation: Arc::new(translation::default_local_translation),
             transliteration: Arc::new(messages::shipped_readings),
-            clipboard: clipboard::steamvr_clipboard(Arc::clone(&vr), Arc::new(vrct_adapters::clipboard::system_desktop)),
-            audio: Arc::new(vrct_audio_routing::platform::NativePlatform),
+            clipboard: clipboard::steamvr_clipboard(Arc::clone(&vr), Arc::new(astarot_adapters::clipboard::system_desktop)),
+            audio: Arc::new(astarot_audio_routing::platform::NativePlatform),
             vr,
-            vr_panel_surface: Some(vrct_vr_overlay::surface::platform()),
+            vr_panel_surface: Some(astarot_vr_overlay::surface::platform()),
             overlay_fonts: Arc::new(overlay::default_fonts),
             steamvr_poll: Duration::from_secs(10),
             ocr: ocr::real_platform(),
             ocr_message: Arc::new(ocr::pipeline_delivery),
             software_updates: Arc::new(updates::Disabled),
             transcription_capture: Arc::new(default_transcription_capture),
-            transcription_endpoints: vrct_transcription::providers::Endpoints::default(),
+            transcription_endpoints: astarot_transcription::providers::Endpoints::default(),
             vad: None,
             voice: Arc::new(voice::NativeVoice),
             secret_store: Arc::new(crate::config::secrets::default_store),
             gpu_memory: crate::gpu_memory::native_reader(),
             realtime_limits: RealtimeLimits::default(),
-            recorder_stop_wait: vrct_transcription::recorder::STOP_WAIT,
+            recorder_stop_wait: astarot_transcription::recorder::STOP_WAIT,
         }
     }
 }
@@ -312,7 +312,7 @@ pub struct Core {
     log: Arc<Log>,
     output: Arc<dyn Output>,
     services: Services,
-    watchdog: Mutex<Option<vrct_ops::watchdog::Watchdog>>,
+    watchdog: Mutex<Option<astarot_ops::watchdog::Watchdog>>,
     shutdown_requested: AtomicBool,
     shut_down: Mutex<bool>,
     /// The language and engine settings change together under this lock.
@@ -345,12 +345,12 @@ pub struct Core {
 
 /// The captures of speech recognition for the settings' environment.
 pub type TranscriptionCapture =
-    Arc<dyn Fn(&crate::config::Environment) -> Arc<dyn vrct_transcription::capture::CapturePlatform> + Send + Sync>;
+    Arc<dyn Fn(&crate::config::Environment) -> Arc<dyn astarot_transcription::capture::CapturePlatform> + Send + Sync>;
 
-/// This computer's devices: WASAPI on Windows, the PipeWire capture of `vrct-audio-routing` on
+/// This computer's devices: WASAPI on Windows, the PipeWire capture of `astarot-audio-routing` on
 /// Linux (the `vrct-asr-capture` helper of 0.5.x is gone; decision 2 of #733).
-fn default_transcription_capture(_env: &crate::config::Environment) -> Arc<dyn vrct_transcription::capture::CapturePlatform> {
-    Arc::new(vrct_transcription::capture::NativeCapture::new())
+fn default_transcription_capture(_env: &crate::config::Environment) -> Arc<dyn astarot_transcription::capture::CapturePlatform> {
+    Arc::new(astarot_transcription::capture::NativeCapture::new())
 }
 
 impl Core {
@@ -438,7 +438,7 @@ impl Core {
     }
 
     pub fn start_watchdog(&self, timeout: Duration, interval: Duration, on_timeout: Arc<dyn Fn() + Send + Sync>) {
-        let watchdog = vrct_ops::watchdog::Watchdog::new(timeout, interval);
+        let watchdog = astarot_ops::watchdog::Watchdog::new(timeout, interval);
         watchdog.set_callback(move || on_timeout());
         watchdog.start_in_thread();
         *self.watchdog.lock().unwrap() = Some(watchdog);

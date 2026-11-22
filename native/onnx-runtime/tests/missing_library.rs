@@ -4,11 +4,11 @@
 
 #![cfg(feature = "load-dynamic")]
 
-use vrct_onnx_runtime::{environment, is_available, library_name, load, Error};
+use astarot_onnx_runtime::{environment, is_available, library_name, load, Error};
 
 #[test]
 fn a_missing_library_is_an_error_and_the_process_keeps_it() {
-    let missing = std::env::temp_dir().join("vrct-onnx-runtime-missing").join(library_name());
+    let missing = std::env::temp_dir().join("astarot-onnx-runtime-missing").join(library_name());
     assert!(!missing.exists());
     assert!(matches!(load(&missing), Err(Error::Unavailable(_))));
     // The failure is kept: neither the default lookup nor another explicit file is tried.

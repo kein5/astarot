@@ -89,10 +89,10 @@ Windows dependency, as in `native/translate-onnx`); whether it runs depends on t
 library that is loaded (the DirectML build).
 
 The library and the process's one environment come from `native/onnx-runtime`
-(`vrct-onnx-runtime`), the crate the application's chat reading and local translation use
+(`astarot-onnx-runtime`), the crate the application's chat reading and local translation use
 too. `backend::load_runtime(path)` loads exactly that file (`ORT_DYLIB_PATH` is ignored) and
 refuses once the environment exists. The binaries stop ONNX Runtime's usage reports first
-thing (`vrct_onnx_runtime::disable_telemetry_for_process`).
+thing (`astarot_onnx_runtime::disable_telemetry_for_process`).
 
 `backend::set_intra_threads(Some(n))` limits each session's CPU thread pool (ONNX Runtime's
 default is one thread per physical core and ignores the process's CPU affinity);

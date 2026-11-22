@@ -23,8 +23,8 @@ use std::net::UdpSocket;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
-use vrct_adapters::osc::{OscArg, OscMessage, PARAMETER_MUTE_SELF, decode_packet};
-use vrct_core::controller::Services;
+use astarot_adapters::osc::{OscArg, OscMessage, PARAMETER_MUTE_SELF, decode_packet};
+use astarot_core::controller::Services;
 
 const DESTINATION: &str = "127.0.0.2";
 
@@ -165,7 +165,7 @@ fn oscquery_turned_off_starts_nothing_and_messages_still_go_out() {
         json!({ "data": false, "disabled_functions": [], "reason": "turned_off", "microphone_stopped": false })
     );
     assert!(!run.osc().allowed.load(Ordering::SeqCst));
-    assert!(!vrct_core::controller::Osc::query_enabled(run.osc().as_ref()));
+    assert!(!astarot_core::controller::Osc::query_enabled(run.osc().as_ref()));
     assert_eq!(ui.ok("/get/data/vrchat_osc_presence", None), "unknown");
     assert_eq!(refused(ui, "/set/enable/vrc_mic_mute_sync", Value::Null), ("VRC_MIC_MUTE_SYNC_OSC_DISABLED".into(), json!(false)));
     // Messages still go out.
@@ -178,7 +178,7 @@ fn oscquery_turned_off_starts_nothing_and_messages_still_go_out() {
     let mark = ui.lines().len();
     assert_eq!(ui.ok("/set/enable/osc_query", None), true);
     assert_eq!(ui.wait_endpoint(mark, "/run/enable_osc_query")["result"], json!({ "data": true, "disabled_functions": [] }));
-    assert!(vrct_core::controller::Osc::query_enabled(run.osc().as_ref()));
+    assert!(astarot_core::controller::Osc::query_enabled(run.osc().as_ref()));
     assert_eq!(ui.ok("/get/data/vrchat_osc_presence", None), "found");
     assert_eq!(ui.ok("/set/enable/vrc_mic_mute_sync", None), true);
     eventually("VRChat's unmute confirmed", || run.mic.last() == Some(false));
@@ -192,7 +192,7 @@ fn oscquery_turned_off_starts_nothing_and_messages_still_go_out() {
     );
     assert_eq!(run.mic.stopped.load(Ordering::SeqCst), 1);
     assert_eq!(ui.ok("/get/data/vrc_mic_mute_sync", None), false);
-    assert!(!vrct_core::controller::Osc::query_enabled(run.osc().as_ref()));
+    assert!(!astarot_core::controller::Osc::query_enabled(run.osc().as_ref()));
     assert_eq!(ui.ok("/get/data/vrchat_osc_presence", None), "unknown");
     ui.ok("/run/typing_message_box", None);
     assert_eq!(received(&socket, Duration::from_secs(2)), Some(typing(true)), "sending goes on");
@@ -275,7 +275,7 @@ fn a_saved_destination_that_cannot_be_opened_falls_back_to_this_pc_and_is_report
     // started receiving (Python did not start at all).
     const UNOPENABLE: &str = "fe80::1%nowhere";
     let (inner, opened) = factory(false);
-    let osc: vrct_core::controller::adapters::OpenOsc = Arc::new(move |ip: &str, port: u16| {
+    let osc: astarot_core::controller::adapters::OpenOsc = Arc::new(move |ip: &str, port: u16| {
         if ip == UNOPENABLE {
             return Err(std::io::Error::new(std::io::ErrorKind::AddrNotAvailable, "no such interface"));
         }

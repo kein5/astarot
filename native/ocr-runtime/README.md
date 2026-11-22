@@ -19,10 +19,10 @@ ONNX Runtime is linked in one of two ways, chosen by a feature:
   (`engine::is_available()` is false), not a panic. The core uses this.
 
 Either way the library and the process's one environment come from `native/onnx-runtime`
-(`vrct-onnx-runtime`), which the local translation (`native/translate-onnx`) and the RVC
+(`astarot-onnx-runtime`), which the local translation (`native/translate-onnx`) and the RVC
 worker use too: `ort` keeps the first library a process loads and allows one environment per
 process. The binaries stop ONNX Runtime's usage reports first thing
-(`vrct_onnx_runtime::disable_telemetry_for_process`).
+(`astarot_onnx_runtime::disable_telemetry_for_process`).
 
 ## What it does
 
@@ -49,7 +49,7 @@ pixels; `Debug` output of words, messages and pictures shows sizes only.
   `openvr_api.dll` / `libopenvr_api.so` beside the executable, else by name. The
   interface versions are those of pyopenvr 2.12.1401 (`IVRCompositor_029`,
   `IVRSystem_023`). Their functions are called by position; each position is declared
-  with its function's name (`vrct_openvr_client::fn_table!`) and checked against
+  with its function's name (`astarot_openvr_client::fn_table!`) and checked against
   pyopenvr's tables (`native/openvr-client/tests/data/pyopenvr_fn_tables.json`).
 - On Linux the mirror's OpenGL context comes from EGL (an offscreen pbuffer) instead of
   a hidden GLFW window.

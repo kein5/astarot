@@ -1,4 +1,4 @@
-//! A child that cannot outlive the thread that owns it (as `vrct-speech-server`'s).
+//! A child that cannot outlive the thread that owns it (as `astarot-speech-server`'s).
 //!
 //! Linux: the kernel sends the child SIGKILL when the thread that started it ends. This
 //! replaces the `vrct-vc-worker` helper the Python owner started the worker through.

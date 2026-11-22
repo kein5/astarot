@@ -1,4 +1,4 @@
-# vrct-vr-overlay
+# astarot-vr-overlay
 
 SteamVR のオーバーレイを受け持つ Rust クレートです。字幕の一行ログ（小）と複数行ログ（大）、VR パネル（ログウィンドウ、ランチャー、一時ウィンドウ）を表示します。Issue #282 の範囲で、`src-python/models/overlay/` を置き換えます。中核（`native/core`）がこのクレートを使い、アプリのプロセスの中で動きます。
 
@@ -21,7 +21,7 @@ SteamVR のオーバーレイを受け持つ Rust クレートです。字幕の
 
 ## SteamVR とのつなぎ方
 
-- OpenVR の C API（`openvr_api`）を、SteamVR が動いているときだけ読み込みます。ビルドに OpenVR SDK は要りません。関数表は OpenVR 2.12 のもの（`IVRSystem_023`、`IVROverlay_028`、`IVRApplications_007`、`IVRRenderModels_006`）で、Python が使っていた pyopenvr 2.12.1401 と同じ版です。関数は表の中の位置で呼びます。位置は関数の名前と一緒に宣言し（`vrct_openvr_client::fn_table!`）、試験で pyopenvr の関数表（`native/openvr-client/tests/data/pyopenvr_fn_tables.json`）と照らし合わせます。位置を間違えると、別の関数がエラーなしで呼ばれます（#610）。`IVRApplications` は音声タイピングの貼り付け先（SteamVR のシーンのアプリ）を読むためだけに使い、取れなくてもオーバーレイは動きます。
+- OpenVR の C API（`openvr_api`）を、SteamVR が動いているときだけ読み込みます。ビルドに OpenVR SDK は要りません。関数表は OpenVR 2.12 のもの（`IVRSystem_023`、`IVROverlay_028`、`IVRApplications_007`、`IVRRenderModels_006`）で、Python が使っていた pyopenvr 2.12.1401 と同じ版です。関数は表の中の位置で呼びます。位置は関数の名前と一緒に宣言し（`astarot_openvr_client::fn_table!`）、試験で pyopenvr の関数表（`native/openvr-client/tests/data/pyopenvr_fn_tables.json`）と照らし合わせます。位置を間違えると、別の関数がエラーなしで呼ばれます（#610）。`IVRApplications` は音声タイピングの貼り付け先（SteamVR のシーンのアプリ）を読むためだけに使い、取れなくてもオーバーレイは動きます。
 - OpenVR の接続はプロセスに 1 つです。`shared::SharedVr` は最初の利用者のときに接続し、後の利用者には同じ接続を渡し、最後の利用者が手放したときに閉じます。中核はオーバーレイと音声タイピングのクリップボードでこれを共有します。
 - ライブラリは次の順に探します。環境変数 `ASTAROT_OPENVR_API`（旧名は `VRCT_OPENVR_API`）、中核が渡すフォルダ、実行ファイルの隣、アプリに同梱したライブラリ（`_internal/openvr`）、システムの検索パス。見つからないときは、SteamVR が動いているのにつなげなかったものとして `OVERLAY_RUNTIME_FAILED` を知らせます。Windows版とLinux版のどちらにもOpenVRクライアントライブラリを同梱します（`tools/runtime_libraries.py`）。
 - 字幕の画像とポインタの印は Python と同じく `SetOverlayRaw` で渡します。VR パネルの画面は、Windows では Direct3D 11 のテクスチャ 1 枚を各領域のオーバーレイ（操作バーと吹き出しを含む）で共有します（Python は OpenGL でした）。角で大きさを変えるときの枠は、別のテクスチャ 1 枚です。Linux ではまだ GPU のテクスチャを使わず、どちらも `SetOverlayRaw` で渡します（実機での確認は `docs/voice-stack/core-integration.md` の「判断が要ること」の 8）。

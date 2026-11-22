@@ -5,9 +5,9 @@ mod common;
 use std::path::PathBuf;
 
 use common::{fixture, reference_dir};
-use ocr_runtime::languages::{resolve_model_spec, selectable_languages, BASE_MODEL_ID};
-use ocr_runtime::models::{characters, is_installed, missing_models, resolve_artifact, resolve_model_files, CATALOG, DETECTOR_MODEL_ID};
-use ocr_runtime::Error;
+use astarot_ocr_runtime::languages::{resolve_model_spec, selectable_languages, BASE_MODEL_ID};
+use astarot_ocr_runtime::models::{characters, is_installed, missing_models, resolve_artifact, resolve_model_files, CATALOG, DETECTOR_MODEL_ID};
+use astarot_ocr_runtime::Error;
 
 // That `CATALOG` repeats the OCR entries of the download catalog is checked where both are
 // known: `native/core/tests/downloads.rs`.

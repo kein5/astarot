@@ -13,8 +13,8 @@ use std::net::TcpStream;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-use vrct_adapters::obs::settings::{parse_numeric_setting, NumericSetting, RawNumeric};
-use vrct_adapters::obs::{build_overlay_html, is_trusted_host_header, ObsBrowserSourceServer, ObsPageSettings};
+use astarot_adapters::obs::settings::{parse_numeric_setting, NumericSetting, RawNumeric};
+use astarot_adapters::obs::{build_overlay_html, is_trusted_host_header, ObsBrowserSourceServer, ObsPageSettings};
 
 const TOKEN: &str = "secret-token";
 
@@ -285,7 +285,7 @@ fn the_page_follows_a_new_token_at_once() {
 fn requests_log_nothing() {
     let lines = Arc::new(Mutex::new(Vec::<&'static str>::new()));
     let sink = lines.clone();
-    vrct_adapters::log::set_sink(move |line| sink.lock().unwrap().push(line));
+    astarot_adapters::log::set_sink(move |line| sink.lock().unwrap().push(line));
     let (server, port) = server_with(TOKEN);
     get(port, "/obs?token=secret-token", "127.0.0.1", "");
     get(port, "/obs?token=wrong", "127.0.0.1", "");
@@ -396,7 +396,7 @@ fn a_taken_port_is_an_error() {
 mod https {
     use super::*;
     use rustls::pki_types::ServerName;
-    use vrct_adapters::tls::server_config;
+    use astarot_adapters::tls::server_config;
 
     fn https_get(port: u16, client: Arc<rustls::ClientConfig>, path: &str) -> Result<Response, std::io::Error> {
         let tcp = TcpStream::connect(("127.0.0.1", port)).unwrap();

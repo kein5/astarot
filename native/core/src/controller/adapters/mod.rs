@@ -29,7 +29,7 @@ use std::io;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
-use vrct_adapters::osc::{OscError, OscHandler, Target};
+use astarot_adapters::osc::{OscError, OscHandler, Target};
 
 pub(crate) use osc::MuteState;
 pub(crate) use servers::{ObsSlot, StartupNotices};
@@ -140,7 +140,7 @@ pub(crate) struct Adapters {
     typing: Mutex<bool>,
     /// The mic lock of mute sync, with VRChat's mute as last known.
     mute: Mutex<MuteState>,
-    websocket: Mutex<Option<Arc<vrct_adapters::websocket::WebSocketServer>>>,
+    websocket: Mutex<Option<Arc<astarot_adapters::websocket::WebSocketServer>>>,
     obs: Mutex<Option<ObsSlot>>,
     startup: Mutex<StartupNotices>,
 }
@@ -214,7 +214,7 @@ pub(crate) fn add(b: &mut Builder<'_>) {
     }
     // The adapters crate logs a few fixed lines; they go to this run's log.
     let log = Arc::downgrade(core.log());
-    vrct_adapters::log::set_sink(move |line| {
+    astarot_adapters::log::set_sink(move |line| {
         if let Some(log) = log.upgrade() {
             log.step(line, None);
         }
@@ -236,7 +236,7 @@ impl Core {
         }
     }
 
-    pub(crate) fn websocket_send(&self, message: &str) -> Option<Result<(), vrct_adapters::websocket::SendError>> {
+    pub(crate) fn websocket_send(&self, message: &str) -> Option<Result<(), astarot_adapters::websocket::SendError>> {
         self.adapters()?.websocket_send(message)
     }
 

@@ -5,8 +5,8 @@ use std::path::{Path, PathBuf};
 
 use sudachi::config::{Config, ConfigBuilder};
 use sudachi::dic::build::DictBuilder;
-use vrct_translation::transliteration::sudachi::{Sudachi, SudachiFile};
-use vrct_translation::transliteration::{analyze, convert, Tokenizer, Unavailable};
+use astarot_translation::transliteration::sudachi::{Sudachi, SudachiFile};
+use astarot_translation::transliteration::{analyze, convert, Tokenizer, Unavailable};
 
 /// Surface, left id, right id, cost, display form, six part-of-speech fields, reading,
 /// normalized form, dictionary form, split mode and the split and structure fields.

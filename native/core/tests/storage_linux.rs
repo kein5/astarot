@@ -5,8 +5,8 @@
 use serde_json::{Value, json};
 use std::fs;
 use std::path::{Path, PathBuf};
-use vrct_core::storage::CONFIG_COPY;
-use vrct_core::storage::linux::{Location, Others, Outcome, RECORD, Settled, settle};
+use astarot_core::storage::CONFIG_COPY;
+use astarot_core::storage::linux::{Location, Others, Outcome, RECORD, Settled, settle};
 
 struct Home {
     dir: tempfile::TempDir,
@@ -91,7 +91,7 @@ impl Home {
                 "rvc_runtime": config.join("vc_runtimes/rvc").to_str(),
             },
         });
-        fs::write(config.join("config.json"), vrct_core::config::to_python_json(&settings)).unwrap();
+        fs::write(config.join("config.json"), astarot_core::config::to_python_json(&settings)).unwrap();
         let registered = json!({"version": 1, "models": [
             {"id": "u1", "files": {"model": {"path": model.to_str(), "size": 4, "mtime_ns": 1}}},
             {"id": "u2", "files": {"model": {"path": self.outside().to_str(), "size": 4, "mtime_ns": 1}}},
@@ -343,7 +343,7 @@ fn an_old_folder_that_is_a_link_moves_as_a_link() {
 #[cfg(target_os = "linux")]
 #[ignore = "needs a session bus of its own (dbus-run-session)"]
 fn a_single_instance_name_on_the_bus_is_another_app() {
-    use vrct_core::storage::linux::other_instance;
+    use astarot_core::storage::linux::other_instance;
     assert_eq!(other_instance(), Others::None);
     for id in ["io.github.kein5.vrct-vox", "io.github.kein5.astarot"] {
         let name = format!("{id}.SingleInstance");

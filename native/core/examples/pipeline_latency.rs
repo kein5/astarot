@@ -28,7 +28,7 @@
 //! `--bmf` also writes the summary's percentiles in Bencher Metric Format, the format CI sends to
 //! Bencher (`tests/bmf`, `docs/voice-stack/pipeline-latency-tracking.md`).
 //!
-//! Times are the monotonic clock's (`vrct_tts::clock::monotonic_ns`), the clock of the flow
+//! Times are the monotonic clock's (`astarot_tts::clock::monotonic_ns`), the clock of the flow
 //! panel's trace. "End of speech" is when the block holding the clip's last voiced sample
 //! (10 ms frames within 30 dB of the loudest) reached the core, less the rest of that block.
 //!
@@ -50,13 +50,13 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Condvar, Mutex};
 use std::time::{Duration, Instant};
-use vrct_audio_routing::graph::{Endpoint, OutputOption};
-use vrct_audio_routing::router::{Output, PlaybackToken};
-use vrct_core::config::{Environment, Platform};
-use vrct_core::controller::voice::{NativeVoice, VoicePlatform};
-use vrct_core::{Backend, Options, Sink};
-use vrct_transcription::capture::{Capture, CapturePlatform, OnAudio, OnError, Source, Target};
-use vrct_tts::clock::monotonic_ns;
+use astarot_audio_routing::graph::{Endpoint, OutputOption};
+use astarot_audio_routing::router::{Output, PlaybackToken};
+use astarot_core::config::{Environment, Platform};
+use astarot_core::controller::voice::{NativeVoice, VoicePlatform};
+use astarot_core::{Backend, Options, Sink};
+use astarot_transcription::capture::{Capture, CapturePlatform, OnAudio, OnError, Source, Target};
+use astarot_tts::clock::monotonic_ns;
 
 #[path = "../tests/bmf/mod.rs"]
 mod bmf;
@@ -328,7 +328,7 @@ struct Playback {
 }
 
 impl Output for Playback {
-    fn write(&mut self, pcm: &[u8], token: &dyn PlaybackToken) -> vrct_audio_routing::Result<()> {
+    fn write(&mut self, pcm: &[u8], token: &dyn PlaybackToken) -> astarot_audio_routing::Result<()> {
         token.check()?;
         if !self.heard && pcm.chunks_exact(2).any(|s| i16::from_le_bytes([s[0], s[1]]).unsigned_abs() > 64) {
             self.heard = true;
@@ -342,7 +342,7 @@ impl Output for Playback {
         }
         Ok(())
     }
-    fn close(&mut self, _: bool, _: &dyn PlaybackToken) -> vrct_audio_routing::Result<()> {
+    fn close(&mut self, _: bool, _: &dyn PlaybackToken) -> astarot_audio_routing::Result<()> {
         Ok(())
     }
 }
@@ -353,55 +353,55 @@ struct Voice {
 }
 
 impl VoicePlatform for Voice {
-    fn direct_sources(&self) -> vrct_audio_routing::Result<Vec<vrct_audio_routing::graph::Source>> {
+    fn direct_sources(&self) -> astarot_audio_routing::Result<Vec<astarot_audio_routing::graph::Source>> {
         self.native.direct_sources()
     }
     fn default_microphone(&self) -> Option<String> {
         self.native.default_microphone()
     }
-    fn speech_output(&self, device: &str, rate: u32, channels: u16) -> vrct_audio_routing::Result<Box<dyn Output>> {
+    fn speech_output(&self, device: &str, rate: u32, channels: u16) -> astarot_audio_routing::Result<Box<dyn Output>> {
         assert_eq!(device, OUTPUT_DEVICE, "speech went to another output");
         Ok(Box::new(Playback { speaker: self.speaker.clone(), bytes_per_second: f64::from(rate) * f64::from(channels) * 2.0, opened: Instant::now(), played: 0.0, heard: false }))
     }
-    fn monitor_output(&self) -> vrct_audio_routing::monitor::MonitorFactory {
+    fn monitor_output(&self) -> astarot_audio_routing::monitor::MonitorFactory {
         self.native.monitor_output()
     }
-    fn gate(&self, app_dir: &Path) -> Arc<dyn vrct_audio_routing::voice_route::Gate> {
+    fn gate(&self, app_dir: &Path) -> Arc<dyn astarot_audio_routing::voice_route::Gate> {
         self.native.gate(app_dir)
     }
-    fn passthrough(&self, app_dir: &Path, output: Option<&str>) -> Result<Box<dyn vrct_voice_conversion::DirectBackend>, String> {
+    fn passthrough(&self, app_dir: &Path, output: Option<&str>) -> Result<Box<dyn astarot_voice_conversion::DirectBackend>, String> {
         self.native.passthrough(app_dir, output)
     }
-    fn route_devices(&self) -> Option<Arc<dyn vrct_audio_routing::windows_route::RouteDevices>> {
+    fn route_devices(&self) -> Option<Arc<dyn astarot_audio_routing::windows_route::RouteDevices>> {
         self.native.route_devices()
     }
     fn rvc_worker(&self, app_dir: &Path) -> PathBuf {
         self.native.rvc_worker(app_dir)
     }
-    fn runtime_transport(&self) -> Arc<dyn vrct_ops::downloads::transport::Transport> {
+    fn runtime_transport(&self) -> Arc<dyn astarot_ops::downloads::transport::Transport> {
         self.native.runtime_transport()
     }
     fn nvidia_driver(&self) -> bool {
         self.native.nvidia_driver()
     }
-    fn runtime_target(&self) -> Option<vrct_voice_conversion::runtime::Target> {
+    fn runtime_target(&self) -> Option<astarot_voice_conversion::runtime::Target> {
         self.native.runtime_target()
     }
 }
 
 /// The PC's devices, with the speech output of this measurement among the outputs.
-struct Audio(vrct_audio_routing::platform::NativePlatform);
+struct Audio(astarot_audio_routing::platform::NativePlatform);
 
-impl vrct_audio_routing::platform::AudioPlatform for Audio {
-    fn backend(&self, reporter: Arc<dyn vrct_audio_routing::report::Reporter>) -> Arc<dyn vrct_audio_routing::manager::DeviceBackend> {
+impl astarot_audio_routing::platform::AudioPlatform for Audio {
+    fn backend(&self, reporter: Arc<dyn astarot_audio_routing::report::Reporter>) -> Arc<dyn astarot_audio_routing::manager::DeviceBackend> {
         self.0.backend(reporter)
     }
-    fn outputs(&self, keep: &[String]) -> vrct_audio_routing::Result<Vec<OutputOption>> {
+    fn outputs(&self, keep: &[String]) -> astarot_audio_routing::Result<Vec<OutputOption>> {
         let mut outputs = self.0.outputs(keep).unwrap_or_default();
         outputs.push(OutputOption { id: OUTPUT_DEVICE.into(), label: "Pipeline latency".into() });
         Ok(outputs)
     }
-    fn cables(&self) -> Option<Arc<dyn vrct_audio_routing::virtual_mic::CableDevices>> {
+    fn cables(&self) -> Option<Arc<dyn astarot_audio_routing::virtual_mic::CableDevices>> {
         None
     }
 }
@@ -422,7 +422,7 @@ struct Ui {
 impl Ui {
     fn send(&self, endpoint: &str, data: Option<Value>) -> usize {
         let mark = self.seen.0.lock().unwrap().lines.len();
-        self.backend.write_line(&vrct_core::protocol::request_line(endpoint, data.as_ref()));
+        self.backend.write_line(&astarot_core::protocol::request_line(endpoint, data.as_ref()));
         mark
     }
 
@@ -604,10 +604,10 @@ fn main() {
         Arc::new(move |_| Arc::new(mic.clone()) as Arc<dyn CapturePlatform>)
     };
     options.services.voice = Arc::new(Voice { native: NativeVoice, speaker: speaker.clone() });
-    options.services.audio = Arc::new(Audio(vrct_audio_routing::platform::NativePlatform));
+    options.services.audio = Arc::new(Audio(astarot_audio_routing::platform::NativePlatform));
     options.services.translation_weight_available = Arc::new(|weight| weight == "m2m100_418M-ct2-int8");
     options.services.telemetry_forced_off = Arc::new(|| true);
-    vrct_core::resources::use_development_checkout(args.app_dir.clone());
+    astarot_core::resources::use_development_checkout(args.app_dir.clone());
     let started = Instant::now();
     let backend = Backend::start(options, sink);
     let ui = Ui { backend, seen };

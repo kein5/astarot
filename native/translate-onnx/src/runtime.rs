@@ -1,6 +1,6 @@
 //! The ONNX Runtime library of the process and the execution providers it was built with.
 //!
-//! The library and the environment come from `vrct-onnx-runtime`, which chat reading
+//! The library and the environment come from `astarot-onnx-runtime`, which chat reading
 //! (`native/ocr-runtime`) uses too: `ort` keeps the first library a process loads and allows one
 //! environment per process, so the two always share them (issue #509). With `load-dynamic` (the
 //! default, and the only form the app uses) the library is `ORT_DYLIB_PATH`, else the one the
@@ -14,7 +14,7 @@ use crate::{codes, Error, Result};
 
 /// The process's ONNX Runtime environment, made on first use.
 pub(crate) fn environment() -> Result<&'static Environment> {
-    vrct_onnx_runtime::environment().map_err(|_| Error::new(codes::RUNTIME_MISSING))
+    astarot_onnx_runtime::environment().map_err(|_| Error::new(codes::RUNTIME_MISSING))
 }
 
 /// Whether the loaded library was built with a provider.

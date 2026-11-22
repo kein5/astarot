@@ -328,7 +328,7 @@ fn write_record(folder: &Path, state: &str, from: Option<&Path>) -> io::Result<(
 pub fn other_instance() -> Others {
     let Ok(connection) = zbus::blocking::Connection::session() else { return Others::Unknown };
     let Ok(bus) = zbus::blocking::fdo::DBusProxy::new(&connection) else { return Others::Unknown };
-    for id in [app_identity::APP_ID.legacy, app_identity::APP_ID.astarot] {
+    for id in [astarot_app_identity::APP_ID.legacy, astarot_app_identity::APP_ID.astarot] {
         let name = format!("{id}.SingleInstance");
         let Ok(name) = zbus::names::BusName::try_from(name.as_str()) else { return Others::Unknown };
         match bus.name_has_owner(name) {
