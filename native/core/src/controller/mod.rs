@@ -195,8 +195,9 @@ pub struct Services {
     /// Only the host running the core as the default backend sets it: while the Python sidecar
     /// is the default, its local translation keeps its weights.
     pub retire_legacy_translation_weights: bool,
-    /// How the translation providers reach the network ([`astarot_translation::http::direct`]),
-    /// and speech.cpp's server on this PC is asked for its models.
+    /// How the translation providers reach the network, and speech.cpp's server on this PC is
+    /// asked for its models: through the proxy of the environment or Windows' Internet Settings,
+    /// as the recognition engines (#924, item 18). This PC and the LAN go straight.
     pub translation_transport: astarot_translation::http::Transport,
     /// How the cloud recognition engines reach the network: through the proxy of the
     /// environment or Windows' Internet Settings ([`astarot_translation::http::system_proxy`],
@@ -280,7 +281,7 @@ impl Default for Services {
             vrc_mic_mute: Arc::new(|_| {}),
             stop_mic_transcription: Arc::new(|| {}),
             retire_legacy_translation_weights: false,
-            translation_transport: astarot_translation::http::direct(),
+            translation_transport: astarot_translation::http::system_proxy(),
             transcription_transport: astarot_translation::http::system_proxy(),
             translation_endpoints: astarot_translation::providers::Endpoints::default(),
             local_translation: Arc::new(translation::default_local_translation),
