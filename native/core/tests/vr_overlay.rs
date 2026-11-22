@@ -76,7 +76,9 @@ fn the_overlay_starts_with_the_saved_switches_and_announces_the_vr_page_state() 
     let at = |e: &str| names.iter().position(|n| n == e).unwrap_or_else(|| panic!("{e} was sent"));
     assert!(at("/run/vr_panel_layout") < at("/run/connected_network"));
     assert_eq!(ui.on(0, "/run/vr_panel_launcher_intro")[0]["result"], "idle");
-    wait("connected to SteamVR", || fake.with(|s| s.sessions_open) == 1);
+    // The engine opens the session, then makes the five overlays one by one (#861: on a slow
+    // runner, four of them were made when the session was seen open).
+    wait("connected to SteamVR", || fake.with(|s| s.sessions_open) == 1 && fake.built());
     let keys: Vec<String> = fake.with(|s| s.created.iter().map(|(k, _)| k.clone()).collect());
     assert_eq!(&keys[..5], ["ASTAROT0", "ASTAROT1", "ASTAROT2", "ASTAROT3", "ASTAROT4"]);
     ui.ok("/run/shutdown", None);
