@@ -66,11 +66,11 @@ impl Renamed {
 
 /// The app ID (`identifier` in `src-tauri/tauri.conf.json`). The Wayland portals know the app by
 /// it, and the desktop file the app writes for them is named after it (ADR-014, 2.6).
-pub const APP_ID: Renamed = Renamed::not_moved("io.github.kein5.vrct-vox", "io.github.kein5.astarot");
+pub const APP_ID: Renamed = Renamed::moved("io.github.kein5.vrct-vox", "io.github.kein5.astarot");
 
 /// The key that marks a desktop file the app wrote for the portals (`<key>=true`). The app
 /// rewrites only a file that carries it; any other file is the user's or a packager's.
-pub const DESKTOP_FILE_MARKER: Renamed = Renamed::not_moved("X-VRCT-VOX-Generated", "X-ASTAROT-Generated");
+pub const DESKTOP_FILE_MARKER: Renamed = Renamed::moved("X-VRCT-VOX-Generated", "X-ASTAROT-Generated");
 
 /// The folder the Linux packages keep settings, logs and models in, under `$XDG_CONFIG_HOME` and
 /// under `$XDG_DATA_HOME` (ADR-014, 2.4). The app moves the VRCT-VOX folder at its start and
@@ -202,7 +202,7 @@ mod tests {
 
     /// The names that moved, each in its own pull request with its migration (ADR-014, 5). The
     /// pull request that moves another one adds it here.
-    const MOVED: [&str; 2] = ["LINUX_FOLDER", "MODEL_DOWNLOAD_OWNER"];
+    const MOVED: [&str; 4] = ["APP_ID", "DESKTOP_FILE_MARKER", "LINUX_FOLDER", "MODEL_DOWNLOAD_OWNER"];
 
     #[test]
     fn only_the_names_with_their_migration_are_written_the_astarot_way() {
@@ -215,9 +215,9 @@ mod tests {
     }
 
     #[test]
-    fn the_values_written_are_those_of_0_5_but_the_linux_folder() {
-        assert_eq!(APP_ID.current(), "io.github.kein5.vrct-vox");
-        assert_eq!(DESKTOP_FILE_MARKER.current(), "X-VRCT-VOX-Generated");
+    fn the_values_written_are_those_of_0_5_but_the_moved_names() {
+        assert_eq!(APP_ID.current(), "io.github.kein5.astarot");
+        assert_eq!(DESKTOP_FILE_MARKER.current(), "X-ASTAROT-Generated");
         assert_eq!(LINUX_FOLDER.current(), "astarot");
         assert_eq!(EXECUTABLE.current(), "vrct-vox");
         assert_eq!(LINUX_PACKAGE.current(), "vrct-vox");

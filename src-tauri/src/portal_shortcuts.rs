@@ -9,7 +9,7 @@
 //! registry requires `Register` before any other portal call on a connection.
 use std::collections::HashMap;
 use std::num::NonZeroUsize;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::future::{poll_fn, Future};
 use std::pin::Pin;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -220,6 +220,13 @@ fn desktop_marker() -> String {
     format!("{}=true", app_identity::DESKTOP_FILE_MARKER.current())
 }
 
+/// Whether `content` is a desktop file an earlier version wrote under the old app ID: it carries
+/// that version's marker line (ADR-014, 2.6).
+fn written_by_an_earlier_version(content: &str) -> bool {
+    let marker = format!("{}=true", app_identity::DESKTOP_FILE_MARKER.legacy);
+    content.lines().any(|line| line.trim() == marker)
+}
+
 /// The desktop file for the portals, starting `executable`.
 fn desktop_entry(executable: &str) -> String {
     format!(
@@ -241,8 +248,6 @@ pub(crate) fn ensure_desktop_file() -> Result<(), String> {
         .filter(|path| path.is_absolute())
         .or_else(|| std::env::var_os("HOME").map(|home| PathBuf::from(home).join(".local/share")))
         .ok_or("portal_desktop_file_failed")?;
-    let directory = data.join("applications");
-    let path = directory.join(format!("{APP_ID}.desktop"));
     let current = std::env::current_exe().map_err(|_| "portal_desktop_file_failed")?;
     // APPIMAGE is inherited by children of any AppImage; trust it only when
     // this executable runs from that image's own mount (APPDIR).
@@ -252,6 +257,24 @@ pub(crate) fn ensure_desktop_file() -> Result<(), String> {
         .filter(|path| mounted && path.is_absolute())
         .unwrap_or(current);
     let executable = executable.to_str().ok_or("portal_desktop_file_failed")?;
+    write_desktop_file(&data.join("applications"), executable)
+}
+
+/// Writes the desktop file into `directory` (`$XDG_DATA_HOME/applications`), then removes the one
+/// an earlier version wrote under the old app ID. A file without that version's marker is the
+/// user's or a packager's and stays. Removing is tidying only: a failure there is not one of the
+/// portal's.
+fn write_desktop_file(directory: &Path, executable: &str) -> Result<(), String> {
+    write_current_desktop_file(directory, executable)?;
+    let old = directory.join(format!("{}.desktop", app_identity::APP_ID.legacy));
+    if std::fs::read_to_string(&old).is_ok_and(|content| written_by_an_earlier_version(&content)) {
+        let _ = std::fs::remove_file(&old);
+    }
+    Ok(())
+}
+
+fn write_current_desktop_file(directory: &Path, executable: &str) -> Result<(), String> {
+    let path = directory.join(format!("{APP_ID}.desktop"));
     let (content, marker) = (desktop_entry(executable), desktop_marker());
     match std::fs::read_to_string(&path) {
         Ok(existing) if existing == content || !existing.contains(&marker) => return Ok(()),
@@ -259,7 +282,7 @@ pub(crate) fn ensure_desktop_file() -> Result<(), String> {
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
         Err(_) => return Err("portal_desktop_file_failed".into()),
     }
-    std::fs::create_dir_all(&directory).map_err(|_| "portal_desktop_file_failed")?;
+    std::fs::create_dir_all(directory).map_err(|_| "portal_desktop_file_failed")?;
     let temporary = directory.join(format!(".{APP_ID}.desktop.tmp"));
     std::fs::write(&temporary, content)
         .and_then(|()| std::fs::rename(&temporary, &path))
@@ -472,6 +495,11 @@ impl Portal {
         let action = [APP_ID, id, "ASTAROT", description];
         self.wait(operation, async {
             let accel = Proxy::new(&self.connection, "org.kde.kglobalaccel", "/kglobalaccel", "org.kde.KGlobalAccel").await.ok()?;
+            // The same shortcut, registered by 0.6.0 and earlier under the old app ID, would keep
+            // the key: KDE refuses a key another component holds (ADR-014, 2.6). Taking it out of
+            // the old component is all this does; there is nothing to do when it is not there.
+            let _: zbus::Result<bool> = accel.call("unregister", &(app_identity::APP_ID.legacy, id)).await;
+            self.check(operation).ok()?;
             let first = |keys: Vec<(Vec<i32>,)>| keys.into_iter().next().and_then(|(codes,)| codes.into_iter().next());
             let mut current = first(accel.call("shortcutKeys", &(action.as_slice(),)).await.ok()?);
             // In particular, an expired portal Response must never change KDE's keys.
@@ -745,18 +773,68 @@ mod tests {
         names.iter().map(|name| (*name).to_owned()).collect()
     }
 
-    /// The file 0.5.x wrote. The app rewrites a file of its own whenever the text differs, so
-    /// until ADR-014 moves these names the text stays the same, byte for byte.
+    /// The file for the new app ID (ADR-014, 2.6). The icon and the window class follow the
+    /// package and the executable, which move in their own steps.
     #[test]
-    fn the_desktop_file_is_the_one_0_5_wrote() {
-        assert_eq!(APP_ID, "io.github.kein5.vrct-vox");
+    fn the_desktop_file_is_named_and_marked_for_astarot() {
+        assert_eq!(APP_ID, "io.github.kein5.astarot");
         assert_eq!(
             desktop_entry("/opt/vrct-vox/vrct-vox"),
             "[Desktop Entry]\nType=Application\nName=ASTAROT\n\
              Comment=Speech, voice conversion and translated chat\nExec=\"/opt/vrct-vox/vrct-vox\"\nIcon=vrct-vox\n\
-             Terminal=false\nCategories=AudioVideo;Audio;Network;\nStartupWMClass=vrct-vox\nX-VRCT-VOX-Generated=true\n"
+             Terminal=false\nCategories=AudioVideo;Audio;Network;\nStartupWMClass=vrct-vox\nX-ASTAROT-Generated=true\n"
         );
-        assert_eq!(desktop_marker(), "X-VRCT-VOX-Generated=true");
+        assert_eq!(desktop_marker(), "X-ASTAROT-Generated=true");
+    }
+
+    /// The file 0.6.0 and earlier wrote under the old app ID.
+    const EARLIER: &str = "[Desktop Entry]\nType=Application\nName=ASTAROT\n\
+        Comment=Speech, voice conversion and translated chat\nExec=\"/opt/vrct-vox/vrct-vox\"\nIcon=vrct-vox\n\
+        Terminal=false\nCategories=AudioVideo;Audio;Network;\nStartupWMClass=vrct-vox\nX-VRCT-VOX-Generated=true\n";
+
+    fn applications() -> tempfile::TempDir {
+        tempfile::tempdir().unwrap()
+    }
+
+    #[test]
+    fn the_file_an_earlier_version_wrote_goes_once_the_new_one_is_there() {
+        let directory = applications();
+        let (old, new) = (directory.path().join("io.github.kein5.vrct-vox.desktop"), directory.path().join("io.github.kein5.astarot.desktop"));
+        std::fs::write(&old, EARLIER).unwrap();
+        write_desktop_file(directory.path(), "/opt/vrct-vox/vrct-vox").unwrap();
+        assert_eq!(std::fs::read_to_string(&new).unwrap(), desktop_entry("/opt/vrct-vox/vrct-vox"));
+        assert!(!old.exists(), "the old app ID's file is gone");
+        // Nothing else is left behind, and running again changes nothing.
+        write_desktop_file(directory.path(), "/opt/vrct-vox/vrct-vox").unwrap();
+        let names: Vec<_> = std::fs::read_dir(directory.path()).unwrap().map(|e| e.unwrap().file_name()).collect();
+        assert_eq!(names, ["io.github.kein5.astarot.desktop"]);
+    }
+
+    #[test]
+    fn a_file_under_the_old_app_id_without_the_marker_is_left_alone() {
+        // A packager's or the user's own file: no marker, or the marker only as part of a line.
+        for content in [
+            "[Desktop Entry]\nType=Application\nName=ASTAROT\nExec=vrct-vox\n".to_owned(),
+            EARLIER.replace("X-VRCT-VOX-Generated=true", "X-VRCT-VOX-Generated=false"),
+            EARLIER.replace("X-VRCT-VOX-Generated=true", "# X-VRCT-VOX-Generated=true is not ours"),
+        ] {
+            let directory = applications();
+            let old = directory.path().join("io.github.kein5.vrct-vox.desktop");
+            std::fs::write(&old, &content).unwrap();
+            write_desktop_file(directory.path(), "/opt/vrct-vox/vrct-vox").unwrap();
+            assert_eq!(std::fs::read_to_string(&old).unwrap(), content);
+        }
+    }
+
+    #[test]
+    fn the_old_file_stays_when_the_new_one_cannot_be_written() {
+        let directory = applications();
+        let old = directory.path().join("io.github.kein5.vrct-vox.desktop");
+        std::fs::write(&old, EARLIER).unwrap();
+        // The new name is taken by a folder: the portal has no desktop file of its own.
+        std::fs::create_dir(directory.path().join("io.github.kein5.astarot.desktop")).unwrap();
+        assert_eq!(write_desktop_file(directory.path(), "/opt/vrct-vox/vrct-vox"), Err("portal_desktop_file_failed".to_owned()));
+        assert_eq!(std::fs::read_to_string(&old).unwrap(), EARLIER, "nothing is removed before the new file is in place");
     }
 
     #[test]
