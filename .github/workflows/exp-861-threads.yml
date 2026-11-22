@@ -1,5 +1,6 @@
 # A measurement for issue #861 (the CI audit's item 3), never merged: native/core's tests on
-# Windows, without retries, with 4, 2 and 1 test threads, each run several times in a row. The
+# Windows, without retries, with 4, 2 and 1 test threads, each run ten times in a row on two
+# runners (six jobs, to leave the account's runners to the other pull requests). The
 # counts of failed tests per run tell whether fewer threads make the timing failures rarer.
 name: "Experiment: #861 test threads on Windows"
 on:
@@ -15,7 +16,7 @@ jobs:
       fail-fast: false
       matrix:
         threads: [4, 2, 1]
-        shard: [1, 2, 3, 4, 5, 6]
+        shard: [1, 2]
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -29,13 +30,13 @@ jobs:
         with:
           workspaces: native/core
       - run: cargo nextest run --locked --manifest-path native/core/Cargo.toml --no-run
-      - name: Run the tests eight times
+      - name: Run the tests ten times
         shell: bash
         env:
           THREADS: ${{ matrix.threads }}
         run: |
           mkdir -p results
-          for run in 1 2 3 4 5 6 7 8; do
+          for run in 1 2 3 4 5 6 7 8 9 10; do
             start=$(date +%s)
             set +e
             cargo nextest run --locked --manifest-path native/core/Cargo.toml --profile ci --retries 0 \
