@@ -5,11 +5,11 @@
 use serde_json::json;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
-use vrct_core::config::{Environment, Platform};
-use vrct_core::controller::translation::{LocalError, LocalSetup, LocalTranslation};
-use vrct_core::controller::translation_llama::{self, Routed};
-use vrct_ops::downloads::translation_catalog::{TranslationCatalog, FILE_NAME};
-use vrct_voice_conversion::runtime::{llama_server_name, llamacpp_runtime, version_of, Target};
+use astarot_core::config::{Environment, Platform};
+use astarot_core::controller::translation::{LocalError, LocalSetup, LocalTranslation};
+use astarot_core::controller::translation_llama::{self, Routed};
+use astarot_ops::downloads::translation_catalog::{TranslationCatalog, FILE_NAME};
+use astarot_voice_conversion::runtime::{llama_server_name, llamacpp_runtime, version_of, Target};
 
 const FAKE: &str = env!("CARGO_BIN_EXE_fake-llama-core");
 

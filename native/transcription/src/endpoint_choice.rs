@@ -11,7 +11,7 @@
 
 use crate::capture::{Source, media_class};
 use serde_json::Value;
-use vrct_audio_routing::graph::{self, Endpoint};
+use astarot_audio_routing::graph::{self, Endpoint};
 
 /// VRCT's own nodes, never captured.
 const EXCLUDED: [&str; 3] = ["vrct.managed.", "vrct.source-bridge.", "vrct.asr.capture."];

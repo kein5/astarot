@@ -7,9 +7,9 @@ use std::sync::{Arc, OnceLock};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use vrct_ops::downloads::hardware::HardwareProbe;
-use vrct_ops::json::Json;
-use vrct_ops::telemetry::hardware;
+use astarot_ops::downloads::hardware::HardwareProbe;
+use astarot_ops::json::Json;
+use astarot_ops::telemetry::hardware;
 
 /// The stand-in under a name that selects its behaviour. All copies are made once, before any
 /// test starts a child: a copy still open for writing while another thread forks would be

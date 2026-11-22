@@ -8,7 +8,7 @@ use std::path::PathBuf;
 use std::process::ExitCode;
 use std::time::Instant;
 
-use rvc_runtime::{audio, Converter, Device, FeatureExtractor, FeatureIndex, Layout, NoiseMode, Rmvpe, Stream, StreamOptions, Synthesizer, VoiceModel};
+use astarot_rvc_runtime::{audio, Converter, Device, FeatureExtractor, FeatureIndex, Layout, NoiseMode, Rmvpe, Stream, StreamOptions, Synthesizer, VoiceModel};
 
 const USAGE: &str = "\
 Usage: rvc-stream --model <voice.pth> --hubert <hubert.onnx | hubert_base folder> --rmvpe <rmvpe.onnx>
@@ -99,8 +99,8 @@ fn parse() -> Result<Arguments, String> {
     Ok(Arguments { model, hubert, rmvpe, input, output, index, device, options, warmup, threads })
 }
 
-fn run(arguments: Arguments) -> rvc_runtime::Result<()> {
-    rvc_runtime::backend::set_intra_threads(arguments.threads);
+fn run(arguments: Arguments) -> astarot_rvc_runtime::Result<()> {
+    astarot_rvc_runtime::backend::set_intra_threads(arguments.threads);
     let model = VoiceModel::load(&arguments.model)?;
     let index = arguments.index.as_deref().map(FeatureIndex::load).transpose()?;
     let converter = Converter {
@@ -114,7 +114,7 @@ fn run(arguments: Arguments) -> rvc_runtime::Result<()> {
     let layout = arguments.options.layout;
     let mut stream = Stream::new(converter, arguments.options)?;
     let (samples, rate) = audio::read_wav(&arguments.input)?;
-    let input = audio::resample(&samples, rate, rvc_runtime::pipeline::INPUT_RATE);
+    let input = audio::resample(&samples, rate, astarot_rvc_runtime::pipeline::INPUT_RATE);
     let block = layout.block_samples();
 
     // The first runs of each graph are slower (allocation, kernel selection); a live
@@ -133,7 +133,7 @@ fn run(arguments: Arguments) -> rvc_runtime::Result<()> {
         times.push(started.elapsed().as_secs_f64());
     }
     if times.is_empty() {
-        return Err(rvc_runtime::Error::Invalid("the input is shorter than one block".into()));
+        return Err(astarot_rvc_runtime::Error::Invalid("the input is shorter than one block".into()));
     }
     let duration = layout.block as f64 / 100.0;
     let mut sorted = times.clone();
@@ -170,7 +170,7 @@ fn run(arguments: Arguments) -> rvc_runtime::Result<()> {
 
 fn main() -> ExitCode {
     // SAFETY: first thing in main, before any other thread starts.
-    unsafe { vrct_onnx_runtime::disable_telemetry_for_process() };
+    unsafe { astarot_onnx_runtime::disable_telemetry_for_process() };
     let arguments = match parse() {
         Ok(arguments) => arguments,
         Err(message) => {

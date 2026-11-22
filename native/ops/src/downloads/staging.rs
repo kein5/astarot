@@ -13,7 +13,7 @@ use std::path::{Path, PathBuf};
 use super::catalog::Model;
 use super::Error;
 use crate::json::{Json, Object};
-use app_identity::MODEL_DOWNLOAD_OWNER as PRODUCT;
+use astarot_app_identity::MODEL_DOWNLOAD_OWNER as PRODUCT;
 
 pub const LOCK_NAME: &str = ".download.lock";
 const MARKER: &str = "owner.json";

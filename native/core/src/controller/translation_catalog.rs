@@ -2,7 +2,7 @@
 //! ships and the ones the user adds side by side.
 //!
 //! - **engine**: models that run on an inference engine on this PC. The built-in weights and
-//!   the engine entries the user added (`vrct_ops::downloads::translation_catalog`). An engine
+//!   the engine entries the user added (`astarot_ops::downloads::translation_catalog`). An engine
 //!   entry is a local translation weight named `user:<id>`, chosen like any other weight. The
 //!   folders in `<data>/translation-models/` that earlier versions listed are not (#597); the
 //!   view says only whether that folder holds one (`retired_folder_used`).
@@ -27,9 +27,9 @@ use crate::net_policy::validate_api_url;
 use crate::protocol::Reply;
 use serde_json::{Map, Value, json};
 use std::sync::Arc;
-use vrct_ops::downloads::Error;
-use vrct_ops::downloads::translation_catalog::{self as catalog, TranslationCatalog, codes};
-use vrct_translation::providers::Provider;
+use astarot_ops::downloads::Error;
+use astarot_ops::downloads::translation_catalog::{self as catalog, TranslationCatalog, codes};
+use astarot_translation::providers::Provider;
 
 /// The engine the API entries switch.
 const COMPATIBLE_ENGINE: &str = "OpenAI_Compatible";

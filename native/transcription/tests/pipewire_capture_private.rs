@@ -1,5 +1,5 @@
 //! Realtime recognition's Linux capture on a private PipeWire graph (decision 2 of #733): the
-//! PipeWire capture of `vrct-audio-routing` in place of the `vrct-asr-capture` helper of 0.5.x. The
+//! PipeWire capture of `astarot-audio-routing` in place of the `vrct-asr-capture` helper of 0.5.x. The
 //! endpoints are listed, a microphone is read from its source and a speaker from its sink's
 //! monitor, a node that is no longer the one chosen is refused, and a capture that loses its node
 //! tells it once.
@@ -18,8 +18,8 @@ use std::sync::mpsc::{Receiver, channel};
 use std::time::{Duration, Instant};
 
 use private_graph::{PrivateGraph, microphone, tone};
-use vrct_audio_routing::graph::Endpoint;
-use vrct_transcription::capture::{Capture, CapturePlatform, NativeCapture, OnAudio, OnError, Source, Target};
+use astarot_audio_routing::graph::Endpoint;
+use astarot_transcription::capture::{Capture, CapturePlatform, NativeCapture, OnAudio, OnError, Source, Target};
 
 /// What a capture heard: samples, rate and channels.
 type Heard = Receiver<(Vec<i16>, u32, u16)>;

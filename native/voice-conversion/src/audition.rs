@@ -11,7 +11,7 @@ use std::thread;
 use std::time::Duration;
 
 use serde_json::json;
-use vrct_audio_routing::sync::monotonic_ns;
+use astarot_audio_routing::sync::monotonic_ns;
 
 use crate::process::PreparedRvc;
 use crate::protocol::{self as p, ProtocolError};
@@ -19,7 +19,7 @@ use crate::worker::WorkerPipe;
 
 /// How long the worker may take to load its networks (and, on its first start with a model and
 /// GPU, to time the GPU for its block, #531), as on the device route.
-pub const READY_TIMEOUT: Duration = Duration::from_secs(vrct_audio_routing::windows_route::READY_TIMEOUT_S);
+pub const READY_TIMEOUT: Duration = Duration::from_secs(astarot_audio_routing::windows_route::READY_TIMEOUT_S);
 /// How long one block's answer may take. A block plays later than on the live route, so a slower
 /// PC is heard converting rather than refused.
 const ANSWER_TIMEOUT: Duration = Duration::from_secs(2);

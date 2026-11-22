@@ -15,14 +15,14 @@ use serde_json::{json, Value};
 use std::net::UdpSocket;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
-use vrct_adapters::osc::{decode_packet, OscArg};
-use vrct_core::controller::messages::{OverlayLog, OverlayMessage, Recognized, Source, SpeechStage, SpokenMessage};
-use vrct_core::controller::translation::{LocalError, LocalSetup, LocalTranslation};
-use vrct_core::controller::Services;
-use vrct_translation::fake::FakeProviders;
-use vrct_translation::http;
-use vrct_translation::providers::Endpoints;
-use vrct_translation::transliteration::{Morpheme, Tokenizer, Unavailable};
+use astarot_adapters::osc::{decode_packet, OscArg};
+use astarot_core::controller::messages::{OverlayLog, OverlayMessage, Recognized, Source, SpeechStage, SpokenMessage};
+use astarot_core::controller::translation::{LocalError, LocalSetup, LocalTranslation};
+use astarot_core::controller::Services;
+use astarot_translation::fake::FakeProviders;
+use astarot_translation::http;
+use astarot_translation::providers::Endpoints;
+use astarot_translation::transliteration::{Morpheme, Tokenizer, Unavailable};
 
 const VRCHAT: &str = "127.0.0.2";
 
@@ -298,7 +298,7 @@ fn readings_are_added_for_japanese_and_left_out_without_a_dictionary() {
 #[test]
 fn a_damaged_dictionary_beside_the_app_leaves_the_readings_out() {
     let dir = tempfile::tempdir().unwrap();
-    let shipped = dir.path().join("app/_internal").join(vrct_core::controller::messages::READINGS_DICTIONARY);
+    let shipped = dir.path().join("app/_internal").join(astarot_core::controller::messages::READINGS_DICTIONARY);
     std::fs::create_dir_all(shipped.parent().unwrap()).unwrap();
     std::fs::write(&shipped, b"cut off").unwrap();
     let run = start_in(json!({ "CONVERT_MESSAGE_TO_ROMAJI": true }), None, Some(dir.path().to_path_buf()));

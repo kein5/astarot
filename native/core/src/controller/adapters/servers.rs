@@ -24,10 +24,10 @@ use serde_json::{Value, json};
 use std::net::TcpListener;
 use std::sync::Arc;
 use std::time::Duration;
-use vrct_adapters::obs::settings::{NumericSetting, RawNumeric, parse_numeric_setting};
-use vrct_adapters::obs::{ObsBrowserSourceServer, ObsPageSettings};
-use vrct_adapters::tls;
-use vrct_adapters::websocket::WebSocketServer;
+use astarot_adapters::obs::settings::{NumericSetting, RawNumeric, parse_numeric_setting};
+use astarot_adapters::obs::{ObsBrowserSourceServer, ObsPageSettings};
+use astarot_adapters::tls;
+use astarot_adapters::websocket::WebSocketServer;
 
 /// How long a WebSocket start may take before it is given up (`_WEBSOCKET_START_TIMEOUT`).
 const WEBSOCKET_START_TIMEOUT: Duration = Duration::from_secs(6);
@@ -206,7 +206,7 @@ impl Adapters {
 
     /// Sends a message to every WebSocket client (`websocketSendMessage`): `None` when the
     /// server is not running, `Err` when the message was refused (too large, queue full).
-    pub(crate) fn websocket_send(&self, message: &str) -> Option<Result<(), vrct_adapters::websocket::SendError>> {
+    pub(crate) fn websocket_send(&self, message: &str) -> Option<Result<(), astarot_adapters::websocket::SendError>> {
         let server = self.websocket.lock().unwrap().clone().filter(|server| server.is_running())?;
         Some(server.send(message))
     }

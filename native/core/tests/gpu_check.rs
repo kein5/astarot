@@ -8,8 +8,8 @@ use serde_json::{Value, json};
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use vrct_core::controller::Services;
-use vrct_speech_server::server::Launch;
+use astarot_core::controller::Services;
+use astarot_speech_server::server::Launch;
 
 const FAKE: &str = env!("CARGO_BIN_EXE_fake-speech-core");
 

@@ -23,11 +23,11 @@ use serde_json::{Value, json};
 use std::net::UdpSocket;
 use std::sync::atomic::Ordering;
 use std::time::{Duration, Instant};
-use vrct_adapters::osc::{OscArg, PARAMETER_MUTE_SELF, decode_packet};
-use vrct_audio_routing::manager::Topology;
-use vrct_core::config::Platform;
-use vrct_core::controller::Services;
-use vrct_transcription::capture::Source;
+use astarot_adapters::osc::{OscArg, PARAMETER_MUTE_SELF, decode_packet};
+use astarot_audio_routing::manager::Topology;
+use astarot_core::config::Platform;
+use astarot_core::controller::Services;
+use astarot_transcription::capture::Source;
 
 const VRCHAT: &str = "127.0.0.1";
 
@@ -40,7 +40,7 @@ struct Run {
     osc: common::fake_osc::Opened,
 }
 
-fn devices() -> vrct_audio_routing::snapshot::RawLists {
+fn devices() -> astarot_audio_routing::snapshot::RawLists {
     windows(&[("Mic A", "{a}"), ("Mic B", "{b}")], Some("{a}"), &[("Speakers", "{s}"), ("Headphones", "{h}")], Some("{s}"))
 }
 
@@ -48,12 +48,12 @@ fn start(saved: Value) -> Run {
     start_with(saved, devices())
 }
 
-fn start_with(saved: Value, lists: vrct_audio_routing::snapshot::RawLists) -> Run {
-    start_waiting(saved, lists, vrct_transcription::recorder::STOP_WAIT)
+fn start_with(saved: Value, lists: astarot_audio_routing::snapshot::RawLists) -> Run {
+    start_waiting(saved, lists, astarot_transcription::recorder::STOP_WAIT)
 }
 
 /// [`start_with`], with `stop_wait` for how long turning a recorder off waits for its engine.
-fn start_waiting(saved: Value, lists: vrct_audio_routing::snapshot::RawLists, stop_wait: Duration) -> Run {
+fn start_waiting(saved: Value, lists: astarot_audio_routing::snapshot::RawLists, stop_wait: Duration) -> Run {
     let asr = FakeAsr::start();
     let capture = FakeCapture::new();
     let audio = FakeAudio::with(lists);
@@ -66,7 +66,7 @@ fn start_waiting(saved: Value, lists: vrct_audio_routing::snapshot::RawLists, st
         osc,
         audio: audio.platform(),
         transcription_capture: capture.factory(),
-        transcription_endpoints: vrct_transcription::providers::Endpoints::all_at(&asr.base()),
+        transcription_endpoints: astarot_transcription::providers::Endpoints::all_at(&asr.base()),
         recorder_stop_wait: stop_wait,
         ..Setup::default().services
     };
@@ -125,7 +125,7 @@ fn a_switch_needs_an_engine_and_a_device() {
     run.ui.stop();
 
     // No device to open: the switch is turned off again and the UI hears why.
-    let run = start_with(cloud(), vrct_audio_routing::snapshot::RawLists::none());
+    let run = start_with(cloud(), astarot_audio_routing::snapshot::RawLists::none());
     let mark = run.ui.send("/set/enable/transcription_receive", None);
     assert_eq!(run.ui.wait_endpoint(mark, "/set/enable/transcription_receive")["result"], false);
     assert_eq!(run.ui.on(mark, "/set/disable/transcription_receive")[0]["result"], false);
@@ -296,7 +296,7 @@ fn the_volume_meter_reports_levels_and_needs_a_device() {
     assert_eq!(run.capture.running(Source::Speaker), 1, "the meter keeps listening");
     run.ui.stop();
 
-    let run = start_with(cloud(), vrct_audio_routing::snapshot::RawLists::none());
+    let run = start_with(cloud(), astarot_audio_routing::snapshot::RawLists::none());
     let mark = run.ui.send("/set/enable/check_mic_threshold", None);
     assert_eq!(run.ui.wait_endpoint(mark, "/set/enable/check_mic_threshold")["result"], false);
     assert_eq!(error_code(&run.heard(mark, "/run/error_device")), "DEVICE_NO_MIC");

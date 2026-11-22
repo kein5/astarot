@@ -13,11 +13,11 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use common::*;
-use vrct_tts::playback::{Frames, Monitor};
-use vrct_tts::scheduler::{BusOptions, MonitorFactory, MonitorRequest, Synthesizer};
-use vrct_tts::settings::{SpeechRequest, VoiceSettings};
-use vrct_tts::sync::Event;
-use vrct_tts::{AudioFrame, CancelToken, Source, SpeechMessageEvent, SynthesisOptions, TtsError, VoiceEventBus};
+use astarot_tts::playback::{Frames, Monitor};
+use astarot_tts::scheduler::{BusOptions, MonitorFactory, MonitorRequest, Synthesizer};
+use astarot_tts::settings::{SpeechRequest, VoiceSettings};
+use astarot_tts::sync::Event;
+use astarot_tts::{AudioFrame, CancelToken, Source, SpeechMessageEvent, SynthesisOptions, TtsError, VoiceEventBus};
 
 type WriteHook = Arc<dyn Fn(usize) + Send + Sync>;
 type CloseHook = Arc<dyn Fn(bool) + Send + Sync>;
@@ -88,7 +88,7 @@ impl Tee {
             if let Some(hook) = device.on_write.lock().unwrap().clone() {
                 hook(sink.writes());
             }
-            if vrct_tts::playback::OutputSink::write(&mut sink, &block, &self.token).is_err() {
+            if astarot_tts::playback::OutputSink::write(&mut sink, &block, &self.token).is_err() {
                 break;
             }
         }
@@ -96,7 +96,7 @@ impl Tee {
         if let Some(hook) = device.on_close.lock().unwrap().clone() {
             hook(drain);
         }
-        vrct_tts::playback::OutputSink::close(&mut sink, drain, &self.token).unwrap();
+        astarot_tts::playback::OutputSink::close(&mut sink, drain, &self.token).unwrap();
     }
 
     fn queued(&self) -> usize {

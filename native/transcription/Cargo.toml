@@ -1,29 +1,29 @@
 [package]
-name = "vrct-transcription"
+name = "astarot-transcription"
 version = "0.0.0"
 description = "Speech recognition of VRCT-VOX: the recorder and its phrases, the cloud engines, and realtime recognition on speech.cpp (codename Loray)"
 edition = "2024"
 publish = false
 
 [lib]
-name = "vrct_transcription"
+name = "astarot_transcription"
 
 # Versions are pinned to the ones the core already locks, so linking this crate into it adds no
 # second copy of any of them.
 [dependencies]
 serde_json = { version = "=1.0.154", features = ["preserve_order"] }
 # The realtime transport of speech.cpp (a WebSocket on this PC). The core already locks it
-# through the WebSocket server of vrct-adapters.
+# through the WebSocket server of astarot-adapters.
 tungstenite = { version = "=0.30.0", default-features = false, features = ["handshake"] }
 # The device rows and endpoints, and the WASAPI capture on Windows.
-vrct-audio-routing = { path = "../audio-routing", default-features = false }
+astarot-audio-routing = { path = "../audio-routing", default-features = false }
 # The HTTP client of the cloud engines (TLS with the Mozilla roots, no redirects, the system proxy).
-vrct-translation = { path = "../translation" }
+astarot-translation = { path = "../translation" }
 
 [features]
 # Linux: list the PipeWire endpoints for realtime recognition and capture them, through
-# vrct-audio-routing. Without it nothing is listed and nothing opens.
-pipewire = ["vrct-audio-routing/pipewire"]
+# astarot-audio-routing. Without it nothing is listed and nothing opens.
+pipewire = ["astarot-audio-routing/pipewire"]
 
 # This crate is not part of any workspace (the application crate lives in src-tauri).
 [workspace]

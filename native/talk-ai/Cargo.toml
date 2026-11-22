@@ -1,0 +1,25 @@
+[package]
+name = "vrct-talk-ai"
+version = "0.0.0"
+description = "The talk AI's connection to a realtime conversation service: the OpenAI Realtime events over a WebSocket, as OpenAI and vLLM-Omni speak them (ADR-018)"
+edition = "2024"
+publish = false
+
+[lib]
+name = "vrct_talk_ai"
+
+# Versions are pinned to the ones the core already locks, so linking this crate into it adds no
+# second copy of any of them.
+[dependencies]
+# Audio and pictures go as base64 inside the events.
+base64 = "=0.22.1"
+serde_json = "=1.0.154"
+# The WebSocket. TLS, the network policy and the proxy come from vrct-translation's connection.
+tungstenite = { version = "=0.30.0", default-features = false, features = ["handshake"] }
+vrct-translation = { path = "../translation" }
+
+[dev-dependencies]
+proptest = { version = "=1.12.0", default-features = false, features = ["std"] }
+
+# This crate is not part of any workspace (the application crate lives in src-tauri).
+[workspace]

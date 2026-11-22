@@ -21,10 +21,10 @@ use common::net::{eventually, free_port};
 use common::{Setup, Ui, error_code};
 use serde_json::{Value, json};
 use std::sync::{Arc, Mutex};
-use vrct_core::config::Platform;
-use vrct_core::controller::Services;
-use vrct_transcription::capture::Source;
-use vrct_transcription::vad::{Segmenter, Vad, VadEngine};
+use astarot_core::config::Platform;
+use astarot_core::controller::Services;
+use astarot_transcription::capture::Source;
+use astarot_transcription::vad::{Segmenter, Vad, VadEngine};
 
 /// A VAD engine that cuts like the energy listener it is handed and notes each segmenter it
 /// made: (rate, channels, longest segment).
@@ -74,7 +74,7 @@ fn start(saved: Value, vad: Option<Vad>, realtime: impl FnOnce(&FakeAsr) -> Valu
     let services = Services {
         audio: audio.platform(),
         transcription_capture: capture.factory(),
-        transcription_endpoints: vrct_transcription::providers::Endpoints::all_at(&asr.base()),
+        transcription_endpoints: astarot_transcription::providers::Endpoints::all_at(&asr.base()),
         vad,
         ..Setup::default().services
     };
@@ -256,9 +256,9 @@ fn a_recording_with_the_vad_starts_the_bundled_server_when_the_settings_let_it()
         let services = Services {
             audio: audio.platform(),
             transcription_capture: capture.factory(),
-            transcription_endpoints: vrct_transcription::providers::Endpoints::all_at(&asr.base()),
+            transcription_endpoints: astarot_transcription::providers::Endpoints::all_at(&asr.base()),
             speech_server_launch: Arc::new(move |_| {
-                let mut launch = vrct_speech_server::server::Launch::fixed(fake);
+                let mut launch = astarot_speech_server::server::Launch::fixed(fake);
                 launch.start_timeout = std::time::Duration::from_secs(10);
                 launch
             }),

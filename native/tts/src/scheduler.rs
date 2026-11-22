@@ -487,7 +487,7 @@ impl VoiceEventBus {
         };
         let inner = self.inner.clone();
         let running = token.clone();
-        let spawned = thread::Builder::new().name("vrct-tts-warm".into()).spawn(move || {
+        let spawned = thread::Builder::new().name("astarot-tts-warm".into()).spawn(move || {
             // A refusal or a server that is not there is left to the speech that follows to report.
             let done = catch_unwind(AssertUnwindSafe(|| (inner.warm_up)(&url, &voice, language, &running))).is_ok_and(|r| r.is_ok());
             finish_warm(&inner, &running, done);

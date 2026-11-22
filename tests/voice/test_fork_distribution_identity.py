@@ -34,8 +34,11 @@ def test_build_metadata_and_launchers_agree_on_renamed_binaries():
     lock = json.loads((ROOT / "package-lock.json").read_text(encoding="utf-8"))
     cargo = tomllib.loads((ROOT / "src-tauri/Cargo.toml").read_text(encoding="utf-8"))
     cargo_lock = tomllib.loads((ROOT / "src-tauri/Cargo.lock").read_text(encoding="utf-8"))
-    assert package["name"] == lock["name"] == lock["packages"][""]["name"] == cargo["package"]["name"] == "vrct-vox"
-    assert any(p["name"] == "vrct-vox" and p["version"] == cargo["package"]["version"] for p in cargo_lock["package"])
+    # The packages are astarot (ADR-014, PR 12); the executable keeps its name until its own step.
+    assert package["name"] == lock["name"] == lock["packages"][""]["name"] == cargo["package"]["name"] == "astarot"
+    assert any(p["name"] == "astarot" and p["version"] == cargo["package"]["version"] for p in cargo_lock["package"])
+    conf = json.loads((ROOT / "src-tauri/tauri.conf.json").read_text(encoding="utf-8"))
+    assert [b["name"] for b in cargo["bin"]] == ["vrct-vox"] == [conf["mainBinaryName"]]
     desktop = (ROOT / "packaging/appimage/vrct-vox.desktop").read_text(encoding="utf-8")
     # Name is only shown in menus (ADR-011 P1); the file name, Exec, Icon and StartupWMClass identify the app.
     assert "Name=ASTAROT\n" in desktop and "Exec=vrct-vox\n" in desktop

@@ -29,7 +29,7 @@ use std::time::{Duration, Instant};
 use tauri::ipc::Channel;
 use tauri::{AppHandle, Emitter, Manager, Runtime, Url, WebviewWindow};
 use tauri_plugin_updater::{Update, Updater, UpdaterExt};
-use vrct_core::controller::updates::{SoftwareUpdates, UpdateOutcome, no_update};
+use astarot_core::controller::updates::{SoftwareUpdates, UpdateOutcome, no_update};
 
 /// The owner of the project's releases. Their downloads are the only ones taken ([`project_download`]).
 const OWNER: &str = "kein5";

@@ -122,7 +122,7 @@ pub(crate) fn startup_log(message: &str) {
 pub fn run() {
     // SAFETY: before Tauri, the backend or any other thread starts. ONNX Runtime reads the
     // variable when chat reading or translation first loads it; the RVC worker inherits it.
-    unsafe { vrct_core::shipped_libraries::disable_onnx_runtime_telemetry() };
+    unsafe { astarot_core::shipped_libraries::disable_onnx_runtime_telemetry() };
     // Before the backend starts: it learns from its environment where the VR page will be served.
     #[cfg(target_os = "linux")]
     let vr_panel = vr_panel_surface::prepare();
@@ -174,7 +174,7 @@ pub fn run() {
     let mut builder = tauri::Builder::default();
     if single_instance::single_instance_enabled(
         cfg!(debug_assertions),
-        app_identity::env::CONFIG_DIR.value_os().as_deref(),
+        astarot_app_identity::env::CONFIG_DIR.value_os().as_deref(),
     ) {
         builder = builder.plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             let Some(window) = app.get_webview_window("main") else {

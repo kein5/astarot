@@ -28,7 +28,7 @@ use worker::{Backend, Mailbox, Operation, Processed, Restore, Worker};
 use zbus::{OwnedObjectPath, OwnedVariant, Variant};
 
 /// Must match a desktop file the portal can find; see `ensure_desktop_file`.
-pub(crate) const APP_ID: &str = app_identity::APP_ID.current();
+pub(crate) const APP_ID: &str = astarot_app_identity::APP_ID.current();
 pub(crate) const DESTINATION: &str = "org.freedesktop.portal.Desktop";
 pub(crate) const DESKTOP: &str = "/org/freedesktop/portal/desktop";
 const INTERFACE: &str = "org.freedesktop.portal.GlobalShortcuts";
@@ -217,13 +217,13 @@ fn quote(path: &str) -> String {
 
 /// The line that marks a desktop file as this app's: only such a file is rewritten.
 fn desktop_marker() -> String {
-    format!("{}=true", app_identity::DESKTOP_FILE_MARKER.current())
+    format!("{}=true", astarot_app_identity::DESKTOP_FILE_MARKER.current())
 }
 
 /// Whether `content` is a desktop file an earlier version wrote under the old app ID: it carries
 /// that version's marker line (ADR-014, 2.6).
 fn written_by_an_earlier_version(content: &str) -> bool {
-    let marker = format!("{}=true", app_identity::DESKTOP_FILE_MARKER.legacy);
+    let marker = format!("{}=true", astarot_app_identity::DESKTOP_FILE_MARKER.legacy);
     content.lines().any(|line| line.trim() == marker)
 }
 
@@ -234,8 +234,8 @@ fn desktop_entry(executable: &str) -> String {
          Comment=Speech, voice conversion and translated chat\nExec={}\nIcon={}\n\
          Terminal=false\nCategories=AudioVideo;Audio;Network;\nStartupWMClass={}\n{}\n",
         quote(executable),
-        app_identity::LINUX_PACKAGE.current(),
-        app_identity::EXECUTABLE.current(),
+        astarot_app_identity::LINUX_PACKAGE.current(),
+        astarot_app_identity::EXECUTABLE.current(),
         desktop_marker(),
     )
 }
@@ -266,7 +266,7 @@ pub(crate) fn ensure_desktop_file() -> Result<(), String> {
 /// portal's.
 fn write_desktop_file(directory: &Path, executable: &str) -> Result<(), String> {
     write_current_desktop_file(directory, executable)?;
-    let old = directory.join(format!("{}.desktop", app_identity::APP_ID.legacy));
+    let old = directory.join(format!("{}.desktop", astarot_app_identity::APP_ID.legacy));
     if std::fs::read_to_string(&old).is_ok_and(|content| written_by_an_earlier_version(&content)) {
         let _ = std::fs::remove_file(&old);
     }
@@ -498,7 +498,7 @@ impl Portal {
             // The same shortcut, registered by 0.6.0 and earlier under the old app ID, would keep
             // the key: KDE refuses a key another component holds (ADR-014, 2.6). Taking it out of
             // the old component is all this does; there is nothing to do when it is not there.
-            let _: zbus::Result<bool> = accel.call("unregister", &(app_identity::APP_ID.legacy, id)).await;
+            let _: zbus::Result<bool> = accel.call("unregister", &(astarot_app_identity::APP_ID.legacy, id)).await;
             self.check(operation).ok()?;
             let first = |keys: Vec<(Vec<i32>,)>| keys.into_iter().next().and_then(|(codes,)| codes.into_iter().next());
             let mut current = first(accel.call("shortcutKeys", &(action.as_slice(),)).await.ok()?);

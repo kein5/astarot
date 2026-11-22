@@ -148,7 +148,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     parser.add_argument("model", choices=sorted(MODELS))
     parser.add_argument("--onnx", required=True, help="the folder export.py wrote")
-    parser.add_argument("--cli", required=True, help="native/translate-onnx's vrct-translate, a release build")
+    parser.add_argument("--cli", required=True, help="native/translate-onnx's astarot-translate, a release build")
     parser.add_argument("--sentences", type=int, default=100, help="sentences per direction")
     parser.add_argument("--directions", default=",".join(DIRECTIONS),
                         help="comma-separated WMT20 directions, all eight unless given")

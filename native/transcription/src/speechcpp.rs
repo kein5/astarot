@@ -8,7 +8,7 @@
 use serde_json::{Value, json};
 use std::sync::OnceLock;
 use std::time::Duration;
-use vrct_translation::http::{Cancel, HttpError, Request, Timeouts, Transport};
+use astarot_translation::http::{Cancel, HttpError, Request, Timeouts, Transport};
 
 /// A recognition model the server lists (`RecognitionModel`).
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -41,7 +41,7 @@ pub fn language_supported(model: &Model, language: &str) -> bool {
 
 /// `local_url`: speech.cpp is reached on this PC only, over plain HTTP.
 pub fn local_url(url: &str) -> Option<String> {
-    let parsed = vrct_translation::http::Url::parse(url).ok()?;
+    let parsed = astarot_translation::http::Url::parse(url).ok()?;
     let host = parsed.host.trim_start_matches('[').trim_end_matches(']');
     let loopback =
         host.eq_ignore_ascii_case("localhost") || host.parse::<std::net::IpAddr>().is_ok_and(|ip| ip.is_loopback());
@@ -245,7 +245,7 @@ mod tests {
     }
 
     // #792: the built-in terms come from data/vrchat_terms.txt, and "Friends+" is read as players
-    // say it. The rules of each line are checked against the settings' own (vrct-core's
+    // say it. The rules of each line are checked against the settings' own (astarot-core's
     // voice_settings tests), which this crate cannot reach.
     #[test]
     fn the_built_in_terms_are_the_data_file() {
@@ -303,7 +303,7 @@ mod tests {
         let content_type = content_type.to_string();
         std::sync::Arc::new(move |request, _| {
             assert!(request.url.ends_with("/v1/models"), "{}", request.url);
-            Ok(vrct_translation::http::Response {
+            Ok(astarot_translation::http::Response {
                 status,
                 headers: vec![("Content-Type".to_string(), content_type.clone())],
                 body: serde_json::to_vec(&body).unwrap(),
@@ -371,10 +371,10 @@ mod tests {
         let large = json!({ "data": [], "padding": "x".repeat(1024 * 1024) });
         assert_eq!(survey(&answering(200, "application/json", large), base, second, None).unwrap_err(), "response_too_large");
         let broken: Transport = std::sync::Arc::new(|_, _| {
-            Ok(vrct_translation::http::Response { status: 200, headers: vec![("content-type".into(), "application/json".into())], body: b"{".to_vec() })
+            Ok(astarot_translation::http::Response { status: 200, headers: vec![("content-type".into(), "application/json".into())], body: b"{".to_vec() })
         });
         assert_eq!(survey(&broken, base, second, None).unwrap_err(), "invalid_json");
-        let unreachable: Transport = std::sync::Arc::new(|_, _| Err(vrct_translation::http::HttpError::Unreachable));
+        let unreachable: Transport = std::sync::Arc::new(|_, _| Err(astarot_translation::http::HttpError::Unreachable));
         assert_eq!(survey(&unreachable, base, second, None).unwrap_err(), "transport_error");
         assert_eq!(listed(json!({ "data": [] })).unwrap(), (Vec::new(), false));
     }
@@ -399,7 +399,7 @@ mod tests {
             cancelling.cancel();
             at
         });
-        let listed = survey(&vrct_translation::http::direct(), &base, Duration::from_secs(5), Some(&cancel));
+        let listed = survey(&astarot_translation::http::direct(), &base, Duration::from_secs(5), Some(&cancel));
         let ended = std::time::Instant::now();
         assert_eq!(listed.unwrap_err(), "cancelled");
         let late = ended.saturating_duration_since(timer.join().unwrap());
