@@ -5,6 +5,7 @@ import { componentName, drawWith, find, findIn, hooks, loadModule, nodesIn, unch
 import type { TreeNode } from "../../../../../../logics/test/hookHarness.ts";
 import * as translationCatalog from "../../../../../../logics/translation/translationCatalog.ts";
 import type { TranslationCatalog } from "../../../../../../logics/translation/translationCatalog.ts";
+import * as endpointPrivacy from "../../../../../../logics/common/endpointPrivacy.ts";
 
 // Test data: a catalog with only the fields the cards read. Shipped and added entries of both
 // groups: one in use, one that cannot run yet, one ready.
@@ -36,7 +37,7 @@ async function catalog(context: TestContext, hints = false, layout = "list") {
         "../../../../../../logics/translation/useTranslationCatalog": { useTranslationCatalog: () => ({ catalog: shownCatalog, error: null, pending: null, send: () => {} }) },
         "../../../../../../logics/translation/useListedLocalWeights": { useListedLocalWeights: () => listed },
         "../../../../../../logics/translation/translationCatalog": translationCatalog,
-        "../../../../../../logics/common/endpointPrivacy": { endpointDescription: () => "" },
+        "../../../../../../logics/common/endpointPrivacy": endpointPrivacy,
         "../_components": { SectionLabelComponent: "section-label" },
         "../_components/hint/Hint": { useHintDescriptions: () => hints },
         "../_components/fold/Fold": { Fold: "fold" },
@@ -172,4 +173,16 @@ test("the catalog's and its forms' descriptions are hints; the warnings stay in 
     assert.deepEqual([plainEngine.props.hint, plainApi.props.hint], [undefined, undefined]);
     assert.ok(lines(plainEngine).includes("translation_catalog.add_help.engine"));
     assert.ok(lines(plainApi).includes("translation_catalog.add_help.api"));
+});
+
+// What the API's address sends is one sentence in view, with what the address may be and that it is
+// checked as its hint (#614, the lead's form). Plain HTTP on the LAN adds its warning, in view.
+test("the API form's address says what it sends in one sentence, and warns of plain HTTP on the LAN", async context => {
+    const hinted = await catalog(context, true);
+    const api = hinted.forms[1];
+    const lead = findIn(api, node => node.type === "lead" && node.props.text === "translation_catalog.url_lead");
+    assert.equal(lead.props.details, "translation_catalog.url_details");
+    const url = findIn(api, node => node.type === "input" && node.props.type === "url");
+    assert.equal(url.props["aria-describedby"], lead.props.id);
+    assert.ok(!nodesIn(api).some(node => node.props?.role === "note"), "no warning for an empty address");
 });

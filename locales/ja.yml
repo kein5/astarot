@@ -2438,7 +2438,9 @@ translation_catalog:
         api: "OpenAI互換のAPIを入れてください。インターネットのサービスでも、お使いのPCやLANの中のサーバーでもかまいません。キーは設定のファイルではなくアプリのキーの保管場所に置きます。使うときは先にアドレスとキーを確かめます。"
     terms_help: "追加したモデルの出どころとライセンスは、このアプリでは確かめていません。利用条件はご自身で確認してください。"
     no_runtime: "このビルドではお使いのPCでモデルを動かせないので、ここにはモデルを追加できません。"
-    url_help: "http://はお使いのPCとLANの中だけに使えます。ほかはhttps://を使ってください。"
+    # What leaves the PC, in view; what the address may be and that it is checked, as its hint (#614).
+    url_lead: "保存すると、APIキーをこのURLに送って確かめます。"
+    url_details: "http://はお使いのPCとLANの中だけに使えます。ほかはhttps://を使ってください。URLも保存時に確かめます。"
     field:
         name: "表示する名前"
         folder: "モデルのフォルダー"
