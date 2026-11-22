@@ -38,13 +38,13 @@ Windowsの実行ファイルには`.exe`が付きます。
 | Linuxのデータ保存先 | 0.6.0から`$XDG_DATA_HOME/astarot`、既定は`~/.local/share/astarot`。移し方は設定保存先と同じ |
 | Linuxのキャッシュ保存先 | なし。0.4までのPythonバックエンドだけが`$XDG_CACHE_HOME/vrct-vox`（既定は`~/.cache/vrct-vox`）を使った |
 | 環境変数 | 0.6.0から`ASTAROT_*`。利用者とパッケージ作成者向けの4つ（`ASTAROT_CONFIG_DIR`、`ASTAROT_DATA_DIR`、`ASTAROT_TELEMETRY`、`ASTAROT_OPENVR_API`）は先に読み、なければ0.5.xの`VRCT_*`の名前を読む。旧名は0.6.xの間読む。`ASTAROT_TELEMETRY`と`VRCT_TELEMETRY`は、どちらかが`off`なら送信を止める。開発、試験、ビルド、プロセスの受け渡しの変数（`ASTAROT_VR_PANEL_DIR`、`ASTAROT_LINUX_BUNDLE`、`ASTAROT_TEST_*`など）は、旧名を読まない。`VRCT_CACHE_DIR`などは0.4までのPythonバックエンドだけが読んだ |
-| Windowsのインストール先を記録するキー | `VRCT-VOX` |
+| Windowsのインストール先を記録するキー | 0.6.0より後の版から`ASTAROT`（`HKCU\Software\kein5\ASTAROT`と、アプリの一覧の`HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\ASTAROT`）。0.6.0までは`VRCT-VOX`。インストーラーは新しいキーを先に読み、なければ旧のキーを読む。新しいキーを書いてから旧のキーを消す（[Windowsのインストール先の移動](../spec/data-and-persistence.md#windowsのインストール先の移動)） |
 | 音声経路と仮想マイク | `vrct.managed.*`ノード、`vrct-managed-*.service`、所有者識別子`vrct-vox-service-v1` |
 | モデル取得の所有マーカー | 0.6.0から`ASTAROT-model-download-v1`を書く。0.5.xが書いた`VRCT-VOX-model-download-v1`も0.6.xの間は受け付ける。0.5.xは自分の値しか読まないので、0.5.xに戻すと0.6.0が残した取得の途中のフォルダーは片付けずに残す |
 | Linuxビルド作業領域の所有マーカー | `VRCT-VOX Linux staging v1` |
 | Waylandのショートカット登録 | portalのアプリID`io.github.kein5.astarot`、`~/.local/share/applications/io.github.kein5.astarot.desktop`（印は`X-ASTAROT-Generated=true`）。0.6.0までの`io.github.kein5.vrct-vox.desktop`は、`X-VRCT-VOX-Generated=true`の印があるときだけ消す。ショートカットと画面の共有の許可はアプリIDごとに記録されるので、一度だけ許可し直しになる |
 
-WindowsのNSISテンプレートは上記のレジストリキーから前回のインストール先を読みます。0.5.1からはインストーラーの画面、Windowsのアプリの一覧、ショートカットに`ASTAROT`と出ます。新しく入れるときの既定のインストール先は`%LOCALAPPDATA%\ASTAROT`です。Windowsでは設定とモデルがインストール先に置かれるため、0.5.0以前から更新したときのインストール先は元の`%LOCALAPPDATA%\VRCT-VOX`のままです。アプリの一覧の登録は同じキーのまま名前だけが変わり、`vrct-vox`という名前のショートカットは`ASTAROT`の名前に置き換わります。
+WindowsのNSISテンプレートは上記のレジストリキーから前回のインストール先を読みます。0.5.1からはインストーラーの画面、Windowsのアプリの一覧、ショートカットに`ASTAROT`と出ます。新しく入れるときの既定のインストール先は`%LOCALAPPDATA%\ASTAROT`です。Windowsでは設定とモデルがインストール先に置かれます。0.6.0までは、0.5.0以前から更新したときのインストール先は元の`%LOCALAPPDATA%\VRCT-VOX`のままでした。0.6.0より後の版のインストーラーは、その場所にあるインストールを更新のあとでフォルダーの名前を変えて`%LOCALAPPDATA%\ASTAROT`へ移し、アプリが保存したパスを次の起動で付け替えます。利用者が選んだ場所は動かしません。`vrct-vox`という名前のショートカットは`ASTAROT`の名前に置き換わります。
 
 ## 内部のコードネーム
 

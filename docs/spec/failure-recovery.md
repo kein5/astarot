@@ -29,6 +29,7 @@
 | 読み込み（JSON として読めない） | — | 元のファイルを `config.json.unreadable-<日時>-<乱数>` に移して残し、既定値で起動する。UI に `/run/config_file_unreadable` で場所を知らせる | `move_aside` | `an_unreadable_settings_file_is_kept_aside_and_reported_after_start_up` |
 | 読み込み（権限がないなど、読めない理由がほかにある） | — | 元のファイルに触れず、その起動では保存しない。`load_failed` で知らせる | `load` | `a_settings_file_that_cannot_be_read_is_left_alone_and_never_overwritten` |
 | API キーの移し替えと保存 | `secrets.json` に書いて読み戻せたキーだけを `config.json` から除く | キーはどちらかのファイルに残る。メモリーのキーはその起動で使える。`/run/secret_store_failed` で知らせる | [API キーの保存先](data-and-persistence.md#apiキーの保存先) | `native/core/tests/secret_store.rs`、`config/secrets.rs` の単体試験 |
+| Windows のインストール先の移動（0.6.0 より後の版から） | 保存したパスが `%LOCALAPPDATA%\ASTAROT` の下に付け替わり、`installer_moved_from.txt` が消える | 付け替えられなければファイルを残し、次の起動でやり直す。ファイルの中身が使えないときは何も変えずに消す | [Windowsのインストール先の移動](data-and-persistence.md#windowsのインストール先の移動)。付け替えは Linux と同じ `relocate_saved_paths` | `native/core/tests/storage_installer.rs`、`storage/installer.rs` と `storage/mod.rs` の単体試験 |
 | Linux の保存先の移動（0.6.0 から） | `vrct-vox` のフォルダーが `astarot` に移り、旧の名前にリンクが残り、保存したパスが付け替わる | 名前を変えられなければ旧のフォルダーをそのまま使い、次の起動でまた試す。名前を変えたあとで止まったときは、次の起動が記録（`storage_migration.json`）から続きを済ませる。パスを付け替えられなければ、旧のパスはリンクを通して読め、次の起動でやり直す | [Linuxの保存先の移動](data-and-persistence.md#linuxの保存先の移動)。名前の変更は1回の `rename` で、コピーしない | `native/core/tests/storage_linux.rs`、`storage/mod.rs` の単体試験 |
 
 0.5 までは、ローカル音声認識の移行（`LOCAL_ASR_MIGRATION` が最新でない保存ファイル）の前に、移す前の内容を API キーを除いて `config.json.before-migration-<段階>` に残していた。写しを書けなければ `config.json` を書き換えなかった。0.6.0 はこの移行を行わないので、その写しを書かない。前の版が残した写しには触れない（`native/core/tests/lifecycle.rs` の `no_copy_before_a_migration_is_written_any_more`。[ローカル音声認識の移行](data-and-persistence.md#ローカル音声認識の移行)）。Linux の保存先を移すときは、同じ決まりで `config.json.before-migration-storage` を残す。
@@ -74,7 +75,7 @@ RVC の worker が読む ONNX Runtime と 2 つのネットワーク、アプリ
 
 | 入れ方 | 更新の責任 | 失敗したときに保つもの | 確かめているもの |
 |---|---|---|---|
-| Windows のインストーラー | アプリが署名を確かめたインストーラーを起動する。入れ替えはインストーラー | パッケージの SHA-256 が合わない、壊れている、途中で切れている、ファイルが使用中で入れ替えられないときは、前のインストールのまま。入れ替えの途中で止まったときは、次にインストーラーを動かすと前の状態に戻す | `tests/installer/windows_update_scenarios.py`（CI の `installer-update-tests.yml` で本物の NSIS を動かす） |
+| Windows のインストーラー | アプリが署名を確かめたインストーラーを起動する。入れ替えはインストーラー | パッケージの SHA-256 が合わない、壊れている、途中で切れている、ファイルが使用中で入れ替えられないときは、前のインストールのまま。入れ替えの途中で止まったときは、次にインストーラーを動かすと前の状態に戻す。0.5.0 以前の既定のインストール先を移せないとき（移す先が空でない、ファイルが開かれている）は、更新した元の場所に残し、次の更新でまた試す。名前を変えたあとキーを書く前に止まったときは、次の更新が新しい場所のインストールを見つけてキーとショートカットを直す（[Windowsのインストール先の移動](data-and-persistence.md#windowsのインストール先の移動)） | `tests/installer/windows_update_scenarios.py`（CI の `installer-update-tests.yml` で本物の NSIS を動かす） |
 | AppImage（書き込める場所） | アプリ。`tauri-plugin-updater` は取得と署名の確認だけで、置き換えはアプリが行う（`src-tauri/src/app_update.rs` の `replace_appimage`） | 署名と ELF であることを確かめてから、同じフォルダーの隠しファイル（`.<名前>.update-<番号>`）に書き、前の AppImage の権限を付け、`fsync` して名前を変えて置き換える。名前を変える前に失敗したり止まったりしても、前の AppImage はそのまま残る。止まったときの書きかけのファイルは、次の起動で消す。動いているアプリは前のファイルのまま動き続ける | `app_update.rs` の単体試験（`an_appimage_is_replaced_in_one_rename_and_keeps_its_permissions`、`a_failed_replacement_leaves_the_appimage_as_it_was`、`what_a_stopped_replacement_left_goes_and_nothing_else`）。`src-tauri` の試験は CI では動かない |
 | 書き込めない場所の AppImage、Windows の ZIP、Linux の tar.gz | 利用者 | アプリはファイルを置き換えない | `app_update.rs` の単体試験（入れ方の判定） |
 | deb、rpm | パッケージマネージャー | アプリは確認も置き換えもしない | 同上 |
