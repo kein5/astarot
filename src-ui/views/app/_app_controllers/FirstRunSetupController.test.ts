@@ -2,10 +2,13 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "vitest";
 import type { TestContext } from "vitest";
-import { hooks, loadModule, find, findIn, nodesIn, componentName, draw } from "../../../logics/test/hookHarness.ts";
+import { hooks, loadModule, find, findIn, nodesIn, componentName, draw, drawWith } from "../../../logics/test/hookHarness.ts";
 import type { TreeNode } from "../../../logics/test/hookHarness.ts";
 import { branchAt, localeAt, readLocale } from "../../../logics/test/locales.ts";
 import * as logic from "../../../logics/setup/firstRunSetup.ts";
+import * as needsLogic from "../../../logics/main/setupNeeds.ts";
+import * as translationLogic from "../../../logics/setup/translationSetup.ts";
+import * as restrictions from "../../../logics/voice/modelRestrictions.ts";
 
 const CATALOG = {
     catalog_version: "2026-11-16.3",
@@ -15,6 +18,10 @@ const CATALOG = {
             speech: { name: "reazonspeech-v2", default: true }, profile: { recommended_for: ["ja"] } },
         { id: "silero-vad-v62", target: "vad", name: "Silero VAD v6.2 · F32", provider: "Silero Team / sakasegawa",
             license: "MIT", licenses: ["https://example.invalid/vad"], total_bytes: 1238624, profile: { recommended_for: [] } },
+        { id: "m2m100-418m-onnx-int8", target: "translation", name: "M2M100 418M · int8", provider: "Meta / VRCT-VOX",
+            license: "MIT", licenses: ["https://example.invalid/mit"], source: "https://example.invalid/m2m100", total_bytes: 500000000, restrictions: [] },
+        { id: "nllb-200-distilled-600m-onnx-int8", target: "translation", name: "NLLB-200 distilled 600M · int8", provider: "Meta / VRCT-VOX",
+            license: "CC-BY-NC-4.0", licenses: ["https://example.invalid/nc"], total_bytes: 900000000, restrictions: ["non_commercial"] },
     ],
 };
 
@@ -27,7 +34,7 @@ interface World {
     engine: string | null;
     server: string;
     paths: { model: string; vad_model: string };
-    catalog: object;
+    catalog: object | null;
     jobs: Record<string, object>;
     downloadError: string | null;
     realtimeError: string | null;
@@ -39,13 +46,15 @@ interface World {
     vrchat: string;
     cables: object[];
     needs: object[];
+    // The selected translation model (CTRANSLATE2_WEIGHT_TYPE).
+    weight: string;
 }
 
 function world(values: Partial<World> = {}): World {
     return { notice: true, settled: false, opened: true, telemetryPending: false,
         engine: null, server: "external", paths: { model: "", vad_model: "" }, catalog: CATALOG, jobs: {},
         downloadError: null, realtimeError: null, sent: [], calls: [],
-        mic: "Microphone (USB)", vrchat: "found", cables: [], needs: [], ...values };
+        mic: "Microphone (USB)", vrchat: "found", cables: [], needs: [], weight: "m2m100_418M-ct2-int8", ...values };
 }
 
 async function setup(context: TestContext, w = world()) {
@@ -59,6 +68,7 @@ async function setup(context: TestContext, w = world()) {
             useOthers: () => ({ currentTelemetryNotice: { state: "ok", data: { pending: w.telemetryPending } } }),
             useTranscription: () => ({ setSelectedTranscriptionEngine: async (engine: unknown) => { record("/set/data/selected_transcription_engine", engine); return true; } }),
             useSettingValue: () => ({ state: "ok", data: w.mic }),
+            useTranslation: () => ({ currentSelectedCTranslate2WeightType: { state: "ok", data: w.weight } }),
         },
         "@store": {
             useStore_IsBackendReady: () => ({ currentIsBackendReady: { data: true } }),
@@ -73,7 +83,10 @@ async function setup(context: TestContext, w = world()) {
             catalog: w.catalog, state: { jobs: w.jobs }, error: w.downloadError,
             send: async (endpoint: string, data: unknown) => { record(endpoint, data); if (endpoint.startsWith("/run/")) w.downloadError = null; } }) },
         "../../../logics/voice/useVirtualMic": { useVirtualMic: () => ({ status: { supported: true, cables: w.cables, error: null }, openGuide: () => w.calls.push("guide") }) },
-        "../../../logics/main/useSetupNeeds": { useSetupNeeds: () => ({ needs: w.needs }) },
+        "../../../logics/main/useSetupNeeds": { useSetupNeeds: () => ({ needs: w.needs, start: (id: string) => w.calls.push(["start", id]) }) },
+        "../../../logics/main/setupNeeds": needsLogic,
+        "../../../logics/setup/translationSetup.ts": translationLogic,
+        "../../../logics/voice/modelRestrictions": restrictions,
         "../../../logics/translation/useOpenTranslatorList": { useOpenTranslatorList: () => () => w.calls.push("translators") },
         "../../../logics/setup/useFirstRunSetup": { useFirstRunSetup: () => ({
             notice: w.notice, opened: w.opened, settled: w.settled,
@@ -105,7 +118,10 @@ async function setup(context: TestContext, w = world()) {
 // #935: it never opens by itself, not even pending with the recognition needing it, after the
 // other notices; the first screen's line to it stands out instead (EmptyState).
 test("it never opens by itself; it opens from the first screen whatever the notice says", async context => {
-    for (const values of [{}, { telemetryPending: true }, { engine: "Deepgram" }, { notice: false }])
+    // #936: nor with only the translation's model left.
+    const ready = { engine: "SpeechCpp", server: "bundled", paths: { model: "/m/a.gguf", vad_model: "/m/v.gguf" } };
+    const translationLeft = { ...ready, needs: [{ id: "translation", action: "review", weight: { id: "m2m100_418M-ct2-int8" } }] };
+    for (const values of [{}, { telemetryPending: true }, { engine: "Deepgram" }, { notice: false }, translationLeft])
         assert.equal((await setup(context, world({ ...values, opened: false }))).render(), null, JSON.stringify(values));
     assert.notEqual((await setup(context, world({ opened: true }))).render(), null);
     assert.notEqual((await setup(context, world({ notice: false, opened: true }))).render(), null);
@@ -249,7 +265,7 @@ test("each finding is marked by its state, with its words and its action apart",
             const group = find(list, node => node.type === "ul" && node.props.className === className);
             return nodesIn(group).filter(isFinding).map(node => shortName(node.props));
         };
-        return { rows: Object.fromEntries(rows.map(row => [shortName(row), row])), urgent: placed("urgent"), settled: placed("items"), list };
+        return { rows: Object.fromEntries(rows.map(row => [shortName(row), row])), urgent: placed("urgent"), settled: placed("items"), list, calls: w.calls };
     };
     const states = (rows: Record<string, FindingRow>) => Object.fromEntries(Object.entries(rows).map(([name, row]) => [name, row.state]));
 
@@ -285,6 +301,23 @@ test("each finding is marked by its state, with its words and its action apart",
 
     // Not known yet, or a choice made elsewhere: neither ready nor needing the user here. The
     // cards and the quiet list then share the findings by state, each in its order.
+    // #936: the selected translator's model can be fetched (a new install): the setup's own
+    // section prepares it, so the row says where and has no button that leaves the setup.
+    const fetchable = await rowsOf({ needs: [{ id: "translation", action: "review", weight: { id: "m2m100_418M-ct2-int8" } }] });
+    assert.deepEqual([fetchable.rows.translation.state, fetchable.rows.translation.children, fetchable.rows.translation.action],
+        ["attention", "first_run_setup.found.translation_model_missing", undefined]);
+    // The model's list not read yet: the row waits for it, and still leads nowhere else.
+    const unread = await rowsOf({ catalog: null, needs: [{ id: "translation", action: "review", weight: { id: "m2m100_418M-ct2-int8" } }] });
+    assert.deepEqual([unread.rows.translation.state, unread.rows.translation.children, unread.rows.translation.action],
+        ["checking", "first_run_setup.recognition.loading", undefined]);
+    // A download started elsewhere shows how far it has come.
+    const fetching = await rowsOf({ needs: [{ id: "translation", action: "review", weight: { id: "m2m100_418M-ct2-int8", progress: 42 } }] });
+    assert.deepEqual([fetching.rows.translation.state, fetching.rows.translation.children], ["checking", "studio.setup_downloading"]);
+    // Not fetchable yet: the translator list, as before.
+    const before2 = needing.calls.length;
+    choose.props.onClick();
+    assert.deepEqual(needing.calls.slice(before2), ["closed", "close", "translators"]);
+
     const elsewhere = await rowsOf({ vrchat: "checking", engine: "Deepgram", opened: true,
         cables: [{ playback: "CABLE Input", recording: "CABLE Output" }], needs: [{ id: "translation", action: "choose" }] });
     assert.deepEqual([elsewhere.rows.vrchat.state, elsewhere.rows.recognition.state], ["checking", "neutral"]);
@@ -304,4 +337,64 @@ test("every string it uses is in both languages", () => {
         // Japanese text never says "this PC" (このPC); it names the user's own computer.
         if (language === "ja") assert.ok(!JSON.stringify(branchAt(messages, "first_run_setup")).includes("このPC"));
     }
+});
+
+// #936: the translation's model is prepared in the setup itself: reviewed (name, provider,
+// license, size, the model's card), consented to, downloaded and applied without leaving it, and
+// the setup then says the translation is ready.
+test("the translation's model is reviewed, downloaded and applied in the setup, which then says it is ready", async context => {
+    const w = world({ needs: [{ id: "translation", action: "review", weight: { id: "m2m100_418M-ct2-int8" } }] });
+    const s = await setup(context, w), local = hooks();
+    context.onTestFinished(() => local.unmount());
+    const section = () => drawWith(local, s.part(s.render(), "TranslationSetup"));
+    let drawn = section();
+    const facts = nodesIn(drawn).filter(node => node.type === "span").map(node => [node.props.children].flat().join(""));
+    assert.ok(facts.includes("M2M100 418M · int8"));
+    assert.ok(facts.includes("first_run_setup.recognition.model_license"));
+    const card = find(drawn, node => node.type === "a");
+    assert.equal(card?.props.href, "https://example.invalid/m2m100", "the model's card is linked");
+    const startButton = () => nodesIn(section()).find(node => node.type === "button" && node.props.children === "first_run_setup.recognition.start");
+    assert.equal(startButton()?.props.disabled, true, "nothing starts before the consent");
+    const consent = find(drawn, node => node.type === "input" && node.props.type === "checkbox");
+    assert.ok(consent);
+    consent.props.onChange({ target: { checked: true } });
+    assert.equal(startButton()?.props.disabled, false);
+    startButton()?.props.onClick();
+    s.render();
+    assert.deepEqual(w.sent.at(-1), ["/run/start_model_download", { id: "m2m100-418m-onnx-int8", consent: true, catalog_version: "2026-11-16.3" }]);
+    // Its download, in the setup; the row above says it is being prepared there.
+    w.jobs = { "m2m100-418m-onnx-int8": { job_id: "j1", phase: "downloading", received_bytes: 100, total_bytes: 500000000 } };
+    drawn = section();
+    assert.ok(nodesIn(drawn).some(node => node.type === "progress"));
+    const rows = () => nodesIn(draw(s.part(s.render(), "Findings"))).filter(node => node.props?.id === "translation" || node.props?.name === "first_run_setup.found.translation");
+    assert.equal(rows()[0]?.props.children, "first_run_setup.found.translation_preparing");
+    // Verified: applied once, with nothing expected in the settings (a translation holds no path).
+    w.jobs = { "m2m100-418m-onnx-int8": { job_id: "j1", phase: "ready" } };
+    s.render(); s.render();
+    assert.deepEqual(w.sent.filter(([endpoint]) => endpoint === "/run/apply_model_download"),
+        [["/run/apply_model_download", { id: "m2m100-418m-onnx-int8", job_id: "j1", expected: {} }]]);
+    // The model counts as downloaded: the setup says the translation is ready, the row reads ready.
+    w.needs = [];
+    s.render(); s.render();
+    drawn = section();
+    assert.equal(find(drawn, node => node.props?.role === "status")?.props.children, "first_run_setup.translation.finished");
+    assert.equal(rows()[0]?.props.state, "ready");
+});
+
+test("a license that restricts the use is said and acknowledged on its own before the translation's model downloads", async context => {
+    const w = world({ weight: "nllb-200-distilled-600M-ct2-int8",
+        needs: [{ id: "translation", action: "review", weight: { id: "nllb-200-distilled-600M-ct2-int8" } }] });
+    const s = await setup(context, w), local = hooks();
+    context.onTestFinished(() => local.unmount());
+    const section = () => drawWith(local, s.part(s.render(), "TranslationSetup"));
+    assert.ok(nodesIn(section()).some(node => node.type === "strong" && node.props.children === "model_downloads.restriction.non_commercial.title"));
+    const boxes = () => nodesIn(section()).filter(node => node.type === "input" && node.props.type === "checkbox");
+    const start = () => nodesIn(section()).find(node => node.type === "button" && node.props.children === "first_run_setup.recognition.start");
+    boxes()[0].props.onChange({ target: { checked: true } });
+    assert.equal(start()?.props.disabled, true, "the consent alone does not start it");
+    boxes()[1].props.onChange({ target: { checked: true } });
+    start()?.props.onClick();
+    s.render();
+    assert.deepEqual(w.sent.at(-1), ["/run/start_model_download",
+        { id: "nllb-200-distilled-600m-onnx-int8", consent: true, catalog_version: "2026-11-16.3", acknowledged: ["non_commercial"] }]);
 });

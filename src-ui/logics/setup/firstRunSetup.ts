@@ -13,6 +13,9 @@ export type SetupEntry = CatalogEntry & {
     provider?: string;
     license?: string;
     licenses?: readonly string[];
+    // The model's page (its card), and what its license restricts (modelRestrictions.ts).
+    source?: string;
+    restrictions?: unknown;
 };
 
 export type SetupCatalog = { catalog_version?: string; models?: readonly SetupEntry[] } | null | undefined;
@@ -149,11 +152,21 @@ export const stepState = (plan: SetupStep[], index: number, view: RunView, faile
     return first === index && failedAt === null && (Object.keys(view.started).length + view.applied.length > 0) ? "working" : "waiting";
 };
 
-// Whether the first screen leads to the setup: still pending, the settings known, and the basic
-// features lacking something it prepares (the local recognition). The setup never opens by itself
-// (#935); its line on the first screen is drawn to stand out instead, and the user opens it.
-export const setupSuggested = (pending: unknown, recognition: RecognitionState): boolean =>
-    pending === true && recognition === "needs_setup";
+// What the setup can still prepare: the local recognition, and the translation's model when the
+// selected one can be downloaded (#936, the need's "review"). The first screen leads to the setup
+// while either is left, also when the recognition is ready and only the translation is missing.
+export interface SetupWork {
+    recognition: boolean;
+    translation: boolean;
+}
+export const setupWork = (recognition: RecognitionState, translationAction: unknown): SetupWork =>
+    ({ recognition: recognition === "needs_setup", translation: translationAction === "review" });
+export const hasSetupWork = (work: SetupWork): boolean => work.recognition || work.translation;
+
+// Whether the first screen's line to the setup stands out: still pending, the settings known, and
+// something left that it prepares. The setup never opens by itself (#935); the line is drawn to
+// stand out instead, and the user opens it.
+export const setupSuggested = (pending: unknown, work: SetupWork): boolean => pending === true && hasSetupWork(work);
 
 // Whether another start-up dialog (the virtual microphone guide) should still wait: the setup is
 // pending and its state for this run is not known yet, or it is open.
