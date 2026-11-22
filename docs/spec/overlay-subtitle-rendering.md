@@ -66,7 +66,7 @@ rasterized. The stored messages are not modified or paginated automatically.
 The final dimensions are validated before returning the image. These limits
 bound each raster, not the total process RSS or native texture-copy overhead.
 
-To bound measurement and shaping work, [`overlay_fonts.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/overlay/overlay_fonts.py) also limits each
+To bound measurement and shaping work, `native/vr-overlay/src/fonts.rs` also limits each
 input component to `MAX_TEXT_CODEPOINTS = 8192`, each grapheme to
 `MAX_CLUSTER_CODEPOINTS = 128`, and each shaped line to
 `MAX_LINE_CODEPOINTS = 512`. A prefix never retains a partial final grapheme.

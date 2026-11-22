@@ -124,7 +124,7 @@
 言語名と国・地域名の表示・検索:
 
 - メイン画面、設定、VRパネルの表示名とアクセシブル名は、現在のi18nextのUI言語を指定した`Intl.DisplayNames`で求める。言語のタグは`Intl.Locale`で言語・文字体系・地域に分ける。文字体系を残して中国語の簡体字・繁体字を区別する。UI言語を切り替えたら表示も更新する。
-- タグの正本は`transcription_lang`の`Google`列。`python tools/language_codes.py --write`がUI用の`src-ui/logics/common/languageCodes.ts`を生成し、toolingチェックが差分を検出する。モデルの選択で候補から外れた保存済みの言語やOCRの旧設定にも、この表を使う。リアルタイムASRとUI言語の選択肢は、もともと持っている言語タグを使う。
+- タグの正本は`native/core/data/transcription_languages.json`の`Google`列。`python tools/language_codes.py --write`がUI用の`src-ui/logics/common/languageCodes.ts`を生成し、toolingチェックが差分を検出する。モデルの選択で候補から外れた保存済みの言語やOCRの旧設定にも、この表を使う。リアルタイムASRとUI言語の選択肢は、もともと持っている言語タグを使う。
 - タグがない、タグが不正、またはプラットフォームが表示名を返せない場合は元の英語名に戻す。言語と地域のフォールバックは独立している。
 - メインとVRの言語一覧は`Intl.Collator`で表示名順に並べる。検索はUI言語と英語の言語名・地域名を対象にし、大文字小文字と全角・半角を区別しない。Enterで表示中の先頭候補を選ぶが、IMEの変換確定中は選ばない。VRでは先頭候補が選択済み・利用不可なら変更しない。
 - VRの言語一覧は2列を保ち、検索前の候補が50件以上なら画面周辺の行だけを描画する。選択済みの候補は一覧を開いたときに表示し、検索すると先頭へ戻す。画面外の候補にも頭文字のボタンやTabで移動でき、処理中や利用不可の候補は従来どおり選べない。並べ替えは候補かUI言語が変わったときだけ行い、検索ではその結果を絞り込む。
@@ -167,7 +167,7 @@
 - 実行時のネットワーク翻訳は、SDK・HTTPクライアント自身で待機時間を制限する。OpenAI、OpenAI互換、OpenRouter、Groq、Plamoは接続5秒・読み取り30秒・書き込み10秒・接続プール待ち5秒、OllamaとLM Studioは初回のモデル読み込みを考慮して読み取りだけ120秒とする。GeminiはSDKの秒単位の設定を使い、各通信待機を30秒にする。DeepLは接続5秒・読み取り10秒とする（[`translation_timeouts.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/translation/translation_timeouts.py)、[`translation_deepl.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/translation/translation_deepl.py)）。上流VRCTのGoogle・Bing・PapagoのWeb翻訳は、ASTAROTでは配布できないので翻訳エンジンの一覧に出さない。
 - クラウド翻訳（OpenAI、OpenAI互換、OpenRouter、Groq、Plamo、Gemini、DeepL）は、SDKが再試行できると判断した一時的なエラーを1回だけ再試行する（初回を含め最大2回）。SDK自身のエラー判定とバックオフを使い、認証拒否など再試行しないエラーの扱いも保つ。OpenAI系は`max_retries=1`、Geminiは試行回数を指定するため`max_retries=2`とする。DeepLもSDKの判定を使い、再試行を1回までに制限する。OllamaとLM Studioは再試行しない。失敗が続いた場合は、タイムアウトも他の翻訳失敗と同じCTranslate2へのフォールバックに進む。
     - 中核はSDKを使わず、各SDKの判定とバックオフを`native/translation/src/providers/retry.rs`に写している。OpenAIのSDKの規則（408・409・429・5xxと通信の失敗、`x-should-retry`、`retry-after-ms`と`retry-after`）、DeepLのSDKの規則（429と5xxと通信の失敗）、GoogleのSDKの規則（408・429・500・502・503・504と通信の失敗）である。中核で足したGoogle Cloud TranslationとPapagoはOpenAIのSDKの規則に従う。
-    - 判定、待ち時間、バックオフが現行のPythonのクライアントと同じであることは、`native/translation/tests/contract/providers.json`の契約テストで確かめる。
+    - 判定、待ち時間、バックオフが0.4までのPythonのクライアント（各SDK）と同じであることは、`native/translation/tests/contract/providers.json`の契約テストで確かめる。
 - Ollamaには非ストリーミングを明示する。タイムアウト用に呼び出しごとのスレッドを作らない。DeepLは短い制限を持つ認証用クライアントを閉じてから、専用HTTPクライアントに実行時の制限を設定する。SDK全体の既定値は変えない。
 - これらは通信待機の制限であり、翻訳全体の厳密な経過時間の上限ではない。少量ずつデータが届く場合、DNS解決、CTranslate2のロック待ち・ローカル推論までをまとめて中断する仕組みはない。プロバイダー例外にはキーや要求本文が含まれることがあるため、実行時のネットワーク翻訳の失敗ログにはエンジン名と例外クラス名だけを残す。
 
