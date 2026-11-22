@@ -62,8 +62,10 @@ async function setup() {
     // With a runtime (owner below) the hook runs inside a drawing; without one it runs once, outside
     // any: a ref is a plain object, and an effect runs at once and keeps its clean-up.
     const react = {
+        // biome-ignore lint/correctness/useHookAtTopLevel: the stand-in passes the hook on only while the harness draws.
         useRef: <T>(value: T) => state.runtime ? state.runtime.api.useRef(value) : { current: value },
         useEffect: (callback: () => unknown, deps?: unknown[]) => {
+            // biome-ignore lint/correctness/useHookAtTopLevel: the stand-in passes the hook on only while the harness draws.
             if (state.runtime) return state.runtime.api.useEffect(callback, deps);
             const cleanup = callback();
             state.cleanups.push(typeof cleanup === "function" ? () => { cleanup(); } : () => {});

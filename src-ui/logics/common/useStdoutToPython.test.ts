@@ -48,6 +48,7 @@ async function setup() {
     let value = { state: "pending", data: 9000 };
     pendingRequestRecovery.register({ endpoints: ["/set/data/osc_port", "/get/data/osc_port"], read: "/get/data/osc_port",
         restore: () => { const changed = value.state === "pending"; value = { ...value, state: "ok" }; return changed; } });
+    // biome-ignore lint/correctness/useHookAtTopLevel: the adapter's hook uses no React hook; the test calls it outside a drawing, as code outside React does.
     return { store, events, notices, send: useStdoutToPython().asyncStdoutToPython, get value() { return value; } };
 }
 
