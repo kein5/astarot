@@ -6,15 +6,12 @@ import { hooks, loadModule, find, nodesIn } from "../../../logics/test/hookHarne
 import type { TreeNode } from "../../../logics/test/hookHarness.ts";
 import { localeAt, readLocale } from "../../../logics/test/locales.ts";
 import * as shapes from "../../../logics/voice/virtualMic.ts";
-import * as firstRunLogic from "../../../logics/setup/firstRunSetup.ts";
 
 interface GuideSetup {
     notice?: boolean;
     current?: object;
     opened?: boolean;
-    telemetryPending?: boolean;
     check?: object;
-    firstRun?: { notice: boolean; settled: boolean };
 }
 
 const id = (name: string) => JSON.stringify(["Windows WASAPI", name]);
@@ -23,17 +20,15 @@ const CABLE = { playback: id("CABLE Input (VB-Audio Virtual Cable)"), recording:
 const IDLE = { phase: "idle", playback: null, level: 0, result: null, error: null };
 const status = (extra: object = {}) => ({ supported: true, cables: [], error: null, tts_output: null, tts_output_is_cable: false, ...extra });
 
-async function setup(context: TestContext, { notice = true, current = status(), opened = false, telemetryPending = false, check = IDLE,
-    firstRun = { notice: false, settled: false } }: GuideSetup = {}) {
+async function setup(context: TestContext, { notice = true, current = status(), opened = true, check = IDLE }: GuideSetup = {}) {
     const runtime = hooks(), calls: unknown[] = [];
     const state = { notice, status: current, check, opened,
         refreshStatus: () => calls.push("refresh"), startCheck: (playback: unknown) => calls.push(["check", playback]),
-        resetCheck: () => calls.push("reset"), dismissNotice: () => { calls.push("dismiss"); state.notice = false; },
+        resetCheck: () => calls.push("reset"),
         closeGuide: () => { calls.push("close"); state.opened = false; } };
     const { VirtualMicGuideController, VB_CABLE_URL } = await loadModule<typeof import("./VirtualMicGuideController.tsx")>(new URL("./VirtualMicGuideController.tsx", import.meta.url), runtime, {
         "@tauri-apps/api/core": { isTauri: () => false },
         "@tauri-apps/plugin-opener": { openUrl: () => assert.fail("no link opens in this test") },
-        "@logics_configs": { useOthers: () => ({ currentTelemetryNotice: { state: "ok", data: { pending: telemetryPending } } }) },
         "@store": {
             useStore_IsOpenedConfigPage: () => ({ updateIsOpenedConfigPage: (value: unknown) => calls.push(["opened", value]) }),
             useStore_SelectedConfigTabId: () => ({ updateSelectedConfigTabId: (value: unknown) => calls.push(["tab", value]) }),
@@ -41,8 +36,6 @@ async function setup(context: TestContext, { notice = true, current = status(), 
         "../../../logics/common/useConsentDialog": { useConsentDialog: (open: unknown) => ({ dialog: { current: null, open }, close: () => calls.push("closed") }) },
         "../../../logics/voice/useVirtualMic": { useVirtualMic: () => state },
         "../../../logics/voice/virtualMic.ts": shapes,
-        "../../../logics/setup/useFirstRunSetup": { useFirstRunSetup: () => firstRun },
-        "../../../logics/setup/firstRunSetup.ts": firstRunLogic,
     });
     context.onTestFinished(() => runtime.unmount());
     // The first render decides; the second shows what that decision opened.
@@ -53,18 +46,14 @@ async function setup(context: TestContext, { notice = true, current = status(), 
 
 const text = (node: TreeNode) => [node.props.children].flat().filter((item: unknown) => typeof item === "string").join("");
 
-test("at start-up it opens by itself only without a cable, and after the other first-run notices", async context => {
-    assert.notEqual((await setup(context)).render(), null);
-    assert.equal((await setup(context, { current: status({ cables: [CABLE] }) })).render(), null);
-    assert.equal((await setup(context, { notice: false })).render(), null);
-    assert.equal((await setup(context, { current: status({ supported: false }) })).render(), null);
-    assert.equal((await setup(context, { current: status({ error: "audio_devices_unavailable" }) })).render(), null);
-    assert.equal((await setup(context, { telemetryPending: true })).render(), null);
-    // The first-run setup (#557) goes first while it is pending, until it is put away or not needed.
-    assert.equal((await setup(context, { firstRun: { notice: true, settled: false } })).render(), null);
-    assert.notEqual((await setup(context, { firstRun: { notice: true, settled: true } })).render(), null);
-    // From the settings it opens with a cable too.
-    assert.notEqual((await setup(context, { notice: false, current: status({ cables: [CABLE] }), opened: true })).render(), null);
+// #943: the guide opens only when the user opens it (the first-run setup's row, the TTS settings),
+// never by itself, also on Windows without a cable and before it was ever finished.
+test("it never opens by itself, and opens when asked, with a cable or without", async context => {
+    for (const current of [status(), status({ cables: [CABLE] }), status({ supported: false }), status({ error: "audio_devices_unavailable" })]) {
+        assert.equal((await setup(context, { opened: false, current })).render(), null, JSON.stringify(current));
+    }
+    assert.notEqual((await setup(context, { notice: true })).render(), null);
+    assert.notEqual((await setup(context, { notice: false, current: status({ cables: [CABLE] }) })).render(), null);
 });
 
 test("without a cable it says why, points to the cable's own page and keeps looking", async context => {
@@ -80,31 +69,26 @@ test("without a cable it says why, points to the cable's own page and keeps look
     // It looked again as soon as it opened (the timer repeats it).
     assert.ok(s.calls.includes("refresh"));
     const buttons = s.all(tree, "button");
-    assert.deepEqual(buttons.map(button => button.props.children),
-        ["virtual_mic.later", "virtual_mic.install.open_page", "virtual_mic.dont_show"]);
+    // One way out, and the cable's page first; nothing about opening by itself.
+    assert.deepEqual(buttons.map(button => button.props.children), ["virtual_mic.close", "virtual_mic.install.open_page"]);
     assert.equal(buttons[1].props.autoFocus, true);
     // No test tone and no setting without a cable.
     assert.equal(s.all(tree, "select").length, 0);
 });
 
-test("Later puts it away for this run; Don't show again stops it opening by itself", async context => {
-    const later = await setup(context);
-    later.all(later.render(), "button")[0].props.onClick();
-    assert.deepEqual(later.calls.filter(call => call !== "refresh"), ["closed", "close"]);
-    assert.equal(later.render(), null);
-    const never = await setup(context);
-    never.all(never.render(), "button")[2].props.onClick();
-    assert.ok(never.calls.includes("dismiss"));
-});
-
-// #563: changing the UI language drew the main page again (until #904), and the guide put away
-// with Later opened again at once. The engine starting again still draws it again (the start-up lock).
-test("a guide put away with Later stays away when the main page is drawn again", async context => {
+test("Close and Escape close it and change no setting; it opens again only when asked", async context => {
     const s = await setup(context);
     s.all(s.render(), "button")[0].props.onClick();
-    s.remount();
+    assert.deepEqual(s.calls.filter(call => call !== "refresh"), ["closed", "close"]);
     assert.equal(s.render(), null);
-    assert.ok(!s.calls.includes("dismiss"), "Later is not Don't show again");
+    const escaped = await setup(context);
+    const dialog = find(escaped.render(), node => node.type === "dialog");
+    assert.ok(dialog);
+    dialog.props.onCancel({ preventDefault() {} });
+    assert.deepEqual(escaped.calls.filter(call => call !== "refresh"), ["closed", "close"]);
+    // Asked again, it opens again.
+    escaped.state.opened = true;
+    assert.notEqual(escaped.render(), null);
 });
 
 test("with a cable it shows both ends, checks with the tone and ends at VRChat's microphone", async context => {
@@ -117,7 +101,7 @@ test("with a cable it shows both ends, checks with the tone and ends at VRChat's
     // TTS does not play into the cable yet: say so and offer the TTS settings, without changing them.
     const buttons = s.all(tree, "button");
     assert.deepEqual(buttons.map(button => button.props.children),
-        ["virtual_mic.found.open_tts", "virtual_mic.test.start", "virtual_mic.later", "virtual_mic.done"]);
+        ["virtual_mic.found.open_tts", "virtual_mic.test.start", "virtual_mic.done"]);
     assert.equal(s.calls.filter(call => Array.isArray(call)).length, 0);
     // The tone plays only when asked, into the cable shown.
     buttons[1].props.onClick();
@@ -138,7 +122,7 @@ test("while a check runs the meter follows it and the dialog cannot be put away"
     assert.equal(meter.props["aria-valuenow"], 62);
     const buttons = s.all(tree, "button");
     // TTS already plays into the cable: no settings button.
-    assert.deepEqual(buttons.map(button => button.props.disabled), [true, true, true]);
+    assert.deepEqual(buttons.map(button => button.props.disabled), [true, true]);
     const dialog = find(tree, node => node.type === "dialog");
     assert.ok(dialog);
     dialog.props.onCancel({ preventDefault() {} });

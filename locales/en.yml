@@ -2766,9 +2766,8 @@ virtual_mic:
     title: "Set up a virtual microphone to reach VRChat"
     purpose: "To send text-to-speech and your converted voice to VRChat, you need a virtual microphone (a virtual cable). On Windows the app cannot create one, so it has to be installed separately."
     not_needed: "If you only use translation and captions, you do not need one, and you can close this."
-    later: "Later"
+    close: "Close"
     done: "Done"
-    dont_show: "Don't open this by itself again (you can open it from the settings)"
     install:
         heading: "Install a virtual cable"
         download: "Download VB-CABLE from its download page."
