@@ -19,7 +19,7 @@ use std::sync::mpsc::{self, Receiver, Sender, SyncSender};
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 use tungstenite::Message;
-use vrct_translation::http::Cancel;
+use astarot_translation::http::Cancel;
 
 /// How long one read waits before the thread sends what came meanwhile.
 const POLL: Duration = Duration::from_millis(20);
