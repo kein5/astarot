@@ -104,6 +104,7 @@ fn start_changed(
     }
     let mut services = Services { transcription_capture: capture.factory(), realtime_limits: limits, ..Setup::default().services };
     if let Some(vr) = vr {
+        common::warm_system_fonts();
         services.vr = Arc::new(vr);
     }
     if let Some(providers) = providers {
@@ -297,7 +298,8 @@ fn captions_are_drawn_on_the_large_vr_log_and_one_it_cannot_show_is_told() {
     // [`test_overlay_lifecycle_publication.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/test/test_overlay_lifecycle_publication.py
     let fake = FakeVr::running();
     let run = start_with_vr(Platform::Linux, json!({ "OVERLAY_LARGE_LOG": true }), true, Some(fake.clone()));
-    eventually("the large log made", || fake.handle("ASTAROT1").is_some());
+    // Built, not only made: the large log's first, empty picture is not a caption's (#861).
+    eventually("the overlays built", || fake.built());
     let large = fake.handle("ASTAROT1").unwrap();
     let drawn = || fake.calls_on(large, "raw");
     let before = drawn().len();
@@ -308,7 +310,12 @@ fn captions_are_drawn_on_the_large_vr_log_and_one_it_cannot_show_is_told() {
     for state in ["partial", "final", "translated"] {
         run.caption(mark, state);
     }
-    eventually("each state drew the log", || drawn().len() >= before + 3);
+    // Each caption row was queued for the large log before it reached the UI (#861); the server
+    // goes on speaking, so later captions may still wait.
+    let core = run.ui.backend.core().clone();
+    let queued = core.overlay_captions_queued();
+    eventually("the captions drawn", || core.overlay_captions_drawn(queued));
+    assert!(drawn().len() >= before + 3, "each state drew the log");
     let last = drawn().last().cloned().unwrap();
     assert!(!last.ends_with(" 1x1"), "the log shows the caption: {last}");
     assert!(run.ui.on(mark, "/run/message_output_error").is_empty());

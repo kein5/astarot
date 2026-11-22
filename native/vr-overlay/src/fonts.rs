@@ -190,14 +190,18 @@ impl FontLibrary {
 
     fn load(&self, path: &Path, index: u32) -> Option<Arc<FontVec>> {
         let key = (path.to_path_buf(), index);
-        if let Some(found) = self.loaded.lock().unwrap().get(&key) {
+        // Held while the file is read, so that a font is read once: the fonts read ahead of the
+        // first picture (on a thread of their own) and the first picture would otherwise read
+        // the same files side by side, which doubled the wait on a cold Windows runner (#861).
+        let mut loaded = self.loaded.lock().unwrap_or_else(|e| e.into_inner());
+        if let Some(found) = loaded.get(&key) {
             return found.clone();
         }
         let font = std::fs::read(path)
             .ok()
             .and_then(|data| FontVec::try_from_vec_and_index(data, index).ok())
             .map(Arc::new);
-        self.loaded.lock().unwrap().insert(key, font.clone());
+        loaded.insert(key, font.clone());
         font
     }
 
