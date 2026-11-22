@@ -171,37 +171,49 @@ mod tests {
         bytes
     }
 
+    /// `rest` (names joined by `/`) under the root of this platform: `C:\` on Windows, as the
+    /// installer writes it there, and `/` elsewhere.
+    fn absolute(rest: &str) -> String {
+        if cfg!(windows) { format!("C:\\{}", rest.replace('/', "\\")) } else { format!("/{rest}") }
+    }
+
     #[test]
     fn the_installer_writes_utf16_and_utf8_is_read_too() {
-        assert_eq!(folder_named(&utf16("/home/u/ユーザー 😀/VRCT-VOX")), Some(PathBuf::from("/home/u/ユーザー 😀/VRCT-VOX")));
-        assert_eq!(folder_named(b"/a/VRCT-VOX"), Some(PathBuf::from("/a/VRCT-VOX")));
-        assert_eq!(folder_named(b"\xEF\xBB\xBF/a/VRCT-VOX\r\n"), Some(PathBuf::from("/a/VRCT-VOX")));
-        assert_eq!(folder_named(b"/a/VRCT-VOX\0"), Some(PathBuf::from("/a/VRCT-VOX")));
+        let (unicode, plain) = (absolute("Users/ユーザー 😀/AppData/Local/VRCT-VOX"), absolute("a/VRCT-VOX"));
+        assert_eq!(folder_named(&utf16(&unicode)), Some(PathBuf::from(&unicode)));
+        assert_eq!(folder_named(plain.as_bytes()), Some(PathBuf::from(&plain)));
+        assert_eq!(folder_named(format!("\u{FEFF}{plain}\r\n").as_bytes()), Some(PathBuf::from(&plain)));
+        assert_eq!(folder_named(format!("{plain}\0").as_bytes()), Some(PathBuf::from(&plain)));
         // A separator at the end is not part of the folder's name.
-        assert_eq!(folder_named(b"/a/VRCT-VOX/"), Some(PathBuf::from("/a/VRCT-VOX")));
+        assert_eq!(folder_named(absolute("a/VRCT-VOX/").as_bytes()), Some(PathBuf::from(&plain)));
     }
 
     #[test]
     fn anything_but_one_absolute_path_names_no_folder() {
+        let plain = absolute("a/VRCT-VOX");
         let odd_utf16 = {
-            let mut bytes = utf16("/a/VRCT-VOX");
+            let mut bytes = utf16(&plain);
             bytes.push(0);
             bytes
         };
-        for bytes in [
+        let texts = [
+            format!("{plain}\n{}", absolute("b/other")),
+            absolute("a/VRCT\0-VOX"),
+            absolute("a/../VRCT-VOX"),
+            format!(" {plain}"),
+        ];
+        let mut cases: Vec<&[u8]> = vec![
             &b""[..],
             b"\xFF\xFE",
             b"\r\n",
             b"   ",
             b"relative/VRCT-VOX",
-            b"/a/VRCT-VOX\n/b/other",
-            b"/a/VRCT\0-VOX",
-            b"/a/../VRCT-VOX",
-            b" /a/VRCT-VOX",
             b"\xFF\xFE\x00\xD8",
             b"\xC3\x28",
             &odd_utf16,
-        ] {
+        ];
+        cases.extend(texts.iter().map(String::as_bytes));
+        for bytes in cases {
             assert_eq!(folder_named(bytes), None, "{bytes:?}");
         }
     }
