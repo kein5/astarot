@@ -92,20 +92,82 @@ def test_desktop_captions_are_an_unmanaged_window_above_the_others(tmp_path):
 
 
 def test_native_settings_navigation_observes_open_and_close(tmp_path):
-    from test_native_realtime import open_captions
-    from test_native_spoken_translation import open_voice
-    from tools.private_pipewire import private_graph
+    """Settings open and close twenty times over two pages, and the main page comes back each
+    time (#811). The pages are the TTS page and the "Captions and VR" page, as before #285."""
+    state = initial_state(tmp_path)
+    with NativeWebDriver(tmp_path / "ui", {"VRCT_CONFIG_DIR": str(state)}) as ui:
+        ui.wait_main_ready()
+        for _ in range(20):
+            ui.open_voice_settings()
+            ui.close_settings()
+            ui.open_voice_page("Captions and VR", '[data-setting-id="desktop_overlay"] input[type=checkbox]')
+            ui.close_settings()
+        ui.assert_rendered()
+        ui.close_app()
+
+
+def route_status(ui, text, timeout=20):
+    """Wait for the route's mute state on the Device page, as the window shows it."""
+    ui.wait("return [...document.querySelectorAll('[role=status], [role=status] p')]"
+            f".some(e => e.textContent === {json.dumps(text)})", timeout=timeout)
+
+
+def managed_source_muted():
+    """The managed source's mute as the private graph has it (pw-dump), read apart from the app."""
+    from tools.private_pipewire import nodes
+
+    node = nodes().get("vrct.managed.source")
+    if node is None:
+        return None
+    return any(props.get("mute") for props in node["info"].get("params", {}).get("Props", []))
+
+
+@pytest.mark.skipif(os.environ.get("ASTAROT_TEST_NATIVE_ROUTE") != "1", reason="private PipeWire/WirePlumber 0.5 graph")
+def test_native_voice_settings_survive_restart_with_managed_route_muted(tmp_path):
+    """The managed route's mute and unmute, each confirmed in the window and in the graph,
+    across a restart (#838, #811).
+
+    The unmute is what 0.5.2 lost: the core's PipeWire watch missed the gate helper's change,
+    so the window stayed at "Muted (confirmed)" (fixed in #698). The core's own tests use a
+    fake gate, and the live test in native/audio-routing needs a PipeWire session, so only this
+    test meets the real watch. That the mute itself is kept across a restart is also covered by
+    native/core/tests/voice.rs."""
+    from tools.private_pipewire import private_graph, wait_for
     from native_webdriver import ROOT
 
     state = initial_state(tmp_path)
-    with private_graph(config_fragment=ROOT / 'config/pipewire/90-vrct-managed.conf'):
-        with NativeWebDriver(tmp_path / 'ui', {'VRCT_CONFIG_DIR': str(state)}) as ui:
+    with private_graph(config_fragment=ROOT / "config/pipewire/90-vrct-managed.conf"):
+        with NativeWebDriver(tmp_path / "first", {"VRCT_CONFIG_DIR": str(state)}) as ui:
             ui.wait_main_ready()
-            for _ in range(20):
-                open_voice(ui)
-                ui.close_settings()
-                ui.wait("return document.querySelector('[data-main-page][data-showing=main]') !== null", timeout=3)
-                open_captions(ui)
-                ui.close_settings()
-                ui.wait("return document.querySelector('[data-main-page][data-showing=main]') !== null", timeout=3)
+            ui.open_route_settings()
+            ui.select("Audio route", "managed")
+            ui.click_text("button", "Save changes")
+            wait_for(lambda: json.loads((state / "config.json").read_text()).get("VOICE_SETTINGS", {}).get("routing") == "managed",
+                     timeout=15)
+            ui.open_route_settings()
+            route_status(ui, "Muted (confirmed)")
+            assert managed_source_muted() is True
+            # The first unmute after the route is made: the one 0.5.2 never confirmed.
+            ui.click_text("button", "Unmute")
+            route_status(ui, "Voice enabled (confirmed)")
+            assert managed_source_muted() is False
+            ui.assert_rendered()
             ui.close_app()
+        # Closing the app mutes the route again (it fails closed), and it starts muted.
+        assert managed_source_muted() is True
+        with NativeWebDriver(tmp_path / "second", {"VRCT_CONFIG_DIR": str(state)}) as ui:
+            ui.wait_main_ready()
+            ui.open_route_settings()
+            assert ui.evaluate("return arguments[0].value", ui.control("Audio route")) == "managed"
+            route_status(ui, "Muted (confirmed)")
+            assert managed_source_muted() is True
+            # After a restart: unmute, then mute with the button.
+            ui.click_text("button", "Unmute")
+            route_status(ui, "Voice enabled (confirmed)")
+            assert managed_source_muted() is False
+            ui.click_text("button", "Mute now")
+            route_status(ui, "Muted (confirmed)")
+            assert managed_source_muted() is True
+            ui.assert_rendered()
+            ui.close_app()
+        assert managed_source_muted() is True
