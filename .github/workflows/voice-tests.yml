@@ -46,7 +46,7 @@ jobs:
         # The runner's package mirror sometimes cannot be resolved for a while. Try again before failing the job.
         run: |
           for attempt in 1 2 3 4; do
-            sudo apt-get update && sudo apt-get install -y pkg-config gcc g++ meson ninja-build libsndfile1-dev libglib2.0-dev liblua5.4-dev libclang-dev && break
+            sudo apt-get -o Acquire::Retries=3 update && sudo apt-get -o Acquire::Retries=3 install -y pkg-config gcc g++ meson ninja-build libsndfile1-dev libglib2.0-dev liblua5.4-dev libclang-dev && break
             if [ "$attempt" = 4 ]; then exit 1; fi
             sleep $((attempt * 20))
           done
@@ -155,8 +155,12 @@ jobs:
       # 0.5.x folders looks for a running app by its single-instance name (ADR-014).
       - if: runner.os == 'Linux'
         run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends gnome-keyring dbus
+          # The runner's package mirror sometimes cannot be resolved for a while. Try again before failing the job.
+          for attempt in 1 2 3 4; do
+            sudo apt-get -o Acquire::Retries=3 update && sudo apt-get -o Acquire::Retries=3 install -y --no-install-recommends gnome-keyring dbus && break
+            if [ "$attempt" = 4 ]; then exit 1; fi
+            sleep $((attempt * 20))
+          done
           dbus-run-session -- bash -c 'printf "ci" | gnome-keyring-daemon --unlock --components=secrets >/dev/null && cargo test --locked --manifest-path native/core/Cargo.toml --lib secret_service -- --ignored && cargo test --locked --manifest-path native/core/Cargo.toml --test secret_store -- --ignored && cargo test --locked --manifest-path native/core/Cargo.toml --test storage_linux -- --ignored'
       - if: runner.os == 'Windows'
         run: |
@@ -228,7 +232,7 @@ jobs:
       - run: rustup component add llvm-tools
       - run: |
           for attempt in 1 2 3 4; do
-            sudo apt-get update && sudo apt-get install -y pkg-config gcc g++ meson ninja-build libsndfile1-dev libglib2.0-dev liblua5.4-dev libclang-dev && break
+            sudo apt-get -o Acquire::Retries=3 update && sudo apt-get -o Acquire::Retries=3 install -y pkg-config gcc g++ meson ninja-build libsndfile1-dev libglib2.0-dev liblua5.4-dev libclang-dev && break
             if [ "$attempt" = 4 ]; then exit 1; fi
             sleep $((attempt * 20))
           done

@@ -87,7 +87,7 @@ jobs:
           bash tools/ci/prefer_ubuntu_archive.sh
           # The runner's package mirror sometimes cannot be resolved for a while. Try again before failing the job.
           for attempt in 1 2 3 4; do
-            sudo apt-get update && sudo apt-get install -y "${packages[@]}" && break
+            sudo apt-get -o Acquire::Retries=3 update && sudo apt-get -o Acquire::Retries=3 install -y "${packages[@]}" && break
             if [ "$attempt" = 4 ]; then exit 1; fi
             sleep $((attempt * 20))
           done
