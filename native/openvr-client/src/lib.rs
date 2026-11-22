@@ -26,6 +26,15 @@ use std::sync::{Arc, Mutex, MutexGuard};
 /// `VRApplication_Background`: never steals focus from the scene application.
 const APPLICATION_BACKGROUND: i32 = 3;
 
+/// The processes whose running tells that SteamVR runs (#944). The VR overlay and the OCR
+/// capture connect only while one of them runs, so they never start SteamVR and never keep
+/// trying one that is not there.
+/// - `vrserver` is SteamVR's server: it runs while SteamVR does, and only then.
+/// - `vrmonitor` is SteamVR's status window, the only process Python looked for
+///   (`process_check.py`). SteamVR on a Steam Frame runs without it.
+pub const STEAMVR_PROCESSES: [&str; 2] =
+    if cfg!(windows) { ["vrserver.exe", "vrmonitor.exe"] } else { ["vrserver", "vrmonitor"] };
+
 /// Why no lease was given.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Error {
@@ -316,6 +325,14 @@ fn with_shipped(candidates: &[PathBuf], shipped: Option<&PathBuf>) -> Vec<PathBu
 mod tests {
     use super::*;
     use std::sync::atomic::{AtomicI32, AtomicUsize, Ordering};
+
+    #[test]
+    fn steamvr_is_told_by_its_server_as_well_as_its_status_window() {
+        // A Steam Frame runs SteamVR without vrmonitor (#944).
+        let names: Vec<&str> = STEAMVR_PROCESSES.iter().map(|name| name.trim_end_matches(".exe")).collect();
+        assert_eq!(names, ["vrserver", "vrmonitor"]);
+        assert_eq!(STEAMVR_PROCESSES.iter().all(|name| name.ends_with(".exe")), cfg!(windows));
+    }
 
     #[derive(Default)]
     struct Fake {
