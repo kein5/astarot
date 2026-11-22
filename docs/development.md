@@ -115,7 +115,7 @@ Linuxのトレイ用ライブラリは `ayatana-appindicator3-0.1` または `ap
 | `headless` | `uv.lock` の `voice-test` グループだけを `build/dev/headless-venv` に同期 |
 | `ui` | `npm ci --ignore-scripts` でルートの `node_modules` を準備 |
 | `browser` | `uv.lock` の `voice-ui-test` グループを `build/dev/browser-venv` に同期。既存venvへの追加も可 |
-| `rust` | `cargo fetch --locked` でCargo.lockに従う依存を取得（`tools/dev.py` の `CARGO_WORKSPACES`。`src-tauri`、`NATIVE_CRATES` にある `native/` のクレート、結合テストの `native/browser-core-bridge`、`native/ocr-runtime`、`native/rvc-runtime`。下の `check --scope crates` と同じ一覧） |
+| `rust` | `cargo fetch --locked` でCargo.lockに従う依存を取得（`tools/dev.py` の `CARGO_WORKSPACES`。`src-tauri`、`NATIVE_CRATES` にある `native/` のクレート、結合テストの `native/browser-core-bridge`。下の `check --scope crates` と同じ一覧） |
 | `resources` | `tools/app_resources.py stage --allow-missing` で `src-tauri/bin/_internal` を `build/` にあるもので作り直す |
 | `integration` | [結合テスト](#結合テストplaywright)の準備。`native/browser-core-bridge` の依存を `cargo fetch --locked` で取得し、Playwright の Chromium と WebKit を取得する（合わせて数百 MB）。先に `setup --scope ui` が要る。ブラウザが使う OS のライブラリは入れない |
 | `hooks` | `hk.pkl` のGitのフックを `hk install` でこの複製に入れる（[Gitのフック](#gitのフック)）。ほかのスコープでは入れない |
@@ -169,9 +169,9 @@ python tools/dev.py check --scope integration
 | `tooling` | 標準ライブラリのunittestで `tests/devtools` を検証 |
 | `node` | `src-ui` 以下の `.test.js` / `.test.mjs` / `.test.ts` と `tools/i18n_gate` の試験を Vitest で実行（`vitest.config.js`）。`node_modules` の Vitest を Node で直接起動し、取得はしない。未導入なら `setup --scope ui` を案内して止まる。続けて[文言の検査](#uiの文言と翻訳の検査)（`tools/i18n_gate/check.mjs`）を実行する |
 | `lint` | `tools/dev.py` の `LINT_PATHS`（`tests/voice`、`tests/devtools`、音声・配布・開発の道具）をRuffで検査。自動修正なし。voice CIも同じスコープを実行する |
-| `voice` | `tests/voice/pytest.ini` を使ったモデルなしの契約試験と、`tests/platform`にある単体の試験3件 |
+| `voice` | `tests/voice/pytest.ini` を使ったモデルなしの契約試験と、`tests/platform`にある単体の試験2件 |
 | `ui` | UIの試験（Vitest）、[Biome](#uiのlintと整形biome)のlintと整形の検査、型チェック（`npm run typecheck`）、`npm run vite-build`。ブラウザの操作は含まない |
-| `rust` | `src-tauri` の `cargo check --locked --offline` と、`native/app-identity`、`native/speech-server`、`native/ops`、`native/audio-routing`、`native/adapters`、`native/translation`、`native/transcription`、`native/openvr-client`、`native/onnx-runtime`、`native/vr-overlay`、`native/voice-conversion`、`native/translate-onnx`、`native/tts`、`native/core` の試験を、cargo-nextestで実行（`cargo nextest run --locked --offline`）。nextestはdoctestを流さないので、`src/lib.rs` のあるクレートは続けて `cargo test --doc` を実行する。キャッシュやOS依存（Linuxでは `libpipewire-0.3` の開発ファイルとlibclang。`src-tauri` も中核を通して使う）がなければ失敗 |
+| `rust` | `src-tauri` の `cargo check --locked --offline` と、`native/app-identity`、`native/speech-server`、`native/ops`、`native/audio-routing`、`native/adapters`、`native/translation`、`native/transcription`、`native/openvr-client`、`native/onnx-runtime`、`native/vr-overlay`、`native/voice-conversion`、`native/translate-onnx`、`native/tts`、`native/core`、`native/ocr-runtime`、`native/rvc-runtime`、`native/talk-ai` の試験を、cargo-nextestで実行（`cargo nextest run --locked --offline`）。nextestはdoctestを流さないので、`src/lib.rs` のあるクレートは続けて `cargo test --doc` を実行する。キャッシュやOS依存（Linuxでは `libpipewire-0.3` の開発ファイルとlibclang。`src-tauri` も中核を通して使う）がなければ失敗 |
 | `integration` | [結合テスト](#結合テストplaywright)。`native/browser-core-bridge` を `cargo build --locked --offline` で組み、`tests/integration/vite.config.ts` で画面を組んでから、Playwright で Chromium と WebKit の試験を流す。ブラウザは取得しない。未導入なら `setup --scope integration` を案内して止まる |
 | `workflows` | ワークフローと自前のアクションを、actionlint（shellcheckを含む）とzizmorで検査（[リポジトリの検査](#リポジトリの検査)） |
 | `crates` | すべてのCargoのワークスペースの依存のライセンス、禁止の設定、取得元を、cargo-denyで検査（[リポジトリの検査](#リポジトリの検査)）。先に `setup --scope rust` が要る |
@@ -185,7 +185,7 @@ python tools/dev.py check --scope integration
 
 Pythonは専用venvを優先し、次に既存の `.venv` を探します。`--python` があればその実行ファイルを使います。専用venvがない状態で `all` を実行しても、依存の不足を黙って省略しません。`doctor --scope all` で先に確認できます。
 
-`doctor` と `check` は依存パッケージ・モデルを取得せず、アプリ、マイク、発声、GPU推論を起動しません。子プロセスでは `VRCT_` で始まる環境変数、pytest追加引数・外部pluginの自動読込みを除外し、Hugging Faceをofflineにします。これは試験の誤起動を防ぐ設定であり、任意のテストコードを封じるネットワークsandboxではありません。HTTP/UDP契約試験はローカルの一時ポートを使います。通信を禁止するsandboxではその試験が失敗します。
+`doctor` と `check` は依存パッケージ・モデルを取得せず、アプリ、マイク、発声、GPU推論を起動しません。子プロセスでは `ASTAROT_` と `VRCT_` で始まる環境変数、pytest追加引数・外部pluginの自動読込みを除外し、Hugging Faceをofflineにします。これは試験の誤起動を防ぐ設定であり、任意のテストコードを封じるネットワークsandboxではありません。HTTP/UDP契約試験はローカルの一時ポートを使います。通信を禁止するsandboxではその試験が失敗します。
 
 `check` はキャッシュや検証用の一時ファイルを作り、UIでは `dist`、RustではCargoのビルド先を書き換えます。起動中の通常アプリを停止するnpmの `dev` / `build` / `task-kill` は呼びません。tooling試験では、rustcがある場合に一時ディレクトリで `src-tauri/src/single_instance.rs` の単体試験をコンパイルして実行します（`tests/devtools/test_single_instance.py`）。配布ビルドは[Linuxビルド手順](voice-stack/linux-build-pipeline.md)の専用workspaceで行います。
 
@@ -210,8 +210,8 @@ Pythonは専用venvを優先し、次に既存の `.venv` を探します。`--p
 | `links` | lychee | `site/` 以外のMarkdownのファイル同士のリンクと、見出しへのリンク（`#...`）。外部のサイトには問い合わせない | `lychee.toml` |
 | `hooks` | hk | Gitのフックの設定（`hk.pkl`）の書き方。`hk.pkl` が読むhkの設定のパッケージの版と、`mise.toml` のhkの版がそろっていること（`tests/devtools/test_toolchain_pins.py`） | なし |
 | `secrets` | gitleaks | `--base` からHEADまでの新規コミットの鍵やトークン。見つけた値は出力に出さない（`--redact`） | `.gitleaks.toml`（規則）、`.gitleaksignore`（過去のコミットの指紋） |
-| `vulns` | osv-scanner | `uv.lock`、`package-lock.json`（ルートと `site/` と `site/motion/`）、18の `Cargo.lock` の依存の既知の脆弱性（osv.dev） | `osv-scanner.toml`（例外。理由と見直す日を書く） |
-| `crates` | cargo-deny | 18のCargoのワークスペース（`CARGO_WORKSPACES`）の依存のライセンス、取得元（crates.ioと、許可したgitのリポジトリ）、版を書かない依存。配布する2つのシステム（WindowsとLinuxのx64）で組む依存だけを見る | `deny.toml` |
+| `vulns` | osv-scanner | `uv.lock`、`package-lock.json`（ルートと `site/` と `site/motion/`）、19の `Cargo.lock` の依存の既知の脆弱性（osv.dev） | `osv-scanner.toml`（例外。理由と見直す日を書く） |
+| `crates` | cargo-deny | 19のCargoのワークスペース（`CARGO_WORKSPACES`）の依存のライセンス、取得元（crates.ioと、許可したgitのリポジトリ）、版を書かない依存。配布する2つのシステム（WindowsとLinuxのx64）で組む依存だけを見る | `deny.toml` |
 
 - actionlintは、`mise.toml` で固定したshellcheck（0.11.0）で `run:` のスクリプトを確かめます（2026-11-21に #833 の判断3で決定）。版によって見つけるものが変わるので、`doctor` は固定した版のshellcheckだけを通します。pyflakesの検査は切っています（pyflakesが見る `shell: python` のステップがないため）。
 - zizmorは、`GH_TOKEN` があるとGitHubに問い合わせる監査（固定したコミットが本当にそのアクションのものか、既知の脆弱性のある版か）も行います。CIではワークフローのトークン（読み取りだけ）を渡します。手元では、`GH_TOKEN` がなければその監査を飛ばします。
