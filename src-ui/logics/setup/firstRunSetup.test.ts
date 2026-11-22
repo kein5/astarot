@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "vitest";
 import { recognitionState, recommendedAsr, vadEntry, setupPlan, planModels, planBytes, nextAction, stepState,
     setupSuggested, setupWork, hasSetupWork } from "./firstRunSetup.ts";
-import type { RunView, SetupCatalog } from "./firstRunSetup.ts";
+import type { RunView, SetupCatalog, SetupEntry } from "./firstRunSetup.ts";
 import { unchecked } from "../test/hookHarness.ts";
 
 const asr = (id: string, recommended: string[], size = 600, isDefault = true) => ({ id, target: "asr", name: id, total_bytes: size,
@@ -123,4 +123,19 @@ test("what the setup has left: the recognition, the translation's model, or both
     assert.deepEqual(setupWork("ready", undefined), { recognition: false, translation: false });
     assert.equal(hasSetupWork(setupWork("ready", undefined)), false);
     assert.equal(hasSetupWork(setupWork("own_server", "review")), true);
+});
+
+// #955: the recognition model chosen in the setup takes the recommended one's place in the plan.
+test("the plan takes the recognition model chosen in the setup", () => {
+    // Test data: the plan reads only these fields of a catalog row.
+    const models = [
+        { id: "asr-ja", target: "asr", name: "JA", total_bytes: 1, profile: { recommended_for: ["ja"] }, speech: { default: true } },
+        { id: "asr-other", target: "asr", name: "Other", total_bytes: 1, profile: { recommended_for: ["en"] } },
+        { id: "vad", target: "vad", name: "VAD", total_bytes: 1 },
+    ].map(row => unchecked<SetupEntry>(row));
+    const catalog: SetupCatalog = { catalog_version: "v", models };
+    const base = { catalog, language: "ja", engine: null, server: "external", paths: { model: "", vad_model: "" } };
+    const ids = (plan: ReturnType<typeof setupPlan>) => (plan ?? []).flatMap(step => step.kind === "model" ? [step.entry.id] : []);
+    assert.deepEqual(ids(setupPlan(base)), ["asr-ja", "vad"]);
+    assert.deepEqual(ids(setupPlan({ ...base, asr: models[1] })), ["asr-other", "vad"]);
 });
