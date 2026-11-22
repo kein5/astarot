@@ -1,13 +1,12 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { stripTypeScriptTypes } from "node:module";
 import { test, vi } from "vitest";
 import { hooks, loadModule } from "../../../test/hookHarness.ts";
+import { HOT_DEPENDENCY } from "../../../test/harnessModules.ts";
 import type { HookRuntime } from "../../../test/hookHarness.ts";
 import { localeAt, readLocale } from "../../../test/locales.ts";
 
-// The stand-ins' shared state (the module made from `dependencies` below), as the tests script and
-// read it.
+// The stand-ins' shared state (made in setup below), as the tests script and read it.
 type Handler = (event: { payload: unknown }) => void;
 interface StubState {
     ready: boolean;
@@ -44,7 +43,6 @@ interface StubState {
     focusChanged?: (event: { payload: boolean }) => void;
 }
 
-const moduleUrl = (source: string) => `data:text/javascript;base64,${Buffer.from(source).toString("base64")}`;
 const deferred = () => {
     // Set by the promise below before the object is made.
     let resolve: (value?: unknown) => void = () => {}, reject: (reason?: unknown) => void = () => {};
@@ -54,66 +52,83 @@ const deferred = () => {
 const flush = () => new Promise(resolve => setImmediate(resolve));
 
 async function setup() {
-    // Execute the production hook as ESM. Only React, atoms and native APIs are
-    // replaced; no plugin, portal, browser or application is started.
-    const dependencies = moduleUrl(`
-        export const state = { ready: true, settings: false, updating: false, actions: [], notices: [],
-            registered: new Map(), removed: [], writes: [], calls: [], handlers: new Set(), lostHandlers: new Set(), notRestoredHandlers: new Set(), warnings: [], removals: 0, cleanups: [], disposers: [],
-            hotkeys: { open_quick_chat: ['Ctrl', 'Q'] } };
-        export const hot = { data: {}, dispose: callback => state.disposers.push(callback) };
-        export const useRef = value => state.runtime ? state.runtime.api.useRef(value) : ({ current: value });
-        export const useEffect = (callback, deps) => state.runtime ? state.runtime.api.useEffect(callback, deps) : state.cleanups.push(callback());
-        export const store = { text_area_ref: { current: { focus: () => state.actions.push('focus-input') } }, appWindow: {
-            isMinimized: async () => state.minimized ?? false,
-            minimize: async () => { state.actions.push('minimize'); },
-            unminimize: async () => { if (state.unminimizeFails) throw new Error('window'); state.actions.push('unminimize'); },
-            setFocus: async () => { state.actions.push('set-focus'); },
-            onFocusChanged: callback => { state.focusChanged = callback; return () => {}; },
-        } };
-        export const Atom_IsOpenedConfigPage = 'settings', Atom_IsBackendReady = 'ready', Atom_IsSoftwareUpdating = 'updating', Atom_Hotkeys = 'hotkeys';
-        export const getDefaultStore = () => ({ get: atom => ({ data: state[atom] }) });
-        export const useStore_Hotkeys = () => ({ currentHotkeys: { data: state.hotkeys }, updateHotkeys: value => { state.hotkeys = value; }, pendingHotkeys() {} });
-        export const useStdoutToPython = () => ({ asyncStdoutToPython: async (...args) => { state.writes.push(args); return state.writeGate ?? true; } });
-        export const useNotificationStatus = () => ({ showNotification_SaveSuccess() {}, closeNotification() {},
-            showNotification_Error: (...args) => state.notices.push(args), showNotification_Warning: (...args) => state.warnings.push(args) });
-        export const useI18n = () => ({ t: key => key, i18n: { exists: () => true } });
-        export const useMainFunction = () => ({ toggleTranslation: () => state.actions.push('translation'),
-            toggleTranscriptionSend: () => state.actions.push('send'), toggleTranscriptionReceive: () => state.actions.push('receive') });
-        export const voiceActions = Object.fromEntries(['stop', 'toggleMute', 'toggleTts', 'toggleRvc'].map(name => [name, () => state.actions.push(name)]));
-        export const invoke = async (command, args) => {
-            state.calls.push([command, args]);
-            if (command === 'quick_chat_shortcut_platform') return state.platformGate ?? 'wayland';
-            if (command === 'portal_shortcuts_bind') return state.bind?.(args) ?? {};
-            if (command === 'quick_chat_show') state.actions.push('quick-chat');
-            if (command === 'main_window_restore') {
-                if (state.restoreFails) throw 'restore_failed';
-                state.actions.push('restore');
-            }
-        };
-        export const listen = async (name, callback) => {
-            // The portal's other events are kept apart, so the counts below are those of the key presses.
-            const handlers = name === 'portal-shortcuts-lost' ? state.lostHandlers
-                : name === 'portal-shortcuts-not-restored' ? state.notRestoredHandlers : state.handlers;
-            handlers.add(callback);
-            await state.listenGate;
-            return () => { handlers.delete(callback); if (handlers === state.handlers) state.removals++; };
-        };
-        export const register = async (key, callback) => {
-            await state.registerGate;
-            state.registered.set(key, callback);
-        };
-        export const unregister = async key => { state.removed.push(key); state.registered.delete(key); };
-        export const unregisterAll = async () => { await state.unregisterGate; if (state.unregisterFails) throw new Error('plugin'); state.removed.push(...state.registered.keys()); state.registered.clear(); };
-    `) + `#${crypto.randomUUID()}`;
-    const { state, hot }: { state: StubState; hot: { data: unknown } } = await import(dependencies);
-    let instance = 0;
-    const importHook = async () => {
-        let source = stripTypeScriptTypes(await readFile(new URL("./useHotkeys.ts", import.meta.url), "utf8"));
-        source = source.replace(/from "[^"]+"/g, `from ${JSON.stringify(dependencies)}`);
-        source = `import { hot } from ${JSON.stringify(dependencies)};\n` + source.replaceAll("import.meta.hot", "hot");
-        const module: typeof import("./useHotkeys.ts") = await import(moduleUrl(source) + `#${instance++}`);
-        return module.useHotkeys;
+    // The production hook, loaded with only React, atoms and native APIs replaced; no plugin,
+    // portal, browser or application is started.
+    const state: StubState = { ready: true, settings: false, updating: false, actions: [], notices: [],
+        registered: new Map(), removed: [], writes: [], calls: [], handlers: new Set(), lostHandlers: new Set(), notRestoredHandlers: new Set(),
+        warnings: [], removals: 0, cleanups: [], disposers: [], hotkeys: { open_quick_chat: ["Ctrl", "Q"] } };
+    // Vite's hot module replacement: what a module instance leaves for the next one.
+    const hot = { data: {}, dispose: (callback: (data: unknown) => void) => state.disposers.push(callback) };
+    // With a runtime (owner below) the hook runs inside a drawing; without one it runs once, outside
+    // any: a ref is a plain object, and an effect runs at once and keeps its clean-up.
+    const react = {
+        useRef: <T>(value: T) => state.runtime ? state.runtime.api.useRef(value) : { current: value },
+        useEffect: (callback: () => unknown, deps?: unknown[]) => {
+            if (state.runtime) return state.runtime.api.useEffect(callback, deps);
+            const cleanup = callback();
+            state.cleanups.push(typeof cleanup === "function" ? () => { cleanup(); } : () => {});
+        },
     };
+    const store = { text_area_ref: { current: { focus: () => state.actions.push("focus-input") } }, appWindow: {
+        isMinimized: async () => state.minimized ?? false,
+        minimize: async () => { state.actions.push("minimize"); },
+        unminimize: async () => { if (state.unminimizeFails) throw new Error("window"); state.actions.push("unminimize"); },
+        setFocus: async () => { state.actions.push("set-focus"); },
+        onFocusChanged: (callback: (event: { payload: boolean }) => void) => { state.focusChanged = callback; return () => {}; },
+    } };
+    const invoke = async (command: string, args?: { shortcuts: Record<string, string[] | null> }) => {
+        state.calls.push([command, args]);
+        if (command === "quick_chat_shortcut_platform") return state.platformGate ?? "wayland";
+        if (command === "portal_shortcuts_bind") return state.bind?.(args) ?? {};
+        if (command === "quick_chat_show") state.actions.push("quick-chat");
+        if (command === "main_window_restore") {
+            if (state.restoreFails) throw "restore_failed";
+            state.actions.push("restore");
+        }
+    };
+    const listen = async (name: string, callback: Handler) => {
+        // The portal's other events are kept apart, so the counts below are those of the key presses.
+        const handlers = name === "portal-shortcuts-lost" ? state.lostHandlers
+            : name === "portal-shortcuts-not-restored" ? state.notRestoredHandlers : state.handlers;
+        handlers.add(callback);
+        await state.listenGate;
+        return () => { handlers.delete(callback); if (handlers === state.handlers) state.removals++; };
+    };
+    const imports = {
+        react,
+        jotai: { getDefaultStore: () => ({ get: (atom: string) => ({ data: Reflect.get(state, atom) }) }) },
+        "@store": { store, Atom_IsOpenedConfigPage: "settings", Atom_IsBackendReady: "ready", Atom_IsSoftwareUpdating: "updating", Atom_Hotkeys: "hotkeys",
+            useStore_Hotkeys: () => ({ currentHotkeys: { data: state.hotkeys },
+                updateHotkeys: (value: Record<string, string[] | null>) => { state.hotkeys = value; }, pendingHotkeys() {} }) },
+        "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: async (endpoint: string, hotkeys: Record<string, string[] | null>) => {
+            state.writes.push([endpoint, hotkeys]);
+            return state.writeGate ?? true;
+        } }) },
+        "@logics_common": { useNotificationStatus: () => ({ showNotification_SaveSuccess() {}, closeNotification() {},
+            showNotification_Error: (...args: unknown[]) => state.notices.push(args), showNotification_Warning: (...args: unknown[]) => state.warnings.push(args) }) },
+        "@logics_main": { useMainFunction: () => ({ toggleTranslation: () => state.actions.push("translation"),
+            toggleTranscriptionSend: () => state.actions.push("send"), toggleTranscriptionReceive: () => state.actions.push("receive") }) },
+        "@tauri-apps/plugin-global-shortcut": {
+            register: async (key: string, callback: (event: { state: string }) => unknown) => {
+                await state.registerGate;
+                state.registered.set(key, callback);
+            },
+            unregister: async (key: string) => { state.removed.push(key); state.registered.delete(key); },
+            unregisterAll: async () => {
+                await state.unregisterGate;
+                if (state.unregisterFails) throw new Error("plugin");
+                state.removed.push(...state.registered.keys());
+                state.registered.clear();
+            },
+        },
+        "@tauri-apps/api/core": { invoke },
+        "@tauri-apps/api/event": { listen },
+        "@useI18n": { useI18n: () => ({ t: (key: string) => key, i18n: { exists: () => true } }) },
+        "../../../voice/voiceActions.ts": { voiceActions: Object.fromEntries(["stop", "toggleMute", "toggleTts", "toggleRvc"].map(name => [name, () => state.actions.push(name)])) },
+        [HOT_DEPENDENCY]: hot,
+    };
+    // Each load runs the module's top level again: a new instance, as hot module replacement makes.
+    const importHook = async () => (await loadModule<typeof import("./useHotkeys.ts")>(new URL("./useHotkeys.ts", import.meta.url), hooks(), imports)).useHotkeys;
     // Without the React stand-in the hook runs once, here; owner() gives it one and runs it there.
     const load = async () => (await importHook())();
     return { state, load, importHook, dispose: (index: number) => state.disposers[index](hot.data),
