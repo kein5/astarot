@@ -127,9 +127,9 @@ CTranslate2の文章分割ファイル（tokenizer）は、重みと同じリポ
 翻訳の取得の確認画面（`LegacyModelDownloadDialog`から開くカタログの`translation`）でも同じ警告を出す。2026-11-19の決定による。
 
 - 目安の値は中核の`native/ops/src/downloads/guidance.rs`がカタログのIDごとに返す。Pythonのバックエンドには翻訳の項目がないので足していない。
-- NLLB-200 distilled 600M int8（`nllb-200-distilled-600m-onnx-int8`）は1,490,300,928バイト（約1.39 GiB）。アプリと同じ実行部`vrct-translate`で英日と日英を各30文訳したときの作業集合の最大で、Windows 11、Intel Core i7-1255U、CPUの4スレッド、ONNX Runtime 1.32.0で測った。PR #687の取得の注記（約1.4 GiB）と同じ値である。
+- NLLB-200 distilled 600M int8（`nllb-200-distilled-600m-onnx-int8`）は1,490,300,928バイト（約1.39 GiB）。アプリと同じ実行部`astarot-translate`で英日と日英を各30文訳したときの作業集合の最大で、Windows 11、Intel Core i7-1255U、CPUの4スレッド、ONNX Runtime 1.32.0で測った。PR #687の取得の注記（約1.4 GiB）と同じ値である。
 - 既定のM2M100 418M int8（`m2m100-418m-onnx-int8`）は1,044,295,680バイト（約0.97 GiB）。同じ方法と環境で測った（PR #687）。M2M100は翻訳の共通の注記を使うので、注記には数値を書いていない。
-- NLLB-200 distilled 1.3B int8（`nllb-200-distilled-1-3b-onnx-int8`）は2,841,083,904バイト（約2.65 GiB）。公開したファイルを`vrct-translate`で読み込み、英日と日英の各30文に61文を足して訳したときの常駐メモリーの最大（VmHWM。読み込みの間に達する）で、Linux、AMD Ryzen 9 9950X3D、CPUの4スレッド、ONNX Runtime 1.32.0で測った（2026-11-21）。上の2つのWindowsの作業集合とは測り方が違うので、検証の範囲は`translation_onnx_cpu_linux`として分けた。取得の注記（`translation_nllb_1_3b`）には約2.6 GiBと書いた。
+- NLLB-200 distilled 1.3B int8（`nllb-200-distilled-1-3b-onnx-int8`）は2,841,083,904バイト（約2.65 GiB）。公開したファイルを`astarot-translate`で読み込み、英日と日英の各30文に61文を足して訳したときの常駐メモリーの最大（VmHWM。読み込みの間に達する）で、Linux、AMD Ryzen 9 9950X3D、CPUの4スレッド、ONNX Runtime 1.32.0で測った（2026-11-21）。上の2つのWindowsの作業集合とは測り方が違うので、検証の範囲は`translation_onnx_cpu_linux`として分けた。取得の注記（`translation_nllb_1_3b`）には約2.6 GiBと書いた。
 - ほかの翻訳のモデル（M2M100 1.2Bなど）は測っていないので`unknown`のままにする。カードには「まだ測っていません」と出し、警告もしない。測ったら`guidance.rs`に足す。
 - カードの「使うメモリ」の行に、翻訳の間に使うメモリを出す。「必要メモリと動作確認」の中は、読み上げのモデル向けの文（GPU、提供元の測定）ではなく、翻訳用の文を出す（`tier`が`translation`）。
 - 比べる相手は翻訳の計算に使う機器（`SELECTED_TRANSLATION_COMPUTE_DEVICE`）で決める（`translationDeviceMode`）。既定のCPUならハードウェアの検出のCPUの行（RAMの総量）と比べる。GPUを選んでいればそのGPUのメモリの総量と比べる。CUDAとTensorRTはNVIDIAのGPUを、MIGraphXはAMDのGPUを、DirectMLとWebGPUはすべてのGPUを、検出の順に`device_index`番目として数える。そのGPUが検出の行にないときと、CPUでもGPUでも動くOpenVINOのときは比べない。

@@ -4,8 +4,8 @@
 mod common;
 
 use common::{b64, fixture, fpoints, points, usize_of};
-use ocr_runtime::cv::{self, contours, draw, geometry, warp, Interpolation};
-use ocr_runtime::unclip;
+use astarot_ocr_runtime::cv::{self, contours, draw, geometry, warp, Interpolation};
+use astarot_ocr_runtime::unclip;
 
 #[test]
 fn resize_matches_opencv() {

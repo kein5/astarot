@@ -13,8 +13,8 @@
 use std::path::PathBuf;
 use std::sync::mpsc;
 use std::time::{Duration, Instant};
-use vrct_core::config::{Environment, Platform};
-use vrct_core::{Backend, Options, Sink};
+use astarot_core::config::{Environment, Platform};
+use astarot_core::{Backend, Options, Sink};
 
 fn main() {
     let mut app_dir = None;

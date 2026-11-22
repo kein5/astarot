@@ -167,11 +167,11 @@ pub fn routes(core: &Arc<Core>) -> Routes {
     let asking = Arc::clone(core);
     b.add("/set/data/rvc_block_ms", OPEN, move |data: &Value| {
         let reply = rvc_block(data);
-        let automatic = json!(vrct_voice_conversion::worker::AUTO_BLOCK_MS);
+        let automatic = json!(astarot_voice_conversion::worker::AUTO_BLOCK_MS);
         if super::python_int(data) == Some(0) && asking.config().get("RVC_BLOCK_MS") == automatic {
             // Unwritten (a full disk), the kept length is used as before; the choice is saved.
             let runtimes = asking.config().environment().state_dir.join(crate::shipped_libraries::RUNTIMES_FOLDER);
-            let _ = vrct_voice_conversion::worker::ask_block_timing(&runtimes);
+            let _ = astarot_voice_conversion::worker::ask_block_timing(&runtimes);
         }
         reply
     });
@@ -266,6 +266,9 @@ pub fn routes(core: &Arc<Core>) -> Routes {
     b.get("/get/data/catalog_layout", OPEN, "CATALOG_LAYOUT");
     let layout = store(core, "CATALOG_LAYOUT", "VALIDATION_CONFIG_VALUE_INVALID");
     b.add("/set/data/catalog_layout", OPEN, layout);
+    b.get("/get/data/theme", OPEN, "THEME");
+    let theme = store(core, "THEME", "VALIDATION_CONFIG_VALUE_INVALID");
+    b.add("/set/data/theme", OPEN, theme);
     // What the AI translation providers are asked besides the text (#392).
     b.get("/get/data/llm_translation_temperature", OPEN, "LLM_TRANSLATION_TEMPERATURE");
     let temperature = store(core, "LLM_TRANSLATION_TEMPERATURE", "VALIDATION_CONFIG_VALUE_INVALID");

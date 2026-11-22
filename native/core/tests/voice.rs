@@ -17,16 +17,16 @@ mod common;
 use common::fake_audio::FakeAudio;
 use common::fake_tts::FakeTts;
 use common::fake_voice::{source, wasapi, FakeVoice, MonitorFault, MANAGED_VC};
-use common::net::eventually;
+use common::net::{eventually, eventually_or};
 use common::{error_code, Setup, Ui};
 use serde_json::{json, Value};
 use std::path::Path;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
-use vrct_core::config::Platform;
-use vrct_speech_server::server::Launch;
-use vrct_voice_conversion::runtime::{Asset, Library, Runtime};
+use astarot_core::config::Platform;
+use astarot_speech_server::server::Launch;
+use astarot_voice_conversion::runtime::{Asset, Library, Runtime};
 
 const OUTPUT: &str = "Windows WASAPI: CABLE Input (VB-Audio Virtual Cable)";
 
@@ -211,7 +211,7 @@ fn the_dictionary_is_written_out_to_a_file_the_settings_read_back() {
     // The dictionary in use (#792): the user's terms first, then the built-in terms; the one taken
     // out is not written.
     let lines: Vec<&str> = text.lines().filter(|line| !line.starts_with('#')).collect();
-    assert_eq!(lines, vrct_transcription::speechcpp::merged_terms(&json!({ "builtin": true,
+    assert_eq!(lines, astarot_transcription::speechcpp::merged_terms(&json!({ "builtin": true,
         "terms": ["猫丸=ねこまる", "Quest=くえすと"], "removed": ["Vket"] })));
     assert_eq!(lines[..2], ["猫丸=ねこまる", "Quest=くえすと"]);
     assert!(lines.iter().any(|line| line.starts_with("VRChat=")) && !lines.iter().any(|line| line.starts_with("Vket")));
@@ -437,7 +437,7 @@ fn speech_servers_the_switch_starts_are_its_own_and_go_with_it() {
     // Requests to the server the app started end with it; its port is not probed.
     let port: u16 = state["japanese"]["base_url"].as_str().and_then(|url| url.rsplit(':').next()).and_then(|port| port.parse().ok()).expect("a ready server has an address");
     let address = ("127.0.0.1".to_owned(), port);
-    assert!(vrct_tts::listener::listener_monitors().owned(&address).is_some(), "the started server is not owned");
+    assert!(astarot_tts::listener::listener_monitors().owned(&address).is_some(), "the started server is not owned");
     assert!(!core.voice_target_idle("japanese"), "a model download must not replace the model TTS uses");
     run.ui.ok("/run/send_message_box", Some(json!({ "id": "b-1", "message": "bundled" })));
     eventually("the bundled server's speech plays", || run.played_on(OUTPUT) >= 9600);
@@ -445,7 +445,7 @@ fn speech_servers_the_switch_starts_are_its_own_and_go_with_it() {
     run.ui.ok("/run/disable_tts", None);
     eventually("the server stops", || run.ui.ok("/get/data/speech_server_state", None)["japanese"]["state"] == "stopped");
     assert!(core.voice_target_idle("japanese"));
-    assert!(vrct_tts::listener::listener_monitors().owned(&address).is_none(), "a stopped server is still owned");
+    assert!(astarot_tts::listener::listener_monitors().owned(&address).is_none(), "a stopped server is still owned");
     // A server started from Settings is not the switch's: OFF leaves it, and its stop turns
     // TTS off.
     let state = run.ui.ok("/get/data/speech_server_state", None);
@@ -839,8 +839,8 @@ fn rvc_files(behaviour: &str) -> (tempfile::TempDir, Value) {
     let dir = tempfile::tempdir().unwrap();
     let runtime = dir.path().join("rvc");
     std::fs::create_dir_all(runtime.join("lib")).unwrap();
-    std::fs::write(runtime.join("lib").join(vrct_voice_conversion::worker::ort_library()), b"x").unwrap();
-    for asset in vrct_voice_conversion::worker::ASSETS {
+    std::fs::write(runtime.join("lib").join(astarot_voice_conversion::worker::ort_library()), b"x").unwrap();
+    for asset in astarot_voice_conversion::worker::ASSETS {
         let path = runtime.join("assets").join(asset);
         std::fs::create_dir_all(path.parent().unwrap()).unwrap();
         std::fs::write(path, b"x").unwrap();
@@ -1237,7 +1237,7 @@ fn a_conversion_that_cannot_start_says_why_and_opens_nothing() {
     assert_eq!(run.voice.captures(), 0, "the microphone was opened");
     // A runtime that is not set up: refused before anything starts.
     let (files, mut options) = rvc_files("convert");
-    std::fs::remove_file(files.path().join("rvc").join("lib").join(vrct_voice_conversion::worker::ort_library())).unwrap();
+    std::fs::remove_file(files.path().join("rvc").join("lib").join(astarot_voice_conversion::worker::ort_library())).unwrap();
     options["model"] = json!(files.path().join("voice.pth").to_str().unwrap());
     eventually("the failed run is reaped", || run.ui.ok("/get/data/direct_voice_state", None)["pending"] == false);
     assert_eq!(error_code(&start_direct(&run, json!({ "source": mic, "mode": "converted", "options": options }))), "vc_start_failed");
@@ -1358,13 +1358,18 @@ fn speech_goes_through_a_running_conversion_when_chosen() {
     eventually("the speech is converted", || run.ui.on(mark, "/run/io_trace").iter().any(|t| t["result"]["outputs"]["speech"]["converted"] == true));
     // No output of its own was opened for the speech: it went into the conversion.
     assert!(run.voice.played().iter().all(|p| p.rate == 48000), "speech opened a device of its own");
-    eventually("the speech completes", || run.status()["completed"] == 1);
+    // #861: this failed on Windows a few times without saying whether the speech was late, failed
+    // or was cancelled; the status and the speech's trace say it.
+    eventually_or("the speech completes", || run.status()["completed"] == 1, || {
+        let traces: Vec<Value> = run.ui.on(mark, "/run/io_trace").into_iter().map(|t| t["result"]["outputs"]["speech"].clone()).collect();
+        format!("voice status {}; speech traces {traces:?}; direct voice {}", run.status(), run.ui.ok("/get/data/direct_voice_state", None))
+    });
     run.ui.stop();
 }
 
 /// A zip with one stored file.
 fn zip(name: &str, data: &[u8]) -> Vec<u8> {
-    let crc = vrct_audio_routing::naming::crc32(data);
+    let crc = astarot_audio_routing::naming::crc32(data);
     let mut out = Vec::new();
     out.extend(b"PK\x03\x04");
     out.extend([20, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
@@ -1397,7 +1402,7 @@ fn zip(name: &str, data: &[u8]) -> Vec<u8> {
 }
 
 fn sha(data: &[u8]) -> String {
-    vrct_voice_conversion::runtime::sha256_hex(data)
+    astarot_voice_conversion::runtime::sha256_hex(data)
 }
 
 /// A small runtime of the same shape as the pinned one, served by the fake transport.
@@ -1436,7 +1441,7 @@ fn the_rvc_runtime_is_set_up_only_after_consent_and_checked_by_the_worker() {
     let run = start_with(json!({}), Platform::Windows, voice, FakeAudio::new(), false);
     let catalog = run.ui.ok("/get/data/vc_runtime_catalog", None);
     let row = &catalog["runtimes"][0];
-    let version = vrct_voice_conversion::runtime::version_of(&runtime);
+    let version = astarot_voice_conversion::runtime::version_of(&runtime);
     assert_eq!((row["id"].as_str(), row["version"].as_str(), row["device"].as_str(), row["requires_gpu"].clone()), (Some("rvc"), Some(version.as_str()), Some("cpu"), json!(false)));
     assert_eq!(catalog["runtimes"].as_array().unwrap().len(), 1, "Seed-VC is not offered");
     let destination = row["destination"].as_str().unwrap().to_owned();
@@ -1465,7 +1470,7 @@ fn a_failed_runtime_setup_names_its_step() {
     let runtime = small_runtime(&voice, b"the pinned asset");
     voice.set_runtime(runtime.clone());
     let run = start_with(json!({}), Platform::Windows, voice, FakeAudio::new(), false);
-    let version = vrct_voice_conversion::runtime::version_of(&runtime);
+    let version = astarot_voice_conversion::runtime::version_of(&runtime);
     run.ui.ok("/run/start_vc_runtime_setup", Some(json!({ "id": "rvc", "consent": true, "version": version })));
     let state = wait_phase(&run, "failed");
     assert_eq!(state["jobs"]["rvc"]["error_code"], "vc_runtime_assets_failed");
@@ -1483,7 +1488,7 @@ fn a_failed_runtime_setup_names_its_step() {
     let destination = run.ui.ok("/get/data/vc_runtime_catalog", None)["runtimes"][0]["destination"].as_str().unwrap().to_owned();
     std::fs::create_dir_all(&destination).unwrap();
     std::fs::write(Path::new(&destination).join("probe-exit"), "4").unwrap();
-    run.ui.ok("/run/start_vc_runtime_setup", Some(json!({ "id": "rvc", "consent": true, "version": vrct_voice_conversion::runtime::version_of(&runtime) })));
+    run.ui.ok("/run/start_vc_runtime_setup", Some(json!({ "id": "rvc", "consent": true, "version": astarot_voice_conversion::runtime::version_of(&runtime) })));
     assert_eq!(wait_phase(&run, "failed")["jobs"]["rvc"]["error_code"], "vc_runtime_check_failed");
     run.ui.stop();
 }
@@ -1498,7 +1503,7 @@ fn start_in(dir: &Path, voice: FakeVoice) -> Run {
 }
 
 fn set_up_rvc(run: &Run, runtime: &Runtime) -> std::path::PathBuf {
-    run.ui.ok("/run/start_vc_runtime_setup", Some(json!({ "id": "rvc", "consent": true, "version": vrct_voice_conversion::runtime::version_of(runtime) })));
+    run.ui.ok("/run/start_vc_runtime_setup", Some(json!({ "id": "rvc", "consent": true, "version": astarot_voice_conversion::runtime::version_of(runtime) })));
     let state = wait_phase(run, "ready");
     std::path::PathBuf::from(state["installed"]["rvc"].as_str().unwrap())
 }
@@ -1552,14 +1557,14 @@ fn libraries_a_stopped_repair_moved_aside_come_back_at_start() {
 }
 
 fn repair_rvc(run: &Run, runtime: &Runtime) -> Value {
-    run.ui.ok("/run/start_vc_runtime_setup", Some(json!({ "id": "rvc", "consent": true, "version": vrct_voice_conversion::runtime::version_of(runtime) })));
+    run.ui.ok("/run/start_vc_runtime_setup", Some(json!({ "id": "rvc", "consent": true, "version": astarot_voice_conversion::runtime::version_of(runtime) })));
     wait_phase(run, "failed")
 }
 
 /// Repairs the RVC runtime the app is taken to have loaded: it ends waiting for the next start.
 fn repair_held_rvc(run: &Run, runtime: &Runtime, folder: &Path) -> Value {
     run.voice.set_loaded(vec![folder.join("lib/onnxruntime.dll")]);
-    run.ui.ok("/run/start_vc_runtime_setup", Some(json!({ "id": "rvc", "consent": true, "version": vrct_voice_conversion::runtime::version_of(runtime) })));
+    run.ui.ok("/run/start_vc_runtime_setup", Some(json!({ "id": "rvc", "consent": true, "version": astarot_voice_conversion::runtime::version_of(runtime) })));
     wait_phase(run, "restart_required")
 }
 
@@ -1690,13 +1695,13 @@ fn a_repair_the_old_libraries_hold_up_says_they_are_in_use_and_keeps_them() {
 }
 
 /// Translation through DeepL at a fake provider: Japanese to English (`deepl-free:EN-US:<text>`).
-fn translating(voice: FakeVoice) -> (Run, vrct_translation::fake::FakeProviders) {
-    let fake = vrct_translation::fake::FakeProviders::start();
+fn translating(voice: FakeVoice) -> (Run, astarot_translation::fake::FakeProviders) {
+    let fake = astarot_translation::fake::FakeProviders::start();
     let key = format!("{}:fx", "d".repeat(36));
     fake.key("/deepl-free", &key);
     let mut setup = Setup { saved: Some(json!({ "AUTH_KEYS": { "DeepL_API": key } })), platform: Platform::Windows, ..Setup::default() };
     setup.services.voice = voice.platform();
-    setup.services.translation_endpoints = vrct_translation::providers::Endpoints::all_at(&fake.url());
+    setup.services.translation_endpoints = astarot_translation::providers::Endpoints::all_at(&fake.url());
     let ui = Ui::with(setup);
     ui.ready();
     let mut engines = ui.ok("/get/data/selected_translation_engines", None);
@@ -1740,8 +1745,8 @@ fn translated_chat_and_microphone_finals_speak_the_selected_translation() {
     let config = core.config();
     let tab = config.get_str("SELECTED_TAB_NO");
     let targets = config.get("SELECTED_TARGET_LANGUAGES")[&tab].clone();
-    let update = |item: &str| vrct_tts::message_hook::TranscriptUpdate {
-        source: "mic".into(), is_final: true, state: "final".into(), namespace: "session".into(), item_id: item.into(), text: "ohayou".into(), revision: 1, received_ns: vrct_tts::clock::monotonic_ns(),
+    let update = |item: &str| astarot_tts::message_hook::TranscriptUpdate {
+        source: "mic".into(), is_final: true, state: "final".into(), namespace: "session".into(), item_id: item.into(), text: "ohayou".into(), revision: 1, received_ns: astarot_tts::clock::monotonic_ns(),
     };
     let snapshot = core.mic_voice_snapshot().unwrap();
     let translated = vec!["good morning".to_owned()];
@@ -1803,9 +1808,9 @@ fn shutdown_stops_speech_direct_voice_and_the_route() {
 }
 
 /// A run that recognises the microphone in realtime, translates to English and speaks.
-fn realtime_speaking(mic_name: &str) -> (Run, common::fake_asr::FakeAsr, common::fake_capture::FakeCapture, vrct_translation::fake::FakeProviders) {
-    use vrct_transcription::capture::Source;
-    let fake = vrct_translation::fake::FakeProviders::start();
+fn realtime_speaking(mic_name: &str) -> (Run, common::fake_asr::FakeAsr, common::fake_capture::FakeCapture, astarot_translation::fake::FakeProviders) {
+    use astarot_transcription::capture::Source;
+    let fake = astarot_translation::fake::FakeProviders::start();
     let key = format!("{}:fx", "d".repeat(36));
     fake.key("/deepl-free", &key);
     let asr = common::fake_asr::FakeAsr::start();
@@ -1822,7 +1827,7 @@ fn realtime_speaking(mic_name: &str) -> (Run, common::fake_asr::FakeAsr, common:
     let mut setup = Setup { saved: Some(saved), platform: Platform::Windows, ..Setup::default() };
     let voice = FakeVoice::new();
     setup.services.voice = voice.platform();
-    setup.services.translation_endpoints = vrct_translation::providers::Endpoints::all_at(&fake.url());
+    setup.services.translation_endpoints = astarot_translation::providers::Endpoints::all_at(&fake.url());
     setup.services.transcription_capture = capture.factory();
     let ui = Ui::with(setup);
     ui.ready();
@@ -1835,7 +1840,7 @@ fn realtime_speaking(mic_name: &str) -> (Run, common::fake_asr::FakeAsr, common:
 
 #[test]
 fn a_realtime_microphone_final_speaks_its_translation() {
-    use vrct_transcription::capture::Source;
+    use astarot_transcription::capture::Source;
     let (run, _asr, capture, _fake) = realtime_speaking("usb.mic");
     let english = FakeTts::speechcpp(0.1);
     let japanese = FakeTts::speechcpp(0.1);

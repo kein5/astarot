@@ -1,4 +1,4 @@
-# vrct-voice-conversion
+# astarot-voice-conversion
 
 Direct voice and voice conversion for ASTAROT in Rust: one direct producer at a time
 (the microphone passed through or converted), the owner of the RVC worker process

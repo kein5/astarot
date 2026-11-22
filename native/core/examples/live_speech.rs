@@ -31,8 +31,8 @@ use serde_json::{Value, json};
 use std::path::PathBuf;
 use std::sync::mpsc;
 use std::time::{Duration, Instant};
-use vrct_core::config::{Environment, Platform};
-use vrct_core::{Backend, Options, Sink};
+use astarot_core::config::{Environment, Platform};
+use astarot_core::{Backend, Options, Sink};
 
 const BRIEF: &str = "了解です。";
 const SHORT: &str = "こんにちは。音声の接続テストです。";

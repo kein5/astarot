@@ -100,9 +100,9 @@ TranslateGemma をアプリの中で動かす LLM 用の実行基盤を選び、
 
 - 環境：Windows 11 Home（ビルド 26320）、Intel Core i7-1255U（10 コア 12 スレッド）、RAM 32 GB、NVIDIA GeForce RTX 3060 Ti 8 GB（Thunderbolt 接続、ドライバー 617.42）と Intel Iris Xe。llama.cpp b12125 の Vulkan 版（`llama-b12125-bin-win-vulkan-x64.zip`、SHA-256 `29db8012…`）。`Vulkan0` が Iris Xe、`Vulkan1` が RTX 3060 Ti。
 - モデル：[mradermacher/translategemma-4b-it-GGUF](https://huggingface.co/mradermacher/translategemma-4b-it-GGUF/tree/d37868f759d2f817a43d28dd80cf9f982ffa62fd) @ `d37868f759d2f817a43d28dd80cf9f982ffa62fd` の `translategemma-4b-it.Q4_K_M.gguf`（2,489,909,760 bytes、SHA-256 `81200d03e843d2ec1ece6eeafe7d13cb6e5211e1fcd336ade55790b683a08330`、文章だけ）。
-- 起動はアプリと同じ引数（`--ctx-size 2048 --parallel 1`、GPU は `--device VulkanN --n-gpu-layers 999`、CPU は `--device none --n-gpu-layers 0`）と、アプリと同じテンプレートの文、温度 0 の `/completion`。比べた NLLB-200 distilled 600M と M2M100 418M は、`native/translate-onnx` の int8 の ONNX の変換を `vrct-translate` の CLI で CPU で動かした（ONNX Runtime 1.32.0 の CPU 版、`tools/translation_onnx/compare.py` と同じ使い方）。
+- 起動はアプリと同じ引数（`--ctx-size 2048 --parallel 1`、GPU は `--device VulkanN --n-gpu-layers 999`、CPU は `--device none --n-gpu-layers 0`）と、アプリと同じテンプレートの文、温度 0 の `/completion`。比べた NLLB-200 distilled 600M と M2M100 418M は、`native/translate-onnx` の int8 の ONNX の変換を `astarot-translate` の CLI で CPU で動かした（ONNX Runtime 1.32.0 の CPU 版、`tools/translation_onnx/compare.py` と同じ使い方）。
 - 計り方：読み込みの時間は起動から `/health` が 200 を返すまで。RAM はプロセスの最大のワーキングセット（`GetProcessMemoryInfo`）。VRAM は `nvidia-smi` の使用量の、起動前からの増分の最大（0.25 秒ごと。Iris Xe は共有メモリーなので測れない）。1発話の時間は、短い会話の文（英語 30、日本語 30。最初の1文は暖機として除いた）の要求から答えまで。
-- 条件：GPU を使うほかのプロセスは Steam だけで、計測の前後で VRAM は 4 MiB だった。CPU はほかの作業（別のセッションのビルドや試験、`vrct-translate`）と共有で、計測中の PC 全体の CPU 使用率は 74〜99 % だった。時間の値は静かな PC より遅く出ている可能性がある。
+- 条件：GPU を使うほかのプロセスは Steam だけで、計測の前後で VRAM は 4 MiB だった。CPU はほかの作業（別のセッションのビルドや試験、`astarot-translate`）と共有で、計測中の PC 全体の CPU 使用率は 74〜99 % だった。時間の値は静かな PC より遅く出ている可能性がある。
 
 | 項目 | TranslateGemma 4B Q4_K_M・RTX 3060 Ti | 同・Iris Xe | 同・CPU だけ | NLLB-200 600M int8・CPU | M2M100 418M int8・CPU |
 |---|---|---|---|---|---|

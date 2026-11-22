@@ -32,12 +32,12 @@ use std::net::UdpSocket;
 use std::sync::Mutex;
 use std::sync::mpsc::{Sender, channel};
 use std::time::{Duration, Instant};
-use vrct_adapters::osc::{OscArg, PARAMETER_MUTE_SELF, decode_packet};
-use vrct_audio_routing::manager::Topology;
-use vrct_core::config::Platform;
-use vrct_core::controller::{RealtimeLimits, Services};
-use vrct_translation::fake::FakeProviders;
-use vrct_transcription::capture::Source;
+use astarot_adapters::osc::{OscArg, PARAMETER_MUTE_SELF, decode_packet};
+use astarot_audio_routing::manager::Topology;
+use astarot_core::config::Platform;
+use astarot_core::controller::{RealtimeLimits, Services};
+use astarot_translation::fake::FakeProviders;
+use astarot_transcription::capture::Source;
 
 /// VRChat on this PC: OSCQuery runs (the fake link has no mDNS), which mute sync needs.
 const VRCHAT: &str = "127.0.0.1";
@@ -94,8 +94,8 @@ fn start_with(platform: Platform, saved: Value, realtime_limits: RealtimeLimits)
         osc,
         audio: audio.platform(),
         transcription_capture: capture.factory(),
-        transcription_endpoints: vrct_transcription::providers::Endpoints::all_at(&asr.base()),
-        translation_endpoints: vrct_translation::providers::Endpoints::all_at(&providers.url()),
+        transcription_endpoints: astarot_transcription::providers::Endpoints::all_at(&asr.base()),
+        translation_endpoints: astarot_translation::providers::Endpoints::all_at(&providers.url()),
         realtime_limits,
         ..Setup::default().services
     };
@@ -496,7 +496,7 @@ fn a_realtime_session_that_fails_while_its_final_is_translated_drops_it() {
     // (here the server never finishes the next utterance) while a final waits for translation.
     // The switch says so, and the final goes nowhere.
     let limits = RealtimeLimits {
-        session: vrct_transcription::realtime::Limits {
+        session: astarot_transcription::realtime::Limits {
             first_result: Duration::from_secs(30),
             pending: Duration::from_millis(1000),
             ..Default::default()

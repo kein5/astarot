@@ -4,8 +4,8 @@
 //! test quiet.
 #![cfg(windows)]
 
-use vrct_audio_routing::naming::{output_identity, WASAPI_HOST};
-use vrct_audio_routing::router::{AudioRouter, CancelToken, Frame};
+use astarot_audio_routing::naming::{output_identity, WASAPI_HOST};
+use astarot_audio_routing::router::{AudioRouter, CancelToken, Frame};
 
 fn device() -> String {
     let name = std::env::var("ASTAROT_WASAPI_LIVE_OUTPUT").expect("set ASTAROT_WASAPI_LIVE_OUTPUT to an output's name");

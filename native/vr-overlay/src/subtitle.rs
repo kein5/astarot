@@ -887,11 +887,15 @@ impl Subtitles {
     }
 
     /// Drops the pending captions of a source's namespace and offers the picture
-    /// (`clearRealtimeCaptionOverlay`).
+    /// (`clearRealtimeCaptionOverlay`). Nothing is drawn when none was pending: a session that
+    /// ended after its last final changes nothing on screen (#861).
     pub fn discard_captions(&self, source: &str, namespace: &str, publish: Publish) {
         let mut guard = self.state.lock().unwrap();
         let (log, counter) = &mut *guard;
         let gone: Vec<CaptionId> = log.pending.iter().filter(|(k, _)| k.0 == source && k.1 == namespace).map(|(k, _)| k.clone()).collect();
+        if gone.is_empty() {
+            return;
+        }
         for id in gone {
             log.pending.retain(|(k, _)| *k != id);
             let last = log.latest(&id).map_or(0, |v| v.0);
@@ -1120,6 +1124,22 @@ mod tests {
         });
         assert_eq!(sizes.last(), Some(&(1, 1)));
         assert_eq!(held(&subtitles), (strings(&[]), strings(&[])));
+    }
+
+    #[test]
+    fn a_session_that_ended_after_its_last_final_draws_nothing_more() {
+        // #861: the end of a session discards its pending captions; with none pending the log
+        // is not drawn again, so the end changes nothing on screen.
+        let subtitles = renderer();
+        subtitles.publish_caption(caption("speaker", "n", "a"), CaptionState::Final, 1, Direction::Receive, said("a"), &mut |_| true).unwrap();
+        subtitles.discard_captions("speaker", "n", &mut |_| panic!("nothing was pending"));
+        subtitles.publish_caption(caption("speaker", "n", "b"), CaptionState::Partial, 1, Direction::Receive, said("b"), &mut |_| true).unwrap();
+        let mut drawn = 0;
+        subtitles.discard_captions("speaker", "n", &mut |_| {
+            drawn += 1;
+            true
+        });
+        assert_eq!(drawn, 1, "a pending caption that goes is drawn away");
     }
 
     #[test]

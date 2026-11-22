@@ -1,8 +1,8 @@
 //! The Secret Service (freedesktop.org) on the session bus: GNOME Keyring, KWallet and others.
 //!
 //! - Each entry is one item in the default collection, found by the attributes `application`
-//!   (`vrct-vox`), `vrct-vox-store` (the scope) and `entry`. Its label names the entry, never the
-//!   key.
+//!   (`astarot`), `astarot-store` (the scope) and `entry`. Its label names the entry, never the
+//!   key. 0.6.0 used `vrct-vox` and `vrct-vox-store`, read through [`SecretService::older`].
 //! - The app never opens a keyring or shows the store's dialogs (no `Unlock`, no `Prompt`): a
 //!   locked item or collection is [`StoreError::Locked`], and the user opens the keyring in their
 //!   own tools. A store that is not on the bus, or no session bus, is
@@ -25,15 +25,39 @@ const COLLECTION_INTERFACE: &str = "org.freedesktop.Secret.Collection";
 const ITEM_INTERFACE: &str = "org.freedesktop.Secret.Item";
 /// How long one call may take before the store counts as not answering.
 const TIMEOUT: Duration = Duration::from_secs(5);
-const APPLICATION: &str = app_identity::credentials::APPLICATION.current();
-/// The attribute that holds the store ID.
-const STORE_ATTRIBUTE: &str = app_identity::credentials::STORE_ATTRIBUTE.current();
+
+/// The names an item is found and labelled by.
+#[derive(Clone, Copy)]
+struct Names {
+    /// The value of the `application` attribute.
+    application: &'static str,
+    /// The attribute that holds the store ID.
+    store_attribute: &'static str,
+    /// The first word of the label the keyring shows.
+    label_prefix: &'static str,
+}
+
+impl Names {
+    /// The names this build writes.
+    const CURRENT: Names = Names {
+        application: astarot_app_identity::credentials::APPLICATION.current(),
+        store_attribute: astarot_app_identity::credentials::STORE_ATTRIBUTE.current(),
+        label_prefix: astarot_app_identity::credentials::LABEL_PREFIX.current(),
+    };
+    /// The names 0.6.0 wrote (ADR-014, 2.9).
+    const OLDER: Names = Names {
+        application: astarot_app_identity::credentials::APPLICATION.legacy,
+        store_attribute: astarot_app_identity::credentials::STORE_ATTRIBUTE.legacy,
+        label_prefix: astarot_app_identity::credentials::LABEL_PREFIX.legacy,
+    };
+}
 
 /// A secret as the spec sends it: (session, parameters, value, content type).
 type Secret = (OwnedObjectPath, Vec<u8>, Vec<u8>, String);
 
 pub struct SecretService {
     link: Mutex<Option<Link>>,
+    names: Names,
 }
 
 struct Link {
@@ -93,13 +117,13 @@ fn classify(error: &zbus::Error) -> Failure {
     }
 }
 
-fn attributes<'a>(scope: &'a str, entry: &'a str) -> HashMap<&'static str, &'a str> {
-    HashMap::from([("application", APPLICATION), (STORE_ATTRIBUTE, scope), ("entry", entry)])
+fn attributes<'a>(names: Names, scope: &'a str, entry: &'a str) -> HashMap<&'static str, &'a str> {
+    HashMap::from([("application", names.application), (names.store_attribute, scope), ("entry", entry)])
 }
 
 /// The label the keyring shows for `entry`.
-fn item_label(entry: &str) -> String {
-    format!("{} {entry}", app_identity::credentials::LABEL_PREFIX.current())
+fn item_label(names: Names, entry: &str) -> String {
+    format!("{} {entry}", names.label_prefix)
 }
 
 /// A path the spec uses for "none" (no prompt, no collection).
@@ -108,8 +132,15 @@ fn is_none(path: &ObjectPath<'_>) -> bool {
 }
 
 impl SecretService {
+    /// The names this build writes.
     pub fn new() -> Self {
-        Self { link: Mutex::new(None) }
+        Self { link: Mutex::new(None), names: Names::CURRENT }
+    }
+
+    /// The names 0.6.0 wrote, read until the keys move (ADR-014, 2.9). It has a connection of its
+    /// own, made only when it is first asked.
+    pub fn older() -> Self {
+        Self { link: Mutex::new(None), names: Names::OLDER }
     }
 
     fn connect() -> Result<Link, Failure> {
@@ -150,8 +181,8 @@ impl Link {
     }
 
     /// The items with these attributes: (unlocked, locked).
-    fn search(&self, scope: &str, entry: &str) -> Result<(Vec<OwnedObjectPath>, Vec<OwnedObjectPath>), Failure> {
-        Ok(self.service("SearchItems", &(attributes(scope, entry),))?.body().deserialize()?)
+    fn search(&self, names: Names, scope: &str, entry: &str) -> Result<(Vec<OwnedObjectPath>, Vec<OwnedObjectPath>), Failure> {
+        Ok(self.service("SearchItems", &(attributes(names, scope, entry),))?.body().deserialize()?)
     }
 }
 
@@ -162,7 +193,7 @@ impl Vault for SecretService {
 
     fn fetch(&self, scope: &str, entry: &str) -> Result<Option<String>, StoreError> {
         let value = self.with(StoreError::Unreadable, |link| {
-            let (unlocked, locked) = link.search(scope, entry)?;
+            let (unlocked, locked) = link.search(self.names, scope, entry)?;
             let Some(item) = unlocked.into_iter().next() else {
                 return if locked.is_empty() { Ok(None) } else { Err(Failure::Locked) };
             };
@@ -185,8 +216,8 @@ impl Vault for SecretService {
                 return Err(Failure::Unavailable);
             }
             let properties: HashMap<&str, Value<'_>> = HashMap::from([
-                ("org.freedesktop.Secret.Item.Label", Value::from(item_label(entry))),
-                ("org.freedesktop.Secret.Item.Attributes", Value::from(attributes(scope, entry))),
+                ("org.freedesktop.Secret.Item.Label", Value::from(item_label(self.names, entry))),
+                ("org.freedesktop.Secret.Item.Attributes", Value::from(attributes(self.names, scope, entry))),
             ]);
             let secret = (&link.session, Vec::<u8>::new(), value.as_bytes(), "text/plain; charset=utf8");
             let reply = link.connection.call_method(
@@ -207,7 +238,7 @@ impl Vault for SecretService {
 
     fn remove(&self, scope: &str, entry: &str) -> Result<(), StoreError> {
         self.with(StoreError::WriteFailed, |link| {
-            let (unlocked, locked) = link.search(scope, entry)?;
+            let (unlocked, locked) = link.search(self.names, scope, entry)?;
             for item in &unlocked {
                 let reply = link.connection.call_method(Some(SERVICE), item.as_str(), Some(ITEM_INTERFACE), "Delete", &())?;
                 let prompt: OwnedObjectPath = reply.body().deserialize()?;
@@ -224,14 +255,18 @@ impl Vault for SecretService {
 mod tests {
     use super::*;
 
-    /// The names the builds since ADR-013 wrote. The keys saved under them must still be found
-    /// until ADR-014 moves them, with a copy to the new names.
+    /// The names this build writes (ADR-014, 2.2), and those 0.6.0 wrote, under which its keys
+    /// are still found.
     #[test]
-    fn items_are_named_as_before() {
-        let attributes = attributes("0123456789abcdef", "AUTH_KEYS/DeepL_API");
+    fn items_are_named_astarot_and_found_under_the_names_of_0_6_0() {
+        let current = attributes(Names::CURRENT, "0123456789abcdef", "AUTH_KEYS/DeepL_API");
+        let expected = HashMap::from([("application", "astarot"), ("astarot-store", "0123456789abcdef"), ("entry", "AUTH_KEYS/DeepL_API")]);
+        assert_eq!(current, expected);
+        assert_eq!(item_label(Names::CURRENT, "AUTH_KEYS/DeepL_API"), "ASTAROT AUTH_KEYS/DeepL_API");
+        let older = attributes(Names::OLDER, "0123456789abcdef", "AUTH_KEYS/DeepL_API");
         let expected = HashMap::from([("application", "vrct-vox"), ("vrct-vox-store", "0123456789abcdef"), ("entry", "AUTH_KEYS/DeepL_API")]);
-        assert_eq!(attributes, expected);
-        assert_eq!(item_label("AUTH_KEYS/DeepL_API"), "VRCT-VOX AUTH_KEYS/DeepL_API");
+        assert_eq!(older, expected);
+        assert_eq!(item_label(Names::OLDER, "AUTH_KEYS/DeepL_API"), "VRCT-VOX AUTH_KEYS/DeepL_API");
     }
 
     #[test]

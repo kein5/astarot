@@ -1,7 +1,17 @@
 // @babel/standalone ships no types. The test harness uses only transform, with the options below
-// (harnessModules.ts also asks for the source map of the module transform).
+// (harnessModules.ts also asks for the source map of the module transform, and adds a plugin of its own).
 declare module "@babel/standalone" {
-    export type BabelPlugin = string | [string, Record<string, unknown>];
+    import type { Node } from "@babel/types";
+    // A node the visitor meets, and what it can do with it.
+    export interface BabelPath {
+        node: Node;
+        replaceWith(node: Node): void;
+    }
+    // A plugin written in the harness: the visitor of the node types it changes.
+    export interface BabelPluginObject {
+        visitor: Record<string, (path: BabelPath) => void>;
+    }
+    export type BabelPlugin = string | [string, Record<string, unknown>] | (() => BabelPluginObject);
     export interface BabelOptions {
         presets?: BabelPlugin[];
         plugins?: BabelPlugin[];

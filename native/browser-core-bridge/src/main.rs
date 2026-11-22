@@ -3,7 +3,7 @@
 //! Codename: Aglasis, a test host (#689; the table is in `docs/voice-stack/project-rename.md`).
 //! It is not the app's IPC or event delivery, which Scirlin is held for.
 //!
-//! vrct-browser-core-bridge --state <settings folder> [--port <port>]
+//! astarot-browser-core-bridge --state <settings folder> [--port <port>]
 //!
 //! It listens on 127.0.0.1 and prints `ws://127.0.0.1:<port>` once ready. Over the WebSocket the
 //! page's stand-in for Tauri's IPC sends what the app's `backend_start`, `backend_write` and
@@ -29,8 +29,8 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tungstenite::protocol::Role;
 use tungstenite::{Message, WebSocket};
-use vrct_core::config::{Environment, Platform};
-use vrct_core::{Backend, Options, Sink};
+use astarot_core::config::{Environment, Platform};
+use astarot_core::{Backend, Options, Sink};
 
 /// How long a stopping run may take to save its settings.
 const STOP_LIMIT: Duration = Duration::from_secs(15);
@@ -56,7 +56,7 @@ fn args() -> Args {
 }
 
 fn usage(problem: &str) -> ! {
-    eprintln!("{problem}\nusage: vrct-browser-core-bridge --state <settings folder> [--port <port>]");
+    eprintln!("{problem}\nusage: astarot-browser-core-bridge --state <settings folder> [--port <port>]");
     std::process::exit(2);
 }
 

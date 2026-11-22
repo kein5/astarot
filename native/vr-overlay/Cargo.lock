@@ -19,8 +19,28 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "366ffbaa4442f4684d91e2cd7c5ea7c4ed8add41959a31447066e279e432b618"
 
 [[package]]
-name = "app-identity"
+name = "astarot-app-identity"
 version = "0.0.0"
+
+[[package]]
+name = "astarot-openvr-client"
+version = "0.0.0"
+dependencies = [
+ "libloading",
+]
+
+[[package]]
+name = "astarot-vr-overlay"
+version = "0.0.0"
+dependencies = [
+ "ab_glyph",
+ "astarot-app-identity",
+ "astarot-openvr-client",
+ "libc",
+ "serde_json",
+ "unicode-segmentation",
+ "windows",
+]
 
 [[package]]
 name = "cfg-if"
@@ -164,26 +184,6 @@ name = "unicode-segmentation"
 version = "1.13.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c6f5d3c3b1bf09027a88a6bc961fc00497d651009560b5463668dc81b0fa87a8"
-
-[[package]]
-name = "vrct-openvr-client"
-version = "0.0.0"
-dependencies = [
- "libloading",
-]
-
-[[package]]
-name = "vrct-vr-overlay"
-version = "0.0.0"
-dependencies = [
- "ab_glyph",
- "app-identity",
- "libc",
- "serde_json",
- "unicode-segmentation",
- "vrct-openvr-client",
- "windows",
-]
 
 [[package]]
 name = "windows"

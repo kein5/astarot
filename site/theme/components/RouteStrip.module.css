@@ -1,25 +1,21 @@
-/* A running head for feature pages: the signal route this page sets up, with this page's
-   step lit. Blue lanes carry what you send, purple lanes what comes back (how-it-works). */
+/* A running head for feature pages: the signal route this page sets up, with this page's step
+   lit in Lilac, the colour of what is chosen, as in the app. The lanes are not coloured by
+   direction; the lane's name says which way it goes (docs/design/site-redesign, S-04). */
 .routeStrip {
   display: grid;
   gap: 8px;
   margin-bottom: 24px;
   padding: 12px 16px;
-  border: 1px solid var(--vox-hairline);
-  border-radius: 8px;
+  border: 1px solid var(--a-border);
+  border-radius: var(--a-radius-control);
   background: var(--rp-c-bg-soft);
 }
 
 .lane {
-  --lane: var(--vox-mine);
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 4px 12px;
-}
-
-.lane.theirs {
-  --lane: var(--vox-theirs);
 }
 
 .laneName {
@@ -27,7 +23,7 @@
   font-size: 12px;
   font-weight: 600;
   line-height: 28px;
-  color: var(--lane);
+  color: var(--rp-c-text-2);
 }
 
 .lane ol {
@@ -46,14 +42,13 @@
   margin: 0;
 }
 
-/* The wire between two steps, ending in the lane's arrowhead. */
+/* The wire between two steps, ending in an arrowhead. */
 .wire {
   position: relative;
   width: 24px;
   height: 1.5px;
   margin: 0 8px;
-  background: var(--lane);
-  opacity: 0.7;
+  background: var(--a-field-border);
 }
 
 .wire::after {
@@ -63,7 +58,7 @@
   right: -1px;
   border-top: 3.75px solid transparent;
   border-bottom: 3.75px solid transparent;
-  border-left: 6px solid var(--lane);
+  border-left: 6px solid var(--a-field-border);
 }
 
 .node {
@@ -75,15 +70,11 @@
 
 .node.here {
   padding: 0 8px;
-  border: 1px solid var(--lane);
-  border-radius: 6px;
-  background: rgba(110, 168, 255, 0.14);
+  border: 1px solid var(--a-primary);
+  border-radius: var(--a-radius-small);
+  background: var(--a-primary-soft);
   color: var(--rp-c-text-1);
   font-weight: 600;
-}
-
-.theirs .node.here {
-  background: rgba(180, 140, 255, 0.14);
 }
 
 /* Phones: the lane name above, shorter wires so a 4-step route fits on one line. */

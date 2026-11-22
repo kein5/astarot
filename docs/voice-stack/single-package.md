@@ -105,7 +105,7 @@ CUDA 版の ZIP には、0.5.0 から標準版にないものが何もありま�
 ### 計る前にそろえるもの
 
 1. 音声認識: 同梱の speech.cpp と、カタログの Qwen3-ASR 0.6B Q8_0 と Silero VAD（同意を得て取得します）。計測の道具は #278 の `native/core/examples/live_asr.rs` です。中核をアプリと同じく起動し、デバイスと同じ間隔で音声を流します。#278 のマージを待ちます。
-2. ローカル翻訳: ONNX の翻訳モデルは公開していないので、`tools/translation_onnx/export.py` で作ります。元のモデルの取得に同意が要ります。GPU の実行プロバイダを含む ONNX Runtime は同梱していません（同梱は CPU 版）。DirectML 版（NuGet の 1.24.4）、OpenVINO 版、CUDA 版を `ORT_DYLIB_PATH` で指します。道具は `vrct-translate` と、それを動かす `tools/translation_onnx/compare.py` です。`vrct-translate` は `--device directml:<番号>` などで機器を選び、実際に動いた実行プロバイダと CPU への切り替えを標準エラーに出します。DirectML では、2026-11-18 より後の `export.py` で作ったフォルダを使います（前のものは `Reshape` の `allowzero=1` のため動きません）。計る前に、`tools/translation_onnx/tiny.py` の小さなモデルと `tests/real.rs` の `a_device_decodes_as_the_cpu_does` で、その GPU で CPU と同じ訳になることを確かめられます。
+2. ローカル翻訳: ONNX の翻訳モデルは公開していないので、`tools/translation_onnx/export.py` で作ります。元のモデルの取得に同意が要ります。GPU の実行プロバイダを含む ONNX Runtime は同梱していません（同梱は CPU 版）。DirectML 版（NuGet の 1.24.4）、OpenVINO 版、CUDA 版を `ORT_DYLIB_PATH` で指します。道具は `astarot-translate` と、それを動かす `tools/translation_onnx/compare.py` です。`astarot-translate` は `--device directml:<番号>` などで機器を選び、実際に動いた実行プロバイダと CPU への切り替えを標準エラーに出します。DirectML では、2026-11-18 より後の `export.py` で作ったフォルダを使います（前のものは `Reshape` の `allowzero=1` のため動きません）。計る前に、`tools/translation_onnx/tiny.py` の小さなモデルと `tests/real.rs` の `a_device_decodes_as_the_cpu_does` で、その GPU で CPU と同じ訳になることを確かめられます。
 
 ### 手順
 
@@ -123,7 +123,7 @@ CUDA 版の ZIP には、0.5.0 から標準版にないものが何もありま�
 
 ### 合格の目安（案）
 
-- 選んだ GPU で実際に動いたこと。speech.cpp のログの機器名と `vrct-translate` が出す実行プロバイダで確かめ、CPU への切り替えの知らせが出ないこと。
+- 選んだ GPU で実際に動いたこと。speech.cpp のログの機器名と `astarot-translate` が出す実行プロバイダで確かめ、CPU への切り替えの知らせが出ないこと。
 - 結果が CPU と同等であること。音声認識は文字の誤り率の差が 0.01 以内、ローカル翻訳は BLEU の差が既存の比較（CTranslate2 との差 −0.48〜+0.27）と同じ幅に収まること。
 - 音声認識の確定までの遅れが、同じ PC の CPU より長くならないこと。
 

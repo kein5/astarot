@@ -18,12 +18,12 @@ use common::fake_asr::{FakeAsr, KEY};
 use common::{Setup, Ui, error_code};
 use serde_json::{Value, json};
 use std::collections::BTreeSet;
-use vrct_core::config::Platform;
-use vrct_core::controller::Services;
+use astarot_core::config::Platform;
+use astarot_core::controller::Services;
 
 fn start(asr: &FakeAsr, saved: Value) -> Ui {
     let services = Services {
-        transcription_endpoints: vrct_transcription::providers::Endpoints::all_at(&asr.base()),
+        transcription_endpoints: astarot_transcription::providers::Endpoints::all_at(&asr.base()),
         ..Setup::default().services
     };
     let ui = Ui::with(Setup { saved: Some(saved), services, platform: Platform::Windows, ..Setup::default() });

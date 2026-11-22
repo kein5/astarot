@@ -16,6 +16,12 @@
 //! entries are encrypted for the signed-in user with DPAPI (`CryptProtectData`); on Linux the file
 //! is readable by its owner only (0600). Tests use a [`MemoryStore`], also as a stand-in OS store.
 //!
+//! 0.6.0 kept the keys in the OS store under its VRCT-VOX names. The app writes the ASTAROT names
+//! (ADR-014, 2.9) and reads the old ones as another place keys move from: a key found only there
+//! is copied to the new names, read back, and the old item is left as it is, so that 0.6.0 still
+//! finds it. Deleting a key removes it under both names. [`older_os_vault`] is where this ends,
+//! once old names are no longer read (ADR-014, 2.11).
+//!
 //! The OS store is never asked to show a dialog: a locked keyring, a store that does not answer
 //! or that is not there is a passing failure, which changes nothing in either place.
 //!
@@ -95,17 +101,32 @@ pub type StoreSource = Arc<dyn Fn(&super::Environment) -> Arc<dyn SecretStore> +
 /// The app's store: the OS credential store, with `secrets.json` in the settings folder as the
 /// place keys move from.
 pub fn default_store(env: &super::Environment) -> Arc<dyn SecretStore> {
-    Arc::new(SystemStore::new(FileStore::new(env.state_dir.join(FILE_NAME)), os_vault()))
+    let store = SystemStore::new(FileStore::new(env.state_dir.join(FILE_NAME)), os_vault());
+    Arc::new(match older_os_vault() {
+        Some(older) => store.with_older_names(older),
+        None => store,
+    })
 }
 
-/// The OS credential store of this platform.
+/// The OS credential store of this platform, under the names this build writes.
 pub fn os_vault() -> Arc<dyn Vault> {
     #[cfg(windows)]
-    return Arc::new(credential_manager::CredentialManager);
+    return Arc::new(credential_manager::CredentialManager::new());
     #[cfg(target_os = "linux")]
     return Arc::new(secret_service::SecretService::new());
     #[cfg(not(any(windows, target_os = "linux")))]
     return Arc::new(NoVault);
+}
+
+/// The same OS store under the names 0.6.0 kept its keys with (ADR-014, 2.9), read while ADR-014
+/// 2.11 reads old names. Returning `None` here stops reading them.
+pub fn older_os_vault() -> Option<Arc<dyn Vault>> {
+    #[cfg(windows)]
+    return Some(Arc::new(credential_manager::CredentialManager::older()));
+    #[cfg(target_os = "linux")]
+    return Some(Arc::new(secret_service::SecretService::older()));
+    #[cfg(not(any(windows, target_os = "linux")))]
+    return None;
 }
 
 /// No OS store on this platform: every call is a passing failure, so keys stay where they are.
@@ -260,6 +281,18 @@ impl MemoryStore {
         Arc::new(move |env| {
             Arc::new(SystemStore::new(FileStore::new(env.state_dir.join(FILE_NAME)), Arc::clone(&vault) as Arc<dyn Vault>))
                 as Arc<dyn SecretStore>
+        })
+    }
+
+    /// As [`MemoryStore::system_source`], with `older` standing in for the OS store under the
+    /// names of 0.6.0.
+    pub fn system_source_with_older(self: &Arc<Self>, older: &Arc<MemoryStore>) -> StoreSource {
+        let (vault, older) = (Arc::clone(self), Arc::clone(older));
+        Arc::new(move |env| {
+            Arc::new(
+                SystemStore::new(FileStore::new(env.state_dir.join(FILE_NAME)), Arc::clone(&vault) as Arc<dyn Vault>)
+                    .with_older_names(Arc::clone(&older) as Arc<dyn Vault>),
+            ) as Arc<dyn SecretStore>
         })
     }
 }

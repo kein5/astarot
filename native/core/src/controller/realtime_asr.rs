@@ -3,7 +3,7 @@
 //!
 //! Port of the realtime parts of [`src-python/controller.py`] (`_initRealtimeASR` to
 //! `_startRealtime`). The session, its transport and the delivery of captions are in
-//! `vrct_transcription::realtime`. Captions go to the UI as `/run/realtime_caption` and to the
+//! `astarot_transcription::realtime`. Captions go to the UI as `/run/realtime_caption` and to the
 //! VR large log; finals go through the message pipeline (`REALTIME_MIC`, `REALTIME_SPEAKER`).
 //!
 //! [`src-python/controller.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/controller.py
@@ -19,13 +19,13 @@ use serde_json::{Value, json};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
-use vrct_audio_routing::graph::{Endpoint, SourceId};
-use vrct_speech_server::Profile;
-use vrct_transcription::realtime::{Admission, Delivery, Options, Session, Update};
-use vrct_transcription::server_vad::{self, ServerVad};
-use vrct_transcription::speechcpp;
-use vrct_transcription::vad::Vad;
-use vrct_translation::http::Cancel;
+use astarot_audio_routing::graph::{Endpoint, SourceId};
+use astarot_speech_server::Profile;
+use astarot_transcription::realtime::{Admission, Delivery, Options, Session, Update};
+use astarot_transcription::server_vad::{self, ServerVad};
+use astarot_transcription::speechcpp;
+use astarot_transcription::vad::Vad;
+use astarot_translation::http::Cancel;
 
 const SETTINGS_KEY: &str = "REALTIME_ASR_SETTINGS";
 /// A started server enforces its own start timeout; this only bounds a switch's wait.
@@ -44,8 +44,8 @@ pub struct RealtimeLimits {
     /// How long a start waits for the previous session of its source to end, before it fails
     /// with `realtime_previous_owner_busy` (3 s).
     pub drain: Duration,
-    /// The session's own ([`vrct_transcription::realtime::Limits`]).
-    pub session: vrct_transcription::realtime::Limits,
+    /// The session's own ([`astarot_transcription::realtime::Limits`]).
+    pub session: astarot_transcription::realtime::Limits,
 }
 
 impl Default for RealtimeLimits {
@@ -263,7 +263,7 @@ impl Core {
         }
         let reachable = settings["base_url"]
             .as_str()
-            .and_then(|url| vrct_translation::http::Url::parse(url).ok())
+            .and_then(|url| astarot_translation::http::Url::parse(url).ok())
             .and_then(|url| {
                 use std::net::ToSocketAddrs;
                 (url.host.trim_start_matches('[').trim_end_matches(']'), url.port).to_socket_addrs().ok()
@@ -288,7 +288,7 @@ impl Core {
     }
 
     /// The VAD a source's recorder cuts with while its switch is on: the services' engine, else
-    /// Silero VAD on the speech.cpp server ([`vrct_transcription::server_vad`]). A server that is
+    /// Silero VAD on the speech.cpp server ([`astarot_transcription::server_vad`]). A server that is
     /// not set up, or one the recording cannot use, is told (`/run/vad_unavailable`), and the
     /// energy listener cuts.
     pub(crate) fn recorder_vad(self: &Arc<Self>, source: Source) -> Option<Vad> {
@@ -708,7 +708,7 @@ impl Core {
             run = row["generation"].as_u64().unwrap_or(0);
             if !matches!(row["state"].as_str(), Some("ready" | "preparing")) {
                 if let Err(code) = self.speech_servers().hub().start(Profile::Asr, options, run) {
-                    return Some(if code == vrct_speech_server::codes::BUSY { "speech_server_busy" } else { "speech_server_start_failed" }.into());
+                    return Some(if code == astarot_speech_server::codes::BUSY { "speech_server_busy" } else { "speech_server_start_failed" }.into());
                 }
                 run += 1;
                 toggle.asr_owned = Some(run);
@@ -1062,7 +1062,7 @@ impl Core {
                         (weak.clone(), current.clone(), admitted.clone(), session.clone(), arrival.clone());
                     Arc::new(move |payload: Value| -> bool {
                         let (Some(core), Some(arrival)) = (weak.upgrade(), arrival.as_ref()) else { return false };
-                        core.publish_caption(source, generation, payload, &*current, &*admitted, &session, &arrival.snapshot)
+                        core.publish_caption(source, generation, payload, current.clone(), admitted.clone(), &session, &arrival.snapshot)
                     })
                 };
                 // The voice settings when the final arrived (`snapshot_voice`): its speech is
@@ -1071,7 +1071,7 @@ impl Core {
                 let process = {
                     let (weak, current, admitted) = (weak.clone(), current.clone(), admitted.clone());
                     let voice_snapshot = std::sync::Mutex::new(voice_snapshot);
-                    Arc::new(move |update: &Update, valid: vrct_transcription::realtime::delivery::Current, output: vrct_transcription::realtime::delivery::Output| -> Result<Option<Value>, ()> {
+                    Arc::new(move |update: &Update, valid: astarot_transcription::realtime::delivery::Current, output: astarot_transcription::realtime::delivery::Output| -> Result<Option<Value>, ()> {
                         let (Some(core), Some(arrival)) = (weak.upgrade(), arrival.clone()) else { return Ok(None) };
                         if !(current() && valid() && admitted()) {
                             return Ok(None);
@@ -1114,15 +1114,16 @@ impl Core {
     }
 
     /// `publish` of `_startRealtime`: a caption row to the UI and the VR large log, drawn with
-    /// the settings its update arrived with.
+    /// the settings its update arrived with. The picture is queued for the caption worker (#861),
+    /// so that this loop goes on reading the recognition's updates, and the row goes after it.
     #[allow(clippy::too_many_arguments)]
     fn publish_caption(
-        &self,
+        self: &Arc<Self>,
         source: Source,
         generation: u64,
         payload: Value,
-        current: &(dyn Fn() -> bool + Send + Sync),
-        admitted: &(dyn Fn() -> bool + Send + Sync),
+        current: Arc<dyn Fn() -> bool + Send + Sync>,
+        admitted: Arc<dyn Fn() -> bool + Send + Sync>,
         session: &Session,
         snapshot: &Snapshot,
     ) -> bool {
@@ -1137,36 +1138,41 @@ impl Core {
         if !valid() {
             return false;
         }
-        self.run(200, "/run/realtime_caption", shown_payload);
         if self.config().get_bool("OVERLAY_LARGE_LOG") {
-            let namespace = payload["namespace"].as_str().unwrap_or("");
-            let state = payload["state"].as_str().unwrap_or("");
+            let namespace = payload["namespace"].as_str().unwrap_or("").to_string();
+            let state = payload["state"].as_str().unwrap_or("").to_string();
+            let item = payload["item_id"].as_str().unwrap_or("").to_string();
             let expires = payload["expires_ns"].as_u64().unwrap_or(0);
-            let overlay_current = || {
-                valid()
-                    && self.config().get_bool("OVERLAY_LARGE_LOG")
-                    && session.is_current(namespace)
-                    && (state == "discarded"
-                        || vrct_transcription::realtime::delivery::monotonic_ns(Instant::now()) < expires)
-            };
+            let revision = payload["revision"].as_u64().unwrap_or(0);
             let message = caption_message(source, &payload, snapshot);
-            let item = payload["item_id"].as_str().unwrap_or("");
-            let shown = self.show_overlay_caption(
-                source.as_str(),
-                namespace,
-                item,
-                state,
-                payload["revision"].as_u64().unwrap_or(0),
-                &message,
-                &overlay_current,
-            );
-            // A failed caption is told like a failed output of a message (`_runMessageSink`
-            // "overlay_large"); the caption still reaches the UI and the final goes on.
-            if shown.is_err() {
-                let id = format!("{namespace}:{item}");
-                self.output_failed("overlay_large", spec(source), Some(&id), &valid, &mut Vec::new());
-            }
+            let partial_of = (state == "partial").then(|| (source.as_str().to_string(), namespace.clone(), item.clone()));
+            let (weak, session) = (Arc::downgrade(self), session.clone());
+            self.queue_overlay_caption(super::overlay::CaptionJob {
+                partial_of,
+                draw: Box::new(move || {
+                    let Some(core) = weak.upgrade() else { return };
+                    // The caption was current and admitted when it was published. A partial
+                    // still needs its session: drawn after the session ended, it would stay, as
+                    // the end discarded the partials already. A final, a translation or a
+                    // discard is drawn as it would have been at once, even when listening stopped
+                    // meanwhile (the captions shown stay).
+                    let still = || {
+                        core.config().get_bool("OVERLAY_LARGE_LOG")
+                            && (state != "partial" || (current() && admitted() && session.is_current(&namespace)))
+                            && (state == "discarded"
+                                || astarot_transcription::realtime::delivery::monotonic_ns(Instant::now()) < expires)
+                    };
+                    let shown = core.show_overlay_caption(source.as_str(), &namespace, &item, &state, revision, &message, &still);
+                    // A failed caption is told like a failed output of a message (`_runMessageSink`
+                    // "overlay_large"); the caption still reaches the UI and the final goes on.
+                    if shown.is_err() {
+                        let id = format!("{namespace}:{item}");
+                        core.output_failed("overlay_large", spec(source), Some(&id), &still, &mut Vec::new());
+                    }
+                }),
+            });
         }
+        self.run(200, "/run/realtime_caption", shown_payload);
         true
     }
 
@@ -1270,10 +1276,10 @@ fn caption_message(source: Source, payload: &Value, snapshot: &Snapshot) -> supe
 }
 
 /// A realtime final as speech sees it (`TranscriptUpdate`), on speech's clock.
-fn speech_update(update: &Update) -> vrct_tts::message_hook::TranscriptUpdate {
-    let now = vrct_tts::clock::monotonic_ns();
+fn speech_update(update: &Update) -> astarot_tts::message_hook::TranscriptUpdate {
+    let now = astarot_tts::clock::monotonic_ns();
     let age = update.received.map_or(0, |at| i64::try_from(at.elapsed().as_nanos()).unwrap_or(i64::MAX));
-    vrct_tts::message_hook::TranscriptUpdate {
+    astarot_tts::message_hook::TranscriptUpdate {
         source: update.source.to_string(),
         is_final: update.is_final,
         state: update.state.to_string(),

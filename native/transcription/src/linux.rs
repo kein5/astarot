@@ -1,5 +1,5 @@
 //! Linux capture for realtime recognition (decision 2 of #733): one PipeWire node through the
-//! capture stream of `vrct-audio-routing` (`pipewire::capture::PipeWireCapture`), the same
+//! capture stream of `astarot-audio-routing` (`pipewire::capture::PipeWireCapture`), the same
 //! capture the voice conversion uses. Python started the `vrct-asr-capture` helper for it
 //! ([`capture_pipewire.py`]); the checks of the endpoint before it starts are that helper's, and
 //! so are the failure codes (`asr_capture_*`).
@@ -10,15 +10,15 @@
 
 use crate::capture::{Capture, OnAudio, OnError, Source, media_class};
 use crate::endpoint_choice;
-use vrct_audio_routing::graph::Endpoint;
+use astarot_audio_routing::graph::Endpoint;
 
 #[cfg(feature = "pipewire")]
-fn read_graph() -> Result<std::sync::Arc<vrct_audio_routing::graph::Graph>, String> {
-    vrct_audio_routing::pipewire::read_graph_data(true, None).map_err(|_| "realtime_graph_unavailable".to_string())
+fn read_graph() -> Result<std::sync::Arc<astarot_audio_routing::graph::Graph>, String> {
+    astarot_audio_routing::pipewire::read_graph_data(true, None).map_err(|_| "realtime_graph_unavailable".to_string())
 }
 
 #[cfg(not(feature = "pipewire"))]
-fn read_graph() -> Result<std::sync::Arc<vrct_audio_routing::graph::Graph>, String> {
+fn read_graph() -> Result<std::sync::Arc<astarot_audio_routing::graph::Graph>, String> {
     Err("realtime_graph_unavailable".into())
 }
 
@@ -26,10 +26,10 @@ fn read_graph() -> Result<std::sync::Arc<vrct_audio_routing::graph::Graph>, Stri
 pub fn endpoints(source: Source) -> Result<Vec<(Endpoint, String)>, String> {
     let graph = read_graph()?;
     let mut rows = Vec::new();
-    for item in vrct_audio_routing::graph::nodes(&graph) {
-        let Some(name) = vrct_audio_routing::graph::node_name(item) else { continue };
+    for item in astarot_audio_routing::graph::nodes(&graph) {
+        let Some(name) = astarot_audio_routing::graph::node_name(item) else { continue };
         let Ok(endpoint) = endpoint_choice::select(&graph, name, source) else { continue };
-        let label = vrct_audio_routing::graph::props(item)
+        let label = astarot_audio_routing::graph::props(item)
             .and_then(|p| p.get("node.description"))
             .and_then(|v| v.as_str())
             .filter(|l| !l.is_empty())
@@ -63,7 +63,7 @@ pub fn open(endpoint: &Endpoint, source: Source, on_audio: OnAudio, on_error: On
         // The stream's name is one `endpoint_choice` never offers as an endpoint.
         let (endpoint, name) = (endpoint.clone(), format!("vrct.asr.capture.{}", source.as_str()));
         crate::capture::start_until_audio(
-            move |callbacks| Box::new(vrct_audio_routing::pipewire::capture::PipeWireCapture::new(endpoint, &name, callbacks)),
+            move |callbacks| Box::new(astarot_audio_routing::pipewire::capture::PipeWireCapture::new(endpoint, &name, callbacks)),
             on_audio,
             on_error,
             crate::capture::FIRST_AUDIO_WAIT,

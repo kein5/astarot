@@ -17,7 +17,7 @@ use crate::protocol::Reply;
 use serde_json::{Value, json};
 use std::net::IpAddr;
 use std::sync::{Arc, Weak};
-use vrct_adapters::osc::{OscArg, OscError, PARAMETER_MUTE_SELF, Target, uses_osc_query};
+use astarot_adapters::osc::{OscArg, OscError, PARAMETER_MUTE_SELF, Target, uses_osc_query};
 
 const AVATAR_CHANGE: &str = "/avatar/change";
 

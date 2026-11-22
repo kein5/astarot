@@ -38,7 +38,7 @@ ASTAROT（旧名VRCT-VOX）は音声認識（ASR）、読み上げ（TTS）、�
 - **ボイスチェンジ**: RVCでマイクの声を変換します。WindowsとLinuxではライセンスとサイズを確認したうえで、実行環境をアプリから取得できます。CUDAでの変換にはGeForce GTX 16・RTX 20シリーズ以降のGPUとドライバー580以降が必要です。Windowsでは0.6.0から、DirectX 12対応のGPUもDirectMLで使えます。CPUでも処理が間に合えば変換できますが、声は遅れて届きます。Seed-VCは0.5.0で廃止しました。保存してあったSeed-VCの設定はRVCに切り替わります。
 - **リアルタイム字幕**: 同梱のspeech.cppの音声認識サーバーで自分のマイクとほかのプレイヤーの声を文字にします。
 - **同梱サーバー**: speech.cppのサーバーを設定画面から保存・起動・停止できます。
-- **モデルの取得**: Irodori、Qwen3-TTS、RVCの既定モデルと、speech.cppが扱う音声認識モデル（Qwen3-ASR、ReazonSpeech、Haas-jaなど）を、ライセンスと容量を確認して同意したうえでHugging Faceから取得できます。サイズとSHA-256を検証し、設定への適用は別の操作です。GPUとVRAMに応じて標準・軽量モデルの目安を出しますが、動作を保証するものではありません。
+- **モデルの取得**: Irodori、Qwen3-TTS、RVCの既定モデル、翻訳のモデル（M2M100、NLLB-200）と、speech.cppが扱う音声認識モデル（Qwen3-ASR、ReazonSpeech、Haas-jaなど）を、ライセンスと容量を確認して同意したうえでHugging Faceから取得できます。サイズとSHA-256を検証し、設定への適用は別の操作です。GPUとVRAMに応じて標準・軽量モデルの目安を出しますが、動作を保証するものではありません。
 - **Linux対応**: Waylandでのグローバルショートカット（XDG portal）、PipeWireの仮想マイクとマイク選択、AppImageでの日本語入力（fcitx/Mozc、ibus）に対応しています。VR UI、Waylandネイティブのウィンドウを共有するチャット読み取り、音声タイピングモードの貼り付け（X11/XWaylandのウィンドウ）も使えます。
 
 RVCには音声モデルのほかに実行環境、HuBERT、RMVPEが必要です。[モデル取得の仕様](/docs/voice-stack/model-downloads.md)と、Windowsでは[Windowsで音声機能を使う](/docs/voice-stack/local-setup-windows.md)、Linuxでは[Linuxの手順](/docs/voice-stack/local-setup-linux.md)を参照してください。
@@ -48,7 +48,7 @@ RVCには音声モデルのほかに実行環境、HuBERT、RMVPEが必要です
 最新の版は **[GitHub Releases](https://github.com/kein5/astarot/releases/latest)** にあります（上のreleaseのバッジに番号が出ます）。バージョン番号は本家VRCT（3.x）とは別に0.1.0から数えます。ベータ版は`develop`から、正式版は`main`から公開します。
 
 - **Linux**: AppImage、tar.gz、deb、rpm（x64、Vulkan）。0.5より前の版は、CachyOS（KDE Plasma Wayland）で実際のモデルを使って試験しました。
-- **Windows**: インストーラーとzip。どのPCも同じ配布物です（0.5までのリリースには、同じ中身のCUDA版のzipもあります）。0.5より前の版は、Windows 11の実機で実際のモデルを使って試験しました（[検証記録](/docs/voice-stack/windows-voice-report.md)）。電子署名がないため、初回起動時にSmartScreenの警告が出ます。
+- **Windows**: インストーラーとzip。どのPCも同じ配布物です（0.5系のリリースには、同じ中身のCUDA版のzipもあります）。0.5より前の版は、Windows 11の実機で実際のモデルを使って試験しました（[検証記録](/docs/voice-stack/windows-voice-report.md)）。電子署名がないため、初回起動時にSmartScreenの警告が出ます。
 
 いまの版で配布形式と機能ごとにどこまで確かめたか、CIで確かめたことと実機で確かめたことの違いは、**[対応環境と検証の範囲](https://kein5.github.io/astarot/ja/guide/support)** にあります。
 

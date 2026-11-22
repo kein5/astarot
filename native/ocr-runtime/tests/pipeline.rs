@@ -5,16 +5,16 @@
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
-use ocr_runtime::detection::{Candidate, RegionValue, Surface};
-use ocr_runtime::engine::Word;
-use ocr_runtime::failure::{Clock, Failure, Log};
-use ocr_runtime::languages::OcrModelSpec;
-use ocr_runtime::pipeline::{
+use astarot_ocr_runtime::detection::{Candidate, RegionValue, Surface};
+use astarot_ocr_runtime::engine::Word;
+use astarot_ocr_runtime::failure::{Clock, Failure, Log};
+use astarot_ocr_runtime::languages::OcrModelSpec;
+use astarot_ocr_runtime::pipeline::{
     CaptureStatus, DedupCache, Detector, FrameSource, Message, OcrPipeline, PipelineCore, PipelineOptions, Reader, ReaderFactory, Settings, Shared, StartError, ENGINE_BACKOFF_THRESHOLD,
     RECOGNITION_REFRESH_SEC,
 };
-use ocr_runtime::text::{merge_words, similar, text_key};
-use ocr_runtime::BgrImage;
+use astarot_ocr_runtime::text::{merge_words, similar, text_key};
+use astarot_ocr_runtime::BgrImage;
 
 // ---- fakes ---------------------------------------------------------------------------
 
@@ -1113,22 +1113,22 @@ fn merging_lines_into_a_message() {
 // ---- lifecycle (start errors, stop, restart) -----------------------------------------
 
 struct Readers {
-    result: Mutex<Result<Arc<dyn Reader>, ocr_runtime::Error>>,
+    result: Mutex<Result<Arc<dyn Reader>, astarot_ocr_runtime::Error>>,
     calls: AtomicUsize,
 }
 
 impl ReaderFactory for Readers {
-    fn reader_for(&self, _spec: &OcrModelSpec) -> Result<Arc<dyn Reader>, ocr_runtime::Error> {
+    fn reader_for(&self, _spec: &OcrModelSpec) -> Result<Arc<dyn Reader>, astarot_ocr_runtime::Error> {
         self.calls.fetch_add(1, Ordering::SeqCst);
         match &*self.result.lock().unwrap() {
             Ok(reader) => Ok(reader.clone()),
-            Err(ocr_runtime::Error::ModelsMissing(ids)) => Err(ocr_runtime::Error::ModelsMissing(ids.clone())),
-            Err(error) => Err(ocr_runtime::Error::Backend(error.to_string())),
+            Err(astarot_ocr_runtime::Error::ModelsMissing(ids)) => Err(astarot_ocr_runtime::Error::ModelsMissing(ids.clone())),
+            Err(error) => Err(astarot_ocr_runtime::Error::Backend(error.to_string())),
         }
     }
 }
 
-fn pipeline(h: Harness, result: Result<Arc<dyn Reader>, ocr_runtime::Error>, probe: CaptureStatus) -> (OcrPipeline, Arc<Readers>) {
+fn pipeline(h: Harness, result: Result<Arc<dyn Reader>, astarot_ocr_runtime::Error>, probe: CaptureStatus) -> (OcrPipeline, Arc<Readers>) {
     let readers = Arc::new(Readers { result: Mutex::new(result), calls: AtomicUsize::new(0) });
     (OcrPipeline::new(h.core, readers.clone(), Box::new(move |_| probe)), readers)
 }
@@ -1136,12 +1136,12 @@ fn pipeline(h: Harness, result: Result<Arc<dyn Reader>, ocr_runtime::Error>, pro
 #[test]
 fn start_reports_why_it_cannot_read() {
     let h = Harness::new();
-    let (mut p, _) = pipeline(h, Err(ocr_runtime::Error::ModelsMissing(vec!["ppocrv6-small".into()])), CaptureStatus::Ok);
+    let (mut p, _) = pipeline(h, Err(astarot_ocr_runtime::Error::ModelsMissing(vec!["ppocrv6-small".into()])), CaptureStatus::Ok);
     assert_eq!(p.start(), Err(StartError::ModelMissing));
     assert!(!p.is_alive());
 
     let h = Harness::new();
-    let (mut p, _) = pipeline(h, Err(ocr_runtime::Error::ModelsInvalid("hash mismatch".into())), CaptureStatus::Ok);
+    let (mut p, _) = pipeline(h, Err(astarot_ocr_runtime::Error::ModelsInvalid("hash mismatch".into())), CaptureStatus::Ok);
     assert_eq!(p.start(), Err(StartError::ModelLoadFailed));
 
     let h = Harness::new();
@@ -1211,7 +1211,7 @@ fn settings_reach_the_idle_pipeline_and_language_failures_are_reported() {
     assert_eq!(readers.calls.load(Ordering::SeqCst), 0);
     p.apply_pending_idle();
     assert_eq!(p.core().unwrap().poll_interval, 0.25);
-    *readers.result.lock().unwrap() = Err(ocr_runtime::Error::ModelsMissing(vec!["ppocrv5-korean".into()]));
+    *readers.result.lock().unwrap() = Err(astarot_ocr_runtime::Error::ModelsMissing(vec!["ppocrv5-korean".into()]));
     assert_eq!(p.apply_config(Settings::default(), Some("Korean".into())), Err(StartError::ModelMissing));
     p.apply_pending_idle();
     assert_eq!(p.core().unwrap().source_language, "auto");

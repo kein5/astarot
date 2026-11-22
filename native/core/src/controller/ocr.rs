@@ -18,10 +18,10 @@ use super::settings::{python_str, store, switch};
 use super::{Core, error, ok, python_float, python_int, python_round, run_endpoint};
 use crate::errors::ErrorReply;
 use crate::protocol::Reply;
-use ocr_runtime::capture::SharedState;
-use ocr_runtime::detection::{RegionValue, Surface};
-use ocr_runtime::failure::{Clock, Log as OcrLog, MonotonicClock};
-use ocr_runtime::pipeline::{
+use astarot_ocr_runtime::capture::SharedState;
+use astarot_ocr_runtime::detection::{RegionValue, Surface};
+use astarot_ocr_runtime::failure::{Clock, Log as OcrLog, MonotonicClock};
+use astarot_ocr_runtime::pipeline::{
     CaptureFactory, CaptureStatus, Detector, Message, OcrPipeline, PipelineCore, PipelineHandle, PipelineOptions, ReaderFactory,
     RuntimeStatus, Settings, StartError,
 };
@@ -69,22 +69,22 @@ impl Default for RealOcr {
 
 impl OcrPlatform for RealOcr {
     fn engine_available(&self) -> bool {
-        ocr_runtime::engine::is_available()
+        astarot_ocr_runtime::engine::is_available()
     }
     fn probe_capture(&self, window_title: &str, log: Arc<dyn OcrLog>) -> CaptureStatus {
-        ocr_runtime::capture::probe(window_title, log, Arc::clone(&self.clock))
+        astarot_ocr_runtime::capture::probe(window_title, log, Arc::clone(&self.clock))
     }
     fn available_sources(&self, log: Arc<dyn OcrLog>) -> Vec<&'static str> {
-        ocr_runtime::capture::available_capture_sources(log, Arc::clone(&self.clock))
+        astarot_ocr_runtime::capture::available_capture_sources(log, Arc::clone(&self.clock))
     }
     fn capture_factory(&self, log: Arc<dyn OcrLog>) -> CaptureFactory {
-        ocr_runtime::capture::capture_factory(log, Arc::clone(&self.clock))
+        astarot_ocr_runtime::capture::capture_factory(log, Arc::clone(&self.clock))
     }
     fn readers(&self, root: &Path) -> Arc<dyn ReaderFactory> {
-        Arc::new(ocr_runtime::pipeline::EngineReaders::new(Some(root.to_path_buf()), ocr_runtime::engine::onnx_threads()))
+        Arc::new(astarot_ocr_runtime::pipeline::EngineReaders::new(Some(root.to_path_buf()), astarot_ocr_runtime::engine::onnx_threads()))
     }
     fn detector(&self, root: &Path, log: &Arc<dyn OcrLog>) -> Option<Box<dyn Detector>> {
-        ocr_runtime::chatbox::build_chatbox_detector(root, ocr_runtime::engine::onnx_threads(), log).map(|d| Box::new(d) as Box<dyn Detector>)
+        astarot_ocr_runtime::chatbox::build_chatbox_detector(root, astarot_ocr_runtime::engine::onnx_threads(), log).map(|d| Box::new(d) as Box<dyn Detector>)
     }
     fn clock(&self) -> Arc<dyn Clock> {
         Arc::clone(&self.clock)
@@ -295,7 +295,7 @@ impl Core {
         let config = self.config();
         let language = config.get_str("OCR_SOURCE_LANGUAGE");
         let log = self.ocr_log();
-        if !ocr_runtime::languages::is_supported(&language) {
+        if !astarot_ocr_runtime::languages::is_supported(&language) {
             self.step("OCR: the source language is not selected or not supported, refusing to start");
             return Err(StartError::UnsupportedLanguage.code());
         }
@@ -405,7 +405,7 @@ impl Core {
         if self.ocr.shutting_down() {
             return Ok(false);
         }
-        if ocr_runtime::languages::resolve_model_spec(language).is_none() {
+        if astarot_ocr_runtime::languages::resolve_model_spec(language).is_none() {
             return Err(StartError::UnsupportedLanguage.code());
         }
         if let Some(pipeline) = running.pipeline.as_mut().filter(|p| p.is_alive()) {
@@ -423,15 +423,15 @@ impl Core {
     /// start-up settings carry it and the chat reading page is drawn at its size from the start.
     fn ocr_model_readiness(&self) -> Map<String, Value> {
         let language = self.config().get("OCR_SOURCE_LANGUAGE");
-        let spec = language.as_str().and_then(ocr_runtime::languages::resolve_model_spec);
+        let spec = language.as_str().and_then(astarot_ocr_runtime::languages::resolve_model_spec);
         let root = self.ocr_model_root();
         let mut map = Map::new();
         map.insert("language".into(), language);
         map.insert("language_supported".into(), json!(spec.is_some()));
         map.insert("required_models".into(), json!(spec.map(|s| s.model_ids()).unwrap_or_default()));
-        map.insert("missing_models".into(), json!(spec.map(|s| ocr_runtime::models::missing_models(&root, &s)).unwrap_or_default()));
-        map.insert("detector_model".into(), json!(ocr_runtime::models::DETECTOR_MODEL_ID));
-        map.insert("detector_installed".into(), json!(ocr_runtime::chatbox::is_detector_installed(&root)));
+        map.insert("missing_models".into(), json!(spec.map(|s| astarot_ocr_runtime::models::missing_models(&root, &s)).unwrap_or_default()));
+        map.insert("detector_model".into(), json!(astarot_ocr_runtime::models::DETECTOR_MODEL_ID));
+        map.insert("detector_installed".into(), json!(astarot_ocr_runtime::chatbox::is_detector_installed(&root)));
         map.insert("detector_enabled".into(), json!(self.config().get("OCR_USE_CHATBOX_DETECTOR") == json!(true)));
         map
     }
@@ -609,7 +609,7 @@ pub(crate) fn add(b: &mut Builder<'_>) {
     b.with("/set/data/ocr_source_language", OPEN, |core, data| {
         let previous = core.config().get("OCR_SOURCE_LANGUAGE");
         let language = python_str(data);
-        if !ocr_runtime::languages::selectable_languages().contains(&language.as_str()) {
+        if !astarot_ocr_runtime::languages::selectable_languages().contains(&language.as_str()) {
             return error("VALIDATION_CONFIG_VALUE_INVALID", previous);
         }
         match core.set_ocr_language(&language) {
@@ -628,7 +628,7 @@ pub(crate) fn add(b: &mut Builder<'_>) {
 #[cfg(test)]
 mod tests {
     use super::{region_value, round4};
-    use ocr_runtime::detection::RegionValue;
+    use astarot_ocr_runtime::detection::RegionValue;
     use serde_json::json;
 
     #[test]

@@ -9,7 +9,7 @@
 
 チャット読み取りの`OCR_CAPTURE_REGION`はデスクトップウィンドウ用、`OCR_VR_CAPTURE_REGION`はSteamVRの左目側の映像用。旧版の単一範囲はウィンドウ用に保持し、未保存のVR側には全体を補う。[範囲の形と移行](../data-and-persistence.md#チャット読み取りの範囲)を参照。
 
-## config.jsonに保存するキー（144件）
+## config.jsonに保存するキー（145件）
 
 | キー | 型・検証 | 既定値 | 保存 |
 |---|---|---|---|
@@ -37,6 +37,7 @@
 | `EXPERIMENTAL_FEATURES` | 検証 `experimental_features` | `{"tray_companion": false}` | 即時 |
 | `USAGE_PRESETS` | 検証 `usage_presets` | `["basic"]` | 即時 |
 | `CATALOG_LAYOUT` | str、独自の検証 | `"grid"` | 2秒後にまとめて |
+| `THEME` | 検証 `theme` | `{"preset": "dark_plum", "custom": {"base": "#261633", "accent": "#a47af5"}}` | 2秒後にまとめて |
 | `TRAY_COMPANION_EDGE` | str（`TRAY_COMPANION_EDGE_LIST`のどれか） | `"right"` | 2秒後にまとめて |
 | `TRAY_COMPANION_MONITOR` | str、独自の検証 | `""` | 2秒後にまとめて |
 | `TRAY_COMPANION_WHEEL_HINT_SHOWN` | bool | `false` | 2秒後にまとめて |
@@ -69,7 +70,7 @@
 | `DIRECT_VOICE_SETTINGS` | 検証 `voice_settings::load_direct` | `{"mode": "passthrough", "runtime": "", "reference": "", "engine": "rvc", "rvc_runtime": "", "rvc_model": "", "rvc_index": "", "rvc_pitch": 0, "rvc_index_rate": 0.0, "rvc_device": "auto", "rvc_threads": 0, "rvc_highpass": true}` | 2秒後にまとめて |
 | `RVC_BLOCK_MS` | int、検証 `is_valid_rvc_block_ms` | `0` | 2秒後にまとめて |
 | `REALTIME_ASR_SETTINGS` | 検証 `voice_settings::normalize_realtime` | `{"version": 1, "server": "external", "start_server": true, "base_url": "http://127.0.0.1:8080", "model": "", "vocabulary": {"builtin": true, "terms": []}, "mic": {"language": "ja", "endpoint": null, "follow_default": true}, "speaker": {"language": "auto", "endpoint": null, "follow_default": true}}` | 2秒後にまとめて |
-| `SPEECH_SERVER_SETTINGS` | 検証 `vrct_speech_server::settings::normalize_settings` | `{"version": 1, "profiles": {"japanese": {"model": "", "vad_model": "", "diarization_model": "", "voice_file": "", "device": "auto", "low_latency": false}, "multilingual": {"model": "", "vad_model": "", "diarization_model": "", "voice_file": "", "device": "auto", "low_latency": false}, "asr": {"model": "", "vad_model": "", "diarization_model": "", "voice_file": "", "device": "auto", "low_latency": false}}}` | 2秒後にまとめて |
+| `SPEECH_SERVER_SETTINGS` | 検証 `astarot_speech_server::settings::normalize_settings` | `{"version": 1, "profiles": {"japanese": {"model": "", "vad_model": "", "diarization_model": "", "voice_file": "", "device": "auto", "low_latency": false}, "multilingual": {"model": "", "vad_model": "", "diarization_model": "", "voice_file": "", "device": "auto", "low_latency": false}, "asr": {"model": "", "vad_model": "", "diarization_model": "", "voice_file": "", "device": "auto", "low_latency": false}}}` | 2秒後にまとめて |
 | `WEBSOCKET_SERVER` | bool | `false` | 2秒後にまとめて |
 | `OSC_IP_ADDRESS` | str | `"127.0.0.1"` | 2秒後にまとめて |
 | `OSC_PORT` | int、検証 `is_valid_port` | `9000` | 2秒後にまとめて |
@@ -165,7 +166,7 @@
 
 | キー | 型・検証 | 既定値 | 扱い |
 |---|---|---|---|
-| `VERSION` |  | `"0.6.0-beta.2"` | 読み取り専用 |
+| `VERSION` |  | `"0.6.0"` | 読み取り専用 |
 | `PATH_LOCAL` |  | `"<app>"` | 読み取り専用 |
 | `PATH_DATA` |  | `"<data>"` | 読み取り専用 |
 | `PATH_CONFIG` |  | `"<state>/config.json"` | 読み取り専用 |

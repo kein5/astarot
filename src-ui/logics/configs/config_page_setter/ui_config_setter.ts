@@ -239,6 +239,16 @@ export const SETTINGS_ARRAY = [
         logics_template_id: "get_set",
         base_endpoint_name: "catalog_layout",
     },
+    // The app's theme (#965, logics/theme/themes.ts): the preset in use, or "custom", and the user's
+    // own base and accent colours. The default is the brand's Dark Plum and Lilac.
+    {
+        Category: "Appearance",
+        Base_Name: "Theme",
+        default_value: { preset: "dark_plum", custom: { base: "#261633", accent: "#a47af5" } },
+        ui_template_id: "custom",
+        logics_template_id: "get_set",
+        base_endpoint_name: "theme",
+    },
     {
         Category: "Appearance",
         Base_Name: "ShowResendButton",

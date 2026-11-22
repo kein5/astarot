@@ -38,7 +38,7 @@ ASTAROT (formerly VRCT-VOX) is a desktop app for VRChat that combines speech rec
 - **Voice conversion.** Convert your microphone with RVC. On Windows and Linux the app fetches its runtime after showing its license and size. CUDA conversion needs an NVIDIA GeForce GTX 16 or RTX 20 series GPU or later with driver 580 or later. From 0.6.0, Windows can also use DirectML on a DirectX 12 GPU. CPU conversion has a longer delay and requires a CPU fast enough for live audio. Seed-VC is no longer offered from 0.5.0; a saved Seed-VC setting switches to RVC.
 - **Realtime captions.** Transcribe your microphone and other players with bundled speech.cpp ASR servers.
 - **Bundled servers.** Save, start and stop speech.cpp servers from the settings.
-- **Model downloads.** Download fixed Irodori, Qwen3-TTS, RVC and speech recognition models (every recognizer speech.cpp offers, such as Qwen3-ASR, ReazonSpeech and Haas-ja) from Hugging Face. Each download asks for consent after showing its license and size. Files are checked by size and SHA-256 and applied separately. GPU/VRAM guidance suggests standard or lighter variants; it is a guide, not a guarantee.
+- **Model downloads.** Download fixed Irodori, Qwen3-TTS, RVC, translation (M2M100, NLLB-200) and speech recognition models (every recognizer speech.cpp offers, such as Qwen3-ASR, ReazonSpeech and Haas-ja) from Hugging Face. Each download asks for consent after showing its license and size. Files are checked by size and SHA-256 and applied separately. GPU/VRAM guidance suggests standard or lighter variants; it is a guide, not a guarantee.
 - **Linux desktop.** Global shortcuts on Wayland (XDG portal), a managed PipeWire virtual microphone, PipeWire microphone selection, and Japanese input methods (fcitx/Mozc, ibus) in the AppImage. The VR UI, chat reading from a shared native Wayland window, and pasting in Voice Typing Mode (into X11/XWayland windows) work too.
 
 RVC also needs its runtime, HuBERT and RMVPE. See [model downloads](/docs/voice-stack/model-downloads.md), [voice features on Windows](/docs/voice-stack/local-setup-windows.md) and [the Linux setup notes](/docs/voice-stack/local-setup-linux.md).
@@ -48,7 +48,7 @@ RVC also needs its runtime, HuBERT and RMVPE. See [model downloads](/docs/voice-
 The latest release is on **[GitHub Releases](https://github.com/kein5/astarot/releases/latest)** (the release badge above shows its version). Versions count from 0.1.0, separately from upstream VRCT 3.x. Betas are published from `develop`, stable releases from `main`.
 
 - **Linux:** AppImage, tar.gz, deb and rpm (x64, Vulkan). Versions before 0.5 were tested with real models on CachyOS (KDE Plasma Wayland).
-- **Windows:** installer and zip, one package for every PC (releases up to 0.5 also have a CUDA zip with the same files). Versions before 0.5 were tested with real models on Windows 11 ([record](/docs/voice-stack/windows-voice-report.md)). They are not code-signed, so SmartScreen warns on first launch.
+- **Windows:** installer and zip, one package for every PC (the 0.5 releases also have a CUDA zip with the same files). Versions before 0.5 were tested with real models on Windows 11 ([record](/docs/voice-stack/windows-voice-report.md)). They are not code-signed, so SmartScreen warns on first launch.
 
 What has been checked for the current version, per package and feature, and what CI covers versus a real PC, is on **[Platform support](https://kein5.github.io/astarot/en/guide/support)**.
 

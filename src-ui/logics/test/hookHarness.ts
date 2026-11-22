@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { HARNESS_QUERY } from "./harnessModules.ts";
+import { HARNESS_QUERY, HOT_DEPENDENCY } from "./harnessModules.ts";
 import type { BabelOptions } from "@babel/standalone";
 import React from "react";
 import type { JSX, ReactElement } from "react";
@@ -139,7 +139,7 @@ export async function loadModule<M = Record<string, unknown>>(url: URL, runtime:
     if (typeof built !== "function") throw new TypeError(`${url.pathname} did not build into a function`);
     const dependencies: Record<string, unknown> = { react: runtime.api, "react/jsx-runtime": jsx, clsx, jotai: runtime.jotai,
         "@useI18n": { useI18n: () => ({ t: (key: string) => key }) },
-        "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: async () => true }) }, ...imports };
+        "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: async () => true }) }, [HOT_DEPENDENCY]: undefined, ...imports };
     const require = (name: string): unknown => {
         if (name.endsWith(".module.scss")) return new Proxy({}, { get: (_, key) => key === "__esModule" ? false : key });
         // vanilla-extract style modules: each export is its class name.
@@ -243,13 +243,6 @@ export function componentNamed(module: object, name: string): DrawnComponent {
 export const draw = (node: TreeNode, props: unknown = node.props) => componentOf(node)(props);
 // The same, drawn by a runtime of the harness, so its hooks run there.
 export const drawWith = (runtime: HookRuntime, node: TreeNode, props: unknown = node.props) => runtime.render(componentOf(node), props);
-
-// The render function a forwardRef component wraps, which React's types leave out.
-export function forwardRefRender(component: unknown): (props: unknown, ref: unknown) => TreeNode {
-    const render: unknown = Reflect.get(Object(component), "render");
-    if (typeof render !== "function") throw new TypeError("not a forwardRef component");
-    return asComponent(render);
-}
 
 // An element's ref. React 19 passes it among the props; reading element.ref warns that it is
 // going away.

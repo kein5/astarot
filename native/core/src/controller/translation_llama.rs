@@ -5,7 +5,7 @@
 //! `llamacpp`: one GGUF file of Gemma 3's architecture, whose source and licence the user answers
 //! for, as for any model they add. Its weight is `user:<id>`, chosen like any other local weight;
 //! choosing it makes the local translation run on llama.cpp's server instead of ONNX Runtime.
-//! The server is not bundled: the user sets it up first (`vrct_voice_conversion::runtime`,
+//! The server is not bundled: the user sets it up first (`astarot_voice_conversion::runtime`,
 //! `llamacpp-vulkan`, which also runs on the CPU). It starts when the model loads (translation turned on,
 //! or a message translated with it), never on its own, and stops when another model loads.
 //!
@@ -20,13 +20,13 @@ use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
-use vrct_ops::downloads::translation_catalog::{self, TranslationCatalog, LLAMACPP, LLAMACPP_DEVICE};
-use vrct_speech_server::llama::{self, choose_device, list_devices, Device, LlamaServer, Options};
-use vrct_speech_server::server::State;
-use vrct_translation::http::Transport;
-use vrct_translation::providers::Error as ProviderError;
-use vrct_translation::translategemma;
-use vrct_voice_conversion::runtime::{llama_server, Target};
+use astarot_ops::downloads::translation_catalog::{self, TranslationCatalog, LLAMACPP, LLAMACPP_DEVICE};
+use astarot_speech_server::llama::{self, choose_device, list_devices, Device, LlamaServer, Options};
+use astarot_speech_server::server::State;
+use astarot_translation::http::Transport;
+use astarot_translation::providers::Error as ProviderError;
+use astarot_translation::translategemma;
+use astarot_voice_conversion::runtime::{llama_server, Target};
 
 /// The file is not a GGUF file of Gemma 3's architecture (TranslateGemma's).
 pub const GGUF_INVALID: &str = "translation_catalog_gguf_invalid";
@@ -226,14 +226,14 @@ impl Routed {
         let bundled = env.clone();
         let speech_rows: SpeechRows = Arc::new(move || {
             let binary = super::speech::bundled_launch(&bundled).builds().vulkan?;
-            vrct_speech_server::devices::device_rows(&binary, &None)
+            astarot_speech_server::devices::device_rows(&binary, &None)
         });
         Routed {
             env: env.clone(),
             inner,
             models: Mutex::new(registered(env).0),
             loaded: Mutex::new(None),
-            transport: vrct_translation::http::direct(),
+            transport: astarot_translation::http::direct(),
             speech_rows,
             start_timeout: llama::START_TIMEOUT,
         }

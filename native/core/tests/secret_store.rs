@@ -1,4 +1,4 @@
-//! API keys live in a store of their own, not in `config.json` (`vrct_core::config::secrets`).
+//! API keys live in a store of their own, not in `config.json` (`astarot_core::config::secrets`).
 //! Through the protocol: keys saved by an older version (Python or an earlier core) move to the
 //! store, the endpoints answer as before, a failing store never loses a key silently, and a
 //! deleted key leaves the store. Keys in `secrets.json` (0.5) move to the OS store one at a
@@ -10,9 +10,9 @@ use common::{error_code, Setup, Ui};
 use serde_json::{Value, json};
 use std::path::Path;
 use std::sync::Arc;
-use vrct_core::config::secrets::{FILE_NAME, Faults, FileStore, MemoryStore, SecretStore};
-use vrct_core::controller::Services;
-use vrct_translation::fake::FakeProviders;
+use astarot_core::config::secrets::{FILE_NAME, Faults, FileStore, MemoryStore, SecretStore, SystemStore, Vault};
+use astarot_core::controller::Services;
+use astarot_translation::fake::FakeProviders;
 
 const DEEPL: &str = "0123456789abcdef0123456789abcdef0123:fx";
 const OPENAI: &str = "sk-older-version-openai-key";
@@ -141,7 +141,7 @@ fn a_key_the_store_refuses_stays_usable_for_the_run_and_is_reported() {
     let fake = FakeProviders::start();
     fake.key("/deepl-free", DEEPL);
     let services = Services {
-        translation_endpoints: vrct_translation::providers::Endpoints::all_at(&fake.url()),
+        translation_endpoints: astarot_translation::providers::Endpoints::all_at(&fake.url()),
         ..Setup::default().services
     };
     let dir = tempfile::tempdir().unwrap();
@@ -330,7 +330,7 @@ fn a_move_cut_short_continues_at_the_next_start() {
     let dir = tempfile::tempdir().unwrap();
     secrets_05(dir.path(), &[("AUTH_KEYS/DeepL_API", DEEPL), ("AUTH_KEYS/OpenAI_API", OPENAI)]);
     let vault = MemoryStore::new();
-    let store = vault.system_source()(&common::environment(dir.path(), vrct_core::config::Platform::current()));
+    let store = vault.system_source()(&common::environment(dir.path(), astarot_core::config::Platform::current()));
     store.write("TRANSCRIPTION_AUTH_KEYS/Deepgram", DEEPGRAM).unwrap();
     vault.insert(&MemoryStore::scoped(&store_id(dir.path()), "AUTH_KEYS/DeepL_API"), DEEPL);
     assert_eq!(file_entry(dir.path(), "AUTH_KEYS/DeepL_API").as_deref(), Some(DEEPL), "both places hold it");
@@ -355,7 +355,7 @@ fn a_locked_or_absent_os_store_at_start_is_reported_and_nothing_is_lost_or_writt
         let dir = tempfile::tempdir().unwrap();
         let vault = MemoryStore::new();
         // A key kept in the OS store by an earlier run.
-        let store = vault.system_source()(&common::environment(dir.path(), vrct_core::config::Platform::current()));
+        let store = vault.system_source()(&common::environment(dir.path(), astarot_core::config::Platform::current()));
         store.write("AUTH_KEYS/OpenAI_API", OPENAI).unwrap();
         let before = (vault.snapshot(), raw_secrets(dir.path()));
 
@@ -364,7 +364,7 @@ fn a_locked_or_absent_os_store_at_start_is_reported_and_nothing_is_lost_or_writt
             dir: Some(dir.path().to_path_buf()),
             services: Services {
                 secret_store: vault.system_source(),
-                translation_endpoints: vrct_translation::providers::Endpoints::all_at(&fake.url()),
+                translation_endpoints: astarot_translation::providers::Endpoints::all_at(&fake.url()),
                 ..Setup::default().services
             },
             ..Setup::default()
@@ -433,7 +433,7 @@ fn the_real_os_store_takes_the_keys_from_secrets_json_and_gives_them_back() {
     let start = || {
         let ui = Ui::with(Setup {
             dir: Some(dir.path().to_path_buf()),
-            services: Services { secret_store: std::sync::Arc::new(vrct_core::config::secrets::default_store), ..Setup::default().services },
+            services: Services { secret_store: std::sync::Arc::new(astarot_core::config::secrets::default_store), ..Setup::default().services },
             ..Setup::default()
         });
         ui.ready();
@@ -457,10 +457,131 @@ fn the_real_os_store_takes_the_keys_from_secrets_json_and_gives_them_back() {
     ui.ok("/run/shutdown", None);
     ui.stop();
 
-    let store = vrct_core::config::secrets::default_store(&common::environment(dir.path(), vrct_core::config::Platform::current()));
+    let store = astarot_core::config::secrets::default_store(&common::environment(dir.path(), astarot_core::config::Platform::current()));
     assert_eq!(store.read("AUTH_KEYS/DeepL_API"), Ok(None), "nothing left in the OS store");
     assert_eq!(store.read("TRANSCRIPTION_AUTH_KEYS/Deepgram"), Ok(None));
     assert!(![FIRST, SECOND].iter().any(|key| process_log(dir.path()).contains(key)), "a key reached the log");
+}
+
+// ---- The OS store under the names of 0.6.0 (ADR-014, 2.9) ----
+
+/// Starts with the app's store: `vault` stands in for the OS store under the names this build
+/// writes, `older` for the same store under those 0.6.0 kept its keys with.
+fn start_with_older(dir: &Path, vault: &Arc<MemoryStore>, older: &Arc<MemoryStore>, saved: Option<Value>) -> Ui {
+    let ui = Ui::with(Setup {
+        saved,
+        dir: Some(dir.to_path_buf()),
+        services: Services { secret_store: vault.system_source_with_older(older), ..Setup::default().services },
+        ..Setup::default()
+    });
+    ui.ready();
+    ui
+}
+
+#[test]
+fn keys_0_6_0_kept_under_its_names_move_to_the_new_names_and_stay_for_0_6_0() {
+    let dir = tempfile::tempdir().unwrap();
+    let older = MemoryStore::new();
+    // 0.6.0: the keys of an older `config.json` went to the OS store under its names.
+    let ui = start_system(dir.path(), &older, Some(python_era()));
+    assert_eq!(ui.ok("/get/data/deepl_auth_key", None), DEEPL);
+    ui.ok("/run/shutdown", None);
+    ui.stop();
+    let kept = older.snapshot();
+    assert_eq!(kept.len(), 3);
+
+    let vault = MemoryStore::new();
+    let ui = start_with_older(dir.path(), &vault, &older, None);
+    assert_eq!(ui.ok("/get/data/deepl_auth_key", None), DEEPL);
+    assert_eq!(ui.ok("/get/data/openai_auth_key", None), OPENAI);
+    assert_eq!(ui.ok("/get/data/deepgram_auth_key", None), DEEPGRAM);
+    assert!(ui.on(0, "/run/secret_store_failed").is_empty(), "{:?}", ui.on(0, "/run/secret_store_failed"));
+    for (entry, key) in [("AUTH_KEYS/DeepL_API", DEEPL), ("AUTH_KEYS/OpenAI_API", OPENAI), ("TRANSCRIPTION_AUTH_KEYS/Deepgram", DEEPGRAM)] {
+        assert_eq!(in_vault(&vault, dir.path(), entry).as_deref(), Some(key), "{entry} is under the new names");
+    }
+    assert_eq!(older.snapshot(), kept, "0.6.0 still finds its keys");
+    assert!(![DEEPL, OPENAI, DEEPGRAM].iter().any(|key| raw_secrets(dir.path()).contains(key)), "never through the file");
+
+    // Deleting a key removes it under both names: it does not come back from the old ones.
+    ui.ok("/delete/data/deepl_auth_key", None);
+    ui.ok("/run/shutdown", None);
+    ui.stop();
+    assert_eq!(in_vault(&vault, dir.path(), "AUTH_KEYS/DeepL_API"), None);
+    assert_eq!(in_vault(&older, dir.path(), "AUTH_KEYS/DeepL_API"), None);
+
+    let ui = start_with_older(dir.path(), &vault, &older, None);
+    assert_eq!(ui.ok("/get/data/deepl_auth_key", None), Value::Null);
+    assert_eq!(ui.ok("/get/data/openai_auth_key", None), OPENAI);
+    ui.ok("/run/shutdown", None);
+    ui.stop();
+    let log = process_log(dir.path());
+    assert!(![DEEPL, OPENAI, DEEPGRAM].iter().any(|key| log.contains(key)), "a key reached the log");
+}
+
+#[test]
+fn a_key_under_the_names_of_0_6_0_that_cannot_be_copied_works_and_is_tried_again() {
+    let dir = tempfile::tempdir().unwrap();
+    let older = MemoryStore::new();
+    let ui = start_system(dir.path(), &older, Some(python_era()));
+    ui.ok("/run/shutdown", None);
+    ui.stop();
+
+    let vault = MemoryStore::new();
+    vault.set_faults(Faults { write: true, ..Faults::default() });
+    let ui = start_with_older(dir.path(), &vault, &older, None);
+    // The copy fails: the key from the old names works for the run, and the failure is told.
+    assert_eq!(entries(&store_failure(&ui, "migrate")).len(), 3);
+    assert_eq!(ui.ok("/get/data/deepl_auth_key", None), DEEPL);
+    ui.ok("/run/shutdown", None);
+    ui.stop();
+    assert!(vault.snapshot().is_empty());
+    assert_eq!(older.snapshot().len(), 3, "nothing lost");
+
+    vault.set_faults(Faults::default());
+    let ui = start_with_older(dir.path(), &vault, &older, None);
+    assert_eq!(ui.ok("/get/data/deepl_auth_key", None), DEEPL);
+    assert_eq!(in_vault(&vault, dir.path(), "AUTH_KEYS/DeepL_API").as_deref(), Some(DEEPL));
+    ui.ok("/run/shutdown", None);
+    ui.stop();
+}
+
+/// The PC's real OS store: a key 0.6.0 kept under its names is found, copied to the new names,
+/// and deleting it leaves nothing under either. The key is a made-up value under a settings
+/// folder of its own. Run with `cargo test --test secret_store -- --ignored`.
+#[test]
+#[ignore = "uses the signed-in user's OS credential store"]
+fn the_real_os_store_moves_a_key_from_the_names_of_0_6_0() {
+    const KEY: &str = "test-only-value-3-not-a-real-key";
+    let dir = tempfile::tempdir().unwrap();
+    let older: Arc<dyn Vault> = astarot_core::config::secrets::older_os_vault().expect("an OS store on this platform");
+    // As 0.6.0 kept it: the folder's id in `secrets.json`, the key under the old names.
+    SystemStore::new(FileStore::new(dir.path().join(FILE_NAME)), Arc::clone(&older)).write("AUTH_KEYS/DeepL_API", KEY).unwrap();
+    let scope = store_id(dir.path());
+    let start = || {
+        let ui = Ui::with(Setup {
+            dir: Some(dir.path().to_path_buf()),
+            services: Services { secret_store: Arc::new(astarot_core::config::secrets::default_store), ..Setup::default().services },
+            ..Setup::default()
+        });
+        ui.ready();
+        ui
+    };
+    let ui = start();
+    assert!(ui.on(0, "/run/secret_store_failed").is_empty(), "{:?}", ui.on(0, "/run/secret_store_failed"));
+    assert_eq!(ui.ok("/get/data/deepl_auth_key", None), KEY);
+    ui.ok("/run/shutdown", None);
+    ui.stop();
+    let current = astarot_core::config::secrets::os_vault();
+    assert_eq!(current.fetch(&scope, "AUTH_KEYS/DeepL_API"), Ok(Some(KEY.to_string())), "under the new names");
+    assert_eq!(older.fetch(&scope, "AUTH_KEYS/DeepL_API"), Ok(Some(KEY.to_string())), "and still under the old ones");
+
+    let ui = start();
+    ui.ok("/delete/data/deepl_auth_key", None);
+    assert!(ui.on(0, "/run/secret_store_failed").is_empty());
+    ui.ok("/run/shutdown", None);
+    ui.stop();
+    assert_eq!(current.fetch(&scope, "AUTH_KEYS/DeepL_API"), Ok(None), "nothing left under the new names");
+    assert_eq!(older.fetch(&scope, "AUTH_KEYS/DeepL_API"), Ok(None), "nor under the old ones");
 }
 
 #[test]

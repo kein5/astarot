@@ -231,7 +231,7 @@ Pythonは専用venvを優先し、次に既存の `.venv` を探します。`--p
 - 型チェックは2つの設定で走ります。アプリのソースは `tsconfig.json`、試験（`*.test.ts`）と試験の基盤（`src-ui/logics/test/`）は `tsconfig.test.json` です。試験と基盤はNodeで動くので、`tsconfig.test.json` だけがNodeの型（`@types/node`）を読みます。アプリのソースがNodeのAPIをうっかり使うと、`tsconfig.json` の検査で止まります。
 - `any`、`as unknown as`、`@ts-ignore`、`@ts-expect-error` は使いません。バックエンドから届く値は `unknown` として受けて絞り込みます。既存の実行時の形の検査も残します。`check --scope tooling` の `test_typescript_strictness.py` がこれらを数えます。
 - 移す順序と残りの範囲は [TypeScript 移行計画](typescript-migration.md) にあります。
-- 一部のUIの試験は、TypeScriptのソースを `data:` URL のモジュール経由でNodeにそのまま読ませます（Nodeの型の除去を使います）。このため、消去できる構文だけを使います（`enum`、`namespace`、コンストラクター引数のプロパティは使いません）。型だけのimportは `import type` にします。相対importは `./name.ts` のように拡張子まで書きます。
+- TypeScriptのソースは、型を消すだけでJavaScriptになる形にそろえます（Nodeの型の除去でもそのまま動く形です）。消去できる構文だけを使い（`enum`、`namespace`、コンストラクター引数のプロパティは使いません）、型だけのimportは `import type` にし、相対importは `./name.ts` のように拡張子まで書きます。`tsconfig.json` の `erasableSyntaxOnly`、`verbatimModuleSyntax`、`allowImportingTsExtensions` がこれを確かめます。
 
 ### UIの試験（Vitest）
 
@@ -248,7 +248,8 @@ npm run test:coverage    # カバレッジ（build/coverage/ui に HTML と json
 - 後片付けは `context.onTestFinished(fn)` で登録します。`src-ui/logics/test/vitestSetup.ts` が、node:test の `after` と同じく登録した順に呼びます（Vitest の既定は逆順）。
 - 時計の偽装は `vi.useFakeTimers({ toFake: [...] })` と `vi.advanceTimersByTime(ms)` です。テストが終わると実時間に戻ります。`vi.spyOn` は次のテストの前に元に戻ります（`restoreMocks`）。
 - `hookHarness.ts` の `loadModule` で読むソースも、Vite が変換します（`src-ui/logics/test/harnessModules.ts`）。`?harness` を付けて読み込むと、TypeScript と JSX の変換のあと、import と export を `require` と `exports` を受け取る関数に包みます。`loadModule` はその関数を、試験が渡した差し替え品で呼びます。読み込むたびにソースの最上位が実行し直されるのは、前と同じです。この読み込み方のソースも、カバレッジに数えられ、ミューテーションテストの対象になります。
-- `data:` URL でNodeに直接読ませたモジュールと、テストファイルが import したモジュールは別の実体になります。シングルトンを共有するときは、テストの側も `data:` URL 経由で読みます（`useStdoutToPython.test.ts` の `nativeImport`）。
+- `loadModule` は、試験が渡さなかった import を読みません（`Unexpected dependency` で止まります）。試験と同じシングルトン（`settingsWriteResponses.ts` など）を使わせるときは、試験ファイルが import したモジュールをそのまま渡します（`useStdoutToPython.test.ts`）。
+- `import.meta.hot`（Viteのモジュールの差し替え）も、差し替え品の1つです。試験が `HOT_DEPENDENCY`（`harnessModules.ts`）の名前で渡せば、モジュールはそれを使います。渡さなければ `undefined` で、ビルドしたときと同じです。差し替えをまたいで状態を引き継ぐ試験は、同じ品を渡してモジュールを読み直します（`useHotkeys.test.ts`）。
 - 既存の `.js` を `.ts` に移すときは、同じコミットで参照をすべて書き換えます。ビューのimport、試験の読み込み、Pythonの試験やツールが指すパスが対象です。
 - デザイントークンの値は `src-ui/views/app/_index_css/variables.css` が正本です。vanilla-extractからは `src-ui/views/theme/vars.css.ts` の `vars` で同じ変数を参照します。トークンを足したら両方に書きます（`vars.test.ts` が食い違いを検出します）。
 - Radix UIは振る舞いとアクセシビリティに使い、見た目はvanilla-extractで付けます。Radixの部品を足すときは、実行時に `<style>` 要素を差し込むかどうかを確かめます。CSPは差し込まれるスタイルをハッシュで許可していて、`contentSecurityPolicy.test.ts` がその数を数えています。
@@ -320,7 +321,7 @@ npx mutator accept <キー> --reason "<等価と判断した理由>"            
 
 - 未検出は1件ずつコードを読み、テストの不足か、どの入力でも結果が変わらない等価なミュータントかを判断します。等価なら `npx mutator accept` で理由と一緒に記録し、`mutator.accepted.json` をコミットします。記録した行が変わると、次の実行で「古い」と報告されます。
 - 変異の種類ごとの除外（`excludedMutators`）はしていません。文字列の置き換え（`StringLiteral`）は等価になりやすい一方、表のエンドポイント名やノードのIDなど、本物の穴も多く見つかったためです。
-- テストからは実行されていても、mutator には見えない経路が残っています。`data:` URL でNodeに直接読ませるモジュールです（`useStdoutToPython.test.ts`、`useHotkeys.test.ts`、`languageMutations.test.ts`）。また、`loadModule` に差し替え品を渡したテストでは、差し替えたソースは実行されません。未検出が多いファイルは、等価か判断する前に、そのファイルを使うテストの読み込み方を確かめます。
+- `loadModule` に差し替え品を渡したテストでは、差し替えたソースは実行されません。未検出が多いファイルは、等価か判断する前に、そのファイルを使うテストの読み込み方を確かめます。`data:` URL でNodeに直接モジュールを読ませると、mutator には見えません。試験はソースを `loadModule` か import で読みます。
 - Vitest 5 は変換したモジュールを `node_modules/.vitest-cache` に残します（`fsModuleCache`、既定で有効）。mutator はこのキャッシュと自分の計装を区別しません。そのため、対象を変えて回すと計装のないモジュールが読まれ、エラーなしで NoCoverage ばかりになり、スコアが0%近くまで落ちます。`npm run test:mutation` は `vitest.mutator.config.js`（このキャッシュを切った設定）を使います。`npx mutator --config vitest.config.js` のように、ほかの設定で回さないでください。
 - 結果のキャッシュは `.mutator/` にあり（Gitの対象外）、次の実行では関数とテストが変わっていないものを再利用します。0.2.0 は最後の実行の結果だけを持つので、`--include` で絞って回した後の全体の実行は、ほぼ全件を回し直します。`.mutator/` を共有するので、同じ作業ツリーで2つ同時に回さないでください。
 - `--include` で絞って回した後に全体を回すときは、`--full-dry-run` を付けます。付けないと、カバレッジの収集の一部に絞った回の結果が使われ、そのときに対象でなかったファイルの変異が NoCoverage と数えられます（2026-11-21 に、64 ファイル・約 3,600 件で起きました）。
@@ -356,6 +357,23 @@ cd native/core && PROPTEST_DISABLE_FAILURE_PERSISTENCE=1 cargo mutants --in-plac
 - 対象は純粋なロジックにし、時刻や待ちに頼る試験のあるモジュールは外します（ミュータントごとに結果がぶれるため）。`-- --lib` を付けると単体の試験だけを流します。統合試験だけが確かめている変異は検出されないので、結果を報告するときは流した試験の範囲も書きます。
 - 結果は `mutants.out/` の `caught.txt`（検出）、`missed.txt`（未検出）、`timeout.txt`、`unviable.txt`（ビルドできない変異。分母に入れない）にあります。未検出は1件ずつコードを読み、試験の不足か、どの入力でも結果が変わらない等価なミュータントかを判断します。
 - 純粋な関数の境界は、プロパティベーステスト（[proptest](https://proptest-rs.github.io/proptest/)。`native/core` の試験用の依存）で確かめられます。正規化の結果をもう一度正規化しても変わらないこと、保存して読み戻すと同じになることなど、入力を選ばない性質を書きます。
+
+### 変えた所のミューテーションテスト
+
+`mise run mutation:changed`（`python tools/mutation_changed.py`）は、作業中の枝が変えた所だけをミューテーションテストにかけます。画面とRustの両方を見て、変えたものがある側だけを回します（[Issue #550](https://github.com/kein5/astarot/issues/550) の Phase 3）。
+
+```sh
+mise run mutation:changed                                 # origin/develop との分岐点からの変更
+mise run mutation:changed -- --base astarot/develop       # develop を別の名前のリモートで取っているとき
+mise run mutation:changed -- --dry-run                    # 何を回すかだけを表示する
+mise run mutation:changed -- --ui-only                    # 画面だけ（--rust-only でRustだけ）
+```
+
+- 変更は、`--base` と HEAD の分岐点から作業ツリーまでの差分です。コミットしていない変更も入ります。新しいファイルは `git add` してから数えられます。
+- 画面: mutator の `--since` で、差分の中の変異だけを回して報告します。対象は `mutator.config.mjs` と同じです。表示されるスコアは、変えた所のスコアです。
+- Rust: `tools/dev.py` の `NATIVE_CRATES` のうち `src/` が変わったクレートごとに、cargo-mutants の `--in-diff` で差分の中の変異だけを回します。`native/core` は、上の節のとおり `--in-place` で単体の試験（`-- --lib`）だけを流します。
+- Survived があっても失敗にはしません。1件ずつ読み、試験の不足か等価なミュータントかを判断します（上の2つの節）。道具が回せなかったとき（変異のない状態で試験が落ちるなど）だけ失敗します。
+- 結果は、画面が `.mutator/report/`、Rustが `<クレート>/mutants.out/` にあります。
 
 ## UIの文言と翻訳の検査
 

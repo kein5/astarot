@@ -6,7 +6,7 @@ OUT/tiny-nllb-onnx-<variant>/ is a folder native/translate-onnx loads like a rea
 NLLB form (M2M100ForConditionalGeneration, 2 layers, width 64, 4400 tokens), a word-level
 tokenizer whose words are w206, w207, ... and every NLLB language code. Nothing is downloaded,
 so it serves to check a graph on an execution provider (DirectML, CUDA, ...) on any PC, and to
-compare the providers with each other: `vrct-translate --device` runs it, and the test
+compare the providers with each other: `astarot-translate --device` runs it, and the test
 `a_device_decodes_as_the_cpu_does` (native/translate-onnx/tests/real.rs) compares the ids.
 
 Its translations mean nothing and its speed says nothing about a real model's.

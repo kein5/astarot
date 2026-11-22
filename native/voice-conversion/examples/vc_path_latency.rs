@@ -48,13 +48,13 @@ mod windows_main {
     use std::time::{Duration, Instant};
 
     use serde_json::json;
-    use vrct_audio_routing::graph::Endpoint;
-    use vrct_audio_routing::monitor::{open_monitor_output, MonitorFactory};
-    use vrct_audio_routing::naming::{output_identity, WASAPI_HOST};
-    use vrct_audio_routing::router::{CancelToken, Output, PlaybackToken};
-    use vrct_audio_routing::wasapi::capture::{DeviceCapture, DeviceTarget};
-    use vrct_audio_routing::windows_route::{Capture, CaptureCallbacks, RouteDevices, WasapiDevices};
-    use vrct_voice_conversion::{DeviceRoute, VcProcess};
+    use astarot_audio_routing::graph::Endpoint;
+    use astarot_audio_routing::monitor::{open_monitor_output, MonitorFactory};
+    use astarot_audio_routing::naming::{output_identity, WASAPI_HOST};
+    use astarot_audio_routing::router::{CancelToken, Output, PlaybackToken};
+    use astarot_audio_routing::wasapi::capture::{DeviceCapture, DeviceTarget};
+    use astarot_audio_routing::windows_route::{Capture, CaptureCallbacks, RouteDevices, WasapiDevices};
+    use astarot_voice_conversion::{DeviceRoute, VcProcess};
     use windows::Win32::Devices::FunctionDiscovery::PKEY_Device_FriendlyName;
     use windows::Win32::Media::Audio::*;
     use windows::Win32::System::Com::*;
@@ -99,7 +99,7 @@ mod windows_main {
             device: take("device", Some("cuda")),
             block_ms: match take("block-ms", Some("80")).as_str() {
                 // The worker chooses (`--block-ms auto`), as the application does by default.
-                "auto" => vrct_voice_conversion::worker::AUTO_BLOCK_MS,
+                "auto" => astarot_voice_conversion::worker::AUTO_BLOCK_MS,
                 ms => ms.parse().unwrap_or_else(|_| usage("--block-ms is auto or a number")),
             },
             output,
@@ -142,10 +142,10 @@ mod windows_main {
     }
 
     impl RouteDevices for Devices {
-        fn outputs(&self, keep: &[String]) -> vrct_audio_routing::Result<Vec<String>> {
+        fn outputs(&self, keep: &[String]) -> astarot_audio_routing::Result<Vec<String>> {
             WasapiDevices.outputs(keep)
         }
-        fn open_output(&self, device: &str) -> vrct_audio_routing::Result<Box<dyn Output>> {
+        fn open_output(&self, device: &str) -> astarot_audio_routing::Result<Box<dyn Output>> {
             match self.kind {
                 OutputKind::App => WasapiDevices.open_output(device),
                 OutputKind::Margin(ms) => Ok(Box::new(PrototypeOutput::open(&self.output, ms, None, self.watch.clone()))),
@@ -165,9 +165,9 @@ mod windows_main {
     }
 
     impl Capture for LoopbackMicrophone {
-        fn start(&mut self) -> vrct_audio_routing::Result<()> {
+        fn start(&mut self) -> astarot_audio_routing::Result<()> {
             let Some(CaptureCallbacks { mut on_audio, on_error }) = self.callbacks.take() else {
-                return Err(vrct_audio_routing::Error::runtime("source_bridge_capture_failed"));
+                return Err(astarot_audio_routing::Error::runtime("source_bridge_capture_failed"));
             };
             let (capture, format) = DeviceCapture::start(
                 DeviceTarget::Identity(identity(&self.device)),
@@ -260,7 +260,7 @@ mod windows_main {
     }
 
     impl Output for PrototypeOutput {
-        fn write(&mut self, pcm: &[u8], token: &dyn PlaybackToken) -> vrct_audio_routing::Result<()> {
+        fn write(&mut self, pcm: &[u8], token: &dyn PlaybackToken) -> astarot_audio_routing::Result<()> {
             if !self.started && !self.start_when_full {
                 self.put(&vec![0u8; self.margin * 2]);
                 self.put(pcm);
@@ -291,7 +291,7 @@ mod windows_main {
             }
             Ok(())
         }
-        fn close(&mut self, _drain: bool, _token: &dyn PlaybackToken) -> vrct_audio_routing::Result<()> {
+        fn close(&mut self, _drain: bool, _token: &dyn PlaybackToken) -> astarot_audio_routing::Result<()> {
             // SAFETY: a WASAPI call on an owned client.
             let _ = unsafe { self.client.Stop() };
             Ok(())
