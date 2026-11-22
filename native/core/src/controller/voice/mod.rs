@@ -49,6 +49,8 @@ use vrct_voice_conversion::{DeviceRoute, DirectVoice, ManagedRoute, SpeakFailure
 
 const SETTINGS_KEY: &str = "VOICE_SETTINGS";
 const DIRECT_KEY: &str = "DIRECT_VOICE_SETTINGS";
+/// The notice that the Linux virtual microphone has a new name (ADR-014, 2.8).
+const RENAME_NOTICE_KEY: &str = "MANAGED_ROUTE_RENAME_NOTICE_PENDING";
 /// A started server enforces its own start timeout; this only bounds the toggle's wait.
 const TTS_SERVER_WAIT: Duration = Duration::from_secs(vrct_speech_server::server::START_TIMEOUT.as_secs() + 5);
 /// Server failures with their own next step; the rest share a generic code.
@@ -334,11 +336,24 @@ impl Voice {
         let muted_direct = direct.clone();
         let store = MuteState::new(config.path().with_file_name("voice_mute_state.json"));
         let audition = audition::Audition::new();
+        // The units of the route's old names stopped: the microphone VRChat had chosen is gone.
+        // Kept until the user closes the notice, so that a start that ends first still shows it.
+        let renamed = weak.clone();
+        let on_retired = Arc::new(move || {
+            if let Some(core) = renamed.upgrade() {
+                let _ = core.config().set(RENAME_NOTICE_KEY, json!(true));
+                core.step("[voice] the managed route retired its legacy units");
+            }
+        });
         let route = VoiceRoute::new(
             Arc::new(BusMute(bus.clone(), audition.clone())),
             platform.gate(&app_dir),
             Arc::new(store),
-            RouteOptions { poll_interval: Duration::from_millis(100), on_muted: Some(Arc::new(move |muted| muted_direct.set_monitor_muted(muted))), ..RouteOptions::default() },
+            RouteOptions {
+                poll_interval: Duration::from_millis(100),
+                on_muted: Some(Arc::new(move |muted| muted_direct.set_monitor_muted(muted))),
+                on_retired: Some(on_retired),
+            },
         );
         let emitter = weak.clone();
         let traces = IoTraces::new(Arc::new(move |payload| {
@@ -430,14 +445,25 @@ impl Voice {
 
     fn route_status(&self) -> Value {
         let status = self.route.status();
-        json!({
+        let mut reply = json!({
             "managed": status.managed, "requested_muted": status.requested_muted, "observed_muted": status.observed_muted,
             "ready": status.ready, "pending": status.pending, "error": status.error, "preparing": status.preparing,
             "generation": status.generation, "closed": status.closed,
             "requested_direct_suppressed": status.requested_direct_suppressed,
             "observed_direct_suppressed": status.observed_direct_suppressed,
             "observation_id": status.observation_id, "covers_direct": self.windows,
-        })
+        });
+        // The virtual microphone has a new name: VRChat has to be pointed at it once (ADR-014, 2.8).
+        if self.core().is_some_and(|core| core.config().get_bool(RENAME_NOTICE_KEY)) {
+            reply["notice"] = json!("managed_route_renamed");
+        }
+        reply
+    }
+
+    /// The user closed the notice of the virtual microphone's new name.
+    fn close_rename_notice(&self, core: &Core) -> Reply {
+        let _ = core.config().set(RENAME_NOTICE_KEY, json!(false));
+        ok(self.route_status())
     }
 
     fn direct_state(&self) -> Value {
@@ -1590,6 +1616,7 @@ pub(crate) fn add(b: &mut Builder<'_>) {
     b.with("/run/enable_tts", OPEN, |core, data| with_voice(core, |voice| voice.enable_tts(core, data)));
     b.with("/run/disable_tts", OPEN, |core, _| with_voice(core, |voice| voice.disable_tts(core)));
     b.with("/get/data/voice_route", OPEN, |core, _| with_voice(core, |voice| ok(voice.route_status())));
+    b.with("/set/disable/managed_route_rename_notice", OPEN, |core, _| with_voice(core, |voice| voice.close_rename_notice(core)));
     b.with("/run/mute_voice", OPEN, |core, _| with_voice(core, |voice| voice.mute(core)));
     b.with("/run/resume_voice", OPEN, |core, _| with_voice(core, Voice::resume));
     b.with("/get/data/direct_voice_sources", OPEN, |core, _| with_voice(core, |voice| voice.sources(core)));

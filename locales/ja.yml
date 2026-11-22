@@ -1794,6 +1794,8 @@ voice_ui:
     select_rvc_label: "直接音声の変換"
     select_rvc_pending: "直接音声はいまRVCを使っていません。「直接音声でRVCを使う」を押すと切り替わります。ほかの項目を保存しても切り替わりません。"
     seed_vc_moved_to_rvc: "Seed-VCは使えなくなったため、声の変換をRVCに切り替えました。開始する前に、このページでRVCのモデルと実行環境を確かめてください。"
+    # Once, after the core made the Linux virtual microphone again under its new name (ADR-014, 2.8).
+    managed_route_renamed: "ASTAROTは仮想マイクを新しい名前のASTAROT Managed Virtual Microphoneで作り直しました。VRChatで選んでいたVRCT Managed Virtual Microphoneはなくなりました。VRChatのマイクにASTAROT Managed Virtual Microphoneを選び直してから、「ミュートを解除」を押してください。"
     rvc_latency_hint: "変換した声が届くまでの遅れの目安は、GPUで約0.2秒、CPUで約1.3秒です。NVIDIA以外の単体のGPUがあるWindowsのPCでも、「ONNX Runtime · DirectML」を取得するとDirectMLでGPUを使えます。GPUを使えないPCではCPUで変換します。ただし、CPUでの変換が間に合わないPCでは開始しません。CPUでの変換はCPUを多く使うので、ほかのアプリが重くなることがあります。"
     rvc_running_gpu: "GPUで変換しています。声の遅れは約{{seconds}}秒です。"
     rvc_running_cpu: "CPUで変換しています。声の遅れは約{{seconds}}秒です。NVIDIAのGPUを使える実行環境にすると、遅れが小さくなります。"

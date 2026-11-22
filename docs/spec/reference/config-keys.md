@@ -9,7 +9,7 @@
 
 チャット読み取りの`OCR_CAPTURE_REGION`はデスクトップウィンドウ用、`OCR_VR_CAPTURE_REGION`はSteamVRの左目側の映像用。旧版の単一範囲はウィンドウ用に保持し、未保存のVR側には全体を補う。[範囲の形と移行](../data-and-persistence.md#チャット読み取りの範囲)を参照。
 
-## config.jsonに保存するキー（144件）
+## config.jsonに保存するキー（145件）
 
 | キー | 型・検証 | 既定値 | 保存 |
 |---|---|---|---|
@@ -118,6 +118,7 @@
 | `CTRANSLATE2_LICENSE_NOTICE_SHOWN` | bool | `false` | 2秒後にまとめて |
 | `LOCAL_ASR_MIGRATION` | int（0〜super::LOCAL_ASR_MIGRATION_LATEST） | `2` | 2秒後にまとめて |
 | `VIRTUAL_MIC_NOTICE_PENDING` | bool | `true` | 2秒後にまとめて |
+| `MANAGED_ROUTE_RENAME_NOTICE_PENDING` | bool | `false` | 2秒後にまとめて |
 | `FIRST_RUN_SETUP_PENDING` | bool | `true` | 2秒後にまとめて |
 | `SELECTED_PLAMO_MODEL` | str か null（`SELECTABLE_PLAMO_MODEL_LIST`のどれか。一覧が空なら問わない） | `null` | 2秒後にまとめて |
 | `SELECTED_GEMINI_MODEL` | str か null（`SELECTABLE_GEMINI_MODEL_LIST`のどれか。一覧が空なら問わない） | `null` | 2秒後にまとめて |

@@ -732,6 +732,9 @@ pub fn keys() -> Vec<Key> {
         key("CTRANSLATE2_LICENSE_NOTICE_SHOWN", b()),
         key("LOCAL_ASR_MIGRATION", int_in(0, super::LOCAL_ASR_MIGRATION_LATEST)),
         key("VIRTUAL_MIC_NOTICE_PENDING", b()),
+        // The Linux virtual microphone took its ASTAROT name and VRChat has to be pointed at it
+        // again (ADR-014, 2.8): set when the core retires the units of the old names.
+        key("MANAGED_ROUTE_RENAME_NOTICE_PENDING", b()),
         key("FIRST_RUN_SETUP_PENDING", b()),
         key("SELECTED_PLAMO_MODEL", in_populated("SELECTABLE_PLAMO_MODEL_LIST")),
         key("SELECTED_GEMINI_MODEL", in_populated("SELECTABLE_GEMINI_MODEL_LIST")),
@@ -983,6 +986,7 @@ pub fn defaults(env: &Environment) -> Map<String, Value> {
         ("CTRANSLATE2_LICENSE_NOTICE_SHOWN", json!(false)),
         ("LOCAL_ASR_MIGRATION", json!(super::LOCAL_ASR_MIGRATION_LATEST)),
         ("VIRTUAL_MIC_NOTICE_PENDING", json!(true)),
+        ("MANAGED_ROUTE_RENAME_NOTICE_PENDING", json!(false)),
         ("FIRST_RUN_SETUP_PENDING", json!(true)),
         ("SELECTED_PLAMO_MODEL", Value::Null),
         ("SELECTED_GEMINI_MODEL", Value::Null),

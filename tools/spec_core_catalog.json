@@ -2292,6 +2292,11 @@
       "immediate": false
     },
     {
+      "endpoint": "/set/disable/managed_route_rename_notice",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
       "endpoint": "/run/mute_voice",
       "wait_for_init": false,
       "immediate": true
@@ -4630,6 +4635,11 @@
       "key": "VIRTUAL_MIC_NOTICE_PENDING",
       "kind": "saved",
       "default": true
+    },
+    {
+      "key": "MANAGED_ROUTE_RENAME_NOTICE_PENDING",
+      "kind": "saved",
+      "default": false
     },
     {
       "key": "FIRST_RUN_SETUP_PENDING",
