@@ -47,7 +47,7 @@ When you find a conflict between this file and a document-specific rule, add the
 
 ### Existing documents
 
-Do not rewrite existing documents to these rules in one sweep. Apply them to new text and to the parts you revise.
+Existing documents still hold text that breaks these rules. What a pattern can catch is recorded in the baseline of the writing gate (`tools/writing_gate/baseline.json`) and fixed area by area, one pull request per area (decision of 2026-11-23); after a fix, `--update-baseline` lowers the baseline. Apply the rules from the start to new text and to the parts you revise.
 
 ## General rules
 
