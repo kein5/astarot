@@ -163,13 +163,9 @@ pub mod env {
     /// The folder through which the Linux app hands the VR panel's frames and the captured
     /// screen to the VR overlay and chat reading in the same process tree.
     pub const VR_PANEL_DIR: &str = "ASTAROT_VR_PANEL_DIR";
-    /// The host's `LD_LIBRARY_PATH`, which `packaging/appimage/AppRun` keeps before it points the
-    /// variable at the AppImage's own libraries.
-    pub const APPIMAGE_HOST_LD_LIBRARY_PATH: &str = "ASTAROT_APPIMAGE_HOST_LD_LIBRARY_PATH";
-    /// `x` when the host had `LD_LIBRARY_PATH` set at all (even to nothing), empty when not
-    /// (`packaging/appimage/AppRun`).
-    pub const APPIMAGE_HOST_LD_LIBRARY_PATH_SET: &str = "ASTAROT_APPIMAGE_HOST_LD_LIBRARY_PATH_SET";
 }
+
+pub mod appimage;
 
 /// The first bytes of the files the app's processes hand each other on Linux. Both ends are in
 /// the same version, so these change together with no migration (`VRCTVRP1` and `VRCTSCR1` up to
@@ -314,8 +310,6 @@ mod tests {
         assert_eq!(env::TELEMETRY_URL, "ASTAROT_TELEMETRY_URL");
         assert_eq!(env::VOICE_TRACE, "ASTAROT_VOICE_TRACE");
         assert_eq!(env::VOICE_GC_DIAGNOSTICS, "ASTAROT_VOICE_GC_DIAGNOSTICS");
-        assert_eq!(env::APPIMAGE_HOST_LD_LIBRARY_PATH, "ASTAROT_APPIMAGE_HOST_LD_LIBRARY_PATH");
-        assert_eq!(env::APPIMAGE_HOST_LD_LIBRARY_PATH_SET, "ASTAROT_APPIMAGE_HOST_LD_LIBRARY_PATH_SET");
         assert_eq!(handoff::VR_PANEL_FRAME, b"ASTRVRP1");
         assert_eq!(handoff::SCREEN_FRAME, b"ASTRSCR1");
     }
