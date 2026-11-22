@@ -76,7 +76,8 @@ pub struct SceneApp {
 
 /// SteamVR on this machine.
 pub trait Vr: Send + Sync {
-    /// Whether SteamVR runs (its `vrmonitor` process). Cheap; polled every 10 seconds.
+    /// Whether SteamVR runs (its `vrserver` or `vrmonitor` process, #944). Cheap; polled every
+    /// 10 seconds.
     fn runtime_running(&self) -> bool;
     /// Connects as a background application. Fails while the headset is not found yet, and
     /// when the OpenVR library cannot be loaded.
