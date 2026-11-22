@@ -176,6 +176,10 @@ run = "npm run build"
 description = "Linux candidate build (tools/build_linux.py; see docs/voice-stack/linux-build-pipeline.md)"
 run = "python tools/build_linux.py"
 
+[tasks."mutation:changed"]
+description = "Mutation tests of what this branch changed, UI and Rust (tools/mutation_changed.py; #550)"
+run = "python tools/mutation_changed.py"
+
 [tasks."changelog:print"]
 description = "Show the next release's changes without writing anything"
 run = "python tools/changelog.py print"
