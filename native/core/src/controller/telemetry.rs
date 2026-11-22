@@ -1,6 +1,6 @@
 //! The usage events: the switch, the notice and what is sent ([`controller.py`]:
 //! `setEnableTelemetry`, `setDisableTelemetry`, `getTelemetryNotice`, `setTelemetryNotice`,
-//! `getTelemetryPreview`; `vrct_ops::telemetry`).
+//! `getTelemetryPreview`; `astarot_ops::telemetry`).
 //!
 //! Nothing is sent before the user has answered the notice: turning the setting on is not
 //! consent (SEC-07), and only the answer can start sending for the first time.
@@ -28,7 +28,7 @@ pub(crate) fn forced_off_by(value: Option<&str>) -> bool {
 /// Off when either name says so. The variable only ever turns sending off, so an old
 /// `VRCT_TELEMETRY=off` still holds when `ASTAROT_TELEMETRY` is set to something else.
 pub(crate) fn forced_off_with(lookup: impl Fn(&str) -> Option<String>) -> bool {
-    app_identity::env::TELEMETRY.names().into_iter().any(|name| forced_off_by(lookup(name).as_deref()))
+    astarot_app_identity::env::TELEMETRY.names().into_iter().any(|name| forced_off_by(lookup(name).as_deref()))
 }
 
 pub(crate) fn forced_off_from_environment() -> bool {

@@ -20,12 +20,12 @@ use std::thread;
 use std::time::Duration;
 
 use serde_json::{json, Value};
-use vrct_audio_routing::graph::Endpoint;
-use vrct_audio_routing::managed_vc::{self, ManagedVcDevices};
-use vrct_audio_routing::monitor::{MonitorFactory, MonitorOptions, MonitorSpec, MonitorTee};
-use vrct_audio_routing::router::{CancelToken, Output, PlaybackToken};
-use vrct_audio_routing::sync::monotonic_ns;
-use vrct_audio_routing::windows_route::{Capture, CaptureCallbacks, RouteDevices, WindowsRoute};
+use astarot_audio_routing::graph::Endpoint;
+use astarot_audio_routing::managed_vc::{self, ManagedVcDevices};
+use astarot_audio_routing::monitor::{MonitorFactory, MonitorOptions, MonitorSpec, MonitorTee};
+use astarot_audio_routing::router::{CancelToken, Output, PlaybackToken};
+use astarot_audio_routing::sync::monotonic_ns;
+use astarot_audio_routing::windows_route::{Capture, CaptureCallbacks, RouteDevices, WindowsRoute};
 
 use crate::protocol::{self as p, ProtocolError};
 use crate::worker::{arguments, rate_text, runtime_complete, RvcOptions, WorkerPipe, AUTO_BLOCK_MS, BLOCK_CACHE_FILE, DEFAULT_BLOCK_MS, DEVICES, MAX_THREADS};
@@ -92,10 +92,10 @@ impl VcRoute for DeviceRoute {
         WindowsRoute::DROPS_LATE_BLOCKS
     }
     fn ready_timeout(&self) -> Duration {
-        Duration::from_secs(vrct_audio_routing::windows_route::READY_TIMEOUT_S)
+        Duration::from_secs(astarot_audio_routing::windows_route::READY_TIMEOUT_S)
     }
     fn input_blocks(&self) -> usize {
-        vrct_audio_routing::windows_route::INPUT_BLOCKS
+        astarot_audio_routing::windows_route::INPUT_BLOCKS
     }
     fn bind(&self, source: &Endpoint, wait: bool) -> Result<Endpoint, String> {
         self.route.bind(source, wait).map_err(|e| e.code)
@@ -763,9 +763,9 @@ impl Deadline<'_> {
 }
 
 impl PlaybackToken for Deadline<'_> {
-    fn check(&self) -> vrct_audio_routing::Result<()> {
+    fn check(&self) -> astarot_audio_routing::Result<()> {
         self.token.check()?;
-        self.fresh().map_err(vrct_audio_routing::Error::speech)
+        self.fresh().map_err(astarot_audio_routing::Error::speech)
     }
     fn is_set(&self) -> bool {
         self.token.is_set()
@@ -773,7 +773,7 @@ impl PlaybackToken for Deadline<'_> {
     fn wait(&self, timeout: Duration) -> bool {
         self.token.wait(timeout)
     }
-    fn begin_playback(&self) -> vrct_audio_routing::Result<()> {
+    fn begin_playback(&self) -> astarot_audio_routing::Result<()> {
         self.check()
     }
 }
@@ -839,13 +839,13 @@ fn capture_failure(code: &str) -> String {
     if code.starts_with("vc_") {
         return code.to_owned();
     }
-    match vrct_audio_routing::windows_route::capture_code(code) {
+    match astarot_audio_routing::windows_route::capture_code(code) {
         "asr_capture_failed" => "vc_capture_failed".to_owned(),
         known => known.to_owned(),
     }
 }
 
-fn code_of(error: vrct_audio_routing::Error) -> String {
+fn code_of(error: astarot_audio_routing::Error) -> String {
     if error.code.starts_with("vc_") || error.code.starts_with("source_bridge_") || error.code.starts_with("output_") {
         error.code
     } else {
@@ -1069,17 +1069,17 @@ mod tests {
         fn input_blocks(&self) -> usize {
             8
         }
-        fn bind(&self, _: &vrct_audio_routing::graph::Endpoint, _: bool) -> Result<vrct_audio_routing::graph::Endpoint, String> {
+        fn bind(&self, _: &astarot_audio_routing::graph::Endpoint, _: bool) -> Result<astarot_audio_routing::graph::Endpoint, String> {
             Err("vc_output_missing".into())
         }
-        fn output(&self, _: &vrct_audio_routing::graph::Endpoint) -> Result<Box<dyn vrct_audio_routing::router::Output>, String> {
+        fn output(&self, _: &astarot_audio_routing::graph::Endpoint) -> Result<Box<dyn astarot_audio_routing::router::Output>, String> {
             Err("vc_output_missing".into())
         }
-        fn capture(&self, _: &vrct_audio_routing::graph::Endpoint, _: vrct_audio_routing::windows_route::CaptureCallbacks) -> Box<dyn vrct_audio_routing::windows_route::Capture> {
+        fn capture(&self, _: &astarot_audio_routing::graph::Endpoint, _: astarot_audio_routing::windows_route::CaptureCallbacks) -> Box<dyn astarot_audio_routing::windows_route::Capture> {
             unreachable!("a session without a sink captures nothing")
         }
-        fn monitor_factory(&self) -> vrct_audio_routing::monitor::MonitorFactory {
-            std::sync::Arc::new(|_: &str, _: u32, _: u16, _: &[String]| Err(vrct_audio_routing::Error::speech("monitor_output_missing")))
+        fn monitor_factory(&self) -> astarot_audio_routing::monitor::MonitorFactory {
+            std::sync::Arc::new(|_: &str, _: u32, _: u16, _: &[String]| Err(astarot_audio_routing::Error::speech("monitor_output_missing")))
         }
     }
 
@@ -1162,11 +1162,11 @@ mod tests {
     fn parts_handed_over_together_are_stamped_back_from_their_arrival() {
         // PipeWire hands the microphone over in quanta of its own (decision 11): a whole block
         // can come in one go. It ended as it arrived, so its end is now, never in the future.
-        vrct_audio_routing::sync::monotonic_ns();
+        astarot_audio_routing::sync::monotonic_ns();
         std::thread::sleep(std::time::Duration::from_millis(100));
         let process = requested(40);
         assert!(process.offer_audio(&vec![0u8; PART * 2 + 100]));
-        let arrived = vrct_audio_routing::sync::monotonic_ns() as i64;
+        let arrived = astarot_audio_routing::sync::monotonic_ns() as i64;
         let state = process.shared.state.lock().unwrap();
         let block = &state.queue[0];
         let (start, end) = (block.info["start_ns"].as_i64().unwrap(), block.info["end_ns"].as_i64().unwrap());
@@ -1182,13 +1182,13 @@ mod tests {
         // WASAPI is read every 10 ms: a part can be handed over late and the next one at once.
         // Stamped from the late part alone, the block ended about 18 ms in the future and the
         // conversion stopped with vc_block_expired on its second block (#531).
-        vrct_audio_routing::sync::monotonic_ns();
+        astarot_audio_routing::sync::monotonic_ns();
         std::thread::sleep(std::time::Duration::from_millis(100));
         let process = requested(40);
         assert!(process.offer_audio(&vec![0u8; PART]));
         std::thread::sleep(std::time::Duration::from_millis(2));
         assert!(process.offer_audio(&vec![0u8; PART]));
-        let arrived = vrct_audio_routing::sync::monotonic_ns() as i64;
+        let arrived = astarot_audio_routing::sync::monotonic_ns() as i64;
         let state = process.shared.state.lock().unwrap();
         let block = &state.queue[0];
         let (start, end) = (block.info["start_ns"].as_i64().unwrap(), block.info["end_ns"].as_i64().unwrap());
@@ -1214,7 +1214,7 @@ mod tests {
         // `test_vc_isolated.py`: `stop` never waits, a second start is refused (`vc_single_use`),
         // and `close` reports how the session ended.
         let process = process(40);
-        let source = vrct_audio_routing::graph::Endpoint { cookie: 1, serial: 2, name: "mic".into(), media_class: "Audio/Source".into() };
+        let source = astarot_audio_routing::graph::Endpoint { cookie: 1, serial: 2, name: "mic".into(), media_class: "Audio/Source".into() };
         process.start(source.clone()).unwrap();
         assert_eq!(process.start(source.clone()).unwrap_err(), "vc_single_use");
         // The session fails on its own (no sink); a close before that would only stop it.
@@ -1232,7 +1232,7 @@ mod tests {
         let began = std::time::Instant::now();
         stopped.stop();
         assert!(began.elapsed() < std::time::Duration::from_millis(100), "stop waits for nothing");
-        assert_eq!(stopped.start(vrct_audio_routing::graph::Endpoint { cookie: 1, serial: 2, name: "mic".into(), media_class: "Audio/Source".into() }).unwrap_err(), "vc_single_use");
+        assert_eq!(stopped.start(astarot_audio_routing::graph::Endpoint { cookie: 1, serial: 2, name: "mic".into(), media_class: "Audio/Source".into() }).unwrap_err(), "vc_single_use");
     }
 
     #[test]

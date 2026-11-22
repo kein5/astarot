@@ -101,7 +101,7 @@ pub fn is_valid_rvc_block_ms(value: &Value) -> bool {
 
 /// `is_valid_rvc_block_ms` of a number.
 pub fn is_valid_rvc_block(ms: u32) -> bool {
-    ms == vrct_voice_conversion::worker::AUTO_BLOCK_MS || vrct_voice_conversion::protocol::Block::from_ms(ms).is_some()
+    ms == astarot_voice_conversion::worker::AUTO_BLOCK_MS || astarot_voice_conversion::protocol::Block::from_ms(ms).is_some()
 }
 
 pub fn is_valid_port(value: &Value) -> bool {
@@ -570,10 +570,10 @@ fn ocr_region(value: &Value, _: &Ctx) -> bool {
 
 fn tts_settings(value: &Value, ctx: &Ctx) -> Option<Value> {
     let platform = match ctx.env.platform {
-        Platform::Windows => vrct_tts::settings::Platform::Windows,
-        Platform::Linux => vrct_tts::settings::Platform::Other,
+        Platform::Windows => astarot_tts::settings::Platform::Windows,
+        Platform::Linux => astarot_tts::settings::Platform::Other,
     };
-    let settings = vrct_tts::settings::VoiceSettings::from_value_on(value, platform).ok()?;
+    let settings = astarot_tts::settings::VoiceSettings::from_value_on(value, platform).ok()?;
     Some(settings.to_value())
 }
 
@@ -702,7 +702,7 @@ pub fn keys() -> Vec<Key> {
         // refuses a field it does not know, and would reset the model and index with it.
         key("RVC_BLOCK_MS", managed(Ty::Int, false, |v, _| is_valid_rvc_block_ms(v))),
         key("REALTIME_ASR_SETTINGS", validated(|v, _| voice_settings::normalize_realtime(v).ok())),
-        key("SPEECH_SERVER_SETTINGS", validated(|v, _| vrct_speech_server::settings::normalize_settings(v).ok().map(|s| s.to_json()))),
+        key("SPEECH_SERVER_SETTINGS", validated(|v, _| astarot_speech_server::settings::normalize_settings(v).ok().map(|s| s.to_json()))),
         key("WEBSOCKET_SERVER", b()),
         key("OSC_IP_ADDRESS", plain(Ty::Str)),
         key("OSC_PORT", managed(Ty::Int, false, |v, _| is_valid_port(v))),
@@ -722,7 +722,7 @@ pub fn keys() -> Vec<Key> {
         key("OVERLAY_VR_LAUNCHER_AUTO_HIDE", b()),
         key("OVERLAY_VR_TOOLTIP", b()),
         // Core only: the subtitles' font family on this system; "" is automatic (no font is bundled).
-        key("OVERLAY_FONT_FAMILY", managed(Ty::Str, false, |v, _| v.as_str().is_some_and(|s| s.is_empty() || vrct_vr_overlay::fonts::valid_family_name(s)))),
+        key("OVERLAY_FONT_FAMILY", managed(Ty::Str, false, |v, _| v.as_str().is_some_and(|s| s.is_empty() || astarot_vr_overlay::fonts::valid_family_name(s)))),
         key("OVERLAY_SHOW_ONLY_TRANSLATED_MESSAGES", b()),
         key("SEND_MESSAGE_TO_VRC", b()),
         key("SEND_RECEIVED_MESSAGE_TO_VRC", b()),
@@ -809,7 +809,7 @@ pub fn keys() -> Vec<Key> {
 }
 
 fn obs_numeric(name: &'static str) -> Check {
-    use vrct_adapters::obs::settings::{NumericSetting, is_valid_numeric_setting};
+    use astarot_adapters::obs::settings::{NumericSetting, is_valid_numeric_setting};
     let setting = NumericSetting::from_name(name).expect("a known OBS setting");
     managed(Ty::Int, false, move |v, _| v.as_i64().is_some_and(|v| is_valid_numeric_setting(setting, v)))
 }
@@ -845,7 +845,7 @@ pub fn defaults(env: &Environment) -> Map<String, Value> {
         "translation": { "prefix": "", "separator": "\n", "suffix": "" }, "translation_first": false,
     });
     let voice = tts_settings(&json!({}), &Ctx::empty(env)).unwrap_or_else(|| json!({}));
-    let speech = vrct_speech_server::settings::normalize_settings(&json!({})).map(|s| s.to_json()).unwrap_or_default();
+    let speech = astarot_speech_server::settings::normalize_settings(&json!({})).map(|s| s.to_json()).unwrap_or_default();
     let realtime = voice_settings::normalize_realtime(&json!({})).unwrap_or_default();
     let entries: Vec<(&str, Value)> = vec![
         ("VERSION", json!(env.version)),
@@ -963,7 +963,7 @@ pub fn defaults(env: &Environment) -> Map<String, Value> {
         ("RECEIVED_MESSAGE_FORMAT_PARTS", format_parts),
         ("VOICE_SETTINGS", voice),
         ("DIRECT_VOICE_SETTINGS", voice_settings::default_direct()),
-        ("RVC_BLOCK_MS", json!(vrct_voice_conversion::worker::DEFAULT_BLOCK_MS)),
+        ("RVC_BLOCK_MS", json!(astarot_voice_conversion::worker::DEFAULT_BLOCK_MS)),
         ("REALTIME_ASR_SETTINGS", realtime),
         ("SPEECH_SERVER_SETTINGS", speech),
         ("WEBSOCKET_SERVER", json!(false)),

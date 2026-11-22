@@ -75,7 +75,7 @@ pub const DESKTOP_FILE_MARKER: Renamed = Renamed::moved("X-VRCT-VOX-Generated", 
 
 /// The folder the Linux packages keep settings, logs and models in, under `$XDG_CONFIG_HOME` and
 /// under `$XDG_DATA_HOME` (ADR-014, 2.4). The app moves the VRCT-VOX folder at its start and
-/// leaves a link with the old name (`vrct_core::storage::linux`).
+/// leaves a link with the old name (`astarot_core::storage::linux`).
 pub const LINUX_FOLDER: Renamed = Renamed::moved("vrct-vox", "astarot");
 
 /// The Windows installer's name for an install (ADR-014, 2.5): the registry keys that record where
@@ -89,7 +89,7 @@ pub const WINDOWS_INSTALL: Renamed = Renamed::moved("VRCT-VOX", "ASTAROT");
 /// The file the Windows installer leaves in the install folder after it moved the folder (ADR-014,
 /// 2.5, 5). It names the old folder, in UTF-16 with a byte order mark as NSIS writes it. The app
 /// rewrites the paths saved under the old folder at its next start and removes the file
-/// (`vrct_core::storage::installer`), as it takes `installer_language.txt`.
+/// (`astarot_core::storage::installer`), as it takes `installer_language.txt`.
 pub const INSTALLER_MOVED_FROM: &str = "installer_moved_from.txt";
 
 /// The app's executable without `.exe` (`mainBinaryName` in `src-tauri/tauri.conf.json`), and the

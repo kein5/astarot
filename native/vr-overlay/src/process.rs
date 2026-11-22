@@ -1,5 +1,5 @@
 //! Whether SteamVR runs: one of its processes, `vrserver` or `vrmonitor`
-//! ([`vrct_openvr_client::STEAMVR_PROCESSES`], #944). Python's `checkSteamvrRunning` looked for
+//! ([`astarot_openvr_client::STEAMVR_PROCESSES`], #944). Python's `checkSteamvrRunning` looked for
 //! `vrmonitor` alone, which SteamVR on a Steam Frame does not open.
 
 /// Whether a process of this executable name runs (case-insensitive on Windows).
@@ -13,7 +13,7 @@ pub fn running_any(names: &[&str]) -> bool {
 }
 
 pub fn steamvr_running() -> bool {
-    running_any(&vrct_openvr_client::STEAMVR_PROCESSES)
+    running_any(&astarot_openvr_client::STEAMVR_PROCESSES)
 }
 
 #[cfg(windows)]

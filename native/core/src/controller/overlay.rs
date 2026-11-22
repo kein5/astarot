@@ -24,11 +24,11 @@ use serde_json::{Value, json};
 use std::collections::VecDeque;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Condvar, Mutex, Weak};
-use vrct_vr_overlay::engine::{self, Event, Options, Overlay, PANEL_ANCHORS, Surface, WindowSettings};
-use vrct_vr_overlay::fonts::{FontLibrary, valid_family_name};
-use vrct_vr_overlay::placement;
-use vrct_vr_overlay::subtitle::{CaptionId, CaptionState, Direction, LargePicture, Reading, Renderer, Subtitle, Subtitles, Translation};
-use vrct_vr_overlay::tooltip::validate_tooltip;
+use astarot_vr_overlay::engine::{self, Event, Options, Overlay, PANEL_ANCHORS, Surface, WindowSettings};
+use astarot_vr_overlay::fonts::{FontLibrary, valid_family_name};
+use astarot_vr_overlay::placement;
+use astarot_vr_overlay::subtitle::{CaptionId, CaptionState, Direction, LargePicture, Reading, Renderer, Subtitle, Subtitles, Translation};
+use astarot_vr_overlay::tooltip::validate_tooltip;
 
 /// The log window's default size and the range a corner drag allows (logical px).
 const PANEL_DEFAULT_SIZE: (i64, i64) = (900, 700);
@@ -280,7 +280,7 @@ impl Core {
             y_rotation: placement.position[4],
             z_rotation: placement.position[5],
             ui_scaling: placement.ui_scaling,
-            tracker: vrct_vr_overlay::math::Tracker::from_setting(&placement.tracker),
+            tracker: astarot_vr_overlay::math::Tracker::from_setting(&placement.tracker),
         };
         if placement::launcher_out_of_reach(&current) {
             core.step("overlay: the saved launcher was out of reach; it moves near the wrist");
@@ -310,7 +310,7 @@ impl Core {
             steamvr_poll: services.steamvr_poll,
         });
         let fonts = (services.overlay_fonts)(config.environment());
-        let subtitles = Subtitles::new(fonts, Arc::new(vrct_vr_overlay::subtitle::local_time));
+        let subtitles = Subtitles::new(fonts, Arc::new(astarot_vr_overlay::subtitle::local_time));
         // A saved family that is gone draws with the automatic fonts; the setting stays.
         subtitles.renderer.set_font_family(Some(&config.get_str("OVERLAY_FONT_FAMILY")));
         let _ = core.vr.set(VrOverlay {
@@ -459,7 +459,7 @@ impl Core {
         let settings = self.config().get("OVERLAY_VR_PANEL_SETTINGS");
         let size = |key: &str, default: i64| python_float(&settings[key]).unwrap_or(default as f64);
         let (width, height) = clamp_panel_size(size("width", PANEL_DEFAULT_SIZE.0), size("height", PANEL_DEFAULT_SIZE.1));
-        engine::layout_json(&vrct_vr_overlay::layout::VrLayout::for_panel(width as u32, height as u32), 0)
+        engine::layout_json(&astarot_vr_overlay::layout::VrLayout::for_panel(width as u32, height as u32), 0)
     }
 
     fn set_vr_panel_opacity(&self, data: &Value) -> Reply {
@@ -585,7 +585,7 @@ impl Core {
         }
         if config.get_bool("OVERLAY_LARGE_LOG") && vr.engine.initialized() {
             let token = vr.engine.publication_token(Surface::Large);
-            if let Ok(picture) = vr.subtitles.renderer.large_sample(&text, &vrct_vr_overlay::subtitle::local_time()) {
+            if let Ok(picture) = vr.subtitles.renderer.large_sample(&text, &astarot_vr_overlay::subtitle::local_time()) {
                 let current = || config.get_bool("OVERLAY_LARGE_LOG");
                 if current() && vr.engine.publication_current(Surface::Large, token) {
                     let _ = vr.engine.update_image(Surface::Large, &picture.pixels, picture.width, picture.height, token, &current);

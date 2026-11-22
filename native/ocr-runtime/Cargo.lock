@@ -9,8 +9,42 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "320119579fcad9c21884f5c4861d16174d0e06250625266f50fe6898340abefa"
 
 [[package]]
-name = "app-identity"
+name = "astarot-app-identity"
 version = "0.0.0"
+
+[[package]]
+name = "astarot-ocr-runtime"
+version = "0.1.0"
+dependencies = [
+ "astarot-app-identity",
+ "astarot-onnx-runtime",
+ "astarot-openvr-client",
+ "caseless",
+ "libloading 0.8.9",
+ "ort",
+ "png",
+ "serde",
+ "serde_json",
+ "sha2",
+ "thiserror",
+ "unicode-bidi",
+ "windows",
+ "x11rb",
+]
+
+[[package]]
+name = "astarot-onnx-runtime"
+version = "0.0.0"
+dependencies = [
+ "ort",
+]
+
+[[package]]
+name = "astarot-openvr-client"
+version = "0.0.0"
+dependencies = [
+ "libloading 0.8.9",
+]
 
 [[package]]
 name = "autocfg"
@@ -393,26 +427,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "071dfc062690e90b734c0b2273ce72ad0ffa95f0c74596bc250dcfd960262841"
 dependencies = [
  "autocfg",
-]
-
-[[package]]
-name = "ocr-runtime"
-version = "0.1.0"
-dependencies = [
- "app-identity",
- "caseless",
- "libloading 0.8.9",
- "ort",
- "png",
- "serde",
- "serde_json",
- "sha2",
- "thiserror",
- "unicode-bidi",
- "vrct-onnx-runtime",
- "vrct-openvr-client",
- "windows",
- "x11rb",
 ]
 
 [[package]]
@@ -853,20 +867,6 @@ name = "version_check"
 version = "0.9.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
-
-[[package]]
-name = "vrct-onnx-runtime"
-version = "0.0.0"
-dependencies = [
- "ort",
-]
-
-[[package]]
-name = "vrct-openvr-client"
-version = "0.0.0"
-dependencies = [
- "libloading 0.8.9",
-]
 
 [[package]]
 name = "webpki-root-certs"

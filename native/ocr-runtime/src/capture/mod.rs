@@ -136,7 +136,7 @@ impl Platform {
             shared,
             vr: Box::new(move || Box::new(openvr::OpenVrMirrorCapture::new(vr_log.clone(), vr_clock.clone())) as Box<dyn VrCapture>),
             // SteamVR's server or its status window, which a Steam Frame does not open (#944).
-            steamvr_running: Box::new(|| process::any_process_running(&vrct_openvr_client::STEAMVR_PROCESSES)),
+            steamvr_running: Box::new(|| process::any_process_running(&astarot_openvr_client::STEAMVR_PROCESSES)),
         }
     }
 }

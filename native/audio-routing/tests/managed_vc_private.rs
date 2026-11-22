@@ -14,11 +14,11 @@ use std::sync::mpsc::{channel, Receiver};
 use std::time::{Duration, Instant};
 
 use private_graph::{dump, microphone, tone, wait, PrivateGraph};
-use vrct_audio_routing::graph::{self, Endpoint};
-use vrct_audio_routing::managed_vc::{ManagedVcDevices, PipeWireVcDevices};
-use vrct_audio_routing::pipewire::read_graph_data;
-use vrct_audio_routing::router::CancelToken;
-use vrct_audio_routing::windows_route::CaptureCallbacks;
+use astarot_audio_routing::graph::{self, Endpoint};
+use astarot_audio_routing::managed_vc::{ManagedVcDevices, PipeWireVcDevices};
+use astarot_audio_routing::pipewire::read_graph_data;
+use astarot_audio_routing::router::CancelToken;
+use astarot_audio_routing::windows_route::CaptureCallbacks;
 
 const MIC: &str = "vrct.test.mic";
 

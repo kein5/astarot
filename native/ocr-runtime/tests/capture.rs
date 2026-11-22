@@ -6,12 +6,12 @@
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
-use ocr_runtime::capture::portal::{frame_from_pixels, parse_header, SharedWindowCapture};
-use ocr_runtime::capture::{is_frame_blank, probe_capture, OcrCapture, Platform, SharedState, SharedWindow, VrCapture, WindowCapture, BACKEND_NONE, BACKEND_OPENVR, BACKEND_PORTAL, BACKEND_X11};
-use ocr_runtime::detection::Surface;
-use ocr_runtime::failure::{Clock, Failure, Log};
-use ocr_runtime::pipeline::{CaptureStatus, FrameSource};
-use ocr_runtime::BgrImage;
+use astarot_ocr_runtime::capture::portal::{frame_from_pixels, parse_header, SharedWindowCapture};
+use astarot_ocr_runtime::capture::{is_frame_blank, probe_capture, OcrCapture, Platform, SharedState, SharedWindow, VrCapture, WindowCapture, BACKEND_NONE, BACKEND_OPENVR, BACKEND_PORTAL, BACKEND_X11};
+use astarot_ocr_runtime::detection::Surface;
+use astarot_ocr_runtime::failure::{Clock, Failure, Log};
+use astarot_ocr_runtime::pipeline::{CaptureStatus, FrameSource};
+use astarot_ocr_runtime::BgrImage;
 
 const INSTANCE: u64 = (4242 << 32) | 1;
 const BGRX: u32 = 0;
@@ -200,7 +200,7 @@ fn a_file_left_by_a_killed_helper_is_not_a_stream() {
     // The helper's process id is the upper half of the instance. The portal's helper runs on
     // Linux only, and the check reads /proc.
     #[cfg(target_os = "linux")]
-    assert!(ocr_runtime::capture::portal::writer_alive((std::process::id() as u64) << 32 | 7));
+    assert!(astarot_ocr_runtime::capture::portal::writer_alive((std::process::id() as u64) << 32 | 7));
 }
 
 #[test]
@@ -608,7 +608,7 @@ fn black_and_uniform_frames_are_blank_but_a_dark_scene_with_text_is_not() {
 
 #[cfg(target_os = "linux")]
 mod x11 {
-    use ocr_runtime::capture::x11::{frame_from_ximage, window_rank};
+    use astarot_ocr_runtime::capture::x11::{frame_from_ximage, window_rank};
 
     #[test]
     fn pixel_layouts() {

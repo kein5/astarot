@@ -14,7 +14,7 @@
 //!
 //!     ASTAROT_TRANSLATE_DEVICE=directml:1 ASTAROT_TRANSLATE_UNRUNNABLE_MODEL=.../folder
 
-use vrct_translate_onnx::{codes, Accelerator, Bundle, Provider, Translator};
+use astarot_translate_onnx::{codes, Accelerator, Bundle, Provider, Translator};
 
 fn translator(variable: &str) -> Option<Translator> {
     let folder = std::env::var_os(variable)?;

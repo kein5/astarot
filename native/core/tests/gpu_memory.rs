@@ -8,8 +8,8 @@ use serde_json::{Value, json};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
-use vrct_core::controller::Services;
-use vrct_core::gpu_memory::{AppUsage, Gpu, Reader, UNSUPPORTED};
+use astarot_core::controller::Services;
+use astarot_core::gpu_memory::{AppUsage, Gpu, Reader, UNSUPPORTED};
 
 fn gpu() -> Gpu {
     Gpu {

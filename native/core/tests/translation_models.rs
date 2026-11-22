@@ -11,15 +11,15 @@ use common::{error_code, Setup, Ui};
 use serde_json::{json, Value};
 use std::path::Path;
 use std::sync::Arc;
-use vrct_core::controller::Services;
-use vrct_ops::downloads::catalog::{Artifact, Model, CATALOG_VERSION, TRANSLATION_TARGET};
-use vrct_ops::downloads::transport::{Body, Transport};
-use vrct_ops::downloads::{Downloads, Error, Options};
+use astarot_core::controller::Services;
+use astarot_ops::downloads::catalog::{Artifact, Model, CATALOG_VERSION, TRANSLATION_TARGET};
+use astarot_ops::downloads::transport::{Body, Transport};
+use astarot_ops::downloads::{Downloads, Error, Options};
 
 const FILES: [(&str, &str); 4] = [("encoder.onnx", "a"), ("decoder.onnx", "b"), ("tokenizer.json", "c"), ("vocab.json", "d")];
 
 fn sha(data: &[u8]) -> String {
-    vrct_voice_conversion::runtime::sha256_hex(data)
+    astarot_voice_conversion::runtime::sha256_hex(data)
 }
 
 /// A manifest of the fake files, as `export.py` writes it.
@@ -71,7 +71,7 @@ fn enable(ui: &Ui) -> (String, Value) {
 #[test]
 fn the_cpu_is_listed_with_its_saved_name_and_the_onnx_compute_types() {
     // No ONNX Runtime beside the test executable: only the CPU, and nothing is loaded.
-    let devices = vrct_core::controller::translation::compute_devices();
+    let devices = astarot_core::controller::translation::compute_devices();
     assert_eq!(devices[0]["device"], "cpu");
     assert_eq!(devices[0]["device_index"], 0);
     assert_eq!(devices[0]["device_name"], "cpu");
@@ -80,7 +80,7 @@ fn the_cpu_is_listed_with_its_saved_name_and_the_onnx_compute_types() {
 
 #[test]
 fn a_gpu_build_set_up_during_the_run_is_offered_for_the_next_start() {
-    use vrct_voice_conversion::runtime::{self as runtimes, Target};
+    use astarot_voice_conversion::runtime::{self as runtimes, Target};
     let Some(target) = Target::current() else { return };
     let temp = tempfile::tempdir().unwrap();
     let ui = start_in(temp.path(), None, services());
@@ -294,18 +294,18 @@ fn a_translation_model_comes_only_through_the_consent_catalog_and_is_then_found(
 /// A model that loads and says it runs on the CPU because the GPU it was given failed.
 struct FellBack;
 
-impl vrct_core::controller::translation::LocalTranslation for FellBack {
-    fn load(&self, _setup: &vrct_core::controller::translation::LocalSetup) -> Result<(), vrct_core::controller::translation::LocalError> {
+impl astarot_core::controller::translation::LocalTranslation for FellBack {
+    fn load(&self, _setup: &astarot_core::controller::translation::LocalSetup) -> Result<(), astarot_core::controller::translation::LocalError> {
         Ok(())
     }
-    fn loaded(&self) -> Option<vrct_core::controller::translation::LocalSetup> {
+    fn loaded(&self) -> Option<astarot_core::controller::translation::LocalSetup> {
         None
     }
-    fn translate(&self, text: &str, _source: &str, _target: &str) -> Result<String, vrct_core::controller::translation::LocalError> {
+    fn translate(&self, text: &str, _source: &str, _target: &str) -> Result<String, astarot_core::controller::translation::LocalError> {
         Ok(text.to_string())
     }
-    fn placement(&self) -> Option<vrct_core::controller::translation::Placement> {
-        Some(vrct_core::controller::translation::Placement {
+    fn placement(&self) -> Option<astarot_core::controller::translation::Placement> {
+        Some(astarot_core::controller::translation::Placement {
             device: "cpu".into(),
             device_index: 0,
             variant: "int8".into(),

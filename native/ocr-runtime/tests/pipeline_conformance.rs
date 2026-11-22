@@ -7,12 +7,12 @@
 mod common;
 
 use common::{fixture, reference_dir};
-use ocr_runtime::chatbox::ChatboxDetector;
-use ocr_runtime::detection::{block_bounds, group_lines, looks_like_chatbox};
-use ocr_runtime::engine::Word;
-use ocr_runtime::models::{resolve_artifact, DETECTOR_MODEL_ID};
-use ocr_runtime::text::{merge_words, similar, text_key};
-use ocr_runtime::BgrImage;
+use astarot_ocr_runtime::chatbox::ChatboxDetector;
+use astarot_ocr_runtime::detection::{block_bounds, group_lines, looks_like_chatbox};
+use astarot_ocr_runtime::engine::Word;
+use astarot_ocr_runtime::models::{resolve_artifact, DETECTOR_MODEL_ID};
+use astarot_ocr_runtime::text::{merge_words, similar, text_key};
+use astarot_ocr_runtime::BgrImage;
 
 fn words_of(set: &str, file: &str) -> Vec<Word> {
     let data = fixture(&format!("engine/{set}.json")).unwrap();

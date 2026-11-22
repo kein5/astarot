@@ -13,8 +13,8 @@ use std::sync::{Mutex, OnceLock};
 use std::time::Duration;
 use tauri::ipc::Channel;
 use tauri::Manager;
-use vrct_core::config::{Environment, Platform};
-use vrct_core::{Backend, Options, Sink};
+use astarot_core::config::{Environment, Platform};
+use astarot_core::{Backend, Options, Sink};
 
 #[derive(Default)]
 pub struct BackendHost {
@@ -78,10 +78,10 @@ static FOLDERS: OnceLock<Folders> = OnceLock::new();
 /// Settles the folders at the start, before anything reads them, and answers the line for the
 /// start-up log when the Linux packages' folders were looked at, or when the Windows installer
 /// moved the install folder. On Linux the folders of 0.5.x move from `vrct-vox` to `astarot`
-/// (ADR-014, 2.4; `vrct_core::storage::linux`), which first asks the session bus whether another
+/// (ADR-014, 2.4; `astarot_core::storage::linux`), which first asks the session bus whether another
 /// ASTAROT or VRCT-VOX runs: call it after the start has set its environment variables, as that
 /// starts a thread. On Windows the paths saved under the folder the installer moved from are
-/// rewritten (2.5; `vrct_core::storage::installer`).
+/// rewritten (2.5; `astarot_core::storage::installer`).
 pub(crate) fn settle_folders(executable: &Path) -> Option<String> {
     let mut line = None;
     FOLDERS.get_or_init(|| {
@@ -97,19 +97,19 @@ fn folders(executable: &Path) -> Folders {
 }
 
 fn resolve(executable: &Path) -> (Folders, Option<String>) {
-    use app_identity::env::{CONFIG_DIR, DATA_DIR};
+    use astarot_app_identity::env::{CONFIG_DIR, DATA_DIR};
     let app_dir = executable.parent().map_or_else(|| PathBuf::from("."), Path::to_path_buf);
     #[cfg(target_os = "linux")]
     if option_env!("ASTAROT_LINUX_BUNDLE") == Some("1") {
-        use vrct_core::storage::linux::{Location, other_instance, settle};
+        use astarot_core::storage::linux::{Location, other_instance, settle};
         let home = PathBuf::from(std::env::var_os("HOME").unwrap_or_default());
         // ASTAROT_CONFIG_DIR and ASTAROT_DATA_DIR, or the VRCT_ names 0.5.x documented, name a
         // folder that is used as it is. Otherwise the XDG folder, under its old and new names.
-        let location = |configured: app_identity::env::Variable, variable: &str, fallback: &str| match configured.value_os() {
+        let location = |configured: astarot_app_identity::env::Variable, variable: &str, fallback: &str| match configured.value_os() {
             Some(dir) => Location::Given(PathBuf::from(dir)),
             None => {
                 let base = std::env::var_os(variable).map(PathBuf::from).filter(|p| p.is_absolute()).unwrap_or_else(|| home.join(fallback));
-                let name = app_identity::LINUX_FOLDER;
+                let name = astarot_app_identity::LINUX_FOLDER;
                 Location::Default { legacy: base.join(name.legacy), current: base.join(name.current()) }
             }
         };
@@ -122,7 +122,7 @@ fn resolve(executable: &Path) -> (Folders, Option<String>) {
     // from VRCT-VOX to ASTAROT it left a file naming the old folder (ADR-014, 2.5): the paths
     // saved under the old folder are rewritten here, before anything reads the settings.
     let line = cfg!(windows)
-        .then(|| vrct_core::storage::installer::take_installer_move(&app_dir, &state_dir))
+        .then(|| astarot_core::storage::installer::take_installer_move(&app_dir, &state_dir))
         .flatten()
         .map(|taken| taken.summary());
     (Folders { state_dir, data_dir: app_dir.clone(), app_dir }, line)
@@ -132,10 +132,10 @@ fn environment(executable: &Path, version: String) -> Environment {
     let Folders { state_dir, app_dir, data_dir } = folders(executable);
     // The ONNX Runtime library first (the shipped CPU build, or the GPU build the user set up
     // for translation): the compute devices are its execution providers.
-    vrct_core::shipped_libraries::use_libraries(&app_dir, &state_dir);
+    astarot_core::shipped_libraries::use_libraries(&app_dir, &state_dir);
     // The CPU, the GPU provider of the library chosen, and the GPU builds set up that need a
     // restart.
-    let compute_devices = vrct_core::controller::translation::compute_devices_for(&state_dir);
+    let compute_devices = astarot_core::controller::translation::compute_devices_for(&state_dir);
     Environment {
         version,
         state_dir,
@@ -215,7 +215,7 @@ fn start_run(
         // A development build runs from src-tauri/target; the files a package ships in
         // `_internal` (build/speechcpp, the helper programs) are staged in the checkout's build/.
         // Before the environment, which looks for the ONNX Runtime library.
-        vrct_core::resources::use_development_checkout(Path::new(env!("CARGO_MANIFEST_DIR")).join(".."));
+        astarot_core::resources::use_development_checkout(Path::new(env!("CARGO_MANIFEST_DIR")).join(".."));
     }
     let mut options = Options::new(environment(&executable, app.package_info().version.to_string()));
     // A run started again keeps the failed run's record in process.log.

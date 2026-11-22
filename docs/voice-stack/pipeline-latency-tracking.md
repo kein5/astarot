@@ -11,7 +11,7 @@ CIで測るのは、中核が自分で足す時間です。認識、翻訳、音
 | 部分 | 代わりに使うもの |
 |---|---|
 | リアルタイム字幕のサーバー | `tests/common/fake_asr.rs`。試験が頼んだときに1つの発話を確定させ、その時刻を記録します。本物のspeech.cppと同じく、接続に`TCP_NODELAY`を付けます。 |
-| 翻訳 | `vrct_translation::fake`のDeepL。すぐに答えます。 |
+| 翻訳 | `astarot_translation::fake`のDeepL。すぐに答えます。 |
 | 読み上げのサーバー | `tests/common/fake_tts.rs`のspeech.cpp。冒頭に0.42秒の無音を付けて返します。speech.cppのQwen3-TTSの冒頭の無音（[2026-11-18の記録](pipeline-latency-2026-11-18.md)で421〜435 ms）に合わせた長さです。接続には`TCP_NODELAY`を付けます。 |
 | 読み上げの出力 | 試験の中の出力。振幅64を超えるサンプルを最初に書いた時刻を記録し、デバイスと同じ速さで受け取ります（先読みは40 msまで）。 |
 | チャットボックス | 127.0.0.2で待つUDPのソケットです。 |

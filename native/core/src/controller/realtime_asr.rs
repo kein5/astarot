@@ -3,7 +3,7 @@
 //!
 //! Port of the realtime parts of [`src-python/controller.py`] (`_initRealtimeASR` to
 //! `_startRealtime`). The session, its transport and the delivery of captions are in
-//! `vrct_transcription::realtime`. Captions go to the UI as `/run/realtime_caption` and to the
+//! `astarot_transcription::realtime`. Captions go to the UI as `/run/realtime_caption` and to the
 //! VR large log; finals go through the message pipeline (`REALTIME_MIC`, `REALTIME_SPEAKER`).
 //!
 //! [`src-python/controller.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/controller.py
@@ -19,13 +19,13 @@ use serde_json::{Value, json};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
-use vrct_audio_routing::graph::{Endpoint, SourceId};
-use vrct_speech_server::Profile;
-use vrct_transcription::realtime::{Admission, Delivery, Options, Session, Update};
-use vrct_transcription::server_vad::{self, ServerVad};
-use vrct_transcription::speechcpp;
-use vrct_transcription::vad::Vad;
-use vrct_translation::http::Cancel;
+use astarot_audio_routing::graph::{Endpoint, SourceId};
+use astarot_speech_server::Profile;
+use astarot_transcription::realtime::{Admission, Delivery, Options, Session, Update};
+use astarot_transcription::server_vad::{self, ServerVad};
+use astarot_transcription::speechcpp;
+use astarot_transcription::vad::Vad;
+use astarot_translation::http::Cancel;
 
 const SETTINGS_KEY: &str = "REALTIME_ASR_SETTINGS";
 /// A started server enforces its own start timeout; this only bounds a switch's wait.
@@ -44,8 +44,8 @@ pub struct RealtimeLimits {
     /// How long a start waits for the previous session of its source to end, before it fails
     /// with `realtime_previous_owner_busy` (3 s).
     pub drain: Duration,
-    /// The session's own ([`vrct_transcription::realtime::Limits`]).
-    pub session: vrct_transcription::realtime::Limits,
+    /// The session's own ([`astarot_transcription::realtime::Limits`]).
+    pub session: astarot_transcription::realtime::Limits,
 }
 
 impl Default for RealtimeLimits {
@@ -263,7 +263,7 @@ impl Core {
         }
         let reachable = settings["base_url"]
             .as_str()
-            .and_then(|url| vrct_translation::http::Url::parse(url).ok())
+            .and_then(|url| astarot_translation::http::Url::parse(url).ok())
             .and_then(|url| {
                 use std::net::ToSocketAddrs;
                 (url.host.trim_start_matches('[').trim_end_matches(']'), url.port).to_socket_addrs().ok()
@@ -288,7 +288,7 @@ impl Core {
     }
 
     /// The VAD a source's recorder cuts with while its switch is on: the services' engine, else
-    /// Silero VAD on the speech.cpp server ([`vrct_transcription::server_vad`]). A server that is
+    /// Silero VAD on the speech.cpp server ([`astarot_transcription::server_vad`]). A server that is
     /// not set up, or one the recording cannot use, is told (`/run/vad_unavailable`), and the
     /// energy listener cuts.
     pub(crate) fn recorder_vad(self: &Arc<Self>, source: Source) -> Option<Vad> {
@@ -708,7 +708,7 @@ impl Core {
             run = row["generation"].as_u64().unwrap_or(0);
             if !matches!(row["state"].as_str(), Some("ready" | "preparing")) {
                 if let Err(code) = self.speech_servers().hub().start(Profile::Asr, options, run) {
-                    return Some(if code == vrct_speech_server::codes::BUSY { "speech_server_busy" } else { "speech_server_start_failed" }.into());
+                    return Some(if code == astarot_speech_server::codes::BUSY { "speech_server_busy" } else { "speech_server_start_failed" }.into());
                 }
                 run += 1;
                 toggle.asr_owned = Some(run);
@@ -1071,7 +1071,7 @@ impl Core {
                 let process = {
                     let (weak, current, admitted) = (weak.clone(), current.clone(), admitted.clone());
                     let voice_snapshot = std::sync::Mutex::new(voice_snapshot);
-                    Arc::new(move |update: &Update, valid: vrct_transcription::realtime::delivery::Current, output: vrct_transcription::realtime::delivery::Output| -> Result<Option<Value>, ()> {
+                    Arc::new(move |update: &Update, valid: astarot_transcription::realtime::delivery::Current, output: astarot_transcription::realtime::delivery::Output| -> Result<Option<Value>, ()> {
                         let (Some(core), Some(arrival)) = (weak.upgrade(), arrival.clone()) else { return Ok(None) };
                         if !(current() && valid() && admitted()) {
                             return Ok(None);
@@ -1159,7 +1159,7 @@ impl Core {
                         core.config().get_bool("OVERLAY_LARGE_LOG")
                             && (state != "partial" || (current() && admitted() && session.is_current(&namespace)))
                             && (state == "discarded"
-                                || vrct_transcription::realtime::delivery::monotonic_ns(Instant::now()) < expires)
+                                || astarot_transcription::realtime::delivery::monotonic_ns(Instant::now()) < expires)
                     };
                     let shown = core.show_overlay_caption(source.as_str(), &namespace, &item, &state, revision, &message, &still);
                     // A failed caption is told like a failed output of a message (`_runMessageSink`
@@ -1274,10 +1274,10 @@ fn caption_message(source: Source, payload: &Value, snapshot: &Snapshot) -> supe
 }
 
 /// A realtime final as speech sees it (`TranscriptUpdate`), on speech's clock.
-fn speech_update(update: &Update) -> vrct_tts::message_hook::TranscriptUpdate {
-    let now = vrct_tts::clock::monotonic_ns();
+fn speech_update(update: &Update) -> astarot_tts::message_hook::TranscriptUpdate {
+    let now = astarot_tts::clock::monotonic_ns();
     let age = update.received.map_or(0, |at| i64::try_from(at.elapsed().as_nanos()).unwrap_or(i64::MAX));
-    vrct_tts::message_hook::TranscriptUpdate {
+    astarot_tts::message_hook::TranscriptUpdate {
         source: update.source.to_string(),
         is_final: update.is_final,
         state: update.state.to_string(),

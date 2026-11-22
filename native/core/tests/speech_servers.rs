@@ -9,10 +9,10 @@ use serde_json::{Value, json};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant};
-use vrct_core::controller::Services;
-use vrct_core::controller::speech::Ended;
-use vrct_speech_server::Profile;
-use vrct_speech_server::server::Launch;
+use astarot_core::controller::Services;
+use astarot_core::controller::speech::Ended;
+use astarot_speech_server::Profile;
+use astarot_speech_server::server::Launch;
 
 const FAKE: &str = env!("CARGO_BIN_EXE_fake-speech-core");
 
@@ -91,7 +91,7 @@ fn start(ui: &Ui, profile: &str, generation: &Value) -> Value {
 fn reported() -> &'static Mutex<Vec<String>> {
     static CODES: OnceLock<Mutex<Vec<String>>> = OnceLock::new();
     CODES.get_or_init(|| {
-        vrct_core::errors::register_report_hook(Arc::new(|code| reported().lock().unwrap().push(code.to_string())));
+        astarot_core::errors::register_report_hook(Arc::new(|code| reported().lock().unwrap().push(code.to_string())));
         Mutex::new(Vec::new())
     })
 }
@@ -378,17 +378,17 @@ fn bundled_services(dir: &Path, layout: &[(&str, &str, &[&str])]) -> Services {
     for (folder, variant, markers) in layout {
         let folder = dir.join(folder);
         std::fs::create_dir_all(&folder).unwrap();
-        let binary = folder.join(vrct_speech_server::bundle::EXECUTABLE);
+        let binary = folder.join(astarot_speech_server::bundle::EXECUTABLE);
         std::fs::copy(FAKE, &binary).unwrap();
-        std::fs::write(folder.join("bundle.json"), json!({ "schema": 1, "version": vrct_speech_server::bundle::VERSION, "variant": variant }).to_string()).unwrap();
+        std::fs::write(folder.join("bundle.json"), json!({ "schema": 1, "version": astarot_speech_server::bundle::VERSION, "variant": variant }).to_string()).unwrap();
         for marker in *markers {
             std::fs::write(folder.join(marker), b"").unwrap();
         }
-        pins.push((variant.to_string(), vrct_speech_server::bundle::file_sha256(&binary).unwrap()));
+        pins.push((variant.to_string(), astarot_speech_server::bundle::file_sha256(&binary).unwrap()));
     }
-    let pins: vrct_speech_server::bundle::Pins = pins.into();
+    let pins: astarot_speech_server::bundle::Pins = pins.into();
     // The core's own order: the Vulkan build's folder, then the CPU build's.
-    let folders: Vec<PathBuf> = vrct_core::controller::speech::BUNDLES.iter().map(|relative| dir.join(relative.trim_start_matches("build/"))).collect();
+    let folders: Vec<PathBuf> = astarot_core::controller::speech::BUNDLES.iter().map(|relative| dir.join(relative.trim_start_matches("build/"))).collect();
     Services {
         speech_server_launch: Arc::new(move |_| {
             let mut launch = Launch::bundles(folders.clone());

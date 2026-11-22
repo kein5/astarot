@@ -20,12 +20,12 @@ fn tauri_config() -> String {
 
 #[test]
 fn the_tauri_build_uses_the_app_id_written_here() {
-    assert_eq!(string_value(&tauri_config(), "identifier"), app_identity::APP_ID.current());
+    assert_eq!(string_value(&tauri_config(), "identifier"), astarot_app_identity::APP_ID.current());
 }
 
 #[test]
 fn the_tauri_build_names_the_executable_written_here() {
-    assert_eq!(string_value(&tauri_config(), "mainBinaryName"), app_identity::EXECUTABLE.current());
+    assert_eq!(string_value(&tauri_config(), "mainBinaryName"), astarot_app_identity::EXECUTABLE.current());
 }
 
 fn installer_template() -> String {
@@ -37,7 +37,7 @@ fn installer_template() -> String {
 fn the_uninstaller_also_removes_the_data_of_the_old_app_id() {
     // ADR-014, 2.5: "delete the app data" takes the WebView folders of both app IDs.
     let template = installer_template();
-    let old = format!("!define OLDBUNDLEID \"{}\"", app_identity::APP_ID.legacy);
+    let old = format!("!define OLDBUNDLEID \"{}\"", astarot_app_identity::APP_ID.legacy);
     assert!(template.lines().any(|line| line == old), "{old}");
     for folder in ["$APPDATA", "$LOCALAPPDATA"] {
         for id in ["BUNDLEID", "OLDBUNDLEID"] {
@@ -51,7 +51,7 @@ fn the_uninstaller_also_removes_the_data_of_the_old_app_id() {
 fn the_installer_moves_the_install_between_the_names_written_here() {
     // ADR-014, 2.5: the keys and the default folder of 0.5.0 and earlier, the keys and the default
     // folder now, and the file the moved install hands the app.
-    use app_identity::{EXECUTABLE, INSTALLER_MOVED_FROM, WINDOWS_INSTALL};
+    use astarot_app_identity::{EXECUTABLE, INSTALLER_MOVED_FROM, WINDOWS_INSTALL};
     let template = installer_template();
     for line in [
         format!("!define INSTALLREGNAME \"{}\"", WINDOWS_INSTALL.current()),

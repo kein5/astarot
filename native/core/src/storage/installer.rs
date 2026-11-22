@@ -18,7 +18,7 @@ use std::io::Read;
 use std::path::{Component, Path, PathBuf};
 
 /// The file the installer leaves in the install folder after it moved the folder.
-pub const MOVED_FROM: &str = app_identity::INSTALLER_MOVED_FROM;
+pub const MOVED_FROM: &str = astarot_app_identity::INSTALLER_MOVED_FROM;
 
 /// More than any path Windows takes (32,767 UTF-16 units, two bytes each): a bigger file is
 /// not one the installer wrote.

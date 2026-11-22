@@ -6,8 +6,8 @@
 use serde_json::{Value, json};
 use std::fs;
 use std::path::{Path, PathBuf};
-use vrct_core::storage::installer::{MOVED_FROM, Outcome, Taken, take_installer_move};
-use vrct_core::storage::{CONFIG_COPY, FILES_WITH_PATHS};
+use astarot_core::storage::installer::{MOVED_FROM, Outcome, Taken, take_installer_move};
+use astarot_core::storage::{CONFIG_COPY, FILES_WITH_PATHS};
 
 struct Install {
     dir: tempfile::TempDir,
@@ -27,7 +27,7 @@ impl Install {
             "DIRECT_VOICE_SETTINGS": {"rvc_model": old.join("weights").join("voice.pth"), "rvc_index": install.outside().join("voice.index")},
             "AUTH_KEYS": {"DeepL_API": "secret-value"},
         });
-        fs::write(app.join("config.json"), vrct_core::config::to_python_json(&config)).unwrap();
+        fs::write(app.join("config.json"), astarot_core::config::to_python_json(&config)).unwrap();
         let models = json!({"version": 1, "models": [{"id": "a", "files": {"model": {"path": old.join("weights").join("voice.pth"), "size": 1, "mtime_ns": 2}}}]});
         fs::write(app.join("user_models.json"), serde_json::to_string_pretty(&models).unwrap()).unwrap();
         let catalog = json!({"version": 1, "entries": [{"id": "e", "folder": install.outside().join("nllb")}]});

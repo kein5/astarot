@@ -26,7 +26,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{Receiver, RecvTimeoutError, SyncSender, TrySendError, sync_channel};
 use std::sync::{Arc, Condvar, Mutex};
 use std::time::Duration;
-use vrct_audio_routing::identity::Device;
+use astarot_audio_routing::identity::Device;
 
 /// `_AUDIO_QUEUE_MAXSIZE`.
 const AUDIO_QUEUE: usize = 20;

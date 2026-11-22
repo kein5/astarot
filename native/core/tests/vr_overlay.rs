@@ -8,11 +8,11 @@ use common::{Setup, Ui, error_code};
 use serde_json::{Value, json};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use vrct_core::controller::Services;
-use vrct_core::protocol::encode_data;
-use vrct_core::vr_overlay::runtime::fake::FakeVr;
-use vrct_core::vr_overlay::runtime::{ControllerState, GRIP_MASK, Session, TRIGGER_MASK, Vr, VrError};
-use vrct_core::vr_overlay::surface::{Frame, PanelSurface, PointerInput};
+use astarot_core::controller::Services;
+use astarot_core::protocol::encode_data;
+use astarot_core::vr_overlay::runtime::fake::FakeVr;
+use astarot_core::vr_overlay::runtime::{ControllerState, GRIP_MASK, Session, TRIGGER_MASK, Vr, VrError};
+use astarot_core::vr_overlay::surface::{Frame, PanelSurface, PointerInput};
 
 /// The VR page: one dark picture of the default layout's size.
 struct FakePage;
@@ -383,13 +383,13 @@ fn the_controllers_hover_click_and_move_the_log_and_the_place_is_saved() {
 
     // The right controller 60 cm in front of the log's centre, its laser on it.
     let aim = |x: f64, y: f64| {
-        let mut ray = vrct_core::vr_overlay::math::IDENTITY;
+        let mut ray = astarot_core::vr_overlay::math::IDENTITY;
         ray[0][3] = x;
         ray[1][3] = y;
         ray[2][3] = -0.4;
-        let tilt = vrct_core::vr_overlay::pose::laser_tilt(vrct_core::vr_overlay::pose::LASER_PITCH_UP_DEG);
-        let untilt = vrct_core::vr_overlay::math::inverse(&tilt).unwrap();
-        fake.set_pose(2, Some(vrct_core::vr_overlay::math::mul(&ray, &untilt)));
+        let tilt = astarot_core::vr_overlay::pose::laser_tilt(astarot_core::vr_overlay::pose::LASER_PITCH_UP_DEG);
+        let untilt = astarot_core::vr_overlay::math::inverse(&tilt).unwrap();
+        fake.set_pose(2, Some(astarot_core::vr_overlay::math::mul(&ray, &untilt)));
     };
     let press = |buttons: u64| fake.set_controller(2, Some(ControllerState { pressed: buttons, axis: (0.0, 0.0) }));
     press(0);
@@ -453,7 +453,7 @@ fn the_subtitle_font_is_chosen_from_the_system_and_checked() {
     let fonts_folder = folder.path().to_path_buf();
     let base = Setup::default();
     let services = Services {
-        overlay_fonts: Arc::new(move |_| Arc::new(vrct_core::vr_overlay::fonts::FontLibrary::only(vec![fonts_folder.clone()]))),
+        overlay_fonts: Arc::new(move |_| Arc::new(astarot_core::vr_overlay::fonts::FontLibrary::only(vec![fonts_folder.clone()]))),
         ..base.services
     };
     let ui = Ui::with(Setup { services, ..Setup::default() });
@@ -494,7 +494,7 @@ fn a_diarized_caption_names_its_speakers_and_the_large_log_draws_their_names() {
     // with speakers, a name given to one voice, and the VR large log drawn again with it.
     use common::fake_asr::{FakeAsr, diarization_model, recognition_model};
     use common::fake_capture::{FakeCapture, speech};
-    use vrct_transcription::capture::Source;
+    use astarot_transcription::capture::Source;
 
     let asr = FakeAsr::start();
     *asr.behaviour.models.lock().unwrap() = json!({ "data": [
@@ -526,7 +526,7 @@ fn a_diarized_caption_names_its_speakers_and_the_large_log_draws_their_names() {
             "vocabulary": { "builtin": false, "terms": [] },
         },
     });
-    let ui = Ui::with(Setup { services, saved: Some(saved), platform: vrct_core::config::Platform::Linux, ..Setup::default() });
+    let ui = Ui::with(Setup { services, saved: Some(saved), platform: astarot_core::config::Platform::Linux, ..Setup::default() });
     ui.ready();
     wait("the overlays built", || fake.built());
     let large = fake.handle("ASTAROT1").unwrap();

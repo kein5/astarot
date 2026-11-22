@@ -171,7 +171,7 @@ ASTAROTが他のプログラムとやり取りする口。UIとサイドカー�
 
 同梱のONNX Runtime（チャット読み取り、ローカル翻訳、声質変換のワーカー）は、Microsoftの公式ビルドが持つ利用状況の送信を、アプリの同意の設定にかかわらず常に止める（#518）。
 
-- アプリ（`src-tauri/src/lib.rs`の`run`）と、ONNX Runtimeを読み込む各ツール（`ocr-read`、`vrct-translate`、`astarot-rvc-worker`ほか）は、ほかのスレッドを始める前に環境変数`ORT_DISABLE_TELEMETRY=1`を設定する。声質変換のワーカーはアプリからこの値を受け継ぐ。
+- アプリ（`src-tauri/src/lib.rs`の`run`）と、ONNX Runtimeを読み込む各ツール（`ocr-read`、`astarot-translate`、`astarot-rvc-worker`ほか）は、ほかのスレッドを始める前に環境変数`ORT_DISABLE_TELEMETRY=1`を設定する。声質変換のワーカーはアプリからこの値を受け継ぐ。
 - ONNX Runtimeの環境はすべて`with_telemetry(false)`（`DisableTelemetryEvents`）で作る。
 - Linux版（1.31）は、環境を作った時点で`~/.cache/Microsoft/DeveloperTools/.onnxruntime/`に`deviceid`とイベントのデータベースを作り、`mobile.events.data.microsoft.com`へ送る。止められるのは環境変数だけで、`DisableTelemetryEvents`は環境を作った後に呼ぶため、最初のイベントとファイルには間に合わない（2026-11-17に公式の`onnxruntime-linux-x64-1.31.0.tgz`で確認した）。
 - Windows版（1.31）はHTTPで送らず、ETWのイベント（プロバイダー`Microsoft.ML.ONNXRuntime`）を書くだけで、`deviceid`のファイルも作らない。集めるかどうかはWindowsの診断データの設定による。環境変数は読まず、`DisableTelemetryEvents`で止める。環境を作るときの最初の`ProcessInfo`イベントだけは、この設定より前に書かれる。
@@ -222,7 +222,7 @@ Tauriのupdater（`tauri-plugin-updater`）で行う（`src-tauri/src/app_update
 - 更新のチャンネル（#466）: 上の「安定版」「ベータ版」の読み方は、`SELECTED_RELEASE_CHANNEL`（`stable`か`beta`）に従う。利用者がまだ選んでいなければ、起動のたびに動いている版から決める（版に`-beta`か`-rc`があれば`beta`）。設定の実験的機能のページで選ぶと（`/set/data/release_channel`）、`RELEASE_CHANNEL_CHOSEN`を`true`にして、その値を次の起動からも保つ。Betaでは安定版の版からもプレリリースが候補になる。updaterは今の版より新しい版だけを候補にするので、ベータ版を使っていてStableに戻すと、前の版には戻さず、次の安定版が出たときに更新する。更新のページの確認は`app_update_check`の`channel`に、バックエンドの更新のエンドポイントは中核がこの設定を渡す。確認の結果を共有するのは同じチャンネルの確認どうしだけである。チャンネルを変えると、前のチャンネルで見つけた版の表示を消して、すぐに新しいチャンネルで確かめる（起動時の確認をオフにしていても、利用者が変えた操作に対する確認なので行う。ダウンロードやインストールの途中なら何もしない）。更新のページの版の横の「（ベータ）」は、動いている版のチャンネル（`app_update_info`の`channel`）を表す。
 - `latest.json`の`platforms`は`windows-x86_64`（`VRCT-VOX_setup.exe`）と`linux-x86_64`（AppImage）を持つ。下書きを作るワークフロー（`prepare-release.yml`）が、検証済みの候補を`tauri signer sign --app-version`で署名し、`tools/updater_manifest.py`で書く。
 - 取得したファイルは`tauri.conf.json`の公開鍵（minisign、鍵ID `1178836E5C9F510B`）で検証し、署名の信頼済みコメントにある版が`latest.json`の版と一致することも求める（`requireSignedVersion`）。一致しなければ入れない。
-- インストーラーは`/UPDATE`のとき、言語のページを飛ばし、`installer_language.txt`を書かず、ショートカットを作り直さない。ZIPの取得とSHA-256の照合、段階的な置き換えは通常のインストールと同じである（[配布候補の手順](../voice-stack/release-candidates.md)）。0.6.0より後の版のインストーラーは、0.5.0以前の既定のインストール先にあるインストールを更新のあとで`%LOCALAPPDATA%\ASTAROT`へ移す。`/UPDATE`のときも同じで、`/R`は移した先の実行ファイルを起動する（[Windowsのインストール先の移動](data-and-persistence.md#windowsのインストール先の移動)）。
+- インストーラーは`/UPDATE`のとき、言語のページを飛ばし、`installer_language.txt`を書かず、ショートカットを作り直さない。ZIPの取得とSHA-256の照合、段階的な置き換えは通常のインストールと同じである（[配布候補の手順](../voice-stack/release-candidates.md)）。0.6.0より後の版からのインストーラーは、0.5.0以前の既定のインストール先にあるインストールを更新のあとで`%LOCALAPPDATA%\ASTAROT`へ移す。`/UPDATE`のときも同じで、`/R`は移した先の実行ファイルを起動する（[Windowsのインストール先の移動](data-and-persistence.md#windowsのインストール先の移動)）。
 - 起動ログ（`startup_log`）には失敗の種類とURLだけを書く。会話や音声は扱わない。
 - バックエンドの更新のエンドポイントも同じupdaterを使う（`app_update.rs`の`CoreUpdates`を`backend_host.rs`が中核に渡す。[判断20](../voice-stack/core-integration.md#判断が要ること)）。
   - `/get/data/available_releases`は、上のGitHubのリリースの一覧（新しい30件）から、更新のチャンネルが取るものを新しい順に`[{tag, version, is_prerelease, published_at}]`で返す。Stableは安定版だけ、Betaは両方。下書き、版でないタグ、`latest.json`がないもの、このリポジトリのダウンロードでないものは除く。確認しないコピー（deb、rpm、開発用のビルド）は通信せずに空を返す。

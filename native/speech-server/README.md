@@ -1,4 +1,4 @@
-# vrct-speech-server
+# astarot-speech-server
 
 同梱の speech.cpp サーバ（TTS 用2つと ASR 用1つ）のプロセスを所有する Rust クレートです。起動、停止、再起動、死活監視を受け持ちます。Issue #276 の範囲で、`src-python/models/speech_server/` の置き換え先です。
 

@@ -141,7 +141,7 @@ const VOCABULARY_FILE_HEAD: &str = "\
 /// not written. From a value already normalized (`normalize_vocabulary`).
 pub fn vocabulary_file(vocabulary: &Value) -> String {
     let mut text = VOCABULARY_FILE_HEAD.to_string();
-    for term in vrct_transcription::speechcpp::merged_terms(vocabulary) {
+    for term in astarot_transcription::speechcpp::merged_terms(vocabulary) {
         text.push_str(&term);
         text.push('\n');
     }
@@ -254,7 +254,7 @@ pub fn normalize_realtime(value: &Value) -> Result<Value, &'static str> {
         Some(Value::String(s)) => s,
         Some(_) => return Err("Use http://127.0.0.1:PORT (local server only)"),
     };
-    let base_url = vrct_tts::settings::local_url(base_url).map_err(|e| e.0)?;
+    let base_url = astarot_tts::settings::local_url(base_url).map_err(|e| e.0)?;
     let mut result = Map::new();
     result.insert("version".into(), 1.into());
     result.insert("server".into(), server.into());
@@ -263,7 +263,7 @@ pub fn normalize_realtime(value: &Value) -> Result<Value, &'static str> {
     result.insert("model".into(), model(object.get("model"))?.into());
     result.insert("vocabulary".into(), normalize_vocabulary(object.get("vocabulary"))?);
     // The silence that ends an utterance (#556): absent or null follows the default
-    // (`vrct_transcription`'s `DEFAULT_SILENCE_MS`, 400 ms), so changing the default moves
+    // (`astarot_transcription`'s `DEFAULT_SILENCE_MS`, 400 ms), so changing the default moves
     // only the settings that never chose one.
     match object.get("silence_duration_ms") {
         None | Some(Value::Null) => {}
@@ -355,7 +355,7 @@ const VOICE_ADDED_IN_0_6: [&str; 12] = [
 /// field it does not know and would reset every speech setting; so a file saved without those
 /// values changed stays readable by 0.5. A changed value is saved, and 0.5 then still resets.
 pub fn file_voice(value: &Value) -> Value {
-    let defaults = vrct_tts::settings::VoiceSettings::default().to_value();
+    let defaults = astarot_tts::settings::VoiceSettings::default().to_value();
     let mut value = value.clone();
     if let Value::Object(object) = &mut value {
         for field in VOICE_ADDED_IN_0_6 {
@@ -396,7 +396,7 @@ pub fn normalize_direct(value: &Value) -> Option<Value> {
     let pitch_ok = result["rvc_pitch"].as_i64().is_some_and(|p| result["rvc_pitch"].is_i64() && (-24..=24).contains(&p));
     let rate = &result["rvc_index_rate"];
     let rate_ok = rate.is_number() && rate.as_f64().is_some_and(|r| r.is_finite() && (0.0..=1.0).contains(&r));
-    use vrct_voice_conversion::worker::{DEVICES, MAX_THREADS};
+    use astarot_voice_conversion::worker::{DEVICES, MAX_THREADS};
     let device_ok = result["rvc_device"].as_str().is_some_and(|d| DEVICES.contains(&d));
     let threads = &result["rvc_threads"];
     let threads_ok = threads.is_u64() && threads.as_u64().is_some_and(|n| n <= u64::from(MAX_THREADS));
@@ -408,14 +408,14 @@ pub fn normalize_direct(value: &Value) -> Option<Value> {
 mod tests {
     use super::*;
 
-    // #792: the built-in terms live in a data file (vrct-transcription's data/vrchat_terms.txt).
+    // #792: the built-in terms live in a data file (astarot-transcription's data/vrchat_terms.txt).
     // Each line keeps the rules of a user's term and is already in its canonical form, and no
     // written form is there twice: an edit of the file that breaks them fails here. How many
     // there are is not held to a number: a longer list only loses its last terms to the cap of
     // the merge when the user has many of their own.
     #[test]
     fn the_built_in_terms_keep_the_rules_of_a_term() {
-        let terms = vrct_transcription::speechcpp::vrchat_terms();
+        let terms = astarot_transcription::speechcpp::vrchat_terms();
         assert!(!terms.is_empty());
         let mut seen = std::collections::HashSet::new();
         for term in terms {
@@ -445,7 +445,7 @@ mod tests {
     // uses it. A built-in term taken out is not written.
     #[test]
     fn a_dictionary_file_holds_every_term_in_use() {
-        use vrct_transcription::speechcpp::{merged_terms, vrchat_terms};
+        use astarot_transcription::speechcpp::{merged_terms, vrchat_terms};
         let vocabulary = normalize_vocabulary(Some(&json!({ "terms": ["猫丸 = ねこまる", "Quest=くえすと"], "removed": ["Vket"] }))).unwrap();
         let text = vocabulary_file(&vocabulary);
         assert!(text.starts_with("# ASTAROT term dictionary"));
@@ -532,7 +532,7 @@ mod tests {
     fn the_file_leaves_out_unchanged_engine_readings_so_0_5_still_reads_it() {
         // 0.5 refuses VOICE_SETTINGS with a field it does not know, like 0.4 did with the direct
         // voice settings (#428), and would reset every speech setting after a downgrade.
-        use vrct_tts::settings::VoiceSettings;
+        use astarot_tts::settings::VoiceSettings;
         let settings = VoiceSettings::from_value(&json!({ "japanese_engine": "aivis", "engine_voice_id": "1", "coeiroink_speed": "1.5" })).unwrap().to_value();
         let file = file_voice(&settings);
         for field in VOICE_ADDED_IN_0_6 {
@@ -771,8 +771,8 @@ mod tests {
                 converted in any::<bool>(),
                 pitch in -24i64..=24,
                 rate in 0.0f64..=1.0,
-                device in prop::sample::select(vrct_voice_conversion::worker::DEVICES.to_vec()),
-                threads in 0u64..=u64::from(vrct_voice_conversion::worker::MAX_THREADS),
+                device in prop::sample::select(astarot_voice_conversion::worker::DEVICES.to_vec()),
+                threads in 0u64..=u64::from(astarot_voice_conversion::worker::MAX_THREADS),
                 highpass in any::<bool>(),
                 model in "[a-zA-Z0-9_./]{0,40}",
                 seed_vc in any::<bool>(),

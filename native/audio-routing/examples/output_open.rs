@@ -14,8 +14,8 @@
 #[cfg(all(target_os = "linux", feature = "pipewire"))]
 fn main() {
     use std::time::{Duration, Instant};
-    use vrct_audio_routing::pipewire::output::{PipeWireOutput, enumerate_outputs};
-    use vrct_audio_routing::router::{CancelToken, Output};
+    use astarot_audio_routing::pipewire::output::{PipeWireOutput, enumerate_outputs};
+    use astarot_audio_routing::router::{CancelToken, Output};
 
     let mut sink = None;
     let mut runs = 20usize;

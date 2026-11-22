@@ -71,7 +71,7 @@ jobs:
       - run: uv run --no-project python tools/dev.py check --scope voice
       - run: uv run --no-project python tools/dev.py check --scope lint
       # Realtime recognition reads a microphone and a speaker's monitor through the PipeWire
-      # capture of vrct-audio-routing (decision 2 of #733), on a private graph.
+      # capture of astarot-audio-routing (decision 2 of #733), on a private graph.
       - name: Realtime recognition's capture on a private PipeWire graph
         if: runner.os == 'Linux'
         run: cargo test --locked --manifest-path native/transcription/Cargo.toml --features pipewire --test pipewire_capture_private -- --ignored
@@ -160,8 +160,9 @@ jobs:
       # Speech requests, the speech queue and the listener monitor (Issue #279).
       - run: cargo test --locked --manifest-path native/tts/Cargo.toml
   # The crates no other job tests (#550, decision 3 of #871): the downloads and operations
-  # (ops), the owner of the speech servers, the OSC and OBS adapters, chat reading's OCR and the
-  # RVC worker's runtime. ocr-runtime and rvc-runtime link the ONNX Runtime that ort downloads at
+  # (ops), the owner of the speech servers, the OSC and OBS adapters, chat reading's OCR, the
+  # RVC worker's runtime and the talk AI's connection to its conversation service (#388).
+  # ocr-runtime and rvc-runtime link the ONNX Runtime that ort downloads at
   # build time (pyke's mirror, not ONNX Runtime's GitHub releases).
   crates:
     timeout-minutes: 30
@@ -186,11 +187,13 @@ jobs:
             native/adapters
             native/ocr-runtime
             native/rvc-runtime
+            native/talk-ai
       - run: cargo test --locked --manifest-path native/ops/Cargo.toml
       - run: cargo test --locked --manifest-path native/speech-server/Cargo.toml
       - run: cargo test --locked --manifest-path native/adapters/Cargo.toml
       - run: cargo test --locked --manifest-path native/ocr-runtime/Cargo.toml
       - run: cargo test --locked --manifest-path native/rvc-runtime/Cargo.toml
+      - run: cargo test --locked --manifest-path native/talk-ai/Cargo.toml
   # The line, function and region coverage of each Rust crate with its own tests (#550, decision 1
   # of #871), in this job's summary. It is reported, never held to a threshold: the job never
   # fails the workflow, also when a crate cannot be measured. audio-routing builds against

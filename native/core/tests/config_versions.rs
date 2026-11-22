@@ -3,8 +3,8 @@
 
 use serde_json::{Map, Value, json};
 use std::path::Path;
-use vrct_core::config::secrets::MemoryStore;
-use vrct_core::config::{Config, Environment, Platform, RETIRED_KEYS};
+use astarot_core::config::secrets::MemoryStore;
+use astarot_core::config::{Config, Environment, Platform, RETIRED_KEYS};
 
 fn environment(dir: &Path) -> Environment {
     Environment {
@@ -93,7 +93,7 @@ fn the_settings_of_the_removed_local_whisper_are_not_written_back() {
         "LOCAL_ASR_NOTICE_PENDING": true,
     });
     assert_eq!(retired.as_object().unwrap().len(), RETIRED_KEYS.len());
-    let known: Vec<&str> = vrct_core::config::schema::keys().iter().map(|key| key.name).collect();
+    let known: Vec<&str> = astarot_core::config::schema::keys().iter().map(|key| key.name).collect();
     for key in RETIRED_KEYS {
         assert!(retired.get(key).is_some(), "{key} is checked here");
         assert!(!known.contains(&key), "{key} is retired but still a setting");
@@ -309,7 +309,7 @@ fn the_installer_s_language_is_taken_once_and_its_marker_goes() {
 #[test]
 fn a_value_only_a_newer_version_accepts_is_written_back_until_it_is_changed_here() {
     let dir = tempfile::tempdir().unwrap();
-    let mark = vrct_core::config::NEWEST_SAVING_VERSION;
+    let mark = astarot_core::config::NEWEST_SAVING_VERSION;
     let write = |saved: Value| std::fs::write(dir.path().join("config.json"), serde_json::to_string(&saved).unwrap()).unwrap();
     let open = || Config::open_with(environment(dir.path()), MemoryStore::new());
 

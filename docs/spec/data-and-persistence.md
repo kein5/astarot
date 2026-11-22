@@ -94,9 +94,9 @@ VAD は、リアルタイム字幕と同じ speech.cpp のサーバーの Silero
 
 用語辞書は`REALTIME_ASR_SETTINGS.vocabulary`の`{"builtin": 真偽値, "terms": [文字列], "removed": [文字列]}`である。`removed`は利用者が外した内蔵の用語の表記で、ないときは保存しない（下の「辞書の一覧と内蔵の用語の編集」）。1項目は speech.cpp のキーワードの形で、`表記=読み,読み`と書く（読みは省ける）。利用者の項目は100個まで、表記は48字まで、読みは1項目に8個まで、それぞれ32字までである。表記は大文字と小文字を区別せずに重複を除く。`builtin`が`true`なら内蔵のVRChat用語を利用者の項目の後ろに足し、全体を150項目までにする。同じ表記なら利用者の項目が勝つ。
 
-内蔵のVRChat用語は`native/transcription/data/vrchat_terms.txt`にあり、アプリをビルドするときに埋め込む（`vrct_transcription::speechcpp::vrchat_terms`、#792）。1行に1項目を`表記=読み,読み`の形で書き、`#`で始まる行と空の行は読まない。用語を足したり読みを直したりするときは、このファイルだけを直す。各行は利用者の項目と同じ規則に従い、表記は大文字と小文字を区別せずに重ならない（中核の試験が確かめる）。
+内蔵のVRChat用語は`native/transcription/data/vrchat_terms.txt`にあり、アプリをビルドするときに埋め込む（`astarot_transcription::speechcpp::vrchat_terms`、#792）。1行に1項目を`表記=読み,読み`の形で書き、`#`で始まる行と空の行は読まない。用語を足したり読みを直したりするときは、このファイルだけを直す。各行は利用者の項目と同じ規則に従い、表記は大文字と小文字を区別せずに重ならない（中核の試験が確かめる）。
 
-保存の形はリアルタイム字幕の設定のままだが、辞書はほかの機能でも使う（#446）。照合ではひらがなとカタカナ、英字の大文字と小文字を同じに扱う。英字と数字の語は前後に英字か数字が続く位置では一致させない。カタカナで始まる語やカタカナで終わる語も、前後にカタカナが続く位置では一致させない（「リクエスト」の中の「クエスト」は直さない）。長い語から先に当てる（`vrct_transcription::terms`）。
+保存の形はリアルタイム字幕の設定のままだが、辞書はほかの機能でも使う（#446）。照合ではひらがなとカタカナ、英字の大文字と小文字を同じに扱う。英字と数字の語は前後に英字か数字が続く位置では一致させない。カタカナで始まる語やカタカナで終わる語も、前後にカタカナが続く位置では一致させない（「リクエスト」の中の「クエスト」は直さない）。長い語から先に当てる（`astarot_transcription::terms`）。
 
 | 使う場所 | すること |
 |---|---|
@@ -324,7 +324,7 @@ CTranslate2の取得に失敗したとき（`WEIGHT_CTRANSLATE2_DOWNLOAD`）、`
 
 ## config.json
 
-- 置き場所は`$ASTAROT_CONFIG_DIR`（0.6.xの間は`$VRCT_CONFIG_DIR`も読む）、なければ実行ファイルのあるフォルダ（開発中は`src-tauri/target/debug/`など。0.4までのPythonバックエンドでは`src-python/`）。Linuxの配布版では0.6.0から`$XDG_CONFIG_HOME/astarot`（なければ`~/.config/astarot`）である。0.5.x までの`vrct-vox`のフォルダーは、起動の最初に移す（[Linuxの保存先の移動](#linuxの保存先の移動)）。Windowsのインストーラー版で、0.5.0以前の既定のインストール先`%LOCALAPPDATA%\VRCT-VOX`にあるものは、0.6.0より後の版のインストーラーが`%LOCALAPPDATA%\ASTAROT`へ移す（[Windowsのインストール先の移動](#windowsのインストール先の移動)）。フォルダ名は保存先の識別子なので、変えるには移行の処理がいる（`docs/voice-stack/project-rename.md`）。
+- 置き場所は`$ASTAROT_CONFIG_DIR`（0.6.xの間は`$VRCT_CONFIG_DIR`も読む）、なければ実行ファイルのあるフォルダ（開発中は`src-tauri/target/debug/`など。0.4までのPythonバックエンドでは`src-python/`）。Linuxの配布版では0.6.0から`$XDG_CONFIG_HOME/astarot`（なければ`~/.config/astarot`）である。0.5.x までの`vrct-vox`のフォルダーは、起動の最初に移す（[Linuxの保存先の移動](#linuxの保存先の移動)）。Windowsのインストーラー版で、0.5.0以前の既定のインストール先`%LOCALAPPDATA%\VRCT-VOX`にあるものは、0.6.0より後の版からのインストーラーが`%LOCALAPPDATA%\ASTAROT`へ移す（[Windowsのインストール先の移動](#windowsのインストール先の移動)）。フォルダ名は保存先の識別子なので、変えるには移行の処理がいる（`docs/voice-stack/project-rename.md`）。
 - 設定は中核の`native/core/src/config/schema.rs`の`keys()`で宣言し、既定値は`defaults()`にある（0.4までのPythonの`Config`クラスの`ManagedProperty`と`ValidatedProperty`を写したもの）。`serialize`が真のものだけを保存する。オンオフの状態（`ENABLE_*`）や選択肢の一覧は保存しない。
 - 単純な設定プロパティは、未選択を表すモデル名と音声認識エンジンを除き`null`を受け付けない。APIキーやホットキーの辞書内にある未設定の`null`は維持する。数値のプロパティとオーバーレイの数値設定は`NaN`・無限大（`1e999`などの桁あふれも含む）を保存前に拒否する。不正な保存値は既定値へ戻す。メッセージ欄の比率と大小字幕の設定変更では400の`VALIDATION_CONFIG_VALUE_INVALID`を返し、`data`には保持した設定値を入れる。
 - 読み込みでは、各キーを検証してから設定する。知らないキーは使わないが、ファイルにあったままの値を保存する設定の後ろに書き戻す。新しい版の設定を古い版で開いて保存しても、新しい版に戻ったときにその設定が残るようにするためである（#560）。以前の版が保存し、今の版で廃止したキー（`native/core/src/config/mod.rs`の`RETIRED_KEYS`。#288でローカルのWhisperとともに削除した5つ）だけは捨てる。キーを廃止するときは、このリストにも加える。検証に通らないキーは既定値のままにしてerror.logに残す。ただし、自分より新しい版が保存した値は、検証に通らなくても（新しい版で足した選択肢など）使わずにファイルへそのまま書き戻し、この版で利用者がその設定を変えたときだけ新しい値を書く（#560）。どの版が保存したかは、ファイルに書く`NEWEST_SAVING_VERSION`（保存した版のうち最も新しいもの。古い版で保存しても下がらない）で見分ける。設定キーではないので、一覧には載らない。自分と同じか古い版が保存した無効な値と、この印のないファイルの無効な値は、これまでどおり保存しない。ただしマイクとスピーカーの選択（`SELECTED_MIC_HOST`、`SELECTED_MIC_DEVICE`、`SELECTED_SPEAKER_DEVICE`）は、読み込む時点でデバイスの一覧がまだ取れていないため、保存値をそのまま受け取る。一覧が取れたあと、サイドカーがデバイスの有無を確かめ、無ければ既定のデバイスに戻す。JSONとして読めない、またはオブジェクトでないときは、そのファイルを名前の重複しない`config.json.unreadable-<日時>-<乱数>`に移して残し、既定値で起動する。UIは`/run/config_file_unreadable`を受けて、既定値で起動したことと残したファイルの場所を知らせる。
@@ -418,7 +418,7 @@ APIキーは`config.json`に書かない（0.5.0から）。いまはOSの資格
 | `installer_moved_from.txt` | Windowsのインストール先（0.6.0より後の版から） | インストーラーがインストール先を移したときに置く、旧のインストール先のパス（バイト順マーク付きのUTF-16）。アプリが次の起動でパスを付け替えて消す（[Windowsのインストール先の移動](#windowsのインストール先の移動)） |
 | `voice_mute_state.json` | `config.json`と同じフォルダ | `{"version": 1, "muted": 真偽}`。すぐに書き、原子的に置き換える |
 | `telemetry_state.json` | `PATH_DATA` | 利用状況の通知をその日（UTC）に送ったかどうかの記録（起動の通知を送った日付と、その日に送ったエラーコード）と、送った内容そのものの直近20件（`sent`: このPCの時刻、本文、受け付けられたか） |
-| `io.github.kein5.astarot.desktop` | `$XDG_DATA_HOME/applications/` | Waylandでショートカットを登録するためのデスクトップファイル。0.6.0までは`io.github.kein5.vrct-vox.desktop`で、`X-VRCT-VOX-Generated=true`の行があるもの（前の版が書いたもの）は、新しいファイルを書いたあとに消す。その行がないファイルは利用者かパッケージのものとして残す |
+| `io.github.kein5.astarot.desktop` | `$XDG_DATA_HOME/applications/` | Waylandでショートカットを登録するためのデスクトップファイル。0.6.xまでは`io.github.kein5.vrct-vox.desktop`で、`X-VRCT-VOX-Generated=true`の行があるもの（前の版が書いたもの）は、新しいファイルを書いたあとに消す。その行がないファイルは利用者かパッケージのものとして残す |
 
 UIは独自の状態を持たない（`localStorage`も使わない）。画面の状態はすべてサイドカーから受け取る。
 

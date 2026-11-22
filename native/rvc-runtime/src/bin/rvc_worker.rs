@@ -69,8 +69,8 @@ use std::process::ExitCode;
 use std::sync::mpsc;
 use std::time::{Duration, Instant};
 
-use rvc_runtime::audio::StreamResampler;
-use rvc_runtime::{backend, Converter, Device, Error, FeatureExtractor, FeatureIndex, Layout, NoiseMode, Rmvpe, Stream, StreamOptions, Synthesizer, VoiceModel};
+use astarot_rvc_runtime::audio::StreamResampler;
+use astarot_rvc_runtime::{backend, Converter, Device, Error, FeatureExtractor, FeatureIndex, Layout, NoiseMode, Rmvpe, Stream, StreamOptions, Synthesizer, VoiceModel};
 use serde_json::{Map, Value};
 
 const RATE: u32 = 48_000;
@@ -1175,7 +1175,7 @@ fn probe(runtime: &Path, choice: Choice) -> ExitCode {
 
 fn main() -> ExitCode {
     // SAFETY: first thing in main, before any other thread starts.
-    unsafe { vrct_onnx_runtime::disable_telemetry_for_process() };
+    unsafe { astarot_onnx_runtime::disable_telemetry_for_process() };
     let (values, probing) = match options() {
         Ok(parsed) => parsed,
         Err(message) => {
