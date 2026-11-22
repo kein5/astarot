@@ -17,7 +17,7 @@ fn graph() -> Graph {
     vec![
         json!({"type": "PipeWire:Interface:Core", "info": {"cookie": 42}}),
         node(10, "external.source", "Audio/Source", 110, json!({})),
-        node(11, "vrct.managed.vc", "Audio/Sink", 111, json!({"vrct.managed.route": "v1"})),
+        node(11, "astarot.managed.vc", "Audio/Sink", 111, json!({"astarot.managed.route": "v1"})),
     ]
 }
 
@@ -97,7 +97,7 @@ impl BridgeSystem for Fake {
         data.children.push(code.clone());
         data.graph.truncate(3);
         for (id, suffix, media, serial) in [(20, "capture", "Stream/Input/Audio", 120), (21, "playback", "Stream/Output/Audio", 121)] {
-            data.graph.push(node(id, &format!("vrct.source-bridge.{tag}.{suffix}"), media, serial, json!({"vrct.source.bridge": "v1", "client.id": 30})));
+            data.graph.push(node(id, &format!("astarot.source-bridge.{tag}.{suffix}"), media, serial, json!({"astarot.source.bridge": "v1", "client.id": 30})));
         }
         for (a, b) in [(10, 20), (21, 11)] {
             data.graph.push(json!({"type": "PipeWire:Interface:Link", "info": {"output-node-id": a, "input-node-id": b, "state": "active"}}));
@@ -284,7 +284,7 @@ fn reselected_source_is_rejected_before_launch() {
 #[test]
 fn launch_arguments_pin_serials_and_start_muted() {
     let source = Endpoint { cookie: 42, serial: 110, name: "external.source".into(), media_class: "Audio/Source".into() };
-    let sink = Endpoint { cookie: 42, serial: 111, name: "vrct.managed.vc".into(), media_class: "Audio/Sink".into() };
+    let sink = Endpoint { cookie: 42, serial: 111, name: "astarot.managed.vc".into(), media_class: "Audio/Sink".into() };
     let args = launch_arguments("/opt/build/astarot-source-bridge", 7, &source, &sink, &"a".repeat(32));
     assert!(args[0].ends_with("astarot-source-bridge"));
     assert_eq!(args[2], "7");
@@ -292,7 +292,11 @@ fn launch_arguments_pin_serials_and_start_muted() {
     let (capture, playback) = (value("--capture-props"), value("--playback-props"));
     assert!(capture.contains("target.object=110") && playback.contains("target.object=111"));
     assert!(playback.contains("node.param.Props={mute=true}"));
+    let tag = "a".repeat(32);
+    assert!(capture.contains(&format!("node.name=astarot.source-bridge.{tag}.capture ")), "{capture}");
+    assert!(playback.contains(&format!("node.name=astarot.source-bridge.{tag}.playback ")), "{playback}");
     for props in [capture, playback] {
+        assert!(props.starts_with("astarot.source.bridge=v1 "), "{props}");
         for required in ["node.dont-fallback=true", "node.dont-reconnect=true", "node.dont-move=true", "node.linger=false"] {
             assert!(props.contains(required));
         }

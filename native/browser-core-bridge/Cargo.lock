@@ -1737,6 +1737,7 @@ dependencies = [
 name = "vrct-audio-routing"
 version = "0.1.0"
 dependencies = [
+ "app-identity",
  "libc",
  "serde_json",
  "windows",

@@ -13,6 +13,8 @@
 
 use serde_json::Value;
 
+use app_identity::audio_route;
+
 use crate::error::{Error, Result};
 use crate::identity::Device;
 
@@ -24,13 +26,16 @@ pub const LINK: &str = "PipeWire:Interface:Link";
 pub const CLIENT: &str = "PipeWire:Interface:Client";
 pub const METADATA: &str = "PipeWire:Interface:Metadata";
 
-/// The managed virtual microphone VRChat records from.
-pub const MANAGED_SOURCE: &str = "vrct.managed.source";
-pub const TTS_SINK: &str = "vrct.managed.tts";
-pub const VC_SINK: &str = "vrct.managed.vc";
-pub const MIX_SINK: &str = "vrct.managed.mix";
-/// Node name prefixes of endpoints that feed the virtual microphone.
-pub const VIRTUAL_PREFIXES: [&str; 2] = ["vrct.managed.", "vrct.source-bridge."];
+/// The managed virtual microphone VRChat records from. The route's names begin with
+/// [`audio_route::NODE_PREFIX`] (ADR-014, 2.8); the tests hold these to it.
+pub const MANAGED_SOURCE: &str = "astarot.managed.source";
+pub const TTS_SINK: &str = "astarot.managed.tts";
+pub const VC_SINK: &str = "astarot.managed.vc";
+pub const MIX_SINK: &str = "astarot.managed.mix";
+/// The property (`v1`) on every node of the managed route.
+pub const ROUTE_PROPERTY: &str = audio_route::ROUTE_PROPERTY.current();
+/// The property (`v1`) on the source bridge's two streams.
+pub const BRIDGE_PROPERTY: &str = audio_route::BRIDGE_PROPERTY.current();
 /// The device page host of PipeWire inputs.
 pub const PIPEWIRE_MIC_HOST: &str = "PipeWire";
 
@@ -67,9 +72,33 @@ pub fn node_name(item: &Value) -> Option<&str> {
     prop_str(item, "node.name")
 }
 
-/// Whether `name` starts with a virtual microphone prefix.
+/// Whether `name` starts with a prefix of the endpoints that feed the virtual microphone,
+/// under either spelling during 0.6.x (ADR-014, 2.11).
 pub fn is_virtual_name(name: &str) -> bool {
-    VIRTUAL_PREFIXES.iter().any(|prefix| name.starts_with(prefix))
+    audio_route::is_route_name(name)
+}
+
+/// Whether `name` is one of the app's own nodes or streams (the route's, the source bridge's
+/// or a capture for recognition), under either spelling during 0.6.x. Recognition never
+/// records one.
+pub fn is_own_name(name: &str) -> bool {
+    audio_route::is_own_name(name)
+}
+
+/// Whether `props` carry the marker of the route or of the source bridge, under either
+/// spelling during 0.6.x.
+pub fn has_route_marker(props: &serde_json::Map<String, Value>) -> bool {
+    audio_route::markers().any(|marker| props.contains_key(marker))
+}
+
+/// The name of one of the source bridge's streams (`capture` or `playback`).
+pub fn bridge_stream(tag: &str, suffix: &str) -> String {
+    format!("{}{tag}.{suffix}", audio_route::BRIDGE_PREFIX.current())
+}
+
+/// The name of the stream realtime recognition captures `source` (`mic` or `speaker`) through.
+pub fn asr_capture_stream(source: &str) -> String {
+    format!("{}{source}", audio_route::ASR_CAPTURE_PREFIX.current())
 }
 
 /// The one node named `name`.
@@ -110,7 +139,7 @@ pub fn endpoint(graph: &[Value], name: &str, media_class: &str) -> Result<Endpoi
 pub fn select_source(graph: &[Value], name: &str) -> Result<Endpoint> {
     let source = endpoint(graph, name, "Audio/Source")?;
     let item = node(graph, name)?;
-    let marked = props(item).is_some_and(|p| p.contains_key("vrct.managed.route") || p.contains_key("vrct.source.bridge"));
+    let marked = props(item).is_some_and(has_route_marker);
     if is_virtual_name(name) || marked {
         return Err(Error::runtime("source_bridge_feedback_source"));
     }
@@ -120,7 +149,7 @@ pub fn select_source(graph: &[Value], name: &str) -> Result<Endpoint> {
 /// The managed VC input the bridge plays into.
 pub fn vc_sink(graph: &[Value]) -> Result<Endpoint> {
     let sink = endpoint(graph, VC_SINK, "Audio/Sink")?;
-    if prop_str(node(graph, VC_SINK)?, "vrct.managed.route") != Some("v1") {
+    if prop_str(node(graph, VC_SINK)?, ROUTE_PROPERTY) != Some("v1") {
         return Err(Error::runtime("source_bridge_sink_invalid"));
     }
     Ok(sink)
@@ -328,7 +357,7 @@ fn parse_managed_inner(graph: &[Value], direct: bool) -> Option<GateState> {
         let Some(&(_, media)) = REQUIRED.iter().find(|(required, _)| *required == name) else { continue };
         if found.iter().any(|(seen, _)| *seen == name)
             || item_props.get("media.class").and_then(Value::as_str) != Some(media)
-            || item_props.get("vrct.managed.route").and_then(Value::as_str) != Some("v1")
+            || item_props.get(ROUTE_PROPERTY).and_then(Value::as_str) != Some("v1")
         {
             return None;
         }
@@ -364,7 +393,7 @@ pub fn bridge_links(graph: &[Value], source: &Endpoint, sink: &Endpoint, tag: &s
     }
     let mut streams = Vec::new();
     for (suffix, media) in [("capture", "Stream/Input/Audio"), ("playback", "Stream/Output/Audio")] {
-        let name = format!("vrct.source-bridge.{tag}.{suffix}");
+        let name = bridge_stream(tag, suffix);
         let stream = endpoint(graph, &name, media)?;
         let item = node(graph, &name)?;
         let client_id = prop(item, "client.id");
@@ -373,7 +402,7 @@ pub fn bridge_links(graph: &[Value], source: &Endpoint, sink: &Endpoint, tag: &s
             [client] => prop(client, "pipewire.sec.pid").and_then(as_int) == Some(u64::from(pid)),
             _ => false,
         };
-        if prop_str(item, "vrct.source.bridge") != Some("v1") || !owned {
+        if prop_str(item, BRIDGE_PROPERTY) != Some("v1") || !owned {
             return Err(Error::runtime("source_bridge_stream_owner_invalid"));
         }
         streams.push((item, stream));

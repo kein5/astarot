@@ -331,7 +331,7 @@ impl RouteDevices for FakeVoice {
 }
 
 /// The managed VC input a Linux conversion plays into.
-pub const MANAGED_VC: &str = "vrct.managed.vc";
+pub const MANAGED_VC: &str = "astarot.managed.vc";
 
 impl ManagedVcDevices for FakeVoice {
     fn bind(&self, _: &Endpoint, _: bool) -> Result<Endpoint> {

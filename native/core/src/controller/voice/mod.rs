@@ -338,7 +338,7 @@ impl Voice {
             Arc::new(BusMute(bus.clone(), audition.clone())),
             platform.gate(&app_dir),
             Arc::new(store),
-            RouteOptions { poll_interval: Duration::from_millis(100), on_muted: Some(Arc::new(move |muted| muted_direct.set_monitor_muted(muted))) },
+            RouteOptions { poll_interval: Duration::from_millis(100), on_muted: Some(Arc::new(move |muted| muted_direct.set_monitor_muted(muted))), ..RouteOptions::default() },
         );
         let emitter = weak.clone();
         let traces = IoTraces::new(Arc::new(move |payload| {

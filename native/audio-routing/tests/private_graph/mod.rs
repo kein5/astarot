@@ -56,7 +56,7 @@ impl PrivateGraph {
     /// before anything connects to PipeWire, and only once per test binary: it sets environment
     /// variables.
     pub fn start(name: &str) -> PrivateGraph {
-        let managed = include_str!("../../../../config/pipewire/90-vrct-managed.conf").trim();
+        let managed = include_str!("../../../../config/pipewire/90-astarot-managed.conf").trim();
         let managed = managed.strip_prefix("context.modules = [").and_then(|m| m.strip_suffix(']')).expect("a modules fragment");
         let dir = std::env::temp_dir().join(format!("{name}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);

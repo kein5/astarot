@@ -44,7 +44,7 @@ voice:
     select_input: "Select an input"
     refresh_inputs: "Refresh inputs"
     input_requires_managed: "Prepare the virtual microphone to start. This changes the shared TTS/RVC output to the virtual microphone."
-    input_selection_hint: "Choose the microphone you speak into here; it starts as the mic selected in Device > Mic. Select VRCT Managed Virtual Microphone as the input in VRChat."
+    input_selection_hint: "Choose the microphone you speak into here; it starts as the mic selected in Device > Mic. Select ASTAROT Managed Virtual Microphone as the input in VRChat."
     input_selection_hint_device: "Choose the microphone you speak into here; it starts as the mic selected in Device > Mic. In VRChat, select the recording end of your virtual cable as the input."
     input_requires_output: "Choose an output device on the Text to speech (TTS) page first: the playback end of a virtual cable, such as CABLE Input from VB-CABLE. Then select its recording end as the microphone in VRChat."
     prepare_microphone: "Prepare and use virtual microphone"
@@ -101,7 +101,7 @@ voice:
     routing_external: "Existing external cable"
     routing_managed: "Managed virtual microphone (Linux)"
     # What the user does, in view; how the microphone is prepared, as its hint (#614).
-    managed_lead: "Select VRCT Managed Virtual Microphone in VRChat, then press \"Unmute\"."
+    managed_lead: "Select ASTAROT Managed Virtual Microphone in VRChat, then press \"Unmute\"."
     managed_details: "Saving automatically prepares the virtual microphone on Linux with PipeWire and systemd. It stays available when ASTAROT closes."
     mute_scope_managed: "Mute applies to TTS and VC sent through this managed microphone."
     mute_scope_external: "Mute applies to ASTAROT text-to-speech only."
@@ -1918,6 +1918,7 @@ voice_setup_errors:
     managed_setup_session_unavailable: "The desktop user session is unavailable. Automatic setup needs XDG_RUNTIME_DIR."
     managed_setup_custom_remote: "Automatic setup is unavailable for a custom PipeWire server. Prepare its route separately."
     managed_setup_manual_config_pending: "An existing manual PipeWire configuration is not active yet. Do not create a second route; activate or remove the old configuration first."
+    managed_setup_manual_config_legacy: "A PipeWire configuration you placed for an earlier version (90-vrct-managed.conf) makes the virtual microphone under its old name. Replace it with 90-astarot-managed.conf from this version. If you remove it instead, ASTAROT prepares the microphone itself."
 
 vc_runtime:
     title: "{{name}} runtime"

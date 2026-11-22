@@ -14,7 +14,7 @@ fn graph() -> Graph {
     vec![
         json!({"type": CORE, "info": {"cookie": 42}}),
         node(10, "external.source", "Audio/Source", json!(110), json!({})),
-        node(11, VC_SINK, "Audio/Sink", json!(111), json!({"vrct.managed.route": "v1"})),
+        node(11, VC_SINK, "Audio/Sink", json!(111), json!({"astarot.managed.route": "v1"})),
     ]
 }
 
@@ -22,7 +22,10 @@ fn graph() -> Graph {
 fn selection_rejects_unsafe_or_ambiguous_source() {
     let ok = select_source(&graph(), "external.source").unwrap();
     assert_eq!(ok, Endpoint { cookie: 42, serial: 110, name: "external.source".into(), media_class: "Audio/Source".into() });
-    for fault in ["absent", "duplicate", "class", "feedback", "cookie", "serial", "marked"] {
+    for fault in ["absent", "duplicate", "class", "feedback", "cookie", "serial", "marked", "legacy_feedback", "legacy_marked"] {
+        if fault.starts_with("legacy") && !audio_route::READS_LEGACY {
+            continue;
+        }
         let mut data = graph();
         let mut name = "external.source".to_owned();
         match fault {
@@ -37,7 +40,13 @@ fn selection_rejects_unsafe_or_ambiguous_source() {
             }
             "cookie" => data[0]["info"]["cookie"] = json!(true),
             "serial" => data[1]["info"]["props"]["object.serial"] = json!("110"),
-            _ => data[1]["info"]["props"]["vrct.source.bridge"] = json!("v1"),
+            // A route or a bridge of 0.6.0 and earlier feeds a virtual microphone too (ADR-014, 2.11).
+            "legacy_feedback" => {
+                name = "vrct.managed.source".into();
+                data[1]["info"]["props"]["node.name"] = json!(name);
+            }
+            "legacy_marked" => data[1]["info"]["props"]["vrct.source.bridge"] = json!("v1"),
+            _ => data[1]["info"]["props"]["astarot.source.bridge"] = json!("v1"),
         }
         assert!(select_source(&data, &name).is_err(), "{fault}");
     }
@@ -54,7 +63,8 @@ fn ipc_identity_keeps_64_bit_serials_and_refuses_lookalikes() {
         json!({"cookie": "01", "serial": "2", "name": "mic", "media_class": "Audio/Source"}),
         json!({"cookie": "4294967296", "serial": "2", "name": "mic", "media_class": "Audio/Source"}),
         json!({"cookie": 1, "serial": "2", "name": "mic", "media_class": "Audio/Source"}),
-        json!({"cookie": "1", "serial": "2", "name": "vrct.managed.source", "media_class": "Audio/Source"}),
+        json!({"cookie": "1", "serial": "2", "name": "astarot.managed.source", "media_class": "Audio/Source"}),
+        json!({"cookie": "1", "serial": "2", "name": "astarot.source-bridge.tag.playback", "media_class": "Audio/Source"}),
         json!({"cookie": "1", "serial": "2", "name": "mic", "media_class": "Audio/Sink"}),
         json!({"cookie": "1", "serial": "2", "name": "", "media_class": "Audio/Source"}),
     ];
@@ -73,7 +83,7 @@ fn microphone_list_skips_virtual_inputs_and_follows_the_real_default() {
     let mut data = graph();
     data.push(node(12, "usb.mic", "Audio/Source", json!(112), json!({"node.description": "Headset"})));
     data.push(node(13, "usb.mic2", "Audio/Source", json!(113), json!({"node.description": "Headset"})));
-    data.push(node(14, MANAGED_SOURCE, "Audio/Source", json!(114), json!({"vrct.managed.route": "v1"})));
+    data.push(node(14, MANAGED_SOURCE, "Audio/Source", json!(114), json!({"astarot.managed.route": "v1"})));
     let data = with_default(
         data,
         json!([{"subject": 0, "key": "default.audio.source", "value": {"name": MANAGED_SOURCE}}, {"subject": 0, "key": "default.configured.audio.source", "value": "{\"name\": \"usb.mic2\"}"}]),
@@ -108,7 +118,7 @@ fn outputs_are_sinks_by_node_name() {
 fn managed() -> Graph {
     let mut data = vec![json!({"type": CORE, "info": {"cookie": 7}})];
     for (i, (name, media)) in REQUIRED.iter().enumerate() {
-        data.push(node(20 + i as u64, name, media, json!(200 + i as u64), json!({"vrct.managed.route": "v1"})));
+        data.push(node(20 + i as u64, name, media, json!(200 + i as u64), json!({"astarot.managed.route": "v1"})));
     }
     data
 }
@@ -123,7 +133,7 @@ fn managed_route_requires_every_endpoint_exactly_once() {
             g.remove(2);
         },
         |g| g.push(g[1].clone()),
-        |g| g[1]["info"]["props"]["vrct.managed.route"] = json!("v2"),
+        |g| g[1]["info"]["props"]["astarot.managed.route"] = json!("v2"),
         |g| g[1]["info"]["params"]["Props"] = json!([{"mute": true}, {"mute": false}]),
         |g| g[1]["info"]["params"]["Props"] = json!([{"mute": 1}]),
         |g| g.push(json!({"type": CORE, "info": {"cookie": 8}})),
@@ -138,7 +148,7 @@ fn managed_route_requires_every_endpoint_exactly_once() {
 fn bridged(fault: &str) -> Graph {
     let mut data = graph();
     for (id, suffix, media, serial) in [(20, "capture", "Stream/Input/Audio", 120), (21, "playback", "Stream/Output/Audio", 121)] {
-        data.push(node(id, &format!("vrct.source-bridge.tag.{suffix}"), media, json!(serial), json!({"vrct.source.bridge": "v1", "client.id": 30})));
+        data.push(node(id, &format!("astarot.source-bridge.tag.{suffix}"), media, json!(serial), json!({"astarot.source.bridge": "v1", "client.id": 30})));
     }
     for (a, b) in [(10, 20), (21, 11)] {
         data.push(json!({"type": LINK, "info": {"output-node-id": a, "input-node-id": b, "state": "active"}}));
@@ -177,4 +187,25 @@ fn bridge_links_need_complete_owned_links() {
     let mut replaced = bridged("");
     replaced[1]["info"]["props"]["object.serial"] = json!(999);
     assert_eq!(bridge_links(&replaced, &source, &sink, "tag", 1234, true).unwrap_err(), Error::runtime("source_bridge_endpoint_changed"));
+}
+
+#[test]
+fn the_route_names_begin_with_its_prefix() {
+    let prefix = audio_route::NODE_PREFIX.current();
+    assert_eq!(prefix, "astarot.managed.");
+    for name in [MANAGED_SOURCE, TTS_SINK, VC_SINK, MIX_SINK] {
+        assert!(name.starts_with(prefix), "{name}");
+        assert!(is_virtual_name(name), "{name}");
+    }
+    assert_eq!(ROUTE_PROPERTY, "astarot.managed.route");
+    assert_eq!(BRIDGE_PROPERTY, "astarot.source.bridge");
+    assert_eq!(bridge_stream("0123", "playback"), "astarot.source-bridge.0123.playback");
+    // A route of 0.6.0 and earlier is not this route: its marker does not count.
+    let mut data = managed();
+    for item in data.iter_mut().skip(1) {
+        let props = item["info"]["props"].as_object_mut().unwrap();
+        props.remove("astarot.managed.route");
+        props.insert("vrct.managed.route".into(), json!("v1"));
+    }
+    assert!(!managed_ready(&data));
 }

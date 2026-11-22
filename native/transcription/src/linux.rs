@@ -61,7 +61,7 @@ pub fn open(endpoint: &Endpoint, source: Source, on_audio: OnAudio, on_error: On
     #[cfg(feature = "pipewire")]
     {
         // The stream's name is one `endpoint_choice` never offers as an endpoint.
-        let (endpoint, name) = (endpoint.clone(), format!("vrct.asr.capture.{}", source.as_str()));
+        let (endpoint, name) = (endpoint.clone(), vrct_audio_routing::graph::asr_capture_stream(source.as_str()));
         crate::capture::start_until_audio(
             move |callbacks| Box::new(vrct_audio_routing::pipewire::capture::PipeWireCapture::new(endpoint, &name, callbacks)),
             on_audio,

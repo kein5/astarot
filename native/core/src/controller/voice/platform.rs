@@ -22,7 +22,7 @@ pub trait VoicePlatform: Send + Sync {
     fn direct_sources(&self) -> Result<Vec<Source>>;
     /// The identity of the OS default microphone (Windows): the RVC input's default.
     fn default_microphone(&self) -> Option<String>;
-    /// The output speech plays to: a device, or `vrct.managed.tts` on the managed route.
+    /// The output speech plays to: a device, or `astarot.managed.tts` on the managed route.
     fn speech_output(&self, device: &str, rate: u32, channels: u16) -> Result<Box<dyn Output>>;
     /// How a monitor (a local copy of the speech) opens its device.
     fn monitor_output(&self) -> MonitorFactory;

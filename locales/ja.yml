@@ -44,7 +44,7 @@ voice:
     select_input: "入力を選択"
     refresh_inputs: "入力一覧を更新"
     input_requires_managed: "開始するには仮想マイクを準備してください。TTSとRVCの共通出力先が仮想マイクに切り替わります。"
-    input_selection_hint: "ここでは自分が話すマイクを選びます。初期値はデバイス設定の「マイク」で選んだマイクです。VRChat側の入力にVRCT Managed Virtual Microphoneを選んでください。"
+    input_selection_hint: "ここでは自分が話すマイクを選びます。初期値はデバイス設定の「マイク」で選んだマイクです。VRChat側の入力にASTAROT Managed Virtual Microphoneを選んでください。"
     input_selection_hint_device: "ここでは自分が話すマイクを選びます。初期値はデバイス設定の「マイク」で選んだマイクです。VRChat側の入力には仮想ケーブルの録音側を選んでください。"
     input_requires_output: "先に「テキスト読み上げ（TTS）」の設定で出力デバイスを選んでください。VB-CABLEのCABLE Inputのような仮想ケーブルの再生側を選び、VRChatのマイクには録音側を選びます。"
     prepare_microphone: "仮想マイクを準備して使用"
@@ -101,7 +101,7 @@ voice:
     routing_external: "既存の外部ケーブル"
     routing_managed: "管理対象の仮想マイク（Linux）"
     # What the user does, in view; how the microphone is prepared, as its hint (#614).
-    managed_lead: "VRChatの入力にVRCT Managed Virtual Microphoneを選び、「ミュートを解除」を押してください。"
+    managed_lead: "VRChatの入力にASTAROT Managed Virtual Microphoneを選び、「ミュートを解除」を押してください。"
     managed_details: "PipeWireとsystemdを使うLinuxでは、保存時に仮想マイクを自動で準備します。ASTAROT終了後も残ります。"
     mute_scope_managed: "この仮想マイクを通るTTSとVCをまとめてミュートします。"
     mute_scope_external: "ASTAROTのテキスト読み上げだけをミュートします。"
@@ -1918,6 +1918,7 @@ voice_setup_errors:
     managed_setup_session_unavailable: "デスクトップのユーザーセッションを確認できません。自動準備にはXDG_RUNTIME_DIRが必要です。"
     managed_setup_custom_remote: "独自のPipeWireサーバーでは自動準備できません。そのサーバー側に経路を用意してください。"
     managed_setup_manual_config_pending: "以前の手動PipeWire設定がまだ有効になっていません。二重作成を避けるため、以前の設定を有効化するか整理してください。"
+    managed_setup_manual_config_legacy: "以前の版のために置いたPipeWireの設定（90-vrct-managed.conf）が、仮想マイクを古い名前で作っています。この版の90-astarot-managed.confに置き換えてください。削除すると、ASTAROTが仮想マイクを準備します。"
 
 vc_runtime:
     title: "{{name}}の実行環境"

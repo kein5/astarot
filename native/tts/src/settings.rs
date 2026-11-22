@@ -383,11 +383,15 @@ voice_settings! {
     sharevox_intonation = "1.0",
 }
 
+/// The managed route's TTS input (`vrct_audio_routing::graph::TTS_SINK`, which this crate does
+/// not depend on; the tests hold the two to the route's prefix).
+pub const MANAGED_TTS: &str = "astarot.managed.tts";
+
 impl VoiceSettings {
     /// The output that carries speech: the managed route or the chosen device.
     pub fn playback_device(&self) -> &str {
         if self.routing == "managed" {
-            "vrct.managed.tts"
+            MANAGED_TTS
         } else {
             &self.output_device
         }
@@ -488,7 +492,7 @@ impl VoiceSettings {
         let monitor_device = self.monitor_device.as_str();
         if self.monitor == "on"
             && !monitor_device.is_empty()
-            && (monitor_device.starts_with("vrct.managed.") || monitor_device.starts_with("vrct.source-bridge.") || monitor_device == self.playback_device())
+            && (app_identity::audio_route::is_route_name(monitor_device) || monitor_device == self.playback_device())
         {
             return Err(SettingsError("Monitor output must differ from the virtual microphone output"));
         }
@@ -799,7 +803,8 @@ mod tests {
             json!(null),
             json!([]),
             json!({"routing": "other"}),
-            json!({"monitor": "on", "monitor_device": "vrct.managed.x"}),
+            json!({"monitor": "on", "monitor_device": "astarot.managed.x"}),
+            json!({"monitor": "on", "monitor_device": "astarot.source-bridge.x.playback"}),
             json!({"monitor": "on", "monitor_device": "cable", "output_device": "cable"}),
             json!({"monitor_volume": "101"}),
             json!({"monitor_volume": "0100"}),
@@ -808,6 +813,19 @@ mod tests {
         ] {
             assert!(VoiceSettings::from_value_on(&value, Platform::Other).is_err(), "{value}");
         }
+        // The route of 0.6.0 and earlier, while its names are read (ADR-014, 2.11).
+        for device in ["vrct.managed.x", "vrct.source-bridge.x.playback"] {
+            let value = json!({"monitor": "on", "monitor_device": device});
+            assert_eq!(VoiceSettings::from_value_on(&value, Platform::Other).is_err(), app_identity::audio_route::READS_LEGACY, "{value}");
+        }
+    }
+
+    #[test]
+    fn speech_on_the_managed_route_goes_to_its_tts_input() {
+        assert!(MANAGED_TTS.starts_with(app_identity::audio_route::NODE_PREFIX.current()));
+        assert_eq!(MANAGED_TTS, "astarot.managed.tts");
+        let settings = VoiceSettings::from_value_on(&json!({"routing": "managed"}), Platform::Other).unwrap();
+        assert_eq!(settings.playback_device(), MANAGED_TTS);
     }
 
     #[test]

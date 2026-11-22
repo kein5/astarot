@@ -47,7 +47,7 @@ fn the_gate_helper_refuses_what_it_was_not_given() {
     let direct = pair.direct.identity;
     assert!(gate.set_direct_muted(true, direct).expect("the VC input mutes").muted);
     assert!(gate.inspect(None).expect("the source").muted, "the main source is muted from its start, on its own");
-    for (cookie, serial, selector) in [(direct.0 + 1, direct.1, "vc"), (direct.0, direct.1 + 1, "vc"), (direct.0, direct.1, "vrct.managed.tts")] {
+    for (cookie, serial, selector) in [(direct.0 + 1, direct.1, "vc"), (direct.0, direct.1 + 1, "vc"), (direct.0, direct.1, "astarot.managed.tts")] {
         let args = [cookie.to_string(), serial.to_string(), "0".into(), selector.into()];
         assert!(!helper(&binary, &args), "the helper unmuted with {args:?}");
         let state = gate.inspect(Some(monotonic())).expect("the source");

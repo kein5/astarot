@@ -93,7 +93,7 @@ fn a_conversion_captures_its_microphone_and_plays_into_the_managed_vc_input() {
     wait("the output's link into the VC input", || {
         let objects = dump();
         let id = |name: &str| objects.iter().find(|o| o["info"]["props"]["node.name"] == name).and_then(|o| o["id"].as_u64());
-        let (Some(from), Some(to)) = (id("vrct.vc"), id(graph::VC_SINK)) else { return false };
+        let (Some(from), Some(to)) = (id("astarot.vc"), id(graph::VC_SINK)) else { return false };
         objects.iter().any(|o| o["type"] == graph::LINK && o["info"]["output-node-id"] == from && o["info"]["input-node-id"] == to)
     });
     let _ = output.close(false, &token);

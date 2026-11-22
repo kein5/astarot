@@ -115,7 +115,7 @@ impl VcRoute for DeviceRoute {
 }
 
 /// The managed VC input on Linux (`_PipeWireRoute`, decision 11): the microphone is captured
-/// from PipeWire and the converted voice goes into `vrct.managed.vc`, whose OS gate mutes it, so
+/// from PipeWire and the converted voice goes into `astarot.managed.vc`, whose OS gate mutes it, so
 /// nothing is silenced here. One block waits for the worker; a second is an overrun.
 pub struct ManagedRoute {
     devices: Arc<dyn ManagedVcDevices>,
