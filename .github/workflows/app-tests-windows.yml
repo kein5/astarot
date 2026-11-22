@@ -1,0 +1,46 @@
+# The Tauri app's own unit tests (src-tauri) on Windows. Linux runs them in the Linux candidate
+# job (build-linux.yml, #881), which has the WebKitGTK the app builds against; on Windows they ran
+# in no workflow (the external review of develop 7a4b684). The paths are those of the app's code
+# in the Linux candidate's list. develop's pushes keep the Rust cache the pull requests read.
+name: App unit tests on Windows
+on:
+  push:
+    branches: [develop]
+    paths: &paths
+      - '.github/workflows/app-tests-windows.yml'
+      - 'src-tauri/**'
+      - 'native/**'
+      - 'locales/**'
+      - 'mise.toml'
+      - 'mise.lock'
+      - 'tools/app_resources.py'
+      - 'tools/check_voice_distribution.py'
+      - 'tools/distribution_policy.py'
+      - 'tools/dev.py'
+  pull_request:
+    paths: *paths
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: app-tests-windows-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  src-tauri:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
+        with:
+          version: 2026.11.8
+          install_args: rust python
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          workspaces: src-tauri
+      # tauri.conf.json bundles src-tauri/bin/_internal, and build.rs inspects it: the folder has
+      # to exist. Nothing is built into build/ here, so it holds the repository's own files only.
+      - run: python tools/dev.py setup --scope resources
+      - run: cargo test --locked --manifest-path src-tauri/Cargo.toml
