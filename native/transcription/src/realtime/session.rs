@@ -93,17 +93,19 @@ impl Default for Limits {
 /// than speech.cpp's and OpenAI's 500 ms: the utterance comes about 100 ms sooner, at the cost of
 /// a pause inside a sentence ending it more often. A saved choice is kept as it is.
 pub const DEFAULT_SILENCE_MS: u32 = 400;
-/// The padding speech.cpp keeps on either side of an utterance by default (`prefix_padding_ms`).
+/// The padding speech.cpp keeps before an utterance's speech, and after it within the silence,
+/// by default (`prefix_padding_ms`).
 const MAX_PADDING_MS: u32 = 300;
 
 /// `server_vad` with the silence that ends an utterance and a padding of at most half of it.
 ///
-/// speech.cpp gives an utterance once no other can start within twice its padding of its end
-/// (its record "a detection of audio given a piece at a time gives speech_detect()'s regions,
-/// each once it is certain"). With its defaults, 500 ms of silence and 300 ms of padding, that
-/// is 600 ms after the speech, not 500 (#556). With the padding at most half the silence the
-/// utterance comes when the silence has lasted, and the silence alone still decides where
-/// utterances are cut. The threshold is sent only when the settings choose one (#392).
+/// speech.cpp 0.11.2 commits an utterance once the silence has lasted, and reads it while the
+/// silence goes on, from when the padding kept after the speech has passed; the commit takes
+/// that reading (speech.cpp #232 and #233). A shorter padding starts that reading sooner, so
+/// it more often ends before the commit (#556). Up to 0.11.1, speech.cpp gave an utterance only
+/// once no other could start within twice its padding of its end, 600 ms after the speech with
+/// its defaults; half the silence kept that wait within the silence. The silence alone decides
+/// where utterances are cut. The threshold is sent only when the settings choose one (#392).
 pub fn turn_detection(silence_duration_ms: Option<u32>, threshold_percent: Option<u8>) -> Value {
     let silence = silence_duration_ms.unwrap_or(DEFAULT_SILENCE_MS);
     let mut detection =

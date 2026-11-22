@@ -1,7 +1,7 @@
 //! Voice activity detection of the recorder on a speech.cpp server (decision 13 in
 //! `docs/voice-stack/core-integration.md`: Silero VAD as the GGUF model speech.cpp fetches).
 //!
-//! speech.cpp 0.11.0 runs a detection model only inside transcriptions and Realtime sessions:
+//! speech.cpp 0.11.2 runs a detection model only inside transcriptions and Realtime sessions:
 //! its worker refuses detection models, and `speech vad` reads whole files. So a segmenter opens
 //! a Realtime session on the server with no transcription (`transcription: null`) and OpenAI's
 //! `server_vad`, streams the device's audio to it at 24 kHz, and cuts the device's audio where
@@ -32,7 +32,7 @@ use tungstenite::Message;
 pub struct Options {
     /// The speech probability from which audio counts as speech.
     pub threshold: f64,
-    /// The audio kept before and after each region.
+    /// The audio kept before each region's speech, and after it within the silence that ends it.
     pub prefix_padding_ms: u32,
     /// The silence that ends a region.
     pub silence_duration_ms: u32,
