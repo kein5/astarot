@@ -23,7 +23,10 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parents[2]
 RELEASE_URL = "https://github.com/kein5/astarot/releases/download/$release_revision"
-APP = "vrct-vox.exe"
+# The main binary from 0.7.0, and the one up to 0.6.x (ADR-014, 2.5 and 2.6). The "old" package
+# plays a release up to 0.6.x and carries the old one; every other package carries the new one.
+APP = "astarot.exe"
+OLD_APP = "vrct-vox.exe"
 # Packages up to 0.4 carried the Python sidecar beside the app; from 0.5.0 they do not. The
 # "old" package is such a package: updating it to "new" removes the stale sidecar, while
 # installing a package that has one (a downgrade) keeps it.
@@ -47,7 +50,7 @@ OWN = json.loads((ROOT / "src-tauri/tauri.conf.json").read_text(encoding="utf-8"
 
 def payload_files(version):
     files = {
-        APP: f"{version} executable stub".encode(),
+        (OLD_APP if version == "old" else APP): f"{version} executable stub".encode(),
         "_internal/shared.txt": f"{version} dependency".encode(),
         f"_internal/{version}-only.txt": f"{version} only".encode(),
         "_internal/nested/padding.bin": bytes(range(256)) * 2048,
@@ -257,13 +260,14 @@ def moved_from_bytes(folder):
     return b"\xff\xfe" + str(folder).encode("utf-16-le")
 
 
-def expect_updated(directory, before, moved_from=None):
-    """`moved_from`: the folder the installer moved the install from, named in the file it leaves."""
+def expect_updated(directory, before, moved_from=None, version="new"):
+    """`moved_from`: the folder the installer moved the install from, named in the file it leaves.
+    The main binary under either name goes with the rest of the app: only `version`'s stays."""
     expected = {k: v for k, v in before.items()
-                if k not in (APP, SIDECAR, "update.exe", "_internal") and not k.startswith("_internal/")}
+                if k not in (APP, OLD_APP, SIDECAR, "update.exe", "_internal") and not k.startswith("_internal/")}
     if moved_from is not None:
         expected[MOVED_FROM] = sha256(moved_from_bytes(moved_from)).hexdigest()
-    for name, value in payload_files("new").items():
+    for name, value in payload_files(version).items():
         expected[name] = sha256(value).hexdigest()
         for parent in Path(name).parents:
             if str(parent) != ".":
@@ -291,6 +295,8 @@ def hold_file(path):
 
 
 def interrupted_commit(directory, checkpoint):
+    """An update that stopped half way, by an installer up to 0.6.x: the main binary is the old
+    one on both sides."""
     work = directory / ".upd"
     for name in ("new", "old", "add", "discard"):
         (work / name).mkdir(parents=True)
@@ -301,10 +307,10 @@ def interrupted_commit(directory, checkpoint):
         (directory / name).rename(work / "old" / name)
     if checkpoint == "uninstallers":
         return
-    (directory / APP).rename(work / "old" / APP)
+    (directory / OLD_APP).rename(work / "old" / OLD_APP)
     if checkpoint == "exe-backup":
         return
-    (directory / APP).write_bytes(payload_files("new")[APP])
+    (directory / OLD_APP).write_bytes(payload_files("new")[APP])
     if checkpoint == "exe-replaced":
         return
     (directory / "_internal").rename(work / "old/_internal")
@@ -342,7 +348,18 @@ def silent_scenarios(installer, work, server):
     updated = clone("update success")
     run_install(installer, updated, "new", work / "temp-success", True)
     expect_updated(updated, before)
+    assert not (updated / OLD_APP).exists()
     print("PASS update success and user data retention", flush=True)
+    print("PASS the main binary up to 0.6.x is replaced by the new one", flush=True)
+
+    # A package under the old name (another version through /VERSION) is installed as it is:
+    # its main binary stays, and the one under the new name goes.
+    directory = clone("back to a package up to 0.6.x")
+    run_install(installer, directory, "new", work / "temp-forward", True)
+    run_install(installer, directory, "old", work / "temp-back", True)
+    expect_updated(directory, before, version="old")
+    assert not (directory / APP).exists()
+    print("PASS a package with the main binary up to 0.6.x installs under that name", flush=True)
 
     # The in-app updater (src-tauri/src/app_update.rs) adds /UPDATE. The app's language setting
     # stays: no installer_language.txt for the app to apply at start.
@@ -441,10 +458,10 @@ def silent_scenarios(installer, work, server):
 
     directory = clone("blocked recovery")
     interrupted_commit(directory, "exe-replaced")
-    with hold_file(directory / APP):
+    with hold_file(directory / OLD_APP):
         run_install(installer, directory, "checksum-404", work / "temp-blocked", False)
         assert (directory / ".upd/committing").exists()
-        assert (directory / ".upd/old" / APP).read_bytes() == payload_files("old")[APP]
+        assert (directory / ".upd/old" / OLD_APP).read_bytes() == payload_files("old")[OLD_APP]
     run_install(installer, directory, "checksum-404", work / "temp-unblocked", False)
     assert_tree(directory, before)
     print("PASS blocked restoration retains backups and can be retried", flush=True)
@@ -577,10 +594,10 @@ def programs_folder():
     return shell_folder(0x02)  # CSIDL_PROGRAMS: the user's Start menu programs
 
 
-def make_shortcut(link, target):
+def make_shortcut(link, target, arguments=""):
     link.parent.mkdir(parents=True, exist_ok=True)
     script = (f"$s=(New-Object -ComObject WScript.Shell).CreateShortcut('{link}');"
-              f"$s.TargetPath='{target}';$s.Save()")
+              f"$s.TargetPath='{target}';$s.Arguments='{arguments}';$s.Save()")
     subprocess.run(["powershell", "-NoProfile", "-Command", script], check=True, timeout=60)
 
 
@@ -652,11 +669,15 @@ def same_path(a, b):
     return os.path.normcase(os.path.normpath(str(a))) == os.path.normcase(os.path.normpath(str(b)))
 
 
-def shortcut_target(link):
-    script = f"(New-Object -ComObject WScript.Shell).CreateShortcut('{link}').TargetPath"
+def shortcut_property(link, name):
+    script = f"(New-Object -ComObject WScript.Shell).CreateShortcut('{link}').{name}"
     result = subprocess.run(["powershell", "-NoProfile", "-Command", script],
                             capture_output=True, text=True, check=True, timeout=60)
     return result.stdout.strip()
+
+
+def shortcut_target(link):
+    return shortcut_property(link, "TargetPath")
 
 
 def shortcut_places():
@@ -695,6 +716,9 @@ def expect_registration(directory, language=None):
     assert entry is not None and entry["DisplayName"] == PRODUCT_NAME, entry
     assert same_path(entry["InstallLocation"].strip('"'), directory), entry
     assert same_path(entry["UninstallString"].strip('"'), directory / "uninstall.exe"), entry
+    # ADR-014, 2.5, 8: the main binary under its new name.
+    assert entry.get("MainBinaryName") == APP, entry
+    assert same_path(entry["DisplayIcon"].strip('"'), directory / APP), entry
     assert read_key(OLD_PRODUCT_KEY) is None, read_key(OLD_PRODUCT_KEY)
     assert read_key(OLD_UNINSTALL_KEY) is None, read_key(OLD_UNINSTALL_KEY)
     assert uninstall_entries_named(PRODUCT_NAME, OLD_FOLDER) == [UNINSTALL_KEY.rsplit("\\", 1)[1]]
@@ -726,7 +750,7 @@ def move_scenarios(installer, work):
     seed_install(installer, old_dir, work / "temp-seed-0.5.0")
     register_old_install(old_dir, language="1041")
     for link in old_links:
-        make_shortcut(link, old_dir / APP)
+        make_shortcut(link, old_dir / OLD_APP)
     before = snapshot(old_dir)
     run_default_install(installer, "new", work / "temp-move", extra="/UPDATE /EDITION=cpu", uilang=None)
     assert not old_dir.exists(), "Nothing, no link or junction, is left at the old place"
@@ -758,25 +782,46 @@ def move_scenarios(installer, work):
     print("PASS the uninstaller removes the keys of both names and keeps the settings", flush=True)
     reset_machine(new_dir)
 
-    # 0.5.1 and later installed into the new default folder already: only the keys move.
+    # 0.5.1 and later installed into the new default folder already: only the keys move. The
+    # main binary takes its new name (2.5, 8): the shortcuts the installer made lead to it, and one
+    # the user made under another name is left as it is.
     seed_install(installer, new_dir, work / "temp-seed-0.5.1")
     register_old_install(new_dir)
+    for link in new_links[:2]:
+        make_shortcut(link, new_dir / OLD_APP)
+    own = desktop_folder() / "my ASTAROT.lnk"
+    make_shortcut(own, new_dir / OLD_APP)
     before = snapshot(new_dir)
     run_default_install(installer, "new", work / "temp-keys-only", extra="/UPDATE")
     assert not old_dir.exists()
     expect_updated(new_dir, before)
     expect_registration(new_dir)
+    for link in new_links[:2]:
+        assert same_path(shortcut_target(link), new_dir / APP), link
+    assert not new_links[2].exists(), "A shortcut the user removed is not made again"
+    assert same_path(shortcut_target(own), new_dir / OLD_APP)
+    own.unlink()
     print("PASS an install of 0.5.1 in the new folder keeps its place; only the keys move", flush=True)
+    print("PASS the shortcuts the installer made lead to the main binary under its new name", flush=True)
+
+    # The next update, with the main binary already under its new name, leaves the shortcuts as
+    # they are: what the user changed in them stays.
+    make_shortcut(desktop_link, new_dir / APP, arguments="--kept")
+    run_default_install(installer, "new", work / "temp-keys-only-again", extra="/UPDATE")
+    assert shortcut_property(desktop_link, "Arguments") == "--kept"
+    print("PASS an update under the same name leaves the shortcuts alone", flush=True)
     reset_machine(new_dir)
 
     # A folder the user chose stays, even under the old name.
     chosen = work / "chosen place" / OLD_FOLDER
     seed_install(installer, chosen, work / "temp-seed-chosen")
     register_old_install(chosen)
+    make_shortcut(desktop_link, chosen / OLD_APP)
     before = snapshot(chosen)
     run_default_install(installer, "new", work / "temp-chosen", extra="/UPDATE")
     expect_updated(chosen, before)
     expect_registration(chosen)
+    assert same_path(shortcut_target(desktop_link), chosen / APP)
     assert not new_dir.exists() and not old_dir.exists()
     print("PASS a folder the user chose stays where it is", flush=True)
     reset_machine()
@@ -835,7 +880,8 @@ def move_scenarios(installer, work):
             write_key(PRODUCT_KEY, {"": str(new_dir)})
             write_key(UNINSTALL_KEY, {"DisplayName": PRODUCT_NAME, "InstallLocation": f'"{new_dir}"',
                                       "UninstallString": f'"{new_dir / "uninstall.exe"}"'})
-        make_shortcut(desktop_link, (new_dir if keys == "both keys" else old_dir) / APP)
+        # Stopped between the keys, the shortcuts were pointed at the new place and name already.
+        make_shortcut(desktop_link, new_dir / APP if keys == "both keys" else old_dir / OLD_APP)
         before = snapshot(new_dir)
         run_default_install(installer, "new", work / f"temp-stopped-{keys}", extra="/UPDATE")
         assert not old_dir.exists()
