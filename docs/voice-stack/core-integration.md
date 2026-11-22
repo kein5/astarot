@@ -14,9 +14,9 @@ flowchart LR
   c --> crates["native/ の各クレート（ops、adapters、speech-server …）"]
 ```
 
-- UI は今までどおり `sidecarSession.js` でバックエンドと話します。`backendCommand.js` が中核を、Python のサイドカーが使っていた shell プラグインの `Command` と同じ形で渡します。shell プラグインはアプリから外しました。
+- UI は今までどおり `sidecarSession.ts` でバックエンドと話します。`backendCommand.ts` が中核を、Python のサイドカーが使っていた shell プラグインの `Command` と同じ形で渡します。shell プラグインはアプリから外しました。
 - 要求と応答の形式、状態コード、エラーの本体、ロックの規則は [IPC プロトコル](../spec/ipc-protocol.md) のままです。UI 側の変更は、この切り替えの部分だけです。
-- 設定、ログ、モデルの保存先は Python のサイドカーと同じです。同じ `config.json` を読み書きします。
+- 設定、ログ、モデルの保存先は Python のサイドカーと同じです。同じ `config.json` を読み書きします（Linux では 0.6.0 で `~/.config/astarot` と `~/.local/share/astarot` へ移しました。[名前と保存先](project-rename.md)）。
 - 配布物に同梱するファイル（speech.cpp、補助プログラム、ライセンス文）は `_internal` にあり、中核は `native/core/src/resources.rs` で探します（「判断が要ること」の 5）。
 
 ## 切り替え
@@ -60,7 +60,7 @@ flowchart LR
 | `tests/realtime_asr.rs` | リアルタイムの音声認識。設定の検査と保存、エンドポイントとモデルの一覧、メインのスイッチ（Linux と Windows の speech.cpp）で字幕（途中・確定・訳・結果）と確定した文がチャットボックスまで届くこと、設定画面からの開始と停止と録音からの引き継ぎ、スイッチが足りないものを `details.reason` で答えること、サーバが断ったときの失敗の通知、字幕が VR の大きいログに描かれることと描けなかったときの通知、マイクの確定文のフローパネルの記録が確定から測られること（24）、終了。speech.cpp はモデルの一覧と Realtime の WebSocket を返す 127.0.0.1 の偽のサーバ、SteamVR は代わりのもの |
 | `tests/voice.rs` | TTS のスイッチ（止まっている理由ごとのコード、世代、内蔵サーバを自分で起動して止めること、設定画面から起動したサーバは止めないこと、サーバの停止で TTS が切れること）、音声の設定の検査と拒否したときの答え、入力したチャットを元の文と翻訳で読み上げること、マイクの確定文の読み上げと言語・翻訳の変更での取り消し、停止とミュートと再開、キューで待つ間の停止で古い世代を拒むこと、ミュートの保存と壊れた記録、Linux の管理された経路のゲート、出力先の一覧、モデルの選択肢とインストール済みエンジンの声、直接の音声（素通しと声質変換、世代、失敗、元の声に戻さないこと、変換を通した読み上げ）、声質変換の実行環境の準備（同意、版、手順ごとの失敗、worker の確認）、フローパネル、リアルタイムのマイクの確定文が訳されて読み上げられること、声を流しているケーブルを認識に使わせないこと（`realtime_endpoint_feedback`）、終了。出力とマイクはメモリの中の偽物、speech.cpp とエンジンはループバックの偽物、RVC の worker は `fake-rvc-worker` |
 
-Python の `src-python/test/test_native_core_reference.py` は、Python 側の設定の規則が変わったのに基準データを作り直していないとき失敗します。
+0.5.x までは、Python の `src-python/test/test_native_core_reference.py` が、Python 側の設定の規則が変わったのに基準データを作り直していないとき失敗していました（0.6.0 で Python のバックエンドと一緒に消しました）。
 
 翻訳のプロバイダと読み（翻字）は中核の外の `native/translation` に Python との契約テストがあります（#277）。`tests/contract/providers.json` は、プロバイダごとの場面で Python のクライアントが送った要求（メソッド、URL、ヘッダー、本文、待ち時間）と返した結果、再試行の前の待ちの範囲です。`tests/contract/transliteration.json` は、文ごとの形態素と読み、かなごとのヘボン式です。どちらも Python から記録したもので、Rust の試験（`tests/contract.rs`、`tests/transliteration_contract.rs`）が同じ場面を動かして比べます。Python を消したあとは、このファイルが仕様として残ります。CI では `core-integration` が `native/translation` と `native/translate-onnx` の試験も流します。
 
@@ -217,7 +217,7 @@ Issue のコメントは、音声認識・翻訳・TTS・声質変換・OCR の�
 - 翻訳: ローカル翻訳は偽のエンジン、オンラインのプロバイダは 127.0.0.1 の偽のサーバを相手に、`/run/send_message_box` から OSC・WebSocket・会話のログ・履歴までを確かめます（`tests/translation.rs`、`tests/messages.rs`）。
 - 音声認識: デバイスと同じ間隔で PCM を渡す偽の録音と、127.0.0.1 の偽の認識サーバ（クラウドのエンジンと speech.cpp の Realtime）を相手に、認識した文が UI・チャットボックス・会話のログに届くまでを確かめます（`tests/transcription.rs`、`tests/realtime_asr.rs`）。
 - TTS: speech.cpp の偽のサーバ（`tests/common/fake_tts.rs` と、合成を返す `tests/fixture/fake_speech.rs`）を相手に、合成の要求から出力への書き込みまでを確かめます。リアルタイムのマイクの確定文が訳されて読み上げられるところまで通します（`tests/voice.rs`）。
-- 声質変換: `vrct-rvc-worker` の代わりの小さな実行ファイル（`tests/fixture/fake_rvc_worker.rs`）を相手に、起動と停止、変換した音だけが出力に届くこと、失敗の扱いを確かめます（`tests/voice.rs`）。
+- 声質変換: `astarot-rvc-worker` の代わりの小さな実行ファイル（`tests/fixture/fake_rvc_worker.rs`）を相手に、起動と停止、変換した音だけが出力に届くこと、失敗の扱いを確かめます（`tests/voice.rs`）。
 - OCR: 撮影を差し替えて画像を与え、偽の認識エンジンを相手に、読んだ行がメッセージの流れを通って `/run/transcription_ocr_message` に届くまでを確かめます（`tests/ocr.rs`）。
 - VR のオーバーレイ: 代わりの SteamVR を相手に、送ったメッセージが大きいログに描かれるまでを確かめます（`tests/vr_overlay.rs`）。
 

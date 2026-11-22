@@ -609,7 +609,7 @@ Hugging Faceのファイルの大きさとSHA-256はAPIが示すLFSの値を2026
 | Linuxの`_internal/build/speechcpp-cpu/` | 固定版のspeech.cpp（CPU版）と依存の通知 | 同上（下の「Linuxの2つのspeech.cpp」） |
 | `_internal/build/sudachi/` | 読みの辞書SudachiDict fullと`LEGAL`、`LICENSE-2.0.txt` | Apache-2.0（下の「読みの解析器と辞書」） |
 | `_internal/build/astarot-rvc-worker(.exe)` | RVCの同梱ワーカー | MIT（VRCT-VOX）。Rustの依存は`licenses/rust` |
-| Linuxの`_internal/build/vrct-*` | 音声の補助プログラム（`astarot-voice-gate`など） | VRCT-VOX自身のコード |
+| Linuxの`_internal/build/astarot-*` | 音声の補助プログラム（`astarot-voice-gate`など） | VRCT-VOX自身のコード |
 | `_internal/licenses/VRCT/` | `LICENSE`と`NOTICE.md` | |
 | `_internal/licenses/rust/` | アプリとワーカーのRustのクレートのライセンス文 | 一覧のとおり |
 | `_internal/licenses/nscurl/`（Windows） | インストーラーのNScurlの通知 | 上の節のとおり |
