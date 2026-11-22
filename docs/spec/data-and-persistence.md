@@ -377,6 +377,22 @@ WindowsとLinuxの開発ビルドは、これまでどおり実行ファイル�
 
 ZIP版は展開した場所で動くので、移さない。
 
+### 本体の実行ファイルの名前
+
+0.7.0から、本体の実行ファイルはWindowsでは`astarot.exe`、Linuxでは`astarot`である。0.6.xまでは`vrct-vox.exe`と`vrct-vox`だった（ADR-014の2.5と2.6）。保存先は実行ファイルの名前によらない（Windowsは実行ファイルのフォルダー、Linuxの配布版は上のXDGのフォルダー）ので、名前が変わっても設定とモデルはそのまま読む。
+
+Windowsのインストーラー（`src-tauri/nsis/template.nsi`）は、画面から実行したときも、アプリ内の更新から`/P /UPDATE /R`で実行したときも、次のとおりに動く。
+
+- 動いている本体を新旧どちらの名前でも探す。画面から実行したときは、どちらの名前でも閉じてよいかを聞いてから止める。
+- 取得したパッケージの本体は、新旧どちらの名前でも受け付ける（`/VERSION`で別の版を入れるとき）。入れた名前を、アプリの一覧（`MainBinaryName`と`DisplayIcon`）、ショートカット、`/R`での再起動、完了のページからの起動に使う。
+- 置き換えが済んだあとで、もう一方の名前の本体が残っていれば、インストーラーが作ったショートカット（デスクトップとスタートメニュー）のうち残っているものを、入れた本体に付け替える。そのあとで、もう一方の名前の本体を消す。消せなかったときは次の更新でまた付け替えて消す。利用者が消したショートカットは作り直さない。利用者が別の名前で作ったショートカットと、タスクバーやスタートにピン留めした項目は変えない。
+- 同じ名前のままの更新では、ショートカットに触れない。
+- アンインストーラーは両方の名前の本体を消す。
+
+ZIP版は展開した場所で動く。前の版の上に展開すると`vrct-vox.exe`が残るので、利用者が消す。
+
+Linuxでは、debとrpmが`/opt/vrct-vox/astarot`を入れ、コマンド`/usr/bin/astarot`を置く。0.6.xまでのコマンド`/usr/bin/vrct-vox`も同じ実行ファイルを起動する。AppImageの中の実行ファイルは`usr/bin/astarot`である。パッケージのデスクトップファイルと、アプリがWaylandのportalのために書くデスクトップファイル（下の表の`io.github.kein5.astarot.desktop`）は、`StartupWMClass`を`astarot`にする。ウィンドウのクラスは実行ファイルの名前から決まるためである。パッケージのデスクトップファイルの`Exec`も`astarot`である。
+
 ### APIキーの保存先
 
 APIキーは`config.json`に書かない（0.5.0から）。いまはOSの資格情報ストアに保存する（Issue #575）（[ADR-013](../adr/adr-013-secret-store.md)）。Windowsは資格情報マネージャー、LinuxはSecret Service（GNOME Keyring、KWalletなど）である。`AUTH_KEYS`（翻訳）と`TRANSCRIPTION_AUTH_KEYS`（音声認識）の値と`PAPAGO_CLIENT_ID`を1件ずつ保存する。項目の名前は`AUTH_KEYS/DeepL_API`のように辞書の名前とプロバイダ名をつないだものである。どちらの辞書に足したプロバイダも同じ扱いになる。キーを持つ設定を新しく足すときは`native/core/src/config/secrets.rs`の`SECRET_SETTINGS`に名前を加える。

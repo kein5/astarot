@@ -16,7 +16,7 @@ mise exec -- npm ci
 
 `npm`のスクリプトでビルドや起動をするときは、miseを有効にしたシェル（`mise activate`）から呼ぶか、`mise exec -- npm run build`のように呼びます。そうしないと、PATHにある別の版のツールで動きます。
 
-0.5.0からバックエンドはアプリ（`vrct-vox.exe`）の中で動くRustの中核です（[中核の統合](voice-stack/core-integration.md)）。配布物にPythonは入りません。Pythonはビルドの道具と試験を動かすためだけに使います。Pythonのバックエンド（`src-python/`）とアプリの依存の環境（`mise run setup:app`、`npm run setup-python`）は0.6.0で消しました。
+0.5.0からバックエンドはアプリ（0.7.0から`astarot.exe`、0.6.xまでは`vrct-vox.exe`）の中で動くRustの中核です（[中核の統合](voice-stack/core-integration.md)）。配布物にPythonは入りません。Pythonはビルドの道具と試験を動かすためだけに使います。Pythonのバックエンド（`src-python/`）とアプリの依存の環境（`mise run setup:app`、`npm run setup-python`）は0.6.0で消しました。
 
 Windowsのビルドは、固定版のspeech.cpp（Vulkan版、約29 MB）を公式リリースから取得し、ハッシュを確かめてから同梱します。`build/speechcpp`に同じ版があれば取り直さず、別の版が残っていれば置き換えます（`speechcpp_bundle.py --replace`）。`build/`のほかのものには触れません。モデルの取得と本体のビルドは別の操作です。
 
@@ -48,7 +48,7 @@ npm run release
 | Windowsインストーラー | `src-tauri/target/release/bundle/nsis/ASTAROT_<version>_x64-setup.exe` |
 | Linux | `VRCT-VOX-<version>-linux-x64-release.tar.gz`と同名の`.AppImage`、`.deb`、`.rpm`。speech.cppのCPU版とVulkan版を両方入れる（0.4まではビルドごとに別の配布物） |
 
-WindowsのZIPには`vrct-vox.exe`と`_internal/`を収めます。ONNX Runtimeを動的にリンクするクレートがアプリに入った場合は、ビルドが`vrct-vox.exe`の隣に置いたONNX RuntimeとDirectMLのDLLも収めます。Linuxの実行名には`.exe`を付けません。配布物の作成時にはOCR重みなどの禁止資源を検査します。ソースツリー全体をそのまま配布ZIPにしないでください。
+WindowsのZIPには`astarot.exe`と`_internal/`を収めます（0.6.xまでの実行ファイルは`vrct-vox.exe`）。ONNX Runtimeを動的にリンクするクレートがアプリに入った場合は、ビルドが`astarot.exe`の隣に置いたONNX RuntimeとDirectMLのDLLも収めます。Linuxの実行名には`.exe`を付けません。配布物の作成時にはOCR重みなどの禁止資源を検査します。ソースツリー全体をそのまま配布ZIPにしないでください。
 
 Windowsの配布物は1つです。0.5まではCUDA版（`VRCT-VOX_cuda.zip`）も作っていました。0.4まではPythonバックエンドのためにCUDAのライブラリを同梱していて、0.5.0からは標準版と同じ中身でした。#288でCUDA版をやめました。インストーラーは、0.5までのアプリが更新のときに渡すGPUの選択（`/EDITION=gpu`）を受け付け、`VRCT-VOX.zip`を取ります（[Windowsの配布物の一本化](voice-stack/single-package.md)）。
 
