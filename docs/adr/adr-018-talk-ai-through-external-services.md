@@ -14,7 +14,7 @@ evidence:
 
 Decision owners: リポジトリの保守担当者
 Related: Issue #388、[ADR-012](adr-012-audio-ai-runtime-consolidation.md)、[ADR-013](adr-013-secret-store.md)、[ADR-015](adr-015-translation-llm-runtime-exception.md)、[ライセンス台帳](../voice-stack/licensing.md)
-Status: 採用（2026-11-23）。決定は PR #969 の「決まったこと」に記録した。実装は段階 1（OpenAI Realtime の形で話す接続の部品）から進める。
+Status: 採用（2026-11-22）。決定は PR #969 の「決まったこと」に記録した。実装は段階 1（OpenAI Realtime の形で話す接続の部品）から進める。
 
 この ADR の「アプリ」は本リポジトリのアプリを指す。表示名は ASTAROT（ADR-011）である。書いた時点の構成は、Rust の中核がアプリのプロセスの中で動く 0.6.0 の構成（`rust-core`）である。
 
