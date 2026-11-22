@@ -189,9 +189,11 @@ class NsisAppProcessAndDataTests(unittest.TestCase):
         # Killing an older vrct-vox.exe skipped the shell plugin's exit handler, which
         # is what normally stopped the sidecar.
         after_app = macro.split("app_check_done:", 1)[1]
+        self.assertIn('!insertmacro StopLeftoverProcess "${SIDECARBINARYNAME}.exe"', after_app)
+        stop = SOURCE.split("\n!macro StopLeftoverProcess name\n", 1)[1].split("\n!macroend", 1)[0]
         for call in ("FindProcessCurrentUser", "KillProcessCurrentUser", "FindProcess", "KillProcess"):
-            self.assertIn(f'nsis_tauri_utils::{call} "${{SIDECARBINARYNAME}}.exe"', after_app)
-        self.assertIn('Abort "$(failedToKillApp)"', after_app)
+            self.assertIn(f'nsis_tauri_utils::{call} "${{name}}"', stop)
+        self.assertIn('Abort "$(failedToKillApp)"', stop)
         uninstall = block("Section", "Uninstall")
         self.assertLess(uninstall.index("!insertmacro CheckIfAppIsRunning"), uninstall.index("Delete "))
         # The stale sidecar goes with the uninstall too.
@@ -212,6 +214,7 @@ class NsisAppProcessAndDataTests(unittest.TestCase):
             self.assertIn(line, opted_in)
             # Kept when the box is not ticked, e.g. when an update moves the install.
             self.assertEqual(uninstall.count(line), 1)
+
 
 
 if __name__ == "__main__":

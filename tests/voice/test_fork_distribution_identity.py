@@ -47,9 +47,13 @@ def test_build_metadata_and_launchers_agree_on_renamed_binaries():
 
 def test_windows_installer_identity_finds_previous_install_location():
     script = (ROOT / "src-tauri/nsis/template.nsi").read_text(encoding="utf-8")
-    assert '!define INSTALLREGNAME "VRCT-VOX"' in script
+    # ADR-014, 2.5: the keys moved to ASTAROT; an install recorded under VRCT-VOX is still found.
+    assert '!define INSTALLREGNAME "ASTAROT"' in script
+    assert '!define OLDINSTALLREGNAME "VRCT-VOX"' in script
     assert 'Uninstall\\${INSTALLREGNAME}"' in script
     assert 'Software\\${MANUFACTURER}\\${INSTALLREGNAME}"' in script
+    assert 'Uninstall\\${OLDINSTALLREGNAME}"' in script
+    assert 'Software\\${MANUFACTURER}\\${OLDINSTALLREGNAME}"' in script
     assert 'WriteRegStr SHCTX "${UNINSTKEY}" "DisplayName" "${PRODUCTNAME}"' in script
     install = script[script.index("\nSection Install\n"):script.index("SectionEnd", script.index("\nSection Install\n"))]
     assert 'Delete "$INSTDIR\\config.json"' not in install

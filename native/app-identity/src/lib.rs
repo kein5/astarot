@@ -77,6 +77,14 @@ pub const DESKTOP_FILE_MARKER: Renamed = Renamed::moved("X-VRCT-VOX-Generated", 
 /// leaves a link with the old name (`vrct_core::storage::linux`).
 pub const LINUX_FOLDER: Renamed = Renamed::moved("vrct-vox", "astarot");
 
+/// The Windows installer's name for an install (ADR-014, 2.5): the registry keys that record where
+/// it is (`HKCU\Software\kein5\<name>`) and list it among the apps
+/// (`HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\<name>`), and the default install
+/// folder under `%LOCALAPPDATA%` (VRCT-VOX up to 0.5.0, ASTAROT from 0.5.1). The installer
+/// (`src-tauri/nsis/template.nsi`, which cannot read this crate) moves an install in the old
+/// default folder to the new one, moves the keys, and leaves [`INSTALLER_MOVED_FROM`] for the app.
+pub const WINDOWS_INSTALL: Renamed = Renamed::moved("VRCT-VOX", "ASTAROT");
+
 /// The file the Windows installer leaves in the install folder after it moved the folder (ADR-014,
 /// 2.5, 5). It names the old folder, in UTF-16 with a byte order mark as NSIS writes it. The app
 /// rewrites the paths saved under the old folder at its next start and removes the file
@@ -191,10 +199,11 @@ mod tests {
     use std::collections::HashMap;
     use std::ffi::OsString;
 
-    const ALL: [(&str, Renamed); 10] = [
+    const ALL: [(&str, Renamed); 11] = [
         ("APP_ID", APP_ID),
         ("DESKTOP_FILE_MARKER", DESKTOP_FILE_MARKER),
         ("LINUX_FOLDER", LINUX_FOLDER),
+        ("WINDOWS_INSTALL", WINDOWS_INSTALL),
         ("EXECUTABLE", EXECUTABLE),
         ("LINUX_PACKAGE", LINUX_PACKAGE),
         ("MODEL_DOWNLOAD_OWNER", MODEL_DOWNLOAD_OWNER),
@@ -208,7 +217,7 @@ mod tests {
 
     /// The names that moved, each in its own pull request with its migration (ADR-014, 5). The
     /// pull request that moves another one adds it here.
-    const MOVED: [&str; 4] = ["APP_ID", "DESKTOP_FILE_MARKER", "LINUX_FOLDER", "MODEL_DOWNLOAD_OWNER"];
+    const MOVED: [&str; 5] = ["APP_ID", "DESKTOP_FILE_MARKER", "LINUX_FOLDER", "WINDOWS_INSTALL", "MODEL_DOWNLOAD_OWNER"];
 
     #[test]
     fn only_the_names_with_their_migration_are_written_the_astarot_way() {
@@ -225,6 +234,7 @@ mod tests {
         assert_eq!(APP_ID.current(), "io.github.kein5.astarot");
         assert_eq!(DESKTOP_FILE_MARKER.current(), "X-ASTAROT-Generated");
         assert_eq!(LINUX_FOLDER.current(), "astarot");
+        assert_eq!(WINDOWS_INSTALL.current(), "ASTAROT");
         assert_eq!(EXECUTABLE.current(), "vrct-vox");
         assert_eq!(LINUX_PACKAGE.current(), "vrct-vox");
         assert_eq!(MODEL_DOWNLOAD_OWNER.current(), "ASTAROT-model-download-v1");
