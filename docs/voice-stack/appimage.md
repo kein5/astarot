@@ -42,9 +42,9 @@ requires deliberate review and repinning, never a hash bypass.
 Default outputs alongside tar.gz:
 
 ```text
-build/linux/artifacts/VRCT-VOX-<version>-linux-x64-release.AppImage
-build/linux/artifacts/VRCT-VOX-<version>-linux-x64-release.AppImage.sha256
-build/linux/artifacts/VRCT-VOX-<version>-linux-x64-release.AppImage.manifest.json
+build/linux/artifacts/ASTAROT-<version>-linux-x64-release.AppImage
+build/linux/artifacts/ASTAROT-<version>-linux-x64-release.AppImage.sha256
+build/linux/artifacts/ASTAROT-<version>-linux-x64-release.AppImage.manifest.json
 ```
 
 The builder checks the fixed runtime prefix, allowing only appimagetool's 16-byte
@@ -58,14 +58,14 @@ sandbox for arbitrary downloaded executables.
 ```sh
 cd build/linux/artifacts
 sha256sum -c ./*.AppImage.sha256
-chmod +x VRCT-VOX-<version>-linux-x64-release.AppImage
-./VRCT-VOX-<version>-linux-x64-release.AppImage
+chmod +x ASTAROT-<version>-linux-x64-release.AppImage
+./ASTAROT-<version>-linux-x64-release.AppImage
 ```
 
 FUSE must be available to the desktop user. For machines without FUSE:
 
 ```sh
-APPIMAGE_EXTRACT_AND_RUN=1 ./VRCT-VOX-<version>-linux-x64-release.AppImage
+APPIMAGE_EXTRACT_AND_RUN=1 ./ASTAROT-<version>-linux-x64-release.AppImage
 ```
 
 Extraction needs temporary disk space for the uncompressed payload, in addition to the

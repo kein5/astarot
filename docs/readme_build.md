@@ -44,13 +44,15 @@ npm run release
 
 | 対象 | 出力 |
 |---|---|
-| Windows | `VRCT-VOX.zip` |
+| Windows | `ASTAROT.zip`（0.6.xまでは`VRCT-VOX.zip`） |
 | Windowsインストーラー | `src-tauri/target/release/bundle/nsis/ASTAROT_<version>_x64-setup.exe` |
-| Linux | `VRCT-VOX-<version>-linux-x64-release.tar.gz`と同名の`.AppImage`、`.deb`、`.rpm`。speech.cppのCPU版とVulkan版を両方入れる（0.4まではビルドごとに別の配布物） |
+| Linux | `ASTAROT-<version>-linux-x64-release.tar.gz`と同名の`.AppImage`、`.deb`、`.rpm`（0.6.xまでは`VRCT-VOX-<version>-…`）。speech.cppのCPU版とVulkan版を両方入れる（0.4まではビルドごとに別の配布物） |
 
 WindowsのZIPには`astarot.exe`と`_internal/`を収めます（0.6.xまでの実行ファイルは`vrct-vox.exe`）。ONNX Runtimeを動的にリンクするクレートがアプリに入った場合は、ビルドが`astarot.exe`の隣に置いたONNX RuntimeとDirectMLのDLLも収めます。Linuxの実行名には`.exe`を付けません。配布物の作成時にはOCR重みなどの禁止資源を検査します。ソースツリー全体をそのまま配布ZIPにしないでください。
 
-Windowsの配布物は1つです。0.5まではCUDA版（`VRCT-VOX_cuda.zip`）も作っていました。0.4まではPythonバックエンドのためにCUDAのライブラリを同梱していて、0.5.0からは標準版と同じ中身でした。#288でCUDA版をやめました。インストーラーは、0.5までのアプリが更新のときに渡すGPUの選択（`/EDITION=gpu`）を受け付け、`VRCT-VOX.zip`を取ります（[Windowsの配布物の一本化](voice-stack/single-package.md)）。
+Windowsの配布物は1つです。0.5まではCUDA版（`VRCT-VOX_cuda.zip`）も作っていました。0.4まではPythonバックエンドのためにCUDAのライブラリを同梱していて、0.5.0からは標準版と同じ中身でした。#288でCUDA版をやめました。インストーラーは、0.5までのアプリが更新のときに渡すGPUの選択（`/EDITION=gpu`）を受け付け、1つのZIPを取ります（[Windowsの配布物の一本化](voice-stack/single-package.md)）。
+
+0.7.0から配布物の名前は`ASTAROT`で始まります（ADR-014の2.10）。リリースに載せるときは、`ASTAROT.zip`、`ASTAROT_setup.exe`、`ASTAROT-<version>-linux-x64-release.*`に加えて、それぞれの0.6.xまでの名前（`VRCT-VOX.zip`、`VRCT-VOX_setup.exe`、`VRCT-VOX-<version>-linux-x64-release.*`）の写しも載せます。中身は同じで、`.sha256`と`SHA256SUMS`の行も付けます。`releases/latest/download/VRCT-VOX_setup.exe`のような外のリンクを生かすためです。写しを作るのは候補の作成（`tools/release_candidate.py`）で、載せるのは0.7.xの間です（`LEGACY_COPIES_UNTIL`）。`latest.json`は新しい名前だけを指します。
 
 `_internal/`の中身は次のとおりです（`tools/app_resources.py`）。
 
@@ -134,11 +136,11 @@ npm run update-version
 
 ## CIと公開先
 
-[voice-tests.yml](../.github/workflows/voice-tests.yml)はpull requestと、developとmainへのpushで回帰試験を実行します。PRのない枝では手動で実行できます。[build-linux.yml](../.github/workflows/build-linux.yml)は対象ファイルのpull requestと手動実行に対応し、Linux候補を作成・検査します。[release.yml](../.github/workflows/release.yml)はWindows候補を作成・検査するワークフローで、手動実行とmain宛てのpull requestで動きます。ビルドのジョブが`VRCT-VOX.zip`と、そのSHA-256を埋め込んだNSISインストーラーを作ります（`tools/installer_package_hashes.py`）。最後のジョブで全部を検査します。[windows-package.yml](../.github/workflows/windows-package.yml)は、`bat/`や同梱資源の道具を変えたdevelop宛てのpull requestと手動実行で、`_internal`の用意を試します。[installer-update-tests.yml](../.github/workflows/installer-update-tests.yml)は、NSISのテンプレートやインストーラーの試験を変えたpull requestと手動実行で、Windowsの更新の試験を動かします。[prepare-release.yml](../.github/workflows/prepare-release.yml)は、検査済みの候補からリリースの下書きを作る手動のワークフローです。[release-draft-auto.yml](../.github/workflows/release-draft-auto.yml)は、`release/X.Y.Z`のPRをmainへマージしたときに、候補のビルドと`prepare-release.yml`を順に始めます。[release-back-merge.yml](../.github/workflows/release-back-merge.yml)は、正式版を公開したときに、mainをdevelopへ戻すPRを開きます（[配布候補の手順](voice-stack/release-candidates.md#公開したあと)）。
+[voice-tests.yml](../.github/workflows/voice-tests.yml)はpull requestと、developとmainへのpushで回帰試験を実行します。PRのない枝では手動で実行できます。[build-linux.yml](../.github/workflows/build-linux.yml)は対象ファイルのpull requestと手動実行に対応し、Linux候補を作成・検査します。[release.yml](../.github/workflows/release.yml)はWindows候補を作成・検査するワークフローで、手動実行とmain宛てのpull requestで動きます。ビルドのジョブが`ASTAROT.zip`と、そのSHA-256を埋め込んだNSISインストーラーを作ります（`tools/installer_package_hashes.py`）。最後のジョブで全部を検査します。[windows-package.yml](../.github/workflows/windows-package.yml)は、`bat/`や同梱資源の道具を変えたdevelop宛てのpull requestと手動実行で、`_internal`の用意を試します。[installer-update-tests.yml](../.github/workflows/installer-update-tests.yml)は、NSISのテンプレートやインストーラーの試験を変えたpull requestと手動実行で、Windowsの更新の試験を動かします。[prepare-release.yml](../.github/workflows/prepare-release.yml)は、検査済みの候補からリリースの下書きを作る手動のワークフローです。[release-draft-auto.yml](../.github/workflows/release-draft-auto.yml)は、`release/X.Y.Z`のPRをmainへマージしたときに、候補のビルドと`prepare-release.yml`を順に始めます。[release-back-merge.yml](../.github/workflows/release-back-merge.yml)は、正式版を公開したときに、mainをdevelopへ戻すPRを開きます（[配布候補の手順](voice-stack/release-candidates.md#公開したあと)）。
 
 ビルド候補はGitHub Actionsの成果物として保存します。これらのワークフローはGitHub ReleasesやHugging Faceへ自動公開しません。タグをpushしても公開処理は始まりません。候補をビルドするワークフローの権限は`contents: read`で、本家の公開用キーやテレメトリー用キーは使いません。
 
-配布先は[kein5/astarot Releases](https://github.com/kein5/astarot/releases)です。最初の公開版は`v0.1.0-beta.1`（プレリリース、developから作成）です。WindowsのNSISインストーラーは、このリポジトリのリリースから`VRCT-VOX.zip`を取得します（0.5までのリリースには`VRCT-VOX_cuda.zip`もあります）。候補をビルドしただけでは、そのURLにファイルは存在しません。
+配布先は[kein5/astarot Releases](https://github.com/kein5/astarot/releases)です。最初の公開版は`v0.1.0-beta.1`（プレリリース、developから作成）です。WindowsのNSISインストーラーは、このリポジトリのリリースから`ASTAROT.zip`を取得します。`/VERSION`で0.6.xまでの版を指したときは、その版の`VRCT-VOX.zip`を取ります（0.5までのリリースには`VRCT-VOX_cuda.zip`もあります）。候補をビルドしただけでは、そのURLにファイルは存在しません。
 
 アプリ内の更新はTauriのupdaterで行い、リリースの`latest.json`を読みます。安定版の確認先はプロジェクトのWorker（`https://vrct-vox-updates.kei9d09.workers.dev/latest.json`）で、Workerが最新のリリースの`latest.json`へ転送します。ベータ版のチャンネルは、同じWorkerの`/beta/latest.json`を読みます。リリースを公開するとワークフローが、その先のファイルを最も新しい版（ベータ版と安定版の両方）の`latest.json`に書き直します。チャンネルは、選ぶまではアプリの版で決まり、設定の実験的機能のページで選べます（#466、[アプリの更新](spec/external-interfaces.md#アプリの更新)）。`latest.json`と署名は下書きを作るワークフローが作ります（[配布候補の手順](voice-stack/release-candidates.md#updaterの署名とlatestjson)）。
 

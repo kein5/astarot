@@ -15,13 +15,11 @@ ASTAROT（旧名VRCT-VOX）は[misyaguziya/VRCT](https://github.com/misyaguziya/
 
 ## 旧名のまま使う名前
 
-次の名前は旧名のままです。リポジトリは0.5.0のリリースのときに`kein5/astarot`へ改名しました（[リポジトリ名の変更手順](repository-rename.md)）。旧名の`kein5/VRCT-VOX`はいま、転送ページと0.5.0のリリースの複製だけを持つ別のリポジトリで、GitHubは旧名から転送しません。ほかの名前は内部識別子として扱い、表示名と一緒には変えません。0.6.0で、[ADR-014](../adr/adr-014-internal-identifier-migration.md)のとおりASTAROTの名前へ移します（ADR-011のP2）。この文書の表は、それぞれの変更が入るまで今の値を示します。配布物の名前は、インストーラーとupdaterが名前で探します。
+次の名前は旧名のままです。リポジトリは0.5.0のリリースのときに`kein5/astarot`へ改名しました（[リポジトリ名の変更手順](repository-rename.md)）。旧名の`kein5/VRCT-VOX`はいま、転送ページと0.5.0のリリースの複製だけを持つ別のリポジトリで、GitHubは旧名から転送しません。ほかの名前は内部識別子として扱い、表示名と一緒には変えません。0.6.0で、[ADR-014](../adr/adr-014-internal-identifier-migration.md)のとおりASTAROTの名前へ移します（ADR-011のP2）。この文書の表は、それぞれの変更が入るまで今の値を示します。配布物は、インストーラーが名前で探し、updaterは`latest.json`に書いたURLから取ります。
 
 | 対象 | 名称 |
 |---|---|
 | Pythonバックエンドの実行名（0.4まで。0.5.0の配布物には入らない） | `vrct-vox-sidecar` |
-| Linuxの配布物 | `VRCT-VOX-<version>-linux-x64-release.tar.gz`、同名の`.AppImage`、`.deb`、`.rpm`（0.4までは`linux-x64-vulkan`か`linux-x64-cpu`） |
-| Windowsの配布物 | `VRCT-VOX.zip`、`VRCT-VOX_setup.exe`。0.5.xまでは `VRCT-VOX_cuda.zip` も配布。ビルドが作るインストーラーは0.5.1から`ASTAROT_<version>_x64-setup.exe`で、リリースでは`VRCT-VOX_setup.exe`の名前で載せる |
 
 ## 識別子と保存先
 
@@ -29,6 +27,7 @@ ASTAROT（旧名VRCT-VOX）は[misyaguziya/VRCT](https://github.com/misyaguziya/
 
 | 対象 | 値 |
 |---|---|
+| 配布物 | 0.7.0から`ASTAROT.zip`、`ASTAROT_setup.exe`、`ASTAROT-<version>-linux-x64-release.tar.gz`と同名の`.AppImage`、`.deb`、`.rpm`。0.6.xまでは`VRCT-VOX.zip`、`VRCT-VOX_setup.exe`、`VRCT-VOX-<version>-linux-x64-release.*`（0.5.xまでは`VRCT-VOX_cuda.zip`も、0.4までは`linux-x64-vulkan`か`linux-x64-cpu`）。ビルドが作るインストーラーは0.5.1から`ASTAROT_<version>_x64-setup.exe`で、リリースでは`ASTAROT_setup.exe`の名前で載せる。0.7.xのリリースは、どの配布物も0.6.xまでの名前の写し（中身が同じファイル）と一緒に載せ、0.8.0からは載せない。`latest.json`は新しい名前だけを指す（[旧名の写し](release-candidates.md#旧名の写し)） |
 | 本体の実行ファイル | 0.7.0から`astarot`（Windowsは`astarot.exe`）。0.6.xまでは`vrct-vox`（`vrct-vox.exe`）。Cargoの`[[bin]]`と`tauri.conf.json`の`mainBinaryName`で決める（npmとCargoのパッケージ、開発用のPythonのプロジェクト（`pyproject.toml`）も0.6.0より後の版から`astarot`）。Linuxのウィンドウのクラスと`StartupWMClass`はこの名前に従う。Windowsのインストーラーは更新のときに`vrct-vox.exe`を置き換え、自分が作ったショートカットを付け替える（[本体の実行ファイルの名前](../spec/data-and-persistence.md#本体の実行ファイルの名前)） |
 | Linuxのパッケージ | 0.7.0から、debとrpmのパッケージ名は`astarot`で、`/opt/astarot`に入り、コマンド`/usr/bin/astarot`、デスクトップエントリー`astarot.desktop`（`Exec`と`StartupWMClass`も`astarot`）、アイコン`astarot.png`を置く。AppImageの中の同梱のファイルは`usr/lib/astarot`、tar.gzは`ASTAROT`に展開する。0.6.xまではどれも`vrct-vox`（tar.gzは`VRCT-VOX`）。新しいパッケージは旧のパッケージ`vrct-vox`を置き換え、0.7.xの間は`/usr/bin/vrct-vox`も同じ実行ファイルを起動する（[Linuxのパッケージの名前](../spec/data-and-persistence.md#linuxのパッケージの名前)） |
 | TauriアプリID | 0.7.0から`io.github.kein5.astarot`（0.6.xまでは`io.github.kein5.vrct-vox`）。Tauriのデータのフォルダー、Waylandのportalのアプリ、単一起動の名前がこのIDに従う |
