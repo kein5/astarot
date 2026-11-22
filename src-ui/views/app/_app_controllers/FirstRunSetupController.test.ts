@@ -87,7 +87,6 @@ async function setup(context: TestContext, w = world()) {
         "../../../logics/main/setupNeeds": needsLogic,
         "../../../logics/setup/translationSetup.ts": translationLogic,
         "../../../logics/voice/modelRestrictions": restrictions,
-        "../../../logics/translation/useOpenTranslatorList": { useOpenTranslatorList: () => () => w.calls.push("translators") },
         "../../../logics/setup/useFirstRunSetup": { useFirstRunSetup: () => ({
             notice: w.notice, opened: w.opened, settled: w.settled,
             dismissNotice: () => { w.calls.push("dismiss"); w.notice = false; },
@@ -286,7 +285,7 @@ test("each finding is marked by its state, with its words and its action apart",
     assert.equal(needing.rows.translation.children, "first_run_setup.found.translation_missing");
     const choose = needing.rows.translation.action, guide = needing.rows.virtual_mic.action;
     assert.ok(choose && guide);
-    assert.equal(choose.props.children, "first_run_setup.found.translation_choose");
+    assert.equal(choose.props.children, "first_run_setup.found.translation_open_settings");
     assert.equal(guide.props.children, "first_run_setup.found.virtual_mic_open");
 
     const ready = await rowsOf({ engine: "SpeechCpp", server: "bundled", paths: { model: "/m/a.gguf", vad_model: "/m/v.gguf" }, opened: true,
@@ -313,10 +312,11 @@ test("each finding is marked by its state, with its words and its action apart",
     // A download started elsewhere shows how far it has come.
     const fetching = await rowsOf({ needs: [{ id: "translation", action: "review", weight: { id: "m2m100_418M-ct2-int8", progress: 42 } }] });
     assert.deepEqual([fetching.rows.translation.state, fetching.rows.translation.children], ["checking", "studio.setup_downloading"]);
-    // Not fetchable yet: the translator list, as before.
+    // Not fetchable yet: the Translation settings, where an API key or another model is set up
+    // (decided in #938), not the translator list, which has nothing to choose without them.
     const before2 = needing.calls.length;
     choose.props.onClick();
-    assert.deepEqual(needing.calls.slice(before2), ["closed", "close", "translators"]);
+    assert.deepEqual(needing.calls.slice(before2), ["closed", "close", ["tab", "translation"], ["opened", true]]);
 
     const elsewhere = await rowsOf({ vrchat: "checking", engine: "Deepgram", opened: true,
         cables: [{ playback: "CABLE Input", recording: "CABLE Output" }], needs: [{ id: "translation", action: "choose" }] });
