@@ -4,7 +4,7 @@ import i18next from "i18next";
 import { parsePortInput, PORT_INPUT_LIMITS } from "./networkPortInput.ts";
 import { rvcBlockChoiceId, rvcBlockChoices } from "./rvcBlockChoices.ts";
 import { buildObsBrowserSourceUrl, buildWebsocketUrl } from "./obsBrowserSourceUrl.ts";
-import { hooks, loadModule, find, findIn, componentName, componentOf, forwardRefRender, unchecked } from "../test/hookHarness.ts";
+import { hooks, loadModule, find, findIn, componentName, componentOf, unchecked } from "../test/hookHarness.ts";
 import type { TreeNode } from "../test/hookHarness.ts";
 import { loadBridgeRoutes, settingAtom } from "../test/bridgeHarness.ts";
 import { localeAt, readLocale, textAt } from "../test/locales.ts";
@@ -162,9 +162,7 @@ test("native number input receives min, max and step through the shared componen
     // Test data: only the props the number input reads, without a save.
     const wrapper = runtime.render(EntryWithSaveButton, unchecked<EntryWithSaveButtonProps>({ type: "number", variable: 2231, ...PORT_INPUT_LIMITS }));
     const entry = findIn(wrapper, node => node.type === _Entry);
-    // forwardRef keeps the component's render function, which React's types leave out.
-    const entryRender = forwardRefRender(_Entry);
-    const tree = runtime.render((props: EntryProps) => entryRender(props, null), entry.props);
+    const tree = runtime.render(_Entry, unchecked<EntryProps>(entry.props));
     const input = findIn(tree, node => node.type === "input");
     for (const key of ["min", "max", "step"] as const) assert.equal(input.props[key], PORT_INPUT_LIMITS[key]);
 });
