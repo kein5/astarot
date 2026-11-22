@@ -7,6 +7,7 @@ import { TtsEngine, TTS_ENGINES, AUDIO_QUERY_ENGINES, validCoeiroinkOptions, val
 import { VoiceRouteSummary } from "../device/VoiceRouteSettings";
 import { SectionLabelComponent } from "../_components/section_label_component/SectionLabelComponent";
 import { StatusLine } from "./StatusLine";
+import { StopVoiceButton } from "./StopVoiceButton";
 import styles from "./VoiceSettings.module.scss";
 import { EnvReadout } from "../_components/env_readout/EnvReadout";
 import { Description } from "../_components/description/Description";
@@ -77,8 +78,7 @@ export const VoiceSettings = () => {
     return <section className={styles.container} aria-label={t("voice.title")} data-setting-id="tts_settings">
         {/* What the page reads and how it starts: the heading's hint on a page that keeps descriptions out of sight (#614). */}
         <SectionLabelComponent label={t("config_page.tts.tts_settings.label")} desc={t("voice_ui.tts_description")} />
-        <StatusLine tone={status.active ? "active" : "idle"}
-            actions={<button type="button" title={t("voice.stop")} onClick={() => send("/run/stop_voice")}>{t("voice_ui.topbar_stop")}</button>}>
+        <StatusLine tone={status.active ? "active" : "idle"} actions={<StopVoiceButton />}>
             {t(status.active ? "voice.playing" : "voice.idle")} · {t("voice.queued")}: {status.queued ?? 0}
         </StatusLine>
         <VoiceRouteSummary />

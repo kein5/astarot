@@ -124,6 +124,13 @@
     @media (max-width: 700px) { label { grid-template-columns: minmax(0, 1fr); gap: .8rem; } }
 }
 .actions { display: flex; align-items: center; flex-wrap: wrap; gap: .8rem; }
+// The TTS page's stop, drawn as the top bar's (#937): pressed, it sinks while the core answers and
+// flashes lilac once it has; with nothing to stop it is half-transparent.
+.stop.is_stopping { background: var(--dark_925_color); cursor: progress; }
+.stop.is_stopped { color: var(--primary_200_color); border-color: var(--primary_600_color); animation: stop_answered .8s ease-out; }
+@keyframes stop_answered { from { background: var(--vox_highlight_tint); } }
+@media (prefers-reduced-motion: reduce) { .stop.is_stopped { animation: none; } }
+.stop.is_idle, .stop.is_idle:hover, .stop.is_idle:active { opacity: .5; cursor: not-allowed; }
 // How many characters a field holds, under it at its end, in the description's size and color.
 .count { justify-self: end; font-size: 1.2rem; color: var(--vox_description_text, #a3adc0); font-variant-numeric: tabular-nums; }
 // A name that no shared row draws, such as a legend, with its hint mark on its line (#614).
