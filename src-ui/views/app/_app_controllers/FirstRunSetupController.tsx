@@ -12,7 +12,6 @@ import { useModelDownloads } from "../../../logics/voice/useModelDownloads";
 import { useVirtualMic } from "../../../logics/voice/useVirtualMic";
 import { useSetupNeeds } from "../../../logics/main/useSetupNeeds";
 import { downloadProgress } from "../../../logics/main/setupNeeds";
-import { useOpenTranslatorList } from "../../../logics/translation/useOpenTranslatorList";
 import { useFirstRunSetup } from "../../../logics/setup/useFirstRunSetup";
 import { useRecognitionState } from "../../../logics/setup/useRecognitionState";
 import { setupPlan, planModels, planBytes, nextAction, stepState } from "../../../logics/setup/firstRunSetup.ts";
@@ -399,13 +398,15 @@ const Findings = ({ recognition, onLeave, translationHere = false, translationPr
     const vrchat = useVrchatPresence();
     const { status: virtualMic, openGuide } = useVirtualMic();
     const { needs } = useSetupNeeds();
-    const openTranslatorList = useOpenTranslatorList();
+    const { updateIsOpenedConfigPage } = useStore_IsOpenedConfigPage();
+    const { updateSelectedConfigTabId } = useStore_SelectedConfigTabId();
     const micName = mic?.state === "ok" && typeof mic.data === "string" && mic.data && mic.data !== "NoDevice" ? mic.data : null;
     const translation = needs.find(need => need.id === "translation");
     // The selected translator's model can be fetched: the section below prepares it, without
     // leaving the setup (#936), and the row says where. The model's list not read yet: the row
-    // waits for it. It cannot be fetched yet: the translator list, where another engine can be
-    // chosen. A download started elsewhere shows how far it has come.
+    // waits for it. It cannot be fetched yet: the Translation settings, where an API key is
+    // registered or another model prepared (decided in #938; the translator list had nothing to
+    // choose without them). A download started elsewhere shows how far it has come.
     const reviewTranslation = translation?.action === "review";
     const translationProgress = translation ? downloadProgress(translation.weight) : null;
     const translationRow = (): Pick<FindingProps, "state" | "action" | "children"> => {
@@ -416,7 +417,8 @@ const Findings = ({ recognition, onLeave, translationHere = false, translationPr
         if (translationHere) return { state: "attention", children: t("first_run_setup.found.translation_model_missing") };
         if (reviewTranslation) return { state: "checking", children: t("first_run_setup.recognition.loading") };
         return { state: "attention", children: t("first_run_setup.found.translation_missing"),
-            action: <button type="button" onClick={() => { onLeave(); openTranslatorList(); }}>{t("first_run_setup.found.translation_choose")}</button> };
+            action: <button type="button" onClick={() => { onLeave(); updateSelectedConfigTabId("translation"); updateIsOpenedConfigPage(true); }}>
+                {t("first_run_setup.found.translation_open_settings")}</button> };
     };
     const cables = virtualMic?.supported === true && virtualMic.error === null ? virtualMic.cables.length : null;
     // No virtual cable needs the user, like the other things the setup looks for (decided in #759):
