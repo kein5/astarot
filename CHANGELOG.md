@@ -54,6 +54,7 @@ there if you go back.
 
 #### Features
 
+- **ui:** Lead to the main screen switches of the features the setup prepared ([daf56a7](https://github.com/kein5/astarot/commit/daf56a7dee0dae3e7d1d58fb4d0ce805f565d798))
 - **ui:** Mark the setup's model choices that may be too heavy for the PC ([6fedc81](https://github.com/kein5/astarot/commit/6fedc81a71b89d54074ca68a6f915a1baf4ee03e))
 - **ui:** Say what an added API's address is sent in one sentence with a hint ([e064aa4](https://github.com/kein5/astarot/commit/e064aa47c0cf9bb53d1ff3062afaa60f6c49e1d3))
 - **ui:** Choose each feature's model in the first-run setup, or none ([2e68d41](https://github.com/kein5/astarot/commit/2e68d412bd7db984124386bc40fc8e76816b91c6))
@@ -752,6 +753,7 @@ there if you go back.
 
 #### Documentation
 
+- **release:** Add the switches the setup leads to to the 0.6.0 notes ([6c64463](https://github.com/kein5/astarot/commit/6c644632cbfe960983ff8fe6e59e9f78740d57a5))
 - **release:** Add the real-machine checks to the 0.6.0 known issues ([ec38c02](https://github.com/kein5/astarot/commit/ec38c02a44712d354b4906103baeb6d615ec0495))
 - **release:** Add the 0.6.0 release notes ([d2eb2a2](https://github.com/kein5/astarot/commit/d2eb2a2b9667b3496a69bd7e79e2239f0719a154))
 - List Sergulath, the external check toolkit, among the code names ([c98affb](https://github.com/kein5/astarot/commit/c98affb7d09145b9648e3268b6b050403bbf12d9))
