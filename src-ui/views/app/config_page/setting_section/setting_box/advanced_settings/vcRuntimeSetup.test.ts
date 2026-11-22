@@ -91,9 +91,11 @@ test("the runtime's description is its title's hint, and a build not needed has 
         const hint = nodesIn(tree).find(node => node.type === "hint");
         assert.ok(hint);
         assert.deepEqual([hint.props.text, hint.props.focusable], ["vc_runtime.help_rvc_gpu", true]);
+        assert.ok(tree);
         assert.equal(tree.props["aria-describedby"], hint.props.id, "the section is described by it");
         assert.ok(!words(tree).includes("vc_runtime.help_rvc_gpu"), "no paragraph of it in sight");
         tree = runtime.render(VcRuntimeSetup, { engine: "rvc", fit: "unneeded" });
+        assert.ok(tree);
         assert.ok(!nodesIn(tree).some(node => node.type === "hint"));
         assert.equal(tree.props["aria-describedby"], undefined);
         hints = false;
