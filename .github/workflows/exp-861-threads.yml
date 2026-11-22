@@ -1,0 +1,54 @@
+# A measurement for issue #861 (the CI audit's item 3), never merged: native/core's tests on
+# Windows, without retries, with 4, 2 and 1 test threads, each run several times in a row. The
+# counts of failed tests per run tell whether fewer threads make the timing failures rarer.
+name: "Experiment: #861 test threads on Windows"
+on:
+  push:
+    branches: [exp/861-windows-threads]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  threads:
+    timeout-minutes: 170
+    strategy:
+      fail-fast: false
+      matrix:
+        threads: [4, 2, 1]
+        shard: [1, 2, 3, 4, 5, 6]
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
+        with:
+          version: 2026.11.8
+          install_args: rust python cargo-nextest
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          workspaces: native/core
+      - run: cargo nextest run --locked --manifest-path native/core/Cargo.toml --no-run
+      - name: Run the tests eight times
+        shell: bash
+        env:
+          THREADS: ${{ matrix.threads }}
+        run: |
+          mkdir -p results
+          for run in 1 2 3 4 5 6 7 8; do
+            start=$(date +%s)
+            set +e
+            cargo nextest run --locked --manifest-path native/core/Cargo.toml --profile ci --retries 0 \
+              --test-threads "$THREADS" --no-fail-fast > "results/run-$run.log" 2>&1
+            code=$?
+            set -e
+            cp native/core/target/nextest/ci/junit.xml "results/junit-$run.xml" || true
+            echo "run $run threads $THREADS exit $code seconds $(( $(date +%s) - start ))" | tee -a results/summary.txt
+            grep -E "^\s+(FAIL|SIGSEGV|ABORT|TIMEOUT) \[" "results/run-$run.log" | tee -a results/summary.txt || true
+          done
+      - if: ${{ always() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: threads-${{ matrix.threads }}-shard-${{ matrix.shard }}
+          path: results/
+          retention-days: 14
