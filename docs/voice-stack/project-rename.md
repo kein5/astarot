@@ -41,6 +41,7 @@ Windowsの実行ファイルには`.exe`が付きます。
 | Windowsのインストール先を記録するキー | `VRCT-VOX` |
 | 音声経路と仮想マイク | `vrct.managed.*`ノード、`vrct-managed-*.service`、所有者識別子`vrct-vox-service-v1` |
 | モデル取得の所有マーカー | 0.6.0から`ASTAROT-model-download-v1`を書く。0.5.xが書いた`VRCT-VOX-model-download-v1`も0.6.xの間は受け付ける。0.5.xは自分の値しか読まないので、0.5.xに戻すと0.6.0が残した取得の途中のフォルダーは片付けずに残す |
+| APIキー（OSの資格情報ストア） | 0.6.0より後の版から、Windowsは`ASTAROT/<ID>/<項目の名前>`、Linuxは属性`application=astarot`と`astarot-store=<ID>`、ラベル`ASTAROT <項目の名前>`。0.6.0が`VRCT-VOX`の名前で保存したキーは、起動の時に新しい名前へ写して読み戻す。0.6.0の名前の項目は残し、キーを消したときは両方から消す（[APIキーの保存先](../spec/data-and-persistence.md#apiキーの保存先)） |
 | Linuxビルド作業領域の所有マーカー | `VRCT-VOX Linux staging v1` |
 | Waylandのショートカット登録 | portalのアプリID`io.github.kein5.vrct-vox`、`~/.local/share/applications/io.github.kein5.vrct-vox.desktop` |
 
