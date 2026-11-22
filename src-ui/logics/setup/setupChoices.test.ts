@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { SKIP, chosenEntry, featureOutcome, modelChoices, recommendedSpeech, settled } from "./setupChoices.ts";
+import { SKIP, chosenEntry, featureOutcome, modelChoices, recommendedSpeech, settled, switchesToLead } from "./setupChoices.ts";
 
 const row = (id: string, target: string, name: string, extra: object = {}) => ({ id, target, name, total_bytes: 1, ...extra });
 const catalog = { catalog_version: "v1", models: [
@@ -48,4 +48,11 @@ test("a feature is settled when ready or skipped, and not while it runs", () => 
     assert.equal(settled({ ready: false, skipped: false, running: true }), false);
     assert.equal(featureOutcome({ ready: true, skipped: false, running: false }), "use");
     assert.equal(featureOutcome({ ready: false, skipped: true, running: false }), "unused");
+});
+
+test("the switches to lead to are those of the features that can be used", () => {
+    const use = { ready: true, skipped: false, running: false }, unused = { ready: false, skipped: true, running: false };
+    assert.deepEqual(switchesToLead({ recognition: use, translation: use, speech: use }), ["transcription_send", "transcription_receive", "translation", "tts"]);
+    assert.deepEqual(switchesToLead({ recognition: unused, translation: unused, speech: use }), ["tts"]);
+    assert.deepEqual(switchesToLead({ recognition: unused, translation: unused, speech: unused }), []);
 });

@@ -69,13 +69,15 @@ interface World {
     speech: Record<string, { model: string }>;
     // What the PC has, for the choices' warnings (#955).
     hardware: object;
+    // The main screen's switches the setup leads to after "Done" (#955).
+    leads: string[];
 }
 
 function world(values: Partial<World> = {}): World {
     return { notice: true, settled: false, opened: true, telemetryPending: false,
         engine: null, server: "external", paths: { model: "", vad_model: "" }, catalog: CATALOG, jobs: {},
         downloadError: null, realtimeError: null, sent: [], calls: [],
-        mic: "Microphone (USB)", vrchat: "found", cables: [], needs: [], weight: "m2m100_418M-ct2-int8", downloaded: [], speech: { japanese: { model: "" }, multilingual: { model: "" } }, hardware: { phase: "unknown", devices: [] }, ...values };
+        mic: "Microphone (USB)", vrchat: "found", cables: [], needs: [], weight: "m2m100_418M-ct2-int8", downloaded: [], speech: { japanese: { model: "" }, multilingual: { model: "" } }, hardware: { phase: "unknown", devices: [] }, leads: [], ...values };
 }
 
 async function setup(context: TestContext, w = world()) {
@@ -114,6 +116,7 @@ async function setup(context: TestContext, w = world()) {
         "../../../logics/voice/modelCatalog": catalogLogic,
         "../../../logics/configs/ctranslate2License": licenseLogic,
         "../../../logics/voice/modelHardwareWarning": warningLogic,
+        "../../../logics/setup/useSetupLeads": { useSetupLeads: () => ({ leads: w.leads, lead: (ids: string[]) => { w.leads = [...ids]; }, settle: () => {} }) },
         "../../../logics/voice/useSpeechServers": { useSpeechServers: () => ({ settings: { profiles: w.speech } }) },
         "../../../logics/setup/useFirstRunSetup": { useFirstRunSetup: () => ({
             notice: w.notice, opened: w.opened, settled: w.settled,
@@ -588,4 +591,27 @@ test("a model that may be too heavy for the PC says so in its choice", async con
     w.hardware = { phase: "unknown", devices: [] };
     const unmeasured = choiceIn(drawWith(local, s.modelPart(s.render(), "speech")))[0];
     assert.equal(unmeasured.props.warned(byId("irodori-v41-f16")), false);
+});
+
+// #955 decision 3: "Done" leads to the main screen's switches of the features prepared, which stand
+// out until each is turned on; "Don't show again" before the end leads nowhere.
+test("Done leads to the switches of the features prepared, and to no other", async context => {
+    const w = world({ speech: { japanese: { model: "C:/models/tts/irodori.gguf" }, multilingual: { model: "" } },
+        needs: [{ id: "translation", action: "review", weight: { id: "m2m100_418M-ct2-int8" } }] });
+    const s = await setup(context, w), local = hooks();
+    context.onTestFinished(() => local.unmount());
+    choiceIn(s.render())[0].props.onChange("skip");
+    choiceIn(drawWith(local, s.modelPart(s.render(), "translation")))[0].props.onChange("skip");
+    s.button(s.render(), "first_run_setup.done").props.onClick();
+    assert.deepEqual(w.leads, ["tts"]);
+    // Ready speech recognition and translation, no text to speech: their switches.
+    const ready = world({ engine: "SpeechCpp", server: "bundled", paths: { model: "/m/a.gguf", vad_model: "/m/v.gguf" } });
+    const r = await setup(context, ready);
+    r.button(r.render(), "first_run_setup.done").props.onClick();
+    assert.deepEqual(ready.leads, ["transcription_send", "transcription_receive", "translation"]);
+    // Put away for good before the end: no lead.
+    const early = world();
+    const e = await setup(context, early);
+    e.button(e.render(), "first_run_setup.dont_show").props.onClick();
+    assert.deepEqual(early.leads, []);
 });
