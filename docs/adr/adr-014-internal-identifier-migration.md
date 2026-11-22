@@ -3,8 +3,9 @@ date: 2026-11-19
 status: accepted
 era: rust-core
 validity: current
-implementation_status: pending
-implementation_checked: 2026-11-19
+implementation_status: partial
+implementation_checked: 2026-11-23
+implementation_note: 0.6.0 で Linux の保存先、環境変数、モデル取得の所有マーカーを移し、その後に資格情報の名前とクレートとパッケージの名前を移した（project-rename.md の表）。アプリ ID、実行ファイル名、配布物の名前、Windows のインストール先とレジストリのキー、Linux の音声経路の名前は、まだ旧名のまま。
 evidence:
   - docs/adr/adr-014-internal-identifier-migration.md
   - docs/voice-stack/project-rename.md
@@ -14,6 +15,7 @@ evidence:
   - native/core/src/config/secrets/credential_manager.rs
   - native/core/src/config/secrets/secret_service.rs
   - native/audio-routing/src/pipewire/managed.rs
+  - native/app-identity/src/lib.rs
 ---
 # ADR-014: 内部識別子を ASTAROT にそろえ、設定とモデルを引き継ぐ
 
