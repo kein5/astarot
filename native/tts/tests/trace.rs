@@ -10,16 +10,16 @@ use std::time::Duration;
 
 use common::*;
 use serde_json::Value;
-use vrct_tts::clock::monotonic_ns;
-use vrct_tts::playback::{AudioRouter, OutputSink};
-use vrct_tts::scheduler::BusOptions;
-use vrct_tts::settings::VoiceSettings;
-use vrct_tts::{CancelToken, Source, SpeechMessageEvent, TtsError, VoiceEventBus, VoiceStatus};
+use astarot_tts::clock::monotonic_ns;
+use astarot_tts::playback::{AudioRouter, OutputSink};
+use astarot_tts::scheduler::BusOptions;
+use astarot_tts::settings::VoiceSettings;
+use astarot_tts::{CancelToken, Source, SpeechMessageEvent, TtsError, VoiceEventBus, VoiceStatus};
 
 static ENVIRONMENT: Mutex<()> = Mutex::new(());
 
 fn scratch(name: &str) -> PathBuf {
-    let dir = std::env::temp_dir().join(format!("vrct-tts-trace-{}-{name}", std::process::id()));
+    let dir = std::env::temp_dir().join(format!("astarot-tts-trace-{}-{name}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).unwrap();
     dir

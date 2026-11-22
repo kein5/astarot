@@ -5,8 +5,8 @@
 
 use serde_json::{json, Value};
 use std::sync::{Arc, Mutex};
-use vrct_translation::http::{HttpError, Request, Response, Timeouts, Transport};
-use vrct_translation::translategemma::{self, language_name};
+use astarot_translation::http::{HttpError, Request, Response, Timeouts, Transport};
+use astarot_translation::translategemma::{self, language_name};
 
 const CONTRACT: &str = include_str!("contract/translategemma.json");
 

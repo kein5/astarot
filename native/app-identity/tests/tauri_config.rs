@@ -20,10 +20,10 @@ fn tauri_config() -> String {
 
 #[test]
 fn the_tauri_build_uses_the_app_id_written_here() {
-    assert_eq!(string_value(&tauri_config(), "identifier"), app_identity::APP_ID.current());
+    assert_eq!(string_value(&tauri_config(), "identifier"), astarot_app_identity::APP_ID.current());
 }
 
 #[test]
 fn the_tauri_build_names_the_executable_written_here() {
-    assert_eq!(string_value(&tauri_config(), "mainBinaryName"), app_identity::EXECUTABLE.current());
+    assert_eq!(string_value(&tauri_config(), "mainBinaryName"), astarot_app_identity::EXECUTABLE.current());
 }

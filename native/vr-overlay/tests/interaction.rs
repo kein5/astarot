@@ -5,14 +5,14 @@
 use serde_json::Value;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
-use vrct_vr_overlay::engine::{Event, Options, Overlay, Surface, WindowSettings};
-use vrct_vr_overlay::layout::VrLayout;
-use vrct_vr_overlay::math::{self, Mat4, Tracker};
-use vrct_vr_overlay::pose;
-use vrct_vr_overlay::runtime::fake::FakeVr;
-use vrct_vr_overlay::runtime::{ControllerState, Device, GRIP_MASK, TRIGGER_MASK};
-use vrct_vr_overlay::surface::{Frame, OUTSIDE, PanelSurface, PointerInput};
-use vrct_vr_overlay::tooltip::{Tooltip, TooltipMode, TooltipParent, TooltipShape};
+use astarot_vr_overlay::engine::{Event, Options, Overlay, Surface, WindowSettings};
+use astarot_vr_overlay::layout::VrLayout;
+use astarot_vr_overlay::math::{self, Mat4, Tracker};
+use astarot_vr_overlay::pose;
+use astarot_vr_overlay::runtime::fake::FakeVr;
+use astarot_vr_overlay::runtime::{ControllerState, Device, GRIP_MASK, TRIGGER_MASK};
+use astarot_vr_overlay::surface::{Frame, OUTSIDE, PanelSurface, PointerInput};
+use astarot_vr_overlay::tooltip::{Tooltip, TooltipMode, TooltipParent, TooltipShape};
 
 const RIGHT: Device = 2;
 const PANEL_WIDTH_M: f64 = 0.4;

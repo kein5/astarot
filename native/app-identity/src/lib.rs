@@ -75,7 +75,7 @@ pub const DESKTOP_FILE_MARKER: Renamed = Renamed::not_moved("X-VRCT-VOX-Generate
 
 /// The folder the Linux packages keep settings, logs and models in, under `$XDG_CONFIG_HOME` and
 /// under `$XDG_DATA_HOME` (ADR-014, 2.4). The app moves the VRCT-VOX folder at its start and
-/// leaves a link with the old name (`vrct_core::storage::linux`).
+/// leaves a link with the old name (`astarot_core::storage::linux`).
 pub const LINUX_FOLDER: Renamed = Renamed::moved("vrct-vox", "astarot");
 
 /// The app's executable without `.exe` (`mainBinaryName` in `src-tauri/tauri.conf.json`), and the

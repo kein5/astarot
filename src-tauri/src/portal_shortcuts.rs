@@ -28,7 +28,7 @@ use worker::{Backend, Mailbox, Operation, Processed, Restore, Worker};
 use zbus::{OwnedObjectPath, OwnedVariant, Variant};
 
 /// Must match a desktop file the portal can find; see `ensure_desktop_file`.
-pub(crate) const APP_ID: &str = app_identity::APP_ID.current();
+pub(crate) const APP_ID: &str = astarot_app_identity::APP_ID.current();
 pub(crate) const DESTINATION: &str = "org.freedesktop.portal.Desktop";
 pub(crate) const DESKTOP: &str = "/org/freedesktop/portal/desktop";
 const INTERFACE: &str = "org.freedesktop.portal.GlobalShortcuts";
@@ -217,7 +217,7 @@ fn quote(path: &str) -> String {
 
 /// The line that marks a desktop file as this app's: only such a file is rewritten.
 fn desktop_marker() -> String {
-    format!("{}=true", app_identity::DESKTOP_FILE_MARKER.current())
+    format!("{}=true", astarot_app_identity::DESKTOP_FILE_MARKER.current())
 }
 
 /// The desktop file for the portals, starting `executable`.
@@ -227,8 +227,8 @@ fn desktop_entry(executable: &str) -> String {
          Comment=Speech, voice conversion and translated chat\nExec={}\nIcon={}\n\
          Terminal=false\nCategories=AudioVideo;Audio;Network;\nStartupWMClass={}\n{}\n",
         quote(executable),
-        app_identity::LINUX_PACKAGE.current(),
-        app_identity::EXECUTABLE.current(),
+        astarot_app_identity::LINUX_PACKAGE.current(),
+        astarot_app_identity::EXECUTABLE.current(),
         desktop_marker(),
     )
 }

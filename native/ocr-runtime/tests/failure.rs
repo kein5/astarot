@@ -2,7 +2,7 @@
 
 use std::sync::{Arc, Mutex};
 
-use ocr_runtime::failure::{read_or_empty, Clock, Failure, FailureLog, Log};
+use astarot_ocr_runtime::failure::{read_or_empty, Clock, Failure, FailureLog, Log};
 
 #[derive(Default)]
 struct FakeClock(Mutex<f64>);

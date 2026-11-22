@@ -1,5 +1,5 @@
 [package]
-name = "app-identity"
+name = "astarot-app-identity"
 version = "0.0.0"
 description = "The names ASTAROT goes by outside its own code (folders, IDs, saved keys, markers, environment variables), with the VRCT-VOX spelling each replaces"
 edition = "2024"
@@ -8,7 +8,7 @@ license = "MIT"
 publish = false
 
 [lib]
-name = "app_identity"
+name = "astarot_app_identity"
 
 # No dependencies: every crate of the app may depend on this one.
 [dependencies]

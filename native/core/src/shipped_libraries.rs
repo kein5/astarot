@@ -11,7 +11,7 @@
 //! asks for them, with their consent (decision 2 (c) of docs/voice-stack/core-integration.md):
 //! the CUDA build where an NVIDIA driver is, and the DirectML build on Windows. They are set up
 //! like the voice conversion runtimes, under `<settings>/vc_runtimes`
-//! (`vrct_voice_conversion::runtime`). The CUDA build also comes with the RVC GPU runtime. When
+//! (`astarot_voice_conversion::runtime`). The CUDA build also comes with the RVC GPU runtime. When
 //! the saved translation device needs one of them and it is set up, the app loads it instead of
 //! the shipped one, at start: a process loads one ONNX Runtime library, and chat reading uses
 //! the same one.
@@ -20,13 +20,13 @@
 //! `VRCT_OPENVR_API`) still win.
 //!
 //! Chat reading and translation take the ONNX Runtime library and its one environment from
-//! `vrct-onnx-runtime`, so they always share them (`ort` allows one environment per process).
+//! `astarot-onnx-runtime`, so they always share them (`ort` allows one environment per process).
 
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 
 use serde_json::Value;
-use vrct_voice_conversion::runtime::{self as runtimes, InstalledLibraries, Target};
+use astarot_voice_conversion::runtime::{self as runtimes, InstalledLibraries, Target};
 
 /// ONNX Runtime 1.31.0, the official CPU build, inside `_internal`.
 pub const ONNX_RUNTIME: &str = if cfg!(windows) { "onnxruntime/onnxruntime.dll" } else { "onnxruntime/libonnxruntime.so" };
@@ -43,7 +43,7 @@ pub const RUNTIMES_FOLDER: &str = "vc_runtimes";
 ///
 /// Changes the process environment: call at the start of the app, before other threads run.
 pub unsafe fn disable_onnx_runtime_telemetry() {
-    unsafe { vrct_onnx_runtime::disable_telemetry_for_process() };
+    unsafe { astarot_onnx_runtime::disable_telemetry_for_process() };
 }
 
 /// A GPU build of ONNX Runtime the user set up.
@@ -140,10 +140,10 @@ pub fn use_libraries(app_dir: &Path, state_dir: &Path) -> String {
                 choice.line.push_str(&format!(", the repaired libraries of {runtime} {outcome}"));
             }
             if let Some((library, dependencies)) = &choice.onnx_runtime {
-                vrct_onnx_runtime::use_library_with(library.clone(), dependencies.clone());
+                astarot_onnx_runtime::use_library_with(library.clone(), dependencies.clone());
             }
             if let Some(openvr) = &choice.openvr {
-                vrct_openvr_client::use_library(openvr.clone());
+                astarot_openvr_client::use_library(openvr.clone());
             }
             choice
         })
@@ -177,7 +177,7 @@ pub enum OnnxRuntimeLibrary {
 
 /// Which library [`use_libraries`] pointed ONNX Runtime at. `ORT_DYLIB_PATH` wins over it.
 pub fn onnx_runtime_library() -> OnnxRuntimeLibrary {
-    if std::env::var_os(vrct_onnx_runtime::LIBRARY_VARIABLE).is_some_and(|path| !path.is_empty()) {
+    if std::env::var_os(astarot_onnx_runtime::LIBRARY_VARIABLE).is_some_and(|path| !path.is_empty()) {
         return OnnxRuntimeLibrary::Other;
     }
     match CHOSEN.get() {

@@ -1,8 +1,8 @@
 //! Translate JSON lines with a model folder: the tool behind the comparison with the app's
 //! CTranslate2 translator (tools/translation_onnx/compare.py). Not used by the app.
 //!
-//!     vrct-translate MODEL_FOLDER [--device PROVIDER[:INDEX]] [--verify] < requests > results
-//!     vrct-translate --providers
+//!     astarot-translate MODEL_FOLDER [--device PROVIDER[:INDEX]] [--verify] < requests > results
+//!     astarot-translate --providers
 //!
 //! Each request is `{"text": ..., "from": ..., "to": ...}` with the language codes the app
 //! gives the tokenizer. Each result is `{"text": ..., "source_ids": [...], "target_ids": [...]}`
@@ -13,20 +13,20 @@
 use std::io::{BufRead, Write};
 
 use serde_json::{json, Value};
-use vrct_translate_onnx::{Accelerator, Bundle, Provider, Translator};
+use astarot_translate_onnx::{Accelerator, Bundle, Provider, Translator};
 
 fn main() {
     // SAFETY: first thing in main, before any other thread starts.
-    unsafe { vrct_onnx_runtime::disable_telemetry_for_process() };
+    unsafe { astarot_onnx_runtime::disable_telemetry_for_process() };
     let args: Vec<String> = std::env::args().collect();
     let usage = || -> ! {
-        eprintln!("usage: vrct-translate MODEL_FOLDER [--device PROVIDER[:INDEX]] [--verify] | --providers");
+        eprintln!("usage: astarot-translate MODEL_FOLDER [--device PROVIDER[:INDEX]] [--verify] | --providers");
         std::process::exit(2);
     };
     let Some(folder) = args.get(1) else { usage() };
     if folder == "--providers" {
         // The execution providers of the ONNX Runtime library this process loads.
-        match vrct_translate_onnx::runtime::available_providers() {
+        match astarot_translate_onnx::runtime::available_providers() {
             Ok(providers) => println!("{}", json!(providers.iter().map(|p| p.name()).collect::<Vec<_>>())),
             Err(error) => {
                 eprintln!("{}", json!({"error": error.code}));

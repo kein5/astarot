@@ -25,11 +25,11 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use serde_json::{Map, Value, json};
-use vrct_ops::telemetry::hardware::{self, NAME_LIMIT, ascii_text, memory_step};
-use vrct_speech_server::builds::{self, Builds};
-use vrct_speech_server::check::{self, Run, char_error_rate};
-use vrct_speech_server::devices::{self, Environment, not_a_compute_gpu};
-use vrct_speech_server::{Profile, bundle};
+use astarot_ops::telemetry::hardware::{self, NAME_LIMIT, ascii_text, memory_step};
+use astarot_speech_server::builds::{self, Builds};
+use astarot_speech_server::check::{self, Run, char_error_rate};
+use astarot_speech_server::devices::{self, Environment, not_a_compute_gpu};
+use astarot_speech_server::{Profile, bundle};
 
 use super::routes::{Builder, OPEN};
 use super::{Core, ok};
@@ -162,7 +162,7 @@ fn targets(rows: &[Value]) -> Vec<Target> {
     for row in rows {
         let (Some(device), Some(kind)) = (row.get("name").and_then(Value::as_str), row.get("kind").and_then(Value::as_str)) else { continue };
         let description = row.get("description").and_then(Value::as_str).unwrap_or("");
-        if !matches!(kind, "gpu" | "igpu") || !vrct_speech_server::settings::is_named_gpu(device) || not_a_compute_gpu(description) {
+        if !matches!(kind, "gpu" | "igpu") || !astarot_speech_server::settings::is_named_gpu(device) || not_a_compute_gpu(description) {
             continue;
         }
         let name = ascii_text(description, NAME_LIMIT);
@@ -308,7 +308,7 @@ fn measure(check: &GpuCheck, inputs: &Inputs) -> Result<Value, &'static str> {
     let listing = inputs.builds.for_listing(|binary| devices::device_rows(binary, &inputs.environment).is_some()).ok_or(NO_SPEECH_BUILD)?;
     let rows = devices::device_rows(&listing, &inputs.environment).ok_or(NO_DEVICES)?;
     let hardware = hardware::collect(Some(&listing), Duration::from_secs(15));
-    let (os, os_version) = vrct_ops::telemetry::client::os_and_version();
+    let (os, os_version) = astarot_ops::telemetry::client::os_and_version();
     let targets = targets(&rows);
     let mut report = Map::new();
     report.insert("report".into(), json!("astarot-gpu-check"));

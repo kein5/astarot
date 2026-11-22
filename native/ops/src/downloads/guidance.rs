@@ -5,7 +5,7 @@
 //! executed here. Summary: docs/voice-stack/model-downloads.md.
 //!
 //! Local translation (core only; Python has no translation entries): the peak working set of
-//! `vrct-translate` while translating 30 English→Japanese and 30 Japanese→English sentences on
+//! `astarot-translate` while translating 30 English→Japanese and 30 Japanese→English sentences on
 //! the CPU (Windows 11, ONNX Runtime 1.32.0, 4 threads), the figure of the download notice
 //! `translation_nllb_600m`. NLLB-200 distilled 1.3B was measured on Linux instead (scope
 //! `translation_onnx_cpu_linux`): the largest resident set (VmHWM) over the same sentences and

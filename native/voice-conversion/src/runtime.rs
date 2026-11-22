@@ -21,8 +21,8 @@ use std::time::Duration;
 
 use serde_json::{json, Map, Value};
 use sha2::{Digest, Sha256};
-use vrct_ops::downloads::staging::RootLease;
-use vrct_ops::downloads::transport::{Aborter, Transport};
+use astarot_ops::downloads::staging::RootLease;
+use astarot_ops::downloads::transport::{Aborter, Transport};
 
 use crate::archive::{unpack_members, ArchiveError};
 use crate::child;
@@ -1609,7 +1609,7 @@ mod tests {
                 assert_eq!(runtime.assets, earlier.assets);
                 assert!(runtime.licenses[0].starts_with("https://www.nuget.org/packages/Microsoft.ML.OnnxRuntime"));
                 for url in runtime.libraries.iter().map(|l| &l.url).chain(runtime.assets.iter().map(|a| &a.url)) {
-                    assert!(vrct_ops::downloads::transport::validate_url(url, &SOURCE_HOSTS).is_ok(), "{url}");
+                    assert!(astarot_ops::downloads::transport::validate_url(url, &SOURCE_HOSTS).is_ok(), "{url}");
                 }
                 // GitHub is no longer ONNX Runtime's source (its host is allowed for llama.cpp).
                 assert!(earlier.libraries[0].url.starts_with("https://github.com/microsoft/") && !runtime.libraries[0].url.starts_with("https://github.com/"));
@@ -1647,7 +1647,7 @@ mod tests {
         let mut runtime = rvc_runtime(target, gpu);
         runtime.assets.clear();
         let dir = tempfile::tempdir().unwrap();
-        let transport = vrct_ops::downloads::transport::Public { timeout: vrct_ops::downloads::transport::TIMEOUT, hosts: SOURCE_HOSTS.iter().map(|h| h.to_string()).collect() };
+        let transport = astarot_ops::downloads::transport::Public { timeout: astarot_ops::downloads::transport::TIMEOUT, hosts: SOURCE_HOSTS.iter().map(|h| h.to_string()).collect() };
         let setup = RuntimeSetup::new(SetupOptions {
             root: dir.path().to_owned(),
             target: Some(target),
@@ -1704,7 +1704,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let root = kept.clone().unwrap_or_else(|| dir.path().to_owned());
         let worker = std::env::var_os("ASTAROT_TEST_RVC_WORKER").map(PathBuf::from);
-        let transport = vrct_ops::downloads::transport::Public { timeout: vrct_ops::downloads::transport::TIMEOUT, hosts: SOURCE_HOSTS.iter().map(|h| h.to_string()).collect() };
+        let transport = astarot_ops::downloads::transport::Public { timeout: astarot_ops::downloads::transport::TIMEOUT, hosts: SOURCE_HOSTS.iter().map(|h| h.to_string()).collect() };
         let runtime = if cuda { onnx_cuda_runtime(target) } else { onnx_directml_runtime() };
         let setup = RuntimeSetup::new(SetupOptions {
             root: root.clone(),
@@ -1752,13 +1752,13 @@ mod tests {
         let transport: Arc<dyn Transport> = match std::env::var_os("ASTAROT_TEST_LLAMACPP_DOWNLOADS") {
             Some(folder) => {
                 let folder = PathBuf::from(folder);
-                Arc::new(move |url: &str| -> Result<Box<dyn vrct_ops::downloads::transport::Body>, vrct_ops::downloads::Error> {
+                Arc::new(move |url: &str| -> Result<Box<dyn astarot_ops::downloads::transport::Body>, astarot_ops::downloads::Error> {
                     let name = url.rsplit('/').next().unwrap_or_default();
-                    let data = fs::read(folder.join(name)).map_err(vrct_ops::downloads::Error::Io)?;
+                    let data = fs::read(folder.join(name)).map_err(astarot_ops::downloads::Error::Io)?;
                     Ok(Box::new(std::io::Cursor::new(data)))
                 })
             }
-            None => Arc::new(vrct_ops::downloads::transport::Public { timeout: vrct_ops::downloads::transport::TIMEOUT, hosts: SOURCE_HOSTS.iter().map(|h| h.to_string()).collect() }),
+            None => Arc::new(astarot_ops::downloads::transport::Public { timeout: astarot_ops::downloads::transport::TIMEOUT, hosts: SOURCE_HOSTS.iter().map(|h| h.to_string()).collect() }),
         };
         let setup = RuntimeSetup::new(SetupOptions {
             root: dir.path().to_owned(),
@@ -1789,7 +1789,7 @@ mod tests {
     }
 
     fn setup_in(root: &Path, target: Target, gpu: bool) -> RuntimeSetup {
-        let offline = |_: &str| -> Result<Box<dyn vrct_ops::downloads::transport::Body>, vrct_ops::downloads::Error> { Err(vrct_ops::downloads::Error::Other("offline".into())) };
+        let offline = |_: &str| -> Result<Box<dyn astarot_ops::downloads::transport::Body>, astarot_ops::downloads::Error> { Err(astarot_ops::downloads::Error::Other("offline".into())) };
         RuntimeSetup::new(SetupOptions {
             root: root.to_owned(),
             target: Some(target),
@@ -1850,9 +1850,9 @@ mod tests {
             let library = &runtime.libraries[0];
             assert!(library.url.starts_with("https://github.com/ggml-org/llama.cpp/releases/download/b12125/llama-b12125-bin-"), "{}", library.url);
             assert!(library.url.contains("vulkan-x64."), "{}", library.url);
-            assert!(vrct_ops::downloads::transport::validate_url(&library.url, &SOURCE_HOSTS).is_ok(), "{}", library.url);
+            assert!(astarot_ops::downloads::transport::validate_url(&library.url, &SOURCE_HOSTS).is_ok(), "{}", library.url);
             // GitHub answers with a redirect to its asset host, which must be allowed too.
-            assert!(vrct_ops::downloads::transport::validate_url("https://release-assets.githubusercontent.com/github-production-release-asset/1/x", &SOURCE_HOSTS).is_ok());
+            assert!(astarot_ops::downloads::transport::validate_url("https://release-assets.githubusercontent.com/github-production-release-asset/1/x", &SOURCE_HOSTS).is_ok());
             assert_eq!((library.sha256.len(), runtime.download_bytes), (64, library.size));
             let files = names(&runtime);
             assert!(files.contains(&llama_server_name(target).to_string()));
@@ -1904,7 +1904,7 @@ mod tests {
         let runtime = onnx_directml_runtime();
         assert_eq!(runtime.libraries.len(), 2);
         for library in &runtime.libraries {
-            assert!(vrct_ops::downloads::transport::validate_url(&library.url, &SOURCE_HOSTS).is_ok(), "{}", library.url);
+            assert!(astarot_ops::downloads::transport::validate_url(&library.url, &SOURCE_HOSTS).is_ok(), "{}", library.url);
             assert_eq!(library.sha256.len(), 64);
         }
         assert_eq!(runtime.libraries[0].url, "https://api.nuget.org/v3-flatcontainer/microsoft.ml.onnxruntime.directml/1.24.4/microsoft.ml.onnxruntime.directml.1.24.4.nupkg");

@@ -1,5 +1,5 @@
 [package]
-name = "vrct-audio-routing"
+name = "astarot-audio-routing"
 version = "0.1.0"
 description = "Audio device enumeration, identity, default following and voice routing for VRCT-VOX"
 edition = "2024"
@@ -8,7 +8,7 @@ license = "MIT"
 publish = false
 
 [lib]
-name = "vrct_audio_routing"
+name = "astarot_audio_routing"
 
 [features]
 default = ["pipewire"]

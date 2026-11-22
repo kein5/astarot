@@ -7,8 +7,8 @@
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-use vrct_adapters::clipboard::copy::{choose_tool, Tool};
-use vrct_adapters::clipboard::{Clipboard, Desktop, DesktopBroken, Focus, NoVrAppName, VrAppName};
+use astarot_adapters::clipboard::copy::{choose_tool, Tool};
+use astarot_adapters::clipboard::{Clipboard, Desktop, DesktopBroken, Focus, NoVrAppName, VrAppName};
 
 #[derive(Clone, Debug, PartialEq)]
 enum Step {
@@ -221,7 +221,7 @@ fn the_copy_tool_follows_pyperclips_order() {
 fn nothing_logged_holds_the_text_or_the_window_name() {
     let lines = Arc::new(Mutex::new(Vec::<&'static str>::new()));
     let sink = lines.clone();
-    vrct_adapters::log::set_sink(move |line| sink.lock().unwrap().push(line));
+    astarot_adapters::log::set_sink(move |line| sink.lock().unwrap().push(line));
     for (windows_style, copy_ok, focus) in [
         (true, true, Ok(Focus::NotFocused)),
         (true, false, Ok(Focus::Focused)),

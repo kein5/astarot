@@ -5,7 +5,7 @@
 //! numeric loopback address, port 0 (the port is read from the line the server prints when it
 //! listens), checked with `/health`, stopped with the app, and watched until it ends. The
 //! executable is not bundled: the app fetches it after the user's consent
-//! (`vrct_voice_conversion::runtime::llamacpp_runtime`).
+//! (`astarot_voice_conversion::runtime::llamacpp_runtime`).
 //!
 //! The device is named the way the speech.cpp servers name theirs: `cpu`, `auto`, `gpu` or a
 //! Vulkan device (`Vulkan1`). `auto` and `gpu` take the GPU speech.cpp would take

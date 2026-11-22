@@ -3,14 +3,14 @@
 //! [`CapturePlatform`] opens the microphone or the speaker of a source and lists the endpoints
 //! realtime recognition chooses among. [`NativeCapture`] is this computer's: WASAPI on Windows
 //! (a speaker is read through its loopback), and on Linux the PipeWire capture of
-//! `vrct-audio-routing` ([`crate::linux`]; Python started the `vrct-asr-capture` helper).
+//! `astarot-audio-routing` ([`crate::linux`]; Python started the `vrct-asr-capture` helper).
 
 use crate::pcm::{self, Resampler};
 use std::sync::{Arc, Condvar, Mutex};
 use std::time::{Duration, Instant};
-use vrct_audio_routing::graph::Endpoint;
-use vrct_audio_routing::identity::Device;
-pub use vrct_audio_routing::selection::Source;
+use astarot_audio_routing::graph::Endpoint;
+use astarot_audio_routing::identity::Device;
+pub use astarot_audio_routing::selection::Source;
 
 /// What a capture opens: a device row of the settings (the recorder), or an endpoint of the
 /// realtime settings.
@@ -109,8 +109,8 @@ impl FrameBuilder {
 /// (`asr_capture_start_timeout`), as the `vrct-asr-capture` helper's start waited.
 pub const FIRST_AUDIO_WAIT: Duration = Duration::from_secs(5);
 
-/// A capture of `vrct-audio-routing`.
-pub type DeviceCapture = Box<dyn vrct_audio_routing::windows_route::Capture>;
+/// A capture of `astarot-audio-routing`.
+pub type DeviceCapture = Box<dyn astarot_audio_routing::windows_route::Capture>;
 
 /// Where a capture is before its first audio.
 #[derive(Clone, Debug, PartialEq)]
@@ -133,7 +133,7 @@ fn tell(slot: &Mutex<Option<OnError>>, code: &str) {
 /// mono, as it arrives; a receiver that refuses it ends the capture with
 /// `asr_capture_consumer_closed`.
 pub fn start_until_audio(
-    make: impl FnOnce(vrct_audio_routing::windows_route::CaptureCallbacks) -> DeviceCapture,
+    make: impl FnOnce(astarot_audio_routing::windows_route::CaptureCallbacks) -> DeviceCapture,
     mut on_audio: OnAudio,
     on_error: OnError,
     wait: Duration,
@@ -141,7 +141,7 @@ pub fn start_until_audio(
     let opening = Arc::new((Mutex::new(Opening::Waiting), Condvar::new()));
     let told = Arc::new(Mutex::new(Some(on_error)));
     let (heard, failed, closing) = (opening.clone(), opening.clone(), told.clone());
-    let callbacks = vrct_audio_routing::windows_route::CaptureCallbacks {
+    let callbacks = astarot_audio_routing::windows_route::CaptureCallbacks {
         on_audio: Box::new(move |bytes: &[u8]| {
             {
                 let (state, changed) = &*heard;
@@ -217,7 +217,7 @@ impl NativeCapture {
 #[cfg(windows)]
 mod windows_capture {
     use super::*;
-    use vrct_audio_routing::wasapi::capture::{DeviceCapture, DeviceTarget};
+    use astarot_audio_routing::wasapi::capture::{DeviceCapture, DeviceTarget};
 
     pub struct Wasapi(pub DeviceCapture);
 
@@ -237,7 +237,7 @@ mod windows_capture {
             }
             Target::Endpoint(endpoint) => DeviceTarget::Identity(endpoint.name.clone()),
         };
-        let deliver = Box::new(move |bytes: &[u8], format: vrct_audio_routing::wasapi::capture::DeviceFormat| {
+        let deliver = Box::new(move |bytes: &[u8], format: astarot_audio_routing::wasapi::capture::DeviceFormat| {
             on_audio(&pcm::samples(bytes), format.rate, format.channels, None)
         });
         // Decision 15 (3): only realtime recognition (an endpoint) gets silence while the
@@ -249,12 +249,12 @@ mod windows_capture {
     }
 
     pub fn endpoints(source: Source) -> Result<Vec<(Endpoint, String)>, String> {
-        let rows = vrct_audio_routing::wasapi::enumerate_endpoints(source.as_str()).map_err(|e| e.code)?;
+        let rows = astarot_audio_routing::wasapi::enumerate_endpoints(source.as_str()).map_err(|e| e.code)?;
         Ok(rows.into_iter().map(|row| (row.endpoint, row.label)).collect())
     }
 
     pub fn default_endpoint(source: Source) -> Result<Endpoint, String> {
-        vrct_audio_routing::wasapi::default_endpoint(source.as_str()).map_err(|e| e.code)
+        astarot_audio_routing::wasapi::default_endpoint(source.as_str()).map_err(|e| e.code)
     }
 }
 
@@ -324,7 +324,7 @@ impl CapturePlatform for NativeCapture {
 mod tests {
     use super::*;
     use std::sync::atomic::{AtomicBool, Ordering};
-    use vrct_audio_routing::windows_route::CaptureCallbacks;
+    use astarot_audio_routing::windows_route::CaptureCallbacks;
 
     /// What the stand-in capture does once started, in order.
     #[derive(Clone)]
@@ -334,7 +334,7 @@ mod tests {
         Wait(u64),
     }
 
-    /// A capture of `vrct-audio-routing` that plays `steps` on a thread of its own.
+    /// A capture of `astarot-audio-routing` that plays `steps` on a thread of its own.
     struct Scripted {
         steps: Vec<Step>,
         start: Option<&'static str>,
@@ -343,10 +343,10 @@ mod tests {
         thread: Option<std::thread::JoinHandle<()>>,
     }
 
-    impl vrct_audio_routing::windows_route::Capture for Scripted {
-        fn start(&mut self) -> vrct_audio_routing::Result<()> {
+    impl astarot_audio_routing::windows_route::Capture for Scripted {
+        fn start(&mut self) -> astarot_audio_routing::Result<()> {
             if let Some(code) = self.start {
-                return Err(vrct_audio_routing::Error::runtime(code));
+                return Err(astarot_audio_routing::Error::runtime(code));
             }
             let (mut callbacks, steps, stop) = (self.callbacks.take().unwrap(), self.steps.clone(), self.stop.clone());
             self.thread = Some(std::thread::spawn(move || {

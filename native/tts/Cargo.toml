@@ -1,5 +1,5 @@
 [package]
-name = "vrct-tts"
+name = "astarot-tts"
 version = "0.1.0"
 description = "Speech synthesis requests, speech scheduling and PCM hand-off for VRCT-VOX (codename Forau)"
 edition = "2024"
@@ -8,11 +8,11 @@ license = "MIT"
 publish = false
 
 [lib]
-name = "vrct_tts"
+name = "astarot_tts"
 
 [dependencies]
 # The names the app goes by outside its code (ADR-014): the timing record's variables.
-app-identity = { path = "../app-identity" }
+astarot-app-identity = { path = "../app-identity" }
 serde = { version = "1", features = ["derive"] }
 # arbitrary_precision keeps integer literals beyond u64 as integers, as Python's json does.
 serde_json = { version = "1", features = ["arbitrary_precision"] }

@@ -49,13 +49,13 @@ fn backend(error: impl std::fmt::Display) -> Error {
 /// Threads of each session's intra-operator pool; 0 leaves ONNX Runtime's default.
 static INTRA_THREADS: AtomicUsize = AtomicUsize::new(0);
 
-/// The process's ONNX Runtime environment (`vrct-onnx-runtime`), made on first use. The
+/// The process's ONNX Runtime environment (`astarot-onnx-runtime`), made on first use. The
 /// worker's tools stop ONNX Runtime's usage reports first thing
-/// (`vrct_onnx_runtime::disable_telemetry_for_process`); the app sets the variable for the worker
+/// (`astarot_onnx_runtime::disable_telemetry_for_process`); the app sets the variable for the worker
 /// it starts as well.
 fn environment() -> Result<&'static Environment> {
-    vrct_onnx_runtime::environment().map_err(|error| match error {
-        vrct_onnx_runtime::Error::Unavailable(message) => Error::Backend(message),
+    astarot_onnx_runtime::environment().map_err(|error| match error {
+        astarot_onnx_runtime::Error::Unavailable(message) => Error::Backend(message),
         other => backend(other),
     })
 }
@@ -65,9 +65,9 @@ fn environment() -> Result<&'static Environment> {
 /// second call, or a call after a network was loaded, returns an error and changes nothing.
 #[cfg(feature = "load-dynamic")]
 pub fn load_runtime(library: &Path) -> Result<()> {
-    vrct_onnx_runtime::load(library).map_err(|error| match error {
-        vrct_onnx_runtime::Error::Unavailable(message) => Error::Backend(message),
-        vrct_onnx_runtime::Error::AlreadyLoaded => Error::invalid("ONNX Runtime was already loaded"),
+    astarot_onnx_runtime::load(library).map_err(|error| match error {
+        astarot_onnx_runtime::Error::Unavailable(message) => Error::Backend(message),
+        astarot_onnx_runtime::Error::AlreadyLoaded => Error::invalid("ONNX Runtime was already loaded"),
     })
 }
 

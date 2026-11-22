@@ -167,11 +167,11 @@ pub fn routes(core: &Arc<Core>) -> Routes {
     let asking = Arc::clone(core);
     b.add("/set/data/rvc_block_ms", OPEN, move |data: &Value| {
         let reply = rvc_block(data);
-        let automatic = json!(vrct_voice_conversion::worker::AUTO_BLOCK_MS);
+        let automatic = json!(astarot_voice_conversion::worker::AUTO_BLOCK_MS);
         if super::python_int(data) == Some(0) && asking.config().get("RVC_BLOCK_MS") == automatic {
             // Unwritten (a full disk), the kept length is used as before; the choice is saved.
             let runtimes = asking.config().environment().state_dir.join(crate::shipped_libraries::RUNTIMES_FOLDER);
-            let _ = vrct_voice_conversion::worker::ask_block_timing(&runtimes);
+            let _ = astarot_voice_conversion::worker::ask_block_timing(&runtimes);
         }
         reply
     });

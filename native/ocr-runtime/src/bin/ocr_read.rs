@@ -11,14 +11,14 @@ use std::path::PathBuf;
 use std::process::ExitCode;
 use std::time::Instant;
 
-use ocr_runtime::engine::{Engine, EngineConfig};
-use ocr_runtime::languages::resolve_model_spec;
-use ocr_runtime::models::{characters, resolve_model_files};
-use ocr_runtime::BgrImage;
+use astarot_ocr_runtime::engine::{Engine, EngineConfig};
+use astarot_ocr_runtime::languages::resolve_model_spec;
+use astarot_ocr_runtime::models::{characters, resolve_model_files};
+use astarot_ocr_runtime::BgrImage;
 
 fn main() -> ExitCode {
     // SAFETY: first thing in main, before any other thread starts.
-    unsafe { vrct_onnx_runtime::disable_telemetry_for_process() };
+    unsafe { astarot_onnx_runtime::disable_telemetry_for_process() };
     match run() {
         Ok(()) => ExitCode::SUCCESS,
         Err(message) => {
