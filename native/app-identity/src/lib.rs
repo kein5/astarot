@@ -77,6 +77,12 @@ pub const DESKTOP_FILE_MARKER: Renamed = Renamed::moved("X-VRCT-VOX-Generated", 
 /// leaves a link with the old name (`vrct_core::storage::linux`).
 pub const LINUX_FOLDER: Renamed = Renamed::moved("vrct-vox", "astarot");
 
+/// The file the Windows installer leaves in the install folder after it moved the folder (ADR-014,
+/// 2.5, 5). It names the old folder, in UTF-16 with a byte order mark as NSIS writes it. The app
+/// rewrites the paths saved under the old folder at its next start and removes the file
+/// (`vrct_core::storage::installer`), as it takes `installer_language.txt`.
+pub const INSTALLER_MOVED_FROM: &str = "installer_moved_from.txt";
+
 /// The app's executable without `.exe` (`mainBinaryName` in `src-tauri/tauri.conf.json`), and the
 /// Linux window class, which follows it (`StartupWMClass`; ADR-014, 2.5 and 2.6).
 pub const EXECUTABLE: Renamed = Renamed::not_moved("vrct-vox", "astarot");
