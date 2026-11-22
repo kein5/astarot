@@ -2817,6 +2817,7 @@ first_run_setup:
         translation_ready: "Works with the selected translator."
         translation_missing: "The selected translator cannot be used yet. Register an API key or set up another model in the Translation settings."
         translation_model_missing: "The translation model is not on your PC yet. You can get it under \"Prepare translation\" below."
+        translation_switch_here: "The selected translation model cannot be used yet. Under \"Prepare translation\" below, you can switch to the default model. API keys and other models are set up in the Translation settings."
         translation_preparing: "Being prepared under \"Prepare translation\" below…"
         translation_open_settings: "Set up an API key or other models (open the Translation settings)"
         recognition: "Speech recognition"
@@ -2828,8 +2829,11 @@ first_run_setup:
     translation:
         heading: "Prepare translation"
         what: "Downloads the model that translates text and makes it ready for translation. Translation runs on your PC and sends no text anywhere. Translation is not turned on."
+        what_switch: "Downloads the default model that translates text and switches translation to it. Translation runs on your PC and sends no text anywhere. Translation is not turned on."
+        what_switch_only: "Nothing to download. Translation switches to {{name}}, which is already on your PC. Translation is not turned on."
         model: "Model to download"
         step_model: "Download {{name}} and make it ready for translation"
+        step_switch: "Use {{name}} for translation"
         finished: "Translation is ready. Turn on Translation on the main screen to use it."
         kept: "The translation settings are as before. Remove the cause, then press \"Try again\"."
     recognition:
