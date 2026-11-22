@@ -200,7 +200,7 @@
 - 翻訳を準備する（#936）: 選んだ翻訳のモデルがお使いのPCにない間、音声認識の「まとめて準備する」と同じ形で出す。初期設定が勧めるのは既定のモデル（M2M100 418M。ライセンスは利用を制限しない）で、選んでいるモデル（取得できないもの、制限のあるものを含む）がそれと違うときも、既定のモデルを勧める。初期設定を離れずに、そのモデルの名前、提供元、ライセンス、容量とモデルカードへのリンク、合計の容量を示し、音声認識と同じ 1 つのチェックボックスで同意してから「準備を始める」を押す。同意は開いたときのカタログの版に結び付く。始めると、カタログの取得と照合を行い、終わったら反映する（`/run/apply_model_download`。翻訳のモデルは設定にパスを持たないので`expected`は空）。選んでいるモデルが既定と違えば、モデルがお使いのPCに入ったあとで、翻訳で使うモデルを既定のモデルにする（音声認識の欄がサーバーとエンジンを切り替えるのと同じ）。既定のモデルがすでにあるときは、ダウンロードも同意もなく、切り替えだけを行う。ほかのモデルや API キーを使うときは、欄のボタンで設定の「翻訳」を開く。選んだモデルがお使いのPCにある状態になると、「翻訳の準備ができました」と示し、上の「翻訳」の行は使える状態になる。翻訳はオンにしない。途中で失敗したら理由を示し、「やり直す」で始め直す。
 - 失敗とやり直し: 途中の段で失敗したら（通信、容量、照合、取消、適用の拒否、設定の保存の失敗）、その段で止め、理由を示す。「やり直す」は保存済みの設定と取得の状態から次にすることを決め直すので、済んだ段は飛ばす。取得は専用の一時フォルダーへ書き、容量と SHA-256 が合ってから公開し、適用はその後なので、失敗しても前の設定とモデルは変わらない（#517）。閉じても取得は続き、開き直すと進み具合を示す。
 - 閉じ方: 「後で」と Escape は閉じる。最初の画面の行は目立たせたまま残る。準備が終わったあとの「完了」と「最初の画面の「初期設定を開く」を目立たせない」は`/set/disable/first_run_setup`を送り、行を目立たせるのをやめる。行そのものは、準備が足りない間は残り、そこから開ける。
-- 関係: `/get/data/first_run_setup`、`/set/disable/first_run_setup`、`/run/start_model_download`、`/run/apply_model_download`、`/run/cancel_model_download`、`/set/data/realtime_asr_settings`、`/set/data/selected_transcription_engine`、`src-ui/views/app/_app_controllers/FirstRunSetupController.tsx`、`src-ui/logics/setup/firstRunSetup.ts`。
+- 関係: `/get/data/first_run_setup`、`/set/disable/first_run_setup`、`/run/start_model_download`、`/run/apply_model_download`、`/run/cancel_model_download`、`/set/data/realtime_asr_settings`、`/set/data/selected_transcription_engine`、`/set/data/selected_ctranslate2_weight_type`、`src-ui/views/app/_app_controllers/FirstRunSetupController.tsx`、`src-ui/logics/setup/firstRunSetup.ts`。
 
 ## UC-19 読み上げの声を試聴する
 
