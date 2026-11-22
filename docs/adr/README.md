@@ -30,6 +30,7 @@ ASTAROT の設計判断の記録（ADR）の正本は、このディレクトリ
 | [015](adr-015-translation-llm-runtime-exception.md) | TranslateGemma の翻訳を LLM 用の実行基盤で動かす（ADR-012 の例外） | 2026-11-19 | 採用 | 未着手 | 有効 | Rust の中核 |
 | [016](adr-016-user-guide-site-on-rspress.md) | 利用者向けのサイトの土台を VitePress から Rspress（React）に替える | 2026-11-20 | 採用 | 未着手 | 有効 | Rust の中核 |
 | [017](adr-017-integration-tests-through-the-core.md) | 画面から中核まで通す試験を Playwright の結合テストにし、配布物で通す試験だけを E2E と呼ぶ | 2026-11-20 | 採用 | 未着手 | 有効 | Rust の中核 |
+| [018](adr-018-talk-ai-through-external-services.md) | おしゃべりAIは外部の対話サービスにつなぎ、アプリは対話のモデルを動かさない | 2026-11-22 | 提案 | 未着手 | 有効 | Rust の中核 |
 
 <!-- adr-index:end -->
 
@@ -140,6 +141,8 @@ ADR 001〜003 は、2026-10-27 に音声の最初の段階（P1）のために�
 [ADR-016: 利用者向けのサイトの土台を VitePress から Rspress（React）に替える](adr-016-user-guide-site-on-rspress.md)は2026-11-20に採用した。サイトの再設計（PR #701）の決定のうち、土台を VitePress のままにし部品を Vue で作るという前提だけを置き換える。アプリの UI と、部品を寄せる先の shadcn/ui が React なので、部品と知見を React にそろえる。配布済みのアプリが開く URL とアンカー、日英、全文検索、GitHub Pages への公開は保つ。Rspress は既定の言語のページを接頭辞なしで出すので、`/` だけを受け持つ既定の言語を置いて `/ja/` と `/en/` を保つ。
 
 [ADR-017: 画面から中核まで通す試験を Playwright の結合テストにし、配布物で通す試験だけを E2E と呼ぶ](adr-017-integration-tests-through-the-core.md)は2026-11-20に採用した。試験を、単体と契約（Vitest と Rust）、結合テスト、E2E の 3 つの層に分ける。結合テストは、画面を操作して中核と Rust のクレートを通り、外への出口と画面の結果までを確かめる試験で、Playwright で `tests/integration/` に書き、すべての PR で Linux と Windows、Chromium と WebKit で流す。画面の側は Tauri の公式の偽物で中核とのやり取りだけをホストへ流し、中核の側は試験の道具の専用のクレートが偽物の `Services` で中核を起動する。E2E は、配布物の形で殻と OS を通す試験だけを指す。
+
+[ADR-018: おしゃべりAIは外部の対話サービスにつなぎ、アプリは対話のモデルを動かさない](adr-018-talk-ai-through-external-services.md)は2026-11-22に提案した（未採用）。Issue #388 の「おしゃべりAI」の相手を、クラウドのリアルタイム API（OpenAI Realtime、Gemini Live）と、利用者が立てる vLLM-Omni のサーバーに分け、どちらもアプリの外のサービスとしてつなぐ。アプリは対話のモデルもその推論のランタイムも同梱せず、取得もしない。ADR-012 の 2.2 の「外部の翻訳サービスと LLM のサービス」と同じ扱いで、ADR-012 の例外ではない。アプリは、画面と声を送る前の同意、送っている間の表示、送る量の制御、止めたら送らないことを受け持つ。
 
 ## 配置の移行（2026-11-18）
 
