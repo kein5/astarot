@@ -1,4 +1,4 @@
-# vrct-talk-ai
+# astarot-talk-ai
 
 The talk AI's connection to a realtime conversation service (#388, [ADR-018](../../docs/adr/adr-018-talk-ai-through-external-services.md)).
 The user's voice and pictures go to the service, and its spoken answers come back, as the
