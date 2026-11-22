@@ -59,17 +59,19 @@ ${StrLoc}
 ; Left in the moved folder for the app, which rewrites the paths saved under the old folder at
 ; its next start and removes it (astarot_core::storage::installer).
 !define MOVEDFROMFILE "installer_moved_from.txt"
-; Shortcuts carry the display name. Up to 0.5.0 they carried the binary's name; an update
-; replaces those (MigrateOldShortcuts) and the uninstaller removes both.
+; Shortcuts carry the display name. Up to 0.5.0 they carried the binary's name of then
+; (vrct-vox); an update replaces those (MigrateOldShortcuts) and the uninstaller removes both.
 !define SHORTCUTNAME "${PRODUCTNAME}"
-!define OLDSHORTCUTNAME "${MAINBINARYNAME}"
+!define OLDSHORTCUTNAME "vrct-vox"
 !define OLDSTARTMENUFOLDER "VRCT-VOX"
 !define UNINSTKEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\${INSTALLREGNAME}"
 !define MANUPRODUCTKEY "Software\${MANUFACTURER}\${INSTALLREGNAME}"
 !define OLDUNINSTKEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\${OLDINSTALLREGNAME}"
 !define OLDMANUPRODUCTKEY "Software\${MANUFACTURER}\${OLDINSTALLREGNAME}"
-; The main binary's name after ADR-014's step 6 (or before it, seen from step 6): an install may
-; still run it while it is updated.
+; The main binary's name after ADR-014's step 6 (or before it, seen from step 6; 2.5, 3 and 8).
+; An install may still run it while it is updated, and a package of another version (/VERSION)
+; may carry it in place of ${MAINBINARYNAME}.exe. The package's own name is the one installed
+; ($main_binary), and the binary under the other name is removed once the shortcuts lead to it.
 !define OTHERBINARYNAME "astarot"
 !define UNINSTALLERSIGNCOMMAND "{{uninstaller_sign_cmd}}"
 !define ESTIMATEDSIZE "{{estimated_size}}"
@@ -176,6 +178,15 @@ Var PrevInstallLocation
 Var PrevUninstKey
 Var MoveFrom
 Var MoveTo
+; ADR-014, 2.5, 3 and 8: the main binary, without .exe, of the package this run installs
+; (${MAINBINARYNAME}, or ${OTHERBINARYNAME} in a package of another version), and the other name,
+; which the update removes. The shortcuts, the Apps list and /R start $main_binary.
+Var main_binary
+Var stale_binary
+; "1" when the install had the main binary under $stale_binary before this update.
+Var binary_renamed
+; The running main binary the user is asked to close (CheckIfAppIsRunning).
+Var running_binary
 ; What NormalizeFolderPath reads and writes.
 Var folder_path
 
@@ -517,6 +528,7 @@ Function PageLeaveReinstall
 
     ${If} $0 <> 0
     ${OrIf} ${FileExists} "$4\${MAINBINARYNAME}.exe"
+    ${OrIf} ${FileExists} "$4\${OTHERBINARYNAME}.exe"
       ${If} $0 = 1 ; User aborted uninstaller?
         StrCmp $R5 "2" 0 +2 ; Is the existing install the same version?
           Quit ; ...yes, already installed, we are done
@@ -563,7 +575,7 @@ Var AppStartMenuFolder
 !insertmacro MUI_PAGE_FINISH
 
 Function RunMainBinary
-  nsis_tauri_utils::RunAsUser "$INSTDIR\${MAINBINARYNAME}.exe" ""
+  nsis_tauri_utils::RunAsUser "$INSTDIR\$main_binary.exe" ""
 FunctionEnd
 
 ; Uninstaller Pages
@@ -850,21 +862,33 @@ SectionEnd
   ${EndIf}
 !macroend
 
-!macro CheckIfAppIsRunning
+!macro FindAppProcess name
   !if "${INSTALLMODE}" == "currentUser"
-    nsis_tauri_utils::FindProcessCurrentUser "${MAINBINARYNAME}.exe"
+    nsis_tauri_utils::FindProcessCurrentUser "${name}"
   !else
-    nsis_tauri_utils::FindProcess "${MAINBINARYNAME}.exe"
+    nsis_tauri_utils::FindProcess "${name}"
   !endif
   Pop $R0
+!macroend
+
+!macro CheckIfAppIsRunning
+  ; ADR-014, 2.5, 3: the app is the main binary under this version's name or under the other
+  ; one (an install of 0.6.x being updated runs vrct-vox.exe). Either is what the user is asked
+  ; to close.
+  StrCpy $running_binary "${MAINBINARYNAME}.exe"
+  !insertmacro FindAppProcess "$running_binary"
+  ${If} $R0 <> 0
+    StrCpy $running_binary "${OTHERBINARYNAME}.exe"
+    !insertmacro FindAppProcess "$running_binary"
+  ${EndIf}
   ${If} $R0 = 0
       IfSilent kill 0
       ${IfThen} $PassiveMode != 1 ${|} MessageBox MB_OKCANCEL "$(appRunningOkKill)" IDOK kill IDCANCEL cancel ${|}
       kill:
         !if "${INSTALLMODE}" == "currentUser"
-          nsis_tauri_utils::KillProcessCurrentUser "${MAINBINARYNAME}.exe"
+          nsis_tauri_utils::KillProcessCurrentUser "$running_binary"
         !else
-          nsis_tauri_utils::KillProcess "${MAINBINARYNAME}.exe"
+          nsis_tauri_utils::KillProcess "$running_binary"
         !endif
         Pop $R0
         Sleep 500
@@ -895,8 +919,9 @@ SectionEnd
   ; Meanwhile its exe and loaded libraries cannot be deleted, and its final
   ; save can write config.json again.
   !insertmacro StopLeftoverProcess "${SIDECARBINARYNAME}.exe"
-  ; ADR-014, 2.5, 3: the main binary under its other name, and the RVC worker under its names
-  ; before and after ADR-014, whose files are replaced below and whose folder may move. The
+  ; ADR-014, 2.5, 3: the main binary under its other name (when both ran, the check above
+  ; stopped only the first), and the RVC worker under its names before and after ADR-014,
+  ; whose files are replaced below and whose folder may move. The
   ; speech.cpp servers (speech.exe, llama-server.exe) have names other programs use too: they
   ; end with the app, which holds them in a job object that kills them when it closes.
   !insertmacro StopLeftoverProcess "${OTHERBINARYNAME}.exe"
@@ -924,6 +949,10 @@ Var move_result
 
 Section Install
   StrCpy $install_started "1"
+  ; Until the package says otherwise (install_ready).
+  StrCpy $main_binary "${MAINBINARYNAME}"
+  StrCpy $stale_binary "${OTHERBINARYNAME}"
+  StrCpy $binary_renamed "0"
   ; ADR-014, 2.5: an install in the default folder up to 0.5.0 is updated where it is, and the
   ; folder moves to $MoveTo once the new files are in (MoveInstallFolder). That is when $INSTDIR
   ; is still $MoveTo: always in passive mode, and when the user kept it on the directory page.
@@ -945,6 +974,7 @@ Section Install
   StrCpy $existing_install "0"
   ${If} ${FileExists} "$INSTDIR\uninstall.exe"
   ${OrIf} ${FileExists} "$INSTDIR\${MAINBINARYNAME}.exe"
+  ${OrIf} ${FileExists} "$INSTDIR\${OTHERBINARYNAME}.exe"
   ${OrIf} ${FileExists} "$INSTDIR\config.json"
     StrCpy $existing_install "1"
   ${EndIf}
@@ -1461,12 +1491,24 @@ Section Install
     ${EndIf}
     ; Never hold a working directory inside the tree being replaced.
     SetOutPath "$TEMP"
+    ; The package's main binary: this version's name, or the other one in a package of a version
+    ; from before or after ADR-014's step 6 (/VERSION).
+    StrCpy $main_binary ""
+    ${If} ${FileExists} "$INSTDIR\.upd\new\${MAINBINARYNAME}.exe"
+      StrCpy $main_binary "${MAINBINARYNAME}"
+      StrCpy $stale_binary "${OTHERBINARYNAME}"
+    ${ElseIf} ${FileExists} "$INSTDIR\.upd\new\${OTHERBINARYNAME}.exe"
+      StrCpy $main_binary "${OTHERBINARYNAME}"
+      StrCpy $stale_binary "${MAINBINARYNAME}"
+    ${EndIf}
     ${If} $0 == 0
-    ${AndIf} ${FileExists} "$INSTDIR\.upd\new\${MAINBINARYNAME}.exe"
+    ${AndIf} $main_binary != ""
     ${AndIf} ${FileExists} "$INSTDIR\.upd\new\_internal\*.*"
       Delete "$INSTDIR\.upd\$file_name"
       Goto install_ready
     ${EndIf}
+    StrCpy $main_binary "${MAINBINARYNAME}"
+    StrCpy $stale_binary "${OTHERBINARYNAME}"
     DetailPrint "Unpack failed (tar exit $0; $INSTDIR\.upd\new package incomplete) -- archive likely corrupt"
     ; Retries and the kept .bad archive both work from $TEMP.
     Rename "$INSTDIR\.upd\$file_name" "$TEMP\$file_name"
@@ -1550,7 +1592,7 @@ Section Install
 
   ; Replace the executable first, making dependency-rename failures exercise
   ; rollback of an already replaced executable as well.
-  StrCpy $upd_entry "${MAINBINARYNAME}.exe"
+  StrCpy $upd_entry "$main_binary.exe"
   Call CommitStagedEntry
   ${IfThen} $upd_failed == "1" ${|} Goto commit_failed ${|}
   commit_next:
@@ -1578,6 +1620,12 @@ Section Install
   ; leaves the old one in place through the commit above; it is no longer used.
   ${If} $stale_sidecar == "1"
     Delete "$INSTDIR\${SIDECARBINARYNAME}.exe"
+  ${EndIf}
+  ; ADR-014, 2.5, 7 and 8: the commit above replaced only what the package has, so the main
+  ; binary under the other name (vrct-vox.exe of an install up to 0.6.x) is still there. It goes
+  ; once the shortcuts lead to the package's binary (below).
+  ${If} ${FileExists} "$INSTDIR\$stale_binary.exe"
+    StrCpy $binary_renamed "1"
   ${EndIf}
 
   ; An in-place NSIS uninstall would delete the newly committed app. When
@@ -1612,12 +1660,24 @@ Section Install
   ; moved now or by a run that stopped before it got this far, has its shortcuts pointed there
   ; first. The keys below then record where the install is, moved or not. A run that stops in
   ; between leaves keys that bring the next update back here.
+  ; 2.5, 8: so has an install whose main binary had the other name. Its binary under that name
+  ; goes only after this, so that a run that stops in between finds it at the next update and
+  ; points the shortcuts again.
+  StrCpy $0 "0"
   ${If} $MoveFrom != ""
     !insertmacro SameFolder "" "$INSTDIR" "$MoveTo" $0
-    ${If} $0 == "1"
-      ; A shortcut's working directory.
-      SetOutPath "$INSTDIR"
-      Call RepointShortcuts
+  ${EndIf}
+  ${If} $0 == "1"
+  ${OrIf} $binary_renamed == "1"
+    ; A shortcut's working directory.
+    SetOutPath "$INSTDIR"
+    Call RepointShortcuts
+  ${EndIf}
+  ${If} $binary_renamed == "1"
+    Delete "$INSTDIR\$stale_binary.exe"
+    ; Removed at the next update when something still holds it.
+    ${If} ${FileExists} "$INSTDIR\$stale_binary.exe"
+      DetailPrint "Main binary under the other name: not removed"
     ${EndIf}
   ${EndIf}
 
@@ -1630,12 +1690,12 @@ Section Install
     WriteRegStr SHCTX "${UNINSTKEY}" $MultiUser.InstallMode 1
   !endif
 
-  ; Save current MAINBINARYNAME for future updates from v2 updater
-  WriteRegStr SHCTX "${UNINSTKEY}" "MainBinaryName" "${MAINBINARYNAME}.exe"
+  ; Save current MAINBINARYNAME for future updates from v2 updater: the package's own.
+  WriteRegStr SHCTX "${UNINSTKEY}" "MainBinaryName" "$main_binary.exe"
 
   ; Registry information for add/remove programs
   WriteRegStr SHCTX "${UNINSTKEY}" "DisplayName" "${PRODUCTNAME}"
-  WriteRegStr SHCTX "${UNINSTKEY}" "DisplayIcon" "$\"$INSTDIR\${MAINBINARYNAME}.exe$\""
+  WriteRegStr SHCTX "${UNINSTKEY}" "DisplayIcon" "$\"$INSTDIR\$main_binary.exe$\""
   WriteRegStr SHCTX "${UNINSTKEY}" "DisplayVersion" "${VERSION}"
   WriteRegStr SHCTX "${UNINSTKEY}" "Publisher" "${MANUFACTURER}"
   WriteRegStr SHCTX "${UNINSTKEY}" "InstallLocation" "$\"$INSTDIR$\""
@@ -1829,7 +1889,8 @@ Function .onInstSuccess
     ${GetOptions} $CMDLINE "/R" $R0
     IfErrors run_done 0
       ${GetOptions} $CMDLINE "/ARGS" $R0
-      nsis_tauri_utils::RunAsUser "$INSTDIR\${MAINBINARYNAME}.exe" "$R0"
+      ; ADR-014, 2.5, 8: the binary just installed, under its new name after the rename.
+      nsis_tauri_utils::RunAsUser "$INSTDIR\$main_binary.exe" "$R0"
   run_done:
 
   ; インストーラで選んだ UI 言語を config.json に直接書き込まない。
@@ -1892,8 +1953,10 @@ Section Uninstall
   !insertmacro CheckIfAppIsRunning
 
   ; Delete the app directory and its content from disk
-  ; Copy main executable
+  ; Copy main executable, under either name (ADR-014, 2.5): an install of another version's
+  ; package (/VERSION) has it under the other one.
   Delete "$INSTDIR\${MAINBINARYNAME}.exe"
+  Delete "$INSTDIR\${OTHERBINARYNAME}.exe"
 
   ; Delete resources
   {{#each resources}}
@@ -2130,13 +2193,13 @@ FunctionEnd
 !macroend
 
 Function CreateDesktopShortcut
-  CreateShortcut "$DESKTOP\${SHORTCUTNAME}.lnk" "$INSTDIR\${MAINBINARYNAME}.exe"
+  CreateShortcut "$DESKTOP\${SHORTCUTNAME}.lnk" "$INSTDIR\$main_binary.exe"
   !insertmacro SetLnkAppUserModelId "$DESKTOP\${SHORTCUTNAME}.lnk"
 FunctionEnd
 
 Function CreateStartMenuShortcut
   CreateDirectory "$SMPROGRAMS\$AppStartMenuFolder"
-  CreateShortcut "$SMPROGRAMS\$AppStartMenuFolder\${SHORTCUTNAME}.lnk" "$INSTDIR\${MAINBINARYNAME}.exe"
+  CreateShortcut "$SMPROGRAMS\$AppStartMenuFolder\${SHORTCUTNAME}.lnk" "$INSTDIR\$main_binary.exe"
   !insertmacro SetLnkAppUserModelId "$SMPROGRAMS\$AppStartMenuFolder\${SHORTCUTNAME}.lnk"
 FunctionEnd
 
@@ -2149,18 +2212,19 @@ FunctionEnd
   ${If} ${FileExists} "${old}"
     Delete "${old}"
     ${IfNot} ${FileExists} "${new}"
-      CreateShortcut "${new}" "$INSTDIR\${MAINBINARYNAME}.exe"
+      CreateShortcut "${new}" "$INSTDIR\$main_binary.exe"
       !insertmacro SetLnkAppUserModelId "${new}"
     ${EndIf}
   ${EndIf}
 !macroend
 
-; ADR-014, 2.5, 7: once the install folder moved, the shortcuts the installer made that are
-; still there lead to the new place; one the user removed is not made again. Pinned items are
-; not touched: a program cannot pin them again (the release notes ask to).
+; ADR-014, 2.5, 7 and 8: once the install folder moved or the main binary took its new name, the
+; shortcuts the installer made that are still there lead to the new place and name; one the user
+; removed is not made again. Pinned items are not touched: a program cannot pin them again (the
+; release notes ask to).
 !macro RepointShortcut shortcut
   ${If} ${FileExists} "${shortcut}"
-    CreateShortcut "${shortcut}" "$INSTDIR\${MAINBINARYNAME}.exe"
+    CreateShortcut "${shortcut}" "$INSTDIR\$main_binary.exe"
     !insertmacro SetLnkAppUserModelId "${shortcut}"
   ${EndIf}
 !macroend

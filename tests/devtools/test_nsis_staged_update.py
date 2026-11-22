@@ -113,7 +113,7 @@ class NsisStagedUpdateTests(unittest.TestCase):
             self.assertRegex(match[1], r"^\s*IfErrors ")
         self.assertRegex(commit, r'WriteUninstaller [^\n]+\n\s*IfErrors commit_failed')
         self.assertIn('FileOpen $0 "$INSTDIR\\.upd\\add\\uninstall.exe" w', commit)
-        self.assertLess(commit.index('StrCpy $upd_entry "${MAINBINARYNAME}.exe"'),
+        self.assertLess(commit.index('StrCpy $upd_entry "$main_binary.exe"'),
                         commit.index("commit_next:"))
 
     def test_marker_precedes_mutations_and_is_removed_before_cleanup(self):
@@ -317,7 +317,7 @@ class NsisInstallFolderMoveTests(unittest.TestCase):
     def test_only_shortcuts_that_are_there_are_pointed_at_the_new_place(self):
         macro = SOURCE.split("!macro RepointShortcut shortcut\n", 1)[1].split("!macroend", 1)[0]
         self.assertTrue(macro.strip().startswith('${If} ${FileExists} "${shortcut}"'))
-        self.assertIn('CreateShortcut "${shortcut}" "$INSTDIR\\${MAINBINARYNAME}.exe"', macro)
+        self.assertIn('CreateShortcut "${shortcut}" "$INSTDIR\\$main_binary.exe"', macro)
         self.assertNotIn("Pin", block("Function", "RepointShortcuts"))
 
     def test_the_helpers_stop_under_both_names(self):
@@ -325,6 +325,65 @@ class NsisInstallFolderMoveTests(unittest.TestCase):
         after_app = macro.split("app_check_done:", 1)[1]
         for name in ("${OTHERBINARYNAME}.exe", "vrct-rvc-worker.exe", "astarot-rvc-worker.exe"):
             self.assertIn(f'!insertmacro StopLeftoverProcess "{name}"', after_app)
+
+
+class NsisMainBinaryNameTests(unittest.TestCase):
+    """ADR-014, 2.5, 3, 7 and 8: the main binary is vrct-vox.exe up to 0.6.x and astarot.exe from
+    0.7.0. An update installs the package's binary, leads the shortcuts to it, starts it and then
+    removes the one under the other name."""
+
+    def test_the_running_app_is_asked_about_under_either_name(self):
+        macro = SOURCE.split("\n!macro CheckIfAppIsRunning\n", 1)[1].split("\n!macroend", 1)[0]
+        asked = macro.split("MessageBox", 1)[0]
+        self.assertLess(asked.index('StrCpy $running_binary "${MAINBINARYNAME}.exe"'),
+                        asked.index('StrCpy $running_binary "${OTHERBINARYNAME}.exe"'))
+        self.assertEqual(asked.count('!insertmacro FindAppProcess "$running_binary"'), 2)
+        kill = macro.split("kill:", 1)[1].split("app_check_done:", 1)[0]
+        self.assertIn('nsis_tauri_utils::KillProcessCurrentUser "$running_binary"', kill)
+        self.assertNotIn("${MAINBINARYNAME}", kill)
+
+    def test_a_package_may_carry_the_main_binary_under_either_name(self):
+        install = block("Section", "Install")
+        tar = next(line for line in install.splitlines() if "-xvf" in line)
+        validated = install.split(tar, 1)[1].split("attempt_failed:", 1)[0]
+        found = validated.index('${If} ${FileExists} "$INSTDIR\\.upd\\new\\${MAINBINARYNAME}.exe"')
+        self.assertLess(found, validated.index('${ElseIf} ${FileExists} "$INSTDIR\\.upd\\new\\${OTHERBINARYNAME}.exe"'))
+        self.assertLess(found, validated.index("${If} $0 == 0"))
+        self.assertIn('${AndIf} $main_binary != ""', validated)
+        # The package's binary is the one committed first.
+        self.assertIn('StrCpy $upd_entry "$main_binary.exe"', install)
+        # An install under either name is an install.
+        existing = install.split('StrCpy $existing_install "0"', 1)[1].split("${EndIf}", 1)[0]
+        for name in ("${MAINBINARYNAME}", "${OTHERBINARYNAME}"):
+            self.assertIn(f'${{FileExists}} "$INSTDIR\\{name}.exe"', existing)
+
+    def test_the_binary_under_the_other_name_goes_once_the_shortcuts_lead_to_the_new_one(self):
+        commit = block("Section", "Install").split("install_ready:", 1)[1]
+        renamed = commit.index('StrCpy $binary_renamed "1"')
+        # Only after the commit is final; a rollback keeps it.
+        self.assertLess(commit.index('Delete "$INSTDIR\\.upd\\committing"'), renamed)
+        self.assertIn('${If} ${FileExists} "$INSTDIR\\$stale_binary.exe"', commit[:renamed])
+        repoint = commit.index("Call RepointShortcuts")
+        self.assertIn('${OrIf} $binary_renamed == "1"', commit[:repoint].rsplit('${If} $MoveFrom != ""', 1)[1])
+        removed = commit.index('Delete "$INSTDIR\\$stale_binary.exe"')
+        self.assertLess(renamed, repoint)
+        self.assertLess(repoint, removed)
+        self.assertLess(removed, commit.index("Call RemoveOldKeys"))
+
+    def test_shortcuts_the_apps_list_and_the_restart_start_the_installed_binary(self):
+        code = [line for line in SOURCE.splitlines() if not line.lstrip().startswith(";")]
+        for line in code:
+            if "CreateShortcut" in line or "RunAsUser" in line or '"DisplayIcon"' in line or '"MainBinaryName"' in line:
+                self.assertIn("$INSTDIR\\$main_binary.exe" if "MainBinaryName" not in line else '"$main_binary.exe"', line)
+        restart = block("Function", ".onInstSuccess").split('${GetOptions} $CMDLINE "/R" $R0', 1)[1].split("run_done:", 1)[0]
+        self.assertIn('nsis_tauri_utils::RunAsUser "$INSTDIR\\$main_binary.exe" "$R0"', restart)
+        # Shortcuts up to 0.5.0 carried the binary's name of then, whatever it is now.
+        self.assertIn('!define OLDSHORTCUTNAME "vrct-vox"', SOURCE)
+
+    def test_the_uninstaller_removes_the_main_binary_under_both_names(self):
+        uninstall = block("Section", "Uninstall")
+        for name in ("${MAINBINARYNAME}", "${OTHERBINARYNAME}"):
+            self.assertIn(f'Delete "$INSTDIR\\{name}.exe"', uninstall)
 
 
 if __name__ == "__main__":
