@@ -669,6 +669,25 @@ config_page:
             not_installed: "{{name}}（未インストール。代わりのフォントで表示中）"
         ui_language:
             label: "UIの言語"
+        theme:
+            label: "テーマ"
+            desc: "メイン画面と設定、そのダイアログの色です。どのテーマも明るさとコントラストは同じで、色合いだけが変わります。警告とエラーの色、送信と受信のログの色合いは変わりません。"
+            # The presets' names are the same English names in every language.
+            presets:
+                dark_plum: "Dark Plum"
+                midnight: "Midnight"
+                lagoon: "Lagoon"
+                forest: "Forest"
+                rose: "Rose"
+                graphite: "Graphite"
+            custom: "Custom"
+            base:
+                label: "Base"
+                desc: "背景、面、枠線、文字の色合いです。それぞれの明るさはDark Plumと同じに保つので、文字は読みやすいままです。"
+            accent:
+                label: "Accent"
+                desc: "主なボタン、使用中の項目、オンの状態、キーボードのフォーカスの色合いです。明るさはテーマが決めます。"
+            accent_near_states: "このAccentは警告やエラーの色に近いため、オンの状態と見分けにくくなります。"
 
     translation:
         setup_title: "モデルと処理デバイス"
@@ -2769,9 +2788,8 @@ virtual_mic:
     title: "VRChatに声を届ける仮想マイクを用意してください"
     purpose: "読み上げやボイスチェンジャーの声をVRChatへ届けるには仮想マイク（仮想ケーブル）が要ります。Windowsではアプリが仮想マイクを作れないので、別に入れてください。"
     not_needed: "翻訳と字幕だけを使うなら要りません。このまま閉じてかまいません。"
-    later: "後で"
+    close: "閉じる"
     done: "完了"
-    dont_show: "今後は自動で表示しない（設定から開けます）"
     install:
         heading: "仮想ケーブルを入れる"
         download: "VB-CABLEの配布ページからダウンロードします。"

@@ -228,6 +228,33 @@ fn overlay_desktop_placement() -> Check {
     })
 }
 
+/// The app's theme (#965): the preset in use and the user's own two colours, kept while a preset
+/// is in use. The preset is checked only as an id ("custom" or a preset's): the UI knows its
+/// presets, and one it does not know (saved by a newer version) is the default there. The colours
+/// are "#rrggbb", saved in lower case.
+fn theme() -> Check {
+    validated(|value, _| {
+        let value = value.as_object()?;
+        if value.len() != 2 {
+            return None;
+        }
+        let preset = value.get("preset")?.as_str()?;
+        let id = preset.len() <= 32
+            && preset.bytes().next().is_some_and(|b| b.is_ascii_lowercase())
+            && preset.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'_');
+        let custom = value.get("custom")?.as_object()?;
+        if !id || custom.len() != 2 {
+            return None;
+        }
+        let color = |name: &str| {
+            let hex = custom.get(name)?.as_str()?;
+            let digits = hex.strip_prefix('#')?;
+            (digits.len() == 6 && digits.bytes().all(|b| b.is_ascii_hexdigit())).then(|| hex.to_ascii_lowercase())
+        };
+        Some(json!({ "preset": preset, "custom": { "base": color("base")?, "accent": color("accent")? } }))
+    })
+}
+
 fn io_flow_overlay() -> Check {
     validated(|value, ctx| {
         let value = value.as_object()?;
@@ -629,6 +656,8 @@ pub fn keys() -> Vec<Key> {
         // How the model catalogs lay out their cards: "grid" or "list" (the settings' catalogs). It
         // changes no model and no feature.
         key("CATALOG_LAYOUT", managed(Ty::Str, false, |v, _| matches!(v.as_str(), Some("grid" | "list")))),
+        // The app's theme (#965): its colours only. It changes no feature.
+        key("THEME", theme()),
         // The screen edge the tray companion's hexagram hides at (src-tauri/src/companion.rs).
         key("TRAY_COMPANION_EDGE", one_of("TRAY_COMPANION_EDGE_LIST")),
         // The monitor it shows on, by the system's name for it; empty for the primary monitor.
@@ -897,6 +926,8 @@ pub fn defaults(env: &Environment) -> Map<String, Value> {
         // A new install starts with the basic features; an update shows all (Config::migrate_usage_presets).
         ("USAGE_PRESETS", json!(["basic"])),
         ("CATALOG_LAYOUT", json!("grid")),
+        // The default theme is the brand's Dark Plum and Lilac, also as the user's own colours.
+        ("THEME", json!({ "preset": "dark_plum", "custom": { "base": "#261633", "accent": "#a47af5" } })),
         ("TRAY_COMPANION_EDGE", json!("right")),
         ("TRAY_COMPANION_MONITOR", json!("")),
         ("TRAY_COMPANION_WHEEL_HINT_SHOWN", json!(false)),

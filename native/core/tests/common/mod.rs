@@ -88,6 +88,19 @@ impl Default for Setup {
     }
 }
 
+/// Reads the system's subtitle fonts once in this test process, before a test that draws the VR
+/// logs starts its core (#861). Each core still loads the fonts itself, now from the file cache.
+/// The first read on a Windows runner took 2 to 3 s (the font names, then the Japanese and Latin
+/// faces); in a test that waits for pictures, it was time the test did not mean to measure.
+pub fn warm_system_fonts() {
+    static WARM: std::sync::OnceLock<()> = std::sync::OnceLock::new();
+    WARM.get_or_init(|| {
+        let library = vrct_core::vr_overlay::fonts::FontLibrary::new(Vec::new());
+        let _ = library.faces("Default");
+        let _ = library.faces("Latin");
+    });
+}
+
 /// The stand-in OS key store of this test process. Each settings folder has its own id in it.
 pub fn shared_vault() -> Arc<vrct_core::config::secrets::MemoryStore> {
     static VAULT: std::sync::OnceLock<Arc<vrct_core::config::secrets::MemoryStore>> = std::sync::OnceLock::new();

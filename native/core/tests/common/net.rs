@@ -38,10 +38,19 @@ pub fn port_free(host: &str, port: u16) -> bool {
 }
 
 /// Waits up to 5 s for `condition`.
-pub fn eventually(what: &str, mut condition: impl FnMut() -> bool) {
+pub fn eventually(what: &str, condition: impl FnMut() -> bool) {
+    eventually_or(what, condition, String::new);
+}
+
+/// [`eventually`], with `explain` saying what the state was when it did not happen: whether the
+/// awaited thing was late or went another way (#861).
+pub fn eventually_or(what: &str, mut condition: impl FnMut() -> bool, explain: impl FnOnce() -> String) {
     let deadline = Instant::now() + Duration::from_secs(5);
     while !condition() {
-        assert!(Instant::now() < deadline, "{what} did not happen within 5 s");
+        if Instant::now() >= deadline {
+            let state = explain();
+            panic!("{what} did not happen within 5 s{}{state}", if state.is_empty() { "" } else { "; " });
+        }
         std::thread::sleep(Duration::from_millis(20));
     }
 }

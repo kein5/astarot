@@ -59,7 +59,7 @@ LINT_PATHS = [
     "tools/check_voice_distribution.py", "tools/release_candidate.py", "tools/native_acceptance.py",
     "tools/prepare_release.py", "tools/release_automation.py", "tools/changelog.py", "tools/dev.py", "tools/build_linux.py",
     "tools/check_python_lock.py", "tools/rust_licenses.py", "tools/rust_coverage.py", "tools/app_resources.py",
-    "tools/adr_catalog.py", "tools/rvc_worker_bench.py", "tools/update_channels.py", "tests/devtools",
+    "tools/adr_catalog.py", "tools/rvc_worker_bench.py", "tools/update_channels.py", "tools/mutation_changed.py", "tests/devtools",
 ]
 
 

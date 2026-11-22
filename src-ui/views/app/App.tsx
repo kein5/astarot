@@ -15,6 +15,7 @@ import {
     ConfigPageCloseTriggerController,
     UiSizeController,
     FontFamilyController,
+    ThemeController,
     TransparencyController,
     CornerRadiusController,
     VrPanelSyncController,
@@ -63,6 +64,7 @@ export const App = () => {
                 <ConfigPageCloseTriggerController />
                 <UiSizeController />
                 <FontFamilyController />
+                <ThemeController />
                 <TransparencyController />
                 <CornerRadiusController />
                 <VrPanelSyncController />

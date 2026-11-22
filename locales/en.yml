@@ -669,6 +669,25 @@ config_page:
             not_installed: "{{name}} (not installed; a fallback font is shown)"
         ui_language:
             label: "UI language"
+        theme:
+            label: "Theme"
+            desc: "The colors of the main window, the settings and their dialogs. Every theme has the same lightness and contrast; only the hues change. Warnings and errors keep their colors, and sent and received messages their hues."
+            # The presets' names are the same English names in every language.
+            presets:
+                dark_plum: "Dark Plum"
+                midnight: "Midnight"
+                lagoon: "Lagoon"
+                forest: "Forest"
+                rose: "Rose"
+                graphite: "Graphite"
+            custom: "Custom"
+            base:
+                label: "Base"
+                desc: "The hue of the background, the panels, the borders and the text. The theme keeps each of them as light as in Dark Plum, so the text stays readable."
+            accent:
+                label: "Accent"
+                desc: "The hue of the main buttons, the item in use, the active state and the keyboard focus. Its lightness is set by the theme."
+            accent_near_states: "This accent is close to the colors of warnings and errors, so the active state may be hard to tell from them."
 
     translation:
         setup_title: "Model and device"
@@ -2769,9 +2788,8 @@ virtual_mic:
     title: "Set up a virtual microphone to reach VRChat"
     purpose: "To send text-to-speech and your converted voice to VRChat, you need a virtual microphone (a virtual cable). On Windows the app cannot create one, so it has to be installed separately."
     not_needed: "If you only use translation and captions, you do not need one, and you can close this."
-    later: "Later"
+    close: "Close"
     done: "Done"
-    dont_show: "Don't open this by itself again (you can open it from the settings)"
     install:
         heading: "Install a virtual cable"
         download: "Download VB-CABLE from its download page."

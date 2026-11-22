@@ -1,9 +1,8 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "vitest";
-import { hooks, loadModule, find, findIn, forwardRefRender, setRef, unchecked } from "../../logics/test/hookHarness.ts";
+import { hooks, loadModule, find, findIn, setRef, unchecked } from "../../logics/test/hookHarness.ts";
 import type { TreeNode } from "../../logics/test/hookHarness.ts";
-import type { DialogProps } from "./Dialog.tsx";
 
 // The kit's Dialog: shadcn/ui's Dialog parts on the native <dialog> (docs/design/components/).
 const read = (name: string) => readFileSync(new URL(name, import.meta.url), "utf8");
@@ -23,9 +22,8 @@ const fakeDialog = () => {
 async function dialog() {
     const runtime = hooks(), changes: boolean[] = [];
     const { Dialog } = await loadModule<DialogModule>(new URL("./Dialog.tsx", import.meta.url), runtime);
-    const draw = forwardRefRender(Dialog);
     const { element, calls } = fakeDialog();
-    const render = (open: boolean) => runtime.render((props: DialogProps) => draw(props, null),
+    const render = (open: boolean) => runtime.render(Dialog,
         { open, onOpenChange: (next: boolean) => changes.push(next), children: "words" },
         // The test attaches the fake where React would: through the element's ref.
         tree => { setRef(findIn(tree, node => node.type === "dialog"), element); });

@@ -10,7 +10,7 @@ UIから中核への要求と、中核からUIへの通知（`RUN_MAPPING`）の
 - UIの受信先: 200の応答を処理するUIのフック（`useReceiveRoutes.ts`の静的ルートと`ui_config_setter.ts`の定義から生成）。「—」は受信先がない。
 - ログで伏せる: `process.log`で値を`***MASKED***`に置き換える（`log::SENSITIVE_ENDPOINT_MARKERS`）。stdoutのIPCそのものは伏せない。
 
-## 要求（475件: 削除 13、取得 212、実行 49、有効化 41、無効化 44、設定 116）
+## 要求（477件: 削除 13、取得 213、実行 49、有効化 41、無効化 44、設定 117）
 
 並びは中核が経路を足した順（`controller/routes.rs`）。
 
@@ -121,6 +121,8 @@ UIから中核への要求と、中核からUIへの通知（`RUN_MAPPING`）の
 | `/set/data/usage_presets` | 設定 | 可 | useUsagePresets.setSuccessUsagePresets |  |
 | `/get/data/catalog_layout` | 取得 | 可 | useAppearance.updateFromBackendCatalogLayout |  |
 | `/set/data/catalog_layout` | 設定 | 可 | useAppearance.setSuccessCatalogLayout |  |
+| `/get/data/theme` | 取得 | 可 | useAppearance.updateFromBackendTheme |  |
+| `/set/data/theme` | 設定 | 可 | useAppearance.setSuccessTheme |  |
 | `/get/data/llm_translation_temperature` | 取得 | 可 | useTranslation.updateFromBackendLLMTranslationTemperature |  |
 | `/set/data/llm_translation_temperature` | 設定 | 可 | useTranslation.setSuccessLLMTranslationTemperature |  |
 | `/get/data/llm_translation_instructions` | 取得 | 可 | useTranslation.updateFromBackendLLMTranslationInstructions | ログで伏せる |

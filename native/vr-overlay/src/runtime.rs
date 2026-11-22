@@ -252,6 +252,13 @@ pub mod fake {
             self.with(|s| s.calls.iter().filter(|c| c.starts_with(&tag)).cloned().collect())
         }
 
+        /// Whether the overlays of the latest connection are built (#861). The engine makes the
+        /// five of them first and gives each its first, empty picture after: an overlay that
+        /// exists may still get that picture. Count pictures only once this holds.
+        pub fn built(&self) -> bool {
+            (0..5).all(|i| self.handle(&format!("ASTAROT{i}")).is_some_and(|handle| !self.calls_on(handle, "raw").is_empty()))
+        }
+
         /// Puts a device somewhere (index 0 is the headset); `None` loses its tracking.
         pub fn set_pose(&self, device: Device, pose: Option<Mat4>) {
             self.with(|s| {

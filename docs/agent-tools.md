@@ -55,4 +55,5 @@
 - いつ使う: リファクタリングの節目と、対象のモジュールを変えたとき。CIでは常には回さない。対象は小さな純粋なロジックにし、Rust側はタイミングに依存するテストのないモジュールから始める。
 - 画面側: `npm run test:mutation` で回す（mutator 0.2.0）。対象は `mutator.config.mjs` にあり、テストが実行する `src-ui/logics` と `src-ui/views` のソース（`hookHarness.ts` の `loadModule` などで読むフックや部品も、Viteを通るので含む）。手順、結果の読み方、Vitestのキャッシュの注意は[docs/development.md](development.md)の「UIのミューテーションテスト」にある。
 - Rust側: クレートごとに `cargo mutants -f <ファイル>` で回す。`native/core` は `--in-place` で回す。手順、カバレッジの測り方、結果の読み方は[docs/development.md](development.md)の「Rustのカバレッジとミューテーションテスト」にある。
+- 変えた所だけ: `mise run mutation:changed` が、作業中の枝が変えた画面のソースとRustのファイルの変異だけを回す（mutator の `--since`、cargo-mutants の `--in-diff`）。[docs/development.md](development.md)の「変えた所のミューテーションテスト」にある。
 - 正本: [Issue #550](https://github.com/kein5/astarot/issues/550)。0.6.0で導入を進めることが決まっている。運用の決め方（Phase 3）は未決。結果を報告するときは、対象の範囲と計測した条件を添え、スコアを品質の保証としては書かない。

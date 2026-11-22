@@ -1,59 +1,43 @@
-/* The guide wears the app's Dark Studio as it was before the plum palette (DESIGN.md): navy
-   surfaces, hairlines, one blue for what you send and the flow diagram's purple for what comes
-   back (RouteStrip.tsx). The site is dark only for now (rspress.config.ts `darkMode`); the
-   ASTAROT tokens and a light scheme come in the next stage of docs/design/site-redesign.
-   Also on :root, because the dark class needs JavaScript and the / picker must read without it.
-   Rspress sets its own values under :where(), so these win. */
-:root,
-html.rp-dark {
-  color-scheme: dark;
-  --rp-c-bg: #111b2c;
-  --rp-c-bg-soft: #0d1625;
-  --rp-c-bg-mute: #18253b;
-  --rp-c-bg-alt: #0d1625;
-  --rp-c-divider: #344662;
-  --rp-c-divider-light: #2b3b55;
-  --rp-c-text-0: #ffffff;
-  --rp-c-text-1: #edf3ff;
-  --rp-c-text-2: #adbed6;
-  --rp-c-text-3: #8d9fb9;
-  --rp-c-text-4: #8d9fb9;
-  --rp-c-brand: #80acff;
-  --rp-c-brand-light: #a9ccff;
-  --rp-c-brand-lighter: #a9ccff;
-  --rp-c-brand-dark: #3470e8;
-  --rp-c-brand-darker: #2865dc;
-  --rp-c-brand-tint: rgba(40, 101, 220, 0.18);
-  --rp-c-link: #80acff;
-  --rp-c-text-code: #dbe6fb;
-  --rp-c-text-code-bg: #1b2a43;
-  --rp-code-block-bg: #0d1625;
-  --rp-code-block-border: 1px solid #2b3b55;
-  --rp-home-background-bg: #111b2c;
-  --rp-radius: 8px;
+/* The guide wears the app's palette (DESIGN.md): Dark Plum, Lilac and Off-White, in a light and a
+   dark scheme. The role tokens (--a-*) are in tokens.css, which tools/site_tokens.mjs writes from
+   DESIGN.md; the guide's parts use only those. Here Rspress's own variables take their values from
+   the tokens, so its parts wear the same colours. Rspress sets its own under :where(), so these win;
+   a variable that refers to a token follows the scheme, because both sit on <html>. */
+:root {
+  --rp-c-bg: var(--a-canvas);
+  --rp-c-bg-soft: var(--a-rail);
+  --rp-c-bg-mute: var(--a-surface);
+  --rp-c-bg-alt: var(--a-rail);
+  --rp-c-divider: var(--a-field-border);
+  --rp-c-divider-light: var(--a-border);
+  --rp-c-text-0: var(--a-text);
+  --rp-c-text-1: var(--a-text);
+  --rp-c-text-2: var(--a-secondary-text);
+  --rp-c-text-3: var(--a-description-text);
+  --rp-c-text-4: var(--a-description-text);
+  /* Rspress draws its brand colour as text (the page you are on, a hover, a search match), so it
+     is the Lilac that reads as text in both schemes. The Lilac fill of a button is --a-primary. */
+  --rp-c-brand: var(--a-state-active);
+  --rp-c-brand-light: var(--a-state-active);
+  --rp-c-brand-lighter: var(--a-state-active);
+  --rp-c-brand-dark: var(--a-state-active);
+  --rp-c-brand-darker: var(--a-state-active);
+  --rp-c-brand-tint: var(--a-primary-soft);
+  --rp-c-link: var(--a-link);
+  --rp-c-text-code: var(--a-text);
+  --rp-c-text-code-bg: var(--a-code-bg);
+  --rp-code-block-bg: var(--a-rail);
+  --rp-code-block-border: 1px solid var(--a-border);
+  --rp-home-background-bg: var(--a-canvas);
+  --rp-radius: var(--a-radius-control);
 
-  /* The guide's own roles: the callouts, the route strip, the step progress, the buttons. */
-  --vox-mine: #6ea8ff;
-  --vox-theirs: #b48cff;
-  --vox-rule: #5b92ff;
-  --vox-warning: #cb944f;
-  --vox-failed: #f08a85;
-  --vox-surface: #18253b;
-  --vox-surface-hover: #213049;
-  --vox-hairline: #2b3b55;
-  --vox-border: #344662;
-  --vox-border-strong: #4a5f80;
-  --vox-focus: #a9ccff;
-  --vox-on-light: #0d1625;
-  --vox-button-bg: #2865dc;
-  --vox-button-hover-bg: #3470e8;
-  --vox-button-text: #ffffff;
-  --vox-brand-soft: rgba(40, 101, 220, 0.18);
-  /* Motion for the guide's parts: short, and settling with at most a 2% overshoot. */
-  --vox-ease: cubic-bezier(0.2, 0, 0, 1);
-  --vox-ease-settle: cubic-bezier(0.3, 1.25, 0.4, 1);
-  --vox-motion-fast: 140ms;
-  --vox-motion: 240ms;
+  /* Tints made from the tokens, for the parts that need a softer form of a role. */
+  --a-surface-hover: color-mix(in oklab, var(--a-surface), var(--a-text) 6%);
+  --a-primary-soft: color-mix(in srgb, var(--a-primary) 18%, transparent);
+  --a-code-bg: color-mix(in oklab, var(--a-rail), var(--a-text) 6%);
+  --a-link-underline: color-mix(in srgb, var(--a-link) 45%, transparent);
+  --a-warning-border: color-mix(in srgb, var(--a-state-warning) 55%, transparent);
+  --a-failed-border: color-mix(in srgb, var(--a-state-failed) 55%, transparent);
 
   /* No remote or bundled web font: Latin from the system UI face, Japanese from the reader's own
      fonts (BIZ UDPGothic ships with Japanese Windows). */
@@ -61,21 +45,26 @@ html.rp-dark {
     'Hiragino Sans', 'BIZ UDPGothic', 'Yu Gothic UI', 'Meiryo', system-ui, sans-serif;
 }
 
-/* A reader who asks for less motion gets the end state at once. */
-@media (prefers-reduced-motion: reduce) {
-  :root,
-  html.rp-dark {
-    --vox-motion-fast: 0ms;
-    --vox-motion: 0ms;
-  }
+/* Rspress's callout colours sit on :root and .dark at the same weight as ours; html:root wins. The
+   callouts themselves are drawn below, so these reach only code and links inside them. */
+html:root {
+  --rp-container-note-text: var(--a-text);
+  --rp-container-tip-text: var(--a-text);
+  --rp-container-info-text: var(--a-text);
+  --rp-container-important-text: var(--a-text);
+  --rp-container-warning-text: var(--a-state-warning);
+  --rp-container-danger-text: var(--a-state-failed);
+  --rp-container-caution-text: var(--a-state-failed);
 }
 
 body {
   background: var(--rp-c-bg);
 }
 
+/* Focus is a 2px ring of the focus colour, 2px out from the part (docs/design/site-redesign, 3.4). */
 :focus-visible {
-  outline-color: var(--vox-focus);
+  outline: 2px solid var(--a-focus);
+  outline-offset: 2px;
 }
 
 /* The / page is for no language of its own (rspress.config.ts); it is not one to switch to. */
@@ -91,6 +80,20 @@ body {
   --rp-sidebar-width: 272px;
   --rp-outline-width: 240px;
   --rp-content-padding-x: 64px;
+}
+
+/* Narrower windows keep their room for the text: the section step beside a tablet's column, the
+   large step on a phone (DESIGN.md's spacing), as Rspress itself narrows it. */
+@media (max-width: 1279px) {
+  :root {
+    --rp-content-padding-x: var(--a-space-section);
+  }
+}
+
+@media (max-width: 768px) {
+  :root {
+    --rp-content-padding-x: var(--a-space-large);
+  }
 }
 
 .rp-doc-layout__doc-container {
@@ -140,7 +143,7 @@ body {
   margin: 56px 0 16px;
   padding-top: 0;
   border-top: 0;
-  font-size: 22px;
+  font-size: 24px;
   line-height: 32px;
   font-weight: 600;
 }
@@ -149,7 +152,7 @@ body {
   content: '';
   flex: 1 0 24px;
   height: 1px;
-  background: var(--vox-hairline);
+  background: var(--a-border);
 }
 
 .rp-doc h3 {
@@ -164,7 +167,7 @@ body {
 .rp-doc a.rp-link:not(.rp-header-anchor) {
   text-decoration: underline;
   text-decoration-thickness: 1px;
-  text-decoration-color: rgba(128, 172, 255, 0.45);
+  text-decoration-color: var(--a-link-underline);
   text-underline-offset: 4px;
 }
 
@@ -177,10 +180,16 @@ body {
 /* A raised surface with a hairline all round; the state colour is in the title and a tint of
    the border, never a thick side stripe. */
 .rp-doc .rp-callout {
-  border: 1px solid var(--vox-border);
-  border-radius: 8px;
-  background: var(--vox-surface);
+  border: 1px solid var(--a-border);
+  border-radius: var(--a-radius-control);
+  background: var(--a-surface);
   color: var(--rp-c-text-1);
+}
+
+/* Rspress marks a callout's title with a bar at the left edge; the state lives in the title's
+   colour and the border's tint instead. */
+.rp-doc .rp-callout .rp-callout__title::before {
+  display: none;
 }
 
 .rp-doc .rp-callout .rp-callout__title {
@@ -190,21 +199,21 @@ body {
 }
 
 .rp-doc .rp-callout--warning {
-  border-color: rgba(203, 148, 79, 0.55);
+  border-color: var(--a-warning-border);
 }
 
 .rp-doc .rp-callout--warning .rp-callout__title {
-  color: var(--vox-warning);
+  color: var(--a-state-warning);
 }
 
 .rp-doc .rp-callout--danger,
 .rp-doc .rp-callout--caution {
-  border-color: rgba(240, 138, 133, 0.55);
+  border-color: var(--a-failed-border);
 }
 
 .rp-doc .rp-callout--danger .rp-callout__title,
 .rp-doc .rp-callout--caution .rp-callout__title {
-  color: var(--vox-failed);
+  color: var(--a-state-failed);
 }
 
 .rp-doc details.rp-callout summary {
@@ -217,9 +226,9 @@ body {
 .rp-doc .needs {
   margin: 12px 0 16px;
   padding: 8px 12px;
-  border: 1px solid var(--vox-hairline);
-  border-radius: 8px;
-  background: var(--vox-surface);
+  border: 1px solid var(--a-border);
+  border-radius: var(--a-radius-control);
+  background: var(--a-surface);
   font-size: 15px;
   line-height: 24px;
 }
@@ -234,7 +243,7 @@ body {
   margin: 16px 0 24px;
   padding: 0;
   list-style: none;
-  border-bottom: 1px solid var(--vox-hairline);
+  border-bottom: 1px solid var(--a-border);
 }
 
 .rp-doc .feature-rows > ul > li {
@@ -243,7 +252,7 @@ body {
   column-gap: 24px;
   margin: 0;
   padding: 12px 0;
-  border-top: 1px solid var(--vox-hairline);
+  border-top: 1px solid var(--a-border);
   color: var(--rp-c-text-2);
 }
 
@@ -271,8 +280,8 @@ body {
   column-gap: 32px;
   margin: 16px 0;
   padding: 12px 16px;
-  border: 1px solid var(--vox-hairline);
-  border-radius: 8px;
+  border: 1px solid var(--a-border);
+  border-radius: var(--a-radius-control);
   list-style: none;
 }
 
@@ -299,7 +308,7 @@ body {
 
 .rp-doc th {
   color: var(--rp-c-text-1);
-  background: var(--vox-surface);
+  background: var(--a-surface);
 }
 
 .rp-doc tr:nth-child(2n) {
@@ -312,15 +321,15 @@ body {
 }
 
 .rp-doc :not(pre) > code {
-  border-radius: 4px;
+  border-radius: var(--a-radius-small);
   padding: 2px 6px;
 }
 
 /* ---------- Pictures ---------- */
 
 .rp-doc img {
-  border: 1px solid var(--vox-hairline);
-  border-radius: 8px;
+  border: 1px solid var(--a-border);
+  border-radius: var(--a-radius-control);
 }
 
 /* Screenshots open at full size (index.tsx). */
@@ -329,8 +338,8 @@ body {
 }
 
 .rp-doc img[data-zoom]:focus-visible {
-  outline: 2px solid var(--vox-focus);
-  outline-offset: 3px;
+  outline: 2px solid var(--a-focus);
+  outline-offset: 2px;
 }
 
 .shot-zoom {
@@ -338,14 +347,14 @@ body {
   max-height: 94vh;
   padding: 0;
   overflow: auto;
-  border: 1px solid var(--vox-border);
-  border-radius: 8px;
+  border: 1px solid var(--a-border);
+  border-radius: var(--a-radius-control);
   background: var(--rp-c-bg);
   cursor: zoom-out;
 }
 
 .shot-zoom::backdrop {
-  background: rgba(5, 10, 18, 0.82);
+  background: var(--a-backdrop);
 }
 
 .shot-zoom img {
@@ -499,7 +508,7 @@ body {
   max-width: 1152px;
   margin: 0 auto;
   padding: 32px 24px 48px;
-  border-top: 1px solid var(--vox-hairline);
+  border-top: 1px solid var(--a-border);
   font-size: 14px;
   line-height: 24px;
   text-align: center;
