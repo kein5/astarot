@@ -55,7 +55,7 @@ interface World {
 }
 
 function world(values: Partial<World> = {}): World {
-    return { notice: true, settled: false, opened: false, telemetryPending: false,
+    return { notice: true, settled: false, opened: true, telemetryPending: false,
         engine: null, server: "external", paths: { model: "", vad_model: "" }, catalog: CATALOG, jobs: {},
         downloadError: null, realtimeError: null, sent: [], calls: [],
         mic: "Microphone (USB)", vrchat: "found", cables: [], needs: [], weight: "m2m100_418M-ct2-int8", downloaded: [], ...values };
@@ -120,24 +120,24 @@ async function setup(context: TestContext, w = world()) {
     return { render, button, buttons, part };
 }
 
-test("it opens by itself only while pending, after the other notices, and when the recognition needs it", async context => {
-    assert.notEqual((await setup(context)).render(), null);
-    assert.equal((await setup(context, world({ notice: false }))).render(), null);
-    assert.equal((await setup(context, world({ telemetryPending: true }))).render(), null);
-    assert.equal((await setup(context, world({ engine: "Deepgram" }))).render(), null);
-    assert.equal((await setup(context, world({ engine: "SpeechCpp", server: "external" }))).render(), null);
-    // #936: the recognition ready and the translation's model left (fetchable): it opens for that.
+// #935: it never opens by itself, not even pending with the recognition needing it, after the
+// other notices; the first screen's line to it stands out instead (EmptyState).
+test("it never opens by itself; it opens from the first screen whatever the notice says", async context => {
+    // #936: nor with only the translation's model left.
     const ready = { engine: "SpeechCpp", server: "bundled", paths: { model: "/m/a.gguf", vad_model: "/m/v.gguf" } };
-    assert.notEqual((await setup(context, world({ ...ready, needs: [{ id: "translation", action: "review", weight: { id: "m2m100_418M-ct2-int8" } }] }))).render(), null);
-    assert.equal((await setup(context, world({ ...ready, needs: [{ id: "translation", action: "choose", weight: { id: "x" } }] }))).render(), null);
-    // Opened from the first screen it shows whatever the notice says.
+    const translationLeft = { ...ready, needs: [{ id: "translation", action: "review", weight: { id: "m2m100_418M-ct2-int8" } }] };
+    for (const values of [{}, { telemetryPending: true }, { engine: "Deepgram" }, { notice: false }, translationLeft])
+        assert.equal((await setup(context, world({ ...values, opened: false }))).render(), null, JSON.stringify(values));
+    assert.notEqual((await setup(context, world({ opened: true }))).render(), null);
     assert.notEqual((await setup(context, world({ notice: false, opened: true }))).render(), null);
 });
 
-test("not needed this run: it settles at once, so the virtual microphone guide may open", async context => {
-    const w = world({ engine: "Deepgram" });
-    (await setup(context, w)).render();
-    assert.equal(w.settled, true);
+test("once its state is known it settles, so the virtual microphone guide may open", async context => {
+    for (const engine of ["Deepgram", null]) {
+        const w = world({ engine, opened: false });
+        (await setup(context, w)).render();
+        assert.equal(w.settled, true, String(engine));
+    }
 });
 
 test("nothing downloads before the consent; the run downloads, applies and switches in order", async context => {

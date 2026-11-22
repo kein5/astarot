@@ -17,6 +17,8 @@ interface EmptySetup {
     startup?: ReactNode;
     settings?: Record<string, unknown>;
     recognition?: string;
+    // FIRST_RUN_SETUP_PENDING: whether the setup is still suggested.
+    notice?: boolean | null;
 }
 
 // node?.props?.[key], for a rendered node of any kind.
@@ -36,16 +38,16 @@ const texts = (node: unknown): string[] => !node || typeof node !== "object" ? (
 // The main window's line about VRChat, as a part that draws one line (VrchatOscHint decides when).
 const VrchatLine = ({ className }: { className?: string }) => createElement("p", { className }, "the line about VRChat");
 
-async function setup({ needs = [], hint = true, vr = false, startup = null, settings = {}, recognition = "ready" }: EmptySetup = {}) {
+async function setup({ needs = [], hint = true, vr = false, startup = null, settings = {}, recognition = "ready", notice = true }: EmptySetup = {}) {
     const runtime = hooks(), started: string[] = [], read: string[] = [];
     const { EmptyState } = await loadModule<EmptyStateModule>(new URL("./EmptyState.tsx", import.meta.url), runtime, {
         "@store": { store: { is_vr_panel: vr } },
         "@logics_configs": { useSettingValue: (name: string) => { read.push(name); return settings[name] ?? { data: undefined }; } },
         "../../../../../../logics/main/useSetupNeeds": { useSetupNeeds: () => ({ needs, start: (id: string) => started.push(id) }) },
         "../../../../../../logics/setup/useRecognitionState": { useRecognitionState: () => ({ state: recognition }) },
-        "../../../../../../logics/setup/useFirstRunSetup": { useFirstRunSetup: () => ({ openSetup: () => started.push("first_run") }) },
-        "../../../../../../logics/main/setupNeeds": needsLogic,
+        "../../../../../../logics/setup/useFirstRunSetup": { useFirstRunSetup: () => ({ notice, openSetup: () => started.push("first_run") }) },
         "../../../../../../logics/setup/firstRunSetup.ts": setupLogic,
+        "../../../../../../logics/main/setupNeeds": needsLogic,
         "../../../startupContext": { useStartupPlaceholder: () => startup },
         "../../../vrchatHintContext": { useVrchatHint: () => hint ? VrchatLine : null },
     });
@@ -105,6 +107,26 @@ test("a recognition not set up yet offers the first-run setup in place of the ot
     for (const recognition of ["ready", "cloud", "own_server", "unknown"]) {
         assert.ok(!(await setup({ recognition })).texts.includes("studio.setup_first_run"), recognition);
     }
+});
+
+// #935: the setup does not open by itself. While it is still suggested, its line leads the first
+// screen (a lilac frame, the lilac button); once done or no longer wanted, the line is a plain one.
+test("while the setup is still suggested, its line stands out; afterwards it is a plain line", async () => {
+    const line = async (notice: boolean | null) => {
+        const item = find((await setup({ recognition: "needs_setup", notice })).tree, node => node.type === "li");
+        assert.ok(item);
+        return item.props["data-lead"];
+    };
+    assert.equal(await line(true), true);
+    assert.equal(await line(false), undefined);
+    assert.equal(await line(null), undefined, "not known yet: nothing stands out");
+    const css = (await import("node:fs")).readFileSync(new URL("./LogBox.module.scss", import.meta.url), "utf8");
+    assert.match(css, /\.setup li\[data-lead\] \{[^}]*border: \.1rem solid var\(--primary_600_color\)[^}]*background: var\(--vox_highlight_tint\)/);
+    assert.match(css, /\.setup li\[data-lead\] button \{[^}]*background: var\(--primary_600_color\); color: var\(--vox_on_primary\)/);
+    // #936: also while only the translation's model is left for the setup.
+    const translationOnly = find((await setup({ recognition: "ready", notice: true,
+        needs: [{ id: "translation", weight: { id: "m2m100_418M-ct2-int8" }, action: "review" }] })).tree, node => node.type === "li");
+    assert.equal(translationOnly?.props["data-lead"], true);
 });
 
 // #936: the setup prepares the translation's model too, so it is led to while that is left, also
@@ -168,8 +190,8 @@ test("the greeting waits for the language and the narrow layout that the saved s
         "../../../../../../logics/main/useSetupNeeds": { useSetupNeeds: () => ({ needs: [] }) },
         "../../../../../../logics/setup/useRecognitionState": { useRecognitionState: () => ({ state: "ready" }) },
         "../../../../../../logics/setup/useFirstRunSetup": { useFirstRunSetup: () => ({ openSetup: () => {} }) },
-        "../../../../../../logics/main/setupNeeds": needsLogic,
         "../../../../../../logics/setup/firstRunSetup.ts": setupLogic,
+        "../../../../../../logics/main/setupNeeds": needsLogic,
         "../../../startupContext": { useStartupPlaceholder: () => null },
         "../../../vrchatHintContext": { useVrchatHint: () => null },
     });
@@ -199,8 +221,8 @@ test("a language or layout that does not follow holds the greeting back for a se
         "../../../../../../logics/main/useSetupNeeds": { useSetupNeeds: () => ({ needs: [] }) },
         "../../../../../../logics/setup/useRecognitionState": { useRecognitionState: () => ({ state: "ready" }) },
         "../../../../../../logics/setup/useFirstRunSetup": { useFirstRunSetup: () => ({ openSetup: () => {} }) },
-        "../../../../../../logics/main/setupNeeds": needsLogic,
         "../../../../../../logics/setup/firstRunSetup.ts": setupLogic,
+        "../../../../../../logics/main/setupNeeds": needsLogic,
         "../../../startupContext": { useStartupPlaceholder: () => null },
         "../../../vrchatHintContext": { useVrchatHint: () => null },
     });

@@ -163,11 +163,12 @@ export const setupWork = (recognition: RecognitionState, translationAction: unkn
     ({ recognition: recognition === "needs_setup", translation: translationAction === "review" });
 export const hasSetupWork = (work: SetupWork): boolean => work.recognition || work.translation;
 
-// Whether the setup may open by itself: still pending, the settings known, and something left
-// that it prepares.
-export const setupOpensByItself = (pending: unknown, work: SetupWork): boolean => pending === true && hasSetupWork(work);
+// Whether the first screen's line to the setup stands out: still pending, the settings known, and
+// something left that it prepares. The setup never opens by itself (#935); the line is drawn to
+// stand out instead, and the user opens it.
+export const setupSuggested = (pending: unknown, work: SetupWork): boolean => pending === true && hasSetupWork(work);
 
 // Whether another start-up dialog (the virtual microphone guide) should still wait: the setup is
-// pending and has neither been put away nor found not needed for this run.
+// pending and its state for this run is not known yet, or it is open.
 export const setupComesFirst = ({ notice, settled }: { notice: unknown; settled: unknown }): boolean =>
     notice === true && settled !== true;

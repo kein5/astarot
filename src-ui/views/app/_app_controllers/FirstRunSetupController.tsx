@@ -4,7 +4,7 @@ import type { TFunction } from "i18next";
 import { useI18n } from "@useI18n";
 import { isTauri } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { useOthers, useTranscription, useTranslation, useSettingValue } from "@logics_configs";
+import { useTranscription, useTranslation, useSettingValue } from "@logics_configs";
 import { useStore_IsBackendReady, useStore_IsOpenedConfigPage, useStore_SelectedConfigTabId } from "@store";
 import { useConsentDialog } from "../../../logics/common/useConsentDialog";
 import { useRealtimeASR } from "../../../logics/transcription/useRealtimeASR";
@@ -14,8 +14,7 @@ import { useSetupNeeds } from "../../../logics/main/useSetupNeeds";
 import { downloadProgress } from "../../../logics/main/setupNeeds";
 import { useFirstRunSetup } from "../../../logics/setup/useFirstRunSetup";
 import { useRecognitionState } from "../../../logics/setup/useRecognitionState";
-import { setupPlan, planModels, planBytes, nextAction, stepState, setupOpensByItself, setupWork }
-    from "../../../logics/setup/firstRunSetup.ts";
+import { setupPlan, planModels, planBytes, nextAction, stepState } from "../../../logics/setup/firstRunSetup.ts";
 import type { RecognitionState, RunView, SetupStep } from "../../../logics/setup/firstRunSetup.ts";
 import { translationNext, translationOffer } from "../../../logics/setup/translationSetup.ts";
 import type { TranslationOffer } from "../../../logics/setup/translationSetup.ts";
@@ -31,8 +30,9 @@ const finiteNumber = (value: unknown): value is number => Number.isFinite(value)
 // GiB with two decimals; a file under 0.1 GiB (the VAD model) in MiB, so it never reads "0.00 GiB".
 const gib = (value: number) => value < 0.1 * 1073741824 ? `${(value / 1048576).toFixed(1)} MiB` : `${(value / 1073741824).toFixed(2)} GiB`;
 
-// The first-run setup (#557). It opens by itself once the start-up notices are closed, when the
-// local speech recognition is not ready yet, and from the first screen at any time.
+// The first-run setup (#557). It opens only from the first screen, never by itself (#935): while it
+// is still suggested and the local speech recognition is not ready yet, the first screen's line to
+// it stands out (EmptyState), and the user opens it.
 //
 // It leads with what it is for, shows what was found (microphone, VRChat, virtual microphone,
 // translation, speech recognition), and offers one action: download the recommended recognition
@@ -44,8 +44,8 @@ const gib = (value: number) => value < 0.1 * 1073741824 ? `${(value / 1048576).t
 // failed step stops it there and "Try again" continues from the first step not done. Downloads
 // are verified before they are applied, so a failure keeps the previous settings (#517).
 //
-// "Later" and Escape put it away for this run; downloads already started go on. "Done" and
-// "Don't show again" stop it from opening by itself.
+// "Later" and Escape put it away; downloads already started go on. "Done" and "Stop highlighting"
+// end the suggestion: the first screen's line to it no longer stands out.
 //
 // The local translation's model is prepared here too (#936), never by leaving the setup: when the
 // selected translation model can be downloaded, its own section shows the model's name,
@@ -91,30 +91,21 @@ export const FirstRunSetupController = () => {
     const { t, i18n } = useI18n();
     const setup = useFirstRunSetup();
     const { currentIsBackendReady } = useStore_IsBackendReady();
-    const { currentTelemetryNotice } = useOthers();
     const { setSelectedTranscriptionEngine } = useTranscription();
     const realtime = useRealtimeASR();
     const downloads = useModelDownloads();
     const ready = currentIsBackendReady.data === true;
     const { state: recognition, engine, server, paths } = useRecognitionState();
-    // What is left to prepare: the recognition, the translation's model, or both (#936).
+    // The translation's model is prepared here too (#936).
     const { needs } = useSetupNeeds();
     const translationNeed = needs.find(need => need.id === "translation");
-    const work = setupWork(recognition, translationNeed?.action);
 
-    // Other first-run notices come first; one dialog at a time.
-    const othersFirst = currentTelemetryNotice.state === "ok" && currentTelemetryNotice.data?.pending === true;
-    const byItself = ready && !setup.settled && !othersFirst && setupOpensByItself(setup.notice, work);
-    // Once open by itself it stays open until the user closes it, even when the run makes it ready.
-    const [shown, setShown] = useState(false);
-    useEffect(() => { if (byItself) setShown(true); }, [byItself]);
-    // Known not to be needed: it will not open by itself this run, so the next notice may.
+    // It does not open by itself, so once its state is known the next start-up notice (the virtual
+    // microphone guide) may come.
     const known = recognition !== "unknown" && setup.notice !== null;
-    useEffect(() => {
-        if (ready && known && !shown && !setupOpensByItself(setup.notice, work)) setup.markSettled();
-    }, [ready, known, shown, setup.notice, work.recognition, work.translation]);
+    useEffect(() => { if (ready && known) setup.markSettled(); }, [ready, known]);
 
-    const open = setup.opened || shown;
+    const open = setup.opened;
     const { dialog, close } = useConsentDialog(open);
 
     // The plan is fixed when the consent is shown, with the catalog version it was shown for.
@@ -146,7 +137,6 @@ export const FirstRunSetupController = () => {
     const finish = (forGood: boolean) => {
         close();
         if (forGood) setup.dismissNotice();
-        setShown(false);
         setup.closeSetup();
     };
     // Each run has its own id, so the error watch below starts over with it.
