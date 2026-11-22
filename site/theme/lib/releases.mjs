@@ -113,7 +113,8 @@ export function readRelease(release) {
   return { tag, page, groups, downloads, skipped }
 }
 
-// What the button offers first on each OS. Windows: the installer, which also asks CPU or GPU.
+// What the button offers first on each OS. Windows: the installer (up to 0.5 it also asked for the
+// CPU or the GPU package; from 0.6.0 there is one package).
 // Linux: the AppImage, which runs on most distributions; deb and rpm wait in the menu.
 const PREFERRED = {
   windows: ['installer', 'msi', 'zip'],
