@@ -163,6 +163,12 @@ export const itemDescription = within({
 export const itemActions = within({ gridArea: "actions", display: "flex", justifySelf: "start" });
 
 // The models to consent to: the same frame, one row per model, its name over its facts.
+// The model a section prepares, chosen from a list (#955): its name, and the forms' field beside it.
+export const choice = within({
+    display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1.6fr)", alignItems: "center", gap: ".8rem 1.6rem",
+    fontSize: "1.4rem", fontWeight: 500, color: vars.vox_secondary_text,
+    "@media": { "(max-width: 700px)": { gridTemplateColumns: "minmax(0, 1fr)" } },
+});
 export const models = within(list);
 export const model = within({
     display: "grid",

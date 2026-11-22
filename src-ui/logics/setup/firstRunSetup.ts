@@ -64,9 +64,10 @@ export type SetupStep =
 
 // The steps the setup will take, decided when the dialog shows its consent: models whose path
 // is still empty, then the bundled server, then the engine. A path the user already set is kept.
-export const setupPlan = ({ catalog, language, engine, server, paths }:
-    { catalog: SetupCatalog; language: unknown; engine: unknown; server: unknown; paths: AsrPaths }): SetupStep[] | null => {
-    const asr = recommendedAsr(catalog, language), vad = vadEntry(catalog);
+// asr: the recognition model chosen in the setup (#955); the recommended one when none is.
+export const setupPlan = ({ catalog, language, engine, server, paths, asr: chosen }:
+    { catalog: SetupCatalog; language: unknown; engine: unknown; server: unknown; paths: AsrPaths; asr?: SetupEntry | null }): SetupStep[] | null => {
+    const asr = chosen ?? recommendedAsr(catalog, language), vad = vadEntry(catalog);
     if (!asr || !vad || !paths) return null;
     const steps: SetupStep[] = [];
     if (!set(paths.model)) steps.push({ kind: "model", target: "asr", entry: asr });

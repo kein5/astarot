@@ -2820,7 +2820,24 @@ virtual_mic:
 # 初期設定（#557）。起動時に一度だけ開き、最初の画面からも開ける。
 first_run_setup:
     title: "初期設定"
-    purpose: "音声認識と翻訳とVRChatへの送信を使えるようにします。足りないものを調べて、できるところはまとめて準備します。"
+    purpose: "音声認識、翻訳、読み上げ、VRChatへの送信を使えるようにします。使う機能だけを選んで準備できます。"
+    # The model each section prepares (#955): one file per model, the recommended one marked, or none.
+    choice:
+        label: "モデル"
+        option: "{{name}} · {{size}}"
+        option_recommended: "{{name}} · {{size}}（おすすめ）"
+        skip: "インストールしない"
+    # The setup's end (#955): what to turn on on the main screen, for the features prepared.
+    next:
+        heading: "次はメイン画面で"
+        name_recognition: "音声認識"
+        name_translation: "翻訳"
+        name_speech: "読み上げ"
+        switch_recognition: "「マイク入力」と「聞き取り」"
+        switch_translation: "「翻訳」"
+        switch_speech: "「テキスト読み上げ（TTS）」"
+        use: "左の{{switches}}をオンにすると使えます。"
+        unused: "モデルを入れていないので使いません。{{switches}}はオフのままでかまいません。"
     later: "後で"
     done: "完了"
     dont_show: "最初の画面の「初期設定を開く」を目立たせない（そこから開けます）"
@@ -2849,13 +2866,26 @@ first_run_setup:
     translation:
         heading: "翻訳を準備する"
         what: "文を訳すモデルをダウンロードして、翻訳で使えるようにします。翻訳はお使いのPCの中で行い、文を外部へ送りません。翻訳はオンにしません。"
-        what_switch: "文を訳す既定のモデルをダウンロードして、翻訳で使うモデルをこれに切り替えます。翻訳はお使いのPCの中で行い、文を外部へ送りません。翻訳はオンにしません。"
+        what_switch: "文を訳すモデルをダウンロードして、翻訳で使うモデルをこれに切り替えます。翻訳はお使いのPCの中で行い、文を外部へ送りません。翻訳はオンにしません。"
         what_switch_only: "ダウンロードするモデルはありません。翻訳で使うモデルを、お使いのPCにある{{name}}に切り替えます。翻訳はオンにしません。"
         model: "ダウンロードするモデル"
         step_model: "{{name}}をダウンロードして翻訳で使えるようにする"
         step_switch: "翻訳で使うモデルを{{name}}にする"
-        finished: "翻訳の準備ができました。メイン画面の「翻訳」をオンにすると使えます。"
+        finished: "翻訳の準備ができました。"
+        skipped: "翻訳は使いません。"
         kept: "翻訳の設定は前のままです。原因を取り除いてから「やり直す」を押してください。"
+    # The text to speech's section (#955): a model for the Japanese or the other languages' voice.
+    speech:
+        heading: "読み上げを準備する"
+        what: "文を読み上げるモデルをダウンロードして、テキスト読み上げで使えるようにします。読み上げはお使いのPCの中で行い、GPUを使います。テキスト読み上げはオンにしません。"
+        model: "ダウンロードするモデル"
+        step_model: "{{name}}をダウンロードして設定に入れる"
+        finished: "読み上げの準備ができました。"
+        skipped: "読み上げは使いません。"
+        kept: "読み上げの設定は前のままです。原因を取り除いてから「やり直す」を押してください。"
+        choose_other: "ほかのモデルや外部のエンジンを使う（「テキスト読み上げ（TTS）」の設定を開く）"
+        group_japanese: "日本語の読み上げ"
+        group_multilingual: "日本語以外の読み上げ"
     recognition:
         heading: "音声認識をまとめて準備する"
         what: "話した声をお使いのコンピューターの中で文字にします。音声は外部へ送りません。次のモデルをダウンロードして設定に入れ、同梱の音声認識サーバーを使うように切り替えます。マイクはオンにしません。"
@@ -2883,7 +2913,8 @@ first_run_setup:
         state_failed: "できませんでした。"
         state_stopped: "中止しました。"
         kept: "設定は前のままです。原因を取り除いてから「やり直す」を押すと、済んだところは飛ばして続きから進めます。"
-        finished: "音声認識の準備ができました。メイン画面の「マイク入力」をオンにすると使えます。"
+        finished: "音声認識の準備ができました。"
+        skipped: "音声認識は使いません。"
 
 # 実験中のコンパニオン形態（トレイ、字幕、コントロールパネル）。Issue #355
 companion:

@@ -9,6 +9,10 @@ import * as logic from "../../../logics/setup/firstRunSetup.ts";
 import * as needsLogic from "../../../logics/main/setupNeeds.ts";
 import * as translationLogic from "../../../logics/setup/translationSetup.ts";
 import * as restrictions from "../../../logics/voice/modelRestrictions.ts";
+import * as choicesLogic from "../../../logics/setup/setupChoices.ts";
+import * as catalogLogic from "../../../logics/voice/modelCatalog.ts";
+import * as licenseLogic from "../../../logics/configs/ctranslate2License.ts";
+import * as warningLogic from "../../../logics/voice/modelHardwareWarning.ts";
 
 const CATALOG = {
     catalog_version: "2026-11-16.3",
@@ -22,6 +26,15 @@ const CATALOG = {
             license: "MIT", licenses: ["https://example.invalid/mit"], source: "https://example.invalid/m2m100", total_bytes: 500000000, restrictions: [] },
         { id: "nllb-200-distilled-600m-onnx-int8", target: "translation", name: "NLLB-200 distilled 600M · int8", provider: "Meta / VRCT-VOX",
             license: "CC-BY-NC-4.0", licenses: ["https://example.invalid/nc"], total_bytes: 900000000, restrictions: ["non_commercial"] },
+        // Another recognition model, and the text to speech's (#955).
+        { id: "qwen3-asr-06b-q8", target: "asr", name: "Qwen3-ASR 0.6B · Q8_0", provider: "Qwen / sakasegawa",
+            license: "Apache-2.0", licenses: ["https://example.invalid/qwen"], total_bytes: 800000000,
+            speech: { name: "qwen3-asr-06b", default: true }, profile: { recommended_for: ["en"] } },
+        { id: "irodori-v41-f16", target: "japanese", name: "Irodori-TTS v4.1 Small MF · F16", provider: "Irodori / sakasegawa",
+            license: "MIT", licenses: ["https://example.invalid/irodori"], total_bytes: 1900000000,
+            profile: { summary: "mf", recommended_for: ["ja"], gpu: "recommended", cpu: "impractical" } },
+        { id: "qwen3-06b-q8", target: "multilingual", name: "Qwen3-TTS 12Hz 0.6B CustomVoice · Q8_0", provider: "Qwen / sakasegawa",
+            license: "Apache-2.0", licenses: ["https://example.invalid/qwen-tts"], total_bytes: 1200000000, profile: { summary: "qwen", recommended_for: ["en"] } },
     ],
 };
 
@@ -52,13 +65,17 @@ interface World {
     // The selected translation model (CTRANSLATE2_WEIGHT_TYPE), and the ones on the PC.
     weight: string;
     downloaded: string[];
+    // The speech server profiles' models (the text to speech's, #955).
+    speech: Record<string, { model: string }>;
+    // What the PC has, for the choices' warnings (#955).
+    hardware: object;
 }
 
 function world(values: Partial<World> = {}): World {
     return { notice: true, settled: false, opened: true, telemetryPending: false,
         engine: null, server: "external", paths: { model: "", vad_model: "" }, catalog: CATALOG, jobs: {},
         downloadError: null, realtimeError: null, sent: [], calls: [],
-        mic: "Microphone (USB)", vrchat: "found", cables: [], needs: [], weight: "m2m100_418M-ct2-int8", downloaded: [], ...values };
+        mic: "Microphone (USB)", vrchat: "found", cables: [], needs: [], weight: "m2m100_418M-ct2-int8", downloaded: [], speech: { japanese: { model: "" }, multilingual: { model: "" } }, hardware: { phase: "unknown", devices: [] }, ...values };
 }
 
 async function setup(context: TestContext, w = world()) {
@@ -86,13 +103,18 @@ async function setup(context: TestContext, w = world()) {
             settings: { version: 1, server: w.server, base_url: "http://127.0.0.1:8080" }, error: w.realtimeError,
             send: async (endpoint: string, data: unknown) => { record(endpoint, data); w.realtimeError = null; return true; } }) },
         "../../../logics/voice/useModelDownloads": { useModelDownloads: () => ({
-            catalog: w.catalog, state: { jobs: w.jobs }, error: w.downloadError,
+            catalog: w.catalog, state: { jobs: w.jobs }, error: w.downloadError, hardware: w.hardware, ensureHardware: () => w.calls.push("hardware"),
             send: async (endpoint: string, data: unknown) => { record(endpoint, data); if (endpoint.startsWith("/run/")) w.downloadError = null; } }) },
         "../../../logics/voice/useVirtualMic": { useVirtualMic: () => ({ status: { supported: true, cables: w.cables, error: null }, openGuide: () => w.calls.push("guide") }) },
         "../../../logics/main/useSetupNeeds": { useSetupNeeds: () => ({ needs: w.needs, start: (id: string) => w.calls.push(["start", id]) }) },
         "../../../logics/main/setupNeeds": needsLogic,
         "../../../logics/setup/translationSetup.ts": translationLogic,
         "../../../logics/voice/modelRestrictions": restrictions,
+        "../../../logics/setup/setupChoices.ts": choicesLogic,
+        "../../../logics/voice/modelCatalog": catalogLogic,
+        "../../../logics/configs/ctranslate2License": licenseLogic,
+        "../../../logics/voice/modelHardwareWarning": warningLogic,
+        "../../../logics/voice/useSpeechServers": { useSpeechServers: () => ({ settings: { profiles: w.speech } }) },
         "../../../logics/setup/useFirstRunSetup": { useFirstRunSetup: () => ({
             notice: w.notice, opened: w.opened, settled: w.settled,
             dismissNotice: () => { w.calls.push("dismiss"); w.notice = false; },
@@ -117,7 +139,9 @@ async function setup(context: TestContext, w = world()) {
     };
     // A part the dialog draws from a function of its own, found by that function's name.
     const part = (tree: unknown, name: string) => findIn(tree, node => componentName(node) === name, name);
-    return { render, button, buttons, part };
+    // A one-model section (#955), by its words: the translation's or the text to speech's.
+    const modelPart = (tree: unknown, words: string) => findIn(tree, node => componentName(node) === "ModelSetup" && node.props.words === words, words);
+    return { render, button, buttons, part, modelPart };
 }
 
 // #935: it never opens by itself, not even pending with the recognition needing it, after the
@@ -360,7 +384,7 @@ test("the translation's model is reviewed, downloaded and applied in the setup, 
     const w = world({ needs: [{ id: "translation", action: "review", weight: { id: "m2m100_418M-ct2-int8" } }] });
     const s = await setup(context, w), local = hooks();
     context.onTestFinished(() => local.unmount());
-    const section = () => drawWith(local, s.part(s.render(), "TranslationSetup"));
+    const section = () => drawWith(local, s.modelPart(s.render(), "translation"));
     let drawn = section();
     const facts = nodesIn(drawn).filter(node => node.type === "span").map(node => [node.props.children].flat().join(""));
     assert.ok(facts.includes("M2M100 418M · int8"));
@@ -407,7 +431,7 @@ test("with another model selected, the setup downloads the default model and the
         needs: [{ id: "translation", action: "review", weight: { id: "nllb-200-distilled-600M-ct2-int8" } }] });
     const s = await setup(context, w), local = hooks();
     context.onTestFinished(() => local.unmount());
-    const section = () => drawWith(local, s.part(s.render(), "TranslationSetup"));
+    const section = () => drawWith(local, s.modelPart(s.render(), "translation"));
     let drawn = section();
     assert.equal(find(drawn, node => node.type === "p" && node.props.children === "first_run_setup.translation.what_switch")?.type, "p");
     assert.ok(nodesIn(drawn).some(node => node.type === "span" && node.props.children === "M2M100 418M · int8"));
@@ -440,7 +464,7 @@ test("the default model on the PC already: nothing is downloaded and no consent 
         needs: [{ id: "translation", action: "choose", weight: { id: "m2m100_1.2B-ct2-int8" } }] });
     const s = await setup(context, w), local = hooks();
     context.onTestFinished(() => local.unmount());
-    const section = () => drawWith(local, s.part(s.render(), "TranslationSetup"));
+    const section = () => drawWith(local, s.modelPart(s.render(), "translation"));
     const drawn = section();
     assert.equal(find(drawn, node => node.type === "p" && node.props.children === "first_run_setup.translation.what_switch_only")?.type, "p");
     assert.equal(nodesIn(drawn).filter(node => node.type === "input").length, 0);
@@ -450,4 +474,118 @@ test("the default model on the PC already: nothing is downloaded and no consent 
     s.render(); s.render();
     assert.ok(!w.sent.some(([endpoint]) => endpoint === "/run/start_model_download"));
     assert.deepEqual(w.calls.filter(call => Array.isArray(call) && call[0] === "weight"), [["weight", "m2m100_418M-ct2-int8"]]);
+});
+
+// #955: each feature is chosen on its own, in the setup: a model, or none.
+const choiceIn = (tree: unknown, label = "first_run_setup.choice.label") =>
+    nodesIn(tree).filter(node => componentName(node) === "ModelChoice" && node.props.label === label);
+
+test("the recognition's model is chosen in the setup, the recommended one first, or none", async context => {
+    const w = world();
+    const s = await setup(context, w);
+    const [choice] = choiceIn(s.render());
+    assert.ok(choice);
+    assert.deepEqual(choice.props.choices.map((entry: { id: string }) => entry.id), ["reazonspeech-v2-q8", "qwen3-asr-06b-q8"]);
+    assert.deepEqual([choice.props.recommended, choice.props.value], ["reazonspeech-v2-q8", "reazonspeech-v2-q8"]);
+    // Another model: the plan downloads it instead.
+    choice.props.onChange("qwen3-asr-06b-q8");
+    const steps = s.part(s.render(), "RecognitionSetup").props.plan.flatMap((step: { kind: string; entry?: { id: string } }) => step.entry ? [step.entry.id] : []);
+    assert.deepEqual(steps, ["qwen3-asr-06b-q8", "silero-vad-v62"]);
+    // None: the section says the recognition is not used, and offers no start.
+    choiceIn(s.render())[0].props.onChange("skip");
+    const tree = s.render();
+    assert.ok(nodesIn(tree).some(node => node.props?.children === "first_run_setup.recognition.skipped"));
+    assert.ok(!s.buttons(tree).some(node => node.props.children === "first_run_setup.recognition.start"));
+});
+
+test("text to speech starts at none; a model chosen is downloaded and written into its profile", async context => {
+    const w = world({ engine: "Deepgram" });
+    const s = await setup(context, w), local = hooks();
+    context.onTestFinished(() => local.unmount());
+    const section = () => drawWith(local, s.modelPart(s.render(), "speech"));
+    let drawn = section();
+    assert.ok(nodesIn(drawn).some(node => node.props?.children === "first_run_setup.speech.skipped"), "none at first: it needs a GPU");
+    const choice = choiceIn(drawn)[0];
+    assert.deepEqual(choice.props.choices.map((entry: { id: string }) => entry.id), ["irodori-v41-f16", "qwen3-06b-q8"]);
+    assert.equal(choice.props.value, "skip");
+    assert.deepEqual(["irodori-v41-f16", "qwen3-06b-q8"].map(id => choice.props.groupOf(CATALOG.models.find(model => model.id === id))),
+        ["first_run_setup.speech.group_japanese", "first_run_setup.speech.group_multilingual"]);
+    choice.props.onChange("irodori-v41-f16");
+    drawn = section();
+    const start = () => nodesIn(section()).find(node => node.type === "button" && node.props.children === "first_run_setup.recognition.start");
+    assert.equal(start()?.props.disabled, true, "nothing starts before the consent");
+    nodesIn(drawn).find(node => node.type === "input" && node.props.type === "checkbox")?.props.onChange({ target: { checked: true } });
+    start()?.props.onClick();
+    s.render();
+    assert.deepEqual(w.sent.at(-1), ["/run/start_model_download", { id: "irodori-v41-f16", consent: true, catalog_version: "2026-11-16.3" }]);
+    // Verified: applied once, with the profile's path it replaces.
+    w.jobs = { "irodori-v41-f16": { job_id: "j1", phase: "ready" } };
+    s.render(); s.render();
+    assert.deepEqual(w.sent.filter(([endpoint]) => endpoint === "/run/apply_model_download"),
+        [["/run/apply_model_download", { id: "irodori-v41-f16", job_id: "j1", expected: { model: "" } }]]);
+    w.jobs = { "irodori-v41-f16": { job_id: "j1", phase: "applied" } };
+    s.render(); s.render();
+    assert.equal(find(section(), node => node.props?.role === "status")?.props.children, "first_run_setup.speech.finished");
+});
+
+test("a translation model with a restricted license is acknowledged on its own, and selected with that consent", async context => {
+    const w = world({ engine: "Deepgram", needs: [{ id: "translation", action: "review", weight: { id: "m2m100_418M-ct2-int8" } }] });
+    const s = await setup(context, w), local = hooks();
+    context.onTestFinished(() => local.unmount());
+    const section = () => drawWith(local, s.modelPart(s.render(), "translation"));
+    choiceIn(section())[0].props.onChange("nllb-200-distilled-600m-onnx-int8");
+    const boxes = () => nodesIn(section()).filter(node => node.type === "input" && node.props.type === "checkbox");
+    const start = () => nodesIn(section()).find(node => node.type === "button" && node.props.children === "first_run_setup.recognition.start");
+    assert.equal(boxes().length, 2, "the consent, and one for the restriction");
+    boxes()[0].props.onChange({ target: { checked: true } });
+    assert.equal(start()?.props.disabled, true, "the consent alone does not start it");
+    boxes()[1].props.onChange({ target: { checked: true } });
+    start()?.props.onClick();
+    s.render();
+    assert.deepEqual(w.sent.at(-1), ["/run/start_model_download",
+        { id: "nllb-200-distilled-600m-onnx-int8", consent: true, catalog_version: "2026-11-16.3", acknowledged: ["non_commercial"] }]);
+    w.jobs = { "nllb-200-distilled-600m-onnx-int8": { job_id: "j1", phase: "ready" } };
+    s.render(); s.render();
+    w.downloaded = ["nllb-200-distilled-600M-ct2-int8"];
+    s.render(); s.render(); s.render();
+    assert.deepEqual(w.calls.filter(call => Array.isArray(call) && call[0] === "weight"),
+        [["weight", { weight_type: "nllb-200-distilled-600M-ct2-int8", accept_non_commercial_license: true }]]);
+});
+
+// #955: the end says which switches to turn on for the features prepared, and that the others can
+// stay off; "Done" is offered once every feature is ready or not to be installed, and nothing runs.
+test("only text to speech: the setup ends with its switch to turn on and the others left off", async context => {
+    const w = world({ needs: [{ id: "translation", action: "review", weight: { id: "m2m100_418M-ct2-int8" } }] });
+    const s = await setup(context, w), local = hooks();
+    context.onTestFinished(() => local.unmount());
+    const done = () => s.buttons(s.render()).some(node => node.props.children === "first_run_setup.done");
+    assert.equal(done(), false, "the recognition and the translation still to prepare");
+    choiceIn(s.render())[0].props.onChange("skip");
+    choiceIn(drawWith(local, s.modelPart(s.render(), "translation")))[0].props.onChange("skip");
+    assert.equal(done(), true, "the recognition and the translation not used, the text to speech not installed either");
+    // The text to speech prepared, the others not used.
+    w.speech = { japanese: { model: "C:/models/tts/irodori.gguf" }, multilingual: { model: "" } };
+    const next = s.part(s.render(), "NextSteps");
+    assert.deepEqual(Object.fromEntries(Object.entries(next.props.features as Record<string, object>).map(([feature, view]) =>
+        [feature, choicesLogic.featureOutcome(view as choicesLogic.FeatureView)])), { recognition: "unused", translation: "unused", speech: "use" });
+    assert.ok(done());
+    // Nothing is turned on: no switch is sent.
+    assert.ok(!w.sent.some(([endpoint]) => /enable|toggle/.test(endpoint)));
+});
+
+// #955: a model that may be too heavy for the PC says so in its choice, as the catalog's file choice does.
+test("a model that may be too heavy for the PC says so in its choice", async context => {
+    const w = world({ hardware: { phase: "ready", devices: [{ name: "cpu", kind: "cpu", description: "CPU", memory_total: 16 * 1073741824 }] } });
+    const s = await setup(context, w), local = hooks();
+    context.onTestFinished(() => local.unmount());
+    const speech = choiceIn(drawWith(local, s.modelPart(s.render(), "speech")))[0];
+    assert.ok(w.calls.includes("hardware"), "what the PC has is read when the dialog opens");
+    const byId = (id: string) => CATALOG.models.find(model => model.id === id);
+    // No GPU: the voice that needs one is marked; a speech model that runs on the CPU is not.
+    assert.equal(speech.props.warned(byId("irodori-v41-f16")), true);
+    assert.equal(speech.props.warned(byId("qwen3-06b-q8")), false);
+    // Nothing measured: nothing is marked.
+    w.hardware = { phase: "unknown", devices: [] };
+    const unmeasured = choiceIn(drawWith(local, s.modelPart(s.render(), "speech")))[0];
+    assert.equal(unmeasured.props.warned(byId("irodori-v41-f16")), false);
 });

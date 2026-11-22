@@ -7,6 +7,7 @@
 // once the selected model is on the PC, the setup's need for it ends (setupNeeds.ts).
 import { translationCatalogIds } from "../main/setupNeeds";
 import { ctranslate2_weight_type_status } from "../ui_configs";
+import { restrictionsOf } from "../voice/modelRestrictions";
 import type { DownloadJob, SetupCatalog, SetupEntry } from "./firstRunSetup.ts";
 
 const ACTIVE = ["queued", "downloading", "verifying", "cancelling"];
@@ -25,23 +26,35 @@ export const translationEntry = (catalog: SetupCatalog, weightType: unknown): Se
 const DEFAULT_WEIGHT = ctranslate2_weight_type_status.find(item => item.is_default) ?? ctranslate2_weight_type_status[0];
 export const DEFAULT_TRANSLATION_WEIGHT = DEFAULT_WEIGHT.id;
 
-// What the setup's section prepares while the selected model is not on the PC. entry: the
-// model to download (null when the default is on the PC already and only the choice changes).
-// switches: the selected model is another one, so the run selects the default once it is on
-// the PC. null when the catalog has no default model or is not known yet: the setup then only
-// points to the Translation settings.
+// The built-in translation model a catalog entry is a file of (its CTRANSLATE2_WEIGHT_TYPE), or
+// null for an entry no built-in model has.
+export const weightOfEntry = (id: string): string | null =>
+    ctranslate2_weight_type_status.find(item => translationCatalogIds(item.id).includes(id))?.id ?? null;
+
+// What the setup's section prepares while the selected model is not on the PC: the model the user
+// chose in the setup (#955), the default one unless another is chosen. entry: the model to
+// download (null when it is on the PC already and only the choice changes). switches: the selected
+// model is another one, so the run selects the chosen one once it is on the PC. restrictions: what
+// its license restricts, acknowledged on its own before anything starts (modelRestrictions.ts).
+// null when the catalog has no such model or is not known yet: the setup then only points to the
+// Translation settings.
 export interface TranslationOffer {
     weight: string;
     name: string;
     entry: SetupEntry | null;
     switches: boolean;
+    restrictions: readonly string[];
 }
-export const translationOffer = (catalog: SetupCatalog, selected: unknown, downloaded: readonly string[]): TranslationOffer | null => {
-    const weight = DEFAULT_TRANSLATION_WEIGHT;
+export const translationOffer = (catalog: SetupCatalog, selected: unknown, downloaded: readonly string[],
+    chosen?: SetupEntry | null): TranslationOffer | null => {
+    const weight = chosen ? weightOfEntry(chosen.id) : DEFAULT_TRANSLATION_WEIGHT;
+    if (!weight) return null;
     const switches = selected !== weight;
-    if (downloaded.includes(weight)) return switches ? { weight, name: DEFAULT_WEIGHT.name, entry: null, switches } : null;
-    const entry = translationEntry(catalog, weight);
-    return entry ? { weight, name: entry.name, entry, switches } : null;
+    const entry = chosen ?? translationEntry(catalog, weight);
+    const restrictions = restrictionsOf(entry ?? null);
+    const name = entry?.name ?? ctranslate2_weight_type_status.find(item => item.id === weight)?.name ?? weight;
+    if (downloaded.includes(weight)) return switches ? { weight, name, entry: null, switches, restrictions } : null;
+    return entry ? { weight, name, entry, switches, restrictions } : null;
 };
 
 // One run of the translation's preparation. started: the job id the state showed when the run

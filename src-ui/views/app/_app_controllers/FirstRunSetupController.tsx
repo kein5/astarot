@@ -14,11 +14,18 @@ import { useSetupNeeds } from "../../../logics/main/useSetupNeeds";
 import { downloadProgress } from "../../../logics/main/setupNeeds";
 import { useFirstRunSetup } from "../../../logics/setup/useFirstRunSetup";
 import { useRecognitionState } from "../../../logics/setup/useRecognitionState";
-import { setupPlan, planModels, planBytes, nextAction, stepState } from "../../../logics/setup/firstRunSetup.ts";
-import type { RecognitionState, RunView, SetupStep } from "../../../logics/setup/firstRunSetup.ts";
-import { translationNext, translationOffer } from "../../../logics/setup/translationSetup.ts";
+import { setupPlan, planModels, planBytes, nextAction, stepState, recommendedAsr } from "../../../logics/setup/firstRunSetup.ts";
+import type { RecognitionState, RunView, SetupEntry, SetupStep } from "../../../logics/setup/firstRunSetup.ts";
+import { DEFAULT_TRANSLATION_WEIGHT, translationEntry, translationNext, translationOffer } from "../../../logics/setup/translationSetup.ts";
 import type { TranslationOffer } from "../../../logics/setup/translationSetup.ts";
-import { startRequest } from "../../../logics/voice/modelRestrictions";
+import { SKIP, SPEECH_TARGETS, chosenEntry, featureOutcome, modelChoices, recommendedSpeech, settled as isSettled } from "../../../logics/setup/setupChoices.ts";
+import type { FeatureView, SetupFeature } from "../../../logics/setup/setupChoices.ts";
+import { canStart, restrictionsOf, startRequest } from "../../../logics/voice/modelRestrictions";
+import { familyLabel } from "../../../logics/voice/modelCatalog";
+import { hardwareWarning, translationDeviceMode } from "../../../logics/voice/modelHardwareWarning";
+import { useSpeechServers } from "../../../logics/voice/useSpeechServers";
+import { weightRequest } from "../../../logics/configs/ctranslate2License";
+import type { WeightRequest } from "../../../logics/configs/ctranslate2License";
 import { useVrchatPresence } from "../others/vrchat_presence/VrchatPresence";
 import type { VrchatPresenceState } from "../others/vrchat_presence/VrchatPresence";
 import styles from "../config_page/setting_section/setting_box/advanced_settings/VoiceSettings.module.scss";
@@ -73,14 +80,16 @@ interface SetupRun {
     failure: { step: number; code: string } | null;
 }
 
-// One run of the translation's preparation (translationSetup.ts): what the consent was given for
-// (the model, whether the choice changes) with the catalog version, and how far it has come.
+// One run of a one-model section's preparation (the translation's and the text to speech's,
+// translationSetup.ts): what the consent was given for (the model, whether the choice changes)
+// with the catalog version and the restrictions acknowledged, and how far it has come.
 // switched: it has asked to select the model.
-interface TranslationRun {
+interface ModelRun {
     id: number;
     phase: "running" | "done" | "failed";
     offer: TranslationOffer;
     version: unknown;
+    acknowledged: readonly string[];
     started: string | null | undefined;
     applied: readonly string[];
     switched: boolean;
@@ -108,32 +117,76 @@ export const FirstRunSetupController = () => {
     const open = setup.opened;
     const { dialog, close } = useConsentDialog(open);
 
-    // The plan is fixed when the consent is shown, with the catalog version it was shown for.
+    // Each feature is chosen on its own (#955): a model to install, or none. The recognition and the
+    // translation start at the model the setup recommends; the text to speech, which needs a GPU,
+    // starts at "do not install". The plan is fixed when the consent is shown, with the catalog
+    // version it was shown for.
+    const language = i18n?.language;
+    const recommendedRecognition = recommendedAsr(downloads.catalog, language);
+    const recognitionChoices = modelChoices(downloads.catalog, ["asr"], recommendedRecognition?.id);
+    const [recognitionChoice, setRecognitionChoice] = useState<string | null>(null);
+    // null while the catalog is not known yet: nothing chosen, nothing skipped.
+    const recognitionValue = recognitionChoice ?? recommendedRecognition?.id ?? null;
+    const recognitionSkipped = recognitionValue === SKIP;
     const [consent, setConsent] = useState(false);
     const [run, setRun] = useState<SetupRun | null>(null);
-    const draftPlan = setupPlan({ catalog: downloads.catalog, language: i18n?.language, engine, server, paths });
+    const draftPlan = recognitionSkipped ? null
+        : setupPlan({ catalog: downloads.catalog, language, engine, server, paths, asr: chosenEntry(recognitionChoices, recognitionValue) });
     const plan = run?.plan ?? draftPlan;
     const view: RunView = { engine, server, paths, jobs: downloads.state.jobs, started: run?.started ?? {}, applied: run?.applied ?? [] };
 
     // Ask for the catalog when the dialog opens without it (it normally comes after the start).
     useEffect(() => { if (open && !downloads.catalog) downloads.send("/get/data/model_download_catalog"); }, [open, !!downloads.catalog]);
+    // What the PC has, for the choices' warnings: read once the dialog opens, as the catalogs do.
+    useEffect(() => { if (open) downloads.ensureHardware?.(); }, [open, downloads.hardware?.phase]);
 
     useRunner({ run, setRun, view, downloads, realtime, setSelectedTranscriptionEngine });
 
-    // The translation's model: while the selected one is not on the PC, the setup prepares the model
-    // it recommends (the default), as the recognition's section does, and selects it (#936).
-    const { currentSelectedCTranslate2WeightType, currentCTranslate2WeightTypeStatus, setSelectedCTranslate2WeightType } = useTranslation();
+    // The translation's model: while the selected one is not on the PC, the setup prepares the one
+    // chosen here (the default unless another is), and selects it (#936, #955).
+    const { currentSelectedCTranslate2WeightType, currentCTranslate2WeightTypeStatus, setSelectedCTranslate2WeightType,
+        currentSelectedTranslationComputeDevice } = useTranslation();
     const downloadedWeights = (currentCTranslate2WeightTypeStatus.data ?? []).filter(item => item.is_downloaded).map(item => item.id);
-    const [translationRun, setTranslationRun] = useState<TranslationRun | null>(null);
-    const translationOffered = translationRun?.offer
-        ?? (translationNeed ? translationOffer(downloads.catalog, currentSelectedCTranslate2WeightType.data, downloadedWeights) : null);
-    useTranslationRunner({ run: translationRun, setRun: setTranslationRun, ready: !translationNeed, downloads,
+    const defaultTranslation = translationEntry(downloads.catalog, DEFAULT_TRANSLATION_WEIGHT);
+    const translationChoices = modelChoices(downloads.catalog, ["translation"], defaultTranslation?.id);
+    const [translationChoice, setTranslationChoice] = useState<string | null>(null);
+    const translationValue = translationChoice ?? defaultTranslation?.id ?? null;
+    const [translationRun, setTranslationRun] = useState<ModelRun | null>(null);
+    const translationOffered = translationRun?.offer ?? (translationNeed && translationValue !== SKIP
+        ? translationOffer(downloads.catalog, currentSelectedCTranslate2WeightType.data, downloadedWeights, chosenEntry(translationChoices, translationValue))
+        : null);
+    useModelRunner({ run: translationRun, setRun: setTranslationRun, ready: !translationNeed, downloads, expected: {},
         modelReady: !!translationRun && downloadedWeights.includes(translationRun.offer.weight), select: setSelectedCTranslate2WeightType });
+
+    // The text to speech (#955): a model for the Japanese or the other languages' voice, downloaded
+    // and written into its speech server profile, as the recognition's model is into its own.
+    const { settings: speechServers } = useSpeechServers();
+    const speechReadyBefore = SPEECH_TARGETS.some(target => typeof speechServers?.profiles?.[target]?.model === "string" && speechServers.profiles[target].model.trim() !== "");
+    const recommendedVoice = recommendedSpeech(downloads.catalog, language);
+    const speechChoices = modelChoices(downloads.catalog, SPEECH_TARGETS, recommendedVoice?.id);
+    const [speechChoice, setSpeechChoice] = useState<string>(SKIP);
+    const [speechRun, setSpeechRun] = useState<ModelRun | null>(null);
+    const speechEntry = chosenEntry(speechChoices, speechChoice);
+    const speechOffered = speechRun?.offer ?? (speechEntry
+        ? { weight: speechEntry.id, name: speechEntry.name, entry: speechEntry, switches: false, restrictions: restrictionsOf(speechEntry) } : null);
+    const speechTarget: (typeof SPEECH_TARGETS)[number] = speechOffered?.entry?.target === "multilingual" ? "multilingual" : "japanese";
+    const speechJob = speechRun?.offer.entry ? downloads.state.jobs[speechRun.offer.entry.id] : undefined;
+    const speechDone = !!speechRun && speechJob?.phase === "applied" && !!speechJob.job_id && speechRun.applied.includes(speechJob.job_id);
+    useModelRunner({ run: speechRun, setRun: setSpeechRun, ready: speechDone, modelReady: false, downloads,
+        expected: { model: String(speechServers?.profiles?.[speechTarget]?.model ?? "") } });
 
     if (!open) return null;
     const running = run?.phase === "running";
-    const finished = run?.phase === "done" || (!running && recognition === "ready");
+    const recognitionReady = run?.phase === "done" || (!running && ["ready", "cloud", "own_server"].includes(recognition));
     const needsConsent = planModels(draftPlan).length > 0;
+    // Each feature settled: ready, or not installed now, and nothing of it under way. "Done" is then
+    // offered, with what to turn on on the main screen (#955).
+    const features: Record<SetupFeature, FeatureView> = {
+        recognition: { ready: recognitionReady, skipped: recognitionSkipped && !run, running },
+        translation: { ready: !translationNeed, skipped: translationValue === SKIP && !translationRun, running: translationRun?.phase === "running" },
+        speech: { ready: speechReadyBefore || speechRun?.phase === "done", skipped: speechChoice === SKIP && !speechRun, running: speechRun?.phase === "running" },
+    };
+    const finished = Object.values(features).every(isSettled);
     const finish = (forGood: boolean) => {
         close();
         if (forGood) setup.dismissNotice();
@@ -155,6 +208,14 @@ export const FirstRunSetupController = () => {
         if (step && job && job.phase !== "cancelling") downloads.send("/run/cancel_model_download", { id: step.entry.id, job_id: job.job_id });
         else setRun(previous => previous && { ...previous, phase: "failed", failure: { step: plan.findIndex((_, i) => stepState(plan, i, view, null) !== "done"), code: "stopped" } });
     };
+    const choiceLabel = t("first_run_setup.choice.label");
+    // A model that may be too heavy for the PC says so in its choice (#955), as in the catalogs: the
+    // speech models for where the speech engine runs (automatic), the translation's for its device.
+    const hardware = downloads.hardware;
+    const speechWarned = (entry: SetupEntry) => !!hardwareWarning(entry, hardware);
+    const translationMode = translationDeviceMode(currentSelectedTranslationComputeDevice?.data, hardware);
+    const translationWarned = (entry: SetupEntry) => translationMode !== null && !!hardwareWarning(entry, hardware, { deviceMode: translationMode });
+    const recognitionDone = recognitionReady;
 
     return <div className={`${styles.container} ${dialogStyles.host}`}>
         <dialog ref={dialog} className={`${dialogStyles.dialog} ${ui.dialog}`} aria-label={t("first_run_setup.title")}
@@ -165,24 +226,42 @@ export const FirstRunSetupController = () => {
             </div>
             <Findings recognition={recognition} onLeave={() => finish(false)}
                 translationPreparing={translationRun?.phase === "running"} translationHere={!!translationOffered}
-                translationSwitches={!!translationOffered?.switches} translationLoading={!!translationNeed && !translationOffered && !downloads.catalog} />
+                translationSwitches={!!translationOffered?.switches} translationLoading={!!translationNeed && !translationOffered && !downloads.catalog && translationValue !== SKIP} />
             {!["cloud", "own_server"].includes(recognition) && <section className={ui.section} aria-labelledby="first-run-recognition">
                 <h4 id="first-run-recognition" className={ui.sectionTitle}>{t("first_run_setup.recognition.heading")}</h4>
-                {finished
+                {recognitionDone
                     ? <p role="status" className={ui.finished}>{t("first_run_setup.recognition.finished")}</p>
-                    : <RecognitionSetup plan={plan} view={view} run={run} consent={consent} setConsent={setConsent}
-                        catalogReady={!!downloads.catalog} />}
-                {!finished && <div className={ui.actions}>
-                    {!run && <button type="button" className="primary" disabled={(needsConsent && !consent) || !draftPlan?.length} onClick={begin}>
+                    : <>
+                        {!run && recognition === "needs_setup" && recognitionChoices.length > 0 && <ModelChoice label={choiceLabel} choices={recognitionChoices}
+                            recommended={recommendedRecognition?.id} value={recognitionValue ?? SKIP} onChange={setRecognitionChoice} warned={speechWarned} />}
+                        {recognitionSkipped && !run
+                            ? <p className={ui.text}>{t("first_run_setup.recognition.skipped")}</p>
+                            : <RecognitionSetup plan={plan} view={view} run={run} consent={consent} setConsent={setConsent}
+                                catalogReady={!!downloads.catalog} />}
+                    </>}
+                {!recognitionDone && <div className={ui.actions}>
+                    {!run && !recognitionSkipped && <button type="button" className="primary" disabled={(needsConsent && !consent) || !draftPlan?.length} onClick={begin}>
                         {t("first_run_setup.recognition.start")}</button>}
                     {running && <button type="button" onClick={stop}>{t("first_run_setup.recognition.stop")}</button>}
                     {run?.phase === "failed" && <button type="button" className="primary" onClick={retry}>{t("first_run_setup.recognition.retry")}</button>}
                     {!running && <OpenSettings tab="transcription" label={t("first_run_setup.recognition.choose_other")} onLeave={() => finish(false)} />}
                 </div>}
             </section>}
-            {translationOffered && <TranslationSetup offer={translationOffered} run={translationRun} setRun={setTranslationRun}
-                modelReady={downloadedWeights.includes(translationOffered.weight)} onLeave={() => finish(false)}
+            {(translationNeed || translationRun) && <ModelSetup words="translation" offer={translationOffered} run={translationRun} setRun={setTranslationRun}
+                choice={translationChoices.length > 0 && <ModelChoice label={choiceLabel} choices={translationChoices} recommended={defaultTranslation?.id}
+                    value={translationValue ?? SKIP} onChange={setTranslationChoice} warned={translationWarned} />}
+                modelReady={!!translationOffered && downloadedWeights.includes(translationOffered.weight)} onLeave={() => finish(false)}
+                settingsTab="translation" settingsLabel={t("first_run_setup.found.translation_open_settings")}
                 version={downloads.catalog?.catalog_version} jobs={downloads.state.jobs} send={downloads.send} />}
+            <ModelSetup words="speech" offer={speechOffered} run={speechRun} setRun={setSpeechRun} alreadyReady={speechReadyBefore}
+                choice={speechChoices.length > 0 && <ModelChoice label={choiceLabel} choices={speechChoices} recommended={recommendedVoice?.id}
+                    value={speechChoice} onChange={setSpeechChoice} groupOf={entry => t(`first_run_setup.speech.group_${entry.target}`)} warned={speechWarned} />}
+                modelReady={speechDone} onLeave={() => finish(false)}
+                settingsTab="tts" settingsLabel={t("first_run_setup.speech.choose_other")}
+                version={downloads.catalog?.catalog_version} jobs={downloads.state.jobs} send={downloads.send} />
+            {/* The setup's end (#955): which switches on the main screen to turn on, for the features
+                prepared; the others can stay off. Nothing is turned on here. */}
+            {finished && <NextSteps features={features} />}
             <div className={ui.footer} data-slot="dialog-footer">
                 <div className={ui.actions}>
                     <button type="button" onClick={() => finish(false)}>{t("first_run_setup.later")}</button>
@@ -194,6 +273,29 @@ export const FirstRunSetupController = () => {
             </div>
         </dialog>
     </div>;
+};
+
+// What to do on the main screen once the setup is settled (#955): for each feature, its switch to
+// turn on when it was prepared, or that it is not used now and its switch can stay off. The rows
+// are drawn as the findings' quiet list: a mark, the feature's name, then the words.
+const FEATURE_SWITCHES: Record<SetupFeature, string> = {
+    recognition: "first_run_setup.next.switch_recognition",
+    translation: "first_run_setup.next.switch_translation",
+    speech: "first_run_setup.next.switch_speech",
+};
+const NextSteps = ({ features }: { features: Record<SetupFeature, FeatureView> }) => {
+    const { t } = useI18n();
+    return <section className={ui.section} aria-labelledby="first-run-next">
+        <h4 id="first-run-next" className={ui.sectionTitle}>{t("first_run_setup.next.heading")}</h4>
+        <ul className={ui.items}>
+            {(Object.keys(features) as SetupFeature[]).map(feature => {
+                const outcome = featureOutcome(features[feature]);
+                return <Finding key={feature} id={`next-${feature}`} state={outcome === "use" ? "ready" : "neutral"} name={t(`first_run_setup.next.name_${feature}`)}>
+                    {t(outcome === "use" ? "first_run_setup.next.use" : "first_run_setup.next.unused", { switches: t(FEATURE_SWITCHES[feature]) })}
+                </Finding>;
+            })}
+        </ul>
+    </section>;
 };
 
 let runCount = 0;
@@ -258,18 +360,23 @@ const useRunner = ({ run, setRun, view, downloads, realtime, setSelectedTranscri
 };
 
 // Sends the translation run's next request, once each, and records how it ends (#936).
-interface TranslationRunnerProps {
-    run: TranslationRun | null;
-    setRun: Dispatch<SetStateAction<TranslationRun | null>>;
+// Sends a one-model run's next request, once each, and records how it ends (#936, #955).
+interface ModelRunnerProps {
+    run: ModelRun | null;
+    setRun: Dispatch<SetStateAction<ModelRun | null>>;
     // The setup no longer needs the model.
     ready: boolean;
     // The offered model is on the PC.
     modelReady: boolean;
     downloads: ReturnType<typeof useModelDownloads>;
-    // Selects a translation model (/set/data/selected_ctranslate2_weight_type).
-    select: (weight: string) => unknown;
+    // Selects the translation model (/set/data/selected_ctranslate2_weight_type), with the consent
+    // to its restricted license when one was acknowledged. The text to speech selects nothing.
+    select?: (request: WeightRequest) => unknown;
+    // What the settings hold where the download goes: nothing for a model found by its catalog id
+    // (the translation's), the profile's path for a text-to-speech model.
+    expected: Record<string, string>;
 }
-const useTranslationRunner = ({ run, setRun, ready, modelReady, downloads, select }: TranslationRunnerProps) => {
+const useModelRunner = ({ run, setRun, ready, modelReady, downloads, select, expected }: ModelRunnerProps) => {
     const sent = useRef(new Set<string | null>());
     const running = run?.phase === "running";
     const entry = run?.offer.entry ?? null;
@@ -287,61 +394,109 @@ const useTranslationRunner = ({ run, setRun, ready, modelReady, downloads, selec
         if (sent.current.has(key)) return;
         sent.current.add(key);
         if (action.kind === "switch") {
+            if (!select) return;
             // As the recognition's section selects its engine: the model is on the PC, so the choice can change.
             setRun(previous => previous && { ...previous, switched: true });
-            Promise.resolve(select(run.offer.weight)).then(result => {
+            const accepted = run.offer.restrictions.length > 0 && run.offer.restrictions.every(kind => run.acknowledged.includes(kind));
+            Promise.resolve(select(weightRequest(run.offer.weight, accepted))).then(result => {
                 if (result === false) setRun(previous => previous && { ...previous, phase: "failed", failure: "backend_unavailable" });
             });
         } else if (!entry) {
             return;
         } else if (action.kind === "start") {
             setRun(previous => previous && { ...previous, started: job?.job_id ?? null });
-            // The recommended model's license allows any use, so the one consent is all, as the recognition's.
             downloads.send("/run/start_model_download", startRequest({ id: entry.id, catalog_version: String(run.version ?? ""),
-                restrictions: entry.restrictions }, []));
+                restrictions: entry.restrictions }, run.acknowledged));
         } else {
             setRun(previous => previous && { ...previous, applied: [...previous.applied, action.jobId] });
-            // The translation's download holds no path: nothing in the settings is expected.
-            downloads.send("/run/apply_model_download", { id: entry.id, job_id: action.jobId, expected: {} });
+            downloads.send("/run/apply_model_download", { id: entry.id, job_id: action.jobId, expected });
         }
     }, [running, key, downloadError]);
 };
 
-// The translation's own section (#936), laid out as the recognition's section above: what it
-// does, the model the setup recommends with its facts and total, the consent, then the steps
-// (download it; select it when another model is selected) and the way to the Translation
-// settings for other models. Nothing downloads before the consent, and the translation itself
-// is not turned on.
-interface TranslationSetupProps {
-    offer: TranslationOffer;
-    run: TranslationRun | null;
-    setRun: Dispatch<SetStateAction<TranslationRun | null>>;
+// The model a section prepares, chosen in the setup (#955): one file per model, the recommended
+// one first and marked, and "do not install" last. A list of the forms' kind, as every choice
+// from a list is; the section's facts and consent follow for the model chosen.
+interface ModelChoiceProps {
+    label: string;
+    choices: readonly SetupEntry[];
+    recommended: string | null | undefined;
+    value: string;
+    onChange: (value: string) => void;
+    // The heading of a choice's group, when the list holds more than one kind (the text to speech's).
+    groupOf?: (entry: SetupEntry) => string;
+    // Whether the model may be too heavy for the user's PC (modelHardwareWarning.ts): its option
+    // then says so, as the catalog's file choice does.
+    warned?: (entry: SetupEntry) => boolean;
+}
+const ModelChoice = ({ label, choices, recommended, value, onChange, groupOf, warned }: ModelChoiceProps) => {
+    const { t } = useI18n();
+    // The recommended mark is part of the words, so each language places it as it writes it.
+    const option = (entry: SetupEntry) => <option key={entry.id} value={entry.id}>
+        {[t(entry.id === recommended ? "first_run_setup.choice.option_recommended" : "first_run_setup.choice.option",
+            { name: familyLabel(entry), size: gib(entry.total_bytes) }),
+            warned?.(entry) && t("model_catalog.hardware_warning.option")].filter(Boolean).join(" · ")}
+    </option>;
+    const groups = groupOf ? [...new Set(choices.map(groupOf))] : [];
+    return <label className={ui.choice}>
+        <span>{label}</span>
+        <select value={value} onChange={event => onChange(event.target.value)}>
+            {groupOf
+                ? groups.map(group => <optgroup key={group} label={group}>{choices.filter(entry => groupOf(entry) === group).map(option)}</optgroup>)
+                : choices.map(option)}
+            <option value={SKIP}>{t("first_run_setup.choice.skip")}</option>
+        </select>
+    </label>;
+};
+
+// A one-model section (#936, #955), laid out as the recognition's section above: the choice of the
+// model, what it does, the model with its facts and total, the consent (and one for each license
+// restriction), then the steps (download it; select it when another model is selected) and the way
+// to the settings page for more. Nothing downloads before the consent, and the feature itself is
+// not turned on. words: the section's own words (first_run_setup.<words>.*). offer: null while
+// "do not install" is chosen; the section then says the feature is not used now.
+interface ModelSetupProps {
+    words: "translation" | "speech";
+    choice: ReactNode;
+    offer: TranslationOffer | null;
+    run: ModelRun | null;
+    setRun: Dispatch<SetStateAction<ModelRun | null>>;
     // The offered model is on the PC.
     modelReady: boolean;
+    // The section's feature was ready before it opened: no choice, only that.
+    alreadyReady?: boolean;
+    settingsTab: string;
+    settingsLabel: string;
     onLeave: () => void;
     version: unknown;
     jobs: ReturnType<typeof useModelDownloads>["state"]["jobs"];
     send: ReturnType<typeof useModelDownloads>["send"];
 }
-const TranslationSetup = ({ offer, run, setRun, modelReady, onLeave, version, jobs, send }: TranslationSetupProps) => {
+const ModelSetup = ({ words, choice, offer, run, setRun, modelReady, alreadyReady = false, settingsTab, settingsLabel, onLeave, version, jobs, send }: ModelSetupProps) => {
     const { t } = useI18n();
     const [consent, setConsent] = useState(false);
+    const [acknowledged, setAcknowledged] = useState<string[]>([]);
     const [linkFailed, setLinkFailed] = useState<string | null>(null);
-    const { entry, switches } = offer;
+    const key = (name: string) => `first_run_setup.${words}.${name}`;
+    const shown = run?.offer ?? offer;
+    const entry = shown?.entry ?? null, switches = !!shown?.switches;
+    const restrictions = shown?.restrictions ?? [];
     const job = entry ? jobs[entry.id] : undefined;
     const active = !!job && ACTIVE.includes(job.phase);
     const running = run?.phase === "running";
     const failed = run?.phase === "failed";
-    // Nothing to download: no consent is asked, as the recognition's section with no model.
-    const ready = entry ? consent : true;
+    const acknowledgedAll = restrictions.every(kind => acknowledged.includes(kind));
+    // Nothing to download: no consent is asked, as the recognition's section with no model; a
+    // restricted license is still acknowledged before the choice changes.
+    const ready = !!shown && (entry ? canStart(entry, consent, acknowledged) : acknowledgedAll);
     const openLink = async (event: MouseEvent<HTMLAnchorElement>, url: string) => {
         if (!isTauri()) return;
         event.preventDefault();
         try { await openUrl(url); setLinkFailed(null); } catch { setLinkFailed(url); }
     };
     const begin = () => {
-        if (running || !ready) return;
-        setRun({ id: newRunId(), phase: "running", offer, version, started: undefined, applied: [], switched: false, failure: null });
+        if (running || !ready || !shown) return;
+        setRun({ id: newRunId(), phase: "running", offer: shown, version, acknowledged, started: undefined, applied: [], switched: false, failure: null });
     };
     const retry = () => setRun(previous => previous && { ...previous, id: newRunId(), phase: "running", started: undefined, applied: [], switched: false, failure: null });
     const stop = () => {
@@ -349,20 +504,23 @@ const TranslationSetup = ({ offer, run, setRun, modelReady, onLeave, version, jo
         else setRun(previous => previous && { ...previous, phase: "failed", failure: "stopped" });
     };
     const card = entry ? entry.source ?? entry.licenses?.[0] : undefined;
-    const what = !entry ? t("first_run_setup.translation.what_switch_only", { name: offer.name })
-        : t(switches ? "first_run_setup.translation.what_switch" : "first_run_setup.translation.what");
+    const what = !shown ? "" : !entry ? t(key("what_switch_only"), { name: shown.name }) : t(key(switches ? "what_switch" : "what"));
     // The steps, as the recognition's: the download, then the choice. One that failed says why.
-    const modelLabel = entry ? t("first_run_setup.translation.step_model", { name: entry.name }) : "";
+    const modelLabel = entry ? t(key("step_model"), { name: entry.name }) : "";
     const modelState = modelReady ? "done" : failed ? "failed" : "working";
     const switchState = !modelReady ? "waiting" : failed ? "failed" : "working";
     const stateText = (state: string) => state === "failed" ? failureText(t, run?.failure ?? undefined) : t(`first_run_setup.recognition.state_${state}`);
-    return <section className={ui.section} aria-labelledby="first-run-translation">
-        <h4 id="first-run-translation" className={ui.sectionTitle}>{t("first_run_setup.translation.heading")}</h4>
-        {run?.phase === "done"
-            ? <p role="status" className={ui.finished}>{t("first_run_setup.translation.finished")}</p>
+    const acknowledge = (kind: string, checked: boolean) =>
+        setAcknowledged(previous => checked ? [...previous.filter(item => item !== kind), kind] : previous.filter(item => item !== kind));
+    return <section className={ui.section} aria-labelledby={`first-run-${words}`}>
+        <h4 id={`first-run-${words}`} className={ui.sectionTitle}>{t(key("heading"))}</h4>
+        {run?.phase === "done" || (alreadyReady && !run)
+            ? <p role="status" className={ui.finished}>{t(key("finished"))}</p>
             : <>
+                {!run && choice}
+                {!shown ? <p className={ui.text}>{t(key("skipped"))}</p> : <>
                 <p className={ui.text}>{what}</p>
-                {entry && <ul className={ui.models} aria-label={t("first_run_setup.translation.model")}>
+                {entry && <ul className={ui.models} aria-label={t(key("model"))}>
                     <li className={ui.model}>
                         <span className={ui.modelName}>{entry.name}</span>
                         <span className={ui.modelFacts}>
@@ -377,10 +535,20 @@ const TranslationSetup = ({ offer, run, setRun, modelReady, onLeave, version, jo
                 {linkFailed && <p role="alert">{t("model_downloads.link_error")} <code className={dialogStyles.path}>{linkFailed}</code></p>}
                 {entry && <p className={ui.total}>{t("first_run_setup.recognition.total", { size: gib(entry.total_bytes),
                     bytes: Number.isFinite(entry.total_bytes) ? entry.total_bytes.toLocaleString("en-US") : "0" })}</p>}
-                {!run && entry && <label className={styles.checkLabel}>
-                    <input type="checkbox" checked={consent} onChange={event => setConsent(event.target.checked)} />
-                    {t("first_run_setup.recognition.consent")}
-                </label>}
+                {/* A license that restricts the use is said, and acknowledged on its own (#411). */}
+                {restrictions.map(kind => <p key={kind} className={ui.text}>
+                    <strong>{t([`model_downloads.restriction.${kind}.title`, "model_downloads.restriction.other.title"])}</strong>{" "}
+                    {t([`model_downloads.restriction.${kind}.note`, "model_downloads.restriction.other.note"], { license: shown.entry?.license ?? "" })}</p>)}
+                {!run && <>
+                    {entry && <label className={styles.checkLabel}>
+                        <input type="checkbox" checked={consent} onChange={event => setConsent(event.target.checked)} />
+                        {t("first_run_setup.recognition.consent")}
+                    </label>}
+                    {restrictions.map(kind => <label key={kind} className={styles.checkLabel}>
+                        <input type="checkbox" checked={acknowledged.includes(kind)} onChange={event => acknowledge(kind, event.target.checked)} />
+                        {t(`model_downloads.restriction.${kind}.acknowledge`, { license: shown.entry?.license ?? "" })}
+                    </label>)}
+                </>}
                 {run && <ol className={ui.steps} aria-label={t("first_run_setup.recognition.progress")}>
                     {entry && <li className={ui.step} data-state={modelState}>
                         <span className={ui.stepLabel}>{modelLabel}</span>
@@ -393,17 +561,18 @@ const TranslationSetup = ({ offer, run, setRun, modelReady, onLeave, version, jo
                             <progress className={styles.progress} value={job.received_bytes ?? 0} max={job.total_bytes} aria-label={modelLabel} />}
                     </li>}
                     {switches && <li className={ui.step} data-state={switchState}>
-                        <span className={ui.stepLabel}>{t("first_run_setup.translation.step_switch", { name: offer.name })}</span>
+                        <span className={ui.stepLabel}>{t(key("step_switch"), { name: shown.name })}</span>
                         <span className={ui.stepState} role={switchState === "failed" ? "alert" : undefined}>{stateText(switchState)}</span>
                     </li>}
                 </ol>}
-                {failed && <p className={ui.text}>{t("first_run_setup.translation.kept")}</p>}
+                {failed && <p className={ui.text}>{t(key("kept"))}</p>}
+                </>}
                 <div className={ui.actions}>
-                    {!run && <button type="button" className="primary" disabled={!ready} onClick={begin}>
+                    {!run && shown && <button type="button" className="primary" disabled={!ready} onClick={begin}>
                         {t("first_run_setup.recognition.start")}</button>}
                     {running && <button type="button" onClick={stop}>{t("first_run_setup.recognition.stop")}</button>}
                     {failed && <button type="button" className="primary" onClick={retry}>{t("first_run_setup.recognition.retry")}</button>}
-                    {!running && <OpenSettings tab="translation" label={t("first_run_setup.found.translation_open_settings")} onLeave={onLeave} />}
+                    {!running && <OpenSettings tab={settingsTab} label={settingsLabel} onLeave={onLeave} />}
                 </div>
             </>}
     </section>;

@@ -2820,7 +2820,24 @@ virtual_mic:
 # The first-run setup (#557). It opens once at start-up and from the first screen at any time.
 first_run_setup:
     title: "Setup"
-    purpose: "Get speech recognition, translation and sending to VRChat ready. The setup checks what is missing and prepares what it can in one go."
+    purpose: "Get speech recognition, translation, text to speech and sending to VRChat ready. Prepare only the features you use."
+    # The model each section prepares (#955): one file per model, the recommended one marked, or none.
+    choice:
+        label: "Model"
+        option: "{{name}} · {{size}}"
+        option_recommended: "{{name}} · {{size}} (recommended)"
+        skip: "Don't install"
+    # The setup's end (#955): what to turn on on the main screen, for the features prepared.
+    next:
+        heading: "Next, on the main screen"
+        name_recognition: "Speech recognition"
+        name_translation: "Translation"
+        name_speech: "Text to speech"
+        switch_recognition: "Mic input and Listening"
+        switch_translation: "Translation"
+        switch_speech: "Text to speech (TTS)"
+        use: "Turn on {{switches}} on the left to use it."
+        unused: "Not used: no model was installed. {{switches}} can stay off."
     later: "Later"
     done: "Done"
     dont_show: "Stop highlighting \"Open setup\" on the first screen (you can still open it there)"
@@ -2849,13 +2866,26 @@ first_run_setup:
     translation:
         heading: "Prepare translation"
         what: "Downloads the model that translates text and makes it ready for translation. Translation runs on your PC and sends no text anywhere. Translation is not turned on."
-        what_switch: "Downloads the default model that translates text and switches translation to it. Translation runs on your PC and sends no text anywhere. Translation is not turned on."
+        what_switch: "Downloads the model that translates text and switches translation to it. Translation runs on your PC and sends no text anywhere. Translation is not turned on."
         what_switch_only: "Nothing to download. Translation switches to {{name}}, which is already on your PC. Translation is not turned on."
         model: "Model to download"
         step_model: "Download {{name}} and make it ready for translation"
         step_switch: "Use {{name}} for translation"
-        finished: "Translation is ready. Turn on Translation on the main screen to use it."
+        finished: "Translation is ready."
+        skipped: "Translation is not used."
         kept: "The translation settings are as before. Remove the cause, then press \"Try again\"."
+    # The text to speech's section (#955): a model for the Japanese or the other languages' voice.
+    speech:
+        heading: "Prepare text to speech"
+        what: "Downloads the model that reads text aloud and makes it ready for text to speech. It runs on your PC and uses the GPU. Text to speech is not turned on."
+        model: "Model to download"
+        step_model: "Download {{name}} and put it in the settings"
+        finished: "Text to speech is ready."
+        skipped: "Text to speech is not used."
+        kept: "The text to speech settings are as before. Remove the cause, then press \"Try again\"."
+        choose_other: "Use other models or an external engine (open the Text to speech (TTS) settings)"
+        group_japanese: "Japanese voices"
+        group_multilingual: "Other languages"
     recognition:
         heading: "Prepare speech recognition in one go"
         what: "Your speech is turned into text on your own computer and is not sent anywhere. The models below are downloaded and written into the settings, and the bundled speech recognition server is selected. The microphone is not turned on."
@@ -2883,7 +2913,8 @@ first_run_setup:
         state_failed: "Could not be done."
         state_stopped: "Stopped."
         kept: "Your settings are as they were. Fix the cause and press Try again: steps already done are skipped."
-        finished: "Speech recognition is ready. Turn on Mic input on the main screen to use it."
+        finished: "Speech recognition is ready."
+        skipped: "Speech recognition is not used."
 
 # Experimental companion form (tray, captions, control panel); Issue #355.
 companion:
