@@ -53,7 +53,7 @@ const loadSection = async (runtime: HookRuntime) => {
         // Every shipped model is one the model list shows here (#565).
         "../../../../../../logics/translation/useListedLocalWeights": { useListedLocalWeights: () => new Set(shippedEngine.map(item => item.weight)) },
         "../../../../../../logics/translation/translationCatalog": translationCatalog,
-        "../../../../../../logics/common/endpointPrivacy": { endpointDescription: () => "" },
+        "../../../../../../logics/common/endpointPrivacy": { endpointNotices: () => ({ description: "", warning: null }) },
         "../_components": { SectionLabelComponent: "section-label" },
         "../_components/hint/Hint": { useHintDescriptions: () => false },
         "../_components/fold/Fold": { Fold: "fold" },
