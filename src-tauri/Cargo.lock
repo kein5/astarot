@@ -94,6 +94,35 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "330a5ed07fa54e4702c9d6c4174f74427fc0ef6e214bbd677ae50a5099946470"
 
 [[package]]
+name = "astarot"
+version = "0.0.0"
+dependencies = [
+ "astarot-app-identity",
+ "astarot-core",
+ "base64 0.23.1",
+ "font-kit",
+ "gdkx11",
+ "glob",
+ "gtk",
+ "reqwest",
+ "rustls",
+ "semver",
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-global-shortcut",
+ "tauri-plugin-opener",
+ "tauri-plugin-single-instance",
+ "tauri-plugin-updater",
+ "tempfile",
+ "webkit2gtk",
+ "webview2-com",
+ "windows",
+ "zbus 6.2.1",
+]
+
+[[package]]
 name = "astarot-adapters"
 version = "0.0.0"
 dependencies = [
@@ -5926,35 +5955,6 @@ name = "version_check"
 version = "0.9.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
-
-[[package]]
-name = "vrct-vox"
-version = "0.0.0"
-dependencies = [
- "astarot-app-identity",
- "astarot-core",
- "base64 0.23.1",
- "font-kit",
- "gdkx11",
- "glob",
- "gtk",
- "reqwest",
- "rustls",
- "semver",
- "serde",
- "serde_json",
- "tauri",
- "tauri-build",
- "tauri-plugin-global-shortcut",
- "tauri-plugin-opener",
- "tauri-plugin-single-instance",
- "tauri-plugin-updater",
- "tempfile",
- "webkit2gtk",
- "webview2-com",
- "windows",
- "zbus 6.2.1",
-]
 
 [[package]]
 name = "vswhom"

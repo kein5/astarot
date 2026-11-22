@@ -25,23 +25,23 @@ ignoreUntil = 2027-02-21
 reason = "ttf-parser comes through ab_glyph (astarot-vr-overlay's subtitles); no ab_glyph release leaves it"
 
 # zbus_names, zvariant, zvariant_derive: no longer separate crates; zbus 6 holds them. zbus 5
-# comes from astarot-core's Secret Service code, from the Tauri app's own crate (vrct-vox), and from
+# comes from astarot-core's Secret Service code, from the Tauri app's own crate (astarot), and from
 # tauri-plugin-opener and tauri-plugin-single-instance, so the app keeps them until those plugins
 # move to zbus 6 too.
 [[IgnoredVulns]]
 id = "RUSTSEC-2026-0371"
 ignoreUntil = 2027-02-21
-reason = "zbus_names is part of zbus 6; zbus 5 comes from astarot-core, vrct-vox and Tauri's opener and single-instance plugins"
+reason = "zbus_names is part of zbus 6; zbus 5 comes from astarot-core, astarot and Tauri's opener and single-instance plugins"
 
 [[IgnoredVulns]]
 id = "RUSTSEC-2026-0370"
 ignoreUntil = 2027-02-21
-reason = "zvariant is part of zbus 6; zbus 5 comes from astarot-core, vrct-vox and Tauri's opener and single-instance plugins"
+reason = "zvariant is part of zbus 6; zbus 5 comes from astarot-core, astarot and Tauri's opener and single-instance plugins"
 
 [[IgnoredVulns]]
 id = "RUSTSEC-2026-0372"
 ignoreUntil = 2027-02-21
-reason = "zvariant_derive is part of zbus 6; zbus 5 comes from astarot-core, vrct-vox and Tauri's opener and single-instance plugins"
+reason = "zvariant_derive is part of zbus 6; zbus 5 comes from astarot-core, astarot and Tauri's opener and single-instance plugins"
 
 # paste: unmaintained. It comes through tokenizers (the local translation's tokenizer).
 [[IgnoredVulns]]
