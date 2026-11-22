@@ -1,7 +1,7 @@
 //! The time the voice pipeline adds of its own (#738), from a final of realtime recognition to
 //! the chatbox and to audible speech, with translation and translated speech on. Every engine
 //! is a stand-in that answers at once: the realtime recognition server (`common::fake_asr`),
-//! DeepL (`vrct_translation::fake`) and a speech.cpp TTS server whose speech starts with the
+//! DeepL (`astarot_translation::fake`) and a speech.cpp TTS server whose speech starts with the
 //! silence speech.cpp's does (`common::fake_tts`). What is left is the core's: its threads and
 //! queues, its requests on 127.0.0.1, and the silence it skips at the start of speech.
 //!
@@ -35,11 +35,11 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
-use vrct_adapters::osc::decode_packet;
-use vrct_audio_routing::router::{Output, PlaybackToken};
-use vrct_core::config::Platform;
-use vrct_core::controller::voice::VoicePlatform;
-use vrct_transcription::capture::Source;
+use astarot_adapters::osc::decode_packet;
+use astarot_audio_routing::router::{Output, PlaybackToken};
+use astarot_core::config::Platform;
+use astarot_core::controller::voice::VoicePlatform;
+use astarot_transcription::capture::Source;
 
 const OUTPUT: &str = "pipeline-overhead";
 /// Utterances that warm the pipeline up; they are not counted.
@@ -56,7 +56,7 @@ const TO_VOICE: &str = "core: final to audible speech";
 // The speech output: when speech becomes audible
 
 /// When each speech became audible: its first write with a sample above 64, the threshold of
-/// `pipeline_latency` and `vrct_tts::onset`. The device takes the audio in real time.
+/// `pipeline_latency` and `astarot_tts::onset`. The device takes the audio in real time.
 #[derive(Clone, Default)]
 struct Speaker {
     audible: Arc<Mutex<Vec<Instant>>>,
@@ -72,7 +72,7 @@ struct Playback {
 }
 
 impl Output for Playback {
-    fn write(&mut self, pcm: &[u8], token: &dyn PlaybackToken) -> vrct_audio_routing::Result<()> {
+    fn write(&mut self, pcm: &[u8], token: &dyn PlaybackToken) -> astarot_audio_routing::Result<()> {
         token.check()?;
         if !self.heard && pcm.as_chunks::<2>().0.iter().any(|s| i16::from_le_bytes(*s).unsigned_abs() > 64) {
             self.heard = true;
@@ -87,7 +87,7 @@ impl Output for Playback {
         Ok(())
     }
 
-    fn close(&mut self, _: bool, _: &dyn PlaybackToken) -> vrct_audio_routing::Result<()> {
+    fn close(&mut self, _: bool, _: &dyn PlaybackToken) -> astarot_audio_routing::Result<()> {
         self.speaker.closed.fetch_add(1, Ordering::SeqCst);
         Ok(())
     }
@@ -100,45 +100,45 @@ struct Voice {
 }
 
 impl VoicePlatform for Voice {
-    fn direct_sources(&self) -> vrct_audio_routing::Result<Vec<vrct_audio_routing::graph::Source>> {
+    fn direct_sources(&self) -> astarot_audio_routing::Result<Vec<astarot_audio_routing::graph::Source>> {
         self.fake.direct_sources()
     }
     fn default_microphone(&self) -> Option<String> {
         self.fake.default_microphone()
     }
-    fn speech_output(&self, device: &str, rate: u32, channels: u16) -> vrct_audio_routing::Result<Box<dyn Output>> {
+    fn speech_output(&self, device: &str, rate: u32, channels: u16) -> astarot_audio_routing::Result<Box<dyn Output>> {
         assert_eq!(device, OUTPUT, "speech went to another output");
         let bytes_per_second = f64::from(rate) * f64::from(channels) * 2.0;
         Ok(Box::new(Playback { speaker: self.speaker.clone(), bytes_per_second, opened: Instant::now(), played: 0.0, heard: false }))
     }
-    fn monitor_output(&self) -> vrct_audio_routing::monitor::MonitorFactory {
+    fn monitor_output(&self) -> astarot_audio_routing::monitor::MonitorFactory {
         self.fake.monitor_output()
     }
-    fn gate(&self, app_dir: &Path) -> Arc<dyn vrct_audio_routing::voice_route::Gate> {
+    fn gate(&self, app_dir: &Path) -> Arc<dyn astarot_audio_routing::voice_route::Gate> {
         VoicePlatform::gate(&self.fake, app_dir)
     }
-    fn passthrough(&self, app_dir: &Path, output: Option<&str>) -> Result<Box<dyn vrct_voice_conversion::DirectBackend>, String> {
+    fn passthrough(&self, app_dir: &Path, output: Option<&str>) -> Result<Box<dyn astarot_voice_conversion::DirectBackend>, String> {
         self.fake.passthrough(app_dir, output)
     }
-    fn route_devices(&self) -> Option<Arc<dyn vrct_audio_routing::windows_route::RouteDevices>> {
+    fn route_devices(&self) -> Option<Arc<dyn astarot_audio_routing::windows_route::RouteDevices>> {
         self.fake.route_devices()
     }
-    fn managed_vc_devices(&self) -> Option<Arc<dyn vrct_audio_routing::managed_vc::ManagedVcDevices>> {
+    fn managed_vc_devices(&self) -> Option<Arc<dyn astarot_audio_routing::managed_vc::ManagedVcDevices>> {
         self.fake.managed_vc_devices()
     }
     fn rvc_worker(&self, app_dir: &Path) -> PathBuf {
         self.fake.rvc_worker(app_dir)
     }
-    fn runtime_transport(&self) -> Arc<dyn vrct_ops::downloads::transport::Transport> {
+    fn runtime_transport(&self) -> Arc<dyn astarot_ops::downloads::transport::Transport> {
         self.fake.runtime_transport()
     }
     fn nvidia_driver(&self) -> bool {
         self.fake.nvidia_driver()
     }
-    fn runtime_target(&self) -> Option<vrct_voice_conversion::runtime::Target> {
+    fn runtime_target(&self) -> Option<astarot_voice_conversion::runtime::Target> {
         self.fake.runtime_target()
     }
-    fn runtime_entries(&self) -> Option<Vec<vrct_voice_conversion::runtime::Runtime>> {
+    fn runtime_entries(&self) -> Option<Vec<astarot_voice_conversion::runtime::Runtime>> {
         self.fake.runtime_entries()
     }
 }
@@ -176,7 +176,7 @@ fn the_core_s_own_time_from_a_final_to_the_chatbox_and_to_audible_speech() {
     let capture = FakeCapture::new();
     capture.add_endpoint(Source::Mic, "alsa.mic", "USB Mic");
     capture.set_default(Source::Mic, Some("alsa.mic"));
-    let providers = vrct_translation::fake::FakeProviders::start();
+    let providers = astarot_translation::fake::FakeProviders::start();
     let key = format!("{}:fx", "d".repeat(36));
     providers.key("/deepl-free", &key);
     // The translation is spoken by the multilingual server; Japanese needs a server of its own.
@@ -200,7 +200,7 @@ fn the_core_s_own_time_from_a_final_to_the_chatbox_and_to_audible_speech() {
     // Linux: the main switch runs realtime recognition.
     let mut setup = Setup { saved: Some(saved), platform: Platform::Linux, ..Setup::default() };
     setup.services.transcription_capture = capture.factory();
-    setup.services.translation_endpoints = vrct_translation::providers::Endpoints::all_at(&providers.url());
+    setup.services.translation_endpoints = astarot_translation::providers::Endpoints::all_at(&providers.url());
     setup.services.voice = Arc::new(Voice { fake: FakeVoice::new(), speaker: speaker.clone() });
     let ui = Ui::with(setup);
     ui.ready();

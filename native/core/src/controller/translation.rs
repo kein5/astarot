@@ -35,9 +35,9 @@ use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
-use vrct_translation::http::Transport;
-use vrct_translation::prompt::HistoryItem;
-use vrct_translation::providers::{self as providers, deepl, Access, Endpoints, Provider};
+use astarot_translation::http::Transport;
+use astarot_translation::prompt::HistoryItem;
+use astarot_translation::providers::{self as providers, deepl, Access, Endpoints, Provider};
 
 // ------------------------------------------------------------------------- local translation
 
@@ -438,7 +438,7 @@ impl Translators {
     // ------------------------------------------------------------ the provider calls
 
     // The provider is named at run time (the settings); `Provider::check` and the others turn
-    // the name into the provider's static type with one `match` in `vrct_translation` and call
+    // the name into the provider's static type with one `match` in `astarot_translation` and call
     // its `Api` methods directly (static dispatch, no `dyn`).
 
     /// Checks the key (or that the server answers) and lists the models: `setAuthKey` and the
@@ -1614,7 +1614,7 @@ mod tests {
             })
             .collect();
         let mut checked = 0;
-        for entry in vrct_ops::downloads::catalog::translation_models() {
+        for entry in astarot_ops::downloads::catalog::translation_models() {
             let Some((weight, variant)) = super::super::translation_onnx::weight_of_catalog_id(&entry.id) else { continue };
             if variant.name() == "int8" {
                 assert_eq!(names[weight], entry.name, "{weight}");

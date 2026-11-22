@@ -1,4 +1,4 @@
-# vrct-translate-onnx
+# astarot-translate-onnx
 
 ローカル翻訳（M2M100 と NLLB-200）を ONNX Runtime で動かす Rust クレートです。Python 側の CTranslate2 による翻訳（[`src-python/models/translation/translation_translator.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/translation/translation_translator.py) の `translateCTranslate2`）を置き換えます。
 
@@ -22,7 +22,7 @@
 
 ## ONNX Runtime の読み込み
 
-ライブラリの探し方と、プロセスに1つだけの環境は、`native/onnx-runtime`（`vrct-onnx-runtime`）が受け持ちます。チャットの読み取り（`native/ocr-runtime`）と声質変換のワーカー（`native/rvc-runtime`）も同じクレートを使います。探す順は次のとおりです。
+ライブラリの探し方と、プロセスに1つだけの環境は、`native/onnx-runtime`（`astarot-onnx-runtime`）が受け持ちます。チャットの読み取り（`native/ocr-runtime`）と声質変換のワーカー（`native/rvc-runtime`）も同じクレートを使います。探す順は次のとおりです。
 
 1. 環境変数 `ORT_DYLIB_PATH`
 2. 中核の `shipped_libraries.rs` が起動時に指定するライブラリ。翻訳の処理デバイスに CUDA か DirectML が選ばれていて、その版を準備済みなら設定フォルダーの `vc_runtimes/` にある GPU 版（先に読み込むライブラリと一緒に指定する）。そうでなければアプリが同梱する CPU 版（`_internal/onnxruntime`）
@@ -30,7 +30,7 @@
 
 `ort` は1つのプロセスで最初に読み込んだライブラリを使い続け、環境も1つしか作れません。翻訳とチャットの読み取りは、どちらが先に始まっても同じライブラリと環境を使います。このクレートの `runtime.rs` は読み込んだライブラリにある実行プロバイダを調べるだけです。どの実行プロバイダがあるかは、そのライブラリのビルドで決まります。`ort` の機能 `cuda`、`tensorrt`、`openvino`、`migraphx`、`webgpu`（Windows では `directml` も）は Rust 側の呼び出しを足すだけで、`load-dynamic` では何もリンクしません。`ort` の機能はアプリ全体で1つにまとまるので、このクレートの既定の機能も `load-dynamic` です。単体で `ort` の配るバイナリにリンクしたいときは `--no-default-features --features download-binaries` を使います。
 
-`vrct-translate --providers` は、読み込んだライブラリの実行プロバイダを表示します。2026-11-16 に公式の `onnxruntime-win-x64-1.31.0.zip` では `["cpu"]`、NuGet の `Microsoft.ML.OnnxRuntime.DirectML` 1.24.4 では `["cpu","directml"]` と出ることを確かめました（Windows 11、モデルなし）。
+`astarot-translate --providers` は、読み込んだライブラリの実行プロバイダを表示します。2026-11-16 に公式の `onnxruntime-win-x64-1.31.0.zip` では `["cpu"]`、NuGet の `Microsoft.ML.OnnxRuntime.DirectML` 1.24.4 では `["cpu","directml"]` と出ることを確かめました（Windows 11、モデルなし）。
 
 ## 実行プロバイダ（使う機器）
 

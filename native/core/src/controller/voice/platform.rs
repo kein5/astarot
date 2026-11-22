@@ -6,16 +6,16 @@
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use vrct_audio_routing::graph::Source;
-use vrct_audio_routing::monitor::MonitorFactory;
-use vrct_audio_routing::router::Output;
-use vrct_audio_routing::voice_route::{Gate, GatePair};
-use vrct_audio_routing::managed_vc::ManagedVcDevices;
-use vrct_audio_routing::windows_route::RouteDevices;
-use vrct_audio_routing::{Error, Result};
-use vrct_ops::downloads::transport::Transport;
-use vrct_voice_conversion::DirectBackend;
-use vrct_voice_conversion::runtime::Target;
+use astarot_audio_routing::graph::Source;
+use astarot_audio_routing::monitor::MonitorFactory;
+use astarot_audio_routing::router::Output;
+use astarot_audio_routing::voice_route::{Gate, GatePair};
+use astarot_audio_routing::managed_vc::ManagedVcDevices;
+use astarot_audio_routing::windows_route::RouteDevices;
+use astarot_audio_routing::{Error, Result};
+use astarot_ops::downloads::transport::Transport;
+use astarot_voice_conversion::DirectBackend;
+use astarot_voice_conversion::runtime::Target;
 
 pub trait VoicePlatform: Send + Sync {
     /// The microphones direct voice can forward or convert (`enumerate_sources`).
@@ -46,7 +46,7 @@ pub trait VoicePlatform: Send + Sync {
     /// The platform a runtime can be set up for.
     fn runtime_target(&self) -> Option<Target>;
     /// What the runtime setup offers in place of the pinned runtime (tests).
-    fn runtime_entries(&self) -> Option<Vec<vrct_voice_conversion::runtime::Runtime>> {
+    fn runtime_entries(&self) -> Option<Vec<astarot_voice_conversion::runtime::Runtime>> {
         None
     }
     /// The libraries this process loaded that a runtime may hold (#880).
@@ -66,10 +66,10 @@ impl Gate for NoGate {
     fn inspect_pair(&self) -> Result<GatePair> {
         Err(Error::runtime("managed_endpoint_missing_or_invalid"))
     }
-    fn set_muted(&self, _: bool, _: (u64, u64)) -> Result<vrct_audio_routing::graph::GateState> {
+    fn set_muted(&self, _: bool, _: (u64, u64)) -> Result<astarot_audio_routing::graph::GateState> {
         Err(Error::runtime("managed_endpoint_missing_or_invalid"))
     }
-    fn set_direct_muted(&self, _: bool, _: (u64, u64)) -> Result<vrct_audio_routing::graph::GateState> {
+    fn set_direct_muted(&self, _: bool, _: (u64, u64)) -> Result<astarot_audio_routing::graph::GateState> {
         Err(Error::runtime("managed_endpoint_missing_or_invalid"))
     }
     fn resume(&self, _: (u64, u64), _: (u64, u64), _: bool) -> Result<GatePair> {
@@ -81,13 +81,13 @@ impl VoicePlatform for NativeVoice {
     fn direct_sources(&self) -> Result<Vec<Source>> {
         #[cfg(windows)]
         {
-            use vrct_audio_routing::graph::SourceId;
-            Ok(vrct_audio_routing::wasapi::enumerate_endpoints("mic")?.into_iter().map(|row| Source { id: SourceId::from(&row.endpoint), label: row.label }).collect())
+            use astarot_audio_routing::graph::SourceId;
+            Ok(astarot_audio_routing::wasapi::enumerate_endpoints("mic")?.into_iter().map(|row| Source { id: SourceId::from(&row.endpoint), label: row.label }).collect())
         }
         #[cfg(all(target_os = "linux", feature = "pipewire"))]
         {
-            let graph = vrct_audio_routing::pipewire::read_graph_data(true, None).map_err(|_| Error::runtime("source_bridge_graph_unavailable"))?;
-            Ok(vrct_audio_routing::graph::sources(&graph))
+            let graph = astarot_audio_routing::pipewire::read_graph_data(true, None).map_err(|_| Error::runtime("source_bridge_graph_unavailable"))?;
+            Ok(astarot_audio_routing::graph::sources(&graph))
         }
         #[cfg(not(any(windows, all(target_os = "linux", feature = "pipewire"))))]
         {
@@ -98,7 +98,7 @@ impl VoicePlatform for NativeVoice {
     fn default_microphone(&self) -> Option<String> {
         #[cfg(windows)]
         {
-            vrct_audio_routing::wasapi::default_endpoint("mic").ok().map(|endpoint| endpoint.name)
+            astarot_audio_routing::wasapi::default_endpoint("mic").ok().map(|endpoint| endpoint.name)
         }
         #[cfg(not(windows))]
         {
@@ -107,18 +107,18 @@ impl VoicePlatform for NativeVoice {
     }
 
     fn speech_output(&self, device: &str, rate: u32, channels: u16) -> Result<Box<dyn Output>> {
-        vrct_audio_routing::router::open_output(device, rate, channels)
+        astarot_audio_routing::router::open_output(device, rate, channels)
     }
 
     fn monitor_output(&self) -> MonitorFactory {
-        Arc::new(vrct_audio_routing::monitor::open_monitor_output)
+        Arc::new(astarot_audio_routing::monitor::open_monitor_output)
     }
 
     fn gate(&self, app_dir: &Path) -> Arc<dyn Gate> {
         #[cfg(all(target_os = "linux", feature = "pipewire"))]
         {
             let helper = crate::resources::locate(app_dir, "build/astarot-voice-gate");
-            Arc::new(vrct_audio_routing::pipewire::gate::PipeWireGate::new(helper, vrct_audio_routing::process::ProcessEnv::default()))
+            Arc::new(astarot_audio_routing::pipewire::gate::PipeWireGate::new(helper, astarot_audio_routing::process::ProcessEnv::default()))
         }
         #[cfg(not(all(target_os = "linux", feature = "pipewire")))]
         {
@@ -131,14 +131,14 @@ impl VoicePlatform for NativeVoice {
         match output {
             Some(output) => {
                 let devices = self.route_devices().ok_or("source_bridge_linux_only")?;
-                Ok(Box::new(vrct_audio_routing::windows_route::WindowsBridge::new(output, devices, vrct_audio_routing::report::reporter())))
+                Ok(Box::new(astarot_audio_routing::windows_route::WindowsBridge::new(output, devices, astarot_audio_routing::report::reporter())))
             }
             None => {
                 #[cfg(all(target_os = "linux", feature = "pipewire"))]
                 {
                     let build = crate::resources::locate(app_dir, "build");
-                    let system = vrct_audio_routing::pipewire::bridge::PipeWireBridgeSystem { build, env: vrct_audio_routing::process::ProcessEnv::default() };
-                    Ok(Box::new(SourceBridgeBackend(vrct_audio_routing::pipewire::bridge::SourceBridge::new(Arc::new(system)))))
+                    let system = astarot_audio_routing::pipewire::bridge::PipeWireBridgeSystem { build, env: astarot_audio_routing::process::ProcessEnv::default() };
+                    Ok(Box::new(SourceBridgeBackend(astarot_audio_routing::pipewire::bridge::SourceBridge::new(Arc::new(system)))))
                 }
                 #[cfg(not(all(target_os = "linux", feature = "pipewire")))]
                 {
@@ -152,7 +152,7 @@ impl VoicePlatform for NativeVoice {
     fn route_devices(&self) -> Option<Arc<dyn RouteDevices>> {
         #[cfg(windows)]
         {
-            Some(Arc::new(vrct_audio_routing::windows_route::WasapiDevices))
+            Some(Arc::new(astarot_audio_routing::windows_route::WasapiDevices))
         }
         #[cfg(not(windows))]
         {
@@ -163,7 +163,7 @@ impl VoicePlatform for NativeVoice {
     fn managed_vc_devices(&self) -> Option<Arc<dyn ManagedVcDevices>> {
         #[cfg(all(target_os = "linux", feature = "pipewire"))]
         {
-            Some(Arc::new(vrct_audio_routing::managed_vc::PipeWireVcDevices::new()))
+            Some(Arc::new(astarot_audio_routing::managed_vc::PipeWireVcDevices::new()))
         }
         #[cfg(not(all(target_os = "linux", feature = "pipewire")))]
         {
@@ -172,18 +172,18 @@ impl VoicePlatform for NativeVoice {
     }
 
     fn rvc_worker(&self, app_dir: &Path) -> PathBuf {
-        crate::resources::locate(app_dir, &format!("build/{}", vrct_voice_conversion::worker::worker_name()))
+        crate::resources::locate(app_dir, &format!("build/{}", astarot_voice_conversion::worker::worker_name()))
     }
 
     fn runtime_transport(&self) -> Arc<dyn Transport> {
-        Arc::new(vrct_ops::downloads::transport::Public {
-            timeout: vrct_ops::downloads::transport::TIMEOUT,
-            hosts: vrct_voice_conversion::runtime::SOURCE_HOSTS.iter().map(|h| h.to_string()).collect(),
+        Arc::new(astarot_ops::downloads::transport::Public {
+            timeout: astarot_ops::downloads::transport::TIMEOUT,
+            hosts: astarot_voice_conversion::runtime::SOURCE_HOSTS.iter().map(|h| h.to_string()).collect(),
         })
     }
 
     fn nvidia_driver(&self) -> bool {
-        vrct_voice_conversion::runtime::nvidia_driver()
+        astarot_voice_conversion::runtime::nvidia_driver()
     }
 
     fn runtime_target(&self) -> Option<Target> {
@@ -198,11 +198,11 @@ impl VoicePlatform for NativeVoice {
 
 /// The Linux source bridge as a direct producer.
 #[cfg(all(target_os = "linux", feature = "pipewire"))]
-struct SourceBridgeBackend(vrct_audio_routing::pipewire::bridge::SourceBridge);
+struct SourceBridgeBackend(astarot_audio_routing::pipewire::bridge::SourceBridge);
 
 #[cfg(all(target_os = "linux", feature = "pipewire"))]
 impl DirectBackend for SourceBridgeBackend {
-    fn start(&self, source: vrct_audio_routing::graph::Endpoint) -> std::result::Result<(), String> {
+    fn start(&self, source: astarot_audio_routing::graph::Endpoint) -> std::result::Result<(), String> {
         self.0.start(Some(source), None).map_err(|e| e.code)
     }
     fn stop(&self) {
@@ -211,9 +211,9 @@ impl DirectBackend for SourceBridgeBackend {
     fn close(&self, timeout: std::time::Duration) -> bool {
         self.0.close(timeout)
     }
-    fn health(&self) -> vrct_voice_conversion::Health {
+    fn health(&self) -> astarot_voice_conversion::Health {
         let health = self.0.health();
-        vrct_voice_conversion::Health { requested: health.requested, active: health.active, pending: health.pending, stopping: health.stopping, error: health.error, ..Default::default() }
+        astarot_voice_conversion::Health { requested: health.requested, active: health.active, pending: health.pending, stopping: health.stopping, error: health.error, ..Default::default() }
     }
     fn set_monitor_muted(&self, _: bool) {}
 }

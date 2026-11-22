@@ -13,9 +13,9 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use serde_json::{json, Value};
-use vrct_adapters::osc::mdns::{self, DiscoveredService, Mdns, ServiceSpec};
-use vrct_adapters::osc::query::{get_json, host_info_json, Node, QueryService, OSCJSON_TYPE};
-use vrct_adapters::osc::{
+use astarot_adapters::osc::mdns::{self, DiscoveredService, Mdns, ServiceSpec};
+use astarot_adapters::osc::query::{get_json, host_info_json, Node, QueryService, OSCJSON_TYPE};
+use astarot_adapters::osc::{
     decode_packet, local_service_name, pattern_matches, query_parameter_value, uses_osc_query, vrchat_presence, Cancel,
     Discovery, OscArg, OscError, OscHandler, OscMessage, QueryFailed, Target,
 };
@@ -735,7 +735,7 @@ fn a_service_withdrawn_right_after_registering_is_not_announced_again() {
 fn nothing_logged_holds_the_text() {
     let lines = Arc::new(Mutex::new(Vec::<&'static str>::new()));
     let sink = lines.clone();
-    vrct_adapters::log::set_sink(move |line| sink.lock().unwrap().push(line));
+    astarot_adapters::log::set_sink(move |line| sink.lock().unwrap().push(line));
     let (_socket, port) = udp_listener();
     let handler = OscHandler::new("127.0.0.1", port).unwrap();
     handler.send_message("private words", true, None).unwrap();

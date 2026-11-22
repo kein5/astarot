@@ -8,8 +8,8 @@ use common::{Setup, Ui, error_code};
 use serde_json::{Value, json};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
-use vrct_core::controller::Services;
-use vrct_core::controller::updates::{SoftwareUpdates, UpdateOutcome};
+use astarot_core::controller::Services;
+use astarot_core::controller::updates::{SoftwareUpdates, UpdateOutcome};
 
 #[test]
 fn without_a_host_updater_no_update_and_no_release() {

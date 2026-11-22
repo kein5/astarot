@@ -5,7 +5,7 @@
 //! `_checkTranslationEngineConnection`, `setDeeplAuthKey`, `_setEndpointCredential`,
 //! `setTranslatorLMStudioURL`, `setCtranslate2WeightType`, `setEnableTranslation`, `init`).
 //!
-//! Every provider is a stand-in on a loopback port (`vrct_translation::fake`); nothing leaves
+//! Every provider is a stand-in on a loopback port (`astarot_translation::fake`); nothing leaves
 //! this PC. The local model is a stand-in too.
 //!
 //! [`controller.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/controller.py
@@ -15,11 +15,11 @@ mod common;
 use common::{error_code, Setup, Ui};
 use serde_json::{json, Value};
 use std::sync::{Arc, Mutex};
-use vrct_core::controller::translation::{LocalError, LocalSetup, LocalTranslation};
-use vrct_core::controller::Services;
-use vrct_translation::fake::FakeProviders;
-use vrct_translation::http;
-use vrct_translation::providers::Endpoints;
+use astarot_core::controller::translation::{LocalError, LocalSetup, LocalTranslation};
+use astarot_core::controller::Services;
+use astarot_translation::fake::FakeProviders;
+use astarot_translation::http;
+use astarot_translation::providers::Endpoints;
 
 /// A local model that loads as told and translates to `local:<target>:<text>`.
 #[derive(Default)]

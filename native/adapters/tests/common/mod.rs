@@ -10,7 +10,7 @@ use std::sync::Arc;
 pub fn temp_dir(name: &str) -> PathBuf {
     static COUNTER: AtomicUsize = AtomicUsize::new(0);
     let dir = std::env::temp_dir().join(format!(
-        "vrct-adapters-{}-{}-{}",
+        "astarot-adapters-{}-{}-{}",
         name,
         std::process::id(),
         COUNTER.fetch_add(1, Ordering::SeqCst)

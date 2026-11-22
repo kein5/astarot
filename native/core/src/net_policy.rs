@@ -4,7 +4,7 @@
 //! ([`is_local_host`]: `localhost`, loopback, the private IPv4 ranges, link-local, IPv6 unique
 //! local addresses and `.local` names); everything else needs HTTPS. A URL may not carry user
 //! info, a fragment, a backslash, port 0 or a query parameter whose name looks like a secret.
-//! When it connects, the HTTP client of `vrct_translation` also refuses plain HTTP to a name
+//! When it connects, the HTTP client of `astarot_translation` also refuses plain HTTP to a name
 //! that resolves outside this PC and the LAN.
 //!
 //! [`src-python/models/network_policy.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/network_policy.py
@@ -14,7 +14,7 @@ pub const CUSTOM_URL_KEYS: [&str; 4] = ["LMSTUDIO_URL", "OLLAMA_URL", "OPENAI_CO
 
 /// The rule of the HTTP client, so that a URL saved here is one it will use.
 pub fn is_local_host(host: &str) -> bool {
-    vrct_translation::http::is_local_host(host)
+    astarot_translation::http::is_local_host(host)
 }
 
 /// The parts of a URL as `urllib.parse.urlsplit` gives them.

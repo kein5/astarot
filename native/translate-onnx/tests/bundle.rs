@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicU32, Ordering};
 
 use serde_json::{json, Value};
-use vrct_translate_onnx::{codes, Accelerator, Bundle, Provider, Translator, Variant};
+use astarot_translate_onnx::{codes, Accelerator, Bundle, Provider, Translator, Variant};
 
 struct Folder(PathBuf);
 

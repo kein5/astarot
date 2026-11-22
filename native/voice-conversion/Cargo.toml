@@ -1,5 +1,5 @@
 [package]
-name = "vrct-voice-conversion"
+name = "astarot-voice-conversion"
 version = "0.1.0"
 description = "Direct voice, the voice conversion worker's owner and its runtime setup for VRCT-VOX"
 edition = "2024"
@@ -8,7 +8,7 @@ license = "MIT"
 publish = false
 
 [lib]
-name = "vrct_voice_conversion"
+name = "astarot_voice_conversion"
 
 # Versions are pinned to the ones native/core and src-tauri already hold, so linking this
 # crate into the app adds no second copy of any of them.
@@ -23,9 +23,9 @@ sha2 = "=0.10.9"
 tar = { version = "=0.4.46", default-features = false }
 uuid = { version = "=1.29.0", features = ["v4"] }
 # Routes, capture and outputs; the PipeWire client is chosen by the application.
-vrct-audio-routing = { path = "../audio-routing", default-features = false }
+astarot-audio-routing = { path = "../audio-routing", default-features = false }
 # The download transport and the root lease of the runtime setup.
-vrct-ops = { path = "../ops" }
+astarot-ops = { path = "../ops" }
 
 [target.'cfg(unix)'.dependencies]
 libc = "=0.2.191"

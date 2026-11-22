@@ -15,8 +15,8 @@
 use std::path::PathBuf;
 
 use serde_json::json;
-use vrct_core::shipped_libraries::{onnx_runtime_library, use_libraries, OnnxRuntimeLibrary};
-use vrct_translate_onnx::{Accelerator, Bundle, Provider, Translator};
+use astarot_core::shipped_libraries::{onnx_runtime_library, use_libraries, OnnxRuntimeLibrary};
+use astarot_translate_onnx::{Accelerator, Bundle, Provider, Translator};
 
 #[test]
 fn the_build_set_up_is_loaded_and_its_device_listed() {
@@ -27,7 +27,7 @@ fn the_build_set_up_is_loaded_and_its_device_listed() {
         Ok("cuda") => "cuda",
         _ => "directml",
     };
-    assert!(std::env::var_os(vrct_onnx_runtime::LIBRARY_VARIABLE).is_none_or(|value| value.is_empty()), "unset ORT_DYLIB_PATH for this test");
+    assert!(std::env::var_os(astarot_onnx_runtime::LIBRARY_VARIABLE).is_none_or(|value| value.is_empty()), "unset ORT_DYLIB_PATH for this test");
     let provider = Provider::from_name(device).unwrap();
     let saved = json!({ "SELECTED_TRANSLATION_COMPUTE_DEVICE": { "device": device, "device_index": 0, "device_name": provider.label() } });
     std::fs::write(state.join("config.json"), saved.to_string()).unwrap();
@@ -37,15 +37,15 @@ fn the_build_set_up_is_loaded_and_its_device_listed() {
     let line = use_libraries(app.path(), &state);
     assert_eq!(line, format!("Libraries: ONNX Runtime the {device} build set up for translation, OpenVR not shipped"));
     assert_eq!(onnx_runtime_library(), OnnxRuntimeLibrary::Gpu(device));
-    let devices = vrct_core::controller::translation::compute_devices_for(&state);
+    let devices = astarot_core::controller::translation::compute_devices_for(&state);
     let listed = devices.iter().find(|entry| entry["device"] == device).expect("the build's device is listed");
     assert_eq!(listed.get("restart_required"), None, "{devices:?}");
 
     // The library and the libraries before it load, and it brings the provider.
-    assert!(vrct_onnx_runtime::environment().is_ok(), "{:?}", vrct_onnx_runtime::environment().err());
-    assert_eq!(vrct_onnx_runtime::dependencies_missing(), Some(0));
-    assert!(vrct_onnx_runtime::library_path().starts_with(state.join("vc_runtimes")));
-    let providers = vrct_translate_onnx::runtime::available_providers().unwrap();
+    assert!(astarot_onnx_runtime::environment().is_ok(), "{:?}", astarot_onnx_runtime::environment().err());
+    assert_eq!(astarot_onnx_runtime::dependencies_missing(), Some(0));
+    assert!(astarot_onnx_runtime::library_path().starts_with(state.join("vc_runtimes")));
+    let providers = astarot_translate_onnx::runtime::available_providers().unwrap();
     assert!(providers.contains(&provider), "{providers:?}");
 
     // With `ASTAROT_TEST_GPU_BUILD_MODEL` (a folder tools/translation_onnx/tiny.py or export.py

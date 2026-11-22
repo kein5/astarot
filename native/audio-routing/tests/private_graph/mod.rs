@@ -11,8 +11,8 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use serde_json::Value;
-use vrct_audio_routing::pipewire::output::PipeWireOutput;
-use vrct_audio_routing::router::{CancelToken, Output};
+use astarot_audio_routing::pipewire::output::PipeWireOutput;
+use astarot_audio_routing::router::{CancelToken, Output};
 
 const DAEMON: &str = r#"
 context.properties = {
@@ -191,7 +191,7 @@ pub fn tone(sink: &str) -> Arc<AtomicBool> {
 
 /// Plays a tone of `frequency` at amplitude 2048 into `sink`, held to its identity, until the
 /// returned flag is set (`Producer` of `tools/voice_b_poc.py`).
-pub fn tone_to(sink: &vrct_audio_routing::graph::Endpoint, frequency: f64) -> Arc<AtomicBool> {
+pub fn tone_to(sink: &astarot_audio_routing::graph::Endpoint, frequency: f64) -> Arc<AtomicBool> {
     play(sink.name.clone(), Some((sink.cookie, sink.serial)), frequency, 2048.0, &format!("vrct.test.tone.{frequency}"))
 }
 

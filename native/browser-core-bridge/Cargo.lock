@@ -34,8 +34,204 @@ dependencies = [
 ]
 
 [[package]]
-name = "app-identity"
+name = "astarot-adapters"
 version = "0.0.0"
+dependencies = [
+ "futures-util",
+ "if-addrs",
+ "rustls",
+ "serde_json",
+ "socket2",
+ "subtle",
+ "tokio",
+ "tokio-rustls",
+ "tokio-tungstenite",
+ "windows-sys 0.61.2",
+ "x11rb",
+]
+
+[[package]]
+name = "astarot-app-identity"
+version = "0.0.0"
+
+[[package]]
+name = "astarot-audio-routing"
+version = "0.1.0"
+dependencies = [
+ "astarot-app-identity",
+ "libc",
+ "serde_json",
+ "windows",
+ "windows-core",
+]
+
+[[package]]
+name = "astarot-browser-core-bridge"
+version = "0.0.0"
+dependencies = [
+ "astarot-adapters",
+ "astarot-audio-routing",
+ "astarot-core",
+ "astarot-ops",
+ "astarot-transcription",
+ "astarot-translation",
+ "astarot-voice-conversion",
+ "serde_json",
+ "tungstenite",
+]
+
+[[package]]
+name = "astarot-core"
+version = "0.0.0"
+dependencies = [
+ "astarot-adapters",
+ "astarot-app-identity",
+ "astarot-audio-routing",
+ "astarot-ocr-runtime",
+ "astarot-onnx-runtime",
+ "astarot-openvr-client",
+ "astarot-ops",
+ "astarot-speech-server",
+ "astarot-transcription",
+ "astarot-translation",
+ "astarot-tts",
+ "astarot-voice-conversion",
+ "astarot-vr-overlay",
+ "base64",
+ "getrandom 0.3.4",
+ "jiff",
+ "libc",
+ "serde",
+ "serde_json",
+ "windows",
+ "windows-sys 0.61.2",
+ "zbus",
+]
+
+[[package]]
+name = "astarot-ocr-runtime"
+version = "0.1.0"
+dependencies = [
+ "astarot-app-identity",
+ "astarot-onnx-runtime",
+ "astarot-openvr-client",
+ "caseless",
+ "libloading 0.8.9",
+ "ort",
+ "png",
+ "serde",
+ "serde_json",
+ "sha2",
+ "thiserror 2.0.21",
+ "unicode-bidi",
+ "windows",
+ "x11rb",
+]
+
+[[package]]
+name = "astarot-onnx-runtime"
+version = "0.0.0"
+dependencies = [
+ "ort",
+]
+
+[[package]]
+name = "astarot-openvr-client"
+version = "0.0.0"
+dependencies = [
+ "libloading 0.8.9",
+]
+
+[[package]]
+name = "astarot-ops"
+version = "0.0.0"
+dependencies = [
+ "astarot-app-identity",
+ "httparse",
+ "jiff",
+ "libc",
+ "rustls",
+ "serde",
+ "serde_json",
+ "sha2",
+ "uuid",
+ "webpki-roots",
+ "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "astarot-speech-server"
+version = "0.0.0"
+dependencies = [
+ "libc",
+ "serde_json",
+ "sha2",
+ "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "astarot-transcription"
+version = "0.0.0"
+dependencies = [
+ "astarot-audio-routing",
+ "astarot-translation",
+ "serde_json",
+ "tungstenite",
+]
+
+[[package]]
+name = "astarot-translation"
+version = "0.0.0"
+dependencies = [
+ "httparse",
+ "memmap2",
+ "rustls",
+ "serde_json",
+ "sudachi",
+ "webpki-roots",
+ "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "astarot-tts"
+version = "0.1.0"
+dependencies = [
+ "astarot-app-identity",
+ "libc",
+ "serde",
+ "serde_json",
+ "uuid",
+ "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "astarot-voice-conversion"
+version = "0.1.0"
+dependencies = [
+ "astarot-audio-routing",
+ "astarot-ops",
+ "crc32fast",
+ "flate2",
+ "libc",
+ "serde_json",
+ "sha2",
+ "tar",
+ "uuid",
+ "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "astarot-vr-overlay"
+version = "0.0.0"
+dependencies = [
+ "ab_glyph",
+ "astarot-app-identity",
+ "astarot-openvr-client",
+ "libc",
+ "serde_json",
+ "unicode-segmentation",
+ "windows",
+]
 
 [[package]]
 name = "async-broadcast"
@@ -982,26 +1178,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ocr-runtime"
-version = "0.1.0"
-dependencies = [
- "app-identity",
- "caseless",
- "libloading 0.8.9",
- "ort",
- "png",
- "serde",
- "serde_json",
- "sha2",
- "thiserror 2.0.21",
- "unicode-bidi",
- "vrct-onnx-runtime",
- "vrct-openvr-client",
- "windows",
- "x11rb",
-]
-
-[[package]]
 name = "once_cell"
 version = "1.21.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1715,182 +1891,6 @@ name = "version_check"
 version = "0.9.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
-
-[[package]]
-name = "vrct-adapters"
-version = "0.0.0"
-dependencies = [
- "futures-util",
- "if-addrs",
- "rustls",
- "serde_json",
- "socket2",
- "subtle",
- "tokio",
- "tokio-rustls",
- "tokio-tungstenite",
- "windows-sys 0.61.2",
- "x11rb",
-]
-
-[[package]]
-name = "vrct-audio-routing"
-version = "0.1.0"
-dependencies = [
- "app-identity",
- "libc",
- "serde_json",
- "windows",
- "windows-core",
-]
-
-[[package]]
-name = "vrct-browser-core-bridge"
-version = "0.0.0"
-dependencies = [
- "serde_json",
- "tungstenite",
- "vrct-adapters",
- "vrct-audio-routing",
- "vrct-core",
- "vrct-ops",
- "vrct-transcription",
- "vrct-translation",
- "vrct-voice-conversion",
-]
-
-[[package]]
-name = "vrct-core"
-version = "0.0.0"
-dependencies = [
- "app-identity",
- "base64",
- "getrandom 0.3.4",
- "jiff",
- "libc",
- "ocr-runtime",
- "serde",
- "serde_json",
- "vrct-adapters",
- "vrct-audio-routing",
- "vrct-onnx-runtime",
- "vrct-openvr-client",
- "vrct-ops",
- "vrct-speech-server",
- "vrct-transcription",
- "vrct-translation",
- "vrct-tts",
- "vrct-voice-conversion",
- "vrct-vr-overlay",
- "windows",
- "windows-sys 0.61.2",
- "zbus",
-]
-
-[[package]]
-name = "vrct-onnx-runtime"
-version = "0.0.0"
-dependencies = [
- "ort",
-]
-
-[[package]]
-name = "vrct-openvr-client"
-version = "0.0.0"
-dependencies = [
- "libloading 0.8.9",
-]
-
-[[package]]
-name = "vrct-ops"
-version = "0.0.0"
-dependencies = [
- "app-identity",
- "httparse",
- "jiff",
- "libc",
- "rustls",
- "serde",
- "serde_json",
- "sha2",
- "uuid",
- "webpki-roots",
- "windows-sys 0.61.2",
-]
-
-[[package]]
-name = "vrct-speech-server"
-version = "0.0.0"
-dependencies = [
- "libc",
- "serde_json",
- "sha2",
- "windows-sys 0.61.2",
-]
-
-[[package]]
-name = "vrct-transcription"
-version = "0.0.0"
-dependencies = [
- "serde_json",
- "tungstenite",
- "vrct-audio-routing",
- "vrct-translation",
-]
-
-[[package]]
-name = "vrct-translation"
-version = "0.0.0"
-dependencies = [
- "httparse",
- "memmap2",
- "rustls",
- "serde_json",
- "sudachi",
- "webpki-roots",
- "windows-sys 0.61.2",
-]
-
-[[package]]
-name = "vrct-tts"
-version = "0.1.0"
-dependencies = [
- "app-identity",
- "libc",
- "serde",
- "serde_json",
- "uuid",
- "windows-sys 0.61.2",
-]
-
-[[package]]
-name = "vrct-voice-conversion"
-version = "0.1.0"
-dependencies = [
- "crc32fast",
- "flate2",
- "libc",
- "serde_json",
- "sha2",
- "tar",
- "uuid",
- "vrct-audio-routing",
- "vrct-ops",
- "windows-sys 0.61.2",
-]
-
-[[package]]
-name = "vrct-vr-overlay"
-version = "0.0.0"
-dependencies = [
- "ab_glyph",
- "app-identity",
- "libc",
- "serde_json",
- "unicode-segmentation",
- "vrct-openvr-client",
- "windows",
-]
 
 [[package]]
 name = "wasi"

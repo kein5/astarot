@@ -6,7 +6,7 @@ mod common;
 use common::{Setup, Ui};
 use std::path::Path;
 use std::time::{Duration, Instant};
-use vrct_core::controller::legacy_weights::{self, FOLDERS};
+use astarot_core::controller::legacy_weights::{self, FOLDERS};
 
 fn weights(data: &Path) -> std::path::PathBuf {
     data.join("weights").join("ctranslate2")

@@ -10,12 +10,12 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use common::*;
-use vrct_tts::listener::{listener_missing, Address, ListenerMonitors, Probe, ProcessExit};
-use vrct_tts::playback::{AudioRouter, OutputSink};
-use vrct_tts::scheduler::BusOptions;
-use vrct_tts::settings::VoiceSettings;
-use vrct_tts::sync::Event;
-use vrct_tts::{CancelToken, PcmStream, Source, SpeechCppTts, SpeechMessageEvent, SynthesisOptions, TtsError, VoiceEventBus};
+use astarot_tts::listener::{listener_missing, Address, ListenerMonitors, Probe, ProcessExit};
+use astarot_tts::playback::{AudioRouter, OutputSink};
+use astarot_tts::scheduler::BusOptions;
+use astarot_tts::settings::VoiceSettings;
+use astarot_tts::sync::Event;
+use astarot_tts::{CancelToken, PcmStream, Source, SpeechCppTts, SpeechMessageEvent, SynthesisOptions, TtsError, VoiceEventBus};
 
 /// Four seconds at 48 kHz.
 fn pcm() -> Vec<u8> {
@@ -522,7 +522,7 @@ fn a_listener_table_decides_before_any_connect() {
     // have 50 ms; one that misses it falls back to a connect, which would answer the other way,
     // so each answer is waited for.
     use std::collections::HashSet;
-    use vrct_tts::listener::{listener_missing_with, ListenerTableProbe};
+    use astarot_tts::listener::{listener_missing_with, ListenerTableProbe};
     let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
     let port = listener.local_addr().unwrap().port();
     let address: Address = ("127.0.0.1".into(), port);
@@ -600,7 +600,7 @@ fn a_connect_that_times_out_or_fails_otherwise_proves_nothing() {
     // `inconclusive_probe[TimeoutError, OSError]` with the default connect: only a refusal proves
     // a server gone. An address nothing answers (TEST-NET-1: a timeout, or an unreachable
     // network where there is no route) is inconclusive, within the 100 ms connect.
-    use vrct_tts::listener::listener_missing_with;
+    use astarot_tts::listener::listener_missing_with;
     let started = Instant::now();
     assert!(!listener_missing_with(&("192.0.2.1".into(), 9), &Event::new(), None));
     assert!(started.elapsed() < millis(500), "{:?}", started.elapsed());

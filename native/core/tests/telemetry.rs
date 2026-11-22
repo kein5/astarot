@@ -15,9 +15,9 @@ use std::net::{TcpListener, TcpStream};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
-use vrct_core::controller::Services;
-use vrct_ops::telemetry::Telemetry;
-use vrct_ops::telemetry::client::{INGEST_KEY, IngestClient};
+use astarot_core::controller::Services;
+use astarot_ops::telemetry::Telemetry;
+use astarot_ops::telemetry::client::{INGEST_KEY, IngestClient};
 
 /// A stand-in for the receiver: it keeps every event posted to it and accepts it.
 struct Receiver {

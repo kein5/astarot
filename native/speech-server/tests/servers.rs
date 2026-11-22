@@ -6,9 +6,9 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use serde_json::{json, Value};
-use vrct_speech_server::server::{Hooks, Launch, SpeechServer, State};
-use vrct_speech_server::settings::{normalize_settings, start_options, Profile, StartOptions};
-use vrct_speech_server::{codes, SpeechServers};
+use astarot_speech_server::server::{Hooks, Launch, SpeechServer, State};
+use astarot_speech_server::settings::{normalize_settings, start_options, Profile, StartOptions};
+use astarot_speech_server::{codes, SpeechServers};
 
 const FAKE: &str = env!("CARGO_BIN_EXE_fake-speech");
 
@@ -17,7 +17,7 @@ struct Folder(PathBuf);
 impl Folder {
     fn new() -> Folder {
         static NEXT: AtomicU32 = AtomicU32::new(0);
-        let name = format!("vrct-speech-server-{}-{}", std::process::id(), NEXT.fetch_add(1, Ordering::SeqCst));
+        let name = format!("astarot-speech-server-{}-{}", std::process::id(), NEXT.fetch_add(1, Ordering::SeqCst));
         let path = std::env::temp_dir().join(name);
         std::fs::create_dir_all(&path).unwrap();
         Folder(path.canonicalize().unwrap())

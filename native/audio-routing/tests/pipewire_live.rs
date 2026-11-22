@@ -7,8 +7,8 @@ use std::collections::BTreeMap;
 use std::process::Command;
 
 use serde_json::Value;
-use vrct_audio_routing::graph::{self, kind, node_name, props, NODE};
-use vrct_audio_routing::pipewire::read_graph;
+use astarot_audio_routing::graph::{self, kind, node_name, props, NODE};
+use astarot_audio_routing::pipewire::read_graph;
 
 fn summary(data: &[Value]) -> BTreeMap<String, (Option<Value>, Option<Value>, Vec<Value>)> {
     data.iter()
@@ -92,7 +92,7 @@ fn null_sink(name: &str) -> std::sync::mpsc::Sender<()> {
 fn wait_for_sink(name: &str) {
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(3);
     while std::time::Instant::now() < deadline {
-        if let Ok(outputs) = vrct_audio_routing::pipewire::output::enumerate_outputs() {
+        if let Ok(outputs) = astarot_audio_routing::pipewire::output::enumerate_outputs() {
             if outputs.iter().any(|o| o.id == name) {
                 return;
             }
@@ -105,9 +105,9 @@ fn wait_for_sink(name: &str) {
 #[test]
 #[ignore = "needs a running PipeWire session"]
 fn stream_plays_to_an_explicit_sink_and_reports_its_loss() {
-    use vrct_audio_routing::pipewire::output::PipeWireOutput;
-    use vrct_audio_routing::router::{CancelToken, Output};
-    use vrct_audio_routing::Error;
+    use astarot_audio_routing::pipewire::output::PipeWireOutput;
+    use astarot_audio_routing::router::{CancelToken, Output};
+    use astarot_audio_routing::Error;
 
     let missing = PipeWireOutput::open("vrct.test.absent", 24000, 1, None, "astarot.tts");
     assert_eq!(missing.err(), Some(Error::speech("output_missing")));
@@ -145,8 +145,8 @@ fn stream_plays_to_an_explicit_sink_and_reports_its_loss() {
 #[ignore = "needs a running PipeWire session"]
 fn device_manager_lists_the_same_inputs_as_the_graph() {
     use std::sync::Arc;
-    use vrct_audio_routing::manager::{platform_backend, DeviceManager};
-    use vrct_audio_routing::report::StderrReporter;
+    use astarot_audio_routing::manager::{platform_backend, DeviceManager};
+    use astarot_audio_routing::report::StderrReporter;
 
     let manager = DeviceManager::new(platform_backend(Arc::new(StderrReporter)), Arc::new(StderrReporter));
     let data = read_graph(true, None).unwrap().data.unwrap();
@@ -170,8 +170,8 @@ fn objects_that_come_and_go_leave_the_observation_fresh() {
     // observation taken after it still gets one, while 30 streams come and go.
     use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
     use std::sync::Arc;
-    use vrct_audio_routing::pipewire::read_graph_data;
-    use vrct_audio_routing::sync::monotonic;
+    use astarot_audio_routing::pipewire::read_graph_data;
+    use astarot_audio_routing::sync::monotonic;
     read_graph(true, None).expect("graph");
     let (stop, started) = (Arc::new(AtomicBool::new(false)), Arc::new(AtomicUsize::new(0)));
     let churn = {

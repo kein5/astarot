@@ -9,7 +9,7 @@
 //! (`common::Ui`), with its own voice platform ([`NativeVoice`]): the real speech output, the
 //! real `astarot-voice-gate` (`build/`, from `python tools/build_voice_gate.py`) and the real
 //! managed route. The speech server is the fake one (`common::fake_tts`): a tone, no model. The
-//! microphone is read with the PipeWire capture of `vrct-audio-routing`; nothing of the audio
+//! microphone is read with the PipeWire capture of `astarot-audio-routing`; nothing of the audio
 //! is kept or logged.
 //!
 //! Ignored by default, and built only with the `pipewire` feature: it starts `pipewire`,
@@ -30,12 +30,12 @@ use common::fake_tts::FakeTts;
 use common::{Setup, Ui, error_code};
 use private_graph::{PrivateGraph, dump, wait};
 use serde_json::{Value, json};
-use vrct_audio_routing::graph::{self, MANAGED_SOURCE};
-use vrct_audio_routing::pipewire::capture::PipeWireCapture;
-use vrct_audio_routing::pipewire::read_graph_data;
-use vrct_audio_routing::windows_route::{Capture, CaptureCallbacks};
-use vrct_core::config::Platform;
-use vrct_core::controller::voice::NativeVoice;
+use astarot_audio_routing::graph::{self, MANAGED_SOURCE};
+use astarot_audio_routing::pipewire::capture::PipeWireCapture;
+use astarot_audio_routing::pipewire::read_graph_data;
+use astarot_audio_routing::windows_route::{Capture, CaptureCallbacks};
+use astarot_core::config::Platform;
+use astarot_core::controller::voice::NativeVoice;
 
 /// 20 ms of the microphone's 48 kHz mono s16le.
 const PIECE: usize = 960 * 2;
@@ -191,7 +191,7 @@ impl Run {
 fn chat_is_spoken_once_into_the_managed_microphone_and_every_stop_silences_it() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..").canonicalize().unwrap();
     assert!(root.join("build/astarot-voice-gate").is_file(), "build/astarot-voice-gate is missing; run `python tools/build_voice_gate.py`");
-    vrct_core::resources::use_development_checkout(root);
+    astarot_core::resources::use_development_checkout(root);
     let _graph = PrivateGraph::start("vrct-spoken-live");
     wait("the managed route", || graph::parse_managed(&dump(), false).is_ok());
 

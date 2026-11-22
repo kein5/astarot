@@ -29,7 +29,7 @@ use std::os::unix::io::AsRawFd;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-use app_identity::audio_route;
+use astarot_app_identity::audio_route;
 use serde_json::Value;
 
 use crate::error::{Error, Result};

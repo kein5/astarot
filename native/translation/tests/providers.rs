@@ -1,10 +1,10 @@
 //! The providers against a stand-in server on a loopback port: key checks, model lists,
 //! translation, failures and retries. Each provider is called through its type ([`Api`]).
 
-use vrct_translation::fake::FakeProviders;
-use vrct_translation::http::{self, HttpError, Transport};
-use vrct_translation::prompt::HistoryItem;
-use vrct_translation::providers::{
+use astarot_translation::fake::FakeProviders;
+use astarot_translation::http::{self, HttpError, Transport};
+use astarot_translation::prompt::HistoryItem;
+use astarot_translation::providers::{
     deepl, Access, Api, DeepL, Endpoints, Error, Gemini, GoogleCloud, Groq, LmStudio, Ollama, OpenAi, OpenAiCompatible,
     OpenRouter, Papago, Plamo, Provider, Translation,
 };

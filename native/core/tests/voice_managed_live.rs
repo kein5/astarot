@@ -19,17 +19,17 @@ use std::time::{Duration, Instant};
 
 use private_graph::{PrivateGraph, dump, microphone, tone, wait};
 use serde_json::json;
-use vrct_audio_routing::graph;
-use vrct_audio_routing::managed_vc::PipeWireVcDevices;
-use vrct_audio_routing::pipewire::read_graph_data;
-use vrct_voice_conversion::{ManagedRoute, VcProcess};
+use astarot_audio_routing::graph;
+use astarot_audio_routing::managed_vc::PipeWireVcDevices;
+use astarot_audio_routing::pipewire::read_graph_data;
+use astarot_voice_conversion::{ManagedRoute, VcProcess};
 
 #[test]
 #[ignore = "starts a private PipeWire, WirePlumber and pw-loopback; run it with --features pipewire"]
 fn a_conversion_on_the_managed_route_plays_into_the_vc_input() {
     // The conversion's clock counts from its first reading. In the app it has run long before a
     // conversion starts; here the graph's start gives it that time.
-    vrct_audio_routing::sync::monotonic_ns();
+    astarot_audio_routing::sync::monotonic_ns();
     let _graph = PrivateGraph::start("vrct-vc-live");
     let mut loopback = microphone("vrct.test.mic");
     let playing = tone("vrct.test.mic.sink");
@@ -40,8 +40,8 @@ fn a_conversion_on_the_managed_route_plays_into_the_vc_input() {
     let files = tempfile::tempdir().unwrap();
     let runtime = files.path().join("rvc");
     std::fs::create_dir_all(runtime.join("lib")).unwrap();
-    std::fs::write(runtime.join("lib").join(vrct_voice_conversion::worker::ort_library()), b"x").unwrap();
-    for asset in vrct_voice_conversion::worker::ASSETS {
+    std::fs::write(runtime.join("lib").join(astarot_voice_conversion::worker::ort_library()), b"x").unwrap();
+    for asset in astarot_voice_conversion::worker::ASSETS {
         let path = runtime.join("assets").join(asset);
         std::fs::create_dir_all(path.parent().unwrap()).unwrap();
         std::fs::write(path, b"x").unwrap();
@@ -50,7 +50,7 @@ fn a_conversion_on_the_managed_route_plays_into_the_vc_input() {
     std::fs::write(&model, "convert").unwrap();
     let options = json!({ "engine": "rvc", "runtime": runtime.to_str().unwrap(), "model": model.to_str().unwrap(), "index": "", "pitch": 0, "index_rate": 0 });
 
-    let route = Arc::new(ManagedRoute::new(Arc::new(PipeWireVcDevices::new()), Arc::new(vrct_audio_routing::monitor::open_monitor_output)));
+    let route = Arc::new(ManagedRoute::new(Arc::new(PipeWireVcDevices::new()), Arc::new(astarot_audio_routing::monitor::open_monitor_output)));
     let worker = Path::new(env!("CARGO_BIN_EXE_fake-rvc-worker"));
     let process = VcProcess::rvc(&options, worker, None, route, None).expect("the conversion is made");
     process.start(source).expect("the conversion starts");

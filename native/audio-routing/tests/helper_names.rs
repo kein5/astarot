@@ -2,7 +2,7 @@
 //! names this build writes and on no other (ADR-014, 2.8). The private-graph tests run them; this
 //! one reads their sources, so it also runs where PipeWire does not.
 
-use vrct_audio_routing::graph::{bridge_stream, BRIDGE_PROPERTY, MANAGED_SOURCE, ROUTE_PROPERTY, VC_SINK};
+use astarot_audio_routing::graph::{bridge_stream, BRIDGE_PROPERTY, MANAGED_SOURCE, ROUTE_PROPERTY, VC_SINK};
 
 #[test]
 fn the_voice_gate_names_the_route_as_this_build_does() {

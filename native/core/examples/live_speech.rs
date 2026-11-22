@@ -31,8 +31,8 @@ use serde_json::{Value, json};
 use std::path::PathBuf;
 use std::sync::mpsc;
 use std::time::{Duration, Instant};
-use vrct_core::config::{Environment, Platform};
-use vrct_core::{Backend, Options, Sink};
+use astarot_core::config::{Environment, Platform};
+use astarot_core::{Backend, Options, Sink};
 
 const BRIEF: &str = "了解です。";
 const SHORT: &str = "こんにちは。音声の接続テストです。";
@@ -477,7 +477,7 @@ fn main() {
         run.gate(false);
         let route = run.route();
         println!("{}", json!({ "case": "route", "managed": route["managed"], "muted_at_start": before["observed_muted"], "ready": route["ready"] }));
-        Capture::start(vrct_audio_routing::graph::MANAGED_SOURCE)
+        Capture::start(astarot_audio_routing::graph::MANAGED_SOURCE)
     });
     let capture = capture.map(|(capture, child)| {
         std::mem::forget(child);

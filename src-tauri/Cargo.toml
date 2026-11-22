@@ -1,5 +1,5 @@
 [package]
-name = "vrct-vox"
+name = "astarot"
 version = "0.0.0"
 description = "ASTAROT: speech, voice conversion and translated chat"
 authors = ["misyaguziya"]
@@ -13,8 +13,15 @@ publish = false
 # The `_lib` suffix may seem redundant but it is necessary
 # to make the lib name unique and wouldn't conflict with the bin name.
 # This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
-name = "vrct_lib"
+name = "astarot_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
+
+# The executable keeps its name, whatever the package is called: the packages ship it, the window
+# class and the Windows firewall rules follow it, and tauri.conf.json's mainBinaryName names it
+# for the bundles. It moves to `astarot` with ADR-014's step for the executable (PR 6).
+[[bin]]
+name = "vrct-vox"
+path = "src/main.rs"
 
 [build-dependencies]
 tauri-build = { version = "=2.7.4", features = [] }
@@ -32,9 +39,9 @@ font-kit = "=0.14.3"
 # files and libclang are needed to build); it changes nothing on Windows. `onnx-translation`
 # is the local translation on ONNX Runtime, loaded at run time like chat reading's (nothing is
 # linked or fetched at build time; see docs/voice-stack/core-integration.md, decisions 1 and 2).
-vrct-core = { path = "../native/core", features = ["pipewire", "onnx-translation"] }
+astarot-core = { path = "../native/core", features = ["pipewire", "onnx-translation"] }
 # The names the app goes by outside its code (ADR-014): folders, the app ID, environment variables.
-app-identity = { path = "../native/app-identity" }
+astarot-app-identity = { path = "../native/app-identity" }
 
 [dev-dependencies]
 # Already locked through tauri-plugin-opener, which matches its URL scope with it; the tests use

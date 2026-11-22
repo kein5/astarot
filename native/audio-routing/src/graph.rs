@@ -13,7 +13,7 @@
 
 use serde_json::Value;
 
-use app_identity::audio_route;
+use astarot_app_identity::audio_route;
 
 use crate::error::{Error, Result};
 use crate::identity::Device;

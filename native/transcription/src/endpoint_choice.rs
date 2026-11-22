@@ -11,7 +11,7 @@
 
 use crate::capture::{Source, media_class};
 use serde_json::Value;
-use vrct_audio_routing::graph::{self, Endpoint};
+use astarot_audio_routing::graph::{self, Endpoint};
 
 /// The marker the `vrct-asr-capture` helper of 0.5.x put on its streams. The capture of the core
 /// names its streams instead ([`graph::asr_capture_stream`]).

@@ -21,12 +21,12 @@ pub struct CredentialManager {
 impl CredentialManager {
     /// The names this build writes.
     pub fn new() -> Self {
-        Self { prefix: app_identity::credentials::WINDOWS_PREFIX.current() }
+        Self { prefix: astarot_app_identity::credentials::WINDOWS_PREFIX.current() }
     }
 
     /// The names 0.6.0 wrote, read until the keys move (ADR-014, 2.9).
     pub fn older() -> Self {
-        Self { prefix: app_identity::credentials::WINDOWS_PREFIX.legacy }
+        Self { prefix: astarot_app_identity::credentials::WINDOWS_PREFIX.legacy }
     }
 }
 

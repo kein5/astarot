@@ -7,7 +7,7 @@
 
 use std::path::PathBuf;
 
-use vrct_onnx_runtime::{environment, is_available, library_path, load, use_library, Error, LIBRARY_VARIABLE};
+use astarot_onnx_runtime::{environment, is_available, library_path, load, use_library, Error, LIBRARY_VARIABLE};
 
 #[test]
 fn the_named_library_makes_the_one_environment() {

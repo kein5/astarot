@@ -15,10 +15,10 @@ use std::process::Command;
 use std::time::Duration;
 
 use private_graph::{PrivateGraph, build_helper};
-use vrct_audio_routing::pipewire::gate::PipeWireGate;
-use vrct_audio_routing::process::ProcessEnv;
-use vrct_audio_routing::sync::monotonic;
-use vrct_audio_routing::voice_route::Gate;
+use astarot_audio_routing::pipewire::gate::PipeWireGate;
+use astarot_audio_routing::process::ProcessEnv;
+use astarot_audio_routing::sync::monotonic;
+use astarot_audio_routing::voice_route::Gate;
 
 /// Runs the helper as the gate would, and says whether it succeeded.
 fn helper(binary: &std::path::Path, args: &[String]) -> bool {

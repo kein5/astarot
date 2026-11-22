@@ -9,17 +9,17 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use vrct_audio_routing::graph::{Endpoint, GateState, Source, SourceId};
-use vrct_audio_routing::managed_vc::ManagedVcDevices;
-use vrct_audio_routing::monitor::MonitorFactory;
-use vrct_audio_routing::router::{Output, PlaybackToken};
-use vrct_audio_routing::voice_route::{Gate, GatePair};
-use vrct_audio_routing::windows_route::{Capture, CaptureCallbacks, RouteDevices};
-use vrct_audio_routing::{Error, Result};
-use vrct_core::controller::voice::VoicePlatform;
-use vrct_ops::downloads::transport::{Body, Transport};
-use vrct_voice_conversion::runtime::{Runtime, Target};
-use vrct_voice_conversion::{DirectBackend, Health};
+use astarot_audio_routing::graph::{Endpoint, GateState, Source, SourceId};
+use astarot_audio_routing::managed_vc::ManagedVcDevices;
+use astarot_audio_routing::monitor::MonitorFactory;
+use astarot_audio_routing::router::{Output, PlaybackToken};
+use astarot_audio_routing::voice_route::{Gate, GatePair};
+use astarot_audio_routing::windows_route::{Capture, CaptureCallbacks, RouteDevices};
+use astarot_audio_routing::{Error, Result};
+use astarot_core::controller::voice::VoicePlatform;
+use astarot_ops::downloads::transport::{Body, Transport};
+use astarot_voice_conversion::runtime::{Runtime, Target};
+use astarot_voice_conversion::{DirectBackend, Health};
 
 /// What one output received: the device, its format and the bytes written.
 #[derive(Clone, Debug, Default)]
@@ -168,7 +168,7 @@ pub fn wasapi(name: &str) -> String {
 /// A microphone as WASAPI lists it: its identity is the endpoint's name.
 pub fn source(name: &str) -> Source {
     let identity = wasapi(name);
-    let endpoint = Endpoint { cookie: vrct_audio_routing::naming::crc32(identity.as_bytes()), serial: 0, name: identity, media_class: "Audio/Source".into() };
+    let endpoint = Endpoint { cookie: astarot_audio_routing::naming::crc32(identity.as_bytes()), serial: 0, name: identity, media_class: "Audio/Source".into() };
     Source { id: SourceId::from(&endpoint), label: name.into() }
 }
 
@@ -385,9 +385,9 @@ impl std::io::Read for Served {
 impl Body for Served {}
 
 impl Transport for FakeVoice {
-    fn open(&self, url: &str) -> std::result::Result<Box<dyn Body>, vrct_ops::downloads::Error> {
+    fn open(&self, url: &str) -> std::result::Result<Box<dyn Body>, astarot_ops::downloads::Error> {
         self.0.fetched.lock().unwrap().push(url.to_owned());
-        let data = self.0.files.lock().unwrap().get(url).cloned().ok_or_else(|| vrct_ops::downloads::Error::Other("not served".into()))?;
+        let data = self.0.files.lock().unwrap().get(url).cloned().ok_or_else(|| astarot_ops::downloads::Error::Other("not served".into()))?;
         Ok(Box::new(Served(Cursor::new(data))))
     }
 }
@@ -422,7 +422,7 @@ impl VoicePlatform for FakeVoice {
     fn passthrough(&self, _: &Path, output: Option<&str>) -> std::result::Result<Box<dyn DirectBackend>, String> {
         self.0.passthrough.lock().unwrap().push(output.map(str::to_owned));
         match output {
-            Some(output) => Ok(Box::new(vrct_audio_routing::windows_route::WindowsBridge::new(output, Arc::new(self.clone()), vrct_audio_routing::report::reporter()))),
+            Some(output) => Ok(Box::new(astarot_audio_routing::windows_route::WindowsBridge::new(output, Arc::new(self.clone()), astarot_audio_routing::report::reporter()))),
             None => Ok(Box::new(FakeBridge { requested: AtomicBool::new(false) })),
         }
     }

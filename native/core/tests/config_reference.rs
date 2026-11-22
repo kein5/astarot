@@ -6,7 +6,7 @@
 //! results are `tests/data/python_config_reference.json`, written by the Python backend itself.
 //!
 //! Five differences are intended. API keys (`AUTH_KEYS`, `TRANSCRIPTION_AUTH_KEYS`) leave
-//! `config.json` for the key store (`vrct_core::config::secrets`): the settings are compared
+//! `config.json` for the key store (`astarot_core::config::secrets`): the settings are compared
 //! without them, and the keys Python kept in the file must be in the store instead. A saved
 //! choice of the retired Google recognition engine loads as none (`retire_google_engine`). The
 //! direct voice engine is RVC where Python saved Seed-VC, which ended with Python (#391). And
@@ -44,8 +44,8 @@ fn with_added(settings: &mut Map<String, Value>) {
     }
 }
 use std::path::Path;
-use vrct_core::config::secrets::{MemoryStore, SECRET_SETTINGS};
-use vrct_core::config::{Config, Environment, Platform, RETIRED_KEYS};
+use astarot_core::config::secrets::{MemoryStore, SECRET_SETTINGS};
+use astarot_core::config::{Config, Environment, Platform, RETIRED_KEYS};
 
 fn reference() -> Value {
     serde_json::from_str(include_str!("data/python_config_reference.json")).unwrap()
@@ -172,7 +172,7 @@ fn without_local_asr_migration(want: &mut Value, input: &Value) {
 /// the saved file with the input's value. Those keys are taken out of `saved`, which then holds
 /// what Python wrote.
 fn without_unknown_keys(mut saved: Map<String, Value>, input: &Value, case: &str, failures: &mut Vec<String>) -> Map<String, Value> {
-    let known: Vec<&str> = vrct_core::config::schema::keys().iter().map(|key| key.name).collect();
+    let known: Vec<&str> = astarot_core::config::schema::keys().iter().map(|key| key.name).collect();
     // Only a saved object has keys; `raw` and `raw_bytes` describe a file that is not one.
     let saved_object = input.as_object().filter(|object| !object.contains_key("raw") && !object.contains_key("raw_bytes"));
     for (key, value) in saved_object.into_iter().flatten() {
@@ -185,8 +185,8 @@ fn without_unknown_keys(mut saved: Map<String, Value>, input: &Value, case: &str
         }
     }
     // Python did not mark the file; the core names the newest version that saved it (#560).
-    if saved.shift_remove(vrct_core::config::NEWEST_SAVING_VERSION).is_none() {
-        failures.push(format!("{case}: {} is not written", vrct_core::config::NEWEST_SAVING_VERSION));
+    if saved.shift_remove(astarot_core::config::NEWEST_SAVING_VERSION).is_none() {
+        failures.push(format!("{case}: {} is not written", astarot_core::config::NEWEST_SAVING_VERSION));
     }
     saved
 }
@@ -310,7 +310,7 @@ fn the_lists_the_settings_are_checked_against_are_pythons() {
         .as_array()
         .unwrap()
         .iter()
-        .filter(|w| !vrct_core::languages::RETIRED_TRANSLATION_WEIGHTS.contains(&w.as_str().unwrap()))
+        .filter(|w| !astarot_core::languages::RETIRED_TRANSLATION_WEIGHTS.contains(&w.as_str().unwrap()))
         .cloned()
         .collect();
     assert_eq!(config.get("SELECTABLE_CTRANSLATE2_WEIGHT_TYPE_LIST"), json!(weights));

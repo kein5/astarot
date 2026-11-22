@@ -9,13 +9,13 @@ use std::thread;
 use std::time::Duration;
 
 use common::*;
-use vrct_tts::clock::monotonic_ns;
-use vrct_tts::converted::ConvertedRouter;
-use vrct_tts::playback::{FirstAudio, Frames, Monitor, OutputSink, SpeechRouter};
-use vrct_tts::scheduler::{BusOptions, ProviderFactory, Synthesizer};
-use vrct_tts::settings::{EngineVoice, SpeechRequest, VoiceSettings};
-use vrct_tts::sync::Event;
-use vrct_tts::{AudioFrame, CancelToken, Source, SpeechMessageEvent, SynthesisOptions, TtsError, VoiceEventBus};
+use astarot_tts::clock::monotonic_ns;
+use astarot_tts::converted::ConvertedRouter;
+use astarot_tts::playback::{FirstAudio, Frames, Monitor, OutputSink, SpeechRouter};
+use astarot_tts::scheduler::{BusOptions, ProviderFactory, Synthesizer};
+use astarot_tts::settings::{EngineVoice, SpeechRequest, VoiceSettings};
+use astarot_tts::sync::Event;
+use astarot_tts::{AudioFrame, CancelToken, Source, SpeechMessageEvent, SynthesisOptions, TtsError, VoiceEventBus};
 
 type Speak = Arc<dyn Fn(&str, &CancelToken, &SynthesisOptions) -> Result<Frames, TtsError> + Send + Sync>;
 
@@ -468,7 +468,7 @@ fn start_deadline_includes_inference_and_output_open() {
             }
             Ok(Box::new(output_sink.clone()))
         };
-        let mut options = BusOptions::new(Arc::new(vrct_tts::playback::AudioRouter::new(Arc::new(factory))));
+        let mut options = BusOptions::new(Arc::new(astarot_tts::playback::AudioRouter::new(Arc::new(factory))));
         options.max_age = ms(150);
         let bus = VoiceEventBus::new(VoiceSettings { multilingual_url: server.url.clone(), ..speech_settings() }, options);
         assert!(bus.publish(mic("session:utterance"), None, None));
