@@ -2,8 +2,8 @@
 Type=Application
 Name=ASTAROT
 Comment=Speech, voice conversion and translated chat
-Exec=vrct-vox
+Exec=astarot
 Icon=vrct-vox
 Terminal=false
 Categories=AudioVideo;Audio;
-StartupWMClass=vrct-vox
+StartupWMClass=astarot

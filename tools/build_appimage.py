@@ -92,7 +92,7 @@ def install_payload(candidate, appdir):
     target = Path(appdir) / 'usr/lib/vrct-vox'
     target.mkdir(parents=True)
     for source in Path(candidate).iterdir():
-        if source.name == 'vrct-vox':
+        if source.name == 'astarot':
             continue  # GUI already deployed/patched separately by linuxdeploy
         if source.is_dir():
             shutil.copytree(source, target / source.name, symlinks=True)
@@ -114,11 +114,11 @@ def check_appdir(appdir):
     appdir = Path(appdir)
     check_tree(appdir, allow_directory_links=True)
     for name in ('AppRun', 'AppRun.gui', 'vrct-vox.desktop', 'vrct-vox.png', '.DirIcon',
-                 'usr/bin/vrct-vox'):
+                 'usr/bin/astarot'):
         if not (appdir / name).is_file():
             raise ValueError(f'missing AppDir component: {name}')
     for name in RUNTIME:
-        if name != 'vrct-vox' and not (appdir / 'usr/lib/vrct-vox' / name).is_file():
+        if name != 'astarot' and not (appdir / 'usr/lib/vrct-vox' / name).is_file():
             raise ValueError(f'missing AppDir runtime file: {name}')
     verify_bundle(appdir / 'usr/lib/vrct-vox/_internal/build/speechcpp')
 
@@ -168,8 +168,10 @@ def main():
     if appdir.exists():
         shutil.rmtree(appdir)
     (appdir / 'usr/bin').mkdir(parents=True)
-    gui = appdir / 'usr/bin/vrct-vox'
-    shutil.copy2(candidate / 'vrct-vox', gui)
+    # The desktop file's Exec names this file: linuxdeploy starts it from AppRun, and the window
+    # class follows its name (StartupWMClass).
+    gui = appdir / 'usr/bin/astarot'
+    shutil.copy2(candidate / 'astarot', gui)
     icon = appdir / 'usr/share/icons/hicolor/256x256/apps/vrct-vox.png'
     icon.parent.mkdir(parents=True)
     shutil.copyfile(ROOT / 'src-tauri/icons/128x128@2x.png', icon)

@@ -68,11 +68,12 @@ ${StrLoc}
 !define MANUPRODUCTKEY "Software\${MANUFACTURER}\${INSTALLREGNAME}"
 !define OLDUNINSTKEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\${OLDINSTALLREGNAME}"
 !define OLDMANUPRODUCTKEY "Software\${MANUFACTURER}\${OLDINSTALLREGNAME}"
-; The main binary's name after ADR-014's step 6 (or before it, seen from step 6; 2.5, 3 and 8).
+; The main binary's name up to 0.6.x (ADR-014, 2.5, 3 and 8; ${MAINBINARYNAME} from 0.7.0).
 ; An install may still run it while it is updated, and a package of another version (/VERSION)
 ; may carry it in place of ${MAINBINARYNAME}.exe. The package's own name is the one installed
 ; ($main_binary), and the binary under the other name is removed once the shortcuts lead to it.
-!define OTHERBINARYNAME "astarot"
+; native/app-identity's tests keep it in step with EXECUTABLE there.
+!define OTHERBINARYNAME "vrct-vox"
 !define UNINSTALLERSIGNCOMMAND "{{uninstaller_sign_cmd}}"
 !define ESTIMATEDSIZE "{{estimated_size}}"
 

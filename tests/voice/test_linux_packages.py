@@ -17,11 +17,11 @@ import linux_packages as lp  # noqa: E402
 def candidate(tmp_path):
     root = tmp_path / "VRCT-VOX"
     (root / "_internal").mkdir(parents=True)
-    (root / "vrct-vox").write_bytes(b"\x7fELF main")
+    (root / "astarot").write_bytes(b"\x7fELF main")
     (root / "vrct-vox-sidecar").write_bytes(b"\x7fELF sidecar")
     (root / "_internal/libexample.so").write_bytes(b"\x7fELF lib")
     manifest = {"version": "0.3.0-beta.1", "variant": "linux-x64", "speech_builds": ["linux-x64-vulkan", "linux-x64-cpu"], "files": [
-        {"path": "vrct-vox", "elf_versions": ["GLIBC_2.34", "GLIBC_2.39", "GLIBCXX_3.4.32"]},
+        {"path": "astarot", "elf_versions": ["GLIBC_2.34", "GLIBC_2.39", "GLIBCXX_3.4.32"]},
         {"path": "_internal/libexample.so", "elf_versions": ["GLIBC_2.17"]},
         {"path": "_internal/data.json"},
     ]}
@@ -47,7 +47,7 @@ def test_the_lowest_glibc_is_the_highest_version_any_file_needs(candidate):
 
 def test_a_candidate_without_glibc_records_is_refused(candidate):
     manifest = json.loads((candidate / "build-manifest.json").read_text())
-    manifest["files"] = [{"path": "vrct-vox"}]
+    manifest["files"] = [{"path": "astarot"}]
     (candidate / "build-manifest.json").write_text(json.dumps(manifest))
     with pytest.raises(ValueError, match="glibc"):
         lp.build_facts(candidate)
@@ -114,18 +114,23 @@ def test_the_rpm_takes_the_files_as_built_and_declares_its_requirements(tmp_path
                  "Recommends: pipewire-utils", "Recommends: vulkan-loader", "Recommends: mesa-vulkan-drivers"):
         assert line in spec.splitlines()
     assert f"cp -al '{tmp_path / 'staged root'}/.'" in spec  # Hard links: no second 1 GB copy.
+    files = spec.split("%files\n", 1)[1].splitlines()
+    assert "/usr/bin/astarot" in files and "/usr/bin/vrct-vox" in files
 
 
 @pytest.mark.parametrize("kind", ["deb", "rpm"])
 def test_the_installed_tree_has_the_app_under_opt_and_the_desktop_files_under_usr(candidate, tmp_path, kind):
     root = lp.stage(candidate, tmp_path / "root", kind)
     app = root / "opt/vrct-vox"
-    assert (app / "vrct-vox").read_bytes() == b"\x7fELF main"
+    assert (app / "astarot").read_bytes() == b"\x7fELF main"
     assert (app / "_internal/libexample.so").is_file()
     assert (app / "package-manager").read_text() == kind + "\n"
-    assert (root / "usr/bin/vrct-vox").read_text() == '#!/bin/sh\nexec /opt/vrct-vox/vrct-vox "$@"\n'
-    desktop = (root / "usr/share/applications/vrct-vox.desktop").read_text()
-    assert "Exec=vrct-vox" in desktop and "Icon=vrct-vox" in desktop
+    # The desktop entry's command, and the command up to 0.6.x: both start the executable, which
+    # is astarot from 0.7.0 (ADR-014, 2.5 and 2.6).
+    for command in ("astarot", "vrct-vox"):
+        assert (root / "usr/bin" / command).read_text() == '#!/bin/sh\nexec /opt/vrct-vox/astarot "$@"\n'
+    desktop = (root / "usr/share/applications/vrct-vox.desktop").read_text().splitlines()
+    assert "Exec=astarot" in desktop and "StartupWMClass=astarot" in desktop and "Icon=vrct-vox" in desktop
     assert (root / "usr/share/icons/hicolor/256x256/apps/vrct-vox.png").read_bytes()[:4] == b"\x89PNG"
     assert (root / "usr/share/doc/vrct-vox/copyright").read_text().startswith("MIT License")
     assert (root / "usr/share/doc/vrct-vox/NOTICE.md").is_file()

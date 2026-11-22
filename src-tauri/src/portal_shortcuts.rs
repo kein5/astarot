@@ -773,16 +773,16 @@ mod tests {
         names.iter().map(|name| (*name).to_owned()).collect()
     }
 
-    /// The file for the new app ID (ADR-014, 2.6). The icon and the window class follow the
-    /// package and the executable, which move in their own steps.
+    /// The file for the new app ID (ADR-014, 2.6). The window class follows the executable, which
+    /// is astarot from 0.7.0; the icon follows the Linux package, which moves in its own step.
     #[test]
     fn the_desktop_file_is_named_and_marked_for_astarot() {
         assert_eq!(APP_ID, "io.github.kein5.astarot");
         assert_eq!(
-            desktop_entry("/opt/vrct-vox/vrct-vox"),
+            desktop_entry("/opt/vrct-vox/astarot"),
             "[Desktop Entry]\nType=Application\nName=ASTAROT\n\
-             Comment=Speech, voice conversion and translated chat\nExec=\"/opt/vrct-vox/vrct-vox\"\nIcon=vrct-vox\n\
-             Terminal=false\nCategories=AudioVideo;Audio;Network;\nStartupWMClass=vrct-vox\nX-ASTAROT-Generated=true\n"
+             Comment=Speech, voice conversion and translated chat\nExec=\"/opt/vrct-vox/astarot\"\nIcon=vrct-vox\n\
+             Terminal=false\nCategories=AudioVideo;Audio;Network;\nStartupWMClass=astarot\nX-ASTAROT-Generated=true\n"
         );
         assert_eq!(desktop_marker(), "X-ASTAROT-Generated=true");
     }
@@ -801,11 +801,11 @@ mod tests {
         let directory = applications();
         let (old, new) = (directory.path().join("io.github.kein5.vrct-vox.desktop"), directory.path().join("io.github.kein5.astarot.desktop"));
         std::fs::write(&old, EARLIER).unwrap();
-        write_desktop_file(directory.path(), "/opt/vrct-vox/vrct-vox").unwrap();
-        assert_eq!(std::fs::read_to_string(&new).unwrap(), desktop_entry("/opt/vrct-vox/vrct-vox"));
+        write_desktop_file(directory.path(), "/opt/vrct-vox/astarot").unwrap();
+        assert_eq!(std::fs::read_to_string(&new).unwrap(), desktop_entry("/opt/vrct-vox/astarot"));
         assert!(!old.exists(), "the old app ID's file is gone");
         // Nothing else is left behind, and running again changes nothing.
-        write_desktop_file(directory.path(), "/opt/vrct-vox/vrct-vox").unwrap();
+        write_desktop_file(directory.path(), "/opt/vrct-vox/astarot").unwrap();
         let names: Vec<_> = std::fs::read_dir(directory.path()).unwrap().map(|e| e.unwrap().file_name()).collect();
         assert_eq!(names, ["io.github.kein5.astarot.desktop"]);
     }
@@ -821,7 +821,7 @@ mod tests {
             let directory = applications();
             let old = directory.path().join("io.github.kein5.vrct-vox.desktop");
             std::fs::write(&old, &content).unwrap();
-            write_desktop_file(directory.path(), "/opt/vrct-vox/vrct-vox").unwrap();
+            write_desktop_file(directory.path(), "/opt/vrct-vox/astarot").unwrap();
             assert_eq!(std::fs::read_to_string(&old).unwrap(), content);
         }
     }
@@ -833,7 +833,7 @@ mod tests {
         std::fs::write(&old, EARLIER).unwrap();
         // The new name is taken by a folder: the portal has no desktop file of its own.
         std::fs::create_dir(directory.path().join("io.github.kein5.astarot.desktop")).unwrap();
-        assert_eq!(write_desktop_file(directory.path(), "/opt/vrct-vox/vrct-vox"), Err("portal_desktop_file_failed".to_owned()));
+        assert_eq!(write_desktop_file(directory.path(), "/opt/vrct-vox/astarot"), Err("portal_desktop_file_failed".to_owned()));
         assert_eq!(std::fs::read_to_string(&old).unwrap(), EARLIER, "nothing is removed before the new file is in place");
     }
 

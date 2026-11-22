@@ -40,7 +40,7 @@ def installation(tmp_path, monkeypatch):
             path.chmod(path.stat().st_mode & ~0o222)
     assert not os.access(root, os.W_OK), 'run package acceptance as an unprivileged user'
     before = inventory(root)
-    monkeypatch.setenv('ASTAROT_TEST_APP', str(root / 'vrct-vox'))
+    monkeypatch.setenv('ASTAROT_TEST_APP', str(root / 'astarot'))
     try:
         yield root
         assert inventory(root) == before, 'installation mutated during acceptance'

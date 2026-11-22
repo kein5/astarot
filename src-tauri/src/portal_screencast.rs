@@ -740,15 +740,15 @@ mod tests {
     #[test]
     fn the_helper_is_looked_for_in_the_package_then_in_the_checkout() {
         // The archive: the app sits beside `_internal`.
-        let packaged = helper_candidates(Path::new("/opt/VRCT-VOX/vrct-vox"), None);
+        let packaged = helper_candidates(Path::new("/opt/VRCT-VOX/astarot"), None);
         assert_eq!(packaged[0], PathBuf::from("/opt/VRCT-VOX/_internal/build/astarot-screen-capture"));
         // The AppImage: the app is in usr/bin, the backend's files under usr/lib/vrct-vox.
-        let appimage = helper_candidates(Path::new("/tmp/.mount_x/usr/bin/vrct-vox"), None);
+        let appimage = helper_candidates(Path::new("/tmp/.mount_x/usr/bin/astarot"), None);
         assert_eq!(appimage, vec![
             PathBuf::from("/tmp/.mount_x/usr/bin/_internal/build/astarot-screen-capture"),
             PathBuf::from("/tmp/.mount_x/usr/lib/vrct-vox/_internal/build/astarot-screen-capture"),
         ]);
-        let development = helper_candidates(Path::new("/src/src-tauri/target/debug/vrct-vox"), Some(Path::new("/src")));
+        let development = helper_candidates(Path::new("/src/src-tauri/target/debug/astarot"), Some(Path::new("/src")));
         assert_eq!(development.last(), Some(&PathBuf::from("/src/build/astarot-screen-capture")));
         assert_eq!(development.len(), 3);
     }

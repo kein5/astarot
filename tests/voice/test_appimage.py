@@ -174,14 +174,14 @@ def test_backend_payload_is_copied_without_rewriting(tmp_path):
     from tools.build_appimage import install_payload
     candidate, appdir = tmp_path / 'candidate', tmp_path / 'AppDir'
     (candidate / '_internal/build/speechcpp').mkdir(parents=True)
-    (candidate / 'vrct-vox').write_bytes(b'gui')
+    (candidate / 'astarot').write_bytes(b'gui')
     (candidate / '_internal/build/speechcpp/speech').write_bytes(b'exact pinned engine')
     (candidate / '_internal/lib.so').symlink_to('build/speechcpp/speech')
     install_payload(candidate, appdir)
     target = appdir / 'usr/lib/vrct-vox'
     assert (target / '_internal/build/speechcpp/speech').read_bytes() == b'exact pinned engine'
     assert (target / '_internal/lib.so').is_symlink()
-    assert not (target / 'vrct-vox').exists(), 'do not include a duplicate unpatched GUI'
+    assert not (target / 'astarot').exists(), 'do not include a duplicate unpatched GUI'
     assert (candidate / '_internal/build/speechcpp/speech').read_bytes() == b'exact pinned engine'
 
 
@@ -189,11 +189,13 @@ def test_webdriver_matches_only_payload_of_launched_appimage(monkeypatch):
     monkeypatch.syspath_prepend(str(Path(__file__).resolve().parents[1] / 'platform'))
     from native_webdriver import matches_launched_app
     image = '/tmp/My App.AppImage'
-    executable = '/tmp/.mount_test/usr/bin/vrct-vox'
+    executable = '/tmp/.mount_test/usr/bin/astarot'
     env = {'APPIMAGE': image, 'APPDIR': '/tmp/.mount_test'}
     assert matches_launched_app(executable, env, image, appimage=True)
     assert not matches_launched_app(image, {}, image, appimage=True), 'extract runtime waits for GUI exit'
     assert not matches_launched_app(executable, dict(env, APPIMAGE='/tmp/other.AppImage'), image, appimage=True)
-    assert not matches_launched_app('/tmp/unrelated/vrct-vox', env, image, appimage=True)
+    assert not matches_launched_app('/tmp/unrelated/astarot', env, image, appimage=True)
+    # The executable's name up to 0.6.x is not the payload of an image built from 0.7.0.
+    assert not matches_launched_app('/tmp/.mount_test/usr/bin/vrct-vox', env, image, appimage=True)
     assert not matches_launched_app(executable, {}, image, appimage=True)
-    assert matches_launched_app('/tmp/app/vrct-vox', {}, '/tmp/app/vrct-vox')
+    assert matches_launched_app('/tmp/app/astarot', {}, '/tmp/app/astarot')

@@ -1,7 +1,7 @@
 """Run the native GUI acceptance tests against a built app.
 
     python tools/native_acceptance.py --appimage path/to/VRCT-VOX.AppImage
-    python tools/native_acceptance.py --app src-tauri/target/debug/vrct-vox --only ui
+    python tools/native_acceptance.py --app src-tauri/target/debug/astarot --only ui
     python tools/native_acceptance.py --app ... --vrchat
 
 These tests are not part of `dev.py check`: they open the real app on this desktop. Each group runs
@@ -166,7 +166,7 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     build = parser.add_mutually_exclusive_group(required=True)
     build.add_argument("--appimage", type=Path, help="a candidate or published AppImage")
-    build.add_argument("--app", type=Path, help="a development build (src-tauri/target/debug/vrct-vox)")
+    build.add_argument("--app", type=Path, help="a development build (src-tauri/target/debug/astarot)")
     parser.add_argument("--only", action="append", choices=sorted(groups()), help="run only this group (repeatable)")
     parser.add_argument("--vrchat", action="store_true", help="start two local VRChat clients and run the round trip")
     parser.add_argument("--output", type=Path, default=ROOT / "build/native-acceptance")

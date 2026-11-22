@@ -141,7 +141,7 @@ def stage_internal(work, archives, *, offline=False, download=False, dictionary=
     run([sys.executable, ROOT / 'tools/build_voice_gate.py', '--output-dir', build])
     run([sys.executable, ROOT / 'tools/build_rvc_worker.py', '--output-dir', build,
          '--target-dir', work / 'cargo-rvc', *(['--offline'] if offline else [])])
-    # The license texts of the Rust crates in vrct-vox and the worker (NOTICE.md).
+    # The license texts of the Rust crates in astarot and the worker (NOTICE.md).
     run([sys.executable, ROOT / 'tools/rust_licenses.py', '--output', build / 'licenses/rust',
          '--platform', 'linux', *(['--offline'] if offline else [])])
     manifest = load_manifest()
@@ -211,7 +211,7 @@ def main():
         shutil.rmtree(candidate)
     candidate.mkdir(parents=True)
     shutil.copytree(internal, candidate / '_internal', symlinks=True)
-    shutil.copy2(work / 'cargo' / args.profile / 'vrct-vox', candidate / 'vrct-vox')
+    shutil.copy2(work / 'cargo' / args.profile / 'astarot', candidate / 'astarot')
     normalize_modes(candidate)
     check_tree(candidate, require_runtime=True)
     for _, folder in SPEECH_BUILDS:

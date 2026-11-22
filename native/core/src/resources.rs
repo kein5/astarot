@@ -8,7 +8,7 @@
 //! - beside the binary (the Windows installer and ZIP, the Linux tar.gz, the deb and rpm in
 //!   `/opt/vrct-vox`):
 //!   `<app>/_internal/build/speechcpp`
-//! - in the AppImage, where the binary is `usr/bin/vrct-vox`:
+//! - in the AppImage, where the binary is `usr/bin/astarot`:
 //!   `usr/lib/vrct-vox/_internal/build/speechcpp`
 //! - a development checkout keeps them in `build/` at its root; a debug build of the app names
 //!   that root with [`use_development_checkout`].
@@ -42,7 +42,7 @@ pub fn folders(app_dir: &Path) -> Vec<PathBuf> {
     }
     folders.push(app_dir.join(FOLDER));
     if cfg!(target_os = "linux") {
-        // The AppImage: usr/bin/vrct-vox with its files in usr/lib/vrct-vox.
+        // The AppImage: usr/bin/astarot with its files in usr/lib/vrct-vox.
         if let Some(prefix) = app_dir.parent() {
             folders.push(prefix.join("lib").join(astarot_app_identity::LINUX_PACKAGE.current()).join(FOLDER));
         }

@@ -50,7 +50,7 @@ def test_runtime_has_no_python_backend():
 def test_pack_requires_complete_runtime(tmp_path):
     root = tmp_path / 'VRCT-VOX'
     root.mkdir()
-    (root / 'vrct-vox').write_text('#!/bin/sh\n')
+    (root / 'astarot').write_text('#!/bin/sh\n')
     with pytest.raises(ValueError, match='runtime'):
         pack(root, tmp_path / 'out.tar.gz')
     assert not (tmp_path / 'out.tar.gz').exists()

@@ -58,8 +58,10 @@ fn the_installer_moves_the_install_between_the_names_written_here() {
         format!("!define OLDINSTALLREGNAME \"{}\"", WINDOWS_INSTALL.other()),
         format!("!define OLDINSTALLFOLDER \"{}\"", WINDOWS_INSTALL.legacy),
         format!("!define MOVEDFROMFILE \"{INSTALLER_MOVED_FROM}\""),
-        // The installer stops the main binary under the name it does not ship, too.
+        // The installer stops and replaces the main binary under the name it does not ship
+        // (ADR-014, 2.5, 3 and 8), and shortcuts up to 0.5.0 carried that name.
         format!("!define OTHERBINARYNAME \"{}\"", EXECUTABLE.other()),
+        format!("!define OLDSHORTCUTNAME \"{}\"", EXECUTABLE.legacy),
     ] {
         assert!(template.lines().any(|l| l == line), "{line}");
     }

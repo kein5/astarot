@@ -26,7 +26,7 @@ TARGETS = {'win32': 'x86_64-pc-windows-msvc', 'linux': 'x86_64-unknown-linux-gnu
 # (executable, manifest, the features its build uses). The Tauri app is built with its
 # default features; the worker as tools/build_rvc_worker.py builds it.
 SHIPPED = (
-    ('vrct-vox', 'src-tauri/Cargo.toml', ()),
+    ('astarot', 'src-tauri/Cargo.toml', ()),
     ('astarot-rvc-worker', 'native/rvc-runtime/Cargo.toml', ('--no-default-features', '--features', 'worker')),
 )
 PREFIXES = ('LICENSE', 'LICENCE', 'COPYING', 'COPYRIGHT', 'NOTICE', 'UNLICENSE', 'AUTHORS')

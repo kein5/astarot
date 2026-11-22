@@ -1057,7 +1057,7 @@ mod tests {
 
     #[test]
     fn debug_builds_never_check() {
-        let kind = detect_install(Path::new("/nowhere/vrct-vox"), None, true);
+        let kind = detect_install(Path::new("/nowhere/astarot"), None, true);
         assert_eq!(kind, InstallKind::Development);
         assert_eq!(kind.mode(), "disabled");
     }
@@ -1073,7 +1073,7 @@ mod tests {
     #[cfg(target_os = "linux")]
     fn linux_install_kinds() {
         let directory = scratch("linux");
-        let binary = directory.join("vrct-vox");
+        let binary = directory.join("astarot");
         assert_eq!(detect_install(&binary, None, false), InstallKind::LinuxArchive);
 
         let appimage = directory.join("VRCT-VOX.AppImage");
@@ -1097,7 +1097,7 @@ mod tests {
         let appimage = directory.join("VRCT-VOX.AppImage");
         std::fs::write(&appimage, b"").unwrap();
         std::fs::set_permissions(&directory, std::fs::Permissions::from_mode(0o555)).unwrap();
-        let kind = detect_install(Path::new("/tmp/.mount_x/usr/bin/vrct-vox"), Some(&appimage), false);
+        let kind = detect_install(Path::new("/tmp/.mount_x/usr/bin/astarot"), Some(&appimage), false);
         std::fs::set_permissions(&directory, std::fs::Permissions::from_mode(0o755)).unwrap();
         std::fs::remove_dir_all(&directory).unwrap();
         // root can write anywhere; the probe then rightly reports a writable folder.
@@ -1111,7 +1111,7 @@ mod tests {
     #[cfg(windows)]
     fn windows_install_kinds() {
         let directory = scratch("windows");
-        let binary = directory.join("vrct-vox.exe");
+        let binary = directory.join("astarot.exe");
         assert_eq!(detect_install(&binary, None, false), InstallKind::WindowsPortable);
         std::fs::write(directory.join("uninstall.exe"), b"").unwrap();
         assert_eq!(detect_install(&binary, None, false), InstallKind::WindowsInstaller);
