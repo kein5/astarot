@@ -91,9 +91,7 @@ pub const RUN_MAPPING: &[(&str, &str)] = &[
     // The core's own (#278): the recorder's VAD could not use the speech.cpp server and cuts by
     // volume (`VAD_UNAVAILABLE`, with the reason).
     ("vad_unavailable", "/run/vad_unavailable"),
-    ("download_progress_ctranslate2_weight", "/run/download_progress_ctranslate2_weight"),
     ("downloaded_ctranslate2_weight", "/run/downloaded_ctranslate2_weight"),
-    ("error_ctranslate2_weight", "/run/error_ctranslate2_weight"),
     ("ctranslate2_license_notice", "/run/ctranslate2_license_notice"),
     // The core's own (#565): a saved choice of a weight the app no longer offers loaded as the default.
     ("translation_model_retired", "/run/translation_model_retired"),
