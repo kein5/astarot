@@ -18,7 +18,8 @@ import { setupPlan, planModels, planBytes, nextAction, stepState, recommendedAsr
 import type { RecognitionState, RunView, SetupEntry, SetupStep } from "../../../logics/setup/firstRunSetup.ts";
 import { DEFAULT_TRANSLATION_WEIGHT, translationEntry, translationNext, translationOffer } from "../../../logics/setup/translationSetup.ts";
 import type { TranslationOffer } from "../../../logics/setup/translationSetup.ts";
-import { SKIP, SPEECH_TARGETS, chosenEntry, featureOutcome, modelChoices, recommendedSpeech, settled as isSettled } from "../../../logics/setup/setupChoices.ts";
+import { SKIP, SPEECH_TARGETS, chosenEntry, featureOutcome, modelChoices, recommendedSpeech, settled as isSettled, switchesToLead } from "../../../logics/setup/setupChoices.ts";
+import { useSetupLeads } from "../../../logics/setup/useSetupLeads";
 import type { FeatureView, SetupFeature } from "../../../logics/setup/setupChoices.ts";
 import { canStart, restrictionsOf, startRequest } from "../../../logics/voice/modelRestrictions";
 import { familyLabel } from "../../../logics/voice/modelCatalog";
@@ -99,6 +100,7 @@ interface ModelRun {
 export const FirstRunSetupController = () => {
     const { t, i18n } = useI18n();
     const setup = useFirstRunSetup();
+    const leads = useSetupLeads();
     const { currentIsBackendReady } = useStore_IsBackendReady();
     const { setSelectedTranscriptionEngine } = useTranscription();
     const realtime = useRealtimeASR();
@@ -190,6 +192,9 @@ export const FirstRunSetupController = () => {
     const finish = (forGood: boolean) => {
         close();
         if (forGood) setup.dismissNotice();
+        // "Done" at the end: the main screen's switches of the features prepared stand out until
+        // each is turned on (#955). Nothing is turned on here.
+        if (forGood && finished) leads.lead(switchesToLead(features));
         setup.closeSetup();
     };
     // Each run has its own id, so the error watch below starts over with it.

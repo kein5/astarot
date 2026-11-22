@@ -76,6 +76,9 @@
     background-color: var(--dark_925_color);
     &.is_active { background-color: var(--vox_highlight_tint); }
     &.is_unavailable { background-color: var(--dark_925_color); }
+    // The first-run setup leads here (#955): the lilac frame and tint of its lead on the first screen
+    // (#940), until the switch is turned on.
+    &[data-lead] { box-shadow: inset 0 0 0 .1rem var(--primary_600_color); background-color: var(--vox_highlight_tint); }
 }
 
 // Opens the feature's settings. The same size whatever the state, so nothing moves when the
@@ -241,3 +244,6 @@ $pending_label_color: var(--dark_500_color);
     min-width: 0;
     overflow-wrap: anywhere;
 }
+
+// The icon rail's switch the first-run setup leads to (#955), framed as the wide rail's row is.
+.switch_container[data-lead] { box-shadow: inset 0 0 0 .1rem var(--primary_600_color); background-color: var(--vox_highlight_tint); border-radius: var(--vox_radius); }

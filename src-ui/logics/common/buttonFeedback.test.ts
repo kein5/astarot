@@ -270,6 +270,7 @@ test("main switches block pending repeats but TTS/RVC cancellation remains avail
         "../../../../../logics/voice/voiceErrorText.ts": voiceErrorText,
         "../../../../../logics/main/switchBlocks": switchBlocksModule,
         "../../../../../logics/main/useSwitchBlocks": { useSwitchBlocks: () => ({ blocks: {}, prepare() {} }) },
+        "../../../../../logics/setup/useSetupLeads": { useSetupLeads: () => ({ leads: [], settle() {} }) },
         "../../startupContext": { useIsStartingUp: () => false },
         "@logics_main": { useIsMainPageCompactMode: () => ({ currentIsMainPageCompactMode: { data: false } }) },
         "@logics_configs": { useUsagePresets: () => ({ currentUsagePresets: { data: ["all"] } }) },

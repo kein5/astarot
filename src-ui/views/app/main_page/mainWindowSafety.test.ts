@@ -23,6 +23,9 @@ interface SwitchSetup {
     compact: boolean;
     prepared?: string[];
     presets?: string[] | null;
+    // The switches the first-run setup leads to (#955), and those it was told are on.
+    leads?: string[];
+    settled?: string[];
 }
 // A part of the page drawn as React would call it.
 type Part = (props?: unknown) => TreeNode;
@@ -68,6 +71,7 @@ const loadSwitches = async (b: BridgeStore, voice: object = {}, setup: SwitchSet
         "../../../../../logics/voice/voiceErrorText.ts": voiceErrorText,
         "../../../../../logics/main/switchBlocks": switchBlocksModule,
         "../../../../../logics/main/useSwitchBlocks": { useSwitchBlocks: () => ({ blocks: setup.blocks, prepare: (action: string) => setup.prepared?.push(action) }) },
+        "../../../../../logics/setup/useSetupLeads": { useSetupLeads: () => ({ leads: setup.leads ?? [], settle: (id: string) => setup.settled?.push(id) }) },
         "../../startupContext": { useIsStartingUp: () => starting },
         "@logics_main": { ...main, useIsMainPageCompactMode: () => ({ currentIsMainPageCompactMode: { data: setup.compact } }) },
         "@logics_configs": { useUsagePresets: () => ({ currentUsagePresets: { data: "presets" in setup ? setup.presets : ["all"] } }) },
@@ -455,6 +459,39 @@ test("#554: the uses picked in settings choose the switches in sight; one that i
     const hint = find(button, node => node.props.id === button.props["aria-describedby"]);
     assert.ok(hint);
     assert.deepEqual([hint.props.hidden, hint.props.children], [true, "main_page.more_features_hint"]);
+});
+
+test("#955: a switch the first-run setup leads to stands out and stays in sight until it is turned on", async () => {
+    const b = await loadBridgeStore();
+    b.stores.store.backend_subprocess = runningChild();
+    b.runtime.store.set(b.stores.Atom_IsBackendReady, { data: true, state: "ok" });
+    const voice = { status: { tts_enabled: false, tts_generation: 1 }, directState: { observation_id: "one" }, send() {} };
+    const setup: SwitchSetup = { compact: false, blocks: {}, presets: ["basic"], leads: ["tts", "translation"], settled: [] };
+    const s = await loadSwitches(b, voice, setup);
+    const draw = (): TreeNode[] => b.runtime.render(s.MainFunctionSwitch).props.children;
+    const row = (rows: TreeNode[], id: string) => {
+        const node = rows.find(item => item.props.switch_id === id);
+        assert.ok(node);
+        return node;
+    };
+    let rows = draw();
+    // Text to speech is not among the uses picked, yet it is in sight while led; 「ほかの機能」 keeps the rest.
+    assert.deepEqual(rows.filter(node => node.props.switch_id).map(node => node.props.switch_id),
+        ["translation", "transcription_send", "transcription_receive", "tts"]);
+    assert.equal(rows.at(-1)?.props.count, 2);
+    // The led switches stand out, the others do not; nothing is turned on and nothing is settled yet.
+    assert.deepEqual(["translation", "transcription_send", "tts"].map(id => row(rows, id).props.lead), [true, false, true]);
+    assert.equal(s.SwitchRow(row(rows, "tts").props).props["data-lead"], true);
+    assert.equal(s.SwitchRow(row(rows, "transcription_send").props).props["data-lead"], undefined);
+    assert.deepEqual([s.requests, setup.settled], [[], []]);
+    // The row draws the frame; its switch does not draw a second one. In the icon rail, the switch does.
+    assert.equal(inTooltip(s.SwitchContainer({ ...row(rows, "tts").props, inRow: true })).props["data-lead"], undefined);
+    assert.equal(inTooltip(s.SwitchContainer(row(rows, "tts").props)).props["data-lead"], true);
+    // Turned on: it no longer stands out, and the lead is settled.
+    b.runtime.store.set(b.stores.Atom_TranslationStatus, { data: true, state: "ok" });
+    rows = draw();
+    assert.equal(row(rows, "translation").props.lead, false);
+    assert.deepEqual(setup.settled, ["translation"]);
 });
 
 test("#554: every switch is in sight while the uses are not known, and with everything picked", async () => {

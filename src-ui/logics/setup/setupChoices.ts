@@ -4,6 +4,7 @@
 // for its name, or the one with a recommendation), the recommended model first.
 import { catalogFamilies, firstVariant } from "../voice/modelCatalog";
 import type { SetupCatalog, SetupEntry } from "./firstRunSetup.ts";
+import type { SwitchBlockId } from "../main/switchBlocks";
 
 // The choice that installs nothing for a feature.
 export const SKIP = "skip";
@@ -51,3 +52,15 @@ export const settled = ({ ready, skipped, running }: FeatureView): boolean => !r
 // turned on, or it is not used now and its switch can stay off. Nothing is turned on by the setup.
 export type FeatureOutcome = "use" | "unused";
 export const featureOutcome = ({ ready }: FeatureView): FeatureOutcome => ready ? "use" : "unused";
+
+// The main screen's switches of each feature (#955): the recognition has the microphone's and the
+// listening's, the others one each.
+export const FEATURE_SWITCHES: Readonly<Record<SetupFeature, readonly SwitchBlockId[]>> = {
+    recognition: ["transcription_send", "transcription_receive"],
+    translation: ["translation"],
+    speech: ["tts"],
+};
+
+// The switches to lead to after "Done": those of the features the setup's end says can be used.
+export const switchesToLead = (features: Readonly<Record<SetupFeature, FeatureView>>): SwitchBlockId[] =>
+    (Object.keys(FEATURE_SWITCHES) as SetupFeature[]).flatMap(feature => featureOutcome(features[feature]) === "use" ? FEATURE_SWITCHES[feature] : []);
