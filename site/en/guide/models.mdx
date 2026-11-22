@@ -1,6 +1,6 @@
 # Model downloads
 
-ASTAROT packages contain no models for text to speech, speech recognition, the voice changer or text recognition. Download the models you use from the settings, or point to files you already have. How to use files of your own is in [Use your own models](./custom-models).
+ASTAROT packages contain no models for text to speech, speech recognition, translation, the voice changer or text recognition. Download the models you use from the settings, or point to files you already have. How to use files of your own is in [Use your own models](./custom-models).
 
 ## How a download works
 
@@ -8,6 +8,8 @@ ASTAROT packages contain no models for text to speech, speech recognition, the v
 2. Check the provider, model name, exact size, links to the terms and where it will be saved.
 3. Tick the agreement and press "Agree and download". You can cancel while it downloads.
 4. When the download and check finish, press "Apply model path". First stop the server or feature that uses the model.
+
+The [first setup](./first-setup) screen can also choose the speech recognition, translation and text to speech models for each feature and download them in one go.
 
 ![The review of a model download and its terms](/screenshots/en/model-consent.webp)
 
@@ -39,6 +41,9 @@ Downloaded files are checked by size and SHA-256 before use. They come only from
 | Speech recognition (40 languages, a large model) | Nemotron 3.5 Transcribe 30B-A4B · IQ4_NL | 17.69 GiB | OpenMDW-1.1 |
 | Finding where someone speaks | Silero VAD v6.2 · F32 | 1.2 MB | MIT |
 | Telling speakers apart (optional) | Nemotron 3 Diarization · Q8_0 | about 106 MB | OpenMDW-1.1 |
+| Local translation (default) | M2M100 418M · int8 | 0.47 GiB | MIT |
+| Local translation | NLLB-200 distilled 600M · int8 | 0.60 GiB | CC-BY-NC-4.0 (non-commercial) |
+| Local translation | NLLB-200 distilled 1.3B · int8 | 1.31 GiB | CC-BY-NC-4.0 (non-commercial) |
 | Voice changer (RVC) | Saisho Utane · RVC v2 | 0.31 GiB | CC BY 4.0 (credit required) |
 | Text recognition | PP-OCRv6 small (Japanese, English, Chinese, Latin) | about 30 MB | Apache-2.0 |
 | Text recognition | PP-OCRv5 mobile (Korean, Cyrillic, Thai, Arabic, Devanagari) | 8–14 MB each | Apache-2.0 |
@@ -49,7 +54,7 @@ For speech recognition you can choose every model the bundled speech.cpp handles
 
 Translation models are downloaded under Settings → "Translation" (see [Translation](../features/translation)). The list there shows the models you can download, and "Review download" opens a screen showing the source, license and size. Nothing is downloaded until you tick the consent box.
 
-The Whisper models of earlier versions can no longer be downloaded. Speech recognition that runs on your PC uses the speech recognition models and Silero VAD in the table above ([If you used Whisper in an earlier version](../features/transcription#whisper)). Old Whisper models still on the PC can be deleted under "Old Whisper models" in Settings → "Speech recognition (ASR)".
+The Whisper models of earlier versions can no longer be downloaded. Speech recognition that runs on your PC uses the speech recognition models and Silero VAD in the table above ([If you used Whisper in an earlier version](../features/transcription#whisper)). Old Whisper models left on your PC (`weights/whisper`) are not removed by the app; delete the folder by hand to free the space.
 
 ## GPU and memory guidance
 
@@ -87,16 +92,17 @@ Checked on Linux (AppImage): converting a voice and passing it on, and staying s
 |---|---|
 | Speech, realtime captions and telling speakers apart (speech.cpp, which comes with the app) | AMD, Intel and NVIDIA (Vulkan) |
 | Local translation | NVIDIA with CUDA, or on Windows, a DirectX 12 GPU with DirectML. Both need their runtime downloaded first |
-| Voice changer (RVC) | NVIDIA with CUDA, or from 0.6.0 on Windows, a DirectX 12 GPU with DirectML. The CPU can also convert if it is fast enough for live audio ([Voice changer](../features/voice-conversion)) |
+| Translation LLMs (TranslateGemma and other GGUF files you add) | AMD, Intel and NVIDIA (the Vulkan build of llama.cpp's server, downloaded first) |
+| Voice changer (RVC) | NVIDIA with CUDA, or from 0.6.0 on Windows, a dedicated DirectX 12 GPU with DirectML (Automatic never uses integrated graphics). The CPU can also convert if it is fast enough for live audio ([Voice changer](../features/voice-conversion)) |
 | Chat reading | Runs on the CPU |
 
 Under "Models and servers", Automatic selects the dedicated Vulkan GPU with the most memory among those available for computation. It uses the CPU if none is available. You can also select a dedicated GPU by name.
 
-To translate on an AMD or Intel GPU, use a [local LLM](../features/translation#use-local-llms-and-compatible-servers): Ollama and LM Studio support those GPUs too.
+To translate on an AMD or Intel GPU, download the DirectML build of ONNX Runtime on Windows, run a translation LLM on llama.cpp's server, or use a [local LLM](../features/translation#use-local-llms-and-compatible-servers): Ollama and LM Studio support those GPUs too.
 
 ## Where models are saved
 
-Downloaded models go to `downloaded_models` in the same folder as the settings file (`config.json`). On Linux that is <CopyText>\~/.config/astarot/downloaded_models</CopyText> (in the `vrct-vox` folder up to 0.5.x); on Windows it is `downloaded_models` in the folder the app is in. Translation models are kept elsewhere: in `weights` in the app's folder on Windows, and under <CopyText>\~/.local/share/astarot</CopyText> on Linux (`vrct-vox` up to 0.5.x). Whisper models left by an earlier version, if any, are in `weights/whisper` in the same place.
+Downloaded models go to `downloaded_models` in the same folder as the settings file (`config.json`). On Linux that is <CopyText>\~/.config/astarot/downloaded_models</CopyText> (in the `vrct-vox` folder up to 0.5.x); on Windows it is `downloaded_models` in the folder the app is in. Translation models go to the same `downloaded_models`. Folders from earlier versions under `weights` (such as Whisper's `weights/whisper`) stay in the data folder (the app's folder on Windows, <CopyText>\~/.local/share/astarot</CopyText> on Linux).
 
 ## Downloading at startup
 

@@ -527,6 +527,16 @@
       "immediate": false
     },
     {
+      "endpoint": "/get/data/theme",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/data/theme",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
       "endpoint": "/get/data/llm_translation_temperature",
       "wait_for_init": false,
       "immediate": false
@@ -4016,6 +4026,17 @@
       "key": "CATALOG_LAYOUT",
       "kind": "saved",
       "default": "grid"
+    },
+    {
+      "key": "THEME",
+      "kind": "saved",
+      "default": {
+        "preset": "dark_plum",
+        "custom": {
+          "base": "#261633",
+          "accent": "#a47af5"
+        }
+      }
     },
     {
       "key": "TRAY_COMPANION_EDGE",

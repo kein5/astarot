@@ -17,7 +17,7 @@ mod common;
 use common::fake_audio::FakeAudio;
 use common::fake_tts::FakeTts;
 use common::fake_voice::{source, wasapi, FakeVoice, MonitorFault, MANAGED_VC};
-use common::net::eventually;
+use common::net::{eventually, eventually_or};
 use common::{error_code, Setup, Ui};
 use serde_json::{json, Value};
 use std::path::Path;
@@ -1358,7 +1358,12 @@ fn speech_goes_through_a_running_conversion_when_chosen() {
     eventually("the speech is converted", || run.ui.on(mark, "/run/io_trace").iter().any(|t| t["result"]["outputs"]["speech"]["converted"] == true));
     // No output of its own was opened for the speech: it went into the conversion.
     assert!(run.voice.played().iter().all(|p| p.rate == 48000), "speech opened a device of its own");
-    eventually("the speech completes", || run.status()["completed"] == 1);
+    // #861: this failed on Windows a few times without saying whether the speech was late, failed
+    // or was cancelled; the status and the speech's trace say it.
+    eventually_or("the speech completes", || run.status()["completed"] == 1, || {
+        let traces: Vec<Value> = run.ui.on(mark, "/run/io_trace").into_iter().map(|t| t["result"]["outputs"]["speech"].clone()).collect();
+        format!("voice status {}; speech traces {traces:?}; direct voice {}", run.status(), run.ui.ok("/get/data/direct_voice_state", None))
+    });
     run.ui.stop();
 }
 

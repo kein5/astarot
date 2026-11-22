@@ -9,7 +9,7 @@ Quick Chat is a small window for sending text while you stay in your game, and h
 You can send text from the Quick Chat window without bringing ASTAROT's main window forward. It works even while the main window is minimized. While Quick Chat is open, it stays in front of other windows.
 
 - To open it, assign a key to "Open quick chat" under Settings → "Hotkeys" → "More settings". No key is assigned at first. The "Open input window" button opens it too.
-- Enter sends the text, and Shift+Enter adds a line break.
+- Enter sends the text, and Shift+Enter adds a line break. With "Message send button" under Settings → "Design" set to "Show and disable sending using the Enter key.", Enter adds a line break.
 - Esc closes it. Your draft is kept.
 
 Translation, sending to the chatbox and speech work the same as when you send from the main window.

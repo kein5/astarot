@@ -1,5 +1,5 @@
-import { createContext, forwardRef, useCallback, useContext, useEffect, useId, useMemo, useRef,
-    type DialogHTMLAttributes, type HTMLAttributes } from "react";
+import { createContext, useCallback, useContext, useEffect, useId, useMemo, useRef,
+    type ComponentProps, type HTMLAttributes } from "react";
 import clsx from "clsx";
 import * as styles from "./Dialog.css.ts";
 
@@ -13,7 +13,7 @@ import * as styles from "./Dialog.css.ts";
 type DialogIds = { title: string; description: string };
 const DialogIdsContext = createContext<DialogIds | null>(null);
 
-export type DialogProps = Omit<DialogHTMLAttributes<HTMLDialogElement>, "open"> & {
+export type DialogProps = Omit<ComponentProps<"dialog">, "open"> & {
     // Shown as a modal while true.
     open: boolean;
     // Called with false when the dialog asks to close (Esc, or a form with method="dialog"); the
@@ -22,10 +22,8 @@ export type DialogProps = Omit<DialogHTMLAttributes<HTMLDialogElement>, "open"> 
 };
 
 // DialogContent. A dialog without a description passes aria-describedby={undefined}, as with Radix.
-export const Dialog = forwardRef<HTMLDialogElement, DialogProps>(function Dialog(
-    { open, onOpenChange, className, children, onCancel, onClose, ...rest },
-    ref,
-) {
+// A ref is one of the props, as React 19 passes it; it gets the <dialog> the dialog also keeps.
+export function Dialog({ open, onOpenChange, className, children, onCancel, onClose, ref, ...rest }: DialogProps) {
     const element = useRef<HTMLDialogElement | null>(null);
     const attach = useCallback((node: HTMLDialogElement | null) => {
         element.current = node;
@@ -64,7 +62,7 @@ export const Dialog = forwardRef<HTMLDialogElement, DialogProps>(function Dialog
             </dialog>
         </DialogIdsContext.Provider>
     );
-});
+}
 
 export const DialogHeader = ({ className, ...rest }: HTMLAttributes<HTMLDivElement>) => (
     <div data-slot="dialog-header" className={clsx(styles.header, className)} {...rest} />

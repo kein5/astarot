@@ -217,7 +217,8 @@ test("IA-03: the VRChat page keeps the chatbox in sight; what is set once, and t
 
 test("the design and hotkeys pages keep a first start's settings in sight and fold the rest", () => {
     const appearance = pageParts(read("appearance/Appearance.tsx"), "Appearance");
-    assert.deepEqual(appearance.outside, ["UiLanguageContainer", "UiScalingContainer"]);
+    // The theme (#965) is drawn as its colours and stays in sight with the window's size.
+    assert.deepEqual(appearance.outside, ["UiLanguageContainer", "UiScalingContainer", "ThemeContainer"]);
     assert.deepEqual(appearance.fold, ["MessageLogUiScalingContainer", "FontFamilyContainer", "TransparencyContainer",
         "SendMessageButtonTypeContainer", "ShowResendButtonContainer", "AutoClearMessageInputBoxContainer",
         "ConvertMessageToHiraganaContainer", "ConvertMessageToRomajiContainer"]);
