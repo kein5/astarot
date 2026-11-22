@@ -7,7 +7,9 @@
 //! SteamVR: turning an overlay on without SteamVR answers on and connects once SteamVR runs.
 //!
 //! The message pipeline shows messages through [`Core::show_overlay_message`] and the realtime
-//! captions through [`Core::show_overlay_caption`] and [`Core::discard_overlay_captions`].
+//! captions through [`Core::show_overlay_caption`] and [`Core::discard_overlay_captions`]. A
+//! realtime caption is drawn on a thread of its own ([`CaptionWorker`], #861), never on the loop
+//! that reads the recognition's updates.
 //!
 //! [`controller.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/controller.py
 //! [`model.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/model.py
@@ -19,8 +21,9 @@ use crate::config::schema::default_launcher;
 use crate::errors::ErrorReply;
 use crate::protocol::Reply;
 use serde_json::{Value, json};
+use std::collections::VecDeque;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Weak};
+use std::sync::{Arc, Condvar, Mutex, Weak};
 use vrct_vr_overlay::engine::{self, Event, Options, Overlay, PANEL_ANCHORS, Surface, WindowSettings};
 use vrct_vr_overlay::fonts::{FontLibrary, valid_family_name};
 use vrct_vr_overlay::placement;
@@ -69,6 +72,109 @@ pub(crate) struct VrOverlay {
     supported: bool,
     /// Whether the subtitle fonts were loaded ahead of the first message ([`warm_subtitle_fonts`]).
     fonts_warmed: AtomicBool,
+    /// Draws the realtime captions on the large log.
+    captions: CaptionWorker,
+}
+
+/// A realtime caption waiting to be drawn on the large log.
+pub(crate) struct CaptionJob {
+    /// The caption (source, namespace, item) when this is a partial: a newer partial of the same
+    /// caption takes its place in the queue, as only the latest can be seen.
+    pub partial_of: Option<(String, String, String)>,
+    pub draw: Box<dyn FnOnce() + Send>,
+}
+
+#[derive(Default)]
+struct CaptionQueue {
+    /// The captions waiting, each with its number in the order they were queued.
+    jobs: VecDeque<(u64, CaptionJob)>,
+    /// The number of the caption queued last.
+    last: u64,
+    /// The number of the caption being drawn.
+    drawing: Option<u64>,
+    running: bool,
+    closed: bool,
+}
+
+/// Draws the realtime captions in the order they came, on a thread of its own (#861). The loop
+/// that reads the recognition's updates only queues them: a picture can take seconds the first
+/// time, while the subtitle fonts are read, and the updates it did not read meanwhile filled the
+/// session's mailbox (`realtime_updates_overflow`). The thread starts with the first caption and
+/// ends with the core.
+#[derive(Default)]
+struct CaptionWorker {
+    queue: Arc<(Mutex<CaptionQueue>, Condvar)>,
+}
+
+impl CaptionWorker {
+    fn push(&self, job: CaptionJob) {
+        let (lock, wake) = &*self.queue;
+        let mut queue = lock.lock().unwrap_or_else(|e| e.into_inner());
+        if queue.closed {
+            return;
+        }
+        queue.last += 1;
+        let number = queue.last;
+        let waiting = job.partial_of.as_ref().and_then(|id| queue.jobs.iter().position(|(_, j)| j.partial_of.as_ref() == Some(id)));
+        match waiting {
+            // The partial it replaces is let go; this one takes its place in the order.
+            Some(i) => queue.jobs[i] = (number, job),
+            None => queue.jobs.push_back((number, job)),
+        }
+        if !queue.running {
+            queue.running = true;
+            let shared = Arc::clone(&self.queue);
+            let started = std::thread::Builder::new().name("overlay-captions".into()).spawn(move || Self::run(&shared));
+            if started.is_err() {
+                queue.running = false;
+                queue.jobs.clear();
+            }
+        }
+        wake.notify_one();
+    }
+
+    fn run(shared: &(Mutex<CaptionQueue>, Condvar)) {
+        let (lock, wake) = shared;
+        loop {
+            let job = {
+                let mut queue = lock.lock().unwrap_or_else(|e| e.into_inner());
+                queue.drawing = None;
+                while queue.jobs.is_empty() && !queue.closed {
+                    queue = wake.wait(queue).unwrap_or_else(|e| e.into_inner());
+                }
+                if queue.closed {
+                    queue.jobs.clear();
+                    queue.running = false;
+                    return;
+                }
+                let job = queue.jobs.pop_front();
+                queue.drawing = job.as_ref().map(|(number, _)| *number);
+                job
+            };
+            if let Some((_, job)) = job {
+                (job.draw)();
+            }
+        }
+    }
+
+    /// The number of the caption queued last (0 before any).
+    fn last(&self) -> u64 {
+        self.queue.0.lock().unwrap_or_else(|e| e.into_inner()).last
+    }
+
+    /// Whether every caption queued up to `number` was drawn or let go; later ones may still wait.
+    fn drawn_through(&self, number: u64) -> bool {
+        let queue = self.queue.0.lock().unwrap_or_else(|e| e.into_inner());
+        queue.drawing.is_none_or(|drawing| drawing > number) && queue.jobs.iter().all(|(queued, _)| *queued > number)
+    }
+}
+
+impl Drop for CaptionWorker {
+    fn drop(&mut self) {
+        let (lock, wake) = &*self.queue;
+        lock.lock().unwrap_or_else(|e| e.into_inner()).closed = true;
+        wake.notify_all();
+    }
 }
 
 /// Loads the subtitle fonts on a thread of their own, once, when a log is first on. The first
@@ -207,7 +313,13 @@ impl Core {
         let subtitles = Subtitles::new(fonts, Arc::new(vrct_vr_overlay::subtitle::local_time));
         // A saved family that is gone draws with the automatic fonts; the setting stays.
         subtitles.renderer.set_font_family(Some(&config.get_str("OVERLAY_FONT_FAMILY")));
-        let _ = core.vr.set(VrOverlay { engine, subtitles, supported, fonts_warmed: AtomicBool::new(false) });
+        let _ = core.vr.set(VrOverlay {
+            engine,
+            subtitles,
+            supported,
+            fonts_warmed: AtomicBool::new(false),
+            captions: CaptionWorker::default(),
+        });
     }
 
     /// `/set/data/overlay_font_family`: a family on this system, or "" for automatic. The
@@ -569,6 +681,28 @@ impl Core {
     /// the caption's `overlay_large` sink reported `MESSAGE_OUTPUT_FAILED`); the history then
     /// stays as it was shown.
     #[allow(clippy::too_many_arguments)]
+    /// Queues a realtime caption's drawing on the large log ([`CaptionWorker`]); nothing without
+    /// an overlay.
+    pub(crate) fn queue_overlay_caption(&self, job: CaptionJob) {
+        if let Some(vr) = self.vr() {
+            vr.captions.push(job);
+        }
+    }
+
+    /// The number of the realtime caption queued last for the large log (0 before any, and
+    /// without an overlay). A caption is queued before its row goes to the UI, so once a caption
+    /// row was seen, this number is at least that caption's.
+    pub fn overlay_captions_queued(&self) -> u64 {
+        self.vr().map_or(0, |vr| vr.captions.last())
+    }
+
+    /// Whether every realtime caption queued up to `number` ([`Self::overlay_captions_queued`])
+    /// was drawn on the large log or let go. Captions queued later may still wait: a recognition
+    /// that goes on speaking never lets the queue run dry. Tests wait for this instead of a time.
+    pub fn overlay_captions_drawn(&self, number: u64) -> bool {
+        self.vr().is_none_or(|vr| vr.captions.drawn_through(number))
+    }
+
     pub(crate) fn show_overlay_caption(
         &self,
         source: &str,
@@ -780,5 +914,47 @@ mod tests {
         assert_eq!(all.readings[0].hepburn, "konnichiha");
         let only = OverlayMessage { only_translated: true, ..message }.subtitle();
         assert_eq!((only.original, only.language), (None, None));
+    }
+
+    #[test]
+    fn a_caption_queue_tells_when_the_captions_up_to_a_number_are_drawn() {
+        // #861: tests wait for the captions they saw, while later ones keep coming.
+        use super::{CaptionJob, CaptionWorker};
+        use std::sync::mpsc::channel;
+        use std::sync::{Arc, Mutex};
+        let worker = CaptionWorker::default();
+        let (release, held) = channel::<()>();
+        let held = Arc::new(Mutex::new(held));
+        let (drawn_tx, drawn) = channel::<&'static str>();
+        let job = |name: &'static str, partial: Option<&str>, hold: bool| {
+            let (held, drawn) = (Arc::clone(&held), drawn_tx.clone());
+            CaptionJob {
+                partial_of: partial.map(|item| ("mic".to_string(), "n".to_string(), item.to_string())),
+                draw: Box::new(move || {
+                    if hold {
+                        let _ = held.lock().unwrap().recv_timeout(std::time::Duration::from_secs(5));
+                    }
+                    let _ = drawn.send(name);
+                }),
+            }
+        };
+        assert!(worker.drawn_through(0), "nothing queued yet");
+        worker.push(job("first", None, true));
+        worker.push(job("partial 1", Some("a"), false));
+        worker.push(job("final", None, false));
+        let through = worker.last();
+        assert_eq!(through, 3);
+        // A newer partial of the same caption takes the place of the one waiting: number 2 is let go.
+        worker.push(job("partial 2", Some("a"), false));
+        assert!(!worker.drawn_through(through), "the first is still being drawn");
+        release.send(()).unwrap();
+        let order: Vec<&str> = (0..3).map(|_| drawn.recv_timeout(std::time::Duration::from_secs(5)).unwrap()).collect();
+        assert_eq!(order, ["first", "partial 2", "final"]);
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+        while !worker.drawn_through(worker.last()) {
+            assert!(std::time::Instant::now() < deadline, "the queue never ran dry");
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        assert!(worker.drawn_through(through));
     }
 }
