@@ -48,7 +48,8 @@ async function catalog(context: TestContext, hints = false, layout = "list") {
     const drawn = (node: TreeNode) => { runtime.remount(); return drawWith(runtime, node); };
     const groups = nodesIn(runtime.render(module.TranslationCatalogSection)).filter(node => componentName(node) === "CatalogGroup").map(drawn);
     const cards = groups.flatMap(group => nodesIn(group).filter(node => ["EntryCard", "ShippedCard"].includes(componentName(node) ?? "")).map(drawn));
-    return { groups, cards: new Map(cards.map(card => [String(card.props["data-catalog-item"]), card])) };
+    const forms = groups.flatMap(group => nodesIn(group).filter(node => ["EngineForm", "ApiForm"].includes(componentName(node) ?? "")).map(drawn));
+    return { groups, forms, section: runtime.render(module.TranslationCatalogSection), cards: new Map(cards.map(card => [String(card.props["data-catalog-item"]), card])) };
 }
 const classOf = (node: TreeNode | null | undefined): string => String(node?.props?.className ?? "");
 const head = (card: TreeNode) => findIn(card, node => classOf(node) === "card_head");
@@ -143,4 +144,28 @@ test("the catalog lists a built-in model as the model list does, by the download
     };
     assert.equal(name("m2m100_418M-ct2-int8"), "M2M100 418M · int8");
     assert.equal(name("mine"), "Mine");
+});
+
+// #614: what the catalog holds is its heading's hint, and what to fill in is each form's title
+// hint, on a page that keeps descriptions out of sight. Whose model it is and what an API is sent
+// stay in view, read before adding. Elsewhere the descriptions are lines, as before.
+test("the catalog's and its forms' descriptions are hints; the warnings stay in view", async context => {
+    const lines = (tree: TreeNode) => nodesIn(tree).filter(node => node.type === "p").map(node => node.props.children)
+        .filter((word): word is string => typeof word === "string");
+    const hinted = await catalog(context, true);
+    const label = findIn(hinted.section, node => node.type === "section-label");
+    assert.equal(label.props.desc, "translation_catalog.intro");
+    assert.ok(!lines(hinted.section).includes("translation_catalog.intro"));
+    assert.equal(hinted.forms.length, 2);
+    const [engine, api] = hinted.forms;
+    assert.deepEqual([engine.props.hint, api.props.hint], ["translation_catalog.add_help.engine", "translation_catalog.add_help.api"]);
+    assert.deepEqual(lines(engine).filter(word => word.startsWith("translation_catalog.")), ["translation_catalog.terms_help"]);
+    assert.deepEqual(lines(api).filter(word => word.startsWith("config_page.translation.llm_privacy")),
+        ["config_page.translation.llm_privacy_lead", "config_page.translation.llm_privacy_desc"]);
+    assert.ok(!lines(api).includes("translation_catalog.add_help.api"));
+    const plain = await catalog(context, false);
+    const [plainEngine, plainApi] = plain.forms;
+    assert.deepEqual([plainEngine.props.hint, plainApi.props.hint], [undefined, undefined]);
+    assert.ok(lines(plainEngine).includes("translation_catalog.add_help.engine"));
+    assert.ok(lines(plainApi).includes("translation_catalog.add_help.api"));
 });

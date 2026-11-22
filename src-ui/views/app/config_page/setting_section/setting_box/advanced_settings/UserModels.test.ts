@@ -10,7 +10,7 @@ const all = (tree: unknown, predicate: (node: TreeNode) => boolean) => nodesIn(t
 const model = (id: string, name: string) => ({ id, name, target: "japanese", paths: { model: `C:/m/${id}.gguf` }, total_bytes: 1, status: "ok" });
 type UserModel = ReturnType<typeof model>;
 
-async function form(context: TestContext, models: UserModel[]) {
+async function form(context: TestContext, models: UserModel[], hintsOn = true) {
     const runtime = hooks(), sent: [string, unknown][] = [];
     const state = { models };
     context.onTestFinished(() => runtime.unmount());
@@ -22,6 +22,7 @@ async function form(context: TestContext, models: UserModel[]) {
         "../_components/file_drop_zone/FileDropZone": { FileDropZone: "drop-zone" },
         "./VoiceAudition": { AuditionButton: "audition-button", AuditionNote: "audition-note" },
         "../_components/fold/Fold": { Fold: "fold" },
+        "../_components/hint/Hint": { useHintDescriptions: () => hintsOn },
         "./catalogLayout": { CatalogFacts: "catalog-facts" },
     });
     const render = () => runtime.render(UserModelRegistration, { target: "japanese", busy: false });
@@ -85,4 +86,18 @@ test("a model registered under the name sent clears the form", async context => 
     s.render();
     s.render();
     assert.deepEqual(s.inputs().map(input => input.props.value), ["", ""]);
+});
+
+// #614: on a page that keeps descriptions out of sight, what registering does is the fold's hint;
+// whose files they are stays in view, as a warning. Elsewhere both are lines in the form.
+test("what registering does is the fold's hint, and the warning about the files stays in view", async context => {
+    const words = (tree: unknown) => nodesIn(tree).filter(node => node.type === "p").map(node => node.props.children);
+    const hinted = await form(context, [], true);
+    let tree = hinted.render();
+    assert.equal(tree.props.hint, "user_models.register_help");
+    assert.deepEqual(words(tree).filter(word => typeof word === "string" && word.startsWith("user_models.")), ["user_models.terms_help"]);
+    const plain = await form(context, [], false);
+    tree = plain.render();
+    assert.equal(tree.props.hint, undefined);
+    assert.deepEqual(words(tree).filter(word => typeof word === "string" && word.startsWith("user_models.")), ["user_models.register_help", "user_models.terms_help"]);
 });

@@ -12,6 +12,7 @@ import type { CatalogLayout } from "../advanced_settings/catalogLayout";
 import { TranslationLlamaRuntimes } from "./TranslationLlamaRuntimes";
 import styles from "../advanced_settings/VoiceSettings.module.scss";
 import { Fold } from "../_components/fold/Fold";
+import { useHintDescriptions } from "../_components/hint/Hint";
 import type { ApiForm as ApiFields, ApiItem, EngineForm as EngineFields, EngineItem, TranslationCatalog }
     from "../../../../../../logics/translation/translationCatalog";
 
@@ -41,10 +42,10 @@ export const TranslationCatalogSection = () => {
         <section className={styles.container} aria-label={t("translation_catalog.title")}>
             {/* The cards' layout, chosen on the section's heading line, as on the model catalogs. */}
             <div className={`${styles.catalog_head} ${styles.section_head}`}>
-                <SectionLabelComponent label={t("translation_catalog.title")} />
+                {/* What the catalog holds is the heading's hint (#614), a line under it elsewhere. */}
+                <SectionLabelComponent label={t("translation_catalog.title")} desc={t("translation_catalog.intro")} />
                 <CatalogLayoutSwitch />
             </div>
-            <p>{t("translation_catalog.intro")}</p>
             {error && <p role="alert">{errorText(t, error)}</p>}
             {catalog?.error_code && <p role="alert">{errorText(t, catalog.error_code)}</p>}
             {catalog ? <>
@@ -203,6 +204,7 @@ const EngineForm = ({ runtimes }: { runtimes: readonly string[] }) => {
     const [form, setForm] = useState(empty);
     const [problem, setProblem] = useState<string | null>(null);
     const busy = !!pending;
+    const hints = useHintDescriptions();
     // A translation LLM is one GGUF file and names its device (ADR-015).
     const llamacpp = form.runtime === LLAMACPP;
     useClearOnSuccess("engine", () => { setForm(empty); setProblem(null); });
@@ -214,10 +216,12 @@ const EngineForm = ({ runtimes }: { runtimes: readonly string[] }) => {
         setProblem(null);
         send(REGISTER, checked.request);
     };
-    return <Fold data-catalog-add="engine" summary={t("translation_catalog.add.engine")}>
+    // What to fill in is the title's hint (#614); whose model it is stays in view, as a warning.
+    const help = t(llamacpp ? "translation_catalog.add_help.engine_llamacpp" : "translation_catalog.add_help.engine");
+    return <Fold data-catalog-add="engine" summary={t("translation_catalog.add.engine")} hint={hints ? help : undefined}>
         {/* The note about the translation-models folder leads here (revealSetting). */}
         <div role="group" aria-label={t("translation_catalog.add.engine")} onKeyDown={onEnter(submit, busy)} data-setting-id={ENGINE_FORM_SETTING_ID}>
-            <p>{t(llamacpp ? "translation_catalog.add_help.engine_llamacpp" : "translation_catalog.add_help.engine")}</p>
+            {!hints && <p>{help}</p>}
             <p>{t("translation_catalog.terms_help")}</p>
             {runtimes.length === 0 && <p role="alert">{t("translation_catalog.no_runtime")}</p>}
             <label>{t("translation_catalog.field.name")}
@@ -272,9 +276,11 @@ const ApiForm = ({ protocols }: { protocols: readonly string[] }) => {
         setProblem(null);
         send(REGISTER, checked.request);
     };
-    return <Fold data-catalog-add="api" summary={t("translation_catalog.add.api")}>
+    // What to fill in is the title's hint (#614); what is sent stays in view, read before adding.
+    const hints = useHintDescriptions();
+    return <Fold data-catalog-add="api" summary={t("translation_catalog.add.api")} hint={hints ? t("translation_catalog.add_help.api") : undefined}>
         <div role="group" aria-label={t("translation_catalog.add.api")} onKeyDown={onEnter(submit, busy)}>
-            <p>{t("translation_catalog.add_help.api")}</p>
+            {!hints && <p>{t("translation_catalog.add_help.api")}</p>}
             {/* Read before an API is added: the whole text, in view. */}
             <p>{t("config_page.translation.llm_privacy_lead")}</p>
             <p>{t("config_page.translation.llm_privacy_desc")}</p>
