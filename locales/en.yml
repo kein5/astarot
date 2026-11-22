@@ -2438,7 +2438,9 @@ translation_catalog:
         api: "Enter an OpenAI-compatible API: a service on the internet, or a server on your PC or your local network. The key is kept in the app's key store, not in the settings file. Using the entry checks the address and the key first."
     terms_help: "This app has not checked where a model you add comes from or its license. Check its terms yourself."
     no_runtime: "This build cannot run models on your PC, so models cannot be added here."
-    url_help: "Plain http:// works only for your PC and your local network. Use https:// for anything else."
+    # What leaves the PC, in view; what the address may be and that it is checked, as its hint (#614).
+    url_lead: "When you save, the API key is sent to this URL to check it."
+    url_details: "Plain http:// works only for your PC and your local network. Use https:// for anything else. The URL is also checked when you save."
     field:
         name: "Display name"
         folder: "Folder of the model"
