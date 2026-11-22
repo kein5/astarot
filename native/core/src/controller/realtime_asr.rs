@@ -1062,7 +1062,7 @@ impl Core {
                         (weak.clone(), current.clone(), admitted.clone(), session.clone(), arrival.clone());
                     Arc::new(move |payload: Value| -> bool {
                         let (Some(core), Some(arrival)) = (weak.upgrade(), arrival.as_ref()) else { return false };
-                        core.publish_caption(source, generation, payload, &*current, &*admitted, &session, &arrival.snapshot)
+                        core.publish_caption(source, generation, payload, current.clone(), admitted.clone(), &session, &arrival.snapshot)
                     })
                 };
                 // The voice settings when the final arrived (`snapshot_voice`): its speech is
@@ -1113,15 +1113,16 @@ impl Core {
     }
 
     /// `publish` of `_startRealtime`: a caption row to the UI and the VR large log, drawn with
-    /// the settings its update arrived with.
+    /// the settings its update arrived with. The picture is queued for the caption worker (#861),
+    /// so that this loop goes on reading the recognition's updates, and the row goes after it.
     #[allow(clippy::too_many_arguments)]
     fn publish_caption(
-        &self,
+        self: &Arc<Self>,
         source: Source,
         generation: u64,
         payload: Value,
-        current: &(dyn Fn() -> bool + Send + Sync),
-        admitted: &(dyn Fn() -> bool + Send + Sync),
+        current: Arc<dyn Fn() -> bool + Send + Sync>,
+        admitted: Arc<dyn Fn() -> bool + Send + Sync>,
         session: &Session,
         snapshot: &Snapshot,
     ) -> bool {
@@ -1136,36 +1137,41 @@ impl Core {
         if !valid() {
             return false;
         }
-        self.run(200, "/run/realtime_caption", shown_payload);
         if self.config().get_bool("OVERLAY_LARGE_LOG") {
-            let namespace = payload["namespace"].as_str().unwrap_or("");
-            let state = payload["state"].as_str().unwrap_or("");
+            let namespace = payload["namespace"].as_str().unwrap_or("").to_string();
+            let state = payload["state"].as_str().unwrap_or("").to_string();
+            let item = payload["item_id"].as_str().unwrap_or("").to_string();
             let expires = payload["expires_ns"].as_u64().unwrap_or(0);
-            let overlay_current = || {
-                valid()
-                    && self.config().get_bool("OVERLAY_LARGE_LOG")
-                    && session.is_current(namespace)
-                    && (state == "discarded"
-                        || astarot_transcription::realtime::delivery::monotonic_ns(Instant::now()) < expires)
-            };
+            let revision = payload["revision"].as_u64().unwrap_or(0);
             let message = caption_message(source, &payload, snapshot);
-            let item = payload["item_id"].as_str().unwrap_or("");
-            let shown = self.show_overlay_caption(
-                source.as_str(),
-                namespace,
-                item,
-                state,
-                payload["revision"].as_u64().unwrap_or(0),
-                &message,
-                &overlay_current,
-            );
-            // A failed caption is told like a failed output of a message (`_runMessageSink`
-            // "overlay_large"); the caption still reaches the UI and the final goes on.
-            if shown.is_err() {
-                let id = format!("{namespace}:{item}");
-                self.output_failed("overlay_large", spec(source), Some(&id), &valid, &mut Vec::new());
-            }
+            let partial_of = (state == "partial").then(|| (source.as_str().to_string(), namespace.clone(), item.clone()));
+            let (weak, session) = (Arc::downgrade(self), session.clone());
+            self.queue_overlay_caption(super::overlay::CaptionJob {
+                partial_of,
+                draw: Box::new(move || {
+                    let Some(core) = weak.upgrade() else { return };
+                    // The caption was current and admitted when it was published. A partial
+                    // still needs its session: drawn after the session ended, it would stay, as
+                    // the end discarded the partials already. A final, a translation or a
+                    // discard is drawn as it would have been at once, even when listening stopped
+                    // meanwhile (the captions shown stay).
+                    let still = || {
+                        core.config().get_bool("OVERLAY_LARGE_LOG")
+                            && (state != "partial" || (current() && admitted() && session.is_current(&namespace)))
+                            && (state == "discarded"
+                                || astarot_transcription::realtime::delivery::monotonic_ns(Instant::now()) < expires)
+                    };
+                    let shown = core.show_overlay_caption(source.as_str(), &namespace, &item, &state, revision, &message, &still);
+                    // A failed caption is told like a failed output of a message (`_runMessageSink`
+                    // "overlay_large"); the caption still reaches the UI and the final goes on.
+                    if shown.is_err() {
+                        let id = format!("{namespace}:{item}");
+                        core.output_failed("overlay_large", spec(source), Some(&id), &still, &mut Vec::new());
+                    }
+                }),
+            });
         }
+        self.run(200, "/run/realtime_caption", shown_payload);
         true
     }
 
