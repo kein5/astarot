@@ -25,6 +25,7 @@ description: ASTAROTの変更をブランチからdevelopへ入れる手順。�
 
 - 軽量チェック（`python tools/dev.py check`）と、変えた領域のスコープを実行します。スコープの選び方は`AGENTS.md`の「開発と検証の入口」の表に従います。
 - 振る舞いを変えたら、試験を足すか直します。
+- 画面のロジック（`src-ui/logics`、`src-ui/views`）かRustのクレートの`src/`を変えたら、`mise run mutation:changed`でミューテーションテストを回すことを勧めます（必須ではありません）。PRの本文の「確認したこと」に、SurvivedとNoCoverageの件数と、それを1件ずつ読んだかどうかを書きます。回さなかったときは、その理由を書きます。決まりの正本は`docs/development.md`の「ミューテーションテストを回す場面」です。
 - 段階ごとにコミットします。1つのコミットには1つの理由で変えたものだけを入れます。
 - コミットメッセージはConventional Commitsで、英語で書きます。種別、スコープ、フッターの決まりは`CONTRIBUTING.md`の「Commit messages」にあります。コミットする前に`cog verify "<メッセージ>"`で確かめ、まとめて`python tools/dev.py check --scope commits --base origin/develop`を通します。
 - `fixup!`、`squash!`、`amend!`のコミットはCIが止めるので、PRを出す前にまとめます。

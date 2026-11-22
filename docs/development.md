@@ -295,7 +295,7 @@ node node_modules/@playwright/test/cli.js test --config tests/integration/playwr
 
 ### UIのミューテーションテスト
 
-ミューテーションテストは、ソースにわざと小さな変更（ミュータント）を入れ、どれかのテストが失敗するかを確かめます。カバレッジは「実行されたか」しか見ませんが、こちらは「値の違いをテストが見ているか」を測ります。道具は [@mizchi/mutator](https://www.npmjs.com/package/@mizchi/mutator)（0.2.0 に固定）です。CIでは回しません。リファクタリングの節目や、対象のモジュールを変えたときに手で回します（[Issue #550](https://github.com/kein5/astarot/issues/550)）。
+ミューテーションテストは、ソースにわざと小さな変更（ミュータント）を入れ、どれかのテストが失敗するかを確かめます。カバレッジは「実行されたか」しか見ませんが、こちらは「値の違いをテストが見ているか」を測ります。道具は [@mizchi/mutator](https://www.npmjs.com/package/@mizchi/mutator)（0.2.0 に固定）です。CIでは回さず、手で回します。回す場面は下の「ミューテーションテストを回す場面」にあります。
 
 ```sh
 npm run test:mutation                                                  # 対象の全体
@@ -333,7 +333,7 @@ npx mutator accept <キー> --reason "<等価と判断した理由>"            
 Rustのカバレッジは [cargo-llvm-cov](https://github.com/taiki-e/cargo-llvm-cov)、ミューテーションテストは [cargo-mutants](https://mutants.rs/) で測ります。どちらも `mise.toml` で版を固定しています（`cargo:cargo-llvm-cov`、`cargo:cargo-mutants`。cargo でソースから組むので、初めの1回は数分かかります）。[Issue #550](https://github.com/kein5/astarot/issues/550) と #871 の決定で、使い方は次のとおりです。
 
 - **カバレッジ**: CIの `voice-tests.yml` の `rust-coverage` のジョブが、PRと、developとmainへのpushごとに、クレートごとの数字を測り、ジョブの要約（Summary）に表で出します。しきい値はなく、数字が下がってもCIは失敗しません。手元でも同じ道具で測れます（`tools/rust_coverage.py`）。
-- **ミューテーションテスト**: CIでは回しません。対象のモジュールを変えたPRと、作り替えの節目に手で回します。
+- **ミューテーションテスト**: CIでは回さず、手で回します。回す場面は下の「ミューテーションテストを回す場面」にあります。
 
 ```sh
 mise install cargo:cargo-llvm-cov cargo:cargo-mutants
@@ -374,6 +374,16 @@ mise run mutation:changed -- --ui-only                    # 画面だけ（--rus
 - Rust: `tools/dev.py` の `NATIVE_CRATES` のうち `src/` が変わったクレートごとに、cargo-mutants の `--in-diff` で差分の中の変異だけを回します。`native/core` は、上の節のとおり `--in-place` で単体の試験（`-- --lib`）だけを流します。
 - Survived があっても失敗にはしません。1件ずつ読み、試験の不足か等価なミュータントかを判断します（上の2つの節）。道具が回せなかったとき（変異のない状態で試験が落ちるなど）だけ失敗します。
 - 結果は、画面が `.mutator/report/`、Rustが `<クレート>/mutants.out/` にあります。
+
+### ミューテーションテストを回す場面
+
+[Issue #550](https://github.com/kein5/astarot/issues/550) の Phase 3 で、次のように決まりました（2026-11-23、PR #975 の判断）。CIでは回しません。
+
+- **PR**: 画面のロジック（`src-ui/logics`、`src-ui/views`）か、Rustのクレートの `src/` を変えたPRでは、`mise run mutation:changed` を回すことを勧めます。必須ではありません。回したら、PRの本文の「確認したこと」に、Survived と NoCoverage の件数と、それを1件ずつ読んだかどうかを書きます。回さなかったときは、その理由を書きます（pull-requestスキル）。
+- **正式版の前**: 画面側の全体と、Rustで前の正式版から変わったところを回します（releaseスキル）。ベータでは回しません。
+  - 画面: `npm run test:mutation -- --full-dry-run --reporter text --reporter json`。全件の結果は `.mutator/report/mutation.json` に出ます。手元（Linux、並列16）で40分から2時間半かかりました（機材の負荷によります）。長いので、端末から切り離して回します。
+  - Rust: `mise run mutation:changed -- --base v<前の正式版> --rust-only`。前の正式版のタグから `src/` が変わったクレートの、変わった所を回します。
+- **結果の置き場**: 全体を回した結果は Issue に残します。いまは #550 にコメントし、#550 を閉じたあとは、節目ごとに記録の Issue を立てます。リポジトリの文書には置きません。数字は計測した条件（版、並列数、機材）に左右され、文書に置くと保証のように読まれやすいためです。報告には対象の範囲と条件を添え、スコアを品質の保証として書きません。
 
 ## UIの文言と翻訳の検査
 
