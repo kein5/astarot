@@ -1,6 +1,7 @@
 //! The Windows Credential Manager: generic credentials of the signed-in user, kept on this PC
 //! only (`CRED_PERSIST_LOCAL_MACHINE`, never the roaming profile). Each entry is one credential
-//! named `VRCT-VOX/<scope>/<entry>`, its value the key's UTF-8 bytes. The user can see and remove
+//! named `ASTAROT/<scope>/<entry>` (0.6.0 used `VRCT-VOX/<scope>/<entry>`, read through
+//! [`CredentialManager::older`]), its value the key's UTF-8 bytes. The user can see and remove
 //! them under "Windows Credentials" in the Credential Manager.
 
 use super::{StoreError, Vault};
@@ -11,18 +12,31 @@ use windows_sys::Win32::Security::Credentials::{
 
 /// The largest value a credential holds (`CRED_MAX_CREDENTIAL_BLOB_SIZE`).
 const MAX_VALUE: usize = 5 * 512;
-/// The names start with the internal identifier, not the display name (ADR-013 4.3).
-const PREFIX: &str = app_identity::credentials::WINDOWS_PREFIX.current();
+/// The Credential Manager under one prefix. The names start with the internal identifier, not
+/// the display name (ADR-013 4.3).
+pub struct CredentialManager {
+    prefix: &'static str,
+}
 
-pub struct CredentialManager;
+impl CredentialManager {
+    /// The names this build writes.
+    pub fn new() -> Self {
+        Self { prefix: app_identity::credentials::WINDOWS_PREFIX.current() }
+    }
+
+    /// The names 0.6.0 wrote, read until the keys move (ADR-014, 2.9).
+    pub fn older() -> Self {
+        Self { prefix: app_identity::credentials::WINDOWS_PREFIX.legacy }
+    }
+}
 
 fn wide(text: &str) -> Vec<u16> {
     text.encode_utf16().chain(std::iter::once(0)).collect()
 }
 
 /// The credential's name.
-pub(super) fn target(scope: &str, entry: &str) -> String {
-    format!("{PREFIX}/{scope}/{entry}")
+pub(super) fn target(prefix: &str, scope: &str, entry: &str) -> String {
+    format!("{prefix}/{scope}/{entry}")
 }
 
 /// What a failure means. No logon session (a service without a loaded profile) and the system
@@ -55,7 +69,7 @@ impl Vault for CredentialManager {
     }
 
     fn fetch(&self, scope: &str, entry: &str) -> Result<Option<String>, StoreError> {
-        let name = wide(&target(scope, entry));
+        let name = wide(&target(self.prefix, scope, entry));
         let mut credential: *mut CREDENTIALW = std::ptr::null_mut();
         let ok = unsafe { CredReadW(name.as_ptr(), CRED_TYPE_GENERIC, 0, &mut credential) };
         if ok == 0 {
@@ -79,8 +93,8 @@ impl Vault for CredentialManager {
         if value.len() > MAX_VALUE {
             return Err(StoreError::WriteFailed);
         }
-        let mut name = wide(&target(scope, entry));
-        let mut user = wide(PREFIX);
+        let mut name = wide(&target(self.prefix, scope, entry));
+        let mut user = wide(self.prefix);
         let mut blob = value.as_bytes().to_vec();
         let credential = CREDENTIALW {
             Flags: 0,
@@ -106,7 +120,7 @@ impl Vault for CredentialManager {
     }
 
     fn remove(&self, scope: &str, entry: &str) -> Result<(), StoreError> {
-        let name = wide(&target(scope, entry));
+        let name = wide(&target(self.prefix, scope, entry));
         let ok = unsafe { CredDeleteW(name.as_ptr(), CRED_TYPE_GENERIC, 0) };
         if ok == 0 {
             let error = unsafe { GetLastError() };
@@ -124,7 +138,10 @@ mod tests {
 
     #[test]
     fn names_and_failures() {
-        assert_eq!(target("0123456789abcdef", "AUTH_KEYS/DeepL_API"), "VRCT-VOX/0123456789abcdef/AUTH_KEYS/DeepL_API");
+        let (current, older) = (CredentialManager::new(), CredentialManager::older());
+        assert_eq!(target(current.prefix, "0123456789abcdef", "AUTH_KEYS/DeepL_API"), "ASTAROT/0123456789abcdef/AUTH_KEYS/DeepL_API");
+        // Where 0.6.0 kept them.
+        assert_eq!(target(older.prefix, "0123456789abcdef", "AUTH_KEYS/DeepL_API"), "VRCT-VOX/0123456789abcdef/AUTH_KEYS/DeepL_API");
         assert_eq!(classify(1312, StoreError::Unreadable), StoreError::Unavailable);
         assert_eq!(classify(5, StoreError::Unreadable), StoreError::Unreadable);
         assert_eq!(classify(5, StoreError::WriteFailed), StoreError::WriteFailed);
@@ -136,7 +153,7 @@ mod tests {
     #[ignore = "uses the signed-in user's Credential Manager"]
     fn credential_manager_keeps_reads_and_removes_a_key() {
         let scope = format!("test{}", &super::super::new_store_id()[..12]);
-        let store = CredentialManager;
+        let store = CredentialManager::new();
         let entry = "AUTH_KEYS/DeepL_API";
         let value = "test-value-not-a-real-key";
         assert_eq!(store.fetch(&scope, entry), Ok(None));
