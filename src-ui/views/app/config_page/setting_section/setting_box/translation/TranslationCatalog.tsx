@@ -5,7 +5,7 @@ import { useI18n } from "@useI18n";
 import { useTranslationCatalog } from "../../../../../../logics/translation/useTranslationCatalog";
 import { ENGINE_FORM_SETTING_ID, ENTRY_NAME_LIMIT, LLAMACPP, LLAMA_DEVICES, apiRequest, engineRequest, entryState, weightLabel } from "../../../../../../logics/translation/translationCatalog";
 import { useListedLocalWeights } from "../../../../../../logics/translation/useListedLocalWeights";
-import { endpointDescription } from "../../../../../../logics/common/endpointPrivacy";
+import { endpointNotices } from "../../../../../../logics/common/endpointPrivacy";
 import { SectionLabelComponent } from "../_components";
 import { CatalogFacts, CatalogLayoutSwitch, CatalogList, CatalogSection, useCatalogLayout } from "../advanced_settings/catalogLayout";
 import type { CatalogLayout } from "../advanced_settings/catalogLayout";
@@ -280,6 +280,7 @@ const ApiForm = ({ protocols }: { protocols: readonly string[] }) => {
     // What to fill in is the title's hint (#614). What is sent is one sentence in view, read before
     // adding, with its details as that sentence's hint, as everywhere else that says what leaves the PC.
     const hints = useHintDescriptions();
+    const urlWarning = endpointNotices(form.url, null, t).warning;
     return <Fold data-catalog-add="api" summary={t("translation_catalog.add.api")} hint={hints ? t("translation_catalog.add_help.api") : undefined}>
         <div role="group" aria-label={t("translation_catalog.add.api")} onKeyDown={onEnter(submit, busy)}>
             {!hints && <p>{t("translation_catalog.add_help.api")}</p>}
@@ -296,9 +297,13 @@ const ApiForm = ({ protocols }: { protocols: readonly string[] }) => {
             </label>
             <label>{t("translation_catalog.field.url")}
                 <input type="url" value={form.url} maxLength={2048} disabled={busy} spellCheck={false}
-                    placeholder="http://192.168.1.10:8000/v1" aria-describedby={`${id}-url`} onChange={set("url")} />
+                    placeholder="http://192.168.1.10:8000/v1" aria-describedby={[`${id}-url`, urlWarning ? `${id}-url-warning` : null].filter(Boolean).join(" ")} onChange={set("url")} />
             </label>
-            <p id={`${id}-url`}>{endpointDescription(form.url, t("translation_catalog.url_help"), t)}</p>
+            {/* What leaves the PC is one sentence in view; what the address may be and that it is checked
+                are its hint (#614, the lead's form). The warning about plain HTTP on the LAN stays in view
+                while it applies. */}
+            <Lead id={`${id}-url`} text={t("translation_catalog.url_lead")} details={t("translation_catalog.url_details")} />
+            {urlWarning && <p id={`${id}-url-warning`} role="note">{urlWarning}</p>}
             <label>{t("translation_catalog.field.model")}
                 <input type="text" value={form.model} maxLength={200} disabled={busy} spellCheck={false}
                     placeholder={t("translation_catalog.placeholder.model")} onChange={set("model")} />
