@@ -1,6 +1,6 @@
 import { useResizable } from "react-resizable-layout";
 import type { SeparatorProps } from "react-resizable-layout";
-import { memo, useRef, useEffect, useState, forwardRef, startTransition } from "react";
+import { memo, useRef, useEffect, useState, startTransition, type Ref } from "react";
 import styles from "./MessageContainer.module.scss";
 import { LogBox } from "./log_box/LogBox";
 import { MessageLogSettingsContainer } from "./message_log_settings_container/MessageLogSettingsContainer";
@@ -95,8 +95,9 @@ export const MessageContainer = memo(function MessageContainer() {
     );
 });
 
-const Separator = forwardRef<HTMLDivElement, SeparatorProps>((props, ref) => (
-    <div tabIndex={0} className={styles.separator} ref={ref} {...props}>
+// The ref is one of the props, as React 19 passes it, and goes on to the <div> with the rest.
+const Separator = (props: SeparatorProps & { ref?: Ref<HTMLDivElement> }) => (
+    <div tabIndex={0} className={styles.separator} {...props}>
         <span className={styles.separator_line}></span>
     </div>
-));
+);

@@ -244,13 +244,6 @@ export const draw = (node: TreeNode, props: unknown = node.props) => componentOf
 // The same, drawn by a runtime of the harness, so its hooks run there.
 export const drawWith = (runtime: HookRuntime, node: TreeNode, props: unknown = node.props) => runtime.render(componentOf(node), props);
 
-// The render function a forwardRef component wraps, which React's types leave out.
-export function forwardRefRender(component: unknown): (props: unknown, ref: unknown) => TreeNode {
-    const render: unknown = Reflect.get(Object(component), "render");
-    if (typeof render !== "function") throw new TypeError("not a forwardRef component");
-    return asComponent(render);
-}
-
 // An element's ref. React 19 passes it among the props; reading element.ref warns that it is
 // going away.
 export const refOf = (node: TreeNode): unknown => fieldOf(node.props, "ref");

@@ -264,7 +264,7 @@ What does not change: the styles are written in vanilla-extract, and Tailwind is
 - Tailwind classes become `style()` in the component's `.css.ts`. A `cva()` becomes a `recipe()` from `@vanilla-extract/recipes` with the same variant names and defaults, and `cn()` becomes `clsx`.
 - shadcn/ui's color tokens (`primary`, `muted`, `accent`, `border`, `input`, `ring` and the rest) stand for ASTAROT tokens; no shadcn color value is used. The app has only the dark scheme, so where shadcn/ui gives a `dark:` value, that value is the one read.
 - A length is taken at its pixel size. Tailwind's rem is 16px and the app's is 10px, so `h-9` (36px) is `3.6rem` and `px-3` (12px) is `1.2rem`. A radius or a text size then moves to the nearest step of this file (`rounded`, `typography`).
-- A part that passes a ref uses `forwardRef`, since the app is on React 18; shadcn/ui writes for React 19, which takes `ref` as a prop. Radix comes from its own `@radix-ui/react-*` package, as the app already has it.
+- A part that passes a ref takes it as one of the props, as shadcn/ui writes for React 19; `forwardRef` is not used. Radix comes from its own `@radix-ui/react-*` package, as the app already has it.
 - shadcn/ui's enter and exit animations (`animate-in`, `fade-in`, `zoom-in`) become keyframes on the motion tokens (`--vox_motion` and the rest), off under reduced motion.
 - A Radix part that adds a `<style>` at run time needs the CSP step in `docs/development.md`.
 
