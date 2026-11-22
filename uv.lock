@@ -12,7 +12,7 @@ supported-markers = [
 
 [[package]]
 name = "astarot"
-version = "0.6.0b2"
+version = "0.6.0"
 source = { virtual = "." }
 
 [package.dev-dependencies]

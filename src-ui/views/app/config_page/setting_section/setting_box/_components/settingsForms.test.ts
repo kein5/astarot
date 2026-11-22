@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import clsx from "clsx";
 import { rebaseDraft } from "../../../../../../logics/voice/draftRebase.ts";
 import { changedPaths } from "../../../../../../logics/voice/saveBar.ts";
-import { hooks, loadModule, findIn, nodesIn, draw, drawWith, componentNamed, forwardRefRender, refOf, setRef, stubGlobals, eventTarget } from "../../../../../../logics/test/hookHarness.ts";
+import { hooks, loadModule, findIn, nodesIn, draw, drawWith, componentNamed, refOf, setRef, stubGlobals, eventTarget } from "../../../../../../logics/test/hookHarness.ts";
 import type { TreeNode } from "../../../../../../logics/test/hookHarness.ts";
 
 // The nodes of a tree the predicate picks, in the order find visits them.
@@ -163,7 +163,7 @@ for (const [name, path] of [["EntryWithSaveButton", "entry_with_save_button"], [
         const render = () => {
             const entry = findIn(runtime.render(Component, props), item => item.type === _Entry);
             if (refOf(entry)) setRef(entry, node);
-            return findIn(inputRuntime.render((p: unknown) => forwardRefRender(_Entry)(p, null), entry.props), item => item.type === "input");
+            return findIn(inputRuntime.render(_Entry, entry.props), item => item.type === "input");
         };
         let input = render();
         input.props.onKeyDown({ ...key("Enter"), target: node });
@@ -209,7 +209,7 @@ test("_Entry forwards ARIA relations and Enter ignores IME confirmation", async 
     const aria = { "aria-label": "Name", "aria-labelledby": "label", "aria-describedby": "help error",
         "aria-invalid": true, "aria-busy": true, "aria-disabled": true, "aria-controls": "popup", "aria-expanded": false };
     let saves = 0;
-    const input = findIn(runtime.render((props: unknown) => forwardRefRender(_Entry)(props, null), { ...aria, onEnterPressed: () => saves++ }), node => node.type === "input");
+    const input = findIn(runtime.render(_Entry, { ...aria, onEnterPressed: () => saves++ }), node => node.type === "input");
     for (const [name, value] of Object.entries(aria)) assert.equal(input.props[name], value);
     input.props.onKeyDown({ ...key("Enter"), nativeEvent: { isComposing: true } });
     input.props.onKeyDown({ ...key("Enter"), keyCode: 229 });

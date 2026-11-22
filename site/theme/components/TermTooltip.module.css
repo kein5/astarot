@@ -5,9 +5,9 @@
   z-index: 100;
   max-width: min(320px, calc(100vw - 16px));
   padding: 8px 12px;
-  border: 1px solid var(--vox-border);
-  border-radius: 10px;
-  background: var(--vox-surface);
+  border: 1px solid var(--a-border);
+  border-radius: var(--a-radius-dialog);
+  background: var(--a-surface);
   color: var(--rp-c-text-1);
   font-size: 14px;
   line-height: 1.6;
@@ -15,23 +15,23 @@
   opacity: 0;
   visibility: hidden;
   transition:
-    transform var(--vox-motion) var(--vox-ease-settle),
-    opacity var(--vox-motion-fast) var(--vox-ease),
-    visibility 0s linear var(--vox-motion-fast);
+    transform var(--a-motion) var(--a-ease-settle),
+    opacity var(--a-motion-fast) var(--a-ease),
+    visibility 0s linear var(--a-motion-fast);
 }
 
 .open {
   opacity: 1;
   visibility: visible;
   transition:
-    transform var(--vox-motion) var(--vox-ease-settle),
-    opacity var(--vox-motion-fast) var(--vox-ease),
+    transform var(--a-motion) var(--a-ease-settle),
+    opacity var(--a-motion-fast) var(--a-ease),
     visibility 0s;
 }
 
 .open.jump {
   transition:
-    opacity var(--vox-motion-fast) var(--vox-ease),
+    opacity var(--a-motion-fast) var(--a-ease),
     visibility 0s;
 }
 
@@ -45,8 +45,8 @@
   height: 8px;
   margin-left: -4px;
   background: inherit;
-  border-right: 1px solid var(--vox-border);
-  border-bottom: 1px solid var(--vox-border);
+  border-right: 1px solid var(--a-border);
+  border-bottom: 1px solid var(--a-border);
   transform: rotate(45deg);
 }
 
@@ -58,7 +58,7 @@
 
 .words {
   display: block;
-  animation: tip-words var(--vox-motion) var(--vox-ease);
+  animation: tip-words var(--a-motion) var(--a-ease);
 }
 
 @keyframes tip-words {

@@ -14,7 +14,7 @@
 - 「扱い」の列は次の3つです。
   - 寄せる: DESIGN.md のほかの規則にも利用者の操作にも触れない差です。判断なしで寄せられます。
   - 判断（D-xx）: 寄せるかどうか、どう寄せるかに判断が要る差です。番号は下の「判断項目」の番号です。
-  - 残す: アプリの制約（React 18、vanilla-extract、CSP）か、振る舞いや読みやすさのための DESIGN.md の規則で、寄せない差です。変えるなら判断が要ります。
+  - 残す: アプリの制約（vanilla-extract、CSP）か、振る舞いや読みやすさのための DESIGN.md の規則で、寄せない差です。変えるなら判断が要ります。
 
 ## 全体にかかわる差
 
@@ -64,7 +64,7 @@ shadcn/ui は `input` を枠にも、薄めた塗りにも使います。アプ�
 | パーツ | ダイアログやカードはパーツに分けず、使う側がマークアップを書く | `DialogHeader`、`DialogTitle` のように、パーツを名前付きで export する | 寄せる。新しく作るときと置き換えるときにパーツに分ける |
 | `data-slot` | kit の部品（#684、#691）、`_Entry` の入力欄（#691）、設定の検索の InputGroup のパーツと言語の一覧の検索欄、Empty（#695）、ツールチップの `tooltip-trigger` と `tooltip-content`（#721）、kit の Dialog のパーツ（#775）。ほかはなし | すべてのパーツに付ける | 寄せる |
 | variant | kit は `recipe()`（`button` の `tone` と `size`、`field` の `kind` と `mono`、`row` の `layout`） | `cva()`。`buttonVariants` のように部品の隣で export する | recipe は既にある。export の名前と variant の名前は、部品ごとの判断（ボタンは D-10）で決める |
-| ref | kit は `forwardRef` | React 19 の `ref` の props | 残す（React 18） |
+| ref | kit は `ref` を props で受け取る（`forwardRef` は使わない） | React 19 の `ref` の props | 寄せた。React 19 に上げたあと（#495）、その判断 1（2026-11-21）で kit、設定の入力欄、ログの区切りを移した |
 | Radix | `@radix-ui/react-switch` と `@radix-ui/react-visually-hidden` だけ | 多くの部品が Radix（統合パッケージの `radix-ui`） | パッケージは個別のまま（DESIGN.md）。どの部品を Radix にするかは、下の部品ごとの判断で決める |
 | アイコン | アプリの SVG（`@images/*.svg?react`） | lucide-react | 判断（D-11） |
 | クラスの結合 | `clsx` | `cn`（clsx と tailwind-merge の代わり） | 残す（tailwind-merge は Tailwind のクラスのためのもの） |

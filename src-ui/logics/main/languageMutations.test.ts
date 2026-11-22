@@ -1,61 +1,56 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
-import { stripTypeScriptTypes } from "node:module";
 import { test, vi } from "vitest";
+import { hooks, loadModule, fieldOf } from "../test/hookHarness.ts";
+import * as coordinator from "./languageMutationCoordinator.ts";
 import type { LanguageMutationState } from "./languageMutationCoordinator.ts";
 
-// The stand-in for jotai the adapter is given (the module written in setup): what it keeps per
-// atom name, and each value it set, in order.
+// The stand-in for jotai the adapter is given (made in setup): what it keeps per atom name, and
+// each value it set, in order.
 interface FakeAtom {
     state: string;
     data: unknown;
 }
 interface FakeStorage {
-    history: { name: string; value: { data: { lastVrResult?: { kind?: string } | null; isResyncing?: boolean } } }[];
+    history: { name: string; value: FakeAtom }[];
     values: Record<string, FakeAtom> & {
         LanguageMutation: { state: string; data: LanguageMutationState & { isResyncing?: boolean } };
         NotificationStatus: { state: string; data: { status?: string } };
     };
 }
 
-const moduleUrl = (code: string) => `data:text/javascript;base64,${Buffer.from(code).toString("base64")}`;
 const atomNames = ["LanguageMutation", "NotificationStatus", "SelectedPresetTabNumber", "SelectedYourLanguages",
     "SelectedTargetLanguages", "SelectedTranslationEngines", "TranslationEngines"];
 const getters = ["selected_tab_no", "selected_your_languages", "selected_target_languages", "selected_translation_engines", "selectable_translation_engines"];
 const fields = ["SelectedPresetTabNumber", "SelectedYourLanguages", "SelectedTargetLanguages", "SelectedTranslationEngines", "TranslationEngines"];
 
 async function setup() {
-    // Load the actual adapter with only its storage / translation dependencies
-    // replaced. This keeps the tests independent of Vite aliases and React.
-    const storageUrl = moduleUrl(`
-        export const history = [];
-        export const values = {};
-        export const getDefaultStore = () => ({
-            get: name => values[name],
-            set: (name, value) => {
-                values[name] = typeof value === "function" ? value(values[name]) : value;
-                history.push({name, value:structuredClone(values[name])});
-            },
-        });
-    `) + `#${crypto.randomUUID()}`;
-    const storage: FakeStorage = await import(storageUrl);
-    for (const name of atomNames) storage.values[name] = { state: "ok", data: {} };
-    storage.values.SelectedPresetTabNumber.data = "1";
-    storage.values.LanguageMutation.data = { inFlight: null, lastVrResult: null, isResyncing: false };
-    const atomsUrl = moduleUrl(atomNames.map(name => `export const Atom_${name} = "${name}";`).join("\n"));
-    const translationUrl = moduleUrl("export default {t: key => key};");
-    const coordinatorUrl = new URL("./languageMutationCoordinator.ts", import.meta.url).href;
-    const source = stripTypeScriptTypes(await readFile(new URL("./languageMutations.ts", import.meta.url), "utf8"))
-        .replace('"jotai"', JSON.stringify(storageUrl))
-        .replace('"@store"', JSON.stringify(atomsUrl))
-        .replace('"i18next"', JSON.stringify(translationUrl))
-        .replace('"./languageMutationCoordinator"', JSON.stringify(coordinatorUrl));
-    const adapter: typeof import("./languageMutations.ts") = await import(moduleUrl(source));
+    // Load the actual adapter with only its storage and translation replaced: each atom is its
+    // name, and jotai's default store keeps the values by name.
+    const history: FakeStorage["history"] = [];
+    const values: FakeStorage["values"] = {
+        ...Object.fromEntries(atomNames.map(name => [name, { state: "ok", data: {} }])),
+        SelectedPresetTabNumber: { state: "ok", data: "1" },
+        LanguageMutation: { state: "ok", data: { inFlight: null, lastVrResult: null, isResyncing: false } },
+        NotificationStatus: { state: "ok", data: {} },
+    };
+    const store = {
+        get: (name: string) => values[name],
+        set: (name: string, value: unknown) => {
+            values[name] = typeof value === "function" ? value(values[name]) : value;
+            history.push({ name, value: structuredClone(values[name]) });
+        },
+    };
+    const adapter = await loadModule<typeof import("./languageMutations.ts")>(new URL("./languageMutations.ts", import.meta.url), hooks(), {
+        jotai: { getDefaultStore: () => store },
+        "@store": Object.fromEntries(atomNames.map(name => [`Atom_${name}`, name])),
+        i18next: { t: (key: string) => key },
+        "./languageMutationCoordinator": coordinator,
+    });
     const request = (id = "first", source = "vr") => ({ requestId: id, source,
         endpoint: "/set/data/selected_target_languages", expectedSnapshot: adapter.getLanguageSnapshot() });
     const calls: string[] = [];
     const send = async (endpoint: string) => { calls.push(endpoint); return true; };
-    return { adapter, ...storage, request, calls, send };
+    return { adapter, history, values, request, calls, send };
 }
 
 test("early push does not release the shared write guard", async () => {
@@ -76,8 +71,8 @@ test("failure publishes resync ownership before its result and retains it until 
         const write = request();adapter.beginLanguageMutation(write);
         adapter.receiveLanguageMutation({endpoint:write.endpoint,status:500},send);
         assert.equal(calls.length,5);
-        const failure = history.find(item => item.name === "LanguageMutation" && item.value.data.lastVrResult?.kind === "failure");
-        assert.equal(failure?.value.data.isResyncing,true);
+        const failure = history.find(item => item.name === "LanguageMutation" && fieldOf(item.value, "data", "lastVrResult", "kind") === "failure");
+        assert.equal(fieldOf(failure?.value, "data", "isResyncing"),true);
         for (let i=0;i<5;i++) {
             values[fields[i]] = {state:"ok",data:i === 2 ? {partial:"backend value"} : values[fields[i]].data};
             adapter.receiveLanguageMutation({endpoint:`/get/data/${getters[i]}`,status:200},send);

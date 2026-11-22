@@ -31,7 +31,7 @@ If "Input to forward" for the voice changer is "CABLE Output", it does not start
 
 ## Hear it yourself
 
-"Hear it on my speakers" under "Text to speech (TTS)" also plays what goes to VRChat on your own speakers or headphones ([Hear it yourself](../features/tts#hear-it-yourself)).
+"Hear it on my speakers" under "Text to speech (TTS)" → "More settings" → "Monitor" also plays what goes to VRChat on your own speakers or headphones ([Hear it yourself](../features/tts#hear-it-yourself)).
 
 ## Mute
 

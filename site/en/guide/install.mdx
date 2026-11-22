@@ -20,7 +20,7 @@ For VRChat to hear your speech, you also need a virtual cable ([Windows audio ro
 
 ### Run it without installing (ZIP)
 
-To run from an unpacked folder without installing, use `VRCT-VOX.zip`. The `VRCT-VOX_cuda.zip` of releases up to 0.5 holds the same files as `VRCT-VOX.zip`.
+To run from an unpacked folder without installing, use `VRCT-VOX.zip`. The `VRCT-VOX_cuda.zip` of the 0.5 releases holds the same files as `VRCT-VOX.zip`.
 
 ::: details Where settings and data are stored (Windows)
 The settings (`config.json`), logs and downloaded models are inside the folder the app is in.
@@ -110,16 +110,18 @@ If it prints "Verification succeeded!", the file was built by this repository's 
 
 ## Updates
 
-When a new version is out, the top bar says so. You can also check in Settings → Update. How you update depends on how you installed ASTAROT.
+When a new version is out, the top bar shows an update button with the new version's number; it opens the update screen. You can also check in Settings → "Updater". How you update depends on how you installed ASTAROT.
 
 | Installed with | How to update |
 |---|---|
-| The Windows installer | Press "Update to (version) and restart" in Update. The update is installed only after its signature is checked, and ASTAROT restarts when it is done |
+| The Windows installer | Press "Update to (version) and restart" in "Updater". The update is installed only after its signature is checked, and ASTAROT restarts when it is done |
 | The AppImage | The same button replaces the AppImage file with the new one |
 | The Windows ZIP or the Linux tar.gz | The app only tells you a new version is out. Install it again from GitHub Releases |
 | deb or rpm | The app does not check. Update with your package manager |
 
-"Check for updates at start" in Update turns the check at start off. A failed check does not stop the app. Your settings and downloaded models stay in the locations above.
+"Check for updates at start" in "Updater" turns the check at start off. A failed check does not stop the app. Your settings and downloaded models stay in the locations above.
+
+To get beta versions through the in-app update, choose Beta under "Update channel" in Settings → "Experimental". The default is Stable (stable releases only). Going back from Beta to Stable does not return to an earlier version; the app updates when the next stable release is out.
 
 The Windows installer unpacks and checks the new version before it replaces the old one. If something fails on the way, it puts the old version back. Your settings, models and logs are kept.
 
