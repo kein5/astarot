@@ -178,10 +178,10 @@ fn a_bundle_is_admitted_only_with_its_pinned_executable() {
         std::fs::set_permissions(&binary, std::fs::Permissions::from_mode(0o700)).unwrap();
     }
     for meta in [
-        json!({"schema": 1, "version": "0.11.0", "variant": "linux-x64-vulkan"}), // another file's hash
-        json!({"schema": 1, "version": "0.10.0", "variant": "linux-x64-vulkan"}),
-        json!({"schema": true, "version": "0.11.0", "variant": "linux-x64-vulkan"}),
-        json!({"schema": 1, "version": "0.11.0", "variant": "unknown"}),
+        json!({"schema": 1, "version": "0.11.2", "variant": "linux-x64-vulkan"}), // another file's hash
+        json!({"schema": 1, "version": "0.11.0", "variant": "linux-x64-vulkan"}),
+        json!({"schema": true, "version": "0.11.2", "variant": "linux-x64-vulkan"}),
+        json!({"schema": 1, "version": "0.11.2", "variant": "unknown"}),
         json!([]),
     ] {
         std::fs::write(folder.join("bundle.json"), meta.to_string()).unwrap();

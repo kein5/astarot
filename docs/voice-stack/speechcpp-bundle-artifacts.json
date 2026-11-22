@@ -1,29 +1,29 @@
 {
   "schema": 1,
   "component": "speech.cpp",
-  "version": "0.11.0",
-  "source_commit": "8d18924cd238b87c0297df112f7ff40783a6414f",
+  "version": "0.11.2",
+  "source_commit": "cc16a71e46ee3324ca07f9df4d90ce43622ae598",
   "assets": {
     "linux-x64-cpu": {
       "id": "linux-x64-cpu",
-      "name": "speech-0.11.0-linux-x64-cpu.zip",
-      "url": "https://github.com/nyosegawa/speech.cpp/releases/download/v0.11.0/speech-0.11.0-linux-x64-cpu.zip",
-      "size": 6487592,
-      "sha256": "9acb8becee605c7bb190d7f56d4d9212232ec311df63735b1938cc86bc4257a1"
+      "name": "speech-0.11.2-linux-x64-cpu.zip",
+      "url": "https://github.com/nyosegawa/speech.cpp/releases/download/v0.11.2/speech-0.11.2-linux-x64-cpu.zip",
+      "size": 6496394,
+      "sha256": "e04de4380d8a0f1bdd61b1c61b7075363a7cadc78d31d40f64187750b0c39a7d"
     },
     "linux-x64-vulkan": {
       "id": "linux-x64-vulkan",
-      "name": "speech-0.11.0-linux-x64-vulkan.zip",
-      "url": "https://github.com/nyosegawa/speech.cpp/releases/download/v0.11.0/speech-0.11.0-linux-x64-vulkan.zip",
-      "size": 32715767,
-      "sha256": "9c01a35a0c79d36ca29abe379029c71b0cfb950cbc9da835863f5f7d28c81ae8"
+      "name": "speech-0.11.2-linux-x64-vulkan.zip",
+      "url": "https://github.com/nyosegawa/speech.cpp/releases/download/v0.11.2/speech-0.11.2-linux-x64-vulkan.zip",
+      "size": 32725105,
+      "sha256": "28e6841c650c8a4d7c5be06b8e34eb2f14d43f8b26d52fc73f24b504875dc12d"
     },
     "windows-x64-vulkan": {
       "id": "windows-x64-vulkan",
-      "name": "speech-0.11.0-windows-x64-vulkan.zip",
-      "url": "https://github.com/nyosegawa/speech.cpp/releases/download/v0.11.0/speech-0.11.0-windows-x64-vulkan.zip",
-      "size": 29718214,
-      "sha256": "b64f498179fc46d08149317eaea9fe6f24e6fa0cd194557b374c97e76ccc9c67"
+      "name": "speech-0.11.2-windows-x64-vulkan.zip",
+      "url": "https://github.com/nyosegawa/speech.cpp/releases/download/v0.11.2/speech-0.11.2-windows-x64-vulkan.zip",
+      "size": 29726411,
+      "sha256": "2cf46f0351a2a90b9ce0bfb83cf63ac209ca31c88df9a5bc0126898a20a58586"
     }
   },
   "notices": [
@@ -31,7 +31,7 @@
       "path": "speech.cpp-LICENSE",
       "size": 1067,
       "sha256": "688f8aca0abe167966d277ed00bd594a5a51b028a4fbc1516ff9de7ef05c521a",
-      "source_url": "https://github.com/nyosegawa/speech.cpp/blob/8d18924cd238b87c0297df112f7ff40783a6414f/LICENSE"
+      "source_url": "https://github.com/nyosegawa/speech.cpp/blob/cc16a71e46ee3324ca07f9df4d90ce43622ae598/LICENSE"
     },
     {
       "path": "ggml-LICENSE",
@@ -43,13 +43,13 @@
       "path": "cpp-httplib-LICENSE",
       "size": 1075,
       "sha256": "4b45cbe16d7b71b89ae6127e26e0d90a029198ca5e958ad8e3d0b8bbed364d8b",
-      "source_url": "https://github.com/nyosegawa/speech.cpp/blob/8d18924cd238b87c0297df112f7ff40783a6414f/vendor/cpp-httplib/LICENSE"
+      "source_url": "https://github.com/nyosegawa/speech.cpp/blob/cc16a71e46ee3324ca07f9df4d90ce43622ae598/vendor/cpp-httplib/LICENSE"
     },
     {
       "path": "miniaudio-LICENSE",
       "size": 2598,
       "sha256": "bde09ed161fef45da2194cba70601aab33ca6fdfe6eed2e3d95efd15b48561f9",
-      "source_url": "https://github.com/nyosegawa/speech.cpp/blob/8d18924cd238b87c0297df112f7ff40783a6414f/vendor/miniaudio/LICENSE"
+      "source_url": "https://github.com/nyosegawa/speech.cpp/blob/cc16a71e46ee3324ca07f9df4d90ce43622ae598/vendor/miniaudio/LICENSE"
     },
     {
       "path": "GCC-COPYING3",
@@ -66,7 +66,7 @@
     {
       "path": "NOTICE.md",
       "size": 2411,
-      "sha256": "aed0878091df1aa21329b7abe2e8bde52ac7bd2d232f7371ae71a5536c404f6d",
+      "sha256": "c352814b41ad5a35ef702bc7f5059bcb9e32c0a5005fbe0b2be7baeba28418e1",
       "source_url": "local packaging attribution"
     }
   ]

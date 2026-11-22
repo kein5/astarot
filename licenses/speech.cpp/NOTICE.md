@@ -1,14 +1,14 @@
 # speech.cpp binary component
 
 This component contains the unmodified `speech` (Linux) or `speech.exe` (Windows)
-executable extracted from an official speech.cpp 0.11.0 release. `bundle.json` records the selected
+executable extracted from an official speech.cpp 0.11.2 release. `bundle.json` records the selected
 archive, its SHA256, the source commit and the hashes of the files included here.
 No speech model, reference recording, libspeech shared library or VC engine is
 included. This is a VRCT-VOX packaging component, not an upstream release of VRCT.
 
 Upstream source: https://github.com/nyosegawa/speech.cpp
-Commit: 8d18924cd238b87c0297df112f7ff40783a6414f
-Release: https://github.com/nyosegawa/speech.cpp/releases/tag/v0.11.0
+Commit: cc16a71e46ee3324ca07f9df4d90ce43622ae598
+Release: https://github.com/nyosegawa/speech.cpp/releases/tag/v0.11.2
 
 The executable includes the following code; preserve the accompanying notices:
 
