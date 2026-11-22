@@ -73,6 +73,7 @@ pub struct Spec {
     /// "SEND" or "RECEIVED" (the format parts).
     pub format: &'static str,
     pub overlay_direction: &'static str,
+    /// The pipeline draws the message on the VR small log (the other party's speech only).
     pub small_log: bool,
     pub clipboard: bool,
     pub websocket_type: &'static str,
@@ -80,7 +81,9 @@ pub struct Spec {
     /// The `run_mapping` name the result is pushed on; `None` returns it instead.
     pub push: Option<&'static str>,
     pub payload_source: Option<&'static str>,
-    pub render_overlay: bool,
+    /// The pipeline draws the message on the VR large log; realtime captions draw their own rows
+    /// there.
+    pub large_log: bool,
     /// Realtime recognition: delivery outcomes in the result.
     pub realtime: bool,
 }
@@ -103,7 +106,7 @@ pub const MIC: Spec = Spec {
     log_prefix: "[SENT]",
     push: Some("transcription_mic"),
     payload_source: None,
-    render_overlay: true,
+    large_log: true,
     realtime: false,
 };
 
@@ -125,18 +128,19 @@ pub const SPEAKER: Spec = Spec {
     log_prefix: "[RECEIVED]",
     push: Some("transcription_speaker"),
     payload_source: None,
-    render_overlay: true,
+    large_log: true,
     realtime: false,
 };
 
-/// Realtime recognition updates its own caption rows; it returns the result.
+/// Realtime recognition updates its own caption rows on the large log; it returns the result.
+/// The small log shows a final of the game audio as it shows a message, once translated (#447).
 pub const REALTIME_MIC: Spec = Spec {
     repeat_of_sent: None,
     readings_by_own_language: false,
     feature: None,
     push: None,
     websocket_type: "REALTIME_MIC",
-    render_overlay: false,
+    large_log: false,
     realtime: true,
     ..MIC
 };
@@ -147,7 +151,7 @@ pub const REALTIME_SPEAKER: Spec = Spec {
     chatbox: None,
     push: None,
     websocket_type: "REALTIME_SPEAKER",
-    render_overlay: false,
+    large_log: false,
     realtime: true,
     ..SPEAKER
 };
@@ -892,8 +896,8 @@ impl Core {
         if feature_enabled {
             // The VR overlay
             // The VR overlay area shows it unless a hook replaces it.
-            let overlay_hook = self.messages().hooks.read().unwrap().overlay.clone();
-            let overlay_hook: Hook<OverlayMessage> = overlay_hook.unwrap_or_else(|| {
+            let hook = self.messages().hooks.read().unwrap().overlay.clone();
+            let hook: Hook<OverlayMessage> = hook.unwrap_or_else(|| {
                 let core = Arc::downgrade(self);
                 let current = current.clone();
                 Arc::new(move |event: &OverlayMessage| {
@@ -903,35 +907,33 @@ impl Core {
                     }
                 })
             });
-            if let Some(hook) = Some(overlay_hook).filter(|_| spec.render_overlay) {
-                let skip = snapshot.overlay_only_translated && translations.is_empty();
-                for (log, on) in [
-                    (OverlayLog::Small, spec.small_log && config.get_bool("OVERLAY_SMALL_LOG")),
-                    (OverlayLog::Large, config.get_bool("OVERLAY_LARGE_LOG")),
-                ] {
-                    if !on || skip || !current() {
-                        continue;
-                    }
-                    let event = OverlayMessage {
-                        log,
-                        kind: spec.kind,
-                        direction: spec.overlay_direction,
-                        message: (!snapshot.overlay_only_translated).then(|| message.to_string()),
-                        source_language: if snapshot.overlay_only_translated {
-                            None
-                        } else {
-                            snapshot.source_language.clone()
-                        },
-                        translations: translations.clone(),
-                        languages: language_payload(snapshot.destinations()),
-                        transliteration_message: readings_message.clone(),
-                        transliteration_translations: Value::Array(readings_translations.clone()),
-                        only_translated: snapshot.overlay_only_translated,
-                    };
-                    if hook(&event).is_err() {
-                        let output = if log == OverlayLog::Small { "overlay_small" } else { "overlay_large" };
-                        self.output_failed(output, spec, id.as_ref(), &current, &mut failures);
-                    }
+            let skip = snapshot.overlay_only_translated && translations.is_empty();
+            for (log, on) in [
+                (OverlayLog::Small, spec.small_log && config.get_bool("OVERLAY_SMALL_LOG")),
+                (OverlayLog::Large, spec.large_log && config.get_bool("OVERLAY_LARGE_LOG")),
+            ] {
+                if !on || skip || !current() {
+                    continue;
+                }
+                let event = OverlayMessage {
+                    log,
+                    kind: spec.kind,
+                    direction: spec.overlay_direction,
+                    message: (!snapshot.overlay_only_translated).then(|| message.to_string()),
+                    source_language: if snapshot.overlay_only_translated {
+                        None
+                    } else {
+                        snapshot.source_language.clone()
+                    },
+                    translations: translations.clone(),
+                    languages: language_payload(snapshot.destinations()),
+                    transliteration_message: readings_message.clone(),
+                    transliteration_translations: Value::Array(readings_translations.clone()),
+                    only_translated: snapshot.overlay_only_translated,
+                };
+                if hook(&event).is_err() {
+                    let output = if log == OverlayLog::Small { "overlay_small" } else { "overlay_large" };
+                    self.output_failed(output, spec, id.as_ref(), &current, &mut failures);
                 }
             }
 
@@ -1275,6 +1277,10 @@ mod tests {
     fn the_specs_differ_where_python_said() {
         assert_eq!((CHAT.word_filter, CHAT.clipboard, CHAT.websocket_type), (false, false, "CHAT"));
         assert_eq!((OCR.chatbox, OCR.small_log, OCR.payload_source), (None, false, Some("ocr")));
+        // Realtime captions have their own rows on the large log; the game audio's finals go to
+        // the small log as its messages do (#447).
+        let logs = [SPEAKER, REALTIME_SPEAKER, MIC, REALTIME_MIC, CHAT, OCR].map(|spec| (spec.small_log, spec.large_log));
+        assert_eq!(logs, [(true, true), (true, false), (false, true), (false, false), (false, true), (false, true)]);
         assert_eq!((REALTIME_SPEAKER.chatbox, REALTIME_MIC.chatbox), (None, Some("SEND_MESSAGE_TO_VRC")));
         let readings = [SPEAKER, MIC, REALTIME_MIC].map(|spec| spec.readings_by_own_language);
         assert_eq!(readings, [false, true, false]);

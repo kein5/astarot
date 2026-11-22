@@ -587,3 +587,63 @@ fn a_sent_message_is_drawn_on_the_running_large_log() {
     assert_eq!(fake.calls_on(small, "raw").len(), small_before, "a sent message stays off the small log");
     ui.stop();
 }
+
+#[test]
+fn the_game_audio_s_realtime_finals_reach_the_small_log() {
+    // #447: the small log shows a realtime final of the game audio as it shows a message, once
+    // translated.
+    use common::fake_asr::{FakeAsr, diarization_model, recognition_model};
+    use common::fake_capture::{FakeCapture, speech};
+    use vrct_transcription::capture::Source;
+
+    let asr = FakeAsr::start();
+    *asr.behaviour.models.lock().unwrap() = json!({ "data": [
+        recognition_model("haas-ja", &["ja"], false, &["keywords"]),
+        diarization_model("nemotron-3-diarization", "Vulkan0"),
+    ] });
+    *asr.behaviour.speakers.lock().unwrap() = json!([
+        { "speaker": "A", "start_ms": 0, "end_ms": 900 },
+        { "speaker": "B", "start_ms": 1000, "end_ms": 1800 },
+    ]);
+    let capture = FakeCapture::new();
+    capture.add_endpoint(Source::Mic, "alsa.mic", "USB Mic");
+    capture.add_endpoint(Source::Speaker, "alsa.out", "Speakers");
+    capture.set_default(Source::Mic, Some("alsa.mic"));
+    capture.set_default(Source::Speaker, Some("alsa.out"));
+    let fake = FakeVr::running();
+    let base = Setup::default();
+    let services = Services { vr: Arc::new(fake.clone()), transcription_capture: capture.factory(), ..base.services };
+    let saved = json!({
+        "OVERLAY_SMALL_LOG": true,
+        "OSC_IP_ADDRESS": "127.0.0.2",
+        "REALTIME_ASR_SETTINGS": {
+            "server": "external", "base_url": asr.base(), "model": "haas-ja",
+            "mic": { "language": "ja", "endpoint": null, "follow_default": true },
+            "speaker": { "language": "ja", "endpoint": null, "follow_default": true },
+            "vocabulary": { "builtin": false, "terms": [] },
+        },
+    });
+    let ui = Ui::with(Setup { services, saved: Some(saved), platform: vrct_core::config::Platform::Linux, ..Setup::default() });
+    ui.ready();
+    wait("the small log made", || fake.handle("ASTAROT0").is_some());
+    let small = fake.handle("ASTAROT0").unwrap();
+    // The heights of the pictures shown, leaving out the empty ones the overlays start with.
+    let heights = || -> Vec<u32> {
+        fake.calls_on(small, "raw")
+            .iter()
+            .filter_map(|call| call.rsplit(' ').next()?.split_once('x').map(|(_, h)| h.parse().unwrap()))
+            .filter(|&height| height > 1)
+            .collect()
+    };
+
+    let mark = ui.lines().len();
+    assert_eq!(ui.ok("/set/enable/transcription_receive", None), true);
+    wait("the game audio is captured", || capture.opened() == vec![(Source::Speaker, "alsa.out".to_string())]);
+    wait("the session is configured", || !asr.diarization.lock().unwrap().is_empty());
+    assert!(heights().is_empty(), "nothing is drawn before a caption");
+    capture.hear(Source::Speaker, &[speech(2000)]);
+    let translated = ui.wait_from(mark, "translated", |l| l["endpoint"] == "/run/realtime_caption" && l["result"]["state"] == "translated");
+    assert_eq!(translated["result"]["speakers"], json!(["A", "B"]));
+    wait("the final drawn on the small log", || !heights().is_empty());
+    ui.stop();
+}
