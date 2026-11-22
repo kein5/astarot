@@ -108,6 +108,13 @@ test("user-facing rules read only user-facing text", () => {
     assert.deepEqual(kinds("site/en/a.md", "Click Save, e.g. on this PC."), ["en-eg-ie", "en-this-pc", "en-click"]);
 });
 
+test("a heading with both languages puts English first", () => {
+    assert.deepEqual(kinds("docs/a.md", "## Summary / 概要"), []);
+    assert.deepEqual(kinds("docs/a.md", "## 概要 / Summary"), ["both-language-order"]);
+    // Two things named side by side in a table or a list are no pair of languages.
+    assert.deepEqual(kinds("docs/a.md", "| 大きさ / SHA-256 |"), []);
+});
+
 test("emoji: none, but release notes decide for themselves and © is no emoji", () => {
     assert.deepEqual(kinds("docs/a.md", "保存しました 🎉"), ["emoji"]);
     assert.deepEqual(kinds("docs/release-notes/0.6.0.md", "## 🔒 プライバシー"), []);

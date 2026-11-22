@@ -234,6 +234,18 @@ export const LINE_RULES = [
     ),
 ];
 
+// A heading that pairs the two languages ("Summary / 概要") puts English first (decision of
+// 2026-11-23). A Japanese word right before " / " and an English one after it is the wrong order.
+// Other lines are left alone: in a table header or a list of names, "大きさ / SHA-256" or
+// "OV / EV" names two things, not one thing in two languages.
+export const ORDER_RULE = rule(
+    "both-language-order",
+    "both",
+    "pairs",
+    new RegExp(`[${JAPANESE}][^\\s/|]*\\s/\\s+[A-Za-z]{2}`, "g"),
+    "A heading with both languages puts English first, then Japanese (decision of 2026-11-23)",
+);
+
 // The emoji rule reads every line but the release notes: they put an emoji at the start of their
 // headings and name those headings in the text (docs/release-notes/README.md decides).
 export const EMOJI_RULE = rule(

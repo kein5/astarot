@@ -173,6 +173,7 @@ Do not switch between words for the same thing to avoid repetition ("model", "en
 - Straight quotes and apostrophes (" and ') in Markdown, code, and `en.yml`, not curly ones.
 - Code, commands, paths, and setting keys go in code formatting; several lines go in a code block.
 - One level-1 heading per document.
+- A heading that gives both languages puts English first: "Summary / 概要" (decision of 2026-11-23).
 
 ### Plain verbs and wording
 

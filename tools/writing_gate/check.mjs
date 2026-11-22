@@ -22,7 +22,7 @@ import yaml from "js-yaml";
 
 import { compareBaseline, countFindings } from "../i18n_gate/baseline.mjs";
 import { localeProse, markdownProse } from "./prose.mjs";
-import { EMOJI_RULE, LINE_RULES, languageOf } from "./rules.mjs";
+import { EMOJI_RULE, LINE_RULES, ORDER_RULE, languageOf } from "./rules.mjs";
 
 const HERE = fileURLToPath(new URL(".", import.meta.url));
 const DOCUMENT = /\.(md|mdx)$/;
@@ -79,6 +79,7 @@ export const scanDocument = (file, source, { audience = audienceOf(file) } = {})
             if (rule.audience === "documents" && LOCALE.test(file)) continue;
             for (const match of line.text.matchAll(rule.pattern)) add(rule, line, match);
         }
+        if (line.heading) for (const match of line.text.matchAll(ORDER_RULE.pattern)) add(ORDER_RULE, line, match);
         if (!releaseNotes) for (const match of line.text.matchAll(EMOJI_RULE.pattern)) add(EMOJI_RULE, line, match);
     }
     return { findings, errors };
