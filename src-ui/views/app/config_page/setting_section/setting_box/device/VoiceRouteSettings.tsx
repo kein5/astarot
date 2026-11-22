@@ -6,6 +6,7 @@ import { useSettingsDraft } from "../../../../../../logics/voice/useSettingsDraf
 import { SectionLabelComponent } from "../_components/section_label_component/SectionLabelComponent";
 import styles from "../advanced_settings/VoiceSettings.module.scss";
 import { EnvReadout } from "../_components/env_readout/EnvReadout";
+import { Lead } from "../_components/lead/Lead";
 import { FormRow } from "../_components/form_row/FormRow";
 import { PageLinkButton } from "../_components/page_pointer/PagePointer";
 import { voiceErrorText } from "../../../../../../logics/voice/voiceErrorText.ts";
@@ -66,7 +67,8 @@ export const VoiceRouteSettings = ({ subheading = false }: { subheading?: boolea
                 <option value="external">{t("voice.routing_external")}</option>
                 {!usesOutputDevice(directState) && <option value="managed">{t("voice.routing_managed")}</option>}
             </select></label>
-            {form.draft.routing === "managed" && <p>{t("voice.managed_hint")}</p>}
+            {/* What to do in VRChat stays in view; how the microphone is prepared is its hint (#614). */}
+            {form.draft.routing === "managed" && <Lead text={t("voice.managed_lead")} details={t("voice.managed_details")} />}
         </form>}
         {form.navigationDialog}
         <VoiceRouteControls />

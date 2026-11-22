@@ -100,7 +100,9 @@ voice:
     routing: "音声経路"
     routing_external: "既存の外部ケーブル"
     routing_managed: "管理対象の仮想マイク（Linux）"
-    managed_hint: "PipeWireとsystemdを使うLinuxでは、保存時に仮想マイクを自動で準備します。ASTAROT終了後も残ります。VRChatの入力にVRCT Managed Virtual Microphoneを選び、「ミュートを解除」を押してください。"
+    # What the user does, in view; how the microphone is prepared, as its hint (#614).
+    managed_lead: "VRChatの入力にVRCT Managed Virtual Microphoneを選び、「ミュートを解除」を押してください。"
+    managed_details: "PipeWireとsystemdを使うLinuxでは、保存時に仮想マイクを自動で準備します。ASTAROT終了後も残ります。"
     mute_scope_managed: "この仮想マイクを通るTTSとVCをまとめてミュートします。"
     mute_scope_external: "ASTAROTのテキスト読み上げだけをミュートします。"
     mute_scope_device: "TTSと、選んだ出力デバイスへ送る音声をミュートします。"
@@ -1843,7 +1845,9 @@ voice_ui:
     seed_random: "ランダム／サーバー既定"
     seed_fixed: "値を指定"
     instruction: "話し方の指示"
-    instruction_hint: "声の出し方の指示です。本文として読み上げません。{{count}} / 4000文字。"
+    # What the field is for (the label's hint), and how many characters it holds (in view while typing).
+    instruction_desc: "声の出し方の指示です。本文として読み上げません。"
+    instruction_count: "{{count}} / 4000文字"
     not_confirmed: "未確認"
     option_support: "シード: {{seed}} · 話し方の指示: {{instruction}}"
     supported: "対応"
@@ -1858,7 +1862,9 @@ voice_ui:
     rvc_worker_status: "{{device}} · スレッド {{threads}} · ハイパス{{highpass}}"
     rvc_worker_hint: "ここの設定は「開始」を押したときに使います。自動ではNVIDIAのGPU、DirectML、CPUの順に、使えるものを選びます。DirectMLは内蔵のGPUしかないPCでは選びません。NVIDIAのGPUかDirectMLを選ぶと、そのGPUを使えないときは開始できません。スレッド数を0にすると、GPUでは1、CPUでは論理CPUの半分（2〜6）を使います。ハイパスフィルターを切ると、以前の外部の実行環境と同じ音になります。変換する単位の長さは「高度な設定」で変えられます。"
     rvc_threads_auto: "自動"
-    rvc_directml_hint: "WindowsではAMDやIntelのGPUでもDirectMLを通して変換できます。それには、翻訳と共用の「ONNX Runtime · DirectML」を下から取得します。内蔵のGPUは変換が間に合わないため、自動では使いません。"
+    # The sentence in view, and its details as its hint (#614, the lead's form).
+    rvc_directml_lead: "WindowsではAMDやIntelのGPUでもDirectMLを通して変換できます。"
+    rvc_directml_details: "それには、翻訳と共用の「ONNX Runtime · DirectML」を下から取得します。内蔵のGPUは変換が間に合わないため、自動では使いません。"
     rvc_highpass_on: "あり"
     rvc_highpass_off: "なし"
     rvc_index_required: "検索結果の混合率が0より大きい場合は、検索インデックス（.index）が必要です。"

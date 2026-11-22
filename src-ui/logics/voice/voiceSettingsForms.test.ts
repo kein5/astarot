@@ -57,6 +57,7 @@ async function setup(context: TestContext) {
             "./StatusLine": {}, "../_components/description/Description": {},
             "../_components/section_label_component/SectionLabelComponent": { SectionLabelComponent: "heading" },
             "../_components/env_readout/EnvReadout": {}, "../_components/form_row/FormRow": { FormRow: "row" },
+            "../_components/lead/Lead": { Lead: "lead" },
             "../_components/hint/Hint": { Hint: "hint", useHintDescriptions: () => false },
             "../_components/advanced_section/AdvancedSection": { AdvancedSection: "advanced" },
             "../_components/page_pointer/PagePointer": { PageLinkButton: "page-link" },
@@ -110,4 +111,16 @@ test("a rejected route edit stays dirty when the output form saves successfully"
     const select = find(s.render()[0], node => node.type === "select");
     assert.ok(select);
     assert.equal(select.props.value, "managed");
+});
+
+// #614: with the managed microphone chosen, what to do in VRChat stays in view; how the microphone is
+// prepared is that sentence's hint (the lead's form).
+test("the managed route says what to do in VRChat, and how it is prepared as the sentence's hint", async context => {
+    const s = await setup(context);
+    const lead = () => find(s.render()[0], node => node.type === "lead");
+    assert.equal(lead(), null, "not before the managed microphone is chosen");
+    s.edit(0, "managed");
+    const shown = lead();
+    assert.ok(shown);
+    assert.deepEqual([shown.props.text, shown.props.details], ["voice.managed_lead", "voice.managed_details"]);
 });

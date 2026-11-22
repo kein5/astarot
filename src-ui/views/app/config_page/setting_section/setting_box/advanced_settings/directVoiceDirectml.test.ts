@@ -28,6 +28,7 @@ async function render(catalog: unknown, device = "auto") {
         "../_components/setup_section/SetupSection": { SetupSection: "setup" },
         "../_components/env_readout/EnvReadout": { EnvReadout: "readout" },
         "../_components/description/Description": { Description: "description" },
+        "../_components/lead/Lead": { Lead: "lead" },
         "../_components/form_row/FormRow": { FormRow: "row" },
         "../_components/custom_model_link/CustomModelLink": { CustomModelLink: "custom-model-link" },
         "../_components/file_drop_zone/FileDropZone": { FileDropZone: "file-drop" },
@@ -45,7 +46,9 @@ async function render(catalog: unknown, device = "auto") {
     assert.ok(select, "the device select is shown");
     const devices = nodesIn(select).filter(node => node.type === "option").map(node => node.props.value);
     const setups = nodes.filter(node => node.type === "runtime").map(node => node.props.engine);
-    const hint = nodes.some(node => node.type === "description" && node.props.text === "voice_ui.rvc_directml_hint");
+    // What DirectML offers, in one sentence; what it needs is the sentence's hint (#614).
+    const hint = nodes.some(node => node.type === "lead" && node.props.text === "voice_ui.rvc_directml_lead"
+        && node.props.details === "voice_ui.rvc_directml_details");
     return { devices, setups, hint };
 }
 

@@ -100,7 +100,9 @@ voice:
     routing: "Audio route"
     routing_external: "Existing external cable"
     routing_managed: "Managed virtual microphone (Linux)"
-    managed_hint: "Saving automatically prepares the virtual microphone on Linux with PipeWire and systemd. It stays available when ASTAROT closes. Select VRCT Managed Virtual Microphone in VRChat, then press \"Unmute\"."
+    # What the user does, in view; how the microphone is prepared, as its hint (#614).
+    managed_lead: "Select VRCT Managed Virtual Microphone in VRChat, then press \"Unmute\"."
+    managed_details: "Saving automatically prepares the virtual microphone on Linux with PipeWire and systemd. It stays available when ASTAROT closes."
     mute_scope_managed: "Mute applies to TTS and VC sent through this managed microphone."
     mute_scope_external: "Mute applies to ASTAROT text-to-speech only."
     mute_scope_device: "Mute applies to TTS and to the voice sent to the selected output device."
@@ -1843,7 +1845,9 @@ voice_ui:
     seed_random: "Random / server default"
     seed_fixed: "Specify a value"
     instruction: "Instruction"
-    instruction_hint: "Voice direction only; not read aloud. {{count}} / 4000 characters."
+    # What the field is for (the label's hint), and how many characters it holds (in view while typing).
+    instruction_desc: "Voice direction only; not read aloud."
+    instruction_count: "{{count}} / 4000 characters"
     not_confirmed: "Not confirmed"
     option_support: "Seed: {{seed}} · Instruction: {{instruction}}"
     supported: "Supported"
@@ -1858,7 +1862,9 @@ voice_ui:
     rvc_worker_status: "{{device}} · threads {{threads}} · high-pass {{highpass}}"
     rvc_worker_hint: "Used when you press Start. Automatic takes the first of the NVIDIA GPU, DirectML and the CPU that works, and skips DirectML on a PC with only an integrated GPU. With the NVIDIA GPU or DirectML chosen, Start fails when that GPU cannot be used. With 0 threads, the GPU uses 1 and the CPU half the logical CPUs (2 to 6). Turning the high-pass filter off sounds like the earlier external runtime. The conversion block length is under Advanced."
     rvc_threads_auto: "automatic"
-    rvc_directml_hint: "On Windows, DirectML can convert on other GPUs too, AMD and Intel included. It needs ONNX Runtime · DirectML below, which the translation shares. An integrated GPU is too slow for converting, so Automatic does not use one."
+    # The sentence in view, and its details as its hint (#614, the lead's form).
+    rvc_directml_lead: "On Windows, DirectML can convert on other GPUs too, AMD and Intel included."
+    rvc_directml_details: "It needs ONNX Runtime · DirectML below, which the translation shares. An integrated GPU is too slow for converting, so Automatic does not use one."
     rvc_highpass_on: "on"
     rvc_highpass_off: "off"
     rvc_index_required: "A retrieval index is required when the blend is greater than 0."
