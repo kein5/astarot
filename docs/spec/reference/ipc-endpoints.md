@@ -10,7 +10,7 @@ UIから中核への要求と、中核からUIへの通知（`RUN_MAPPING`）の
 - UIの受信先: 200の応答を処理するUIのフック（`useReceiveRoutes.ts`の静的ルートと`ui_config_setter.ts`の定義から生成）。「—」は受信先がない。
 - ログで伏せる: `process.log`で値を`***MASKED***`に置き換える（`log::SENSITIVE_ENDPOINT_MARKERS`）。stdoutのIPCそのものは伏せない。
 
-## 要求（476件: 削除 13、取得 213、実行 49、有効化 41、無効化 43、設定 117）
+## 要求（477件: 削除 13、取得 213、実行 49、有効化 41、無効化 44、設定 117）
 
 並びは中核が経路を足した順（`controller/routes.rs`）。
 
@@ -476,6 +476,7 @@ UIから中核への要求と、中核からUIへの通知（`RUN_MAPPING`）の
 | `/run/enable_tts` | 実行 | 可 | useVoice.updateStatus |  |
 | `/run/disable_tts` | 実行 | 可 | useVoice.updateStatus | 即時（キューを通らない） |
 | `/get/data/voice_route` | 取得 | 可 | useVoice.updateRoute |  |
+| `/set/disable/managed_route_rename_notice` | 無効化 | 可 | useVoice.updateRoute |  |
 | `/run/mute_voice` | 実行 | 可 | useVoice.updateRoute | 即時（キューを通らない） |
 | `/run/resume_voice` | 実行 | 可 | useVoice.updateRoute | 即時（キューを通らない） |
 | `/get/data/direct_voice_sources` | 取得 | 可 | useVoice.updateDirectSources |  |

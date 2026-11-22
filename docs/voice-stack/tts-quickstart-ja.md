@@ -76,7 +76,7 @@ PipeWireとsystemdのユーザーサービスを利用できるLinuxでは、必
 準備完了後に **音声を再開** を押し、**転送する入力** で自分が話す実マイクを選び、トップの **RVC** をONにする。
 **転送する入力** の初期値は、デバイスページの **マイク（デバイス）** で選んだマイク。
 RVCページの入力一覧は変換前の入力用で、VRCT自身の仮想マイクは循環を避けるため表示しない。
-VRChatの入力には **VRCT Managed Virtual Microphone** を選ぶ。
+VRChatの入力には **ASTAROT Managed Virtual Microphone** を選ぶ。
 デバイスページ先頭の **音声経路** でも設定できる。Linuxではデバイスページの **マイク（デバイス）** にPipeWireの入力が並ぶ。
 RVCページで別の入力を選ぶまでは、デバイスページでの変更に追従する。動作中の入力は切り替えない。
 リアルタイム音声認識のマイクは音声認識の設定で選ぶ。
@@ -93,10 +93,12 @@ RVCページで選んだ入力はページ移動では保持する。再起動�
 管理者権限は不要。systemdのない環境では[従来の手動導入](local-setup-linux.md#常駐する管理対象の仮想マイクb検証後の追加)を使う。
 
 - VRCTの **Device → Audio route** を **Managed virtual microphone (Linux)** にして保存し、**Resume voice**。
-- VRChatの入力を **VRCT Managed Virtual Microphone** にする。
+- VRChatの入力を **ASTAROT Managed Virtual Microphone** にする。
 
-自動作成のサービスは `~/.config/systemd/user/vrct-managed-{source,tts,vc}.service`
+自動作成のサービスは `~/.config/systemd/user/astarot-managed-{source,tts,vc}.service`
 （XDG_CONFIG_HOME指定時はその下）に保存される。AppImageの一時マウントには依存しない。
+0.6.0までの版が作った `vrct-managed-*.service` は、管理対象の経路を準備するときに中核が止めて消し、新しい名前で作り直す。
+中身が中核の書いたものと違うユニットは残し、`managed_setup_conflict` を出す（ADR-014の2.8）。
 削除時は先にVRCTを停止し、VRChat等の入力を安全な別入力へ切り替えた上で、この3サービスだけを停止・無効化する。
 実行中の利用アプリから仮想マイクを突然削除すると、別マイクへ切り替わる可能性があるため、VRCT終了時には自動削除しない。
 
