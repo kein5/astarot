@@ -50,14 +50,16 @@ pub fn is_available() -> bool {
 }
 
 /// A CPU session with the options RapidOCR's ONNX Runtime engine sets: no memory arena,
-/// every graph optimisation, `threads` intra-op threads and one inter-op thread.
+/// every graph optimisation, `threads` intra-op threads and one inter-op thread. Its threads run
+/// below normal on Windows ([`crate::priority::BelowNormalThreads`]).
 pub(crate) fn session(path: &Path, threads: usize) -> Result<Session> {
     let builder = Session::builder(environment()?).map_err(backend)?;
     let builder = builder.with_log_level(ort::logging::LogLevel::Fatal).map_err(backend)?;
     let builder = builder.with_optimization_level(GraphOptimizationLevel::All).map_err(backend)?;
     let builder = builder.with_execution_providers([ort::ep::CPU::default().with_arena_allocator(false).build()]).map_err(backend)?;
     let builder = builder.with_intra_threads(threads.max(1)).map_err(backend)?;
-    let mut builder = builder.with_inter_threads(1).map_err(backend)?;
+    let builder = builder.with_inter_threads(1).map_err(backend)?;
+    let mut builder = builder.with_thread_manager(crate::priority::BelowNormalThreads).map_err(backend)?;
     builder.commit_from_file(path).map_err(backend)
 }
 
