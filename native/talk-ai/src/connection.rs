@@ -2,7 +2,7 @@
 //!
 //! `wss://` goes over TLS with the Mozilla roots, through the system proxy when one is set;
 //! `ws://` only to this PC and the LAN (vLLM-Omni on the user's own machine), as the translation
-//! providers' requests do (`vrct_translation::http`). The key goes only in the `Authorization`
+//! providers' requests do (`astarot_translation::http`). The key goes only in the `Authorization`
 //! header. No error carries the URL, a header or a body.
 
 use std::fmt;
@@ -11,7 +11,7 @@ use tungstenite::client::IntoClientRequest;
 use tungstenite::http::HeaderValue;
 use tungstenite::protocol::WebSocketConfig;
 use tungstenite::{HandshakeError, WebSocket};
-use vrct_translation::http::{self, Cancel, HttpError, Stream, Timeouts, Url};
+use astarot_translation::http::{self, Cancel, HttpError, Stream, Timeouts, Url};
 
 /// The most one event from the service may hold: an answer's audio comes in small parts.
 const MAX_EVENT: usize = 16 * 1024 * 1024;
