@@ -12,14 +12,19 @@ const gb = (value: number) => `${(value / 1e9).toFixed(1)} GB`;
 
 // Offers to prepare an engine's runtime where the backend can; elsewhere it renders nothing.
 // current: the runtime folder in the form; onUse writes an installed folder into it.
+// fit: where it is one of a pair of builds for different GPUs (the translation's, #945), whether
+// it fits the user's GPU. A badge under its name says so; the one that fits offers its review as
+// the main action, and the other is quieter and leaves its summary out.
+export type RuntimeFit = "fits" | "unneeded";
 export interface VcRuntimeSetupProps {
     engine: string;
     current?: string;
     disabled?: boolean;
     onUse?: (path: string) => void;
+    fit?: RuntimeFit;
 }
 
-export const VcRuntimeSetup = ({ engine, current, disabled, onUse }: VcRuntimeSetupProps) => {
+export const VcRuntimeSetup = ({ engine, current, disabled, onUse, fit }: VcRuntimeSetupProps) => {
     const { t } = useI18n();
     const { catalog, state, error, pending, send } = useVcRuntimes();
     const [open, setOpen] = useState(false), [consent, setConsent] = useState(false), [linkError, setLinkError] = useState<string | null>(null);
@@ -43,9 +48,12 @@ export const VcRuntimeSetup = ({ engine, current, disabled, onUse }: VcRuntimeSe
         try { await openUrl(url); setLinkError(null); }
         catch { setLinkError(url); }
     };
-    return <section ref={section} tabIndex={-1} className={styles.download_entry} aria-label={t("vc_runtime.title", { name: entry.name })}>
+    return <section ref={section} tabIndex={-1} className={styles.download_entry} data-fit={fit} aria-label={t("vc_runtime.title", { name: entry.name })}>
         <strong>{t("vc_runtime.title", { name: entry.name })}</strong>
-        <p>{t(`vc_runtime.help_${entry.notice}`)}</p>
+        {fit && <div className={styles.card_badges}>
+            <span className={styles.badge} data-tone={fit === "fits" ? "recommended" : undefined}>{t(`vc_runtime.fit_${fit}`)}</span>
+        </div>}
+        {fit !== "unneeded" && <p>{t(`vc_runtime.help_${entry.notice}`)}</p>}
         {/* The saved folder holds a runtime this version cannot use (the earlier PyTorch RVC runtime). */}
         {!installed && !active && current && current === entry.destination && <p role="alert">{t("vc_runtime.outdated")}</p>}
         {!installed && <p>{t("vc_runtime.size", { download: gb(entry.download_bytes), disk: gb(entry.disk_bytes) })} · {entry.license}</p>}
@@ -69,7 +77,8 @@ export const VcRuntimeSetup = ({ engine, current, disabled, onUse }: VcRuntimeSe
             {/* The translation's runtimes are chosen through the compute device, not here. */}
             {onUse && installed && installed !== current && <button type="button" disabled={disabled} onClick={() => onUse(installed)}>{t("vc_runtime.use")}</button>}
             {/* Fetched and waiting for the next start (Windows, #900): starting again would only wait again. */}
-            {!installed && !active && job?.phase !== "restart_required" && <button type="button" disabled={busy || (entry.requires_gpu !== false && !entry.gpu_ready)}
+            {!installed && !active && job?.phase !== "restart_required" && <button type="button" className={fit === "fits" ? "primary" : undefined}
+                disabled={busy || (entry.requires_gpu !== false && !entry.gpu_ready)}
                 onClick={() => { setConsent(false); setOpen(true); }}>{t(job ? "vc_runtime.resume" : "vc_runtime.review")}</button>}
         </div>
         {open && <dialog ref={dialog} aria-label={t("vc_runtime.warning_title")} onCancel={event => { event.preventDefault(); close(); }}>
