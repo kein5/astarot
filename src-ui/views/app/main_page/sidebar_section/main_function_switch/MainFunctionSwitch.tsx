@@ -11,6 +11,7 @@ import { voiceActions, voiceSwitchStates } from "../../../../../logics/voice/voi
 import { splitFeatureLabel } from "../../../../../logics/common/featureLabel.ts";
 import { voiceErrorText } from "../../../../../logics/voice/voiceErrorText.ts";
 import { useSwitchBlocks } from "../../../../../logics/main/useSwitchBlocks";
+import { useSetupLeads } from "../../../../../logics/setup/useSetupLeads";
 import { activeSwitchBlock } from "../../../../../logics/main/switchBlocks";
 import { useI18n } from "@useI18n";
 import { useIsBackendReady } from "@logics_common";
@@ -147,17 +148,22 @@ export const MainFunctionSwitch = () => {
     // The uses picked in settings choose the switches in sight (usagePresets.ts, #554). A switch
     // that is on, or on its way on or off, always stays: it can always be turned off. The others
     // are under 「ほかの機能」, which shows them all in their usual order; showing them is not
-    // saved and changes no setting (Q-10).
+    // saved and changes no setting (Q-10). A switch the first-run setup leads to (#955) stays in
+    // sight too until it is turned on, so the lead is not hidden under 「ほかの機能」.
     const { currentUsagePresets } = useUsagePresets();
     const picked = pickedPresets(currentUsagePresets.data);
     const [showOthers, setShowOthers] = useState(false);
-    const inSight = (item: SwitchItem) => isSwitchShown(picked, item.switch_id, item.currentState?.data === true || item.currentState?.state === "pending");
+    const { leads, settle } = useSetupLeads();
+    const inSight = (item: SwitchItem) => isSwitchShown(picked, item.switch_id,
+        item.currentState?.data === true || item.currentState?.state === "pending" || leads.includes(item.switch_id));
     const hiddenCount = switch_items.filter(item => !inSight(item)).length;
     const rows = showOthers ? switch_items : switch_items.filter(inSight);
     // Other views of these switches (the tray companion) read the TTS and voice changer state here.
     const switchState = (id: SwitchBlockId) => { const value = switch_items.find(item => item.switch_id === id)?.currentState;
         return { on: value?.data === true, pending: value?.state === "pending" }; };
     useEffect(() => { voiceSwitchStates.publish({ tts: switchState("tts"), rvc: switchState("rvc") }); });
+    // The switches the first-run setup leads to (#955) stand out until each is turned on.
+    useEffect(() => { for (const id of leads) if (switchState(id).on) settle(id); });
 
     return (
         <div className={styles.container}>
@@ -185,6 +191,7 @@ export const MainFunctionSwitch = () => {
                     SvgComponent={item.SvgComponent}
                     settingsLabel={settingsLabel(destination, t)}
                     openSettings={() => prepare(destination)}
+                    lead={leads.includes(item.switch_id) && item.currentState.data !== true}
                 />;
             }), ...(hiddenCount > 0 ? [<MoreFeaturesButton key="more_features" count={hiddenCount} expanded={showOthers}
                 onToggle={() => setShowOthers(value => !value)} />] : [])]}
@@ -255,7 +262,7 @@ export const SwitchRow = ({ settingsLabel: label, openSettings, ...props }: Swit
         <div className={clsx(styles.switch_row, {
             [styles.is_active]: active,
             [styles.is_unavailable]: unavailable || !!props.blockedReason,
-        })}>
+        })} data-lead={props.lead || undefined}>
             {/* Beside the rail, level with the row: next to the icon it would cover the switch's name. */}
             <Tooltip bare placement="right" beside={`.${styles.switch_row}`} title={label}>
                 <button type="button" className={styles.settings_button} data-feature-settings={props.switch_id}
@@ -291,9 +298,11 @@ type SwitchContainerProps = {
     unavailableText?: string | null;
     blockedReason?: string | null;
     inRow?: boolean;
+    // The first-run setup leads here (#955): the switch stands out until it is turned on.
+    lead?: boolean;
 };
 
-export const SwitchContainer = ({ switchLabel, switch_id, children, currentState, toggleFunction, SvgComponent, cancellable = false, disabled = false, unavailable = false, starting = false, statusText = null, unavailableText = null, blockedReason = null, inRow = false }: SwitchContainerProps) => {
+export const SwitchContainer = ({ switchLabel, switch_id, children, currentState, toggleFunction, SvgComponent, cancellable = false, disabled = false, unavailable = false, starting = false, statusText = null, unavailableText = null, blockedReason = null, inRow = false, lead = false }: SwitchContainerProps) => {
     const { currentIsMainPageCompactMode } = useIsMainPageCompactMode();
     const reasonId = `main_switch_${switch_id}_reason`;
     // A long name breaks before its short name in brackets, never in the middle of a word.
@@ -321,7 +330,7 @@ export const SwitchContainer = ({ switchLabel, switch_id, children, currentState
     return (
         <Tooltip bare placement="right" title={tooltip}>
             <div
-                className={getClassNames(styles.switch_container)}
+                className={getClassNames(styles.switch_container)} data-lead={(lead && !inRow) || undefined}
                 role="switch" aria-label={unavailable && unavailableText ? `${switchLabel}: ${unavailableText}` : switchLabel} aria-checked={active}
                 aria-busy={pending} aria-disabled={blocked} tabIndex={0}
                 aria-describedby={blockedReason ? reasonId : undefined}
