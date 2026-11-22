@@ -189,7 +189,7 @@ jobs:
       - name: Preserve inspected candidates for review
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: VRCT-VOX-windows-candidate
+          name: ASTAROT-windows-candidate
           if-no-files-found: error
           retention-days: 7
           path: build/release-candidate/*

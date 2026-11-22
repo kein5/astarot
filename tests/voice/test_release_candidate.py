@@ -353,3 +353,20 @@ def test_the_copies_stop_with_0_8_0(version, kept):
     assert release_candidate.keeps_legacy_copies(version) is kept
     copies = release_candidate.legacy_copies("windows", version)
     assert copies == ({"VRCT-VOX.zip": "ASTAROT.zip", "VRCT-VOX_setup.exe": "ASTAROT_setup.exe"} if kept else {})
+
+
+def test_the_draft_downloads_the_artifacts_the_candidate_workflows_upload():
+    # ADR-014, 2.2: the candidates' artifacts are named ASTAROT-…; prepare_release.py asks for them
+    # by name, so the two have to change together.
+    import yaml
+
+    root = Path(__file__).resolve().parents[2]
+    source = (root / "tools/prepare_release.py").read_text(encoding="utf-8")
+    for workflow, artifact in (("build-linux.yml", "ASTAROT-linux-x86_64-candidate"),
+                               ("release.yml", "ASTAROT-windows-candidate")):
+        jobs = yaml.load((root / ".github/workflows" / workflow).read_text(encoding="utf-8"),
+                         Loader=yaml.BaseLoader)["jobs"]
+        uploads = [step["with"]["name"] for job in jobs.values() for step in job.get("steps", [])
+                   if "upload-artifact" in step.get("uses", "") and step["with"]["name"].endswith("-candidate")]
+        assert uploads == [artifact], (workflow, uploads)
+        assert f'"{artifact}"' in source
