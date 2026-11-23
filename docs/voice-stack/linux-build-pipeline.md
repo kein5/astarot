@@ -209,8 +209,8 @@ These are the gates that still apply; the first releases have been published.
 
 - Inside the AppImage the GUI process runs with the bundled library path
   (`LD_LIBRARY_PATH`) and GTK settings. The launcher keeps the host values in
-  `ASTAROT_APPIMAGE_HOST_*`; a program the app starts should get them back, as the screen
-  capture helper does (`src-tauri/src/portal_screencast.rs`). See [AppImage](appimage.md#run).
+  `ASTAROT_APPIMAGE_HOST_*`; the programs the app starts get them back
+  (`astarot_app_identity::appimage`). See [AppImage](appimage.md#run).
 - [Tauri Linux prerequisites](https://v2.tauri.app/start/prerequisites/#linux) define the
   native WebKitGTK build boundary; [official WebDriver CI](https://v2.tauri.app/develop/tests/webdriver/ci/)
   uses a virtual display on Linux.

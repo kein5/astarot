@@ -37,6 +37,7 @@ dependencies = [
 name = "astarot-adapters"
 version = "0.0.0"
 dependencies = [
+ "astarot-app-identity",
  "futures-util",
  "if-addrs",
  "rustls",
@@ -163,6 +164,7 @@ dependencies = [
 name = "astarot-speech-server"
 version = "0.0.0"
 dependencies = [
+ "astarot-app-identity",
  "libc",
  "serde_json",
  "sha2",
@@ -208,6 +210,7 @@ dependencies = [
 name = "astarot-voice-conversion"
 version = "0.1.0"
 dependencies = [
+ "astarot-app-identity",
  "astarot-audio-routing",
  "astarot-ops",
  "crc32fast",

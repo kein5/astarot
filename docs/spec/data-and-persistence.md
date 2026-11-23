@@ -220,10 +220,11 @@ HTTPでプライベートLANやリンクローカルのアドレスへ接続す�
 
 利用者はラベルにセッションごとの名前を付けられる（#447）。ログの話者の表示はボタンで、押すと行の下に名前の欄が開く。保存すると、UIは`/set/data/speaker_names`に`{"namespace": セッション, "names": {"A": "名前", ...}}`を送る。`names`はそのセッションの名前の全部で、送らなかったラベルと空の名前は名前なしに戻る。中核は、`namespace`が英数字と`-`、`_`の128字まで、ラベルが大文字1〜3字、名前が制御文字なしの32字まで（連続する空白は1つにまとめる）、ラベルが8個までのときだけ受け付け、`{"namespace": ..., "names": {...}}`を返す。それ以外は400の`speaker_names_invalid`である。
 
-- 名前は保存しない。UIは返った名前を直近8セッション分、中核はSteamVRの大きいログ用に直近4セッション分を持つ。セッションが変わるとラベルは振り直されるので、前のセッションの名前は新しいセッションに当てない。
+- 名前は保存しない。UIは返った名前を直近8セッション分、中核はSteamVRの字幕用に直近4セッション分を持つ。セッションが変わるとラベルは振り直されるので、前のセッションの名前は新しいセッションに当てない。
 - `process.log`には名前を書かない（`speaker_names`は`SENSITIVE_ENDPOINT_MARKERS`に入っている）。
-- 名前のある声は、ログ、VRパネルのログ（同期するatomの`SpeakerNames`）、デスクトップの字幕（`speaker_names`）、SteamVRの大きいログで、ラベルの代わりに名前で出す。名前のない声は、ほかの声に名前があれば「話者B」、どの声にも名前がなければ今までどおり「話者A・B」と出す。デスクトップの字幕の色はラベルで決め、名前を付けても変わらない。
+- 名前のある声は、ログ、VRパネルのログ（同期するatomの`SpeakerNames`）、デスクトップの字幕（`speaker_names`）、SteamVRの字幕（一行と複数行）で、ラベルの代わりに名前で出す。名前のない声は、ほかの声に名前があれば「話者B」、どの声にも名前がなければ今までどおり「話者A・B」と出す。デスクトップの字幕の色はラベルで決め、名前を付けても変わらない。
 - SteamVRの大きいログは受信の見出し（時刻と「Receive」）の後ろに話者を「ミカ·B」の形で出す。48字を超えると「…」で切る。名前を付けると、そのセッションの字幕を表示中なら描き直す。
+- SteamVRの一行の字幕は、文の上の行に話者を同じ形で出す。名前を付けても表示中の字幕は描き直さず、次の字幕から名前で出す。
 - ログでは、同じセッションで同じ話者の行が続くとき、2行目からは時刻だけを出し、状態と話者の表示を省く。スクリーンリーダーには話者を読ませる。処理中や失敗の行は省かない。VRパネルでは名前を付けられない（表示だけ）。
 
 表示した空でない`final`には、次の結果通知を1回発行する。`revision`は`final`より2大きい。本文と訳はこの通知に含めず、同じ行に保持する。
@@ -399,6 +400,7 @@ APIキーは`config.json`に書かない（0.5.0から）。いまはOSの資格
 - JSONとして読めるが項目を復号できない`secrets.json`（別のユーザーのDPAPIなど）は`store_id`をそのまま使い、次にキーを保存するときに`secrets.json.unreadable-<日時>-<乱数>`へ移してIDを引き継いだ新しいファイルを作る。JSONとして読めない`secrets.json`も、キーを保存するときに同じ名前へ移し、新しいIDで作る。どちらも元のファイルは消さない。一時的に読めないファイルには触れず、書き込みを一時的な失敗にする。
 - 翻訳のカタログに利用者が足したAPIの項目（#413）のキーも同じ保管場所に置く。項目の名前は`TRANSLATION_CATALOG/<項目のID>`で、設定（`SECRET_SETTINGS`）には入れない。項目を足すときにキーを書いて読み戻す。書けない、読み戻せないときも項目は足し、キーは設定のキーと同じくその起動のあいだだけメモリーに持つ（`native/core/src/config/mod.rs`の`Config::keep_secret`）。`/run/secret_store_failed`で1回だけ知らせ、次の保存、30秒ごと、アプリを閉じるときにもう一度書く。平文のファイルには書かない。項目の`key`は、保管場所がキーを持てたときに`true`になる。保管場所に置けないままアプリを閉じた項目は、次の起動ではキーのない項目になる。画面は「APIキーがありません」と示し、項目を削除して追加し直すよう伝える。使うときは、メモリーに持っているキーを先に使う。保管場所が一時的に読めないとき（`locked`、`unavailable`など）は、キーがないとは扱わず、409の`translation_catalog_key_unreadable`を返して何も変えない。項目を削除すると、メモリーと保管場所のキーも消す。保管場所から消せなければ、設定のキーと同じく次の保存と30秒ごとにやり直す。
 - 0.5.xに戻すと、移したキーは`secrets.json`にないので入れ直しが要る。キーはOSのストアに残っている。0.4以前に戻した場合も同じである。
+- Windowsのアンインストーラーで「アプリケーションデータを削除する」を選ぶと、アンインストーラーはインストール先の`secrets.json`から`store_id`を読み、資格情報マネージャーから`ASTAROT/<store_id>/`と0.6.0の`VRCT-VOX/<store_id>/`で始まる汎用の資格情報を消してから、`secrets.json`を消す。消しきれなかった項目があるときは`secrets.json`を残し、もう一度アプリのデータごとアンインストールしたとき（同じフォルダーにもう一度インストールしてから行う）に、同じ`store_id`で残りを消し直せるようにする。ほかの`store_id`の項目（別のインストールや`ASTAROT_CONFIG_DIR`で分けた設定のもの）には触れない。`store_id`がないとき、16桁の小文字の16進でないときは、資格情報を消さない。消せなかった項目があれば、`secrets.json`を残したことと名前の始まりを示して、アンインストールをし直すか、資格情報マネージャーの「Windows資格情報」で消すよう伝える（[Windowsのアンインストールで消すもの](#windowsのアンインストールで消すもの)）。
 ## そのほかのファイル
 
 | ファイル | 置き場所 | 内容 |
@@ -416,6 +418,7 @@ APIキーは`config.json`に書かない（0.5.0から）。いまはOSの資格
 | weights/ctranslate2/… | PATH_DATA | 0.4までのPythonバックエンドが取得したCTranslate2の翻訳モデルと検証記録。0.5.0の中核は読まず、起動の後でPythonが作った名前のフォルダだけを消す（リンクやジャンクションはたどらない。`native/core/src/controller/legacy_weights.rs`、[中核の統合](../voice-stack/core-integration.md)の「旧 CTranslate2 の重み」） |
 | `translation-models/<フォルダー>/` | PATH_DATA | 以前の中核が読んだ、利用者が置いた翻訳のモデル（重みの名前は`custom:<フォルダー>`）。#597からは一覧に出さず、読み込まない。フォルダーとファイルは消さず動かさない。中核はこのフォルダーにフォルダーがあるかどうかだけを`/get/data/translation_catalog`の`retired_folder_used`で伝え、翻訳のページはそのあいだ翻訳のカタログの「自分のモデルを追加」への案内を出す。名前やパスは伝えない |
 | `secrets.json` | `config.json`と同じフォルダ | APIキー（[APIキーの保存先](#apiキーの保存先)）。Windowsでは暗号化、Linuxでは権限0600 |
+| `exports/` | `config.json`と同じフォルダ | 利用者が書き出した用語辞書（`vocabulary-年月日-時分秒.txt`、[ファイルへの書き出しと読み込み](#ファイルへの書き出しと読み込み)）。アプリは読まない |
 | `storage_migration.json` | Linux配布版の設定のフォルダーとデータのフォルダー（0.6.0から） | そのフォルダーを新しく作ったか、`vrct-vox`から移したかの記録（[Linuxの保存先の移動](#linuxの保存先の移動)） |
 | `config.json.before-migration-storage` | `config.json`と同じフォルダ | Linuxの保存先を移したときに、パスを付け替える前の`config.json`（APIキーを除く。権限0600）。アプリは読まない |
 | `voice_mute_state.json` | `config.json`と同じフォルダ | `{"version": 1, "muted": 真偽}`。すぐに書き、原子的に置き換える |
@@ -423,6 +426,19 @@ APIキーは`config.json`に書かない（0.5.0から）。いまはOSの資格
 | `io.github.kein5.vrct-vox.desktop` | `$XDG_DATA_HOME/applications/` | Waylandでショートカットを登録するためのデスクトップファイル |
 
 UIは独自の状態を持たない（`localStorage`も使わない）。画面の状態はすべてサイドカーから受け取る。
+
+### Windowsのアンインストールで消すもの
+
+Windowsでは`config.json`を置くフォルダーがインストール先なので、上の表の`config.json`と同じフォルダーと`PATH_DATA`のものはインストール先にある。アンインストーラーは、利用者が確認の画面で「アプリケーションデータを削除する」を選んだときだけ、次のものを消す（`src-tauri/nsis/template.nsi`の`Section Uninstall`）。選ばなければ残す。アプリの更新が別の場所の古いインストールを消すときも、この項目は選ばれないので残る。
+
+- 設定: `config.json`と`config.json.*`（ロック、`unreadable-*`、0.5までの`before-migration-*`、保存の途中で止まったときの一時ファイル）
+- APIキー: 資格情報マネージャーにあるこのフォルダーのキー（[APIキーの保存先](#apiキーの保存先)）、`secrets.json`、`secrets.json.*`
+- `user_models.json`、`translation_catalog.json`、`voice_mute_state.json`、`telemetry_state.json`と、それぞれを書く途中で止まったときの一時ファイル
+- `downloaded_models/`、`vc_runtimes/`、`logs/`、`weights/`
+- 0.5までのPythonバックエンドがアプリの隣に書いたログ（`process.log`、`error.log`、`crash_trace.log`、`freeze_trace.log`、`startup_timing.log`）
+- WebView2のデータ（`%APPDATA%`と`%LOCALAPPDATA%`のアプリIDのフォルダー）
+
+`translation-models/`と`exports/`は利用者が置いたか書き出したファイルなので消さない。この2つにファイルがあれば、インストール先のフォルダーも残る。`installer_language.txt`は、選んだかどうかにかかわらず消す。表にファイルやフォルダーを足すときは、`Section Uninstall`も直す（`tests/devtools/test_nsis_staged_update.py`が表と照らし合わせる）。
 
 ### 文字起こしの診断ログ
 

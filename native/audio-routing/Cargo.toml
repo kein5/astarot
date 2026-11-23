@@ -18,7 +18,8 @@ default = ["pipewire"]
 pipewire = ["dep:pipewire"]
 
 [dependencies]
-# The route's names, under the spelling written and the one read during 0.6.x (ADR-014, 2.8).
+# The route's names, under the spelling written and the one read during 0.6.x (ADR-014, 2.8), and
+# the host's environment for the programs it starts under the AppImage (#924, item 22).
 astarot-app-identity = { path = "../app-identity" }
 serde_json = "=1.0.154"
 
