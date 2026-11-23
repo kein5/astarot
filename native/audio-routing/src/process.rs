@@ -9,7 +9,8 @@ use std::time::{Duration, Instant};
 
 /// The environment external processes get. The host application builds it the way
 /// `runtime_paths.external_process_env()` does (without backend-only variables, with
-/// the user's own library path); by default it is this process's environment.
+/// the user's own library path); by default it is this process's environment, with the host's
+/// values back under the AppImage (#924, item 22).
 #[derive(Debug, Clone)]
 pub struct ProcessEnv {
     pub vars: Vec<(OsString, OsString)>,
@@ -17,7 +18,14 @@ pub struct ProcessEnv {
 
 impl Default for ProcessEnv {
     fn default() -> Self {
-        Self { vars: std::env::vars_os().collect() }
+        let mut env = Self { vars: std::env::vars_os().collect() };
+        for (name, value) in astarot_app_identity::appimage::host_environment(|name| std::env::var(name).ok()) {
+            match value {
+                Some(value) => env.set(name, &value),
+                None => env.vars.retain(|(key, _)| key != name),
+            }
+        }
+        env
     }
 }
 

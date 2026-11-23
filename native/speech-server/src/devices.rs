@@ -121,8 +121,14 @@ pub type Environment = Option<Vec<(OsString, OsString)>>;
 
 pub(crate) fn command(binary: &Path, environment: &Environment) -> Command {
     let mut command = Command::new(binary);
-    if let Some(environment) = environment {
-        command.env_clear().envs(environment.iter().map(|(key, value)| (key, value)));
+    match environment {
+        Some(environment) => {
+            command.env_clear().envs(environment.iter().map(|(key, value)| (key, value)));
+        }
+        // Under the AppImage, the host's environment rather than the GUI's (#924, item 22).
+        None => {
+            astarot_app_identity::appimage::restore_host_environment(&mut command);
+        }
     }
     command.env("NO_COLOR", "1").stdin(Stdio::null());
     #[cfg(windows)]

@@ -91,9 +91,7 @@ pub const RUN_MAPPING: &[(&str, &str)] = &[
     // The core's own (#278): the recorder's VAD could not use the speech.cpp server and cuts by
     // volume (`VAD_UNAVAILABLE`, with the reason).
     ("vad_unavailable", "/run/vad_unavailable"),
-    ("download_progress_ctranslate2_weight", "/run/download_progress_ctranslate2_weight"),
     ("downloaded_ctranslate2_weight", "/run/downloaded_ctranslate2_weight"),
-    ("error_ctranslate2_weight", "/run/error_ctranslate2_weight"),
     ("ctranslate2_license_notice", "/run/ctranslate2_license_notice"),
     // The core's own (#565): a saved choice of a weight the app no longer offers loaded as the default.
     ("translation_model_retired", "/run/translation_model_retired"),
@@ -195,8 +193,9 @@ pub struct Services {
     /// Only the host running the core as the default backend sets it: while the Python sidecar
     /// is the default, its local translation keeps its weights.
     pub retire_legacy_translation_weights: bool,
-    /// How the translation providers reach the network ([`astarot_translation::http::direct`]),
-    /// and speech.cpp's server on this PC is asked for its models.
+    /// How the translation providers reach the network, and speech.cpp's server on this PC is
+    /// asked for its models: through the proxy of the environment or Windows' Internet Settings,
+    /// as the recognition engines (#924, item 18). This PC and the LAN go straight.
     pub translation_transport: astarot_translation::http::Transport,
     /// How the cloud recognition engines reach the network: through the proxy of the
     /// environment or Windows' Internet Settings ([`astarot_translation::http::system_proxy`],
@@ -280,7 +279,7 @@ impl Default for Services {
             vrc_mic_mute: Arc::new(|_| {}),
             stop_mic_transcription: Arc::new(|| {}),
             retire_legacy_translation_weights: false,
-            translation_transport: astarot_translation::http::direct(),
+            translation_transport: astarot_translation::http::system_proxy(),
             transcription_transport: astarot_translation::http::system_proxy(),
             translation_endpoints: astarot_translation::providers::Endpoints::default(),
             local_translation: Arc::new(translation::default_local_translation),

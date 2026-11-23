@@ -34,7 +34,7 @@ IME変換中のEnterとキーリピートは送信しない。
 
 ## ショートカットとWayland
 
-Windows、X11、XWaylandでは既存のTauri global-shortcut pluginを再利用する。固定依存 `global-hotkey 0.6.4` の
+Windows、X11、XWaylandでは既存のTauri global-shortcut pluginを再利用する。固定依存 `global-hotkey`（2026-11-23 時点で 0.8.0）の
 ローカルソースはLinuxをX11のみとしている。ネイティブWaylandではGlobalShortcuts portalを使う（下記）。
 過去の4項目だけを持つHOTKEYS設定は、値を保持したまま `open_quick_chat: null` を補う。
 
@@ -47,7 +47,7 @@ Activatedの `activation_token` は対象ウィンドウをアクティブにす
 2026-10-31からはportalで登録する（`src-tauri/src/portal_shortcuts.rs`）。portalはインストール済みの
 desktop fileでアプリを識別するため、ほかに用意されていなければ `~/.local/share/applications/io.github.kein5.vrct-vox.desktop` を作る。
 押下はportalのシグナルとして受け取り、本体ウィンドウへ渡す。初回はデスクトップが確認画面を出す。
-KDEではportalの指定キーが新規登録時の初期値にしかならないため、VRCTのキーをkglobalaccelにも書き込み、
+KDEではportalの指定キーが新規登録時の初期値にしかならないため、ASTAROTのキーをkglobalaccelにも書き込み、
 KDEが実際に使うキーを読み戻す。別のキーが残った場合はその旨を表示する。
 KDEのportalは押下時にactivation tokenを渡さないため、ゲームの背面にある表示中の小窓は、
 自プロセスのウィンドウだけを対象にしたKWinスクリプトで前面に出す。ほかのデスクトップでは通常の表示要求だけを行う。
