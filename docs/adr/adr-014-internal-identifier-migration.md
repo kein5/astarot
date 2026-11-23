@@ -5,7 +5,7 @@ era: rust-core
 validity: current
 implementation_status: partial
 implementation_checked: 2026-11-23
-implementation_note: 0.6.0 で Linux の保存先、環境変数、モデル取得の所有マーカーを移し、その後に資格情報の名前とクレートとパッケージの名前を移した（project-rename.md の表）。アプリ ID、実行ファイル名、配布物の名前、Windows のインストール先とレジストリのキー、Linux の音声経路の名前は、まだ旧名のまま。
+implementation_note: 0.6.0 で Linux の保存先、環境変数、モデル取得の所有マーカーを移し、その後に資格情報の名前、クレートとパッケージの名前、Linux の音声経路の名前（#979）を移した（project-rename.md の表）。アプリ ID、Windows のインストール先とレジストリのキー、実行ファイル名、Linux のパッケージ、配布物の名前（手順 4〜8）はまだ旧名のままで、0.7.0 で一緒に出す（2.10 の決定の注記）。
 evidence:
   - docs/adr/adr-014-internal-identifier-migration.md
   - docs/voice-stack/project-rename.md
