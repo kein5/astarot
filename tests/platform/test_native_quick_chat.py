@@ -147,7 +147,7 @@ def test_shortcut_raises_input_above_fullscreen_without_restoring_main(tmp_path)
 
 def test_shortcut_focus_escape_and_single_pipeline(tmp_path):
     from pythonosc.osc_packet import OscPacket
-    with private_graph(config_fragment=ROOT / 'config/pipewire/90-vrct-managed.conf'), ExitStack() as stack:
+    with private_graph(config_fragment=ROOT / 'config/pipewire/90-astarot-managed.conf'), ExitStack() as stack:
         translation = stack.enter_context(TranslationFixture(['Quick chat translation']))
         tts = stack.enter_context(SpeechServerFixture())
         osc = stack.enter_context(socket.socket(socket.AF_INET, socket.SOCK_DGRAM))

@@ -479,24 +479,14 @@ impl Dispatcher {
     }
 }
 
-/// A failed legacy weight download names the weight, and a failed typed message its
-/// row's id, without echoing the request (`_request_error_result`). Several of either
-/// can wait on one lock, so the UI cannot match a failure by its endpoint alone.
+/// A failed typed message names its row's id, without echoing the request
+/// (`_request_error_result`). Several can wait on one lock, so the UI cannot match a failure
+/// by its endpoint alone.
 fn request_error_result(endpoint: Option<&str>, data: &Value, result: Value, status: u16) -> Value {
     if !matches!(status, 404 | 423 | 500) {
         return result;
     }
     let identity = match endpoint {
-        Some("/run/download_ctranslate2_weight") => {
-            let weight_type = match data {
-                Value::Object(object) => object.get("weight_type").cloned(),
-                other => Some(other.clone()),
-            };
-            match weight_type {
-                Some(Value::String(weight_type)) => json!({ "weight_type": weight_type }),
-                _ => return result,
-            }
-        }
         // Only the id: the message itself never goes back out.
         Some("/run/send_message_box") => match data.get("id") {
             Some(Value::String(id)) => json!({ "id": id }),

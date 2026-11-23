@@ -84,6 +84,9 @@ def payloads():
         "range-fallback": good,
         # Served damaged (one byte changed, same length) the first time only.
         "damaged-once": good,
+        # Each transfer stops after its first block until the test releases it, so that a second
+        # run can start while the first one is downloading.
+        "held": good,
         OWN: good,
     }
 
@@ -97,6 +100,9 @@ class PackageServer(ThreadingHTTPServer):
         self.damaged = False
         self.requests = []
         self.request_lock = threading.Lock()
+        # "held": set once a transfer has sent its first block; the rest waits for release.
+        self.holding = threading.Event()
+        self.release = threading.Event()
 
 
 class PackageHandler(BaseHTTPRequestHandler):
@@ -164,6 +170,9 @@ class PackageHandler(BaseHTTPRequestHandler):
                         time.sleep(0.2)
                     self.wfile.write(data[offset:min(offset + 8192, end + 1)])
                     self.wfile.flush()
+                    if version == "held" and parts[1] == PACKAGE and offset == start:
+                        self.server.holding.set()
+                        self.server.release.wait(timeout=120)
             except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
                 pass
 
@@ -227,12 +236,26 @@ def installer_environment(temp):
 
 
 def run_install(installer, directory, version, temp, success, extra=""):
+    before = snapshot(temp) if temp.exists() else {}
     result = subprocess.run(installer_command(installer, directory, version, extra=extra),
                             env=installer_environment(temp), timeout=180, check=False)
     assert result.returncode == (0 if success else 2), f"{version}: exit {result.returncode}"
-    assert not list(temp.glob(PACKAGE + ".p*")), "Background transfer fragments remain"
-    assert not (temp / PACKAGE).exists(), "Downloaded archive was not removed"
-    assert not (temp / (PACKAGE + ".sha256")).exists(), "Checksum sidecar remains"
+    assert_own_downloads_gone(temp, before)
+
+
+# The archive a failed install keeps in TEMP for diagnosis; a successful one removes it.
+KEPT = PACKAGE + ".bad"
+
+
+def assert_own_downloads_gone(temp, before):
+    """A run downloads into a folder of its own in TEMP and removes it: what was in TEMP before
+    is untouched (the kept archive aside), and nothing it downloaded is left."""
+    after = snapshot(temp)
+    changed = [name for name, digest in before.items() if name != KEPT and after.get(name) != digest]
+    assert not changed, f"The installer changed files it did not make in TEMP: {changed}"
+    left = [name for name in after.keys() - before.keys()
+            if name != KEPT and (Path(name).name.startswith(PACKAGE) or Path(name).name == "package")]
+    assert not left, f"Downloads remain in TEMP: {left}"
 
 
 def add_user_data(directory):
@@ -309,6 +332,86 @@ def interrupted_commit(directory, checkpoint):
         # Marker still present: rerunning rollback must tolerate this point.
 
 
+def wait_for(condition, timeout=60):
+    """The first truthy value of condition(), polled until the timeout."""
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        value = condition()
+        if value:
+            return value
+        time.sleep(0.2)
+    raise AssertionError(f"Timed out waiting for {condition}")
+
+
+def installer_language():
+    import winreg
+    try:
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, PRODUCT_KEY, 0, winreg.KEY_READ | winreg.KEY_WOW64_64KEY) as key:
+            return winreg.QueryValueEx(key, "Installer Language")[0]
+    except FileNotFoundError:
+        return None
+
+
+def set_installer_language(value):
+    import winreg
+    with winreg.CreateKeyEx(winreg.HKEY_CURRENT_USER, PRODUCT_KEY, 0, winreg.KEY_WRITE | winreg.KEY_WOW64_64KEY) as key:
+        if value is None:
+            try:
+                winreg.DeleteValue(key, "Installer Language")
+            except FileNotFoundError:
+                pass
+        else:
+            winreg.SetValueEx(key, "Installer Language", 0, winreg.REG_SZ, value)
+
+
+@contextmanager
+def held_first_run(installer, directory, temp, server):
+    """A silent run that is downloading: the server holds its transfer until the block ends.
+    Then the run finishes, and must succeed and leave no downloads in TEMP."""
+    server.holding.clear()
+    server.release.clear()
+    before = snapshot(temp) if temp.exists() else {}
+    first = subprocess.Popen(installer_command(installer, directory, "held"), env=installer_environment(temp))
+    try:
+        assert server.holding.wait(timeout=120), "The first run never started its download"
+        # It downloads into a folder of its own in TEMP, not into TEMP itself.
+        downloading = wait_for(lambda: [p for p in temp.rglob(PACKAGE + "*") if p.is_file()])
+        assert all(p.parent.name == "package" and p.parent != temp for p in downloading), downloading
+        yield first
+        server.release.set()
+        assert first.wait(timeout=180) == 0, f"first run: exit {first.returncode}"
+        assert_own_downloads_gone(temp, before)
+    finally:
+        server.release.set()
+        if first.poll() is None:
+            first.kill()
+            first.wait(timeout=10)
+
+
+def second_run_scenario(installer, work, server, directory, before):
+    """An in-app update and a setup started by hand at once: the second run says so and ends
+    with exit code 2 before it changes anything, and the first one finishes as if alone."""
+    with held_first_run(installer, directory, work / "temp-first-run", server):
+        during = snapshot(directory)
+        language = installer_language()
+        # The first run is past the point where it writes this value; the second one must not.
+        set_installer_language("1041")
+        with server.request_lock:
+            seen = len(server.requests)
+        second_temp = work / "temp-second-run"
+        result = subprocess.run(installer_command(installer, directory, "new"),
+                                env=installer_environment(second_temp), timeout=60, check=False)
+        assert result.returncode == 2, f"second run: exit {result.returncode}"
+        assert snapshot(directory) == during, "The second run changed the install folder"
+        assert installer_language() == "1041", "The second run wrote the installer language"
+        set_installer_language(language)
+        with server.request_lock:
+            asked = [r["path"] for r in server.requests[seen:] if not r["path"].startswith("/vheld/")]
+        assert not asked, f"The second run downloaded: {asked}"
+        assert not list(second_temp.rglob(PACKAGE + "*")), "The second run left downloads in TEMP"
+    expect_updated(directory, before)
+
+
 def silent_scenarios(installer, work, server):
     baseline = work / "fresh install"
     run_install(installer, baseline, "old", work / "temp-fresh", True)
@@ -320,6 +423,7 @@ def silent_scenarios(installer, work, server):
                           "uninstall.exe": sha256((baseline / "uninstall.exe").read_bytes()).hexdigest(),
                           "installer_language.txt": sha256(b"").hexdigest()})
     assert_tree(baseline, expected_fresh)
+    assert installed_version() == "old"
     print("PASS fresh install", flush=True)
     add_user_data(baseline)
     before = snapshot(baseline)
@@ -332,7 +436,23 @@ def silent_scenarios(installer, work, server):
     updated = clone("update success")
     run_install(installer, updated, "new", work / "temp-success", True)
     expect_updated(updated, before)
+    # The Apps list shows the version /VERSION installed, not the installer's own.
+    assert OWN != "new" and installed_version() == "new", installed_version()
     print("PASS update success and user data retention", flush=True)
+
+    second_run_scenario(installer, work, server, clone("second run"), before)
+    print("PASS a second run while one runs changes nothing and exits with code 2", flush=True)
+
+    # Files with the names of the download in TEMP belong to another program, or to an installer
+    # without its own download folder: run_install checks that they stay as they are.
+    temp = work / "temp-foreign"
+    temp.mkdir()
+    for name in (PACKAGE, PACKAGE + ".sha256", PACKAGE + ".p0", PACKAGE + ".p3"):
+        (temp / name).write_bytes(f"{name} of another program".encode())
+    directory = clone("files of another program in TEMP")
+    run_install(installer, directory, "new", temp, True)
+    expect_updated(directory, before)
+    print("PASS a run leaves files with the names of its download in TEMP alone", flush=True)
 
     # The in-app updater (src-tauri/src/app_update.rs) adds /UPDATE. The app's language setting
     # stays: no installer_language.txt for the app to apply at start.
@@ -365,6 +485,7 @@ def silent_scenarios(installer, work, server):
     with server.request_lock:
         fetched = [request["path"] for request in server.requests if request["path"].startswith(f"/v{OWN}/")]
     assert fetched and not any(path.endswith(".sha256") for path in fetched), fetched
+    assert installed_version() == OWN
     print("PASS own version checked against the built-in hash", flush=True)
 
     # Someone who can replace release files swaps the package and its .sha256 together. The
@@ -389,8 +510,10 @@ def silent_scenarios(installer, work, server):
 
     for version in ("checksum-404", "invalid-checksum", "hash-mismatch", "corrupt", "partial", "no-exe", "no-internal"):
         directory = clone(version)
+        recorded = installed_version()
         run_install(installer, directory, version, work / f"temp-{version}", False)
         assert_tree(directory, before)
+        assert installed_version() == recorded, "A failed install changed the recorded version"
         if version in ("corrupt", "partial", "no-exe", "no-internal"):
             assert (work / f"temp-{version}" / (PACKAGE + ".bad")).read_bytes() == server.payloads[version]
         if version == "hash-mismatch":
@@ -516,6 +639,38 @@ def gui_scenario(installer, work):
             process.wait(timeout=10)
 
 
+def gui_second_run_scenario(installer, work, server):
+    """A second run with a window tells the user that another run is active, in a message box,
+    and ends with exit code 2 once it is closed."""
+    from pywinauto import Desktop
+    directory = work / "gui first run"
+    with held_first_run(installer, directory, work / "temp-gui-first-run", server):
+        second = subprocess.Popen(installer_command(installer, directory, "new", silent=False),
+                                  env=installer_environment(work / "temp-gui-second-run"))
+        desktop = Desktop(backend="win32")
+        told = False
+        deadline = time.monotonic() + 60
+        try:
+            while second.poll() is None and time.monotonic() < deadline:
+                for window in desktop.windows(process=second.pid, visible_only=True):
+                    text = "\n".join([window.window_text()] + [c.window_text() for c in window.descendants()])
+                    if "already running" in text or "すでに動いています" in text:
+                        told = True
+                        ok = [b for b in window.descendants(class_name="Button")
+                              if b.window_text().replace("&", "").strip() == "OK"]
+                        if ok:
+                            ok[0].click()
+                time.sleep(0.1)
+            assert second.poll() is not None, "The second run did not end"
+            assert second.returncode == 2, f"second run: exit {second.returncode}"
+            assert told, "The second run did not say that another run is active"
+        finally:
+            if second.poll() is None:
+                second.kill()
+                second.wait(timeout=10)
+    print("PASS a second run with a window says another run is active and exits with code 2", flush=True)
+
+
 PRODUCT_NAME = json.loads((ROOT / "src-tauri/tauri.conf.json").read_text(encoding="utf-8"))["productName"]
 OLD_FOLDER = "VRCT-VOX"
 OLD_SHORTCUT = "vrct-vox.lnk"
@@ -550,6 +705,12 @@ def uninstall_entry():
                     for name in ("DisplayName", "DisplayVersion", "InstallLocation")}
     except FileNotFoundError:
         return None
+
+
+def installed_version():
+    """The version the Apps list shows for the install (DisplayVersion)."""
+    entry = uninstall_entry()
+    return entry and entry["DisplayVersion"]
 
 
 def uninstall_entries_named(*names):
@@ -595,6 +756,7 @@ def rename_scenarios(installer, work):
     assert (new_dir / APP).is_file() and not old_dir.exists()
     entry = uninstall_entry()
     assert entry["DisplayName"] == PRODUCT_NAME, entry
+    assert entry["DisplayVersion"] == "new", entry
     assert entry["InstallLocation"].strip('"') == str(new_dir), entry
     assert (desktop / f"{PRODUCT_NAME}.lnk").is_file()
     assert list(programs.rglob(f"{PRODUCT_NAME}.lnk")), "No Start menu shortcut"
@@ -892,6 +1054,7 @@ def main():
         else:
             delete_app_data_scenario(args.installer.resolve(), work)
             gui_scenario(args.installer.resolve(), work)
+            gui_second_run_scenario(args.installer.resolve(), work, server)
 
 
 if __name__ == "__main__":

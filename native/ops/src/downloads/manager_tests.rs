@@ -921,3 +921,35 @@ fn the_default_catalog_validates_and_names_each_remote() {
     assert_eq!(catalog::validate_catalog(&bad), Err("catalog_invalid"));
     let _ = transport::USER_AGENT;
 }
+
+#[test]
+fn a_download_whose_thread_cannot_start_puts_the_entry_back_and_can_be_asked_for_again() {
+    let s = setup();
+    start(&s.manager).unwrap();
+    let ready = finish(&s.manager);
+    assert_eq!(phase(&ready), "ready");
+
+    s.manager.hooks().thread_unavailable = true;
+    assert!(matches!(start(&s.manager), Err(Error::Io(_))));
+    // Not left "queued", which would answer download_busy for good: the entry's earlier job is
+    // back as it was.
+    assert_eq!(job(&s.manager), ready);
+
+    s.manager.hooks().thread_unavailable = false;
+    start(&s.manager).expect("a new request is taken");
+    assert_ne!(text(&job(&s.manager), "job_id"), text(&ready, "job_id"), "a new job");
+    assert_eq!(phase(&finish(&s.manager)), "ready");
+}
+
+#[test]
+fn a_first_download_whose_thread_cannot_start_leaves_no_job_behind() {
+    let s = setup();
+    s.manager.hooks().thread_unavailable = true;
+    assert!(matches!(start(&s.manager), Err(Error::Io(_))));
+    assert_eq!(job(&s.manager), Json::Null, "no entry was started");
+    assert!(s.opened.lock().unwrap().is_empty(), "nothing was fetched");
+
+    s.manager.hooks().thread_unavailable = false;
+    start(&s.manager).expect("the download can be asked for again");
+    assert_eq!(phase(&finish(&s.manager)), "ready");
+}

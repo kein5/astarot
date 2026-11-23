@@ -269,8 +269,6 @@ HTTPでプライベートLANやリンクローカルのアドレスへ接続す�
 
 起動時の取得では、保存された値と現在のモデル一覧の値が一致するか確認する。版、ファイルの容量・SHA-256、ライセンス、tokenizerの版が変わると再確認が必要になる。古い値はファイルを削除する根拠にはしない。旧版からの移行時は記録なしとして扱い、`AUTO_DOWNLOAD_MODELS=True`や既存のNLLB選択から同意を推測しない。既に取得したファイルとモデルの選択は保持する。
 
-CTranslate2の取得に失敗したとき（`WEIGHT_CTRANSLATE2_DOWNLOAD`）、`data.reason`は`download_failed`、`insufficient_space`、`hash_mismatch`、`size_mismatch`、`verification_failed`、`download_deadline`、`cancelled`、`download_busy`、`downloads_closed`、`unsafe_destination`の固定のコードで、パスや例外の文は入れない。UIはこのコードに対応する理由を通知に出し、知らないコードは一般的な失敗として扱う（#305）。`cancelled`（取得を止めた）は失敗として知らせず、一覧の取得中の表示だけを戻す。現在、旧形式の取得を止めるのは、アプリの終了時と、起動時に再取得する前だけである。同じモデルの取得が動いている（`active_job_id`がある、`download_busy`）か終了中（`downloads_closed`）でなければ、通知に「確認して再試行」を付け、閉じるまで消さない。押すとそのモデルの確認画面を開き直し、取得は改めて同意を得てから送る。通知から直接は取得しない。CTranslate2は#288で廃止する予定のため、これは現行版の利用者が行き止まりにならないための最小限の対応である。
-
 ### チャット読み取りの範囲
 
 `OCR_CAPTURE_REGION`はデスクトップのウィンドウ用、`OCR_VR_CAPTURE_REGION`はWindowsのSteamVRヘッドセット映像の左目側用で、どちらも`config.json`に保存する。画面ごとに幅と高さに対する割合で指定する。
@@ -353,6 +351,32 @@ CTranslate2の取得に失敗したとき（`WEIGHT_CTRANSLATE2_DOWNLOAD`）、`
 結果は`startup.log`に1行だけ書く。`Storage folders: settings=<結果> data=<結果>`で、結果は`given`、`created`、`moved`、`finished`、`in_place`、`kept_old:<理由>`のどれか。理由は`app_running`、`instance_check_unavailable`、`new_folder_not_ours`、`cross_device`、`permission_denied`、`busy`、`new_folder_appeared`、`rename_failed`、`record_failed`、`path_not_utf8`。付け替えた起動では` paths=rewritten`（変えるものがなければ`unchanged`、失敗は`failed`）、リンクを置けなければ` settings_link=failed`か` data_link=failed`を足す。パス、設定の値、APIキーは書かない。
 
 WindowsとLinuxの開発ビルドは、これまでどおり実行ファイルのフォルダーを使い、移さない。
+
+### Linuxの音声経路の名前の移行
+
+0.6.0の次の版から、Linuxの管理対象の経路（仮想マイク）はASTAROTの名前で作る（ADR-014の2.8）。名前の定義は`native/app-identity`の`audio_route`にあり、旧名との組で持つ。
+
+| 対象 | 0.6.0まで | 新しい名前 |
+|---|---|---|
+| ノード | `vrct.managed.source`など | `astarot.managed.source`など |
+| ノードの説明（VRChatのマイクの一覧に出る） | `VRCT Managed Virtual Microphone`など | `ASTAROT Managed Virtual Microphone`など |
+| ノードの印と所有者 | `vrct.managed.route`、`vrct.managed.owner`=`vrct-vox-service-v1` | `astarot.managed.route`、`astarot.managed.owner`=`astarot-service-v1` |
+| systemdのユーザーユニット | `vrct-managed-{source,tts,vc}.service` | `astarot-managed-{source,tts,vc}.service` |
+| 手で置く設定 | `90-vrct-managed.conf` | `90-astarot-managed.conf` |
+| 一時のストリーム | `vrct.source-bridge.*`、`vrct.asr.capture.*`、`vrct.tts`など | `astarot.source-bridge.*`、`astarot.asr.capture.*`、`astarot.tts`など |
+
+中核は管理対象の経路を準備するたびに（経路を保存したとき、経路を保存してある起動のとき、経路のノードが見つからなくなったとき）次のとおり移す。利用者が経路を選んでいなければ、旧の経路には触れない。
+
+- 旧の名前のユニットは、名前、所有者識別子、中身がどれも0.6.0までの中核の書いたものと一致し、systemdがそのファイルをドロップインなしで読んでいるときだけ、止めて無効にし、消す。中身は`ExecStart`の`pw-loopback`のパスを除いてバイト単位で比べる。1つでも一致しないユニットがあれば3つとも利用者のものとして残す。新しい経路がまだないときは`managed_setup_conflict`を返し、新しい経路を作らない。仮想マイクが2つ並ぶのを避けるためである。
+- 旧の名前のノードのうち中核の所有者識別子がないもの（手で作った旧の経路）があるときも、`managed_setup_conflict`を返す。
+- 手で置いた設定は、新旧どちらの名前でも`$XDG_CONFIG_HOME/pipewire/pipewire.conf.d`と`/etc/pipewire/pipewire.conf.d`で探す。経路がまだないときに見つけたら、自動で作らない。新しい名前なら`managed_setup_manual_config_pending`、旧の名前なら`managed_setup_manual_config_legacy`を返す。
+- 旧のユニットを消したら、新しい名前で作り直す。新しい仮想マイクは今までどおりミュートで始まり、利用者が「ミュートを解除」を押すまで音を出さない。
+- 新しい経路がすでに動いていても、中核の旧のユニットが残っていれば止めて消す（0.6.0に戻して戻ってきたときなど）。
+- 旧の名前の接頭辞（`vrct.managed.`、`vrct.source-bridge.`、`vrct.asr.capture.`）と印のノードは、新しい名前と同じく入力、モニター、音声認識の候補から外す。
+
+旧のユニットを止めたとき、中核は`MANAGED_ROUTE_RENAME_NOTICE_PENDING`（真偽値、既定は`false`、保存する）を真にし、`process.log`に`[voice] the managed route retired its legacy units`の1行を書く。真の間は`/get/data/voice_route`の応答に`"notice": "managed_route_renamed"`が付き、音声経路の欄にVRChatでマイクを選び直す案内が出る。利用者が案内を閉じると`/set/disable/managed_route_rename_notice`を送り、偽にする。応答は案内のない音声経路の状態である。新しい経路の準備に失敗しても、旧のユニットを止めたあとなら案内を残す。
+
+旧の名前を読む（旧の接頭辞のノードとストリームを候補から外す、旧の名前の手で置いた設定を見つける、中核のものでない旧の経路を知らせる）のは`audio_route::READS_LEGACY_NAMES`が真の間で、新しい名前を出した版の系列の間である（0.7.0で出せば0.7.xの間）。旧のユニットの片付け（0.6.0までの中核が書いたものと完全に一致するユニットだけを止めて消す）は`audio_route::RETIRES_LEGACY_UNITS`で切り替え、期限を設けない。版を飛ばして更新した環境でも、旧の仮想マイクが残らないようにするためである。どちらも2026-11-23の決定で、ADR-014の2.11の注記にある。
 
 ### APIキーの保存先
 
@@ -451,7 +475,7 @@ ASR/翻訳5,000ms、従来のtotal 10,000ms。
 | `DISPLAY` | X11でのOCRのキャプチャ |
 | `ASTAROT_VR_PANEL_DIR` | Tauriが起動時に決める、このプロセス専用の場所（`$XDG_RUNTIME_DIR/astarot/vr-panel-<pid>`、Linux）。バックエンドはここでVR画面の画素（`frame`）と、共有されたウィンドウの画素（`screen-frame`）を読む。利用者が設定するものではない |
 | `APPIMAGE`と`WEBKIT_DISABLE_DMABUF_RENDERER=1` | NVIDIA環境のAppImageでメインウィンドウを不透明にする |
-| `HTTPS_PROXY`、`ALL_PROXY`、`NO_PROXY`（小文字の名前が先） | 音声認識のクラウドのエンジンへの通信が通るHTTPのプロキシと、通さない宛先。`*_proxy`がどれもないときは、Windowsのインターネットの設定を読む。ローカルとLANの宛先は通さない。翻訳は使わない（`native/translation/src/proxy.rs`） |
+| `HTTPS_PROXY`、`ALL_PROXY`、`NO_PROXY`（小文字の名前が先） | 音声認識のクラウドのエンジンと、オンラインの翻訳のプロバイダへの通信が通るHTTPのプロキシと、通さない宛先。`*_proxy`がどれもないときは、Windowsのインターネットの設定を読む。ローカルとLANの宛先（LM Studio、Ollama、LANのOpenAI互換のサーバーを含む）は通さない（`native/translation/src/proxy.rs`） |
 
 `HF_HUB_OFFLINE`などのオフライン用の変数は、アプリは読まない。`tools/dev.py`が開発用の子プロセスに設定する。
 

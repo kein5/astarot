@@ -236,6 +236,8 @@ pub struct FakeGate {
     pub hold_resume: AtomicBool,
     /// A resume has reached the gate.
     pub resuming: AtomicBool,
+    /// The next preparation retires the units of the route's old names (ADR-014, 2.8).
+    pub retires: AtomicBool,
 }
 
 impl FakeGate {
@@ -251,6 +253,9 @@ impl FakeGate {
 }
 
 impl Gate for FakeGate {
+    fn retired_legacy(&self) -> bool {
+        self.retires.swap(false, Ordering::SeqCst)
+    }
     fn inspect_pair(&self) -> Result<GatePair> {
         self.check()?;
         Ok(self.pair())
@@ -331,7 +336,7 @@ impl RouteDevices for FakeVoice {
 }
 
 /// The managed VC input a Linux conversion plays into.
-pub const MANAGED_VC: &str = "vrct.managed.vc";
+pub const MANAGED_VC: &str = "astarot.managed.vc";
 
 impl ManagedVcDevices for FakeVoice {
     fn bind(&self, _: &Endpoint, _: bool) -> Result<Endpoint> {

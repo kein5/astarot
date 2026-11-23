@@ -49,7 +49,7 @@ class NsisStagedUpdateTests(unittest.TestCase):
         self.assertTrue(install.split('SOFTWARE_DOWNLOAD_FILENAME "', 1)[1].split('"', 1)[0].isascii())
         before, after = install.split(tar, 1)
         before = before.rsplit('DetailPrint "Extracting', 1)[1]
-        self.assertRegex(before, r'Rename "\$TEMP\\\$file_name" "\$INSTDIR\\\.upd\\\$file_name"\n\s*IfErrors attempt_failed')
+        self.assertRegex(before, r'Rename "\$download_dir\\\$file_name" "\$INSTDIR\\\.upd\\\$file_name"\n\s*IfErrors attempt_failed')
         # A failed SetOutPath must not let tar unpack into the old directory.
         self.assertRegex(before, r'SetOutPath "\$INSTDIR\\\.upd\\new"\n\s*\$\{IfNot\} \$\{Errors\}')
         # Leave the staging tree before retrying, committing or removing it.
@@ -58,7 +58,7 @@ class NsisStagedUpdateTests(unittest.TestCase):
         attempt = install.split("install_attempt:", 1)[1].split("${If} $dl_parallel", 1)[0]
         self.assertIn('Delete "$INSTDIR\\.upd\\$file_name"', attempt)
         failed = after.split("attempt_failed:", 1)[0]
-        self.assertIn('Rename "$INSTDIR\\.upd\\$file_name" "$TEMP\\$file_name"', failed)
+        self.assertIn('Rename "$INSTDIR\\.upd\\$file_name" "$download_dir\\$file_name"', failed)
 
     def test_a_hash_mismatch_downloads_again_before_giving_up(self):
         # Issue #424: a truncated transfer shows up as a SHA-256 mismatch; it is retried like any
@@ -79,7 +79,7 @@ class NsisStagedUpdateTests(unittest.TestCase):
         self.assertIn("failed SHA-256 verification. Installation was aborted.", hash_failed)
         self.assertLess(hash_failed.index("Call CleanupFailedInstall"), hash_failed.index("Abort"))
         # A package that failed verification is never kept as the .bad archive.
-        self.assertLess(hash_failed.index('Delete "$TEMP\\$file_name"'), hash_failed.index("Abort"))
+        self.assertLess(hash_failed.index('Delete "$download_dir\\$file_name"'), hash_failed.index("Abort"))
 
     def test_a_slow_single_download_is_cut_only_when_it_stalls_and_then_continues(self):
         install = block("Section", "Install")
@@ -91,9 +91,9 @@ class NsisStagedUpdateTests(unittest.TestCase):
         # Only that file survives into the next attempt, where NScurl /RESUME continues it.
         attempt = install.split("install_attempt:", 1)[1].split("${If} $dl_parallel != \"1\"", 1)[0]
         kept = attempt.split('${If} $dl_resume != "1"', 1)[1].split("${EndIf}", 1)[0]
-        self.assertIn('Delete "$TEMP\\$file_name"', kept)
+        self.assertIn('Delete "$download_dir\\$file_name"', kept)
         self.assertLess(attempt.index("${EndIf}", attempt.index(kept)), attempt.index('StrCpy $dl_resume "0"'))
-        self.assertIn('NScurl::http GET "$cmder_dl" "$TEMP\\$file_name" /INSIST /RESUME', install)
+        self.assertIn('NScurl::http GET "$cmder_dl" "$download_dir\\$file_name" /INSIST /RESUME', install)
 
     def test_a_successful_install_removes_the_archive_a_failed_one_kept(self):
         ready = block("Section", "Install").split("install_ready:", 1)[1]
@@ -162,7 +162,7 @@ class NsisStagedUpdateTests(unittest.TestCase):
             first = install.split(label, 1)[1].strip().splitlines()[0]
             self.assertEqual(first, "Call StopPackageTransfers")
         cleanup = block("Function", "CleanupFailedInstall")
-        self.assertLess(cleanup.index("Call StopPackageTransfers"), cleanup.index("Delete "))
+        self.assertLess(cleanup.index("Call StopPackageTransfers"), cleanup.index('RMDir /r "$download_dir"'))
 
     def test_deferred_uninstall_order_and_location_guard(self):
         install = block("Section", "Install")
@@ -180,6 +180,60 @@ class NsisStagedUpdateTests(unittest.TestCase):
         # old-location removal and registry changes.
         self.assertLess(commit.index('Delete "$INSTDIR\\.upd\\committing"'),
                         commit.index('$deferred_kind == "nsis"'))
+
+
+class NsisOneRunAtATimeTests(unittest.TestCase):
+    """An in-app update (/P /UPDATE /R) and a setup started by hand must not overlap: both empty
+    $INSTDIR\\.upd when they start. The real runs are in tests/installer/."""
+
+    def code(self, text):
+        return [line.strip() for line in text.splitlines() if line.strip() and not line.strip().startswith(";")]
+
+    def test_a_second_run_stops_before_it_changes_anything(self):
+        init = self.code(block("Function", ".onInit"))
+        # The first thing the installer does, before the registry, the pages and the downloads.
+        self.assertTrue(init[0].startswith("System::Call 'kernel32::CreateMutexW(p 0, i 0, w \"${INSTALLERMUTEX}\") p .r1 ?e'"), init[0])
+        guard = init[:init.index("${EndIf}") + 1]
+        self.assertIn("${If} $0 = 183 ; ERROR_ALREADY_EXISTS", guard)
+        self.assertIn("${OrIf} $0 = 5 ; ERROR_ACCESS_DENIED", guard)
+        self.assertIn("Call AnotherRunIsActive", guard)
+        # The handle stays open for the whole run; Windows closes it when the run ends.
+        self.assertNotIn("CloseHandle", SOURCE)
+        # A fixed name, so that it does not change with the registry names.
+        name = SOURCE.split('!define INSTALLERMUTEX "', 1)[1].split('"', 1)[0]
+        self.assertEqual(name, "Local\\ASTAROT-setup")
+        # The uninstaller does not take it: the installer runs the uninstaller and waits for it.
+        self.assertNotIn("INSTALLERMUTEX", block("Function", "un.onInit"))
+
+    def test_the_second_run_says_so_and_exits_with_code_2(self):
+        another = block("Function", "AnotherRunIsActive")
+        for word in ("Delete", "RMDir", "Rename", "WriteReg", "DeleteReg", "NScurl", "Exec"):
+            self.assertNotIn(word, another)
+        silent, shown = another.split("another_run_message:", 1)
+        self.assertIn('FileWrite $0 "$(anotherRunIsActive)$\\n"', silent)
+        self.assertIn('MessageBox MB_OK|MB_ICONEXCLAMATION "$(anotherRunIsActive)" /SD IDOK', shown)
+        self.assertLess(shown.index("SetErrorLevel 2"), shown.index("Quit"))
+        conf = json.loads((ROOT / "src-tauri/tauri.conf.json").read_text(encoding="utf-8"))
+        for language in conf["bundle"]["windows"]["nsis"]["languages"]:
+            self.assertRegex(SOURCE, rf"LangString anotherRunIsActive \$\{{LANG_{language.upper()}\}} \"[^\"]+\"")
+
+    def test_downloads_go_to_a_folder_of_the_run(self):
+        init = block("Function", ".onInit")
+        self.assertLess(init.index("InitPluginsDir"), init.index('StrCpy $download_dir "$PLUGINSDIR\\package"'))
+        # In $TEMP itself only the archive a failed install keeps for diagnosis.
+        for line in self.code(SOURCE):
+            for use in re.findall(r"\$TEMP\\[^\"\s$]*(?:\$file_name[^\"\s$]*)?", line):
+                self.assertEqual(use, "$TEMP\\$file_name.bad", line)
+        install = block("Section", "Install")
+        self.assertLess(install.index('CreateDirectory "$download_dir"'), install.index("NScurl::http"))
+        ready = install.split("install_ready:", 1)[1]
+        self.assertLess(ready.index('RMDir /r "$download_dir"'), ready.index("Call CheckAppIsRunning"))
+        # Removed however the run stops, even before it owns work files in $INSTDIR.
+        cleanup = block("Function", "CleanupFailedInstall")
+        self.assertLess(cleanup.index('RMDir /r "$download_dir"'), cleanup.index("$install_started"))
+        webview = block("Section", "WebView2")
+        self.assertIn('CreateDirectory "$download_dir"', webview)
+        self.assertNotIn("$TEMP", "\n".join(self.code(webview)))
 
 
 class NsisAppProcessAndDataTests(unittest.TestCase):

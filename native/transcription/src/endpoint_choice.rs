@@ -13,15 +13,16 @@ use crate::capture::{Source, media_class};
 use serde_json::Value;
 use astarot_audio_routing::graph::{self, Endpoint};
 
-/// VRCT's own nodes, never captured.
-const EXCLUDED: [&str; 3] = ["vrct.managed.", "vrct.source-bridge.", "vrct.asr.capture."];
+/// The marker the `vrct-asr-capture` helper of 0.5.x put on its streams. The capture of the core
+/// names its streams instead ([`graph::asr_capture_stream`]).
+const LEGACY_CAPTURE_MARKER: &str = "vrct.asr.capture";
 /// The longest node name the helper takes, in bytes (`_validate`).
 const MAX_NAME_BYTES: usize = 512;
 
 /// A name the helper is never started for: one of VRCT's own nodes, or a name with a NUL or
 /// longer than 512 bytes (`asr_capture_endpoint_invalid` in `_validate`).
 pub(crate) fn refused_name(name: &str) -> bool {
-    name.contains('\0') || name.len() > MAX_NAME_BYTES || EXCLUDED.iter().any(|prefix| name.starts_with(prefix))
+    name.contains('\0') || name.len() > MAX_NAME_BYTES || graph::is_own_name(name)
 }
 
 /// `_select`: the node named `name`, if it is an input (`Source::Mic`) or output of the PC that
@@ -35,7 +36,7 @@ pub(crate) fn select(graph: &[Value], name: &str, source: Source) -> Result<Endp
     }
     let node = graph::node(graph, name).map_err(|e| e.code)?;
     let props = graph::props(node);
-    if props.is_some_and(|p| ["vrct.managed.route", "vrct.source.bridge", "vrct.asr.capture"].iter().any(|k| p.contains_key(*k))) {
+    if props.is_some_and(|p| graph::has_route_marker(p) || p.contains_key(LEGACY_CAPTURE_MARKER)) {
         return Err("asr_capture_feedback_endpoint".into());
     }
     Ok(endpoint)
@@ -87,7 +88,7 @@ mod tests {
     /// default, `configured`.
     fn pipewire(sink: &str, configured: Option<&str>, extra: &[(&str, &str)]) -> Vec<Value> {
         let mut graph = vec![json!({ "type": "PipeWire:Interface:Core", "info": { "cookie": 7 } })];
-        let named = [("alsa_output.headphones", "Audio/Sink"), ("vrct.managed.mix", "Audio/Sink"), ("alsa_input.mic", "Audio/Source")];
+        let named = [("alsa_output.headphones", "Audio/Sink"), ("astarot.managed.mix", "Audio/Sink"), ("alsa_input.mic", "Audio/Source")];
         for (name, media) in named.iter().chain(extra) {
             let serial = 40 + graph.len();
             graph.push(json!({ "type": "PipeWire:Interface:Node", "info": { "props": {
@@ -115,14 +116,20 @@ mod tests {
         }
     }
 
+    /// Whether the names of 0.6.0 and earlier are read: the route's ones are when a node of
+    /// them counts as the app's own.
+    fn app_identity_reads_legacy() -> bool {
+        graph::is_own_name("vrct.managed.mix")
+    }
+
     #[test]
     fn the_default_output_is_one_pinned_node_that_is_not_vrcts_own() {
         let cases: [(Vec<Value>, &str); 6] = [
             (pipewire("alsa_output.headphones", None, &[]), "alsa_output.headphones"),
             // The managed route made its mix the default: the user's configured output is used.
-            (pipewire("vrct.managed.mix", Some("alsa_output.headphones"), &[]), "alsa_output.headphones"),
-            (pipewire("vrct.managed.mix", None, &[]), "realtime_default_endpoint_feedback"),
-            (pipewire("vrct.managed.mix", Some("bluez_output.gone"), &[]), "realtime_default_endpoint_feedback"),
+            (pipewire("astarot.managed.mix", Some("alsa_output.headphones"), &[]), "alsa_output.headphones"),
+            (pipewire("astarot.managed.mix", None, &[]), "realtime_default_endpoint_feedback"),
+            (pipewire("astarot.managed.mix", Some("bluez_output.gone"), &[]), "realtime_default_endpoint_feedback"),
             (pipewire("bluez_output.gone", None, &[]), "realtime_default_endpoint_missing"),
             (Vec::new(), "realtime_default_endpoint_missing"),
         ];
@@ -143,21 +150,35 @@ mod tests {
     fn a_node_vrct_made_or_a_name_the_helper_cannot_take_is_refused() {
         let long = format!("alsa_output.{}", "x".repeat(MAX_NAME_BYTES));
         let graph = pipewire("x", None, &[
+            ("astarot.asr.capture.mic", "Audio/Source"),
             ("vrct.asr.capture.mic", "Audio/Source"),
+            ("vrct.managed.mix", "Audio/Sink"),
             ("bad\0name", "Audio/Sink"),
             (long.as_str(), "Audio/Sink"),
         ]);
-        for (node, source) in [("vrct.managed.mix", Source::Speaker), ("vrct.asr.capture.mic", Source::Mic), ("bad\0name", Source::Speaker), (long.as_str(), Source::Speaker)] {
+        for (node, source) in [("astarot.managed.mix", Source::Speaker), ("astarot.asr.capture.mic", Source::Mic), ("bad\0name", Source::Speaker), (long.as_str(), Source::Speaker)] {
             assert_eq!(select(&graph, node, source).unwrap_err(), "asr_capture_endpoint_invalid", "{node:?}");
         }
-        // A node VRCT marked as its own, under another name.
-        let mut marked = pipewire("x", None, &[("loopback.sink", "Audio/Sink")]);
-        for item in marked.iter_mut() {
-            if item["info"]["props"]["node.name"] == "loopback.sink" {
-                item["info"]["props"]["vrct.managed.route"] = json!("v1");
+        // The names of 0.6.0 and earlier, while they are read (ADR-014, 2.11).
+        if app_identity_reads_legacy() {
+            for (node, source) in [("vrct.managed.mix", Source::Speaker), ("vrct.asr.capture.mic", Source::Mic)] {
+                assert_eq!(select(&graph, node, source).unwrap_err(), "asr_capture_endpoint_invalid", "{node:?}");
             }
         }
-        assert_eq!(select(&marked, "loopback.sink", Source::Speaker).unwrap_err(), "asr_capture_feedback_endpoint");
+        // A node the app marked as its own, under another name.
+        let mut markers = vec!["astarot.managed.route", "astarot.source.bridge", "vrct.asr.capture"];
+        if app_identity_reads_legacy() {
+            markers.extend(["vrct.managed.route", "vrct.source.bridge"]);
+        }
+        for marker in markers {
+            let mut marked = pipewire("x", None, &[("loopback.sink", "Audio/Sink")]);
+            for item in marked.iter_mut() {
+                if item["info"]["props"]["node.name"] == "loopback.sink" {
+                    item["info"]["props"][marker] = json!("v1");
+                }
+            }
+            assert_eq!(select(&marked, "loopback.sink", Source::Speaker).unwrap_err(), "asr_capture_feedback_endpoint", "{marker}");
+        }
         // A node of the other kind, or none, keeps the graph's code.
         assert_eq!(select(&graph, "alsa_input.mic", Source::Speaker).unwrap_err(), "source_bridge_endpoint_invalid");
         assert_eq!(select(&graph, "gone", Source::Speaker).unwrap_err(), "source_bridge_endpoint_missing_or_ambiguous");
