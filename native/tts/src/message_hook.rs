@@ -71,8 +71,28 @@ pub struct TranscriptUpdate {
     pub received_ns: i64,
 }
 
-/// Only a successful selected translation of a trusted microphone final can
-/// speak. `translations` and `success` follow the enabled targets, in order.
+/// The original of a trusted microphone final.
+pub fn microphone_original_event(update: &TranscriptUpdate, source_language: Option<&str>) -> Option<SpeechMessageEvent> {
+    if update.source != "mic" || !update.is_final || update.state != "final" {
+        return None;
+    }
+    let identity = format!("{}:{}", update.namespace, update.item_id);
+    Some(SpeechMessageEvent {
+        event_id: identity.clone(),
+        source: Source::Mic,
+        original_text: update.text.clone(),
+        translated_text: None,
+        source_language: source_language.map(Into::into),
+        target_language: None,
+        utterance_id: Some(identity),
+        revision: update.revision,
+        is_final: true,
+        timestamp_ns: update.received_ns,
+    })
+}
+
+/// A trusted microphone final with a successful translation of the selected slot.
+/// `translations` and `success` follow the enabled targets, in order.
 pub fn microphone_event(
     update: &TranscriptUpdate,
     translations: &[Option<String>],
@@ -81,28 +101,16 @@ pub fn microphone_event(
     targets: &[TranslationTarget],
     selected_slot: &str,
 ) -> Option<SpeechMessageEvent> {
-    if update.source != "mic" || !update.is_final || update.state != "final" {
-        return None;
-    }
+    let mut event = microphone_original_event(update, source_language)?;
     let enabled: Vec<&TranslationTarget> = targets.iter().filter(|target| target.enable).collect();
     let index = enabled.iter().position(|target| target.slot == selected_slot)?;
     if success.get(index) != Some(&true) {
         return None;
     }
     let text = usable(translations.get(index))?;
-    let identity = format!("{}:{}", update.namespace, update.item_id);
-    Some(SpeechMessageEvent {
-        event_id: identity.clone(),
-        source: Source::Mic,
-        original_text: update.text.clone(),
-        translated_text: Some(text.clone()),
-        source_language: source_language.map(Into::into),
-        target_language: enabled[index].language.clone(),
-        utterance_id: Some(identity),
-        revision: update.revision,
-        is_final: true,
-        timestamp_ns: update.received_ns,
-    })
+    event.translated_text = Some(text.clone());
+    event.target_language = enabled[index].language.clone();
+    Some(event)
 }
 
 #[cfg(test)]
