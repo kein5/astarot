@@ -1,4 +1,4 @@
-# Contributing to VRCT-VOX
+# Contributing to ASTAROT
 
 Issues and pull requests are welcome in English or Japanese. Report security vulnerabilities privately as described in [SECURITY.md](SECURITY.md).
 
@@ -39,7 +39,7 @@ When a pull request changes this flow or the release flow, it updates the diagra
 - Add or update tests for behavior changes, and describe what you verified and what you could not.
 - For a change that is OS-specific or changes what is supported (packages, OS, runtimes), state in the pull request the platforms it affects, where it was checked (CI, or a real PC with OS, version and package), where it was not, and any backward-compatibility impact. CI passing does not count as a real-PC check. Keep the [support matrix](site/en/guide/support.md) and its [verification records](docs/voice-stack/platform-verification.md) in step.
 - Do not commit secrets, API keys, voice recordings or model files without a redistribution license.
-- New or upgraded dependencies must have a compatible license; update [NOTICE.md](NOTICE.md) when bundled components change. The app's Rust crates are pinned in the `Cargo.lock` files (`src-tauri/`, `native/rvc-runtime/`). Python dependencies, used by the development tools and tests since 0.5.0, live in `pyproject.toml` and `uv.lock` (`uv lock`).
+- New or upgraded dependencies must have a compatible license; update [NOTICE.md](NOTICE.md) when bundled components change. The app's Rust crates are pinned in the `Cargo.lock` of each Cargo workspace (`src-tauri/` and every crate under `native/`). Python dependencies, used only by the development tools and tests since 0.6.0, live in `pyproject.toml` and `uv.lock` (`uv lock`).
 - Models offered for download go into the download catalog (`native/ops/src/downloads/catalog.rs`; an OCR model also goes into chat reading's table, `native/ocr-runtime/src/models.rs`, and the core's tests compare the two) with a pinned revision, file sizes, SHA-256 and the license shown before download. Do not make a model with a non-commercial or otherwise restrictive license a default.
 - User-facing text goes into `locales/`. English (`en.yml`) and Japanese (`ja.yml`) are the only UI languages; update both in the same pull request, and do not fill a language you cannot translate with a guess. Korean and Chinese were dropped as UI languages in 0.2.0 (they remain translation languages).
 - The UI reads its text with `t()` and does not write it into the code. `tools/i18n_gate/check.mjs`, part of `python tools/dev.py check` and CI, fails on keys missing in one language, empty text, `{{variables}}` that differ between the languages, keys the UI names that do not exist, and new text hard-coded in the UI. Text that stays untranslated on purpose (product names, units) needs a reason: see [the i18n check](docs/development.md#uiの文言と翻訳の検査).
@@ -175,7 +175,7 @@ mise run check:voice
 
 ## Relationship to VRCT
 
-VRCT-VOX is derived from [VRCT](https://github.com/misyaguziya/VRCT) and no longer tracks it. Send changes for VRCT-VOX here; report problems in upstream VRCT to its maintainers, and do not send them VRCT-VOX support requests.
+ASTAROT (formerly VRCT-VOX) is derived from [VRCT](https://github.com/misyaguziya/VRCT) and no longer tracks it. Send changes for ASTAROT here; report problems in upstream VRCT to its maintainers, and do not send them ASTAROT support requests.
 
 ## 日本語での概要
 

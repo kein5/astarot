@@ -220,10 +220,11 @@ HTTPでプライベートLANやリンクローカルのアドレスへ接続す�
 
 利用者はラベルにセッションごとの名前を付けられる（#447）。ログの話者の表示はボタンで、押すと行の下に名前の欄が開く。保存すると、UIは`/set/data/speaker_names`に`{"namespace": セッション, "names": {"A": "名前", ...}}`を送る。`names`はそのセッションの名前の全部で、送らなかったラベルと空の名前は名前なしに戻る。中核は、`namespace`が英数字と`-`、`_`の128字まで、ラベルが大文字1〜3字、名前が制御文字なしの32字まで（連続する空白は1つにまとめる）、ラベルが8個までのときだけ受け付け、`{"namespace": ..., "names": {...}}`を返す。それ以外は400の`speaker_names_invalid`である。
 
-- 名前は保存しない。UIは返った名前を直近8セッション分、中核はSteamVRの大きいログ用に直近4セッション分を持つ。セッションが変わるとラベルは振り直されるので、前のセッションの名前は新しいセッションに当てない。
+- 名前は保存しない。UIは返った名前を直近8セッション分、中核はSteamVRの字幕用に直近4セッション分を持つ。セッションが変わるとラベルは振り直されるので、前のセッションの名前は新しいセッションに当てない。
 - `process.log`には名前を書かない（`speaker_names`は`SENSITIVE_ENDPOINT_MARKERS`に入っている）。
-- 名前のある声は、ログ、VRパネルのログ（同期するatomの`SpeakerNames`）、デスクトップの字幕（`speaker_names`）、SteamVRの大きいログで、ラベルの代わりに名前で出す。名前のない声は、ほかの声に名前があれば「話者B」、どの声にも名前がなければ今までどおり「話者A・B」と出す。デスクトップの字幕の色はラベルで決め、名前を付けても変わらない。
+- 名前のある声は、ログ、VRパネルのログ（同期するatomの`SpeakerNames`）、デスクトップの字幕（`speaker_names`）、SteamVRの字幕（一行と複数行）で、ラベルの代わりに名前で出す。名前のない声は、ほかの声に名前があれば「話者B」、どの声にも名前がなければ今までどおり「話者A・B」と出す。デスクトップの字幕の色はラベルで決め、名前を付けても変わらない。
 - SteamVRの大きいログは受信の見出し（時刻と「Receive」）の後ろに話者を「ミカ·B」の形で出す。48字を超えると「…」で切る。名前を付けると、そのセッションの字幕を表示中なら描き直す。
+- SteamVRの一行の字幕は、文の上の行に話者を同じ形で出す。名前を付けても表示中の字幕は描き直さず、次の字幕から名前で出す。
 - ログでは、同じセッションで同じ話者の行が続くとき、2行目からは時刻だけを出し、状態と話者の表示を省く。スクリーンリーダーには話者を読ませる。処理中や失敗の行は省かない。VRパネルでは名前を付けられない（表示だけ）。
 
 表示した空でない`final`には、次の結果通知を1回発行する。`revision`は`final`より2大きい。本文と訳はこの通知に含めず、同じ行に保持する。
@@ -260,16 +261,6 @@ HTTPでプライベートLANやリンクローカルのアドレスへ接続す�
 ```
 
 `src_languages`と`dst_languages`は受付時に固定したタブの言語の組、`translation`は訳の配列である。`type`は`SENT`（マイク）、`RECEIVED`（スピーカーとOCR）、`CHAT`（入力欄）、`REALTIME_MIC`、`REALTIME_SPEAKER`のどれか。表示設定が変わったときは`{"type": "SETTINGS_UPDATED", "settings": {…}}`を送る（[外部インターフェース](external-interfaces.md#websocketサーバー)）。
-
-### 内蔵モデルの取得への同意
-
-`config.json`の`LEGACY_MODEL_DOWNLOAD_CONSENTS`は、モデルIDから確認済みの一覧を表すSHA-256文字列への辞書で、既定は`{}`。IDは`ctranslate2:m2m100_418M-ct2-int8`などで、対象はいまCTranslate2の翻訳モデルだけである。以前の版が記録した`whisper:…`の同意は、ファイルに残っていても使わない。値は[`models/legacy_model_consent.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/legacy_model_consent.py)がモデル名・提供元・ライセンス・重みのリポジトリと固定版・全ファイルの容量とSHA-256・同じ一式に含まれるtokenizerのリポジトリ・固定版・ファイル一覧をJSONにして計算する。ファイルのハッシュそのものではなく、確認した内容を識別する値である。
-
-`/get/data/model_download_catalog`の`legacy_models`に、確認画面用の名前、提供元、ライセンス、非商用の制限、正確な`total_bytes`、`tokenizer_size_unknown`、`manifest_version`を返す。CTranslate2のtokenizerには同じ取得元と固定版、ファイルの容量・SHA-256、bundled: trueが入る。tokenizer_size_unknownはfalse、容量は重複して足さない。`/run/download_ctranslate2_weight`には`{weight_type, consent: true, manifest_version}`を送る。現在の一覧と一致する明示的な同意を受け取ったときだけ記録し、取得前に即時保存を試みる。保存失敗は通常の設定保存と同じ通知・再試行で扱う。
-
-起動時の取得では、保存された値と現在のモデル一覧の値が一致するか確認する。版、ファイルの容量・SHA-256、ライセンス、tokenizerの版が変わると再確認が必要になる。古い値はファイルを削除する根拠にはしない。旧版からの移行時は記録なしとして扱い、`AUTO_DOWNLOAD_MODELS=True`や既存のNLLB選択から同意を推測しない。既に取得したファイルとモデルの選択は保持する。
-
-CTranslate2の取得に失敗したとき（`WEIGHT_CTRANSLATE2_DOWNLOAD`）、`data.reason`は`download_failed`、`insufficient_space`、`hash_mismatch`、`size_mismatch`、`verification_failed`、`download_deadline`、`cancelled`、`download_busy`、`downloads_closed`、`unsafe_destination`の固定のコードで、パスや例外の文は入れない。UIはこのコードに対応する理由を通知に出し、知らないコードは一般的な失敗として扱う（#305）。`cancelled`（取得を止めた）は失敗として知らせず、一覧の取得中の表示だけを戻す。現在、旧形式の取得を止めるのは、アプリの終了時と、起動時に再取得する前だけである。同じモデルの取得が動いている（`active_job_id`がある、`download_busy`）か終了中（`downloads_closed`）でなければ、通知に「確認して再試行」を付け、閉じるまで消さない。押すとそのモデルの確認画面を開き直し、取得は改めて同意を得てから送る。通知から直接は取得しない。CTranslate2は#288で廃止する予定のため、これは現行版の利用者が行き止まりにならないための最小限の対応である。
 
 ### チャット読み取りの範囲
 
@@ -318,6 +309,7 @@ CTranslate2の取得に失敗したとき（`WEIGHT_CTRANSLATE2_DOWNLOAD`）、`
 | 六芒星のオーバーレイで六芒星を出すモニター（`TRAY_COMPANION_MONITOR`） | システムがモニターに付けた名前。空はメインのモニター（既定）。256文字までで、制御文字は拒否する。選んだモニターが外されていても値は残し、その間はメインのモニターを使う（[六芒星のオーバーレイ](cross-cutting.md#六芒星のオーバーレイtray_companion)） |
 | 六芒星のオーバーレイがホイールで回せることを知らせたか（`TRAY_COMPANION_WHEEL_HINT_SHOWN`） | 真偽値。既定は`false`。六芒星が初めて出たときに知らせ、`true`にする。`true`の間は知らせない（[六芒星のオーバーレイ](cross-cutting.md#六芒星のオーバーレイtray_companion)、#536） |
 | 用途（`USAGE_PRESETS`） | `basic`、`nonverbal`、`multilingual`、`voice_changer`、`all`のうち1つ以上の配列。この順に、重複なしで保存する。知らないIDは除き（後の版で増えたもの）、知っているIDが1つもなければ拒否する。保存は即時。新しく入れたときの既定は`["basic"]`で、前の版から更新したとき（保存した設定があり、このキーがない）は`["all"]`にする。表示する機能を絞るだけで、ほかの設定は変えない（[用途別プリセット](cross-cutting.md#用途別プリセット)） |
+| 0.4までの取得の同意（`LEGACY_MODEL_DOWNLOAD_CONSENTS`） | モデルIDから文字列への辞書で、既定は`{}`。0.4までのPythonバックエンドが、CTranslate2の翻訳モデルの取得に同意したときに記録していた。CTranslate2の取得は0.5.0で中核から、その確認画面は#1015で画面から消えた。中核はこのキーを、値がすべて文字列の辞書として読み書きして残すだけで、値を計算も記録もしない（`native/core/src/config/schema.rs`）。ローカル翻訳のモデルは、ほかのモデルと同じ取得の確認と同意で取る（[モデル取得](../voice-stack/model-downloads.md)） |
 | 重みの取得状態 | 一覧は {種類: 取得済みか}。受付は {weight_type, job_id}。進捗は {weight_type, job_id, progress}、成功通知は {weight_type, job_id, downloaded: true}。失敗通知はエラー本体のdataに {weight_type, job_id, downloaded: false, reason} を入れる。進行中の同じ重みへの重複要求を拒否する場合はactive_job_idも付ける |
 | エンジンの状態 | `{エンジン名: 使えるか}`。使えるエンジンの一覧は`selectable_*_engines`で配列として返す |
 | エラー | [IPCプロトコル](ipc-protocol.md#エラーの本体) |
@@ -354,6 +346,32 @@ CTranslate2の取得に失敗したとき（`WEIGHT_CTRANSLATE2_DOWNLOAD`）、`
 
 WindowsとLinuxの開発ビルドは、これまでどおり実行ファイルのフォルダーを使い、移さない。
 
+### Linuxの音声経路の名前の移行
+
+0.6.0の次の版から、Linuxの管理対象の経路（仮想マイク）はASTAROTの名前で作る（ADR-014の2.8）。名前の定義は`native/app-identity`の`audio_route`にあり、旧名との組で持つ。
+
+| 対象 | 0.6.0まで | 新しい名前 |
+|---|---|---|
+| ノード | `vrct.managed.source`など | `astarot.managed.source`など |
+| ノードの説明（VRChatのマイクの一覧に出る） | `VRCT Managed Virtual Microphone`など | `ASTAROT Managed Virtual Microphone`など |
+| ノードの印と所有者 | `vrct.managed.route`、`vrct.managed.owner`=`vrct-vox-service-v1` | `astarot.managed.route`、`astarot.managed.owner`=`astarot-service-v1` |
+| systemdのユーザーユニット | `vrct-managed-{source,tts,vc}.service` | `astarot-managed-{source,tts,vc}.service` |
+| 手で置く設定 | `90-vrct-managed.conf` | `90-astarot-managed.conf` |
+| 一時のストリーム | `vrct.source-bridge.*`、`vrct.asr.capture.*`、`vrct.tts`など | `astarot.source-bridge.*`、`astarot.asr.capture.*`、`astarot.tts`など |
+
+中核は管理対象の経路を準備するたびに（経路を保存したとき、経路を保存してある起動のとき、経路のノードが見つからなくなったとき）次のとおり移す。利用者が経路を選んでいなければ、旧の経路には触れない。
+
+- 旧の名前のユニットは、名前、所有者識別子、中身がどれも0.6.0までの中核の書いたものと一致し、systemdがそのファイルをドロップインなしで読んでいるときだけ、止めて無効にし、消す。中身は`ExecStart`の`pw-loopback`のパスを除いてバイト単位で比べる。1つでも一致しないユニットがあれば3つとも利用者のものとして残す。新しい経路がまだないときは`managed_setup_conflict`を返し、新しい経路を作らない。仮想マイクが2つ並ぶのを避けるためである。
+- 旧の名前のノードのうち中核の所有者識別子がないもの（手で作った旧の経路）があるときも、`managed_setup_conflict`を返す。
+- 手で置いた設定は、新旧どちらの名前でも`$XDG_CONFIG_HOME/pipewire/pipewire.conf.d`と`/etc/pipewire/pipewire.conf.d`で探す。経路がまだないときに見つけたら、自動で作らない。新しい名前なら`managed_setup_manual_config_pending`、旧の名前なら`managed_setup_manual_config_legacy`を返す。
+- 旧のユニットを消したら、新しい名前で作り直す。新しい仮想マイクは今までどおりミュートで始まり、利用者が「ミュートを解除」を押すまで音を出さない。
+- 新しい経路がすでに動いていても、中核の旧のユニットが残っていれば止めて消す（0.6.0に戻して戻ってきたときなど）。
+- 旧の名前の接頭辞（`vrct.managed.`、`vrct.source-bridge.`、`vrct.asr.capture.`）と印のノードは、新しい名前と同じく入力、モニター、音声認識の候補から外す。
+
+旧のユニットを止めたとき、中核は`MANAGED_ROUTE_RENAME_NOTICE_PENDING`（真偽値、既定は`false`、保存する）を真にし、`process.log`に`[voice] the managed route retired its legacy units`の1行を書く。真の間は`/get/data/voice_route`の応答に`"notice": "managed_route_renamed"`が付き、音声経路の欄にVRChatでマイクを選び直す案内が出る。利用者が案内を閉じると`/set/disable/managed_route_rename_notice`を送り、偽にする。応答は案内のない音声経路の状態である。新しい経路の準備に失敗しても、旧のユニットを止めたあとなら案内を残す。
+
+旧の名前を読む（旧の接頭辞のノードとストリームを候補から外す、旧の名前の手で置いた設定を見つける、中核のものでない旧の経路を知らせる）のは`audio_route::READS_LEGACY_NAMES`が真の間で、新しい名前を出した版の系列の間である（0.7.0で出せば0.7.xの間）。旧のユニットの片付け（0.6.0までの中核が書いたものと完全に一致するユニットだけを止めて消す）は`audio_route::RETIRES_LEGACY_UNITS`で切り替え、期限を設けない。版を飛ばして更新した環境でも、旧の仮想マイクが残らないようにするためである。どちらも2026-11-23の決定で、ADR-014の2.11の注記にある。
+
 ### APIキーの保存先
 
 APIキーは`config.json`に書かない（0.5.0から）。いまはOSの資格情報ストアに保存する（Issue #575）（[ADR-013](../adr/adr-013-secret-store.md)）。Windowsは資格情報マネージャー、LinuxはSecret Service（GNOME Keyring、KWalletなど）である。`AUTH_KEYS`（翻訳）と`TRANSCRIPTION_AUTH_KEYS`（音声認識）の値と`PAPAGO_CLIENT_ID`を1件ずつ保存する。項目の名前は`AUTH_KEYS/DeepL_API`のように辞書の名前とプロバイダ名をつないだものである。どちらの辞書に足したプロバイダも同じ扱いになる。キーを持つ設定を新しく足すときは`native/core/src/config/secrets.rs`の`SECRET_SETTINGS`に名前を加える。
@@ -371,17 +389,20 @@ APIキーは`config.json`に書かない（0.5.0から）。いまはOSの資格
 - OSのストアが使えないときも、新しいキーや変えたキーを`secrets.json`に平文で書くことはしない。その起動のあいだだけ使える。
 - キーを消す要求（`/delete/data/*_auth_key`など）は、`secrets.json`の写しを先に除き、それからOSのストアから除く。OSのストアが応答しなくても平文の写しは残らない。
 - JSONとして読めるが項目を復号できない`secrets.json`（別のユーザーのDPAPIなど）は`store_id`をそのまま使い、次にキーを保存するときに`secrets.json.unreadable-<日時>-<乱数>`へ移してIDを引き継いだ新しいファイルを作る。JSONとして読めない`secrets.json`も、キーを保存するときに同じ名前へ移し、新しいIDで作る。どちらも元のファイルは消さない。一時的に読めないファイルには触れず、書き込みを一時的な失敗にする。
+- 音声認識のページに利用者が足したAPIの項目（#414）のキーも、同じ扱いで同じ保管場所に置く。項目の名前は`TRANSCRIPTION_CATALOG/<項目のID>`で、保管場所が一時的に読めないときは409の`transcription_catalog_key_unreadable`を返す。
 - 翻訳のカタログに利用者が足したAPIの項目（#413）のキーも同じ保管場所に置く。項目の名前は`TRANSLATION_CATALOG/<項目のID>`で、設定（`SECRET_SETTINGS`）には入れない。項目を足すときにキーを書いて読み戻す。書けない、読み戻せないときも項目は足し、キーは設定のキーと同じくその起動のあいだだけメモリーに持つ（`native/core/src/config/mod.rs`の`Config::keep_secret`）。`/run/secret_store_failed`で1回だけ知らせ、次の保存、30秒ごと、アプリを閉じるときにもう一度書く。平文のファイルには書かない。項目の`key`は、保管場所がキーを持てたときに`true`になる。保管場所に置けないままアプリを閉じた項目は、次の起動ではキーのない項目になる。画面は「APIキーがありません」と示し、項目を削除して追加し直すよう伝える。使うときは、メモリーに持っているキーを先に使う。保管場所が一時的に読めないとき（`locked`、`unavailable`など）は、キーがないとは扱わず、409の`translation_catalog_key_unreadable`を返して何も変えない。項目を削除すると、メモリーと保管場所のキーも消す。保管場所から消せなければ、設定のキーと同じく次の保存と30秒ごとにやり直す。
 - 0.5.xに戻すと、移したキーは`secrets.json`にないので入れ直しが要る。キーはOSのストアに残っている。0.4以前に戻した場合も同じである。
+- Windowsのアンインストーラーで「アプリケーションデータを削除する」を選ぶと、アンインストーラーはインストール先の`secrets.json`から`store_id`を読み、資格情報マネージャーから`ASTAROT/<store_id>/`と0.6.0の`VRCT-VOX/<store_id>/`で始まる汎用の資格情報を消してから、`secrets.json`を消す。消しきれなかった項目があるときは`secrets.json`を残し、もう一度アプリのデータごとアンインストールしたとき（同じフォルダーにもう一度インストールしてから行う）に、同じ`store_id`で残りを消し直せるようにする。ほかの`store_id`の項目（別のインストールや`ASTAROT_CONFIG_DIR`で分けた設定のもの）には触れない。`store_id`がないとき、16桁の小文字の16進でないときは、資格情報を消さない。消せなかった項目があれば、`secrets.json`を残したことと名前の始まりを示して、アンインストールをし直すか、資格情報マネージャーの「Windows資格情報」で消すよう伝える（[Windowsのアンインストールで消すもの](#windowsのアンインストールで消すもの)）。
 ## そのほかのファイル
 
 | ファイル | 置き場所 | 内容 |
 |---|---|---|
-| `process.log`、`error.log` | `$VRCT_CONFIG_DIR/logs/`（なければ作業フォルダ） | 診断ログ。10MBで切り詰め、`process.log`は起動のたびに空にする。失敗した実行のあとでUIが中核を起動し直したときだけは空にせず、前の実行の記録に続けて書く。0.4までのPythonバックエンドは、ほかに`freeze_trace.log`と`crash_trace.log`（faulthandlerのスタックダンプ）、`startup_timing.log`（起動の段階ごとの時間）も書いていた。中核はこの3つを書かない |
+| `process.log`、`error.log` | `$ASTAROT_CONFIG_DIR/logs/`（なければ作業フォルダ） | 診断ログ。10MBで切り詰め、`process.log`は起動のたびに空にする。失敗した実行のあとでUIが中核を起動し直したときだけは空にせず、前の実行の記録に続けて書く。0.4までのPythonバックエンドは、ほかに`freeze_trace.log`と`crash_trace.log`（faulthandlerのスタックダンプ）、`startup_timing.log`（起動の段階ごとの時間）も書いていた。中核はこの3つを書かない |
 | `startup.log` | 同上（Tauri側） | ウィンドウの起動記録 |
 | 会話ログ `YYYY-MM-DD_HH-MM-SS.log` | `PATH_LOGS` | 「会話ログを自動的に保存する」がオンのときだけ。行頭は`[SENT]`、`[RECEIVED]`、`[OCR]`、`[CHAT]`。画面は新しい1,000件しか残さないが、ファイルには古いものも残る |
 | `downloaded_models/<id>/<版>/`と`receipt.json` | `config.json`と同じフォルダ | 取得したモデル。取得中は`.partial-<16進>/`。壊れたモデルを取り直すときも、いったんその名前に戻してから消す（[失敗したときに保つもの](failure-recovery.md#モデルの取得と適用)） |
-| `user_models.json` | `config.json`と同じフォルダ | 利用者が名前を付けて登録したモデル（#403）。`{"version": 1, "models": [{id, target, name, files: {役割: {path, size, mtime_ns}}, registered_at}]}`。ファイルの場所と、登録したときの容量と更新時刻だけを持ち、モデルのファイルはコピーしない。一時ファイルに書いて`fsync`してから置き換える。読めない、または版が違うときは書き換えずに残す。PythonとRustのコアは同じ形式を読み書きする |
+| `user_models.json` | `config.json`と同じフォルダ | 利用者が名前を付けて登録したモデル（#403）。`{"version": 1, "models": [{id, target, name, files: {役割: {path, size, mtime_ns}}, registered_at}]}`。ファイルの場所と、登録したときの容量と更新時刻だけを持ち、モデルのファイルはコピーしない。一時ファイルに書いて`fsync`してから置き換える。読めない、または版が違うときは書き換えずに残す。0.4までのPythonバックエンドも同じ形式を読み書きしていた |
+| `transcription_catalog.json` | `config.json`と同じフォルダー | 音声認識のページに利用者が足したAPIの項目（#414、中核のみ）。`{"version": 1, "entries": [{id, name, protocol, url, model, key, registered_at}]}`。`protocol`はこの版では`openai_compatible`（Whisper互換）だけ。`key`は[APIキーの保存先](#apiキーの保存先)がキーを持てたかどうかだけで、キーそのものはこのファイルに書かない。項目は100件まで。同じ名前か、同じアドレスとモデルの項目は足せない。書き方と、読めないとき（新しい形式や手で書き換えたもの）に残して上書きしないことは`translation_catalog.json`と同じ。この版が知らない`protocol`の項目は残し、使えないものとして見せる |
 | `translation_catalog.json` | `config.json`と同じフォルダ | 翻訳のカタログに利用者が足した項目（#413、中核のみ）。`{"version": 1, "entries": [...]}`。推論エンジン系は`{id, group: "engine", name, runtime, folder, languages, registered_at}`で、`runtime`が`llamacpp`（TranslateGemmaのような翻訳のLLM、ADR-015）の項目は`folder`の代わりに`file`にGGUFのファイルのパスを入れ、`device`（`auto`、`cpu`、`Vulkan1`など）を足す。`file`を持つ項目が1つでもあると、ファイルの`version`は`2`になる。`version`が`1`しか読めない以前の版は、そのファイル全体を読めないものとして扱い、上書きしない（足した項目を一覧に出さず、その重みを選んでいた設定は既定のモデルに戻る）。新しい版で`llamacpp`の項目をすべて削除すると、ファイルは`version: 1`に戻り、以前の版でもまた読める。API系は`{id, group: "api", name, protocol, url, model, key, registered_at}`。`key`は[APIキーの保存先](#apiキーの保存先)がキーを持てたかどうかだけで、キーそのものはこのファイルに書かない（保管場所に置けずにメモリーに持っているあいだは`false`）。フォルダーのモデルはコピーしない。書き方と、読めないときに残すことは`user_models.json`と同じ。この版が知らない`runtime`や`protocol`の項目は残し、使えないものとして見せる |
 | `vc_runtimes/<エンジン>/`と`receipt.json` | `config.json`と同じフォルダ | アプリが準備したRVCの実行環境（WindowsとLinux。0.4まではSeed-VCも）。`.steps.json`に終わった手順を残す。0.4までのPythonバックエンドは、`setup.log`に`uv`とワーカーの確認の出力も残し、Seed-VCでは`.uv-<版>/`に取得用の`uv`を置いた（0.5.0の中核は`setup.log`を書かない）。RVCは`lib/`（ONNX Runtime。GPU用はCUDA 13とcuDNNのライブラリも）と`assets/`だけで、取得中は`lib.part/`と`downloads/`を使う。RVCの取得が終わると、同じフォルダーにある以前のPyTorch形式の`venv/`、`python/`、`engine/`（中のモデルと音声のファイルは残す）、`engine.zip`、固定の`rmvpe.pt`と`preprocessor_config.json`を削除する |
 | `vc_runtimes/onnxruntime-cuda/`、`vc_runtimes/onnxruntime-directml/`と`receipt.json` | `config.json`と同じフォルダ | ローカル翻訳をGPUで動かすためのONNX Runtime（0.5.2の後から。利用者が同意して取得したときだけ）。`onnxruntime-cuda/`はCUDA 13版とNVIDIAのライブラリ、`onnxruntime-directml/`はDirectML版と`DirectML.dll`（Windowsだけ）。どちらも`lib/`だけで、取得と確認はRVCの実行環境と同じ。アプリは起動時に、翻訳の処理デバイスに合う版を同梱のCPU版の代わりに読み込む。RVCのワーカーはDirectMLで変換するときに`onnxruntime-directml/lib`を読み込む |
@@ -390,6 +411,7 @@ APIキーは`config.json`に書かない（0.5.0から）。いまはOSの資格
 | weights/ctranslate2/… | PATH_DATA | 0.4までのPythonバックエンドが取得したCTranslate2の翻訳モデルと検証記録。0.5.0の中核は読まず、起動の後でPythonが作った名前のフォルダだけを消す（リンクやジャンクションはたどらない。`native/core/src/controller/legacy_weights.rs`、[中核の統合](../voice-stack/core-integration.md)の「旧 CTranslate2 の重み」） |
 | `translation-models/<フォルダー>/` | PATH_DATA | 以前の中核が読んだ、利用者が置いた翻訳のモデル（重みの名前は`custom:<フォルダー>`）。#597からは一覧に出さず、読み込まない。フォルダーとファイルは消さず動かさない。中核はこのフォルダーにフォルダーがあるかどうかだけを`/get/data/translation_catalog`の`retired_folder_used`で伝え、翻訳のページはそのあいだ翻訳のカタログの「自分のモデルを追加」への案内を出す。名前やパスは伝えない |
 | `secrets.json` | `config.json`と同じフォルダ | APIキー（[APIキーの保存先](#apiキーの保存先)）。Windowsでは暗号化、Linuxでは権限0600 |
+| `exports/` | `config.json`と同じフォルダー | 利用者が書き出した用語辞書（`vocabulary-年月日-時分秒.txt`、[ファイルへの書き出しと読み込み](#ファイルへの書き出しと読み込み)）。アプリは読まない |
 | `storage_migration.json` | Linux配布版の設定のフォルダーとデータのフォルダー（0.6.0から） | そのフォルダーを新しく作ったか、`vrct-vox`から移したかの記録（[Linuxの保存先の移動](#linuxの保存先の移動)） |
 | `config.json.before-migration-storage` | `config.json`と同じフォルダ | Linuxの保存先を移したときに、パスを付け替える前の`config.json`（APIキーを除く。権限0600）。アプリは読まない |
 | `voice_mute_state.json` | `config.json`と同じフォルダ | `{"version": 1, "muted": 真偽}`。すぐに書き、原子的に置き換える |
@@ -397,6 +419,19 @@ APIキーは`config.json`に書かない（0.5.0から）。いまはOSの資格
 | `io.github.kein5.astarot.desktop` | `$XDG_DATA_HOME/applications/` | Waylandでショートカットを登録するためのデスクトップファイル。0.6.xまでは`io.github.kein5.vrct-vox.desktop`で、`X-VRCT-VOX-Generated=true`の行があるもの（前の版が書いたもの）は、新しいファイルを書いたあとに消す。その行がないファイルは利用者かパッケージのものとして残す |
 
 UIは独自の状態を持たない（`localStorage`も使わない）。画面の状態はすべてサイドカーから受け取る。
+
+### Windowsのアンインストールで消すもの
+
+Windowsでは`config.json`を置くフォルダーがインストール先なので、上の表の`config.json`と同じフォルダーと`PATH_DATA`のものはインストール先にある。アンインストーラーは、利用者が確認の画面で「アプリケーションデータを削除する」を選んだときだけ、次のものを消す（`src-tauri/nsis/template.nsi`の`Section Uninstall`）。選ばなければ残す。アプリの更新が別の場所の古いインストールを消すときも、この項目は選ばれないので残る。
+
+- 設定: `config.json`と`config.json.*`（ロック、`unreadable-*`、0.5までの`before-migration-*`、保存の途中で止まったときの一時ファイル）
+- APIキー: 資格情報マネージャーにあるこのフォルダーのキー（[APIキーの保存先](#apiキーの保存先)）、`secrets.json`、`secrets.json.*`
+- `user_models.json`、`translation_catalog.json`、`voice_mute_state.json`、`telemetry_state.json`と、それぞれを書く途中で止まったときの一時ファイル
+- `downloaded_models/`、`vc_runtimes/`、`logs/`、`weights/`
+- 0.5までのPythonバックエンドがアプリの隣に書いたログ（`process.log`、`error.log`、`crash_trace.log`、`freeze_trace.log`、`startup_timing.log`）
+- WebView2のデータ（`%APPDATA%`と`%LOCALAPPDATA%`のアプリIDのフォルダー）
+
+`translation-models/`と`exports/`は利用者が置いたか書き出したファイルなので消さない。この2つにファイルがあれば、インストール先のフォルダーも残る。`installer_language.txt`は、選んだかどうかにかかわらず消す。表にファイルやフォルダーを足すときは、`Section Uninstall`も直す（`tests/devtools/test_nsis_staged_update.py`が表と照らし合わせる）。
 
 ### 文字起こしの診断ログ
 
@@ -436,22 +471,29 @@ ASR/翻訳5,000ms、従来のtotal 10,000ms。
 | `DISPLAY` | X11でのOCRのキャプチャ |
 | `ASTAROT_VR_PANEL_DIR` | Tauriが起動時に決める、このプロセス専用の場所（`$XDG_RUNTIME_DIR/astarot/vr-panel-<pid>`、Linux）。バックエンドはここでVR画面の画素（`frame`）と、共有されたウィンドウの画素（`screen-frame`）を読む。利用者が設定するものではない |
 | `APPIMAGE`と`WEBKIT_DISABLE_DMABUF_RENDERER=1` | NVIDIA環境のAppImageでメインウィンドウを不透明にする |
-| `HTTPS_PROXY`、`ALL_PROXY`、`NO_PROXY`（小文字の名前が先） | 音声認識のクラウドのエンジンへの通信が通るHTTPのプロキシと、通さない宛先。`*_proxy`がどれもないときは、Windowsのインターネットの設定を読む。ローカルとLANの宛先は通さない。翻訳は使わない（`native/translation/src/proxy.rs`） |
+| `HTTPS_PROXY`、`ALL_PROXY`、`NO_PROXY`（小文字の名前が先） | 音声認識のクラウドのエンジンと、オンラインの翻訳のプロバイダへの通信が通るHTTPのプロキシと、通さない宛先。`*_proxy`がどれもないときは、Windowsのインターネットの設定を読む。ローカルとLANの宛先（LM Studio、Ollama、LANのOpenAI互換のサーバーを含む）は通さない（`native/translation/src/proxy.rs`） |
 
 `HF_HUB_OFFLINE`などのオフライン用の変数は、アプリは読まない。`tools/dev.py`が開発用の子プロセスに設定する。
 
 ## 音声デバイスの選択と識別
 
-従来の文字起こしと音量メーターは、入力元ごとに1つの録音セッションを共有する。名前は表示用のラベルとし、選択にはIDを使う。
+従来の文字起こしと音量メーターは、入力元（マイクとスピーカー）ごとに1つの録音を共有する。名前は表示用のラベルとし、選択にはIDを使う（`native/core/src/controller/audio_devices.rs`、`native/audio-routing/src/identity.rs`、`selection.rs`）。従来の録音を使うのは、Windowsでクラウドの音声認識エンジンを選んでいるときだけである。Linuxのメイン画面のスイッチと、Windowsのローカルの音声認識（speech.cpp）は、リアルタイムASRを使う。
 
-- 保存する`SELECTED_MIC_DEVICE_ID`と`SELECTED_SPEAKER_DEVICE_ID`を追加した。既存の`SELECTED_MIC_HOST`、`SELECTED_MIC_DEVICE`、`SELECTED_SPEAKER_DEVICE`は残す。名前だけの旧設定は、対象ホストの候補が1台に絞れるときだけIDへ移行する。同名の候補が複数あるときは手動で選び直す。保存したIDが見つからなくても、同名という理由で別の機器と同一視しない。
-- PortAudioが返すエンドポイントID・UID、対応を一意に確認できるWindowsのIMMDevice ID、PipeWireのノード名を識別に使う。IDを取得できないPortAudioの機器には、プロセス内の一覧に限って有効なIDを付ける。このIDは再起動や接続状態の変更を越えて同じ機器を保証しない。名前の重複からWindowsのIDとの対応を推測しない。
-- 録音開始時のPortAudio情報に、選択時に確認したネイティブIDが含まれない場合は、そのopenで使うPortAudioの一覧と新しいIMMDeviceの一覧から対応を確認する。別のIDならそのストリームを閉じて代替機器を探す。対応を確定できない場合は録音を続け、選択時のネイティブIDを引き継がず、実際に開いたスロットのIDと名前を通知する。
-- 選択IDとは別に、接続状態の世代、PortAudioのインデックス、サンプルレート、入力チャンネル数を比較する。名前とIDが同じでも、これらが変われば録音を再設定する。
-- 旧IPCの名前の文字列と名前一覧は維持する。新しい`/get/data/selectable_mic_device_options`とスピーカー側の同名形式は`[{id, label}]`を返す。`/get/data/selected_mic_device_id`、`/set/data/selected_mic_device_id`とスピーカー側の同名形式はID文字列を扱う。各値の変更は`/run/…`でも通知する。デスクトップとVRの選択欄は新しいIPCを使う。同名の項目にはIDも添える。旧名による変更要求は、候補が1台のときだけ受け付ける。
-- 一覧の更新やAuto選択だけでは録音を始めない。Autoをオンにすると、選択値と収録中のデバイスを1回の処理で合わせる。更新中にAutoをオフにしても、利用者が始めた録音を継続する。OFF操作が終わった後に、古い再開要求で録音を再開しない。
-- 利用者が始めた録音では、選択した機器が消えた場合や開けない場合、Autoがオフでも利用可能な別の機器へ切り替えて継続する（2026-11-04の保守方針）。ライブラリの既定値を識別しないまま開くことはしない。開けた機器のIDと名前を選択値として通知し、`/run/audio_device_switched`の200通知に`{source, old_device: {id, name}, new_device: {id, name}}`を入れる。UIは変更前後の名前を、操作を妨げない通知で知らせる。
-- 代替機器でも開始できない場合、止まった文字起こしとメーターをオフにし、メーターをゼロへ戻す。開く処理がタイムアウトした場合も、その処理の所有権を保持する。処理が終わるまで同じ入力元の新しいopenを拒否し、遅れて開いた資源を閉じる。既に実行中のネイティブ呼び出しを強制的に中断できる保証はない。
-- 録音のエラーと復旧処理は開始ごとの世代で照合する。古い録音のエラーで、切り替え後の録音を止めたり、新しいエラー通知を抑止したりしない。この世代は利用者のオン・オフ操作やメッセージ配送の世代と分け、内部のデバイス切り替えだけでは受け付け済みのテキストを破棄しない。検証のために開いたストリームは、リスナーが開始する前に停止された場合も一度だけ閉じる。
+- 機器の一覧と識別:
+    - Windowsは、WASAPI（`IMMDeviceEnumerator`）の機器だけを並べる。IDはIMMDevice IDを含む`mic:Windows WASAPI:<IMMDevice ID>`と`speaker:2:<IMMDevice ID>`で、サンプルレートとチャンネル数はミックスの形式から取る（`native/audio-routing/src/wasapi/mod.rs`）。マイクのホストは`Windows WASAPI`だけである。
+    - Linuxは、PipeWireの入力だけを`PipeWire`という1つのホストに並べる。IDは`pipewire:<node.name>`で、スピーカーの行はない。一覧は2秒ごとに読み直す（`native/audio-routing/src/pipewire/devices.rs`）。従来の録音はPipeWireの行を開かない（`asr_capture_windows_only`）。
+- 保存する`SELECTED_MIC_DEVICE_ID`と`SELECTED_SPEAKER_DEVICE_ID`と、名前の`SELECTED_MIC_HOST`、`SELECTED_MIC_DEVICE`、`SELECTED_SPEAKER_DEVICE`を持つ。保存したIDは同じIDの機器にだけ合う。名前は、同じ名前の行が1つだけのときに合う。保存したIDが見つからなくても、同名という理由で別の機器と同一視しない。
+- 名前だけの設定は、使うときに名前が1つの行に合えば、その機器を使い、次に選択を知らせるときにIDを書く。同じ名前の行が複数あれば、保存した名前のまま残し、Autoがオフなら機器を選ばない（どれかを推測しない）。0.4までのPythonが使っていたホスト（MME、DirectSound、WDM-KS）で保存した選択は、WASAPIの行へ移す。保存したIDのネイティブIDの部分か、IDが空か`pa:`のスロットのIDなら名前（MMEの31文字の切り詰めも見る）で、1つに合うときだけ移す（`selection.rs`）。
+- 保存したIDの機器が一覧にないときは、Autoがオフでも、OSの既定の機器、なければ一覧の最初の行を選ぶ。一覧が変わると、録音していなくても、その選んだ機器を選択として保存する。元の機器をつなぎ直しても、選択は戻らない（`native/core/tests/audio_devices.rs`）。
+- 録音を設定し直すのは、開いている機器の組（ID、名前、ホスト、一覧の位置、接続の世代とオブジェクトのシリアル、サンプルレート、入力チャンネル数、ループバックかどうか、ノード名）が変わったときである（`identity.rs`の`capture_key`）。接続の世代は機器の変化の知らせのたびに上がるので、機器の変化があると動いている録音を開き直す。
+- 名前の文字列と名前の一覧のIPCは維持する。`/get/data/selectable_mic_device_options`とスピーカー側の同名形式は`[{id, label}]`を返す。動いている録音の機器は、止まるまで一覧に残す。`/get/data/selected_mic_device_id`、`/set/data/selected_mic_device_id`とスピーカー側の同名形式はID文字列を扱い、空のIDは受け付けない。各値の変更は`/run/…`でも通知する。デスクトップとVRの選択欄は新しいIPCを使う。名前による変更の要求は、同じ名前の行が1つのときだけ受け付ける。
+- 一覧の更新やAutoの選択は、文字起こしかメーターがオンのときだけ録音の機器を動かす。オフなら選択を知らせるだけで、録音を始めない。Autoをオンにすると、返答の前に選択と録音中の機器を合わせる。Autoをオフにしても、機器の組が変わらない録音は続ける。待っている合わせの処理は世代を持ち、世代が変わっていれば捨てる。オフの操作も世代を進めるので、古い要求で録音を再開しない。合わせの処理は、要求を受けたスレッドで行う。
+- Windowsのスピーカーの自動選択は、OSの既定だけでなく、いちばん大きな音を出している再生の機器に従う（`native/audio-routing/src/tracker.rs`）。録音を設定し直している間は、この追跡を止める。
+- 利用者が始めた録音では、選んだ機器が消えた場合や開けない場合、Autoがオフでも、使える別の機器へ切り替えて続ける（2026-11-04の保守方針）。試す順は、選んだ機器、OSの既定の機器、ほかのすべての行で、同じ機器の組の重なりとPipeWireの行は飛ばす。1つの機器を開くのは8秒まで待つ（`native/transcription/src/recorder.rs`）。読み取りのエラーでは一覧を読み直し、機器が消えていれば切り替える。機器が一覧に残っていれば切り替えず、`AUDIO_READ_ERROR`で認識をオフにする。開くにはIMMDevice IDが要るので、識別しないライブラリの既定の機器は開かない。
+- 開けた機器のIDと名前を選択として保存する。IDか名前が変わったときは、`/run/audio_device_switched`の200通知に`{source, old_device: {id, name}, new_device: {id, name}}`を入れる。UIは変更前後の名前を、操作を妨げない通知で知らせ、名前が同じならIDも添える。
+- どの機器も開けない場合は、文字起こしとメーターをオフにし（`/set/disable/transcription_*`、`/set/disable/check_*_threshold`）、メーターを0に戻し（`/run/check_*_volume`）、`/run/transcription_recognition_error`を送る。機器が1つもないときは、スピーカーとメーターに`/run/error_device`（`DEVICE_NO_MIC`か`DEVICE_NO_SPEAKER`）を送る。
+- 開く処理が8秒を過ぎたら、止める印を立てて`asr_capture_start_timeout`で失敗にし、次の機器を試す。同じ入力元への次の要求は、入力元のロックで待つ。遅れて開いたストリームは止める印を見て止まる。すでに動いているネイティブの呼び出し（Windowsのマイクの許可の確認を待つことがある）を中断できる保証はない。
+- 録音のエラーと復旧は、入力元ごとの版（開始、停止、失敗のたびに進む）で照合する。古い録音のエラーで、切り替え後の録音を止めたり、新しいエラー通知を抑止したりしない。この版は利用者のオン・オフ操作の世代やメッセージ配送の世代と分ける。内部の機器の切り替えだけでは受け付け済みのテキストを破棄しないが、切り替える前の録音で認識している途中のものは捨てる。確かめるためだけのストリームは開かず、開けたストリームをそのまま使う。
+- RVCの入力の既定は、デバイスのページのマイクを名前で探す（`native/core/src/controller/voice/mod.rs`）。
 
-リアルタイムASRは別のキャプチャ経路であり、ここで述べた従来の録音の自動継続は適用しない。
+リアルタイムASRは別のキャプチャ経路であり、ここで述べた従来の録音の自動継続は適用しない。リアルタイムASRは`REALTIME_ASR_SETTINGS`で固定した機器か、OSの既定の機器を使う。従来の録音を始めるときは、先にリアルタイムASRを止める（`native/core/src/controller/realtime_asr.rs`、`transcription.rs`）。

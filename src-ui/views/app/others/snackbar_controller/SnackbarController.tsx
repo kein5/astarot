@@ -5,8 +5,8 @@ import type { TFunction } from "i18next";
 import { useStore } from "jotai";
 import clsx from "clsx";
 
-import "./ReactToastifyOverrideClass.scss";
-import styles from "./SnackbarController.module.scss";
+import "./ReactToastifyOverrideClass.css.ts";
+import * as styles from "./SnackbarController.css.ts";
 
 import WarningSvg from "@images/warning.svg?react";
 import MegaphoneSvg from "@images/megaphone.svg?react";
@@ -55,7 +55,6 @@ const showToast = (settings: NotificationStatus, latest: { readonly current: Lat
             autoClose: hide_duration,
             transition: CustomTransition,
             hideProgressBar: to_hide_progress_bar,
-            progressClassName: styles.toast_progress,
             closeButton: ({ closeToast }) => <CloseButton size="small" aria-label={latest.current.t("common.dismiss_notification")} onClick={closeToast} />,
             onClose: () => {
                 latest.current.closeNotification();

@@ -1,7 +1,7 @@
 import { useResizable } from "react-resizable-layout";
 import type { SeparatorProps } from "react-resizable-layout";
 import { memo, useRef, useEffect, useState, startTransition, type Ref } from "react";
-import styles from "./MessageContainer.module.scss";
+import * as styles from "./MessageContainer.css.ts";
 import { LogBox } from "./log_box/LogBox";
 import { MessageLogSettingsContainer } from "./message_log_settings_container/MessageLogSettingsContainer";
 import { MessageInputBox } from "./message_input_box/MessageInputBox";

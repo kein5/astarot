@@ -18,8 +18,8 @@ export const isNonCommercialWeight = (weight: { non_commercial?: unknown } | nul
 export const needsLicenseConfirmation = (weight: Ctranslate2Weight | null | undefined, selected_id: unknown): boolean =>
     isNonCommercialWeight(weight) && weight.id !== selected_id;
 
-// Payload for /set/data/selected_ctranslate2_weight_type only.
-// Acquisitions use legacyDownloadRequest. A bare id keeps the payload for
+// Payload for /set/data/selected_ctranslate2_weight_type only; a translation model is
+// downloaded through the shared download catalog (#1015). A bare id keeps the payload for
 // everything that doesn't need the opt-in.
 export const weightRequest = (id: string, accepted = false): WeightRequest =>
     accepted ? { weight_type: id, accept_non_commercial_license: true } : id;

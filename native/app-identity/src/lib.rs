@@ -9,14 +9,15 @@
 //! VRCT-VOX spelling, so nothing changes for a user.
 //!
 //! What an earlier version wrote is still read where ADR-014 says so (2.11): the environment
-//! variables users and packagers set ([`env::Variable`]) and the owner marker of a model download
-//! ([`MODEL_DOWNLOAD_OWNER`]) are taken under either spelling, and API keys saved under the
-//! [`credentials`] names of 0.6.0 are found and copied to the new ones.
+//! variables users and packagers set ([`env::Variable`]), the owner marker of a model download
+//! ([`MODEL_DOWNLOAD_OWNER`]) and the Linux audio route's names ([`audio_route`]) are taken under
+//! either spelling, and API keys saved under the [`credentials`] names of 0.6.0 are found and
+//! copied to the new ones.
 //!
 //! Not here: the names ADR-014 keeps (2.3: the update and telemetry Workers, the chat box
 //! detector's ID, the key file's DPAPI entropy, setting keys, the IPC endpoints and the OSC
-//! addresses), the Linux audio route's names and those of the helper programs, which other
-//! programs share and which move with their own migration, and names only the code uses (2.12).
+//! addresses), the names of the helper programs, which ship with the app and move with it, and
+//! names only the code uses (2.12).
 
 /// A name that moves from its VRCT-VOX spelling to its ASTAROT one.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -92,6 +93,111 @@ pub const LINUX_PACKAGE: Renamed = Renamed::not_moved("vrct-vox", "astarot");
 /// and reads only that, so it leaves alone what an interrupted download of 0.6.0 left.
 pub const MODEL_DOWNLOAD_OWNER: Renamed = Renamed::moved("VRCT-VOX-model-download-v1", "ASTAROT-model-download-v1");
 
+/// The names of the Linux managed audio route (ADR-014, 2.8): the PipeWire nodes the core makes
+/// and marks, the systemd user units that keep them, and the hand-placed configuration that
+/// makes the same nodes. The virtual microphone's description is what VRChat lists.
+///
+/// The core of 0.6.0 and earlier made the route under the VRCT spellings. While
+/// [`READS_LEGACY_NAMES`](audio_route::READS_LEGACY_NAMES) is on, the core finds a hand-placed
+/// configuration under either file name, reports an old route that is not its own, and keeps
+/// nodes and streams under either prefix out of the input lists (ADR-014, 2.11). Retiring the
+/// units that core made goes on after that, for as long as
+/// [`RETIRES_LEGACY_UNITS`](audio_route::RETIRES_LEGACY_UNITS) is on.
+pub mod audio_route {
+    use super::Renamed;
+
+    /// Whether this build reads the route's VRCT spellings: nodes and streams under the old
+    /// prefixes stay out of the input lists, a hand-placed configuration under the old file name
+    /// stops the automatic setup, and an old route that is not the core's is reported. Decided on
+    /// 2026-11-23 (ADR-014, note on 2.11): they are read during the release series that first
+    /// ships the ASTAROT names (0.7.x when that is 0.7.0). The version after it turns this off;
+    /// every reader of a legacy spelling below goes through it.
+    pub const READS_LEGACY_NAMES: bool = true;
+
+    /// Whether the core retires the units 0.6.0 and earlier made under the old names. It stops
+    /// and removes only a unit identical to what that core wrote (`native/audio-routing`,
+    /// `pipewire::managed`), so it has no end (decided on 2026-11-23, ADR-014, note on 2.11): an
+    /// install that skips versions still loses the old virtual microphone. It stays on when
+    /// [`READS_LEGACY_NAMES`] goes off.
+    pub const RETIRES_LEGACY_UNITS: bool = true;
+
+    /// The first part of every node of the route: `<prefix>source` (the virtual microphone),
+    /// `<prefix>tts`, `<prefix>vc`, `<prefix>mix` and the loopbacks' outputs.
+    pub const NODE_PREFIX: Renamed = Renamed::moved("vrct.managed.", "astarot.managed.");
+    /// The first part of the source bridge's two streams, `<prefix><tag>.capture` and
+    /// `<prefix><tag>.playback`, which feed a microphone into the route's VC input.
+    pub const BRIDGE_PREFIX: Renamed = Renamed::moved("vrct.source-bridge.", "astarot.source-bridge.");
+    /// The first part of the streams realtime recognition captures through on Linux,
+    /// `<prefix>mic` and `<prefix>speaker`.
+    pub const ASR_CAPTURE_PREFIX: Renamed = Renamed::moved("vrct.asr.capture.", "astarot.asr.capture.");
+    /// The property (`v1`) on every node of the route, the units' and a hand-placed one's.
+    pub const ROUTE_PROPERTY: Renamed = Renamed::moved("vrct.managed.route", "astarot.managed.route");
+    /// The property that holds [`OWNER`] on the nodes the units make.
+    pub const OWNER_PROPERTY: Renamed = Renamed::moved("vrct.managed.owner", "astarot.managed.owner");
+    /// The property (`v1`) on the source bridge's streams.
+    pub const BRIDGE_PROPERTY: Renamed = Renamed::moved("vrct.source.bridge", "astarot.source.bridge");
+    /// The owner marker of the units the core makes, on their nodes and in the units' files.
+    pub const OWNER: Renamed = Renamed::moved("vrct-vox-service-v1", "astarot-service-v1");
+    /// The first part of the node descriptions, which the sound settings and VRChat show:
+    /// `<prefix> Virtual Microphone` and the inputs' `<prefix> TTS Input` and so on.
+    pub const DESCRIPTION_PREFIX: Renamed = Renamed::moved("VRCT Managed", "ASTAROT Managed");
+    /// The first part of the units' names, `<prefix>source.service` and so on, and of the names
+    /// `pw-loopback` gives its streams.
+    pub const UNIT_PREFIX: Renamed = Renamed::moved("vrct-managed-", "astarot-managed-");
+    /// The first line of a unit file.
+    pub const UNIT_HEADER: Renamed = Renamed::moved("# VRCT managed microphone v1; created by VRCT-VOX", "# ASTAROT managed microphone v1; created by ASTAROT");
+    /// A unit's `Description=`.
+    pub const UNIT_DESCRIPTION: Renamed = Renamed::moved("VRCT managed audio endpoint", "ASTAROT managed audio endpoint");
+    /// The file a user places in `pipewire.conf.d` (under `$XDG_CONFIG_HOME/pipewire` or
+    /// `/etc/pipewire`) to make the route by hand. The app ships it in `config/pipewire/`.
+    pub const MANUAL_CONFIG: Renamed = Renamed::moved("90-vrct-managed.conf", "90-astarot-managed.conf");
+    /// The lock in `$XDG_RUNTIME_DIR` that keeps two preparations of the route apart.
+    pub const SETUP_LOCK: Renamed = Renamed::moved("vrct-managed-setup.lock", "astarot-managed-setup.lock");
+
+    /// The spellings of `name` to read: the current one, and the legacy one while
+    /// [`READS_LEGACY_NAMES`] is on.
+    pub fn read(name: Renamed) -> impl Iterator<Item = &'static str> {
+        read_with(name, READS_LEGACY_NAMES)
+    }
+
+    /// [`read`], with `legacy` in place of [`READS_LEGACY_NAMES`] (tests).
+    pub fn read_with(name: Renamed, legacy: bool) -> impl Iterator<Item = &'static str> {
+        std::iter::once(name.current()).chain(legacy.then_some(name.other()))
+    }
+
+    /// Whether `node` starts with a prefix of the route or of the source bridge under a
+    /// spelling read: such a node feeds the virtual microphone, so it is never an input to
+    /// choose, a monitor to play to or a device to record.
+    pub fn is_route_name(node: &str) -> bool {
+        is_route_name_with(node, READS_LEGACY_NAMES)
+    }
+
+    /// [`is_route_name`], with `legacy` in place of [`READS_LEGACY_NAMES`] (tests).
+    pub fn is_route_name_with(node: &str, legacy: bool) -> bool {
+        starts_with_any(node, &[NODE_PREFIX, BRIDGE_PREFIX], legacy)
+    }
+
+    /// Whether `node` is one of the app's own nodes or streams under a spelling read: the
+    /// route's, the source bridge's, or a capture for recognition. Recognition never records it.
+    pub fn is_own_name(node: &str) -> bool {
+        is_own_name_with(node, READS_LEGACY_NAMES)
+    }
+
+    /// [`is_own_name`], with `legacy` in place of [`READS_LEGACY_NAMES`] (tests).
+    pub fn is_own_name_with(node: &str, legacy: bool) -> bool {
+        starts_with_any(node, &[NODE_PREFIX, BRIDGE_PREFIX, ASR_CAPTURE_PREFIX], legacy)
+    }
+
+    fn starts_with_any(node: &str, prefixes: &[Renamed], legacy: bool) -> bool {
+        prefixes.iter().flat_map(|prefix| read_with(*prefix, legacy)).any(|prefix| node.starts_with(prefix))
+    }
+
+    /// The properties that mark a node of the route or of its streams, under the spellings read.
+    pub fn markers() -> impl Iterator<Item = &'static str> {
+        [ROUTE_PROPERTY, BRIDGE_PROPERTY].into_iter().flat_map(read)
+    }
+}
+
 /// The names of the API keys in the OS credential store (ADR-013; ADR-014, 2.9). 0.6.0 kept its
 /// keys under the `legacy` names; this build writes the `astarot` ones, copies a key it finds only
 /// under the old names, and leaves the old item where it is while ADR-014 2.11 reads old names.
@@ -163,13 +269,9 @@ pub mod env {
     /// The folder through which the Linux app hands the VR panel's frames and the captured
     /// screen to the VR overlay and chat reading in the same process tree.
     pub const VR_PANEL_DIR: &str = "ASTAROT_VR_PANEL_DIR";
-    /// The host's `LD_LIBRARY_PATH`, which `packaging/appimage/AppRun` keeps before it points the
-    /// variable at the AppImage's own libraries.
-    pub const APPIMAGE_HOST_LD_LIBRARY_PATH: &str = "ASTAROT_APPIMAGE_HOST_LD_LIBRARY_PATH";
-    /// `x` when the host had `LD_LIBRARY_PATH` set at all (even to nothing), empty when not
-    /// (`packaging/appimage/AppRun`).
-    pub const APPIMAGE_HOST_LD_LIBRARY_PATH_SET: &str = "ASTAROT_APPIMAGE_HOST_LD_LIBRARY_PATH_SET";
 }
+
+pub mod appimage;
 
 /// The first bytes of the files the app's processes hand each other on Linux. Both ends are in
 /// the same version, so these change together with no migration (`VRCTVRP1` and `VRCTSCR1` up to
@@ -310,14 +412,73 @@ mod tests {
         assert_eq!(config.value_os_with(lookup(&[("ASTAROT_CONFIG_DIR", ""), ("VRCT_CONFIG_DIR", "")])), None);
     }
 
+    const ROUTE: [(&str, Renamed); 13] = [
+        ("NODE_PREFIX", audio_route::NODE_PREFIX),
+        ("BRIDGE_PREFIX", audio_route::BRIDGE_PREFIX),
+        ("ASR_CAPTURE_PREFIX", audio_route::ASR_CAPTURE_PREFIX),
+        ("ROUTE_PROPERTY", audio_route::ROUTE_PROPERTY),
+        ("OWNER_PROPERTY", audio_route::OWNER_PROPERTY),
+        ("BRIDGE_PROPERTY", audio_route::BRIDGE_PROPERTY),
+        ("OWNER", audio_route::OWNER),
+        ("DESCRIPTION_PREFIX", audio_route::DESCRIPTION_PREFIX),
+        ("UNIT_PREFIX", audio_route::UNIT_PREFIX),
+        ("UNIT_HEADER", audio_route::UNIT_HEADER),
+        ("UNIT_DESCRIPTION", audio_route::UNIT_DESCRIPTION),
+        ("MANUAL_CONFIG", audio_route::MANUAL_CONFIG),
+        ("SETUP_LOCK", audio_route::SETUP_LOCK),
+    ];
+
+    /// ADR-014, 2.2 and 2.8: the route moved in one step, nodes and units in lower case
+    /// `astarot`, the descriptions people read in `ASTAROT`. The spelling changes nothing but the
+    /// name, so a unit or node of 0.6.0 is told by these values alone.
+    #[test]
+    fn the_route_writes_its_astarot_names_and_knows_the_vrct_ones() {
+        for (what, name) in ROUTE {
+            assert!(name.writes_astarot, "{what}");
+            assert_eq!(name.current(), name.astarot, "{what}");
+            assert!(name.legacy.contains("vrct") || name.legacy.contains("VRCT"), "{what}: {}", name.legacy);
+            assert!(!name.astarot.to_ascii_lowercase().contains("vrct"), "{what}: {}", name.astarot);
+            let renamed = name.legacy.replace("VRCT-VOX", "ASTAROT").replace("vrct-vox", "astarot").replace("VRCT", "ASTAROT").replace("vrct", "astarot");
+            assert_eq!(renamed, name.astarot, "{what}");
+        }
+        assert_eq!(audio_route::DESCRIPTION_PREFIX.current(), "ASTAROT Managed");
+        assert_eq!(audio_route::OWNER.legacy, "vrct-vox-service-v1");
+        assert_eq!(audio_route::MANUAL_CONFIG.current(), "90-astarot-managed.conf");
+    }
+
+    #[test]
+    fn the_legacy_route_names_are_read_only_while_the_period_lasts() {
+        let prefix = audio_route::NODE_PREFIX;
+        assert_eq!(audio_route::read_with(prefix, true).collect::<Vec<_>>(), ["astarot.managed.", "vrct.managed."]);
+        assert_eq!(audio_route::read_with(prefix, false).collect::<Vec<_>>(), ["astarot.managed."]);
+        for legacy in [true, false] {
+            assert!(audio_route::is_route_name_with("astarot.managed.source", legacy));
+            assert!(audio_route::is_route_name_with("astarot.source-bridge.0123.playback", legacy));
+            assert_eq!(audio_route::is_route_name_with("vrct.managed.source", legacy), legacy);
+            assert_eq!(audio_route::is_route_name_with("vrct.source-bridge.0123.capture", legacy), legacy);
+            assert!(!audio_route::is_route_name_with("alsa_input.usb-mic", legacy));
+            // A prefix is a whole word: a node merely named like the route is not one of it.
+            assert!(!audio_route::is_route_name_with("astarot.managed", legacy));
+            assert!(!audio_route::is_route_name_with("astarot.tts", legacy));
+            // A capture for recognition is the app's own, but feeds no virtual microphone.
+            assert!(!audio_route::is_route_name_with("astarot.asr.capture.mic", legacy));
+            assert!(audio_route::is_own_name_with("astarot.asr.capture.mic", legacy));
+            assert!(audio_route::is_own_name_with("astarot.managed.mix", legacy));
+            assert_eq!(audio_route::is_own_name_with("vrct.asr.capture.speaker", legacy), legacy);
+            assert!(!audio_route::is_own_name_with("alsa_output.headphones", legacy));
+        }
+        assert_eq!(audio_route::is_route_name("vrct.managed.mix"), audio_route::READS_LEGACY_NAMES);
+        let markers: Vec<&str> = audio_route::markers().collect();
+        assert!(markers.contains(&"astarot.managed.route") && markers.contains(&"astarot.source.bridge"));
+        assert_eq!(markers.contains(&"vrct.managed.route"), audio_route::READS_LEGACY_NAMES);
+    }
+
     #[test]
     fn the_development_and_handoff_names_are_astarot() {
         assert_eq!(env::VR_PANEL_DIR, "ASTAROT_VR_PANEL_DIR");
         assert_eq!(env::TELEMETRY_URL, "ASTAROT_TELEMETRY_URL");
         assert_eq!(env::VOICE_TRACE, "ASTAROT_VOICE_TRACE");
         assert_eq!(env::VOICE_GC_DIAGNOSTICS, "ASTAROT_VOICE_GC_DIAGNOSTICS");
-        assert_eq!(env::APPIMAGE_HOST_LD_LIBRARY_PATH, "ASTAROT_APPIMAGE_HOST_LD_LIBRARY_PATH");
-        assert_eq!(env::APPIMAGE_HOST_LD_LIBRARY_PATH_SET, "ASTAROT_APPIMAGE_HOST_LD_LIBRARY_PATH_SET");
         assert_eq!(handoff::VR_PANEL_FRAME, b"ASTRVRP1");
         assert_eq!(handoff::SCREEN_FRAME, b"ASTRSCR1");
     }

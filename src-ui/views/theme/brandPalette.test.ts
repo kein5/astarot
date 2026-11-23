@@ -131,9 +131,10 @@ test("every Lilac fill carries Dark Plum text at 4.5:1, and the deep violets car
     assert.match(read("../app/_index_css/root.css"), /::selection \{ color: var\(--dark_100_color\); background: var\(--primary_800_color\); \}/);
     // A checked box's check is on the same Lilac fill, so it is Dark Plum too (shadcn/ui's
     // primary-foreground check).
-    const checkbox = read("../common_components/checkbox/Checkbox.module.scss");
-    assert.match(checkbox, /:checked \+ \.cbx\s*\{\s*background-color: var\(--checkbox-color, var\(--primary_600_color\)\)/);
-    assert.match(checkbox, /\.cbx svg\s*\{[^}]*stroke: var\(--vox_on_primary\);/);
+    const checkbox = read("../common_components/checkbox/Checkbox.css.ts");
+    assert.match(checkbox, /const CHECKED = `var\(--checkbox-color, \$\{vars\.primary_600_color\}\)`;/);
+    assert.match(checkbox, /\[`\$\{input\}:checked \+ &`\]: \{\s*backgroundColor: CHECKED,/);
+    assert.match(checkbox, /globalStyle\(`\$\{checkbox_wrapper\} \$\{cbx\} svg`, \{[^}]*stroke: vars\.vox_on_primary,/);
 });
 
 test("a field's border reaches 3.5:1 on the surface and 3:1 on every ground, and the focus ring is visible on every ground", () => {
@@ -152,30 +153,30 @@ test("fields and outlined controls draw their edge with the field border", () =>
     const views = "../";
     for (const path of [
         "kit/Field.css.ts", "kit/Switch.css.ts",
-        "app/config_page/setting_section/setting_box/_components/_atoms/_dropdown_menu/_DropdownMenu.module.scss",
-        "app/config_page/setting_section/setting_box/_components/_atoms/_entry/_Entry.module.scss",
-        "app/config_page/search_bar/SearchBar.module.scss",
-        "app/config_page/setting_section/setting_box/_components/file_drop_zone/FileDropZone.module.scss",
-        "app/config_page/setting_section/setting_box/advanced_settings/VoiceSettings.module.scss",
-        "app/main_page/main_section/language_selector/LanguageSelector.module.scss",
-        "quick_chat/QuickChat.module.scss",
+        "app/config_page/setting_section/setting_box/_components/_atoms/_dropdown_menu/_DropdownMenu.css.ts",
+        "app/config_page/setting_section/setting_box/_components/_atoms/_entry/_Entry.css.ts",
+        "app/config_page/search_bar/SearchBar.css.ts",
+        "app/config_page/setting_section/setting_box/_components/file_drop_zone/FileDropZone.css.ts",
+        "app/config_page/setting_section/setting_box/advanced_settings/VoiceSettings.css.ts",
+        "app/main_page/main_section/language_selector/LanguageSelector.css.ts",
+        "quick_chat/QuickChat.css.ts",
     ]) assert.match(read(views + path), /vox_field_border/, path);
     // The outline buttons have no fill, so the border is their only edge.
     const buttons = read(views + "kit/Button.css.ts");
     for (const tone of ["quiet", "danger"]) {
         assert.match(buttons.slice(buttons.indexOf(`${tone}: {`)), /^[^}]*borderColor: vars\.vox_field_border/, tone);
     }
-    // The outline buttons still drawn in SCSS: the settings forms' quiet buttons, the update check
-    // beside Install, and Quit beside Retry when the app fails to start. Only the rule's own
-    // declarations count, not a nested state's.
+    // The settings forms' quiet buttons. Only the rule's own declarations count, not a state's.
+    const forms = read(views + "app/config_page/setting_section/setting_box/advanced_settings/VoiceSettings.css.ts");
+    assert.match(forms, /inForm\(`button\.\$\{quiet\}`\), \{[^{}]*borderColor: vars\.vox_field_border/, "the forms' quiet buttons");
+    // The update check beside Install, and Quit beside Retry when the app fails to start.
     for (const [path, rule] of [
-        ["app/config_page/setting_section/setting_box/advanced_settings/VoiceSettings.module.scss", "button.quiet {"],
-        ["app/config_page/setting_section/setting_box/updater/Updater.module.scss", ".check_button {"],
-        ["app/others/startup/StartupFailedDialog.module.scss", ".quit {"],
+        ["app/config_page/setting_section/setting_box/updater/Updater.css.ts", "export const check_button = style({"],
+        ["app/others/startup/StartupFailedDialog.css.ts", "export const quit = style({"],
     ]) {
         const source = read(views + path);
         assert.ok(source.includes(rule), `${path}: ${rule}`);
-        assert.match(source.slice(source.indexOf(rule)), /^[^{]*\{[^{}]*border(-color)?: [^;]*var\(--vox_field_border\)/, `${path}: ${rule}`);
+        assert.match(source.slice(source.indexOf(rule)), /^[^{]*\{[^{}]*border: `[^`]*\$\{vars\.vox_field_border\}`/, `${path}: ${rule}`);
     }
 });
 

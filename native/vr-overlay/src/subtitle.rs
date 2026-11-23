@@ -1,9 +1,10 @@
 //! The pictures of the small and the large log ([`overlay_image.py`]).
 //!
-//! The small log shows the last message alone, centred, 3840 px wide. The large log keeps the
-//! last five messages (and the realtime captions still being recognised) as a chat, 960 px wide,
-//! sent ones on the right and received ones on the left. Readings (hiragana and romaji) go
-//! above the words they belong to. Limits as `docs/spec/overlay-subtitle-rendering.md`.
+//! The small log shows the last message alone, centred, 3840 px wide, under who spoke it when
+//! the voices were told apart (#447). The large log keeps the last five messages (and the
+//! realtime captions still being recognised) as a chat, 960 px wide, sent ones on the right and
+//! received ones on the left. Readings (hiragana and romaji) go above the words they belong to.
+//! Limits as `docs/spec/overlay-subtitle-rendering.md`.
 //!
 //! [`overlay_image.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/overlay/overlay_image.py
 
@@ -22,6 +23,9 @@ const SUBTITLE_PADDING_RESERVE: i64 = 100;
 const SMALL_WIDTH: i64 = 3840;
 const SMALL_HEIGHT: i64 = 92;
 const SMALL_FONT: u32 = 92;
+/// Who spoke, above the small log's message: two thirds of its text, as the large log's header
+/// is of its messages.
+const SMALL_WHO_FONT: u32 = 60;
 const BACKGROUND: [u8; 3] = [41, 42, 45];
 const TEXT: [u8; 3] = [223, 223, 223];
 const LARGE_WIDTH: i64 = 960;
@@ -32,9 +36,19 @@ const LARGE_RADIUS: i64 = 25;
 const LARGE_PADDING: i64 = 10;
 const LARGE_CLAUSE_MARGIN: i64 = 20;
 const TEXT_SMALL: [u8; 3] = [190, 190, 190];
-const TEXT_SEND: [u8; 3] = [97, 151, 180];
-const TEXT_RECEIVE: [u8; 3] = [168, 97, 180];
-const TEXT_TIME: [u8; 3] = [120, 120, 120];
+/// Sent messages ("Send" on the large log's header): the original sent blue (97, 151, 180)
+/// made lighter at the same hue. Against the background (41, 42, 45) it stands out by 6.0:1
+/// (WCAG 2.x); the original stood out by 4.51:1 and measured 3.31:1 in a headset.
+const TEXT_SEND: [u8; 3] = [131, 174, 196];
+/// Received messages ("Receive" on the large log's header and who spoke on the small log):
+/// the original received purple (168, 97, 180) made lighter at the same hue. Against the
+/// background (41, 42, 45) it stands out by 6.0:1 (WCAG 2.x), above the 4.5:1 that small text
+/// needs; the original stood out by 3.4:1 and measured 2.63-2.67:1 in a headset.
+const TEXT_RECEIVE: [u8; 3] = [198, 152, 206];
+/// Timestamps on the large log's header: neutral gray at 6.0:1 (WCAG 2.x) against the
+/// background, below `TEXT_SMALL`, replacing (120, 120, 120) which stood out by 3.25:1 and
+/// measured 2.27-2.43:1 in a headset.
+const TEXT_TIME: [u8; 3] = [168, 168, 168];
 const RUBY_SCALE: f64 = 0.5;
 const RUBY_SPACING: i64 = 4;
 
@@ -475,11 +489,27 @@ impl Renderer {
         self.render_rows(rows, SMALL_WIDTH, clipped)
     }
 
+    /// Who spoke, centered above the small log's message in the received purple.
+    fn small_who(&self, who: &str) -> Result<Block, TooLarge> {
+        let (mut rows, clipped) = self.plain_rows(who, "Default", SMALL_WHO_FONT, TEXT_RECEIVE, (SMALL_WIDTH as f64 * 0.9) as i64, Align::Center, 10, 0);
+        if let Some(first) = rows.first_mut() {
+            // As far from the top as a message without it starts.
+            let half = i64::from(SMALL_FONT / 2);
+            first.padding += half;
+            first.height += half;
+        }
+        self.render_rows(rows, SMALL_WIDTH, clipped)
+    }
+
     /// The small log's picture of one message (`createOverlayImageSmallLog`). With translations,
     /// the message (when given) above each translation; otherwise the message with its readings.
-    pub fn small_log(&self, message: &Subtitle) -> Result<Canvas, TooLarge> {
+    /// `who` spoke it, written above (#447).
+    pub fn small_log(&self, message: &Subtitle, who: Option<&str>) -> Result<Canvas, TooLarge> {
         let language = message.language.as_deref().unwrap_or("Default");
         let mut blocks: Vec<Result<Block, TooLarge>> = Vec::new();
+        if let Some(who) = who.filter(|w| !w.is_empty()) {
+            blocks.push(self.small_who(who));
+        }
         if !message.translations.is_empty() {
             if let Some(original) = message.original.as_deref().filter(|m| !m.is_empty()) {
                 blocks.push(self.small_textbox(original, language));
@@ -578,7 +608,7 @@ impl Renderer {
 
     /// The small log's sample shown from the settings (`createOverlayImageSmallMessage`).
     pub fn small_sample(&self, text: &str) -> Result<Canvas, TooLarge> {
-        self.small_log(&Subtitle { original: Some(text.to_string()), language: Some("Default".into()), ..Subtitle::default() })
+        self.small_log(&Subtitle { original: Some(text.to_string()), language: Some("Default".into()), ..Subtitle::default() }, None)
     }
 }
 
@@ -629,12 +659,25 @@ pub struct Subtitle {
     pub speakers: Vec<String>,
 }
 
-/// The most voices a session's names are kept for, and the sessions kept.
+/// The sessions whose names are kept.
 const MAX_NAMED_SESSIONS: usize = 4;
-/// The longest line of speakers the large log draws, in characters.
+/// The longest line of speakers the logs draw, in characters.
 const MAX_WHO: usize = 48;
 
-/// Who spoke, as the large log writes it: each label's name if the user gave one, else the
+/// The names the user gave the voices of the latest realtime sessions (#447): each session's
+/// labels with their names.
+#[derive(Clone, Debug, Default)]
+struct Names(Vec<(String, Vec<(String, String)>)>);
+
+impl Names {
+    fn of(&self, session: Option<&str>) -> &[(String, String)] {
+        session
+            .and_then(|session| self.0.iter().find(|(named, _)| named == session))
+            .map_or(&[][..], |(_, names)| names.as_slice())
+    }
+}
+
+/// Who spoke, as the logs write it: each label's name if the user gave one, else the
 /// label, joined by "·" ("Mika·B").
 fn who(speakers: &[String], names: &[(String, String)]) -> Option<String> {
     if speakers.is_empty() {
@@ -681,14 +724,12 @@ struct Entry {
     who: Option<String>,
 }
 
-/// The large log's history (`message_log`, `caption_pending`, `_caption_latest`) and the names
-/// the user gave the voices of the latest sessions (#447).
+/// The large log's history (`message_log`, `caption_pending`, `_caption_latest`).
 #[derive(Clone, Debug, Default)]
 pub struct LargeLog {
     entries: Vec<Entry>,
     pending: Vec<(CaptionId, Entry)>,
     latest: Vec<(CaptionId, (u64, CaptionState))>,
-    names: Vec<(String, Vec<(String, String)>)>,
 }
 
 /// A rendered large log and the version it shows.
@@ -711,13 +752,9 @@ impl LargeLog {
     }
 
     /// An entry with who spoke it written out, by the names of its caption's session.
-    fn named(&self, entry: &Entry) -> Entry {
-        let names = entry
-            .caption
-            .as_ref()
-            .and_then(|(_, namespace, _)| self.names.iter().find(|(named, _)| named == namespace))
-            .map_or(&[][..], |(_, names)| names.as_slice());
-        Entry { who: who(&entry.subtitle.speakers, names), ..entry.clone() }
+    fn named(entry: &Entry, names: &Names) -> Entry {
+        let session = entry.caption.as_ref().map(|(_, namespace, _)| namespace.as_str());
+        Entry { who: who(&entry.subtitle.speakers, names.of(session)), ..entry.clone() }
     }
 
     /// Whether the log shows a caption of this session that names its speakers.
@@ -730,10 +767,12 @@ impl LargeLog {
 }
 
 /// The subtitles' state: the renderer and the large log's history, behind one lock
-/// (`log_lock`): render and publish of the large log happen under it.
+/// (`log_lock`): render and publish of the large log happen under it. The names of the voices
+/// have their own lock, taken after that one, so that the small log does not wait for the large.
 pub struct Subtitles {
     pub renderer: Renderer,
     state: Mutex<(LargeLog, u64)>,
+    names: Mutex<Names>,
     clock: Arc<dyn Fn() -> String + Send + Sync>,
 }
 
@@ -748,11 +787,12 @@ pub struct InvalidCaption;
 impl Subtitles {
     /// `clock` gives the local time as "HH:MM".
     pub fn new(library: Arc<FontLibrary>, clock: Arc<dyn Fn() -> String + Send + Sync>) -> Self {
-        Self { renderer: Renderer::new(library), state: Mutex::new((LargeLog::default(), 0)), clock }
+        Self { renderer: Renderer::new(library), state: Mutex::new((LargeLog::default(), 0)), names: Mutex::default(), clock }
     }
 
     fn render(&self, log: &LargeLog, revision: &mut u64) -> Result<LargePicture, TooLarge> {
-        let named: Vec<Entry> = log.entries.iter().chain(log.pending.iter().map(|(_, e)| e)).map(|e| log.named(e)).collect();
+        let names = self.names.lock().unwrap().clone();
+        let named: Vec<Entry> = log.entries.iter().chain(log.pending.iter().map(|(_, e)| e)).map(|e| LargeLog::named(e, &names)).collect();
         let all: Vec<&Entry> = named.iter().collect();
         let canvas = self.renderer.large_log(&all)?;
         *revision += 1;
@@ -876,16 +916,27 @@ impl Subtitles {
         }
     }
 
+    /// The small log's picture of a message (#447): who spoke a realtime caption is written
+    /// above it, by the names the user gave the voices of its `session`.
+    pub fn small_log(&self, message: &Subtitle, session: Option<&str>) -> Result<Canvas, TooLarge> {
+        let who = who(&message.speakers, self.names.lock().unwrap().of(session));
+        self.renderer.small_log(message, who.as_deref())
+    }
+
     /// The names the user gave the voices of a realtime session (#447): `names` is the whole set
     /// for that session, label and name. The large log is drawn again and offered to `publish`
-    /// when it shows a caption of that session with speakers. Returns whether it was drawn.
+    /// when it shows a caption of that session with speakers. Returns whether it was drawn. The
+    /// small log keeps what it shows; its next message has the names.
     pub fn set_speaker_names(&self, namespace: &str, names: Vec<(String, String)>, publish: Publish) -> bool {
         let mut guard = self.state.lock().unwrap();
         let (log, counter) = &mut *guard;
-        log.names.retain(|(named, _)| named != namespace);
-        log.names.push((namespace.to_string(), names));
-        while log.names.len() > MAX_NAMED_SESSIONS {
-            log.names.remove(0);
+        {
+            let mut kept = self.names.lock().unwrap();
+            kept.0.retain(|(named, _)| named != namespace);
+            kept.0.push((namespace.to_string(), names));
+            while kept.0.len() > MAX_NAMED_SESSIONS {
+                kept.0.remove(0);
+            }
         }
         if !log.shows_speakers_of(namespace) {
             return false;
@@ -946,7 +997,7 @@ mod tests {
             translations: vec![Translation { text: "Hello".into(), language: "English".into(), readings: Vec::new() }],
             ..Subtitle::default()
         };
-        let picture = subtitles.renderer.small_log(&message).unwrap();
+        let picture = subtitles.renderer.small_log(&message, None).unwrap();
         assert_eq!(picture.width, 3840 + 100);
         assert!(picture.height >= 100, "two rows and the margin");
         assert_eq!(picture.pixel(picture.width / 2, 2), [41, 42, 45, 255], "the background");
@@ -965,8 +1016,8 @@ mod tests {
             readings: vec![Reading { orig: "慮".into(), hira: "おもんぱか".into(), hepburn: "omonpaka".into() }],
             ..plain.clone()
         };
-        let a = subtitles.renderer.small_log(&plain).unwrap();
-        let b = subtitles.renderer.small_log(&with).unwrap();
+        let a = subtitles.renderer.small_log(&plain, None).unwrap();
+        let b = subtitles.renderer.small_log(&with, None).unwrap();
         assert!(b.height > a.height);
     }
 
@@ -1187,17 +1238,138 @@ mod tests {
         }));
         assert_eq!(drawn, 1);
         let state = subtitles.state.lock().unwrap();
-        assert_eq!(state.0.named(&state.0.entries[0]).who.as_deref(), Some("ミカ"));
+        let names = subtitles.names.lock().unwrap().clone();
+        assert_eq!(LargeLog::named(&state.0.entries[0], &names).who.as_deref(), Some("ミカ"));
         drop(state);
         // Another session's names change nothing on screen.
         assert!(!subtitles.set_speaker_names("n2", vec![("A".into(), "別の人".into())], &mut |_| panic!("not drawn")));
+    }
+
+    /// The rows of a picture that hold a colour, top to bottom.
+    fn rows_with(picture: &Canvas, color: [u8; 3]) -> Vec<u32> {
+        (0..picture.height)
+            .filter(|&y| (0..picture.width).any(|x| picture.pixel(x, y)[..3] == color))
+            .collect()
+    }
+
+    #[test]
+    fn the_small_log_writes_who_spoke_above_the_message() {
+        let subtitles = renderer();
+        let spoken = Subtitle {
+            original: Some("こんにちは".into()),
+            language: Some("Japanese".into()),
+            translations: vec![Translation { text: "Hello".into(), language: "English".into(), readings: Vec::new() }],
+            speakers: vec!["A".into(), "B".into()],
+            ..Subtitle::default()
+        };
+        let plain = subtitles.renderer.small_log(&spoken, None).unwrap();
+        let named = subtitles.renderer.small_log(&spoken, Some("ミカ·B")).unwrap();
+        assert_eq!(named.width, plain.width);
+        assert!(named.height > plain.height, "a row for who spoke");
+        assert!(rows_with(&plain, TEXT_RECEIVE).is_empty(), "no one is written without a name or a label");
+        if subtitles.renderer.library().any() {
+            let who = rows_with(&named, TEXT_RECEIVE);
+            let text = rows_with(&named, TEXT);
+            assert!(!who.is_empty(), "who spoke is drawn");
+            assert!(who.last() < text.first(), "above the message");
+        }
+        // An empty name writes no row.
+        assert_eq!(subtitles.renderer.small_log(&spoken, Some("")).unwrap().height, plain.height);
+    }
+
+    /// WCAG 2.x contrast of two colors.
+    fn contrast(a: [u8; 3], b: [u8; 3]) -> f64 {
+        let luminance = |c: [u8; 3]| {
+            let channel = |v: u8| {
+                let v = f64::from(v) / 255.0;
+                if v <= 0.04045 { v / 12.92 } else { ((v + 0.055) / 1.055).powf(2.4) }
+            };
+            0.2126 * channel(c[0]) + 0.7152 * channel(c[1]) + 0.0722 * channel(c[2])
+        };
+        let (x, y) = (luminance(a), luminance(b));
+        (x.max(y) + 0.05) / (x.min(y) + 0.05)
+    }
+
+    /// The hue of a color in degrees.
+    fn hue(c: [u8; 3]) -> f64 {
+        let [r, g, b] = c.map(|v| f64::from(v) / 255.0);
+        let (max, min) = (r.max(g).max(b), r.min(g).min(b));
+        let d = max - min;
+        let h = if max == r { ((g - b) / d).rem_euclid(6.0) } else if max == g { (b - r) / d + 2.0 } else { (r - g) / d + 4.0 };
+        h * 60.0
+    }
+
+    #[test]
+    fn received_purple_stands_out_from_the_background_at_the_same_hue() {
+        let original_receive = [168, 97, 180];
+        // Small text needs 4.5:1 (WCAG 2.x); a headset showed less than the colors give.
+        assert!(contrast(TEXT_RECEIVE, BACKGROUND) >= 4.5, "{:.2}:1", contrast(TEXT_RECEIVE, BACKGROUND));
+        // Still the color of received messages: the same purple, only lighter.
+        assert!((hue(TEXT_RECEIVE) - hue(original_receive)).abs() < 2.0, "{} against {}", hue(TEXT_RECEIVE), hue(original_receive));
+        assert!(contrast(TEXT_RECEIVE, BACKGROUND) > contrast(original_receive, BACKGROUND));
+    }
+
+    #[test]
+    fn the_large_log_header_stands_out_from_the_background() {
+        let original_send = [97, 151, 180];
+        let original_time = [120, 120, 120];
+        // All header labels meet the 4.5:1 small-text threshold against the background.
+        assert!(contrast(TEXT_RECEIVE, BACKGROUND) >= 4.5, "Receive {:.2}:1", contrast(TEXT_RECEIVE, BACKGROUND));
+        assert!(contrast(TEXT_TIME, BACKGROUND) >= 4.5, "time {:.2}:1", contrast(TEXT_TIME, BACKGROUND));
+        assert!(contrast(TEXT_SEND, BACKGROUND) >= 4.5, "Send {:.2}:1", contrast(TEXT_SEND, BACKGROUND));
+        // "Send" keeps the original blue hue while gaining headroom for headset attenuation.
+        assert!((hue(TEXT_SEND) - hue(original_send)).abs() < 2.0, "{} against {}", hue(TEXT_SEND), hue(original_send));
+        assert!(contrast(TEXT_SEND, BACKGROUND) > contrast(original_send, BACKGROUND));
+        // Timestamp stays a neutral gray darker than the secondary and primary message text.
+        assert_eq!(TEXT_TIME[0], TEXT_TIME[1]);
+        assert_eq!(TEXT_TIME[1], TEXT_TIME[2]);
+        assert!(contrast(TEXT_TIME, BACKGROUND) > contrast(original_time, BACKGROUND));
+        assert!(contrast(TEXT_TIME, BACKGROUND) < contrast(TEXT_SMALL, BACKGROUND));
+        assert!(contrast(TEXT_SMALL, BACKGROUND) < contrast(TEXT, BACKGROUND));
+
+        let subtitles = renderer();
+        let recv = Entry {
+            direction: Direction::Receive,
+            subtitle: Subtitle { original: Some("こんにちは".into()), language: Some("Japanese".into()), ..Subtitle::default() },
+            time: "12:34".into(),
+            caption: None,
+            who: Some("ミカ·B".into()),
+        };
+        let sent = Entry {
+            direction: Direction::Send,
+            subtitle: Subtitle { original: Some("Hello".into()), language: Some("English".into()), ..Subtitle::default() },
+            time: "12:35".into(),
+            caption: None,
+            who: None,
+        };
+        let picture = subtitles.renderer.large_log(&[&recv, &sent]).unwrap();
+        if subtitles.renderer.library().any() {
+            assert!(!rows_with(&picture, TEXT_TIME).is_empty(), "time is drawn in TEXT_TIME");
+            assert!(!rows_with(&picture, TEXT_RECEIVE).is_empty(), "Receive is drawn in TEXT_RECEIVE");
+            assert!(!rows_with(&picture, TEXT_SEND).is_empty(), "Send is drawn in TEXT_SEND");
+        }
+    }
+
+    #[test]
+    fn the_small_log_names_the_voices_of_its_own_session() {
+        let subtitles = renderer();
+        assert!(!subtitles.set_speaker_names("n1", vec![("A".into(), "ミカ".into())], &mut |_| panic!("no large log is shown")));
+        let names = subtitles.names.lock().unwrap().clone();
+        let labels = vec!["A".to_string()];
+        assert_eq!(who(&labels, names.of(Some("n1"))).as_deref(), Some("ミカ"));
+        assert_eq!(who(&labels, names.of(Some("n2"))).as_deref(), Some("A"), "another session's voices go by their labels");
+        assert_eq!(who(&labels, names.of(None)).as_deref(), Some("A"));
+        // The row of who spoke is there only when the voices were told apart.
+        let spoken = Subtitle { original: Some("こんにちは".into()), speakers: labels, ..Subtitle::default() };
+        let untold = Subtitle { speakers: Vec::new(), ..spoken.clone() };
+        assert!(subtitles.small_log(&spoken, Some("n1")).unwrap().height > subtitles.small_log(&untold, Some("n1")).unwrap().height);
     }
 
     #[test]
     fn a_huge_text_is_cut_with_an_ellipsis_within_the_budget() {
         let subtitles = renderer();
         let long = "長い文章です。".repeat(400);
-        let picture = subtitles.renderer.small_log(&Subtitle { original: Some(long), ..Subtitle::default() }).unwrap();
+        let picture = subtitles.renderer.small_log(&Subtitle { original: Some(long), ..Subtitle::default() }, None).unwrap();
         assert!(validate_texture_size(i64::from(picture.width), i64::from(picture.height)).is_ok());
         let _ = PathBuf::new();
     }

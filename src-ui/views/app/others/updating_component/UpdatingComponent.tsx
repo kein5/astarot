@@ -1,4 +1,4 @@
-import styles from "./UpdatingComponent.module.scss";
+import * as styles from "./UpdatingComponent.css.ts";
 import { useI18n } from "@useI18n";
 import { CircularProgress } from "@common_components";
 import brand_icon from "@images/brand/icon-small.svg";

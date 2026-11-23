@@ -22,7 +22,10 @@ fn open_folder(path: &Path) -> std::io::Result<()> {
     let program = "explorer";
     #[cfg(not(windows))]
     let program = "xdg-open";
-    let mut child = std::process::Command::new(program).arg(path).spawn()?;
+    let mut command = std::process::Command::new(program);
+    // Under the AppImage, the file manager gets the host's environment, not the GUI's (#924, item 22).
+    astarot_app_identity::appimage::restore_host_environment(&mut command);
+    let mut child = command.arg(path).spawn()?;
     // Waited for on a thread of its own: a child nobody waits for stays a zombie on Linux until
     // the app ends, one more for every click.
     let _ = std::thread::Builder::new().name("open_folder_wait".into()).spawn(move || {

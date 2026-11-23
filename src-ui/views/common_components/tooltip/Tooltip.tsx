@@ -1,7 +1,7 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import type { CSSProperties, FocusEvent, KeyboardEvent, ReactNode } from "react";
 import { createPortal } from "react-dom";
-import styles from "./Tooltip.module.scss";
+import * as styles from "./Tooltip.css.ts";
 import clsx from "clsx";
 import { placeTooltip, wordsInSight } from "./tooltipPlacement.ts";
 import type { TooltipSide } from "./tooltipPlacement.ts";

@@ -10,7 +10,7 @@ UIから中核への要求と、中核からUIへの通知（`RUN_MAPPING`）の
 - UIの受信先: 200の応答を処理するUIのフック（`useReceiveRoutes.ts`の静的ルートと`ui_config_setter.ts`の定義から生成）。「—」は受信先がない。
 - ログで伏せる: `process.log`で値を`***MASKED***`に置き換える（`log::SENSITIVE_ENDPOINT_MARKERS`）。stdoutのIPCそのものは伏せない。
 
-## 要求（476件: 削除 13、取得 213、実行 49、有効化 41、無効化 43、設定 117）
+## 要求（481件: 削除 13、取得 214、実行 52、有効化 41、無効化 44、設定 117）
 
 並びは中核が経路を足した順（`controller/routes.rs`）。
 
@@ -423,6 +423,10 @@ UIから中核への要求と、中核からUIへの通知（`RUN_MAPPING`）の
 | `/run/register_translation_catalog_entry` | 実行 | 待つ | useTranslationCatalog.acknowledge | ログで伏せる |
 | `/run/remove_translation_catalog_entry` | 実行 | 待つ | useTranslationCatalog.acknowledge | ログで伏せる |
 | `/run/use_translation_catalog_entry` | 実行 | 待つ | useTranslationCatalog.acknowledge | ログで伏せる |
+| `/get/data/transcription_catalog` | 取得 | 可 | useTranscriptionCatalog.updateCatalog | ログで伏せる |
+| `/run/register_transcription_catalog_entry` | 実行 | 待つ | useTranscriptionCatalog.acknowledge | ログで伏せる |
+| `/run/remove_transcription_catalog_entry` | 実行 | 待つ | useTranscriptionCatalog.acknowledge | ログで伏せる |
+| `/run/use_transcription_catalog_entry` | 実行 | 待つ | useTranscriptionCatalog.acknowledge | ログで伏せる |
 | `/run/send_message_box` | 実行 | 待つ | useMessage.updateSentMessageLogById |  |
 | `/get/data/logger_feature` | 取得 | 可 | useOthers.updateFromBackendEnableAutoExportMessageLogs |  |
 | `/set/enable/logger_feature` | 有効化 | 可 | useOthers.setSuccessEnableAutoExportMessageLogs |  |
@@ -476,6 +480,7 @@ UIから中核への要求と、中核からUIへの通知（`RUN_MAPPING`）の
 | `/run/enable_tts` | 実行 | 可 | useVoice.updateStatus |  |
 | `/run/disable_tts` | 実行 | 可 | useVoice.updateStatus | 即時（キューを通らない） |
 | `/get/data/voice_route` | 取得 | 可 | useVoice.updateRoute |  |
+| `/set/disable/managed_route_rename_notice` | 無効化 | 可 | useVoice.updateRoute |  |
 | `/run/mute_voice` | 実行 | 可 | useVoice.updateRoute | 即時（キューを通らない） |
 | `/run/resume_voice` | 実行 | 可 | useVoice.updateRoute | 即時（キューを通らない） |
 | `/get/data/direct_voice_sources` | 取得 | 可 | useVoice.updateDirectSources |  |
@@ -494,7 +499,7 @@ UIから中核への要求と、中核からUIへの通知（`RUN_MAPPING`）の
 | `/get/data/gpu_memory` | 取得 | 可 | useGpuMemory.updateGpuMemory |  |
 
 
-## 通知（中核からUIへ、92件）
+## 通知（中核からUIへ、90件）
 
 要求への応答とは別に、中核が自分から送るメッセージ。`Core::notify(名前, 結果)`で送り、名前は`controller/mod.rs`の`RUN_MAPPING`で終点に変わる。表にない名前は送る時点で止まる（契約のCT-02、`tests/run_mapping.rs`）。
 
@@ -529,9 +534,7 @@ UIから中核への要求と、中核からUIへの通知（`RUN_MAPPING`）の
 | `word_filter` | `/run/word_filter` | useMessage.addSystemMessageLog_FromBackend |
 | `transcription_recognition_error` | `/run/transcription_recognition_error` | useMessage.addSystemMessageLog_FromBackend |
 | `vad_unavailable` | `/run/vad_unavailable` | — |
-| `download_progress_ctranslate2_weight` | `/run/download_progress_ctranslate2_weight` | useTranslation.updateDownloadProgressCTranslate2WeightTypeStatus |
 | `downloaded_ctranslate2_weight` | `/run/downloaded_ctranslate2_weight` | useTranslation.downloadedCTranslate2WeightTypeStatus |
-| `error_ctranslate2_weight` | `/run/error_ctranslate2_weight` | — |
 | `ctranslate2_license_notice` | `/run/ctranslate2_license_notice` | — |
 | `translation_model_retired` | `/run/translation_model_retired` | — |
 | `translation_language_unsupported` | `/run/translation_language_unsupported` | — |
@@ -594,7 +597,7 @@ UIから中核への要求と、中核からUIへの通知（`RUN_MAPPING`）の
 | `enable_osc_query` | `/run/enable_osc_query` | useHandleOscQuery.handleOscQuery |
 
 
-## UIに受信先がないエンドポイント（17件）
+## UIに受信先がないエンドポイント（16件）
 
 200で届いた場合にUIが`Invalid endpoint`としてコンソールに出すもの。ただし、400で届くエラーの通知（`/run/error_…`など）は`errorHandling_Backend`が処理し、`/run/initialization_complete`は`receiveRoutes`が個別に処理するので、このどちらかに当たるものは実害がない。
 
@@ -603,7 +606,6 @@ UIから中核への要求と、中核からUIへの通知（`RUN_MAPPING`）の
 - `/run/enable_transcription_receive`
 - `/run/enable_transcription_send`
 - `/run/enable_translation`
-- `/run/error_ctranslate2_weight`
 - `/run/error_device`
 - `/run/error_translation_chat_vram_overflow`
 - `/run/error_translation_enable_vram_overflow`
@@ -617,12 +619,13 @@ UIから中核への要求と、中核からUIへの通知（`RUN_MAPPING`）の
 - `/run/vad_unavailable`
 
 
-## UIだけにあるルート（60件）
+## UIだけにあるルート（61件）
 
 UIに受信先が定義されているが、中核の要求と通知にはないもの。多くは`ui_config_setter.ts`の定義が機械的に作るルートで、使われない。
 
 - `/get/data/ctranslate2_weight`
 - `/run/download_ctranslate2_weight`
+- `/run/download_progress_ctranslate2_weight`
 - `/run/io_trace`
 - `/run/pending_ctranslate2_weight`
 - `/run/realtime_caption`

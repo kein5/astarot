@@ -3,7 +3,7 @@ import FlowSvg from "@images/io_flow.svg?react";
 import { useIoFlow } from "../../logics/flow/useIoFlow";
 import { IoFlowView } from "../app/io_flow/IoFlowView";
 import { VrWindow } from "./VrWindow";
-import styles from "./VrIoFlowWindow.module.scss";
+import * as styles from "./VrIoFlowWindow.css.ts";
 
 // Where the user's voice and chat go, and how long the latest of each took, in VR. The same
 // view as the main window's panel, mirrored from it (VrPanelSyncController). It only reads,

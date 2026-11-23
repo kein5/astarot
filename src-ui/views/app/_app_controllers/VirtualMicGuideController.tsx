@@ -8,10 +8,10 @@ import { useConsentDialog } from "../../../logics/common/useConsentDialog";
 import { useVirtualMic } from "../../../logics/voice/useVirtualMic";
 import type { VirtualMicCheck } from "../../../logics/voice/useVirtualMic";
 import { preferredCable } from "../../../logics/voice/virtualMic.ts";
-import styles from "../config_page/setting_section/setting_box/advanced_settings/VoiceSettings.module.scss";
-import dialogStyles from "../config_page/setting_section/setting_box/_components/download_models/LegacyModelDownloadDialog.module.scss";
-import noticeStyles from "./TelemetryNoticeController.module.scss";
-import guideStyles from "./VirtualMicGuideController.module.scss";
+import * as styles from "../config_page/setting_section/setting_box/advanced_settings/VoiceSettings.css.ts";
+import * as dialogStyles from "../config_page/setting_section/setting_box/_components/download_models/LegacyModelDownloadDialog.css.ts";
+import * as noticeStyles from "./TelemetryNoticeController.css.ts";
+import * as guideStyles from "./VirtualMicGuideController.css.ts";
 
 export const VB_CABLE_URL = "https://vb-audio.com/Cable/";
 // How often the guide looks again for a cable that is being installed.

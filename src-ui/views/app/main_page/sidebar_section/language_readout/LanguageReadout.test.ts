@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { hooks, loadModule, find, fieldOf, treeNode } from "../../../../../logics/test/hookHarness.ts";
 import type { TreeNode } from "../../../../../logics/test/hookHarness.ts";
 import * as languageNames from "../../../../../logics/common/languageNames.ts";
+import { styleOf } from "../../../../../logics/test/styleSource.ts";
 
 interface Entry {
     language: string;
@@ -84,11 +85,11 @@ test("before the languages arrive nothing is drawn", async () => {
 });
 
 test("long names end in an ellipsis; on is tinted and named in the rail", () => {
-    const css = readFileSync(new URL("./LanguageReadout.module.scss", import.meta.url), "utf8");
-    assert.match(css, /\.name \{[^}]*text-overflow: ellipsis;[^}]*white-space: nowrap/);
-    const switches = readFileSync(new URL("../main_function_switch/MainFunctionSwitch.module.scss", import.meta.url), "utf8");
-    assert.match(switches, /&\.is_active \{\s*background-color: var\(--vox_highlight_tint\);/);
-    assert.match(switches, /&\.is_active:not\(\.is_pending\) \{\s*color: var\(--vox_state_active\);/);
+    const css = readFileSync(new URL("./LanguageReadout.css.ts", import.meta.url), "utf8");
+    assert.match(styleOf(css, "name"), /textOverflow: "ellipsis",\s*whiteSpace: "nowrap",/);
+    const switches = readFileSync(new URL("../main_function_switch/MainFunctionSwitch.css.ts", import.meta.url), "utf8");
+    assert.match(switches, /\[`&\.\$\{is_active\}`\]: \{ backgroundColor: vars\.vox_highlight_tint \}/);
+    assert.match(switches, /\[`&\.\$\{is_active\}:not\(\.\$\{is_pending\}\)`\]: \{ color: vars\.vox_state_active \}/);
     const jsx = readFileSync(new URL("../main_function_switch/MainFunctionSwitch.tsx", import.meta.url), "utf8");
     // The icon rail's tooltip names the switch when nothing else is to be said.
     assert.match(jsx, /const tooltip = blockedTitle \?\? \(unavailableTitle \|\| null\) \?\? statusText \?\? \(currentIsMainPageCompactMode\.data \? switchLabel : undefined\);/);

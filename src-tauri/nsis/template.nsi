@@ -60,6 +60,11 @@ ${StrLoc}
 !define MANUPRODUCTKEY "Software\${MANUFACTURER}\${INSTALLREGNAME}"
 !define UNINSTALLERSIGNCOMMAND "{{uninstaller_sign_cmd}}"
 !define ESTIMATEDSIZE "{{estimated_size}}"
+; One run of this installer at a time in the user's session (.onInit): the in-app update and a
+; setup started by hand would otherwise work in the same $INSTDIR\.upd, which each run empties
+; when it starts. The name is fixed rather than made from INSTALLREGNAME, so installers keep
+; excluding each other when the registry names change.
+!define INSTALLERMUTEX "Local\ASTAROT-setup"
 
 ; The SHA-256 of the package this installer was released with, written into
 ; nsis\package-hashes.nsh by tools/installer_package_hashes.py once the ZIP exists
@@ -234,6 +239,9 @@ FunctionEnd
 
 ; 4-4. Custom page to ask user if he wants to reinstall/uninstall
 ;    only if a previous installtion was detected
+; The version /VERSION= names (.onInit), "" without it. Declared above the page that reads it:
+; makensis reads a variable named above its Var line as plain text.
+Var TargetVersion
 Var ReinstallPageCheck
 Page custom PageReinstall PageLeaveReinstall
 Function PageReinstall
@@ -281,7 +289,13 @@ Function PageReinstall
   ${EndIf}
   ${IfThen} $R0 == "" ${|} StrCpy $R4 "$(unknown)" ${|}
 
-  nsis_tauri_utils::SemverCompare "${VERSION}" $R0
+  ; Compare the version this run installs: the one /VERSION names, else this installer's own
+  ; (the same choice as $effective_version in Section Install).
+  ${If} $TargetVersion != ""
+    nsis_tauri_utils::SemverCompare $TargetVersion $R0
+  ${Else}
+    nsis_tauri_utils::SemverCompare "${VERSION}" $R0
+  ${EndIf}
   Pop $R0
   ; Reinstalling the same version
   ${If} $R0 == 0
@@ -485,6 +499,13 @@ FunctionEnd
 {{#each language_files}}
   !include "{{this}}"
 {{/each}}
+; Messages of this template, in the installer's languages (tauri.conf.json).
+!ifdef LANG_ENGLISH
+  LangString anotherRunIsActive ${LANG_ENGLISH} "Another ${PRODUCTNAME} installation or update is already running. Wait until it finishes, then run this installer again."
+!endif
+!ifdef LANG_JAPANESE
+  LangString anotherRunIsActive ${LANG_JAPANESE} "${PRODUCTNAME}のインストールか更新がすでに動いています。それが終わってから、もう一度このインストーラーを実行してください。"
+!endif
 
 !macro SetContext
   !if "${INSTALLMODE}" == "currentUser"
@@ -505,12 +526,32 @@ FunctionEnd
 !macroend
 
 Var PassiveMode
-Var TargetVersion
 Var UILang
 Var SelectedChannel
+; The handle of INSTALLERMUTEX. It stays open until this run ends, when Windows closes it; a run
+; that stops unexpectedly leaves nothing behind that blocks the next one.
+Var InstallerMutex
+; This run's own folder for what it downloads (the package, its checksum, WebView2): inside
+; $PLUGINSDIR, a new folder under $TEMP that NSIS makes for each run (or stops the run when it
+; cannot) and removes when the run ends. Nothing else uses the folder, so no other program and
+; no installer of another version reads or deletes these files. A download continues (/RESUME)
+; only between the attempts of this run.
+Var download_dir
 Function .onInit
+  ; Before anything that changes files or settings: the registry value below, the pages, the
+  ; download, $INSTDIR\.upd. ERROR_ACCESS_DENIED means a run with other rights holds the name.
+  ; Any other failure gives no handle and no guard, as with installers before this check.
+  System::Call 'kernel32::CreateMutexW(p 0, i 0, w "${INSTALLERMUTEX}") p .r1 ?e'
+  Pop $0
+  StrCpy $InstallerMutex $1
+  ${If} $0 = 183 ; ERROR_ALREADY_EXISTS
+  ${OrIf} $0 = 5 ; ERROR_ACCESS_DENIED
+    Call AnotherRunIsActive
+  ${EndIf}
+
   ; Embed notices in setup.exe even when the application download fails.
   InitPluginsDir
+  StrCpy $download_dir "$PLUGINSDIR\package"
   Push $OUTDIR
   SetOutPath "$PLUGINSDIR\licenses\nscurl"
   File "..\..\..\..\nsis\licenses\nscurl\LICENSE*.md"
@@ -612,6 +653,24 @@ Function .onInit
   !endif
 FunctionEnd
 
+; Another run holds INSTALLERMUTEX (an in-app update, or a setup started by hand). Say so and end
+; with exit code 2 before this run changes anything. A silent run writes the message to the
+; console it was started from; any other run, passive ones included, shows it.
+Function AnotherRunIsActive
+  IfSilent 0 another_run_message
+    System::Call 'kernel32::AttachConsole(i -1)i.r0'
+    ${If} $0 != 0
+      System::Call 'kernel32::GetStdHandle(i -11)i.r0'
+      FileWrite $0 "$(anotherRunIsActive)$\n"
+    ${EndIf}
+    Goto another_run_quit
+  another_run_message:
+    MessageBox MB_OK|MB_ICONEXCLAMATION "$(anotherRunIsActive)" /SD IDOK
+  another_run_quit:
+  SetErrorLevel 2
+  Quit
+FunctionEnd
+
 
 Section EarlyChecks
   ; Abort silent installer if downgrades is disabled
@@ -644,11 +703,12 @@ Section WebView2
   StrCmp $4 "" 0 webview2_done
   StrCmp $5 "" 0 webview2_done
 
-  ; Webview2 install modes
+  ; Webview2 install modes. The bootstrapper or installer goes into this run's own folder.
+  CreateDirectory "$download_dir"
   !if "${INSTALLWEBVIEW2MODE}" == "downloadBootstrapper"
-    Delete "$TEMP\MicrosoftEdgeWebview2Setup.exe"
+    Delete "$download_dir\MicrosoftEdgeWebview2Setup.exe"
     DetailPrint "$(webview2Downloading)"
-    NSISdl::download "https://go.microsoft.com/fwlink/p/?LinkId=2124703" "$TEMP\MicrosoftEdgeWebview2Setup.exe"
+    NSISdl::download "https://go.microsoft.com/fwlink/p/?LinkId=2124703" "$download_dir\MicrosoftEdgeWebview2Setup.exe"
     Pop $0
     ${If} $0 == "success"
       DetailPrint "$(webview2DownloadSuccess)"
@@ -656,23 +716,23 @@ Section WebView2
       DetailPrint "$(webview2DownloadError)"
       Abort "$(webview2AbortError)"
     ${EndIf}
-    StrCpy $6 "$TEMP\MicrosoftEdgeWebview2Setup.exe"
+    StrCpy $6 "$download_dir\MicrosoftEdgeWebview2Setup.exe"
     Goto install_webview2
   !endif
 
   !if "${INSTALLWEBVIEW2MODE}" == "embedBootstrapper"
-    Delete "$TEMP\MicrosoftEdgeWebview2Setup.exe"
-    File "/oname=$TEMP\MicrosoftEdgeWebview2Setup.exe" "${WEBVIEW2BOOTSTRAPPERPATH}"
+    Delete "$download_dir\MicrosoftEdgeWebview2Setup.exe"
+    File "/oname=$download_dir\MicrosoftEdgeWebview2Setup.exe" "${WEBVIEW2BOOTSTRAPPERPATH}"
     DetailPrint "$(installingWebview2)"
-    StrCpy $6 "$TEMP\MicrosoftEdgeWebview2Setup.exe"
+    StrCpy $6 "$download_dir\MicrosoftEdgeWebview2Setup.exe"
     Goto install_webview2
   !endif
 
   !if "${INSTALLWEBVIEW2MODE}" == "offlineInstaller"
-    Delete "$TEMP\MicrosoftEdgeWebView2RuntimeInstaller.exe"
-    File "/oname=$TEMP\MicrosoftEdgeWebView2RuntimeInstaller.exe" "${WEBVIEW2INSTALLERPATH}"
+    Delete "$download_dir\MicrosoftEdgeWebView2RuntimeInstaller.exe"
+    File "/oname=$download_dir\MicrosoftEdgeWebView2RuntimeInstaller.exe" "${WEBVIEW2INSTALLERPATH}"
     DetailPrint "$(installingWebview2)"
-    StrCpy $6 "$TEMP\MicrosoftEdgeWebView2RuntimeInstaller.exe"
+    StrCpy $6 "$download_dir\MicrosoftEdgeWebView2RuntimeInstaller.exe"
     Goto install_webview2
   !endif
 
@@ -680,8 +740,8 @@ Section WebView2
 
   install_webview2:
     DetailPrint "$(installingWebview2)"
-    ; $6 holds the path to the webview2 installer
-    ExecWait "$6 ${WEBVIEW2INSTALLERARGS} /install" $1
+    ; $6 holds the path to the webview2 installer, quoted: $TEMP may contain spaces.
+    ExecWait '"$6" ${WEBVIEW2INSTALLERARGS} /install' $1
     ; The bootstrapper/offline installer is only needed for this invocation.
     ; Remove it before handling the exit code so failure paths do not leave a
     ; stale multi-megabyte installer in %TEMP% either.
@@ -802,6 +862,12 @@ Section Install
   ${If} ${FileExists} "$INSTDIR\.upd"
     Abort "Could not remove the previous update work folder: $INSTDIR\.upd"
   ${EndIf}
+  ; Everything this run downloads goes into its own folder ($download_dir, .onInit).
+  ClearErrors
+  CreateDirectory "$download_dir"
+  ${If} ${Errors}
+    Abort "Could not create a folder for the download in the temporary-files folder"
+  ${EndIf}
 
   !addplugindir "..\..\..\..\nsis\plugins\x86-unicode"
   ; 指定のURLからファイルをダウンロード
@@ -809,10 +875,11 @@ Section Install
   ; files since 0.5.0); /EDITION=gpu installs this package too, also with /VERSION.
   !define SOFTWARE_DOWNLOAD_FILENAME "VRCT-VOX.zip"
 
-  ; Free-space budget (MiB). The compressed archive is written to
-  ; %TEMP%, the new tree to $INSTDIR\.upd\new. The old installation stays
-  ; on disk until commit finishes. These are additional FREE-space budgets:
-  ; the install drive needs DOWNLOAD + EXTRACT beyond the existing tree.
+  ; Free-space budget (MiB). The compressed archive is written to this
+  ; run's folder in %TEMP% ($download_dir), the new tree to $INSTDIR\.upd\new.
+  ; The old installation stays on disk until commit finishes. These are
+  ; additional FREE-space budgets: the install drive needs DOWNLOAD + EXTRACT
+  ; beyond the existing tree.
   ; Measured 2026-08: VRCT.zip ~485MB / ~1.5GB unpacked (0.4 with Python);
   ; 0.5.1's VRCT-VOX.zip is ~36MB / ~0.1GB unpacked. Values below add
   ; headroom and still cover /VERSION installs of 0.4 -- re-measure and bump
@@ -922,7 +989,7 @@ Section Install
   ; Download it before the large archive so a package can be rejected before
   ; extraction. Any failure, including a missing sidecar (HTTP 404), is fatal:
   ; continuing without it would skip the integrity check.
-  StrCpy $package_hash_path "$TEMP\$file_name.sha256"
+  StrCpy $package_hash_path "$download_dir\$file_name.sha256"
   Delete "$package_hash_path"
   DetailPrint "Downloading package checksum..."
   NScurl::http GET "$cmder_dl.sha256" "$package_hash_path" /TAG "package" /BACKGROUND /COMPLETETIMEOUT 30s /END
@@ -1054,18 +1121,18 @@ Section Install
     Delete "$INSTDIR\.upd\$file_name"
     ${If} $dl_resume != "1"
     ${OrIf} $dl_parallel == "1"
-      Delete "$TEMP\$file_name"
+      Delete "$download_dir\$file_name"
     ${EndIf}
     StrCpy $dl_resume "0"
-    Delete "$TEMP\$file_name.p0"
-    Delete "$TEMP\$file_name.p1"
-    Delete "$TEMP\$file_name.p2"
-    Delete "$TEMP\$file_name.p3"
+    Delete "$download_dir\$file_name.p0"
+    Delete "$download_dir\$file_name.p1"
+    Delete "$download_dir\$file_name.p2"
+    Delete "$download_dir\$file_name.p3"
 
     ${If} $dl_parallel != "1"
       ; -------- Single connection (size unknown, tight disk, or retry) --------
       DetailPrint "Downloading $file_name..."
-      NScurl::http GET "$cmder_dl" "$TEMP\$file_name" /INSIST /RESUME /TAG "package" /BACKGROUND /END
+      NScurl::http GET "$cmder_dl" "$download_dir\$file_name" /INSIST /RESUME /TAG "package" /BACKGROUND /END
       Pop $dl_transfer_id
       StrCpy $dl_tick 0
       StrCpy $R4 0
@@ -1127,21 +1194,21 @@ Section Install
       Pop $R0
       System::Int64Op $R0 - 1
       Pop $R1
-      NScurl::http GET "$cmder_dl" "$TEMP\$file_name.p0" /HEADER "Range: bytes=0-$R1" /INSIST /TAG "package" /BACKGROUND /END
+      NScurl::http GET "$cmder_dl" "$download_dir\$file_name.p0" /HEADER "Range: bytes=0-$R1" /INSIST /TAG "package" /BACKGROUND /END
       Pop $dl_id0
       System::Int64Op $R0 * 2
       Pop $R2
       System::Int64Op $R2 - 1
       Pop $R1
-      NScurl::http GET "$cmder_dl" "$TEMP\$file_name.p1" /HEADER "Range: bytes=$R0-$R1" /INSIST /TAG "package" /BACKGROUND /END
+      NScurl::http GET "$cmder_dl" "$download_dir\$file_name.p1" /HEADER "Range: bytes=$R0-$R1" /INSIST /TAG "package" /BACKGROUND /END
       Pop $dl_id1
       System::Int64Op $R0 * 3
       Pop $R3
       System::Int64Op $R3 - 1
       Pop $R1
-      NScurl::http GET "$cmder_dl" "$TEMP\$file_name.p2" /HEADER "Range: bytes=$R2-$R1" /INSIST /TAG "package" /BACKGROUND /END
+      NScurl::http GET "$cmder_dl" "$download_dir\$file_name.p2" /HEADER "Range: bytes=$R2-$R1" /INSIST /TAG "package" /BACKGROUND /END
       Pop $dl_id2
-      NScurl::http GET "$cmder_dl" "$TEMP\$file_name.p3" /HEADER "Range: bytes=$R3-" /INSIST /TAG "package" /BACKGROUND /END
+      NScurl::http GET "$cmder_dl" "$download_dir\$file_name.p3" /HEADER "Range: bytes=$R3-" /INSIST /TAG "package" /BACKGROUND /END
       Pop $dl_id3
 
       StrCpy $dl_tick 0
@@ -1236,16 +1303,16 @@ Section Install
       ${EndIf}
       NScurl::wait /TAG "package" /END
       DetailPrint "Combining parts..."
-      nsExec::ExecToLog 'cmd /c copy /b "$TEMP\$file_name.p0"+"$TEMP\$file_name.p1"+"$TEMP\$file_name.p2"+"$TEMP\$file_name.p3" "$TEMP\$file_name"'
+      nsExec::ExecToLog 'cmd /c copy /b "$download_dir\$file_name.p0"+"$download_dir\$file_name.p1"+"$download_dir\$file_name.p2"+"$download_dir\$file_name.p3" "$download_dir\$file_name"'
       Pop $0
       ${If} $0 != 0
         DetailPrint "Could not combine downloaded parts (exit $0)"
         Goto par_failed
       ${EndIf}
-      Delete "$TEMP\$file_name.p0"
-      Delete "$TEMP\$file_name.p1"
-      Delete "$TEMP\$file_name.p2"
-      Delete "$TEMP\$file_name.p3"
+      Delete "$download_dir\$file_name.p0"
+      Delete "$download_dir\$file_name.p1"
+      Delete "$download_dir\$file_name.p2"
+      Delete "$download_dir\$file_name.p3"
       Goto par_ok
     par_failed:
       ; A parallel part failed (often disk-write pressure from 4 concurrent
@@ -1257,7 +1324,7 @@ Section Install
     ${EndIf}
 
     ${If} $package_hash_available == "1"
-      NScurl::sha256 -file "$TEMP\$file_name"
+      NScurl::sha256 -file "$download_dir\$file_name"
       Pop $actual_package_hash
       ${If} $actual_package_hash != $expected_package_hash
         ; A truncated transfer fails here, before any unpack: pull it again like
@@ -1290,7 +1357,7 @@ Section Install
     ; archive sits beside that folder for this step. Rename also moves a file
     ; to another volume; the pre-flight check budgets for it there.
     ClearErrors
-    Rename "$TEMP\$file_name" "$INSTDIR\.upd\$file_name"
+    Rename "$download_dir\$file_name" "$INSTDIR\.upd\$file_name"
     IfErrors attempt_failed
     StrCpy $0 "not started"
     ClearErrors
@@ -1310,8 +1377,8 @@ Section Install
       Goto install_ready
     ${EndIf}
     DetailPrint "Unpack failed (tar exit $0; $INSTDIR\.upd\new package incomplete) -- archive likely corrupt"
-    ; Retries and the kept .bad archive both work from $TEMP.
-    Rename "$INSTDIR\.upd\$file_name" "$TEMP\$file_name"
+    ; Retries work from this run's folder, and the kept .bad archive goes from there to $TEMP.
+    Rename "$INSTDIR\.upd\$file_name" "$download_dir\$file_name"
 
   attempt_failed:
     Call StopPackageTransfers
@@ -1322,7 +1389,7 @@ Section Install
     ${EndIf}
     ${If} $dl_hash_failed == "1"
       ; A package that fails verification is not kept.
-      Delete "$TEMP\$file_name"
+      Delete "$download_dir\$file_name"
       DetailPrint "Giving up after 3 attempts: package SHA-256 mismatch"
       Call CleanupFailedInstall
       MessageBox MB_OK|MB_ICONSTOP "The downloaded package failed SHA-256 verification. Installation was aborted." /SD IDOK
@@ -1331,17 +1398,17 @@ Section Install
     ; Keep the last (bad) archive instead of deleting it, so the failure can
     ; be diagnosed from %TEMP%.
     Delete "$TEMP\$file_name.bad"
-    Rename "$TEMP\$file_name" "$TEMP\$file_name.bad"
+    Rename "$download_dir\$file_name" "$TEMP\$file_name.bad"
     DetailPrint "Giving up after 3 attempts; kept archive at $TEMP\$file_name.bad"
     Call CleanupFailedInstall
     MessageBox MB_OK|MB_ICONSTOP "Could not download and unpack $file_name after 3 attempts.$\r$\n$\r$\nYour connection may be unstable or the disk may be full. The last download was kept for troubleshooting at:$\r$\n$TEMP\$file_name.bad$\r$\n$\r$\nPlease try again later." /SD IDOK
     Abort
 
   install_ready:
-  ; The archive is no longer needed once it is unpacked; reclaim the space,
-  ; and the space of an archive an earlier failed install kept (several GB
-  ; for the CUDA package of 0.4 and earlier).
-  Delete "$TEMP\$file_name"
+  ; The archive is no longer needed once it is unpacked; reclaim the space with
+  ; this run's download folder, and the space of an archive an earlier failed
+  ; install kept (several GB for the CUDA package of 0.4 and earlier).
+  RMDir /r "$download_dir"
   Delete "$TEMP\$file_name.bad"
 
   ; Downloads can take hours; check again immediately before changing files.
@@ -1460,7 +1527,8 @@ Section Install
   ; Registry information for add/remove programs
   WriteRegStr SHCTX "${UNINSTKEY}" "DisplayName" "${PRODUCTNAME}"
   WriteRegStr SHCTX "${UNINSTKEY}" "DisplayIcon" "$\"$INSTDIR\${MAINBINARYNAME}.exe$\""
-  WriteRegStr SHCTX "${UNINSTKEY}" "DisplayVersion" "${VERSION}"
+  ; The version installed, which /VERSION may make another than this installer's own.
+  WriteRegStr SHCTX "${UNINSTKEY}" "DisplayVersion" "$effective_version"
   WriteRegStr SHCTX "${UNINSTKEY}" "Publisher" "${MANUFACTURER}"
   WriteRegStr SHCTX "${UNINSTKEY}" "InstallLocation" "$\"$INSTDIR$\""
   WriteRegStr SHCTX "${UNINSTKEY}" "UninstallString" "$\"$INSTDIR\uninstall.exe$\""
@@ -1610,6 +1678,9 @@ FunctionEnd
 
 Function CleanupFailedInstall
   Call StopPackageTransfers
+  ; This run's downloads are its own, whenever it stops. The .bad archive stays in $TEMP for
+  ; diagnostics.
+  RMDir /r "$download_dir"
   ; EarlyChecks/WebView2 can abort before this invocation owns any work files.
   ${IfThen} $install_started != "1" ${|} Return ${|}
   ${If} ${FileExists} "$INSTDIR\.upd\committing"
@@ -1617,15 +1688,6 @@ Function CleanupFailedInstall
   ${Else}
     StrCpy $upd_failed "0"
   ${EndIf}
-  ; Keep the .bad archive for diagnostics, but remove temporary fragments.
-  ${If} $file_name != ""
-    Delete "$TEMP\$file_name"
-    Delete "$TEMP\$file_name.p0"
-    Delete "$TEMP\$file_name.p1"
-    Delete "$TEMP\$file_name.p2"
-    Delete "$TEMP\$file_name.p3"
-  ${EndIf}
-  ${IfThen} $package_hash_path != "" ${|} Delete "$package_hash_path" ${|}
   ${IfThen} $upd_failed == "1" ${|} Return ${|}
   ; Extraction only touches staging; a failed commit restores app-owned entries.
   SetOutPath "$TEMP"
@@ -1710,6 +1772,199 @@ FunctionEnd
   ${EndIf}
 !macroend
 
+; ADR-013: the API keys of a settings folder are in the Windows Credential Manager, each a generic
+; credential named <prefix>/<store_id>/<entry>: ASTAROT, or VRCT-VOX as 0.6.0 named them
+; (credentials::WINDOWS_PREFIX in native/app-identity, which a test keeps in step with these).
+; <store_id> is the "store_id" of secrets.json: 16 lowercase hex digits made for that folder only.
+; Another folder (another install, or ASTAROT_CONFIG_DIR) has another id, so its keys stay.
+!define CREDENTIALPREFIX "ASTAROT"
+!define OLDCREDENTIALPREFIX "VRCT-VOX"
+Var store_id
+; "1" when some of this folder's credentials could not be removed.
+Var keys_left
+!ifdef LANG_ENGLISH
+  LangString keysLeft ${LANG_ENGLISH} "Some API keys of ${PRODUCTNAME} could not be removed, so secrets.json stays in $INSTDIR to remove them later. Install ${PRODUCTNAME} into the same folder and uninstall it again with the application data, or open Credential Manager, choose Windows Credentials, and remove the entries whose names start with ${CREDENTIALPREFIX}/$store_id/ or ${OLDCREDENTIALPREFIX}/$store_id/."
+!endif
+!ifdef LANG_JAPANESE
+  LangString keysLeft ${LANG_JAPANESE} "${PRODUCTNAME}のAPIキーの一部を削除できなかったので、あとで削除し直せるように$INSTDIRにsecrets.jsonを残しました。同じフォルダーにもう一度インストールしてからアプリケーションデータごとアンインストールするか、資格情報マネージャーの「Windows資格情報」で、名前が${CREDENTIALPREFIX}/$store_id/か${OLDCREDENTIALPREFIX}/$store_id/で始まる項目を削除してください。"
+!endif
+
+; Drops the spaces and tabs at the start of ${text}. Uses $R9.
+!macro SkipBlanks text
+  ${Do}
+    StrCpy $R9 ${text} 1
+    ${If} $R9 S!= " "
+    ${AndIf} $R9 S!= "$\t"
+      ${ExitDo}
+    ${EndIf}
+    StrCpy ${text} ${text} "" 1
+  ${Loop}
+!macroend
+
+; Pops a string and pushes "1" when it is 16 lowercase hex digits, as the app makes a store id
+; (valid_store_id in native/core/src/config/secrets.rs), else "0".
+Function un.IsStoreId
+  Exch $0
+  Push $1
+  Push $2
+  Push $3
+  Push $4
+  Push $5
+  StrCpy $5 "0"
+  StrLen $1 $0
+  ${If} $1 = 16
+    StrCpy $5 "1"
+    StrCpy $1 0
+    ${DoWhile} $1 < 16
+      StrCpy $2 $0 1 $1
+      StrCpy $3 0
+      ${DoWhile} $3 < 16
+        StrCpy $4 "0123456789abcdef" 1 $3
+        ${If} $4 S== $2
+          ${ExitDo}
+        ${EndIf}
+        IntOp $3 $3 + 1
+      ${Loop}
+      ${If} $3 = 16
+        StrCpy $5 "0"
+        ${ExitDo}
+      ${EndIf}
+      IntOp $1 $1 + 1
+    ${Loop}
+  ${EndIf}
+  StrCpy $0 $5
+  Pop $5
+  Pop $4
+  Pop $3
+  Pop $2
+  Pop $1
+  Exch $0
+FunctionEnd
+
+; Sets $store_id from $INSTDIR\secrets.json, or to "" when the file has no valid one. The app
+; writes the file with one key per line (to_python_json in native/core/src/config), so the line
+; with the id is read whole even when the encrypted entries before it are longer than an NSIS
+; string: FileRead stops at the end of a line, and the next read starts the next one.
+Function un.ReadStoreId
+  Push $0
+  Push $1
+  Push $2
+  Push $3
+  Push $R9
+  StrCpy $store_id ""
+  ClearErrors
+  FileOpen $0 "$INSTDIR\secrets.json" r
+  ${IfNot} ${Errors}
+    ${Do}
+      ClearErrors
+      FileRead $0 $1
+      ${If} ${Errors}
+        ${ExitDo}
+      ${EndIf}
+      !insertmacro SkipBlanks $1
+      StrCpy $2 $1 10
+      ${If} $2 S== '"store_id"'
+        StrCpy $1 $1 "" 10
+        !insertmacro SkipBlanks $1
+        StrCpy $2 $1 1
+        ${If} $2 S== ":"
+          StrCpy $1 $1 "" 1
+          !insertmacro SkipBlanks $1
+          ; "<16 hex digits>"
+          StrCpy $2 $1 1
+          StrCpy $3 $1 1 17
+          ${If} $2 S== '"'
+          ${AndIf} $3 S== '"'
+            StrCpy $2 $1 16 1
+            Push $2
+            Call un.IsStoreId
+            Pop $3
+            ${If} $3 == "1"
+              StrCpy $store_id $2
+            ${EndIf}
+          ${EndIf}
+        ${EndIf}
+        ${ExitDo}
+      ${EndIf}
+    ${Loop}
+    FileClose $0
+  ${EndIf}
+  Pop $R9
+  Pop $3
+  Pop $2
+  Pop $1
+  Pop $0
+FunctionEnd
+
+; Removes the generic credentials named ${prefix}/$store_id/<entry> and sets $keys_left to "1"
+; when some of them stay. Each name is compared again, beside the enumeration's filter, before
+; it goes. Uses $0-$9.
+!macro DeleteCredentials prefix
+  System::Call 'advapi32::CredEnumerateW(w "${prefix}/$store_id/*", i 0, *i .r1, *p .r2) i .r0 ?e'
+  Pop $3
+  ${If} $0 <> 0
+    StrCpy $4 0
+    ${DoWhile} $4 < $1
+      IntOp $5 $4 * ${NSIS_PTR_SIZE}
+      IntPtrOp $5 $2 + $5
+      System::Call '*$5(p .r6)'
+      ; CREDENTIALW: Flags, Type, TargetName.
+      System::Call '*$6(i .r7, i .r8, w .r9)'
+      StrLen $7 "${prefix}/$store_id/"
+      StrCpy $5 $9 $7
+      ${If} $8 = 1 ; CRED_TYPE_GENERIC
+      ${AndIf} $5 == "${prefix}/$store_id/"
+        System::Call 'advapi32::CredDeleteW(w r9, i 1, i 0) i .r7 ?e'
+        Pop $3
+        ${If} $7 = 0
+        ${AndIf} $3 <> 1168 ; ERROR_NOT_FOUND: gone already
+          StrCpy $keys_left "1"
+        ${EndIf}
+      ${EndIf}
+      IntOp $4 $4 + 1
+    ${Loop}
+    System::Call 'advapi32::CredFree(p r2)'
+  ${ElseIf} $3 <> 1168 ; ERROR_NOT_FOUND: there are none
+    StrCpy $keys_left "1"
+  ${EndIf}
+!macroend
+
+; The keys of this folder, in both names. Without a store id there is nothing to remove: the
+; app makes the id when it keeps the first key in the Credential Manager.
+Function un.DeleteStoredKeys
+  Call un.ReadStoreId
+  ${If} $store_id == ""
+    Return
+  ${EndIf}
+  Push $0
+  Push $1
+  Push $2
+  Push $3
+  Push $4
+  Push $5
+  Push $6
+  Push $7
+  Push $8
+  Push $9
+  StrCpy $keys_left "0"
+  !insertmacro DeleteCredentials "${CREDENTIALPREFIX}"
+  !insertmacro DeleteCredentials "${OLDCREDENTIALPREFIX}"
+  Pop $9
+  Pop $8
+  Pop $7
+  Pop $6
+  Pop $5
+  Pop $4
+  Pop $3
+  Pop $2
+  Pop $1
+  Pop $0
+  ${If} $keys_left == "1"
+    DetailPrint "Some API keys could not be removed from Credential Manager"
+    MessageBox MB_OK|MB_ICONEXCLAMATION "$(keysLeft)" /SD IDOK
+  ${EndIf}
+FunctionEnd
+
 Section Uninstall
   !insertmacro CheckIfAppIsRunning
 
@@ -1733,20 +1988,49 @@ Section Uninstall
   ; 完全削除は「Delete AppData」チェックが入った場合のみ。
   ; config.json の隣に置くファイルは docs/spec/data-and-persistence.md の表を参照。
   ${If} $DeleteAppDataCheckboxState == 1
+    ; The API keys first: secrets.json names them in the Credential Manager.
+    Call un.DeleteStoredKeys
+    ; The settings, with their lock, the copies set aside (unreadable files, the migrations up
+    ; to 0.5) and a temporary file an interrupted save left: config.json.*.
     Delete "$INSTDIR\config.json"
-    Delete "$INSTDIR\config.json.unreadable-*"
+    Delete "$INSTDIR\config.json.*"
+    ; The id of the keys (and up to 0.5 the keys), the same way. While a key of this folder is
+    ; still in Credential Manager, secrets.json stays: it holds the id that another uninstall
+    ; with the app data needs to remove the rest (decided on #1011).
+    ${If} $keys_left != "1"
+      Delete "$INSTDIR\secrets.json"
+    ${EndIf}
+    Delete "$INSTDIR\secrets.json.*"
     Delete "$INSTDIR\voice_mute_state.json"
-    ; The list of registered models only: the model files stay where the user keeps them.
+    Delete "$INSTDIR\.voice-mute-*"
+    ; The lists of registered models, of the translation catalog's entries and of the speech
+    ; recognition APIs the user added only: the model files stay where the user keeps them. A
+    ; leading dot names a temporary file. The entries' keys went with the other API keys above.
     Delete "$INSTDIR\user_models.json"
+    Delete "$INSTDIR\.user_models.json.*"
+    Delete "$INSTDIR\translation_catalog.json"
+    Delete "$INSTDIR\.translation_catalog.json.*"
+    Delete "$INSTDIR\transcription_catalog.json"
+    Delete "$INSTDIR\.transcription_catalog.json.*"
+    Delete "$INSTDIR\telemetry_state.json"
+    Delete "$INSTDIR\telemetry_state.json.*"
     RmDir /r "$INSTDIR\downloaded_models"
     RmDir /r "$INSTDIR\vc_runtimes"
+    RmDir /r "$INSTDIR\logs"
+    RmDir /r "$INSTDIR\weights"
+    ; Logs the Python backend up to 0.5 wrote next to the app.
     Delete "$INSTDIR\process.log"
     Delete "$INSTDIR\error.log"
     Delete "$INSTDIR\crash_trace.log"
     Delete "$INSTDIR\freeze_trace.log"
-    Delete "$INSTDIR\telemetry_state.json"
-    RmDir /r "$INSTDIR\logs"
-    RmDir /r "$INSTDIR\weights"
+    Delete "$INSTDIR\startup_timing.log"
+    ; The user's own files stay, and with them the install folder: translation-models\ holds
+    ; model folders the user put there for versions before #597, and exports\ the vocabulary
+    ; files the user exported.
+    ${If} ${FileExists} "$INSTDIR\translation-models\*.*"
+    ${OrIf} ${FileExists} "$INSTDIR\exports\*.*"
+      DetailPrint "Kept your own files in translation-models and exports"
+    ${EndIf}
   ${EndIf}
 
   ; インストーラが起動時 UI 言語受け渡し用に置くマーカーファイル。

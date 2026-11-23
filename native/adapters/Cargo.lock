@@ -6,6 +6,7 @@ version = 4
 name = "astarot-adapters"
 version = "0.0.0"
 dependencies = [
+ "astarot-app-identity",
  "futures-util",
  "if-addrs",
  "rcgen",
@@ -19,6 +20,10 @@ dependencies = [
  "windows-sys 0.61.2",
  "x11rb",
 ]
+
+[[package]]
+name = "astarot-app-identity"
+version = "0.0.0"
 
 [[package]]
 name = "base64"

@@ -47,7 +47,7 @@ When you find a conflict between this file and a document-specific rule, add the
 
 ### Existing documents
 
-Do not rewrite existing documents to these rules in one sweep. Apply them to new text and to the parts you revise.
+Existing documents still hold text that breaks these rules. What a pattern can catch is recorded in the baseline of the writing gate (`tools/writing_gate/baseline.json`) and fixed area by area, one pull request per area (decision of 2026-11-23); after a fix, `--update-baseline` lowers the baseline. Apply the rules from the start to new text and to the parts you revise.
 
 ## General rules
 
@@ -88,6 +88,8 @@ Do not add facts that the source text or a checked record does not contain: acto
 Revise English text with [humanizer](https://github.com/blader/humanizer). It is the tool that carries out the revision; its rules are not copied into this file. When humanizer's suggestions and this file disagree, follow this file.
 
 ### Habits to remove
+
+<!-- writing-exempt-start: examples of what to avoid -->
 
 #### Filler openers and transitions
 
@@ -171,6 +173,7 @@ Do not switch between words for the same thing to avoid repetition ("model", "en
 - Straight quotes and apostrophes (" and ') in Markdown, code, and `en.yml`, not curly ones.
 - Code, commands, paths, and setting keys go in code formatting; several lines go in a code block.
 - One level-1 heading per document.
+- A heading that gives both languages puts English first: "Summary / 概要" (decision of 2026-11-23).
 
 ### Plain verbs and wording
 
@@ -192,6 +195,8 @@ Do not switch between words for the same thing to avoid repetition ("model", "en
 | due to the fact that | because |
 
 "Implement", "configure", and "initialize" are fine in developer documents when they are the precise word.
+
+<!-- writing-exempt-end -->
 
 ### Spelling and mechanics
 
@@ -275,7 +280,7 @@ Layout follows `DESIGN.md`, "The user guide (site/)". The text follows this sect
 - Put the outcome in the first sentence or two: done, blocked, or waiting for a decision.
 - Keep what you verified apart from what you infer. Write "not verified" and the reason instead of "this should work".
 - Write "done" or "fixed" only after a check confirmed it.
-- No openers or closers ("Sure!", "Great question", "Let me know if you need anything else").
+- No openers or closers ("Sure!", "Great question", "Let me know if you need anything else"). <!-- writing-exempt: examples of what to avoid -->
 - Quote only the relevant lines of command output, in a code block.
 - Give counts, file names, and issue or pull request numbers that you counted or looked up.
 - When you ask for a decision, give the options, their effects, and your recommendation. Do not ask what you can find out yourself.
@@ -284,11 +289,11 @@ Layout follows `DESIGN.md`, "The user guide (site/)". The text follows this sect
 
 ## Checklist
 
-When you finish, revise with humanizer, then check these points. No automated check covers this file yet.
+When you finish, revise with humanizer, then check these points. The writing gate (`tools/writing_gate/check.mjs`, see [the development guide](../development.md#文章の検査docswriting)) checks the rules a pattern can catch: some of the habits, spelling, quotes, dashes and terms. The rest, such as putting the point first, the argument and keeping the meaning when you revise, stays with you.
 
 1. The point comes first, and each sentence carries one idea.
 2. Each paragraph opens with its topic. Different things are not called the same, causes come with how they work, and claims stay within the examples.
-3. None of the [habits to remove](#habits-to-remove) are left: filler, chatbot phrases, promotional words, AI vocabulary, "serves as", trailing "-ing" clauses, padded triplets, needless contrasts, dashes.
+3. None of the [habits to remove](#habits-to-remove) are left: filler, chatbot phrases, promotional words, AI vocabulary, "serves as", trailing "-ing" clauses, padded triplets, needless contrasts, dashes. <!-- writing-exempt: examples of what to avoid -->
 4. One term per thing, matching `locales/en.yml` and the glossary.
 5. Spelling, numbers, dates, and quotes follow [Spelling and mechanics](#spelling-and-mechanics).
 6. Editing kept the claim, weight, strength, and function, and added no facts.
@@ -297,5 +302,5 @@ When you finish, revise with humanizer, then check these points. No automated ch
 ## References
 
 - Wikipedia contributors, "Wikipedia:Signs of AI writing". <https://en.wikipedia.org/wiki/Wikipedia:Signs_of_AI_writing> (accessed 2026-11-17)
-  - Used for the catalogue of habits: filler and chatbot phrases, promotional language, AI vocabulary, copula avoidance, trailing "-ing" analyses, the rule of three, negative parallelisms, vague attribution, elegant variation, and formatting signs such as title case, bold inline headers, emoji, and curly quotes. Also for its caveat that the signs are descriptive, not proof, and that removing them is not the same as fixing the text.
+  - Used for the catalogue of habits: filler and chatbot phrases, promotional language, AI vocabulary, copula avoidance, trailing "-ing" analyses, the rule of three, negative parallelisms, vague attribution, elegant variation, and formatting signs such as title case, bold inline headers, emoji, and curly quotes. Also for its caveat that the signs are descriptive, not proof, and that removing them is not the same as fixing the text. <!-- writing-exempt: examples of what to avoid -->
 - [japanese-guideline.md](japanese-guideline.md), the Japanese counterpart. Its sections on paragraphs and arguments, on meaning-preserving revision, and on adding nothing are mirrored here.

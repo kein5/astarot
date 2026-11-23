@@ -28,6 +28,7 @@ mod telemetry;
 mod terms;
 pub mod translation;
 mod translation_catalog;
+mod transcription_catalog;
 pub mod translation_llama;
 mod transcription;
 mod realtime_asr;
@@ -91,9 +92,7 @@ pub const RUN_MAPPING: &[(&str, &str)] = &[
     // The core's own (#278): the recorder's VAD could not use the speech.cpp server and cuts by
     // volume (`VAD_UNAVAILABLE`, with the reason).
     ("vad_unavailable", "/run/vad_unavailable"),
-    ("download_progress_ctranslate2_weight", "/run/download_progress_ctranslate2_weight"),
     ("downloaded_ctranslate2_weight", "/run/downloaded_ctranslate2_weight"),
-    ("error_ctranslate2_weight", "/run/error_ctranslate2_weight"),
     ("ctranslate2_license_notice", "/run/ctranslate2_license_notice"),
     // The core's own (#565): a saved choice of a weight the app no longer offers loaded as the default.
     ("translation_model_retired", "/run/translation_model_retired"),
@@ -195,8 +194,9 @@ pub struct Services {
     /// Only the host running the core as the default backend sets it: while the Python sidecar
     /// is the default, its local translation keeps its weights.
     pub retire_legacy_translation_weights: bool,
-    /// How the translation providers reach the network ([`astarot_translation::http::direct`]),
-    /// and speech.cpp's server on this PC is asked for its models.
+    /// How the translation providers reach the network, and speech.cpp's server on this PC is
+    /// asked for its models: through the proxy of the environment or Windows' Internet Settings,
+    /// as the recognition engines (#924, item 18). This PC and the LAN go straight.
     pub translation_transport: astarot_translation::http::Transport,
     /// How the cloud recognition engines reach the network: through the proxy of the
     /// environment or Windows' Internet Settings ([`astarot_translation::http::system_proxy`],
@@ -280,7 +280,7 @@ impl Default for Services {
             vrc_mic_mute: Arc::new(|_| {}),
             stop_mic_transcription: Arc::new(|| {}),
             retire_legacy_translation_weights: false,
-            translation_transport: astarot_translation::http::direct(),
+            translation_transport: astarot_translation::http::system_proxy(),
             transcription_transport: astarot_translation::http::system_proxy(),
             translation_endpoints: astarot_translation::providers::Endpoints::default(),
             local_translation: Arc::new(translation::default_local_translation),
@@ -341,6 +341,8 @@ pub struct Core {
     gpu_memory: gpu_memory::GpuMemory,
     /// The GPU check the user starts to report how speech.cpp runs here ([`gpu_check`], #288).
     gpu_check: gpu_check::GpuCheck,
+    /// Which update channel's start-up check may still report ([`updates`], #1017).
+    update_checks: Arc<updates::UpdateChecks>,
 }
 
 /// The captures of speech recognition for the settings' environment.
@@ -385,6 +387,7 @@ impl Core {
             voice: std::sync::OnceLock::new(),
             gpu_memory: gpu_memory::GpuMemory::default(),
             gpu_check: gpu_check::GpuCheck::default(),
+            update_checks: Arc::default(),
         })
     }
 

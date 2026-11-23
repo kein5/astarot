@@ -3,14 +3,17 @@ date: 2026-11-20
 status: accepted
 era: rust-core
 validity: current
-implementation_status: pending
-implementation_checked: 2026-11-20
+implementation_status: implemented
+implementation_checked: 2026-11-23
 evidence:
   - docs/adr/adr-017-integration-tests-through-the-core.md
   - src-ui/logics/common/backendCommand.ts
   - src-tauri/src/backend_host.rs
   - native/core/src/backend.rs
   - native/core/tests/common/mod.rs
+  - tests/integration
+  - native/browser-core-bridge
+  - .github/workflows/voice-tests.yml
 ---
 # ADR-017: 画面から中核まで通す試験を Playwright の結合テストにし、配布物で通す試験だけを E2E と呼ぶ
 

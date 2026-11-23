@@ -1,4 +1,4 @@
-import styles from "./RadioButton.module.scss";
+import * as styles from "./RadioButton.css.ts";
 import clsx from "clsx";
 import type { ComponentType, ReactNode } from "react";
 import { Hint, useHintDescriptions } from "../hint/Hint";

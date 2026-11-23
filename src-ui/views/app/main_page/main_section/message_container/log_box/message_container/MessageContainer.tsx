@@ -1,7 +1,7 @@
 import { memo, useRef, useState } from "react";
 import { useI18n } from "@useI18n";
 import clsx from "clsx";
-import styles from "./MessageContainer.module.scss";
+import * as styles from "./MessageContainer.css.ts";
 import * as speakerStyles from "./SpeakerNames.css.ts";
 import { SpeakerNamesEditor, speakersText } from "./SpeakerNames.tsx";
 import { MessageSubMenuContainer } from "./message_sub_menu_container/MessageSubMenuContainer";
@@ -180,7 +180,7 @@ const MessageWithTransliteration = ({ item }: { item: MessageLogText }) => {
             const ruby = hepburn ? hepburn : hira;
             if (ruby !== orig) {
                 return (
-                    <ruby key={key} className={styles.ruby}>
+                    <ruby key={key}>
                         {orig}
                         <rt>{ruby}</rt>
                     </ruby>
@@ -190,7 +190,7 @@ const MessageWithTransliteration = ({ item }: { item: MessageLogText }) => {
 
         // Nothing. Original only.
         return (
-            <span key={key} className={styles.original_only}>
+            <span key={key}>
                 {orig}
             </span>
         );

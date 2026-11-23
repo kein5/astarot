@@ -2037,6 +2037,26 @@
       "immediate": false
     },
     {
+      "endpoint": "/get/data/transcription_catalog",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/run/register_transcription_catalog_entry",
+      "wait_for_init": true,
+      "immediate": false
+    },
+    {
+      "endpoint": "/run/remove_transcription_catalog_entry",
+      "wait_for_init": true,
+      "immediate": false
+    },
+    {
+      "endpoint": "/run/use_transcription_catalog_entry",
+      "wait_for_init": true,
+      "immediate": false
+    },
+    {
       "endpoint": "/run/send_message_box",
       "wait_for_init": true,
       "immediate": false
@@ -2302,6 +2322,11 @@
       "immediate": false
     },
     {
+      "endpoint": "/set/disable/managed_route_rename_notice",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
       "endpoint": "/run/mute_voice",
       "wait_for_init": false,
       "immediate": true
@@ -2500,16 +2525,8 @@
       "endpoint": "/run/vad_unavailable"
     },
     {
-      "name": "download_progress_ctranslate2_weight",
-      "endpoint": "/run/download_progress_ctranslate2_weight"
-    },
-    {
       "name": "downloaded_ctranslate2_weight",
       "endpoint": "/run/downloaded_ctranslate2_weight"
-    },
-    {
-      "name": "error_ctranslate2_weight",
-      "endpoint": "/run/error_ctranslate2_weight"
     },
     {
       "name": "ctranslate2_license_notice",
@@ -2763,6 +2780,7 @@
     "client_id",
     "user_model",
     "translation_catalog",
+    "transcription_catalog",
     "vocabulary",
     "speaker_names"
   ],
@@ -2969,13 +2987,6 @@
       "message": "Transcription API returned a server error",
       "severity": "warning",
       "user_action_required": false
-    },
-    {
-      "code": "WEIGHT_CTRANSLATE2_DOWNLOAD",
-      "category": "weight",
-      "message": "CTranslate2 weight download error",
-      "severity": "error",
-      "user_action_required": true
     },
     {
       "code": "WEIGHT_DOWNLOAD_CONSENT_REQUIRED",
@@ -4651,6 +4662,11 @@
       "key": "VIRTUAL_MIC_NOTICE_PENDING",
       "kind": "saved",
       "default": true
+    },
+    {
+      "key": "MANAGED_ROUTE_RENAME_NOTICE_PENDING",
+      "kind": "saved",
+      "default": false
     },
     {
       "key": "FIRST_RUN_SETUP_PENDING",
