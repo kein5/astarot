@@ -131,6 +131,8 @@ PRが開かなかったときは、ジョブのSummaryにあるリンクから�
 
 ## 9. リリースノートの書式
 
+正式版とプレリリースのノートは、毎回[jp-writingスキル](../jp-writing/SKILL.md)の手順で書きます。
+
 正本は`docs/release-notes/README.md`です。正式版ごとに`docs/release-notes/<版>.md`を書き、GitHubのリリースの本文にします。
 
 次の順に、見出しをすべて`##`で平らに並べます。
