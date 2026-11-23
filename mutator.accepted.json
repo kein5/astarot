@@ -39,6 +39,10 @@
     "reason": "keyMap maps Alt to itself, and with an empty value parseHotkey falls back to the key, which is the same Alt.",
     "where": "src-ui/logics/configs/config_page_setter/hotkeys/useHotkeys.ts:490:14 \"Alt\" -> \"\""
   },
+  "1enuxgbtz5v": {
+    "reason": "Every way a write ends stops its timer first (an answer, a failure before sending, an unconfirmed write, a reset) and a timeout ends by firing, so no timer is running when the next write is admitted.",
+    "where": "src-ui/logics/main/languageMutations.ts:106:5 clearTimer(); -> ;"
+  },
   "1f1qquh6mls": {
     "reason": "An empty name and a placeholder that is not kana both find no kana row.",
     "where": "src-ui/logics/common/languageJumpGroups.ts:35:104 \"\" -> \"Stryker was here!\""
@@ -231,6 +235,10 @@
     "reason": "The only merged routes are the weight template's get and set routes, made twice with the same namespace, hook and function, so either operand gives the same value.",
     "where": "src-ui/logics/useReceiveRoutes.ts:879:17 existing.ns ?? gen.ns -> (existing.ns && gen.ns)"
   },
+  "gtvqcj99lt": {
+    "reason": "finishResync returns at once for an endpoint the resync does not wait for, and it waits only for the five reads, which all have a read atom.",
+    "where": "src-ui/logics/main/languageMutations.ts:140:9 read -> true"
+  },
   "hn5c6gpyt9": {
     "reason": "store.appWindow is a Tauri Window, which always has onFocusChanged, so the optional call never meets undefined.",
     "where": "src-ui/logics/configs/config_page_setter/hotkeys/useHotkeys.ts:231:72 ?. -> "
@@ -258,6 +266,10 @@
   "nenv4pov5z": {
     "reason": "react-i18next's useTranslation always returns an i18n object (an empty one when no instance is set), so i18n is never nullish here.",
     "where": "src-ui/logics/useReceiveRoutes.ts:619:71 ?. -> ."
+  },
+  "nunhcigl4a": {
+    "reason": "JSON.stringify leaves out a property whose value is undefined, so the line written to the backend is the same.",
+    "where": "src-ui/logics/common/useStdoutToPython.ts:58:17 origin !== undefined -> true"
   },
   "qk4g6g2fks": {
     "reason": "owner is the same useRef object for the component's whole life, so [owner] and [] run the effect at the same times.",
