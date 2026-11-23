@@ -43,7 +43,8 @@ a row of its own above the message (`Subtitles::small_log`): centred, in the
 received purple made lighter at the same hue (198, 152, 206), in the default
 font at 60px, two thirds of its 92px text. Against the background (41, 42, 45)
 it stands out by 6.0:1 (WCAG 2.x), above the 4.5:1 small text needs; the
-received purple (168, 97, 180) of the large log's header stands out by 3.4:1. The row takes the top margin a message without speakers has, and the
+received purple (168, 97, 180) of the large log's header stands out by 3.4:1.
+The row takes the top margin a message without speakers has, and the
 message moves down by the row's height. A name given while the small log shows a
 picture does not redraw it; the next picture has the name. Line height grows
 to contain actual ink, including combining marks and fallback emoji. Ruby
