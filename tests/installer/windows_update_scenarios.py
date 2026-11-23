@@ -421,6 +421,7 @@ def silent_scenarios(installer, work, server):
                           "uninstall.exe": sha256((baseline / "uninstall.exe").read_bytes()).hexdigest(),
                           "installer_language.txt": sha256(b"").hexdigest()})
     assert_tree(baseline, expected_fresh)
+    assert installed_version() == "old"
     print("PASS fresh install", flush=True)
     add_user_data(baseline)
     before = snapshot(baseline)
@@ -433,6 +434,8 @@ def silent_scenarios(installer, work, server):
     updated = clone("update success")
     run_install(installer, updated, "new", work / "temp-success", True)
     expect_updated(updated, before)
+    # The Apps list shows the version /VERSION installed, not the installer's own.
+    assert OWN != "new" and installed_version() == "new", installed_version()
     print("PASS update success and user data retention", flush=True)
 
     second_run_scenario(installer, work, server, clone("second run"), before)
@@ -480,6 +483,7 @@ def silent_scenarios(installer, work, server):
     with server.request_lock:
         fetched = [request["path"] for request in server.requests if request["path"].startswith(f"/v{OWN}/")]
     assert fetched and not any(path.endswith(".sha256") for path in fetched), fetched
+    assert installed_version() == OWN
     print("PASS own version checked against the built-in hash", flush=True)
 
     # Someone who can replace release files swaps the package and its .sha256 together. The
@@ -504,8 +508,10 @@ def silent_scenarios(installer, work, server):
 
     for version in ("checksum-404", "invalid-checksum", "hash-mismatch", "corrupt", "partial", "no-exe", "no-internal"):
         directory = clone(version)
+        recorded = installed_version()
         run_install(installer, directory, version, work / f"temp-{version}", False)
         assert_tree(directory, before)
+        assert installed_version() == recorded, "A failed install changed the recorded version"
         if version in ("corrupt", "partial", "no-exe", "no-internal"):
             assert (work / f"temp-{version}" / (PACKAGE + ".bad")).read_bytes() == server.payloads[version]
         if version == "hash-mismatch":
@@ -699,6 +705,12 @@ def uninstall_entry():
         return None
 
 
+def installed_version():
+    """The version the Apps list shows for the install (DisplayVersion)."""
+    entry = uninstall_entry()
+    return entry and entry["DisplayVersion"]
+
+
 def uninstall_entries_named(*names):
     import winreg
     found = []
@@ -742,6 +754,7 @@ def rename_scenarios(installer, work):
     assert (new_dir / APP).is_file() and not old_dir.exists()
     entry = uninstall_entry()
     assert entry["DisplayName"] == PRODUCT_NAME, entry
+    assert entry["DisplayVersion"] == "new", entry
     assert entry["InstallLocation"].strip('"') == str(new_dir), entry
     assert (desktop / f"{PRODUCT_NAME}.lnk").is_file()
     assert list(programs.rglob(f"{PRODUCT_NAME}.lnk")), "No Start menu shortcut"

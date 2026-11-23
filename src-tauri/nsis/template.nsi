@@ -236,6 +236,9 @@ FunctionEnd
 
 ; 4-4. Custom page to ask user if he wants to reinstall/uninstall
 ;    only if a previous installtion was detected
+; The version /VERSION= names (.onInit), "" without it. Declared above the page that reads it:
+; makensis reads a variable named above its Var line as plain text.
+Var TargetVersion
 Var ReinstallPageCheck
 Page custom PageReinstall PageLeaveReinstall
 Function PageReinstall
@@ -283,7 +286,13 @@ Function PageReinstall
   ${EndIf}
   ${IfThen} $R0 == "" ${|} StrCpy $R4 "$(unknown)" ${|}
 
-  nsis_tauri_utils::SemverCompare "${VERSION}" $R0
+  ; Compare the version this run installs: the one /VERSION names, else this installer's own
+  ; (the same choice as $effective_version in Section Install).
+  ${If} $TargetVersion != ""
+    nsis_tauri_utils::SemverCompare $TargetVersion $R0
+  ${Else}
+    nsis_tauri_utils::SemverCompare "${VERSION}" $R0
+  ${EndIf}
   Pop $R0
   ; Reinstalling the same version
   ${If} $R0 == 0
@@ -514,7 +523,6 @@ FunctionEnd
 !macroend
 
 Var PassiveMode
-Var TargetVersion
 Var UILang
 Var SelectedChannel
 ; The handle of INSTALLERMUTEX. It stays open until this run ends, when Windows closes it; a run
@@ -1516,7 +1524,8 @@ Section Install
   ; Registry information for add/remove programs
   WriteRegStr SHCTX "${UNINSTKEY}" "DisplayName" "${PRODUCTNAME}"
   WriteRegStr SHCTX "${UNINSTKEY}" "DisplayIcon" "$\"$INSTDIR\${MAINBINARYNAME}.exe$\""
-  WriteRegStr SHCTX "${UNINSTKEY}" "DisplayVersion" "${VERSION}"
+  ; The version installed, which /VERSION may make another than this installer's own.
+  WriteRegStr SHCTX "${UNINSTKEY}" "DisplayVersion" "$effective_version"
   WriteRegStr SHCTX "${UNINSTKEY}" "Publisher" "${MANUFACTURER}"
   WriteRegStr SHCTX "${UNINSTKEY}" "InstallLocation" "$\"$INSTDIR$\""
   WriteRegStr SHCTX "${UNINSTKEY}" "UninstallString" "$\"$INSTDIR\uninstall.exe$\""
