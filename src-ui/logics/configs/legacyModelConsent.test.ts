@@ -36,7 +36,8 @@ const untokenized = { kind: "ctranslate2", weight_type: "plain", name: "A model 
     total_bytes: 147882941, tokenizer: null, tokenizer_size_unknown: false,
     revision: "c".repeat(40), manifest_version: "reviewed-plain-manifest" };
 
-async function dialogFixture(context: TestContext, language: string, reviewedEntry: typeof entry | typeof untokenized, catalog: unknown = { legacy_models: [reviewedEntry] }) {
+async function dialogFixture(context: TestContext, language: string, reviewedEntry: typeof entry | typeof untokenized, catalog: unknown = { legacy_models: [reviewedEntry] },
+    extra: { note?: string | null; onCatalogStart?: (id: string) => void } = {}) {
     const translations = i18next.createInstance();
     const resource = readLocale(language);
     await translations.init({ lng: language, resources: { [language]: { translation: resource } } });
@@ -59,7 +60,7 @@ async function dialogFixture(context: TestContext, language: string, reviewedEnt
         "../custom_model_link/CustomModelLink": { CustomModelLink: function CustomModelLink() { return null; } },
     });
     const props = { kind: reviewedEntry.kind, weightType: reviewedEntry.weight_type,
-        onCancel: () => events.closed++, onDownload: (data: LegacyDownloadRequest) => requests.push(data) };
+        onCancel: () => events.closed++, onDownload: (data: LegacyDownloadRequest) => requests.push(data), ...extra };
     const modal = { open: false, showModal() { this.open = true; events.opened++; }, close() { this.open = false; } };
     const render = () => runtime.render(LegacyModelDownloadDialog, props, tree => {
         // The fake modal goes where React would put the dialog: into the element's ref.
@@ -266,6 +267,19 @@ for (const language of ["en", "ja"]) {
         // Opened for NLLB, which the catalog does not offer: every translation model is shown.
         assert.equal(card.props.only, undefined);
         assert.equal(find(tree, node => node.type === "p" && node.props.children === s.t("legacy_model_downloads.translation_not_published")), null);
+    });
+    test(`${language}: the switch's review says what follows and hears a card's download start (#1015)`, async context => {
+        const model = { id: "nllb-200-distilled-600m-onnx-int8", target: "translation", name: "NLLB", artifacts: [] };
+        const started: string[] = [];
+        const s = await dialogFixture(context, language, entry, { legacy_models: [], models: [model] },
+            { note: "the switch goes on", onCatalogStart: id => started.push(id) });
+        const tree = s.render();
+        assert.notEqual(find(tree, node => node.type === "p" && node.props.children === "the switch goes on"), null);
+        findIn(tree, node => componentName(node) === "ModelDownloads").props.onStart(model.id);
+        assert.deepEqual(started, [model.id]);
+        // Without a model to fetch, nothing follows: the note stays away.
+        const none = await dialogFixture(context, language, entry, { legacy_models: [], models: [] }, { note: "the switch goes on" });
+        assert.equal(find(none.render(), node => node.type === "p" && node.props.children === "the switch goes on"), null);
     });
     test(`${language}: the review opened from a model's row shows that model's variants`, async context => {
         const models = ["m2m100-418m-onnx-int8", "m2m100-418m-onnx-float16", "nllb-200-distilled-600m-onnx-int8"]

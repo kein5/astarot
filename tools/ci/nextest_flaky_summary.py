@@ -4,9 +4,10 @@ every try.
     python tools/ci/nextest_flaky_summary.py native/core/target/nextest/ci/junit.xml
 
 The core-integration job runs native/core's tests under nextest's ci profile, which retries the
-tests of issue #861 (native/core/.config/nextest.toml). A pass on a retry is still a failure of
-the first try, so this writes each one to the job summary ($GITHUB_STEP_SUMMARY) and shows it as
-a warning on the run. It never fails the job: the test run itself does that.
+tests it names (native/core/.config/nextest.toml; none since issue #861 was settled). A pass on a
+retry is still a failure of the first try, so this writes each one to the job summary
+($GITHUB_STEP_SUMMARY) and shows it as a warning on the run. It never fails the job: the test run
+itself does that.
 """
 import os
 import sys
@@ -33,7 +34,7 @@ def outcomes(report):
 
 
 def summary(retried, failed):
-    lines = ["## Tests that passed only on a retry (#861)", ""]
+    lines = ["## Tests that passed only on a retry", ""]
     if not retried and not failed:
         return lines + ["Every test passed on its first try.", ""]
     if retried:
@@ -55,7 +56,7 @@ def main(argv):
         return 0
     retried, failed = outcomes(report)
     for name, tries, _ in retried:
-        print(f"::warning title=Passed on a retry (#861)::{name} passed on try {tries}")
+        print(f"::warning title=Passed on a retry::{name} passed on try {tries}")
     text = "\n".join(summary(retried, failed)) + "\n"
     print(text)
     target = os.environ.get("GITHUB_STEP_SUMMARY")

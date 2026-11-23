@@ -1,7 +1,7 @@
 import { memo, useState, useEffect, useLayoutEffect, useRef } from "react";
 import type { ChangeEvent, KeyboardEvent } from "react";
 import { useStore } from "jotai";
-import styles from "./MessageInputBox.module.scss";
+import * as styles from "./MessageInputBox.css.ts";
 import SendMessageSvg from "@images/send_message.svg?react";
 import { useMessageActions } from "@logics_common";
 import { useSettingValue } from "@logics_configs";
@@ -126,6 +126,7 @@ export const MessageInputBox = memo(function MessageInputBox() {
                 <textarea
                     ref={log_box_ref}
                     className={styles.message_box_input_area}
+                    data-message-input=""
                     onChange={onChangeFunction}
                     onBlur={stopTyping}
                     aria-label={t("studio.message_input")}
@@ -149,6 +150,7 @@ const SendMessageButton = ({ onSubmitFunction, pending }: { onSubmitFunction: (e
         <Tooltip bare placement="top" title={t("studio.send_message")}>
             <button
                 className={styles.message_send_button}
+                data-message-send=""
                 aria-label={t("studio.send_message")}
                 type="button"
                 disabled={pending}
