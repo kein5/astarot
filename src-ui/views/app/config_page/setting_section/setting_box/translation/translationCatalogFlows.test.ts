@@ -9,6 +9,7 @@ import type { TestContext } from "vitest";
 import { componentName, componentOf, drawWith, find, findIn, hooks, loadModule, nodesIn, treeNode, unchecked } from "../../../../../../logics/test/hookHarness.ts";
 import type { HookRuntime, TreeNode } from "../../../../../../logics/test/hookHarness.ts";
 import { loadBridgeRoutes } from "../../../../../../logics/test/bridgeHarness.ts";
+import { catalogAtom } from "../../../../../../logics/translation/translationCatalogState.ts";
 import * as translationCatalog from "../../../../../../logics/translation/translationCatalog.ts";
 import type { ApiItem, EngineItem, TranslationCatalog } from "../../../../../../logics/translation/translationCatalog.ts";
 import type { PendingCatalogChange } from "../../../../../../logics/translation/useTranslationCatalog.ts";
@@ -296,6 +297,7 @@ test("the catalog hook makes one change at a time, keeps the answer and the code
     const runtime = hooks(), transport: [string, unknown][] = [];
     const module = await loadModule<typeof import("../../../../../../logics/translation/useTranslationCatalog.ts")>(
         new URL("../../../../../../logics/translation/useTranslationCatalog.ts", import.meta.url), runtime, {
+            "./translationCatalogState.ts": { catalogAtom },
             "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: async (endpoint: string, data?: unknown) => { transport.push([endpoint, data]); return true; } }) },
         });
     const use = () => runtime.render(module.useTranslationCatalog);
