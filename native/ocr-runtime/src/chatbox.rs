@@ -121,7 +121,9 @@ impl ChatboxDetector {
         let builder = builder.with_log_level(ort::logging::LogLevel::Error).map_err(|e| Error::Backend(e.to_string()))?;
         let builder = builder.with_optimization_level(GraphOptimizationLevel::All).map_err(|e| Error::Backend(e.to_string()))?;
         let builder = builder.with_intra_threads(self.threads.max(1)).map_err(|e| Error::Backend(e.to_string()))?;
-        let mut builder = builder.with_inter_threads(1).map_err(|e| Error::Backend(e.to_string()))?;
+        let builder = builder.with_inter_threads(1).map_err(|e| Error::Backend(e.to_string()))?;
+        // Its threads run below normal on Windows, as the reading models' do.
+        let mut builder = builder.with_thread_manager(crate::priority::BelowNormalThreads).map_err(|e| Error::Backend(e.to_string()))?;
         let session = builder.commit_from_file(&self.model_path).map_err(|e| Error::Backend(e.to_string()))?;
         let io = io_names(&session)?;
         self.session = Some((session, io));
