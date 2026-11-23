@@ -30,7 +30,8 @@ async function page(id: string, transcription: Values = {}, translation: Values 
         "@logics_common": { useIsOpenedConfigPage: () => ({ currentIsOpenedConfigPage: { data: true } }), useIsOscAvailable: settings(), useVolume: settings() },
         "@logics_configs": { useAppearance: settings(), useDevice: settings(), useOcr: settings(), useOthers: settings(),
             useTranscription: settings(transcription), useTranslation: settings(translation), useVr: settings() },
-        "@store": { useStore_MicVolume: settings(), useStore_SelectableFontFamilyList: settings(), useStore_SpeakerVolume: settings() },
+        "@store": { useStore_MicVolume: settings(), useStore_SelectableFontFamilyList: settings(), useStore_SpeakerVolume: settings(),
+            useStore_VrCustomTranslationModelNames: () => ({ currentVrCustomTranslationModelNames: translation.currentVrCustomTranslationModelNames ?? { data: {} } }) },
         "@ui_configs": { ui_configs: {} },
         "./VrWindow": { VrWindow: "window" },
         "./VrHandIcon": { VrHandIcon: "hand" },
@@ -102,8 +103,10 @@ test("the translation models go by the names the desktop gives them, with their 
             builtin("nllb-200-distilled-600M-ct2-int8", true),
             builtin("nllb-200-distilled-1.3B-ct2-int8", true),
             { id: "user:tr-1", is_custom: true, is_downloaded: true },
+            { id: "user:tr-2", is_custom: true, is_downloaded: true },
         ]),
         currentSelectedCTranslate2WeightType: ok("nllb-200-distilled-600M-ct2-int8"),
+        currentVrCustomTranslationModelNames: ok({ "user:tr-1": "My model" }),
     };
     const opened: { label: string; options: { id: string; label: string }[] }[] = [];
     const rows = await page("translation", {}, translation, (label, options) => { opened.push({ label, options }); });
@@ -117,6 +120,13 @@ test("the translation models go by the names the desktop gives them, with their 
     assert.deepEqual(opened, [{ label: "config_page.translation.ctranslate2_weight_type.label", options: [
         { id: "m2m100_418M-ct2-int8", label: "M2M100 418M · int8 (418MB)" },
         { id: "nllb-200-distilled-600M-ct2-int8", label: "NLLB-200 distilled 600M · int8 (600MB, CC-BY-NC-4.0)" },
-        { id: "user:tr-1", label: "user:tr-1" },
+        { id: "user:tr-1", label: "My model" },
+        { id: "user:tr-2", label: "user:tr-2" },
     ] }]);
+    const customRows = await page("translation", {}, {
+        ...translation,
+        currentSelectedCTranslate2WeightType: ok("user:tr-1"),
+    });
+    const customRow = customRows.find(node => node.type === "select-row" && node.props.label === row.props.label);
+    assert.equal(customRow?.props.value, "My model");
 });

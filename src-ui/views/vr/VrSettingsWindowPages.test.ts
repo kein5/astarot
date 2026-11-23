@@ -52,7 +52,7 @@ async function settingsWindow(values: Record<string, unknown> = {}, { ready = tr
             useIsOscAvailable: () => ({ currentIsOscAvailable: { data: osc }, oscUnavailableLabelKey: "config_page.others.osc_unavailable" }),
             useVolume: hook() },
         "@logics_configs": { useAppearance: hook(), useDevice: hook(), useOcr: hook(), useOthers: hook(), useTranscription: hook(), useTranslation: hook(), useVr: hook() },
-        "@store": { useStore_MicVolume: hook(), useStore_SelectableFontFamilyList: hook(), useStore_SpeakerVolume: hook() },
+        "@store": { useStore_MicVolume: hook(), useStore_SelectableFontFamilyList: hook(), useStore_SpeakerVolume: hook(), useStore_VrCustomTranslationModelNames: () => ({ currentVrCustomTranslationModelNames: ok({}) }) },
         "@ui_configs": { ui_configs },
         "./VrWindow": { VrWindow: "window" },
         "./VrHandIcon": { VrHandIcon: "hand" },

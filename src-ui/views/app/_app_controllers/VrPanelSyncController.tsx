@@ -15,6 +15,7 @@ import type { LogUpdateValue, SentLog } from "../../../logics/common/vrPanelWire
 import { isLanguageMutation, rejectLanguageMutation } from "../../../logics/main/languageMutations";
 import { failureRun, windowFailureKey } from "../../../logics/common/windowFailures.ts";
 import type { FailureRun } from "../../../logics/common/windowFailures.ts";
+import { vrCustomTranslationModelNamesAtom } from "../../../logics/translation/translationCatalogState.ts";
 import type { LanguageMutationRequest } from "../../../logics/main/languageMutationCoordinator.ts";
 
 // VRパネル (vr_panel ウィンドウ) にこのウィンドウの状態を写す。
@@ -59,7 +60,8 @@ const atomEntries = (): NamedAtom[] => {
     return Object.entries(dynamicStoreRegistry)
         .flatMap(([key, atom]): NamedAtom[] => key.startsWith("Atom_") && typeof atom !== "function"
             ? [[key.slice("Atom_".length), atom]] : [])
-        .filter(([name]) => allowed.has(name));
+        .filter(([name]) => allowed.has(name))
+        .map(([name, atom]): NamedAtom => [name, name === "VrCustomTranslationModelNames" ? vrCustomTranslationModelNamesAtom : atom]);
 };
 
 // The conversation log's atom holds { state, data: rows }.

@@ -312,6 +312,8 @@ export const { atomInstance: Atom_OscUnavailableReason, useHook: useStore_OscUna
 export const { atomInstance: Atom_ComputeMode, useHook: useStore_ComputeMode } = createAtomWithHook("cpu", "ComputeMode");
 export const { atomInstance: Atom_IsOpenedConfigPage, useHook: useStore_IsOpenedConfigPage } = createAtomWithHook(false, "IsOpenedConfigPage");
 // Why each main switch cannot be turned on yet (main/switchBlocks.ts): {switch_id: {reason, action}}.
+export const { useHook: useStore_VrCustomTranslationModelNames } = createAtomWithHook(
+    initial<Partial<Record<string, string>>>({}), "VrCustomTranslationModelNames", { is_state_ok: true });
 // The main window works it out once (SwitchBlocksController) and the VR panel reads the same value.
 export const { atomInstance: Atom_SwitchBlocks, useHook: useStore_SwitchBlocks } = createAtomWithHook(initial<SwitchBlocks>({}), "SwitchBlocks", { is_state_ok: true });
 export const { atomInstance: Atom_MainFunctionsStateMemory, useHook: useStore_MainFunctionsStateMemory } = createAtomWithHook(initial<MainFunctionsStateMemory>({
