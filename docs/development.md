@@ -244,6 +244,7 @@ npm run test:watch       # 変更を監視して実行する
 npm run test:coverage    # カバレッジ（build/coverage/ui に HTML と json-summary）
 ```
 
+- カバレッジが数えるのは、`src-ui` のソースから、試験、試験の基盤、型の宣言、スタイル（`.css.ts`）を除いたものです（`vitest.config.js` の `coverage`）。スタイルは、ミューテーションテストの対象からも外しています。
 - アサーションは `node:assert/strict` を使います。`test` と `vi` は `vitest` から import します。
 - 後片付けは `context.onTestFinished(fn)` で登録します。`src-ui/logics/test/vitestSetup.ts` が、node:test の `after` と同じく登録した順に呼びます（Vitest の既定は逆順）。
 - 時計の偽装は `vi.useFakeTimers({ toFake: [...] })` と `vi.advanceTimersByTime(ms)` です。テストが終わると実時間に戻ります。`vi.spyOn` は次のテストの前に元に戻ります（`restoreMocks`）。
@@ -325,6 +326,7 @@ npx mutator accept <キー> --reason "<等価と判断した理由>"            
 - Vitest 5 は変換したモジュールを `node_modules/.vitest-cache` に残します（`fsModuleCache`、既定で有効）。mutator はこのキャッシュと自分の計装を区別しません。そのため、対象を変えて回すと計装のないモジュールが読まれ、エラーなしで NoCoverage ばかりになり、スコアが0%近くまで落ちます。`npm run test:mutation` は `vitest.mutator.config.js`（このキャッシュを切った設定）を使います。`npx mutator --config vitest.config.js` のように、ほかの設定で回さないでください。
 - 結果のキャッシュは `.mutator/` にあり（Gitの対象外）、次の実行では関数とテストが変わっていないものを再利用します。0.2.0 は最後の実行の結果だけを持つので、`--include` で絞って回した後の全体の実行は、ほぼ全件を回し直します。`.mutator/` を共有するので、同じ作業ツリーで2つ同時に回さないでください。
 - `--include` で絞って回した後に全体を回すときは、`--full-dry-run` を付けます。付けないと、カバレッジの収集の一部に絞った回の結果が使われ、そのときに対象でなかったファイルの変異が NoCoverage と数えられます（2026-11-21 に、64 ファイル・約 3,600 件で起きました）。
+- `--include` の範囲を前の回から変えて絞って回すときも、`--full-dry-run` を付けます。付けないと、試験が通っているファイルの変異まで、全部 NoCoverage と出ることがあります（2026-11-23 に、`views/app/io_flow` の 438 件で起きました）。
 - 全体を最初から回すと、手元（Linux、並列16）で35分ほどかかりました（2026-11-21、変異40,552件）。前の回の結果を使える部分が多ければ、数分で終わります。結果を報告するときは、対象の範囲と計測した条件（版、並列数、機材）を添え、スコアを品質の保証として書かないでください。
 - 0.2.0 には、Windows でパスの区切りが合わず計装されない問題が報告されています（Issue #550）。手順は Linux で確かめたものです。
 
@@ -354,6 +356,7 @@ cd native/core && PROPTEST_DISABLE_FAILURE_PERSISTENCE=1 cargo mutants --in-plac
 - cargo-mutants は、変異のない状態で試験がすべて通らないと何もしません。
 - cargo-mutants は既定でクレートを一時フォルダーに写して変異させます。`native/core` は、兄弟のクレートへの相対パスが通常の依存と試験用の依存で食い違い、写したものがビルドできません。そのため `--in-place`（その場で1件ずつ変異させる）で回します。回している間は、そのクレートのファイルを編集しないでください。
 - proptest は、落ちた入力を `proptest-regressions/` に書き残し、次の実行で先に試します。変異させたコードで落ちた入力は残す意味がないので、ミューテーションテストは `PROPTEST_DISABLE_FAILURE_PERSISTENCE=1` を付けて回します。
+- `-j` で並列に回すときは、`CARGO_TARGET_DIR` を設定しません。cargo-mutants は並列の作業ごとにクレートを写し、写した先の target でビルドします。`CARGO_TARGET_DIR` があると、並列の作業が 1 つの target を共有し、別の変異のビルドで試験を流すことがあります（2026-11-23 に、別の変異の失敗を「検出」と記録した回がありました）。`--in-place` で 1 件ずつ回す `native/core` は、設定したままでかまいません。`mise run mutation:changed` は、並列の回では `CARGO_TARGET_DIR` を外して渡します。
 - 対象は純粋なロジックにし、時刻や待ちに頼る試験のあるモジュールは外します（ミュータントごとに結果がぶれるため）。`-- --lib` を付けると単体の試験だけを流します。統合試験だけが確かめている変異は検出されないので、結果を報告するときは流した試験の範囲も書きます。
 - 結果は `mutants.out/` の `caught.txt`（検出）、`missed.txt`（未検出）、`timeout.txt`、`unviable.txt`（ビルドできない変異。分母に入れない）にあります。未検出は1件ずつコードを読み、試験の不足か、どの入力でも結果が変わらない等価なミュータントかを判断します。
 - 純粋な関数の境界は、プロパティベーステスト（[proptest](https://proptest-rs.github.io/proptest/)。`native/core` の試験用の依存）で確かめられます。正規化の結果をもう一度正規化しても変わらないこと、保存して読み戻すと同じになることなど、入力を選ばない性質を書きます。
