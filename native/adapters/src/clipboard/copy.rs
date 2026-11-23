@@ -63,6 +63,7 @@ fn system_tool() -> Option<Tool> {
 }
 
 fn feed(mut command: Command, input: &[u8]) -> bool {
+    astarot_app_identity::appimage::restore_host_environment(&mut command);
     command.stdin(Stdio::piped()).stdout(Stdio::null()).stderr(Stdio::null());
     #[cfg(windows)]
     {
@@ -79,7 +80,7 @@ fn feed(mut command: Command, input: &[u8]) -> bool {
 /// Copy `text` with `tool`.
 pub fn copy_with(tool: Tool, text: &str) -> bool {
     match tool {
-        Tool::WlCopy if text.is_empty() => Command::new("wl-copy")
+        Tool::WlCopy if text.is_empty() => astarot_app_identity::appimage::restore_host_environment(&mut Command::new("wl-copy"))
             .arg("--clear")
             .stdout(Stdio::null())
             .stderr(Stdio::null())

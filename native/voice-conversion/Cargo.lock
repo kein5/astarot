@@ -44,6 +44,7 @@ dependencies = [
 name = "astarot-voice-conversion"
 version = "0.1.0"
 dependencies = [
+ "astarot-app-identity",
  "astarot-audio-routing",
  "astarot-ops",
  "crc32fast",

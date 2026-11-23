@@ -13,6 +13,8 @@ name = "astarot_voice_conversion"
 # Versions are pinned to the ones native/core and src-tauri already hold, so linking this
 # crate into the app adds no second copy of any of them.
 [dependencies]
+# The host's environment for the programs it starts under the AppImage (#924, item 22).
+astarot-app-identity = { path = "../app-identity" }
 # Raw deflate for the runtime's zip archives and gzip for its .tgz.
 flate2 = "=1.1.11"
 crc32fast = "=1.5.5"
