@@ -186,3 +186,14 @@ def test_the_stand_in_of_the_package_up_to_0_6_has_its_name_and_paths(tmp_path):
     files = spec.split("%files\n", 1)[1].splitlines()
     # The folder as a whole, as up to 0.6.x: removing the package removes it.
     assert files[0] == "/opt/vrct-vox" and "/usr/bin/vrct-vox" in files
+
+
+def test_stand_in_version_is_older_than_the_candidate(tmp_path):
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "tools/ci"))
+    import legacy_linux_packages as legacy
+
+    for candidate, expected in (("0.6.0", "0.5.99"), ("0.7.0-beta.1", "0.6.99")):
+        version = legacy.stand_in_version(candidate)
+        assert version == expected
+        assert control_fields(legacy.deb_control(version))["Version"] == expected
+        assert f"Version: {expected}" in legacy.rpm_spec(tmp_path, version).splitlines()
