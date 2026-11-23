@@ -1101,3 +1101,177 @@ test("every symbol stored as what Shift typed registers as its key, and Meta reg
     await hook.registerShortcuts();
     assert.deepEqual([...state.registered.keys()], [...typed.map(([, key]) => `Control+Shift+${key}`), "Super+Alt+K"]);
 });
+
+test("a key another action has is refused at once, naming the action being edited and the key", async () => {
+    const subject = await setup(), { state } = subject;
+    state.hotkeys = { open_quick_chat: ["Ctrl", "Q"], toggle_translation: null };
+    const hook = await subject.load();
+    assert.equal(await hook.setHotkeys({ toggle_translation: ["Ctrl", "Q"] }), false);
+    assert.deepEqual(state.notices, [[
+        "config_page.hotkeys.error_in_use(action_name=config_page.hotkeys.toggle_translation.label(translation=main_page.translation), hotkey=Ctrl + Q)"]]);
+    // Nothing is asked of the app or the plugin, and nothing is written.
+    assert.deepEqual(state.calls, []);
+    assert.deepEqual(state.plugin, []);
+    assert.deepEqual(state.writes, []);
+});
+
+test("a key another action was given while the platform was asked is refused before it is tried", async () => {
+    const subject = await setup(), gate = deferred(), { state } = subject;
+    state.platformGate = gate.promise;
+    state.hotkeys = { toggle_translation: null, toggle_transcription_send: null };
+    const hook = await subject.load();
+    const edit = hook.setHotkeys({ toggle_translation: ["Ctrl", "T"] });
+    await flush();
+    hook.setSuccessHotkeys({ toggle_translation: null, toggle_transcription_send: ["Ctrl", "T"] });
+    gate.resolve("native");
+    assert.equal(await edit, false);
+    assert.equal(state.notices.length, 1);
+    assert.deepEqual(state.plugin, []);
+});
+
+test("on Wayland a key is saved without a trial in the plugin, which cannot hold keys there", async () => {
+    const subject = await setup(), { state } = subject;
+    state.hotkeys = { toggle_translation: null };
+    // The plugin grabs no key on native Wayland: a trial there would refuse every key.
+    state.refused = ["Control+T"];
+    const hook = await subject.load();
+    assert.equal(await hook.setHotkeys({ toggle_translation: ["Ctrl", "T"] }), true);
+    assert.deepEqual(state.plugin, []);
+    assert.deepEqual(state.writes, [["/set/data/hotkeys", { toggle_translation: ["Ctrl", "T"] }]]);
+});
+
+test("an edit replaced while it waits for the plugin does not try its key", async () => {
+    const subject = await setup(), gate = deferred(), { state } = subject;
+    state.platformGate = "native";
+    state.hotkeys = { toggle_translation: null };
+    // A registration is clearing the plugin, so the trials wait in line behind it.
+    state.unregisterGate = gate.promise;
+    const hook = await subject.load();
+    const registration = hook.registerShortcuts();
+    await flush();
+    const first = hook.setHotkeys({ toggle_translation: ["Ctrl", "T"] });
+    await flush();
+    const second = hook.setHotkeys({ toggle_translation: ["Ctrl", "N"] });
+    gate.resolve();
+    assert.equal(await first, false);
+    assert.equal(await second, true);
+    await registration;
+    assert.deepEqual(state.plugin, ["unregisterAll", "register Control+N", "unregister Control+N"]);
+});
+
+test("a key the plugin cannot take is refused as in use elsewhere", async () => {
+    const subject = await setup(), { state } = subject;
+    state.platformGate = "native";
+    state.hotkeys = { toggle_translation: null };
+    state.refused = ["Control+T"];
+    const hook = await subject.load();
+    assert.equal(await hook.setHotkeys({ toggle_translation: ["Ctrl", "T"] }), false);
+    assert.deepEqual(state.notices, [[
+        "config_page.hotkeys.error_in_use(action_name=config_page.hotkeys.toggle_translation.label(translation=main_page.translation), hotkey=Ctrl + T)"]]);
+    assert.deepEqual(state.writes, []);
+});
+
+test("a refusal that arrives after the page closed is not told", async () => {
+    const subject = await setup(), gate = deferred(), { state } = subject;
+    state.platformGate = "native";
+    state.hotkeys = { toggle_translation: null };
+    state.registerGate = gate.promise;
+    const hook = await subject.load();
+    const edit = hook.setHotkeys({ toggle_translation: ["Ctrl", "T"] });
+    await flush();
+    state.cleanups[0]();
+    gate.reject(new Error("held by another application"));
+    assert.equal(await edit, false);
+    assert.deepEqual(state.notices, []);
+});
+
+for (const change of ["hot reload replaces the module", "the page closes", "the backend restarts", "the action is saved from elsewhere"]) {
+    test(`an edit waiting for the plugin is not saved when ${change}`, async () => {
+        const subject = await setup(), gate = deferred(), { state, store } = subject;
+        state.platformGate = "native";
+        state.hotkeys = { toggle_translation: null };
+        state.registerGate = gate.promise;
+        store.backend_session = "first";
+        const hook = await subject.load();
+        const edit = hook.setHotkeys({ toggle_translation: ["Ctrl", "T"] });
+        await flush();
+        if (change === "hot reload replaces the module") subject.dispose(0);
+        else if (change === "the page closes") state.cleanups[0]();
+        else if (change === "the backend restarts") store.backend_session = "second";
+        else hook.setSuccessHotkeys({ toggle_translation: ["Ctrl", "Y"] });
+        gate.resolve();
+        assert.equal(await edit, false);
+        assert.deepEqual(state.writes, []);
+    });
+}
+
+test("a key is written after the hotkeys are marked pending and the last notice is closed", async () => {
+    const subject = await setup(), { state } = subject;
+    state.hotkeys = { toggle_translation: null };
+    const hook = await subject.load();
+    assert.equal(await hook.setHotkeys({ toggle_translation: ["Ctrl", "T"] }), true);
+    assert.deepEqual(state.events, ["pending", "notification closed", "/set/data/hotkeys"]);
+});
+
+for (const [write, answer, saved] of [
+    ["sent with no reply of its own", true, true],
+    ["that could not be sent", false, false],
+    ["answered with status 200", { endpoint: "/set/data/hotkeys", status: 200, result: { toggle_translation: ["Ctrl", "T"] } }, true],
+    ["answered with status 400", { endpoint: "/set/data/hotkeys", status: 400, result: "invalid" }, false],
+] satisfies [string, unknown, boolean][]) {
+    test(`a key write ${write} is ${saved ? "" : "not "}taken as saved`, async () => {
+        const subject = await setup(), { state } = subject;
+        state.hotkeys = { toggle_translation: null };
+        state.writeGate = answer;
+        const hook = await subject.load();
+        assert.equal(await hook.setHotkeys({ toggle_translation: ["Ctrl", "T"] }), saved);
+    });
+}
+
+test("an action whose save was answered can be edited again", async () => {
+    const subject = await setup(), { state } = subject;
+    state.hotkeys = { toggle_translation: null };
+    const hook = await subject.load();
+    assert.equal(await hook.setHotkeys({ toggle_translation: ["Ctrl", "T"] }), true);
+    hook.setSuccessHotkeys({ toggle_translation: ["Ctrl", "T"] });
+    assert.equal(await hook.setHotkeys({ toggle_translation: ["Ctrl", "N"] }), true);
+    assert.equal(state.writes.length, 2);
+});
+
+test("a platform that cannot be told refuses the quick chat key, and is asked again next time", async () => {
+    const subject = await setup(), { state } = subject;
+    state.hotkeys = { open_quick_chat: null };
+    state.platformFails = true;
+    const hook = await subject.load();
+    assert.equal(await hook.setHotkeys({ open_quick_chat: ["Ctrl", "Q"] }), false);
+    assert.deepEqual(state.notices, [["quick_chat.platform_unknown"]]);
+    assert.deepEqual(state.writes, []);
+    state.platformFails = false;
+    assert.equal(await hook.setHotkeys({ open_quick_chat: ["Ctrl", "Q"] }), true);
+    assert.equal(state.calls.filter(([command]) => command === "quick_chat_shortcut_platform").length, 2);
+});
+
+test("a platform that cannot be told still lets other keys be saved once the plugin takes them", async () => {
+    const subject = await setup(), { state } = subject;
+    state.hotkeys = { toggle_translation: null };
+    state.platformFails = true;
+    const hook = await subject.load();
+    assert.equal(await hook.setHotkeys({ toggle_translation: ["Ctrl", "T"] }), true);
+    assert.deepEqual(state.notices, [["quick_chat.platform_unknown"]]);
+    assert.deepEqual(state.plugin, ["register Control+T", "unregister Control+T"]);
+});
+
+test("asking for the hotkeys marks them pending and asks the backend", async () => {
+    const subject = await setup(), { state } = subject;
+    const hook = await subject.load();
+    hook.getHotkeys();
+    assert.deepEqual(state.events, ["pending", "/get/data/hotkeys"]);
+});
+
+test("an acknowledged save is kept and said", async () => {
+    const subject = await setup(), { state } = subject;
+    const hook = await subject.load();
+    hook.setSuccessHotkeys({ open_quick_chat: ["Ctrl", "W"] });
+    assert.deepEqual(state.hotkeys, { open_quick_chat: ["Ctrl", "W"] });
+    assert.deepEqual(state.events, ["saved"]);
+});
