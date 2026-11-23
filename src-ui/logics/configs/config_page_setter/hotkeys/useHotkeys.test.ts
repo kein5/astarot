@@ -60,6 +60,11 @@ interface CommandArgs {
     shortcuts?: Record<string, string[] | null>;
     activationToken?: string | null;
 }
+// What the bind answers for one action (Assigned in portal_shortcuts.rs).
+interface Assigned {
+    shown: string;
+    applied: boolean | null;
+}
 interface StubStore {
     text_area_ref: { current: { focus: () => void } };
     appWindow?: Record<string, (...args: never[]) => unknown>;
@@ -217,6 +222,54 @@ for (const boundary of ["platform", "unregister", "listen", "bind"] as const) {
         assert.equal(state.handlers.size, boundary === "listen" || boundary === "bind" ? 1 : 0);
     });
 }
+
+test("a registration asked for while the shortcuts are off asks nothing of the app or the plugin", async () => {
+    const subject = await setup(), { state } = subject;
+    state.settings = true;
+    const hook = await subject.load();
+    await hook.registerShortcuts();
+    assert.deepEqual(state.calls, []);
+    assert.deepEqual(state.plugin, []);
+});
+
+test("a press that arrives before the desktop has answered the bind does nothing", async () => {
+    const subject = await setup(), gate = deferred(), { state } = subject;
+    state.bind = () => gate.promise;
+    const hook = await subject.load(), registration = hook.registerShortcuts();
+    await flush();
+    subject.emit();
+    assert.deepEqual(state.actions, []);
+    gate.resolve({});
+    await registration;
+    subject.emit();
+    assert.deepEqual(state.actions, ["quick-chat"]);
+});
+
+test("registering again keeps one listener for each portal event", async () => {
+    const subject = await setup(), { state } = subject;
+    const hook = await subject.load();
+    await hook.registerShortcuts();
+    await hook.unregisterAll();
+    await hook.registerShortcuts();
+    await hook.registerShortcuts();
+    assert.deepEqual([state.handlers.size, state.lostHandlers.size, state.notRestoredHandlers.size], [1, 1, 1]);
+    subject.emit();
+    assert.deepEqual(state.actions, ["quick-chat"]);
+});
+
+test("a newer registration drops one still waiting for the desktop", async () => {
+    const subject = await setup(), old = deferred(), { state } = subject;
+    state.bind = () => old.promise;
+    const hook = await subject.load(), registration = hook.registerShortcuts();
+    await flush();
+    state.bind = () => ({});
+    await hook.registerShortcuts();
+    old.resolve({ open_quick_chat: { shown: "Ctrl+Alt+Q", applied: false } });
+    await registration;
+    assert.deepEqual(state.notices, []);
+    subject.emit();
+    assert.deepEqual(state.actions, ["quick-chat"]);
+});
 
 for (const [atom, value] of [["settings", true], ["ready", false], ["updating", true]] satisfies ["settings" | "ready" | "updating", boolean][]) {
     test(`current ${atom} state is rechecked after bind without waiting for controller effects`, async () => {
@@ -731,3 +784,182 @@ test("a reconnect that is pending when the shortcuts pause is dropped", async ()
     await flush();
     assert.equal(state.calls.filter(([cmd]) => cmd === "portal_shortcuts_bind").length, 1);
 });
+
+test("a portal lost a full minute after the last reconnect is bound again", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"], now: 1_000_000 });
+    const subject = await setup(), { state } = subject;
+    const hook = await subject.load();
+    await hook.registerShortcuts();
+    subject.lost();
+    vi.advanceTimersByTime(3000);
+    await flush(); await flush(); await flush();
+    // The last reconnect counts from the loss that started it.
+    vi.advanceTimersByTime(60000 - 3000);
+    subject.lost();
+    assert.equal(state.warnings.length, 2);
+    assert.deepEqual(state.notices, []);
+});
+
+test("with no key set, the desktop is asked to bind nothing", async () => {
+    const subject = await setup(), { state } = subject;
+    state.hotkeys = { open_quick_chat: null, toggle_translation: null };
+    const hook = await subject.load();
+    await hook.registerShortcuts();
+    assert.deepEqual(state.calls.map(([command]) => command), ["quick_chat_shortcut_platform"]);
+    assert.equal(state.handlers.size, 0);
+});
+
+const binds = (state: StubState) => state.calls.filter(([command]) => command === "portal_shortcuts_bind").map(([, args]) => args?.shortcuts);
+
+test("clearing the last key releases the keys the desktop holds, and a loss after that asks for nothing", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"], now: 1_000_000 });
+    const subject = await setup(), { state } = subject;
+    const hook = await subject.load();
+    await hook.registerShortcuts();
+    // The hook reads the hotkeys it was drawn with; the cleared key is acknowledged in place.
+    state.hotkeys.open_quick_chat = null;
+    await hook.registerShortcuts();
+    assert.deepEqual(binds(state), [{ open_quick_chat: ["Ctrl", "Q"] }, {}]);
+    // No key is bound now, so there is nothing to bind again.
+    subject.lost();
+    vi.advanceTimersByTime(5000);
+    await flush();
+    assert.deepEqual(state.warnings, []);
+    assert.equal(binds(state).length, 2);
+});
+
+test("after a hot reload with every key cleared, the keys the old module bound are released", async () => {
+    const subject = await setup(), { state } = subject;
+    const first = await subject.load();
+    await first.registerShortcuts();
+    subject.dispose(0);
+    state.hotkeys = { open_quick_chat: null };
+    const second = await subject.load();
+    await second.registerShortcuts();
+    assert.deepEqual(binds(state), [{ open_quick_chat: ["Ctrl", "Q"] }, {}]);
+});
+
+test("a key the desktop did not take is told with the key asked for and the key in force", async () => {
+    const subject = await setup(), { state } = subject;
+    state.hotkeys = { open_quick_chat: ["Ctrl", "Q"], toggle_vrct_visibility: ["Ctrl", "H"], stop_voice: ["Ctrl", "1"], toggle_tts: ["Ctrl", "3"] };
+    // The desktop kept another key for the first two; it took the third, and cannot say for the fourth.
+    state.bind = (): Record<string, Assigned> => ({
+        open_quick_chat: { shown: "Ctrl+Alt+Q", applied: false },
+        toggle_vrct_visibility: { shown: "", applied: false },
+        stop_voice: { shown: "Ctrl+1", applied: true },
+        toggle_tts: { shown: "Ctrl+3", applied: null },
+    });
+    const hook = await subject.load();
+    await hook.registerShortcuts();
+    assert.deepEqual(state.notices, [
+        ["quick_chat.portal_key_kept(action_name=quick_chat.label, wanted=Ctrl + Q, hotkey=Ctrl+Alt+Q)", { hide_duration: 10000 }],
+        // No key in force: a dash stands for it.
+        ["quick_chat.portal_key_kept(action_name=config_page.hotkeys.toggle_vrct_visibility.label, wanted=Ctrl + H, hotkey=-)", { hide_duration: 10000 }],
+    ]);
+});
+
+test("a portal event that cannot be listened to stops the bind and is told with its code", async () => {
+    const subject = await setup(), { state } = subject;
+    state.listenFails = "portal-shortcuts-lost";
+    const hook = await subject.load();
+    await hook.registerShortcuts();
+    assert.deepEqual(binds(state), []);
+    // The listeners that were added are removed again.
+    assert.deepEqual([state.handlers.size, state.lostHandlers.size, state.notRestoredHandlers.size], [0, 0, 0]);
+    // The app has no words of its own for this code: the general message carries it.
+    assert.deepEqual(state.notices, [["quick_chat.portal_failed(code=listen_failed)", { hide_duration: 8000 }]]);
+});
+
+test("a listen that fails after its owner left keeps the listener of the owner after it", async () => {
+    const subject = await setup(), gate = deferred(), { state } = subject;
+    const useHotkeys = await subject.importHook();
+    const first = useHotkeys();
+    state.listenGate = gate.promise;
+    const dropped = first.registerShortcuts();
+    await flush();
+    state.cleanups[0]();
+    state.listenGate = null;
+    const second = useHotkeys();
+    await second.registerShortcuts();
+    gate.reject("portal_unavailable");
+    await dropped;
+    // The next registration of the new owner listens with what it has.
+    await second.registerShortcuts();
+    assert.equal(state.handlers.size, 1);
+    subject.emit();
+    assert.deepEqual(state.actions, ["quick-chat"]);
+    assert.deepEqual(state.notices, []);
+});
+
+test("a press heard while the listener of an owner that left is still being added runs once", async () => {
+    const subject = await setup(), gate = deferred(), { state } = subject;
+    const useHotkeys = await subject.importHook();
+    const first = useHotkeys();
+    state.listenGate = gate.promise;
+    const dropped = first.registerShortcuts();
+    await flush();
+    state.cleanups[0]();
+    state.listenGate = null;
+    const second = useHotkeys();
+    await second.registerShortcuts();
+    // Both listeners hear the press until the first one is added and removed again.
+    assert.equal(state.handlers.size, 2);
+    subject.emit();
+    assert.deepEqual(state.actions, ["quick-chat"]);
+    gate.resolve();
+    await dropped;
+    assert.equal(state.handlers.size, 1);
+});
+
+test("the quick chat opens with the activation token the desktop gave the press", async () => {
+    const subject = await setup(), { state } = subject;
+    const hook = await subject.load();
+    await hook.registerShortcuts();
+    subject.press("open_quick_chat", "token-1");
+    subject.press("open_quick_chat");
+    await flush();
+    assert.deepEqual(state.calls.filter(([command]) => command === "quick_chat_show").map(([, args]) => args),
+        [{ activationToken: "token-1" }, { activationToken: null }]);
+});
+
+test("a quick chat that cannot be opened is told", async () => {
+    const subject = await setup(), { state } = subject;
+    state.showFails = true;
+    const hook = await subject.load();
+    await hook.openQuickChat();
+    assert.deepEqual(state.notices, [["quick_chat.open_failed"]]);
+});
+
+test("the main window's switches run from their hotkeys, and an action the app does not know does nothing", async () => {
+    const subject = await setup(), { state } = subject;
+    const hook = await subject.load();
+    await hook.registerShortcuts();
+    for (const id of ["toggle_translation", "toggle_transcription_send", "toggle_transcription_receive", "send_message_button"]) subject.press(id);
+    await flush();
+    assert.deepEqual(state.actions, ["translation", "send", "receive"]);
+});
+
+test("another user of the hook leaving keeps the keys the controller registered", async () => {
+    const subject = await setup(), { state } = subject;
+    const useHotkeys = await subject.importHook();
+    const controller = useHotkeys();
+    // The settings page reads the same hotkeys and registers nothing.
+    useHotkeys();
+    await controller.registerShortcuts();
+    state.cleanups[1]();
+    subject.emit();
+    assert.deepEqual(state.actions, ["quick-chat"]);
+    assert.equal(state.handlers.size, 1);
+});
+
+for (const gone of ["has unmounted", "belongs to a module hot reload replaced"]) {
+    test(`a hook that ${gone} asks nothing when told to register`, async () => {
+        const subject = await setup(), { state } = subject;
+        const hook = await subject.load();
+        if (gone === "has unmounted") state.cleanups[0]();
+        else subject.dispose(0);
+        await hook.registerShortcuts();
+        assert.deepEqual(state.calls, []);
+        assert.equal(state.handlers.size, 0);
+    });
+}
