@@ -79,6 +79,10 @@
     "reason": "An unset UI language and any other unsupported one both give no groups.",
     "where": "src-ui/logics/common/languageJumpGroups.ts:27:41 \"\" -> \"Stryker was here!\""
   },
+  "26n5qtqj0t6": {
+    "reason": "A string has no is_downloaded, so the placeholder is filtered out as an empty list is.",
+    "where": "src-ui/views/vr/VrSettingsWindow.tsx:371:68 [] -> [\"Stryker was here!\"]"
+  },
   "26tln7651q6": {
     "reason": "Traces are kept only after isTrace (ioFlow.ts), which requires stages to be an object.",
     "where": "src-ui/logics/flow/flowGraph.ts:69:37 ?. -> ."
@@ -86,6 +90,10 @@
   "28gyzbr6231": {
     "reason": "With min === max the formula gives min as well.",
     "where": "src-ui/logics/utils.ts:50:6 min === max -> false"
+  },
+  "2dqy6giuo79": {
+    "reason": "The list is only searched for the cloud engines' ids, and the placeholder is none of them.",
+    "where": "src-ui/views/vr/VrSettingsWindow.tsx:314:72 [] -> [\"Stryker was here!\"]"
   },
   "5za6bbt3n3": {
     "reason": "outputArrivals lists chatbox before speech, already in sorted order.",
