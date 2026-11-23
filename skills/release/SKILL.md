@@ -1,6 +1,6 @@
 ---
 name: release
-description: ASTAROTの版を出す手順。release/X.Y.Zブランチ、版上げとCHANGELOG、リリースノート（docs/release-notes）、候補のビルド、「Prepare verified ASTAROT release draft」での下書き、公開前のtag_nameの確認、公開、公開後のlatest・Workerのlatest.json・資産の件数の確認、対応環境の表と検証の記録の更新、mainをdevelopへ戻す統合を扱う。リリース、版上げ、ベータ、正式版、ホットフィックスの版、下書き、公開、リリースノートを頼まれたときに使う。Use when preparing, drafting, publishing or checking a release, or writing its notes. 通常のPRはpull-requestスキル。
+description: ASTAROTの版を出す手順。ベータ期間の変更凍結、release/X.Y.Zブランチ、版上げとCHANGELOG、リリースノート（docs/release-notes）、候補のビルド、「Prepare verified ASTAROT release draft」での下書き、公開前のtag_name・実機・テレメトリの確認、公開、公開後のlatest・Workerのlatest.json・資産の件数の確認、対応環境の表と検証の記録の更新、mainをdevelopへ戻す統合を扱う。リリース、版上げ、ベータ、正式版、ホットフィックスの版、下書き、公開、リリースノートを頼まれたときに使う。Use when preparing, drafting, publishing or checking a release, or writing its notes. 通常のPRはpull-requestスキル。
 ---
 
 # 版を出す
@@ -19,10 +19,10 @@ description: ASTAROTの版を出す手順。release/X.Y.Zブランチ、版上�
 
 手順は次の順に進めます。
 
-1. releaseブランチ
+1. releaseブランチ（ベータ期間中はdevelopを変更凍結する）
 2. 候補のビルド
 3. 下書き
-4. 公開の前の確認（tag_nameを明示してPATCHし、読み直す）
+4. 公開の前の確認（tag_name、実機、正式版はベータ期間のテレメトリ）
 5. 公開
 6. 公開の後の確認（make_latest、releases/latest、Workerのlatest.json、資産の件数）
 7. 対応環境の表と検証の記録の更新（正式版とホットフィックス）
@@ -49,6 +49,8 @@ git worktree add ../<リポジトリ名>-release-<版> -b release/X.Y.Z origin/d
 版上げのあとにコミットを足したときは、`python tools/changelog.py write --force`で節を書き直します。書き直す前に`python tools/changelog.py print`の結果と比べます。
 
 ベータは`release/`を切りません。developからのブランチで`package.json`を`X.Y.Z-beta.N`にして`npm run update-version`を実行し、`chore(release): version X.Y.Z-beta.N`をdevelopへのPRで入れます。ベータは`CHANGELOG.md`にも`docs/release-notes/`にも書きません。変更はプレリリースのノートに載せます。
+
+ある版の最初のベータ（`X.Y.Z-beta.1`）をプレリリースとして公開してから正式版（`X.Y.Z`）を公開し、8の`main`を`develop`へ戻すPRを統合するまでのあいだ、`develop`へマージしてよいのはベータで見つかった問題の修正だけです。新しい機能や無関係な変更はPRを作って待たせ、正式版のあとにマージします（`release-candidates.md`の「ベータ期間の変更凍結」）。
 
 ## 2. 候補のビルド
 
@@ -90,7 +92,8 @@ gh api 'repos/{owner}/{repo}/releases?per_page=10' \
 
 2. `tag_name`と`target_commitish`を明示してPATCHし、読み直して確かめます。コマンドと確かめる値は`release-candidates.md`の「公開の直前にタグ名を書き直す」にあります。同じ名前のタグがすでにあったら止めて、保守担当者に伝えます。
 3. 実機での確認を済ませます。Windowsは`release-candidates.md`の「公開前にWindowsのパッケージを起動して確かめる」、Linuxは「公開前にLinuxのデスクトップで確かめる」の手順です。確かめる範囲（WindowsのOS、Linuxの配布形式とデスクトップ、VR）もそれぞれの節にあります。確かめられなかったことは、リリースノートの`## 🐞 既知の問題`に書きます。確かめたことと確かめなかったことは、版、OSとその版、配布形式と一緒に控えます（7で使います）。
-4. 公開の準備ができたことを報告し、保守担当者の確認を待ちます。
+4. 正式版では、自前のテレメトリ基盤（`vrct-vox-telemetry`）の`app_started`と`error`イベントで、ベータ期間（`X.Y.Z-beta.N`）のエラー発生状況を前の正式版と比べます。`app_started`に対する`error`の割合、`error_code`ごとの内訳、`os`と`os_version`ごとの偏りに目立った増加がないことを確かめます（具体的な手順は`release-candidates.md`の「公開前にベータ期間のテレメトリを確かめる」）。目立った増加や説明のつかない新しいエラーがあれば公開を止め、原因を直した次のベータ版で確かめ直します。ホットフィックスは事前のベータ期間がないため、公開したあとの推移を確かめます。
+5. 公開の準備ができたことを報告し、保守担当者の確認を待ちます。
 
 ## 5. 公開
 
