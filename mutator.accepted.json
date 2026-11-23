@@ -95,6 +95,10 @@
     "reason": "keyMap maps Alt to itself, and with an empty value parseHotkey falls back to the key, which is the same Alt.",
     "where": "src-ui/logics/configs/config_page_setter/hotkeys/useHotkeys.ts:490:14 \"Alt\" -> \"\""
   },
+  "1enuxgbtz5v": {
+    "reason": "Every way a write ends stops its timer first (an answer, a failure before sending, an unconfirmed write, a reset) and a timeout ends by firing, so no timer is running when the next write is admitted.",
+    "where": "src-ui/logics/main/languageMutations.ts:106:5 clearTimer(); -> ;"
+  },
   "1eor87xj98e": {
     "reason": "The dependencies are constant either way, so the receiver subscribes once.",
     "where": "src-ui/views/vr/VrApp.tsx:192:8 [] -> [\"Stryker was here!\"]"
@@ -379,6 +383,10 @@
     "reason": "With no origin the main screen falls back to your language, the origin it starts with.",
     "where": "src-ui/views/vr/VrLanguageWindow.tsx:94:27 'your' -> ''"
   },
+  "gtvqcj99lt": {
+    "reason": "finishResync returns at once for an endpoint the resync does not wait for, and it waits only for the five reads, which all have a read atom.",
+    "where": "src-ui/logics/main/languageMutations.ts:140:9 read -> true"
+  },
   "hn5c6gpyt9": {
     "reason": "store.appWindow is a Tauri Window, which always has onFocusChanged, so the optional call never meets undefined.",
     "where": "src-ui/logics/configs/config_page_setter/hotkeys/useHotkeys.ts:231:72 ?. -> "
@@ -418,6 +426,10 @@
   "nenv4pov5z": {
     "reason": "react-i18next's useTranslation always returns an i18n object (an empty one when no instance is set), so i18n is never nullish here.",
     "where": "src-ui/logics/useReceiveRoutes.ts:619:71 ?. -> ."
+  },
+  "nunhcigl4a": {
+    "reason": "JSON.stringify leaves out a property whose value is undefined, so the line written to the backend is the same.",
+    "where": "src-ui/logics/common/useStdoutToPython.ts:58:17 origin !== undefined -> true"
   },
   "nxorebciku": {
     "reason": "save() refuses to send while the window is busy, so choose sends nothing either way.",
