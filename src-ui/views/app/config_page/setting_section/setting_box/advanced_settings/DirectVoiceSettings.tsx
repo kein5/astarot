@@ -166,9 +166,9 @@ export const DirectVoiceSettings = ({ variant = "all", subheading = false }: Dir
         {delay && <p>{t(delay.device === "cpu" ? "voice_ui.rvc_running_cpu" : "voice_ui.rvc_running_gpu", { seconds: delay.seconds })}</p>}
         <VoiceRouteSummary />
         {/* Selecting RVC is its own action: opening the page or saving other fields never switches the mode. */}
-        {/* A row like the others (#478): the note on the left, its button in the control column. The
-            note says what the input uses now, so it stays in sight (#614). */}
-        {variant === "rvc" && needsSelection(draft) && <FormRow group label={t("voice_ui.select_rvc_label")} description={t("voice_ui.select_rvc_pending")} fold={false} keepDescription>
+        {/* A row like the others (#478): the label on the left, its button in the control column.
+            What the button switches is the label's hint (#614, #1013). */}
+        {variant === "rvc" && needsSelection(draft) && <FormRow group label={t("voice_ui.select_rvc_label")} description={t("voice_ui.select_rvc_pending")}>
             <button type="button" disabled={busy || saving || selecting} onClick={selectRvc}>{t("voice_ui.select_rvc")}</button>
         </FormRow>}
         {/* A Seed-VC conversion saved by an earlier version was moved to RVC at this start. */}

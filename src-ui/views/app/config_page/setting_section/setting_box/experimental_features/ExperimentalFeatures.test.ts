@@ -70,9 +70,9 @@ const children = (tree: TreeNode | null) => flat(tree).flatMap(item => (item.typ
 test("the page says there is nothing to try while no feature is listed", async context => {
     const s = await load(context);
     const list = s.render({ features: [], current: s.current, setValues: () => {} });
-    const [heading, notice, empty] = children(list);
+    const [heading, empty] = children(list);
     assert.equal(heading.props.label, "config_page.experimental_features.section_label");
-    assert.equal(notice.props.children, "config_page.experimental_features.notice");
+    assert.equal(heading.props.desc, "config_page.experimental_features.notice");
     assert.equal(empty.props.children, "config_page.experimental_features.empty");
     assert.equal(children(list).some(item => item.type === "checkbox"), false);
 });
