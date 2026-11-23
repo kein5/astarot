@@ -893,6 +893,22 @@ def secrets_file(store_id):
     return json.dumps({"entries": entries, "protection": "dpapi", "store_id": store_id, "version": 1}, indent=4)
 
 
+def after_uninstall(directory):
+    """The folder after an uninstall run with _?=, which keeps the uninstaller in place: it
+    cannot remove itself then, so it is left out."""
+    if not directory.exists():
+        return {}
+    return {k: v for k, v in snapshot(directory).items() if k != "uninstall.exe"}
+
+
+def tree_difference(actual, expected):
+    return json.dumps({
+        "missing": sorted(expected.keys() - actual.keys()),
+        "extra": sorted(actual.keys() - expected.keys()),
+        "changed": sorted(k for k in actual.keys() & expected.keys() if actual[k] != expected[k]),
+    }, indent=2)
+
+
 def add_app_data(directory, store_id):
     for name, value in {**APP_DATA, **USER_FILES, "secrets.json": secrets_file(store_id)}.items():
         path = directory / name
@@ -956,7 +972,8 @@ def delete_app_data_scenario(installer, work):
         data = {k: v for k, v in snapshot(directory).items()
                 if not k.startswith("_internal") and k not in (APP, "uninstall.exe", "installer_language.txt")}
         run_uninstall(directory)
-        assert snapshot(directory) == data, "An uninstall without the box removed app data"
+        left = after_uninstall(directory)
+        assert left == data, "An uninstall without the box changed app data: " + tree_difference(left, data)
         assert all(credential_exists(name) for name in keys + others), "An uninstall without the box removed keys"
         print("PASS an uninstall keeps app data and API keys unless asked", flush=True)
 
@@ -964,7 +981,7 @@ def delete_app_data_scenario(installer, work):
         run_install(installer, directory, "new", work / "temp-uninstall-deletes", True)
         add_app_data(directory, mine)
         gui_uninstall(directory, delete_app_data=True)
-        kept = snapshot(directory) if directory.exists() else {}
+        kept = after_uninstall(directory)
         user = {}
         for name, value in USER_FILES.items():
             user[name] = sha256(value.encode()).hexdigest()
