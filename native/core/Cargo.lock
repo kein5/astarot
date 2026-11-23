@@ -88,6 +88,7 @@ version = "0.0.0"
 name = "astarot-audio-routing"
 version = "0.1.0"
 dependencies = [
+ "astarot-app-identity",
  "libc",
  "pipewire",
  "serde_json",
