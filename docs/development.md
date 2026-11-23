@@ -547,3 +547,7 @@ CIの `core-integration` は、`native/core` の試験をcargo-nextestの `ci` �
 - 2026-11-23からは、どの試験も再試行しません。それまでは、決まった時間で待つために遅いランナーでときどき落ちる試験（#861）の10個を、2回まで再試行していました。待ち方を直したあと、LinuxとWindowsで続けて流して落ちないことを確かめ、#861に記録して一覧から外しました。
 - また再試行させる試験が出たら、先にIssueに理由を書き、`native/core/.config/nextest.toml` に `[[profile.ci.overrides]]`（`filter` と `retries`）を足します。落ちなくなったとIssueに記録したら外します。
 - 手元の `python tools/dev.py check --scope rust` は既定のプロファイルで流すので、再試行しません。
+
+### CIの失敗の週ごとの集計
+
+「Weekly CI failures」（`.github/workflows/ci-failures.yml`）が、毎週月曜に直近7日のCIの失敗を数え、ジョブの要約に表で出します。対象はdevelopへのpushとPRの実行で、ワークフローとジョブごとに、落ちた試行の数と、同じ実行の再実行で通った数を出します。再実行で通ったものは、揺らぐ試験か一時的な障害です。ログは読まないので、何が落ちたかは各ジョブのログで確かめます。手元では `python3 -m tools.ci_failures --days 7` で同じ表が出ます（`gh` のログインが要ります）。

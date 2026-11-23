@@ -29,7 +29,10 @@ fn processes() -> Vec<ProcessRow> {
 
 /// Runs `nvidia-smi` with `args`; `None` when it is missing, fails or takes too long.
 fn nvidia_smi(args: &[&str]) -> Option<String> {
-    let mut child = Command::new("nvidia-smi").args(args).stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::null()).spawn().ok()?;
+    let mut command = Command::new("nvidia-smi");
+    // Under the AppImage, the host's environment rather than the GUI's (#924, item 22).
+    astarot_app_identity::appimage::restore_host_environment(&mut command);
+    let mut child = command.args(args).stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::null()).spawn().ok()?;
     let deadline = Instant::now() + NVIDIA_TIMEOUT;
     loop {
         match child.try_wait() {

@@ -94,10 +94,13 @@ A user-set `XMODIFIERS` is kept.
 The launcher records the host's values of these variables, `LD_LIBRARY_PATH`, `PATH` and the
 GTK/GIO settings as `ASTAROT_APPIMAGE_HOST_<NAME>` and `ASTAROT_APPIMAGE_HOST_<NAME>_SET` before it
 changes them. Up to 0.4 a separate launcher gave them back to the Python backend. Now the
-backend runs inside the GUI process, and every program it starts (speech.cpp, the helpers,
-the RVC worker, `xdg-open`) inherits the GUI environment unless the code that starts it
-restores the host values. The screen capture helper does
-(`src-tauri/src/portal_screencast.rs`, `LD_LIBRARY_PATH` only).
+backend runs inside the GUI process, so every program it starts gets the host values back
+through one function, `astarot_app_identity::appimage::restore_host_environment` (#924, item
+22): speech.cpp and the translation LLM (`native/speech-server`), the GPU listing of the
+model downloads (`native/ops`), the RVC worker (`native/voice-conversion`), the audio helpers
+(`native/audio-routing`'s `ProcessEnv`), the clipboard tools, `xdg-open`, `nvidia-smi` and the
+screen capture helper. A variable the code that starts a program sets itself is left as it
+sets it. Programs the Tauri plugins start (the URL opener, the updater) are not covered.
 
 With the NVIDIA fallback active, the main window is also made opaque. The
 original transparent window lost its contents during ordinary startup/hover on
