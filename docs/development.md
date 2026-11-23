@@ -354,6 +354,7 @@ cd native/core && PROPTEST_DISABLE_FAILURE_PERSISTENCE=1 cargo mutants --in-plac
 - cargo-mutants は、変異のない状態で試験がすべて通らないと何もしません。
 - cargo-mutants は既定でクレートを一時フォルダーに写して変異させます。`native/core` は、兄弟のクレートへの相対パスが通常の依存と試験用の依存で食い違い、写したものがビルドできません。そのため `--in-place`（その場で1件ずつ変異させる）で回します。回している間は、そのクレートのファイルを編集しないでください。
 - proptest は、落ちた入力を `proptest-regressions/` に書き残し、次の実行で先に試します。変異させたコードで落ちた入力は残す意味がないので、ミューテーションテストは `PROPTEST_DISABLE_FAILURE_PERSISTENCE=1` を付けて回します。
+- `-j` で並列に回すときは、`CARGO_TARGET_DIR` を設定しません。cargo-mutants は並列の作業ごとにクレートを写し、写した先の target でビルドします。`CARGO_TARGET_DIR` があると、並列の作業が 1 つの target を共有し、別の変異のビルドで試験を流すことがあります（2026-11-23 に、別の変異の失敗を「検出」と記録した回がありました）。`--in-place` で 1 件ずつ回す `native/core` は、設定したままでかまいません。`mise run mutation:changed` は、並列の回では `CARGO_TARGET_DIR` を外して渡します。
 - 対象は純粋なロジックにし、時刻や待ちに頼る試験のあるモジュールは外します（ミュータントごとに結果がぶれるため）。`-- --lib` を付けると単体の試験だけを流します。統合試験だけが確かめている変異は検出されないので、結果を報告するときは流した試験の範囲も書きます。
 - 結果は `mutants.out/` の `caught.txt`（検出）、`missed.txt`（未検出）、`timeout.txt`、`unviable.txt`（ビルドできない変異。分母に入れない）にあります。未検出は1件ずつコードを読み、試験の不足か、どの入力でも結果が変わらない等価なミュータントかを判断します。
 - 純粋な関数の境界は、プロパティベーステスト（[proptest](https://proptest-rs.github.io/proptest/)。`native/core` の試験用の依存）で確かめられます。正規化の結果をもう一度正規化しても変わらないこと、保存して読み戻すと同じになることなど、入力を選ばない性質を書きます。
