@@ -55,6 +55,10 @@
     "reason": "Only the main screen and the translator's list have no stage; neither draws the language list keyed by this, and the key is compared only with itself.",
     "where": "src-ui/views/vr/VrLanguageWindow.tsx:104:51 '' -> 'Stryker was here!'"
   },
+  "1eor87xj98e": {
+    "reason": "The dependencies are constant either way, so the receiver subscribes once.",
+    "where": "src-ui/views/vr/VrApp.tsx:192:8 [] -> [\"Stryker was here!\"]"
+  },
   "1f1qquh6mls": {
     "reason": "An empty name and a placeholder that is not kana both find no kana row.",
     "where": "src-ui/logics/common/languageJumpGroups.ts:35:104 \"\" -> \"Stryker was here!\""
@@ -214,6 +218,14 @@
   "qm98qwzgzx": {
     "reason": "Both rows that draw a Stepper pass is_disabled, so its default is never used.",
     "where": "src-ui/views/vr/VrSettingsRows.tsx:170:60 false -> true"
+  },
+  "r0u6l1cojw": {
+    "reason": "No window is open when the panel starts, so closing the settings window then changes nothing.",
+    "where": "src-ui/views/vr/VrApp.tsx:94:41 false -> true"
+  },
+  "r4k5moorg": {
+    "reason": "atlasRef is the page's own ref object, the same on every render.",
+    "where": "src-ui/views/vr/VrApp.tsx:137:8 [atlasRef] -> []"
   },
   "sbtarrmxnw": {
     "reason": "A recipient's list always has an index, so the fallback index is never used.",
