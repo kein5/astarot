@@ -343,23 +343,16 @@ test("stop reads as disabled with nothing to stop, and answers its press with st
 });
 
 test("the stop's answer is styled alike in both bars, and its words are in en and ja", () => {
-    // The main bar's styles are in vanilla-extract (#957): the same rules, written as its styles.
-    const main = readFileSync(new URL("./TopBar.css.ts", import.meta.url), "utf8");
-    const stop = styleOf(main, "stop");
-    assert.match(stop, /\[`&\.\$\{is_stopping\}, &\.\$\{is_stopping\}:hover:not\(:disabled\)`\]: \{ background: vars\.dark_925_color, cursor: "progress" \}/);
-    assert.match(stop, /\[`&\.\$\{is_stopped\}, [^`]*`\]: \{\s*color: vars\.primary_200_color,\s*borderColor: vars\.primary_600_color,\s*animation: `\$\{stopAnswered\} \.8s ease-out`,/);
-    assert.match(main, /const stopAnswered = keyframes\(\{ from: \{ background: vars\.vox_highlight_tint \} \}\);/);
-    assert.match(stop, /"\(prefers-reduced-motion: reduce\)": \{ selectors: \{ \[`&\.\$\{is_stopped\}`\]: \{ animation: "none" \} \} \}/);
-    assert.match(stop, /\[`&\.\$\{is_idle\}, [^`]*`\]: \{\s*opacity: \.5,\s*cursor: "not-allowed",/);
-    assert.match(styleOf(main, "stop_status"), /position: "absolute",\s*width: "1px",\s*height: "1px",/);
-    for (const sheet of ["../../../config_page/topbar/Topbar.module.scss"]) {
+    // Both bars' styles are in vanilla-extract (#957): the same rules, written as their styles.
+    for (const sheet of ["./TopBar.css.ts", "../../../config_page/topbar/Topbar.css.ts"]) {
         const css = readFileSync(new URL(sheet, import.meta.url), "utf8");
-        assert.match(css, /\.stop\.is_stopping, \.stop\.is_stopping:hover:not\(:disabled\) \{ background: var\(--dark_925_color\); cursor: progress; \}/, sheet);
-        assert.match(css, /\.stop\.is_stopped, [^{]*\{ color: var\(--primary_200_color\); border-color: var\(--primary_600_color\); animation: stop_answered \.8s ease-out; \}/, sheet);
-        assert.match(css, /@keyframes stop_answered \{ from \{ background: var\(--vox_highlight_tint\); \} \}/, sheet);
-        assert.match(css, /prefers-reduced-motion: reduce\) \{ \.stop\.is_stopped \{ animation: none; \} \}/, sheet);
-        assert.match(css, /\.stop\.is_idle, [^{]*\{ opacity: \.5; cursor: not-allowed;/, sheet);
-        assert.match(css, /\.stop_status \{ position: absolute; width: 1px; height: 1px;/, sheet);
+        const stop = styleOf(css, "stop");
+        assert.match(stop, /\[`&\.\$\{is_stopping\}, &\.\$\{is_stopping\}:hover:not\(:disabled\)`\]: \{ background: vars\.dark_925_color, cursor: "progress" \}/, sheet);
+        assert.match(stop, /\[`&\.\$\{is_stopped\}, [^`]*`\]: \{\s*color: vars\.primary_200_color,\s*borderColor: vars\.primary_600_color,\s*animation: `\$\{stopAnswered\} \.8s ease-out`,/, sheet);
+        assert.match(css, /const stopAnswered = keyframes\(\{ from: \{ background: vars\.vox_highlight_tint \} \}\);/, sheet);
+        assert.match(stop, /"\(prefers-reduced-motion: reduce\)": \{ selectors: \{ \[`&\.\$\{is_stopped\}`\]: \{ animation: "none" \} \} \}/, sheet);
+        assert.match(stop, /\[`&\.\$\{is_idle\}, [^`]*`\]: \{\s*opacity: \.5,\s*cursor: "not-allowed",/, sheet);
+        assert.match(styleOf(css, "stop_status"), /position: "absolute",\s*width: "1px",\s*height: "1px",/, sheet);
     }
     for (const language of ["en", "ja"]) {
         const strings = readLocale(language);

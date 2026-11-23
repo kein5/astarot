@@ -1,7 +1,7 @@
 import clsx from "clsx";
 import { useEffect, useRef, useState } from "react";
 import { useI18n } from "@useI18n";
-import styles from "./Topbar.module.scss";
+import * as styles from "./Topbar.css.ts";
 import { useIsOpenedConfigPage } from "@logics_common";
 import { useStore_SelectedConfigTabId } from "@store";
 import { useSaveBarEntries } from "../../../../logics/voice/saveBar";

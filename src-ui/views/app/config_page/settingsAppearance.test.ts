@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "vitest";
+import { styleOf } from "../../../logics/test/styleSource.ts";
 
 const read = (path: string) => readFileSync(new URL(path, import.meta.url), "utf8");
 // The first group of a pattern that has to be in the text.
@@ -48,7 +49,7 @@ for (const [name, oldFg, oldBg, fg, bg, minimum] of pairs) {
 }
 
 test("the repaired selectors use the measured tokens; shared token values are the brand palette's", () => {
-    assert.match(read("topbar/Topbar.module.scss"), /\.state\.is_failed\s*{\s*color: var\(--vox_state_failed\)/);
+    assert.match(styleOf(read("topbar/Topbar.css.ts"), "state"), /\[`&\.\$\{is_failed\}`\]: \{ color: vars\.vox_state_failed \}/);
     assert.match(read(box + "advanced_settings/VoiceSettings.module.scss"), /button:hover:enabled\s*{\s*background: var\(--vox_secondary_hover\)/);
     assert.equal((read(box + "ocr/Ocr.module.scss").match(/background: var\(--vox_secondary_hover\)/g) ?? []).length, 2);
     const word = read(box + "_components/word_filter/WordFilter.module.scss");
@@ -86,7 +87,7 @@ test("available-width breakpoints stack rows at 400px/100% and 800px/200%, inclu
     assert.equal(breakpoint(legacy), 16 + 24 + 1.6);
     assert.match(legacy, /grid-template-columns: minmax\(0, 1fr\) minmax\(0, 1\.6fr\)/);
     assert.match(legacy, /\.container\s*{[^}]*padding: 2rem 0;/);
-    assert.match(read("setting_section/SettingSection.module.scss"), /container-type: inline-size/);
+    assert.match(styleOf(read("setting_section/SettingSection.css.ts"), "container"), /containerType: "inline-size"/);
     assert.match(voice, /form, fieldset\s*{[^}]*container-type: inline-size/);
     for (const css of [voice, row]) {
         assert.match(css, /grid-template-columns: minmax\(0, 1fr\)/);
@@ -176,26 +177,26 @@ test("word-filter input/Add and export controls wrap within the actual available
 });
 
 test("search and every top-bar action occupy disjoint shared-grid areas with automatically reserved height", () => {
-    const page = read("ConfigPage.module.scss"), top = read("topbar/Topbar.module.scss");
-    const search = read("search_bar/SearchBar.module.scss"), sidebar = read("sidebar_section/SidebarSection.module.scss");
-    assert.match(page, /\.content_wrapper\s*{\s*display: contents/);
-    assert.match(top, /\.container\s*{\s*display: contents/);
-    assert.match(search, /\.search_wrapper\s*{\s*grid-area: search;\s*position: relative/);
-    assert.match(search, /&\.is_small\s*{/, "retain the class used by the unchanged SearchBar JSX");
-    assert.match(sidebar, /grid-area: sidebar/);
-    assert.match(page, /\.main_container\s*{\s*grid-area: main;\s*min-width: 0;\s*min-height: 0/);
-    assert.ok(!page.includes("padding-top:"), "content starts below intrinsic header rows, not a fixed estimate");
-    assert.match(sidebar, /padding-top: 0/);
-    assert.match(page, /grid-template-rows: auto minmax\(0, 1fr\)/);
-    assert.equal((page.match(/grid-template-rows: auto auto minmax\(0, 1fr\)/g) ?? []).length, 2);
-    assert.match(page, /@media \(max-width: 800px\)/);
-    assert.match(page, /html\[data-narrow\]/);
-    const areas = [...page.matchAll(/grid-template-areas:\s*((?:"[^"]+"\s*)+);/g)]
+    const page = read("ConfigPage.css.ts"), top = read("topbar/Topbar.css.ts");
+    const search = read("search_bar/SearchBar.css.ts"), sidebar = read("sidebar_section/SidebarSection.css.ts");
+    assert.match(styleOf(page, "content_wrapper"), /display: "contents"/);
+    assert.match(styleOf(top, "container"), /display: "contents"/);
+    assert.match(styleOf(search, "search_wrapper"), /gridArea: "search",\s*position: "relative"/);
+    assert.match(styleOf(search, "search_wrapper"), /\[`&\.\$\{is_small\}`\]: \{/, "retain the class used by the unchanged SearchBar JSX");
+    assert.match(sidebar, /gridArea: "sidebar"/);
+    assert.match(styleOf(page, "main_container"), /gridArea: "main",\s*minWidth: 0,\s*minHeight: 0/);
+    assert.ok(!page.includes("paddingTop:"), "content starts below intrinsic header rows, not a fixed estimate");
+    assert.match(styleOf(sidebar, "scroll_container"), /paddingTop: 0/);
+    assert.match(styleOf(page, "container"), /gridTemplateRows: "auto minmax\(0, 1fr\)"/);
+    // The narrow grid, for a narrow window and for the UI-size-aware breakpoint alike.
+    assert.match(page.slice(page.indexOf("const NARROW_GRID")), /^[^;]*gridTemplateRows: "auto auto minmax\(0, 1fr\)"/);
+    assert.match(styleOf(page, "container"), /"@media": \{ "\(max-width: 800px\)": NARROW_GRID \}/);
+    assert.match(styleOf(page, "container"), /selectors: \{ "html\[data-narrow\] &": NARROW_GRID \}/);
+    const areas = [...page.matchAll(/gridTemplateAreas: '((?:"[^"]+"\s*)+)'/g)]
         .map(([, value]) => [...value.matchAll(/"([^"]+)"/g)].map(([, row]) => row.split(" ")));
     assert.deepEqual(areas, [
+        [["search", "search", "stop", "stop"], [".", "save", "save", "back"], ["sidebar", "main", "main", "main"]],
         [["search", "stop", "save", "back"], ["sidebar", "main", "main", "main"]],
-        [["search", "search", "stop", "stop"], [".", "save", "save", "back"], ["sidebar", "main", "main", "main"]],
-        [["search", "search", "stop", "stop"], [".", "save", "save", "back"], ["sidebar", "main", "main", "main"]],
     ]);
     for (const grid of areas) {
         for (const area of ["search", "stop", "save", "back", "sidebar", "main"]) {
@@ -209,15 +210,18 @@ test("search and every top-bar action occupy disjoint shared-grid areas with aut
         }
     }
     for (const [selector, area] of [["stop_actions", "stop"], ["save_slot", "save"], ["back", "back"]]) {
-        assert.match(top, new RegExp("\\." + selector + "\\s*\\{\\s*grid-area: " + area));
+        assert.match(styleOf(top, selector), new RegExp(`style\\(\\{\\s*gridArea: "${area}"`));
     }
-    assert.match(top, /\.save_bar\s*{[^}]*min-width: 0;[^}]*flex-wrap: wrap/);
-    assert.match(top, /\.summary\s*{[^}]*min-width: 0;[^}]*flex-wrap: wrap/);
-    assert.match(top, /\.stop\s*{[^}]*flex-wrap: wrap;[^}]*max-width: 100%;[^}]*white-space: normal/);
-    assert.match(top, /\.stop_actions\s*{[^}]*flex-wrap: wrap/);
-    assert.match(top.split("@mixin narrow_header")[1], /\.stop_actions\s*{[^}]*max-width: 24rem/);
-    assert.match(top, /@media \(max-width: 800px\)\s*{\s*@include narrow_header/);
-    assert.match(top, /html\[data-narrow\][^}]*@include narrow_header/);
+    assert.match(styleOf(top, "save_bar"), /minWidth: 0,[^}]*flexWrap: "wrap"/);
+    assert.match(styleOf(top, "summary"), /minWidth: 0,[^}]*flexWrap: "wrap"/);
+    assert.match(styleOf(top, "stop"), /flexWrap: "wrap",[\s\S]*maxWidth: "100%",[\s\S]*whiteSpace: "normal"/);
+    assert.match(styleOf(top, "stop_actions"), /flexWrap: "wrap"/);
+    // The narrow header, for a narrow window and for the UI-size-aware breakpoint alike.
+    assert.match(top.slice(top.indexOf("const stopActionsNarrow")), /^[^;]*maxWidth: "24rem"/);
+    assert.match(styleOf(top, "stop_actions"), /selectors: \{ \[`\$\{NARROW_PAGE\} &`\]: stopActionsNarrow \}/);
+    assert.match(styleOf(top, "stop_actions"), /"@media": \{ \[NARROW\]: stopActionsNarrow \}/);
+    assert.match(top, /const NARROW = "\(max-width: 800px\)";/);
+    assert.match(top, /const NARROW_PAGE = "html\[data-narrow\]";/);
 });
 
 test("header width budgets leave search usable even with queued/muted actions at both requested scales", () => {
@@ -301,22 +305,22 @@ test("the settings text entry is the same field as the kit's text field and the 
 });
 test("the settings search is the same field as the other inputs, with InputGroup's parts", () => {
     // docs/design/components/shadcn-alignment.md, Combobox, Command and InputGroup.
-    const css = read("search_bar/SearchBar.module.scss");
-    const field = css.split(".search_input_container {")[1].split("\n}")[0];
-    assert.match(field, /background-color: var\(--vox_surface\)/);
-    assert.match(field, /border: 0\.1rem solid var\(--vox_field_border\)/);
-    assert.match(field, /border-radius: var\(--vox_radius\)/);
+    const css = read("search_bar/SearchBar.css.ts");
+    const field = styleOf(css, "search_input_container");
+    assert.match(field, /backgroundColor: vars\.vox_surface/);
+    assert.match(field, /border: `0\.1rem solid \$\{vars\.vox_field_border\}`/);
+    assert.match(field, /borderRadius: vars\.vox_radius/);
     // Hover makes the edge lighter, never darker than the field border.
-    assert.match(field, /&:hover\s*{\s*border-color: var\(--dark_550_color\)/);
+    assert.match(field, /"&:hover": \{ borderColor: vars\.dark_550_color \}/);
     const jsx = read("search_bar/SearchBar.tsx");
     assert.match(jsx, /className=\{styles\.search_input_container\} data-slot="input-group"/);
     assert.match(jsx, /data-slot="input-group-control"/);
     assert.equal((jsx.match(/data-slot="input-group-addon"/g) ?? []).length, 2, "the icon and the clear button");
     // The results open on the surface, like the other lists that drop from a field.
-    assert.match(css.split(".dropdown_results {")[1].split("\n}")[0], /background-color: var\(--vox_surface\)/);
+    assert.match(styleOf(css, "dropdown_results"), /backgroundColor: vars\.vox_surface/);
     // A search that finds nothing says so in shadcn/ui's Empty, inside the status the list becomes.
     assert.match(jsx, /<Empty>\s*<EmptyDescription>\{t\("config_page\.search\.no_results"\)\}<\/EmptyDescription>\s*<\/Empty>/);
-    assert.doesNotMatch(css, /\.no_results/);
+    assert.doesNotMatch(css, /no_results/);
 });
 test("the slider draws its filled part on a .6rem groove, as shadcn/ui's Slider does", () => {
     const css = read(box + "_components/slider/Slider.module.scss");
@@ -360,8 +364,11 @@ test("download dialogs write byte counts in the display language", () => {
     }
 });
 test("a modal dialog dims the window with shadcn/ui's 50% black, written as a colour", () => {
-    for (const file of [box + "advanced_settings/VoiceSettings.module.scss", box + "translation/Translation.module.scss", "topbar/Topbar.module.scss"]) {
+    for (const file of [box + "advanced_settings/VoiceSettings.module.scss", box + "translation/Translation.module.scss"]) {
         const rules = [...read(file).matchAll(/::backdrop\s*{([^}]*)}/g)].map(match => match[1].trim());
         assert.deepEqual(rules, ["background: #00000080;"], file);
     }
+    // The same in vanilla-extract: the settings' leave dialog.
+    const top = read("topbar/Topbar.css.ts");
+    assert.deepEqual([...top.matchAll(/"&::backdrop": \{([^}]*)\}/g)].map(match => match[1].trim()), ['background: "#00000080"']);
 });
