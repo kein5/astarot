@@ -1,4 +1,4 @@
-import styles from "./HotkeysEntry.module.scss";
+import * as styles from "./HotkeysEntry.css.ts";
 import { _Entry } from "../_atoms/_entry/_Entry";
 import type { EntryHandle } from "../_atoms/_entry/_Entry";
 import { useState, useRef, useEffect } from "react";

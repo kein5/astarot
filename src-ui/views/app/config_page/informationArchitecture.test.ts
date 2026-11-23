@@ -280,7 +280,6 @@ test("text to speech keeps the engine, the voice and the output in sight; the mo
 test("「詳細設定」 starts closed, opens by itself for something in use, and can still be closed", async () => {
     const runtime = hooks();
     const fold = await loadModule<typeof import("./setting_section/setting_box/_components/advanced_section/AdvancedSection.tsx")>(box("_components/advanced_section/AdvancedSection.tsx"), runtime, {
-        "../setup_section/SetupSection.module.scss": {},
         "../fold/Fold": { Fold: "fold" },
     });
     let tree = runtime.render(fold.AdvancedSection, { status: "line", children: "inside" });

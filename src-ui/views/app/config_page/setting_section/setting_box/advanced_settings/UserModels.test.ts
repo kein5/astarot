@@ -55,14 +55,14 @@ test("a form's problem is said under its button, in a line kept for it, so nothi
 
 test("the line kept for a form's problem is as high as the problem's frame of one line (#912)", async () => {
     const { readFileSync } = await import("node:fs");
-    const css = readFileSync(new URL("./VoiceSettings.module.scss", import.meta.url), "utf8");
-    const alert = /\[role="alert"\] \{([^}]*)\}/.exec(css)?.[1] ?? "";
-    const size = /font-size: ([\d.]+)rem/.exec(alert)?.[1], padding = Number(/padding: ([\d.]+)rem/.exec(alert)?.[1]);
-    const border = Number(/border: ([\d.]+)rem/.exec(alert)?.[1]);
+    const css = readFileSync(new URL("./VoiceSettings.css.ts", import.meta.url), "utf8");
+    const alert = /inForm\('\[role="alert"\]'\), \{([\s\S]*?)\}\);/.exec(css)?.[1] ?? "";
+    const size = /fontSize: "([\d.]+)rem"/.exec(alert)?.[1], padding = Number(/padding: "([\d.]+)rem/.exec(alert)?.[1]);
+    const border = Number(/border: [`"]([\d.]+)rem/.exec(alert)?.[1]);
     // The descriptions' line height, which the problem's text takes as a paragraph.
-    const line = /\n {4}p \{ font-size: [\d.]+rem; line-height: ([\d.]+);/.exec(css)?.[1];
+    const line = /inForm\("p"\), \{ fontSize: "[\d.]+rem", lineHeight: ([\d.]+),/.exec(css)?.[1];
     assert.ok(size && line && padding && border, "the problem's frame");
-    assert.match(css, new RegExp(`\\.problem_slot \\{ min-height: calc\\(${size}rem \\* ${line} \\+ ${+(2 * padding + 2 * border).toFixed(2)}rem\\); \\}`));
+    assert.match(css, new RegExp(`inForm\\(\`\\.\\$\\{problem_slot\\}\`\\), \\{ minHeight: "calc\\(${size}rem \\* ${line} \\+ ${+(2 * padding + 2 * border).toFixed(2)}rem\\)" \\}`));
 });
 
 test("a name already registered is refused without clearing what was typed", async context => {

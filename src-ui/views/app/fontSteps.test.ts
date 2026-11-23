@@ -17,7 +17,7 @@ const steps = new Set([...design.split("rounded:")[0].matchAll(/fontSize: "([\d.
 // The windows with steps of their own, and the caption overlay, drawn in the app's steps in px.
 const OWN_STEPS = ["vr", "companion_handle"], OVERLAY = "caption_overlay";
 // The log's base size, which the log font size setting replaces from JavaScript.
-const allowed = new Set(["app/main_page/main_section/message_container/log_box/LogBox.module.scss:1rem"]);
+const allowed = new Set(["app/main_page/main_section/message_container/log_box/LogBox.css.ts:1rem"]);
 
 const sources = (dir: string): string[] => readdirSync(dir).flatMap((name): string[] => {
     const path = join(dir, name);

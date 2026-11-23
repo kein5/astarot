@@ -6,7 +6,7 @@ route: transcription
 
 Turns your voice and other players' voices into text. The settings are under Settings → "Speech recognition (ASR)".
 
-What you and others say appears as text in the conversation log on the main screen, and in the VR subtitle overlay too. "Multiple lines" shows what you and others say while it is still being recognised; "Single line" shows only the game audio, once a sentence is final (and translated, when translation is on).
+What you and others say appears as text in the conversation log on the main screen, and in the VR subtitle overlay too. "Multiple lines" shows what you and others say while it is still being recognized; "Single line" shows only the game audio, once a sentence is final (and translated, when translation is on).
 
 ## What you need
 

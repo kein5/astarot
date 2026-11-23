@@ -7,12 +7,21 @@ export interface TranslationSetupRequest {
     weightType: string | null;
 }
 
+// The model whose arrival turns the switch on.
+export interface TranslationWait {
+    weightType: string;
+    // The catalog download that brings it (#1015): its model, and the job that model had before
+    // the start, whose end is an earlier try's and not this one's. null: the built-in download,
+    // whose progress the weight carries.
+    download: { model: string; before: string | null } | null;
+}
+
 export interface TranslationSetup {
     request: TranslationSetupRequest | null;
     open: (resume?: boolean, weightType?: string | null) => void;
     setRequest: (request: SetStateAction<TranslationSetupRequest | null>) => void;
-    waiting: string | null;
-    setWaiting: (weightType: SetStateAction<string | null>) => void;
+    waiting: TranslationWait | null;
+    setWaiting: (wait: SetStateAction<TranslationWait | null>) => void;
     chooseRequests: number;
     chooseTranslator: () => void;
 }
@@ -26,7 +35,7 @@ const requestAtom = atom<TranslationSetupRequest | null>(null);
 // The model whose arrival turns the switch on; null when nobody is waiting. Kept
 // outside the controller: the engine starting again draws the controller again (the
 // start-up lock takes it away), and the user who asked for the switch is still waiting for it.
-const waitingAtom = atom<string | null>(null);
+const waitingAtom = atom<TranslationWait | null>(null);
 // Counts the requests to open the translator list (the model cannot be downloaded yet,
 // so another engine is the way forward). TranslationSetupController opens the list; the
 // sidebar's state stays out of the hooks the VR panel's views import.

@@ -1,7 +1,7 @@
 import clsx from "clsx";
 import { useEffect, useRef, useState } from "react";
 import { useI18n } from "@useI18n";
-import styles from "./Topbar.module.scss";
+import * as styles from "./Topbar.css.ts";
 import { useIsOpenedConfigPage } from "@logics_common";
 import { useStore_SelectedConfigTabId } from "@store";
 import { useSaveBarEntries } from "../../../../logics/voice/saveBar";
@@ -97,7 +97,7 @@ export const Topbar = () => {
         <StopActions classes={styles} />
         {/* The save state keeps its slot on pages without forms, so the stop actions stay put. */}
         <div className={styles.save_slot}><SaveBar /></div>
-        <button type="button" className={styles.back} aria-label={t("common.go_back_button_label")} onClick={() => setIsOpenedConfigPage(false)}>
+        <button type="button" className={styles.back} data-settings-back="" aria-label={t("common.go_back_button_label")} onClick={() => setIsOpenedConfigPage(false)}>
             <ArrowLeftSvg aria-hidden="true" />
             <span className={styles.back_label} aria-hidden="true">{t("common.go_back_button_label")}</span>
         </button>

@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import clsx from "clsx";
 import { Description } from "../description/Description";
 import { Hint, useHintDescriptions } from "../hint/Hint";
-import styles from "./FormRow.module.scss";
+import * as styles from "./FormRow.css.ts";
 
 // The settings row (DESIGN.md roles): item label with its description directly
 // under it on the left, the control on the right; stacked under 700px. The

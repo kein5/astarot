@@ -1,6 +1,6 @@
 import { useI18n } from "@useI18n";
 import clsx from "clsx";
-import styles from "./SidebarCompactModeButton.module.scss";
+import * as styles from "./SidebarCompactModeButton.css.ts";
 
 import { useIsMainPageCompactMode } from "@logics_main";
 import ArrowLeftSvg from "@images/arrow_left.svg?react";

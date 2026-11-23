@@ -1,6 +1,6 @@
 import clsx from "clsx";
 import type { ComponentType } from "react";
-import styles from "./DropdownMenu.module.scss";
+import * as styles from "./DropdownMenu.css.ts";
 import { _DropdownMenu } from "../_atoms/_dropdown_menu/_DropdownMenu";
 import type { DropdownMenuBaseProps } from "../_atoms/_dropdown_menu/_DropdownMenu";
 

@@ -28,8 +28,8 @@ test("the swap button shows the same words at rest as its accessible name, and h
 });
 
 test("the swap button is drawn as a button at rest, not only on hover", () => {
-    const css = readFileSync(new URL("./LanguageSwapButton.module.scss", import.meta.url), "utf8");
-    const rest = css.split(".swap_button_wrapper {")[1].split("&:hover")[0];
-    assert.match(rest, /border: \.1rem solid var\(--vox_border\)/);
-    assert.match(rest, /background-color: var\(--vox_surface\)/);
+    const css = readFileSync(new URL("./LanguageSwapButton.css.ts", import.meta.url), "utf8");
+    const rest = css.split("export const swap_button_wrapper = style({")[1].split("selectors:")[0];
+    assert.match(rest, /border: `\.1rem solid \$\{vars\.vox_border\}`/);
+    assert.match(rest, /backgroundColor: vars\.vox_surface/);
 });

@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { ChangeEvent, ReactNode } from "react";
 import { HexColorPicker } from "react-colorful";
 
-import styles from "./ColorEntryWithSaveButton.module.scss";
+import * as styles from "./ColorEntryWithSaveButton.css.ts";
 import { _Entry } from "../_atoms/_entry/_Entry";
 import { clsx } from "clsx";
 import { useI18n } from "@useI18n";

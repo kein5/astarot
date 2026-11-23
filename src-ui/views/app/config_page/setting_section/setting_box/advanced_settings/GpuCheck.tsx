@@ -56,9 +56,8 @@ export const GpuCheck = () => {
 
     return (
         <div className={styles.container} data-setting-id="gpu_check">
-            {/* What is known before pressing. What the check is for, how it measures and what its
-                result holds are the hint of the section's heading (AdvancedSettings, #614). */}
-            <p className={styles.description}>{t(key("before"))}</p>
+            {/* What the check is for, how it measures, what its result holds and what to know
+                before pressing are the hint of the section's heading (AdvancedSettings, #614, #1013). */}
             <div className={styles.actions}>
                 <button type="button" disabled={running} onClick={() => void start()}>{t(key("start"))}</button>
                 {running && <button type="button" onClick={() => void stop()}>{t(key("stop"))}</button>}
