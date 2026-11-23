@@ -127,8 +127,9 @@ jobs:
           cd build/linux/artifacts
           sha256sum -c ./*.tar.gz.sha256
           sha256sum -c ./*.AppImage.sha256
-      # The app's own unit tests (src-tauri), which no other job runs: this job has the WebKitGTK
-      # and the other system libraries the app builds against (#881). The build above works in a
+      # The app's own unit tests (src-tauri) on Linux, which no other job runs: this job has the
+      # WebKitGTK and the other system libraries the app builds against (#881). Windows runs them
+      # in app-tests-windows.yml. The build above works in a
       # workspace of its own, so the checkout's development _internal is staged from build/ first.
       - name: App unit tests (src-tauri)
         run: |
