@@ -1,5 +1,7 @@
 # ASTAROT
 
+[日本語版](#astarot日本語版)
+
 ## Platform
 web
 
