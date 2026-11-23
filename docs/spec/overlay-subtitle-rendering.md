@@ -38,13 +38,15 @@ them in its large-log header, after "Receive": each voice's name if the user
 gave it one for that session, else its label, joined by `·` ("Mika·B"), cut to
 48 characters with `…` (#447, `Subtitles::set_speaker_names`). The header stays
 one row in the default font at the header size; naming a voice redraws the log
-when it shows a caption of that session. The small log writes the same line on
-a row of its own above the message (`Subtitles::small_log`): centred, in the
-received purple made lighter at the same hue (198, 152, 206), in the default
-font at 60px, two thirds of its 92px text. Against the background (41, 42, 45)
-it stands out by 6.0:1 (WCAG 2.x), above the 4.5:1 small text needs; the
-received purple (168, 97, 180) of the large log's header stands out by 3.4:1.
-The row takes the top margin a message without speakers has, and the
+when it shows a caption of that session. In the large-log header, "Receive" uses the received purple made lighter at the
+same hue (198, 152, 206), "Send" uses the sent blue made lighter at the same
+hue (131, 174, 196), and the timestamp uses neutral gray (168, 168, 168).
+Against the background (41, 42, 45) all three stand out by 6.0:1 (WCAG 2.x),
+above the 4.5:1 small text needs (replacing (168, 97, 180) at 3.4:1,
+(97, 151, 180) at 4.5:1, and (120, 120, 120) at 3.25:1). The small log writes the speaker line on a row of its
+own above the message (`Subtitles::small_log`): centered, in the same received
+purple (198, 152, 206), in the default font at 60px, two thirds of its 92px
+text. The row takes the top margin a message without speakers has, and the
 message moves down by the row's height. A name given while the small log shows a
 picture does not redraw it; the next picture has the name. Line height grows
 to contain actual ink, including combining marks and fallback emoji. Ruby
