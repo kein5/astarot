@@ -43,6 +43,8 @@ test("the end of initialization starts each feature afresh, asks for its state a
         call("useModelDownloads.send", "/get/data/user_models"),
         call("useTranslationCatalog.reset"),
         call("useTranslationCatalog.send", "/get/data/translation_catalog"),
+        call("useTranscriptionCatalog.reset"),
+        call("useTranscriptionCatalog.send", "/get/data/transcription_catalog"),
         call("useVcRuntimes.reset"),
         call("useVoice.reset"),
         call("useVoice.send", "/get/data/voice_settings"),
