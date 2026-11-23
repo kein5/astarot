@@ -22,6 +22,16 @@ test("code, links, URLs, quotes and front matter are not read as prose", () => {
     assert.deepEqual(kinds("docs/a.md", text), []);
 });
 
+test("an HTML comment ends at --> or --!>, on its line or a later one", () => {
+    const text = ["<!-- サーバ --!> サーバ", "<!--", "サーバ", "--!> サーバ", "<!-- サーバ", "-->", "サーバ"].join(
+        "\n",
+    );
+    assert.deepEqual(
+        scanDocument("docs/a.md", text).findings.map((item) => item.line),
+        [1, 4, 7],
+    );
+});
+
 test("an exempt marker leaves out its lines and needs a reason", () => {
     const text = [
         "<!-- writing-exempt-start: examples of what to avoid -->",

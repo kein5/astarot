@@ -22,12 +22,17 @@ const EXEMPT_START = /<!--\s*writing-exempt-start:\s*(\S[^>]*?)\s*-->/;
 const EXEMPT_END = /<!--\s*writing-exempt-end\s*-->/;
 const EXEMPT_LINE = /<!--\s*writing-exempt:\s*(\S[^>]*?)\s*-->/;
 const EXEMPT_ANY = /<!--\s*writing-exempt(-start|-end)?\b/;
+// The end of an HTML comment: "-->", or "--!>", which HTML also reads as the end.
+const COMMENT_END = /--!?>/;
+// A whole comment. The lines come one at a time (a comment over several lines is followed in
+// markdownProse), but the pattern takes any character, line breaks included.
+const COMMENT = /<!--[\s\S]*?--!?>/g;
 
 // Inline parts of a Markdown line that are not prose.
 const blankInline = (line, mdx) => {
     let text = line;
     text = blankMatches(text, /`[^`]*`/g);
-    text = blankMatches(text, /<!--.*?-->/g);
+    text = blankMatches(text, COMMENT);
     text = blankMatches(text, /\]\([^)]*\)/g);
     text = blankMatches(text, /<https?:[^>]*>/g);
     text = blankMatches(text, /\bhttps?:\/\/[^\s)>\]]+/g);
@@ -93,13 +98,14 @@ export const markdownProse = (source, { mdx = false } = {}) => {
         // An HTML comment spanning lines.
         let text = raw;
         if (comment) {
-            const end = text.indexOf("-->");
-            if (end < 0) continue;
-            text = blank(text.slice(0, end + 3)) + text.slice(end + 3);
+            const end = text.match(COMMENT_END);
+            if (!end) continue;
+            const after = end.index + end[0].length;
+            text = blank(text.slice(0, after)) + text.slice(after);
             comment = false;
         }
         const open = text.lastIndexOf("<!--");
-        if (open >= 0 && text.indexOf("-->", open) < 0) {
+        if (open >= 0 && !COMMENT_END.test(text.slice(open + 4))) {
             text = text.slice(0, open) + blank(text.slice(open));
             comment = true;
         }
