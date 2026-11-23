@@ -5,7 +5,7 @@ import { isTauri } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useModelDownloads } from "../../../../../../logics/voice/useModelDownloads";
 import voiceStyles from "../advanced_settings/VoiceSettings.module.scss";
-import styles from "./Ocr.module.scss";
+import * as styles from "./Ocr.css.ts";
 import { EnvReadout } from "../_components/env_readout/EnvReadout";
 import { CatalogFacts, CatalogLayoutSwitch, CatalogList, CatalogSection, useCatalogLayout } from "../advanced_settings/catalogLayout";
 import { useConsentDialog } from "../../../../../../logics/common/useConsentDialog";

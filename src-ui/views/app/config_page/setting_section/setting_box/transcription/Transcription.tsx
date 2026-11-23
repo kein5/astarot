@@ -2,7 +2,7 @@ import { CredentialPair } from "../_components/credential_pair/CredentialPair";
 import { CustomModelLink } from "../_components/custom_model_link/CustomModelLink";
 import { SpeechServers } from "../advanced_settings/SpeechServers";
 import { useI18n } from "@useI18n";
-import styles from "./Transcription.module.scss";
+import * as styles from "./Transcription.css.ts";
 import catalogStyles from "../advanced_settings/VoiceSettings.module.scss";
 import { RealtimeASRSettings } from "./RealtimeASRSettings";
 import { AsrApiEntries } from "./AsrApiEntries";
