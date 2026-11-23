@@ -2,7 +2,7 @@ import { cloneElement, useCallback, useLayoutEffect, useMemo, useRef, useState }
 import type { ReactElement, RefObject } from "react";
 import { Virtualizer } from "virtua";
 import type { VirtualizerHandle } from "virtua";
-import styles from "./VrPickerList.module.scss";
+import * as styles from "./VrPickerList.css.ts";
 
 // Below 50 choices the native list is small enough to keep tab order for free.
 // A filtered long list can opt in even when only a few matches remain.

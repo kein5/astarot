@@ -15,6 +15,10 @@
     "reason": "Only the order of the route table changes (the static routes come after the generated ones, each still once with its receiver), and the routes are looked up by endpoint.",
     "where": "src-ui/logics/useReceiveRoutes.ts:890:13 !item?.endpoint -> item?.endpoint"
   },
+  "161avhjn6xc": {
+    "reason": "keyMap maps Shift to itself, and with an empty value parseHotkey falls back to the key (Shift is no shifted symbol), which is the same Shift.",
+    "where": "src-ui/logics/configs/config_page_setter/hotkeys/useHotkeys.ts:491:16 \"Shift\" -> \"\""
+  },
   "17upj6u58su": {
     "reason": "No setting uses the get_list template, so this check never leaves a setting's set route out.",
     "where": "src-ui/logics/useReceiveRoutes.ts:782:13 s.logics_template_id !== \"get_list\" -> true"
@@ -35,9 +39,17 @@
     "reason": "useId gives a dialog one id for as long as it is drawn, so the ids made from it never need making again.",
     "where": "src-ui/views/kit/Dialog.tsx:34:97 [base] -> []"
   },
+  "1egmo4m4roy": {
+    "reason": "keyMap maps Alt to itself, and with an empty value parseHotkey falls back to the key, which is the same Alt.",
+    "where": "src-ui/logics/configs/config_page_setter/hotkeys/useHotkeys.ts:490:14 \"Alt\" -> \"\""
+  },
   "1f1qquh6mls": {
     "reason": "An empty name and a placeholder that is not kana both find no kana row.",
     "where": "src-ui/logics/common/languageJumpGroups.ts:35:104 \"\" -> \"Stryker was here!\""
+  },
+  "1f7f6vvz9ba": {
+    "reason": "portalLostHandler is set only together with portalPaused = false for the current listener and clears itself when called, so a stale listener that calls it makes the one call the current listener would have made.",
+    "where": "src-ui/logics/configs/config_page_setter/hotkeys/useHotkeys.ts:122:21 portalListener === listener -> true"
   },
   "1fjwa755exf": {
     "reason": "The only merged routes are the weight template's get and set routes, made twice with the same namespace, hook and function, so either operand gives the same value.",
@@ -99,6 +111,10 @@
     "reason": "A character below U+3041 shifted by 0x60 stays below U+30A1, the first katakana in the table, so it finds no row either way.",
     "where": "src-ui/logics/common/languageJumpGroups.ts:37:17 code >= 0x3041 -> true"
   },
+  "1r9ujkk2ajo": {
+    "reason": "forEach over an empty failedHotkeys does nothing, so running the block for zero failures changes nothing.",
+    "where": "src-ui/logics/configs/config_page_setter/hotkeys/useHotkeys.ts:436:21 failedHotkeys.length > 0 -> failedHotkeys.length >= 0"
+  },
   "1rwl7gcc3lw": {
     "reason": "Traces are kept only after isTrace (ioFlow.ts), which requires stages to be an object.",
     "where": "src-ui/logics/flow/flowGraph.ts:70:41 ?. -> ."
@@ -115,6 +131,10 @@
     "reason": "Only the order of the route table changes (the static routes come after the generated ones, each still once with its receiver), and the routes are looked up by endpoint.",
     "where": "src-ui/logics/useReceiveRoutes.ts:889:48 { if (!item?.endpoint) continue; const merged = mergedMap.g… -> {}"
   },
+  "1tus9zgw8r6": {
+    "reason": "The hook's own mount effect sets mounted to true before any of its functions runs: the controller registers from a later effect of the same component, and an edit comes from input, which React handles after pending effects.",
+    "where": "src-ui/logics/configs/config_page_setter/hotkeys/useHotkeys.ts:150:48 true -> false"
+  },
   "1ua0bhtskyc": {
     "reason": "The only merged routes are the weight template's get and set routes, whose hook is also named by other routes with a namespace, so their routes still find it in hook_results without one.",
     "where": "src-ui/logics/useReceiveRoutes.ts:879:17 existing.ns ?? gen.ns ?? null -> ((existing.ns ?? gen.ns) && null)"
@@ -127,6 +147,10 @@
     "reason": "handleInvalidEndpoint only writes the unknown endpoint to the console, so leaving it out changes no state, call or notice.",
     "where": "src-ui/logics/useReceiveRoutes.ts:673:21 handleInvalidEndpoint(parsed_data); -> ;"
   },
+  "1ya2j45ox91": {
+    "reason": "registerShortcuts runs pauseShortcuts, which sets portalPaused to true, before it can add the only listeners that read it, so its first value is never read.",
+    "where": "src-ui/logics/configs/config_page_setter/hotkeys/useHotkeys.ts:67:20 true -> false"
+  },
   "1ycrsi5wglg": {
     "reason": "settingsWithoutRead is empty: no setting is named like the placeholder, and ignoring the set changes no setting.",
     "where": "src-ui/logics/common/pendingRequestRecovery.ts:65:45 [] -> [\"Stryker was here!\"]"
@@ -134,6 +158,10 @@
   "21rl54zeu0": {
     "reason": "An unset UI language and any other unsupported one both give no groups.",
     "where": "src-ui/logics/common/languageJumpGroups.ts:27:41 \"\" -> \"Stryker was here!\""
+  },
+  "25k6f1g2t0u": {
+    "reason": "Past the checks for false and true, response is a BackendResponse object (StdoutResult is boolean | BackendResponse), so the optional chain never meets null or undefined.",
+    "where": "src-ui/logics/configs/config_page_setter/hotkeys/useHotkeys.ts:388:73 ?. -> ."
   },
   "26tln7651q6": {
     "reason": "Traces are kept only after isTrace (ioFlow.ts), which requires stages to be an object.",
@@ -143,9 +171,25 @@
     "reason": "With min === max the formula gives min as well.",
     "where": "src-ui/logics/utils.ts:50:6 min === max -> false"
   },
+  "2b6tgqf8zn0": {
+    "reason": "This branch runs only when the platform is not Wayland, and minimizedByHotkey becomes true only after a press that found Wayland, an answer kept once it arrives, so minimized already holds false here.",
+    "where": "src-ui/logics/configs/config_page_setter/hotkeys/useHotkeys.ts:234:91 { minimized = false; } -> {}"
+  },
+  "2d0cya8479x": {
+    "reason": "registrationGeneration is only compared for equality, and stepping it down on every pause never brings it back to a value an earlier registration captured, just as stepping it up does not.",
+    "where": "src-ui/logics/configs/config_page_setter/hotkeys/useHotkeys.ts:95:5 registrationGeneration++ -> registrationGeneration--"
+  },
   "2f7jk5hea9s": {
     "reason": "Without the block a missing hook is looked up again for each of its routes, which still get an empty result and do nothing, so only the warning is lost.",
     "where": "src-ui/logics/useReceiveRoutes.ts:442:20 { console.warn(`Hook not found on namespace: ${hook_name}`)… -> {}"
+  },
+  "30x9yrqy0z": {
+    "reason": "portalLostHandler is set only together with portalPaused = false for the current listener and clears itself when called, so a stale listener that calls it makes the one call the current listener would have made.",
+    "where": "src-ui/logics/configs/config_page_setter/hotkeys/useHotkeys.ts:122:21 portalListener === listener && !portalPaused -> true"
+  },
+  "3acrllylch": {
+    "reason": "portalNotRestoredHandler is set for the current listener, reset by every pause and cleared when called, so a stale listener that calls it makes the one call the current listener would have made.",
+    "where": "src-ui/logics/configs/config_page_setter/hotkeys/useHotkeys.ts:126:21 portalListener === listener -> true"
   },
   "5za6bbt3n3": {
     "reason": "outputArrivals lists chatbox before speech, already in sorted order.",
@@ -163,6 +207,22 @@
     "reason": "rejectExpectedExit removes only the expected exits of the answer's own endpoint, and expectBackendExit makes them only for shutdown and the updates, so another failed answer removes nothing.",
     "where": "src-ui/logics/useReceiveRoutes.ts:485:32 isBackendUpdate(endpoint) || endpoint === \"/run/shutdown\" -> true"
   },
+  "aydr3zufko": {
+    "reason": "The bind answers Rust's map of Assigned values (portal_shortcuts_bind returns HashMap<String, Assigned>), so no row is null or undefined.",
+    "where": "src-ui/logics/configs/config_page_setter/hotkeys/useHotkeys.ts:324:24 ?. -> ."
+  },
+  "c6vmy4mb16": {
+    "reason": "reportConflict runs only with a key to report: conflict() is false without one and the plugin trial runs only for a key, so the fallback list is never used.",
+    "where": "src-ui/logics/configs/config_page_setter/hotkeys/useHotkeys.ts:355:97 [] -> [\"Stryker was here!\"]"
+  },
+  "czax1bhot4": {
+    "reason": "default is the last case, so dropping its break changes nothing, and the rest of the block is a console.warn.",
+    "where": "src-ui/logics/configs/config_page_setter/hotkeys/useHotkeys.ts:294:22 { console.warn(`No handler defined for action: ${actionKey}… -> {}"
+  },
+  "d2l8awqrmx": {
+    "reason": "After disposal the old owner fails isCurrent and no listener is current, so nothing reads what this pause resets; the next registration, or a reconnect timer left running, pauses for itself first.",
+    "where": "src-ui/logics/configs/config_page_setter/hotkeys/useHotkeys.ts:105:5 pauseShortcuts(); -> ;"
+  },
   "d6gn3xaczg": {
     "reason": "flow is not nullish here: the check before it returned for that.",
     "where": "src-ui/logics/flow/flowGraph.ts:57:30 ?. -> ."
@@ -175,9 +235,17 @@
     "reason": "The only merged routes are the weight template's get and set routes, made twice with the same namespace, hook and function, so either operand gives the same value.",
     "where": "src-ui/logics/useReceiveRoutes.ts:879:17 existing.ns ?? gen.ns -> (existing.ns && gen.ns)"
   },
+  "hn5c6gpyt9": {
+    "reason": "store.appWindow is a Tauri Window, which always has onFocusChanged, so the optional call never meets undefined.",
+    "where": "src-ui/logics/configs/config_page_setter/hotkeys/useHotkeys.ts:231:72 ?. -> "
+  },
   "iiy3s7fv0v": {
     "reason": "readBackendResponse makes every endpoint a string, so the fallback after ?? is never used.",
     "where": "src-ui/logics/useReceiveRoutes.ts:711:107 \"500\" -> \"\""
+  },
+  "j6ryjvu9oi": {
+    "reason": "portalLostHandler is set only together with portalPaused = false for the current listener and clears itself when called, so a stale listener that calls it makes the one call the current listener would have made.",
+    "where": "src-ui/logics/configs/config_page_setter/hotkeys/useHotkeys.ts:122:21 portalListener === listener && !portalPaused -> (portalListener === listener || !portalPaused)"
   },
   "jen1bw4wxi": {
     "reason": "handleInvalidEndpoint only writes the unknown endpoint to the console, so leaving it out changes no state, call or notice.",
@@ -195,6 +263,10 @@
     "reason": "react-i18next's useTranslation always returns an i18n object (an empty one when no instance is set), so i18n is never nullish here.",
     "where": "src-ui/logics/useReceiveRoutes.ts:619:71 ?. -> ."
   },
+  "qk4g6g2fks": {
+    "reason": "owner is the same useRef object for the component's whole life, so [owner] and [] run the effect at the same times.",
+    "where": "src-ui/logics/configs/config_page_setter/hotkeys/useHotkeys.ts:157:8 [owner] -> []"
+  },
   "qz2j0ojoo0": {
     "reason": "Every setting with the toggle_enable_disable template is drawn as a toggle, so the ui_template_id check alone adds the same enable and disable routes.",
     "where": "src-ui/logics/useReceiveRoutes.ts:791:13 s.logics_template_id === \"toggle_enable_disable\" -> false"
@@ -207,6 +279,10 @@
     "reason": "Only the first character is read; removing a prolonged-sound mark later in the name does not change it.",
     "where": "src-ui/logics/common/languageJumpGroups.ts:35:87 /^ー+/ -> /ー+/"
   },
+  "t00o16h496": {
+    "reason": "forEach over an empty failedHotkeys does nothing, so running the block for zero failures changes nothing.",
+    "where": "src-ui/logics/configs/config_page_setter/hotkeys/useHotkeys.ts:436:21 failedHotkeys.length > 0 -> true"
+  },
   "td8mxcxf2i": {
     "reason": "matches() reads only the type of each default, so any string works.",
     "where": "src-ui/logics/common/initializationFields.ts:60:59 \"\" -> \"Stryker was here!\""
@@ -214,6 +290,10 @@
   "tkbl6f4ole": {
     "reason": "A registration without endpoints is never looked up, so a placeholder endpoint is never sent.",
     "where": "src-ui/logics/common/pendingRequestRecovery.ts:145:61 [] -> [\"Stryker was here!\"]"
+  },
+  "tsn1jh1yn3": {
+    "reason": "portalLost runs only through portalLostHandler, which a bind sets after registerShortcuts paused and so cleared any reconnect timer, and the timer is set only after the handler is cleared, so none is pending here.",
+    "where": "src-ui/logics/configs/config_page_setter/hotkeys/useHotkeys.ts:193:9 clearTimeout(portalReconnectTimer); -> ;"
   },
   "x4nhkm2ead": {
     "reason": "Traces are kept only after isTrace (ioFlow.ts), which requires stages to be an object.",
@@ -226,6 +306,10 @@
   "xr35ya3osj": {
     "reason": "Traces are kept only after isTrace (ioFlow.ts), which requires stages to be an object.",
     "where": "src-ui/logics/flow/flowGraph.ts:72:74 ?. -> ."
+  },
+  "xtm8t306kj": {
+    "reason": "registrationOwner changes only right after pauseShortcuts bumps registrationGeneration, so a registration whose generation still matches always finds its owner in place.",
+    "where": "src-ui/logics/configs/config_page_setter/hotkeys/useHotkeys.ts:398:63 registrationOwner === owner -> true"
   },
   "ybbgw54urq": {
     "reason": "Traces are kept only after isTrace (ioFlow.ts), which requires stages to be an object.",
