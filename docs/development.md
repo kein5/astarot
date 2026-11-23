@@ -224,9 +224,9 @@ Pythonは専用venvを優先し、次に既存の `.venv` を探します。`--p
 
 ## UIのTypeScriptとスタイル（移行中）
 
-[ADR-010](adr/adr-010-frontend-stack.md)により、UIはJavaScriptからTypeScriptへ、SCSS Modulesからvanilla-extractへ段階的に移ります。移行が終わるまでは両方が混在します。混在期の規約は次のとおりです（第一段で定めた案で、レビューで確定します）。
+[ADR-010](adr/adr-010-frontend-stack.md)により、UIはJavaScriptからTypeScriptへ段階的に移ります。スタイルのSCSS Modulesからvanilla-extractへの移行は、#957で終わりました。TypeScriptへの移行が終わるまでは、JavaScriptとTypeScriptが混在します。混在期の規約は次のとおりです（第一段で定めた案で、レビューで確定します）。
 
-- 新しく書くロジックとビューはTypeScript（`.ts`、JSXを含むものは `.tsx`）で書きます。新しいスタイルはvanilla-extract（`.css.ts`）で書きます。
+- 新しく書くロジックとビューはTypeScript（`.ts`、JSXを含むものは `.tsx`）で書きます。スタイルはvanilla-extract（`.css.ts`）で書きます。SCSSは使いません。
 - 型チェックは `npm run typecheck` です。`check --scope ui` も実行し、CIでも動きます。TypeScriptのファイルは `strict` で検査します。JavaScriptのファイルは検査せず、型を推論して読むだけです。
 - 型チェックは2つの設定で走ります。アプリのソースは `tsconfig.json`、試験（`*.test.ts`）と試験の基盤（`src-ui/logics/test/`）は `tsconfig.test.json` です。試験と基盤はNodeで動くので、`tsconfig.test.json` だけがNodeの型（`@types/node`）を読みます。アプリのソースがNodeのAPIをうっかり使うと、`tsconfig.json` の検査で止まります。
 - `any`、`as unknown as`、`@ts-ignore`、`@ts-expect-error` は使いません。バックエンドから届く値は `unknown` として受けて絞り込みます。既存の実行時の形の検査も残します。`check --scope tooling` の `test_typescript_strictness.py` がこれらを数えます。

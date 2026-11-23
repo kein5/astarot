@@ -331,7 +331,7 @@ WindowsのWebView2は、全ウィンドウを同じ起動引数で作る（`src-
 | Directive | 許可するsource | 根拠 |
 |---|---|---|
 | `default-src`、`script-src` | `'self'` | Viteが生成する同一オリジンのJS、共有chunk、modulepreload。i18nextとjs-yamlは同梱された翻訳データを処理する。eval、Functionコンストラクター、Wasmは使わない |
-| `style-src` | `'self'`と下記2つのSHA-256 | CSS Modules/SCSSから生成したCSSと、依存が実行時に挿入する固定の`<style>`だけ |
+| `style-src` | `'self'`と下記2つのSHA-256 | vanilla-extractが生成したCSSと、依存が実行時に挿入する固定の`<style>`だけ |
 | `style-src-attr` | `'none'` | HTMLのstyle属性や`setAttribute("style", …)`は許可しない。Reactの`style` prop、virtua、色選択、倍率・フォント・OCR領域の更新はCSSOMのプロパティ代入を使う |
 | `img-src` | `'self' data:` | 同梱PNG/SVG、Viteがインライン化した小画像、選択欄とreact-colorfulのdata SVG。SVGの`?react` importはJS内の要素になる |
 | `font-src` | `'self'` | OSにある選択フォントとNoto/systemのフォールバック。現在はフォントファイルの取得も`@font-face`もない。リモートフォントは使わない |

@@ -4,8 +4,8 @@ status: accepted
 era: python-sidecar
 validity: current
 implementation_status: partial
-implementation_checked: 2026-11-18
-implementation_note: TypeScript と vanilla-extract への移行は段階的に進めていて、src-ui には JavaScript と SCSS Modules のファイルがまだ混在する。Radix UI は @radix-ui/react-visually-hidden から使い始めている。
+implementation_checked: 2026-11-23
+implementation_note: src-ui の JavaScript は TypeScript に移り終わり（docs/typescript-migration.md）、SCSS Modules は vanilla-extract に移り終わった（#957）。Radix UI は @radix-ui/react-visually-hidden と kit の Switch（@radix-ui/react-switch）で使っていて、ほかの部品への段階移行が残る。
 evidence:
   - docs/typescript-migration.md
   - package.json
