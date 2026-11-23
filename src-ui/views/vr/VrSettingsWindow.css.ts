@@ -137,7 +137,7 @@ globalStyle(`${list}::-webkit-scrollbar-thumb`, {
 
 // ---- 押せるもの共通 ----
 // The buttons and the rows that are buttons (SCSS: a placeholder both extended).
-const pressable = (...selectors: string[]) => selectors.flatMap(selector => [clickable, button].map(cls => selector.replace("&", cls))).join(", ");
+const pressable = (...selectors: string[]) => selectors.flatMap(selector => [clickable, button].map(cls => selector.replaceAll("&", cls))).join(", ");
 globalStyle(pressable("&"), { cursor: "pointer" });
 // VRのポインタが当たっている (VrApp の VrPointerHover が付ける)
 globalStyle(pressable("[data-vr-hover]&"), { boxShadow: `inset 0 0 0 3px ${vars.primary_300_color}` });
