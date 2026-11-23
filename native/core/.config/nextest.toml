@@ -1,0 +1,39 @@
+# cargo-nextest's settings for native/core's tests (https://nexte.st/docs/configuration/).
+#
+# The default profile is what `python tools/dev.py check --scope rust` runs: no retries, so a test
+# that fails now and then fails there too. The ci profile is what the core-integration job runs
+# (.github/workflows/voice-tests.yml): it writes a JUnit report, from which the job lists the
+# tests that passed only on a retry (tools/ci/nextest_flaky_summary.py).
+
+[profile.ci]
+fail-fast = false
+
+[profile.ci.junit]
+# target/nextest/ci/junit.xml
+path = "junit.xml"
+
+# --- Retries until #861 is settled -------------------------------------------------------------
+#
+# The tests below wait for the core with a fixed time or count what was drawn after a fixed
+# sleep, and fail now and then on a slow runner (issue #861; the CI audit of 2026-11-22). Until
+# their waits are fixed and repeated runs show they no longer fail, the CI retries them twice. A
+# pass on a retry is still reported: the job summary lists it and the run shows a warning.
+#
+# Remove a test from this list once #861 records that it no longer fails, and this whole section
+# once the list is empty. Add a test here only with a note in #861.
+[[profile.ci.overrides]]
+filter = """
+  (binary(=realtime_asr) & (
+     test(=captions_are_drawn_on_the_large_vr_log_and_one_it_cannot_show_is_told)
+   | test(=leaving_the_local_engine_stops_its_realtime_session)))
+| (binary(=vr_overlay) & (
+     test(=a_sent_message_is_drawn_on_the_running_large_log)
+   | test(=a_failure_turns_the_overlays_off_and_is_reported)
+   | test(=a_log_turns_on_without_steamvr_and_connects_once_it_runs)
+   | test(=a_message_the_vr_log_cannot_show_is_reported_for_that_output)
+   | test(=a_diarized_caption_names_its_speakers_and_the_large_log_draws_their_names)
+   | test(=the_overlay_starts_with_the_saved_switches_and_announces_the_vr_page_state)))
+| (binary(=voice) & test(=speech_goes_through_a_running_conversion_when_chosen))
+| (binary(=lifecycle) & test(=a_start_up_past_its_deadline_starts_nothing_once_it_goes_on))
+"""
+retries = 2

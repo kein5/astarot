@@ -135,7 +135,7 @@ PR #788 の worker を、アプリと同じく VVC1 のパイプで動かしま�
 
 ### 用意するもの
 
-- PR #788 を含むアプリ（同梱の `vrct-rvc-worker`）
+- PR #788 を含むアプリ（同梱の `astarot-rvc-worker`）
 - RVC の実行環境（RVC のページから取得。NVIDIA の PC では CUDA 版になる）
 - Windows では「ONNX Runtime · DirectML」（RVC のページの「モデルと実行環境」から取得）
 - カタログの Saisho Utane のモデル（`model.pth`）
@@ -143,7 +143,7 @@ PR #788 の worker を、アプリと同じく VVC1 のパイプで動かしま�
 ### 手順
 
 ```sh
-python tools/rvc_worker_bench.py --worker <app>/_internal/build/vrct-rvc-worker.exe \
+python tools/rvc_worker_bench.py --worker <app>/_internal/build/astarot-rvc-worker.exe \
     --runtime <state>/vc_runtimes/rvc --directml <state>/vc_runtimes/onnxruntime-directml/lib \
     --model <model.pth> --devices cuda,directml --block-ms 40,80 --packets 300 --rounds 3 --json result.json
 ```

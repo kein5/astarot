@@ -15,6 +15,8 @@ import { EnvReadout } from "../_components/env_readout/EnvReadout";
 import { Description } from "../_components/description/Description";
 import { Lead } from "../_components/lead/Lead";
 import { FormRow } from "../_components/form_row/FormRow";
+import { PageLinkButton } from "../_components/page_pointer/PagePointer";
+import * as ownStyles from "./DirectVoiceSettings.css.ts";
 import { voiceErrorText } from "../../../../../../logics/voice/voiceErrorText.ts";
 import { CustomModelLink } from "../_components/custom_model_link/CustomModelLink";
 import { FileDropZone } from "../_components/file_drop_zone/FileDropZone";
@@ -281,8 +283,13 @@ export const DirectVoiceSettings = ({ variant = "all", subheading = false }: Dir
         </SetupSection>
         {/* The unsaved-changes dialog stays outside the fold so it shows while folded. */}
         {form.navigationDialog}
-        {/* The TTS monitor setting also covers converted voice; it is fixed at Start. */}
-        <p>{t(!converted ? "voice.vc_monitor_passthrough" : settings?.monitor === "on" ? "voice.vc_monitor_on" : "voice.vc_monitor_off")}</p>
+        {/* The TTS monitor setting also covers converted voice; it is fixed at Start. The setting
+            has one place, the TTS page: here a row says what it does for this voice now, and its
+            button opens it there (#614, #554). What it covers and when it applies are the hint. */}
+        <FormRow group label={t("voice_ui.monitor_heading")} description={t("voice.vc_monitor_help")} fold={false}>
+            <span data-vc-monitor className={ownStyles.monitorState}>{t(!converted ? "voice.vc_monitor_not_converted" : settings?.monitor === "on" ? "voice.monitor_on" : "voice.monitor_off")}</span>
+            <PageLinkButton tab="tts" action={t("voice.vc_monitor_action")} target="tts_monitor" />
+        </FormRow>
         {!!directState.monitor_error && <EnvReadout tone="failed"><p>{t(`voice.monitor_errors.${directState.monitor_error}`, { defaultValue: t("voice.monitor_error") })}</p></EnvReadout>}
         {/* An unconfirmed save is not a reason the input cannot be forwarded: its sentence stands alone (#460). */}
         {!!unavailable && <p role="alert">{String(unavailable).startsWith("save_") ? "" : `${t("voice.input_error")}: `}{errorText(String(unavailable))}</p>}

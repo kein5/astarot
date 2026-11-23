@@ -58,6 +58,8 @@ export const INITIAL_APP_UPDATE = Object.freeze<AppUpdateState>({
 });
 
 const BUSY = new Set<AppUpdateStatus>(["checking", "downloading", "installing"]);
+// While an update is downloaded or installed, the channel is not checked again.
+const INSTALLING = new Set<AppUpdateStatus>(["downloading", "installing"]);
 export const CHECKING_MODES = new Set<AppUpdateMode>(["install", "manual"]);
 
 // The commands reject with a short code (update_check_failed, update_metadata_missing, ...).
@@ -90,26 +92,49 @@ export const createAppUpdate = ({ invoke, createChannel, get, set, log = () => {
         return infoRequest;
     };
 
+    // The checks run one after another, as the Tauri side runs them (a second check while one runs
+    // is refused there, update_busy). Each check takes the next number, and only the newest one's
+    // answer is shown: a check of the channel set before never overwrites what the channel set
+    // now shows, and what is shown is what the Tauri side keeps for the install (its last check).
+    let newest = 0;
+    let switches = 0;
+    let queue: Promise<unknown> = Promise.resolve();
+    const inTurn = <T>(work: () => Promise<T>): Promise<T> => {
+        const run = queue.then(work, work);
+        queue = run.catch(() => {});
+        return run;
+    };
+
     // `silent`: the check at start. A failure there shows nothing; the page says it when asked.
     // `channel`: the update channel of the settings (#466); without one, the running build's.
-    const check = async ({ silent = false, channel = null }: { silent?: boolean; channel?: string | null } = {}) => {
-        const info = await loadInfo();
-        if (!info || !CHECKING_MODES.has(info.mode) || BUSY.has(get().status)) return get();
-        const before = get();
+    // `before`: the status before the check, kept by a silent failure when it offered an update.
+    const runCheck = async ({ silent = false, channel = null }: { silent?: boolean; channel?: string | null }, before: AppUpdateStatus) => {
+        const mine = ++newest;
         patch({ status: "checking", error: null });
         try {
             const result = await invoke<AppUpdateCheckResult | null>("app_update_check", { channel });
+            if (mine !== newest) return get();
             patch(result?.available
                 ? { status: "available", version: result.version, release_url: result.release_url }
                 : { status: "up_to_date", version: null, release_url: null });
         } catch (error) {
             const code = errorCode(error, "update_check_failed");
             log("app_update_check failed", code);
+            if (mine !== newest) return get();
             patch(silent
-                ? { status: before.status === "available" ? "available" : "idle", error: null }
+                ? { status: before === "available" ? "available" : "idle", error: null }
                 : { status: "error", error: code });
         }
         return get();
+    };
+
+    // A check asked for while one runs, downloads or installs is not made again.
+    const check = async (options: { silent?: boolean; channel?: string | null } = {}) => {
+        const info = await loadInfo();
+        if (!info || !CHECKING_MODES.has(info.mode) || BUSY.has(get().status)) return get();
+        const before = get().status;
+        patch({ status: "checking", error: null });
+        return inTurn(() => runCheck(options, before));
     };
 
     // Resolves only when the update could not be applied; the app is then still the old one.
@@ -136,12 +161,22 @@ export const createAppUpdate = ({ invoke, createChannel, get, set, log = () => {
         }
     };
 
-    // The update channel was set again (#466): what the other channel found goes, and the new one
-    // is checked at once. A download or an install under way is left to finish.
+    // The update channel was set again (#466): what the other channel found goes at once, and the
+    // new one is checked when the check under way, if any, has ended; that check's answer is the
+    // other channel's and is not shown. Set again before that, only the last channel is checked.
+    // A download or an install under way is left to finish.
     const switchChannel = async (channel: string | null) => {
-        if (BUSY.has(get().status) && get().status !== "checking") return get();
-        patch({ status: "idle", version: null, release_url: null, error: null });
-        return check({ silent: true, channel });
+        if (INSTALLING.has(get().status)) return get();
+        const turn = ++switches;
+        newest += 1;
+        const info = await loadInfo();
+        if (turn !== switches || INSTALLING.has(get().status)) return get();
+        if (!info || !CHECKING_MODES.has(info.mode)) {
+            patch({ status: "idle", version: null, release_url: null, error: null });
+            return get();
+        }
+        patch({ status: "checking", version: null, release_url: null, error: null });
+        return inTurn(async () => turn === switches ? runCheck({ silent: true, channel }, "idle") : get());
     };
 
     return { loadInfo, check, install, switchChannel };

@@ -24,6 +24,11 @@ import tempfile
 from urllib.request import urlopen
 import zipfile
 
+try:
+    from .download_retry import retrying
+except ImportError:
+    from download_retry import retrying
+
 ROOT = Path(__file__).resolve().parents[1]
 VERSION = '20250825'
 BASE = 'https://d2ej7fkh96fzlu.cloudfront.net/sudachidict'
@@ -64,8 +69,12 @@ def _digest(stream):
 def download_archive(edition, destination, *, opener=urlopen):
     """Downloads the archive of `edition` to `destination` and checks it."""
     expected = EDITIONS[edition]
-    with opener(url(edition), timeout=60) as response, open(destination, 'wb') as file:
-        shutil.copyfileobj(response, file, 1 << 20)
+
+    def attempt():
+        with opener(url(edition), timeout=60) as response, open(destination, 'wb') as file:
+            shutil.copyfileobj(response, file, 1 << 20)
+
+    retrying(attempt, url(edition).rsplit('/', 1)[-1])
     with open(destination, 'rb') as file:
         size, sha256 = _digest(file)
     if (size, sha256) != (expected['archive_size'], expected['archive_sha256']):

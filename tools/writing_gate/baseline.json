@@ -1,0 +1,679 @@
+{
+  "ACCESSIBILITY.md": {
+    "en-british|colour": 1,
+    "en-british|colours": 1
+  },
+  "AGENTS.md": {
+    "ja-long-vowel-er|ブラウザ": 1
+  },
+  "CODE_OF_CONDUCT.md": {
+    "ja-roundabout|を行い": 1
+  },
+  "DESIGN.md": {
+    "en-british|colour": 3,
+    "en-contraction|Don't": 3,
+    "ja-exclamation|！": 1
+  },
+  "docs/adr/adr-002-output-and-lifetime.md": {
+    "ja-long-vowel-er|ヘッダ": 1
+  },
+  "docs/adr/adr-004-audio-integration-boundaries.md": {
+    "ja-kana-words|等": 2,
+    "ja-okurigana|割当": 1,
+    "ja-okurigana|取消": 5,
+    "ja-okurigana|受付": 3,
+    "ja-unit-space|0ms": 3,
+    "ja-unit-space|4ms": 1
+  },
+  "docs/adr/adr-005-managed-microphone-lifetime.md": {
+    "ja-okurigana|受付": 1
+  },
+  "docs/adr/adr-006-external-source-health.md": {
+    "ja-okurigana|切替": 1
+  },
+  "docs/adr/adr-008-external-speech-engines.md": {
+    "ja-dash|—": 5,
+    "ja-kana-words|等": 2,
+    "ja-long-vowel-er|アダプタ": 1,
+    "ja-long-vowel-er|サーバ": 3,
+    "ja-long-vowel-er|パラメータ": 1,
+    "ja-unit-space|4kHz": 1
+  },
+  "docs/adr/adr-009-virtual-microphone-and-store.md": {
+    "ja-kana-words|他の": 1,
+    "ja-long-vowel-er|ドライバ": 27
+  },
+  "docs/adr/adr-010-frontend-stack.md": {
+    "ja-kana-words|等": 2
+  },
+  "docs/adr/adr-011-astarot-brand-and-multimodal-accessibility.md": {
+    "ja-kana-words|等": 5,
+    "ja-okurigana|引継ぎ": 1
+  },
+  "docs/adr/adr-012-audio-ai-runtime-consolidation.md": {
+    "ja-long-vowel-er|サーバ": 5
+  },
+  "docs/adr/adr-013-secret-store.md": {
+    "ja-long-vowel-er|フォルダ": 9,
+    "ja-long-vowel-y|メモリー": 8
+  },
+  "docs/adr/adr-015-translation-llm-runtime-exception.md": {
+    "ja-long-vowel-y|メモリー": 5
+  },
+  "docs/adr/adr-017-integration-tests-through-the-core.md": {
+    "ja-colon-line-end|：": 1,
+    "ja-long-vowel-er|ブラウザ": 1
+  },
+  "docs/adr/adr-018-talk-ai-through-external-services.md": {
+    "ja-long-vowel-y|メモリー": 1,
+    "ja-unit-space|4GB": 3,
+    "ja-unit-space|6GB": 2
+  },
+  "docs/adr/README.md": {
+    "ja-long-vowel-er|ドライバ": 5
+  },
+  "docs/agent-tools.md": {
+    "ja-terms|VRパネル": 1
+  },
+  "docs/design/components/shadcn-alignment.md": {
+    "ja-unit-space|0ms": 2
+  },
+  "docs/design/information-architecture/README.md": {
+    "ja-long-vowel-er|コントローラ": 2,
+    "ja-long-vowel-er|フィルタ": 4,
+    "ja-long-vowel-er|フォルダ": 3
+  },
+  "docs/design/main-layout-audit/findings.md": {
+    "ja-terms|デフォルト": 1
+  },
+  "docs/design/main-layout-audit/README.md": {
+    "ja-terms|デフォルト": 2
+  },
+  "docs/design/main-layout-revision/README.md": {
+    "ja-terms|デフォルト": 1
+  },
+  "docs/design/site-redesign/inventory.md": {
+    "ja-long-vowel-er|ブラウザ": 2,
+    "ja-roundabout|を行い": 1
+  },
+  "docs/design/site-redesign/README.md": {
+    "ja-long-vowel-er|ブラウザ": 4
+  },
+  "docs/development.md": {
+    "ja-kana-words|他の": 1,
+    "ja-long-vowel-er|コントローラ": 1,
+    "ja-long-vowel-er|フォルダ": 2,
+    "ja-long-vowel-er|ブラウザ": 6,
+    "ja-long-vowel-y|メモリー": 1,
+    "ja-okurigana|切替": 1,
+    "ja-okurigana|読込み": 1,
+    "ja-roundabout|を行い": 1
+  },
+  "docs/ocr_model_license.md": {
+    "ja-halfwidth-paren|)に": 1,
+    "ja-halfwidth-paren|条(": 1,
+    "ja-long-vowel-er|インストーラ": 1
+  },
+  "docs/readme_build.md": {
+    "ja-roundabout|を実施する": 2,
+    "ja-roundabout|を行い": 1,
+    "ja-terms|VRパネル": 2
+  },
+  "docs/readmes/README.ja.md": {
+    "ja-long-vowel-er|ドライバ": 1,
+    "ja-long-vowel-er|ブラウザ": 1
+  },
+  "docs/release-notes/0.4.0.md": {
+    "ja-exclamation|！": 1,
+    "ja-long-vowel-er|フォルダ": 3,
+    "ja-terms|VRパネル": 1
+  },
+  "docs/release-notes/0.5.0.md": {
+    "ja-latin-spacing|ー 5": 1,
+    "ja-latin-spacing|0 の": 2,
+    "ja-latin-spacing|0 以": 1,
+    "ja-latin-spacing|1 か": 1,
+    "ja-latin-spacing|1 に": 1,
+    "ja-latin-spacing|2 と": 1,
+    "ja-latin-spacing|3 へ": 1,
+    "ja-latin-spacing|4 で": 1,
+    "ja-latin-spacing|6 ま": 1,
+    "ja-latin-spacing|A の": 1,
+    "ja-latin-spacing|A を": 1,
+    "ja-latin-spacing|C に": 1,
+    "ja-latin-spacing|C は": 1,
+    "ja-latin-spacing|d な": 1,
+    "ja-latin-spacing|e と": 2,
+    "ja-latin-spacing|I キ": 1,
+    "ja-latin-spacing|I の": 4,
+    "ja-latin-spacing|n か": 1,
+    "ja-latin-spacing|n の": 2,
+    "ja-latin-spacing|n 版": 1,
+    "ja-latin-spacing|p の": 1,
+    "ja-latin-spacing|p へ": 1,
+    "ja-latin-spacing|R の": 4,
+    "ja-latin-spacing|R パ": 1,
+    "ja-latin-spacing|s を": 1,
+    "ja-latin-spacing|t と": 1,
+    "ja-latin-spacing|t の": 2,
+    "ja-latin-spacing|T の": 3,
+    "ja-latin-spacing|t へ": 2,
+    "ja-latin-spacing|U 版": 1,
+    "ja-latin-spacing|x の": 2,
+    "ja-latin-spacing|い U": 1,
+    "ja-latin-spacing|と A": 1,
+    "ja-latin-spacing|と C": 1,
+    "ja-latin-spacing|と V": 2,
+    "ja-latin-spacing|に C": 1,
+    "ja-latin-spacing|に s": 1,
+    "ja-latin-spacing|は R": 1,
+    "ja-latin-spacing|ら b": 1,
+    "ja-latin-spacing|ら d": 1,
+    "ja-latin-spacing|ら P": 1,
+    "ja-latin-spacing|ら R": 1,
+    "ja-latin-spacing|る O": 1,
+    "ja-latin-spacing|を A": 2,
+    "ja-latin-spacing|を f": 1,
+    "ja-latin-spacing|を m": 1,
+    "ja-latin-spacing|を M": 1,
+    "ja-latin-spacing|を P": 1,
+    "ja-latin-spacing|を R": 1,
+    "ja-latin-spacing|声 A": 1,
+    "ja-terms-user|音声合成": 3
+  },
+  "docs/release-notes/0.5.2.md": {
+    "ja-metaphor|アプリが落ち": 4
+  },
+  "docs/release-notes/0.6.0.md": {
+    "ja-terms|VRパネル": 3
+  },
+  "docs/spec/contracts.md": {
+    "ja-okurigana|受付": 1,
+    "ja-terms|VRパネル": 2
+  },
+  "docs/spec/cross-cutting.md": {
+    "ja-long-vowel-er|ドライバ": 1,
+    "ja-long-vowel-er|フォルダ": 1,
+    "ja-long-vowel-y|メモリー": 4,
+    "ja-okurigana|取消": 2,
+    "ja-okurigana|受付": 11,
+    "ja-roundabout|を行う": 3,
+    "ja-terms|VRパネル": 11,
+    "ja-terms|クリックする": 1,
+    "ja-unit-space|0ms": 1
+  },
+  "docs/spec/data-and-persistence.md": {
+    "ja-long-vowel-er|フォルダ": 14,
+    "ja-long-vowel-y|メモリー": 7,
+    "ja-okurigana|受付": 4,
+    "ja-roundabout|を行い": 1,
+    "ja-terms|VRパネル": 5,
+    "ja-unit-space|0MB": 1,
+    "ja-unit-space|0ms": 7,
+    "ja-unit-space|6ms": 1
+  },
+  "docs/spec/external-interfaces.md": {
+    "ja-kana-words|他の": 2,
+    "ja-long-vowel-er|ドライバ": 2,
+    "ja-long-vowel-er|フォルダ": 2,
+    "ja-long-vowel-y|メモリー": 2,
+    "ja-okurigana|受付": 6,
+    "ja-roundabout|を行い": 1,
+    "ja-terms|VRパネル": 20,
+    "ja-unit-space|2KiB": 1,
+    "ja-unit-space|8kHz": 1
+  },
+  "docs/spec/failure-recovery.md": {
+    "ja-long-vowel-y|メモリー": 6,
+    "ja-roundabout|を行う": 1
+  },
+  "docs/spec/ipc-protocol.md": {
+    "ja-kana-words|他の": 1,
+    "ja-long-vowel-y|メモリー": 1,
+    "ja-roundabout|を行う": 1,
+    "ja-terms|VRパネル": 1
+  },
+  "docs/spec/open-issues.md": {
+    "ja-long-vowel-y|メモリー": 1,
+    "ja-terms|VRパネル": 7
+  },
+  "docs/spec/overview.md": {
+    "ja-okurigana|受付": 1,
+    "ja-terms|VRパネル": 3,
+    "ja-unit-space|0ms": 1
+  },
+  "docs/spec/sequences.md": {
+    "ja-okurigana|受付": 1
+  },
+  "docs/spec/use-cases.md": {
+    "ja-long-vowel-er|フォルダ": 1,
+    "ja-long-vowel-y|メモリー": 1,
+    "ja-okurigana|取消": 1,
+    "ja-okurigana|受付": 2,
+    "ja-roundabout|を行い": 1,
+    "ja-roundabout|を行う": 2,
+    "ja-terms|VRパネル": 2
+  },
+  "docs/typescript-migration.md": {
+    "ja-unit-space|1MB": 1,
+    "ja-unit-space|4KB": 1,
+    "ja-unit-space|5MB": 1
+  },
+  "docs/voice-stack/architecture-evaluation-2026-10-27.md": {
+    "ja-kana-words|等": 1,
+    "ja-long-vowel-er|サーバ": 2,
+    "ja-long-vowel-er|フォルダ": 1,
+    "ja-okurigana|切替": 2,
+    "ja-okurigana|取消": 9,
+    "ja-okurigana|受付": 7,
+    "ja-roundabout|を実施し": 1,
+    "ja-roundabout|を行う": 1,
+    "ja-unit-space|0ms": 15,
+    "ja-unit-space|2ms": 1,
+    "ja-unit-space|3ms": 1,
+    "ja-unit-space|4kHz": 3,
+    "ja-unit-space|7ms": 1,
+    "ja-unit-space|8kHz": 3
+  },
+  "docs/voice-stack/benchmarks.md": {
+    "ja-long-vowel-er|ヘッダ": 2,
+    "ja-okurigana|取消": 4,
+    "ja-okurigana|取消し": 1,
+    "ja-okurigana|受付": 1,
+    "ja-okurigana|書込": 1,
+    "ja-unit-space|0ms": 1,
+    "ja-unit-space|2ms": 2,
+    "ja-unit-space|4ms": 1,
+    "ja-unit-space|7ms": 2,
+    "ja-unit-space|8ms": 1
+  },
+  "docs/voice-stack/core-integration.md": {
+    "ja-kana-words|した時": 1,
+    "ja-kana-words|の時": 4,
+    "ja-kana-words|及び": 1,
+    "ja-long-vowel-er|エンコーダ": 1,
+    "ja-long-vowel-er|コントローラ": 15,
+    "ja-long-vowel-er|サーバ": 46,
+    "ja-long-vowel-er|デコーダ": 1,
+    "ja-long-vowel-er|ドライバ": 1,
+    "ja-long-vowel-er|パラメータ": 1,
+    "ja-long-vowel-er|フィルタ": 1,
+    "ja-long-vowel-er|フォルダ": 37,
+    "ja-long-vowel-er|ブラウザ": 2,
+    "ja-long-vowel-er|ヘッダ": 3,
+    "ja-long-vowel-y|メモリー": 17
+  },
+  "docs/voice-stack/inference-runtime-comparison.md": {
+    "ja-kana-words|の時": 1,
+    "ja-long-vowel-er|エンコーダ": 8,
+    "ja-long-vowel-er|デコーダ": 8,
+    "ja-long-vowel-er|ドライバ": 2,
+    "ja-long-vowel-er|フォルダ": 2,
+    "ja-long-vowel-y|メモリー": 1
+  },
+  "docs/voice-stack/licensing.md": {
+    "ja-kana-words|他の": 2,
+    "ja-kana-words|等": 2,
+    "ja-long-vowel-er|デコーダ": 1,
+    "ja-long-vowel-er|パラメータ": 2,
+    "ja-long-vowel-er|フォルダ": 1,
+    "ja-long-vowel-er|ブラウザ": 1,
+    "ja-long-vowel-y|エントリー": 1,
+    "ja-long-vowel-y|ディレクトリー": 2,
+    "ja-long-vowel-y|メモリー": 3
+  },
+  "docs/voice-stack/local-setup-linux.md": {
+    "ja-long-vowel-er|フォルダ": 3,
+    "ja-okurigana|書込み": 2,
+    "ja-roundabout|を実施し": 1
+  },
+  "docs/voice-stack/local-translation-gpu-2026-11-18.md": {
+    "ja-long-vowel-er|エンコーダ": 2,
+    "ja-long-vowel-er|デコーダ": 1,
+    "ja-long-vowel-er|フォルダ": 12,
+    "ja-long-vowel-y|メモリー": 3
+  },
+  "docs/voice-stack/model-downloads.md": {
+    "ja-colon-line-end|：": 1,
+    "ja-dash|—": 2,
+    "ja-kana-words|他の": 1,
+    "ja-kana-words|等": 1,
+    "ja-long-vowel-er|ブラウザ": 2,
+    "ja-long-vowel-y|メモリー": 22,
+    "ja-okurigana|切替": 1,
+    "ja-okurigana|取消": 11,
+    "ja-okurigana|受付": 1,
+    "ja-okurigana|書込み": 2,
+    "ja-okurigana|読込み": 1,
+    "ja-roundabout|を行う": 1
+  },
+  "docs/voice-stack/pipeline-latency-2026-11-18.md": {
+    "ja-unit-space|2Hz": 1
+  },
+  "docs/voice-stack/pipeline-latency-tracking.md": {
+    "ja-unit-space|2Hz": 1
+  },
+  "docs/voice-stack/platform-constraints.md": {
+    "ja-kana-words|他の": 1,
+    "ja-long-vowel-er|ドライバ": 11
+  },
+  "docs/voice-stack/project-rename.md": {
+    "ja-kana-words|の時": 1,
+    "ja-long-vowel-er|ブラウザ": 1,
+    "ja-long-vowel-y|エントリー": 1,
+    "ja-roundabout|を行い": 1,
+    "ja-terms|VRパネル": 1
+  },
+  "docs/voice-stack/quick-chat-design.md": {
+    "ja-kana-words|他の": 2,
+    "ja-long-vowel-er|ブラウザ": 1,
+    "ja-long-vowel-y|エントリー": 1,
+    "ja-okurigana|割当て": 1,
+    "ja-roundabout|を行う": 2
+  },
+  "docs/voice-stack/release-candidates.md": {
+    "ja-long-vowel-er|フォルダ": 1
+  },
+  "docs/voice-stack/repository-rename.md": {
+    "ja-roundabout|を行う": 1
+  },
+  "docs/voice-stack/rvc-execution-providers-2026-11-20.md": {
+    "ja-long-vowel-er|フォルダ": 1,
+    "ja-unit-space|6 %": 1
+  },
+  "docs/voice-stack/rvc-low-latency-2026-11-20.md": {
+    "ja-unit-space|1 %": 2
+  },
+  "docs/voice-stack/single-package.md": {
+    "ja-long-vowel-er|サーバ": 7,
+    "ja-long-vowel-er|ドライバ": 1,
+    "ja-long-vowel-er|フォルダ": 3,
+    "ja-long-vowel-y|メモリー": 5,
+    "ja-roundabout|を行い": 2
+  },
+  "docs/voice-stack/speechcpp-bundle-report.md": {
+    "ja-kana-words|等": 1
+  },
+  "docs/voice-stack/translategemma.md": {
+    "ja-kana-words|及び": 1,
+    "ja-long-vowel-er|フォルダ": 1,
+    "ja-long-vowel-y|メモリー": 4,
+    "ja-unit-space|3GB": 1
+  },
+  "docs/voice-stack/translation-llm-runtime-plan.md": {
+    "ja-colon-line-end|：": 1,
+    "ja-long-vowel-er|フォルダ": 1,
+    "ja-long-vowel-y|メモリー": 5,
+    "ja-unit-space|0 %": 1,
+    "ja-unit-space|9 %": 1
+  },
+  "docs/voice-stack/troubleshooting.md": {
+    "ja-kana-words|他の": 1,
+    "ja-long-vowel-er|ヘッダ": 1,
+    "ja-okurigana|切替": 1
+  },
+  "docs/voice-stack/tts-quickstart-ja.md": {
+    "ja-kana-words|等": 1,
+    "ja-okurigana|取消": 1,
+    "ja-okurigana|受付": 2,
+    "ja-okurigana|書込み": 1,
+    "ja-okurigana|読込": 1
+  },
+  "docs/voice-stack/web-translators-research.md": {
+    "ja-long-vowel-er|サーバ": 1,
+    "ja-long-vowel-er|ブラウザ": 3,
+    "ja-metaphor|を叩く": 1
+  },
+  "docs/voice-stack/windows-pending-checks.md": {
+    "ja-dash|—": 1
+  },
+  "docs/voice-stack/windows-voice-report.md": {
+    "ja-dash|—": 1,
+    "ja-halfwidth-paren|)か": 2,
+    "ja-halfwidth-paren|)に": 1,
+    "ja-halfwidth-paren|は(": 3,
+    "ja-long-vowel-y|メモリー": 1,
+    "ja-metaphor|が効きます": 1
+  },
+  "locales/en.yml": {
+    "en-british|colour": 1,
+    "en-click|click": 1,
+    "en-click|Click": 3,
+    "en-click|Clicks": 1,
+    "en-contraction|can't": 3,
+    "en-contraction|Can't": 8,
+    "en-contraction|doesn't": 1,
+    "en-contraction|don't": 1,
+    "en-contraction|Don't": 2,
+    "en-contraction|isn't": 1,
+    "en-contraction|wasn't": 2,
+    "en-curly-quotes|’": 1,
+    "en-curly-quotes|“": 10,
+    "en-curly-quotes|”": 10,
+    "en-eg-ie|e.g.": 8,
+    "en-exclamation|y!": 1,
+    "en-promotional|powerful": 1
+  },
+  "locales/ja.yml": {
+    "ja-colon-line-end|：": 2,
+    "ja-dash|—": 2,
+    "ja-exclamation|！": 1,
+    "ja-halfwidth-paren|信(": 1,
+    "ja-honorific|ございます": 1,
+    "ja-kana-words|他の": 9,
+    "ja-kana-words|及び": 2,
+    "ja-latin-spacing|s で": 1,
+    "ja-latin-spacing|は 0": 1,
+    "ja-latin-spacing|は m": 1,
+    "ja-latin-spacing|版 1": 1,
+    "ja-long-vowel-er|インストーラ": 2,
+    "ja-long-vowel-er|ドライバ": 4,
+    "ja-long-vowel-er|フォルダ": 13,
+    "ja-long-vowel-er|ブラウザ": 2,
+    "ja-okurigana|切替": 1,
+    "ja-okurigana|取消": 1,
+    "ja-okurigana|読込": 1,
+    "ja-okurigana|読込み": 2,
+    "ja-terms-user|音声合成": 5,
+    "ja-terms|VRパネル": 5,
+    "ja-terms|クリックし": 1,
+    "ja-terms|デフォルト": 1,
+    "ja-vu|ヴ": 1
+  },
+  "native/adapters/README.md": {
+    "ja-long-vowel-er|サーバ": 2,
+    "ja-long-vowel-er|フォルダ": 1,
+    "ja-long-vowel-er|ヘッダ": 3
+  },
+  "native/browser-core-bridge/README.md": {
+    "ja-long-vowel-er|ブラウザ": 1,
+    "ja-long-vowel-y|メモリー": 1
+  },
+  "native/core/README.md": {
+    "ja-long-vowel-er|サーバ": 9,
+    "ja-long-vowel-er|フィルタ": 1,
+    "ja-long-vowel-er|フォルダ": 3,
+    "ja-long-vowel-y|メモリー": 1
+  },
+  "native/ocr-runtime/README.md": {
+    "en-british|behaviour": 1,
+    "en-british|recognised": 1
+  },
+  "native/ops/data/README.md": {
+    "ja-long-vowel-er|フォルダ": 2,
+    "ja-long-vowel-y|メモリー": 2
+  },
+  "native/ops/README.md": {
+    "ja-long-vowel-er|サーバ": 1,
+    "ja-long-vowel-er|ドライバ": 1,
+    "ja-long-vowel-er|フォルダ": 4,
+    "ja-long-vowel-er|ヘッダ": 2,
+    "ja-roundabout|を行い": 1
+  },
+  "native/rvc-runtime/README.md": {
+    "en-british|behaviour": 2,
+    "en-british|Licence": 1,
+    "en-british|normalise": 1,
+    "en-british|normalised": 1
+  },
+  "native/speech-server/README.md": {
+    "ja-long-vowel-er|サーバ": 6,
+    "ja-long-vowel-er|フォルダ": 5,
+    "ja-long-vowel-y|メモリー": 3
+  },
+  "native/transcription/README.md": {
+    "ja-long-vowel-er|サーバ": 1
+  },
+  "native/translate-onnx/README.md": {
+    "ja-kana-words|の時": 2,
+    "ja-long-vowel-er|エンコーダ": 3,
+    "ja-long-vowel-er|デコーダ": 5,
+    "ja-long-vowel-er|フォルダ": 14,
+    "ja-long-vowel-y|メモリー": 3
+  },
+  "native/translation/README.md": {
+    "ja-long-vowel-er|サーバ": 5,
+    "ja-long-vowel-y|メモリー": 1
+  },
+  "native/vr-overlay/README.md": {
+    "ja-long-vowel-er|コントローラ": 4,
+    "ja-long-vowel-er|フォルダ": 3
+  },
+  "NOTICE.md": {
+    "en-british|licence": 1,
+    "en-dash|–": 1
+  },
+  "site/en/features/io-flow.md": {
+    "en-click|click": 1
+  },
+  "site/en/features/quick-chat.md": {
+    "en-contraction|don't": 1
+  },
+  "site/en/features/transcription.md": {
+    "en-british|colour": 1,
+    "en-contraction|don't": 1
+  },
+  "site/en/features/vr.md": {
+    "en-british|colour": 1,
+    "en-british|colours": 2,
+    "en-click|click": 1
+  },
+  "site/en/guide/first-setup.mdx": {
+    "en-contraction|don't": 1,
+    "en-contraction|Don't": 1
+  },
+  "site/en/guide/install.mdx": {
+    "en-contraction|don't": 1
+  },
+  "site/en/guide/privacy.md": {
+    "en-contraction|Don't": 1
+  },
+  "site/ja/features/chat-reading.md": {
+    "ja-vu|ヴ": 1
+  },
+  "site/ja/features/integrations.md": {
+    "ja-long-vowel-er|ブラウザ": 1
+  },
+  "site/ja/features/io-flow.md": {
+    "ja-latin-spacing|1 の": 1,
+    "ja-latin-spacing|3 件": 1,
+    "ja-latin-spacing|I を": 1,
+    "ja-latin-spacing|R で": 1,
+    "ja-latin-spacing|R の": 4,
+    "ja-latin-spacing|S が": 1,
+    "ja-latin-spacing|t が": 1,
+    "ja-latin-spacing|t に": 1,
+    "ja-latin-spacing|t へ": 2,
+    "ja-latin-spacing|T を": 1,
+    "ja-latin-spacing|で 1": 1,
+    "ja-latin-spacing|て m": 1,
+    "ja-latin-spacing|と V": 1,
+    "ja-latin-spacing|の 1": 1,
+    "ja-latin-spacing|は 1": 1,
+    "ja-terms-user|音声合成": 1,
+    "ja-terms|クリックし": 1
+  },
+  "site/ja/features/transcription.md": {
+    "ja-terms|VRパネル": 1
+  },
+  "site/ja/features/tts.mdx": {
+    "ja-terms-user|音声合成": 1
+  },
+  "site/ja/features/voice-conversion.mdx": {
+    "ja-long-vowel-er|フォルダ": 3
+  },
+  "site/ja/features/vr.md": {
+    "ja-terms|クリックし": 1
+  },
+  "site/ja/guide/custom-models.mdx": {
+    "ja-latin-spacing|1 か": 2,
+    "ja-latin-spacing|2 で": 2,
+    "ja-latin-spacing|a で": 1,
+    "ja-latin-spacing|C で": 1,
+    "ja-latin-spacing|C の": 1,
+    "ja-latin-spacing|C を": 1,
+    "ja-latin-spacing|D の": 1,
+    "ja-latin-spacing|F の": 3,
+    "ja-latin-spacing|F を": 3,
+    "ja-latin-spacing|I 互": 2,
+    "ja-latin-spacing|k の": 2,
+    "ja-latin-spacing|L だ": 1,
+    "ja-latin-spacing|L と": 1,
+    "ja-latin-spacing|p が": 2,
+    "ja-latin-spacing|r サ": 1,
+    "ja-latin-spacing|R と": 1,
+    "ja-latin-spacing|r の": 3,
+    "ja-latin-spacing|r は": 1,
+    "ja-latin-spacing|S で": 2,
+    "ja-latin-spacing|S と": 1,
+    "ja-latin-spacing|t の": 1,
+    "ja-latin-spacing|V で": 1,
+    "ja-latin-spacing|が 3": 1,
+    "ja-latin-spacing|が v": 1,
+    "ja-latin-spacing|と U": 1,
+    "ja-latin-spacing|と V": 1,
+    "ja-latin-spacing|の G": 8,
+    "ja-latin-spacing|の P": 1,
+    "ja-latin-spacing|の s": 2,
+    "ja-latin-spacing|の W": 3,
+    "ja-latin-spacing|は I": 1,
+    "ja-latin-spacing|は Q": 1,
+    "ja-latin-spacing|は W": 1,
+    "ja-latin-spacing|を 0": 2
+  },
+  "site/ja/guide/install.mdx": {
+    "ja-latin-spacing|新 0": 1
+  },
+  "site/ja/guide/models.mdx": {
+    "ja-long-vowel-y|メモリー": 1,
+    "ja-unit-space|2Hz": 4,
+    "ja-vu|ヴ": 1
+  },
+  "site/ja/guide/privacy.md": {
+    "ja-long-vowel-er|ドライバ": 2,
+    "ja-unit-space|2GB": 1,
+    "ja-unit-space|6GB": 1,
+    "ja-unit-space|8GB": 1
+  },
+  "site/ja/guide/support.md": {
+    "ja-long-vowel-er|ドライバ": 1
+  },
+  "site/ja/guide/tasks.mdx": {
+    "ja-long-vowel-er|ブラウザ": 1
+  },
+  "src-tauri/nsis/licenses/nscurl/LICENSE.openssl.md": {
+    "en-plain-verbs|subsequently": 1
+  },
+  "tools/translation_onnx/README.md": {
+    "ja-long-vowel-er|エンコーダ": 6,
+    "ja-long-vowel-er|デコーダ": 7,
+    "ja-long-vowel-er|フォルダ": 10,
+    "ja-long-vowel-y|メモリー": 4,
+    "ja-unit-space|0GB": 1,
+    "ja-unit-space|5GB": 2,
+    "ja-unit-space|7GB": 1
+  },
+  "tools/whisper_eval/README.md": {
+    "ja-unit-space|6kHz": 2
+  }
+}

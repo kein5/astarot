@@ -56,7 +56,7 @@ speech.cpp にだけある機能は語彙の指定と話者の区別です。
 - `LOCAL_ASR_MIGRATION` は `2` を書き続けます。0.5 以前の版へ戻したときに、その版が引き継ぎをやり直さないためです。`LOCAL_ASR_NOTICE_PENDING` は引退したキーとして捨てます。引き継ぐ前の写しは書きません。
 - お知らせ、古い重みの欄、4 つのエンドポイント（`/get/data/local_asr_notice`、`/set/disable/local_asr_notice`、`/get/data/old_whisper_weights`、`/run/delete_old_whisper_weights`）はありません。古い重みのフォルダには触れません。
 - 試験は `native/core/tests/lifecycle.rs` の `a_saved_whisper_choice_loads_as_none_without_a_notice` と `no_copy_before_a_migration_is_written_any_more`、`settings_endpoints.rs` の `the_old_whisper_weights_are_left_alone`、Python の結果との違いを決める `config_reference.rs` です。
-- マニュアルの「以前の版でWhisperを使っていた場合」（`site/*/features/transcription.md`）は、0.6.0 のリリースに合わせてサイトの PR で直します。
+- マニュアルの「以前の版でWhisperを使っていた場合」（`site/*/features/transcription.md`）は、0.6.0 のリリースに合わせてサイトの PR で直しました。
 
 ほかの利用者への配慮は次のとおりです。
 
@@ -78,9 +78,9 @@ CUDA 版の ZIP には、0.5.0 から標準版にないものが何もありま�
 - **名前**: Windows の配布物は `VRCT-VOX.zip` の1つです。新しい名前は付けず、標準版の名前をそのまま使います。ASTAROT への改名は、内部識別子の移行（#635）で扱います。
 - **インストーラー**（`src-tauri/nsis/template.nsi`）: 版を選ぶ画面、`PACKAGE_SHA256_GPU`、GPU 版の容量の目安をなくしました。`/EDITION=` は受け付けて読みません。0.5 までのアプリが更新のときに `/EDITION=gpu` を渡しても、`VRCT-VOX.zip` を取ります。`/VERSION` で 0.5 以前の版を入れるときも同じです。試験は `tests/installer/windows_update_scenarios.py` の「`/EDITION=cpu` と `/EDITION=gpu` が同じ ZIP を取る」場合です。
 - **ハッシュの組み込み**（`tools/installer_package_hashes.py`）: `--package` の1つだけで、`PACKAGE_SHA256` を書きます。
-- **リリースの工程**: `release.yml` は `build` と `candidate` の2つのジョブです。`tools/release_candidate.py` は Windows の候補に `VRCT-VOX.zip` とインストーラーだけを求めます。`package.json` の `release-cuda` と `release-all` はなくしました。
+- **リリースの工程**: `release.yml` の候補を作るジョブは `build` と `candidate` です（ほかに `changelog` があります）。`tools/release_candidate.py` は Windows の候補に `VRCT-VOX.zip` とインストーラーだけを求めます。`package.json` の `release-cuda` と `release-all` はなくしました。
 - **アプリ**: `src-tauri/src/app_update.rs` は `/EDITION=` を渡しません。`_internal/nvidia` の判定もなくしました。中核の `/run/update_cuda_software` は IPC の契約なので残し、`/run/update_software` と同じ動きです。中核の `SoftwareUpdates::install` からエディションの引数を外しました。UI は `/run/update_software` だけを呼びます。設定の左下の版の表示から「CUDA」の印を外しました（計算デバイスの一覧に CUDA があると出ていた印で、配布物の名前と紛れるため）。
-- **サイト**: ダウンロードの表示（`releases.mjs`）は、CUDA 版のない新しいリリースと、CUDA 版のある古いリリースの両方を扱えます（`tools/check_site_downloads.mjs` に両方の場合があります）。導入の案内（`site/*/guide/install.md` など）から版の選択と CUDA 版の説明を外すのは、CUDA 版のない最初のリリースに合わせて別の PR で行います。サイトは develop から公開するので、先に変えると今のリリースの案内と食い違うためです。
+- **サイト**: ダウンロードの表示（`releases.mjs`）は、CUDA 版のない新しいリリースと、CUDA 版のある古いリリースの両方を扱えます（`tools/check_site_downloads.mjs` に両方の場合があります）。導入の案内（`site/*/guide/install.mdx` など）から版の選択と CUDA 版の説明を外すのは、CUDA 版のない最初のリリース（0.6.0）に合わせて別の PR で行いました。サイトは develop から公開するので、先に変えると当時のリリースの案内と食い違うためです。
 
 新しい版から `VRCT-VOX_cuda.zip` はリリースに載りません。それを取りに行く外部の手順は動かなくなるので、変更には `!` と `BREAKING CHANGE:` を付けました。0.5 系のリリースの `VRCT-VOX_cuda.zip` はそのまま残ります。
 
@@ -105,7 +105,7 @@ CUDA 版の ZIP には、0.5.0 から標準版にないものが何もありま�
 ### 計る前にそろえるもの
 
 1. 音声認識: 同梱の speech.cpp と、カタログの Qwen3-ASR 0.6B Q8_0 と Silero VAD（同意を得て取得します）。計測の道具は #278 の `native/core/examples/live_asr.rs` です。中核をアプリと同じく起動し、デバイスと同じ間隔で音声を流します。#278 のマージを待ちます。
-2. ローカル翻訳: ONNX の翻訳モデルは公開していないので、`tools/translation_onnx/export.py` で作ります。元のモデルの取得に同意が要ります。GPU の実行プロバイダを含む ONNX Runtime は同梱していません（同梱は CPU 版）。DirectML 版（NuGet の 1.24.4）、OpenVINO 版、CUDA 版を `ORT_DYLIB_PATH` で指します。道具は `astarot-translate` と、それを動かす `tools/translation_onnx/compare.py` です。`astarot-translate` は `--device directml:<番号>` などで機器を選び、実際に動いた実行プロバイダと CPU への切り替えを標準エラーに出します。DirectML では、2026-11-18 より後の `export.py` で作ったフォルダを使います（前のものは `Reshape` の `allowzero=1` のため動きません）。計る前に、`tools/translation_onnx/tiny.py` の小さなモデルと `tests/real.rs` の `a_device_decodes_as_the_cpu_does` で、その GPU で CPU と同じ訳になることを確かめられます。
+2. ローカル翻訳: ONNX の翻訳モデルは 2026-11-19 から公開していて、カタログから取得します（自分で作るときは `tools/translation_onnx/export.py`。元のモデルの取得に同意が要ります）。GPU の実行プロバイダを含む ONNX Runtime は同梱していません（同梱は CPU 版）。CUDA 版と DirectML 版はアプリの中で同意を得てから取得でき、ほかの版（OpenVINO 版など）は `ORT_DYLIB_PATH` で指します。道具は `astarot-translate` と、それを動かす `tools/translation_onnx/compare.py` です。`astarot-translate` は `--device directml:<番号>` などで機器を選び、実際に動いた実行プロバイダと CPU への切り替えを標準エラーに出します。DirectML では、2026-11-18 より後の `export.py` で作ったフォルダを使います（前のものは `Reshape` の `allowzero=1` のため動きません）。計る前に、`tools/translation_onnx/tiny.py` の小さなモデルと `tests/real.rs` の `a_device_decodes_as_the_cpu_does` で、その GPU で CPU と同じ訳になることを確かめられます。
 
 ### 手順
 
@@ -170,7 +170,6 @@ Issue #288 と PR #616、PR #630 に記録した決定です。下の「判断�
 
 ## 残っている作業
 
-- サイトの導入の案内から CUDA 版を外す（CUDA 版のない最初のリリースに合わせる）。
-- 判断 4、6、1 の実装（「決まったこと」の表）。
+- 判断 1 の実装（「決まったこと」の表）。判断 4 と 6 は 0.6.0 で入れました（`native/core/src/controller/gpu_check.rs`、`.github/ISSUE_TEMPLATE/gpu_report.yml`）。
 - #278 のマージの後に、音声認識の実測を行います。翻訳のモデルを作ったら、ローカル翻訳の実測を行います。
-- `site/*/guide/requirements.md` の Linux のアプリの大きさ（約 0.5 GB、展開して約 1.3 GB）と、「すべての機能をそろえるなら Windows で約 11 GB」の目安は、Python を同梱していたころの値のままです。0.5.1 の Linux の tar.gz は約 52 MB です。Python の同梱をやめた影響（#285）なので、#288 の作業では直していません。
+- `site/*/guide/requirements.mdx` のアプリの大きさは、2026-11-23 に 0.6.0 の配布物の値に直しました（Windows の ZIP は約 0.17 GB で展開して約 0.46 GB、Linux の tar.gz は約 0.19 GB で展開して約 0.51 GB）。「すべての機能をそろえるなら Windows で約 11 GB」の目安は、表の各項目の上限を足すと約 11.6 GB で、目安として変えていません。

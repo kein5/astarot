@@ -109,14 +109,14 @@ fn stream_plays_to_an_explicit_sink_and_reports_its_loss() {
     use astarot_audio_routing::router::{CancelToken, Output};
     use astarot_audio_routing::Error;
 
-    let missing = PipeWireOutput::open("vrct.test.absent", 24000, 1, None, "vrct.tts");
+    let missing = PipeWireOutput::open("vrct.test.absent", 24000, 1, None, "astarot.tts");
     assert_eq!(missing.err(), Some(Error::speech("output_missing")));
 
     let name = format!("vrct.test.sink.{}", std::process::id());
     let sink = null_sink(&name);
     wait_for_sink(&name);
     let token = CancelToken::default();
-    let mut output = PipeWireOutput::open(&name, 24000, 1, None, "vrct.tts").expect("open");
+    let mut output = PipeWireOutput::open(&name, 24000, 1, None, "astarot.tts").expect("open");
     let silence = vec![0u8; 480];
     let started = std::time::Instant::now();
     for _ in 0..25 {
@@ -126,7 +126,7 @@ fn stream_plays_to_an_explicit_sink_and_reports_its_loss() {
     assert!(started.elapsed() >= std::time::Duration::from_millis(100), "{:?}", started.elapsed());
     output.close(true, &token).expect("drain");
 
-    let mut output = PipeWireOutput::open(&name, 24000, 1, None, "vrct.tts").expect("open");
+    let mut output = PipeWireOutput::open(&name, 24000, 1, None, "astarot.tts").expect("open");
     output.write(&silence, &token).expect("write");
     drop(sink);
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(3);

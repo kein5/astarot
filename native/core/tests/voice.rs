@@ -419,6 +419,39 @@ fn the_managed_route_follows_the_os_gate_on_linux() {
     run.ui.stop();
 }
 
+/// ADR-014, 2.8: the core's own managed route of an earlier version is made again under the
+/// new names at the start, and the user is told once to choose the new microphone in VRChat,
+/// until they close the notice. The new microphone starts muted.
+#[test]
+fn the_renamed_virtual_microphone_is_told_until_the_notice_is_closed() {
+    let voice = FakeVoice::new();
+    let gate = voice.gate();
+    gate.retires.store(true, Ordering::SeqCst);
+    let run = start_with(json!({ "VOICE_SETTINGS": { "routing": "managed" } }), Platform::Linux, voice, FakeAudio::new(), false);
+    eventually("the route is ready", || run.ui.ok("/get/data/voice_route", None)["ready"] == true);
+    let route = run.ui.ok("/get/data/voice_route", None);
+    assert_eq!(route["notice"], "managed_route_renamed", "{route}");
+    assert_eq!(route["requested_muted"], true);
+    assert!(*gate.source_muted.lock().unwrap());
+    eventually("the notice is kept for the next start", || run.ui.saved()["MANAGED_ROUTE_RENAME_NOTICE_PENDING"] == true);
+    assert!(run.process_log().contains("[voice] the managed route retired its legacy units"));
+    // Closing it answers with the route, without the notice, and saves that.
+    let closed = run.ui.ok("/set/disable/managed_route_rename_notice", None);
+    assert!(closed.get("notice").is_none(), "{closed}");
+    assert_eq!(closed["managed"], true);
+    assert!(run.ui.ok("/get/data/voice_route", None).get("notice").is_none());
+    eventually("the closed notice is saved", || run.ui.saved()["MANAGED_ROUTE_RENAME_NOTICE_PENDING"] == false);
+    run.ui.stop();
+}
+
+#[test]
+fn a_new_install_or_a_route_without_old_units_has_no_notice() {
+    let run = start_with(json!({ "VOICE_SETTINGS": { "routing": "managed" } }), Platform::Linux, FakeVoice::new(), FakeAudio::new(), false);
+    eventually("the route is ready", || run.ui.ok("/get/data/voice_route", None)["ready"] == true);
+    assert!(run.ui.ok("/get/data/voice_route", None).get("notice").is_none());
+    run.ui.stop();
+}
+
 #[test]
 fn speech_servers_the_switch_starts_are_its_own_and_go_with_it() {
     let models = tempfile::tempdir().unwrap();
