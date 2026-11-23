@@ -499,6 +499,8 @@ fn a_diarized_caption_names_its_speakers_and_the_large_log_draws_their_names() {
     use astarot_transcription::capture::Source;
 
     let asr = FakeAsr::start();
+    // One utterance, when the test speaks (below).
+    asr.behaviour.realtime_after.store(0, std::sync::atomic::Ordering::SeqCst);
     *asr.behaviour.models.lock().unwrap() = json!({ "data": [
         recognition_model("haas-ja", &["ja"], false, &["keywords"]),
         diarization_model("nemotron-3-diarization", "Vulkan0"),
@@ -540,6 +542,10 @@ fn a_diarized_caption_names_its_speakers_and_the_large_log_draws_their_names() {
     wait("the session is configured", || !asr.diarization.lock().unwrap().is_empty());
     assert_eq!(asr.diarization.lock().unwrap()[0], json!({}));
     let before = fake.calls_on(large, "raw").len();
+    // The server tells one utterance and no more. One told near the stop is still drawn on the
+    // large log after it (the captions shown stay): late on a slow runner, it counted as the
+    // name's drawing, or as a drawing for another session's name (#861).
+    asr.behaviour.realtime_announce.store(1, std::sync::atomic::Ordering::SeqCst);
     capture.hear(Source::Speaker, &[speech(2000)]);
     let caption = |state: &str| {
         ui.wait_from(mark, state, |l| l["endpoint"] == "/run/realtime_caption" && l["result"]["state"] == state)["result"].clone()
@@ -548,8 +554,7 @@ fn a_diarized_caption_names_its_speakers_and_the_large_log_draws_their_names() {
     assert_eq!(final_["speakers"], json!(["A", "B"]), "the voices that spoke long enough, in order");
     assert_eq!(caption("partial")["speakers"], json!([]), "a partial caption names no one");
     assert_eq!(caption("translated")["speakers"], json!(["A", "B"]));
-    // Each caption row was queued for the large log before it reached the UI (#861); the server
-    // goes on speaking, so later captions may still wait.
+    // Each caption row was queued for the large log before it reached the UI (#861).
     let core = ui.backend.core().clone();
     let queued = core.overlay_captions_queued();
     wait("the captions drawn", || core.overlay_captions_drawn(queued));
