@@ -998,7 +998,6 @@ impl PipelineCore {
             return;
         }
         crate::priority::lower_current_thread();
-        let mut ticks = 0;
         while !self.stopping() {
             let start = self.clock.now();
             self.tick_retry.log.report(start);
@@ -1023,11 +1022,6 @@ impl PipelineCore {
                 self.stage_failure("tick", Some(&failure));
             }
             shared.publish(self);
-            ticks += 1;
-            if ticks <= 2 {
-                // Inference creates some of its threads only once it runs.
-                crate::priority::lower_new_threads(&shared.baseline_threads);
-            }
             let elapsed = self.clock.now() - start;
             let sleep = self.poll_interval - elapsed;
             if sleep > 0.0 {
@@ -1059,7 +1053,6 @@ pub struct Shared {
     capture: Mutex<CaptureView>,
     /// True from the worker's start until its loop has returned.
     running: AtomicBool,
-    baseline_threads: Vec<u64>,
     /// Replaces the timed wait (tests drive a fake clock with it).
     waiter: Option<Box<dyn Fn(f64) + Send + Sync>>,
 }
@@ -1082,7 +1075,6 @@ impl Shared {
             active: Mutex::new((String::new(), None)),
             capture: Mutex::new(CaptureView::default()),
             running: AtomicBool::new(false),
-            baseline_threads: crate::priority::thread_ids(),
         }
     }
 
@@ -1273,7 +1265,6 @@ impl OcrPipeline {
             return Ok(false);
         }
         self.log.info(&format!("OCR pipeline: started ({}, candidates={}, region={:?}, chatbox_filter={})", spec.label(), core.detector_name(), core.current_region(), core.chatbox_filter));
-        crate::priority::lower_new_threads(&self.shared.baseline_threads);
         Ok(true)
     }
 

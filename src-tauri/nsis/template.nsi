@@ -1769,6 +1769,199 @@ FunctionEnd
   ${EndIf}
 !macroend
 
+; ADR-013: the API keys of a settings folder are in the Windows Credential Manager, each a generic
+; credential named <prefix>/<store_id>/<entry>: ASTAROT, or VRCT-VOX as 0.6.0 named them
+; (credentials::WINDOWS_PREFIX in native/app-identity, which a test keeps in step with these).
+; <store_id> is the "store_id" of secrets.json: 16 lowercase hex digits made for that folder only.
+; Another folder (another install, or ASTAROT_CONFIG_DIR) has another id, so its keys stay.
+!define CREDENTIALPREFIX "ASTAROT"
+!define OLDCREDENTIALPREFIX "VRCT-VOX"
+Var store_id
+; "1" when some of this folder's credentials could not be removed.
+Var keys_left
+!ifdef LANG_ENGLISH
+  LangString keysLeft ${LANG_ENGLISH} "Some API keys of ${PRODUCTNAME} could not be removed, so secrets.json stays in $INSTDIR to remove them later. Install ${PRODUCTNAME} into the same folder and uninstall it again with the application data, or open Credential Manager, choose Windows Credentials, and remove the entries whose names start with ${CREDENTIALPREFIX}/$store_id/ or ${OLDCREDENTIALPREFIX}/$store_id/."
+!endif
+!ifdef LANG_JAPANESE
+  LangString keysLeft ${LANG_JAPANESE} "${PRODUCTNAME}のAPIキーの一部を削除できなかったので、あとで削除し直せるように$INSTDIRにsecrets.jsonを残しました。同じフォルダーにもう一度インストールしてからアプリケーションデータごとアンインストールするか、資格情報マネージャーの「Windows資格情報」で、名前が${CREDENTIALPREFIX}/$store_id/か${OLDCREDENTIALPREFIX}/$store_id/で始まる項目を削除してください。"
+!endif
+
+; Drops the spaces and tabs at the start of ${text}. Uses $R9.
+!macro SkipBlanks text
+  ${Do}
+    StrCpy $R9 ${text} 1
+    ${If} $R9 S!= " "
+    ${AndIf} $R9 S!= "$\t"
+      ${ExitDo}
+    ${EndIf}
+    StrCpy ${text} ${text} "" 1
+  ${Loop}
+!macroend
+
+; Pops a string and pushes "1" when it is 16 lowercase hex digits, as the app makes a store id
+; (valid_store_id in native/core/src/config/secrets.rs), else "0".
+Function un.IsStoreId
+  Exch $0
+  Push $1
+  Push $2
+  Push $3
+  Push $4
+  Push $5
+  StrCpy $5 "0"
+  StrLen $1 $0
+  ${If} $1 = 16
+    StrCpy $5 "1"
+    StrCpy $1 0
+    ${DoWhile} $1 < 16
+      StrCpy $2 $0 1 $1
+      StrCpy $3 0
+      ${DoWhile} $3 < 16
+        StrCpy $4 "0123456789abcdef" 1 $3
+        ${If} $4 S== $2
+          ${ExitDo}
+        ${EndIf}
+        IntOp $3 $3 + 1
+      ${Loop}
+      ${If} $3 = 16
+        StrCpy $5 "0"
+        ${ExitDo}
+      ${EndIf}
+      IntOp $1 $1 + 1
+    ${Loop}
+  ${EndIf}
+  StrCpy $0 $5
+  Pop $5
+  Pop $4
+  Pop $3
+  Pop $2
+  Pop $1
+  Exch $0
+FunctionEnd
+
+; Sets $store_id from $INSTDIR\secrets.json, or to "" when the file has no valid one. The app
+; writes the file with one key per line (to_python_json in native/core/src/config), so the line
+; with the id is read whole even when the encrypted entries before it are longer than an NSIS
+; string: FileRead stops at the end of a line, and the next read starts the next one.
+Function un.ReadStoreId
+  Push $0
+  Push $1
+  Push $2
+  Push $3
+  Push $R9
+  StrCpy $store_id ""
+  ClearErrors
+  FileOpen $0 "$INSTDIR\secrets.json" r
+  ${IfNot} ${Errors}
+    ${Do}
+      ClearErrors
+      FileRead $0 $1
+      ${If} ${Errors}
+        ${ExitDo}
+      ${EndIf}
+      !insertmacro SkipBlanks $1
+      StrCpy $2 $1 10
+      ${If} $2 S== '"store_id"'
+        StrCpy $1 $1 "" 10
+        !insertmacro SkipBlanks $1
+        StrCpy $2 $1 1
+        ${If} $2 S== ":"
+          StrCpy $1 $1 "" 1
+          !insertmacro SkipBlanks $1
+          ; "<16 hex digits>"
+          StrCpy $2 $1 1
+          StrCpy $3 $1 1 17
+          ${If} $2 S== '"'
+          ${AndIf} $3 S== '"'
+            StrCpy $2 $1 16 1
+            Push $2
+            Call un.IsStoreId
+            Pop $3
+            ${If} $3 == "1"
+              StrCpy $store_id $2
+            ${EndIf}
+          ${EndIf}
+        ${EndIf}
+        ${ExitDo}
+      ${EndIf}
+    ${Loop}
+    FileClose $0
+  ${EndIf}
+  Pop $R9
+  Pop $3
+  Pop $2
+  Pop $1
+  Pop $0
+FunctionEnd
+
+; Removes the generic credentials named ${prefix}/$store_id/<entry> and sets $keys_left to "1"
+; when some of them stay. Each name is compared again, beside the enumeration's filter, before
+; it goes. Uses $0-$9.
+!macro DeleteCredentials prefix
+  System::Call 'advapi32::CredEnumerateW(w "${prefix}/$store_id/*", i 0, *i .r1, *p .r2) i .r0 ?e'
+  Pop $3
+  ${If} $0 <> 0
+    StrCpy $4 0
+    ${DoWhile} $4 < $1
+      IntOp $5 $4 * ${NSIS_PTR_SIZE}
+      IntPtrOp $5 $2 + $5
+      System::Call '*$5(p .r6)'
+      ; CREDENTIALW: Flags, Type, TargetName.
+      System::Call '*$6(i .r7, i .r8, w .r9)'
+      StrLen $7 "${prefix}/$store_id/"
+      StrCpy $5 $9 $7
+      ${If} $8 = 1 ; CRED_TYPE_GENERIC
+      ${AndIf} $5 == "${prefix}/$store_id/"
+        System::Call 'advapi32::CredDeleteW(w r9, i 1, i 0) i .r7 ?e'
+        Pop $3
+        ${If} $7 = 0
+        ${AndIf} $3 <> 1168 ; ERROR_NOT_FOUND: gone already
+          StrCpy $keys_left "1"
+        ${EndIf}
+      ${EndIf}
+      IntOp $4 $4 + 1
+    ${Loop}
+    System::Call 'advapi32::CredFree(p r2)'
+  ${ElseIf} $3 <> 1168 ; ERROR_NOT_FOUND: there are none
+    StrCpy $keys_left "1"
+  ${EndIf}
+!macroend
+
+; The keys of this folder, in both names. Without a store id there is nothing to remove: the
+; app makes the id when it keeps the first key in the Credential Manager.
+Function un.DeleteStoredKeys
+  Call un.ReadStoreId
+  ${If} $store_id == ""
+    Return
+  ${EndIf}
+  Push $0
+  Push $1
+  Push $2
+  Push $3
+  Push $4
+  Push $5
+  Push $6
+  Push $7
+  Push $8
+  Push $9
+  StrCpy $keys_left "0"
+  !insertmacro DeleteCredentials "${CREDENTIALPREFIX}"
+  !insertmacro DeleteCredentials "${OLDCREDENTIALPREFIX}"
+  Pop $9
+  Pop $8
+  Pop $7
+  Pop $6
+  Pop $5
+  Pop $4
+  Pop $3
+  Pop $2
+  Pop $1
+  Pop $0
+  ${If} $keys_left == "1"
+    DetailPrint "Some API keys could not be removed from Credential Manager"
+    MessageBox MB_OK|MB_ICONEXCLAMATION "$(keysLeft)" /SD IDOK
+  ${EndIf}
+FunctionEnd
+
 Section Uninstall
   !insertmacro CheckIfAppIsRunning
 
@@ -1792,20 +1985,46 @@ Section Uninstall
   ; 完全削除は「Delete AppData」チェックが入った場合のみ。
   ; config.json の隣に置くファイルは docs/spec/data-and-persistence.md の表を参照。
   ${If} $DeleteAppDataCheckboxState == 1
+    ; The API keys first: secrets.json names them in the Credential Manager.
+    Call un.DeleteStoredKeys
+    ; The settings, with their lock, the copies set aside (unreadable files, the migrations up
+    ; to 0.5) and a temporary file an interrupted save left: config.json.*.
     Delete "$INSTDIR\config.json"
-    Delete "$INSTDIR\config.json.unreadable-*"
+    Delete "$INSTDIR\config.json.*"
+    ; The id of the keys (and up to 0.5 the keys), the same way. While a key of this folder is
+    ; still in Credential Manager, secrets.json stays: it holds the id that another uninstall
+    ; with the app data needs to remove the rest (decided on #1011).
+    ${If} $keys_left != "1"
+      Delete "$INSTDIR\secrets.json"
+    ${EndIf}
+    Delete "$INSTDIR\secrets.json.*"
     Delete "$INSTDIR\voice_mute_state.json"
-    ; The list of registered models only: the model files stay where the user keeps them.
+    Delete "$INSTDIR\.voice-mute-*"
+    ; The lists of registered models and of the translation catalog's entries only: the model
+    ; files stay where the user keeps them. A leading dot names a temporary file.
     Delete "$INSTDIR\user_models.json"
+    Delete "$INSTDIR\.user_models.json.*"
+    Delete "$INSTDIR\translation_catalog.json"
+    Delete "$INSTDIR\.translation_catalog.json.*"
+    Delete "$INSTDIR\telemetry_state.json"
+    Delete "$INSTDIR\telemetry_state.json.*"
     RmDir /r "$INSTDIR\downloaded_models"
     RmDir /r "$INSTDIR\vc_runtimes"
+    RmDir /r "$INSTDIR\logs"
+    RmDir /r "$INSTDIR\weights"
+    ; Logs the Python backend up to 0.5 wrote next to the app.
     Delete "$INSTDIR\process.log"
     Delete "$INSTDIR\error.log"
     Delete "$INSTDIR\crash_trace.log"
     Delete "$INSTDIR\freeze_trace.log"
-    Delete "$INSTDIR\telemetry_state.json"
-    RmDir /r "$INSTDIR\logs"
-    RmDir /r "$INSTDIR\weights"
+    Delete "$INSTDIR\startup_timing.log"
+    ; The user's own files stay, and with them the install folder: translation-models\ holds
+    ; model folders the user put there for versions before #597, and exports\ the vocabulary
+    ; files the user exported.
+    ${If} ${FileExists} "$INSTDIR\translation-models\*.*"
+    ${OrIf} ${FileExists} "$INSTDIR\exports\*.*"
+      DetailPrint "Kept your own files in translation-models and exports"
+    ${EndIf}
   ${EndIf}
 
   ; インストーラが起動時 UI 言語受け渡し用に置くマーカーファイル。

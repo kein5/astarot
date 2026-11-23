@@ -103,7 +103,7 @@
     "ja-kana-words|他の": 1,
     "ja-long-vowel-er|コントローラ": 1,
     "ja-long-vowel-er|フォルダ": 2,
-    "ja-long-vowel-er|ブラウザ": 7,
+    "ja-long-vowel-er|ブラウザ": 6,
     "ja-long-vowel-y|メモリー": 1,
     "ja-okurigana|切替": 1,
     "ja-okurigana|読込み": 1,
@@ -192,10 +192,9 @@
     "ja-terms|VRパネル": 2
   },
   "docs/spec/cross-cutting.md": {
-    "ja-kana-words|等": 1,
     "ja-long-vowel-er|ドライバ": 1,
     "ja-long-vowel-er|フォルダ": 1,
-    "ja-long-vowel-y|メモリー": 5,
+    "ja-long-vowel-y|メモリー": 4,
     "ja-okurigana|取消": 2,
     "ja-okurigana|受付": 11,
     "ja-roundabout|を行う": 3,
@@ -498,7 +497,6 @@
   },
   "native/ocr-runtime/README.md": {
     "en-british|behaviour": 1,
-    "en-british|licence": 1,
     "en-british|recognised": 1
   },
   "native/ops/data/README.md": {

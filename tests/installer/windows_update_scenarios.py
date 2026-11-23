@@ -5,6 +5,7 @@ release URL and makes build stubs. No production URL override is introduced.
 """
 
 import argparse
+import base64
 from contextlib import contextmanager
 import ctypes
 from hashlib import sha256
@@ -13,6 +14,7 @@ import io
 import json
 import os
 from pathlib import Path
+import secrets
 import shutil
 import struct
 import subprocess
@@ -793,6 +795,209 @@ def rename_scenarios(installer, work):
     print("PASS the uninstaller removes the renamed shortcuts", flush=True)
 
 
+# The API keys of a settings folder are generic credentials named <prefix>/<store_id>/<entry> in
+# the Credential Manager (ADR-013); 0.6.0 used the prefix VRCT-VOX.
+CREDENTIAL_PREFIXES = ("ASTAROT", "VRCT-VOX")
+ERROR_NOT_FOUND = 1168
+
+
+def credential_api():
+    from ctypes import wintypes
+
+    class Credential(ctypes.Structure):
+        _fields_ = [("Flags", wintypes.DWORD), ("Type", wintypes.DWORD), ("TargetName", wintypes.LPWSTR),
+                    ("Comment", wintypes.LPWSTR), ("LastWritten", wintypes.FILETIME),
+                    ("CredentialBlobSize", wintypes.DWORD), ("CredentialBlob", ctypes.c_void_p),
+                    ("Persist", wintypes.DWORD), ("AttributeCount", wintypes.DWORD),
+                    ("Attributes", ctypes.c_void_p), ("TargetAlias", wintypes.LPWSTR),
+                    ("UserName", wintypes.LPWSTR)]
+
+    advapi = ctypes.WinDLL("advapi32", use_last_error=True)
+    advapi.CredWriteW.argtypes = [ctypes.POINTER(Credential), wintypes.DWORD]
+    advapi.CredWriteW.restype = wintypes.BOOL
+    advapi.CredReadW.argtypes = [wintypes.LPCWSTR, wintypes.DWORD, wintypes.DWORD,
+                                 ctypes.POINTER(ctypes.POINTER(Credential))]
+    advapi.CredReadW.restype = wintypes.BOOL
+    advapi.CredDeleteW.argtypes = [wintypes.LPCWSTR, wintypes.DWORD, wintypes.DWORD]
+    advapi.CredDeleteW.restype = wintypes.BOOL
+    advapi.CredFree.argtypes = [ctypes.c_void_p]
+    return advapi, Credential
+
+
+def write_credential(name):
+    """A generic credential as the app writes one (CRED_PERSIST_LOCAL_MACHINE)."""
+    advapi, Credential = credential_api()
+    value = ctypes.create_string_buffer(b"not a real key", 14)
+    credential = Credential(Type=1, TargetName=name, CredentialBlobSize=14,
+                            CredentialBlob=ctypes.cast(value, ctypes.c_void_p), Persist=2, UserName="test")
+    if not advapi.CredWriteW(ctypes.byref(credential), 0):
+        raise ctypes.WinError(ctypes.get_last_error())
+
+
+def credential_exists(name):
+    advapi, Credential = credential_api()
+    found = ctypes.POINTER(Credential)()
+    if advapi.CredReadW(name, 1, 0, ctypes.byref(found)):
+        advapi.CredFree(found)
+        return True
+    error = ctypes.get_last_error()
+    if error != ERROR_NOT_FOUND:
+        raise ctypes.WinError(error)
+    return False
+
+
+def delete_credential(name):
+    advapi, _Credential = credential_api()
+    if not advapi.CredDeleteW(name, 1, 0) and ctypes.get_last_error() != ERROR_NOT_FOUND:
+        raise ctypes.WinError(ctypes.get_last_error())
+
+
+# What the app keeps in its folder on Windows (docs/spec/data-and-persistence.md), with the files
+# set aside next to the settings and those an interrupted write leaves.
+APP_DATA = {
+    "config.json": '{"UI_LANGUAGE": "ja"}',
+    "config.json.lock": "",
+    "config.json.unreadable-20260101-000000-0123456789ab": "not JSON",
+    "config.json.before-migration-2": "{}",
+    "config.json.0123456789ab.tmp": "{}",
+    "secrets.json.lock": "",
+    "secrets.json.unreadable-20260101-000000-0123456789ab": "{",
+    "secrets.json.0123456789ab.tmp": "{}",
+    "user_models.json": '{"version": 1, "models": []}',
+    ".user_models.json.0123456789abcdef0123456789abcdef.tmp": "{}",
+    "translation_catalog.json": '{"version": 1, "entries": []}',
+    "voice_mute_state.json": '{"version": 1, "muted": false}',
+    ".voice-mute-0123456789ab": "{}",
+    "telemetry_state.json": "{}",
+    "telemetry_state.json.1234.tmp": "{}",
+    "process.log": "log",
+    "startup_timing.log": "log",
+    "logs/process.log": "log",
+    "logs/2026-01-01_00-00-00.log": "conversation",
+    "downloaded_models/model/1/receipt.json": "{}",
+    "vc_runtimes/rvc/receipt.json": "{}",
+    "weights/whisper/base/model.bin": "weights",
+}
+# The user's own files in the folder, which stay: model folders put there for versions before
+# #597, and exported vocabulary files.
+USER_FILES = {
+    "translation-models/my-model/model.bin": "the user's model",
+    "exports/vocabulary-20260101-000000.txt": "VRChat",
+}
+
+
+def secrets_file(store_id):
+    """secrets.json as the app writes it: one key per line, the sealed entries longer than an
+    NSIS string."""
+    entries = base64.b64encode(os.urandom(12000)).decode()
+    return json.dumps({"entries": entries, "protection": "dpapi", "store_id": store_id, "version": 1}, indent=4)
+
+
+def after_uninstall(directory):
+    """The folder after an uninstall run with _?=, which keeps the uninstaller in place: it
+    cannot remove itself then, so it is left out."""
+    if not directory.exists():
+        return {}
+    return {k: v for k, v in snapshot(directory).items() if k != "uninstall.exe"}
+
+
+def tree_difference(actual, expected):
+    return json.dumps({
+        "missing": sorted(expected.keys() - actual.keys()),
+        "extra": sorted(actual.keys() - expected.keys()),
+        "changed": sorted(k for k in actual.keys() & expected.keys() if actual[k] != expected[k]),
+    }, indent=2)
+
+
+def add_app_data(directory, store_id):
+    for name, value in {**APP_DATA, **USER_FILES, "secrets.json": secrets_file(store_id)}.items():
+        path = directory / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(value, encoding="utf-8")
+
+
+def gui_uninstall(directory, delete_app_data):
+    """Runs the uninstaller with its pages, ticking "Delete the application data" if asked."""
+    from pywinauto import Desktop
+    process = subprocess.Popen(f'"{directory / "uninstall.exe"}" _?={directory}')
+    desktop = Desktop(backend="win32")
+    ticked = False
+    events = []
+    deadline = time.monotonic() + 120
+    try:
+        while process.poll() is None and time.monotonic() < deadline:
+            for window in desktop.windows(process=process.pid, visible_only=True):
+                buttons = [b for b in window.descendants(class_name="Button") if b.is_visible() and b.is_enabled()]
+                events.append([b.window_text() for b in buttons])
+                box = [b for b in buttons if "delete the application data" in b.window_text().lower()
+                       or "アプリケーションデータを削除する" in b.window_text()]
+                if box and delete_app_data and not ticked:
+                    box[0].check()
+                    ticked = box[0].get_check_state() == 1
+                    continue
+                for caption in ("OK", "Uninstall", "Close"):
+                    matches = [b for b in buttons if b.window_text().replace("&", "").strip() == caption]
+                    if matches:
+                        matches[0].click()
+                        time.sleep(0.2)
+                        break
+            time.sleep(0.1)
+        assert process.poll() is not None, "The uninstaller timed out"
+        assert process.returncode == 0, f"uninstaller: exit {process.returncode}"
+        assert ticked or not delete_app_data, "The box to delete the application data was never reached"
+    finally:
+        (directory.parent / f"{directory.name}-uninstall-controls.json").write_text(json.dumps(events, indent=2), encoding="utf-8")
+        if process.poll() is None:
+            process.kill()
+            process.wait(timeout=10)
+
+
+def delete_app_data_scenario(installer, work):
+    """The uninstaller's "Delete the application data" removes everything the app keeps in its
+    folder, and this folder's API keys under both names; the user's own folders and another
+    folder's keys stay. Without it, all of that stays."""
+    mine, other = secrets.token_hex(8), secrets.token_hex(8)
+    keys = [f"{prefix}/{mine}/{entry}" for prefix in CREDENTIAL_PREFIXES
+            for entry in ("AUTH_KEYS/DeepL_API", "TRANSLATION_CATALOG/0123456789abcdef")]
+    # Another settings folder's keys, and a name that only starts like this folder's.
+    others = [f"{prefix}/{other}/AUTH_KEYS/DeepL_API" for prefix in CREDENTIAL_PREFIXES] + [
+        f"ASTAROT/{mine}0/AUTH_KEYS/DeepL_API"]
+    try:
+        for name in keys + others:
+            write_credential(name)
+
+        directory = work / "uninstall keeps app data"
+        run_install(installer, directory, "new", work / "temp-uninstall-keeps", True)
+        add_app_data(directory, mine)
+        data = {k: v for k, v in snapshot(directory).items()
+                if not k.startswith("_internal") and k not in (APP, "uninstall.exe", "installer_language.txt")}
+        run_uninstall(directory)
+        left = after_uninstall(directory)
+        assert left == data, "An uninstall without the box changed app data: " + tree_difference(left, data)
+        assert all(credential_exists(name) for name in keys + others), "An uninstall without the box removed keys"
+        print("PASS an uninstall keeps app data and API keys unless asked", flush=True)
+
+        directory = work / "uninstall deletes app data"
+        run_install(installer, directory, "new", work / "temp-uninstall-deletes", True)
+        add_app_data(directory, mine)
+        gui_uninstall(directory, delete_app_data=True)
+        kept = after_uninstall(directory)
+        user = {}
+        for name, value in USER_FILES.items():
+            user[name] = sha256(value.encode()).hexdigest()
+            for parent in Path(name).parents:
+                if str(parent) != ".":
+                    user[parent.as_posix()] = "directory"
+        assert kept == user, json.dumps({"left": sorted(kept.keys() - user.keys()),
+                                         "lost": sorted(user.keys() - kept.keys())}, indent=2)
+        assert not [name for name in keys if credential_exists(name)], "This folder's API keys remain"
+        assert all(credential_exists(name) for name in others), "Another folder's API keys were removed"
+        print("PASS Delete the application data removes app data and this folder's API keys only", flush=True)
+    finally:
+        for name in keys + others:
+            delete_credential(name)
+
+
 def system_tar():
     # The installer's tar, not one that a tool put earlier on PATH.
     return str(Path(os.environ["SystemRoot"]) / "System32/tar.exe")
@@ -864,6 +1069,7 @@ def main():
         elif args.mode == "rename":
             rename_scenarios(args.installer.resolve(), work)
         else:
+            delete_app_data_scenario(args.installer.resolve(), work)
             gui_scenario(args.installer.resolve(), work)
             gui_second_run_scenario(args.installer.resolve(), work, server)
 
