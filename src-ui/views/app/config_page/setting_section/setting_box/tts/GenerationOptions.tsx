@@ -5,7 +5,7 @@ import { useSpeechServers } from "../../../../../../logics/voice/useSpeechServer
 import type { VoiceModelRole, VoiceSettings } from "../../../../../../logics/voice/useVoice";
 import { EnvReadout } from "../_components/env_readout/EnvReadout";
 import { FormRow } from "../_components/form_row/FormRow";
-import styles from "../advanced_settings/VoiceSettings.module.scss";
+import * as styles from "../advanced_settings/VoiceSettings.css.ts";
 
 // Control characters other than tab, line feed and carriage return: an instruction with one is not valid.
 // biome-ignore lint/suspicious/noControlCharactersInRegex: the control characters are what it looks for.

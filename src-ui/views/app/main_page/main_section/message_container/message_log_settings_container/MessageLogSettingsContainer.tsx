@@ -1,5 +1,5 @@
 import { useState } from "react";
-import styles from "./MessageLogSettingsContainer.module.scss";
+import * as styles from "./MessageLogSettingsContainer.css.ts";
 import clsx from "clsx";
 import { useI18n } from "@useI18n";
 

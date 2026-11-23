@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import styles from "./LabelComponent.module.scss";
+import * as styles from "./LabelComponent.css.ts";
 import { _OpenWebpageButton } from "../_atoms/_open_webpage_button/_OpenWebpageButton";
 import WarningSvg from "@images/warning.svg?react";
 import { Description } from "../description/Description";

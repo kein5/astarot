@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import styles from "./VersionLabel.module.scss";
+import * as styles from "./VersionLabel.css.ts";
 
 import { useI18n } from "@useI18n";
 import { useSoftwareVersion, useCopyToClipboard } from "@logics_common";
@@ -26,7 +26,6 @@ export const VersionLabel = ({ isCompact = false }) => {
         <div
             className={clsx(styles.container, {
                 [styles.is_compact]: isCompact,
-                [styles.is_beta]: is_beta,
             })}
         >
             <div

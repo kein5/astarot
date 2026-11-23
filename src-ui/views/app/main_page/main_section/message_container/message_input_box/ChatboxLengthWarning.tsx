@@ -2,7 +2,7 @@ import { memo } from "react";
 import { useI18n } from "@useI18n";
 import { useStore_MessageInputValue } from "@store";
 import { CHATBOX_MAX_LENGTH, chatboxOverflowLength } from "../../../../../../logics/common/chatboxLength";
-import styles from "./ChatboxLengthWarning.module.scss";
+import * as styles from "./ChatboxLengthWarning.css.ts";
 
 export const CHATBOX_LENGTH_WARNING_ID = "chatbox_length_warning";
 

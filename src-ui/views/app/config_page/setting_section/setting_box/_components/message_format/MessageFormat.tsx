@@ -1,4 +1,4 @@
-import styles from "./MessageFormat.module.scss";
+import * as styles from "./MessageFormat.css.ts";
 import clsx from "clsx";
 import { useTranslation } from "react-i18next";
 import { _Entry } from "../_atoms/_entry/_Entry";

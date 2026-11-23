@@ -15,6 +15,7 @@ mod manager;
 pub mod speechcpp;
 pub mod staging;
 pub mod translation_catalog;
+pub mod transcription_catalog;
 pub mod transport;
 pub mod user_models;
 pub mod verification;

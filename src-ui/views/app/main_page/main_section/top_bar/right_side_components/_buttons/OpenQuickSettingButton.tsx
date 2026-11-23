@@ -1,6 +1,6 @@
 import { useI18n } from "@useI18n";
 import clsx from "clsx";
-import styles from "./OpenQuickSettingButton.module.scss";
+import * as styles from "./OpenQuickSettingButton.css.ts";
 import WarningSvg from "@images/warning.svg?react";
 import type { AtomStatus } from "@store";
 

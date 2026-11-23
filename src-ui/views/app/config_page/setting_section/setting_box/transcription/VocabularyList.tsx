@@ -2,7 +2,7 @@ import { useId, useState } from "react";
 import type { KeyboardEvent } from "react";
 import { useI18n } from "@useI18n";
 import * as styles from "./VocabularyList.css.ts";
-import voiceStyles from "../advanced_settings/VoiceSettings.module.scss";
+import * as voiceStyles from "../advanced_settings/VoiceSettings.css.ts";
 import { Hint, useHintDescriptions } from "../_components/hint/Hint";
 import { Fold } from "../_components/fold/Fold";
 import { addTerm, changeOwnReadings, changeReadings, deleteOwn, dictionaryRows, readingsText, restoreAllBuiltin, restoreBuiltin, takeOut }

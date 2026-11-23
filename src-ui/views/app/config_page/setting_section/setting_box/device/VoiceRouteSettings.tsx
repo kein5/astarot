@@ -4,7 +4,7 @@ import { useVoice } from "../../../../../../logics/voice/useVoice";
 import { usesOutputDevice } from "../../../../../../logics/voice/routeState";
 import { useSettingsDraft } from "../../../../../../logics/voice/useSettingsDraft";
 import { SectionLabelComponent } from "../_components/section_label_component/SectionLabelComponent";
-import styles from "../advanced_settings/VoiceSettings.module.scss";
+import * as styles from "../advanced_settings/VoiceSettings.css.ts";
 import { EnvReadout } from "../_components/env_readout/EnvReadout";
 import { Lead } from "../_components/lead/Lead";
 import { FormRow } from "../_components/form_row/FormRow";
