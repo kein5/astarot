@@ -109,6 +109,7 @@ export const loadRecordedRoutes = async (options: RecorderOptions = {}) => {
         "./support/useGpuCheck": namespace(), "./setup/useFirstRunSetup": namespace(),
         "./voice/useVoice": namespace(), "./voice/useSpeechServers": namespace(),
         "./voice/useModelDownloads": namespace(), "./translation/useTranslationCatalog": namespace(),
+        "./transcription/useTranscriptionCatalog": namespace(),
         "./voice/useVcRuntimes": namespace({ activeSetupPhases: ACTIVE_SETUP_PHASES }),
         "./flow/useIoFlow": namespace(), "./flow/useGpuMemory": namespace(),
         "./_useBackendErrorHandling": { _useBackendErrorHandling: () => recorder("_useBackendErrorHandling") },
