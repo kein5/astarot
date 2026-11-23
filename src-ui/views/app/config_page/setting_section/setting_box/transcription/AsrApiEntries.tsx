@@ -9,7 +9,7 @@ import { ENTRY_NAME_LIMIT } from "../../../../../../logics/translation/translati
 import { endpointNotices } from "../../../../../../logics/common/endpointPrivacy";
 import { CatalogFacts, CatalogList, useCatalogLayout } from "../advanced_settings/catalogLayout";
 import type { CatalogLayout } from "../advanced_settings/catalogLayout";
-import styles from "../advanced_settings/VoiceSettings.module.scss";
+import * as styles from "../advanced_settings/VoiceSettings.css.ts";
 import { Fold } from "../_components/fold/Fold";
 import { useHintDescriptions } from "../_components/hint/Hint";
 import { Lead } from "../_components/lead/Lead";
