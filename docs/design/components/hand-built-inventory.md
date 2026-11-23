@@ -128,7 +128,7 @@ VR パネルだけで使う部品です。`VrWindow`（窓の枠）、`VrPickerL
 | 音声認識（ASR） | `transcription/RealtimeASRSettings.tsx` | 6 個の `<select>`、URL の欄、組み込みの語彙のチェックボックス、更新・始める・止める・保存のボタン（`<form>` の送信） | kit の `Select`、kit の `TextField`、スイッチ（K-02）、kit の `Button` | 中 | 保存は `<form>` の送信で、ほかのページの保存バーとは別の形です |
 |  | `transcription/VocabularyList.tsx`、`VocabularyFiles.tsx` | 書き方と読みの `<input>` が並ぶ行の一覧、行ごとの quiet のボタン、隠したファイルの `<input>` と読み込み・書き出しのボタン | kit の `TextField`、kit の `Button`。行の一覧は U-11 | 中 | ファイルを選ぶ形は、共通の `FileDropZone`（落とす形）とは違います |
 | 字幕とVR | `vr/Vr.tsx` | 表示する設定の切り替え（「1 行」と「複数行」、「位置」と「回転」。それぞれ 2 つの `div role="button"` と `aria-pressed`）、既定に戻すボタン、試しに送るボタン | 切り替えは U-03、ボタンは kit の `Button` | 高 | 試しに送るボタンは、押しても幅が変わらないように長い方の文言の幅を保っています（#912） |
-| ホットキー | `hotkeys/Hotkeys.tsx`、`_components/hotkeys_entry/HotkeysEntry.tsx` | クイックチャットを開くボタン、ショートカットを消すボタン | kit の `Button` | 低 | ほかは行の部品の系統です |
+| ホットキー | `hotkeys/Hotkeys.tsx`、`_components/hotkeys_entry/HotkeysEntry.tsx` | Quick Chat を開くボタン、ショートカットを消すボタン | kit の `Button` | 低 | ほかは行の部品の系統です |
 | 高度な設定 | `advanced_settings/AdvancedSettings.tsx`、`GpuCheck.tsx` | 作り直しの確認の `<dialog>`、GPU の確認の始める・止める・写す・報告するボタン | kit の `Dialog`、kit の `Button` | 中 | GPU の確認の表は Table に当たります（照合の文書の「そのほか」） |
 | 実験的機能 | `experimental_features/ExperimentalFeatures.tsx` | なし（行の部品の系統だけ） | — | — | — |
 | アップデート | `updater/Updater.tsx` | インストールと確認の `<button>`（独自のクラス） | kit の `Button` | 低 | — |
@@ -162,7 +162,7 @@ VR パネルだけで使う部品です。`VrWindow`（窓の枠）、`VrPickerL
 
 | 窓 | 場所 | 手作りしている要素 | 置き換え先 | 難しさ | 引っかかり |
 |---|---|---|---|---|---|
-| クイックチャット | `quick_chat/QuickChat.tsx`（`quick-chat.html`） | `<textarea>`、送信の `<button>` | 入力欄は U-06、送信は kit の `Button` | 中 | メインの入力欄と同じ受け皿（U-06）を待ちます |
+| Quick Chat | `quick_chat/QuickChat.tsx`（`quick-chat.html`） | `<textarea>`、送信の `<button>` | 入力欄は U-06、送信は kit の `Button` | 中 | メインの入力欄と同じ受け皿（U-06）を待ちます |
 | トレイのコンパニオン | `companion_panel/CompanionPanel.tsx` | 機能の `<button role="switch">`、メインを開くと隠すのボタン | kit の `Switch`、kit の `Button` | 中 | 待ち（`aria-busy`）の表し方を保ちます |
 | コンパニオンの取っ手 | `companion_handle/CompanionHandle.tsx` | 機能のボタン（`aria-pressed`）、置く辺の選択（`aria-pressed`）、メニューの項目、六角形の `polygon role="button"` | 対象にしない（H-03） | — | 照合の外のまま。U-03 と U-04 を kit に足しても、置き換えません |
 | エラーの画面 | `others/error_boundary/AppErrorBoundary.tsx` | エラーを写すボタンと更新のボタン（閉じるボタンは `CloseButton`） | 対象にしない（H-03） | — | 描画が壊れたときに出す画面なので、依存を増やさない方が安全です |
@@ -191,7 +191,7 @@ H-02 の決定で、U-01〜U-12 のすべてに共通の部品を作り、kit �
 | U-03 | 押したままのボタンと、一つだけを選ぶボタンの集まり | プリセットの切り替え、翻訳エンジンの選択、ミュート、クイック設定の項目、カタログのグリッドとリスト、「字幕とVR」の表示する設定の切り替え、音量の確認（`VolumeCheckButton`）、コンパニオンの取っ手の辺（置き換えの対象外、H-03） | Toggle、ToggleGroup（Radix）。「字幕とVR」の切り替えは、同じページの中のパネルを切り替えるので Tabs（Radix）にも当たります | D-27 | 足す（H-02）。コンパニオンの取っ手は使わない（H-03） |
 | U-04 | ボタンから開く小さな面 | クイック設定、ログの表示の設定、翻訳エンジンの一覧、色のポップオーバー、コンパニオンの取っ手のメニュー（置き換えの対象外、H-03） | Popover、DropdownMenu（Radix） | D-25 | 足す（H-02）。コンパニオンの取っ手は使わない（H-03） |
 | U-05 | 横に伸びる進み具合 | 初期設定、モデルの取得、実行環境の取得、OCR のモデルの取得 | Progress（Radix） | D-32。丸い進み具合は `CircularProgress` があります | 足す（H-02） |
-| U-06 | 複数行の入力欄 | メインの入力欄、クイックチャット、読み上げの生成の設定 | Textarea | D-13 | 足す（H-02） |
+| U-06 | 複数行の入力欄 | メインの入力欄、Quick Chat、読み上げの生成の設定 | Textarea | D-13 | 足す（H-02） |
 | U-07 | カードの形をした選択肢（radio） | テーマの選択 | 部品はありません。Field の例に、FieldLabel で RadioGroupItem を包む選択肢のカードがあります | D-16 | 足す（H-02） |
 | U-08 | 状態の行（印、名前、説明、操作） | 初期設定の「いまの状態」 | Item | 照合の文書の「そのほか」。部品にはまだ分けていません | 足す（H-02） |
 | U-09 | カードと印 | モデルの取得、翻訳のカタログ、OCR のモデル、エンジンのカタログ | Card、Badge | D-28、D-29 | 足す（H-02） |
