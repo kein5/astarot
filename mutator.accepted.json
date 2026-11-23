@@ -15,6 +15,10 @@
     "reason": "An id is retired only when it is not retired already (applyRealtimeCaption returns early for it), so there is nothing to drop.",
     "where": "src-ui/logics/transcription/realtimeCaptionState.ts:78:89 value !== id -> true"
   },
+  "1enuxgbtz5v": {
+    "reason": "Every way a write ends stops its timer first (an answer, a failure before sending, an unconfirmed write, a reset) and a timeout ends by firing, so no timer is running when the next write is admitted.",
+    "where": "src-ui/logics/main/languageMutations.ts:106:5 clearTimer(); -> ;"
+  },
   "1f1qquh6mls": {
     "reason": "An empty name and a placeholder that is not kana both find no kana row.",
     "where": "src-ui/logics/common/languageJumpGroups.ts:35:104 \"\" -> \"Stryker was here!\""
@@ -86,6 +90,10 @@
   "d6gn3xaczg": {
     "reason": "flow is not nullish here: the check before it returned for that.",
     "where": "src-ui/logics/flow/flowGraph.ts:57:30 ?. -> ."
+  },
+  "gtvqcj99lt": {
+    "reason": "finishResync returns at once for an endpoint the resync does not wait for, and it waits only for the five reads, which all have a read atom.",
+    "where": "src-ui/logics/main/languageMutations.ts:140:9 read -> true"
   },
   "sumx19h5ss": {
     "reason": "Only the first character is read; removing a prolonged-sound mark later in the name does not change it.",
