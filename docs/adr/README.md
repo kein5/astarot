@@ -31,6 +31,7 @@ ASTAROT の設計判断の記録（ADR）の正本は、このディレクトリ
 | [016](adr-016-user-guide-site-on-rspress.md) | 利用者向けのサイトの土台を VitePress から Rspress（React）に替える | 2026-11-20 | 採用 | 実装済み | 有効 | Rust の中核 |
 | [017](adr-017-integration-tests-through-the-core.md) | 画面から中核まで通す試験を Playwright の結合テストにし、配布物で通す試験だけを E2E と呼ぶ | 2026-11-20 | 採用 | 実装済み | 有効 | Rust の中核 |
 | [018](adr-018-talk-ai-through-external-services.md) | おしゃべりAIは外部の対話サービスにつなぎ、アプリは対話のモデルを動かさない | 2026-11-22 | 採用 | 一部 | 有効 | Rust の中核 |
+| [019](adr-019-voicevox-core-tts-runtime-exception.md) | VOICEVOX CORE を専用ワーカーと C API の動的ロードで読み上げに組み込む（ADR-012 の例外） | 2026-11-23 | 採用 | 未着手 | 有効 | Rust の中核 |
 
 <!-- adr-index:end -->
 
@@ -143,6 +144,8 @@ ADR 001〜003 は、2026-10-27 に音声の最初の段階（P1）のために�
 [ADR-017: 画面から中核まで通す試験を Playwright の結合テストにし、配布物で通す試験だけを E2E と呼ぶ](adr-017-integration-tests-through-the-core.md)は2026-11-20に採用した。試験を、単体と契約（Vitest と Rust）、結合テスト、E2E の 3 つの層に分ける。結合テストは、画面を操作して中核と Rust のクレートを通り、外への出口と画面の結果までを確かめる試験で、Playwright で `tests/integration/` に書き、すべての PR で Linux と Windows、Chromium と WebKit で流す。画面の側は Tauri の公式の偽物で中核とのやり取りだけをホストへ流し、中核の側は試験の道具の専用のクレートが偽物の `Services` で中核を起動する。E2E は、配布物の形で殻と OS を通す試験だけを指す。
 
 [ADR-018: おしゃべりAIは外部の対話サービスにつなぎ、アプリは対話のモデルを動かさない](adr-018-talk-ai-through-external-services.md)は2026-11-22に提案し、同じ日に採用した（PR #969）。Issue #388 の「おしゃべりAI」の相手を、クラウドのリアルタイム API（OpenAI Realtime、Gemini Live）と、利用者が立てる vLLM-Omni のサーバーに分け、どちらもアプリの外のサービスとしてつなぐ。アプリは対話のモデルもその推論のランタイムも同梱せず、取得もしない。ADR-012 の 2.2 の「外部の翻訳サービスと LLM のサービス」と同じ扱いで、ADR-012 の例外ではない。アプリは、画面と声を送る前の同意、送っている間の表示、送る量の制御、止めたら送らないことを受け持つ。
+
+[ADR-019: VOICEVOX CORE を専用ワーカーと C API の動的ロードで読み上げに組み込む（ADR-012 の例外）](adr-019-voicevox-core-tts-runtime-exception.md)は2026-11-23に採用した（Issue #1061）。製品版 VVM は `vv-bin` 独自形式と `voicevox_onnxruntime` 固有処理に依存し、規約上もリバースエンジニアリング禁止のため speech.cpp への変換・上流貢献も既存 ONNX Runtime（`1.31.0`）との共有もできない。そこで VOICEVOX CORE によるアプリ内日本語読み上げを ADR-012 の管理対象の例外とし、薄い Rust 子プロセス `astarot-voicevox-worker` から同意取得した公式 `voicevox_core` C API（`0.17.1`、MIT）と `voicevox_onnxruntime` 正式版 `1.17.3`（CPU 版）、Open JTalk 辞書を動的ロードする構成を採る。初回は CPU のみ・標準規約の代表パックから始め、VOICEVOX Nemo（`n0.vvm`）は含めない。ADR-008 の外部エンジン接続は並存させ、クレジットは設定画面・同意画面・`AboutVrct.tsx`・`NOTICE.md` に表示する。本実装の着手は Windows・Linux 実機 PoC の計測結果を見て判断する。
 
 ## 配置の移行（2026-11-18）
 

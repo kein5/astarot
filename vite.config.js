@@ -80,7 +80,6 @@ export default defineConfig(() => {
                 "@useStdoutToPython": path.resolve(__dirname, "src-ui/logics/common/useStdoutToPython"),
 
                 "@ui_configs": path.resolve(__dirname, "src-ui/logics/ui_configs"),
-                "@scss_mixins": path.resolve(__dirname, "src-ui/views/common_css/mixins.scss"),
                 "@store": path.resolve(__dirname, "src-ui/logics/store"),
                 "@images": path.resolve(__dirname, "src-ui/views/assets"),
                 "@utils": path.resolve(__dirname, "src-ui/logics/utils"),
@@ -94,14 +93,6 @@ export default defineConfig(() => {
                     "src-ui/views/app/config_page/setting_section/setting_box/index",
                 ),
                 "@common_components": path.resolve(__dirname, "src-ui/views/common_components/index"),
-            },
-        },
-
-        css: {
-            preprocessorOptions: {
-                scss: {
-                    api: "modern-compiler",
-                },
             },
         },
     };
