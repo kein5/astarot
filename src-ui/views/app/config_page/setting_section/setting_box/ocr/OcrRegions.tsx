@@ -5,7 +5,7 @@ import type { OcrRegion, RegionKey } from "../../../../../../logics/configs/ocrR
 import type { AtomState } from "@store";
 import { SliderContainer } from "../_templates/Templates";
 import { Hint, useHintDescriptions } from "../_components/hint/Hint";
-import styles from "./Ocr.module.scss";
+import * as styles from "./Ocr.css.ts";
 
 export const OcrRegions = () => {
     const { t } = useI18n();

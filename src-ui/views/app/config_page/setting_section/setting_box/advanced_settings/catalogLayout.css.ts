@@ -16,7 +16,7 @@ export const layoutSwitch = style({
 });
 
 export const option = style({});
-// The settings page draws every button raised (VoiceSettings.module.scss): here the one in use is
+// The settings page draws every button raised (VoiceSettings.css.ts): here the one in use is
 // raised and the other is quiet, so these rules name the switch and the button together.
 const own = `${layoutSwitch} > ${option}`;
 globalStyle(own, {

@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef } from "react";
 import clsx from "clsx";
-import styles from "./ConfigPage.module.scss";
+import * as styles from "./ConfigPage.css.ts";
 
 import { useIsOpenedConfigPage } from "@logics_common";
 import { useOcr } from "@logics_configs";

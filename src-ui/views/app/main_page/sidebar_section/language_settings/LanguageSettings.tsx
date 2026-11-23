@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import type { MouseEvent } from "react";
 import { useI18n } from "@useI18n";
-import styles from "./LanguageSettings.module.scss";
+import * as styles from "./LanguageSettings.css.ts";
 import { PresetTabSelector } from "./preset_tab_selector/PresetTabSelector";
 import { LanguageSelectorOpenButton } from "./language_selector_open_button/LanguageSelectorOpenButton";
 import { LanguageSwapButton } from "./language_swap_button/LanguageSwapButton";

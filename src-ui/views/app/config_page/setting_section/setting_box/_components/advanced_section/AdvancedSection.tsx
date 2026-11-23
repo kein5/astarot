@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { useI18n } from "@useI18n";
-import styles from "../setup_section/SetupSection.module.scss";
+import * as styles from "../setup_section/SetupSection.css.ts";
 import { Fold } from "../fold/Fold";
 
 // The settings a page keeps for later (#554, the "応用" depth): changed once for a way of

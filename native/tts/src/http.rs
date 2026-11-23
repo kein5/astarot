@@ -39,15 +39,37 @@ impl Interrupter {
 pub(crate) enum HttpError {
     Timeout,
     Interrupted,
-    /// Malformed response, unexpected end, or any other socket failure.
-    Transport,
+    /// The connection or the response failed; [`Fault`] says how.
+    Transport(Fault),
+}
+
+/// How a response failed to arrive (#861): the speech's status keeps it as a fixed word, so that a
+/// failed read can be told apart without any of the response's bytes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Fault {
+    /// The socket failed: the address did not resolve, a connect or a receive failed.
+    Socket,
+    /// The stream ended before the head, a body's announced length or a chunk was complete.
+    EndedEarly,
+    /// The head, a length or a chunk was not in the form HTTP/1.1 gives it.
+    Malformed,
+}
+
+impl Fault {
+    pub(crate) fn word(self) -> &'static str {
+        match self {
+            Fault::Socket => "socket",
+            Fault::EndedEarly => "ended_early",
+            Fault::Malformed => "malformed",
+        }
+    }
 }
 
 impl From<io::Error> for HttpError {
     fn from(error: io::Error) -> Self {
         match error.kind() {
             io::ErrorKind::TimedOut | io::ErrorKind::WouldBlock => HttpError::Timeout,
-            _ => HttpError::Transport,
+            _ => HttpError::Transport(Fault::Socket),
         }
     }
 }
@@ -66,10 +88,10 @@ pub(crate) struct Connection {
 
 /// Resolve and connect within `timeout`, trying each address in turn.
 pub(crate) fn connect(host: &str, port: u16, timeout: Duration) -> Result<Connection, HttpError> {
-    let addresses: Vec<SocketAddr> = (host, port).to_socket_addrs().map_err(|_| HttpError::Transport)?.collect();
-    let mut last = HttpError::Transport;
+    let addresses: Vec<SocketAddr> = (host, port).to_socket_addrs().map_err(|_| HttpError::Transport(Fault::Socket))?.collect();
+    let mut last = HttpError::Transport(Fault::Socket);
     for address in addresses {
-        match TcpStream::connect_timeout(&address, timeout) {
+        match connect_addr(&address, timeout) {
             Ok(stream) => {
                 let _ = stream.set_nodelay(true);
                 let host_header = if host.contains(':') { format!("[{host}]:{port}") } else { format!("{host}:{port}") };
@@ -79,6 +101,161 @@ pub(crate) fn connect(host: &str, port: u16, timeout: Duration) -> Result<Connec
         }
     }
     Err(last)
+}
+
+#[cfg(not(windows))]
+fn connect_addr(address: &SocketAddr, timeout: Duration) -> io::Result<TcpStream> {
+    TcpStream::connect_timeout(address, timeout)
+}
+
+/// On Windows, a TCP connect to a closed loopback port retries SYN packets for ~2 s before
+/// reporting `WSAECONNREFUSED`, so a 2 s `TcpStream::connect_timeout` expires with `TimedOut`
+/// (`stalled`) instead of `ConnectionRefused` (`socket`). Setting `SIO_TCP_INITIAL_RTO` with
+/// `TCP_INITIAL_RTO_NO_SYN_RETRANSMISSIONS` on loopback sockets makes Winsock report
+/// `WSAECONNREFUSED` immediately on the first RST.
+#[cfg(windows)]
+fn connect_addr(address: &SocketAddr, timeout: Duration) -> io::Result<TcpStream> {
+    use std::mem::{size_of, zeroed};
+    use std::os::windows::io::{FromRawSocket, RawSocket};
+    use std::ptr::{null, null_mut};
+    use std::sync::Once;
+
+    use windows_sys::Win32::Networking::WinSock::{
+        closesocket, connect as ws_connect, getsockopt, ioctlsocket, select, WSAGetLastError, WSAIoctl, WSASocketW, WSAStartup, AF_INET,
+        AF_INET6, FD_SET, FIONBIO, INVALID_SOCKET, IPPROTO_TCP, SIO_TCP_INITIAL_RTO, SOCKADDR, SOCKADDR_IN, SOCKADDR_IN6, SOCKET, SOCKET_ERROR,
+        SOCK_STREAM, SOL_SOCKET, SO_ERROR, TCP_INITIAL_RTO_DEFAULT_RTT, TCP_INITIAL_RTO_NO_SYN_RETRANSMISSIONS, TCP_INITIAL_RTO_PARAMETERS,
+        TIMEVAL, WSADATA, WSAEINPROGRESS, WSAEWOULDBLOCK, WSA_FLAG_NO_HANDLE_INHERIT, WSA_FLAG_OVERLAPPED,
+    };
+
+    if timeout.is_zero() {
+        return Err(io::Error::new(io::ErrorKind::InvalidInput, "cannot set a 0 duration timeout"));
+    }
+
+    static WINSOCK: Once = Once::new();
+    WINSOCK.call_once(|| {
+        // SAFETY: `WSAStartup` initializes WinSock 2.2 into the zeroed `WSADATA` struct.
+        let mut data: WSADATA = unsafe { zeroed() };
+        let _ = unsafe { WSAStartup(0x0202, &mut data) };
+    });
+
+    struct OwnedSocket(SOCKET);
+    impl Drop for OwnedSocket {
+        fn drop(&mut self) {
+            // SAFETY: `self.0` is an open WinSock socket owned exclusively by this guard.
+            unsafe { closesocket(self.0) };
+        }
+    }
+
+    let family = match address {
+        SocketAddr::V4(_) => AF_INET as i32,
+        SocketAddr::V6(_) => AF_INET6 as i32,
+    };
+    // SAFETY: WinSock is initialized above; flags match Rust std's `TcpStream` socket creation.
+    let raw = unsafe { WSASocketW(family, SOCK_STREAM, IPPROTO_TCP, null(), 0, WSA_FLAG_OVERLAPPED | WSA_FLAG_NO_HANDLE_INHERIT) };
+    if raw == INVALID_SOCKET {
+        return Err(io::Error::from_raw_os_error(unsafe { WSAGetLastError() }));
+    }
+    let owned = OwnedSocket(raw);
+
+    if address.ip().is_loopback() {
+        let params = TCP_INITIAL_RTO_PARAMETERS {
+            Rtt: TCP_INITIAL_RTO_DEFAULT_RTT as u16,
+            MaxSynRetransmissions: TCP_INITIAL_RTO_NO_SYN_RETRANSMISSIONS as u8,
+        };
+        let mut returned = 0u32;
+        // SAFETY: `owned.0` is an open TCP socket and `params` lives across this synchronous IOCTL.
+        let _ = unsafe {
+            WSAIoctl(
+                owned.0,
+                SIO_TCP_INITIAL_RTO,
+                (&params as *const TCP_INITIAL_RTO_PARAMETERS).cast(),
+                size_of::<TCP_INITIAL_RTO_PARAMETERS>() as u32,
+                null_mut(),
+                0,
+                &mut returned,
+                null_mut(),
+                None,
+            )
+        };
+    }
+
+    let mut nonblocking = 1u32;
+    // SAFETY: `owned.0` is an open socket and `nonblocking` is a valid `u32`.
+    if unsafe { ioctlsocket(owned.0, FIONBIO, &mut nonblocking) } == SOCKET_ERROR {
+        return Err(io::Error::from_raw_os_error(unsafe { WSAGetLastError() }));
+    }
+
+    let connected = match address {
+        SocketAddr::V4(v4) => {
+            // SAFETY: `SOCKADDR_IN` is a plain C struct; zeroing initializes `sin_zero`.
+            let mut sa: SOCKADDR_IN = unsafe { zeroed() };
+            sa.sin_family = AF_INET;
+            sa.sin_port = v4.port().to_be();
+            sa.sin_addr.S_un.S_addr = u32::from(*v4.ip()).to_be();
+            // SAFETY: `sa` is a valid `SOCKADDR_IN` of length `size_of::<SOCKADDR_IN>()`.
+            unsafe { ws_connect(owned.0, (&sa as *const SOCKADDR_IN).cast::<SOCKADDR>(), size_of::<SOCKADDR_IN>() as i32) }
+        }
+        SocketAddr::V6(v6) => {
+            // SAFETY: `SOCKADDR_IN6` is a plain C struct.
+            let mut sa: SOCKADDR_IN6 = unsafe { zeroed() };
+            sa.sin6_family = AF_INET6;
+            sa.sin6_port = v6.port().to_be();
+            sa.sin6_flowinfo = v6.flowinfo().to_be();
+            sa.sin6_addr.u.Byte = v6.ip().octets();
+            sa.Anonymous.sin6_scope_id = v6.scope_id();
+            // SAFETY: `sa` is a valid `SOCKADDR_IN6` of length `size_of::<SOCKADDR_IN6>()`.
+            unsafe { ws_connect(owned.0, (&sa as *const SOCKADDR_IN6).cast::<SOCKADDR>(), size_of::<SOCKADDR_IN6>() as i32) }
+        }
+    };
+
+    if connected == SOCKET_ERROR {
+        let error = unsafe { WSAGetLastError() };
+        if error != WSAEWOULDBLOCK && error != WSAEINPROGRESS {
+            return Err(io::Error::from_raw_os_error(error));
+        }
+        let mut writefds = FD_SET { fd_count: 1, fd_array: [0; 64] };
+        writefds.fd_array[0] = owned.0;
+        let mut exceptfds = FD_SET { fd_count: 1, fd_array: [0; 64] };
+        exceptfds.fd_array[0] = owned.0;
+        let mut tv = TIMEVAL {
+            tv_sec: timeout.as_secs().min(i32::MAX as u64) as i32,
+            tv_usec: timeout.subsec_micros() as i32,
+        };
+        if tv.tv_sec == 0 && tv.tv_usec == 0 {
+            tv.tv_usec = 1;
+        }
+        // SAFETY: `writefds`, `exceptfds` and `tv` live across `select`.
+        let ready = unsafe { select(0, null_mut(), &mut writefds, &mut exceptfds, &tv) };
+        if ready == SOCKET_ERROR {
+            return Err(io::Error::from_raw_os_error(unsafe { WSAGetLastError() }));
+        }
+        if ready == 0 {
+            return Err(io::Error::new(io::ErrorKind::TimedOut, "connection timed out"));
+        }
+        let mut so_error = 0i32;
+        let mut len = size_of::<i32>() as i32;
+        // SAFETY: `owned.0` is an open socket and `so_error` holds `len` bytes.
+        if unsafe { getsockopt(owned.0, SOL_SOCKET, SO_ERROR, (&mut so_error as *mut i32).cast(), &mut len) } == SOCKET_ERROR {
+            return Err(io::Error::from_raw_os_error(unsafe { WSAGetLastError() }));
+        }
+        if so_error != 0 {
+            return Err(io::Error::from_raw_os_error(so_error));
+        }
+        if writefds.fd_count == 0 {
+            return Err(io::Error::new(io::ErrorKind::ConnectionRefused, "connection failed"));
+        }
+    }
+
+    let mut blocking = 0u32;
+    // SAFETY: `owned.0` is an open socket and `blocking` is a valid `u32`.
+    if unsafe { ioctlsocket(owned.0, FIONBIO, &mut blocking) } == SOCKET_ERROR {
+        return Err(io::Error::from_raw_os_error(unsafe { WSAGetLastError() }));
+    }
+
+    let raw = owned.0;
+    std::mem::forget(owned);
+    // SAFETY: `raw` is a connected, blocking WinSock socket whose ownership transfers to `TcpStream`.
+    Ok(unsafe { TcpStream::from_raw_socket(raw as RawSocket) })
 }
 
 impl Connection {
@@ -140,7 +317,7 @@ impl Connection {
                     remaining.min(POLL)
                 }
             };
-            self.stream.set_read_timeout(Some(wait)).map_err(|_| HttpError::Transport)?;
+            self.stream.set_read_timeout(Some(wait)).map_err(|_| HttpError::Transport(Fault::Socket))?;
             match (&*self.stream).read(&mut chunk) {
                 Ok(count) => {
                     if self.flag.load(Ordering::SeqCst) {
@@ -179,8 +356,11 @@ impl Connection {
                 self.consume(end + 1);
                 return Ok(line);
             }
-            if self.buffered().len() > MAX_HEAD || self.fill()? == 0 {
-                return Err(HttpError::Transport);
+            if self.buffered().len() > MAX_HEAD {
+                return Err(HttpError::Transport(Fault::Malformed));
+            }
+            if self.fill()? == 0 {
+                return Err(HttpError::Transport(Fault::EndedEarly));
             }
         }
     }
@@ -192,7 +372,7 @@ impl Connection {
         let version = parts.next().unwrap_or("");
         let status = parts.next().and_then(|code| (code.len() == 3).then_some(code)).and_then(|code| code.parse::<u16>().ok());
         let Some(status) = status.filter(|_| version.starts_with("HTTP/1.")) else {
-            return Err(HttpError::Transport);
+            return Err(HttpError::Transport(Fault::Malformed));
         };
         let mut headers = Vec::new();
         let mut size = 0;
@@ -203,9 +383,9 @@ impl Connection {
             }
             size += line.len();
             if size > MAX_HEAD || headers.len() >= 100 {
-                return Err(HttpError::Transport);
+                return Err(HttpError::Transport(Fault::Malformed));
             }
-            let (name, value) = line.split_once(':').ok_or(HttpError::Transport)?;
+            let (name, value) = line.split_once(':').ok_or(HttpError::Transport(Fault::Malformed))?;
             headers.push((name.trim().to_ascii_lowercase(), value.trim().to_owned()));
         }
         let header = |name: &str| headers.iter().rev().find(|(n, _)| n == name).map(|(_, v)| v.as_str());
@@ -217,7 +397,7 @@ impl Connection {
         } else if chunked {
             Framing::Chunked { remaining: 0, done: false }
         } else if let Some(length) = header("content-length") {
-            Framing::Length(length.parse::<u64>().map_err(|_| HttpError::Transport)?)
+            Framing::Length(length.parse::<u64>().map_err(|_| HttpError::Transport(Fault::Malformed))?)
         } else {
             Framing::Close
         };
@@ -274,7 +454,7 @@ impl Response {
                     return Ok(Vec::new());
                 }
                 if connection.buffered().is_empty() && connection.fill()? == 0 {
-                    return Err(HttpError::Transport);
+                    return Err(HttpError::Transport(Fault::EndedEarly));
                 }
                 let take = connection.buffered().len().min(limit).min(*remaining as usize);
                 let data = connection.buffered()[..take].to_vec();
@@ -298,7 +478,7 @@ impl Response {
                 if *remaining == 0 {
                     let line = connection.read_line()?;
                     let size = line.split(';').next().unwrap_or("").trim();
-                    let size = u64::from_str_radix(size, 16).map_err(|_| HttpError::Transport)?;
+                    let size = u64::from_str_radix(size, 16).map_err(|_| HttpError::Transport(Fault::Malformed))?;
                     if size == 0 {
                         // Trailers end with an empty line.
                         while !connection.read_line()?.is_empty() {}
@@ -308,7 +488,7 @@ impl Response {
                     *remaining = size;
                 }
                 if connection.buffered().is_empty() && connection.fill()? == 0 {
-                    return Err(HttpError::Transport);
+                    return Err(HttpError::Transport(Fault::EndedEarly));
                 }
                 let take = connection.buffered().len().min(limit).min(*remaining as usize);
                 let data = connection.buffered()[..take].to_vec();
@@ -317,7 +497,7 @@ impl Response {
                 if *remaining == 0 {
                     // The CRLF after the chunk's data.
                     if !connection.read_line()?.is_empty() {
-                        return Err(HttpError::Transport);
+                        return Err(HttpError::Transport(Fault::Malformed));
                     }
                 }
                 Ok(data)
@@ -387,9 +567,23 @@ mod tests {
     #[test]
     fn truncated_bodies_are_transport_errors() {
         let mut response = get(serve(b"HTTP/1.1 200 OK\r\nContent-Length: 9\r\n\r\nabc"));
-        assert!(matches!(response.read_body(10), Err(HttpError::Transport)));
+        assert!(matches!(response.read_body(10), Err(HttpError::Transport(Fault::EndedEarly))));
         let mut response = get(serve(b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n4\r\nab"));
-        assert!(matches!(response.read_body(10), Err(HttpError::Transport)));
+        assert!(matches!(response.read_body(10), Err(HttpError::Transport(Fault::EndedEarly))));
+    }
+
+    #[test]
+    fn a_chunk_out_of_form_is_told_from_one_that_ended_early() {
+        // #861: which of the two a failed speech read was is kept in the speech's status.
+        let mut response = get(serve(b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\nzz\r\nab"));
+        assert!(matches!(response.read_body(10), Err(HttpError::Transport(Fault::Malformed))));
+        let mut response = get(serve(b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n2\r\nabXY\r\n"));
+        assert!(matches!(response.read_body(10), Err(HttpError::Transport(Fault::Malformed))));
+        let port = serve(b"HTTP/1.1 200 OK\r\nContent-Le");
+        let mut connection = connect("127.0.0.1", port, Duration::from_secs(2)).unwrap();
+        connection.send("GET", "/", None).unwrap();
+        assert!(matches!(connection.response(), Err(HttpError::Transport(Fault::EndedEarly))));
+        assert_eq!([Fault::Socket.word(), Fault::EndedEarly.word(), Fault::Malformed.word()], ["socket", "ended_early", "malformed"]);
     }
 
     #[test]
@@ -397,6 +591,17 @@ mod tests {
         let port = serve(b"SPEECH 200 OK\r\n\r\n");
         let mut connection = connect("127.0.0.1", port, Duration::from_secs(2)).unwrap();
         connection.send("GET", "/", None).unwrap();
-        assert!(connection.response().is_err());
+        assert!(matches!(connection.response(), Err(HttpError::Transport(Fault::Malformed))));
+    }
+
+    #[test]
+    fn refused_loopback_connect_is_a_socket_fault_not_a_timeout() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        drop(listener);
+        let started = Instant::now();
+        let error = connect("127.0.0.1", port, Duration::from_secs(2)).err().expect("closed port must fail");
+        assert!(matches!(error, HttpError::Transport(Fault::Socket)), "expected Socket fault, got {error:?}");
+        assert!(started.elapsed() < Duration::from_secs(1), "refused loopback connect waited {:?}", started.elapsed());
     }
 }

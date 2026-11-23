@@ -28,7 +28,7 @@ const LIMIT: u64 = 10 * 1024 * 1024;
 /// recognition settings, which holds the names of people and places (#446, core only), and
 /// `speaker_names`: the names a user gives the voices that speaker diarization tells apart
 /// (#447, core only).
-pub const SENSITIVE_ENDPOINT_MARKERS: [&str; 12] = [
+pub const SENSITIVE_ENDPOINT_MARKERS: [&str; 13] = [
     "auth_key",
     "api_key",
     "password",
@@ -39,6 +39,7 @@ pub const SENSITIVE_ENDPOINT_MARKERS: [&str; 12] = [
     "client_id",
     "user_model",
     "translation_catalog",
+    "transcription_catalog",
     "vocabulary",
     "speaker_names",
 ];

@@ -31,7 +31,7 @@ import type { VrWindows } from "./VrLauncher";
 import type { VrPopup } from "./VrPopupWindow";
 import type { VrPanelLayout } from "../../logics/configs/config_page_setter/settingTypes.ts";
 
-import styles from "./VrApp.module.scss";
+import * as styles from "./VrApp.css.ts";
 
 // VR UI は1枚の画面外ウィンドウ (vr_layout.json の atlas) に各ウィンドウを並べて描く。
 // Python 側 (models/overlay/overlay.py) が1回だけ撮影し、領域ごとに別のオーバーレイとして表示する。

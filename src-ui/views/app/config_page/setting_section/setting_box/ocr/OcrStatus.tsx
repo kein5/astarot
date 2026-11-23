@@ -4,7 +4,7 @@ import { useOcr } from "@logics_configs";
 import { captureStatusSummary } from "../../../../../../logics/configs/ocrReadiness";
 import type { OcrReadiness } from "../../../../../../logics/configs/ocrReadiness";
 import { EnvReadout } from "../_components/env_readout/EnvReadout";
-import styles from "./Ocr.module.scss";
+import * as styles from "./Ocr.css.ts";
 
 type OcrStatusProps = {
     readiness: OcrReadiness | null;

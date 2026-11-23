@@ -3,6 +3,9 @@ import { test } from "vitest";
 import { readFile } from "node:fs/promises";
 import { draw, findIn, componentName, hooks, loadModule, nodesIn } from "../../logics/test/hookHarness.ts";
 import type { TreeNode } from "../../logics/test/hookHarness.ts";
+import * as translationCatalog from "../../logics/translation/translationCatalog.ts";
+import * as ctranslate2License from "../../logics/configs/ctranslate2License.ts";
+import { ctranslate2_weight_type_status } from "../../logics/ui_configs.ts";
 
 // #614: a row of the VR settings carries a note only when the note says what its name does not.
 // "Show only when looking at the wrist" needs none. The hand the launcher is on is drawn on each
@@ -14,15 +17,19 @@ import type { TreeNode } from "../../logics/test/hookHarness.ts";
 const settings = (values: Record<string, { state: string; data: unknown }> = {}) => () => new Proxy({}, {
     get: (_, key) => String(key) in values ? values[String(key)] : String(key).startsWith("current") ? { state: "ok", data: null } : () => {} });
 
+type Values = Record<string, { state: string; data: unknown }>;
+// What the page asks the window to open: a list's title and its options.
+type OpenPicker = (label: string, options: { id: string; label: string }[]) => void;
+
 // The rows of one page of the VR settings (the templates, kept as names).
-async function page(id: string, transcription: Record<string, { state: string; data: unknown }> = {}): Promise<TreeNode[]> {
+async function page(id: string, transcription: Values = {}, translation: Values = {}, openPicker: OpenPicker = () => {}): Promise<TreeNode[]> {
     const runtime = hooks();
     const { VrSettingsWindow } = await loadModule<typeof import("./VrSettingsWindow.tsx")>(new URL("./VrSettingsWindow.tsx", import.meta.url), runtime, {
         "@useI18n": { useI18n: () => ({ t: (key: string, variables?: object) => variables ? `${key} ${JSON.stringify(variables)}` : key, i18n: { language: "en" } }) },
         "../../logics/common/languageNames.ts": { createLanguageNames: () => ({}) },
         "@logics_common": { useIsOpenedConfigPage: () => ({ currentIsOpenedConfigPage: { data: true } }), useIsOscAvailable: settings(), useVolume: settings() },
         "@logics_configs": { useAppearance: settings(), useDevice: settings(), useOcr: settings(), useOthers: settings(),
-            useTranscription: settings(transcription), useTranslation: settings(), useVr: settings() },
+            useTranscription: settings(transcription), useTranslation: settings(translation), useVr: settings() },
         "@store": { useStore_MicVolume: settings(), useStore_SelectableFontFamilyList: settings(), useStore_SpeakerVolume: settings() },
         "@ui_configs": { ui_configs: {} },
         "./VrWindow": { VrWindow: "window" },
@@ -31,13 +38,14 @@ async function page(id: string, transcription: Record<string, { state: string; d
             SelectRow: "select-row", StepperRow: "stepper-row", ThresholdRow: "threshold-row", ToggleRow: "toggle-row" },
         "../app/config_page/setting_section/setting_box/_components/compute_device/computeDeviceOptions": { buildComputeDeviceOptions: () => [] },
         "../../logics/configs/cloudTranscription": { CLOUD_TRANSCRIPTION_ENGINES: [] },
-        "../../logics/configs/ctranslate2License": { isNonCommercialWeight: () => false },
+        "../../logics/configs/ctranslate2License": ctranslate2License,
+        "../../logics/translation/translationCatalog.ts": translationCatalog,
         "../../logics/common/featureLabel.ts": { splitFeatureLabel: (text: string) => ({ name: text, abbr: "" }) },
     });
     const window = runtime.render(VrSettingsWindow, { onClose() {} });
     // The category the window draws, asked for this page; then that page, down to its rows.
     const category = findIn(window, node => componentName(node) === "Category", "the category");
-    return nodesIn(draw(draw(category, { ...category.props, id })));
+    return nodesIn(draw(draw(category, { ...category.props, id, openPicker })));
 }
 
 test("the launcher's rows: only the tooltips' switch has a note; each hand is drawn on its choice", async () => {
@@ -78,4 +86,37 @@ test("the speaker's fold says the values in use, and that a change is on its way
     assert.equal(settled.props.is_pending, false);
     const changing = fold(await page("transcription", { ...values, currentSpeakerPhraseTimeout: { state: "pending", data: 6 } }));
     assert.equal(changing?.props.is_pending, true);
+});
+
+test("the translation models go by the names the desktop gives them, with their size and a non-commercial license", async () => {
+    const builtin = (id: string, is_downloaded: boolean) => {
+        const row = ctranslate2_weight_type_status.find(item => item.id === id);
+        assert.ok(row, id);
+        return { ...row, is_downloaded };
+    };
+    const ok = (data: unknown) => ({ state: "ok", data });
+    const translation = {
+        currentCTranslate2WeightTypeStatus: ok([
+            builtin("m2m100_418M-ct2-int8", true),
+            builtin("m2m100_1.2B-ct2-int8", false),
+            builtin("nllb-200-distilled-600M-ct2-int8", true),
+            builtin("nllb-200-distilled-1.3B-ct2-int8", true),
+            { id: "user:tr-1", is_custom: true, is_downloaded: true },
+        ]),
+        currentSelectedCTranslate2WeightType: ok("nllb-200-distilled-600M-ct2-int8"),
+    };
+    const opened: { label: string; options: { id: string; label: string }[] }[] = [];
+    const rows = await page("translation", {}, translation, (label, options) => { opened.push({ label, options }); });
+    const row = rows.find(node => node.type === "select-row" && node.props.label === "config_page.translation.ctranslate2_weight_type.label");
+    assert.ok(row, "the model row");
+    // The row says the selected model's name, not its weight.
+    assert.equal(row.props.value, "NLLB-200 distilled 600M · int8");
+    row.props.onOpen();
+    // Only downloaded models, and of the non-commercial ones only the selected one (the others need
+    // the desktop's license dialog). A model the user added has no size of its own: no "(undefined)".
+    assert.deepEqual(opened, [{ label: "config_page.translation.ctranslate2_weight_type.label", options: [
+        { id: "m2m100_418M-ct2-int8", label: "M2M100 418M · int8 (418MB)" },
+        { id: "nllb-200-distilled-600M-ct2-int8", label: "NLLB-200 distilled 600M · int8 (600MB, CC-BY-NC-4.0)" },
+        { id: "user:tr-1", label: "user:tr-1" },
+    ] }]);
 });

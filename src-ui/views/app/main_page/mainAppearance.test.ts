@@ -31,12 +31,12 @@ const bg = /background(?:-color)?:\s*var\((--[\w-]+)\)/;
 const fg = /color:\s*var\((--[\w-]+)\)/;
 // MainPage is in vanilla-extract: `backgroundColor: vars.vox_canvas` is `var(--vox_canvas)`.
 const canvas = `--${token(read("MainPage.css.ts"), /backgroundColor:\s*vars\.(\w+)/)}`;
-const top = read("main_section/top_bar/right_side_components/_buttons/OpenQuickSettingButton.module.scss");
-// The quick dialog's close button is in vanilla-extract: `vars.x` is `var(--x)`.
-const tokens = (css: string) => css.replace(/\bvars\.(\w+)/g, "var(--$1)").replace(/backgroundColor:|background:/g, "background:");
-const close = tokens(read("../others/modal_controller/ModalController.css.ts").split("export const close_button = style({")[1]).replace(/"&:(hover|active)": \{/g, "&:$1 {");
-const off = token(top.split("&.is_disabled {")[1].split("}")[0], fg);
-const messages = read("main_section/message_container/log_box/message_container/MessageContainer.module.scss").split(".category {")[1];
+// These styles are in vanilla-extract: `vars.x` is `var(--x)`, and a state's rule `"&:hover": {` reads as `&:hover {`.
+const tokens = (css: string) => css.replace(/\bvars\.(\w+)/g, "var(--$1)").replace(/backgroundColor:|background:/g, "background:").replace(/"&:(hover|active)": \{/g, "&:$1 {");
+const top = tokens(read("main_section/top_bar/right_side_components/_buttons/OpenQuickSettingButton.css.ts"));
+const close = tokens(read("../others/modal_controller/ModalController.css.ts").split("export const close_button = style({")[1]);
+const off = token(top.split("is_disabled}`]: {")[1].split("}")[0], fg);
+const messages = tokens(read("main_section/message_container/log_box/message_container/MessageContainer.css.ts").split("export const category = style({")[1]);
 const pairs = [
     ["top-bar off resting", off, canvas],
     ["top-bar off hover", off, token(top.split("&:hover {")[1], bg)],
@@ -44,8 +44,8 @@ const pairs = [
     ["quick-dialog close resting", token(close, fg), token(close, bg)],
     ["quick-dialog close hover", token(close, fg), token(close.split("&:hover {")[1], bg)],
     ["quick-dialog close pressed", token(close, fg), token(close.split("&:active {")[1], bg)],
-    ["received category", token(messages.split("&.received_message {")[1], fg), canvas],
-    ["OCR category", token(messages.split("&.ocr_category {")[1], fg), canvas],
+    ["received category", token(messages.split("received_message}`]: {")[1], fg), canvas],
+    ["OCR category", token(messages.split("ocr_category}`]: {")[1], fg), canvas],
 ];
 for (const [name, foreground, background] of pairs) {
     test(`${name}: actual CSS pair meets 4.5:1 for small text`, context => {

@@ -7,7 +7,7 @@ import { downloadPercent } from "../../../../../../logics/common/appUpdate.ts";
 import type { AppUpdateInfo, AppUpdateState, AppUpdateStatus } from "../../../../../../logics/common/appUpdate.ts";
 import type { TFunction } from "i18next";
 import type { EnvReadoutTone } from "../_components/env_readout/EnvReadout";
-import styles from "./Updater.module.scss";
+import * as styles from "./Updater.css.ts";
 import { SectionLabelComponent } from "../_components";
 import { HintDescriptions } from "../_components/hint/Hint";
 import { EnvReadout } from "../_components/env_readout/EnvReadout";

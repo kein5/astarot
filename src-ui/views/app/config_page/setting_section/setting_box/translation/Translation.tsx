@@ -26,7 +26,7 @@ import {
     useSaveButtonLogic,
 } from "@logics_configs";
 
-import styles from "./Translation.module.scss";
+import * as styles from "./Translation.css.ts";
 
 import {
     DownloadModelsContainer,

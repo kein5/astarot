@@ -21,7 +21,7 @@ import { isSwitchShown, pickedPresets } from "../../../../../logics/configs/usag
 import ArrowDownSvg from "@images/narrow_arrow_down.svg?react";
 import { store } from "@store";
 import clsx from "clsx";
-import styles from "./MainFunctionSwitch.module.scss";
+import * as styles from "./MainFunctionSwitch.css.ts";
 import TranslationSvg from "@images/translation.svg?react";
 import MicSvg from "@images/mic.svg?react";
 import HeadphonesSvg from "@images/headphones.svg?react";

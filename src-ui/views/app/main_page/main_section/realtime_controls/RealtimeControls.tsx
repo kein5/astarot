@@ -2,7 +2,7 @@ import { useI18n } from "@useI18n";
 import { useIsOpenedConfigPage } from "@logics_common";
 import { useRealtimeASR } from "../../../../../logics/transcription/useRealtimeASR";
 import type { CaptionSource } from "../../../../../logics/transcription/realtimeCaptionState";
-import styles from "./RealtimeControls.module.scss";
+import * as styles from "./RealtimeControls.css.ts";
 
 const SOURCES: readonly CaptionSource[] = ["mic", "speaker"];
 

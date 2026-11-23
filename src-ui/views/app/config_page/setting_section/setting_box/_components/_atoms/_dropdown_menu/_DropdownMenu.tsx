@@ -1,6 +1,6 @@
 import { useRef, useEffect, useLayoutEffect, useState, useId } from "react";
 import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent, ReactNode } from "react";
-import styles from "./_DropdownMenu.module.scss";
+import * as styles from "./_DropdownMenu.css.ts";
 import clsx from "clsx";
 import { useI18n } from "@useI18n";
 import ArrowLeftSvg from "@images/arrow_left.svg?react";

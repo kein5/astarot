@@ -808,6 +808,37 @@ config_page:
             desc: "Added after the prompt the LLM engines are sent. For example: \"Translate casually, without honorifics\" or \"Keep VRChat terms in English\". One line, up to 500 characters. The engines still return only the translation. This text is sent to the engine too."
 
     transcription:
+        # The speech recognition APIs the user adds (#414), under the providers of the API group.
+        api_entries:
+            add: "Add a speech recognition API"
+            add_help: "Add a speech recognition API of Whisper's shape (OpenAI-compatible /audio/transcriptions) under a name. It can be an online service or a server on your PC or LAN. The key is kept in the app's key store, not in the settings file. Adding sends nothing."
+            placeholder_name: "For example: Whisper server at home"
+            protocol:
+                openai_compatible: "OpenAI-compatible (Whisper)"
+            url_lead: "Once used, the API key is sent to this address to check it, and then the audio to recognize goes there."
+            use: "Make it the custom Whisper server"
+            use_help: "Replaces the address, key and model of the custom Whisper server above with this API's. The selected speech recognition engine does not change."
+            remove_confirm: "Removes the entry and its API key from the app. The custom Whisper server's settings stay as they are."
+            errors:
+                other: "The speech recognition API entries could not be changed ({{code}})."
+                backend_unavailable: "The app's core is not connected, so nothing was changed."
+                transcription_catalog_failed: "The speech recognition API entries could not be changed."
+                transcription_catalog_key_required: "Enter the API key."
+                transcription_catalog_key_missing: "This entry has no API key. Remove it and add it again."
+                transcription_catalog_key_unreadable: "The app's key store cannot be read right now. Wait a moment and try again."
+                transcription_catalog_unusable: "This entry cannot be used in this version."
+                transcription_catalog_connect_failed: "The address did not answer, or did not accept the API key. The custom Whisper server's settings were not changed."
+                transcription_catalog_model_not_listed: "The model you named is not in the server's list, so another model from the list was chosen."
+                transcription_catalog_exists: "An entry with the same name, or with the same address and model, already exists."
+                transcription_catalog_limit: "You can add up to 100 entries."
+                transcription_catalog_unknown: "That entry was not found."
+                transcription_catalog_unreadable: "The file of the speech recognition API entries cannot be read. It is left as it is and not overwritten."
+                transcription_catalog_write_failed: "The file of the speech recognition API entries could not be written."
+                transcription_catalog_name_invalid: "Check the name."
+                transcription_catalog_url_invalid: "This address cannot be used. http:// is for your PC and LAN only."
+                transcription_catalog_model_invalid: "Check the model name."
+                transcription_catalog_protocol_unsupported: "This kind of API cannot be used in this version."
+                transcription_catalog_invalid: "Check what you entered."
         section_label_mic: "Mic"
         section_label_speaker: "Speaker"
         section_label_transcription_engines: "Transcription engines"

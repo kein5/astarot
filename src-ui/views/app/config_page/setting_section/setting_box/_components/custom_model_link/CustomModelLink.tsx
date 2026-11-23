@@ -4,7 +4,7 @@ import { useI18n } from "@useI18n";
 import { isTauri } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { generateLocalizedDocumentUrl } from "@ui_configs";
-import styles from "./CustomModelLink.module.scss";
+import * as styles from "./CustomModelLink.css.ts";
 
 // Opens the user guide's section on bringing your own model (a file you trained, downloaded
 // elsewhere or bought) for this setting, in the browser, in the display language. It only
