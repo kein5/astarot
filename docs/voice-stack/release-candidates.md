@@ -91,7 +91,7 @@ Windowsの候補は、ビルドのジョブで`VRCT-VOX.zip`とインストー�
 | WindowsのZIPとインストーラー | 配布してはいけないファイル、容量、SHA-256、`_internal`のファイル | 画面、モデルを使う機能、TTSとRVCの実機での動作（[公開前にWindowsのパッケージを起動して確かめる](#公開前にwindowsのパッケージを起動して確かめる)） |
 | Windowsの更新とインストール | 候補のビルドでは確かめません。別のワークフロー`installer-update-tests.yml`（手動実行と、NSISを変えるPR）が、軽いダミーのペイロードで置き換え、失敗時の復元、中断からの復旧を確かめます | 実際の配布用ペイロード、実際の音声処理（[WindowsのWebView2とインストール時の通信](#windowsのwebview2とインストール時の通信)） |
 | WebView2 Runtimeの取得 | なし | ブートストラッパーの版とSHA-256は固定していません。追加の接続先、送る内容、Windowsでの実行は未検証です |
-| VR | なし | 偽のSteamVRはPythonバックエンドにだけ差し込まれるため、0.5.0のアプリのVRにはつながりません。VR UIの試験は開発ビルドだけです |
+| VR | なし | 偽のSteamVR（`FakeVr`）は中核の試験（`voice-tests.yml`の`core-integration`）だけが使い、配布物のVRにはつながりません |
 
 ### 動く環境
 
@@ -138,7 +138,7 @@ Windowsのsetupは、下書きへまとめる際に`VRCT-VOX_setup.exe`へコピ
 
 鍵を替えるときは、新しい公開鍵をアプリに入れた版を古い鍵で署名して出し、その版が行き渡ってから新しい鍵での署名に切り替えます。秘密鍵をなくすと、それまでの版はアプリ内で更新できなくなります。秘密鍵とパスワードは、Secretsとは別の安全な場所にも保管してください。
 
-インストーラーはアプリから`/P /UPDATE /R /ARGS …`と`/EDITION=cpu`または`/EDITION=gpu`で起動されます。この場合は言語とエディションのページを飛ばし、`installer_language.txt`を書かず（アプリの言語の設定を変えない）、ショートカットを作り直しません。ZIPの取得、ハッシュの照合、段階的な置き換え、失敗したときの復元は、通常のインストールと同じです。`installer-update-tests.yml`のサイレント試験に、`/UPDATE`付きの更新を含めています。
+インストーラーはアプリから`/P /UPDATE /R /ARGS …`で起動されます（0.5までのアプリは`/EDITION=cpu`か`/EDITION=gpu`も渡しますが、インストーラーは読みません。#288）。この場合は言語のページを飛ばし、`installer_language.txt`を書かず（アプリの言語の設定を変えない）、ショートカットを作り直しません。ZIPの取得、ハッシュの照合、段階的な置き換え、失敗したときの復元は、通常のインストールと同じです。`installer-update-tests.yml`のサイレント試験に、`/UPDATE`付きの更新を含めています。
 
 ## 公開前にWindowsのパッケージを起動して確かめる
 
@@ -155,14 +155,14 @@ New-Item -ItemType Directory -Force "$d\app", "$d\state", "$d\webview" | Out-Nul
 tar -xf "$d\dl\VRCT-VOX.zip" -C "$d\app"
 
 # 設定とWebView2のデータを作業用のフォルダーへ分けて起動する（どちらも絶対パス）
-$env:VRCT_CONFIG_DIR = (Resolve-Path "$d\state").Path
+$env:ASTAROT_CONFIG_DIR = (Resolve-Path "$d\state").Path
 $env:WEBVIEW2_USER_DATA_FOLDER = (Resolve-Path "$d\webview").Path
 & "$d\app\vrct-vox.exe"
 ```
 
-- `VRCT_CONFIG_DIR`を指定すると、設定とログがそのフォルダーに入り、インストール済みのアプリが動いていても別に起動します。モデルと`telemetry_state.json`は展開した`app`フォルダーの中に入ります。
+- `ASTAROT_CONFIG_DIR`を指定すると（0.5.xまでの版は`VRCT_CONFIG_DIR`）、設定とログがそのフォルダーに入り、インストール済みのアプリが動いていても別に起動します。モデルと`telemetry_state.json`は展開した`app`フォルダーの中に入ります。
 - #442の修正より前の版では、OSCの送信先がこのPC（既定）だと、バックエンドがmDNSのためにポートを開き、新しい場所の実行ファイルにはWindowsのファイアウォールの確認が出ます。確認を出さずに見るときは、`state\config.json`に`"OSC_IP_ADDRESS": "127.0.0.2"`と`"SEND_MESSAGE_TO_VRC": false`を書いてから起動します。修正を含む版では確認は出ません。出たときは、どのexeについての確認かを控えて報告します。
-- 利用状況のお知らせで「送信する」を選ぶと、実際の受信サーバーへ1件送ります。送らずに見るときは`VRCT_TELEMETRY`に`off`を入れます。
+- 利用状況のお知らせで「送信する」を選ぶと、実際の受信サーバーへ1件送ります。送らずに見るときは`ASTAROT_TELEMETRY`に`off`を入れます（0.5.xまでの版は`VRCT_TELEMETRY`）。
 - 少なくとも次を確かめます。起動して版が表示されること。設定の「翻訳」のダウンロードを押すと、取得の確認画面が開き、同意して取得が終わると翻訳がオンになって訳文が出ること（翻訳のモデルは2026-11-19に公開しました。それより前の版では、未公開であることと自分で用意したモデルを置くフォルダが出ます）。設定の各ページが開くこと。閉じると、アプリが起動したプロセス（speech.cppのサーバーやRVCのワーカー）が残らないこと。`state\logs\error.log`ができていないこと。0.1.0までは、翻訳モデルがない状態で「翻訳」を押すたびに記録（`MissingCTranslate2Tokenizer`）が1件残りました。モデルがまだないのは最初の起動では当たり前の状態なので、いまは記録せず、利用状況のエラーの通知にも数えません。
 - 確かめるのは手元のWindows 11です。一般向けに配信されているWindows 11で確かめる手順は、リリースの前の確認に加えないと2026-11-18に決めました（#516）。Insider Preview版で確かめたときは、そのビルドの番号を記録に書きます。対応環境の表にも、一般向けのWindows 11では確かめていないと書いてあります。
 - 確かめたことと確かめなかったことを、版、OSとそのビルド、配布形式（インストーラーかZIPか）と一緒に控えます。公開したあと、[対応環境の表と検証の記録](#公開したあとに対応環境の表を更新する)に足します。
@@ -192,11 +192,12 @@ python tools/native_acceptance.py --appimage <AppImageの絶対パス> --vrchat
 | `appimage` | FUSEと展開の両方式での起動、描画、終了、設定画面の操作、再起動後のミュート | AppImage |
 | `ui` | 基本画面と設定画面（表示倍率100%と150%） | `xwininfo`（デスクトップの字幕の窓の試験。CachyOSとArch Linuxでは `xorg-xwininfo`、UbuntuとDebianでは `x11-utils` のパッケージ） |
 | `vrchat` | アプリで入力した文が実際のVRChatの吹き出しに出て、チャット読み取りで読み戻せること | `--vrchat`、OCRのモデル |
+| `vrchat-voice` | 入力した1つの文が、実際のVRChatの吹き出しに出て、管理対象の仮想マイクで1回だけ聞こえること。ミュートで声だけが止まり、アプリを終了したあとはマイクが無音になること（#746） | `--vrchat`、OCRのモデル、準備済みの管理対象の経路、`pw-record` |
 | `quick_chat` | Quick Chatのショートカットで、入力の窓が全画面の窓の上に出てフォーカスを取り、メインの窓を戻さないこと。下書きを保ち、翻訳、OSC、読み上げへ1回ずつ流れること。ほかの窓からの操作を断ること。Waylandではショートカットをデスクトップのポータルで登録すると示し、ボタンで開けること | KDE（X11かXWayland）、`xdotool`と`xprop`、GTKの入った`python3`。Waylandの1件は、Waylandのデスクトップで開発用のビルドを使うときだけ流れる |
 
 `--vrchat`は、チャットボックスのラボのVRChatを2つ、このPCの中だけの非公開のインスタンスで起動し、往復の試験を流してから終了します。VRChatのアカウントは、このPCでサインイン済みのものです。
 
-0.5までは、ほかに`voice`、`tts-model`、`asr`、`downloads`、`rvc`、`seed-vc`、`vrchat-voice`、`vr-ui`のグループと、モデルと実行環境を取得する`--fetch-models`、`--fetch-runtimes`がありました。これらは試験専用のPipeWireグラフでアプリの音声を流したり聞いたりするのに、Pythonのバックエンドの部品（PipeWireのゲート、読み上げの呼び出し、録音、取得と準備の仕組み）を使っていたので、0.6.0でバックエンドと一緒に消しました（#285）。音声経路、読み上げ、音声認識、RVCを実機で確かめる試験は、今はありません。読み上げと遅延は、中核の例（`native/core/examples/live_speech.rs`、`pipeline_latency.rs`）で測れます。
+0.5までは、ほかに`voice`、`tts-model`、`asr`、`downloads`、`rvc`、`seed-vc`、`vrchat-voice`、`vr-ui`のグループと、モデルと実行環境を取得する`--fetch-models`、`--fetch-runtimes`がありました。これらは試験専用のPipeWireグラフでアプリの音声を流したり聞いたりするのに、Pythonのバックエンドの部品（PipeWireのゲート、読み上げの呼び出し、録音、取得と準備の仕組み）を使っていたので、0.6.0でバックエンドと一緒に消しました（#285）。`vrchat-voice`は、中核が経路を動かす形で作り直しました（#746）。読み上げの品質、音声認識、RVCを実機で確かめる試験は、今はありません。読み上げと遅延は、中核の例（`native/core/examples/live_speech.rs`、`pipeline_latency.rs`）で測れます。
 
 実機で確かめる範囲は2026-11-18に決めました（#516）。
 

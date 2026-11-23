@@ -115,7 +115,7 @@ Linuxのトレイ用ライブラリは `ayatana-appindicator3-0.1` または `ap
 | `headless` | `uv.lock` の `voice-test` グループだけを `build/dev/headless-venv` に同期 |
 | `ui` | `npm ci --ignore-scripts` でルートの `node_modules` を準備 |
 | `browser` | `uv.lock` の `voice-ui-test` グループを `build/dev/browser-venv` に同期。既存venvへの追加も可 |
-| `rust` | `cargo fetch --locked` でCargo.lockに従う依存を取得（`tools/dev.py` の `CARGO_WORKSPACES`。`src-tauri`、`NATIVE_CRATES` にある `native/` のクレート、結合テストの `native/browser-core-bridge`、`native/ocr-runtime`、`native/rvc-runtime`。下の `check --scope crates` と同じ一覧） |
+| `rust` | `cargo fetch --locked` でCargo.lockに従う依存を取得（`tools/dev.py` の `CARGO_WORKSPACES`。`src-tauri`、`NATIVE_CRATES` にある `native/` のクレート、結合テストの `native/browser-core-bridge`。下の `check --scope crates` と同じ一覧） |
 | `resources` | `tools/app_resources.py stage --allow-missing` で `src-tauri/bin/_internal` を `build/` にあるもので作り直す |
 | `integration` | [結合テスト](#結合テストplaywright)の準備。`native/browser-core-bridge` の依存を `cargo fetch --locked` で取得し、Playwright の Chromium と WebKit を取得する（合わせて数百 MB）。先に `setup --scope ui` が要る。ブラウザが使う OS のライブラリは入れない |
 | `hooks` | `hk.pkl` のGitのフックを `hk install` でこの複製に入れる（[Gitのフック](#gitのフック)）。ほかのスコープでは入れない |
@@ -151,7 +151,7 @@ python tools/dev.py doctor --scope browser --python path/to/venv/bin/python
 
 この操作は選んだvenv（`mise.toml` と同じPython 3.14）に必要なパッケージを追加・更新します。無関係なパッケージをsyncで削除しません。システムPythonは拒否します。Windowsのvenvなら `.venv\Scripts\python.exe` のように実行ファイルを指定します。
 
-PlaywrightのPythonパッケージとChromium実行ファイルは別です。`setup --scope browser` はChromiumやOSライブラリを取得しません。既存ブラウザを使う試験には `ASTAROT_TEST_CHROMIUM` の指定が必要です。ブラウザ試験の実行条件は[モデル取得UIの検証記録](voice-stack/model-downloads.md)を参照してください。通常の `check` は実機・ブラウザ試験の有効化変数を除外するため、専用試験は個別の手順で実行します。Windowsの長時間運転と実マイクの試験は[Windowsの実機試験](voice-stack/windows-field-tests.md)にあります。
+PlaywrightのPythonパッケージとChromium実行ファイルは別です。`setup --scope browser` はChromiumやOSライブラリを取得しません。ブラウザ試験の実行条件は[モデル取得UIの検証記録](voice-stack/model-downloads.md)を参照してください。通常の `check` は実機・ブラウザ試験の有効化変数を除外するため、専用試験は個別の手順で実行します。Windowsの長時間運転と実マイクの試験は[Windowsの実機試験](voice-stack/windows-field-tests.md)にあります。
 
 ## 検証する対象を選ぶ
 
@@ -169,9 +169,9 @@ python tools/dev.py check --scope integration
 | `tooling` | 標準ライブラリのunittestで `tests/devtools` を検証 |
 | `node` | `src-ui` 以下の `.test.js` / `.test.mjs` / `.test.ts` と `tools/i18n_gate`、`tools/writing_gate` の試験を Vitest で実行（`vitest.config.js`）。`node_modules` の Vitest を Node で直接起動し、取得はしない。未導入なら `setup --scope ui` を案内して止まる。続けて[文言の検査](#uiの文言と翻訳の検査)（`tools/i18n_gate/check.mjs`）と[文章の検査](#文章の検査docswriting)（`tools/writing_gate/check.mjs`）を実行する |
 | `lint` | `tools/dev.py` の `LINT_PATHS`（`tests/voice`、`tests/devtools`、音声・配布・開発の道具）をRuffで検査。自動修正なし。voice CIも同じスコープを実行する |
-| `voice` | `tests/voice/pytest.ini` を使ったモデルなしの契約試験と、`tests/platform`にある単体の試験3件 |
+| `voice` | `tests/voice/pytest.ini` を使ったモデルなしの契約試験と、`tests/platform`にある単体の試験2件 |
 | `ui` | UIの試験（Vitest）、[Biome](#uiのlintと整形biome)のlintと整形の検査、型チェック（`npm run typecheck`）、`npm run vite-build`。ブラウザの操作は含まない |
-| `rust` | `src-tauri` の `cargo check --locked --offline` と、`native/app-identity`、`native/speech-server`、`native/ops`、`native/audio-routing`、`native/adapters`、`native/translation`、`native/transcription`、`native/openvr-client`、`native/onnx-runtime`、`native/vr-overlay`、`native/voice-conversion`、`native/translate-onnx`、`native/tts`、`native/core` の試験を、cargo-nextestで実行（`cargo nextest run --locked --offline`）。nextestはdoctestを流さないので、`src/lib.rs` のあるクレートは続けて `cargo test --doc` を実行する。キャッシュやOS依存（Linuxでは `libpipewire-0.3` の開発ファイルとlibclang。`src-tauri` も中核を通して使う）がなければ失敗 |
+| `rust` | `src-tauri` の `cargo check --locked --offline` と、`native/app-identity`、`native/speech-server`、`native/ops`、`native/audio-routing`、`native/adapters`、`native/translation`、`native/transcription`、`native/openvr-client`、`native/onnx-runtime`、`native/vr-overlay`、`native/voice-conversion`、`native/translate-onnx`、`native/tts`、`native/core`、`native/ocr-runtime`、`native/rvc-runtime`、`native/talk-ai` の試験を、cargo-nextestで実行（`cargo nextest run --locked --offline`）。nextestはdoctestを流さないので、`src/lib.rs` のあるクレートは続けて `cargo test --doc` を実行する。キャッシュやOS依存（Linuxでは `libpipewire-0.3` の開発ファイルとlibclang。`src-tauri` も中核を通して使う）がなければ失敗 |
 | `integration` | [結合テスト](#結合テストplaywright)。`native/browser-core-bridge` を `cargo build --locked --offline` で組み、`tests/integration/vite.config.ts` で画面を組んでから、Playwright で Chromium と WebKit の試験を流す。ブラウザは取得しない。未導入なら `setup --scope integration` を案内して止まる |
 | `workflows` | ワークフローと自前のアクションを、actionlint（shellcheckを含む）とzizmorで検査（[リポジトリの検査](#リポジトリの検査)） |
 | `crates` | すべてのCargoのワークスペースの依存のライセンス、禁止の設定、取得元を、cargo-denyで検査（[リポジトリの検査](#リポジトリの検査)）。先に `setup --scope rust` が要る |
@@ -185,7 +185,7 @@ python tools/dev.py check --scope integration
 
 Pythonは専用venvを優先し、次に既存の `.venv` を探します。`--python` があればその実行ファイルを使います。専用venvがない状態で `all` を実行しても、依存の不足を黙って省略しません。`doctor --scope all` で先に確認できます。
 
-`doctor` と `check` は依存パッケージ・モデルを取得せず、アプリ、マイク、発声、GPU推論を起動しません。子プロセスでは `VRCT_` で始まる環境変数、pytest追加引数・外部pluginの自動読込みを除外し、Hugging Faceをofflineにします。これは試験の誤起動を防ぐ設定であり、任意のテストコードを封じるネットワークsandboxではありません。HTTP/UDP契約試験はローカルの一時ポートを使います。通信を禁止するsandboxではその試験が失敗します。
+`doctor` と `check` は依存パッケージ・モデルを取得せず、アプリ、マイク、発声、GPU推論を起動しません。子プロセスでは `ASTAROT_` と `VRCT_` で始まる環境変数、pytest追加引数・外部pluginの自動読込みを除外し、Hugging Faceをofflineにします。これは試験の誤起動を防ぐ設定であり、任意のテストコードを封じるネットワークsandboxではありません。HTTP/UDP契約試験はローカルの一時ポートを使います。通信を禁止するsandboxではその試験が失敗します。
 
 `check` はキャッシュや検証用の一時ファイルを作り、UIでは `dist`、RustではCargoのビルド先を書き換えます。起動中の通常アプリを停止するnpmの `dev` / `build` / `task-kill` は呼びません。tooling試験では、rustcがある場合に一時ディレクトリで `src-tauri/src/single_instance.rs` の単体試験をコンパイルして実行します（`tests/devtools/test_single_instance.py`）。配布ビルドは[Linuxビルド手順](voice-stack/linux-build-pipeline.md)の専用workspaceで行います。
 
@@ -210,8 +210,8 @@ Pythonは専用venvを優先し、次に既存の `.venv` を探します。`--p
 | `links` | lychee | `site/` 以外のMarkdownのファイル同士のリンクと、見出しへのリンク（`#...`）。外部のサイトには問い合わせない | `lychee.toml` |
 | `hooks` | hk | Gitのフックの設定（`hk.pkl`）の書き方。`hk.pkl` が読むhkの設定のパッケージの版と、`mise.toml` のhkの版がそろっていること（`tests/devtools/test_toolchain_pins.py`） | なし |
 | `secrets` | gitleaks | `--base` からHEADまでの新規コミットの鍵やトークン。見つけた値は出力に出さない（`--redact`） | `.gitleaks.toml`（規則）、`.gitleaksignore`（過去のコミットの指紋） |
-| `vulns` | osv-scanner | `uv.lock`、`package-lock.json`（ルートと `site/` と `site/motion/`）、18の `Cargo.lock` の依存の既知の脆弱性（osv.dev） | `osv-scanner.toml`（例外。理由と見直す日を書く） |
-| `crates` | cargo-deny | 18のCargoのワークスペース（`CARGO_WORKSPACES`）の依存のライセンス、取得元（crates.ioと、許可したgitのリポジトリ）、版を書かない依存。配布する2つのシステム（WindowsとLinuxのx64）で組む依存だけを見る | `deny.toml` |
+| `vulns` | osv-scanner | `uv.lock`、`package-lock.json`（ルートと `site/` と `site/motion/`）、19の `Cargo.lock` の依存の既知の脆弱性（osv.dev） | `osv-scanner.toml`（例外。理由と見直す日を書く） |
+| `crates` | cargo-deny | 19のCargoのワークスペース（`CARGO_WORKSPACES`）の依存のライセンス、取得元（crates.ioと、許可したgitのリポジトリ）、版を書かない依存。配布する2つのシステム（WindowsとLinuxのx64）で組む依存だけを見る | `deny.toml` |
 
 - actionlintは、`mise.toml` で固定したshellcheck（0.11.0）で `run:` のスクリプトを確かめます（2026-11-21に #833 の判断3で決定）。版によって見つけるものが変わるので、`doctor` は固定した版のshellcheckだけを通します。pyflakesの検査は切っています（pyflakesが見る `shell: python` のステップがないため）。
 - zizmorは、`GH_TOKEN` があるとGitHubに問い合わせる監査（固定したコミットが本当にそのアクションのものか、既知の脆弱性のある版か）も行います。CIではワークフローのトークン（読み取りだけ）を渡します。手元では、`GH_TOKEN` がなければその監査を飛ばします。
@@ -521,9 +521,9 @@ python tools/dev.py check --scope commits --base origin/develop
 
 このCLIはvoice gateのコンパイルを代行しません。Linux CIの `tools/build_voice_gate.py` と必要なOS依存の準備は既存の手順を維持します。ブラウザ試験、ネイティブアプリ、実GPU、マイク、配布物の受け入れ試験も別の明示的な工程です。
 
-新規のLinux checkoutで `check --scope voice` を実行する前には、Cコンパイラー、pkg-config、PipeWire開発ライブラリを用意し、次を実行してください。音声試験用の補助バイナリを `build/` に生成します。これを省くと、Python依存がそろっていてもcaptureなどの試験が失敗します。
+Linuxの補助プログラムは3つです（`astarot-voice-gate`、`astarot-source-bridge`、`astarot-screen-capture`）。次の `mise run build:voice-gate`（`tools/build_voice_gate.py`）が、これらを `build/` に作ります。`build/` の補助を使うのは、ソースから起動したアプリと、専用のPipeWireのグラフで流すRustの試験（`native/audio-routing` の `voice_gate_private` など。voice CIのLinuxのジョブ）です。`check --scope voice` のPythonの試験は、使う補助を一時フォルダーに自分でコンパイルするので、`build/` の補助には頼りません。どちらにも、Cコンパイラー、pkg-config、PipeWireの開発ファイル（`libpipewire-0.3`）が要ります。
 
-検証済みの音声基盤はPipeWire 1.6.10とWirePlumber 0.5.18です。Ubuntu 24.04標準のAPIではcaptureをコンパイルできません。[Linuxビルド手順](voice-stack/linux-build-pipeline.md)の隔離セットアップは、固定ハッシュの公式ソースから必要な版を作ります。ホストの音声サービスは変更しません。Python用の `setup --scope headless` とは別の明示操作です。
+検証済みの音声基盤はPipeWire 1.6.10とWirePlumber 0.5.18です。Ubuntu 24.04標準のPipeWireのAPIでは補助をコンパイルできないので、CIは固定の版を隔離した場所に作ってから組みます（`tools/ci/setup_pipewire.sh`）。[Linuxビルド手順](voice-stack/linux-build-pipeline.md)の隔離セットアップは、固定ハッシュの公式ソースから必要な版を作ります。ホストの音声サービスは変更しません。Python用の `setup --scope headless` とは別の明示操作です。
 
 ```sh
 mise run build:voice-gate

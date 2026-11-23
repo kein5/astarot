@@ -263,9 +263,11 @@ HTTPでプライベートLANやリンクローカルのアドレスへ接続す�
 
 ### 内蔵モデルの取得への同意
 
-`config.json`の`LEGACY_MODEL_DOWNLOAD_CONSENTS`は、モデルIDから確認済みの一覧を表すSHA-256文字列への辞書で、既定は`{}`。IDは`ctranslate2:m2m100_418M-ct2-int8`などで、対象はいまCTranslate2の翻訳モデルだけである。以前の版が記録した`whisper:…`の同意は、ファイルに残っていても使わない。値は[`models/legacy_model_consent.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/legacy_model_consent.py)がモデル名・提供元・ライセンス・重みのリポジトリと固定版・全ファイルの容量とSHA-256・同じ一式に含まれるtokenizerのリポジトリ・固定版・ファイル一覧をJSONにして計算する。ファイルのハッシュそのものではなく、確認した内容を識別する値である。
+`config.json`の`LEGACY_MODEL_DOWNLOAD_CONSENTS`は、モデルIDから確認済みの一覧を表すSHA-256文字列への辞書で、既定は`{}`。0.4までのPythonバックエンドが、CTranslate2の翻訳モデル（IDは`ctranslate2:m2m100_418M-ct2-int8`など）の取得に同意したときに記録していた。値は[`models/legacy_model_consent.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/legacy_model_consent.py)がモデル名・提供元・ライセンス・重みのリポジトリと固定版・全ファイルの容量とSHA-256・同じ一式に含まれるtokenizerのリポジトリ・固定版・ファイル一覧をJSONにして計算していた。ファイルのハッシュそのものではなく、確認した内容を識別する値である。
 
-`/get/data/model_download_catalog`の`legacy_models`に、確認画面用の名前、提供元、ライセンス、非商用の制限、正確な`total_bytes`、`tokenizer_size_unknown`、`manifest_version`を返す。CTranslate2のtokenizerには同じ取得元と固定版、ファイルの容量・SHA-256、bundled: trueが入る。tokenizer_size_unknownはfalse、容量は重複して足さない。`/run/download_ctranslate2_weight`には`{weight_type, consent: true, manifest_version}`を送る。現在の一覧と一致する明示的な同意を受け取ったときだけ記録し、取得前に即時保存を試みる。保存失敗は通常の設定保存と同じ通知・再試行で扱う。
+CTranslate2の取得は0.5.0で引退した。中核はこのキーを、値がすべて文字列の辞書として読み書きして残すだけで（`native/core/src/config/schema.rs`）、値を計算も記録もしない。`/get/data/model_download_catalog`の`legacy_models`は、いつも空の一覧を返す（`native/core/src/controller/downloads.rs`）。`/run/download_ctranslate2_weight`は中核に要求がなく、UIの側の定義だけが残っている（[IPCエンドポイント一覧](reference/ipc-endpoints.md)の「UIだけにあるルート」。UIの部品は`src-ui/logics/configs/legacyModelConsent.ts`）。ローカル翻訳のモデルは、ほかのモデルと同じ取得の確認と同意で取る（[モデル取得](../voice-stack/model-downloads.md)）。
+
+0.4までは、`legacy_models`に確認画面用の名前、提供元、ライセンス、非商用の制限、正確な`total_bytes`、`tokenizer_size_unknown`、`manifest_version`を返していた。CTranslate2のtokenizerには同じ取得元と固定版、ファイルの容量・SHA-256、bundled: trueが入り、tokenizer_size_unknownはfalseで、容量は重複して足さなかった。`/run/download_ctranslate2_weight`には`{weight_type, consent: true, manifest_version}`を送り、現在の一覧と一致する明示的な同意を受け取ったときだけ記録して、取得前に即時保存を試みていた。
 
 起動時の取得では、保存された値と現在のモデル一覧の値が一致するか確認する。版、ファイルの容量・SHA-256、ライセンス、tokenizerの版が変わると再確認が必要になる。古い値はファイルを削除する根拠にはしない。旧版からの移行時は記録なしとして扱い、`AUTO_DOWNLOAD_MODELS=True`や既存のNLLB選択から同意を推測しない。既に取得したファイルとモデルの選択は保持する。
 
@@ -401,11 +403,11 @@ APIキーは`config.json`に書かない（0.5.0から）。いまはOSの資格
 
 | ファイル | 置き場所 | 内容 |
 |---|---|---|
-| `process.log`、`error.log` | `$VRCT_CONFIG_DIR/logs/`（なければ作業フォルダ） | 診断ログ。10MBで切り詰め、`process.log`は起動のたびに空にする。失敗した実行のあとでUIが中核を起動し直したときだけは空にせず、前の実行の記録に続けて書く。0.4までのPythonバックエンドは、ほかに`freeze_trace.log`と`crash_trace.log`（faulthandlerのスタックダンプ）、`startup_timing.log`（起動の段階ごとの時間）も書いていた。中核はこの3つを書かない |
+| `process.log`、`error.log` | `$ASTAROT_CONFIG_DIR/logs/`（なければ作業フォルダ） | 診断ログ。10MBで切り詰め、`process.log`は起動のたびに空にする。失敗した実行のあとでUIが中核を起動し直したときだけは空にせず、前の実行の記録に続けて書く。0.4までのPythonバックエンドは、ほかに`freeze_trace.log`と`crash_trace.log`（faulthandlerのスタックダンプ）、`startup_timing.log`（起動の段階ごとの時間）も書いていた。中核はこの3つを書かない |
 | `startup.log` | 同上（Tauri側） | ウィンドウの起動記録 |
 | 会話ログ `YYYY-MM-DD_HH-MM-SS.log` | `PATH_LOGS` | 「会話ログを自動的に保存する」がオンのときだけ。行頭は`[SENT]`、`[RECEIVED]`、`[OCR]`、`[CHAT]`。画面は新しい1,000件しか残さないが、ファイルには古いものも残る |
 | `downloaded_models/<id>/<版>/`と`receipt.json` | `config.json`と同じフォルダ | 取得したモデル。取得中は`.partial-<16進>/`。壊れたモデルを取り直すときも、いったんその名前に戻してから消す（[失敗したときに保つもの](failure-recovery.md#モデルの取得と適用)） |
-| `user_models.json` | `config.json`と同じフォルダ | 利用者が名前を付けて登録したモデル（#403）。`{"version": 1, "models": [{id, target, name, files: {役割: {path, size, mtime_ns}}, registered_at}]}`。ファイルの場所と、登録したときの容量と更新時刻だけを持ち、モデルのファイルはコピーしない。一時ファイルに書いて`fsync`してから置き換える。読めない、または版が違うときは書き換えずに残す。PythonとRustのコアは同じ形式を読み書きする |
+| `user_models.json` | `config.json`と同じフォルダ | 利用者が名前を付けて登録したモデル（#403）。`{"version": 1, "models": [{id, target, name, files: {役割: {path, size, mtime_ns}}, registered_at}]}`。ファイルの場所と、登録したときの容量と更新時刻だけを持ち、モデルのファイルはコピーしない。一時ファイルに書いて`fsync`してから置き換える。読めない、または版が違うときは書き換えずに残す。0.4までのPythonバックエンドも同じ形式を読み書きしていた |
 | `translation_catalog.json` | `config.json`と同じフォルダ | 翻訳のカタログに利用者が足した項目（#413、中核のみ）。`{"version": 1, "entries": [...]}`。推論エンジン系は`{id, group: "engine", name, runtime, folder, languages, registered_at}`で、`runtime`が`llamacpp`（TranslateGemmaのような翻訳のLLM、ADR-015）の項目は`folder`の代わりに`file`にGGUFのファイルのパスを入れ、`device`（`auto`、`cpu`、`Vulkan1`など）を足す。`file`を持つ項目が1つでもあると、ファイルの`version`は`2`になる。`version`が`1`しか読めない以前の版は、そのファイル全体を読めないものとして扱い、上書きしない（足した項目を一覧に出さず、その重みを選んでいた設定は既定のモデルに戻る）。新しい版で`llamacpp`の項目をすべて削除すると、ファイルは`version: 1`に戻り、以前の版でもまた読める。API系は`{id, group: "api", name, protocol, url, model, key, registered_at}`。`key`は[APIキーの保存先](#apiキーの保存先)がキーを持てたかどうかだけで、キーそのものはこのファイルに書かない（保管場所に置けずにメモリーに持っているあいだは`false`）。フォルダーのモデルはコピーしない。書き方と、読めないときに残すことは`user_models.json`と同じ。この版が知らない`runtime`や`protocol`の項目は残し、使えないものとして見せる |
 | `vc_runtimes/<エンジン>/`と`receipt.json` | `config.json`と同じフォルダ | アプリが準備したRVCの実行環境（WindowsとLinux。0.4まではSeed-VCも）。`.steps.json`に終わった手順を残す。0.4までのPythonバックエンドは、`setup.log`に`uv`とワーカーの確認の出力も残し、Seed-VCでは`.uv-<版>/`に取得用の`uv`を置いた（0.5.0の中核は`setup.log`を書かない）。RVCは`lib/`（ONNX Runtime。GPU用はCUDA 13とcuDNNのライブラリも）と`assets/`だけで、取得中は`lib.part/`と`downloads/`を使う。RVCの取得が終わると、同じフォルダーにある以前のPyTorch形式の`venv/`、`python/`、`engine/`（中のモデルと音声のファイルは残す）、`engine.zip`、固定の`rmvpe.pt`と`preprocessor_config.json`を削除する |
 | `vc_runtimes/onnxruntime-cuda/`、`vc_runtimes/onnxruntime-directml/`と`receipt.json` | `config.json`と同じフォルダ | ローカル翻訳をGPUで動かすためのONNX Runtime（0.5.2の後から。利用者が同意して取得したときだけ）。`onnxruntime-cuda/`はCUDA 13版とNVIDIAのライブラリ、`onnxruntime-directml/`はDirectML版と`DirectML.dll`（Windowsだけ）。どちらも`lib/`だけで、取得と確認はRVCの実行環境と同じ。アプリは起動時に、翻訳の処理デバイスに合う版を同梱のCPU版の代わりに読み込む。RVCのワーカーはDirectMLで変換するときに`onnxruntime-directml/lib`を読み込む |
@@ -466,16 +468,23 @@ ASR/翻訳5,000ms、従来のtotal 10,000ms。
 
 ## 音声デバイスの選択と識別
 
-従来の文字起こしと音量メーターは、入力元ごとに1つの録音セッションを共有する。名前は表示用のラベルとし、選択にはIDを使う。
+従来の文字起こしと音量メーターは、入力元（マイクとスピーカー）ごとに1つの録音を共有する。名前は表示用のラベルとし、選択にはIDを使う（`native/core/src/controller/audio_devices.rs`、`native/audio-routing/src/identity.rs`、`selection.rs`）。従来の録音を使うのは、Windowsでクラウドの音声認識エンジンを選んでいるときだけである。Linuxのメイン画面のスイッチと、Windowsのローカルの音声認識（speech.cpp）は、リアルタイムASRを使う。
 
-- 保存する`SELECTED_MIC_DEVICE_ID`と`SELECTED_SPEAKER_DEVICE_ID`を追加した。既存の`SELECTED_MIC_HOST`、`SELECTED_MIC_DEVICE`、`SELECTED_SPEAKER_DEVICE`は残す。名前だけの旧設定は、対象ホストの候補が1台に絞れるときだけIDへ移行する。同名の候補が複数あるときは手動で選び直す。保存したIDが見つからなくても、同名という理由で別の機器と同一視しない。
-- PortAudioが返すエンドポイントID・UID、対応を一意に確認できるWindowsのIMMDevice ID、PipeWireのノード名を識別に使う。IDを取得できないPortAudioの機器には、プロセス内の一覧に限って有効なIDを付ける。このIDは再起動や接続状態の変更を越えて同じ機器を保証しない。名前の重複からWindowsのIDとの対応を推測しない。
-- 録音開始時のPortAudio情報に、選択時に確認したネイティブIDが含まれない場合は、そのopenで使うPortAudioの一覧と新しいIMMDeviceの一覧から対応を確認する。別のIDならそのストリームを閉じて代替機器を探す。対応を確定できない場合は録音を続け、選択時のネイティブIDを引き継がず、実際に開いたスロットのIDと名前を通知する。
-- 選択IDとは別に、接続状態の世代、PortAudioのインデックス、サンプルレート、入力チャンネル数を比較する。名前とIDが同じでも、これらが変われば録音を再設定する。
-- 旧IPCの名前の文字列と名前一覧は維持する。新しい`/get/data/selectable_mic_device_options`とスピーカー側の同名形式は`[{id, label}]`を返す。`/get/data/selected_mic_device_id`、`/set/data/selected_mic_device_id`とスピーカー側の同名形式はID文字列を扱う。各値の変更は`/run/…`でも通知する。デスクトップとVRの選択欄は新しいIPCを使う。同名の項目にはIDも添える。旧名による変更要求は、候補が1台のときだけ受け付ける。
-- 一覧の更新やAuto選択だけでは録音を始めない。Autoをオンにすると、選択値と収録中のデバイスを1回の処理で合わせる。更新中にAutoをオフにしても、利用者が始めた録音を継続する。OFF操作が終わった後に、古い再開要求で録音を再開しない。
-- 利用者が始めた録音では、選択した機器が消えた場合や開けない場合、Autoがオフでも利用可能な別の機器へ切り替えて継続する（2026-11-04の保守方針）。ライブラリの既定値を識別しないまま開くことはしない。開けた機器のIDと名前を選択値として通知し、`/run/audio_device_switched`の200通知に`{source, old_device: {id, name}, new_device: {id, name}}`を入れる。UIは変更前後の名前を、操作を妨げない通知で知らせる。
-- 代替機器でも開始できない場合、止まった文字起こしとメーターをオフにし、メーターをゼロへ戻す。開く処理がタイムアウトした場合も、その処理の所有権を保持する。処理が終わるまで同じ入力元の新しいopenを拒否し、遅れて開いた資源を閉じる。既に実行中のネイティブ呼び出しを強制的に中断できる保証はない。
-- 録音のエラーと復旧処理は開始ごとの世代で照合する。古い録音のエラーで、切り替え後の録音を止めたり、新しいエラー通知を抑止したりしない。この世代は利用者のオン・オフ操作やメッセージ配送の世代と分け、内部のデバイス切り替えだけでは受け付け済みのテキストを破棄しない。検証のために開いたストリームは、リスナーが開始する前に停止された場合も一度だけ閉じる。
+- 機器の一覧と識別:
+    - Windowsは、WASAPI（`IMMDeviceEnumerator`）の機器だけを並べる。IDはIMMDevice IDを含む`mic:Windows WASAPI:<IMMDevice ID>`と`speaker:2:<IMMDevice ID>`で、サンプルレートとチャンネル数はミックスの形式から取る（`native/audio-routing/src/wasapi/mod.rs`）。マイクのホストは`Windows WASAPI`だけである。
+    - Linuxは、PipeWireの入力だけを`PipeWire`という1つのホストに並べる。IDは`pipewire:<node.name>`で、スピーカーの行はない。一覧は2秒ごとに読み直す（`native/audio-routing/src/pipewire/devices.rs`）。従来の録音はPipeWireの行を開かない（`asr_capture_windows_only`）。
+- 保存する`SELECTED_MIC_DEVICE_ID`と`SELECTED_SPEAKER_DEVICE_ID`と、名前の`SELECTED_MIC_HOST`、`SELECTED_MIC_DEVICE`、`SELECTED_SPEAKER_DEVICE`を持つ。保存したIDは同じIDの機器にだけ合う。名前は、同じ名前の行が1つだけのときに合う。保存したIDが見つからなくても、同名という理由で別の機器と同一視しない。
+- 名前だけの設定は、使うときに名前が1つの行に合えば、その機器を使い、次に選択を知らせるときにIDを書く。同じ名前の行が複数あれば、保存した名前のまま残し、Autoがオフなら機器を選ばない（どれかを推測しない）。0.4までのPythonが使っていたホスト（MME、DirectSound、WDM-KS）で保存した選択は、WASAPIの行へ移す。保存したIDのネイティブIDの部分か、IDが空か`pa:`のスロットのIDなら名前（MMEの31文字の切り詰めも見る）で、1つに合うときだけ移す（`selection.rs`）。
+- 保存したIDの機器が一覧にないときは、Autoがオフでも、OSの既定の機器、なければ一覧の最初の行を選ぶ。一覧が変わると、録音していなくても、その選んだ機器を選択として保存する。元の機器をつなぎ直しても、選択は戻らない（`native/core/tests/audio_devices.rs`）。
+- 録音を設定し直すのは、開いている機器の組（ID、名前、ホスト、一覧の位置、接続の世代とオブジェクトのシリアル、サンプルレート、入力チャンネル数、ループバックかどうか、ノード名）が変わったときである（`identity.rs`の`capture_key`）。接続の世代は機器の変化の知らせのたびに上がるので、機器の変化があると動いている録音を開き直す。
+- 名前の文字列と名前の一覧のIPCは維持する。`/get/data/selectable_mic_device_options`とスピーカー側の同名形式は`[{id, label}]`を返す。動いている録音の機器は、止まるまで一覧に残す。`/get/data/selected_mic_device_id`、`/set/data/selected_mic_device_id`とスピーカー側の同名形式はID文字列を扱い、空のIDは受け付けない。各値の変更は`/run/…`でも通知する。デスクトップとVRの選択欄は新しいIPCを使う。名前による変更の要求は、同じ名前の行が1つのときだけ受け付ける。
+- 一覧の更新やAutoの選択は、文字起こしかメーターがオンのときだけ録音の機器を動かす。オフなら選択を知らせるだけで、録音を始めない。Autoをオンにすると、返答の前に選択と録音中の機器を合わせる。Autoをオフにしても、機器の組が変わらない録音は続ける。待っている合わせの処理は世代を持ち、世代が変わっていれば捨てる。オフの操作も世代を進めるので、古い要求で録音を再開しない。合わせの処理は、要求を受けたスレッドで行う。
+- Windowsのスピーカーの自動選択は、OSの既定だけでなく、いちばん大きな音を出している再生の機器に従う（`native/audio-routing/src/tracker.rs`）。録音を設定し直している間は、この追跡を止める。
+- 利用者が始めた録音では、選んだ機器が消えた場合や開けない場合、Autoがオフでも、使える別の機器へ切り替えて続ける（2026-11-04の保守方針）。試す順は、選んだ機器、OSの既定の機器、ほかのすべての行で、同じ機器の組の重なりとPipeWireの行は飛ばす。1つの機器を開くのは8秒まで待つ（`native/transcription/src/recorder.rs`）。読み取りのエラーでは一覧を読み直し、機器が消えていれば切り替える。機器が一覧に残っていれば切り替えず、`AUDIO_READ_ERROR`で認識をオフにする。開くにはIMMDevice IDが要るので、識別しないライブラリの既定の機器は開かない。
+- 開けた機器のIDと名前を選択として保存する。IDか名前が変わったときは、`/run/audio_device_switched`の200通知に`{source, old_device: {id, name}, new_device: {id, name}}`を入れる。UIは変更前後の名前を、操作を妨げない通知で知らせ、名前が同じならIDも添える。
+- どの機器も開けない場合は、文字起こしとメーターをオフにし（`/set/disable/transcription_*`、`/set/disable/check_*_threshold`）、メーターを0に戻し（`/run/check_*_volume`）、`/run/transcription_recognition_error`を送る。機器が1つもないときは、スピーカーとメーターに`/run/error_device`（`DEVICE_NO_MIC`か`DEVICE_NO_SPEAKER`）を送る。
+- 開く処理が8秒を過ぎたら、止める印を立てて`asr_capture_start_timeout`で失敗にし、次の機器を試す。同じ入力元への次の要求は、入力元のロックで待つ。遅れて開いたストリームは止める印を見て止まる。すでに動いているネイティブの呼び出し（Windowsのマイクの許可の確認を待つことがある）を中断できる保証はない。
+- 録音のエラーと復旧は、入力元ごとの版（開始、停止、失敗のたびに進む）で照合する。古い録音のエラーで、切り替え後の録音を止めたり、新しいエラー通知を抑止したりしない。この版は利用者のオン・オフ操作の世代やメッセージ配送の世代と分ける。内部の機器の切り替えだけでは受け付け済みのテキストを破棄しないが、切り替える前の録音で認識している途中のものは捨てる。確かめるためだけのストリームは開かず、開けたストリームをそのまま使う。
+- RVCの入力の既定は、デバイスのページのマイクを名前で探す（`native/core/src/controller/voice/mod.rs`）。
 
-リアルタイムASRは別のキャプチャ経路であり、ここで述べた従来の録音の自動継続は適用しない。
+リアルタイムASRは別のキャプチャ経路であり、ここで述べた従来の録音の自動継続は適用しない。リアルタイムASRは`REALTIME_ASR_SETTINGS`で固定した機器か、OSの既定の機器を使う。従来の録音を始めるときは、先にリアルタイムASRを止める（`native/core/src/controller/realtime_asr.rs`、`transcription.rs`）。

@@ -5,8 +5,8 @@ era: python-sidecar
 validity: current
 validity_note: 12 節は追記案（レビュー待ち）として書かれたままで、採否の記録はない。
 implementation_status: partial
-implementation_checked: 2026-11-18
-implementation_note: アプリの表示名は ASTAROT に移した（tauri.conf.json の productName）。識別子の移行（P2）は始まっておらず、アプリ ID と実行ファイル名は vrct-vox のまま。
+implementation_checked: 2026-11-23
+implementation_note: アプリの表示名は ASTAROT に移した（tauri.conf.json の productName）。識別子の移行（P2）は ADR-014 で決め、0.6.0 から順に移している。アプリ ID と実行ファイル名は vrct-vox のまま。
 evidence:
   - src-tauri/tauri.conf.json
   - docs/voice-stack/project-rename.md

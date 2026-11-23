@@ -196,19 +196,21 @@ export default defineConfig({
     // / picks the language itself (pickLanguage); a page opened by its address stays put.
     localeRedirect: 'never',
   },
+  // English first, then Japanese, wherever the two languages stand side by side (decided
+  // 2026-11-23). The order of the language menu follows these lists.
   locales: [
     { lang: DEFAULT_LANG, label: 'Language', title: 'ASTAROT' },
-    {
-      lang: 'ja',
-      label: '日本語',
-      title: 'ASTAROT',
-      description: 'VRChat向けの翻訳・音声認識・読み上げ・声の変換・チャット読み取りアプリASTAROTの使い方',
-    },
     {
       lang: 'en',
       label: 'English',
       title: 'ASTAROT',
       description: 'How to use ASTAROT, a translation, speech recognition, text-to-speech, voice conversion and chat-reading app for VRChat',
+    },
+    {
+      lang: 'ja',
+      label: '日本語',
+      title: 'ASTAROT',
+      description: 'VRChat向けの翻訳・音声認識・読み上げ・声の変換・チャット読み取りアプリASTAROTの使い方',
     },
   ],
   i18nSource: (source) => {
@@ -291,25 +293,25 @@ export default defineConfig({
     locales: [
       { lang: DEFAULT_LANG, label: 'Language', nav: [], sidebar: {} },
       {
-        lang: 'ja',
-        label: '日本語',
-        // The top bar points at the three pages a reader looks for first.
-        nav: [
-          { text: 'ガイド', link: '/ja/guide/introduction' },
-          { text: 'インストール', link: '/ja/guide/install' },
-          { text: '困ったとき', link: '/ja/guide/troubleshooting' },
-        ],
-        sidebar: sidebarJa,
-      },
-      {
         lang: 'en',
         label: 'English',
+        // The top bar points at the three pages a reader looks for first.
         nav: [
           { text: 'Guide', link: '/en/guide/introduction' },
           { text: 'Install', link: '/en/guide/install' },
           { text: 'Troubleshooting', link: '/en/guide/troubleshooting' },
         ],
         sidebar: sidebarEn,
+      },
+      {
+        lang: 'ja',
+        label: '日本語',
+        nav: [
+          { text: 'ガイド', link: '/ja/guide/introduction' },
+          { text: 'インストール', link: '/ja/guide/install' },
+          { text: '困ったとき', link: '/ja/guide/troubleshooting' },
+        ],
+        sidebar: sidebarJa,
       },
     ],
   },
