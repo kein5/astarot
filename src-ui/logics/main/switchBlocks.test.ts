@@ -51,7 +51,7 @@ test("chat reading follows the start: language first, then its models", () => {
 
 test("speech is blocked only when nothing is chosen to read aloud", () => {
     assert.deepEqual(switchBlocks({ voiceSettings: speech({ mode: "off" }) }).tts, { reason: "tts_source", action: "tts" });
-    for (const values of [{}, { mode: "translated" }, { mode: "off", mic_mode: "translated" }])
+    for (const values of [{}, { mode: "translated" }, { mode: "off", mic_mode: "original" }, { mode: "off", mic_mode: "translated" }])
         assert.equal(switchBlocks({ voiceSettings: speech(values) }).tts, undefined);
 });
 
