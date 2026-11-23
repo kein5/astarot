@@ -55,6 +55,10 @@
     "reason": "An id is retired only when it is not retired already (applyRealtimeCaption returns early for it), so there is nothing to drop.",
     "where": "src-ui/logics/transcription/realtimeCaptionState.ts:78:89 value !== id -> true"
   },
+  "1a3tuns6ixg": {
+    "reason": "Once stopped, invalidate schedules nothing and the hover mark is already cleared, so a late pointer changes nothing.",
+    "where": "src-ui/views/vr/vrPanelHover.ts:56:17 disposed -> false"
+  },
   "1c147xa0ble": {
     "reason": "Only the main screen and the translator's list have no stage; neither draws the language list keyed by this, and the key is compared only with itself.",
     "where": "src-ui/views/vr/VrLanguageWindow.tsx:104:51 '' -> 'Stryker was here!'"
