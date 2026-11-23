@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import type { MouseEvent } from "react";
 import { useI18n } from "@useI18n";
 import { isTauri } from "@tauri-apps/api/core";
@@ -7,6 +7,8 @@ import { activeSetupPhases, useVcRuntimes } from "../../../../../../logics/voice
 import { useConsentDialog } from "../../../../../../logics/common/useConsentDialog";
 import * as styles from "./VoiceSettings.css.ts";
 import { EnvReadout } from "../_components/env_readout/EnvReadout";
+import { Hint, useHintDescriptions } from "../_components/hint/Hint";
+import * as runtimeStyles from "./VcRuntimeSetup.css.ts";
 
 const gb = (value: number) => `${(value / 1e9).toFixed(1)} GB`;
 
@@ -29,6 +31,8 @@ export const VcRuntimeSetup = ({ engine, current, disabled, onUse, fit }: VcRunt
     const { catalog, state, error, pending, send } = useVcRuntimes();
     const [open, setOpen] = useState(false), [consent, setConsent] = useState(false), [linkError, setLinkError] = useState<string | null>(null);
     const section = useRef<HTMLElement>(null);
+    const hints = useHintDescriptions();
+    const helpId = useId();
     const { dialog, close: closeDialog } = useConsentDialog(open, section);
     useEffect(() => {
         send("/get/data/vc_runtime_catalog"); send("/get/data/vc_runtime_state");
@@ -48,12 +52,19 @@ export const VcRuntimeSetup = ({ engine, current, disabled, onUse, fit }: VcRunt
         try { await openUrl(url); setLinkError(null); }
         catch { setLinkError(url); }
     };
-    return <section ref={section} tabIndex={-1} className={styles.download_entry} data-fit={fit} aria-label={t("vc_runtime.title", { name: entry.name })}>
-        <strong>{t("vc_runtime.title", { name: entry.name })}</strong>
+    // What the runtime holds and needs is its title's hint on a page that shows descriptions as
+    // hints (#614); a build not needed for the user's GPU says only that.
+    const help = fit !== "unneeded" ? t(`vc_runtime.help_${entry.notice}`) : null;
+    const title = t("vc_runtime.title", { name: entry.name });
+    return <section ref={section} tabIndex={-1} className={styles.download_entry} data-fit={fit} aria-label={title}
+        aria-describedby={help && hints ? helpId : undefined}>
+        {help && hints
+            ? <div className={runtimeStyles.titleLine} data-hint-host><strong>{title}</strong><Hint text={help} id={helpId} focusable /></div>
+            : <strong>{title}</strong>}
         {fit && <div className={styles.card_badges}>
             <span className={styles.badge} data-tone={fit === "fits" ? "recommended" : undefined}>{t(`vc_runtime.fit_${fit}`)}</span>
         </div>}
-        {fit !== "unneeded" && <p>{t(`vc_runtime.help_${entry.notice}`)}</p>}
+        {help && !hints && <p>{help}</p>}
         {/* The saved folder holds a runtime this version cannot use (the earlier PyTorch RVC runtime). */}
         {!installed && !active && current && current === entry.destination && <p role="alert">{t("vc_runtime.outdated")}</p>}
         {!installed && <p>{t("vc_runtime.size", { download: gb(entry.download_bytes), disk: gb(entry.disk_bytes) })} · {entry.license}</p>}

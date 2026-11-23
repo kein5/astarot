@@ -94,6 +94,19 @@ def test_workflows_pin_external_code_and_keep_inputs_out_of_scripts(workflow):
         assert commands.strip() == "python3 -m tools.update_channels beta"
         assert all(step.get("with", {}).get("persist-credentials") == "false"
                    for step in job["steps"] if step.get("uses", "").startswith("actions/checkout@"))
+    elif workflow.name == "ci-failures.yml":
+        # The weekly count of CI failures (the CI audit of 2026-11-22, item 7): it reads the runs
+        # and their jobs, writes only its job summary, and runs no input of anyone's.
+        assert set(document["on"]) == {"schedule", "workflow_dispatch"}
+        assert document["permissions"] == {"contents": "read"}
+        assert set(document["jobs"]) == {"count"}
+        job = document["jobs"]["count"]
+        assert job["permissions"] == {"contents": "read", "actions": "read"}
+        assert "github.repository == 'kein5/astarot'" in job["if"]
+        commands = "\n".join(step.get("run", "") for step in job["steps"])
+        assert commands.strip() == "python3 -m tools.ci_failures --days 7"
+        assert all(step.get("with", {}).get("persist-credentials") == "false"
+                   for step in job["steps"] if step.get("uses", "").startswith("actions/checkout@"))
     elif workflow.name == "pipeline-latency.yml":
         # Issue #738: after voice-tests.yml it sends the pipeline's measured times to Bencher. It
         # runs from develop's copy of the file, never a pull request's, checks out nothing, and

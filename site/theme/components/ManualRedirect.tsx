@@ -11,11 +11,11 @@ export default function ManualRedirect({ to }: { to: string }) {
   }, [to])
   return (
     <div className="language-picker">
-      <p lang="ja">
-        ASTAROTユーザーマニュアルはガイドにまとめました。<a href={withBase(`/ja${to}`)}>ガイドのページを開く</a>
-      </p>
       <p lang="en">
         The ASTAROT manual is now part of the guide. <a href={withBase(`/en${to}`)}>Open the guide page</a>
+      </p>
+      <p lang="ja">
+        ASTAROTユーザーマニュアルはガイドにまとめました。<a href={withBase(`/ja${to}`)}>ガイドのページを開く</a>
       </p>
     </div>
   )

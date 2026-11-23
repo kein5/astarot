@@ -4,8 +4,9 @@ The Linux builder can also produce an x86_64 AppImage containing the release GUI
 runs the Rust backend core in its own process, and the `_internal` folder of the
 [Linux candidate](linux-build-pipeline.md): both pinned speech.cpp builds (CPU and Vulkan), the RVC worker and the
 audio and capture helpers. Since 0.5.0 no Python runtime is shipped. The
+releases published since the
 [`v0.1.0-beta.1` prerelease](https://github.com/kein5/astarot/releases/tag/v0.1.0-beta.1)
-ships an AppImage built by the hosted Linux candidate workflow; an image you
+ship an AppImage built by the hosted Linux candidate workflow; an image you
 build locally is an unpublished candidate.
 It deploys GTK/WebKit dependencies before adding `_internal` under `usr/lib/vrct-vox/`, so
 GUI library rewriting never changes the engine or helper bytes. The core finds them there
@@ -93,10 +94,13 @@ A user-set `XMODIFIERS` is kept.
 The launcher records the host's values of these variables, `LD_LIBRARY_PATH`, `PATH` and the
 GTK/GIO settings as `ASTAROT_APPIMAGE_HOST_<NAME>` and `ASTAROT_APPIMAGE_HOST_<NAME>_SET` before it
 changes them. Up to 0.4 a separate launcher gave them back to the Python backend. Now the
-backend runs inside the GUI process, and every program it starts (speech.cpp, the helpers,
-the RVC worker, `xdg-open`) inherits the GUI environment unless the code that starts it
-restores the host values. The screen capture helper does
-(`src-tauri/src/portal_screencast.rs`, `LD_LIBRARY_PATH` only).
+backend runs inside the GUI process, so every program it starts gets the host values back
+through one function, `astarot_app_identity::appimage::restore_host_environment` (#924, item
+22): speech.cpp and the translation LLM (`native/speech-server`), the GPU listing of the
+model downloads (`native/ops`), the RVC worker (`native/voice-conversion`), the audio helpers
+(`native/audio-routing`'s `ProcessEnv`), the clipboard tools, `xdg-open`, `nvidia-smi` and the
+screen capture helper. A variable the code that starts a program sets itself is left as it
+sets it. Programs the Tauri plugins start (the URL opener, the updater) are not covered.
 
 With the NVIDIA fallback active, the main window is also made opaque. The
 original transparent window lost its contents during ordinary startup/hover on
@@ -143,7 +147,7 @@ Linux >=6.9. AppImage does not remove these requirements.
 OCR weights and Mia2026 are rejected by the package policy. No speech.cpp or RVC model
 is acquired or bundled by this builder. User models stay external. Original licenses are retained;
 GTK/WebKit, runtime static dependencies and the complete native/frontend/Rust
-license/SBOM review remain publication gates. A build-tool license does not cover
+license/SBOM review remain a check before each release ([release candidates](release-candidates.md)). A build-tool license does not cover
 all libraries copied into the image. patchelf is a build tool only and is not
 shipped in the runtime tree.
 

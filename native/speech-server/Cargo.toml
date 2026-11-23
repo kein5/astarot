@@ -6,6 +6,8 @@ edition = "2024"
 publish = false
 
 [dependencies]
+# The host's environment for the programs it starts under the AppImage (#924, item 22).
+astarot-app-identity = { path = "../app-identity" }
 serde_json = "=1.0.154"
 sha2 = "=0.10.9"
 
