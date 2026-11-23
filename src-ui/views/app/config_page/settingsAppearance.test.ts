@@ -52,10 +52,10 @@ test("the repaired selectors use the measured tokens; shared token values are th
     assert.match(styleOf(read("topbar/Topbar.css.ts"), "state"), /\[`&\.\$\{is_failed\}`\]: \{ color: vars\.vox_state_failed \}/);
     assert.match(read(box + "advanced_settings/VoiceSettings.module.scss"), /button:hover:enabled\s*{\s*background: var\(--vox_secondary_hover\)/);
     assert.equal((read(box + "ocr/Ocr.module.scss").match(/background: var\(--vox_secondary_hover\)/g) ?? []).length, 2);
-    const word = read(box + "_components/word_filter/WordFilter.module.scss");
-    assert.match(word, /\.delete_svg\s*{[^}]*color: var\(--vox_state_failed\)/);
-    assert.match(word, /&\.delete\s*{[^}]*&:hover\s*{\s*background-color: var\(--dark_825_color\)/);
-    assert.match(word, /\.add_button\s*{[^}]*color: var\(--vox_on_primary\)[^}]*&:hover\s*{\s*background-color: var\(--primary_650_color\)/);
+    const word = read(box + "_components/word_filter/WordFilter.css.ts");
+    assert.match(styleOf(word, "delete_svg"), /color: vars\.vox_state_failed/);
+    assert.match(styleOf(word, "action_button"), /\[`&\.\$\{delete_\}:hover`\]: \{ backgroundColor: vars\.dark_825_color \}/);
+    assert.match(styleOf(word, "add_button"), /color: vars\.vox_on_primary,[\s\S]*"&:hover": \{ backgroundColor: vars\.primary_650_color \}/);
     for (const [token, expected] of Object.entries({
         "--error_bc_color": "#bb4448", "--vox_state_failed": "#e4938e",
         "--dark_200_color": "#eeebf1", "--dark_600_color": "#988ba5", "--dark_800_color": "#4e3d5d",
@@ -127,20 +127,21 @@ test("legacy fixed-width inputs are capped by their row and can shrink beside th
 });
 
 test("legacy model information wraps above its action inside the padded row, including Japanese button text", () => {
-    const radio = read(box + "_components/radio_button/RadioButton.module.scss");
-    const column = radio.slice(radio.indexOf("&.column {"), radio.indexOf("&.has_desc:not(.column)"));
+    const radio = read(box + "_components/radio_button/RadioButton.css.ts");
+    // The rules of a column of options (\`.container.column ...\`), in the order they are written.
+    const column = radio.slice(radio.indexOf("globalStyle(`$" + "{container}.$" + "{column}`"), radio.indexOf("globalStyle(`$" + "{container}.$" + "{has_desc}"));
     const download = read(box + "_components/_atoms/_download_button/_DownloadButton.css.ts");
-    assert.match(column, /width: 100%;\s*min-width: 0/);
-    assert.match(column, /\.radio_button_container\s*{[^}]*flex-wrap: wrap/);
-    assert.match(column, /\.radio_button_wrapper\s*{[^}]*flex: 1 1 24rem;[^}]*min-width: 0;[^}]*max-width: 100%/);
-    assert.match(column, /\.label_heading_wrapper\s*{\s*flex-wrap: wrap/);
-    assert.match(column, /\.radio_button_label\s*{[^}]*flex-shrink: 1;[^}]*overflow-wrap: anywhere/);
-    assert.match(column, /\.radio_button_desc\s*{[^}]*overflow-wrap: anywhere/);
+    assert.match(column, /width: "100%", minWidth: 0/);
+    assert.match(column, /\$\{radio_button_container\}`, \{[^}]*flexWrap: "wrap"/);
+    assert.match(column, /\$\{radio_button_wrapper\}`, \{ flex: "1 1 24rem", minWidth: 0, maxWidth: "100%" \}/);
+    assert.match(column, /\$\{label_heading_wrapper\}`, \{ flexWrap: "wrap" \}/);
+    assert.match(column, /\$\{radio_button_label\}`, \{[^}]*flexShrink: 1, overflowWrap: "anywhere"/);
+    assert.match(column, /\$\{radio_button_desc\}`, \{ overflowWrap: "anywhere" \}/);
     assert.match(styleOf(download, "download_container"), /width: "10\.4rem",[\s\S]*minWidth: 0,\s*maxWidth: "100%"/);
     assert.match(styleOf(download, "download_button_label"), /whiteSpace: "normal",\s*overflowWrap: "anywhere"/);
-    const labelBasis = Number(group(/flex: 1 1 ([\d.]+)rem/, column));
+    const labelBasis = Number(group(/flex: "1 1 ([\d.]+)rem"/, column));
     const actionWidth = Number(group(/width: "([\d.]+)rem"/, styleOf(download, "download_container")));
-    const gap = Number(group(/gap: ([\d.]+)rem/, radio.split("\n.radio_button_container {")[1]));
+    const gap = Number(group(/gap: "([\d.]+)rem"/, radio.split("globalStyle(radio_button_container, {")[1]));
     assert.equal(Math.round((labelBasis + actionWidth + gap) * 10) / 10, 35.6);
     assert.ok(actionWidth >= 7 * 1.2 + 2 * .8, "取得内容を確認 and its padding fit the action");
     // The reviewer measured a 672px scroller at 800px / 200%. The other
@@ -156,12 +157,12 @@ test("legacy model information wraps above its action inside the padded row, inc
 });
 
 test("word-filter input/Add and export controls wrap within the actual available width", () => {
-    const word = read(box + "_components/word_filter/WordFilter.module.scss");
-    const entry = word.split(".entry_section_wrapper {")[1].split(".add_button")[0];
-    assert.match(entry, /flex-wrap: wrap/);
-    assert.match(entry, /width: 100%;\s*min-width: 0/);
-    assert.match(entry, /> :first-child\s*{\s*flex: 1 1 18rem; min-width: 0; max-width: 30rem/);
-    assert.match(word, /\.add_button\s*{[^}]*max-width: 100%;[^}]*overflow-wrap: anywhere/);
+    const word = read(box + "_components/word_filter/WordFilter.css.ts");
+    const entry = styleOf(word, "entry_section_wrapper");
+    assert.match(entry, /flexWrap: "wrap"/);
+    assert.match(entry, /width: "100%",\s*minWidth: 0/);
+    assert.match(word, /globalStyle\(`\$\{entry_section_wrapper\} > :first-child`, \{ flex: "1 1 18rem", minWidth: 0, maxWidth: "30rem" \}\)/);
+    assert.match(styleOf(word, "add_button"), /maxWidth: "100%",\s*overflowWrap: "anywhere"/);
     const shared = read(box + "shared_items/SharedItems.module.scss");
     for (const selector of ["auto_export_message_logs_container", "auto_export_message_logs_switch_section_container"]) {
         const rules = shared.split("." + selector + " {")[1].split("}")[0];
@@ -327,20 +328,20 @@ test("the settings search is the same field as the other inputs, with InputGroup
     assert.doesNotMatch(css, /no_results/);
 });
 test("the slider draws its filled part on a .6rem groove, as shadcn/ui's Slider does", () => {
-    const css = read(box + "_components/slider/Slider.module.scss");
-    const rule = (name: string) => css.split(`\n${name} {`)[1].split("\n}")[0];
+    const css = read(box + "_components/slider/Slider.css.ts");
+    const rule = (name: string) => styleOf(css, name);
     // The filled part (shadcn/ui's Range) is drawn in the primary colour.
-    assert.match(rule(".track"), /\n {4}background-color: var\(--primary_600_color\);/);
+    assert.match(rule("track"), /\n {4}backgroundColor: vars\.primary_600_color,/);
     // The groove and its filled part are .6rem (h-1.5), across or along.
-    for (const name of [".rail", ".track"]) {
-        assert.match(rule(name), /height: 0\.6rem;/, name);
-        assert.match(rule(name), /width: 0\.6rem;/, name);
+    for (const name of ["rail", "track"]) {
+        assert.match(rule(name), /height: "0\.6rem"/, name);
+        assert.match(rule(name), /width: "0\.6rem"/, name);
     }
     // The pointer still reaches 3rem around the groove.
-    assert.match(rule(".sliderRoot"), /height: 0\.6rem;\s*padding: 1\.2rem 0;/);
-    assert.match(rule(".sliderRoot"), /width: 0\.6rem;\s*padding: 0 1\.2rem;/);
+    assert.match(rule("sliderRoot"), /height: "0\.6rem", padding: "1\.2rem 0"/);
+    assert.match(rule("sliderRoot"), /width: "0\.6rem", padding: "0 1\.2rem"/);
     // A disabled slider is half as strong (data-[disabled]:opacity-50), as the other controls are.
-    assert.match(rule(".sliderRoot"), /&\[data-disabled\] \{\s*opacity: 0\.5;/);
+    assert.match(rule("sliderRoot"), /"&\[data-disabled\]": \{ opacity: 0\.5,/);
     // The forms' range control looks the same: a .6rem groove painted up to --range-fill, which
     // the monitor volume sets to its value's share.
     const form = read(box + "advanced_settings/VoiceSettings.module.scss");
