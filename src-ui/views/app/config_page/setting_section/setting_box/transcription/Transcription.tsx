@@ -5,6 +5,7 @@ import { useI18n } from "@useI18n";
 import * as styles from "./Transcription.css.ts";
 import * as catalogStyles from "../advanced_settings/VoiceSettings.css.ts";
 import { RealtimeASRSettings } from "./RealtimeASRSettings";
+import { AsrApiEntries } from "./AsrApiEntries";
 import { genNumObjArray } from "@utils";
 import { useEffect, useId } from "react";
 import type { ReactNode } from "react";
@@ -363,6 +364,8 @@ const CloudTranscription_Container = () => {
                     </SetupSection>
                 );
             })}
+            {/* The APIs the user added (#414): Use points the custom Whisper server at one. */}
+            <AsrApiEntries />
             <WhisperSegmentFilter_Box />
         </>
     );

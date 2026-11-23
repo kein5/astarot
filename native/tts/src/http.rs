@@ -39,15 +39,37 @@ impl Interrupter {
 pub(crate) enum HttpError {
     Timeout,
     Interrupted,
-    /// Malformed response, unexpected end, or any other socket failure.
-    Transport,
+    /// The connection or the response failed; [`Fault`] says how.
+    Transport(Fault),
+}
+
+/// How a response failed to arrive (#861): the speech's status keeps it as a fixed word, so that a
+/// failed read can be told apart without any of the response's bytes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Fault {
+    /// The socket failed: the address did not resolve, a connect or a receive failed.
+    Socket,
+    /// The stream ended before the head, a body's announced length or a chunk was complete.
+    EndedEarly,
+    /// The head, a length or a chunk was not in the form HTTP/1.1 gives it.
+    Malformed,
+}
+
+impl Fault {
+    pub(crate) fn word(self) -> &'static str {
+        match self {
+            Fault::Socket => "socket",
+            Fault::EndedEarly => "ended_early",
+            Fault::Malformed => "malformed",
+        }
+    }
 }
 
 impl From<io::Error> for HttpError {
     fn from(error: io::Error) -> Self {
         match error.kind() {
             io::ErrorKind::TimedOut | io::ErrorKind::WouldBlock => HttpError::Timeout,
-            _ => HttpError::Transport,
+            _ => HttpError::Transport(Fault::Socket),
         }
     }
 }
@@ -66,8 +88,8 @@ pub(crate) struct Connection {
 
 /// Resolve and connect within `timeout`, trying each address in turn.
 pub(crate) fn connect(host: &str, port: u16, timeout: Duration) -> Result<Connection, HttpError> {
-    let addresses: Vec<SocketAddr> = (host, port).to_socket_addrs().map_err(|_| HttpError::Transport)?.collect();
-    let mut last = HttpError::Transport;
+    let addresses: Vec<SocketAddr> = (host, port).to_socket_addrs().map_err(|_| HttpError::Transport(Fault::Socket))?.collect();
+    let mut last = HttpError::Transport(Fault::Socket);
     for address in addresses {
         match TcpStream::connect_timeout(&address, timeout) {
             Ok(stream) => {
@@ -140,7 +162,7 @@ impl Connection {
                     remaining.min(POLL)
                 }
             };
-            self.stream.set_read_timeout(Some(wait)).map_err(|_| HttpError::Transport)?;
+            self.stream.set_read_timeout(Some(wait)).map_err(|_| HttpError::Transport(Fault::Socket))?;
             match (&*self.stream).read(&mut chunk) {
                 Ok(count) => {
                     if self.flag.load(Ordering::SeqCst) {
@@ -179,8 +201,11 @@ impl Connection {
                 self.consume(end + 1);
                 return Ok(line);
             }
-            if self.buffered().len() > MAX_HEAD || self.fill()? == 0 {
-                return Err(HttpError::Transport);
+            if self.buffered().len() > MAX_HEAD {
+                return Err(HttpError::Transport(Fault::Malformed));
+            }
+            if self.fill()? == 0 {
+                return Err(HttpError::Transport(Fault::EndedEarly));
             }
         }
     }
@@ -192,7 +217,7 @@ impl Connection {
         let version = parts.next().unwrap_or("");
         let status = parts.next().and_then(|code| (code.len() == 3).then_some(code)).and_then(|code| code.parse::<u16>().ok());
         let Some(status) = status.filter(|_| version.starts_with("HTTP/1.")) else {
-            return Err(HttpError::Transport);
+            return Err(HttpError::Transport(Fault::Malformed));
         };
         let mut headers = Vec::new();
         let mut size = 0;
@@ -203,9 +228,9 @@ impl Connection {
             }
             size += line.len();
             if size > MAX_HEAD || headers.len() >= 100 {
-                return Err(HttpError::Transport);
+                return Err(HttpError::Transport(Fault::Malformed));
             }
-            let (name, value) = line.split_once(':').ok_or(HttpError::Transport)?;
+            let (name, value) = line.split_once(':').ok_or(HttpError::Transport(Fault::Malformed))?;
             headers.push((name.trim().to_ascii_lowercase(), value.trim().to_owned()));
         }
         let header = |name: &str| headers.iter().rev().find(|(n, _)| n == name).map(|(_, v)| v.as_str());
@@ -217,7 +242,7 @@ impl Connection {
         } else if chunked {
             Framing::Chunked { remaining: 0, done: false }
         } else if let Some(length) = header("content-length") {
-            Framing::Length(length.parse::<u64>().map_err(|_| HttpError::Transport)?)
+            Framing::Length(length.parse::<u64>().map_err(|_| HttpError::Transport(Fault::Malformed))?)
         } else {
             Framing::Close
         };
@@ -274,7 +299,7 @@ impl Response {
                     return Ok(Vec::new());
                 }
                 if connection.buffered().is_empty() && connection.fill()? == 0 {
-                    return Err(HttpError::Transport);
+                    return Err(HttpError::Transport(Fault::EndedEarly));
                 }
                 let take = connection.buffered().len().min(limit).min(*remaining as usize);
                 let data = connection.buffered()[..take].to_vec();
@@ -298,7 +323,7 @@ impl Response {
                 if *remaining == 0 {
                     let line = connection.read_line()?;
                     let size = line.split(';').next().unwrap_or("").trim();
-                    let size = u64::from_str_radix(size, 16).map_err(|_| HttpError::Transport)?;
+                    let size = u64::from_str_radix(size, 16).map_err(|_| HttpError::Transport(Fault::Malformed))?;
                     if size == 0 {
                         // Trailers end with an empty line.
                         while !connection.read_line()?.is_empty() {}
@@ -308,7 +333,7 @@ impl Response {
                     *remaining = size;
                 }
                 if connection.buffered().is_empty() && connection.fill()? == 0 {
-                    return Err(HttpError::Transport);
+                    return Err(HttpError::Transport(Fault::EndedEarly));
                 }
                 let take = connection.buffered().len().min(limit).min(*remaining as usize);
                 let data = connection.buffered()[..take].to_vec();
@@ -317,7 +342,7 @@ impl Response {
                 if *remaining == 0 {
                     // The CRLF after the chunk's data.
                     if !connection.read_line()?.is_empty() {
-                        return Err(HttpError::Transport);
+                        return Err(HttpError::Transport(Fault::Malformed));
                     }
                 }
                 Ok(data)
@@ -387,9 +412,23 @@ mod tests {
     #[test]
     fn truncated_bodies_are_transport_errors() {
         let mut response = get(serve(b"HTTP/1.1 200 OK\r\nContent-Length: 9\r\n\r\nabc"));
-        assert!(matches!(response.read_body(10), Err(HttpError::Transport)));
+        assert!(matches!(response.read_body(10), Err(HttpError::Transport(Fault::EndedEarly))));
         let mut response = get(serve(b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n4\r\nab"));
-        assert!(matches!(response.read_body(10), Err(HttpError::Transport)));
+        assert!(matches!(response.read_body(10), Err(HttpError::Transport(Fault::EndedEarly))));
+    }
+
+    #[test]
+    fn a_chunk_out_of_form_is_told_from_one_that_ended_early() {
+        // #861: which of the two a failed speech read was is kept in the speech's status.
+        let mut response = get(serve(b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\nzz\r\nab"));
+        assert!(matches!(response.read_body(10), Err(HttpError::Transport(Fault::Malformed))));
+        let mut response = get(serve(b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n2\r\nabXY\r\n"));
+        assert!(matches!(response.read_body(10), Err(HttpError::Transport(Fault::Malformed))));
+        let port = serve(b"HTTP/1.1 200 OK\r\nContent-Le");
+        let mut connection = connect("127.0.0.1", port, Duration::from_secs(2)).unwrap();
+        connection.send("GET", "/", None).unwrap();
+        assert!(matches!(connection.response(), Err(HttpError::Transport(Fault::EndedEarly))));
+        assert_eq!([Fault::Socket.word(), Fault::EndedEarly.word(), Fault::Malformed.word()], ["socket", "ended_early", "malformed"]);
     }
 
     #[test]
@@ -397,6 +436,6 @@ mod tests {
         let port = serve(b"SPEECH 200 OK\r\n\r\n");
         let mut connection = connect("127.0.0.1", port, Duration::from_secs(2)).unwrap();
         connection.send("GET", "/", None).unwrap();
-        assert!(connection.response().is_err());
+        assert!(matches!(connection.response(), Err(HttpError::Transport(Fault::Malformed))));
     }
 }
