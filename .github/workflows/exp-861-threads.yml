@@ -1,8 +1,8 @@
-# A measurement for issue #861 (the CI audit's item 3), never merged: native/core's tests on
-# Windows, without retries, with 4, 2 and 1 test threads, each run ten times in a row on two
-# runners (six jobs, to leave the account's runners to the other pull requests). The
-# counts of failed tests per run tell whether fewer threads make the timing failures rarer.
-name: "Experiment: #861 test threads on Windows"
+# A measurement for issue #861, never merged: native/core's tests on Linux and Windows, without
+# retries and with the default test threads, ten times in a row on two runners each. It checks
+# that the tests of the retry list (native/core/.config/nextest.toml) no longer fail before
+# they leave the list.
+name: "Experiment: #861 repeated runs"
 on:
   push:
     branches: [exp/861-windows-threads]
@@ -10,14 +10,14 @@ on:
 permissions:
   contents: read
 jobs:
-  threads:
-    timeout-minutes: 170
+  repeat:
+    timeout-minutes: 120
     strategy:
       fail-fast: false
       matrix:
-        threads: [4, 2, 1]
+        os: [ubuntu-latest, windows-latest]
         shard: [1, 2]
-    runs-on: windows-latest
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -32,24 +32,22 @@ jobs:
       - run: cargo nextest run --locked --manifest-path native/core/Cargo.toml --no-run
       - name: Run the tests ten times
         shell: bash
-        env:
-          THREADS: ${{ matrix.threads }}
         run: |
           mkdir -p results
           for run in 1 2 3 4 5 6 7 8 9 10; do
             start=$(date +%s)
             set +e
             cargo nextest run --locked --manifest-path native/core/Cargo.toml --profile ci --retries 0 \
-              --test-threads "$THREADS" --no-fail-fast > "results/run-$run.log" 2>&1
+              --no-fail-fast > "results/run-$run.log" 2>&1
             code=$?
             set -e
             cp native/core/target/nextest/ci/junit.xml "results/junit-$run.xml" || true
-            echo "run $run threads $THREADS exit $code seconds $(( $(date +%s) - start ))" | tee -a results/summary.txt
+            echo "run $run exit $code seconds $(( $(date +%s) - start ))" | tee -a results/summary.txt
             grep -E "^\s+(FAIL|SIGSEGV|ABORT|TIMEOUT) \[" "results/run-$run.log" | tee -a results/summary.txt || true
           done
       - if: ${{ always() }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: threads-${{ matrix.threads }}-shard-${{ matrix.shard }}
+          name: repeat-${{ matrix.os }}-${{ matrix.shard }}
           path: results/
           retention-days: 14
