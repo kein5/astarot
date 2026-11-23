@@ -95,6 +95,10 @@
     "reason": "finishResync returns at once for an endpoint the resync does not wait for, and it waits only for the five reads, which all have a read atom.",
     "where": "src-ui/logics/main/languageMutations.ts:140:9 read -> true"
   },
+  "nunhcigl4a": {
+    "reason": "JSON.stringify leaves out a property whose value is undefined, so the line written to the backend is the same.",
+    "where": "src-ui/logics/common/useStdoutToPython.ts:58:17 origin !== undefined -> true"
+  },
   "sumx19h5ss": {
     "reason": "Only the first character is read; removing a prolonged-sound mark later in the name does not change it.",
     "where": "src-ui/logics/common/languageJumpGroups.ts:35:87 /^ー+/ -> /ー+/"
