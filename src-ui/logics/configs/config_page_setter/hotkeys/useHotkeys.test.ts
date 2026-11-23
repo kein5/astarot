@@ -19,8 +19,13 @@ interface StubState {
     removed: string[];
     // What was written: the endpoint and the hotkeys.
     writes: [string, Record<string, string[] | null>][];
-    // What the app was asked: the command and its arguments; only the bind's are read.
-    calls: [string, { shortcuts: Record<string, string[] | null> } | undefined][];
+    // What the app was asked: the command and its arguments (the bind's keys, the quick chat's token).
+    calls: [string, CommandArgs | undefined][];
+    // What the global shortcut plugin was asked, in order: "register Control+Q", "unregisterAll".
+    plugin: string[];
+    // The hotkey store and the notifications, in order: "pending", "notification closed", "saved",
+    // and each endpoint written to or read from.
+    events: string[];
     handlers: Set<Handler>;
     lostHandlers: Set<Handler>;
     notRestoredHandlers: Set<Handler>;
@@ -37,11 +42,35 @@ interface StubState {
     writeGate?: unknown;
     bind?: (args: unknown) => unknown;
     minimized?: boolean;
+    // isMinimized cannot read the window's state.
+    minimizedUnknown?: boolean;
+    minimizeFails?: boolean;
     unminimizeFails?: boolean;
     unregisterFails?: boolean;
     restoreFails?: boolean;
+    platformFails?: boolean;
+    showFails?: boolean;
+    // The keys the plugin cannot register, as another application holds them.
+    refused?: string[];
+    // The portal event whose listener cannot be added.
+    listenFails?: string;
     focusChanged?: (event: { payload: boolean }) => void;
 }
+interface CommandArgs {
+    shortcuts?: Record<string, string[] | null>;
+    activationToken?: string | null;
+}
+interface StubStore {
+    text_area_ref: { current: { focus: () => void } };
+    appWindow?: Record<string, (...args: never[]) => unknown>;
+    backend_session?: string;
+}
+
+// The words a key stands for, as the tests read them: the key, and the values put into it. A
+// value left out, or a key that went missing, shows in the text.
+const t = (key: string, values?: Record<string, unknown>) => values === undefined ? key
+    : `${key}(${Object.entries(values).map(([name, value]) => `${name}=${String(value)}`).join(", ")})`;
+const english = readLocale("en");
 
 const deferred = () => {
     // Set by the promise below before the object is made.
@@ -55,7 +84,8 @@ async function setup() {
     // The production hook, loaded with only React, atoms and native APIs replaced; no plugin,
     // portal, browser or application is started.
     const state: StubState = { ready: true, settings: false, updating: false, actions: [], notices: [],
-        registered: new Map(), removed: [], writes: [], calls: [], handlers: new Set(), lostHandlers: new Set(), notRestoredHandlers: new Set(),
+        registered: new Map(), removed: [], writes: [], calls: [], plugin: [], events: [],
+        handlers: new Set(), lostHandlers: new Set(), notRestoredHandlers: new Set(),
         warnings: [], removals: 0, cleanups: [], disposers: [], hotkeys: { open_quick_chat: ["Ctrl", "Q"] } };
     // Vite's hot module replacement: what a module instance leaves for the next one.
     const hot = { data: {}, dispose: (callback: (data: unknown) => void) => state.disposers.push(callback) };
@@ -71,29 +101,45 @@ async function setup() {
             state.cleanups.push(typeof cleanup === "function" ? () => { cleanup(); } : () => {});
         },
     };
-    const store = { text_area_ref: { current: { focus: () => state.actions.push("focus-input") } }, appWindow: {
-        isMinimized: async () => state.minimized ?? false,
-        minimize: async () => { state.actions.push("minimize"); },
+    const store: StubStore = { text_area_ref: { current: { focus: () => state.actions.push("focus-input") } }, appWindow: {
+        isMinimized: async () => { if (state.minimizedUnknown) throw new Error("window"); return state.minimized ?? false; },
+        minimize: async () => { if (state.minimizeFails) throw new Error("window"); state.actions.push("minimize"); },
         unminimize: async () => { if (state.unminimizeFails) throw new Error("window"); state.actions.push("unminimize"); },
         setFocus: async () => { state.actions.push("set-focus"); },
         onFocusChanged: (callback: (event: { payload: boolean }) => void) => { state.focusChanged = callback; return () => {}; },
     } };
-    const invoke = async (command: string, args?: { shortcuts: Record<string, string[] | null> }) => {
+    const invoke = async (command: string, args?: CommandArgs) => {
         state.calls.push([command, args]);
-        if (command === "quick_chat_shortcut_platform") return state.platformGate ?? "wayland";
+        if (command === "quick_chat_shortcut_platform") {
+            if (state.platformFails) throw "platform_unknown";
+            return state.platformGate ?? "wayland";
+        }
         if (command === "portal_shortcuts_bind") return state.bind?.(args) ?? {};
-        if (command === "quick_chat_show") state.actions.push("quick-chat");
+        if (command === "quick_chat_show") {
+            if (state.showFails) throw "show_failed";
+            state.actions.push("quick-chat");
+        }
         if (command === "main_window_restore") {
             if (state.restoreFails) throw "restore_failed";
             state.actions.push("restore");
         }
     };
+    // The portal's events by name, kept apart so the counts below are those of the key presses. An
+    // event the app does not send is refused, as no listener would ever hear it.
+    const events: Record<string, Set<Handler>> = { "portal-shortcut": state.handlers,
+        "portal-shortcuts-lost": state.lostHandlers, "portal-shortcuts-not-restored": state.notRestoredHandlers };
     const listen = async (name: string, callback: Handler) => {
-        // The portal's other events are kept apart, so the counts below are those of the key presses.
-        const handlers = name === "portal-shortcuts-lost" ? state.lostHandlers
-            : name === "portal-shortcuts-not-restored" ? state.notRestoredHandlers : state.handlers;
+        if (!Object.hasOwn(events, name)) throw new Error(`The app sends no event named "${name}"`);
+        const handlers = events[name];
         handlers.add(callback);
-        await state.listenGate;
+        try {
+            await state.listenGate;
+            if (state.listenFails === name) throw "listen_failed";
+        } catch (error) {
+            // A listener that could not be added hears nothing.
+            handlers.delete(callback);
+            throw error;
+        }
         return () => { handlers.delete(callback); if (handlers === state.handlers) state.removals++; };
     };
     const imports = {
@@ -101,22 +147,29 @@ async function setup() {
         jotai: { getDefaultStore: () => ({ get: (atom: string) => ({ data: Reflect.get(state, atom) }) }) },
         "@store": { store, Atom_IsOpenedConfigPage: "settings", Atom_IsBackendReady: "ready", Atom_IsSoftwareUpdating: "updating", Atom_Hotkeys: "hotkeys",
             useStore_Hotkeys: () => ({ currentHotkeys: { data: state.hotkeys },
-                updateHotkeys: (value: Record<string, string[] | null>) => { state.hotkeys = value; }, pendingHotkeys() {} }) },
+                updateHotkeys: (value: Record<string, string[] | null>) => { state.hotkeys = value; },
+                pendingHotkeys: () => { state.events.push("pending"); } }) },
         "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: async (endpoint: string, hotkeys: Record<string, string[] | null>) => {
+            state.events.push(endpoint);
+            if (hotkeys === undefined) return true;
             state.writes.push([endpoint, hotkeys]);
             return state.writeGate ?? true;
         } }) },
-        "@logics_common": { useNotificationStatus: () => ({ showNotification_SaveSuccess() {}, closeNotification() {},
+        "@logics_common": { useNotificationStatus: () => ({
+            showNotification_SaveSuccess: () => { state.events.push("saved"); }, closeNotification: () => { state.events.push("notification closed"); },
             showNotification_Error: (...args: unknown[]) => state.notices.push(args), showNotification_Warning: (...args: unknown[]) => state.warnings.push(args) }) },
         "@logics_main": { useMainFunction: () => ({ toggleTranslation: () => state.actions.push("translation"),
             toggleTranscriptionSend: () => state.actions.push("send"), toggleTranscriptionReceive: () => state.actions.push("receive") }) },
         "@tauri-apps/plugin-global-shortcut": {
             register: async (key: string, callback: (event: { state: string }) => unknown) => {
+                state.plugin.push(`register ${key}`);
                 await state.registerGate;
+                if (state.refused?.includes(key)) throw new Error(`${key} is held by another application`);
                 state.registered.set(key, callback);
             },
-            unregister: async (key: string) => { state.removed.push(key); state.registered.delete(key); },
+            unregister: async (key: string) => { state.plugin.push(`unregister ${key}`); state.removed.push(key); state.registered.delete(key); },
             unregisterAll: async () => {
+                state.plugin.push("unregisterAll");
                 await state.unregisterGate;
                 if (state.unregisterFails) throw new Error("plugin");
                 state.removed.push(...state.registered.keys());
@@ -125,7 +178,7 @@ async function setup() {
         },
         "@tauri-apps/api/core": { invoke },
         "@tauri-apps/api/event": { listen },
-        "@useI18n": { useI18n: () => ({ t: (key: string) => key, i18n: { exists: () => true } }) },
+        "@useI18n": { useI18n: () => ({ t, i18n: { exists: (key: string) => localeAt(english, key) !== undefined } }) },
         "../../../voice/voiceActions.ts": { voiceActions: Object.fromEntries(["stop", "toggleMute", "toggleTts", "toggleRvc"].map(name => [name, () => state.actions.push(name)])) },
         [HOT_DEPENDENCY]: hot,
     };
@@ -133,8 +186,10 @@ async function setup() {
     const importHook = async () => (await loadModule<typeof import("./useHotkeys.ts")>(new URL("./useHotkeys.ts", import.meta.url), hooks(), imports)).useHotkeys;
     // Without the React stand-in the hook runs once, here; owner() gives it one and runs it there.
     const load = async () => (await importHook())();
-    return { state, load, importHook, dispose: (index: number) => state.disposers[index](hot.data),
+    return { state, store, load, importHook, dispose: (index: number) => state.disposers[index](hot.data),
         emit: () => { for (const callback of state.handlers) callback({ payload: { id: "open_quick_chat" } }); },
+        // A key press the portal forwards, with the desktop's activation token when it gives one.
+        press: (id: string, activation_token?: string) => { for (const callback of state.handlers) callback({ payload: { id, activation_token } }); },
         lost: () => { for (const callback of state.lostHandlers) callback({ payload: null }); },
         notRestored: () => { for (const callback of state.notRestoredHandlers) callback({ payload: null }); } };
 }
@@ -149,12 +204,17 @@ for (const boundary of ["platform", "unregister", "listen", "bind"] as const) {
         const registration = hook.registerShortcuts();
         await flush();
         // Explicit pause invalidates this registration even if no atom changed.
+        const paused = state.plugin.length;
         const pause = hook.unregisterAll();
         gate.resolve(boundary === "platform" ? "wayland" : {});
         await Promise.all([registration, pause]);
         subject.emit();
         assert.deepEqual(state.actions, []);
         if (boundary !== "bind") assert.equal(state.calls.filter(([cmd]) => cmd === "portal_shortcuts_bind").length, 0);
+        // The dropped registration asks nothing more: the plugin hears only the pause, and the
+        // portal is listened to only by a registration that had got that far.
+        assert.deepEqual(state.plugin.slice(paused), ["unregisterAll"]);
+        assert.equal(state.handlers.size, boundary === "listen" || boundary === "bind" ? 1 : 0);
     });
 }
 
@@ -178,8 +238,8 @@ test("a shortcut the desktop cannot take is told with its own message, in both l
     subject.state.bind = () => Promise.reject("portal_shortcut_invalid");
     const hook = await subject.load();
     await hook.registerShortcuts();
-    assert.deepEqual(subject.state.notices.map(([message]) => message), ["quick_chat.portal_errors.portal_shortcut_invalid"]);
-    // The stand-in says every key exists; the message is in both locale files.
+    assert.deepEqual(subject.state.notices, [["quick_chat.portal_errors.portal_shortcut_invalid", { hide_duration: 8000 }]]);
+    // The stand-in knows the keys of the English locale; the message is in both locale files.
     for (const language of ["en", "ja"]) {
         assert.equal(typeof localeAt(readLocale(language), "quick_chat.portal_errors.portal_shortcut_invalid"), "string", language);
     }
@@ -501,13 +561,15 @@ test("on Wayland the visibility hotkey restores the window it minimized", async 
     const press = async () => { for (const callback of state.handlers) callback({ payload: { id: "toggle_vrct_visibility" } }); await flush(); await flush(); };
     await press();
     assert.deepEqual(state.actions, ["minimize"]);
+    // A minimized window loses the focus, which says nothing about whether it is shown.
+    assert.ok(state.focusChanged);
+    state.focusChanged({ payload: false });
     // Wayland never reports a window as minimized; the second press must still bring it back.
     await press();
     assert.deepEqual(state.actions, ["minimize", "restore", "focus-input"]);
     await press();
     assert.deepEqual(state.actions, ["minimize", "restore", "focus-input", "minimize"]);
     // The user brought the window back by hand: the next press minimizes again.
-    assert.ok(state.focusChanged);
     state.focusChanged({ payload: true });
     await press();
     assert.deepEqual(state.actions, ["minimize", "restore", "focus-input", "minimize", "minimize"]);
@@ -529,6 +591,8 @@ test("elsewhere the visibility hotkey asks the window whether it is minimized", 
     await flush();
     assert.deepEqual(state.actions, ["minimize", "unminimize", "set-focus", "focus-input"]);
     assert.ok(!state.calls.some(([command]) => command === "main_window_restore"));
+    // The window's own answer is enough here: its focus is not watched.
+    assert.equal(state.focusChanged, undefined);
 });
 
 // #465: a failure no caller catches is told, not only logged.
@@ -540,7 +604,7 @@ test("a registration that fails before any key is bound says no hotkey works", a
     const hook = await subject.load();
     await hook.registerShortcuts();
     assert.equal(state.registered.size, 0);
-    assert.deepEqual(state.notices.map(([message]) => message), ["config_page.hotkeys.error_failed_to_register_all"]);
+    assert.deepEqual(state.notices, [["config_page.hotkeys.error_failed_to_register_all", { hide_duration: 10000 }]]);
 });
 
 test("on Wayland a window the hotkey cannot restore is told, and the next press tries again", async () => {
@@ -587,7 +651,7 @@ test("the voice hotkeys press the controls the main window published", async () 
     await flush();
     const bound = state.calls.find(([command]) => command === "portal_shortcuts_bind")?.[1];
     assert.ok(bound);
-    assert.deepEqual(Object.keys(bound.shortcuts),
+    assert.deepEqual(Object.keys(bound.shortcuts ?? {}),
         ["stop_voice", "toggle_voice_mute", "toggle_tts", "toggle_rvc"]);
     for (const id of ["stop_voice", "toggle_voice_mute", "toggle_tts", "toggle_rvc"]) {
         for (const callback of state.handlers) callback({ payload: { id } });
@@ -604,7 +668,7 @@ test("a portal that goes away is said and the keys are bound again once; a secon
     const binds = () => state.calls.filter(([cmd]) => cmd === "portal_shortcuts_bind").length;
     assert.equal(binds(), 1);
     subject.lost();
-    assert.deepEqual(state.warnings.map(([message]) => message), ["quick_chat.portal_lost_reconnecting"]);
+    assert.deepEqual(state.warnings, [["quick_chat.portal_lost_reconnecting", { hide_duration: 8000 }]]);
     assert.equal(binds(), 1, "not at once: a restarted portal needs a moment");
     vi.advanceTimersByTime(3000);
     await flush(); await flush(); await flush();
@@ -617,7 +681,7 @@ test("a portal that goes away is said and the keys are bound again once; a secon
     vi.advanceTimersByTime(3000);
     await flush(); await flush();
     assert.equal(binds(), 2);
-    assert.deepEqual(state.notices.map(([message]) => message), ["quick_chat.portal_lost"]);
+    assert.deepEqual(state.notices, [["quick_chat.portal_lost", { hide_duration: 10000 }]]);
 });
 
 test("a failed bind whose previous keys could not be bound again says no hotkey works, once", async () => {
@@ -626,11 +690,11 @@ test("a failed bind whose previous keys could not be bound again says no hotkey 
     state.bind = () => { throw "portal_cancelled"; };
     const hook = await subject.load();
     await hook.registerShortcuts();
-    assert.deepEqual(state.notices.map(([message]) => message), ["quick_chat.portal_errors.portal_cancelled"]);
+    assert.deepEqual(state.notices, [["quick_chat.portal_errors.portal_cancelled", { hide_duration: 8000 }]]);
     subject.notRestored();
     subject.notRestored();
-    assert.deepEqual(state.notices.map(([message]) => message),
-        ["quick_chat.portal_errors.portal_cancelled", "quick_chat.portal_not_restored"]);
+    assert.deepEqual(state.notices, [["quick_chat.portal_errors.portal_cancelled", { hide_duration: 8000 }],
+        ["quick_chat.portal_not_restored", { hide_duration: 10000 }]]);
 });
 
 test("a report of keys not bound again after the shortcuts were paused says nothing", async () => {
