@@ -547,3 +547,7 @@ CIの `core-integration` は、`native/core` の試験をcargo-nextestの `ci` �
 - 再試行で通った試験は、ジョブの要約に一覧で出て、実行に警告も付きます（`tools/ci/nextest_flaky_summary.py`）。結果は通っても、1回目は落ちたことが分かります。
 - 対象の試験は、`native/core/.config/nextest.toml` の「Retries until #861 is settled」の節の一覧だけです。足すときは #861 に書いてから足し、#861 で落ちなくなったと記録したら外します。一覧が空になったら節ごと消します。
 - 手元の `python tools/dev.py check --scope rust` は既定のプロファイルで流すので、再試行しません。
+
+### CIの失敗の週ごとの集計
+
+「Weekly CI failures」（`.github/workflows/ci-failures.yml`）が、毎週月曜に直近7日のCIの失敗を数え、ジョブの要約に表で出します。対象はdevelopへのpushとPRの実行で、ワークフローとジョブごとに、落ちた試行の数と、同じ実行の再実行で通った数を出します。再実行で通ったものは、揺らぐ試験か一時的な障害です。ログは読まないので、何が落ちたかは各ジョブのログで確かめます。手元では `python3 -m tools.ci_failures --days 7` で同じ表が出ます（`gh` のログインが要ります）。
