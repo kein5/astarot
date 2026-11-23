@@ -55,7 +55,7 @@ test("the common tooltip and the settings' Hint draw the same bubble, and only i
     assert.doesNotMatch(box, /\b(padding|borderRadius|backgroundColor|fontSize|fontWeight|lineHeight|whiteSpace)\s*:/);
     // The resend button's words take the bubble's size and colour, not their own.
     const resend = "../../app/main_page/main_section/message_container/log_box/message_container/message_sub_menu_container/";
-    assert.doesNotMatch(read(resend + "MessageSubMenuContainer.module.scss"), /\.tooltip_title/);
+    assert.doesNotMatch(read(resend + "MessageSubMenuContainer.css.ts"), /tooltip_title/);
 });
 
 // The tooltip drawn without a page: its bubble stays in the tree where the test can read it.

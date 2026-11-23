@@ -3,7 +3,7 @@ import type { KeyboardEvent, MouseEvent, PointerEvent } from "react";
 import clsx from "clsx";
 import { useI18n } from "@useI18n";
 import { Tooltip } from "@common_components";
-import styles from "./MessageSubMenuContainer.module.scss";
+import * as styles from "./MessageSubMenuContainer.css.ts";
 import SendMessageSvg from "@images/send_message.svg?react";
 import RefreshSvg from "@images/refresh_2.svg?react";
 

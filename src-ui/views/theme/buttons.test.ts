@@ -13,16 +13,19 @@ const box = views + "app/config_page/setting_section/setting_box/";
 // the first brace after its opening one. Each anchor is looked for after the one before it. In a
 // .css.ts the anchor is the style's start (`export const x = style({`, `globalStyle(...`, or a
 // selector key such as `"&:disabled": {`), and the text runs the same way to the next brace.
-const ownDeclarations = (path: string, ...anchors: string[]) => {
-    const source = read(path);
+// A template literal's placeholders (`${vars.x}`, `${setup} button`) are not braces of a rule:
+// they are read as `$(...)`, in the source and in the anchors alike.
+const placeholders = (text: string) => text.replace(/\$\{([^{}]*)\}/g, "$($1)");
+const ownDeclarations = (path: string, ...given: string[]) => {
+    const source = placeholders(read(path));
+    const anchors = given.map(placeholders);
     let at = 0;
     for (const anchor of anchors) {
         const found = source.indexOf(anchor, at);
         assert.ok(found >= 0, `${path}: ${anchor}`);
         at = found;
     }
-    // The rule opens at the anchor's last brace (an anchor such as `globalStyle(`${x} button`, {`
-    // has a brace of its template literal before it), or at the first brace after the anchor.
+    // The rule opens at the anchor's last brace, or at the first brace after the anchor.
     const last = anchors.at(-1) ?? "";
     const open = last.includes("{") ? at + last.lastIndexOf("{") : source.indexOf("{", at);
     const close = source.slice(open + 1).search(/[{}]/);
@@ -45,7 +48,7 @@ const mediumButtons = [
     [views + "app/config_page/topbar/Topbar.module.scss", ".discard, .save {"],
     [views + "app/config_page/topbar/Topbar.module.scss", ".back {"],
     [views + "app/config_page/topbar/Topbar.module.scss", ".stop {"],
-    [views + "app/main_page/main_section/top_bar/TopBar.module.scss", ".stop {"],
+    [views + "app/main_page/main_section/top_bar/TopBar.css.ts", "export const stop = style({"],
     [box + "_components/page_pointer/PagePointer.module.scss", "button.open_page[data-page-pointer] {"],
     [box + "_components/_atoms/_download_button/_DownloadButton.module.scss", ".download_button {"],
     [box + "_components/word_filter/WordFilter.module.scss", ".add_button {"],
@@ -56,10 +59,10 @@ const mediumButtons = [
     [views + "app/others/error_boundary/AppErrorBoundary.css.ts", "export const copy_error_message_button = style({"],
     [views + "app/others/error_boundary/AppErrorBoundary.css.ts", "export const status_link_button = style({"],
     [views + "quick_chat/QuickChat.css.ts", "globalStyle(`$" + "{container} button`, {"],
-    [views + "app/main_page/main_section/message_container/log_box/LogBox.module.scss", ".setup button {"],
-    [views + "app/main_page/main_section/io_flow_panel/IoFlowPanel.module.scss", ".close {"],
-    [views + "app/main_page/main_section/realtime_controls/RealtimeControls.module.scss", "button {"],
-    [views + "app/main_page/main_section/language_selector/language_selector_top_bar/LanguageSelectorTopBar.module.scss", ".go_back_button_wrapper {"],
+    [views + "app/main_page/main_section/message_container/log_box/LogBox.css.ts", "globalStyle(`$" + "{setup} button`, {"],
+    [views + "app/main_page/main_section/io_flow_panel/IoFlowPanel.css.ts", "export const close = style({"],
+    [views + "app/main_page/main_section/realtime_controls/RealtimeControls.css.ts", "globalStyle(`$" + "{container} button`, {"],
+    [views + "app/main_page/main_section/language_selector/language_selector_top_bar/LanguageSelectorTopBar.css.ts", "export const go_back_button_wrapper = style({"],
 ];
 
 test("buttons set their words in medium weight, as shadcn/ui's Button does", () => {
@@ -86,7 +89,7 @@ const halfDisabled = [
     [box + "translation/Translation.module.scss", ".license_actions {", "&:disabled {"],
     [views + "app/config_page/topbar/Topbar.module.scss", ".discard:disabled, .save:disabled {"],
     [views + "app/config_page/topbar/Topbar.module.scss", ".stop:disabled {"],
-    [views + "app/main_page/main_section/top_bar/TopBar.module.scss", ".stop:disabled {"],
+    [views + "app/main_page/main_section/top_bar/TopBar.css.ts", "export const stop = style({", '"&:disabled": {'],
     [views + "app/others/error_boundary/AppErrorBoundary.css.ts", "export const update_button = style({", '"&:disabled": {'],
     [views + "quick_chat/QuickChat.css.ts", "globalStyle(`$" + "{container} button:disabled`, {"],
 ];

@@ -10,7 +10,7 @@ import { useFirstRunSetup } from "../../../../../../logics/setup/useFirstRunSetu
 import { hasSetupWork, setupSuggested, setupWork } from "../../../../../../logics/setup/firstRunSetup.ts";
 import { useStartupPlaceholder } from "../../../startupContext";
 import { useVrchatHint } from "../../../vrchatHintContext";
-import styles from "./LogBox.module.scss";
+import * as styles from "./LogBox.css.ts";
 
 // The first screen of a session: a greeting and, in the main window, what the selected
 // engines still need, each with the step that provides it: the download review, or the
@@ -21,7 +21,7 @@ import styles from "./LogBox.module.scss";
 // While the engine starts, the main page's startup list (StartupProgress) takes
 // its place: how far the start has come and which models it is fetching.
 // The greeting sits in the middle row and the list in the row below it, so the list
-// changing at startup never moves the greeting (LogBox.module.scss).
+// changing at startup never moves the greeting (LogBox.css.ts).
 // The main window draws at the default UI size and in a provisional language until the saved
 // settings arrive, then takes the saved size, which moves everything, the saved language, and
 // at a large size the narrow layout, which widens the conversation and so its heading's size.

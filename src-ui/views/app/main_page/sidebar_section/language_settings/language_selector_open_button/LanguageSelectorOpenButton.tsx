@@ -3,7 +3,7 @@ import type { ComponentType, SVGProps } from "react";
 import { useI18n } from "@useI18n";
 import { createLanguageNames } from "../../../../../../logics/common/languageNames.ts";
 import clsx from "clsx";
-import styles from "./LanguageSelectorOpenButton.module.scss";
+import * as styles from "./LanguageSelectorOpenButton.css.ts";
 import ArrowLeftSvg from "@images/arrow_left.svg?react";
 import { Tooltip } from "../../../../../common_components/tooltip/Tooltip";
 import { useStore_IsOpenedLanguageSelector } from "@store";
