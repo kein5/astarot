@@ -141,7 +141,6 @@ export async function loadModule<M = Record<string, unknown>>(url: URL, runtime:
         "@useI18n": { useI18n: () => ({ t: (key: string) => key }) },
         "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: async () => true }) }, [HOT_DEPENDENCY]: undefined, ...imports };
     const require = (name: string): unknown => {
-        if (name.endsWith(".module.scss")) return new Proxy({}, { get: (_, key) => key === "__esModule" ? false : key });
         // vanilla-extract style modules: each export is its class name.
         if (name.endsWith(".css.ts") && !(name in dependencies)) return new Proxy({}, { get: (_, key) => key === "__esModule" ? true : key });
         if (name.endsWith(".svg?react")) return () => null;
