@@ -5,7 +5,7 @@ import { vars } from "../../theme/vars.css.ts";
 // The first-run setup (#557), drawn as shadcn/ui's Dialog with its parts (Header, Title,
 // Description, Footer) and its findings as shadcn/ui's Item list: a mark, a name, what was found,
 // and the action at the row's end (DESIGN.md "Components"). The dialog keeps the app's dialog
-// frame (LegacyModelDownloadDialog.css.ts) and the forms' controls (VoiceSettings.module.scss);
+// frame (LegacyModelDownloadDialog.css.ts) and the forms' controls (VoiceSettings.css.ts);
 // these rules lay out what is inside it. Each part is scoped under the dialog (`${dialog} &`), so
 // the forms' rules for every p, heading and dialog button do not reach it.
 

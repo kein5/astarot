@@ -29,7 +29,7 @@ import { weightRequest } from "../../../logics/configs/ctranslate2License";
 import type { WeightRequest } from "../../../logics/configs/ctranslate2License";
 import { useVrchatPresence } from "../others/vrchat_presence/VrchatPresence";
 import type { VrchatPresenceState } from "../others/vrchat_presence/VrchatPresence";
-import styles from "../config_page/setting_section/setting_box/advanced_settings/VoiceSettings.module.scss";
+import * as styles from "../config_page/setting_section/setting_box/advanced_settings/VoiceSettings.css.ts";
 import * as dialogStyles from "../config_page/setting_section/setting_box/_components/download_models/LegacyModelDownloadDialog.css.ts";
 import * as ui from "./FirstRunSetupController.css.ts";
 

@@ -6,7 +6,7 @@ import { vars } from "../../../../../../theme/vars.css.ts";
 // words (#537), in the quiet grey of the settings menu's icons.
 export const open_page = style({});
 // The element and [data-page-pointer] lift these rules over a form's own button rules (the TTS
-// and RVC pages' VoiceSettings.module.scss fill every button), so the button looks the same on
+// and RVC pages' VoiceSettings.css.ts fill every button), so the button looks the same on
 // every page.
 const button = `button${open_page}[data-page-pointer]`;
 globalStyle(button, {

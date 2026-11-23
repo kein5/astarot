@@ -2,7 +2,7 @@ import { useEffect, useId, useMemo, useState } from "react";
 import { useSettingsDraft } from "../../../../../../logics/voice/useSettingsDraft";
 import { VoiceRouteSummary, VoiceRouteControls } from "../device/VoiceRouteSettings";
 import { SectionLabelComponent } from "../_components/section_label_component/SectionLabelComponent";
-import styles from "./VoiceSettings.module.scss";
+import * as styles from "./VoiceSettings.css.ts";
 import { useI18n } from "@useI18n";
 import { useVoice, sourceKey as key } from "../../../../../../logics/voice/useVoice";
 import { directRouteReady, usesOutputDevice } from "../../../../../../logics/voice/routeState";

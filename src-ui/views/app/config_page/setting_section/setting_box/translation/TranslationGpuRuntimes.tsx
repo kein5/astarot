@@ -4,7 +4,7 @@ import { useTranslation } from "@logics_configs";
 import { useVcRuntimes } from "../../../../../../logics/voice/useVcRuntimes";
 import { VcRuntimeSetup } from "../advanced_settings/VcRuntimeSetup";
 import { SectionLabelComponent } from "../_components";
-import styles from "../advanced_settings/VoiceSettings.module.scss";
+import * as styles from "../advanced_settings/VoiceSettings.css.ts";
 import * as pair from "./TranslationGpuRuntimes.css.ts";
 
 // The GPU builds of ONNX Runtime for the local translation (core-integration, decision 2 (c)).

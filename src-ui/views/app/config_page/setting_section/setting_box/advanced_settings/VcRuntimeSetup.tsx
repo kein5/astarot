@@ -5,7 +5,7 @@ import { isTauri } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { activeSetupPhases, useVcRuntimes } from "../../../../../../logics/voice/useVcRuntimes";
 import { useConsentDialog } from "../../../../../../logics/common/useConsentDialog";
-import styles from "./VoiceSettings.module.scss";
+import * as styles from "./VoiceSettings.css.ts";
 import { EnvReadout } from "../_components/env_readout/EnvReadout";
 
 const gb = (value: number) => `${(value / 1e9).toFixed(1)} GB`;

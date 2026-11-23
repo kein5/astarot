@@ -289,7 +289,7 @@ export const leave_dialog = style({
     color: vars.dark_200_color,
     fontSize: "1.4rem",
     selectors: {
-        // As the forms' dialogs (VoiceSettings.module.scss): shadcn/ui's bg-black/50.
+        // As the forms' dialogs (VoiceSettings.css.ts): shadcn/ui's bg-black/50.
         "&::backdrop": { background: "#00000080" },
     },
 });

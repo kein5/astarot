@@ -35,7 +35,7 @@ const ownDeclarations = (path: string, ...given: string[]) => {
 // shadcn/ui's Button sets its words in font-medium. The settings forms' buttons and their copies
 // were 600; the other buttons with words and a fill or an outline were the regular 400.
 const mediumButtons = [
-    [box + "advanced_settings/VoiceSettings.module.scss", "button { width: fit-content"],
+    [box + "advanced_settings/VoiceSettings.css.ts", 'globalStyle(inForm("button"), {'],
     [box + "_components/connection_check_button/ConnectionCheckButton.css.ts", "export const button = style({"],
     [box + "hotkeys/Hotkeys.css.ts", "export const open_quick_chat = style({"],
     [box + "translation/Translation.css.ts", "globalStyle(`$" + "{license_actions} button`, {"],
@@ -79,7 +79,7 @@ test("buttons set their words in medium weight, as shadcn/ui's Button does", () 
 // (shared.css.ts). These were .6, and .45 for the settings top bar's discard and save. The
 // forms' rule is shared by their fields, selects, checkboxes and buttons.
 const halfDisabled = [
-    [box + "advanced_settings/VoiceSettings.module.scss", ":disabled {"],
+    [box + "advanced_settings/VoiceSettings.css.ts", 'globalStyle(inForm(":disabled"), {'],
     [box + "_components/connection_check_button/ConnectionCheckButton.css.ts", "export const button = style({", '"&:disabled": {'],
     [box + "ocr/Ocr.css.ts", "export const resetButton = style({", '"&:disabled": {'],
     [box + "ocr/Ocr.css.ts", "globalStyle(`$" + "{sharedActions} $" + "{resetButton}[aria-disabled=\"true\"]`, {"],
