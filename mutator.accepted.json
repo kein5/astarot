@@ -15,6 +15,10 @@
     "reason": "open() clears the search flag before any list is drawn, so its first value is never read.",
     "where": "src-ui/views/vr/VrLanguageWindow.tsx:65:54 false -> true"
   },
+  "11xg79qwczg": {
+    "reason": "A focus that is not on a choice gives NaN, which the rows kept drawn filter out as they do no focus.",
+    "where": "src-ui/views/vr/VrPickerList.tsx:146:17 index !== undefined -> true"
+  },
   "12pm7nri03p": {
     "reason": "The retry button is drawn only during a sync error; otherwise its ref is null and nothing is focused.",
     "where": "src-ui/views/vr/VrLanguageWindow.tsx:158:13 syncError -> true"
@@ -42,6 +46,10 @@
   "196jodjptum": {
     "reason": "At the edge the difference is 0, so the list does not scroll either way.",
     "where": "src-ui/views/vr/VrLanguageWindow.tsx:280:13 row.bottom > bounds.bottom -> row.bottom >= bounds.bottom"
+  },
+  "197r1yijfub": {
+    "reason": "A Tab that is not on a choice starts from NaN, so the search for the next choice never runs, as when it stops early.",
+    "where": "src-ui/views/vr/VrPickerList.tsx:152:17 index === undefined -> false"
   },
   "19aqp1yhfoc": {
     "reason": "A timer started for no target or for the dismissed target does nothing: show returns at once for a missing or dismissed target.",
@@ -123,6 +131,10 @@
     "reason": "A timer started for no target or for the dismissed target does nothing: show returns at once for a missing or dismissed target.",
     "where": "src-ui/views/vr/VrTooltip.tsx:118:17 target && dismissed !== target -> (target || dismissed !== target)"
   },
+  "1ua8vrx0ri6": {
+    "reason": "Each owner passes its own ref object, the same for the list's whole life, so the measuring effect runs once either way.",
+    "where": "src-ui/views/vr/VrPickerList.tsx:68:8 [scrollRef] -> []"
+  },
   "1vxz4v7j1ae": {
     "reason": "With no origin the main screen falls back to your language, the origin it starts with.",
     "where": "src-ui/views/vr/VrLanguageWindow.tsx:299:242 'your' -> ''"
@@ -150,6 +162,10 @@
   "24srmxs4cad": {
     "reason": "Every choice the list disables is one choose() refuses too: your own language, a recipient already chosen, or a fourth recipient.",
     "where": "src-ui/views/vr/VrLanguageWindow.tsx:342:37 !choiceDisabled(languageChoices[0]) -> true"
+  },
+  "25qaju8ilc2": {
+    "reason": "Focus and key events always come from an element, which has closest.",
+    "where": "src-ui/views/vr/VrPickerList.tsx:30:70 target !== null && \"closest\" in target -> true"
   },
   "26n5qtqj0t6": {
     "reason": "A string has no is_downloaded, so the placeholder is filtered out as an empty list is.",
@@ -190,6 +206,10 @@
   "4msvnjptkq": {
     "reason": "WindowButton reads label only as the default for name, and the log's button passes its own name.",
     "where": "src-ui/views/vr/VrLauncher.tsx:76:56 is_log_lost -> true"
+  },
+  "5oh06psc7v": {
+    "reason": "The dependencies are constant either way, so the callback is made once.",
+    "where": "src-ui/views/vr/VrPickerList.tsx:113:8 [] -> [\"Stryker was here!\"]"
   },
   "5q2xciqnmq": {
     "reason": "save() cleared the notice when the change was sent, and nothing sets one while the change waits.",
