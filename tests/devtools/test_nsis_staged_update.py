@@ -315,6 +315,15 @@ class NsisAppProcessAndDataTests(unittest.TestCase):
             self.assertNotIn(f"\\{folder}", uninstall.replace(f'"$INSTDIR\\{folder}\\*.*"', ""))
             self.assertIn(f'${{FileExists}} "$INSTDIR\\{folder}\\*.*"', opted_in)
 
+    def test_secrets_json_stays_while_a_key_of_this_folder_is_left(self):
+        # Decided on #1011: the id another uninstall needs to remove the rest stays with them.
+        _uninstall, opted_in = self.opted_in()
+        guarded = opted_in[opted_in.index('${If} $keys_left != "1"'):]
+        self.assertLess(guarded.index('Delete "$INSTDIR\\secrets.json"'), guarded.index("${EndIf}"))
+        for language in ("English", "Japanese"):
+            message = re.search(rf'LangString keysLeft \$\{{LANG_{language.upper()}\}} "([^"]*)"', SOURCE).group(1)
+            self.assertIn("secrets.json", message)
+
     def test_delete_app_data_removes_this_folders_keys_first(self):
         _uninstall, opted_in = self.opted_in()
         self.assertLess(opted_in.index("Call un.DeleteStoredKeys"), opted_in.index('Delete "$INSTDIR\\secrets.json"'))

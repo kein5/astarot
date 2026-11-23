@@ -1780,10 +1780,10 @@ Var store_id
 ; "1" when some of this folder's credentials could not be removed.
 Var keys_left
 !ifdef LANG_ENGLISH
-  LangString keysLeft ${LANG_ENGLISH} "Some API keys of ${PRODUCTNAME} could not be removed. Open Credential Manager, choose Windows Credentials, and remove the entries whose names start with ${CREDENTIALPREFIX}/$store_id/ or ${OLDCREDENTIALPREFIX}/$store_id/."
+  LangString keysLeft ${LANG_ENGLISH} "Some API keys of ${PRODUCTNAME} could not be removed, so secrets.json stays in $INSTDIR to remove them later. Install ${PRODUCTNAME} into the same folder and uninstall it again with the application data, or open Credential Manager, choose Windows Credentials, and remove the entries whose names start with ${CREDENTIALPREFIX}/$store_id/ or ${OLDCREDENTIALPREFIX}/$store_id/."
 !endif
 !ifdef LANG_JAPANESE
-  LangString keysLeft ${LANG_JAPANESE} "${PRODUCTNAME}のAPIキーの一部を削除できませんでした。資格情報マネージャーの「Windows資格情報」で、名前が${CREDENTIALPREFIX}/$store_id/か${OLDCREDENTIALPREFIX}/$store_id/で始まる項目を削除してください。"
+  LangString keysLeft ${LANG_JAPANESE} "${PRODUCTNAME}のAPIキーの一部を削除できなかったので、あとで削除し直せるように$INSTDIRにsecrets.jsonを残しました。同じフォルダーにもう一度インストールしてからアプリケーションデータごとアンインストールするか、資格情報マネージャーの「Windows資格情報」で、名前が${CREDENTIALPREFIX}/$store_id/か${OLDCREDENTIALPREFIX}/$store_id/で始まる項目を削除してください。"
 !endif
 
 ; Drops the spaces and tabs at the start of ${text}. Uses $R9.
@@ -1991,8 +1991,12 @@ Section Uninstall
     ; to 0.5) and a temporary file an interrupted save left: config.json.*.
     Delete "$INSTDIR\config.json"
     Delete "$INSTDIR\config.json.*"
-    ; The id of the keys (and up to 0.5 the keys), the same way.
-    Delete "$INSTDIR\secrets.json"
+    ; The id of the keys (and up to 0.5 the keys), the same way. While a key of this folder is
+    ; still in Credential Manager, secrets.json stays: it holds the id that another uninstall
+    ; with the app data needs to remove the rest (decided on #1011).
+    ${If} $keys_left != "1"
+      Delete "$INSTDIR\secrets.json"
+    ${EndIf}
     Delete "$INSTDIR\secrets.json.*"
     Delete "$INSTDIR\voice_mute_state.json"
     Delete "$INSTDIR\.voice-mute-*"
