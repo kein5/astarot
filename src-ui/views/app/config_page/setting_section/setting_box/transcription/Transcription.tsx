@@ -3,7 +3,7 @@ import { CustomModelLink } from "../_components/custom_model_link/CustomModelLin
 import { SpeechServers } from "../advanced_settings/SpeechServers";
 import { useI18n } from "@useI18n";
 import * as styles from "./Transcription.css.ts";
-import catalogStyles from "../advanced_settings/VoiceSettings.module.scss";
+import * as catalogStyles from "../advanced_settings/VoiceSettings.css.ts";
 import { RealtimeASRSettings } from "./RealtimeASRSettings";
 import { AsrApiEntries } from "./AsrApiEntries";
 import { genNumObjArray } from "@utils";

@@ -2,7 +2,7 @@ import { useId, useMemo, useState } from "react";
 import { useI18n } from "@useI18n";
 import { useStdoutToPython } from "@useStdoutToPython";
 import * as styles from "./AdvancedSettings.css.ts";
-import voiceStyles from "./VoiceSettings.module.scss";
+import * as voiceStyles from "./VoiceSettings.css.ts";
 import * as dialogStyles from "../_components/download_models/LegacyModelDownloadDialog.css.ts";
 import { AutoExportMessageLogsContainer } from "../shared_items/SharedItems";
 import { Description } from "../_components/description/Description";

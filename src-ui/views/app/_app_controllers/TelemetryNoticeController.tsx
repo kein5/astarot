@@ -4,7 +4,7 @@ import { useI18n } from "@useI18n";
 import { useOthers } from "@logics_configs";
 import { useConsentDialog } from "../../../logics/common/useConsentDialog";
 import { TelemetryContents } from "../config_page/setting_section/setting_box/_components/telemetry/TelemetryContents";
-import styles from "../config_page/setting_section/setting_box/advanced_settings/VoiceSettings.module.scss";
+import * as styles from "../config_page/setting_section/setting_box/advanced_settings/VoiceSettings.css.ts";
 import * as dialogStyles from "../config_page/setting_section/setting_box/_components/download_models/LegacyModelDownloadDialog.css.ts";
 import * as noticeStyles from "./TelemetryNoticeController.css.ts";
 

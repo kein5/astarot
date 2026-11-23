@@ -7,7 +7,7 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import { useModelDownloads } from "../../../../../../../logics/voice/useModelDownloads";
 import { legacyDownloadRequest, legacyReviewSize } from "../../../../../../../logics/configs/legacyModelConsent";
 import type { LegacyDownloadRequest, LegacyModelReview } from "../../../../../../../logics/configs/legacyModelConsent";
-import styles from "../../advanced_settings/VoiceSettings.module.scss";
+import * as styles from "../../advanced_settings/VoiceSettings.css.ts";
 import * as dialogStyles from "./LegacyModelDownloadDialog.css.ts";
 import { useConsentDialog } from "../../../../../../../logics/common/useConsentDialog";
 import { translationCatalogIds } from "../../../../../../../logics/main/setupNeeds";

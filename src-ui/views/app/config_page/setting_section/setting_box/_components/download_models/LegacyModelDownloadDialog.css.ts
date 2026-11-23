@@ -10,7 +10,7 @@ export const path = style({});
 export const alternative = style({});
 
 // At shadcn/ui's DialogContent width (sm:max-w-lg). The forms' `dialog` rules
-// (VoiceSettings.module.scss) give it its border, padding and the 1.6rem between its parts.
+// (VoiceSettings.css.ts) give it its border, padding and the 1.6rem between its parts.
 const frame = `${host} dialog${dialog}`;
 globalStyle(frame, {
     boxSizing: "border-box",

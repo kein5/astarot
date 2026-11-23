@@ -157,7 +157,7 @@ test("fields and outlined controls draw their edge with the field border", () =>
         "app/config_page/setting_section/setting_box/_components/_atoms/_entry/_Entry.css.ts",
         "app/config_page/search_bar/SearchBar.css.ts",
         "app/config_page/setting_section/setting_box/_components/file_drop_zone/FileDropZone.css.ts",
-        "app/config_page/setting_section/setting_box/advanced_settings/VoiceSettings.module.scss",
+        "app/config_page/setting_section/setting_box/advanced_settings/VoiceSettings.css.ts",
         "app/main_page/main_section/language_selector/LanguageSelector.css.ts",
         "quick_chat/QuickChat.css.ts",
     ]) assert.match(read(views + path), /vox_field_border/, path);
@@ -166,17 +166,10 @@ test("fields and outlined controls draw their edge with the field border", () =>
     for (const tone of ["quiet", "danger"]) {
         assert.match(buttons.slice(buttons.indexOf(`${tone}: {`)), /^[^}]*borderColor: vars\.vox_field_border/, tone);
     }
-    // The outline buttons still drawn in SCSS: the settings forms' quiet buttons. Only the rule's
-    // own declarations count, not a nested state's.
-    for (const [path, rule] of [
-        ["app/config_page/setting_section/setting_box/advanced_settings/VoiceSettings.module.scss", "button.quiet {"],
-    ]) {
-        const source = read(views + path);
-        assert.ok(source.includes(rule), `${path}: ${rule}`);
-        assert.match(source.slice(source.indexOf(rule)), /^[^{]*\{[^{}]*border(-color)?: [^;]*var\(--vox_field_border\)/, `${path}: ${rule}`);
-    }
-    // The same in vanilla-extract: the update check beside Install, and Quit beside Retry when the
-    // app fails to start.
+    // The settings forms' quiet buttons. Only the rule's own declarations count, not a state's.
+    const forms = read(views + "app/config_page/setting_section/setting_box/advanced_settings/VoiceSettings.css.ts");
+    assert.match(forms, /inForm\(`button\.\$\{quiet\}`\), \{[^{}]*borderColor: vars\.vox_field_border/, "the forms' quiet buttons");
+    // The update check beside Install, and Quit beside Retry when the app fails to start.
     for (const [path, rule] of [
         ["app/config_page/setting_section/setting_box/updater/Updater.css.ts", "export const check_button = style({"],
         ["app/others/startup/StartupFailedDialog.css.ts", "export const quit = style({"],

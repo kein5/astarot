@@ -20,7 +20,7 @@ export const license_dialog = style({
     background: "var(--dark_875_color, #282a2e)",
     color: "var(--dark_200_color, #e5e7eb)",
     selectors: {
-        // As the forms' dialogs (VoiceSettings.module.scss): shadcn/ui's bg-black/50.
+        // As the forms' dialogs (VoiceSettings.css.ts): shadcn/ui's bg-black/50.
         "&::backdrop": { background: "#00000080" },
         "&[open]": { display: "grid", gap: "1.6rem", alignContent: "start" },
     },

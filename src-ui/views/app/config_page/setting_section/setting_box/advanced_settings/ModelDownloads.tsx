@@ -9,7 +9,7 @@ import type { ModelAdvice } from "../../../../../../logics/voice/modelHardwareAd
 import { hardwareWarning, translationDeviceMode } from "../../../../../../logics/voice/modelHardwareWarning";
 import { RESTRICTIONS, canStart, restrictionsOf, startRequest } from "../../../../../../logics/voice/modelRestrictions";
 import { catalogFamilies, showsValidation, downloadStatus, firstVariant, familyLabel, isPrepared, variantLabel } from "../../../../../../logics/voice/modelCatalog";
-import styles from "./VoiceSettings.module.scss";
+import * as styles from "./VoiceSettings.css.ts";
 import { Fold } from "../_components/fold/Fold";
 import { EnvReadout } from "../_components/env_readout/EnvReadout";
 import { Hint, useHintDescriptions } from "../_components/hint/Hint";

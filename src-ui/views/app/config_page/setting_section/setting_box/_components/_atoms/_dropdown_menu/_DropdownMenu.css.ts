@@ -18,7 +18,7 @@ export const container = style({
     position: "relative",
 });
 
-// The same field as the forms' selects (VoiceSettings.module.scss, DESIGN.md "input"):
+// The same field as the forms' selects (VoiceSettings.css.ts, DESIGN.md "input"):
 // a raised surface with a hairline, so an empty choice (no device found) still shows a field (#436).
 export const dropdown_toggle_button = style({
     position: "relative",

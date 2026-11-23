@@ -8,7 +8,7 @@ import { VoiceRouteSummary } from "../device/VoiceRouteSettings";
 import { SectionLabelComponent } from "../_components/section_label_component/SectionLabelComponent";
 import { StatusLine } from "./StatusLine";
 import { StopVoiceButton } from "./StopVoiceButton";
-import styles from "./VoiceSettings.module.scss";
+import * as styles from "./VoiceSettings.css.ts";
 import { EnvReadout } from "../_components/env_readout/EnvReadout";
 import { Description } from "../_components/description/Description";
 import { FormRow } from "../_components/form_row/FormRow";
