@@ -76,11 +76,11 @@ def test_desktop_captions_are_an_unmanaged_window_above_the_others(tmp_path):
         (tmp_path / "caption-window.txt").write_text(report)
         assert "Override Redirect State: yes" in report, report
         ui.close_settings()
-        field = ui.command("POST", "/element", {"using": "css selector", "value": "textarea[class*=message_box_input_area]"})
+        field = ui.command("POST", "/element", {"using": "css selector", "value": "textarea[data-message-input]"})
         ui.element_command(field, "clear")
         ui.element_command(field, "value", {"text": "caption overlay check"})
-        ui.click('[class*="message_send_button"]')
-        ui.wait("return document.querySelector('textarea[class*=message_box_input_area]').value === ''")
+        ui.click('[data-message-send]')
+        ui.wait("return document.querySelector('textarea[data-message-input]').value === ''")
         # The overlay page reads its lines from the native side; its own document has the text.
         windows = ui.command("GET", "/window/handles")
         main = ui.command("GET", "/window")
@@ -98,7 +98,7 @@ def test_native_settings_navigation_observes_open_and_close(tmp_path):
     from native_webdriver import ROOT
 
     state = initial_state(tmp_path)
-    with private_graph(config_fragment=ROOT / 'config/pipewire/90-vrct-managed.conf'):
+    with private_graph(config_fragment=ROOT / 'config/pipewire/90-astarot-managed.conf'):
         with NativeWebDriver(tmp_path / 'ui', {'VRCT_CONFIG_DIR': str(state)}) as ui:
             ui.wait_main_ready()
             for _ in range(20):

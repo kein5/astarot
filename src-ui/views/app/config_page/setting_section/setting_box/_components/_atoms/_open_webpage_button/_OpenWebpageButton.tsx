@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import styles from "./_OpenWebpageButton.module.scss";
+import * as styles from "./_OpenWebpageButton.css.ts";
 import ExternalLink from "@images/external_link.svg?react";
 
 export interface OpenWebpageButtonProps {

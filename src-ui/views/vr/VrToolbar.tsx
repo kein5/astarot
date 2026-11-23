@@ -5,8 +5,8 @@ import { useStdoutToPython } from "@useStdoutToPython";
 import { useVr } from "@logics_configs";
 import { VrTooltipButton } from "./VrTooltip";
 import { HAND_PATH } from "./VrHandIcon";
-import shared from "./VrSettingsWindow.module.scss";
-import styles from "./VrToolbar.module.scss";
+import * as shared from "./VrSettingsWindow.css.ts";
+import * as styles from "./VrToolbar.css.ts";
 
 const PATHS = {
     world: "M2 22l2.5-5h15l2.5 5zM12 2a4.5 4.5 0 0 0-4.5 4.5c0 3.4 4.5 8.5 4.5 8.5s4.5-5.1 4.5-8.5A4.5 4.5 0 0 0 12 2zM12 5.5a1 1 0 1 0 0 2 1 1 0 0 0 0-2z", // 床に立てたピン

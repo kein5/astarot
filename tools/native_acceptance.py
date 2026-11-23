@@ -20,7 +20,7 @@ The vrchat-voice group runs with the round trip's clients: the same send also sp
 managed route, and the group checks that the managed microphone hears it once and that a mute
 silences it while the chatbox goes on. It needs the managed route already set up on this PC (the
 app sets it up when the managed route is saved) and reads it with pw-record; without it the group
-is reported as skipped. For VRChat itself to hear the voice, choose VRCT Managed Virtual Microphone
+is reported as skipped. For VRChat itself to hear the voice, choose ASTAROT Managed Virtual Microphone
 in the speaker client.
 
 Until 0.6.0 this also fetched the models and runtimes of the voice, speech and recognition groups
@@ -83,7 +83,7 @@ def managed_route_present():
         graph = json.loads(subprocess.run(["pw-dump"], capture_output=True, text=True, timeout=10, check=True).stdout)
     except (OSError, subprocess.SubprocessError, ValueError):
         return None
-    return any(item.get("info", {}).get("props", {}).get("node.name") == "vrct.managed.source" for item in graph) or None
+    return any(item.get("info", {}).get("props", {}).get("node.name") == "astarot.managed.source" for item in graph) or None
 
 
 def plan(args, have):

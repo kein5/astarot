@@ -1,5 +1,5 @@
 import type { ChangeEvent, ReactNode } from "react";
-import styles from "./EntryWithSaveButton.module.scss";
+import * as styles from "./EntryWithSaveButton.css.ts";
 import { _Entry } from "../_atoms/_entry/_Entry";
 
 export interface EntryWithSaveButtonProps {

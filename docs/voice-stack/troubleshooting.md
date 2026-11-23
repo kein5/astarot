@@ -5,7 +5,7 @@
 | `http_404` / `http_503` | speech.cppでTTSモデルを読み込み済みか。別taskのサーバーではないか |
 | `http_400` | 登録voice名・language。推測したモデル別オプションを追加しない |
 | `expected_pcm` / `invalid_sample_rate` | `/v1/audio/speech`がaudio/pcmと正しいX-Sample-Rateを返すか |
-| `transport_error` / `request_timeout` | localhostのポート・サーバー稼働・GPU負荷。途中からの自動再送はしない |
+| `transport_error` / `request_timeout` | localhostのポート・サーバー稼働・GPU負荷。途中からの自動再送はしない。`transport_error`の内訳は`/get/data/voice_status`の`last_error_detail`に出る（`socket`は接続か読み書きの失敗、`ended_early`は応答が途中で切れた、`malformed`は応答の形が崩れていた、`stalled`は時間切れ、`interrupted`は止める操作で切れた） |
 | `first_audio_timeout` | 応答ヘッダ＋最初のPCMが10秒内に届かなかった。モデルwarmup、文の長さ、GPU負荷を確認。接続/後続readは2秒、要求全体は30秒 |
 | `realtime_asr_timeout` | リアルタイム字幕の結果が届かなかった。接続の最初の結果は120秒、以降は15秒まで待つ。GPU負荷と推論デバイスを確認。自動再接続はしないので、スイッチを入れ直す |
 | `language_or_text_unavailable` | 自分の言語、選択した翻訳先、有効な訳文、他言語サーバーの別ポート |

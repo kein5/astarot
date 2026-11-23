@@ -1,7 +1,7 @@
 import clsx from "clsx";
 import { useRef, useImperativeHandle } from "react";
 import type { ChangeEvent, FocusEvent, HTMLAttributes, KeyboardEvent, ReactNode, Ref, WheelEvent } from "react";
-import styles from "./_Entry.module.scss";
+import * as styles from "./_Entry.css.ts";
 
 // What a parent may do with the field through its ref.
 export interface EntryHandle {

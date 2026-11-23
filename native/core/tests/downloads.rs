@@ -191,7 +191,7 @@ fn the_catalog_lists_each_entry_with_its_size_destination_and_sources() {
     let catalog = ui.ok("/get/data/model_download_catalog", None);
     assert_eq!(catalog["catalog_version"], CATALOG_VERSION);
     assert_eq!(snapshot["/get/data/model_download_catalog"]["catalog_version"], CATALOG_VERSION, "in the start-up snapshot");
-    assert_eq!(catalog["legacy_models"], json!([]), "the built-in CTranslate2 download is not offered by the core");
+    assert!(catalog.get("legacy_models").is_none(), "the built-in CTranslate2 download is gone (#1015)");
     let models = catalog["models"].as_array().unwrap();
     assert!(!models.is_empty());
     let root = root(&ui);

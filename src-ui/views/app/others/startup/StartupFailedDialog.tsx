@@ -2,7 +2,7 @@ import type { TFunction } from "i18next";
 import { useI18n } from "@useI18n";
 import { useWindow } from "@logics_common";
 import { useBackendStartup } from "../../../../logics/common/useBackendStartup";
-import styles from "./StartupFailedDialog.module.scss";
+import * as styles from "./StartupFailedDialog.css.ts";
 
 // Shown over the locked main page when the engine could not start. It says
 // why (the program never ran, or it ended before it was ready) and what to do.

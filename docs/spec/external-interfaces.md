@@ -45,7 +45,7 @@ ASTAROTが他のプログラムとやり取りする口。UIとサイドカー�
 | 待ち受け | `WEBSOCKET_HOST`（既定`127.0.0.1`。IPv4のみ。`0.0.0.0`、IPv6、ホスト名は拒否）、`WEBSOCKET_PORT`（既定2231、整数の1〜65535） |
 | 暗号化 | ループバック（127.0.0.0/8）では`ws://`のまま。それ以外のアドレスでは、利用者が指定した証明書と秘密鍵で`wss://`（TLS 1.2以上）だけを使う。使える証明書がなければ待ち受けない（[この PC の外での待ち受け](#この-pc-の外での待ち受け)） |
 | 認証 | 接続時に`?token=<WEBSOCKET_AUTH_TOKEN>`を付ける。合わなければ接続前にHTTP 403。トークンは初回起動時に作り、設定画面では伏せて表示する。保存値がnull・空白だけ・空文字列・文字列以外なら、新しく生成した既定の秘密値を保存する。空でないトークンがなければサーバーを起動しない。`/run/regenerate_websocket_auth_token`で作り直すと、古いトークンでの接続をすぐに切り、以後は拒否する |
-| 受信 | 使わない。アプリは受信の処理を登録せず、受け取ったメッセージはイベントループの上で捨てる（ワーカースレッドに渡さない）。1メッセージの上限は64 KiB。接続ごとに平均で毎秒10件と128 KiBまで、一時的には20件と256 KiBまで受け付ける。どちらかを超えた接続は1008（policy violation）で閉じ、2秒待っても閉じなければtransportをabortする（セキュリティ監査 SEC-06）。上限は[`websocket_server.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/websocket/websocket_server.py)の`_INCOMING_*`の定数 |
+| 受信 | 使わない。アプリは受信の処理を登録せず、受け取ったメッセージはイベントループの上で捨てる（ワーカースレッドに渡さない）。1メッセージの上限は64 KiB。接続ごとに平均で毎秒10件と128 KiBまで、一時的には20件と256 KiBまで受け付ける。どちらかを超えた接続は1008（policy violation）で閉じ、2秒待っても閉じなければtransportをabortする（セキュリティ監査 SEC-06）。上限は`native/adapters/src/websocket.rs`の`INCOMING_*`と`MAX_INCOMING_MESSAGE_SIZE`の定数 |
 | 送信 | 処理したメッセージごとに[メッセージの形](data-and-persistence.md#websocketとobsへ送るメッセージ)を全クライアントへ送る。OBSの表示設定が変わると`SETTINGS_UPDATED`を送る |
 
 ホストとポートは[ネットワーク設定](data-and-persistence.md#ネットワーク設定)の検証に通ってから保存・再起動する。WebSocketとOBSをIPv4に統一し、bindの事前確認とコピーするURLの形式をそろえる。
@@ -68,7 +68,7 @@ ASTAROTが他のプログラムとやり取りする口。UIとサイドカー�
 
 ### 送信の上限
 
-上限は[`websocket_server.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/websocket/websocket_server.py)の定数で定める。会話本文を切り詰めたり、待っているメッセージを黙って捨てたりはしない。
+上限は`native/adapters/src/websocket.rs`の定数で定める。会話本文を切り詰めたり、待っているメッセージを黙って捨てたりはしない。
 
 | 対象 | 上限・動作 |
 |---|---|
@@ -114,7 +114,7 @@ ASTAROTが他のプログラムとやり取りする口。UIとサイドカー�
 | OpenRouter | `https://openrouter.ai/api/v1` | APIキー | 同上 |
 | OpenAI互換（翻訳） | `OPENAI_COMPATIBLE_URL` | APIキー | 同上 |
 | LM Studio | `LMSTUDIO_URL`（既定`http://127.0.0.1:1234/v1`） | なし | 接続の確認、モデル一覧、翻訳 |
-| Ollama | `OLLAMA_URL`（中核のみ。既定`http://localhost:11434`、Pythonは固定） | なし | 同上 |
+| Ollama | `OLLAMA_URL`（既定`http://localhost:11434`） | なし | 同上 |
 | Groq Whisper | `https://api.groq.com/openai/v1` | APIキー | キーの確認（`/models`）と発話ごとの`/audio/transcriptions` |
 | OpenAI Whisper | `https://api.openai.com/v1` | APIキー | 同上。`*-transcribe`のモデルには`json`、Whisperには`verbose_json`で要求する |
 | カスタムWhisperサーバー | `TRANSCRIPTION_CUSTOM_URL` | APIキー（不要なサーバーでも任意の文字列） | 同上 |
@@ -218,20 +218,21 @@ Tauriのupdater（`tauri-plugin-updater`）で行う（`src-tauri/src/app_update
 | deb、rpm | 実行ファイルの隣に`package-manager`がある（`tools/linux_packages.py`が置く） | 確認しない（`package_manager`） |
 | 開発用のビルド | debugビルド | 確認しない（`disabled`） |
 
-- 更新の情報はGitHubのリリースの`latest.json`である。安定版（版に`-beta`がない）は`https://vrct-vox-updates.kei9d09.workers.dev/latest.json`を読む。この宛先はプロジェクトのCloudflare Workersで、最新のリリース（`https://github.com/kein5/VRCT-VOX/releases/latest/download/latest.json`）へ転送する。プレリリースは「latest」にならない。ベータ版は同じWorkerの`/beta/latest.json`を読み、取れなければ安定版の`latest.json`を読む（updaterは、失敗の状態コードや通信の失敗のとき次の宛先を試す）。Workerはこれをこのリポジトリのブランチ`updater-channels`の`beta/latest.json`（`raw.githubusercontent.com`）へ転送する。このファイルは、リリースを公開するたびにワークフロー（`.github/workflows/update-channels.yml`、`tools/update_channels.py`）が、`latest.json`を持つ下書きでないリリースのうち最も新しい版（ベータ版と安定版の両方）の`latest.json`に書き直す。版がそのリリースのものでないもの、ファイルがそのリリースのダウンロードでないものは書かない（#466）。アプリはベータ版の確認のためにGitHubのAPIを呼ばない。どちらも認証なしで、ヘッダーはupdaterの既定とUser-Agentだけである。
-- 更新のチャンネル（#466）: 上の「安定版」「ベータ版」の読み方は、`SELECTED_RELEASE_CHANNEL`（`stable`か`beta`）に従う。利用者がまだ選んでいなければ、起動のたびに動いている版から決める（版に`-beta`か`-rc`があれば`beta`）。設定の実験的機能のページで選ぶと（`/set/data/release_channel`）、`RELEASE_CHANNEL_CHOSEN`を`true`にして、その値を次の起動からも保つ。Betaでは安定版の版からもプレリリースが候補になる。updaterは今の版より新しい版だけを候補にするので、ベータ版を使っていてStableに戻すと、前の版には戻さず、次の安定版が出たときに更新する。更新のページの確認は`app_update_check`の`channel`に、バックエンドの更新のエンドポイントは中核がこの設定を渡す。確認の結果を共有するのは同じチャンネルの確認どうしだけである。チャンネルを変えると、前のチャンネルで見つけた版の表示を消して、すぐに新しいチャンネルで確かめる（起動時の確認をオフにしていても、利用者が変えた操作に対する確認なので行う。ダウンロードやインストールの途中なら何もしない）。更新のページの版の横の「（ベータ）」は、動いている版のチャンネル（`app_update_info`の`channel`）を表す。
+- 更新の情報はGitHubのリリースの`latest.json`である。安定版（版に`-beta`がない）は`https://vrct-vox-updates.kei9d09.workers.dev/latest.json`を読む。この宛先はプロジェクトのCloudflare Workersで、最新のリリース（`https://github.com/kein5/astarot/releases/latest/download/latest.json`）へ転送する。プレリリースは「latest」にならない。ベータ版は同じWorkerの`/beta/latest.json`を読み、取れなければ安定版の`latest.json`を読む（updaterは、失敗の状態コードや通信の失敗のとき次の宛先を試す）。Workerはこれをこのリポジトリのブランチ`updater-channels`の`beta/latest.json`（`raw.githubusercontent.com`）へ転送する。このファイルは、リリースを公開するたびにワークフロー（`.github/workflows/update-channels.yml`、`tools/update_channels.py`）が、`latest.json`を持つ下書きでないリリースのうち最も新しい版（ベータ版と安定版の両方）の`latest.json`に書き直す。版がそのリリースのものでないもの、ファイルがそのリリースのダウンロードでないものは書かない（#466）。アプリはベータ版の確認のためにGitHubのAPIを呼ばない。どちらも認証なしで、ヘッダーはupdaterの既定とUser-Agentだけである。
+- 更新のチャンネル（#466）: 上の「安定版」「ベータ版」の読み方は、`SELECTED_RELEASE_CHANNEL`（`stable`か`beta`）に従う。利用者がまだ選んでいなければ、起動のたびに動いている版から決める（版に`-beta`か`-rc`があれば`beta`）。設定の実験的機能のページで選ぶと（`/set/data/release_channel`）、`RELEASE_CHANNEL_CHOSEN`を`true`にして、その値を次の起動からも保つ。Betaでは安定版の版からもプレリリースが候補になる。updaterは今の版より新しい版だけを候補にするので、ベータ版を使っていてStableに戻すと、前の版には戻さず、次の安定版が出たときに更新する。更新のページの確認は`app_update_check`の`channel`に、バックエンドの更新のエンドポイントは中核がこの設定を渡す。確認の結果を共有するのは同じチャンネルの確認どうしだけである。チャンネルを変えると、前のチャンネルで見つけた版の表示を消して、すぐに新しいチャンネルで確かめる（起動時の確認をオフにしていても、利用者が変えた操作に対する確認なので行う。ダウンロードやインストールの途中なら何もしない）。`app_update_check`は1つずつしか受け付けない（2つ目は`update_busy`）ので、確認の途中で変えたときは、その確認が終わるのを待ってから新しいチャンネルで確かめ、その間は「確認中」と示す。途中だった確認の結果は前のチャンネルのものなので、画面に出さない。続けて何度か変えたときは、最後に選んだチャンネルだけを確かめる。こうして、画面に出る版と、インストールの対象（`app_update_check`が最後に見つけた版）は、いつも最後に選んだチャンネルのものになる（`src-ui/logics/common/appUpdate.ts`）。Tauriの側も、画面とは別に同じことを守る（#1017）。`app_update_check`が前と違うチャンネルを問い合わせた時点で、前のチャンネルで見つけた版をインストールの対象から外す。その確認が`update_busy`で断られても、失敗しても外す。別のチャンネルを問い合わせた後に終わった確認の版は、インストールの対象にしない。更新のページの版の横の「（ベータ）」は、動いている版のチャンネル（`app_update_info`の`channel`）を表す。
 - `latest.json`の`platforms`は`windows-x86_64`（`VRCT-VOX_setup.exe`）と`linux-x86_64`（AppImage）を持つ。下書きを作るワークフロー（`prepare-release.yml`）が、検証済みの候補を`tauri signer sign --app-version`で署名し、`tools/updater_manifest.py`で書く。
 - 取得したファイルは`tauri.conf.json`の公開鍵（minisign、鍵ID `1178836E5C9F510B`）で検証し、署名の信頼済みコメントにある版が`latest.json`の版と一致することも求める（`requireSignedVersion`）。一致しなければ入れない。
 - インストーラーは`/UPDATE`のとき、言語のページを飛ばし、`installer_language.txt`を書かず、ショートカットを作り直さない。ZIPの取得とSHA-256の照合、段階的な置き換えは通常のインストールと同じである（[配布候補の手順](../voice-stack/release-candidates.md)）。0.7.0からのインストーラーは、0.5.0以前の既定のインストール先にあるインストールを更新のあとで`%LOCALAPPDATA%\ASTAROT`へ移す。`/UPDATE`のときも同じで、`/R`は移した先の実行ファイルを起動する（[Windowsのインストール先の移動](data-and-persistence.md#windowsのインストール先の移動)）。0.7.0からの本体は`astarot.exe`で、インストーラーは0.6.xまでの`vrct-vox.exe`を置き換え、`/R`で`astarot.exe`を起動する（[本体の実行ファイルの名前](data-and-persistence.md#本体の実行ファイルの名前)）。
+- インストーラーは、利用者のセッションで同時に1つだけ動く。アプリの更新が起動したインストーラーと、利用者が開いたインストーラーが重なると、後から起動した方はほかのインストーラーが動いていることを知らせ、何も変えずに終了コード2で終わる。知らせは、サイレント（`/S`）なら起動したコンソールに書き、それ以外（`/P`を含む）ならメッセージで出す。取得するファイルは、実行ごとに作る`%TEMP%`の中のフォルダーに置き、終わるときに消す（[配布候補の手順](../voice-stack/release-candidates.md#windowsのwebview2とインストール時の通信)）。
 - 起動ログ（`startup_log`）には失敗の種類とURLだけを書く。会話や音声は扱わない。
 - バックエンドの更新のエンドポイントも同じupdaterを使う（`app_update.rs`の`CoreUpdates`を`backend_host.rs`が中核に渡す。[判断20](../voice-stack/core-integration.md#判断が要ること)）。
   - `/get/data/available_releases`は、上のGitHubのリリースの一覧（新しい30件）から、更新のチャンネルが取るものを新しい順に`[{tag, version, is_prerelease, published_at}]`で返す。Stableは安定版だけ、Betaは両方。下書き、版でないタグ、`latest.json`がないもの、このリポジトリのダウンロードでないものは除く。確認しないコピー（deb、rpm、開発用のビルド）は通信せずに空を返す。
-  - 起動時の`/run/software_update_info`（`{is_update_available, new_version}`）は、`CHECK_SOFTWARE_UPDATES`がオンのときだけupdaterで確かめる。オフなら通信せずに「更新なし」を送る。更新の画面の確認と同時に走るので、走っている確認の結果と、終わってから30秒以内の成功した結果は共有する。
+  - 起動時の`/run/software_update_info`（`{is_update_available, new_version}`）は、`CHECK_SOFTWARE_UPDATES`がオンのときだけupdaterで確かめる。オフなら通信せずに「更新なし」を送る。更新の画面の確認と同時に走るので、走っている確認の結果と、終わってから30秒以内の成功した結果は共有する。チャンネルを前と違う値に変えると（`/set/data/release_channel`）、中核は新しいチャンネルで同じように確かめ直して送る。オフなら通信せずに「更新なし」をもう一度送る。前のチャンネルの確認が、変えた後に終わったときは、その結果を送らない。こうして、最後に送った`/run/software_update_info`は、いつも今のチャンネルのものになる（#1017）。
   - `/run/update_software`と`/run/update_cuda_software`は、更新のチャンネルの最新版か、`data`の版（一覧にある版）を取得し、署名を確かめて入れる。配布物は1つなので、2つのエンドポイントは同じ動きである（`/run/update_cuda_software`はIPCの契約として残す。UIは`/run/update_software`だけを使う）。`mode`が`install`でないコピーでは入れない。署名の失敗は`UPDATE_SOFTWARE_VERIFY`、ほかの失敗は`UPDATE_SOFTWARE_DOWNLOAD`で、今の版のまま動き続ける。
 
 ### LLMでの翻訳
 
-Plamo、Gemini、OpenAI、Groq、OpenRouter、OpenAI互換、LM Studio、Ollamaは、現在の翻訳対象の本文、言語の指定、プロンプトと直近の会話履歴を接続先へ送る。プロンプトにはシステム向けの指示と対応言語も含む。中核は各社のSDKを使わずにAPIを直接呼び、ヘッダーの`User-Agent: VRCT-VOX`のほかに実行環境の情報を送らない（`native/translation/src/http.rs`。0.4までのPythonではSDKがOSやライブラリの版などを送っていた）。LM StudioとOpenAI互換では設定したURLが送信先になり、OpenRouterでは選んだモデルの提供元にも処理が渡る。
+Plamo、Gemini、OpenAI、Groq、OpenRouter、OpenAI互換、LM Studio、Ollamaは、現在の翻訳対象の本文、言語の指定、プロンプトと直近の会話履歴を接続先へ送る。プロンプトにはシステム向けの指示と対応言語も含む。中核は各社のSDKを使わずにAPIを直接呼び、ヘッダーの`User-Agent: ASTAROT`のほかに実行環境の情報を送らない（`native/translation/src/http.rs`。0.4までのPythonではSDKがOSやライブラリの版などを送っていた）。LM StudioとOpenAI互換では設定したURLが送信先になり、OpenRouterでは選んだモデルの提供元にも処理が渡る。
 
 履歴にはチャット・マイク・スピーカーの発言を使う。直近の最大5件を、時刻と入力元を付けて含め、整形後の履歴は最大4,000文字に制限する。OCRの過去の履歴は含めないが、今回の翻訳対象がOCRの本文なら送る。これらは中核の`native/translation/src/prompt.rs`の定数（`HISTORY_SOURCES`、`HISTORY_MAX_MESSAGES`、`HISTORY_MAX_CHARS`）で決まり、履歴専用のUIスイッチはない（0.4までは`src-python`のプロンプトファイルで同じ値を決めていた）。DeepLとCTranslate2はこの履歴を送らない。
 
@@ -277,9 +278,9 @@ TTSのスイッチをオフにしたときは、そのスイッチが起動し�
 | エンジン | 既定のURL | 使うAPI |
 |---|---|---|
 | VOICEVOX、SHAREVOX、AivisSpeech | `127.0.0.1`の50021、50025、10101 | `GET /version`、`GET /speakers`、`POST /audio_query`、`POST /synthesis`（`native/tts/src/engines.rs`） |
-| COEIROINK v2 | `127.0.0.1:50032` | `GET /v1/engine_info`、`GET /v1/speakers_path_variant`、`POST /v1/synthesis`（[`coeiroink_tts.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/tts/coeiroink_tts.py)） |
+| COEIROINK v2 | `127.0.0.1:50032` | `GET /v1/engine_info`、`GET /v1/speakers_path_variant`、`POST /v1/synthesis`（`native/tts/src/engines.rs`） |
 
-- 読み上げる文は文末（`。`、`！`、`？`など）と改行で分け、40文字を超える文は読点でも分ける。1つずつ合成し、読み上げている間に次の文を合成する（[`external_engine.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/tts/external_engine.py)）。エンジンは文ごとにWAVをまとめて返すので、分けないとマイクの読み上げが5秒の開始期限に間に合わない。
+- 読み上げる文は文末（`。`、`！`、`？`など）と改行で分け、40文字を超える文は読点でも分ける。1つずつ合成し、読み上げている間に次の文を合成する（`native/tts/src/engines.rs`）。エンジンは文ごとにWAVをまとめて返すので、分けないとマイクの読み上げが5秒の開始期限に間に合わない。
 - VOICEVOX系では`/audio_query`の応答を`/synthesis`へ渡す。書き換えるのは、下の表で既定から変えたScaleの値だけである（ADR-008の5.2）。AivisSpeechはほかの部分を書き換えた問い合わせを受け付けないことがあるため。4つとも既定のままなら、応答のバイト列をそのまま渡す。COEIROINKの話者の一覧には画像を含まない`/v1/speakers_path_variant`を使う。`/v1/speakers`は画像をbase64で含み、話者1人で約1 MBになる。
 - 選んだ声はエンジンのID（COEIROINKは`speakerUuid:styleId`）と話者名、スタイル名で保存する。IDが見つからないか、IDの声の名前が変わっていれば名前で探し直す。見つからなければ`tts_engine_voice_missing`、声を選んでいなければ`tts_engine_voice_unset`、エンジンに接続できなければ`tts_engine_not_ready`で失敗する。歌うためのスタイルは一覧に出さない。
 - COEIROINKの`/v1/synthesis`には声の設定（`VOICE_SETTINGS`）の7つの値を送る。値は文字列の10進数で保存し、範囲外や`1e0`のような書き方は保存しない。
@@ -331,7 +332,7 @@ WindowsのWebView2は、全ウィンドウを同じ起動引数で作る（`src-
 | Directive | 許可するsource | 根拠 |
 |---|---|---|
 | `default-src`、`script-src` | `'self'` | Viteが生成する同一オリジンのJS、共有chunk、modulepreload。i18nextとjs-yamlは同梱された翻訳データを処理する。eval、Functionコンストラクター、Wasmは使わない |
-| `style-src` | `'self'`と下記2つのSHA-256 | CSS Modules/SCSSから生成したCSSと、依存が実行時に挿入する固定の`<style>`だけ |
+| `style-src` | `'self'`と下記2つのSHA-256 | vanilla-extractが生成したCSSと、依存が実行時に挿入する固定の`<style>`だけ |
 | `style-src-attr` | `'none'` | HTMLのstyle属性や`setAttribute("style", …)`は許可しない。Reactの`style` prop、virtua、色選択、倍率・フォント・OCR領域の更新はCSSOMのプロパティ代入を使う |
 | `img-src` | `'self' data:` | 同梱PNG/SVG、Viteがインライン化した小画像、選択欄とreact-colorfulのdata SVG。SVGの`?react` importはJS内の要素になる |
 | `font-src` | `'self'` | OSにある選択フォントとNoto/systemのフォールバック。現在はフォントファイルの取得も`@font-face`もない。リモートフォントは使わない |
@@ -344,7 +345,7 @@ WindowsのWebView2は、全ウィンドウを同じ起動引数で作る（`src-
 
 `dangerousDisableAssetCspModification`は既定の`false`を保つ。TauriによるHTMLのnonce/hash挿入を無効化しない。`script-src-elem`を別に指定してTauriの`script-src`への追加を無効にすることもしない。`freezePrototype`は別のprototype汚染対策であり、CSPを有効にする条件ではない。今回は既定の`false`を保つ。
 
-バックエンド（Rustの中核）はアプリの中で動き、UIとはTauriのコマンドとチャネルでつなぐ（0.4まではPython sidecarをshell pluginのstdin/stdoutでつないでいた）。UIはPythonのHTTPサーバー、OBS、会話配信用WebSocket、音声サーバーに直接接続しないため、それらのホストやポートを`connect-src`に加えない。OBS用URLはコピーする文字列であり、Tauri内でページを表示しない。モデル取得は同意後に中核（`native/ops`）が実行する（0.4まではPython側）。モデルカード、ライセンス、Aboutの外部リンクはopenerで開く。ログは中核が書く。OCR領域のプレビューはCSSの矩形であり、画面キャプチャ画像を読み込まない。`blob:`、`asset:`、`http://asset.localhost`の許可は不要で、asset protocolも無効のままとする。
+バックエンド（Rustの中核）はアプリの中で動き、UIとはTauriのコマンドとチャネルでつなぐ（0.4まではPython sidecarをshell pluginのstdin/stdoutでつないでいた）。UIは中核のHTTPサーバー、OBS、会話配信用WebSocket、音声サーバーに直接接続しないため、それらのホストやポートを`connect-src`に加えない。OBS用URLはコピーする文字列であり、Tauri内でページを表示しない。モデル取得は同意後に中核（`native/ops`）が実行する（0.4まではPython側）。モデルカード、ライセンス、Aboutの外部リンクはopenerで開く。ログは中核が書く。OCR領域のプレビューはCSSの矩形であり、画面キャプチャ画像を読み込まない。`blob:`、`asset:`、`http://asset.localhost`の許可は不要で、asset protocolも無効のままとする。
 
 `devCsp`だけはViteのReact Refresh用inline script、HMR用style、および`ws://localhost:1420`、`ws://127.0.0.1:1420`、`ws://localhost:1421`、`ws://127.0.0.1:1421`を許す。通常のdev URLは`http://localhost:1420`。`TAURI_DEV_HOST`に別のホストを指定する場合は、開発用のローカルTauri設定で`devCsp.connect-src`にそのホストのHMR URL（ポート1421）を明記する。配布用CSPを広げない。
 
@@ -365,7 +366,7 @@ WindowsのWebView2は、全ウィンドウを同じ起動引数で作る（`src-
 | `screencast_stop` | `main` | 共有を終え、ヘルパーを止め、ポータルのセッションを閉じる |
 | `app_update_info` | `main` | `{kind, mode, channel, current_version, package_manager}`。このコピーの入れ方と、更新でできること（[アプリの更新](#アプリの更新)）。通信しない |
 | `app_update_check` | `main` | 新しい版を問い合わせ、`{available, version, release_url}`を返す。失敗は`update_check_failed`、`update_metadata_missing`などのコード |
-| `app_update_install` | `main` | 直前の確認で見つけた版を取得し、署名を確かめて入れる。進み具合は引数のチャンネル（`{phase: "download", downloaded, total}`、`{phase: "install"}`）で知らせる。Windowsではインストーラーに引き継いで終了し、Linuxでは再起動する。失敗したときは今の版のまま、コードを返す。Windowsでインストーラーの前に中核を止めた後にインストーラーを起動できなかったときは、`app-update-restarting`で知らせてから5秒後に今の版のまま再起動する（#561） |
+| `app_update_install` | `main` | 最後に問い合わせたチャンネルの確認で見つけた版を取得し、署名を確かめて入れる。進み具合は引数のチャンネル（`{phase: "download", downloaded, total}`、`{phase: "install"}`）で知らせる。Windowsではインストーラーに引き継いで終了し、Linuxでは再起動する。失敗したときは今の版のまま、コードを返す。Windowsでインストーラーの前に中核を止めた後にインストーラーを起動できなかったときは、`app-update-restarting`で知らせてから5秒後に今の版のまま再起動する（#561） |
 | `caption_overlay_supported`、`caption_overlay_set`、`caption_overlay_update` | `main` | 字幕のウィンドウを使えるか調べる、開く・閉じる、描く内容を渡す。`caption_overlay_set`は`{open, position, placement}`を取る。`placement`は保存した左上の位置（物理ピクセル、`{x, y}`、各±100000以内）か`null`で、その位置の一部（縦横64ピクセル以上）がどれかのモニターの作業領域に残っていればそこに出し、残っていなければ`position`の帯に出す |
 | `caption_overlay_snapshot` | `caption_overlay` | 描く内容を読む。Ctrlキーで調整している間は`adjusting: true`が付く。`main`が渡した`adjusting`は捨てる |
 
@@ -400,6 +401,7 @@ VRパネルの要求は`main`が中継する（セキュリティ監査 SEC-02�
 - VRパネルは起動すると`vr_panel_state_subscribe`にチャンネルを渡し、受け付けられたら`vr-panel-ready`を送る。受け付けるのは`vr_panel`のウィンドウからの呼び出しだけで、開き直したパネルのチャンネルが前のものに替わる。
 - `main`は`vr_panel_state_push`で状態を送る。受け付けるのは`main`からの呼び出しだけ。購読しているパネルがなければ`false`を返し、次の会話ログは全件で送る。パネルのウィンドウを閉じるとチャンネルを捨てる。
 - 送るのは、VRパネルの画面が読む状態だけ（`src-ui/logics/common/vrPanelWire.ts`の`vrPanelStateNames`）。設定は、VRパネルが丸ごと読むカテゴリ（表示、デバイス、翻訳、音声認識、チャット読み取り、VR、その他）のもの。そのほかは会話ログ、ランチャーと言語の窓の状態（前提が足りないスイッチとその理由の識別子を含む）、メーター、入力と出力の表示など、名前で挙げたatomだけ。高度な設定（WebSocket、OBS、OSC、テレメトリ）、更新、ホットキーは送らない。認証キーとトークンは、カテゴリに入っていても送らない。VRパネルのコードが新しいatomを読むようになると、ソースを読む試験（`src-ui/logics/test/vrPanelStateScan.ts`）が一覧に足すまで失敗する。
+- 利用者が追加したローカル翻訳モデルは、重みのIDと表示名の組を送る。カタログの項目やAPIのURLはメイン画面に留める。
 - 会話ログだけは前に送ったログとの差分で送る。通し番号が合わなければ、VRパネルが`vr-panel-ready`で全件を頼み直す。
 
 VRパネルで会話ログを閉じている間も、状態の受信とログの更新は続ける。閉じた領域は描画せず、操作も受け付けない。ログ本体の購読を外し、開き直すと保存した表示位置と末尾への追従状態を戻す。上へスクロールして読んでいた場合はその位置を保ち、それ以外は最新の末尾に追従する。保存中に古い行が保持上限を超えた場合は、通常のログ更新と同じように位置を補正する。

@@ -13,6 +13,10 @@
 //! switch off it reports no update without asking the updater. (Python checked at every start,
 //! but its updater never reached the network.)
 //!
+//! A channel the user sets is checked again the same way (#1017), and the check of the channel
+//! set before no longer reports: what `/run/software_update_info` said last is always about the
+//! channel set now ([`UpdateChecks`]).
+//!
 //! `/run/update_cuda_software` stays in the IPC contract and does what `/run/update_software`
 //! does. Python switched to the CUDA package there; from 0.5.0 that package held the same files,
 //! and since #288 there is no CUDA package at all.
@@ -25,7 +29,7 @@ use super::{Core, ok, ok_true};
 use crate::errors::ErrorReply;
 use crate::protocol::truthy;
 use serde_json::{Value, json};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 /// What became of an update (`SETUP_LAUNCHED`, `SETUP_DOWNLOAD_FAILED`, `SETUP_VERIFY_FAILED`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -78,14 +82,47 @@ impl SoftwareUpdates for Disabled {
     }
 }
 
+/// Which update channel's check may still report (#1017). Setting another channel starts a new
+/// turn; a check reports only in the turn it started in. It reports while it holds the turn, so
+/// that a check of the channel set before is told before the new turn begins, or never.
+#[derive(Default)]
+pub(crate) struct UpdateChecks {
+    turn: Mutex<u64>,
+}
+
+impl UpdateChecks {
+    fn current(&self) -> u64 {
+        *self.turn.lock().unwrap_or_else(|e| e.into_inner())
+    }
+
+    /// Another channel was set: the checks under way are of the one before.
+    fn next(&self) {
+        *self.turn.lock().unwrap_or_else(|e| e.into_inner()) += 1;
+    }
+
+    /// Runs `report` when `turn` is still the current one. Whether it ran.
+    fn report_in(&self, turn: u64, report: impl FnOnce()) -> bool {
+        let current = self.turn.lock().unwrap_or_else(|e| e.into_inner());
+        if *current != turn {
+            return false;
+        }
+        report();
+        true
+    }
+}
+
 impl Core {
     /// "Check Software Updated (Background)": the result goes to `/run/software_update_info`.
     /// Python sent it at every start; with `CHECK_SOFTWARE_UPDATES` off the answer is "no
-    /// update" and nothing reaches the network.
+    /// update" and nothing reaches the network. A result that comes after another channel was
+    /// set is dropped: the check of that channel reports instead ([`Self::release_channel_set`]).
     pub(crate) fn check_software_update_in_background(&self) {
         self.step("Check Software Updated (Background)");
+        let checks = Arc::clone(&self.update_checks);
+        let turn = checks.current();
         if !self.config().get_bool("CHECK_SOFTWARE_UPDATES") {
-            self.notify("software_update_info", no_update());
+            let notify = self.notifier();
+            checks.report_in(turn, || notify("software_update_info", no_update()));
             return;
         }
         let updates = Arc::clone(&self.services().software_updates);
@@ -95,10 +132,22 @@ impl Core {
         std::thread::Builder::new()
             .name("software_update_check".into())
             .spawn(move || match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| updates.check(&channel))) {
-                Ok(info) => notify("software_update_info", info),
+                Ok(info) => {
+                    if !checks.report_in(turn, || notify("software_update_info", info)) {
+                        log.step("[Background] Software update check of the channel set before dropped", None);
+                    }
+                }
                 Err(_) => log.step("[Background] Software update check failed", None),
             })
             .ok();
+    }
+
+    /// The user set another update channel (#1017): a check of the channel before that is under
+    /// way no longer reports, and the new channel is checked as at the start. With
+    /// `CHECK_SOFTWARE_UPDATES` off, that is "no update" again, without asking the updater.
+    pub(crate) fn release_channel_set(&self) {
+        self.update_checks.next();
+        self.check_software_update_in_background();
     }
 
     /// `_runSoftwareUpdate`: on its own thread; anything but a launched installer is reported
@@ -150,8 +199,21 @@ pub(crate) fn add(b: &mut Builder<'_>) {
 
 #[cfg(test)]
 mod tests {
-    use super::target_version;
+    use super::{UpdateChecks, target_version};
     use serde_json::json;
+
+    #[test]
+    fn a_check_reports_only_in_the_turn_it_started_in() {
+        let checks = UpdateChecks::default();
+        let before = checks.current();
+        assert!(checks.report_in(before, || {}));
+        checks.next();
+        let mut reported = false;
+        assert!(!checks.report_in(before, || reported = true), "a check of the channel set before");
+        assert!(!reported);
+        assert!(checks.report_in(checks.current(), || reported = true));
+        assert!(reported);
+    }
 
     #[test]
     fn the_version_is_python_str_of_a_truthy_value() {

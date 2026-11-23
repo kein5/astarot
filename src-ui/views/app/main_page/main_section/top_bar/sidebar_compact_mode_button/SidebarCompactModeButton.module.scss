@@ -1,2 +1,0 @@
-.container { height: 4rem; width: 3.2rem; flex-shrink: 0; border-radius: .8rem; color: var(--dark_400_color); cursor: pointer; &:hover { background: var(--dark_850_color); } &:disabled { display: none; } }
-.arrow_left_svg { width: 1.2rem; height: 2rem; &.reverse { transform: rotate(180deg); } }

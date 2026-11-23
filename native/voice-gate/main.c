@@ -11,7 +11,7 @@
 #include <spa/pod/builder.h>
 #include <spa/pod/iter.h>
 
-#define TARGET "vrct.managed.source"
+#define TARGET "astarot.managed.source"
 struct state {
     struct pw_main_loop *loop;
     struct pw_core *core;
@@ -71,7 +71,7 @@ static void direct_info(void *data, const struct pw_node_info *info) {
     struct state *s = data;
     if (!(info->change_mask & PW_NODE_CHANGE_MASK_PROPS)) return;
     if (!info->props) { s->direct_valid = false; if (s->phase) fail(s); return; }
-    const char *tag = spa_dict_lookup(info->props, "vrct.managed.route");
+    const char *tag = spa_dict_lookup(info->props, "astarot.managed.route");
     const char *media = spa_dict_lookup(info->props, PW_KEY_MEDIA_CLASS);
     s->direct_valid = tag && !strcmp(tag, "v1") && media && !strcmp(media, "Audio/Sink");
     if (s->phase && !s->direct_valid) fail(s);
@@ -95,7 +95,7 @@ static void global(void *data, uint32_t id, uint32_t permissions, const char *ty
     (void)permissions; (void)version;
     if (strcmp(type, PW_TYPE_INTERFACE_Node) || !props) return;
     const char *name = spa_dict_lookup(props, PW_KEY_NODE_NAME);
-    if (s->guard_direct && name && !strcmp(name, "vrct.managed.vc")) {
+    if (s->guard_direct && name && !strcmp(name, "astarot.managed.vc")) {
         s->direct_names++;
         const char *serial = spa_dict_lookup(props, PW_KEY_OBJECT_SERIAL);
         if (!serial || strtoull(serial, NULL, 10) != s->direct_serial) return;
@@ -178,20 +178,20 @@ int main(int argc, char **argv) {
     char target[80];
     struct state s = {.expected_cookie = (uint32_t)cookie, .expected_serial = serial,
                       .mute = !strcmp(argv[3], "1"), .target = TARGET,
-                      .marker = "vrct.managed.route", .media_class = "Audio/Source"};
+                      .marker = "astarot.managed.route", .media_class = "Audio/Source"};
     if (argc == 7) {
         if (strcmp(argv[3], "0") || strcmp(argv[4], "guard-direct") ||
                 !number(argv[5], &s.direct_serial) || (strcmp(argv[6], "0") && strcmp(argv[6], "1"))) return 2;
         s.guard_direct = true;
         s.expected_direct_mute = !strcmp(argv[6], "1");
     } else if (argc == 5 && !strcmp(argv[4], "vc")) {
-        s.target = "vrct.managed.vc";
+        s.target = "astarot.managed.vc";
         s.media_class = "Audio/Sink";
     } else if (argc == 5) {
         if (strlen(argv[4]) != 32 || strspn(argv[4], "0123456789abcdef") != 32) return 2;
-        snprintf(target, sizeof(target), "vrct.source-bridge.%s.playback", argv[4]);
+        snprintf(target, sizeof(target), "astarot.source-bridge.%s.playback", argv[4]);
         s.target = target;
-        s.marker = "vrct.source.bridge";
+        s.marker = "astarot.source.bridge";
         s.media_class = "Stream/Output/Audio";
     }
     pw_init(NULL, NULL);

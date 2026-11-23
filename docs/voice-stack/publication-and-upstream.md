@@ -15,7 +15,7 @@
 
 ## 公開の状況
 
-2026-10-31に[`v0.1.0-beta.1`](https://github.com/kein5/VRCT-VOX/releases/tag/v0.1.0-beta.1)をプレリリースとして公開した
+2026-10-31に[`v0.1.0-beta.1`](https://github.com/kein5/astarot/releases/tag/v0.1.0-beta.1)をプレリリースとして公開した
 （developのコミット`ba94359b`）。Linuxのtar.gzとAppImage、WindowsのZIP（標準版・CUDA版）とインストーラーを含む。
 ベータ版はdevelopから、正式版は`release/X.Y.Z`ブランチをmainへ統合してから作成する。
 手順は[配布候補とリリース下書き](release-candidates.md)を参照。

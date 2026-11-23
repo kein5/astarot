@@ -19,7 +19,7 @@ const weights = (downloaded: string[] = []): Weight[] => [
     { id: "user:tr-0", is_custom: true, is_downloaded: true },
     { id: "user:tr-1", is_custom: true, is_downloaded: false },
 ];
-const published = (...ids: string[]): TranslationCatalog => ({ legacy_models: [], models: ids.map(id => ({ id, target: "translation" })) });
+const published = (...ids: string[]): TranslationCatalog => ({ models: ids.map(id => ({ id, target: "translation" })) });
 const ids = (list: LocalModelList<Weight>) => list.rows.map(row => row.id);
 // The listed row of a weight; a weight that is not listed fails here.
 const rowOf = (list: LocalModelList<Weight>, id: string) => {

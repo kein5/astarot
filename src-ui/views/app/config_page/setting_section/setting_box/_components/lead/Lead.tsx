@@ -1,6 +1,6 @@
 import { Description } from "../description/Description";
 import { Hint, useHintDescriptions } from "../hint/Hint";
-import styles from "./Lead.module.scss";
+import * as styles from "./Lead.css.ts";
 
 // What must be known before acting, in one sentence that stays on screen (#614, DESIGN.md
 // "Principles"): what leaves the PC, or what a switch changes beyond itself. Its details are the

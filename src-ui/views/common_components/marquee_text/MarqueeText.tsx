@@ -1,6 +1,6 @@
 import { useRef, useEffect, useState } from "react";
 import type { ReactNode } from "react";
-import styles from "./MarqueeText.module.scss";
+import * as styles from "./MarqueeText.css.ts";
 
 export interface MarqueeTextProps {
     children?: ReactNode;

@@ -1,7 +1,7 @@
 import clsx from "clsx";
 import { useI18n } from "@useI18n";
 
-import styles from "./LanguageSwapButton.module.scss";
+import * as styles from "./LanguageSwapButton.css.ts";
 
 import NarrowArrowDownSvg from "@images/narrow_arrow_down.svg?react";
 import { useLanguageSettings } from "@logics_main";

@@ -20,6 +20,7 @@ CPU/CUDA PyInstallerの展開済みTOCから `chatbox_yolox_tiny.onnx` を除外
 Tauri buildとZIP作成前にも古い成果物の混入を拒否する。CIでZIP/sidecarを検査。
 モデル不在時、既存のOCRチャット吹き出し検出は利用不可（他の音声・翻訳機能は独立）。
 `tools/check_voice_distribution.py` は配布物のパスを受け取り、禁止モデルを見つけると失敗する。
+2026-11-23 から、OCR の重みに限らず、モデルの形式のファイル（`.onnx`、`.pth`、`.gguf`、`.safetensors`、`.bin`、`.index` など。圧縮した `.onnx.zst` も含む）は、名前や置き場所にかかわらず拒否する（`tools/distribution_policy.py` の `MODEL_EXTENSIONS`）。どのモデルも同意を得てからデータのフォルダーに取得するので、配布物には入らない。同梱を認めるモデルがあれば、同じファイルの `ALLOWED_MODELS` に配布物の中の完全なパスと理由を書き、コードオーナーが確かめる。今は 1 つもない。
 
 Forkの製品名/publisher/更新配布先はP5の未完了ゲート。現行公式リリース用workflowを
 forkの公開に使える状態とは主張しない。この作業ではタグ・push・公開を行わない。
@@ -181,7 +182,7 @@ Tauri本体の他のRust依存と同じく未整理（残課題）。→ 下の�
 写した文書と一覧は、WindowsではPyInstallerのデータとして（`bat/build.bat`、`bat/build_cuda.bat`、`tools/windows_voice_resources.py`）、
 Linuxではリソースとして（`tools/build_linux.py`）、どちらもPyInstallerの`_internal`に入る。
 → 0.5.0からはPyInstallerを使わず、`tools/app_resources.py`が同じ`_internal/licenses/rust/`へ写す（下の「Pythonの同梱の終了」の節）。
-どちらの検査も`crates.json`がないと失敗する。リポジトリ内のクレート（パス依存）はVRCT-VOX自身のコードで、
+どちらの検査も`crates.json`がないと失敗する。リポジトリ内のクレート（パス依存）はASTAROT自身のコードで、
 `LICENSE`に従うので文書を写さない。
 
 2026-11-15のロックファイルでは、Windowsが313クレート、Linuxが385クレート（リポジトリ内のクレートを含む）。
@@ -347,7 +348,7 @@ CTranslate2翻訳はM2M100とその文章分割ファイルがMIT、NLLBとそ�
 
 | 候補 | エンジンのライセンス | モデルのライセンス | 扱い |
 |---|---|---|---|
-| `native/translate-onnx`（`ort`、ONNX Runtime、`tokenizers`） | VRCT-VOXのコード（MIT）。`ort`はMIT OR Apache-2.0、ONNX RuntimeはMIT、`tokenizers`はApache-2.0 | M2M100はMIT、NLLB-200はCC-BY-NC-4.0（既定にしない） | **採用**（2026-11-16）。アプリに入れた。モデルは2026-11-19と2026-11-21に公開した（下の「公開したモデル（2026-11-19、#687）」と「NLLB-200 distilled 1.3Bの公開（2026-11-21）」）。利用者が自分で置くモデルのライセンスは利用者が確かめる |
+| `native/translate-onnx`（`ort`、ONNX Runtime、`tokenizers`） | ASTAROTのコード（MIT）。`ort`はMIT OR Apache-2.0、ONNX RuntimeはMIT、`tokenizers`はApache-2.0 | M2M100はMIT、NLLB-200はCC-BY-NC-4.0（既定にしない） | **採用**（2026-11-16）。アプリに入れた。モデルは2026-11-19と2026-11-21に公開した（下の「公開したモデル（2026-11-19、#687）」と「NLLB-200 distilled 1.3Bの公開（2026-11-21）」）。利用者が自分で置くモデルのライセンスは利用者が確かめる |
 | `ct2rs` 0.11.2（CTranslate2 4.8.5を同梱して静的にビルド） | `ct2rs`・`ct2rs-sys`・CTranslate2はMIT。同梱のcpu_features・ruyはApache-2.0、spdlogはMIT。oneDNN（`onednn-src`）はApache-2.0、SentencePiece（`sentencepiece-sys`）はApache-2.0 | 既存のCTranslate2の重み（上の一覧と同じ） | 候補。入れるときは、C++のソースから作るライブラリのライセンス文を`tools/rust_licenses.py`の一覧の外で収める必要がある |
 | `ct2rs`の機能`mkl`（Intel oneMKL） | IntelのEULA（再配布できるがOSSではない） | 同上 | 計っていない。入れるならEULAの条件を台帳に書く |
 | `candle-transformers` 0.11.1 | MIT OR Apache-2.0 | M2M100とNLLBの実装がない。Opus-MTはCC-BY-4.0、MADLAD-400はApache-2.0 | モデルの取り直しと品質の確認が要るので候補から外した |
@@ -377,7 +378,7 @@ NLLBを差し替えるかの検討（#288の未決事項）のために、ロー
 NLLBのCC-BY-NC-4.0について確かめたこと:
 
 - 作者、ライセンス、変更したことを示せば、写しと改変したものを配れる。営利を主な目的とする使い方には使えない（NonCommercial）。
-- VRCT-VOXは、NLLBを既定にせず、選ぶときに非商用のライセンスを示して同意を得ている（2026-11-14からの方針）。公開するなら、モデルカードに元のモデルと版、CC-BY-NC-4.0、変えたこと（ONNXへの書き出しと量子化）を書く。`tools/translation_onnx/publish.py stage`がこれを書く。
+- ASTAROTは、NLLBを既定にせず、選ぶときに非商用のライセンスを示して同意を得ている（2026-11-14からの方針）。公開するなら、モデルカードに元のモデルと版、CC-BY-NC-4.0、変えたこと（ONNXへの書き出しと量子化）を書く。`tools/translation_onnx/publish.py stage`がこれを書く。
 - 利用者の使い方が非商用の範囲かどうかは、アプリからは判断できない。
 
 #### NLLB-200をカタログに載せるときの決まり（2026-11-18、#411）
@@ -608,12 +609,12 @@ Hugging Faceのファイルの大きさとSHA-256はAPIが示すLFSの値を2026
 | `_internal/build/speechcpp/` | 固定版のspeech.cpp（Vulkan版）と依存の通知 | MITと通知の各ライセンス（上の各節） |
 | Linuxの`_internal/build/speechcpp-cpu/` | 固定版のspeech.cpp（CPU版）と依存の通知 | 同上（下の「Linuxの2つのspeech.cpp」） |
 | `_internal/build/sudachi/` | 読みの辞書SudachiDict fullと`LEGAL`、`LICENSE-2.0.txt` | Apache-2.0（下の「読みの解析器と辞書」） |
-| `_internal/build/astarot-rvc-worker(.exe)` | RVCの同梱ワーカー | MIT（VRCT-VOX）。Rustの依存は`licenses/rust` |
-| Linuxの`_internal/build/vrct-*` | 音声の補助プログラム（`astarot-voice-gate`など） | VRCT-VOX自身のコード |
+| `_internal/build/astarot-rvc-worker(.exe)` | RVCの同梱ワーカー | MIT（ASTAROT自身のコード）。Rustの依存は`licenses/rust` |
+| Linuxの`_internal/build/astarot-*` | 音声の補助プログラム（`astarot-voice-gate`など） | ASTAROT自身のコード |
 | `_internal/licenses/VRCT/` | `LICENSE`と`NOTICE.md` | |
 | `_internal/licenses/rust/` | アプリとワーカーのRustのクレートのライセンス文 | 一覧のとおり |
 | `_internal/licenses/nscurl/`（Windows） | インストーラーのNScurlの通知 | 上の節のとおり |
-| Linuxの`_internal/config/pipewire/` | PipeWireの設定の例 | VRCT-VOX自身のファイル |
+| Linuxの`_internal/config/pipewire/` | PipeWireの設定の例 | ASTAROT自身のファイル |
 
 配布物から消えるもの:
 

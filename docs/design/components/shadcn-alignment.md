@@ -5,7 +5,7 @@
 - 状態: 棚卸し（2026-11-19）。寄せる作業は、判断の要らない差と、下の判断項目が決まった差から、段階的に PR にします。段 1（kit）は #684、段 2 のうち Select と入力欄は #691、ボタンは #694、検索欄は #695、チェックボックスとスライダーは #697、ツールチップは #721、Dialog のパーツは kit に #775 で寄せました。
 - 照合した shadcn/ui: [shadcn-ui/ui](https://github.com/shadcn-ui/ui) の `apps/v4/registry/new-york-v4/ui/`（`main` のコミット `968d8cb9dc`、2026-11-17）。MIT ライセンスです。どのスタイルに寄せるかは D-01 で決めます。
 - 照合したアプリ: develop（#676 と #677 のマージ後）
-- 関係する文書: [設定画面の部品の実験](README.md)（#452、`src-ui/views/kit/`）、[ADR-010](../../adr/adr-010-frontend-stack.md)
+- 関係する文書: [設定画面の部品の実験](README.md)（#452、`src-ui/views/kit/`）、[ADR-010](../../adr/adr-010-frontend-stack.md)、[手作りの部品の棚卸し](hand-built-inventory.md)（共通の部品を使わずに画面ごとに作っている箇所の一覧、2026-11-23）
 
 ## 読み方
 
@@ -52,7 +52,7 @@ shadcn/ui は `input` を枠にも、薄めた塗りにも使います。アプ�
 |---|---|---|---|
 | フォーカス | `--vox_focus` の `.2rem` の outline。kit は外に `.2rem` 離す。部品によって `.1rem`〜`.3rem` 離すもの、内側に引くもの（レール）がある | 枠が `ring` になり、外に 3px の `ring` の 50% の影が付く（離さない） | 判断（D-06）。50% の輪が地に対して 3:1 に届くか（`brandPalette.test.ts` の基準）を確かめてから決める。離す量の不ぞろいは D-06 のあとでそろえる |
 | 値が正しくない | kit の `TextField` と `Select` は `invalid` で `aria-invalid` を付け、`[aria-invalid='true']` で枠を `--vox_state_failed` にする | `aria-invalid` で枠が `destructive` になる。フォーカス中は輪も赤みを帯びる | 枠は一致。フォーカス中の輪は D-06 |
-| 使えない | kit、フォーム（`VoiceSettings.module.scss`。入力欄、選択欄、ボタンに共通の規則）、画面の操作のボタンは不透明度 .5（#684、#694。前は kit が .55、フォームと多くのボタンが .6、設定の上のバーの保存と取り消しが .45）。`_Entry` は文字の色だけを変える。チェックボックスは灰色にする filter。設定の Slider は `disabled` で .5（#697）。トグル、開閉のボタン、待ちの表示は .55〜.6 のまま | 不透明度 .5。ボタンは `pointer-events: none` | 不透明度は .5 に寄せる（操作のボタンとフォームは寄せた）。トグルは D-27、開閉のボタンは D-26 と一緒に扱う。`_Entry` は D-37。`pointer-events: none` は判断（D-07）。使えないスイッチや機能のボタンがツールチップで理由を示す規則（DESIGN.md「Layout」）とぶつかる |
+| 使えない | kit、フォーム（`VoiceSettings.css.ts`。入力欄、選択欄、ボタンに共通の規則）、画面の操作のボタンは不透明度 .5（#684、#694。前は kit が .55、フォームと多くのボタンが .6、設定の上のバーの保存と取り消しが .45）。`_Entry` は文字の色だけを変える。チェックボックスは灰色にする filter。設定の Slider は `disabled` で .5（#697）。トグル、開閉のボタン、待ちの表示は .55〜.6 のまま | 不透明度 .5。ボタンは `pointer-events: none` | 不透明度は .5 に寄せる（操作のボタンとフォームは寄せた）。トグルは D-27、開閉のボタンは D-26 と一緒に扱う。`_Entry` は D-37。`pointer-events: none` は判断（D-07）。使えないスイッチや機能のボタンがツールチップで理由を示す規則（DESIGN.md「Layout」）とぶつかる |
 | ホバーと押下 | 部品ごとに `dark_*` と `primary_*` の段を選ぶ | `accent` の塗り、または `primary/90` のように同じ色を薄める | 判断（D-08）。不透明度で薄める作り方は、明度だけを変えるアプリの色の作り方（DESIGN.md「Colors」）と違う |
 | 開閉の動き | `--vox_motion`（220ms）と `--vox_ease_settle`。一覧は欄から落ちて落ち着き、行が続いて現れる | `fade-in`、`zoom-in-95`、出る向きからの slide-in | 判断（D-09）。DESIGN.md の「Motion」が一覧の開き方を決めている |
 
@@ -60,7 +60,7 @@ shadcn/ui は `input` を枠にも、薄めた塗りにも使います。アプ�
 
 | 観点 | ASTAROT | shadcn/ui | 扱い |
 |---|---|---|---|
-| ファイル | kit は部品ごとに `Name.tsx` と `Name.css.ts`。ほかは `Name.jsx` と `Name.module.scss` | 1つの部品を1つの `.tsx` に書く | 残す（vanilla-extract のスタイルは `.css.ts` に置く）。`.tsx` と `.css.ts` の組にそろえる |
+| ファイル | kit も画面の部品も `Name.tsx` と `Name.css.ts`（TypeScript とスタイルの移行（#957）のあと） | 1つの部品を1つの `.tsx` に書く | 残す（vanilla-extract のスタイルは `.css.ts` に置く）。`.tsx` と `.css.ts` の組にそろえる |
 | パーツ | ダイアログやカードはパーツに分けず、使う側がマークアップを書く | `DialogHeader`、`DialogTitle` のように、パーツを名前付きで export する | 寄せる。新しく作るときと置き換えるときにパーツに分ける |
 | `data-slot` | kit の部品（#684、#691）、`_Entry` の入力欄（#691）、設定の検索の InputGroup のパーツと言語の一覧の検索欄、Empty（#695）、ツールチップの `tooltip-trigger` と `tooltip-content`（#721）、kit の Dialog のパーツ（#775）。ほかはなし | すべてのパーツに付ける | 寄せる |
 | variant | kit は `recipe()`（`button` の `tone` と `size`、`field` の `kind` と `mono`、`row` の `layout`） | `cva()`。`buttonVariants` のように部品の隣で export する | recipe は既にある。export の名前と variant の名前は、部品ごとの判断（ボタンは D-10）で決める |
@@ -73,7 +73,7 @@ shadcn/ui は `input` を枠にも、薄めた塗りにも使います。アプ�
 
 ### Button
 
-アプリ: kit の `Button`（実験で、画面ではまだ使っていない）。画面のボタンは部品になっておらず、モジュールごとの SCSS が描いています（`VoiceSettings.module.scss`、設定とメインの上のバー、`PagePointer` の `PageLinkButton`、`_DownloadButton` など）。アイコンだけのボタンも `ActionButton`、`reset_button`、`close_button` に分かれています。
+アプリ: kit の `Button`（実験で、画面ではまだ使っていない）。画面のボタンは部品になっておらず、画面ごとのスタイルが描いています（`VoiceSettings.css.ts`、設定とメインの上のバー、`PagePointer` の `PageLinkButton`、`_DownloadButton` など）。アイコンだけのボタンも `ActionButton`、`reset_button`、`close_button` に分かれています。
 
 | 観点 | ASTAROT | shadcn/ui | 扱い |
 |---|---|---|---|
@@ -88,7 +88,7 @@ shadcn/ui は `input` を枠にも、薄めた塗りにも使います。アプ�
 
 ### Input と Textarea
 
-アプリ: kit の `TextField`（`field` の recipe）、設定の行の `_Entry`（SCSS）、フォームの中の `input`、`select`、`textarea` をまとめて描く `VoiceSettings.module.scss`。検索欄（設定の検索、言語の絞り込み）とメッセージの入力欄は別に描いています。
+アプリ: kit の `TextField`（`field` の recipe）、設定の行の `_Entry`、フォームの中の `input`、`select`、`textarea` をまとめて描く `VoiceSettings.css.ts`。検索欄（設定の検索、言語の絞り込み）とメッセージの入力欄は別に描いています。
 
 | 観点 | ASTAROT | shadcn/ui | 扱い |
 |---|---|---|---|
@@ -142,7 +142,7 @@ shadcn/ui には、Radix の Select と、ネイティブの `<select>` を包�
 
 ### Checkbox
 
-アプリ: `common_components/checkbox` の `Checkbox`（SCSS。ネイティブの input を見えなくして隣に箱を描く）。DESIGN.md（#436）で、設定のオンとオフに使う部品です。フォームの中はネイティブのチェックボックス（`accent-color`）です。
+アプリ: `common_components/checkbox` の `Checkbox`（ネイティブの input を見えなくして隣に箱を描く）。DESIGN.md（#436）で、設定のオンとオフに使う部品です。フォームの中はネイティブのチェックボックス（`accent-color`）です。
 
 | 観点 | ASTAROT | shadcn/ui | 扱い |
 |---|---|---|---|
@@ -155,7 +155,7 @@ shadcn/ui には、Radix の Select と、ネイティブの `<select>` を包�
 
 ### RadioGroup
 
-アプリ: `RadioButton`（SCSS、ネイティブのラジオ）。種類ごとにまとめた選択肢（`groups`）も扱います。
+アプリ: `RadioButton`（ネイティブのラジオ）。種類ごとにまとめた選択肢（`groups`）も扱います。
 
 | 観点 | ASTAROT | shadcn/ui | 扱い |
 |---|---|---|---|
@@ -166,7 +166,7 @@ shadcn/ui には、Radix の Select と、ネイティブの `<select>` を包�
 
 ### Switch
 
-アプリ: kit の `Switch`（Radix）、`ToggleSwitch`（SCSS。フォーカスを受けない `div`）、メインの機能の `SwitchContainer`（行全体が `role="switch"`）、VR パネルの `ToggleRow`、トレイのコンパニオンの `switchRow`。
+アプリ: kit の `Switch`（Radix）、`ToggleSwitch`（フォーカスを受けない `div`）、メインの機能の `SwitchContainer`（行全体が `role="switch"`）、VR パネルの `ToggleRow`、トレイのコンパニオンの `switchRow`。
 
 | 観点 | ASTAROT | shadcn/ui | 扱い |
 |---|---|---|---|
@@ -192,17 +192,17 @@ VR パネルは px の段で描く別の画面（DESIGN.md「Typography」）な
 
 ### Tooltip
 
-アプリ: `common_components/tooltip`（SCSS。吹き出しはページの末尾に描き、部品の位置からウィンドウの中に置く。`role="tooltip"` を持つが、読み上げには渡さない。メインの画面のレール、上のバー、タイトルバー、入力欄と、再送のボタンが使う。#766）。#676 と #677 で入った `Hint`（設定の説明の吹き出し）。設定の一部の部品と会話のログにあるネイティブの `title` 属性。VR パネルの `VrTooltip`（Python 側が描く）。
+アプリ: `common_components/tooltip`（吹き出しはページの末尾に描き、部品の位置からウィンドウの中に置く。`role="tooltip"` を持つが、読み上げには渡さない。メインの画面のレール、上のバー、タイトルバー、入力欄と、再送のボタンが使う。#766）。#676 と #677 で入った `Hint`（設定の説明の吹き出し）。設定の一部の部品と会話のログにあるネイティブの `title` 属性。VR パネルの `VrTooltip`（Python 側が描く）。
 
 | 観点 | ASTAROT | shadcn/ui | 扱い |
 |---|---|---|---|
 | 土台 | `Tooltip` は、マウスを重ねたときとキーボードのフォーカスで開き、押したときと Escape、Enter、Space で閉じる（#766）。部品に見えている言葉と同じ文は出さない。読み上げは、部品の名前か、ページに残した説明（`aria-describedby`）が受け持つ。`Hint` は CSS の hover と `:has(:focus-visible)` で開き、`aria-describedby` で読まれる | Radix Tooltip（Provider、Trigger、Content、Arrow。ポータルに描く） | 判断（D-21）。ADR-010 が Radix に置き換える候補に挙げている部品 |
 | 開くまで | `Tooltip` は .1 秒待って .15 秒で現れる。`Hint` は 120ms で現れる | `delayDuration` は 0 | D-21 に含める |
-| 見た目 | `Tooltip` と `Hint` は1つの見た目（`common_css/mixins.scss` の `tooltip_content`。#721）。`dark_700` の塗りに明るい文字、1.2rem/500、行の高さ 1.6、余白 `.6rem 1.2rem`、8px、言葉の幅で最大 36rem、文の改行を保つ。前は `Tooltip` が余白 `.4rem .8rem` と 4px の1行（中の段落は `root.css` で折り返すので、ボタンの幅の中で数文字ずつに折れていた）、`Hint` が `.8rem 1.2rem`。矢印なし | `foreground` の塗りに `background` の文字（色が反転）、`text-xs`（1.2rem、行の高さ 1.33）、太さの指定なし、`px-3 py-1.5`（1.2rem、.6rem）、8px、`text-balance`。矢印あり | 余白と角丸は寄せ、`Tooltip` と `Hint` の見た目を1つにした（#721）。色の反転と矢印は判断（D-22）。文字の太さ、行の高さ、`text-balance` は今のまま（D-42、2026-11-19 に決定） |
+| 見た目 | `Tooltip` と `Hint` は1つの見た目（`common_css/mixins.ts` の `tooltipContent`。#721）。`dark_700` の塗りに明るい文字、1.2rem/500、行の高さ 1.6、余白 `.6rem 1.2rem`、8px、言葉の幅で最大 36rem、文の改行を保つ。前は `Tooltip` が余白 `.4rem .8rem` と 4px の1行（中の段落は `root.css` で折り返すので、ボタンの幅の中で数文字ずつに折れていた）、`Hint` が `.8rem 1.2rem`。矢印なし | `foreground` の塗りに `background` の文字（色が反転）、`text-xs`（1.2rem、行の高さ 1.33）、太さの指定なし、`px-3 py-1.5`（1.2rem、.6rem）、8px、`text-balance`。矢印あり | 余白と角丸は寄せ、`Tooltip` と `Hint` の見た目を1つにした（#721）。色の反転と矢印は判断（D-22）。文字の太さ、行の高さ、`text-balance` は今のまま（D-42、2026-11-19 に決定） |
 
 ### Dialog と AlertDialog
 
-アプリ: ネイティブの `<dialog>` を `showModal()` で開きます（`useConsentDialog.ts`）。見た目は `VoiceSettings.module.scss` と `LegacyModelDownloadDialog.module.scss` の `dialog` の規則で決まり、`Topbar.tsx`、`Translation.tsx`、`useSettingsDraft.tsx` が同じ見た目を写しています。クイック設定のモーダル（`ModalController.tsx`）は別です。起動の失敗は、モーダルでない `<dialog open role="alertdialog">`（`StartupFailedDialog.tsx`）です。
+アプリ: ネイティブの `<dialog>` を `showModal()` で開きます（`useConsentDialog.ts`）。見た目は `VoiceSettings.css.ts` と `LegacyModelDownloadDialog.css.ts` の `dialog` の規則で決まり、`Topbar.tsx`、`Translation.tsx`、`useSettingsDraft.tsx` が同じ見た目を写しています。クイック設定のモーダル（`ModalController.tsx`）は別です。起動の失敗は、モーダルでない `<dialog open role="alertdialog">`（`StartupFailedDialog.tsx`）です。
 
 | 観点 | ASTAROT | shadcn/ui | 扱い |
 |---|---|---|---|
@@ -249,7 +249,7 @@ VR パネルは px の段で描く別の画面（DESIGN.md「Typography」）な
 
 ### Card
 
-アプリ: `VoiceSettings.module.scss` の `.card`（1つのモデルやエンジン）。パーツは `.card_head` と `.facts`（`dl`）です。
+アプリ: `VoiceSettings.css.ts` の `.card`（1つのモデルやエンジン）。パーツは `.card_head` と `.facts`（`dl`）です。
 
 | 観点 | ASTAROT | shadcn/ui | 扱い |
 |---|---|---|---|
@@ -290,7 +290,7 @@ VR パネルは px の段で描く別の画面（DESIGN.md「Typography」）な
 | 部品 | ASTAROT | shadcn/ui | 扱い |
 |---|---|---|---|
 | Skeleton | `[data-skeleton]` を `MainPage.css.ts` の全体のスタイルで描く。`--vox_skeleton`、4px、1.8 秒のゆっくりした明滅 | `Skeleton` 部品、`animate-pulse`、`bg-accent`、8px | 判断（D-31）。DESIGN.md は明滅をゆっくり薄くと決めている。属性で描く今の形は、値が届くまで実際の部品の大きさを保つためのもの |
-| Spinner | `mixins.scss` の `loader`（2色の弧、0.6 秒）、SVG の `CircularProgress`、`EnvReadout` の印 | `Spinner`（lucide の `Loader2Icon`、`role="status"`、`aria-label="Loading"` は英語で固定） | 1つの部品にまとめるのは寄せる。読み上げる名前は英語で固定せず、`locales/` の文言にする（残す）。アイコンは D-11 |
+| Spinner | `mixins.ts` の `loader`（2色の弧、0.6 秒）、SVG の `CircularProgress`、`EnvReadout` の印 | `Spinner`（lucide の `Loader2Icon`、`role="status"`、`aria-label="Loading"` は英語で固定） | 1つの部品にまとめるのは寄せる。読み上げる名前は英語で固定せず、`locales/` の文言にする（残す）。アイコンは D-11 |
 | Progress | ネイティブの `<progress>`（.6rem、`dark_825` の溝、`primary_500`、丸い端）、`CircularProgress` | Radix Progress（`h-2`（.8rem）、`rounded-full`、溝は `primary/20`） | 判断（D-32）。溝の `primary/20` は、明度だけを変える色の作り方から外れる |
 
 ### Toast
@@ -389,7 +389,7 @@ VR パネルは px の段で描く別の画面（DESIGN.md「Typography」）な
 | ID | 決定 | 決めた日 | 文書と実装への反映 |
 |---|---|---|---|
 | D-41 | しきい値の部品（音量のメーターに重ねた細いつまみ）は、共通の Slider に寄せない。メーターと一体のアプリだけの部品として、照合の外にする | 2026-11-19 | 実装は変えない。Slider の節と「そのほか」に照合の外と書いた |
-| D-42 | ツールチップの文字の細部は今のままにする。太さは 500、行の高さは 1.6 で、`text-balance` は付けない。`Hint` は複数行の説明を出すので、行の高さは DESIGN.md の説明の 1.6 を保つ | 2026-11-19 | 実装の値は変えない（`common_css/mixins.scss` の `tooltip_content`、#721 のまま）。その値の横に決定をコメントで書いた。Tooltip の節の「見た目」の行と、一覧の 10 の注記にも書いた |
+| D-42 | ツールチップの文字の細部は今のままにする。太さは 500、行の高さは 1.6 で、`text-balance` は付けない。`Hint` は複数行の説明を出すので、行の高さは DESIGN.md の説明の 1.6 を保つ | 2026-11-19 | 実装の値は変えない（`common_css/mixins.ts` の `tooltipContent`、#721 のまま）。その値の横に決定をコメントで書いた。Tooltip の節の「見た目」の行と、一覧の 10 の注記にも書いた |
 
 ## 判断なしで寄せられる差
 
@@ -403,12 +403,12 @@ kit（画面ではまだ使っていない部品）:
 
 画面で使っている部品:
 
-4. ボタンの文字の太さを 500 に、使えない状態の不透明度を .5 にそろえる。フォーム（`VoiceSettings.module.scss`）の `:disabled` は入力欄と選択欄にも共通の規則なので、一緒に .5 になる（#694。対象は、言葉があり塗りか枠のある操作のボタン。トグル、開閉のボタン、ナビゲーション、一覧の行、待ちの表示、照合の外の画面は含めていない）。
+4. ボタンの文字の太さを 500 に、使えない状態の不透明度を .5 にそろえる。フォーム（`VoiceSettings.css.ts`）の `:disabled` は入力欄と選択欄にも共通の規則なので、一緒に .5 になる（#694。対象は、言葉があり塗りか枠のある操作のボタン。トグル、開閉のボタン、ナビゲーション、一覧の行、待ちの表示、照合の外の画面は含めていない）。
 5. チェックボックスのチェックの線を `--vox_on_primary` にする（#697）。
 6. スライダーの満ちた部分を描き、溝を .6rem にし、使えない状態を足す（#697。共通の `Slider` とフォームの `input[type=range]`。しきい値の部品は照合の外。D-41）。
 7. `_Entry` の塗り、枠、角丸、高さを kit の入力欄にそろえる（#691。左右の余白と使えない状態は D-37）。
 8. 色のポップオーバーと、設定の検索の結果の一覧の地を `--vox_surface` にする（設定の検索の結果の一覧は #695。色のポップオーバーは残っている）。
-9. ダイアログの間を 1.6rem、最大幅を 51.2rem、背景を 50% の黒にする。ダイアログのパーツ（Header、Footer、Title、Description）の部品を作る。間と最大幅は、クイック設定のモーダルと起動の失敗を除くすべてのダイアログにそろえた（初期設定（#557）は #759、ほかは #759 の判断項目 4 による）。見出しと本文の段落が平らに並んでいた同意と確認のダイアログでは、それらを1つの部品（`VoiceSettings.module.scss` の `.dialog_text`。翻訳のライセンスの確認は `Translation.module.scss` の `.license_text`）にまとめ、その中の段落の間は .8rem のままにした。パーツの `data-slot` は初期設定のダイアログにだけ付けている。背景は、クイック設定のモーダルを除くダイアログで 50% の黒にした（#764 の判断項目 2 による）。パーツの部品は、次にダイアログを作り直すときにまとめて置き換える（#764 の判断項目 3 による）。
+9. ダイアログの間を 1.6rem、最大幅を 51.2rem、背景を 50% の黒にする。ダイアログのパーツ（Header、Footer、Title、Description）の部品を作る。間と最大幅は、クイック設定のモーダルと起動の失敗を除くすべてのダイアログにそろえた（初期設定（#557）は #759、ほかは #759 の判断項目 4 による）。見出しと本文の段落が平らに並んでいた同意と確認のダイアログでは、それらを1つの部品（`VoiceSettings.css.ts` の `.dialog_text`。翻訳のライセンスの確認は `Translation.css.ts` の `.license_text`）にまとめ、その中の段落の間は .8rem のままにした。パーツの `data-slot` は初期設定のダイアログにだけ付けている。背景は、クイック設定のモーダルを除くダイアログで 50% の黒にした（#764 の判断項目 2 による）。パーツの部品は、次にダイアログを作り直すときにまとめて置き換える（#764 の判断項目 3 による）。
 10. ツールチップの余白と角丸をそろえ、`Tooltip` と `Hint` の見た目を1つにする（#721。文字の細部は今のまま。D-42）。
 11. プリセットの切り替えの `div role="button"` を `button` にする。
 12. `Separator`、`Badge`、`Spinner` をそれぞれ1つの部品にまとめる（見た目は今のまま）。
@@ -434,3 +434,4 @@ kit の差（Dialog の節。画面の 9 のうちパーツの部品を、先に
 2. 段 2: 画面で使っている部品のうち、判断の要らない見た目の差（上の 4〜14 と 17）。部品ごとに PR を分けます。
 3. 段 3: 判断項目が決まったものから。Radix への置き換え（D-14、D-16、D-19〜D-21、D-23、D-25〜D-27）は、ADR-010 の順（自作ではアクセシビリティを保ちにくい部品から）で進めます。CSP に触れる部品は、入れる前に `<style>` を差し込むかを確かめます。
 4. 設定の行（D-34）は、#554 の情報設計で設定画面を組み直すときに合わせます。
+5. 画面の手作りの要素を共通の部品に置き換えるのは、スタイルの vanilla-extract への移行（#957）のあとに、部品ごとに進めます（[手作りの部品の棚卸し](hand-built-inventory.md)の H-01）。受け皿がない要素（同じ文書の U-01〜U-12。Command、Combobox、Toggle、ToggleGroup、Popover、Progress、Textarea、選択肢のカード、Item、Card、Badge、行の中の確認、行の一覧、AlertDialog）は、すべて共通の部品として kit に足します。関係する判断項目（D-13、D-16、D-23、D-25、D-27、D-28、D-29、D-32、D-36、D-40）があるものは、それが決まってから作ります（同じ文書の H-02）。

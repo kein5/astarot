@@ -30,7 +30,7 @@ The GitHub Actions workflow `VRCT-VOX Linux candidate (no publication)` targets 
 It runs on relevant pull requests or manual dispatch, runs the app's unit tests (`src-tauri`, which
 no other job runs), tests the relocated package,
 and the AppImage extraction fallback, then retains successful candidates for seven days. It has `contents: read`, no
-publishing credentials and no release/AUR actions. The Linux packages of the
+publishing credentials and no release/AUR actions. The Linux packages of the releases published since the
 [`v0.1.0-beta.1` prerelease](https://github.com/kein5/astarot/releases/tag/v0.1.0-beta.1)
 are candidates from this workflow, published through the
 [release draft gate](release-candidates.md). A local build is an unpublished candidate.
@@ -141,7 +141,7 @@ cache directory. `ASTAROT_CONFIG_DIR` and `ASTAROT_DATA_DIR` (or `VRCT_CONFIG_DI
 An explicitly supplied `HF_HOME` is respected. Existing development/Windows paths are unchanged.
 
 Managed audio still needs the explicit PipeWire setup in `local-setup-linux.md`.
-The package carries the template at `_internal/config/pipewire/90-vrct-managed.conf`;
+The package carries the template at `_internal/config/pipewire/90-astarot-managed.conf`;
 it does not install it or restart the user's audio service. Owned audio workers
 require Linux >=6.9 (`PIDFD_THREAD`), in addition to a supported PipeWire runtime.
 User RVC models remain external selections. The Seed-VC adapter and its Python setup files
@@ -190,23 +190,28 @@ OCR weights are excluded regardless.
 
 ## Remaining release gates
 
-- The hosted Ubuntu workflow runs for every candidate. Runtime acceptance on clean
-  installations of other distributions remains a release gate.
-- All bundled native/Rust/frontend components need a completed license/SBOM
-  audit, including GPL/LGPL corresponding-source/relink obligations, and the
-  user-requested Trail of Bits Skills security review. Collected notices alone
-  are not redistribution clearance.
-- Real model, listening quality, physical latency, Windows and cross-distribution
-  tests retain their existing acceptance status; these smoke tests do not replace them.
-- AUR needs a real approved release URL/hash, PKGBUILD/.SRCINFO, clean-chroot and
-  install/update/remove tests. No AUR submission is performed here.
+These are the gates that still apply; the first releases have been published.
+
+- Before each release, the checks in [release candidates](release-candidates.md):
+  - the license and SBOM review of everything the packages bundle (GTK, WebKit, static
+    runtime dependencies, native, frontend and Rust components), including the GPL/LGPL
+    corresponding-source and relink obligations. Collected notices alone are not
+    redistribution clearance.
+  - the Linux desktop check decided in #516: the AppImage on a real desktop; deb and rpm
+    only in the container tests and the tar.gz only on a virtual screen (`build-linux.yml`).
+- The requested Trail of Bits Skills security review of the whole app has no record of
+  being done; it is still open.
+- Real model, listening quality, physical latency and Windows tests keep their own
+  acceptance status; these smoke tests do not replace them.
+- An AUR package would need a real release URL and hash, PKGBUILD/.SRCINFO, clean-chroot
+  and install/update/remove tests. None has been submitted.
 
 ## Primary evidence
 
 - Inside the AppImage the GUI process runs with the bundled library path
   (`LD_LIBRARY_PATH`) and GTK settings. The launcher keeps the host values in
-  `ASTAROT_APPIMAGE_HOST_*`; a program the app starts should get them back, as the screen
-  capture helper does (`src-tauri/src/portal_screencast.rs`). See [AppImage](appimage.md#run).
+  `ASTAROT_APPIMAGE_HOST_*`; the programs the app starts get them back
+  (`astarot_app_identity::appimage`). See [AppImage](appimage.md#run).
 - [Tauri Linux prerequisites](https://v2.tauri.app/start/prerequisites/#linux) define the
   native WebKitGTK build boundary; [official WebDriver CI](https://v2.tauri.app/develop/tests/webdriver/ci/)
   uses a virtual display on Linux.
