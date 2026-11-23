@@ -543,6 +543,7 @@ test("font selection reaches the existing appearance setter and closes the setti
         "./VrWindow": { VrWindow: () => null }, "./VrSettingsRows": rows, "./VrHandIcon": { VrHandIcon: () => null },
         "../app/config_page/setting_section/setting_box/_components/compute_device/computeDeviceOptions": {},
         "../../logics/configs/cloudTranscription": {}, "../../logics/configs/ctranslate2License": {},
+        "../../logics/translation/translationCatalog.ts": {},
     });
     h.scroll.querySelector = () => ({ focus() {} });
     // Test data: the window's props without onClose, which nothing here calls.
