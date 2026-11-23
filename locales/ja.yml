@@ -44,7 +44,7 @@ voice:
     select_input: "入力を選択"
     refresh_inputs: "入力一覧を更新"
     input_requires_managed: "開始するには仮想マイクを準備してください。TTSとRVCの共通出力先が仮想マイクに切り替わります。"
-    input_selection_hint: "ここでは自分が話すマイクを選びます。初期値はデバイス設定の「マイク」で選んだマイクです。VRChat側の入力にVRCT Managed Virtual Microphoneを選んでください。"
+    input_selection_hint: "ここでは自分が話すマイクを選びます。初期値はデバイス設定の「マイク」で選んだマイクです。VRChat側の入力にASTAROT Managed Virtual Microphoneを選んでください。"
     input_selection_hint_device: "ここでは自分が話すマイクを選びます。初期値はデバイス設定の「マイク」で選んだマイクです。VRChat側の入力には仮想ケーブルの録音側を選んでください。"
     input_requires_output: "先に「テキスト読み上げ（TTS）」の設定で出力デバイスを選んでください。VB-CABLEのCABLE Inputのような仮想ケーブルの再生側を選び、VRChatのマイクには録音側を選びます。"
     prepare_microphone: "仮想マイクを準備して使用"
@@ -101,7 +101,7 @@ voice:
     routing_external: "既存の外部ケーブル"
     routing_managed: "管理対象の仮想マイク（Linux）"
     # What the user does, in view; how the microphone is prepared, as its hint (#614).
-    managed_lead: "VRChatの入力にVRCT Managed Virtual Microphoneを選び、「ミュートを解除」を押してください。"
+    managed_lead: "VRChatの入力にASTAROT Managed Virtual Microphoneを選び、「ミュートを解除」を押してください。"
     managed_details: "PipeWireとsystemdを使うLinuxでは、保存時に仮想マイクを自動で準備します。ASTAROT終了後も残ります。"
     mute_scope_managed: "この仮想マイクを通るTTSとVCをまとめてミュートします。"
     mute_scope_external: "ASTAROTのテキスト読み上げだけをミュートします。"
@@ -145,9 +145,9 @@ voice:
     monitor_volume: "モニター音量"
     monitor_hint: "VRChatへ送る読み上げ音声とRVCの変換音声を、自分のスピーカーやヘッドホンでも再生します。VRChatへ送る音声は変わりません。マイクが拾わないようヘッドホンを使ってください。同じデバイスをスピーカー文字起こしに使うと、この音声も文字起こしされます。"
     monitor_error: "モニター出力を使えません。VRChatへ送る音声は続いています。"
-    vc_monitor_on: "変換音声はモニター出力（「テキスト読み上げ（TTS）」の設定）でも再生されます。変更は次回の開始時に反映されます。"
-    vc_monitor_off: "変換音声を自分でも聞くには、「テキスト読み上げ（TTS）」の設定でモニター出力をオンにしてください。"
-    vc_monitor_passthrough: "変換せずに転送する入力は、モニター出力では再生しません。"
+    vc_monitor_help: "変換音声は、「テキスト読み上げ（TTS）」の設定のモニター出力でも再生します。オンとオフの切り替えは、次に変換を始めたときに反映します。変換せずに転送する入力は再生しません。"
+    vc_monitor_not_converted: "転送する入力は再生しない"
+    vc_monitor_action: "モニターを変更"
     monitor_errors:
         monitor_output_missing: "モニター出力先が見つかりません。VRChatへ送る音声は続いています。"
         monitor_output_disconnected: "モニター出力先が切断されました。VRChatへ送る音声は続いています。"
@@ -221,8 +221,6 @@ common_error:
     no_device_speaker: "スピーカーデバイスが検出されませんでした。"
     copy_to_clipboard_failed: "クリップボードへのコピーに失敗しました。"
     threshold_invalid_value: "{{min}}から{{max}}までの数値で設定できます。"
-    failed_download_weight_ctranslate2: "翻訳モデルのダウンロードに失敗しました。"
-    retry_download: "確認して再試行"
     failed_update_software: "インストーラのダウンロードに失敗しました。しばらくしてからもう一度お試しください。"
     failed_update_software_verify: "ダウンロードしたインストーラが、公開されているチェックサムと一致しなかったため、更新を中止しました。"
     translation_limit: "翻訳エンジンの使用制限に達したか、一時的に利用制限がかけられています。"
@@ -1813,6 +1811,8 @@ voice_ui:
     select_rvc_label: "直接音声の変換"
     select_rvc_pending: "直接音声はいまRVCを使っていません。「直接音声でRVCを使う」を押すと切り替わります。ほかの項目を保存しても切り替わりません。"
     seed_vc_moved_to_rvc: "Seed-VCは使えなくなったため、声の変換をRVCに切り替えました。開始する前に、このページでRVCのモデルと実行環境を確かめてください。"
+    # Once, after the core made the Linux virtual microphone again under its new name (ADR-014, 2.8).
+    managed_route_renamed: "ASTAROTは仮想マイクを新しい名前のASTAROT Managed Virtual Microphoneで作り直しました。VRChatで選んでいたVRCT Managed Virtual Microphoneはなくなりました。VRChatのマイクにASTAROT Managed Virtual Microphoneを選び直してから、「ミュートを解除」を押してください。"
     rvc_latency_hint: "変換した声が届くまでの遅れの目安は、GPUで約0.2秒、CPUで約1.3秒です。NVIDIA以外の単体のGPUがあるWindowsのPCでも、「ONNX Runtime · DirectML」を取得するとDirectMLでGPUを使えます。GPUを使えないPCではCPUで変換します。ただし、CPUでの変換が間に合わないPCでは開始しません。CPUでの変換はCPUを多く使うので、ほかのアプリが重くなることがあります。"
     rvc_running_gpu: "GPUで変換しています。声の遅れは約{{seconds}}秒です。"
     rvc_running_cpu: "CPUで変換しています。声の遅れは約{{seconds}}秒です。NVIDIAのGPUを使える実行環境にすると、遅れが小さくなります。"
@@ -1937,6 +1937,7 @@ voice_setup_errors:
     managed_setup_session_unavailable: "デスクトップのユーザーセッションを確認できません。自動準備にはXDG_RUNTIME_DIRが必要です。"
     managed_setup_custom_remote: "独自のPipeWireサーバーでは自動準備できません。そのサーバー側に経路を用意してください。"
     managed_setup_manual_config_pending: "以前の手動PipeWire設定がまだ有効になっていません。二重作成を避けるため、以前の設定を有効化するか整理してください。"
+    managed_setup_manual_config_legacy: "以前の版のために置いたPipeWireの設定（90-vrct-managed.conf）が、仮想マイクを古い名前で作っています。この版の90-astarot-managed.confに置き換えてください。削除すると、ASTAROTが仮想マイクを準備します。"
 
 vc_runtime:
     title: "{{name}}の実行環境"
@@ -2558,9 +2559,6 @@ studio:
     close_window: "ウィンドウを閉じる"
 
 legacy_model_downloads:
-    errors:
-        download_deadline: "時間内に取得を完了できませんでした。設定は変更していません。接続を確認して再試行してください。"
-        verification_failed: "取得したファイルを確かめられませんでした。設定は変更していません。再試行してください。"
     progress_name: "{{model}} のダウンロード"
     progress_pending: "{{model}} のダウンロードを準備しています。"
     progress_downloading: "{{model}} をダウンロード中です（{{progress}}%）。"

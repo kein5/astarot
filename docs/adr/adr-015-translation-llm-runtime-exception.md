@@ -3,12 +3,16 @@ date: 2026-11-19
 status: accepted
 era: rust-core
 validity: current
-implementation_status: pending
-implementation_checked: 2026-11-19
+implementation_status: partial
+implementation_checked: 2026-11-23
+implementation_note: 段階 3 の実装は入っている。TranslateGemma を llama.cpp のサーバー（native/speech-server/src/llama.rs）で動かし、翻訳の要求は native/translation/src/translategemma.rs、取得の項目はカタログにある。5 の検証（実機の計測、品質の比較、実行基盤を落とす試験）がそろったかは確かめていない。
 evidence:
   - docs/adr/adr-015-translation-llm-runtime-exception.md
   - docs/adr/adr-012-audio-ai-runtime-consolidation.md
   - docs/voice-stack/translategemma.md
+  - native/speech-server/src/llama.rs
+  - native/translation/src/translategemma.rs
+  - native/ops/src/downloads/translation_catalog.rs
 ---
 # ADR-015: TranslateGemma の翻訳を LLM 用の実行基盤で動かす（ADR-012 の例外）
 

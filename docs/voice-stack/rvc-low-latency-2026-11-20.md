@@ -223,7 +223,7 @@ Steam Streaming のデバイスで測った差は 6〜18 ms でした。10 ms �
 
 ```sh
 cargo run --release --manifest-path native/voice-conversion/Cargo.toml --example vc_path_latency -- \
-    --worker <vrct-rvc-worker.exe> --runtime <state>/vc_runtimes/rvc \
+    --worker <astarot-rvc-worker.exe> --runtime <state>/vc_runtimes/rvc \
     --directml <state>/vc_runtimes/onnxruntime-directml/lib --model <voice.pth> \
     --device cuda --block-ms 80 --output app --bursts 15
 ```
@@ -233,6 +233,6 @@ cargo run --release --manifest-path native/voice-conversion/Cargo.toml --example
 ブロックの長さと GPU のクロック（NVIDIA）は、次のように測ります。
 
 ```sh
-python tools/rvc_worker_bench.py --worker <vrct-rvc-worker> --runtime <state>/vc_runtimes/rvc \
+python tools/rvc_worker_bench.py --worker <astarot-rvc-worker> --runtime <state>/vc_runtimes/rvc \
     --model <voice.pth> --devices cuda --block-ms 20,40,60,80,120,200 --packets 200 --rounds 1 --gpu-clocks
 ```

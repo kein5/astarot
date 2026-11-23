@@ -74,7 +74,7 @@ RVC の worker が読む ONNX Runtime と 2 つのネットワーク、アプリ
 
 | 入れ方 | 更新の責任 | 失敗したときに保つもの | 確かめているもの |
 |---|---|---|---|
-| Windows のインストーラー | アプリが署名を確かめたインストーラーを起動する。入れ替えはインストーラー | パッケージの SHA-256 が合わない、壊れている、途中で切れている、ファイルが使用中で入れ替えられないときは、前のインストールのまま。入れ替えの途中で止まったときは、次にインストーラーを動かすと前の状態に戻す | `tests/installer/windows_update_scenarios.py`（CI の `installer-update-tests.yml` で本物の NSIS を動かす） |
+| Windows のインストーラー | アプリが署名を確かめたインストーラーを起動する。入れ替えはインストーラー | パッケージの SHA-256 が合わない、壊れている、途中で切れている、ファイルが使用中で入れ替えられないときは、前のインストールのまま。入れ替えの途中で止まったときは、次にインストーラーを動かすと前の状態に戻す。ほかのインストーラーが動いている間に起動したインストーラーは、何も変えずに終了コード2で終わる | `tests/installer/windows_update_scenarios.py`（CI の `installer-update-tests.yml` で本物の NSIS を動かす） |
 | AppImage（書き込める場所） | アプリ。`tauri-plugin-updater` は取得と署名の確認だけで、置き換えはアプリが行う（`src-tauri/src/app_update.rs` の `replace_appimage`） | 署名と ELF であることを確かめてから、同じフォルダーの隠しファイル（`.<名前>.update-<番号>`）に書き、前の AppImage の権限を付け、`fsync` して名前を変えて置き換える。名前を変える前に失敗したり止まったりしても、前の AppImage はそのまま残る。止まったときの書きかけのファイルは、次の起動で消す。動いているアプリは前のファイルのまま動き続ける | `app_update.rs` の単体試験（`an_appimage_is_replaced_in_one_rename_and_keeps_its_permissions`、`a_failed_replacement_leaves_the_appimage_as_it_was`、`what_a_stopped_replacement_left_goes_and_nothing_else`）。`src-tauri` の試験は CI では動かない |
 | 書き込めない場所の AppImage、Windows の ZIP、Linux の tar.gz | 利用者 | アプリはファイルを置き換えない | `app_update.rs` の単体試験（入れ方の判定） |
 | deb、rpm | パッケージマネージャー | アプリは確認も置き換えもしない | 同上 |

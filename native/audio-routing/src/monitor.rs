@@ -18,7 +18,7 @@ use crate::graph::is_virtual_name;
 use crate::router::{CancelToken, Output, PlaybackToken};
 use crate::sync::{lock, Worker};
 
-pub const MONITOR_NODE: &str = "vrct.tts.monitor";
+pub const MONITOR_NODE: &str = "astarot.tts.monitor";
 
 fn same_device(first: &str, second: &str) -> bool {
     if cfg!(windows) {

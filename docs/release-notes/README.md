@@ -72,4 +72,4 @@ ASTAROT 0.5.0では、（いちばん大きな変更）。（それで利用者�
 
 ## リリースの下書きとの関係
 
-「Prepare verified VRCT-VOX release draft」が作る下書きの本文は、`tools/changelog.py` の骨組み（Highlights、Upgrade Notes、Known Issues と変更の一覧）です。公開する前に、本文をこの書式のノートに差し替えます。手順は [CONTRIBUTING.md](../../CONTRIBUTING.md#changelog-and-releases) と [配布候補とリリース下書き](../voice-stack/release-candidates.md) にあります。
+「Prepare verified ASTAROT release draft」が作る下書きの本文は、`tools/changelog.py` の骨組み（Highlights、Upgrade Notes、Known Issues と変更の一覧）です。公開する前に、本文をこの書式のノートに差し替えます。手順は [CONTRIBUTING.md](../../CONTRIBUTING.md#changelog-and-releases) と [配布候補とリリース下書き](../voice-stack/release-candidates.md) にあります。

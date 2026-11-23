@@ -47,6 +47,7 @@ async function open(variant: Variant, settings: typeof rvcSettings) {
         "../_components/description/Description": { Description: "description" },
         "../_components/lead/Lead": { Lead: "lead" },
         "../_components/form_row/FormRow": { FormRow: "row" },
+        "../_components/page_pointer/PagePointer": { PageLinkButton: "page-link" },
         "../_components/custom_model_link/CustomModelLink": { CustomModelLink: "custom-model-link" },
         "../_components/file_drop_zone/FileDropZone": { FileDropZone: "file-drop" },
         "../../../../../../logics/common/fileDrop": { extensionOf: (path: string) => path.slice(path.lastIndexOf(".")).toLowerCase() },
@@ -90,9 +91,26 @@ test("#429: a save from input forwarding keeps the RVC selection", async () => {
 test("input forwarding with RVC saved still shows forwarding, not the conversion", async () => {
     const page = await open("legacy", rvcSettings);
     const text = JSON.stringify(page.tree, (key: string, value: unknown) => key === "_owner" || key === "_store" ? undefined : value);
-    assert.match(text, /voice\.vc_monitor_passthrough/);
+    // Forwarded input is not played on the monitor: the row says so (#614).
+    assert.match(text, /voice\.vc_monitor_not_converted/);
     assert.doesNotMatch(text, /voice\.vc_rvc_pitch/);
     page.runtime.unmount();
+});
+
+// #614: the monitor is set on the TTS page. Here a row says what it does for this voice now, and
+// its button opens the TTS page on that setting; what it covers is the row's hint.
+test("the monitor row says what it plays now and leads to the TTS page's setting", async () => {
+    for (const [variant, settings, value] of [["legacy", rvcSettings, "voice.vc_monitor_not_converted"], ["rvc", rvcSettings, "voice.monitor_off"]] as const) {
+        const page = await open(variant, settings);
+        const row = nodesIn(page.tree).find(node => node.type === "row" && node.props.label === "voice_ui.monitor_heading");
+        assert.ok(row, variant);
+        assert.deepEqual([row.props.description, row.props.group], ["voice.vc_monitor_help", true]);
+        const state = nodesIn(row).find(node => node.props?.["data-vc-monitor"] !== undefined);
+        assert.equal(state?.props.children, value, variant);
+        const link = nodesIn(row).find(node => node.type === "page-link");
+        assert.deepEqual([link?.props.tab, link?.props.action, link?.props.target], ["tts", "voice.vc_monitor_action", "tts_monitor"]);
+        page.runtime.unmount();
+    }
 });
 
 const selectButton = (tree: unknown) => nodesIn(tree).find(node => node.type === "button" && node.props.children === "voice_ui.select_rvc");

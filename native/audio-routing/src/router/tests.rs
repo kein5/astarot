@@ -318,10 +318,14 @@ fn volume_scales_monitor_copy_only() {
 #[test]
 fn monitor_never_targets_the_virtual_microphone() {
     let exclude = vec!["cable".to_owned()];
-    for target in ["vrct.managed.mix", "vrct.managed.tts", "vrct.source-bridge.x.playback", "cable", ""] {
+    for target in ["astarot.managed.mix", "astarot.managed.tts", "astarot.source-bridge.x.playback", "cable", ""] {
         assert!(check_monitor_target(target, &exclude).is_err(), "{target}");
     }
     assert_eq!(check_monitor_target("alsa_output.headphones", &exclude).unwrap(), "alsa_output.headphones");
+    // The route of 0.6.0 and earlier, while its names are read (ADR-014, 2.11).
+    for target in ["vrct.managed.mix", "vrct.source-bridge.x.playback"] {
+        assert_eq!(check_monitor_target(target, &exclude).is_err(), astarot_app_identity::audio_route::READS_LEGACY_NAMES, "{target}");
+    }
 }
 
 #[test]
@@ -333,7 +337,7 @@ fn monitor_settings_validate() {
         json!({"device": "", "volume": true}),
         json!({"device": "", "volume": "40"}),
         json!({"device": "a\nb", "volume": 4}),
-        json!({"device": "vrct.managed.mix", "volume": 4}),
+        json!({"device": "astarot.managed.mix", "volume": 4}),
         json!({"device": "", "volume": 4, "x": 1}),
         json!({"device": "x".repeat(513), "volume": 4}),
         json!([]),

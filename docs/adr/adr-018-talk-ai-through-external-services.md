@@ -3,12 +3,14 @@ date: 2026-11-22
 status: accepted
 era: rust-core
 validity: current
-implementation_status: pending
-implementation_checked: 2026-11-22
+implementation_status: partial
+implementation_checked: 2026-11-23
+implementation_note: 外部の対話サービスにつなぐ部品のクレート（native/talk-ai）だけが入っている。中核と画面へのつなぎ込み、送る前の同意と送っている間の表示は、まだない。
 evidence:
   - docs/adr/adr-018-talk-ai-through-external-services.md
   - docs/adr/adr-012-audio-ai-runtime-consolidation.md
   - docs/adr/adr-013-secret-store.md
+  - native/talk-ai
 ---
 # ADR-018: おしゃべりAIは外部の対話サービスにつなぎ、アプリは対話のモデルを動かさない
 
