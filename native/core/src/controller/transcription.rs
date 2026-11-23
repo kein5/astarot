@@ -881,7 +881,7 @@ impl Core {
     }
 
     /// `_setEndpointCredential("Custom_Whisper")`: a URL and a key, checked together first.
-    fn set_custom_whisper_key_and_url(self: &Arc<Self>, data: &Value) -> Reply {
+    pub(super) fn set_custom_whisper_key_and_url(self: &Arc<Self>, data: &Value) -> Reply {
         let config = self.config();
         let refused = |core: &Core| {
             Reply::error(ErrorReply::new(

@@ -2027,6 +2027,26 @@
       "immediate": false
     },
     {
+      "endpoint": "/get/data/transcription_catalog",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/run/register_transcription_catalog_entry",
+      "wait_for_init": true,
+      "immediate": false
+    },
+    {
+      "endpoint": "/run/remove_transcription_catalog_entry",
+      "wait_for_init": true,
+      "immediate": false
+    },
+    {
+      "endpoint": "/run/use_transcription_catalog_entry",
+      "wait_for_init": true,
+      "immediate": false
+    },
+    {
       "endpoint": "/run/send_message_box",
       "wait_for_init": true,
       "immediate": false
@@ -2753,6 +2773,7 @@
     "client_id",
     "user_model",
     "translation_catalog",
+    "transcription_catalog",
     "vocabulary",
     "speaker_names"
   ],
