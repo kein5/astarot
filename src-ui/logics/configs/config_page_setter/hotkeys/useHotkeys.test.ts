@@ -223,6 +223,33 @@ for (const boundary of ["platform", "unregister", "listen", "bind"] as const) {
     });
 }
 
+// The same on the other platforms, where the plugin binds the keys itself.
+for (const boundary of ["platform", "queue", "unregister", "register"] as const) {
+    test(`a native registration dropped during its ${boundary} step registers no further key`, async () => {
+        const subject = await setup(), gate = deferred();
+        const { state } = subject;
+        state.platformGate = boundary === "platform" ? gate.promise : "native";
+        state.hotkeys = { open_quick_chat: ["Ctrl", "Q"], toggle_translation: ["Ctrl", "T"] };
+        const hook = await subject.load();
+        let earlier: Promise<void> | undefined;
+        if (boundary === "queue") {
+            // An earlier registration still clears the plugin, so this one waits in line behind it.
+            state.unregisterGate = gate.promise;
+            earlier = hook.registerShortcuts();
+            await flush();
+        } else if (boundary === "unregister") state.unregisterGate = gate.promise;
+        else if (boundary === "register") state.registerGate = gate.promise;
+        const registration = hook.registerShortcuts();
+        await flush();
+        const paused = state.plugin.length;
+        const pause = hook.unregisterAll();
+        gate.resolve(boundary === "platform" ? "native" : undefined);
+        await Promise.all([earlier, registration, pause]);
+        assert.deepEqual(state.plugin.slice(paused), ["unregisterAll"]);
+        assert.equal(state.registered.size, 0);
+    });
+}
+
 test("a registration asked for while the shortcuts are off asks nothing of the app or the plugin", async () => {
     const subject = await setup(), { state } = subject;
     state.settings = true;
@@ -963,3 +990,114 @@ for (const gone of ["has unmounted", "belongs to a module hot reload replaced"])
         assert.equal(state.handlers.size, 0);
     });
 }
+
+test("the quick chat key acts when it is released and the other keys when they are pressed", async () => {
+    const subject = await setup(), { state } = subject;
+    state.platformGate = "native";
+    state.hotkeys = { open_quick_chat: ["Ctrl", "Q"], toggle_translation: ["Ctrl", "T"] };
+    const hook = await subject.load();
+    await hook.registerShortcuts();
+    const quickChat = state.registered.get("Control+Q"), translation = state.registered.get("Control+T");
+    assert.ok(quickChat && translation);
+    await quickChat({ state: "Pressed" });
+    assert.deepEqual(state.actions, []);
+    await quickChat({ state: "Released" });
+    await translation({ state: "Pressed" });
+    await translation({ state: "Released" });
+    assert.deepEqual(state.actions, ["quick-chat", "translation"]);
+});
+
+test("keys other applications hold at launch are told with their actions, and the rest are bound", async () => {
+    const subject = await setup(), { state } = subject;
+    state.platformGate = "native";
+    // What each action is called in the messages.
+    const labels = {
+        open_quick_chat: "quick_chat.label",
+        toggle_vrct_visibility: "config_page.hotkeys.toggle_vrct_visibility.label",
+        toggle_translation: "config_page.hotkeys.toggle_translation.label(translation=main_page.translation)",
+        toggle_transcription_send: "config_page.hotkeys.toggle_transcription_send.label(transcription_send=main_page.transcription_send)",
+        toggle_transcription_receive: "config_page.hotkeys.toggle_transcription_receive.label(transcription_receive=main_page.transcription_receive)",
+        stop_voice: "config_page.hotkeys.stop_voice.label",
+        toggle_voice_mute: "config_page.hotkeys.toggle_voice_mute.label",
+        toggle_tts: "config_page.hotkeys.toggle_voice_switch.label(name=main_page.tts)",
+        toggle_rvc: "config_page.hotkeys.toggle_voice_switch.label(name=main_page.rvc)",
+    };
+    // Each action on its own digit, all held elsewhere; one more key is free.
+    state.hotkeys = Object.fromEntries(Object.keys(labels).map((action, i) => [action, ["Ctrl", "Alt", String(i + 1)]]));
+    state.hotkeys.send_message_button = ["Ctrl", "Enter"];
+    state.refused = Object.keys(labels).map((_, i) => `Control+Alt+${i + 1}`);
+    const hook = await subject.load();
+    await hook.registerShortcuts();
+    assert.deepEqual(state.notices, Object.values(labels).map((label, i) => [
+        `config_page.hotkeys.error_failed_to_register_at_launch(action_name=${label}, hotkey=Ctrl + Alt + ${i + 1})`, { hide_duration: 8000 }]));
+    assert.deepEqual([...state.registered.keys()], ["Control+Enter"]);
+});
+
+test("a key refused after the registration was dropped is not told", async () => {
+    const subject = await setup(), gate = deferred(), { state } = subject;
+    state.platformGate = "native";
+    state.registerGate = gate.promise;
+    const hook = await subject.load(), registration = hook.registerShortcuts();
+    await flush();
+    state.settings = true;
+    gate.reject(new Error("held by another application"));
+    await registration;
+    assert.deepEqual(state.notices, []);
+});
+
+test("a plugin that cannot clear its keys after the registration was dropped is not told", async () => {
+    const subject = await setup(), gate = deferred(), { state } = subject;
+    state.platformGate = "native";
+    state.unregisterGate = gate.promise;
+    state.unregisterFails = true;
+    const hook = await subject.load(), registration = hook.registerShortcuts();
+    await flush();
+    state.settings = true;
+    gate.resolve();
+    await registration;
+    assert.deepEqual(state.notices, []);
+});
+
+// The native visibility hotkey, pressed once.
+async function pressVisibility(subject: Awaited<ReturnType<typeof setup>>) {
+    const { state } = subject;
+    state.platformGate = "native";
+    state.hotkeys = { toggle_vrct_visibility: ["Ctrl", "H"] };
+    const hook = await subject.load();
+    await hook.registerShortcuts();
+    const press = state.registered.get("Control+H");
+    assert.ok(press);
+    await press({ state: "Pressed" });
+}
+
+test("a window whose state cannot be read is taken as shown and minimized by the press", async () => {
+    const subject = await setup();
+    subject.state.minimizedUnknown = true;
+    await pressVisibility(subject);
+    assert.deepEqual(subject.state.actions, ["minimize"]);
+});
+
+for (const cause of ["the window refuses", "there is no window"]) {
+    test(`a window the hotkey cannot minimize is told when ${cause}`, async () => {
+        const subject = await setup();
+        if (cause === "the window refuses") subject.state.minimizeFails = true;
+        else subject.store.appWindow = undefined;
+        await pressVisibility(subject);
+        assert.deepEqual(subject.state.actions, []);
+        assert.deepEqual(subject.state.notices, [["config_page.hotkeys.error_window_minimize_failed"]]);
+    });
+}
+
+test("every symbol stored as what Shift typed registers as its key, and Meta registers as Super", async () => {
+    const subject = await setup(), { state } = subject;
+    state.platformGate = "native";
+    // What Shift types on a US layout, and the key it is typed with.
+    const typed: [string, string][] = [["~", "`"], ["!", "1"], ["@", "2"], ["#", "3"], ["$", "4"], ["%", "5"], ["^", "6"],
+        ["&", "7"], ["*", "8"], ["(", "9"], [")", "0"], ["_", "-"], ["+", "="], ["{", "["], ["}", "]"], ["|", "\\"],
+        [":", ";"], ["\"", "'"], ["<", ","], [">", "."], ["?", "/"]];
+    state.hotkeys = Object.fromEntries(typed.map(([symbol], i) => [`action_${i}`, ["Ctrl", "Shift", symbol]]));
+    state.hotkeys.open_quick_chat = ["Meta", "Alt", "K"];
+    const hook = await subject.load();
+    await hook.registerShortcuts();
+    assert.deepEqual([...state.registered.keys()], [...typed.map(([, key]) => `Control+Shift+${key}`), "Super+Alt+K"]);
+});
