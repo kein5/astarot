@@ -12,8 +12,9 @@ export default defineConfig({
     // without the development build's extra arguments.
     oxc: { jsx: { runtime: "automatic", development: false } },
     test: {
-        // The i18n gate (tools/i18n_gate) checks the UI's text; its own tests run here as well.
-        include: ["src-ui/**/*.test.{js,mjs,ts}", "tools/i18n_gate/**/*.test.mjs"],
+        // The i18n gate (tools/i18n_gate) checks the UI's text and the writing gate
+        // (tools/writing_gate) the documents'; their own tests run here as well.
+        include: ["src-ui/**/*.test.{js,mjs,ts}", "tools/i18n_gate/**/*.test.mjs", "tools/writing_gate/**/*.test.mjs"],
         environment: "node",
         setupFiles: ["src-ui/logics/test/vitestSetup.ts"],
         // Spies (vi.spyOn) go back to the real functions before each test, as node:test's

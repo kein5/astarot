@@ -210,7 +210,12 @@ mod tests {
         let previous = std::panic::take_hook();
         std::panic::set_hook(Box::new(|_| {}));
         watchdog.start_in_thread();
-        thread::sleep(Duration::from_millis(60));
+        // The thread runs the callback again after it panicked. Wait for the second run instead
+        // of a fixed time (#861: 60 ms held fewer than two runs on a loaded Windows runner).
+        let deadline = std::time::Instant::now() + Duration::from_secs(10);
+        while fired.load(Ordering::SeqCst) < 2 && std::time::Instant::now() < deadline {
+            thread::sleep(Duration::from_millis(5));
+        }
         assert!(watchdog.stop(Some(Duration::from_secs(1))));
         std::panic::set_hook(previous);
         assert!(fired.load(Ordering::SeqCst) >= 2);

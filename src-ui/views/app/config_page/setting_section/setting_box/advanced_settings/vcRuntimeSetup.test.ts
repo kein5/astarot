@@ -21,6 +21,9 @@ const entry = {
     disk_bytes: 2e9, destination: "C:/state/vc_runtimes/rvc", gpu_ready: true, requires_gpu: false, device: "cuda",
 };
 
+// Whether the page shows descriptions as hints (HintDescriptions); every settings page does.
+let hints = false;
+
 const load = async (runtime: HookRuntime, vc: VcRuntimes) => (await loadModule<typeof import("./VcRuntimeSetup.tsx")>(new URL("./VcRuntimeSetup.tsx", import.meta.url), runtime, {
     // A wording of its own for a runtime falls back to the common one (`own`).
     "@useI18n": { useI18n: () => ({ t: (key: string, options?: { defaultValue?: string }) => options?.defaultValue ?? key }) },
@@ -29,6 +32,7 @@ const load = async (runtime: HookRuntime, vc: VcRuntimes) => (await loadModule<t
     "../../../../../../logics/voice/useVcRuntimes": { activeSetupPhases, useVcRuntimes: () => vc },
     "../../../../../../logics/common/useConsentDialog": { useConsentDialog: () => ({ dialog: { current: null }, close: () => {} }) },
     "../_components/env_readout/EnvReadout": { EnvReadout: "env-readout" },
+    "../_components/hint/Hint": { Hint: "hint", useHintDescriptions: () => hints },
 })).VcRuntimeSetup;
 
 const words = (tree: unknown) => nodesIn(tree).flatMap((node: TreeNode) => [node.props?.children].flat())
@@ -73,4 +77,32 @@ test("a build that fits the GPU leads with the main action; one that is not need
     const alone = runtime.render(VcRuntimeSetup, { engine: "rvc" });
     assert.ok(!words(alone).some(word => word.startsWith("vc_runtime.fit_")));
     assert.equal(review(alone)?.props.className, undefined);
+});
+
+// #614: what a runtime holds and needs is its title's hint on a settings page, not a paragraph
+// in sight; outside one it stays a line. A build not needed for the GPU says neither.
+test("the runtime's description is its title's hint, and a build not needed has none", async () => {
+    const runtime = hooks();
+    const vc: VcRuntimes = { catalog: { runtimes: [entry] }, state: { observation_id: "1", jobs: {}, installed: {} }, error: null, pending: false, send: () => {} };
+    try {
+        hints = true;
+        const VcRuntimeSetup = await load(runtime, vc);
+        let tree = runtime.render(VcRuntimeSetup, { engine: "rvc" });
+        const hint = nodesIn(tree).find(node => node.type === "hint");
+        assert.ok(hint);
+        assert.deepEqual([hint.props.text, hint.props.focusable], ["vc_runtime.help_rvc_gpu", true]);
+        assert.ok(tree);
+        assert.equal(tree.props["aria-describedby"], hint.props.id, "the section is described by it");
+        assert.ok(!words(tree).includes("vc_runtime.help_rvc_gpu"), "no paragraph of it in sight");
+        tree = runtime.render(VcRuntimeSetup, { engine: "rvc", fit: "unneeded" });
+        assert.ok(tree);
+        assert.ok(!nodesIn(tree).some(node => node.type === "hint"));
+        assert.equal(tree.props["aria-describedby"], undefined);
+        hints = false;
+        tree = runtime.render(VcRuntimeSetup, { engine: "rvc" });
+        assert.ok(words(tree).includes("vc_runtime.help_rvc_gpu"), "a line where hints are not shown");
+    } finally {
+        hints = false;
+        runtime.unmount();
+    }
 });

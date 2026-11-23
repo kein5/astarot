@@ -1,6 +1,6 @@
 //! Speech on the managed route of Linux from end to end, on a private PipeWire graph (#746,
 //! decision 2): typed chat is spoken by a speech.cpp server, played into the managed TTS input
-//! and heard on the managed microphone (`vrct.managed.source`) exactly once; a stop, a mute, the
+//! and heard on the managed microphone (`astarot.managed.source`) exactly once; a stop, a mute, the
 //! switch turned off and a server that fails leave the microphone silent; a server started again
 //! replays nothing old; and the microphone is muted again when the core stops.
 //!
