@@ -78,7 +78,7 @@ LM Studio と Ollama はこの PC か LAN のサーバとして、再試行せ�
 
 ## Python と違う点
 
-- **プロキシ**。Python はクラウドのプロバイダへの通信で `HTTP(S)_PROXY` を使っていました。このクレートはプロキシを使いません（`native/ops` と同じ）。
+- **プロキシ**。Python はクラウドのプロバイダへの通信で `HTTP(S)_PROXY` を使っていました。このクレートは、渡された送り方（`http::Transport`）で通信します。中核は、翻訳にも音声認識にも、環境変数か Windows のインターネットの設定のプロキシを通す `http::system_proxy` を渡します（#924 の項目 18）。この PC と LAN の宛先はプロキシを通しません。
 - **SDK の細かな違い**。LangChain や各社の SDK ではなく各 API を直接呼びます。送る中身と再試行の規則は Python のクライアントと同じにしてあり、契約テスト（下の「試験」）で確かめます。SDK が自分で付けるヘッダー（`User-Agent`、`x-stainless-*` など）は送りません。
 - **この PC と LAN の OpenAI 互換のエンドポイント**。LM Studio と同じ待ち時間で再試行しません（上の「この PC と LAN」）。
 

@@ -136,11 +136,18 @@ class AstarotFaviconSmallTests(unittest.TestCase):
             path.write_bytes(built[favicon.BRAND / "favicon-16.svg"].replace(b"16 px", b"16px"))
             self.assertFalse(favicon.matches(path, built[favicon.BRAND / "favicon-16.svg"]))
 
-    def test_manual_uses_the_ico(self):
+    def test_the_guide_uses_the_16_px_variant(self):
+        # Every page of the guide links the 32 px favicon and the 16 px variant with its size
+        # (docs/brand/README.md, "Where the set is used"), copies of the brand's PNG files.
         config = (ROOT / "site/rspress.config.ts").read_text(encoding="utf-8")
-        self.assertIn("manual/brand/favicon.ico", config)
-        self.assertNotIn("manual/brand/favicon.svg", config,
+        self.assertIn("icon: '/favicon.png'", config)
+        self.assertIn("sizes: '16x16', href: `${base}favicon-16.png`", config)
+        self.assertNotIn("favicon.svg", config,
                          "browsers prefer an SVG icon at every size and would skip the 16 px variant")
+        public = ROOT / "site" / "public"
+        self.assertEqual((public / "favicon-16.png").read_bytes(), (favicon.BRAND / "favicon-16.png").read_bytes())
+        self.assertEqual((public / "favicon.png").read_bytes(), (favicon.BRAND / "favicon-32.png").read_bytes())
+        # The retired manual's ICO stays where it was published.
         self.assertEqual((favicon.SITE_BRAND / "favicon.ico").read_bytes(), (favicon.BRAND / "favicon.ico").read_bytes())
 
 

@@ -33,7 +33,14 @@ export const VoiceRouteControls = () => {
     const { t, i18n } = useI18n();
     const { route, error, send } = useVoice();
     const problem = error || route.error;
+    // The Linux virtual microphone has a new name (ADR-014, 2.8): VRChat has to be pointed at it
+    // once. The core keeps the notice until it is closed here.
+    const renamed = !!route.managed && route.notice === "managed_route_renamed";
     return <>
+        {renamed && <div role="status">
+            <p>{t("voice_ui.managed_route_renamed")}</p>
+            <button type="button" onClick={() => send("/set/disable/managed_route_rename_notice")}>{t("common.close_button_label")}</button>
+        </div>}
         <FormRow group label={t("voice_ui.mute_row")} description={t("voice_ui.mute_row_description", { scope: t(route.managed ? "voice.mute_scope_managed" : route.covers_direct ? "voice.mute_scope_device" : "voice.mute_scope_external") })}>
             <button type="button" onClick={() => send("/run/mute_voice")}>{t("voice.mute")}</button>
             <button type="button" disabled={!route.ready || !!route.pending || !route.requested_muted} onClick={() => send("/run/resume_voice")}>{t("voice.resume")}</button>

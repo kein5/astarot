@@ -178,13 +178,17 @@ VRCT全GUIのLinux対応完了を意味しない。後続のUI部品・stdio統�
 
    ```sh
    mkdir -p ~/.config/pipewire/pipewire.conf.d
-   cp config/pipewire/90-vrct-managed.conf ~/.config/pipewire/pipewire.conf.d/90-vrct-managed.conf
+   cp config/pipewire/90-astarot-managed.conf ~/.config/pipewire/pipewire.conf.d/90-astarot-managed.conf
    systemctl --user restart pipewire pipewire-pulse wireplumber
    ```
 
+   0.6.0までの版のテンプレートは`90-vrct-managed.conf`で、`vrct.managed.*`のノードを作る。
+   その名前のファイルを置いたままでは、アプリは経路を自動で準備せず、`managed_setup_manual_config_legacy`を出す。
+   古いファイルを消してから、新しいテンプレートを置く（ADR-014の2.8）。
+
 3. イヤホンなどの実出力を接続した状態で `wpctl status` / `pw-link -l` を確認する。
-   ゲーム音声はイヤホンへ、TTS出力は `vrct.managed.tts`、VC出力は `vrct.managed.vc` へ、
-   VRChatの入力は **VRCT Managed Virtual Microphone** (`vrct.managed.source`) へ明示指定する。
+   ゲーム音声はイヤホンへ、TTS出力は `astarot.managed.tts`、VC出力は `astarot.managed.vc` へ、
+   VRChatの入力は **ASTAROT Managed Virtual Microphone** (`astarot.managed.source`) へ明示指定する。
    `priority.session=-100` はOS全体のdefault選択を禁止する設定ではない。実出力が消えた場合などの
    自動選択は別途確認が必要で、既定出力にこのsinkを選ばない。
 4. ASTAROTの読み上げ設定で「管理対象の仮想マイク（Linux）」を保存する。
@@ -201,7 +205,7 @@ PythonのバックエンドのPipeWireの部品を使っていたので、0.6.0�
 起動中のASTAROTは外部からの状態変更を検出するとミュートへ戻すため、通常操作にはUIを使う。
 
 戻すには、まずミュート確認後にASTAROTを外部ケーブル設定へ戻し、VRChatで安全な入力を選び直す。
-配置した `~/.config/pipewire/pipewire.conf.d/90-vrct-managed.conf` **だけ**を削除し、
+配置した `~/.config/pipewire/pipewire.conf.d/90-astarot-managed.conf` **だけ**を削除し、
 音声を中断してよいタイミングで上記userサービスを再起動する。アプリ側の保持ミュートは
 残るため、必要なら明示再開する。任意のPipeWire設定ディレクトリ全体は削除しない。
 

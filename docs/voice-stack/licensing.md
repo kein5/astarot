@@ -20,6 +20,7 @@ CPU/CUDA PyInstallerの展開済みTOCから `chatbox_yolox_tiny.onnx` を除外
 Tauri buildとZIP作成前にも古い成果物の混入を拒否する。CIでZIP/sidecarを検査。
 モデル不在時、既存のOCRチャット吹き出し検出は利用不可（他の音声・翻訳機能は独立）。
 `tools/check_voice_distribution.py` は配布物のパスを受け取り、禁止モデルを見つけると失敗する。
+2026-11-23 から、OCR の重みに限らず、モデルの形式のファイル（`.onnx`、`.pth`、`.gguf`、`.safetensors`、`.bin`、`.index` など。圧縮した `.onnx.zst` も含む）は、名前や置き場所にかかわらず拒否する（`tools/distribution_policy.py` の `MODEL_EXTENSIONS`）。どのモデルも同意を得てからデータのフォルダーに取得するので、配布物には入らない。同梱を認めるモデルがあれば、同じファイルの `ALLOWED_MODELS` に配布物の中の完全なパスと理由を書き、コードオーナーが確かめる。今は 1 つもない。
 
 Forkの製品名/publisher/更新配布先はP5の未完了ゲート。現行公式リリース用workflowを
 forkの公開に使える状態とは主張しない。この作業ではタグ・push・公開を行わない。

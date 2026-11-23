@@ -185,7 +185,8 @@ export default defineConfig({
   outDir: 'dist',
   title: 'ASTAROT',
   lang: DEFAULT_LANG,
-  // The app's own icon (public/favicon.png).
+  // ASTAROT's favicon at 32 px (docs/brand/astarot/favicon-32.png). Rsbuild would find
+  // public/favicon.png by itself; naming it keeps the one link.
   icon: '/favicon.png',
   route: {
     // The content is the Markdown under ja/ and en/, and index.md (the language picker).
@@ -222,6 +223,9 @@ export default defineConfig({
     // The browser's own bar takes the canvas colour of each scheme (theme/tokens.css).
     ['meta', { name: 'theme-color', media: '(prefers-color-scheme: light)', content: '#fafafc' }],
     ['meta', { name: 'theme-color', media: '(prefers-color-scheme: dark)', content: '#261633' }],
+    // The favicon drawn again for 16 px with one-pixel lines (docs/brand/astarot/favicon-16.png),
+    // for a tab of that size. The app icon, the symbol on a Dark Plum tile, is for home screens.
+    ['link', { rel: 'icon', type: 'image/png', sizes: '16x16', href: `${base}favicon-16.png` }],
     ['link', { rel: 'apple-touch-icon', href: `${base}apple-touch-icon.png` }],
     (route) => (route.routePath === '/' ? `<script>${pickLanguage('/')}</script>` : undefined),
     (route) => xDefault(route.routePath),
@@ -244,22 +248,17 @@ export default defineConfig({
           routePath,
           content: `---\npageType: blank\ntitle: ASTAROT\nsearch: false\n---\n\n<ManualRedirect to="${to}" />\n`,
         })),
-      // Two tags the head option cannot place, written into the built pages:
-      // - Readers without scripts go to the Japanese page, as the manual's HTML was Japanese. A
-      //   <meta> inside <noscript> in the head option is moved out of it and would refresh for
-      //   every reader, racing the script that picks the language.
-      // - The manual kept one ICO with a 16 px frame drawn for that size
-      //   (tools/astarot_favicon_small.py). It goes last, after the site's 32 px icon: of two icons
-      //   that fit equally the browser takes the later one.
+      // Readers without scripts go to the Japanese page, as the manual's HTML was Japanese. A
+      // <meta> inside <noscript> in the head option is moved out of it and would refresh for every
+      // reader, racing the script that picks the language, so it is written into the built pages.
+      // These pages have the site's icons, as every page does.
       afterBuild: async (_config, isProd) => {
         if (!isProd) return
         const dist = fileURLToPath(new URL('./dist/', import.meta.url))
         for (const { path: routePath, to } of MANUAL_REDIRECTS) {
           const file = `${dist}${routePath.replace(/^\//, '').replace(/\/$/, '/index')}.html`
           const html = await readFile(file, 'utf8')
-          const tags =
-            `<noscript><meta http-equiv="refresh" content="0; url=${base}ja${to}"></noscript>` +
-            `<link rel="icon" type="image/x-icon" sizes="16x16 32x32 48x48" href="${base}manual/brand/favicon.ico">`
+          const tags = `<noscript><meta http-equiv="refresh" content="0; url=${base}ja${to}"></noscript>`
           if (!html.includes(tags)) await writeFile(file, html.replace('</head>', `${tags}</head>`))
         }
       },
