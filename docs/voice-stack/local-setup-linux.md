@@ -3,8 +3,6 @@
 このページはソースcheckoutでの開発・CLI試験の手順。配布版のLinuxアプリは
 [AppImageガイド](appimage.md)と[Linuxビルド手順](linux-build-pipeline.md)を参照。
 
-ヘッドレスCLIはWindowsのPyAudioWPatch/pycaw/windows-captureをimportしない。
-Pythonは標準ライブラリだけで発声でき、`pw-cat` / `pw-dump` が必要。
 検証の記載は、2026-10-27以降の各作業時点のもの。以下のCLI→仮想マイク→VRChat desktopの経路は、
 ユーザーが内蔵マイクテストの再生で声を確認済み。途中停止後のメーター停止も確認。
 実VRCTアプリからVRChatの音声・OSCへ同時配信する一連の動作、他ユーザーでの受信、HMDは未検証。
@@ -50,10 +48,8 @@ Linux候補をビルド済みなら、`build/linux/build/speechcpp`と`build/lin
 アプリは起動のたびに版とハッシュを検査し、シンボリックリンクは受け付けないので、リンクではなくコピーにする。
 2つとも見つからないか検査に合わないと、同梱サーバーの起動は`speech_bundle_missing_or_invalid`で止まる。
 
-開発起動で取得したモデルは、`config.json`と同じフォルダの`downloaded_models/`に保存される。開発用のビルドでは、`VRCT_CONFIG_DIR`を指定しなければ実行ファイルのあるフォルダ（`src-tauri/target/debug/`など。gitの対象外）になる（`src-tauri/src/backend_host.rs`の`folders`）。0.4までのPythonバックエンドは`src-python/downloaded_models/`に保存していた。
+開発起動で取得したモデルは、`config.json`と同じフォルダの`downloaded_models/`に保存される。開発用のビルドでは、`ASTAROT_CONFIG_DIR`を指定しなければ実行ファイルのあるフォルダ（`src-tauri/target/debug/`など。gitの対象外）になる（`src-tauri/src/backend_host.rs`の`folders`）。0.4までのPythonバックエンドは`src-python/downloaded_models/`に保存していた。
 
-Windows専用の3依存（PyAudioWPatch、windows-capture、pycaw）は`pyproject.toml`のOS markerで選択する。チャット読み取りのRapidOCRはLinuxにも入る。
-`opencv-python`は`tool.uv.exclude-dependencies`で除き、同じ`cv2`を提供する2種類のOpenCVの同時導入を避ける。
 Linuxのチャット読み取りは、VRChatのウィンドウをX11/XWayland経由で取り込む。SteamVRが動いている間は、ヘッドセットの映像をOpenGLで読む（偽のSteamVRでだけ確認）。Waylandネイティブのウィンドウは、利用者が設定の「チャット読み取り」で共有すると読み取れる（XDG ScreenCast portal。開発ビルドは`build/astarot-screen-capture`を使う）。従来ASRの録音は未対応。
 2026-11-11に、Protonで動く実際のVRChat（ローカルの試験インスタンスにクライアントを2つ）と、実際のPP-OCRのモデルで確認した（CachyOS、KDE Plasma 6.8、Wayland）。X11/XWaylandの経路は、もう一方のクライアントが送ったチャットを読めた。共有の経路は、入れ子のXwayland（KWinから見るとWaylandネイティブのウィンドウ）の中で動かしたVRChatを共有して読めた。このとき「6文のうち5文（開発ビルド）、4文（AppImage）」と記録したが、読めなかったのではなく、確認の手順の誤りだった（2026-11-12に訂正）。会話ログは画面に見えている行だけを描くので、ログが画面を埋めたあとの行を数えられていなかった。gamescopeの中のVRChatと、WineのWaylandドライバーで動くVRChatでは確認できていない（gamescope 3.17はウィンドウが落ち、使ったProton-GEはWaylandドライバーの指定を受け付けなかった）。音声タイピングモードの貼り付けは、実際のVRChatのチャット欄に文字が入ることを確認した。GNOMEなど、KDE以外のデスクトップでは確認できていない。
 2026-11-12に、同じ構成で12文（日本語と英語、2行に折り返す長さの文を含む）を10秒おきに送って測り直した（開発ビルド、develop `5d4b1a16`に#196の変更を足したもの）。X11/XWaylandの経路、共有の経路とも12文すべてを読み、送ってからログに出るまでは0.6〜1.5秒だった（X11の1文だけ4.2秒）。吹き出しの検出モデルは入れていないので、看板の文字も結果に混じる。試験用のワールドは数秒ごとに話し手とカメラの位置を変えるため、距離や背景は文ごとに違う。確認のときは、名前の検索が話し手側のウィンドウを拾わないよう、話し手側のウィンドウのタイトルを変えた（2つのクライアントがどちらも`VRChat`という名前になるため）。
@@ -62,7 +58,7 @@ Pythonの取得・package通信にはネットワークが必要。システム�
 [Tauri公式の準備手順](https://v2.tauri.app/start/prerequisites/)を参照。
 
 0.4までは、アプリの起動時に`VRCT_DEV_VENV=.venv_linux`でこの環境を選択できた。0.5.0のアプリはPythonを起動しないので、この変数を読まない。
-`VRCT_CONFIG_DIR=/absolute/path/to/state`は、`config.json`、ログ、`downloaded_models/`、`vc_runtimes/`の保存先を変える。指定しなければ従来の保存先を使う。
+`ASTAROT_CONFIG_DIR=/absolute/path/to/state`は（0.5.xまでの名前`VRCT_CONFIG_DIR`も0.6.xの間は読む）、`config.json`、ログ、`downloaded_models/`、`vc_runtimes/`の保存先を変える。指定しなければ従来の保存先を使う。
 同梱資源（`build/`）とUI資源の場所は変えない。既存設定を試験用ディレクトリへコピーする必要はない。
 0.4までは「その他」のモデル自動取得をONにすると、次回起動時に内蔵翻訳のモデルを取得した。0.5.0では起動時の自動取得をやめ、スイッチも設定画面から外した（設定のキーは互換のために残る）。モデルの取得は、同意の画面からの明示の操作だけで行う。
 
@@ -103,13 +99,13 @@ RVCの列は、2026-11-15に下と同じPCで1回ずつ取得した値です。�
 
 Seed-VCの列は、2026-11-11に1台のPCで1回ずつ取得して測った値です（CachyOS、RTX 4080 SUPER、NVIDIAドライバー620.70.06、btrfs、有線の回線）。通信量は、取得中にネットワーク機器が受信したバイト数です（RVCは4.83 GB、Seed-VCは6.28 GB）。必要な空き容量は、取得中のフォルダーの大きさ（`du -sb`）の最大値を切り上げた値で、RVCは15.6 GB、Seed-VCは17.5 GBでした。`uv`のキャッシュと導入先を別々に数えています。`uv`は、ファイルシステムが対応していれば両者でデータを共有するので（reflinkまたはハードリンク）、その場合に実際に使う容量はこれより小さくなります。かかった時間はRVCが62秒、Seed-VCが139秒ですが、回線の速さで大きく変わります。
 
-保存先は、`config.json`と同じフォルダーの`vc_runtimes`です。配布版では`~/.config/astarot/vc_runtimes`（0.5.xまでは`~/.config/vrct-vox/vc_runtimes`）、ソースからの開発起動では、`VRCT_CONFIG_DIR`を指定しなければ実行ファイルのあるフォルダーの`vc_runtimes`になります（`src-tauri/target/debug/`など。gitの対象外です。0.4までのPythonバックエンドでは`src-python/vc_runtimes`）。途中で失敗したり中止したりしても、終わった手順は次回に飛ばします。0.4までのSeed-VCでは、中止すると`uv`と`uv`が起動したプロセスをまとめて止め、アプリが異常終了したときも`uv`は一緒に終わりました。終わったら「この実行環境を使う」を押して保存します。消したいときは、このフォルダーを削除します。
+保存先は、`config.json`と同じフォルダーの`vc_runtimes`です。配布版では`~/.config/astarot/vc_runtimes`（0.5.xまでは`~/.config/vrct-vox/vc_runtimes`）、ソースからの開発起動では、`ASTAROT_CONFIG_DIR`を指定しなければ実行ファイルのあるフォルダーの`vc_runtimes`になります（`src-tauri/target/debug/`など。gitの対象外です。0.4までのPythonバックエンドでは`src-python/vc_runtimes`）。途中で失敗したり中止したりしても、終わった手順は次回に飛ばします。0.4までのSeed-VCでは、中止すると`uv`と`uv`が起動したプロセスをまとめて止め、アプリが異常終了したときも`uv`は一緒に終わりました。終わったら「この実行環境を使う」を押して保存します。消したいときは、このフォルダーを削除します。
 
 声のモデルは別です。RVCの設定画面の取得欄から取得するか、権利を確認したものを指定します。0.4までのSeed-VCには、利用が許可された参照音声（1〜30秒のWAV）を指定しました。
 
 確認できたのは、上のPCでの取得と、取得した実行環境でRVCとSeed-VCのワーカーを起動して、合成した音声を変換するところまでです。音質、ほかのディストリビューション、配布版（AppImage）からの取得は確かめていません。
 
-手動で用意する場合、RVCは`lib/`と`assets/`の構成（[Windowsの手順](local-setup-windows.md#手動で用意する場合)と同じで、`.so`の名前は`native/voice-conversion/src/runtime.rs`の`gpu_libraries`と`cpu_libraries`のとおり）を使います。0.4までのSeed-VCは[Seed-VCのREADME](https://github.com/kein5/astarot/blob/v0.5.2/integrations/seed_vc/README.md)の手順でした。以前のPyTorchを使うRVCの実行環境は使えなくなりました。
+手動で用意する場合、RVCは`lib/`と`assets/`の構成（[Windowsの手順](local-setup-windows.md#手動で用意する場合)と同じで、`.so`の名前は`native/voice-conversion/src/runtime.rs`の`ort`と`nvidia_libraries`（`rvc_runtime`がまとめる）のとおり）を使います。0.4までのSeed-VCは[Seed-VCのREADME](https://github.com/kein5/astarot/blob/v0.5.2/integrations/seed_vc/README.md)の手順でした。以前のPyTorchを使うRVCの実行環境は使えなくなりました。
 
 ## 一時的な仮想マイク
 
@@ -127,15 +123,15 @@ pw-loopback --capture-props='media.class=Audio/Sink node.name=vrct.voice.sink no
 ```
 
 `pw-dump` / `pw-link -l` / `wpctl status` でsink/sourceが作られたことを確認。
-**VRChat出力→イヤホン、VRCT出力→専用sink、専用source→VRChat入力**に分離する。
+**VRChat出力→イヤホン、ASTAROT出力→専用sink、専用source→VRChat入力**に分離する。
 ゲーム出力が専用sinkにつながった場合は発声せずloopbackを終了し、出力先を修正する。
 物理音声デバイスが切断中だと、WirePlumberがこの仮想ノードを有効な既定出力/入力に
 選ぶ場合がある（今回も観測）。他アプリの出力とASR入力は明示指定し、作成前後の
-`wpctl status`を確認する。VRCT自身は既定デバイスへのfallbackを行わない。
+`wpctl status`を確認する。ASTAROT自身は既定デバイスへのfallbackを行わない。
 VRChatのマイクを **VRCT Virtual Microphone** に指定する。
 物理マイク、ゲーム出力、WiVRn音声をこのsinkへ直接リンクしない。
 終了時はloopback端末でCtrl-C。一時ノードだけが消える。
-自動試験だけなら[専用PipeWire環境のCLI](benchmarks.md#反復cli)を使用する。
+自動試験だけなら、専用のPipeWireのグラフで流す中核の例（`native/core/examples/live_speech.rs`の`--route managed --private-pipewire`）と試験（`voice-tests.yml`の`spoken_route_live`と`voice_managed_live`）を使用する。
 
 ## speech.cpp→仮想マイク
 
@@ -152,7 +148,7 @@ Linuxでは`--route managed --private-pipewire`で、私用のPipeWireの管理�
   テスト開始してから送信を長く待つと、録音区間から音声が外れる可能性がある。
   入力メーターが動いている間に`New Test`を押すなどしてタイミングを合わせる。
   音声送信は各要求1回。録音の`Play Again`による再生回数とは区別する。
-- 停止/Ctrl-C後に入力メーターが止まるか。VRChatがすでに録音したclipの再生はVRCTの停止対象外。
+- 停止/Ctrl-C後に入力メーターが止まるか。VRChatがすでに録音したclipの再生はASTAROTの停止対象外。
 - loopbackを削除→エラー、物理スピーカーへのfallbackなし。復元→明示再選択後に新しい文で再試行。
 - WiVRn入力/出力を図示し、ゲーム音声・TTS monitorを将来のASR入力から除外する。
 - P2外部VC: 別ソフトの入力を物理マイク、出力を**変換専用sink**へ設定して単体確認。
@@ -182,34 +178,38 @@ VRCT全GUIのLinux対応完了を意味しない。後続のUI部品・stdio統�
 
    ```sh
    mkdir -p ~/.config/pipewire/pipewire.conf.d
-   cp config/pipewire/90-vrct-managed.conf ~/.config/pipewire/pipewire.conf.d/90-vrct-managed.conf
+   cp config/pipewire/90-astarot-managed.conf ~/.config/pipewire/pipewire.conf.d/90-astarot-managed.conf
    systemctl --user restart pipewire pipewire-pulse wireplumber
    ```
 
+   0.6.0までの版のテンプレートは`90-vrct-managed.conf`で、`vrct.managed.*`のノードを作る。
+   その名前のファイルを置いたままでは、アプリは経路を自動で準備せず、`managed_setup_manual_config_legacy`を出す。
+   古いファイルを消してから、新しいテンプレートを置く（ADR-014の2.8）。
+
 3. イヤホンなどの実出力を接続した状態で `wpctl status` / `pw-link -l` を確認する。
-   ゲーム音声はイヤホンへ、TTS出力は `vrct.managed.tts`、VC出力は `vrct.managed.vc` へ、
-   VRChatの入力は **VRCT Managed Virtual Microphone** (`vrct.managed.source`) へ明示指定する。
+   ゲーム音声はイヤホンへ、TTS出力は `astarot.managed.tts`、VC出力は `astarot.managed.vc` へ、
+   VRChatの入力は **ASTAROT Managed Virtual Microphone** (`astarot.managed.source`) へ明示指定する。
    `priority.session=-100` はOS全体のdefault選択を禁止する設定ではない。実出力が消えた場合などの
    自動選択は別途確認が必要で、既定出力にこのsinkを選ばない。
-4. VRCTの読み上げ設定で「管理対象の仮想マイク（Linux）」を保存する。
-   初期状態はミュート。「音声を再開」で確認済みになるまで出力しない。
-   「再開するまでミュート」はこの経路に入ったTTS/VCを止める。
+4. ASTAROTの読み上げ設定で「管理対象の仮想マイク（Linux）」を保存する。
+   初期状態はミュート。「ミュートを解除」で確認済みになるまで出力しない。
+   「ミュートする」はこの経路に入ったTTS/VCを止める。
    既存の「停止」はTTSだけを取り消す。外部ケーブルモードの保持ミュートもTTSだけに適用する。
    外部ケーブルの選択値はmanagedへ切り替えても保存される。
 5. `voice_mute_state.json` はアプリの `config.json` と同じディレクトリに作られる。
    破損や書込み失敗はエラーとミュート要求として扱い、成功表示しない。
    書込み可能な状態へ修復後にミュートを要求し、確認されてから再開する。
 
-0.5までは、VRCTの停止中に同じstate fileを明示して状態を見たり変えたりするCLI（`tools/voice_route.py`）があった。
+0.5までは、ASTAROTの停止中に同じstate fileを明示して状態を見たり変えたりするCLI（`tools/voice_route.py`）があった。
 PythonのバックエンドのPipeWireの部品を使っていたので、0.6.0でバックエンドと一緒に消した（#285）。
-起動中のVRCTは外部からの状態変更を検出するとミュートへ戻すため、通常操作にはUIを使う。
+起動中のASTAROTは外部からの状態変更を検出するとミュートへ戻すため、通常操作にはUIを使う。
 
-戻すには、まずミュート確認後にVRCTを外部ケーブル設定へ戻し、VRChatで安全な入力を選び直す。
-配置した `~/.config/pipewire/pipewire.conf.d/90-vrct-managed.conf` **だけ**を削除し、
+戻すには、まずミュート確認後にASTAROTを外部ケーブル設定へ戻し、VRChatで安全な入力を選び直す。
+配置した `~/.config/pipewire/pipewire.conf.d/90-astarot-managed.conf` **だけ**を削除し、
 音声を中断してよいタイミングで上記userサービスを再起動する。アプリ側の保持ミュートは
 残るため、必要なら明示再開する。任意のPipeWire設定ディレクトリ全体は削除しない。
 
-通常のVRCT終了ではgateをミュートしてendpointを残す。SIGKILLや電源断で終了処理が走らない
-場合はgateの直前の状態が残る。解除中のVRCT強制終了だけでは外部VCの音は止まらない。
-VRCT再起動時は再度ミュートする。PipeWire daemon停止では仮想マイクも消えるため、
+通常のASTAROT終了ではgateをミュートしてendpointを残す。SIGKILLや電源断で終了処理が走らない
+場合はgateの直前の状態が残る。解除中のASTAROT強制終了だけでは外部VCの音は止まらない。
+ASTAROT再起動時は再度ミュートする。PipeWire daemon停止では仮想マイクも消えるため、
 その際のVRChat入力fallbackは引き続き実機確認が必要。

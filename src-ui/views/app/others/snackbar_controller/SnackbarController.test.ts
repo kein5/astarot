@@ -18,7 +18,6 @@ const setup = async (context: TestContext) => {
     const page = { settings: false };
     const { SnackbarController } = await loadModule<typeof import("./SnackbarController.tsx")>(new URL("./SnackbarController.tsx", import.meta.url), runtime, {
         "@common_components": { CloseButton: "close-button" },
-        "./ReactToastifyOverrideClass.scss": {},
         "react-toastify": { ToastContainer: "toasts", cssTransition: () => ({}), toast: (message: unknown, options: ToastOptions) => toasts.push({ message, options }) },
         "@store": { Atom_NotificationStatus: notification },
         "@logics_common": { useNotificationStatus: () => ({ closeNotification: () => {

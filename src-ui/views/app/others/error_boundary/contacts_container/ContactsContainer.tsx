@@ -1,4 +1,4 @@
-import styles from "./ContactsContainer.module.scss";
+import * as styles from "./ContactsContainer.css.ts";
 
 export const ContactsContainer = () => {
     return (

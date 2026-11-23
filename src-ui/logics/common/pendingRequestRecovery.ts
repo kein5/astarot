@@ -98,6 +98,9 @@ export const featureResyncReads: Readonly<Record<string, string>> = {
     "/run/register_translation_catalog_entry": "/get/data/translation_catalog",
     "/run/remove_translation_catalog_entry": "/get/data/translation_catalog",
     "/run/use_translation_catalog_entry": "/get/data/translation_catalog",
+    "/run/register_transcription_catalog_entry": "/get/data/transcription_catalog",
+    "/run/remove_transcription_catalog_entry": "/get/data/transcription_catalog",
+    "/run/use_transcription_catalog_entry": "/get/data/transcription_catalog",
 };
 
 // An atom with requests to release, or only something to do when the session stops.

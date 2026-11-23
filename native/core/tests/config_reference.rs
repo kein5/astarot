@@ -106,8 +106,10 @@ fn moved_keys(want: &mut Value) -> Vec<(String, String)> {
 // Python backend's UI had no layouts of the model catalogs. The AI translation's temperature and
 // instructions (#392) too: Python sent neither. RELEASE_CHANNEL_CHOSEN (#466) too: Python always
 // took the channel from the version. TRAY_COMPANION_WHEEL_HINT_SHOWN (#536) too: the Python
-// backend's hexagram had no wheel hint. THEME (#965) too: the Python backend's UI had one look.
-const CORE_ONLY_KEYS: [&str; 12] = [
+// backend's hexagram had no wheel hint. MANAGED_ROUTE_RENAME_NOTICE_PENDING (ADR-014, 2.8) too:
+// the Python backend's virtual microphone never changed its name. THEME (#965) too: the Python
+// backend's UI had one look.
+const CORE_ONLY_KEYS: [&str; 13] = [
     "OLLAMA_URL",
     "PAPAGO_CLIENT_ID",
     "OVERLAY_FONT_FAMILY",
@@ -119,6 +121,7 @@ const CORE_ONLY_KEYS: [&str; 12] = [
     "LLM_TRANSLATION_INSTRUCTIONS",
     "RELEASE_CHANNEL_CHOSEN",
     "TRAY_COMPANION_WHEEL_HINT_SHOWN",
+    "MANAGED_ROUTE_RENAME_NOTICE_PENDING",
     "THEME",
 ];
 const CORE_ONLY_AUTH_KEYS: [&str; 2] = ["Google_Cloud_API", "Papago_API"];

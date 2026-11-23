@@ -27,6 +27,8 @@ pub(crate) enum Waited {
 /// colours turned off. On Windows it gets no console window.
 pub(crate) fn devices_command(binary: &Path) -> Command {
     let mut command = Command::new(binary);
+    // Under the AppImage, the host's environment rather than the GUI's (#924, item 22).
+    astarot_app_identity::appimage::restore_host_environment(&mut command);
     command.args(["devices", "--json"]).stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::null()).env("SPEECH_NO_UPDATE_CHECK", "1").env("NO_COLOR", "1");
     #[cfg(windows)]
     {

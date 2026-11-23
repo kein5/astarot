@@ -8,7 +8,7 @@ import { useStopVoice } from "../../../../../../logics/voice/useStopVoice";
 import { somethingToStop } from "../../../../../../logics/voice/stopVoice.ts";
 import { Tooltip } from "../../../../../common_components/tooltip/Tooltip";
 import { StableWords } from "../../../../../common_components/stable_words/StableWords";
-import styles from "./VoiceSettings.module.scss";
+import * as styles from "./VoiceSettings.css.ts";
 
 // The TTS page's stop, as the top bar's (#937): offered while the core has something to stop (the
 // speech and its queue, an audition, the virtual microphone's check) and while its press is

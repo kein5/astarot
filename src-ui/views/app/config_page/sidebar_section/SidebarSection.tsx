@@ -1,4 +1,4 @@
-import styles from "./SidebarSection.module.scss";
+import * as styles from "./SidebarSection.css.ts";
 import { useState } from "react";
 import clsx from "clsx";
 import { useI18n } from "@useI18n";

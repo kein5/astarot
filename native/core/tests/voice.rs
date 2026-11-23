@@ -21,7 +21,7 @@ use common::net::{eventually, eventually_or};
 use common::{error_code, Setup, Ui};
 use serde_json::{json, Value};
 use std::path::Path;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex, mpsc};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 use astarot_core::config::Platform;
@@ -416,6 +416,39 @@ fn the_managed_route_follows_the_os_gate_on_linux() {
     // Leaving the managed route while direct voice runs needs a stop first; then it is left.
     assert_eq!(run.settings(json!({ "routing": "external" }))["status"], 200);
     assert_eq!(error_code(&run.ui.request("/run/start_direct_voice", Some(json!({ "source": mic })))), "source_bridge_managed_required");
+    run.ui.stop();
+}
+
+/// ADR-014, 2.8: the core's own managed route of an earlier version is made again under the
+/// new names at the start, and the user is told once to choose the new microphone in VRChat,
+/// until they close the notice. The new microphone starts muted.
+#[test]
+fn the_renamed_virtual_microphone_is_told_until_the_notice_is_closed() {
+    let voice = FakeVoice::new();
+    let gate = voice.gate();
+    gate.retires.store(true, Ordering::SeqCst);
+    let run = start_with(json!({ "VOICE_SETTINGS": { "routing": "managed" } }), Platform::Linux, voice, FakeAudio::new(), false);
+    eventually("the route is ready", || run.ui.ok("/get/data/voice_route", None)["ready"] == true);
+    let route = run.ui.ok("/get/data/voice_route", None);
+    assert_eq!(route["notice"], "managed_route_renamed", "{route}");
+    assert_eq!(route["requested_muted"], true);
+    assert!(*gate.source_muted.lock().unwrap());
+    eventually("the notice is kept for the next start", || run.ui.saved()["MANAGED_ROUTE_RENAME_NOTICE_PENDING"] == true);
+    assert!(run.process_log().contains("[voice] the managed route retired its legacy units"));
+    // Closing it answers with the route, without the notice, and saves that.
+    let closed = run.ui.ok("/set/disable/managed_route_rename_notice", None);
+    assert!(closed.get("notice").is_none(), "{closed}");
+    assert_eq!(closed["managed"], true);
+    assert!(run.ui.ok("/get/data/voice_route", None).get("notice").is_none());
+    eventually("the closed notice is saved", || run.ui.saved()["MANAGED_ROUTE_RENAME_NOTICE_PENDING"] == false);
+    run.ui.stop();
+}
+
+#[test]
+fn a_new_install_or_a_route_without_old_units_has_no_notice() {
+    let run = start_with(json!({ "VOICE_SETTINGS": { "routing": "managed" } }), Platform::Linux, FakeVoice::new(), FakeAudio::new(), false);
+    eventually("the route is ready", || run.ui.ok("/get/data/voice_route", None)["ready"] == true);
+    assert!(run.ui.ok("/get/data/voice_route", None).get("notice").is_none());
     run.ui.stop();
 }
 
@@ -1723,20 +1756,31 @@ fn spoken(requests: &[Value]) -> Vec<Value> {
 
 #[test]
 fn translated_chat_and_microphone_finals_speak_the_selected_translation() {
-    let (run, _fake) = translating(FakeVoice::new());
+    let (run, fake) = translating(FakeVoice::new());
     let japanese = FakeTts::speechcpp(0.1);
     let english = FakeTts::speechcpp(0.1);
     let saved = run.settings(json!({ "mode": "translated", "mic_mode": "translated", "direct_policy": "mix", "output_device": OUTPUT, "japanese_url": japanese.url, "multilingual_url": english.url }));
     assert_eq!(saved["status"], 200, "{saved}");
     assert_eq!(run.enable()["result"]["tts_enabled"], true);
-    run.ui.ok("/run/send_message_box", Some(json!({ "id": "t-1", "message": "konnichiwa" })));
+
+    // #556: give the warm-up worker the translation window it uses in the app. Once speech
+    // starts, it can cancel the warm-up before the server even receives the request.
+    let (release, held) = mpsc::channel::<()>();
+    let held = Mutex::new(held);
+    fake.reply(move |_, _, _| {
+        let _ = held.lock().unwrap().recv_timeout(Duration::from_secs(10));
+        None
+    });
+    let endpoint = "/run/send_message_box";
+    let mark = run.ui.send(endpoint, Some(json!({ "id": "t-1", "message": "konnichiwa" })));
+    eventually("an English warm-up before the translation reply", || {
+        english.requests().first().is_some_and(|request| is_warm_up(request) && request["language"] == "en")
+    });
+    release.send(()).unwrap();
+    assert_eq!(run.ui.wait_endpoint(mark, endpoint)["status"], 200);
     eventually("the translation is spoken", || spoken(&english.requests()).len() == 1);
     let request = spoken(&english.requests()).pop().unwrap();
     assert_eq!((request["input"].as_str(), request["language"].as_str()), (Some("deepl-free:EN-US:konnichiwa"), Some("en")));
-    // #556: the server that speaks the translation was readied first, while the text was translated.
-    let requests = english.requests();
-    assert!(requests.first().is_some_and(is_warm_up), "no warm-up before the speech: {requests:?}");
-    assert_eq!(requests[0]["language"], "en");
     assert!(japanese.requests().is_empty(), "the original was spoken in translated mode");
 
     // A realtime microphone final (the recognition area hands it over): only a successful

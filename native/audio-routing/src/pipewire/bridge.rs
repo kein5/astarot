@@ -403,7 +403,7 @@ fn audio_pid(child: &mut Child) -> Result<u32> {
 
 /// The helper's arguments; `owner_fd` is the pidfd of the launching thread.
 pub fn launch_arguments(binary: &str, owner_fd: i32, source: &Endpoint, sink: &Endpoint, tag: &str) -> Vec<String> {
-    let common = "vrct.source.bridge=v1 node.dont-fallback=true node.dont-reconnect=true node.dont-move=true node.linger=false state.restore-props=false";
+    let common = format!("{}=v1 node.dont-fallback=true node.dont-reconnect=true node.dont-move=true node.linger=false state.restore-props=false", crate::graph::BRIDGE_PROPERTY);
     vec![
         binary.to_owned(),
         std::process::id().to_string(),
@@ -415,9 +415,9 @@ pub fn launch_arguments(binary: &str, owner_fd: i32, source: &Endpoint, sink: &E
         "--latency".into(),
         "10ms".into(),
         "--capture-props".into(),
-        format!("{common} node.name=vrct.source-bridge.{tag}.capture media.class=Stream/Input/Audio target.object={}", source.serial),
+        format!("{common} node.name={} media.class=Stream/Input/Audio target.object={}", crate::graph::bridge_stream(tag, "capture"), source.serial),
         "--playback-props".into(),
-        format!("{common} node.name=vrct.source-bridge.{tag}.playback media.class=Stream/Output/Audio target.object={} node.param.Props={{mute=true}}", sink.serial),
+        format!("{common} node.name={} media.class=Stream/Output/Audio target.object={} node.param.Props={{mute=true}}", crate::graph::bridge_stream(tag, "playback"), sink.serial),
     ]
 }
 

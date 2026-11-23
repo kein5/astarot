@@ -19,7 +19,7 @@ import {
 import { CloseButton } from "@common_components";
 import { useAppUpdate } from "../../../../logics/common/useAppUpdate";
 
-import styles from "./AppErrorBoundary.module.scss";
+import * as styles from "./AppErrorBoundary.css.ts";
 
 const VRCT_STATUS_URL = "https://github.com/kein5/astarot/issues";
 
@@ -78,7 +78,7 @@ const ErrorContainer =({error, errorInfo}: { error: unknown; errorInfo: ErrorInf
                             </p>
                         </div>
                         <button className={styles.copy_error_message_button} onClick={onCopyErrorLog}>
-                            <p className={styles.copy_text}>{t("common_error.copy_error_log")}</p>
+                            <p>{t("common_error.copy_error_log")}</p>
                             {is_copied
                                 ? <CheckMarkSvg className={styles.check_mark_svg}/>
                                 : <CopySvg className={styles.copy_svg}/>

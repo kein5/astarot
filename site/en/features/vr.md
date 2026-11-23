@@ -14,7 +14,7 @@ Turn on "Subtitle overlay" in "Quick settings" at the top right of the main scre
 
 ![Settings → Captions and VR](/screenshots/en/vr.webp)
 
-- Switch between "Single line" and "Multiple lines".
+- Switch between "Single line" and "Multiple lines". "Single line" shows only what is heard in the game audio; "Multiple lines" also shows what you say and what chat reading finds.
 - Adjust position and rotation, opacity, size, display time and fade-out time.
 - Under "Tracker", choose whether the captions follow the HMD (your headset), the left hand or the right hand.
 - "Send sample text to the subtitle overlay" shows how it looks.

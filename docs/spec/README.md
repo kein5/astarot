@@ -20,7 +20,7 @@ ASTAROTの機能、API、データ、振る舞いの約束をまとめた文書�
 | [SteamVR subtitle images](overlay-subtitle-rendering.md) | Subtitle wrapping, raster budgets and local font fallback | 決まり | 手書き |
 | [未決事項](open-issues.md) | 調べて見つかった食い違いと、決まっていないこと | 記録 | 手書き |
 | [用語集](glossary.md) | 画面の言葉とコードの名前の対応 | 参照 | 手書き |
-| [IPCエンドポイント一覧](reference/ipc-endpoints.md) | 全エンドポイント、処理する関数、初期化前の扱い、UIの受信先 | 参照 | 生成 |
+| [IPCエンドポイント一覧](reference/ipc-endpoints.md) | 全エンドポイント、種別、初期化前の扱い、UIの受信先 | 参照 | 生成 |
 | [エラーコード一覧](reference/error-codes.md) | 全エラーコード、分類、既定の文言、UIの処理の有無 | 参照 | 生成 |
 | [設定キー一覧](reference/config-keys.md) | 全設定キー、型と検証、既定値、保存のしかた | 参照 | 生成 |
 
@@ -28,7 +28,7 @@ ASTAROTの機能、API、データ、振る舞いの約束をまとめた文書�
 
 | したいこと | 読むところ |
 |---|---|
-| あるエンドポイントが何をするか知る | [IPCエンドポイント一覧](reference/ipc-endpoints.md)で処理する関数（Pythonバックエンドの名前）を見て、`native/core/README.md`の対応表から中核のモジュール（`native/core/src/controller/`）を読む。Pythonの実装（[`src-python/controller.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/controller.py)）は0.6.0で消したので、0.5.xのタグで読む |
+| あるエンドポイントが何をするか知る | [IPCエンドポイント一覧](reference/ipc-endpoints.md)でエンドポイントを見つけ、`native/core/src/controller/routes.rs`の経路から中核のモジュール（`native/core/src/controller/`）を読む。0.5.xまでのPythonの実装（[`src-python/controller.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/controller.py)）は0.6.0で消したので、0.5.xのタグで読む |
 | 新しい設定を足す | [設定キー一覧](reference/config-keys.md)、[設定の保存](cross-cutting.md#設定の保存)、[データ形式と保存](data-and-persistence.md) |
 | 新しいエラーを足す | [エラーの扱い](cross-cutting.md#エラーの扱い)、[エラーコード一覧](reference/error-codes.md) |
 | 機能の流れを追う | [ユースケース](use-cases.md)から[シーケンス](sequences.md)へ |

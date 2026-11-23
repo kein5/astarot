@@ -1,5 +1,5 @@
 import { useI18n } from "@useI18n";
-import styles from "./Vrchat.module.scss";
+import * as styles from "./Vrchat.css.ts";
 
 import { SectionLabelComponent } from "../_components";
 import {

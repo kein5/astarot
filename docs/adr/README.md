@@ -26,11 +26,12 @@ ASTAROT の設計判断の記録（ADR）の正本は、このディレクトリ
 | [011](adr-011-astarot-brand-and-multimodal-accessibility.md) | ASTAROT の名称、ブランド統一、マルチモーダル・アクセシビリティの製品方針 | 2026-11-16 | 採用 | 一部 | 有効 | Python のサイドカー |
 | [012](adr-012-audio-ai-runtime-consolidation.md) | Audio AI Runtime Consolidation | 2026-11-17 | 採用 | 対象外 | 有効 | Rust の中核 |
 | [013](adr-013-secret-store.md) | API キーを OS の資格情報ストアに保管する | 2026-11-18 | 採用 | 実装済み | 有効 | Rust の中核 |
-| [014](adr-014-internal-identifier-migration.md) | 内部識別子を ASTAROT にそろえ、設定とモデルを引き継ぐ | 2026-11-19 | 採用 | 未着手 | 有効 | Rust の中核 |
-| [015](adr-015-translation-llm-runtime-exception.md) | TranslateGemma の翻訳を LLM 用の実行基盤で動かす（ADR-012 の例外） | 2026-11-19 | 採用 | 未着手 | 有効 | Rust の中核 |
-| [016](adr-016-user-guide-site-on-rspress.md) | 利用者向けのサイトの土台を VitePress から Rspress（React）に替える | 2026-11-20 | 採用 | 未着手 | 有効 | Rust の中核 |
-| [017](adr-017-integration-tests-through-the-core.md) | 画面から中核まで通す試験を Playwright の結合テストにし、配布物で通す試験だけを E2E と呼ぶ | 2026-11-20 | 採用 | 未着手 | 有効 | Rust の中核 |
-| [018](adr-018-talk-ai-through-external-services.md) | おしゃべりAIは外部の対話サービスにつなぎ、アプリは対話のモデルを動かさない | 2026-11-22 | 採用 | 未着手 | 有効 | Rust の中核 |
+| [014](adr-014-internal-identifier-migration.md) | 内部識別子を ASTAROT にそろえ、設定とモデルを引き継ぐ | 2026-11-19 | 採用 | 一部 | 有効 | Rust の中核 |
+| [015](adr-015-translation-llm-runtime-exception.md) | TranslateGemma の翻訳を LLM 用の実行基盤で動かす（ADR-012 の例外） | 2026-11-19 | 採用 | 一部 | 有効 | Rust の中核 |
+| [016](adr-016-user-guide-site-on-rspress.md) | 利用者向けのサイトの土台を VitePress から Rspress（React）に替える | 2026-11-20 | 採用 | 実装済み | 有効 | Rust の中核 |
+| [017](adr-017-integration-tests-through-the-core.md) | 画面から中核まで通す試験を Playwright の結合テストにし、配布物で通す試験だけを E2E と呼ぶ | 2026-11-20 | 採用 | 実装済み | 有効 | Rust の中核 |
+| [018](adr-018-talk-ai-through-external-services.md) | おしゃべりAIは外部の対話サービスにつなぎ、アプリは対話のモデルを動かさない | 2026-11-22 | 採用 | 一部 | 有効 | Rust の中核 |
+| [019](adr-019-voicevox-core-tts-runtime-exception.md) | VOICEVOX CORE を専用ワーカーと C API の動的ロードで読み上げに組み込む（ADR-012 の例外） | 2026-11-23 | 採用 | 未着手 | 有効 | Rust の中核 |
 
 <!-- adr-index:end -->
 
@@ -130,7 +131,7 @@ ADR 001〜003 は、2026-10-27 に音声の最初の段階（P1）のために�
 
 [ADR-010: フロントエンドのスタック（React と Vite を維持し、TypeScript と vanilla-extract を採用する）](adr-010-frontend-stack.md)は2026-11-15に採用し、0.5.0に向けて段階的に移行する。React と Vite はそのまま使い、Vite+ は見送って再評価の条件を残した。TypeScript は logics から型を付け、スタイルは SCSS Modules から vanilla-extract へ移し、UI 部品の土台に Radix UI を使う。0.4.0 の UI 変更は現行のスタックで行う。
 
-[ADR-011: ASTAROT の名称、ブランド統一、マルチモーダル・アクセシビリティの製品方針](adr-011-astarot-brand-and-multimodal-accessibility.md)は2026-11-16に製品方針とブランド仕様として採用した。新しい名前を ASTAROT とし、正式サブタイトルを「Speech, Translation, Accessibility, Revoicing & OCR Toolkit」と決めた。ロゴとアイコンの原版は `docs/brand/astarot/` に置く。表示の移行（P1）のうち、アプリの表示は 0.5.0 に向けて develop に入れた。識別子の移行（P2、別の ADR が必要）は始めておらず、実行ファイル名、アプリ ID、保存先などの識別子は VRCT-VOX のままである。
+[ADR-011: ASTAROT の名称、ブランド統一、マルチモーダル・アクセシビリティの製品方針](adr-011-astarot-brand-and-multimodal-accessibility.md)は2026-11-16に製品方針とブランド仕様として採用した。新しい名前を ASTAROT とし、正式サブタイトルを「Speech, Translation, Accessibility, Revoicing & OCR Toolkit」と決めた。ロゴとアイコンの原版は `docs/brand/astarot/` に置く。表示の移行（P1）のうち、アプリの表示は 0.5.0 に向けて develop に入れた。識別子の移行（P2）は ADR-014 で決め、0.6.0 から順に移している。実行ファイル名、アプリ ID などの識別子は、まだ VRCT-VOX の名前である（[名前と保存先](../voice-stack/project-rename.md)）。
 
 [ADR-012: Audio AI Runtime Consolidation](adr-012-audio-ai-runtime-consolidation.md)は2026-11-17に開発の原則として採用した。新しい音声AIモデルは、まずspeech.cppへの上流の貢献で入れる。VRCT-VOX固有の推論エンジンや独立したランタイムは、既存の基盤で実現できない技術的な理由と、性能・保守・配布のコストでの明確な優位性の両方を確かめたときだけ採用する。機能ごとの責務の分担は、音声AIの推論（ASR、TTS、VAD、話者、音声強調）がspeech.cpp、OCRとローカル翻訳がONNX Runtime、音声の入出力とAIでないDSPがRustとOSの機能、字幕やOSCなど固有の制御がアプリとした。RVCは管理対象の例外としてONNX Runtimeの実装を続け、移行は義務にしない。新しいモデルの評価の手順、例外のADRに書くこと、非機能要件、検証、見直す条件も定めた。
 
@@ -143,6 +144,8 @@ ADR 001〜003 は、2026-10-27 に音声の最初の段階（P1）のために�
 [ADR-017: 画面から中核まで通す試験を Playwright の結合テストにし、配布物で通す試験だけを E2E と呼ぶ](adr-017-integration-tests-through-the-core.md)は2026-11-20に採用した。試験を、単体と契約（Vitest と Rust）、結合テスト、E2E の 3 つの層に分ける。結合テストは、画面を操作して中核と Rust のクレートを通り、外への出口と画面の結果までを確かめる試験で、Playwright で `tests/integration/` に書き、すべての PR で Linux と Windows、Chromium と WebKit で流す。画面の側は Tauri の公式の偽物で中核とのやり取りだけをホストへ流し、中核の側は試験の道具の専用のクレートが偽物の `Services` で中核を起動する。E2E は、配布物の形で殻と OS を通す試験だけを指す。
 
 [ADR-018: おしゃべりAIは外部の対話サービスにつなぎ、アプリは対話のモデルを動かさない](adr-018-talk-ai-through-external-services.md)は2026-11-22に提案し、同じ日に採用した（PR #969）。Issue #388 の「おしゃべりAI」の相手を、クラウドのリアルタイム API（OpenAI Realtime、Gemini Live）と、利用者が立てる vLLM-Omni のサーバーに分け、どちらもアプリの外のサービスとしてつなぐ。アプリは対話のモデルもその推論のランタイムも同梱せず、取得もしない。ADR-012 の 2.2 の「外部の翻訳サービスと LLM のサービス」と同じ扱いで、ADR-012 の例外ではない。アプリは、画面と声を送る前の同意、送っている間の表示、送る量の制御、止めたら送らないことを受け持つ。
+
+[ADR-019: VOICEVOX CORE を専用ワーカーと C API の動的ロードで読み上げに組み込む（ADR-012 の例外）](adr-019-voicevox-core-tts-runtime-exception.md)は2026-11-23に採用した（Issue #1061）。製品版 VVM は `vv-bin` 独自形式と `voicevox_onnxruntime` 固有処理に依存し、規約上もリバースエンジニアリング禁止のため speech.cpp への変換・上流貢献も既存 ONNX Runtime（`1.31.0`）との共有もできない。そこで VOICEVOX CORE によるアプリ内日本語読み上げを ADR-012 の管理対象の例外とし、薄い Rust 子プロセス `astarot-voicevox-worker` から同意取得した公式 `voicevox_core` C API（`0.17.1`、MIT）と `voicevox_onnxruntime` 正式版 `1.17.3`（CPU 版）、Open JTalk 辞書を動的ロードする構成を採る。初回は CPU のみ・標準規約の代表パックから始め、VOICEVOX Nemo（`n0.vvm`）は含めない。ADR-008 の外部エンジン接続は並存させ、クレジットは設定画面・同意画面・`AboutVrct.tsx`・`NOTICE.md` に表示する。本実装の着手は Windows・Linux 実機 PoC の計測結果を見て判断する。
 
 ## 配置の移行（2026-11-18）
 

@@ -1,10 +1,10 @@
 # ASTAROT への表示名の移行：棚卸し
 
-Status: **準備（0.5.0 で実行する予定）**
+Status: **実行済み。記録**（2026-11-16 の棚卸し。表示名は 0.5.0 と 0.5.1 で ASTAROT に移した。今の名前と識別子は[名称と識別子](project-rename.md)にある）
 Date: 2026-11-16
 Related: [ADR-011](../adr/adr-011-astarot-brand-and-multimodal-accessibility.md)、[リポジトリ名の変更手順](repository-rename.md)、[名称と識別子](project-rename.md)
 
-0.5.0 で表示名を `VRCT-VOX` から `ASTAROT` に移す。その準備として、表示名が出てくる場所を洗い出した。この文書は棚卸しだけで、書き換えはまだしていない。
+0.5.0 で表示名を `VRCT-VOX` から `ASTAROT` に移す。その準備として、表示名が出てくる場所を洗い出した。この文書は棚卸しだけで、書き換えはまだしていない（書いた時点。書き換えは 0.5.0 と 0.5.1 で行った）。
 
 ## 対象と対象外
 

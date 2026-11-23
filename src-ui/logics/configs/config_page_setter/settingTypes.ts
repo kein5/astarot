@@ -334,7 +334,7 @@ type SettingFields<C extends SettingCategory> =
     & { [E in EntryWith<C, "weight_download_status"> as `updateDownloaded${E["Base_Name"]}`]: Receive<DownloadedWeights> }
     & { [E in EntryWith<C, "weight_download_status"> as `pending${E["Base_Name"]}`]: Receive<string> }
     & { [E in EntryWith<C, "weight_download_status"> as `downloaded${E["Base_Name"]}`]: Receive<WeightDownloaded> }
-    // The reviewed consent (legacyModelConsent.ts), sent unchanged.
+    // The request of a weight's download, sent unchanged (no weight is downloaded this way since #1015).
     & { [E in EntryWith<C, "weight_download_status"> as `download${E["Base_Name"]}`]: Receive<unknown> };
 
 // The functions a category has besides its settings (useConfigFunctions).

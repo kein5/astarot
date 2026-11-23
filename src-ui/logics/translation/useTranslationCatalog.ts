@@ -1,6 +1,7 @@
 import { atom, useAtom, useStore } from "jotai";
 import { useCallback, useRef } from "react";
 import { useStdoutToPython } from "@useStdoutToPython";
+import { catalogAtom } from "./translationCatalogState.ts";
 import type { TranslationCatalog } from "./translationCatalog.ts";
 
 // What a page sends with a request, as far as it is read here: the entry and its group.
@@ -21,8 +22,6 @@ export interface PendingCatalogChange {
 const hasGroups = (value: Partial<TranslationCatalog> | null | undefined): value is TranslationCatalog =>
     Array.isArray(value?.engine) && Array.isArray(value?.api);
 
-// The translation catalog (#413) as the backend sends it, null until the first answer.
-const catalogAtom = atom<TranslationCatalog | null>(null);
 // The fixed code of the last refusal, and the request waiting for its answer.
 const errorAtom = atom<string | null>(null), pendingAtom = atom<PendingCatalogChange | null>(null);
 

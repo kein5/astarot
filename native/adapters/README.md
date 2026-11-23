@@ -67,7 +67,8 @@ python tools/dev.py check --scope rust
 
 ```sh
 # python-zeroconf との相互の発見（zeroconf の入った Python を指定）
-ASTAROT_ZEROCONF_PYTHON=build/dev/backend-venv/bin/python \
+# 例: uv venv build/dev/zeroconf-venv && uv pip install --python build/dev/zeroconf-venv zeroconf
+ASTAROT_ZEROCONF_PYTHON=build/dev/zeroconf-venv/bin/python \
 cargo test --manifest-path native/adapters/Cargo.toml --test zeroconf_interop
 
 # Linux の実際の X11 ディスプレイでのウィンドウ検索（前面に出したりキーを送ったりはしない）
