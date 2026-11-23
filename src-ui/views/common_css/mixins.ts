@@ -1,8 +1,7 @@
-// The SCSS mixins of mixins.scss for vanilla-extract (#957, ADR-010): functions and objects that
-// give the same declarations, for a .css.ts file to spread into its styles. They make no class
-// of their own, except the loader's spin, which is a keyframes made where it is called, as the
-// SCSS mixin made one for each module that included it. mixins.scss stays until the last SCSS
-// module that includes it is moved.
+// Shared pieces of style (#957, ADR-010): functions and objects that give the same declarations
+// wherever a .css.ts file spreads them into its styles. They were the SCSS mixins of the former
+// mixins.scss. They make no class of their own, except the loader's spin, which is a keyframes
+// made where it is called, one for each style that uses it.
 import { keyframes } from "@vanilla-extract/css";
 import type { StyleRule } from "@vanilla-extract/css";
 
@@ -14,8 +13,8 @@ interface LoaderOptions {
     positionAmount?: string | number;
 }
 
-// A spinning loader: a ring of two quarter arcs, centred on its anchor point (mixins.scss
-// "loader"). Its rotation keeps the centring translate.
+// A spinning loader: a ring of two quarter arcs, centred on its anchor point. Its rotation keeps
+// the centring translate.
 export const loader = ({ size = "2rem", lineWidth = "0.2rem", position = "right", positionAmount = 0 }: LoaderOptions = {}): StyleRule => {
     const halfLine = `calc(${lineWidth} / 2)`;
     const translate = `calc(-50% + ${halfLine})`;
@@ -49,8 +48,8 @@ export const loader = ({ size = "2rem", lineWidth = "0.2rem", position = "right"
     };
 };
 
-// The toggle switch's track and knob (mixins.scss "toggle_control_styles"), its sizes and colours
-// read from custom properties with these defaults. The modifier classes are the including
+// The toggle switch's track and knob, its sizes and colours read from custom properties with
+// these defaults. The modifier classes are the including
 // module's own.
 export const TOGGLE = {
     width: "4rem",
@@ -113,8 +112,7 @@ export const toggleControl = ({ parent, isPending, isHovered, isMouseDown, isAct
     };
 };
 
-// A parent that colours the toggle switch inside it while hovered or pressed (mixins.scss
-// "toggle_interactive_parent").
+// A parent that colours the toggle switch inside it while hovered or pressed.
 export const toggleInteractiveParent: StyleRule = {
     selectors: {
         "&:hover": { vars: { "--toggle_bg_off": "var(--dark_725_color)", "--toggle_bg_on": "var(--primary_350_color)" } },
@@ -122,7 +120,7 @@ export const toggleInteractiveParent: StyleRule = {
     },
 };
 
-// A tooltip's bubble (mixins.scss "tooltip_content"): shadcn/ui's TooltipContent read by DESIGN.md's
+// A tooltip's bubble: shadcn/ui's TooltipContent read by DESIGN.md's
 // rules, as wide as its words up to a reading measure, keeping the line breaks of its text. Its
 // colours stay the light words on dark_700 until D-22 decides whether they are inverted.
 export const tooltipContent: StyleRule = {
