@@ -1,5 +1,5 @@
 [package]
-name = "vrct-ops"
+name = "astarot-ops"
 version = "0.0.0"
 description = "Model downloads, usage events and the backend watchdog of VRCT-VOX (codename Nebiros)"
 edition = "2024"
@@ -9,7 +9,7 @@ publish = false
 # the app later adds no second copy of any of them.
 [dependencies]
 # The names the app goes by outside its code (ADR-014): the owner marker of a download.
-app-identity = { path = "../app-identity" }
+astarot-app-identity = { path = "../app-identity" }
 httparse = "=1.10.1"
 # The registration times and the telemetry's times. The newest release that had been out for 14
 # days (2026-11-21, #879; docs/development.md); chrono is unmaintained.

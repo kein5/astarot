@@ -113,7 +113,7 @@ export const VoiceSettings = () => {
                 <AdvancedSection status={t("config_page.advanced_status.tts", {
                     monitor: t(draft.monitor === "on" ? "config_page.advanced_status.on" : "config_page.advanced_status.off"),
                     mic: t(draft.mic_mode === "translated" ? "config_page.advanced_status.on" : "config_page.advanced_status.off") })}>
-                <fieldset className={styles.group} aria-label={t("voice_ui.monitor_heading")}>
+                <fieldset className={styles.group} aria-label={t("voice_ui.monitor_heading")} data-setting-id="tts_monitor">
                     {/* What the monitor plays: the legend's hint, whose mark takes focus as a heading's does (#614). */}
                     <legend><span className={styles.hinted} data-hint-host={hints || undefined}><span>{t("voice_ui.monitor_heading")}</span>
                         {hints && <Hint text={t("voice.monitor_hint")} focusable />}</span></legend>

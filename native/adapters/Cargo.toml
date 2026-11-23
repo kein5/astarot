@@ -1,11 +1,13 @@
 [package]
-name = "vrct-adapters"
+name = "astarot-adapters"
 version = "0.0.0"
 description = "External adapters of VRCT-VOX: OSC and OSCQuery, the OBS browser source, the WebSocket server and the clipboard"
 edition = "2024"
 publish = false
 
 [dependencies]
+# The host's environment for the programs it starts under the AppImage (#924, item 22).
+astarot-app-identity = { path = "../app-identity" }
 if-addrs = "=0.15.0"
 rustls = { version = "=0.23.46", default-features = false, features = ["ring", "std", "tls12", "logging"] }
 serde_json = "=1.0.154"

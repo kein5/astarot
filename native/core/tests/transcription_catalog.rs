@@ -11,12 +11,12 @@ use common::{Setup, Ui};
 use serde_json::{Value, json};
 use std::path::Path;
 use std::sync::Arc;
-use vrct_core::config::secrets::{FILE_NAME, MemoryStore};
-use vrct_core::controller::Services;
+use astarot_core::config::secrets::{FILE_NAME, MemoryStore};
+use astarot_core::controller::Services;
 
 fn start_in(dir: &Path, asr: &FakeAsr, vault: &Arc<MemoryStore>) -> Ui {
     let services = Services {
-        transcription_endpoints: vrct_transcription::providers::Endpoints::all_at(&asr.base()),
+        transcription_endpoints: astarot_transcription::providers::Endpoints::all_at(&asr.base()),
         secret_store: vault.system_source(),
         ..Setup::default().services
     };

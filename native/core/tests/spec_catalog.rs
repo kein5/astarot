@@ -19,9 +19,9 @@ mod common;
 use std::path::{Path, PathBuf};
 
 use serde_json::{Value, json};
-use vrct_core::config::{Config, Environment, Platform, schema};
-use vrct_core::controller::{Core, RUN_MAPPING, Services};
-use vrct_core::dispatch::IMMEDIATE_ENDPOINTS;
+use astarot_core::config::{Config, Environment, Platform, schema};
+use astarot_core::controller::{Core, RUN_MAPPING, Services};
+use astarot_core::dispatch::IMMEDIATE_ENDPOINTS;
 
 const FILE: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../tools/spec_core_catalog.json");
 
@@ -49,16 +49,16 @@ fn endpoints() -> Vec<Value> {
     // Only the routes are listed; the keys stay in memory, never in the PC's credential store.
     let config = Config::open_with(
         common::environment(dir.path(), Platform::current()),
-        vrct_core::config::secrets::MemoryStore::new(),
+        astarot_core::config::secrets::MemoryStore::new(),
     );
     struct Quiet;
-    impl vrct_core::dispatch::Output for Quiet {
+    impl astarot_core::dispatch::Output for Quiet {
         fn answer(&self, _: u16, _: Option<&str>, _: &Value) {}
         fn received(&self, _: &str, _: &Value) {}
         fn note(&self, _: &str) {}
     }
-    let core = Core::new(config, std::sync::Arc::new(vrct_core::log::Log::disabled()), std::sync::Arc::new(Quiet), Services::default());
-    let routes = vrct_core::controller::routes(&core);
+    let core = Core::new(config, std::sync::Arc::new(astarot_core::log::Log::disabled()), std::sync::Arc::new(Quiet), Services::default());
+    let routes = astarot_core::controller::routes(&core);
     routes
         .endpoints()
         .map(|endpoint| {
@@ -100,8 +100,8 @@ fn catalog() -> Value {
         "_comment": "Written by native/core/tests/spec_catalog.rs from the core; tools/spec_catalog.py makes docs/spec/reference/ from it. Do not edit by hand.",
         "endpoints": endpoints(),
         "notifications": RUN_MAPPING.iter().map(|(name, endpoint)| json!({ "name": name, "endpoint": endpoint })).collect::<Vec<_>>(),
-        "sensitive_markers": vrct_core::log::SENSITIVE_ENDPOINT_MARKERS,
-        "errors": vrct_core::errors::codes().iter().map(|info| json!({
+        "sensitive_markers": astarot_core::log::SENSITIVE_ENDPOINT_MARKERS,
+        "errors": astarot_core::errors::codes().iter().map(|info| json!({
             "code": info.code,
             "category": info.category.as_str(),
             "message": info.message,

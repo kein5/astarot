@@ -15,6 +15,7 @@ import {
     ConfigPageCloseTriggerController,
     UiSizeController,
     FontFamilyController,
+    ThemeController,
     TransparencyController,
     CornerRadiusController,
     VrPanelSyncController,
@@ -22,7 +23,7 @@ import {
     AppUpdateController,
 } from "./_app_controllers";
 
-import styles from "./App.module.scss";
+import * as styles from "./App.css.ts";
 
 import { MainPage } from "./main_page/MainPage";
 import { QuickChatController } from "./_app_controllers/QuickChatController";
@@ -63,6 +64,7 @@ export const App = () => {
                 <ConfigPageCloseTriggerController />
                 <UiSizeController />
                 <FontFamilyController />
+                <ThemeController />
                 <TransparencyController />
                 <CornerRadiusController />
                 <VrPanelSyncController />

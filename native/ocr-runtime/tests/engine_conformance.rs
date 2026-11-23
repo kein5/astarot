@@ -14,10 +14,10 @@ mod common;
 use std::collections::HashMap;
 
 use common::{fixture, reference_dir};
-use ocr_runtime::engine::{Engine, EngineConfig};
-use ocr_runtime::languages::resolve_model_spec;
-use ocr_runtime::models::{characters, resolve_model_files};
-use ocr_runtime::BgrImage;
+use astarot_ocr_runtime::engine::{Engine, EngineConfig};
+use astarot_ocr_runtime::languages::resolve_model_spec;
+use astarot_ocr_runtime::models::{characters, resolve_model_files};
+use astarot_ocr_runtime::BgrImage;
 
 const SETS: &[&str] = &["synthetic-ja", "synthetic-zh", "synthetic-ko", "synthetic-ru", "synthetic-th", "synthetic-ar", "synthetic-hi", "lab-crops", "lab-frames"];
 

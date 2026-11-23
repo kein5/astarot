@@ -13,7 +13,7 @@
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 
-use vrct_core::controller::RUN_MAPPING;
+use astarot_core::controller::RUN_MAPPING;
 
 fn names() -> BTreeSet<&'static str> {
     RUN_MAPPING.iter().map(|(name, _)| *name).collect()
@@ -74,8 +74,8 @@ fn placeholder_values(placeholder: &str) -> Vec<String> {
         "s" => vec!["mic".into(), "speaker".into()],
         // `transcription`: a recognition engine with models (its settings keep a model list).
         "lower" => {
-            let keys: BTreeSet<&str> = vrct_core::config::schema::keys().iter().map(|k| k.name).collect();
-            let engines: Vec<String> = vrct_core::languages::transcription_engines()
+            let keys: BTreeSet<&str> = astarot_core::config::schema::keys().iter().map(|k| k.name).collect();
+            let engines: Vec<String> = astarot_core::languages::transcription_engines()
                 .into_iter()
                 .filter(|engine| keys.contains(format!("SELECTABLE_{}_MODEL_LIST", engine.to_uppercase()).as_str()))
                 .map(|engine| engine.to_lowercase())
@@ -165,7 +165,7 @@ fn the_model_lists_and_choices_are_pushed_under_their_settings_names() {
     // The translation and recognition services push a model list and its choice under the
     // lower-case name of the settings key (`publish_models`, `forget_models` and the engines').
     let names = names();
-    let keys: Vec<&str> = vrct_core::config::schema::keys()
+    let keys: Vec<&str> = astarot_core::config::schema::keys()
         .iter()
         .map(|key| key.name)
         .filter(|name| {

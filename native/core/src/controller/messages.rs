@@ -27,8 +27,8 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, OnceLock, RwLock};
 use std::time::Instant;
-use vrct_transcription::diagnostics::{Event as Diagnosed, Stage};
-use vrct_translation::transliteration::Tokenizer;
+use astarot_transcription::diagnostics::{Event as Diagnosed, Stage};
+use astarot_translation::transliteration::Tokenizer;
 
 // ------------------------------------------------------------------------- readings
 
@@ -42,7 +42,7 @@ pub const READINGS_DICTIONARY: &str = "build/sudachi/system.dic";
 /// Sudachi with the dictionary shipped beside the app, opened on the first message that asks
 /// for readings. Without it messages go out without readings.
 pub fn shipped_readings(env: &crate::config::Environment) -> Arc<dyn Tokenizer> {
-    Arc::new(vrct_translation::transliteration::sudachi::SudachiFile::new(crate::resources::locate(
+    Arc::new(astarot_translation::transliteration::sudachi::SudachiFile::new(crate::resources::locate(
         &env.app_dir,
         READINGS_DICTIONARY,
     )))
@@ -73,6 +73,7 @@ pub struct Spec {
     /// "SEND" or "RECEIVED" (the format parts).
     pub format: &'static str,
     pub overlay_direction: &'static str,
+    /// The pipeline draws the message on the VR small log (the other party's speech only).
     pub small_log: bool,
     pub clipboard: bool,
     pub websocket_type: &'static str,
@@ -80,7 +81,9 @@ pub struct Spec {
     /// The `run_mapping` name the result is pushed on; `None` returns it instead.
     pub push: Option<&'static str>,
     pub payload_source: Option<&'static str>,
-    pub render_overlay: bool,
+    /// The pipeline draws the message on the VR large log; realtime captions draw their own rows
+    /// there.
+    pub large_log: bool,
     /// Realtime recognition: delivery outcomes in the result.
     pub realtime: bool,
 }
@@ -103,7 +106,7 @@ pub const MIC: Spec = Spec {
     log_prefix: "[SENT]",
     push: Some("transcription_mic"),
     payload_source: None,
-    render_overlay: true,
+    large_log: true,
     realtime: false,
 };
 
@@ -125,18 +128,19 @@ pub const SPEAKER: Spec = Spec {
     log_prefix: "[RECEIVED]",
     push: Some("transcription_speaker"),
     payload_source: None,
-    render_overlay: true,
+    large_log: true,
     realtime: false,
 };
 
-/// Realtime recognition updates its own caption rows; it returns the result.
+/// Realtime recognition updates its own caption rows on the large log; it returns the result.
+/// The small log shows a final of the game audio as it shows a message, once translated (#447).
 pub const REALTIME_MIC: Spec = Spec {
     repeat_of_sent: None,
     readings_by_own_language: false,
     feature: None,
     push: None,
     websocket_type: "REALTIME_MIC",
-    render_overlay: false,
+    large_log: false,
     realtime: true,
     ..MIC
 };
@@ -147,7 +151,7 @@ pub const REALTIME_SPEAKER: Spec = Spec {
     chatbox: None,
     push: None,
     websocket_type: "REALTIME_SPEAKER",
-    render_overlay: false,
+    large_log: false,
     realtime: true,
     ..SPEAKER
 };
@@ -230,6 +234,10 @@ pub struct OverlayMessage {
     /// Only the translations are shown: the setting as the message was admitted with it, not as
     /// it is when the log is drawn.
     pub only_translated: bool,
+    /// Who spoke a realtime final of the game audio, by the speech server's labels (#447).
+    pub speakers: Vec<String>,
+    /// The realtime session the labels belong to, whose names the user gave.
+    pub session: Option<String>,
 }
 
 impl OverlayMessage {
@@ -256,18 +264,26 @@ impl OverlayMessage {
             target_languages,
             transliteration_message: self.transliteration_message.clone(),
             transliteration_translation: self.transliteration_translations.clone(),
-            // Only realtime captions name their speakers (`realtime_asr::caption_message`).
-            speakers: Vec::new(),
+            speakers: self.speakers.clone(),
+            session: self.session.clone(),
             only_translated: self.only_translated,
         }
     }
+}
+
+/// Who spoke a realtime final (#447): the session its labels belong to and the labels, in the
+/// order they spoke. Empty when the voices were not told apart.
+#[derive(Clone, Debug, Default)]
+pub(crate) struct Voices {
+    pub session: String,
+    pub speakers: Vec<String>,
 }
 
 /// What a realtime microphone final needs to become speech after its translation: the voice
 /// settings when it arrived and the final itself.
 pub(crate) struct MicVoice {
     pub snapshot: super::voice::MicVoiceSnapshot,
-    pub update: vrct_tts::message_hook::TranscriptUpdate,
+    pub update: astarot_tts::message_hook::TranscriptUpdate,
 }
 
 /// When a message reaches speech.
@@ -307,7 +323,7 @@ pub struct SpokenMessage {
 pub type Hook<T> = Arc<dyn Fn(&T) -> Result<(), ()> + Send + Sync>;
 
 /// Runs an output of a realtime final through its delivery (`output_progress`): the action
-/// gives true when what it sent went out ([`vrct_transcription::realtime::delivery::Output`]).
+/// gives true when what it sent went out ([`astarot_transcription::realtime::delivery::Output`]).
 pub(crate) type RunOutput<'a> = &'a dyn Fn(&mut dyn FnMut() -> bool) -> bool;
 
 /// The outbound hooks; unset ones do nothing.
@@ -608,7 +624,7 @@ impl Core {
         asr_ms: Option<u64>,
         guard: Option<Guard>,
     ) -> Option<Value> {
-        self.process_message_stamped(spec, message, language, id, asr_ms, guard, None, None, None, None, None)
+        self.process_message_stamped(spec, message, language, id, asr_ms, guard, None, None, None, None, None, None)
     }
 
     /// Takes the settings of a message and its place in the chatbox order. `chatbox` false
@@ -627,7 +643,8 @@ impl Core {
     /// `chatbox_sequence` of `_processMessage`), then, from the microphone, its translated
     /// speech when the voice settings let microphone finals speak (`mic_snapshot` and
     /// `speech_update`). `received_ns` is when the final arrived, on speech's clock: the flow
-    /// panel times the message from it (`speech_update.received_ns`).
+    /// panel times the message from it (`speech_update.received_ns`). `voices` spoke it; the
+    /// small log writes them above it (#447).
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn process_realtime(
         self: &Arc<Self>,
@@ -638,6 +655,7 @@ impl Core {
         admitted: Admitted,
         mic_voice: Option<MicVoice>,
         received_ns: i64,
+        voices: Voices,
         output: RunOutput<'_>,
     ) -> Option<Value> {
         self.process_message_stamped(
@@ -651,6 +669,7 @@ impl Core {
             Some(admitted),
             mic_voice.as_ref(),
             Some(received_ns),
+            Some(&voices),
             Some(output),
         )
     }
@@ -670,6 +689,7 @@ impl Core {
         admitted: Option<Admitted>,
         mic_voice: Option<&MicVoice>,
         received_ns: Option<i64>,
+        voices: Option<&Voices>,
         output: Option<RunOutput<'_>>,
     ) -> Option<Value> {
         let mic = spec.kind == "mic";
@@ -707,7 +727,7 @@ impl Core {
         }
 
         let started = Instant::now();
-        let started_ns = vrct_tts::clock::monotonic_ns();
+        let started_ns = astarot_tts::clock::monotonic_ns();
         let trace = self.io_trace_begin(spec.kind, message, id.as_deref(), started_ns, asr_ms, received_ns);
         let voice = (voice_generation, started_ns);
         let slots = snapshot.target_slots();
@@ -892,8 +912,8 @@ impl Core {
         if feature_enabled {
             // The VR overlay
             // The VR overlay area shows it unless a hook replaces it.
-            let overlay_hook = self.messages().hooks.read().unwrap().overlay.clone();
-            let overlay_hook: Hook<OverlayMessage> = overlay_hook.unwrap_or_else(|| {
+            let custom = self.messages().hooks.read().unwrap().overlay.clone();
+            let hook: Hook<OverlayMessage> = custom.clone().unwrap_or_else(|| {
                 let core = Arc::downgrade(self);
                 let current = current.clone();
                 Arc::new(move |event: &OverlayMessage| {
@@ -903,35 +923,60 @@ impl Core {
                     }
                 })
             });
-            if let Some(hook) = Some(overlay_hook).filter(|_| spec.render_overlay) {
-                let skip = snapshot.overlay_only_translated && translations.is_empty();
-                for (log, on) in [
-                    (OverlayLog::Small, spec.small_log && config.get_bool("OVERLAY_SMALL_LOG")),
-                    (OverlayLog::Large, config.get_bool("OVERLAY_LARGE_LOG")),
-                ] {
-                    if !on || skip || !current() {
-                        continue;
-                    }
-                    let event = OverlayMessage {
-                        log,
-                        kind: spec.kind,
-                        direction: spec.overlay_direction,
-                        message: (!snapshot.overlay_only_translated).then(|| message.to_string()),
-                        source_language: if snapshot.overlay_only_translated {
-                            None
-                        } else {
-                            snapshot.source_language.clone()
-                        },
-                        translations: translations.clone(),
-                        languages: language_payload(snapshot.destinations()),
-                        transliteration_message: readings_message.clone(),
-                        transliteration_translations: Value::Array(readings_translations.clone()),
-                        only_translated: snapshot.overlay_only_translated,
-                    };
-                    if hook(&event).is_err() {
-                        let output = if log == OverlayLog::Small { "overlay_small" } else { "overlay_large" };
-                        self.output_failed(output, spec, id.as_ref(), &current, &mut failures);
-                    }
+            let skip = snapshot.overlay_only_translated && translations.is_empty();
+            for (log, on) in [
+                (OverlayLog::Small, spec.small_log && config.get_bool("OVERLAY_SMALL_LOG")),
+                (OverlayLog::Large, spec.large_log && config.get_bool("OVERLAY_LARGE_LOG")),
+            ] {
+                if !on || skip || !current() {
+                    continue;
+                }
+                let event = OverlayMessage {
+                    log,
+                    kind: spec.kind,
+                    direction: spec.overlay_direction,
+                    message: (!snapshot.overlay_only_translated).then(|| message.to_string()),
+                    source_language: if snapshot.overlay_only_translated {
+                        None
+                    } else {
+                        snapshot.source_language.clone()
+                    },
+                    translations: translations.clone(),
+                    languages: language_payload(snapshot.destinations()),
+                    transliteration_message: readings_message.clone(),
+                    transliteration_translations: Value::Array(readings_translations.clone()),
+                    only_translated: snapshot.overlay_only_translated,
+                    speakers: voices.map(|v| v.speakers.clone()).unwrap_or_default(),
+                    session: voices.map(|v| v.session.clone()),
+                };
+                if spec.realtime {
+                    // A realtime final's picture is drawn on the overlay's caption thread, after its
+                    // captions, as the large log's are: a slow picture (the fonts read for the first
+                    // time take seconds on a cold PC) would otherwise keep the final here past its
+                    // expiry, and it would not be delivered (#447). It is drawn though the final was
+                    // delivered meanwhile; only the app's end stops it.
+                    let core = Arc::downgrade(self);
+                    let (custom, spec, id) = (custom.clone(), *spec, id.clone());
+                    self.draw_after_captions(Box::new(move || {
+                        let Some(core) = core.upgrade() else { return };
+                        let running = || !core.shutdown_requested();
+                        if !running() {
+                            return;
+                        }
+                        let shown = match &custom {
+                            Some(hook) => hook(&event),
+                            None => core.show_overlay_log(event.log == OverlayLog::Small, &event.for_overlay(), &running),
+                        };
+                        if shown.is_err() {
+                            let output = if event.log == OverlayLog::Small { "overlay_small" } else { "overlay_large" };
+                            core.output_failed(output, &spec, id.as_ref(), &running, &mut Vec::new());
+                        }
+                    }));
+                    continue;
+                }
+                if hook(&event).is_err() {
+                    let output = if log == OverlayLog::Small { "overlay_small" } else { "overlay_large" };
+                    self.output_failed(output, spec, id.as_ref(), &current, &mut failures);
                 }
             }
 
@@ -1018,7 +1063,7 @@ impl Core {
             detail.push_str(" publication=aborted");
         }
         let event = if aborted { Diagnosed::MessageAborted } else { Diagnosed::Message };
-        let slow_asr = asr_ms.is_some_and(|ms| ms as f64 >= vrct_transcription::diagnostics::SLOW_ASR_MS);
+        let slow_asr = asr_ms.is_some_and(|ms| ms as f64 >= astarot_transcription::diagnostics::SLOW_ASR_MS);
         self.transcription.diagnostics.record(spec.kind, event, &stages, Some(detail), slow_asr);
     }
 
@@ -1090,7 +1135,7 @@ impl Core {
             .readings
             .get_or_init(|| (self.services().transliteration)(self.config().environment()))
             .clone();
-        match vrct_translation::transliteration::convert(tokenizer.as_ref(), text, snapshot.hiragana, snapshot.romaji) {
+        match astarot_translation::transliteration::convert(tokenizer.as_ref(), text, snapshot.hiragana, snapshot.romaji) {
             Ok(readings) => Value::Array(readings),
             Err(_) => {
                 if !self.messages().no_readings_noted.swap(true, Ordering::SeqCst) {
@@ -1193,7 +1238,7 @@ impl Core {
         }
         // The receiver's stamp: a stop while this waited in the queue refuses its speech.
         let stamped = data.get("_voice_generation").and_then(Value::as_u64);
-        match self.process_message_stamped(&CHAT, text, None, Some(id_text), None, None, stamped, None, None, None, None) {
+        match self.process_message_stamped(&CHAT, text, None, Some(id_text), None, None, stamped, None, None, None, None, None) {
             Some(mut result) => {
                 // The id goes back as the UI sent it.
                 result["id"] = id.clone();
@@ -1275,6 +1320,10 @@ mod tests {
     fn the_specs_differ_where_python_said() {
         assert_eq!((CHAT.word_filter, CHAT.clipboard, CHAT.websocket_type), (false, false, "CHAT"));
         assert_eq!((OCR.chatbox, OCR.small_log, OCR.payload_source), (None, false, Some("ocr")));
+        // Realtime captions have their own rows on the large log; the game audio's finals go to
+        // the small log as its messages do (#447).
+        let logs = [SPEAKER, REALTIME_SPEAKER, MIC, REALTIME_MIC, CHAT, OCR].map(|spec| (spec.small_log, spec.large_log));
+        assert_eq!(logs, [(true, true), (true, false), (false, true), (false, false), (false, true), (false, true)]);
         assert_eq!((REALTIME_SPEAKER.chatbox, REALTIME_MIC.chatbox), (None, Some("SEND_MESSAGE_TO_VRC")));
         let readings = [SPEAKER, MIC, REALTIME_MIC].map(|spec| spec.readings_by_own_language);
         assert_eq!(readings, [false, true, false]);

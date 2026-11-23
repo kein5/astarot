@@ -17,12 +17,12 @@
 //!
 //! The core runs in this process as the application runs it, with the bundled speech.cpp of
 //! `--app-dir`. On the device route it speaks to the first output whose label contains
-//! `--output`. On the managed route (Linux) it speaks into `vrct.managed.tts`, and the virtual
-//! microphone `vrct.managed.source` is recorded with `pw-cat` to see when speech is heard there
+//! `--output`. On the managed route (Linux) it speaks into `astarot.managed.tts`, and the virtual
+//! microphone `astarot.managed.source` is recorded with `pw-cat` to see when speech is heard there
 //! and when it falls silent (`*_to_silence_ms`: the start of 2 s of silence, as the Python tool
 //! measured it; its budget for the end of the server was 100 ms at p95 and 250 ms at most).
 //! `--private-pipewire` starts its own PipeWire daemon with the managed route of
-//! `config/pipewire/90-vrct-managed.conf` and WirePlumber's policy in a temporary folder, so that
+//! `config/pipewire/90-astarot-managed.conf` and WirePlumber's policy in a temporary folder, so that
 //! the user's own graph is not touched; it needs `pipewire`, `wireplumber`, `pw-cat` and `pw-dump`.
 //! Set `VRCT_TELEMETRY=off`. The chat box is not sent to VRChat. Prints one JSON line per case;
 //! no text, audio, path or device name is printed.
@@ -31,8 +31,8 @@ use serde_json::{Value, json};
 use std::path::PathBuf;
 use std::sync::mpsc;
 use std::time::{Duration, Instant};
-use vrct_core::config::{Environment, Platform};
-use vrct_core::{Backend, Options, Sink};
+use astarot_core::config::{Environment, Platform};
+use astarot_core::{Backend, Options, Sink};
 
 const BRIEF: &str = "了解です。";
 const SHORT: &str = "こんにちは。音声の接続テストです。";
@@ -250,7 +250,7 @@ context.objects = [
     /// Starts the graph and points this process (and the helpers the core starts) at it. Call
     /// it before any other thread starts: it sets environment variables.
     fn start() -> PrivateGraph {
-        let managed = include_str!("../../../config/pipewire/90-vrct-managed.conf").trim();
+        let managed = include_str!("../../../config/pipewire/90-astarot-managed.conf").trim();
         let managed = managed.strip_prefix("context.modules = [").and_then(|m| m.strip_suffix(']')).expect("a modules fragment");
         let dir = std::env::temp_dir().join(format!("vrct-live-speech-{}", std::process::id()));
         std::fs::create_dir_all(&dir).expect("the graph folder can be made");
@@ -477,7 +477,7 @@ fn main() {
         run.gate(false);
         let route = run.route();
         println!("{}", json!({ "case": "route", "managed": route["managed"], "muted_at_start": before["observed_muted"], "ready": route["ready"] }));
-        Capture::start("vrct.managed.source")
+        Capture::start(astarot_audio_routing::graph::MANAGED_SOURCE)
     });
     let capture = capture.map(|(capture, child)| {
         std::mem::forget(child);

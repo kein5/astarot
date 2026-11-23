@@ -3,6 +3,8 @@
 // bar under the navigation keeps the dots and the name of the step being read. Each step jumps to
 // its heading. The steps come from the page's headings in its data, so the list is in the built
 // page. The slim bar takes no room in the page, so nothing moves when it appears.
+// Both opt out of the page's list styles (`rp-not-doc`): the page puts a top margin on every list
+// item but the first, which set the first step higher than the others.
 import { useLang, usePage } from '@rspress/core/runtime'
 import { type CSSProperties, useEffect, useRef, useState } from 'react'
 import styles from './StepProgress.module.css'
@@ -76,7 +78,7 @@ export default function StepProgress() {
 
   return (
     <>
-      <nav ref={full} className={styles.stepProgress} aria-label={label}>
+      <nav ref={full} className={`${styles.stepProgress} rp-not-doc`} aria-label={label}>
         <ol style={{ '--progress': progress, '--count': steps.length } as CSSProperties}>
           {steps.map((step, index) => (
             <li key={step.id} className={state(index)}>
@@ -90,7 +92,7 @@ export default function StepProgress() {
           ))}
         </ol>
       </nav>
-      <div className={styles.stepDock} style={{ top: `${top}px` }} aria-hidden="true">
+      <div className={`${styles.stepDock} rp-not-doc`} style={{ top: `${top}px` }} aria-hidden="true">
         <div className={[styles.dockBar, docked && styles.shown].filter(Boolean).join(' ')}>
           <ol>
             {steps.map((step, index) => (

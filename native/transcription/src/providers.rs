@@ -5,7 +5,7 @@
 //! `AudioTranscriber._finalizeAndTranscribe` chose it. Python's Google web speech engine is not
 //! ported: it used an unofficial endpoint with the generic key of `speech_recognition`.
 //!
-//! Requests go through the HTTP client of `vrct-translation` (no redirects, TLS with the Mozilla
+//! Requests go through the HTTP client of `astarot-translation` (no redirects, TLS with the Mozilla
 //! roots). The app gives `http::system_proxy`, which goes through the proxy of the environment or
 //! of Windows' Internet Settings as Python did (decision 15 (4)); tests give a transport that
 //! only reaches this PC. Nothing here logs or returns the audio, the text of a reply or a key.
@@ -18,7 +18,7 @@ use crate::Transcript;
 use crate::pcm;
 use serde_json::{Value, json};
 use std::time::{Duration, Instant};
-use vrct_translation::http::{HttpError, Request, Response, Timeouts, Transport};
+use astarot_translation::http::{HttpError, Request, Response, Timeouts, Transport};
 
 /// The address of the engines with a fixed one; tests point them at this PC.
 #[derive(Clone, Debug, PartialEq, Eq)]

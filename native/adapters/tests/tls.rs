@@ -5,7 +5,7 @@
 
 mod common;
 
-use vrct_adapters::tls::{listener_config, requires_tls, server_config, TlsSettingsError, MAX_PEM_BYTES};
+use astarot_adapters::tls::{listener_config, requires_tls, server_config, TlsSettingsError, MAX_PEM_BYTES};
 
 #[test]
 fn only_loopback_addresses_listen_without_tls() {

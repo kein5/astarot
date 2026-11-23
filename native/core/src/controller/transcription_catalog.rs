@@ -19,8 +19,8 @@ use crate::net_policy::validate_api_url;
 use crate::protocol::Reply;
 use serde_json::{Map, Value, json};
 use std::sync::Arc;
-use vrct_ops::downloads::Error;
-use vrct_ops::downloads::transcription_catalog::{self as catalog, TranscriptionCatalog, codes};
+use astarot_ops::downloads::Error;
+use astarot_ops::downloads::transcription_catalog::{self as catalog, TranscriptionCatalog, codes};
 
 /// The engine an entry points.
 const ENGINE: &str = "Custom_Whisper";

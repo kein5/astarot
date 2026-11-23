@@ -1,4 +1,4 @@
-# vrct-translate-onnx
+# astarot-translate-onnx
 
 ローカル翻訳（M2M100 と NLLB-200）を ONNX Runtime で動かす Rust クレートです。Python 側の CTranslate2 による翻訳（[`src-python/models/translation/translation_translator.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/translation/translation_translator.py) の `translateCTranslate2`）を置き換えます。
 
@@ -22,7 +22,7 @@
 
 ## ONNX Runtime の読み込み
 
-ライブラリの探し方と、プロセスに1つだけの環境は、`native/onnx-runtime`（`vrct-onnx-runtime`）が受け持ちます。チャットの読み取り（`native/ocr-runtime`）と声質変換のワーカー（`native/rvc-runtime`）も同じクレートを使います。探す順は次のとおりです。
+ライブラリの探し方と、プロセスに1つだけの環境は、`native/onnx-runtime`（`astarot-onnx-runtime`）が受け持ちます。チャットの読み取り（`native/ocr-runtime`）と声質変換のワーカー（`native/rvc-runtime`）も同じクレートを使います。探す順は次のとおりです。
 
 1. 環境変数 `ORT_DYLIB_PATH`
 2. 中核の `shipped_libraries.rs` が起動時に指定するライブラリ。翻訳の処理デバイスに CUDA か DirectML が選ばれていて、その版を準備済みなら設定フォルダーの `vc_runtimes/` にある GPU 版（先に読み込むライブラリと一緒に指定する）。そうでなければアプリが同梱する CPU 版（`_internal/onnxruntime`）
@@ -30,7 +30,7 @@
 
 `ort` は1つのプロセスで最初に読み込んだライブラリを使い続け、環境も1つしか作れません。翻訳とチャットの読み取りは、どちらが先に始まっても同じライブラリと環境を使います。このクレートの `runtime.rs` は読み込んだライブラリにある実行プロバイダを調べるだけです。どの実行プロバイダがあるかは、そのライブラリのビルドで決まります。`ort` の機能 `cuda`、`tensorrt`、`openvino`、`migraphx`、`webgpu`（Windows では `directml` も）は Rust 側の呼び出しを足すだけで、`load-dynamic` では何もリンクしません。`ort` の機能はアプリ全体で1つにまとまるので、このクレートの既定の機能も `load-dynamic` です。単体で `ort` の配るバイナリにリンクしたいときは `--no-default-features --features download-binaries` を使います。
 
-`vrct-translate --providers` は、読み込んだライブラリの実行プロバイダを表示します。2026-11-16 に公式の `onnxruntime-win-x64-1.31.0.zip` では `["cpu"]`、NuGet の `Microsoft.ML.OnnxRuntime.DirectML` 1.24.4 では `["cpu","directml"]` と出ることを確かめました（Windows 11、モデルなし）。
+`astarot-translate --providers` は、読み込んだライブラリの実行プロバイダを表示します。2026-11-16 に公式の `onnxruntime-win-x64-1.31.0.zip` では `["cpu"]`、NuGet の `Microsoft.ML.OnnxRuntime.DirectML` 1.24.4 では `["cpu","directml"]` と出ることを確かめました（Windows 11、モデルなし）。
 
 ## 実行プロバイダ（使う機器）
 
@@ -112,7 +112,7 @@ DirectML の int8 と int4 は 2026-11-19 から一覧に出します（`core-in
 ## 旧バックエンドの CTranslate2 と同じにしていること
 
 - 入力は 1024 トークンまでで、超えたら失敗にします（`translation_input_too_long`）。
-- 出力は 256 トークンまでです。言語トークンと終了トークンも数に含めます。終了トークンで終わらなかった訳文は失敗にします（`translation_unfinished`）。どちらもアプリが CTranslate2 で調べている条件と同じです。
+- 出力は 256 トークンまでです。言語トークンと終了トークンも数に含めます。終了トークンで終わらなかった訳文は失敗にします（`translation_unfinished`）。どちらも、以前のアプリが CTranslate2 で調べていた条件と同じです。
 - ビーム探索は CTranslate2 4.8.4 の規則に合わせました。
   - 各ステップで、ビーム数の2倍の候補を取ります。
   - 最初の自由ステップでは、2番目以降の候補に出た終了トークンを除きます。
@@ -120,10 +120,10 @@ DirectML の int8 と int4 は 2026-11-19 から一覧に出します（`core-in
   - スコアは、言語トークンと終了トークンを含めた長さで割ります。
 
   規則の説明は `src/beam.rs` の冒頭にあります。
-- トークナイザは、アプリと同じ ID とデコード結果を返します。
-  - NLLB はアプリと同じ `tokenizer.json` を使います。
+- トークナイザは、以前のアプリ（CTranslate2）と同じ ID とデコード結果を返します。
+  - NLLB は以前のアプリと同じ `tokenizer.json` を使います。
   - M2M100 は `export.py` が SentencePiece のモデルから `tokenizer.json` を作り、`vocab.json` でモデルの ID に変換します。SentencePiece が出す断片のうち 390 個はモデルの語彙になく、アプリでは `<unk>` になります。ここでも同じく `<unk>` にします。
-- CPU のスレッド数は、アプリが CTranslate2 に渡している値と同じ4です。
+- CPU のスレッド数は、以前のアプリが CTranslate2 に渡していた値と同じ4です。
 
 ## ログとデータ
 

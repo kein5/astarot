@@ -141,6 +141,8 @@ type SyncHook = Box<dyn Fn(&File) -> io::Result<()> + Send + Sync>;
 pub(crate) struct TestHooks {
     pub sync: Option<SyncHook>,
     pub before_lease_close: Option<Box<dyn Fn() + Send + Sync>>,
+    /// The download's thread cannot be started, as when the system has no thread left to give.
+    pub thread_unavailable: bool,
 }
 
 struct Inner {
@@ -324,25 +326,60 @@ impl Downloads {
         }
         let job = Job { job_id: uuid::Uuid::new_v4().simple().to_string(), phase: "queued", received_bytes: 0, total_bytes: entry.total_bytes(), paths: Vec::new(), error_code: None };
         let job_id = job.job_id.clone();
-        match state.job(&entry.id) {
-            Some(slot) => *slot = job,
-            None => state.jobs.push((entry.id.clone(), job)),
-        }
+        let id = entry.id.clone();
+        // What the new job replaces, put back if its thread cannot be started.
+        let replaced = match state.job(&id) {
+            Some(slot) => Some(std::mem::replace(slot, job)),
+            None => {
+                state.jobs.push((id.clone(), job));
+                None
+            }
+        };
         let cancel = Arc::new(AtomicBool::new(false));
-        *self.inner.cancel.lock().unwrap() = Some(cancel.clone());
-        let previous = state.worker.take();
+        let replaced_cancel = self.inner.cancel.lock().unwrap().replace(cancel.clone());
+        // The new worker joins the previous one first. It stays here until the new one has
+        // started, so that a start that fails keeps it.
+        let previous = Arc::new(Mutex::new(state.worker.take()));
+        let handed = previous.clone();
         let done = Arc::new(Flag::default());
         let inner = self.inner.clone();
         let finished = done.clone();
-        let handle = thread::Builder::new()
-            .name("model-download".into())
-            .spawn(move || {
-                inner.run(entry, job_id, cancel, previous);
-                finished.set();
-            })
-            .map_err(Error::Io)?;
-        state.worker = Some(Worker { handle, done });
-        Ok(state.to_json())
+        let started = self.spawn_worker(move || {
+            let previous = handed.lock().unwrap().take();
+            inner.run(entry, job_id, cancel, previous);
+            finished.set();
+        });
+        match started {
+            Ok(handle) => {
+                state.worker = Some(Worker { handle, done });
+                Ok(state.to_json())
+            }
+            Err(error) => {
+                // Nothing runs: the entry, the worker and the cancel flag are put back as they
+                // were, so that the entry is not left "queued" for good and can be asked for
+                // again.
+                state.worker = previous.lock().unwrap().take();
+                match replaced {
+                    Some(earlier) => {
+                        if let Some(slot) = state.job(&id) {
+                            *slot = earlier;
+                        }
+                    }
+                    None => state.jobs.retain(|(key, _)| *key != id),
+                }
+                *self.inner.cancel.lock().unwrap() = replaced_cancel;
+                Err(Error::Io(error))
+            }
+        }
+    }
+
+    /// Starts the download's thread.
+    fn spawn_worker(&self, work: impl FnOnce() + Send + 'static) -> io::Result<JoinHandle<()>> {
+        #[cfg(test)]
+        if self.inner.hooks.lock().unwrap().thread_unavailable {
+            return Err(io::Error::other("no thread"));
+        }
+        thread::Builder::new().name("model-download".into()).spawn(work)
     }
 
     /// Cancels the job if it is still active. A job id that is not the entry's current one:

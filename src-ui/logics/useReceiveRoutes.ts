@@ -183,6 +183,7 @@ export const STATIC_ROUTE_META_LIST: readonly RouteMeta[] = [
     { endpoint: "/get/data/voice_route", ns: voice, hook_name: "useVoice", method_name: "updateRoute" },
     { endpoint: "/run/mute_voice", ns: voice, hook_name: "useVoice", method_name: "updateRoute" },
     { endpoint: "/run/resume_voice", ns: voice, hook_name: "useVoice", method_name: "updateRoute" },
+    { endpoint: "/set/disable/managed_route_rename_notice", ns: voice, hook_name: "useVoice", method_name: "updateRoute" },
     { endpoint: "/get/data/direct_voice_sources", ns: voice, hook_name: "useVoice", method_name: "updateDirectSources" },
     { endpoint: "/set/data/direct_voice_settings", ns: voice, hook_name: "useVoice", method_name: "updateDirectState" },
     { endpoint: "/get/data/direct_voice_state", ns: voice, hook_name: "useVoice", method_name: "updateDirectState" },

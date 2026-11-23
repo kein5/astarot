@@ -3,14 +3,18 @@ date: 2026-11-20
 status: accepted
 era: rust-core
 validity: current
-implementation_status: pending
-implementation_checked: 2026-11-20
+implementation_status: implemented
+implementation_checked: 2026-11-23
 evidence:
   - docs/adr/adr-016-user-guide-site-on-rspress.md
   - docs/design/site-redesign/README.md
   - docs/design/site-redesign/inventory.md
   - site/package.json
   - src-ui/logics/ui_configs.ts
+  - site/rspress.config.ts
+  - tools/check_site_anchors.mjs
+  - tools/check_site_search.mjs
+  - .github/workflows/pages.yml
 ---
 # ADR-016: 利用者向けのサイトの土台を VitePress から Rspress（React）に替える
 

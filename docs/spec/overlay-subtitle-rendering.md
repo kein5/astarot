@@ -38,7 +38,12 @@ them in its large-log header, after "Receive": each voice's name if the user
 gave it one for that session, else its label, joined by `·` ("Mika·B"), cut to
 48 characters with `…` (#447, `Subtitles::set_speaker_names`). The header stays
 one row in the default font at the header size; naming a voice redraws the log
-when it shows a caption of that session. Line height grows
+when it shows a caption of that session. The small log writes the same line on
+a row of its own above the message (`Subtitles::small_log`): centred, in the
+received colour (168, 97, 180), in the default font at 60px, two thirds of its
+92px text. The row takes the top margin a message without speakers has, and the
+message moves down by the row's height. A name given while the small log shows a
+picture does not redraw it; the next picture has the name. Line height grows
 to contain actual ink, including combining marks and fallback emoji. Ruby
 tokens wider than the available line are split into grapheme-safe fragments;
 each reading wraps independently. These fragments do not claim linguistic
@@ -66,7 +71,7 @@ rasterized. The stored messages are not modified or paginated automatically.
 The final dimensions are validated before returning the image. These limits
 bound each raster, not the total process RSS or native texture-copy overhead.
 
-To bound measurement and shaping work, [`overlay_fonts.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/overlay/overlay_fonts.py) also limits each
+To bound measurement and shaping work, `native/vr-overlay/src/fonts.rs` also limits each
 input component to `MAX_TEXT_CODEPOINTS = 8192`, each grapheme to
 `MAX_CLUSTER_CODEPOINTS = 128`, and each shaped line to
 `MAX_LINE_CODEPOINTS = 512`. A prefix never retains a partial final grapheme.

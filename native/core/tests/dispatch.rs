@@ -5,8 +5,8 @@ use serde_json::{Value, json};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
-use vrct_core::dispatch::{Dispatcher, Output, Routes};
-use vrct_core::protocol::{Reply, encode_data, request_line};
+use astarot_core::dispatch::{Dispatcher, Output, Routes};
+use astarot_core::protocol::{Reply, encode_data, request_line};
 
 #[derive(Default)]
 struct Lines(Mutex<Vec<(u16, Option<String>, Value, Instant)>>);

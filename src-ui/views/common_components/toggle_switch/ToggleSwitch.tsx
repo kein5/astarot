@@ -1,6 +1,6 @@
 import type { CSSProperties, MouseEvent } from "react";
 import clsx from "clsx";
-import styles from "./ToggleSwitch.module.scss";
+import * as styles from "./ToggleSwitch.css.ts";
 
 export interface ToggleSwitchProps {
     isActive?: boolean;

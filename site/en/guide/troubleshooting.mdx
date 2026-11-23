@@ -51,7 +51,7 @@ Only one copy of ASTAROT runs. If you start it while it is running, the running 
 
 ### It says models are missing
 
-On that feature's page, download the model and press "Apply model path" (see [Model downloads](./models)). For speech and speech recognition, also press "Start server".
+On that feature's page, download the model and press "Apply model path" (see [Model downloads](./models)). With a bundled server selected, turning on speech or realtime captions starts the server too. With the microphone's input sensitivity under "Device" set to "VAD (auto)", also press "Start server" under "Models and servers" in "Speech recognition (ASR)".
 
 ### A model you brought does not work
 
@@ -63,7 +63,7 @@ For a file you point to yourself, the app checks only the minimum, such as its e
 - Check that "Window name" under Settings → "Chat reading (OCR)" matches your client's title. The default is `VRChat`.
 - On Linux, VRChat is found by its window name when it runs as an X11/XWayland window (Proton's default). When it runs as a native Wayland window, inside gamescope for example, share the window first (see [Chat reading](../features/chat-reading)).
 
-### Voice Typing Mode does not paste (Linux)
+### Voice typing mode does not paste (Linux)
 
 - It pastes into apps that run as X11/XWayland windows, such as VRChat under Proton's defaults. It cannot paste into a native Wayland window. The text is still copied to the clipboard, so you can paste it yourself.
 - On KDE, the desktop asks once whether ASTAROT may control input devices when it first pastes. Allow it.
@@ -80,7 +80,7 @@ This was a bug in the Windows builds up to 0.1.0-beta.6: the download review kep
 | OS | Location |
 |---|---|
 | Windows | `logs` in the app's folder |
-| Linux | <CopyText>\~/.config/astarot/logs</CopyText> (<CopyText>\~/.config/vrct-vox/logs</CopyText> up to 0.5.x) |
+| Linux | <CopyText>\~/.config/astarot/logs</CopyText> (<CopyText>\~/.config/vrct-vox/logs</CopyText> up to 0.5.x, and in 0.6.0 if the folder could not be moved) |
 
 ### Reporting a problem
 

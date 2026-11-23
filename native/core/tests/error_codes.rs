@@ -2,7 +2,7 @@
 //! (`docs/spec/reference/error-codes.md`), with the same category, default message, severity
 //! and need for the user to act. The UI branches on these codes.
 
-use vrct_core::errors::{self, ErrorReply};
+use astarot_core::errors::{self, ErrorReply};
 
 struct Row {
     code: String,

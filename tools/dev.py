@@ -28,7 +28,8 @@ GROUPS = {"quick": ("tooling", "node", "lint"),
 # Rust crates outside the Tauri app, each with its own Cargo.lock and tests.
 NATIVE_CRATES = ("native/app-identity", "native/speech-server", "native/ops", "native/audio-routing", "native/adapters", "native/translation",
                  "native/transcription", "native/openvr-client", "native/onnx-runtime", "native/vr-overlay", "native/voice-conversion",
-                 "native/translate-onnx", "native/tts", "native/core", "native/ocr-runtime", "native/rvc-runtime")
+                 "native/translate-onnx", "native/tts", "native/core", "native/ocr-runtime", "native/rvc-runtime",
+                 "native/talk-ai")
 # Every Cargo workspace with a lock file of its own: the Tauri app, the crates above and the
 # integration tests' host (check --scope integration builds it). cargo-deny reads them all.
 CARGO_WORKSPACES = ("src-tauri", *NATIVE_CRATES, "native/browser-core-bridge")
@@ -59,7 +60,7 @@ LINT_PATHS = [
     "tools/check_voice_distribution.py", "tools/release_candidate.py", "tools/native_acceptance.py",
     "tools/prepare_release.py", "tools/release_automation.py", "tools/changelog.py", "tools/dev.py", "tools/build_linux.py",
     "tools/check_python_lock.py", "tools/rust_licenses.py", "tools/rust_coverage.py", "tools/app_resources.py",
-    "tools/adr_catalog.py", "tools/rvc_worker_bench.py", "tools/update_channels.py", "tests/devtools",
+    "tools/adr_catalog.py", "tools/rvc_worker_bench.py", "tools/update_channels.py", "tools/mutation_changed.py", "tests/devtools",
 ]
 
 
@@ -176,9 +177,9 @@ def checks_plan(args, root):
             if scope == "ui" and "node" in selected:
                 pass
             else:
-                # vitest.config.js lists the same patterns (plus the i18n gate's own tests in
-                # tools/i18n_gate); this guard keeps a moved or renamed tree from passing as an
-                # empty run.
+                # vitest.config.js lists the same patterns (plus the i18n and writing gates' own
+                # tests in tools/i18n_gate and tools/writing_gate); this guard keeps a moved or
+                # renamed tree from passing as an empty run.
                 if not any(p for pattern in ("*.test.js", "*.test.mjs", "*.test.ts")
                            for p in (root / "src-ui").rglob(pattern)):
                     raise DevError("No UI tests found under src-ui; refusing an empty check.")
@@ -191,6 +192,10 @@ def checks_plan(args, root):
                 # and no new text is written straight into the UI.
                 steps.append(Step("i18n gate", ["node", "--disable-warning=ExperimentalWarning",
                     "tools/i18n_gate/check.mjs"]))
+                # The rules of docs/writing/ that a pattern can check, in every document git
+                # tracks; the findings already there are in tools/writing_gate/baseline.json.
+                steps.append(Step("writing gate", ["node", "--disable-warning=ExperimentalWarning",
+                    "tools/writing_gate/check.mjs"]))
             if scope == "ui":
                 # Biome (biome.json, pinned in mise.toml): its lint rules, then the format of the
                 # files its formatter covers. Both only read; `biome format --write` formats.

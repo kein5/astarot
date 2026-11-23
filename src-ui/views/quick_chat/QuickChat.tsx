@@ -3,7 +3,7 @@ import { useI18n } from '@useI18n';
 import { quickChatBridge } from '../../logics/quickChat/bridge';
 import type { QuickChatContext } from '../../logics/quickChat/bridge';
 import { CHATBOX_MAX_LENGTH, chatboxOverflowLength } from '../../logics/common/chatboxLength';
-import styles from './QuickChat.module.scss';
+import * as styles from './QuickChat.css.ts';
 
 // The bridge to the main window. A host without a resizable window leaves out growBy.
 export type QuickChatBridge = Omit<typeof quickChatBridge, 'growBy'> & Partial<Pick<typeof quickChatBridge, 'growBy'>>;

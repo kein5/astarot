@@ -73,6 +73,10 @@ export const createInitializationValidators = (settings: readonly SettingDefinit
         usage_presets: value => Array.isArray(value) && value.every(string),
         // The model catalogs' layout: only the two the catalogs know keep a saved choice.
         catalog_layout: value => value === "grid" || value === "list",
+        // The theme: a preset id and two "#rrggbb" colours (logics/theme/themes.ts); a preset the
+        // UI does not know is kept and drawn as the default.
+        theme: value => record(value) && string(value.preset) && record(value.custom)
+            && [value.custom.base, value.custom.accent].every(color => typeof color === "string" && /^#[0-9a-f]{6}$/i.test(color)),
         compute_mode: string,
         version: string,
         message_box_ratio: number,

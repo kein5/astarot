@@ -82,7 +82,7 @@ python tools/translation_onnx/publish.py catalog <フォルダ> --repo <持ち�
 cargo build --release --manifest-path native/translate-onnx/Cargo.toml
 python tools/translation_onnx/compare.py m2m100_418M \
     --onnx <出力先>/m2m100_418M-onnx-int8 \
-    --cli native/translate-onnx/target/release/vrct-translate \
+    --cli native/translate-onnx/target/release/astarot-translate \
     --out <結果>.json
 ```
 
@@ -96,7 +96,7 @@ CTranslate2 の側は、旧バックエンドが使っていた版のモデル�
 
 ```sh
 python tools/translation_onnx/regression.py \
-    --cli native/translate-onnx/target/release/vrct-translate \
+    --cli native/translate-onnx/target/release/astarot-translate \
     --before <変える前のバンドル> --after <変えた後のバンドル> --sentences 100 --out <結果>.json
 ```
 
@@ -171,7 +171,7 @@ ONNX 版のモデルの取得量を減らす方法を3つ比べました。受�
 | 層の重みを 4bit にする | 非可逆 | 506 → 374 MB（-26%） | 643 → 511 MB（-21%） | 一致は 418M で 156/800 文、600M で 97/800 文 | 不採用 |
 
 - **語彙の行列を1つにまとめる**：結果は `results/vocabulary-shared/` にあります（`regression.py` の出力）。1.2B は 1,527 → 1,265 MB、1.3B は 1,927 → 1,402 MB、3.3B は 4,429 → 3,380 MB です。3.3B も外部データのファイルが要らなくなりました。
-  - 速度は変わりません（この節の最後の表）。出力層は埋め込みの転置で、ONNX Runtime が読み込むときに定数にするので、行列積は今までどおり整数で計算します。メモリの最大使用量（`vrct-translate` で 1 文訳したときの VmHWM）は、418M で 1.38 GB から 1.12 GB に減りました。
+  - 速度は変わりません（この節の最後の表）。出力層は埋め込みの転置で、ONNX Runtime が読み込むときに定数にするので、行列積は今までどおり整数で計算します。メモリの最大使用量（`astarot-translate` で 1 文訳したときの VmHWM）は、418M で 1.38 GB から 1.12 GB に減りました。
 - **zstd -19**：モデル自体は変わりません。ただし、取得する側に展開の処理と、圧縮後のファイルのサイズと SHA-256 の固定が要ります。モデルの配布先と取得カタログを決めるときの選択肢として残します。
 - **層の重みを 4bit にする**：418M と 600M で作った一度限りの試作で、道具には入れていません。
   - 設定：エンコーダとデコーダの各層の行列積を、ONNX Runtime の `MatMulNBits`（4bit、32 個ごとのブロック、対称、accuracy level 4）にしました。出力層と埋め込みは int8 のままで、語彙の行列もまとめています。
@@ -197,7 +197,7 @@ ONNX 版のモデルの取得量を減らす方法を3つ比べました。受�
 
 NLLB の 3 つの大きさを、英→日と日→英で比べた記録です。3.3B の英語へ訳す方向（`docs/voice-stack/core-integration.md` の判断 77）を確かめ、1.3B も同じ方法で測りました。結果のファイルは `results/english-japanese/` にあります。ファイルには点数と件数と時間だけを書き、文章は書いていません。
 
-- 比べたもの：ONNX 版（int8）は `vrct-translate` で、CTranslate2 版（int8）は `compare.py` と同じ手順で訳しました。どちらも CPU の 4 スレッドです。
+- 比べたもの：ONNX 版（int8）は `astarot-translate` で、CTranslate2 版（int8）は `compare.py` と同じ手順で訳しました。どちらも CPU の 4 スレッドです。
 - ONNX 版の 600M は公開したもの（`kein5/nllb-200-distilled-600M-onnx-int8`）です。1.3B と 3.3B は、2026-11-15 に書き出したフォルダです。
 - 2026-11-15 のフォルダは、`Reshape` が `allowzero=1` のままです。同じ日に書き出した 600M と公開版の 600M では、英日と日英の 200 文すべてで出力 ID が一致しました（`export-equivalence.json`）。そのため、CPU では今の書き出しと同じ訳になると判断しました。
 - 文は WMT20 の全文（英→日 1,000 文、日→英 993 文）です。BLEU は、日本語を文字単位で、英語を 13a で区切ります。訳の失敗は、空の訳として数えます。

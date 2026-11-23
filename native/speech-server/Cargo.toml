@@ -1,11 +1,13 @@
 [package]
-name = "vrct-speech-server"
+name = "astarot-speech-server"
 version = "0.0.0"
 description = "Owns the bundled speech.cpp server processes of VRCT-VOX: start, stop, restart and liveness (codename Sargatanas)"
 edition = "2024"
 publish = false
 
 [dependencies]
+# The host's environment for the programs it starts under the AppImage (#924, item 22).
+astarot-app-identity = { path = "../app-identity" }
 serde_json = "=1.0.154"
 sha2 = "=0.10.9"
 

@@ -5,7 +5,7 @@
 //! `IVROverlay_028`, `IVRApplications_007`, `IVRRenderModels_006`), the version the Python sidecar's pyopenvr
 //! 2.12.1401 shipped. They are called by position; each position is declared with its
 //! function's name, and the tests check every one against pyopenvr's tables
-//! ([`vrct_openvr_client::fn_table!`]).
+//! ([`astarot_openvr_client::fn_table!`]).
 //!
 //! Where the library is looked for (the first that loads): `ASTAROT_OPENVR_API` (or
 //! `VRCT_OPENVR_API`), the folders the host gives, next to the executable, the Python bundle's
@@ -19,7 +19,7 @@ use crate::runtime::{
 };
 use std::ffi::{CStr, CString, c_char, c_void};
 use std::path::PathBuf;
-use vrct_openvr_client::FnTable;
+use astarot_openvr_client::FnTable;
 
 /// `k_unMaxApplicationKeyLength`.
 const MAX_APPLICATION_KEY: usize = 128;
@@ -47,7 +47,7 @@ const WORN_LEVELS: [i32; 3] = [-1, 1, 2];
 // function there in pyopenvr. The tests below check every one: a wrong position calls another
 // function without any error (#610).
 mod system {
-    vrct_openvr_client::fn_table! {
+    astarot_openvr_client::fn_table! {
         pub TABLE = "IVRSystem_023";
         DEVICE_TO_ABSOLUTE_TRACKING_POSE = 11 => "getDeviceToAbsoluteTrackingPose",
         ACTIVITY_LEVEL = 15 => "getTrackedDeviceActivityLevel",
@@ -59,13 +59,13 @@ mod system {
     }
 }
 mod render_models {
-    vrct_openvr_client::fn_table! {
+    astarot_openvr_client::fn_table! {
         pub TABLE = "IVRRenderModels_006";
         COMPONENT_STATE = 14 => "getComponentState",
     }
 }
 mod overlay {
-    vrct_openvr_client::fn_table! {
+    astarot_openvr_client::fn_table! {
         pub TABLE = "IVROverlay_028";
         CREATE = 1 => "createOverlay",
         DESTROY = 3 => "destroyOverlay",
@@ -84,7 +84,7 @@ mod overlay {
     }
 }
 mod applications {
-    vrct_openvr_client::fn_table! {
+    astarot_openvr_client::fn_table! {
         pub TABLE = "IVRApplications_007";
         KEY_BY_PROCESS_ID = 5 => "getApplicationKeyByProcessId",
         PROPERTY_STRING = 14 => "getApplicationPropertyString",
@@ -165,7 +165,7 @@ fn matrix(pose: &Mat34) -> Matrix34 {
 
 /// The real SteamVR.
 ///
-/// The connection is the process's one ([`vrct_openvr_client`]): the OCR capture holds it too,
+/// The connection is the process's one ([`astarot_openvr_client`]): the OCR capture holds it too,
 /// and closing the overlay's session leaves the OCR's connected.
 pub struct OpenVr {
     folders: Vec<PathBuf>,
@@ -184,7 +184,7 @@ impl OpenVr {
             ("libopenvr_api.so", "libopenvr_api_64.so")
         };
         let mut out = Vec::new();
-        if let Some(path) = app_identity::env::OPENVR_API.value_os() {
+        if let Some(path) = astarot_app_identity::env::OPENVR_API.value_os() {
             out.push(PathBuf::from(path));
         }
         for folder in &self.folders {
@@ -205,7 +205,7 @@ impl Vr for OpenVr {
     }
 
     fn connect(&self) -> Result<Box<dyn Session>, VrError> {
-        let lease = vrct_openvr_client::acquire(&self.candidates()).map_err(|error| VrError(error.to_string()))?;
+        let lease = astarot_openvr_client::acquire(&self.candidates()).map_err(|error| VrError(error.to_string()))?;
         let table = |wanted: &FnTable| -> Result<*const *const c_void, VrError> {
             let name = format!("FnTable:{}", wanted.interface);
             lease.interface(&name).map_err(|error| VrError(format!("interface {name} error {error}")))
@@ -231,7 +231,7 @@ struct OpenVrSession {
     /// The page's texture and the resize frame's ([`TextureSlot`]).
     textures: [Option<d3d::SharedTexture>; 2],
     /// The hold on the process's connection; released after the textures (field order).
-    lease: vrct_openvr_client::Lease,
+    lease: astarot_openvr_client::Lease,
 }
 
 // The tables are used from one thread at a time, behind the engine's lock.
@@ -595,7 +595,7 @@ mod tests {
 
     /// The names of `interface`'s functions in table order, from pyopenvr 2.12.1401.
     fn reference(interface: &str) -> Vec<String> {
-        let tables: serde_json::Value = serde_json::from_str(vrct_openvr_client::REFERENCE_FN_TABLES).unwrap();
+        let tables: serde_json::Value = serde_json::from_str(astarot_openvr_client::REFERENCE_FN_TABLES).unwrap();
         let names = tables["tables"][interface]
             .as_array()
             .unwrap_or_else(|| panic!("no {interface} in the reference: add it to native/openvr-client/reference/dump_reference.py"));

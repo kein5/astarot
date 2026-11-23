@@ -8,8 +8,8 @@ use std::net::Ipv4Addr;
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
 
-use vrct_adapters::osc::mdns::{Mdns, ServiceSpec};
-use vrct_adapters::osc::query::OSCJSON_TYPE;
+use astarot_adapters::osc::mdns::{Mdns, ServiceSpec};
+use astarot_adapters::osc::query::OSCJSON_TYPE;
 
 fn python() -> Option<String> {
     std::env::var("ASTAROT_ZEROCONF_PYTHON").ok().filter(|p| !p.is_empty())

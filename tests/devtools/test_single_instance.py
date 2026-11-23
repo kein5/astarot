@@ -21,7 +21,7 @@ class SingleInstanceTests(unittest.TestCase):
         self.assertLess(source.index("tauri_plugin_single_instance::init"), source.index(".setup("))
         # ASTAROT_CONFIG_DIR, or VRCT_CONFIG_DIR (native/app-identity).
         self.assertRegex(source, r"single_instance_enabled\(\s*cfg!\(debug_assertions\),\s*"
-                         r"app_identity::env::CONFIG_DIR\.value_os\(\)\.as_deref\(\)")
+                         r"astarot_app_identity::env::CONFIG_DIR\.value_os\(\)\.as_deref\(\)")
 
     @unittest.skipUnless(shutil.which("rustc"), "requires rustc for the startup policy unit tests")
     def test_rust_single_instance_policy(self):

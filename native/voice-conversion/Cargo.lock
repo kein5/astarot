@@ -9,8 +9,55 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "320119579fcad9c21884f5c4861d16174d0e06250625266f50fe6898340abefa"
 
 [[package]]
-name = "app-identity"
+name = "astarot-app-identity"
 version = "0.0.0"
+
+[[package]]
+name = "astarot-audio-routing"
+version = "0.1.0"
+dependencies = [
+ "astarot-app-identity",
+ "libc",
+ "serde_json",
+ "windows",
+ "windows-core",
+]
+
+[[package]]
+name = "astarot-ops"
+version = "0.0.0"
+dependencies = [
+ "astarot-app-identity",
+ "httparse",
+ "jiff",
+ "libc",
+ "rustls",
+ "serde",
+ "serde_json",
+ "sha2",
+ "uuid",
+ "webpki-roots",
+ "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "astarot-voice-conversion"
+version = "0.1.0"
+dependencies = [
+ "astarot-app-identity",
+ "astarot-audio-routing",
+ "astarot-ops",
+ "crc32fast",
+ "flate2",
+ "libc",
+ "serde_json",
+ "sha2",
+ "tar",
+ "tempfile",
+ "uuid",
+ "windows",
+ "windows-sys 0.61.2",
+]
 
 [[package]]
 name = "bitflags"
@@ -629,51 +676,6 @@ name = "version_check"
 version = "0.9.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
-
-[[package]]
-name = "vrct-audio-routing"
-version = "0.1.0"
-dependencies = [
- "libc",
- "serde_json",
- "windows",
- "windows-core",
-]
-
-[[package]]
-name = "vrct-ops"
-version = "0.0.0"
-dependencies = [
- "app-identity",
- "httparse",
- "jiff",
- "libc",
- "rustls",
- "serde",
- "serde_json",
- "sha2",
- "uuid",
- "webpki-roots",
- "windows-sys 0.61.2",
-]
-
-[[package]]
-name = "vrct-voice-conversion"
-version = "0.1.0"
-dependencies = [
- "crc32fast",
- "flate2",
- "libc",
- "serde_json",
- "sha2",
- "tar",
- "tempfile",
- "uuid",
- "vrct-audio-routing",
- "vrct-ops",
- "windows",
- "windows-sys 0.61.2",
-]
 
 [[package]]
 name = "wasi"

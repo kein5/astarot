@@ -7,7 +7,10 @@ import { splitFeatureLabel } from "../../../logics/common/featureLabel.ts";
 import type { FlowEdge, FlowGraph as FlowGraphModel, FlowNode } from "../../../logics/flow/flowGraph.ts";
 import type { Translate } from "../../../logics/flow/flowText.ts";
 import type { LanguageNames } from "../../../logics/common/languageNames.ts";
-import styles from "./FlowGraph.module.scss";
+import * as styles from "./FlowGraph.css.ts";
+
+// The classes looked up by a name made at run time: a name with no class of its own gives none.
+const classNamed: Partial<Record<string, string>> = styles;
 
 const ENGINE_NAMES: Partial<Record<string, string>> = { rvc: "RVC", "seed-vc": "Seed-VC" };
 // Where each box sits: [column, first row, last row + 1] on a 5 x 6 grid.
@@ -84,7 +87,7 @@ export const FlowGraph = ({ graph, names, compact = false }: FlowGraphProps) => 
         <svg className={styles.edges} aria-hidden="true">
             <defs>
                 {["on", "off", "lit"].map(kind => <marker key={kind} id={`flow-arrow-${kind}`} viewBox="0 0 8 8" refX="7" refY="4"
-                    markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L8,4 L0,8 z" className={styles[`head_${kind}`]} /></marker>)}
+                    markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L8,4 L0,8 z" className={classNamed[`head_${kind}`]} /></marker>)}
             </defs>
             {ordered.map(row => <path key={row.id} d={row.d} className={clsx(styles.edge, styles[`lane_${row.lane}`], {
                 [styles.off]: !row.on, [styles.direct]: row.direct, [styles.lit]: row.lit })}
@@ -95,7 +98,7 @@ export const FlowGraph = ({ graph, names, compact = false }: FlowGraphProps) => 
         {graph.nodes.map(row => {
             const [column, start, end] = PLACE[row.id];
             return <div key={row.id} data-node={row.id} style={{ gridColumn: column, gridRow: `${start} / ${end}` }}
-                className={clsx(styles.node, styles[`kind_${row.kind}`], row.lane && styles[`lane_${row.lane}`], { [styles.off]: !row.on })}>
+                className={clsx(styles.node, classNamed[`kind_${row.kind}`], row.lane && styles[`lane_${row.lane}`], { [styles.off]: !row.on })}>
                 <NodeText row={row} names={names} t={t} />
             </div>;
         })}

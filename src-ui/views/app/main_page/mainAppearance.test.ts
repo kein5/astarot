@@ -32,7 +32,9 @@ const fg = /color:\s*var\((--[\w-]+)\)/;
 // MainPage is in vanilla-extract: `backgroundColor: vars.vox_canvas` is `var(--vox_canvas)`.
 const canvas = `--${token(read("MainPage.css.ts"), /backgroundColor:\s*vars\.(\w+)/)}`;
 const top = read("main_section/top_bar/right_side_components/_buttons/OpenQuickSettingButton.module.scss");
-const close = read("../others/modal_controller/ModalController.module.scss").split(".close_button {")[1];
+// The quick dialog's close button is in vanilla-extract: `vars.x` is `var(--x)`.
+const tokens = (css: string) => css.replace(/\bvars\.(\w+)/g, "var(--$1)").replace(/backgroundColor:|background:/g, "background:");
+const close = tokens(read("../others/modal_controller/ModalController.css.ts").split("export const close_button = style({")[1]).replace(/"&:(hover|active)": \{/g, "&:$1 {");
 const off = token(top.split("&.is_disabled {")[1].split("}")[0], fg);
 const messages = read("main_section/message_container/log_box/message_container/MessageContainer.module.scss").split(".category {")[1];
 const pairs = [

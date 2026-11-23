@@ -28,6 +28,22 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "940b3a0ca603d1eade50a4846a2afffd5ef57a9feac2c0e2ec2e14f9ead76000"
 
 [[package]]
+name = "astarot-app-identity"
+version = "0.0.0"
+
+[[package]]
+name = "astarot-audio-routing"
+version = "0.1.0"
+dependencies = [
+ "astarot-app-identity",
+ "libc",
+ "pipewire",
+ "serde_json",
+ "windows",
+ "windows-core",
+]
+
+[[package]]
 name = "bindgen"
 version = "0.72.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -518,17 +534,6 @@ name = "version-compare"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "03c2856837ef78f57382f06b2b8563a2f512f7185d732608fd9176cb3b8edf0e"
-
-[[package]]
-name = "vrct-audio-routing"
-version = "0.1.0"
-dependencies = [
- "libc",
- "pipewire",
- "serde_json",
- "windows",
- "windows-core",
-]
 
 [[package]]
 name = "windows"

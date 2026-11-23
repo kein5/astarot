@@ -15,11 +15,11 @@ ASTAROT（旧名VRCT-VOX）は[misyaguziya/VRCT](https://github.com/misyaguziya/
 
 ## 旧名のまま使う名前
 
-次の名前は旧名のままです。リポジトリは0.5.0のリリースのときに`kein5/astarot`へ改名しました（[リポジトリ名の変更手順](repository-rename.md)）。旧名の`kein5/VRCT-VOX`はいま、転送ページと0.5.0のリリースの複製だけを持つ別のリポジトリで、GitHubは旧名から転送しません。ほかの名前は内部識別子として扱い、表示名と一緒には変えません。0.6.0で、[ADR-014](../adr/adr-014-internal-identifier-migration.md)のとおりASTAROTの名前へ移します（ADR-011のP2）。この文書の表は、それぞれの変更が入るまで今の値を示します。配布物の名前は、インストーラーとupdaterが名前で探します。
+次の名前は旧名のままです。リポジトリは0.5.0のリリースのときに`kein5/astarot`へ改名しました（[リポジトリ名の変更手順](repository-rename.md)）。旧名の`kein5/VRCT-VOX`はいま、転送ページと0.5.0のリリースの複製だけを持つ別のリポジトリで、GitHubは旧名から転送しません。ほかの名前は内部識別子として扱い、表示名と一緒には変えません。0.6.0とその後の版で、[ADR-014](../adr/adr-014-internal-identifier-migration.md)のとおりASTAROTの名前へ順に移します（ADR-011のP2）。この文書の表は、それぞれの変更が入るまで今の値を示します。配布物の名前は、インストーラーとupdaterが名前で探します。
 
 | 対象 | 名称 |
 |---|---|
-| npm・Cargoパッケージ、本体の実行名 | `vrct-vox` |
+| 本体の実行名 | `vrct-vox`（npmとCargoのパッケージ、開発用のPythonのプロジェクト（`pyproject.toml`）は0.6.0より後の版から`astarot`。実行名は`[[bin]]`で`vrct-vox`に保つ） |
 | Pythonバックエンドの実行名（0.4まで。0.5.0の配布物には入らない） | `vrct-vox-sidecar` |
 | Linuxの配布物 | `VRCT-VOX-<version>-linux-x64-release.tar.gz`、同名の`.AppImage`、`.deb`、`.rpm`（0.4までは`linux-x64-vulkan`か`linux-x64-cpu`） |
 | Windowsの配布物 | `VRCT-VOX.zip`、`VRCT-VOX_setup.exe`。0.5.xまでは `VRCT-VOX_cuda.zip` も配布。ビルドが作るインストーラーは0.5.1から`ASTAROT_<version>_x64-setup.exe`で、リリースでは`VRCT-VOX_setup.exe`の名前で載せる |
@@ -39,8 +39,9 @@ Windowsの実行ファイルには`.exe`が付きます。
 | Linuxのキャッシュ保存先 | なし。0.4までのPythonバックエンドだけが`$XDG_CACHE_HOME/vrct-vox`（既定は`~/.cache/vrct-vox`）を使った |
 | 環境変数 | 0.6.0から`ASTAROT_*`。利用者とパッケージ作成者向けの4つ（`ASTAROT_CONFIG_DIR`、`ASTAROT_DATA_DIR`、`ASTAROT_TELEMETRY`、`ASTAROT_OPENVR_API`）は先に読み、なければ0.5.xの`VRCT_*`の名前を読む。旧名は0.6.xの間読む。`ASTAROT_TELEMETRY`と`VRCT_TELEMETRY`は、どちらかが`off`なら送信を止める。開発、試験、ビルド、プロセスの受け渡しの変数（`ASTAROT_VR_PANEL_DIR`、`ASTAROT_LINUX_BUNDLE`、`ASTAROT_TEST_*`など）は、旧名を読まない。`VRCT_CACHE_DIR`などは0.4までのPythonバックエンドだけが読んだ |
 | Windowsのインストール先を記録するキー | `VRCT-VOX` |
-| 音声経路と仮想マイク | `vrct.managed.*`ノード、`vrct-managed-*.service`、所有者識別子`vrct-vox-service-v1` |
+| Linuxの音声経路と仮想マイク | 0.6.0の次の版から`astarot.managed.*`ノード（仮想マイクの説明は`ASTAROT Managed Virtual Microphone`）、`astarot-managed-*.service`、所有者識別子`astarot-service-v1`、手で置く設定`90-astarot-managed.conf`、一時のストリーム`astarot.source-bridge.*`と`astarot.asr.capture.*`。0.6.0までの`vrct-managed-*.service`は、名前、所有者識別子、中身がどれも中核の書いたものと一致するときだけ止めて消し、新しい名前で作り直す。旧名の接頭辞のノードとストリームは入力の候補から外し、旧名の手で置いた設定（`90-vrct-managed.conf`）を見つけたら自動で作らない。旧名を読むのは新しい名前を出した版の系列の間（`native/app-identity`の`audio_route::READS_LEGACY_NAMES`）。旧のユニットの片付けは期限なしに続ける（`audio_route::RETIRES_LEGACY_UNITS`）（[音声経路の名前の移行](../spec/data-and-persistence.md#linuxの音声経路の名前の移行)） |
 | モデル取得の所有マーカー | 0.6.0から`ASTAROT-model-download-v1`を書く。0.5.xが書いた`VRCT-VOX-model-download-v1`も0.6.xの間は受け付ける。0.5.xは自分の値しか読まないので、0.5.xに戻すと0.6.0が残した取得の途中のフォルダーは片付けずに残す |
+| APIキー（OSの資格情報ストア） | 0.6.0より後の版から、Windowsは`ASTAROT/<ID>/<項目の名前>`、Linuxは属性`application=astarot`と`astarot-store=<ID>`、ラベル`ASTAROT <項目の名前>`。0.6.0が`VRCT-VOX`の名前で保存したキーは、起動の時に新しい名前へ写して読み戻す。0.6.0の名前で探すのは0.6.xの間。0.6.0の名前の項目は残し、キーを変えても書き換えず、キーを消したときは両方から消す（[APIキーの保存先](../spec/data-and-persistence.md#apiキーの保存先)） |
 | Linuxビルド作業領域の所有マーカー | `VRCT-VOX Linux staging v1` |
 | Waylandのショートカット登録 | portalのアプリID`io.github.kein5.vrct-vox`、`~/.local/share/applications/io.github.kein5.vrct-vox.desktop` |
 
@@ -63,7 +64,7 @@ WindowsのNSISテンプレートは上記のレジストリキーから前回の
 | Aglasis | `native/browser-core-bridge` | **試験のホスト**。結合テスト（`tests/integration/`、ADR-017）で、ブラウザに出した画面と中核をつなぐ。試験の道具で、アプリと配布物には入らない。アプリの中の配送（Scirlinの候補）とは別のもの |
 | Sergulath | [kein5/sergulath](https://github.com/kein5/sergulath) | **外部リポジトリ**で、ASTAROTのクレートではない。SteamVRのオーバーレイを使うアプリを、実機のヘッドセット（まずSteam Frame）で動かして確かめる道具一式。アプリと配布物には入らない。再帰的頭字語はSergulath's Emulation, Recording, Gauging & Unattended-Launch Automation Testing Harness |
 
-コードネームは、各クレートの`Cargo.toml`の`description`と、`lib.rs`の冒頭（実行ファイルだけのクレートは`main.rs`の冒頭）にも書いてあります。パッケージ名（`vrct-core`など）とフォルダーの名前はまだ変えていません。パッケージ名はコードの中だけの名前として、ADR-014のPR 12で、どのクレートも`astarot-`で始まる名前（`astarot-core`など）にします。コードネームはパッケージ名にせず、文書と説明だけに使います（[#797](https://github.com/kein5/astarot/pull/797)の決定）。フォルダーの名前は変えません。
+コードネームは、各クレートの`Cargo.toml`の`description`と、`lib.rs`の冒頭（実行ファイルだけのクレートは`main.rs`の冒頭）にも書いてあります。パッケージ名は0.6.0より後の版から、どのクレートも`astarot-`で始まる名前です（`astarot-core`など。0.6.0までは`vrct-core`などで、接頭辞のない`ocr-runtime`、`rvc-runtime`、`app-identity`もあった。ADR-014のPR 12）。アプリのクレートとnpmのパッケージは`astarot`です。コードネームはパッケージ名にせず、文書と説明だけに使います（[#797](https://github.com/kein5/astarot/pull/797)の決定）。フォルダーの名前（`native/core`など）は変えていません。
 
 次の名前は、まだ付けていません。
 

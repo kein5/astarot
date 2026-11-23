@@ -21,7 +21,7 @@ NATIVE = ROOT / "native"
 
 # The crate that loads the library and makes the environment, and the setter of the variable.
 SHARED = "onnx-runtime"
-SETTER = "vrct_onnx_runtime::disable_telemetry_for_process"
+SETTER = "astarot_onnx_runtime::disable_telemetry_for_process"
 # The crates that run ONNX graphs through `ort`, with the library and environment of SHARED.
 ORT_CRATES = ("ocr-runtime", "translate-onnx", "rvc-runtime")
 
@@ -44,7 +44,7 @@ def test_every_crate_using_ort_is_listed():
 @pytest.mark.parametrize("crate", ORT_CRATES)
 def test_every_crate_takes_the_environment_from_the_shared_crate(crate):
     manifest = (NATIVE / crate / "Cargo.toml").read_text(encoding="utf-8")
-    assert re.search(r'^vrct-onnx-runtime\s*=\s*\{\s*path\s*=\s*"\.\./onnx-runtime"', manifest, re.M), crate
+    assert re.search(r'^astarot-onnx-runtime\s*=\s*\{\s*path\s*=\s*"\.\./onnx-runtime"', manifest, re.M), crate
     for path in _sources(crate):
         text = path.read_text(encoding="utf-8")
         assert not re.search(r"ort::init(?:_from)?\(|\.with_telemetry\(|EnvironmentBuilder", text), f"{path.relative_to(ROOT)} makes an environment of its own"
@@ -86,6 +86,6 @@ def test_the_setter_sets_the_variable_onnx_runtime_reads():
 def test_the_app_sets_the_variable_before_anything_starts():
     text = (ROOT / "src-tauri" / "src" / "lib.rs").read_text(encoding="utf-8")
     first_statement = _first_statement(text, "pub fn run()")
-    assert "vrct_core::shipped_libraries::disable_onnx_runtime_telemetry" in first_statement
+    assert "astarot_core::shipped_libraries::disable_onnx_runtime_telemetry" in first_statement
     core = (NATIVE / "core" / "src" / "shipped_libraries.rs").read_text(encoding="utf-8")
     assert SETTER in core

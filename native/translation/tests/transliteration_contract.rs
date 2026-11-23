@@ -8,8 +8,8 @@
 //! morphemes; without it that part does nothing.
 
 use serde_json::Value;
-use vrct_translation::transliteration::sudachi::Sudachi;
-use vrct_translation::transliteration::{analyze, katakana_to_hepburn, Morpheme, Reading, Tokenizer, Unavailable};
+use astarot_translation::transliteration::sudachi::Sudachi;
+use astarot_translation::transliteration::{analyze, katakana_to_hepburn, Morpheme, Reading, Tokenizer, Unavailable};
 
 const CONTRACT: &str = include_str!("contract/transliteration.json");
 

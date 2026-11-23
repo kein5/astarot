@@ -2,7 +2,7 @@
 
 利用者向けの[対応環境と検証の範囲](../../site/ja/guide/support.md)（英語は[Platform support](../../site/en/guide/support.md)）の根拠にした記録の一覧です。マトリクスのどの欄もこの一覧のどれかの記録に基づきます。記録がない欄は「未検証」と書きます。
 
-作成日は 2026-11-18 です。対象の版は 0.5.2 で、2026-11-21 に更新しました。
+作成日は 2026-11-18 です。対象の版は 0.6.0 で、2026-11-22 に更新しました。
 
 ## 言葉の決まり
 
@@ -25,14 +25,25 @@
 |---|---|---|---|
 | `voice-tests.yml` の `headless` | `ubuntu-latest`、`windows-latest` | モデルなしの契約試験、UI の単体試験と型チェックとビルド（`check --scope voice`、`ui`）。Linux では固定した版の PipeWire を隔離した場所に作って、音声の補助プログラムを試す | 画面、実際の音声機器、モデル |
 | `voice-tests.yml` の `core-integration` | `ubuntu-latest`、`windows-latest` | 中核（`native/core`）、OpenVR、VR オーバーレイ、音声認識、声質変換のクレートの試験。VR は偽の SteamVR（`FakeVr`）を使う | モデル、機器、ネットワーク、実際の SteamVR |
+| `voice-tests.yml` の `crates` | `ubuntu-latest`、`windows-latest` | ほかのジョブが試さないクレートの試験。取得と運用（`ops`）、音声のサーバーの管理、OSC と OBS のアダプター、チャット読み取りの OCR、RVC の実行環境 | モデル、機器、実際の VRChat |
+| `voice-tests.yml` の `integration` | `ubuntu-latest`、`windows-latest` | アプリの画面を Chromium と WebKit で操作し、本物の中核につなぐ結合テスト（`tests/integration`）。翻訳、OSC の受け手、音声のサーバーは代わりの部品を使う | アプリの窓（WebView2、WebKitGTK）、実際の音声機器、モデル、VRChat |
 | `build-linux.yml` | `ubuntu-24.04` | tar.gz、AppImage、deb、rpm を作る。tar.gz を読み取り専用の場所に置いて起動する試験と、AppImage を展開方式で起動する試験を Xvfb（X11）で行う。起動、描画、設定画面の操作、終了まで。deb と rpm は Ubuntu 24.04、Debian 13、Fedora 44 のコンテナに入れて、ライブラリがそろうこと、同梱の音声エンジンが起動すること、削除で残らないことを確かめる | FUSE での起動、Wayland、実際の音声、モデル、VRChat。deb と rpm の画面 |
 | `release.yml` | `windows-latest` | ZIP（`VRCT-VOX.zip`）と NSIS のインストーラーを作り、配布してはいけないファイル、容量、SHA-256、組み込んだハッシュを確かめる | アプリの起動、画面、音声 |
 | `windows-package.yml` | `windows-latest` | `_internal` に入るファイルがそろっていること | アプリの起動 |
 | `installer-update-tests.yml` | `windows-latest` | 実際の NSIS のインストーラーで、軽いダミーの中身を使った新規インストール、更新、巻き戻し、中断からの復旧、表示名の変更 | 実際の配布物の中身、アプリの起動 |
 
-`build-linux.yml`、`windows-package.yml`、`installer-update-tests.yml` は、関係するファイルを変えた PR と手動の実行でだけ動きます。`release.yml` は main 宛ての PR と手動の実行で動きます。Windows のアプリの画面を開く CI はありません。
+`build-linux.yml`、`windows-package.yml`、`installer-update-tests.yml` は、関係するファイルを変えた PR と手動の実行でだけ動きます。`release.yml` は main 宛ての PR と手動の実行で動きます。Windows でアプリの窓（WebView2）を開く CI はありません。画面はブラウザーで開く結合テスト（`integration`）だけです。
 
 ## 実機の記録
+
+### 0.6 系
+
+| 記録 | 版 | OS と形式 | 確かめたこと | 確かめなかったこと |
+|---|---|---|---|---|
+| [0.6.0 のリリースノート](https://github.com/kein5/astarot/releases/tag/v0.6.0)の「既知の問題」 | 0.6.0（公開前） | Windows の実機。OS の版と配布形式は記録なし | 公開の前に、Windows の実機、実物の SteamVR、実物の VRChat で確かめた。字幕のオーバーレイが実物の SteamVR につながって字幕を描くこと（オーバーレイの中身を読み取って確認）。初期設定で読み上げのモデルだけを選んで取得まで通ること。「読み上げを停止」が、止めるものがないときに押せない見た目になること | ノートの「既知の問題」に挙げたこと。ヘッドセットの中での見た目、初期設定での翻訳のモデルの取得、Linux のフォルダーの移動、Linux の実機など |
+| [Issue #442 のコメント](https://github.com/kein5/astarot/issues/442#issuecomment-7071922969) | 0.6.0-beta.1 | Windows。OS の版と配布形式は記録なし | 実物の VRChat と使い、Windows のファイアウォールの確認が出ないこと | ほかの機能 |
+
+0.6.0 の実機の記録には OS の版と配布形式が残っていないので、マトリクスの実機の欄はまだ変えていません（下の「マトリクスを更新するとき」）。マトリクスの冒頭の版と日付は、実機の欄を変えないときも公開した版にします（PR #772 の判断 3）。0.6.0 の Linux の配布物は実機で確かめていません。
 
 ### 0.5 系
 

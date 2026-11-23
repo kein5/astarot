@@ -124,7 +124,7 @@
 言語名と国・地域名の表示・検索:
 
 - メイン画面、設定、VRパネルの表示名とアクセシブル名は、現在のi18nextのUI言語を指定した`Intl.DisplayNames`で求める。言語のタグは`Intl.Locale`で言語・文字体系・地域に分ける。文字体系を残して中国語の簡体字・繁体字を区別する。UI言語を切り替えたら表示も更新する。
-- タグの正本は`transcription_lang`の`Google`列。`python tools/language_codes.py --write`がUI用の`src-ui/logics/common/languageCodes.ts`を生成し、toolingチェックが差分を検出する。モデルの選択で候補から外れた保存済みの言語やOCRの旧設定にも、この表を使う。リアルタイムASRとUI言語の選択肢は、もともと持っている言語タグを使う。
+- タグの正本は`native/core/data/transcription_languages.json`の`Google`列。`python tools/language_codes.py --write`がUI用の`src-ui/logics/common/languageCodes.ts`を生成し、toolingチェックが差分を検出する。モデルの選択で候補から外れた保存済みの言語やOCRの旧設定にも、この表を使う。リアルタイムASRとUI言語の選択肢は、もともと持っている言語タグを使う。
 - タグがない、タグが不正、またはプラットフォームが表示名を返せない場合は元の英語名に戻す。言語と地域のフォールバックは独立している。
 - メインとVRの言語一覧は`Intl.Collator`で表示名順に並べる。検索はUI言語と英語の言語名・地域名を対象にし、大文字小文字と全角・半角を区別しない。Enterで表示中の先頭候補を選ぶが、IMEの変換確定中は選ばない。VRでは先頭候補が選択済み・利用不可なら変更しない。
 - VRの言語一覧は2列を保ち、検索前の候補が50件以上なら画面周辺の行だけを描画する。選択済みの候補は一覧を開いたときに表示し、検索すると先頭へ戻す。画面外の候補にも頭文字のボタンやTabで移動でき、処理中や利用不可の候補は従来どおり選べない。並べ替えは候補かUI言語が変わったときだけ行い、検索ではその結果を絞り込む。
@@ -160,25 +160,34 @@
 - 非活性のスイッチは押しても何もしない。アイコンだけの細い表示でないときは、各機能の左のアイコンをボタンにし、スイッチとは別の要素として並べる。アイコンのボタンは前提が足りないときは用意する場所を開き、足りているときはその機能の設定を開く。翻訳は選んでいるモデルを取得できるときは取得の確認画面を、それ以外は翻訳エンジンの一覧を開く。マイク入力と聞き取りは「音声認識（ASR）」、ほかは同じ名前の設定のページを開く。ボタンの名前とツールチップには行き先を書く。前提の判定が届いても行の構成と大きさは変えず、スイッチの下にボタンを足さない。ここからは取得もオンもしない。オンのスイッチやオンに切り替えている途中のスイッチは、前提がなくなっても非活性にしない。オフにできるようにするためである。前提がなくなったことは、これまでどおりスイッチのエラーと案内で知らせる。ホットキーからの操作は、この判定を通さない。
 - 判定はメイン画面で1回だけ行い、結果を`SwitchBlocks`のatomに置く（`SwitchBlocksController`）。中身はスイッチごとの理由と行き先の識別子だけで、利用者のデータは入らない。メイン画面のスイッチとVRパネルのランチャーは、どちらもこのatomを読む。オンのスイッチと切り替え中のスイッチを除く規則も共通（`activeSwitchBlock`）。
 - VRパネルのランチャーの4つのボタン（翻訳、マイク入力、聞き取り、チャット読み取り）も、同じ条件で非活性にする。ボタンは灰色にして注意の印を付け、押しても何もしない。理由と、PCの設定のどこで用意するかは、ボタンの吹き出しに出す。VRには理由を読める場所がほかにないので、この吹き出しは操作の吹き出しをOFFにしていても出す。VRからは設定のページを開かない。設定画面を開いている間のロックは、前提の不足より先に示す。前提がそろえば、再起動しなくても活性に戻る。
-- 起動時に確かめるのは、使っているエンジンだけにする（#457）。翻訳はどれかのタブで選んでいるエンジン、音声認識は選んでいるエンジンである。LM Studio、Ollama、OpenAI互換、カスタムWhisperのアドレスがループバック（`localhost`、`127.0.0.0/8`、`::1`）なら、外へ出ないので選んでいなくても確かめる。それ以外のエンジンには起動時に接続しない。キー（OpenAI互換とカスタムWhisperはURLも、PapagoはClient IDも）を保存していれば選べる状態にしておき、選んだとき（翻訳は`/set/data/selected_translation_engines`、音声認識は`/set/data/selected_transcription_engine`）か、翻訳で初めて使うときに確かめる。モデルの一覧はそのときに取る。確かめられなければ使えない状態にし、翻訳はCTranslate2に戻す。音声認識は選択を変えずに元のエンジンを返す。LAN上のLM StudioとOllamaはキーがなく、モデルの一覧がないと使えないので、選んでいなければ設定画面の接続の確認を押すまで使えない状態になる。
-- 起動時と選んだときにAPIキーを確かめ、確かめられなかったエンジンは使えない状態にする。キーは消さない。確認の失敗は、キーの拒否のほかに、オフライン、タイムアウト、429、5xxでも起きるからである。使えなくなったエンジンを選んでいた場合は、翻訳ならCTranslate2に戻し、その結果を通知で送る。音声認識のエンジンは選択を変えない（[同意と外部への送信](#同意と外部への送信)）。
-- 起動時のエンジン確認は、翻訳・音声認識それぞれの確認段階で全体を30秒まで待つ（[`controller.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/controller.py)の`_runEngineChecks`）。期限が来たら、その確認が所有する通信クライアントを閉じ、遅れて届いた結果は使わない。実行時の翻訳のタイムアウトとは別である。
-- OpenAI、OpenAI互換、Groq、Plamo、OpenRouter、Gemini、OpenAI互換ASR、Deepgram、DeepLの認証・モデル一覧取得は通信待機を3秒、SDKの再試行を0回にする。Geminiは試行回数1を指定する。設定画面からの確認は8秒後にクライアントを閉じる。起動時は上記の30秒の確認段階に所有をまとめる。Geminiのページ送りも同じ期限内で済ませ、一覧をメモリーへ移してから閉じる。期限後に新しい要求やページ取得を始めない。OSのDNS解決など、中断できない処理の完了時刻を保証する値ではない。
-- 実行時のネットワーク翻訳は、SDK・HTTPクライアント自身で待機時間を制限する。OpenAI、OpenAI互換、OpenRouter、Groq、Plamoは接続5秒・読み取り30秒・書き込み10秒・接続プール待ち5秒、OllamaとLM Studioは初回のモデル読み込みを考慮して読み取りだけ120秒とする。GeminiはSDKの秒単位の設定を使い、各通信待機を30秒にする。DeepLは接続5秒・読み取り10秒とする（[`translation_timeouts.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/translation/translation_timeouts.py)、[`translation_deepl.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/translation/translation_deepl.py)）。上流VRCTのGoogle・Bing・PapagoのWeb翻訳は、ASTAROTでは配布できないので翻訳エンジンの一覧に出さない。
-- クラウド翻訳（OpenAI、OpenAI互換、OpenRouter、Groq、Plamo、Gemini、DeepL）は、SDKが再試行できると判断した一時的なエラーを1回だけ再試行する（初回を含め最大2回）。SDK自身のエラー判定とバックオフを使い、認証拒否など再試行しないエラーの扱いも保つ。OpenAI系は`max_retries=1`、Geminiは試行回数を指定するため`max_retries=2`とする。DeepLもSDKの判定を使い、再試行を1回までに制限する。OllamaとLM Studioは再試行しない。失敗が続いた場合は、タイムアウトも他の翻訳失敗と同じCTranslate2へのフォールバックに進む。
-    - 中核はSDKを使わず、各SDKの判定とバックオフを`native/translation/src/providers/retry.rs`に写している。OpenAIのSDKの規則（408・409・429・5xxと通信の失敗、`x-should-retry`、`retry-after-ms`と`retry-after`）、DeepLのSDKの規則（429と5xxと通信の失敗）、GoogleのSDKの規則（408・429・500・502・503・504と通信の失敗）である。中核で足したGoogle Cloud TranslationとPapagoはOpenAIのSDKの規則に従う。
-    - 判定、待ち時間、バックオフが現行のPythonのクライアントと同じであることは、`native/translation/tests/contract/providers.json`の契約テストで確かめる。
-- Ollamaには非ストリーミングを明示する。タイムアウト用に呼び出しごとのスレッドを作らない。DeepLは短い制限を持つ認証用クライアントを閉じてから、専用HTTPクライアントに実行時の制限を設定する。SDK全体の既定値は変えない。
-- これらは通信待機の制限であり、翻訳全体の厳密な経過時間の上限ではない。少量ずつデータが届く場合、DNS解決、CTranslate2のロック待ち・ローカル推論までをまとめて中断する仕組みはない。プロバイダー例外にはキーや要求本文が含まれることがあるため、実行時のネットワーク翻訳の失敗ログにはエンジン名と例外クラス名だけを残す。
+- 起動時に確かめるのは、使っているエンジンだけにする（#457）。翻訳はどれかのタブで選んでいるエンジンと、外へ出ずに確かめられるエンジン（CTranslate2と、アドレスがループバックのLM Studio、Ollama、OpenAI互換）、音声認識は選んでいるエンジンと、アドレスがループバックのカスタムWhisperである。ループバックは`localhost`、`127.0.0.0/8`、`::1`。確認はエンジンごとのスレッドで並べて行う（`native/core/src/controller/translation.rs`、`transcription.rs`）。それ以外のエンジンには起動時に接続しない。キー（OpenAI互換とカスタムWhisperはURLも、PapagoはClient IDも）を保存していれば選べる状態にしておき、選んだとき（翻訳は`/set/data/selected_translation_engines`、音声認識は`/set/data/selected_transcription_engine`）か、翻訳で初めて使うときに確かめる。モデルの一覧はそのときに取る。すでに使えない状態のクラウドのエンジンは、選んだときにも確かめ直さない。LAN上のLM StudioとOllamaはキーがなく、モデルの一覧がないと使えないので、選んでいなければ設定画面の接続の確認を押すまで使えない状態になる。
+- CTranslate2は、設定に残るローカル翻訳のエンジンの名前である。中身はONNX RuntimeのM2M100とNLLB-200で（`native/translate-onnx`）、既定のモデルは`m2m100_418M-ct2-int8`の名前で選ぶ。
+- 起動時と選んだときにAPIキーを確かめ、確かめられなかったエンジンは使えない状態にする。キーは消さない。確認の失敗は、キーの拒否のほかに、オフライン、タイムアウト、429、5xxでも起きるからである。使えなくなったエンジンを選んでいたタブはCTranslate2に戻し、UIには`/run/selected_translation_engines`と`/run/translation_engines`で新しい選択と一覧を送る。確認の失敗そのものは通知しない。音声認識のエンジンは選択を変えず、そのエンジンのモデルの一覧、選んでいたモデル、Deepgramの言語を消す（`native/core/src/controller/lifecycle.rs`の`forget_failed_engine`、[同意と外部への送信](#同意と外部への送信)）。
+- 起動時のエンジン確認に、段階ごとの期限はない。翻訳の確認、続いて音声認識の確認が、それぞれすべてのスレッドが終わるまで待つ。1つの確認の長さは、下の通信の待ち時間で決まる。起動全体には180秒の期限がある（`native/core/src/backend.rs`の`STARTUP_LIMIT`）。過ぎると中核はログに記録して終了コード124で終わり、確認のあとに始めたものを止め、エンドポイントを開かない。0.4までのPythonは、確認の段階ごとに30秒で打ち切っていた（[`controller.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/controller.py)の`_runEngineChecks`）。
+- キーの確認とモデルの一覧の取得は、接続、読み取り、書き込みの待ちをそれぞれ3秒にし、再試行しない（翻訳は`native/translation/src/providers/mod.rs`の`DISCOVERY`、音声認識は`native/transcription/src/providers.rs`の`DISCOVERY`）。LM StudioとOllamaが動いているかの確認は0.2秒（`LOCAL_PROBE`）、Ollamaのモデルの一覧（`/api/tags`）は2秒（`OLLAMA_TAGS`）で待つ。Geminiのモデルの一覧は、ページ送りを含めて全体を8秒（`DISCOVERY_DEADLINE`）で打ち切る。各ページの待ちを残りの時間に縮め、期限のあとは次のページを取りに行かない。ほかの確認に全体の期限はなく、要求を2回送るOpenRouter（`/auth/key`と`/models`）とDeepgram（キーとモデル）は、それぞれ最大3秒ずつ待つ。起動時と設定画面からの確認は同じ待ち時間である。
+- 中核は各社のSDKを使わず、要求ごとに接続を開いて閉じる（`Connection: close`、`native/translation/src/http.rs`）。閉じる通信クライアントや接続プールはない。OSのDNS解決には待ちの上限がない。
+- 実行時のネットワーク翻訳の待ち時間（接続、読み取り、書き込み。読み取りは1回の読み取りごと）は次のとおり（`native/translation/src/providers/mod.rs`）。
+    - OpenAI、OpenAI互換（クラウド）、OpenRouter、Groq、Plamo: 5秒、30秒、10秒（`CLOUD_CHAT`）
+    - OllamaとLM Studio、アドレスがローカルかLANのOpenAI互換: 5秒、120秒、10秒（`LOCAL_CHAT`。初回のモデルの読み込みを待つため）
+    - Gemini: それぞれ30秒
+    - DeepL、Google Cloud Translation、Papago: 5秒、10秒、10秒（`MACHINE_TRANSLATION`）
+- 上流VRCTのGoogle・Bing・PapagoのWeb翻訳は、ASTAROTでは配布できないので翻訳エンジンの一覧に出さない（`native/core/src/languages.rs`の`RETIRED_WEB_TRANSLATORS`）。
+- クラウドの翻訳は、一時的なエラーのときに1回だけ再試行する（初回を含め最大2回。`native/translation/src/providers/mod.rs`の`Api::attempt`）。認証の拒否など再試行しないエラーは、そのまま失敗にする。OllamaとLM Studio、ローカルかLANのOpenAI互換は再試行しない。失敗が続いた場合は、タイムアウトもほかの翻訳の失敗と同じく、CTranslate2での訳し直しに進む。
+    - 判定と待ちは、0.4までのPythonが使っていた各SDKの規則を`native/translation/src/providers/retry.rs`に写したものである。OpenAIのSDKの規則（408・409・429・5xxと通信の失敗、`x-should-retry`、`retry-after-ms`と`retry-after`。サーバーの指定は120秒までなら待ち、超えれば再試行しない。指定がなければ0.375〜0.5秒）、DeepLのSDKの規則（429と5xxと通信の失敗。2回目は1回目を始めてから1秒後）、GoogleのSDKの規則（Gemini。408・429・500・502・503・504と通信の失敗。待ちは1〜2秒で、サーバーの指定は使わない）である。中核で足したGoogle Cloud TranslationとPapagoはOpenAIのSDKの規則に従う。
+    - 判定、待ち時間、バックオフが0.4までのPythonのクライアント（各SDK）と同じであることは、`native/translation/tests/contract/providers.json`の契約テストで確かめる。ローカルかLANのOpenAI互換に`LOCAL_CHAT`を使い再試行しないことだけは、意図した違いとして記録している（`local-openai-compatible`）。
+    - 温度を指定していて、チャットのプロバイダーが400を返したときは、`temperature`を外して送り直す（`native/translation/src/providers/chat.rs`）。送り直しにも再試行があるので、1つの翻訳の要求は最大3回（400に`x-should-retry: true`が付けば4回）になる。
+- Ollamaとチャットのプロバイダーには、非ストリーミング（`"stream": false`）を明示する。タイムアウトのために呼び出しごとのスレッドを作らない。翻訳の要求は呼び出したスレッドで接続し、接続と読み書きの待ちはソケットの設定で制限する。DeepLのキーの確認は`DISCOVERY`の1回の要求で、翻訳は`MACHINE_TRANSLATION`で送る。
+- これらは通信の待ちの制限であり、翻訳全体の経過時間の上限ではない。少しずつデータが届き続ける場合、DNS解決、CTranslate2のロックの待ちとローカルの推論、再試行の前の待ちは中断できない。失敗のログに残すのはエンジンの名前までで、エラーそのものは書かない（`native/core/src/controller/translation.rs`）。プロバイダーのエラーは決まったコードで、キー、URL、要求の本文を含まない。
 
-フォールバックに進むまでの待機予算は下表のとおり。各試行で接続・読み取りの待機がそれぞれ1回あると仮定し、`(接続 + 読み取り) × 試行回数 + SDKのバックオフ`で保守的に積み上げる。書き込みと接続プールの待機も各1回加えた値を併記する。DNS・通信が進み続ける場合・処理時間・CTranslate2での訳し直しは含まないため、翻訳全体の経過時間の保証ではない。
+フォールバックに進むまでの待ち時間の目安は下表のとおり。各試行で接続と読み取りの待ちがそれぞれ1回あると仮定し、`(接続 + 読み取り) × 試行回数 + 再試行の前の待ち`で保守的に積み上げる。書き込みの待ちも各1回加えた値を併記する。DNS、通信が進み続ける場合、処理の時間、`temperature`を外した送り直し、CTranslate2での訳し直し（ローカルのモデルを読み込んでいる間は、100ミリ秒おきに20回まで繰り返す）は含まないので、翻訳全体の経過時間の保証ではない。
 
-| プロバイダー | 最大試行回数とSDKのバックオフ | 接続＋読み取りの待機予算 | 書き込み・プール待ちも含めた予算 |
+| プロバイダー | 最大試行回数と再試行の前の待ち | 接続＋読み取りの待ちの目安 | 書き込みの待ちも含めた目安 |
 |---|---|---|---|
-| OpenAI、OpenAI互換、OpenRouter、Groq、Plamo | 2回。通常の初回バックオフは0.375〜0.5秒。SDKは`Retry-After`等の有効な指定を最大120秒まで優先する | 通常は`(5 + 30) × 2 + 0.5`で約70.5秒。サーバーの待機指定を含めると最大約190秒 | 通常は約100.5秒。サーバーの待機指定を含めると最大約220秒 |
-| Gemini | 2回。初回バックオフは1〜2秒。この経路では`Retry-After`を使わない | `(30 + 30) × 2 + 2`で約122秒 | 約242秒 |
-| DeepL | 2回。最初の要求開始から1秒までの残り時間を待つ（0〜1秒） | `(5 + 10) × 2 + 1`で保守的に約31秒。最初の要求が1秒以上かかれば追加の待機は0秒 | SDKには独立した書き込み・プール待ちの設定がない |
-| Ollama、LM Studio | 1回。バックオフなし | `5 + 120`で約125秒 | 約140秒 |
+| OpenAI、OpenAI互換（クラウド）、OpenRouter、Groq、Plamo | 2回。通常は0.375〜0.5秒。サーバーの`retry-after-ms`や`retry-after`の指定を120秒まで使う | 通常は`(5 + 30) × 2 + 0.5`で約70.5秒。サーバーの指定を含めると最大約190秒 | 通常は約90.5秒。サーバーの指定を含めると最大約210秒 |
+| Google Cloud Translation、Papago | 2回。待ちはOpenAIの規則と同じ | 通常は`(5 + 10) × 2 + 0.5`で約30.5秒。サーバーの指定を含めると最大約150秒 | 通常は約50.5秒。サーバーの指定を含めると最大約170秒 |
+| Gemini | 2回。1〜2秒。サーバーの指定は使わない | `(30 + 30) × 2 + 2`で約122秒 | 約182秒 |
+| DeepL | 2回。最初の要求を始めてから1秒までの残り（0〜1秒） | `(5 + 10) × 2 + 1`で約31秒。最初の要求が1秒以上かかれば待ちは0秒 | 約51秒 |
+| Ollama、LM Studio、ローカルかLANのOpenAI互換 | 1回。待ちなし | `5 + 120`で約125秒 | 約135秒 |
 
 - 翻訳に失敗したときはCTranslate2で訳し直す。空でない原文への空の訳も失敗として扱う。LLMの応答が長さの上限で切れた場合（OpenAI互換の`finish_reason: length`、OpenAI Responses APIの`incomplete_details.reason: max_output_tokens`、Geminiの`finish_reason: MAX_TOKENS`、Ollamaの`done_reason: length`）は途中の訳を捨て、空の訳と同じ処理に進む。終了理由が返らない場合は、本文の長さから打ち切りを推測しない。
 - CTranslate2では、特殊トークンを含む入力が1,024トークンを超えたら推論せず失敗として扱う。入力の自動切り詰めを無効にし、出力の生成上限は256トークンに固定する。結果に終了トークンがなければ途中の訳を捨て、既存の翻訳失敗処理に進む。終了トークンは訳文に含めない。

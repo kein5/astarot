@@ -6,17 +6,17 @@ use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
-use vrct_audio_routing::Error;
-use vrct_audio_routing::graph::OutputOption;
-use vrct_audio_routing::identity::Device;
-use vrct_audio_routing::manager::{DeviceBackend, Topology, Watch};
-use vrct_audio_routing::naming::output_identity;
-use vrct_audio_routing::platform::AudioPlatform;
-use vrct_audio_routing::report::Reporter;
-use vrct_audio_routing::router::{Output, PlaybackToken};
-use vrct_audio_routing::snapshot::{DefaultMic, Host, RawLists};
-use vrct_audio_routing::tracker::{Flow, MeterFactory, MeterSource};
-use vrct_audio_routing::virtual_mic::{CableDevices, CablePair, LevelInput, pair_cables};
+use astarot_audio_routing::Error;
+use astarot_audio_routing::graph::OutputOption;
+use astarot_audio_routing::identity::Device;
+use astarot_audio_routing::manager::{DeviceBackend, Topology, Watch};
+use astarot_audio_routing::naming::output_identity;
+use astarot_audio_routing::platform::AudioPlatform;
+use astarot_audio_routing::report::Reporter;
+use astarot_audio_routing::router::{Output, PlaybackToken};
+use astarot_audio_routing::snapshot::{DefaultMic, Host, RawLists};
+use astarot_audio_routing::tracker::{Flow, MeterFactory, MeterSource};
+use astarot_audio_routing::virtual_mic::{CableDevices, CablePair, LevelInput, pair_cables};
 
 pub const WASAPI: &str = "Windows WASAPI";
 

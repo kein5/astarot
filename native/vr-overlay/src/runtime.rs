@@ -154,6 +154,9 @@ pub mod fake {
         /// (`ASTAROT0`…, not the pointer's `ASTAROT_pointer_*` marks): connecting still works, showing
         /// a message does not.
         pub fail_pictures: bool,
+        /// How long a picture larger than the 1×1 clear takes to show on a window, as on a busy
+        /// GPU. `None`: at once.
+        pub slow_pictures: Option<std::time::Duration>,
         pub quit: bool,
         pub connects: usize,
         pub sessions_open: usize,
@@ -252,6 +255,13 @@ pub mod fake {
             self.with(|s| s.calls.iter().filter(|c| c.starts_with(&tag)).cloned().collect())
         }
 
+        /// Whether the overlays of the latest connection are built (#861). The engine makes the
+        /// five of them first and gives each its first, empty picture after: an overlay that
+        /// exists may still get that picture. Count pictures only once this holds.
+        pub fn built(&self) -> bool {
+            (0..5).all(|i| self.handle(&format!("ASTAROT{i}")).is_some_and(|handle| !self.calls_on(handle, "raw").is_empty()))
+        }
+
         /// Puts a device somewhere (index 0 is the headset); `None` loses its tracking.
         pub fn set_pose(&self, device: Device, pose: Option<Mat4>) {
             self.with(|s| {
@@ -326,11 +336,18 @@ pub mod fake {
             Ok(())
         }
         fn set_raw(&mut self, overlay: Handle, rgba: &[u8], width: u32, height: u32) -> Result<(), VrError> {
-            let mut s = self.state.lock().unwrap();
-            let window = s.created.iter().rev().find(|(_, h)| *h == overlay).is_some_and(|(key, _)| !key.contains('_'));
-            if s.fail_raw || (s.fail_pictures && window && width * height > 1) {
-                return Err(VrError("VROverlayError_RequestFailed".into()));
+            let slow = {
+                let s = self.state.lock().unwrap();
+                let window = s.created.iter().rev().find(|(_, h)| *h == overlay).is_some_and(|(key, _)| !key.contains('_'));
+                if s.fail_raw || (s.fail_pictures && window && width * height > 1) {
+                    return Err(VrError("VROverlayError_RequestFailed".into()));
+                }
+                s.slow_pictures.filter(|_| window && width * height > 1)
+            };
+            if let Some(slow) = slow {
+                std::thread::sleep(slow);
             }
+            let mut s = self.state.lock().unwrap();
             assert_eq!(rgba.len(), (width * height * 4) as usize);
             s.raw.insert(overlay, (width, height));
             s.textures.remove(&overlay);

@@ -1,9 +1,9 @@
 //! Model downloads and the hardware probe behind them ([`controller.py`]: `getModelDownload*`,
-//! `startModelDownload`, `cancelModelDownload`, `applyModelDownload`; `vrct_ops::downloads`).
+//! `startModelDownload`, `cancelModelDownload`, `applyModelDownload`; `astarot_ops::downloads`).
 //!
 //! A download starts only from the user's consent to one entry of the current catalog, and for
 //! an entry with restrictions (a non-commercial license) from their separate acknowledgement
-//! too ([`vrct_ops::downloads::Downloads::start`]); nothing here reaches the network or the disk
+//! too ([`astarot_ops::downloads::Downloads::start`]); nothing here reaches the network or the disk
 //! otherwise. Applying a finished download is a separate
 //! request that writes the verified paths into the settings, and only when the settings still
 //! hold what the user saw (`expected`) and nothing runs on that target. The failures answer
@@ -20,13 +20,13 @@ use serde_json::{Value, json};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
-use vrct_ops::downloads::catalog;
-use vrct_ops::downloads::hardware::{BinarySource, HardwareProbe};
-use vrct_ops::downloads::translation_catalog::{self, TranslationCatalog};
-use vrct_ops::downloads::transcription_catalog::{self, TranscriptionCatalog};
-use vrct_ops::downloads::user_models::{self, UserModels};
-use vrct_ops::downloads::{Downloads, Error};
-use vrct_ops::telemetry::Telemetry;
+use astarot_ops::downloads::catalog;
+use astarot_ops::downloads::hardware::{BinarySource, HardwareProbe};
+use astarot_ops::downloads::translation_catalog::{self, TranslationCatalog};
+use astarot_ops::downloads::transcription_catalog::{self, TranscriptionCatalog};
+use astarot_ops::downloads::user_models::{self, UserModels};
+use astarot_ops::downloads::{Downloads, Error};
+use astarot_ops::telemetry::Telemetry;
 
 /// The codes answered with 409: the request may pass once the state changes.
 const CONFLICTS: [&str; 6] = ["download_busy", "downloads_closed", "stale_job", "download_not_ready", "settings_changed", "model_target_busy"];
@@ -50,10 +50,10 @@ pub(crate) fn default_downloads(root: &Path) -> Result<Downloads, Error> {
 /// Vulkan build when it lists its devices on this PC, else the CPU build, so that the probe
 /// sees the devices a server can use.
 pub(crate) fn default_speech_binary(env: &Environment) -> Result<PathBuf, String> {
-    let builds = vrct_speech_server::builds::Builds::find(&super::speech::bundle_folders(env), &vrct_speech_server::bundle::pinned());
+    let builds = astarot_speech_server::builds::Builds::find(&super::speech::bundle_folders(env), &astarot_speech_server::bundle::pinned());
     builds
-        .for_listing(|binary| vrct_speech_server::devices::device_rows(binary, &None).is_some())
-        .ok_or_else(|| vrct_speech_server::codes::BUNDLE.to_string())
+        .for_listing(|binary| astarot_speech_server::devices::device_rows(binary, &None).is_some())
+        .ok_or_else(|| astarot_speech_server::codes::BUNDLE.to_string())
 }
 
 /// What the download and usage-event endpoints keep for the run.
@@ -88,7 +88,7 @@ impl Ops {
         let telemetry = (services.telemetry)();
         telemetry.set_hardware_source(Arc::new(move || {
             let binary = binary().ok();
-            Some(vrct_ops::telemetry::hardware::cached(binary.as_deref(), vrct_ops::telemetry::hardware::TIMEOUT))
+            Some(astarot_ops::telemetry::hardware::cached(binary.as_deref(), astarot_ops::telemetry::hardware::TIMEOUT))
         }));
         // Every reported error code reaches the usage events (`register_error_report_hook`);
         // the telemetry itself sends nothing until it is started, and once a day per code.
@@ -168,7 +168,7 @@ impl Core {
             let Some((profile, field)) = catalog::speech_field(target) else {
                 return Err(Error::Code("download_request_invalid"));
             };
-            let running = vrct_speech_server::settings::Profile::from_name(profile).is_ok_and(|p| self.speech_servers().is_running(p));
+            let running = astarot_speech_server::settings::Profile::from_name(profile).is_ok_and(|p| self.speech_servers().is_running(p));
             // Realtime recognition listening on the bundled server keeps its model in use.
             let recognizing = profile == "asr" && self.realtime_uses_bundled_server();
             if running || recognizing || !(self.services().model_target_idle)(profile) || !self.voice_target_idle(profile) {
@@ -234,7 +234,7 @@ impl Core {
     }
 }
 
-fn to_value(json: vrct_ops::json::Json) -> Value {
+fn to_value(json: astarot_ops::json::Json) -> Value {
     serde_json::to_value(json).expect("plain JSON converts")
 }
 
@@ -243,7 +243,7 @@ fn failure(code: &str) -> Reply {
     Reply::status(if CONFLICTS.contains(&code) { 409 } else { 400 }, json!({ "error_code": code }))
 }
 
-fn answer(result: Result<vrct_ops::json::Json, Error>, other: &str) -> Reply {
+fn answer(result: Result<astarot_ops::json::Json, Error>, other: &str) -> Reply {
     match result {
         Ok(state) => ok(to_value(state)),
         Err(Error::Code(code)) => failure(code),

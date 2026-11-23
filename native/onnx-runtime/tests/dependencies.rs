@@ -8,7 +8,7 @@
 
 use std::path::PathBuf;
 
-use vrct_onnx_runtime::{dependencies_missing, environment, library_path, use_library_with, LIBRARY_VARIABLE};
+use astarot_onnx_runtime::{dependencies_missing, environment, library_path, use_library_with, LIBRARY_VARIABLE};
 
 #[test]
 fn a_dependency_that_does_not_load_leaves_onnx_runtime_usable() {
@@ -17,7 +17,7 @@ fn a_dependency_that_does_not_load_leaves_onnx_runtime_usable() {
     };
     assert!(std::env::var_os(LIBRARY_VARIABLE).is_none_or(|value| value.is_empty()), "unset ORT_DYLIB_PATH for this test");
     // The library itself loads as a dependency (a second load is harmless); the other is missing.
-    let missing = std::env::temp_dir().join("vrct-onnx-runtime-missing").join("not_there.dll");
+    let missing = std::env::temp_dir().join("astarot-onnx-runtime-missing").join("not_there.dll");
     use_library_with(library.clone(), vec![library.clone(), missing]);
     assert_eq!(library_path(), library);
     assert_eq!(dependencies_missing(), None);

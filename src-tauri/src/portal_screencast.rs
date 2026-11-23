@@ -160,7 +160,7 @@ fn helper_candidates(executable: &Path, checkout: Option<&Path>) -> Vec<PathBuf>
     if let Some(directory) = executable.parent() {
         candidates.push(directory.join("_internal/build").join(HELPER));
         if let Some(prefix) = directory.parent() {
-            candidates.push(prefix.join("lib").join(app_identity::LINUX_PACKAGE.current()).join("_internal/build").join(HELPER));
+            candidates.push(prefix.join("lib").join(astarot_app_identity::LINUX_PACKAGE.current()).join("_internal/build").join(HELPER));
         }
     }
     if let Some(checkout) = checkout {
@@ -173,14 +173,6 @@ fn helper_path() -> Option<PathBuf> {
     let executable = std::env::current_exe().ok()?;
     let checkout = if cfg!(debug_assertions) { Path::new(env!("CARGO_MANIFEST_DIR")).parent() } else { None };
     helper_candidates(&executable, checkout).into_iter().find(|path| path.is_file())
-}
-
-/// What `LD_LIBRARY_PATH` the helper gets. Inside the AppImage the app itself runs with its bundled
-/// libraries first (`packaging/appimage/AppRun` records what the host had); the helper has to load
-/// the host's PipeWire, like the backend does. `None`: not in the AppImage, leave it alone.
-/// `Some(None)`: the host had none. `Some(Some(path))`: the host's value.
-fn host_library_path(recorded: Option<&str>, value: Option<&str>) -> Option<Option<String>> {
-    recorded.map(|recorded| (recorded == "x").then(|| value.unwrap_or_default().to_owned()))
 }
 
 fn frame_path() -> Option<PathBuf> {
@@ -236,13 +228,9 @@ impl Helper {
             .stdin(Stdio::from(remote))
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
-        let recorded = std::env::var(app_identity::env::APPIMAGE_HOST_LD_LIBRARY_PATH_SET).ok();
-        let host = std::env::var(app_identity::env::APPIMAGE_HOST_LD_LIBRARY_PATH).ok();
-        match host_library_path(recorded.as_deref(), host.as_deref()) {
-            Some(Some(path)) => { command.env("LD_LIBRARY_PATH", path); }
-            Some(None) => { command.env_remove("LD_LIBRARY_PATH"); }
-            None => {}
-        }
+        // Inside the AppImage the app runs with its bundled libraries first; the helper loads the
+        // host's PipeWire, with the rest of the host's environment (#924, item 22).
+        astarot_app_identity::appimage::restore_host_environment(&mut command);
         let mut child = command.spawn().map_err(|_| "screencast_helper_failed")?;
         let lifeline = child.stdout.take();
         let (sender, lines) = mpsc::channel();
@@ -751,18 +739,6 @@ mod tests {
         let development = helper_candidates(Path::new("/src/src-tauri/target/debug/vrct-vox"), Some(Path::new("/src")));
         assert_eq!(development.last(), Some(&PathBuf::from("/src/build/astarot-screen-capture")));
         assert_eq!(development.len(), 3);
-    }
-
-    #[test]
-    fn inside_the_appimage_the_helper_loads_the_hosts_libraries() {
-        // Not the AppImage: the environment is left as it is.
-        assert_eq!(host_library_path(None, None), None);
-        assert_eq!(host_library_path(None, Some("/ignored")), None);
-        // The host had a value before the AppImage put its own libraries first.
-        assert_eq!(host_library_path(Some("x"), Some("/opt/lib")), Some(Some("/opt/lib".into())));
-        assert_eq!(host_library_path(Some("x"), None), Some(Some(String::new())));
-        // The host had none: the helper gets none.
-        assert_eq!(host_library_path(Some(""), Some("")), Some(None));
     }
 
     #[test]

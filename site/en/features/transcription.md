@@ -6,7 +6,7 @@ route: transcription
 
 Turns your voice and other players' voices into text. The settings are under Settings → "Speech recognition (ASR)".
 
-What you and others say appears as text in the conversation log on the main screen. If the VR subtitle overlay shows multiple lines, it appears there too.
+What you and others say appears as text in the conversation log on the main screen, and in the VR subtitle overlay too. "Multiple lines" shows what you and others say while it is still being recognised; "Single line" shows only the game audio, once a sentence is final (and translated, when translation is on).
 
 ## What you need
 
@@ -40,15 +40,23 @@ The bundled server uses one recognition model for both microphone captions and g
 
    ![The "ASR + VAD" section of "Models and servers" in Settings → Speech recognition (ASR)](/screenshots/en/asr-models.webp)
 
-2. Under "Realtime captions", choose which sound to turn into text.
-   - "Microphone captions" transcribe what you say into your microphone.
-   - "Game audio captions" transcribe other players' voices as you hear them in VRChat. Choose an output device that plays only VRChat's sound. If other apps play through the same output, their sound is transcribed too.
+2. Under "Realtime captions" in "More settings" on the same page, choose which sound to turn into text, then press "Save caption settings". Save before you start captions.
+   - "Microphone captions" transcribe the microphone chosen under "Microphone input". At first it follows the system's default input.
+   - "Game audio captions" transcribe other players' voices from "Game audio output". Choose an output device that plays only VRChat's sound. If other apps play through the same output, their sound is transcribed too.
 
    ![Settings → Speech recognition (ASR)](/screenshots/en/transcription.webp)
 
-3. On the main screen, the "Mic input" switch starts and stops microphone captions, and the "Listening" switch does the same for game audio captions. If you chose the bundled server, turning a switch on also starts the server. On Windows these switches run realtime captions while "Local (speech.cpp)" is the engine chosen under "Transcription engine used for speech recognition" ([Choose the speech recognition engine](#engines)).
+3. On the main screen, the "Mic input" switch starts and stops microphone captions, and the "Listening" switch does the same for game audio captions. If you chose the bundled server, turning a switch on also starts the server (while "Start the bundled ASR server when a switch is turned on" is on, as it is at first). On Windows these switches run realtime captions while "Local (speech.cpp)" is the engine chosen under "Transcription engine used for speech recognition" ([Choose the speech recognition engine](#engines)).
 
 After a restart, captions start off.
+
+The [first setup](../guide/first-setup) screen can also choose and download the recognition model and Silero VAD.
+
+### Pauses and sensitivity
+
+"Silence that ends an utterance" under "Realtime captions" sets how long a silence must last before an utterance is settled. The default is 0.4 s (0.5 s in versions up to 0.5). A shorter silence gives results sooner, but a pause in the middle of a sentence may split it into more than one message. To keep the earlier behavior, choose "0.5 s".
+
+"Speech detection threshold" is how sure the server must be that a sound is a voice. Raise it in a noisy place and lower it for a quiet voice; by default the server decides. Changing either stops both captions, so save and start them again.
 
 ::: info Other players' words are not sent to VRChat
 What ASTAROT transcribes from game audio is never sent to your chatbox or played into your microphone.
@@ -60,7 +68,7 @@ Game audio captions can show who is speaking. ASTAROT tells the voices apart and
 
 To use it, download and apply the diarization model under "Models and servers" → "ASR + VAD". This is the model that tells speakers apart (Nemotron 3 Diarization, about 106 MB, OpenMDW-1.1). It is used from the next time the server starts. To stop using it, clear "Diarization GGUF path (optional)".
 
-- The conversation log shows "Speaker A". In the desktop caption overlay, a letter comes before the words and each person gets their own colour. The VR large log shows it after "Receive".
+- The conversation log shows "Speaker A". In the desktop caption overlay, a letter comes before the words and each person gets their own colour. In the VR subtitle overlay, "Multiple lines" shows it after "Receive" and "Single line" above the words.
 - When the same person keeps talking, the conversation log shows who it is on the first line only, so their lines read as one run.
 - Speakers are told apart by the sound of their voices, so their names are not known. People with similar voices can be taken for one person.
 - When two people speak with little pause, their words end up in one caption. It then shows both, as "Speaker A, B".
@@ -71,7 +79,7 @@ To use it, download and apply the diarization model under "Models and servers" �
 
 ### Name the speakers
 
-Press "Speaker A" in the conversation log to give that voice a name. The name shows in the conversation log, the desktop caption overlay and the VR large log.
+Press "Speaker A" in the conversation log to give that voice a name. The name shows in the conversation log, the desktop caption overlay and the VR subtitle overlay (single line and multiple lines). A single-line caption already showing is not drawn again; the next one has the name.
 
 Names last while this listening session runs and are not saved. When listening starts again, the letters are handed out again, so name the voices again too. The VR panel's conversation log cannot name voices.
 
@@ -87,7 +95,7 @@ Proper nouns such as world names and your friends' names are worth adding. The d
 
 A reading that is also an everyday word changes that word too, so choose readings that no other word shares.
 
-To add many terms, write them one per line under "Terms to add together" and press "Add all". "Copy terms" copies your terms in the same form, to move them to another PC or keep a copy. Added terms are used once you press "Save changes".
+The term dictionary is under "Realtime captions" in "More settings". Enter the "Written form" and the readings, then press "Add term". To add many terms, use "Import from a file" to read a text file; importing replaces the current dictionary with the file's content. "Export to a file" keeps the dictionary in a file, to move it to another PC or keep a copy. Changes are used once you press "Save caption settings". Your own terms and built-in terms with a changed reading can number 100 in all.
 
 ## Paste what you say into an input field
 
@@ -120,7 +128,7 @@ On Linux, "Mic input" and "Listening" always run realtime captions, whatever eng
 The Whisper that ran inside the app went away in 0.3.0. Speech is now turned into text on your PC by "Local (speech.cpp)". The cloud Whisper engines (Groq Whisper, OpenAI Whisper, Custom Whisper server) work as before.
 
 - If Whisper was your engine under "Transcription engine used for speech recognition" in 0.2 or earlier, 0.6.0 does not carry that choice over: no engine is selected. Choose one again in [First setup](../guide/first-setup) or Settings → "Speech recognition (ASR)". Versions 0.3 to 0.5 switched a Whisper choice to "Local (speech.cpp)" and showed a notice once.
-- The Whisper model type, the recognition thresholds and the processing device settings are gone.
+- The Whisper model type and the processing device settings are gone. The recognition thresholds remain under "Whisper result filtering", used by Groq Whisper, OpenAI Whisper (whisper-1) and a custom Whisper server.
 
 Whisper models downloaded by 0.2 or earlier are no longer used. From 0.6.0 the app neither counts nor removes them. To free the space, delete the `whisper` folder in `weights` inside the data folder ("Where settings and data are stored" in [Install](../guide/install)).
 

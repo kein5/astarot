@@ -1,4 +1,4 @@
-# vrct-tts
+# astarot-tts
 
 Speech synthesis for ASTAROT in Rust (issue #279): requests to a local speech.cpp
 server, one bounded speech worker, and the hand-off of streamed PCM to an output.
@@ -76,12 +76,13 @@ devices, the speech.cpp servers and the voice conversion.
 ## Tests
 
 ```sh
-cargo test --locked
-cargo clippy --all-targets -- -D warnings
-cargo fmt --check
+cargo test --locked --manifest-path native/tts/Cargo.toml
+cargo clippy --manifest-path native/tts/Cargo.toml --all-targets -- -D warnings
+cargo fmt --manifest-path native/tts/Cargo.toml --check
 ```
 
-The tests port the Python tests that exercise this module: `tests/voice/test_tts.py`,
+The tests port the Python tests that exercised this module (removed with the Python backend in
+0.6.0; see the `v0.5.2` tag): `tests/voice/test_tts.py`,
 `test_scheduler.py`, `test_spoken_scheduler.py`, `test_tts_toggle.py` (the bus and the
 health check), `test_tts_model_options.py` (the client and the bus),
 `test_tts_listener_failure.py`, `test_tts_playback_ownership.py`,

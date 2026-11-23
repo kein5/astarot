@@ -1,4 +1,4 @@
-//! A child that cannot outlive the thread that owns it (as `vrct-speech-server`'s).
+//! A child that cannot outlive the thread that owns it (as `astarot-speech-server`'s).
 //!
 //! Linux: the kernel sends the child SIGKILL when the thread that started it ends. This
 //! replaces the `vrct-vc-worker` helper the Python owner started the worker through.
@@ -17,6 +17,8 @@ pub struct Owned {
 /// Start `command` under this thread's ownership; its streams are the caller's choice.
 #[cfg_attr(not(target_os = "linux"), allow(unused_mut))]
 pub fn spawn(mut command: Command) -> io::Result<Owned> {
+    // Under the AppImage, the host's environment rather than the GUI's (#924, item 22).
+    astarot_app_identity::appimage::restore_host_environment(&mut command);
     #[cfg(target_os = "linux")]
     {
         use std::os::unix::process::CommandExt;

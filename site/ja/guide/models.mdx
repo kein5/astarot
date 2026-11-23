@@ -1,6 +1,6 @@
 # モデルの取得
 
-ASTAROTの配布物にはテキスト読み上げ・音声認識・ボイスチェンジャー・文字認識のモデルを入れていません。使うモデルは設定画面から取得するか、手元のファイルを指定します。手元のファイルの使い方は[自分のモデルを使う](./custom-models)にあります。
+ASTAROTの配布物にはテキスト読み上げ・音声認識・翻訳・ボイスチェンジャー・文字認識のモデルを入れていません。使うモデルは設定画面から取得するか、手元のファイルを指定します。手元のファイルの使い方は[自分のモデルを使う](./custom-models)にあります。
 
 ## 取得の流れ
 
@@ -8,6 +8,8 @@ ASTAROTの配布物にはテキスト読み上げ・音声認識・ボイスチ�
 2. 提供元、モデル名、正確な容量、利用条件へのリンク、保存先を確かめます。
 3. 同意のチェックを入れて「同意してダウンロード」を押します。取得中は取り消せます。
 4. 取得と確認が終わったら「モデルパスを適用」を押します。そのモデルを使うサーバーや機能は、先に止めておいてください。
+
+[初期設定](./first-setup)の画面からも、音声認識・翻訳・読み上げのモデルを機能ごとに選んで、まとめて取得できます。
 
 ![モデルの取得と利用条件を確かめる画面](/screenshots/ja/model-consent.webp)
 
@@ -39,6 +41,9 @@ ASTAROTの配布物にはテキスト読み上げ・音声認識・ボイスチ�
 | 音声認識（40言語。大きなモデル） | Nemotron 3.5 Transcribe 30B-A4B · IQ4_NL | 17.69 GiB | OpenMDW-1.1 |
 | 話している区間の検出 | Silero VAD v6.2 · F32 | 1.2 MB | MIT |
 | 話した人の見分け（任意） | Nemotron 3 Diarization · Q8_0 | 約106 MB | OpenMDW-1.1 |
+| ローカルの翻訳（既定） | M2M100 418M · int8 | 0.47 GiB | MIT |
+| ローカルの翻訳 | NLLB-200 distilled 600M · int8 | 0.60 GiB | CC-BY-NC-4.0（非商用） |
+| ローカルの翻訳 | NLLB-200 distilled 1.3B · int8 | 1.31 GiB | CC-BY-NC-4.0（非商用） |
 | ボイスチェンジャー（RVC） | Saisho Utane · RVC v2 | 0.31 GiB | CC BY 4.0（クレジット表示が必要） |
 | 文字認識 | PP-OCRv6 small（日本語・英語・中国語・ラテン文字） | 約30 MB | Apache-2.0 |
 | 文字認識 | PP-OCRv5 mobile（韓国語・キリル文字・タイ文字・アラビア文字・デーヴァナーガリー） | 各8〜14 MB | Apache-2.0 |
@@ -49,7 +54,7 @@ ASTAROTの配布物にはテキスト読み上げ・音声認識・ボイスチ�
 
 翻訳のモデルは「設定」→「翻訳」で取得します（[翻訳](../features/translation)）。一覧にはダウンロードできるモデルが並び、「取得内容を確認」を押すと、提供元・ライセンス・容量を確かめる画面が開きます。同意のチェックを入れるまで取得は始まりません。
 
-以前の版にあったWhisperのモデルは、もう取得できません。手元で動く音声認識は、上の表の音声認識のモデルとSilero VADを使います（[以前の版でWhisperを使っていた場合](../features/transcription#whisper)）。PCに残っている古いWhisperのモデルは、「設定」→「音声認識（ASR）」の「古いWhisperモデル」で削除できます。
+以前の版にあったWhisperのモデルは、もう取得できません。手元で動く音声認識は、上の表の音声認識のモデルとSilero VADを使います（[以前の版でWhisperを使っていた場合](../features/transcription#whisper)）。PCに残っている古いWhisperのモデル（`weights/whisper`）は、アプリでは消しません。空きを戻したいときは、フォルダーを手で消してください。
 
 ## GPUとメモリの目安
 
@@ -87,16 +92,17 @@ Linux（AppImage）で、声を変換して流せることと、ミュート中�
 |---|---|
 | 読み上げ、リアルタイム字幕、話した人の見分け（アプリに入っているspeech.cpp） | AMD、Intel、NVIDIA（Vulkan） |
 | ローカルの翻訳 | CUDA対応のNVIDIAのGPU。WindowsではDirectX 12対応のGPUもDirectMLで使えます。どちらも実行環境の取得が要ります |
-| ボイスチェンジャー（RVC） | CUDA対応のNVIDIAのGPU。Windowsでは0.6.0からDirectX 12対応のGPUもDirectMLで使えます。変換が間に合うPCではCPUでも動きます（[ボイスチェンジャー](../features/voice-conversion)） |
+| 翻訳のLLM（TranslateGemmaなど、自分で追加するGGUF） | AMD、Intel、NVIDIA（llama.cppのサーバーのVulkan版。サーバーの取得が要ります） |
+| ボイスチェンジャー（RVC） | CUDA対応のNVIDIAのGPU。Windowsでは0.6.0からDirectX 12対応の独立GPUもDirectMLで使えます（自動では内蔵GPUを使いません）。変換が間に合うPCではCPUでも動きます（[ボイスチェンジャー](../features/voice-conversion)） |
 | チャット読み取り | CPUで動きます |
 
 「モデルとサーバー」で推論デバイスを「自動」にすると、計算に使える独立GPUのうち、メモリが最も多いものを選びます。該当するGPUがなければCPUを使います。独立GPUは名前で指定することもできます。
 
-AMDやIntelのGPUで翻訳したいときは、[ローカルLLM](../features/translation#ローカルllmと互換サーバーを使う)を使えます。OllamaやLM StudioはAMDとIntelのGPUにも対応しています。
+AMDやIntelのGPUで翻訳したいときは、WindowsではDirectML版のONNX Runtimeを取得できます。翻訳のLLMをllama.cppのサーバーで動かすか、[ローカルLLM](../features/translation#ローカルllmと互換サーバーを使う)を使うこともできます。OllamaやLM StudioはAMDとIntelのGPUにも対応しています。
 
 ## 保存先
 
-取得したモデルは設定ファイル（`config.json`）と同じフォルダーの`downloaded_models`に保存します。Linuxでは<CopyText>\~/.config/astarot/downloaded_models</CopyText>（0.5.xまでは`vrct-vox`のフォルダーの中）、Windowsではアプリを入れたフォルダーの`downloaded_models`です。翻訳のモデルは別の場所で、Windowsではアプリのフォルダーの`weights`に、Linuxでは<CopyText>\~/.local/share/astarot</CopyText>（0.5.xまでは`vrct-vox`）の中に入ります。以前の版が取得したWhisperのモデルが残っていれば、同じ場所の`weights/whisper`にあります。
+取得したモデルは設定ファイル（`config.json`）と同じフォルダーの`downloaded_models`に保存します。Linuxでは<CopyText>\~/.config/astarot/downloaded_models</CopyText>（0.5.xまでは`vrct-vox`のフォルダーの中）、Windowsではアプリを入れたフォルダーの`downloaded_models`です。翻訳のモデルも同じ`downloaded_models`に入ります。以前の版の`weights`のフォルダー（Whisperの`weights/whisper`など）は、データのフォルダー（Windowsはアプリのフォルダー、Linuxは<CopyText>\~/.local/share/astarot</CopyText>）に残ります。
 
 ## 起動時の自動取得
 
