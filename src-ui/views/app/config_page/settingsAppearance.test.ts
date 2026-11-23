@@ -77,24 +77,28 @@ test("NLLB consent restores a native checkbox and visible keyboard focus", () =>
 
 test("available-width breakpoints stack rows at 400px/100% and 800px/200%, including fieldset padding", () => {
     const voice = read(box + "advanced_settings/VoiceSettings.module.scss");
-    const row = read(box + "_components/form_row/FormRow.module.scss");
-    const legacy = read(box + "_templates/Templates.module.scss");
-    const breakpoint = (css: string) => Number(group(/@container \(max-width: ([\d.]+)rem\)/, css));
+    const row = read(box + "_components/form_row/FormRow.css.ts");
+    const legacy = read(box + "_templates/Templates.css.ts");
+    // The container width a row stacks under: `@container (max-width: …)` in SCSS, `"(max-width: …)"` in a .css.ts.
+    const breakpoint = (css: string) => Number(group(/(?:@container |")\(max-width: ([\d.]+)rem\)/, css));
     assert.equal(breakpoint(voice), 16 + 18 + 1.6);
     assert.equal(breakpoint(row), breakpoint(voice));
     // The legacy row has no side padding, so its label starts on the heading's edge. It has the
     // form rows' columns and gap (#567), and stacks once a 16rem label and a 24rem field do not fit.
     assert.equal(breakpoint(legacy), 16 + 24 + 1.6);
-    assert.match(legacy, /grid-template-columns: minmax\(0, 1fr\) minmax\(0, 1\.6fr\)/);
-    assert.match(legacy, /\.container\s*{[^}]*padding: 2rem 0;/);
+    assert.match(legacy, /gridTemplateColumns: "minmax\(0, 1fr\) minmax\(0, 1\.6fr\)"/);
+    assert.match(styleOf(legacy, "container"), /padding: "2rem 0",/);
     assert.match(styleOf(read("setting_section/SettingSection.css.ts"), "container"), /containerType: "inline-size"/);
     assert.match(voice, /form, fieldset\s*{[^}]*container-type: inline-size/);
-    for (const css of [voice, row]) {
-        assert.match(css, /grid-template-columns: minmax\(0, 1fr\)/);
-        assert.match(css, /overflow-wrap: anywhere/);
-        assert.ok(css.includes("@media (max-width: 700px)"), "preserve DESIGN.md's narrow-window stacking");
-    }
-    assert.match(legacy, /\.container\s*{\s*grid-template-columns: minmax\(0, 1fr\); align-items: stretch/);
+    assert.match(voice, /grid-template-columns: minmax\(0, 1fr\)/);
+    assert.match(voice, /overflow-wrap: anywhere/);
+    assert.ok(voice.includes("@media (max-width: 700px)"), "preserve DESIGN.md's narrow-window stacking");
+    assert.match(row, /const stackedRow = \{ gridTemplateColumns: "minmax\(0, 1fr\)"/);
+    assert.match(styleOf(row, "row"), /overflowWrap: "anywhere"/);
+    assert.match(row, /const NARROW_WINDOW = "\(max-width: 700px\)";/, "preserve DESIGN.md's narrow-window stacking");
+    assert.match(styleOf(row, "row"), /"@media": \{ \[NARROW_WINDOW\]: stackedRow \}/);
+    assert.match(legacy, /const stacked = \{ gridTemplateColumns: "minmax\(0, 1fr\)", alignItems: "stretch" \}/);
+    assert.match(styleOf(legacy, "container"), /"@container": \{ "\(max-width: 41\.6rem\)": stacked \}/);
     for (const [width, scale] of [[400, 1], [800, 2]]) {
         const rem = 10 * scale; // root.css: 62.5% of the default 16px, then UI scale.
         const available = width - (5.6 + 2 * 1.6) * rem;
@@ -112,30 +116,30 @@ test("available-width breakpoints stack rows at 400px/100% and 800px/200%, inclu
 });
 
 test("legacy fixed-width inputs are capped by their row and can shrink beside the color swatch", () => {
-    const entry = read(box + "_components/_atoms/_entry/_Entry.module.scss");
-    assert.match(entry, /\.entry_container\s*{[^}]*min-width: 0;[^}]*max-width: 100%/);
-    assert.match(entry, /\.entry_input_area\s*{[^}]*min-width: 0/);
+    const entry = read(box + "_components/_atoms/_entry/_Entry.css.ts");
+    assert.match(styleOf(entry, "entry_container"), /minWidth: 0,\s*maxWidth: "100%"/);
+    assert.match(styleOf(entry, "entry_input_area"), /minWidth: 0/);
     for (const path of ["entry_with_save_button/EntryWithSaveButton", "auth_key/AuthKey", "color_entry_with_save_button/ColorEntryWithSaveButton"]) {
-        assert.match(read(box + "_components/" + path + ".module.scss"), /\.container\s*{[^}]*min-width: 0;[^}]*max-width: 100%;[^}]*flex-shrink: 1/);
+        assert.match(styleOf(read(box + "_components/" + path + ".css.ts"), "container"), /minWidth: 0,\s*maxWidth: "100%",\s*flexShrink: 1/, path);
     }
-    assert.match(read(box + "_components/auth_key/AuthKey.module.scss"), /\.entry_section_wrapper\s*{[^}]*max-width: 100%/);
-    assert.match(read(box + "_components/label_component/LabelComponent.module.scss"), /overflow-wrap: anywhere/);
+    assert.match(styleOf(read(box + "_components/auth_key/AuthKey.css.ts"), "entry_section_wrapper"), /maxWidth: "100%"/);
+    assert.match(read(box + "_components/label_component/LabelComponent.css.ts"), /overflowWrap: "anywhere"/);
 });
 
 test("legacy model information wraps above its action inside the padded row, including Japanese button text", () => {
     const radio = read(box + "_components/radio_button/RadioButton.module.scss");
     const column = radio.slice(radio.indexOf("&.column {"), radio.indexOf("&.has_desc:not(.column)"));
-    const download = read(box + "_components/_atoms/_download_button/_DownloadButton.module.scss");
+    const download = read(box + "_components/_atoms/_download_button/_DownloadButton.css.ts");
     assert.match(column, /width: 100%;\s*min-width: 0/);
     assert.match(column, /\.radio_button_container\s*{[^}]*flex-wrap: wrap/);
     assert.match(column, /\.radio_button_wrapper\s*{[^}]*flex: 1 1 24rem;[^}]*min-width: 0;[^}]*max-width: 100%/);
     assert.match(column, /\.label_heading_wrapper\s*{\s*flex-wrap: wrap/);
     assert.match(column, /\.radio_button_label\s*{[^}]*flex-shrink: 1;[^}]*overflow-wrap: anywhere/);
     assert.match(column, /\.radio_button_desc\s*{[^}]*overflow-wrap: anywhere/);
-    assert.match(download, /\.download_container\s*{[^}]*width: 10.4rem;[^}]*min-width: 0;[^}]*max-width: 100%/);
-    assert.match(download, /\.download_button_label\s*{[^}]*white-space: normal;[^}]*overflow-wrap: anywhere/);
+    assert.match(styleOf(download, "download_container"), /width: "10\.4rem",[\s\S]*minWidth: 0,\s*maxWidth: "100%"/);
+    assert.match(styleOf(download, "download_button_label"), /whiteSpace: "normal",\s*overflowWrap: "anywhere"/);
     const labelBasis = Number(group(/flex: 1 1 ([\d.]+)rem/, column));
-    const actionWidth = Number(group(/width: ([\d.]+)rem/, download.split(".download_container {")[1]));
+    const actionWidth = Number(group(/width: "([\d.]+)rem"/, styleOf(download, "download_container")));
     const gap = Number(group(/gap: ([\d.]+)rem/, radio.split("\n.radio_button_container {")[1]));
     assert.equal(Math.round((labelBasis + actionWidth + gap) * 10) / 10, 35.6);
     assert.ok(actionWidth >= 7 * 1.2 + 2 * .8, "取得内容を確認 and its padding fit the action");
@@ -265,8 +269,8 @@ test("the forms' primary action is Lilac: the plain class name primary is matche
 });
 
 test("a guide link reads as a link wherever it sits", () => {
-    const css = read(box + "_components/custom_model_link/CustomModelLink.module.scss");
-    assert.match(css, /a\s*{[^}]*color: var\(--primary_300_color\)[^}]*text-decoration: underline/);
+    const css = read(box + "_components/custom_model_link/CustomModelLink.css.ts");
+    assert.match(css, /globalStyle\(`\$\{container\} a`, \{ color: vars\.primary_300_color, textDecoration: "underline" \}\)/);
 });
 test("the saved chat reading language is named like the list's entries, so auto never shows raw", () => {
     const source = read(box + "ocr/Ocr.tsx");
@@ -274,34 +278,34 @@ test("the saved chat reading language is named like the list's entries, so auto 
     assert.match(source, /const label = \(id: string\) => id === "auto" \? t\("config_page\.ocr\.source_language\.auto"\)/);
 });
 test("#436: the legacy dropdown is the same field as the forms' select, so an empty one still shows", () => {
-    const legacy = read(box + "_components/_atoms/_dropdown_menu/_DropdownMenu.module.scss");
-    const field = legacy.split(".dropdown_toggle_button {")[1].split("\n}")[0];
+    const legacy = read(box + "_components/_atoms/_dropdown_menu/_DropdownMenu.css.ts");
+    const field = styleOf(legacy, "dropdown_toggle_button");
     const form = read(box + "advanced_settings/VoiceSettings.module.scss");
     assert.match(form, /input, select, textarea \{ width: 100%; min-width: 0; background: var\(--vox_surface, #18253b\); border: \.1rem solid var\(--vox_field_border, #5e6570\); \}/);
-    assert.match(field, /background-color: var\(--vox_surface, #18253b\)/);
-    assert.match(field, /border: 0\.1rem solid var\(--vox_field_border, #5e6570\)/);
-    assert.match(field, /border-radius: var\(--vox_radius, 0\.8rem\)/);
-    assert.match(field, /min-height: 4rem/, "the field keeps its height without a value");
-    assert.match(field, /&:focus-visible\s*{\s*outline: 0\.2rem solid var\(--primary_200_color\)/);
-    const list = legacy.split(".dropdown_content {")[1].split("\n}")[0];
-    assert.match(list, /background-color: var\(--vox_surface, #18253b\)/);
-    assert.match(list, /border-radius: var\(--vox_radius, 0\.8rem\)/);
+    assert.match(field, /backgroundColor: "var\(--vox_surface, #18253b\)"/);
+    assert.match(field, /border: "0\.1rem solid var\(--vox_field_border, #5e6570\)"/);
+    assert.match(field, /borderRadius: "var\(--vox_radius, 0\.8rem\)"/);
+    assert.match(field, /minHeight: "4rem"/, "the field keeps its height without a value");
+    assert.match(field, /"&:focus-visible": \{ outline: `0\.2rem solid \$\{vars\.primary_200_color\}`/);
+    const list = styleOf(legacy, "dropdown_content");
+    assert.match(list, /backgroundColor: "var\(--vox_surface, #18253b\)"/);
+    assert.match(list, /borderRadius: "var\(--vox_radius, 0\.8rem\)"/);
 });
 test("the settings text entry is the same field as the kit's text field and the forms' inputs", () => {
     // docs/design/components/shadcn-alignment.md: _Entry takes the kit's fill, border, radius and
     // height, and names its input as shadcn/ui's Input does.
-    const entry = read(box + "_components/_atoms/_entry/_Entry.module.scss");
-    const field = entry.split(".entry_wrapper {")[1].split("\n}")[0];
-    assert.match(field, /min-height: 4rem/, "the field keeps its height without a value");
-    assert.match(field, /background-color: var\(--vox_surface\)/);
-    assert.match(field, /border: 0\.1rem solid var\(--vox_field_border\)/);
-    assert.match(field, /border-radius: var\(--vox_radius\)/);
+    const entry = read(box + "_components/_atoms/_entry/_Entry.css.ts");
+    const field = styleOf(entry, "entry_wrapper");
+    assert.match(field, /minHeight: "4rem"/, "the field keeps its height without a value");
+    assert.match(field, /backgroundColor: vars\.vox_surface/);
+    assert.match(field, /border: `0\.1rem solid \$\{vars\.vox_field_border\}`/);
+    assert.match(field, /borderRadius: vars\.vox_radius/);
     assert.ok(contrast("--vox_field_border", "--vox_surface") >= 3.5, "the field's edge is visible on its fill");
     // The input fills the box, so a click anywhere in it reaches the input.
-    assert.match(entry, /\.entry_input_area\s*{[^}]*flex: 1 1 auto/);
+    assert.match(styleOf(entry, "entry_input_area"), /flex: "1 1 auto"/);
     assert.match(read(box + "_components/_atoms/_entry/_Entry.tsx"), /<input\s+data-slot="input"/);
     // The API key's edit cover lies over the field, so it has the field's corners.
-    assert.match(read(box + "_components/auth_key/AuthKey.module.scss"), /\.entry_edit_cover\s*{[^}]*border-radius: var\(--vox_radius\)/);
+    assert.match(styleOf(read(box + "_components/auth_key/AuthKey.css.ts"), "entry_edit_cover"), /borderRadius: vars\.vox_radius/);
 });
 test("the settings search is the same field as the other inputs, with InputGroup's parts", () => {
     // docs/design/components/shadcn-alignment.md, Combobox, Command and InputGroup.

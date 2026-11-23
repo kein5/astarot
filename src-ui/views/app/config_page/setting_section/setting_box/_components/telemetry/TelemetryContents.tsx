@@ -1,7 +1,7 @@
 import { useI18n } from "@useI18n";
 import { useOthers } from "@logics_configs";
 import { telemetryRows, sentSummary } from "../../../../../../../logics/common/telemetryRows";
-import styles from "./TelemetryContents.module.scss";
+import * as styles from "./TelemetryContents.css.ts";
 import { Fold } from "../fold/Fold";
 
 // The fields every usage event carries, in the order it carries them. Until the event comes, the
