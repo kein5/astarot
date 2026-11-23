@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { ComponentType, ReactNode, SVGProps } from "react";
 import clsx from "clsx";
-import styles from "./ActionButton.module.scss";
+import * as styles from "./ActionButton.css.ts";
 
 export interface ActionButtonProps {
     IconComponent: ComponentType<SVGProps<SVGSVGElement>>;

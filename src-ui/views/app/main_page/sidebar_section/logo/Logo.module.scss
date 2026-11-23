@@ -1,5 +1,0 @@
-.container { height: var(--main_page_topbar_height); display: flex; align-items: center; padding: 0 2rem; flex-shrink: 0; }
-.wordmark { display: flex; align-items: center; gap: 1rem; white-space: nowrap; color: var(--dark_100_color); }
-// The SVGs fill with currentColor; their aspect ratios come from docs/brand/astarot.
-.symbol { height: 3.2rem; width: auto; aspect-ratio: 294 / 300; flex-shrink: 0; }
-.name { height: 1.6rem; width: auto; aspect-ratio: 889 / 131; }

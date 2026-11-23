@@ -4,21 +4,42 @@ use std::borrow::Cow;
 use std::fmt;
 
 /// A safe speech failure code, such as `transport_error` or `http_503`.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct SpeechError(Cow<'static, str>);
+///
+/// A `transport_error` also carries how the server's answer failed to arrive, as one fixed word
+/// ([`SpeechError::detail`]; #861). Two errors are the same when their codes are: the detail only
+/// tells failures of one code apart in the speech's status.
+#[derive(Debug, Clone)]
+pub struct SpeechError {
+    code: Cow<'static, str>,
+    detail: Option<&'static str>,
+}
+
+impl PartialEq for SpeechError {
+    fn eq(&self, other: &Self) -> bool {
+        self.code == other.code
+    }
+}
+
+impl Eq for SpeechError {}
 
 impl SpeechError {
     pub const fn new(code: &'static str) -> Self {
-        Self(Cow::Borrowed(code))
+        Self { code: Cow::Borrowed(code), detail: None }
+    }
+
+    /// `transport_error`, and how the answer failed: `socket`, `ended_early`, `malformed`,
+    /// `stalled` (a send or a receive passed its time limit) or `interrupted`.
+    pub const fn transport(detail: &'static str) -> Self {
+        Self { code: Cow::Borrowed("transport_error"), detail: Some(detail) }
     }
 
     /// `http_<status>`. The status is a number the server chose, never its body.
     pub fn http_status(status: u16) -> Self {
-        Self(Cow::Owned(format!("http_{status}")))
+        Self { code: Cow::Owned(format!("http_{status}")), detail: None }
     }
 
     pub(crate) fn from_reason(reason: &str) -> Self {
-        Self(Cow::Owned(reason.to_owned()))
+        Self { code: Cow::Owned(reason.to_owned()), detail: None }
     }
 
     /// A fixed code another crate reported (an output device's, the conversion's).
@@ -27,13 +48,19 @@ impl SpeechError {
     }
 
     pub fn code(&self) -> &str {
-        &self.0
+        &self.code
+    }
+
+    /// One fixed word that says more about the code, when there is one (only `transport_error`
+    /// has one). Never a server body, text, voice data or an OS message.
+    pub fn detail(&self) -> Option<&'static str> {
+        self.detail
     }
 }
 
 impl fmt::Display for SpeechError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(&self.0)
+        f.write_str(&self.code)
     }
 }
 
@@ -62,6 +89,14 @@ impl TtsError {
             TtsError::Speech(error) => error.code(),
             TtsError::Unavailable(_) => "language_or_text_unavailable",
             TtsError::Output => "audio_output_error",
+        }
+    }
+
+    /// The fixed word the status keeps beside the code ([`SpeechError::detail`]).
+    pub fn failure_detail(&self) -> Option<&'static str> {
+        match self {
+            TtsError::Speech(error) => error.detail(),
+            TtsError::Unavailable(_) | TtsError::Output => None,
         }
     }
 }

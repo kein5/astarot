@@ -1,9 +1,0 @@
-// The link carries its own look, so it reads as a link on pages whose
-// form styles do not reach it (the translation page) as well as inside them.
-.container {
-    margin: .4rem 0;
-    font-size: 1.3rem;
-    line-height: 1.5;
-    a { color: var(--primary_300_color); text-decoration: underline; }
-    a:hover { color: var(--primary_200_color); }
-}

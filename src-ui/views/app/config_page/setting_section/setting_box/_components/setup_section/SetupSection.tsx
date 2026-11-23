@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { Description } from "../description/Description";
 import { Hint, useHintDescriptions } from "../hint/Hint";
 import { Fold } from "../fold/Fold";
-import styles from "./SetupSection.module.scss";
+import * as styles from "./SetupSection.css.ts";
 
 // One-time setup on a page (models, runtimes, downloads, servers), folded
 // (DESIGN.md "Roles in settings"). The summary carries a one-line status, so it

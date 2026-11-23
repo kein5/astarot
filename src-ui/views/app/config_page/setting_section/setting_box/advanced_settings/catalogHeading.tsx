@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { Hint } from "../_components/hint/Hint";
-import styles from "./VoiceSettings.module.scss";
+import * as styles from "./VoiceSettings.css.ts";
 
 // A heading of the model catalog. On a page reviewed against #614 (DESIGN.md "Principles"), what
 // the part is for and how to choose in it are the heading's hint, whose mark takes focus as a

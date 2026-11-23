@@ -101,17 +101,17 @@ test("a part of the translation review's catalog is not folded: its heading and 
     assert.ok(find(tree, node => node.type === "p" && node.props.children === "What it is for"));
 });
 
-// The state badges of every catalog share these rules (VoiceSettings.module.scss): a model on the PC
+// The state badges of every catalog share these rules (VoiceSettings.css.ts): a model on the PC
 // is a filled badge with a check, one that is not is an outline with an empty ring.
 test("whether a model is on the PC is told by the state badge's shape and mark, not by its words alone", () => {
-    const scss = readFileSync(new URL("./VoiceSettings.module.scss", import.meta.url), "utf8");
-    const rules = scss.slice(scss.indexOf(".badge.status {"), scss.indexOf("// The \"!\" of a model"));
-    assert.match(rules, /&::before \{[^}]*mask: var\(--status_mark\)/, "a mark drawn before the words");
-    assert.match(rules, /&\[data-tone="not_downloaded"\], &\[data-tone="not_set"\] \{\s*--status_mark: url\("data:image\/svg\+xml,[^"]*circle[^"]*"\);\s*background: transparent;/,
+    const source = readFileSync(new URL("./VoiceSettings.css.ts", import.meta.url), "utf8");
+    const rules = source.slice(source.indexOf("const state = "), source.indexOf("// The \"!\" of a model"));
+    assert.match(rules, /`\$\{selector\}::before`[^}]*mask: "var\(--status_mark\) center/, "a mark drawn before the words");
+    assert.match(rules, /state\("not_downloaded", "not_set"\)\.join\(", "\), \{\s*vars: \{ "--status_mark": `url\("data:image\/svg\+xml,[^"]*circle[^"]*"\)` \},\s*background: "transparent",/,
         "not yet: an outline with an empty ring");
-    assert.match(rules, /&\[data-tone="downloaded"\], &\[data-tone="in_use"\], &\[data-tone="ready"\] \{\s*--status_mark: url\("data:image\/svg\+xml,[^"]*path/,
+    assert.match(rules, /state\("downloaded", "in_use", "ready"\)\.join\(", "\), \{\s*vars: \{ "--status_mark": `url\("data:image\/svg\+xml,[^"]*path/,
         "on the PC: a check");
-    assert.match(rules, /&\[data-tone="downloaded"\] \{ background: var\(--dark_300_color/, "downloaded: filled light");
-    assert.match(rules, /&\[data-tone="in_use"\] \{ background: var\(--vox_state_active/, "in use: filled in the active color");
+    assert.match(rules, /state\("downloaded"\)\.join\(", "\), \{ background: "var\(--dark_300_color/, "downloaded: filled light");
+    assert.match(rules, /state\("in_use"\)\.join\(", "\), \{ background: "var\(--vox_state_active/, "in use: filled in the active color");
 });
 

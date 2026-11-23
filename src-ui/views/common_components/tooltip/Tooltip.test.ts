@@ -18,9 +18,7 @@ const ownDeclarations = (source: string, selector: string) => {
 const mixins = read("../../common_css/mixins.scss");
 // The same look for vanilla-extract styles (#957): the tooltipContent object of mixins.ts.
 const mixinsTs = read("../../common_css/mixins.ts");
-const bubbles = [
-    ["the settings' Hint", read("../../app/config_page/setting_section/setting_box/_components/hint/Hint.module.scss"), ".tip"],
-];
+
 
 // docs/design/components/shadcn-alignment.md, item 10: shadcn/ui's TooltipContent (rounded-md,
 // px-3 py-1.5, text-xs) is the app's one tooltip look.
@@ -42,20 +40,19 @@ test("the tooltip look is shadcn/ui's TooltipContent, read by DESIGN.md's rules"
 });
 
 test("the common tooltip and the settings' Hint draw the same bubble, and only it", () => {
-    for (const [name, source, selector] of bubbles) {
-        assert.match(source, /^@import "@scss_mixins";/, name);
-        const own = ownDeclarations(source, selector);
-        assert.match(own, /@include tooltip_content;/, name);
-        // Nothing of the look is written over it.
-        assert.doesNotMatch(own, /\b(padding|border-radius|background-color|font-size|font-weight|line-height|white-space)\s*:/, name);
+    // The common tooltip and the settings' Hint, in vanilla-extract: each bubble spreads the same
+    // look and writes none over it.
+    for (const [name, source, style] of [
+        ["common_components/tooltip", read("./Tooltip.css.ts"), "tooltipBox"],
+        ["the settings' Hint", read("../../app/config_page/setting_section/setting_box/_components/hint/Hint.css.ts"), "tip"],
+    ]) {
+        const box = styleOf(source, style);
+        assert.match(box, /\.\.\.tooltipContent,/, name);
+        assert.doesNotMatch(box, /\b(padding|borderRadius|backgroundColor|fontSize|fontWeight|lineHeight|whiteSpace)\s*:/, name);
     }
-    // The common tooltip, in vanilla-extract: its bubble spreads the same look and writes none over it.
-    const box = styleOf(read("./Tooltip.css.ts"), "tooltipBox");
-    assert.match(box, /\.\.\.tooltipContent,/);
-    assert.doesNotMatch(box, /\b(padding|borderRadius|backgroundColor|fontSize|fontWeight|lineHeight|whiteSpace)\s*:/);
     // The resend button's words take the bubble's size and colour, not their own.
     const resend = "../../app/main_page/main_section/message_container/log_box/message_container/message_sub_menu_container/";
-    assert.doesNotMatch(read(resend + "MessageSubMenuContainer.module.scss"), /\.tooltip_title/);
+    assert.doesNotMatch(read(resend + "MessageSubMenuContainer.css.ts"), /tooltip_title/);
 });
 
 // The tooltip drawn without a page: its bubble stays in the tree where the test can read it.

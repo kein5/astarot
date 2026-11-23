@@ -1,4 +1,4 @@
-import styles from "./AuthKey.module.scss";
+import * as styles from "./AuthKey.css.ts";
 import { useI18n } from "@useI18n";
 import { _Entry } from "../_atoms/_entry/_Entry";
 import type { EntryHandle } from "../_atoms/_entry/_Entry";
