@@ -28,7 +28,7 @@ import type { ComputeDeviceChoice, ComputeDeviceList } from "../app/config_page/
 import { CLOUD_TRANSCRIPTION_ENGINES } from "../../logics/configs/cloudTranscription";
 import { isUsersWeight, weightLabel } from "../../logics/translation/translationCatalog.ts";
 import { isNonCommercialWeight } from "../../logics/configs/ctranslate2License";
-import styles from "./VrSettingsWindow.module.scss";
+import * as styles from "./VrSettingsWindow.css.ts";
 import { splitFeatureLabel } from "../../logics/common/featureLabel.ts";
 
 type Translate = ReturnType<typeof useI18n>["t"];

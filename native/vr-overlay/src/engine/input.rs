@@ -39,7 +39,7 @@ const HIT_MARGIN_PX: i64 = 12;
 /// The log's corners take the grip this far inside and outside (logical px).
 const CORNER_INSIDE_PX: f64 = 56.0;
 const CORNER_OUTSIDE_PX: f64 = 32.0;
-/// The corner handles' centres from the log's edges (`VrWindow.module.scss`'s `.resize_handle`).
+/// The corner handles' centres from the log's edges (`VrWindow.css.ts`'s `resize_handle`).
 const CORNER_HANDLE_CENTER_PX: i64 = 34;
 const GHOST_COLOR: [u8; 4] = [0xB7, 0xDE, 0xD8, 255];
 const GHOST_LIMIT_COLOR: [u8; 4] = [0xCB, 0x94, 0x4F, 255];
