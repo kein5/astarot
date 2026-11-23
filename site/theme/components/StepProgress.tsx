@@ -2,7 +2,12 @@
 // the first step. It shows the steps with their names there; once that has scrolled away, a slim
 // bar under the navigation keeps the dots and the name of the step being read. Each step jumps to
 // its heading. The steps come from the page's headings in its data, so the list is in the built
-// page. The slim bar takes no room in the page, so nothing moves when it appears.
+// page. The slim bar takes no room in the page, so nothing moves when it appears. It is fixed to
+// the window under the bars at the top, over the column of the list: a sticky bar would stick to
+// the page's own box (`.rp-doc-layout__doc`, which has `overflow: auto` and never scrolls itself)
+// and scroll away with the page.
+// Both opt out of the page's list styles (`rp-not-doc`): the page puts a top margin on every list
+// item but the first, which set the first step higher than the others.
 import { useLang, usePage } from '@rspress/core/runtime'
 import { type CSSProperties, useEffect, useRef, useState } from 'react'
 import styles from './StepProgress.module.css'
@@ -10,6 +15,10 @@ import styles from './StepProgress.module.css'
 const STEP = /^\s*(\d+)[.．]\s*/
 // The slim bar's height (keep in step with .dockBar in the CSS).
 const DOCK = 44
+// A step's heading, reached by a link or a dot, stops this far below the slim bar's top: the page
+// already keeps headings clear of the bars at the top (`scroll-padding-top`), and the slim bar
+// would cover the heading otherwise.
+const HEADING_CLEARANCE = DOCK + 8
 
 function Check() {
   return (
@@ -30,6 +39,9 @@ export default function StepProgress() {
   const full = useRef<HTMLElement | null>(null)
   const [current, setCurrent] = useState(-1)
   const [top, setTop] = useState(64)
+  // The column of the list, in the window: the slim bar spans the same width.
+  const [left, setLeft] = useState(0)
+  const [width, setWidth] = useState(0)
   const [docked, setDocked] = useState(false)
 
   useEffect(() => {
@@ -40,7 +52,12 @@ export default function StepProgress() {
       const menu = document.querySelector('.rp-doc-layout__menu')?.getBoundingClientRect()
       const bar = Math.max(nav, menu && menu.height ? menu.bottom : 0)
       setTop(bar)
-      setDocked((full.current?.getBoundingClientRect().bottom ?? Infinity) < bar)
+      const list = full.current?.getBoundingClientRect()
+      if (list) {
+        setLeft(list.left)
+        setWidth(list.width)
+      }
+      setDocked((list?.bottom ?? Infinity) < bar)
       // The step being read: the last heading that has passed under the bars. At the end of the
       // page the last headings cannot reach that line; the lowest one in sight counts.
       const end = scrollY + innerHeight >= document.documentElement.scrollHeight - 2
@@ -56,9 +73,12 @@ export default function StepProgress() {
       if (!frame) frame = requestAnimationFrame(update)
     }
     update()
+    const headings = steps.map((step) => document.getElementById(step.id)).filter((heading) => heading !== null)
+    for (const heading of headings) heading.style.scrollMarginTop = `${HEADING_CLEARANCE}px`
     addEventListener('scroll', schedule, { passive: true })
     addEventListener('resize', schedule)
     return () => {
+      for (const heading of headings) heading.style.scrollMarginTop = ''
       removeEventListener('scroll', schedule)
       removeEventListener('resize', schedule)
       if (frame) cancelAnimationFrame(frame)
@@ -76,7 +96,7 @@ export default function StepProgress() {
 
   return (
     <>
-      <nav ref={full} className={styles.stepProgress} aria-label={label}>
+      <nav ref={full} className={`${styles.stepProgress} rp-not-doc`} aria-label={label}>
         <ol style={{ '--progress': progress, '--count': steps.length } as CSSProperties}>
           {steps.map((step, index) => (
             <li key={step.id} className={state(index)}>
@@ -90,7 +110,7 @@ export default function StepProgress() {
           ))}
         </ol>
       </nav>
-      <div className={styles.stepDock} style={{ top: `${top}px` }} aria-hidden="true">
+      <div className={`${styles.stepDock} rp-not-doc`} style={{ top: `${top}px`, left: `${left}px`, width: `${width}px` }} aria-hidden="true">
         <div className={[styles.dockBar, docked && styles.shown].filter(Boolean).join(' ')}>
           <ol>
             {steps.map((step, index) => (

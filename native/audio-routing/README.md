@@ -1,4 +1,4 @@
-# audio-routing
+# astarot-audio-routing
 
 Audio device enumeration, device identity, following the OS default devices, and
 voice routing, in Rust (issue #280). Windows uses WASAPI and the MMDevice API; Linux
@@ -25,7 +25,7 @@ of microphone and speaker, Auto Select and the virtual microphone guide
 | [`audio_routing/pipewire_graph.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/audio_routing/pipewire_graph.py) | `src/graph_source.rs`, `src/pipewire/observer.rs` | A registry connection with server round trips instead of running `pw-dump`. |
 | [`audio_routing/pipewire_graph_pipe.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/audio_routing/pipewire_graph_pipe.py) | `src/pipewire/feed.rs` | Same wire format. |
 | [`audio_routing/pipewire_gate.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/audio_routing/pipewire_gate.py) | `src/graph.rs` (`parse_managed`), `src/pipewire/gate.rs` | Still changes mute through `astarot-voice-gate`. |
-| [`audio_routing/managed_microphone.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/audio_routing/managed_microphone.py) | `src/pipewire/managed.rs` | Unit files byte for byte the same (checked against Python's output in `tests/data/managed_units.json`). |
+| [`audio_routing/managed_microphone.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/audio_routing/managed_microphone.py) | `src/pipewire/managed.rs` | The units Python and the core of 0.6.0 wrote are still made byte for byte (`tests/data/managed_units_vrct.json`, Python's output), to tell them apart from the user's. The core now writes them under the ASTAROT names (`tests/data/managed_units_astarot.json`) and retires its old ones (ADR-014, 2.8). |
 | [`audio_routing/source_bridge.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/audio_routing/source_bridge.py) | `src/graph.rs` (selection, links), `src/pipewire/bridge.rs` | Still supervises `astarot-source-bridge`. |
 | [`audio_routing/gc_guard.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/audio_routing/gc_guard.py) | — | Python's cyclic garbage collector paused playback; Rust has none. |
 | [`audio_routing/virtual_mic.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/audio_routing/virtual_mic.py) | `src/virtual_mic.rs`, `src/platform.rs` | The recording end is read as 48 kHz mono converted by WASAPI, not in its own format through PortAudio. |
@@ -114,5 +114,6 @@ checks that its removal is reported, compares the device manager's list with the
 graph, and keeps the observation fresh while short-lived streams come and go, as the
 gate helper's own do.
 
-The Windows code type-checks with `cargo check --target x86_64-pc-windows-msvc`; it
-has not been run on Windows yet.
+The Windows code type-checks with `cargo check --target x86_64-pc-windows-msvc`, and the
+core's tests run it on Windows in CI (`voice-tests.yml`, `core-integration`); the playback to a
+Windows device was measured with `tests/wasapi_live.rs` (above).

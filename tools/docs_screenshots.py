@@ -1,50 +1,73 @@
 """Regenerate the app screenshots used by the user documentation (site/).
 
-    python tools/docs_screenshots.py --python build/dev/browser-venv/bin/python \
-        --chromium /path/to/chrome
+    uv run --no-project --with pillow==13.0.0 python tools/docs_screenshots.py
 
-Renders the production main screen and settings pages in Japanese and English
-through tests/voice/studio-entry with an offline sidecar peer (no models, no
-audio), and writes WebP images to site/public/screenshots/{ja,en}/. The peer
-answers with sample data: a short conversation, a VRChat that was found and a
-model catalogue. The desktop captions are drawn over a stand-in scene
-(tests/voice/caption-overlay-entry). Nothing in the pictures comes from the PC
-that made them.
-Needs the browser test environment (`python tools/dev.py setup --scope
-browser`), a Chromium executable and the UI's node_modules. Run it after UI
-changes and commit the images with the change.
+Runs tests/integration/docsScreenshots.spec.ts in Chromium: the app's production screens on the
+real core (native/browser-core-bridge, ADR-017), with the stand-in devices and services of the
+integration tests and sample data for what they cannot make (another player's words, a VRChat
+found, recent times). The desktop captions are drawn over a stand-in scene, and the VR panel's
+flow window at its real size (tests/integration/app). It builds the core's host and the
+integration page first, then writes WebP images to site/public/screenshots/{ja,en}/. Nothing in
+the pictures comes from the PC that made them; the folder a download goes to is shown as a Linux
+install's.
 
-telemetry-notice.webp is not made here. It is a capture of the running app
-(the notice is not part of studio-entry), taken with the list of what is sent
-folded so that no hardware names show.
-
-On Windows, a cold Vite can take longer than the first page load allows; run
-it again.
+Needs the integration test environment: `python tools/dev.py setup --scope ui`, then
+`setup --scope integration`. The pictures show the version in package.json; to document a
+release, run it in a checkout of that release's tag and copy the images over.
 """
+
 import argparse
 import os
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 OUTPUT = ROOT / "site" / "public" / "screenshots"
+PLAYWRIGHT = "node_modules/@playwright/test/cli.js"
+LANGS = ("ja", "en")
+
+
+def run(command, **kwargs):
+    print("+", " ".join(command), flush=True)
+    return subprocess.run(command, cwd=ROOT, **kwargs).returncode
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--python", required=True, help="Python of the browser test environment")
-    parser.add_argument("--chromium", required=True, help="Chromium executable for Playwright")
-    parser.add_argument("--output", type=Path, default=OUTPUT)
+    parser.add_argument("--output", type=Path, default=OUTPUT, help="folder that gets ja/ and en/ (default: %(default)s)")
+    parser.add_argument("--skip-build", action="store_true", help="use the core's host and the page already built")
     args = parser.parse_args()
-    env = dict(os.environ, ASTAROT_TEST_STUDIO_UI="1", ASTAROT_TEST_CHROMIUM=args.chromium,
-               ASTAROT_DOCS_SCREENSHOTS=str(args.output.resolve()))
-    command = [args.python, "-m", "pytest", "-c", "tests/voice/pytest.ini", "tests/voice/test_docs_screenshots.py", "-q"]
-    result = subprocess.run(command, cwd=ROOT, env=env)
-    if result.returncode == 0:
-        total = sum(f.stat().st_size for f in args.output.rglob("*.webp"))
+    from PIL import Image  # Pillow, only to write WebP
+
+    if not (ROOT / PLAYWRIGHT).is_file():
+        print("Playwright is not installed: python tools/dev.py setup --scope ui, then --scope integration")
+        return 2
+    if not args.skip_build:
+        steps = [
+            ["cargo", "build", "--locked", "--manifest-path", "native/browser-core-bridge/Cargo.toml"],
+            ["node", "node_modules/vite/bin/vite.js", "build", "--config", "tests/integration/vite.config.ts", "--logLevel", "warn"],
+        ]
+        for step in steps:
+            if run(step) != 0:
+                return 1
+    with tempfile.TemporaryDirectory(prefix="astarot-docs-shots-") as pictures:
+        env = dict(os.environ, ASTAROT_DOCS_SCREENSHOTS=pictures)
+        test = ["node", PLAYWRIGHT, "test", "--config", "tests/integration/playwright.config.ts",
+                "docsScreenshots", "--project", "chromium", "--workers", "1"]
+        if run(test, env=env) != 0:
+            return 1
+        total = 0
+        for lang in LANGS:
+            target = args.output / lang
+            target.mkdir(parents=True, exist_ok=True)
+            for png in sorted(Path(pictures, lang).glob("*.png")):
+                webp = target / f"{png.stem}.webp"
+                Image.open(png).save(webp, "WEBP", quality=82, method=6)
+                total += webp.stat().st_size
         print(f"wrote {args.output} ({total / 1024:.0f} KiB)")
-    return result.returncode
+    return 0
 
 
 if __name__ == "__main__":

@@ -17,6 +17,8 @@ pub struct Owned {
 /// Start `command` under this thread's ownership; its streams are the caller's choice.
 #[cfg_attr(not(target_os = "linux"), allow(unused_mut))]
 pub fn spawn(mut command: Command) -> io::Result<Owned> {
+    // Under the AppImage, the host's environment rather than the GUI's (#924, item 22).
+    astarot_app_identity::appimage::restore_host_environment(&mut command);
     #[cfg(target_os = "linux")]
     {
         use std::os::unix::process::CommandExt;

@@ -23,6 +23,7 @@ import subprocess
 import sys
 import urllib.request
 
+from tools.download_retry import retrying
 from tools.release_candidate import REPOSITORY
 
 BRANCH = "updater-channels"
@@ -109,8 +110,11 @@ class GitHub:
         return json.loads(result.stdout) if result.stdout.strip() else None
 
     def download(self, url):
-        with urllib.request.urlopen(url, timeout=30) as response:  # noqa: S310 - a release download
-            return response.read().decode("utf-8")
+        def attempt():
+            with urllib.request.urlopen(url, timeout=30) as response:  # noqa: S310 - a release download
+                return response.read().decode("utf-8")
+
+        return retrying(attempt, url)
 
 
 def current_text(github, repository=REPOSITORY):

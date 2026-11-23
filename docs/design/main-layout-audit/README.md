@@ -5,7 +5,7 @@ Issue #327 の監査レポートです。0.5.0 でメイン画面のレイアウ
 - 対象: `develop` の `03c21f3d`（0.4.0-beta.1）のメイン画面（`src-ui/views/app/main_page/`）と、その上のタイトルバー
 - 結果: 問題 11 件（高 2、中 5、低 4）。ほかに、固定寸法に頼っている箇所を 17 か所記録しました（[固定寸法の前提](#固定寸法の前提)）。
 - 機械検出の全件: [findings.md](findings.md)
-- 再現用のスクリプト: [audit/](audit/)
+- 再現用のスクリプト: [audit/](audit/)（`v0.5.2` のタグのチェックアウトで動きます。使う試験の部品（`tests/voice/test_studio_ui.py`、`tests/voice/test_docs_screenshots.py`、`tests/voice/studio-entry`）を 2026-11-20 に消したので、develop では動きません）
 
 ## 結論
 
