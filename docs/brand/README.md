@@ -35,7 +35,8 @@ The wordmark is outlined, so it looks the same without fonts. The subtitle in th
 
 - **The app.** `tools/astarot_app_assets.py` builds the Tauri icons in `src-tauri/icons/` and the in-app SVGs in `src-ui/views/assets/brand/` from this set. The AppImage and the Linux packages take their desktop icon from `src-tauri/icons/128x128@2x.png` at build time.
 - **The READMEs.** They show the horizontal logo (`astarot/logo-horizontal-light.png` and `-dark.png`) and switch between them with `prefers-color-scheme`. They use the PNG files because an SVG shown as an image sets the subtitle in another font unless the viewer has Outfit installed.
-- **The user manual.** `site/public/manual/brand/` holds copies of `app-icon.svg` and `favicon.ico`, and WebP wordmarks that the manual's home page showed. The manual's pages now send readers to the guide and still use the ICO; the wordmarks wait for the merged home page (`docs/design/site-redesign`). Copy `app-icon.svg` again after changing it; `tools/astarot_favicon_small.py` writes the copy of `favicon.ico`.
+- **The user guide.** `site/public/favicon.png` is a copy of `favicon-32.png`, `site/public/favicon-16.png` of `favicon-16.png`, and `site/public/apple-touch-icon.png` of `icon-128.png` (the app icon, for home screens). Every page of the guide links both favicons, the 16 px one with its size, and the browser takes the one that fits its tab (`site/rspress.config.ts`). Copy them again after changing the set.
+- **The user manual.** `site/public/manual/brand/` holds copies of `app-icon.svg` and `favicon.ico`, and WebP wordmarks that the manual's home page showed. The manual's pages now send readers to the guide and use the guide's favicons; the ICO stays where it was. The wordmarks wait for the merged home page (`docs/design/site-redesign`). Copy `app-icon.svg` again after changing it; `tools/astarot_favicon_small.py` writes the copy of `favicon.ico`.
 
 ## Regenerating
 

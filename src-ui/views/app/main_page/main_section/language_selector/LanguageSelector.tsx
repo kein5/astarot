@@ -5,7 +5,7 @@ import { useLanguageSettings } from "@logics_main";
 import { Empty, EmptyDescription } from "@common_components";
 import type { SelectableLanguage } from "@store";
 import { createLanguageNames, isLanguagePickKey } from "../../../../../logics/common/languageNames.ts";
-import styles from "./LanguageSelector.module.scss";
+import * as styles from "./LanguageSelector.css.ts";
 
 import { LanguageSelectorTopBar } from "./language_selector_top_bar/LanguageSelectorTopBar";
 

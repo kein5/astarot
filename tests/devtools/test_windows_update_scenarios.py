@@ -52,17 +52,25 @@ class WindowsUpdateFixtureTests(unittest.TestCase):
         with zipfile.ZipFile(io.BytesIO(scenarios.payloads()["no-exe"])) as archive:
             self.assertNotIn(scenarios.OLD_APP, archive.namelist())
 
-    def request(self, version, filename, range_header=None, head=False):
+    def handler(self, version, filename, range_header=None, head=False, release=None):
         handler = object.__new__(scenarios.PackageHandler)
         handler.path = f"/v{version}/{filename}"
         handler.command = "HEAD" if head else "GET"
         handler.headers = {"Range": range_header} if range_header else {}
-        handler.server = SimpleNamespace(payloads=scenarios.payloads(), requests=[], request_lock=threading.Lock())
+        if release is None:
+            release = threading.Event()
+            release.set()
+        handler.server = SimpleNamespace(payloads=scenarios.payloads(), requests=[], request_lock=threading.Lock(),
+                                         holding=threading.Event(), release=release)
         handler.wfile = io.BytesIO()
         handler.send_response = Mock()
         handler.send_header = Mock()
         handler.end_headers = Mock()
         handler.send_error = Mock()
+        return handler
+
+    def request(self, version, filename, range_header=None, head=False):
+        handler = self.handler(version, filename, range_header, head)
         handler.respond(head)
         return handler
 
@@ -84,6 +92,24 @@ class WindowsUpdateFixtureTests(unittest.TestCase):
         handler = self.request("range-fallback", scenarios.PACKAGE)
         handler.send_response.assert_called_once_with(200)
         self.assertEqual(handler.wfile.getvalue(), scenarios.payloads()["new"])
+
+    def test_held_transfer_sends_one_block_until_released(self):
+        # A second run starts while the first one waits here (the "held" package).
+        release = threading.Event()
+        handler = self.handler("held", scenarios.PACKAGE, release=release)
+        thread = threading.Thread(target=handler.respond, args=(False,))
+        thread.start()
+        try:
+            self.assertTrue(handler.server.holding.wait(timeout=5))
+            self.assertEqual(handler.wfile.getvalue(), scenarios.payloads()["held"][:8192])
+            self.assertTrue(thread.is_alive())
+        finally:
+            release.set()
+            thread.join(timeout=5)
+        self.assertEqual(handler.wfile.getvalue(), scenarios.payloads()["held"])
+        # Its checksum, and a size probe, are not held.
+        self.assertFalse(self.request("held", scenarios.PACKAGE, head=True).server.holding.is_set())
+        self.assertFalse(self.request("held", scenarios.PACKAGE + ".sha256").server.holding.is_set())
 
     def test_checksum_faults_are_distinct(self):
         filename = scenarios.PACKAGE + ".sha256"

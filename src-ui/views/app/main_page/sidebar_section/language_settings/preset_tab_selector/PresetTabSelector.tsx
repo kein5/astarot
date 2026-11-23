@@ -1,4 +1,4 @@
-import styles from "./PresetTabSelector.module.scss";
+import * as styles from "./PresetTabSelector.css.ts";
 
 export const PresetTabSelector = () => {
     return (

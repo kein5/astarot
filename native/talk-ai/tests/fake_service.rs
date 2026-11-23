@@ -12,7 +12,7 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use tungstenite::Message;
 use tungstenite::handshake::server::{ErrorResponse, Request, Response};
-use vrct_talk_ai::{Closed, Event, Failure, Key, Network, OpenError, Options, Service, SessionSettings, Status, Talk, Turns, Update};
+use astarot_talk_ai::{Closed, Event, Failure, Key, Network, OpenError, Options, Service, SessionSettings, Status, Talk, Turns, Update};
 
 enum Script {
     Send(Value),

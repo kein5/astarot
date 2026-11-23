@@ -4,7 +4,7 @@ import { useModelDownloads } from "../../../../../../logics/voice/useModelDownlo
 import { USER_MODEL_FILES, USER_MODEL_NAME_LIMIT, registrationRequest, userModelStatus } from "../../../../../../logics/voice/modelCatalog";
 import { extensionOf } from "../../../../../../logics/common/fileDrop";
 import { FileDropZone } from "../_components/file_drop_zone/FileDropZone";
-import styles from "./VoiceSettings.module.scss";
+import * as styles from "./VoiceSettings.css.ts";
 import { Fold } from "../_components/fold/Fold";
 import { useHintDescriptions } from "../_components/hint/Hint";
 import { CatalogFacts } from "./catalogLayout";

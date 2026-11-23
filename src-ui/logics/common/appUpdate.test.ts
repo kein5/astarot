@@ -160,3 +160,72 @@ test("a failed check after a channel change offers nothing of the other channel"
     assert.equal(s.state().status, "idle", "a silent failure keeps no offer of the other channel");
     assert.equal(s.state().version, null);
 });
+
+// A check the test answers when it chooses, and the Tauri side's rule: one check at a time
+// (a second one while one runs is refused, update_busy).
+const slowChecks = (answers: Record<string, { available: boolean; version?: string }>) => {
+    const asked: unknown[] = [];
+    const waiting: (() => void)[] = [];
+    let running = false;
+    const answer = (args: Record<string, unknown> | undefined) => {
+        if (running) throw "update_busy";
+        running = true;
+        asked.push(args?.channel);
+        return new Promise(resolve => waiting.push(() => { running = false; resolve(answers[String(args?.channel)]); }));
+    };
+    const release = async () => {
+        while (!waiting.length) await new Promise(next => setTimeout(next, 0));
+        waiting.shift()?.();
+        await new Promise(next => setTimeout(next, 0));
+    };
+    return { answer, asked, release };
+};
+
+// The channel set again while a check runs: that check's answer is the other channel's. It is
+// not shown, and the new channel is checked after it, so what is shown is what the last check
+// found, which is what the Tauri side installs.
+test("a check of the channel set before never overwrites the channel set now", async () => {
+    const checks = slowChecks({ stable: { available: true, version: "0.6.1" }, beta: { available: true, version: "0.7.0-beta.1" } });
+    const s = setup({ app_update_check: checks.answer });
+    const first = s.updater.check({ channel: "stable" });
+    await new Promise(next => setTimeout(next, 0));
+    const switched = s.updater.switchChannel("beta");
+    assert.equal(s.state().status, "checking", "nothing of the stable channel is offered meanwhile");
+    assert.equal(s.state().version, null);
+    await checks.release();
+    await first;
+    assert.notEqual(s.state().version, "0.6.1", "the stable answer is dropped");
+    assert.equal(s.state().status, "checking");
+    await checks.release();
+    await switched;
+    assert.deepEqual(checks.asked, ["stable", "beta"], "the beta check waited for the stable one, never refused");
+    assert.deepEqual([s.state().status, s.state().version], ["available", "0.7.0-beta.1"]);
+});
+
+test("set again and again while a check runs, only the last channel is checked", async () => {
+    const checks = slowChecks({ stable: { available: false }, beta: { available: true, version: "0.7.0-beta.1" } });
+    const s = setup({ app_update_check: checks.answer });
+    const first = s.updater.check({ channel: "stable" });
+    await new Promise(next => setTimeout(next, 0));
+    const toBeta = s.updater.switchChannel("beta");
+    const toStable = s.updater.switchChannel("stable");
+    await checks.release();
+    await first;
+    await toBeta;
+    await checks.release();
+    await toStable;
+    assert.deepEqual(checks.asked, ["stable", "stable"], "the beta switch was passed over");
+    assert.deepEqual([s.state().status, s.state().version], ["up_to_date", null]);
+});
+
+test("a channel set again during a download leaves the download and its offer as they are", async () => {
+    const asked: unknown[] = [];
+    const s = setup({ app_update_check: (args: Record<string, unknown> | undefined) => { asked.push(args?.channel); return { available: true, version: "0.6.1" }; },
+        app_update_install: () => new Promise(() => {}) });
+    await s.updater.check({ channel: "stable" });
+    void s.updater.install();
+    assert.equal(s.state().status, "downloading");
+    await s.updater.switchChannel("beta");
+    assert.deepEqual([s.state().status, s.state().version], ["downloading", "0.6.1"]);
+    assert.deepEqual(asked, ["stable"]);
+});

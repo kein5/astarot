@@ -4,7 +4,7 @@ import { useSpeechServers } from "../../../../../../logics/voice/useSpeechServer
 import { useVoiceAudition } from "../../../../../../logics/voice/useVoiceAudition";
 import { RVC_AUDITION_SECONDS, auditionBlock, isAuditionProfile, rvcAuditionBlock } from "../../../../../../logics/voice/voiceAudition";
 import type { RvcAuditionValues } from "../../../../../../logics/voice/voiceAudition";
-import styles from "./VoiceSettings.module.scss";
+import * as styles from "./VoiceSettings.css.ts";
 
 // The voice audition of one catalog card (#415), on the monitor output only. A TTS card: the model
 // its profile's running server uses reads a short fixed sentence. An RVC card: the user's voice,

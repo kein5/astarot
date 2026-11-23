@@ -23,7 +23,31 @@ updates:
       interval: weekly
     cooldown:
       default-days: 14
+    # A major version of one of these packages fails `npm ci` on its peers (ERESOLVE) or the type
+    # check unless the others move with it: the CI audit of 2026-11-22 (item 6) found 105 failed
+    # jobs on dependabot's pull requests, most of them @types/react without @types/react-dom,
+    # react-i18next without i18next and @babel/types without @babel/parser. Their majors come in
+    # one pull request per group. An update goes to the first group it matches, so these come
+    # before the group of every minor and patch update.
     groups:
+      npm-react-major:
+        patterns: [react, react-dom, "@types/react", "@types/react-dom"]
+        update-types: [major]
+      npm-i18next-major:
+        patterns: [i18next, react-i18next]
+        update-types: [major]
+      npm-babel-major:
+        patterns: ["@babel/*"]
+        update-types: [major]
+      npm-vite-major:
+        patterns: [vite, vitest, "@vitest/*", "@vitejs/*", vite-plugin-svgr, "@vanilla-extract/vite-plugin", "@rollup/plugin-yaml"]
+        update-types: [major]
+      npm-vanilla-extract-major:
+        patterns: ["@vanilla-extract/*"]
+        update-types: [major]
+      npm-tauri-major:
+        patterns: ["@tauri-apps/*"]
+        update-types: [major]
       npm-minor-and-patch:
         update-types: [minor, patch]
     commit-message:

@@ -34,6 +34,12 @@ pub trait Gate: Send + Sync {
     fn prepare(&self) -> Result<()> {
         Ok(())
     }
+    /// Whether a [`Gate::prepare`] since the last call retired the units of the route's old
+    /// names, so that the virtual microphone VRChat had chosen is gone (ADR-014, 2.8). Asked
+    /// after each preparation, also a failed one: the old units may have stopped before it failed.
+    fn retired_legacy(&self) -> bool {
+        false
+    }
     fn inspect_pair(&self) -> Result<GatePair>;
     fn set_muted(&self, muted: bool, identity: (u64, u64)) -> Result<GateState>;
     fn set_direct_muted(&self, muted: bool, identity: (u64, u64)) -> Result<GateState>;
@@ -99,6 +105,7 @@ struct Shared {
     gate: Arc<dyn Gate>,
     store: Arc<dyn MuteStore>,
     on_muted: Option<Arc<dyn Fn(bool) + Send + Sync>>,
+    on_retired: Option<Arc<dyn Fn() + Send + Sync>>,
     poll_interval: Duration,
 }
 
@@ -119,11 +126,14 @@ pub struct VoiceRoute {
 pub struct RouteOptions {
     pub poll_interval: Duration,
     pub on_muted: Option<Arc<dyn Fn(bool) + Send + Sync>>,
+    /// Told when a preparation retired the units of the route's old names
+    /// ([`Gate::retired_legacy`]), on the route's worker.
+    pub on_retired: Option<Arc<dyn Fn() + Send + Sync>>,
 }
 
 impl Default for RouteOptions {
     fn default() -> Self {
-        Self { poll_interval: Duration::from_millis(100), on_muted: None }
+        Self { poll_interval: Duration::from_millis(100), on_muted: None, on_retired: None }
     }
 }
 
@@ -163,6 +173,7 @@ impl VoiceRoute {
             gate,
             store,
             on_muted: options.on_muted,
+            on_retired: options.on_retired,
             poll_interval: options.poll_interval,
         });
         shared.set_muted(desired);
@@ -346,6 +357,11 @@ fn attempt(shared: &Arc<Shared>, managed: bool, pending: bool, direct_identity: 
         };
         if prepare {
             let prepared = shared.gate.prepare();
+            if shared.gate.retired_legacy()
+                && let Some(on_retired) = &shared.on_retired
+            {
+                on_retired();
+            }
             let mut state = lock(&shared.state);
             if prepared.is_ok() {
                 state.prepare_needed = false;

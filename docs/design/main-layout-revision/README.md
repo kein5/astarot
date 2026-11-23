@@ -122,6 +122,8 @@
 
 ## 再現の手順
 
+この手順は `v0.5.2` のタグのチェックアウトで動きます。使う試験の部品（`tests/voice/test_studio_ui.py`、`tests/voice/test_docs_screenshots.py`、`tests/voice/studio-entry`）を 2026-11-20 に消したので、develop では動きません。
+
 監査の手順に、スクロールバーを描くためのプラグインを足します。PowerShell では次のとおりです。
 
 ```powershell

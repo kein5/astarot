@@ -6,7 +6,7 @@ import clsx from "clsx";
 import { useI18n } from "@useI18n";
 import { useIsOpenedConfigPage, useIsOscAvailable, useVolume } from "@logics_common";
 import { useAppearance, useDevice, useOcr, useOthers, useTranscription, useTranslation, useVr } from "@logics_configs";
-import { useStore_MicVolume, useStore_SelectableFontFamilyList, useStore_SpeakerVolume } from "@store";
+import { useStore_MicVolume, useStore_SelectableFontFamilyList, useStore_SpeakerVolume, useStore_VrCustomTranslationModelNames } from "@store";
 import { ui_configs } from "@ui_configs";
 
 import HmdSvg from "@images/mui_head_mounted_device.svg?react";
@@ -26,8 +26,9 @@ import { VrHandIcon } from "./VrHandIcon";
 import { buildComputeDeviceOptions } from "../app/config_page/setting_section/setting_box/_components/compute_device/computeDeviceOptions";
 import type { ComputeDeviceChoice, ComputeDeviceList } from "../app/config_page/setting_section/setting_box/_components/compute_device/computeDeviceOptions";
 import { CLOUD_TRANSCRIPTION_ENGINES } from "../../logics/configs/cloudTranscription";
+import { isUsersWeight, weightLabel } from "../../logics/translation/translationCatalog.ts";
 import { isNonCommercialWeight } from "../../logics/configs/ctranslate2License";
-import styles from "./VrSettingsWindow.module.scss";
+import * as styles from "./VrSettingsWindow.css.ts";
 import { splitFeatureLabel } from "../../logics/common/featureLabel.ts";
 
 type Translate = ReturnType<typeof useI18n>["t"];
@@ -363,22 +364,29 @@ const TranscriptionSettings = ({ t, openPicker }: CategoryProps) => {
 
 const TranslationSettings = ({ t, openPicker }: CategoryProps) => {
     const tl = useTranslation();
+    const { currentVrCustomTranslationModelNames } = useStore_VrCustomTranslationModelNames();
+    const modelName = (id: string) => isUsersWeight(id)
+        ? currentVrCustomTranslationModelNames.data[id] ?? id
+        : weightLabel(id, null);
     // CTranslate2 はダウンロード済みのモデルだけ選べる (ダウンロードはデスクトップで行う)。
     // 非商用ライセンス (NLLB) のモデルは確認ダイアログが必要なので、デスクトップの
     // 設定 > 翻訳 でのみ選べる。既に選択中なら表示はする (ライセンス表記付き)。
     const selected_weight = tl.currentSelectedCTranslate2WeightType;
-    // A model the user added has no size or license of its own, and is never non-commercial.
+    // Each model by the name the desktop's settings give it (#1054): a built-in one by the
+    // download catalog's name, with its size, and its license when it is non-commercial. A model
+    // the user added has no size or license of its own and is never non-commercial: its name alone.
     const weights = (tl.currentCTranslate2WeightTypeStatus.data ?? [])
         .filter(w => w.is_downloaded && (!("non_commercial" in w && isNonCommercialWeight(w)) || w.id === selected_weight.data))
         .map(w => {
-            const capacity = "capacity" in w ? w.capacity : undefined;
-            const license = "license" in w ? w.license : undefined;
-            return { id: w.id, label: "non_commercial" in w && isNonCommercialWeight(w) ? `${w.id} (${capacity}, ${license})` : `${w.id} (${capacity})` };
+            const name = modelName(w.id);
+            if (!("capacity" in w)) return { id: w.id, label: name };
+            return { id: w.id, label: isNonCommercialWeight(w) ? `${name} (${w.capacity}, ${w.license})` : `${name} (${w.capacity})` };
         });
     const ct2_label = t("config_page.translation.ctranslate2_weight_type.label");
     return (
         <>
-            <SelectRow label={ct2_label} value={selected_weight.data} is_pending={selected_weight.state === "pending"}
+            <SelectRow label={ct2_label} value={typeof selected_weight.data === "string" ? modelName(selected_weight.data) : selected_weight.data}
+                is_pending={selected_weight.state === "pending"}
                 is_disabled={weights.length === 0} disabled_reason={t("vr_panel.settings.prepare_model")}
                 onOpen={() => openPicker(ct2_label, weights, selected_weight.data, tl.setSelectedCTranslate2WeightType)} />
             <ComputeSettings t={t} openPicker={openPicker}

@@ -43,6 +43,19 @@ class MutationChangedTests(unittest.TestCase):
         self.assertEqual(subject.rust_command("native/ops", diff, None)[-2:], ["-j", "4"])
         self.assertEqual(subject.rust_command("native/ops", diff, 2)[-2:], ["-j", "2"])
 
+    def test_parallel_cargo_mutants_runs_build_in_their_own_target_directories(self):
+        base = {"CARGO_TARGET_DIR": "/tmp/shared-target", "PATH": "/bin"}
+        diff = Path("change.diff")
+        parallel = subject.run_env(subject.rust_command("native/ops", diff, None), base)
+        self.assertNotIn("CARGO_TARGET_DIR", parallel)
+        self.assertEqual(parallel["PROPTEST_DISABLE_FAILURE_PERSISTENCE"], "1")
+        self.assertEqual(parallel["PATH"], "/bin")
+        in_place = subject.run_env(subject.rust_command("native/core", diff, None), base)
+        self.assertEqual(in_place["CARGO_TARGET_DIR"], "/tmp/shared-target")
+        ui = subject.run_env(subject.ui_command("abc123", None), base)
+        self.assertEqual(ui["CARGO_TARGET_DIR"], "/tmp/shared-target")
+        self.assertEqual(base, {"CARGO_TARGET_DIR": "/tmp/shared-target", "PATH": "/bin"})
+
     def test_the_ui_runs_only_the_mutants_in_the_diff(self):
         self.assertEqual(subject.ui_command("abc123", None), ["npm", "run", "test:mutation", "--", "--since", "abc123"])
         self.assertEqual(subject.ui_command("abc123", 8)[-2:], ["-j", "8"])

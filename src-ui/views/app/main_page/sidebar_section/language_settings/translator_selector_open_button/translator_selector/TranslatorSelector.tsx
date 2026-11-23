@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef } from "react";
 import clsx from "clsx";
-import styles from "./TranslatorSelector.module.scss";
+import * as styles from "./TranslatorSelector.css.ts";
 import { useI18n } from "@useI18n";
 
 import { chunkArray } from "@utils";

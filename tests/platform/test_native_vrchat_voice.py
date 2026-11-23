@@ -3,7 +3,7 @@
 The same send goes two ways. Over OSC it reaches the chatbox lab's speaker client, whose chat
 bubble the camera client shows and the app's chat reading reads back, as
 test_native_vrchat_roundtrip.py checks. Through the app's text to speech it goes into the managed
-route, whose microphone (vrct.managed.source, "VRCT Managed Virtual Microphone") is what VRChat
+route, whose microphone (astarot.managed.source, "ASTAROT Managed Virtual Microphone") is what VRChat
 hears when it is chosen as VRChat's microphone. A mute silences the voice and leaves the chatbox
 working, and the app's exit leaves the microphone silent. VRChat's own side is read from the
 speaker client's OSC output: its avatar parameter Voice (the level VRChat hears from its
@@ -46,7 +46,7 @@ pytestmark = pytest.mark.skipif(
     reason="opt-in: needs the chatbox lab's two local VRChat clients, the OCR models and the managed route",
 )
 
-SOURCE = "vrct.managed.source"
+SOURCE = "astarot.managed.source"
 # 20 ms of 48 kHz mono s16le; a piece is sound when a sample reaches SOUND. The stand-in's tone
 # reaches 12000 times its loudness steps (the quietest audible step is 0.1).
 PIECE, SOUND = 960 * 2, 1000
@@ -211,12 +211,12 @@ def test_one_send_is_shown_by_vrchat_and_heard_once_on_the_managed_microphone(tm
                 def send(base, index, heard_once):
                     text = f"{base} {stamp}{index}"
                     seen = set(read_rows(ui))
-                    field = ui.command("POST", "/element", {"using": "css selector", "value": "textarea[class*=message_box_input_area]"})
+                    field = ui.command("POST", "/element", {"using": "css selector", "value": "textarea[data-message-input]"})
                     ui.element_command(field, "clear")
                     ui.element_command(field, "value", {"text": text})
                     sent = time.monotonic()
-                    ui.click('[class*="message_send_button"]')
-                    ui.wait("return document.querySelector('textarea[class*=message_box_input_area]').value === ''")
+                    ui.click('[data-message-send]')
+                    ui.wait("return document.querySelector('textarea[data-message-input]').value === ''")
                     rows, read_at = [], None
                     while time.monotonic() - sent < WAIT and read_at is None:
                         time.sleep(.3)
@@ -235,7 +235,7 @@ def test_one_send_is_shown_by_vrchat_and_heard_once_on_the_managed_microphone(tm
                         assert len(bursts) == 1 and SPOKEN[0] <= bursts[0] <= SPOKEN[1], f"{text}: heard {bursts}"
                         assert loudest >= HEARD, (
                             f"{text}: VRChat reported no voice (Voice {loudest:.3f}) with its mute "
-                            f"{'on' if vrchat.muted() else 'off'}. Choose VRCT Managed Virtual Microphone in the speaker client")
+                            f"{'on' if vrchat.muted() else 'off'}. Choose ASTAROT Managed Virtual Microphone in the speaker client")
                     else:
                         assert bursts == [], f"{text}: heard {bursts} while muted"
                         assert loudest < HEARD, f"{text}: VRChat heard a voice (Voice {loudest:.3f}) while the route was muted"

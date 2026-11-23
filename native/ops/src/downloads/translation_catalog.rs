@@ -98,12 +98,12 @@ fn plain_path(path: &str) -> bool {
 }
 
 /// A URL as stored: the core checks the address itself (`net_policy`); here only its shape.
-fn plain_url(url: &str) -> bool {
+pub(super) fn plain_url(url: &str) -> bool {
     !url.is_empty() && url.len() <= URL_LIMIT && !url.chars().any(|c| c.is_control() || c.is_whitespace())
 }
 
 /// A model name: empty (chosen later from the list) or up to 200 printable characters.
-fn plain_model(model: &str) -> bool {
+pub(super) fn plain_model(model: &str) -> bool {
     model.chars().count() <= MODEL_LIMIT && model == model.trim() && !model.chars().any(char::is_control)
 }
 

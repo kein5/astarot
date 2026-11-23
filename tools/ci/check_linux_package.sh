@@ -14,7 +14,7 @@ install_package() {
     case "$kind" in
         deb)
             export DEBIAN_FRONTEND=noninteractive
-            apt-get install -y -qq --no-install-recommends "$1" > /dev/null
+            apt-get -o Acquire::Retries=3 install -y -qq --no-install-recommends "$1" > /dev/null
             ;;
         rpm)
             dnf install -y -q --setopt=install_weak_deps=False "$1" > /dev/null
@@ -28,7 +28,7 @@ installed() {
     esac
 }
 case "$kind" in
-    deb) apt-get update -qq ;;
+    deb) apt-get -o Acquire::Retries=3 update -qq ;;
     rpm) ;;
     *)
         echo "unknown package format: $package" >&2
@@ -77,7 +77,7 @@ fi
 # "auto" on the CPU build. Install the loader the way a user would, then start the Vulkan build.
 if ldd /opt/astarot/_internal/build/speechcpp/speech | grep -q 'libvulkan.so.1 => not found'; then
     case "$kind" in
-        deb) apt-get install -y -qq --no-install-recommends libvulkan1 > /dev/null ;;
+        deb) apt-get -o Acquire::Retries=3 install -y -qq --no-install-recommends libvulkan1 > /dev/null ;;
         rpm) dnf install -y -q --setopt=install_weak_deps=False vulkan-loader > /dev/null ;;
     esac
 fi

@@ -170,6 +170,7 @@ export const VR_PANEL_STATE_ATOMS: readonly string[] = Object.freeze([
     "SelectedTargetLanguages", "SelectedTranslationEngines", "TranslationEngines",
     // The settings window: meters, threshold checks and fonts.
     "MicVolume", "SpeakerVolume", "MicThresholdCheckStatus", "SpeakerThresholdCheckStatus", "SelectableFontFamilyList",
+    "VrCustomTranslationModelNames",
     // The input and output view.
     "IoFlow", "IoTraces", "IsOpenedIoFlowPanel",
 ]);

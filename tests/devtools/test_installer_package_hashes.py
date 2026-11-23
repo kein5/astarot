@@ -122,7 +122,7 @@ class TemplateTests(unittest.TestCase):
         for line in TEMPLATE.splitlines():
             if 'Delete "$package_hash_path"' in line and "$package_hash_path !=" not in line:
                 # Only the download branch, after the path was set, deletes unconditionally.
-                self.assertGreater(TEMPLATE.index(line), TEMPLATE.index('StrCpy $package_hash_path "$TEMP\\$file_name.sha256"'))
+                self.assertGreater(TEMPLATE.index(line), TEMPLATE.index('StrCpy $package_hash_path "$download_dir\\$file_name.sha256"'))
 
     def test_the_hash_file_is_never_committed(self):
         self.assertIn("src-tauri/nsis/package-hashes.nsh", (ROOT / ".gitignore").read_text(encoding="utf-8").splitlines())

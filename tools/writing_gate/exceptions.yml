@@ -1,0 +1,19 @@
+# Documents the writing gate (tools/writing_gate/check.mjs) does not read, each with its reason.
+# The guidelines leave these out (docs/writing/japanese-guideline.md, "対象にしないもの";
+# docs/writing/english-guideline.md, "What they do not cover").
+#
+# paths: a file, or a folder when it ends with "/".
+#
+# Inside a document, leave a run of lines out with
+#   <!-- writing-exempt-start: <why> -->
+#   ...
+#   <!-- writing-exempt-end -->
+# or one line with <!-- writing-exempt: <why> --> on the line above. Every entry and every
+# marker needs a reason.
+paths:
+  - path: CHANGELOG.md
+    reason: generated from commit summaries (tools/changelog.py)
+  - path: docs/spec/reference/
+    reason: generated (python tools/spec_catalog.py --write)
+  - path: licenses/
+    reason: license texts taken from elsewhere
