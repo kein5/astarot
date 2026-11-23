@@ -5,6 +5,7 @@ import type { TreeNode } from "../../logics/test/hookHarness.ts";
 import * as languageNames from "../../logics/common/languageNames.ts";
 import * as computeDeviceOptions from "../app/config_page/setting_section/setting_box/_components/compute_device/computeDeviceOptions.ts";
 import * as cloudTranscription from "../../logics/configs/cloudTranscription.ts";
+import * as translationCatalog from "../../logics/translation/translationCatalog.ts";
 import * as ctranslate2License from "../../logics/configs/ctranslate2License.ts";
 import * as featureLabel from "../../logics/common/featureLabel.ts";
 import { ui_configs } from "../../logics/ui_configs.ts";
@@ -60,6 +61,7 @@ async function settingsWindow(values: Record<string, unknown> = {}, { ready = tr
         "../app/config_page/setting_section/setting_box/_components/compute_device/computeDeviceOptions": computeDeviceOptions,
         "../../logics/configs/cloudTranscription": cloudTranscription,
         "../../logics/configs/ctranslate2License": ctranslate2License,
+        "../../logics/translation/translationCatalog.ts": translationCatalog,
         "../../logics/common/featureLabel.ts": featureLabel,
     });
     // The list of rows and the picker as the page holds them.
@@ -476,9 +478,9 @@ test("the local translation model is chosen from the downloaded ones; a non-comm
     const page = await translationPage({ currentCTranslate2WeightTypeStatus: ok(weights), currentSelectedCTranslate2WeightType: ok("m2m100_418M-ct2-int8") });
     const model = rowNamed(page.rows, "config_page.translation.ctranslate2_weight_type.label");
     assert.deepEqual([model.props.value, model.props.is_pending, model.props.is_disabled, model.props.disabled_reason],
-        ["m2m100_418M-ct2-int8", false, false, "vr_panel.settings.prepare_model"]);
+        ["M2M100 418M · int8", false, false, "vr_panel.settings.prepare_model"]);
     const list = openList(page.w, model);
-    assert.deepEqual(list.options, [{ id: "m2m100_418M-ct2-int8", label: "m2m100_418M-ct2-int8 (418MB)" }]);
+    assert.deepEqual(list.options, [{ id: "m2m100_418M-ct2-int8", label: "M2M100 418M · int8 (418MB)" }]);
     list.onPick("m2m100_418M-ct2-int8");
     assert.deepEqual(page.w.calls, [["setSelectedCTranslate2WeightType", "m2m100_418M-ct2-int8"]]);
     // The non-commercial model in use stays listed, with its license.
@@ -486,7 +488,7 @@ test("the local translation model is chosen from the downloaded ones; a non-comm
     const inUse = rowNamed(nllb.rows, "config_page.translation.ctranslate2_weight_type.label");
     assert.equal(inUse.props.is_pending, true);
     assert.deepEqual(openList(nllb.w, inUse).options.map((option: { label: string }) => option.label),
-        ["m2m100_418M-ct2-int8 (418MB)", "nllb-200-distilled-600M-ct2-int8 (600MB, CC-BY-NC-4.0)"]);
+        ["M2M100 418M · int8 (418MB)", "NLLB-200 distilled 600M · int8 (600MB, CC-BY-NC-4.0)"]);
     // Nothing downloaded: nothing to choose, and the row says to prepare a model on the PC.
     const none = await translationPage({ currentCTranslate2WeightTypeStatus: ok(weights.map(weight => ({ ...weight, is_downloaded: false }))) });
     assert.equal(rowNamed(none.rows, "config_page.translation.ctranslate2_weight_type.label").props.is_disabled, true);

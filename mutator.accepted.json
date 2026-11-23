@@ -91,6 +91,10 @@
     "reason": "Only the main screen and the translator's list have no stage; neither draws the language list keyed by this, and the key is compared only with itself.",
     "where": "src-ui/views/vr/VrLanguageWindow.tsx:104:51 '' -> 'Stryker was here!'"
   },
+  "1d4qnr0kll": {
+    "reason": "weightLabel gives back a weight that names no model as it is, so a value that is no string (null before the first answer) shows the same.",
+    "where": "src-ui/views/vr/VrSettingsWindow.tsx:386:49 typeof selected_weight.data === \"string\" -> true"
+  },
   "1egmo4m4roy": {
     "reason": "keyMap maps Alt to itself, and with an empty value parseHotkey falls back to the key, which is the same Alt.",
     "where": "src-ui/logics/configs/config_page_setter/hotkeys/useHotkeys.ts:490:14 \"Alt\" -> \"\""
