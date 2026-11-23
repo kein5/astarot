@@ -365,6 +365,16 @@ impl Core {
         None
     }
 
+    /// Language to prepare for microphone speech. Auto detection uses the tab's language
+    /// until the recognizer reports the language of a final.
+    pub(super) fn mic_speech_language(&self, fallback: Option<&str>) -> Option<String> {
+        let settings = self.config().get(SETTINGS_KEY);
+        match settings["mic"]["language"].as_str() {
+            Some(code) if code != "auto" => Self::realtime_language(code),
+            _ => fallback.map(str::to_owned),
+        }
+    }
+
     /// `_realtimeFallbackLanguage`: the language the settings have for this side.
     fn realtime_fallback_language(&self, source: Source) -> Option<String> {
         let config = self.config();
