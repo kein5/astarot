@@ -145,9 +145,9 @@ voice:
     monitor_volume: "Monitor volume"
     monitor_hint: "Plays the same speech and RVC converted voice on your own speakers or headphones as well as sending it to VRChat. It never changes what VRChat receives. Use headphones so your microphone does not pick it up; speaker transcription of the same device will also hear it."
     monitor_error: "Monitor output unavailable. Audio still goes to VRChat."
-    vc_monitor_on: "The converted voice also plays on your monitor output, set on the Text to speech (TTS) page. Changes apply at the next Start."
-    vc_monitor_off: "To also hear the converted voice yourself, turn on the monitor output on the Text to speech (TTS) page."
-    vc_monitor_passthrough: "Forwarding the input unconverted is not played on the monitor output."
+    vc_monitor_help: "Converted voice also plays on the monitor output of the Text to speech (TTS) settings. Turning it on or off applies the next time conversion starts. Input forwarded without conversion is not played."
+    vc_monitor_not_converted: "Forwarded input is not played"
+    vc_monitor_action: "Change the monitor"
     monitor_errors:
         monitor_output_missing: "Monitor output not found. Audio still goes to VRChat."
         monitor_output_disconnected: "Monitor output disconnected. Audio still goes to VRChat."
