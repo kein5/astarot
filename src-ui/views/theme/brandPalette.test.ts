@@ -156,7 +156,7 @@ test("fields and outlined controls draw their edge with the field border", () =>
         "app/config_page/setting_section/setting_box/_components/_atoms/_dropdown_menu/_DropdownMenu.css.ts",
         "app/config_page/setting_section/setting_box/_components/_atoms/_entry/_Entry.css.ts",
         "app/config_page/search_bar/SearchBar.css.ts",
-        "app/config_page/setting_section/setting_box/_components/file_drop_zone/FileDropZone.module.scss",
+        "app/config_page/setting_section/setting_box/_components/file_drop_zone/FileDropZone.css.ts",
         "app/config_page/setting_section/setting_box/advanced_settings/VoiceSettings.module.scss",
         "app/main_page/main_section/language_selector/LanguageSelector.css.ts",
         "quick_chat/QuickChat.css.ts",
