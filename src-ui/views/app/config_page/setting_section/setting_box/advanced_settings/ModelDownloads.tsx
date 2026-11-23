@@ -201,6 +201,8 @@ const RestrictionNote = ({ kind, license, id }: { kind: string; license: string;
 // usable: the catalog ids of the models that hold no path and the app can use (the translation's
 // that count as downloaded in the core). On the PC, such a model is ready, and its card offers no
 // check or preparation (#947).
+// onStart: told the catalog id of each download the user starts here, for a caller that goes on
+// once that model is there (the switch that asked for the translation model, #1015).
 export interface ModelDownloadsProps {
     targets: readonly string[];
     expected?: ExpectedPaths;
@@ -214,9 +216,10 @@ export interface ModelDownloadsProps {
     // What an RVC card's audition uses (#415): the RVC form's pitch and index rate, and the input
     // chosen on the page, which the user's voice is recorded from.
     audition?: RvcAudition | null;
+    onStart?: (id: string) => void;
 }
 
-export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode = 'auto', reserve: sharedReserve, engines = false, only, translationDevice, usable, audition }: ModelDownloadsProps) => {
+export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode = 'auto', reserve: sharedReserve, engines = false, only, translationDevice, usable, audition, onStart }: ModelDownloadsProps) => {
     const { t, i18n } = useI18n();
     const hints = useHintDescriptions();
     const languages = useLanguageList();
@@ -501,7 +504,7 @@ export const ModelDownloads = ({ targets, expected, blocked = false, deviceMode 
                 <button type="button" autoFocus onClick={close}>{t("model_downloads.back")}</button>
                 <button type="button" className="primary" disabled={!agreed || busy} onClick={() => {
                     if (!agreed || busy) return;
-                    send("/run/start_model_download", startRequest(selected, acknowledged)); close();
+                    send("/run/start_model_download", startRequest(selected, acknowledged)); onStart?.(selected.id); close();
                 }}>{t(selected.downloaded ? "model_catalog.prepare_start" : "model_downloads.start")}</button>
             </div>
         </dialog>}

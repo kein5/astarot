@@ -38,6 +38,10 @@ const LARGE_CLAUSE_MARGIN: i64 = 20;
 const TEXT_SMALL: [u8; 3] = [190, 190, 190];
 const TEXT_SEND: [u8; 3] = [97, 151, 180];
 const TEXT_RECEIVE: [u8; 3] = [168, 97, 180];
+/// Who spoke on the small log: the received purple at the same hue, lighter. Its 60px stand out
+/// from the background by 6.0:1 (WCAG 2.x), above the 4.5:1 that small text needs; the received
+/// purple itself stands out by 3.4:1, which a check in a headset measured as 2.7:1.
+const TEXT_RECEIVE_WHO: [u8; 3] = [198, 152, 206];
 const TEXT_TIME: [u8; 3] = [120, 120, 120];
 const RUBY_SCALE: f64 = 0.5;
 const RUBY_SPACING: i64 = 4;
@@ -479,9 +483,9 @@ impl Renderer {
         self.render_rows(rows, SMALL_WIDTH, clipped)
     }
 
-    /// Who spoke, centred above the small log's message in the colour of received messages.
+    /// Who spoke, centred above the small log's message in the lighter received purple.
     fn small_who(&self, who: &str) -> Result<Block, TooLarge> {
-        let (mut rows, clipped) = self.plain_rows(who, "Default", SMALL_WHO_FONT, TEXT_RECEIVE, (SMALL_WIDTH as f64 * 0.9) as i64, Align::Center, 10, 0);
+        let (mut rows, clipped) = self.plain_rows(who, "Default", SMALL_WHO_FONT, TEXT_RECEIVE_WHO, (SMALL_WIDTH as f64 * 0.9) as i64, Align::Center, 10, 0);
         if let Some(first) = rows.first_mut() {
             // As far from the top as a message without it starts.
             let half = i64::from(SMALL_FONT / 2);
@@ -1256,15 +1260,46 @@ mod tests {
         let named = subtitles.renderer.small_log(&spoken, Some("ミカ·B")).unwrap();
         assert_eq!(named.width, plain.width);
         assert!(named.height > plain.height, "a row for who spoke");
-        assert!(rows_with(&plain, TEXT_RECEIVE).is_empty(), "no one is written without a name or a label");
+        assert!(rows_with(&plain, TEXT_RECEIVE_WHO).is_empty(), "no one is written without a name or a label");
         if subtitles.renderer.library().any() {
-            let who = rows_with(&named, TEXT_RECEIVE);
+            let who = rows_with(&named, TEXT_RECEIVE_WHO);
             let text = rows_with(&named, TEXT);
             assert!(!who.is_empty(), "who spoke is drawn");
             assert!(who.last() < text.first(), "above the message");
         }
         // An empty name writes no row.
         assert_eq!(subtitles.renderer.small_log(&spoken, Some("")).unwrap().height, plain.height);
+    }
+
+    /// WCAG 2.x contrast of two colours.
+    fn contrast(a: [u8; 3], b: [u8; 3]) -> f64 {
+        let luminance = |c: [u8; 3]| {
+            let channel = |v: u8| {
+                let v = f64::from(v) / 255.0;
+                if v <= 0.04045 { v / 12.92 } else { ((v + 0.055) / 1.055).powf(2.4) }
+            };
+            0.2126 * channel(c[0]) + 0.7152 * channel(c[1]) + 0.0722 * channel(c[2])
+        };
+        let (x, y) = (luminance(a), luminance(b));
+        (x.max(y) + 0.05) / (x.min(y) + 0.05)
+    }
+
+    /// The hue of a colour in degrees.
+    fn hue(c: [u8; 3]) -> f64 {
+        let [r, g, b] = c.map(|v| f64::from(v) / 255.0);
+        let (max, min) = (r.max(g).max(b), r.min(g).min(b));
+        let d = max - min;
+        let h = if max == r { ((g - b) / d).rem_euclid(6.0) } else if max == g { (b - r) / d + 2.0 } else { (r - g) / d + 4.0 };
+        h * 60.0
+    }
+
+    #[test]
+    fn who_spoke_stands_out_from_the_background_in_the_received_purple() {
+        // Small text needs 4.5:1 (WCAG 2.x); a headset showed less than the colours give.
+        assert!(contrast(TEXT_RECEIVE_WHO, BACKGROUND) >= 4.5, "{:.2}:1", contrast(TEXT_RECEIVE_WHO, BACKGROUND));
+        // Still the colour of received messages: the same purple, only lighter.
+        assert!((hue(TEXT_RECEIVE_WHO) - hue(TEXT_RECEIVE)).abs() < 2.0, "{} against {}", hue(TEXT_RECEIVE_WHO), hue(TEXT_RECEIVE));
+        assert!(contrast(TEXT_RECEIVE_WHO, BACKGROUND) > contrast(TEXT_RECEIVE, BACKGROUND));
     }
 
     #[test]
