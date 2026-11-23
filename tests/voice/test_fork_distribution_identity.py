@@ -10,11 +10,13 @@ ROOT = Path(__file__).resolve().parents[2]
 def test_fork_identity_and_backend_contract():
     conf = json.loads((ROOT / "src-tauri/tauri.conf.json").read_text(encoding="utf-8"))
     # The installer's title, install folder, shortcuts, the Apps list and the executable's
-    # version information show productName (Issue #535). The identifiers below stay.
+    # version information show productName (Issue #535). The executable keeps its name until
+    # its own step of ADR-014.
     assert conf["productName"] == "ASTAROT"
     assert conf["mainBinaryName"] == "vrct-vox"
-    # Changing it moves Tauri data and desktop integration (portal, app id).
-    assert conf["identifier"] == "io.github.kein5.vrct-vox"
+    # The app ID moved with the desktop integration's migration (ADR-014, 2.6): Tauri's data
+    # folder, the portals' app id and the desktop file follow it.
+    assert conf["identifier"] == "io.github.kein5.astarot"
     assert conf["bundle"]["publisher"] == "kein5"
     assert "m's software" in conf["bundle"]["copyright"]
     # The window title is the display name (ADR-011 P1).

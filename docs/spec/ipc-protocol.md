@@ -141,6 +141,7 @@ OpenAI互換とCustom WhisperのURL単独の設定要求（`/set/data/openai_com
 Linuxの配布版を隔離した`XDG_*`で試す場合は、`ASTAROT_CONFIG_DIR`にも同じ設定先（`$XDG_CONFIG_HOME/astarot`）を明示する。
 Linuxの配布版は、この判定の前に保存先を決める（[Linuxの保存先の移動](data-and-persistence.md#linuxの保存先の移動)）。0.5.xのフォルダーを移すときは、ほかのASTAROTとVRCT-VOXの単一起動の名前を先に確かめ、使われていれば移さない。
 Linuxの判定はD-Busのセッションバスに依存し、バスに接続できない環境では二重起動を防げない。
+単一起動の名前はアプリIDから作る。0.7.0からアプリIDが`io.github.kein5.astarot`なので、0.6.xまでの版（`io.github.kein5.vrct-vox`）が動いていても、この判定では止まらない。
 設定の保存先と`config.json.lock`の動作は変えない。判定と試験起動時の環境変数は`tests/devtools/test_single_instance.py`で検証する。
 
 ```mermaid
