@@ -7,6 +7,10 @@
     "reason": "{ on: false } and {} read the same: on is not true, and path and language are nullish.",
     "where": "src-ui/logics/flow/flowGraph.ts:62:78 { on: false } -> {}"
   },
+  "19aqp1yhfoc": {
+    "reason": "A timer started for no target or for the dismissed target does nothing: show returns at once for a missing or dismissed target.",
+    "where": "src-ui/views/vr/VrTooltip.tsx:118:27 dismissed !== target -> true"
+  },
   "19oho4g4eyp": {
     "reason": "Number.isFinite is false for every value that is not a number.",
     "where": "src-ui/logics/common/initializationFields.ts:32:36 typeof value === \"number\" -> true"
@@ -39,6 +43,10 @@
     "reason": "{ on: false } and {} read the same: on is not true, and path and language are nullish.",
     "where": "src-ui/logics/flow/flowGraph.ts:62:114 { on: false } -> {}"
   },
+  "1nmsphl7t5u": {
+    "reason": "The tooltip is already null whenever the effect stops early: it starts null, and the clean-up of the run before hid it.",
+    "where": "src-ui/views/vr/VrTooltip.tsx:72:33 setTip(null); -> ;"
+  },
   "1pouqqozbmh": {
     "reason": "Download items always have a string id, so an undefined id matches none of them.",
     "where": "src-ui/logics/common/pendingRequestRecovery.ts:28:22 id !== undefined -> true"
@@ -54,6 +62,14 @@
   "1rwz6jofrjj": {
     "reason": "A lane without outputs gets a key named 'undefined', which no output id looks up.",
     "where": "src-ui/logics/flow/flowGraph.ts:52:42 [] -> [\"Stryker was here!\"]"
+  },
+  "1skl2ef3rqc": {
+    "reason": "A timer started for no target or for the dismissed target does nothing: show returns at once for a missing or dismissed target.",
+    "where": "src-ui/views/vr/VrTooltip.tsx:118:17 target && dismissed !== target -> (target || dismissed !== target)"
+  },
+  "1xfgofkj8g4": {
+    "reason": "A timer started for no target or for the dismissed target does nothing: show returns at once for a missing or dismissed target.",
+    "where": "src-ui/views/vr/VrTooltip.tsx:118:17 target && dismissed !== target -> true"
   },
   "1ycrsi5wglg": {
     "reason": "settingsWithoutRead is empty: no setting is named like the placeholder, and ignoring the set changes no setting.",
@@ -86,6 +102,10 @@
   "d6gn3xaczg": {
     "reason": "flow is not nullish here: the check before it returned for that.",
     "where": "src-ui/logics/flow/flowGraph.ts:57:30 ?. -> ."
+  },
+  "papf5i9aml": {
+    "reason": "show runs only from the timer that update starts for a target that is not dismissed, and Escape clears that timer when it dismisses the target.",
+    "where": "src-ui/views/vr/VrTooltip.tsx:92:41 dismissed === target -> false"
   },
   "sumx19h5ss": {
     "reason": "Only the first character is read; removing a prolonged-sound mark later in the name does not change it.",
