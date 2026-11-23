@@ -1,6 +1,6 @@
 import { useRef, useState, useEffect, useCallback } from "react";
 import type { KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent, ReactNode } from "react";
-import styles from "./Slider.module.scss";
+import * as styles from "./Slider.css.ts";
 import clsx from "clsx";
 import { useSliderLogic } from "@logics_configs";
 import type { SliderSetterTiming } from "../../../../../../../logics/configs/config_page_setter/useSettingsLogics";
@@ -18,7 +18,7 @@ export interface SliderProps {
     step?: number;
     show_label_values?: readonly number[] | null;
     marks_step?: number;
-    // Where the value's bubble sits: "top" and so on (Slider.module.scss).
+    // Where the value's bubble sits: "top" and so on (Slider.css.ts, valueLabelLocation).
     valueLabelDisplayLocation?: string;
     // "on" always shows it; "auto" while the pointer is on the slider, it is dragged or focused.
     valueLabelDisplay?: string;
@@ -279,7 +279,7 @@ export const Slider = (props: SliderProps) => {
                         ...(isVertical ? { bottom: `${percentage}%` } : { left: `${percentage}%` })
                     }}
                 >
-                    <div className={clsx(styles.valueLabel, styles[`location-${location}`], {
+                    <div className={clsx(styles.valueLabel, styles.valueLabelLocation[location], {
                         [styles.valueLabelOpen]: showValueLabel
                     })}>
                         <span className={styles.valueLabelLabel}>{valueLabelStr}</span>

@@ -19,6 +19,10 @@ except ImportError:
     from build_linux import prepare_work, run
     from linux_package import RUNTIME, check_tree, inventory, normalize_modes, sha256
     from speechcpp_bundle import verify_bundle
+try:
+    from .download_retry import retrying
+except ImportError:
+    from download_retry import retrying
 
 ROOT = Path(__file__).resolve().parents[1]
 MANIFEST = ROOT / 'docs/voice-stack/appimage-tools.json'
@@ -52,9 +56,12 @@ def verify_tools(directory, *, download=False):
         target = directory / row['name']
         if not os.path.lexists(target) and download:
             request = Request(row['url'], headers={'User-Agent': 'ASTAROT-AppImage-build'})
-            with urlopen(request, timeout=60) as response:
-                data = response.read(row['size'] + 1)
-            store_tool(directory, row, data)
+
+            def attempt(request=request, row=row):
+                with urlopen(request, timeout=60) as response:
+                    return response.read(row['size'] + 1)
+
+            store_tool(directory, row, retrying(attempt, row['name']))
         check_tool(target, row)
         if 'extract' in row:
             extracted = row['extract']

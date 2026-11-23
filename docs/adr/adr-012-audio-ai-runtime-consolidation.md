@@ -221,6 +221,8 @@ ONNX Runtime 系の OCR とローカル翻訳は、2.2 の分担どおりなの�
 
 > **例外の追記**（2026-11-19、Issue #412）：TranslateGemma のような decoder-only の翻訳の LLM を LLM 用の実行基盤（ONNX Runtime GenAI や llama.cpp など）で動かすことを新しい例外とした（[ADR-015](adr-015-translation-llm-runtime-exception.md)）。2.2 でローカル翻訳の担当を ONNX Runtime としたことの例外で、範囲は decoder-only の翻訳の LLM に限る。M2M100 と NLLB-200 は ONNX Runtime のままである。理由は今の `native/translate-onnx` が encoder-decoder の形だけを動かし、LLM の生成を自前で書くと LLM の実行基盤が持つ機能を作り直すことになるため。speech.cpp は機械翻訳を扱わない（5）ので、2.3 の上流への貢献の道もない。どの実行基盤にするか、配布の大きさ、ライセンスは ADR-015 の段階 2 で示す。本文は書き換えていない。
 
+> **例外の追記**（2026-11-23、Issue #1061）：VOICEVOX CORE によるアプリ内の日本語読み上げを新しい管理対象の例外とした（[ADR-019](adr-019-voicevox-core-tts-runtime-exception.md)）。2.2 で読み上げの担当を speech.cpp としたことの例外で、既定の speech.cpp 読み上げと外部接続（ADR-008）は維持する。製品版 VVM は独自形式（`vv-bin`）と `voicevox_onnxruntime` 固有処理に依存し、規約上もリバースエンジニアリング禁止のため speech.cpp への変換・上流貢献や既存 ONNX Runtime（`1.31.0`）との共有ができない。薄い Rust 子プロセス（`astarot-voicevox-worker`）から同意取得した公式 `voicevox_core` C API（`0.17.1`、MIT）と `voicevox_onnxruntime` 正式版 `1.17.3`（CPU 版）を動的ロードし、初回は標準規約のみの代表パックから始める。本実装の着手は Windows・Linux 実機 PoC の結果を見て判断する。本文は書き換えていない。
+
 ## 7. Verification / Acceptance criteria（検証と受け入れの条件）
 
 新しいモデル、ランタイム、例外を採用する変更は、次を確かめる。

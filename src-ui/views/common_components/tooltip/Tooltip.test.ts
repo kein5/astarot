@@ -4,47 +4,41 @@ import { test } from "vitest";
 import { hooks, loadModule, find } from "../../../logics/test/hookHarness.ts";
 import * as placement from "./tooltipPlacement.ts";
 import type { TooltipProps } from "./Tooltip.tsx";
+import { styleOf } from "../../../logics/test/styleSource.ts";
 
 const read = (path: string) => readFileSync(new URL(path, import.meta.url), "utf8");
-// The declarations a rule writes itself, before any nested rule.
-const ownDeclarations = (source: string, selector: string) => {
-    const at = source.indexOf(`${selector} {`);
-    assert.ok(at >= 0, selector);
-    const open = source.indexOf("{", at);
-    return source.slice(open + 1, open + 1 + source.slice(open + 1).search(/[{}]/));
-};
+// The bubble's look, shared by the styles that draw a tooltip: the tooltipContent object of mixins.ts.
+const mixins = read("../../common_css/mixins.ts");
 
-const mixins = read("../../common_css/mixins.scss");
-const bubbles = [
-    ["common_components/tooltip", read("./Tooltip.module.scss"), ".tooltipBox"],
-    ["the settings' Hint", read("../../app/config_page/setting_section/setting_box/_components/hint/Hint.module.scss"), ".tip"],
-];
 
 // docs/design/components/shadcn-alignment.md, item 10: shadcn/ui's TooltipContent (rounded-md,
 // px-3 py-1.5, text-xs) is the app's one tooltip look.
 test("the tooltip look is shadcn/ui's TooltipContent, read by DESIGN.md's rules", () => {
-    const look = ownDeclarations(mixins, "@mixin tooltip_content");
-    assert.match(look, /padding: \.6rem 1\.2rem;/);
-    assert.match(look, /border-radius: var\(--vox_radius, \.8rem\);/);
-    assert.match(look, /font-size: 1\.2rem;/);
+    const look = mixins.slice(mixins.indexOf("export const tooltipContent"));
+    assert.match(look, /padding: "\.6rem 1\.2rem",/);
+    assert.match(look, /borderRadius: "var\(--vox_radius, \.8rem\)",/);
+    assert.match(look, /fontSize: "1\.2rem",/);
     // As wide as its words up to a reading measure, keeping the text's line breaks.
-    assert.match(look, /width: max-content;\s*max-width: min\(36rem, 90cqi\);/);
-    assert.match(look, /white-space: pre-line;/);
+    assert.match(look, /width: "max-content",\s*maxWidth: "min\(36rem, 90cqi\)",/);
+    assert.match(look, /whiteSpace: "pre-line",/);
     // The colours are unchanged until D-22 (whether they are inverted) is decided.
-    assert.match(look, /background-color: var\(--dark_700_color\);\s*color: var\(--dark_basic_text_color\);/);
+    assert.match(look, /backgroundColor: "var\(--dark_700_color\)",\s*color: "var\(--dark_basic_text_color\)",/);
 });
 
 test("the common tooltip and the settings' Hint draw the same bubble, and only it", () => {
-    for (const [name, source, selector] of bubbles) {
-        assert.match(source, /^@import "@scss_mixins";/, name);
-        const own = ownDeclarations(source, selector);
-        assert.match(own, /@include tooltip_content;/, name);
-        // Nothing of the look is written over it.
-        assert.doesNotMatch(own, /\b(padding|border-radius|background-color|font-size|font-weight|line-height|white-space)\s*:/, name);
+    // The common tooltip and the settings' Hint, in vanilla-extract: each bubble spreads the same
+    // look and writes none over it.
+    for (const [name, source, style] of [
+        ["common_components/tooltip", read("./Tooltip.css.ts"), "tooltipBox"],
+        ["the settings' Hint", read("../../app/config_page/setting_section/setting_box/_components/hint/Hint.css.ts"), "tip"],
+    ]) {
+        const box = styleOf(source, style);
+        assert.match(box, /\.\.\.tooltipContent,/, name);
+        assert.doesNotMatch(box, /\b(padding|borderRadius|backgroundColor|fontSize|fontWeight|lineHeight|whiteSpace)\s*:/, name);
     }
     // The resend button's words take the bubble's size and colour, not their own.
     const resend = "../../app/main_page/main_section/message_container/log_box/message_container/message_sub_menu_container/";
-    assert.doesNotMatch(read(resend + "MessageSubMenuContainer.module.scss"), /\.tooltip_title/);
+    assert.doesNotMatch(read(resend + "MessageSubMenuContainer.css.ts"), /tooltip_title/);
 });
 
 // The tooltip drawn without a page: its bubble stays in the tree where the test can read it.
@@ -103,9 +97,9 @@ test("without words the tooltip draws its control alone; a bare wrapper makes no
     assert.equal(none.draw().props.children, "button");
     const bare = await tooltip({ title: "words", children: "button", bare: true });
     assert.match(bare.draw().props.className, /\bbare\b/);
-    assert.match(ownDeclarations(read("./Tooltip.module.scss"), ".bare"), /display: contents;/);
+    assert.match(styleOf(read("./Tooltip.css.ts"), "bare"), /display: "contents",/);
     // The bubble is placed in the window, so nothing that scrolls or clips its control cuts it.
-    assert.match(ownDeclarations(read("./Tooltip.module.scss"), ".tooltipBox"), /position: fixed;/);
+    assert.match(styleOf(read("./Tooltip.css.ts"), "tooltipBox"), /position: "fixed",/);
 });
 
 const box = (left: number, top: number, width: number, height: number) => ({ left, top, width, height });

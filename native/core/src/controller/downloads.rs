@@ -23,6 +23,7 @@ use std::time::Duration;
 use astarot_ops::downloads::catalog;
 use astarot_ops::downloads::hardware::{BinarySource, HardwareProbe};
 use astarot_ops::downloads::translation_catalog::{self, TranslationCatalog};
+use astarot_ops::downloads::transcription_catalog::{self, TranscriptionCatalog};
 use astarot_ops::downloads::user_models::{self, UserModels};
 use astarot_ops::downloads::{Downloads, Error};
 use astarot_ops::telemetry::Telemetry;
@@ -65,6 +66,9 @@ pub(crate) struct Ops {
     /// The translation entries the user added to the translation catalog (#413). Shared with
     /// the settings, which record when the key store takes an entry's key.
     pub(super) translation_catalog: Arc<TranslationCatalog>,
+    /// The speech recognition APIs the user added (#414). Shared with the settings, which record
+    /// when the key store takes an entry's key.
+    pub(super) transcription_catalog: Arc<TranscriptionCatalog>,
     /// Held while an apply checks and writes the settings (Python's `_speech_settings_lock` and
     /// `_voice_settings_lock`).
     apply_lock: Mutex<()>,
@@ -92,7 +96,8 @@ impl Ops {
         let report_hook = crate::errors::register_report_hook(Arc::new(move |code| reporter.track_error(code)));
         let user_models = UserModels::new(env.state_dir.join(user_models::FILE_NAME));
         let translation_catalog = Arc::new(TranslationCatalog::new(env.state_dir.join(translation_catalog::FILE_NAME)));
-        Ops { downloads, hardware, telemetry, user_models, translation_catalog, apply_lock: Mutex::new(()), report_hook }
+        let transcription_catalog = Arc::new(TranscriptionCatalog::new(env.state_dir.join(transcription_catalog::FILE_NAME)));
+        Ops { downloads, hardware, telemetry, user_models, translation_catalog, transcription_catalog, apply_lock: Mutex::new(()), report_hook }
     }
 
     /// Takes this run's hook away: the error codes of a later run are not counted here.
@@ -260,13 +265,9 @@ fn request(data: &Value, apply: bool) -> Option<(&str, &str)> {
 }
 
 pub(crate) fn add(b: &mut Builder<'_>) {
-    b.with("/get/data/model_download_catalog", OPEN, |core, _| {
-        let mut catalog = to_value(core.ops().downloads.catalog());
-        // The reviews of the built-in CTranslate2 downloads (`legacyModelCatalog`) come with
-        // that download, which the core does not run yet: none is offered.
-        catalog["legacy_models"] = json!([]);
-        ok(catalog)
-    });
+    // The built-in CTranslate2 download and its reviews (`legacy_models`) are gone: the core
+    // retired the download in 0.5.0, and the UI's half of it went with #1015.
+    b.with("/get/data/model_download_catalog", OPEN, |core, _| ok(to_value(core.ops().downloads.catalog())));
     b.with("/get/data/model_download_hardware", OPEN, |core, _| ok(to_value(core.ops().hardware.state())));
     b.with("/run/refresh_model_download_hardware", OPEN, |core, data| {
         // The probe takes nothing from the UI: no binary, no options.

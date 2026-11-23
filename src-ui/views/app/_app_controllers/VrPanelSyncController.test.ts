@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
+import { createStore } from "jotai";
+import * as translationCatalog from "../../../logics/translation/translationCatalogState.ts";
+import type { TranslationCatalog } from "../../../logics/translation/translationCatalog.ts";
 import type { TestContext } from "vitest";
 import { hooks, loadModule } from "../../../logics/test/hookHarness.ts";
 import * as wire from "../../../logics/common/vrPanelWire.ts";
@@ -10,6 +13,7 @@ interface SyncSetup {
     values?: Record<string, unknown>;
     settings?: unknown[];
     openFailure?: unknown;
+    catalogStore?: ReturnType<typeof createStore>;
 }
 type Listener = (event?: unknown) => void;
 interface InvokeArgs {
@@ -18,7 +22,7 @@ interface InvokeArgs {
 }
 type MainFunctionsMemory = { translation: boolean; transcription_send: boolean; transcription_receive: boolean };
 
-async function setup(context: TestContext, { registry = {}, values = {}, settings = [], openFailure = null }: SyncSetup = {}) {
+async function setup(context: TestContext, { registry = {}, values = {}, settings = [], openFailure = null, catalogStore = createStore() }: SyncSetup = {}) {
     const runtime = hooks(), lifecycle = hooks(), listeners = new Map<string, Listener>();
     const state = { enabled: true, configOpen: false, mic: true };
     const actions: unknown[][] = [], requests: unknown[][] = [], windows: unknown[] = [], pushes: [string, InvokeArgs][] = [],
@@ -43,8 +47,14 @@ async function setup(context: TestContext, { registry = {}, values = {}, setting
             listeners.set(name, handler);
             return Promise.resolve(() => { if (listeners.get(name) === handler) listeners.delete(name); });
         } },
-        jotai: { getDefaultStore: () => ({ get: (atom: string) => values[atom], sub: () => () => {} }) },
+        jotai: { getDefaultStore: () => ({
+            get: (atom: string | typeof translationCatalog.vrCustomTranslationModelNamesAtom) =>
+                typeof atom === "string" ? values[atom] : catalogStore.get(atom),
+            sub: (atom: string | typeof translationCatalog.vrCustomTranslationModelNamesAtom, listener: () => void) =>
+                typeof atom === "string" ? () => {} : catalogStore.sub(atom, listener),
+        }) },
         "@store": { dynamicStoreRegistry: registry },
+        "../../../logics/translation/translationCatalogState.ts": translationCatalog,
         "../../../logics/configs/config_page_setter/ui_config_setter": { SETTINGS_ARRAY: settings },
         "@logics_common": common,
         "@logics_configs": { useVr: () => ({ currentIsEnabledOverlayVrPanel: { data: state.enabled } }) },
@@ -97,6 +107,36 @@ test("the VR panel gets the listed state through invoke, and nothing else", asyn
     assert.deepEqual(view.emitted, []); // nothing goes out as an event any more
     view.listener("vr-panel-ready")();
     assert.equal(view.pushes.length, 2);
+});
+
+test("the VR channel gets only the local custom model names and tracks catalog changes", async context => {
+    const catalogStore = createStore();
+    const { catalogAtom } = translationCatalog;
+    const entry = { id: "tr-1", weight: "user:tr-1", name: "My model", origin: "user", runtime: "onnx",
+        available: true, in_use: true, folder: "/fixtures/model" } as const;
+    const catalog: TranslationCatalog = {
+        engine: [entry, { ...entry, origin: "builtin", weight: "builtin" }],
+        api: [{ id: "api", name: "My API", origin: "user", url: "https://example.invalid/translate" }],
+        runtimes: [],
+        protocols: [],
+    };
+    const view = await setup(context, { registry: { Atom_VrCustomTranslationModelNames: "receiver" }, catalogStore });
+    const assertNames = (index: number, expected: Record<string, string>) => {
+        const [command, { payload }] = view.pushes[index];
+        assert.equal(command, "vr_panel_state_push");
+        assert.ok(payload);
+        assert.deepEqual(Object.keys(payload), ["VrCustomTranslationModelNames"]);
+        assert.deepEqual(wire.decodeOrdered(payload.VrCustomTranslationModelNames), { state: "ok", data: expected });
+    };
+    assertNames(0, {});
+    catalogStore.set(catalogAtom, catalog);
+    assertNames(1, { "user:tr-1": "My model" });
+    view.listener("vr-panel-ready")();
+    assertNames(2, { "user:tr-1": "My model" });
+    catalogStore.set(catalogAtom, { ...catalog, engine: [{ ...entry, name: "Renamed" }] });
+    assertNames(3, { "user:tr-1": "Renamed" });
+    catalogStore.set(catalogAtom, { ...catalog, engine: [] });
+    assertNames(4, {});
 });
 
 test("recreating the VR panel leaves settings open and microphone paused", async context => {

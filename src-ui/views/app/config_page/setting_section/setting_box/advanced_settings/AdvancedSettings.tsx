@@ -1,9 +1,9 @@
 import { useId, useMemo, useState } from "react";
 import { useI18n } from "@useI18n";
 import { useStdoutToPython } from "@useStdoutToPython";
-import styles from "./AdvancedSettings.module.scss";
-import voiceStyles from "./VoiceSettings.module.scss";
-import dialogStyles from "../_components/download_models/LegacyModelDownloadDialog.module.scss";
+import * as styles from "./AdvancedSettings.css.ts";
+import * as voiceStyles from "./VoiceSettings.css.ts";
+import * as dialogStyles from "../_components/download_models/LegacyModelDownloadDialog.css.ts";
 import { AutoExportMessageLogsContainer } from "../shared_items/SharedItems";
 import { Description } from "../_components/description/Description";
 import { HintDescriptions } from "../_components/hint/Hint";
@@ -61,8 +61,7 @@ type TlsField = "cert_file" | "key_file";
 type TlsPaths = Readonly<Record<TlsField, string>>;
 
 // The rows' general descriptions are hints here (#614, DESIGN.md "Principles"). What is read
-// before acting stays on screen: the URLs in use, what the usage data sends, the GPU check's
-// words and the warnings.
+// before acting stays on screen: the URLs in use, what the usage data sends and the warnings.
 export const AdvancedSettings = () => {
     const { t } = useI18n();
 
@@ -84,10 +83,10 @@ export const AdvancedSettings = () => {
             {/* The GPU check, next to the usage data: both say what leaves the PC (#288). It
                 sends nothing itself; the user reads the report and may send it on GitHub. */}
             <div>
-                {/* What the check is for, how it measures and what its result holds are the heading's
-                    hint; what is known before pressing stays under it (#614). */}
+                {/* What the check is for, how it measures, what its result holds and what to know
+                    before pressing are the heading's hint (#614, #1013). */}
                 <SectionLabelComponent label={t("config_page.advanced_settings.section_label_gpu_check")}
-                    desc={["desc", "what", "privacy"].map(name => t(`config_page.advanced_settings.gpu_check.${name}`)).join("\n")} />
+                    desc={["desc", "what", "privacy", "before"].map(name => t(`config_page.advanced_settings.gpu_check.${name}`)).join("\n")} />
                 <GpuCheck />
             </div>
             {/* Where messages go to VRChat: set once, if ever, like the other connections below.

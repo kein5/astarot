@@ -177,9 +177,9 @@ def checks_plan(args, root):
             if scope == "ui" and "node" in selected:
                 pass
             else:
-                # vitest.config.js lists the same patterns (plus the i18n gate's own tests in
-                # tools/i18n_gate); this guard keeps a moved or renamed tree from passing as an
-                # empty run.
+                # vitest.config.js lists the same patterns (plus the i18n and writing gates' own
+                # tests in tools/i18n_gate and tools/writing_gate); this guard keeps a moved or
+                # renamed tree from passing as an empty run.
                 if not any(p for pattern in ("*.test.js", "*.test.mjs", "*.test.ts")
                            for p in (root / "src-ui").rglob(pattern)):
                     raise DevError("No UI tests found under src-ui; refusing an empty check.")
@@ -192,6 +192,10 @@ def checks_plan(args, root):
                 # and no new text is written straight into the UI.
                 steps.append(Step("i18n gate", ["node", "--disable-warning=ExperimentalWarning",
                     "tools/i18n_gate/check.mjs"]))
+                # The rules of docs/writing/ that a pattern can check, in every document git
+                # tracks; the findings already there are in tools/writing_gate/baseline.json.
+                steps.append(Step("writing gate", ["node", "--disable-warning=ExperimentalWarning",
+                    "tools/writing_gate/check.mjs"]))
             if scope == "ui":
                 # Biome (biome.json, pinned in mise.toml): its lint rules, then the format of the
                 # files its formatter covers. Both only read; `biome format --write` formats.

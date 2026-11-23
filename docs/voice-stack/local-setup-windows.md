@@ -74,7 +74,7 @@ RVCを止めている間も声を届けたいときは、入力の転送を使�
 
 ### 手動で用意する場合
 
-開発者向けです。RVCは次の構成のフォルダーを用意して、設定で指定します。中身は`native/voice-conversion/src/runtime.rs`の`gpu_libraries`、`cpu_libraries`、`rvc_assets`に固定したファイルです（0.4までのPythonでは`src-python/models/voice_conversion/runtime_setup.py`の`RVC_LIBRARIES`と`RVC_ASSETS`）。ワーカーは`build\astarot-rvc-worker.exe`で、`python tools/build_rvc_worker.py`でビルドします（Rustが必要です）。
+開発者向けです。RVCは次の構成のフォルダーを用意して、設定で指定します。中身は`native/voice-conversion/src/runtime.rs`の`ort`、`nvidia_libraries`、`rvc_assets`（`rvc_runtime`がまとめる）に固定したファイルです（0.4までのPythonでは`src-python/models/voice_conversion/runtime_setup.py`の`RVC_LIBRARIES`と`RVC_ASSETS`）。ワーカーは`build\astarot-rvc-worker.exe`で、`python tools/build_rvc_worker.py`でビルドします（Rustが必要です）。
 
 ```text
 runtime\

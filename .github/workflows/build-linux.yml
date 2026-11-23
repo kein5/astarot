@@ -87,7 +87,7 @@ jobs:
           bash tools/ci/prefer_ubuntu_archive.sh
           # The runner's package mirror sometimes cannot be resolved for a while. Try again before failing the job.
           for attempt in 1 2 3 4; do
-            sudo apt-get update && sudo apt-get install -y "${packages[@]}" && break
+            sudo apt-get -o Acquire::Retries=3 update && sudo apt-get -o Acquire::Retries=3 install -y "${packages[@]}" && break
             if [ "$attempt" = 4 ]; then exit 1; fi
             sleep $((attempt * 20))
           done
@@ -109,6 +109,7 @@ jobs:
           test "$(cat "$RUNNER_TEMP/free-disk.status")" = 0
           df -h /
       - name: Build isolated candidate with both pinned speech.cpp builds
+        id: build
         run: |
           python tools/build_linux.py \
             --download-speech \
@@ -126,8 +127,9 @@ jobs:
           cd build/linux/artifacts
           sha256sum -c ./*.tar.gz.sha256
           sha256sum -c ./*.AppImage.sha256
-      # The app's own unit tests (src-tauri), which no other job runs: this job has the WebKitGTK
-      # and the other system libraries the app builds against (#881). The build above works in a
+      # The app's own unit tests (src-tauri) on Linux, which no other job runs: this job has the
+      # WebKitGTK and the other system libraries the app builds against (#881). Windows runs them
+      # in app-tests-windows.yml. The build above works in a
       # workspace of its own, so the checkout's development _internal is staged from build/ first.
       - name: App unit tests (src-tauri)
         run: |
@@ -136,6 +138,7 @@ jobs:
       - name: Install pinned GUI test driver
         run: cargo install tauri-driver --version 2.1.0 --locked
       - name: Relocated read-only package acceptance
+        id: acceptance
         env:
           ASTAROT_TEST_NATIVE_GUI: '1'
           ASTAROT_TEST_XVFB: '1'
@@ -150,6 +153,7 @@ jobs:
             -c tests/voice/pytest.ini tests/platform/test_linux_package.py -q \
             --basetemp=build/linux/acceptance > linux-acceptance.log 2>&1
       - name: AppImage extract-and-run acceptance
+        id: appimage
         env:
           ASTAROT_TEST_NATIVE_GUI: '1'
           ASTAROT_TEST_XVFB: '1'
@@ -163,6 +167,29 @@ jobs:
             build/dev/headless-venv/bin/python -m pytest \
             -c tests/voice/pytest.ini tests/platform/test_appimage.py -q \
             --basetemp=build/linux/appimage-acceptance > appimage-acceptance.log 2>&1
+      # The build and the two acceptance tests write their output to a file, kept in the diagnostic
+      # logs below. When one of them fails, the end of its file goes to this job's log too, and its
+      # last error line to the run's summary: the cause shows without downloading the logs (the
+      # CI audit of 2026-11-22, item 7, found 50 failed builds whose job log named none).
+      - name: Show the end of the failed step's log
+        if: failure()
+        env:
+          BUILD: ${{ steps.build.outcome }}
+          ACCEPTANCE: ${{ steps.acceptance.outcome }}
+          APPIMAGE: ${{ steps.appimage.outcome }}
+        run: |
+          for pair in "$BUILD:linux-build.log" "$ACCEPTANCE:linux-acceptance.log" "$APPIMAGE:appimage-acceptance.log"; do
+            outcome=${pair%%:*}
+            file=${pair#*:}
+            if [ "$outcome" != failure ] || [ ! -f "$file" ]; then
+              continue
+            fi
+            echo "::group::The last 200 lines of $file"
+            tail -n 200 "$file"
+            echo "::endgroup::"
+            last=$(grep -E '^(FAILED |E +|[A-Za-z_.]*(Error|Exception)(:|$)|error(\[E[0-9]+\])?:|npm error code )' "$file" | tail -n 1 | tr -d '\r' | cut -c1-300)
+            echo "::error title=$file::${last:-The step failed; the end of $file is in the job log.}"
+          done
       # The same files as the tar.gz, installed under /opt/astarot (tools/linux_packages.py).
       - name: Build deb and rpm packages
         run: python3 tools/linux_packages.py --candidate build/linux/candidate/ASTAROT --output-dir build/linux/artifacts

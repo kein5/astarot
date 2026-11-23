@@ -87,6 +87,18 @@ def rust_command(crate: str, diff: Path, jobs: int | None) -> list[str]:
     return [*command, "-j", str(jobs or RUST_JOBS)]
 
 
+def run_env(argv: list[str], base: dict[str, str]) -> dict[str, str]:
+    """The environment of a mutation run."""
+    # Inputs that a mutant made fail are of no use to keep (docs/development.md).
+    env = {**base, "PROPTEST_DISABLE_FAILURE_PERSISTENCE": "1"}
+    # cargo-mutants builds each parallel run in its own copy of the crate, with the target
+    # directory of that copy. A CARGO_TARGET_DIR passed down would make the copies share one, and
+    # a run could test another mutant's build. In place, one at a time, it may stay.
+    if argv[:2] == ["cargo", "mutants"] and "--in-place" not in argv:
+        env.pop("CARGO_TARGET_DIR", None)
+    return env
+
+
 def git(*args: str) -> str:
     return subprocess.run(["git", *args], cwd=ROOT, check=True, capture_output=True, text=True, encoding="utf-8").stdout
 
@@ -97,9 +109,7 @@ def run(argv: list[str], cwd: Path, ran: tuple[int, ...]) -> bool:
     if executable is None:
         print(f"missing: {argv[0]} (mise install)", flush=True)
         return False
-    # Inputs that a mutant made fail are of no use to keep (docs/development.md).
-    env = {**os.environ, "PROPTEST_DISABLE_FAILURE_PERSISTENCE": "1"}
-    code = subprocess.run([executable, *argv[1:]], cwd=cwd, env=env, check=False).returncode
+    code = subprocess.run([executable, *argv[1:]], cwd=cwd, env=run_env(argv, dict(os.environ)), check=False).returncode
     if code not in ran:
         print(f"FAILED: exit {code}", flush=True)
         return False

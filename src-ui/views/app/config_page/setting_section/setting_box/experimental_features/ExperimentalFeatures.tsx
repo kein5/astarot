@@ -68,16 +68,17 @@ export const ExperimentalFeatures = () => {
     );
 };
 
-// The rows' general descriptions are hints here (#614). The notice that these are on trial stays
-// on screen, and so does the sentence that says the app will start differently.
+// The rows' general descriptions and the trial notice are hints here (#614, #1013). The sentence
+// that says the app will start differently stays on screen.
 export const ExperimentalFeatureList = ({ features, current, setValues, edge, monitor, vrPanel, channel }: ListProps) => {
     const { t } = useI18n();
     return (
         <HintDescriptions>
         <div className={styles.container}>
-            {/* Like every other page, it starts with its category heading, then the notice. */}
-            <SectionLabelComponent label={t("config_page.experimental_features.section_label")} />
-            <p className={styles.notice}>{t("config_page.experimental_features.notice")}</p>
+            {/* Like every other page, it starts with its category heading; the trial notice is
+                the heading's hint (#614, #1013). */}
+            <SectionLabelComponent label={t("config_page.experimental_features.section_label")}
+                desc={t("config_page.experimental_features.notice")} />
             {features.length === 0 && !vrPanel && !channel
                 ? <p className={styles.empty}>{t("config_page.experimental_features.empty")}</p>
                 : features.map(({ id }) => {

@@ -1,4 +1,4 @@
-Thank you for considering contributing to VRCT's UI translations.
+Thank you for considering contributing to ASTAROT's UI translations.
 If you want to edit a language:
 - If it already exists: edit the corresponding [xx].yml file.
 - If it doesn’t exist: please open a GitHub issue or contact us through another channel. (If you know how to add a new language yourself, feel free to do so! Sorry for the complicated structure...)

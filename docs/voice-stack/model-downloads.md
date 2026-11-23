@@ -16,7 +16,6 @@ TTS・ASRの「モデルとサーバー」（同梱speech.cppサーバーの欄�
 - 確認の画面はライセンスの名前を挙げ、非商用の利用だけが認められていることを警告の印を付けた段落で示す。同意のチェックの下に種類ごとのチェックを出し、すべてにチェックが入るまで開始できない。画面を開き直すと、どのチェックも外れている。
 - 開始の要求（`/run/start_model_download`）は確かめた種類を`acknowledged`に入れる。制限のあるモデルでその種類が欠けていると`model_download_restriction_unacknowledged`で断り、ファイルを書かず通信もしない。知らない種類、同じ種類の重複、そのモデルにない種類を入れた要求は`download_request_invalid`で断る。制限のないモデルの要求は今までと同じで、`acknowledged`は付けなくてよい（空の一覧も受け付ける）。
 - 確認は記録しない。`receipt.json`はカタログの項目のままで、取得のたびに確認を求める。
-- Pythonのバックエンドの`manager.py`も同じ要求を受け付け、同じ行を返す（`native/ops`の参照ファイルとの照合のため）。
 - 翻訳の設定でNLLBを選ぶときの確認（`CTranslate2LicenseDialog`と中核の`WEIGHT_CTRANSLATE2_LICENSE_CONSENT_REQUIRED`）は別にあり、そのまま残る。
 
 ### Gemmaの利用規約の確認
@@ -32,9 +31,9 @@ Gemmaの重みと、そこから作ったモデルはGemma Terms of Useに従う
 
 0.5.0の中核では、この取得を引退させた。ローカル翻訳はONNX Runtime（`native/translate-onnx`）で動き、そのモデルは上の固定カタログの対象`translation`から、ほかのモデルと同じ確認と同意を経て取得する。2026-11-19に、M2M100 418Mのint8（既定、MIT、約506 MB）とNLLB-200 distilled 600Mのint8（CC-BY-NC-4.0、約643 MB）を公開し、カタログに載せた（#687）。2026-11-21にNLLB-200 distilled 1.3Bのint8（CC-BY-NC-4.0、約1.4 GB）も載せた（#411）。NLLBの確認には、非商用のライセンス、取得に要る空き容量、翻訳中のメモリー（600Mは約1.4 GiB、1.3Bは約2.6 GiB）を書いた専用の文面を出す。設定の「翻訳」のダウンロードは、項目があれば共通の取得の画面を出し、なければ未公開であることと、自分で用意したモデルは翻訳のカタログの「自分のモデルを追加」で足せることを示す（#597までは置き場所の`translation-models`フォルダーを示した）。
 
-設定の「翻訳」のモデルの一覧（#565）には、取得済みのモデル、自分で追加したモデル、カタログに項目がある組み込みのモデルだけを並べる。翻訳のカタログの「アプリに含まれる項目」も同じ規則で並べ、行とカードは取得のカタログの項目の名前（「NLLB-200 distilled 600M · int8」）で示す（2026-11-21）。公開しないNLLB-200 3.3Bは組み込みの一覧から外した。それを選んでいた設定は既定で読み込まれ、一度だけ知らせる。組み込みのモデルに項目があるかは、そのモデルのカタログのID（`<モデル>-onnx-<形>`）で決める。ダウンロードのボタンが出るのは項目がある行だけで、押すとそのモデルの項目を共通の取得の画面で示す。選んでいるモデルは、取得できなくても「まだ取得できません」を付けて残す。組み込みのモデルを1つも取得できず、選んでいるモデルも使えないときは、外部翻訳APIかローカルLLMを使うよう案内する。モデルを公開してカタログに載せる手順は`tools/translation_onnx/README.md`の「公開の手順」にある。
+設定の「翻訳」のモデルの一覧（#565）には、取得済みのモデル、自分で追加したモデル、カタログに項目がある組み込みのモデルだけを並べる。翻訳のカタログの「アプリに含まれる項目」も同じ規則で並べ、行とカードは取得のカタログの項目の名前（「NLLB-200 distilled 600M · int8」）で示す（2026-11-21）。公開しないNLLB-200 3.3Bは組み込みの一覧から外した。それを選んでいた設定は既定で読み込まれ、一度だけ知らせる。組み込みのモデルに項目があるかは、そのモデルのカタログのID（`<モデル>-onnx-<形>`）で決める。ダウンロードのボタンが出るのは項目がある行だけで、押すとそのモデルの項目を共通の取得の画面で示す。選んでいるモデルは、取得できなくても「まだ取得できません」を付けて残す。組み込みのモデルを1つも取得できず、選んでいるモデルも使えないときは、外部翻訳APIかローカルLLMを使うよう案内する。モデルを公開してカタログに載せる手順は`tools/translation_onnx/README.md`の「公開してカタログに載せる」にある。
 
-経緯は[中核の統合](core-integration.md)の「判断が要ること」の1、29、33。この節の以下の記述は、0.4までのPythonの取得のもの。
+経緯は[中核の統合](core-integration.md)の「判断が要ること」の1、29、33。画面に残っていた古い確認画面（カタログの`legacy_models`の確認と同意）も、#1015で消した。設定の「翻訳」とスイッチから開く確認画面は、カタログの翻訳モデルを並べる。この節の以下の記述は、0.4までのPythonの取得のもの。
 
 内蔵モデルの取得は、いまは翻訳（CTranslate2）だけである。以前の版は設定の「文字起こし」でローカルの Whisper の重みも同じ確認画面から取得していたが、#288 でローカルの Whisper を削除し、その取得もやめた。ローカルの音声認識（speech.cpp）のモデルは、上のカタログ取得で「音声認識（ASR）」の「モデルとサーバー」から取得する。以前の版が取得した`weights/whisper/`の重みは読まず、利用者が設定で削除を選んだときだけ消す（[古い Whisper の重み](../spec/data-and-persistence.md#古い-whisper-の重み)）。
 
@@ -50,7 +49,7 @@ CTranslate2の文章分割ファイル（tokenizer）は、重みと同じリポ
 
 画面はカタログ取得と同じCSSとネイティブのdialogを使う。戻るに最初のフォーカスを置き、Escapeで閉じ、呼び出し元へフォーカスを戻す。幅・高さを画面内に収め、長い日本語やリポジトリ名を折り返す。取得でモデルの選択や翻訳・マイクを有効にしない。
 
-保存形式は[データ形式と保存](../spec/data-and-persistence.md#内蔵モデルの取得への同意)、エラーは[横断的な振る舞い](../spec/cross-cutting.md#同意と外部への送信)を参照する。完全性確認と取得処理は次の契約に従う。
+同意の記録（`LEGACY_MODEL_DOWNLOAD_CONSENTS`）をいまの中核が残すことは[データ形式と保存](../spec/data-and-persistence.md#その他)、エラーは[横断的な振る舞い](../spec/cross-cutting.md#同意と外部への送信)を参照する。完全性確認と取得処理は次の契約に従う。
 
 ### 内蔵モデルの検証・保存・終了
 
@@ -111,7 +110,7 @@ CTranslate2の文章分割ファイル（tokenizer）は、重みと同じリポ
 
 利用者のPCで動きそうにないモデルには、カードの見出しに「!」の印と「性能不足の可能性」を付け、カードの中に理由を書いた注記を出す（`src-ui/logics/voice/modelHardwareWarning.ts`）。目安なので、選ぶこと、取得、適用は止めない。取得の確認画面にも同じ注記を出す。ファイルの種類の選択肢にも「性能不足の可能性」を添え、軽い種類を見分けられるようにする。
 
-- 比べるのは、ハードウェアの検出（`hardware.py`）が返すメモリーの総量である。空き容量は時々で変わり、空き容量に合う種類は上の「空きメモリーに合う」が示すためである。
+- 比べるのは、ハードウェアの検出（`native/ops/src/downloads/hardware.rs`）が返すメモリーの総量である。空き容量は時々で変わり、空き容量に合う種類は上の「空きメモリーに合う」が示すためである。
 - モデルのメモリーは、`profile.memory_bytes`、`guidance.reference_memory_bytes`、検証済みの`sampled_peak_bytes`のうち最も大きい値である。案内と同じく25%を足し、さらにVRChatの分として4 GiBを足した値が、GPUのメモリーの総量を超えれば警告する（`low_memory`、`GPU_RESERVE`。2026-11-20の決定）。GPUが複数あれば最も大きいものと比べ、メモリーを足し合わせない。エンジンの設定でGPUを名前で選んでいれば、そのGPUと比べる。
 - GPUがないか、エンジンをCPUで動かす設定のときは、`profile.gpu`が`recommended`で`profile.cpu`が`impractical`か`slow`のモデルに警告する（`no_gpu`、`cpu_setting`）。CPUのメモリー（RAM）の総量が分かれば、それとも比べる。
 - RAMと比べるときは、モデルのメモリーに25%を足した値に、OSの5 GiBとVRChatの8 GiB、合わせて13 GiBを足す（`RAM_RESERVE`）。余裕を足すことは2026-11-19に決まり、すべてのモデルに効かせることと、値を最小要件から見直すことが2026-11-20に決まった。注記には残す分も書く。
@@ -126,7 +125,7 @@ CTranslate2の文章分割ファイル（tokenizer）は、重みと同じリポ
 
 翻訳の取得の確認画面（`LegacyModelDownloadDialog`から開くカタログの`translation`）でも同じ警告を出す。2026-11-19の決定による。
 
-- 目安の値は中核の`native/ops/src/downloads/guidance.rs`がカタログのIDごとに返す。Pythonのバックエンドには翻訳の項目がないので足していない。
+- 目安の値は中核の`native/ops/src/downloads/guidance.rs`がカタログのIDごとに返す。
 - NLLB-200 distilled 600M int8（`nllb-200-distilled-600m-onnx-int8`）は1,490,300,928バイト（約1.39 GiB）。アプリと同じ実行部`astarot-translate`で英日と日英を各30文訳したときの作業集合の最大で、Windows 11、Intel Core i7-1255U、CPUの4スレッド、ONNX Runtime 1.32.0で測った。PR #687の取得の注記（約1.4 GiB）と同じ値である。
 - 既定のM2M100 418M int8（`m2m100-418m-onnx-int8`）は1,044,295,680バイト（約0.97 GiB）。同じ方法と環境で測った（PR #687）。M2M100は翻訳の共通の注記を使うので、注記には数値を書いていない。
 - NLLB-200 distilled 1.3B int8（`nllb-200-distilled-1-3b-onnx-int8`）は2,841,083,904バイト（約2.65 GiB）。公開したファイルを`astarot-translate`で読み込み、英日と日英の各30文に61文を足して訳したときの常駐メモリーの最大（VmHWM。読み込みの間に達する）で、Linux、AMD Ryzen 9 9950X3D、CPUの4スレッド、ONNX Runtime 1.32.0で測った（2026-11-21）。上の2つのWindowsの作業集合とは測り方が違うので、検証の範囲は`translation_onnx_cpu_linux`として分けた。取得の注記（`translation_nllb_1_3b`）には約2.6 GiBと書いた。
@@ -140,7 +139,7 @@ CTranslate2の文章分割ファイル（tokenizer）は、重みと同じリポ
 
 #### 再起動後の取得済み
 
-`/get/data/model_download_state`の応答に`downloaded`（`{id: {role: path}}`）を足した。保存先の`<id>/<revision>/`にカタログのファイルがすべてあり、どれも通常のファイルで、容量が固定値と同じものを返す。PythonとRustのコアは同じ答えを返す。
+`/get/data/model_download_state`の応答に`downloaded`（`{id: {role: path}}`）を足した。保存先の`<id>/<revision>/`にカタログのファイルがすべてあり、どれも通常のファイルで、容量が固定値と同じものを返す。
 
 - 確かめるのは容量だけで、SHA-256は計算しない。取得中は状態を750ミリ秒ごとに問い合わせるためである。SHA-256は、従来どおり使う準備と適用のときに照合する。
 - 取得済みでジョブのないモデルは、「ファイルを確かめて使う準備をする」から使う。同じ確認画面を開き、同意してから開始する。バックエンドは既にあるファイルを照合するだけで、通信はしない（`start`の既存の動き）。照合に通ると「検証済み・未適用」になり、従来どおり「モデルパスを適用」で設定に入る。
@@ -182,11 +181,11 @@ CTranslate2の文章分割ファイル（tokenizer）は、重みと同じリポ
 - 登録の解除は登録だけを消す。ファイルも、そのファイルを指している設定もそのまま残す。
 - 出どころとライセンスはアプリでは確かめない。登録の欄にそう書いている。
 - 名前とパスは利用者のデータなので、IPCの経路名に`user_model`を含め、`process.log`では値を伏せる（`SENSITIVE_ENDPOINT_MARKERS`）。
-- IPC：`/get/data/user_models`、`/run/register_user_model`（`{target, name, paths}`）、`/run/remove_user_model`（`{id}`）、`/run/apply_user_model`（`{id, expected}`）。どれも`{models: [...]}`を返し、失敗は`{error_code}`で返す。PythonとRustのコアは同じ答えを返す。
+- IPC：`/get/data/user_models`、`/run/register_user_model`（`{target, name, paths}`）、`/run/remove_user_model`（`{id}`）、`/run/apply_user_model`（`{id, expected}`）。どれも`{models: [...]}`を返し、失敗は`{error_code}`で返す。
 
 #### 翻訳のカタログ（#413）
 
-翻訳は上の登録の対象に入れず、翻訳のページの「翻訳のカタログ」で扱う。翻訳に使うものの形が2つに分かれ、足すときに入れるものも違うからである。自分の翻訳のモデルの足し方はこの「種類ごとに合った形」で決着とする。中核だけの機能で、Pythonのバックエンドにはない。
+翻訳は上の登録の対象に入れず、翻訳のページの「翻訳のカタログ」で扱う。翻訳に使うものの形が2つに分かれ、足すときに入れるものも違うからである。自分の翻訳のモデルの足し方はこの「種類ごとに合った形」で決着とする。
 
 - **推論エンジン系**（`engine`）：お使いのPCの推論エンジンで動かすモデル。アプリの組み込みの重みと、利用者が足した項目（`user:<ID>`）が並ぶ。以前の版は`<データ>/translation-models/<フォルダー>/`に置いたモデル（`custom:<フォルダー>`）も並べたが、#597で外した。そのフォルダーにフォルダーがあるあいだは、翻訳のページが「自分のモデルを追加」への案内を出す（中核は`retired_folder_used`で、あるかどうかだけを伝える）。足すときはモデルのフォルダー、推論エンジン（`runtime`）、言語のコード（省略するとモデルのすべての言語）を入れる。フォルダーはどこにあってもよく、コピーも移動もしない。
 - **API系**（`api`）：中核が呼ぶプロバイダ（DeepL、Google Cloud、Papago、Gemini、OpenAI、Groq、OpenRouter、PLaMo、LM Studio、Ollama、OpenAI互換）と、利用者が足した項目が並ぶ。足すときは名前、種類（`protocol`）、アドレス、モデル、キーを入れる。アドレスはお使いのPCとLANの中なら`http://`も使える（`net_policy`の`validate_api_url`。OpenAI互換のエンジンと同じ）。
@@ -229,11 +228,12 @@ CTranslate2の文章分割ファイル（tokenizer）は、重みと同じリポ
 - **API系**（「API（クラウドや自分のサーバー）」）：Groq Whisper、OpenAI Whisper、Deepgramと、利用者のWhisperサーバー（カスタムWhisperサーバー）。プロバイダごとに1行の畳みで、キー（自分のサーバーはURLとキー）とモデルを入れる。「Whisperの認識結果のふるい分け」もこの系に置く。自分のサーバーは最後に並べ、利用者の接続先であることを「自分のサーバー」の印（カタログと同じ破線の印）で示す。アプリが用意したプロバイダには印を付けない。キーは`config.json`ではなくほかのAPIキーと同じ保管場所（[APIキーの保存先](../spec/data-and-persistence.md#apiキーの保存先)）に置く。これまでと同じである。
 - エンジンの選択（`/set/data/selected_transcription_engine`）は1つのままで、選択肢を2つの系の名前の下に分けて並べる。ラジオボタンは1組なので、矢印キーで系をまたいで動き、Tabで止まるのは1回である。APIのエンジンは、中核がキーを受け付けるまで選べない（`/get/data/selectable_transcription_engines`）。選択の同意の画面（`TranscriptionConsentController`）は変えていない。
 - リアルタイム字幕の設定は、一度決めたら触らないものなので「詳細設定」に残した。その「ASRサーバー」の「同梱サーバー」と「外部サーバー」は、どちらもspeech.cpp系である。同梱サーバーは上の「モデルとサーバー」のモデルで動く。外部サーバーは利用者がお使いのPCで別に起動したspeech.cppのサーバーで、アドレスはループバック（`localhost`、`127.0.0.1`など）の`http://`に限る（`speechcpp::local_url`）。音声はお使いのPCの外に出ないので、API系には入れない。Windowsでエンジンに「ローカル（speech.cpp）」を選ぶと、メイン画面のスイッチはこのサーバーでリアルタイム字幕を動かす。APIのエンジンを選んでいるときは従来の録音を使い、リアルタイム字幕はその欄にある開始ボタンで始める。Linuxのスイッチはエンジンの選択にかかわらずいつもリアルタイム字幕を使う。
-- 翻訳のカタログとの違い：APIの項目は利用者のWhisperサーバーの1枠だけで、翻訳のように何件も足すことはできない。speech.cppのモデルはファイルの場所で登録する（翻訳はフォルダーで足す）。新しい推論の実行部は加えていない。
+- 利用者が足すAPI（#414の残り）：API系の最後に、利用者が足した音声認識のAPIが1件ずつ並び、「音声認識のAPIを追加」で名前、Whisper互換（OpenAI互換の`/audio/transcriptions`）のアドレス、モデル、キーを入れて足す。項目は`config.json`と同じフォルダーの`transcription_catalog.json`に置き、キーはほかのAPIキーと同じ保管場所に`TRANSCRIPTION_CATALOG/<ID>`で置く。項目はエンジンを増やさない。「カスタムWhisperサーバーの接続先にする」が、`/set/data/custom_whisper_auth_key_and_url`と同じ処理でアドレスとキーを確かめてから、カスタムWhisperサーバーのアドレス、キー、モデルをその項目のものに替える。エンジンの一覧、同意の画面、VR UIは変わらない。IPC：`/get/data/transcription_catalog`（`{api, protocols}`）、`/run/register_transcription_catalog_entry`（`{name, protocol, url, model, auth_key}`）、`/run/remove_transcription_catalog_entry`と`/run/use_transcription_catalog_entry`（`{id}`）。経路名に`transcription_catalog`を含め、`process.log`では値を伏せる。
+- 翻訳のカタログとの違い：speech.cppのモデルはファイルの場所で登録する（翻訳はフォルダーで足す）。利用者が足すAPIは、新しいエンジンではなくカスタムWhisperサーバーの接続先を替える。新しい推論の実行部は加えていない。
 
 ## 固定カタログ
 
-版 `2026-10-31.1`。TTSは各2候補から選択でき、ASRはHaas-jaの1候補、RVCはSaishoの1候補（ASRは2026-11-16から上の節のとおり）。
+下の表は、最初のカタログ（版 `2026-10-31.1`）の記録である。今のカタログは`native/ops/src/downloads/catalog.rs`（版は`CATALOG_VERSION`）と`native/ops/data/*.json`にある。最初のカタログでは、TTSは各2候補から選択でき、ASRはHaas-jaの1候補、RVCはSaishoの1候補だった（ASRは2026-11-16から上の節のとおり）。
 
 | ID | リポジトリと固定revision | ファイル / bytes | SHA256 |
 |---|---|---|---|

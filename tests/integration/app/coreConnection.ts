@@ -13,6 +13,7 @@ declare global {
         __TAURI_INTERNALS__: { runCallback(id: number, data: unknown): void; invoke(command: string, args?: unknown): Promise<unknown> };
         __holdCoreLines?: () => void;
         __releaseCoreLines?: () => void;
+        __coreLine?: (line: string) => void;
     }
 }
 
@@ -37,6 +38,9 @@ export function coreConnection(url: string): CoreConnection {
         window.__TAURI_INTERNALS__.runCallback(channel.id, { index, message });
     const deliverLine = (line: string) => { if (lines) deliver(lines, lineIndex++, line); };
     window.__holdCoreLines = () => { held ??= []; };
+    // A line as the core would send it, for sample data the stand-ins cannot make (another
+    // player's words, a VRChat found): the documentation's screenshots (docsScreenshots.spec.ts).
+    window.__coreLine = line => deliverLine(line);
     window.__releaseCoreLines = () => {
         const waiting = held ?? [];
         held = null;

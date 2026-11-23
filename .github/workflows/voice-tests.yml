@@ -46,7 +46,7 @@ jobs:
         # The runner's package mirror sometimes cannot be resolved for a while. Try again before failing the job.
         run: |
           for attempt in 1 2 3 4; do
-            sudo apt-get update && sudo apt-get install -y pkg-config gcc g++ meson ninja-build libsndfile1-dev libglib2.0-dev liblua5.4-dev libclang-dev && break
+            sudo apt-get -o Acquire::Retries=3 update && sudo apt-get -o Acquire::Retries=3 install -y pkg-config gcc g++ meson ninja-build libsndfile1-dev libglib2.0-dev liblua5.4-dev libclang-dev && break
             if [ "$attempt" = 4 ]; then exit 1; fi
             sleep $((attempt * 20))
           done
@@ -106,7 +106,7 @@ jobs:
       - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
         with:
           version: 2026.11.8
-          install_args: rust
+          install_args: rust python cargo-nextest
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           workspaces: |
@@ -116,7 +116,22 @@ jobs:
             native/tts
       # The names the app goes by outside its code, and the VRCT-VOX ones they replace (ADR-014).
       - run: cargo test --locked --manifest-path native/app-identity/Cargo.toml
-      - run: cargo test --locked --manifest-path native/core/Cargo.toml
+      # native/core's tests run under cargo-nextest's ci profile (native/core/.config/nextest.toml):
+      # each test in a process of its own, a JUnit report, and two retries for the tests of #861
+      # until their waits are fixed. The next step lists every pass on a retry. native/core has no
+      # doctests (cargo-nextest runs none); python tools/dev.py check --scope rust runs them.
+      - run: cargo nextest run --locked --manifest-path native/core/Cargo.toml --profile ci
+      - name: List the tests that passed only on a retry
+        if: ${{ !cancelled() }}
+        run: python tools/ci/nextest_flaky_summary.py native/core/target/nextest/ci/junit.xml
+      - if: ${{ !cancelled() }}
+        continue-on-error: true
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: core-tests-junit-${{ matrix.os }}
+          path: native/core/target/nextest/ci/junit.xml
+          if-no-files-found: ignore
+          retention-days: 14
       # The time the voice pipeline adds of its own, on stand-ins for the engines (#738;
       # docs/voice-stack/pipeline-latency-tracking.md). A measurement: its result never fails the
       # job. pipeline-latency.yml sends it to Bencher once this workflow has finished.
@@ -140,8 +155,12 @@ jobs:
       # 0.5.x folders looks for a running app by its single-instance name (ADR-014).
       - if: runner.os == 'Linux'
         run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends gnome-keyring dbus
+          # The runner's package mirror sometimes cannot be resolved for a while. Try again before failing the job.
+          for attempt in 1 2 3 4; do
+            sudo apt-get -o Acquire::Retries=3 update && sudo apt-get -o Acquire::Retries=3 install -y --no-install-recommends gnome-keyring dbus && break
+            if [ "$attempt" = 4 ]; then exit 1; fi
+            sleep $((attempt * 20))
+          done
           dbus-run-session -- bash -c 'printf "ci" | gnome-keyring-daemon --unlock --components=secrets >/dev/null && cargo test --locked --manifest-path native/core/Cargo.toml --lib secret_service -- --ignored && cargo test --locked --manifest-path native/core/Cargo.toml --test secret_store -- --ignored && cargo test --locked --manifest-path native/core/Cargo.toml --test storage_linux -- --ignored'
       - if: runner.os == 'Windows'
         run: |
@@ -213,7 +232,7 @@ jobs:
       - run: rustup component add llvm-tools
       - run: |
           for attempt in 1 2 3 4; do
-            sudo apt-get update && sudo apt-get install -y pkg-config gcc g++ meson ninja-build libsndfile1-dev libglib2.0-dev liblua5.4-dev libclang-dev && break
+            sudo apt-get -o Acquire::Retries=3 update && sudo apt-get -o Acquire::Retries=3 install -y pkg-config gcc g++ meson ninja-build libsndfile1-dev libglib2.0-dev liblua5.4-dev libclang-dev && break
             if [ "$attempt" = 4 ]; then exit 1; fi
             sleep $((attempt * 20))
           done
