@@ -8,7 +8,7 @@ import { useModelDownloads } from "../../../../../../../logics/voice/useModelDow
 import { legacyDownloadRequest, legacyReviewSize } from "../../../../../../../logics/configs/legacyModelConsent";
 import type { LegacyDownloadRequest, LegacyModelReview } from "../../../../../../../logics/configs/legacyModelConsent";
 import styles from "../../advanced_settings/VoiceSettings.module.scss";
-import dialogStyles from "./LegacyModelDownloadDialog.module.scss";
+import * as dialogStyles from "./LegacyModelDownloadDialog.css.ts";
 import { useConsentDialog } from "../../../../../../../logics/common/useConsentDialog";
 import { translationCatalogIds } from "../../../../../../../logics/main/setupNeeds";
 import { ModelDownloads } from "../../advanced_settings/ModelDownloads";

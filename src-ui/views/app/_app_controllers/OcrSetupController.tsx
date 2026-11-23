@@ -4,7 +4,7 @@ import { useStore_IsOpenedConfigPage, useStore_SelectedConfigTabId } from "@stor
 import { useOcrSetup, focusOcrModels } from "../../../logics/ocr/useOcrSetup";
 import { useConsentDialog } from "../../../logics/common/useConsentDialog";
 import styles from "../config_page/setting_section/setting_box/advanced_settings/VoiceSettings.module.scss";
-import dialogStyles from "../config_page/setting_section/setting_box/_components/download_models/LegacyModelDownloadDialog.module.scss";
+import * as dialogStyles from "../config_page/setting_section/setting_box/_components/download_models/LegacyModelDownloadDialog.css.ts";
 
 // Turning chat reading on without its models used to end in a notice that named a
 // settings path and vanished. This says what is missing where the user is and

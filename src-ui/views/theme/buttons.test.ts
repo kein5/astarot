@@ -36,7 +36,7 @@ const ownDeclarations = (path: string, ...given: string[]) => {
 // were 600; the other buttons with words and a fill or an outline were the regular 400.
 const mediumButtons = [
     [box + "advanced_settings/VoiceSettings.module.scss", "button { width: fit-content"],
-    [box + "_components/connection_check_button/ConnectionCheckButton.module.scss", ".button {"],
+    [box + "_components/connection_check_button/ConnectionCheckButton.css.ts", "export const button = style({"],
     [box + "hotkeys/Hotkeys.module.scss", ".open_quick_chat {"],
     [box + "translation/Translation.module.scss", ".license_actions {", "button {"],
     [box + "updater/Updater.module.scss", ".install_button {"],
@@ -49,8 +49,8 @@ const mediumButtons = [
     [views + "app/config_page/topbar/Topbar.css.ts", "export const back = style({"],
     [views + "app/config_page/topbar/Topbar.css.ts", "export const stop = style({"],
     [views + "app/main_page/main_section/top_bar/TopBar.css.ts", "export const stop = style({"],
-    [box + "_components/page_pointer/PagePointer.module.scss", "button.open_page[data-page-pointer] {"],
-    [box + "_components/_atoms/_download_button/_DownloadButton.module.scss", ".download_button {"],
+    [box + "_components/page_pointer/PagePointer.css.ts", "globalStyle(button, {"],
+    [box + "_components/_atoms/_download_button/_DownloadButton.css.ts", "export const download_button = style({"],
     [box + "_components/word_filter/WordFilter.module.scss", ".add_button {"],
     [box + "ocr/Ocr.module.scss", ".resetButton {"],
     [box + "updater/Updater.module.scss", ".check_button {"],
@@ -80,7 +80,7 @@ test("buttons set their words in medium weight, as shadcn/ui's Button does", () 
 // forms' rule is shared by their fields, selects, checkboxes and buttons.
 const halfDisabled = [
     [box + "advanced_settings/VoiceSettings.module.scss", ":disabled {"],
-    [box + "_components/connection_check_button/ConnectionCheckButton.module.scss", ".button {", "&:disabled {"],
+    [box + "_components/connection_check_button/ConnectionCheckButton.css.ts", "export const button = style({", '"&:disabled": {'],
     [box + "ocr/Ocr.module.scss", ".resetButton {", "&:disabled {"],
     [box + "ocr/Ocr.module.scss", '.resetButton[aria-disabled="true"] {'],
     [box + "updater/Updater.module.scss", ".install_button {", "&:disabled {"],
