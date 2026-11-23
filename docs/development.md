@@ -244,6 +244,7 @@ npm run test:watch       # 変更を監視して実行する
 npm run test:coverage    # カバレッジ（build/coverage/ui に HTML と json-summary）
 ```
 
+- カバレッジが数えるのは、`src-ui` のソースから、試験、試験の基盤、型の宣言、スタイル（`.css.ts`）を除いたものです（`vitest.config.js` の `coverage`）。スタイルは、ミューテーションテストの対象からも外しています。
 - アサーションは `node:assert/strict` を使います。`test` と `vi` は `vitest` から import します。
 - 後片付けは `context.onTestFinished(fn)` で登録します。`src-ui/logics/test/vitestSetup.ts` が、node:test の `after` と同じく登録した順に呼びます（Vitest の既定は逆順）。
 - 時計の偽装は `vi.useFakeTimers({ toFake: [...] })` と `vi.advanceTimersByTime(ms)` です。テストが終わると実時間に戻ります。`vi.spyOn` は次のテストの前に元に戻ります（`restoreMocks`）。
