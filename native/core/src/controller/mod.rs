@@ -28,6 +28,7 @@ mod telemetry;
 mod terms;
 pub mod translation;
 mod translation_catalog;
+mod transcription_catalog;
 pub mod translation_llama;
 mod transcription;
 mod realtime_asr;

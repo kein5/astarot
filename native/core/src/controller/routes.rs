@@ -470,6 +470,7 @@ const AREAS: &[fn(&mut Builder<'_>)] = &[
     super::gpu_check::add,
     super::translation::add,
     super::translation_catalog::add,
+    super::transcription_catalog::add,
     super::messages::add,
     super::audio_devices::add,
     super::updates::add,
