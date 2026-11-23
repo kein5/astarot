@@ -23,7 +23,7 @@ const useSomething = () => null;
 
 class Channel { onmessage: (message: Readonly<Record<string, unknown>>) => void = () => {}; }
 
-async function panel(context: TestContext, { layout = LAYOUT, configOpen = false } = {}) {
+async function panel(context: TestContext, { layout = LAYOUT, configOpen = false }: { layout?: Layout; configOpen?: unknown } = {}) {
     const runtime = hooks();
     // Unmounted before the globals go back: the clean-up cancels frames.
     context.onTestFinished(() => runtime.unmount());
@@ -239,7 +239,7 @@ test("a settings page that was never open closes nothing", async context => {
     // Drawn again with the page still closed, or with a value that is not true.
     view.current.configOpen = false;
     view.render();
-    view.current.configOpen = "true" as unknown as boolean;
+    view.current.configOpen = "true";
     view.render();
     view.current.configOpen = false;
     view.render();
