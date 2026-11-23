@@ -1,6 +1,6 @@
 import { useI18n } from "@useI18n";
 import { useStartupProgress, STARTUP_STEPS } from "../../../../../../logics/common/useStartupProgress";
-import styles from "./LogBox.module.scss";
+import * as styles from "./LogBox.css.ts";
 
 // The first screen's list while the engine starts: how far it has come and the
 // models it fetches before it is ready, in the setup list's place and form.

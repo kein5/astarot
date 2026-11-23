@@ -11,7 +11,7 @@ test("the main window takes input once the core has started and sent its setting
 test("the page that is not shown takes no input: it is inert", async ({ app }) => {
     // React 19 takes inert as true or false; a page given "" would quietly lose it.
     const main = app.page.locator("[data-main-page]");
-    const input = app.page.locator("textarea[class*=message_box_input_area]");
+    const input = app.page.locator("textarea[data-message-input]");
     const inert = app.page.locator("[inert]");
     await expect(main).not.toHaveAttribute("inert");
     // Settings is drawn while closed: it is the one inert page.

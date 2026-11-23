@@ -32,7 +32,7 @@ test("a typed message is translated, sent to the chatbox and read aloud once eac
         await app.setSwitch("Translation");
         await app.setSwitch("Text to speech (TTS)");
 
-        const composer = page.locator("textarea[class*=message_box_input_area]");
+        const composer = page.locator("textarea[data-message-input]");
         await composer.fill(MESSAGE);
         await composer.press("Enter");
         await expect(composer).toHaveValue("");

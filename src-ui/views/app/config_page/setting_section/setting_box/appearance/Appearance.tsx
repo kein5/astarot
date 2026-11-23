@@ -1,6 +1,6 @@
 import { createLanguageNames } from "../../../../../../logics/common/languageNames.ts";
 import { useI18n } from "@useI18n";
-import styles from "./Appearance.module.scss";
+import * as styles from "./Appearance.css.ts";
 import { ThemeContainer } from "./ThemePicker";
 import { ui_configs } from "@ui_configs";
 import { useStore_SelectableFontFamilyList } from "@store";

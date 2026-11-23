@@ -1,4 +1,4 @@
-import styles from "./AboutVrct.module.scss";
+import * as styles from "./AboutVrct.css.ts";
 import astarot_logo from "@images/brand/logo.svg";
 
 import dev_section_title from "@images/about_vrct/dev_section_title.png";
@@ -90,7 +90,7 @@ export const AboutVrct = () => {
                 </div>
             </div>
 
-            <div className={styles.contributors_section}>
+            <div>
                 <img src={contributors_section_title} width={180} height={26} alt={t("config_page.about_vrct.credits.contributors_section_title")} className={clsx(styles.section_title, styles.contributors)} />
                 <div className={styles.contributors_img_wrapper}>
                     <div className={styles.contributor_card_wrapper}>
@@ -132,7 +132,7 @@ export const AboutVrct = () => {
             </div>
 
 
-            <div className={styles.vrchat_disclaimer_section}>
+            <div>
                 {/* VRChat's trademark notice is always shown in its original English wording (from en.yml);
                     lang lets screen readers read it as English. Other UI languages add their translation below it. */}
                 <p className={styles.vrchat_disclaimer} lang="en">{t("config_page.about_vrct.vrchat_disclaimer", { lng: "en" })}</p>

@@ -90,9 +90,9 @@ export class App {
     async open() {
         if (!this.core.url) await this.core.start();
         await this.page.goto(`/index.html?core=${encodeURIComponent(this.core.url)}`);
-        await expect(this.page.locator("textarea[class*=message_box_input_area]")).toBeVisible();
+        await expect(this.page.locator("textarea[data-message-input]")).toBeVisible();
         await expect.poll(() => this.page.evaluate(() =>
-            document.querySelector("textarea[class*=message_box_input_area]")?.closest("[aria-busy=true]") === null)).toBe(true);
+            document.querySelector("textarea[data-message-input]")?.closest("[aria-busy=true]") === null)).toBe(true);
     }
 
     /** The app quits and starts again on the same settings folder, with a new core. */

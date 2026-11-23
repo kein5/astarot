@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "vitest";
 import { hooks, loadModule, findIn, draw } from "../../../../../../logics/test/hookHarness.ts";
 import type { TreeNode } from "../../../../../../logics/test/hookHarness.ts";
+import { styleOf } from "../../../../../../logics/test/styleSource.ts";
 
 // 「自動選択」 heads the field column of the microphone row and of the speaker row alike, over the
 // lists it chooses for, its box where the lists start. It was put beside the lists, between the
@@ -67,10 +68,10 @@ test("the speaker's 自動選択 sits over its list in the same way", async () =
     assert.equal(check.type, device.AutoSelectCheckbox);
     assert.equal(list.type, DropdownMenu);
     // One over the other, as the microphone's column of lists, with the same space between.
-    const scss = (await import("node:fs")).readFileSync(new URL("./Device.module.scss", import.meta.url), "utf8");
-    const rule = scss.split(".device_contents {")[1].split("}")[0];
-    assert.match(rule, /flex-direction: column;/);
-    assert.match(rule, /gap: 1\.2rem;/);
+    const css = (await import("node:fs")).readFileSync(new URL("./Device.css.ts", import.meta.url), "utf8");
+    const rule = styleOf(css, "device_contents");
+    assert.match(rule, /flexDirection: "column",/);
+    assert.match(rule, /gap: "1\.2rem",/);
 });
 
 test("the box starts where the lists start: the checkbox's padding goes into the gap between the columns", async () => {
@@ -81,7 +82,7 @@ test("the box starts where the lists start: the checkbox's padding goes into the
     const box = drawn.props.children;
     assert.equal(box.type, Checkbox);
     assert.deepEqual([box.props.show_label, box.props.padding], [true, "0.8rem"]);
-    const scss = (await import("node:fs")).readFileSync(new URL("./Device.module.scss", import.meta.url), "utf8");
-    const rule = scss.split(".auto_select {")[1].split("}")[0];
-    assert.match(rule, /margin-inline-start: -0\.8rem;/, "as wide as the padding given to the checkbox");
+    const css = (await import("node:fs")).readFileSync(new URL("./Device.css.ts", import.meta.url), "utf8");
+    const rule = styleOf(css, "auto_select");
+    assert.match(rule, /marginInlineStart: "-0\.8rem",/, "as wide as the padding given to the checkbox");
 });

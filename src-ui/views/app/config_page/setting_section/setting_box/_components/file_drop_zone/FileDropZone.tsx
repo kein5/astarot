@@ -4,7 +4,10 @@ import clsx from "clsx";
 import { useI18n } from "@useI18n";
 import { addDropZone, nameOf, sortFiles, watchDrag } from "../../../../../../../logics/common/fileDrop";
 import type { DragState, DropZone } from "../../../../../../../logics/common/fileDrop";
-import styles from "./FileDropZone.module.scss";
+import * as styles from "./FileDropZone.css.ts";
+
+// The classes looked up by a name made at run time: a name with no class of its own gives none.
+const classNamed: Partial<Record<string, string>> = styles;
 
 // A place on a settings page to drop files from the desktop, for path fields that would
 // otherwise be typed. It wakes up while files are dragged over the window, lifts when they are
@@ -67,7 +70,7 @@ export const FileDropZone = ({ accept, onFiles, hint, disabled = false }: FileDr
     }[state];
     const note = state === "done" ? t(result?.skipped ? "file_drop.done_skipped" : "file_drop.save_hint", { kinds }) : hint;
 
-    return <div ref={element} className={clsx(styles.zone, styles[state])} data-file-drop={state}>
+    return <div ref={element} className={clsx(styles.zone, classNamed[state])} data-file-drop={state}>
         <span className={styles.icon} aria-hidden="true">
             <svg viewBox="0 0 24 24" className={styles.arrow}><path d="M12 15V4.5M7.5 9 12 4.5 16.5 9M5 15.5v2.5a1.5 1.5 0 0 0 1.5 1.5h11a1.5 1.5 0 0 0 1.5-1.5v-2.5" /></svg>
             <svg viewBox="0 0 24 24" className={styles.check}><circle cx="12" cy="12" r="11" /><path pathLength="1" d="M7 12.4l3.4 3.4L17 9.2" /></svg>
