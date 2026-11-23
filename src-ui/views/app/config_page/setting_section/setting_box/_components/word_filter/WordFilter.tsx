@@ -1,5 +1,5 @@
 import { useI18n } from "@useI18n";
-import styles from "./WordFilter.module.scss";
+import * as styles from "./WordFilter.css.ts";
 import { _Entry } from "../_atoms/_entry/_Entry";
 import { useState, useRef, useEffect, useCallback } from "react";
 import type { ChangeEvent } from "react";
@@ -145,7 +145,7 @@ const WordFilterItem = (props: WordFilterItemProps) => {
     return (
         <div className={item_wrapper_class_names}>
             <p className={item_text_class_names}>{props.value}</p>
-            <button type="button" ref={props.buttonRef} className={clsx(styles.action_button, styles.delete)}
+            <button type="button" ref={props.buttonRef} className={clsx(styles.action_button, styles.delete_)}
                 aria-label={t("config_page.transcription.mic_word_filter.remove_word", { word: props.value })}
                 onClick={event => props.deleteAction(props.value, event.currentTarget)}>
                 <DeleteSvg className={styles.delete_svg} aria-hidden="true" focusable="false"/>

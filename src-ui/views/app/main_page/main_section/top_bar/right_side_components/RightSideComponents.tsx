@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import clsx from "clsx";
 import { useI18n } from "@useI18n";
-import styles from "./RightSideComponents.module.scss";
+import * as styles from "./RightSideComponents.css.ts";
 import RefreshSvg from "@images/refresh.svg?react";
 import HelpSvg from "@images/help.svg?react";
 import TuneSvg from "@images/mui_discover_tune.svg?react";
@@ -173,7 +173,7 @@ const IoFlowButton = () => {
 // Shown once a check (at start or on the update page) found a new version; opens the update page.
 // That a version is out is a state, shown by a mark on the update icon and the short word with
 // the version (「更新 0.6.1」, #766); the sentence that announces it is the button's tooltip and its
-// accessible description. A narrow bar keeps the icon and its mark (RightSideComponents.module.scss).
+// accessible description. A narrow bar keeps the icon and its mark (RightSideComponents.css.ts).
 const SoftwareUpdateAvailableButton = () => {
     const { t } = useI18n();
     const { appUpdate } = useAppUpdate();

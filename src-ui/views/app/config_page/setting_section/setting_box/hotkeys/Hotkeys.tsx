@@ -1,5 +1,5 @@
 import { useHotkeys } from "@logics_configs";
-import styles from "./Hotkeys.module.scss";
+import * as styles from "./Hotkeys.css.ts";
 import { HotkeysEntryContainer } from "../_templates/Templates";
 import { useI18n } from "@useI18n";
 import { useEffect, useState } from "react";

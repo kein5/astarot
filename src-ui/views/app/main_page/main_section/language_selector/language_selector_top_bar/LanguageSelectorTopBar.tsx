@@ -1,5 +1,5 @@
 import { useI18n } from "@useI18n";
-import styles from "./LanguageSelectorTopBar.module.scss";
+import * as styles from "./LanguageSelectorTopBar.css.ts";
 import { useStore_IsOpenedLanguageSelector } from "@store";
 
 export const LanguageSelectorTopBar = (props: { title?: string }) => {

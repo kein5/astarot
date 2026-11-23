@@ -1,7 +1,10 @@
 import { useRef } from "react";
 import type { ReactNode } from "react";
 import clsx from "clsx";
-import styles from "./EnvReadout.module.scss";
+import * as styles from "./EnvReadout.css.ts";
+
+// The classes looked up by a name made at run time: a name with no class of its own gives none.
+const classNamed: Partial<Record<string, string>> = styles;
 
 // What this PC and session report now (DESIGN.md "Environment readout"): GPU
 // and memory, server state, download progress, model support. The words carry
@@ -34,7 +37,7 @@ export const EnvReadout = ({ tone = "neutral", live = true, actions = null, prog
         arrived.current = last.current === "working" && progress === "done";
         last.current = progress;
     }
-    return <div className={clsx(styles.readout, styles[tone], reserveMark && styles.reserved, className)}>
+    return <div className={clsx(styles.readout, classNamed[tone], reserveMark && styles.reserved, className)}>
         {progress === "working" || progress === "done"
             ? <ProgressMark state={progress} arrived={progress === "done" && arrived.current} />
             : reserveMark && <span className={styles.mark} aria-hidden="true" />}
@@ -44,7 +47,7 @@ export const EnvReadout = ({ tone = "neutral", live = true, actions = null, prog
 };
 
 const ProgressMark = ({ state, arrived }: { state: EnvReadoutProgress; arrived: boolean }) =>
-    <span className={clsx(styles.mark, styles[`mark_${state}`], arrived && styles.arrived)} aria-hidden="true"
+    <span className={clsx(styles.mark, classNamed[`mark_${state}`], arrived && styles.arrived)} aria-hidden="true"
         data-progress={state} data-arrived={arrived || undefined}>
         <svg viewBox="0 0 16 16">
             {state === "working"

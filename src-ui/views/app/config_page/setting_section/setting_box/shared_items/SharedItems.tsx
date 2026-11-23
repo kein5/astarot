@@ -1,7 +1,7 @@
 // Settings that more than one page shows. A page renders the same container,
 // so the value and its saving stay in one place; only one page is on screen.
 import { useI18n } from "@useI18n";
-import styles from "./SharedItems.module.scss";
+import * as styles from "./SharedItems.css.ts";
 
 import {
     useOpenFolder,
