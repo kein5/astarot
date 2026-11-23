@@ -12,7 +12,7 @@ const vr = fileURLToPath(new URL(".", import.meta.url));
 const design = readFileSync(new URL("../../../DESIGN.md", import.meta.url), "utf8");
 const front = design.slice(design.indexOf("typography:"), design.indexOf("rounded:"));
 const steps = new Set([...front.matchAll(/vr-[\w-]+:\s*fontSize: "(\d+px)"/g)].map(([, size]) => size));
-const allowed = new Set(["VrWindow.module.scss:clamp(14px, var(--vr_log_font_size, 17px), 28px)"]);
+const allowed = new Set(["VrWindow.css.ts:clamp(14px, var(--vr_log_font_size, 17px), 28px)"]);
 
 
 test("DESIGN.md names the VR type steps", () => {
