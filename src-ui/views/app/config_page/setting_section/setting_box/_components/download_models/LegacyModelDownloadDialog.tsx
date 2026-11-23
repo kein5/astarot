@@ -45,9 +45,11 @@ export interface LegacyModelDownloadDialogProps {
     // The saved device of the local translation (SELECTED_TRANSLATION_COMPUTE_DEVICE); the
     // models' memory is compared with it, the CPU's by default.
     computeDevice?: TranslationDevice;
+    // A translation model of the catalog the user started to download here (#1015).
+    onCatalogStart?: (id: string) => void;
 }
 
-export const LegacyModelDownloadDialog = ({ kind, weightType, onCancel, onDownload, extraAction = null, note = null, computeDevice }: LegacyModelDownloadDialogProps) => {
+export const LegacyModelDownloadDialog = ({ kind, weightType, onCancel, onDownload, extraAction = null, note = null, computeDevice, onCatalogStart }: LegacyModelDownloadDialogProps) => {
     const { t } = useI18n();
     const { catalog: downloadCatalog, error, send } = useModelDownloads();
     const { currentCTranslate2WeightTypeStatus } = useTranslation();
@@ -128,8 +130,11 @@ export const LegacyModelDownloadDialog = ({ kind, weightType, onCancel, onDownlo
             </> : translation ? <>
                 {translationRows.length > 0
                     ? <ModelDownloads targets={["translation"]} expected={{ translation: {} }} usable={usable}
-                        only={ownRows.length > 0 ? ownRows.map(model => model.id) : undefined} translationDevice={computeDevice} />
+                        only={ownRows.length > 0 ? ownRows.map(model => model.id) : undefined} translationDevice={computeDevice}
+                        onStart={onCatalogStart} />
                     : <p role="status">{t("legacy_model_downloads.translation_not_published")}</p>}
+                {/* What the download goes on to, when the caller continues something (#1015). */}
+                {note && translationRows.length > 0 && <p>{note}</p>}
                 {/* A model of one's own is added in the translation catalog, from any folder (#597). */}
                 <p>{t("legacy_model_downloads.translation_own_model")}</p>
                 <CustomModelLink section="translation" />
