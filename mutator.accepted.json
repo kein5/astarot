@@ -91,6 +91,10 @@
     "reason": "Only the main screen and the translator's list have no stage; neither draws the language list keyed by this, and the key is compared only with itself.",
     "where": "src-ui/views/vr/VrLanguageWindow.tsx:104:51 '' -> 'Stryker was here!'"
   },
+  "1d4qnr0kll": {
+    "reason": "weightLabel gives back a weight that names no model as it is, so a value that is no string (null before the first answer) shows the same.",
+    "where": "src-ui/views/vr/VrSettingsWindow.tsx:386:49 typeof selected_weight.data === \"string\" -> true"
+  },
   "1dyimpq44q2": {
     "reason": "useId gives a dialog one id for as long as it is drawn, so the ids made from it never need making again.",
     "where": "src-ui/views/kit/Dialog.tsx:34:97 [base] -> []"
