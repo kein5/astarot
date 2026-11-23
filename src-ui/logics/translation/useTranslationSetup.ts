@@ -7,13 +7,13 @@ export interface TranslationSetupRequest {
     weightType: string | null;
 }
 
-// The model whose arrival turns the switch on.
+// The model whose arrival turns the switch on, and the catalog download that brings it (#1015):
+// its model, and the job that model had before the start, whose end is an earlier try's and not
+// this one's.
 export interface TranslationWait {
     weightType: string;
-    // The catalog download that brings it (#1015): its model, and the job that model had before
-    // the start, whose end is an earlier try's and not this one's. null: the built-in download,
-    // whose progress the weight carries.
-    download: { model: string; before: string | null } | null;
+    model: string;
+    before: string | null;
 }
 
 export interface TranslationSetup {

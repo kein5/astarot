@@ -262,16 +262,6 @@ HTTPでプライベートLANやリンクローカルのアドレスへ接続す�
 
 `src_languages`と`dst_languages`は受付時に固定したタブの言語の組、`translation`は訳の配列である。`type`は`SENT`（マイク）、`RECEIVED`（スピーカーとOCR）、`CHAT`（入力欄）、`REALTIME_MIC`、`REALTIME_SPEAKER`のどれか。表示設定が変わったときは`{"type": "SETTINGS_UPDATED", "settings": {…}}`を送る（[外部インターフェース](external-interfaces.md#websocketサーバー)）。
 
-### 内蔵モデルの取得への同意
-
-`config.json`の`LEGACY_MODEL_DOWNLOAD_CONSENTS`は、モデルIDから確認済みの一覧を表すSHA-256文字列への辞書で、既定は`{}`。0.4までのPythonバックエンドが、CTranslate2の翻訳モデル（IDは`ctranslate2:m2m100_418M-ct2-int8`など）の取得に同意したときに記録していた。値は[`models/legacy_model_consent.py`](https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/legacy_model_consent.py)がモデル名・提供元・ライセンス・重みのリポジトリと固定版・全ファイルの容量とSHA-256・同じ一式に含まれるtokenizerのリポジトリ・固定版・ファイル一覧をJSONにして計算していた。ファイルのハッシュそのものではなく、確認した内容を識別する値である。
-
-CTranslate2の取得は0.5.0で引退した。中核はこのキーを、値がすべて文字列の辞書として読み書きして残すだけで（`native/core/src/config/schema.rs`）、値を計算も記録もしない。`/get/data/model_download_catalog`の`legacy_models`は、いつも空の一覧を返す（`native/core/src/controller/downloads.rs`）。`/run/download_ctranslate2_weight`は中核に要求がなく、UIの側の定義だけが残っている（[IPCエンドポイント一覧](reference/ipc-endpoints.md)の「UIだけにあるルート」。UIの部品は`src-ui/logics/configs/legacyModelConsent.ts`）。ローカル翻訳のモデルは、ほかのモデルと同じ取得の確認と同意で取る（[モデル取得](../voice-stack/model-downloads.md)）。
-
-0.4までは、`legacy_models`に確認画面用の名前、提供元、ライセンス、非商用の制限、正確な`total_bytes`、`tokenizer_size_unknown`、`manifest_version`を返していた。CTranslate2のtokenizerには同じ取得元と固定版、ファイルの容量・SHA-256、bundled: trueが入り、tokenizer_size_unknownはfalseで、容量は重複して足さなかった。`/run/download_ctranslate2_weight`には`{weight_type, consent: true, manifest_version}`を送り、現在の一覧と一致する明示的な同意を受け取ったときだけ記録して、取得前に即時保存を試みていた。
-
-起動時の取得では、保存された値と現在のモデル一覧の値が一致するか確認する。版、ファイルの容量・SHA-256、ライセンス、tokenizerの版が変わると再確認が必要になる。古い値はファイルを削除する根拠にはしない。旧版からの移行時は記録なしとして扱い、`AUTO_DOWNLOAD_MODELS=True`や既存のNLLB選択から同意を推測しない。既に取得したファイルとモデルの選択は保持する。
-
 ### チャット読み取りの範囲
 
 `OCR_CAPTURE_REGION`はデスクトップのウィンドウ用、`OCR_VR_CAPTURE_REGION`はWindowsのSteamVRヘッドセット映像の左目側用で、どちらも`config.json`に保存する。画面ごとに幅と高さに対する割合で指定する。
@@ -319,6 +309,7 @@ CTranslate2の取得は0.5.0で引退した。中核はこのキーを、値が�
 | 六芒星のオーバーレイで六芒星を出すモニター（`TRAY_COMPANION_MONITOR`） | システムがモニターに付けた名前。空はメインのモニター（既定）。256文字までで、制御文字は拒否する。選んだモニターが外されていても値は残し、その間はメインのモニターを使う（[六芒星のオーバーレイ](cross-cutting.md#六芒星のオーバーレイtray_companion)） |
 | 六芒星のオーバーレイがホイールで回せることを知らせたか（`TRAY_COMPANION_WHEEL_HINT_SHOWN`） | 真偽値。既定は`false`。六芒星が初めて出たときに知らせ、`true`にする。`true`の間は知らせない（[六芒星のオーバーレイ](cross-cutting.md#六芒星のオーバーレイtray_companion)、#536） |
 | 用途（`USAGE_PRESETS`） | `basic`、`nonverbal`、`multilingual`、`voice_changer`、`all`のうち1つ以上の配列。この順に、重複なしで保存する。知らないIDは除き（後の版で増えたもの）、知っているIDが1つもなければ拒否する。保存は即時。新しく入れたときの既定は`["basic"]`で、前の版から更新したとき（保存した設定があり、このキーがない）は`["all"]`にする。表示する機能を絞るだけで、ほかの設定は変えない（[用途別プリセット](cross-cutting.md#用途別プリセット)） |
+| 0.4までの取得の同意（`LEGACY_MODEL_DOWNLOAD_CONSENTS`） | モデルIDから文字列への辞書で、既定は`{}`。0.4までのPythonバックエンドが、CTranslate2の翻訳モデルの取得に同意したときに記録していた。CTranslate2の取得は0.5.0で中核から、その確認画面は#1015で画面から消えた。中核はこのキーを、値がすべて文字列の辞書として読み書きして残すだけで、値を計算も記録もしない（`native/core/src/config/schema.rs`）。ローカル翻訳のモデルは、ほかのモデルと同じ取得の確認と同意で取る（[モデル取得](../voice-stack/model-downloads.md)） |
 | 重みの取得状態 | 一覧は {種類: 取得済みか}。受付は {weight_type, job_id}。進捗は {weight_type, job_id, progress}、成功通知は {weight_type, job_id, downloaded: true}。失敗通知はエラー本体のdataに {weight_type, job_id, downloaded: false, reason} を入れる。進行中の同じ重みへの重複要求を拒否する場合はactive_job_idも付ける |
 | エンジンの状態 | `{エンジン名: 使えるか}`。使えるエンジンの一覧は`selectable_*_engines`で配列として返す |
 | エラー | [IPCプロトコル](ipc-protocol.md#エラーの本体) |

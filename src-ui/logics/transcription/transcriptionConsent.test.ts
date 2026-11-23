@@ -62,7 +62,7 @@ async function fixture(context: TestContext) {
     const errors = await loadModule<typeof import("../_useBackendErrorHandling.ts")>(new URL("../_useBackendErrorHandling.ts", import.meta.url), runtime, {
         "@useI18n": { useI18n: () => ({ t: (key: string) => key, i18n: { exists: () => true } }) },
         "@logics_common": common, "@logics_configs": configs, "@logics_main": main,
-        "./ui_configs": {}, "./configs/legacyModelConsent": {}, "./configs/cloudTranscription": { CLOUD_TRANSCRIPTION_ENGINES: [] },
+        "./ui_configs": {}, "./configs/cloudTranscription": { CLOUD_TRANSCRIPTION_ENGINES: [] },
         "./transcription/useTranscriptionConsent": consent,
         "./main/translatorLabel": translatorLabel,
         "./translation/useTranslationSetup": { useTranslationSetup: () => ({ open: noop }) },
