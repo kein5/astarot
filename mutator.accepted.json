@@ -103,9 +103,17 @@
     "reason": "flow is not nullish here: the check before it returned for that.",
     "where": "src-ui/logics/flow/flowGraph.ts:57:30 ?. -> ."
   },
+  "n0p7w6fey0": {
+    "reason": "A missing value only reaches the 24-character test as a short string, and the placeholder is 17 characters, also short.",
+    "where": "src-ui/views/vr/VrSettingsRows.tsx:69:37 \"\" -> \"Stryker was here!\""
+  },
   "papf5i9aml": {
     "reason": "show runs only from the timer that update starts for a target that is not dismissed, and Escape clears that timer when it dismisses the target.",
     "where": "src-ui/views/vr/VrTooltip.tsx:92:41 dismissed === target -> false"
+  },
+  "qm98qwzgzx": {
+    "reason": "Both rows that draw a Stepper pass is_disabled, so its default is never used.",
+    "where": "src-ui/views/vr/VrSettingsRows.tsx:170:60 false -> true"
   },
   "sumx19h5ss": {
     "reason": "Only the first character is read; removing a prolonged-sound mark later in the name does not change it.",
