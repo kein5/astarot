@@ -82,8 +82,9 @@ test("the OSC and GPU check headings carry what their sections are as hints; the
     const { ofType } = await rows();
     const described = ofType("section-label").filter(node => node.props.desc !== undefined);
     assert.deepEqual(described.map(node => [node.props.label, node.props.desc]), [
-        // What the check is for, how it measures and what its result holds, one to a line.
-        [key("section_label_gpu_check"), [key("gpu_check.desc"), key("gpu_check.what"), key("gpu_check.privacy")].join("\n")],
+        // What the check is for, how it measures, what its result holds and what to know before
+        // pressing, one to a line.
+        [key("section_label_gpu_check"), [key("gpu_check.desc"), key("gpu_check.what"), key("gpu_check.privacy"), key("gpu_check.before")].join("\n")],
         [key("section_label_osc"), "config_page.vrchat.osc_pointer.desc"],
     ], "no other heading has a description");
     // The GPU check and the usage data's contents are parts of their own.

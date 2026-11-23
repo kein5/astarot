@@ -165,10 +165,10 @@ for (const [variant, heading, intro] of forms) test(`${variant}: the form's desc
     page.runtime.unmount();
 });
 
-test("#614: that the input does not use RVC yet stays in sight beside its button", async () => {
+test("#614: that the input does not use RVC yet is the row's hint", async () => {
     const page = await open("rvc", { ...rvcSettings, mode: "passthrough" });
     const [row] = all(page.tree, node => node.type === "row" && node.props.label === "voice_ui.select_rvc_label");
     assert.equal(row.props.description, "voice_ui.select_rvc_pending");
-    assert.equal(row.props.keepDescription, true);
+    assert.equal(row.props.keepDescription, undefined);
     page.runtime.unmount();
 });

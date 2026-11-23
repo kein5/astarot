@@ -40,12 +40,12 @@ test("it runs only on the user's press, and can be stopped while it runs", async
     assert.equal(find(tree, labelled(key("stop"))), null);
     idle.button(tree, key("start")).props.onClick();
     assert.deepEqual(idle.calls, ["start"]);
-    // What is known before pressing is the one paragraph on screen: how long it takes, what it
-    // leaves alone and that nothing is sent by itself. What it is for, how it measures and what
-    // the report holds are the hint of the section's heading (#614).
+    // What the check is for, how it measures, what its result holds and what to know before
+    // pressing are the hint of the section's heading (AdvancedSettings, #614, #1013), so no
+    // paragraph sits over the button while idle.
     const texts: unknown[] = [];
     find(tree, node => { if (node.type === "p") texts.push(node.props.children); return false; });
-    assert.deepEqual(texts, [key("before")]);
+    assert.deepEqual(texts, []);
 
     const running = await setup({ ...shapes.IDLE_GPU_CHECK, phase: "running", run: 1, step: "tts" });
     tree = running.render();

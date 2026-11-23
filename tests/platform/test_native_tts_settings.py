@@ -22,7 +22,7 @@ def test_split_settings_small_window_keyboard_and_long_paths(tmp_path, scaling):
         ui.command('POST', '/window/rect', {'width': 870, 'height': 654})
         ui.wait("return innerWidth === 870 && innerHeight === 654")
         assert ui.evaluate("return [...document.querySelectorAll('[role=switch]')].map(e => e.getAttribute('aria-label')).slice(-2)") == ['Text to speech (TTS)', 'Voice changer (RVC)']
-        assert ui.evaluate("return document.querySelector('[class*=message_send_button]') === null")
+        assert ui.evaluate("return document.querySelector('[data-message-send]') === null")
         assert ui.evaluate("return [...document.querySelectorAll('[role=switch]')].slice(-2).every(e => e.getAttribute('aria-checked') === 'false')")
         ui.open_voice_settings()
         ui.select('Seed mode', 'fixed')

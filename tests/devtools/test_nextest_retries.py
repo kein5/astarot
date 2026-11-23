@@ -1,5 +1,6 @@
-"""The retries of native/core's tests in CI (issue #861): the list in native/core/.config/nextest.toml
-names tests that exist, and tools/ci/nextest_flaky_summary.py reports a pass on a retry."""
+"""The retries of native/core's tests in CI: a test native/core/.config/nextest.toml retries
+exists (none since issue #861 was settled), and tools/ci/nextest_flaky_summary.py reports a pass on
+a retry."""
 import importlib.util
 import io
 import os
@@ -52,9 +53,7 @@ def retried_tests():
 
 class RetryListTests(unittest.TestCase):
     def test_every_retried_test_exists(self):
-        pairs = retried_tests()
-        self.assertTrue(pairs, "the ci profile retries no test; remove its section instead")
-        for binary, name in pairs:
+        for binary, name in retried_tests():
             source = ROOT / f"native/core/tests/{binary}.rs"
             self.assertTrue(source.is_file(), f"no test binary {binary}")
             self.assertRegex(source.read_text(encoding="utf-8"), rf"\bfn {name}\(\)", f"{binary}: no test {name}")
@@ -91,7 +90,7 @@ class SummaryTests(unittest.TestCase):
         out = io.StringIO()
         with mock.patch.dict(os.environ, {"GITHUB_STEP_SUMMARY": str(summary)}), redirect_stdout(out):
             self.assertEqual(self.script.main(["x", str(self.report)]), 0)
-        self.assertIn("::warning title=Passed on a retry (#861)::astarot-core::vr_overlay sometimes passed on try 2", out.getvalue())
+        self.assertIn("::warning title=Passed on a retry::astarot-core::vr_overlay sometimes passed on try 2", out.getvalue())
         written = summary.read_text(encoding="utf-8")
         self.assertIn("| `astarot-core::vr_overlay sometimes` | 2 | no /run/send_message_box within 10s / first |", written)
         self.assertIn("1 test(s) failed on every try", written)

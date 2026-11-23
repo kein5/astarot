@@ -2,7 +2,7 @@ import React from "react";
 import type { ComponentType, SVGProps } from "react";
 import { useI18n } from "@useI18n";
 import clsx from "clsx";
-import styles from "./VolumeCheckButton.module.scss";
+import * as styles from "./VolumeCheckButton.css.ts";
 
 export interface VolumeCheckButtonProps {
     // Whether the check runs, as the store holds it: "pending" while the engine answers.
@@ -34,7 +34,7 @@ export const VolumeCheckButton = React.memo((props: VolumeCheckButtonProps) => {
 
     // A held key repeats keydown; only the first press toggles the check.
     return (
-        <div className={styles.container}>
+        <div>
             <div className={getClassNames(styles.button)} onClick={toggleFunction}
                 role="button" tabIndex={0} aria-pressed={props.isChecking?.data === true} aria-disabled={is_pending}
                 onKeyDown={event => { if (event.key === " " || event.key === "Enter") { event.preventDefault(); if (event.repeat) return; toggleFunction(); } }}>

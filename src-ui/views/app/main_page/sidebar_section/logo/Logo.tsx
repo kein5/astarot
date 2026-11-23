@@ -1,4 +1,4 @@
-import styles from "./Logo.module.scss";
+import * as styles from "./Logo.css.ts";
 import { useIsMainPageCompactMode } from "@logics_main";
 import SymbolSvg from "@images/brand/symbol.svg?react";
 import WordmarkSvg from "@images/brand/wordmark.svg?react";

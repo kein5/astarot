@@ -3,7 +3,7 @@ import { AdvancedSection } from "../_components/advanced_section/AdvancedSection
 import { PagePointer } from "../_components/page_pointer/PagePointer";
 import { HintDescriptions } from "../_components/hint/Hint";
 import { useI18n } from "@useI18n";
-import styles from "./Device.module.scss";
+import * as styles from "./Device.css.ts";
 import clsx from "clsx";
 import { useStore_IsBreakPoint } from "@store";
 import { ui_configs } from "@ui_configs";

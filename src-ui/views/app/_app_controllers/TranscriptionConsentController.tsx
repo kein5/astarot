@@ -6,8 +6,8 @@ import { useStore_IsOpenedConfigPage, useStore_SelectedConfigTabId } from "@stor
 import { useTranscriptionConsent } from "../../../logics/transcription/useTranscriptionConsent";
 import type { TranscriptionConsentRequest } from "../../../logics/transcription/useTranscriptionConsent";
 import { useConsentDialog } from "../../../logics/common/useConsentDialog";
-import styles from "../config_page/setting_section/setting_box/advanced_settings/VoiceSettings.module.scss";
-import dialogStyles from "../config_page/setting_section/setting_box/_components/download_models/LegacyModelDownloadDialog.module.scss";
+import * as styles from "../config_page/setting_section/setting_box/advanced_settings/VoiceSettings.css.ts";
+import * as dialogStyles from "../config_page/setting_section/setting_box/_components/download_models/LegacyModelDownloadDialog.css.ts";
 
 // The engine the user chose, and the request it answers.
 type Selection = { engine: string; request: TranscriptionConsentRequest };

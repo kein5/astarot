@@ -36,7 +36,6 @@ async function setup(context: TestContext, { settings = DEFAULT_SETTINGS, placem
             RadioButtonContainer: "radio", SliderContainer: "slider" },
         "../../../../../../logics/captionOverlay/adjust": adjust,
         "@images/redo.svg?react": "redo", "@images/check_mark.svg?react": "check",
-        "./Vr.module.scss": {},
     });
     // Where the captions sit and how they look are the "details" part, in 「詳細設定」 (#554).
     const render = () => runtime.render(DesktopCaptionOverlay, { part: "details" });
