@@ -13,6 +13,8 @@ Create a topic branch from `develop` (for example `fix/quick-chat-focus`) and op
 
 A stable release starts from a `release/X.Y.Z` branch cut from `develop` whose only changes are the version (`X.Y.Z`, set with `utils/update_version.py`) and its CHANGELOG section. Its pull request to `main` must pass the required checks. Merging it starts the candidate builds and the release draft; publishing the release opens a pull request that merges `main` back into `develop`, and once that is merged, `develop` moves to the next `-beta.N`. See [Changelog and releases](#changelog-and-releases) and [release candidates](docs/voice-stack/release-candidates.md), which draws the whole release flow, betas included, as [one diagram](docs/voice-stack/release-candidates.md#全体の流れ).
 
+Between the first beta prerelease of a version (`X.Y.Z-beta.1`) and its stable release (`X.Y.Z`), only fixes for issues found in the beta merge into `develop`. New features and unrelated changes wait until the stable release is published and merged back into `develop` ([beta freeze](docs/voice-stack/release-candidates.md#ベータ期間の変更凍結)). Before publishing a stable release, check beta telemetry (`app_started` and `error` events) against the previous stable release to confirm no noticeable rise in errors ([telemetry check](docs/voice-stack/release-candidates.md#公開前にベータ期間のテレメトリを確かめる)).
+
 To fix a published release in a hurry while `develop` already holds the next version's work, cut `release/X.Y.Z` from `main` instead and bring in only the fix and what `main` needs to build. The steps are in [release candidates](docs/voice-stack/release-candidates.md#公開済みの版を急いで直す).
 
 ## Pull requests
@@ -179,7 +181,7 @@ ASTAROT (formerly VRCT-VOX) is derived from [VRCT](https://github.com/misyaguziy
 
 ## 日本語での概要
 
-Issue や PR は日本語でも構いません。作業ブランチは `develop` から作り、PR は `develop` へ出してください。`main` は保護されています。正式版のときだけ、`develop` から切った `release/X.Y.Z` ブランチ（版の変更と CHANGELOG の節だけ）を PR で統合します。統合すると候補のビルドとリリースの下書きの準備が自動で始まり、公開すると `main` を `develop` へ戻す PR が自動で開きます。公開とその前の確認は人が行います。公開済みの版を急いで直すときは、`main` から切ります（[手順](docs/voice-stack/release-candidates.md#公開済みの版を急いで直す)）。
+Issue や PR は日本語でも構いません。作業ブランチは `develop` から作り、PR は `develop` へ出してください。`main` は保護されています。ある版の最初のベータ（`X.Y.Z-beta.1`）をプレリリースとして公開してから正式版（`X.Y.Z`）を公開し、`main` を `develop` へ戻す PR を統合するまでのあいだ、`develop` へマージしてよいのはベータで見つかった問題の修正だけです（[ベータ期間の変更凍結](docs/voice-stack/release-candidates.md#ベータ期間の変更凍結)）。正式版のときだけ、`develop` から切った `release/X.Y.Z` ブランチ（版の変更と CHANGELOG の節だけ）を PR で統合します。統合すると候補のビルドとリリースの下書きの準備が自動で始まり、公開すると `main` を `develop` へ戻す PR が自動で開きます。公開とその前の確認（実機とベータ期間のテレメトリの確認）は人が行います。公開済みの版を急いで直すときは、`main` から切ります（[手順](docs/voice-stack/release-candidates.md#公開済みの版を急いで直す)）。
 
 - コミットは Conventional Commits の形式で書きます。種別の選び方と例は上の「Commit messages」にあります。
 - 形式の検査は commit-msg フックで行います。`mise install` のあと、複製ごとに `python tools/dev.py setup --scope hooks`（hk のフックを入れる）を一度実行してください。hk を使わないときは `cog install-hook commit-msg` でも入れられますが、両方は入れないでください。CI も PR と、develop・main への push を検査します。
