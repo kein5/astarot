@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import styles from "./SectionLabelComponent.module.scss";
+import * as styles from "./SectionLabelComponent.css.ts";
 import { Hint, useHintDescriptions } from "../hint/Hint";
 
 // data-setting-label lets the settings search scroll to a section heading.

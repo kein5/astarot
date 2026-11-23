@@ -1,4 +1,4 @@
-import styles from "./ConnectionCheckButton.module.scss";
+import * as styles from "./ConnectionCheckButton.css.ts";
 import { useI18n } from "@useI18n";
 import { EnvReadout } from "../env_readout/EnvReadout";
 import { StableWords } from "../../../../../../common_components/stable_words/StableWords";

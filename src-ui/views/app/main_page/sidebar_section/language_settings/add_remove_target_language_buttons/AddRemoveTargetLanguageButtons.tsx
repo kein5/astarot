@@ -1,7 +1,7 @@
 import type { ComponentType, SVGProps } from "react";
 import clsx from "clsx";
 import { useI18n } from "@useI18n";
-import styles from "./AddRemoveTargetLanguageButtons.module.scss";
+import * as styles from "./AddRemoveTargetLanguageButtons.css.ts";
 import RemoveSvg from "@images/remove.svg?react";
 import AddSvg from "@images/add.svg?react";
 

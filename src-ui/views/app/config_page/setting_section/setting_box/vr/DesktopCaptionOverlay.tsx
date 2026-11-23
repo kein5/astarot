@@ -9,7 +9,7 @@ import { placementOf } from "../../../../../../logics/captionOverlay/adjust";
 import type { OverlayDesktopSettings, SettingValues } from "../../../../../../logics/configs/config_page_setter/settingTypes.ts";
 import RedoSvg from "@images/redo.svg?react";
 import CheckMarkSvg from "@images/check_mark.svg?react";
-import styles from "./Vr.module.scss";
+import * as styles from "./Vr.css.ts";
 
 // Captions over the desktop, for VRChat without a headset. The section is
 // shown only where the overlay window exists (Windows for now), so nobody is

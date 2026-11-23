@@ -1,7 +1,7 @@
 import { createContext, useContext } from "react";
 import type { ReactNode } from "react";
 import HelpSvg from "@images/help.svg?react";
-import styles from "./Hint.module.scss";
+import * as styles from "./Hint.css.ts";
 
 // The layout explains, not the text (#614, DESIGN.md "Principles"): on a page reviewed against
 // it, a setting's general description is not kept on screen. A small question mark follows the

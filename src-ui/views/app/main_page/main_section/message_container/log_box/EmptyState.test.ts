@@ -120,9 +120,9 @@ test("while the setup is still suggested, its line stands out; afterwards it is 
     assert.equal(await line(true), true);
     assert.equal(await line(false), undefined);
     assert.equal(await line(null), undefined, "not known yet: nothing stands out");
-    const css = (await import("node:fs")).readFileSync(new URL("./LogBox.module.scss", import.meta.url), "utf8");
-    assert.match(css, /\.setup li\[data-lead\] \{[^}]*border: \.1rem solid var\(--primary_600_color\)[^}]*background: var\(--vox_highlight_tint\)/);
-    assert.match(css, /\.setup li\[data-lead\] button \{[^}]*background: var\(--primary_600_color\); color: var\(--vox_on_primary\)/);
+    const css = (await import("node:fs")).readFileSync(new URL("./LogBox.css.ts", import.meta.url), "utf8");
+    assert.match(css, /globalStyle\(`\$\{setup\} li\[data-lead\]`, \{[^}]*border: `\.1rem solid \$\{vars\.primary_600_color\}`[^}]*background: vars\.vox_highlight_tint/);
+    assert.match(css, /globalStyle\(`\$\{setup\} li\[data-lead\] button`, \{[^}]*background: vars\.primary_600_color,\s*color: vars\.vox_on_primary/);
     // #936: also while only the translation's model is left for the setup.
     const translationOnly = find((await setup({ recognition: "ready", notice: true,
         needs: [{ id: "translation", weight: { id: "m2m100_418M-ct2-int8" }, action: "review" }] })).tree, node => node.type === "li");
