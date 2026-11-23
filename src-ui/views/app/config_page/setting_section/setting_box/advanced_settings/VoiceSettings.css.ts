@@ -1,4 +1,5 @@
 import { globalStyle, keyframes, style } from "@vanilla-extract/css";
+import type { CSSProperties } from "@vanilla-extract/css";
 import { vars } from "../../../../../theme/vars.css.ts";
 
 // The forms' look. Most of it styles plain elements inside a form section (.container) and relies
@@ -51,8 +52,10 @@ export const hardware = style({});
 // A rule inside a form section: each selector of the list under .container.
 const inForm = (...selectors: string[]) => selectors.map(selector => `${container} ${selector}`).join(", ");
 const BASE_SELECT = "(appearance: base-select)";
-// The value that lets the engine style a select's list. csstype does not list it yet.
-const BASE_SELECT_APPEARANCE = "base-select" as unknown as "auto";
+// The value that lets the engine style a select's list. csstype does not list it yet, so the word
+// is read as a string and given the property's type.
+const baseSelect: string = "base-select";
+const BASE_SELECT_APPEARANCE = baseSelect as CSSProperties["appearance"];
 const STACKED = "(max-width: 35.6rem)";
 const NARROW_WINDOW = "(max-width: 700px)";
 
