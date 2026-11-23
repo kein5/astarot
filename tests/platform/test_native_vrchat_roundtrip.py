@@ -66,12 +66,12 @@ def test_typed_message_is_shown_by_vrchat_and_read_back(tmp_path):
             for index, base in enumerate(MESSAGES):
                 text = f"{base} {stamp}{index}"
                 seen = set(read_rows(ui))
-                field = ui.command("POST", "/element", {"using": "css selector", "value": "textarea[class*=message_box_input_area]"})
+                field = ui.command("POST", "/element", {"using": "css selector", "value": "textarea[data-message-input]"})
                 ui.element_command(field, "clear")
                 ui.element_command(field, "value", {"text": text})
                 sent = time.monotonic()
-                ui.click('[class*="message_send_button"]')
-                ui.wait("return document.querySelector('textarea[class*=message_box_input_area]').value === ''")
+                ui.click('[data-message-send]')
+                ui.wait("return document.querySelector('textarea[data-message-input]').value === ''")
                 heard, read_at = [], None
                 while time.monotonic() - sent < WAIT and read_at is None:
                     time.sleep(.3)
