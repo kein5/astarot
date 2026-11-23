@@ -2,7 +2,7 @@ import clsx from "clsx";
 import { useId } from "react";
 import type { ComponentType, ReactNode } from "react";
 
-import styles from "./Templates.module.scss";
+import * as styles from "./Templates.css.ts";
 import { useStore_IsBreakPoint } from "@store";
 import {
     LabelComponent,

@@ -3,7 +3,7 @@ import { useIoFlow } from "../../../../../logics/flow/useIoFlow";
 import { useGpuMemory } from "../../../../../logics/flow/useGpuMemory";
 import { IoFlowView } from "../../../io_flow/IoFlowView";
 import { Hint } from "../../../config_page/setting_section/setting_box/_components/hint/Hint";
-import styles from "./IoFlowPanel.module.scss";
+import * as styles from "./IoFlowPanel.css.ts";
 
 // Opened from the top bar: where the user's voice and chat go now, how long the latest
 // of each took, and how much GPU memory the app holds. It sits above the conversation and

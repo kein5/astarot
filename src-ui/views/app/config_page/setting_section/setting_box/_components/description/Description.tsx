@@ -1,6 +1,6 @@
 import { useI18n } from "@useI18n";
 import { splitDescription } from "../../../../../../../logics/configs/descriptionSplit";
-import styles from "./Description.module.scss";
+import * as styles from "./Description.css.ts";
 import { Fold } from "../fold/Fold";
 
 // General description role (DESIGN.md): one visible sentence, the rest under "詳細".

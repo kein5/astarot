@@ -2000,12 +2000,15 @@ Section Uninstall
     Delete "$INSTDIR\secrets.json.*"
     Delete "$INSTDIR\voice_mute_state.json"
     Delete "$INSTDIR\.voice-mute-*"
-    ; The lists of registered models and of the translation catalog's entries only: the model
-    ; files stay where the user keeps them. A leading dot names a temporary file.
+    ; The lists of registered models, of the translation catalog's entries and of the speech
+    ; recognition APIs the user added only: the model files stay where the user keeps them. A
+    ; leading dot names a temporary file. The entries' keys went with the other API keys above.
     Delete "$INSTDIR\user_models.json"
     Delete "$INSTDIR\.user_models.json.*"
     Delete "$INSTDIR\translation_catalog.json"
     Delete "$INSTDIR\.translation_catalog.json.*"
+    Delete "$INSTDIR\transcription_catalog.json"
+    Delete "$INSTDIR\.transcription_catalog.json.*"
     Delete "$INSTDIR\telemetry_state.json"
     Delete "$INSTDIR\telemetry_state.json.*"
     RmDir /r "$INSTDIR\downloaded_models"

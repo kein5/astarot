@@ -10,7 +10,7 @@ import { SectionLabelComponent } from "../_components";
 import { CatalogFacts, CatalogLayoutSwitch, CatalogList, CatalogSection, useCatalogLayout } from "../advanced_settings/catalogLayout";
 import type { CatalogLayout } from "../advanced_settings/catalogLayout";
 import { TranslationLlamaRuntimes } from "./TranslationLlamaRuntimes";
-import styles from "../advanced_settings/VoiceSettings.module.scss";
+import * as styles from "../advanced_settings/VoiceSettings.css.ts";
 import { Fold } from "../_components/fold/Fold";
 import { useHintDescriptions } from "../_components/hint/Hint";
 import { Lead } from "../_components/lead/Lead";

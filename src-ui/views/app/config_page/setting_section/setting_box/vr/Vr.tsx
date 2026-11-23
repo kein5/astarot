@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import type { RefObject } from "react";
 import { useI18n } from "@useI18n";
 import clsx from "clsx";
-import styles from "./Vr.module.scss";
+import * as styles from "./Vr.css.ts";
 import { ui_configs } from "@ui_configs";
 import { Slider } from "../_components";
 import { FormRow } from "../_components/form_row/FormRow";
@@ -362,8 +362,8 @@ export const PositionControls = ({ settings, onChangeFunction, selectFunction, u
     } = useVariableControl("z_pos", settings, onChangeFunction, ui_configs);
 
     return (
-        <div className={styles.position_controls}>
-            <div className={styles.position_wrapper}>
+        <div>
+            <div>
                 <p className={clsx(styles.slider_label, styles.x_position_label)}>
                     {t("config_page.vr.x_position")}
                     <ResetButton onClickFunction={() => selectFunction("x_pos", default_ui_configs.x_pos)} label={`${t("config_page.vr.x_position")}: ${t("common.reset_to_default")}`} />
@@ -392,7 +392,7 @@ export const PositionControls = ({ settings, onChangeFunction, selectFunction, u
                 />
             </div>
 
-            <div className={styles.position_wrapper}>
+            <div>
                 <p className={clsx(styles.slider_label, styles.y_position_label)}>
                     {t("config_page.vr.y_position")}
                     <ResetButton onClickFunction={() => selectFunction("y_pos", default_ui_configs.y_pos)} label={`${t("config_page.vr.y_position")}: ${t("common.reset_to_default")}`} />
@@ -422,7 +422,7 @@ export const PositionControls = ({ settings, onChangeFunction, selectFunction, u
                 />
             </div>
 
-            <div className={styles.position_wrapper}>
+            <div>
                 <p className={clsx(styles.slider_label, styles.z_position_label)}>
                     {t("config_page.vr.z_position")}
                     <ResetButton onClickFunction={() => selectFunction("z_pos", default_ui_configs.z_pos)} label={`${t("config_page.vr.z_position")}: ${t("common.reset_to_default")}`} />
@@ -483,8 +483,8 @@ export const RotationControls = ({ settings, onChangeFunction, selectFunction, u
     } = useVariableControl("z_rotation", settings, onChangeFunction, ui_configs);
 
     return (
-        <div className={styles.rotation_controls}>
-            <div className={styles.rotation_wrapper}>
+        <div>
+            <div>
                 <p className={clsx(styles.slider_label, styles.x_rotation_label)}>
                     {t("config_page.vr.x_rotation")}
                     <ResetButton onClickFunction={() => selectFunction("x_rotation", default_ui_configs.x_rotation)} label={`${t("config_page.vr.x_rotation")}: ${t("common.reset_to_default")}`} />
@@ -516,7 +516,7 @@ export const RotationControls = ({ settings, onChangeFunction, selectFunction, u
                 />
             </div>
 
-            <div className={styles.rotation_wrapper}>
+            <div>
                 <p className={clsx(styles.slider_label, styles.y_rotation_label)}>
                     {t("config_page.vr.y_rotation")}
                     <ResetButton onClickFunction={() => selectFunction("y_rotation", default_ui_configs.y_rotation)} label={`${t("config_page.vr.y_rotation")}: ${t("common.reset_to_default")}`} />
@@ -545,7 +545,7 @@ export const RotationControls = ({ settings, onChangeFunction, selectFunction, u
                 />
             </div>
 
-            <div className={styles.rotation_wrapper}>
+            <div>
                 <p className={clsx(styles.slider_label, styles.z_rotation_label)}>
                     {t("config_page.vr.z_rotation")}
                     <ResetButton onClickFunction={() => selectFunction("z_rotation", default_ui_configs.z_rotation)} label={`${t("config_page.vr.z_rotation")}: ${t("common.reset_to_default")}`} />
@@ -627,13 +627,12 @@ const OtherControls = ({settings, onChangeFunction, ui_configs}: OtherControlsPr
     return(
         <div className={styles.other_controls}>
             <div className={styles.other_controls_wrapper}>
-                <p className={clsx(styles.other_controls_slider_label, styles.opacity_label)}>
+                <p className={styles.other_controls_slider_label}>
                     {t("config_page.vr.opacity")}
                     <span className={styles.other_controls_value}>{ui_variable_opacity}%</span>
                 </p>
                 <Slider
                     aria-label={t("config_page.vr.opacity")}
-                    className={clsx(styles.other_controls_slider, styles.opacity_slider)}
                     no_padding={true}
                     variable={settings.opacity * 100}
                     valueLabelFunction={(val) => val.toFixed(0)}
@@ -647,13 +646,12 @@ const OtherControls = ({settings, onChangeFunction, ui_configs}: OtherControlsPr
                 />
             </div>
             <div className={styles.other_controls_wrapper}>
-                <p className={clsx(styles.other_controls_slider_label, styles.ui_scaling_label)}>
+                <p className={styles.other_controls_slider_label}>
                     {t("config_page.vr.ui_scaling")}
                     <span className={styles.other_controls_value}>{ui_variable_ui_scaling}%</span>
                 </p>
                 <Slider
                     aria-label={t("config_page.vr.ui_scaling")}
-                    className={clsx(styles.other_controls_slider, styles.ui_scaling_slider)}
                     no_padding={true}
                     variable={settings.ui_scaling * 100}
                     valueLabelFunction={(val) => val.toFixed(0)}
@@ -667,11 +665,10 @@ const OtherControls = ({settings, onChangeFunction, ui_configs}: OtherControlsPr
                 />
             </div>
             <div className={styles.other_controls_wrapper}>
-                <p className={clsx(styles.other_controls_slider_label, styles.display_duration_label)}>{t("config_page.vr.display_duration")}
+                <p className={styles.other_controls_slider_label}>{t("config_page.vr.display_duration")}
                     <span className={styles.other_controls_value}>{t("config_page.common.duration_seconds", { count: settings.display_duration })}</span></p>
                 <Slider
                     aria-label={t("config_page.vr.display_duration")}
-                    className={clsx(styles.other_controls_slider, styles.display_duration_slider)}
                     no_padding={true}
                     variable={settings.display_duration}
                     valueLabelFormat={value => t("config_page.common.duration_seconds", { count: Number(value) })}
@@ -684,11 +681,10 @@ const OtherControls = ({settings, onChangeFunction, ui_configs}: OtherControlsPr
                 />
             </div>
             <div className={styles.other_controls_wrapper}>
-                <p className={clsx(styles.other_controls_slider_label, styles.fadeout_duration_label)}>{t("config_page.vr.fadeout_duration")}
+                <p className={styles.other_controls_slider_label}>{t("config_page.vr.fadeout_duration")}
                     <span className={styles.other_controls_value}>{t("config_page.common.duration_seconds", { count: settings.fadeout_duration })}</span></p>
                 <Slider
                     aria-label={t("config_page.vr.fadeout_duration")}
-                    className={clsx(styles.other_controls_slider, styles.fadeout_duration_slider)}
                     no_padding={true}
                     variable={settings.fadeout_duration}
                     valueLabelFormat={value => t("config_page.common.duration_seconds", { count: Number(value) })}

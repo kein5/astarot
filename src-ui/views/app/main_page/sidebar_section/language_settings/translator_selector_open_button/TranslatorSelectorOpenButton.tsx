@@ -1,5 +1,5 @@
 import { useI18n } from "@useI18n";
-import styles from "./TranslatorSelectorOpenButton.module.scss";
+import * as styles from "./TranslatorSelectorOpenButton.css.ts";
 import { TranslatorSelector } from "./translator_selector/TranslatorSelector";
 import { useStore_IsOpenedTranslatorSelector } from "@store";
 import { useLanguageSettings } from "@logics_main";
