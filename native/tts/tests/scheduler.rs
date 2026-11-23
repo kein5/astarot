@@ -15,7 +15,7 @@ use astarot_tts::playback::{FirstAudio, Frames, Monitor, OutputSink, SpeechRoute
 use astarot_tts::scheduler::{BusOptions, ProviderFactory, Synthesizer};
 use astarot_tts::settings::{EngineVoice, SpeechRequest, VoiceSettings};
 use astarot_tts::sync::Event;
-use astarot_tts::{AudioFrame, CancelToken, Source, SpeechMessageEvent, SynthesisOptions, TtsError, VoiceEventBus};
+use astarot_tts::{AudioFrame, CancelToken, Source, SpeechError, SpeechMessageEvent, SynthesisOptions, TtsError, VoiceEventBus};
 
 type Speak = Arc<dyn Fn(&str, &CancelToken, &SynthesisOptions) -> Result<Frames, TtsError> + Send + Sync>;
 
@@ -169,10 +169,42 @@ fn errors_are_private_and_worker_recovers() {
     bus.publish(chat("first"), None, None);
     until2(|| bus.status().errors == 1);
     assert_eq!(bus.status().last_error.as_deref(), Some("audio_output_error"));
+    assert_eq!(bus.status().last_error_detail, None, "only a transport_error has a detail");
     assert_eq!(*reports.lock().unwrap(), vec!["audio_output_error"]);
     bus.publish(chat("second"), None, None);
     until2(|| bus.status().completed == 1);
     assert_eq!(bus.status().last_error, None);
+    close(&bus);
+}
+
+#[test]
+fn a_transport_error_keeps_how_it_failed_beside_its_code() {
+    // #861: the status tells a stopped, broken or malformed answer of the speech server apart,
+    // with a fixed word, and forgets it with the next speech that completes.
+    let sink = Sink::default();
+    let attempts = Arc::new(Mutex::new(0));
+    let reports: Arc<Mutex<Vec<String>>> = Arc::default();
+    let (counter, record) = (attempts.clone(), reports.clone());
+    let bus = bus(original(), &sink, |o| {
+        o.provider_factory = provider(move |_, _, _| {
+            let mut count = counter.lock().unwrap();
+            *count += 1;
+            if *count == 1 {
+                return Err(TtsError::Speech(SpeechError::transport("ended_early")));
+            }
+            Ok(frames(vec![1, 0]))
+        });
+        o.on_failure = Some(Arc::new(move |code: &str| record.lock().unwrap().push(code.to_owned())));
+    });
+    bus.publish(chat("first"), None, None);
+    until2(|| bus.status().errors == 1);
+    let status = bus.status();
+    assert_eq!((status.last_error.as_deref(), status.last_error_detail.as_deref()), (Some("transport_error"), Some("ended_early")));
+    assert_eq!(*reports.lock().unwrap(), vec!["transport_error"], "the failure report keeps the code alone");
+    bus.publish(chat("second"), None, None);
+    until2(|| bus.status().completed == 1);
+    let status = bus.status();
+    assert_eq!((status.last_error, status.last_error_detail), (None, None));
     close(&bus);
 }
 
@@ -630,6 +662,7 @@ fn status_observations_strictly_increase() {
         "cancelled",
         "errors",
         "last_error",
+        "last_error_detail",
         "last_first_write_ms",
         "sample_rate",
         "monitor_error",
