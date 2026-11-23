@@ -55,6 +55,10 @@
     "reason": "A lane without outputs gets a key named 'undefined', which no output id looks up.",
     "where": "src-ui/logics/flow/flowGraph.ts:52:42 [] -> [\"Stryker was here!\"]"
   },
+  "1xwihe5liar": {
+    "reason": "totals is a fresh array made in this render and read nowhere else, and median sorts its own filtered copy, so reversing it in place gives History and the median the same values.",
+    "where": "src-ui/views/app/io_flow/IoFlowView.tsx:123:60 totals.slice() -> totals"
+  },
   "1ycrsi5wglg": {
     "reason": "settingsWithoutRead is empty: no setting is named like the placeholder, and ignoring the set changes no setting.",
     "where": "src-ui/logics/common/pendingRequestRecovery.ts:65:45 [] -> [\"Stryker was here!\"]"
