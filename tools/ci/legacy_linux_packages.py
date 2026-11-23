@@ -9,6 +9,7 @@ package name and files, none of the app. Keep it out of build/linux/artifacts, w
 the release candidate's.
 """
 import argparse
+import json
 from pathlib import Path
 import shutil
 import subprocess
@@ -51,10 +52,17 @@ def stage(root, kind):
     return root
 
 
-def deb_control():
+def stand_in_version(candidate_version):
+    """Use an older fixture while the development branch still declares 0.6.x."""
+    if candidate_version.startswith("0.6."):
+        return "0.5.99"
+    return VERSION
+
+
+def deb_control(version=VERSION):
     return '\n'.join([
         f'Package: {NAME}',
-        f'Version: {VERSION}',
+        f'Version: {version}',
         'Architecture: amd64',
         f'Maintainer: {linux_packages.MAINTAINER}',
         'Section: sound',
@@ -65,7 +73,7 @@ def deb_control():
     ])
 
 
-def rpm_spec(staged):
+def rpm_spec(staged, version=VERSION):
     # As the spec up to 0.6.x listed them: the folder under /opt as a whole, so that removing the
     # package removes the folder too.
     paths = '\n'.join(['/opt/vrct-vox', *('/' + relative for relative in files('rpm') if not relative.startswith('opt/'))])
@@ -73,7 +81,7 @@ def rpm_spec(staged):
 %global __os_install_post %{{nil}}
 %global _build_id_links none
 Name: {NAME}
-Version: {VERSION}
+Version: {version}
 Release: 1
 Summary: Stand-in of the ASTAROT package up to 0.6.x
 License: MIT
@@ -92,7 +100,7 @@ cp -a '{staged}/.' %{{buildroot}}/
 """
 
 
-def build(output_dir, kind):
+def build(output_dir, kind, version=VERSION):
     output_dir = Path(output_dir).resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
     output = output_dir / f'{NAME}.{kind}'
@@ -101,13 +109,13 @@ def build(output_dir, kind):
         staged = stage(work / 'root', kind)
         if kind == 'deb':
             (staged / 'DEBIAN').mkdir()
-            (staged / 'DEBIAN/control').write_text(deb_control(), encoding='utf-8')
+            (staged / 'DEBIAN/control').write_text(deb_control(version), encoding='utf-8')
             subprocess.run(['dpkg-deb', '--root-owner-group', '-Zxz', '--build', str(staged), str(output)], check=True)
         else:
             top = work / 'rpmbuild'
             (top / 'SPECS').mkdir(parents=True)
             spec = top / 'SPECS' / f'{NAME}.spec'
-            spec.write_text(rpm_spec(staged.resolve()), encoding='utf-8')
+            spec.write_text(rpm_spec(staged.resolve(), version), encoding='utf-8')
             subprocess.run(['rpmbuild', '-bb', '--define', f'_topdir {top.resolve()}', '--target', 'x86_64', str(spec)],
                            check=True)
             built = list((top / 'RPMS/x86_64').glob(f'{NAME}-*.x86_64.rpm'))
@@ -122,8 +130,10 @@ def main():
     parser.add_argument('--output-dir', type=Path, required=True)
     parser.add_argument('--formats', default='deb,rpm')
     args = parser.parse_args()
+    candidate_version = json.loads((ROOT / 'package.json').read_text(encoding='utf-8'))['version']
+    version = stand_in_version(candidate_version)
     for kind in args.formats.split(','):
-        print(f'Stand-in {kind}: {build(args.output_dir, kind)}')
+        print(f'Stand-in {kind}: {build(args.output_dir, kind, version)}')
 
 
 if __name__ == '__main__':
