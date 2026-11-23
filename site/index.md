@@ -8,12 +8,12 @@ title: ASTAROT
 <div class="language-picker">
   <h1>ASTAROT</h1>
   <p>
-    <a href="/astarot/ja/" lang="ja">日本語のドキュメント</a>
-    <span aria-hidden="true"> · </span>
     <a href="/astarot/en/" lang="en">English documentation</a>
+    <span aria-hidden="true"> · </span>
+    <a href="/astarot/ja/" lang="ja">日本語のドキュメント</a>
   </p>
   <p class="download">
-    <a href="https://github.com/kein5/astarot/releases/latest"><span lang="ja">ダウンロード</span> / <span lang="en">Download</span></a>
+    <a href="https://github.com/kein5/astarot/releases/latest"><span lang="en">Download</span> / <span lang="ja">ダウンロード</span></a>
     <span>(GitHub Releases)</span>
   </p>
 </div>

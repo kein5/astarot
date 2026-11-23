@@ -177,7 +177,7 @@ pub fn open_output(device: &str, rate: u32, channels: u16) -> Result<Box<dyn Out
     }
     #[cfg(all(target_os = "linux", feature = "pipewire"))]
     {
-        Ok(Box::new(crate::pipewire::output::PipeWireOutput::open(device, rate, channels, None, "vrct.tts")?))
+        Ok(Box::new(crate::pipewire::output::PipeWireOutput::open(device, rate, channels, None, "astarot.tts")?))
     }
     #[cfg(not(any(windows, all(target_os = "linux", feature = "pipewire"))))]
     {

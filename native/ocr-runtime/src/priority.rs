@@ -4,6 +4,11 @@
 //! priority made the VR panel's work several times slower; below normal, it only runs
 //! when the others leave the CPU free. Elsewhere these are no-ops, as in Python.
 //!
+//! Python lowered every thread that appeared while the models loaded and during the first two
+//! reads: in its sidecar process those were OCR's. In the app's own process they could be any
+//! part's, so OCR's sessions create their threads through [`BelowNormalThreads`] instead, and
+//! only those run below normal (#924, item 19).
+//!
 //! [`background_priority.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/background_priority.py
 
 /// The calling thread at below-normal priority.
@@ -15,58 +20,72 @@ pub fn lower_current_thread() {
     }
 }
 
-/// The ids of this process's threads (empty outside Windows).
-pub fn thread_ids() -> Vec<u64> {
-    #[cfg(windows)]
-    unsafe {
-        use windows::Win32::Foundation::CloseHandle;
-        use windows::Win32::System::Diagnostics::ToolHelp::{CreateToolhelp32Snapshot, Thread32First, Thread32Next, TH32CS_SNAPTHREAD, THREADENTRY32};
-        use windows::Win32::System::Threading::GetCurrentProcessId;
-        let mut ids = Vec::new();
-        let Ok(snapshot) = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0) else { return ids };
-        let pid = GetCurrentProcessId();
-        let mut entry = THREADENTRY32 { dwSize: std::mem::size_of::<THREADENTRY32>() as u32, ..Default::default() };
-        if Thread32First(snapshot, &mut entry).is_ok() {
-            loop {
-                if entry.th32OwnerProcessID == pid {
-                    ids.push(entry.th32ThreadID as u64);
-                }
-                if Thread32Next(snapshot, &mut entry).is_err() {
-                    break;
-                }
-            }
-        }
-        let _ = CloseHandle(snapshot);
-        ids
+/// The threads of OCR's ONNX Runtime sessions, each lowered as it starts
+/// (`SessionBuilder::with_thread_manager`).
+pub struct BelowNormalThreads;
+
+impl ort::environment::ThreadManager for BelowNormalThreads {
+    type Thread = std::thread::JoinHandle<()>;
+
+    fn create(&self, work: impl FnOnce() + Send + 'static) -> ort::Result<Self::Thread> {
+        std::thread::Builder::new()
+            .name("ocr-onnx".into())
+            .spawn(move || {
+                lower_current_thread();
+                work();
+            })
+            .map_err(|error| ort::Error::new(error.to_string()))
     }
-    #[cfg(not(windows))]
-    Vec::new()
+
+    fn join(thread: Self::Thread) -> ort::Result<()> {
+        let _ = thread.join();
+        Ok(())
+    }
 }
 
-/// Lower every thread that did not exist in `baseline` (taken just before the models
-/// were loaded). Returns how many were lowered.
-pub fn lower_new_threads(baseline: &[u64]) -> usize {
-    #[cfg(windows)]
-    unsafe {
-        use windows::Win32::Foundation::CloseHandle;
-        use windows::Win32::System::Threading::{OpenThread, SetThreadPriority, THREAD_PRIORITY_BELOW_NORMAL, THREAD_SET_INFORMATION};
-        let mut lowered = 0;
-        for id in thread_ids() {
-            if baseline.contains(&id) {
-                continue;
-            }
-            if let Ok(handle) = OpenThread(THREAD_SET_INFORMATION, false, id as u32) {
-                if SetThreadPriority(handle, THREAD_PRIORITY_BELOW_NORMAL).is_ok() {
-                    lowered += 1;
-                }
-                let _ = CloseHandle(handle);
-            }
-        }
-        lowered
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ort::environment::ThreadManager;
+
+    #[test]
+    fn a_thread_onnx_runtime_asks_for_runs_its_work_below_normal() {
+        let (sender, received) = std::sync::mpsc::channel();
+        let thread = BelowNormalThreads
+            .create(move || {
+                #[cfg(windows)]
+                let priority = unsafe {
+                    use windows::Win32::System::Threading::{GetCurrentThread, GetThreadPriority};
+                    GetThreadPriority(GetCurrentThread())
+                };
+                #[cfg(not(windows))]
+                let priority = 0;
+                sender.send((std::thread::current().name().map(str::to_string), priority)).unwrap();
+            })
+            .unwrap();
+        BelowNormalThreads::join(thread).unwrap();
+        let (name, priority) = received.recv().unwrap();
+        assert_eq!(name.as_deref(), Some("ocr-onnx"));
+        #[cfg(windows)]
+        assert_eq!(priority, windows::Win32::System::Threading::THREAD_PRIORITY_BELOW_NORMAL.0);
+        #[cfg(not(windows))]
+        assert_eq!(priority, 0, "only Windows lowers it");
     }
-    #[cfg(not(windows))]
-    {
-        let _ = baseline;
-        0
+
+    #[test]
+    fn the_app_s_own_threads_keep_their_priority() {
+        // A thread made outside OCR's sessions is not lowered (Python's snapshot lowered it).
+        let priority = std::thread::spawn(|| {
+            #[cfg(windows)]
+            return unsafe {
+                use windows::Win32::System::Threading::{GetCurrentThread, GetThreadPriority};
+                GetThreadPriority(GetCurrentThread())
+            };
+            #[cfg(not(windows))]
+            0
+        })
+        .join()
+        .unwrap();
+        assert_eq!(priority, 0, "normal priority");
     }
 }

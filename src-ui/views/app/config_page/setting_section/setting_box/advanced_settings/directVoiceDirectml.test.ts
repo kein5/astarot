@@ -30,6 +30,7 @@ async function render(catalog: unknown, device = "auto") {
         "../_components/description/Description": { Description: "description" },
         "../_components/lead/Lead": { Lead: "lead" },
         "../_components/form_row/FormRow": { FormRow: "row" },
+        "../_components/page_pointer/PagePointer": { PageLinkButton: "page-link" },
         "../_components/custom_model_link/CustomModelLink": { CustomModelLink: "custom-model-link" },
         "../_components/file_drop_zone/FileDropZone": { FileDropZone: "file-drop" },
         "../../../../../../logics/common/fileDrop": { extensionOf: (path: string) => path.slice(path.lastIndexOf(".")).toLowerCase() },

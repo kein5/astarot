@@ -191,15 +191,17 @@ class DeveloperCLITests(unittest.TestCase):
         self.assertEqual(code, 2)
         self.assertIn("setup --scope ui", output)
 
-    def test_node_scope_runs_the_i18n_gate_and_its_tests(self):
+    def test_node_scope_runs_the_i18n_and_writing_gates_and_their_tests(self):
         (self.root / "src-ui").mkdir(parents=True)
         (self.root / "src-ui/one.test.js").write_text('')
         code, output = self.call("check", "--scope", "node", "--dry-run")
         self.assertEqual(code, 0)
-        # The gate runs after the tests; Vitest runs the gate's own tests (vitest.config.js).
+        # The gates run after the tests; Vitest runs the gates' own tests (vitest.config.js).
         self.assertLess(output.index("vitest.mjs run"), output.index("tools/i18n_gate/check.mjs"))
+        self.assertLess(output.index("tools/i18n_gate/check.mjs"), output.index("tools/writing_gate/check.mjs"))
         config = (Path(__file__).resolve().parents[2] / "vitest.config.js").read_text(encoding="utf-8")
         self.assertIn("tools/i18n_gate/**/*.test.mjs", config)
+        self.assertIn("tools/writing_gate/**/*.test.mjs", config)
 
     def test_ui_scope_runs_the_type_check_before_the_build(self):
         folder = self.root / "src-ui"

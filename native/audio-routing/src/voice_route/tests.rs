@@ -69,6 +69,10 @@ struct FakeGate {
     resuming: Event,
     release: Event,
     prepare_hook: Mutex<Option<Box<dyn Fn() + Send + Sync>>>,
+    /// What the next preparation does: retire the old route's units, then fail with a code.
+    prepare_retires: Mutex<bool>,
+    prepare_fails: Mutex<Option<&'static str>>,
+    retired: Mutex<bool>,
 }
 
 impl FakeGate {
@@ -89,6 +93,9 @@ impl FakeGate {
             resuming: Event::new(),
             release: Event::new(),
             prepare_hook: Mutex::new(None),
+            prepare_retires: Mutex::new(false),
+            prepare_fails: Mutex::new(None),
+            retired: Mutex::new(false),
         });
         gate.release.set();
         gate
@@ -110,7 +117,16 @@ impl Gate for FakeGate {
         if let Some(hook) = lock(&self.prepare_hook).as_ref() {
             hook();
         }
-        Ok(())
+        if std::mem::take(&mut *lock(&self.prepare_retires)) {
+            *lock(&self.retired) = true;
+        }
+        match lock(&self.prepare_fails).take() {
+            Some(code) => Err(Error::runtime(code)),
+            None => Ok(()),
+        }
+    }
+    fn retired_legacy(&self) -> bool {
+        std::mem::take(&mut *lock(&self.retired))
     }
     fn inspect_pair(&self) -> Result<GatePair> {
         let source = self.inspect()?;
@@ -195,7 +211,7 @@ impl Drop for Fixture {
 
 fn fixture() -> Fixture {
     let (bus, gate, store) = (Arc::new(Bus::default()), FakeGate::new(), Store::new(false));
-    let control = VoiceRoute::new(bus.clone(), gate.clone(), store.clone(), RouteOptions { poll_interval: Duration::from_millis(10), on_muted: None });
+    let control = VoiceRoute::new(bus.clone(), gate.clone(), store.clone(), RouteOptions { poll_interval: Duration::from_millis(10), ..RouteOptions::default() });
     Fixture { control, bus, gate, store }
 }
 
@@ -240,6 +256,30 @@ fn managed_attachment_prepares_without_blocking_or_auto_resume() {
     ready(&f.control);
     assert!(!f.control.status().preparing);
     assert!(f.gate.with(|d| d.muted) && f.store.value());
+}
+
+/// ADR-014, 2.8: when a preparation retires the old route's units, the owner of the route is
+/// told once, also when the new route fails to come up after that; and the route stays muted.
+#[test]
+fn a_preparation_that_retires_the_old_units_is_told_once() {
+    let told = Arc::new(Mutex::new(0));
+    let count = told.clone();
+    let (bus, gate, store) = (Arc::new(Bus::default()), FakeGate::new(), Store::new(false));
+    let options = RouteOptions { poll_interval: Duration::from_millis(10), on_retired: Some(Arc::new(move || *lock(&count) += 1)), ..RouteOptions::default() };
+    let control = VoiceRoute::new(bus.clone(), gate.clone(), store.clone(), options);
+    *lock(&gate.prepare_retires) = true;
+    *lock(&gate.prepare_fails) = Some("managed_setup_timeout");
+    lock(&bus.0).clear();
+    control.configure(true, LONG, false).unwrap();
+    until(|| control.status().error.as_deref() == Some("managed_setup_timeout"));
+    assert_eq!(*lock(&told), 1, "told although the new route is not up yet");
+    assert!(bus.muted() && !bus.opened());
+    // The retry finds nothing old to retire: nobody is told again.
+    gate.with(|d| d.missing = false);
+    ready(&control);
+    assert_eq!(*lock(&told), 1);
+    assert!(control.status().requested_muted && bus.muted() && !bus.opened(), "a new microphone starts muted");
+    control.close(LONG);
 }
 
 #[test]
@@ -523,7 +563,7 @@ impl MuteStore for HeldStore {
 fn monitor_calls() -> (Arc<Mutex<Vec<bool>>>, RouteOptions) {
     let seen = Arc::new(Mutex::new(Vec::new()));
     let record = seen.clone();
-    (seen, RouteOptions { poll_interval: Duration::from_millis(10), on_muted: Some(Arc::new(move |m| lock(&record).push(m))) })
+    (seen, RouteOptions { poll_interval: Duration::from_millis(10), on_muted: Some(Arc::new(move |m| lock(&record).push(m))), ..RouteOptions::default() })
 }
 
 #[test]

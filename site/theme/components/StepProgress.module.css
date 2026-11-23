@@ -38,16 +38,19 @@
   transition: width var(--a-motion) var(--a-ease);
 }
 
-/* The page gives list items a top margin; the steps sit on one line. */
+/* Every step is as tall as the tallest: the grid row stretches the items, and the link fills its
+   item. A one-line name and a three-line name then start at the same height under dots on one line. */
 .stepProgress li {
   position: relative;
   z-index: 1;
+  display: flex;
   margin: 0;
   min-width: 0;
 }
 
 .stepProgress a {
   display: flex;
+  flex: 1;
   flex-direction: column;
   align-items: center;
   gap: 6px;
@@ -138,9 +141,10 @@
 
 /* ---------- The slim bar ---------- */
 
-/* No height of its own, so the page does not move when the bar shows. */
+/* Fixed to the window, with no height of its own, so the page does not move when the bar shows.
+   StepProgress.tsx sets its top (under the bars at the top), left and width (the list's column). */
 .stepDock {
-  position: sticky;
+  position: fixed;
   z-index: 10;
   height: 0;
 }
@@ -220,7 +224,9 @@
   border-color: var(--a-state-active);
 }
 
-.now {
+/* One line, cut with an ellipsis. Under .dockBar so that it outweighs the page's
+   `.rp-doc p { text-wrap: pretty }`, which would wrap the name out of the bar on a phone. */
+.dockBar .now {
   min-width: 0;
   margin: 0;
   overflow: hidden;

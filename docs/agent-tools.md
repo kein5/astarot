@@ -29,11 +29,11 @@
 - いつ使う: UIの監査で、impeccableと併せて観点として使う。指摘にはどの原則に当たるかを添える。
 - 正本: 操作と振る舞いの決まりは[DESIGN.md](../DESIGN.md)と[PRODUCT.md](../PRODUCT.md)。原則は観点で、決まりの代わりにはしない。
 
-### yomiyasu と humanizer
+### humanizer と yomiyasu
 
-- 何をする: 文章の推敲。日本語はyomiyasu、英語はhumanizerを使う。
+- 何をする: 文章の推敲。英語はhumanizer、日本語はyomiyasuを使う。
 - いつ使う: 文書、UIの文言、リリースノート、PRの説明など、人が読む文章を書き終えたとき。
-- 正本: 日本語は[docs/writing/japanese-guideline.md](writing/japanese-guideline.md)、英語は[docs/writing/english-guideline.md](writing/english-guideline.md)。道具の指摘と文章の決まりが食い違うときは、文章の決まりに従う。
+- 正本: 英語は[docs/writing/english-guideline.md](writing/english-guideline.md)、日本語は[docs/writing/japanese-guideline.md](writing/japanese-guideline.md)。道具の指摘と文章の決まりが食い違うときは、文章の決まりに従う。
 
 ### Cua Driver
 
