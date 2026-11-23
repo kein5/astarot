@@ -5,7 +5,7 @@ import type { AsyncStdoutToPython } from "@useStdoutToPython";
 import { useVr } from "@logics_configs";
 import { tooltipGeometry, tooltipMarker } from "../../logics/common/vrPanelTooltip";
 import type { TooltipGeometry } from "../../logics/common/vrPanelTooltip";
-import styles from "./VrTooltip.module.scss";
+import * as styles from "./VrTooltip.css.ts";
 
 const TARGET = "button[data-tooltip-title]";
 const REQUEST = "/run/vr_panel_tooltip";
