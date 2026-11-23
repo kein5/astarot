@@ -692,6 +692,15 @@ impl Core {
         }
     }
 
+    /// Runs `draw` on the overlay's caption thread, after the captions queued before it; without
+    /// an overlay, here and now.
+    pub(crate) fn draw_after_captions(&self, draw: Box<dyn FnOnce() + Send>) {
+        match self.vr() {
+            Some(vr) => vr.captions.push(CaptionJob { partial_of: None, draw }),
+            None => draw(),
+        }
+    }
+
     /// The number of the realtime caption queued last for the large log (0 before any, and
     /// without an overlay). A caption is queued before its row goes to the UI, so once a caption
     /// row was seen, this number is at least that caption's.

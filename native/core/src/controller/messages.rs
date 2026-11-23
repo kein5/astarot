@@ -912,8 +912,8 @@ impl Core {
         if feature_enabled {
             // The VR overlay
             // The VR overlay area shows it unless a hook replaces it.
-            let hook = self.messages().hooks.read().unwrap().overlay.clone();
-            let hook: Hook<OverlayMessage> = hook.unwrap_or_else(|| {
+            let custom = self.messages().hooks.read().unwrap().overlay.clone();
+            let hook: Hook<OverlayMessage> = custom.clone().unwrap_or_else(|| {
                 let core = Arc::downgrade(self);
                 let current = current.clone();
                 Arc::new(move |event: &OverlayMessage| {
@@ -949,6 +949,31 @@ impl Core {
                     speakers: voices.map(|v| v.speakers.clone()).unwrap_or_default(),
                     session: voices.map(|v| v.session.clone()),
                 };
+                if spec.realtime {
+                    // A realtime final's picture is drawn on the overlay's caption thread, after its
+                    // captions, as the large log's are: a slow picture (the fonts read for the first
+                    // time take seconds on a cold PC) would otherwise keep the final here past its
+                    // expiry, and it would not be delivered (#447). It is drawn though the final was
+                    // delivered meanwhile; only the app's end stops it.
+                    let core = Arc::downgrade(self);
+                    let (custom, spec, id) = (custom.clone(), *spec, id.clone());
+                    self.draw_after_captions(Box::new(move || {
+                        let Some(core) = core.upgrade() else { return };
+                        let running = || !core.shutdown_requested();
+                        if !running() {
+                            return;
+                        }
+                        let shown = match &custom {
+                            Some(hook) => hook(&event),
+                            None => core.show_overlay_log(event.log == OverlayLog::Small, &event.for_overlay(), &running),
+                        };
+                        if shown.is_err() {
+                            let output = if event.log == OverlayLog::Small { "overlay_small" } else { "overlay_large" };
+                            core.output_failed(output, &spec, id.as_ref(), &running, &mut Vec::new());
+                        }
+                    }));
+                    continue;
+                }
                 if hook(&event).is_err() {
                     let output = if log == OverlayLog::Small { "overlay_small" } else { "overlay_large" };
                     self.output_failed(output, spec, id.as_ref(), &current, &mut failures);

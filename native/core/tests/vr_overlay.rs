@@ -679,3 +679,55 @@ fn the_game_audio_s_realtime_finals_reach_the_small_log_under_who_spoke() {
     }
     ui.stop();
 }
+
+#[test]
+fn a_slow_small_log_picture_does_not_keep_the_final_past_its_expiry() {
+    // #447: the single-line overlay's picture of a realtime final is drawn on the overlay's
+    // caption thread. A picture that takes longer than the final's expiry (2 s after it came),
+    // as the fonts read for the first time do on a cold PC, must not keep the final from being
+    // delivered; the picture follows.
+    use common::fake_asr::{FakeAsr, diarization_model, recognition_model};
+    use common::fake_capture::{FakeCapture, speech};
+    use astarot_transcription::capture::Source;
+
+    let asr = FakeAsr::start();
+    *asr.behaviour.models.lock().unwrap() = json!({ "data": [
+        recognition_model("haas-ja", &["ja"], false, &["keywords"]),
+        diarization_model("nemotron-3-diarization", "Vulkan0"),
+    ] });
+    let capture = FakeCapture::new();
+    capture.add_endpoint(Source::Mic, "alsa.mic", "USB Mic");
+    capture.add_endpoint(Source::Speaker, "alsa.out", "Speakers");
+    capture.set_default(Source::Mic, Some("alsa.mic"));
+    capture.set_default(Source::Speaker, Some("alsa.out"));
+    let fake = FakeVr::running();
+    common::warm_system_fonts();
+    let base = Setup::default();
+    let services = Services { vr: Arc::new(fake.clone()), transcription_capture: capture.factory(), ..base.services };
+    let saved = json!({
+        "OVERLAY_SMALL_LOG": true,
+        "OSC_IP_ADDRESS": "127.0.0.2",
+        "REALTIME_ASR_SETTINGS": {
+            "server": "external", "base_url": asr.base(), "model": "haas-ja",
+            "mic": { "language": "ja", "endpoint": null, "follow_default": true },
+            "speaker": { "language": "ja", "endpoint": null, "follow_default": true },
+            "vocabulary": { "builtin": false, "terms": [] },
+        },
+    });
+    let ui = Ui::with(Setup { services, saved: Some(saved), platform: astarot_core::config::Platform::Linux, ..Setup::default() });
+    ui.ready();
+    wait("the overlays built", || fake.built());
+    let small = fake.handle("ASTAROT0").unwrap();
+    let drawn = || fake.calls_on(small, "raw").iter().any(|call| !call.ends_with(" 1x1"));
+    fake.with(|s| s.slow_pictures = Some(Duration::from_millis(2500)));
+
+    let mark = ui.lines().len();
+    assert_eq!(ui.ok("/set/enable/transcription_receive", None), true);
+    wait("the game audio is captured", || capture.opened() == vec![(Source::Speaker, "alsa.out".to_string())]);
+    wait("the session is configured", || !asr.diarization.lock().unwrap().is_empty());
+    capture.hear(Source::Speaker, &[speech(2000)]);
+    let outcome = ui.wait_from(mark, "an outcome", |l| l["endpoint"] == "/run/realtime_caption" && l["result"]["state"] == "outcome");
+    assert_eq!(outcome["result"]["outcome"], "delivered", "{outcome}");
+    wait("the slow picture shown after the final was delivered", drawn);
+    ui.stop();
+}
