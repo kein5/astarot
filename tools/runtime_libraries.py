@@ -33,6 +33,11 @@ import time
 from urllib.request import urlopen
 import zipfile
 
+try:
+    from .download_retry import retrying
+except ImportError:
+    from download_retry import retrying
+
 ROOT = Path(__file__).resolve().parents[1]
 CACHE = ROOT / 'build/runtime-libraries'
 ORT_VERSION = '1.31.0'
@@ -120,6 +125,11 @@ def fetch(archive, cache=CACHE, *, opener=urlopen):
         _read_verified(destination, archive)
         return destination
     cache.mkdir(parents=True, exist_ok=True)
+    return retrying(lambda: _download(archive, cache, destination, opener), archive['name'])
+
+
+def _download(archive, cache, destination, opener):
+    """One try of `fetch`: the archive into a temporary file, checked, then moved into place."""
     temporary = None
     try:
         with tempfile.NamedTemporaryFile(dir=cache, suffix='.part', delete=False) as out:
