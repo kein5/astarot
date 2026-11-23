@@ -120,11 +120,19 @@ pub fn routes(core: &Arc<Core>) -> Routes {
     b.get("/get/data/selectable_release_channels", OPEN, "SELECTABLE_RELEASE_CHANNEL_LIST");
     b.get("/get/data/release_channel", OPEN, "SELECTED_RELEASE_CHANNEL");
     // A channel the user sets is theirs from then on: it no longer follows the version (#466).
+    // Another channel than before is checked for updates again (#1017).
     b.with("/set/data/release_channel", OPEN, |core, data| {
         let channel = json!(super::settings::python_str(data));
         let config = core.config();
+        let before = config.get("SELECTED_RELEASE_CHANNEL");
         match config.set_many(&[("SELECTED_RELEASE_CHANNEL", channel), ("RELEASE_CHANNEL_CHOSEN", json!(true))]) {
-            Ok(()) => ok(config.get("SELECTED_RELEASE_CHANNEL")),
+            Ok(()) => {
+                let now = config.get("SELECTED_RELEASE_CHANNEL");
+                if now != before {
+                    core.release_channel_set();
+                }
+                ok(now)
+            }
             Err(_) => super::error("VALIDATION_CONFIG_VALUE_INVALID", config.get("SELECTED_RELEASE_CHANNEL")),
         }
     });
