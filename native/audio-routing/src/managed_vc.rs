@@ -1,6 +1,6 @@
 //! A conversion on the managed route (Linux; `_PipeWireRoute` of [`process.py`], decision 11 in
 //! `docs/voice-stack/core-integration.md`): the microphone it converts is captured from
-//! PipeWire, and the converted voice goes into the managed VC input (`vrct.managed.vc`), whose
+//! PipeWire, and the converted voice goes into the managed VC input (`astarot.managed.vc`), whose
 //! OS gate owns mute. Nothing is written in place of the gate.
 //!
 //! [`process.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/voice_conversion/process.py
@@ -62,11 +62,11 @@ impl ManagedVcDevices for PipeWireVcDevices {
     }
 
     fn open_output(&self, sink: &Endpoint) -> Result<Box<dyn Output>> {
-        let output = crate::pipewire::output::PipeWireOutput::open(&sink.name, crate::pipewire::capture::RATE, 1, Some((sink.cookie, sink.serial)), "vrct.vc")?;
+        let output = crate::pipewire::output::PipeWireOutput::open(&sink.name, crate::pipewire::capture::RATE, 1, Some((sink.cookie, sink.serial)), "astarot.vc")?;
         Ok(Box::new(output))
     }
 
     fn capture(&self, source: &Endpoint, callbacks: CaptureCallbacks) -> Box<dyn Capture> {
-        Box::new(crate::pipewire::capture::PipeWireCapture::new(source.clone(), "vrct.vc.capture", callbacks))
+        Box::new(crate::pipewire::capture::PipeWireCapture::new(source.clone(), "astarot.vc.capture", callbacks))
     }
 }

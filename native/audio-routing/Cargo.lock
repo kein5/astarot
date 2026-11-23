@@ -28,9 +28,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "940b3a0ca603d1eade50a4846a2afffd5ef57a9feac2c0e2ec2e14f9ead76000"
 
 [[package]]
+name = "astarot-app-identity"
+version = "0.0.0"
+
+[[package]]
 name = "astarot-audio-routing"
 version = "0.1.0"
 dependencies = [
+ "astarot-app-identity",
  "libc",
  "pipewire",
  "serde_json",

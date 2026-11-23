@@ -582,9 +582,16 @@ fn leaving_the_local_engine_stops_its_realtime_session() {
     assert_eq!(run.ui.wait_endpoint(mark, "/set/disable/transcription_send")["result"], false);
     assert_eq!(run.ui.ok("/get/data/realtime_asr_state", None)["mic"]["requested"], false);
     eventually("the capture stopped", || run.capture.running(Source::Mic) == 0);
+    // The session's own end comes after the capture stops and may still tell the UI about the
+    // captions it drops (#861): only what the microphone says after the session closed counts.
+    eventually("the session closed", || {
+        let state = run.ui.ok("/get/data/realtime_asr_state", None)["mic"]["state"].clone();
+        state == "closed" || state == "idle"
+    });
+    let heard = run.ui.lines().len();
     run.capture.hear(Source::Mic, &[speech(2000)]);
     std::thread::sleep(Duration::from_millis(500));
-    assert!(run.ui.on(mark, "/run/realtime_caption").is_empty(), "no caption after the engine changed");
+    assert!(run.ui.on(heard, "/run/realtime_caption").is_empty(), "no caption after the engine changed");
     run.ui.stop();
 }
 

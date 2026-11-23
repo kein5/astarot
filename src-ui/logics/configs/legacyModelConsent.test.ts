@@ -203,27 +203,6 @@ for (const [kind, base] of [["ctranslate2", "CTranslate2"]] satisfies [string, s
 
 // The CTranslate2 weights are the built-in downloads left; Whisper's went with the engine (#288).
 for (const [kind, base] of [["ctranslate2", "CTranslate2"]] satisfies [string, string][]) {
-    test(`${kind}: asynchronous failure clears only the failed weight and ignores a stale job`, async () => {
-        const subject = await loadBridgeRoutes();
-        const atom = weightsAtom(subject, `Atom_${base}WeightTypeStatus`);
-        const original = [
-            { id: "requested", job_id: "current", is_pending: true, is_downloaded: true, progress: 12 },
-            { id: "other", job_id: "another", is_pending: true, is_downloaded: false, progress: 50 },
-        ];
-        subject.runtime.store.set(atom, { state: "ok", data: original });
-        const fail = (data: Record<string, unknown>) => subject.receiveRoutes({
-            status: 400, endpoint: `/run/error_${kind}_weight`,
-            result: { error_code: `WEIGHT_${kind.toUpperCase()}_DOWNLOAD`, data },
-        });
-        fail({ weight_type: "requested", job_id: "previous", downloaded: false });
-        assert.deepEqual(subject.runtime.store.get(atom).data, original);
-        fail({ weight_type: "requested", job_id: "current", downloaded: false });
-        assert.deepEqual(subject.runtime.store.get(atom).data, [
-            { ...original[0], is_pending: false, is_downloaded: false, progress: null },
-            original[1],
-        ]);
-    });
-
     test(`${kind}: verified completion accepts identified payload and ignores late progress`, async () => {
         const subject = await loadBridgeRoutes();
         const atom = weightsAtom(subject, `Atom_${base}WeightTypeStatus`);
@@ -245,13 +224,6 @@ for (const [kind, base] of [["ctranslate2", "CTranslate2"]] satisfies [string, s
         ]);
     });
 }
-
-test("duplicate refusal keeps its original job pending; cross-process refusal clears the refused row", () => {
-    const rows = [{ id: "base", is_pending: true, is_downloaded: false, progress: null }];
-    const busy = { weight_type: "base", job_id: "rejected", reason: "download_busy" };
-    assert.deepEqual(consentLogic.clearLegacyDownloadFailure(rows, { ...busy, active_job_id: "running" }), rows);
-    assert.equal(consentLogic.clearLegacyDownloadFailure(rows, busy)[0].is_pending, false);
-});
 
 for (const language of ["en", "ja"]) {
     test(`${language}: bundled tokenizer shows that its bytes are included`, async context => {

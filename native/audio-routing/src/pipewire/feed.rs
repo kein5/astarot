@@ -269,7 +269,7 @@ mod tests {
     impl Snapshotter for Fixed {
         fn snapshot(&mut self, _: f64, _: &Event) -> Result<Graph, GraphUnavailable> {
             let node = |name: &str| json!({"type": NODE, "info": {"props": {"node.name": name}}});
-            Ok(vec![json!({"type": CORE, "info": {"cookie": 42}}), node("vrct.managed.vc"), node("vrct.managed.vc"), node("alsa.out")])
+            Ok(vec![json!({"type": CORE, "info": {"cookie": 42}}), node("astarot.managed.vc"), node("astarot.managed.vc"), node("alsa.out")])
         }
     }
 
@@ -277,7 +277,7 @@ mod tests {
     fn child_reads_the_parents_observation_with_its_sequence_and_capture_time() {
         let source = GraphSource::new(Arc::new(|| Ok(Box::new(Fixed) as Box<dyn Snapshotter>)));
         let (reader, writer) = pipe();
-        let names = BTreeSet::from(["vrct.managed.vc".to_owned()]);
+        let names = BTreeSet::from(["astarot.managed.vc".to_owned()]);
         let feed = GraphFeed::start(source.clone(), names, writer).unwrap();
         let remote = RemoteGraph::start(reader).unwrap();
         let received = remote.read(true, None).unwrap();

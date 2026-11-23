@@ -39,7 +39,7 @@ Windowsの実行ファイルには`.exe`が付きます。
 | Linuxのキャッシュ保存先 | なし。0.4までのPythonバックエンドだけが`$XDG_CACHE_HOME/vrct-vox`（既定は`~/.cache/vrct-vox`）を使った |
 | 環境変数 | 0.6.0から`ASTAROT_*`。利用者とパッケージ作成者向けの4つ（`ASTAROT_CONFIG_DIR`、`ASTAROT_DATA_DIR`、`ASTAROT_TELEMETRY`、`ASTAROT_OPENVR_API`）は先に読み、なければ0.5.xの`VRCT_*`の名前を読む。旧名は0.6.xの間読む。`ASTAROT_TELEMETRY`と`VRCT_TELEMETRY`は、どちらかが`off`なら送信を止める。開発、試験、ビルド、プロセスの受け渡しの変数（`ASTAROT_VR_PANEL_DIR`、`ASTAROT_LINUX_BUNDLE`、`ASTAROT_TEST_*`など）は、旧名を読まない。`VRCT_CACHE_DIR`などは0.4までのPythonバックエンドだけが読んだ |
 | Windowsのインストール先を記録するキー | `VRCT-VOX` |
-| 音声経路と仮想マイク | `vrct.managed.*`ノード、`vrct-managed-*.service`、所有者識別子`vrct-vox-service-v1` |
+| Linuxの音声経路と仮想マイク | 0.6.0の次の版から`astarot.managed.*`ノード（仮想マイクの説明は`ASTAROT Managed Virtual Microphone`）、`astarot-managed-*.service`、所有者識別子`astarot-service-v1`、手で置く設定`90-astarot-managed.conf`、一時のストリーム`astarot.source-bridge.*`と`astarot.asr.capture.*`。0.6.0までの`vrct-managed-*.service`は、名前、所有者識別子、中身がどれも中核の書いたものと一致するときだけ止めて消し、新しい名前で作り直す。旧名の接頭辞のノードとストリームは入力の候補から外し、旧名の手で置いた設定（`90-vrct-managed.conf`）を見つけたら自動で作らない。旧名を読むのは新しい名前を出した版の系列の間（`native/app-identity`の`audio_route::READS_LEGACY_NAMES`）。旧のユニットの片付けは期限なしに続ける（`audio_route::RETIRES_LEGACY_UNITS`）（[音声経路の名前の移行](../spec/data-and-persistence.md#linuxの音声経路の名前の移行)） |
 | モデル取得の所有マーカー | 0.6.0から`ASTAROT-model-download-v1`を書く。0.5.xが書いた`VRCT-VOX-model-download-v1`も0.6.xの間は受け付ける。0.5.xは自分の値しか読まないので、0.5.xに戻すと0.6.0が残した取得の途中のフォルダーは片付けずに残す |
 | APIキー（OSの資格情報ストア） | 0.6.0より後の版から、Windowsは`ASTAROT/<ID>/<項目の名前>`、Linuxは属性`application=astarot`と`astarot-store=<ID>`、ラベル`ASTAROT <項目の名前>`。0.6.0が`VRCT-VOX`の名前で保存したキーは、起動の時に新しい名前へ写して読み戻す。0.6.0の名前で探すのは0.6.xの間。0.6.0の名前の項目は残し、キーを変えても書き換えず、キーを消したときは両方から消す（[APIキーの保存先](../spec/data-and-persistence.md#apiキーの保存先)） |
 | Linuxビルド作業領域の所有マーカー | `VRCT-VOX Linux staging v1` |

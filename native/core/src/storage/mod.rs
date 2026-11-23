@@ -95,42 +95,55 @@ pub fn relocate_saved_paths(state_dir: &Path, moves: &[Move]) -> io::Result<bool
     Ok(changed)
 }
 
-/// Writes [`CONFIG_COPY`] with what `config.json` held, unless a copy is there already.
+/// Writes [`CONFIG_COPY`] with what `config.json` held, unless a whole copy is there already.
+///
+/// The copy is written beside its name and renamed into place, so that a file at its name is
+/// always a whole copy. A copy that is not whole JSON was cut short by a start that stopped while
+/// an earlier version wrote it in place; `config.json` was not rewritten after it, so a new copy
+/// replaces it. A whole one is older and stays.
 fn keep_config_copy(state_dir: &Path, mut saved: Value) -> io::Result<()> {
     if let Some(map) = saved.as_object_mut() {
         // The keys move to their own store; a copy would keep them in plain text.
         map.retain(|key, _| !crate::config::secrets::SECRET_SETTINGS.contains(&key.as_str()));
     }
     let path = state_dir.join(CONFIG_COPY);
-    let mut options = OpenOptions::new();
-    options.write(true).create_new(true);
-    #[cfg(unix)]
-    std::os::unix::fs::OpenOptionsExt::mode(&mut options, 0o600);
-    let mut file = match options.open(&path) {
-        Ok(file) => file,
-        // Only a file is a copy; anything else in its place is not.
-        Err(error) if error.kind() == io::ErrorKind::AlreadyExists => {
-            return if fs::symlink_metadata(&path)?.is_file() { Ok(()) } else { Err(error) };
-        }
+    match fs::symlink_metadata(&path) {
+        // Only a file is a copy; anything else in its place is not, and is left alone.
+        Ok(info) if !info.is_file() => return Err(io::Error::new(io::ErrorKind::AlreadyExists, "the copy's name is taken")),
+        Ok(_) if whole_copy(&path) => return Ok(()),
+        Ok(_) => {}
+        Err(error) if error.kind() == io::ErrorKind::NotFound => {}
         Err(error) => return Err(error),
-    };
-    let written = file.write_all(crate::config::to_python_json(&saved).as_bytes()).and_then(|()| file.sync_all());
-    if written.is_err() {
-        // A partial copy is not one: the next start makes it again.
-        drop(file);
-        let _ = fs::remove_file(&path);
     }
-    written
+    write_replacing_with(&path, crate::config::to_python_json(&saved).as_bytes(), Some(0o600))
+}
+
+/// Whether the file holds a whole copy of the settings: a JSON object.
+fn whole_copy(path: &Path) -> bool {
+    fs::read(path).ok().and_then(|bytes| serde_json::from_slice::<Value>(&bytes).ok()).is_some_and(|value| value.is_object())
 }
 
 /// Replaces `path` with `bytes` through a new temporary file in the same folder, flushed before
 /// the rename, so that a reader never sees half a file.
 pub(crate) fn write_replacing(path: &Path, bytes: &[u8]) -> io::Result<()> {
+    write_replacing_with(path, bytes, None)
+}
+
+/// [`write_replacing`], with the file created with `mode` on Unix.
+fn write_replacing_with(path: &Path, bytes: &[u8], mode: Option<u32>) -> io::Result<()> {
     let folder = path.parent().unwrap_or(Path::new("."));
     let name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
     let temporary = folder.join(format!(".{name}.{}.tmp", crate::config::random_suffix()));
+    let mut options = OpenOptions::new();
+    options.write(true).create_new(true);
+    #[cfg(unix)]
+    if let Some(mode) = mode {
+        std::os::unix::fs::OpenOptionsExt::mode(&mut options, mode);
+    }
+    #[cfg(not(unix))]
+    let _ = mode;
     let written = (|| {
-        let mut file = OpenOptions::new().write(true).create_new(true).open(&temporary)?;
+        let mut file = options.open(&temporary)?;
         file.write_all(bytes)?;
         file.sync_all()?;
         drop(file);
@@ -245,6 +258,44 @@ mod tests {
         assert!(!relocate_saved_paths(dir.path(), &moves(Path::new("/x/vrct-vox"), Path::new("/x/astarot"))).unwrap());
         assert!(!dir.path().join(CONFIG_COPY).exists());
         assert!(!dir.path().join("user_models.json").exists());
+    }
+
+    #[test]
+    fn a_copy_cut_short_is_made_again_before_the_settings_are_rewritten() {
+        let dir = tempfile::tempdir().unwrap();
+        let text = "{\n    \"RVC\": \"/x/vrct-vox/m.pth\",\n    \"UI_LANGUAGE\": \"ja\"\n}";
+        fs::write(dir.path().join("config.json"), text).unwrap();
+        // What an earlier start left when it stopped while writing the copy in place.
+        fs::write(dir.path().join(CONFIG_COPY), &text[..20]).unwrap();
+        assert!(relocate_saved_paths(dir.path(), &moves(Path::new("/x/vrct-vox"), Path::new("/x/astarot"))).unwrap());
+        let copy: Value = serde_json::from_slice(&fs::read(dir.path().join(CONFIG_COPY)).unwrap()).unwrap();
+        assert_eq!(copy, json!({"RVC": "/x/vrct-vox/m.pth", "UI_LANGUAGE": "ja"}), "a whole copy of what the settings held");
+        let config: Value = serde_json::from_slice(&fs::read(dir.path().join("config.json")).unwrap()).unwrap();
+        assert_eq!(config["RVC"], json!("/x/astarot/m.pth"));
+    }
+
+    #[test]
+    fn a_whole_older_copy_stays_and_no_temporary_file_is_left() {
+        let dir = tempfile::tempdir().unwrap();
+        fs::write(dir.path().join("config.json"), "{\n    \"RVC\": \"/x/vrct-vox/m.pth\"\n}").unwrap();
+        let older = "{\n    \"RVC\": \"/x/older.pth\"\n}";
+        fs::write(dir.path().join(CONFIG_COPY), older).unwrap();
+        assert!(relocate_saved_paths(dir.path(), &moves(Path::new("/x/vrct-vox"), Path::new("/x/astarot"))).unwrap());
+        assert_eq!(fs::read_to_string(dir.path().join(CONFIG_COPY)).unwrap(), older);
+        let names: Vec<String> = fs::read_dir(dir.path()).unwrap().map(|e| e.unwrap().file_name().to_string_lossy().into_owned()).collect();
+        assert!(names.iter().all(|name| !name.ends_with(".tmp")), "{names:?}");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_new_copy_is_written_whole_and_private() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = tempfile::tempdir().unwrap();
+        fs::write(dir.path().join("config.json"), "{\n    \"RVC\": \"/x/vrct-vox/m.pth\"\n}").unwrap();
+        assert!(relocate_saved_paths(dir.path(), &moves(Path::new("/x/vrct-vox"), Path::new("/x/astarot"))).unwrap());
+        let copy = dir.path().join(CONFIG_COPY);
+        assert!(whole_copy(&copy));
+        assert_eq!(fs::metadata(&copy).unwrap().permissions().mode() & 0o777, 0o600);
     }
 
     #[test]
