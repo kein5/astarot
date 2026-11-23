@@ -247,6 +247,10 @@
     "reason": "A timer started for no target or for the dismissed target does nothing: show returns at once for a missing or dismissed target.",
     "where": "src-ui/views/vr/VrTooltip.tsx:118:17 target && dismissed !== target -> true"
   },
+  "1xwihe5liar": {
+    "reason": "totals is a fresh array made in this render and read nowhere else, and median sorts its own filtered copy, so reversing it in place gives History and the median the same values.",
+    "where": "src-ui/views/app/io_flow/IoFlowView.tsx:123:60 totals.slice() -> totals"
+  },
   "1ya2j45ox91": {
     "reason": "registerShortcuts runs pauseShortcuts, which sets portalPaused to true, before it can add the only listeners that read it, so its first value is never read.",
     "where": "src-ui/logics/configs/config_page_setter/hotkeys/useHotkeys.ts:67:20 true -> false"
