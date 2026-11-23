@@ -3,9 +3,21 @@
     "reason": "settingsWithoutRead is empty: no setting is named like the placeholder, and ignoring the set changes no setting.",
     "where": "src-ui/logics/common/pendingRequestRecovery.ts:82:31 settingsWithoutRead.has(name) -> false"
   },
+  "13nn0osfrhi": {
+    "reason": "The two loops before it remove every static and generated route from the map, so this loop never runs.",
+    "where": "src-ui/logics/useReceiveRoutes.ts:907:49 { mergedList.push(remaining); } -> {}"
+  },
   "14ttwg4pcti": {
     "reason": "{ on: false } and {} read the same: on is not true, and path and language are nullish.",
     "where": "src-ui/logics/flow/flowGraph.ts:62:78 { on: false } -> {}"
+  },
+  "15jzkikf4ps": {
+    "reason": "Only the order of the route table changes (the static routes come after the generated ones, each still once with its receiver), and the routes are looked up by endpoint.",
+    "where": "src-ui/logics/useReceiveRoutes.ts:890:13 !item?.endpoint -> item?.endpoint"
+  },
+  "17upj6u58su": {
+    "reason": "No setting uses the get_list template, so this check never leaves a setting's set route out.",
+    "where": "src-ui/logics/useReceiveRoutes.ts:782:13 s.logics_template_id !== \"get_list\" -> true"
   },
   "19oho4g4eyp": {
     "reason": "Number.isFinite is false for every value that is not a number.",
@@ -15,9 +27,25 @@
     "reason": "An id is retired only when it is not retired already (applyRealtimeCaption returns early for it), so there is nothing to drop.",
     "where": "src-ui/logics/transcription/realtimeCaptionState.ts:78:89 value !== id -> true"
   },
+  "1bkbgsdppm1": {
+    "reason": "The apply endpoints contain model_download and user_model, whose failed answers have already returned above, so only 200 answers get here.",
+    "where": "src-ui/logics/useReceiveRoutes.ts:527:13 status === 200 -> true"
+  },
   "1f1qquh6mls": {
     "reason": "An empty name and a placeholder that is not kana both find no kana row.",
     "where": "src-ui/logics/common/languageJumpGroups.ts:35:104 \"\" -> \"Stryker was here!\""
+  },
+  "1fjwa755exf": {
+    "reason": "The only merged routes are the weight template's get and set routes, made twice with the same namespace, hook and function, so either operand gives the same value.",
+    "where": "src-ui/logics/useReceiveRoutes.ts:880:24 existing.hook_name ?? gen.hook_name -> (existing.hook_name && gen.hook_name)"
+  },
+  "1gtfp6z6cjn": {
+    "reason": "The last loop then adds the generated routes left in the map in the order they were first added, which is the order this loop gives.",
+    "where": "src-ui/logics/useReceiveRoutes.ts:901:21 { mergedList.push(merged); mergedMap.delete(ep); } -> {}"
+  },
+  "1lpzrhchutd": {
+    "reason": "Every static route is an object with an endpoint, so the check never skips one.",
+    "where": "src-ui/logics/useReceiveRoutes.ts:890:13 !item?.endpoint -> false"
   },
   "1m3wsjorz8j": {
     "reason": "NFKD puts combining marks after their base letter, so only a name that begins with a combining mark tells these apart; language names never do.",
@@ -31,6 +59,10 @@
     "reason": "NFKD puts combining marks after their base letter, so only a name that begins with a combining mark tells these apart; language names never do.",
     "where": "src-ui/logics/common/languageJumpGroups.ts:43:69 \"\" -> \"Stryker was here!\""
   },
+  "1mgiz18njmc": {
+    "reason": "A failed catalog change has already returned at the translation_catalog failure above, so only 200 answers get here.",
+    "where": "src-ui/logics/useReceiveRoutes.ts:513:13 status === 200 -> true"
+  },
   "1mxigs6fh67": {
     "reason": "An id is retired only when it is not retired already (applyRealtimeCaption returns early for it), so there is nothing to drop.",
     "where": "src-ui/logics/transcription/realtimeCaptionState.ts:78:65 retired.filter(value => value !== id) -> retired"
@@ -38,6 +70,22 @@
   "1n2n6gzpwtl": {
     "reason": "{ on: false } and {} read the same: on is not true, and path and language are nullish.",
     "where": "src-ui/logics/flow/flowGraph.ts:62:114 { on: false } -> {}"
+  },
+  "1nz90gzhmpi": {
+    "reason": "Every static route is an object with an endpoint, so the check never skips one.",
+    "where": "src-ui/logics/useReceiveRoutes.ts:859:13 !item?.endpoint -> false"
+  },
+  "1obuocu529c": {
+    "reason": "Every static route is an object with an endpoint, so the check never skips one.",
+    "where": "src-ui/logics/useReceiveRoutes.ts:890:18 ?. -> ."
+  },
+  "1owowwrt4wd": {
+    "reason": "The only merged routes are the weight template's get and set routes, made twice with the same namespace, hook and function, so either operand gives the same value.",
+    "where": "src-ui/logics/useReceiveRoutes.ts:881:26 existing.method_name ?? gen.method_name -> (existing.method_name && gen.method_name)"
+  },
+  "1oxv3qpqgcc": {
+    "reason": "The only merged routes are the weight template's get and set routes, made twice with the same values, so the entry already in the map is the same as the merged one.",
+    "where": "src-ui/logics/useReceiveRoutes.ts:883:9 mergedMap.set(ep, merged); -> ;"
   },
   "1pouqqozbmh": {
     "reason": "Download items always have a string id, so an undefined id matches none of them.",
@@ -55,6 +103,26 @@
     "reason": "A lane without outputs gets a key named 'undefined', which no output id looks up.",
     "where": "src-ui/logics/flow/flowGraph.ts:52:42 [] -> [\"Stryker was here!\"]"
   },
+  "1sbns8owryj": {
+    "reason": "Only the order of the route table changes (the static routes come after the generated ones, each still once with its receiver), and the routes are looked up by endpoint.",
+    "where": "src-ui/logics/useReceiveRoutes.ts:892:21 { mergedList.push(merged); mergedMap.delete(item.endpoint);… -> {}"
+  },
+  "1sgheu6hzfg": {
+    "reason": "Only the order of the route table changes (the static routes come after the generated ones, each still once with its receiver), and the routes are looked up by endpoint.",
+    "where": "src-ui/logics/useReceiveRoutes.ts:889:48 { if (!item?.endpoint) continue; const merged = mergedMap.g… -> {}"
+  },
+  "1ua0bhtskyc": {
+    "reason": "The only merged routes are the weight template's get and set routes, whose hook is also named by other routes with a namespace, so their routes still find it in hook_results without one.",
+    "where": "src-ui/logics/useReceiveRoutes.ts:879:17 existing.ns ?? gen.ns ?? null -> ((existing.ns ?? gen.ns) && null)"
+  },
+  "1vjcsbbgsn8": {
+    "reason": "The two loops before it remove every static and generated route from the map, so this loop never runs.",
+    "where": "src-ui/logics/useReceiveRoutes.ts:908:9 mergedList.push(remaining); -> ;"
+  },
+  "1wmxyuz3n25": {
+    "reason": "handleInvalidEndpoint only writes the unknown endpoint to the console, so leaving it out changes no state, call or notice.",
+    "where": "src-ui/logics/useReceiveRoutes.ts:673:21 handleInvalidEndpoint(parsed_data); -> ;"
+  },
   "1ycrsi5wglg": {
     "reason": "settingsWithoutRead is empty: no setting is named like the placeholder, and ignoring the set changes no setting.",
     "where": "src-ui/logics/common/pendingRequestRecovery.ts:65:45 [] -> [\"Stryker was here!\"]"
@@ -71,6 +139,10 @@
     "reason": "With min === max the formula gives min as well.",
     "where": "src-ui/logics/utils.ts:50:6 min === max -> false"
   },
+  "2f7jk5hea9s": {
+    "reason": "Without the block a missing hook is looked up again for each of its routes, which still get an empty result and do nothing, so only the warning is lost.",
+    "where": "src-ui/logics/useReceiveRoutes.ts:442:20 { console.warn(`Hook not found on namespace: ${hook_name}`)… -> {}"
+  },
   "5za6bbt3n3": {
     "reason": "outputArrivals lists chatbox before speech, already in sorted order.",
     "where": "src-ui/logics/flow/flowGraph.ts:133:44 Object.keys(arrivals[newest.input]).sort() -> Object.keys(arrivals[newest.input])"
@@ -83,9 +155,49 @@
     "reason": "Versions are only compared for equality; counting down tells requests apart the same way.",
     "where": "src-ui/logics/common/pendingRequestRecovery.ts:154:51 control.version++ -> control.version--"
   },
+  "89lc90xp9u": {
+    "reason": "rejectExpectedExit removes only the expected exits of the answer's own endpoint, and expectBackendExit makes them only for shutdown and the updates, so another failed answer removes nothing.",
+    "where": "src-ui/logics/useReceiveRoutes.ts:485:32 isBackendUpdate(endpoint) || endpoint === \"/run/shutdown\" -> true"
+  },
   "d6gn3xaczg": {
     "reason": "flow is not nullish here: the check before it returned for that.",
     "where": "src-ui/logics/flow/flowGraph.ts:57:30 ?. -> ."
+  },
+  "f82tz2kq0v": {
+    "reason": "The last loop then adds the generated routes left in the map in the order they were first added, which is the order this loop gives.",
+    "where": "src-ui/logics/useReceiveRoutes.ts:898:34 { const ep = gen.endpoint; const merged = mergedMap.get(ep)… -> {}"
+  },
+  "ga1yx9qeac": {
+    "reason": "The only merged routes are the weight template's get and set routes, made twice with the same namespace, hook and function, so either operand gives the same value.",
+    "where": "src-ui/logics/useReceiveRoutes.ts:879:17 existing.ns ?? gen.ns -> (existing.ns && gen.ns)"
+  },
+  "iiy3s7fv0v": {
+    "reason": "readBackendResponse makes every endpoint a string, so the fallback after ?? is never used.",
+    "where": "src-ui/logics/useReceiveRoutes.ts:711:107 \"500\" -> \"\""
+  },
+  "jen1bw4wxi": {
+    "reason": "handleInvalidEndpoint only writes the unknown endpoint to the console, so leaving it out changes no state, call or notice.",
+    "where": "src-ui/logics/useReceiveRoutes.ts:672:24 { handleInvalidEndpoint(parsed_data); } -> {}"
+  },
+  "la2qvp1xc8": {
+    "reason": "No setting uses the get_list template or an empty template id, so this check never leaves a setting's set route out.",
+    "where": "src-ui/logics/useReceiveRoutes.ts:782:38 \"get_list\" -> \"\""
+  },
+  "lkp27ng3ay": {
+    "reason": "Every static route is an object with an endpoint, so the check never skips one.",
+    "where": "src-ui/logics/useReceiveRoutes.ts:859:18 ?. -> ."
+  },
+  "nenv4pov5z": {
+    "reason": "react-i18next's useTranslation always returns an i18n object (an empty one when no instance is set), so i18n is never nullish here.",
+    "where": "src-ui/logics/useReceiveRoutes.ts:619:71 ?. -> ."
+  },
+  "qz2j0ojoo0": {
+    "reason": "Every setting with the toggle_enable_disable template is drawn as a toggle, so the ui_template_id check alone adds the same enable and disable routes.",
+    "where": "src-ui/logics/useReceiveRoutes.ts:791:13 s.logics_template_id === \"toggle_enable_disable\" -> false"
+  },
+  "r19aksww6n": {
+    "reason": "A 200 export answer otherwise only reaches its receive-only route and receiveLanguageMutation, which ignores an endpoint that is not a language mutation.",
+    "where": "src-ui/logics/useReceiveRoutes.ts:505:13 status !== 200 -> true"
   },
   "sumx19h5ss": {
     "reason": "Only the first character is read; removing a prolonged-sound mark later in the name does not change it.",
@@ -102,6 +214,10 @@
   "x4nhkm2ead": {
     "reason": "Traces are kept only after isTrace (ioFlow.ts), which requires stages to be an object.",
     "where": "src-ui/logics/flow/flowGraph.ts:69:74 ?. -> ."
+  },
+  "xf21n6xkmi": {
+    "reason": "Every setting with the toggle_enable_disable template is drawn as a toggle, so the ui_template_id check alone adds the same enable and disable routes.",
+    "where": "src-ui/logics/useReceiveRoutes.ts:791:38 \"toggle_enable_disable\" -> \"\""
   },
   "xr35ya3osj": {
     "reason": "Traces are kept only after isTrace (ioFlow.ts), which requires stages to be an object.",

@@ -89,12 +89,28 @@ export function settingAtom(registry: Readonly<Record<string, unknown>>, name: s
     return target;
 }
 
+// The settings list (ui_config_setter.ts) on a bridge store, with its hooks' logic: the settings
+// the routes are made from, and the category hooks that take their answers.
+export const loadBridgeSettings = async ({ runtime, stores, jotai }: BridgeStore, common: Record<string, unknown> = stubApi()) => {
+    const settingsLogics = await loadModule<typeof import("../configs/config_page_setter/useSettingsLogics.ts")>(new URL("../configs/config_page_setter/useSettingsLogics.ts", import.meta.url), runtime, {
+        "@store": stores, "@utils": utils, "@logics_common": common,
+        "../../voice/saveBar": { setSaveBarEntry: noop },
+    });
+    return await loadModule<typeof import("../configs/config_page_setter/ui_config_setter.ts")>(new URL("../configs/config_page_setter/ui_config_setter.ts", import.meta.url), runtime, {
+        jotai, "@store": stores, "../../common/pendingRequestRecovery.ts": recovery,
+        "../../../views/vr/vr_layout.json": {},
+        "@ui_configs": { ui_configs: { send_message_format_parts: messageFormat, received_message_format_parts: messageFormat },
+            ctranslate2_weight_type_status: [] },
+        "./useSettingsLogics": settingsLogics,
+    });
+};
+
 export const loadBridgeRoutes = async (
     loadCommon: (subject: BridgeStore) => Promise<Record<string, unknown>> = async () => ({}),
     i18n: I18n | null = null, modelDownloads: Record<string, unknown> | null = null, overrides: BridgeOverrides = {},
 ) => {
     const subject = await loadBridgeStore();
-    const { runtime, stores, jotai } = subject;
+    const { runtime, stores } = subject;
     const notices: Notice[] = [], reads: string[] = [];
     const useI18n = () => i18n ? { t: i18n.t.bind(i18n), i18n } : { t: (key: string) => key, i18n: { exists: () => false } };
     const notification = {
@@ -109,17 +125,7 @@ export const loadBridgeRoutes = async (
         ...await loadCommon(subject),
     });
     const send = async (endpoint: string) => { reads.push(endpoint); return true; };
-    const settingsLogics = await loadModule<typeof import("../configs/config_page_setter/useSettingsLogics.ts")>(new URL("../configs/config_page_setter/useSettingsLogics.ts", import.meta.url), runtime, {
-        "@store": stores, "@utils": utils, "@logics_common": common,
-        "../../voice/saveBar": { setSaveBarEntry: noop },
-    });
-    const settings = await loadModule<typeof import("../configs/config_page_setter/ui_config_setter.ts")>(new URL("../configs/config_page_setter/ui_config_setter.ts", import.meta.url), runtime, {
-        jotai, "@store": stores, "../../common/pendingRequestRecovery.ts": recovery,
-        "../../../views/vr/vr_layout.json": {},
-        "@ui_configs": { ui_configs: { send_message_format_parts: messageFormat, received_message_format_parts: messageFormat },
-            ctranslate2_weight_type_status: [] },
-        "./useSettingsLogics": settingsLogics,
-    });
+    const settings = await loadBridgeSettings(subject, common);
     const configs = stubApi({ ...Object.fromEntries([...new Set(settings.SETTINGS_ARRAY.map(setting => setting.Category))]
         .map(category => [`use${category}`, settings.createCategoryHook(category)])),
         ocrStartErrorKey: (code: string) => sharedWindow.startErrorKey(code, runtime.store.get(stores.Atom_OcrSharedWindow).data),
