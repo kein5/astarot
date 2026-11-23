@@ -3,7 +3,7 @@
 //! The rules, unchanged from the Python `VoiceEventBus`:
 //!
 //! - Only final chat (when the chat mode is not `off`) and final microphone
-//!   translations (when microphone speech is `translated`) are accepted, while
+//!   speech (original or translated, according to the microphone's mode) is accepted, while
 //!   speech is enabled and not muted. Each message is spoken at most once.
 //! - At most `capacity` messages wait. A full queue drops its oldest microphone
 //!   message for a newcomer, or its oldest message when it holds no microphone
@@ -522,8 +522,10 @@ impl VoiceEventBus {
                 }
             }
             Source::Mic => {
-                if state.settings.mic_mode != "translated" || event.translated_text.as_deref().is_none_or(is_blank) {
-                    return false;
+                match state.settings.mic_mode.as_str() {
+                    "original" => (),
+                    "translated" if event.translated_text.as_deref().is_some_and(|text| !is_blank(text)) => (),
+                    _ => return false,
                 }
                 if event.timestamp_ns <= 0 || event.timestamp_ns > monotonic_ns() {
                     state.stats.dropped += 1;

@@ -147,7 +147,7 @@ pub fn routes(core: &Arc<Core>) -> Routes {
     // Turning translation on loads the local model and waits for the translation pipeline;
     // turning it off clears the switch and the microphone's queued speech of translations.
     b.with("/set/disable/translation", WAIT, |core, _| {
-        core.cancel_mic_voice();
+        core.cancel_translated_mic_voice();
         let _ = core.config().set("ENABLE_TRANSLATION", json!(false));
         ok(core.config().get("ENABLE_TRANSLATION"))
     });

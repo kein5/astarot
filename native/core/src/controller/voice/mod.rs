@@ -38,7 +38,7 @@ use astarot_speech_server::Profile;
 use astarot_tts::converted::{Chunks, ConversionSpeaker, ConvertedSpeechRouter, SpeakError};
 use astarot_tts::engines::EngineClient;
 use astarot_tts::listener::{ListenerMonitor, ListenerMonitors, ProcessExit};
-use astarot_tts::message_hook::{TranscriptUpdate, TranslationTarget, chat_event, microphone_event};
+use astarot_tts::message_hook::{TranscriptUpdate, TranslationTarget, chat_event, microphone_event, microphone_original_event};
 use astarot_tts::playback::{AudioRouter, FirstAudio, Monitor, OutputSink};
 use astarot_tts::scheduler::{BusOptions, MonitorRequest};
 use astarot_tts::settings::{self as tts_settings, VoiceSettings};
@@ -413,7 +413,7 @@ impl Voice {
     // ------------------------------------------------------------ policies
 
     fn suppresses_direct(settings: &VoiceSettings) -> bool {
-        settings.mic_mode == "translated" && settings.direct_policy == "suppress"
+        settings.mic_mode != "off" && settings.direct_policy == "suppress"
     }
 
     /// Speech through the conversion leaves by the conversion's sink, so the OS gate cannot
@@ -511,20 +511,24 @@ impl Voice {
         }
         let config = core.config();
         let tab = config.get_str("SELECTED_TAB_NO");
+        let your_language = config.get("SELECTED_YOUR_LANGUAGES")[&tab]["1"]["language"].clone();
         let mut languages = Vec::new();
         if settings.mode == "original" {
-            let language = config.get("SELECTED_YOUR_LANGUAGES")[&tab]["1"]["language"].clone();
-            languages.push(language.as_str().ok_or("speech_server_or_settings_not_ready")?.to_owned());
+            languages.push(your_language.as_str().ok_or("speech_server_or_settings_not_ready")?.to_owned());
+        }
+        if settings.mic_mode == "original" {
+            languages.push(core.mic_speech_language(your_language.as_str()).ok_or("speech_server_or_settings_not_ready")?);
         }
         if settings.mode == "translated" || settings.mic_mode == "translated" {
             let target = config.get("SELECTED_TARGET_LANGUAGES")[&tab][&settings.target_slot].clone();
-            if target.is_null() {
+            if target.is_null() && settings.mic_mode != "original" {
                 return Err("speech_server_or_settings_not_ready");
             }
-            if !config.get_bool("ENABLE_TRANSLATION") || target["enable"] != true {
+            if config.get_bool("ENABLE_TRANSLATION") && target["enable"] == true {
+                languages.push(target["language"].as_str().ok_or("speech_server_or_settings_not_ready")?.to_owned());
+            } else if settings.mic_mode != "original" {
                 return Err("tts_translation_not_ready");
             }
-            languages.push(target["language"].as_str().ok_or("speech_server_or_settings_not_ready")?.to_owned());
         }
         let mut roles = Vec::new();
         for language in languages {
@@ -1242,6 +1246,12 @@ pub struct MicVoiceSnapshot {
     settings: Arc<VoiceSettings>,
 }
 
+impl MicVoiceSnapshot {
+    pub(crate) fn speaks_original(&self) -> bool {
+        self.settings.mic_mode == "original"
+    }
+}
+
 impl Core {
     pub(crate) fn voice(&self) -> Option<&Arc<Voice>> {
         self.voice.get()
@@ -1276,23 +1286,29 @@ impl Core {
         }
     }
 
+    /// Translation being turned off only revokes microphone speech of translations.
+    pub(crate) fn cancel_translated_mic_voice(&self) {
+        if let Some(voice) = self.voice() {
+            let _settings = voice.settings_lock.lock().unwrap();
+            if voice.bus.settings().mic_mode != "original" {
+                voice.bus.cancel_source(&astarot_tts::Source::Mic);
+            }
+        }
+    }
+
     /// Taken when a microphone final arrives: the speech it may become is refused once the
     /// settings or the microphone's session change.
-    /// `None` unless microphone finals speak translated and translation is on
-    /// (`_snapshotMicVoice`).
+    /// Translated microphone speech additionally requires translation to be on.
     pub fn mic_voice_snapshot(&self) -> Option<MicVoiceSnapshot> {
         let voice = self.voice()?;
         let _settings = voice.settings_lock.lock().unwrap();
-        if voice.bus.settings().mic_mode != "translated" || !self.config().get_bool("ENABLE_TRANSLATION") {
+        let settings = voice.bus.settings();
+        if settings.mic_mode == "off" || (settings.mic_mode == "translated" && !self.config().get_bool("ENABLE_TRANSLATION")) {
             return None;
         }
-        Some(MicVoiceSnapshot { generation: voice.bus.generation(), source_generation: voice.bus.source_generation(&astarot_tts::Source::Mic), settings: voice.bus.settings() })
+        Some(MicVoiceSnapshot { generation: voice.bus.generation(), source_generation: voice.bus.source_generation(&astarot_tts::Source::Mic), settings })
     }
 
-    /// A realtime microphone final, translated (`_publishMicVoice`). Only a successful
-    /// translation of the selected target speaks. `targets` is the target languages of the
-    /// message's tab as they were when it was admitted. Returns whether it was queued.
-    #[allow(clippy::too_many_arguments)]
     /// Readies the speech server that will speak a message's translation while it is translated
     /// (#556): the speech of `mic` (the microphone's translated voice) or of a typed or
     /// recognised message, in the language of the speech's target slot among `destinations`.
@@ -1304,6 +1320,9 @@ impl Core {
         voice.bus.warm(&source, language);
     }
 
+    /// Queue a realtime microphone final. Translated mode requires a successful translation
+    /// of the selected target captured at admission.
+    #[allow(clippy::too_many_arguments)]
     pub fn publish_mic_voice(
         &self,
         snapshot: &MicVoiceSnapshot,
@@ -1319,17 +1338,22 @@ impl Core {
         let Some(voice) = self.voice() else { return false };
         let _settings = voice.settings_lock.lock().unwrap();
         let config = self.config();
-        if !current() || *voice.bus.settings() != *snapshot.settings || !config.get_bool("ENABLE_TRANSLATION") || config.get_str("SELECTED_TAB_NO") != tab {
+        if !current() || *voice.bus.settings() != *snapshot.settings || config.get_str("SELECTED_TAB_NO") != tab {
             return false;
         }
-        // Text keeps its snapshot; speech also requires the selected target to remain current.
-        let slot = &snapshot.settings.target_slot;
-        if config.get("SELECTED_TARGET_LANGUAGES")[tab][slot] != targets[slot] {
-            return false;
-        }
-        let usable: Vec<bool> = success.iter().zip(provenance).map(|(ok, origin)| *ok && *origin == "translated").collect();
-        let translations: Vec<Option<String>> = translations.iter().map(|t| Some(t.clone())).collect();
-        let Some(mut event) = microphone_event(update, &translations, &usable, source_language, &targets_of(targets), slot) else { return false };
+        let event = if snapshot.speaks_original() {
+            microphone_original_event(update, source_language)
+        } else {
+            // Text keeps its snapshot; translated speech also requires the target to remain current.
+            let slot = &snapshot.settings.target_slot;
+            if !config.get_bool("ENABLE_TRANSLATION") || config.get("SELECTED_TARGET_LANGUAGES")[tab][slot] != targets[slot] {
+                return false;
+            }
+            let usable: Vec<bool> = success.iter().zip(provenance).map(|(ok, origin)| *ok && *origin == "translated").collect();
+            let translations: Vec<Option<String>> = translations.iter().map(|t| Some(t.clone())).collect();
+            microphone_event(update, &translations, &usable, source_language, &targets_of(targets), slot)
+        };
+        let Some(mut event) = event else { return false };
         super::terms::read_terms(&mut event, &self.term_dictionary());
         voice.bus.publish(event, Some(snapshot.generation), Some(snapshot.source_generation))
     }
@@ -1470,12 +1494,14 @@ impl Core {
         let direct = voice.direct.health();
         let realtime_requested = voice.realtime_mic.lock().unwrap().clone().is_some_and(|probe| probe());
         let realtime = !voice.windows || config.get("SELECTED_TRANSCRIPTION_ENGINE") == "SpeechCpp";
+        let source_language = config.get("SELECTED_YOUR_LANGUAGES")[&tab]["1"]["language"].clone();
         let state = FlowState {
             mic_on: config.get_bool("ENABLE_TRANSCRIPTION_SEND") || realtime_requested,
             realtime,
             engine: config.get("SELECTED_TRANSCRIPTION_ENGINE"),
             translation: config.get_bool("ENABLE_TRANSLATION"),
-            source_language: config.get("SELECTED_YOUR_LANGUAGES")[&tab]["1"]["language"].clone(),
+            mic_language: json!(self.mic_speech_language(source_language.as_str())),
+            source_language,
             targets: enabled,
             speech_language: if selected["enable"] == true { selected["language"].clone() } else { Value::Null },
             send_to_vrc: config.get_bool("SEND_MESSAGE_TO_VRC"),
