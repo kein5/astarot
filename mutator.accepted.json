@@ -15,6 +15,10 @@
     "reason": "{ on: false } and {} read the same: on is not true, and path and language are nullish.",
     "where": "src-ui/logics/flow/flowGraph.ts:62:78 { on: false } -> {}"
   },
+  "18zxk16j0xv": {
+    "reason": "others.common_convert_message_hiragana_romaji has descriptions and no label, so it is never a result and its pages are never read.",
+    "where": "src-ui/logics/configs/config_page_setter/_aux/useConfigSearch.ts:66:55 \"appearance\" -> \"\""
+  },
   "19jatp9usbg": {
     "reason": "useId gives a component the same id on every render, so the effect never sees it change.",
     "where": "src-ui/logics/configs/config_page_setter/useSettingsLogics.ts:527:54 [id] -> []"
@@ -31,9 +35,17 @@
     "reason": "An empty name and a placeholder that is not kana both find no kana row.",
     "where": "src-ui/logics/common/languageJumpGroups.ts:35:104 \"\" -> \"Stryker was here!\""
   },
+  "1gfq62wpay7": {
+    "reason": "The labelled check above lets a text through only when one of the two languages has a label or a text, so the key is never reached as the label.",
+    "where": "src-ui/logics/configs/config_page_setter/_aux/useConfigSearch.ts:172:64 typeof enVal === \"string\" -> true"
+  },
   "1hkosx5p7ms": {
     "reason": "Only a weight list has download functions in the fields; for any other setting the keys read undefined and nothing is copied.",
     "where": "src-ui/logics/configs/config_page_setter/ui_config_setter.ts:1551:13 s.logics_template_id === \"weight_download_status\" -> true"
+  },
+  "1i3dg6djepx": {
+    "reason": "others.common_convert_message_hiragana_romaji has descriptions and no label, so it is never a result and its pages are never read.",
+    "where": "src-ui/logics/configs/config_page_setter/_aux/useConfigSearch.ts:66:54 [\"appearance\"] -> []"
   },
   "1igbz1bxo63": {
     "reason": "updateFromBackend is one of the common fields copied above for every setting, so copying it again here changes nothing.",
@@ -67,6 +79,10 @@
     "reason": "{ on: false } and {} read the same: on is not true, and path and language are nullish.",
     "where": "src-ui/logics/flow/flowGraph.ts:62:114 { on: false } -> {}"
   },
+  "1o7nwsqrlid": {
+    "reason": "Parts without a label are skipped again in the loop below, so filtering them first changes nothing.",
+    "where": "src-ui/logics/configs/config_page_setter/_aux/useConfigSearch.ts:233:72 isTexts(value) && value.label -> true"
+  },
   "1pouqqozbmh": {
     "reason": "Download items always have a string id, so an undefined id matches none of them.",
     "where": "src-ui/logics/common/pendingRequestRecovery.ts:28:22 id !== undefined -> true"
@@ -83,13 +99,25 @@
     "reason": "A lane without outputs gets a key named 'undefined', which no output id looks up.",
     "where": "src-ui/logics/flow/flowGraph.ts:52:42 [] -> [\"Stryker was here!\"]"
   },
+  "1tfb5zpb0bt": {
+    "reason": "A missing entry cleans to an empty string, which the filter after the map drops.",
+    "where": "src-ui/logics/configs/config_page_setter/_aux/useConfigSearch.ts:189:21 filled -> true"
+  },
   "1up1xtrqrn1": {
     "reason": "After unmount React drops the field's state updates, so whether a late answer still matches its request changes nothing, and saveFunction returns the answer either way.",
     "where": "src-ui/logics/configs/config_page_setter/useSettingsLogics.ts:507:21 () => { submitted.current = null; } -> undefined"
   },
+  "1v1i1axyk2a": {
+    "reason": "Only the appearance page has a text named ui_language.",
+    "where": "src-ui/logics/configs/config_page_setter/_aux/useConfigSearch.ts:197:21 tab === \"appearance\" -> true"
+  },
   "1ycrsi5wglg": {
     "reason": "settingsWithoutRead is empty: no setting is named like the placeholder, and ignoring the set changes no setting.",
     "where": "src-ui/logics/common/pendingRequestRecovery.ts:65:45 [] -> [\"Stryker was here!\"]"
+  },
+  "1z8ujwunu8k": {
+    "reason": "A missing entry cleans to an empty string, which the filter after the map drops.",
+    "where": "src-ui/logics/configs/config_page_setter/_aux/useConfigSearch.ts:188:56 [sectionDesc.cur, isEn ? null : sectionDesc.en].filter(Bool… -> [sectionDesc.cur, isEn ? null : sectionDesc.en]"
   },
   "21rl54zeu0": {
     "reason": "An unset UI language and any other unsupported one both give no groups.",
@@ -103,6 +131,10 @@
     "reason": "With min === max the formula gives min as well.",
     "where": "src-ui/logics/utils.ts:50:6 min === max -> false"
   },
+  "2bjvfzm83kq": {
+    "reason": "createLanguageNames reads an empty language as English.",
+    "where": "src-ui/logics/configs/config_page_setter/_aux/useConfigSearch.ts:141:45 \"en\" -> \"\""
+  },
   "2dxgn4jl9da": {
     "reason": "After unmount React drops the field's state updates, so whether a late answer still matches its request changes nothing, and saveFunction returns the answer either way.",
     "where": "src-ui/logics/configs/config_page_setter/useSettingsLogics.ts:507:27 { submitted.current = null; } -> {}"
@@ -110,6 +142,10 @@
   "2fgwclb2jaz": {
     "reason": "show_label_values is a list or null (its type, with null as the default for undefined), and for both the two conditions read the same.",
     "where": "src-ui/logics/configs/config_page_setter/useSettingsLogics.ts:374:13 show_label_values && Array.isArray(show_label_values) -> (show_label_values || Array.isArray(show_label_values))"
+  },
+  "2fora0h3ru0": {
+    "reason": "collectStrings of a missing text is empty.",
+    "where": "src-ui/logics/configs/config_page_setter/_aux/useConfigSearch.ts:182:21 curVal -> true"
   },
   "2gcjhlzh0zd": {
     "reason": "useSettingsLogics always makes these five functions for a weight list, so the check is always true there.",
@@ -119,6 +155,10 @@
     "reason": "updateFromBackend is one of the common fields copied above for every setting, so copying it again here changes nothing.",
     "where": "src-ui/logics/configs/config_page_setter/ui_config_setter.ts:1564:42 `updateFromBackend${base}` -> ``"
   },
+  "59tz3ase4p": {
+    "reason": "Parts without a label are skipped again in the loop below, so filtering them first changes nothing.",
+    "where": "src-ui/logics/configs/config_page_setter/_aux/useConfigSearch.ts:233:20 Object.entries(textsOf(item)).filter(([, value]) => isTexts… -> Object.entries(textsOf(item))"
+  },
   "5za6bbt3n3": {
     "reason": "outputArrivals lists chatbox before speech, already in sorted order.",
     "where": "src-ui/logics/flow/flowGraph.ts:133:44 Object.keys(arrivals[newest.input]).sort() -> Object.keys(arrivals[newest.input])"
@@ -126,6 +166,10 @@
   "64k3eefbq7": {
     "reason": "useSettingsLogics always makes these five functions for a weight list, so the check is always true there.",
     "where": "src-ui/logics/configs/config_page_setter/ui_config_setter.ts:1561:17 typeof settings[downloadedKey] === \"function\" -> true"
+  },
+  "6j3zousmcb": {
+    "reason": "A dependency list that never changes keeps the hook's first value either way.",
+    "where": "src-ui/logics/configs/config_page_setter/_aux/useConfigSearch.ts:272:56 [] -> [\"Stryker was here!\"]"
   },
   "79znk3ng2h": {
     "reason": "matches() reads only the type of each default, so any string works.",
@@ -139,6 +183,14 @@
     "reason": "Versions are only compared for equality; counting down tells requests apart the same way.",
     "where": "src-ui/logics/common/pendingRequestRecovery.ts:154:51 control.version++ -> control.version--"
   },
+  "ajifqm3rrj": {
+    "reason": "A description that is not a text cleans to an empty string, which the search drops, and the desc falls back to empty the same way.",
+    "where": "src-ui/logics/configs/config_page_setter/_aux/useConfigSearch.ts:164:56 typeof (curTab[descKey] ?? enTab[descKey]) === \"string\" -> true"
+  },
+  "bhgdcr9k1p": {
+    "reason": "Only the OCR page has a text named source_language.",
+    "where": "src-ui/logics/configs/config_page_setter/_aux/useConfigSearch.ts:191:21 tab === \"ocr\" -> true"
+  },
   "d6gn3xaczg": {
     "reason": "flow is not nullish here: the check before it returned for that.",
     "where": "src-ui/logics/flow/flowGraph.ts:57:30 ?. -> ."
@@ -151,9 +203,17 @@
     "reason": "The fields come from useSettingsLogics for the same category, so a setting of another category has no field to copy.",
     "where": "src-ui/logics/configs/config_page_setter/ui_config_setter.ts:1536:50 s.Category === Category -> true"
   },
+  "f8viecl4jn": {
+    "reason": "A key with no text in either language is not labelled either, so the next check skips it the same way.",
+    "where": "src-ui/logics/configs/config_page_setter/_aux/useConfigSearch.ts:154:21 !curVal && !enVal -> false"
+  },
   "fgke2j7b33": {
     "reason": "useSettingsLogics always makes these five functions for a weight list, so the check is always true there.",
     "where": "src-ui/logics/configs/config_page_setter/ui_config_setter.ts:1560:17 typeof settings[pendingKey] === \"function\" -> true"
+  },
+  "h6tvpaeh0v": {
+    "reason": "Object.values of a number, a boolean or a function without fields is empty, so the list stays empty as before.",
+    "where": "src-ui/logics/configs/config_page_setter/_aux/useConfigSearch.ts:109:9 typeof obj === \"object\" -> true"
   },
   "jcg1l457e8": {
     "reason": "A dependency list that never changes keeps the hook's first value either way.",
