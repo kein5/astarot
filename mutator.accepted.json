@@ -15,6 +15,10 @@
     "reason": "An id is retired only when it is not retired already (applyRealtimeCaption returns early for it), so there is nothing to drop.",
     "where": "src-ui/logics/transcription/realtimeCaptionState.ts:78:89 value !== id -> true"
   },
+  "1dyimpq44q2": {
+    "reason": "useId gives a dialog one id for as long as it is drawn, so the ids made from it never need making again.",
+    "where": "src-ui/views/kit/Dialog.tsx:34:97 [base] -> []"
+  },
   "1f1qquh6mls": {
     "reason": "An empty name and a placeholder that is not kana both find no kana row.",
     "where": "src-ui/logics/common/languageJumpGroups.ts:35:104 \"\" -> \"Stryker was here!\""
