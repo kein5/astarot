@@ -14,6 +14,7 @@ import * as voice from "./voice/useVoice";
 import * as speech from "./voice/useSpeechServers";
 import * as downloads from "./voice/useModelDownloads";
 import * as translationCatalog from "./translation/useTranslationCatalog";
+import * as transcriptionCatalog from "./transcription/useTranscriptionCatalog";
 import * as vcRuntimes from "./voice/useVcRuntimes";
 import * as flow from "./flow/useIoFlow";
 import * as gpuMemory from "./flow/useGpuMemory";
@@ -133,6 +134,10 @@ export const STATIC_ROUTE_META_LIST: readonly RouteMeta[] = [
     { endpoint: "/run/register_translation_catalog_entry", ns: translationCatalog, hook_name: "useTranslationCatalog", method_name: "acknowledge" },
     { endpoint: "/run/remove_translation_catalog_entry", ns: translationCatalog, hook_name: "useTranslationCatalog", method_name: "acknowledge" },
     { endpoint: "/run/use_translation_catalog_entry", ns: translationCatalog, hook_name: "useTranslationCatalog", method_name: "acknowledge" },
+    { endpoint: "/get/data/transcription_catalog", ns: transcriptionCatalog, hook_name: "useTranscriptionCatalog", method_name: "updateCatalog" },
+    { endpoint: "/run/register_transcription_catalog_entry", ns: transcriptionCatalog, hook_name: "useTranscriptionCatalog", method_name: "acknowledge" },
+    { endpoint: "/run/remove_transcription_catalog_entry", ns: transcriptionCatalog, hook_name: "useTranscriptionCatalog", method_name: "acknowledge" },
+    { endpoint: "/run/use_transcription_catalog_entry", ns: transcriptionCatalog, hook_name: "useTranscriptionCatalog", method_name: "acknowledge" },
     { endpoint: "/get/data/vc_runtime_catalog", ns: vcRuntimes, hook_name: "useVcRuntimes", method_name: "updateCatalog" },
     { endpoint: "/get/data/vc_runtime_state", ns: vcRuntimes, hook_name: "useVcRuntimes", method_name: "updateState" },
     { endpoint: "/run/start_vc_runtime_setup", ns: vcRuntimes, hook_name: "useVcRuntimes", method_name: "acknowledge" },
@@ -343,6 +348,11 @@ const TRANSCRIPTION_TOGGLES = ["/set/enable/transcription_send", "/set/disable/t
     "/set/enable/transcription_receive", "/set/disable/transcription_receive"];
 const TRANSLATION_CATALOG_CHANGES = ["/run/register_translation_catalog_entry", "/run/remove_translation_catalog_entry",
     "/run/use_translation_catalog_entry"];
+// Using a speech recognition API the user added points the custom Whisper server at it (#414).
+const TRANSCRIPTION_CATALOG_USE = "/run/use_transcription_catalog_entry";
+const TRANSCRIPTION_CATALOG_READS = ["/get/data/custom_whisper_url", "/get/data/custom_whisper_auth_key",
+    "/get/data/selectable_custom_whisper_model_list", "/get/data/selected_custom_whisper_model",
+    "/get/data/selectable_transcription_engines"];
 const TRANSLATION_CATALOG_READS = ["/get/data/selectable_ctranslate2_weight_type_dict", "/get/data/selected_ctranslate2_weight_type",
     "/get/data/openai_compatible_url", "/get/data/openai_compatible_auth_key",
     "/get/data/selectable_openai_compatible_model_list", "/get/data/selected_openai_compatible_model"];
@@ -391,6 +401,7 @@ export const useReceiveRoutes = () => {
         return () => clearTimeout(timer);
     }, [downloadPending, expireDownloadRequests]);
     const { send: sendTranslationCatalog, fail: failTranslationCatalog, reset: resetTranslationCatalog } = translationCatalog.useTranslationCatalog();
+    const { send: sendTranscriptionCatalog, fail: failTranscriptionCatalog, reset: resetTranscriptionCatalog } = transcriptionCatalog.useTranscriptionCatalog();
     const { state: runtimeState, pending: runtimePending, send: sendRuntime, updateError: updateRuntimeError, reset: resetRuntimes, backendStopped: stopRuntimePending } = vcRuntimes.useVcRuntimes();
     const runtimeActive = runtimePending || Object.values(runtimeState.jobs).some(job => vcRuntimes.activeSetupPhases.some(phase => phase === job.phase));
     useEffect(() => {
@@ -500,6 +511,14 @@ export const useReceiveRoutes = () => {
             failTranslationCatalog(errorCodeOf(result));
             return;
         }
+        if (status !== 200 && endpoint.includes("transcription_catalog")) {
+            failTranscriptionCatalog(errorCodeOf(result));
+            return;
+        }
+        // An entry was used: the custom Whisper server's address, key and models changed with it.
+        if (status === 200 && endpoint === TRANSCRIPTION_CATALOG_USE) {
+            for (const read of TRANSCRIPTION_CATALOG_READS) asyncStdoutToPython(read);
+        }
         // The dictionary could not be written out: the button that asked says so (#792).
         if (status !== 200 && endpoint === "/run/export_vocabulary") return;
         // A name the core refused: the names stay as they were, and the editor is closed.
@@ -592,6 +611,8 @@ export const useReceiveRoutes = () => {
             sendDownload("/get/data/user_models");
             resetTranslationCatalog();
             sendTranslationCatalog("/get/data/translation_catalog");
+            resetTranscriptionCatalog();
+            sendTranscriptionCatalog("/get/data/transcription_catalog");
             resetRuntimes();
             resetVoice();
             sendVoice("/get/data/voice_settings");

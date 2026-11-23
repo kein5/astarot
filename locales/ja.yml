@@ -791,6 +791,37 @@ config_page:
             desc: "LLMのエンジンに送るプロンプトの後ろに足す指示です。例:「敬語を使わずに訳す」「VRChatの用語は英語のまま残す」。1行で500字まで書けます。訳文だけを返すという決まりは変わりません。この文もエンジンに送ります。"
 
     transcription:
+        # The speech recognition APIs the user adds (#414), under the providers of the API group.
+        api_entries:
+            add: "音声認識のAPIを追加"
+            add_help: "Whisperと同じ形の音声認識のAPI（OpenAI互換の/audio/transcriptions）を、名前を付けて追加します。インターネットのサービスでも、お使いのPCやLANの中のサーバーでもかまいません。キーは設定のファイルではなくアプリのキーの保管場所に置きます。追加しただけでは何も送りません。"
+            placeholder_name: "例：家のWhisperサーバー"
+            protocol:
+                openai_compatible: "OpenAI互換（Whisper）"
+            url_lead: "使うと、APIキーをこのアドレスに送って確かめ、その後は音声認識の音声をここへ送ります。"
+            use: "カスタムWhisperサーバーの接続先にする"
+            use_help: "上の「カスタムWhisperサーバー」のアドレス、キー、モデルをこのAPIのものに替えます。音声認識のエンジンの選択は変えません。"
+            remove_confirm: "項目とそのAPIキーをアプリから削除します。カスタムWhisperサーバーの設定はそのまま残ります。"
+            errors:
+                other: "音声認識のAPIの項目を変えられませんでした（{{code}}）。"
+                backend_unavailable: "アプリの中核とつながっていないため、変えられませんでした。"
+                transcription_catalog_failed: "音声認識のAPIの項目を変えられませんでした。"
+                transcription_catalog_key_required: "APIキーを入れてください。"
+                transcription_catalog_key_missing: "この項目のAPIキーがありません。項目を削除して追加し直してください。"
+                transcription_catalog_key_unreadable: "アプリのキーの保管場所をいま読めません。少し待ってからもう一度試してください。"
+                transcription_catalog_unusable: "この項目はこの版では使えません。"
+                transcription_catalog_connect_failed: "アドレスが応答しないか、APIキーが受け付けられませんでした。カスタムWhisperサーバーの設定は変えていません。"
+                transcription_catalog_model_not_listed: "指定したモデルが接続先の一覧にないため、一覧の別のモデルを選びました。"
+                transcription_catalog_exists: "同じ名前の項目か、同じアドレスとモデルの項目がすでにあります。"
+                transcription_catalog_limit: "項目は100件までです。"
+                transcription_catalog_unknown: "その項目は見つかりません。"
+                transcription_catalog_unreadable: "音声認識のAPIの項目のファイルを読めません。ファイルはそのまま残し、書き換えません。"
+                transcription_catalog_write_failed: "音声認識のAPIの項目のファイルに書き込めませんでした。"
+                transcription_catalog_name_invalid: "名前を見直してください。"
+                transcription_catalog_url_invalid: "このアドレスは使えません。http://はお使いのPCとLANの中だけに使えます。"
+                transcription_catalog_model_invalid: "モデルの名前を見直してください。"
+                transcription_catalog_protocol_unsupported: "このAPIの種類はこの版では使えません。"
+                transcription_catalog_invalid: "入力を見直してください。"
         section_label_mic: "マイク"
         section_label_speaker: "スピーカー"
         section_label_transcription_engines: "音声認識エンジン"
