@@ -5,7 +5,7 @@ import { useIsOpenedConfigPage } from "@logics_common";
 import XMarkSvg from "@images/x_mark.svg?react";
 import WarningSvg from "@images/warning.svg?react";
 
-import styles from "./VrWindow.module.scss";
+import * as styles from "./VrWindow.css.ts";
 
 export interface VrWindowProps {
     Icon: ComponentType<SVGProps<SVGSVGElement>>;
@@ -54,7 +54,7 @@ export const VrWindow = ({ Icon, title, onClose, close_label, is_lockable = true
                     </div>
                 )}
             </div>
-            {is_resizable && !is_grab_locked && ["top_left", "bottom_left", "bottom_right"].map(corner => (
+            {is_resizable && !is_grab_locked && (["top_left", "bottom_left", "bottom_right"] as const).map(corner => (
                 <span key={corner} className={`${styles.resize_handle} ${styles[corner]}`} data-vr-hoverable="" />
             ))}
         </div>
