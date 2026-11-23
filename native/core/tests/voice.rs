@@ -1867,7 +1867,7 @@ fn realtime_speaking(mic_name: &str) -> (Run, common::fake_asr::FakeAsr, common:
         "speaker": { "language": "ja", "endpoint": null, "follow_default": true },
         "vocabulary": { "builtin": true, "terms": [] },
     });
-    let saved = json!({ "AUTH_KEYS": { "DeepL_API": key }, "REALTIME_ASR_SETTINGS": realtime, "SEND_MESSAGE_TO_VRC": false });
+    let saved = json!({ "AUTH_KEYS": { "DeepL_API": key }, "REALTIME_ASR_SETTINGS": realtime, "SELECTED_TRANSCRIPTION_ENGINE": "SpeechCpp", "SEND_MESSAGE_TO_VRC": false });
     let mut setup = Setup { saved: Some(saved), platform: Platform::Windows, ..Setup::default() };
     let voice = FakeVoice::new();
     setup.services.voice = voice.platform();
@@ -1899,6 +1899,66 @@ fn a_realtime_microphone_final_speaks_its_translation() {
     let request = spoken(&english.requests()).into_iter().find(|r| r["language"] == "en").unwrap();
     assert!(request["input"].as_str().unwrap().starts_with("deepl-free:EN-US:"), "the translation was spoken");
     assert!(japanese.requests().is_empty(), "the original was spoken");
+    run.ui.ok("/run/stop_realtime_asr", Some(json!({ "source": "mic" })));
+    run.ui.stop();
+}
+
+#[test]
+fn a_realtime_microphone_final_speaks_its_original_without_translation() {
+    assert_realtime_mic_original(false, "off");
+}
+
+#[test]
+fn a_realtime_microphone_final_speaks_its_original_while_translation_waits() {
+    assert_realtime_mic_original(true, "off");
+}
+
+#[test]
+fn original_mic_speech_can_start_while_chat_translation_is_off() {
+    assert_realtime_mic_original(false, "translated");
+}
+
+fn assert_realtime_mic_original(translation_on: bool, chat_mode: &str) {
+    use astarot_transcription::capture::Source;
+    let (run, asr, capture, fake) = realtime_speaking("usb.mic");
+    let japanese = FakeTts::speechcpp(0.1);
+    let text = asr.behaviour.text.lock().unwrap().clone();
+    let (release, held) = mpsc::channel::<()>();
+    let held = Mutex::new(held);
+    fake.reply(move |_, _, _| {
+        let _ = held.lock().unwrap().recv_timeout(Duration::from_secs(10));
+        None
+    });
+    if !translation_on {
+        assert_eq!(run.ui.ok("/set/disable/translation", None), false);
+        // The recognizer is set to Japanese even when the selected tab says English.
+        let mut your = run.ui.ok("/get/data/selected_your_languages", None);
+        your["1"]["1"] = json!({ "language": "English", "country": "United States", "enable": true });
+        assert_eq!(run.ui.ok("/set/data/selected_your_languages", Some(your))["1"]["1"]["language"], "English");
+    }
+    let translations_before = fake.seen_under("/deepl-free/v2/translate").len();
+    let saved = run.settings(json!({ "mode": chat_mode, "mic_mode": "original", "direct_policy": "mix", "output_device": OUTPUT, "japanese_url": japanese.url }));
+    assert_eq!(saved["status"], 200, "{saved}");
+    assert_eq!(run.enable()["result"]["tts_enabled"], true);
+    let state = run.ui.ok("/run/start_realtime_asr", Some(json!({ "source": "mic" })));
+    assert_eq!(state["mic"]["requested"], true);
+    eventually("the capture opened", || !capture.opened().is_empty());
+    capture.hear(Source::Mic, &[common::fake_capture::speech(2000)]);
+    if translation_on {
+        eventually("the translation is requested", || fake.seen_under("/deepl-free/v2/translate").len() > translations_before);
+    }
+    eventually("the original is requested for speech", || !spoken(&japanese.requests()).is_empty());
+    let requests = spoken(&japanese.requests());
+    assert_eq!(requests.len(), 1);
+    assert_eq!(requests[0]["language"], "ja");
+    assert!(requests[0]["input"] == text, "the speech request uses the original text");
+    if translation_on {
+        release.send(()).unwrap();
+    } else {
+        assert_eq!(fake.seen_under("/deepl-free/v2/translate").len(), translations_before);
+        let flow = run.ui.ok("/get/data/io_flow", None);
+        assert_eq!(flow["voice"]["outputs"][1], json!({ "id": "speech", "on": true, "reason": null, "path": "device", "language": "Japanese" }));
+    }
     run.ui.ok("/run/stop_realtime_asr", Some(json!({ "source": "mic" })));
     run.ui.stop();
 }
