@@ -19,15 +19,15 @@ ASTAROT（旧名 VRCT-VOX）は、VRChat 向けに音声認識（ASR）、読み
 | 変更の対象 | 先に読む資料 |
 |---|---|
 | 製品の目的、守る機能、利用者の使い方 | `PRODUCT.md` |
-| 機能、API（IPCのエンドポイント）、データ形式、横断的な振る舞い、契約 | `docs/spec/README.md`（一覧は `python tools/spec_catalog.py --write` で生成する） |
+| 機能、API（IPCのエンドポイント）、データ形式、横断的な振る舞い、契約 | `docs/spec/README.md`（一覧は `mise run spec` で作り直す。中核の `tools/spec_core_catalog.json` を書き出してから `python tools/spec_catalog.py --write` を流す） |
 | UI の見た目、操作、アクセシビリティ | `DESIGN.md` |
 | 開発環境、検証コマンド、コミット形式 | `docs/development.md` |
-| 日本語の文章（文書、画面の文言、リリースノート、PR と Issue、作業の報告） | `docs/writing/japanese-guideline.md` |
 | 英語の文章（文書、画面の文言、コミットメッセージ、PR と Issue、作業の報告） | `docs/writing/english-guideline.md` |
+| 日本語の文章（文書、画面の文言、リリースノート、PR と Issue、作業の報告） | `docs/writing/japanese-guideline.md` |
 | 起動、ビルド、CI、配布候補 | `docs/readme_build.md`、`docs/voice-stack/release-candidates.md` |
 | ブランチ、PR、依存、ダウンロードするモデル、表示する文言 | `CONTRIBUTING.md` |
 | 同梱物、モデル、依存ライブラリのライセンス | `NOTICE.md`、`docs/voice-stack/licensing.md` |
-| Rust のバックエンド中核、Python からの移植の状況 | `docs/voice-stack/core-integration.md` |
+| Rust のバックエンド中核と、Python からの移植の記録 | `docs/voice-stack/core-integration.md` |
 | 名前、識別子、保存先、上流 VRCT との関係 | `docs/voice-stack/project-rename.md`、`docs/voice-stack/publication-and-upstream.md`、ASTAROT への改名は `docs/adr/adr-011-astarot-brand-and-multimodal-accessibility.md` |
 | モデル取得の画面と同意 | `docs/voice-stack/model-downloads.md` |
 | Linux のビルド、AppImage、実機での GUI 試験 | `docs/voice-stack/linux-build-pipeline.md`、`docs/voice-stack/appimage.md` |
@@ -70,7 +70,7 @@ UI の監査、文章の推敲、実機での画面の確認、図の作成な�
   - 実行しなかった検証と、その理由
   - 残っている懸念
 - 計測した値には、計測した環境と条件を添えます。ある PC での性能を、一般的な保証として書きません。
-- 報告の文章は、日本語なら `docs/writing/japanese-guideline.md` の「エージェントの報告文」に、英語なら `docs/writing/english-guideline.md` の「Agent reports」に従って書きます。
+- 報告の文章は、英語なら `docs/writing/english-guideline.md` の「Agent reports」に、日本語なら `docs/writing/japanese-guideline.md` の「エージェントの報告文」に従って書きます。
 
 ## コミットと変更履歴
 

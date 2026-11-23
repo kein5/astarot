@@ -227,8 +227,8 @@ static const struct pw_registry_events registry_events = {PW_VERSION_REGISTRY_EV
 
 static bool connect_stream(struct state *s, uint32_t fps) {
     struct pw_properties *props = pw_properties_new(PW_KEY_MEDIA_TYPE, "Video", PW_KEY_MEDIA_CATEGORY, "Capture",
-        PW_KEY_MEDIA_ROLE, "Screen", PW_KEY_NODE_NAME, "vrct.screen-capture", PW_KEY_NODE_DONT_RECONNECT, "true", NULL);
-    s->stream = pw_stream_new(s->core, "vrct.screen-capture", props);
+        PW_KEY_MEDIA_ROLE, "Screen", PW_KEY_NODE_NAME, "astarot.screen-capture", PW_KEY_NODE_DONT_RECONNECT, "true", NULL);
+    s->stream = pw_stream_new(s->core, "astarot.screen-capture", props);
     if (!s->stream) return false;
     pw_stream_add_listener(s->stream, &s->stream_hook, &stream_events, s);
     uint8_t space[1024]; struct spa_pod_builder builder = SPA_POD_BUILDER_INIT(space, sizeof(space));

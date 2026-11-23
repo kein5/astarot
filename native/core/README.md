@@ -73,13 +73,13 @@ Python のサイドカーの中核（[`src-python/mainloop.py`](https://github.c
 cargo test --locked --manifest-path native/core/Cargo.toml
 ```
 
-- `tests/config_reference.rs`: Python が書いた設定ファイル 50 通りを、Windows と Linux の規則で読み、Python と同じ内容を書き戻すことを確かめます。基準は `tests/data/python_config_reference.json` で、`python native/core/reference/dump_reference.py` が Python のバックエンドを実際に動かして作ります。
+- `tests/config_reference.rs`: Python が書いた設定ファイル 50 通りを、Windows と Linux の規則で読み、Python と同じ内容を書き戻すことを確かめます。基準は `tests/data/python_config_reference.json` で、0.6.0 より前に `native/core/reference/dump_reference.py` が Python のバックエンドを実際に動かして作りました（[v0.5.2 のタグ](https://github.com/kein5/astarot/blob/v0.5.2/native/core/reference/dump_reference.py)。Python のバックエンドがないので、いまは作り直せません）。
 - `tests/error_codes.rs`: エラーコードが仕様書（`docs/spec/reference/error-codes.md`）と一致すること。中核のソースが使う大文字のコードが、すべて仕様書にあること。
 - `tests/dispatch.rs`: ロック、初期化前の待機、423、404、500、即時処理、VR パネルの制限。
 - `tests/lifecycle.rs`: 起動の通知の順序、初期化の完了、終了、watchdog、入力が閉じたときの終了、設定の移行と通知、保存の失敗と回復。
 - `tests/speech_servers.rs`: speech.cpp サーバの設定、起動、停止、自然終了、終了時の後始末、デバイスの一覧。Linux の2つのビルド（CPU 版と Vulkan 版）のどちらで動かすか、Vulkan 版が起動しないときの CPU 版への切り替えと知らせ、Windows の1つのビルドでの CPU の選択も、代わりの実行ファイルの写しを同梱のフォルダに置いて確かめます。speech.cpp の代わりに小さな実行ファイル（`tests/fixture/fake_speech.rs`）を起動します。モデルも GPU も使わず、アプリのビルドにも含まれません。
 - `tests/downloads.rs`: モデル取得の同意とカタログの版の確認、状態の取得、取り消し、設定への適用とその拒否、ハードウェアの確認、終了時の停止。通信は試験用の偽の経路で、ネットワークに出ません。
-- `tests/telemetry.rs`: 通知に答えるまで何も送らないこと、答えの検査、`VRCT_TELEMETRY=off`、送る内容の表示、エラーコードの送信、終了後に送らないこと。送り先はこの PC のループバックに立てた受け側です。
+- `tests/telemetry.rs`: 通知に答えるまで何も送らないこと、答えの検査、`ASTAROT_TELEMETRY=off`（旧名の `VRCT_TELEMETRY` も）、送る内容の表示、エラーコードの送信、終了後に送らないこと。送り先はこの PC のループバックに立てた受け側です。
 - `tests/engine_checks.rs`: 起動時の確認に失敗したエンジンの扱いが Python と同じこと（サーバからモデルを探すエンジンの選択を消し、API キーは残す）。
 - `tests/translation.rs`、`tests/messages.rs`: 翻訳のプロバイダ（ループバックの偽のサーバ、`astarot_translation::fake`）、ローカル翻訳（偽のモデル）、`/run/send_message_box` からチャットボックス・WebSocket・会話のログまで。
 - `tests/translation_models.rs`: ONNX のローカル翻訳のモデルのフォルダ（小さな偽のファイル）。計算型で選ぶ形、自分で用意したモデルの一覧と断る理由と言語の表、計算デバイスの一覧、CPU への切り替えの知らせ、同意を得てカタログから取得したモデルが見つかること。試験では、プロバイダへの通信はループバックだけに限ります（`tests/common` の `Setup`）。
@@ -91,6 +91,6 @@ cargo test --locked --manifest-path native/core/Cargo.toml
 - `tests/vr_overlay.rs`: VR のオーバーレイ。代わりの SteamVR で、字幕と VR パネルのオンとオフ、設定、失敗の通知、送ったメッセージが大きいログに描かれること。
 - `tests/updates.rs`: 更新のエンドポイント。偽の更新の仕組みで、リリースの一覧、起動時の確認（`CHECK_SOFTWARE_UPDATES` がオフなら尋ねずに「更新なし」）、更新の成功と失敗（ダウンロード、署名の検証）、版の指定。ホストが仕組みを渡さないときの、Python と同じく止めてある答え。
 - `tests/voice.rs`: TTS のスイッチと内蔵サーバ、音声の設定、チャットとマイクの確定文の読み上げ（偽の認識サーバからリアルタイムの確定文を流し、訳を読み上げるまで）、声を流しているケーブルを認識に使わせないこと、停止とミュート、直接の音声と声質変換、実行環境の準備、フローパネル、終了。出力とマイクは `tests/common/fake_voice.rs`、speech.cpp とエンジンは `tests/common/fake_tts.rs` と `fake-speech-core`、RVC の worker は小さな実行ファイル（`tests/fixture/fake_rvc_worker.rs`）です。どれもアプリのビルドには含まれません。
-- `tests/spoken_route_live.rs`: Linux の管理された経路の読み上げを、私用の PipeWire の上で端から端まで確かめます。本物の音声の土台（`NativeVoice`）と `astarot-voice-gate` を使い、管理された経路のマイク（`vrct.managed.source`）を録ります。確かめることは、チャットが 1 回だけ聞こえること、停止、ミュート、スイッチの off、サーバーの失敗で 500 ms 以内に無音になること、作り直したサーバーが古い音を流さないこと、中核の終了でマイクがミュートに戻ることです。0.6.0 までは `tests/platform/test_native_voice.py` がアプリの窓から確かめていました。`pipewire` の機能と `--ignored` で動き、Linux の CI の `headless` のジョブで流します（`voice_managed_live.rs` も同じ）。
+- `tests/spoken_route_live.rs`: Linux の管理された経路の読み上げを、私用の PipeWire の上で端から端まで確かめます。本物の音声の土台（`NativeVoice`）と `astarot-voice-gate` を使い、管理された経路のマイク（`astarot.managed.source`）を録ります。確かめることは、チャットが 1 回だけ聞こえること、停止、ミュート、スイッチの off、サーバーの失敗で 500 ms 以内に無音になること、作り直したサーバーが古い音を流さないこと、中核の終了でマイクがミュートに戻ることです。0.6.0 までは `tests/platform/test_native_voice.py` がアプリの窓から確かめていました。`pipewire` の機能と `--ignored` で動き、Linux の CI の `headless` のジョブで流します（`voice_managed_live.rs` も同じ）。
 
 利用者の文章、音声、API キーは、ログにも試験の出力にも入れません。

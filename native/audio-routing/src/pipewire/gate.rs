@@ -8,6 +8,7 @@
 //! [`src-python/models/audio_routing/pipewire_gate.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/audio_routing/pipewire_gate.py
 
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -25,6 +26,9 @@ pub struct PipeWireGate {
     env: ProcessEnv,
     reader: GraphReader,
     observer: Mutex<Option<Subscription>>,
+    /// A preparation retired the units of the old route since [`Gate::retired_legacy`] last
+    /// asked (ADR-014, 2.8).
+    retired: Arc<AtomicBool>,
 }
 
 impl PipeWireGate {
@@ -35,7 +39,7 @@ impl PipeWireGate {
     }
 
     pub fn with_reader(helper: PathBuf, env: ProcessEnv, reader: GraphReader) -> Self {
-        Self { helper, env, reader, observer: Mutex::new(None) }
+        Self { helper, env, reader, observer: Mutex::new(None), retired: Arc::new(AtomicBool::new(false)) }
     }
 
     pub fn inspect(&self, after: Option<f64>) -> Result<GateState> {
@@ -92,7 +96,15 @@ impl Gate for PipeWireGate {
     fn prepare(&self) -> Result<()> {
         let reader = self.reader.clone();
         let snapshot = Box::new(move || reader(None).map(|graph| (*graph).clone()));
-        crate::pipewire::managed::ManagedMicrophone::new(snapshot, self.env.clone()).ensure()
+        let retired = self.retired.clone();
+        crate::pipewire::managed::ManagedMicrophone::new(snapshot, self.env.clone())
+            .on_retired(Box::new(move || retired.store(true, Ordering::SeqCst)))
+            .ensure()
+            .map(|_| ())
+    }
+
+    fn retired_legacy(&self) -> bool {
+        self.retired.swap(false, Ordering::SeqCst)
     }
 
     fn inspect_pair(&self) -> Result<GatePair> {
@@ -132,13 +144,13 @@ mod tests {
     use super::*;
 
     fn managed(source_muted: bool, direct_muted: bool) -> Graph {
-        let node = |name: &str, media: &str, serial: u64, muted: bool| json!({"type": "PipeWire:Interface:Node", "info": {"props": {"node.name": name, "media.class": media, "object.serial": serial, "vrct.managed.route": "v1"}, "params": {"Props": [{"mute": muted}]}}});
+        let node = |name: &str, media: &str, serial: u64, muted: bool| json!({"type": "PipeWire:Interface:Node", "info": {"props": {"node.name": name, "media.class": media, "object.serial": serial, "astarot.managed.route": "v1"}, "params": {"Props": [{"mute": muted}]}}});
         vec![
             json!({"type": "PipeWire:Interface:Core", "info": {"cookie": 42}}),
-            node("vrct.managed.source", "Audio/Source", 15, source_muted),
-            node("vrct.managed.tts", "Audio/Sink", 16, false),
-            node("vrct.managed.mix", "Audio/Sink", 17, false),
-            node("vrct.managed.vc", "Audio/Sink", 18, direct_muted),
+            node("astarot.managed.source", "Audio/Source", 15, source_muted),
+            node("astarot.managed.tts", "Audio/Sink", 16, false),
+            node("astarot.managed.mix", "Audio/Sink", 17, false),
+            node("astarot.managed.vc", "Audio/Sink", 18, direct_muted),
         ]
     }
 
@@ -151,7 +163,7 @@ mod tests {
 
     /// A helper that records its arguments and exits with `status`.
     fn helper(name: &str, status: i32) -> (Scratch, PathBuf, PathBuf) {
-        let dir = std::env::temp_dir().join(format!("vrct-gate-{}-{name}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("astarot-gate-{}-{name}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
         let (script, log) = (dir.join("astarot-voice-gate"), dir.join("args"));

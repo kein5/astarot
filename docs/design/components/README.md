@@ -18,7 +18,7 @@
 | `Dialog` と、そのパーツの `DialogHeader`、`DialogFooter`、`DialogTitle`、`DialogDescription` | モーダルのダイアログ。題名と説明がダイアログの名前と説明になる。開くかどうかは `open` と `onOpenChange` で持ち主が決める | ネイティブの `<dialog>`（`showModal()`） |
 | `SettingGroup` と `SettingRow` | 見出し付きのまとまりと、その中の 1 行 | — |
 
-見本のページを開くには、`npx vite` を実行してから `http://localhost:1420/kit-lab.html` を開きます。設定の文言は `locales/` の実際の文言を使っています。日本語と英語の切り替えと、狭いウィンドウでの見え方を確かめられます。
+見本のページを開くには、`npx vite` を実行してから `http://localhost:1420/kit-lab.html` を開きます。設定の文言は `locales/` の実際の文言を使っています。英語と日本語の切り替えと、狭いウィンドウでの見え方を確かめられます。
 
 ## 項目の区切り（#452 の要件）
 

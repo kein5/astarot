@@ -6,7 +6,7 @@ route: transcription
 
 Turns your voice and other players' voices into text. The settings are under Settings → "Speech recognition (ASR)".
 
-What you and others say appears as text in the conversation log on the main screen. If the VR subtitle overlay shows multiple lines, it appears there too.
+What you and others say appears as text in the conversation log on the main screen, and in the VR subtitle overlay too. "Multiple lines" shows what you and others say while it is still being recognised; "Single line" shows only the game audio, once a sentence is final (and translated, when translation is on).
 
 ## What you need
 
@@ -68,7 +68,7 @@ Game audio captions can show who is speaking. ASTAROT tells the voices apart and
 
 To use it, download and apply the diarization model under "Models and servers" → "ASR + VAD". This is the model that tells speakers apart (Nemotron 3 Diarization, about 106 MB, OpenMDW-1.1). It is used from the next time the server starts. To stop using it, clear "Diarization GGUF path (optional)".
 
-- The conversation log shows "Speaker A". In the desktop caption overlay, a letter comes before the words and each person gets their own colour. The VR large log shows it after "Receive".
+- The conversation log shows "Speaker A". In the desktop caption overlay, a letter comes before the words and each person gets their own colour. In the VR subtitle overlay, "Multiple lines" shows it after "Receive" and "Single line" above the words.
 - When the same person keeps talking, the conversation log shows who it is on the first line only, so their lines read as one run.
 - Speakers are told apart by the sound of their voices, so their names are not known. People with similar voices can be taken for one person.
 - When two people speak with little pause, their words end up in one caption. It then shows both, as "Speaker A, B".
@@ -79,7 +79,7 @@ To use it, download and apply the diarization model under "Models and servers" �
 
 ### Name the speakers
 
-Press "Speaker A" in the conversation log to give that voice a name. The name shows in the conversation log, the desktop caption overlay and the VR large log.
+Press "Speaker A" in the conversation log to give that voice a name. The name shows in the conversation log, the desktop caption overlay and the VR subtitle overlay (single line and multiple lines). A single-line caption already showing is not drawn again; the next one has the name.
 
 Names last while this listening session runs and are not saved. When listening starts again, the letters are handed out again, so name the voices again too. The VR panel's conversation log cannot name voices.
 

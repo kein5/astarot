@@ -76,7 +76,9 @@ fn the_overlay_starts_with_the_saved_switches_and_announces_the_vr_page_state() 
     let at = |e: &str| names.iter().position(|n| n == e).unwrap_or_else(|| panic!("{e} was sent"));
     assert!(at("/run/vr_panel_layout") < at("/run/connected_network"));
     assert_eq!(ui.on(0, "/run/vr_panel_launcher_intro")[0]["result"], "idle");
-    wait("connected to SteamVR", || fake.with(|s| s.sessions_open) == 1);
+    // The engine opens the session, then makes the five overlays one by one (#861: on a slow
+    // runner, four of them were made when the session was seen open).
+    wait("connected to SteamVR", || fake.with(|s| s.sessions_open) == 1 && fake.built());
     let keys: Vec<String> = fake.with(|s| s.created.iter().map(|(k, _)| k.clone()).collect());
     assert_eq!(&keys[..5], ["ASTAROT0", "ASTAROT1", "ASTAROT2", "ASTAROT3", "ASTAROT4"]);
     ui.ok("/run/shutdown", None);
@@ -594,5 +596,140 @@ fn a_sent_message_is_drawn_on_the_running_large_log() {
     wait("the message drawn on the large log", || fake.calls_on(large, "raw").len() > before);
     std::thread::sleep(Duration::from_millis(100));
     assert_eq!(fake.calls_on(small, "raw").len(), small_before, "a sent message stays off the small log");
+    ui.stop();
+}
+
+#[test]
+fn the_game_audio_s_realtime_finals_reach_the_small_log_under_who_spoke() {
+    // #447: the small log shows a realtime final of the game audio as it shows a message, once
+    // translated, with the voices the server told apart written above it.
+    use common::fake_asr::{FakeAsr, diarization_model, recognition_model};
+    use common::fake_capture::{FakeCapture, speech};
+    use astarot_transcription::capture::Source;
+
+    let asr = FakeAsr::start();
+    *asr.behaviour.models.lock().unwrap() = json!({ "data": [
+        recognition_model("haas-ja", &["ja"], false, &["keywords"]),
+        diarization_model("nemotron-3-diarization", "Vulkan0"),
+    ] });
+    *asr.behaviour.speakers.lock().unwrap() = json!([
+        { "speaker": "A", "start_ms": 0, "end_ms": 900 },
+        { "speaker": "B", "start_ms": 1000, "end_ms": 1800 },
+    ]);
+    let capture = FakeCapture::new();
+    capture.add_endpoint(Source::Mic, "alsa.mic", "USB Mic");
+    capture.add_endpoint(Source::Speaker, "alsa.out", "Speakers");
+    capture.set_default(Source::Mic, Some("alsa.mic"));
+    capture.set_default(Source::Speaker, Some("alsa.out"));
+    let fake = FakeVr::running();
+    common::warm_system_fonts();
+    let base = Setup::default();
+    let services = Services { vr: Arc::new(fake.clone()), transcription_capture: capture.factory(), ..base.services };
+    let saved = json!({
+        "OVERLAY_SMALL_LOG": true,
+        "OSC_IP_ADDRESS": "127.0.0.2",
+        "REALTIME_ASR_SETTINGS": {
+            "server": "external", "base_url": asr.base(), "model": "haas-ja",
+            "mic": { "language": "ja", "endpoint": null, "follow_default": true },
+            "speaker": { "language": "ja", "endpoint": null, "follow_default": true },
+            "vocabulary": { "builtin": false, "terms": [] },
+        },
+    });
+    let ui = Ui::with(Setup { services, saved: Some(saved), platform: astarot_core::config::Platform::Linux, ..Setup::default() });
+    ui.ready();
+    wait("the small log made", || fake.handle("ASTAROT0").is_some());
+    let small = fake.handle("ASTAROT0").unwrap();
+    // The heights of the pictures shown, leaving out the empty ones the overlays start with.
+    let heights = || -> Vec<u32> {
+        fake.calls_on(small, "raw")
+            .iter()
+            .filter_map(|call| call.rsplit(' ').next()?.split_once('x').map(|(_, h)| h.parse().unwrap()))
+            .filter(|&height| height > 1)
+            .collect()
+    };
+
+    let mark = ui.lines().len();
+    assert_eq!(ui.ok("/set/enable/transcription_receive", None), true);
+    wait("the game audio is captured", || capture.opened() == vec![(Source::Speaker, "alsa.out".to_string())]);
+    wait("the session is configured", || !asr.diarization.lock().unwrap().is_empty());
+    assert!(heights().is_empty(), "nothing is drawn before a caption");
+    capture.hear(Source::Speaker, &[speech(2000)]);
+    let translated = ui.wait_from(mark, "translated", |l| l["endpoint"] == "/run/realtime_caption" && l["result"]["state"] == "translated");
+    assert_eq!(translated["result"]["speakers"], json!(["A", "B"]));
+    wait("the final drawn on the small log", || !heights().is_empty());
+    let told_apart = heights()[0];
+
+    // Voices not told apart: the same message without the row of who spoke. The caption comes
+    // first, so that a failure says whether the final or its picture did not come.
+    let mark = ui.lines().len();
+    *asr.behaviour.speakers.lock().unwrap() = Value::Null;
+    capture.hear(Source::Speaker, &[speech(2000)]);
+    ui.wait_from(mark, "a translated caption without speakers", |l| {
+        l["endpoint"] == "/run/realtime_caption" && l["result"]["state"] == "translated" && l["result"]["speakers"] == json!([])
+    });
+    let deadline = Instant::now() + Duration::from_secs(10);
+    while !heights().iter().any(|&height| height < told_apart) {
+        if Instant::now() >= deadline {
+            let captions: Vec<String> = ui.lines()[mark..]
+                .iter()
+                .filter(|l| l["endpoint"] == "/run/realtime_caption")
+                .map(|l| format!("{} {}", l["result"]["state"], l["result"]["speakers"]))
+                .collect();
+            panic!("a final drawn without who spoke: told apart {told_apart}, heights {:?}, captions since {captions:?}", heights());
+        }
+        std::thread::sleep(Duration::from_millis(10));
+    }
+    ui.stop();
+}
+
+#[test]
+fn a_slow_small_log_picture_does_not_keep_the_final_past_its_expiry() {
+    // #447: the single-line overlay's picture of a realtime final is drawn on the overlay's
+    // caption thread. A picture that takes longer than the final's expiry (2 s after it came),
+    // as the fonts read for the first time do on a cold PC, must not keep the final from being
+    // delivered; the picture follows.
+    use common::fake_asr::{FakeAsr, diarization_model, recognition_model};
+    use common::fake_capture::{FakeCapture, speech};
+    use astarot_transcription::capture::Source;
+
+    let asr = FakeAsr::start();
+    *asr.behaviour.models.lock().unwrap() = json!({ "data": [
+        recognition_model("haas-ja", &["ja"], false, &["keywords"]),
+        diarization_model("nemotron-3-diarization", "Vulkan0"),
+    ] });
+    let capture = FakeCapture::new();
+    capture.add_endpoint(Source::Mic, "alsa.mic", "USB Mic");
+    capture.add_endpoint(Source::Speaker, "alsa.out", "Speakers");
+    capture.set_default(Source::Mic, Some("alsa.mic"));
+    capture.set_default(Source::Speaker, Some("alsa.out"));
+    let fake = FakeVr::running();
+    common::warm_system_fonts();
+    let base = Setup::default();
+    let services = Services { vr: Arc::new(fake.clone()), transcription_capture: capture.factory(), ..base.services };
+    let saved = json!({
+        "OVERLAY_SMALL_LOG": true,
+        "OSC_IP_ADDRESS": "127.0.0.2",
+        "REALTIME_ASR_SETTINGS": {
+            "server": "external", "base_url": asr.base(), "model": "haas-ja",
+            "mic": { "language": "ja", "endpoint": null, "follow_default": true },
+            "speaker": { "language": "ja", "endpoint": null, "follow_default": true },
+            "vocabulary": { "builtin": false, "terms": [] },
+        },
+    });
+    let ui = Ui::with(Setup { services, saved: Some(saved), platform: astarot_core::config::Platform::Linux, ..Setup::default() });
+    ui.ready();
+    wait("the overlays built", || fake.built());
+    let small = fake.handle("ASTAROT0").unwrap();
+    let drawn = || fake.calls_on(small, "raw").iter().any(|call| !call.ends_with(" 1x1"));
+    fake.with(|s| s.slow_pictures = Some(Duration::from_millis(2500)));
+
+    let mark = ui.lines().len();
+    assert_eq!(ui.ok("/set/enable/transcription_receive", None), true);
+    wait("the game audio is captured", || capture.opened() == vec![(Source::Speaker, "alsa.out".to_string())]);
+    wait("the session is configured", || !asr.diarization.lock().unwrap().is_empty());
+    capture.hear(Source::Speaker, &[speech(2000)]);
+    let outcome = ui.wait_from(mark, "an outcome", |l| l["endpoint"] == "/run/realtime_caption" && l["result"]["state"] == "outcome");
+    assert_eq!(outcome["result"]["outcome"], "delivered", "{outcome}");
+    wait("the slow picture shown after the final was delivered", drawn);
     ui.stop();
 }

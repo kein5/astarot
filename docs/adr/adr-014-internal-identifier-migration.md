@@ -3,8 +3,9 @@ date: 2026-11-19
 status: accepted
 era: rust-core
 validity: current
-implementation_status: pending
-implementation_checked: 2026-11-19
+implementation_status: partial
+implementation_checked: 2026-11-23
+implementation_note: 0.6.0 で Linux の保存先、環境変数、モデル取得の所有マーカーを移し、その後に資格情報の名前、クレートとパッケージの名前、Linux の音声経路の名前（#979）を移した（project-rename.md の表）。アプリ ID、Windows のインストール先とレジストリのキー、実行ファイル名、Linux のパッケージ、配布物の名前（手順 4〜8）はまだ旧名のままで、0.7.0 で一緒に出す（2.10 の決定の注記）。
 evidence:
   - docs/adr/adr-014-internal-identifier-migration.md
   - docs/voice-stack/project-rename.md
@@ -14,6 +15,7 @@ evidence:
   - native/core/src/config/secrets/credential_manager.rs
   - native/core/src/config/secrets/secret_service.rs
   - native/audio-routing/src/pipewire/managed.rs
+  - native/app-identity/src/lib.rs
 ---
 # ADR-014: 内部識別子を ASTAROT にそろえ、設定とモデルを引き継ぐ
 
@@ -174,9 +176,13 @@ ZIP 版は展開先で動くので、保存先は変わらない。実行ファ�
 - 0.6.x のリリースには名前を変えた配布物の旧名の写し（中身が同じファイル）も載せる。外に貼られた `releases/latest/download/VRCT-VOX_setup.exe` のようなリンクを 0.6.x の間は生かすためである。写しにも `.sha256` を付け、`SHA256SUMS` に載せる。0.7.0 からは載せない。
 - 配布候補の検査（`tools/release_candidate.py`）は、新しい名前と写しの両方がそろっていることを確かめる。
 
+> **決定の注記**（2026-11-23、PR #1006）：名前を変える手順 4〜8（アプリ ID、インストール先とキー、実行ファイル名、Linux のパッケージ、配布物の名前）は、0.6.0 ではなく 0.7.0 で一緒に出すと決まった。そのため、旧名の写しは上の「0.6.x のリリース」ではなく 0.7.x のリリースに載せ、0.8.0 からは載せない（4.2 の「0.6.x の間は旧名の写しの分だけ配布物が増える」も 0.7.x の間になる）。写しは、名前に版を含む Linux の配布物も含めて、すべての配布物に作る。`/VERSION` で 0.6.x までの版を入れるときは、0.6.x までのリリースに新しい名前の ZIP がないので、インストーラーが旧名の `VRCT-VOX.zip` を取る。上の段落は書いた時点の記録として残す。
+
 ### 2.11 旧名を読む期間（判断 9）
 
 環境変数の旧名、所有マーカーの旧値、Linux の旧のパスのリンク、資格情報の旧名の項目、一時のストリームの旧の接頭辞は、0.6.x の間は読む（残す）。いつ外すかは 0.7.0 の計画で決める。
+
+> **決定の注記**（2026-11-23、PR #979）：0.6.0 はこの手順を含まずに公開されたので、Linux の音声経路の旧名（2.8）は、上の「0.6.x の間」ではなく、新しい名前を出した版の系列の間読む（0.7.0 で出せば 0.7.x の間）。旧名を読むこと（旧の接頭辞のノードとストリームを入力の候補から外す、旧の名前の手で置いた設定を見つける、中核のものでない旧の経路を知らせる）と、旧のユニットの片付け（0.6.0 までの中核が書いたものと名前、所有者のマーカー、中身がどれも一致するときだけ止めて消す）は定数を分け、片付けは期限を設けずに残す。版を飛ばして更新した環境でも旧の仮想マイクを残さないためである。上の段落は書いた時点の記録として残す。
 
 ### 2.12 コードの中だけの名前（判断 10）
 

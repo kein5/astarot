@@ -38,16 +38,19 @@
   transition: width var(--a-motion) var(--a-ease);
 }
 
-/* The page gives list items a top margin; the steps sit on one line. */
+/* Every step is as tall as the tallest: the grid row stretches the items, and the link fills its
+   item. A one-line name and a three-line name then start at the same height under dots on one line. */
 .stepProgress li {
   position: relative;
   z-index: 1;
+  display: flex;
   margin: 0;
   min-width: 0;
 }
 
 .stepProgress a {
   display: flex;
+  flex: 1;
   flex-direction: column;
   align-items: center;
   gap: 6px;

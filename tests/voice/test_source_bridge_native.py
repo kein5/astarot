@@ -28,17 +28,17 @@ def test_stream_gate_binds_only_expected_identity(tmp_path, fault):
     from tools.private_pipewire import graph_snapshot, nodes, private_graph, start_process, wait_for
     gate = compile_helper(tmp_path, "native/voice-gate/main.c", pipewire=True)
     tag = "b" * 32
-    name = f"vrct.source-bridge.{tag}.playback"
+    name = f"astarot.source-bridge.{tag}.playback"
     actual_name = name + ".other" if fault == "name" else name
-    with private_graph(config_fragment=ROOT / "config/pipewire/90-vrct-managed.conf"), ExitStack() as stack:
-        destination = nodes()["vrct.managed.vc"]["info"]["props"]["object.serial"]
+    with private_graph(config_fragment=ROOT / "config/pipewire/90-astarot-managed.conf"), ExitStack() as stack:
+        destination = nodes()["astarot.managed.vc"]["info"]["props"]["object.serial"]
 
         def create(index):
             marker = "invalid" if fault == "marker" else "v1"
             media = "Audio/Source" if fault == "class" else "Stream/Output/Audio"
             start_process(stack, ["pw-loopback", "--channels", "1", "--channel-map", "MONO",
                 "--capture-props", f"media.class=Audio/Sink node.name=bridge.test.{index}",
-                "--playback-props", f"node.name={actual_name} media.class={media} target.object={destination} vrct.source.bridge={marker} node.param.Props={{mute=true}}"], stdout=subprocess.DEVNULL)
+                "--playback-props", f"node.name={actual_name} media.class={media} target.object={destination} astarot.source.bridge={marker} node.param.Props={{mute=true}}"], stdout=subprocess.DEVNULL)
 
         create(0)
         wait_for(lambda: actual_name in nodes())

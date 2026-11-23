@@ -1,0 +1,27 @@
+# Once a week, counts the CI failures of the last 7 days per workflow and job, and how many of
+# them passed when the same run was run again (tools/ci_failures.py; the CI audit of 2026-11-22,
+# item 7). It only writes the job summary: nothing is opened, sent or changed.
+name: Weekly CI failures
+on:
+  schedule:
+    - cron: "17 0 * * 1"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  count:
+    if: github.repository == 'kein5/astarot'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      # Reads the runs and their jobs.
+      actions: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Count the failures of the last 7 days
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 -m tools.ci_failures --days 7
