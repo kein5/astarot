@@ -158,7 +158,7 @@ test("fields and outlined controls draw their edge with the field border", () =>
         "app/config_page/search_bar/SearchBar.module.scss",
         "app/config_page/setting_section/setting_box/_components/file_drop_zone/FileDropZone.module.scss",
         "app/config_page/setting_section/setting_box/advanced_settings/VoiceSettings.module.scss",
-        "app/main_page/main_section/language_selector/LanguageSelector.module.scss",
+        "app/main_page/main_section/language_selector/LanguageSelector.css.ts",
         "quick_chat/QuickChat.css.ts",
     ]) assert.match(read(views + path), /vox_field_border/, path);
     // The outline buttons have no fill, so the border is their only edge.

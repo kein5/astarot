@@ -1,7 +1,7 @@
 import { memo, useState, useEffect, useLayoutEffect, useRef } from "react";
 import type { ChangeEvent, KeyboardEvent } from "react";
 import { useStore } from "jotai";
-import styles from "./MessageInputBox.module.scss";
+import * as styles from "./MessageInputBox.css.ts";
 import SendMessageSvg from "@images/send_message.svg?react";
 import { useMessageActions } from "@logics_common";
 import { useSettingValue } from "@logics_configs";

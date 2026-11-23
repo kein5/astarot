@@ -9,6 +9,7 @@ import type { TreeNode } from "../../../../../logics/test/hookHarness.ts";
 import { voiceActions } from "../../../../../logics/voice/voiceActions.ts";
 import * as stopShapes from "../../../../../logics/voice/stopVoice.ts";
 import type { StopPress } from "../../../../../logics/voice/stopVoice.ts";
+import { styleOf } from "../../../../../logics/test/styleSource.ts";
 
 interface MenuState {
     foreground: boolean;
@@ -342,7 +343,16 @@ test("stop reads as disabled with nothing to stop, and answers its press with st
 });
 
 test("the stop's answer is styled alike in both bars, and its words are in en and ja", () => {
-    for (const sheet of ["./TopBar.module.scss", "../../../config_page/topbar/Topbar.module.scss"]) {
+    // The main bar's styles are in vanilla-extract (#957): the same rules, written as its styles.
+    const main = readFileSync(new URL("./TopBar.css.ts", import.meta.url), "utf8");
+    const stop = styleOf(main, "stop");
+    assert.match(stop, /\[`&\.\$\{is_stopping\}, &\.\$\{is_stopping\}:hover:not\(:disabled\)`\]: \{ background: vars\.dark_925_color, cursor: "progress" \}/);
+    assert.match(stop, /\[`&\.\$\{is_stopped\}, [^`]*`\]: \{\s*color: vars\.primary_200_color,\s*borderColor: vars\.primary_600_color,\s*animation: `\$\{stopAnswered\} \.8s ease-out`,/);
+    assert.match(main, /const stopAnswered = keyframes\(\{ from: \{ background: vars\.vox_highlight_tint \} \}\);/);
+    assert.match(stop, /"\(prefers-reduced-motion: reduce\)": \{ selectors: \{ \[`&\.\$\{is_stopped\}`\]: \{ animation: "none" \} \} \}/);
+    assert.match(stop, /\[`&\.\$\{is_idle\}, [^`]*`\]: \{\s*opacity: \.5,\s*cursor: "not-allowed",/);
+    assert.match(styleOf(main, "stop_status"), /position: "absolute",\s*width: "1px",\s*height: "1px",/);
+    for (const sheet of ["../../../config_page/topbar/Topbar.module.scss"]) {
         const css = readFileSync(new URL(sheet, import.meta.url), "utf8");
         assert.match(css, /\.stop\.is_stopping, \.stop\.is_stopping:hover:not\(:disabled\) \{ background: var\(--dark_925_color\); cursor: progress; \}/, sheet);
         assert.match(css, /\.stop\.is_stopped, [^{]*\{ color: var\(--primary_200_color\); border-color: var\(--primary_600_color\); animation: stop_answered \.8s ease-out; \}/, sheet);
@@ -375,16 +385,20 @@ test("the settings bar draws the same actions without the shortest words", async
 });
 
 test("the main bar's stylesheet hides the long words and swaps to the shortest when narrow; strings exist in en and ja", () => {
-    const css = readFileSync(new URL("./TopBar.module.scss", import.meta.url), "utf8");
-    assert.match(css, /\.long, \.tiny \{ display: none; \}/);
-    const narrow = css.split("@mixin narrow_bar")[1].split("@container")[0];
-    assert.match(narrow, /\.short \{ display: none; \}/);
-    assert.match(narrow, /\.tiny \{ display: inline; \}/);
+    const css = readFileSync(new URL("./TopBar.css.ts", import.meta.url), "utf8");
+    assert.match(styleOf(css, "long"), /display: "none"/);
+    assert.match(styleOf(css, "tiny"), /display: "none",\s*"@container": \{ \[NARROW\]: \{ display: "inline" \} \}/);
+    assert.match(styleOf(css, "short"), /"@container": \{ \[NARROW\]: \{ display: "none" \} \}/);
     // The conversation column's width decides, not the window's (a wide rail leaves less room).
-    assert.match(css, /@container main_section \(max-width: 64rem\) \{ @include narrow_bar; \}/);
-    assert.doesNotMatch(css, /@media \(max-width: 800px\)|data-narrow/);
-    const menu = readFileSync(new URL("./right_side_components/RightSideComponents.module.scss", import.meta.url), "utf8");
-    assert.match(menu, /@container main_section \(max-width: 64rem\) \{ @include narrow_menu; \}/);
+    const narrowColumn = /const NARROW = `\$\{MAIN_SECTION_CONTAINER\} \(max-width: \$\{NARROW_COLUMN\}\)`;/;
+    assert.match(css, narrowColumn);
+    const layout = readFileSync(new URL("../../layout.ts", import.meta.url), "utf8");
+    assert.match(layout, /MAIN_SECTION_CONTAINER = "main_section";/);
+    assert.match(layout, /NARROW_COLUMN = "64rem";/);
+    assert.doesNotMatch(css, /max-width: 800px|data-narrow/);
+    const menu = readFileSync(new URL("./right_side_components/RightSideComponents.css.ts", import.meta.url), "utf8");
+    assert.match(menu, narrowColumn);
+    assert.match(styleOf(menu, "menu_text"), /"@container": \{ \[NARROW\]: readOnly \}/);
     for (const language of ["en", "ja"]) {
         const strings = readLocale(language);
         for (const key of ["quick_settings", "quick_settings_on", "quick_settings_all_off"]) assert.equal(typeof localeAt(strings, `main_page.${key}`), "string");
@@ -393,31 +407,24 @@ test("the main bar's stylesheet hides the long words and swaps to the shortest w
 });
 
 test("stop and mute keep their width in a narrow bar, and nothing runs past it; the update button keeps only its arrow there", async context => {
-    const css = readFileSync(new URL("./TopBar.module.scss", import.meta.url), "utf8");
-    // A rule at the top level of a stylesheet: the declarations between its braces.
-    const rule = (sheet: string, selector: string) => {
-        const lines = sheet.split("\n"), start = lines.findIndex(line => line.startsWith(`${selector} {`));
-        assert.ok(start >= 0, selector);
-        const rest = lines.slice(start).join("\n");
-        return rest.slice(rest.indexOf("{") + 1, rest.indexOf("}"));
-    };
+    const css = readFileSync(new URL("./TopBar.css.ts", import.meta.url), "utf8");
     // #562: the bar takes a second line rather than run past the column; the buttons on the right
     // go there, at its end, and never over stop and mute.
-    const bar = rule(css, ".container");
-    assert.match(bar, /flex-wrap: wrap/);
-    assert.match(bar, /min-height: var\(--main_page_topbar_height\)/);
-    assert.doesNotMatch(bar, /(^|[^-])height: var/, "a second line makes it taller");
+    const bar = styleOf(css, "container");
+    assert.match(bar, /flexWrap: "wrap"/);
+    assert.match(bar, /minHeight: vars\.main_page_topbar_height/);
+    assert.doesNotMatch(bar, /(^|[^A-Za-z])height: vars/, "a second line makes it taller");
     // A narrower column still: mute goes under stop, and neither button gets narrower than its words.
-    assert.match(rule(css, ".stop_actions"), /flex-wrap: wrap/);
-    assert.match(rule(css, ".stop"), /flex-shrink: 0/);
-    const right = readFileSync(new URL("./right_side_components/RightSideComponents.module.scss", import.meta.url), "utf8");
-    const group = rule(right, ".container");
-    assert.match(group, /margin-inline-start: auto/, "at the bar's end on either line");
-    assert.match(group, /flex-shrink: 0/);
-    const narrow = right.split("@mixin narrow_menu")[1].split("@container")[0];
-    assert.match(narrow, /\.software_update_label \{[^}]*clip-path: inset\(50%\)/);
+    assert.match(styleOf(css, "stop_actions"), /flexWrap: "wrap"/);
+    assert.match(styleOf(css, "stop"), /flexShrink: 0/);
+    const right = readFileSync(new URL("./right_side_components/RightSideComponents.css.ts", import.meta.url), "utf8");
+    const group = styleOf(right, "container");
+    assert.match(group, /marginInlineStart: "auto"/, "at the bar's end on either line");
+    assert.match(group, /flexShrink: 0/);
+    assert.match(styleOf(right, "software_update_label"), /"@container": \{ \[NARROW\]: readOnly \}/);
+    assert.match(right.slice(right.indexOf("const readOnly")), /^[^;]*clipPath: "inset\(50%\)"/);
     // The icon and its mark stay in a narrow bar: only the words are clipped.
-    assert.doesNotMatch(narrow, /\.update_(icon|mark)/);
+    for (const name of ["update_icon", "update_mark"]) assert.doesNotMatch(styleOf(right, name), /@container/, name);
     const { control: button, words, side } = tipped((await menu(context, { update: "available", version: "0.6.1" })).updateButton());
     assert.equal(button.type, "button");
     assert.equal(button.props.type, "button");
@@ -454,10 +461,10 @@ test("the update button names the version when the check found one, shows while 
 });
 
 test("the words added to the main page are never smaller than 12px (1.2rem at the 10px base)", () => {
-    for (const file of ["./TopBar.module.scss", "./right_side_components/RightSideComponents.module.scss",
-        "./right_side_components/_buttons/OpenQuickSettingButton.module.scss",
-        "../../sidebar_section/language_readout/LanguageReadout.module.scss"]) {
-        const sizes = [...readFileSync(new URL(file, import.meta.url), "utf8").matchAll(/font-size: ([\d.]+)rem/g)].map(match => Number(match[1]));
+    for (const file of ["./TopBar.css.ts", "./right_side_components/RightSideComponents.css.ts",
+        "./right_side_components/_buttons/OpenQuickSettingButton.css.ts",
+        "../../sidebar_section/language_readout/LanguageReadout.css.ts"]) {
+        const sizes = [...readFileSync(new URL(file, import.meta.url), "utf8").matchAll(/fontSize: "([\d.]+)rem"/g)].map(match => Number(match[1]));
         assert.ok(sizes.length > 0, file);
         assert.ok(sizes.every(size => size >= 1.2), `${file}: ${sizes}`);
     }
