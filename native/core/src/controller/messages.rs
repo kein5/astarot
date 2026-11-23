@@ -640,7 +640,7 @@ impl Core {
     }
 
     /// A realtime final with what it was admitted with when it arrived (`settings_snapshot` and
-    /// `chatbox_sequence` of `_processMessage`), then, from the microphone, its translated
+    /// `chatbox_sequence` of `_processMessage`), then, from the microphone, its
     /// speech when the voice settings let microphone finals speak (`mic_snapshot` and
     /// `speech_update`). `received_ns` is when the final arrived, on speech's clock: the flow
     /// panel times the message from it (`speech_update.received_ns`). `voices` spoke it; the
@@ -732,10 +732,24 @@ impl Core {
         let voice = (voice_generation, started_ns);
         let slots = snapshot.target_slots();
         let speaks = matches!(spec.kind, "chat" | "mic");
+        let mic_original = mic_voice.filter(|mic| mic.snapshot.speaks_original());
         // The speech server gets ready while the text is translated, so that the translation's
         // speech starts sooner (#556).
-        if snapshot.translation_enabled && (speaks || mic_voice.is_some()) {
+        if mic_original.is_none() && snapshot.translation_enabled && (speaks || mic_voice.is_some()) {
             self.warm_speech(mic_voice.is_some(), snapshot.destinations());
+        }
+        if let Some(mic) = mic_original {
+            self.publish_mic_voice(
+                &mic.snapshot,
+                &mic.update,
+                &snapshot.tab,
+                snapshot.source_language.as_deref(),
+                &snapshot.target,
+                &[],
+                &[],
+                &[],
+                &current,
+            );
         }
         if speaks {
             self.speak(SpeechStage::Original, spec, &snapshot, id.as_ref(), message, &[], voice, &current, &mut failures);
@@ -892,7 +906,7 @@ impl Core {
             let outcome: Vec<_> = outcomes.clone();
             self.speak_translated(spec, &snapshot, id.as_ref(), message, &outcome, voice, &current, &mut failures);
         }
-        if let Some(mic_voice) = mic_voice {
+        if let Some(mic_voice) = mic_voice.filter(|mic| !mic.snapshot.speaks_original()) {
             let translations: Vec<String> = outcomes.iter().map(|o| o.text.clone()).collect();
             let success: Vec<bool> = outcomes.iter().map(|o| o.success).collect();
             let provenance: Vec<&str> = outcomes.iter().map(|o| o.provenance).collect();

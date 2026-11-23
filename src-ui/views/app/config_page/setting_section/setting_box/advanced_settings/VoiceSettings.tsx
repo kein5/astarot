@@ -20,6 +20,7 @@ import type { VoiceModelRole, VoiceSettings as VoiceSettingsValue } from "../../
 
 // The speech.cpp roles, each with its server and its voice.
 const ROLES: readonly VoiceModelRole[] = ["japanese", "multilingual"];
+const SPEECH_MODES = ["off", "original", "translated"] as const;
 
 // Every field the page can make invalid: speech.cpp's seed and instructions, the installed
 // engines' reading numbers.
@@ -75,6 +76,7 @@ export const VoiceSettings = () => {
     const problem = error || status.last_error || devices.error;
     // The monitor never offers the virtual microphone's own endpoints or output.
     const monitorList = deviceList.filter(d => !d.id.startsWith("vrct.") && d.id !== (draft.routing === "managed" ? "" : draft.output_device));
+    const micSpeechOn = draft.mic_mode === "original" || draft.mic_mode === "translated";
     return <section className={styles.container} aria-label={t("voice.title")} data-setting-id="tts_settings">
         {/* What the page reads and how it starts: the heading's hint on a page that keeps descriptions out of sight (#614). */}
         <SectionLabelComponent label={t("config_page.tts.tts_settings.label")} desc={t("voice_ui.tts_description")} />
@@ -85,7 +87,7 @@ export const VoiceSettings = () => {
         <form onSubmit={e => { e.preventDefault(); if (form.dirty && validVoiceSettings(draft)) form.submit(value => send("/set/data/voice_settings", value)); }}>
             <fieldset className={styles.fields} disabled={saving}>
                 <label>{t("voice.mode")}<select aria-label={t("voice.mode")} value={draft.mode} onChange={e => field("mode", e.target.value)}>
-                    {["off", "original", "translated"].map(mode => <option key={mode} value={mode}>{t(`voice.${mode}`)}</option>)}
+                    {SPEECH_MODES.map(mode => <option key={mode} value={mode}>{t(`voice.${mode}`)}</option>)}
                 </select></label>
                 <label>{t("voice.target_slot")}<select aria-label={t("voice.target_slot")} disabled={draft.mode !== "translated" && draft.mic_mode !== "translated"}
                     value={draft.target_slot} onChange={e => field("target_slot", e.target.value)}>
@@ -109,10 +111,10 @@ export const VoiceSettings = () => {
                     {speechcpp(role) && <>{server(role)}{draft[`${role}_server`] !== "bundled" && input(`${role}_url`)}{input(`${role}_voice`)}</>}
                 </fieldset>)}
                 {/* Set once to taste (#554): the monitor, how speech.cpp generates, reading the
-                    microphone's translations aloud and the conversion. The line shows the first two. */}
+                    microphone's captions aloud and the conversion. The line shows the first two. */}
                 <AdvancedSection status={t("config_page.advanced_status.tts", {
                     monitor: t(draft.monitor === "on" ? "config_page.advanced_status.on" : "config_page.advanced_status.off"),
-                    mic: t(draft.mic_mode === "translated" ? "config_page.advanced_status.on" : "config_page.advanced_status.off") })}>
+                    mic: t(micSpeechOn ? "config_page.advanced_status.on" : "config_page.advanced_status.off") })}>
                 <fieldset className={styles.group} aria-label={t("voice_ui.monitor_heading")} data-setting-id="tts_monitor">
                     {/* What the monitor plays: the legend's hint, whose mark takes focus as a heading's does (#614). */}
                     <legend><span className={styles.hinted} data-hint-host={hints || undefined}><span>{t("voice_ui.monitor_heading")}</span>
@@ -140,10 +142,10 @@ export const VoiceSettings = () => {
                 </fieldset>)}
                 <FormRow label={t("voice.mic_mode")} description={t("voice.mic_hint")}>
                     <select aria-label={t("voice.mic_mode")} value={draft.mic_mode || "off"} onChange={e => field("mic_mode", e.target.value)}>
-                        <option value="off">{t("voice.off")}</option><option value="translated">{t("voice.mic_translated")}</option>
+                        {SPEECH_MODES.map(mode => <option key={mode} value={mode}>{t(`voice.${mode}`)}</option>)}
                     </select>
                 </FormRow>
-                <label>{t("voice.direct_policy")}<select aria-label={t("voice.direct_policy")} disabled={draft.mic_mode !== "translated"} value={draft.direct_policy || "suppress"}
+                <label>{t("voice.direct_policy")}<select aria-label={t("voice.direct_policy")} disabled={!micSpeechOn} value={draft.direct_policy || "suppress"}
                     onChange={e => field("direct_policy", e.target.value)}>
                     <option value="suppress">{t("voice.direct_suppress")}</option>
                     {/* Speech through the conversion replaces the voice; the two cannot mix (ADR-007). */}
