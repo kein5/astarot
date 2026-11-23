@@ -1,5 +1,5 @@
 import type { ComponentPropsWithoutRef, CSSProperties } from "react";
-import styles from "./CircularProgress.module.scss";
+import * as styles from "./CircularProgress.css.ts";
 import clsx from "clsx";
 
 export interface CircularProgressProps extends ComponentPropsWithoutRef<"span"> {

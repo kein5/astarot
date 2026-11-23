@@ -1,5 +1,5 @@
 import type { MouseEventHandler } from "react";
-import styles from "./ResetButton.module.scss";
+import * as styles from "./ResetButton.css.ts";
 import RedoSvg from "@images/redo.svg?react";
 
 export interface ResetButtonProps {

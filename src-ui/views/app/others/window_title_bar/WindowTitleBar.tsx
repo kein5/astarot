@@ -2,7 +2,7 @@ import { useI18n } from "@useI18n";
 import { useWindow } from "@logics_common";
 import { closeButtonLabelKey, useCloseHides } from "../../../../logics/common/closeBehavior.ts";
 // import clsx from "clsx";
-import styles from "./WindowTitleBar.module.scss";
+import * as styles from "./WindowTitleBar.css.ts";
 import XMarkSvg from "@images/cancel.svg?react";
 import SquareSvg from "@images/square.svg?react";
 import LineSvg from "@images/line.svg?react";

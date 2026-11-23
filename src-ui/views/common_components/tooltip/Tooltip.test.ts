@@ -4,6 +4,7 @@ import { test } from "vitest";
 import { hooks, loadModule, find } from "../../../logics/test/hookHarness.ts";
 import * as placement from "./tooltipPlacement.ts";
 import type { TooltipProps } from "./Tooltip.tsx";
+import { styleOf } from "../../../logics/test/styleSource.ts";
 
 const read = (path: string) => readFileSync(new URL(path, import.meta.url), "utf8");
 // The declarations a rule writes itself, before any nested rule.
@@ -15,8 +16,9 @@ const ownDeclarations = (source: string, selector: string) => {
 };
 
 const mixins = read("../../common_css/mixins.scss");
+// The same look for vanilla-extract styles (#957): the tooltipContent object of mixins.ts.
+const mixinsTs = read("../../common_css/mixins.ts");
 const bubbles = [
-    ["common_components/tooltip", read("./Tooltip.module.scss"), ".tooltipBox"],
     ["the settings' Hint", read("../../app/config_page/setting_section/setting_box/_components/hint/Hint.module.scss"), ".tip"],
 ];
 
@@ -32,6 +34,11 @@ test("the tooltip look is shadcn/ui's TooltipContent, read by DESIGN.md's rules"
     assert.match(look, /white-space: pre-line;/);
     // The colours are unchanged until D-22 (whether they are inverted) is decided.
     assert.match(look, /background-color: var\(--dark_700_color\);\s*color: var\(--dark_basic_text_color\);/);
+    // mixins.ts gives the same declarations to the styles moved to vanilla-extract.
+    const ts = mixinsTs.slice(mixinsTs.indexOf("export const tooltipContent"));
+    assert.match(ts, /width: "max-content",\s*maxWidth: "min\(36rem, 90cqi\)",\s*padding: "\.6rem 1\.2rem",\s*borderRadius: "var\(--vox_radius, \.8rem\)",/);
+    assert.match(ts, /backgroundColor: "var\(--dark_700_color\)",\s*color: "var\(--dark_basic_text_color\)",\s*fontSize: "1\.2rem",/);
+    assert.match(ts, /whiteSpace: "pre-line",/);
 });
 
 test("the common tooltip and the settings' Hint draw the same bubble, and only it", () => {
@@ -42,6 +49,10 @@ test("the common tooltip and the settings' Hint draw the same bubble, and only i
         // Nothing of the look is written over it.
         assert.doesNotMatch(own, /\b(padding|border-radius|background-color|font-size|font-weight|line-height|white-space)\s*:/, name);
     }
+    // The common tooltip, in vanilla-extract: its bubble spreads the same look and writes none over it.
+    const box = styleOf(read("./Tooltip.css.ts"), "tooltipBox");
+    assert.match(box, /\.\.\.tooltipContent,/);
+    assert.doesNotMatch(box, /\b(padding|borderRadius|backgroundColor|fontSize|fontWeight|lineHeight|whiteSpace)\s*:/);
     // The resend button's words take the bubble's size and colour, not their own.
     const resend = "../../app/main_page/main_section/message_container/log_box/message_container/message_sub_menu_container/";
     assert.doesNotMatch(read(resend + "MessageSubMenuContainer.module.scss"), /\.tooltip_title/);
@@ -103,9 +114,9 @@ test("without words the tooltip draws its control alone; a bare wrapper makes no
     assert.equal(none.draw().props.children, "button");
     const bare = await tooltip({ title: "words", children: "button", bare: true });
     assert.match(bare.draw().props.className, /\bbare\b/);
-    assert.match(ownDeclarations(read("./Tooltip.module.scss"), ".bare"), /display: contents;/);
+    assert.match(styleOf(read("./Tooltip.css.ts"), "bare"), /display: "contents",/);
     // The bubble is placed in the window, so nothing that scrolls or clips its control cuts it.
-    assert.match(ownDeclarations(read("./Tooltip.module.scss"), ".tooltipBox"), /position: fixed;/);
+    assert.match(styleOf(read("./Tooltip.css.ts"), "tooltipBox"), /position: "fixed",/);
 });
 
 const box = (left: number, top: number, width: number, height: number) => ({ left, top, width, height });

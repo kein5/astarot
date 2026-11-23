@@ -5,9 +5,12 @@ import type { CaptionOverlayBridge } from "../../logics/captionOverlay/bridge";
 import { isCaptionSnapshot, nextChange, visibleLines } from "../../logics/captionOverlay/lines";
 import type { CaptionFlowItem, CaptionSnapshot } from "../../logics/captionOverlay/lines";
 import { speakerLabels } from "../../logics/common/speakerLabels";
-import styles from "./CaptionOverlay.module.scss";
+import * as styles from "./CaptionOverlay.css.ts";
 
-// The colours a voice can take (CaptionOverlay.module.scss); the fifth voice starts over.
+// The classes looked up by a name made at run time: a name with no class of its own gives none.
+const classNamed: Partial<Record<string, string>> = styles;
+
+// The colours a voice can take (CaptionOverlay.css.ts); the fifth voice starts over.
 const VOICE_COLOURS = 4;
 // "A" is 0, "B" is 1, ... "Z" is 25, "AA" is 26: the order the server first heard the voices in.
 const voiceIndex = (label: string) => [...label].reduce((value, letter) => value * 26 + letter.charCodeAt(0) - 64, 0) - 1;
@@ -75,8 +78,8 @@ export const CaptionOverlay = ({ bridge = captionOverlayBridge, now = Date.now }
                 // The label leads the first paragraph of the line, the original or else the translation.
                 const lead = (text: string, first: boolean) => first && who ? [who, text] : text;
                 return (
-                    <div key={line.id} className={clsx(styles.line, styles[line.kind],
-                        speakers.length > 0 && styles[`voice_${voiceIndex(speakers[0]) % VOICE_COLOURS}`], {
+                    <div key={line.id} className={clsx(styles.line, classNamed[line.kind],
+                        speakers.length > 0 && classNamed[`voice_${voiceIndex(speakers[0]) % VOICE_COLOURS}`], {
                             [styles.is_fading]: line.fading, [styles.is_pending]: line.pending,
                         })}>
                         {line.text && <p className={styles.text}>{lead(line.text, true)}</p>}
@@ -119,18 +122,18 @@ const FlowStrip = ({ items, note }: FlowStripProps) => (
             const stages = item.rows.filter(row => row.kind === "stage");
             const conversion = item.rows.find(row => row.kind === "conversion");
             const outputs = item.rows.filter(row => row.kind === "chatbox" || row.kind === "speech");
-            return <div key={item.id} className={clsx(styles.flow_item, styles[`flow_${item.input}`])}>
+            return <div key={item.id} className={clsx(styles.flow_item, classNamed[`flow_${item.input}`])}>
                 <p className={styles.flow_text}>{item.text}</p>
                 <div className={styles.flow_path}>
                     <span className={clsx(styles.flow_chip, styles.flow_input)}>{item.label}</span>
                     {stages.map((row, index) => <span key={index} className={styles.flow_step}>
                         <span className={styles.flow_arrow} aria-hidden="true" />
-                        <span className={clsx(styles.flow_chip, styles.flow_stage)}>{row.label}<b>{row.value}</b></span>
+                        <span className={styles.flow_chip}>{row.label}<b>{row.value}</b></span>
                     </span>)}
                     {outputs.length > 0 && <span className={styles.flow_arrow} aria-hidden="true" />}
                     {outputs.length > 0 && <span className={styles.flow_outputs}>
                         {outputs.map((row, index) => <span key={index} className={styles.flow_step}>
-                            <span className={clsx(styles.flow_chip, styles[`flow_out_${row.kind}`], { [styles.flow_off]: row.off })}>
+                            <span className={clsx(styles.flow_chip, classNamed[`flow_out_${row.kind}`], { [styles.flow_off]: row.off })}>
                                 {row.label}<b>{row.value}</b></span>
                             {row.kind === "speech" && !row.off && conversion && <>
                                 <span className={styles.flow_arrow} aria-hidden="true" />

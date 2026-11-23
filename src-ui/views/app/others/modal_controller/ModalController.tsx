@@ -1,7 +1,7 @@
 import type { RefObject } from "react";
 import { useI18n } from "@useI18n";
 import { useConsentDialog } from "../../../../logics/common/useConsentDialog";
-import styles from "./ModalController.module.scss";
+import * as styles from "./ModalController.css.ts";
 import { useStore_OpenedQuickSetting, useStore_IsOpenedDropdownMenu } from "@store";
 import { Updater } from "@setting_box";
 

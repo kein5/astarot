@@ -6,7 +6,7 @@ import { useConsentDialog } from "../../../logics/common/useConsentDialog";
 import { TelemetryContents } from "../config_page/setting_section/setting_box/_components/telemetry/TelemetryContents";
 import styles from "../config_page/setting_section/setting_box/advanced_settings/VoiceSettings.module.scss";
 import dialogStyles from "../config_page/setting_section/setting_box/_components/download_models/LegacyModelDownloadDialog.module.scss";
-import noticeStyles from "./TelemetryNoticeController.module.scss";
+import * as noticeStyles from "./TelemetryNoticeController.css.ts";
 
 // Usage events are sent unless the user turns them off, but never before the user has
 // been told. This asks: why, what is sent, what is not, the event itself as this PC would
