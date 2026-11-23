@@ -37,12 +37,15 @@ const LARGE_PADDING: i64 = 10;
 const LARGE_CLAUSE_MARGIN: i64 = 20;
 const TEXT_SMALL: [u8; 3] = [190, 190, 190];
 const TEXT_SEND: [u8; 3] = [97, 151, 180];
-const TEXT_RECEIVE: [u8; 3] = [168, 97, 180];
-/// Who spoke on the small log: the received purple at the same hue, lighter. Its 60px stand out
-/// from the background by 6.0:1 (WCAG 2.x), above the 4.5:1 that small text needs; the received
-/// purple itself stands out by 3.4:1, which a check in a headset measured as 2.7:1.
-const TEXT_RECEIVE_WHO: [u8; 3] = [198, 152, 206];
-const TEXT_TIME: [u8; 3] = [120, 120, 120];
+/// Received messages ("Receive" on the large log's header and who spoke on the small log):
+/// the original received purple (168, 97, 180) made lighter at the same hue. Against the
+/// background (41, 42, 45) it stands out by 6.0:1 (WCAG 2.x), above the 4.5:1 that small text
+/// needs; the original stood out by 3.4:1 and measured 2.63-2.67:1 in a headset.
+const TEXT_RECEIVE: [u8; 3] = [198, 152, 206];
+/// Timestamps on the large log's header: neutral gray at 6.0:1 (WCAG 2.x) against the
+/// background, below `TEXT_SMALL`, replacing (120, 120, 120) which stood out by 3.25:1 and
+/// measured 2.27-2.43:1 in a headset.
+const TEXT_TIME: [u8; 3] = [168, 168, 168];
 const RUBY_SCALE: f64 = 0.5;
 const RUBY_SPACING: i64 = 4;
 
@@ -483,9 +486,9 @@ impl Renderer {
         self.render_rows(rows, SMALL_WIDTH, clipped)
     }
 
-    /// Who spoke, centred above the small log's message in the lighter received purple.
+    /// Who spoke, centered above the small log's message in the received purple.
     fn small_who(&self, who: &str) -> Result<Block, TooLarge> {
-        let (mut rows, clipped) = self.plain_rows(who, "Default", SMALL_WHO_FONT, TEXT_RECEIVE_WHO, (SMALL_WIDTH as f64 * 0.9) as i64, Align::Center, 10, 0);
+        let (mut rows, clipped) = self.plain_rows(who, "Default", SMALL_WHO_FONT, TEXT_RECEIVE, (SMALL_WIDTH as f64 * 0.9) as i64, Align::Center, 10, 0);
         if let Some(first) = rows.first_mut() {
             // As far from the top as a message without it starts.
             let half = i64::from(SMALL_FONT / 2);
@@ -1260,9 +1263,9 @@ mod tests {
         let named = subtitles.renderer.small_log(&spoken, Some("ミカ·B")).unwrap();
         assert_eq!(named.width, plain.width);
         assert!(named.height > plain.height, "a row for who spoke");
-        assert!(rows_with(&plain, TEXT_RECEIVE_WHO).is_empty(), "no one is written without a name or a label");
+        assert!(rows_with(&plain, TEXT_RECEIVE).is_empty(), "no one is written without a name or a label");
         if subtitles.renderer.library().any() {
-            let who = rows_with(&named, TEXT_RECEIVE_WHO);
+            let who = rows_with(&named, TEXT_RECEIVE);
             let text = rows_with(&named, TEXT);
             assert!(!who.is_empty(), "who spoke is drawn");
             assert!(who.last() < text.first(), "above the message");
@@ -1271,7 +1274,7 @@ mod tests {
         assert_eq!(subtitles.renderer.small_log(&spoken, Some("")).unwrap().height, plain.height);
     }
 
-    /// WCAG 2.x contrast of two colours.
+    /// WCAG 2.x contrast of two colors.
     fn contrast(a: [u8; 3], b: [u8; 3]) -> f64 {
         let luminance = |c: [u8; 3]| {
             let channel = |v: u8| {
@@ -1284,7 +1287,7 @@ mod tests {
         (x.max(y) + 0.05) / (x.min(y) + 0.05)
     }
 
-    /// The hue of a colour in degrees.
+    /// The hue of a color in degrees.
     fn hue(c: [u8; 3]) -> f64 {
         let [r, g, b] = c.map(|v| f64::from(v) / 255.0);
         let (max, min) = (r.max(g).max(b), r.min(g).min(b));
@@ -1294,12 +1297,50 @@ mod tests {
     }
 
     #[test]
-    fn who_spoke_stands_out_from_the_background_in_the_received_purple() {
-        // Small text needs 4.5:1 (WCAG 2.x); a headset showed less than the colours give.
-        assert!(contrast(TEXT_RECEIVE_WHO, BACKGROUND) >= 4.5, "{:.2}:1", contrast(TEXT_RECEIVE_WHO, BACKGROUND));
-        // Still the colour of received messages: the same purple, only lighter.
-        assert!((hue(TEXT_RECEIVE_WHO) - hue(TEXT_RECEIVE)).abs() < 2.0, "{} against {}", hue(TEXT_RECEIVE_WHO), hue(TEXT_RECEIVE));
-        assert!(contrast(TEXT_RECEIVE_WHO, BACKGROUND) > contrast(TEXT_RECEIVE, BACKGROUND));
+    fn received_purple_stands_out_from_the_background_at_the_same_hue() {
+        let original_receive = [168, 97, 180];
+        // Small text needs 4.5:1 (WCAG 2.x); a headset showed less than the colors give.
+        assert!(contrast(TEXT_RECEIVE, BACKGROUND) >= 4.5, "{:.2}:1", contrast(TEXT_RECEIVE, BACKGROUND));
+        // Still the color of received messages: the same purple, only lighter.
+        assert!((hue(TEXT_RECEIVE) - hue(original_receive)).abs() < 2.0, "{} against {}", hue(TEXT_RECEIVE), hue(original_receive));
+        assert!(contrast(TEXT_RECEIVE, BACKGROUND) > contrast(original_receive, BACKGROUND));
+    }
+
+    #[test]
+    fn the_large_log_header_stands_out_from_the_background() {
+        let original_time = [120, 120, 120];
+        // All header labels meet the 4.5:1 small-text threshold against the background.
+        assert!(contrast(TEXT_RECEIVE, BACKGROUND) >= 4.5, "Receive {:.2}:1", contrast(TEXT_RECEIVE, BACKGROUND));
+        assert!(contrast(TEXT_TIME, BACKGROUND) >= 4.5, "time {:.2}:1", contrast(TEXT_TIME, BACKGROUND));
+        assert!(contrast(TEXT_SEND, BACKGROUND) >= 4.5, "Send {:.2}:1", contrast(TEXT_SEND, BACKGROUND));
+        // Timestamp stays a neutral gray darker than the secondary and primary message text.
+        assert_eq!(TEXT_TIME[0], TEXT_TIME[1]);
+        assert_eq!(TEXT_TIME[1], TEXT_TIME[2]);
+        assert!(contrast(TEXT_TIME, BACKGROUND) > contrast(original_time, BACKGROUND));
+        assert!(contrast(TEXT_TIME, BACKGROUND) < contrast(TEXT_SMALL, BACKGROUND));
+        assert!(contrast(TEXT_SMALL, BACKGROUND) < contrast(TEXT, BACKGROUND));
+
+        let subtitles = renderer();
+        let recv = Entry {
+            direction: Direction::Receive,
+            subtitle: Subtitle { original: Some("こんにちは".into()), language: Some("Japanese".into()), ..Subtitle::default() },
+            time: "12:34".into(),
+            caption: None,
+            who: Some("ミカ·B".into()),
+        };
+        let sent = Entry {
+            direction: Direction::Send,
+            subtitle: Subtitle { original: Some("Hello".into()), language: Some("English".into()), ..Subtitle::default() },
+            time: "12:35".into(),
+            caption: None,
+            who: None,
+        };
+        let picture = subtitles.renderer.large_log(&[&recv, &sent]).unwrap();
+        if subtitles.renderer.library().any() {
+            assert!(!rows_with(&picture, TEXT_TIME).is_empty(), "time is drawn in TEXT_TIME");
+            assert!(!rows_with(&picture, TEXT_RECEIVE).is_empty(), "Receive is drawn in TEXT_RECEIVE");
+            assert!(!rows_with(&picture, TEXT_SEND).is_empty(), "Send is drawn in TEXT_SEND");
+        }
     }
 
     #[test]
