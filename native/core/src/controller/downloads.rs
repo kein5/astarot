@@ -260,13 +260,9 @@ fn request(data: &Value, apply: bool) -> Option<(&str, &str)> {
 }
 
 pub(crate) fn add(b: &mut Builder<'_>) {
-    b.with("/get/data/model_download_catalog", OPEN, |core, _| {
-        let mut catalog = to_value(core.ops().downloads.catalog());
-        // The reviews of the built-in CTranslate2 downloads (`legacyModelCatalog`) come with
-        // that download, which the core does not run yet: none is offered.
-        catalog["legacy_models"] = json!([]);
-        ok(catalog)
-    });
+    // The built-in CTranslate2 download and its reviews (`legacy_models`) are gone: the core
+    // retired the download in 0.5.0, and the UI's half of it went with #1015.
+    b.with("/get/data/model_download_catalog", OPEN, |core, _| ok(to_value(core.ops().downloads.catalog())));
     b.with("/get/data/model_download_hardware", OPEN, |core, _| ok(to_value(core.ops().hardware.state())));
     b.with("/run/refresh_model_download_hardware", OPEN, |core, data| {
         // The probe takes nothing from the UI: no binary, no options.

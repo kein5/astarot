@@ -3,7 +3,6 @@ import { test } from "vitest";
 import type { TestContext } from "vitest";
 import { componentNamed, findIn, hooks, loadModule, find, setRef, stubGlobals } from "../test/hookHarness.ts";
 import type { HookRuntime } from "../test/hookHarness.ts";
-import * as legacyConsent from "../configs/legacyModelConsent.ts";
 import * as endpointPrivacy from "./endpointPrivacy.ts";
 import * as languageNames from "./languageNames.ts";
 import * as modelCatalog from "../voice/modelCatalog.ts";
@@ -13,10 +12,9 @@ import * as modelRestrictions from "../voice/modelRestrictions.ts";
 const boxes = new URL("../../views/app/config_page/setting_section/setting_box/", import.meta.url);
 const entry = { id: "reviewed-model", name: "Reviewed model", target: "rvc", total_bytes: 100,
     provider: "Provider", license: "MIT", notice: "permissive", source: "https://example.test/model",
-    licenses: [], artifacts: [], destination: "/models/reviewed", kind: "whisper", weight_type: "base",
-    repo: "test/model", revision: "pinned-revision", manifest_version: "pinned-manifest" };
+    licenses: [], artifacts: [], destination: "/models/reviewed" };
 
-type Kind = "catalog" | "ocr" | "nllb" | "legacy";
+type Kind = "catalog" | "ocr" | "nllb";
 type OpenerState = "present" | "removed" | "disabled";
 
 // The catalog's headings as they are, with the hint mark as a name: the catalog draws them in place.
@@ -36,7 +34,7 @@ async function fixture(context: TestContext, kind: Kind, openerState: OpenerStat
         close() { this.open = false; order.push("close"); } };
     const dialogHooks = await loadModule(new URL("./useConsentDialog.ts", import.meta.url), runtime);
     const downloads = { catalog: { models: [{ ...entry, target: kind === "ocr" ? "ocr" : "rvc" }],
-        legacy_models: [entry], catalog_version: "reviewed-catalog" }, state: { jobs: {} }, hardware: {}, ensureHardware: () => {}, send: (endpoint: string, data?: unknown) => {
+        catalog_version: "reviewed-catalog" }, state: { jobs: {} }, hardware: {}, ensureHardware: () => {}, send: (endpoint: string, data?: unknown) => {
         calls.push([endpoint, data]);
         if (endpoint.startsWith("/run/")) order.push("request");
     } };
@@ -63,7 +61,6 @@ async function fixture(context: TestContext, kind: Kind, openerState: OpenerStat
         "./catalogLayout": { useCatalogLayout: () => "list", CatalogList: "ul", CatalogFacts: "catalog-facts", CatalogLayoutSwitch: "catalog-layout-switch", CatalogSection: "catalog-section" },
         "../advanced_settings/catalogLayout": { useCatalogLayout: () => "list", CatalogList: "ul", CatalogFacts: "catalog-facts", CatalogLayoutSwitch: "catalog-layout-switch", CatalogSection: "catalog-section" },
         "../../../../../../logics/common/languageNames": languageNames,
-        "../../../../../../../logics/configs/legacyModelConsent": legacyConsent,
         "../_components/env_readout/EnvReadout": { EnvReadout: "readout" },
         "../../../../../../logics/configs/ctranslate2License": {},
         // The translation review reads which translation models the app can use (#947).
@@ -88,8 +85,7 @@ async function fixture(context: TestContext, kind: Kind, openerState: OpenerStat
         "@ui_configs": {}, "@logics_common": {}, "@store": {},
     };
     const paths: Record<Kind, [string, string]> = { catalog: ["advanced_settings/ModelDownloads.tsx", "ModelDownloads"],
-        ocr: ["ocr/OcrModels.tsx", "OcrModels"], nllb: ["translation/Translation.tsx", "CTranslate2LicenseDialog"],
-        legacy: ["_components/download_models/LegacyModelDownloadDialog.tsx", "LegacyModelDownloadDialog"] };
+        ocr: ["ocr/OcrModels.tsx", "OcrModels"], nllb: ["translation/Translation.tsx", "CTranslate2LicenseDialog"] };
     const [path, name] = paths[kind];
     // The component named for this kind; the props below are the ones for that kind.
     const Component = componentNamed(await loadModule(new URL(path, boxes), runtime, imports), name);
@@ -97,9 +93,8 @@ async function fixture(context: TestContext, kind: Kind, openerState: OpenerStat
     const started: string[] = [];
     const props = kind === "catalog" ? { targets: ["rvc"], onStart: (id: string) => started.push(id) } : kind === "ocr"
         ? { ids: [entry.id], missing: [entry.id], onChanged: () => {}, title: "OCR models" }
-        : kind === "nllb" ? { weight: entry, action: "select", fallback: { current: section },
-            onCancel: end, onConfirm: () => { calls.push(["select"]); end(); } }
-        : { kind: "whisper", weightType: "base", onCancel: end, onDownload: (data: unknown) => calls.push(["download", data]) };
+        : { weight: entry, action: "select", fallback: { current: section },
+            onCancel: end, onConfirm: () => { calls.push(["select"]); end(); } };
     const render = () => runtime.render(Component, props, tree => {
         const dialog = find(tree, node => node.type === "dialog");
         // The test points the refs at its stand-ins.
@@ -125,7 +120,7 @@ async function fixture(context: TestContext, kind: Kind, openerState: OpenerStat
     return { render, tree, modal, calls, started, focus, order, commit, runtime, scope, opener, fallbackControl };
 }
 
-for (const kind of ["catalog", "ocr", "nllb", "legacy"] as const) {
+for (const kind of ["catalog", "ocr", "nllb"] as const) {
     for (const path of ["back/cancel", "start/consent", "escape"]) {
         for (const openerState of ["present", "removed", "disabled"] as const) {
             test(`${kind}: ${path} closes before unmount and restores focus (${openerState} opener)`, async context => {

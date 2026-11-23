@@ -19,7 +19,6 @@ import { TranslationCatalogSection } from "./TranslationCatalog";
 import { TranslationGpuRuntimes } from "./TranslationGpuRuntimes";
 import type { DropdownSelection } from "../_components/_atoms/_dropdown_menu/_DropdownMenu";
 import type { WeightTypeStatus } from "../../../../../../logics/configs/config_page_setter/settingTypes";
-import type { LegacyDownloadRequest } from "../../../../../../logics/configs/legacyModelConsent";
 
 import {
     useTranslation,
@@ -309,8 +308,6 @@ const CTranslate2WeightType_Box = () => {
     const { t } = useI18n();
     const {
         currentCTranslate2WeightTypeStatus,
-        pendingCTranslate2WeightTypeStatus,
-        downloadCTranslate2WeightTypeStatus,
 
         currentSelectedCTranslate2WeightType,
         setSelectedCTranslate2WeightType,
@@ -329,11 +326,6 @@ const CTranslate2WeightType_Box = () => {
         needsLicenseConfirmation(weight, currentSelectedCTranslate2WeightType.data) && !isConfirmed(weight);
 
     const select = (id: string) => setSelectedCTranslate2WeightType(weightRequest(id, isConfirmed(findWeight(id))));
-    const download = (request: LegacyDownloadRequest) => {
-        if (isNonCommercialRow(findWeight(request.weight_type))) license_confirmed_weights.add(request.weight_type);
-        pendingCTranslate2WeightTypeStatus(request.weight_type);
-        downloadCTranslate2WeightTypeStatus(request);
-    };
 
     const selectFunction = (id: string) => {
         const weight = findWeight(id);
@@ -388,9 +380,9 @@ const CTranslate2WeightType_Box = () => {
 
     return (
         <div ref={selection} tabIndex={-1} role="group" aria-label={t("config_page.translation.ctranslate2_weight_type.label")}>
-            {downloadReview && <LegacyModelDownloadDialog kind="ctranslate2" weightType={downloadReview}
+            {downloadReview && <LegacyModelDownloadDialog weightType={downloadReview}
                 computeDevice={currentSelectedTranslationComputeDevice?.data}
-                onCancel={() => setDownloadReview(null)} onDownload={download} />}
+                onCancel={() => setDownloadReview(null)} />}
             {confirming && (
                 <CTranslate2LicenseDialog
                     fallback={selection}

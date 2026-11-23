@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import * as legacyModelConsent from "../configs/legacyModelConsent.ts";
 import * as sharedWindow from "../configs/ocrSharedWindow.ts";
 import { atom } from "jotai/vanilla";
 import type { Atom, PrimitiveAtom, WritableAtom } from "jotai/vanilla";
@@ -137,7 +136,6 @@ export const loadBridgeRoutes = async (
         "@useI18n": { useI18n },
         "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: send }) },
         "./ui_configs": { ui_configs: {} }, "./configs/cloudTranscription": { CLOUD_TRANSCRIPTION_ENGINES: [] },
-        "./configs/legacyModelConsent": legacyModelConsent,
         "./main/translatorLabel": translatorLabel,
         "./transcription/useTranscriptionConsent": transcriptionConsent,
         "./translation/useTranslationSetup": translationSetup,
