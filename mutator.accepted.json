@@ -15,9 +15,17 @@
     "reason": "An id is retired only when it is not retired already (applyRealtimeCaption returns early for it), so there is nothing to drop.",
     "where": "src-ui/logics/transcription/realtimeCaptionState.ts:78:89 value !== id -> true"
   },
+  "1br9ti7yycl": {
+    "reason": "String() returns a string unchanged, so a saved text reads the same either way.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/translation/Translation.tsx:496:46 typeof value === \"string\" -> false"
+  },
   "1f1qquh6mls": {
     "reason": "An empty name and a placeholder that is not kana both find no kana row.",
     "where": "src-ui/logics/common/languageJumpGroups.ts:35:104 \"\" -> \"Stryker was here!\""
+  },
+  "1f8h6smysnc": {
+    "reason": "A placeholder string in place of the empty engine list has no id, so no provider counts as ready either way.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/translation/Translation.tsx:80:55 [] -> [\"Stryker was here!\"]"
   },
   "1m3wsjorz8j": {
     "reason": "NFKD puts combining marks after their base letter, so only a name that begins with a combining mark tells these apart; language names never do.",
@@ -55,6 +63,14 @@
     "reason": "A lane without outputs gets a key named 'undefined', which no output id looks up.",
     "where": "src-ui/logics/flow/flowGraph.ts:52:42 [] -> [\"Stryker was here!\"]"
   },
+  "1suzns1hw39": {
+    "reason": "A placeholder string in place of the empty engine list has no id, so no engine is found for the provider either way.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/translation/Translation.tsx:165:55 [] -> [\"Stryker was here!\"]"
+  },
+  "1y6nn9jg4dj": {
+    "reason": "isUsersWeight is false for both the empty string and the placeholder, so a model not chosen yet reads the same.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/translation/Translation.tsx:116:52 \"\" -> \"Stryker was here!\""
+  },
   "1ycrsi5wglg": {
     "reason": "settingsWithoutRead is empty: no setting is named like the placeholder, and ignoring the set changes no setting.",
     "where": "src-ui/logics/common/pendingRequestRecovery.ts:65:45 [] -> [\"Stryker was here!\"]"
@@ -62,6 +78,10 @@
   "21rl54zeu0": {
     "reason": "An unset UI language and any other unsupported one both give no groups.",
     "where": "src-ui/logics/common/languageJumpGroups.ts:27:41 \"\" -> \"Stryker was here!\""
+  },
+  "22zx9l01ujr": {
+    "reason": "useTranslation always gives this setting's state object (its store atom), so the optional chain never meets null or undefined.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/translation/Translation.tsx:392:71 ?. -> ."
   },
   "26tln7651q6": {
     "reason": "Traces are kept only after isTrace (ioFlow.ts), which requires stages to be an object.",
