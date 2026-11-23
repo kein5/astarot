@@ -540,10 +540,10 @@ mise run build:rvc-worker
 
 npm、Cargo、Pythonの依存はそれぞれ `package-lock.json`、`Cargo.lock`、`uv.lock` を使います。Pythonの検証対象はロックにある配布アーカイブとGitのcommitです。Node、Rust、Python本体、uv、Cocogittoの版は `mise.toml` で固定します。ソースビルド時に隔離環境へ追加されるビルド依存とOSライブラリは固定しません。同じビット列の配布物や全機種での動作を保証するものではありません。検証記録には `doctor --json` の結果、実行scope、commit、OSを併記します。
 
-### CIでの中核の試験の再試行（#861）
+### CIでの中核の試験の再試行
 
-CIの `core-integration` は、`native/core` の試験をcargo-nextestの `ci` プロファイルで流します（`native/core/.config/nextest.toml`）。決まった時間で待つために遅いランナーでときどき落ちる試験（#861）は、待ち方を直して落ちなくなったと確かめられるまで、このプロファイルで2回まで再試行します。
+CIの `core-integration` は、`native/core` の試験をcargo-nextestの `ci` プロファイルで流します（`native/core/.config/nextest.toml`）。JUnitの報告を書き、再試行で通った試験があれば、ジョブの要約に一覧で出して、実行に警告を付けます（`tools/ci/nextest_flaky_summary.py`）。
 
-- 再試行で通った試験は、ジョブの要約に一覧で出て、実行に警告も付きます（`tools/ci/nextest_flaky_summary.py`）。結果は通っても、1回目は落ちたことが分かります。
-- 対象の試験は、`native/core/.config/nextest.toml` の「Retries until #861 is settled」の節の一覧だけです。足すときは #861 に書いてから足し、#861 で落ちなくなったと記録したら外します。一覧が空になったら節ごと消します。
+- 2026-11-23からは、どの試験も再試行しません。それまでは、決まった時間で待つために遅いランナーでときどき落ちる試験（#861）の10個を、2回まで再試行していました。待ち方を直したあと、LinuxとWindowsで続けて流して落ちないことを確かめ、#861に記録して一覧から外しました。
+- また再試行させる試験が出たら、先にIssueに理由を書き、`native/core/.config/nextest.toml` に `[[profile.ci.overrides]]`（`filter` と `retries`）を足します。落ちなくなったとIssueに記録したら外します。
 - 手元の `python tools/dev.py check --scope rust` は既定のプロファイルで流すので、再試行しません。
