@@ -4,7 +4,7 @@ import { useI18n } from "@useI18n";
 import { useAppearance } from "@logics_configs";
 import { Fold } from "../_components/fold/Fold";
 import { Hint, useHintDescriptions } from "../_components/hint/Hint";
-import styles from "./VoiceSettings.module.scss";
+import * as styles from "./VoiceSettings.css.ts";
 import * as css from "./catalogLayout.css.ts";
 
 // The two layouts of the model catalogs (the speech recognition, text to speech and voice changer

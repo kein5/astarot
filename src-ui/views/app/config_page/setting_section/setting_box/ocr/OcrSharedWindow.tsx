@@ -4,7 +4,7 @@ import { useOcrSharedWindow } from "@logics_configs";
 import { sharedWindowView } from "../../../../../../logics/configs/ocrSharedWindow";
 import { EnvReadout } from "../_components/env_readout/EnvReadout";
 import { RegionTitle } from "./OcrRegions";
-import styles from "./Ocr.module.scss";
+import * as styles from "./Ocr.css.ts";
 
 // Linux on Wayland: share one window with chat reading through the desktop's own dialog.
 // For a VRChat window that cannot be found by its name (native Wayland). Shown nowhere else.

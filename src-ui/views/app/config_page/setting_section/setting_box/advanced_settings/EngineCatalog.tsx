@@ -10,7 +10,7 @@ import { EnvReadout } from "../_components/env_readout/EnvReadout";
 import { StableWords } from "../../../../../common_components/stable_words/StableWords";
 import { CatalogFacts, CatalogList, CatalogSection } from "./catalogLayout";
 import type { CatalogLayout } from "./catalogLayout";
-import styles from "./VoiceSettings.module.scss";
+import * as styles from "./VoiceSettings.css.ts";
 
 // The speech engines a user installs and runs themselves (ADR-008), listed beside the models.
 // The app never downloads, installs or starts them: each card sends the user to the official

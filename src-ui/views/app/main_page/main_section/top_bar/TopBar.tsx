@@ -1,4 +1,4 @@
-import styles from "./TopBar.module.scss";
+import * as styles from "./TopBar.css.ts";
 
 import { SidebarCompactModeButton } from "./sidebar_compact_mode_button/SidebarCompactModeButton";
 import { RightSideComponents } from "./right_side_components/RightSideComponents";

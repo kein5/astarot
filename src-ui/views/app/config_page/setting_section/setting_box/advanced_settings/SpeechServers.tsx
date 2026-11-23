@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useI18n } from "@useI18n";
 import { useSpeechServers } from "../../../../../../logics/voice/useSpeechServers";
 import { useSettingsDraft } from "../../../../../../logics/voice/useSettingsDraft";
-import styles from "./VoiceSettings.module.scss";
+import * as styles from "./VoiceSettings.css.ts";
 import { ModelDownloads, HardwareReadout } from "./ModelDownloads";
 import { EnvReadout } from "../_components/env_readout/EnvReadout";
 import { SetupSection } from "../_components/setup_section/SetupSection";

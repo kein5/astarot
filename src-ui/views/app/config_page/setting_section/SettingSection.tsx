@@ -1,7 +1,7 @@
 import { useRef, useLayoutEffect, useEffect } from "react";
 import type { RefObject } from "react";
 
-import styles from "./SettingSection.module.scss";
+import * as styles from "./SettingSection.css.ts";
 import { SettingBox } from "./setting_box/SettingBox";
 import { store, useStore_SelectedConfigTabId } from "@store";
 import { useSettingBoxScrollPosition } from "@logics_configs";

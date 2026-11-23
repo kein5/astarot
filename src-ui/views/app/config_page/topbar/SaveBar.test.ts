@@ -3,6 +3,7 @@ import { test } from "vitest";
 import type { TestContext } from "vitest";
 import { hooks, loadModule, find, eventTarget, stubGlobals } from "../../../../logics/test/hookHarness.ts";
 import { readLocale, localeAt, textAt } from "../../../../logics/test/locales.ts";
+import { styleOf } from "../../../../logics/test/styleSource.ts";
 
 const t = (key: string, options?: { changes?: string }) => options?.changes ? `${key}[${options.changes}]` : key;
 async function render(context: TestContext, entries: unknown, tab = "tts") {
@@ -80,17 +81,18 @@ test("the wording exists in English and Japanese and names the change", () => {
 // header does not move when a page with a form opens after one without.
 test("the save bar with its buttons is 4rem high, as the other parts of the header row", async () => {
     const { readFileSync } = await import("node:fs");
-    const css = readFileSync(new URL("./Topbar.module.scss", import.meta.url), "utf8");
-    const rule = (selector: string) => new RegExp(`^${selector.replace(".", "\\.")} \\{([^}]*)\\}`, "m").exec(css)?.[1] ?? "";
-    const rem = (text: string, property: string) => Number(new RegExp(`${property}: ([\\d.]+)rem`).exec(text)?.[1]);
-    const bar = rule(".save_bar"), buttons = rule(".discard, .save");
-    const padding = /padding: ([\d.]+)rem ([\d.]+)rem ([\d.]+)rem/.exec(bar);
+    const css = readFileSync(new URL("./Topbar.css.ts", import.meta.url), "utf8");
+    const rule = (name: string) => styleOf(css, name);
+    const rem = (text: string, property: string) => Number(new RegExp(`${property}: "([\\d.]+)rem"`).exec(text)?.[1]);
+    // Discard and save share one shape (saveButton).
+    const bar = rule("save_bar"), buttons = css.slice(css.indexOf("const saveButton")).split("} as const")[0];
+    const padding = /padding: "([\d.]+)rem ([\d.]+)rem ([\d.]+)rem/.exec(bar);
     assert.ok(padding, "the save bar's padding");
     const [top, , bottom] = padding.slice(1).map(Number);
-    const border = Number(/border: ([\d.]+)rem solid/.exec(bar)?.[1]);
-    assert.equal(+(rem(buttons, "min-height") + top + bottom + 2 * border).toFixed(2), 4);
-    assert.equal(rem(bar, "min-height"), 4);
+    const border = Number(/border: `([\d.]+)rem solid/.exec(bar)?.[1]);
+    assert.equal(+(rem(buttons, "minHeight") + top + bottom + 2 * border).toFixed(2), 4);
+    assert.equal(rem(bar, "minHeight"), 4);
     // The parts beside it: back and stop are 4rem high.
-    assert.equal(rem(rule(".back"), "min-height"), 4);
-    assert.equal(rem(rule(".stop"), "min-height"), 4);
+    assert.equal(rem(rule("back"), "minHeight"), 4);
+    assert.equal(rem(rule("stop"), "minHeight"), 4);
 });

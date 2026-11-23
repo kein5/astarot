@@ -76,11 +76,11 @@ def test_desktop_captions_are_an_unmanaged_window_above_the_others(tmp_path):
         (tmp_path / "caption-window.txt").write_text(report)
         assert "Override Redirect State: yes" in report, report
         ui.close_settings()
-        field = ui.command("POST", "/element", {"using": "css selector", "value": "textarea[class*=message_box_input_area]"})
+        field = ui.command("POST", "/element", {"using": "css selector", "value": "textarea[data-message-input]"})
         ui.element_command(field, "clear")
         ui.element_command(field, "value", {"text": "caption overlay check"})
-        ui.click('[class*="message_send_button"]')
-        ui.wait("return document.querySelector('textarea[class*=message_box_input_area]').value === ''")
+        ui.click('[data-message-send]')
+        ui.wait("return document.querySelector('textarea[data-message-input]').value === ''")
         # The overlay page reads its lines from the native side; its own document has the text.
         windows = ui.command("GET", "/window/handles")
         main = ui.command("GET", "/window")

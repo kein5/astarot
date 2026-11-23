@@ -191,7 +191,8 @@ fn read_timeout_is_short_again_after_first_pcm() {
     let mut stream = client.synthesize_stream("x", "none", "ja", &CancelToken::new(), &none());
     assert_eq!(stream.next().unwrap().unwrap().pcm(), [1, 0]);
     let started = Instant::now();
-    assert_eq!(stream.next().unwrap().unwrap_err().code(), "transport_error");
+    let error = stream.next().unwrap().unwrap_err();
+    assert_eq!((error.code(), error.detail()), ("transport_error", Some("stalled")), "#861: a stream that stopped");
     assert!(started.elapsed() < millis(300));
     release.set();
 }
@@ -201,6 +202,22 @@ fn first_audio_budget_includes_header_wait() {
     let server = PcmServer::start(ServerOptions { before_headers: Some(Arc::new(|| thread::sleep(millis(40)))), before_chunk: Some(Arc::new(|_| thread::sleep(millis(40)))), ..Default::default() });
     let client = SpeechCppTts::with_timeouts(&server.url, Duration::from_secs(2), millis(60)).unwrap();
     assert_eq!(collect(&client, "x", &CancelToken::new(), &none()).unwrap_err().code(), "first_audio_timeout");
+}
+
+#[test]
+fn a_transport_error_says_how_the_answer_failed() {
+    // #861: a read of the speech that failed after it began keeps how it failed beside the code.
+    let server = PcmServer::start(ServerOptions { truncate: true, ..Default::default() });
+    let error = speak(&server.url).unwrap_err();
+    assert_eq!((error.code(), error.detail()), ("transport_error", Some("ended_early")));
+    let url = {
+        let server = PcmServer::start(ServerOptions::default());
+        server.url.clone()
+    };
+    let error = speak(&url).unwrap_err();
+    assert_eq!((error.code(), error.detail()), ("transport_error", Some("socket")));
+    // The detail is not part of what the error is.
+    assert_eq!(error, astarot_tts::SpeechError::new("transport_error"));
 }
 
 #[test]

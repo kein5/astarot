@@ -10,7 +10,7 @@ UIから中核への要求と、中核からUIへの通知（`RUN_MAPPING`）の
 - UIの受信先: 200の応答を処理するUIのフック（`useReceiveRoutes.ts`の静的ルートと`ui_config_setter.ts`の定義から生成）。「—」は受信先がない。
 - ログで伏せる: `process.log`で値を`***MASKED***`に置き換える（`log::SENSITIVE_ENDPOINT_MARKERS`）。stdoutのIPCそのものは伏せない。
 
-## 要求（477件: 削除 13、取得 213、実行 49、有効化 41、無効化 44、設定 117）
+## 要求（481件: 削除 13、取得 214、実行 52、有効化 41、無効化 44、設定 117）
 
 並びは中核が経路を足した順（`controller/routes.rs`）。
 
@@ -423,6 +423,10 @@ UIから中核への要求と、中核からUIへの通知（`RUN_MAPPING`）の
 | `/run/register_translation_catalog_entry` | 実行 | 待つ | useTranslationCatalog.acknowledge | ログで伏せる |
 | `/run/remove_translation_catalog_entry` | 実行 | 待つ | useTranslationCatalog.acknowledge | ログで伏せる |
 | `/run/use_translation_catalog_entry` | 実行 | 待つ | useTranslationCatalog.acknowledge | ログで伏せる |
+| `/get/data/transcription_catalog` | 取得 | 可 | useTranscriptionCatalog.updateCatalog | ログで伏せる |
+| `/run/register_transcription_catalog_entry` | 実行 | 待つ | useTranscriptionCatalog.acknowledge | ログで伏せる |
+| `/run/remove_transcription_catalog_entry` | 実行 | 待つ | useTranscriptionCatalog.acknowledge | ログで伏せる |
+| `/run/use_transcription_catalog_entry` | 実行 | 待つ | useTranscriptionCatalog.acknowledge | ログで伏せる |
 | `/run/send_message_box` | 実行 | 待つ | useMessage.updateSentMessageLogById |  |
 | `/get/data/logger_feature` | 取得 | 可 | useOthers.updateFromBackendEnableAutoExportMessageLogs |  |
 | `/set/enable/logger_feature` | 有効化 | 可 | useOthers.setSuccessEnableAutoExportMessageLogs |  |
