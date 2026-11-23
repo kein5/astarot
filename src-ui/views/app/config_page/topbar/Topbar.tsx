@@ -97,7 +97,7 @@ export const Topbar = () => {
         <StopActions classes={styles} />
         {/* The save state keeps its slot on pages without forms, so the stop actions stay put. */}
         <div className={styles.save_slot}><SaveBar /></div>
-        <button type="button" className={styles.back} aria-label={t("common.go_back_button_label")} onClick={() => setIsOpenedConfigPage(false)}>
+        <button type="button" className={styles.back} data-settings-back="" aria-label={t("common.go_back_button_label")} onClick={() => setIsOpenedConfigPage(false)}>
             <ArrowLeftSvg aria-hidden="true" />
             <span className={styles.back_label} aria-hidden="true">{t("common.go_back_button_label")}</span>
         </button>
