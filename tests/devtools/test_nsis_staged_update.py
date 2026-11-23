@@ -1,5 +1,6 @@
 """Source contracts for the Windows installer; real execution lives in installer/."""
 
+import fnmatch
 import json
 from pathlib import Path
 import re
@@ -8,6 +9,9 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
 SOURCE = (ROOT / "src-tauri/nsis/template.nsi").read_text(encoding="utf-8")
+# Folders in the install folder that hold the user's own files, which "Delete AppData" keeps:
+# model folders put there for versions before #597, and exported vocabulary files.
+KEPT_USER_FOLDERS = ("translation-models", "exports")
 
 
 def block(kind, name):
@@ -256,16 +260,105 @@ class NsisAppProcessAndDataTests(unittest.TestCase):
         code = [line for line in SOURCE.splitlines() if not line.lstrip().startswith(";")]
         self.assertFalse([line for line in code if "MUI_PAGE_COMPONENTS" in line])
 
-    def test_delete_app_data_covers_state_next_to_config(self):
+    def opted_in(self):
         uninstall = block("Section", "Uninstall")
-        opted_in = uninstall.split("${If} $DeleteAppDataCheckboxState == 1", 1)[1].split("${EndIf}", 1)[0]
+        return uninstall, uninstall.split("${If} $DeleteAppDataCheckboxState == 1", 1)[1].split("\n  ${EndIf}", 1)[0]
+
+    def test_delete_app_data_covers_state_next_to_config(self):
+        uninstall, opted_in = self.opted_in()
         for line in ('RmDir /r "$INSTDIR\\downloaded_models"', 'Delete "$INSTDIR\\voice_mute_state.json"',
                      'Delete "$INSTDIR\\config.json"', 'RmDir /r "$INSTDIR\\weights"',
                      # The registered models (#403), listed in docs/spec/data-and-persistence.md.
-                     'Delete "$INSTDIR\\user_models.json"'):
+                     'Delete "$INSTDIR\\user_models.json"',
+                     # The translation catalog (#413), the keys' id and the files set aside next to
+                     # both (lock, unreadable-*, before-migration-*, temporary files).
+                     'Delete "$INSTDIR\\translation_catalog.json"', 'Delete "$INSTDIR\\secrets.json"',
+                     'Delete "$INSTDIR\\config.json.*"', 'Delete "$INSTDIR\\secrets.json.*"',
+                     'Delete "$INSTDIR\\startup_timing.log"'):
             self.assertIn(line, opted_in)
             # Kept when the box is not ticked, e.g. when an update moves the install.
             self.assertEqual(uninstall.count(line), 1)
+
+    def test_delete_app_data_covers_the_files_the_spec_lists(self):
+        # Every file and folder docs/spec/data-and-persistence.md places next to config.json or in
+        # PATH_DATA (the install folder on Windows) goes, or is one of the user's own folders.
+        _uninstall, opted_in = self.opted_in()
+        patterns = re.findall(r'(?m)^\s*Delete "\$INSTDIR\\([^"]+)"', opted_in)
+        folders = re.findall(r'(?m)^\s*RmDir /r "\$INSTDIR\\([^"\\]+)"', opted_in)
+        spec = (ROOT / "docs/spec/data-and-persistence.md").read_text(encoding="utf-8")
+        table = spec.split("## そのほかのファイル", 1)[1].split("\n## ", 1)[0]
+        names = []
+        for row in table.splitlines()[2:]:
+            cells = [cell.strip() for cell in row.strip().strip("|").split("|")]
+            if len(cells) < 2:
+                continue
+            place = cells[1].replace("`", "")
+            if "PATH_LOGS" in place or "/logs/" in place:
+                names.append("logs")
+            elif "config.jsonと同じフォルダ" in place or place == "PATH_DATA":
+                # The first name of a row is what lies in the folder (a row may go on with the
+                # files inside it, such as receipt.json).
+                names.append((re.findall(r"`([^`]+)`", cells[0]) or [cells[0]])[0])
+        for name in ("secrets.json", "telemetry_state.json", "logs", "weights/whisper/…"):
+            self.assertIn(name, names)
+        for name in names:
+            top = re.sub(r"<[^>]+>", "x", name).split("/", 1)[0].rstrip("…")
+            with self.subTest(name=name):
+                if top in KEPT_USER_FOLDERS:
+                    self.assertNotIn(top, folders)
+                    continue
+                self.assertTrue(top in folders or any(fnmatch.fnmatchcase(top, pattern) for pattern in patterns), top)
+
+    def test_the_users_own_folders_stay(self):
+        uninstall, opted_in = self.opted_in()
+        for folder in KEPT_USER_FOLDERS:
+            self.assertNotIn(f"\\{folder}", uninstall.replace(f'"$INSTDIR\\{folder}\\*.*"', ""))
+            self.assertIn(f'${{FileExists}} "$INSTDIR\\{folder}\\*.*"', opted_in)
+
+    def test_secrets_json_stays_while_a_key_of_this_folder_is_left(self):
+        # Decided on #1011: the id another uninstall needs to remove the rest stays with them.
+        _uninstall, opted_in = self.opted_in()
+        guarded = opted_in[opted_in.index('${If} $keys_left != "1"'):]
+        self.assertLess(guarded.index('Delete "$INSTDIR\\secrets.json"'), guarded.index("${EndIf}"))
+        for language in ("English", "Japanese"):
+            message = re.search(rf'LangString keysLeft \$\{{LANG_{language.upper()}\}} "([^"]*)"', SOURCE).group(1)
+            self.assertIn("secrets.json", message)
+
+    def test_delete_app_data_removes_this_folders_keys_first(self):
+        _uninstall, opted_in = self.opted_in()
+        self.assertLess(opted_in.index("Call un.DeleteStoredKeys"), opted_in.index('Delete "$INSTDIR\\secrets.json"'))
+        # The prefixes the app writes, and 0.6.0's (credentials::WINDOWS_PREFIX).
+        identity = (ROOT / "native/app-identity/src/lib.rs").read_text(encoding="utf-8")
+        older, current = re.search(r'WINDOWS_PREFIX: Renamed = Renamed::moved\("([^"]+)", "([^"]+)"\)', identity).groups()
+        self.assertIn(f'!define CREDENTIALPREFIX "{current}"', SOURCE)
+        self.assertIn(f'!define OLDCREDENTIALPREFIX "{older}"', SOURCE)
+        keys = block("Function", "un.DeleteStoredKeys")
+        self.assertLess(keys.index("Call un.ReadStoreId"), keys.index('${If} $store_id == ""'))
+        self.assertLess(keys.index('${If} $store_id == ""'), keys.index("Return"))
+        for prefix in ("CREDENTIALPREFIX", "OLDCREDENTIALPREFIX"):
+            self.assertIn(f'!insertmacro DeleteCredentials "${{{prefix}}}"', keys)
+        macro = SOURCE.split("\n!macro DeleteCredentials prefix\n", 1)[1].split("\n!macroend", 1)[0]
+        # Only this folder's names: the filter, and each name compared again before it goes.
+        self.assertIn('CredEnumerateW(w "${prefix}/$store_id/*"', macro)
+        self.assertIn('${AndIf} $5 == "${prefix}/$store_id/"', macro)
+        self.assertIn("${If} $8 = 1 ; CRED_TYPE_GENERIC", macro)
+        self.assertLess(macro.index('${AndIf} $5 == "${prefix}/$store_id/"'), macro.index("CredDeleteW"))
+        self.assertIn("CredFree", macro)
+        # The id is used only when it has the form the app makes.
+        read = block("Function", "un.ReadStoreId")
+        self.assertIn('FileOpen $0 "$INSTDIR\\secrets.json" r', read)
+        self.assertIn("""${If} $2 S== '"store_id"'""", read)
+        self.assertLess(read.index("Call un.IsStoreId"), read.index("StrCpy $store_id $2"))
+        valid = block("Function", "un.IsStoreId")
+        self.assertIn("${If} $1 = 16", valid)
+        self.assertIn('"0123456789abcdef"', valid)
+        self.assertIn("${If} $4 S== $2", valid)
+        secrets = (ROOT / "native/core/src/config/secrets.rs").read_text(encoding="utf-8")
+        self.assertIn("id.len() == 16 && id.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))", secrets)
+        # Keys that stay are named to the user, who can remove them in the Credential Manager.
+        conf = json.loads((ROOT / "src-tauri/tauri.conf.json").read_text(encoding="utf-8"))
+        for language in conf["bundle"]["windows"]["nsis"]["languages"]:
+            self.assertRegex(SOURCE, rf'LangString keysLeft \$\{{LANG_{language.upper()}\}} "[^"]*\$\{{CREDENTIALPREFIX\}}/\$store_id/[^"]*\$\{{OLDCREDENTIALPREFIX\}}/\$store_id/')
 
 
 if __name__ == "__main__":
