@@ -148,8 +148,6 @@ pub fn vocabulary_file(vocabulary: &Value) -> String {
     text
 }
 
-const EXCLUDED: [&str; 3] = ["vrct.managed.", "vrct.source-bridge.", "vrct.asr.capture."];
-
 fn decimal(text: &Value, bits: u32) -> Result<String, &'static str> {
     const INVALID: &str = "realtime_endpoint_invalid";
     let text = text.as_str().ok_or(INVALID)?;
@@ -177,7 +175,7 @@ pub fn normalize_endpoint(value: &Value, source: &str) -> Result<Value, &'static
     let name = object["name"].as_str().ok_or(ENDPOINT)?;
     let media_class = object["media_class"].as_str().ok_or(ENDPOINT)?;
     let expected = if source == "mic" { "Audio/Source" } else { "Audio/Sink" };
-    if name.is_empty() || name.contains('\0') || name.len() > 512 || EXCLUDED.iter().any(|p| name.starts_with(p)) || media_class != expected {
+    if name.is_empty() || name.contains('\0') || name.len() > 512 || astarot_app_identity::audio_route::is_own_name(name) || media_class != expected {
         return Err(ENDPOINT);
     }
     Ok(json!({ "cookie": cookie, "serial": serial, "name": name, "media_class": media_class }))
@@ -607,10 +605,20 @@ mod tests {
     }
 
     #[test]
+    fn speech_on_the_managed_route_goes_to_the_routes_tts_input() {
+        assert_eq!(astarot_tts::settings::MANAGED_TTS, astarot_audio_routing::graph::TTS_SINK);
+    }
+
+    #[test]
     fn an_endpoint_is_refused_without_a_name_or_when_it_is_one_of_the_app_s_own() {
         let endpoint = |name: &str| json!({ "cookie": "1", "serial": "1", "name": name, "media_class": "Audio/Source" });
         assert!(normalize_endpoint(&endpoint(&"a".repeat(512)), "mic").is_ok());
-        let refused = ["", "a\0b", &"a".repeat(513), "vrct.managed.tts", "vrct.source-bridge.mic", "vrct.asr.capture.mic"];
+        let long = "a".repeat(513);
+        let mut refused = vec!["", "a\0b", &long, "astarot.managed.tts", "astarot.source-bridge.mic", "astarot.asr.capture.mic"];
+        // The names of 0.6.0 and earlier, while they are read (ADR-014, 2.11).
+        if astarot_app_identity::audio_route::READS_LEGACY_NAMES {
+            refused.extend(["vrct.managed.tts", "vrct.source-bridge.mic", "vrct.asr.capture.mic"]);
+        }
         for name in refused {
             assert_eq!(normalize_endpoint(&endpoint(name), "mic"), Err("asr_capture_endpoint_invalid"), "{}", name.len());
         }

@@ -140,7 +140,7 @@ cache directory. `ASTAROT_CONFIG_DIR` and `ASTAROT_DATA_DIR` (or `VRCT_CONFIG_DI
 An explicitly supplied `HF_HOME` is respected. Existing development/Windows paths are unchanged.
 
 Managed audio still needs the explicit PipeWire setup in `local-setup-linux.md`.
-The package carries the template at `_internal/config/pipewire/90-vrct-managed.conf`;
+The package carries the template at `_internal/config/pipewire/90-astarot-managed.conf`;
 it does not install it or restart the user's audio service. Owned audio workers
 require Linux >=6.9 (`PIDFD_THREAD`), in addition to a supported PipeWire runtime.
 User RVC models remain external selections. The Seed-VC adapter and its Python setup files
