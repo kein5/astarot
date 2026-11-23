@@ -61,7 +61,7 @@ jobs:
       - name: Install wizard test driver
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: python -m pip install pywinauto==0.6.9
-      - name: GUI default uninstall-before-installing failure scenario
+      - name: GUI scenarios
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: |
           python tests/installer/windows_update_scenarios.py --mode gui --installer "$env:INSTALLER" --port 18765

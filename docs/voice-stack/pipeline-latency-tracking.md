@@ -89,7 +89,7 @@ ASTAROT_PIPELINE_BMF=pipeline-latency.json cargo test --locked --manifest-path n
 
 ## 実モデルの値
 
-#556の目標と比べる値は、`native/core/examples/pipeline_latency.rs`で実モデルを使って測ります。手順と測る区間は[2026-11-18の記録](pipeline-latency-2026-11-18.md)にあります。`--bmf <ファイル>`を付けると、要約のp50とp95を同じ形式で書き出します。
+#556の目標と比べる値は、`native/core/examples/pipeline_latency.rs`で実モデルを使って測ります。手順と測る区間は[2026-11-18の記録](pipeline-latency-2026-11-18.md)にあります。その記録は当時のままなので、クレートの名前（`vrct_tts`。今は`astarot_tts`）と、Linuxの録音の補助（`vrct-asr-capture`。今は中核がPipeWireで録音します）は古い名前です。`--bmf <ファイル>`を付けると、要約のp50とp95を同じ形式で書き出します。
 
 | ベンチマーク | 区間 |
 |---|---|

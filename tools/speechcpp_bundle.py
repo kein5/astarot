@@ -17,6 +17,11 @@ import time
 from urllib.request import urlopen
 import zipfile
 
+try:
+    from .download_retry import retrying
+except ImportError:
+    from download_retry import retrying
+
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_MANIFEST = ROOT/'docs/voice-stack/speechcpp-bundle-artifacts.json'
 NOTICES = ROOT/'licenses/speech.cpp'
@@ -103,6 +108,11 @@ def fetch_archive(asset, destination, *, opener=urlopen):
     destination = Path(destination)
     _require(not os.path.lexists(destination), 'destination_exists')
     destination.parent.mkdir(parents=True, exist_ok=True)
+    return retrying(lambda: _download_archive(asset, destination, opener), asset['url'].rsplit('/', 1)[-1])
+
+
+def _download_archive(asset, destination, opener):
+    # One try of fetch_archive: a private temporary file, checked, then linked into place.
     temporary = None
     try:
         with tempfile.NamedTemporaryFile(dir=destination.parent, suffix='.part', delete=False) as out:

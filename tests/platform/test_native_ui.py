@@ -98,7 +98,7 @@ def test_native_settings_navigation_observes_open_and_close(tmp_path):
     from native_webdriver import ROOT
 
     state = initial_state(tmp_path)
-    with private_graph(config_fragment=ROOT / 'config/pipewire/90-vrct-managed.conf'):
+    with private_graph(config_fragment=ROOT / 'config/pipewire/90-astarot-managed.conf'):
         with NativeWebDriver(tmp_path / 'ui', {'VRCT_CONFIG_DIR': str(state)}) as ui:
             ui.wait_main_ready()
             for _ in range(20):

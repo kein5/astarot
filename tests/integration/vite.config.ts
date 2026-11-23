@@ -1,5 +1,6 @@
-// The app's own build (vite.config.js) with one page: the main window with Tauri's IPC replaced
-// (app/index.html). Built into build/integration/ui and served by `vite preview` for the tests.
+// The app's own build (vite.config.js) with the main window, its Tauri IPC replaced
+// (app/index.html), and two sample pages for the user guide's screenshots. Built into
+// build/integration/ui and served by `vite preview` for the tests.
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
@@ -18,7 +19,13 @@ export default defineConfig(async env => {
             ...base.build,
             outDir: path.resolve(here, "../../build/integration/ui"),
             emptyOutDir: true,
-            rollupOptions: { input: { main: path.resolve(here, "app/index.html") } },
+            // The other two pages draw the caption window and the VR panel's flow window from
+            // sample data, for the user guide's screenshots (docsScreenshots.spec.ts).
+            rollupOptions: { input: {
+                main: path.resolve(here, "app/index.html"),
+                caption_overlay: path.resolve(here, "app/caption-overlay.html"),
+                vr_flow: path.resolve(here, "app/vr-flow.html"),
+            } },
         },
         preview: { host: "127.0.0.1", port: PORT, strictPort: true },
     };

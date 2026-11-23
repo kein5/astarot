@@ -1,6 +1,6 @@
 # リポジトリ名の変更手順（kein5/VRCT-VOX → ASTAROT）
 
-Status: **準備（0.5.0 のリリース時に実行する予定。まだ実行しない）**
+Status: **実行済み。記録**（0.5.0 のリリースのときに `kein5/astarot` へ改名した。旧名の `kein5/VRCT-VOX` は、転送ページと 0.5.0 のリリースの複製だけを持つ別のリポジトリになり、GitHub は旧名から転送しない。今の値は[名称と識別子](project-rename.md)にある。下は 2026-11-16 に書いた準備の記録で、9 節の未決事項もそのときのもの）
 Date: 2026-11-16
 Related: [ADR-011](../adr/adr-011-astarot-brand-and-multimodal-accessibility.md)、[表示名の棚卸し](astarot-rename-inventory.md)、[名称と識別子](project-rename.md)、[配布候補](release-candidates.md)
 
