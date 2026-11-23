@@ -36,7 +36,10 @@ const LARGE_RADIUS: i64 = 25;
 const LARGE_PADDING: i64 = 10;
 const LARGE_CLAUSE_MARGIN: i64 = 20;
 const TEXT_SMALL: [u8; 3] = [190, 190, 190];
-const TEXT_SEND: [u8; 3] = [97, 151, 180];
+/// Sent messages ("Send" on the large log's header): the original sent blue (97, 151, 180)
+/// made lighter at the same hue. Against the background (41, 42, 45) it stands out by 6.0:1
+/// (WCAG 2.x); the original stood out by 4.51:1 and measured 3.31:1 in a headset.
+const TEXT_SEND: [u8; 3] = [131, 174, 196];
 /// Received messages ("Receive" on the large log's header and who spoke on the small log):
 /// the original received purple (168, 97, 180) made lighter at the same hue. Against the
 /// background (41, 42, 45) it stands out by 6.0:1 (WCAG 2.x), above the 4.5:1 that small text
@@ -1308,11 +1311,15 @@ mod tests {
 
     #[test]
     fn the_large_log_header_stands_out_from_the_background() {
+        let original_send = [97, 151, 180];
         let original_time = [120, 120, 120];
         // All header labels meet the 4.5:1 small-text threshold against the background.
         assert!(contrast(TEXT_RECEIVE, BACKGROUND) >= 4.5, "Receive {:.2}:1", contrast(TEXT_RECEIVE, BACKGROUND));
         assert!(contrast(TEXT_TIME, BACKGROUND) >= 4.5, "time {:.2}:1", contrast(TEXT_TIME, BACKGROUND));
         assert!(contrast(TEXT_SEND, BACKGROUND) >= 4.5, "Send {:.2}:1", contrast(TEXT_SEND, BACKGROUND));
+        // "Send" keeps the original blue hue while gaining headroom for headset attenuation.
+        assert!((hue(TEXT_SEND) - hue(original_send)).abs() < 2.0, "{} against {}", hue(TEXT_SEND), hue(original_send));
+        assert!(contrast(TEXT_SEND, BACKGROUND) > contrast(original_send, BACKGROUND));
         // Timestamp stays a neutral gray darker than the secondary and primary message text.
         assert_eq!(TEXT_TIME[0], TEXT_TIME[1]);
         assert_eq!(TEXT_TIME[1], TEXT_TIME[2]);
