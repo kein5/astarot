@@ -1,4 +1,8 @@
 {
+  "104yqm0zo6z": {
+    "reason": "is_blocked is true only when a block is set and the page is not locked, and the locked case is answered first, so the block is set whenever this branch is reached either way.",
+    "where": "src-ui/views/vr/VrLauncher.tsx:116:68 block && is_blocked -> (block || is_blocked)"
+  },
   "106m20fdv9u": {
     "reason": "settingsWithoutRead is empty: no setting is named like the placeholder, and ignoring the set changes no setting.",
     "where": "src-ui/logics/common/pendingRequestRecovery.ts:82:31 settingsWithoutRead.has(name) -> false"
@@ -119,6 +123,10 @@
     "reason": "With no origin the main screen falls back to your language, the origin it starts with.",
     "where": "src-ui/views/vr/VrLanguageWindow.tsx:299:242 'your' -> ''"
   },
+  "1xaff0j1cwj": {
+    "reason": "WindowButton reads label only as the default for name, and the log's button passes its own name.",
+    "where": "src-ui/views/vr/VrLauncher.tsx:76:99 \"vr_panel.window_log\" -> \"\""
+  },
   "1xfgofkj8g4": {
     "reason": "A timer started for no target or for the dismissed target does nothing: show returns at once for a missing or dismissed target.",
     "where": "src-ui/views/vr/VrTooltip.tsx:118:17 target && dismissed !== target -> true"
@@ -126,6 +134,10 @@
   "1ycrsi5wglg": {
     "reason": "settingsWithoutRead is empty: no setting is named like the placeholder, and ignoring the set changes no setting.",
     "where": "src-ui/logics/common/pendingRequestRecovery.ts:65:45 [] -> [\"Stryker was here!\"]"
+  },
+  "1z8vhuql3nb": {
+    "reason": "WindowButton reads label only as the default for name, and the log's button passes its own name.",
+    "where": "src-ui/views/vr/VrLauncher.tsx:76:72 \"vr_panel.recall_log\" -> \"\""
   },
   "21rl54zeu0": {
     "reason": "An unset UI language and any other unsupported one both give no groups.",
@@ -166,6 +178,14 @@
   "2fkdjzx3nah": {
     "reason": "At the edge the difference is 0, so the list does not scroll either way.",
     "where": "src-ui/views/vr/VrLanguageWindow.tsx:281:18 row.top < bounds.top -> row.top <= bounds.top"
+  },
+  "3bksh3n2gl": {
+    "reason": "The dependencies are constant either way, so the button listens once, from the first render to unmount.",
+    "where": "src-ui/views/vr/VrLauncher.tsx:165:8 [] -> [\"Stryker was here!\"]"
+  },
+  "4msvnjptkq": {
+    "reason": "WindowButton reads label only as the default for name, and the log's button passes its own name.",
+    "where": "src-ui/views/vr/VrLauncher.tsx:76:56 is_log_lost -> true"
   },
   "5q2xciqnmq": {
     "reason": "save() cleared the notice when the change was sent, and nothing sets one while the change waits.",
@@ -242,6 +262,10 @@
   "tkbl6f4ole": {
     "reason": "A registration without endpoints is never looked up, so a placeholder endpoint is never sent.",
     "where": "src-ui/logics/common/pendingRequestRecovery.ts:145:61 [] -> [\"Stryker was here!\"]"
+  },
+  "uwvtfka6sn": {
+    "reason": "WindowButton reads label only as the default for name, and the log's button passes its own name.",
+    "where": "src-ui/views/vr/VrLauncher.tsx:76:56 is_log_lost -> false"
   },
   "wosx5e1cxg": {
     "reason": "The same effect returns the view to the main screen, so the next layout effect that reads the flag only takes the snapshot, which open() takes again before a list shows.",
