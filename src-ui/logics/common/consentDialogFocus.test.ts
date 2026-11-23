@@ -93,7 +93,9 @@ async function fixture(context: TestContext, kind: Kind, openerState: OpenerStat
     const [path, name] = paths[kind];
     // The component named for this kind; the props below are the ones for that kind.
     const Component = componentNamed(await loadModule(new URL(path, boxes), runtime, imports), name);
-    const props = kind === "catalog" ? { targets: ["rvc"] } : kind === "ocr"
+    // The catalog tells its caller which download the user started (#1015).
+    const started: string[] = [];
+    const props = kind === "catalog" ? { targets: ["rvc"], onStart: (id: string) => started.push(id) } : kind === "ocr"
         ? { ids: [entry.id], missing: [entry.id], onChanged: () => {}, title: "OCR models" }
         : kind === "nllb" ? { weight: entry, action: "select", fallback: { current: section },
             onCancel: end, onConfirm: () => { calls.push(["select"]); end(); } }
@@ -120,7 +122,7 @@ async function fixture(context: TestContext, kind: Kind, openerState: OpenerStat
         }
         await Promise.resolve();
     };
-    return { render, tree, modal, calls, focus, order, commit, runtime, scope, opener, fallbackControl };
+    return { render, tree, modal, calls, started, focus, order, commit, runtime, scope, opener, fallbackControl };
 }
 
 for (const kind of ["catalog", "ocr", "nllb", "legacy"] as const) {
@@ -155,6 +157,7 @@ for (const kind of ["catalog", "ocr", "nllb", "legacy"] as const) {
                 if (path === "start/consent" && ["catalog", "ocr"].includes(kind)) {
                     assert.deepEqual(writes[0], ["/run/start_model_download", { id: entry.id, consent: true, catalog_version: "reviewed-catalog" }]);
                 }
+                if (kind === "catalog") assert.deepEqual(s.started, path === "start/consent" ? [entry.id] : []);
             });
         }
     }
