@@ -51,7 +51,7 @@ for (const [name, oldFg, oldBg, fg, bg, minimum] of pairs) {
 test("the repaired selectors use the measured tokens; shared token values are the brand palette's", () => {
     assert.match(styleOf(read("topbar/Topbar.css.ts"), "state"), /\[`&\.\$\{is_failed\}`\]: \{ color: vars\.vox_state_failed \}/);
     assert.match(read(box + "advanced_settings/VoiceSettings.module.scss"), /button:hover:enabled\s*{\s*background: var\(--vox_secondary_hover\)/);
-    assert.equal((read(box + "ocr/Ocr.module.scss").match(/background: var\(--vox_secondary_hover\)/g) ?? []).length, 2);
+    assert.equal((read(box + "ocr/Ocr.css.ts").match(/background: vars\.vox_secondary_hover/g) ?? []).length, 2);
     const word = read(box + "_components/word_filter/WordFilter.css.ts");
     assert.match(styleOf(word, "delete_svg"), /color: vars\.vox_state_failed/);
     assert.match(styleOf(word, "action_button"), /\[`&\.\$\{delete_\}:hover`\]: \{ backgroundColor: vars\.dark_825_color \}/);
@@ -68,11 +68,12 @@ test("the repaired selectors use the measured tokens; shared token values are th
 });
 
 test("NLLB consent restores a native checkbox and visible keyboard focus", () => {
-    const css = read(box + "translation/Translation.module.scss").split(".license_check {")[1].split(".license_actions")[0];
-    assert.match(css, /appearance: auto/);
-    assert.match(css, /-webkit-appearance: checkbox/);
-    assert.match(css, /&:focus-visible\s*{\s*outline: \.2rem solid var\(--primary_200_color\)/);
-    assert.match(css, /flex-shrink: 0/);
+    const page = read(box + "translation/Translation.css.ts");
+    const css = page.slice(page.indexOf("export const license_check"), page.indexOf("export const license_actions"));
+    assert.match(css, /appearance: "auto"/);
+    assert.match(css, /WebkitAppearance: "checkbox"/);
+    assert.match(css, /input:focus-visible`, \{ outline: `\.2rem solid \$\{vars\.primary_200_color\}`/);
+    assert.match(css, /flexShrink: 0/);
 });
 
 test("available-width breakpoints stack rows at 400px/100% and 800px/200%, including fieldset padding", () => {
@@ -163,13 +164,15 @@ test("word-filter input/Add and export controls wrap within the actual available
     assert.match(entry, /width: "100%",\s*minWidth: 0/);
     assert.match(word, /globalStyle\(`\$\{entry_section_wrapper\} > :first-child`, \{ flex: "1 1 18rem", minWidth: 0, maxWidth: "30rem" \}\)/);
     assert.match(styleOf(word, "add_button"), /maxWidth: "100%",\s*overflowWrap: "anywhere"/);
-    const shared = read(box + "shared_items/SharedItems.module.scss");
-    for (const selector of ["auto_export_message_logs_container", "auto_export_message_logs_switch_section_container"]) {
-        const rules = shared.split("." + selector + " {")[1].split("}")[0];
-        assert.match(rules, /flex-wrap: wrap/);
-        assert.match(rules, /min-width: 0/);
-        assert.match(rules, /max-width: 100%/);
-    }
+    const shared = read(box + "shared_items/SharedItems.css.ts");
+    const sharedRules = styleOf(shared, "auto_export_message_logs_container");
+    assert.match(sharedRules, /flexWrap: "wrap"/);
+    assert.match(sharedRules, /minWidth: 0/);
+    assert.match(shared, /globalStyle\(`\$\{auto_export_message_logs_container\} > \*`, \{ maxWidth: "100%" \}\)/);
+    const switchRules = styleOf(shared, "auto_export_message_logs_switch_section_container");
+    assert.match(switchRules, /flexWrap: "wrap"/);
+    assert.match(switchRules, /minWidth: 0/);
+    assert.match(switchRules, /maxWidth: "100%"/);
     for (const [scroller, rem] of [[672, 20], [344, 10]]) {
         const row = scroller - (3.2 + 4) * rem;
         const add = (2 * 1.4 + 2 * 1.2) * rem; // 追加 + button padding.
@@ -369,11 +372,12 @@ test("download dialogs write byte counts in the display language", () => {
     }
 });
 test("a modal dialog dims the window with shadcn/ui's 50% black, written as a colour", () => {
-    for (const file of [box + "advanced_settings/VoiceSettings.module.scss", box + "translation/Translation.module.scss"]) {
+    for (const file of [box + "advanced_settings/VoiceSettings.module.scss"]) {
         const rules = [...read(file).matchAll(/::backdrop\s*{([^}]*)}/g)].map(match => match[1].trim());
         assert.deepEqual(rules, ["background: #00000080;"], file);
     }
-    // The same in vanilla-extract: the settings' leave dialog.
-    const top = read("topbar/Topbar.css.ts");
-    assert.deepEqual([...top.matchAll(/"&::backdrop": \{([^}]*)\}/g)].map(match => match[1].trim()), ['background: "#00000080"']);
+    // The same in vanilla-extract: the settings' leave dialog and the translation's license dialog.
+    for (const file of ["topbar/Topbar.css.ts", box + "translation/Translation.css.ts"]) {
+        assert.deepEqual([...read(file).matchAll(/"&::backdrop": \{([^}]*)\}/g)].map(match => match[1].trim()), ['background: "#00000080"'], file);
+    }
 });

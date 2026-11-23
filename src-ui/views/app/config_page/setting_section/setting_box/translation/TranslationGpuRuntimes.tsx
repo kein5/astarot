@@ -5,7 +5,7 @@ import { useVcRuntimes } from "../../../../../../logics/voice/useVcRuntimes";
 import { VcRuntimeSetup } from "../advanced_settings/VcRuntimeSetup";
 import { SectionLabelComponent } from "../_components";
 import styles from "../advanced_settings/VoiceSettings.module.scss";
-import pair from "./TranslationGpuRuntimes.module.scss";
+import * as pair from "./TranslationGpuRuntimes.css.ts";
 
 // The GPU builds of ONNX Runtime for the local translation (core-integration, decision 2 (c)).
 // The packages ship the CPU build only. These are fetched after the user's consent, where they
