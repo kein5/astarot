@@ -21,8 +21,8 @@ import intro_icon from "@images/brand/icon-small.svg";
 import intro_logo from "@images/brand/logo.svg";
 import { VrTooltipButton } from "./VrTooltip";
 import type { VrPopup } from "./VrPopupWindow";
-import shared from "./VrSettingsWindow.module.scss";
-import styles from "./VrLauncher.module.scss";
+import * as shared from "./VrSettingsWindow.css.ts";
+import * as styles from "./VrLauncher.css.ts";
 
 type Svg = ComponentType<SVGProps<SVGSVGElement>>;
 
