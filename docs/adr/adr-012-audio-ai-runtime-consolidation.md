@@ -11,6 +11,258 @@ evidence:
 ---
 # ADR-012: Audio AI Runtime Consolidation
 
+[日本語版](#adr-012-音声-ai-のランタイムの集約日本語版)
+
+Status: Accepted (2026-11-17). Sets the development principles, the division of responsibilities by function and the rules for adopting new models and runtimes. Existing code does not change.
+Date: 2026-11-17
+Decision owners: The repository maintainers
+Related: Issue #507, [ADR 001 to 003](README.md), [ADR-004](adr-004-audio-integration-boundaries.md), [ADR-005](adr-005-managed-microphone-lifetime.md), [ADR-007](adr-007-translated-speech-through-voice-conversion.md), [ADR-008](adr-008-external-speech-engines.md), [ADR-011](adr-011-astarot-brand-and-multimodal-accessibility.md), [Core integration](../voice-stack/core-integration.md), [Inference runtime comparison](../voice-stack/inference-runtime-comparison.md), `AGENTS.md`, `NOTICE.md`
+
+In this ADR, "the app" means the app in this repository. Its display name is ASTAROT, decided in ADR-011, and identifiers such as the executable name and the app ID remain VRCT-VOX.
+
+> **Migration note** (2026-11-18, Issue #587): This ADR was written while it was in `docs/voice-stack/`. The files that the body names by file name only, `core-integration.md`, `model-downloads.md` and `release-candidates.md`, are still in `docs/voice-stack/` ([Core integration](../voice-stack/core-integration.md), [Model downloads](../voice-stack/model-downloads.md), [Release candidates](../voice-stack/release-candidates.md)). The body has not been rewritten.
+
+## 1. Context
+
+### 1.1 The cost of adding runtimes
+
+The app combines speech recognition, text to speech, voice conversion, captions, OCR, translation and the VRChat integration. If each new model or feature brings its own inference runtime, the following burdens grow.
+
+- **Distribution**: The release grows in size, in runtime and GPU libraries and in model download steps. What to bundle and what to download after consent has to be decided for each runtime.
+- **Resources**: The app runs on the same PC as VRChat, so the CPU, GPU, VRAM and startup time of each runtime add up.
+- **Maintenance**: Each runtime brings its own version tracking, troubleshooting, per-OS builds, combinations of GPU execution providers and tests with fakes.
+- **Licensing**: The licenses of each runtime and model have to be tracked separately in `NOTICE.md` and the license register.
+- **Verification**: Each runtime needs checks on real hardware on both Windows and Linux.
+
+### 1.2 Current implementation (develop as of 2026-11-17)
+
+| Function | Current implementation |
+|---|---|
+| Speech recognition (including realtime), text to speech | The bundled speech.cpp server |
+| Speaker diarization | Nemotron 3 Diarization loaded into the same speech.cpp server ([Speaker diarization selection](../voice-stack/speaker-diarization-2026-11-13.md)) |
+| VAD for recordings | There is a hook for it (`vrct_transcription::vad`), but the engine is undecided. For now, recordings are split by volume (item 13 of `core-integration.md`) |
+| Speech enhancement, AI noise removal | Not implemented |
+| Voice conversion (RVC) | An in-house Rust implementation, `native/rvc-runtime`. It runs in a separate process, `vrct-rvc-worker`, and infers with ONNX Runtime (`ort`). The ONNX Runtime and CUDA libraries and the HuBERT and RMVPE weights are downloaded after consent (`NOTICE.md`) |
+| OCR | `native/ocr-runtime` (ONNX Runtime, `ort` with `load-dynamic`) |
+| Local translation | `native/translate-onnx` (ONNX Runtime, `ort` with `load-dynamic`) |
+| External translation services | A connection per provider in `native/translation` |
+| External speech synthesis engines | Connects over loopback to engines the user installed, such as VOICEVOX (ADR-008) |
+| Audio input and output, routes, virtual microphone | Rust (`native/audio-routing`, `native/asr-capture` and others) and OS APIs (WASAPI, PipeWire) |
+
+For 0.5.0, the Python runtime, CTranslate2 and Seed-VC are being taken out of the release (`core-integration.md`). This ADR sets principles and a division of responsibilities so that the same direction holds when new models are added.
+
+### 1.3 Relation to earlier ADRs
+
+- ADR 001 decided not to add inference libraries to the app and to leave inference to speech.cpp. This ADR extends that approach to all audio AI.
+- ADR 003 stated that "speech.cpp has no VC feature for raw audio". This is why RVC remains as an exception (section 6).
+- The audio route and safety rules of ADR 002, ADR-005 and ADR-007 (cancellation, mute, silence on failure, no fallback to the original voice) do not change. Section 2.5 requires the same of new models.
+- With the connection to external engines in ADR-008, the app holds no inference runtime, so this ADR does not decide whether that connection counts as an "independent AI runtime" (section 9).
+- This ADR does not answer items 13 (the VAD engine) and 53 (the runtime for OCR, translation and VAD) of `core-integration.md`. Both are to be decided against the division in section 2 (section 9).
+
+## 2. Decision
+
+### 2.1 Principles
+
+The following principle is adopted. The Japanese version quotes it word for word; the English below is a translation.
+
+> As a rule, introducing a new audio AI model gives priority to an upstream contribution to speech.cpp. An inference engine specific to VRCT-VOX or an independent AI runtime is adopted only when both a technical reason why the existing foundation cannot achieve it and a clear advantage in performance, maintenance and distribution cost have been confirmed.
+
+The principle is made concrete in these 6 points.
+
+1. **Audio AI inference is, as a rule, consolidated in speech.cpp.** When bringing in a new model, consider proposing, porting and contributing it upstream before adding a runtime specific to the app.
+2. **OCR and local translation use ONNX Runtime as their common inference foundation, as a rule.** They are not moved to speech.cpp or GGML only to match audio AI.
+3. **Rust and the OS handle audio input and output, DSP and device control.** No new AI inference runtime is brought in for general-purpose signal processing.
+4. **App-specific control stays in the app.** The UI, the translation flow, VRChat OSC, settings, authorization and the audio output policy are not the inference engine's responsibility.
+5. **Existing exceptions are not forced out.** A feature that cannot be integrated into speech.cpp today, such as RVC, may continue as a managed exception with its reasons and boundaries written down.
+6. **Consolidation is a means, not a goal.** The project does not make ports that worsen accuracy, latency, safety or maintainability, or open PRs that do not fit the upstream design approach.
+
+What is consolidated in speech.cpp is "inference of audio AI models". It does not mean moving all audio processing, all machine learning or every ONNX dependency to speech.cpp.
+
+### 2.2 Division of responsibilities by function (normative)
+
+| Function and responsibility | Owner as a rule | The app's responsibilities and boundary |
+|---|---|---|
+| Speech recognition (ASR, STT) | speech.cpp | Audio input, recognition requests, choice of language and model, where partial and final results go |
+| Text to speech (TTS) | speech.cpp | Speech requests, the choice between source text and translation, cancellation, output destination and playback control |
+| Voice activity detection (VAD) | speech.cpp | The policy for finalizing an utterance from detection results, timeout and threshold settings |
+| Speaker diarization and other speaker-related AI | speech.cpp preferred | Managing speakers within a session, display and privacy control |
+| Speech enhancement and AI noise removal | speech.cpp preferred | Which input and output routes it applies to, quality and latency settings, on and off |
+| Voice conversion (RVC and others) | The existing RVC runtime continues as a provisional exception (section 6) | Checking the conversion state, separating audio routes, stop, mute, silence on failure. Integration upstream is evaluated separately |
+| Non-AI DSP (resampling, volume, mixing, gating and so on) | Rust and proven DSP libraries | Control of the realtime audio flow and of resources |
+| Recording, playback, virtual microphone, device monitoring | Rust and OS APIs (PipeWire, WASAPI and others) | Input and output per OS, device identification and lifetime, stopping safely on failure |
+| OCR (text detection and recognition) | ONNX Runtime | Screen capture, choosing the target region, formatting results and removing duplicates |
+| Local translation | ONNX Runtime | Language choice, context, terminology, history, accepting and delivering translations |
+| External translation and LLM services | The existing provider connections | Consent, credentials, control over the data sent, handling of failures |
+| Captions, VR overlays, OBS, WebSocket, OSC | The app (Rust, UI, integration with VR and the OS) | Display, access control, delivery, history, user settings |
+| Model download, verification and version management | The app | Explicit consent, showing licenses, pinning and checking versions and hashes, compatibility and rollback |
+
+### 2.3 Steps for adding a new audio AI model
+
+When bringing in a new model for ASR, TTS, VAD, speakers, speech enhancement or VC, evaluate in this order.
+
+1. Check whether speech.cpp already has the same model or feature, and evaluate whether an existing model meets the requirement.
+2. If not, look at speech.cpp's design, API, license and model format, and check whether the model can be converted to GGML or GGUF.
+3. If it is feasible and fits upstream's scope, discuss it in advance in an issue or similar, and make an upstream contribution the first choice.
+4. Until it lands upstream, measure performance and accuracy in a test branch or PoC of the app if needed. Do not keep test code around as a product dependency.
+5. Pin the upstream version, and adopt it in the product only after checking API compatibility, the model's distribution terms and results on real Windows and Linux hardware.
+
+If upstream does not accept the proposal, porting is not practical or it would not be ready in time, go to the exception procedure in section 2.4. This does not mean the upstream contribution must always be finished first. Recording the findings of steps 1 to 3 is enough.
+
+### 2.4 Adopting a new runtime as an exception
+
+Adding another inference runtime for audio AI requires approval as an exception in an ADR of its own. The exception ADR states at least the following.
+
+- The specific feature, quality and performance requirements that speech.cpp cannot meet, and the results of verifying them
+- Why proposing or porting upstream is unsuitable, impractical or too late
+- A comparison with the other options (existing models, porting to speech.cpp, a DSP substitute)
+- The added runtime's distribution size, dependencies, CPU, GPU, VRAM, license, security and operational burden
+- The extent of Windows and Linux support, behavior without a GPU and safety on failure
+- Who is responsible, the policy for updates and vulnerabilities, and the conditions for reconsidering upstream integration or removal
+
+Approval needs both conditions in the original wording of the principle: a technical reason why the existing foundation cannot achieve it, and a clear advantage in performance, maintenance and distribution cost. Measured values come with the environment and conditions they were measured under. An exception is not a permanent entitlement; it is reviewed under the conditions in section 8.
+
+### 2.5 Components other than inference
+
+- Lightweight DSP and standard OS APIs may be adopted without moving them to speech.cpp. Overlap with existing features and realtime safety are still evaluated.
+- Adding ONNX models for OCR and translation is outside the audio AI exception procedure. Such models must still run on the existing ONNX Runtime and follow the rules on model format and distribution.
+- External cloud APIs are handled separately from local inference runtimes. Consent to sending data out, privacy and contract terms are checked separately.
+
+### 2.6 Non-functional requirements at the boundaries
+
+New models, runtimes and components meet the following.
+
+**Realtime behavior and audio routes**
+
+- Do not put inference directly on the time-critical paths of audio callbacks, the UI thread or device control.
+- Measure latency, buffering, CPU, GPU and VRAM with ASR, translation, TTS and VC running at the same time.
+- Do not assume that consolidating runtimes automatically improves VRAM sharing or GPU allocation.
+- Explicit cancellation, mute and mode changes take effect regardless of inference delays or failures.
+- A processing failure or a stopped external process must not cause an unintended switch to the original voice, old audio being sent again or other modes stopping along with it.
+- Numeric conditions for latency and stopping follow the existing accepted ADRs and acceptance tests. Do not invent new thresholds without evidence.
+
+**Dependencies, distribution and security**
+
+- Treat the inference runtime, model weights, tokenizers and other distributed files separately, and check each one's license and whether it may be redistributed.
+- Model downloads keep explicit user consent, pinned versions and checks of size and SHA-256 (`model-downloads.md`, the catalog).
+- For each added component, provide entries in `NOTICE.md` and the license register, vulnerability monitoring, signatures or hashes, and update and removal procedures.
+- When using an external server or IPC, document what is exposed, authentication, input validation, process lifetime and the handling of secrets.
+- Adding a feature must not add unauthorized network traffic or unexpected storage of audio and conversation text.
+
+**Boundaries and compatibility**
+
+- Do not make app-specific UI or the VRChat integration depend on upstream speech.cpp.
+- Handle differences between models in capability declarations and the connection layer. Do not assume a common API that does not exist.
+- Check compatibility with settings, IPC, events and stored models, and the differences in features between OSes.
+- When a change conflicts with an existing accepted ADR, write down the reason and the scope of the impact, and explicitly revise or supersede that ADR. Do not silently override an existing decision.
+
+### 2.7 Responsibility for licenses and verification
+
+- **Licenses**: The change that adds a model, engine, runtime or other distributed file (the PR, or the exception ADR for an exception) is responsible for checking its license and whether it may be redistributed. The results go in `NOTICE.md`, `docs/voice-stack/licensing.md` and the model catalog.
+- **Windows and Linux verification**: A change adopted into the product states its results on both OSes in the PR. If it cannot be checked on one OS, write "not verified", and check it during release candidate verification (`release-candidates.md`) before it goes into a stable release.
+
+## 3. Alternatives considered
+
+| Option | Description | Why it was not chosen |
+|---|---|---|
+| Mixed runtimes | Pick the best runtime for each feature case by case | The costs in section 1.1 grow with every feature. The reasons for each choice and the conditions for revisiting it are not recorded either |
+| Everything on GGML | Move OCR and translation to speech.cpp or GGML as well | OCR and translation are outside speech.cpp's scope and do not fit the upstream design. It would throw away the current implementation and verification on ONNX Runtime |
+| No principle, keep things as they are | Keep the existing setup and decide on each new model case by case | The current setup stays, but there is no criterion that stops new models from adding runtimes |
+| Rust runtimes other than ONNX Runtime (tract, rten, candle, burn) | Run OCR, translation and VAD on a different runtime | In the [inference runtime comparison](../voice-stack/inference-runtime-comparison.md), ONNX Runtime was the only one that ran every model. The option of moving VAD alone to another runtime remains undecided in item 53 of `core-integration.md` |
+
+## 4. Consequences
+
+**Gains**
+
+- Adding new audio AI models is less likely to add runtimes, distributed files, licenses or verification scope.
+- Upstream contributions reach all speech.cpp users, and the app has less code of its own to maintain.
+- Whether to adopt a model or runtime can be decided with the same procedure and record format.
+
+**Costs and risks**
+
+- Waiting for upstream to accept a change can affect when a feature arrives.
+- Changes in upstream's policy and versions affect the app. Pinning versions and reviewing under the conditions in section 8 limit this.
+- Two runtimes, speech.cpp and ONNX Runtime, remain, so there will not be a single runtime. GPU allocation and VRAM are not unified automatically either.
+- Writing exception ADRs adds work.
+
+**How to migrate**
+
+- Existing features are not rewritten all at once. This ADR does not change code.
+- Where the existing implementation differs from the division in section 2.2 (RVC), it is treated as an exception under section 6.
+- Open decisions (section 9) are made where they come up, measured against this ADR.
+
+## 5. Non-goals
+
+- Moving all machine learning processing to GGML or GGUF
+- Giving speech.cpp OCR, machine translation or VRChat-specific UI
+- Dropping or porting RVC right away
+- Deciding to adopt specific new models (TEN VAD, Kokoro and others) through this ADR alone
+- Rewriting existing features wholesale on the grounds of improving the architecture
+
+## 6. Exceptions
+
+### 6.1 Existing exception: the RVC runtime
+
+RVC voice conversion continues as a managed exception. As long as speech.cpp has no practical VC foundation, migration is not required.
+
+| Item | Details |
+|---|---|
+| Why speech.cpp cannot meet the need | speech.cpp has no VC feature that converts raw audio (ADR 003) |
+| Implementation | `native/rvc-runtime` (in-house, MIT). It infers with ONNX Runtime through `ort` in a separate process, `vrct-rvc-worker`. Its owner is `native/voice-conversion` |
+| Distribution | ONNX Runtime, the CUDA and cuDNN libraries and the HuBERT and RMVPE weights are not bundled. They are downloaded after consent (`NOTICE.md`) |
+| Safety | On failure it stops and does not fall back to the original voice. Mute and suppression of the direct voice are handled separately (ADR-007, `native/voice-conversion`) |
+| OS | On Linux, the managed route does not record through PipeWire yet, so what the core provides is limited (`native/voice-conversion/README.md`) |
+| When to revisit | When speech.cpp gains a practical VC foundation. Otherwise, as in section 8 |
+
+Of the items section 2.4 asks for, behavior without a GPU, the amount of CPU, GPU and VRAM, and the policy for updates and vulnerabilities have not been newly examined in this ADR (section 9).
+
+OCR and local translation on ONNX Runtime follow the division in section 2.2, so they are not exceptions. The Seed-VC integration (`integrations/seed_vc/`) remains in the repository, but it is not in the release from 0.5.0 on, and this ADR does not treat it as a product runtime.
+
+### 6.2 Approving new exceptions
+
+A new exception is approved in its own ADR, following section 2.4. Before approval, record the findings of steps 1 to 3 in section 2.3.
+
+> **Exception addendum** (2026-11-19, Issue #412): Running decoder-only translation LLMs such as TranslateGemma on an LLM runtime (ONNX Runtime GenAI, llama.cpp or similar) became a new exception ([ADR-015](adr-015-translation-llm-runtime-exception.md)). It is an exception to section 2.2 assigning local translation to ONNX Runtime, and its scope is limited to decoder-only translation LLMs. M2M100 and NLLB-200 stay on ONNX Runtime. The reason is that the current `native/translate-onnx` runs only the encoder-decoder form, and writing LLM generation in-house would rebuild features that LLM runtimes already have. speech.cpp does not handle machine translation (section 5), so the upstream contribution route in section 2.3 is not open either. Which runtime to use, the distribution size and the licenses are to be given in stage 2 of ADR-015. The body has not been rewritten.
+
+> **Exception addendum** (2026-11-23, Issue #1061): Japanese text to speech inside the app through VOICEVOX CORE became a new managed exception ([ADR-019](adr-019-voicevox-core-tts-runtime-exception.md)). It is an exception to section 2.2 assigning text to speech to speech.cpp, and the default speech.cpp TTS and the external connection (ADR-008) stay. The product VVM files depend on a proprietary format (`vv-bin`) and on processing specific to `voicevox_onnxruntime`, and the terms forbid reverse engineering, so they cannot be converted to speech.cpp or contributed upstream, and they cannot share the existing ONNX Runtime (`1.31.0`). A thin Rust child process (`astarot-voicevox-worker`) dynamically loads the official `voicevox_core` C API (`0.17.1`, MIT) and the stable release of `voicevox_onnxruntime` `1.17.3` (CPU build), both downloaded after consent. To begin with, it uses only a representative pack under the standard terms. Whether to start the full implementation will be decided after seeing the results of a PoC on real Windows and Linux hardware. The body has not been rewritten.
+
+## 7. Verification and acceptance criteria
+
+A change that adopts a new model, runtime or exception checks the following.
+
+| Aspect | What to check | How |
+|---|---|---|
+| Behavior | Requests, partial and final results, cancellation and failure notices work as the contract says | Tests with a fake server or a fake worker (`voice.rs`, `realtime_asr.rs` and others in `native/core/tests/`). They check the contract without the real thing |
+| Quality | Accuracy and translation quality are no worse than before the replacement or than other options | An evaluation set and metrics for each model. Values come with their environment and conditions |
+| Performance | The realtime behavior in section 2.6: latency, buffering, CPU, GPU and VRAM with ASR, translation, TTS and VC running at the same time | Measure on real Windows and Linux hardware. Numeric conditions follow the existing ADRs and acceptance tests |
+| Safety | Cancellation, mute, silence on failure, no unintended switch to the original voice, no effect on other modes | Fault-injection tests (crashing the fake worker, stopping the server and so on) |
+| Licenses and distribution | License and redistribution terms for each runtime, set of weights and tokenizer; pinned versions and SHA-256 | Checking `NOTICE.md` and the license register, the catalog matching its Rust copy (`tests/voice/test_native_ops_reference.py`), `tools/check_voice_distribution.py`, `tools/rust_licenses.py` |
+| OS | The extent of Windows and Linux support | State it in the PR as in section 2.7. Anything that cannot be checked is marked "not verified" |
+
+## 8. Revisit triggers
+
+Revisit this ADR or an exception ADR when:
+
+- speech.cpp gains a feature handled by an exception (such as VC) or a feature the project wants to add
+- upstream changes its policy, or decides not to accept a proposal
+- a model or runtime in use is upgraded to a new version
+- performance or quality gets worse on real hardware
+- the license, the redistribution terms or the download source changes (for example, the DirectML build of ONNX Runtime no longer being updated; see the [inference runtime comparison](../voice-stack/inference-runtime-comparison.md))
+- a serious vulnerability is found in a runtime
+- the range of supported OSes or GPUs changes
+
+## 9. Open questions
+
+- Whether connecting over loopback to an external engine the user installed (such as VOICEVOX in ADR-008) counts as an "independent AI runtime". The app neither bundles nor starts it, so it can be read as not counting, but this is not written down.
+- Which metrics (latency, release size, VRAM and so on), and how large a difference, establish the "clear advantage" in section 2.4.
+- The VAD engine for recordings (item 13 of `core-integration.md`) was decided as (c) on 2026-11-19. As section 2.2 says, the Silero VAD GGUF that speech.cpp downloads is used on the same server as realtime captions (3-4 of #278). speech.cpp 0.11.0 has no way to return segments with the detection model alone, so a recognition model has to be loaded for VAD. Whether to propose such a way upstream is decided in item 83 of the same document.
+- How to choose the runtime for OCR and translation (item 53 of `core-integration.md`). Section 2.2 assigned OCR and translation to ONNX Runtime but did not decide how to distribute the ONNX Runtime library (item 2 of the same document). VAD went to speech.cpp with the decision above, so it is no longer part of this item.
+- The items missing from the RVC exception record (section 6.1): behavior without a GPU, the amount of CPU, GPU and VRAM, the policy for updates and vulnerabilities, and who is responsible.
+- Speech enhancement and AI noise removal have no implementation, and whether speech.cpp can handle them has not been examined.
+
+---
+
+# ADR-012: 音声 AI のランタイムの集約（日本語版）
+
 Status: 採用（2026-11-17）。開発の原則、機能ごとの責務の分担、新しいモデルとランタイムの採用規則を定める。既存のコードは変えない。
 Date: 2026-11-17
 Decision owners: リポジトリの保守担当者

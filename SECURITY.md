@@ -1,5 +1,7 @@
 # Security policy
 
+[日本語版](#脆弱性の報告日本語)
+
 ## Supported versions
 
 | Version | Supported |
@@ -21,6 +23,8 @@ Please report vulnerabilities privately through GitHub: open the repository's **
 Include the affected version and operating system, the steps to reproduce, and the impact you expect. Remove personal data such as voice recordings, chat text, API keys and full log files you have not reviewed.
 
 This project is maintained by one person on a best-effort basis. We aim to acknowledge a report within 7 days, and we publish a fix in a new release (released assets are never replaced) together with a GitHub security advisory when the issue is confirmed.
+
+---
 
 ## 脆弱性の報告（日本語）
 

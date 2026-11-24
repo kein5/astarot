@@ -1,8 +1,8 @@
 # Accessibility
 
-ASTAROT puts captions, text to speech and chat reading into one app, so that people who find hearing, speaking or reading hard can still hold a conversation in VRChat. This page lists the help the app gives, how the app itself tries to be easy to use, and what it cannot do yet. It describes version 0.5.0. Anything planned for a later version is marked as planned.
+[日本語版](#アクセシビリティ日本語)
 
-日本語は[後半](#アクセシビリティ日本語)にあります。
+ASTAROT puts captions, text to speech and chat reading into one app, so that people who find hearing, speaking or reading hard can still hold a conversation in VRChat. This page lists the help the app gives, how the app itself tries to be easy to use, and what it cannot do yet. It describes version 0.5.0. Anything planned for a later version is marked as planned.
 
 ## Help the app gives
 

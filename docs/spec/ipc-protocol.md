@@ -1,4 +1,220 @@
-# IPCプロトコル（UIとサイドカー）
+# IPC protocol (UI and sidecar)
+
+[日本語版](#ipcプロトコルuiとサイドカー日本語版)
+
+The rules for messages between the UI (Tauri and React) and the backend. From 0.5.0 the backend is the Rust core (`native/core`) running inside the app process, and it speaks with the same line format and rules as the Python sidecar of 0.4 and earlier. This document keeps the old name and calls the backend the "sidecar". Individual endpoints are in [the IPC endpoint list](reference/ipc-endpoints.md), and error codes are in [the error code list](reference/error-codes.md).
+
+The LSP specification describes the "Base Protocol" apart from each message. Following it, this document covers only the rules common to all endpoints.
+
+## Message paths
+
+```mermaid
+flowchart LR
+  subgraph Tauri["Tauri (Rust)"]
+    main["main window (React)"]
+    vr["vr_panel window"]
+    qc["quick_chat window"]
+  end
+  side["Sidecar (the Rust core, native/core, inside the app process)"]
+  main -- "backend_write: request (one line of JSON)" --> side
+  side -- "Channel: responses and notifications (one line of JSON)" --> main
+  vr -- "Tauri command vr_panel_send (vr-panel-stdout)" --> main
+  qc -- "Tauri command quick_chat_submit" --> main
+```
+
+- Only the `main` window talks to the sidecar. The VR UI and Quick Chat go through `main` ([External interfaces](external-interfaces.md#ウィンドウ間の連携)).
+- The backend is started with `backend_start` (`src-tauri/src/backend_host.rs`), and the UI handles it through `backendCommand.ts` in the same shape as the `Command.sidecar` of 0.4 and earlier (`src-ui/views/app/_app_controllers/StartPythonController.tsx`). Requests go through `backend_write` and shutdown through `backend_kill`, and responses and notifications arrive on a channel that keeps their order. The line format and rules are the same as up to 0.4 ([Core integration](../voice-stack/core-integration.md)). Below, "stdin" and "stdout" mean these two directions, requests and responses.
+
+## Message format
+
+### Request (UI → sidecar, stdin)
+
+```json
+{"endpoint": "/set/data/osc_port", "data": "OTAwMQ=="}
+```
+
+| Field | Type | Content |
+|---|---|---|
+| `endpoint` | String | The endpoint requested |
+| `data` | String (optional) | The value passed through `JSON.stringify`, then encoded as Base64. Omitted in requests that have no value |
+
+- Each line holds one JSON object and ends with a newline (`src-ui/logics/common/useStdoutToPython.ts`).
+- The sidecar decodes `data` from Base64 and reads it as JSON (`native/core/src/protocol.rs`, the same as Python's `encodeBase64`). If it cannot be read, it becomes an empty dictionary.
+- Requests carry no sequence number. Responses are matched by `endpoint`. Language changes are managed through the owner described below. For saving the voice, RVC, speech server and real-time speech recognition settings and hotkeys, responses are matched in send order within the same endpoint. A response to a state read does not confirm a save. When a transport error during a write leaves it unknown whether the request arrived, further sends to the same save target stop until that response arrives or the session ends.
+
+### Responses and notifications (sidecar → UI, stdout)
+
+```json
+{"status": 200, "endpoint": "/set/data/osc_port", "result": 9001}
+```
+
+| Field | Type | Content |
+|---|---|---|
+| `status` | Number | Status code (see the next table) |
+| `endpoint` | String | For a response, the same endpoint as the request; for a notification, `/run/…` |
+| `result` | Any | The result. For an error, the error body |
+
+Responses and notifications have the same shape. A notification is not a response to a request: the sidecar sends it on its own, like a "Notification" in LSP or JSON-RPC (the UI does not reply).
+
+### stdout delivery and stalls
+
+- One dedicated thread serializes the writes. When the queue is empty, it waits on a condition variable with no deadline and does not poll. Responses and notifications are taken out before diagnostic logs. Up to 200 diagnostic logs are kept, and beyond that the oldest are dropped first.
+- Responses to requests (including periodic state reads), final messages, errors and completion notifications are not coalesced and are kept in the order they were queued. Of the success notifications that come from `mainloop.run`, only the following replace an undelivered entry with the same key by the newest value. The JSON shape and the status code do not change.
+
+| Notification | Coalescing key and condition | Why the newest value is enough |
+|---|---|---|
+| `/run/vr_panel_pointer` | The endpoint. Coordinates or `null` | The current position for the hover display in VR. Contains no click actions |
+| `/run/check_mic_volume`, `/run/check_speaker_volume` | Per endpoint. Numbers only | Replaces the current value of the volume meter |
+| `/run/realtime_caption` | A non-empty `partial` with the same `source`, `generation`, `namespace` and `item_id` | Replaces the full text of the same caption line. A different utterance is a different line, so it is not coalesced. An empty string retires the line, so it is kept |
+
+- A coalesced value goes to the new queue position. The remaining lines keep their order, and a state later than a start response is never sent before that response. A caption's `final`, `translated`, `discarded` and `outcome` remove the waiting partial with the same key. The delivery result `outcome` has no text and is kept as a final notification that is not coalesced ([Data formats](data-and-persistence.md#リアルタイム字幕と配送結果)). Late partials are also ignored for keys whose final line is waiting and for the 256 keys most recently taken out. A partial that is being written is handled by the single writer before the final line.
+- There are at most 64 coalescing keys. An unknown shape, an unknown notification or a new key with no free slot is kept as an ordinary line, and other caption lines and the like are not dropped. So there is no limit on the total number or total bytes of lines that must be kept.
+- A separate watch thread records once in `error.log` when no write has completed for 20 seconds while undelivered lines (including one being written) exist. The record gives the counts of kept lines, coalesced lines, diagnostic logs, lines being written and lines dropped in total. The next completed write records the recovery once. The writer and the watcher wait on separate condition variables. The watcher is woken by a signal only for the first queued line when no deadline is set, for the first success after a stall was reported, and for stopping. Ordinary queuing and completion do not wake it; it reads the latest progress time when the set deadline is reached. If the queue is empty at that point, it goes back to waiting with no deadline, and after reporting a stall it also waits with no deadline until recovery. A stall alone does not cause shutdown, a restart or requests to run again.
+- On a temporary `OSError` (such as Errno 22 on Windows), the same output line is tried up to 3 times. So that a partly written line is not joined to the next JSON, after a failure a newline must be written and flushed successfully before the next attempt. A failed newline also counts as an attempt. A broken pipe, a closed stdout and similar errors end the attempts for that line. A line given up on is recorded in `error.log` with the total count of dropped lines, and later successes do not clear that record or the total. After 50 lines fail in a row, the existing frontend-lost callback is called (the process exits if none is registered). A success resets only the count of failures in a row.
+- `sidecarSession.ts`, which the UI's `StartPythonController.tsx` uses, ignores empty lines, records lines with invalid JSON and goes on reading the following lines. When a flush fails, the whole line may already have arrived. The current format has no acknowledgment, so duplicates from retries cannot be told apart, and exactly-once delivery is not guaranteed. If transport diagnostics fail, they are not written back to stdout.
+
+### Status codes
+
+| `status` | Meaning | UI handling (`useReceiveRoutes.ts`) |
+|---|---|---|
+| 200 | Success | Passes `result` to the receiver registered for the endpoint. If there is no receiver, logs `Invalid endpoint` to the console |
+| 400 | Expected error | Dispatched by `result.error_code` ([Cross-cutting behavior](cross-cutting.md#エラーの扱い)) |
+| 404 | Endpoint does not exist | Releases the wait, goes back to the last confirmed value and reports that the operation could not be done |
+| 409 | Cannot run because the state does not fit (voice features) | The voice, RVC and speech server screens show `result.error_code` |
+| 423 | Locked (before initialization, or the same feature is busy) | Releases the wait and goes back to the last confirmed value. Tells the user to try again after the processing finishes. Arrives only when the lock did not open after waiting (see below) |
+| 500 | Unexpected exception | Releases the wait and goes back to the last confirmed value. Reads the value again if there is a matching read endpoint, and shows the existing error notification |
+| 348 | Log | Not shown. Has the form `{"status": 348, "log": …, "data": …}` and no `endpoint` |
+
+For the voice, RVC, real-time speech recognition and model download endpoints, any status other than 200 goes to each feature's error display instead of `errorHandling_Backend` (the first branch in `receiveRoutes`).
+
+A request that sets only the URL for OpenAI-compatible or Custom Whisper (`/set/data/openai_compatible_url`, `/set/data/custom_whisper_url`) returns 400 without contacting anything outside when the validated URL differs from the saved value and a key is saved. `result.error_code` is `CREDENTIAL_REENTRY_REQUIRED` and `result.data` is the saved URL, and the settings and the running state do not change. The UI releases only the wait for that URL. For the same URL it returns 200 without network access or changes, and when no key is set it saves only the URL. To change the URL and the key together, use `_auth_key_and_url` ([Changing API keys](cross-cutting.md#apiキーの変更)).
+
+### Releasing the wait on a failed request
+
+- Ordinary settings and the main features keep the last confirmed value in the atom's `data` while a request is pending. On 404, 423 and 500 they keep that value and set `state` back to `ok`. The success handler is not called, and no save-success notice is shown. When only the VR side is waiting, `main` sends the same value again.
+- On 500 the write may have been partly applied. `/set/data/…`, `/delete/data/…`, `/set/enable/…` and `/set/disable/…` are mapped to an existing `/get/data/…`, which is read again. The connection checks `/run/lmstudio_connection` and `/run/ollama_connection` use `/get/data/connected_lmstudio` and `/get/data/connected_ollama`.
+- The main switches for translation, sending and receiving transcription and OCR, and the volume tests, have no matching read endpoint. On failure they only go back to the last confirmed display and do not guess an unconfirmed result. The core added a read endpoint for `ollama_url` (`/get/data/ollama_url`).
+- A failed re-read is not repeated. If a new write is sent while a re-read is pending, the old read response does not overwrite that write's wait or value. Writes are never resent automatically. Elapsed time alone does not release a wait either.
+- When sending returns `false` or throws an exception, ordinary controls also go back to the last confirmed value. A send-failure notice is shown, but not on top of a notice that the sidecar stopped. A failed re-read alone does not add a send-failure notice on top of the original 500 notice either.
+- Language changes use the dedicated matching described below. The TTS/RVC generation numbers, the model download observation numbers and the separate error handling for 400 and 409 also stay. For TTS/RVC, 404, 423 and 500 release the wait and read the state again only when the on/off direction of the response matches the current request. A send failure releases only the waits that this send still holds.
+- In the old CTranslate2 download, different weights can be requested at the same time through the same endpoint. On 404, 423 and 500, `result.data.weight_type` returns only the failed weight, and the wait and progress of that item are released. On 500 the re-read target is `/get/data/selectable_<name>_type_dict`. `is_downloaded` is not rewritten on the guess that the download succeeded. Values from other requests and secrets are not copied into the error.
+- Sends from the input box (`/run/send_message_box`) can also have several requests waiting for the same lock. On 404, 423 and 500, `result` becomes `{"message": original result, "data": {"id": row ID}}`, and only the failed row is shown as failed. The message text is not put in the error. An error without an ID (a request with no string ID) makes every input row in progress an unconfirmed failure.
+
+### Error body
+
+```json
+{"status": 400, "endpoint": "/set/data/osc_port", "result": {
+  "error_code": "VALIDATION_OSC_PORT_INVALID",
+  "message": "OSC port is not valid",
+  "data": 9000,
+  "details": {},
+  "category": "validation",
+  "severity": "error"
+}}
+```
+
+- The core builds it in `native/core/src/errors/mod.rs` (the same shape as Python's `VRCTError.create_error_response`). `message` is a default English sentence, and in many cases the UI replaces it with a string from `locales/`.
+- `data` is "the value to restore". For a settings validation error it holds the value before saving, and the UI rolls the screen back to that value.
+- A 409 from the voice features may return only `{"error_code": "..."}`.
+- An error built from an exception has `details.exception_type`.
+
+## Endpoint names
+
+| Form | Meaning | Example |
+|---|---|---|
+| `/get/data/<name>` | Read a value | `/get/data/osc_port` |
+| `/set/data/<name>` | Write a value. The response's `result` is the value after saving | `/set/data/osc_port` |
+| `/delete/data/<name>` | Delete a value (such as an API key) | `/delete/data/deepl_auth_key` |
+| `/set/enable/<name>`, `/set/disable/<name>` | Turn a feature on and off | `/set/enable/translation` |
+| `/run/<name>` | An action, or a notification | `/run/send_message_box`, `/run/initialization_complete` |
+
+- `/run/…` is used for both requests and notifications. [The endpoint list](reference/ipc-endpoints.md) tells them apart.
+- Notification names are in the core's `RUN_MAPPING` (`native/core/src/controller/mod.rs`, the same names as Python's `run_mapping`), and a name not in the table is stopped when it is sent. The list of names is in the notifications section of [the IPC endpoint list](reference/ipc-endpoints.md).
+
+## Startup and initialization
+
+Normal release builds register `tauri-plugin-single-instance` as the first Tauri plugin.
+On a second launch, the existing `main` window is shown, restored from minimized and focused.
+The process started later exits before it starts the core, uses the microphone or reads or writes `config.json`.
+If the existing `main` has not been created yet, no window operation is done. The show request and failed operations are recorded in the existing process's `startup.log`.
+
+Debug builds, and launches that set the storage location in the environment variable `ASTAROT_CONFIG_DIR` (or `VRCT_CONFIG_DIR`), turn this control off.
+This lets a development worktree, or a native GUI test with separate state, run at the same time as the installed app.
+When the Linux release build is tested with isolated `XDG_*`, also set `ASTAROT_CONFIG_DIR` to the same settings location (`$XDG_CONFIG_HOME/astarot`).
+The Linux release build decides the storage location before this check ([Moving the Linux storage location](data-and-persistence.md#linuxの保存先の移動)). When it moves the 0.5.x folder, it first checks the single-instance names of other ASTAROT and VRCT-VOX instances, and does not move the folder if one is in use.
+On Linux the check depends on the D-Bus session bus, and where the bus cannot be reached, a second launch cannot be prevented.
+The single-instance name is made from the app ID. From 0.7.0 the app ID is `io.github.kein5.astarot`, so this check does not stop a launch even while a version up to 0.6.x (`io.github.kein5.vrct-vox`) is running.
+The settings location and the behavior of `config.json.lock` do not change. The check and the environment variables for test launches are verified by `tests/devtools/test_single_instance.py`.
+
+```mermaid
+sequenceDiagram
+  participant UI as UI (main)
+  participant S as Sidecar
+  UI->>S: Start (spawn)
+  Note over S: The receiver thread, 3 processing workers and the thread that handles watchdog feeds start first
+  S-->>UI: /run/connected_network
+  S-->>UI: /run/initialization_progress (1 to 4)
+  S-->>UI: /run/enable_ai_models
+  S-->>UI: /run/selected_translation_engines and others
+  S-->>UI: /run/initialization_complete {"/get/data/…": value, …}
+  Note over S: All endpoint locks are released here
+  UI->>S: /run/feed_watchdog (every 20 seconds)
+```
+
+1. The sidecar starts the receiver thread, the processing workers and the thread that handles watchdog feeds, then runs `controller.init()`. Requests that arrive during initialization and have `"status": False` in `mapping` (turning translation or speech recognition on or off, sending messages and so on) are treated as locked.
+2. At the end of initialization, the sidecar sends `/run/initialization_complete`, which combines the results of almost every `/get/data/…` into one. It leaves out 9 of them: `available_releases` and `realtime_asr_models`, which use the network; `ocr_readiness`, which inspects the screen; `ocr_capture_status`, which shows a running state; `vrchat_osc_presence`; `telemetry_preview`; `tts_engine_voices`; `overlay_font_missing_languages`, which looks up the system fonts; and `gpu_memory`, which reads GPU memory (`INIT_EXCLUDED` in the core's `controller/lifecycle.rs`). The UI requests `realtime_asr_models` after it receives `/run/initialization_complete`. An item whose value could not be read is `null`.
+3. The UI hands each item of `/run/initialization_complete` to its receiver, sets `IsBackendReady` to true and enables the main screen (until then it shows placeholders that cannot be operated; [Handling during initialization](cross-cutting.md#初期化中オフライン能力の不足)). It first checks that each value has the shape its receiver needs: array, object, string, number or boolean. It accepts `null` where it means "not set", as for an API key or a model not yet chosen. If a required value is missing, has the wrong shape or throws an exception while being applied, the UI keeps the safe initial value for that item and moves on to the next item. The initial language values provide display slots for every tab, and language names not yet received use the existing loading display. The UI logs each failed item name and reason once to the console, without the value itself. If anything failed, the existing persistent warning notice says, in the UI language included in the same result, that some settings could not be loaded. At this point the UI fetches the voice, speech server, real-time speech recognition and model download states again itself.
+4. All endpoint locks are released only after `init()` returns.
+
+The owner of the startup is held in `store.backend_session_owner` (`src-ui/logics/common/sidecarSession.ts`). Several controllers, StrictMode effect re-runs and remounts from an error boundary connect to the same session and do not start a second sidecar. For stdout, stderr, close, error and the completion of asynchronous work, it is checked that the session is the current one. Notifications from an old child process and completions of old writes do not change the state of the new session.
+
+A refused spawn, an `error` from the command before the child process exists, and an unexpected exit before the 200 initialization-complete notification set `BackendStartupState` to `failed`. A successful spawn and the completion of initialization are recorded separately. An `error` while running (such as a failure to read stdout or stderr) is only recorded, and the child process is not stopped. The reason for the failure (it could not spawn, or it exited before it was ready; for an exit, the code or signal) is recorded in `BackendStartupFailure`, and the UI shows a persistent startup-failure dialog over the inoperable main screen, with the reason, what to do next and buttons for "Try starting again" and quitting. Readiness is derived from `BackendStartupState` and `IsBackendReady` (`src-ui/logics/common/startupPhase.ts`), with no separate state. Only when the user presses the button does the UI retry, after waiting for the failed spawn to complete and for the child process's shutdown. While waiting, it closes the dialog, goes back to the starting display and ignores repeated presses. If the shutdown fails, it does not start a new child process and goes back to the failure guidance. There is no automatic retry and no resending of uncertain writes.
+
+The Rust core also reports with an exit code when it stops while getting ready (`native/core/src/backend.rs`). When the preparation panics, or its thread cannot be started, the core exits with `101` (`STARTUP_FAILED_EXIT`). When the preparation has not finished after 180 seconds (`STARTUP_LIMIT`), it exits with `124` (`STARTUP_TIMEOUT_EXIT`). In both cases it does not open the endpoints. If the preparation finishes after the deadline, it still does not open them. It writes only one fixed line to `error.log`, not the panic message (which can contain what the user said). The startup-failure dialog tells these two codes apart as "stopped on an internal error" and "did not finish getting ready in time", and for any other code shows "stopped while it was getting ready" with the code.
+
+Both `failed` and `stopped` set `IsBackendReady` to false and disable global hotkeys and sending from Quick Chat. If the sidecar exits after initialization, the main screen stays and does not go back to the inoperable starting display. The main feature switches keep their last confirmed values but are not shown as running: their text and accessible names say that the connection was lost, and they are disabled. While there is no sidecar, these switches send no requests.
+
+The core is started, given input and stopped with the Tauri commands `backend_start`, `backend_write` and `backend_kill` (`src-tauri/src/backend_host.rs`). All three accept calls only from the `main` window and return `backend_forbidden` to other windows. Input and stop work only when the session ID handed out at start matches the current run. A new start stops the previous run first. The app does not include the shell plugin (up to 0.4 it started the Python sidecar). Links open only through the opener plugin's list. The UI does not read or write files or make HTTP requests itself, so the app does not include the fs and http plugins (security audit SEC-05). `src-ui/logics/common/appPermissions.test.ts` checks the permission list against how the UI makes its calls.
+
+These are verified in `src-ui/logics/useReceiveRoutes.test.ts`, `src-ui/logics/common/sidecarSession.test.ts` and `useStdoutToPython.test.ts`, which simulate spawn and child-process events.
+
+## Concurrency and locks
+
+- Requests go into a queue, and 3 workers (`DEFAULT_WORKER_COUNT`) process them. Requests that use the same lock run in the order received (FIFO), and each sends its response before the next one starts. Requests with different locks can run in parallel and do not necessarily finish in the order they arrived. This queue does not guarantee order relative to messages that arrive on other paths, such as the microphone or OCR.
+- Each endpoint has a lock. `/set/enable/x` and `/set/disable/x` use the same lock. When a lock is in use, the first request for that lock is held in the queue until a completion signal. While it waits, it does not occupy a worker, and later requests for the same lock cannot overtake it. If the first request still cannot take the lock about 20 seconds after it started waiting, it returns 423 without being processed. This timeout response does not wait for the running request to finish. Workers also wake at intervals of at most 0.5 seconds to check for a stop.
+- For translation and transcription engines with API keys, changing or deleting a key of the same service, choosing a model, changing the OpenAI-compatible or Custom Whisper URL and saving a URL and key pair are processed under the same lock in the order received. Requests for different services can run in parallel. Applying the settings and the prepared client also uses a shared lock. The shared lock is not held while the service is being queried ([Changing API keys](cross-cutting.md#apiキーの変更)).
+- Turning OBS and WebSocket on or off, and writes to the WebSocket host and port and the OBS port, use the same lock so that a server they depend on is not stopped partway. The next operation does not start until the listen check, committing the settings and recovery on failure are finished. The wait limit is the same as for ordinary endpoint locks.
+- Starting (`/run/typing_message_box`) and stopping (`/run/stop_typing_message_box`) the typing indicator are processed in the order received under the shared `/lock/typing_message_box`. A later stop never overtakes an earlier start, even before the worker that took the start begins processing it. The request and response formats and the usual lock wait limit do not change.
+- A request that hits the lock before initialization (`"status": False`) is held at the head of the same lock and retried every 0.1 seconds. After 300 tries (about 30 seconds) it returns 423. The wait between retries does not occupy a worker either.
+- The following requests skip the queue and are processed as soon as they are received, so that stop operations do not wait behind other heavy work: `/run/stop_voice`, `/run/disable_tts`, `/run/mute_voice`, `/run/resume_voice`, `/run/stop_direct_voice`, `/run/stop_realtime_asr`, `/run/stop_speech_server`, `/run/stop_voice_audition` (core only).
+- `/run/feed_watchdog` also skips the queue, and a dedicated thread processes it in the order received. Even when all 3 workers are busy with heavy work, the watchdog feed is not delayed, and the watchdog does not stop a sidecar that is running.
+- The receiver thread attaches a generation number to some requests (such as `_voice_generation` on `/run/send_message_box`), so that a request's audio does not play later if a stop happened while the request waited in the queue ([Cross-cutting behavior](cross-cutting.md#停止とミュート)).
+- `/run/start_realtime_asr` and the main switches that use real-time speech recognition (`/set/enable/transcription_send`, `/set/enable/transcription_receive`) get the `_realtime_generation` at the time of receipt. The generation is kept while the server gets ready, and a request made stale by a stop that arrives later does not start recording. For the main switches, the existing 400 `TRANSCRIPTION_SEND_NOT_READY` / `TRANSCRIPTION_RECEIVE_NOT_READY` (`data: false`, `details.reason: realtime_stale_start`) is returned. A built-in server started by a cancelled request is released unless another start or a running speech recognition uses it.
+
+### Matching language changes
+
+Only for writes to `selected_your_languages`, `selected_target_languages`, `selected_translation_engines` and `selected_tab_no` does the UI remember an ID and the state before sending for each request (`src-ui/logics/main/languageMutationCoordinator.ts`). When 400, 404, 423 or 500 comes back, it reads all language values again. When there is no response within 30 seconds, it shows "Not confirmed" but keeps ownership of the request and waits for the final response. This keeps a late response from being mistaken for another request's. So if a response is lost, the languages cannot be changed until the sidecar is started again. The ID is not sent to the sidecar.
+
+## Watchdog and shutdown
+
+- After startup, the UI sends `/run/feed_watchdog` every 20 seconds. There is one timer per session: it is cleared when the last controller detaches and restarts on reconnection. If the spawn completes after unmount and there is no controller, no timer is created. The sidecar stops itself if nothing arrives for 60 seconds (`WATCHDOG_TIMEOUT`, `WATCHDOG_INTERVAL`). If stopping does not finish in 30 seconds, the process is killed.
+- When the main window closes, whether by the close button, Alt+F4 or the taskbar, the UI sends `/run/shutdown` once, waits 2 seconds and then destroys the window (`WindowCloseController` in `src-ui/logics/common/useWindow.ts`). Shutdown work that has not finished in 2 seconds does not run to the end, because the core's run is stopped when the app exits (`BackendHost::shutdown`).
+- When stdin closes (EOF), the sidecar assumes that the UI has ended and, without waiting for the watchdog deadline, enters the same shutdown as a watchdog timeout (`escalateShutdown`). An EOF after a stop was requested does nothing. Stopping the sidecar when the UI hangs and does not read the output is still the watchdog's job.
+- When the sidecar process ends, the UI releases the waits of ordinary atoms, language changes, TTS/RVC, the speech server, real-time ASR and model downloads. Downloads and servers that were running are shown as unavailable, and operations that were waiting are not resent. No polling is sent after the stop.
+- Unless it is a planned exit through `/run/shutdown`, `/run/update_software` or `/run/update_cuda_software`, the existing persistent notice says that the engine has stopped and a restart is needed (`StartPythonController.tsx`). A planned exit also releases the waits. A planned exit is kept per session and per endpoint, and is cleared by a send failure or a response other than 200. A failed update download or verification also clears it and returns the updating screen to its earlier state. A crash after that is reported as usual. A planned exit is not carried over to the next session.
+
+## stderr and logs
+
+- Lines on stderr that are judged to be warnings (`src-ui/logics/common/sidecarDiagnostics.ts`) are ignored. Other lines are shown as persistent error notices.
+- Lines with status 348 are logs, and the UI does not show them. The same content is also written to `process.log`.
+- For the states that the UI polls every 0.5 to 1 second (`POLLED_ENDPOINTS`: the voice state, the route, the voice conversion state, the speech server, real-time speech recognition, model downloads and TTS voice previews), successful responses (200) are written neither to `process.log` nor as status 348 lines. The responses themselves are sent to the UI. Failed responses are written. Successful volume values that the volume check in Settings sends (`/run/check_mic_volume`, `/run/check_speaker_volume`) are not written to `process.log` either.
+- The UI's two volume meters reuse the atom object when both the value and `state` are the same. The receiving side does not subscribe to the meter values; it only writes them. This does not change what a repeated notification means for other atoms (`src-ui/logics/common/meterValue.test.ts`).
+- When a response cannot be turned into JSON, 500 is sent to the UI, and only the response's shape without values (the sequence of types) is written to `process.log`.
+- Logs mask values such as API keys (`SENSITIVE_ENDPOINT_MARKERS`). Conversation text is not written to `process.log`. The IPC on stdout itself is not masked.
+
+---
+
+# IPCプロトコル（UIとサイドカー）（日本語版）
 
 UI（Tauri＋React）とバックエンドの間のメッセージの規則。0.5.0からバックエンドはアプリのプロセスの中で動くRustの中核（`native/core`）で、0.4までのPythonのサイドカーと同じ行の形と規則で話す。この文書では、バックエンドを以前の呼び名のまま「サイドカー」と書く。個々のエンドポイントは[IPCエンドポイント一覧](reference/ipc-endpoints.md)、エラーコードは[エラーコード一覧](reference/error-codes.md)にある。
 

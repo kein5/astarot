@@ -1,5 +1,7 @@
 # Getting help
 
+[日本語版](#困ったときは日本語)
+
 ASTAROT is maintained by one person on a best-effort basis. Replies may take some time, and there is no support channel outside GitHub.
 
 | You want to… | Go to |
@@ -17,6 +19,8 @@ Before you open an issue, search the [existing issues](https://github.com/kein5/
 ASTAROT (formerly VRCT-VOX) is derived from [VRCT](https://github.com/misyaguziya/VRCT) but is a separate project. Do not send ASTAROT questions to the VRCT maintainers.
 
 Please follow the [code of conduct](CODE_OF_CONDUCT.md) in issues and pull requests. To contribute code or documentation, see [CONTRIBUTING.md](CONTRIBUTING.md).
+
+---
 
 ## 困ったときは（日本語）
 
