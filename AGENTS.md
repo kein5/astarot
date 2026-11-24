@@ -84,7 +84,7 @@ The rules are the same as for human developers. The table of types, examples, th
 - When the type alone would put a commit under the wrong CHANGELOG heading, add a `Changelog: user`, `Changelog: security`, `Changelog: internal` or `Changelog: skip` footer.
 - Some environments do not have the commit-msg hook installed. Before you commit, check the message with `cog verify "<message>"`, and also pass `python tools/dev.py check --scope commits --base origin/develop`.
 - `CHANGELOG.md` is written by `tools/changelog.py` and lists stable releases only. Do not edit it unless you were asked to prepare a stable release. To fix a section that has been written, first compare it with the output of `python tools/changelog.py print`. Changes in betas go in the notes of the GitHub prerelease, not in the CHANGELOG.
-- Do not use `cog bump`. Do not create tags, and do not push. A tag is created when a maintainer publishes the GitHub Releases draft.
+- Do not use `cog bump`. Do not create tags or push them. A tag is created when a maintainer publishes the GitHub Releases draft.
 - When asked to prepare a release, set the version in `package.json`, then run `npm run update-version`. For a stable release only, then run `npm run changelog`. Make all of it one commit, `chore(release): version X.Y.Z`.
 
 ## Design decision records (ADRs)
@@ -216,7 +216,7 @@ UI の監査、文章の推敲、実機での画面の確認、図の作成な�
 - 種別だけでは CHANGELOG の分類がずれるときは `Changelog: user`、`Changelog: security`、`Changelog: internal`、`Changelog: skip` のフッターを付けます。
 - commit-msg フックが入っていない環境もあります。コミットする前に `cog verify "<メッセージ>"` で確かめ、`python tools/dev.py check --scope commits --base origin/develop` も通します。
 - `CHANGELOG.md` は `tools/changelog.py` が書くファイルで、載せるのは正式版だけです。正式版のリリースの準備を頼まれたとき以外は編集しません。書いた節を直すときは、まず `python tools/changelog.py print` の結果と比べます。ベータ版の変更は GitHub のプレリリースのノートに載せ、CHANGELOG には書きません。
-- `cog bump` は使いません。タグは作らず、push もしません。タグは保守担当者が GitHub Releases の下書きを公開したときにできます。
+- `cog bump` は使いません。タグを作らず、タグを push しません。タグは保守担当者が GitHub Releases の下書きを公開したときにできます。
 - リリースの準備を頼まれたら、`package.json` の版、`npm run update-version` の順に進めます。正式版のときだけ、続けて `npm run changelog` を実行します。`chore(release): version X.Y.Z` で1つのコミットにします。
 
 ## 設計判断の記録（ADR）
