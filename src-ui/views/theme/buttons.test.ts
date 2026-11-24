@@ -44,7 +44,6 @@ const mediumButtons = [
     [box + "vr/Vr.css.ts", "export const restore_default_settings_button = style({"],
     [views + "app/others/error_boundary/AppErrorBoundary.css.ts", "export const update_button = style({"],
     [views + "app/others/modal_controller/ModalController.css.ts", "export const close_button = style({"],
-    [views + "app/config_page/topbar/Topbar.css.ts", "export const back = style({"],
     [views + "app/config_page/topbar/Topbar.css.ts", "export const stop = style({"],
     [views + "app/main_page/main_section/top_bar/TopBar.css.ts", "export const stop = style({"],
     [box + "_components/page_pointer/PagePointer.css.ts", "globalStyle(button, {"],

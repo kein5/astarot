@@ -104,7 +104,7 @@ Before the per-screen tables, these are the hand-built elements that every scree
 
 | Location | Hand-built elements | Replacement | Difficulty | Complications |
 |---|---|---|---|---|
-| Top bar (`config_page/topbar/Topbar.tsx`) | The back `<button>`. The save bar, its buttons and its leave `<dialog>` went with #1111 | The kit's `Button` | Low | Only the back button is left |
+| Top bar (`config_page/topbar/Topbar.tsx`) | The back `<button>`. The save bar, its buttons and its leave `<dialog>` went with #1111 | The kit's `Button` (replaced, #1173) | Low | Only the back button was left. Stop and mute in the same bar have their own row |
 | Settings rail (`config_page/sidebar_section/SidebarSection.tsx`) | The page-switching `<button>` elements (`aria-current="page"`). The native `title` shown with short names | The buttons stay as they are (they are navigation, so not Tabs, D-35). The descriptions of short names: `Tooltip` (replaced, #1132) | Low | The rail widens on hover and focus, and the short names appear only when it is narrow |
 | Usage presets (`sidebar_section/usage_presets/UsagePresetSelector.tsx`) | An open and close button with `aria-expanded`, the native `title` in the compact rail, native checkboxes | Open and close: `Fold` or Collapsible (D-26); descriptions: `Tooltip`; checkboxes: `Checkbox` | Medium | Keep the rule that the last one cannot be cleared (`last`) and the way waiting is shown |
 | Settings search (`config_page/search_bar/SearchBar.tsx`) | A custom `role="combobox"` and its result list (`role="option"`), a clear button | U-02 | High | D-36, D-40 |
@@ -157,7 +157,7 @@ Dialogs that open over a screen. Each one is a native `<dialog>` written on its 
 | OCR model download confirmation | `ocr/OcrModels.tsx` | The consent checkbox | The `dialog` rule of the form SCSS |
 | Translation license confirmation | `translation/Translation.tsx` | The consent checkbox | Its own class (`license_dialog`) |
 | Confirmation of re-creating the connection key | `advanced_settings/AdvancedSettings.tsx` | 2 `<button>` elements | The shared dialog classes |
-| Confirmation on leaving the settings | `config_page/topbar/Topbar.tsx` | 2 `<button>` elements | Its own class (`leave_dialog`) |
+| Confirmation on leaving the settings | `config_page/topbar/Topbar.tsx` | 2 `<button>` elements | Its own class (`leave_dialog`). It went with the save bar in #1111 |
 | Update modal | `others/modal_controller/ModalController.tsx` | The close button, the area outside that closes it when pressed | It opens from the update button in the top bar and shows the "Updater" page inside. It is the exception that does not darken the background to 50% black (decision 2 of #764) |
 | Startup failure | `others/startup/StartupFailedDialog.tsx` | `<dialog open>` (not modal) with `role="alertdialog"`, the retry and quit buttons | Not replaced (H-03). It also appears when the other parts cannot render, so it is safer not to add dependencies. The kit has no AlertDialog either (U-12) |
 
@@ -321,7 +321,7 @@ VR パネルだけで使う部品です。`VrWindow`（窓の枠）、`VrPickerL
 
 | 場所 | 手作りしている要素 | 置き換え先 | 難しさ | 引っかかり |
 |---|---|---|---|---|
-| 上のバー（`config_page/topbar/Topbar.tsx`） | 戻るの `<button>`。保存バーとそのボタン、離れるときの `<dialog>` は #1111 でなくなりました | kit の `Button` | 低 | 残るのは戻るのボタンだけです |
+| 上のバー（`config_page/topbar/Topbar.tsx`） | 戻るの `<button>`。保存バーとそのボタン、離れるときの `<dialog>` は #1111 でなくなりました | kit の `Button`（置き換えた、#1173） | 低 | 残っていたのは戻るのボタンだけです。同じバーの停止とミュートは別の行にあります |
 | 設定のレール（`config_page/sidebar_section/SidebarSection.tsx`） | ページを切り替える `<button>`（`aria-current="page"`）。略称のときのネイティブの `title` | ボタンは今のまま（ナビゲーションなので Tabs にしない、D-35）。略称の説明は `Tooltip`（置き換えた、#1132） | 低 | レールはホバーとフォーカスで広がり、略称は狭いときだけ出ます |
 | 使い方のプリセット（`sidebar_section/usage_presets/UsagePresetSelector.tsx`） | `aria-expanded` の開閉のボタン、小さいレールでのネイティブの `title`、ネイティブのチェックボックス | 開閉は `Fold` か Collapsible（D-26）、説明は `Tooltip`、チェックボックスは `Checkbox` | 中 | 最後の 1 つは外せない規則（`last`）と待ちの表し方を保ちます |
 | 設定の検索（`config_page/search_bar/SearchBar.tsx`） | 自作の `role="combobox"` と結果の一覧（`role="option"`）、消すボタン | U-02 | 高 | D-36、D-40 |
@@ -374,7 +374,7 @@ VR パネルだけで使う部品です。`VrWindow`（窓の枠）、`VrPickerL
 | OCR のモデルの取得の確認 | `ocr/OcrModels.tsx` | 同意のチェックボックス | フォームの SCSS の `dialog` の規則 |
 | 翻訳のライセンスの確認 | `translation/Translation.tsx` | 同意のチェックボックス | 独自のクラス（`license_dialog`） |
 | 接続用のキーの作り直しの確認 | `advanced_settings/AdvancedSettings.tsx` | 2 個の `<button>` | 共有のダイアログのクラス |
-| 設定から離れるときの確認 | `config_page/topbar/Topbar.tsx` | 2 個の `<button>` | 独自のクラス（`leave_dialog`） |
+| 設定から離れるときの確認 | `config_page/topbar/Topbar.tsx` | 2 個の `<button>` | 独自のクラス（`leave_dialog`）。#1111 で保存バーと一緒になくなりました |
 | アップデートのモーダル | `others/modal_controller/ModalController.tsx` | 閉じるボタン、外を押すと閉じる領域 | 上のバーの更新のボタンから開き、「アップデート」のページを中に出します。背景を 50% の黒にしていない例外です（#764 の判断 2） |
 | 起動の失敗 | `others/startup/StartupFailedDialog.tsx` | `<dialog open>`（モーダルでない）と `role="alertdialog"`、再試行と終了のボタン | 置き換えの対象にしません（H-03）。ほかの部分が描けないときにも出すので、依存を増やさない方が安全です。kit に AlertDialog もありません（U-12） |
 
