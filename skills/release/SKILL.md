@@ -40,7 +40,7 @@ git worktree add ../<リポジトリ名>-release-<版> -b release/X.Y.Z origin/d
 1. `package.json`の`version`を`X.Y.Z`にし、`npm run update-version`で各ファイルへ反映します。
 2. `npm run changelog`で`CHANGELOG.md`にこの版の節を書きます。節を読み、分かりにくい行はファイルの上で直します。日本語版に足された同じ節の枠は、要約と注記を日本語に訳し、枠の先頭のコメントを消します。
 3. 1と2を`chore(release): version X.Y.Z`の1つのコミットにします。
-4. `python tools/changelog.py scaffold-notes`（`mise run changelog:notes`）で`docs/release-notes/X.Y.Z.md`の雛形を作り、9の書式で書き直します。`docs(release): add the X.Y.Z release notes`でコミットします。
+4. `python tools/changelog.py scaffold-notes`（`mise run changelog:notes`）で`docs/release-notes/X.Y.Z.md`の雛形を作り、release-notesスキルの手順で書き直します（9）。`docs(release): add the X.Y.Z release notes`でコミットします。
 5. mainへのPRを開きます（`gh pr create --base main`）。本文には、含める変更、確かめたこと、判断が要ることを書きます。
 6. mainへのPRは保守担当者の確認を受けてからマージコミットで統合します。`CHANGELOG.md`の節が`release/X.Y.Z`のコミットへリンクしているので、squashとrebaseは使いません。
 
@@ -84,7 +84,7 @@ gh api 'repos/{owner}/{repo}/releases?per_page=10' \
 
 ## 4. 公開の前
 
-1. 本文を`docs/release-notes/X.Y.Z.md`に差し替えます。ベータは下書きの本文（前のタグからのコミットの一覧）を読み、必要なら手で整えます。
+1. 本文をノートに差し替えます。正式版は`docs/release-notes/X.Y.Z.md`、ベータ版はrelease-notesスキルの手順で書いたノートです（9）。
 
    ```sh
    gh api -X PATCH repos/{owner}/{repo}/releases/<id> -F body=@docs/release-notes/X.Y.Z.md
@@ -132,29 +132,12 @@ gh api 'repos/{owner}/{repo}/releases?per_page=10' \
 
 PRが開かなかったときは、ジョブのSummaryにあるリンクから人がPRを開きます。リポジトリの設定でActionsにPRの作成を許していないと、ジョブはブランチを作ったところで止まります。
 
-## 9. リリースノートの書式
+## 9. リリースノート
 
-正式版とプレリリースのノートは、毎回[jp-writingスキル](../jp-writing/SKILL.md)の手順で書きます。
+リリースノートは、正式版もベータ版も[release-notesスキル](../release-notes/SKILL.md)の手順で書きます。範囲のPRの集め方、事実の確かめ方、英語版と日本語版の組み方、推敲、検査、下書きへの反映はそこにあります。書式の正本は`docs/release-notes/README.md`です。
 
-正式版のノートは、1つのファイルに英語版を先に、日本語版をそのあとに置き、2つの版に同じことを書きます（2026-11-24の決定）。英語版は`docs/writing/english-guideline.md`の「User-facing text」に従います。食い違うときは英語版が正です。
-
-正本は`docs/release-notes/README.md`です。正式版ごとに`docs/release-notes/<版>.md`を書き、GitHubのリリースの本文にします。
-
-英語版と日本語版のそれぞれで、次の順に、題（`#`）のほかの見出しをすべて`##`で平らに並べます。
-
-1. 序文。見出しを付けず、その版でいちばん大きな変更を2〜4文で書きます。プライバシーやセキュリティの修正があれば、序文でも触れてその節へ案内します。
-2. 利用者に関係のある変更。項目ごとに「絵文字1つ＋短い題」の見出しを1つ作り（`## 🔄 アプリの中で更新する`）、本文は段落で書きます。絵文字は見出しの先頭にだけ置きます。
-3. `## ⚠️ 更新するときの注意`と`## 🐞 既知の問題`。書くことがなければ節ごと省きます。
-4. `## 🔧 内部の変更`。1項目を短い1行の箇条書きにし、末尾に変更を入れたPRの番号を付けます（`（#341）`）。節の最後に`CHANGELOG.md`へのリンクを置きます。
-
-書くときは次を守ります。
-
-- 対象は前の正式版のタグからリリースするコミットまでにマージしたPRです。漏れは`python tools/changelog.py print`と`git log --first-parent`のPRの一覧で確かめます。
-- 画面の文言は`locales/ja.yml`の表記のまま引き、設定の場所は「設定」→「ページ」→「項目」の形で書きます。
-- 人の名前、担当、開発に使った環境を書きません。
-- 利用者のPCを「このPC」と書きません。「お使いのPC」のように書きます。
-- 計測した値は条件とあわせて書きます。
-- 日本語は`docs/writing/japanese-guideline.md`に従い、推敲してから出します。読点を減らし、1つの段落には話題を1つだけ入れます。
+- 正式版は`docs/release-notes/<版>.md`をreleaseブランチで書き（1の4）、GitHubのリリースの本文にします。
+- ベータ版は`docs/release-notes/`にも`CHANGELOG.md`にも書かず、プレリリースの本文だけにします。ベータ版のノートも英語版と日本語版の両方を載せます（2026-11-25の決定）。
 - `CHANGELOG.md`と食い違ったら、`CHANGELOG.md`を先に直してからノートを直します。
 
 ## 10. 問題が見つかったときの配信停止
