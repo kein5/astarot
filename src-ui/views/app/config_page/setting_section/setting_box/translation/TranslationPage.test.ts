@@ -65,6 +65,8 @@ async function translationPage(options: PageOptions = {}) {
     const settings = recorder(values), llm = recorder(llmValues);
     const module = await loadModule<typeof import("./Translation.tsx")>(new URL("./Translation.tsx", import.meta.url), { ...loading, api: react }, {
         "@useI18n": { useI18n: () => ({ t }) },
+        // The fields' checks are the page's own rules (#1111): the real ones.
+        "../../../../../../logics/configs/fieldChecks.ts": await import("../../../../../../logics/configs/fieldChecks.ts"),
         "@tauri-apps/api/core": { isTauri: () => options.tauri ?? true },
         "@tauri-apps/plugin-opener": { openUrl: options.openUrl ?? (async (url: string) => { opened.push(url); }) },
         "@logics_configs": { useTranslation: () => settings,
