@@ -1,5 +1,5 @@
 import { createLanguageNames } from "../../../../../../logics/common/languageNames.ts";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useI18n } from "@useI18n";
 import { useRealtimeASR } from "../../../../../../logics/transcription/useRealtimeASR";
 import { useSpeechServers } from "../../../../../../logics/voice/useSpeechServers";
@@ -18,6 +18,8 @@ import type { CaptionSource } from "../../../../../../logics/transcription/realt
 import type { RealtimeAsrEndpointId, RealtimeAsrSettings, RealtimeAsrSourceSettings, RealtimeAsrVocabulary }
     from "../../../../../../logics/transcription/useRealtimeASR";
 import type { DraftWriteValue } from "../../../../../../logics/voice/useSettingsDraft";
+import { saveSaidInline } from "../../../../../../logics/configs/fieldErrors.ts";
+import { FieldProblem } from "../_components/field_problem/FieldProblem";
 
 const key = (endpoint: RealtimeAsrEndpointId | null | undefined) => endpoint ? JSON.stringify([endpoint.cookie, endpoint.serial, endpoint.name, endpoint.media_class]) : "";
 // Select value for "follow the system default"; never a JSON endpoint key.
@@ -47,9 +49,14 @@ export const RealtimeASRSettings = () => {
         const fields: Partial<Record<string, string>> = { server: "speech_servers.asr_selection", base_url: "realtime.url", model: "realtime.model", silence_duration_ms: "realtime.silence", vad_threshold: "realtime.vad_threshold" };
         return t(fields[group] ?? "realtime.title");
     };
-    const write = (value: DraftWriteValue<RealtimeAsrSettings>) => send("/set/data/realtime_asr_settings", value);
-    const form = useSettingsDraft(settings, error, updateError, { label, write });
-    const { draft, setDraft, dirty, saving } = form;
+    // Saves by itself (#1111, decided 3): a choice at once, the address when focus leaves the
+    // form or on Enter, and an edit made while a save waits once it ends. A refusal is said under
+    // the form.
+    const [problem, setProblem] = useState<string[] | null>(null);
+    const write = (value: DraftWriteValue<RealtimeAsrSettings>) => saveSaidInline("/set/data/realtime_asr_settings",
+        () => send("/set/data/realtime_asr_settings", value), setProblem);
+    const form = useSettingsDraft(settings, error, updateError, { label, write, autoSave: true });
+    const { draft, change: setDraft, dirty, saving } = form;
     const refreshDevices = () => {
         for (const source of ["mic", "speaker"]) send("/get/data/realtime_asr_endpoints", { source });
     };
@@ -90,21 +97,24 @@ export const RealtimeASRSettings = () => {
     // Start (save) and every state stay in sight.
     return <section data-setting-id="realtime_asr" data-unsaved={dirty || undefined} className={styles.container} aria-label={t("realtime.title")}>
         <SectionLabelComponent sub label={t("realtime.title")} desc={`${t("realtime.scope")}\n${t("realtime.server_help")}`} />
-        {draft && <form aria-busy={saving} onSubmit={event => { event.preventDefault(); if (dirty && !saving) form.submit(write); }}>
-            <label>{t("speech_servers.asr_selection")}<select disabled={saving} aria-label={t("speech_servers.asr_selection")} value={draft.server || "external"}
+        {draft && <form aria-busy={saving} ref={form.group} onBlur={form.leave} onKeyDown={form.escape}
+            onSubmit={event => { event.preventDefault(); form.commit(); }}>
+            <label>{t("speech_servers.asr_selection")}<select aria-label={t("speech_servers.asr_selection")} value={draft.server || "external"}
                 onChange={event => setDraft({ ...draft, server: event.target.value })}>
                 {["external", "bundled"].map(value => <option key={value} value={value}>{t(`speech_servers.${value}`)}</option>)}
             </select></label>
             {/* Whether a main switch may start the bundled server, or only Settings' Start button (#288). */}
             {draft.server === "bundled" && <HintCheck className={styles.checkLabel} label={t("realtime.start_server")}
-                description={t("realtime.start_server_help")} disabled={saving} checked={draft.start_server !== false}
+                description={t("realtime.start_server_help")} checked={draft.start_server !== false}
                 onChange={event => setDraft({ ...draft, start_server: event.target.checked })} />}
+            {/* The address is typed: it saves when focus leaves the form, or on Enter. */}
             {draft.server !== "bundled" && <label>{t("realtime.url")}<input readOnly={saving} aria-label={t("realtime.url")} value={draft.base_url}
-                onChange={event => setDraft({ ...draft, base_url: event.target.value })} /></label>}
+                onChange={event => form.setDraft({ ...draft, base_url: event.target.value })}
+                onKeyDown={event => { if (event.key === "Enter") { event.preventDefault(); form.commit(); } }} /></label>}
             {/* The model list's refresh sits under the list, in the control column (#473). */}
             <FormRow label={t("realtime.model")} description={t("realtime.auto_help")}
                 actions={<button type="button" onClick={() => send("/get/data/realtime_asr_models")}>{t("realtime.refresh_models")}</button>}>
-                <select disabled={saving} aria-label={t("realtime.model")} value={draft.model}
+                <select aria-label={t("realtime.model")} value={draft.model}
                     onChange={event => setDraft({ ...draft, model: event.target.value })}>
                     <option value="">{t("realtime.select_model")}</option>
                     {draft.model && !selectedModel && <option value={draft.model}>{draft.model} ({t("realtime.unavailable")})</option>}
@@ -113,7 +123,7 @@ export const RealtimeASRSettings = () => {
             </FormRow>
             {models.error_code && <Failure code={models.error_code} t={t} />}
             <FormRow label={t("realtime.silence")} description={t("realtime.silence_help")}>
-                <select disabled={saving} aria-label={t("realtime.silence")} value={draft.silence_duration_ms ?? ""}
+                <select aria-label={t("realtime.silence")} value={draft.silence_duration_ms ?? ""}
                     onChange={event => updateSilence(event.target.value)}>
                     <option value="">{t("realtime.silence_default")}</option>
                     {draft.silence_duration_ms && !SILENCES.includes(draft.silence_duration_ms) &&
@@ -122,7 +132,7 @@ export const RealtimeASRSettings = () => {
                 </select>
             </FormRow>
             <FormRow label={t("realtime.vad_threshold")} description={t("realtime.vad_threshold_help")}>
-                <select disabled={saving} aria-label={t("realtime.vad_threshold")} value={draft.vad_threshold ?? ""}
+                <select aria-label={t("realtime.vad_threshold")} value={draft.vad_threshold ?? ""}
                     onChange={event => updateThreshold(event.target.value)}>
                     <option value="">{t("realtime.vad_threshold_default")}</option>
                     {draft.vad_threshold !== undefined && !THRESHOLDS.includes(draft.vad_threshold) &&
@@ -144,7 +154,7 @@ export const RealtimeASRSettings = () => {
                 return <fieldset key={source}>
                     <legend>{t(`realtime.${source}`)}</legend>
                     <FormRow label={t(`realtime.${source}_input`)} description={inputHelp || undefined}>
-                        <select disabled={saving} aria-label={t(`realtime.${source}_input`)} value={follow ? FOLLOW : key(draft[source].endpoint)}
+                        <select aria-label={t(`realtime.${source}_input`)} value={follow ? FOLLOW : key(draft[source].endpoint)}
                             onChange={event => updateSource(source, event.target.value === FOLLOW ? { endpoint: null, follow_default: true }
                                 : { endpoint: choices.find(row => key(row.endpoint) === event.target.value)?.endpoint ?? null, follow_default: false })}>
                             <option value="">{t("realtime.select_device")}</option>
@@ -153,7 +163,7 @@ export const RealtimeASRSettings = () => {
                             {choices.map(row => <option key={key(row.endpoint)} value={key(row.endpoint)}>{row.label}</option>)}
                         </select>
                     </FormRow>
-                    <label>{t(`realtime.${source}_language`)}<select disabled={saving} aria-label={t(`realtime.${source}_language`)} value={draft[source].language}
+                    <label>{t(`realtime.${source}_language`)}<select aria-label={t(`realtime.${source}_language`)} value={draft[source].language}
                         onChange={event => updateSource(source, { language: event.target.value })}>
                         {!languages.includes(draft[source].language) && <option value={draft[source].language}>{languageLabel(draft[source].language)}</option>}
                         {languages.map(language => <option key={language} value={language}>{languageLabel(language)}</option>)}
@@ -174,21 +184,22 @@ export const RealtimeASRSettings = () => {
                 <legend><span className={styles.hinted} data-hint-host={hints || undefined}><span>{t("realtime.vocabulary")}</span>
                     {hints && <Hint text={t("realtime.vocabulary_help")} focusable />}</span></legend>
                 {!hints && <Description text={t("realtime.vocabulary_help")} />}
-                <label className={styles.checkLabel}><input type="checkbox" disabled={saving} checked={vocabulary.builtin !== false}
+                <label className={styles.checkLabel}><input type="checkbox" checked={vocabulary.builtin !== false}
                     onChange={event => updateVocabulary({ builtin: event.target.checked })} />{t("realtime.vocabulary_builtin")}</label>
                 {/* The whole dictionary, one list: terms are added, changed and taken out there (#792).
                     Each edit goes to the draft; one term or many, the user's terms are canonical
                     as the core makes them, and the core checks them again on save. */}
-                <VocabularyList builtin={builtinVocabulary} vocabulary={vocabulary} disabled={saving}
+                <VocabularyList builtin={builtinVocabulary} vocabulary={vocabulary} disabled={false}
                     onVocabulary={next => setDraft(previous => previous && { ...previous, vocabulary: next })} />
                 {/* The dictionary in and out of a file, under the list (#792). */}
-                <VocabularyFiles builtin={builtinVocabulary} vocabulary={vocabulary} disabled={saving} send={send}
+                <VocabularyFiles builtin={builtinVocabulary} vocabulary={vocabulary} disabled={false} send={send}
                     onVocabulary={next => setDraft(previous => previous && { ...previous, vocabulary: next })} />
             </fieldset>
+            {/* What a change stops: a choice saves at once (#1111). */}
             <Description text={t("realtime.save_help")} />
-            <button type="submit" disabled={saving || !dirty}>{t("realtime.save")}</button>
+            {problem && <FieldProblem id="realtime_asr_problem" text={t(problem)} />}
         </form>}
         {form.navigationDialog}
-        {error && <Failure code={error} t={t} />}
+        {error && !problem && <Failure code={error} t={t} />}
     </section>;
 };

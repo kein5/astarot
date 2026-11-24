@@ -2,11 +2,12 @@ import assert from "node:assert/strict";
 import { test, vi } from "vitest";
 import type { TestContext } from "vitest";
 import type { ReactNode } from "react";
-import { hooks, loadModule, find, findIn, componentName, draw as drawElement, fieldOf, stubGlobals, eventTarget } from "../../../../../../logics/test/hookHarness.ts";
+import { hooks, loadModule, find, findIn, componentName, draw as drawElement, fieldOf, stubGlobals, eventTarget, unchecked } from "../../../../../../logics/test/hookHarness.ts";
 import { rebaseDraft } from "../../../../../../logics/voice/draftRebase.ts";
 import { changedPaths } from "../../../../../../logics/voice/saveBar.ts";
 import type { SaveBarEntry } from "../../../../../../logics/voice/saveBar.ts";
 import type { StdoutResult } from "../../../../../../logics/common/useStdoutToPython.ts";
+import * as fieldErrors from "../../../../../../logics/configs/fieldErrors.ts";
 
 const draftPath = "../../../../../../logics/voice/useSettingsDraft.tsx";
 const importsPath = "../../../../../../../logics/voice/useSettingsDraft";
@@ -38,13 +39,13 @@ async function setup(context: TestContext, kind: "word" | "message") {
     if (kind === "word") {
         const state = { currentMicWordFilterList: saved, setMicWordFilterList: send,
             updateMicWordFilterList: (fn: (current: typeof saved) => unknown) => { saved.data = fn(saved); saved.state = "ok"; } };
-        const { WordFilter } = await loadModule<typeof import("./word_filter/WordFilter.tsx")>(new URL("./word_filter/WordFilter.tsx", import.meta.url), runtime, {
+        const { WordFilter } = await loadModule<typeof import("./word_filter/WordFilter.tsx")>(new URL("./word_filter/WordFilter.tsx", import.meta.url), runtime, { "../../../../../../../logics/configs/fieldErrors.ts": fieldErrors, "../field_problem/FieldProblem": { FieldProblem: "field-problem" },
             ...common, "@logics_configs": { useTranscription: () => state },
             "@store": { useStore_IsOpenedMicWordFilterList: () => ({ currentIsOpenedMicWordFilterList: { data: true }, updateIsOpenedMicWordFilterList() {} }) },
         });
         draw = () => runtime.render(WordFilter, {});
     } else {
-        const { MessageFormat } = await loadModule<typeof import("./message_format/MessageFormat.tsx")>(new URL("./message_format/MessageFormat.tsx", import.meta.url), runtime, {
+        const { MessageFormat } = await loadModule<typeof import("./message_format/MessageFormat.tsx")>(new URL("./message_format/MessageFormat.tsx", import.meta.url), runtime, { "../../../../../../../logics/configs/fieldErrors.ts": fieldErrors, "../field_problem/FieldProblem": { FieldProblem: "field-problem" },
             ...common, "react-i18next": { useTranslation: () => ({ t: (key: string) => key }) },
             "@store": { useStore_IsBreakPoint: () => ({ currentIsBreakPoint: { data: false } }) },
             "@logics_configs": {}, "@common_components": { ResetButton: "reset" },
@@ -68,56 +69,60 @@ async function setup(context: TestContext, kind: "word" | "message") {
     };
     render();
     return { render, input, Entry, requests, saved, defaults, reject, window,
-        // The save bar's entry for the form: one that is missing fails the test where it is read.
-        get entry() { assert.ok(entry); return entry; } };
+        // The save bar's entry for the form, which a form that saves by itself (#1111) does not have.
+        get entry() { return entry; } };
 }
 
-test("word filter stages additions and deletions without changing confirmed data, and retains rejected edits", async context => {
+// #1111, decided 3: a word added or taken out saves at once. A refused save puts the saved list
+// back and says so under the field.
+test("word filter saves each addition and deletion at once, and a refused save puts the saved list back", async context => {
     const s = await setup(context, "word");
     findIn(s.render(), node => node.type === s.Entry).props.onChange({ target: { value: "new" } });
     findIn(s.render(), node => node.type === s.Entry).props.onEnterPressed();
-    s.render();
-    assert.deepEqual(s.saved.data, ["old"]);
-    assert.equal(s.requests.length, 0);
-    assert.equal(s.entry.edited, true);
-    const saving = s.entry.save(); s.render();
+    s.render(); s.render();
+    assert.equal(s.entry, undefined, "not in the save bar");
     assert.equal(s.saved.state, "pending");
-    assert.deepEqual(s.requests[0].value, ["old", "new"]);
-    await s.reject(); await saving;
-    assert.equal(s.entry.saveState, "save_failed");
-    assert.ok(find(s.render(), node => node.props?.value === "new"));
-    s.entry.discard(); s.render();
+    assert.deepEqual(s.requests.map(request => request.value), [["old", "new"]]);
+    await s.reject(); s.render();
+    assert.ok(!find(s.render(), node => node.props?.value === "new"), "the saved list is back");
+    assert.ok(find(s.render(), node => node.type === "field-problem"), "and the refusal is said");
     const row = findIn(s.render(), node => node.props?.value === "old");
-    row.props.deleteAction("old", {}); s.render();
-    const removal = s.entry.save(); s.render();
+    row.props.deleteAction("old", {}); s.render(); s.render();
     assert.deepEqual(s.requests.at(-1)?.value, []);
-    await s.reject(); await removal;
-    assert.deepEqual(s.saved.data, ["old"]);
-    assert.equal(s.entry.saveState, "save_failed");
+    s.requests.at(-1)?.resolve(unchecked<StdoutResult>({ status: 200, result: [] })); s.saved.data = []; s.saved.state = "ok";
+    await flush(); s.render();
+    assert.ok(!find(s.render(), node => node.type === "field-problem"), "a save takes the problem away");
 });
 
-for (const action of ["reset", "swap"]) test(`message format ${action} shares the draft and cannot be undone by a stale timer`, async context => {
+// #1111, decided 3: the format's texts save on Enter or when focus leaves the format, and the reset
+// and the order at once, with the texts typed so far. Leaving the page asks nothing first, and
+// Escape in a text puts the saved format back.
+for (const action of ["reset", "swap"]) test(`message format ${action} saves at once with the draft, and Escape puts the saved format back`, async context => {
     const s = await setup(context, "message");
     const prefix = () => findIn(s.input(), node => node.props?.["aria-label"]?.endsWith("before_original"));
+    const group = () => findIn(s.render(), node => node.props?.role === "group");
+    // A saved format other than the default, so the reset changes it.
+    s.saved.data = { ...s.defaults, separator: " | " }; s.render();
     prefix().props.onChange({ target: { value: "draft" } }); s.render();
-    assert.equal(s.entry.edited, true);
+    assert.equal(s.entry, undefined, "not in the save bar");
     assert.equal(s.requests.length, 0);
     const leave = { defaultPrevented: false, preventDefault() { this.defaultPrevented = true; }, detail: { proceed() {} } };
     s.window.dispatch("vrct:settings-leave", leave);
-    assert.equal(leave.defaultPrevented, true);
+    assert.equal(leave.defaultPrevented, false, "leaving the page asks nothing first");
     if (action === "reset") findIn(s.input(), node => node.type === "reset").props.onClickFunction();
     else findIn(s.input(), node => node.props?.className === "swap_button").props.onClick();
-    s.render(); vi.advanceTimersByTime(600); s.render();
-    assert.equal(s.requests.length, 0);
-    assert.equal(prefix().props.ui_variable, action === "reset" ? "" : "draft");
-    if (action === "reset") prefix().props.onChange({ target: { value: "retry" } });
-    s.render();
-    prefix().props.onEnterPressed(); s.render();
+    s.render(); s.render();
     assert.equal(s.requests.length, 1);
     assert.equal(fieldOf(s.requests[0].value, "translation_first"), action === "swap");
+    assert.equal(fieldOf(s.requests[0].value, "message", "prefix"), action === "reset" ? "" : "draft");
     await s.reject();
-    assert.equal(s.entry.saveState, "save_failed");
-    assert.equal(prefix().props.ui_variable, action === "reset" ? "retry" : "draft");
-    s.entry.discard(); s.render();
+    assert.equal(prefix().props.ui_variable, action === "reset" ? "" : "draft");
+    assert.ok(find(s.render(), node => node.type === "field-problem"), "the refusal is said under the format");
+    prefix().props.onChange({ target: { value: "retry" } }); s.render();
+    group().props.onKeyDown({ key: "Escape", target: { tagName: "INPUT", type: "text" }, preventDefault() {} }); s.render();
     assert.equal(prefix().props.ui_variable, "");
+    prefix().props.onChange({ target: { value: "typed" } }); s.render();
+    prefix().props.onEnterPressed(); s.render();
+    assert.equal(s.requests.length, 2);
+    assert.equal(fieldOf(s.requests[1].value, "message", "prefix"), "typed");
 });

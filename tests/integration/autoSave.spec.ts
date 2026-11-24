@@ -122,3 +122,31 @@ test("the advanced settings save by themselves, and the certificate and key save
     // The page has nothing left for the save bar.
     await expect(page.getByRole("button", { name: "Save changes" })).toHaveCount(0);
 });
+
+// #1111: the forms save by themselves too. A word added to the filter and a choice in the realtime
+// captions are saved at once; the captions' address when focus leaves the form. Nothing waits for
+// a Save button.
+test("the word filter and the realtime captions save by themselves", async ({ app }) => {
+    const page = app.page;
+    await app.openSettings("Speech recognition (ASR)");
+
+    // A word added to the filter is saved at once.
+    const word = page.locator('input[aria-label="Mic word filter"]');
+    await app.unfold(word);
+    await word.fill("VRChat");
+    await word.press("Enter");
+    await expect.poll(() => app.settings().MIC_WORD_FILTER).toEqual(["VRChat"]);
+
+    // A choice in the realtime captions is saved at once.
+    const silence = page.getByLabel("Silence that ends an utterance", { exact: true });
+    await app.unfold(silence);
+    await silence.selectOption({ label: "0.3 s" });
+    await expect.poll(() => (app.settings().REALTIME_ASR_SETTINGS as Record<string, unknown>)?.silence_duration_ms).toBe(300);
+
+    // The address is saved when focus leaves the form, and the form has no Save button.
+    const address = page.getByLabel("ASR server URL", { exact: true });
+    await address.fill("http://127.0.0.1:8178");
+    await expect(page.getByRole("button", { name: "Save caption settings" })).toHaveCount(0);
+    await address.press("Enter");
+    await expect.poll(() => (app.settings().REALTIME_ASR_SETTINGS as Record<string, unknown>)?.base_url).toBe("http://127.0.0.1:8178");
+});

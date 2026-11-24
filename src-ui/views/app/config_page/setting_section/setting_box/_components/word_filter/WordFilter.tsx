@@ -1,7 +1,7 @@
 import { useI18n } from "@useI18n";
 import * as styles from "./WordFilter.css.ts";
 import { _Entry } from "../_atoms/_entry/_Entry";
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useId } from "react";
 import type { ChangeEvent } from "react";
 import type { EntryHandle } from "../_atoms/_entry/_Entry";
 import { useStore_IsOpenedMicWordFilterList } from "@store";
@@ -9,6 +9,9 @@ import { Fold } from "../fold/Fold";
 import { useTranscription } from "@logics_configs";
 import { useSettingsDraft } from "../../../../../../../logics/voice/useSettingsDraft";
 import { Button } from "../../../../../../kit/index.ts";
+import { FieldProblem } from "../field_problem/FieldProblem";
+import { saveSaidInline } from "../../../../../../../logics/configs/fieldErrors.ts";
+import type { DraftWriteValue } from "../../../../../../../logics/voice/useSettingsDraft";
 
 export const WordFilter = (props: { "aria-labelledby"?: string; "aria-describedby"?: string }) => {
     const { t } = useI18n();
@@ -18,10 +21,23 @@ export const WordFilter = (props: { "aria-labelledby"?: string; "aria-describedb
     const { currentIsOpenedMicWordFilterList, updateIsOpenedMicWordFilterList } = useStore_IsOpenedMicWordFilterList();
 
     const [error, setError] = useState<string | null>(null);
+    // A word added or taken out saves at once (#1111, decided 3); a refusal is said under the field.
+    const [problem, setProblem] = useState<string[] | null>(null);
+    const problemId = useId();
+    // A list that could not be saved goes back to the saved one, and says so.
+    const listKeys = (keys: string[]) => [...keys.slice(0, -1), "config_page.auto_save.list_save_failed"];
+    const write = (value: DraftWriteValue<string[]>) => saveSaidInline("/set/data/mic_word_filter", () => setMicWordFilterList(value),
+        keys => setProblem(keys && listKeys(keys)));
     const form = useSettingsDraft(currentMicWordFilterList.data, error, setError, {
-        write: setMicWordFilterList,
+        write,
         label: () => t("config_page.transcription.mic_word_filter.label"),
+        autoSave: true,
     });
+    useEffect(() => {
+        if (form.saveState !== "save_failed") return;
+        setProblem(previous => previous ?? listKeys(["config_page.auto_save.save_failed"]));
+        form.discard();
+    }, [form.saveState]);
     const words = form.draft ?? currentMicWordFilterList.data;
 
     const listSectionRef = useRef<HTMLDivElement | null>(null);
@@ -80,7 +96,7 @@ export const WordFilter = (props: { "aria-labelledby"?: string; "aria-describedb
             if (word && !updated_list.includes(word)) updated_list.push(word);
         }
         if (updated_list.length !== words.length) {
-            form.setDraft(updated_list);
+            form.change(updated_list);
             shouldScrollToBottomRef.current = true;
         }
         updateIsOpenedMicWordFilterList(true);
@@ -90,7 +106,7 @@ export const WordFilter = (props: { "aria-labelledby"?: string; "aria-describedb
     const deleteAction = (target_item_value: string, button: HTMLButtonElement) => {
         pendingFocusRef.current = { word: target_item_value, button,
             index: words.indexOf(target_item_value) };
-        form.setDraft(words.filter(item => item !== target_item_value));
+        form.change(words.filter(item => item !== target_item_value));
     };
 
 
@@ -123,9 +139,11 @@ export const WordFilter = (props: { "aria-labelledby"?: string; "aria-describedb
                 }
             </Fold>
             <div className={styles.entry_section_wrapper}>
-                <_Entry ref={entryRef} aria-describedby={props["aria-describedby"]} aria-label={t("config_page.transcription.mic_word_filter.label")} width="30rem" onChange={onChangeEntry} onEnterPressed={handleEnterPressed} ui_variable={input_value}/>
+                <_Entry ref={entryRef} aria-describedby={[props["aria-describedby"], problem ? problemId : null].filter(Boolean).join(" ") || undefined}
+                    aria-invalid={problem ? true : undefined} aria-label={t("config_page.transcription.mic_word_filter.label")} width="30rem" onChange={onChangeEntry} onEnterPressed={handleEnterPressed} ui_variable={input_value}/>
                 <Button tone="primary" className={styles.add_button} onClick={addWords}>{t("config_page.transcription.mic_word_filter.add_button_label")}</Button>
             </div>
+            {problem && <FieldProblem id={problemId} text={t(problem)} />}
         </div>
     );
 };

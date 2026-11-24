@@ -454,6 +454,7 @@ config_page:
     # A setting that saves by itself, said under its field when the save does not go through (#1111).
     auto_save:
         save_failed: "This could not be saved, so the saved value stays. Check the value, then press Enter or leave the field to try again."
+        list_save_failed: "This could not be saved, so the list stays as it was. Try again."
     custom_model_link: "How to use your own model"
     about_vrct:
         image_links:
@@ -1532,8 +1533,7 @@ realtime:
   state_stopping: "Stopping captions"
   state_closed: "Captions stopped"
   state_failed: "Captions stopped after an error"
-  save_help: "Save changes before starting. Changing an input stops its captions; changing the server or model stops both inputs."
-  save: "Save caption settings"
+  save_help: "Changes save at once. Changing an input stops its captions; changing the server or model stops both inputs."
   auto_language: "Detect automatically (auto)"
   auto_help: "Automatic detection needs a model that detects the language, such as Qwen3-ASR. The bundled ASR server loads one model for both inputs, so choose Qwen3-ASR if other players speak languages other than Japanese."
   follow_default_mic: "Follow the system default input"
