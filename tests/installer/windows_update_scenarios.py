@@ -876,7 +876,16 @@ def shortcut_places():
 def remove_shortcuts():
     new, old = shortcut_places()
     for link in new + old:
-        link.unlink(missing_ok=True)
+        # Windows may still have the new shortcut open after the installer exits.
+        deadline = time.monotonic() + 5
+        while True:
+            try:
+                link.unlink(missing_ok=True)
+                break
+            except PermissionError as error:
+                if getattr(error, "winerror", None) != 32 or time.monotonic() >= deadline:
+                    raise
+                time.sleep(0.1)
     for folder in (programs_folder() / PRODUCT_NAME, programs_folder() / OLD_FOLDER):
         if folder.is_dir() and not any(folder.iterdir()):
             folder.rmdir()
