@@ -89,6 +89,31 @@ jobs:
         run: cargo test --locked --manifest-path native/core/Cargo.toml --features pipewire --test spoken_route_live --test voice_managed_live -- --ignored
       - run: npm ci --ignore-scripts
       - run: uv run --no-project python tools/dev.py check --scope ui
+      # Measure UI line coverage and split Vitest results into logics (unit) vs views (integration)
+      # for the README badges (published by publish-badges.yml on develop pushes).
+      - name: Measure UI coverage and test split for badges
+        if: >-
+          always() && runner.os == 'Linux' &&
+          ((github.event_name == 'push' && github.ref == 'refs/heads/develop') ||
+           github.event_name == 'workflow_dispatch')
+        continue-on-error: true
+        run: |
+          npx vitest run --coverage --reporter=default --reporter=json --outputFile=build/coverage/ui/vitest-results.json
+          uv run --no-project python -m tools.test_badges ui \
+            --coverage build/coverage/ui/coverage-summary.json \
+            --vitest build/coverage/ui/vitest-results.json \
+            --out build/badges/ui
+      - if: >-
+          always() && runner.os == 'Linux' &&
+          ((github.event_name == 'push' && github.ref == 'refs/heads/develop') ||
+           github.event_name == 'workflow_dispatch')
+        continue-on-error: true
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: badge-ui
+          path: build/badges/ui/*.json
+          if-no-files-found: ignore
+          retention-days: 7
   # The Rust backend core through the connection the UI uses (Issue #285): start-up and
   # shut-down, settings carried over from the Python backend, the error codes, and the request
   # rules. No model, device or network.
@@ -249,7 +274,25 @@ jobs:
             native/rvc-runtime
             native/ocr-runtime
       - name: Measure each crate's coverage
-        run: python tools/rust_coverage.py --summary "$GITHUB_STEP_SUMMARY"
+        run: python tools/rust_coverage.py --summary "$GITHUB_STEP_SUMMARY" --json build/badges/rust-coverage-raw.json
+      - name: Build Rust line coverage badge JSON
+        if: >-
+          always() &&
+          ((github.event_name == 'push' && github.ref == 'refs/heads/develop') ||
+           github.event_name == 'workflow_dispatch')
+        continue-on-error: true
+        run: python -m tools.test_badges rust-coverage --input build/badges/rust-coverage-raw.json --out build/badges/rust
+      - if: >-
+          always() &&
+          ((github.event_name == 'push' && github.ref == 'refs/heads/develop') ||
+           github.event_name == 'workflow_dispatch')
+        continue-on-error: true
+        uses: actions/upload-artifact@cf430e030dddb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: badge-rust-coverage
+          path: build/badges/rust/*.json
+          if-no-files-found: ignore
+          retention-days: 7
   # The integration tests (ADR-017): the app's screens, operated in Chromium and WebKit, through
   # the real core and crates, with stand-ins for the devices and the services outside the app
   # (tests/integration, native/browser-core-bridge).

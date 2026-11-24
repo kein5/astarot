@@ -5,13 +5,23 @@
   </picture>
 </h1>
 
-<!-- Badges read their values from GitHub (Actions, Releases, the repository) or from the files
-     they link to, except License and Platform: those follow LICENSE and the release files. Keep docs/readmes/README.ja.md the same. -->
+<!-- Badges read their values from GitHub (Actions, Releases, the repository, the `badges` branch
+     published by publish-badges.yml, or docs/testing/badges/ for milestone measurements), except
+     License and Platform: those follow LICENSE and the release files. Keep docs/readmes/README.ja.md the same.
+     UI mutation (docs/testing/badges/mutation-ui.json) and E2E tests (docs/testing/badges/tests-e2e.json)
+     are omitted until their initial measurements are recorded (see docs/testing/overview.md). -->
 <p align="center">
   <a href="https://github.com/kein5/astarot/actions/workflows/voice-tests.yml?query=branch%3Adevelop"><img alt="Tests on Linux and Windows (develop)" src="https://img.shields.io/github/actions/workflow/status/kein5/astarot/voice-tests.yml?branch=develop&event=push&label=tests"></a>
   <a href="https://github.com/kein5/astarot/actions/workflows/build-linux.yml?query=branch%3Adevelop+event%3Aworkflow_dispatch"><img alt="Linux build of the latest release candidate" src="https://img.shields.io/github/actions/workflow/status/kein5/astarot/build-linux.yml?branch=develop&event=workflow_dispatch&label=Linux%20build"></a>
   <a href="https://github.com/kein5/astarot/actions/workflows/release.yml?query=branch%3Adevelop+event%3Aworkflow_dispatch"><img alt="Windows build of the latest release candidate" src="https://img.shields.io/github/actions/workflow/status/kein5/astarot/release.yml?branch=develop&event=workflow_dispatch&label=Windows%20build"></a>
   <a href="https://github.com/kein5/astarot/actions/workflows/github-code-scanning/codeql"><img alt="CodeQL analysis (develop)" src="https://img.shields.io/github/actions/workflow/status/kein5/astarot/github-code-scanning%2Fcodeql?branch=develop&label=CodeQL"></a>
+</p>
+<p align="center">
+  <a href="/docs/testing/overview.md"><img alt="Unit tests status (develop)" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fkein5%2Fastarot%2Fbadges%2Ftests-unit.json"></a>
+  <a href="/docs/testing/overview.md"><img alt="Integration tests status (develop)" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fkein5%2Fastarot%2Fbadges%2Ftests-integration.json"></a>
+  <a href="/docs/testing/overview.md"><img alt="UI line coverage (develop)" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fkein5%2Fastarot%2Fbadges%2Fcoverage-ui.json"></a>
+  <a href="/docs/testing/overview.md"><img alt="Rust line coverage (develop)" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fkein5%2Fastarot%2Fbadges%2Fcoverage-rust.json"></a>
+  <a href="/docs/testing/overview.md"><img alt="Rust mutation score for the fixed core files" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fkein5%2Fastarot%2Fdevelop%2Fdocs%2Ftesting%2Fbadges%2Fmutation-rust.json"></a>
 </p>
 <p align="center">
   <a href="https://github.com/kein5/astarot/releases/latest"><img alt="Latest stable release" src="https://img.shields.io/github/v/release/kein5/astarot?label=release"></a>

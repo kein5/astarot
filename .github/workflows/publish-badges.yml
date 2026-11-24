@@ -1,0 +1,93 @@
+# Publishes CI auto-updated shields.io endpoint JSON files (UI/Rust line coverage, unit and
+# integration test status, and metadata.json) to the dedicated `badges` branch after voice-tests.yml
+# completes on develop. Milestone badges (Rust mutation, future UI mutation, real-machine E2E) live
+# in docs/testing/badges/ on develop. See docs/testing/overview.md for the schema and update flow.
+name: Publish ASTAROT test and coverage badges
+on:
+  workflow_run:
+    workflows: ["VRCT-VOX voice contracts (no models)"]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: "voice-tests.yml run ID to publish badges from"
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: publish-badges
+  cancel-in-progress: false
+jobs:
+  publish:
+    if: >-
+      github.repository == 'kein5/astarot' && (
+        (github.event_name == 'workflow_run' &&
+         github.event.workflow_run.conclusion != 'cancelled' &&
+         github.event.workflow_run.event == 'push' &&
+         github.event.workflow_run.head_branch == 'develop' &&
+         github.event.workflow_run.head_repository.full_name == github.repository) ||
+        (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/develop'))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      # Reads the completed voice-tests.yml run's artifacts and jobs, and writes JSON on `badges`.
+      actions: read
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: develop
+          persist-credentials: false
+      - id: target
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          WORKFLOW_RUN_ID: ${{ github.event.workflow_run.id }}
+          WORKFLOW_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          INPUT_RUN_ID: ${{ inputs.run_id }}
+        run: |
+          if [ "$EVENT_NAME" = workflow_dispatch ]; then
+            echo "run_id=$INPUT_RUN_ID" >> "$GITHUB_OUTPUT"
+            echo "commit=" >> "$GITHUB_OUTPUT"
+          else
+            echo "run_id=$WORKFLOW_RUN_ID" >> "$GITHUB_OUTPUT"
+            echo "commit=$WORKFLOW_HEAD_SHA" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Download UI badge artifact
+        continue-on-error: true
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: badge-ui
+          path: badge-artifacts/badge-ui
+          run-id: ${{ steps.target.outputs.run_id }}
+          github-token: ${{ github.token }}
+      - name: Download Rust coverage badge artifact
+        continue-on-error: true
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: badge-rust-coverage
+          path: badge-artifacts/badge-rust-coverage
+          run-id: ${{ steps.target.outputs.run_id }}
+          github-token: ${{ github.token }}
+      - name: Download core JUnit artifacts (Ubuntu)
+        continue-on-error: true
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: core-tests-junit-ubuntu-latest
+          path: badge-artifacts/core-tests-junit-ubuntu-latest
+          run-id: ${{ steps.target.outputs.run_id }}
+          github-token: ${{ github.token }}
+      - name: Download core JUnit artifacts (Windows)
+        continue-on-error: true
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: core-tests-junit-windows-latest
+          path: badge-artifacts/core-tests-junit-windows-latest
+          run-id: ${{ steps.target.outputs.run_id }}
+          github-token: ${{ github.token }}
+      - name: Publish shields.io endpoint JSON files to the badges branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ steps.target.outputs.run_id }}
+          COMMIT_SHA: ${{ steps.target.outputs.commit }}
+        run: python3 -m tools.test_badges publish --run-id "$RUN_ID" --commit "$COMMIT_SHA" --artifacts-dir badge-artifacts

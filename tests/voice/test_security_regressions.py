@@ -94,6 +94,26 @@ def test_workflows_pin_external_code_and_keep_inputs_out_of_scripts(workflow):
         assert commands.strip() == "python3 -m tools.update_channels beta"
         assert all(step.get("with", {}).get("persist-credentials") == "false"
                    for step in job["steps"] if step.get("uses", "").startswith("actions/checkout@"))
+    elif workflow.name == "publish-badges.yml":
+        # Publishes shields.io endpoint JSON files on the `badges` branch after voice-tests.yml
+        # completes on develop. It runs from develop's copy, never on pull requests, and writes
+        # only through tools.test_badges publish.
+        assert set(document["on"]) == {"workflow_run", "workflow_dispatch"}
+        assert document["on"]["workflow_run"] == {"workflows": ["VRCT-VOX voice contracts (no models)"], "types": ["completed"]}
+        assert document["permissions"] == {"contents": "read"}
+        assert set(document["jobs"]) == {"publish"}
+        job = document["jobs"]["publish"]
+        assert job["permissions"] == {"actions": "read", "contents": "write"}
+        for condition in ("github.repository == 'kein5/astarot'",
+                          "github.event.workflow_run.event == 'push'",
+                          "github.event.workflow_run.head_branch == 'develop'",
+                          "github.event.workflow_run.head_repository.full_name == github.repository",
+                          "github.ref == 'refs/heads/develop'"):
+            assert condition in job["if"], condition
+        commands = "\n".join(step.get("run", "") for step in job["steps"])
+        assert "python3 -m tools.test_badges publish" in commands
+        assert all(step.get("with", {}).get("persist-credentials") == "false"
+                   for step in job["steps"] if step.get("uses", "").startswith("actions/checkout@"))
     elif workflow.name == "ci-failures.yml":
         # The weekly count of CI failures (the CI audit of 2026-11-22, item 7): it reads the runs
         # and their jobs, writes only its job summary, and runs no input of anyone's.
