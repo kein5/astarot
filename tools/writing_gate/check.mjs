@@ -22,6 +22,7 @@ import yaml from "js-yaml";
 
 import { compareBaseline, countFindings } from "../i18n_gate/baseline.mjs";
 import { localeProse, markdownProse } from "./prose.mjs";
+import { isReleaseNotes, releaseNotesFindings } from "./release_notes.mjs";
 import { EMOJI_RULE, LINE_RULES, ORDER_RULE, languageOf } from "./rules.mjs";
 
 const HERE = fileURLToPath(new URL(".", import.meta.url));
@@ -82,6 +83,8 @@ export const scanDocument = (file, source, { audience = audienceOf(file) } = {})
         if (line.heading) for (const match of line.text.matchAll(ORDER_RULE.pattern)) add(ORDER_RULE, line, match);
         if (!releaseNotes) for (const match of line.text.matchAll(EMOJI_RULE.pattern)) add(EMOJI_RULE, line, match);
     }
+    // Commas and line breaks, in the release notes only (PR #1157, release_notes.mjs).
+    if (isReleaseNotes(file)) findings.push(...releaseNotesFindings(file, source, prose));
     return { findings, errors };
 };
 

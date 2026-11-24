@@ -126,6 +126,13 @@
   "docs/release-notes/0.4.0.md": {
     "ja-exclamation|！": 1,
     "ja-long-vowel-er|フォルダ": 3,
+    "ja-release-notes-pause-comma|Linuxでは、": 1,
+    "ja-release-notes-pause-comma|RVCの変換は、": 1,
+    "ja-release-notes-pause-comma|Windowsでは、": 1,
+    "ja-release-notes-pause-comma|ウィンドウは、": 1,
+    "ja-release-notes-pause-comma|この説明は、": 1,
+    "ja-release-notes-pause-comma|変換中は、": 1,
+    "ja-release-notes-pause-comma|起動の直後は、": 1,
     "ja-terms|VRパネル": 1
   },
   "docs/release-notes/0.5.0.md": {
@@ -179,12 +186,35 @@
     "ja-latin-spacing|を P": 1,
     "ja-latin-spacing|を R": 1,
     "ja-latin-spacing|声 A": 1,
+    "ja-release-notes-pause-comma|0.5.0では、": 1,
+    "ja-release-notes-pause-comma|API キーは、": 1,
+    "ja-release-notes-pause-comma|ZIP版は、": 1,
     "ja-terms-user|音声合成": 3
   },
   "docs/release-notes/0.5.2.md": {
     "ja-metaphor|アプリが落ち": 4
   },
   "docs/release-notes/0.6.0.md": {
+    "ja-release-notes-commas|「完了」を押すと、準備した機能のメイン画面のスイッチ（「マイク入力」と「聞き取り": 1,
+    "ja-release-notes-commas|0.5.2のノートに書いた、VR UIをレーザーで指す、押す、掴むといった操作も": 1,
+    "ja-release-notes-commas|ASTAROT 0.6.0では、設定を用途ごとに並べ直し、新しい「初期設定」の画": 1,
+    "ja-release-notes-commas|CIにmerge queue、actionlint、zizmor、shellch": 1,
+    "ja-release-notes-commas|React 19.3、react-i18next 18、Vite 8、Babel": 1,
+    "ja-release-notes-commas|VOICEVOX、AivisSpeech、SHAREVOXでは、速さ、音量、高さ": 1,
+    "ja-release-notes-commas|取得の前に、名前、提供元、ライセンス、容量を示し、チェックボックスで同意してから": 1,
+    "ja-release-notes-commas|新しい「初期設定」の画面では、音声認識、翻訳、読み上げのモデルを機能ごとに選び、": 1,
+    "ja-release-notes-commas|止めるものは、読み上げている文、読み上げを待っている文、声の試聴、仮想マイクの確": 1,
+    "ja-release-notes-commas|準備ができているのは、音声認識、読み上げ、ボイスチェンジャーで使用中のモデルと、": 1,
+    "ja-release-notes-pause-comma|**Linuxでは、": 1,
+    "ja-release-notes-pause-comma|Windowsでは、": 3,
+    "ja-release-notes-pause-comma|代わりのエンジンは、": 1,
+    "ja-release-notes-pause-comma|以前は、": 1,
+    "ja-release-notes-pause-comma|仮想マイクの修正は、": 1,
+    "ja-release-notes-pause-comma|入力音声の転送は、": 1,
+    "ja-release-notes-pause-comma|初期設定では、": 1,
+    "ja-release-notes-pause-comma|古い名前の場所には、": 1,
+    "ja-release-notes-pause-comma|多くの画面の変更は、": 1,
+    "ja-release-notes-pause-comma|環境変数は、": 1,
     "ja-terms|VRパネル": 3
   },
   "docs/spec/contracts.md": {
