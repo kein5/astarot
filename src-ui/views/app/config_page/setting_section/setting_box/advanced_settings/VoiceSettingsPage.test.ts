@@ -51,7 +51,9 @@ async function voicePage(context: TestContext, given: Partial<Voice> = {}, optio
         sent.push(value === undefined ? [endpoint] : [endpoint, value]);
         return endpoint === "/set/data/voice_settings" ? Promise.resolve({ status: 200, result: { ...voice.settings, ...(value as object) } }) : true;
     }, updateError: () => {} };
-    const ui = { "@useI18n": { useI18n: () => ({ t, i18n: { exists: (name: string) => (options.known ?? []).includes(name) } }) } };
+    // The kit's Button and TextField as the elements they stand for, with the props the page gives
+    // them: a field marked wrong carries `invalid`, which the kit turns into aria-invalid.
+    const ui = { "../../../../../kit/index.ts": { Button: "button", TextField: "input" }, "@useI18n": { useI18n: () => ({ t, i18n: { exists: (name: string) => (options.known ?? []).includes(name) } }) } };
     const { useSettingsDraft } = await loadModule<typeof import("../../../../../../logics/voice/useSettingsDraft.tsx")>(new URL("../../../../../../logics/voice/useSettingsDraft.tsx", import.meta.url), runtime, {
         ...ui, "./draftRebase": draftRebase,
         "./saveBar": { changedPaths, setSaveBarEntry: (id: string, entry: SaveBarEntry | null) => { if (entry) entries.set(id, entry); else entries.delete(id); } },
@@ -171,9 +173,12 @@ test("each language has its speech.cpp server and voice, and Japanese can come f
     const server = selectNamed(group("japanese"), "speech_servers.japanese_selection");
     assert.deepEqual([server.props.value, optionsOf(server)], ["bundled", [["external", "speech_servers.external", undefined], ["bundled", "speech_servers.bundled", undefined]]]);
     const inputs = (role: string) => ofType(group(role), "input").map(node => [node.props.value, node.props.placeholder, node.props.maxLength]);
+    // An address is in the monospaced font, a voice's name is not (#476).
+    const mono = (role: string) => ofType(group(role), "input").map(node => node.props.mono);
     // The bundled server needs no address; a voice of "none" is an empty field.
     assert.deepEqual(inputs("japanese"), [["", "voice_ui.voice_unset", 128]]);
     assert.deepEqual(inputs("multilingual"), [["http://x", `voice_ui.example {"value":"http://127.0.0.1:8080"}`, 512], ["Ana", "voice_ui.voice_unset", 128]]);
+    assert.deepEqual([mono("japanese"), mono("multilingual")], [[false], [true, false]]);
     assert.deepEqual(ofType(group("multilingual"), "label").map(node => [node.props.children].flat()[0]),
         ["speech_servers.multilingual_selection", "voice.multilingual_url", "voice.multilingual_voice"]);
     assert.equal(selectNamed(group("multilingual"), "speech_servers.multilingual_selection").props.value, "external");

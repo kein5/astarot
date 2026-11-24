@@ -74,7 +74,9 @@ async function directVoice(context: TestContext, given: Partial<Voice> = {}, opt
     };
     const hook = { send, updateDirectError: (code: unknown) => { errors.push(code); }, setDirectDraftBlocked: (value: boolean) => { blocked.push(value); },
         setSelectedSource: (value: string) => { sent.push(["select", value]); voice.selectedSource = value; } };
-    const ui = { "@useI18n": { useI18n: () => ({ t, i18n: { exists: (name: string) => (options.known ?? []).includes(name) } }) } };
+    // The kit's Button and TextField as the elements they stand for, with the props the page gives
+    // them: a field marked wrong carries `invalid`, which the kit turns into aria-invalid.
+    const ui = { "../../../../../kit/index.ts": { Button: "button", TextField: "input" }, "@useI18n": { useI18n: () => ({ t, i18n: { exists: (name: string) => (options.known ?? []).includes(name) } }) } };
     const { useSettingsDraft } = await loadModule<typeof import("../../../../../../logics/voice/useSettingsDraft.tsx")>(new URL("../../../../../../logics/voice/useSettingsDraft.tsx", import.meta.url), runtime, {
         ...ui, "./draftRebase": draftRebase,
         "./saveBar": { changedPaths, setSaveBarEntry: (id: string, entry: SaveBarEntry | null) => { if (entry) entries.set(id, entry); else entries.delete(id); } },
@@ -278,9 +280,9 @@ test("RVC's pitch and index rate are checked as they are typed, and an index rat
     let tree = v.open({ variant: "rvc" });
     const field = (name: string) => inputNamed(v.draw(), `voice.vc_${name}`).props;
     const pitch = field("rvc_pitch"), rate = field("rvc_index_rate");
-    assert.deepEqual([pitch.type, pitch.min, pitch.max, pitch.step, pitch.placeholder, pitch.value, pitch["aria-invalid"], pitch["aria-describedby"]],
+    assert.deepEqual([pitch.type, pitch.min, pitch.max, pitch.step, pitch.placeholder, pitch.value, pitch.invalid, pitch["aria-describedby"]],
         ["number", -24, 24, 1, `voice_ui.example {"value":12}`, 0, false, undefined]);
-    assert.deepEqual([rate.type, rate.min, rate.max, rate.step, rate.placeholder, rate.value, rate["aria-invalid"]],
+    assert.deepEqual([rate.type, rate.min, rate.max, rate.step, rate.placeholder, rate.value, rate.invalid],
         ["number", 0, 1, 0.05, `voice_ui.example {"value":0.75}`, 0, false]);
     assert.deepEqual(alerts(tree), []);
     for (const [name, value, invalid] of [["rvc_pitch", 25, true], ["rvc_pitch", -25, true], ["rvc_pitch", 1.5, true], ["rvc_pitch", -24, false], ["rvc_pitch", Number.NaN, true],
@@ -288,7 +290,7 @@ test("RVC's pitch and index rate are checked as they are typed, and an index rat
         field(name).onChange({ target: { valueAsNumber: value } });
         tree = v.draw();
         const shown = inputNamed(tree, `voice.vc_${name}`).props;
-        assert.equal(shown["aria-invalid"], invalid, `${name} ${value}`);
+        assert.equal(shown.invalid, invalid, `${name} ${value}`);
         assert.equal(shown.value, Number.isFinite(value) ? value : "", `${name} ${value}`);
         const error = find(tree, node => node.type === "p" && textOf(node) === "voice_ui.invalid_rvc_numbers");
         assert.equal(error !== null, invalid, `${name} ${value}`);
@@ -323,7 +325,7 @@ test("the RVC worker's device, threads and high-pass are set in a fold whose lin
         [["auto", "voice.vc_rvc_device_auto"], ["cuda", "voice.vc_rvc_device_cuda"], ["cpu", "voice.vc_rvc_device_cpu"]], "no DirectML where it is not offered");
     device.props.onChange({ target: { value: "cpu" } });
     const threads = inputNamed(worker(), "voice.vc_rvc_threads");
-    assert.deepEqual([threads.props.type, threads.props.min, threads.props.max, threads.props.step, threads.props.placeholder, threads.props.value, threads.props["aria-invalid"]],
+    assert.deepEqual([threads.props.type, threads.props.min, threads.props.max, threads.props.step, threads.props.placeholder, threads.props.value, threads.props.invalid],
         ["number", 0, rvcStartOptions.MAX_RVC_THREADS, 1, `voice_ui.example {"value":4}`, 0, false]);
     threads.props.onChange({ target: { valueAsNumber: 8 } });
     const highpass = findIn(worker(), node => node.type === "input" && node.props.type === "checkbox");
@@ -336,7 +338,7 @@ test("the RVC worker's device, threads and high-pass are set in a fold whose lin
     for (const [value, invalid] of [[65, true], [-1, true], [2.5, true], [Number.NaN, true], [64, false]] as const) {
         inputNamed(worker(), "voice.vc_rvc_threads").props.onChange({ target: { valueAsNumber: value } });
         const shown = inputNamed(worker(), "voice.vc_rvc_threads").props;
-        assert.deepEqual([shown["aria-invalid"], shown.value], [invalid, Number.isFinite(value) ? value : ""], String(value));
+        assert.deepEqual([shown.invalid, shown.value], [invalid, Number.isFinite(value) ? value : ""], String(value));
     }
     // A device the locale does not name is shown by its own name.
     inputNamed(worker(), "voice.vc_rvc_device").props.onChange({ target: { value: "absent-device" } });
@@ -410,7 +412,7 @@ test("Start sends the chosen input with the conversion's options, or the input a
     const v = await directVoice(context, { directState: { observation_id: "1", settings: { ...rvcSaved, rvc_index: "v.index", rvc_index_rate: 0.5, rvc_pitch: -3, rvc_device: "cpu", rvc_threads: 4, rvc_highpass: false } } });
     let tree = v.open({ variant: "rvc" });
     const start = buttonNamed(tree, "voice.input_start");
-    assert.deepEqual([start.props.type, start.props.className, start.props.disabled, start.props["aria-describedby"]], ["button", "primary", false, undefined]);
+    assert.deepEqual([start.props.tone, start.props.disabled, start.props["aria-describedby"]], ["primary", false, undefined]);
     start.props.onClick();
     assert.deepEqual(v.sent.at(-1), ["/run/start_direct_voice", { source: "mic-1", mode: "converted", options: { engine: "rvc", runtime: "/rvc", model: "voice.pth",
         index: "v.index", pitch: -3, index_rate: 0.5, device: "cpu", threads: 4, highpass: false } }]);
@@ -460,8 +462,9 @@ test("RVC's paths are typed or dropped, its runtime is set up in place, and the 
     const setup = () => findIn(v.draw(), node => node.type === "setup" && node.props.title === "voice_ui.setup_input");
     assert.deepEqual(ofType(setup(), "description").map(node => node.props.text), ["voice.vc_rvc_hint"]);
     const fields = ofType(setup(), "input").map(node => [node.props.type, node.props.value, node.props.maxLength, node.props.placeholder]);
-    assert.deepEqual(fields, [["text", "/rvc", 4096, `voice_ui.example {"value":"/path/rvc-runtime"}`], ["text", "voice.pth", 4096, `voice_ui.example {"value":"/path/voice.pth"}`],
-        ["text", "old.index", 4096, `voice_ui.example {"value":"/path/voice.index"}`]]);
+    // Text fields of the kit, which are text unless they say otherwise.
+    assert.deepEqual(fields, [[undefined, "/rvc", 4096, `voice_ui.example {"value":"/path/rvc-runtime"}`], [undefined, "voice.pth", 4096, `voice_ui.example {"value":"/path/voice.pth"}`],
+        [undefined, "old.index", 4096, `voice_ui.example {"value":"/path/voice.index"}`]]);
     assert.deepEqual(texts(setup(), "label").map(text => text.split(/\s/)[0]), ["voice.vc_rvc_runtime", "voice.vc_rvc_model", "voice.vc_rvc_index"]);
     assert.equal(findIn(setup(), node => node.type === "custom-model-link").props.section, "rvc");
     const catalog = () => findIn(setup(), node => node.type === "downloads").props;
