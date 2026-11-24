@@ -631,6 +631,10 @@
     "reason": "modelAdvice defaults to the time now and to a reserve, and the readout reads only the device and whether there are several GPUs, which depend on neither.",
     "where": "src-ui/views/app/config_page/setting_section/setting_box/advanced_settings/ModelDownloads.tsx:91:47 { now: Date.now(), reserveBytes: reserveBytes(reserve) } -> {}"
   },
+  "45v3fmcqgj": {
+    "reason": "A valid submit already cleared the problem, and nothing can be submitted while the request is pending, so the problem is empty when the answer comes.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/transcription/AsrApiEntries.tsx:117:47 setProblem(null); -> ;"
+  },
   "4ccr56bwqo": {
     "reason": "With no saved model the setup line tests an empty name or the placeholder against .pth, and neither ends with it.",
     "where": "src-ui/views/app/config_page/setting_section/setting_box/advanced_settings/DirectVoiceSettings.tsx:150:61 \"\" -> \"Stryker was here!\""
@@ -746,6 +750,10 @@
   "dk76y4e5pj": {
     "reason": "An empty, null or undefined value parses to NaN, and the branch for NaN does exactly what the empty value's branch does: it puts back the last value saved.",
     "where": "src-ui/views/app/config_page/setting_section/setting_box/_components/threshold_component/threshold_entry/ThresholdEntry.tsx:63:13 val === \"\" -> false"
+  },
+  "dm5htixbzq": {
+    "reason": "Marked as sent before anything was sent, the first drawing clears a form that is still empty, and the mark is dropped at once.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/transcription/AsrApiEntries.tsx:94:25 false -> true"
   },
   "e3ymkr1q68": {
     "reason": "The fields come from useSettingsLogics for the same category, so a setting of another category has no field to copy.",
