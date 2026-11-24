@@ -497,17 +497,19 @@ test("the slider follows the saved value, except while the setting waits, and th
 async function field(context: TestContext, props: Partial<SaveButtonLogicOptions> = {}) {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     const runtime = hooks(), requests: PendingSave[] = [], deletes: number[] = [];
-    let entry: SaveBarEntry | null | undefined;
+    let entry: SaveBarEntry | null | undefined, saveNotices = 0;
     context.onTestFinished(() => runtime.unmount());
     const { useSaveButtonLogic } = await loadModule<typeof import("./useSettingsLogics.ts")>(new URL("./useSettingsLogics.ts", import.meta.url), runtime, {
-        "@store": {}, "@logics_common": {}, "@utils": {},
+        "@store": {}, "@utils": {},
+        "@logics_common": { useNotificationStatus: () => ({ showNotification_SaveSuccess: () => { saveNotices += 1; } }) },
         "../../voice/saveBar": { setSaveBarEntry: (_id: string, value: SaveBarEntry | null) => { entry = value; } },
     });
     const options: SaveButtonLogicOptions = { variable: "old", state: "ok", label: "Field",
         // Test data: the answers carry only the fields the save reads (no endpoint).
         setFunction: value => new Promise<StdoutResult>(resolve => requests.push({ value, resolve: answer => resolve(unchecked<StdoutResult>(answer)) })),
         ...props };
-    return { options, requests, deletes, runtime, render: () => runtime.render(useSaveButtonLogic, options), get entry() { return entry; } };
+    return { options, requests, deletes, runtime, render: () => runtime.render(useSaveButtonLogic, options),
+        get entry() { return entry; }, get saveNotices() { return saveNotices; } };
 }
 
 test("an edit shows in the bar under the field's label, and a field without a label lists no change", async context => {

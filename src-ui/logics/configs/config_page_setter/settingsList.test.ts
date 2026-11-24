@@ -170,24 +170,26 @@ const answerFor = (setting: Setting): [unknown, unknown] => {
     }
 };
 
-test("an answer becomes the setting's value, through its transform; only a write's answer says it was saved", async () => {
+// Settings are kept as they change; only a text field saved by hand says it was saved
+// (useSaveButtonLogic), so no answer of a setting shows the notice.
+test("an answer becomes the setting's value, through its transform, and shows no saved notice", async () => {
     const s = await loadSettingsList();
-    let saved = 0;
+    let answered = 0;
     for (const setting of s.list.SETTINGS_ARRAY) {
         const name = setting.Base_Name, [answer, value] = answerFor(setting);
         call(s.category(setting.Category), `updateFromBackend${name}`, answer);
         assert.deepEqual(stateOf(s, setting), { state: "ok", data: value }, `updateFromBackend${name}`);
-        assert.equal(s.saveNotices, saved, `updateFromBackend${name} says nothing`);
         for (const success of ["setSuccess", "deleteSuccess"]) {
             const api = s.category(setting.Category);
             if (typeof fieldOf(api, `${success}${name}`) !== "function") continue;
             call(api, `update${name}`, setting.default_value);
             call(api, `${success}${name}`, answer);
             assert.deepEqual(stateOf(s, setting), { state: "ok", data: value }, `${success}${name}`);
-            assert.equal(s.saveNotices, ++saved, `${success}${name} says it was saved`);
+            answered++;
         }
     }
-    assert.ok(saved > 150, String(saved));
+    assert.ok(answered > 150, String(answered));
+    assert.equal(s.saveNotices, 0);
 });
 
 test("a transform refuses an answer that is not a list, or that holds an item it cannot read", async () => {

@@ -38,6 +38,8 @@ const EMPTY_UNTIL_ANSWERED: ReadonlySet<string> = new Set([
     "SelectedTranscriptionEngine", "SelectedGroqWhisperModel", "SelectedOpenAIWhisperModel", "SelectedCustomWhisperModel", "SelectedDeepgramModel",
     "MicAvgLogprob", "MicNoSpeechProb", "SpeakerAvgLogprob", "SpeakerNoSpeechProb",
     "WebsocketAuthToken", "ExperimentalFeatures", "UsagePresets",
+    // The path of config.json, which the core works out on each machine.
+    "PathConfig",
 ]);
 
 // Settings that start at a value of their own, which is neither the core's default nor empty. Each
@@ -58,6 +60,9 @@ const OWN_START: Readonly<Record<string, unknown>> = {
     // TELEMETRY_NOTICE (a number) and ENABLE_TELEMETRY.
     TelemetryNotice: { pending: false, enabled: true },
     WebsocketPort: 9001,
+    // The core answers the folder the logs go to and why it fell back, if it did (#1096), worked
+    // out from PATH_LOGS.
+    PathLogs: { path: "", error_code: null },
 };
 
 const isEmpty = (value: unknown) => value === "" || value === 0 || value === false || value === null
