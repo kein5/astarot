@@ -7,6 +7,7 @@ import { applyRealtimeCaption } from "../../../../../../../logics/transcription/
 import { encodeLogUpdate, decodeLogUpdate } from "../../../../../../../logics/common/vrPanelWire.ts";
 import * as speakerNamesLogic from "../../../../../../../logics/common/speakerNames.ts";
 import { styleOf } from "../../../../../../../logics/test/styleSource.ts";
+import * as speakerLabelsLogic from "../../../../../../../logics/common/speakerLabels.ts";
 
 type RowModule = typeof import("./MessageContainer.tsx");
 type RowProps = Parameters<RowModule["MessageContainer"]["type"]>[0];
@@ -22,6 +23,8 @@ const load = async (runtime: HookRuntime, store: { is_vr_panel: boolean }, t: Tr
     const i18n = { "@useI18n": { useI18n: () => ({ t }) } };
     const speakerNames = await loadModule<typeof import("./SpeakerNames.tsx")>(new URL("./SpeakerNames.tsx", import.meta.url), runtime, {
         "../../../../../../../logics/common/speakerNames.ts": speakerNamesLogic, ...i18n,
+        "../../../../../../../logics/common/speakerLabels.ts": speakerLabelsLogic,
+        "../../../../../../theme/vars.css.ts": { vars: Object.fromEntries(["a", "b", "c", "d"].map(voice => [`vox_speaker_${voice}`, `var(--vox_speaker_${voice})`])) },
     });
     const row = await loadModule<RowModule>(new URL("./MessageContainer.tsx", import.meta.url), runtime, {
         "@store": { store }, "./message_sub_menu_container/MessageSubMenuContainer": {}, "./SpeakerNames.tsx": speakerNames, ...i18n,
@@ -70,6 +73,29 @@ test("the voices are written with the names given, and the main window names the
         assert.equal(who(tree), null);
         assert.ok(find(tree, node => node.type === "p" && node.props.children === "ミカ・話者B"));
     }
+});
+
+// #1036: only the label that says who spoke takes the voice's color (A purple, B amber, C green,
+// D rose, then over again); the words keep the log's, and several voices take the first one's.
+test("the label of who spoke takes its voice's color, and the words keep the log's", async () => {
+    const runtime = hooks(), store = { is_vr_panel: false };
+    const { MessageContainer } = await load(runtime, store, japanese);
+    const label = (tree: TreeNode) => findIn(tree, node => node.type === "button");
+    for (const [speakers, voice] of [[["A"], "a"], [["B"], "b"], [["C"], "c"], [["D"], "d"], [["E"], "a"], [["B", "A"], "b"]] as const) {
+        const tree = runtime.render(MessageContainer.type, rowProps(heard({ speakers, nameSpeakers() {} })));
+        assert.deepEqual(label(tree).props.style, { color: `var(--vox_speaker_${voice})` }, speakers.join("・"));
+        // The words, and the state beside the label, are not drawn in the voice's color.
+        assert.ok(!JSON.stringify(find(tree, node => node.props?.children === "やあ")?.props ?? {}).includes("vox_speaker"));
+        assert.equal(findIn(tree, node => node.props?.children === "main_page.message_log.received").props.style, undefined);
+    }
+    // The label stays words in the VR panel too, in its voice's color.
+    store.is_vr_panel = true;
+    const tree = runtime.render(MessageContainer.type, rowProps(heard({ speakers: ["C"] })));
+    assert.deepEqual(findIn(tree, node => node.type === "p" && node.props.children === "話者C").props.style, { color: "var(--vox_speaker_c)" });
+    // A caption of the user's own words has no speakers and no voice's color.
+    store.is_vr_panel = false;
+    const own = runtime.render(MessageContainer.type, rowProps(heard({ category: "sent", speakers: ["A"] })));
+    assert.ok(!JSON.stringify(own).includes("vox_speaker"));
 });
 
 test("a row that goes on with the same voices shows its time and keeps who spoke for screen readers", async () => {

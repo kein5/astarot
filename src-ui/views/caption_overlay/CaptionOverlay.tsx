@@ -4,16 +4,12 @@ import { captionOverlayBridge } from "../../logics/captionOverlay/bridge";
 import type { CaptionOverlayBridge } from "../../logics/captionOverlay/bridge";
 import { isCaptionSnapshot, nextChange, visibleLines } from "../../logics/captionOverlay/lines";
 import type { CaptionFlowItem, CaptionSnapshot } from "../../logics/captionOverlay/lines";
-import { speakerLabels } from "../../logics/common/speakerLabels";
+import { speakerColorIndex, speakerLabels } from "../../logics/common/speakerLabels";
 import * as styles from "./CaptionOverlay.css.ts";
 
 // The classes looked up by a name made at run time: a name with no class of its own gives none.
 const classNamed: Partial<Record<string, string>> = styles;
 
-// The colours a voice can take (CaptionOverlay.css.ts); the fifth voice starts over.
-const VOICE_COLOURS = 4;
-// "A" is 0, "B" is 1, ... "Z" is 25, "AA" is 26: the order the server first heard the voices in.
-const voiceIndex = (label: string) => [...label].reduce((value, letter) => value * 26 + letter.charCodeAt(0) - 64, 0) - 1;
 
 export interface CaptionOverlayProps {
     bridge?: CaptionOverlayBridge;
@@ -79,7 +75,7 @@ export const CaptionOverlay = ({ bridge = captionOverlayBridge, now = Date.now }
                 const lead = (text: string, first: boolean) => first && who ? [who, text] : text;
                 return (
                     <div key={line.id} className={clsx(styles.line, classNamed[line.kind],
-                        speakers.length > 0 && classNamed[`voice_${voiceIndex(speakers[0]) % VOICE_COLOURS}`], {
+                        speakers.length > 0 && classNamed[`voice_${speakerColorIndex(speakers[0])}`], {
                             [styles.is_fading]: line.fading, [styles.is_pending]: line.pending,
                         })}>
                         {line.text && <p className={styles.text}>{lead(line.text, true)}</p>}

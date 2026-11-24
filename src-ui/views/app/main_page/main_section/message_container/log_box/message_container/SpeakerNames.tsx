@@ -4,8 +4,18 @@ import { useI18n } from "@useI18n";
 import * as styles from "./SpeakerNames.css.ts";
 import { MAX_SPEAKER_NAME, isSpeakerName, tidySpeakerName } from "../../../../../../../logics/common/speakerNames.ts";
 import type { SessionSpeakerNames } from "../../../../../../../logics/common/speakerNames.ts";
+import { speakerColorIndex } from "../../../../../../../logics/common/speakerLabels.ts";
+import { vars } from "../../../../../../theme/vars.css.ts";
 
 type Translate = (key: string, options?: Record<string, unknown>) => string;
+
+// The colors of the voices in the log (#1036): only the label that says who spoke takes its
+// voice's color, and the words stay in the log's own. Several voices in one caption take the
+// first one's color, as the caption overlay's line does. The label's words always stay, so a
+// voice is never told by color alone.
+const SPEAKER_INK = [vars.vox_speaker_a, vars.vox_speaker_b, vars.vox_speaker_c, vars.vox_speaker_d];
+export const speakerInk = (labels: readonly string[] | undefined): string | undefined =>
+    labels?.length ? SPEAKER_INK[speakerColorIndex(labels[0])] : undefined;
 
 // Who spoke, as the log writes it (#447). Without names it stays "話者A・B"; once a voice has a
 // name, each voice is written on its own: its name, or "話者B".

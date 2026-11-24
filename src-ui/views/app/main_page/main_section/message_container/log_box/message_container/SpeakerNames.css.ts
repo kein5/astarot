@@ -5,7 +5,8 @@ import { vars } from "../../../../../../theme/vars.css.ts";
 // em: the log's own font size setting scales the whole row.
 
 // The speakers as a button: drawn as a small button at rest (the raised surface and a hairline),
-// in the received colour, so it reads as something to press without a hover.
+// in the received colour, so it reads as something to press without a hover. The row gives it its
+// voice's colour instead (speakerInk, #1036).
 export const who = style({
     font: "inherit",
     fontSize: "1em",

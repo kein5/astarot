@@ -70,6 +70,10 @@ test("every DESIGN.md colour is the value of its token", () => {
         "state-active": "--vox_state_active",
         "state-warning": "--vox_state_warning",
         "state-failed": "--vox_state_failed",
+        "speaker-a": "--vox_speaker_a",
+        "speaker-b": "--vox_speaker_b",
+        "speaker-c": "--vox_speaker_c",
+        "speaker-d": "--vox_speaker_d",
         "readout-rule": "--vox_readout_rule",
     };
     for (const [role, token] of Object.entries(roles)) assert.equal(color(token), designColor(role), `${role} → ${token}`);
@@ -108,9 +112,10 @@ test("the grey steps get darker as their number grows", () => {
     }
 });
 
-test("text, secondary text, description text and the states reach 4.5:1 on the canvas, the surface and the rail", () => {
+test("text, secondary text, description text, the states and the speakers reach 4.5:1 on the canvas, the surface and the rail", () => {
     for (const fg of ["--dark_basic_text_color", "--vox_secondary_text", "--vox_description_text",
-        "--vox_state_active", "--vox_state_warning", "--vox_state_failed"]) {
+        "--vox_state_active", "--vox_state_warning", "--vox_state_failed",
+        "--vox_speaker_a", "--vox_speaker_b", "--vox_speaker_c", "--vox_speaker_d"]) {
         for (const bg of ["--vox_canvas", "--vox_surface", "--vox_rail"]) {
             assert.ok(contrast(fg, bg) >= 4.5, `${fg} on ${bg}: ${contrast(fg, bg).toFixed(2)}`);
         }
@@ -184,4 +189,21 @@ test("no navy value of the old palette is left in the tokens", () => {
     const old = ["#111b2c", "#0d1625", "#18253b", "#344662", "#2865dc", "#5b92ff", "#80acff", "#a9ccff", "#edf3ff"];
     const values = new Set(Object.values(variables).map(value => value.toLowerCase()));
     assert.deepEqual(old.filter(value => values.has(value)), []);
+});
+
+// #1036: the log's speakers take the hues of the desktop caption overlay's voices (A purple, B amber,
+// C green, D rose), within 3°, and stay less vivid than Lilac.
+test("the speakers' colours are the caption overlay's voices' hues, less vivid than Lilac", () => {
+    const overlay = read("../caption_overlay/CaptionOverlay.css.ts");
+    const bar = (name: string) => {
+        const block = overlay.slice(overlay.indexOf(`export const ${name} = style(`));
+        const match = /"--caption_bar": "(#[0-9a-f]{6})"/.exec(block);
+        assert.ok(match, `${name} has a bar colour`);
+        return match[1];
+    };
+    const voices = ["received", "voice_1", "voice_2", "voice_3"];
+    ["--vox_speaker_a", "--vox_speaker_b", "--vox_speaker_c", "--vox_speaker_d"].forEach((token, index) => {
+        assert.ok(hueApart(oklch(token).hue, oklch(bar(voices[index])).hue) <= 3, `${token} and ${voices[index]}`);
+        assert.ok(oklch(token).chroma < oklch("--primary_600_color").chroma, `${token} is less vivid than Lilac`);
+    });
 });

@@ -71,7 +71,9 @@ const derive = (value: string, source: TokenSource, colors: ThemeColors): string
 
 // The log's sent and received colours keep their hues (blue and pink-violet) in every theme; only
 // their lightness may move, so they stay readable on the theme's grounds as they are on Dark Plum's.
-export const KEPT_HUE_TOKENS: Readonly<Record<string, string>> = { "--sent_400_color": "#6197b4", "--received_300_color": "#c084cc" };
+// So do the four speakers' colours (#1036), the hues of the desktop caption overlay's voices.
+export const KEPT_HUE_TOKENS: Readonly<Record<string, string>> = { "--sent_400_color": "#6197b4", "--received_300_color": "#c084cc",
+    "--vox_speaker_a": "#cf86e6", "--vox_speaker_b": "#e6a84a", "--vox_speaker_c": "#5fcf8c", "--vox_speaker_d": "#ee7f95" };
 
 // The contrasts DESIGN.md "Colors" asks for, as the token moved and the grounds it must stand out
 // from. The order matters: the text is settled before the deep fills that carry it.

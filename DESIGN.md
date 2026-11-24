@@ -16,6 +16,10 @@ colors:
   state-active: "#b797f8"
   state-warning: "#d4a162"
   state-failed: "#e4938e"
+  speaker-a: "#cf86e6"
+  speaker-b: "#e6a84a"
+  speaker-c: "#5fcf8c"
+  speaker-d: "#ee7f95"
   readout-rule: "#a47af5"
 typography:
   body:
@@ -137,6 +141,7 @@ The palette comes from the three ASTAROT brand colors (`docs/brand/astarot/`): D
 | `secondary-text` | The grey that outlines the color swatches on the brand board |
 | `description-text` | The subtitle of the dark horizontal logo |
 | `state-warning`, `state-failed` | None; see below |
+| `speaker-a` to `speaker-d` | None; see below |
 
 The grey and lilac steps that components use directly (`dark_*` and `primary_*` in `variables.css`) are derived the same way, the greys from Dark Plum and the lilacs from Lilac, and the greys get darker as their number grows. Only the brand's own values (Off-White and the secondary and description text greys) and plain white are taken as they are. `brandPalette.test.ts` checks every step.
 
@@ -144,7 +149,9 @@ Use the canvas for conversation and settings, the deeper rail for navigation, an
 
 The brand has no warning or error colors. Warning and failed keep amber and red, the hues that carry their meaning, since a lilac or plum one would read as the active state. They take the OKLCH lightness of the active lilac (0.74) and a lower chroma (0.10), so the three readout states carry the same weight and Lilac stays the most vivid color.
 
-Contrast (WCAG 2.x, measured on the canvas, the surface and the rail): text, secondary text, description text and the three state colors reach 4.5:1 or more; Lilac reaches 4.5:1 on the surface. Text on a Lilac fill is Dark Plum (5.4:1), because white on Lilac is only 3.1:1. A field's border (`field-border`, `--vox_field_border`) is also the only edge of an outlined control: a switch's track and the quiet and danger buttons. It reaches 3.5:1 against the surface, the field's own fill, and 3:1 against every ground a field sits on: the canvas, the rail, the dialogs and the language list (`dark_875`) and a switch's track (`dark_850`). The brand board's label grey (`#777082`) reached only 3.04:1 on the surface and 2.86:1 in a dialog, so the field border is Dark Plum made lighter instead. Hairlines between regions (`border`) may stay below 3:1. A color that misses these numbers is fixed by lightness within its hue, not by leaving the brand hue.
+Who spoke is the other meaning a color carries outside the brand (#1036). Where the game audio's voices are told apart, each voice keeps a color, in the order the voices speak: A purple (`speaker-a`), B amber (`speaker-b`), C green (`speaker-c`) and D rose (`speaker-d`), and the fifth voice starts over. These are the hues of the desktop caption overlay's voices, whose own colors stay as they are. In the conversation log only the label that says who spoke takes the voice's color; the words keep the log's. The label's words always stay, so a voice is never told apart by color alone. Several voices in one caption take the first one's color, as the overlay's line does. The VR overlays keep the speaker in words only. The four keep their hues in every theme, as warning and failed do; only their lightness moves, to keep the contrast below in a theme's grounds. They are less vivid than Lilac.
+
+Contrast (WCAG 2.x, measured on the canvas, the surface and the rail): text, secondary text, description text, the three state colors and the four speaker colors reach 4.5:1 or more; Lilac reaches 4.5:1 on the surface. Text on a Lilac fill is Dark Plum (5.4:1), because white on Lilac is only 3.1:1. A field's border (`field-border`, `--vox_field_border`) is also the only edge of an outlined control: a switch's track and the quiet and danger buttons. It reaches 3.5:1 against the surface, the field's own fill, and 3:1 against every ground a field sits on: the canvas, the rail, the dialogs and the language list (`dark_875`) and a switch's track (`dark_850`). The brand board's label grey (`#777082`) reached only 3.04:1 on the surface and 2.86:1 in a dialog, so the field border is Dark Plum made lighter instead. Hairlines between regions (`border`) may stay below 3:1. A color that misses these numbers is fixed by lightness within its hue, not by leaving the brand hue.
 
 ## Typography
 
@@ -345,6 +352,7 @@ The guide is a reading surface in the same Dark Studio, chosen on 2026-11-15 aft
 | `secondary-text` | ブランドボードで色見本を縁取っている灰色 |
 | `description-text` | 暗い横長のロゴの副題 |
 | `state-warning`、`state-failed` | なし（下を参照） |
+| `speaker-a`〜`speaker-d` | なし（下を参照） |
 
 部品が直接使う灰色とライラックの段（`variables.css`の`dark_*`と`primary_*`）も同じ方法で作ります。灰色はDark Plumから、ライラックはLilacから作り、灰色は番号が大きいほど暗くなります。そのまま使うのは、ブランド自身の値（Off-Whiteと、補助の文字と説明の文字の灰色）と純粋な白だけです。`brandPalette.test.ts`がすべての段を確かめます。
 
@@ -352,7 +360,9 @@ The guide is a reading surface in the same Dark Studio, chosen on 2026-11-15 aft
 
 ブランドには警告とエラーの色がありません。警告と失敗にはその意味を伝える色相である琥珀色と赤を残します。ライラックやプラムの色にすると、動作中の状態に見えるためです。この2色はOKLCHの明度を動作中のライラックと同じ0.74にし、彩度をそれより低い0.10にします。そのため読み出しの3つの状態は同じ重さで見え、Lilacがいちばん鮮やかな色のままです。
 
-コントラスト（WCAG 2.x。地、面、レールの上で測ります）は次のとおりです。文字、補助の文字、説明の文字、3つの状態の色は4.5:1以上です。Lilacは面の上で4.5:1に届きます。Lilacの塗りの上の文字はDark Plumにします（5.4:1）。Lilacの上の白は3.1:1にしかならないためです。入力欄の枠線（`field-border`、`--vox_field_border`）は、輪郭で描く操作部品の唯一の縁でもあります。スイッチのトラックと、quietとdangerのボタンがそれです。この枠線は入力欄自身の塗りである面に対して3.5:1、入力欄を置くすべての下地に対して3:1に届きます。その下地は、地、レール、ダイアログと言語の一覧（`dark_875`）、スイッチのトラック（`dark_850`）です。ブランドボードのラベルの灰色（`#777082`）は面の上で3.04:1、ダイアログの中で2.86:1にしか届きませんでした。そのため入力欄の枠線は代わりにDark Plumを明るくした色にしています。領域の間の細い線（`border`）は3:1未満のままで構いません。この数値に届かない色は、ブランドの色相を離れずにその色相の中で明度を変えて直します。
+ブランドの外で色が意味を持つもう1つの例外は、話した人です（#1036）。ゲーム音声の声を聞き分けたときは、声ごとに色を決め、話した順に割り当てます。Aは紫（`speaker-a`）、Bは琥珀色（`speaker-b`）、Cは緑（`speaker-c`）、Dは桃赤（`speaker-d`）で、5人目の声は最初の色に戻ります。これはデスクトップの字幕ウィンドウの声の色相で、字幕ウィンドウの色そのものは変えません。会話ログでは、話した人を示すラベルだけを声の色にし、本文はログの色のままにします。ラベルの文字は必ず残すので、色だけで声を見分けさせることはありません。1つの字幕に複数の声があるときは、字幕ウィンドウの行と同じく最初の声の色にします。VRのオーバーレイは話した人を文字だけで示します。この4色は警告や失敗と同じく、どのテーマでも色相を保ちます。テーマの下地で下のコントラストを保つために、明度だけを変えます。どれもLilacより鮮やかにはしません。
+
+コントラスト（WCAG 2.x。地、面、レールの上で測ります）は次のとおりです。文字、補助の文字、説明の文字、3つの状態の色、4つの話者の色は4.5:1以上です。Lilacは面の上で4.5:1に届きます。Lilacの塗りの上の文字はDark Plumにします（5.4:1）。Lilacの上の白は3.1:1にしかならないためです。入力欄の枠線（`field-border`、`--vox_field_border`）は、輪郭で描く操作部品の唯一の縁でもあります。スイッチのトラックと、quietとdangerのボタンがそれです。この枠線は入力欄自身の塗りである面に対して3.5:1、入力欄を置くすべての下地に対して3:1に届きます。その下地は、地、レール、ダイアログと言語の一覧（`dark_875`）、スイッチのトラック（`dark_850`）です。ブランドボードのラベルの灰色（`#777082`）は面の上で3.04:1、ダイアログの中で2.86:1にしか届きませんでした。そのため入力欄の枠線は代わりにDark Plumを明るくした色にしています。領域の間の細い線（`border`）は3:1未満のままで構いません。この数値に届かない色は、ブランドの色相を離れずにその色相の中で明度を変えて直します。
 
 ## 文字
 
