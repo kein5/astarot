@@ -777,6 +777,40 @@ test("a failed bind whose previous keys could not be bound again says no hotkey 
         ["quick_chat.portal_not_restored", { hide_duration: 10000 }]]);
 });
 
+// #1051: a failed bind leaves the keys in force before it, which Rust binds again
+// (Restore::Restored). The desktop sends their presses, and they do what they are for, as they
+// did before: GNOME 51 when its dialog is cancelled, KDE Plasma 6.8 when it is left to time out.
+for (const code of ["portal_cancelled", "portal_timeout"]) {
+    test(`after a failed bind (${code}), a press of a key the desktop has again does what it is for`, async () => {
+        const subject = await setup(), gate = deferred(), { state } = subject;
+        state.bind = () => gate.promise;
+        const hook = await subject.load(), registration = hook.registerShortcuts();
+        await flush();
+        // While the desktop has not answered, the keys stay paused.
+        subject.emit();
+        assert.deepEqual(state.actions, []);
+        gate.reject(code);
+        await registration;
+        assert.deepEqual(state.notices, [[`quick_chat.portal_errors.${code}`, { hide_duration: 8000 }]]);
+        subject.emit();
+        assert.deepEqual(state.actions, ["quick-chat"]);
+    });
+}
+
+test("a failed bind of a registration that was paused meanwhile leaves the keys paused", async () => {
+    const subject = await setup(), gate = deferred(), { state } = subject;
+    state.bind = () => gate.promise;
+    const hook = await subject.load(), registration = hook.registerShortcuts();
+    await flush();
+    // Settings open while the desktop asks; the registration that comes when they close decides.
+    const pause = hook.unregisterAll();
+    gate.reject("portal_cancelled");
+    await Promise.all([registration, pause]);
+    subject.emit();
+    assert.deepEqual(state.actions, []);
+    assert.deepEqual(state.notices, []);
+});
+
 test("a report of keys not bound again after the shortcuts were paused says nothing", async () => {
     const subject = await setup(), { state } = subject;
     state.bind = () => { throw "portal_cancelled"; };

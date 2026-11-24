@@ -47,4 +47,12 @@ test("the kit's stand-in keeps the kit's defaults", () => {
         className: "place", children: "words" });
     const asked = kitStandIns.Button({ tone: "primary", size: "compact", type: "submit" });
     assert.deepEqual(asked.props, { type: "submit", "data-slot": "button", "data-tone": "primary", "data-size": "compact" });
+    // The field: a text <input> named data-slot="input", aria-invalid only while the value is wrong.
+    assert.match(kit("TextField.tsx"), /invalid = false, mono = false, className, type = "text"/);
+    assert.match(kit("TextField.tsx"), /data-slot="input"\s*aria-invalid=\{invalid \|\| undefined\}/);
+    const field = kitStandIns.TextField({ value: "words" });
+    assert.equal(field.type, "input");
+    assert.deepEqual(field.props, { type: "text", "data-slot": "input", "aria-invalid": undefined, "data-mono": false, value: "words" });
+    assert.deepEqual(kitStandIns.TextField({ invalid: true, mono: true, type: "number" }).props,
+        { type: "number", "data-slot": "input", "aria-invalid": true, "data-mono": true });
 });

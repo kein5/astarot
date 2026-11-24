@@ -15,6 +15,10 @@
     "reason": "A file in use is always prepared (isPrepared), so no button, hint or review reads whether it is downloaded.",
     "where": "src-ui/views/app/config_page/setting_section/setting_box/advanced_settings/ModelDownloads.tsx:288:43 \"in_use\" -> \"\""
   },
+  "112xv3769bj": {
+    "reason": "useSettingsLogics always makes these five functions for a weight list, so the check is always true there.",
+    "where": "src-ui/logics/configs/config_page_setter/ui_config_setter.ts:1562:17 typeof settings[downloadKey] === \"function\" -> true"
+  },
   "11ex70orvhl": {
     "reason": "open() clears the search flag before any list is drawn, so its first value is never read.",
     "where": "src-ui/views/vr/VrLanguageWindow.tsx:65:54 false -> true"
@@ -34,6 +38,10 @@
   "13uryzn74by": {
     "reason": "No focus is ever given back to the swap by name: its change has no focus key and it opens no list.",
     "where": "src-ui/views/vr/VrLanguageWindow.tsx:307:99 'swap' -> ''"
+  },
+  "145cbdox73o": {
+    "reason": "A dependency list that never changes keeps the hook's first value either way.",
+    "where": "src-ui/logics/configs/config_page_setter/useSettingsLogics.ts:345:8 [] -> [\"Stryker was here!\"]"
   },
   "14l9hc3i7dq": {
     "reason": "The dependencies are constant either way, so the clean-up runs once, when the window closes.",
@@ -67,6 +75,10 @@
     "reason": "A fourth recipient's choices are disabled in the add list, so no click or Enter reaches this check.",
     "where": "src-ui/views/vr/VrLanguageWindow.tsx:236:17 next.length > 3 -> false"
   },
+  "18zxk16j0xv": {
+    "reason": "others.common_convert_message_hiragana_romaji has descriptions and no label, so it is never a result and its pages are never read.",
+    "where": "src-ui/logics/configs/config_page_setter/_aux/useConfigSearch.ts:66:55 \"appearance\" -> \"\""
+  },
   "196jodjptum": {
     "reason": "At the edge the difference is 0, so the list does not scroll either way.",
     "where": "src-ui/views/vr/VrLanguageWindow.tsx:280:13 row.bottom > bounds.bottom -> row.bottom >= bounds.bottom"
@@ -95,6 +107,10 @@
     "reason": "The apply endpoints contain model_download and user_model, whose failed answers have already returned above, so only 200 answers get here.",
     "where": "src-ui/logics/useReceiveRoutes.ts:527:13 status === 200 -> true"
   },
+  "1bp5ztju9bg": {
+    "reason": "normalizeRegion right after clamps the width to 1 - x and the height to 1 - y, the same bound this shrink sets, so the region comes out the same.",
+    "where": "src-ui/logics/configs/ocrReadiness.ts:34:81 1 - MIN_REGION_SIDE -> 1 + MIN_REGION_SIDE"
+  },
   "1br9ti7yycl": {
     "reason": "String() returns a string unchanged, so a saved text reads the same either way.",
     "where": "src-ui/views/app/config_page/setting_section/setting_box/translation/Translation.tsx:496:46 typeof value === \"string\" -> false"
@@ -110,6 +126,10 @@
   "1d4qnr0kll": {
     "reason": "weightLabel gives back a weight that names no model as it is, so a value that is no string (null before the first answer) shows the same.",
     "where": "src-ui/views/vr/VrSettingsWindow.tsx:386:49 typeof selected_weight.data === \"string\" -> true"
+  },
+  "1ddc8odmey": {
+    "reason": "A region is an object, null or undefined (its type), and for null or undefined every side falls back to the full region's either way.",
+    "where": "src-ui/logics/configs/ocrReadiness.ts:18:30 typeof region === \"object\" -> true"
   },
   "1dyimpq44q2": {
     "reason": "useId gives a dialog one id for as long as it is drawn, so the ids made from it never need making again.",
@@ -143,17 +163,53 @@
     "reason": "The only merged routes are the weight template's get and set routes, made twice with the same namespace, hook and function, so either operand gives the same value.",
     "where": "src-ui/logics/useReceiveRoutes.ts:880:24 existing.hook_name ?? gen.hook_name -> (existing.hook_name && gen.hook_name)"
   },
+  "1gfq62wpay7": {
+    "reason": "The labelled check above lets a text through only when one of the two languages has a label or a text, so the key is never reached as the label.",
+    "where": "src-ui/logics/configs/config_page_setter/_aux/useConfigSearch.ts:172:64 typeof enVal === \"string\" -> true"
+  },
+  "1gfulamo4eu": {
+    "reason": "normalizeRegion right after clamps the width to 1 - x and the height to 1 - y, the same bound this shrink sets, so the region comes out the same.",
+    "where": "src-ui/logics/configs/ocrReadiness.ts:33:59 1 - Math.min(value, 1 - MIN_REGION_SIDE) -> 1 + Math.min(value, 1 - MIN_REGION_SIDE)"
+  },
   "1gtfp6z6cjn": {
     "reason": "The last loop then adds the generated routes left in the map in the order they were first added, which is the order this loop gives.",
     "where": "src-ui/logics/useReceiveRoutes.ts:901:21 { mergedList.push(merged); mergedMap.delete(ep); } -> {}"
+  },
+  "1hkosx5p7ms": {
+    "reason": "Only a weight list has download functions in the fields; for any other setting the keys read undefined and nothing is copied.",
+    "where": "src-ui/logics/configs/config_page_setter/ui_config_setter.ts:1551:13 s.logics_template_id === \"weight_download_status\" -> true"
+  },
+  "1i09obj2d3m": {
+    "reason": "test() looks only at the start of the path, so one character of the share matches wherever several do.",
+    "where": "src-ui/logics/configs/logDestination.ts:24:63 /^\\\\\\\\[^\\\\]+\\\\[^\\\\]+/ -> /^\\\\\\\\[^\\\\]+\\\\[^\\\\]/"
+  },
+  "1i3dg6djepx": {
+    "reason": "others.common_convert_message_hiragana_romaji has descriptions and no label, so it is never a result and its pages are never read.",
+    "where": "src-ui/logics/configs/config_page_setter/_aux/useConfigSearch.ts:66:54 [\"appearance\"] -> []"
+  },
+  "1igbz1bxo63": {
+    "reason": "updateFromBackend is one of the common fields copied above for every setting, so copying it again here changes nothing.",
+    "where": "src-ui/logics/configs/config_page_setter/ui_config_setter.ts:1565:17 typeof settings[updateFromBackendKey] === \"function\" -> true"
   },
   "1k9y12ngw01": {
     "reason": "The jump buttons are drawn only on the list of all languages, so groups worked out for another list are never shown.",
     "where": "src-ui/views/vr/VrLanguageWindow.tsx:258:38 view.stage === 'list' -> true"
   },
+  "1ll84fwbeth": {
+    "reason": "updateFromBackend is one of the common fields copied above for every setting, so copying it again here changes nothing.",
+    "where": "src-ui/logics/configs/config_page_setter/ui_config_setter.ts:1565:17 typeof settings[updateFromBackendKey] === \"function\" -> typeof settings[updateFromBackendKey] !== \"function\""
+  },
   "1lpzrhchutd": {
     "reason": "Every static route is an object with an endpoint, so the check never skips one.",
     "where": "src-ui/logics/useReceiveRoutes.ts:890:13 !item?.endpoint -> false"
+  },
+  "1lq2ih4khak": {
+    "reason": "Setting the slider to the value it already shows changes nothing.",
+    "where": "src-ui/logics/configs/config_page_setter/useSettingsLogics.ts:418:13 variable !== ui_value -> true"
+  },
+  "1ltd8hqbc3q": {
+    "reason": "A normalized region is at most 1 - x wide and 1 - y high, so a width and height of 1 already mean that x and y are 0.",
+    "where": "src-ui/logics/configs/ocrReadiness.ts:42:12 r.x === 0 && r.y === 0 -> (r.x === 0 || r.y === 0)"
   },
   "1m3wsjorz8j": {
     "reason": "NFKD puts combining marks after their base letter, so only a name that begins with a combining mark tells these apart; language names never do.",
@@ -171,9 +227,17 @@
     "reason": "A failed catalog change has already returned at the translation_catalog failure above, so only 200 answers get here.",
     "where": "src-ui/logics/useReceiveRoutes.ts:513:13 status === 200 -> true"
   },
+  "1ms8ki5ektp": {
+    "reason": "normalizeRegion right after clamps the width to 1 - x and the height to 1 - y, the same bound this shrink sets, so the region comes out the same.",
+    "where": "src-ui/logics/configs/ocrReadiness.ts:34:9 key === \"y\" -> false"
+  },
   "1mxigs6fh67": {
     "reason": "An id is retired only when it is not retired already (applyRealtimeCaption returns early for it), so there is nothing to drop.",
     "where": "src-ui/logics/transcription/realtimeCaptionState.ts:78:65 retired.filter(value => value !== id) -> retired"
+  },
+  "1n2d6hdpjet": {
+    "reason": "A normalized region is at most 1 - x wide and 1 - y high, so a width and height of 1 already mean that x and y are 0.",
+    "where": "src-ui/logics/configs/ocrReadiness.ts:42:12 r.x === 0 && r.y === 0 -> true"
   },
   "1n2n6gzpwtl": {
     "reason": "{ on: false } and {} read the same: on is not true, and path and language are nullish.",
@@ -183,9 +247,17 @@
     "reason": "The tooltip is already null whenever the effect stops early: it starts null, and the clean-up of the run before hid it.",
     "where": "src-ui/views/vr/VrTooltip.tsx:72:33 setTip(null); -> ;"
   },
+  "1nwbs9j97bf": {
+    "reason": "normalizeRegion right after clamps the width to 1 - x and the height to 1 - y, the same bound this shrink sets, so the region comes out the same.",
+    "where": "src-ui/logics/configs/ocrReadiness.ts:34:17 \"y\" -> \"\""
+  },
   "1nz90gzhmpi": {
     "reason": "Every static route is an object with an endpoint, so the check never skips one.",
     "where": "src-ui/logics/useReceiveRoutes.ts:859:13 !item?.endpoint -> false"
+  },
+  "1o7nwsqrlid": {
+    "reason": "Parts without a label are skipped again in the loop below, so filtering them first changes nothing.",
+    "where": "src-ui/logics/configs/config_page_setter/_aux/useConfigSearch.ts:233:72 isTexts(value) && value.label -> true"
   },
   "1obuocu529c": {
     "reason": "Every static route is an object with an endpoint, so the check never skips one.",
@@ -243,6 +315,10 @@
     "reason": "A placeholder string in place of the empty engine list has no id, so no engine is found for the provider either way.",
     "where": "src-ui/views/app/config_page/setting_section/setting_box/translation/Translation.tsx:165:55 [] -> [\"Stryker was here!\"]"
   },
+  "1tfb5zpb0bt": {
+    "reason": "A missing entry cleans to an empty string, which the filter after the map drops.",
+    "where": "src-ui/logics/configs/config_page_setter/_aux/useConfigSearch.ts:189:21 filled -> true"
+  },
   "1tus9zgw8r6": {
     "reason": "The hook's own mount effect sets mounted to true before any of its functions runs: the controller registers from a later effect of the same component, and an edit comes from input, which React handles after pending effects.",
     "where": "src-ui/logics/configs/config_page_setter/hotkeys/useHotkeys.ts:150:48 true -> false"
@@ -255,6 +331,14 @@
     "reason": "Each owner passes its own ref object, the same for the list's whole life, so the measuring effect runs once either way.",
     "where": "src-ui/views/vr/VrPickerList.tsx:68:8 [scrollRef] -> []"
   },
+  "1up1xtrqrn1": {
+    "reason": "After unmount React drops the field's state updates, so whether a late answer still matches its request changes nothing, and saveFunction returns the answer either way.",
+    "where": "src-ui/logics/configs/config_page_setter/useSettingsLogics.ts:507:21 () => { submitted.current = null; } -> undefined"
+  },
+  "1v1i1axyk2a": {
+    "reason": "Only the appearance page has a text named ui_language.",
+    "where": "src-ui/logics/configs/config_page_setter/_aux/useConfigSearch.ts:197:21 tab === \"appearance\" -> true"
+  },
   "1vjcsbbgsn8": {
     "reason": "The two loops before it remove every static and generated route from the map, so this loop never runs.",
     "where": "src-ui/logics/useReceiveRoutes.ts:908:9 mergedList.push(remaining); -> ;"
@@ -262,6 +346,10 @@
   "1vxz4v7j1ae": {
     "reason": "With no origin the main screen falls back to your language, the origin it starts with.",
     "where": "src-ui/views/vr/VrLanguageWindow.tsx:299:242 'your' -> ''"
+  },
+  "1w84n9yomp5": {
+    "reason": "useId gives a component the same id on every render, so the effect never sees it change.",
+    "where": "src-ui/logics/configs/config_page_setter/useSettingsLogics.ts:566:54 [id] -> []"
   },
   "1wmxyuz3n25": {
     "reason": "handleInvalidEndpoint only writes the unknown endpoint to the console, so leaving it out changes no state, call or notice.",
@@ -274,6 +362,10 @@
   "1xfgofkj8g4": {
     "reason": "A timer started for no target or for the dismissed target does nothing: show returns at once for a missing or dismissed target.",
     "where": "src-ui/views/vr/VrTooltip.tsx:118:17 target && dismissed !== target -> true"
+  },
+  "1xim9nolxfw": {
+    "reason": "Neither an empty host nor the placeholder text is a loopback address.",
+    "where": "src-ui/logics/configs/obsBrowserSourceUrl.ts:5:88 \"\" -> \"Stryker was here!\""
   },
   "1xwihe5liar": {
     "reason": "totals is a fresh array made in this render and read nowhere else, and median sorts its own filtered copy, so reversing it in place gives History and the median the same values.",
@@ -291,13 +383,25 @@
     "reason": "settingsWithoutRead is empty: no setting is named like the placeholder, and ignoring the set changes no setting.",
     "where": "src-ui/logics/common/pendingRequestRecovery.ts:65:45 [] -> [\"Stryker was here!\"]"
   },
+  "1z8ujwunu8k": {
+    "reason": "A missing entry cleans to an empty string, which the filter after the map drops.",
+    "where": "src-ui/logics/configs/config_page_setter/_aux/useConfigSearch.ts:188:56 [sectionDesc.cur, isEn ? null : sectionDesc.en].filter(Bool… -> [sectionDesc.cur, isEn ? null : sectionDesc.en]"
+  },
   "1z8vhuql3nb": {
     "reason": "WindowButton reads label only as the default for name, and the log's button passes its own name.",
     "where": "src-ui/views/vr/VrLauncher.tsx:76:72 \"vr_panel.recall_log\" -> \"\""
   },
+  "1zmgxdykwc1": {
+    "reason": "pickedPresets reads null as not known and gives null, which is what the condition gives for it.",
+    "where": "src-ui/logics/configs/usagePresets.ts:85:22 picked -> true"
+  },
   "20ewephnrds": {
     "reason": "A kind ticked twice is listed twice, but every reader asks only whether the kind is included, and unticking removes every copy.",
     "where": "src-ui/views/app/config_page/setting_section/setting_box/advanced_settings/ModelDownloads.tsx:279:103 previous.filter(k => k !== kind) -> previous"
+  },
+  "21k2093idx8": {
+    "reason": "normalizeRegion right after clamps the width to 1 - x and the height to 1 - y, the same bound this shrink sets, so the region comes out the same.",
+    "where": "src-ui/logics/configs/ocrReadiness.ts:33:17 \"x\" -> \"\""
   },
   "21rl54zeu0": {
     "reason": "An unset UI language and any other unsupported one both give no groups.",
@@ -355,6 +459,14 @@
     "reason": "This branch runs only when the platform is not Wayland, and minimizedByHotkey becomes true only after a press that found Wayland, an answer kept once it arrives, so minimized already holds false here.",
     "where": "src-ui/logics/configs/config_page_setter/hotkeys/useHotkeys.ts:234:91 { minimized = false; } -> {}"
   },
+  "2bdc887dmif": {
+    "reason": "normalizeRegion right after clamps the width to 1 - x and the height to 1 - y, the same bound this shrink sets, so the region comes out the same.",
+    "where": "src-ui/logics/configs/ocrReadiness.ts:33:9 key === \"x\" -> false"
+  },
+  "2bjvfzm83kq": {
+    "reason": "createLanguageNames reads an empty language as English.",
+    "where": "src-ui/logics/configs/config_page_setter/_aux/useConfigSearch.ts:141:45 \"en\" -> \"\""
+  },
   "2c9p08qe7b": {
     "reason": "While a change waits the wait is said in place of any notice, and every answer replaces or clears the notice.",
     "where": "src-ui/views/vr/VrLanguageWindow.tsx:210:9 setNotice(null); -> ;"
@@ -367,6 +479,10 @@
     "reason": "The list is only searched for the cloud engines' ids, and the placeholder is none of them.",
     "where": "src-ui/views/vr/VrSettingsWindow.tsx:314:72 [] -> [\"Stryker was here!\"]"
   },
+  "2dxgn4jl9da": {
+    "reason": "After unmount React drops the field's state updates, so whether a late answer still matches its request changes nothing, and saveFunction returns the answer either way.",
+    "where": "src-ui/logics/configs/config_page_setter/useSettingsLogics.ts:507:27 { submitted.current = null; } -> {}"
+  },
   "2e4e7sbhs1t": {
     "reason": "choiceDisabled runs only for a drawn list, which is drawn only while the selectable list is an array.",
     "where": "src-ui/views/vr/VrLanguageWindow.tsx:266:65 ?. -> ."
@@ -375,9 +491,29 @@
     "reason": "Without the block a missing hook is looked up again for each of its routes, which still get an empty result and do nothing, so only the warning is lost.",
     "where": "src-ui/logics/useReceiveRoutes.ts:442:20 { console.warn(`Hook not found on namespace: ${hook_name}`)… -> {}"
   },
+  "2fgwclb2jaz": {
+    "reason": "show_label_values is a list or null (its type, with null as the default for undefined), and for both the two conditions read the same.",
+    "where": "src-ui/logics/configs/config_page_setter/useSettingsLogics.ts:374:13 show_label_values && Array.isArray(show_label_values) -> (show_label_values || Array.isArray(show_label_values))"
+  },
   "2fkdjzx3nah": {
     "reason": "At the edge the difference is 0, so the list does not scroll either way.",
     "where": "src-ui/views/vr/VrLanguageWindow.tsx:281:18 row.top < bounds.top -> row.top <= bounds.top"
+  },
+  "2fo0alcuv85": {
+    "reason": "A normalized region is at most 1 - x wide and 1 - y high, so a width and height of 1 already mean that x and y are 0.",
+    "where": "src-ui/logics/configs/ocrReadiness.ts:42:25 r.y === 0 -> true"
+  },
+  "2fora0h3ru0": {
+    "reason": "collectStrings of a missing text is empty.",
+    "where": "src-ui/logics/configs/config_page_setter/_aux/useConfigSearch.ts:182:21 curVal -> true"
+  },
+  "2gcjhlzh0zd": {
+    "reason": "useSettingsLogics always makes these five functions for a weight list, so the check is always true there.",
+    "where": "src-ui/logics/configs/config_page_setter/ui_config_setter.ts:1559:17 typeof settings[updateDownloadedKey] === \"function\" -> true"
+  },
+  "2gd9d5cqzg2": {
+    "reason": "updateFromBackend is one of the common fields copied above for every setting, so copying it again here changes nothing.",
+    "where": "src-ui/logics/configs/config_page_setter/ui_config_setter.ts:1564:42 `updateFromBackend${base}` -> ``"
   },
   "30x9yrqy0z": {
     "reason": "portalLostHandler is set only together with portalPaused = false for the current listener and clears itself when called, so a stale listener that calls it makes the one call the current listener would have made.",
@@ -407,6 +543,10 @@
     "reason": "WindowButton reads label only as the default for name, and the log's button passes its own name.",
     "where": "src-ui/views/vr/VrLauncher.tsx:76:56 is_log_lost -> true"
   },
+  "59tz3ase4p": {
+    "reason": "Parts without a label are skipped again in the loop below, so filtering them first changes nothing.",
+    "where": "src-ui/logics/configs/config_page_setter/_aux/useConfigSearch.ts:233:20 Object.entries(textsOf(item)).filter(([, value]) => isTexts… -> Object.entries(textsOf(item))"
+  },
   "5oh06psc7v": {
     "reason": "The dependencies are constant either way, so the callback is made once.",
     "where": "src-ui/views/vr/VrPickerList.tsx:113:8 [] -> [\"Stryker was here!\"]"
@@ -419,6 +559,14 @@
     "reason": "outputArrivals lists chatbox before speech, already in sorted order.",
     "where": "src-ui/logics/flow/flowGraph.ts:133:44 Object.keys(arrivals[newest.input]).sort() -> Object.keys(arrivals[newest.input])"
   },
+  "64k3eefbq7": {
+    "reason": "useSettingsLogics always makes these five functions for a weight list, so the check is always true there.",
+    "where": "src-ui/logics/configs/config_page_setter/ui_config_setter.ts:1561:17 typeof settings[downloadedKey] === \"function\" -> true"
+  },
+  "6j3zousmcb": {
+    "reason": "A dependency list that never changes keeps the hook's first value either way.",
+    "where": "src-ui/logics/configs/config_page_setter/_aux/useConfigSearch.ts:272:56 [] -> [\"Stryker was here!\"]"
+  },
   "7449xvj4rb": {
     "reason": "useModelDownloads stores only an answer with a models list (hasModels), so the user models are null or have their list.",
     "where": "src-ui/views/app/config_page/setting_section/setting_box/advanced_settings/ModelDownloads.tsx:444:53 ?. -> ."
@@ -426,6 +574,10 @@
   "79znk3ng2h": {
     "reason": "matches() reads only the type of each default, so any string works.",
     "where": "src-ui/logics/common/initializationFields.ts:60:66 \"\" -> \"Stryker was here!\""
+  },
+  "7v247qiyl0": {
+    "reason": "A dependency list that never changes keeps the hook's first value either way.",
+    "where": "src-ui/logics/configs/config_page_setter/useSettingsLogics.ts:397:8 [] -> [\"Stryker was here!\"]"
   },
   "7vs82sochd": {
     "reason": "Versions are only compared for equality; counting down tells requests apart the same way.",
@@ -443,9 +595,17 @@
     "reason": "An extra entry that is no restriction kind is never asked for: canStart, startRequest and the boxes look only for the model's own kinds.",
     "where": "src-ui/views/app/config_page/setting_section/setting_box/advanced_settings/ModelDownloads.tsx:375:37 [] -> [\"Stryker was here!\"]"
   },
+  "ajifqm3rrj": {
+    "reason": "A description that is not a text cleans to an empty string, which the search drops, and the desc falls back to empty the same way.",
+    "where": "src-ui/logics/configs/config_page_setter/_aux/useConfigSearch.ts:164:56 typeof (curTab[descKey] ?? enTab[descKey]) === \"string\" -> true"
+  },
   "aydr3zufko": {
     "reason": "The bind answers Rust's map of Assigned values (portal_shortcuts_bind returns HashMap<String, Assigned>), so no row is null or undefined.",
     "where": "src-ui/logics/configs/config_page_setter/hotkeys/useHotkeys.ts:324:24 ?. -> ."
+  },
+  "bhgdcr9k1p": {
+    "reason": "Only the OCR page has a text named source_language.",
+    "where": "src-ui/logics/configs/config_page_setter/_aux/useConfigSearch.ts:191:21 tab === \"ocr\" -> true"
   },
   "c6vmy4mb16": {
     "reason": "reportConflict runs only with a key to report: conflict() is false without one and the plugin trial runs only for a key, so the fallback list is never used.",
@@ -463,9 +623,25 @@
     "reason": "flow is not nullish here: the check before it returned for that.",
     "where": "src-ui/logics/flow/flowGraph.ts:57:30 ?. -> ."
   },
+  "dj2eqjhf9h": {
+    "reason": "useSettingsLogics always makes these five functions for a weight list, so the check is always true there.",
+    "where": "src-ui/logics/configs/config_page_setter/ui_config_setter.ts:1558:17 typeof settings[updateDownloadProgressKey] === \"function\" -> true"
+  },
+  "e3ymkr1q68": {
+    "reason": "The fields come from useSettingsLogics for the same category, so a setting of another category has no field to copy.",
+    "where": "src-ui/logics/configs/config_page_setter/ui_config_setter.ts:1536:50 s.Category === Category -> true"
+  },
   "f82tz2kq0v": {
     "reason": "The last loop then adds the generated routes left in the map in the order they were first added, which is the order this loop gives.",
     "where": "src-ui/logics/useReceiveRoutes.ts:898:34 { const ep = gen.endpoint; const merged = mergedMap.get(ep)… -> {}"
+  },
+  "f8viecl4jn": {
+    "reason": "A key with no text in either language is not labelled either, so the next check skips it the same way.",
+    "where": "src-ui/logics/configs/config_page_setter/_aux/useConfigSearch.ts:154:21 !curVal && !enVal -> false"
+  },
+  "fgke2j7b33": {
+    "reason": "useSettingsLogics always makes these five functions for a weight list, so the check is always true there.",
+    "where": "src-ui/logics/configs/config_page_setter/ui_config_setter.ts:1560:17 typeof settings[pendingKey] === \"function\" -> true"
   },
   "ga1yx9qeac": {
     "reason": "The only merged routes are the weight template's get and set routes, made twice with the same namespace, hook and function, so either operand gives the same value.",
@@ -482,6 +658,10 @@
   "guqzmwhrvi": {
     "reason": "A kind ticked twice is listed twice, but every reader asks only whether the kind is included, and unticking removes every copy.",
     "where": "src-ui/views/app/config_page/setting_section/setting_box/advanced_settings/ModelDownloads.tsx:279:124 k !== kind -> true"
+  },
+  "h6tvpaeh0v": {
+    "reason": "Object.values of a number, a boolean or a function without fields is empty, so the list stays empty as before.",
+    "where": "src-ui/logics/configs/config_page_setter/_aux/useConfigSearch.ts:109:9 typeof obj === \"object\" -> true"
   },
   "hn5c6gpyt9": {
     "reason": "store.appWindow is a Tauri Window, which always has onFocusChanged, so the optional call never meets undefined.",
@@ -511,6 +691,10 @@
     "reason": "Only an empty preset makes the key main///, and then the window has no settings and its main screen is hidden and disabled, so the first focus lands nowhere either way.",
     "where": "src-ui/views/vr/VrLanguageWindow.tsx:92:33 'main///' -> ''"
   },
+  "l62kc16xjp": {
+    "reason": "updateFromBackend is one of the common fields copied above for every setting, so copying it again here changes nothing.",
+    "where": "src-ui/logics/configs/config_page_setter/ui_config_setter.ts:1565:17 typeof settings[updateFromBackendKey] === \"function\" -> false"
+  },
   "la2qvp1xc8": {
     "reason": "No setting uses the get_list template or an empty template id, so this check never leaves a setting's set route out.",
     "where": "src-ui/logics/useReceiveRoutes.ts:782:38 \"get_list\" -> \"\""
@@ -535,6 +719,10 @@
     "reason": "save() refuses to send while the window is busy, so choose sends nothing either way.",
     "where": "src-ui/views/vr/VrLanguageWindow.tsx:229:13 busy -> false"
   },
+  "oixhiawph1": {
+    "reason": "A dependency list that never changes keeps the hook's first value either way.",
+    "where": "src-ui/logics/configs/useOcrSharedWindow.ts:42:9 [] -> [\"Stryker was here!\"]"
+  },
   "oopxwov29y": {
     "reason": "Left unassigned the list is undefined, which the code reads like null: both make it join the names with commas.",
     "where": "src-ui/views/app/config_page/setting_section/setting_box/advanced_settings/ModelDownloads.tsx:62:11 { list = null; } -> {}"
@@ -551,6 +739,10 @@
     "reason": "show runs only from the timer that update starts for a target that is not dismissed, and Escape clears that timer when it dismisses the target.",
     "where": "src-ui/views/vr/VrTooltip.tsx:92:41 dismissed === target -> false"
   },
+  "psf9z4cq69": {
+    "reason": "A normalized region is at most 1 - x wide and 1 - y high, so a width and height of 1 already mean that x and y are 0.",
+    "where": "src-ui/logics/configs/ocrReadiness.ts:42:12 r.x === 0 -> true"
+  },
   "qk4g6g2fks": {
     "reason": "owner is the same useRef object for the component's whole life, so [owner] and [] run the effect at the same times.",
     "where": "src-ui/logics/configs/config_page_setter/hotkeys/useHotkeys.ts:157:8 [owner] -> []"
@@ -558,6 +750,10 @@
   "qm98qwzgzx": {
     "reason": "Both rows that draw a Stepper pass is_disabled, so its default is never used.",
     "where": "src-ui/views/vr/VrSettingsRows.tsx:170:60 false -> true"
+  },
+  "qocc3wcxs9": {
+    "reason": "A dependency list that never changes keeps the hook's first value either way.",
+    "where": "src-ui/logics/configs/config_page_setter/useSettingsLogics.ts:540:58 [] -> [\"Stryker was here!\"]"
   },
   "qz2j0ojoo0": {
     "reason": "Every setting with the toggle_enable_disable template is drawn as a toggle, so the ui_template_id check alone adds the same enable and disable routes.",
@@ -574,6 +770,10 @@
   "r4k5moorg": {
     "reason": "atlasRef is the page's own ref object, the same on every render.",
     "where": "src-ui/views/vr/VrApp.tsx:137:8 [atlasRef] -> []"
+  },
+  "r4ur5ijybi": {
+    "reason": "When the saved value is 0 the fallback gives the same 0 (Automatic).",
+    "where": "src-ui/logics/configs/rvcBlockChoices.ts:13:35 saved === RVC_BLOCK_AUTO -> false"
   },
   "sbtarrmxnw": {
     "reason": "A recipient's list always has an index, so the fallback index is never used.",
@@ -595,6 +795,10 @@
     "reason": "matches() reads only the type of each default, so any string works.",
     "where": "src-ui/logics/common/initializationFields.ts:60:59 \"\" -> \"Stryker was here!\""
   },
+  "tg0b3hizp7": {
+    "reason": "normalizeRegion right after clamps the width to 1 - x and the height to 1 - y, the same bound this shrink sets, so the region comes out the same.",
+    "where": "src-ui/logics/configs/ocrReadiness.ts:33:79 1 - MIN_REGION_SIDE -> 1 + MIN_REGION_SIDE"
+  },
   "tkbl6f4ole": {
     "reason": "A registration without endpoints is never looked up, so a placeholder endpoint is never sent.",
     "where": "src-ui/logics/common/pendingRequestRecovery.ts:145:61 [] -> [\"Stryker was here!\"]"
@@ -607,6 +811,10 @@
     "reason": "portalLost runs only through portalLostHandler, which a bind sets after registerShortcuts paused and so cleared any reconnect timer, and the timer is set only after the handler is cleared, so none is pending here.",
     "where": "src-ui/logics/configs/config_page_setter/hotkeys/useHotkeys.ts:193:9 clearTimeout(portalReconnectTimer); -> ;"
   },
+  "usaqw9aqbx": {
+    "reason": "normalizeRegion right after clamps the width to 1 - x and the height to 1 - y, the same bound this shrink sets, so the region comes out the same.",
+    "where": "src-ui/logics/configs/ocrReadiness.ts:34:61 1 - Math.min(value, 1 - MIN_REGION_SIDE) -> 1 + Math.min(value, 1 - MIN_REGION_SIDE)"
+  },
   "uwvtfka6sn": {
     "reason": "WindowButton reads label only as the default for name, and the log's button passes its own name.",
     "where": "src-ui/views/vr/VrLauncher.tsx:76:56 is_log_lost -> false"
@@ -618,6 +826,10 @@
   "vb0q8etmm0": {
     "reason": "On the RVC page the conversion is always shown and always RVC, so the other half of the condition is already true.",
     "where": "src-ui/views/app/config_page/setting_section/setting_box/advanced_settings/DirectVoiceSettings.tsx:160:10 variant === \"rvc\" -> false"
+  },
+  "vxrnxibex": {
+    "reason": "For a null response reply is null either way, so reply?.status reads undefined in both.",
+    "where": "src-ui/logics/configs/config_page_setter/useSettingsLogics.ts:475:59 response !== null -> true"
   },
   "w0wswwpeny": {
     "reason": "Intl.ListFormat joins with \"conjunction\" by default, so the option changes nothing.",
@@ -642,6 +854,10 @@
   "xr35ya3osj": {
     "reason": "Traces are kept only after isTrace (ioFlow.ts), which requires stages to be an object.",
     "where": "src-ui/logics/flow/flowGraph.ts:72:74 ?. -> ."
+  },
+  "xsgc74p1nj": {
+    "reason": "The fields come from useSettingsLogics for the same category, so a setting of another category has no field to copy.",
+    "where": "src-ui/logics/configs/config_page_setter/ui_config_setter.ts:1536:22 settingsArray.filter((s) => s.Category === Category) -> settingsArray"
   },
   "xtm8t306kj": {
     "reason": "registrationOwner changes only right after pauseShortcuts bumps registrationGeneration, so a registration whose generation still matches always finds its owner in place.",

@@ -1,20 +1,18 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { hooks, loadModule } from "../../../../../../logics/test/hookHarness.ts";
+import { hooks, loadModule, findIn, kitStandIns } from "../../../../../../logics/test/hookHarness.ts";
 
-// #614: what the guide checks is the row's description, a hint on the TTS page; that no virtual
-// cable was found is a state, so it stays in sight.
-const cases: [{ name: string }[], string, boolean][] = [[[{ name: "CABLE Input" }], "virtual_mic.entry.found", false], [[], "virtual_mic.entry.missing", true]];
-for (const [cables, text, kept] of cases)
-    test(`virtual microphone row with ${cables.length} cable(s): ${kept ? "kept in sight" : "a hint"}`, async () => {
-        const runtime = hooks();
-        const { VirtualMicEntry } = await loadModule<typeof import("./VirtualMicEntry.tsx")>(new URL("./VirtualMicEntry.tsx", import.meta.url), runtime, {
-            "../../../../../../logics/voice/useVirtualMic": { useVirtualMic: () => ({ status: { supported: true, cables }, openGuide() {} }) },
-            "../_components/form_row/FormRow": { FormRow: "row" },
-        });
-        const row = runtime.render(VirtualMicEntry);
-        assert.ok(row);
-        assert.equal(row.type, "row");
-        assert.equal(row.props.description, text);
-        assert.equal(row.props.keepDescription, kept);
+// On Windows, the TTS page leads to the virtual microphone guide with the kit's plain button.
+test("the way to the virtual microphone guide is the kit's plain button", async () => {
+    const runtime = hooks(), opened: string[] = [];
+    const { VirtualMicEntry } = await loadModule<typeof import("./VirtualMicEntry.tsx")>(new URL("./VirtualMicEntry.tsx", import.meta.url), runtime, {
+        "../../../../../../logics/voice/useVirtualMic": { useVirtualMic: () => ({ status: { supported: true, cables: [] }, openGuide: () => opened.push("guide") }) },
+        "../_components/form_row/FormRow": { FormRow: "row" },
     });
+    const row = findIn(runtime.render(VirtualMicEntry), node => node.type === "row");
+    assert.deepEqual([row.props.label, row.props.description, row.props.keepDescription], ["virtual_mic.entry.label", "virtual_mic.entry.missing", true]);
+    const open = findIn(row, node => node.type === kitStandIns.Button);
+    assert.deepEqual([open.props.tone, open.props.children], [undefined, "virtual_mic.entry.open"]);
+    open.props.onClick();
+    assert.deepEqual(opened, ["guide"]);
+});

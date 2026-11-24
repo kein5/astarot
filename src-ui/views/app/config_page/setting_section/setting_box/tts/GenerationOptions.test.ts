@@ -5,7 +5,7 @@ import * as voiceErrorTextModule from "../../../../../../logics/voice/voiceError
 import * as voiceAudition from "../../../../../../logics/voice/voiceAudition.ts";
 import assert from "node:assert/strict";
 import { test, vi } from "vitest";
-import { hooks, loadModule, find, findIn } from "../../../../../../logics/test/hookHarness.ts";
+import { hooks, loadModule, find, findIn, kitStandIns } from "../../../../../../logics/test/hookHarness.ts";
 import type { HookRuntime, TreeNode } from "../../../../../../logics/test/hookHarness.ts";
 
 interface Options {
@@ -28,6 +28,9 @@ async function setup({ seed = "invalid", instructions = "\u0001", modelOptions =
         render: () => runtime.render(GenerationOptions, { role: "japanese", draft, field: () => {}, errorId: "options-error" }) };
 }
 type Setup = Awaited<ReturnType<typeof setup>>;
+// The seed is the kit's TextField, which takes invalid; the instruction is a native textarea.
+const kind = (type: string) => type === "input" ? kitStandIns.TextField : type;
+const invalidOf = (field: TreeNode) => field.type === kitStandIns.TextField ? field.props.invalid : field.props["aria-invalid"];
 
 test("invalid TTS seed and instruction point to the shared form error and clear after correction", async () => {
     const s = await setup();
@@ -36,16 +39,16 @@ test("invalid TTS seed and instruction point to the shared form error and clear 
     const countId = () => findIn(s.render(), node => node.type === "row").props.actions.props.id;
     const described = (field: TreeNode) => String(field.props["aria-describedby"] ?? "").split(" ").filter(Boolean);
     for (const type of ["input", "textarea"]) {
-        const field = findIn(tree, node => node.type === type);
-        assert.equal(field.props["aria-invalid"], true);
+        const field = findIn(tree, node => node.type === kind(type));
+        assert.equal(invalidOf(field), true);
         assert.deepEqual(described(field), type === "textarea" ? [countId(), "options-error"] : ["options-error"]);
     }
     assert.equal(s.validGenerationOptions(s.draft), false);
     s.draft.japanese_seed = "42"; s.draft.japanese_instructions = "話す速さをゆっくりに";
     tree = s.render();
     for (const type of ["input", "textarea"]) {
-        const field = findIn(tree, node => node.type === type);
-        assert.equal(field.props["aria-invalid"], false);
+        const field = findIn(tree, node => node.type === kind(type));
+        assert.equal(invalidOf(field), false);
         assert.deepEqual(described(field), type === "textarea" ? [countId()] : []);
     }
     assert.equal(s.validGenerationOptions(s.draft), true);
@@ -56,7 +59,7 @@ test("the seed and instruction fields show an example while they are empty", asy
     const s = await setup({ seed: "", instructions: "" });
     s.draft.japanese_seed = "0";
     const tree = s.render();
-    for (const type of ["input", "textarea"]) assert.equal(findIn(tree, node => node.type === type).props.placeholder, "voice_ui.example");
+    for (const type of ["input", "textarea"]) assert.equal(findIn(tree, node => node.type === kind(type)).props.placeholder, "voice_ui.example");
     s.runtime.unmount();
 });
 
@@ -66,8 +69,8 @@ test("TTS model-specific seed range error is associated without changing the sav
         server: "external", configured_url: "http://local", options: { seed: { minimum: 0, maximum: 100 } },
     } } });
     s.draft.japanese_url = "http://local";
-    const tree = s.render(), input = findIn(tree, node => node.type === "input"), alert = findIn(tree, node => node.props?.role === "alert");
-    assert.equal(input.props["aria-invalid"], true);
+    const tree = s.render(), input = findIn(tree, node => node.type === kitStandIns.TextField), alert = findIn(tree, node => node.props?.role === "alert");
+    assert.equal(input.props.invalid, true);
     assert.equal(input.props["aria-describedby"], alert.props.id);
     assert.equal(s.validGenerationOptions(s.draft), true); // Model support is advisory, as before.
     s.runtime.unmount();
@@ -162,20 +165,41 @@ for (const [pitch, rate, threads] of [[25, 0.5, 0], [0, -1, 0], [NaN, NaN, 0], [
     const tree = runtime.render(DirectVoiceSettings, { variant: "rvc" });
     const alert = findIn(tree, node => node.props?.children === "voice_ui.invalid_rvc_numbers");
     const fields: TreeNode[] = [];
-    find(tree, node => { if (node.type === "input" && node.props.type === "number") fields.push(node); return false; });
+    find(tree, node => { if (node.type === kitStandIns.TextField && node.props.type === "number") fields.push(node); return false; });
     assert.equal(fields.length, 3);
     for (const field of fields) {
         assert.equal(field.props["aria-describedby"], alert.props.id);
-        assert.equal(typeof field.props["aria-invalid"], "boolean");
+        assert.equal(typeof field.props.invalid, "boolean");
     }
-    assert.ok(fields.some(field => field.props["aria-invalid"]));
+    assert.ok(fields.some(field => field.props.invalid));
     // A cleared number field still shows what goes in it.
     assert.deepEqual(fields.map(field => field.props.placeholder),
         [12, 0.75, 4].map(value => `voice_ui.example:${JSON.stringify({ value })}`));
     // Each path field shows an example path, written the way this OS writes paths (pathExample).
     const paths: TreeNode[] = [];
-    find(tree, node => { if (node.type === "input" && node.props.type === "text") paths.push(node); return false; });
+    find(tree, node => { if (node.type === kitStandIns.TextField && node.props.mono === true) paths.push(node); return false; });
     assert.deepEqual(paths.map(field => field.props.placeholder), ["rvc-runtime", "voice.pth", "voice.index"]
         .map(file => `voice_ui.example:${JSON.stringify({ value: `/models/${file}` })}`));
     runtime.unmount();
+});
+
+// The seed field is the kit's TextField, labelled and with an example; Check is the kit's plain
+// button, which needs a saved URL (or the bundled server running) and says so while it waits.
+test("the seed field and the check of the model's options are the kit's parts", async () => {
+    const s = await setup({ seed: "", instructions: "" });
+    s.draft.japanese_seed = "0";
+    let tree = s.render();
+    const seed = findIn(tree, node => node.type === kitStandIns.TextField);
+    assert.deepEqual([seed.props.inputMode, seed.props.placeholder, seed.props.invalid], ["numeric", "voice_ui.example", false]);
+    assert.ok(find(tree, node => node.type === "label" && [node.props.children].flat().includes("voice_ui.seed_value")));
+    let check = findIn(tree, node => node.type === kitStandIns.Button);
+    assert.equal(check.props.children, "voice_ui.check_options");
+    assert.equal(check.props.disabled, true, "no URL yet");
+    const reason = findIn(tree, node => node.type === "p" && node.props.id === check.props["aria-describedby"]);
+    assert.equal(reason.props.children, "voice_ui.check_needs_url");
+    s.draft.japanese_url = "http://local";
+    tree = s.render();
+    check = findIn(tree, node => node.type === kitStandIns.Button);
+    assert.deepEqual([check.props.disabled, check.props["aria-describedby"]], [false, undefined]);
+    s.runtime.unmount();
 });
