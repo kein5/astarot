@@ -303,6 +303,10 @@
     "reason": "An unset UI language and any other unsupported one both give no groups.",
     "where": "src-ui/logics/common/languageJumpGroups.ts:27:41 \"\" -> \"Stryker was here!\""
   },
+  "22pgmoyzs0d": {
+    "reason": "With the managed microphone no device is left out either way: no device has an empty id or the placeholder as its id.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/advanced_settings/VoiceSettings.tsx:78:117 \"\" -> \"Stryker was here!\""
+  },
   "23vuj0oclob": {
     "reason": "The effect's dependencies are a constant list either way, so it runs once, when the readout is first drawn.",
     "where": "src-ui/views/app/config_page/setting_section/setting_box/advanced_settings/ModelDownloads.tsx:89:8 [] -> [\"Stryker was here!\"]"
