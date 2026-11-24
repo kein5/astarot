@@ -1,4 +1,138 @@
-# 話者分離の選定と試験（2026-11-13）
+# Choosing and testing speaker diarization (2026-11-13)
+
+[日本語版](#話者分離の選定と試験2026-11-13日本語版)
+
+This is the record of choosing a setup that tells apart several people speaking in game audio captions, and of testing it on one Windows PC. All values were measured on this PC and are not a guarantee for other environments.
+
+## Chosen setup
+
+The speaker diarization model Nemotron 3 Diarization (NVIDIA, Q8_0, 106 MB) is loaded into the same bundled speech.cpp server as the current recognition models (Qwen3-ASR 0.6B and Haas-ja).
+
+- The bundled speech.cpp 0.10.0 supports this model. No executable or dependency is added.
+- Over a realtime connection, the server returns "who spoke when" for each finalized utterance. Speakers get the labels A, B and so on, up to 8 people.
+- The license is OpenMDW-1.1. Downloading it needs no login and no agreement to terms of use. The conditions are written in the [license register](licensing.md#話者分離モデル2026-11-13).
+
+## Candidates and why they were not chosen
+
+| Candidate | License | Why it was not chosen |
+|---|---|---|
+| Streaming Sortformer v2.1 (NVIDIA) + the current recognition models | NVIDIA Open Model License | Up to 4 people. speech.cpp 0.10.0 does not support it |
+| Matching voice features (CAM++ and others, sherpa-onnx) | Apache-2.0 | Cannot handle sections where voices overlap. The training data is Chinese and English. Kept as a fallback in case Japanese accuracy is not enough |
+| pyannote (community-1, 3.1) | CC-BY-4.0, MIT | Downloading needs a login and agreement to terms of use. Needs PyTorch |
+| Multitalker Parakeet (NVIDIA) | NVIDIA Open Model License | English only |
+| VibeVoice-ASR-Streaming (Microsoft) | MIT | Runs only on PyTorch or vLLM. Large, at 3B to 9B |
+| MOSS-Transcribe-Diarize | Apache-2.0 | Not realtime. Needs a separate runtime |
+| Nemotron 3.5 Transcribe | OpenMDW-1.1 | 19 GB. Not realtime |
+| Cloud speech recognition with diarization | — | OpenAI's model works on whole files. Other people's voices would be sent outside |
+
+The license and size of each candidate were checked against the model cards and license texts on 2026-11-13. Sortformer v1 (CC-BY-NC-4.0) is non-commercial, so it was not a candidate.
+
+## Test method
+
+- PC: Windows 11 (build 26220), Core i7-1255U, RTX 3060 Ti connected over Thunderbolt (`Vulkan1` in speech.cpp's naming), integrated GPU Iris Xe (`Vulkan0`).
+- Server: `speech.exe` from speech.cpp 0.10.0, the same version as the bundled one. Recognition with Qwen3-ASR 0.6B (Q8_0), speech boundary detection with Silero VAD v6.2, and diarization with Nemotron 3 Diarization (Q8_0) in `low_latency`.
+- Audio: conversations made with the text-to-speech voices that come with Windows. Japanese has 3 female voices (Ayumi, Haruka, Sayaka) and 1 male voice (Ichiro); English has 1 male voice (David) and 1 female voice (Zira). 24 kHz mono, with 42 Japanese and 6 English utterances.
+- How the conversations were built: gaps of 0.2 to 1.2 seconds between utterances. Backchannel responses were laid over the middle of the previous utterance, and some utterances started before the previous one ended. Voices overlap for 2.5 to 2.8% of the speaking time.
+- Reference: who spoke when, built in 10 ms steps from the level of each utterance before they were mixed.
+- BGM: a synthesized mix of chords, bass, kick and hi-hat, laid under the voices at voice-to-music ratios (SNR) of 15 dB and 5 dB.
+- Streaming: the same format as the app (24 kHz PCM in 20 ms pieces), sent at real-time speed.
+
+The diarization error rate (DER) is the time of missed speech, false alarms and speaker confusion divided by the reference speaking time. It includes the overlapping sections, with no tolerance (0 seconds) at the boundaries. For the judgment per caption, the voice that spoke longest among the segments the server returned was taken as that caption's speaker.
+
+## Results
+
+### Diarization only (`speech diarize`, RTX 3060 Ti)
+
+| Audio | People | Mode | DER | Missed | False alarm | Confusion | People found |
+|---|---|---|---|---|---|---|---|
+| 2 people, male and female | 2 | low_latency | 3.69% | 2.01 | 1.67 | 0.00 | 2 |
+| 2 women | 2 | low_latency | 12.42% | 0.89 | 4.94 | 6.60 | 2 |
+| 4 people | 4 | low_latency | 12.44% | 1.65 | 3.42 | 7.38 | 4 |
+| 4 people, BGM 15 dB | 4 | low_latency | 13.71% | 3.92 | 2.41 | 7.38 | 4 |
+| 4 people, BGM 5 dB | 4 | low_latency | 11.17% | 1.78 | 2.26 | 7.13 | 4 |
+| 6 people (4 Japanese, 2 English) | 6 | low_latency | 21.97% | 10.31 | 1.64 | 10.02 | 5 |
+
+With `offline`, the DER was 3.61% for the 2 people (male and female), 5.27% for the 2 women, 16.42% for the 4 people and 27.03% for the 6 people.
+
+### Speaker and delay per caption (realtime connection, RTX 3060 Ti)
+
+"Single-speaker captions" are captions in which only one person spoke according to the reference. "Multi-speaker captions" are captions in which 2 or more people spoke for 0.3 seconds or more. The delay is the time from the actual end of the voice until the finalized sentence arrives.
+
+| Audio | Captions | People found | Single-speaker captions with the right speaker | Multi-speaker captions (main speaker right) | Delay median / 90% |
+|---|---|---|---|---|---|
+| 2 people, male and female | 20 | 2 / 2 | 6 / 6 | 14 (14) | 1.02 / 1.31 s |
+| 2 women | 17 | 2 / 2 | 9 / 9 | 8 (7) | 1.12 / 1.42 s |
+| 4 people | 36 | 4 / 4 | 15 / 17 (88%) | 19 (16) | 1.06 / 1.42 s |
+| 4 people, BGM 5 dB | 34 | 4 / 4 | 13 / 14 (93%) | 20 (17) | 1.08 / 1.40 s |
+| 6 people | 45 | 5 / 6 | 16 / 22 (73%) | 23 (21) | 1.12 / 1.34 s |
+
+- On a server without the diarization model loaded, the delay for the same 4-person audio was 0.73 seconds at the median and 0.79 seconds at 90%. With diarization, it grows by 0.33 seconds at the median and 0.63 seconds at 90%.
+- Speaker confusion happened on Haruka's utterances in both the 4-person and the 6-person audio. They were put under the same speaker as a female voice of the same text-to-speech engine (Ayumi or Sayaka). In the 6-person audio, Haruka did not get a label of her own.
+- Shortening the silence that decides where a caption ends from 0.5 seconds to 0.25 seconds reduced the multi-speaker captions in the 4-person audio from 19 of 36 to 12 of 62. In exchange, a single sentence gets split at its commas. The app's boundary was not changed.
+
+### Load
+
+| Condition | Result |
+|---|---|
+| GPU memory (usage of the whole card) | 2385 MiB without diarization, 2510 MiB with it. The difference is about 125 MiB |
+| Server memory (working set) | About 320 to 330 MiB in both cases |
+| With VRChat running on the same GPU (50 to 60% GPU usage) | Delay with diarization: median 1.06 s, 90% 1.40 s; without: 0.75 s and 0.85 s. About the same as without VRChat |
+| Everything on the integrated GPU (Iris Xe) | With the 2-person (male and female) audio, the delay was median 1.35 s, 90% 1.62 s. The speaker was right 6 / 6 |
+| CPU only | `low_latency` in `speech diarize` ran at 0.6 times real-time speed and could not keep up |
+
+### Check in the app's code
+
+With a diarization model in the settings, the app's server startup (`SpeechServer`) and realtime connection (`SpeechCppRealtime`) were run on the same audio.
+
+- The server was ready in 2.7 seconds, and `/v1/models` returned three models: recognition, detection and diarization.
+- The connection for the speaker output requested diarization, and all 20 finalized captions had a speaker.
+- The connection for the microphone did not request diarization, even on the same server, and none of its 17 captions had a speaker.
+
+### Check in the app's UI
+
+A development build was started with a settings folder for testing and run through with UI operations. The audio was played to a silent output device (Steam Streaming Speakers), and the app read that output as game audio.
+
+- In "ASR + VAD" under "Settings" → "Speech recognition", a "Diarization GGUF path (optional)" field and a Nemotron 3 Diarization entry appeared.
+- The screen that "Review download" opens showed the size (106,179,488 bytes), OpenMDW-1.1, links to the model card and the license text, and where the file is saved. The download button could not be pressed until the consent box was checked.
+- The download and verification finished in about 6 seconds (the connection speed was not measured). Pressing "Apply model path" put the downloaded file's path into the diarization field only; the recognition model and VAD fields did not change.
+- Turning on "Listening" on the main screen took 2.6 seconds, and `speech.exe` was running with the three models: recognition, VAD and diarization.
+- After 60 seconds of a male-and-female conversation, all 12 lines in the log had labels such as "Speaker A, B" and "Speaker B". In the desktop caption overlay, the label appeared before the sentence, with A's lines in purple and B's lines in yellow. Lines still being recognized had no label, and got one when they were finalized.
+- Turning off "Listening" ended `speech.exe` in 0.8 seconds.
+
+## Findings and limits
+
+- Two people with clearly different voices could be told apart. Similar voices sometimes end up under one speaker.
+- When the gap is shorter than 0.5 seconds, two people's words become one caption. In the audio used this time, about half of the captions were like that. In that case both labels are shown in speaking order, as "A, B". Which words belong to whom is not known.
+- Labels are assigned again for each connection. They are not tied to names.
+- A GPU is needed. It worked on the integrated GPU too, but CPU only cannot keep up. When a setup without a GPU was simulated and streamed through the same connection as the app, the caption delay piled up beyond 1 minute. So the app was changed not to request diarization from a server whose diarization model is on the CPU ([Simulating GPU configurations](windows-voice-report.md#gpuの構成の模擬2026-11-13)).
+- Adding BGM hardly changed the results, with the sounds used this time.
+
+## Not verified
+
+- Accuracy with human voices. The test used only text-to-speech voices. It was not measured with real VRChat conversations, with differences in microphone quality, or with processed voices (voice changers).
+- The error rate on public Japanese conversation data. The model card does not list Japanese in its training data. For the previous generation, Sortformer v2.1, there is a third-party report of a 10.07% error rate on Japanese telephone conversations (2 people).
+- 7 or more people, long connections (tens of minutes or more), and conversations where voices overlap heavily.
+- The combination with Haas-ja. The server's documentation does not tie it to a particular recognition model, but we have not run it.
+- Linux, discrete AMD and Intel GPUs, macOS.
+- F16 (199 MB) and F32 (397 MB). In the speech.cpp author's measurement (English meetings), the difference in error rate is 0.06 points.
+
+## How the app handles it
+
+- A diarization model path field (optional) was added to "Settings" → "Speech recognition" → "Bundled speech.cpp servers" → "ASR + VAD". The model can be downloaded and applied on the same screen.
+- When the field has a model, the bundled server loads it too. Only the connection for game audio captions requests diarization. It is not used for microphone captions.
+- In a setup that uses an external server, it works the same way if that server has the diarization model.
+- Finalized captions get speaker labels. Voices that spoke for 0.4 seconds or more are shown in the order they started speaking, up to 4. When no voice reaches 0.4 seconds, the longest voice is shown.
+- Log lines show "Speaker A" or "Speaker A, B". In the desktop caption overlay, the label goes before the sentence, and each speaker has its own color.
+- The wait for a caption to be finalized gets longer. Captions still being recognized (shown before they are finalized) appear as fast as before.
+- The VR caption overlay (the large log) and the captions for streaming do not show labels.
+
+> **Addendum** (2026-11-18, #447): The VR large log now shows speakers too. Labels can be given names for each session, and the names show in the message log, the desktop captions and the VR large log. Consecutive lines from the same speaker are shown as one group in the message log. The captions for streaming (WebSocket, OBS) still do not show them. The current handling is in [Data formats and storage](../spec/data-and-persistence.md#話者の名前と話者ごとのまとまり).
+
+The scripts and audio used in the test are not in the repository.
+
+---
+
+# 話者分離の選定と試験（2026-11-13）（日本語版）
 
 ゲーム音声の字幕で、複数の人の発言を聞き分けるための構成を選び、Windowsの1台で試した記録です。値はどれもこのPCで測ったもので、ほかの環境での保証ではありません。
 

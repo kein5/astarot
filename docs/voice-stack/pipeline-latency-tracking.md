@@ -1,4 +1,251 @@
-# 音声パイプラインの遅延の継続計測（Bencher）
+# Continuous measurement of voice pipeline latency (Bencher)
+
+[日本語版](#音声パイプラインの遅延の継続計測bencher日本語版)
+
+CI sends the p50 and p95 of the voice pipeline latency to Bencher, which tracks them over time (#738). Pushes to develop build up the history and the thresholds; on a pull request, the result compared with that start point appears in a comment. The threshold is an alert from a statistical test (t-test) set on p50 only. p95 is recorded and viewed in the graph. An alert does not fail CI and does not block merging.
+
+What CI measures is the time that the core adds by itself. The recognition, translation and speech synthesis engines are replaced with fakes that answer at once. These values therefore cannot be compared with the #556 target (from the end of speech until the translated voice starts to be heard, p50 0.7 seconds or less, p95 1.0 second or less). The values to compare with the target are the ones `pipeline_latency` measures with real models ([Real-model values](#real-model-values)).
+
+## What CI measures
+
+`native/core/tests/pipeline_overhead.rs` takes the measurements. It starts the core as the app does and turns on Linux realtime captions, translation with DeepL, sending to the chatbox and TTS of the translation. It keeps streaming audio from the microphone and has a fake recognition server finalize one utterance at a time. It finalizes the next utterance only after the previous one has reached both the chatbox and the voice output.
+
+| Part | Replaced by |
+|---|---|
+| Realtime captions server | `tests/common/fake_asr.rs`. It finalizes one utterance when the test asks and records the time. Like the real speech.cpp, it sets `TCP_NODELAY` on the connection. |
+| Translation | DeepL from `astarot_translation::fake`. It answers at once. |
+| TTS server | speech.cpp from `tests/common/fake_tts.rs`. It returns audio with 0.42 seconds of leading silence. This length matches the leading silence of Qwen3-TTS in speech.cpp (421 to 435 ms in [the 2026-11-18 record](pipeline-latency-2026-11-18.md)). It sets `TCP_NODELAY` on the connection. |
+| TTS output | An output inside the test. It records the time at which it first writes a sample above amplitude 64, and accepts audio at the same rate as a device (read-ahead up to 40 ms). |
+| Chatbox | A UDP socket listening on 127.0.0.2. |
+
+The first 3 utterances are a warm-up and are not counted; the 40 utterances after them are counted. The two values are these:
+
+| Benchmark | Interval |
+|---|---|
+| `core: final to chatbox` | From just before the recognition server sends the final result for an utterance until the chatbox message arrives |
+| `core: final to audible speech` | From the same point until the TTS of the translation is first written at an audible level |
+
+This interval includes the core's threads and queues, the requests to the servers on 127.0.0.1 and the step that skips the leading silence of the TTS audio. For example, removing the silence skip makes the p50 of `core: final to audible speech` grow from about 25 ms to about 405 ms (2026-11-20, a value checked on Linux).
+
+In CI, `core-integration` in `voice-tests.yml` runs this test. The job runs on Windows and Linux, with a separate testbed for each OS (`ubuntu-latest`, `windows-latest`). The test runs as a debug build, so the values also differ from release build times. A failed measurement does not make `core-integration` fail.
+
+To run it locally, use the command below. The values are also printed to standard error.
+
+```sh
+ASTAROT_PIPELINE_BMF=pipeline-latency.json cargo test --locked --manifest-path native/core/Cargo.toml \
+    --test pipeline_overhead -- --ignored --nocapture
+```
+
+## Value format
+
+The result is JSON in Bencher Metric Format (BMF). Each benchmark has these two measures:
+
+| measure | Meaning | Unit |
+|---|---|---|
+| `latency-p50` | 50th percentile (nearest rank) | milliseconds |
+| `latency-p95` | 95th percentile (nearest rank) | milliseconds |
+
+The percentiles are computed the same way as in the `pipeline_latency` summary. The code that writes them is in `native/core/tests/bmf/mod.rs`, which the CI test and `pipeline_latency` share.
+
+```json
+{
+  "core: final to chatbox": {
+    "latency-p50": { "value": 22.7 },
+    "latency-p95": { "value": 24.6 }
+  }
+}
+```
+
+## Sending to Bencher
+
+The workflow `pipeline-latency.yml` sends the values. It runs after `voice-tests.yml` finishes, receives the results that `core-integration` left for each OS and sends them with the Bencher CLI (`bencherdev/bencher`) through `bencher run --adapter json`.
+
+This workflow runs on `workflow_run`, so the version on develop always runs, not the version in the pull request. Changing this file in a pull request therefore does not change the steps that hold the Bencher key. A change takes effect once it is merged into develop. The workflow does not check out the repository's code; it receives only the JSON with the measurement results. It reads the pull request number, branch and commit from the values GitHub recorded for that run. The repository's security test (`tests/voice/test_security_regressions.py`) checks this workflow's permissions and the steps that receive the key.
+
+| Trigger | How it sends |
+|---|---|
+| Push to develop | Sends to the branch `develop`. Resets the thresholds to this configuration every time (`--thresholds-reset`). The history is kept separately for each value of `BENCHER_START_POINT_IDEMPOTENCY_KEY` in the workflow (see below). |
+| Pull request from a branch in the same repository | Sends to the pull request's branch. The start point is the target branch and its commit, and the start point's thresholds are copied. The results and alerts appear in a comment on the pull request. |
+| Pull request from a fork, push to any other branch, merge queue | Does not send. |
+
+Thresholds are set on `latency-p50` only. `latency-p95` has no threshold; its values are sent, recorded and viewed in the graph (decided on 2026-11-21, decision 5 of #738). p95 is the second-highest value of the 40 utterances, so a single hiccup on the runner makes it jump. Of the 22 alerts from 2026-11-20 to 21, while it still had a threshold, 21 were on p95, and every one was a one-off. If the core really gets slower, p50 rises too, so the p50 alert catches it. The sends from develop use `--thresholds-reset`, so the p95 threshold, which is no longer specified, disappears on the next send. The p50 threshold is set as follows:
+
+- Test: t-test (`t_test`)
+- History compared: up to the latest 64 results. No alert until 10 results have accumulated (`--threshold-min-sample-size 10`), because with few results the boundary is narrow and the runner's noise alone raises alerts.
+- Upper boundary: 0.99. No alert on the lower side (when the values get faster).
+
+When what is measured changes and the values shift by a step, the develop history is restarted from empty. Change `BENCHER_START_POINT_IDEMPOTENCY_KEY` for the develop send in `pipeline-latency.yml` to a new value: the first send with that value empties the history (`--start-point-reset`), and from the second send with the same value on, results are added to it. On 2026-11-21, the fake servers of the test got `TCP_NODELAY` (#738, #556) and the Linux values dropped by about 20 ms, so the history was restarted with `develop-2026-11-21-fake-servers-tcp-nodelay`.
+
+An alert does not make `bencher run` fail (`--error-on-alert` is not set). The send step has `continue-on-error`, so the workflow does not fail when Bencher cannot be reached either. Because the send uses `--github-actions`, however, Bencher creates a check called "Bencher Report", and that check fails when there is an alert. This check is not one of the required checks in the develop ruleset, so it does not block merging.
+
+### Setup by the maintainer
+
+While the repository has no Bencher key and project, `pipeline-latency.yml` sends nothing and gives the reason in an annotation. Sending needs the following setup.
+
+1. Create a public project on Bencher Cloud. Public projects can use the free plan. The free plan allows up to 65,535 metrics a day, and one CI send is 8 metrics (2 benchmarks × 2 measures × 2 OSes). Do not set up billing.
+2. Create a project API key (a project key that starts with `bencher_run_`) and register it as the repository secret `BENCHER_API_KEY`.
+3. Register the project slug as the repository variable `BENCHER_PROJECT`.
+4. Run the workflow `bencher-measures.yml` by hand on develop (`gh workflow run bencher-measures.yml --ref develop`). It creates the measures `latency-p50` and `latency-p95` if they do not exist, and sets the unit of both to milliseconds (`milliseconds (ms)`). This step exists because the Bencher Console has no screen for creating measures, and a measure that Bencher creates by itself when values arrive first has no unit. Running it again gives the same result.
+
+Steps 1 to 3 were done on 2026-11-21, with the project `astarot`.
+
+## Real-model values
+
+The values to compare with the #556 target are measured with real models in `native/core/examples/pipeline_latency.rs`. The procedure and the intervals it measures are in [the 2026-11-18 record](pipeline-latency-2026-11-18.md). That record is kept as it was written, so the crate name (`vrct_tts`, now `astarot_tts`) and the Linux recording helper (`vrct-asr-capture`; the core now records through PipeWire) are old names. With `--bmf <file>`, it writes the p50 and p95 of the summary in the same format.
+
+| Benchmark | Interval |
+|---|---|
+| `pipeline: end of speech to audible speech` | From the end of speech until the translated voice starts to be heard (the interval of the #556 target) |
+| `pipeline: end of speech to chatbox` | From the end of speech until the chatbox send |
+| `pipeline: end of speech to final` | From the end of speech until the final recognition result |
+| `pipeline: translation` | Translation |
+
+### Judging the #556 target
+
+On 2026-11-20, the definition of the values to compare with the target was decided as follows (#556).
+
+- The interval is `pipeline: end of speech to audible speech` (from the end of speech until the translated voice starts to be heard), and the target is p50 0.7 seconds or less and p95 1.0 second or less.
+- Utterances split into two or more parts are not counted. In a split utterance, the voice for the later part waits for the TTS of the earlier part to finish, which adds time that is not voice latency. The `pipeline_latency` summary and the `--bmf` values are computed only from utterances that were not split, and the summary gives the number of split ones as `split_utterances`.
+- Recording and playback buffers (the Linux recording helper, PipeWire, Windows WASAPI) are not included. `pipeline_latency` measures without going through them. Values on a real setup go in a separate record.
+- The target is judged on values from a quiet PC with VRChat not running. Quiet means a load average of 1 or less on Linux and, on Windows, which has no load average, CPU usage (the average over all logical processors) of 10% or less (the Windows guide value was decided on 2026-11-21, #738). Values with VRChat running are measured against a separate target.
+- The summary records the state of the PC when the measurement starts and when it ends: `load_average` on Linux (the load averages over 1, 5 and 15 minutes) and `cpu_usage` on Windows (usage over 5 seconds, in %). Each is `null` on an OS where it cannot be read. The end value is read after the last utterance and the silence after it have been played. When a value is above the guide value, a message on standard error says so. How the values are read and judged is in `native/core/tests/machine_load.rs`.
+
+This measurement does not run in CI. It needs the recognition, translation and TTS models (about 2.5 GB together), the speech.cpp executable, ONNX Runtime and the Japanese speech material, and GitHub's runners have no GPU. So the measurements are taken by hand on the maintainer's PCs, and the written file is sent to Bencher in the same form as CI. This arrangement was decided on 2026-11-21 (#738).
+
+### PCs and testbeds
+
+The measurements use the maintainer's three PCs. Testbed names follow the form `<OS>-<CPU>-<GPU>`. Translation runs on the CPU, so the name includes the CPU as well as the GPU. The Bencher project is public, so host names are left out.
+
+| PC | Testbed | GPU for recognition and TTS |
+|---|---|---|
+| CachyOS (Linux 6.18), Ryzen 9 9950X3D, RTX 4080 SUPER 16 GB | `cachyos-9950x3d-rtx4080super` | `Vulkan0` (RTX 4080 SUPER) |
+| Windows 11, a Core i7-1255U laptop with an RTX 3060 Ti connected over Thunderbolt | `win11-i7-1255u-rtx3060ti` | Check with `speech devices --json` (`Vulkan1` in the 2026-11-18 record) |
+| A PC with an RTX 3060 12 GB | Not decided (decide after installing ASTAROT and add it to this table) | Not decided |
+
+The names differ from the CI testbeds (`ubuntu-latest`, `windows-latest`), so the values do not mix.
+
+### Where the values go in Bencher and when to measure
+
+- Send to the dedicated branch `real-models`. When the CI send from develop restarts the history (`--start-point-reset`), it empties the history of the develop branch. If the hand measurements went to the `develop` branch, their series would be cut along with it. Link the measured commit with `--hash`.
+- No thresholds are set, so there are no alerts. Once a testbed has 10 results, review whether to set them.
+- Measure when a #556 change goes into develop, before a release, and otherwise once every 2 weeks. When measuring on more than one PC, measure the same commit.
+- One measurement uses `--runs 10`. The six inputs are played in 10 rounds, and the utterances that were not split in two are counted. In the end-to-end check on 2026-11-21, 4 to 5 of the 6 were counted, which gives 40 to 50 per measurement. p95 uses the nearest rank, so with 20 or more counted, the single slowest one does not decide it. A measurement takes 15 to 20 minutes.
+
+### Inputs and models
+
+Every PC uses the same inputs and the same models, checked with SHA-256 after they are copied.
+
+- The inputs are seven Japanese WAVE files (`clip0.wav` to `clip6.wav`; synthesized speech made with Irodori-TTS v4.1, 48 kHz, 16 bit) and `texts.txt`, which holds the correct sentences. The first one is a warm-up and is not counted. They are not in the repository; the maintainer copies them to each PC. `pipeline_latency` outputs only times, counts and the character error rate, not the text or the audio.
+- Get the models from the app's model download screen, after checking their license and size. They are saved in `downloaded_models/<ID>/<revision>/` in the settings folder. Compare their SHA-256 with the values in the app's catalog (`native/ops/data/speechcpp_models.json`, `native/ops/src/downloads/catalog.rs`, `native/ops/data/translation_models.json`).
+
+  | Use | Name in the app | File |
+  |---|---|---|
+  | Recognition | Qwen3-ASR 0.6B (Q8_0) | `Qwen3-ASR-0.6B-Q8_0.gguf` |
+  | Voice activity detection | Silero VAD v6.2 · F32 | `silero-vad-309K-v6.2-F32.gguf` |
+  | TTS | Qwen3-TTS 12Hz 0.6B CustomVoice · Q8_0 (voice `ryan`) | `Qwen3-TTS-12Hz-0.6B-CustomVoice-Q8_0.gguf` |
+  | Translation | M2M100 418M · int8 (`m2m100-418m-onnx-int8`) | A folder (6 files) |
+
+- Fetch speech.cpp and ONNX Runtime into `build/` with the repository's tools, at the versions that the measured commit pins. Do not use the ones inside the installed app, because the versions pinned by the app and by the measured commit can differ.
+- [The 2026-11-18 record](pipeline-latency-2026-11-18.md) (p50 972 ms, p95 1,149 ms) was measured with a translation model exported locally. That model's encoder and decoder hashes differ from those of the published `m2m100-418m-onnx-int8`. The hand-measured series uses the published version, so its values cannot be compared directly with the values in that record.
+
+The SHA-256 values of the inputs are:
+
+```
+311b8c48cc5a1879e17483e8e528105c4a48a274c288d3bdda79dbed6e026f81  clip0.wav
+0c854d1dfa74d4683bb1707d6a6ab501016782aaee68ccc097a39fd1e0852cbf  clip1.wav
+8e73a92dbe19b63e7655b69ba3658ff07f15f56ffbc7c1f6bc5dc7da1063b01d  clip2.wav
+1edb5214b04a7491b43c1c548e081618e2cb6cf80271ee5fb5952ef7fd487aae  clip3.wav
+bd7e8d909097e43e53ac0f5f3e87dcf33fcd6ada82f077a21e0e66b5e7ab9912  clip4.wav
+34822f755f988456461ffa722664daffdd8229307eac7a50c2cd166846899821  clip5.wav
+e64d770924f2fad354e114032977abd3ef0204e20f276d2e52ff8e80986c300e  clip6.wav
+dc39540143ace64b680bdaa0331b7706c487f5226bffcf41396dc71ff88331eb  texts.txt
+```
+
+### The key for sending
+
+The maintainer enters the key for sending to Bencher on each PC. The CI key (the repository secret `BENCHER_API_KEY`) cannot be read back from GitHub, so it is not used for hand measurements.
+
+- Create one key per PC in the Bencher Console, as an API key of the project `astarot` (a project key that starts with `bencher_run_`). Name the key after the testbed. When a PC is no longer used, revoke only that PC's key.
+- Keep the key outside the PC, for example in a password manager. Enter it into the terminal only when sending, and clear it right after.
+- Do not put it in a command argument (`--key`), because it would stay in the shell history and the process list. Do not write it in files, shell configuration, issues or chats either.
+
+### One-time setup on each PC
+
+1. Check out develop and install the tools with `mise install`. On Windows, Rust's MSVC toolchain also needs the Visual Studio C++ build tools.
+2. Gather the inputs and models above and check their SHA-256 (`sha256sum` on Linux, `Get-FileHash` on Windows).
+3. Get the Bencher CLI at the same version as CI (`bencherdev/bencher` in `pipeline-latency.yml`, now v0.6.16) from [the official releases](https://github.com/bencherdev/bencher/releases), compare it with the `.sha256` value in the release, and put it in a directory on the PATH under the name `bencher`. The file is `bencher-v<version>-linux-x86-64` on Linux and `bencher-v<version>-windows-x86-64.exe` on Windows.
+4. The maintainer creates the key for the PC as described in "The key for sending" above.
+
+### Each measurement
+
+1. Update the checkout to the latest develop, fetch speech.cpp and ONNX Runtime again and build `pipeline_latency` (commands below).
+2. Stop VRChat, SteamVR and any other heavy work. On Linux, wait until the load average (1 minute) is 1 or less. On Windows, start after checking in Task Manager or a similar tool that the CPU usage has settled.
+3. Measure with `--runs 10`.
+4. In the summary on standard error, check the number counted (`n`), the number of split utterances (`split_utterances`) and the state of the PC (`load_average` on Linux, `cpu_usage` on Windows). A run above the guide value prints a warning to standard error; do not send it, and measure again.
+5. Check what will be sent (branch, commit, testbed and the 8 values) with `bencher run --dry-run`. A dry run needs no key and saves nothing to Bencher.
+6. The maintainer enters the key, sends and clears the key right away.
+
+On Linux (bash):
+
+```sh
+# Fetch the speech.cpp (Vulkan build) and ONNX Runtime pinned by the measured commit into build/, and build pipeline_latency
+python tools/speechcpp_bundle.py --variant linux-x64-vulkan --download --output build/speechcpp --replace
+python tools/runtime_libraries.py --platform linux --download --output build
+cargo build --release --locked --manifest-path native/core/Cargo.toml --example pipeline_latency
+build/speechcpp/speech devices --json   # Check the name of the GPU to use
+
+T=cachyos-9950x3d-rtx4080super
+C=$(git rev-parse --short=9 HEAD)
+ORT_DYLIB_PATH="$PWD/build/onnxruntime/libonnxruntime.so" \
+native/core/target/release/examples/pipeline_latency \
+  --app-dir . --clips <input folder> \
+  --asr-model <Qwen3-ASR-0.6B-Q8_0.gguf> --vad-model <silero-vad-309K-v6.2-F32.gguf> \
+  --tts-model <Qwen3-TTS-12Hz-0.6B-CustomVoice-Q8_0.gguf> --translation <m2m100-418m-onnx-int8 folder> \
+  --device Vulkan0 --runs 10 --label "$T-$C" --out "results-$T-$C.jsonl" --bmf "pipeline-$T-$C.json"
+
+# Check what will be sent (no key needed; nothing is saved)
+bencher run --project astarot --branch real-models --hash "$(git rev-parse HEAD)" --testbed "$T" \
+  --adapter json --file "pipeline-$T-$C.json" --dry-run
+
+# The maintainer sends. Enter the key without showing it, and clear it after sending
+read -rs -p 'Bencher key: ' BENCHER_API_KEY; echo; export BENCHER_API_KEY
+bencher run --project astarot --branch real-models --hash "$(git rev-parse HEAD)" --testbed "$T" \
+  --adapter json --file "pipeline-$T-$C.json"
+unset BENCHER_API_KEY
+```
+
+On Windows (PowerShell):
+
+```powershell
+# Fetch the speech.cpp (Vulkan build) and ONNX Runtime pinned by the measured commit into build, and build pipeline_latency
+python tools/speechcpp_bundle.py --variant windows-x64-vulkan --download --output build/speechcpp --replace
+python tools/runtime_libraries.py --platform windows --download --output build
+cargo build --release --locked --manifest-path native/core/Cargo.toml --example pipeline_latency
+build\speechcpp\speech.exe devices --json   # Check the name of the RTX 3060 Ti (Vulkan0, Vulkan1 and so on)
+
+$T = 'win11-i7-1255u-rtx3060ti'
+$C = git rev-parse --short=9 HEAD
+$env:ORT_DYLIB_PATH = "$PWD\build\onnxruntime\onnxruntime.dll"
+native\core\target\release\examples\pipeline_latency.exe `
+  --app-dir . --clips <input folder> `
+  --asr-model <Qwen3-ASR-0.6B-Q8_0.gguf> --vad-model <silero-vad-309K-v6.2-F32.gguf> `
+  --tts-model <Qwen3-TTS-12Hz-0.6B-CustomVoice-Q8_0.gguf> --translation <m2m100-418m-onnx-int8 folder> `
+  --device <name checked above> --runs 10 --label "$T-$C" --out "results-$T-$C.jsonl" --bmf "pipeline-$T-$C.json"
+
+# Check what will be sent (no key needed; nothing is saved)
+bencher run --project astarot --branch real-models --hash (git rev-parse HEAD) --testbed $T `
+  --adapter json --file "pipeline-$T-$C.json" --dry-run
+
+# The maintainer sends. Enter the key without showing it, and clear it after sending
+$env:BENCHER_API_KEY = [System.Net.NetworkCredential]::new('', (Read-Host 'Bencher key' -AsSecureString)).Password
+bencher run --project astarot --branch real-models --hash (git rev-parse HEAD) --testbed $T `
+  --adapter json --file "pipeline-$T-$C.json"
+Remove-Item Env:BENCHER_API_KEY
+```
+
+---
+
+# 音声パイプラインの遅延の継続計測（Bencher）（日本語版）
 
 音声パイプラインの遅延のp50とp95を、CIでBencherへ送って時系列で追います（#738）。developへのpushで履歴としきい値を積み、プルリクエストではその基点と比べた結果をコメントに出します。しきい値は、p50だけに付けた統計的な検定（t検定）によるアラートです。p95は記録してグラフで見ます。アラートでCIは失敗せず、マージも止めません。
 
