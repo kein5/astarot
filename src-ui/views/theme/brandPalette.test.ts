@@ -169,9 +169,9 @@ test("fields and outlined controls draw their edge with the field border", () =>
     // The settings forms' quiet buttons. Only the rule's own declarations count, not a state's.
     const forms = read(views + "app/config_page/setting_section/setting_box/advanced_settings/VoiceSettings.css.ts");
     assert.match(forms, /inForm\(`button\.\$\{quiet\}`\), \{[^{}]*borderColor: vars\.vox_field_border/, "the forms' quiet buttons");
-    // The update check beside Install, and Quit beside Retry when the app fails to start.
+    // Quit beside Retry when the app fails to start. (The update check beside Install is the kit's
+    // quiet Button, held above.)
     for (const [path, rule] of [
-        ["app/config_page/setting_section/setting_box/updater/Updater.css.ts", "export const check_button = style({"],
         ["app/others/startup/StartupFailedDialog.css.ts", "export const quit = style({"],
     ]) {
         const source = read(views + path);
