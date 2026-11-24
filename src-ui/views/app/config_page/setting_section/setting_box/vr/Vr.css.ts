@@ -3,7 +3,6 @@ import type { StyleRule } from "@vanilla-extract/css";
 import { vars } from "../../../../../theme/vars.css.ts";
 
 export const is_selected = style({});
-export const is_started = style({});
 export const is_disabled = style({});
 export const up = style({});
 
@@ -101,29 +100,6 @@ export const sample_text_button_wrapper = style({
     flexDirection: "column",
     alignItems: "flex-end",
     gap: ".6rem",
-});
-export const sample_text_button = style({
-    display: "inline-flex",
-    alignItems: "center",
-    gap: ".8rem",
-    minHeight: "4rem",
-    padding: ".9rem 1.2rem",
-    fontSize: "1.4rem",
-    fontWeight: 500,
-    color: vars.dark_200_color,
-    backgroundColor: vars.dark_850_color,
-    border: ".1rem solid transparent",
-    borderRadius: vars.vox_radius,
-    cursor: "pointer",
-    selectors: {
-        "&:focus-visible": { outline: `.2rem solid ${vars.primary_200_color}`, outlineOffset: ".2rem" },
-        "&:hover:not(:disabled)": { backgroundColor: vars.dark_800_color },
-        "&:active:not(:disabled)": { backgroundColor: vars.dark_925_color },
-        "&:disabled": { opacity: 0.48, cursor: "not-allowed" },
-        [`&.${is_started}`]: { backgroundColor: vars.primary_600_color, color: vars.vox_on_primary },
-        [`&.${is_started}:hover:not(:disabled)`]: { backgroundColor: vars.primary_500_color },
-        [`&.${is_started}:active:not(:disabled)`]: { backgroundColor: vars.primary_700_color },
-    },
 });
 export const sample_text_hint = style({
     margin: 0,
@@ -269,22 +245,8 @@ export const common_label = style({
     fontSize: "1.4rem",
 });
 
-// The same secondary button as the other settings forms (VoiceSettings).
-// Last in 「詳細設定」, centred under the overlay editor like it.
+// The kit's plain button, last in 「詳細設定」, centred under the overlay editor.
 export const restore_default_settings_button = style({
     justifySelf: "center",
     marginTop: "6rem",
-    fontSize: "1.4rem",
-    fontWeight: 500,
-    minHeight: "4rem",
-    padding: ".9rem 1.2rem",
-    color: vars.dark_200_color,
-    background: vars.dark_850_color,
-    border: ".1rem solid transparent",
-    borderRadius: vars.vox_radius,
-    cursor: "pointer",
-    selectors: {
-        "&:hover": { background: vars.dark_600_color },
-        "&:focus-visible": { outline: `.2rem solid ${vars.primary_200_color}`, outlineOffset: ".2rem" },
-    },
 });
