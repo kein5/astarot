@@ -160,7 +160,7 @@ test("native number input receives min, max and step through the shared componen
     runtime.api.useImperativeHandle = () => {};
     const { _Entry } = await loadModule<typeof import("../../views/app/config_page/setting_section/setting_box/_components/_atoms/_entry/_Entry.tsx")>(new URL(box + "_components/_atoms/_entry/_Entry.tsx", import.meta.url), runtime);
     const { EntryWithSaveButton } = await loadModule<typeof import("../../views/app/config_page/setting_section/setting_box/_components/entry_with_save_button/EntryWithSaveButton.tsx")>(new URL(box + "_components/entry_with_save_button/EntryWithSaveButton.tsx", import.meta.url), runtime,
-        { "../_atoms/_entry/_Entry": { _Entry } });
+        { "../_atoms/_entry/_Entry": { _Entry }, "../field_problem/FieldProblem": { FieldProblem: "field-problem" } });
     // Test data: only the props the number input reads, without a save.
     const wrapper = runtime.render(EntryWithSaveButton, unchecked<EntryWithSaveButtonProps>({ type: "number", variable: 2231, ...PORT_INPUT_LIMITS }));
     const entry = findIn(wrapper, node => node.type === _Entry);

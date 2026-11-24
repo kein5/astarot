@@ -2,8 +2,10 @@ import * as styles from "./AuthKey.css.ts";
 import { useI18n } from "@useI18n";
 import { _Entry } from "../_atoms/_entry/_Entry";
 import type { EntryHandle } from "../_atoms/_entry/_Entry";
-import { useState, useRef, useEffect } from "react";
-import type { ChangeEvent, ReactNode } from "react";
+import { FieldProblem } from "../field_problem/FieldProblem";
+import * as problemStyles from "../field_problem/FieldProblem.css.ts";
+import { useState, useRef, useEffect, useId } from "react";
+import type { ChangeEvent, KeyboardEvent, ReactNode } from "react";
 
 export interface AuthKeyProps {
     label?: ReactNode;
@@ -14,12 +16,20 @@ export interface AuthKeyProps {
     onChangeFunction: (value: string) => void;
     saveFunction: () => unknown;
     "aria-describedby"?: string;
+    // Saves by itself (#1111): Enter saves (an empty field deletes the key), leaving the field
+    // saves through leaveFunction (an empty field keeps the key), and Escape puts the saved key back.
+    autoSave?: boolean;
+    leaveFunction?: () => unknown;
+    onRevert?: () => void;
+    // Why the key was not kept and what would do, said under the field (#1111).
+    error?: string | null;
 }
 
 export const AuthKey = (props: AuthKeyProps) => {
     const { t } = useI18n();
     const [is_editable, seIsEditable] = useState(false);
     const entryRef = useRef<EntryHandle>(null);
+    const errorId = useId();
 
     const revealEditAuthKey = () => {
         seIsEditable(true);
@@ -46,11 +56,17 @@ export const AuthKey = (props: AuthKeyProps) => {
         if (is_disabled) return;
         saveAuthKey();
     };
+    const autoSave = !!props.autoSave;
+    const error = autoSave && props.error ? props.error : null;
+    const describedBy = [props["aria-describedby"], error ? errorId : null].filter(Boolean).join(" ") || undefined;
 
-    return (
+    const field = (
         <div className={styles.container}>
             <div className={styles.entry_section_wrapper}>
-                <_Entry ref={entryRef} label={props.label} spellCheck={false} autoComplete="off" onChange={onChangeEntryAuthKey} onEnterPressed={handleEnterPressed} ui_variable={props.variable} readOnly={is_disabled} aria-busy={is_disabled} aria-disabled={is_disabled} aria-describedby={props["aria-describedby"]}/>
+                <_Entry ref={entryRef} label={props.label} spellCheck={false} autoComplete="off" onChange={onChangeEntryAuthKey} onEnterPressed={handleEnterPressed} ui_variable={props.variable} readOnly={is_disabled} aria-busy={is_disabled} aria-disabled={is_disabled} aria-describedby={describedBy}
+                    aria-invalid={error ? true : undefined}
+                    onBlur={autoSave ? () => { if (!is_disabled) (props.leaveFunction ?? props.saveFunction)(); } : undefined}
+                    onKeyDown={autoSave ? (event: KeyboardEvent<HTMLInputElement>) => { if (event.key === "Escape") props.onRevert?.(); } : undefined} />
                 {is_editable
                 ? null
                 :
@@ -59,6 +75,13 @@ export const AuthKey = (props: AuthKeyProps) => {
                     </div>
                 }
             </div>
+        </div>
+    );
+    if (!autoSave) return field;
+    return (
+        <div className={problemStyles.field} data-invalid={error ? "true" : undefined}>
+            {field}
+            {error && <FieldProblem id={errorId} text={error} />}
         </div>
     );
 };

@@ -155,6 +155,7 @@ for (const [name, path] of [["EntryWithSaveButton", "entry_with_save_button"], [
         const { _Entry } = await loadModule<typeof import("./_atoms/_entry/_Entry.tsx")>(new URL("./_atoms/_entry/_Entry.tsx", import.meta.url), inputRuntime);
         const module = await loadModule(new URL(`./${path}/${name}.tsx`, import.meta.url), runtime, {
             clsx: { clsx }, "../_atoms/_entry/_Entry": { _Entry }, "react-colorful": { HexColorPicker: () => null },
+            "../field_problem/FieldProblem": { FieldProblem: "field-problem" },
         });
         // One of the three fields with a save button, picked by name; each takes the props below.
         const Component = componentNamed(module, name);
@@ -195,7 +196,8 @@ test("a text field that saves by itself saves on leaving, reverts on Escape and 
     inputRuntime.api.useImperativeHandle = () => {};
     const { _Entry } = await loadModule<typeof import("./_atoms/_entry/_Entry.tsx")>(new URL("./_atoms/_entry/_Entry.tsx", import.meta.url), inputRuntime);
     const { EntryWithSaveButton } = await loadModule<typeof import("./entry_with_save_button/EntryWithSaveButton.tsx")>(
-        new URL("./entry_with_save_button/EntryWithSaveButton.tsx", import.meta.url), runtime, { "../_atoms/_entry/_Entry": { _Entry } });
+        new URL("./entry_with_save_button/EntryWithSaveButton.tsx", import.meta.url), runtime, {
+            "../_atoms/_entry/_Entry": { _Entry }, "../field_problem/FieldProblem": { FieldProblem: "field-problem" } });
     let saves = 0, reverts = 0;
     const props: Parameters<typeof EntryWithSaveButton>[0] = { label: "Field", variable: "x", state: "ok", "aria-describedby": "help",
         saveFunction: () => saves++, onRevert: () => reverts++, autoSave: true, error: null };
@@ -211,10 +213,10 @@ test("a text field that saves by itself saves on leaving, reverts on Escape and 
     props.error = "The window name is empty.";
     const drawn = runtime.render(EntryWithSaveButton, props);
     entry = entryOf(drawn);
-    const alert = findIn(drawn, node => node.props?.role === "alert");
-    assert.equal(alert.props.children, props.error);
+    const problem = findIn(drawn, node => node.type === "field-problem");
+    assert.equal(problem.props.text, props.error);
     assert.equal(entry.props["aria-invalid"], true);
-    assert.equal(entry.props["aria-describedby"], `help ${alert.props.id}`);
+    assert.equal(entry.props["aria-describedby"], `help ${problem.props.id}`);
     // While a save waits, leaving the field saves nothing more.
     props.state = "pending";
     entryOf(runtime.render(EntryWithSaveButton, props)).props.onBlur();
@@ -223,7 +225,39 @@ test("a text field that saves by itself saves on leaving, reverts on Escape and 
     props.autoSave = false; props.state = "ok";
     const plain = runtime.render(EntryWithSaveButton, props);
     assert.equal(entryOf(plain).props.onBlur, undefined);
-    assert.equal(all(plain, node => node.props?.role === "alert").length, 0);
+    assert.equal(all(plain, node => node.type === "field-problem").length, 0);
+    runtime.unmount();
+});
+
+// #1111, decided 2: an API key field that saves by itself leaves through its own function (an
+// empty field keeps the key), Enter still saves, Escape puts the saved key back, and the reason a
+// key was refused is under the field.
+test("an API key field that saves by itself leaves, reverts and says its problem", async () => {
+    const runtime = hooks(), inputRuntime = hooks();
+    inputRuntime.api.useImperativeHandle = () => {};
+    const { _Entry } = await loadModule<typeof import("./_atoms/_entry/_Entry.tsx")>(new URL("./_atoms/_entry/_Entry.tsx", import.meta.url), inputRuntime);
+    const { AuthKey } = await loadModule<typeof import("./auth_key/AuthKey.tsx")>(new URL("./auth_key/AuthKey.tsx", import.meta.url), runtime, {
+        "../_atoms/_entry/_Entry": { _Entry }, "../field_problem/FieldProblem": { FieldProblem: "field-problem" } });
+    let saves = 0, leaves = 0, reverts = 0;
+    const props: Parameters<typeof AuthKey>[0] = { label: "Key", variable: "", state: "ok", "aria-describedby": "help",
+        onChangeFunction: () => {}, saveFunction: () => saves++, leaveFunction: () => leaves++, onRevert: () => reverts++, autoSave: true, error: null };
+    const entryOf = (tree: unknown) => findIn(tree, node => node.type === _Entry);
+    let entry = entryOf(runtime.render(AuthKey, props));
+    entry.props.onBlur();
+    assert.deepEqual([saves, leaves], [0, 1], "leaving goes through the leave function, not the Enter one");
+    entry.props.onKeyDown(key("Escape"));
+    assert.equal(reverts, 1);
+    props.error = "The key was not accepted.";
+    const drawn = runtime.render(AuthKey, props);
+    entry = entryOf(drawn);
+    const problem = findIn(drawn, node => node.type === "field-problem");
+    assert.equal(problem.props.text, props.error);
+    assert.equal(entry.props["aria-invalid"], true);
+    assert.equal(entry.props["aria-describedby"], `help ${problem.props.id}`);
+    props.autoSave = false;
+    const plain = runtime.render(AuthKey, props);
+    assert.equal(entryOf(plain).props.onBlur, undefined);
+    assert.equal(all(plain, node => node.type === "field-problem").length, 0);
     runtime.unmount();
 });
 

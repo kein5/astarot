@@ -5,6 +5,7 @@ import { hooks, loadModule } from "../test/hookHarness.ts";
 import type { HookRuntime, TreeNode } from "../test/hookHarness.ts";
 import type { BackendErrorReport } from "../_useBackendErrorHandling.ts";
 import * as translatorLabel from "../main/translatorLabel.ts";
+import * as fieldErrors from "../configs/fieldErrors.ts";
 
 const noop = () => {};
 const api = <T extends object>(values: T) => new Proxy(values, { get: (object, name) => Reflect.get(object, name) ?? noop });
@@ -62,7 +63,7 @@ async function fixture(context: TestContext) {
         showNotification_Success: (message: unknown) => notices.push(["success", message]),
     }) };
     for (const name of ["Volume", "LLMConnection", "IsSoftwareUpdating"]) common[`use${name}`] = () => api({});
-    const errors = await loadModule<typeof import("../_useBackendErrorHandling.ts")>(new URL("../_useBackendErrorHandling.ts", import.meta.url), runtime, {
+    const errors = await loadModule<typeof import("../_useBackendErrorHandling.ts")>(new URL("../_useBackendErrorHandling.ts", import.meta.url), runtime, { "./configs/fieldErrors.ts": fieldErrors,
         "@useI18n": { useI18n: () => ({ t: (key: string) => key, i18n: { exists: () => true } }) },
         "@logics_common": common, "@logics_configs": configs, "@logics_main": main,
         "./ui_configs": {}, "./configs/cloudTranscription": { CLOUD_TRANSCRIPTION_ENGINES: [] },

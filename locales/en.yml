@@ -223,7 +223,7 @@ common_error:
     failed_update_software: "Failed to download the installer. Please try again later."
     failed_update_software_verify: "The downloaded installer did not match its published checksum, so the update was cancelled."
     translation_limit: "Translation engine limit reached or temporarily restricted."
-    deepl_auth_key_invalid_length: "DeepL API key length is not correct."
+    deepl_auth_key_invalid_length: "The DeepL API key has the wrong length. Paste the key your DeepL account shows: 36 characters, or 39 ending in \":fx\" for the free plan."
     deepl_auth_key_failed_authentication: "API key is incorrect or API usage limit reached."
 
     invalid_value_mic_record_timeout: "It cannot be greater than '{{mic_phrase_timeout_label}}' with a value of 0 or more."
@@ -281,15 +281,15 @@ backend_errors:
     VALIDATION_INVALID_IP: "That IP address is not in a valid format."
     VALIDATION_CANNOT_SET_IP: "That IP address cannot be used."
     VALIDATION_OSC_PORT_INVALID: "Enter an OSC port from 1 to 65535 using whole numbers."
-    AUTH_PLAMO_LENGTH: "The Plamo API key has the wrong length."
+    AUTH_PLAMO_LENGTH: "The Plamo API key is too short. Paste the key the PLaMo API console shows, which is at least 72 characters."
     AUTH_PLAMO_FAILED: "The Plamo API key could not be verified. Check that the key is correct."
-    AUTH_GEMINI_LENGTH: "The Gemini API key has the wrong length."
+    AUTH_GEMINI_LENGTH: "The Gemini API key is too short. Paste the key Google AI Studio shows, which is at least 39 characters."
     AUTH_GEMINI_FAILED: "The Gemini API key could not be verified. Check that the key is correct."
-    AUTH_OPENAI_INVALID: "The OpenAI API key is not in a valid format."
+    AUTH_OPENAI_INVALID: "This is not the shape of an OpenAI API key, which starts with \"sk-\" and is at least 164 characters. Paste the key the OpenAI dashboard shows."
     AUTH_OPENAI_FAILED: "The OpenAI API key could not be verified. Check that the key is correct."
-    AUTH_GROQ_INVALID: "The Groq API key is not in a valid format."
+    AUTH_GROQ_INVALID: "This is not the shape of a Groq API key, which starts with \"gsk\" and is at least 40 characters. Paste the key GroqCloud shows."
     AUTH_GROQ_FAILED: "The Groq API key could not be verified. Check that the key is correct."
-    AUTH_OPENROUTER_INVALID: "The OpenRouter API key is not in a valid format."
+    AUTH_OPENROUTER_INVALID: "The OpenRouter API key is too short. Paste the key OpenRouter shows, which is at least 20 characters."
     AUTH_OPENROUTER_FAILED: "The OpenRouter API key could not be verified. Check that the key is correct."
     AUTH_OPENAI_COMPATIBLE_INVALID: "The OpenAI-compatible API key is not in a valid format."
     AUTH_OPENAI_COMPATIBLE_FAILED: "Could not reach the OpenAI-compatible endpoint, or it rejected the API key. Check the URL and the key."
@@ -746,6 +746,8 @@ config_page:
             label: "Papago client ID"
             desc: "Uses Papago Translation of NAVER Cloud Platform with your own account. Save the Client ID first, then the Client Secret. Papago translates between Korean, English, Japanese, Chinese and a few other languages; other pairs use the fallback."
             reentry_required: "To change the Client ID, delete the saved Client Secret first, then save the new Client ID and its secret."
+            errors:
+                invalid: "A Client ID is at most 256 characters, without line breaks. Paste the Client ID that NAVER Cloud Platform shows."
         papago_auth_key:
             label: "Papago client secret"
 
@@ -790,9 +792,14 @@ config_page:
 
         ollama_connection_check:
             label: "Check Ollama connection"
+        lmstudio_url:
+            errors:
+                invalid: "Enter the address of the LM Studio server, starting with http:// or https://, such as http://127.0.0.1:1234/v1."
         ollama_url:
             label: "Ollama URL"
             desc: "Ollama on your PC, or on another PC in your LAN (for example http://192.168.1.20:11434 or http://studio.local:11434). On the other PC, let Ollama listen on the network (OLLAMA_HOST=0.0.0.0)."
+            errors:
+                invalid: "Enter the address of Ollama, starting with http:// or https://, such as http://localhost:11434."
         select_ollama_model:
             label: "Select Ollama model"
             connection_required: "Ollama connection required"
@@ -800,9 +807,13 @@ config_page:
         llm_translation_temperature:
             label: "Temperature"
             desc: "How much the translation varies. Near 0, the same sentence gets the same translation; higher values vary the wording. 0 to 0.3 suits translation. Left empty, none is sent and each engine keeps its own default (0.7 for Gemini). A model that takes no temperature, such as OpenAI's reasoning models, is asked again without one."
+            errors:
+                invalid: "Enter a temperature from 0 to 2 with at most two decimal places, such as 0.3. Leave it empty to keep each engine's default."
         llm_translation_instructions:
             label: "Additional instructions"
             desc: "Added after the prompt the LLM engines are sent. For example: \"Translate casually, without honorifics\" or \"Keep VRChat terms in English\". One line, up to 500 characters. The engines still return only the translation. This text is sent to the engine too."
+            errors:
+                invalid: "Additional instructions are one line of up to 500 characters, and this is {{count}}. Shorten it."
 
     transcription:
         # The speech recognition APIs the user adds (#414), under the providers of the API group.
