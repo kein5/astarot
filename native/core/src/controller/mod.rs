@@ -11,6 +11,7 @@ pub mod adapters;
 pub mod audio_devices;
 pub mod clipboard;
 mod credentials;
+pub(crate) mod talk_ai;
 mod files;
 pub mod gpu_check;
 mod gpu_memory;
@@ -343,6 +344,7 @@ pub struct Core {
     gpu_check: gpu_check::GpuCheck,
     /// Which update channel's start-up check may still report ([`updates`], #1017).
     update_checks: Arc<updates::UpdateChecks>,
+    talk_ai: Mutex<talk_ai::Session>,
 }
 
 /// The captures of speech recognition for the settings' environment.
@@ -388,6 +390,7 @@ impl Core {
             gpu_memory: gpu_memory::GpuMemory::default(),
             gpu_check: gpu_check::GpuCheck::default(),
             update_checks: Arc::default(),
+            talk_ai: Mutex::default(),
         })
     }
 
@@ -467,6 +470,7 @@ impl Core {
         *done = true;
         self.step("Shutdown");
         self.close_gpu_check();
+        self.stop_talk_ai();
         self.stop_transcription();
         self.close_voice();
         self.close_speech_servers();

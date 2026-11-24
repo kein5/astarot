@@ -9,7 +9,7 @@
 
 チャット読み取りの`OCR_CAPTURE_REGION`はデスクトップウィンドウ用、`OCR_VR_CAPTURE_REGION`はSteamVRの左目側の映像用。旧版の単一範囲はウィンドウ用に保持し、未保存のVR側には全体を補う。[範囲の形と移行](../data-and-persistence.md#チャット読み取りの範囲)を参照。
 
-## config.jsonに保存するキー（146件）
+## config.jsonに保存するキー（148件）
 
 | キー | 型・検証 | 既定値 | 保存 |
 |---|---|---|---|
@@ -34,7 +34,9 @@
 | `MIC_AVG_LOGPROB` | number（-2.0〜0.0） | `-0.8` | 2秒後にまとめて |
 | `MIC_NO_SPEECH_PROB` | number（0.0〜1.0） | `0.6` | 2秒後にまとめて |
 | `HOTKEYS` | 検証 `hotkeys` | `{"open_quick_chat": null, "toggle_vrct_visibility": null, "toggle_translation": null, "toggle_transcription_send": null, "toggle_transcription_receive": null, "stop_voice": null, "toggle_voice_mute": null, "toggle_tts": null, "toggle_rvc": null}` | 即時 |
-| `EXPERIMENTAL_FEATURES` | 検証 `experimental_features` | `{"tray_companion": false}` | 即時 |
+| `EXPERIMENTAL_FEATURES` | 検証 `experimental_features` | `{"tray_companion": false, "talk_ai": false}` | 即時 |
+| `TALK_AI_PROVIDER` | str、独自の検証 | `"openai"` | 2秒後にまとめて |
+| `TALK_AI_LOCAL_URL` | str、独自の検証 | `"ws://127.0.0.1:8000/v1/realtime"` | 2秒後にまとめて |
 | `USAGE_PRESETS` | 検証 `usage_presets` | `["basic"]` | 即時 |
 | `CATALOG_LAYOUT` | str、独自の検証 | `"grid"` | 2秒後にまとめて |
 | `THEME` | 検証 `theme` | `{"preset": "dark_plum", "custom": {"base": "#261633", "accent": "#a47af5"}}` | 2秒後にまとめて |

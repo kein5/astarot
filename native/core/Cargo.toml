@@ -19,6 +19,7 @@ pipewire = ["astarot-audio-routing/pipewire", "astarot-transcription/pipewire"]
 onnx-translation = ["dep:astarot-translate-onnx"]
 
 [dependencies]
+astarot-talk-ai = { path = "../talk-ai" }
 # The names the app goes by outside its code (ADR-014): the saved keys, the package folder.
 astarot-app-identity = { path = "../app-identity" }
 base64 = "=0.22.1"

@@ -109,7 +109,7 @@ fn moved_keys(want: &mut Value) -> Vec<(String, String)> {
 // backend's hexagram had no wheel hint. MANAGED_ROUTE_RENAME_NOTICE_PENDING (ADR-014, 2.8) too:
 // the Python backend's virtual microphone never changed its name. THEME (#965) too: the Python
 // backend's UI had one look.
-const CORE_ONLY_KEYS: [&str; 13] = [
+const CORE_ONLY_KEYS: [&str; 15] = [
     "OLLAMA_URL",
     "PAPAGO_CLIENT_ID",
     "OVERLAY_FONT_FAMILY",
@@ -123,6 +123,8 @@ const CORE_ONLY_KEYS: [&str; 13] = [
     "TRAY_COMPANION_WHEEL_HINT_SHOWN",
     "MANAGED_ROUTE_RENAME_NOTICE_PENDING",
     "THEME",
+    "TALK_AI_PROVIDER",
+    "TALK_AI_LOCAL_URL",
 ];
 const CORE_ONLY_AUTH_KEYS: [&str; 2] = ["Google_Cloud_API", "Papago_API"];
 /// The engines the core adds after DeepL (the official APIs, #277).
@@ -131,6 +133,9 @@ const CORE_ONLY_ENGINES: [&str; 2] = ["Google_Cloud_API", "Papago_API"];
 fn without_core_additions(mut saved: Map<String, Value>) -> Map<String, Value> {
     for key in CORE_ONLY_KEYS {
         saved.shift_remove(key);
+    }
+    if let Some(Value::Object(features)) = saved.get_mut("EXPERIMENTAL_FEATURES") {
+        features.shift_remove("talk_ai");
     }
     if let Some(Value::Object(keys)) = saved.get_mut("AUTH_KEYS") {
         for engine in CORE_ONLY_AUTH_KEYS {

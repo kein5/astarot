@@ -267,7 +267,14 @@ pub fn routes(core: &Arc<Core>) -> Routes {
     b.add("/set/data/hotkeys", OPEN, hotkeys);
     b.get("/get/data/experimental_features", OPEN, "EXPERIMENTAL_FEATURES");
     let experimental = store(core, "EXPERIMENTAL_FEATURES", "VALIDATION_CONFIG_VALUE_INVALID");
-    b.add("/set/data/experimental_features", OPEN, experimental);
+    b.with("/set/data/experimental_features", OPEN, move |core, data| {
+        let mut session = core.talk_ai.lock().unwrap();
+        let reply = experimental(data);
+        if reply.status == 200 && reply.result["talk_ai"].as_bool() != Some(true) {
+            session.stop();
+        }
+        reply
+    });
     b.get("/get/data/usage_presets", OPEN, "USAGE_PRESETS");
     let presets = store(core, "USAGE_PRESETS", "VALIDATION_CONFIG_VALUE_INVALID");
     b.add("/set/data/usage_presets", OPEN, presets);
@@ -471,6 +478,7 @@ const AREAS: &[fn(&mut Builder<'_>)] = &[
     super::downloads::add,
     super::adapters::add,
     super::credentials::add,
+    super::talk_ai::add,
     super::ocr::add,
     super::overlay::add,
     super::speakers::add,
