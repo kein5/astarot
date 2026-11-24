@@ -5,6 +5,8 @@ import type { TestContext } from 'vitest';
 import { hooks, loadModule, eventTarget, stubGlobals, unchecked, findIn, setRef } from '../../logics/test/hookHarness.ts';
 import { deferred, flush } from '../../logics/test/bridgeHarness.ts';
 import * as chatboxLength from '../../logics/common/chatboxLength.ts';
+import * as themes from '../../logics/theme/themes.ts';
+import type { ThemeSetting } from '../../logics/theme/themes.ts';
 import type { QuickChatBridge } from './QuickChat.tsx';
 
 // A callback the window registers; calling it before that stops with a TypeError.
@@ -13,12 +15,17 @@ const notYet = async (_event?: unknown): Promise<void> => { throw new TypeError(
 async function setup(testContext: TestContext) {
     const runtime = hooks(), properties = new Map<string, string>(), removals: string[] = [], submissions: unknown[] = [];
     const callbacks: { open: (event?: unknown) => unknown; context: (event?: unknown) => unknown } = { open: notYet, context: notYet };
-    let context = { language: 'ja', enter_to_send: true, clear_on_send: true, ui_scaling: 150, font_family: 'Noto Sans JP' };
+    let context: { language: string; enter_to_send: boolean; clear_on_send: boolean; ui_scaling: number; font_family: string; theme?: ThemeSetting | null } = {
+        language: 'ja', enter_to_send: true, clear_on_send: true, ui_scaling: 150, font_family: 'Noto Sans JP', theme: null,
+    };
     let focusCount = 0, hideCount = 0, contextRead: () => Promise<unknown> = () => Promise.resolve(context);
     const field = { focus: () => focusCount++ };
     const i18n = { changeLanguage: async () => {} };
     const window = eventTarget();
-    stubGlobals(testContext, { window, document: { documentElement: { style: { setProperty: (key: string, value: string) => properties.set(key, value) } } } });
+    stubGlobals(testContext, { window, document: { documentElement: { style: {
+        setProperty: (key: string, value: string) => properties.set(key, value),
+        removeProperty: (key: string) => properties.delete(key),
+    } } } });
     const fake = {
         context: () => contextRead(),
         onOpen: async (callback: (event?: unknown) => unknown) => { callbacks.open = callback; return () => removals.push('open'); },
@@ -35,6 +42,7 @@ async function setup(testContext: TestContext) {
         '@useI18n': { useI18n: () => ({ t: (key: string) => key, i18n }) },
         '../../logics/quickChat/bridge': { quickChatBridge: bridge },
         '../../logics/common/chatboxLength': chatboxLength,
+        '../../logics/theme/themes.ts': themes,
     });
     const render = () => runtime.render(QuickChat, { bridge }, tree => {
         setRef(tree, {});
@@ -113,31 +121,65 @@ test('minimum-size layout keeps scrollable overflow, wrapping actions and nonshr
     assert.doesNotMatch(css, /https?:|fontFace/);
 });
 
+test('Quick Chat follows the selected preset and custom theme, and resets to the default theme without stealing focus', async t => {
+    const subject = await setup(t);
+    assert.equal(subject.properties.has('--vox_canvas'), false);
+    const before = subject.focusCount;
+    subject.field().onChange({ target: { value: '下書き' } });
+    subject.setContext({ theme: { preset: 'forest', custom: { base: '#261633', accent: '#a47af5' } } });
+    await subject.callbacks.context();
+    subject.render();
+    const forest = themes.deriveTokens(themes.PRESETS.find(preset => preset.id === 'forest')?.colors ?? themes.PRESETS[0].colors);
+    assert.equal(subject.properties.get('--vox_canvas'), forest['--vox_canvas']);
+    assert.equal(subject.properties.get('--primary_600_color'), forest['--primary_600_color']);
+    assert.equal(subject.field().value, '下書き');
+    assert.equal(subject.focusCount, before);
+    // Custom colours while the window stays open.
+    subject.setContext({ theme: { preset: 'custom', custom: { base: '#10272b', accent: '#3fc8c2' } } });
+    await subject.callbacks.context();
+    subject.render();
+    const custom = themes.deriveTokens({ base: '#10272b', accent: '#3fc8c2' });
+    assert.equal(subject.properties.get('--vox_canvas'), custom['--vox_canvas']);
+    // Back to Dark Plum: theme overrides are cleared while scale and font remain.
+    subject.setContext({ theme: { preset: 'dark_plum', custom: { base: '#10272b', accent: '#3fc8c2' } } });
+    await subject.callbacks.context();
+    subject.render();
+    assert.equal(subject.properties.has('--vox_canvas'), false);
+    assert.equal(subject.properties.get('font-size'), '93.75%');
+    assert.equal(subject.properties.get('--font_family'), '"Noto Sans JP"');
+    subject.runtime.unmount(); await flush();
+});
+
 test('main publishes saved appearance on initial configuration and later changes', async () => {
-    const runtime = hooks(), contexts: { ui_scaling: number; font_family: string }[] = [];
+    const runtime = hooks(), contexts: { ui_scaling: number; font_family: string; theme: ThemeSetting | null }[] = [];
     let scale = 150, font = 'Noto Sans JP';
+    let theme: ThemeSetting = { preset: 'midnight', custom: { base: '#261633', accent: '#a47af5' } };
     const { QuickChatController } = await loadModule<typeof import('../app/_app_controllers/QuickChatController.tsx')>(new URL('../app/_app_controllers/QuickChatController.tsx', import.meta.url), runtime, {
-        '@tauri-apps/api/core': { invoke: async (name: string, args: { context: { ui_scaling: number; font_family: string } }) => { if (name === 'quick_chat_configure') contexts.push(args.context); } },
+        '@tauri-apps/api/core': { invoke: async (name: string, args: { context: { ui_scaling: number; font_family: string; theme: ThemeSetting | null } }) => { if (name === 'quick_chat_configure') contexts.push(args.context); } },
         '@tauri-apps/api/event': { listen: async () => () => {} },
         '@useI18n': { useI18n: () => ({ i18n: { language: 'ja' } }) },
         '../../../logics/common/useMessage': { useMessage: () => ({ sendMessage() { assert.fail('configuration must not send'); } }) },
+        '../../../logics/theme/themes.ts': themes,
         '@logics_common': {
             useIsBackendReady: () => ({ currentIsBackendReady: { data: true } }),
             useIsOpenedConfigPage: () => ({ currentIsOpenedConfigPage: { data: false } }),
             useIsSoftwareUpdating: () => ({ currentIsSoftwareUpdating: { data: false } }),
         },
         '@logics_configs': {
-            useAppearance: () => ({ currentSendMessageButtonType: { data: 'show' }, currentUiScaling: { data: scale }, currentSelectedFontFamily: { data: font } }),
+            useAppearance: () => ({ currentSendMessageButtonType: { data: 'show' }, currentUiScaling: { data: scale }, currentSelectedFontFamily: { data: font }, currentTheme: { data: theme } }),
             useOthers: () => ({ currentEnableAutoClearMessageInputBox: { data: true } }),
         },
     });
     runtime.render(QuickChatController); await flush();
     assert.equal(contexts[0].ui_scaling, 150);
     assert.equal(contexts[0].font_family, 'Noto Sans JP');
+    assert.deepEqual(contexts[0].theme, theme);
     scale = 200; font = 'Local font';
+    theme = { preset: 'custom', custom: { base: '#15261c', accent: '#62c98c' } };
     runtime.render(QuickChatController); await flush();
     assert.equal(contexts.at(-1)?.ui_scaling, 200);
     assert.equal(contexts.at(-1)?.font_family, 'Local font');
+    assert.deepEqual(contexts.at(-1)?.theme, theme);
     runtime.unmount();
 });
 
