@@ -179,6 +179,10 @@
     "reason": "The only merged routes are the weight template's get and set routes, made twice with the same values, so the entry already in the map is the same as the merged one.",
     "where": "src-ui/logics/useReceiveRoutes.ts:883:9 mergedMap.set(ep, merged); -> ;"
   },
+  "1p3026bjvnt": {
+    "reason": "A model registered after the name was sent has a new id, which neither the same-name models nor all models had before.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/advanced_settings/UserModels.tsx:127:42 (userModels?.models ?? []).filter(model => sameName(model, … -> (userModels?.models ?? [])"
+  },
   "1pouqqozbmh": {
     "reason": "Download items always have a string id, so an undefined id matches none of them.",
     "where": "src-ui/logics/common/pendingRequestRecovery.ts:28:22 id !== undefined -> true"
@@ -218,6 +222,10 @@
   "1skl2ef3rqc": {
     "reason": "A timer started for no target or for the dismissed target does nothing: show returns at once for a missing or dismissed target.",
     "where": "src-ui/views/vr/VrTooltip.tsx:118:17 target && dismissed !== target -> (target || dismissed !== target)"
+  },
+  "1taa8erx1ec": {
+    "reason": "useModelDownloads stores only an answer with a models list (hasModels), so the user models are null or have their list.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/advanced_settings/UserModels.tsx:117:57 ?. -> ."
   },
   "1tus9zgw8r6": {
     "reason": "The hook's own mount effect sets mounted to true before any of its functions runs: the controller registers from a later effect of the same component, and an edit comes from input, which React handles after pending effects.",
@@ -262,6 +270,10 @@
   "1ycrsi5wglg": {
     "reason": "settingsWithoutRead is empty: no setting is named like the placeholder, and ignoring the set changes no setting.",
     "where": "src-ui/logics/common/pendingRequestRecovery.ts:65:45 [] -> [\"Stryker was here!\"]"
+  },
+  "1ydmcgr5ysb": {
+    "reason": "Registered is true only for the drawing that clears the form; every other run of the effect would clear a form already in its first state.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/advanced_settings/UserModels.tsx:119:13 !registered -> false"
   },
   "1z8vhuql3nb": {
     "reason": "WindowButton reads label only as the default for name, and the log's button passes its own name.",
@@ -310,6 +322,10 @@
   "28ou3tlyuax": {
     "reason": "No wait is running when a change is sent: every answer and every outside preset change clears it, and a failed send starts none.",
     "where": "src-ui/views/vr/VrLanguageWindow.tsx:218:9 clearTimeout(waitTimer.current); -> ;"
+  },
+  "2avvnkiwgfg": {
+    "reason": "useModelDownloads stores only an answer with a models list (hasModels), so the user models are null or have their list.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/advanced_settings/UserModels.tsx:40:36 ?. -> ."
   },
   "2b6tgqf8zn0": {
     "reason": "This branch runs only when the platform is not Wayland, and minimizedByHotkey becomes true only after a press that found Wayland, an answer kept once it arrives, so minimized already holds false here.",
@@ -383,6 +399,10 @@
     "reason": "rejectExpectedExit removes only the expected exits of the answer's own endpoint, and expectBackendExit makes them only for shutdown and the updates, so another failed answer removes nothing.",
     "where": "src-ui/logics/useReceiveRoutes.ts:485:32 isBackendUpdate(endpoint) || endpoint === \"/run/shutdown\" -> true"
   },
+  "ad4vcjgb17": {
+    "reason": "Neither the empty string nor the placeholder is INPUT, so a key on a target without a tag registers nothing either way.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/advanced_settings/UserModels.tsx:103:125 \"\" -> \"Stryker was here!\""
+  },
   "aydr3zufko": {
     "reason": "The bind answers Rust's map of Assigned values (portal_shortcuts_bind returns HashMap<String, Assigned>), so no row is null or undefined.",
     "where": "src-ui/logics/configs/config_page_setter/hotkeys/useHotkeys.ts:324:24 ?. -> ."
@@ -418,6 +438,10 @@
   "gtvqcj99lt": {
     "reason": "finishResync returns at once for an endpoint the resync does not wait for, and it waits only for the five reads, which all have a read atom.",
     "where": "src-ui/logics/main/languageMutations.ts:140:9 read -> true"
+  },
+  "h4g2h8vrz6": {
+    "reason": "A placeholder string in place of the empty file kinds names, letter by letter, no file of the model, so no file row is listed either way.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/advanced_settings/UserModels.tsx:43:51 [] -> [\"Stryker was here!\"]"
   },
   "hn5c6gpyt9": {
     "reason": "store.appWindow is a Tauri Window, which always has onFocusChanged, so the optional call never meets undefined.",
