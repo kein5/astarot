@@ -887,6 +887,65 @@ fn both_switches_turned_on_together_share_one_bundled_server_start() {
     ui.stop();
 }
 
+/// #1149: a server started from Settings that a switch used stays when the switch ends, unless
+/// the user chose that the switches stop it too (`STOP_SPEECH_SERVERS_WITH_SWITCHES`).
+#[test]
+fn a_server_started_from_settings_stops_with_the_switches_only_when_chosen() {
+    let models = tempfile::tempdir().unwrap();
+    let gguf = |name: &str| {
+        let path = models.path().join(format!("{name}.gguf"));
+        std::fs::write(&path, b"GGUF\0\0\0\0\0\0\0\0").unwrap();
+        path.canonicalize().unwrap().to_str().unwrap().to_owned()
+    };
+    let row = |model: String, vad: String| json!({ "model": model, "vad_model": vad, "diarization_model": "", "voice_file": "", "device": "auto", "low_latency": false });
+    let empty = || row(String::new(), String::new());
+    let speech_settings = json!({ "version": 1, "profiles": { "japanese": empty(), "multilingual": empty(), "asr": row(gguf("asr_gate"), gguf("vad")) } });
+    // The stand-in loads its model at once.
+    std::fs::write(models.path().join("asr_gate.gguf.go"), b"").unwrap();
+    let asr = FakeAsr::start();
+    let mut realtime = settings(&asr);
+    realtime["server"] = json!("bundled");
+    let capture = FakeCapture::new();
+    capture.add_endpoint(Source::Mic, "alsa.mic", "USB Mic");
+    capture.set_default(Source::Mic, Some("alsa.mic"));
+    let fake = env!("CARGO_BIN_EXE_fake-speech-core");
+    let services = Services {
+        transcription_capture: capture.factory(),
+        speech_server_launch: std::sync::Arc::new(move |_| {
+            let mut launch = astarot_speech_server::server::Launch::fixed(fake);
+            launch.start_timeout = Duration::from_secs(10);
+            launch
+        }),
+        ..Setup::default().services
+    };
+    let saved = json!({ "OSC_IP_ADDRESS": "127.0.0.2", "REALTIME_ASR_SETTINGS": realtime, "SPEECH_SERVER_SETTINGS": speech_settings });
+    let ui = Ui::with(Setup { saved: Some(saved), services, platform: Platform::Linux, ..Setup::default() });
+    ui.ready();
+    let state = || ui.ok("/get/data/speech_server_state", None)["asr"]["state"].as_str().unwrap_or("").to_string();
+    let start_from_settings = || {
+        let generation = ui.ok("/get/data/speech_server_state", None)["asr"]["generation"].clone();
+        ui.ok("/run/start_speech_server", Some(json!({ "profile": "asr", "generation": generation })));
+        eventually("the server is ready", || state() == "ready");
+    };
+    // The switch uses the server and ends (the stand-in does not speak the Realtime API, so the
+    // session may end by itself); either way, nothing uses the server afterwards.
+    let use_and_end = || {
+        let mark = ui.send("/set/enable/transcription_send", None);
+        ui.wait_from(mark, "the switch's answer", |l| l["endpoint"] == "/set/enable/transcription_send");
+        ui.request("/set/disable/transcription_send", None);
+        eventually("the switch is off", || ui.ok("/get/data/realtime_asr_state", None)["mic"]["requested"] == false);
+    };
+    start_from_settings();
+    use_and_end();
+    std::thread::sleep(Duration::from_millis(300));
+    assert_eq!(state(), "ready", "off by default: a server the user started stays");
+
+    assert_eq!(ui.ok("/set/enable/stop_speech_servers_with_switches", None), true);
+    use_and_end();
+    eventually("the server stops with the last switch", || matches!(state().as_str(), "stopped" | "stopping"));
+    ui.stop();
+}
+
 #[test]
 fn shutdown_closes_running_sessions() {
     let run = start(Platform::Linux, json!({}), true);

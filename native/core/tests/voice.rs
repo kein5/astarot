@@ -496,6 +496,44 @@ fn speech_servers_the_switch_starts_are_its_own_and_go_with_it() {
     run.ui.stop();
 }
 
+/// #1149: a server started from Settings stays when TTS goes off, unless the user chose that the
+/// switches stop it too (`STOP_SPEECH_SERVERS_WITH_SWITCHES`, off by default).
+#[test]
+fn a_server_started_from_settings_stops_with_tts_only_when_chosen() {
+    let models = tempfile::tempdir().unwrap();
+    let model = models.path().join("tts.gguf");
+    std::fs::write(&model, b"GGUF\0\0\0\0\0\0\0\0").unwrap();
+    let row = |model: &str| json!({ "model": model, "vad_model": "", "diarization_model": "", "voice_file": "", "device": "auto", "low_latency": false });
+    let speech = json!({ "version": 1, "profiles": { "japanese": row(model.canonicalize().unwrap().to_str().unwrap()), "multilingual": row(""), "asr": row("") } });
+    let saved = json!({ "SPEECH_SERVER_SETTINGS": speech, "VOICE_SETTINGS": { "mode": "original", "output_device": OUTPUT, "japanese_server": "bundled" } });
+    let run = start_with(saved, Platform::Windows, FakeVoice::new(), FakeAudio::new(), true);
+    let state = || run.ui.ok("/get/data/speech_server_state", None)["japanese"]["state"].as_str().unwrap_or("").to_string();
+    let start_from_settings = || {
+        let generation = run.ui.ok("/get/data/speech_server_state", None)["japanese"]["generation"].clone();
+        run.ui.ok("/run/start_speech_server", Some(json!({ "profile": "japanese", "generation": generation })));
+        eventually("the server is ready", || state() == "ready");
+    };
+    assert_eq!(run.ui.ok("/get/data/stop_speech_servers_with_switches", None), false, "off by default");
+    start_from_settings();
+    assert_eq!(run.enable()["result"]["tts_enabled"], true);
+    run.ui.ok("/run/disable_tts", None);
+    std::thread::sleep(Duration::from_millis(300));
+    assert_eq!(state(), "ready", "a server the user started stays");
+
+    // Chosen: TTS's OFF stops it too, and TTS stays off.
+    assert_eq!(run.ui.ok("/set/enable/stop_speech_servers_with_switches", None), true);
+    assert_eq!(run.enable()["result"]["tts_enabled"], true);
+    run.ui.ok("/run/disable_tts", None);
+    eventually("the server stops with TTS", || state() == "stopped");
+    assert_eq!(run.status()["tts_enabled"], false);
+    // A server TTS did not use is left to the user.
+    start_from_settings();
+    run.ui.ok("/run/disable_tts", None);
+    std::thread::sleep(Duration::from_millis(300));
+    assert_eq!(state(), "ready");
+    run.ui.stop();
+}
+
 const MONITOR: &str = "Windows WASAPI: Headphones (Realtek Audio)";
 
 /// A run whose Japanese bundled server serves `stem.gguf` (see the fixture), with `voice` saved.

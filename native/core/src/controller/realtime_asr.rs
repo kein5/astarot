@@ -83,6 +83,9 @@ struct Toggle {
     shown: [bool; 2],
     /// The run of the bundled ASR server a switch started.
     asr_owned: Option<u64>,
+    /// The run of a bundled ASR server started from Settings that a switch or a recording used:
+    /// stopped with them when the user chose so ([`super::speech::STOP_WITH_SWITCHES`], #1149).
+    started_elsewhere: Option<u64>,
     starting: usize,
     /// Recorders whose VAD may use the bundled server ([`VadUser`]): it is not stopped while
     /// one lives (decision 84).
@@ -322,8 +325,11 @@ impl Core {
     fn vad_server_url(&self) -> Result<String, String> {
         let settings = self.vad_server_settings();
         let base = if settings["server"] == "bundled" {
-            let ready = self.speech_servers().state()["asr"]["state"] == "ready";
-            if !ready && let Some(code) = self.ensure_asr_server(&|| !self.realtime().state().closed) {
+            let row = self.speech_servers().state()["asr"].clone();
+            if row["state"] == "ready" {
+                // Noted as used, so that it can stop with the switches when the user chose so (#1149).
+                self.note_asr_server_use(row["generation"].as_u64().unwrap_or(0));
+            } else if let Some(code) = self.ensure_asr_server(&|| !self.realtime().state().closed) {
                 return Err(code);
             }
             self.speech_servers().hub().binding(Profile::Asr).map_err(|_| "speech_server_not_ready".to_string())?
@@ -651,9 +657,12 @@ impl Core {
     }
 
     /// `_releaseAsrServer`: stops a bundled ASR server a switch started once neither uses it.
+    /// One started from Settings that they used goes too when the user chose so (#1149).
     fn release_asr_server(&self) {
         let mut toggle = self.realtime().toggle();
-        let Some(owned) = toggle.asr_owned else { return };
+        if toggle.asr_owned.is_none() && toggle.started_elsewhere.is_none() {
+            return;
+        }
         if toggle.starting > 0 || toggle.vad_users > 0 {
             return;
         }
@@ -663,8 +672,22 @@ impl Core {
                 return;
             }
         }
-        toggle.asr_owned = None;
-        self.speech_servers().hub().stop(Profile::Asr, Some(owned), None);
+        // Nothing uses the server any more.
+        let elsewhere = toggle.started_elsewhere.take();
+        let run = toggle.asr_owned.take().or(elsewhere.filter(|_| self.config().get_bool(super::speech::STOP_WITH_SWITCHES)));
+        if let Some(run) = run {
+            // Only that run: a server the user started again since stays.
+            self.speech_servers().hub().stop(Profile::Asr, Some(run), None);
+        }
+    }
+
+    /// Notes that a switch or a recording uses the ASR server's run `run`: when it is not one a
+    /// switch started, it was started from Settings ([`Toggle::started_elsewhere`]).
+    fn note_asr_server_use(&self, run: u64) {
+        let mut toggle = self.realtime().toggle();
+        if toggle.asr_owned != Some(run) {
+            toggle.started_elsewhere = Some(run);
+        }
     }
 
     fn realtime_start_current(&self, source: Source, expected: u64) -> bool {
@@ -744,6 +767,7 @@ impl Core {
                 return Some("speech_server_not_ready".into());
             }
             if row["state"] == "ready" {
+                self.note_asr_server_use(run);
                 return None;
             }
             if Instant::now() >= deadline {

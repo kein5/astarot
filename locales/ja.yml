@@ -1658,6 +1658,8 @@ speech_servers:
     stop: "サーバーを停止"
     save: "サーバー設定を保存"
     reload: "サーバー設定を再読込"
+    stop_with_switches: "ここで起動したサーバーも機能と一緒に止める"
+    stop_with_switches_help: "読み上げや音声認識をオンにすると使うサーバーが起動し、オフにすると止まります。「サーバーを起動」で起動したサーバーは動いたままです。これをオンにすると、そのサーバーを使っていた機能がすべてオフになったときに一緒に止めます。"
     state_stopped: "停止中"
     state_preparing: "モデルを読み込み中"
     state_ready: "準備完了"

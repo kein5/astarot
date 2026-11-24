@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useI18n } from "@useI18n";
+import { useAdvancedSettings } from "@logics_configs";
 import { useSpeechServers } from "../../../../../../logics/voice/useSpeechServers";
 import { useSettingsDraft } from "../../../../../../logics/voice/useSettingsDraft";
 import * as styles from "./VoiceSettings.css.ts";
@@ -41,6 +42,8 @@ export interface SpeechServersProps {
 export const SpeechServers = ({ profiles = ["japanese", "multilingual", "asr"] }: SpeechServersProps) => {
     const { t } = useI18n();
     const { settings, state, devices, builds, pending, error, send, updateError } = useSpeechServers();
+    // Whether the switches' "off" also stops a server started here (#1149); off by default.
+    const { currentStopSpeechServersWithSwitches: stopWithSwitches, toggleStopSpeechServersWithSwitches } = useAdvancedSettings();
     // Paths are ["profiles", name, key]; a page shows only its own profiles.
     const label = ([, name, key]: string[]) => `${t(`speech_servers.${name}`)}: ${t(`speech_servers.${key}`, { defaultValue: key })}`;
     const form = useSettingsDraft(settings, error, updateError, { label,
@@ -157,6 +160,11 @@ export const SpeechServers = ({ profiles = ["japanese", "multilingual", "asr"] }
                 </fieldset>;
             })}
         </form>}
+        {/* Applies to every bundled server and saves at once, so it sits outside the servers' form. */}
+        <HintCheck className={styles.checkLabel} label={t("speech_servers.stop_with_switches")}
+            description={t("speech_servers.stop_with_switches_help")} boxClassName={styles.fieldCheck}
+            checked={stopWithSwitches.data === true} disabled={stopWithSwitches.state === "pending"}
+            aria-busy={stopWithSwitches.state === "pending"} onChange={() => toggleStopSpeechServersWithSwitches()} />
         <div className={`${styles.actions} ${styles.control_column}`}>
             <Button disabled={dirty || saving} onClick={() => { send("/get/data/speech_server_settings"); send("/get/data/speech_server_state"); }}>{t("speech_servers.reload")}</Button>
         </div>

@@ -272,6 +272,8 @@ export interface SettingValues {
     ObsBrowserSourceFontOutlineColor: string;
     // The RVC conversion's block in ms (#531).
     RvcBlockMs: number;
+    // Whether the switches also stop a bundled server started from Settings (#1149).
+    StopSpeechServersWithSwitches: boolean;
 
     // ExperimentalFeatures
     ExperimentalFeatures: ExperimentalFeatureValues;

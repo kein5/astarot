@@ -1658,6 +1658,8 @@ speech_servers:
     stop: "Stop server"
     save: "Save server settings"
     reload: "Reload server settings"
+    stop_with_switches: "Also stop servers started here when the features turn off"
+    stop_with_switches_help: "Turning on text to speech or speech recognition starts the server it needs, and turning it off stops that server again. A server you start here with Start server keeps running. With this on, it also stops once every feature that used it is off."
     state_stopped: "Stopped"
     state_preparing: "Loading model"
     state_ready: "Ready"

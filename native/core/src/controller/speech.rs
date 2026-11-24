@@ -26,6 +26,10 @@ use astarot_speech_server::settings::{normalize_settings, start_options};
 use astarot_speech_server::{Code, Profile, StartOptions, builds, codes, devices};
 
 const SETTINGS_KEY: &str = "SPEECH_SERVER_SETTINGS";
+/// Whether a bundled server started from Settings is stopped too, when the last switch (or
+/// recording) that used it is turned off (#1149). Off by default: such a server stays, as the
+/// user started it.
+pub(crate) const STOP_WITH_SWITCHES: &str = "STOP_SPEECH_SERVERS_WITH_SWITCHES";
 const REQUEST_INVALID: &str = "speech_server_request_invalid";
 const START_FAILED: &str = "speech_server_start_failed";
 /// How long the shutdown waits for every owned server to end (`speech_servers.close(timeout=3)`).
@@ -350,4 +354,5 @@ pub(crate) fn add(b: &mut Builder<'_>) {
     b.with("/run/start_speech_server", OPEN, |core, data| start(core, data));
     // Answered as it arrives (`IMMEDIATE_ENDPOINTS`): it never waits behind a busy worker.
     b.with("/run/stop_speech_server", OPEN, |core, data| stop(core, data));
+    b.switch("stop_speech_servers_with_switches", STOP_WITH_SWITCHES, true);
 }

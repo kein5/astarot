@@ -46,7 +46,7 @@ The bundled server uses one recognition model for both microphone captions and g
 
    ![Settings → Speech recognition (ASR)](/screenshots/en/transcription.webp)
 
-3. On the main screen, the "Mic input" switch starts and stops microphone captions, and the "Listening" switch does the same for game audio captions. If you chose the bundled server, turning a switch on also starts the server. While it loads the model, the switch says "Starting server…". On Windows these switches run realtime captions while "Local (speech.cpp)" is the engine chosen under "Transcription engine used for speech recognition" ([Choose the speech recognition engine](#engines)).
+3. On the main screen, the "Mic input" switch starts and stops microphone captions, and the "Listening" switch does the same for game audio captions. If you chose the bundled server, turning a switch on also starts the server. While it loads the model, the switch says "Starting server…". Once both switches are off, the server stops again. A server you started yourself with "Start server" keeps running, unless "Also stop servers started here when the features turn off" under "Models and servers" is on. On Windows these switches run realtime captions while "Local (speech.cpp)" is the engine chosen under "Transcription engine used for speech recognition" ([Choose the speech recognition engine](#engines)).
 
 After a restart, captions start off.
 

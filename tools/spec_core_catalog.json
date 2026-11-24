@@ -1182,6 +1182,21 @@
       "immediate": true
     },
     {
+      "endpoint": "/get/data/stop_speech_servers_with_switches",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/enable/stop_speech_servers_with_switches",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
+      "endpoint": "/set/disable/stop_speech_servers_with_switches",
+      "wait_for_init": false,
+      "immediate": false
+    },
+    {
       "endpoint": "/set/enable/telemetry",
       "wait_for_init": false,
       "immediate": false
@@ -4615,6 +4630,11 @@
       "key": "CHECK_SOFTWARE_UPDATES",
       "kind": "saved",
       "default": true
+    },
+    {
+      "key": "STOP_SPEECH_SERVERS_WITH_SWITCHES",
+      "kind": "saved",
+      "default": false
     },
     {
       "key": "SEND_ONLY_TRANSLATED_MESSAGES",

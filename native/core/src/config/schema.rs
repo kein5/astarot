@@ -723,6 +723,7 @@ pub fn keys() -> Vec<Key> {
         key("AUTO_CLEAR_MESSAGE_BOX", b()),
         // Whether the app looks for a new version at start (#343; the UI reads it).
         key("CHECK_SOFTWARE_UPDATES", b()),
+        key("STOP_SPEECH_SERVERS_WITH_SWITCHES", b()),
         key("SEND_ONLY_TRANSLATED_MESSAGES", b()),
         key("OVERLAY_SMALL_LOG", b()),
         key("OVERLAY_LARGE_LOG", b()),
@@ -992,6 +993,7 @@ pub fn defaults(env: &Environment) -> Map<String, Value> {
         ("OSC_QUERY", json!(true)),
         ("AUTO_CLEAR_MESSAGE_BOX", json!(true)),
         ("CHECK_SOFTWARE_UPDATES", json!(true)),
+        ("STOP_SPEECH_SERVERS_WITH_SWITCHES", json!(false)),
         ("SEND_ONLY_TRANSLATED_MESSAGES", json!(false)),
         ("OVERLAY_SMALL_LOG", json!(false)),
         ("OVERLAY_LARGE_LOG", json!(false)),

@@ -88,10 +88,13 @@ fn request_id(value: &Value) -> Option<&str> {
 }
 
 /// The TTS servers the main toggle started, as role → run; a server the user started from
-/// Settings is never adopted or stopped by the toggle.
+/// Settings is never adopted. The toggle stops it only when the user chose so (#1149).
 #[derive(Default)]
 struct TtsOwner {
     owned: HashMap<&'static str, u64>,
+    /// The runs started from Settings that TTS used while it was on, as role → run: stopped
+    /// with TTS's OFF when the user chose so ([`super::speech::STOP_WITH_SWITCHES`]).
+    started_elsewhere: HashMap<&'static str, u64>,
     released: HashMap<&'static str, u64>,
     ended: HashMap<&'static str, u64>,
     attempts: Vec<Arc<AtomicBool>>,
@@ -559,7 +562,8 @@ impl Voice {
         let attempt = Arc::new(AtomicBool::new(false));
         self.owner.lock().unwrap().attempts.push(attempt.clone());
         let mut started: HashMap<&'static str, u64> = HashMap::new();
-        let code = self.enable_tts_inner(core, generation, &attempt, &mut started);
+        let mut elsewhere: HashMap<&'static str, u64> = HashMap::new();
+        let code = self.enable_tts_inner(core, generation, &attempt, &mut started, &mut elsewhere);
         self.owner.lock().unwrap().attempts.retain(|a| !Arc::ptr_eq(a, &attempt));
         if let Err(code) = code {
             // A failed or cancelled ON leaves no server of its own running.
@@ -567,10 +571,12 @@ impl Voice {
             // OFF during ON is the user's choice, not an error to report.
             return refused(409, if attempt.load(Ordering::SeqCst) { "tts_enable_cancelled" } else { code });
         }
+        // TTS is on with these servers started from Settings: its OFF may stop them (#1149).
+        self.owner.lock().unwrap().started_elsewhere.extend(elsewhere);
         ok(self.status())
     }
 
-    fn enable_tts_inner(&self, core: &Core, generation: u64, attempt: &AtomicBool, started: &mut HashMap<&'static str, u64>) -> Result<(), &'static str> {
+    fn enable_tts_inner(&self, core: &Core, generation: u64, attempt: &AtomicBool, started: &mut HashMap<&'static str, u64>, elsewhere: &mut HashMap<&'static str, u64>) -> Result<(), &'static str> {
         let bundled: Vec<&'static str> = {
             let _settings = self.settings_lock.lock().unwrap();
             let roles = self.tts_roles(core, generation, false)?;
@@ -581,7 +587,7 @@ impl Voice {
         };
         if !bundled.is_empty() {
             // Loading a model takes seconds. Wait without the settings lock; OFF cancels the wait.
-            self.await_tts_servers(core, &bundled, generation, attempt, started)?;
+            self.await_tts_servers(core, &bundled, generation, attempt, started, elsewhere)?;
         }
         let _settings = self.settings_lock.lock().unwrap();
         let roles = self.tts_roles(core, generation, false)?;
@@ -626,8 +632,9 @@ impl Voice {
         Ok(())
     }
 
-    /// Start the stopped bundled servers of `roles`, then wait until all are ready.
-    fn await_tts_servers(&self, core: &Core, roles: &[&'static str], generation: u64, attempt: &AtomicBool, started: &mut HashMap<&'static str, u64>) -> Result<(), &'static str> {
+    /// Start the stopped bundled servers of `roles`, then wait until all are ready. Those that
+    /// were up already, started from Settings, go in `elsewhere`.
+    fn await_tts_servers(&self, core: &Core, roles: &[&'static str], generation: u64, attempt: &AtomicBool, started: &mut HashMap<&'static str, u64>, elsewhere: &mut HashMap<&'static str, u64>) -> Result<(), &'static str> {
         let hub = core.speech_servers().hub();
         let state = hub.state();
         let row = |role: &str| state.iter().find(|(p, _)| *p == profile(role)).map(|(_, s)| s.clone()).expect("every profile");
@@ -635,7 +642,10 @@ impl Voice {
             let current = row(role);
             match current.health.state {
                 // Started from Settings: wait for it, but never own it.
-                astarot_speech_server::State::Ready | astarot_speech_server::State::Preparing => continue,
+                astarot_speech_server::State::Ready | astarot_speech_server::State::Preparing => {
+                    elsewhere.insert(role, current.generation);
+                    continue;
+                }
                 astarot_speech_server::State::Stopping => return Err("speech_server_busy"),
                 _ => {}
             }
@@ -715,7 +725,37 @@ impl Voice {
         self.bus.set_enabled(false, None);
         // OFF also cancels an ON that is still waiting for its server.
         self.release_tts_servers(core, None, true);
+        self.release_started_elsewhere(core);
         ok(self.status())
+    }
+
+    /// TTS's OFF: the servers started from Settings that it used stop too when the user chose so
+    /// (#1149); otherwise they stay, as before. Either way TTS no longer counts them as used.
+    fn release_started_elsewhere(&self, core: &Core) {
+        let stop = core.config().get_bool(super::speech::STOP_WITH_SWITCHES);
+        let runs: Vec<(&'static str, u64)> = {
+            let mut owner = self.owner.lock().unwrap();
+            let runs: Vec<(&'static str, u64)> = owner.started_elsewhere.drain().collect();
+            if stop {
+                // Their end is this OFF's, not a failure of TTS.
+                for (role, run) in &runs {
+                    owner.released.insert(role, *run);
+                }
+            }
+            runs
+        };
+        if !stop {
+            return;
+        }
+        for (role, run) in runs {
+            // Only that run: a server the user started again since stays.
+            if !core.speech_servers().hub().stop(profile(role), Some(run), None) {
+                let mut owner = self.owner.lock().unwrap();
+                if owner.released.get(role) == Some(&run) {
+                    owner.released.remove(role);
+                }
+            }
+        }
     }
 
     /// The TTS epoch that uses this exact bundled run (`_speechTtsDependency`).

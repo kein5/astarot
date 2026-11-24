@@ -10,7 +10,7 @@ UIから中核への要求と、中核からUIへの通知（`RUN_MAPPING`）の
 - UIの受信先: 200の応答を処理するUIのフック（`useReceiveRoutes.ts`の静的ルートと`ui_config_setter.ts`の定義から生成）。「—」は受信先がない。
 - ログで伏せる: `process.log`で値を`***MASKED***`に置き換える（`log::SENSITIVE_ENDPOINT_MARKERS`）。stdoutのIPCそのものは伏せない。
 
-## 要求（506件: 削除 13、取得 225、実行 52、有効化 44、無効化 46、設定 126）
+## 要求（509件: 削除 13、取得 226、実行 52、有効化 45、無効化 47、設定 126）
 
 並びは中核が経路を足した順（`controller/routes.rs`）。
 
@@ -252,6 +252,9 @@ UIから中核への要求と、中核からUIへの通知（`RUN_MAPPING`）の
 | `/get/data/speech_server_state` | 取得 | 可 | useSpeechServers.updateState |  |
 | `/run/start_speech_server` | 実行 | 可 | useSpeechServers.updateState |  |
 | `/run/stop_speech_server` | 実行 | 可 | useSpeechServers.updateState | 即時（キューを通らない） |
+| `/get/data/stop_speech_servers_with_switches` | 取得 | 可 | useAdvancedSettings.updateFromBackendStopSpeechServersWithSwitches |  |
+| `/set/enable/stop_speech_servers_with_switches` | 有効化 | 可 | useAdvancedSettings.setSuccessStopSpeechServersWithSwitches |  |
+| `/set/disable/stop_speech_servers_with_switches` | 無効化 | 可 | useAdvancedSettings.setSuccessStopSpeechServersWithSwitches |  |
 | `/set/enable/telemetry` | 有効化 | 可 | useOthers.setSuccessTelemetry |  |
 | `/set/disable/telemetry` | 無効化 | 可 | useOthers.setSuccessTelemetry |  |
 | `/get/data/telemetry_notice` | 取得 | 可 | useOthers.updateFromBackendTelemetryNotice |  |
@@ -669,7 +672,7 @@ UIから中核への要求と、中核からUIへの通知（`RUN_MAPPING`）の
 - `/set/enable/talk_ai_screen`
 
 
-## UIだけにあるルート（61件）
+## UIだけにあるルート（62件）
 
 UIに受信先が定義されているが、中核の要求と通知にはないもの。多くは`ui_config_setter.ts`の定義が機械的に作るルートで、使われない。
 
@@ -729,6 +732,7 @@ UIに受信先が定義されているが、中核の要求と通知にはない
 - `/set/data/show_resend_button`
 - `/set/data/speaker_automatic_threshold`
 - `/set/data/speaker_vad_filter`
+- `/set/data/stop_speech_servers_with_switches`
 - `/set/data/telemetry`
 - `/set/data/vrc_mic_mute_sync`
 - `/set/data/websocket_server`
