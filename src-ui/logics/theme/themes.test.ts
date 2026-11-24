@@ -22,7 +22,7 @@ test("the derived tokens and the kept hues are variables.css's, so the default t
     for (const [token, { value }] of Object.entries(DERIVED_TOKENS)) assert.equal(value, variables[token], token);
     for (const [token, value] of Object.entries(KEPT_HUE_TOKENS)) assert.equal(value, variables[token], token);
     // Every colour of variables.css is derived, kept, or listed here as one a theme leaves alone.
-    const leftAlone = ["--sent_400_color", "--received_300_color", "--error_bc_color", "--error_bc_active_color", "--warning_color",
+    const leftAlone = ["--sent_400_color", "--received_300_color", ...Object.keys(KEPT_HUE_TOKENS), "--error_bc_color", "--error_bc_active_color", "--warning_color",
         "--warning_bc_color", "--vox_state_warning", "--vox_state_failed", "--vox_warning_tint", "--vox_chatbox_preview", "--dark_50_color"];
     const colours = Object.keys(variables).filter(token => /^#[0-9a-f]{6,8}$/.test(variables[token]));
     for (const token of colours) assert.ok(token in DERIVED_TOKENS || leftAlone.includes(token), `${token} has a place in the themes`);
@@ -58,6 +58,10 @@ test("every preset keeps DESIGN.md's contrasts, its hues and its order of lightn
         assert.equal(tokens["--vox_on_primary"], tokens["--vox_canvas"], `${id}: text on the accent`);
         // The presets are told apart from warning and failed.
         assert.deepEqual(accentNearStates(colors.accent), [], `${id}: its accent is not a state's colour`);
+        // The speakers keep the caption overlay's hues; only their lightness moves (#1036).
+        for (const token of ["--vox_speaker_a", "--vox_speaker_b", "--vox_speaker_c", "--vox_speaker_d"]) {
+            assert.ok(hueApart(toOklch(rgb(tokens[token])).hue, toOklch(rgb(KEPT_HUE_TOKENS[token])).hue) <= 3, `${id}: ${token} keeps its hue`);
+        }
     }
 });
 

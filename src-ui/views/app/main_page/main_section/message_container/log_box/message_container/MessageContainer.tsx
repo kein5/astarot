@@ -3,7 +3,7 @@ import { useI18n } from "@useI18n";
 import clsx from "clsx";
 import * as styles from "./MessageContainer.css.ts";
 import * as speakerStyles from "./SpeakerNames.css.ts";
-import { SpeakerNamesEditor, speakersText } from "./SpeakerNames.tsx";
+import { SpeakerNamesEditor, speakerInk, speakersText } from "./SpeakerNames.tsx";
 import { MessageSubMenuContainer } from "./message_sub_menu_container/MessageSubMenuContainer";
 import { store } from "@store";
 import type { MessageActions } from "../../../../../../../logics/common/MessageActions";
@@ -88,6 +88,9 @@ export const MessageContainer = memo(function MessageContainer({ id, messages, s
     // with the names the user gave them.
     const speakers_text = !is_sent_message && speakers?.length ? speakersText(t, speakers, speaker_names) : null;
     const can_name = !!speakers_text && !!nameSpeakers && !!realtime?.namespace && !store.is_vr_panel;
+    // Only the label takes the voice's color; the words keep the log's (#1036).
+    const speaker_ink = speakers_text ? speakerInk(speakers) : undefined;
+    const speaker_style = speaker_ink ? { color: speaker_ink } : undefined;
     const closeNaming = () => {
         setIsNaming(false);
         who_button.current?.focus();
@@ -119,8 +122,8 @@ export const MessageContainer = memo(function MessageContainer({ id, messages, s
                         ? <button ref={who_button} type="button" className={speakerStyles.who} aria-expanded={is_naming}
                             aria-label={t("main_page.message_log.speaker_names_edit", { speakers: speakers_text })}
                             title={t("main_page.message_log.speaker_names_tooltip")}
-                            onClick={() => setIsNaming(open => !open)}>{speakers_text}</button>
-                        : <p className={clsx(styles.category, message_type_class_name)}>{speakers_text}</p>)}
+                            style={speaker_style} onClick={() => setIsNaming(open => !open)}>{speakers_text}</button>
+                        : <p className={clsx(styles.category, message_type_class_name)} style={speaker_style}>{speakers_text}</p>)}
                     {/* The VR atlas needs static pixels while a send is pending. Its label above shows the state. */}
                     {(is_sent_message || is_realtime) && is_pending && !store.is_vr_panel && <span className={styles.loader} aria-hidden="true"></span>}
                 </div>

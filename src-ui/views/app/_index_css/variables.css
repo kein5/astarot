@@ -93,6 +93,11 @@
     --vox_state_active: #b797f8;
     --vox_state_warning: #d4a162;
     --vox_state_failed: #e4938e;
+    /* Who spoke (#1036): the desktop caption overlay's voices A to D, purple, amber, green and rose. */
+    --vox_speaker_a: #cf86e6;
+    --vox_speaker_b: #e6a84a;
+    --vox_speaker_c: #5fcf8c;
+    --vox_speaker_d: #ee7f95;
     /* Secondary action hover: readable with both body and secondary text. */
     --vox_secondary_hover: var(--dark_800_color);
     --vox_readout_rule: #a47af5;
