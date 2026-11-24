@@ -349,7 +349,7 @@ When you finish, revise with humanizer, then check these points. The writing gat
 |---|---|
 | `CONTRIBUTING.md`の「Commit messages」 | コミットメッセージの形（種別、スコープ、小文字で始める命令形の要約、フッター） |
 | `CONTRIBUTING.md`の「Changelog and releases」と[リリースノートの書式](../release-notes/README.md) | 変更履歴とリリースノートの構成（リリースノートの見出しの先頭に置く絵文字を含む） |
-| [`DESIGN.md`](../../DESIGN.md)の「The user guide (site/)」 | 利用者向けマニュアルの組み方 |
+| [`DESIGN.md`](../../DESIGN.md)の「The user guide (site/)」 | 利用者向けガイドの組み方 |
 | [機能仕様書の更新の決まり](../spec/README.md#更新の決まり) | `docs/spec/`の文書の分け方と書き方 |
 | `CONTRIBUTING.md`とi18nの品質ゲート（#515） | 画面の文言のキー、英語と日本語の対応、補間変数の検査 |
 | `AGENTS.md`の「検証と完了の報告」 | 報告に書かなければならないこと |
@@ -580,7 +580,7 @@ ASTAROTや変更を説明するときに、情報を伝えず褒めるだけの�
 - 画面の文言にはエムダッシュを使いません。コロンを使うか文を分けます（「Save failed. Your edits are kept.」）。
 - 長い文言と狭いウィンドウでも正しく表示されるかを確かめます（`DESIGN.md`）。
 
-### 利用者向けのマニュアル（site/en）
+### 利用者向けのガイド（site/en）
 
 組み方は`DESIGN.md`の「The user guide (site/)」に従います。文章はこの章の決まりに従います。
 
