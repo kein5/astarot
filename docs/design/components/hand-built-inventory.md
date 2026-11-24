@@ -4,7 +4,7 @@
 
 This document lists, screen by screen, the places where a screen builds a control by hand from native elements or a `div` even though a shared component exists. It is groundwork for deciding the order of two pieces of work: replacing those controls with components aligned with shadcn/ui (new-york-v4), and moving the styles to vanilla-extract (#957). At the time of the inventory, no code was changed.
 
-- Status: inventory (2026-11-23). How to carry out the replacement (H-01 to H-03) was decided on the same day. The replacement has not started yet. When an element is replaced, write "replaced" in its row with the pull request number.
+- Status: inventory (2026-11-23). How to carry out the replacement (H-01 to H-03) was decided on the same day, and the look of a replaced element (H-04) on 2026-11-24. The replacement started on 2026-11-24. When an element is replaced, write "replaced" in its row with the pull request number.
 - App checked: develop (after #983 was merged, `7a4b684`)
 - Related documents: [Component inventory: comparison with shadcn/ui](shadcn-alignment.md) (decision items D-xx), [Settings screen component experiment](README.md) (the kit and open questions K-xx), [ADR-010](../../adr/adr-010-frontend-stack.md)
 
@@ -24,7 +24,7 @@ This document lists, screen by screen, the places where a screen builds a contro
 
 ### kit (`src-ui/views/kit/`)
 
-Components aligned with shadcn/ui. Only the sample page (`src-ui/kit-lab.html`) uses them now; no screen of the app uses them. Open question K-01 decides whether screens will use them.
+Components aligned with shadcn/ui. The sample page (`src-ui/kit-lab.html`) shows all of them. From 2026-11-24 the app's screens use them too, in the rows marked "replaced" below (open question K-01; H-04).
 
 | Component | What it is | shadcn/ui counterpart |
 |---|---|---|
@@ -95,8 +95,8 @@ Before the per-screen tables, these are the hand-built elements that every scree
 | Resend button (`message_sub_menu_container/MessageSubMenuContainer.tsx`) | A `<button>` that resends on a long press | The kit's `Button` | Medium | Keep the long-press detection (pointer events) |
 | Log display settings (`message_log_settings_container/MessageLogSettingsContainer.tsx`) | The open button is a `div role="button"` with `aria-expanded`. A panel that closes on Esc | The open button: the kit's `Button`; the panel: U-04 | High | — |
 | Input field (`message_input_box/MessageInputBox.tsx`) | `<textarea>`, the send `<button>` | The input field: U-06; send: the kit's `Button` | High | The input field has a 12 px corner radius (DESIGN.md). Whether its growing height is written with `field-sizing` is D-13 |
-| Empty state (`log_box/EmptyState.tsx`) | "Open setup" and the `<button>` elements that start features | The kit's `Button` | Low | The comparison document marks the screen's layout as "keep" |
-| Realtime controls (`realtime_controls/RealtimeControls.tsx`) | The stop `<button>` | The kit's `Button` | Low | — |
+| Empty state (`log_box/EmptyState.tsx`) | "Open setup" and the `<button>` elements that start features | The kit's `Button` (replaced, #1121) | Low | The comparison document marks the screen's layout as "keep" |
+| Realtime controls (`realtime_controls/RealtimeControls.tsx`) | The stop `<button>` | The kit's `Button` (replaced, #1121) | Low | — |
 | Stop and mute (`others/stop_actions/StopActions.tsx`) | The stop `<button>`, and the mute `<button>` with `aria-pressed` (amber when pressed) | Stop: the kit's `Button` (whether it is danger is D-10); mute: U-03 | High | Stop and mute stay separate controls (PRODUCT.md, DESIGN.md) |
 | Title bar (`others/window_title_bar/WindowTitleBar.tsx`) | The minimize, maximize and close `<button>` elements | The kit's `Button` (`size="icon"`) | Medium | They overlap the area that moves the window. Their size matches the OS title bar |
 
@@ -203,13 +203,14 @@ Under decision H-02, a shared component is made for every one of U-01 to U-12 an
 
 ## Decisions made
 
-These are the decisions on how to carry out the replacement that came out of this inventory. All 3 were decided as below on 2026-11-23. The comparison document's decision items (D-xx) and the open questions of the settings screen component experiment (K-xx) are decided in their own documents.
+These are the decisions on how to carry out the replacement that came out of this inventory. H-01 to H-03 were decided as below on 2026-11-23, and H-04 on 2026-11-24. The comparison document's decision items (D-xx) and the open questions of the settings screen component experiment (K-xx) are decided in their own documents.
 
 | ID | Question | Decision | Date decided | Reason |
 |---|---|---|---|---|
 | H-01 | In which order to replace hand-built elements with shared components and to move the styles to vanilla-extract (#957) | #957 moves the styles without changing the look, and the replacement follows, one component at a time | 2026-11-23 | #957 compares the screens before and after the move pixel by pixel to confirm that the look does not change. Mixing in the replacement would make this check unusable. Much of the replacement is waiting for decision items (D-03, D-10, D-14, D-23 and others), so mixing the two would stall #957 as well. The styles of the elements to be replaced also have to be moved once, which is extra work |
 | H-02 | Which of the elements with no shared component get a shared component | Make a shared component for every one of U-01 to U-12 and add it to the kit. Make one with a related decision item after that item is decided | 2026-11-23 | The hand-built elements of the screens, including those with no shared component, are brought in line with shared components. Components used in only 1 or 2 places (language selection, settings search, the theme tiles and so on) are also built to the same rules as the shared components (`data-slot`, color tokens, tests) |
 | H-03 | Whether to include the VR UI, the companion handle, the error screen and the startup failure dialog in the replacement | Keep them outside the comparison and do not replace them with shared components. Within the VR UI only, bring things in line with the VR UI's components (the filter and the collapsible section of the language window) | 2026-11-23 | The VR UI is a separate screen shaped by px steps and the VR pointer, so it is not aligned with the shared components. In the VR UI, only the language window writes its own filter and collapsible section; the other windows use the VR UI's components. The error screen and the startup failure dialog appear when other parts have broken, so it is safer not to add dependencies |
+| H-04 | Whether a replaced element keeps the screen's current look or takes the kit's | It takes the kit's look (size, border, fill) as it is: the screens are aligned with the kit, which is aligned with shadcn/ui. The behavior (what a press does, what opens and closes, keyboard operation) does not change; a row whose behavior would change is stopped and listed as a question in its pull request. Each pull request records what looks different | 2026-11-24 | The replacement exists to bring the screens to the kit's look, so a changed look is its aim, not a side effect. A screen's look fixed before its replacement would have to be redone at the replacement |
 
 ---
 
@@ -217,7 +218,7 @@ These are the decisions on how to carry out the replacement that came out of thi
 
 共通の部品があるのに、画面ごとにネイティブの要素や `div` で手作りしている箇所を、画面ごとに一覧にした文書です。shadcn/ui（new-york-v4）に寄せた部品へ置き換える作業と、スタイルの vanilla-extract への移行（#957）の順序を決めるための下調べです。棚卸しの時点では、コードを変えていません。
 
-- 状態: 棚卸し（2026-11-23）。置き換えの進め方（H-01〜H-03）は同じ日に決まりました。置き換えはまだ始めていません。置き換えたら、その行に PR の番号を添えて「置き換えた」と書きます。
+- 状態: 棚卸し（2026-11-23）。置き換えの進め方（H-01〜H-03）は同じ日に、置き換えた要素の見た目（H-04）は 2026-11-24 に決まりました。置き換えは 2026-11-24 に始めました。置き換えたら、その行に PR の番号を添えて「置き換えた」と書きます。
 - 照合したアプリ: develop（#983 のマージ後、`7a4b684`）
 - 関係する文書: [部品の棚卸し: shadcn/ui との照合](shadcn-alignment.md)（判断項目 D-xx）、[設定画面の部品の実験](README.md)（kit と残課題 K-xx）、[ADR-010](../../adr/adr-010-frontend-stack.md)
 
@@ -237,7 +238,7 @@ These are the decisions on how to carry out the replacement that came out of thi
 
 ### kit（`src-ui/views/kit/`）
 
-shadcn/ui に寄せた部品です。いまは見本のページ（`src-ui/kit-lab.html`）だけが使い、アプリの画面で使っている箇所はありません。画面で使うかは残課題 K-01 で決めます。
+shadcn/ui に寄せた部品です。見本のページ（`src-ui/kit-lab.html`）が全部を並べています。2026-11-24 からは、アプリの画面も、下の表で「置き換えた」と書いた行で使っています（残課題 K-01、H-04）。
 
 | 部品 | 中身 | shadcn/ui で当たるもの |
 |---|---|---|
@@ -308,8 +309,8 @@ VR パネルだけで使う部品です。`VrWindow`（窓の枠）、`VrPickerL
 | 再送のボタン（`message_sub_menu_container/MessageSubMenuContainer.tsx`） | 長押しで再送する `<button>` | kit の `Button` | 中 | 長押しの判定（ポインタのイベント）を保ちます |
 | ログの表示の設定（`message_log_settings_container/MessageLogSettingsContainer.tsx`） | 開くボタンが `div role="button"` と `aria-expanded`。Esc で閉じる面 | 開くボタンは kit の `Button`、面は U-04 | 高 | — |
 | 入力欄（`message_input_box/MessageInputBox.tsx`） | `<textarea>`、送信の `<button>` | 入力欄は U-06、送信は kit の `Button` | 高 | 入力欄の角丸は 12px（DESIGN.md）。高さの伸び方を `field-sizing` で書くかは D-13 |
-| 空の画面（`log_box/EmptyState.tsx`） | 「初期設定を開く」と機能を始める `<button>` | kit の `Button` | 低 | 画面の置き方は照合の文書で「残す」にしています |
-| リアルタイムの操作（`realtime_controls/RealtimeControls.tsx`） | 止める `<button>` | kit の `Button` | 低 | — |
+| 空の画面（`log_box/EmptyState.tsx`） | 「初期設定を開く」と機能を始める `<button>` | kit の `Button`（置き換えた、#1121） | 低 | 画面の置き方は照合の文書で「残す」にしています |
+| リアルタイムの操作（`realtime_controls/RealtimeControls.tsx`） | 止める `<button>` | kit の `Button`（置き換えた、#1121） | 低 | — |
 | 停止とミュート（`others/stop_actions/StopActions.tsx`） | 停止の `<button>`、ミュートの `aria-pressed` の `<button>`（押したときは琥珀色） | 停止は kit の `Button`（danger かは D-10）、ミュートは U-03 | 高 | 停止とミュートは独立した操作として保ちます（PRODUCT.md、DESIGN.md） |
 | タイトルバー（`others/window_title_bar/WindowTitleBar.tsx`） | 最小化、最大化、閉じるの `<button>` | kit の `Button`（`size="icon"`） | 中 | ウィンドウを動かす領域と重なります。OS のタイトルバーに合わせた大きさです |
 
@@ -416,10 +417,11 @@ H-02 の決定で、U-01〜U-12 のすべてに共通の部品を作り、kit �
 
 ## 決まった判断
 
-この棚卸しから出た、置き換えの進め方の判断です。3 件とも、2026-11-23 に下のとおり決まりました。照合の文書の判断項目（D-xx）と、設定画面の部品の実験の残課題（K-xx）は、それぞれの文書で決めます。
+この棚卸しから出た、置き換えの進め方の判断です。H-01〜H-03 は 2026-11-23 に、H-04 は 2026-11-24 に、下のとおり決まりました。照合の文書の判断項目（D-xx）と、設定画面の部品の実験の残課題（K-xx）は、それぞれの文書で決めます。
 
 | ID | 問い | 決定 | 決めた日 | 理由 |
 |---|---|---|---|---|
 | H-01 | 手作りの要素を共通の部品に置き換える作業と、スタイルの vanilla-extract への移行（#957）を、どの順で進めるか | #957 は見た目を変えずに移し、置き換えはそのあとに部品ごとに進める | 2026-11-23 | #957 は、移す前と後の画面を画素で比べて見た目が変わらないことを確かめます。置き換えを混ぜると、この確かめ方が使えません。置き換えの多くは判断項目（D-03、D-10、D-14、D-23 など）を待っているので、混ぜると #957 も止まります。置き換える要素のスタイルも一度は移すことになり、その分の手間は増えます |
 | H-02 | 受け皿がない要素のうち、どれに共通の部品を作るか | U-01〜U-12 のすべてに共通の部品を作り、kit に足す。関係する判断項目があるものは、それが決まってから作る | 2026-11-23 | 受け皿がない要素も含めて、画面の手作りの要素を共通の部品にそろえます。使う場所が 1〜2 か所のもの（言語の選択、設定の検索、テーマのタイルなど）も、共通の部品と同じ規則（`data-slot`、色のトークン、試験）で作ります |
 | H-03 | VR パネル、コンパニオンの取っ手、エラーの画面、起動の失敗を、置き換えの対象に含めるか | 照合の外のままにし、共通の部品への置き換えの対象にしない。そのうえで、VR パネルの中だけで VR パネルの部品にそろえる（言語の窓の絞り込みと畳み） | 2026-11-23 | VR パネルは px の段と VR のポインタで決まる別の画面なので、共通の部品には寄せません。VR パネルの中では、言語の窓だけが絞り込みと畳みを自分で書いていて、ほかの窓は VR パネルの部品を使っています。エラーの画面と起動の失敗は、ほかの部分が壊れたときに出すので、依存を増やさない方が安全です |
+| H-04 | 置き換えた要素は、画面の今の見た目を保つか、kit の見た目にするか | kit の見た目（寸法、枠、塗り）をそのまま使う。画面を、shadcn/ui に寄せた kit の見た目にそろえる。挙動（押したときの動き、開閉の関係、キーボードの操作）は変えない。挙動が変わる行は止めて、その PR の「判断が要ること」に挙げる。PR ごとに、見た目の変わったところを記録する | 2026-11-24 | 置き換えは、画面を kit の見た目にそろえるためのものです。見た目が変わるのは副作用ではなく、そろえる先そのものです。置き換えの前に画面の見た目を直すと、置き換えのときにやり直しになります |

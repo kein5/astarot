@@ -10,6 +10,7 @@ import { useFirstRunSetup } from "../../../../../../logics/setup/useFirstRunSetu
 import { hasSetupWork, setupSuggested, setupWork } from "../../../../../../logics/setup/firstRunSetup.ts";
 import { useStartupPlaceholder } from "../../../startupContext";
 import { useVrchatHint } from "../../../vrchatHintContext";
+import { Button } from "../../../../../kit/index.ts";
 import * as styles from "./LogBox.css.ts";
 
 // The first screen of a session: a greeting and, in the main window, what the selected
@@ -119,13 +120,15 @@ const Setup = () => {
     const firstRunWords = work.recognition && work.translation ? "studio.setup_first_run_both"
         : work.translation ? "studio.setup_first_run_translation" : "studio.setup_first_run";
     // The setup does not open by itself (#935). While it is still suggested, its line leads the
-    // first screen: framed in lilac, its button the lilac one, so the user sees where to start.
+    // first screen: framed in lilac, its button the kit's primary one, so the user sees where to
+    // start. Every other step is the kit's plain button.
     const lead = setupSuggested(notice, work);
     return <>
         {(firstRun || rest.length > 0) && <ul className={styles.setup} aria-label={t("studio.setup_label")}>
             {firstRun && <li data-lead={lead || undefined}>
                 <span>{t(firstRunWords)}</span>
-                <button type="button" onClick={openSetup}>{t("studio.setup_first_run_open")}</button>
+                <Button tone={lead ? "primary" : "plain"} className={styles.setup_action} onClick={openSetup}>
+                    {t("studio.setup_first_run_open")}</Button>
             </li>}
             {rest.map(({ id, weight, action }) => {
                 const progress = downloadProgress(weight);
@@ -133,9 +136,9 @@ const Setup = () => {
                 return <li key={id}>
                     <span>{t(action === "choose" ? "studio.setup_translation_unavailable" : `studio.setup_${id}`)}</span>
                     {progress === null
-                        ? <button type="button" onClick={() => start(id)}>
+                        ? <Button className={styles.setup_action} onClick={() => start(id)}>
                             {t(action === "settings" ? "studio.setup_open_settings"
-                                : action === "choose" ? "studio.setup_other_translator" : "model_downloads.review")}</button>
+                                : action === "choose" ? "studio.setup_other_translator" : "model_downloads.review")}</Button>
                         : <span role="status">{t(progress === "pending" ? "studio.setup_preparing" : "studio.setup_downloading", { progress })}</span>}
                 </li>;
             })}
