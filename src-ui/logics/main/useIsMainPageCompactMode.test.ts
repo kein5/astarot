@@ -139,7 +139,7 @@ for (const saved of [false, true]) {
     test(`a language selector opened from the rail over a narrow window closes the rail first (${saved})`, async context => {
         const s = await fixture(saved, context);
         s.render().button.props.onClick();
-        const opener = find(s.render().language, node => node.type === "button");
+        const opener = find(s.render().language, node => node.type === kitStandIns.Button);
         assert.ok(opener);
         opener.props.onClick();
         assert.deepEqual(s.selector(), { your_language: true, target_language: false, target_key: "1" });
