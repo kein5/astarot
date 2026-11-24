@@ -283,10 +283,6 @@
     "reason": "An unset UI language and any other unsupported one both give no groups.",
     "where": "src-ui/logics/common/languageJumpGroups.ts:27:41 \"\" -> \"Stryker was here!\""
   },
-  "22zx9l01ujr": {
-    "reason": "useTranslation always gives this setting's state object (its store atom), so the optional chain never meets null or undefined.",
-    "where": "src-ui/views/app/config_page/setting_section/setting_box/translation/Translation.tsx:392:71 ?. -> ."
-  },
   "24srmxs4cad": {
     "reason": "Every choice the list disables is one choose() refuses too: your own language, a recipient already chosen, or a fourth recipient.",
     "where": "src-ui/views/vr/VrLanguageWindow.tsx:342:37 !choiceDisabled(languageChoices[0]) -> true"
@@ -526,6 +522,10 @@
   "uwvtfka6sn": {
     "reason": "WindowButton reads label only as the default for name, and the log's button passes its own name.",
     "where": "src-ui/views/vr/VrLauncher.tsx:76:56 is_log_lost -> false"
+  },
+  "v674isy3ie": {
+    "reason": "useTranslation always gives this setting's state object (its store atom), so the optional chain never meets null or undefined.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/translation/Translation.tsx:384:71 ?. -> ."
   },
   "wosx5e1cxg": {
     "reason": "The same effect returns the view to the main screen, so the next layout effect that reads the flag only takes the snapshot, which open() takes again before a list shows.",
