@@ -37,7 +37,6 @@ export interface RealtimeAsrVocabulary {
 export interface RealtimeAsrSettings {
     readonly version?: number;
     readonly server?: string;
-    readonly start_server?: boolean;
     readonly base_url?: string;
     readonly model?: string;
     readonly mic: RealtimeAsrSourceSettings;
@@ -97,6 +96,9 @@ const settingsAtom = atom<RealtimeAsrSettings | null>(null);
 const endpointsAtom = atom<RealtimeAsrEndpoints>({});
 const modelsAtom = atom<RealtimeAsrModels>({ models: [] });
 const errorAtom = atom<string | null>(null);
+// The sources whose switch waits for the bundled server to start (/run/realtime_server_starting,
+// #1149): the switch says the server is starting instead of seeming stuck while the model loads.
+const serverStartingAtom = atom<Partial<Record<CaptionSource, boolean>>>({});
 // /get/data/builtin_vocabulary: the built-in VRChat terms as the app ships them (#792). null until
 // the core answers.
 const builtinVocabularyAtom = atom<readonly string[] | null>(null);
@@ -114,6 +116,7 @@ export const useRealtimeASR = () => {
     const [models, updateModels] = useAtom(modelsAtom);
     const [error, updateError] = useAtom(errorAtom);
     const [builtinVocabulary, setBuiltinVocabulary] = useAtom(builtinVocabularyAtom);
+    const [serverStarting] = useAtom(serverStartingAtom);
     const atoms = useStore();
     const { asyncStdoutToPython } = useStdoutToPython();
     const updateState = useCallback((value: RealtimeStateUpdate | null | undefined) => {
@@ -124,8 +127,16 @@ export const useRealtimeASR = () => {
         if (pruned.rows !== logs.data) atoms.set(Atom_MessageLogs, { ...logs, data: pruned.rows });
         atoms.set(realtimeRetiredAtom, pruned.retired);
     }, [atoms]);
+    // { source, starting } of /run/realtime_server_starting; anything else changes nothing.
+    const updateServerStarting = useCallback((value: unknown) => {
+        const source: unknown = value && typeof value === "object" ? Reflect.get(value, "source") : undefined;
+        const starting: unknown = value && typeof value === "object" ? Reflect.get(value, "starting") : undefined;
+        if (!isSource(source) || typeof starting !== "boolean") return;
+        atoms.set(serverStartingAtom, { ...atoms.get(serverStartingAtom), [source]: starting });
+    }, [atoms]);
     const backendStopped = useCallback(() => {
         updateError("backend_unavailable");
+        atoms.set(serverStartingAtom, {});
         const failed: RealtimeStateUpdate = {};
         for (const [source, row] of Object.entries(atoms.get(realtimeStateAtom))) {
             if (isSource(source) && row) failed[source] = { ...row, requested: false, state: "failed", error_code: "backend_unavailable" };
@@ -147,6 +158,7 @@ export const useRealtimeASR = () => {
         atoms.set(modelsAtom, { models: [] });
         atoms.set(errorAtom, null);
         atoms.set(builtinVocabularyAtom, null);
+        atoms.set(serverStartingAtom, {});
         const logs = atoms.get(Atom_MessageLogs);
         atoms.set(Atom_MessageLogs, { ...logs, data: logs.data.filter(row => row.realtime?.state !== "partial") });
     }, [atoms]);
@@ -184,6 +196,6 @@ export const useRealtimeASR = () => {
         if (response === false) updateError("backend_unavailable");
         return response;
     }, [updateError]);
-    return { settings, state, endpoints, models, error, builtinVocabulary, send, updateSettings,
-        updateState, updateEndpoints, updateModels, updateBuiltinVocabulary, updateError, reset, backendStopped };
+    return { settings, state, endpoints, models, error, builtinVocabulary, serverStarting, send, updateSettings,
+        updateState, updateEndpoints, updateModels, updateBuiltinVocabulary, updateServerStarting, updateError, reset, backendStopped };
 };

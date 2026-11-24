@@ -177,6 +177,14 @@ fn without_local_asr_migration(want: &mut Value, input: &Value) {
     }
 }
 
+/// The seventh intended difference (#1149): the switches always start the bundled realtime
+/// server, so the core leaves out Python's `start_server` of the realtime settings.
+fn without_start_server(settings: &mut Map<String, Value>) {
+    if let Some(Value::Object(realtime)) = settings.get_mut("REALTIME_ASR_SETTINGS") {
+        realtime.shift_remove("start_server");
+    }
+}
+
 /// The fifth intended difference (#560): each key of the input the core does not know must be in
 /// the saved file with the input's value. Those keys are taken out of `saved`, which then holds
 /// what Python wrote.
@@ -215,6 +223,7 @@ fn check_platform(name: &str, platform: Platform) {
     defaults.get_mut("DIRECT_VOICE_SETTINGS").unwrap()["engine"] = json!("rvc");
     // Intended (#288): the notice of the move to speech.cpp went in 0.6.0, with its key.
     defaults.shift_remove("LOCAL_ASR_NOTICE_PENDING");
+    without_start_server(&mut defaults);
     let defaults = &defaults;
     let mut failures = Vec::new();
     let mut moved = 0;
@@ -222,6 +231,11 @@ fn check_platform(name: &str, platform: Platform) {
         let mut want = want.clone();
         if let Some(changed) = want["changed"].as_object_mut() {
             with_added(changed);
+            without_start_server(changed);
+            // A saved choice that differed only in `start_server` is no change any more.
+            if changed.get("REALTIME_ASR_SETTINGS") == defaults.get("REALTIME_ASR_SETTINGS") {
+                changed.shift_remove("REALTIME_ASR_SETTINGS");
+            }
         }
         let want = &want;
         let dir = tempfile::tempdir().unwrap();

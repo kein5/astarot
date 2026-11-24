@@ -623,11 +623,14 @@ fn a_switch_says_what_is_missing() {
     set(&run, &|s| s["server"] = json!("bundled"));
     // Stopped, and the server needs its model files first.
     assert_eq!(not_ready(&run), "realtime_asr_model_missing");
+    // A choice not to start the server, saved by an earlier version, is left out (#1149): the
+    // switch starts it all the same, and needs its model files first.
     set(&run, &|s| {
         s["server"] = json!("bundled");
         s["start_server"] = json!(false);
     });
-    assert_eq!(not_ready(&run), "speech_server_autostart_off");
+    assert_eq!(not_ready(&run), "realtime_asr_model_missing");
+    assert!(run.ui.ok("/get/data/realtime_asr_settings", None).get("start_server").is_none());
     run.capture.set_default(Source::Mic, None);
     set(&run, &|_| {});
     assert_eq!(not_ready(&run), "realtime_default_endpoint_missing");
@@ -862,6 +865,15 @@ fn both_switches_turned_on_together_share_one_bundled_server_start() {
     let mark = ui.send("/set/enable/transcription_send", None);
     ui.send("/set/enable/transcription_receive", None);
     eventually("the server prepares", || ui.ok("/get/data/speech_server_state", None)["asr"]["state"] == "preparing");
+    // Each switch tells the UI that it waits for the server to start, and when it no longer
+    // does: the switches say so instead of seeming stuck while the model loads (#1149).
+    let told = |source: &str, starting: bool| {
+        ui.wait_from(mark, "the server start told", |l| {
+            l["endpoint"] == "/run/realtime_server_starting" && l["result"]["source"] == source && l["result"]["starting"] == starting
+        });
+    };
+    told("mic", true);
+    told("speaker", true);
     std::fs::write(models.path().join("asr_gate.gguf.go"), b"").unwrap();
     // The stand-in does not speak the Realtime API, so the sessions themselves may fail; what
     // matters is that neither switch failed to start the server.
@@ -870,6 +882,8 @@ fn both_switches_turned_on_together_share_one_bundled_server_start() {
         let reason = answer["result"]["details"]["reason"].as_str().unwrap_or_default().to_string();
         assert!(!reason.starts_with("speech_server_"), "{endpoint}: {answer}");
     }
+    told("mic", false);
+    told("speaker", false);
     ui.stop();
 }
 

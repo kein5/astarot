@@ -524,7 +524,7 @@ UIから中核への要求と、中核からUIへの通知（`RUN_MAPPING`）の
 | `/get/data/gpu_memory` | 取得 | 可 | useGpuMemory.updateGpuMemory |  |
 
 
-## 通知（中核からUIへ、91件）
+## 通知（中核からUIへ、92件）
 
 要求への応答とは別に、中核が自分から送るメッセージ。`Core::notify(名前, 結果)`で送り、名前は`controller/mod.rs`の`RUN_MAPPING`で終点に変わる。表にない名前は送る時点で止まる（契約のCT-02、`tests/run_mapping.rs`）。
 
@@ -559,6 +559,7 @@ UIから中核への要求と、中核からUIへの通知（`RUN_MAPPING`）の
 | `word_filter` | `/run/word_filter` | useMessage.addSystemMessageLog_FromBackend |
 | `transcription_recognition_error` | `/run/transcription_recognition_error` | useMessage.addSystemMessageLog_FromBackend |
 | `vad_unavailable` | `/run/vad_unavailable` | — |
+| `realtime_server_starting` | `/run/realtime_server_starting` | useRealtimeASR.updateServerStarting |
 | `downloaded_ctranslate2_weight` | `/run/downloaded_ctranslate2_weight` | useTranslation.downloadedCTranslate2WeightTypeStatus |
 | `ctranslate2_license_notice` | `/run/ctranslate2_license_notice` | — |
 | `translation_model_retired` | `/run/translation_model_retired` | — |

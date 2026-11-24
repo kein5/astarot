@@ -348,6 +348,8 @@ common_warning:
     osc_query_off_mic_stopped: "OSCQueryをオフにしたので、VRChatのミュート状態を確認できません。「{{sync}}」をオフにして、「{{microphone}}」を止めました。必要なときに「{{microphone}}」をオンにし直してください。"
 
 main_page:
+    # A speech recognition switch that waits for the bundled server to start (#1149).
+    speech_server_starting: "サーバー起動中…"
     backend_disconnected: "エンジンとの接続が切れました"
     translation: "翻訳"
     transcription_send: "マイク入力"
@@ -1491,8 +1493,6 @@ realtime:
   title: "リアルタイム字幕"
   scope: "字幕ログと、有効にした大きいオーバーレイに表示します。再起動後は停止した状態になります。メイン画面のマイクと聞き取りのスイッチでこの字幕を開始・停止します。Windowsでは、音声認識のエンジンに「ローカル（speech.cpp）」を選んでいるときだけスイッチがこの字幕を使います。ほかのエンジンでは、スイッチは従来の録音を使い、この字幕は下の開始ボタンで動かします。字幕を開始すると同じ入力のレベルメーターを停止します。"
   server_help: "ASRモデルとSilero VADを読み込んだローカルのspeech.cppサーバーに接続します。"
-  start_server: "スイッチを入れたときに同梱ASRサーバーを起動する"
-  start_server_help: "オフにすると、同梱ASRサーバーは「モデルとサーバー」の起動ボタンでだけ起動します。サーバーが止まっているときにスイッチを入れると、起動するよう案内します。"
   url: "ASRサーバーURL"
   model: "ASRモデル"
   select_model: "ASRモデルを選択"
@@ -1615,7 +1615,6 @@ realtime_toggle:
   speech_server_device_failed: "選んだ推論デバイスではモデルを動かせませんでした。GPUドライバーを更新するか、設定 → 音声認識（ASR） → モデルとサーバー → ASR + VADで別の推論デバイスかCPUを選んで保存し、もう一度オンにしてください。"
   speech_server_start_timeout: "ASRモデルの読み込みに時間がかかりすぎました。設定 → 音声認識（ASR） → モデルとサーバー → ASR + VADで別の推論デバイスを選び、もう一度オンにしてください。"
   speech_server_not_ready: "ASRサーバーが動いていません。設定 → 音声認識（ASR） → モデルとサーバー → ASR + VADで起動するか、設定 → 音声認識（ASR） → リアルタイム字幕で同梱サーバーを選んでから、もう一度オンにしてください。"
-  speech_server_autostart_off: "同梱ASRサーバーが止まっています。設定 → 音声認識（ASR） → モデルとサーバー → ASR + VADで起動するか、リアルタイム字幕の「スイッチを入れたときに同梱ASRサーバーを起動する」をオンにして保存してから、もう一度オンにしてください。"
   realtime_models_unavailable: "ASRサーバーから応答がありません。外部サーバーを使う場合は、起動していることと、設定 → 音声認識（ASR） → リアルタイム字幕のURLが正しいことを確認してください。"
   realtime_model_required: "ASRモデルが選ばれていません。設定 → 音声認識（ASR） → リアルタイム字幕でモデルを選んで保存してください。"
   realtime_model_unavailable: "選んだASRモデルがサーバーに読み込まれていません。設定 → 音声認識（ASR） → リアルタイム字幕でモデル一覧を更新し、使えるモデルを選んで保存してください。"

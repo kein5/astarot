@@ -317,16 +317,13 @@ impl Core {
     }
 
     /// The speech.cpp server the recorder's VAD uses: the bundled one, which a recording starts
-    /// when the realtime settings let a switch start it (`start_server`, decision 84) and waits
-    /// for, or the external one of the settings. Called where the VAD opens its session, not
-    /// on the recording's thread.
+    /// and waits for (decision 84; always since #1149), or the external one of the settings.
+    /// Called where the VAD opens its session, not on the recording's thread.
     fn vad_server_url(&self) -> Result<String, String> {
         let settings = self.vad_server_settings();
         let base = if settings["server"] == "bundled" {
             let ready = self.speech_servers().state()["asr"]["state"] == "ready";
-            if !ready && settings["start_server"] != false
-                && let Some(code) = self.ensure_asr_server(true, &|| !self.realtime().state().closed)
-            {
+            if !ready && let Some(code) = self.ensure_asr_server(&|| !self.realtime().state().closed) {
                 return Err(code);
             }
             self.speech_servers().hub().binding(Profile::Asr).map_err(|_| "speech_server_not_ready".to_string())?
@@ -675,15 +672,27 @@ impl Core {
         !state.closed && state.generation[index(source)] == expected
     }
 
-    /// `_awaitAsrServer`: starts the bundled server when allowed and waits until it is ready.
-    fn await_asr_server(&self, source: Source, expected: u64, start: bool) -> Option<String> {
-        self.ensure_asr_server(start, &|| self.realtime_start_current(source, expected))
+    /// `_awaitAsrServer`: starts the bundled server and waits until it is ready. A switch that
+    /// waits for it tells the UI, so that the switch says the server is starting instead of
+    /// seeming stuck (#1149): loading a model takes seconds.
+    fn await_asr_server(&self, source: Source, expected: u64) -> Option<String> {
+        let starting = self.speech_servers().state()["asr"]["state"] != "ready";
+        let tell = |starting: bool| self.notify("realtime_server_starting", json!({ "source": source.as_str(), "starting": starting }));
+        if starting {
+            tell(true);
+        }
+        let code = self.ensure_asr_server(&|| self.realtime_start_current(source, expected));
+        if starting {
+            tell(false);
+        }
+        code
     }
 
-    /// Starts the bundled ASR server when `start` allows it and waits until it is ready, while
+    /// Starts the bundled ASR server when it is not up and waits until it is ready, while
     /// `current` holds (else `realtime_stale_start`). A server it starts is owned as a switch's
-    /// ([`Core::release_asr_server`]).
-    fn ensure_asr_server(&self, start: bool, current: &dyn Fn() -> bool) -> Option<String> {
+    /// ([`Core::release_asr_server`]): the switches start and stop it, the user only picks the
+    /// model (#1149).
+    fn ensure_asr_server(&self, current: &dyn Fn() -> bool) -> Option<String> {
         if !current() {
             return Some("realtime_stale_start".into());
         }
@@ -693,9 +702,6 @@ impl Core {
         }
         let mut run = row["generation"].as_u64().unwrap_or(0);
         let up = matches!(row["state"].as_str(), Some("ready" | "preparing"));
-        if !up && !start {
-            return Some("speech_server_autostart_off".into());
-        }
         if !up {
             let profile = &self.config().get("SPEECH_SERVER_SETTINGS")["profiles"]["asr"];
             if profile["model"].as_str().unwrap_or("").trim().is_empty() {
@@ -784,7 +790,7 @@ impl Core {
         let bundled = settings["server"] == "bundled";
         let base_url = if bundled {
             if starter == Starter::Switch
-                && let Some(code) = self.await_asr_server(source, expected, settings["start_server"] != false)
+                && let Some(code) = self.await_asr_server(source, expected)
             {
                 return Err(code);
             }

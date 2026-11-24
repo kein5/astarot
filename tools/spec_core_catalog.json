@@ -2650,6 +2650,10 @@
       "endpoint": "/run/vad_unavailable"
     },
     {
+      "name": "realtime_server_starting",
+      "endpoint": "/run/realtime_server_starting"
+    },
+    {
       "name": "downloaded_ctranslate2_weight",
       "endpoint": "/run/downloaded_ctranslate2_weight"
     },
@@ -4531,7 +4535,6 @@
       "default": {
         "version": 1,
         "server": "external",
-        "start_server": true,
         "base_url": "http://127.0.0.1:8080",
         "model": "",
         "vocabulary": {
