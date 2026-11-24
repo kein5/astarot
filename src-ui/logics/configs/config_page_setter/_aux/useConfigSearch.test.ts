@@ -559,11 +559,9 @@ const BUILT_IN_CODE: Readonly<Record<string, Built>> = {
     ])),
 };
 
-// Results that lead nowhere until the page or the search's table changes: the titles of two folds
-// the page does not mark (SetupSection has no data-setting-label), and the texts of the VAD switch,
-// which the page no longer has (VAD is now an option of the sensitivity on the Device page).
-const NO_DESTINATION_YET: ReadonlySet<string> = new Set(["translation.setup_title", "transcription.timing_title",
-    "transcription.mic_vad_filter", "transcription.speaker_vad_filter"]);
+// Results that lead nowhere until the page changes: the titles of two folds the page does not mark
+// (SetupSection has no data-setting-label).
+const NO_DESTINATION_YET: ReadonlySet<string> = new Set(["translation.setup_title", "transcription.timing_title"]);
 
 test("every settings search result leads to an element its page marks with the result's id or labels with its text", async () => {
     const s = await loadSearch();
