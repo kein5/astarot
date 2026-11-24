@@ -191,7 +191,7 @@ test("words in the field go back to the value the page set while the user was in
     assert.deepEqual([e.field().ui_variable, e.ui.at(-1), e.saved], [500, 500, []]);
 });
 
-test("the upper limit itself is saved after the pause, as any value within the limits", async context => {
+test("the upper limit itself is saved after the pause, like every value within the limits", async context => {
     const e = await thresholdEntry(context, { max: 2000 });
     e.draw();
     e.type("2000");
