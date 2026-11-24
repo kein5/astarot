@@ -528,9 +528,12 @@ const boxFile = (path: string) => readFileSync(new URL(path, boxUrl), "utf8");
 const markedById = (source: string, id: string) =>
     new RegExp(`(data-setting-id|setting_id|dropdown_id|hotkey_id|\\bname|\\bid|target)\\s*[=:]\\s*\\{?\\s*["'\`]${escapeRegExp(id)}["'\`]`).test(source);
 // A row labelled with the text: a template, form row or section heading given a text whose words
-// are the result's label (the row's data-setting-label).
-const labelledWith = (source: string, label: string) => [...source.matchAll(/(?<![A-Za-z_])label\s*[=:]\s*\{?\s*t\(\s*["'`]([\w.]+)["'`]/g)]
-    .some(([, key]) => { const text = textIn("en", key); return text !== undefined && clean(text) === label; });
+// are the result's label (the row's data-setting-label), or a setup fold given it as its title
+// (SetupSection writes its title on the fold's line).
+const labelledWith = (source: string, label: string) =>
+    [...source.matchAll(/(?<![A-Za-z_])label\s*[=:]\s*\{?\s*t\(\s*["'`]([\w.]+)["'`]/g),
+        ...source.matchAll(/<SetupSection\s+title=\{t\(\s*["'`]([\w.]+)["'`]/g)]
+        .some(([, key]) => { const text = textIn("en", key); return text !== undefined && clean(text) === label; });
 
 // Destinations the page builds in code: the lines that build each, by the result's id. The first
 // file is one the page draws.
@@ -559,13 +562,8 @@ const BUILT_IN_CODE: Readonly<Record<string, Built>> = {
     ])),
 };
 
-// Results that lead nowhere until the page changes: the titles of two folds the page does not mark
-// (SetupSection has no data-setting-label).
-const NO_DESTINATION_YET: ReadonlySet<string> = new Set(["translation.setup_title", "transcription.timing_title"]);
-
 test("every settings search result leads to an element its page marks with the result's id or labels with its text", async () => {
     const s = await loadSearch();
-    const waiting = new Set<string>();
     let checked = 0;
     for (const namespace of SEARCHED) {
         for (const [key, label] of settingTexts(namespace)) {
@@ -580,11 +578,9 @@ test("every settings search result leads to an element its page marks with the r
                     for (const [file, lines] of built) for (const line of lines) assert.ok(boxFile(file).includes(line), `${name}: ${file} no longer has ${line}`);
                     continue;
                 }
-                assert.ok(NO_DESTINATION_YET.has(name), `${name} leads nowhere on ${result.tab}`);
-                waiting.add(name);
+                assert.fail(`${name} leads nowhere on ${result.tab}`);
             }
         }
     }
     assert.ok(checked > 150, String(checked));
-    assert.deepEqual([...waiting].sort(), [...NO_DESTINATION_YET].sort(), "a result listed as leading nowhere now leads somewhere: take it off the list");
 });
