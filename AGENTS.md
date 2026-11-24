@@ -108,6 +108,9 @@ Skills that set out work procedures are in `skills/`. `.claude/skills` and `.age
 - `e2e`: running the native GUI acceptance tests (`tools/native_acceptance.py`) and the SERGULATH real-machine E2E suite, posting results, and connecting them to the test overview and E2E badge
 - `real-machine-check`: post-release verification on a real Windows PC, covering installer checks, placement and registry migration, user data preservation, SERGULATH update-channel checks, and `cua-driver` UI checks
 - `ci-triage`: triaging failing or warning CI checks on pull requests and develop, including Bencher Report alerts, flaky test tracking in Issue #1073, and rerun scope selection
+- `release-notes`: writing, revising and checking the release notes of a stable release or a beta, including the range of pull requests, UI text and settings locations, the English and Japanese versions, wording for users, and putting the notes into the draft
+- `docs`: deciding which documents a change has to update and updating them, including the generated spec lists, the English and Japanese versions in one file, dated records, and the user guide's pages and screenshots
+- `testing`: choosing the layer for a test, writing tests that do not flake, choosing which checks to run, and running and reporting mutation testing for changed code and at milestones (#550)
 
 In a clone set up not to create symbolic links (the default of Git on Windows), each link becomes a file that holds one line. In that case, read `skills/<name>/SKILL.md` directly. When a skill and another document disagree, do not decide mechanically that one of them is right; check, then fix it in the same pull request.
 
@@ -240,6 +243,12 @@ UI の監査、文章の推敲、実機での画面の確認、図の作成な�
 - `pull-request`: ブランチを切ってから develop にマージするまで。PR の本文、マージの条件、積み重ねた PR、main から切るホットフィックスを含む
 - `release`: 版上げ、リリースノート、下書き、公開、公開後の確認、main を develop へ戻す統合
 - `jp-writing`: 日本語の文章の執筆と推敲。リリースノートは毎回使う
+- `e2e`: 実機のGUIの受け入れ試験（`tools/native_acceptance.py`）とSERGULATHの実機のE2Eの実行、結果の報告、試験の概要とE2Eのシールドへのつなぎ方
+- `real-machine-check`: 公開のあとのWindowsの実機での確認。インストーラー、配置とレジストリの移行、利用者のデータの引き継ぎ、SERGULATHでの更新のチャンネルの確認、`cua-driver`での画面の確認
+- `ci-triage`: PRとdevelopのCIの失敗や警告の切り分け。Bencher Reportの警告、Issue #1073でのフレーキーな試験の記録、再実行の単位の選び方
+- `release-notes`: 正式版とベータ版のリリースノートの執筆、推敲、検査。範囲のPR、画面の文言と設定の場所、英語版と日本語版、利用者向けの言い回し、下書きへの反映
+- `docs`: 変更から直す文書を決めて直す手順。生成する仕様の一覧、1つのファイルに載せる英語版と日本語版、日付付きの記録、マニュアルのページと写真
+- `testing`: 試験の層の選び方、揺らがない試験の書き方、流す検査の選び方、変更した部分と節目の変異テストの回し方と報告（#550）
 
 シンボリックリンクを作らない設定の clone（Windows の Git の既定）では、リンクが中身 1 行のファイルになります。そのときは `skills/<名前>/SKILL.md` を直接読みます。スキルとほかの文書が食い違うときは、どちらかを機械的に正しいと決めず、確かめてから同じ PR で直します。
 
