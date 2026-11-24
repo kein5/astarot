@@ -1,5 +1,5 @@
 import { useHotkeys } from "@logics_configs";
-import styles from "./Hotkeys.module.scss";
+import * as styles from "./Hotkeys.css.ts";
 import { HotkeysEntryContainer } from "../_templates/Templates";
 import { useI18n } from "@useI18n";
 import { useEffect, useState } from "react";
@@ -9,6 +9,7 @@ import { EnvReadout } from "../_components/env_readout/EnvReadout";
 import { SectionLabelComponent } from "../_components";
 import { AdvancedSection } from "../_components/advanced_section/AdvancedSection";
 import { HintDescriptions } from "../_components/hint/Hint";
+import { Button } from "../../../../../kit/index.ts";
 // The hotkeys a conversation cannot wait for, stop and mute, are in sight; the others are set
 // once, in 「詳細設定」, whose line says how many of them have a key (#554).
 // The platforms whose quick chat key gets a note under it: quick_chat_shortcut_platform answers
@@ -80,9 +81,9 @@ const QuickChatHotkeyContainer = () => {
             {isPlatformNote(platform) && <EnvReadout className={styles.platform_readout}>
                 <p>{t({ wayland: "quick_chat.wayland_portal", xwayland: "quick_chat.xwayland_hint", unknown: "quick_chat.platform_unknown" }[platform])}</p>
             </EnvReadout>}
-            <button type="button" className={styles.open_quick_chat} onClick={() => { setIsOpenedConfigPage(false); openQuickChat(); }}>
+            <Button className={styles.open_quick_chat} onClick={() => { setIsOpenedConfigPage(false); openQuickChat(); }}>
                 {t("quick_chat.open")}
-            </button>
+            </Button>
         </div>
     );
 };

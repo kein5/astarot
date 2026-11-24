@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 import type { ChangeEvent } from "react";
 import { useI18n } from "@useI18n";
 import * as styles from "./VocabularyFiles.css.ts";
-import voiceStyles from "../advanced_settings/VoiceSettings.module.scss";
+import * as voiceStyles from "../advanced_settings/VoiceSettings.css.ts";
 import { MAX_IMPORT_BYTES, importVocabulary } from "../../../../../../logics/transcription/vocabularyTerms.ts";
 import type { ImportResult, Vocabulary } from "../../../../../../logics/transcription/vocabularyTerms.ts";
 

@@ -111,7 +111,8 @@ fn layouts_match_python() {
     }
     for case in cases(&data, &["layout", "region_bounds"]) {
         let (a, b, c, d) = panel_layout(case).region_bounds(region(&case["region"]));
-        close_all(&[a, b, c, d], flat(&case["bounds"]), "region_bounds");
+        // Python's OpenGL atlas used the opposite vertical convention.
+        close_all(&[a, b, 1.0 - c, 1.0 - d], flat(&case["bounds"]), "region_bounds");
     }
     for case in cases(&data, &["layout", "uv_to_pixel"]) {
         let (x, y) = layout::uv_to_pixel(f(&case[0]), f(&case[1]), u(&case[2]), u(&case[3]));

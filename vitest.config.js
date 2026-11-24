@@ -26,7 +26,9 @@ export default defineConfig({
         coverage: {
             provider: "v8",
             include: ["src-ui/**/*.{js,jsx,ts,tsx}"],
-            exclude: ["src-ui/**/*.test.*", "src-ui/logics/test/**", "src-ui/**/*.d.ts"],
+            // Styles (vanilla-extract) are left out, as mutator.config.mjs leaves them out of
+            // mutation testing: the tests read their class names, they do not run them.
+            exclude: ["src-ui/**/*.test.*", "src-ui/logics/test/**", "src-ui/**/*.d.ts", "src-ui/**/*.css.ts"],
             reporter: ["text-summary", "json-summary", "html"],
             reportsDirectory: "build/coverage/ui",
         },

@@ -22,12 +22,14 @@ declare global {
 
 const answers: Record<string, unknown> = {
     get_font_list: ["Noto Sans", "Noto Sans JP"],
+    pick_folder: null,
     caption_overlay_supported: false,
     screencast_support: { supported: false, active: false },
     quick_chat_shortcut_platform: "x11",
     // Nothing waits in the Quick Chat window or the companion.
     quick_chat_take: null,
     companion_take: [],
+    companion_monitors: [],
     app_update_info: { kind: "development", mode: "disabled", channel: "stable", current_version: "0.0.0", package_manager: null },
 };
 

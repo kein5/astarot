@@ -8,7 +8,7 @@ import { LogBox } from "../app/main_page/main_section/message_container/log_box/
 import type { SavedLogView } from "../app/main_page/main_section/message_container/log_box/LogBox";
 
 import { VrWindow } from "./VrWindow";
-import styles from "./VrWindow.module.scss";
+import * as styles from "./VrWindow.css.ts";
 
 type SavedView = RefObject<SavedLogView | null>;
 

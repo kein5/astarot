@@ -19,6 +19,7 @@ test("#462: every download review's start button is the primary button", () => {
             starts.push({ file: file.slice(root.length), primary: button.includes('className="primary"') });
         }
     }
-    assert.ok(starts.length >= 3, "the voice, chat reading and legacy reviews");
+    // The built-in CTranslate2 review had one too, until #1015.
+    assert.ok(starts.length >= 2, "the voice and chat reading reviews");
     assert.deepEqual(starts.filter(start => !start.primary), []);
 });

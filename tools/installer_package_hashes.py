@@ -1,19 +1,19 @@
 """Build the expected package hash into the Windows installer.
 
-The installer downloads VRCT-VOX.zip from the release it came from. With the hash of that file
-built in, it refuses a package that was replaced on the release page, even when its .sha256 file
-was replaced with it. release.yml builds the ZIP first, then:
+The installer downloads ASTAROT.zip (VRCT-VOX.zip up to 0.6.x) from the release it came from.
+With the hash of that file built in, it refuses a package that was replaced on the release page,
+even when its .sha256 file was replaced with it. release.yml builds the ZIP first, then:
 
-    python tools/installer_package_hashes.py write --package VRCT-VOX.zip
+    python tools/installer_package_hashes.py write --package ASTAROT.zip
     (bundle the installer with ASTAROT_REQUIRE_PACKAGE_HASHES=1)
-    python tools/installer_package_hashes.py check --package VRCT-VOX.zip
+    python tools/installer_package_hashes.py check --package ASTAROT.zip
 
 `--package` takes the ZIP (hashed here) or a .sha256 file (its first word).
 `write` creates src-tauri/nsis/package-hashes.nsh, which src-tauri/nsis/template.nsi includes;
 `check` compares that file with the package that is about to be released.
 
 Until 0.5 there was a second package, VRCT-VOX_cuda.zip, with the same files since 0.5.0. It is
-no longer built (#288); the installer reads its GPU choice (/EDITION=gpu) as VRCT-VOX.zip.
+no longer built (#288); the installer reads its GPU choice (/EDITION=gpu) as the one package.
 """
 import argparse
 import hashlib
@@ -57,7 +57,7 @@ def parse(text):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n", 1)[0])
     parser.add_argument("command", choices=("write", "check"))
-    parser.add_argument("--package", required=True, help="VRCT-VOX.zip or its .sha256 file")
+    parser.add_argument("--package", required=True, help="ASTAROT.zip or its .sha256 file")
     parser.add_argument("--include", type=Path, default=INCLUDE, help=argparse.SUPPRESS)
     args = parser.parse_args(argv)
     try:

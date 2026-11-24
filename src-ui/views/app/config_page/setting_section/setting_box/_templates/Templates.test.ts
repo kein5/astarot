@@ -248,6 +248,10 @@ test("with hints on, a FormRow's description is its label's hint unless the row 
     const kept = runtime.render(FormRow, { label: "Audio route", description: "In use: cable", keepDescription: true, group: true, children: "button" });
     assert.ok(find(kept, node => node.type === "description"));
     assert.ok(!find(kept, node => node.type === "hint"));
+    // Current state under the label stays visible even while the row's description is its hint (#1096).
+    const withStatus = runtime.render(FormRow, { label: "Monitor", status: "Off", description: "Plays on monitor.", group: true, children: "button" });
+    assert.ok(find(withStatus, node => node.type === "hint" && node.props.text === "Plays on monitor."));
+    assert.ok(find(withStatus, node => node.type === "p" && node.props.children === "Off"));
 });
 
 test("with hints on, a setup fold's description is its title's hint and its summary's description", async () => {

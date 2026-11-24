@@ -175,6 +175,9 @@ pub struct Status {
     /// none until the main window has the setting (#536).
     #[serde(default)]
     hinted: Option<bool>,
+    /// The app's theme (#965, #1105), for the control panel; none means the default theme.
+    #[serde(default)]
+    theme: Option<crate::quick_chat::ThemeSetting>,
 }
 
 fn default_edge() -> String {
@@ -195,6 +198,7 @@ impl Default for Status {
             edge: default_edge(),
             monitor: String::new(),
             hinted: None,
+            theme: None,
             menu: MenuLabels {
                 start: "Start recognition".into(),
                 stop: "Stop recognition".into(),
@@ -220,6 +224,10 @@ fn validate(status: &Status) -> Result<(), String> {
         || Edge::parse(&status.edge).is_none()
         || status.monitor.chars().count() > MAX_MONITOR_NAME
         || status.monitor.chars().any(char::is_control)
+        || !status
+            .theme
+            .as_ref()
+            .is_none_or(crate::quick_chat::ThemeSetting::is_valid)
         || ![&menu.start, &menu.stop, &menu.panel, &menu.main, &menu.quit, &menu.monitor, &menu.primary, &menu.display, &menu.missing]
             .iter()
             .all(|label| valid_label(label))
@@ -1556,6 +1564,41 @@ mod tests {
         status.monitor = "a\nb".into();
         assert_eq!(validate(&status), Err("companion_invalid".into()));
         status.monitor = "x".repeat(MAX_MONITOR_NAME + 1);
+        assert_eq!(validate(&status), Err("companion_invalid".into()));
+    }
+
+    #[test]
+    fn the_selected_theme_reaches_the_panel_and_invalid_values_are_rejected() {
+        let mut status = Status::default();
+        status.theme = Some(crate::quick_chat::ThemeSetting {
+            preset: "custom".into(),
+            custom: crate::quick_chat::ThemeColors {
+                base: "#10272b".into(),
+                accent: "#3fc8c2".into(),
+            },
+        });
+        assert!(validate(&status).is_ok());
+        let value = serde_json::to_value(&status).unwrap();
+        assert_eq!(serde_json::from_value::<Status>(value.clone()).unwrap(), status);
+        // An older report without a theme field means the default theme.
+        let mut older = value.as_object().unwrap().clone();
+        older.remove("theme");
+        assert_eq!(serde_json::from_value::<Status>(serde_json::Value::Object(older)).unwrap().theme, None);
+        status.theme = Some(crate::quick_chat::ThemeSetting {
+            preset: "bad preset".into(),
+            custom: crate::quick_chat::ThemeColors {
+                base: "#10272b".into(),
+                accent: "#3fc8c2".into(),
+            },
+        });
+        assert_eq!(validate(&status), Err("companion_invalid".into()));
+        status.theme = Some(crate::quick_chat::ThemeSetting {
+            preset: "custom".into(),
+            custom: crate::quick_chat::ThemeColors {
+                base: "#123".into(),
+                accent: "#3fc8c2".into(),
+            },
+        });
         assert_eq!(validate(&status), Err("companion_invalid".into()));
     }
 }

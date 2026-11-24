@@ -1,4 +1,182 @@
-# 音声パイプラインの遅延の計測と短縮（2026-11-18）
+# Measuring and shortening voice pipeline latency (2026-11-18)
+
+[日本語版](#音声パイプラインの遅延の計測と短縮2026-11-18日本語版)
+
+This is a record of measuring, stage by stage, the time from speaking into the microphone until the translated voice starts to be heard, and of shortening the longest stages first (#556). Every value was measured on the PC described in "Measurement PC" below and is not a guarantee for any other environment.
+
+## Summary of results
+
+From the end of speech until the translated voice starts to be heard, p50 went down from 1,316 ms to 972 ms (p95 from 1,556 ms to 1,149 ms). Recognition accuracy and the way utterances are segmented were not changed.
+
+| Stage | Before (p50) | After (p50) | Change made |
+|---|---:|---:|---|
+| End of speech → final recognition result | 770 ms | 704 ms | Set the segmentation padding to half the silence |
+| Final result → message processing starts | 0 ms | 0 ms | None |
+| Translation | 109 ms | 109 ms | Not changed |
+| Chatbox send → voice becomes audible | 418 ms | 128 ms | Skipped the leading silence of the TTS audio |
+
+Before the change, the longest stage was waiting for the recognition result to be finalized, at about 60% of the total. Next came the leading silence of the TTS audio at about 30%, and translation took just under 10%.
+
+This work also added a setting that users can choose. Setting the silence that counts as the end of speech to 0.4 seconds makes finalization about 100 ms earlier again, and 0.3 seconds about 200 ms earlier. In exchange, an utterance is more likely to be split at a pause in the middle of a sentence ([Silence that ends an utterance](#silence-that-ends-an-utterance)). The default for this silence was set to 0.4 seconds on 2026-11-19 (see the addendum in the same section).
+
+## Measurement PC
+
+- CPU: AMD Ryzen 9 9950X3D (16 cores, 32 threads)
+- GPU: NVIDIA GeForce RTX 4080 SUPER 16 GB (driver 620.70.06, PCIe 4.0 x16). The Radeon graphics built into the CPU were not used.
+- Memory: 64 GB
+- Storage: KIOXIA EXCERIA PRO G2 2 TB (NVMe). The models and the app are on this drive.
+- OS: CachyOS (Linux 6.18.60-2-cachyos-lts), PipeWire 1.6.11
+
+Other development work kept running during the measurements. The load average was 0.2 to 20 depending on the run, and other apps used about 6.8 GB of GPU memory. VRChat was not running. Translation runs on the CPU, so the translation p95 grew in runs with a high load. The before-and-after comparison comes from running the code before and after the change twice each, alternating between them ([Final comparison](#final-comparison)).
+
+## Measurement method
+
+The measurements used `native/core/examples/pipeline_latency.rs`. It starts the core inside its own process, as the app does, and replaces only the three parts below. It does not touch the PC's audio devices.
+
+- Microphone: feeds a WAVE file in 10 ms pieces in real time. Each utterance is followed by 8 seconds of silence.
+- TTS output: records the time at which the first sample loud enough to hear (amplitude above 64, about -54 dBFS) is written, and accepts audio at the same rate as a device (read-ahead up to 40 ms).
+- Chatbox: a UDP socket listening on 127.0.0.2.
+
+| Item | Details |
+|---|---|
+| Recognition | Qwen3-ASR 0.6B Q8_0 and Silero VAD v6.2 F32. Realtime captions running on the bundled speech.cpp 0.11.0 (Vulkan) on the RTX 4080 SUPER |
+| Translation | Local translation (m2m100_418M, ONNX, int8) on the CPU. ONNX Runtime from the 0.5.1 release package |
+| TTS | Qwen3-TTS 12Hz 0.6B CustomVoice Q8_0, voice `ryan`. The bundled speech.cpp on Vulkan |
+| Route | Speak in Japanese, translate into English and read the translation aloud (`mic_mode: translated`) |
+| Input | Six Japanese sentences made with Irodori-TTS v4.1 (2.7 to 5.6 seconds, 48 kHz). The first sentence is used as a warm-up, and the six sentences are played in three rounds, so one measurement has n=18 |
+
+All times come from a monotonic clock (`vrct_tts::clock::monotonic_ns`). "End of speech" is the time at which the last 10 ms block within 30 dB of the loudest 10 ms block reached the core. The `/run/io_trace` values of the flow screen (#448) (translation, chatbox, speech synthesis) are recorded alongside. The harness outputs only times, counts and the character error rate (CER); it does not output the recognized text, the translations or the audio.
+
+```sh
+ORT_DYLIB_PATH=<_internal/onnxruntime/libonnxruntime.so from 0.5.1> \
+cargo run --release --locked --manifest-path native/core/Cargo.toml --example pipeline_latency -- \
+    --app-dir . --clips <folder with clip0.wav to clip6.wav and texts.txt> \
+    --asr-model <Qwen3-ASR-0.6B-Q8_0.gguf> --vad-model <silero-vad-309K-v6.2-F32.gguf> \
+    --tts-model <Qwen3-TTS-12Hz-0.6B-CustomVoice-Q8_0.gguf> --translation <m2m100_418M-onnx-int8 folder> \
+    --runs 3 --out results.jsonl
+```
+
+Not included: the OS recording and playback buffers, the virtual microphone, anything inside VRChat and the network. On a real setup, the recording helper (`vrct-asr-capture` on Linux) passes audio in 10 ms units and the realtime captions session sends it to the server 20 ms at a time, so the recording side adds a further delay of up to a few tens of milliseconds. That part was not measured.
+
+## Breakdown before the change
+
+These values were measured on the code before the change (the commit that only added the harness), under the same conditions as [Final comparison](#final-comparison) (n=36).
+
+| Stage | p50 | p95 |
+|---|---:|---:|
+| End of speech → final recognition result | 770 ms | 850 ms |
+| Final result → message processing starts | 0.0 ms | 0.5 ms |
+| Translation | 109 ms | 272 ms |
+| End of speech → chatbox send | 886 ms | 1,085 ms |
+| Chatbox send → voice becomes audible | 418 ms | 708 ms |
+| Of which: speech synthesis request → first write | 26 ms | 39 ms |
+| Of which: first write → audible | 386 ms | 396 ms |
+| End of speech → voice becomes audible | 1,316 ms | 1,556 ms |
+
+In 12 of the 36 cases, the utterance was split in two (the same 2 of the 6 sentences split every time). The mean CER is 0.022. A measurement taken when the work started (n=18, load average 4.7) gave almost the same values (p50 from the end of speech to the voice: 1,308 ms).
+
+## Leading silence in TTS audio
+
+TTS in speech.cpp returns the first audio within a few tens of milliseconds. That audio, however, started with near silence. Played as it is, it keeps the listener waiting through the silence. These are the values measured by sending requests straight to the TTS server (same PC, Vulkan):
+
+| Model | Until the first chunk arrives | Position of the first sample above amplitude 64 | Until the whole result is returned |
+|---|---|---|---|
+| Qwen3-TTS 0.6B Q8_0 (English, `ryan`, 6 sentences × 3) | 12 to 21 ms | 421 to 435 ms (every sentence) | 0.27 to 1.30 s for 2.5 to 11.7 s of audio |
+| Irodori-TTS v4.1 F16 (Japanese, `none`, 6 sentences × 2) | 39 to 50 ms | 0 to 276 ms (median about 19 ms) | 78 to 111 ms for 2.7 to 5.6 s of audio |
+
+Both generate audio much faster than real time, so skipping the leading silence does not make the audio after it break up.
+
+Change made (`native/tts/src/onset.rs`): for TTS from speech.cpp, the part before the first sample above amplitude 64 is dropped. The 20 ms just before that sample are kept, and at most 1 second is dropped. Installed engines such as VOICEVOX are excluded, because users can set their leading silence (`prePhonemeLength` in COEIROINK). The deadline for microphone TTS to start (5 seconds) now counts from the first audible sound.
+
+Effect (measured during the work, n=18 each): the time from the chatbox send until the voice becomes audible went down from 413 ms to 154 ms at p50 and from 729 ms to 341 ms at p95. From the speech synthesis request until the voice becomes audible took 116 to 138 ms at p50 (each run in this record).
+
+## Finalizing the recognition result
+
+In realtime captions, the VAD of the speech.cpp server (`server_vad`) decides where utterances are segmented. Before the change, no segmentation settings were sent, and the server ran with its defaults (500 ms of silence, 300 ms of padding).
+
+speech.cpp finalizes an utterance only once it knows that no next utterance starts within twice the padding (`prefix_padding_ms`) (speech.cpp ADR "A detection of audio given a piece at a time gives speech_detect()'s regions, each once it is certain"). With the default pair, twice the padding (600 ms) is longer than the 500 ms of silence, so finalization had to wait 600 ms, not 500 ms. The recognition time comes on top of that. Shortening only the silence to 300 ms did not change the time to finalization (p50 759 ms) and only raised the number of utterances split in the middle of a sentence (table below).
+
+Change made (`turn_detection` in `native/transcription/src/realtime/session.rs`): the session sends the silence length and a padding of half that length (up to 300 ms). When the padding is at most half the silence, the utterance is finalized as soon as the silence has lasted its full length. Where an utterance is split depends only on the silence length, so with the default of 500 ms the segmentation does not change.
+
+### Silence that ends an utterance
+
+Users can now choose the length of the silence in the "Realtime captions" settings (`REALTIME_ASR_SETTINGS.silence_duration_ms`, default 0.5 seconds; also 0.3, 0.4, 0.7 and 1 second). n=18 for each row.
+
+| Silence / padding | Final p50 | Final p95 | Utterances split in two | Mean CER |
+|---|---:|---:|---:|---:|
+| 500 / 300 ms (before the change) | 763 ms | 818 ms | 6/18 | 0.022 |
+| 300 / 300 ms (silence shortened only) | 759 ms | 862 ms | 9/18 | 0.049 |
+| 500 / 250 ms (default after the change) | 704 ms | 834 ms | 6/18 | 0.022 |
+| 400 / 200 ms | 599 ms | 673 ms | 9/18 | 0.049 |
+| 300 / 150 ms | 507 ms | 575 ms | 9/18 | 0.049 |
+
+On the code that already skipped the leading silence of the TTS audio, the p50 from the end of speech to the voice was 991 ms with 500 / 250 ms, 872 ms with 400 / 200 ms and 768 ms with 300 / 150 ms. With 0.4 and 0.3 seconds, the same sentence, which has no comma, split in two in all three rounds, and its CER rose from 0 to 0.16. A split sentence appears as two messages, both in the chatbox and in the TTS output. For that reason, the default stays at 0.5 seconds. The six input sentences are synthesized speech; the pauses in human speech vary more.
+
+> **Addendum** (2026-11-19, #556): The default silence that ends an utterance was set to 0.4 seconds (padding 0.2 seconds). This is the 400 / 200 ms pair in the table above: finalization comes about 100 ms earlier, and utterances are more likely to be split in the middle of a sentence. The default applies only to settings in which no silence length has been chosen. A value that a user chose and saved is not changed. 0.5 seconds remains an option. The current behavior is described in [Data formats and storage](../spec/data-and-persistence.md#音声認識の数値設定).
+
+## Final comparison
+
+The code before the change (the commit that only added the harness) and the code after it were measured with the same harness, twice each, alternating between them (n=36 each). The load average at the start of the measurements was 0.2 to 0.7, and no other heavy work was running.
+
+| Stage | Before p50 | Before p95 | After p50 | After p95 |
+|---|---:|---:|---:|---:|
+| End of speech → final recognition result | 770 ms | 850 ms | 704 ms | 752 ms |
+| Translation | 109 ms | 272 ms | 109 ms | 270 ms |
+| End of speech → chatbox send | 886 ms | 1,085 ms | 832 ms | 1,007 ms |
+| Chatbox send → voice becomes audible | 418 ms | 708 ms | 128 ms | 289 ms |
+| End of speech → voice becomes audible | 1,316 ms | 1,556 ms | 972 ms | 1,149 ms |
+| Utterances split in two | 12/36 | | 12/36 | |
+| Mean CER | 0.022 | | 0.022 | |
+
+Between the two sets of runs, every stage differed by 10 ms or less at p50 (the p50 from the end of speech to the voice was 1,316 ms and 1,311 ms before the change, and 972 ms and 967 ms after it).
+
+## Examined but not changed
+
+- Translation (p50 105 to 110 ms; p95 about 300 to 570 ms in runs with a high load): the beam width (5 for M2M100) is the value that produces the same translations as CTranslate2. A smaller value is faster but changes the translations, so it was not changed. The ONNX Runtime in the Linux release package is the CPU build, so translation does not run on the GPU.
+- Recognition model: with Haas-ja v1.0 and ReazonSpeech v2 (both Q8_0) instead, the p50 to finalization on the code after the change was 690 ms and 719 ms, no different from Qwen3-ASR 0.6B (704 ms). Most of the time to finalization is spent waiting for the silence. The mean CER on the synthesized input was 0.072 for Haas-ja and 0.225 for ReazonSpeech (0.022 for Qwen3-ASR). In these two runs, another program started using the GPU partway through (GPU usage was 98% at the start of the second run), so the TTS times were not compared.
+- Translating early from partial results: in 11 of 18 cases, the finalized sentence was the same as the partial result just before it (the 500 / 250 ms run). That partial result, however, arrived at the same time as the final result (0 ms apart), so there is no time to translate it in advance.
+- The time from the final result to the start of message processing was 0 to 1 ms, and the parts of message processing other than translation (chatbox, log and so on) took 0 to 1 ms. The VR overlay was not drawn (SteamVR was not running).
+- Time to open the TTS output on Linux (`PipeWireOutput::open`): 2.5 to 9.3 ms on a small dedicated PipeWire graph (20 runs, `native/audio-routing/examples/output_open.rs`). It was not measured on the desktop's real graph.
+- Voice conversion (RVC): in the Rust version of the app, voice conversion runs only on Windows (on Linux, the managed route does not support it yet). So only the conversion in the worker was measured here, with `rvc-stream`.
+
+### Voice conversion (RVC, #531)
+
+`rvc-stream` (`native/rvc-runtime`, CUDA, cuDNN 9.24, 1 thread) converted 25.6 seconds of audio made by joining the six Irodori-TTS sentences. The model was the RVC model saisho (48 kHz, with an index, index rate 0.75). Other programs used 0% of the GPU, and the load average was 1.0 to 1.5. Each condition was run twice.
+
+| Block / crossfade / context | Mean time per block | p95 | Max | Blocks that missed their deadline | Delay added by splitting into blocks |
+|---|---:|---:|---:|---:|---:|
+| 80 / 40 / 2000 ms (the app's GPU setting) | 12.2 to 12.5 ms | 12.4 to 12.5 ms | 13 to 69 ms | 0/320 | 130 ms |
+| 80 / 40 / 1000 ms | 11.8 to 12.1 ms | 12.0 to 12.1 ms | 58 to 60 ms | 0/320 | 130 ms |
+| 40 / 20 / 2000 ms | 11.5 to 11.6 ms | 11.5 ms | 55 to 72 ms | 1 to 3/641 | 70 ms |
+| 40 / 20 / 1000 ms | 10.9 to 11.0 ms | 10.9 to 11.0 ms | 56 to 70 ms | 1 to 3/641 | 70 ms |
+| 20 / 10 / 1000 ms | 9.8 to 9.9 ms | 9.9 ms | 64 to 68 ms | 1 to 2/1282 | 40 ms |
+
+The time to process one block hardly goes down when the block gets shorter, because feature extraction (HuBERT) reads the whole window, including the context, every time. In 9 of the 10 runs in the table, some block took 55 to 72 ms. A block of 80 ms still meets its deadline, but blocks of 40 ms or less fall behind. On the app's route, the 100 ms buffer of the Windows WASAPI output and the queue of converted output (up to 80 ms × 4) come on top of this. From this measurement, a block of 40 ms is expected to cut the conversion delay by about 60 ms. But that would need a mechanism that absorbs the rare slow block and a check on a real Windows machine. The default was not changed.
+
+> **Addendum** (2026-11-19, #531): The default RVC block length was set to 40 ms. It can be changed under "Advanced" from 20 to 200 ms in 20 ms steps (`RVC_BLOCK_MS`, [Data formats and storage](../spec/data-and-persistence.md#直接音声の設定声の変換)). On the GPU, a 40 ms block is converted in one pass, with a crossfade of 20 ms. No mechanism to absorb the rare slow block was added. Blocks that miss their deadline are dropped as before, and if that keeps happening, conversion stops with `vc_capture_overrun`. It has not been measured on a real Windows machine yet.
+
+> **Addendum** (2026-11-20, #531): The results and breakdown of an end-to-end measurement of the Windows route are in [Investigating and designing lower voice changer latency](rvc-low-latency-2026-11-20.md). On a laptop (RTX 3060 Ti), processing a 40 ms block did not meet its deadline.
+
+> **Addendum** (2026-11-20, #531): The default block length changed to "Automatic". At start, the worker measures the time for one block on the GPU and picks the shortest length that meets the deadline (40 ms or more). A length chosen under "Advanced" takes precedence over "Automatic" ([Data formats and storage](../spec/data-and-persistence.md#直接音声の設定声の変換)).
+
+## Proposed targets
+
+A study that compared conversations in many languages found that in every language the gap when one speaker hands over to the next is short, and each language's mean was within about 250 ms of the overall mean (Stivers et al., 2009, PNAS 106(26), doi:10.1073/pnas.0903616106). With translation in between, recognition first waits for the silence that marks the end of speech (default 0.5 seconds), so it cannot get within that gap. The values below are therefore proposed as values that do not badly disrupt the pace of a conversation. Whether to adopt them has not been decided.
+
+- From the end of speech until the translated voice starts to be heard: p50 1.0 second or less, p95 1.5 seconds or less
+- From the end of speech until the chatbox send: p50 0.9 seconds or less
+
+The conditions are speech recognition and TTS on the GPU, translation run locally (on the CPU) and no load from VRChat. The values after the change meet this proposal on the measured PC. Running VRChat at the same time, and PCs with slower GPUs, have not been measured yet.
+
+## Continuing to measure
+
+- The flow screen (#448) shows the time of translation, chatbox, speech synthesis and TTS for each message. Now that the leading silence is skipped, "Speech synthesis" for TTS is the time until audible sound is written.
+- The flow screen does not show the time from the end of speech until the final result, because with realtime captions the app does not know when the speech ended. This interval is measured with `pipeline_latency`.
+- `--silence-ms` of `pipeline_latency` lets you measure with a different silence that ends an utterance.
+
+---
+
+# 音声パイプラインの遅延の計測と短縮（2026-11-18）（日本語版）
 
 マイクで話してから、訳した声が聞こえ始めるまでの時間を段ごとに測り、長い段から縮めた記録です（#556）。値はどれも下の「計測したPC」で測ったもので、ほかの環境での保証ではありません。
 

@@ -39,7 +39,7 @@ def matches_launched_app(executable, environment, launcher, *, appimage=False):
     # directory. Match both launcher identity and exact payload within that root.
     return (environment.get('APPIMAGE') == str(expected)
             and bool(environment.get('APPDIR'))
-            and executable == str(Path(environment['APPDIR']) / 'usr/bin/vrct-vox'))
+            and executable == str(Path(environment['APPDIR']) / 'usr/bin/astarot'))
 
 
 class NativeWebDriver:
@@ -273,7 +273,7 @@ class NativeWebDriver:
     # Opening settings slides the main page up and away (0.12s); closing
     # slides it back down over the settings page.
     def close_settings(self):
-        self.click('button[class^="_back_"]')
+        self.click('button[data-settings-back]')
         self.wait("const page = document.querySelector('[data-main-page]');"
                   " return page.matches('[data-showing=main]') && Math.abs(new DOMMatrix(getComputedStyle(page).transform).m42) < 1;")
 
@@ -322,7 +322,7 @@ class NativeWebDriver:
         aria-busy) with placeholders, and with the composer already there. It is
         ready once that page is no longer busy, which is also when the saved
         settings (send button, UI size, languages) have been applied."""
-        return self.wait("const t = document.querySelector('textarea[class*=message_box_input_area]');"
+        return self.wait("const t = document.querySelector('textarea[data-message-input]');"
                          " return t !== null && t.closest('[aria-busy=true]') === null;", timeout=timeout)
 
     def wait(self, script, timeout=15):
@@ -368,7 +368,7 @@ class NativeWebDriver:
                     if self.process.poll() is not None:
                         raise RuntimeError("tauri-driver exited before startup")
                     time.sleep(.1)
-            binary = os.environ.get("ASTAROT_TEST_APP", str(ROOT / "src-tauri/build/native-cargo/debug/vrct-vox"))
+            binary = os.environ.get("ASTAROT_TEST_APP", str(ROOT / "src-tauri/build/native-cargo/debug/astarot"))
             result = self.request("POST", "/session", {"capabilities": {"alwaysMatch": {
                 "browserName": "wry", "tauri:options": {"application": binary}}}})
             self.session = result["sessionId"]

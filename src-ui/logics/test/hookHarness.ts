@@ -16,6 +16,8 @@ export interface Slot {
     deps?: Deps;
     value?: unknown;
     cleanup?: unknown;
+    // An effect's slot: a layout effect's, or a passive one's.
+    layout?: boolean;
 }
 type SetState<S> = (value: S | ((previous: S) => S)) => void;
 
@@ -45,10 +47,21 @@ const runCleanup = (cleanup: unknown) => {
     cleanup();
 };
 
+// An effect waiting for the end of a render: its slot, and what to run.
+interface PendingEffect {
+    index: number;
+    deps: Deps;
+    run: () => unknown;
+}
+
 // Explicit renders exercise production handlers without a browser. Effects clean
-// up on dependency changes as well as unmount, so listener churn is observable.
+// up on dependency changes as well as unmount, so listener churn is observable. As in React, a
+// render's layout effects (useLayoutEffect) run before its passive ones (useEffect); for each
+// kind, the clean-ups of the effects that run again come first, then the effects, each in the
+// order the component calls them. Unmounting cleans up the layout effects before the passive ones.
 export function hooks() {
-    const slots: (Slot | undefined)[] = [], effects: (() => void)[] = [], targets: Atom<unknown>[] = [];
+    const slots: (Slot | undefined)[] = [], layoutEffects: PendingEffect[] = [], passiveEffects: PendingEffect[] = [];
+    const targets: Atom<unknown>[] = [];
     // Each atom's setter, kept as a slot's value: the one made for that atom, of its type.
     const setters = new Map<Atom<unknown>, Slot>();
     let index = 0, store: Store = createStore();
@@ -60,12 +73,24 @@ export function hooks() {
         const slot = slots[i];
         return held<T>(slot ?? {});
     };
-    const effect = (fn: () => unknown, deps?: Deps) => {
+    const effect = (queue: PendingEffect[]) => (run: () => unknown, deps?: Deps) => {
         const i = index++;
-        if (changed(slots[i], deps)) effects.push(() => {
-            runCleanup(slots[i]?.cleanup);
-            slots[i] = { deps, cleanup: fn() };
-        });
+        if (changed(slots[i], deps)) queue.push({ index: i, deps, run });
+    };
+    const runEffects = (queue: PendingEffect[], layout: boolean) => {
+        const pending = queue.splice(0);
+        for (const { index: i } of pending) runCleanup(slots[i]?.cleanup);
+        for (const { index: i, deps, run } of pending) slots[i] = { deps, cleanup: run(), layout };
+    };
+    // Every effect's clean-up, the layout effects' first.
+    const cleanUp = () => {
+        for (const layout of [true, false]) {
+            for (const slot of slots) {
+                if (!slot || (slot.layout ?? false) !== layout) continue;
+                runCleanup(slot.cleanup);
+                slot.cleanup = undefined;
+            }
+        }
     };
     const api = { ...React,
         useState: <S>(initial: S | (() => S)): [S, SetState<S>] => {
@@ -82,7 +107,7 @@ export function hooks() {
         useRef: <T>(initial: T) => memo(() => ({ current: initial }), []),
         useId: () => memo(() => `test-${index}`, []),
         useMemo: memo, useCallback: <F>(fn: F, deps: Deps) => memo(() => fn, deps),
-        useEffect: effect, useLayoutEffect: effect,
+        useEffect: effect(passiveEffects), useLayoutEffect: effect(layoutEffects),
     };
     const jotai = {
         atom: <T>(initial: T): PrimitiveAtom<T> => { const target = atom(initial); targets.push(target); return target; },
@@ -99,16 +124,17 @@ export function hooks() {
         index = 0;
         const tree = component(props);
         attach(tree);
-        effects.splice(0).forEach(fn => { fn(); });
+        runEffects(layoutEffects, true);
+        runEffects(passiveEffects, false);
         return tree;
     }
     return { api, jotai, targets, get store() { return store; }, set store(value: Store) { store = value; },
         render,
-        unmount: () => { for (const slot of slots) { runCleanup(slot?.cleanup); if (slot) slot.cleanup = undefined; } },
+        unmount: cleanUp,
         // Drawn again from scratch, as a changed React key does: the component's own state
         // goes; the atoms' store stays.
         remount: () => {
-            for (const slot of slots) runCleanup(slot?.cleanup);
+            cleanUp();
             slots.length = 0;
         },
     };
@@ -133,6 +159,17 @@ export function loaded(exports: Record<string, unknown>): unknown {
     return exports;
 }
 
+// The kit's parts (views/kit) as a screen draws them, unless the test hands in its own. The kit's
+// looks are vanilla-extract recipes, which only the app's build can make, so each stand-in draws
+// the element the part draws, with the part's data-slot and defaults, and keeps the look it was
+// asked for as data attributes (data-tone, data-size): a test reads which look a control asked
+// for, and the class a screen added for its place, as it reads every other class (hookHarness.test.ts
+// holds the stand-ins to the kit's defaults).
+export const kitStandIns = {
+    Button: ({ tone = "plain", size = "regular", type = "button", ...rest }: Record<string, unknown>) =>
+        jsx.jsx("button", { type, "data-slot": "button", "data-tone": tone, "data-size": size, ...rest }),
+};
+
 export async function loadModule<M = Record<string, unknown>>(url: URL, runtime: HookRuntime, imports: Record<string, unknown> = {}): Promise<M> {
     // Vite builds the source into a function of require and exports (harnessModules.ts).
     const built: unknown = Reflect.get(await import(/* @vite-ignore */ `${url.href}?${HARNESS_QUERY}`), "default");
@@ -141,7 +178,6 @@ export async function loadModule<M = Record<string, unknown>>(url: URL, runtime:
         "@useI18n": { useI18n: () => ({ t: (key: string) => key }) },
         "@useStdoutToPython": { useStdoutToPython: () => ({ asyncStdoutToPython: async () => true }) }, [HOT_DEPENDENCY]: undefined, ...imports };
     const require = (name: string): unknown => {
-        if (name.endsWith(".module.scss")) return new Proxy({}, { get: (_, key) => key === "__esModule" ? false : key });
         // vanilla-extract style modules: each export is its class name.
         if (name.endsWith(".css.ts") && !(name in dependencies)) return new Proxy({}, { get: (_, key) => key === "__esModule" ? true : key });
         if (name.endsWith(".svg?react")) return () => null;
@@ -150,6 +186,8 @@ export async function loadModule<M = Record<string, unknown>>(url: URL, runtime:
         // "tooltip" that keeps its words (title), its side and the control it wraps, so a test reads
         // what the bubble says without a page to draw it on.
         if (/^(\.\.?\/)+(views\/)?common_components\/tooltip\/Tooltip(\.tsx)?$/.test(name)) return { Tooltip: "tooltip" };
+        // The kit, by its index (views/kit/index.ts): the stand-ins above.
+        if (/^(\.\.\/)+(views\/)?kit\/index\.ts$/.test(name)) return kitStandIns;
         // While modules move from .js to .ts (ADR-010), a test may still name a dependency
         // with its old extension, or with none, as the importing module once did.
         const base = name.replace(/\.[jt]sx?$/, "");

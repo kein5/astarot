@@ -1,4 +1,84 @@
-# 対応環境の検証の記録
+# Platform verification records
+
+[日本語版](#対応環境の検証の記録日本語版)
+
+This is the list of records behind the user-facing [Platform support](../../site/en/guide/support.md) page and its Japanese version ([対応環境と検証の範囲](../../site/ja/guide/support.md)). Every cell of the matrix rests on one of the records in this list. A cell with no record says "Not verified".
+
+This list was created on 2026-11-18. Its target version is 0.6.0, and it was last updated on 2026-11-22.
+
+## Terms
+
+The matrix keeps the level of support apart from how it was checked. Passing CI does not mean that it works on a real PC.
+
+| Term | Meaning |
+|---|---|
+| Supported | An environment we ship release files for and fix bugs on |
+| Best effort | An environment expected to work, but not checked, or checked only within a narrow range. Reports are accepted, but a fix may not be possible |
+| Not supported | An environment with no release files, or one known not to work |
+| Verified in CI | Checked automatically on GitHub Actions runners. No real audio devices, GPU, VRChat or headset are used |
+| Verified on a real PC | Checked by running the release files or a development build on a real PC, with a record kept. The version and OS are given |
+| Not verified | No record of a check in CI or on a real PC |
+
+A real-PC record always gives the version that was checked. 0.5.0 rebuilt the backend from Python into the Rust core, so records from 0.4 and earlier are not used as evidence for how 0.5.x behaves. The matrix marks them separately as "Checked before 0.5".
+
+## What CI checks
+
+| Workflow and job | Runner | What it checks | What it does not check |
+|---|---|---|---|
+| `headless` in `voice-tests.yml` | `ubuntu-latest`, `windows-latest` | Contract tests without models, and the UI unit tests, type check and build (`check --scope voice`, `ui`). On Linux, it sets up a pinned version of PipeWire in an isolated location and tests the audio helper programs | Screens, real audio devices, models |
+| `core-integration` in `voice-tests.yml` | `ubuntu-latest`, `windows-latest` | Tests of the crates for the core (`native/core`), OpenVR, the VR overlay, speech recognition and voice conversion. VR uses the fake SteamVR (`FakeVr`) | Models, devices, network, the real SteamVR |
+| `crates` in `voice-tests.yml` | `ubuntu-latest`, `windows-latest` | Tests of the crates the other jobs do not test: downloads and operations (`ops`), management of the speech servers, the OSC and OBS adapters, OCR for chat reading, the RVC runtime | Models, devices, the real VRChat |
+| `integration` in `voice-tests.yml` | `ubuntu-latest`, `windows-latest` | Integration tests (`tests/integration`) that drive the app's screens in Chromium and WebKit, connected to the real core. Translation, the OSC receiver and the speech servers are stand-ins | The app window (WebView2, WebKitGTK), real audio devices, models, VRChat |
+| `build-linux.yml` | `ubuntu-24.04` | Builds the tar.gz, AppImage, deb and rpm. On Xvfb (X11), runs a test that starts the tar.gz from a read-only location and a test that starts the AppImage by extraction, covering start, drawing, using the settings screen and shutdown. Installs the deb and rpm in Ubuntu 24.04, Debian 13 and Fedora 44 containers and checks that the libraries resolve, that the bundled speech engine starts and that removal leaves nothing | Starting through FUSE, Wayland, real audio, models, VRChat. The deb and rpm windows |
+| `release.yml` | `windows-latest` | Builds the ZIP (`VRCT-VOX.zip`) and the NSIS installer, and checks for files that must not be distributed, size, SHA-256 and the built-in hash | Starting the app, screens, audio |
+| `windows-package.yml` | `windows-latest` | That the files for `_internal` are all present | Starting the app |
+| `installer-update-tests.yml` | `windows-latest` | With the real NSIS installer and a light dummy payload: new installation, update, rollback, recovery from an interruption and the change of display name | The contents of the real release files, starting the app |
+
+`build-linux.yml`, `windows-package.yml` and `installer-update-tests.yml` run only on PRs that change related files and on manual runs. `release.yml` runs on PRs into main and on manual runs. No CI opens the app window (WebView2) on Windows. The only screen tests are the integration tests that open the screens in a browser (`integration`).
+
+## Records on real PCs
+
+### 0.6 series
+
+| Record | Version | OS and package | What was checked | What was not checked |
+|---|---|---|---|---|
+| "Known issues" in the [0.6.0 release notes](https://github.com/kein5/astarot/releases/tag/v0.6.0) | 0.6.0 (before publishing) | A real Windows PC. OS version and package not recorded | Before publishing, checked on a real Windows PC with the real SteamVR and the real VRChat. The subtitle overlay connects to the real SteamVR and draws subtitles (confirmed by reading the overlay's contents). Choosing only the TTS model in the setup goes all the way through the download. "Stop speech" looks unavailable when there is nothing to stop | What the notes list under known issues. How it looks inside the headset, downloading the translation model in the setup, moving the folder on Linux, a real Linux PC and more |
+| [Comment on Issue #442](https://github.com/kein5/astarot/issues/442#issuecomment-7071922969) | 0.6.0-beta.1 | Windows. OS version and package not recorded | Used with the real VRChat, no Windows Firewall prompt appears | Other features |
+
+The 0.6.0 real-PC records do not include the OS version or the package, so the real-PC cells of the matrix have not been changed yet (see "Updating the matrix" below). The version and date at the top of the matrix are set to the published version even when the real-PC cells do not change (decision 3 of PR #772). The 0.6.0 Linux release files have not been checked on a real PC.
+
+### 0.5 series
+
+| Record | Version | OS and package | What was checked | What was not checked |
+|---|---|---|---|---|
+| [Comment on Issue #516](https://github.com/kein5/astarot/issues/516#issuecomment-7042956469) | 0.5.2 | CachyOS (rolling, Linux 6.18 series), a KDE Plasma 6.8.2 Wayland session (the app window under XWayland), x64. AppImage | With `appimage` and `ui` of `tools/native_acceptance.py` from v0.5.2, 11 of 16 tests passed. Starting through FUSE and by extraction, drawing, shutdown. Saving in the settings screen at display scale 100% and 150%, and fitting into a small window. The window stays drawn after waiting and after hovering the mouse over it. The text input field. Keyboard operation of the split settings screens | Unmuting the managed audio route (the test could not confirm it, and whether the product or the test is at fault has not been isolated). The desktop subtitle window (`xwininfo`, which the test needs, was missing). Opening and closing the settings screen repeatedly (the test helper code is outdated). The round trip with VRChat. Speech recognition, TTS, RVC, the virtual microphone. deb, rpm, tar.gz. Windows |
+| "Results of the candidate build and the verification on Windows" in a [comment on PR #571](https://github.com/kein5/astarot/pull/571#issuecomment-6956375435) | The 0.5.1 candidate | Windows 11 Home Insider Preview build 26320, x64. Installer and ZIP | Checking the provenance and `.sha256`. Updating from 0.5.0 (with an installer from the same commit whose download source was switched to a local one, `/P /UPDATE`). The entry in "Apps & features". Starting after the update. Reading a selected area with chat reading (a test window). ONNX Runtime sends nothing with telemetry turned off | New installation, local translation (the model is not in the catalog), detecting bubbles in the real VRChat, speech recognition, TTS, RVC, the virtual microphone, VR. Linux |
+| [PR #520](https://github.com/kein5/astarot/pull/520) | 0.5.0-beta.5 and fixes | Windows 11, x64 | The real-PC check of 0.5.0-beta.5 found a bug where TTS sent to the virtual microphone went silent with `output_underflow`. After the fix, playback to the Steam Streaming virtual device was confirmed with a test (`native/audio-routing/tests/wasapi_live.rs`) | An end-to-end check that the app's TTS reaches VRChat. Other virtual microphones such as VB-CABLE |
+| [PR #453](https://github.com/kein5/astarot/pull/453) | 0.5.0-beta.2 and fixes | Linux (distribution and desktop not recorded), AppImage and tar.gz. A development build on Windows 11 | The real-PC test on Linux found problems with the engine notice right after the AppImage starts, the name of the close button when there is no tray, and the tray's title. Checked the window position on Windows | A real-PC check on Linux after the fixes |
+
+The only real-PC record for the 0.5.x Linux release files is the 0.5.2 AppImage (the first row of the table above). The deb, rpm and tar.gz have not been checked on a real PC. 0.5.2 was not checked on a real Windows PC, so the Windows cells of the matrix still rest on the 0.5.1 record.
+
+### Versions before 0.5
+
+| Record | Version | OS and package | What was checked |
+|---|---|---|---|
+| [Windows voice verification report](windows-voice-report.md) | Around the 0.1.0 betas (2026-11-07 to 11-13), Python backend | Windows 11 Insider build 26220, a development build and the frozen sidecar | TTS and speech recognition with the bundled speech.cpp, RVC and Seed-VC, input forwarding, the overlay on the real SteamVR (null driver), a real microphone, hotkeys (`SendInput`), VRChat detection, downloading the translation model, the desktop subtitle overlay |
+| [Changes not yet checked on Windows](windows-pending-checks.md) | 0.1.0-beta.7, the 0.1.0 ZIP | Windows 11 | Unpacking and starting, each page of the settings, the desktop subtitle overlay, from downloading the translation model through to translating |
+| "VRChat desktop manual test" in [Benchmarks](benchmarks.md#vrchatデスクトップ手動試験) | Versions with the Python backend | Linux, the virtual microphone the app creates | The virtual microphone was chosen as VRChat's input, and the voice was heard in VRChat's record and playback test. The latency inside VRChat and the transmission to other users were not checked |
+| The Platforms section of the [README](../../README.md) and [Release candidates](release-candidates.md#動く環境) | 0.4 and earlier | CachyOS (KDE Plasma, Wayland), x64 | Tests with real models (`tools/native_acceptance.py`). On Linux desktops, only KDE Plasma (Wayland) was checked |
+
+## Updating the matrix
+
+- Each time a stable or hotfix version is published, bring the matrix and this list up to the published version. The steps are in [Release candidates](release-candidates.md#公開したあとに対応環境の表を更新する) (#516). When a beta is checked on a real PC, add it only to the real-PC records in this list.
+- What is checked on a real PC (the Windows OS, the Linux packages and desktops, VR) is in the pre-release check sections of [Release candidates](release-candidates.md). It was decided on 2026-11-18 (#516).
+- A PR that changes the scope of support (packages, OS, runtime requirements, platform-specific code) states in its description the affected platforms, the environments checked, the environments not checked and the effect on backward compatibility ([PR template](../../.github/pull_request_template.md)).
+- After a real-PC check, add the record to this list first, then change the matrix cells. The record gives the version, the OS and its version, the package, and what was and was not checked. Do not write anything that identifies the PC's owner.
+- When the release file names, the containers that test the deb and rpm, or the CI runners change, update the matrix too. `tests/voice/test_support_matrix.py` checks that the release file names and the container OSes written in the workflows appear in the matrix.
+- Keep what the matrix says consistent with the [README](../../README.md), [System requirements](../../site/ja/guide/requirements.mdx) and [Install](../../site/ja/guide/install.mdx).
+
+---
+
+# 対応環境の検証の記録（日本語版）
 
 利用者向けの[対応環境と検証の範囲](../../site/ja/guide/support.md)（英語は[Platform support](../../site/en/guide/support.md)）の根拠にした記録の一覧です。マトリクスのどの欄もこの一覧のどれかの記録に基づきます。記録がない欄は「未検証」と書きます。
 

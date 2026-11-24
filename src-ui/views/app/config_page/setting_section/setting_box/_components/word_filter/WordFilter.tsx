@@ -1,5 +1,5 @@
 import { useI18n } from "@useI18n";
-import styles from "./WordFilter.module.scss";
+import * as styles from "./WordFilter.css.ts";
 import { _Entry } from "../_atoms/_entry/_Entry";
 import { useState, useRef, useEffect, useCallback } from "react";
 import type { ChangeEvent } from "react";
@@ -8,6 +8,7 @@ import { useStore_IsOpenedMicWordFilterList } from "@store";
 import { Fold } from "../fold/Fold";
 import { useTranscription } from "@logics_configs";
 import { useSettingsDraft } from "../../../../../../../logics/voice/useSettingsDraft";
+import { Button } from "../../../../../../kit/index.ts";
 
 export const WordFilter = (props: { "aria-labelledby"?: string; "aria-describedby"?: string }) => {
     const { t } = useI18n();
@@ -123,33 +124,31 @@ export const WordFilter = (props: { "aria-labelledby"?: string; "aria-describedb
             </Fold>
             <div className={styles.entry_section_wrapper}>
                 <_Entry ref={entryRef} aria-describedby={props["aria-describedby"]} aria-label={t("config_page.transcription.mic_word_filter.label")} width="30rem" onChange={onChangeEntry} onEnterPressed={handleEnterPressed} ui_variable={input_value}/>
-                <button className={styles.add_button} onClick={addWords}>{t("config_page.transcription.mic_word_filter.add_button_label")}</button>
+                <Button tone="primary" className={styles.add_button} onClick={addWords}>{t("config_page.transcription.mic_word_filter.add_button_label")}</Button>
             </div>
         </div>
     );
 };
 
 import DeleteSvg from "@images/cancel.svg?react";
-import clsx from "clsx";
 interface WordFilterItemProps {
     value: string;
     deleteAction: (value: string, button: HTMLButtonElement) => void;
     buttonRef: (node: HTMLButtonElement | null) => void;
 }
 
+// A word and its delete, the kit's danger icon Button.
 const WordFilterItem = (props: WordFilterItemProps) => {
     const { t } = useI18n();
-    const item_wrapper_class_names = clsx(styles["item_wrapper"]);
-    const item_text_class_names = clsx(styles["item_text"]);
 
     return (
-        <div className={item_wrapper_class_names}>
-            <p className={item_text_class_names}>{props.value}</p>
-            <button type="button" ref={props.buttonRef} className={clsx(styles.action_button, styles.delete)}
+        <div className={styles.item_wrapper}>
+            <p className={styles.item_text}>{props.value}</p>
+            <Button tone="danger" size="icon" ref={props.buttonRef}
                 aria-label={t("config_page.transcription.mic_word_filter.remove_word", { word: props.value })}
                 onClick={event => props.deleteAction(props.value, event.currentTarget)}>
                 <DeleteSvg className={styles.delete_svg} aria-hidden="true" focusable="false"/>
-            </button>
+            </Button>
         </div>
     );
 };

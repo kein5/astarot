@@ -190,9 +190,13 @@ jobs:
             last=$(grep -E '^(FAILED |E +|[A-Za-z_.]*(Error|Exception)(:|$)|error(\[E[0-9]+\])?:|npm error code )' "$file" | tail -n 1 | tr -d '\r' | cut -c1-300)
             echo "::error title=$file::${last:-The step failed; the end of $file is in the job log.}"
           done
-      # The same files as the tar.gz, installed under /opt/vrct-vox (tools/linux_packages.py).
+      # The same files as the tar.gz, installed under /opt/astarot (tools/linux_packages.py).
       - name: Build deb and rpm packages
-        run: python3 tools/linux_packages.py --candidate build/linux/candidate/VRCT-VOX --output-dir build/linux/artifacts
+        run: python3 tools/linux_packages.py --candidate build/linux/candidate/ASTAROT --output-dir build/linux/artifacts
+      # Stand-ins of the packages up to 0.6.x (vrct-vox), outside the candidate's artifacts: the
+      # check installs one first, and the package of this version has to replace it (ADR-014, 2.7).
+      - name: Build stand-ins of the packages up to 0.6.x
+        run: python3 tools/ci/legacy_linux_packages.py --output-dir build/linux/legacy
       # Clean images pinned by digest; each installs with its own package manager and only the
       # declared requirements.
       - name: Install the packages in clean Ubuntu, Debian and Fedora
@@ -200,12 +204,14 @@ jobs:
           for image in \
             ubuntu:24.04@sha256:2198e4c65076e9cb0b3d695219df667c0e3b0072da64ca3c2648aca17dcecaf5 \
             debian:13@sha256:9c6e381421d0f48d1b8133e573f33c185ee16cbf505eda9c4a8a4791b25ea8a6; do
-            docker run --rm -v "$PWD/build/linux/artifacts:/packages:ro" -v "$PWD/tools/ci:/ci:ro" "$image" \
-              bash /ci/check_linux_package.sh /packages/"$(basename build/linux/artifacts/*.deb)"
+            docker run --rm -v "$PWD/build/linux/artifacts:/packages:ro" -v "$PWD/build/linux/legacy:/legacy:ro" \
+              -v "$PWD/tools/ci:/ci:ro" "$image" \
+              bash /ci/check_linux_package.sh /packages/"$(basename build/linux/artifacts/*.deb)" /legacy/vrct-vox.deb
           done
-          docker run --rm -v "$PWD/build/linux/artifacts:/packages:ro" -v "$PWD/tools/ci:/ci:ro" \
+          docker run --rm -v "$PWD/build/linux/artifacts:/packages:ro" -v "$PWD/build/linux/legacy:/legacy:ro" \
+            -v "$PWD/tools/ci:/ci:ro" \
             fedora:44@sha256:15da97ed9aa94dd3d92c3925eb89520f6c80e07ea7ee24cba848d1f8b6912b3e \
-            bash /ci/check_linux_package.sh /packages/"$(basename build/linux/artifacts/*.rpm)"
+            bash /ci/check_linux_package.sh /packages/"$(basename build/linux/artifacts/*.rpm)" /legacy/vrct-vox.rpm
       - name: Record immutable candidate identity and hashes
         env:
           CANDIDATE_COMMIT: ${{ github.sha }}
@@ -225,7 +231,7 @@ jobs:
       - name: Store inspected candidate
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: VRCT-VOX-linux-x86_64-candidate
+          name: ASTAROT-linux-x86_64-candidate
           path: build/linux/release-candidate/*
           if-no-files-found: error
           retention-days: 7
@@ -234,7 +240,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: VRCT-VOX-linux-build-logs
+          name: ASTAROT-linux-build-logs
           retention-days: 7
           path: |
             linux-build.log

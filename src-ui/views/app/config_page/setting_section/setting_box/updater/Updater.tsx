@@ -7,12 +7,13 @@ import { downloadPercent } from "../../../../../../logics/common/appUpdate.ts";
 import type { AppUpdateInfo, AppUpdateState, AppUpdateStatus } from "../../../../../../logics/common/appUpdate.ts";
 import type { TFunction } from "i18next";
 import type { EnvReadoutTone } from "../_components/env_readout/EnvReadout";
-import styles from "./Updater.module.scss";
+import * as styles from "./Updater.css.ts";
 import { SectionLabelComponent } from "../_components";
 import { HintDescriptions } from "../_components/hint/Hint";
 import { EnvReadout } from "../_components/env_readout/EnvReadout";
 import { _OpenWebpageButton } from "../_components/_atoms/_open_webpage_button/_OpenWebpageButton";
 import { CheckboxContainer } from "../_templates/Templates";
+import { Button } from "../../../../../kit/index.ts";
 
 const RELEASES_URL = "https://github.com/kein5/astarot/releases";
 const BUSY: readonly AppUpdateStatus[] = ["checking", "downloading", "installing"];
@@ -96,12 +97,12 @@ export const Updater = () => {
             {checks &&
                 <div className={styles.actions}>
                     {canInstall &&
-                        <button type="button" className={styles.install_button} disabled={busy} onClick={install}>
+                        <Button tone="primary" disabled={busy} onClick={install}>
                             {t("app_update.install", { version: appUpdate.version })}
-                        </button>}
-                    <button type="button" className={styles.check_button} disabled={busy} onClick={() => checkAppUpdate({ channel: currentReleaseChannel.data ?? null })}>
+                        </Button>}
+                    <Button tone="quiet" disabled={busy} onClick={() => checkAppUpdate({ channel: currentReleaseChannel.data ?? null })}>
                         {t("app_update.check")}
-                    </button>
+                    </Button>
                 </div>}
             <_OpenWebpageButton
                 webpage_url={appUpdate.release_url ?? RELEASES_URL}

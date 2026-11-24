@@ -68,24 +68,43 @@ impl Renamed {
 
 /// The app ID (`identifier` in `src-tauri/tauri.conf.json`). The Wayland portals know the app by
 /// it, and the desktop file the app writes for them is named after it (ADR-014, 2.6).
-pub const APP_ID: Renamed = Renamed::not_moved("io.github.kein5.vrct-vox", "io.github.kein5.astarot");
+pub const APP_ID: Renamed = Renamed::moved("io.github.kein5.vrct-vox", "io.github.kein5.astarot");
 
 /// The key that marks a desktop file the app wrote for the portals (`<key>=true`). The app
 /// rewrites only a file that carries it; any other file is the user's or a packager's.
-pub const DESKTOP_FILE_MARKER: Renamed = Renamed::not_moved("X-VRCT-VOX-Generated", "X-ASTAROT-Generated");
+pub const DESKTOP_FILE_MARKER: Renamed = Renamed::moved("X-VRCT-VOX-Generated", "X-ASTAROT-Generated");
 
 /// The folder the Linux packages keep settings, logs and models in, under `$XDG_CONFIG_HOME` and
 /// under `$XDG_DATA_HOME` (ADR-014, 2.4). The app moves the VRCT-VOX folder at its start and
 /// leaves a link with the old name (`astarot_core::storage::linux`).
 pub const LINUX_FOLDER: Renamed = Renamed::moved("vrct-vox", "astarot");
 
-/// The app's executable without `.exe` (`mainBinaryName` in `src-tauri/tauri.conf.json`), and the
-/// Linux window class, which follows it (`StartupWMClass`; ADR-014, 2.5 and 2.6).
-pub const EXECUTABLE: Renamed = Renamed::not_moved("vrct-vox", "astarot");
+/// The Windows installer's name for an install (ADR-014, 2.5): the registry keys that record where
+/// it is (`HKCU\Software\kein5\<name>`) and list it among the apps
+/// (`HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\<name>`), and the default install
+/// folder under `%LOCALAPPDATA%` (VRCT-VOX up to 0.5.0, ASTAROT from 0.5.1). The installer
+/// (`src-tauri/nsis/template.nsi`, which cannot read this crate) moves an install in the old
+/// default folder to the new one, moves the keys, and leaves [`INSTALLER_MOVED_FROM`] for the app.
+pub const WINDOWS_INSTALL: Renamed = Renamed::moved("VRCT-VOX", "ASTAROT");
 
-/// The Linux package: its name, `/opt/<name>`, the AppImage's `usr/lib/<name>` and the icon
-/// (ADR-014, 2.7).
-pub const LINUX_PACKAGE: Renamed = Renamed::not_moved("vrct-vox", "astarot");
+/// The file the Windows installer leaves in the install folder after it moved the folder (ADR-014,
+/// 2.5, 5). It names the old folder, in UTF-16 with a byte order mark as NSIS writes it. The app
+/// rewrites the paths saved under the old folder at its next start and removes the file
+/// (`astarot_core::storage::installer`), as it takes `installer_language.txt`.
+pub const INSTALLER_MOVED_FROM: &str = "installer_moved_from.txt";
+
+/// The app's executable without `.exe` (`mainBinaryName` in `src-tauri/tauri.conf.json`), and the
+/// Linux window class, which follows it (`StartupWMClass`; ADR-014, 2.5 and 2.6). The Windows
+/// installer (`src-tauri/nsis/template.nsi`) stops the executable under either name, installs the
+/// one its package has, points the shortcuts it made at it and removes the other one. The Linux
+/// packages ship it under the new name only.
+pub const EXECUTABLE: Renamed = Renamed::moved("vrct-vox", "astarot");
+
+/// The Linux package: its name, `/opt/<name>`, the AppImage's `usr/lib/<name>`, the desktop file
+/// and the icon (ADR-014, 2.7). The deb and rpm replace the package of 0.6.x and earlier, whose
+/// name they declare (`tools/linux_packages.py`); the app looks for its shipped files under the
+/// new name only, as each version ships its own.
+pub const LINUX_PACKAGE: Renamed = Renamed::moved("vrct-vox", "astarot");
 
 /// The `product` in `owner.json`, the marker on a model download's folder. It tells a folder this
 /// app wrote, which it may remove after an interrupted download or move aside when its files
@@ -290,10 +309,11 @@ mod tests {
     use std::collections::HashMap;
     use std::ffi::OsString;
 
-    const ALL: [(&str, Renamed); 10] = [
+    const ALL: [(&str, Renamed); 11] = [
         ("APP_ID", APP_ID),
         ("DESKTOP_FILE_MARKER", DESKTOP_FILE_MARKER),
         ("LINUX_FOLDER", LINUX_FOLDER),
+        ("WINDOWS_INSTALL", WINDOWS_INSTALL),
         ("EXECUTABLE", EXECUTABLE),
         ("LINUX_PACKAGE", LINUX_PACKAGE),
         ("MODEL_DOWNLOAD_OWNER", MODEL_DOWNLOAD_OWNER),
@@ -307,8 +327,13 @@ mod tests {
 
     /// The names that moved, each in its own pull request with its migration (ADR-014, 5). The
     /// pull request that moves another one adds it here.
-    const MOVED: [&str; 6] = [
+    const MOVED: [&str; 11] = [
+        "APP_ID",
+        "DESKTOP_FILE_MARKER",
         "LINUX_FOLDER",
+        "WINDOWS_INSTALL",
+        "EXECUTABLE",
+        "LINUX_PACKAGE",
         "MODEL_DOWNLOAD_OWNER",
         "credentials::WINDOWS_PREFIX",
         "credentials::APPLICATION",
@@ -328,11 +353,12 @@ mod tests {
 
     #[test]
     fn the_values_written_are_those_of_0_5_but_the_moved_names() {
-        assert_eq!(APP_ID.current(), "io.github.kein5.vrct-vox");
-        assert_eq!(DESKTOP_FILE_MARKER.current(), "X-VRCT-VOX-Generated");
+        assert_eq!(APP_ID.current(), "io.github.kein5.astarot");
+        assert_eq!(DESKTOP_FILE_MARKER.current(), "X-ASTAROT-Generated");
         assert_eq!(LINUX_FOLDER.current(), "astarot");
-        assert_eq!(EXECUTABLE.current(), "vrct-vox");
-        assert_eq!(LINUX_PACKAGE.current(), "vrct-vox");
+        assert_eq!(WINDOWS_INSTALL.current(), "ASTAROT");
+        assert_eq!(EXECUTABLE.current(), "astarot");
+        assert_eq!(LINUX_PACKAGE.current(), "astarot");
         assert_eq!(MODEL_DOWNLOAD_OWNER.current(), "ASTAROT-model-download-v1");
         assert_eq!(credentials::WINDOWS_PREFIX.current(), "ASTAROT");
         assert_eq!(credentials::APPLICATION.current(), "astarot");
@@ -369,7 +395,7 @@ mod tests {
 
     #[test]
     fn a_moved_name_writes_astarot_and_still_knows_the_old_one() {
-        let moved = Renamed { writes_astarot: true, ..LINUX_PACKAGE };
+        let moved = Renamed { writes_astarot: true, ..Renamed::not_moved("vrct-vox", "astarot") };
         assert_eq!(moved.current(), "astarot");
         assert_eq!(moved.other(), "vrct-vox");
         assert!(moved.accepts("vrct-vox") && moved.accepts("astarot"));

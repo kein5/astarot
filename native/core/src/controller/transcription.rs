@@ -714,6 +714,10 @@ impl Core {
 
     /// `setEnableTranscriptionSend` / `setEnableTranscriptionReceive`.
     pub(crate) fn set_enable_transcription(self: &Arc<Self>, source: Source, data: &Value) -> Reply {
+        let talk = (source == Source::Mic).then(|| self.talk_ai.lock().unwrap());
+        if talk.as_ref().is_some_and(|session| session.owns_microphone()) {
+            return Reply::conflict("talk_microphone_in_use");
+        }
         if self.realtime_toggles() {
             return self.enable_realtime_toggle(source, data);
         }
@@ -881,7 +885,7 @@ impl Core {
     }
 
     /// `_setEndpointCredential("Custom_Whisper")`: a URL and a key, checked together first.
-    fn set_custom_whisper_key_and_url(self: &Arc<Self>, data: &Value) -> Reply {
+    pub(super) fn set_custom_whisper_key_and_url(self: &Arc<Self>, data: &Value) -> Reply {
         let config = self.config();
         let refused = |core: &Core| {
             Reply::error(ErrorReply::new(

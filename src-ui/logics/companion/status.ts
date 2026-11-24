@@ -1,4 +1,5 @@
 import { isEdge, type Edge } from "./hexagram.ts";
+import { themeSetting, type ThemeSetting } from "../theme/themes.ts";
 
 // The tray companion (experimental feature "tray_companion", Issue #355). The main window
 // reports only the switches and the words the tray menu needs; never what was said or typed.
@@ -34,6 +35,8 @@ export type CompanionStatus = {
     // Whether the hexagram has told that the wheel turns it (TRAY_COMPANION_WHEEL_HINT_SHOWN);
     // null until the main window has the setting (#536).
     hinted: boolean | null;
+    // The app's theme (#965, #1105), for the control panel; null means the default theme.
+    theme: ThemeSetting | null;
 } & Record<Feature, Switch>;
 
 // A store value as the main window's hooks hand it over: { state: "ok" | "pending", data }.
@@ -63,7 +66,7 @@ const toSwitch = (value: StoreValue, blocked = false): Switch => ({ on: value?.d
 
 const isLanguage = (value: unknown): value is Language => (LANGUAGES as readonly unknown[]).includes(value);
 
-export const companionStatus = ({ ready, mic, translation, listening, ocr, tts, rvc, blocked = {}, edge, monitor, hinted, language, t }: {
+export const companionStatus = ({ ready, mic, translation, listening, ocr, tts, rvc, blocked = {}, edge, monitor, hinted, theme, language, t }: {
     ready: unknown;
     mic: StoreValue;
     translation: StoreValue;
@@ -77,6 +80,7 @@ export const companionStatus = ({ ready, mic, translation, listening, ocr, tts, 
     edge?: unknown;
     monitor?: unknown;
     hinted?: unknown;
+    theme?: unknown;
     language: unknown;
     t: (key: string) => string;
 }): CompanionStatus => ({
@@ -91,6 +95,7 @@ export const companionStatus = ({ ready, mic, translation, listening, ocr, tts, 
     edge: isEdge(edge) ? edge : "right",
     monitor: typeof monitor === "string" ? monitor : "",
     hinted: typeof hinted === "boolean" ? hinted : null,
+    theme: themeSetting(theme),
     menu: {
         start: t("companion.menu_start"),
         stop: t("companion.menu_stop"),

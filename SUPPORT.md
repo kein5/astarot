@@ -1,5 +1,7 @@
 # Getting help
 
+[日本語版](#困ったときは日本語)
+
 ASTAROT is maintained by one person on a best-effort basis. Replies may take some time, and there is no support channel outside GitHub.
 
 | You want to… | Go to |
@@ -18,9 +20,11 @@ ASTAROT (formerly VRCT-VOX) is derived from [VRCT](https://github.com/misyaguziy
 
 Please follow the [code of conduct](CODE_OF_CONDUCT.md) in issues and pull requests. To contribute code or documentation, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
+---
+
 ## 困ったときは（日本語）
 
-ASTAROT は1人で保守しています。返事に時間がかかることがあります。GitHub のほかに問い合わせ先はありません。
+ASTAROT は1人で、できる範囲で保守しています。返事に時間がかかることがあります。GitHub のほかに問い合わせ先はありません。
 
 | したいこと | 行き先 |
 |---|---|

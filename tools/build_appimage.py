@@ -96,10 +96,10 @@ def verify_runtime(image, runtime, *, digest_offset=None):
 
 
 def install_payload(candidate, appdir):
-    target = Path(appdir) / 'usr/lib/vrct-vox'
+    target = Path(appdir) / 'usr/lib/astarot'
     target.mkdir(parents=True)
     for source in Path(candidate).iterdir():
-        if source.name == 'vrct-vox':
+        if source.name == 'astarot':
             continue  # GUI already deployed/patched separately by linuxdeploy
         if source.is_dir():
             shutil.copytree(source, target / source.name, symlinks=True)
@@ -111,23 +111,28 @@ def install_launchers(appdir):
     appdir = Path(appdir)
     (appdir / 'AppRun').rename(appdir / 'AppRun.gui')
     if not os.path.lexists(appdir / '.DirIcon'):
-        (appdir / '.DirIcon').symlink_to('vrct-vox.png')
+        (appdir / '.DirIcon').symlink_to('astarot.png')
     target = appdir / 'AppRun'
     shutil.copyfile(ROOT / 'packaging/appimage/AppRun', target)
     target.chmod(0o755)
+    # First in the GUI's PATH: the URL opener starts it, and it gives the host's environment back
+    # before it runs the host's xdg-open (#1016).
+    opener = appdir / 'usr/bin/xdg-open'
+    shutil.copyfile(ROOT / 'packaging/appimage/xdg-open', opener)
+    opener.chmod(0o755)
 
 
 def check_appdir(appdir):
     appdir = Path(appdir)
     check_tree(appdir, allow_directory_links=True)
-    for name in ('AppRun', 'AppRun.gui', 'vrct-vox.desktop', 'vrct-vox.png', '.DirIcon',
-                 'usr/bin/vrct-vox'):
+    for name in ('AppRun', 'AppRun.gui', 'astarot.desktop', 'astarot.png', '.DirIcon',
+                 'usr/bin/astarot', 'usr/bin/xdg-open'):
         if not (appdir / name).is_file():
             raise ValueError(f'missing AppDir component: {name}')
     for name in RUNTIME:
-        if name != 'vrct-vox' and not (appdir / 'usr/lib/vrct-vox' / name).is_file():
+        if name != 'astarot' and not (appdir / 'usr/lib/astarot' / name).is_file():
             raise ValueError(f'missing AppDir runtime file: {name}')
-    verify_bundle(appdir / 'usr/lib/vrct-vox/_internal/build/speechcpp')
+    verify_bundle(appdir / 'usr/lib/astarot/_internal/build/speechcpp')
 
 
 def inspect_image(image, runtime, work):
@@ -158,7 +163,7 @@ def webkit_helpers(appdir):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--candidate', type=Path, default=ROOT / 'build/linux/candidate/VRCT-VOX')
+    parser.add_argument('--candidate', type=Path, default=ROOT / 'build/linux/candidate/ASTAROT')
     parser.add_argument('--work-dir', type=Path, default=ROOT / 'build/appimage')
     parser.add_argument('--tools-dir', type=Path, default=ROOT / 'build/appimage-tools')
     parser.add_argument('--output-dir', type=Path, default=ROOT / 'build/linux/artifacts')
@@ -171,16 +176,18 @@ def main():
         verify_bundle(candidate / '_internal/build' / folder)
     tools = verify_tools(args.tools_dir, download=args.download_tools)
     work = prepare_work(args.work_dir)
-    appdir = work / 'VRCT-VOX.AppDir'
+    appdir = work / 'ASTAROT.AppDir'
     if appdir.exists():
         shutil.rmtree(appdir)
     (appdir / 'usr/bin').mkdir(parents=True)
-    gui = appdir / 'usr/bin/vrct-vox'
-    shutil.copy2(candidate / 'vrct-vox', gui)
-    icon = appdir / 'usr/share/icons/hicolor/256x256/apps/vrct-vox.png'
+    # The desktop file's Exec names this file: linuxdeploy starts it from AppRun, and the window
+    # class follows its name (StartupWMClass).
+    gui = appdir / 'usr/bin/astarot'
+    shutil.copy2(candidate / 'astarot', gui)
+    icon = appdir / 'usr/share/icons/hicolor/256x256/apps/astarot.png'
     icon.parent.mkdir(parents=True)
     shutil.copyfile(ROOT / 'src-tauri/icons/128x128@2x.png', icon)
-    desktop = ROOT / 'packaging/appimage/vrct-vox.desktop'
+    desktop = ROOT / 'packaging/appimage/astarot.desktop'
     run(['desktop-file-validate', desktop])
     webkit_helpers(appdir)
     env = dict(os.environ, APPIMAGE_EXTRACT_AND_RUN='1', DEPLOY_GTK_VERSION='3',
@@ -191,12 +198,12 @@ def main():
     # Nothing that rewrites ELF bytes may run over the pinned engine and the helpers in _internal.
     install_payload(candidate, appdir)
     install_launchers(appdir)
-    shutil.copytree(ROOT / 'licenses/appimage', appdir / 'usr/share/licenses/vrct-vox-appimage')
+    shutil.copytree(ROOT / 'licenses/appimage', appdir / 'usr/share/licenses/astarot-appimage')
     normalize_modes(appdir)
     check_appdir(appdir)
     before = inventory(appdir)
     source = json.loads((candidate / 'build-manifest.json').read_text(encoding='utf-8'))
-    name = f'VRCT-VOX-{source["version"]}-{source["variant"]}-{source["profile"]}.AppImage'
+    name = f'ASTAROT-{source["version"]}-{source["variant"]}-{source["profile"]}.AppImage'
     output = work / name
     output.unlink(missing_ok=True)
     run([tools['appimagetool-x86_64.AppImage'], '--runtime-file', tools['runtime-x86_64'],

@@ -1,4 +1,276 @@
-# マニュアルサイトの棚卸し（2026-11-19）
+# Inventory of the manual site (2026-11-19)
+
+[日本語版](#マニュアルサイトの棚卸し2026-11-19日本語版)
+
+This document records how the user-facing site (`site/`) is built today. It is the basis of the [redesign proposal](README.md). The inventory was made from the files on `develop` (`3d0acb57`). The site's code was not changed.
+
+- Covered: the pages in `site/`, the theme in `site/.vitepress/`, the images and videos in `site/public/`, `site/motion/`
+- Not covered: whether the text of the pages is right (whether the feature descriptions match the current app). The text is being updated in per-feature PRs (for example #673).
+
+## How the site is published
+
+| Item | Current setup |
+|---|---|
+| Base | VitePress 1.6.4. `vite` is pinned to 6.4.6 by `overrides` in `site/package.json`. Moving to Vite 8 while staying on VitePress 1.6.4 stops each page's `*.lean.js` from being output, and the JavaScript of the published pages stops working (#690) |
+| Published at | `https://kein5.github.io/astarot/` (`base: '/astarot/'`, `cleanUrls: true`) |
+| Publishing flow | `.github/workflows/pages.yml`. A PR that touches `site/` only builds and checks; a push to develop publishes |
+| Checks after the build | `tools/check_site_search.mjs` (whether words inside Japanese sentences can be found by search), `tools/check_site_anchors.mjs` (whether links to headings find their headings), `tools/check_site_downloads.mjs` (whether release files are told apart correctly), `tools/check_site_manual.mjs` (the manual's Japanese and English strings, chapter pages and images) |
+| Left out of the build | `site/motion/`. It is a Remotion project, left out of the build by `srcExclude`. Only the exported videos go in `site/public/motion/` |
+
+Changes merged into develop are published as they are. So each stage of the redesign has to be in a state that can be published on its own before it is merged.
+
+## Page structure
+
+The site has three entry points.
+
+| Path | Content | How it is built |
+|---|---|---|
+| `/` | A page for choosing the language | `site/index.md`. A script in `<head>` moves to `/ja/` or `/en/` by the saved language or the browser's language. Without JavaScript, it shows links to both languages and a link to GitHub Releases |
+| `/ja/`, `/en/` | The guide's home page | VitePress's `home` layout. The hero, the download button, a screenshot of the main screen, five features with videos, a note on model downloads |
+| `/ja/guide/*`, `/ja/features/*` (the same under `/en/`) | The guide's text | 23 pages per language. VitePress's `doc` layout, with the sidebar on the left and the in-page table of contents on the right |
+| `/manual/` | Home of the ASTAROT User Manual | `layout: false`, `search: false`. It does not use the theme's frame; `ManualShell.vue` draws a frame of its own (#371, #372) |
+| `/manual/<chapter>` | Chapters of the manual | 10 chapters. None has text yet; each shows only a "Coming soon" note and links to guide pages with the same content |
+
+### The 23 guide pages
+
+The sidebar is split into five groups (`sidebarJa()` and `sidebarEn()` in `site/.vitepress/config.mts`). The line counts are those of the Japanese pages. The English pages have the same structure.
+
+| Group | Page | Lines | Components and syntax used |
+|---|---|---|---|
+| Getting started | What is ASTAROT (`guide/introduction`) | 30 | `{.feature-rows}` |
+| | Install (`guide/install`) | 137 | `CopyText`×5, `Term`×2 |
+| | System requirements (`guide/requirements`) | 97 | `Term`×2 |
+| | Platform support (`guide/support`) | 88 | Tables |
+| | First setup (`guide/first-setup`) | 79 | `StepProgress`, `CopyText`×2, images×2 |
+| | How voice and text flow (`guide/how-it-works`) | 69 | `OsTabs`, diagrams (SVG)×2 |
+| What you want to do | Find what you want to do (`guide/tasks`) | 109 | `[[toc]]`, `{.needs}`×8 |
+| | Use your own models (`guide/custom-models`) | 144 | `Term` |
+| Voice and text | Translation (`features/translation`) | 55 | Route strip |
+| | Speech recognition (ASR) and realtime captions (`features/transcription`) | 130 | Route strip, images×2 |
+| | Text to speech (TTS) (`features/tts`) | 105 | Route strip, `OsTabs`, `Term` |
+| | Voice changer (RVC) (`features/voice-conversion`) | 109 | Route strip, `OsTabs` |
+| | Chat reading (OCR) (`features/chat-reading`) | 69 | Route strip |
+| Screens and integrations | Captions and VR (`features/vr`) | 59 | Images×3 |
+| | Inputs and outputs (`features/io-flow`) | 72 | Images×3 |
+| | Quick Chat and hotkeys (`features/quick-chat`) | 40 | Image |
+| | OBS and WebSocket (`features/integrations`) | 47 | Images×2 |
+| Setup and operation | Model downloads (`guide/models`) | 97 | `CopyText`×2 |
+| | Windows audio route (`guide/windows-audio`) | 50 | Route strip |
+| | Linux audio route (`guide/linux-audio`) | 47 | Route strip, `CopyText` |
+| | Troubleshooting (`guide/troubleshooting`) | 98 | `CopyText`, `Term`×2 |
+| | Privacy (`guide/privacy`) | 69 | Image |
+| | License and credits (`guide/license`) | 29 | — |
+
+Callouts use VitePress's custom blocks (`::: info`, `::: tip`, `::: warning`, `::: details`). Among the Japanese pages, 13 pages have them, with 8 `warning`, 6 `details`, 4 `info` and 1 `tip` in all. `danger` is not used. The top navigation has three items: "Guide", "Install" and "Troubleshooting".
+
+### The 10 manual chapters
+
+The list of chapters is `CHAPTERS` in `site/.vitepress/theme/manual/content.mjs`. Each chapter has links to guide pages. Nine chapters have the status `guide` (readable in the guide), and one, Screens and controls, has `pending` (coming soon).
+
+| Chapter | Guide pages it links to |
+|---|---|
+| Getting to know ASTAROT | What is ASTAROT, System requirements, Platform support |
+| Install and first setup | Install, First setup |
+| Screens and controls (coming soon) | How voice and text flow, Quick Chat and hotkeys |
+| Translation | Translation |
+| Speech recognition and captions | Speech recognition (ASR) and realtime captions |
+| Text to speech and revoicing | Text to speech (TTS), Voice changer (RVC) |
+| Chat reading | Chat reading (OCR) |
+| Audio routes and VR | Inputs and outputs, Windows audio route, Linux audio route, Captions and VR |
+| Models and other apps | Model downloads, Use your own models, OBS and WebSocket |
+| When something goes wrong | Troubleshooting, Privacy, License and credits |
+
+The only guide page that no chapter links to is "Find what you want to do".
+
+The manual's pages are built in Japanese, and after the script runs, it switches them to English in place (`manual/locale.ts`). The language is decided by `?lang=`, then the saved language, then the browser's language.
+
+### URLs referenced from outside
+
+The following URLs are opened by released versions of the app, the README or SUPPORT.md, or have been public for some time. Released versions of the app cannot be changed, so after the redesign the same URLs must still open the same content.
+
+| URL (under `https://kein5.github.io/astarot`) | Referenced from |
+|---|---|
+| `/ja/`, `/en/` | The app (`vrct_document_home_url` in `src-ui/logics/ui_configs.ts`), SUPPORT.md |
+| `/<language>/guide/troubleshooting` | The app (`vrct_document_url_chunk_faq`), SUPPORT.md |
+| `/<language>/guide/first-setup` | The app (`vrct_document_url_chunk_ui_guide`) |
+| `/<language>/guide/custom-models` and `#tts`, `#asr`, `#whisper-server`, `#rvc`, `#seed-vc`, `#translation` | The model fields in the app (`vrct_document_url_chunk_custom_models`) |
+| `/<language>/guide/requirements`, `/<language>/guide/support` | README.md, `docs/readmes/README.ja.md` |
+| `/manual/`, `/manual/<chapter>` | Nothing in the repository links to them. They have been public since 0.5.0 (#372), so readers may arrive from bookmarks or search engines |
+
+The only external URLs the app can open are under `https://kein5.github.io/astarot/**` (`src-tauri/capabilities/vrct_capability.json`).
+
+## Theme customization (`site/.vitepress`)
+
+### Configuration (`config.mts`)
+
+- The Japanese and English `locales`, the sidebar, the top navigation, the footer and the text of the 404 page
+- Local search. `searchTokenize.mjs` cuts out words inside Japanese sentences, and the same cutting is used when the index is built and when a search runs
+- Heading ids (`slugify.mjs`). It does not decompose the voicing marks (dakuten), so links to Japanese headings find them
+- An override of how images are rendered. Every image on a page gets `data-zoom`, and pressing it shows the image enlarged
+- `appearance: 'force-dark'`. Dark only; there is no light palette
+- `transformPageData` changes the title and the favicon for the manual's pages only, and `transformHead` adds the language redirect script and `hreflang`
+- A Vite alias swaps VitePress's `VPLocalSearchBox.vue` for our own `LocalSearchBox.vue`
+
+### Theme (`theme/index.ts`)
+
+It extends VitePress's default theme (`vitepress/theme-without-fonts`, the one without the bundled Inter) and inserts our own components into the layout slots.
+
+| Slot | Component inserted |
+|---|---|
+| `home-hero-info-after` | `HomeActions` (the download button and one more button) |
+| `home-hero-after` | `HomeShot` (a screenshot of the main screen) |
+| `home-features-before` | `HomeShowcase` (five features with videos) |
+| `doc-before` | `RouteStrip` (the route strip at the top of feature pages) |
+| `layout-bottom` | `TermTooltip` (the tooltip shared by the `Term`s on a page) |
+
+`StepProgress`, `OsTabs`, `CopyText`, `Term` and `ManualCallout` are registered as components that Markdown can use. Besides these, event handlers on the whole document take care of the dialog that shows images enlarged and of saving the language chosen in the navigation's language menu.
+
+## Component list
+
+The line counts are for the whole `.vue` file (script, template and style).
+
+### Guide components
+
+| Component | Lines | Role | Where it is used |
+|---|---|---|---|
+| `HomeActions.vue` | 52 | The row of buttons in the hero. Places `DownloadButton` beside VitePress's `VPButton` | Home page |
+| `HomeShot.vue` | 14 | The screenshot under the hero | Home page |
+| `HomeShowcase.vue` | 180 | Five features with videos. A video plays only while it is on screen, and with reduced motion a still image shows instead | Home page |
+| `RouteStrip.vue` (and `routes.ts`) | 137 | Shows, at the top of a feature page, the route that voice and text take, and lights up that page's step. Draws "You to others" in blue and "Others to you" in purple | 7 pages |
+| `components/DownloadButton.vue` | 502 | A button that picks the file for the reader's OS from the latest release, and a menu that lists all files, all versions and the source code | Home page |
+| `components/StepProgress.vue` | 352 | Builds a list of steps from the numbered step headings, and on scrolling turns it into a thin bar that stays at the top | First setup |
+| `components/OsTabs.vue` | 165 | Switches between steps that differ on Windows and Linux. The chosen OS is shared across all pages and saved | 3 pages |
+| `components/CopyText.vue` | 148 | Adds a copy button to folders and addresses | 5 pages |
+| `components/Term.vue`, `TermTooltip.vue` (and `tooltip.ts`) | 108, 127 | Gives terms a tooltip with a short explanation. It opens on mouse-over, on focus and on a tap | 5 pages |
+| `components/LocalSearchBox.vue` | 1,019 | A search palette copied from VitePress 1.6.4's `VPLocalSearchBox.vue` and modified. With nothing typed, it lists the sidebar's pages | All pages |
+
+### Manual components
+
+| Component | Lines | Role |
+|---|---|---|
+| `manual/ManualShell.vue` | 309 | The manual's frame. The top bar (name, chapter filter, language, GitHub), the text and the footer |
+| `manual/ManualHome.vue` | 828 | The home page. The hero and the mascot, three steps, the contents of 10 chapters, five pillars, the eight faces of the mascot guide and the legend of the callouts, system requirements and support |
+| `manual/ManualChapter.vue` | 215 | Chapter pages. The coming-soon note, the related guide pages, the previous and next chapters |
+| `manual/ManualCallout.vue` | 81 | Six kinds of callout (note, tip, important, caution, warning, when it does not work). Each kind gets a mascot face. Only the legend on the home page uses it; no text page does |
+| `manual/ManualDownload.vue` | 342 | The download button and a menu that lists seven distribution formats in fixed slots |
+| `manual/ManualLangMenu.vue` | 176 | The language menu. It switches the text without moving to another page |
+| `manual/useMenu.ts` | 80 | Keyboard handling for menu buttons (arrows, Home, End, Esc) |
+| `manual/content.mjs` | 486 | The manual's Japanese and English text and the list of chapters |
+
+### Shared modules
+
+`releases.mjs` (telling distribution files apart) and `latestRelease.ts` (fetching the latest release) are shared by the two download buttons. `locale.ts` (which language `/` opens) is shared by the guide and the manual.
+
+## Color, type and motion today
+
+### Three palettes side by side
+
+| Place | Palette | Where it is defined |
+|---|---|---|
+| Guide (`/ja/`, `/en/`) | Navy and blue. The background is `#111b2c`, buttons `#2865dc`, links `#80acff`. Dark only | `--vp-c-*` and `--vox-*` in `theme/custom.css` |
+| Manual (`/manual/`) | Dark Plum, Lilac, Off-White. Switches between light and dark by the OS setting | `--a-*` in `theme/manual/manual.css` |
+| App | Dark Plum, Lilac, Off-White. Dark only | DESIGN.md's `colors`, `src-ui/views/app/_index_css/variables.css` |
+
+The app's palette moved from navy to Dark Plum and Lilac on 2026-11-18 (DESIGN.md's "Overview"). The guide's palette was set on 2026-11-15 as "the same Dark Studio as the app" (DESIGN.md's "The user guide (site/)"), and it stayed navy after the app moved. The same navy is also in `site/motion/src/theme.ts` (the videos) and `site/public/diagrams/` (the How voice and text flow diagrams). The screenshots (`site/public/screenshots/`) were also taken of the navy screens.
+
+By OKLCH hue, the guide's background and buttons are at about 261°, Dark Plum at 308° and Lilac at 297°.
+
+The manual's light palette was not made by the rule in DESIGN.md's "Colors" (change only the lightness of a brand color, keep the hue within 3°, and keep the chroma no higher than the original color's). The results calculated on 2026-11-19 are these.
+
+| Token | Value | Difference from the rule |
+|---|---|---|
+| `--a-link` (links, the important callout) | `#6a3fd2` | Its hue of 290.1° is 7° away from Lilac, and its chroma of 0.212 is above Lilac's 0.178. Its contrast against the background (`#fafafc`) is 6.19:1 |
+| `--a-trouble` (the "when it does not work" callout) | `#8a4a9e` | Its hue of 317.6° is 9.5° away from Dark Plum |
+| `--a-border` (the border of the search box) | `#e4ddee` | 1.27:1 against the background. DESIGN.md asks an input's border for 3.5:1 against the input's fill and 3:1 against the background it sits on |
+
+The body text (`--a-text`, `--a-text-2`, `--a-text-3`) has at least 4.5:1 against both the background and `--a-bg-soft`.
+
+### Typography
+
+| Place | Body | Headings |
+|---|---|---|
+| Guide | Fonts on the reader's PC (the system UI font, Noto Sans JP, Hiragino, BIZ UDPGothic, Yu Gothic UI, Meiryo). 16 px | The same typeface as the body. h1 30 px, h2 22 px, h3 18 px. The product name on the home page is 52 px to 96 px |
+| Manual | A different list that starts with `system-ui`. 16 px, line height 1.75 | Outfit, only on PCs that have it. Otherwise the same typeface as the body |
+| App | The UI font the user chose. Eight steps from 1.2 rem to 2.4 rem (the app's 1 rem is 10 px) | Chosen from the same steps |
+
+Neither loads web fonts. The guide's h2 (22 px) is a size that is not on the app's type scale (12, 13, 14, 15, 16, 18, 20, 24 px).
+
+### Radius and motion
+
+| Place | Radius | Motion duration |
+|---|---|---|
+| Guide | Mostly 8 px in `custom.css` (the app's `control`). Some components also use 10 px (5 places), 7 px, 6 px, 5 px and 14 px | 140 ms and 240 ms |
+| Manual | Mostly 14 px (`--a-radius`). Also 18 px, 12 px, 10 px, 8 px, 7 px, 6 px, 5 px and fully rounded ends (999 px) | 140 ms |
+| App | Steps of 2, 4, 8 and 12 px. Otherwise only the rounded ends of bars and tracks | 120 ms and 220 ms |
+
+Some colors are written directly in component styles as well. The focus color `#a9ccff` is written 7 times in the guide's components.
+
+## Problems in how information is laid out
+
+The numbers are referenced from the [redesign proposal](README.md).
+
+### P-01 The same content has two entry points and two tables of contents
+
+The guide (23 pages in five sidebar groups) and the manual (10 chapters) list the same content under different tables of contents. The manual's chapters have no text; each one only links to guide pages. Readers cannot tell which one is the source of truth. The guide's top navigation does not lead to the manual, and the manual's footer calls the guide the "Previous guide". The text is in the guide.
+
+### P-02 There are two home pages, and they hold facts twice
+
+The home page at `/ja/` and the one at `/manual/` both have a download button and an introduction of the features. The manual's home page keeps its own copy, in `content.mjs`, of the system requirements (the OS conditions and the GPU conditions) and of the seven distribution formats for download. The same facts are also written in the guide's "Install" and "System requirements".
+
+When a fact is held twice, only one copy gets fixed. For example, #673 brings 0.6.0's change to a single Windows package into the guide's pages, but does not change the seven slots in `content.mjs` (including "ZIP (CUDA)"). Also, `content.mjs` calls the "Captions and VR" page "VR and overlay". The app's settings page was renamed "Captions and VR" on 2026-11-18, and the guide's sidebar uses that name.
+
+### P-03 There are two ways to switch the language
+
+The guide has a separate URL per language (`/ja/…` and `/en/…`) and shows which pages correspond with `hreflang`. The manual builds Japanese HTML only and switches it to English with a script. So readers without JavaScript and search engines cannot see the English manual. The manual's pages have no `hreflang` either.
+
+### P-04 There are two kinds of search
+
+The guide's search is a palette over the text of all pages (VitePress's local search, which also handles words inside Japanese sentences). The manual's search box only filters chapter titles, summaries and keywords. The manual's pages are `search: false`, so the guide's search leaves them out too.
+
+### P-05 The look matches neither the app nor the manual
+
+As described in "Three palettes side by side". The guide is dark only, while the manual switches between light and dark by the OS setting. The screenshots, videos and diagrams are still navy as well.
+
+### P-06 Components with the same role come in pairs
+
+| Role | Guide | Manual |
+|---|---|---|
+| Download button | `DownloadButton.vue` (502 lines. Lists the latest release's files by OS, with links to all versions and the source code) | `ManualDownload.vue` (342 lines. Lists seven distribution formats in fixed slots, and shows "Not in this release" for the missing ones) |
+| Language switching | The language menu in VitePress's navigation (moves to another URL) | `ManualLangMenu.vue` (switches in place) |
+| Callouts | VitePress's custom blocks (colors changed in `custom.css`) | `ManualCallout.vue` (six kinds, with faces) |
+| Keyboard handling for menus | Its own code inside `DownloadButton.vue` | `useMenu.ts` |
+
+### P-07 The mascot is only on the manual's home page
+
+The mascot (the devil penguin) appears only in the hero and in the mascot guide section of the manual's home page. The home page explains "Its face tells you what kind of note you are looking at", but no text uses the callouts with faces (`ManualCallout`). The mascot does not appear on the guide's pages.
+
+### P-08 The sidebar groups differ from the app's settings, and First setup is far from the start
+
+- "Getting started" has six pages, and the system requirements and platform support tables (which are read when looking something up) come before "First setup". A first-time reader goes through two reference tables before being able to send a message.
+- "What you want to do" has only two pages. "Use your own models" is apart from "Model downloads" (in Setup and operation).
+- "Setup and operation" lists models, audio routes, troubleshooting, privacy and the license. The audio route pages are also apart from "Inputs and outputs" (in Screens and integrations).
+- The feature groups differ from the groups of the app's settings menu (Conversation, Voice and reading, Ease of use, App; DESIGN.md's "Layout", #554). A reader who compares the app with the guide has to look for the same feature under a different group.
+
+### P-09 The top navigation leads to few places
+
+The top navigation has only "Guide", "Install" and "Troubleshooting". The download button is only on the home page, and there is no link to the release notes.
+
+### P-10 Some sentences break the rules for the words on screen
+
+DESIGN.md's "Words" decides that the user's PC is written as 「お使いのPC」 ("your PC") or that the PC is left out (#437). As of 2026-11-19, wording that breaks this rule appears in 15 places on 7 Japanese pages and in 9 places on 5 English pages. The English "this computer" also points at the reader's PC from the writer's side; counting it, the English pages have 16 places on 8 pages.
+
+### P-11 Some parts rely on VitePress internals
+
+- `LocalSearchBox.vue` is a copy that imports internal files of VitePress 1.6.4 (`vitepress/dist/client/…`). In VitePress 2 the original file has changed by about 410 lines (#690), and the copy has to be brought back in line when VitePress is upgraded.
+- `StepProgress.vue` reads the positions of `.VPNav` and `.VPLocalNav`, and `custom.css` overrides classes of the default theme such as `.VPSidebarItem` and `.VPHero`.
+
+### P-12 The strings are scattered
+
+The strings of the guide's components are split across `config.mts` (navigation, sidebar, search), the `WORDS` inside each component (`DownloadButton`, `CopyText`, `StepProgress`) and `routes.ts`. The check that the Japanese and English keys match exists only for the manual's `content.mjs` (`check_site_manual.mjs`).
+
+---
+
+# マニュアルサイトの棚卸し（2026-11-19）（日本語版）
 
 利用者向けのサイト（`site/`）の今の作りを記録した文書です。[再設計の提案](README.md)の前提にします。棚卸しは`develop`（`3d0acb57`）のファイルから作りました。サイトのコードは変えていません。
 

@@ -90,9 +90,10 @@ def prepare(output, run_ids, commit, version, branch):
         check_run(run, platform, commit, branch)
         directory = output / platform
         artifact = (
-            "VRCT-VOX-linux-x86_64-candidate"
+            # The candidate workflows' artifacts (VRCT-VOX-… up to 0.6.x; ADR-014, 2.2).
+            "ASTAROT-linux-x86_64-candidate"
             if platform == "linux"
-            else "VRCT-VOX-windows-candidate"
+            else "ASTAROT-windows-candidate"
         )
         subprocess.run(
             [

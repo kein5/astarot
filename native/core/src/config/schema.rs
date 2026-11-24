@@ -492,7 +492,7 @@ fn hotkeys() -> Check {
 /// Issue #361). The Python backend and the UI list the same ids; a backend test keeps them equal.
 ///
 /// [`src-python/models/experimental_features.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/experimental_features.py
-pub const EXPERIMENTAL_FEATURE_IDS: &[&str] = &["tray_companion"];
+pub const EXPERIMENTAL_FEATURE_IDS: &[&str] = &["tray_companion", "talk_ai"];
 
 fn experimental_features_default() -> Value {
     Value::Object(EXPERIMENTAL_FEATURE_IDS.iter().map(|id| (id.to_string(), Value::Bool(false))).collect())
@@ -525,15 +525,20 @@ fn experimental_features() -> Check {
 /// "all" shows every feature. The UI keeps what each one shows (`src-ui/logics/configs/usagePresets.ts`).
 pub const USAGE_PRESET_IDS: &[&str] = &["basic", "nonverbal", "multilingual", "voice_changer", "all"];
 
-/// Several presets can be picked; the menu and the switches show what any of them shows. The
-/// value is kept in the order above, each id once. An id this version does not know is left
-/// out (a later version may have one more), and a list with none it knows is refused.
+/// Several specific presets can be picked; the menu and the switches show what any of them shows.
+/// `"all"` and specific presets are mutually exclusive (#1107): a list that mixes them collapses
+/// to `["all"]` so nothing currently visible disappears unexpectedly. The value is kept in the
+/// order above, each id once. An id this version does not know is left out (a later version may
+/// have one more), and a list with none it knows is refused.
 fn usage_presets() -> Check {
     validated(|value, _| {
         let given = value.as_array()?;
         let mut ids = Vec::with_capacity(given.len());
         for item in given {
             ids.push(item.as_str()?);
+        }
+        if ids.contains(&"all") {
+            return Some(json!(["all"]));
         }
         let picked: Vec<Value> = USAGE_PRESET_IDS.iter().filter(|id| ids.contains(id)).map(|id| json!(id)).collect();
         (!picked.is_empty()).then_some(Value::Array(picked))
@@ -586,6 +591,7 @@ pub fn keys() -> Vec<Key> {
         readonly("PATH_DATA"),
         readonly("PATH_CONFIG"),
         readonly("PATH_LOGS"),
+        key("CONVERSATION_LOG_DIRECTORY", managed(Ty::Str, true, |_, _| true)),
         readonly("GITHUB_URL"),
         readonly("GITHUB_RELEASES_LIST_URL"),
         readonly("MIN_SUPPORTED_VERSION"),
@@ -651,6 +657,11 @@ pub fn keys() -> Vec<Key> {
         key("MIC_NO_SPEECH_PROB", num_in(0.0, 1.0)),
         immediate("HOTKEYS", hotkeys()),
         immediate("EXPERIMENTAL_FEATURES", experimental_features()),
+        key("TALK_AI_SCREEN_INTERVAL_MS", int_in(250, 10_000)),
+        key("TALK_AI_SCREEN_LONG_EDGE", int_in(256, 2048)),
+        key("TALK_AI_SCREEN_DETAIL", managed(Ty::Str, false, |v, _| matches!(v.as_str(), Some("auto" | "low" | "high")))),
+        key("TALK_AI_PROVIDER", managed(Ty::Str, false, |v, _| matches!(v.as_str(), Some("openai" | "vllm_omni")))),
+        key("TALK_AI_LOCAL_URL", managed(Ty::Str, false, |v, _| v.as_str().is_some_and(crate::controller::talk_ai::valid_local_url))),
         // What the settings menu and the main switches show (#554). It changes no feature.
         immediate("USAGE_PRESETS", usage_presets()),
         // How the model catalogs lay out their cards: "grid" or "list" (the settings' catalogs). It
@@ -856,6 +867,7 @@ pub fn defaults(env: &Environment) -> Map<String, Value> {
         ("PATH_DATA", json!(env.data_dir.to_string_lossy())),
         ("PATH_CONFIG", json!(env.state_dir.join("config.json").to_string_lossy())),
         ("PATH_LOGS", json!(env.state_dir.join("logs").to_string_lossy())),
+        ("CONVERSATION_LOG_DIRECTORY", Value::Null),
         ("GITHUB_URL", json!("https://api.github.com/repos/kein5/astarot/releases/latest")),
         ("GITHUB_RELEASES_LIST_URL", json!("https://api.github.com/repos/kein5/astarot/releases")),
         ("MIN_SUPPORTED_VERSION", json!("0.1.0")),
@@ -923,6 +935,11 @@ pub fn defaults(env: &Environment) -> Map<String, Value> {
             "toggle_voice_mute": null, "toggle_tts": null, "toggle_rvc": null,
         })),
         ("EXPERIMENTAL_FEATURES", experimental_features_default()),
+        ("TALK_AI_PROVIDER", json!("openai")),
+        ("TALK_AI_SCREEN_INTERVAL_MS", json!(1000)),
+        ("TALK_AI_SCREEN_LONG_EDGE", json!(1024)),
+        ("TALK_AI_SCREEN_DETAIL", json!("auto")),
+        ("TALK_AI_LOCAL_URL", json!("ws://127.0.0.1:8000/v1/realtime")),
         // A new install starts with the basic features; an update shows all (Config::migrate_usage_presets).
         ("USAGE_PRESETS", json!(["basic"])),
         ("CATALOG_LAYOUT", json!("grid")),

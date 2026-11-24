@@ -2,6 +2,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import type { EventCallback, UnlistenFn } from '@tauri-apps/api/event';
 import { getCurrentWindow, LogicalSize } from '@tauri-apps/api/window';
+import type { ThemeSetting } from '../theme/themes.ts';
 
 // The settings the Quick Chat window takes from the main window (quick_chat.rs, Context).
 export interface QuickChatContext {
@@ -11,6 +12,7 @@ export interface QuickChatContext {
     clear_on_send: boolean;
     ui_scaling: number;
     font_family: string;
+    theme?: ThemeSetting | null;
 }
 
 // One message handed to the main window (quick_chat.rs, Request).

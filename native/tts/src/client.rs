@@ -86,7 +86,7 @@ impl SpeechCppTts {
     /// `token` stops it, as speech that starts meanwhile does: the server then ends it once the
     /// connection closes, so that the speech does not wait behind it.
     pub fn warm_up(&self, voice: &str, language: &str, token: &CancelToken) -> Result<(), SpeechError> {
-        let failed = |_| SpeechError::new("transport_error");
+        let failed = transport_error;
         token.check()?;
         let mut connection = http::connect(&self.host, self.port, self.timeout).map_err(failed)?;
         let interrupter = connection.interrupter();
@@ -254,7 +254,7 @@ impl PcmStream {
             }
             match error {
                 HttpError::Timeout if waiting => SpeechError::new("first_audio_timeout"),
-                _ => SpeechError::new("transport_error"),
+                error => transport_error(error),
             }
         };
         token.check()?;
@@ -299,7 +299,7 @@ impl PcmStream {
             }
             match error {
                 HttpError::Timeout if waiting => SpeechError::new("first_audio_timeout"),
-                _ => SpeechError::new("transport_error"),
+                error => transport_error(error),
             }
         };
         loop {
@@ -388,5 +388,17 @@ impl Iterator for PcmStream {
 impl Drop for PcmStream {
     fn drop(&mut self) {
         self.close();
+    }
+}
+
+/// `transport_error`, with how the answer failed (#861): `socket`, `ended_early` or `malformed`
+/// ([`http::Fault`]); `stalled` when a send or a receive passed its time limit (after the first
+/// audio, the limit for a stalled stream); `interrupted` when an interrupt woke it without a
+/// cancel.
+fn transport_error(error: HttpError) -> SpeechError {
+    match error {
+        HttpError::Timeout => SpeechError::transport("stalled"),
+        HttpError::Interrupted => SpeechError::transport("interrupted"),
+        HttpError::Transport(fault) => SpeechError::transport(fault.word()),
     }
 }

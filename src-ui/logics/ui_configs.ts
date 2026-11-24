@@ -158,6 +158,10 @@ export const vrct_document_url_chunk_ui_guide = "guide/first-setup";
 // Each model setting links to its own section: #tts, #asr, #whisper-server, #rvc, #seed-vc, #translation.
 export const vrct_document_url_chunk_custom_models = "guide/custom-models";
 
+// Official ASTAROT Discord server invite URL (#1087). Kept in one place so a rotated invite
+// only needs a single update here and in src-tauri/capabilities/vrct_capability.json.
+export const astarot_discord_invite_url = "https://discord.gg/2kd3MSTnbE";
+
 // The upstream VRCT documentation, linked from the credits for the original VRCT on About.
 export const upstream_vrct_document_url = (lang_code = "en") =>
     `https://misyaguziya.github.io/VRCT-Docs/${lang_code === "ja" ? "ja" : ""}`;

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import styles from "./ThresholdComponent.module.scss";
+import * as styles from "./ThresholdComponent.css.ts";
 import { SliderAndMeter } from "./slider_and_meter/SliderAndMeter";
 import { ThresholdEntry } from "./threshold_entry/ThresholdEntry";
 import { VolumeCheckButton } from "./volume_check_button/VolumeCheckButton";

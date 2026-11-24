@@ -118,13 +118,13 @@ impl VrLayout {
         (at(x), at(y), at(x + w), at(y + h))
     }
 
-    /// `setOverlayTextureBounds` as (uMin, uMax, vMin, vMax). In the OpenGL texture row `y` from
-    /// the top is `v = 1 - y / H`; vMin is the top edge of the shown region (`regionBounds`).
+    /// Bounds within the captured image as (uMin, uMax, vMin, vMax). The native capture is
+    /// uploaded from the top row down, so the top edge of the texture is v = 0.
     pub fn region_bounds(&self, region: Region) -> (f64, f64, f64, f64) {
         let (aw, ah) = (f64::from(self.atlas.0), f64::from(self.atlas.1));
         let (x, y, w, h) = self.region(region);
         let (x, y, w, h) = (f64::from(x), f64::from(y), f64::from(w), f64::from(h));
-        (x / aw, (x + w) / aw, 1.0 - y / ah, 1.0 - (y + h) / ah)
+        (x / aw, (x + w) / aw, y / ah, (y + h) / ah)
     }
 }
 

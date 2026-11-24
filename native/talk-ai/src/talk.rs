@@ -12,7 +12,7 @@
 
 use crate::connection::{self, Network, OpenError, Service, Socket};
 use crate::conversation::{Conversation, Effect, Event, Input};
-use crate::protocol::{self, ServerEvent, SessionSettings};
+use crate::protocol::{self, ImageDetail, ServerEvent, SessionSettings};
 use serde_json::Value;
 use std::collections::VecDeque;
 use std::sync::mpsc::{self, Receiver, Sender, SyncSender};
@@ -22,7 +22,7 @@ use tungstenite::Message;
 use astarot_translation::http::Cancel;
 
 /// How long one read waits before the thread sends what came meanwhile.
-const POLL: Duration = Duration::from_millis(20);
+pub(crate) const POLL: Duration = Duration::from_millis(20);
 /// Audio and pictures waiting to be sent: 64 parts of 20 ms are 1.3 s.
 const MEDIA_QUEUE: usize = 64;
 
@@ -35,11 +35,12 @@ pub struct Options {
     /// How many of the latest pictures stay in the conversation (at least 1); older ones are
     /// taken out, so that a long conversation does not carry every picture it was shown.
     pub keep_images: usize,
+    pub image_detail: Option<ImageDetail>,
 }
 
 impl Default for Options {
     fn default() -> Options {
-        Options { network: Network::SystemProxy, wait: Duration::from_secs(10), keep_images: 1 }
+        Options { network: Network::SystemProxy, wait: Duration::from_secs(10), keep_images: 1, image_detail: None }
     }
 }
 
@@ -86,12 +87,12 @@ pub enum Update {
 
 pub type OnUpdate = Box<dyn FnMut(Update) + Send>;
 
-enum Media {
+pub(crate) enum Media {
     Audio(Vec<u8>),
     Image(Vec<u8>),
 }
 
-enum Control {
+pub(crate) enum Control {
     Played { item_id: String, ms: u64 },
     Interrupt,
     EndTurn,
@@ -118,6 +119,10 @@ impl Talk {
     /// Connects and opens the conversation. `on_update` hears [`Event::Ready`] once the settings
     /// were taken, and [`Update::Closed`] when it ends.
     pub fn start(service: Service, settings: SessionSettings, options: Options, on_update: OnUpdate) -> Talk {
+        Self::spawn(move |media, control, cancel| run(service, settings, options, media, control, cancel, on_update))
+    }
+
+    pub(crate) fn spawn(run: impl FnOnce(Receiver<Media>, Receiver<Control>, Cancel) + Send + 'static) -> Talk {
         let (media, media_inbox) = mpsc::sync_channel(MEDIA_QUEUE);
         let (control, control_inbox) = mpsc::channel();
         let cancel = Cancel::new();
@@ -125,7 +130,7 @@ impl Talk {
         // A thread that cannot be made leaves a conversation that takes nothing and never opens.
         let worker = std::thread::Builder::new()
             .name("talk-ai".into())
-            .spawn(move || run(service, settings, options, media_inbox, control_inbox, cancel, on_update))
+            .spawn(move || run(media_inbox, control_inbox, cancel))
             .ok();
         Talk { media, control, stop, worker }
     }
@@ -155,6 +160,11 @@ impl Talk {
     /// The user's turn ends: the service answers what it heard ([`protocol::Turns::Manual`]).
     pub fn end_turn(&self) {
         let _ = self.control.send(Control::EndTurn);
+    }
+
+    /// Revokes the connection and any queued media immediately, without joining the worker.
+    pub fn cancel(&self) {
+        self.stop.stop();
     }
 
     /// Ends the conversation and waits up to `timeout` for its thread. `true` when it ended.
@@ -216,23 +226,15 @@ impl Session {
             if cancel.is_cancelled() {
                 return Ok(());
             }
-            self.take_control(control, on_update)?;
-            while let Ok(item) = media.try_recv() {
-                if !self.conversation.ready() {
-                    continue;
-                }
-                match item {
-                    Media::Audio(pcm) => self.send(&protocol::append_audio(&pcm))?,
-                    Media::Image(jpeg) => self.send_image(&jpeg)?,
-                }
-            }
+            self.take_control(control, media, cancel, on_update)?;
+            self.take_media(media, cancel, 8)?;
             match self.socket.read() {
                 Ok(Message::Text(text)) => {
                     // An event that cannot be read is left; the conversation goes on.
                     if let Ok(event) = protocol::parse(text.as_str()) {
                         // What the app said before the event came counts first: how far an answer
                         // played decides where the user's speech cuts it.
-                        self.take_control(control, on_update)?;
+                        self.take_control(control, media, cancel, on_update)?;
                         let opening = !self.conversation.ready();
                         let refused = opening && matches!(event, ServerEvent::Error { .. });
                         let effects = self.conversation.step(Input::Server(event));
@@ -261,13 +263,39 @@ impl Session {
         }
     }
 
+    fn take_media(&mut self, media: &Receiver<Media>, cancel: &Cancel, limit: usize) -> Result<(), Failure> {
+        for _ in 0..limit {
+            if cancel.is_cancelled() {
+                break;
+            }
+            let Ok(item) = media.try_recv() else { break };
+            if self.conversation.ready() {
+                match item {
+                    Media::Audio(pcm) => self.send(&protocol::append_audio(&pcm))?,
+                    Media::Image(jpeg) => self.send_image(&jpeg)?,
+                }
+            }
+        }
+        Ok(())
+    }
+
     /// Carries out what the app said about playback and turns.
-    fn take_control(&mut self, control: &Receiver<Control>, on_update: &mut OnUpdate) -> Result<(), Failure> {
-        while let Ok(command) = control.try_recv() {
+    fn take_control(&mut self, control: &Receiver<Control>, media: &Receiver<Media>, cancel: &Cancel, on_update: &mut OnUpdate) -> Result<(), Failure> {
+        for command in control.try_iter().take(64) {
+            if cancel.is_cancelled() {
+                break;
+            }
             let input = match command {
                 Control::Played { item_id, ms } => Input::Played { item_id, ms },
                 Control::Interrupt => Input::Interrupt,
-                Control::EndTurn => Input::EndTurn,
+                Control::EndTurn => {
+                    // Forward the audio already queued when the app ended this turn.
+                    self.take_media(media, cancel, MEDIA_QUEUE)?;
+                    if cancel.is_cancelled() {
+                        break;
+                    }
+                    Input::EndTurn
+                }
             };
             let effects = self.conversation.step(input);
             self.apply(effects, on_update)?;
@@ -292,7 +320,7 @@ impl Session {
     fn send_image(&mut self, jpeg: &[u8]) -> Result<(), Failure> {
         self.image_count += 1;
         let id = format!("img_{}", self.image_count);
-        self.send(&protocol::image(&id, jpeg))?;
+        self.send(&protocol::image_with_detail(&id, jpeg, self.options.image_detail))?;
         self.images.push_back(id);
         while self.images.len() > self.options.keep_images.max(1) {
             let Some(old) = self.images.pop_front() else { break };

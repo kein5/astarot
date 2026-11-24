@@ -1,4 +1,323 @@
-# 情報設計の見直し（#554）
+# Information architecture review (#554)
+
+[日本語版](#情報設計の見直し554日本語版)
+
+As features were added, the basic features, the advanced settings and the experimental features came to sit side by side with the same weight. This document is a design proposal for deciding what goes where. It removes no features. It reorganizes how they are shown and how users reach them.
+
+- Status: the approach is decided (2026-11-18; only Q-08 is on hold). Stages 1 to 4 have been implemented. See [Decisions and implementation](#decisions-and-implementation) below.
+- Scope: the main page, the settings screen and the first-run flow
+- Out of scope: components and look (#452). This document covers only the layer of where information is placed.
+- Linked work: #557 one-click initial setup, #537 button labels that state where the button leads, #515 the i18n quality gate
+
+The inventory in this document was taken from the code on `develop` (`945951d2`).
+
+## Current inventory
+
+### Main page
+
+| Place | Always shown | Shown only when needed |
+|---|---|---|
+| Rail (`main_function_switch/MainFunctionSwitch.jsx`) | 6 switches: Translation, Mic input, Listening, Chat reading (OCR), Text to speech (TTS) and Voice changer (RVC). Beside each switch, a button that opens its settings page | A switch whose setup is incomplete, grayed out, with the reason |
+| Rail (`language_settings/`) | 3 language presets, your language, target languages (up to 3), swap, translator choice | In a narrow window, the icon rail and the language pair |
+| Top bar (`top_bar/`) | Stop speech, Mute, Help, Quick settings | The update notice, the inputs and outputs panel (`io_flow`), the realtime captions controls (`realtime_controls/`) |
+| Quick settings | Always on top, VRC mic mute sync, subtitle overlay, VRChat and OSC detection | — |
+| Conversation | Log, composer, send button | The guidance shown when it is empty and the list of missing models (`setupNeeds.ts`), the character count warning, the log display settings |
+
+The 6 switches always appear at the same size and in the same order. Besides speech recognition, translation and captions, which #554 treats as the basics, OCR, TTS and RVC are lined up with the same weight.
+
+### Settings
+
+The menu on the left has 14 tabs (`config_page/sidebar_section/SidebarSection.jsx`). The table lists them in the current display order. There is only one separator, before "About ASTAROT".
+
+| # | Tab | Main contents (in heading order) | Folded parts |
+|---|---|---|---|
+| 1 | Device | Audio route, microphone (host, device, auto select, sensitivity mode VAD/automatic/manual and threshold, VRC mic mute sync), speaker (device, threshold) | None |
+| 2 | Appearance | Display (UI language, UI size, log font size, font, transparency), send buttons (style, resend button, clear the composer after sending), reading aids (hiragana, romaji) | None |
+| 3 | Translation | AI translation (local models and compute device), external translation APIs (DeepL, Google Cloud, Papago, Plamo, Gemini, OpenAI, OpenAI-compatible, Groq, OpenRouter), local LLMs (LM Studio, Ollama) | Models and servers. Each provider is folded into one line, and only the one in use is open |
+| 4 | Speech recognition (ASR) | Engine choice, cloud engines, microphone (word filter, timing), speaker (timing), realtime captions (server, model, device, vocabulary), the bundled speech.cpp server (recognition, VAD and diarization models), old Whisper weights (only while they remain) | Timing; servers and models |
+| 5 | VRChat | Presence readout, chatbox (send, send only the translation, notification sound, also send received messages, mic mute sync), message format, OSC (IP, port), audio route, TTS output, a pointer to chat reading | None |
+| 6 | Chat reading (OCR) | State, language to read, required models, detection (detector, area, chatbox filter), performance (window name, interval, confidence, minimum number of characters) | Performance |
+| 7 | VR | VR overlay (single line / multiple lines, enable, position, rotation, transparency, scale, display time), common settings (show only the translation, voice input mode), font, desktop captions, the VR UI marked as a beta feature | None |
+| 8 | Hotkeys | Quick Chat, toggles (show the window, translation, mic input, listening), voice (stop, mute, TTS, RVC) | None |
+| 9 | Text to speech (TTS) | Engine (speech.cpp, COEIROINK), voice, generation settings (seed, instructions), monitor, output and the virtual microphone guide (Windows), the bundled speech.cpp servers (Japanese, multilingual) | Models and servers |
+| 10 | Voice changer (RVC) | RVC model choice, runtime download, model download, worker settings | Models and servers |
+| 11 | Advanced | Logs (auto save), config file (open the folder), usage data, WebSocket (host, TLS, port, URL, token), input forwarding, OBS browser source (URL, port, number of messages shown, display time, text size and color, outline) | The input forwarding server |
+| 12 | Experimental | Hexagram overlay (edge, monitor) | None |
+| 13 | Updater | Version and state, check, install, release page | None |
+| 14 | About ASTAROT | Overview, upstream VRCT, links, acknowledgments | None |
+
+Counting the rows you can operate (settings, action buttons, links), the 13 tabs other than "About ASTAROT" have about 240 rows. The largest are speech recognition (about 42 rows), TTS (about 40 rows), then translation, VR and Advanced (about 25 rows each). The count includes rows that appear only under a condition and rows inside folds.
+
+Settings have a search field that finds items on every tab (`search_bar/SearchBar.jsx`). Choosing a result opens the folds around the item (`<details>`) and moves to it (`logics/configs/config_page_setter/_aux/useConfigSearch.ts`).
+
+Besides the settings screen, the VR UI has a settings window of its own. It shows part of Device, Appearance, Translation, Speech recognition, VRChat and VR (`views/vr/VrSettingsWindow.tsx`).
+
+### First-run guidance
+
+There is no first-run setup flow (wizard). The first-run guidance is not gathered in one place either. The items below appear separately, each when the situation calls for it (the controllers in `App.jsx`).
+
+| Guidance | When it appears |
+|---|---|
+| The usage data notice (`TelemetryNoticeController`) | The first start |
+| Choosing a speech recognition engine and consenting (`TranscriptionConsentController`) | When mic input or listening is turned on while no engine is chosen |
+| Downloading a translation model (`TranslationSetupController`) | When translation is used while the local translation model is missing |
+| Preparing chat reading (`OcrSetupController`) | When OCR is turned on while its models are missing |
+| The virtual microphone guide (`VirtualMicGuideController`, Windows) | When no virtual cable is found at startup (after the two notices above). It also opens from buttons on the TTS and VRChat pages |
+| The local speech recognition migration notice (`LocalAsrNoticeController`) | After an update from an earlier version (once) |
+| The conversation's empty state | While there is no conversation. It lists the missing models and the steps to enable OSC |
+
+## Observed problems
+
+| ID | Problem | Evidence |
+|---|---|---|
+| IA-01 | There are 14 tabs, and their order does not follow the order of use. Device comes first, and TTS and RVC are near the end. There are no group headings either. | `SidebarSection.jsx` |
+| IA-02 | "Advanced" holds things of different kinds. Logs, the settings folder, usage data, integrations with other software (WebSocket, OBS) and a voice feature (input forwarding) share one page. | `AdvancedSettings.jsx` |
+| IA-03 | The same setting appears in several places. VRC mic mute sync appears in three: Device, VRChat and quick settings. The audio route appears on Device and VRChat, and a summary of it also appears on TTS, RVC and Advanced. The TTS output appears on TTS and VRChat, and the log font size on Appearance and in the conversation. The placement is intended, but the screen does not show which place is the setting's home. | `Vrchat.jsx`, `Device.jsx` |
+| IA-04 | Beta features are not gathered on the Experimental page. The VR UI sits on the VR page, marked "Beta feature". | `vr_ui_beta` in `Vr.jsx` |
+| IA-05 | On some pages, basic items and items you set once and leave sit side by side with the same weight. Device, Appearance, VRChat, VR and Hotkeys have no folded parts. | The "Folded parts" column of the table above |
+| IA-06 | The 6 switches on the main page sit side by side with the same weight, whether they are used or not. | `MainFunctionSwitch.jsx` |
+| IA-07 | The first-run guidance has no order and no overview. No single place shows what is done and what is left. | The controllers in `App.jsx` |
+| IA-08 | Some buttons that move to another page do not say so in their labels. | #537 |
+
+## Classification axes
+
+Items are sorted along 2 axes. The first is how far forward an item is brought (depth). The second is what the feature is for (feature cluster).
+
+### Depth (4 levels)
+
+| Level | Meaning | Placement |
+|---|---|---|
+| Basic | What a first-time user needs to use speech recognition, translation and captions | Visible as soon as the page opens |
+| Tuning | What you change to fit how you use the app; what you set once and leave | In the "More settings" fold on the page. The fold's line shows the current values |
+| Experimental | Features that have not yet passed their checks and graduated. Off by default | Only on the "Experimental" page |
+| Integration and maintenance | Integration with other software, logs, the settings file | On the "Advanced" page |
+
+Every item, at every level, can be found with the settings search. The depth that #554 asks for, "not noticed until opened, but found when searched for", is met by combining folds with search.
+
+### Feature clusters (groups in the settings menu)
+
+The menu is split into 4 groups in the order a conversation uses them. Each group gets a heading.
+
+```mermaid
+flowchart LR
+  subgraph G1["Conversation"]
+    A1["Translation"] --- A2["Speech recognition (ASR)"] --- A3["VRChat"] --- A4["Captions and VR"]
+  end
+  subgraph G2["Voice and reading"]
+    B1["Text to speech (TTS)"] --- B2["Voice changer (RVC)"] --- B3["Chat reading (OCR)"]
+  end
+  subgraph G3["Ease of use"]
+    C1["Device"] --- C2["Appearance"] --- C3["Hotkeys"]
+  end
+  subgraph G4["App"]
+    D1["Updater"] --- D2["Advanced"] --- D3["Experimental"] --- D4["About ASTAROT"]
+  end
+  G1 --> G2 --> G3 --> G4
+```
+
+- The proposal renames "VR" to "Captions and VR", because most of what the page holds is how captions are shown ([Open questions](#open-questions) Q-04).
+- Device includes basic items that are needed when choosing a microphone. But the first-run flow (#557) decides the first setup, so the proposal puts Device under "Ease of use" in the menu (Q-03).
+
+### Proposed classification of each item
+
+The proposal puts "Basic" items in view and "Tuning" items in the "More settings" fold. ✱ marks an item that the proposal moves from where it is now.
+
+| Page | Basic | Tuning | Experimental / integration and maintenance |
+|---|---|---|---|
+| Translation | Local translation model download and state, the translation catalog (adding your own models and APIs; #413; moved by #597 to the end of the page, outside the fold) | Compute device, external translation APIs, local LLMs | — |
+| Speech recognition (ASR) | Engine choice, the speech.cpp system (recognition and VAD model download and state), the API system (a fold and a key for each provider; moved from Tuning by #414) | Word filter, timing, the realtime captions server and vocabulary, speaker diarization | Old Whisper weights (only while they remain; unchanged) |
+| VRChat | Presence readout, send to the chatbox, send only the translation | Notification sound, also send received messages, mic mute sync, message format, the audio route and the TTS output (made into pointers to their home ✱) | OSC IP and port (to integration and maintenance ✱; Q-06) |
+| Captions and VR | Enabling the VR overlay, enabling desktop captions | Position, rotation, transparency, scale, display time, font, show only the translation, voice input mode | VR UI (to Experimental ✱; Q-05) |
+| TTS | Engine, voice, output (including the virtual microphone guide), model download | Generation settings, monitor, server device | — |
+| RVC | Model choice, runtime and model download | Worker settings | — |
+| OCR | State, language to read, model download | Detector, area, filter, performance | — |
+| Device | Microphone, speaker | Sensitivity mode and threshold, audio route | — |
+| Appearance | UI language, UI size | Log font size, font, transparency, send buttons, reading aids | — |
+| Hotkeys | Stop and mute | Everything else | — |
+| Advanced | Usage data (its place is Q-08) | Input forwarding (to the RVC page ✱; Q-07) | Logs, settings folder, WebSocket, OBS browser source |
+
+## Usage presets (narrowing what is shown)
+
+### Concept
+
+When you choose a use, only the features and settings that use needs are shown in front. No setting value changes. This is different from profile switching (switching a whole set of settings), which was set aside earlier.
+
+The presets keep these 4 rules:
+
+1. Values do not change. Choosing or switching a preset does not turn features on or off, and does not change devices, the audio route or models. It does not open the microphone either.
+2. What is running is not hidden. The switch of a feature that is on appears in every preset. The way to stop it never goes out of sight. Stop and mute always appear.
+3. Hidden settings can still be found by looking. The search and "Everything" reach them. A page opened from a search result shows all its items, whatever the preset.
+4. Only the display is chosen. What is saved is one UI value that stands for the chosen use (the key's name and format are decided at implementation; Q-11).
+
+### Candidate uses
+
+| Use | Intended way of using the app | Switches on the main page | Pages shown in the settings menu |
+|---|---|---|---|
+| Basic (default) | Recognize and translate your own voice, and show it in captions and the chatbox | Translation, Mic input, Listening | Translation, Speech recognition, VRChat, Captions and VR, Device |
+| Nonverbal | Talk in text without speaking. Read others' voices and chat | Translation, Listening, TTS, Chat reading | Translation, Speech recognition, VRChat, Captions and VR, TTS, OCR |
+| Multilingual conversation | Talk by voice with people of several languages | Translation, Mic input, Listening, TTS | Translation, Speech recognition, VRChat, Captions and VR, TTS |
+| Voice changer (RVC) | Talk in a changed voice. Translation is optional | RVC, Translation, Mic input | RVC, Device, VRChat, Translation |
+| Everything | Same as now | All 6 | All 14 pages |
+
+- The "App" group (Updater, Advanced, Experimental, About ASTAROT), Appearance and Hotkeys appear for every use.
+- Using TTS with Nonverbal needs the audio route and the virtual microphone guide. The proposal puts them on the TTS page, so it does not show the Device page.
+
+### Assessment
+
+| Aspect | Assessment |
+|---|---|
+| First-time users | Choosing one use is enough to remove the features they do not need. This fits the aim of #554. |
+| Experienced users | Choosing "Everything" gives the same view as now. |
+| Safety | Values do not change, so switching presets cannot cause accidents such as a changed audio route or microphone. |
+| Cost | The UI holds one table of which item belongs to which use. Each new feature needs that table updated (Q-12). |
+| Clarity | If users cannot guess what a use contains from its name, the presets confuse them instead. Users need to try the names and descriptions. |
+| Several uses | Some people use both, such as "Nonverbal" and "Voice changer (RVC)". Whether to allow one choice only or several is undecided (Q-09). |
+
+## Progressive disclosure design
+
+### On the main page
+
+- Stop, mute, the composer, send and the language settings always appear, whatever the use.
+- The switches are narrowed to fit the use. A switch that is on always appears (rule 2 of the rules above).
+- To show the hidden switches, one "Other features" row sits under the row of switches. Pressing it opens the hidden switches in place. It changes no setting (Q-10).
+- Quick settings, the inputs and outputs panel and the realtime captions controls stay as they are.
+
+### In settings
+
+```mermaid
+flowchart TD
+  M["Settings menu<br/>with group headings"] --> P["Page"]
+  P --> B["Basic items<br/>visible on opening"]
+  P --> S["Models and servers<br/>(existing fold, one-line status)"]
+  P --> A["More settings<br/>(new fold, current values on one line)"]
+  Q["Search"] -.->|"opens the fold, goes to the item"| A
+```
+
+- Each page runs in the order "basic items → Models and servers → More settings". "More settings" is a fold of the same shape as the existing "Models and servers" fold (`SetupSection`), so no component is added.
+- The fold's line shows how many values were changed, or the main values. You can tell that something differs from the default without opening the fold.
+- An item with unsaved changes marks the fold's line even when it is inside the fold (the same rule as the save bar's mark today).
+- If the item chosen in a search is inside a fold, the fold opens first and then the page moves to the item. The search today opens native `<details>`, so if "More settings" is built with `<details>` too, the existing mechanism reaches it unchanged.
+- For a setting that appears on several pages (IA-03), one page is decided as its home. The other pages carry only a button that says where it leads (the form from #537).
+
+### Gathering experimental features
+
+- Whatever is marked "Beta feature" or "Experiment" is gathered on the Experimental page. Today that is the VR UI (Q-05).
+- Every item on the Experimental page stays off by default. It uses the existing `EXPERIMENTAL_FEATURES` framework (the section on experimental features in `docs/spec/cross-cutting.md`). Whether the VR UI goes into that framework is decided separately, because it needs a migration of saved values.
+
+## First-run flow (linked with #557)
+
+First-run setup is combined into one flow. What goes into the flow (automatic detection, installing a virtual microphone, model recommendations, volume adjustment) is built in #557. This document decides where in the flow to ask what, and what to leave to the settings afterward.
+
+```mermaid
+flowchart TD
+  S0["Start"] --> S1["UI language"]
+  S1 --> S2["Choose the use<br/>(usage presets)"]
+  S2 --> S3["Automatic checks<br/>VRChat and OSC, microphone, speaker"]
+  S3 --> S4["Prepare what the use needs<br/>model download (consent), virtual microphone"]
+  S4 --> S5["Your language and target languages"]
+  S5 --> S6["Main page<br/>what is missing stays in the empty state"]
+  S2 -.->|"later"| S6
+  S3 -.->|"cannot be done automatically"| H["Pointer to the settings page for manual setup"]
+```
+
+### What the first run asks and what is changed later
+
+| Item | Asked at the first run | Changed later in settings |
+|---|---|---|
+| UI language | Asked | Appearance |
+| Use | Asked ("later" can be chosen) | Top of the settings menu, or Appearance (Q-13) |
+| Usage data | The existing notice goes into the flow | Advanced |
+| Microphone and speaker | Chosen automatically; only the result is shown | Device |
+| VRChat and OSC | Checked automatically; if it is off, the steps are shown | VRChat |
+| Speech recognition engine | Only when the use needs the microphone or listening. Includes consent | Speech recognition (ASR) |
+| Model download | Only what the use needs. The size and license are shown and consent is asked | "Models and servers" on each page |
+| Virtual microphone | Only when the use needs TTS or RVC (Windows) | TTS, RVC |
+| Your language and target languages | Asked | The language settings on the main page |
+| Caption position, hotkeys, appearance, translation APIs | Not asked | Each page |
+
+### Rules for the flow
+
+- The first-run flow, too, does not open the microphone, download models, send messages or change the audio route until the user presses a button (`PRODUCT.md`).
+- Any step can be left with "later". After leaving, what is missing still stays in the conversation's empty state (the existing `setupNeeds.ts` mechanism).
+- The guidance that now appears separately ([First-run guidance](#first-run-guidance)) is not shown for what the flow has finished. Users who left the flow see it in the same situations as now.
+
+## How to proceed
+
+Following #554's "do not go straight into implementation", implementation starts after this document settles the approach. After each stage, check that the app can be used with the basic features alone.
+
+| Stage | Contents | Change in behavior |
+|---|---|---|
+| 0 | Decide the classification and the approach in this document | None |
+| 1 | Group headings and a new order in the settings menu, buttons that say where they lead (#537), sorting out duplicated settings | Display only |
+| 2 | A "More settings" fold on each page, search that opens folds | Display only |
+| 3 | Gathering experimental features (VR UI) | Needs a migration of saved values |
+| 4 | Usage presets (narrowing the settings menu and the main page) | Display only. One UI value is saved |
+| 5 | First-run flow (together with #557) | A new flow |
+
+Proposed check: ask people using the app for the first time to "translate what you say into the microphone into English and show it in the VRChat chatbox" and to "caption the other person's voice", then record where they got lost and how many pages they opened. Prepare one task of the same form for each of the other uses too.
+
+The stages that change wording (1, 2, 4, 5) update `locales/en.yml` and `locales/ja.yml` and pass the #515 quality gate.
+
+## Open questions
+
+These points need a decision. This document does not decide them.
+
+| ID | Question | This document's proposal |
+|---|---|---|
+| Q-01 | Whether depth has 4 levels, or 3 with "Integration and maintenance" merged into "Tuning" | 4 levels |
+| Q-02 | Whether the settings menu has 4 groups, and the groups' names | Conversation, Voice and reading, Ease of use, App |
+| Q-03 | Whether Device goes under "Conversation" or "Ease of use" | Ease of use (because the first-run flow decides it) |
+| Q-04 | Whether to rename the "VR" page to "Captions and VR". If it is renamed, the main page's switch, the hotkeys and the user guide take the same name | Rename |
+| Q-05 | Whether to move the VR UI (the VR UI beta) to Experimental. If it moves, the value of users who have it on is carried over | Move |
+| Q-06 | Whether to keep the OSC IP and port on the VRChat page or return them to Advanced | To Advanced. The VRChat page keeps only the presence readout and the steps |
+| Q-07 | Whether to move input forwarding from Advanced to the RVC page (or Device) | To "More settings" on the RVC page |
+| Q-08 | Where usage data goes: stay in Advanced, or become a privacy item of its own | Undecided. Decided together with the privacy explanation (#564) |
+| Q-09 | Whether to choose one use only or several | Several (the union is shown) |
+| Q-10 | How the main page shows hidden switches (an "Other features" row, the settings menu only, and so on) | An "Other features" row |
+| Q-11 | Where the chosen use is saved: a key in the settings file, or storage in the UI only | A key in the settings file. Update the list of IPC and setting keys (`docs/spec/reference/`) |
+| Q-12 | Where to keep the table that maps items to uses (a UI constant, the spec) | One UI constant, referenced from the spec |
+| Q-13 | Where the use is changed later | The top of the settings menu |
+| Q-14 | The names of the uses (whether users understand "Nonverbal"; the English names) | Decide after users try them |
+| Q-15 | The default use. How to treat people who chose nothing in the first-run flow and people who updated from an earlier version | New users get "Basic". Users who updated get "Everything" (keeping the same look as now) |
+
+## Decisions and implementation
+
+### Decisions (2026-11-18)
+
+Of Q-01 to Q-15 in [Open questions](#open-questions), all except Q-08 were decided as the table's "This document's proposal" column says (comments on #554). Q-08 (where usage data goes) is decided together with the privacy explanation (#564). Until then it stays where it is now, in "Advanced".
+
+### What was implemented
+
+Stages 1 to 4 of [How to proceed](#how-to-proceed) have been implemented. Stage 5 (the first-run flow) is built in #557.
+
+| Stage | Implementation |
+|---|---|
+| 1 | Split the settings menu into 4 groups with headings (`src-ui/logics/configs/settingsMenu.ts`). Settings open on the first page, "Translation". Renamed "VR" to "Captions and VR" and updated the user guide to match. Returned the OSC IP and port to "Advanced", and put the presence readout and a row with a button that says where it leads on the VRChat page. The audio route and the TTS output, which were on the VRChat page, and VRC mic mute sync, which was on the Device page, are now only on their home pages; the other pages have a row with a button that says where it leads (`PagePointer`) |
+| 2 | Put a "More settings" fold (`AdvancedSection`) on each page. The fold's line shows the main values. When a row inside the fold has unsaved changes, the fold's line is marked too. Search and the buttons that say where they lead open the fold and move to the item (`revealSetting.ts`). Moved input forwarding to "More settings" on the RVC page |
+| 3 | Moved the VR UI switch and the button that brings back the launcher to the "Experimental" page. Put a row with a button that says where it leads on the "Captions and VR" page |
+| 4 | Added usage presets. The table is in `src-ui/logics/configs/usagePresets.ts`, and the choice is saved in the setting key `USAGE_PRESETS` ([spec](../../spec/cross-cutting.md#用途別プリセット)). The uses are chosen at the top of the settings menu. The main page's switches are narrowed by use, and the hidden ones are shown with the "Other features" row |
+
+### Changes from this document's proposal
+
+- The fold's line shows not "the number of changed values" but main values chosen for each page (on or off, counts, seconds and so on). The UI does not hold the default values of many settings, so it cannot count the changes correctly.
+- The VR UI was not put in the `EXPERIMENTAL_FEATURES` dictionary. It is listed on the Experimental page with its existing saved value `OVERLAY_VR_PANEL`. The saved form does not change, so the value of users who had it on carries over as it is. Putting it in the dictionary needs a rewrite of the VR overlay processing and a check on real SteamVR hardware, so that is decided separately.
+- The TTS page's "More settings" is inside the TTS settings form, so the save bar can save it together with the rest of the form. That puts it above "Models and servers".
+- The worker settings on the RVC page stay in their existing fold (inside the RVC form). "More settings" holds input forwarding.
+- On the "Captions and VR" page, turning on the VR captions became 2 checkboxes in view, single line and multiple lines, and "Enable" was removed from the position and look editing.
+- During startup (before the use value arrives), the main page shows all 6 switches, and once the value arrives it reduces them to fit the use. Hiding switches before the use value arrives would make the switches of users who updated look as if they had disappeared.
+- On the speech recognition page, #414 split the engines into 2 systems, the same idea as the translation catalog (#413). Under the engine choice come "On your PC (speech.cpp)" (Models and servers) and "API (cloud or your own server)" (a fold for each provider), in that order. The cloud engines moved from "More settings" to the API system. Whether an engine can be chosen depends on registering its key, so it is easier to understand right under the engine choice. Realtime captions are set once and left alone, so they stay in "More settings". Their "External server" is a speech.cpp server running on your PC (loopback addresses only), so it belongs to the speech.cpp system, not the API system.
+- The "Translation catalog" on the Translation page (#413) was taken out of the "More settings" fold by #597 and placed as a section of its own at the end of the page, after the fold. This keeps the models and APIs users added from being hidden in the fold. The fold's heading line shows only the numbers of external translation APIs and local LLMs, so it also no longer disagrees with the fact that it does not count the added entries.
+
+### What remains
+
+- The names and descriptions of the uses are provisional. They are decided after users try them (Q-14).
+- The check of "whether the app can be used with the basic features alone without getting lost" (the proposed check in [How to proceed](#how-to-proceed)) has not been done yet.
+- The user guide's screenshots (`site/public/screenshots/`) have not been retaken to match the screen changes.
+- Choosing the use in the first-run flow (stage 5, #557) is added in #557.
+
+---
+
+# 情報設計の見直し（#554）（日本語版）
 
 機能が増え、基本の機能と高度な設定と実験的な機能が同じ重さで並んでいます。この文書は何をどこに置くかを決めるための設計案です。機能は減らしません。見せ方と届け方を整理します。
 

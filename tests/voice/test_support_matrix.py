@@ -64,8 +64,11 @@ def test_the_windows_rows_name_every_windows_release_file(lang):
         if is_windows(row)
         for name in re.findall(r"`([^`]+\.(?:exe|zip))`", row[1])
     }
-    # Raises unless the names are exactly the files a Windows release candidate carries.
-    release_candidate.names("windows", "0.0.0", shipped)
+    # Exactly the files a Windows release candidate carries: under their names from 0.7.0, or
+    # under the names up to 0.6.x, which the releases of 0.7.x carry as copies while the guide
+    # still describes a release up to 0.6.x (ADR-014, 2.10).
+    assert shipped in (release_candidate.release_files("windows", "0.7.0"),
+                       set(release_candidate.legacy_copies("windows", "0.7.0"))), shipped
 
 
 @pytest.mark.parametrize("lang", PAGES)
@@ -77,8 +80,8 @@ def test_the_linux_rows_name_every_linux_package(lang):
         for word in re.split(r"[、,]\s*|\s+", row[1])
         if word in LINUX_FORMATS
     }
-    stem = "VRCT-VOX-0.0.0-linux-x64-release"
-    release_candidate.names("linux", "0.0.0", {stem + LINUX_FORMATS[word] for word in formats})
+    stem = release_candidate.linux_stem("0.7.0")
+    assert {stem + LINUX_FORMATS[word] for word in formats} == release_candidate.release_files("linux", "0.7.0")
 
 
 def ci_systems():

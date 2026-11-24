@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "vitest";
+import type { Ref } from "react";
 import { hooks, loadModule, find, findIn, setRef, unchecked } from "../../logics/test/hookHarness.ts";
 import type { TreeNode } from "../../logics/test/hookHarness.ts";
 
@@ -76,6 +77,10 @@ test("the dialog is named and described by its title and description", async () 
     const ids = provider.props.value;
     assert.equal(dialogNode.props["aria-labelledby"], ids.title);
     assert.equal(dialogNode.props["aria-describedby"], ids.description);
+    // One id each, made from the dialog's own.
+    assert.match(ids.title, /.-title$/);
+    assert.match(ids.description, /.-description$/);
+    assert.equal(ids.title.replace(/-title$/, ""), ids.description.replace(/-description$/, ""));
     runtime.unmount();
     const parts = hooks();
     const { DialogTitle, DialogDescription, DialogHeader, DialogFooter } = await loadModule<DialogModule>(
@@ -104,4 +109,20 @@ test("the dialog has shadcn/ui's width, room and gap, and the app's corners, gro
     // DialogTitle is DESIGN.md's title role; DialogDescription is text-sm in the description colour.
     assert.match(css, /export const title = style\(\{[^}]*fontSize: "1\.8rem",\s*fontWeight: 600,/);
     assert.match(css, /export const description = style\(\{[^}]*fontSize: "1\.4rem",\s*lineHeight: 1\.6,\s*color: vars\.vox_description_text,/);
+});
+
+test("the caller's ref gets the dialog, as a function or an object, and the newest ref wins", async () => {
+    const runtime = hooks();
+    const { Dialog } = await loadModule<DialogModule>(new URL("./Dialog.tsx", import.meta.url), runtime);
+    const { element } = fakeDialog();
+    const seen: unknown[] = [];
+    const objectRef: { current: HTMLDialogElement | null } = { current: null };
+    const render = (ref: Ref<HTMLDialogElement>) => runtime.render(Dialog, { open: false, onOpenChange: () => {}, children: "words", ref },
+        tree => { setRef(findIn(tree, node => node.type === "dialog"), element); });
+    render((node: HTMLDialogElement | null) => { seen.push(node); });
+    assert.deepEqual(seen, [element]);
+    render(objectRef);
+    assert.equal(objectRef.current, element);
+    assert.deepEqual(seen, [element], "the earlier ref is not called again");
+    runtime.unmount();
 });

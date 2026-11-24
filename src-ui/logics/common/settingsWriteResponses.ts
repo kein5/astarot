@@ -10,6 +10,7 @@ const endpoints = new Set([
     "obs_browser_source_port", "obs_browser_source_max_messages", "obs_browser_source_display_duration",
     "obs_browser_source_fadeout_duration", "obs_browser_source_font_size", "obs_browser_source_font_color",
     "obs_browser_source_font_outline_thickness", "obs_browser_source_font_outline_color", "rvc_block_ms",
+    "path_logs",
 ].map(name => `/set/data/${name}`).concat([
     // A new connection key: the button says it is done only when the backend says so.
     "/run/regenerate_websocket_auth_token",

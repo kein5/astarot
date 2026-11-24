@@ -1,4 +1,149 @@
-# メイン画面レイアウトの見直し（0.5.0）
+# Main page layout revision (0.5.0)
+
+[日本語版](#メイン画面レイアウトの見直し050日本語版)
+
+This is the record of how the main page layout was revised in response to findings L-01 to L-11 of the [layout audit](../main-layout-audit/README.md). Technology choices follow [ADR-010](../../adr/adr-010-frontend-stack.md).
+
+- Compared: before the change is `develop` (`362783b2`), after the change is this branch
+- How the images were taken: with the same scripts as the audit (`../main-layout-audit/audit/`), on the same PC and under the same conditions.
+- Images: before on the left, after on the right (`images/`).
+
+## Approach
+
+- **The basis for switching moved from the window to the main section.** The main section became a container (`container-type: size`). The top bar's short labels, quick settings, the empty state and the composer switch by the main section's width and height. The conditions are written in rem, so they also follow the UI size.
+- **In a small window, the conversation takes priority over the other parts.** When the main section is less than 36rem tall, the top bar and the logo row are 4.4rem tall. The margins are tightened and the composer is one line.
+- **What is shown over other parts fits the size of the place it sits in.** This covers the quick settings panel, the inputs and outputs panel, and the rail opened in a narrow window.
+- **The rail became a vertical stack of "logo, scrolling part, settings button".** The margins that were added up by hand are gone.
+- It was first written in SCSS Modules, and the skeleton was moved after #370 (the TypeScript groundwork) was merged.
+  - The container names and the breakpoint values are gathered in `src-ui/views/app/main_page/layout.ts`.
+  - The styles of MainPage, MainSection, SidebarSection and OpenSettings are vanilla-extract (`.css.ts`).
+  - SidebarSection and OpenSettings became TSX. The views of MainPage and MainSection stay in JavaScript, because the store hooks they read have no types yet.
+  - The other components stay in SCSS Modules and write out the same names and values as literals.
+
+## Response to each finding
+
+| ID | Change | Result |
+|---|---|---|
+| L-01 | The switch to the top bar's short labels is decided by the main section's width (64rem or less). Stop and mute do not shrink below the width of their text. The rail opened in a narrow window lies over the conversation instead of squeezing it. | The English 801×600 case and the overlap when the rail is opened in the narrow layout are no longer detected. |
+| L-02 | In a short main section, the top bar, the margins and the composer are tightened. | The log area went from 6px to 60px at 400×200, and from 26px to 80px at 450×220. |
+| L-03 | The scrollbar thumb got a color different from its track. The switch rows, the language settings heading and the language buttons were tightened. | The rail's content went from 914px to 699px (3 target languages). With 1 target language, the rail shows everything down to the translator at 1280×720. |
+| L-04 | The settings button became the last flex child of the rail. | Elements are no longer drawn under the gear button's strip (for what detection still reports, see [below](#detections-that-remain-after-the-change)). |
+| L-05 | The quick settings panel takes its width and height from the main section's size (`cqw`, `cqh`). When it does not fit, the panel scrolls inside itself. | At 400×200 its left edge is no longer cut off. |
+| L-06 | The inputs and outputs panel shrinks before the log does. When the height is low, it is shown over the conversation. | At 400×200 and 450×220 the whole main section no longer scrolls. |
+| L-07 | The translator choice now opens under its button, inside the rail. Its background is opaque, and its height fits the number of engines. The "Default" badge was moved inside the box. | It no longer overlaps the language buttons. Overflow is no longer detected either. |
+| L-08 | The language selector became a vertical flex stack. | The scroll area fits inside its frame. |
+| L-09 | The margins of the language display in the icon rail were reduced. | "Japanese" is no longer truncated. |
+| L-10 | The swap button's text was centered and aligned beside the arrows. | Even when it wraps to 2 lines, it stays in line with the arrows. |
+| L-11 | The conversation log and the composer are centered with a maximum width of 120rem. The send button stays square, at the bottom of the composer. | At 1920×1080 a log line went from 1640px to 1160px. |
+
+## Measurements by size (Japanese, with a conversation, 3 target languages)
+
+| Size | Log area height (before → after) | Composer height (before → after) | Rail visible height / content height (before → after) |
+|---|---|---|---|
+| 400×200 | 6 → 60 | 64 → 44 | 54 / 423 → 65 / 390 |
+| 450×220 | 26 → 80 | 64 → 44 | 74 / 423 → 85 / 390 |
+| 640×480 | 278 → 278 | 72 → 72 | 334 / 423 → 333 / 390 |
+| 801×600 | 374 → 374 | 96 → 96 | 454 / 914 → 453 / 699 |
+| 1280×720 | 470 → 470 | 120 → 120 | 574 / 914 → 573 / 699 |
+| 1366×768 | 509 → 509 | 129 → 129 | 622 / 914 → 621 / 699 |
+| 1920×1080 | 758 → 758 | 192 → 192 | 914 / 914 → 933 / 933 |
+| 1280×720 (UI 150%) | 418 → 418 | 107 → 107 | 501 / 1372 → 500 / 1049 |
+| 1920×1080 (UI 200%) | 653 → 653 | 167 → 167 | 788 / 1829 → 786 / 1399 |
+
+The log area's width changed only at 1920×1080 (1640 → 1160). It is the same at the other sizes.
+
+## Images
+
+### L-01 Top bar (English, 801×600)
+
+![English 801×600](images/en-in-use-801x600.webp)
+
+### L-01 Rail opened in the narrow layout (English, 450×220)
+
+![English 450×220 with the rail opened](images/en-sidebar-toggled-450x220.webp)
+
+### L-02 Minimum size (400×200)
+
+![400×200](images/ja-in-use-400x200.webp)
+
+### L-03 Rail (1280×720, 3 target languages)
+
+![1280×720](images/ja-in-use-1280x720.webp)
+
+### L-03 Rail (English, 1280×720, 1 target language)
+
+![English 1280×720 without a conversation](images/en-empty-1280x720.webp)
+
+### L-03 UI size 150% (1280×720)
+
+![1280×720 UI 150%](images/ja-in-use-1280x720@150.webp)
+
+### L-05 Quick settings (400×200)
+
+![Quick settings 400×200](images/ja-quick-settings-400x200.webp)
+
+### L-06 Inputs and outputs panel (400×200)
+
+![Inputs and outputs 400×200](images/ja-io-flow-400x200.webp)
+
+### L-07 Translator choice (1280×720)
+
+![Translator choice 1280×720](images/ja-translator-selector-1280x720.webp)
+
+### L-08 Language selector (1280×720)
+
+![Language selector 1280×720](images/ja-language-selector-1280x720.webp)
+
+### L-09 Icon rail (English, 640×480)
+
+![English 640×480](images/en-in-use-640x480.webp)
+
+### L-10 and L-11 Large window (English, 1920×1080)
+
+![English 1920×1080](images/en-in-use-1920x1080.webp)
+
+## Detections that remain after the change
+
+Two kinds of machine detections remain. Both were checked in the images and judged not to be broken layout.
+
+- **Rail element × Open settings**: the rectangle of an element cut off at the bottom edge of the scroll area reaches the settings button's strip below it. The element is clipped by the scroll area and is not drawn over the strip. It is reported because `detect.js` treats the area that scrolling can reach as the "visible area".
+- **Rail element × Message (sidebar-toggled, width 800 or less)**: the rail opened in a narrow window lies over the composer. That overlap is the intended design.
+
+## Not verified
+
+- **A real Tauri window**: not checked in Windows WebView2 or in Linux WebKitGTK. Both support container queries, but they may draw scrollbars differently.
+- **Fonts**: the images were taken with the default Windows font. Its character widths differ from those in the audit's images (Linux, Noto). For that reason, the before images were also retaken on the same PC.
+- **Components that only `App.jsx` has**: the consent dialogs, the notifications and the startup screen are out of scope, as in the audit.
+- **Long conversations and long messages**: as in the audit, only 3 sample conversation entries were checked.
+
+## Measurement environment
+
+- Windows 11
+- Chromium 1243 (Playwright, headless). `--hide-scrollbars` was removed so that scrollbars are drawn (`audit/show_scrollbars.py`)
+- Device pixel ratio 1, reduced motion, clock fixed at 2026-01-10 21:30 (same as the audit)
+
+## How to reproduce
+
+These steps work on a checkout of the `v0.5.2` tag. They do not work on develop, because the test parts they use (`tests/voice/test_studio_ui.py`, `tests/voice/test_docs_screenshots.py`, `tests/voice/studio-entry`) were deleted on 2026-11-20.
+
+To the audit's steps, add the plugin that draws scrollbars. In PowerShell:
+
+```powershell
+$env:PYTHONUTF8 = "1"   # so that the findings JSON can be written on Windows
+$env:AUDIT_OUT = "build/layout-audit"
+$env:ASTAROT_TEST_STUDIO_UI = "1"
+$env:ASTAROT_TEST_CHROMIUM = "<path to chrome.exe>"
+$env:PYTHONPATH = "tests/voice;docs/design/main-layout-audit/audit"
+build/dev/browser-venv/Scripts/python.exe -m pytest -c tests/voice/pytest.ini --rootdir . `
+    docs/design/main-layout-audit/audit/layout_audit.py -q -p no:cacheprovider -p show_scrollbars
+```
+
+- The first page right after Vite starts can go over the 30-second limit. If it does, run the command again.
+- The images that put before and after side by side were made with `audit/pairs.py`.
+
+---
+
+# メイン画面レイアウトの見直し（0.5.0）（日本語版）
 
 [レイアウト監査](../main-layout-audit/README.md)の指摘 L-01〜L-11 に対して、メイン画面の配置を見直した記録です。技術選定は [ADR-010](../../adr/adr-010-frontend-stack.md) に従います。
 
@@ -24,7 +169,7 @@
 |---|---|---|
 | L-01 | 上部バーの短い文言への切り替えを、メイン部分の幅（64rem 以下）で決めます。停止とミュートは文字の幅より縮みません。狭いウィンドウで開いたサイドバーは、会話を押し縮めずに上に重ねます。 | 英語の 801×600 と、狭い表示でサイドバーを開いたときの重なりは、検出されなくなりました。 |
 | L-02 | 高さの低いメイン部分では、上部バー、余白、入力欄を詰めます。 | 400×200 のログ欄が 6px から 60px に、450×220 では 26px から 80px になりました。 |
-| L-03 | スクロールバーのつまみを、レールと違う色にしました。スイッチの行、言語設定の見出し、言語のボタンを詰めました。 | サイドバーの中身は 914px から 699px になりました（相手の言語 3 つ）。相手の言語が 1 つなら、1280×720 で翻訳エンジンまで見えます。 |
+| L-03 | スクロールバーのつまみを、トラックと違う色にしました。スイッチの行、言語設定の見出し、言語のボタンを詰めました。 | サイドバーの中身は 914px から 699px になりました（相手の言語 3 つ）。相手の言語が 1 つなら、1280×720 で翻訳エンジンまで見えます。 |
 | L-04 | 設定ボタンをサイドバーの最後の flex の子にしました。 | 歯車の帯の下に要素が描かれなくなりました（検出に残るものは[下記](#変更後も検出に残るもの)）。 |
 | L-05 | クイック設定のパネルの幅と高さを、メイン部分の大きさ（`cqw`、`cqh`）で決めます。収まらないときはパネルの中がスクロールします。 | 400×200 で左端が切れなくなりました。 |
 | L-06 | 入力と出力のパネルは、ログより先に縮みます。高さが低いときは、会話の上に重ねて表示します。 | 400×200 と 450×220 で、メイン部分全体がスクロールしなくなりました。 |

@@ -4,7 +4,7 @@ import { useI18n } from "@useI18n";
 import clsx from "clsx";
 import { VrPickerList } from "./VrPickerList";
 
-import styles from "./VrSettingsWindow.module.scss";
+import * as styles from "./VrSettingsWindow.css.ts";
 
 // VR設定ウィンドウの行の部品。スライダーはレーザーの震えで値がぶれるので使わず、
 // ON/OFF はトグル、選択肢は一覧の画面 (Picker)、数値は −/＋ にする。
@@ -49,7 +49,7 @@ export const ToggleRow = ({ label, sub, variable, onToggle, is_disabled = false,
                 {is_pending && <span className={styles.reason} role="status">{t("vr_panel.settings.changing")}</span>}
                 {!is_pending && is_disabled && <span className={styles.reason}>{disabled_reason ?? t("vr_panel.settings.unavailable")}</span>}
             </span>
-            <span className={clsx(styles.switch, { [styles.is_on]: variable.data === true })} />
+            <span className={clsx(styles.switch_, { [styles.is_on]: variable.data === true })} />
         </button>
     );
 };

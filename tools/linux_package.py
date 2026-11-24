@@ -18,7 +18,7 @@ except ImportError:
 
 # The app runs the Rust backend core in its own process; _internal holds what it and the app
 # start or read (tools/app_resources.py lists the same files for staging).
-RUNTIME = ('vrct-vox',
+RUNTIME = ('astarot',
            '_internal/build/astarot-voice-gate', '_internal/build/astarot-source-bridge',
            '_internal/build/astarot-screen-capture', '_internal/build/astarot-rvc-worker',
            '_internal/build/speechcpp/speech', '_internal/build/speechcpp/bundle.json',
@@ -53,7 +53,7 @@ def check_tree(root, *, require_runtime=False, allow_directory_links=False):
             path = root / name
             if not path.is_file():
                 raise ValueError(f'Missing runtime component: {name}')
-            if name == 'vrct-vox' or name.startswith('_internal/build/vrct-') or name.endswith('/speech'):
+            if name == 'astarot' or name.startswith('_internal/build/vrct-') or name.endswith('/speech'):
                 with path.open('rb') as src:
                     header = src.read(20)
                 if header[:6] != b'\x7fELF\x02\x01' or header[18:20] != b'\x3e\x00' or not os.access(path, os.X_OK):

@@ -81,6 +81,12 @@ export interface OverlayDesktopPlacement {
     y: number | null;
 }
 
+// Effective conversation log directory and last fallback error code (#1096, #1118).
+export interface LogDirectoryState {
+    path: string;
+    error_code: string | null;
+}
+
 // Each setting's value, as its atom holds it. The backend sends these (docs/spec/); they are
 // declared, not checked when they arrive, except for what /run/initialization_complete checks
 // (initializationFields.ts). Credentials and the chosen models may be null when none is set.
@@ -245,6 +251,8 @@ export interface SettingValues {
     TelemetryPreview: TelemetryPreview | null;
 
     // AdvancedSettings
+    PathConfig: string;
+    PathLogs: LogDirectoryState;
     OscIpAddress: string;
     OscPort: number;
     EnableOscQuery: boolean;
@@ -334,7 +342,7 @@ type SettingFields<C extends SettingCategory> =
     & { [E in EntryWith<C, "weight_download_status"> as `updateDownloaded${E["Base_Name"]}`]: Receive<DownloadedWeights> }
     & { [E in EntryWith<C, "weight_download_status"> as `pending${E["Base_Name"]}`]: Receive<string> }
     & { [E in EntryWith<C, "weight_download_status"> as `downloaded${E["Base_Name"]}`]: Receive<WeightDownloaded> }
-    // The reviewed consent (legacyModelConsent.ts), sent unchanged.
+    // The request of a weight's download, sent unchanged (no weight is downloaded this way since #1015).
     & { [E in EntryWith<C, "weight_download_status"> as `download${E["Base_Name"]}`]: Receive<unknown> };
 
 // The functions a category has besides its settings (useConfigFunctions).

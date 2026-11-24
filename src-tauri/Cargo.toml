@@ -16,11 +16,12 @@ publish = false
 name = "astarot_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
-# The executable keeps its name, whatever the package is called: the packages ship it, the window
-# class and the Windows firewall rules follow it, and tauri.conf.json's mainBinaryName names it
-# for the bundles. It moves to `astarot` with ADR-014's step for the executable (PR 6).
+# The executable's name, named here rather than left to the package's: the packages ship it, the
+# window class and the Windows firewall rules follow it, and tauri.conf.json's mainBinaryName
+# names it for the bundles. It was `vrct-vox` up to 0.6.x (ADR-014, 2.5 and 2.6); the installer
+# replaces that one on update (native/app-identity's EXECUTABLE).
 [[bin]]
-name = "vrct-vox"
+name = "astarot"
 path = "src/main.rs"
 
 [build-dependencies]
@@ -68,7 +69,7 @@ semver = "=1.0.28"
 # with WebView2's crash reports to Microsoft turned off (#564; see src/webview_environment.rs).
 # The features are a subset of the ones wry turns on.
 webview2-com = "=0.39.1"
-windows = { version = "=0.62.2", features = ["Win32_Foundation", "Win32_Globalization", "Win32_System_Com"] }
+windows = { version = "=0.62.2", features = ["Win32_Foundation", "Win32_Globalization", "Win32_System_Com", "Win32_UI_Shell"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 gtk = "=0.18.2"
