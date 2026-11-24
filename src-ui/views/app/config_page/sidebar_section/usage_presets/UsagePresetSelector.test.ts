@@ -62,12 +62,46 @@ test("the last use picked cannot be unpicked, and nothing is offered before the 
 });
 
 test("while a pick is saved the boxes wait, and the icon rail closes the list", async () => {
-    const s = await setup(["basic", "all"], "pending");
+    const s = await setup(["basic", "voice_changer"], "pending");
     findIn(s.render(), node => node.type === "button").props.onClick();
     assert.ok(all(s.render(), node => node.type === "input").every(box => box.props.disabled));
     const compact = s.render({ isCompact: true });
     assert.equal(find(compact, node => node.type === "fieldset"), null);
     assert.equal(findIn(compact, node => node.type === "button").props.title, findIn(compact, node => node.type === "button").props["aria-label"]);
+});
+
+test("show-all and specific use cases are mutually exclusive in checks, writes, and header summary (#1107)", async () => {
+    // Starting in show-all mode: only "all" is checked and the summary names only "all".
+    const allMode = await setup(["all"]);
+    const allButton = findIn(allMode.render(), node => node.type === "button");
+    assert.match(allButton.props["aria-label"], /all\.label/);
+    assert.doesNotMatch(allButton.props["aria-label"], /basic\.label/);
+    allButton.props.onClick();
+    const allBoxes = all(allMode.render(), node => node.type === "input");
+    assert.deepEqual(allBoxes.map(item => [item.props["data-usage-preset"], item.props.checked]),
+        [["basic", false], ["nonverbal", false], ["multilingual", false], ["voice_changer", false], ["all", true]]);
+    assert.equal(box(allBoxes, "all").props.disabled, true);
+    // Picking a specific use leaves show-all mode instead of checking both.
+    box(allBoxes, "basic").props.onChange();
+    assert.deepEqual(allMode.writes, [["basic"]]);
+
+    // Picking show-all from specific uses clears every specific use.
+    const specificMode = await setup(["basic", "voice_changer"]);
+    findIn(specificMode.render(), node => node.type === "button").props.onClick();
+    box(all(specificMode.render(), node => node.type === "input"), "all").props.onChange();
+    assert.deepEqual(specificMode.writes, [["all"]]);
+
+    // A previously saved mixed value shows only show-all checked and in the header summary.
+    const mixed = await setup(["basic", "all"]);
+    const mixedButton = findIn(mixed.render(), node => node.type === "button");
+    assert.match(mixedButton.props["aria-label"], /all\.label/);
+    assert.doesNotMatch(mixedButton.props["aria-label"], /basic\.label/);
+    mixedButton.props.onClick();
+    const mixedBoxes = all(mixed.render(), node => node.type === "input");
+    assert.deepEqual(mixedBoxes.map(item => [item.props["data-usage-preset"], item.props.checked]),
+        [["basic", false], ["nonverbal", false], ["multilingual", false], ["voice_changer", false], ["all", true]]);
+    box(mixedBoxes, "basic").props.onChange();
+    assert.deepEqual(mixed.writes, [["basic"]]);
 });
 
 test("explanations move to right-side tooltips and remain accessible descriptions without always-visible copy (#1106)", async () => {

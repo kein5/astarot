@@ -45,15 +45,21 @@ export const USAGE_PRESETS: readonly UsagePreset[] = Object.freeze([
 
 export const USAGE_PRESET_IDS: readonly string[] = Object.freeze(USAGE_PRESETS.map(preset => preset.id));
 
+// The preset that shows every switch and page; mutually exclusive with specific presets (#1107).
+export const ALL_PRESET_ID = "all";
+
 // Shown whatever the presets: the design, the hotkeys and the app's own pages.
 export const ALWAYS_SHOWN_TABS: readonly string[] = Object.freeze(["appearance", "hotkeys", "updater", "advanced_settings", "experimental_features", "about_vrct"]);
 
 // The presets as saved, in the table's order, or null while they are not known (before the
 // engine's first answer, or a value this version cannot read). Until then nothing is hidden.
+// "all" and specific presets never stay active together (#1107); a previously saved mixed list
+// collapses to ["all"] so nothing currently visible disappears unexpectedly.
 export const pickedPresets = (value: unknown): string[] | null => {
     if (!Array.isArray(value)) return null;
     const picked = USAGE_PRESET_IDS.filter(id => value.includes(id));
-    return picked.length > 0 ? picked : null;
+    if (picked.length === 0) return null;
+    return picked.includes(ALL_PRESET_ID) ? [ALL_PRESET_ID] : picked;
 };
 
 const presetsOf = (picked: readonly string[] | null): readonly UsagePreset[] | null =>
@@ -72,11 +78,16 @@ export const isTabShown = (picked: readonly string[] | null, tab: string, select
     return selected || presets === null || ALWAYS_SHOWN_TABS.includes(tab) || presets.some(preset => preset.tabs.includes(tab));
 };
 
-// Picking or unpicking one preset. The last one cannot be unpicked: something is always picked.
+// Picking or unpicking one preset. "all" and specific presets are mutually exclusive (#1107):
+// choosing "all" clears every specific preset, and choosing a specific preset clears "all".
+// Specific presets remain multi-select; the last one cannot be unpicked.
 export const togglePreset = (picked: readonly string[] | null, id: string): string[] => {
-    const current = picked ?? ["all"];
-    const next = current.includes(id) ? current.filter(item => item !== id) : [...current, id];
-    return next.length === 0 ? [...current] : USAGE_PRESET_IDS.filter(item => next.includes(item));
+    const current = (picked ? pickedPresets(picked) : null) ?? [ALL_PRESET_ID];
+    if (id === ALL_PRESET_ID) return [ALL_PRESET_ID];
+    const specific = current.filter(item => item !== ALL_PRESET_ID);
+    const next = specific.includes(id) ? specific.filter(item => item !== id) : [...specific, id];
+    const ordered = USAGE_PRESET_IDS.filter(item => next.includes(item));
+    return ordered.length === 0 ? [...current] : ordered;
 };
 
 export const usagePresetLabelKey = (id: string): string => `config_page.usage_presets.items.${id}.label`;

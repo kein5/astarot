@@ -525,15 +525,20 @@ fn experimental_features() -> Check {
 /// "all" shows every feature. The UI keeps what each one shows (`src-ui/logics/configs/usagePresets.ts`).
 pub const USAGE_PRESET_IDS: &[&str] = &["basic", "nonverbal", "multilingual", "voice_changer", "all"];
 
-/// Several presets can be picked; the menu and the switches show what any of them shows. The
-/// value is kept in the order above, each id once. An id this version does not know is left
-/// out (a later version may have one more), and a list with none it knows is refused.
+/// Several specific presets can be picked; the menu and the switches show what any of them shows.
+/// `"all"` and specific presets are mutually exclusive (#1107): a list that mixes them collapses
+/// to `["all"]` so nothing currently visible disappears unexpectedly. The value is kept in the
+/// order above, each id once. An id this version does not know is left out (a later version may
+/// have one more), and a list with none it knows is refused.
 fn usage_presets() -> Check {
     validated(|value, _| {
         let given = value.as_array()?;
         let mut ids = Vec::with_capacity(given.len());
         for item in given {
             ids.push(item.as_str()?);
+        }
+        if ids.contains(&"all") {
+            return Some(json!(["all"]));
         }
         let picked: Vec<Value> = USAGE_PRESET_IDS.iter().filter(|id| ids.contains(id)).map(|id| json!(id)).collect();
         (!picked.is_empty()).then_some(Value::Array(picked))
