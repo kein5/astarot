@@ -173,7 +173,7 @@
 
 | キー | 型・検証 | 既定値 | 扱い |
 |---|---|---|---|
-| `VERSION` |  | `"0.7.0-beta.1"` | 読み取り専用 |
+| `VERSION` |  | `"0.7.0-beta.2"` | 読み取り専用 |
 | `PATH_LOCAL` |  | `"<app>"` | 読み取り専用 |
 | `PATH_DATA` |  | `"<data>"` | 読み取り専用 |
 | `PATH_CONFIG` |  | `"<state>/config.json"` | 読み取り専用 |
