@@ -294,13 +294,22 @@ globalStyle(`${stop}.${is_idle}, ${stop}.${is_idle}:hover, ${stop}.${is_idle}:ac
 globalStyle(count, { justifySelf: "end", fontSize: "1.2rem", color: "var(--vox_description_text, #a3adc0)", fontVariantNumeric: "tabular-nums" });
 // A name that no shared row draws, such as a legend, with its hint mark on its line (#614).
 globalStyle(hinted, { display: "inline-flex", alignItems: "center", maxWidth: "100%" });
-// Buttons that belong to the fields above them start in the control column, where the
-// fields start (the label rows' 1fr / 1.6fr split with its 1.6rem gap), not under the labels (#473).
+// Buttons and notes that belong to the fields above them stay in the control column (the label
+// rows' 1fr / 1.6fr split with its 1.6rem gap) and align flush on the row's right end (#473, #1096).
 globalStyle(control_column, {
     marginInlineStart: "calc((100% - 1.6rem) / 2.6 + 1.6rem)",
     "@container": { [STACKED]: { marginInlineStart: 0 } },
     "@media": { [NARROW_WINDOW]: { marginInlineStart: 0 } },
 });
+globalStyle(`${actions}.${control_column}`, { justifyContent: "flex-end" });
+globalStyle(`div.${control_column}:not(.${actions})`, {
+    display: "flex",
+    alignItems: "center",
+    flexWrap: "wrap",
+    justifyContent: "flex-end",
+    gap: ".8rem",
+});
+globalStyle(`p.${control_column}`, { textAlign: "end", justifySelf: "end" });
 globalStyle(error_code, { fontSize: "1.2rem", color: vars.dark_400_color, overflowWrap: "anywhere" });
 // One downloadable model: name, readout, a full-width progress bar, then its actions.
 globalStyle(download_entry, { display: "grid", gap: ".8rem", minWidth: 0 });

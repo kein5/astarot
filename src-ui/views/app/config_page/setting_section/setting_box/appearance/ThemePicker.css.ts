@@ -85,7 +85,7 @@ export const check = style({ width: "1.4rem", height: "1.4rem", flexShrink: 0, f
 // The user's own colours, under the tiles while "Custom" is in use.
 export const custom = style({ display: "grid", gap: ".4rem", marginTop: ".4rem" });
 
-export const colorField = style({ display: "flex", justifyContent: "flex-start", minWidth: 0 });
+export const colorField = style({ display: "flex", width: "100%", justifyContent: "flex-end", minWidth: 0 });
 
 // An accent close to the warning or failed colour: said in words, in the warning colour.
 export const nearStates = style({

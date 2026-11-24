@@ -10,7 +10,7 @@ export const align_end = style({});
 export const container = style({
     display: "flex",
     width: "100%",
-    justifyContent: "flex-start",
+    justifyContent: "flex-end",
     alignItems: "center",
     gap: "1rem",
     minWidth: 0,

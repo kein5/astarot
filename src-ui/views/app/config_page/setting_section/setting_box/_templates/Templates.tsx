@@ -47,8 +47,8 @@ export interface TemplateRowProps extends LabelComponentProps {
     add_break_point?: boolean;
     flex_column?: boolean;
     remove_border_bottom?: boolean;
-    // Where the control sits in the field column: its end (checkboxes, lone icon buttons) or its
-    // start (radios, text buttons).
+    // Where the control sits in the field column: its end (checkboxes, lone buttons) or its start
+    // (radios, model lists).
     control_align?: "start" | "end";
     "aria-describedby"?: string;
 }
@@ -164,8 +164,8 @@ const TemplatesContainerWrapper = ({
         [styles.is_break_point]: add_break_point && currentIsBreakPoint.data,
         [styles.flex_column]: flex_column,
         [styles.remove_border_bottom]: remove_border_bottom,
-        // Where the control sits in the field column: checkboxes and lone icon buttons flush at its
-        // right end (#473, #1096); radios and text buttons at its left start; everything else fills it (#567).
+        // Where the control sits in the field column: checkboxes and lone buttons flush at its
+        // right end (#473, #1096); radios at its start; everything else fills it (#567).
         [styles.control_end]: control_align === "end",
         [styles.control_start]: control_align === "start",
     });
@@ -326,7 +326,7 @@ export const DownloadModelsContainer = (props: DownloadModelsContainerProps) => 
 export type ConnectionCheckButtonContainerProps = TemplateRowProps & ConnectionCheckButtonProps;
 
 export const ConnectionCheckButtonContainer = (props: ConnectionCheckButtonContainerProps) => (
-    <CommonContainer Component={ConnectionCheckButton} {...props} control_align="start" />
+    <CommonContainer Component={ConnectionCheckButton} {...props} control_align="end" />
 );
 
 export type MessageFormatContainerProps = TemplateRowProps & MessageFormatProps;
