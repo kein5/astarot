@@ -7,6 +7,7 @@ import { useGpuCheck } from "../../../../../../logics/support/useGpuCheck.ts";
 import { deviceRows, issueUrl } from "../../../../../../logics/support/gpuCheck.ts";
 import type { GpuRun } from "../../../../../../logics/support/gpuCheck.ts";
 import * as styles from "./GpuCheck.css.ts";
+import { Button } from "../../../../../kit/index.ts";
 
 type Translate = (key: string, options?: Record<string, unknown>) => string;
 
@@ -59,8 +60,8 @@ export const GpuCheck = () => {
             {/* What the check is for, how it measures, what its result holds and what to know
                 before pressing are the hint of the section's heading (AdvancedSettings, #614, #1013). */}
             <div className={styles.actions}>
-                <button type="button" disabled={running} onClick={() => void start()}>{t(key("start"))}</button>
-                {running && <button type="button" onClick={() => void stop()}>{t(key("stop"))}</button>}
+                <Button disabled={running} onClick={() => void start()}>{t(key("start"))}</Button>
+                {running && <Button onClick={() => void stop()}>{t(key("stop"))}</Button>}
             </div>
             <div role="status" className={styles.status}>
                 {running && <p>{t(key(`step_${check.step ?? "environment"}`))}</p>}
@@ -88,8 +89,8 @@ export const GpuCheck = () => {
                 <p id={reportId}>{t(key("report_label"))}</p>
                 <pre className={styles.report} aria-labelledby={reportId} tabIndex={0}>{reportText}</pre>
                 <div className={styles.actions}>
-                    <button type="button" onClick={() => void copyToClipboard(reportText)}>{t(is_copied ? key("copied") : key("copy"))}</button>
-                    <button type="button" onClick={() => void openIssue()}>{t(key("open_issue"))}</button>
+                    <Button onClick={() => void copyToClipboard(reportText)}>{t(is_copied ? key("copied") : key("copy"))}</Button>
+                    <Button onClick={() => void openIssue()}>{t(key("open_issue"))}</Button>
                 </div>
                 <p className={styles.description}>{t(issue.filled ? key("issue_note") : key("issue_note_paste"))}</p>
                 {linkFailed && <p role="alert">{t(key("link_failed"))} <code style={{ overflowWrap: "anywhere" }}>{linkFailed}</code></p>}

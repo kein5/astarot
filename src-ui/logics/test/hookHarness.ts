@@ -171,6 +171,10 @@ export const kitStandIns = {
     // The kit's field marks a wrong value with aria-invalid and an address with the monospaced font.
     TextField: ({ invalid = false, mono = false, type = "text", ...rest }: Record<string, unknown>) =>
         jsx.jsx("input", { type, "data-slot": "input", "aria-invalid": invalid || undefined, "data-mono": mono, ...rest }),
+    // The kit's switch is Radix's: a <button role="switch"> whose aria-checked and data-state follow checked.
+    Switch: ({ checked = false, ...rest }: Record<string, unknown>) =>
+        jsx.jsx("button", { type: "button", role: "switch", "aria-checked": checked, "data-state": checked ? "checked" : "unchecked",
+            "data-slot": "switch", ...rest }),
 };
 
 export async function loadModule<M = Record<string, unknown>>(url: URL, runtime: HookRuntime, imports: Record<string, unknown> = {}): Promise<M> {

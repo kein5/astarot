@@ -4,6 +4,7 @@ import { useIsOpenedConfigPage } from "@logics_common";
 import { useStore_SelectedConfigTabId } from "@store";
 import { StopActions } from "../../others/stop_actions/StopActions";
 import ArrowLeftSvg from "@images/arrow_left.svg?react";
+import { Button } from "../../../kit/index.ts";
 
 // Every setting saves by itself (#1111): each settings page says so where the save bar was, so
 // how its changes are kept is known before anything is changed. About sets nothing and says nothing.
@@ -21,9 +22,10 @@ export const Topbar = () => {
         <StopActions classes={styles} />
         {/* The words keep their slot on every page, so the stop actions stay put. */}
         <div className={styles.save_slot}><AppliesNow /></div>
-        <button type="button" className={styles.back} data-settings-back="" aria-label={t("common.go_back_button_label")} onClick={() => setIsOpenedConfigPage(false)}>
+        {/* The kit's plain button; in a narrow window only its arrow is left. */}
+        <Button className={styles.back} data-settings-back="" aria-label={t("common.go_back_button_label")} onClick={() => setIsOpenedConfigPage(false)}>
             <ArrowLeftSvg aria-hidden="true" />
             <span className={styles.back_label} aria-hidden="true">{t("common.go_back_button_label")}</span>
-        </button>
+        </Button>
     </div>;
 };

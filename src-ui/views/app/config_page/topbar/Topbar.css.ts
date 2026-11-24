@@ -12,29 +12,14 @@ const NARROW_PAGE = "html[data-narrow]";
 export const container = style({ display: "contents" });
 globalStyle(`${container} > *`, { pointerEvents: "auto" });
 
+// The kit's plain Button (4rem high, as search and stop beside it); the bar gives it only its place.
 const backNarrow = { margin: "0 1.6rem 1.6rem 0" } as const;
 export const back = style({
     gridArea: "back",
     justifySelf: "end",
     alignSelf: "start",
     margin: "1.6rem 1.6rem 1.6rem 0",
-    display: "flex",
-    alignItems: "center",
-    gap: ".8rem",
-    minHeight: "4rem",
-    padding: ".8rem 1.6rem",
-    borderRadius: vars.vox_radius,
-    color: vars.dark_200_color,
-    background: vars.dark_850_color,
-    fontSize: "1.4rem",
-    fontWeight: 500,
-    cursor: "pointer",
-    selectors: {
-        "&:hover": { background: vars.dark_800_color },
-        "&:active": { background: vars.dark_900_color },
-        "&:focus-visible": { outline: `.2rem solid ${vars.primary_200_color}`, outlineOffset: ".2rem" },
-        [`${NARROW_PAGE} &`]: backNarrow,
-    },
+    selectors: { [`${NARROW_PAGE} &`]: backNarrow },
     "@media": { [NARROW]: backNarrow },
 });
 globalStyle(`${back} svg`, { width: "1.8rem", height: "1.8rem" });

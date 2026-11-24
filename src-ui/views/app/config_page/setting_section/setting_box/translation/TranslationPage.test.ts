@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test, vi } from "vitest";
-import { componentName, componentOf, findIn, hooks, loadModule, nodesIn, treeNode } from "../../../../../../logics/test/hookHarness.ts";
+import { componentName, componentOf, findIn, hooks, loadModule, nodesIn, treeNode, kitStandIns } from "../../../../../../logics/test/hookHarness.ts";
 import type { HookRuntime, TreeNode } from "../../../../../../logics/test/hookHarness.ts";
 import * as ctranslate2License from "../../../../../../logics/configs/ctranslate2License.ts";
 import * as fieldChecks from "../../../../../../logics/configs/fieldChecks.ts";
@@ -241,8 +241,10 @@ test("the note about the retired models folder shows only while that folder is u
     const row = findIn(drawn, node => node.type === "form-row").props;
     assert.deepEqual([row.group, row.label, row.description, row.fold, row.keepDescription], [true, "config_page.translation.retired_models_folder.label",
         "config_page.translation.retired_models_folder.desc", false, true]);
-    const button = findIn(drawn, node => node.type === "button").props;
-    assert.equal(button.type, "button");
+    // The kit's plain Button, which is a button that submits nothing.
+    const found = findIn(drawn, node => node.type === kitStandIns.Button);
+    assert.equal(found.props.tone, undefined);
+    const button = found.props;
     assert.equal(button.children, "config_page.translation.retired_models_folder.open_add_form");
     button.onClick();
     assert.deepEqual(p.revealed, [{ setting_id: "translation_catalog_add_engine" }]);

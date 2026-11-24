@@ -75,6 +75,8 @@ export const readings = style({
     },
 });
 
+// Fifty rows of actions: the kit's compact buttons, smaller than the page's, so the list stays a
+// list.
 export const actions = style({
     display: "flex",
     flexWrap: "wrap",
@@ -83,14 +85,6 @@ export const actions = style({
     "@container": {
         "(max-width: 52rem)": { gridColumn: 2, gridRow: "1 / span 2" },
     },
-});
-
-// Fifty rows of actions: smaller than the page's buttons, so the list stays a list. The row and
-// the actions together outweigh the settings page's own button rule.
-globalStyle(`${row} ${actions} button`, {
-    minHeight: "3.2rem",
-    padding: ".3rem 1rem",
-    fontSize: "1.3rem",
 });
 
 // The readings being changed: the field and its two buttons, the reason under them.

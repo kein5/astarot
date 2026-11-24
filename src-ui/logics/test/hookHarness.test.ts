@@ -55,4 +55,10 @@ test("the kit's stand-in keeps the kit's defaults", () => {
     assert.deepEqual(field.props, { type: "text", "data-slot": "input", "aria-invalid": undefined, "data-mono": false, value: "words" });
     assert.deepEqual(kitStandIns.TextField({ invalid: true, mono: true, type: "number" }).props,
         { type: "number", "data-slot": "input", "aria-invalid": true, "data-mono": true });
+    // The switch: Radix's root, named data-slot="switch", off unless checked.
+    assert.match(kit("Switch.tsx"), /<RadixSwitch\.Root data-slot="switch"/);
+    const off = kitStandIns.Switch({ id: "mic" });
+    assert.equal(off.type, "button");
+    assert.deepEqual(off.props, { type: "button", role: "switch", "aria-checked": false, "data-state": "unchecked", "data-slot": "switch", id: "mic" });
+    assert.deepEqual(kitStandIns.Switch({ checked: true }).props, { type: "button", role: "switch", "aria-checked": true, "data-state": "checked", "data-slot": "switch" });
 });

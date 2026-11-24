@@ -13,6 +13,7 @@ import * as styles from "../advanced_settings/VoiceSettings.css.ts";
 import { Fold } from "../_components/fold/Fold";
 import { useHintDescriptions } from "../_components/hint/Hint";
 import { Lead } from "../_components/lead/Lead";
+import { Button, TextField } from "../../../../../kit/index.ts";
 
 const REGISTER = "/run/register_transcription_catalog_entry";
 
@@ -72,16 +73,16 @@ const EntryCard = ({ item, layout }: { item: AsrApiItem; layout: CatalogLayout }
             {item.key_in_memory && <p>{t("translation_catalog.key_memory_help")}</p>}
             {removing ? <div className={styles.actions} role="group" aria-label={t("translation_catalog.remove_confirm_label", { name: item.name })}>
                     <p>{t("config_page.transcription.api_entries.remove_confirm")}</p>
-                    <button type="button" autoFocus onClick={() => setRemoving(false)}>{t("translation_catalog.back")}</button>
-                    <button type="button" disabled={busy} onClick={() => {
+                    <Button autoFocus onClick={() => setRemoving(false)}>{t("translation_catalog.back")}</Button>
+                    <Button tone="danger" disabled={busy} onClick={() => {
                         setRemoving(false); send("/run/remove_transcription_catalog_entry", { id: item.id });
-                    }}>{t("translation_catalog.remove_do")}</button>
+                    }}>{t("translation_catalog.remove_do")}</Button>
                 </div>
                 : <div className={styles.actions}>
                     {/* What Use changes is the button's description: the custom Whisper server, not the engine. */}
-                    {state !== "in_use" && <button type="button" className="primary" disabled={busy || state !== "ready"} aria-describedby={`${id}-use`}
-                        onClick={() => send("/run/use_transcription_catalog_entry", { id: item.id })}>{t("config_page.transcription.api_entries.use")}</button>}
-                    <button type="button" disabled={busy} onClick={() => setRemoving(true)}>{t("translation_catalog.remove")}</button>
+                    {state !== "in_use" && <Button tone="primary" disabled={busy || state !== "ready"} aria-describedby={`${id}-use`}
+                        onClick={() => send("/run/use_transcription_catalog_entry", { id: item.id })}>{t("config_page.transcription.api_entries.use")}</Button>}
+                    <Button tone="danger" disabled={busy} onClick={() => setRemoving(true)}>{t("translation_catalog.remove")}</Button>
                     <span id={`${id}-use`} hidden>{t("config_page.transcription.api_entries.use_help")}</span>
                 </div>}
         </div>
@@ -132,7 +133,7 @@ const AddForm = ({ protocols }: { protocols: readonly string[] }) => {
         <div role="group" aria-label={title} onKeyDown={onEnter(submit, busy)}>
             {!hints && <p>{t("config_page.transcription.api_entries.add_help")}</p>}
             <label>{t("translation_catalog.field.name")}
-                <input type="text" value={form.name} maxLength={ENTRY_NAME_LIMIT} disabled={busy} spellCheck={false}
+                <TextField value={form.name} maxLength={ENTRY_NAME_LIMIT} disabled={busy} spellCheck={false}
                     placeholder={t("config_page.transcription.api_entries.placeholder_name")} onChange={set("name")} />
             </label>
             <label>{t("translation_catalog.field.protocol")}
@@ -142,21 +143,21 @@ const AddForm = ({ protocols }: { protocols: readonly string[] }) => {
                 </select>
             </label>
             <label>{t("translation_catalog.field.url")}
-                <input type="url" value={form.url} maxLength={2048} disabled={busy} spellCheck={false}
+                <TextField mono type="url" value={form.url} maxLength={2048} disabled={busy} spellCheck={false}
                     placeholder="http://192.168.1.10:8000/v1" aria-describedby={[`${id}-url`, urlWarning ? `${id}-url-warning` : null].filter(Boolean).join(" ")} onChange={set("url")} />
             </label>
             <Lead id={`${id}-url`} text={t("config_page.transcription.api_entries.url_lead")} details={t("translation_catalog.url_details")} />
             {urlWarning && <p id={`${id}-url-warning`} role="note">{urlWarning}</p>}
             <label>{t("translation_catalog.field.model")}
-                <input type="text" value={form.model} maxLength={200} disabled={busy} spellCheck={false}
+                <TextField value={form.model} maxLength={200} disabled={busy} spellCheck={false}
                     placeholder={t("translation_catalog.placeholder.model")} onChange={set("model")} />
             </label>
             <label>{t("translation_catalog.field.key")}
-                <input type="password" value={form.auth_key} disabled={busy} autoComplete="off" spellCheck={false}
+                <TextField mono type="password" value={form.auth_key} disabled={busy} autoComplete="off" spellCheck={false}
                     aria-describedby={problem ? `${id}-problem` : undefined} onChange={set("auth_key")} />
             </label>
             <div className={`${styles.actions} ${styles.control_column}`}>
-                <button type="button" disabled={busy} onClick={submit}>{t("translation_catalog.add_do")}</button>
+                <Button disabled={busy} onClick={submit}>{t("translation_catalog.add_do")}</Button>
             </div>
             {/* The problem is said under the button, in a line kept for it, so nothing moves when it appears (#912). */}
             <div className={styles.problem_slot}>

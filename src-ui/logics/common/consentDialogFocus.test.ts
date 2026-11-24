@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import type { TestContext } from "vitest";
-import { componentNamed, findIn, hooks, loadModule, find, setRef, stubGlobals } from "../test/hookHarness.ts";
+import { componentNamed, findIn, hooks, kitStandIns, loadModule, find, setRef, stubGlobals } from "../test/hookHarness.ts";
 import type { HookRuntime } from "../test/hookHarness.ts";
 import * as endpointPrivacy from "./endpointPrivacy.ts";
 import * as languageNames from "./languageNames.ts";
@@ -105,7 +105,8 @@ async function fixture(context: TestContext, kind: Kind, openerState: OpenerStat
     context.onTestFinished(() => runtime.unmount());
     let tree = render();
     if (["catalog", "ocr"].includes(kind)) {
-        findIn(tree, node => node.type === "button" && node.props.children === "model_downloads.review").props.onClick();
+        // The OCR models' review is the kit's Button; the catalog's is still the form's.
+        findIn(tree, node => (node.type === "button" || node.type === kitStandIns.Button) && node.props.children === "model_downloads.review").props.onClick();
     }
     tree = render();
     const commit = async () => {

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import type { TestContext } from "vitest";
-import { componentName, componentOf, find, findIn, hooks, loadModule, nodesIn, treeNode } from "../../../../../../logics/test/hookHarness.ts";
+import { componentName, componentOf, find, findIn, hooks, loadModule, nodesIn, treeNode, kitStandIns } from "../../../../../../logics/test/hookHarness.ts";
 import type { HookRuntime, TreeNode } from "../../../../../../logics/test/hookHarness.ts";
 import * as transcriptionCatalog from "../../../../../../logics/transcription/transcriptionCatalog.ts";
 import * as translationCatalog from "../../../../../../logics/translation/translationCatalog.ts";
@@ -68,8 +68,8 @@ const textOf = (value: unknown): string => {
     const node = treeNode(value);
     return node ? textOf(node.props.children) : "";
 };
-const ofType = (tree: unknown, type: string) => nodesIn(tree).filter(node => node.type === type);
-const buttonNamed = (tree: unknown, words: string) => findIn(tree, node => node.type === "button" && textOf(node) === words, `the button ${words}`);
+const ofType = (tree: unknown, type: unknown) => nodesIn(tree).filter(node => node.type === type);
+const buttonNamed = (tree: unknown, words: string) => findIn(tree, node => node.type === kitStandIns.Button && textOf(node) === words, `the button ${words}`);
 const classesOf = (node: TreeNode) => String(node.props.className ?? "").split(" ").filter(Boolean);
 
 test("the part asks for the entries when it opens and again on a new connection, and says a failure in its own words or the general ones", async context => {
@@ -141,13 +141,15 @@ test("Use points the custom Whisper server at a ready entry, and Remove asks fir
     const card = (entry: Record<string, unknown> = item("a")) => a.draw(element.type, { item: entry, layout: "list" }, runtime);
     let shown = card();
     const use = buttonNamed(shown, "config_page.transcription.api_entries.use");
-    assert.deepEqual([use.props.className, use.props.disabled], ["primary", false]);
+    assert.deepEqual([use.props.tone, use.props.disabled], ["primary", false]);
+    // Remove takes something away: the kit's danger, here and when it asks first.
+    assert.equal(buttonNamed(shown, "translation_catalog.remove").props.tone, "danger");
     const help = findIn(shown, node => node.type === "span" && node.props.id === use.props["aria-describedby"]);
     assert.deepEqual([help.props.hidden, textOf(help)], [true, "config_page.transcription.api_entries.use_help"]);
     use.props.onClick();
     assert.deepEqual(a.sent.at(-1), ["/run/use_transcription_catalog_entry", { id: "a" }]);
     assert.equal(buttonNamed(card(item("a", { has_key: false })), "config_page.transcription.api_entries.use").props.disabled, true, "not without a key");
-    assert.equal(find(card(item("a", { in_use: true })), node => textOf(node) === "config_page.transcription.api_entries.use" && node.type === "button"), null);
+    assert.equal(find(card(item("a", { in_use: true })), node => textOf(node) === "config_page.transcription.api_entries.use" && node.type === kitStandIns.Button), null);
     a.state.pending = { endpoint: "/run/remove_transcription_catalog_entry" };
     shown = card();
     assert.deepEqual([buttonNamed(shown, "config_page.transcription.api_entries.use").props.disabled, buttonNamed(shown, "translation_catalog.remove").props.disabled], [true, true]);
@@ -158,6 +160,7 @@ test("Use points the custom Whisper server at a ready entry, and Remove asks fir
     assert.deepEqual([confirm.props["aria-label"], ofType(confirm, "p").map(textOf)], [`translation_catalog.remove_confirm_label {"name":"API a"}`,
         ["config_page.transcription.api_entries.remove_confirm"]]);
     assert.equal(buttonNamed(confirm, "translation_catalog.back").props.autoFocus, true);
+    assert.deepEqual([buttonNamed(confirm, "translation_catalog.back").props.tone, buttonNamed(confirm, "translation_catalog.remove_do").props.tone], [undefined, "danger"]);
     buttonNamed(confirm, "translation_catalog.back").props.onClick();
     assert.equal(find(card(), node => node.props?.role === "group" && node.type === "div"), null);
     buttonNamed(card(), "translation_catalog.remove").props.onClick();
@@ -178,26 +181,28 @@ test("the add form names its fields, offers the protocols the backend has, and s
     assert.deepEqual(ofType(group, "p").map(textOf)[0], "config_page.transcription.api_entries.add_help");
     assert.deepEqual(ofType(tree, "label").map(label => [label.props.children].flat()[0]), ["translation_catalog.field.name", "translation_catalog.field.protocol",
         "translation_catalog.field.url", "translation_catalog.field.model", "translation_catalog.field.key"]);
-    const [name, url, model, key] = ofType(tree, "input").map(node => node.props);
-    assert.deepEqual([name.type, name.maxLength, name.spellCheck, name.placeholder, name.disabled], ["text", translationCatalog.ENTRY_NAME_LIMIT, false,
+    const [name, url, model, key] = ofType(tree, kitStandIns.TextField).map(node => node.props);
+    // The kit's TextField is a text field unless it says otherwise; the address and the key are in
+    // its monospaced font (#476).
+    assert.deepEqual([name.type, name.mono, name.maxLength, name.spellCheck, name.placeholder, name.disabled], [undefined, undefined, translationCatalog.ENTRY_NAME_LIMIT, false,
         "config_page.transcription.api_entries.placeholder_name", false]);
-    assert.deepEqual([url.type, url.maxLength, url.spellCheck, url.placeholder], ["url", 2048, false, "http://192.168.1.10:8000/v1"]);
-    assert.deepEqual([model.type, model.maxLength, model.spellCheck, model.placeholder], ["text", 200, false, "translation_catalog.placeholder.model"]);
-    assert.deepEqual([key.type, key.autoComplete, key.spellCheck, key["aria-describedby"]], ["password", "off", false, undefined]);
+    assert.deepEqual([url.type, url.mono, url.maxLength, url.spellCheck, url.placeholder], ["url", true, 2048, false, "http://192.168.1.10:8000/v1"]);
+    assert.deepEqual([model.type, model.mono, model.maxLength, model.spellCheck, model.placeholder], [undefined, undefined, 200, false, "translation_catalog.placeholder.model"]);
+    assert.deepEqual([key.type, key.mono, key.autoComplete, key.spellCheck, key["aria-describedby"]], ["password", true, "off", false, undefined]);
     const protocol = findIn(tree, node => node.type === "select").props;
     assert.deepEqual([protocol.value, protocol.disabled], ["deepgram", false]);
     assert.deepEqual(ofType(tree, "option").map(option => [option.props.value, textOf(option)]), [["deepgram", "config_page.transcription.api_entries.protocol.deepgram"],
         ["openai_compatible", "config_page.transcription.api_entries.protocol.openai_compatible"]]);
     const lead = findIn(tree, node => node.type === "lead").props;
     assert.deepEqual([lead.id, lead.text, lead.details], [url["aria-describedby"], "config_page.transcription.api_entries.url_lead", "translation_catalog.url_details"]);
-    const row = findIn(tree, node => node.type === "div" && find(node, inner => inner.type === "button") !== null && [node.props.children].flat().length === 1);
+    const row = findIn(tree, node => node.type === "div" && find(node, inner => inner.type === kitStandIns.Button) !== null && [node.props.children].flat().length === 1);
     assert.equal(classesOf(row).length, 2, "the button's row in the control column");
     // Plain HTTP on the LAN: a note the address points to.
-    ofType(tree, "input")[1].props.onChange({ target: { value: "http://192.168.1.10:8000/v1" } });
+    ofType(tree, kitStandIns.TextField)[1].props.onChange({ target: { value: "http://192.168.1.10:8000/v1" } });
     tree = a.form();
     const warning = findIn(tree, node => node.type === "p" && node.props.role === "note");
     assert.equal(textOf(warning), "network_privacy.http_warning");
-    assert.equal(ofType(tree, "input")[1].props["aria-describedby"], `${lead.id} ${warning.props.id}`);
+    assert.equal(ofType(tree, kitStandIns.TextField)[1].props["aria-describedby"], `${lead.id} ${warning.props.id}`);
     // One protocol or none known: nothing to choose, the default one.
     const one = await apiEntries(context, { catalog: { api: [], protocols: ["absent_kind"] } });
     const select = findIn(one.form(), node => node.type === "select").props;
@@ -213,11 +218,11 @@ test("the add form names its fields, offers the protocols the backend has, and s
 
 test("the form refuses what cannot pass, then sends the entry, and clears only once its own request came back without a refusal", async context => {
     const a = await apiEntries(context, { catalog: { api: [], protocols: ["openai_compatible", "deepgram"] } });
-    const type = (index: number, value: string) => { ofType(a.form(), "input")[index].props.onChange({ target: { value } }); };
+    const type = (index: number, value: string) => { ofType(a.form(), kitStandIns.TextField)[index].props.onChange({ target: { value } }); };
     const problem = () => {
         const tree = a.form();
         const line = find(tree, node => node.type === "p" && node.props.role === "alert");
-        return line && [textOf(line), ofType(tree, "input")[3].props["aria-describedby"] === line.props.id];
+        return line && [textOf(line), ofType(tree, kitStandIns.TextField)[3].props["aria-describedby"] === line.props.id];
     };
     buttonNamed(a.form(), "translation_catalog.add_do").props.onClick();
     assert.deepEqual(problem(), ["translation_catalog.problem.name_missing", true]);
@@ -234,27 +239,27 @@ test("the form refuses what cannot pass, then sends the entry, and clears only o
     a.form();
     a.state.pending = null;
     a.form();
-    assert.equal(ofType(a.form(), "input")[0].props.value, " Mine ");
+    assert.equal(ofType(a.form(), kitStandIns.TextField)[0].props.value, " Mine ");
     a.state.pending = { endpoint: REGISTER };
     a.form();
-    assert.deepEqual(ofType(a.form(), "input").map(node => node.props.disabled), [true, true, true, true], "nothing to change while it is sent");
+    assert.deepEqual(ofType(a.form(), kitStandIns.TextField).map(node => node.props.disabled), [true, true, true, true], "nothing to change while it is sent");
     assert.equal(buttonNamed(a.form(), "translation_catalog.add_do").props.disabled, true);
     a.state.pending = null;
     a.state.error = "entry_exists";
     a.form();
-    assert.equal(ofType(a.form(), "input")[0].props.value, " Mine ");
+    assert.equal(ofType(a.form(), kitStandIns.TextField)[0].props.value, " Mine ");
     // Sent again and accepted: the form is empty again, with the first protocol.
     a.state.error = null;
     a.state.pending = { endpoint: REGISTER };
     a.form();
     a.state.pending = null;
     a.form();
-    assert.deepEqual([...ofType(a.form(), "input").map(node => node.props.value), findIn(a.form(), node => node.type === "select").props.value],
+    assert.deepEqual([...ofType(a.form(), kitStandIns.TextField).map(node => node.props.value), findIn(a.form(), node => node.type === "select").props.value],
         ["", "", "", "", "openai_compatible"]);
     // What is typed next stays.
     type(0, "Next");
     a.form();
-    assert.equal(ofType(a.form(), "input")[0].props.value, "Next");
+    assert.equal(ofType(a.form(), kitStandIns.TextField)[0].props.value, "Next");
 });
 
 test("Enter in a field adds as a form would, except while something is sent; Enter elsewhere and other keys do nothing", async context => {
@@ -268,7 +273,7 @@ test("Enter in a field adds as a form would, except while something is sent; Ent
     assert.deepEqual([prevented, find(a.form(), node => node.props?.role === "alert")], [0, null]);
     key("Enter", { tagName: "INPUT" });
     assert.deepEqual([prevented, textOf(findIn(a.form(), node => node.props?.role === "alert"))], [1, "translation_catalog.problem.name_missing"]);
-    for (const [index, value] of [[0, "Mine"], [1, "https://asr.example/v1"], [3, "key"]] as const) ofType(a.form(), "input")[index].props.onChange({ target: { value } });
+    for (const [index, value] of [[0, "Mine"], [1, "https://asr.example/v1"], [3, "key"]] as const) ofType(a.form(), kitStandIns.TextField)[index].props.onChange({ target: { value } });
     a.state.pending = { endpoint: "/run/use_transcription_catalog_entry" };
     key("Enter", { tagName: "INPUT" });
     assert.equal(prevented, 2);

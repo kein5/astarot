@@ -59,26 +59,6 @@ export const log_destination_actions = style({
     minWidth: 0,
 });
 
-// Secondary action buttons matching VoiceSettings / PageLinkButton at the row's right end.
-export const log_destination_button = style({
-    boxSizing: "border-box",
-    minHeight: "4rem",
-    padding: ".9rem 1.2rem",
-    fontSize: "1.4rem",
-    fontWeight: 500,
-    color: vars.dark_200_color,
-    backgroundColor: vars.dark_850_color,
-    border: ".1rem solid transparent",
-    borderRadius: vars.vox_radius,
-    cursor: "pointer",
-    selectors: {
-        "&:hover:enabled": { backgroundColor: vars.vox_secondary_hover },
-        "&:active:enabled": { backgroundColor: vars.dark_925_color },
-        "&:focus-visible": { outline: `.2rem solid ${vars.primary_200_color}`, outlineOffset: ".2rem" },
-        "&:disabled": { opacity: .5, cursor: "not-allowed" },
-    },
-});
-
 export const log_destination_error = style({
     margin: 0,
     padding: ".8rem 1.2rem",
