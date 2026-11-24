@@ -157,6 +157,11 @@ impl Talk {
         let _ = self.control.send(Control::EndTurn);
     }
 
+    /// Revokes the connection and any queued media immediately, without joining the worker.
+    pub fn cancel(&self) {
+        self.stop.stop();
+    }
+
     /// Ends the conversation and waits up to `timeout` for its thread. `true` when it ended.
     pub fn stop(mut self, timeout: Duration) -> bool {
         self.stop.stop();
@@ -216,23 +221,15 @@ impl Session {
             if cancel.is_cancelled() {
                 return Ok(());
             }
-            self.take_control(control, on_update)?;
-            while let Ok(item) = media.try_recv() {
-                if !self.conversation.ready() {
-                    continue;
-                }
-                match item {
-                    Media::Audio(pcm) => self.send(&protocol::append_audio(&pcm))?,
-                    Media::Image(jpeg) => self.send_image(&jpeg)?,
-                }
-            }
+            self.take_control(control, media, cancel, on_update)?;
+            self.take_media(media, cancel, 8)?;
             match self.socket.read() {
                 Ok(Message::Text(text)) => {
                     // An event that cannot be read is left; the conversation goes on.
                     if let Ok(event) = protocol::parse(text.as_str()) {
                         // What the app said before the event came counts first: how far an answer
                         // played decides where the user's speech cuts it.
-                        self.take_control(control, on_update)?;
+                        self.take_control(control, media, cancel, on_update)?;
                         let opening = !self.conversation.ready();
                         let refused = opening && matches!(event, ServerEvent::Error { .. });
                         let effects = self.conversation.step(Input::Server(event));
@@ -261,13 +258,39 @@ impl Session {
         }
     }
 
+    fn take_media(&mut self, media: &Receiver<Media>, cancel: &Cancel, limit: usize) -> Result<(), Failure> {
+        for _ in 0..limit {
+            if cancel.is_cancelled() {
+                break;
+            }
+            let Ok(item) = media.try_recv() else { break };
+            if self.conversation.ready() {
+                match item {
+                    Media::Audio(pcm) => self.send(&protocol::append_audio(&pcm))?,
+                    Media::Image(jpeg) => self.send_image(&jpeg)?,
+                }
+            }
+        }
+        Ok(())
+    }
+
     /// Carries out what the app said about playback and turns.
-    fn take_control(&mut self, control: &Receiver<Control>, on_update: &mut OnUpdate) -> Result<(), Failure> {
-        while let Ok(command) = control.try_recv() {
+    fn take_control(&mut self, control: &Receiver<Control>, media: &Receiver<Media>, cancel: &Cancel, on_update: &mut OnUpdate) -> Result<(), Failure> {
+        for command in control.try_iter().take(64) {
+            if cancel.is_cancelled() {
+                break;
+            }
             let input = match command {
                 Control::Played { item_id, ms } => Input::Played { item_id, ms },
                 Control::Interrupt => Input::Interrupt,
-                Control::EndTurn => Input::EndTurn,
+                Control::EndTurn => {
+                    // Forward the audio already queued when the app ended this turn.
+                    self.take_media(media, cancel, MEDIA_QUEUE)?;
+                    if cancel.is_cancelled() {
+                        break;
+                    }
+                    Input::EndTurn
+                }
             };
             let effects = self.conversation.step(input);
             self.apply(effects, on_update)?;

@@ -902,6 +902,10 @@ impl Core {
     /// is answered here (409), where Python's session started and then failed with it.
     fn start_realtime(self: &Arc<Self>, data: &Value) -> Reply {
         let Ok(source) = source_of(data) else { return refused(400, "realtime_start_invalid") };
+        let talk = (source == Source::Mic).then(|| self.talk_ai.lock().unwrap());
+        if talk.as_ref().is_some_and(|session| session.owns_microphone()) {
+            return Reply::conflict("talk_microphone_in_use");
+        }
         let Some(expected) = data.get("_realtime_generation").and_then(Value::as_u64) else {
             return refused(400, "realtime_start_invalid");
         };
