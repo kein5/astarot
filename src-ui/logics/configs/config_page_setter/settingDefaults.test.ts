@@ -24,6 +24,10 @@ const READ_ELSEWHERE: Readonly<Record<string, () => unknown>> = {
     OverlayVrPanelOpacity: () => fieldOf(coreValue("OVERLAY_VR_PANEL_SETTINGS"), "opacity"),
     OverlayVrLauncherHand: () => fieldOf(coreValue("OVERLAY_VR_LAUNCHER_SETTINGS"), "tracker"),
     WebsocketTls: () => ({ cert_file: coreValue("WEBSOCKET_TLS_CERT_FILE"), key_file: coreValue("WEBSOCKET_TLS_KEY_FILE") }),
+    // The core answers whether the one-time notice waits and whether sending is on
+    // (native/core/src/controller/telemetry.rs): a new install has never answered it
+    // (TELEMETRY_NOTICE 0, below the first notice version) and has ENABLE_TELEMETRY on.
+    TelemetryNotice: () => ({ pending: coreValue("TELEMETRY_NOTICE") === 0, enabled: coreValue("ENABLE_TELEMETRY") }),
 };
 
 // Settings that wait for the core's answer with an empty value ("", 0, null, {}) instead of the
@@ -42,26 +46,10 @@ const EMPTY_UNTIL_ANSWERED: ReadonlySet<string> = new Set([
     "PathConfig",
 ]);
 
-// Settings that start at a value of their own, which is neither the core's default nor empty. Each
-// is listed with that value, so a change to it is a decision made here.
-const OWN_START: Readonly<Record<string, unknown>> = {
-    // The automatic sensitivity is drawn on, and the switches below off, until the core answers; the
-    // core's defaults are the other way round.
-    EnableAutomaticMicThreshold: true,
-    EnableAutomaticSpeakerThreshold: true,
-    ShowResendButton: true,
-    EnableAutoClearMessageInputBox: false,
-    EnableSendMessageToVrc: false,
-    EnableNotificationVrcSfx: false,
-    // Not one of the core's values (SEND_MESSAGE_BUTTON_TYPE_LIST); the input box reads anything but
-    // "hide" and "show_and_disable_enter_key" as "show", the core's default.
-    SendMessageButtonType: "primary",
-    // The core answers whether the one-time notice waits and whether sending is on, worked out from
-    // TELEMETRY_NOTICE (a number) and ENABLE_TELEMETRY.
-    TelemetryNotice: { pending: false, enabled: true },
-    WebsocketPort: 9001,
-    // The core answers the folder the logs go to and why it fell back, if it did (#1096), worked
-    // out from PATH_LOGS.
+// Settings whose answer the core works out on each machine and gives with fields: they wait with
+// each field empty. The log folder: the folder the logs go to and why it fell back, if it did
+// (#1096), worked out from PATH_LOGS and CONVERSATION_LOG_DIRECTORY.
+const EMPTY_FIELDS: Readonly<Record<string, Readonly<Record<string, unknown>>>> = {
     PathLogs: { path: "", error_code: null },
 };
 
@@ -74,9 +62,12 @@ test("a setting the core keeps starts at the core's default, or empty where it w
     assert.ok(kept.length > 130, String(kept.length));
     for (const setting of kept) {
         const name = setting.Base_Name, value: unknown = setting.default_value;
-        if (name in OWN_START) continue;
         const core = READ_ELSEWHERE[name]?.() ?? coreValue(setting.base_endpoint_name.toUpperCase());
-        if (EMPTY_UNTIL_ANSWERED.has(name)) {
+        if (name in EMPTY_FIELDS) {
+            assert.deepEqual(value, EMPTY_FIELDS[name], name);
+            assert.ok(Object.values(EMPTY_FIELDS[name]).every(isEmpty), `${name} waits with each field empty`);
+            assert.ok(!isDeepStrictEqual(value, core), `${name} starts at the core's default: drop it from the list`);
+        } else if (EMPTY_UNTIL_ANSWERED.has(name)) {
             assert.ok(isEmpty(value), `${name} starts at ${JSON.stringify(value)}`);
             assert.ok(!isDeepStrictEqual(value, core), `${name} starts at the core's default: drop it from the list`);
         } else {
@@ -85,16 +76,11 @@ test("a setting the core keeps starts at the core's default, or empty where it w
     }
 });
 
-test("the settings that start at a value of their own are the listed ones, at the listed values", async () => {
+test("the settings listed as waiting empty are settings of the list", async () => {
     const { list } = await loadSettingsList();
-    for (const [name, value] of Object.entries(OWN_START)) {
-        const setting = list.SETTINGS_ARRAY.find(item => item.Base_Name === name);
-        assert.ok(setting, name);
-        assert.deepEqual(setting.default_value, value, name);
-        const core = READ_ELSEWHERE[name]?.() ?? coreValue(setting.base_endpoint_name.toUpperCase());
-        assert.ok(!isDeepStrictEqual(value, core), `${name} starts at the core's default: drop it from the list`);
+    for (const name of [...EMPTY_UNTIL_ANSWERED, ...Object.keys(EMPTY_FIELDS)]) {
+        assert.ok(list.SETTINGS_ARRAY.some(item => item.Base_Name === name), name);
     }
-    for (const name of EMPTY_UNTIL_ANSWERED) assert.ok(list.SETTINGS_ARRAY.some(item => item.Base_Name === name), name);
 });
 
 test("a value the core works out starts empty, but for the built-in weights and the VR layout", async () => {
