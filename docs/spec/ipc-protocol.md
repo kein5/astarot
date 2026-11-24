@@ -441,3 +441,19 @@ OpenAI のキーは `/set/data/talk_ai_auth_key` に文字列を渡して登録�
 段階4では、`phase: "ready"` の応答を受けてから、画面に音声の送信表示を出す。その後、現在の `session_id` と `indicator_visible: true` を `/set/enable/talk_ai_audio` へ渡す。応答音声は既定でシステムの再生先へ出す。別の再生先は `output` に指定し、仮想マイクに送るときは `share_output: true` も渡す。対話中はマイクの文字起こしを止める。対話の終了後に、利用者が文字起こしを再開できる。
 
 `/set/data/talk_ai_interrupt` は応答の再生を止める。vLLM-Omni で利用者の発話を区切るには `/set/data/talk_ai_end_turn` を呼ぶ。両方に現在の `session_id` を渡す。
+
+### 設定ファイルと会話ログの保存先
+
+`/get/data/path_config` は設定ファイルの絶対パスを文字列で返す。`/get/data/path_logs` は有効な会話ログの保存先を `{ "path": "...", "error_code": null }` の形で返す。両方を初期化の応答に含める。
+
+`/set/data/path_logs` は既存の書き込み可能なフォルダーの絶対パスを文字列で受け取る。`null` で既定の保存先に戻す。成功時は取得と同じ形を返す。入力を受け付けられない場合は既定の保存先に戻し、HTTP相当の状態400と `{ "path": "...", "error_code": "..." }` を返す。
+
+| エラーコード | 入力欄に示す理由と対処 |
+|---|---|
+| `log_directory_invalid` | フォルダーのパスを指定するか、既定の保存先に戻す。 |
+| `log_directory_not_absolute` | フォルダーの絶対パスを指定する。 |
+| `log_directory_missing` | 存在するフォルダーを指定する。 |
+| `log_directory_not_directory` | ファイルのパスをフォルダーのパスに直す。 |
+| `log_directory_unwritable` | 書き込み可能なフォルダーを指定する。 |
+
+保存済みのフォルダーが使用できなくなった場合も、既定の保存先へ戻す。取得時は有効なパスと直近のエラーコードを返す。会話ログの書き出しとフォルダーを開く操作は同じ保存先を使う。保存先を変えたあと、新しいメッセージを新しい保存先に書く。

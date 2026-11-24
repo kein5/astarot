@@ -683,3 +683,28 @@ fn the_conversation_log_is_written_only_while_it_is_on() {
     assert!(files.iter().any(|text| text.contains("二度目") && !text.contains("記録する")), "{files:?}");
     run.ui.stop();
 }
+
+#[test]
+fn the_conversation_log_moves_and_falls_back_when_the_destination_disappears() {
+    let run = start(json!({ "LOGGER_FEATURE": true }), None);
+    let initial = run.ui.ready();
+    assert_eq!(initial["/get/data/path_config"], json!(run.ui.dir.join("config.json")));
+    let default = run.ui.dir.join("logs");
+    assert_eq!(initial["/get/data/path_logs"]["path"], json!(default));
+    let custom = tempfile::tempdir().unwrap();
+    assert_eq!(run.ui.ok("/set/data/path_logs", Some(json!(custom.path())))["path"], json!(custom.path()));
+    run.chat("custom", "message in the custom directory");
+    assert_eq!(std::fs::read_dir(custom.path()).unwrap().count(), 1);
+
+    let response = run.ui.request("/set/data/path_logs", Some(json!("relative/logs")));
+    assert_eq!(response["status"], 400);
+    assert_eq!(response["result"], json!({ "path": default, "error_code": "log_directory_not_absolute" }));
+
+    let gone = tempfile::tempdir().unwrap();
+    run.ui.ok("/set/data/path_logs", Some(json!(gone.path())));
+    gone.close().unwrap();
+    run.chat("fallback", "message in the default directory");
+    assert!(run.conversation_log().contains("message in the default directory"));
+    assert_eq!(run.ui.ok("/get/data/path_logs", None), json!({ "path": default, "error_code": "log_directory_missing" }));
+    run.ui.stop();
+}

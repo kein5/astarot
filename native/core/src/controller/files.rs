@@ -64,8 +64,9 @@ impl Core {
 }
 
 pub(crate) fn add(b: &mut Builder<'_>) {
+    b.get("/get/data/path_config", OPEN, "PATH_CONFIG");
     b.with("/run/open_filepath_config_file", OPEN, |core, _| core.open_folder_reply(&core.config().environment().state_dir));
-    b.with("/run/open_filepath_logs", OPEN, |core, _| core.open_folder_reply(&core.config().environment().state_dir.join("logs")));
+    b.with("/run/open_filepath_logs", OPEN, |core, _| core.open_folder_reply(&core.conversation_log_directory()));
     b.with("/run/export_vocabulary", OPEN, |core, data| core.export_vocabulary(data));
     // The folder is made when it is asked for before anything was written out.
     b.with("/run/open_filepath_vocabulary_exports", OPEN, |core, _| {
