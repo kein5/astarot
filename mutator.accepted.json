@@ -135,6 +135,14 @@
     "reason": "The jump buttons are drawn only on the list of all languages, so groups worked out for another list are never shown.",
     "where": "src-ui/views/vr/VrLanguageWindow.tsx:258:38 view.stage === 'list' -> true"
   },
+  "1kfs0wk0kol": {
+    "reason": "watchDrag gives the zone the current drag state as soon as it is drawn, and until then nothing is over the zone, so its first paths are never read.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/_components/file_drop_zone/FileDropZone.tsx:37:83 [] -> [\"Stryker was here!\"]"
+  },
+  "1l3qtflgmel": {
+    "reason": "The effect's dependencies are a constant list either way, so it runs once, when the zone is first drawn.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/_components/file_drop_zone/FileDropZone.tsx:57:8 [] -> [\"Stryker was here!\"]"
+  },
   "1lpzrhchutd": {
     "reason": "Every static route is an object with an endpoint, so the check never skips one.",
     "where": "src-ui/logics/useReceiveRoutes.ts:890:13 !item?.endpoint -> false"
