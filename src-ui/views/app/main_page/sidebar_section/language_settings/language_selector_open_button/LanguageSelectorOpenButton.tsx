@@ -92,13 +92,15 @@ export const LanguageSelectorOpenButton = ({ TurnedOnSvgComponent, is_turned_on,
             </div>
             {/* A button so the selector also opens from the keyboard: the kit's plain Button at the
                 compact size, its language and arrow centered as the kit draws them (decided on
-                2026-11-25). */}
+                2026-11-25). While the engine starts, the whole button is the placeholder
+                (data-skeleton, MainPage.css.ts) and its words are hidden: centered words move as
+                the language arrives, and the button keeps its size, so nothing is seen to move. */}
             <Tooltip bare placement="right" title={hint}>
-                <Button size="compact" onClick={toggleSelector}
+                <Button size="compact" onClick={toggleSelector} data-skeleton=""
                     aria-label={country_text ? `${title}: ${language_text} (${country_text})` : `${title}: ${language_text}`} aria-expanded={is_opened}
                     aria-describedby={hint_id}>
-                    <span className={styles.selected_language} data-skeleton="">{language_text}</span>
-                    {country_text && <span className={styles.selected_language} data-skeleton="">({country_text})</span>}
+                    <span className={styles.selected_language}>{language_text}</span>
+                    {country_text && <span className={styles.selected_language}>({country_text})</span>}
                     <ArrowLeftSvg className={arrow_class_names} aria-hidden="true" />
                 </Button>
             </Tooltip>
