@@ -99,7 +99,7 @@ Related: [ADR-004](adr-004-audio-integration-boundaries.md)、[ADR-005](adr-005-
 - アプリ（`IsolatedVCProcess`）は変換のプロセス（`router_worker`）を別に起動し、制御だけを送る。制御の経路は「metadata-only」で、音声は流さない（`router_protocol.py`）。
 - 変換のプロセス（`VCProcess`）はマイクを48 kHz、20 msずつ取り込み、80 msのブロックにまとめて推論の子プロセスへ送る。ブロックは取り込みの時刻を持ち、古すぎるものは捨てる（`protocol.py`）。
 - 読み上げは`VoiceEventBus`がspeech.cppから受け取ったPCMを、`AudioRouter`で出力デバイスへ書く。
-- 「翻訳発声中の直接音声」を「止める」にすると、直接音声（変換した声を含む）を出さない。
+- 「翻訳発声中の直接音声」を「直接音声を止める」にすると、直接音声（変換した声を含む）を出さない。
   - Windowsは`DirectVoice.set_suppressed`で変換の出力を無音にする。
   - Linuxは管理対象の経路でVCのsinkをOSのゲートでミュートし、その状態を確かめる。
   - どちらも、設定がオンのあいだは読み上げていないときも直接音声を出さない。

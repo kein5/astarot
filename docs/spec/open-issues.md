@@ -59,7 +59,7 @@ Problems found while writing the specification and fixed in the same period.
 | OI-07 | UIだけにあるルートが60件ある。多くは`ui_config_setter.ts`の定義が機械的に作るもので、使われない | [IPCエンドポイント一覧](reference/ipc-endpoints.md)の「UIだけにあるルート」 | 整理するか未決 |
 | OI-08 | 要求に通し番号がなく、応答はエンドポイント名で対応づける。同じエンドポイントへの要求が重なると、どの応答がどの要求のものか分からない。言語の変更だけはUIが対応づけを補っている | [IPCプロトコル](ipc-protocol.md#言語の変更の対応づけ) | 設計上の制約。変えるならプロトコルの版を上げる |
 | OI-09 | `config.json`に版番号がない。キーの意味を変えるときに移行の手がかりがない。ローカル音声認識の移行だけは、`LOCAL_ASR_MIGRATION`に済ませた段階を記録している（[ローカル音声認識の移行](data-and-persistence.md#ローカル音声認識の移行)） | [データ形式と保存](data-and-persistence.md#configjson) | 未決 |
-| OI-21 | チャット読み取りの設定の場所が、デスクトップとVRで違う。デスクトップは「チャット読み取り」のページに分けた（2026-11-13）。VRの設定は「VRChat」のページの中に置いたままである。OI-11で一度そろえた構成が、また分かれた | `src-ui/views/app/config_page/setting_section/setting_box/SettingBox.tsx`、`src-ui/views/vr/VrSettingsWindow.tsx` | 未決。VRの設定は項目が4つだけなので、そのままにしている |
+| OI-21 | チャット読み取りの設定の場所が、デスクトップとVRで違う。デスクトップは「チャット読み取り（OCR）」のページに分けた（2026-11-13）。VRの設定は「VRChat」のページの中に置いたままである。OI-11で一度そろえた構成が、また分かれた | `src-ui/views/app/config_page/setting_section/setting_box/SettingBox.tsx`、`src-ui/views/vr/VrSettingsWindow.tsx` | 未決。VRの設定は項目が4つだけなので、そのままにしている |
 | OI-10 | エラーコード114件のうち10件は、UIに個別の処理がない。いずれも音声認識の失敗（`AUDIO_*`、`ASR_ERROR`、`TRANSCRIPTION_API_*`など）で、`/run/transcription_recognition_error`として会話ログに出るため汎用の通知にはならない。会話ログでは`backend_errors`の文言で翻訳する（2026-11-08）。`AUDIO_TRACKER_STOP_TIMEOUT`はテレメトリー用で画面には届かない | [エラーコード一覧](reference/error-codes.md) | 確認済み。新しいコードを足すときは同じ確認をし、会話ログに出るコードには`en.yml`と`ja.yml`の文言を足す |
 | OI-22 | ローカルの Whisper を削除したため（#288）、speech.cpp にモデルのない31言語は、この PC の中では認識できなくなった。ローカル（speech.cpp）で認識できる言語は、適用した認識モデルが持つ言語で決まる。クラウドのエンジンでは、これまでどおり選べる（キーなしの Google は外した） | `native/core/src/config/mod.rs`の`RETIRED_WHISPER_ENGINE`、[音声認識エンジンの選択](data-and-persistence.md#音声認識エンジンの選択) | 削除すると決めた（保守担当者の判断、#288）。認識の閾値の画面、`no_repeat_ngram_size`、音声認識の計算デバイスと計算型の選択も同時に外した |
 
@@ -68,7 +68,7 @@ Problems found while writing the specification and fixed in the same period.
 仕様書を作る途中で見つけ、同じ時期に直したもの。
 
 - VRパネルのウィンドウ名が一致していなかった（OI-01）。RustはVRパネルを`VRCT-VOX VR Panel`という名前で作るが、Windowsのオーバーレイは`FindWindowW`で`VRCT VR Panel`を探していた。Tauri 2.12とwry 0.57は、ハンドラを登録しない限り文書の`<title>`をウィンドウ名に写さないため、WindowsではVRパネルを撮影できなかった。Python・`vr.html`の名前をRustに合わせ、`tests/devtools/test_vr_panel_title.py`で一致を確かめる。Windowsの実機では未確認。
-- VRの設定の「サンプルテキストをOverlayに送信する」（開始している間くり返し送る）と「ランチャーの位置と大きさを初期に戻す」は、サイドカーの応答（200）にUIの受け先がなく、送るたびにコンソールへ`Invalid endpoint`を出していた（OI-04）。応答を受け取るだけの受け先を足した。
+- VRの設定の「サンプルの文を字幕オーバーレイに送る」（開始している間くり返し送る）と「ランチャーの位置と大きさを初期に戻す」は、サイドカーの応答（200）にUIの受け先がなく、送るたびにコンソールへ`Invalid endpoint`を出していた（OI-04）。応答を受け取るだけの受け先を足した。
 - LinuxのビルドでPython依存のハッシュを確かめていなかった（OI-15）。`uv sync --frozen`でロックのハッシュを照合し、ハッシュのないアーカイブや完全なcommit SHAで固定していないGit依存は同期前に拒否するようにした。
 - OBSブラウザソースが認証なしでWebSocketのトークンを返していた（OI-12、SEC-01）。ページのURLにも同じトークンを必須にし、設定画面にURLのコピーし直しを案内した。
 - 翻訳をオンにしたときのVRAM不足の通知が、存在しない`run_mapping`の名前を使って例外になっていた。

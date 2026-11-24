@@ -60,7 +60,7 @@ Promises that must not change, and the tests that check them. New features and c
 
 変えてはいけない約束と、それを確かめているテスト。新しい機能や変更は、ここにある契約を破らないようにする。契約を変えるときは、理由と移行の手順を決めてからこの表を直す。
 
-根拠の欄の`AGENTS.md`と`PRODUCT.md`は、ユーザーと合意した方針である。テストの欄が「手動」の契約は、変更のたびにレビューか実機の確認で守る。
+根拠の欄の`AGENTS.md`と`PRODUCT.md`は、ユーザーと合意した方針である。確かめているものの欄が「手動」の契約は、変更のたびにレビューか実機の確認で守る。
 
 ## 互換性
 
@@ -87,7 +87,7 @@ Promises that must not change, and the tests that check them. New features and c
 | ID | 契約 | 根拠 | 確かめているもの |
 |---|---|---|---|
 | CT-20 | 停止の要求（`stop_voice`、`mute_voice`など）は、ほかの処理を待たずにすぐ処理する | `PRODUCT.md`、`DESIGN.md` | `native/core/tests/dispatch.rs` |
-| CT-21 | 「読み上げ停止」は読み上げだけを止め、読み上げのオンオフとミュートは変えない。停止の前に積まれた音声はあとで鳴らない | `DESIGN.md` | `native/core/tests/voice.rs`、`native/audio-routing`の`voice_route/tests.rs` |
+| CT-21 | 「読み上げを停止」は読み上げだけを止め、読み上げのオンオフとミュートは変えない。停止の前に積まれた音声はあとで鳴らない | `DESIGN.md` | `native/core/tests/voice.rs`、`native/audio-routing`の`voice_route/tests.rs` |
 | CT-22 | 読み上げ（TTS）とRVCは独立したスイッチで、片方の操作がもう片方を止めない | `AGENTS.md`「停止と独立した制御」 | `native/core/tests/voice.rs` |
 | CT-23 | ミュートは再開の確認が済むまで解除しない。管理対象の経路とWindowsの出力デバイスでは読み上げと変換音声、そのスピーカーモニターを止め、再起動後もミュートを保つ。モニターの待機音声は捨て、解除後に古い音声を鳴らさない。TTS・RVCのスイッチと変換ワーカーはミュートで変えない | `docs/adr/adr-005-managed-microphone-lifetime.md`、[停止とミュート](cross-cutting.md#停止とミュート) | `native/core/tests/voice.rs`、`native/audio-routing`の`voice_route/tests.rs`と`mute_state.rs`の単体の試験、`tests/voice_gate_private.rs`、`tests/direct_suppression_private.rs`（私用のPipeWire） |
 | CT-24 | Quick Chat、VRパネル、ホットキーの振る舞いを保つ | `AGENTS.md`、`PRODUCT.md` | `tests/platform/test_native_quick_chat.py`（リリース前に`tools/native_acceptance.py`の`quick_chat`のグループで流すGUIの試験）、`src-ui/logics/common/vrPanelWire.test.ts`、手動 |

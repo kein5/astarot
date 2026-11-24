@@ -49,7 +49,7 @@ The details are in sections 2 and 3 of [Platform constraints](../voice-stack/pla
 | Build our own driver and bundle it | Develop a virtual microphone driver, sign it and distribute it | Rejected. At present this project does not meet the Hardware Dev Center registration needed for signing (an EV code signing certificate and verification that the organization exists). MSIX cannot bundle a driver, so the Store version would still need a separate installation |
 | Bundle an existing driver | Put VB-CABLE or a similar driver in the installer | Rejected. It needs a contract with the provider. MSIX cannot bundle a driver |
 | Ship only a configuration without a virtual microphone to the Store | Remove the features that rely on a virtual microphone from the Store version | Rejected. TTS and voice conversion could not reach VRChat, so the product would not meet its purpose |
-| Give up on the Store | Do not ship to the Store; distribute only through GitHub Releases | Rejected. The Store version has an advantage: the Store re-signs it, which avoids the warning for an unsigned installer ([Constraints](../voice-stack/platform-constraints.md), section 1). While disclosure may still get the dependency accepted, keep this option open |
+| Give up on the Store | Do not ship to the Store; distribute only through GitHub Releases | Rejected. The Store version has an advantage: the Store re-signs it, which avoids the warning for an unsigned installer ([Constraints](../voice-stack/platform-constraints.md), section 1). While disclosure may still get the dependency accepted, keep the Store open as an option |
 | **Rely on an external driver and disclose it (A), and support setup in the app (B)** | Section 4 below | **Adopted** |
 
 ## 4. Decision
