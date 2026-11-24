@@ -11,6 +11,8 @@ import {
     validateLogDirectoryInput,
 } from "./logDestination.ts";
 import type { PickFolderResult } from "./logDestination.ts";
+import * as fieldErrors from "./fieldErrors.ts";
+import * as fieldChecks from "./fieldChecks.ts";
 
 test("isAbsolutePath recognizes Unix, Windows drive, and UNC paths and rejects relative paths", () => {
     for (const valid of ["/tmp/logs", "/", "C:\\Users\\user\\logs", "D:/logs", "\\\\server\\share\\logs"]) {
@@ -85,6 +87,8 @@ async function mountDestinationRows(options: {
         new URL(advancedPath, import.meta.url),
         runtime,
         {
+            "../../../../../../logics/configs/fieldErrors.ts": fieldErrors,
+            "../../../../../../logics/configs/fieldChecks.ts": fieldChecks,
             "@logics_common": {
                 useCopyToClipboard: () => ({ copyToClipboard() {} }),
                 useOpenFolder: () => ({

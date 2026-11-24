@@ -3,6 +3,8 @@ import { test } from "vitest";
 import { hooks, loadModule, findIn, componentName, componentOf } from "../../../../../../logics/test/hookHarness.ts";
 import { readLocale, localeAt } from "../../../../../../logics/test/locales.ts";
 import * as telemetryToggle from "../../../../../../logics/configs/telemetryToggle.ts";
+import * as fieldErrors from "../../../../../../logics/configs/fieldErrors.ts";
+import * as fieldChecks from "../../../../../../logics/configs/fieldChecks.ts";
 
 
 // Settings → Advanced, "Send usage data". ENABLE_TELEMETRY starts true, and before the one-time
@@ -28,6 +30,8 @@ async function render({ enabled, pending }: { enabled: boolean; pending: boolean
         "../../../../../../logics/configs/rvcBlockChoices": {},
         "../../../../../../logics/configs/obsBrowserSourceUrl": {},
         "../../../../../../logics/configs/logDestination": {},
+        "../../../../../../logics/configs/fieldErrors.ts": fieldErrors,
+        "../../../../../../logics/configs/fieldChecks.ts": fieldChecks,
         "../../../../../../logics/voice/useSettingsDraft": {},
         "../../../../../../logics/common/useConsentDialog": {},
         "@logics_common": {},

@@ -12,6 +12,8 @@ import type { SaveButtonLogicOptions } from "./config_page_setter/useSettingsLog
 import type { SettingsDraftOptions } from "../voice/useSettingsDraft.tsx";
 import type { EntryProps } from "../../views/app/config_page/setting_section/setting_box/_components/_atoms/_entry/_Entry.tsx";
 import type { EntryWithSaveButtonProps } from "../../views/app/config_page/setting_section/setting_box/_components/entry_with_save_button/EntryWithSaveButton.tsx";
+import * as fieldErrors from "./fieldErrors.ts";
+import * as fieldChecks from "./fieldChecks.ts";
 
 
 test("port drafts accept only digits in range and serialize as integers", () => {
@@ -53,6 +55,8 @@ async function settingsHarness({ host = "127.0.0.1" } = {}) {
         "../../../../../../logics/configs/obsBrowserSourceUrl": { buildObsBrowserSourceUrl, buildWebsocketUrl },
         "../../../../../../logics/configs/logDestination": {},
         "../../../../../../logics/configs/networkPortInput": { parsePortInput, PORT_INPUT_LIMITS },
+        "../../../../../../logics/configs/fieldErrors.ts": fieldErrors,
+        "../../../../../../logics/configs/fieldChecks.ts": fieldChecks,
         "../../../../../../logics/configs/rvcBlockChoices": { rvcBlockChoiceId, rvcBlockChoices },
         // A minimal draft: the saved pair, edited in place, submitted through the given write.
         "../../../../../../logics/voice/useSettingsDraft": { useSettingsDraft: (saved: Record<string, unknown>, _error: unknown, _updateError: unknown, options: SettingsDraftOptions<unknown>) => {
@@ -193,8 +197,26 @@ test("the certificate and key are saved together as one pair", async () => {
     cert.props.onChangeFunction("D:/new.pem");
     await key.props.saveFunction();
     assert.deepEqual(s.sent.at(-1), ["WebsocketTls", { cert_file: "D:/new.pem", key_file: "C:/certs/vox-key.pem" }]);
-    // The save bar lists the field by its own label.
+    // The draft names the field by its own label.
     assert.equal(s.draftOptions.label?.(["key_file"]), "config_page.advanced_settings.websocket_tls_key_file.label");
+    // #1111, decided 3: the pair saves by itself as one, when focus leaves both fields.
+    assert.equal(s.draftOptions.autoSave, true);
+    assert.equal(cert.props.autoSave, true);
+    assert.equal(cert.props.leaveFunction(), undefined, "leaving one field for the other saves nothing");
+    const group = s.runtime.render(s.tlsComponent);
+    const sentBefore = s.sent.length;
+    group.props.onBlur({ currentTarget: { contains: () => true }, relatedTarget: {} });
+    assert.equal(s.sent.length, sentBefore, "focus moving inside the pair saves nothing");
+    group.props.onBlur({ currentTarget: { contains: () => false }, relatedTarget: null });
+    await Promise.resolve();
+    assert.equal(s.sent.length, sentBefore + 1, "focus leaving the pair saves it");
+    // One path without the other is said under the pair and not sent.
+    cert.props.onChangeFunction("");
+    await key.props.saveFunction();
+    assert.equal(s.sent.length, sentBefore + 1);
+    const refused = s.runtime.render(s.tlsComponent).props.children.filter(Boolean)
+        .find((row: TreeNode) => row.props?.setting_id === "websocket_tls_key_file");
+    assert.equal(refused.props.error, "config_page.advanced_settings.websocket_tls_errors.one_side");
 });
 
 test("a new connection key is made only after the question is answered", async () => {

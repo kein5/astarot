@@ -278,7 +278,7 @@ backend_errors:
     TRANSCRIPTION_API_TIMEOUT: "音声認識のサービスから時間内に応答がなかったため、認識を止めました。ネットワークの接続を確かめてから、もう一度オンにしてください。"
     TRANSCRIPTION_API_SERVER_ERROR: "音声認識のサービスでエラーが起きたため、認識を止めました。少し待ってからもう一度オンにするか、別のエンジンを選んでください。"
     CLEANUP_TIMEOUT: "音声の取り込みが時間内に止まりませんでした。少し待ってからもう一度試してください。繰り返し起きるときはASTAROTを再起動してください。"
-    VALIDATION_INVALID_IP: "IPアドレスの形式が正しくありません。"
+    VALIDATION_INVALID_IP: "IPアドレスの形になっていません。127.0.0.1のような形で、空白を入れずに入力してください。"
     VALIDATION_CANNOT_SET_IP: "このIPアドレスは使えません。"
     VALIDATION_OSC_PORT_INVALID: "OSCのポートは1〜65535の整数で入力してください。"
     AUTH_PLAMO_LENGTH: "Plamo APIキーの長さが足りません。PLaMoのAPIの管理画面に表示されるキー（72文字以上）を、そのまま貼り付けてください。"
@@ -315,7 +315,7 @@ backend_errors:
     AUTH_GOOGLE_CLOUD_FAILED: "Google CloudのAPIキーを確認できませんでした。キーと、そのプロジェクトでCloud Translation APIと課金が有効になっているかを確かめてください。"
     AUTH_PAPAGO_INVALID: "先にPapagoのClient IDを保存してから、Client Secretを入力してください。どちらも空白なしで入力します。"
     AUTH_PAPAGO_FAILED: "PapagoのClient IDとClient Secretを確認できませんでした。両方の値と、NAVER Cloud PlatformのアプリケーションでPapago Translationが有効かを確かめてください。"
-    WEBSOCKET_HOST_INVALID: "WebSocketサーバーにこのホストは使えません。"
+    WEBSOCKET_HOST_INVALID: "WebSocketサーバーはそのアドレスで待ち受けられません。127.0.0.1か、お使いのPCのLANのIPアドレスを入力してください。"
     WEBSOCKET_PORT_UNAVAILABLE: "WebSocketサーバーのポートがほかのアプリで使われています。別のポートを指定してください。"
     WEBSOCKET_PORT_INVALID: "WebSocketのポートは1〜65535の整数で入力してください。"
     WEBSOCKET_SERVER_UNAVAILABLE: "WebSocketサーバーを開始できません。ホストとポートがほかのアプリで使われていないか確認してください。"
@@ -331,6 +331,8 @@ backend_errors:
     OBS_BROWSER_SOURCE_FADEOUT_DURATION_INVALID: "0〜120の整数を入力してください。"
     OBS_BROWSER_SOURCE_FONT_SIZE_INVALID: "10〜200の整数を入力してください。"
     OBS_BROWSER_SOURCE_FONT_OUTLINE_THICKNESS_INVALID: "0〜20の整数を入力してください。"
+    OBS_BROWSER_SOURCE_FONT_COLOR_INVALID: "フォント色は、#FFFFFFのように、「#」のあとに0〜9とA〜Fを6文字続けて入力してください。"
+    OBS_BROWSER_SOURCE_FONT_OUTLINE_COLOR_INVALID: "縁取りの色は、#000000のように、「#」のあとに0〜9とA〜Fを6文字続けて入力してください。"
     VRC_MIC_MUTE_SYNC_OSC_DISABLED: "OSC受信またはOSCQueryの公開を開始できていないため、VRCマイクミュート同期は使えません。OSCの送信先が127.0.0.1かlocalhostになっていることを確認し、OSC設定を保存し直してください。"
 
 common_warning:
@@ -1297,6 +1299,8 @@ config_page:
             link_failed: "ブラウザを開けませんでした。次のアドレスを開いてください。"
         osc_ip_address:
             label: "OSCの送信先IPアドレス"
+            errors:
+                invalid: "127.0.0.1のようなIPv4アドレスか、::1のようなIPv6アドレスを、空白を入れずに入力してください。"
         osc_port:
             label: "OSCの送信先ポート"
         osc_query:
@@ -1311,12 +1315,16 @@ config_page:
         websocket_host:
             label: "WebSocketのホスト（IPv4）"
             desc: "127.0.0.1ならお使いのPCの中だけで使います。ほかのPCから使うときは、お使いのPCのLANのIPアドレスを入れます。その前に下の証明書と秘密鍵を指定してください。"
+            errors:
+                invalid: "IPv4アドレスを空白を入れずに入力してください。お使いのPCの中だけで使うなら127.0.0.1、ほかのPCから使うならお使いのPCのLANのIPアドレスです。0.0.0.0は使えません。"
         websocket_tls_cert_file:
             label: "証明書のファイル"
             desc: "ほかのPCから使うときだけ必要な、PEM形式の証明書のパスです。ほかのPCとの通信を暗号化します（wss://、https://）。接続する側のPCやOBSが、この証明書を信頼している必要があります。"
         websocket_tls_key_file:
             label: "秘密鍵のファイル"
             desc: "証明書と対になるPEM形式の秘密鍵のパスです。パスフレーズ付きの鍵は使えません。証明書と同じファイルに入っているときは、同じパスを入れます。"
+        websocket_tls_errors:
+            one_side: "証明書と秘密鍵は、両方を入れるか、両方を空にしてください。両方を空にすると、お使いのPCの中だけで使えます。"
         websocket_token:
             label: "接続用のキーを作り直す"
             desc: "コピーしたURLをほかの人に知られたときに使います。前のURLはすぐに使えなくなります。"
@@ -1355,6 +1363,7 @@ config_page:
             desc: "10〜200の整数を入力してください。"
         obs_browser_source_font_color:
             label: "フォント色（#RRGGBB）"
+        obs_browser_source_color_invalid: "#FFFFFFのように、「#」のあとに0〜9とA〜Fを6文字続けて入力してください。"
         obs_browser_source_font_outline_thickness:
             label: "縁取りの太さ（px）"
             desc: "0〜20の整数を入力してください。"

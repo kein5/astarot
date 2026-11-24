@@ -90,3 +90,6 @@ export const log_destination_error = style({
     borderRadius: vars.vox_radius,
     overflowWrap: "anywhere",
 });
+
+// The TLS certificate and key, saved as a pair (#1111): a group for focus only, laid out as its rows.
+export const field_group = style({ display: "contents" });
