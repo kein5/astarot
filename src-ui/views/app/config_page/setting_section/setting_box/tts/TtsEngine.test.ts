@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { hooks, loadModule, find, findIn, nodesIn } from "../../../../../../logics/test/hookHarness.ts";
+import { hooks, loadModule, find, findIn, nodesIn, kitStandIns } from "../../../../../../logics/test/hookHarness.ts";
 import type { TreeNode } from "../../../../../../logics/test/hookHarness.ts";
 import type { EngineVoices, VoiceSettings } from "../../../../../../logics/voice/useVoice.ts";
 import type { TtsDraftSetter, TtsEngineId } from "./TtsEngine.tsx";
@@ -96,9 +96,9 @@ test("only COEIROINK shows how it reads, starting from the values sent before th
     const tree = c.renderCoeiroink();
     assert.ok(find(tree, node => node.type === "setup"));
     const numbers: TreeNode[] = [];
-    find(tree, node => { if (node.type === "input" && node.props.type === "number") numbers.push(node); return false; });
+    find(tree, node => { if (node.type === kitStandIns.TextField && node.props.type === "number") numbers.push(node); return false; });
     assert.deepEqual(numbers.map(node => node.props.value), ["1.0", "1.0", "0.0", "1.0", "0.1", "0.1"]);
-    assert.ok(numbers.every(node => node.props["aria-invalid"] === false));
+    assert.ok(numbers.every(node => node.props.invalid === false));
     const rate = selects(tree).find(node => node.props.value === "24000");
     assert.ok(rate);
     assert.deepEqual(options(rate).map(option => option.props.value), ["16000", "24000", "44100", "48000"]);
@@ -106,7 +106,7 @@ test("only COEIROINK shows how it reads, starting from the values sent before th
     rate.props.onChange({ target: { value: "48000" } });
     assert.deepEqual([c.state.draft.coeiroink_speed, c.state.draft.coeiroink_sampling_rate], ["1.5", "48000"]);
     // Restoring the defaults is an edit for the save bar, like any other.
-    const reset = findIn(c.renderCoeiroink(), node => node.type === "button" && node.props.children === "voice_ui.engine.coeiroink.reset");
+    const reset = findIn(c.renderCoeiroink(), node => node.type === kitStandIns.Button && node.props.children === "voice_ui.engine.coeiroink.reset");
     assert.equal(reset.props.disabled, false);
     reset.props.onClick();
     assert.deepEqual([c.state.draft.coeiroink_speed, c.state.draft.coeiroink_sampling_rate], ["1.0", "24000"]);
@@ -132,17 +132,17 @@ test("VOICEVOX, AivisSpeech and SHAREVOX each show their own reading, from the e
     // A file saved before these fields has none of them: the page shows the engine's defaults.
     const numbers = (tree: unknown) => {
         const found: TreeNode[] = [];
-        find(tree, node => { if (node.type === "input" && node.props.type === "number") found.push(node); return false; });
+        find(tree, node => { if (node.type === kitStandIns.TextField && node.props.type === "number") found.push(node); return false; });
         return found;
     };
     const fields = numbers(s.renderScales("voicevox"));
     assert.deepEqual(fields.map(node => node.props.value), ["1.0", "1.0", "0.0", "1.0"]);
-    assert.ok(fields.every(node => node.props["aria-invalid"] === false));
+    assert.ok(fields.every(node => node.props.invalid === false));
     fields[0].props.onChange({ target: { value: "1.25" } });
     assert.equal(s.state.draft.voicevox_speed, "1.25");
     // AivisSpeech keeps its own values: VOICEVOX's speed is not AivisSpeech's.
     assert.equal(numbers(s.renderScales("aivis"))[0].props.value, "1.0");
-    const reset = findIn(s.renderScales("voicevox"), node => node.type === "button" && node.props.children === "voice_ui.engine.audio_query.reset");
+    const reset = findIn(s.renderScales("voicevox"), node => node.type === kitStandIns.Button && node.props.children === "voice_ui.engine.audio_query.reset");
     assert.equal(reset.props.disabled, false);
     reset.props.onClick();
     assert.equal(s.state.draft.voicevox_speed, "1.0");
@@ -181,5 +181,36 @@ test("the reading folds carry their description; the credit stays a paragraph", 
     assert.equal(s.renderCoeiroink().props.desc, "voice_ui.engine.coeiroink.description");
     for (const tree of [s.renderScales("voicevox"), s.renderCoeiroink()]) assert.ok(!find(tree, node => node.type === "description"));
     assert.ok(find(s.render(), node => node.type === "description" && node.props.text === "voice_ui.engine.credit.voicevox"));
+    s.runtime.unmount();
+});
+
+// The engine's URL is the kit's monospaced field in a named row with its hint; Check again is the
+// kit's plain button, which waits only while an answer to a check is on its way.
+test("the engine's URL and Check again are the kit's parts", async () => {
+    for (const [voices, disabled] of [[connected, false], [{ ...connected, pending: true }, true], [null, false]] as const) {
+        const s = await setup({ draft: voicevox, engineVoices: voices });
+        const row = findIn(s.render(), node => node.type === "row" && node.props.label === "voice_ui.engine.url");
+        assert.equal(row.props.description, "voice_ui.engine.url_hint");
+        const url = findIn(row, node => node.type === kitStandIns.TextField);
+        assert.deepEqual([url.props.mono, url.props["aria-label"], url.props.value, url.props.spellCheck],
+            [true, "voice_ui.engine.url", "http://127.0.0.1:50021", false]);
+        const recheck = row.props.actions;
+        assert.deepEqual([recheck.type, recheck.props.children, recheck.props.disabled], [kitStandIns.Button, "voice_ui.engine.recheck", disabled]);
+        recheck.props.onClick();
+        assert.deepEqual(s.sent.at(-1), ["/get/data/tts_engine_voices", { engine: "voicevox", url: "http://127.0.0.1:50021" }]);
+        url.props.onChange({ target: { value: "http://127.0.0.1:50022" } });
+        assert.equal(s.state.draft.voicevox_url, "http://127.0.0.1:50022");
+        s.runtime.unmount();
+    }
+});
+
+test("a number out of its range is marked invalid and points at the error", async () => {
+    const s = await setup({ draft: { japanese_engine: "voicevox", voicevox_url: "http://127.0.0.1:50021", voicevox_speed: "99" } });
+    const fields: TreeNode[] = [];
+    find(s.renderScales("voicevox"), node => { if (node.type === kitStandIns.TextField) fields.push(node); return false; });
+    assert.deepEqual(fields.map(field => field.props.invalid), [true, false, false, false]);
+    assert.ok(fields[0].props["aria-describedby"]);
+    assert.equal(fields[1].props["aria-describedby"], undefined);
+    assert.ok(fields.every(field => field.props.placeholder === "voice_ui.example"));
     s.runtime.unmount();
 });
