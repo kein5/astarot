@@ -105,6 +105,7 @@ Skills that set out work procedures are in `skills/`. `.claude/skills` and `.age
 - `pull-request`: from cutting a branch to merging into develop, including the pull request description, the conditions for merging, stacked pull requests and hotfixes cut from main
 - `release`: version bumps, release notes, drafts, publishing, the checks after publishing, and the merge that brings main back into develop
 - `jp-writing`: writing and revising Japanese text. Use it every time for release notes.
+- `e2e`: running the native GUI acceptance tests (`tools/native_acceptance.py`) and the SERGULATH real-machine E2E suite, posting results, and connecting them to the test overview and E2E badge
 
 In a clone set up not to create symbolic links (the default of Git on Windows), each link becomes a file that holds one line. In that case, read `skills/<name>/SKILL.md` directly. When a skill and another document disagree, do not decide mechanically that one of them is right; check, then fix it in the same pull request.
 
