@@ -8,7 +8,7 @@ import * as draftRebase from "../../../../../../logics/voice/draftRebase.ts";
 import * as fieldErrors from "../../../../../../logics/configs/fieldErrors.ts";
 
 // The realtime captions' form (RealtimeASRSettings.tsx) drawn with the real settings draft, which
-// makes the save bar's entry, and the real language names. The realtime ASR and speech server hooks
+// saves the form by itself, and the real language names. The realtime ASR and speech server hooks
 // are stand-ins that hold what the test gives and record what the form sends; the shared parts are
 // stand-ins that keep their props.
 
@@ -45,7 +45,7 @@ function closeWithTest(context: TestContext, runtime: HookRuntime) {
 }
 
 async function captionsForm(context: TestContext, given: Partial<Asr> = {}, options: { hints?: boolean; servers?: Record<string, unknown>; answer?: unknown } = {}) {
-    const runtime = hooks(), sent: unknown[][] = [], entries = new Map<string, unknown>();
+    const runtime = hooks(), sent: unknown[][] = [];
     closeWithTest(context, runtime);
     // The settings draft guards leaving a page with edits through the window.
     stubGlobals(context, { window: eventTarget() });
@@ -83,12 +83,7 @@ async function captionsForm(context: TestContext, given: Partial<Asr> = {}, opti
     const draw = () => runtime.render(module.RealtimeASRSettings);
     // The first drawing makes the draft from the saved settings; the second shows it.
     const open = () => { draw(); return draw(); };
-    const entry = () => {
-        const [only] = entries.values();
-        assert.ok(only, "the form's entry in the save bar");
-        return only;
-    };
-    return { runtime, asr, speech, hook, sent, draw, open, entry };
+    return { runtime, asr, speech, hook, sent, draw, open };
 }
 
 // What the form saved, in order (#1111: a choice saves at once; the next waits for its answer).

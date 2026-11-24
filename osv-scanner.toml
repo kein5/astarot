@@ -67,3 +67,20 @@ reason = "The same notice as RUSTSEC-2024-0429 (glib 0.18 through GTK 3)"
 id = "RUSTSEC-2024-0370"
 ignoreUntil = 2027-02-21
 reason = "proc-macro-error comes through glib-macros and gtk3-macros (GTK 3, the Tauri app on Linux)"
+
+# glob 13.0.7 and minimatch 10.2.6: development only, through the component catalog (Storybook,
+# src-ui/views/kit_catalog/). @storybook/react-vite 10.6 asks for
+# @joshwooding/vite-plugin-react-docgen-typescript ^0.7.0, which asks for glob ^13, and glob 13 for
+# minimatch ^10; the fixes are in glob 14.0.2 and minimatch 11.0.1, outside those ranges. Storybook
+# loads that plugin only for the react-docgen-typescript option, which .storybook/main.ts does not
+# use (reactDocgen: false), so neither package runs. Storybook 11.0.0-rc.0 no longer depends on the
+# plugin. tests/devtools/test_lockfile_exceptions.py fails if either comes in another way.
+[[IgnoredVulns]]
+id = "GHSA-3g3m-2fjr-6pw4"
+ignoreUntil = 2027-02-25
+reason = "glob 13.0.7 comes only through @storybook/react-vite 10.6's react-docgen-typescript plugin (glob ^13), which the catalog does not load; the fix is glob 14.0.2"
+
+[[IgnoredVulns]]
+id = "GHSA-g3hv-75wg-m249"
+ignoreUntil = 2027-02-25
+reason = "minimatch 10.2.6 comes only through glob 13 of @storybook/react-vite 10.6's react-docgen-typescript plugin, which the catalog does not load; the fix is minimatch 11.0.1"

@@ -109,12 +109,24 @@ export function useSettingsDraft<T>(saved: T | null | undefined, _error: unknown
     // Only this form's own write decides its save state. `error` is shared with other requests
     // (mute, status polls) on the same page, so it never ends saving or marks a failure (#458).
     const [failed, setFailed] = useState(false);
+    // #1111, decided 3. `committing`: a save started and not ended, even before a render shows
+    // `saving`, so a second blur from an element around the first (or the same leave twice) waits
+    // for it instead of sending again. `again`: an edit asked to be saved meanwhile, saved once the
+    // save ends, through a render that has it (changeCount).
+    const committing = useRef(false);
+    const again = useRef(false);
+    const [changeCount, setChangeCount] = useState(0);
+    const settled = () => {
+        committing.current = false;
+        if (again.current) { again.current = false; setChangeCount(count => count + 1); }
+    };
     useEffect(() => {
         if (!saving) return;
-        const timer = setTimeout(() => { setSaving(false); setFailed(true); updateError("save_unconfirmed"); }, 5000);
+        const timer = setTimeout(() => { setSaving(false); setFailed(true); updateError("save_unconfirmed"); settled(); }, 5000);
         return () => clearTimeout(timer);
     }, [saving, updateError]);
-    const discard = () => { setDraft(saved); setSaving(false); setFailed(false); setAwaitingResponse(false); submitted.current = null; updateError(null); };
+    const discard = () => { setDraft(saved); setSaving(false); setFailed(false); setAwaitingResponse(false); submitted.current = null; updateError(null);
+        committing.current = false; again.current = false; };
     useEffect(() => () => { submitted.current = null; }, []);
     const submit = async (send: DraftWrite<T>): Promise<void> => {
         if (saving) return;
@@ -144,10 +156,12 @@ export function useSettingsDraft<T>(saved: T | null | undefined, _error: unknown
                 submitted.current = null;
                 setAwaitingResponse(false);
                 updateError(null);
+                settled();
             } else if (response === false || reply?.status) {
                 setSaving(false);
                 setFailed(true);
                 submitted.current = null;
+                settled();
                 // Keep failed writes dirty even if a refresh has the same value.
             }
         } catch {
@@ -157,15 +171,12 @@ export function useSettingsDraft<T>(saved: T | null | undefined, _error: unknown
             submitted.current = null;
             setAwaitingResponse(false);
             updateError("save_unconfirmed");
+            settled();
         }
     };
     // #1111, decided 3: the group saves when focus leaves it, a choice at once, and an edit made
     // while a save waits once that save ends.
     const accepted = (value: DraftState<T>) => value !== null && value !== undefined && !!(typeof canSave === "function" ? canSave(value) : canSave);
-    const again = useRef(false);
-    // A save started in this render, before `saving` shows it: a second blur from an element
-    // around the first (or the same leave twice) waits for it instead of sending again.
-    const committing = useRef(false);
     const commit = (send: DraftWrite<T> | undefined = write) => {
         if (!send || !dirty) return;
         if (saving || committing.current) { again.current = true; return; }
@@ -173,17 +184,11 @@ export function useSettingsDraft<T>(saved: T | null | undefined, _error: unknown
         committing.current = true;
         void submit(send);
     };
-    const [changeCount, setChangeCount] = useState(0);
     const change = (update: SetStateAction<DraftState<T>>) => { setDraft(update); setChangeCount(count => count + 1); };
     // The render after a change has the changed draft, which this render's commit reads.
     const latestCommit = useRef(commit);
     latestCommit.current = commit;
     useEffect(() => { if (changeCount) latestCommit.current(); }, [changeCount]);
-    useEffect(() => {
-        if (saving) return;
-        committing.current = false;
-        if (again.current) { again.current = false; latestCommit.current(); }
-    }, [saving]);
     const groupElement = useRef<TargetHolder | null>(null);
     const group = (element: TargetHolder | null) => { groupElement.current = element; };
     // Whether a blur takes focus outside the group (not from one of its fields to another).
