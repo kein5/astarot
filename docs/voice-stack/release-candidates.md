@@ -70,7 +70,7 @@ These are the steps for when a published version has a bug to fix urgently and d
 3. Run "Validate VRCT-VOX distribution" by hand on the same commit to build the Windows candidate. This workflow also runs on PRs into main, but only the result of a manual run can be used for a draft.
 4. When both runs succeed, note their run IDs. Candidates are kept for 7 days.
 
-A candidate is stored only after its checks pass: on Linux, the GUI tests of the relocated archive and of the AppImage; on Windows, the check for files that must not be distributed inside the ZIP and the NSIS installer. The Linux candidate has four files: tar.gz, AppImage, deb and rpm (eight for 0.7.x, with their copies under the names used up to 0.6.x; see "Copies under the old names" below). The deb and rpm put the same files as the tar.gz under `/opt/astarot` (`tools/linux_packages.py`). They are checked by installing each with its own package manager, without recommended packages, into Ubuntu 24.04, Debian 13 and Fedora 44 containers pinned by digest (`tools/ci/check_linux_package.sh`). The check confirms that the main executable's libraries resolve, that the bundled speech engine starts and that removal leaves nothing behind. From 0.5.0 the backend is inside the main executable, and nothing else is started separately. Whether the window displays is not checked. Each candidate's `candidate-manifest.json` records the repository, commit, version, file names, sizes and SHA-256. `SHA256SUMS` and a `.sha256` for each release file are included too. The installer's `.sha256` is saved as 64 ASCII characters with no newline.
+A candidate is stored only after its checks pass: on Linux, the GUI tests of the relocated archive and of the AppImage; on Windows, the check for files that must not be distributed inside the ZIP and the NSIS installer. The Linux candidate has four files: tar.gz, AppImage, deb and rpm (eight for 0.7.x, with their copies under the names used up to 0.6.x; see "Copies under the old names" below). The deb and rpm put the same files as the tar.gz under `/opt/astarot` (`tools/linux_packages.py`). They are checked by installing each with its own package manager, without recommended packages, into Ubuntu 24.04, Debian 13 and Fedora 44 containers pinned by digest (`tools/ci/check_linux_package.sh`). The check confirms that the main executable's libraries resolve, that the bundled speech engine starts and that removal leaves nothing behind. From 0.5.0 the backend is inside the main executable, and nothing else is started separately. Whether the window displays is not checked. Each candidate's `candidate-manifest.json` records the repository, commit, version, file names, sizes and SHA-256. `SHA256SUMS` lists every release file; an individual `.sha256` sidecar is kept only for Windows ZIP packages (`ASTAROT.zip`, and `VRCT-VOX.zip` while legacy copies are carried), saved as 64 ASCII characters with no newline for the NSIS installer.
 
 For the Windows candidate, the build job makes `ASTAROT.zip` (`VRCT-VOX.zip` up to 0.6.x) and the installer. Up to 0.5 it also made a CUDA ZIP (`VRCT-VOX_cuda.zip`), but from 0.5.0 its contents were the same, so #288 dropped it ([One Windows package](single-package.md)). The installer has the ZIP's SHA-256 built in (`src-tauri/nsis/package-hashes.nsh`, written by `tools/installer_package_hashes.py` and not committed). The installer checks a ZIP of its own version against this built-in hash. Even if both the ZIP and its `.sha256` are replaced on the release page, it does not unpack that ZIP. When `/VERSION` installs another version, and in an installer built without the hash, it checks against the `.sha256` next to the ZIP as before. When a version is installed with `/VERSION`, that version is also written as the version shown in the list of apps (`DisplayVersion` in the registry). The page that compares with an existing installation also compares against the version about to be installed, not the installer's own version. The candidate job checks that the built-in hash matches the ZIP it stores.
 
@@ -141,7 +141,7 @@ The Windows setup is copied to `ASTAROT_setup.exe` when the candidate is built. 
 
 From 0.7.0 the release file names start with `ASTAROT`; up to 0.6.x they started with `VRCT-VOX` (2.10 of ADR-014). To keep links posted elsewhere, such as `releases/latest/download/VRCT-VOX_setup.exe`, working, 0.7.x releases carry every release file together with a copy under its name up to 0.6.x (`VRCT-VOX.zip`, `VRCT-VOX_setup.exe`, `VRCT-VOX-<version>-linux-x64-release.*`).
 
-- The copies are made when the candidate is built (`tools/release_candidate.py stage`). Their contents are the same as the original files, they have their own `.sha256`, lines in `SHA256SUMS` and entries in `candidate-manifest.json`, and they get build provenance too. The candidate check confirms that both the new names and the copies are present and that each copy's contents are the same as the original file.
+- The copies are made when the candidate is built (`tools/release_candidate.py stage`). Their contents are the same as the original files, they have lines in `SHA256SUMS` and entries in `candidate-manifest.json` (plus a `.sha256` sidecar for `VRCT-VOX.zip`), and they get build provenance too. The candidate check confirms that both the new names and the copies are present and that each copy's contents are the same as the original file.
 - How long the copies are carried is set in one place, `LEGACY_COPIES_UNTIL` in `tools/release_candidate.py`. It is now versions before 0.8.0 (the 0.8.0 betas are not included).
 - The copies get no signature, and `latest.json` points only to the new names.
 - The download list on the user site does not show a copy when the file under the new name exists (`site/theme/lib/releases.mjs`).
@@ -288,14 +288,15 @@ After publishing, check these four points.
    curl -sL "$url" | jq -r .version
    ```
 
-4. The number and names of the assets match the candidates. The release assets are the assets listed in each candidate's `candidate-<platform>.json` and their `.sha256`, the `candidate-<platform>.json` and `SHA256SUMS-<platform>` of each platform, and `latest.json` (`tools/prepare_release.py` and `prepare-release.yml`). The expected count is "2 × (the sum of the `assets` counts of the two candidates) + 5".
+4. The number and names of the assets match the candidates. The release assets are the assets listed in each candidate's `candidate-<platform>.json`, the `.sha256` sidecars for the Windows ZIP packages, the `candidate-<platform>.json` and `SHA256SUMS-<platform>` of each platform, and `latest.json` (`tools/prepare_release.py` and `prepare-release.yml`). The expected count is "(the sum of the `assets` counts of the two candidates) + (the number of Windows ZIP assets) + 5".
 
    ```bash
    d=$(mktemp -d)
    gh release download v<version> -p 'candidate-*.json' -D "$d"
    gh api repos/{owner}/{repo}/releases/tags/v<version> --jq '[.assets[].name]' > "$d/published.json"
    jq -s --slurpfile pub "$d/published.json" '
-     ([.[] | .assets[].name | ., . + ".sha256"]
+     ([.[] | .assets[].name]
+      + [.[] | select(.platform == "windows") | .assets[].name | select(endswith(".zip")) | . + ".sha256"]
       + [.[] | "candidate-\(.platform).json", "SHA256SUMS-\(.platform)"]
       + ["latest.json"]) as $want
      | {want: ($want | length), published: ($pub[0] | length),
@@ -474,7 +475,7 @@ flowchart TD
 3. 「Validate VRCT-VOX distribution」を同じコミットで手動実行し、Windows候補を作ります。このワークフローはmain宛てのPRでも動きますが、下書きに使えるのは手動実行の結果だけです。
 4. 両方の実行が成功したら、run IDを控えます。候補の保存期間は7日です。
 
-Linuxでは再配置したアーカイブとAppImageのGUI試験、WindowsではZIP・NSIS内の配布禁止ファイル検査が成功した後に、候補を保存します。Linuxの候補は、tar.gz、AppImage、deb、rpmの4つです（0.7.xは、その0.6.xまでの名前の写しを合わせて8つ。下の「旧名の写し」）。debとrpmはtar.gzと同じファイルを`/opt/astarot`に入れるもので（`tools/linux_packages.py`）、ダイジェストで固定したUbuntu 24.04、Debian 13、Fedora 44のコンテナに、それぞれのパッケージマネージャーで推奨パッケージなしに入れて確かめます（`tools/ci/check_linux_package.sh`）。確かめるのは、メインの実行ファイルのライブラリがそろうこと、同梱の音声エンジンが起動すること、削除で何も残らないことです。0.5.0からバックエンドはメインの実行ファイルの中にあり、別に起動するものはありません。画面の表示は確かめません。各候補の`candidate-manifest.json`にはリポジトリ、コミット、版、ファイル名、容量、SHA-256を記録します。`SHA256SUMS`と、各配布物の`.sha256`も同梱します。インストーラー用の`.sha256`は改行なしの64 ASCII文字で保存します。
+Linuxでは再配置したアーカイブとAppImageのGUI試験、WindowsではZIP・NSIS内の配布禁止ファイル検査が成功した後に、候補を保存します。Linuxの候補は、tar.gz、AppImage、deb、rpmの4つです（0.7.xは、その0.6.xまでの名前の写しを合わせて8つ。下の「旧名の写し」）。debとrpmはtar.gzと同じファイルを`/opt/astarot`に入れるもので（`tools/linux_packages.py`）、ダイジェストで固定したUbuntu 24.04、Debian 13、Fedora 44のコンテナに、それぞれのパッケージマネージャーで推奨パッケージなしに入れて確かめます（`tools/ci/check_linux_package.sh`）。確かめるのは、メインの実行ファイルのライブラリがそろうこと、同梱の音声エンジンが起動すること、削除で何も残らないことです。0.5.0からバックエンドはメインの実行ファイルの中にあり、別に起動するものはありません。画面の表示は確かめません。各候補の`candidate-manifest.json`にはリポジトリ、コミット、版、ファイル名、容量、SHA-256を記録します。`SHA256SUMS`に全配布物を載せ、個別の`.sha256`ファイルはWindowsのZIP（`ASTAROT.zip`、旧名の写しがある間は`VRCT-VOX.zip`も）だけに同梱し、NSISインストーラー向けに改行なしの64 ASCII文字で保存します。
 
 Windowsの候補は、ビルドのジョブで`ASTAROT.zip`とインストーラーを作ります（0.6.xまでは`VRCT-VOX.zip`）。0.5まではCUDA版のZIP（`VRCT-VOX_cuda.zip`）も作っていましたが、0.5.0から中身が同じだったので、#288でやめました（[Windowsの配布物の一本化](single-package.md)）。インストーラーにはZIPのSHA-256を組み込みます（`tools/installer_package_hashes.py`が書く`src-tauri/nsis/package-hashes.nsh`。コミットしません）。インストーラーは自分と同じ版のZIPを、この組み込みのハッシュで照合します。リリースのページでZIPと`.sha256`を一緒に差し替えられても、そのZIPは展開しません。`/VERSION`で別の版を入れるときと、ハッシュを組み込まずに作ったインストーラーでは、従来どおりZIPの隣の`.sha256`で照合します。`/VERSION`で入れたときは、アプリの一覧に出す版（レジストリの`DisplayVersion`）にもその版を書きます。既存のインストールと比べるページも、インストーラー自身の版ではなく、これから入れる版で比べます。候補のジョブは、組み込んだハッシュと保存するZIPが一致するかを確かめます。
 
@@ -545,7 +546,7 @@ Windowsのsetupは、候補を作る際に`ASTAROT_setup.exe`へコピーしま�
 
 0.7.0から配布物の名前は`ASTAROT`で始まり、0.6.xまでは`VRCT-VOX`でした（ADR-014の2.10）。0.7.xのリリースは、外に貼られた`releases/latest/download/VRCT-VOX_setup.exe`のようなリンクを生かすために、どの配布物も0.6.xまでの名前の写しと一緒に載せます（`VRCT-VOX.zip`、`VRCT-VOX_setup.exe`、`VRCT-VOX-<version>-linux-x64-release.*`）。
 
-- 写しは候補を作るとき（`tools/release_candidate.py stage`）に作ります。中身は元のファイルと同じで、`.sha256`と`SHA256SUMS`の行と`candidate-manifest.json`の項目を持ち、ビルドの来歴も付きます。候補の検査は、新しい名前と写しがそろい、写しの中身が元のファイルと同じことを確かめます。
+- 写しは候補を作るとき（`tools/release_candidate.py stage`）に作ります。中身は元のファイルと同じで、`SHA256SUMS`の行と`candidate-manifest.json`の項目（`VRCT-VOX.zip`には個別の`.sha256`も）を持ち、ビルドの来歴も付きます。候補の検査は、新しい名前と写しがそろい、写しの中身が元のファイルと同じことを確かめます。
 - 写しを載せる期間は`tools/release_candidate.py`の`LEGACY_COPIES_UNTIL`の1か所で決めます。いまは0.8.0より前の版（0.8.0のベータ版を含まない）です。
 - 写しには署名を付けず、`latest.json`は新しい名前だけを指します。
 - 利用者向けのサイトのダウンロードの一覧は、新しい名前のファイルがある写しを出しません（`site/theme/lib/releases.mjs`）。
@@ -692,14 +693,15 @@ gh api repos/{owner}/{repo}/releases/<id> \
    curl -sL "$url" | jq -r .version
    ```
 
-4. 資産の件数と名前が候補と合うこと。リリースの資産は、各候補の`candidate-<platform>.json`にある資産とその`.sha256`、プラットフォームごとの`candidate-<platform>.json`と`SHA256SUMS-<platform>`、`latest.json`です（`tools/prepare_release.py`と`prepare-release.yml`）。期待する件数は「2 ×（2つの候補の`assets`の数の合計）+ 5」です。
+4. 資産の件数と名前が候補と合うこと。リリースの資産は、各候補の`candidate-<platform>.json`にある資産、WindowsのZIPの`.sha256`、プラットフォームごとの`candidate-<platform>.json`と`SHA256SUMS-<platform>`、`latest.json`です（`tools/prepare_release.py`と`prepare-release.yml`）。期待する件数は「（2つの候補の`assets`の数の合計）+（WindowsのZIPの件数）+ 5」です。
 
    ```bash
    d=$(mktemp -d)
    gh release download v<version> -p 'candidate-*.json' -D "$d"
    gh api repos/{owner}/{repo}/releases/tags/v<version> --jq '[.assets[].name]' > "$d/published.json"
    jq -s --slurpfile pub "$d/published.json" '
-     ([.[] | .assets[].name | ., . + ".sha256"]
+     ([.[] | .assets[].name]
+      + [.[] | select(.platform == "windows") | .assets[].name | select(endswith(".zip")) | . + ".sha256"]
       + [.[] | "candidate-\(.platform).json", "SHA256SUMS-\(.platform)"]
       + ["latest.json"]) as $want
      | {want: ($want | length), published: ($pub[0] | length),

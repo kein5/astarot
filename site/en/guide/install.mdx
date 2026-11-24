@@ -84,7 +84,7 @@ When you update from 0.5.x to 0.6.0, the first start moves each `vrct-vox` folde
 
 ## Check your download
 
-Every file has a `.sha256`, and `SHA256SUMS-*` lists them all. These check that a file is intact; they are not signatures.
+`SHA256SUMS-linux` and `SHA256SUMS-windows` list the SHA-256 of every file (Windows ZIP packages also carry an individual `.sha256` for the installer). These check that a file is intact; they are not signatures.
 
 The Windows installer checks the ZIP it downloads by itself. From 0.3.0 it carries the SHA-256 of the ZIPs released with it, so it does not unpack a different ZIP even if files on the release page were replaced.
 

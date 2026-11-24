@@ -145,7 +145,8 @@ const CASES = [
     },
     {
         // ADR-014, 2.10: the files are named ASTAROT from 0.7.0, and 0.7.x carries each one again
-        // under its name up to 0.6.x for older links. A copy is not listed twice.
+        // under its name up to 0.6.x for older links. A copy is not listed twice. Only Windows ZIP
+        // packages carry individual .sha256 sidecars; all files are listed in SHA256SUMS-*.
         title: "0.7.0 named ASTAROT, with copies under the names up to 0.6.x",
         release: release("v0.7.0", [
             "candidate-linux.json",
@@ -153,20 +154,20 @@ const CASES = [
             "SHA256SUMS-linux",
             "SHA256SUMS-windows",
             "latest.json",
-            ...withSums([
-                "ASTAROT-0.7.0-linux-x64-release.AppImage",
-                "ASTAROT-0.7.0-linux-x64-release.tar.gz",
-                "ASTAROT-0.7.0-linux-x64-release.deb",
-                "ASTAROT-0.7.0-linux-x64-release.rpm",
-                "ASTAROT.zip",
-                "ASTAROT_setup.exe",
-                "VRCT-VOX-0.7.0-linux-x64-release.AppImage",
-                "VRCT-VOX-0.7.0-linux-x64-release.tar.gz",
-                "VRCT-VOX-0.7.0-linux-x64-release.deb",
-                "VRCT-VOX-0.7.0-linux-x64-release.rpm",
-                "VRCT-VOX.zip",
-                "VRCT-VOX_setup.exe",
-            ]),
+            "ASTAROT-0.7.0-linux-x64-release.AppImage",
+            "ASTAROT-0.7.0-linux-x64-release.tar.gz",
+            "ASTAROT-0.7.0-linux-x64-release.deb",
+            "ASTAROT-0.7.0-linux-x64-release.rpm",
+            "ASTAROT.zip",
+            "ASTAROT.zip.sha256",
+            "ASTAROT_setup.exe",
+            "VRCT-VOX-0.7.0-linux-x64-release.AppImage",
+            "VRCT-VOX-0.7.0-linux-x64-release.tar.gz",
+            "VRCT-VOX-0.7.0-linux-x64-release.deb",
+            "VRCT-VOX-0.7.0-linux-x64-release.rpm",
+            "VRCT-VOX.zip",
+            "VRCT-VOX.zip.sha256",
+            "VRCT-VOX_setup.exe",
         ]),
         expect: {
             "ASTAROT_setup.exe": "windows installer - -",
@@ -193,9 +194,38 @@ const CASES = [
     {
         // A file named VRCT-VOX without its ASTAROT counterpart is a file of its own.
         title: "a VRCT-VOX file alone is listed",
-        release: release("v0.7.1", withSums(["ASTAROT_setup.exe", "VRCT-VOX.zip"])),
+        release: release("v0.7.1", ["ASTAROT_setup.exe", "VRCT-VOX.zip", "VRCT-VOX.zip.sha256"]),
         expect: { "ASTAROT_setup.exe": "windows installer - -", "VRCT-VOX.zip": "windows zip - -" },
         windows: "ASTAROT_setup.exe",
+        skipped: 0,
+    },
+    {
+        // From 0.8.0: no VRCT-VOX legacy copies, and only ASTAROT.zip carries a .sha256 sidecar.
+        title: "0.8.0 with ASTAROT files and SHA256SUMS only (except Windows ZIP sidecar)",
+        release: release("v0.8.0", [
+            "candidate-linux.json",
+            "candidate-windows.json",
+            "SHA256SUMS-linux",
+            "SHA256SUMS-windows",
+            "latest.json",
+            "ASTAROT-0.8.0-linux-x64-release.AppImage",
+            "ASTAROT-0.8.0-linux-x64-release.tar.gz",
+            "ASTAROT-0.8.0-linux-x64-release.deb",
+            "ASTAROT-0.8.0-linux-x64-release.rpm",
+            "ASTAROT.zip",
+            "ASTAROT.zip.sha256",
+            "ASTAROT_setup.exe",
+        ]),
+        expect: {
+            "ASTAROT_setup.exe": "windows installer - -",
+            "ASTAROT.zip": "windows zip - -",
+            "ASTAROT-0.8.0-linux-x64-release.AppImage": "linux appimage - x64",
+            "ASTAROT-0.8.0-linux-x64-release.deb": "linux deb - x64",
+            "ASTAROT-0.8.0-linux-x64-release.rpm": "linux rpm - x64",
+            "ASTAROT-0.8.0-linux-x64-release.tar.gz": "linux tar - x64",
+        },
+        windows: "ASTAROT_setup.exe",
+        linux: "ASTAROT-0.8.0-linux-x64-release.AppImage",
         skipped: 0,
     },
     {
