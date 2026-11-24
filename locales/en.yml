@@ -1087,6 +1087,8 @@ config_page:
         window_title:
             label: "Window name"
             desc: "Substring match (case-insensitive) against visible window titles. Change this if you run a client whose window isn't titled 'VRChat' (e.g. a modified launcher)."
+            errors:
+                empty: "The window name is empty. Enter part of the title of the window to read, such as VRChat."
         source_language:
             auto: "Automatic (Japanese, English, Chinese and Latin scripts)"
             label: "Source language"
