@@ -23,7 +23,7 @@ This is the record of an experiment that rebuilds the settings screen's componen
 
 To open the sample page, run `npx vite` and then open `http://localhost:1420/kit-lab.html`. The settings text is the real text from `locales/`. You can check switching between English and Japanese, and how the page looks in a narrow window.
 
-The component catalog shows each component on its own, with its variants and states (sizes, disabled, invalid and others). To open it, run `npm run dev:catalog` (or `mise run dev:catalog`) and then open `http://localhost:6006`. Storybook builds the stories with the app's `vite.config.js`, so the components are drawn with the app's vanilla-extract styles and tokens. The toolbar switches the theme (the presets of #965), the language (English or Japanese) and the ground the components stand on (canvas, surface or rail). The text is the real text from `locales/`. `npm run build:catalog` writes a static copy to `build/storybook/`. The catalog sends no telemetry and does not check for Storybook updates.
+The component catalog shows each component on its own, with its variants and states (sizes, disabled, invalid and others). To open it, run `npm run dev:catalog` (or `mise run dev:catalog`) and then open `http://localhost:6006`. Storybook builds the stories with the app's `vite.config.js`, so the components are drawn with the app's vanilla-extract styles and tokens. The toolbar switches the theme (the presets of #965), the language (English or Japanese) and the ground the components stand on (canvas, surface or rail). The text is the real text from `locales/`. `npm run build:catalog` writes a static copy to `build/storybook/`, and `python tools/dev.py check --scope ui` runs it as well, so a story that no longer builds fails the check. The catalog sends no telemetry and does not check for Storybook updates.
 
 ## Separating items (a #452 requirement)
 
@@ -118,7 +118,7 @@ The contrast of the color combinations is checked by `src-ui/views/theme/brandPa
 
 見本のページを開くには、`npx vite` を実行してから `http://localhost:1420/kit-lab.html` を開きます。設定の文言は `locales/` の実際の文言を使っています。英語と日本語の切り替えと、狭いウィンドウでの見え方を確かめられます。
 
-部品のカタログは、部品を 1 つずつ、種類と状態（大きさ、無効、エラーなど）ごとに並べます。開くには、`npm run dev:catalog`（または `mise run dev:catalog`）を実行してから `http://localhost:6006` を開きます。Storybook はアプリの `vite.config.js` でストーリーをビルドするので、部品はアプリと同じ vanilla-extract のスタイルとトークンで描かれます。ツールバーでは、テーマ（#965 のプリセット）、言語（英語か日本語）、部品を置く地（canvas、surface、rail）を切り替えます。文言は `locales/` の実際の文言です。`npm run build:catalog` は静的な版を `build/storybook/` に書き出します。カタログは利用状況の情報（テレメトリ）を送らず、Storybook の更新も確かめません。
+部品のカタログは、部品を 1 つずつ、種類と状態（大きさ、無効、エラーなど）ごとに並べます。開くには、`npm run dev:catalog`（または `mise run dev:catalog`）を実行してから `http://localhost:6006` を開きます。Storybook はアプリの `vite.config.js` でストーリーをビルドするので、部品はアプリと同じ vanilla-extract のスタイルとトークンで描かれます。ツールバーでは、テーマ（#965 のプリセット）、言語（英語か日本語）、部品を置く地（canvas、surface、rail）を切り替えます。文言は `locales/` の実際の文言です。`npm run build:catalog` は静的な版を `build/storybook/` に書き出します。`python tools/dev.py check --scope ui` もこれを実行するので、ビルドできなくなったストーリーは検査で止まります。カタログは利用状況の情報（テレメトリ）を送らず、Storybook の更新も確かめません。
 
 ## 項目の区切り（#452 の要件）
 

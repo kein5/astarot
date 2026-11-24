@@ -82,7 +82,7 @@ description = "Voice contract tests without models"
 run = "python tools/dev.py check --scope voice"
 
 [tasks."check:ui"]
-description = "UI tests (Vitest), Biome (lint and format check), the type check and the Vite build"
+description = "UI tests (Vitest), Biome (lint and format check), the type check, the Vite build and the component catalog's build"
 run = "python tools/dev.py check --scope ui"
 
 [tasks."check:rust"]
