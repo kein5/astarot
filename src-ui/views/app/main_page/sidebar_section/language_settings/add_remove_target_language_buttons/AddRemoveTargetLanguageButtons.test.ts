@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { hooks, loadModule, find } from "../../../../../../logics/test/hookHarness.ts";
+import { hooks, loadModule, find, kitStandIns } from "../../../../../../logics/test/hookHarness.ts";
 import type { TreeNode } from "../../../../../../logics/test/hookHarness.ts";
 
 type TargetSlots = Record<number, { enable: boolean }>;
@@ -30,6 +30,8 @@ test("a button that looks unavailable does nothing from the keyboard or the poin
         const button = s[off];
         assert.ok(button);
         assert.equal(button.props["aria-disabled"], true, off);
+        // It takes no pointer either (is_disabled), and stays focusable.
+        assert.equal(button.props.className, "is_disabled", off);
         press(button, "Enter");
         press(button, " ");
         button.props.onClick();
@@ -41,11 +43,26 @@ test("an available button works from the keyboard and says it is available", asy
     const s = await render(slots(true, false));
     assert.ok(s.remove);
     assert.ok(s.add);
+    // Both are the kit's plain icon Button.
+    for (const button of [s.remove, s.add]) {
+        assert.equal(button.type, kitStandIns.Button);
+        assert.deepEqual([button.props.tone, button.props.size], [undefined, "icon"]);
+    }
     assert.equal(s.remove.props["aria-disabled"], false);
     assert.equal(s.add.props["aria-disabled"], false);
     press(s.remove, "Enter");
     press(s.add, " ");
     assert.deepEqual(s.calls, ["remove", "add"]);
+    // A key held down acts once. Enter and Space hold back the button's own press, so a key acts
+    // once; other keys are left alone.
+    const held: string[] = [];
+    const key = (name: string, repeat = false) => s.add?.props.onKeyDown({ key: name, repeat, preventDefault: () => held.push(name) });
+    key("Enter", true);
+    key("Tab");
+    key("a");
+    assert.deepEqual(s.calls, ["remove", "add"]);
+    assert.deepEqual(held, ["Enter"]);
+    assert.equal(s.add.props.className, "", "an available button takes the pointer");
 });
 
 test("while the language settings are busy, both buttons say so and do nothing", async () => {

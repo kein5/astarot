@@ -4,6 +4,7 @@ import { useI18n } from "@useI18n";
 import * as styles from "./AddRemoveTargetLanguageButtons.css.ts";
 import RemoveSvg from "@images/remove.svg?react";
 import AddSvg from "@images/add.svg?react";
+import { Button } from "../../../../../kit/index.ts";
 
 import { useLanguageSettings } from "@logics_main";
 
@@ -24,26 +25,26 @@ export const AddRemoveTargetLanguageButtons = () => {
     const addable = targets["3"].enable !== true;
 
     // One rule for the look, the pointer and the keyboard: a button that looks unavailable
-    // does nothing when pressed, by mouse or by Enter and Space.
-    const button = (allowed: boolean, action: () => void, label: string, className: string | undefined,
-        Icon: ComponentType<SVGProps<SVGSVGElement>>, iconClass: string | undefined) => {
+    // does nothing when pressed, by mouse or by Enter and Space. Each is the kit's icon Button; it
+    // stays focusable while unavailable (aria-disabled, not disabled). Enter and Space act on the
+    // key going down, once while it is held, as they did before the kit: the key's own press of
+    // the button is held back so it does not act a second time.
+    const button = (allowed: boolean, action: () => void, label: string,
+        Icon: ComponentType<SVGProps<SVGSVGElement>>) => {
         const press = () => { if (allowed && canChangeLanguageSettings()) action(); };
         return (
-            <div className={clsx(className, { [styles.is_disabled]: !allowed, [styles.is_busy]: isLanguageSettingsBusy })}
-                aria-disabled={!allowed || isLanguageSettingsBusy} onClick={press}
-                role="button" tabIndex={0} aria-label={label}
+            <Button size="icon" className={clsx({ [styles.is_disabled]: !allowed })}
+                aria-disabled={!allowed || isLanguageSettingsBusy} onClick={press} aria-label={label}
                 onKeyDown={event => { if (event.key === " " || event.key === "Enter") { event.preventDefault(); if (event.repeat) return; press(); } }}>
-                <Icon className={iconClass} aria-hidden="true" />
-            </div>
+                <Icon className={styles.icon} aria-hidden="true" />
+            </Button>
         );
     };
 
     return (
         <div className={styles.add_remove_target_language_container}>
-            {button(removable, removeTargetLanguage, t("main_page.remove_target_language"),
-                styles.remove_target_language_button, RemoveSvg, styles.remove_svg)}
-            {button(addable, addTargetLanguage, t("main_page.add_target_language"),
-                styles.add_target_language_button, AddSvg, styles.add_svg)}
+            {button(removable, removeTargetLanguage, t("main_page.remove_target_language"), RemoveSvg)}
+            {button(addable, addTargetLanguage, t("main_page.add_target_language"), AddSvg)}
         </div>
     );
 };
