@@ -12,12 +12,15 @@ const box = (boxes: TreeNode[], name: string) => {
     return found;
 };
 
+const Tooltip = ({ children }: { title?: unknown; placement?: string; bare?: boolean; children?: unknown }) => children;
+
 const setup = async (data: unknown, state = "ok") => {
     const runtime = hooks(), writes: unknown[] = [];
     const current = { data, state };
     const module = await loadModule<typeof import("./UsagePresetSelector.tsx")>(new URL("./UsagePresetSelector.tsx", import.meta.url), runtime, {
         "@logics_configs": { useUsagePresets: () => ({ currentUsagePresets: current, setUsagePresets: (value: unknown) => { writes.push(value); } }) },
         "../../../../../logics/configs/usagePresets.ts": usagePresets,
+        "../../../../common_components/tooltip/Tooltip.tsx": { Tooltip },
         "@useI18n": { useI18n: () => ({ t: (key: string, values?: object) => values ? `${key}:${JSON.stringify(values)}` : key }) },
     });
     const render = (props: { isCompact: boolean } = { isCompact: false }) => runtime.render(module.UsagePresetSelector, props);
@@ -65,4 +68,43 @@ test("while a pick is saved the boxes wait, and the icon rail closes the list", 
     const compact = s.render({ isCompact: true });
     assert.equal(find(compact, node => node.type === "fieldset"), null);
     assert.equal(findIn(compact, node => node.type === "button").props.title, findIn(compact, node => node.type === "button").props["aria-label"]);
+});
+
+test("explanations move to right-side tooltips and remain accessible descriptions without always-visible copy (#1106)", async () => {
+    const s = await setup(["basic"]);
+    findIn(s.render(), node => node.type === "button").props.onClick();
+    const tree = s.render();
+    // No always-visible introductory paragraph inside the list.
+    assert.equal(find(tree, node => node.type === "p"), null);
+    // Toggle button and every preset option carry their explanation in a right-side bare Tooltip.
+    const tooltips = all(tree, node => node.type === Tooltip);
+    assert.deepEqual(
+        tooltips.map(node => [node.props.bare, node.props.placement, node.props.title]),
+        [
+            [true, "right", "config_page.usage_presets.help"],
+            ...usagePresets.USAGE_PRESETS.map(({ id }) => [true, "right", usagePresets.usagePresetDescKey(id)]),
+        ],
+    );
+    // Screen readers still receive the help text and each preset description via aria-describedby.
+    const button = findIn(tree, node => node.type === "button");
+    const fieldset = findIn(tree, node => node.type === "fieldset");
+    assert.equal(button.props["aria-describedby"], fieldset.props["aria-describedby"]);
+    const helpNode = findIn(tree, node => node.props.id === button.props["aria-describedby"]);
+    assert.equal(helpNode.props.className, "visuallyHidden");
+    assert.equal(helpNode.props.children, "config_page.usage_presets.help");
+    for (const { id } of usagePresets.USAGE_PRESETS) {
+        const input = box(all(tree, node => node.type === "input"), id);
+        const descNode = findIn(tree, node => node.props.id === input.props["aria-describedby"]);
+        assert.equal(descNode.props.className, "visuallyHidden");
+        assert.equal(descNode.props.children, usagePresets.usagePresetDescKey(id));
+    }
+    // Labels contain only the preset name (never the description text).
+    for (const label of all(tree, node => node.type === "label")) {
+        const texts = all(label, node => typeof node.props.children === "string").map(node => node.props.children);
+        assert.equal(texts.length, 1);
+        assert.match(texts[0], /\.label$/);
+    }
+    // Compact rail suppresses the help Tooltip so the native icon title stays clean.
+    const compact = s.render({ isCompact: true });
+    assert.equal(findIn(compact, node => node.type === Tooltip).props.title, undefined);
 });

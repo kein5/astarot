@@ -47,7 +47,23 @@ export const words = style({
 // The narrow rail has no room for the words; they come back when it expands.
 export const hidden = style({ opacity: 0 });
 
-export const title = style({ fontSize: "1.2rem", fontWeight: 600, lineHeight: 1.4, color: vars.vox_secondary_text });
+export const title = style({
+    display: "inline-flex",
+    alignItems: "center",
+    gap: ".4rem",
+    fontSize: "1.2rem",
+    fontWeight: 600,
+    lineHeight: 1.4,
+    color: vars.vox_secondary_text,
+});
+
+export const titleHintMark = style({
+    display: "block",
+    width: "1.2rem",
+    height: "1.2rem",
+    fill: vars.vox_description_text,
+    flexShrink: 0,
+});
 
 // The uses picked, on one line: a long list ends in an ellipsis; the button's name has them all.
 export const names = style({
@@ -88,15 +104,7 @@ export const visuallyHidden = style({
     whiteSpace: "nowrap",
 });
 
-export const help = style({
-    margin: "0 .4rem .4rem",
-    fontSize: "1.2rem",
-    lineHeight: 1.6,
-    color: vars.vox_description_text,
-    overflowWrap: "anywhere",
-});
-
-// One use: the native checkbox, its name, and under it what the use is for.
+// One use: the native checkbox and its name; its description stays in the hover/focus tooltip (#1106).
 export const item = style({
     display: "grid",
     gridTemplateColumns: "auto minmax(0, 1fr)",
@@ -123,8 +131,20 @@ export const checkbox = style({
     cursor: "inherit",
 });
 
-export const itemText = style({ display: "flex", flexDirection: "column", minWidth: 0 });
+export const itemLabel = style({
+    minWidth: 0,
+    fontSize: "1.4rem",
+    fontWeight: 500,
+    lineHeight: 1.4,
+    color: vars.dark_basic_text_color,
+    overflowWrap: "anywhere",
+});
 
-export const itemLabel = style({ fontSize: "1.4rem", fontWeight: 500, lineHeight: 1.4, color: vars.dark_basic_text_color });
-
-export const itemDesc = style({ fontSize: "1.2rem", lineHeight: 1.5, color: vars.vox_description_text, overflowWrap: "anywhere" });
+export const hintMark = style({
+    display: "inline-block",
+    width: "1.4rem",
+    height: "1.4rem",
+    marginLeft: ".6rem",
+    verticalAlign: "-.2rem",
+    fill: vars.vox_description_text,
+});
