@@ -11,7 +11,8 @@ import * as styles from "./SetupSection.css.ts";
 // desc: what the fold is for. On a page that keeps descriptions out of sight (#614) it is the
 // title's hint, opened by the pointer on the title or keyboard focus on the summary, and the
 // summary's accessible description; elsewhere the first paragraph inside the fold. The title's
-// element holds the title only, as a label's does: the mark is beside it.
+// element holds the title only, as a label's does: the mark is beside it. A title given as text
+// labels the fold's line (data-setting-label), so the settings search leads to the fold.
 export interface SetupSectionProps {
     title: ReactNode;
     status?: ReactNode;
@@ -30,7 +31,8 @@ export const SetupSection = ({ title, status, desc, attention = false, children 
     // A bar of the app's one fold (Fold.tsx): the title and its status, and what pressing does.
     return <Fold data-setup className={styles.setup} open={opened || attention}
         onToggle={event => setOpened(event.currentTarget.open)}
-        summaryProps={{ "data-hint-row": hint ? true : undefined, "aria-describedby": descriptionId }}
+        summaryProps={{ "data-hint-row": hint ? true : undefined, "aria-describedby": descriptionId,
+            "data-setting-label": typeof title === "string" ? title : undefined }}
         summary={<>
             {hint ? <span data-hint-host>{titleElement}<Hint text={hint} id={descriptionId} row /></span> : titleElement}
             {status && <span className={styles.status}>{status}</span>}

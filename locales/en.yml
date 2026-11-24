@@ -858,9 +858,6 @@ config_page:
             list_one: "Registered words ({{count}})"
             list_other: "Registered words ({{count}})"
             list_empty: "No words are registered."
-        mic_vad_filter:
-            label: "Mic VAD filter"
-            desc: "Only send audio to recognition after a silence gap is detected. Disable this if mic transcription stops mid-conversation instead of continuing to transcribe."
         speaker_record_timeout:
             label: "Speaker record timeout"
             desc: "The longest single recording of the speaker audio, in seconds. Longer speech is split at this length, and the pieces still become one message while the speech goes on. 0 means no limit. It cannot be longer than the phrase timeout."
@@ -870,9 +867,6 @@ config_page:
         speaker_max_phrase:
             label: "Speaker max queued messages"
             desc: "Maximum number of transcribed messages that can pile up before being shown in the log. If more pile up, the oldest ones are discarded without being shown."
-        speaker_vad_filter:
-            label: "Speaker VAD filter"
-            desc: "Only send audio to recognition after a silence gap is detected. Disable this if speaker transcription stops or shows 'speech recognition request failed' during continuous game/voice audio."
         select_transcription_engine:
             label: "Transcription engine used for speech recognition"
             desc: "An API engine can be chosen after you register its API key under \"API (cloud or your own server)\" below. \"Local (speech.cpp)\" recognizes speech with a speech.cpp server on your PC; its models are under \"Models and servers\" below, and its server under \"Realtime captions\" in \"More settings\"."
