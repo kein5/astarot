@@ -8,7 +8,6 @@
 // (tools/spec_core_catalog.json, which the core's tests write) and the IPC reference
 // (docs/spec/reference/ipc-endpoints.md, which tools/spec_catalog.py writes from that catalog and
 // from the UI's route table and settings).
-import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { atom } from "jotai/vanilla";
 import type { Atom, WritableAtom } from "jotai/vanilla";
@@ -40,21 +39,9 @@ export const coreNotices: ReadonlySet<string> = new Set(catalog.notifications.ma
 // The config keys the core keeps, with the value a new install starts with.
 export const coreDefaults: ReadonlyMap<string, unknown> = new Map(catalog.config.map(({ key, default: value }) => [key, value]));
 
-const reference = read("../../../docs/spec/reference/ipc-endpoints.md");
-const section = (title: string) => {
-    const start = reference.indexOf(`## ${title}`);
-    assert.ok(start >= 0, `the IPC reference has no section ${title}`);
-    const end = reference.indexOf("\n## ", start + 1);
-    return reference.slice(start, end < 0 ? undefined : end);
-};
-// The UI's receiver of each request and notice, as the IPC reference names it: the hook and its
-// function ("useDevice.setSuccessMicThreshold"), or another word where there is none.
-export const referenceReceivers: ReadonlyMap<string, string> = new Map([
-    ...section("要求").matchAll(/^\| `(\/[^`]+)` \| [^|]* \| [^|]* \| ([^|]*?) \|/gm),
-    ...section("通知").matchAll(/^\| `[^`]+` \| `(\/[^`]+)` \| ([^|]*?) \|/gm),
-].map(([, endpoint, receiver]): [string, string] => [endpoint, receiver]));
-// The routes only the UI defines: the reference lists them without a receiver.
-export const referenceUiOnly: ReadonlySet<string> = new Set([...section("UIだけにあるルート").matchAll(/^- `(\/[^`]+)`/gm)].map(([, endpoint]) => endpoint));
+// The UI's receiver of each request and notice as the IPC reference names it ("useDevice.setSuccessMicThreshold"),
+// and the routes only the UI defines, read by the shared reader of the reference (ipcReference.ts).
+export { receivers as referenceReceivers, uiOnly as referenceUiOnly } from "./ipcReference.ts";
 
 // The routes useReceiveRoutes.ts writes by hand, which come before the ones the settings make:
 // where both name an endpoint, the reference names the hand-written receiver.
