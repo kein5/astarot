@@ -107,6 +107,14 @@
     "reason": "Once stopped, invalidate schedules nothing and the hover mark is already cleared, so a late pointer changes nothing.",
     "where": "src-ui/views/vr/vrPanelHover.ts:56:17 disposed -> false"
   },
+  "1am6nq8w6xm": {
+    "reason": "An empty, null or undefined value parses to NaN, and the branch for NaN does exactly what the empty value's branch does: it puts back the last value saved.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/_components/threshold_component/threshold_entry/ThresholdEntry.tsx:63:13 val === \"\" || val === null || val === undefined -> false"
+  },
+  "1aq9seou8y3": {
+    "reason": "At the limit itself, keeping the number and setting it to the limit give the same number.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/_components/threshold_component/threshold_entry/ThresholdEntry.tsx:120:44 sendNum > props.max -> sendNum >= props.max"
+  },
   "1bkbgsdppm1": {
     "reason": "The apply endpoints contain model_download and user_model, whose failed answers have already returned above, so only 200 answers get here.",
     "where": "src-ui/logics/useReceiveRoutes.ts:527:13 status === 200 -> true"
@@ -174,6 +182,10 @@
   "1gfulamo4eu": {
     "reason": "normalizeRegion right after clamps the width to 1 - x and the height to 1 - y, the same bound this shrink sets, so the region comes out the same.",
     "where": "src-ui/logics/configs/ocrReadiness.ts:33:59 1 - Math.min(value, 1 - MIN_REGION_SIDE) -> 1 + Math.min(value, 1 - MIN_REGION_SIDE)"
+  },
+  "1gqpkqrwqiy": {
+    "reason": "At the limit itself, keeping the number and setting it to the limit give the same number.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/_components/threshold_component/threshold_entry/ThresholdEntry.tsx:121:44 sendNum < props.min -> sendNum <= props.min"
   },
   "1gtfp6z6cjn": {
     "reason": "The last loop then adds the generated routes left in the map in the order they were first added, which is the order this loop gives.",
@@ -255,6 +267,10 @@
     "reason": "{ on: false } and {} read the same: on is not true, and path and language are nullish.",
     "where": "src-ui/logics/flow/flowGraph.ts:62:114 { on: false } -> {}"
   },
+  "1n39071ylm0": {
+    "reason": "An empty, null or undefined value parses to NaN, and the branch for NaN does exactly what the empty value's branch does: it puts back the last value saved.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/_components/threshold_component/threshold_entry/ThresholdEntry.tsx:63:21 \"\" -> \"Stryker was here!\""
+  },
   "1nmsphl7t5u": {
     "reason": "The tooltip is already null whenever the effect stops early: it starts null, and the clean-up of the run before hid it.",
     "where": "src-ui/views/vr/VrTooltip.tsx:72:33 setTip(null); -> ;"
@@ -282,6 +298,10 @@
   "1oxv3qpqgcc": {
     "reason": "The only merged routes are the weight template's get and set routes, made twice with the same values, so the entry already in the map is the same as the merged one.",
     "where": "src-ui/logics/useReceiveRoutes.ts:883:9 mergedMap.set(ep, merged); -> ;"
+  },
+  "1p0a0ccz8t4": {
+    "reason": "An empty, null or undefined value parses to NaN, and the branch for NaN does exactly what the empty value's branch does: it puts back the last value saved.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/_components/threshold_component/threshold_entry/ThresholdEntry.tsx:63:13 val === \"\" || val === null -> (val === \"\" && val === null)"
   },
   "1p3026bjvnt": {
     "reason": "A model registered after the name was sent has a new id, which neither the same-name models nor all models had before.",
@@ -334,6 +354,10 @@
   "1suzns1hw39": {
     "reason": "A placeholder string in place of the empty engine list has no id, so no engine is found for the provider either way.",
     "where": "src-ui/views/app/config_page/setting_section/setting_box/translation/Translation.tsx:165:55 [] -> [\"Stryker was here!\"]"
+  },
+  "1syyf6nx6s2": {
+    "reason": "An empty, null or undefined value parses to NaN, and the branch for NaN does exactly what the empty value's branch does: it puts back the last value saved.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/_components/threshold_component/threshold_entry/ThresholdEntry.tsx:63:13 val === \"\" || val === null || val === undefined -> ((val === \"\" || val === null) && val === undefined)"
   },
   "1taa8erx1ec": {
     "reason": "useModelDownloads stores only an answer with a models list (hasModels), so the user models are null or have their list.",
@@ -426,6 +450,10 @@
   "20ewephnrds": {
     "reason": "A kind ticked twice is listed twice, but every reader asks only whether the kind is included, and unticking removes every copy.",
     "where": "src-ui/views/app/config_page/setting_section/setting_box/advanced_settings/ModelDownloads.tsx:279:103 previous.filter(k => k !== kind) -> previous"
+  },
+  "216wjl9ktbr": {
+    "reason": "The effect's dependencies are a constant list either way, so it runs once, when the field is first drawn.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/_components/threshold_component/threshold_entry/ThresholdEntry.tsx:55:8 [] -> [\"Stryker was here!\"]"
   },
   "21k2093idx8": {
     "reason": "normalizeRegion right after clamps the width to 1 - x and the height to 1 - y, the same bound this shrink sets, so the region comes out the same.",
@@ -551,6 +579,10 @@
     "reason": "Without the block a missing hook is looked up again for each of its routes, which still get an empty result and do nothing, so only the warning is lost.",
     "where": "src-ui/logics/useReceiveRoutes.ts:442:20 { console.warn(`Hook not found on namespace: ${hook_name}`)… -> {}"
   },
+  "2ffbsw7qz06": {
+    "reason": "An empty, null or undefined value parses to NaN, and the branch for NaN does exactly what the empty value's branch does: it puts back the last value saved.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/_components/threshold_component/threshold_entry/ThresholdEntry.tsx:63:43 val === undefined -> false"
+  },
   "2fgwclb2jaz": {
     "reason": "show_label_values is a list or null (its type, with null as the default for undefined), and for both the two conditions read the same.",
     "where": "src-ui/logics/configs/config_page_setter/useSettingsLogics.ts:374:13 show_label_values && Array.isArray(show_label_values) -> (show_label_values || Array.isArray(show_label_values))"
@@ -606,6 +638,10 @@
   "59tz3ase4p": {
     "reason": "Parts without a label are skipped again in the loop below, so filtering them first changes nothing.",
     "where": "src-ui/logics/configs/config_page_setter/_aux/useConfigSearch.ts:233:20 Object.entries(textsOf(item)).filter(([, value]) => isTexts… -> Object.entries(textsOf(item))"
+  },
+  "5en5w1734s": {
+    "reason": "An empty, null or undefined value parses to NaN, and the branch for NaN does exactly what the empty value's branch does: it puts back the last value saved.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/_components/threshold_component/threshold_entry/ThresholdEntry.tsx:63:13 val === \"\" || val === null -> false"
   },
   "5oh06psc7v": {
     "reason": "The dependencies are constant either way, so the callback is made once.",
@@ -695,6 +731,10 @@
     "reason": "useSettingsLogics always makes these five functions for a weight list, so the check is always true there.",
     "where": "src-ui/logics/configs/config_page_setter/ui_config_setter.ts:1558:17 typeof settings[updateDownloadProgressKey] === \"function\" -> true"
   },
+  "dk76y4e5pj": {
+    "reason": "An empty, null or undefined value parses to NaN, and the branch for NaN does exactly what the empty value's branch does: it puts back the last value saved.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/_components/threshold_component/threshold_entry/ThresholdEntry.tsx:63:13 val === \"\" -> false"
+  },
   "e3ymkr1q68": {
     "reason": "The fields come from useSettingsLogics for the same category, so a setting of another category has no field to copy.",
     "where": "src-ui/logics/configs/config_page_setter/ui_config_setter.ts:1536:50 s.Category === Category -> true"
@@ -710,6 +750,10 @@
   "fgke2j7b33": {
     "reason": "useSettingsLogics always makes these five functions for a weight list, so the check is always true there.",
     "where": "src-ui/logics/configs/config_page_setter/ui_config_setter.ts:1560:17 typeof settings[pendingKey] === \"function\" -> true"
+  },
+  "fm3beqnr2a": {
+    "reason": "At the limit itself, keeping the number and setting it to the limit give the same number.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/_components/threshold_component/threshold_entry/ThresholdEntry.tsx:107:58 num > props.max -> num >= props.max"
   },
   "ga1yx9qeac": {
     "reason": "The only merged routes are the weight template's get and set routes, made twice with the same namespace, hook and function, so either operand gives the same value.",
@@ -739,9 +783,17 @@
     "reason": "store.appWindow is a Tauri Window, which always has onFocusChanged, so the optional call never meets undefined.",
     "where": "src-ui/logics/configs/config_page_setter/hotkeys/useHotkeys.ts:231:72 ?. -> "
   },
+  "hzuw47zozr": {
+    "reason": "An empty, null or undefined value parses to NaN, and the branch for NaN does exactly what the empty value's branch does: it puts back the last value saved.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/_components/threshold_component/threshold_entry/ThresholdEntry.tsx:63:62 { const restored = lastSavedValueRef.current ?? \"\"; setInpu… -> {}"
+  },
   "iiy3s7fv0v": {
     "reason": "readBackendResponse makes every endpoint a string, so the fallback after ?? is never used.",
     "where": "src-ui/logics/useReceiveRoutes.ts:711:107 \"500\" -> \"\""
+  },
+  "ik87jxkif8": {
+    "reason": "At the limit itself, keeping the number and setting it to the limit give the same number.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/_components/threshold_component/threshold_entry/ThresholdEntry.tsx:109:47 num < props.min -> num <= props.min"
   },
   "iy86bs7o2g": {
     "reason": "Closing leaves no dialog to read the consent, and the review button sets it to false again before the next one opens.",
@@ -778,6 +830,14 @@
   "lkp27ng3ay": {
     "reason": "Every static route is an object with an endpoint, so the check never skips one.",
     "where": "src-ui/logics/useReceiveRoutes.ts:859:18 ?. -> ."
+  },
+  "lpw8zq5jmt": {
+    "reason": "Only digits reach this point and an empty value has returned already, so the number is never NaN.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/_components/threshold_component/threshold_entry/ThresholdEntry.tsx:106:13 !Number.isNaN(num) -> true"
+  },
+  "mjkmljnn5n": {
+    "reason": "At the limit itself, keeping the number and setting it to the limit give the same number.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/_components/threshold_component/threshold_entry/ThresholdEntry.tsx:78:40 num > props.max -> num >= props.max"
   },
   "n0p7w6fey0": {
     "reason": "A missing value only reaches the 24-character test as a short string, and the placeholder is 17 characters, also short.",
@@ -907,6 +967,10 @@
     "reason": "useTranslation always gives this setting's state object (its store atom), so the optional chain never meets null or undefined.",
     "where": "src-ui/views/app/config_page/setting_section/setting_box/translation/Translation.tsx:384:71 ?. -> ."
   },
+  "v8gd8t350l": {
+    "reason": "At the limit itself, keeping the number and setting it to the limit give the same number.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/_components/threshold_component/threshold_entry/ThresholdEntry.tsx:79:40 num < props.min -> num <= props.min"
+  },
   "vb0q8etmm0": {
     "reason": "On the RVC page the conversion is always shown and always RVC, so the other half of the condition is already true.",
     "where": "src-ui/views/app/config_page/setting_section/setting_box/advanced_settings/DirectVoiceSettings.tsx:160:10 variant === \"rvc\" -> false"
@@ -922,6 +986,14 @@
   "wosx5e1cxg": {
     "reason": "The same effect returns the view to the main screen, so the next layout effect that reads the flag only takes the snapshot, which open() takes again before a list shows.",
     "where": "src-ui/views/vr/VrLanguageWindow.tsx:115:43 false -> true"
+  },
+  "wuz5m7rpkh": {
+    "reason": "An empty, null or undefined value parses to NaN, and the branch for NaN does exactly what the empty value's branch does: it puts back the last value saved.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/_components/threshold_component/threshold_entry/ThresholdEntry.tsx:63:27 val === null -> false"
+  },
+  "wyqyzfle8p": {
+    "reason": "A value that is not a number comes from the page's threshold or the saved one, which both set the last value saved, so that value is never missing here.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/_components/threshold_component/threshold_entry/ThresholdEntry.tsx:72:59 \"\" -> \"Stryker was here!\""
   },
   "wzzni2tpjd": {
     "reason": "open() sets the query to an empty one before any list is drawn, so its first value is never shown.",
