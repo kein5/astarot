@@ -963,6 +963,10 @@
     "reason": "Only the first character is read; removing a prolonged-sound mark later in the name does not change it.",
     "where": "src-ui/logics/common/languageJumpGroups.ts:35:87 /^ー+/ -> /ー+/"
   },
+  "swwlvkrtz6": {
+    "reason": "With no highlighted choice the index is -1, and the list's children hold nothing at -1, so the optional call scrolls nothing whether or not the effect returns early.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/_components/_atoms/_dropdown_menu/_DropdownMenu.tsx:74:13 activeIndex < 0 -> false"
+  },
   "t00o16h496": {
     "reason": "forEach over an empty failedHotkeys does nothing, so running the block for zero failures changes nothing.",
     "where": "src-ui/logics/configs/config_page_setter/hotkeys/useHotkeys.ts:436:21 failedHotkeys.length > 0 -> true"
