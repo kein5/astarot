@@ -1,9 +1,11 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import type { ChangeEvent, ReactNode } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import type { ChangeEvent, KeyboardEvent as ReactKeyboardEvent, ReactNode } from "react";
 import { HexColorPicker } from "react-colorful";
 
 import * as styles from "./ColorEntryWithSaveButton.css.ts";
 import { _Entry } from "../_atoms/_entry/_Entry";
+import { FieldProblem } from "../field_problem/FieldProblem";
+import * as problemStyles from "../field_problem/FieldProblem.css.ts";
 import { clsx } from "clsx";
 import { useI18n } from "@useI18n";
 import type { TargetHolder } from "../../../../../../../logics/common/targetHolder.ts";
@@ -27,11 +29,20 @@ export interface ColorEntryWithSaveButtonProps {
     onChangeFunction?: (value: string) => void;
     saveFunction: () => unknown;
     "aria-describedby"?: string;
+    // Saves by itself (#1111): leaving the field, or closing the picker after choosing, saves as
+    // Enter does, and Escape in the field puts the saved color back (onRevert).
+    autoSave?: boolean;
+    onRevert?: () => void;
+    // What is wrong with the color and what would do, said under the field (#1111).
+    error?: string | null;
 }
 
 export const ColorEntryWithSaveButton = (props: ColorEntryWithSaveButtonProps) => {
     const { t } = useI18n();
     const is_disabled = props.state === "pending";
+    const autoSave = !!props.autoSave;
+    const errorId = useId();
+    const error = autoSave && props.error ? props.error : null;
     const [is_open, setIsOpen] = useState(false);
     const [placement, setPlacement] = useState({ open_above: true, align_end: true });
     const popover_ref = useRef<HTMLDivElement>(null);
@@ -57,12 +68,17 @@ export const ColorEntryWithSaveButton = (props: ColorEntryWithSaveButtonProps) =
         setIsOpen(true);
     };
 
+    // The latest save: the picker's listeners are added when it opens, before a color is chosen.
+    const latestSave = useRef(props.saveFunction);
+    latestSave.current = props.saveFunction;
+    // Closing the picker after choosing a color saves it when the field saves by itself.
     const closePicker = () => {
         setIsOpen(false);
+        if (autoSave && !is_disabled) latestSave.current();
     };
 
     const saveFunction = () => {
-        closePicker();
+        setIsOpen(false);
         props.saveFunction();
     };
 
@@ -131,7 +147,7 @@ export const ColorEntryWithSaveButton = (props: ColorEntryWithSaveButtonProps) =
         saveFunction();
     };
 
-    return (
+    const field = (
         <div className={styles.container}>
             <_Entry
                 label={props.label}
@@ -139,7 +155,13 @@ export const ColorEntryWithSaveButton = (props: ColorEntryWithSaveButtonProps) =
                 onChange={onChangeFunction}
                 onEnterPressed={handleEnterPressed}
                 ui_variable={props.variable}
-                readOnly={is_disabled} aria-busy={is_disabled} aria-disabled={is_disabled} aria-describedby={props["aria-describedby"]}
+                readOnly={is_disabled} aria-busy={is_disabled} aria-disabled={is_disabled}
+                aria-describedby={[props["aria-describedby"], error ? errorId : null].filter(Boolean).join(" ") || undefined}
+                aria-invalid={error ? true : undefined}
+                onBlur={autoSave ? () => { if (!is_disabled) props.saveFunction(); } : undefined}
+                // With the picker open, Escape closes it (and keeps the chosen color); otherwise it
+                // puts the saved color back.
+                onKeyDown={autoSave ? (event: ReactKeyboardEvent<HTMLInputElement>) => { if (event.key === "Escape" && !is_open) props.onRevert?.(); } : undefined}
             />
             <div className={styles.swatch_wrapper}>
                 <button
@@ -161,6 +183,13 @@ export const ColorEntryWithSaveButton = (props: ColorEntryWithSaveButtonProps) =
                     </div>
                 )}
             </div>
+        </div>
+    );
+    if (!autoSave) return field;
+    return (
+        <div className={problemStyles.field} data-invalid={error ? "true" : undefined}>
+            {field}
+            {error && <FieldProblem id={errorId} text={error} />}
         </div>
     );
 };

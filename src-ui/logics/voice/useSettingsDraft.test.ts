@@ -180,3 +180,23 @@ for (const response of [false, { status: 400 }]) test(`a rejected draft remains 
     s.render().discard();
     assert.equal(s.render().saveState, "saved");
 });
+
+// #1111: a group that saves by itself is saved by its page when focus leaves it, so it is not in the
+// save bar, and leaving the page with an edit drops it without asking (decided 4).
+for (const autoSave of [false, true]) test(`a draft ${autoSave ? "that saves by itself is not in the save bar and does not guard leaving" : "saved from the bar is in it and guards leaving"}`, async context => {
+    const runtime = hooks(), window = eventTarget(), entries: string[] = [];
+    context.onTestFinished(() => runtime.unmount());
+    stubGlobals(context, { window });
+    const { useSettingsDraft } = await loadModule<typeof import("./useSettingsDraft.tsx")>(new URL("./useSettingsDraft.tsx", import.meta.url), runtime, {
+        "./draftRebase": { rebaseDraft }, "./saveBar": { changedPaths: () => [["model"]], setSaveBarEntry: (id: string) => { entries.push(id); } },
+    });
+    const saved: Vocabulary = { vocabulary: { terms: [] }, model: "old" };
+    const write: DraftWrite<Vocabulary> = () => new Promise<StdoutResult>(() => {});
+    const render = () => runtime.render(() => useSettingsDraft(saved, null, () => {}, { write, autoSave }));
+    render();
+    render().setDraft({ ...saved, model: "new" });
+    assert.equal(render().dirty, true);
+    const guards = window.added.filter(([type]) => type === "vrct:settings-leave" || type === "beforeunload");
+    assert.equal(guards.length > 0, !autoSave);
+    assert.equal(entries.length > 0, !autoSave);
+});

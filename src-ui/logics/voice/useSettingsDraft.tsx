@@ -21,6 +21,9 @@ export interface SettingsDraftOptions<T> {
     // Turns the backend's answer to a write into the saved value.
     savedFromResponse?: (result: unknown) => T;
     patch?: boolean;
+    // Saves by itself (#1111): the caller saves the group when focus leaves it (submit), so
+    // nothing waits for the save bar and leaving the page asks nothing first (decided 4).
+    autoSave?: boolean;
 }
 
 export interface SettingsDraft<T> {
@@ -60,7 +63,7 @@ function answeredValue(result: unknown, savedFromResponse?: (result: unknown) =>
 // `patch` sends only changed top-level fields to setters that merge them.
 // `_error` is the caller's error state, which the draft does not read: it reports through updateError.
 export function useSettingsDraft<T>(saved: T | null | undefined, _error: unknown, updateError: (code: string | null) => void,
-    { write, canSave = true, label = path => path.join("."), pending = [], savedFromResponse, patch = false }: SettingsDraftOptions<T> = {}): SettingsDraft<T> {
+    { write, canSave = true, label = path => path.join("."), pending = [], savedFromResponse, patch = false, autoSave = false }: SettingsDraftOptions<T> = {}): SettingsDraft<T> {
     const { t } = useI18n();
     const [draft, setDraft] = useState<DraftState<T>>(null);
     const [saving, setSaving] = useState(false);
@@ -94,7 +97,7 @@ export function useSettingsDraft<T>(saved: T | null | undefined, _error: unknown
     const [leaving, setLeaving] = useState<(() => void) | null | undefined>(null);
     const dialog = useRef<HTMLDialogElement>(null);
     useEffect(() => {
-        if (!dirty && !saving) return;
+        if (autoSave || (!dirty && !saving)) return;
         const guard = (event: Event) => {
             if (event.defaultPrevented) return;
             event.preventDefault();
@@ -107,7 +110,7 @@ export function useSettingsDraft<T>(saved: T | null | undefined, _error: unknown
             window.removeEventListener("vrct:settings-leave", guard);
             window.removeEventListener("beforeunload", unload);
         };
-    }, [dirty, saving]);
+    }, [dirty, saving, autoSave]);
     useEffect(() => { if (leaving) dialog.current?.showModal(); }, [leaving]);
     const discard = () => { setDraft(saved); setSaving(false); setFailed(false); setAwaitingResponse(false); submitted.current = null; updateError(null); };
     useEffect(() => () => { submitted.current = null; }, []);
@@ -169,7 +172,7 @@ export function useSettingsDraft<T>(saved: T | null | undefined, _error: unknown
     entryRef.current = entry;
     const entryKey = JSON.stringify([entry.dirty, dirty, saving, saveState, changes, entry.canSave]);
     useEffect(() => {
-        if (!write) return;
+        if (!write || autoSave) return;
         // Callbacks read the latest render, so only visible state republishes.
         setSaveBarEntry(id, { ...entryRef.current, save: () => entryRef.current.save(), discard: () => entryRef.current.discard() });
     }, [id, entryKey, !write]);
