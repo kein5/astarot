@@ -85,7 +85,7 @@ export const CredentialPair = <B extends string>({ settings, base, provider, sec
         return { ...reply, result: { ...canonical, auth_key: canonical.auth_key ?? "" } };
     };
     // Saves by itself as a pair (#1111, decided 3): when focus leaves both fields, or on Enter.
-    const form = useSettingsDraft(saved, error, updateError, { write, canSave, label: ([field]) => label(field), autoSave: true });
+    const form = useSettingsDraft(saved, error, updateError, { write, canSave, });
     useEffect(() => {
         // Discard (including the leave dialog) restores this exact saved object.
         if (form.draft === saved) enteredKey.current = null;
@@ -107,7 +107,6 @@ export const CredentialPair = <B extends string>({ settings, base, provider, sec
             ));
         },
         saveFunction: () => { if (canSave(draft) && form.dirty) return form.submit(write); },
-        autoSave: true,
         // Leaving one field for the other saves nothing yet. Leaving the pair with the key field
         // empty keeps the saved key (#1111, decided 2): only Enter on the empty field deletes it.
         leaveFunction: (event?: { relatedTarget: EventTarget | null }) => {
@@ -135,6 +134,5 @@ export const CredentialPair = <B extends string>({ settings, base, provider, sec
             add_warnings={requiresKey(form.draft) ? [{ label: t("config_page.common.credential_reentry_required") }] : []}
             desc={section === "transcription" ? t(`config_page.${section}.${provider}_auth_key.desc`) : undefined}
             error={problem} />
-        {form.navigationDialog}
     </div>;
 };

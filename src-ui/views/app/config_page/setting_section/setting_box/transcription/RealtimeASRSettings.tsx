@@ -43,19 +43,13 @@ export const RealtimeASRSettings = () => {
     const languageLabel = (code: string) => code === "auto" ? t("realtime.auto_language") : names.fromCode(code);
     const { settings, state, endpoints, models, error, builtinVocabulary, send, updateError } = useRealtimeASR();
     const { state: servers, send: sendSpeech } = useSpeechServers();
-    const label = ([group, field]: string[]) => {
-        if (["mic", "speaker"].includes(group)) return t(`realtime.${group}_${field === "language" ? "language" : "input"}`);
-        if (group === "vocabulary") return t(field === "builtin" || field === "removed" ? "realtime.vocabulary_builtin" : "realtime.vocabulary_user");
-        const fields: Partial<Record<string, string>> = { server: "speech_servers.asr_selection", base_url: "realtime.url", model: "realtime.model", silence_duration_ms: "realtime.silence", vad_threshold: "realtime.vad_threshold" };
-        return t(fields[group] ?? "realtime.title");
-    };
     // Saves by itself (#1111, decided 3): a choice at once, the address when focus leaves the
     // form or on Enter, and an edit made while a save waits once it ends. A refusal is said under
     // the form.
     const [problem, setProblem] = useState<string[] | null>(null);
     const write = (value: DraftWriteValue<RealtimeAsrSettings>) => saveSaidInline("/set/data/realtime_asr_settings",
         () => send("/set/data/realtime_asr_settings", value), setProblem);
-    const form = useSettingsDraft(settings, error, updateError, { label, write, autoSave: true });
+    const form = useSettingsDraft(settings, error, updateError, { write });
     const { draft, change: setDraft, dirty, saving } = form;
     const refreshDevices = () => {
         for (const source of ["mic", "speaker"]) send("/get/data/realtime_asr_endpoints", { source });
@@ -95,7 +89,7 @@ export const RealtimeASRSettings = () => {
     // On a page that keeps descriptions out of sight (#614) what the captions are and which server
     // they use is the heading's hint, and each field's words are its label's. What to do before
     // Start (save) and every state stay in sight.
-    return <section data-setting-id="realtime_asr" data-unsaved={dirty || undefined} className={styles.container} aria-label={t("realtime.title")}>
+    return <section data-setting-id="realtime_asr" className={styles.container} aria-label={t("realtime.title")}>
         <SectionLabelComponent sub label={t("realtime.title")} desc={`${t("realtime.scope")}\n${t("realtime.server_help")}`} />
         {draft && <form aria-busy={saving} ref={form.group} onBlur={form.leave} onKeyDown={form.escape}
             onSubmit={event => { event.preventDefault(); form.commit(); }}>
@@ -199,7 +193,6 @@ export const RealtimeASRSettings = () => {
             <Description text={t("realtime.save_help")} />
             {problem && <FieldProblem id="realtime_asr_problem" text={t(problem)} />}
         </form>}
-        {form.navigationDialog}
         {error && !problem && <Failure code={error} t={t} />}
     </section>;
 };

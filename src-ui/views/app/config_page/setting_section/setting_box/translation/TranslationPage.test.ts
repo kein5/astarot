@@ -451,7 +451,7 @@ test("each provider's key row names the provider, links to its key page, and sav
             onChangeFunction: "change", saveFunction: "save", ...extra }, name);
         const save = p.saves.at(-1);
         assert.ok(save);
-        assert.deepEqual([save.label, save.variable, save.state], [label, `key-${key}`, `state-${key}`], name);
+        assert.deepEqual([save.variable, save.state], [`key-${key}`, `state-${key}`], name);
         save.setFunction("new");
         save.deleteFunction?.();
         assert.deepEqual(p.calls.splice(0), [[`set${base}AuthKey`, "new"], [`delete${base}AuthKey`]], name);
@@ -473,7 +473,7 @@ test("Papago's client ID is saved on its own row, before the secret, and has not
         ["config_page.translation.papago_client_id.label", "config_page.translation.papago_client_id.desc", "client", "pending", true]);
     const save = p.saves.at(-1);
     assert.ok(save);
-    assert.deepEqual([save.label, save.variable, save.state, save.deleteFunction], ["config_page.translation.papago_client_id.label", "client", "pending", undefined]);
+    assert.deepEqual([save.variable, save.state, save.deleteFunction], ["client", "pending", undefined]);
     save.setFunction("id");
     assert.deepEqual(p.calls, [["setPapagoClientID", "id"]]);
 });
@@ -531,7 +531,7 @@ test("the local servers' addresses warn about plain HTTP on the LAN, and an empt
         assert.deepEqual(view(null), { label, desc, warnings: undefined, variable: "", state: `state-${base}`, last: true }, name);
         const save = p.saves.at(-1);
         assert.ok(save);
-        assert.deepEqual([save.label, save.variable, save.state, save.deleteFunction], [label, null, `state-${base}`, undefined], name);
+        assert.deepEqual([save.variable, save.state, save.deleteFunction], [null, `state-${base}`, undefined], name);
         save.setFunction("http://localhost:1");
         assert.deepEqual(p.calls.splice(0), [[`set${base}URL`, "http://localhost:1"]], name);
     }
@@ -563,14 +563,14 @@ test("what an AI engine is asked besides the text: a temperature from 0 to 2 and
         min: 0, max: 2, step: 0.1, width: "8rem", variable: "0.7", state: "ok", last: undefined });
     let save = p.saves.at(-1);
     assert.ok(save);
-    assert.deepEqual([save.label, save.variable, save.state, save.deleteFunction], ["config_page.translation.llm_translation_temperature.label", 0.7, "ok", undefined]);
+    assert.deepEqual([save.variable, save.state, save.deleteFunction], [0.7, "ok", undefined]);
     save.setFunction(1);
     const instructions = p.row("LLMTranslationInstructions_Box", "entry").props;
     assert.deepEqual([instructions.label, instructions.desc, instructions.variable, instructions.state, instructions.remove_border_bottom, instructions.type],
         ["config_page.translation.llm_translation_instructions.label", "config_page.translation.llm_translation_instructions.desc", "", "pending", true, undefined]);
     save = p.saves.at(-1);
     assert.ok(save);
-    assert.deepEqual([save.label, save.variable, save.state], ["config_page.translation.llm_translation_instructions.label", null, "pending"]);
+    assert.deepEqual([save.variable, save.state], [null, "pending"]);
     save.setFunction("Be polite.");
     assert.deepEqual(p.calls, [["setLLMTranslationTemperature", 1], ["setLLMTranslationInstructions", "Be polite."]]);
 

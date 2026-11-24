@@ -1371,7 +1371,6 @@ config_page:
             length: "{{ms}} ms"
 
     notifications:
-        save_success: "Settings have been saved."
         opened_folder: "Opened the folder."
 
 vr_panel:
@@ -1828,7 +1827,7 @@ voice_ui:
     start_needs_mic: "To start, prepare the virtual mic in the setup section below"
     start_needs_input: "To start, choose the input to forward"
     start_needs_setup: "To start, set the conversion model and runtime"
-    start_needs_save: "To start, save your changes"
+    start_needs_save: "To start, wait until your changes are saved"
     start_needs_rvc: "To start, press \"Use RVC for direct voice\""
     start_waiting_route: "Checking the voice route"
     start_input_unavailable: "The input list is unavailable; refresh it"
@@ -1860,7 +1859,6 @@ voice_ui:
     route_hint: "This route is shared by TTS and direct voice. Stop direct input before changing it. Switching to an external cable removes the managed input connection."
     save_route: "Save audio route"
     discard: "Discard changes"
-    save_bar: "Save settings"
     save_changes: "Save changes"
     select_rvc: "Use RVC for direct voice"
     select_rvc_label: "Direct voice conversion"
@@ -1871,17 +1869,7 @@ voice_ui:
     rvc_latency_hint: "The converted voice comes about 0.2 s after your voice on a GPU and about 1.3 s on the CPU. A Windows PC with a discrete GPU of another maker can use it through DirectML once ONNX Runtime · DirectML is fetched. A PC whose GPU cannot be used converts on the CPU, unless the CPU is too slow to keep up; then it does not start. Converting on the CPU uses a lot of it, so other apps may slow down."
     rvc_running_gpu: "Converting on the GPU. The voice is about {{seconds}} s behind."
     rvc_running_cpu: "Converting on the CPU. The voice is about {{seconds}} s behind. A runtime that can use an NVIDIA GPU makes the delay smaller."
-    save_changes_short: "Save"
-    discard_short: "Discard"
-    changed_items: "Changed settings"
-    unsaved: "Unsaved changes"
-    applies_on_save: "Save to apply: {{changes}}"
     applies_now: "Changes on this page apply at once"
-    changes_separator: ", "
-    unsaved_count: "{{count}}"
-    saved: "Saved"
-    save_failed: "Save failed — edits kept"
-    saving: "Saving…"
     leave_title: "Unsaved voice settings"
     leave_hint: "Discard unsaved changes and leave this page?"
     keep_editing: "Keep editing"

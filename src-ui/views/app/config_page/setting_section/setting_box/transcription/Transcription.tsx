@@ -426,8 +426,6 @@ const CloudAuthKey_Box = ({ engine }: { engine: CloudTranscriptionEngine }) => {
         state: current.state,
         setFunction: transcription[`set${engine.base}AuthKey`],
         deleteFunction: transcription[`delete${engine.base}AuthKey`],
-        label,
-        autoSave: true,
         endpoint: `/set/data/${engine.key}_auth_key`,
     });
 
@@ -440,7 +438,6 @@ const CloudAuthKey_Box = ({ engine }: { engine: CloudTranscriptionEngine }) => {
             state={current.state}
             onChangeFunction={onChangeFunction}
             saveFunction={saveFunction}
-            autoSave
             leaveFunction={leaveFunction}
             onRevert={revert}
             error={error}

@@ -42,7 +42,7 @@ export const loadBridgeStore = async (runtime: HookRuntime = hooks()) => {
         jotai,
         "@ui_configs": {},
         "./common/vrPanelTooltip": { keepNewestVrLayout: (_: unknown, next: unknown) => next },
-        "./voice/settingsNavigation": { requestSettingsNavigation: (action: () => unknown) => action() },
+        
         "./common/pendingRequestRecovery.ts": recovery,
         "./common/meterValue.ts": meterValue,
         "./common/initializationFields.ts": initialization,
@@ -94,7 +94,7 @@ export function settingAtom(registry: Readonly<Record<string, unknown>>, name: s
 export const loadBridgeSettings = async ({ runtime, stores, jotai }: BridgeStore, common: Record<string, unknown> = stubApi()) => {
     const settingsLogics = await loadModule<typeof import("../configs/config_page_setter/useSettingsLogics.ts")>(new URL("../configs/config_page_setter/useSettingsLogics.ts", import.meta.url), runtime, {
         "@store": stores, "@utils": utils, "@logics_common": common,
-        "../../voice/saveBar": { setSaveBarEntry: noop }, "../fieldErrors.ts": fieldErrors,
+        "../fieldErrors.ts": fieldErrors,
     });
     return await loadModule<typeof import("../configs/config_page_setter/ui_config_setter.ts")>(new URL("../configs/config_page_setter/ui_config_setter.ts", import.meta.url), runtime, {
         jotai, "@store": stores, "../../common/pendingRequestRecovery.ts": recovery,

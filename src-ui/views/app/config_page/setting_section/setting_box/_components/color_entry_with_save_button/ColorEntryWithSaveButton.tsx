@@ -31,7 +31,6 @@ export interface ColorEntryWithSaveButtonProps {
     "aria-describedby"?: string;
     // Saves by itself (#1111): leaving the field, or closing the picker after choosing, saves as
     // Enter does, and Escape in the field puts the saved color back (onRevert).
-    autoSave?: boolean;
     onRevert?: () => void;
     // What is wrong with the color and what would do, said under the field (#1111).
     error?: string | null;
@@ -40,9 +39,8 @@ export interface ColorEntryWithSaveButtonProps {
 export const ColorEntryWithSaveButton = (props: ColorEntryWithSaveButtonProps) => {
     const { t } = useI18n();
     const is_disabled = props.state === "pending";
-    const autoSave = !!props.autoSave;
     const errorId = useId();
-    const error = autoSave && props.error ? props.error : null;
+    const error = props.error || null;
     const [is_open, setIsOpen] = useState(false);
     const [placement, setPlacement] = useState({ open_above: true, align_end: true });
     const popover_ref = useRef<HTMLDivElement>(null);
@@ -74,7 +72,7 @@ export const ColorEntryWithSaveButton = (props: ColorEntryWithSaveButtonProps) =
     // Closing the picker after choosing a color saves it when the field saves by itself.
     const closePicker = () => {
         setIsOpen(false);
-        if (autoSave && !is_disabled) latestSave.current();
+        if (!is_disabled) latestSave.current();
     };
 
     const saveFunction = () => {
@@ -158,10 +156,10 @@ export const ColorEntryWithSaveButton = (props: ColorEntryWithSaveButtonProps) =
                 readOnly={is_disabled} aria-busy={is_disabled} aria-disabled={is_disabled}
                 aria-describedby={[props["aria-describedby"], error ? errorId : null].filter(Boolean).join(" ") || undefined}
                 aria-invalid={error ? true : undefined}
-                onBlur={autoSave ? () => { if (!is_disabled) props.saveFunction(); } : undefined}
+                onBlur={() => { if (!is_disabled) props.saveFunction(); }}
                 // With the picker open, Escape closes it (and keeps the chosen color); otherwise it
                 // puts the saved color back.
-                onKeyDown={autoSave ? (event: ReactKeyboardEvent<HTMLInputElement>) => { if (event.key === "Escape" && !is_open) props.onRevert?.(); } : undefined}
+                onKeyDown={(event: ReactKeyboardEvent<HTMLInputElement>) => { if (event.key === "Escape" && !is_open) props.onRevert?.(); }}
             />
             <div className={styles.swatch_wrapper}>
                 <button
@@ -185,7 +183,6 @@ export const ColorEntryWithSaveButton = (props: ColorEntryWithSaveButtonProps) =
             </div>
         </div>
     );
-    if (!autoSave) return field;
     return (
         <div className={problemStyles.field} data-invalid={error ? "true" : undefined}>
             {field}

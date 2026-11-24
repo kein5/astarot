@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test, vi } from "vitest";
 import type { TestContext } from "vitest";
-import { hooks, loadModule, find, findIn, nodesIn, setRef, isRecord, stubGlobals, componentName } from "../../../../../../logics/test/hookHarness.ts";
+import { hooks, loadModule, find, findIn, nodesIn, isRecord, stubGlobals, componentName } from "../../../../../../logics/test/hookHarness.ts";
 import { rebaseDraft } from "../../../../../../logics/voice/draftRebase.ts";
 import * as vocabularyTerms from "../../../../../../logics/transcription/vocabularyTerms.ts";
 import type { RealtimeAsrSettings } from "../../../../../../logics/transcription/useRealtimeASR.ts";
@@ -33,7 +33,7 @@ type Reply = (answer: { status: number; result: unknown }) => void;
 // hints: whether the page keeps descriptions out of sight (#614).
 async function fixture(context: TestContext, { hints = false }: { hints?: boolean } = {}) {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
-    const runtime = hooks(), barRuntime = hooks(), calls: [string, unknown][] = [], listeners: Listener[] = [], responses: Reply[] = [];
+    const runtime = hooks(), calls: [string, unknown][] = [], listeners: Listener[] = [], responses: Reply[] = [];
     const window = {
         addEventListener(type: string, fn: Listener["fn"], options?: { capture?: boolean }) { listeners.push({ type, fn, capture: !!options?.capture }); },
         removeEventListener(type: string, fn: Listener["fn"]) { const i = listeners.findIndex(row => row.type === type && row.fn === fn); if (i >= 0) listeners.splice(i, 1); },
@@ -42,9 +42,8 @@ async function fixture(context: TestContext, { hints = false }: { hints?: boolea
     };
     stubGlobals(context, { window });
     runtime.api.useSyncExternalStore = (_, snapshot) => snapshot();
-    const saveBar = await loadModule<typeof import("../../../../../../logics/voice/saveBar.ts")>(new URL("../../../../../../logics/voice/saveBar.ts", import.meta.url), runtime);
     const draftHooks = await loadModule(new URL("../../../../../../logics/voice/useSettingsDraft.tsx", import.meta.url), runtime, {
-        "./draftRebase": { rebaseDraft }, "./saveBar": saveBar,
+        "./draftRebase": { rebaseDraft }, 
     });
     const asr: Asr = {
         settings: { server: "external", base_url: "http://localhost:8080", model: "asr-model",
@@ -76,21 +75,8 @@ async function fixture(context: TestContext, { hints = false }: { hints?: boolea
         "./VocabularyList.tsx": { VocabularyList: "vocabulary-list" },
         "../../../../../../logics/transcription/vocabularyTerms.ts": vocabularyTerms,
     });
-    const { SaveBar } = await loadModule<typeof import("../../../topbar/Topbar.tsx")>(new URL("../../../topbar/Topbar.tsx", import.meta.url), barRuntime, {
-        "@logics_common": {}, "../../../../logics/voice/saveBar": saveBar, "../../others/stop_actions/StopActions": {},
-        "@store": { useStore_SelectedConfigTabId: () => ({ currentSelectedConfigTabId: { data: "transcription" } }) },
-    });
-    let dialogProps: { onClose: () => void } | null = null;
-    const modal = { open: false, showModal() { this.open = true; }, close() { this.open = false; assert.ok(dialogProps); dialogProps.onClose(); } };
-    const bar = () => barRuntime.render(SaveBar, {}, tree => {
-        const dialog = find(tree, node => node.type === "dialog");
-        // The dialog's ref, which React would fill with the element: the stub stands in for it.
-        if (dialog) { setRef(dialog, modal); dialogProps = dialog.props; }
-    });
     const render = () => { runtime.render(RealtimeASRSettings); return runtime.render(RealtimeASRSettings); };
     const field = (label: string) => findIn(render(), node => node.type === "input" && node.props["aria-label"] === label).props;
-    const entries = () => saveBar.useSaveBarEntries();
-    const status = () => findIn(bar(), node => node.props?.role === "status").props.children;
     const changeURL = () => { field("realtime.url").onChange({ target: { value: "http://localhost:9090" } }); render(); };
     // #1111: the form saves when focus leaves it, on Enter in the address, and a choice at once.
     const form = () => findIn(render(), node => node.type === "form").props;
@@ -118,9 +104,9 @@ async function fixture(context: TestContext, { hints = false }: { hints?: boolea
         for (let i = 0; i < 10; i++) await Promise.resolve();
         render();
     };
-    context.onTestFinished(() => { runtime.unmount(); barRuntime.unmount(); });
+    context.onTestFinished(() => { runtime.unmount(); });
     render();
-    return { runtime, barRuntime, asr, render, bar, field, entries, status, changeURL, form, leave, writes, acknowledge, refuse, window, modal, listeners, calls };
+    return { runtime, asr, render, field, changeURL, form, leave, writes, acknowledge, refuse, window, listeners, calls };
 }
 
 // #792: the page asks for the built-in terms and hands them, with the dictionary, to one list where
@@ -140,18 +126,14 @@ test("the dictionary is one list, with the built-in terms the page asked for", a
     list().props.onVocabulary({ builtin: true, terms: ["猫丸"] });
     s.render();
     // A change from the list saves at once (#1111, decided 3); the form is not in the save bar.
-    assert.deepEqual(s.entries(), []);
     assert.deepEqual(s.writes().map(([, value]) => value.vocabulary), [{ builtin: true, terms: ["猫丸"] }]);
     // The form's listeners go while the window stub is still there.
     s.runtime.unmount();
-    s.barRuntime.unmount();
 });
 
 test("the captions save by themselves: the address when focus leaves the form, not while it moves inside", async context => {
     const s = await fixture(context);
-    assert.deepEqual(s.entries(), [], "not in the save bar");
     s.changeURL();
-    assert.equal(s.render().props["data-unsaved"], true);
     assert.deepEqual(s.writes(), [], "typing never submits");
     // Focus moving from the address to another field of the form saves nothing yet.
     s.form().ref({ contains: () => true });
@@ -160,7 +142,6 @@ test("the captions save by themselves: the address when focus leaves the form, n
     s.leave();
     assert.deepEqual(s.writes().map(([, value]) => value.base_url), ["http://localhost:9090"]);
     s.runtime.unmount();
-    s.barRuntime.unmount();
     assert.equal(s.listeners.length, 0);
 });
 
@@ -188,7 +169,6 @@ test("a dictionary file read in saves at once, as a term added in the list does"
     assert.equal(find(s.render(), node => node.type === "textarea"), null);
     // The form's listeners go while the window stub is still there.
     s.runtime.unmount();
-    s.barRuntime.unmount();
 });
 
 test("leaving the page with an edit asks nothing first, and Escape puts the saved address back", async context => {

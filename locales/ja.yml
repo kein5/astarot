@@ -1371,7 +1371,6 @@ config_page:
             length: "{{ms}} ms"
 
     notifications:
-        save_success: "設定を保存しました。"
         opened_folder: "フォルダを開きました。"
 
 vr_panel:
@@ -1828,7 +1827,7 @@ voice_ui:
     start_needs_mic: "開始するには下の準備の欄で仮想マイクを準備してください"
     start_needs_input: "開始するには、転送する入力を選んでください"
     start_needs_setup: "開始するには変換のモデルと実行環境を設定してください"
-    start_needs_save: "開始するには変更を保存してください"
+    start_needs_save: "開始するには、変更の保存が終わるまで待ってください"
     start_needs_rvc: "開始するには「直接音声でRVCを使う」を押してください"
     start_waiting_route: "音声経路の状態を確認しています"
     start_input_unavailable: "入力の一覧を取得できません。入力一覧を更新してください"
@@ -1860,7 +1859,6 @@ voice_ui:
     route_hint: "TTSと直接音声で共有する経路です。変更前に直接入力を停止してください。外部ケーブルへ切り替えると管理された入力接続を解除します。"
     save_route: "音声経路を保存"
     discard: "変更を破棄"
-    save_bar: "設定の保存"
     save_changes: "変更を保存"
     select_rvc: "直接音声でRVCを使う"
     select_rvc_label: "直接音声の変換"
@@ -1871,17 +1869,7 @@ voice_ui:
     rvc_latency_hint: "変換した声が届くまでの遅れの目安は、GPUで約0.2秒、CPUで約1.3秒です。NVIDIA以外の単体のGPUがあるWindowsのPCでも、「ONNX Runtime · DirectML」を取得するとDirectMLでGPUを使えます。GPUを使えないPCではCPUで変換します。ただし、CPUでの変換が間に合わないPCでは開始しません。CPUでの変換はCPUを多く使うので、ほかのアプリが重くなることがあります。"
     rvc_running_gpu: "GPUで変換しています。声の遅れは約{{seconds}}秒です。"
     rvc_running_cpu: "CPUで変換しています。声の遅れは約{{seconds}}秒です。NVIDIAのGPUを使える実行環境にすると、遅れが小さくなります。"
-    save_changes_short: "保存"
-    discard_short: "破棄"
-    changed_items: "変更した設定"
-    unsaved: "未保存の変更"
-    applies_on_save: "保存すると適用: {{changes}}"
     applies_now: "このページの変更はすぐに反映されます"
-    changes_separator: "、"
-    unsaved_count: "{{count}}件"
-    saved: "保存済み"
-    save_failed: "保存失敗。編集内容は保持されています"
-    saving: "保存中…"
     leave_title: "未保存の音声設定"
     leave_hint: "未保存の変更を破棄してこのページを離れますか？"
     keep_editing: "編集を続ける"

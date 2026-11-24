@@ -4,14 +4,19 @@ import type { TestContext } from "vitest";
 import { hooks, loadModule, stubGlobals, eventTarget, find, fieldOf } from "../test/hookHarness.ts";
 import { flush, loadBridgeRoutes } from "../test/bridgeHarness.ts";
 import { rebaseDraft } from "../voice/draftRebase.ts";
-import { changedPaths } from "../voice/saveBar.ts";
 import { createSettingsWriteResponses } from "../common/settingsWriteResponses.ts";
 import { endpointDescription, endpointNotices } from "../common/endpointPrivacy.ts";
 import type { SettingsWriteRequest } from "../common/settingsWriteResponses.ts";
-import type { SaveBarEntry } from "../voice/saveBar.ts";
 import type { SettingsDraft } from "../voice/useSettingsDraft.tsx";
 import type { CredentialSettings } from "../../views/app/config_page/setting_section/setting_box/_components/credential_pair/CredentialPair.tsx";
 import * as fieldErrors from "./fieldErrors.ts";
+
+// The fields of the pair that differ from the saved pair.
+const changedKeys = (saved: unknown, draft: unknown): string[] => {
+    const record = (value: unknown): Record<string, unknown> => typeof value === "object" && value !== null ? { ...value } : {};
+    const before = record(saved), after = record(draft);
+    return Object.keys(after).filter(key => after[key] !== before[key]);
+};
 
 // A write the form asked for, with what it sent and the owner of its answer.
 interface SentWrite {
@@ -55,9 +60,8 @@ async function setup(context: TestContext, base: string, provider: string, secti
     context.onTestFinished(() => { runtime.unmount(); owners.stop(); });
     const window = eventTarget();
     stubGlobals(context, { window });
-    let entry: SaveBarEntry | null | undefined;
     const draft = await loadModule<typeof import("../voice/useSettingsDraft.tsx")>(new URL("../voice/useSettingsDraft.tsx", import.meta.url), runtime, {
-        "./draftRebase": { rebaseDraft }, "./saveBar": { changedPaths, setSaveBarEntry: (_: string, value: SaveBarEntry | null) => { entry = value; } },
+        "./draftRebase": { rebaseDraft }, 
     });
     const settings: CredentialSettings<string> = {
         [`current${base}URL`]: { state: "ok", data: "https://provider-a.example/v1" },
@@ -102,11 +106,11 @@ async function setup(context: TestContext, base: string, provider: string, secti
     const state = () => {
         assert.ok(form);
         const { value, saved, canSave } = form;
-        return { saving: value.saving, saveState: value.saveState, dirty: value.dirty, changes: changedPaths(saved, value.draft),
+        return { saving: value.saving, saveState: value.saveState, dirty: value.dirty, changes: changedKeys(saved, value.draft),
             canSave: typeof canSave === "function" ? !!canSave(value.draft) : canSave !== false };
     };
     render();
-    return { requests, owners, edit, field, render, settings, window, leave, state, entry: () => entry };
+    return { requests, owners, edit, field, render, settings, window, leave, state };
 }
 
 for (const [base, provider, section] of providers) {
@@ -117,8 +121,6 @@ for (const [base, provider, section] of providers) {
         s.field("url").leaveFunction({ relatedTarget: {} }); s.render();
         s.edit("key", "FAKE-KEY-B");
         assert.equal(s.state().changes.length, 2);
-        // The pair saves by itself (#1111): it is not in the save bar.
-        assert.equal(s.entry(), undefined);
         if (enter) s.field("key").saveFunction();
         else s.leave();
         s.render();

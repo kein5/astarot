@@ -105,7 +105,7 @@ test("only COEIROINK shows how it reads, starting from the values sent before th
     numbers[0].props.onChange({ target: { value: "1.5" } });
     rate.props.onChange({ target: { value: "48000" } });
     assert.deepEqual([c.state.draft.coeiroink_speed, c.state.draft.coeiroink_sampling_rate], ["1.5", "48000"]);
-    // Restoring the defaults is an edit for the save bar, like any other.
+    // Restoring the defaults is an edit of the draft (the page saves it at once, #1111).
     const reset = findIn(c.renderCoeiroink(), node => node.type === kitStandIns.Button && node.props.children === "voice_ui.engine.coeiroink.reset");
     assert.equal(reset.props.disabled, false);
     reset.props.onClick();

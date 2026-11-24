@@ -4,8 +4,6 @@ import type { TestContext } from "vitest";
 import type { ReactNode } from "react";
 import { hooks, loadModule, find, findIn, componentName, draw as drawElement, fieldOf, stubGlobals, eventTarget, unchecked } from "../../../../../../logics/test/hookHarness.ts";
 import { rebaseDraft } from "../../../../../../logics/voice/draftRebase.ts";
-import { changedPaths } from "../../../../../../logics/voice/saveBar.ts";
-import type { SaveBarEntry } from "../../../../../../logics/voice/saveBar.ts";
 import type { StdoutResult } from "../../../../../../logics/common/useStdoutToPython.ts";
 import * as fieldErrors from "../../../../../../logics/configs/fieldErrors.ts";
 
@@ -23,9 +21,10 @@ async function setup(context: TestContext, kind: "word" | "message") {
     const runtime = hooks(), requests: SentRequest[] = [], window = eventTarget();
     context.onTestFinished(() => runtime.unmount());
     stubGlobals(context, { window, document: { body: {} }, requestAnimationFrame: (fn: () => void) => fn() });
-    let entry: SaveBarEntry | null | undefined;
+    // The save bar is gone (#1111): nothing registers in it.
+    const entry: unknown = undefined;
     const { useSettingsDraft } = await loadModule<typeof import("../../../../../../logics/voice/useSettingsDraft.tsx")>(new URL(draftPath, import.meta.url), runtime, {
-        "./draftRebase": { rebaseDraft }, "./saveBar": { changedPaths, setSaveBarEntry: (_id: string, value: SaveBarEntry | null) => { entry = value; } },
+        "./draftRebase": { rebaseDraft }, 
     });
     const defaults = { message: { prefix: "", suffix: "" }, translation: { prefix: "(", suffix: ")", separator: "/" }, separator: " ", translation_first: false };
     // The saved value of the form under test: the word list, or the message format.
