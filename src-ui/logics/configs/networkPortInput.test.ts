@@ -51,6 +51,7 @@ async function settingsHarness({ host = "127.0.0.1" } = {}) {
         "../_components/telemetry/TelemetryContents": { TelemetryContents: () => null },
         "./GpuCheck.tsx": { GpuCheck: () => null },
         "../../../../../../logics/configs/obsBrowserSourceUrl": { buildObsBrowserSourceUrl, buildWebsocketUrl },
+        "../../../../../../logics/configs/logDestination": {},
         "../../../../../../logics/configs/networkPortInput": { parsePortInput, PORT_INPUT_LIMITS },
         "../../../../../../logics/configs/rvcBlockChoices": { rvcBlockChoiceId, rvcBlockChoices },
         // A minimal draft: the saved pair, edited in place, submitted through the given write.
@@ -83,6 +84,7 @@ async function settingsHarness({ host = "127.0.0.1" } = {}) {
         },
         "../_templates/Templates": { EntryWithSaveButtonContainer: () => null, ActionButtonContainer: () => null, DropdownMenuContainer: "DropdownMenuContainer" },
         "../_components": { SectionLabelComponent: () => null },
+        "../_components/_atoms/_entry/_Entry": { _Entry: () => null },
         "../_components/hint/Hint": { HintDescriptions: "hints" },
     });
     const root = runtime.render(module.AdvancedSettings);
