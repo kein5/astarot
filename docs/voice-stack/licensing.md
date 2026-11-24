@@ -688,6 +688,14 @@ Development dependencies were added for the integration tests that run from the 
 - `python tools/dev.py setup --scope integration` downloads the Playwright browsers (Chromium and WebKit) to development PCs and to the CI cache. They go into neither the repository nor the release packages.
 - The core host `native/browser-core-bridge` is a test tool crate and is not part of the app build. The external crates it uses (`tungstenite`, `serde_json`) are the same versions that the core already uses.
 
+## Component catalog (2026-11-25)
+
+Development dependencies were added for the component catalog of the UI kit (Storybook, `src-ui/views/kit_catalog/`). The catalog is a development tool, and none of these packages is in the release packages, so the release packages and NOTICE do not change.
+
+- npm development dependencies: `storybook` 10.6.7 and `@storybook/react-vite` 10.6.7 (both MIT). 10.6.7 was the latest release public for 14 days on 2026-11-25 ([development guide](../development.md)); 10.6.8 came out on 2026-11-20.
+- They add 147 indirect dependencies to `package-lock.json`. 137 of them are MIT. The others are Apache-2.0 (`aria-query`, `doctrine`), BSD-2-Clause (`esprima`, `esutils`), BSD-3-Clause (`source-map` 0.6.1) and BlueOak-1.0.0 (`glob`, `minimatch`, `minipass`, `path-scurry`, `lru-cache`).
+- osv-scanner reports two moderate advisories on the indirect `glob` 13.0.7 and `minimatch` 10.2.6. They are listed in `osv-scanner.toml` with the reason and the day to look at them again.
+
 ## The reading analyzer and dictionary (2026-11-16)
 
 Message readings (hiragana and romaji) are analyzed with Sudachi, as in Python. The core uses sudachi.rs as the analyzer and reads the dictionary from `_internal/build/sudachi/system.dic`. The comparison of candidates is in item 3 of the decisions needed in [core integration](core-integration.md).
@@ -1405,6 +1413,14 @@ Pythonのバックエンド（`src-python/`）と、それだけが使ってい�
 - npmの開発の依存：`@playwright/test` 1.65.0と、その依存の`playwright`と`playwright-core`（どれもApache-2.0）。
 - Playwrightのブラウザ（ChromiumとWebKit）は、`python tools/dev.py setup --scope integration`が開発のPCとCIのキャッシュに取得する。リポジトリと配布物には入れない。
 - 中核のホスト`native/browser-core-bridge`は試験の道具のクレートで、アプリのビルドに含めない。使う外部のクレート（`tungstenite`、`serde_json`）は、すでに中核が使っている版と同じ。
+
+## 部品のカタログ（2026-11-25）
+
+UIの部品のカタログ（Storybook、`src-ui/views/kit_catalog/`）のために、開発の依存を足した。カタログは開発の道具で、どの依存も配布物には入らないので、配布物とNOTICEは変わらない。
+
+- npmの開発の依存：`storybook` 10.6.7と`@storybook/react-vite` 10.6.7（どちらもMIT）。10.6.7は、2026-11-25の時点で公開から14日たった最新の版（[開発の手引き](../development.md)）。10.6.8は2026-11-20に出た。
+- `package-lock.json`に間接の依存が147増えた。137はMITで、ほかはApache-2.0（`aria-query`、`doctrine`）、BSD-2-Clause（`esprima`、`esutils`）、BSD-3-Clause（`source-map` 0.6.1）、BlueOak-1.0.0（`glob`、`minimatch`、`minipass`、`path-scurry`、`lru-cache`）。
+- 間接の依存の`glob` 13.0.7と`minimatch` 10.2.6に、osv-scannerが中程度の勧告を2件出す。`osv-scanner.toml`に、例外として理由と見直す日を書いた。
 
 ## 読みの解析器と辞書（2026-11-16）
 

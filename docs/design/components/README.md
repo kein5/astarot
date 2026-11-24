@@ -7,6 +7,7 @@ This is the record of an experiment that rebuilds the settings screen's componen
 - Status: in use on the app's screens from 2026-11-24, replacing hand-built elements row by row ([hand-built inventory](hand-built-inventory.md), H-04). The record of the experiment below is kept as it was written
 - Components: `src-ui/views/kit/`
 - Sample page: `src-ui/kit-lab.html` (opens only on the development server; it is not included in the build)
+- Component catalog: `src-ui/views/kit_catalog/` (Storybook; `npm run dev:catalog`. It is not included in the build)
 - Related issues: #436 (the list of components to unify), #474 (button looks), #554 (information architecture)
 
 ## Components built
@@ -21,6 +22,8 @@ This is the record of an experiment that rebuilds the settings screen's componen
 | `SettingGroup` and `SettingRow` | A group with a heading, and one row in it | — |
 
 To open the sample page, run `npx vite` and then open `http://localhost:1420/kit-lab.html`. The settings text is the real text from `locales/`. You can check switching between English and Japanese, and how the page looks in a narrow window.
+
+The component catalog shows each component on its own, with its variants and states (sizes, disabled, invalid and others). To open it, run `npm run dev:catalog` (or `mise run dev:catalog`) and then open `http://localhost:6006`. Storybook builds the stories with the app's `vite.config.js`, so the components are drawn with the app's vanilla-extract styles and tokens. The toolbar switches the theme (the presets of #965), the language (English or Japanese) and the ground the components stand on (canvas, surface or rail). The text is the real text from `locales/`. `npm run build:catalog` writes a static copy to `build/storybook/`, and `python tools/dev.py check --scope ui` runs it as well, so a story that no longer builds fails the check. The catalog sends no telemetry and does not check for Storybook updates.
 
 ## Separating items (a #452 requirement)
 
@@ -99,6 +102,7 @@ The contrast of the color combinations is checked by `src-ui/views/theme/brandPa
 - 状態: 2026-11-24 から、アプリの画面で使っています。手作りの要素を行ごとに置き換えています（[手作りの部品の棚卸し](hand-built-inventory.md)、H-04）。下の実験の記録は、書いた時点のまま残しています
 - 部品: `src-ui/views/kit/`
 - 見本のページ: `src-ui/kit-lab.html`（開発サーバーでだけ開けます。ビルドには入りません）
+- 部品のカタログ: `src-ui/views/kit_catalog/`（Storybook。`npm run dev:catalog` で開きます。ビルドには入りません）
 - 関係する Issue: #436（統一する部品の一覧）、#474（ボタンの見た目）、#554（情報設計）
 
 ## 作った部品
@@ -113,6 +117,8 @@ The contrast of the color combinations is checked by `src-ui/views/theme/brandPa
 | `SettingGroup` と `SettingRow` | 見出し付きのまとまりと、その中の 1 行 | — |
 
 見本のページを開くには、`npx vite` を実行してから `http://localhost:1420/kit-lab.html` を開きます。設定の文言は `locales/` の実際の文言を使っています。英語と日本語の切り替えと、狭いウィンドウでの見え方を確かめられます。
+
+部品のカタログは、部品を 1 つずつ、種類と状態（大きさ、無効、エラーなど）ごとに並べます。開くには、`npm run dev:catalog`（または `mise run dev:catalog`）を実行してから `http://localhost:6006` を開きます。Storybook はアプリの `vite.config.js` でストーリーをビルドするので、部品はアプリと同じ vanilla-extract のスタイルとトークンで描かれます。ツールバーでは、テーマ（#965 のプリセット）、言語（英語か日本語）、部品を置く地（canvas、surface、rail）を切り替えます。文言は `locales/` の実際の文言です。`npm run build:catalog` は静的な版を `build/storybook/` に書き出します。`python tools/dev.py check --scope ui` もこれを実行するので、ビルドできなくなったストーリーは検査で止まります。カタログは利用状況の情報（テレメトリ）を送らず、Storybook の更新も確かめません。
 
 ## 項目の区切り（#452 の要件）
 
