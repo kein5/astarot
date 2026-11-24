@@ -124,6 +124,15 @@ globalStyle(inForm("select"), {
     backgroundSize: "1.6rem",
     cursor: "pointer",
 });
+// The kit's Select in a form keeps the width of the form's own selects (DESIGN.md "Field widths",
+// #1096): its wrapper, which the kit's field fills, is compact and flush at the row's right end.
+// Only the wrapper's place and width are set here; the field and its open list are the kit's.
+globalStyle(`${container} [data-slot="native-select-wrapper"]`, {
+    width: "fit-content",
+    minWidth: "min(20rem, 100%)",
+    maxWidth: "min(32rem, 100%)",
+    justifySelf: "end",
+});
 globalStyle(inForm("select", "select::picker(select)"), { "@supports": { [BASE_SELECT]: { appearance: BASE_SELECT_APPEARANCE } } });
 globalStyle(inForm("select"), { "@supports": { [BASE_SELECT]: { display: "flex", alignItems: "center" } } });
 // The field keeps its own arrow (the background above).
