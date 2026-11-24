@@ -5,6 +5,7 @@ import type { TreeNode } from "../../../../../../logics/test/hookHarness.ts";
 import * as networkPortInput from "../../../../../../logics/configs/networkPortInput.ts";
 import * as rvcBlockChoices from "../../../../../../logics/configs/rvcBlockChoices.ts";
 import * as obsBrowserSourceUrl from "../../../../../../logics/configs/obsBrowserSourceUrl.ts";
+import * as logDestination from "../../../../../../logics/configs/logDestination.ts";
 import { localeAt, readLocale } from "../../../../../../logics/test/locales.ts";
 
 // #614: the advanced settings show their rows' general descriptions as hints. What is read before
@@ -26,6 +27,7 @@ async function rows(values: Record<string, unknown> = {}) {
         "../../../../../../logics/configs/networkPortInput": networkPortInput,
         "../../../../../../logics/configs/rvcBlockChoices": rvcBlockChoices,
         "../../../../../../logics/configs/obsBrowserSourceUrl": obsBrowserSourceUrl,
+        "../../../../../../logics/configs/logDestination": logDestination,
         "../../../../../../logics/voice/useSettingsDraft": { useSettingsDraft: (saved: unknown) => ({ draft: saved, setDraft() {}, saving: false, dirty: false, submit() {}, navigationDialog: null }) },
         "../../../../../../logics/common/useConsentDialog": { useConsentDialog: () => ({ dialog: { current: null }, close() {} }) },
         "../../../../../../logics/configs/telemetryToggle": { shownTelemetry: (value: unknown) => value, telemetryUnanswered: () => false, toggleTelemetryOrAnswer() {} },
@@ -34,7 +36,8 @@ async function rows(values: Record<string, unknown> = {}) {
         "../_components/telemetry/TelemetryContents": { TelemetryContents: "telemetry-contents" },
         "./GpuCheck.tsx": { GpuCheck: "gpu-check" },
         "../_templates/Templates": { CheckboxContainer: "row", ActionButtonContainer: "row", DropdownMenuContainer: "row", EntryWithSaveButtonContainer: "row", ColorEntryWithSaveButtonContainer: "row" },
-        "../_components": { SectionLabelComponent: "section-label" },
+        "../_components": { ActionButton: "action-button", LabelComponent: "label-component", SectionLabelComponent: "section-label" },
+        "../_components/_atoms/_entry/_Entry": { _Entry: "entry" },
         "../_components/hint/Hint": { HintDescriptions: "hints" },
     });
     // The page's containers are its own components: each is drawn from scratch, then those inside it.
@@ -48,11 +51,12 @@ async function rows(values: Record<string, unknown> = {}) {
 }
 const key = (name: string) => `config_page.advanced_settings.${name}`;
 
-test("the page shows descriptions as hints, and keeps the addresses in use and what the usage data sends on screen", async () => {
-    const { page, rows: all } = await rows();
+test("the page shows descriptions as hints, and keeps the addresses, config path, and usage data lead on screen", async () => {
+    const { page, rows: all } = await rows({ currentPathConfig: "/home/user/.config/astarot/config.json" });
     assert.equal(page.type, "hints", "the whole page is inside HintDescriptions");
     const kept = all.filter(row => row.props.keep_desc === true).map(row => row.props.label);
-    assert.deepEqual(kept, [key("websocket_url.label"), key("obs_browser_source_url.label")]);
+    assert.deepEqual(kept, [key("open_config_filepath.label"), key("websocket_url.label"), key("obs_browser_source_url.label")]);
+    assert.equal(all.find(row => row.props.label === key("open_config_filepath.label"))?.props.desc, "/home/user/.config/astarot/config.json");
     // What the usage data sends: one sentence on screen (the row's lead), the rest as the hint.
     const telemetry = all.find(row => row.props.label === key("telemetry.label"))?.props;
     assert.deepEqual([telemetry?.lead, telemetry?.desc, telemetry?.keep_desc], [key("telemetry.lead"), key("telemetry.desc"), undefined]);
@@ -100,10 +104,18 @@ test("the note that the OBS address changed is said only while the OBS browser s
     assert.deepEqual(note(await rows({ currentEnableObsBrowserSource: true })), [[key("obs_browser_source_url.desc"), false]]);
 });
 
-test("the two addresses are named by what they are; their buttons say that pressing copies", async () => {
-    const { rows: all } = await rows();
-    const copy = all.filter(row => row.props.action_label !== undefined).map(row => [row.props.label, row.props.action_label]);
-    assert.deepEqual(copy, [[key("websocket_url.label"), key("websocket_url.copy")], [key("obs_browser_source_url.label"), key("obs_browser_source_url.copy")]]);
+test("the address and destination rows are named by what they are; their buttons say what pressing does", async () => {
+    const { rows: all, ofType } = await rows();
+    const actions = all.filter(row => row.props.action_label !== undefined).map(row => [row.props.label, row.props.action_label]);
+    assert.deepEqual(actions, [
+        [key("open_config_filepath.label"), key("open_config_filepath.open_folder")],
+        [key("websocket_url.label"), key("websocket_url.copy")],
+        [key("obs_browser_source_url.label"), key("obs_browser_source_url.copy")],
+    ]);
+    assert.deepEqual(
+        ofType("action-button").map(node => [node.props.label, node.props.action_label]),
+        [["config_page.others.auto_export_message_logs.destination_label", "config_page.others.auto_export_message_logs.open_folder"]],
+    );
     for (const language of ["en", "ja"]) {
         const strings = readLocale(language);
         for (const name of ["websocket_url", "obs_browser_source_url"]) {
@@ -111,6 +123,14 @@ test("the two addresses are named by what they are; their buttons say that press
             assert.ok(typeof label === "string" && typeof action === "string");
             assert.doesNotMatch(label, /[（(]/, `${language}: the name carries no instruction`);
             assert.ok(action.includes(label), `${language}: the button names what it copies`);
+        }
+        for (const [labelKey, actionKey] of [
+            ["config_page.others.auto_export_message_logs.destination_label", "config_page.others.auto_export_message_logs.open_folder"],
+            [key("open_config_filepath.label"), key("open_config_filepath.open_folder")],
+        ]) {
+            const label = localeAt(strings, labelKey), action = localeAt(strings, actionKey);
+            assert.ok(typeof label === "string" && typeof action === "string");
+            assert.notEqual(label, action, `${language}: the destination row name is distinct from its open-folder action`);
         }
     }
 });

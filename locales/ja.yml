@@ -1004,8 +1004,18 @@ config_page:
             label: "翻訳後のメッセージのみ送信する"
         auto_export_message_logs:
             label: "会話ログを自動的に保存する"
-            desc: "テキストファイルとしてログがlogsフォルダ内に保存されます。"
-            open_folder: "logsフォルダを開く"
+            desc: "会話ログをテキストファイルとして保存します。"
+            destination_label: "会話ログの保存先"
+            open_folder: "会話ログのフォルダーを開く"
+            choose_folder: "フォルダーを選択"
+            reset_folder: "既定に戻す"
+            errors:
+                log_directory_invalid: "パスが空か形式が正しくありません。存在するフォルダーの絶対パスを入力するか、既定に戻してください。"
+                log_directory_not_absolute: "相対パスは指定できません。ドライブや先頭のスラッシュから始まる絶対パスを入力してください。"
+                log_directory_missing: "指定したフォルダーが見つからないため、既定の保存先を使っています。存在するフォルダーを選ぶか入力してください。"
+                log_directory_not_directory: "フォルダーではなくファイルが指定されています。フォルダーのパスを選ぶか入力してください。"
+                log_directory_unwritable: "このフォルダーには書き込めないため、既定の保存先を使っています。書き込みできるフォルダーを選ぶか入力してください。"
+                folder_picker_unavailable: "フォルダー選択を開けませんでした。存在するフォルダーの絶対パスを直接入力してください。"
         vrc_mic_mute_sync:
             label: "VRCマイクミュート同期"
             desc: "VRChatのマイクをミュートすると、マイクの文字起こしを一時停止します。ミュート解除をVRChatに確認してから再開し、確認できない間は停止を続けます。\n※若干の遅延はあります。また、Push-To-Talkは非対応です。"
@@ -1277,7 +1287,8 @@ config_page:
             label: "OSCQueryを使う"
             desc: "VRChatを見つけてミュートの状態を読むのに使います。オフにするとVRCマイクミュート同期とVRChatの検出は使えません。メッセージはオフでも送ります。"
         open_config_filepath:
-            label: "設定ファイルを開く"
+            label: "設定ファイルの保存先"
+            open_folder: "設定ファイルのフォルダーを開く"
         enable_websocket:
             label: "WebSocketサーバーを有効にする"
             locked_by_obs_browser_source: "OBSブラウザソースを無効にしてから変更してください"

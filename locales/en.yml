@@ -1004,8 +1004,18 @@ config_page:
             label: "Send only translated messages"
         auto_export_message_logs:
             label: "Auto save message logs"
-            desc: "Automatically saves the conversation messages as text files."
-            open_folder: "Open the logs folder"
+            desc: "Automatically saves conversation messages as text files."
+            destination_label: "Conversation log destination"
+            open_folder: "Open conversation logs folder"
+            choose_folder: "Choose folder"
+            reset_folder: "Reset to default"
+            errors:
+                log_directory_invalid: "This path is empty or invalid. Enter an existing folder's full path, or reset to the default."
+                log_directory_not_absolute: "Relative paths cannot be used. Enter a full path starting from the drive or root."
+                log_directory_missing: "This folder does not exist, so the default folder is used. Choose or enter an existing folder."
+                log_directory_not_directory: "This path points to a file, not a folder. Choose or enter a folder path."
+                log_directory_unwritable: "This folder cannot be written to, so the default folder is used. Choose or enter a writable folder."
+                folder_picker_unavailable: "Could not open the folder picker. Enter an existing folder's full path instead."
         vrc_mic_mute_sync:
             label: "VRC mic mute sync"
             desc: "Microphone transcription pauses while VRChat's mic is muted. It resumes after VRChat confirms the mic is unmuted. If this cannot be confirmed, transcription stays paused.\n*There may be a slight delay. Push-To-Talk is not supported."
@@ -1277,7 +1287,8 @@ config_page:
             label: "Use OSCQuery"
             desc: "Finds VRChat and reads its mute state. When it is off, VRC mic mute sync and the VRChat check are unavailable. Messages are still sent."
         open_config_filepath:
-            label: "Open config file"
+            label: "Config file location"
+            open_folder: "Open config file folder"
         enable_websocket:
             label: "Enable WebSocket server"
             locked_by_obs_browser_source: "Disable OBS Browser Source to change this"
