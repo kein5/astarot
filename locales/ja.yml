@@ -946,6 +946,7 @@ config_page:
             start: "サンプルの文を字幕オーバーレイに送る"
             stop: "送信を停止"
             sample_text: "サンプルテキスト"
+            needs_overlay: "サンプルを送るには、上の字幕オーバーレイ（小ログまたは大ログ）を有効にしてください。"
         opacity: "透明度"
         ui_scaling: "サイズ"
         display_duration: "表示時間"

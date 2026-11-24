@@ -946,6 +946,7 @@ config_page:
             start: "Send sample text to the subtitle overlay"
             stop: "Stop sending"
             sample_text: "Sample text."
+            needs_overlay: "Turn on the single-line or multi-line subtitle overlay above to send sample text."
         opacity: "Opacity"
         ui_scaling: "UI scaling"
         display_duration: "Display duration"
