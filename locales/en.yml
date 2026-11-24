@@ -1004,6 +1004,7 @@ config_page:
         auto_export_message_logs:
             label: "Auto save message logs"
             desc: "Automatically saves the conversation messages as text files."
+            destination_label: "Conversation log destination"
             open_folder: "Open the logs folder"
         vrc_mic_mute_sync:
             label: "VRC mic mute sync"
@@ -1276,7 +1277,8 @@ config_page:
             label: "Use OSCQuery"
             desc: "Finds VRChat and reads its mute state. When it is off, VRC mic mute sync and the VRChat check are unavailable. Messages are still sent."
         open_config_filepath:
-            label: "Open config file"
+            label: "Config file location"
+            open_folder: "Open config file folder"
         enable_websocket:
             label: "Enable WebSocket server"
             locked_by_obs_browser_source: "Disable OBS Browser Source to change this"

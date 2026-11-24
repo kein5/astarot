@@ -71,6 +71,7 @@ export const AdvancedSettings = () => {
             <div>
                 <SectionLabelComponent label={t("config_page.advanced_settings.section_label_logs")} />
                 <AutoExportMessageLogsContainer />
+                <LogDestinationContainer />
             </div>
             <div>
                 <SectionLabelComponent label={t("config_page.advanced_settings.section_label_config_file")} />
@@ -202,20 +203,37 @@ const OscQueryContainer = () => {
     );
 };
 
+const LogDestinationContainer = () => {
+    const { t } = useI18n();
+    const { openFolder_MessageLogs } = useOpenFolder();
+
+    return (
+        <ActionButtonContainer
+            setting_id="message_logs_destination"
+            label={t("config_page.others.auto_export_message_logs.destination_label")}
+            action_label={t("config_page.others.auto_export_message_logs.open_folder")}
+            IconComponent={OpenFolderSvg}
+            ClickedIconComponent={CheckMarkSvg}
+            clicked_duration={1000}
+            onclickFunction={openFolder_MessageLogs}
+        />
+    );
+};
+
 const OpenConfigFolderContainer = () => {
     const { t } = useI18n();
     const { openFolder_ConfigFile } = useOpenFolder();
 
     return (
-        <>
-            <ActionButtonContainer
-                label={t("config_page.advanced_settings.open_config_filepath.label")}
-                IconComponent={OpenFolderSvg}
-                ClickedIconComponent={CheckMarkSvg}
-                clicked_duration={1000}
-                onclickFunction={openFolder_ConfigFile}
-            />
-        </>
+        <ActionButtonContainer
+            setting_id="config_file_destination"
+            label={t("config_page.advanced_settings.open_config_filepath.label")}
+            action_label={t("config_page.advanced_settings.open_config_filepath.open_folder")}
+            IconComponent={OpenFolderSvg}
+            ClickedIconComponent={CheckMarkSvg}
+            clicked_duration={1000}
+            onclickFunction={openFolder_ConfigFile}
+        />
     );
 };
 

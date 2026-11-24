@@ -100,10 +100,15 @@ test("the note that the OBS address changed is said only while the OBS browser s
     assert.deepEqual(note(await rows({ currentEnableObsBrowserSource: true })), [[key("obs_browser_source_url.desc"), false]]);
 });
 
-test("the two addresses are named by what they are; their buttons say that pressing copies", async () => {
+test("the address and destination rows are named by what they are; their buttons say what pressing does", async () => {
     const { rows: all } = await rows();
-    const copy = all.filter(row => row.props.action_label !== undefined).map(row => [row.props.label, row.props.action_label]);
-    assert.deepEqual(copy, [[key("websocket_url.label"), key("websocket_url.copy")], [key("obs_browser_source_url.label"), key("obs_browser_source_url.copy")]]);
+    const actions = all.filter(row => row.props.action_label !== undefined).map(row => [row.props.label, row.props.action_label]);
+    assert.deepEqual(actions, [
+        ["config_page.others.auto_export_message_logs.destination_label", "config_page.others.auto_export_message_logs.open_folder"],
+        [key("open_config_filepath.label"), key("open_config_filepath.open_folder")],
+        [key("websocket_url.label"), key("websocket_url.copy")],
+        [key("obs_browser_source_url.label"), key("obs_browser_source_url.copy")],
+    ]);
     for (const language of ["en", "ja"]) {
         const strings = readLocale(language);
         for (const name of ["websocket_url", "obs_browser_source_url"]) {
@@ -111,6 +116,14 @@ test("the two addresses are named by what they are; their buttons say that press
             assert.ok(typeof label === "string" && typeof action === "string");
             assert.doesNotMatch(label, /[（(]/, `${language}: the name carries no instruction`);
             assert.ok(action.includes(label), `${language}: the button names what it copies`);
+        }
+        for (const [labelKey, actionKey] of [
+            ["config_page.others.auto_export_message_logs.destination_label", "config_page.others.auto_export_message_logs.open_folder"],
+            [key("open_config_filepath.label"), key("open_config_filepath.open_folder")],
+        ]) {
+            const label = localeAt(strings, labelKey), action = localeAt(strings, actionKey);
+            assert.ok(typeof label === "string" && typeof action === "string");
+            assert.notEqual(label, action, `${language}: the destination row name is distinct from its open-folder action`);
         }
     }
 });
