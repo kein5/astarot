@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { hooks, loadModule, nodesIn } from "../../../../../../logics/test/hookHarness.ts";
+import { hooks, loadModule, nodesIn, kitStandIns } from "../../../../../../logics/test/hookHarness.ts";
 import type { HookRuntime, TreeNode } from "../../../../../../logics/test/hookHarness.ts";
 import type { VcRuntimeCatalog, VcRuntimeState } from "../../../../../../logics/voice/useVcRuntimes.ts";
 
@@ -37,7 +37,8 @@ const load = async (runtime: HookRuntime, vc: VcRuntimes) => (await loadModule<t
 
 const words = (tree: unknown) => nodesIn(tree).flatMap((node: TreeNode) => [node.props?.children].flat())
     .filter((child): child is string => typeof child === "string");
-const buttons = (tree: unknown) => nodesIn(tree).filter(node => node.type === "button").map(node => [node.props.children].flat().join(""));
+// The setup's own buttons are the kit's; the consent dialog's are still native (D-23, D-24, D-43).
+const buttons = (tree: unknown) => nodesIn(tree).filter(node => node.type === kitStandIns.Button || node.type === "button").map(node => [node.props.children].flat().join(""));
 
 // Windows: a repair of a runtime whose libraries the app holds is fetched and waits for the next
 // start (#900). It says so, and offers no start that would only wait again.
@@ -63,12 +64,12 @@ test("a build that fits the GPU leads with the main action; one that is not need
     const runtime = hooks();
     const vc: VcRuntimes = { catalog: { runtimes: [entry] }, state: { observation_id: "1", jobs: {}, installed: {} }, error: null, pending: false, send: () => {} };
     const VcRuntimeSetup = await load(runtime, vc);
-    const review = (tree: unknown) => nodesIn(tree).find(node => node.type === "button" && node.props.children === "vc_runtime.review");
+    const review = (tree: unknown) => nodesIn(tree).find(node => node.type === kitStandIns.Button && node.props.children === "vc_runtime.review");
     const fits = runtime.render(VcRuntimeSetup, { engine: "rvc", fit: "fits" });
     assert.equal(fits?.props["data-fit"], "fits");
     assert.ok(nodesIn(fits).some(node => node.type === "span" && node.props["data-tone"] === "recommended" && node.props.children === "vc_runtime.fit_fits"));
     assert.ok(words(fits).includes("vc_runtime.help_rvc_gpu"));
-    assert.equal(review(fits)?.props.className, "primary");
+    assert.equal(review(fits)?.props.tone, "primary");
     const unneeded = runtime.render(VcRuntimeSetup, { engine: "rvc", fit: "unneeded" });
     assert.ok(nodesIn(unneeded).some(node => node.type === "span" && node.props["data-tone"] === undefined && node.props.children === "vc_runtime.fit_unneeded"));
     assert.ok(!words(unneeded).includes("vc_runtime.help_rvc_gpu"), "its summary is left out");
@@ -76,7 +77,7 @@ test("a build that fits the GPU leads with the main action; one that is not need
     // Alone (the voice changer's), it has neither the badge nor the main action.
     const alone = runtime.render(VcRuntimeSetup, { engine: "rvc" });
     assert.ok(!words(alone).some(word => word.startsWith("vc_runtime.fit_")));
-    assert.equal(review(alone)?.props.className, undefined);
+    assert.equal(review(alone)?.props.tone, "plain");
 });
 
 // #614: what a runtime holds and needs is its title's hint on a settings page, not a paragraph

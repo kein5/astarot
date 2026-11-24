@@ -5,7 +5,7 @@ import * as voiceErrorTextModule from "../../../../../../logics/voice/voiceError
 import * as voiceAudition from "../../../../../../logics/voice/voiceAudition.ts";
 import assert from "node:assert/strict";
 import { test, vi } from "vitest";
-import { hooks, loadModule, find, findIn } from "../../../../../../logics/test/hookHarness.ts";
+import { hooks, loadModule, find, findIn, kitStandIns } from "../../../../../../logics/test/hookHarness.ts";
 import type { HookRuntime, TreeNode } from "../../../../../../logics/test/hookHarness.ts";
 
 interface Options {
@@ -162,19 +162,19 @@ for (const [pitch, rate, threads] of [[25, 0.5, 0], [0, -1, 0], [NaN, NaN, 0], [
     const tree = runtime.render(DirectVoiceSettings, { variant: "rvc" });
     const alert = findIn(tree, node => node.props?.children === "voice_ui.invalid_rvc_numbers");
     const fields: TreeNode[] = [];
-    find(tree, node => { if (node.type === "input" && node.props.type === "number") fields.push(node); return false; });
+    find(tree, node => { if (node.type === kitStandIns.TextField && node.props.type === "number") fields.push(node); return false; });
     assert.equal(fields.length, 3);
     for (const field of fields) {
         assert.equal(field.props["aria-describedby"], alert.props.id);
-        assert.equal(typeof field.props["aria-invalid"], "boolean");
+        assert.equal(typeof field.props.invalid, "boolean");
     }
-    assert.ok(fields.some(field => field.props["aria-invalid"]));
+    assert.ok(fields.some(field => field.props.invalid));
     // A cleared number field still shows what goes in it.
     assert.deepEqual(fields.map(field => field.props.placeholder),
         [12, 0.75, 4].map(value => `voice_ui.example:${JSON.stringify({ value })}`));
     // Each path field shows an example path, written the way this OS writes paths (pathExample).
     const paths: TreeNode[] = [];
-    find(tree, node => { if (node.type === "input" && node.props.type === "text") paths.push(node); return false; });
+    find(tree, node => { if (node.type === kitStandIns.TextField && node.props.mono === true) paths.push(node); return false; });
     assert.deepEqual(paths.map(field => field.props.placeholder), ["rvc-runtime", "voice.pth", "voice.index"]
         .map(file => `voice_ui.example:${JSON.stringify({ value: `/models/${file}` })}`));
     runtime.unmount();

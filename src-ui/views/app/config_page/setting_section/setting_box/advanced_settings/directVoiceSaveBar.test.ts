@@ -8,7 +8,7 @@ import { changedPaths } from "../../../../../../logics/voice/saveBar.ts";
 import type { SaveBarEntry } from "../../../../../../logics/voice/saveBar.ts";
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { hooks, loadModule, nodesIn } from "../../../../../../logics/test/hookHarness.ts";
+import { hooks, loadModule, nodesIn, kitStandIns } from "../../../../../../logics/test/hookHarness.ts";
 import type { TreeNode } from "../../../../../../logics/test/hookHarness.ts";
 import type { DirectVoiceSettingsProps } from "./DirectVoiceSettings.tsx";
 
@@ -113,7 +113,7 @@ test("the monitor row says what it plays now and leads to the TTS page's setting
     }
 });
 
-const selectButton = (tree: unknown) => nodesIn(tree).find(node => node.type === "button" && node.props.children === "voice_ui.select_rvc");
+const selectButton = (tree: unknown) => nodesIn(tree).find(node => node.type === kitStandIns.Button && node.props.children === "voice_ui.select_rvc");
 
 test("#436: opening the RVC page with forwarding saved leaves the save bar empty and offers a button", async () => {
     const forwarding = await open("rvc", { ...rvcSettings, mode: "passthrough" });
