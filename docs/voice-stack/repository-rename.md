@@ -157,7 +157,7 @@ GitHub のリポジトリ名を `kein5/VRCT-VOX` から ASTAROT の名前に変�
 
 - **転送される**：リポジトリのページ、`git clone`、`fetch`、`push`、REST API（`301`）、Releases の配布物の URL。Issue と PR の番号、Star、Watch、Actions の secrets と variables、Pages の設定はそのまま新しい名前に移る。
 - **転送されない**：GitHub Pages のサイトの URL。`https://kein5.github.io/VRCT-VOX/` は名前を変えた時点で開けなくなり、サイトは `https://kein5.github.io/ASTAROT/` に移る。
-- **転送が切れる条件**：`kein5` の下に `VRCT-VOX` という名前のリポジトリを作り直すと、古い名前への転送はすべて止まる。名前を変えた後は、この名前のリポジトリを作らない。
+- **転送が切れる条件**：`kein5` の下に `VRCT-VOX` という名前のリポジトリを作り直すと、古い名前からの転送はすべて止まる。名前を変えた後は、この名前のリポジトリを作らない。
 - **名前で条件を書いたワークフロー**：`github.repository == 'kein5/VRCT-VOX'` の条件は偽になり、そのジョブは実行されなくなる。対象は `pages.yml` の deploy と `prepare-release.yml` である。
 
 ## 3. 更新の経路への影響

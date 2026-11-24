@@ -406,7 +406,7 @@ This hash check confirms that the recorded candidate did not change in transfer.
 
 # ASTAROTの配布候補とリリース下書き（日本語版）
 
-配布候補の作成と公開を分けています。最初の公開版は2026-10-31の`v0.1.0-beta.1`（developからのプレリリース）です。Linux・Windowsの候補を同じブランチの同じコミットから作り、検査後にGitHub Releasesの下書きへまとめます。公開は保守担当者が下書きを確認して行います。
+配布候補の作成と公開を分けています。最初の公開版は2026-10-31の`v0.1.0-beta.1`（developからのプレリリース）です。Linux・Windowsの候補を同じブランチの同じコミットから作り、検査に通ったらGitHub Releasesの下書きへまとめます。公開は保守担当者が下書きを確認して行います。
 
 ## 全体の流れ
 

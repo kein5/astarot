@@ -77,7 +77,7 @@ Only shape computations ran on the CPU; the quantized operations (`MatMulInteger
 
 ## Not checked
 
-- GPU behavior, speed and translation quality with the real models (M2M100, NLLB). Downloading the original models needs consent, and exporting them needs more than 15 GB of memory.
+- GPU behavior, speed and translation quality with the real models (M2M100, NLLB). Downloading the original models needs consent, and exporting them needs 15 GB of memory or more.
 - The CUDA execution provider. It needs a download of more than 1 GB for the GPU build of ONNX Runtime and the NVIDIA libraries, so it was not done this time. The procedure is the same as for DirectML, with `VRCT_TRANSLATE_DEVICE=cuda:0` and an `ORT_DYLIB_PATH` that points to the `onnxruntime.dll` of the CUDA build. The `lib` folder that the GPU runtime for voice conversion (`runtime.rs` in `native/voice-conversion`) downloads has the CUDA build of ONNX Runtime 1.31.0 and the CUDA 13 and cuDNN 9 libraries.
 - OpenVINO, MIGraphX, WebGPU, AMD GPUs, Linux.
 - The DirectML build of ONNX Runtime has stopped at 1.24.4. Moving to Windows ML has not been looked into.

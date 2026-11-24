@@ -139,7 +139,7 @@ Write down the version, the commit, the OS and its version, the GPU model, the d
 
 There is no AMD hardware to measure on, so the gap is filled with reports from users (decision of 2026-11-19). Telemetry is not extended. Lowering both the psychological barrier and the actual effort for the people who report was made a design requirement, which led to the following form.
 
-- A tool that measures automatically: you only press "Run the check" under "More settings" → "GPU report" in Settings, and the core measures (`native/core/src/controller/gpu_check.rs`). It uses the text to speech and speech recognition models already downloaded, with the bundled speech.cpp commands, and runs fixed short sentences on the CPU and on each GPU. Of the items in "What to measure" in the plan above, it covers the loading time, the processing time and the speed relative to real time, the device actually used, the character error rate against the CPU and the kind of failure. It downloads no models and does not use the microphone, the speakers or VRChat. On one PC it took about 1 minute (Windows 11, RTX 3060 Ti, Iris Xe and CPU, Irodori-TTS Q8_0 and Qwen3-ASR 0.6B Q8_0; 36 seconds for text to speech on the CPU).
+- A tool that measures automatically: you only press "Run the check" under "Advanced" → "GPU report" in Settings, and the core measures (`native/core/src/controller/gpu_check.rs`). It uses the text to speech and speech recognition models already downloaded, with the bundled speech.cpp commands, and runs fixed short sentences on the CPU and on each GPU. Of the items in "What to measure" in the plan above, it covers the loading time, the processing time and the speed relative to real time, the device actually used, the character error rate against the CPU and the kind of failure. It downloads no models and does not use the microphone, the speakers or VRChat. On one PC it took about 1 minute (Windows 11, RTX 3060 Ti, Iris Xe and CPU, Irodori-TTS Q8_0 and Qwen3-ASR 0.6B Q8_0; 36 seconds for text to speech on the CPU).
 - Show everything that will be sent beforehand: the result appears on screen as the full formatted JSON, with a table per device. What is copied and what is sent to GitHub are exactly the same string as the full text on screen. The app sends nothing.
 - Include no personally identifying information: the report holds only the version, device names, rounded memory amounts, driver versions, the names the models carry, times and error rates. It leaves out file locations, the user name, the PC name, text and audio, and speech.cpp messages (which contain file locations). A core test (`native/core/tests/gpu_check.rs`) checks that user names and text do not get into the report.
 - How to send: "Report on GitHub" opens the issue form (`.github/ISSUE_TEMPLATE/gpu_report.yml`) with the result filled in. You can check it once more on GitHub before submitting. A GitHub account is required.
@@ -196,7 +196,7 @@ Issue #288「CPU/CUDA 2バリアント解消」の要件、決定、受け入れ
 |---|---|---|
 | Windows の配布物が単一パッケージで、CPU と CUDA の区別がない | 満たす（次の版から） | 0.5.1 の `VRCT-VOX.zip` と `VRCT-VOX_cuda.zip` は同じ 729 個のファイル（展開して 102,141,609 バイト）でした。中身が違うのは別々にビルドした `vrct-vox.exe` と `_internal/build/astarot-rvc-worker.exe` の2つで、大きさは同じでした。判断 3 で CUDA 版をやめ、リリースの工程は `VRCT-VOX.zip` だけを作ります（「C. パッケージの一本化」） |
 | NVIDIA、AMD、Intel の各 GPU で、音声認識とローカル翻訳の GPU 実行を実測 | 未実施 | 2026-11-15 の決定で 0.4.0 の前提から外した。計画は「GPU ベンダーの実測の計画」。ローカル翻訳は GPU で動かす手段がまだない（判断 5） |
-| 既存利用者の設定が引き継がれ、faster-whisper の廃止の案内がある | 0.3.0 から 0.5 系まで満たした。0.6.0 で外す（判断 4） | 「既存の利用者への配慮」 |
+| 既存利用者の設定が引き継がれ、faster-whisper の廃止の案内がある | 0.3.0 から 0.5 系まで満たした。0.6.0 で外した（判断 4） | 「既存の利用者への配慮」 |
 | 同梱物に CTranslate2 と CUDA のライブラリがない | 満たす（0.5.0 から） | 0.5.0 で Python を配布物から外した。2026-11-18 から、配布物の検査（`tools/distribution_policy.py`）が CTranslate2 と CUDA の数学ライブラリを見つけると候補を止める |
 
 ## A. 音声認識の棚卸し（faster-whisper と speech.cpp）
@@ -317,7 +317,7 @@ CUDA 版の ZIP には、0.5.0 から標準版にないものが何もありま�
 
 AMD の GPU は計れる機器がないので、利用者からの報告で埋めます（2026-11-19 の決定）。テレメトリは広げません。報告する人の心理的な障壁と実際の手間を下げることを設計の条件にしたので、次の形にしました。
 
-- 自動で計る道具: 設定の「詳細設定」→「GPUの動作の報告」の「確かめる」を押すだけで中核が計ります（`native/core/src/controller/gpu_check.rs`）。同梱の speech.cpp のコマンドで取得済みの読み上げと音声認識のモデルを使い、決まった短い文を CPU と各 GPU で動かします。上の計画の「計るもの」のうち、読み込みの時間、処理の時間と実時間に対する速さ、実際に使われた機器、CPU との文字の誤り率、失敗の種類が入ります。モデルを取得せず、マイク、スピーカー、VRChat を使いません。ある PC で 1 分ほどでした（Windows 11、RTX 3060 Ti と Iris Xe と CPU、Irodori-TTS Q8_0 と Qwen3-ASR 0.6B Q8_0。CPU の読み上げに 36 秒）。
+- 自動で計る道具: 設定の「高度な設定」→「GPUの動作の報告」の「確かめる」を押すだけで中核が計ります（`native/core/src/controller/gpu_check.rs`）。同梱の speech.cpp のコマンドで取得済みの読み上げと音声認識のモデルを使い、決まった短い文を CPU と各 GPU で動かします。上の計画の「計るもの」のうち、読み込みの時間、処理の時間と実時間に対する速さ、実際に使われた機器、CPU との文字の誤り率、失敗の種類が入ります。モデルを取得せず、マイク、スピーカー、VRChat を使いません。ある PC で 1 分ほどでした（Windows 11、RTX 3060 Ti と Iris Xe と CPU、Irodori-TTS Q8_0 と Qwen3-ASR 0.6B Q8_0。CPU の読み上げに 36 秒）。
 - 送る内容を事前に全部見せる: 結果は整形した JSON の全文を画面に出し、機器ごとの表も添えます。コピーする内容と GitHub に送る内容は、画面の全文とまったく同じ文字列です。アプリは何も送りません。
 - 個人を特定する情報を含めない: 入るのは版、機器の名前、丸めたメモリーの量、ドライバの版、モデルが持つ名前、時間と誤り率だけです。ファイルの場所、ユーザー名、PC の名前、文と音声、speech.cpp のメッセージ（ファイルの場所を含む）は入れません。中核の試験（`native/core/tests/gpu_check.rs`）が、利用者名や文が報告に入らないことを確かめます。
 - 送り方: 「GitHubで報告する」が Issue の様式（`.github/ISSUE_TEMPLATE/gpu_report.yml`）を結果を入れた状態で開きます。送る前に GitHub の画面でもう一度確かめられます。GitHub のアカウントが要ります。

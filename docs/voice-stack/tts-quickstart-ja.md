@@ -193,7 +193,7 @@ TTSの取得欄ではGPU名・総容量・現在の空きVRAMを表示し、モ�
 TTS単独用の0.5 GiBへ変更できるが、これはメモリの予約や動作保証ではない。
 GPU情報を取得できない場合も手動で選択できる。共有メモリやCPUは専用VRAMの推奨とは区別する。
 複数GPUの容量は合算せず、案内はエンジンが既定で使う先頭GPUに対するもの。実行GPUを選択するUIではない。
-RVCはモデル以外に実行環境（ONNX Runtime、GPU用はCUDAとcuDNNのライブラリも、HuBERT、RMVPE）が必要。Python環境は要らない（2026-11-15から）。実行環境はこの取得欄には含まず、RVCページの「実行環境」の欄から別の同意を経て取得する（[Windows](local-setup-windows.md#rvc)、[Linux](local-setup-linux.md#rvcの実行環境)）。
+RVCはモデル以外に実行環境（ONNX Runtime、GPU用はCUDAとcuDNNのライブラリも、HuBERT、RMVPE）が必要。Python環境は要らない（2026-11-15から）。実行環境はこの取得欄には含まず、RVCページの「RVCの実行環境」の欄から別の同意を経て取得する（[Windows](local-setup-windows.md#rvc)、[Linux](local-setup-linux.md#rvcの実行環境)）。
 Saishoモデルの公開利用時はCC BY 4.0のクレジット表示が必要。詳細は[取得機能の仕様と利用条件](model-downloads.md)を参照。
 
 ## 日本語TTSの低遅延待機
