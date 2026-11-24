@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
-import { hooks, loadModule, find, unchecked } from "../../../../../../logics/test/hookHarness.ts";
+import { hooks, loadModule, find, unchecked, kitStandIns } from "../../../../../../logics/test/hookHarness.ts";
 
 type OpenButtonModule = typeof import("./LanguageSelectorOpenButton.tsx");
 type OpenButtonProps = Parameters<OpenButtonModule["LanguageSelectorOpenButton"]>[0];
@@ -24,7 +24,8 @@ async function field(selector_key: OpenButtonProps["selector_key"]) {
     // only the button.
     const tree = runtime.render(LanguageSelectorOpenButton, { TurnedOnSvgComponent: unchecked<OpenButtonProps["TurnedOnSvgComponent"]>("svg"),
         is_turned_on: false, selector_key, target_key: "1" });
-    const button = find(tree, node => node.type === "button");
+    // The kit's plain Button at the compact size (decided on 2026-11-25, H-05).
+    const button = find(tree, node => node.type === kitStandIns.Button);
     assert.ok(button);
     const description = find(tree, node => node.props?.id !== undefined && node.props.id === button.props["aria-describedby"]);
     // The tooltip around the field: an element named "tooltip" that keeps the bubble's words (hookHarness).
@@ -40,7 +41,8 @@ test("each language field is described by what its language is for, in both dire
         // The tooltip opens beside the rail, on the pointer and on keyboard focus; no title attribute is left.
         assert.ok(tip, selector_key);
         assert.deepEqual([tip.props.title, tip.props.placement], [hint, "right"], selector_key);
-        assert.ok(find(tip, node => node.type === "button"), "the tooltip is the field's");
+        assert.ok(find(tip, node => node.type === kitStandIns.Button), "the tooltip is the field's");
+        assert.equal(button.props.size, "compact", selector_key);
         assert.equal(button.props.title, undefined, selector_key);
         assert.ok(description, `${selector_key}: aria-describedby points at an element`);
         assert.equal(description.props.children, hint, selector_key);
