@@ -223,7 +223,7 @@ common_error:
     failed_update_software: "インストーラのダウンロードに失敗しました。しばらくしてからもう一度お試しください。"
     failed_update_software_verify: "ダウンロードしたインストーラが、公開されているチェックサムと一致しなかったため、更新を中止しました。"
     translation_limit: "翻訳エンジンの使用制限に達したか、一時的に利用制限がかけられています。"
-    deepl_auth_key_invalid_length: "APIキーの文字数が間違っています。"
+    deepl_auth_key_invalid_length: "DeepLのAPIキーの長さが合いません。DeepLのアカウントに表示されるキー（36文字、無料版は末尾に「:fx」が付いた39文字）を、そのまま貼り付けてください。"
     deepl_auth_key_failed_authentication: "APIキーが間違っているか、APIの使用制限に達しています。"
 
     invalid_value_mic_record_timeout: "0以上で「{{mic_phrase_timeout_label}}」より大きくすることはできません。"
@@ -281,15 +281,15 @@ backend_errors:
     VALIDATION_INVALID_IP: "IPアドレスの形式が正しくありません。"
     VALIDATION_CANNOT_SET_IP: "このIPアドレスは使えません。"
     VALIDATION_OSC_PORT_INVALID: "OSCのポートは1〜65535の整数で入力してください。"
-    AUTH_PLAMO_LENGTH: "Plamo APIキーの長さが正しくありません。"
+    AUTH_PLAMO_LENGTH: "Plamo APIキーの長さが足りません。PLaMoのAPIの管理画面に表示されるキー（72文字以上）を、そのまま貼り付けてください。"
     AUTH_PLAMO_FAILED: "Plamo APIキーを確認できませんでした。キーが正しいか確認してください。"
-    AUTH_GEMINI_LENGTH: "Gemini APIキーの長さが正しくありません。"
+    AUTH_GEMINI_LENGTH: "Gemini APIキーの長さが足りません。Google AI Studioに表示されるキー（39文字以上）を、そのまま貼り付けてください。"
     AUTH_GEMINI_FAILED: "Gemini APIキーを確認できませんでした。キーが正しいか確認してください。"
-    AUTH_OPENAI_INVALID: "OpenAI APIキーの形式が正しくありません。"
+    AUTH_OPENAI_INVALID: "OpenAI APIキーの形が違います。OpenAIのAPIキーは「sk-」で始まる164文字以上のキーです。OpenAIの管理画面に表示されるキーを、そのまま貼り付けてください。"
     AUTH_OPENAI_FAILED: "OpenAI APIキーを確認できませんでした。キーが正しいか確認してください。"
-    AUTH_GROQ_INVALID: "Groq APIキーの形式が正しくありません。"
+    AUTH_GROQ_INVALID: "Groq APIキーの形が違います。Groqのキーは「gsk」で始まる40文字以上のキーです。GroqCloudに表示されるキーを、そのまま貼り付けてください。"
     AUTH_GROQ_FAILED: "Groq APIキーを確認できませんでした。キーが正しいか確認してください。"
-    AUTH_OPENROUTER_INVALID: "OpenRouter APIキーの形式が正しくありません。"
+    AUTH_OPENROUTER_INVALID: "OpenRouter APIキーの長さが足りません。OpenRouterに表示されるキー（20文字以上）を、そのまま貼り付けてください。"
     AUTH_OPENROUTER_FAILED: "OpenRouter APIキーを確認できませんでした。キーが正しいか確認してください。"
     AUTH_OPENAI_COMPATIBLE_INVALID: "OpenAI互換APIキーの形式が正しくありません。"
     AUTH_OPENAI_COMPATIBLE_FAILED: "OpenAI互換エンドポイントに接続できないか、APIキーが受け付けられませんでした。URLとAPIキーを確認してください。"
@@ -746,6 +746,8 @@ config_page:
             label: "Papago Client ID"
             desc: "自分のNAVER Cloud PlatformのアカウントでPapago Translationを使います。先にClient IDを保存し、次にClient Secretを保存します。Papagoが訳せるのは韓国語・英語・日本語・中国語などの決まった組み合わせだけで、ほかの組み合わせは代わりの翻訳を使います。"
             reentry_required: "Client IDを変えるときは、先に保存済みのClient Secretを削除してから、新しいClient IDとそのSecretを保存してください。"
+            errors:
+                invalid: "Client IDは256文字までで、改行は使えません。NAVER Cloud Platformに表示されたClient IDをそのまま貼り付けてください。"
         papago_auth_key:
             label: "Papago Client Secret"
 
@@ -790,9 +792,14 @@ config_page:
 
         ollama_connection_check:
             label: "Ollamaとの接続確認"
+        lmstudio_url:
+            errors:
+                invalid: "LM Studioのサーバーのアドレスを、http://かhttps://から始めて入力してください（例: http://127.0.0.1:1234/v1）。"
         ollama_url:
             label: "Ollama URL"
             desc: "お使いのPCのOllamaか、同じLANにある別のPCのOllamaを使えます（例: http://192.168.1.20:11434、http://studio.local:11434）。別のPCでは、Ollamaがネットワークから受け付けるように設定してください（OLLAMA_HOST=0.0.0.0）。"
+            errors:
+                invalid: "Ollamaのアドレスを、http://かhttps://から始めて入力してください（例: http://localhost:11434）。"
         select_ollama_model:
             label: "Ollamaモデルを選択"
             connection_required: "Ollamaとの接続が必要"
@@ -800,9 +807,13 @@ config_page:
         llm_translation_temperature:
             label: "Temperature"
             desc: "訳のぶれの大きさです。0に近いほど同じ文に同じ訳を返し、大きいほど言い回しが変わります。翻訳には0から0.3くらいが向きます。空欄のときは送らず、各エンジンの既定のままにします（Geminiは0.7）。温度を受け付けないモデル（OpenAIの推論モデルなど）には、温度を付けずに送り直します。"
+            errors:
+                invalid: "温度は0から2までの数で、小数点以下2桁まで入力してください（例: 0.3）。空欄にすると、各エンジンの既定のままにします。"
         llm_translation_instructions:
             label: "追加の指示"
             desc: "LLMのエンジンに送るプロンプトの後ろに足す指示です。例:「敬語を使わずに訳す」「VRChatの用語は英語のまま残す」。1行で500字まで書けます。訳文だけを返すという決まりは変わりません。この文もエンジンに送ります。"
+            errors:
+                invalid: "追加の指示は1行で500文字までです。いまは{{count}}文字なので、短くしてください。"
 
     transcription:
         # The speech recognition APIs the user adds (#414), under the providers of the API group.

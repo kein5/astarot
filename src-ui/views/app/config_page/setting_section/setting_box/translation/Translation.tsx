@@ -1,5 +1,6 @@
 import { CredentialPair } from "../_components/credential_pair/CredentialPair";
 import { endpointNotices } from "../../../../../../logics/common/endpointPrivacy";
+import { instructionsProblem, papagoClientIdProblem, serverUrlProblem, temperatureProblem } from "../../../../../../logics/configs/fieldChecks.ts";
 import { useRef, useState } from "react";
 import type { MouseEvent, ReactNode, RefObject } from "react";
 import { useI18n } from "@useI18n";
@@ -250,11 +251,14 @@ const LLMTranslationOptions_Container = () => {
 const LLMTranslationTemperature_Box = () => {
     const { t } = useI18n();
     const { currentLLMTranslationTemperature, setLLMTranslationTemperature } = useTranslation();
-    const { variable, onChangeFunction, saveFunction } = useSaveButtonLogic({
+    const { variable, onChangeFunction, saveFunction, leaveFunction, revert, error } = useSaveButtonLogic({
         variable: currentLLMTranslationTemperature.data,
         state: currentLLMTranslationTemperature.state,
         setFunction: setLLMTranslationTemperature,
         label: t("config_page.translation.llm_translation_temperature.label"),
+        autoSave: true,
+        endpoint: "/set/data/llm_translation_temperature",
+        validate: value => { const key = temperatureProblem(value.trim()); return key ? t(key) : null; },
     });
     return (
         <EntryWithSaveButtonContainer
@@ -267,6 +271,10 @@ const LLMTranslationTemperature_Box = () => {
             width="8rem"
             variable={entryText(variable) ?? ""}
             saveFunction={saveFunction}
+                autoSave
+                leaveFunction={leaveFunction}
+                onRevert={revert}
+                error={error}
             onChangeFunction={onChangeFunction}
             state={currentLLMTranslationTemperature.state}
         />
@@ -276,11 +284,14 @@ const LLMTranslationTemperature_Box = () => {
 const LLMTranslationInstructions_Box = () => {
     const { t } = useI18n();
     const { currentLLMTranslationInstructions, setLLMTranslationInstructions } = useTranslation();
-    const { variable, onChangeFunction, saveFunction } = useSaveButtonLogic({
+    const { variable, onChangeFunction, saveFunction, leaveFunction, revert, error } = useSaveButtonLogic({
         variable: currentLLMTranslationInstructions.data,
         state: currentLLMTranslationInstructions.state,
         setFunction: setLLMTranslationInstructions,
         label: t("config_page.translation.llm_translation_instructions.label"),
+        autoSave: true,
+        endpoint: "/set/data/llm_translation_instructions",
+        validate: value => { const key = instructionsProblem(value); return key ? t(key, { count: [...value].length }) : null; },
     });
     return (
         <EntryWithSaveButtonContainer
@@ -288,6 +299,10 @@ const LLMTranslationInstructions_Box = () => {
             desc={t("config_page.translation.llm_translation_instructions.desc")}
             variable={entryText(variable) ?? ""}
             saveFunction={saveFunction}
+                autoSave
+                leaveFunction={leaveFunction}
+                onRevert={revert}
+                error={error}
             onChangeFunction={onChangeFunction}
             state={currentLLMTranslationInstructions.state}
             remove_border_bottom={true}
@@ -491,12 +506,14 @@ const DeepLAuthKey_Box = () => {
     const { t } = useI18n();
     const { currentDeepLAuthKey, setDeepLAuthKey, deleteDeepLAuthKey } = useTranslation();
 
-    const { variable, onChangeFunction, saveFunction } = useSaveButtonLogic({
+    const { variable, onChangeFunction, saveFunction, leaveFunction, revert, error } = useSaveButtonLogic({
         variable: currentDeepLAuthKey.data,
         state: currentDeepLAuthKey.state,
         setFunction: setDeepLAuthKey,
         deleteFunction: deleteDeepLAuthKey,
         label: t("config_page.translation.deepl_auth_key.label"),
+        autoSave: true,
+        endpoint: "/set/data/deepl_auth_key",
     });
 
     return (
@@ -512,6 +529,10 @@ const DeepLAuthKey_Box = () => {
                 state={currentDeepLAuthKey.state}
                 onChangeFunction={onChangeFunction}
                 saveFunction={saveFunction}
+                autoSave
+                leaveFunction={leaveFunction}
+                onRevert={revert}
+                error={error}
             />
         </>
     );
@@ -522,12 +543,14 @@ const GoogleCloudAuthKey_Box = () => {
     const { t } = useI18n();
     const { currentGoogleCloudAuthKey, setGoogleCloudAuthKey, deleteGoogleCloudAuthKey } = useTranslation();
 
-    const { variable, onChangeFunction, saveFunction } = useSaveButtonLogic({
+    const { variable, onChangeFunction, saveFunction, leaveFunction, revert, error } = useSaveButtonLogic({
         variable: currentGoogleCloudAuthKey.data,
         state: currentGoogleCloudAuthKey.state,
         setFunction: setGoogleCloudAuthKey,
         deleteFunction: deleteGoogleCloudAuthKey,
         label: t("config_page.translation.google_cloud_auth_key.label"),
+        autoSave: true,
+        endpoint: "/set/data/google_cloud_auth_key",
     });
 
     return (
@@ -541,6 +564,10 @@ const GoogleCloudAuthKey_Box = () => {
             state={currentGoogleCloudAuthKey.state}
             onChangeFunction={onChangeFunction}
             saveFunction={saveFunction}
+                autoSave
+                leaveFunction={leaveFunction}
+                onRevert={revert}
+                error={error}
         />
     );
 };
@@ -550,11 +577,16 @@ const PapagoClientID_Box = () => {
     const { t } = useI18n();
     const { currentPapagoClientID, setPapagoClientID } = useTranslation();
 
-    const { variable, onChangeFunction, saveFunction } = useSaveButtonLogic({
+    const { variable, onChangeFunction, saveFunction, leaveFunction, revert, error } = useSaveButtonLogic({
         variable: currentPapagoClientID.data,
         state: currentPapagoClientID.state,
         setFunction: setPapagoClientID,
         label: t("config_page.translation.papago_client_id.label"),
+        autoSave: true,
+        endpoint: "/set/data/papago_client_id",
+        validate: value => { const key = papagoClientIdProblem(value); return key ? t(key) : null; },
+        // Not a key the core can delete, but a credential all the same (#1111, decided 2).
+        credential: true,
     });
 
     return (
@@ -563,6 +595,10 @@ const PapagoClientID_Box = () => {
             desc={t("config_page.translation.papago_client_id.desc")}
             variable={entryText(variable)}
             saveFunction={saveFunction}
+                autoSave
+                leaveFunction={leaveFunction}
+                onRevert={revert}
+                error={error}
             onChangeFunction={onChangeFunction}
             state={currentPapagoClientID.state}
             remove_border_bottom={true}
@@ -573,12 +609,14 @@ const PapagoAuthKey_Box = () => {
     const { t } = useI18n();
     const { currentPapagoAuthKey, setPapagoAuthKey, deletePapagoAuthKey } = useTranslation();
 
-    const { variable, onChangeFunction, saveFunction } = useSaveButtonLogic({
+    const { variable, onChangeFunction, saveFunction, leaveFunction, revert, error } = useSaveButtonLogic({
         variable: currentPapagoAuthKey.data,
         state: currentPapagoAuthKey.state,
         setFunction: setPapagoAuthKey,
         deleteFunction: deletePapagoAuthKey,
         label: t("config_page.translation.papago_auth_key.label"),
+        autoSave: true,
+        endpoint: "/set/data/papago_auth_key",
     });
 
     return (
@@ -589,6 +627,10 @@ const PapagoAuthKey_Box = () => {
             state={currentPapagoAuthKey.state}
             onChangeFunction={onChangeFunction}
             saveFunction={saveFunction}
+                autoSave
+                leaveFunction={leaveFunction}
+                onRevert={revert}
+                error={error}
         />
     );
 };
@@ -597,12 +639,14 @@ const PlamoAuthKey_Box = () => {
     const { t } = useI18n();
     const { currentPlamoAuthKey, setPlamoAuthKey, deletePlamoAuthKey } = useTranslation();
 
-    const { variable, onChangeFunction, saveFunction } = useSaveButtonLogic({
+    const { variable, onChangeFunction, saveFunction, leaveFunction, revert, error } = useSaveButtonLogic({
         variable: currentPlamoAuthKey.data,
         state: currentPlamoAuthKey.state,
         setFunction: setPlamoAuthKey,
         deleteFunction: deletePlamoAuthKey,
         label: t("config_page.translation.plamo_auth_key.label"),
+        autoSave: true,
+        endpoint: "/set/data/plamo_auth_key",
     });
 
     return (
@@ -615,6 +659,10 @@ const PlamoAuthKey_Box = () => {
                 state={currentPlamoAuthKey.state}
                 onChangeFunction={onChangeFunction}
                 saveFunction={saveFunction}
+                autoSave
+                leaveFunction={leaveFunction}
+                onRevert={revert}
+                error={error}
                 remove_border_bottom={true}
             />
         </>
@@ -659,12 +707,14 @@ const GeminiAuthKey_Box = () => {
     const { t } = useI18n();
     const { currentGeminiAuthKey, setGeminiAuthKey, deleteGeminiAuthKey } = useTranslation();
 
-    const { variable, onChangeFunction, saveFunction } = useSaveButtonLogic({
+    const { variable, onChangeFunction, saveFunction, leaveFunction, revert, error } = useSaveButtonLogic({
         variable: currentGeminiAuthKey.data,
         state: currentGeminiAuthKey.state,
         setFunction: setGeminiAuthKey,
         deleteFunction: deleteGeminiAuthKey,
         label: t("config_page.translation.gemini_auth_key.label"),
+        autoSave: true,
+        endpoint: "/set/data/gemini_auth_key",
     });
 
     return (
@@ -677,6 +727,10 @@ const GeminiAuthKey_Box = () => {
                 state={currentGeminiAuthKey.state}
                 onChangeFunction={onChangeFunction}
                 saveFunction={saveFunction}
+                autoSave
+                leaveFunction={leaveFunction}
+                onRevert={revert}
+                error={error}
                 remove_border_bottom={true}
             />
         </>
@@ -720,12 +774,14 @@ const OpenAIAuthKey_Box = () => {
     const { t } = useI18n();
     const { currentOpenAIAuthKey, setOpenAIAuthKey, deleteOpenAIAuthKey } = useTranslation();
 
-    const { variable, onChangeFunction, saveFunction } = useSaveButtonLogic({
+    const { variable, onChangeFunction, saveFunction, leaveFunction, revert, error } = useSaveButtonLogic({
         variable: currentOpenAIAuthKey.data,
         state: currentOpenAIAuthKey.state,
         setFunction: setOpenAIAuthKey,
         deleteFunction: deleteOpenAIAuthKey,
         label: t("config_page.translation.openai_auth_key.label"),
+        autoSave: true,
+        endpoint: "/set/data/openai_auth_key",
     });
 
     return (
@@ -738,6 +794,10 @@ const OpenAIAuthKey_Box = () => {
                 state={currentOpenAIAuthKey.state}
                 onChangeFunction={onChangeFunction}
                 saveFunction={saveFunction}
+                autoSave
+                leaveFunction={leaveFunction}
+                onRevert={revert}
+                error={error}
                 remove_border_bottom={true}
             />
         </>
@@ -781,12 +841,14 @@ const GroqAuthKey_Box = () => {
     const { t } = useI18n();
     const { currentGroqAuthKey, setGroqAuthKey, deleteGroqAuthKey } = useTranslation();
 
-    const { variable, onChangeFunction, saveFunction } = useSaveButtonLogic({
+    const { variable, onChangeFunction, saveFunction, leaveFunction, revert, error } = useSaveButtonLogic({
         variable: currentGroqAuthKey.data,
         state: currentGroqAuthKey.state,
         setFunction: setGroqAuthKey,
         deleteFunction: deleteGroqAuthKey,
         label: t("config_page.translation.groq_auth_key.label"),
+        autoSave: true,
+        endpoint: "/set/data/groq_auth_key",
     });
 
     return (
@@ -799,6 +861,10 @@ const GroqAuthKey_Box = () => {
                 state={currentGroqAuthKey.state}
                 onChangeFunction={onChangeFunction}
                 saveFunction={saveFunction}
+                autoSave
+                leaveFunction={leaveFunction}
+                onRevert={revert}
+                error={error}
                 remove_border_bottom={true}
             />
         </>
@@ -842,12 +908,14 @@ const OpenRouterAuthKey_Box = () => {
     const { t } = useI18n();
     const { currentOpenRouterAuthKey, setOpenRouterAuthKey, deleteOpenRouterAuthKey } = useTranslation();
 
-    const { variable, onChangeFunction, saveFunction } = useSaveButtonLogic({
+    const { variable, onChangeFunction, saveFunction, leaveFunction, revert, error } = useSaveButtonLogic({
         variable: currentOpenRouterAuthKey.data,
         state: currentOpenRouterAuthKey.state,
         setFunction: setOpenRouterAuthKey,
         deleteFunction: deleteOpenRouterAuthKey,
         label: t("config_page.translation.openrouter_auth_key.label"),
+        autoSave: true,
+        endpoint: "/set/data/openrouter_auth_key",
     });
 
     return (
@@ -860,6 +928,10 @@ const OpenRouterAuthKey_Box = () => {
                 state={currentOpenRouterAuthKey.state}
                 onChangeFunction={onChangeFunction}
                 saveFunction={saveFunction}
+                autoSave
+                leaveFunction={leaveFunction}
+                onRevert={revert}
+                error={error}
                 remove_border_bottom={true}
             />
         </>
@@ -920,11 +992,14 @@ const LMStudioURL_Box = () => {
     // The URL has no delete: an empty field is saved as it is.
     const { currentLMStudioURL, setLMStudioURL } = useTranslation();
 
-    const { variable: entered, onChangeFunction, saveFunction } = useSaveButtonLogic({
+    const { variable: entered, onChangeFunction, saveFunction, leaveFunction, revert, error } = useSaveButtonLogic({
         variable: currentLMStudioURL.data,
         state: currentLMStudioURL.state,
         setFunction: setLMStudioURL,
         label: "LM Studio URL",
+        autoSave: true,
+        endpoint: "/set/data/lmstudio_url",
+        validate: value => { const key = serverUrlProblem("config_page.translation.lmstudio_url.errors.invalid")(value); return key ? t(key) : null; },
     });
     // The URL as the entry shows it: an empty field for none.
     const variable = entryText(entered) ?? "";
@@ -940,6 +1015,10 @@ const LMStudioURL_Box = () => {
                 add_warnings={notices.warning ? [{ label: notices.warning }] : undefined}
                 variable={variable}
                 saveFunction={saveFunction}
+                autoSave
+                leaveFunction={leaveFunction}
+                onRevert={revert}
+                error={error}
                 onChangeFunction={onChangeFunction}
                 state={currentLMStudioURL.state}
                 remove_border_bottom={true}
@@ -1001,11 +1080,14 @@ const OllamaURL_Box = () => {
     const { t } = useI18n();
     const { currentOllamaURL, setOllamaURL } = useTranslation();
 
-    const { variable: entered, onChangeFunction, saveFunction } = useSaveButtonLogic({
+    const { variable: entered, onChangeFunction, saveFunction, leaveFunction, revert, error } = useSaveButtonLogic({
         variable: currentOllamaURL.data,
         state: currentOllamaURL.state,
         setFunction: setOllamaURL,
         label: t("config_page.translation.ollama_url.label"),
+        autoSave: true,
+        endpoint: "/set/data/ollama_url",
+        validate: value => { const key = serverUrlProblem("config_page.translation.ollama_url.errors.invalid")(value); return key ? t(key) : null; },
     });
     // The URL as the entry shows it: an empty field for none.
     const variable = entryText(entered) ?? "";
@@ -1019,6 +1101,10 @@ const OllamaURL_Box = () => {
             add_warnings={notices.warning ? [{ label: notices.warning }] : undefined}
             variable={variable}
             saveFunction={saveFunction}
+                autoSave
+                leaveFunction={leaveFunction}
+                onRevert={revert}
+                error={error}
             onChangeFunction={onChangeFunction}
             state={currentOllamaURL.state}
             remove_border_bottom={true}
