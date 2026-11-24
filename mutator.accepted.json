@@ -331,6 +331,10 @@
     "reason": "choiceDisabled runs only for a drawn list, which is drawn only while the selectable list is an array.",
     "where": "src-ui/views/vr/VrLanguageWindow.tsx:266:65 ?. -> ."
   },
+  "2eezibvwmrf": {
+    "reason": "With no state, neither the empty string nor the placeholder is starting or stopping, so the tone is neutral either way.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/transcription/RealtimeASRSettings.tsx:166:75 \"\" -> \"Stryker was here!\""
+  },
   "2f7jk5hea9s": {
     "reason": "Without the block a missing hook is looked up again for each of its routes, which still get an empty result and do nothing, so only the warning is lost.",
     "where": "src-ui/logics/useReceiveRoutes.ts:442:20 { console.warn(`Hook not found on namespace: ${hook_name}`)… -> {}"
