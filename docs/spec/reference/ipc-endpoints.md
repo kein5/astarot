@@ -10,7 +10,7 @@ UIから中核への要求と、中核からUIへの通知（`RUN_MAPPING`）の
 - UIの受信先: 200の応答を処理するUIのフック（`useReceiveRoutes.ts`の静的ルートと`ui_config_setter.ts`の定義から生成）。「—」は受信先がない。
 - ログで伏せる: `process.log`で値を`***MASKED***`に置き換える（`log::SENSITIVE_ENDPOINT_MARKERS`）。stdoutのIPCそのものは伏せない。
 
-## 要求（494件: 削除 13、取得 219、実行 52、有効化 43、無効化 45、設定 122）
+## 要求（497件: 削除 13、取得 221、実行 52、有効化 43、無効化 45、設定 123）
 
 並びは中核が経路を足した順（`controller/routes.rs`）。
 
@@ -396,6 +396,7 @@ UIから中核への要求と、中核からUIへの通知（`RUN_MAPPING`）の
 | `/set/data/overlay_font_family` | 設定 | 可 | useVr.setSuccessOverlayFontFamily |  |
 | `/get/data/overlay_font_missing_languages` | 取得 | 可 | useVr.updateFromBackendOverlayFontMissingLanguages |  |
 | `/set/data/speaker_names` | 設定 | 可 | useSpeakerNames.updateNames | ログで伏せる |
+| `/get/data/path_config` | 取得 | 可 | — |  |
 | `/run/open_filepath_config_file` | 実行 | 可 | useOpenFolder.openedFolder_ConfigFile |  |
 | `/run/open_filepath_logs` | 実行 | 可 | useOpenFolder.openedFolder_MessageLogs |  |
 | `/run/export_vocabulary` | 実行 | 可 | （受け取るだけ） | ログで伏せる |
@@ -441,6 +442,8 @@ UIから中核への要求と、中核からUIへの通知（`RUN_MAPPING`）の
 | `/run/remove_transcription_catalog_entry` | 実行 | 待つ | useTranscriptionCatalog.acknowledge | ログで伏せる |
 | `/run/use_transcription_catalog_entry` | 実行 | 待つ | useTranscriptionCatalog.acknowledge | ログで伏せる |
 | `/run/send_message_box` | 実行 | 待つ | useMessage.updateSentMessageLogById |  |
+| `/get/data/path_logs` | 取得 | 可 | — |  |
+| `/set/data/path_logs` | 設定 | 可 | — |  |
 | `/get/data/logger_feature` | 取得 | 可 | useOthers.updateFromBackendEnableAutoExportMessageLogs |  |
 | `/set/enable/logger_feature` | 有効化 | 可 | useOthers.setSuccessEnableAutoExportMessageLogs |  |
 | `/set/disable/logger_feature` | 無効化 | 可 | useOthers.setSuccessEnableAutoExportMessageLogs |  |
@@ -611,10 +614,12 @@ UIから中核への要求と、中核からUIへの通知（`RUN_MAPPING`）の
 | `enable_osc_query` | `/run/enable_osc_query` | useHandleOscQuery.handleOscQuery |
 
 
-## UIに受信先がないエンドポイント（30件）
+## UIに受信先がないエンドポイント（33件）
 
 200で届いた場合にUIが`Invalid endpoint`としてコンソールに出すもの。ただし、400で届くエラーの通知（`/run/error_…`など）は`errorHandling_Backend`が処理し、`/run/initialization_complete`は`receiveRoutes`が個別に処理するので、このどちらかに当たるものは実害がない。
 
+- `/get/data/path_config`
+- `/get/data/path_logs`
 - `/get/data/talk_ai_auth_key`
 - `/get/data/talk_ai_catalog`
 - `/get/data/talk_ai_local_url`
@@ -637,6 +642,7 @@ UIから中核への要求と、中核からUIへの通知（`RUN_MAPPING`）の
 - `/run/translation_language_unsupported`
 - `/run/translation_model_retired`
 - `/run/vad_unavailable`
+- `/set/data/path_logs`
 - `/set/data/talk_ai_auth_key`
 - `/set/data/talk_ai_end_turn`
 - `/set/data/talk_ai_interrupt`
