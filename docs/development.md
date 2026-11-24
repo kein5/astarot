@@ -32,6 +32,7 @@ Each task runs an existing CLI such as `python tools/dev.py`. Before that, mise 
 | `changelog:print` | Shows the changes for the next release without writing them |
 | `changelog:notes` | Creates the template of the release notes for a stable release at `docs/release-notes/<version>.md`. Does not overwrite an existing file ([release notes format](release-notes/README.md#雛形から書き始める)) |
 | `dev:web` | The development server for the web UI (Vite). Not part of the checks |
+| `dev:catalog` | The component catalog of the UI kit (Storybook) at `http://localhost:6006` ([components](design/components/README.md)). Not part of the checks |
 
 The lists in the functional specifications (the endpoints, error codes and setting keys in `docs/spec/reference/`) are generated from the code of the core and the UI. When you change an endpoint, an error code or a setting key, rebuild them with `mise run spec`. `check` also confirms that these lists are up to date. The specifications start at [docs/spec/README.md](spec/README.md).
 
@@ -591,6 +592,7 @@ mise run check               # 軽量チェック
 | `changelog:print` | 次のリリースの変更を、書き込まずに表示する |
 | `changelog:notes` | 正式版のリリースノートの雛形を `docs/release-notes/<版>.md` に作る。既にあれば上書きしない（[リリースノートの書式](release-notes/README.md#雛形から書き始める)） |
 | `dev:web` | Web UIの開発サーバー（Vite）。検証には含めない |
+| `dev:catalog` | UIの部品のカタログ（Storybook）を `http://localhost:6006` で開く（[部品](design/components/README.md)）。検証には含めない |
 
 機能仕様書の一覧（`docs/spec/reference/` のエンドポイント、エラーコード、設定キー）は中核とUIのコードから生成します。エンドポイント、エラーコード、設定キーを変えたら `mise run spec` で作り直します。`check` はこの一覧が最新かどうかも確かめます。仕様書の入口は [docs/spec/README.md](spec/README.md) です。
 
