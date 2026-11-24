@@ -34,7 +34,7 @@ const READ_ELSEWHERE: Readonly<Record<string, () => unknown>> = {
 // core's default: a device, model or URL the page should not name before the core does, and
 // numbers the page shows only once known.
 const EMPTY_UNTIL_ANSWERED: ReadonlySet<string> = new Set([
-    "SelectedMicHost", "SelectedMicDevice", "SelectedSpeakerDevice", "MicThreshold", "SpeakerThreshold",
+    "SelectedMicHost", "SelectedMicDevice", "SelectedSpeakerDevice",
     "SelectedTranslationComputeType", "SelectedTranslationComputeDevice",
     "SelectedPlamoModel", "SelectedGeminiModel", "SelectedOpenAIModel", "SelectedGroqModel", "SelectedOpenRouterModel",
     "LMStudioURL", "SelectedLMStudioModel", "SelectedOpenAICompatibleModel", "OllamaURL", "SelectedOllamaModel",

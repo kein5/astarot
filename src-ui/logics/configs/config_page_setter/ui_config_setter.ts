@@ -131,7 +131,7 @@ export const SETTINGS_ARRAY = [
     {
         Category: "Device",
         Base_Name: "MicThreshold",
-        default_value: 0,
+        default_value: 300,
         ui_template_id: "slider",
         logics_template_id: "get_set",
         base_endpoint_name: "mic_threshold",
@@ -194,7 +194,7 @@ export const SETTINGS_ARRAY = [
     {
         Category: "Device",
         Base_Name: "SpeakerThreshold",
-        default_value: 0,
+        default_value: 300,
         ui_template_id: "slider",
         logics_template_id: "get_set",
         base_endpoint_name: "speaker_threshold",
