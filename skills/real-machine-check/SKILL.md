@@ -5,7 +5,7 @@ description: ベータ版と安定版の公開後に、Windowsの実機でASTARO
 
 # Windows実機確認の手順
 
-ベータ版と安定版を公開したあと、Windowsの実機で配布物の導入、既存データの引き継ぎ、初回起動時の移行、更新チャネル、設定画面の動作を確かめる手順です。リリース手順（[skills/release/SKILL.md](../release/SKILL.md) と [docs/voice-stack/release-candidates.md](../../docs/voice-stack/release-candidates.md)）の公開後確認と、E2Eテスト（`skills/e2e/SKILL.md`）の間をつなぎます。
+ベータ版と安定版を公開したあと、Windowsの実機で配布物の導入、既存データの引き継ぎ、初回起動時の移行、更新チャネル、設定画面の動作を確かめる手順です。リリース手順（[skills/release/SKILL.md](../release/SKILL.md) と [docs/voice-stack/release-candidates.md](../../docs/voice-stack/release-candidates.md)）の公開後確認と、E2Eテスト（[skills/e2e/SKILL.md](../e2e/SKILL.md)）の間をつなぎます。
 
 ## 1. 着手前の確認と競合回避
 
