@@ -1,4 +1,4 @@
-import { test } from "vitest";
+import { test, vi } from "vitest";
 import assert from "node:assert/strict";
 import {
     createSharedWindowActions, endedNotice, INITIAL_SHARED_WINDOW, nextRestoreToken, RESTORE_LIMIT_MS, shareErrorKey,
@@ -312,4 +312,48 @@ test("chat reading's switch waits only while the remembered window is being shar
     // The button in the settings does not touch the switch.
     assert.equal(shouldHoldSwitch({ ...restoring, restoring: false }, true, false), false);
     assert.equal(shouldHoldSwitch(null, true, false), false);
+});
+
+test("only an answer that says so counts as a desktop that can share, and a failed question as one that cannot", async () => {
+    for (const reply of [{ supported: "yes", active: "yes" }, {}, null]) {
+        const { page, actions } = harness({ state: { supported: true, active: true }, commands: { screencast_support: reply } });
+        await actions.refresh();
+        assert.deepEqual([page.state.supported, page.state.active], [false, false], JSON.stringify(reply));
+    }
+    const { page, actions } = harness({ state: { supported: true, active: true }, commands: { screencast_support: new Error("no portal") } });
+    await actions.refresh();
+    assert.deepEqual([page.state.supported, page.state.active], [false, false]);
+});
+
+test("a start that fails without a code of its own is a failed screencast", async () => {
+    for (const thrown of [() => { throw new Error("broken"); }, () => { throw ""; }]) {
+        const { page, actions } = harness({ commands: { screencast_start: thrown, screencast_support: { supported: true, active: false } } });
+        await actions.share();
+        assert.equal(page.state.error, "screencast_failed");
+    }
+});
+
+test("without a saved token, sharing asks the desktop to show its dialog and nothing is restored", async () => {
+    for (const token of [null, undefined]) {
+        // A token that is not saved at all, as the store may give it.
+        const { page, actions } = harness({ token: unchecked<string>(token), commands: { screencast_start: { restore_token: "t" } } });
+        assert.equal(await actions.restore(), false);
+        assert.deepEqual(page.calls, []);
+        await actions.share();
+        assert.deepEqual(page.calls, [["screencast_start", { restoreToken: null }]]);
+    }
+});
+
+test("a restore that is answered in time withdraws nothing later", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    const { page, actions } = harness({ token: "saved", commands: { screencast_start: { restore_token: "new" }, screencast_stop: null } });
+    assert.equal(await actions.restore(), true);
+    vi.advanceTimersByTime(RESTORE_LIMIT_MS * 2);
+    assert.deepEqual(page.calls.map(([command]) => command), ["screencast_start"]);
+});
+
+test("sharing that the desktop ended shows the window as no longer shared", () => {
+    const { page, actions } = harness({ state: { supported: true, active: true, error: "kept" } });
+    actions.ended();
+    assert.deepEqual(page.state, { ...INITIAL_SHARED_WINDOW, supported: true, active: false, error: "kept" });
 });
