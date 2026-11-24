@@ -66,8 +66,11 @@ export const VoiceSettings = () => {
                 onChange={e => field(key, voice && e.target.value === "" ? "none" : e.target.value)} maxLength={voice ? 128 : 512} />
         </label>;
     };
+    // The server of a language: the bundled one unless the settings name another, as the core reads
+    // them (native/core/src/config/mod.rs, migrate_speech_servers).
+    const serverOf = (role: VoiceModelRole) => draft[`${role}_server`] || "bundled";
     const server = (role: VoiceModelRole) => <label>{t(`speech_servers.${role}_selection`)}
-        <select aria-label={t(`speech_servers.${role}_selection`)} value={draft[`${role}_server`] || "bundled"} onChange={e => field(`${role}_server`, e.target.value)}>
+        <select aria-label={t(`speech_servers.${role}_selection`)} value={serverOf(role)} onChange={e => field(`${role}_server`, e.target.value)}>
             {["external", "bundled"].map(value => <option key={value} value={value}>{t(`speech_servers.${value}`)}</option>)}
         </select>
     </label>;
@@ -110,7 +113,7 @@ export const VoiceSettings = () => {
                     <legend>{t(`speech_servers.${role}`)}</legend>
                     {/* Japanese can also come from an engine the user installed (ADR-008); its fields replace speech.cpp's. */}
                     {role === "japanese" && <TtsEngine draft={draft} setDraft={setDraft} saved={settings} />}
-                    {speechcpp(role) && <>{server(role)}{draft[`${role}_server`] !== "bundled" && input(`${role}_url`)}{input(`${role}_voice`)}</>}
+                    {speechcpp(role) && <>{server(role)}{serverOf(role) !== "bundled" && input(`${role}_url`)}{input(`${role}_voice`)}</>}
                 </fieldset>)}
                 {/* Set once to taste (#554): the monitor, how speech.cpp generates, reading the
                     microphone's captions aloud and the conversion. The line shows the first two. */}

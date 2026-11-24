@@ -14,6 +14,20 @@ export const NOT_SETTINGS: ReadonlySet<string> = new Set([
     "vrchat.tts_output_pointer", "device.mute_sync_pointer",
     // The experimental features page's notice and empty state; its items are listed one by one.
     "experimental_features.notice", "experimental_features.empty",
+    // States shown on a fold's line: the selected translation model's (on 「Model and device」), each
+    // translation and speech recognition provider's, and the segmenting fold's.
+    "translation.setup_downloaded", "translation.setup_not_downloaded", "translation.setup_unavailable",
+    "translation.provider_in_use", "translation.provider_ready", "translation.provider_not_set",
+    "transcription.timing_status",
+    // A state shown in place of a model's download button.
+    "translation.download_unavailable",
+    // Notes beside settings, which are found by their own texts: no built-in model can be
+    // downloaded; what LLM engines receive; VAD needs a speech recognition server.
+    "translation.models_unavailable", "translation.llm_privacy_lead", "translation.llm_privacy_desc",
+    "device.desc_vad_unavailable",
+    // Words inside the mic and speaker rows of the Device page, each in both rows: the volume check
+    // button and the parts of the device choice. The rows are found by their own texts.
+    "device.check_volume", "device.label_auto_select", "device.label_host", "device.label_device",
 ]);
 
 // Parts of a larger setting with no place of their own: the search leads to the setting.
