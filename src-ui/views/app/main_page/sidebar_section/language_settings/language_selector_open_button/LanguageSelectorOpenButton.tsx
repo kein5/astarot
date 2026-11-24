@@ -6,6 +6,7 @@ import clsx from "clsx";
 import * as styles from "./LanguageSelectorOpenButton.css.ts";
 import ArrowLeftSvg from "@images/arrow_left.svg?react";
 import { Tooltip } from "../../../../../common_components/tooltip/Tooltip";
+import { Button } from "../../../../../kit/index.ts";
 import { useStore_IsOpenedLanguageSelector } from "@store";
 import {
     useIsMainPageCompactMode,
@@ -89,15 +90,19 @@ export const LanguageSelectorOpenButton = ({ TurnedOnSvgComponent, is_turned_on,
                 <TurnedOnSvgComponent className={category_class_names} />
                 <p className={styles.title}>{title}</p>
             </div>
-            {/* A button so the selector also opens from the keyboard. */}
+            {/* A button so the selector also opens from the keyboard: the kit's plain Button at the
+                compact size, its language and arrow centered as the kit draws them (decided on
+                2026-11-25). While the engine starts, the whole button is the placeholder
+                (data-skeleton, MainPage.css.ts) and its words are hidden: centered words move as
+                the language arrives, and the button keeps its size, so nothing is seen to move. */}
             <Tooltip bare placement="right" title={hint}>
-                <button type="button" className={styles.dropdown_menu_container} onClick={toggleSelector}
+                <Button size="compact" onClick={toggleSelector} data-skeleton=""
                     aria-label={country_text ? `${title}: ${language_text} (${country_text})` : `${title}: ${language_text}`} aria-expanded={is_opened}
                     aria-describedby={hint_id}>
-                    <span className={styles.selected_language} data-skeleton="">{language_text}</span>
-                    {country_text && <span className={styles.selected_language} data-skeleton="">({country_text})</span>}
+                    <span className={styles.selected_language}>{language_text}</span>
+                    {country_text && <span className={styles.selected_language}>({country_text})</span>}
                     <ArrowLeftSvg className={arrow_class_names} aria-hidden="true" />
-                </button>
+                </Button>
             </Tooltip>
             <span id={hint_id} className={styles.visually_hidden}>{hint}</span>
         </div>
