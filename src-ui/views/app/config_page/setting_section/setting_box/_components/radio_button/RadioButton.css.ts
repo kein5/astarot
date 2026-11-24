@@ -27,11 +27,12 @@ export const default_badge = style({});
 
 globalStyle(container, {
     display: "flex",
+    justifyContent: "flex-end",
     gap: "0.4rem",
     position: "relative",
     flexShrink: 0,
     flexWrap: "wrap",
-    maxWidth: "70%",
+    maxWidth: "100%",
 });
 globalStyle(`${container}.${column}`, { flexDirection: "column", alignItems: "stretch", width: "100%", minWidth: 0, maxWidth: "100%" });
 globalStyle(`${container}.${column} ${radio_button_container}`, { minWidth: 0, flexWrap: "wrap" });
@@ -62,10 +63,10 @@ globalStyle(`${container}.${grouped} ${radio_button_wrapper}`, { flexShrink: 1, 
 globalStyle(`${container}.${grouped} ${radio_button_header}, ${container}.${grouped} ${label_heading_wrapper}`, { minWidth: 0 });
 globalStyle(`${container}.${grouped} ${radio_button_label}`, { minWidth: 0, flexShrink: 1, overflowWrap: "anywhere" });
 
-globalStyle(group, { display: "grid", gap: ".4rem", minWidth: 0 });
+globalStyle(group, { display: "grid", gap: ".4rem", justifyItems: "end", minWidth: 0 });
 // The group's name: the row's small heading for the options under it, in the secondary text.
-globalStyle(group_label, { fontSize: "1.2rem", fontWeight: 600, lineHeight: 1.6, color: vars.vox_secondary_text, overflowWrap: "anywhere" });
-globalStyle(group_options, { display: "flex", flexWrap: "wrap", gap: ".4rem", minWidth: 0 });
+globalStyle(group_label, { fontSize: "1.2rem", fontWeight: 600, lineHeight: 1.6, textAlign: "end", color: vars.vox_secondary_text, overflowWrap: "anywhere" });
+globalStyle(group_options, { display: "flex", flexWrap: "wrap", justifyContent: "flex-end", gap: ".4rem", minWidth: 0 });
 
 globalStyle(radio_button_container, {
     display: "flex",

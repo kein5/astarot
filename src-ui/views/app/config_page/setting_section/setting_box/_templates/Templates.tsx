@@ -47,8 +47,7 @@ export interface TemplateRowProps extends LabelComponentProps {
     add_break_point?: boolean;
     flex_column?: boolean;
     remove_border_bottom?: boolean;
-    // Where the control sits in the field column: its end (checkboxes, lone buttons) or its start
-    // (radios, model lists).
+    // Where the control sits in the field column: its end (checkboxes, radios, lone buttons) or start.
     control_align?: "start" | "end";
     "aria-describedby"?: string;
 }
@@ -164,8 +163,8 @@ const TemplatesContainerWrapper = ({
         [styles.is_break_point]: add_break_point && currentIsBreakPoint.data,
         [styles.flex_column]: flex_column,
         [styles.remove_border_bottom]: remove_border_bottom,
-        // Where the control sits in the field column: checkboxes and lone buttons flush at its
-        // right end (#473, #1096); radios at its start; everything else fills it (#567).
+        // Where the control sits in the field column: checkboxes, radios and lone buttons flush at
+        // its right end (#473, #1096); everything else fills it (#567).
         [styles.control_end]: control_align === "end",
         [styles.control_start]: control_align === "start",
     });
@@ -268,7 +267,7 @@ export const HotkeysEntryContainer = (props: HotkeysEntryContainerProps) => (
 export type RadioButtonContainerProps<O extends RadioOption = RadioOption> = TemplateRowProps & RadioButtonProps<O>;
 
 export const RadioButtonContainer = <O extends RadioOption>(props: RadioButtonContainerProps<O>) => (
-    <CommonContainer Component={RadioButton} {...props} control_align="start" />
+    <CommonContainer Component={RadioButton} {...props} control_align="end" />
 );
 
 // The key's page opens from the link under the label (webpage_url).
@@ -320,7 +319,7 @@ export const WordFilterContainer = (props: TemplateRowProps) => {
 export type DownloadModelsContainerProps = TemplateRowProps & DownloadModelsProps;
 
 export const DownloadModelsContainer = (props: DownloadModelsContainerProps) => (
-    <CommonContainer Component={DownloadModels} {...props} control_align="start" />
+    <CommonContainer Component={DownloadModels} {...props} control_align="end" />
 );
 
 export type ConnectionCheckButtonContainerProps = TemplateRowProps & ConnectionCheckButtonProps;
