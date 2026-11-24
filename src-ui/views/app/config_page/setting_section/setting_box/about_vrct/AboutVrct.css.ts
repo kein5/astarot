@@ -22,6 +22,7 @@ export const vrct_vox_section = style({
 export const vrct_vox_logo = style({
     width: "100%",
     maxWidth: "44rem",
+    height: "auto",
 });
 // The official subtitle (ADR-011). Outfit is used only when it is installed; no font is fetched.
 export const vrct_vox_subtitle = style({
@@ -69,61 +70,25 @@ export const original_heading = style({
     paddingTop: "2.4rem",
 });
 
-export const the_developers = style({});
 export const contributors = style({});
 export const special_thanks = style({});
 export const section_title = style({
+    width: "auto",
     height: "1.2rem",
+    alignSelf: "flex-start",
     objectFit: "contain",
     objectPosition: "left",
     selectors: {
-        [`&.${the_developers}`]: { marginBottom: "0.8rem" },
         [`&.${contributors}`]: { marginBottom: "0.8rem" },
         [`&.${special_thanks}`]: { marginBottom: "0.6rem" },
     },
 });
 
-export const dev_section = style({
-    display: "flex",
-    flexDirection: "column",
-});
-export const dev_section_wrapper = style({
-    display: "flex",
-    gap: "2rem",
-    flexWrap: "wrap",
-    width: "100%",
-    justifyContent: "center",
-});
-export const dev_card_wrapper = style({
-    position: "relative",
-});
-export const dev_card_img = style({
-    width: "34.6rem",
-});
-
-// A developer's link on their card, from the card's right edge.
-const devSns = (right: string): StyleRule => ({
-    position: "absolute",
-    right,
-    bottom: "0.6rem",
-    width: "2.8rem",
-    padding: "0.4rem",
-    borderRadius: "0.4rem",
-    selectors: {
-        "&:hover": { backgroundColor: vars.dark_800_color },
-        "&:active": { backgroundColor: vars.dark_900_color },
-    },
-});
-export const dev_misya_x = style(devSns("6rem"));
-export const dev_misya_github = style(devSns("3rem"));
-export const dev_shiina_x = style(devSns("2.4rem"));
-
 export const project_links_and_logo_section = style({
     display: "flex",
-    flexDirection: "row",
-    justifyContent: "space-between",
-    padding: "0 5.5rem",
-    flexWrap: "wrap",
+    flexDirection: "column",
+    alignItems: "center",
+    width: "100%",
     gap: "1rem",
 });
 export const about_vrct_logo_wrapper = style({
@@ -131,17 +96,19 @@ export const about_vrct_logo_wrapper = style({
     justifyContent: "center",
     alignItems: "center",
     width: "100%",
-    padding: "2rem 0",
+    padding: "1.2rem 0 0.4rem",
 });
 export const about_vrct_logo = style({
     width: "20rem",
+    height: "auto",
     objectFit: "contain",
 });
 export const project_links_wrapper = style({
     display: "flex",
     flexWrap: "wrap",
-    gap: "0.2rem",
-    alignItems: "start",
+    justifyContent: "center",
+    gap: "0.4rem 1.2rem",
+    alignItems: "center",
 });
 
 export const project_link = style({
@@ -167,6 +134,7 @@ export const contributor_card_wrapper = style({
 });
 export const contributors_img = style({
     width: "22rem",
+    height: "auto",
 });
 
 // A contributor's link on their card: 16% from the bottom, .8rem from the left (or either side of it).
@@ -194,13 +162,16 @@ export const contributors_riku_x = style(contributorSns("0.8rem"));
 export const special_thanks_section = style({
     display: "flex",
     flexDirection: "column",
+    width: "100%",
 });
 export const special_thanks_members_img = style({
     width: "100%",
+    height: "auto",
     marginBottom: "0.4rem",
 });
 export const special_thanks_message_img = style({
     width: "100%",
+    height: "auto",
 });
 
 export const vrchat_disclaimer = style({
