@@ -195,6 +195,10 @@
     "reason": "forEach over an empty failedHotkeys does nothing, so running the block for zero failures changes nothing.",
     "where": "src-ui/logics/configs/config_page_setter/hotkeys/useHotkeys.ts:436:21 failedHotkeys.length > 0 -> failedHotkeys.length >= 0"
   },
+  "1rcl4beehcr": {
+    "reason": "A save's answer is used only while the edit counter still equals the one it started with, so counting down changes the counter as surely as counting up.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/vr/Vr.tsx:201:74 editVersion.current++ -> editVersion.current--"
+  },
   "1rwl7gcc3lw": {
     "reason": "Traces are kept only after isTrace (ioFlow.ts), which requires stages to be an object.",
     "where": "src-ui/logics/flow/flowGraph.ts:70:41 ?. -> ."
@@ -267,9 +271,17 @@
     "reason": "An unset UI language and any other unsupported one both give no groups.",
     "where": "src-ui/logics/common/languageJumpGroups.ts:27:41 \"\" -> \"Stryker was here!\""
   },
+  "2368ydn5pix": {
+    "reason": "A null answer is read through optional chaining either way, so it gives no status and no settings.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/vr/Vr.tsx:226:59 response !== null -> true"
+  },
   "24srmxs4cad": {
     "reason": "Every choice the list disables is one choose() refuses too: your own language, a recipient already chosen, or a fourth recipient.",
     "where": "src-ui/views/vr/VrLanguageWindow.tsx:342:37 !choiceDisabled(languageChoices[0]) -> true"
+  },
+  "24zxu15emhz": {
+    "reason": "A save's answer is used only while the edit counter still equals the one it started with, so counting down changes the counter as surely as counting up.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/vr/Vr.tsx:206:13 editVersion.current++ -> editVersion.current--"
   },
   "25k6f1g2t0u": {
     "reason": "Past the checks for false and true, response is a BackendResponse object (StdoutResult is boolean | BackendResponse), so the optional chain never meets null or undefined.",
@@ -278,6 +290,10 @@
   "25qaju8ilc2": {
     "reason": "Focus and key events always come from an element, which has closest.",
     "where": "src-ui/views/vr/VrPickerList.tsx:30:70 target !== null && \"closest\" in target -> true"
+  },
+  "25sdicfev8g": {
+    "reason": "A save's answer is used only while the edit counter still equals the one it started with, so counting down changes the counter as surely as counting up.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/vr/Vr.tsx:216:9 editVersion.current++ -> editVersion.current--"
   },
   "26n5qtqj0t6": {
     "reason": "A string has no is_downloaded, so the placeholder is filtered out as an empty list is.",
@@ -423,6 +439,10 @@
     "reason": "Only an empty preset makes the key main///, and then the window has no settings and its main screen is hidden and disabled, so the first focus lands nowhere either way.",
     "where": "src-ui/views/vr/VrLanguageWindow.tsx:92:33 'main///' -> ''"
   },
+  "kfu3fy4mla": {
+    "reason": "The effect's dependencies are a constant list either way, so it runs once, when the editor is first drawn.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/vr/Vr.tsx:201:100 [] -> [\"Stryker was here!\"]"
+  },
   "la2qvp1xc8": {
     "reason": "No setting uses the get_list template or an empty template id, so this check never leaves a setting's set route out.",
     "where": "src-ui/logics/useReceiveRoutes.ts:782:38 \"get_list\" -> \"\""
@@ -483,6 +503,10 @@
     "reason": "A recipient's list always has an index, so the fallback index is never used.",
     "where": "src-ui/views/vr/VrLanguageWindow.tsx:234:74 -1 -> +1"
   },
+  "sm8mrsxkct": {
+    "reason": "The effect's dependencies are a constant list either way, so it runs once, when the controls are first drawn.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/vr/Vr.tsx:815:8 [] -> [\"Stryker was here!\"]"
+  },
   "sumx19h5ss": {
     "reason": "Only the first character is read; removing a prolonged-sound mark later in the name does not change it.",
     "where": "src-ui/logics/common/languageJumpGroups.ts:35:87 /^ー+/ -> /ー+/"
@@ -498,6 +522,10 @@
   "tkbl6f4ole": {
     "reason": "A registration without endpoints is never looked up, so a placeholder endpoint is never sent.",
     "where": "src-ui/logics/common/pendingRequestRecovery.ts:145:61 [] -> [\"Stryker was here!\"]"
+  },
+  "tptu4woutz": {
+    "reason": "The samples are already stopped whenever the settings are closed or no overlay is on, so stopping them on every other change of the two changes nothing.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/vr/Vr.tsx:747:13 !is_settings_open || !has_enabled_overlay -> true"
   },
   "tsn1jh1yn3": {
     "reason": "portalLost runs only through portalLostHandler, which a bind sets after registerShortcuts paused and so cleared any reconnect timer, and the timer is set only after the handler is cleared, so none is pending here.",
