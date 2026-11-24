@@ -44,3 +44,22 @@ export const errorCodeOf = (result: unknown): string | undefined => {
     const code = typeof result === "object" && result !== null && "error_code" in result ? result.error_code : undefined;
     return typeof code === "string" ? code : undefined;
 };
+
+// A form's save that says its own refusal under the form (#1111): `send` sends it to `endpoint`,
+// the refusal skips the notice, and `say` gets the keys of the words to say (refusalKeys), or
+// null once it is saved. The answer comes back as it is.
+export const saveSaidInline = async <R>(endpoint: string, send: () => Promise<R> | R, say: (keys: string[] | null) => void): Promise<R> => {
+    awaitInlineAnswer(endpoint);
+    try {
+        const response = await send();
+        const reply = typeof response === "object" && response !== null ? response : null;
+        const status = reply && "status" in reply ? reply.status : undefined;
+        if (!(typeof status === "number" && status !== 200)) settleInlineAnswer(endpoint);
+        say(status === 200 ? null : refusalKeys(errorCodeOf(reply && "result" in reply ? reply.result : undefined)));
+        return response;
+    } catch (error) {
+        settleInlineAnswer(endpoint);
+        say(refusalKeys(undefined));
+        throw error;
+    }
+};

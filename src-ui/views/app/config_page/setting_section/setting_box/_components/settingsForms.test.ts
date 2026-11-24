@@ -6,6 +6,7 @@ import { rebaseDraft } from "../../../../../../logics/voice/draftRebase.ts";
 import { changedPaths } from "../../../../../../logics/voice/saveBar.ts";
 import { hooks, loadModule, findIn, nodesIn, draw, drawWith, componentNamed, refOf, setRef, stubGlobals, eventTarget, kitStandIns } from "../../../../../../logics/test/hookHarness.ts";
 import type { TreeNode } from "../../../../../../logics/test/hookHarness.ts";
+import * as fieldErrors from "../../../../../../logics/configs/fieldErrors.ts";
 
 // The nodes of a tree the predicate picks, in the order find visits them.
 const all = (tree: unknown, predicate: (node: TreeNode) => unknown) => nodesIn(tree).filter(predicate);
@@ -40,7 +41,7 @@ for (const index of [0, 1, 2]) test(`word filter names its delete buttons and fo
     // The production hook's functions are destructured, so the fake uses closures too.
     state.updateMicWordFilterList = fn => { state.currentMicWordFilterList.data = fn(state.currentMicWordFilterList); };
     const Entry = () => null;
-    const { WordFilter } = await loadModule<typeof import("./word_filter/WordFilter.tsx")>(new URL("./word_filter/WordFilter.tsx", import.meta.url), runtime, {
+    const { WordFilter } = await loadModule<typeof import("./word_filter/WordFilter.tsx")>(new URL("./word_filter/WordFilter.tsx", import.meta.url), runtime, { "../../../../../../../logics/configs/fieldErrors.ts": fieldErrors, "../field_problem/FieldProblem": { FieldProblem: "field-problem" },
         "../../../../../../../logics/voice/useSettingsDraft": { useSettingsDraft },
         "@logics_configs": { useTranscription: () => state },
         "@store": { useStore_IsOpenedMicWordFilterList: () => ({ currentIsOpenedMicWordFilterList: { data: true } }) },

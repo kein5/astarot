@@ -454,6 +454,7 @@ config_page:
     # A setting that saves by itself, said under its field when the save does not go through (#1111).
     auto_save:
         save_failed: "保存できなかったため、保存してある値のままです。値を確かめて、Enterを押すか欄を離れると、もう一度保存します。"
+        list_save_failed: "保存できなかったため、一覧は前のままです。もう一度試してください。"
     custom_model_link: "自分のモデルを使う方法"
     about_vrct:
         image_links:
@@ -1532,8 +1533,7 @@ realtime:
   state_stopping: "字幕を停止中"
   state_closed: "字幕は停止中"
   state_failed: "エラーにより字幕を停止しました"
-  save_help: "変更を保存してから開始してください。入力の設定変更でその字幕を停止し、サーバーやモデルの変更で両方の字幕を停止します。"
-  save: "字幕設定を保存"
+  save_help: "変更はすぐに保存します。入力の設定を変えるとその字幕を停止し、サーバーやモデルを変えると両方の字幕を停止します。"
   auto_language: "自動判定（auto）"
   auto_help: "自動判定にはQwen3-ASRのように言語を判定できるモデルが必要です。同梱ASRサーバーが読み込むモデルは1つで両方の入力が共用するため、日本語以外を話すプレイヤーがいるならQwen3-ASRを選んでください。"
   follow_default_mic: "システムの既定の入力に従う"

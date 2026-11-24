@@ -1,12 +1,13 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import type { TestContext } from "vitest";
-import { componentName, componentOf, eventTarget, find, findIn, hooks, loadModule, nodesIn, stubGlobals, treeNode } from "../../../../../../logics/test/hookHarness.ts";
+import { componentName, componentOf, eventTarget, fieldOf, find, findIn, hooks, loadModule, nodesIn, stubGlobals, treeNode } from "../../../../../../logics/test/hookHarness.ts";
 import type { HookRuntime, TreeNode } from "../../../../../../logics/test/hookHarness.ts";
 import * as languageNames from "../../../../../../logics/common/languageNames.ts";
 import * as draftRebase from "../../../../../../logics/voice/draftRebase.ts";
 import { changedPaths } from "../../../../../../logics/voice/saveBar.ts";
 import type { SaveBarEntry } from "../../../../../../logics/voice/saveBar.ts";
+import * as fieldErrors from "../../../../../../logics/configs/fieldErrors.ts";
 
 // The realtime captions' form (RealtimeASRSettings.tsx) drawn with the real settings draft, which
 // makes the save bar's entry, and the real language names. The realtime ASR and speech server hooks
@@ -67,7 +68,7 @@ async function captionsForm(context: TestContext, given: Partial<Asr> = {}, opti
         ...ui, "./draftRebase": draftRebase,
         "./saveBar": { changedPaths, setSaveBarEntry: (id: string, entry: SaveBarEntry | null) => { if (entry) entries.set(id, entry); else entries.delete(id); } },
     });
-    const module = await loadModule<typeof import("./RealtimeASRSettings.tsx")>(new URL("./RealtimeASRSettings.tsx", import.meta.url), runtime, { ...ui,
+    const module = await loadModule<typeof import("./RealtimeASRSettings.tsx")>(new URL("./RealtimeASRSettings.tsx", import.meta.url), runtime, { "../../../../../../logics/configs/fieldErrors.ts": fieldErrors, "../_components/field_problem/FieldProblem": { FieldProblem: "field-problem" }, ...ui,
         "../../../../../../logics/common/languageNames.ts": languageNames,
         "../../../../../../logics/transcription/useRealtimeASR": { useRealtimeASR: () => ({ ...asr, send: hook.send, updateError: hook.updateError }) },
         "../../../../../../logics/voice/useSpeechServers": { useSpeechServers: () => ({ state: speech.state, send: hook.sendSpeech }) },
@@ -91,6 +92,9 @@ async function captionsForm(context: TestContext, given: Partial<Asr> = {}, opti
     };
     return { runtime, asr, speech, hook, sent, draw, open, entry };
 }
+
+// What the form saved, in order (#1111: a choice saves at once; the next waits for its answer).
+const saves = (f: { sent: unknown[][] }) => f.sent.filter(call => call[0] === "/set/data/realtime_asr_settings").map(call => call[1]);
 
 // The words a part of the tree shows.
 const textOf = (value: unknown): string => {
@@ -185,10 +189,13 @@ test("an external server needs its address; the bundled one asks whether a main 
     assert.equal(selectNamed(tree, "speech_servers.asr_selection").props.value, "bundled");
     assert.equal(find(tree, node => node.props?.["aria-label"] === "realtime.url"), null);
     const start = findIn(tree, node => node.type === "hint-check").props;
-    assert.deepEqual([start.label, start.description, start.disabled, start.checked], ["realtime.start_server", "realtime.start_server_help", false, true]);
+    assert.deepEqual([start.label, start.description, start.checked], ["realtime.start_server", "realtime.start_server_help", true]);
+    // A choice stays usable while a save waits, so focus stays on it (#1111).
+    assert.equal(start.disabled, undefined);
     start.onChange({ target: { checked: false } });
     assert.equal(findIn(f.draw(), node => node.type === "hint-check").props.checked, false);
-    assert.deepEqual(f.entry().changes, ["speech_servers.asr_selection", "realtime.url", "realtime.title"], "the start switch is named as the captions'");
+    // The server saves at once with the address typed so far; the start switch waits for its answer.
+    assert.deepEqual(saves(f).map(value => [fieldOf(value, "server"), fieldOf(value, "base_url")]), [["bundled", "http://other"]]);
 });
 
 test("the model list offers the server's models only while they are the current server's, and keeps a saved model named as unavailable", async context => {
@@ -278,7 +285,8 @@ test("each source follows the system's device or one chosen, keeps a lost one na
     assert.equal(findIn(fieldsetOf(tree, "mic"), node => node.type === "form-row").props.description, undefined, "a chosen device needs no word on following");
     assert.equal(selectNamed(fieldsetOf(tree, "speaker"), "realtime.speaker_input").props.value, "follow-default");
     assert.equal(findIn(fieldsetOf(tree, "speaker"), node => node.type === "form-row").props.description, "realtime.speaker_help\nrealtime.follow_default_help");
-    assert.deepEqual(f.entry().changes, ["realtime.mic_input", "realtime.speaker_input"]);
+    // The first choice saved at once; the others wait for its answer.
+    assert.deepEqual(saves(f).map(value => fieldOf(value, "speaker", "endpoint")), [endpoint("Out")]);
     // A device chosen that is not in the list (it went while the list was open) is saved as none.
     selectNamed(fieldsetOf(tree, "mic"), "realtime.mic_input").props.onChange({ target: { value: "[9]" } });
     tree = f.draw();
@@ -300,7 +308,7 @@ test("each source's language is one the model reads, with automatic detection wh
     selectNamed(f.draw(), "realtime.model").props.onChange({ target: { value: "qwen" } });
     tree = f.draw();
     assert.deepEqual(optionsOf(selectNamed(fieldsetOf(tree, "speaker"), "realtime.speaker_language")), [["en", "English"], ["auto", "realtime.auto_language"], ["ja", "Japanese"]]);
-    assert.deepEqual(f.entry().changes, ["realtime.model", "realtime.mic_language"]);
+    assert.deepEqual(saves(f).map(value => fieldOf(value, "mic", "language")), ["en"]);
     // No model known: only the saved language.
     const unknown = await captionsForm(context, { models: {} });
     assert.deepEqual(optionsOf(selectNamed(fieldsetOf(unknown.open(), "mic"), "realtime.mic_language")), [["ja", "Japanese"]]);
@@ -357,34 +365,26 @@ test("the dictionary's built-in terms can be left out, and its help is the legen
     tree = f.draw();
     assert.equal(findIn(tree, node => node.type === "input" && node.props.type === "checkbox").props.checked, false);
     assert.deepEqual(findIn(tree, node => node.type === "vocabulary-list").props.vocabulary, { terms: [], builtin: false });
-    assert.deepEqual(f.entry().changes, ["realtime.vocabulary_builtin"]);
-    findIn(tree, node => node.type === "vocabulary-list").props.onVocabulary({ builtin: false, terms: [{ term: "ASTAROT" }] });
-    f.draw();
-    assert.deepEqual([...f.entry().changes].sort(), ["realtime.vocabulary_builtin", "realtime.vocabulary_user"]);
+    assert.deepEqual(saves(f).map(value => fieldOf(value, "vocabulary")), [{ terms: [], builtin: false }]);
     const hinted = await captionsForm(context, {}, { hints: true });
     const legend = findIn(hinted.open(), node => node.props?.["data-hint-host"] === true);
     assert.equal(textOf(legend), "realtime.vocabulary");
     assert.deepEqual([findIn(legend, node => node.type === "hint").props.text, findIn(legend, node => node.type === "hint").props.focusable], ["realtime.vocabulary_help", true]);
 });
 
-test("the save button and Enter save the edits once, and the save bar names each changed setting", async context => {
+test("a choice saves at once with no Save button, and nothing is sent again while a save waits", async context => {
     const f = await captionsForm(context);
     let tree = f.open();
-    const save = () => buttonNamed(f.draw(), "realtime.save");
-    assert.deepEqual([save().props.type, save().props.disabled], ["submit", true]);
+    assert.equal(find(tree, node => node.type === "button" && node.props.type === "submit"), null, "no Save button");
     let prevented = 0;
     findIn(tree, node => node.type === "form").props.onSubmit({ preventDefault: () => { prevented++; } });
     assert.equal(prevented, 1);
-    assert.equal(f.sent.some(call => call[0] === "/set/data/realtime_asr_settings"), false, "nothing to save");
+    assert.equal(saves(f).length, 0, "nothing to save");
     selectNamed(tree, "realtime.vad_threshold").props.onChange({ target: { value: "0.5" } });
-    tree = f.draw();
-    assert.equal(save().props.disabled, false);
-    assert.deepEqual(f.entry().changes, ["realtime.vad_threshold"]);
-    findIn(tree, node => node.type === "form").props.onSubmit({ preventDefault() {} });
+    f.draw();
     assert.deepEqual(f.sent.at(-1), ["/set/data/realtime_asr_settings", { ...settings, vad_threshold: 0.5 }]);
     tree = f.draw();
     assert.equal(findIn(tree, node => node.type === "form").props["aria-busy"], true);
-    assert.equal(save().props.disabled, true, "not again while it saves");
     findIn(tree, node => node.type === "form").props.onSubmit({ preventDefault() {} });
-    assert.equal(f.sent.filter(call => call[0] === "/set/data/realtime_asr_settings").length, 1);
+    assert.equal(saves(f).length, 1);
 });

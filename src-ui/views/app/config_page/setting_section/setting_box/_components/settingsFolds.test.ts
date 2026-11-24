@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "vitest";
 import { hooks, loadModule, find, findIn, nodesIn, componentName, draw, stubGlobals, kitStandIns } from "../../../../../../logics/test/hookHarness.ts";
 import type { TreeNode } from "../../../../../../logics/test/hookHarness.ts";
+import * as fieldErrors from "../../../../../../logics/configs/fieldErrors.ts";
 
 // The word filter's registered words and the sent message format's other examples fold as the
 // rest of the settings do, with the app's one fold (#820): a bar for the list of words, the
@@ -17,12 +18,12 @@ async function wordFilter(context: Parameters<typeof stubGlobals>[0], words: str
     const store = { opened, updates: [] as boolean[] };
     let draft: string[] | null = null;
     const state = { currentMicWordFilterList: { data: words }, setMicWordFilterList() {} };
-    const { WordFilter } = await loadModule<typeof import("./word_filter/WordFilter.tsx")>(new URL("./word_filter/WordFilter.tsx", import.meta.url), runtime, {
+    const { WordFilter } = await loadModule<typeof import("./word_filter/WordFilter.tsx")>(new URL("./word_filter/WordFilter.tsx", import.meta.url), runtime, { "../../../../../../../logics/configs/fieldErrors.ts": fieldErrors, "../field_problem/FieldProblem": { FieldProblem: "field-problem" },
         "@useI18n": { useI18n: () => ({ t }) },
         "@logics_configs": { useTranscription: () => state },
         "@store": { useStore_IsOpenedMicWordFilterList: () => ({ currentIsOpenedMicWordFilterList: { data: store.opened },
             updateIsOpenedMicWordFilterList: (open: boolean) => { store.opened = open; store.updates.push(open); } }) },
-        [draftPath]: { useSettingsDraft: () => ({ draft, setDraft: (next: string[]) => { draft = next; }, navigationDialog: null }) },
+        [draftPath]: { useSettingsDraft: () => ({ draft, setDraft: (next: string[]) => { draft = next; }, change: (next: string[]) => { draft = next; }, navigationDialog: null }) },
         "../_atoms/_entry/_Entry": { _Entry: "entry" },
         "../fold/Fold": { Fold: "fold" },
     });
@@ -84,7 +85,7 @@ const defaults = { message: { prefix: "", suffix: "" }, separator: "\n", transla
 async function messageFormat(format_id: "send" | "received", shown: "Simplified" | "All", data = defaults) {
     const runtime = hooks();
     const views = { data: { send: shown, received: "Simplified" } }, updates: unknown[] = [], drafts: (typeof defaults)[] = [];
-    const { MessageFormat } = await loadModule<typeof import("./message_format/MessageFormat.tsx")>(new URL("./message_format/MessageFormat.tsx", import.meta.url), runtime, {
+    const { MessageFormat } = await loadModule<typeof import("./message_format/MessageFormat.tsx")>(new URL("./message_format/MessageFormat.tsx", import.meta.url), runtime, { "../../../../../../../logics/configs/fieldErrors.ts": fieldErrors, "../field_problem/FieldProblem": { FieldProblem: "field-problem" },
         "react-i18next": { useTranslation: () => ({ t }) },
         "@store": { useStore_IsBreakPoint: () => ({ currentIsBreakPoint: { data: false } }),
             useStore_MessageFormat_ExampleViewFilter: () => ({ currentMessageFormat_ExampleViewFilter: views,
@@ -92,7 +93,7 @@ async function messageFormat(format_id: "send" | "received", shown: "Simplified"
         "@logics_configs": { useAppearance: () => ({ currentUiLanguage: { data: "ja" } }) },
         "@ui_configs": { ui_configs: { send_message_format_parts: defaults, received_message_format_parts: defaults } },
         "@common_components": { ResetButton: "reset" },
-        [draftPath]: { useSettingsDraft: () => ({ draft: null, setDraft: (value: typeof defaults) => drafts.push(value), submit() {}, navigationDialog: null }) },
+        [draftPath]: { useSettingsDraft: () => ({ draft: null, setDraft: (value: typeof defaults) => drafts.push(value), change: (value: typeof defaults) => drafts.push(value), submit() {}, commit() {}, navigationDialog: null }) },
         "../_atoms/_entry/_Entry": { _Entry: "entry" },
         "../fold/Fold": { Fold: "fold" },
     });
