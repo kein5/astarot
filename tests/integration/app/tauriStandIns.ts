@@ -22,6 +22,7 @@ declare global {
 
 const answers: Record<string, unknown> = {
     get_font_list: ["Noto Sans", "Noto Sans JP"],
+    pick_folder: null,
     caption_overlay_supported: false,
     screencast_support: { supported: false, active: false },
     quick_chat_shortcut_platform: "x11",

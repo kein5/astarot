@@ -158,7 +158,7 @@ test("legacy model information wraps above its action inside the padded row, inc
     }
 });
 
-test("word-filter input/Add and export controls wrap within the actual available width", () => {
+test("word-filter input/Add wraps within the actual available width and auto-export logs uses the shared checkbox row", () => {
     const word = read(box + "_components/word_filter/WordFilter.css.ts");
     const entry = styleOf(word, "entry_section_wrapper");
     assert.match(entry, /flexWrap: "wrap"/);
@@ -167,26 +167,13 @@ test("word-filter input/Add and export controls wrap within the actual available
     // Add keeps its width beside the entry; the kit's Button wraps long words inside itself.
     assert.match(styleOf(word, "add_button"), /flexShrink: 0/);
     assert.match(read("../../kit/Button.css.ts"), /maxWidth: "100%",[\s\S]*?overflowWrap: "anywhere",/);
-    const shared = read(box + "shared_items/SharedItems.css.ts");
-    const sharedRules = styleOf(shared, "auto_export_message_logs_container");
-    assert.match(sharedRules, /gridTemplateColumns: "minmax\(0, 1fr\) minmax\(0, 1\.6fr\)"/);
-    assert.match(sharedRules, /"@container": \{ "\(max-width: 41\.6rem\)": stacked \}/);
-    assert.match(sharedRules, /"@media": \{ "\(max-width: 700px\)": stacked \}/);
-    assert.match(sharedRules, /minWidth: 0/);
-    assert.match(shared, /globalStyle\(`\$\{auto_export_message_logs_container\} > \*`, \{ minWidth: 0, maxWidth: "100%" \}\)/);
-    const switchRules = styleOf(shared, "auto_export_message_logs_switch_section_container");
-    assert.match(switchRules, /flexWrap: "wrap"/);
-    assert.match(switchRules, /justifyContent: "flex-end"/);
-    assert.match(switchRules, /minWidth: 0/);
-    assert.match(switchRules, /maxWidth: "100%"/);
+    const shared = read(box + "shared_items/SharedItems.tsx");
+    assert.match(shared, /export const AutoExportMessageLogsContainer = \(\) => \{[\s\S]*?<CheckboxContainer[\s\S]*?setting_id="auto_export_message_logs"/);
     for (const [scroller, rem] of [[672, 20], [344, 10]]) {
         const row = scroller - (3.2 + 4) * rem;
         const add = (2 * 1.4 + 2 * 1.2) * rem; // 追加 + button padding.
         assert.ok(18 * rem + 2 * rem + add <= row, "input yields space to Add");
         assert.ok(30 * rem + 2 * rem + add > row, "old fixed preference would overflow");
-        const exportActions = (2.4 + 4 + 2.8 + 4 + 1.2) * rem;
-        assert.ok(exportActions <= row);
-        assert.ok(16 * rem + 2 * rem + exportActions > row, "export actions must wrap below their label");
     }
 });
 

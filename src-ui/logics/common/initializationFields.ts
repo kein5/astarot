@@ -89,6 +89,8 @@ export const createInitializationValidators = (settings: readonly SettingDefinit
         // ({x: null, y: null}) would only let the nulls through and drop a saved place.
         overlay_desktop_placement: value => record(value)
             && ((value.x === null && value.y === null) || (Number.isInteger(value.x) && Number.isInteger(value.y))),
+        // Effective conversation log folder and optional fallback error code (#1096, #1118).
+        path_logs: value => record(value) && string(value.path) && (value.error_code === null || string(value.error_code)),
     };
     for (const name of ["voice_settings", "voice_status", "voice_route", "voice_output_devices", "tts_model_options",
         "direct_voice_state", "direct_voice_sources", "speech_server_settings", "speech_server_state",
