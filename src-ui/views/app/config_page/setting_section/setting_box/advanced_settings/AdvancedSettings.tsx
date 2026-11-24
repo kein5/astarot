@@ -1,4 +1,5 @@
 import { useId, useMemo, useState } from "react";
+import type { FocusEvent, KeyboardEvent } from "react";
 import { useI18n } from "@useI18n";
 import { useStdoutToPython } from "@useStdoutToPython";
 import * as styles from "./AdvancedSettings.css.ts";
@@ -13,6 +14,7 @@ import { parsePortInput, PORT_INPUT_LIMITS } from "../../../../../../logics/conf
 import { rvcBlockChoiceId, rvcBlockChoices } from "../../../../../../logics/configs/rvcBlockChoices";
 import type { DropdownSelection } from "../_components/_atoms/_dropdown_menu/_DropdownMenu";
 import { buildObsBrowserSourceUrl, buildWebsocketUrl } from "../../../../../../logics/configs/obsBrowserSourceUrl";
+import { logDirectoryErrorKey, pickLogDirectory, validateLogDirectoryInput } from "../../../../../../logics/configs/logDestination";
 import { useSettingsDraft } from "../../../../../../logics/voice/useSettingsDraft";
 import { useConsentDialog } from "../../../../../../logics/common/useConsentDialog";
 import { shownTelemetry, telemetryUnanswered, toggleTelemetryOrAnswer } from "../../../../../../logics/configs/telemetryToggle";
@@ -35,8 +37,11 @@ import {
 } from "../_templates/Templates";
 
 import {
+    ActionButton,
+    LabelComponent,
     SectionLabelComponent,
 } from "../_components";
+import { _Entry } from "../_components/_atoms/_entry/_Entry";
 
 import OpenFolderSvg from "@images/open_folder.svg?react";
 import CopyThinSvg from "@images/copy_thin.svg?react";
@@ -71,6 +76,7 @@ export const AdvancedSettings = () => {
             <div>
                 <SectionLabelComponent label={t("config_page.advanced_settings.section_label_logs")} />
                 <AutoExportMessageLogsContainer />
+                <LogDestinationContainer />
             </div>
             <div>
                 <SectionLabelComponent label={t("config_page.advanced_settings.section_label_config_file")} />
@@ -202,20 +208,185 @@ const OscQueryContainer = () => {
     );
 };
 
-const OpenConfigFolderContainer = () => {
+// Conversation log folder (#1096, #1115, #1118): editable path, native folder picker, reset to
+// default, and open-folder action. Auto-saves on Enter, blur, folder pick, and reset (#1111);
+// invalid paths are never saved and show an inline validation message explaining what is wrong
+// and what value is acceptable.
+export const LogDestinationContainer = () => {
     const { t } = useI18n();
-    const { openFolder_ConfigFile } = useOpenFolder();
+    const { currentPathLogs, setPathLogs } = useAdvancedSettings();
+    const { openFolder_MessageLogs } = useOpenFolder();
+    const labelId = useId();
+    const errorId = useId();
+
+    const savedPath = typeof currentPathLogs.data?.path === "string" ? currentPathLogs.data.path : "";
+    const backendError = typeof currentPathLogs.data?.error_code === "string" ? currentPathLogs.data.error_code : null;
+    const [edited, setEdited] = useState<string | null>(null);
+    const [localError, setLocalError] = useState<string | null>(null);
+    const [picking, setPicking] = useState(false);
+
+    const busy = currentPathLogs.state === "pending" || picking;
+    const shownPath = edited ?? savedPath;
+    const activeError = localError ?? (edited === null ? backendError : null);
+    const label = t("config_page.others.auto_export_message_logs.destination_label");
+
+    const submitPath = async (nextPath: string) => {
+        const response = await setPathLogs(nextPath);
+        const reply = answerOf(response);
+        if (reply?.status === 200) {
+            setEdited(null);
+            setLocalError(null);
+            return;
+        }
+        setEdited(nextPath);
+        setLocalError(errorCodeOf(reply?.result) ?? "log_directory_invalid");
+    };
+
+    const commitEdited = async (draft: string | null) => {
+        if (draft === null || busy) return;
+        const trimmed = draft.trim();
+        if (trimmed === savedPath && trimmed !== "") {
+            setEdited(null);
+            setLocalError(null);
+            return;
+        }
+        const checked = validateLogDirectoryInput(draft);
+        if (!checked.ok) {
+            setLocalError(checked.error_code);
+            return;
+        }
+        await submitPath(checked.path);
+    };
+
+    const chooseFolder = async () => {
+        if (busy) return;
+        setLocalError(null);
+        setPicking(true);
+        try {
+            const picked = await pickLogDirectory(
+                savedPath || null,
+                t("config_page.others.auto_export_message_logs.choose_folder"),
+            );
+            if (!picked.ok) {
+                setLocalError(picked.error_code);
+                return;
+            }
+            if (picked.path !== null) {
+                await submitPath(picked.path);
+            }
+        } finally {
+            setPicking(false);
+        }
+    };
+
+    const resetFolder = async () => {
+        if (busy) return;
+        const response = await setPathLogs(null);
+        const reply = answerOf(response);
+        if (reply?.status === 200) {
+            setEdited(null);
+            setLocalError(null);
+            return;
+        }
+        setLocalError(errorCodeOf(reply?.result) ?? "log_directory_invalid");
+    };
+
+    const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+        if (event.key === "Escape") {
+            setEdited(null);
+            setLocalError(null);
+        }
+    };
+
+    const handleBlur = (event: FocusEvent<HTMLInputElement>) => {
+        const next = event.relatedTarget as HTMLElement | null;
+        if (next?.dataset?.skipBlurCommit === "true") return;
+        return commitEdited(edited);
+    };
 
     return (
-        <>
-            <ActionButtonContainer
-                label={t("config_page.advanced_settings.open_config_filepath.label")}
-                IconComponent={OpenFolderSvg}
-                ClickedIconComponent={CheckMarkSvg}
-                clicked_duration={1000}
-                onclickFunction={openFolder_ConfigFile}
-            />
-        </>
+        <div
+            className={styles.log_destination_row}
+            data-setting-id="message_logs_destination"
+            data-setting-label={label}
+            data-hint-row
+        >
+            <LabelComponent label={label} label_id={labelId} />
+            <div className={styles.log_destination_control} data-invalid={activeError ? "true" : undefined}>
+                <_Entry
+                    label={label}
+                    aria-labelledby={labelId}
+                    aria-invalid={activeError ? true : undefined}
+                    aria-describedby={activeError ? errorId : undefined}
+                    ui_variable={shownPath}
+                    readOnly={busy}
+                    aria-busy={busy}
+                    aria-disabled={busy}
+                    onChange={event => {
+                        setEdited(event.target.value);
+                        if (localError) setLocalError(null);
+                    }}
+                    onEnterPressed={() => commitEdited(edited)}
+                    onKeyDown={handleKeyDown}
+                    onBlur={handleBlur}
+                />
+                <div className={styles.log_destination_actions}>
+                    <button
+                        type="button"
+                        className={styles.log_destination_button}
+                        data-skip-blur-commit="true"
+                        disabled={busy}
+                        onClick={() => chooseFolder()}
+                    >
+                        {t("config_page.others.auto_export_message_logs.choose_folder")}
+                    </button>
+                    <button
+                        type="button"
+                        className={styles.log_destination_button}
+                        data-skip-blur-commit="true"
+                        disabled={busy}
+                        onClick={() => resetFolder()}
+                    >
+                        {t("config_page.others.auto_export_message_logs.reset_folder")}
+                    </button>
+                    <ActionButton
+                        label={label}
+                        action_label={t("config_page.others.auto_export_message_logs.open_folder")}
+                        IconComponent={OpenFolderSvg}
+                        ClickedIconComponent={CheckMarkSvg}
+                        clicked_duration={1000}
+                        onclickFunction={openFolder_MessageLogs}
+                    />
+                </div>
+                {activeError && (
+                    <p id={errorId} role="alert" className={styles.log_destination_error}>
+                        {t(logDirectoryErrorKey(activeError))}
+                    </p>
+                )}
+            </div>
+        </div>
+    );
+};
+
+// Read-only config file path (#1096, #1115, #1118) with open-folder action.
+export const OpenConfigFolderContainer = () => {
+    const { t } = useI18n();
+    const { currentPathConfig } = useAdvancedSettings();
+    const { openFolder_ConfigFile } = useOpenFolder();
+    const configPath = typeof currentPathConfig.data === "string" && currentPathConfig.data ? currentPathConfig.data : undefined;
+
+    return (
+        <ActionButtonContainer
+            setting_id="config_file_destination"
+            label={t("config_page.advanced_settings.open_config_filepath.label")}
+            desc={configPath}
+            keep_desc={Boolean(configPath)}
+            action_label={t("config_page.advanced_settings.open_config_filepath.open_folder")}
+            IconComponent={OpenFolderSvg}
+            ClickedIconComponent={CheckMarkSvg}
+            clicked_duration={1000}
+            onclickFunction={openFolder_ConfigFile}
+        />
     );
 };
 

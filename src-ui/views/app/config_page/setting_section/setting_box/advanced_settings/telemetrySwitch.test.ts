@@ -27,12 +27,14 @@ async function render({ enabled, pending }: { enabled: boolean; pending: boolean
         "../../../../../../logics/configs/networkPortInput": {},
         "../../../../../../logics/configs/rvcBlockChoices": {},
         "../../../../../../logics/configs/obsBrowserSourceUrl": {},
+        "../../../../../../logics/configs/logDestination": {},
         "../../../../../../logics/voice/useSettingsDraft": {},
         "../../../../../../logics/common/useConsentDialog": {},
         "@logics_common": {},
         "@logics_configs": { useOthers: () => others, useAdvancedSettings: () => ({}) },
         "../_templates/Templates": { CheckboxContainer },
         "../_components": { SectionLabelComponent: () => null },
+        "../_components/_atoms/_entry/_Entry": { _Entry: () => null },
         "../_components/hint/Hint": { HintDescriptions: "hints" },
     });
     const page = runtime.render(module.AdvancedSettings);
