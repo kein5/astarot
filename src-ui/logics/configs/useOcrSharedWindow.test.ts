@@ -93,3 +93,9 @@ test("without a saved token the desktop asks which window to share", async () =>
     await s.hook().share();
     assert.deepEqual(s.invoked, [["screencast_start", { restoreToken: null }]]);
 });
+
+test("while the desktop is being asked, sharing again asks nothing", async () => {
+    const s = await load({ window: { ...SHARED, busy: true } });
+    await s.hook().share();
+    assert.deepEqual([s.invoked, s.sent[0]], [[], []]);
+});

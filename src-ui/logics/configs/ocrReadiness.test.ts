@@ -221,3 +221,9 @@ test("a worker that is stopped, or not active, reads as the readiness says, neut
     }
     assert.equal(captureStatusSummary({ active: true, state: "reading", source: "vr" }, ready).key, "config_page.ocr.runtime.reading");
 });
+
+test("nothing is ready while the readiness is not known, and a shared window is lost only while the worker retries", () => {
+    for (const readiness of [null, undefined]) assert.deepEqual(readinessSummary(readiness), { key: "config_page.ocr.readiness.checking", params: {}, ok: false });
+    assert.equal(runtimeSummary({ state: "reading", stage: "capture", shared_window: "ended" })?.key, "config_page.ocr.runtime.reading");
+    assert.equal(runtimeSummary({ state: "retrying", stage: "capture", shared_window: "ended" })?.key, "config_page.ocr.runtime.shared_window_ended");
+});
