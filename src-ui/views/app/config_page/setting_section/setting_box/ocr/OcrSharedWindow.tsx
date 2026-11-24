@@ -5,6 +5,7 @@ import { sharedWindowView } from "../../../../../../logics/configs/ocrSharedWind
 import { EnvReadout } from "../_components/env_readout/EnvReadout";
 import { RegionTitle } from "./OcrRegions";
 import * as styles from "./Ocr.css.ts";
+import { Button } from "../../../../../kit/index.ts";
 
 // Linux on Wayland: share one window with chat reading through the desktop's own dialog.
 // For a VRChat window that cannot be found by its name (native Wayland). Shown nowhere else.
@@ -25,16 +26,16 @@ export const OcrSharedWindow = () => {
                 {view.errorKey && <p>{t(view.errorKey, { code: view.errorCode })}</p>}
             </EnvReadout>
             <div className={styles.sharedActions}>
-                {/* aria-disabled keeps the keyboard focus here while the desktop's dialog is open. */}
-                <button type="button" ref={shareButton} className={styles.resetButton} aria-disabled={!view.canShare}
+                {/* aria-disabled keeps the keyboard focus here while the desktop's dialog is open. Both
+                    are the kit's plain Button. */}
+                <Button ref={shareButton} aria-disabled={!view.canShare}
                     onClick={() => { if (view.canShare) share({ choose: active }); }}>
                     {t(view.shareKey)}
-                </button>
+                </Button>
                 {view.canStop &&
-                    <button type="button" className={styles.resetButton}
-                        onClick={async () => { await stop(); shareButton.current?.focus(); }}>
+                    <Button onClick={async () => { await stop(); shareButton.current?.focus(); }}>
                         {t("config_page.ocr.shared_window.stop")}
-                    </button>}
+                    </Button>}
             </div>
         </section>
     );
