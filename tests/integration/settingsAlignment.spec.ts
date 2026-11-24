@@ -2,8 +2,9 @@ import { expect, test } from "./fixtures";
 import type { Page } from "@playwright/test";
 
 // #1096: setting controls of every kind (checkboxes, standalone icon buttons, inputs,
-// dropdowns/selects, color inputs, sliders, radios, hotkeys, and FormRow/form action buttons)
-// align their right edge on one vertical column at the row's right end across every settings page.
+// compact dropdowns/selects, color inputs, sliders, radios, hotkeys, and FormRow/form action
+// buttons) align their right edge on one vertical column at the row's right end across every
+// settings page, and dropdowns/selects stay compact rather than stretching across the whole column.
 test.use({
     viewport: { width: 1280, height: 800 },
     settings: {
@@ -16,6 +17,7 @@ interface RowControlMeasurement {
     label: string;
     kind: string;
     inFold: boolean;
+    width: number;
     right: number;
     expectedRight: number;
 }
@@ -103,11 +105,13 @@ const measureRowControls = (page: Page): Promise<RowControlMeasurement[]> =>
             }
             if (!target) continue;
 
+            const rect = target.getBoundingClientRect();
             results.push({
                 label,
                 kind,
                 inFold: Boolean(row.closest("details")),
-                right: Math.round(target.getBoundingClientRect().right),
+                width: Math.round(rect.width),
+                right: Math.round(rect.right),
                 expectedRight: rowRightOf(row),
             });
         }
@@ -118,11 +122,13 @@ const measureRowControls = (page: Page): Promise<RowControlMeasurement[]> =>
             const input = labelElement.querySelector<HTMLElement>('input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select');
             if (!input || !isVisible(input)) continue;
             const label = (labelElement.textContent ?? "").trim().replace(/\s+/g, " ").slice(0, 48);
+            const rect = input.getBoundingClientRect();
             results.push({
                 label,
                 kind: input.tagName.toLowerCase(),
                 inFold: Boolean(labelElement.closest("details")),
-                right: Math.round(input.getBoundingClientRect().right),
+                width: Math.round(rect.width),
+                right: Math.round(rect.right),
                 expectedRight: rowRightOf(labelElement),
             });
         }
@@ -130,7 +136,7 @@ const measureRowControls = (page: Page): Promise<RowControlMeasurement[]> =>
         return results;
     });
 
-test("settings controls of every kind share one right edge across every settings page", async ({ app }) => {
+test("settings controls of every kind share one right edge and keep dropdowns compact across every settings page", async ({ app }) => {
     const assertPageRightAligned = (pageName: string, items: RowControlMeasurement[], minCount: number) => {
         expect(items.length, `${pageName}: measured rows`).toBeGreaterThanOrEqual(minCount);
         const topLevel = items.filter(item => !item.inFold);
@@ -139,6 +145,9 @@ test("settings controls of every kind share one right edge across every settings
             expect.soft(Math.abs(item.right - item.expectedRight), `${pageName} "${item.label}" (${item.kind}): right=${item.right}, expected ${item.expectedRight}`).toBeLessThanOrEqual(2);
             if (!item.inFold) {
                 expect.soft(Math.abs(item.right - pageRight), `${pageName} "${item.label}" (${item.kind}): right=${item.right}, page right=${pageRight}`).toBeLessThanOrEqual(2);
+            }
+            if (item.kind === "dropdown" || item.kind === "select") {
+                expect.soft(item.width, `${pageName} "${item.label}" (${item.kind}): width=${item.width} should stay compact (<= 325px)`).toBeLessThanOrEqual(325);
             }
         }
         return pageRight;
@@ -183,7 +192,7 @@ test("settings controls of every kind share one right edge across every settings
     }
 
     // Voice changer (RVC): FormRow buttons (audio route, RVC switch, monitor), numeric inputs,
-    // input select + refresh button, Start/Stop buttons, and the disabled-start reason share one right edge.
+    // compact input select + refresh button, Start/Stop buttons, and the disabled-start reason share one right edge.
     await app.page.getByRole("button", { name: "Voice changer (RVC)", exact: true }).click();
     await app.page.waitForTimeout(250);
     const rvcRight = assertPageRightAligned("RVC", await measureRowControls(app.page), 6);
@@ -194,28 +203,27 @@ test("settings controls of every kind share one right edge across every settings
     const monitorButtonRight = await app.page.locator('[data-setting-id="rvc_settings"] [data-page-pointer="tts"]').evaluate(el => Math.round(el.getBoundingClientRect().right));
     expect(Math.abs(monitorButtonRight - rvcRight), `RVC Monitor link button right=${monitorButtonRight}, expected ${rvcRight}`).toBeLessThanOrEqual(2);
 
-    // Device: dropdowns align to the row's right end, while Auto select checkboxes remain flush
-    // with their own rows' field column start over the lists they choose for.
+    // Device: Auto select checkboxes and compact dropdowns align flush at the row's right end.
     await app.page.getByRole("button", { name: "Device", exact: true }).click();
     await app.page.waitForTimeout(250);
-    const deviceRows = await app.page.locator('[data-setting-id="mic_host_device"], [data-setting-id="speaker_device"]').evaluateAll(rows => {
-        const rootFontSize = parseFloat(getComputedStyle(document.documentElement).fontSize) || 10;
-        const gapPx = 1.6 * rootFontSize;
-        return rows.map(row => {
-            const box = row.querySelector<HTMLElement>('input[type="checkbox"] + span');
+    const deviceRows = await app.page.locator('[data-setting-id="mic_host_device"], [data-setting-id="speaker_device"]').evaluateAll(rows =>
+        rows.map(row => {
+            const label = row.querySelector<HTMLElement>('input[type="checkbox"]')?.closest<HTMLElement>("label");
             const dropdown = row.querySelector<HTMLElement>('[role="combobox"]');
             const rect = row.getBoundingClientRect();
+            const dropdownRect = dropdown?.getBoundingClientRect();
             return {
-                boxLeft: box ? Math.round(box.getBoundingClientRect().left) : -1,
-                expectedLeft: Math.round(rect.left + (rect.width - gapPx) / 2.6 + gapPx),
-                dropdownRight: dropdown ? Math.round(dropdown.getBoundingClientRect().right) : -1,
+                autoSelectRight: label ? Math.round(label.getBoundingClientRect().right) : -1,
+                dropdownRight: dropdownRect ? Math.round(dropdownRect.right) : -1,
+                dropdownWidth: dropdownRect ? Math.round(dropdownRect.width) : -1,
                 expectedRight: Math.round(rect.right),
             };
-        });
-    });
+        }),
+    );
     expect(deviceRows.length).toBe(2);
-    for (const { boxLeft, expectedLeft, dropdownRight, expectedRight } of deviceRows) {
-        expect(Math.abs(boxLeft - expectedLeft), `Device auto-select checkbox left=${boxLeft}, expected ${expectedLeft}`).toBeLessThanOrEqual(2);
+    for (const { autoSelectRight, dropdownRight, dropdownWidth, expectedRight } of deviceRows) {
+        expect(Math.abs(autoSelectRight - expectedRight), `Device auto-select right=${autoSelectRight}, expected ${expectedRight}`).toBeLessThanOrEqual(2);
         expect(Math.abs(dropdownRight - expectedRight), `Device dropdown right=${dropdownRight}, expected ${expectedRight}`).toBeLessThanOrEqual(2);
+        expect(dropdownWidth, `Device dropdown width=${dropdownWidth} should stay compact (<= 325px)`).toBeLessThanOrEqual(325);
     }
 });

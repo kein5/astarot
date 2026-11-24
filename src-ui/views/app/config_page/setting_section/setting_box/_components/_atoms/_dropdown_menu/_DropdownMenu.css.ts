@@ -16,6 +16,7 @@ const dropdownRow = keyframes({ from: { opacity: 0, transform: "translateY(-0.4r
 
 export const container = style({
     position: "relative",
+    width: "100%",
 });
 
 // The same field as the forms' selects (VoiceSettings.css.ts, DESIGN.md "input"):
@@ -57,7 +58,7 @@ export const dropdown_content_wrapper = style({
     display: "none",
     position: "absolute",
     right: 0,
-    minWidth: "20rem",
+    minWidth: "100%",
     zIndex: 1,
     selectors: {
         [`&.${open_below}`]: { top: "calc(100% + 0.4rem)", bottom: "auto", transformOrigin: "top" },

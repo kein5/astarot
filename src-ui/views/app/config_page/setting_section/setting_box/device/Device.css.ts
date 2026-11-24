@@ -65,10 +65,11 @@ export const device_label = style({
     fontSize: "1.8rem",
 });
 
-// 自動選択 over the list, which fills the field column, as the microphone's lists stack.
+// 自動選択 over the list, both aligned flush at the row's right end (#1096).
 export const device_contents = style({
     display: "flex",
     flexDirection: "column",
+    alignItems: "flex-end",
     width: "100%",
     minWidth: 0,
     gap: "1.2rem",

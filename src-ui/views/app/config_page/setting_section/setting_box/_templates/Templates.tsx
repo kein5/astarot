@@ -110,7 +110,7 @@ export type DropdownMenuContainerProps = TemplateRowProps & DropdownMenuProps;
 export const DropdownMenuContainer = (props: DropdownMenuContainerProps) => {
     const accessibility = useTemplateAccessibility(props);
     return (
-        <TemplatesContainerWrapper {...props}>
+        <TemplatesContainerWrapper {...props} control_align={props.control_align ?? "end"}>
             <LabelComponent {...props} {...accessibility} />
             <DropdownMenu {...props} {...accessibility} />
         </TemplatesContainerWrapper>
@@ -125,7 +125,7 @@ export const MultiDropdownMenuContainer = <P extends object>(props: MultiDropdow
     const { currentIsBreakPoint } = useStore_IsBreakPoint();
 
     return (
-        <TemplatesContainerWrapper {...props}>
+        <TemplatesContainerWrapper {...props} control_align={props.control_align ?? "end"}>
             <LabelComponent {...props} {...accessibility} />
             <MultiDropdownMenu {...accessibility} dropdown_settings={props.dropdown_settings} is_break_point={currentIsBreakPoint.data} />
         </TemplatesContainerWrapper>

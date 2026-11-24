@@ -119,6 +119,12 @@ globalStyle(inForm("select option"), { color: "var(--dark_200_color, #e5e7eb)", 
 // Where the engine can style a select's list (WebView2), the list drops from the field and
 // settles like the shared dropdown, with the same rows. Elsewhere (WebKitGTK) the system list stays.
 globalStyle(inForm("select"), {
+    width: "fit-content",
+    minWidth: "min(20rem, 100%)",
+    maxWidth: "min(32rem, 100%)",
+    justifySelf: "end",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
     paddingRight: "3.6rem",
     backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2 4.25 6 8l4-3.75' fill='none' stroke='%239daec6' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`,
     backgroundRepeat: "no-repeat",
@@ -527,7 +533,7 @@ globalStyle(variants.join(", "), {
     "@container": { [NARROW_FACTS]: { gridTemplateColumns: "minmax(0, 1fr)" } },
 });
 globalStyle(variants.map(selector => `${selector} > :last-child`).join(", "), { fontSize: "1.3rem", color: vars.dark_200_color });
-globalStyle(variants.map(selector => `${selector} select`).join(", "), { width: "auto", maxWidth: "100%" });
+globalStyle(variants.map(selector => `${selector} select`).join(", "), { width: "auto", minWidth: 0, maxWidth: "100%", justifySelf: "auto" });
 // An official site, opened like the buttons beside it.
 globalStyle(link_button, { display: "inline-flex", alignItems: "center", minHeight: "4rem" });
 globalStyle(progress, {
