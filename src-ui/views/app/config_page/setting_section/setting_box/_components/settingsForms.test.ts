@@ -221,6 +221,12 @@ test("a text field that saves by itself saves on leaving, reverts on Escape and 
     props.state = "pending";
     entryOf(runtime.render(EntryWithSaveButton, props)).props.onBlur();
     assert.equal(saves, 1);
+    // A field with its own leave function gets the blur, which says where focus goes (a field of a pair).
+    const left: unknown[] = [], blur = { relatedTarget: "the other field" };
+    props.state = "ok"; props.leaveFunction = event => { left.push(event); };
+    entryOf(runtime.render(EntryWithSaveButton, props)).props.onBlur(blur);
+    assert.deepEqual([saves, left], [1, [blur]]);
+    props.leaveFunction = undefined;
     // A field saved from the bar keeps its old behaviour: leaving it saves nothing, no problem is drawn.
     props.autoSave = false; props.state = "ok";
     const plain = runtime.render(EntryWithSaveButton, props);

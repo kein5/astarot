@@ -202,13 +202,13 @@ test("the certificate and key are saved together as one pair", async () => {
     // #1111, decided 3: the pair saves by itself as one, when focus leaves both fields.
     assert.equal(s.draftOptions.autoSave, true);
     assert.equal(cert.props.autoSave, true);
-    assert.equal(cert.props.leaveFunction(), undefined, "leaving one field for the other saves nothing");
-    const group = s.runtime.render(s.tlsComponent);
+    // The pair's rows tell focus moving from one field to the other from focus leaving the pair.
+    const other = {}, outside = {};
+    s.runtime.render(s.tlsComponent).props.ref({ contains: (target: unknown) => target === other });
     const sentBefore = s.sent.length;
-    group.props.onBlur({ currentTarget: { contains: () => true }, relatedTarget: {} });
+    await cert.props.leaveFunction({ relatedTarget: other });
     assert.equal(s.sent.length, sentBefore, "focus moving inside the pair saves nothing");
-    group.props.onBlur({ currentTarget: { contains: () => false }, relatedTarget: null });
-    await Promise.resolve();
+    await cert.props.leaveFunction({ relatedTarget: outside });
     assert.equal(s.sent.length, sentBefore + 1, "focus leaving the pair saves it");
     // One path without the other is said under the pair and not sent.
     cert.props.onChangeFunction("");

@@ -1,4 +1,4 @@
-import { useId, useMemo, useState } from "react";
+import { useId, useMemo, useRef, useState } from "react";
 import type { FocusEvent, KeyboardEvent } from "react";
 import { useI18n } from "@useI18n";
 import { useStdoutToPython } from "@useStdoutToPython";
@@ -22,6 +22,7 @@ import { useConsentDialog } from "../../../../../../logics/common/useConsentDial
 import { shownTelemetry, telemetryUnanswered, toggleTelemetryOrAnswer } from "../../../../../../logics/configs/telemetryToggle";
 import type { DraftWriteValue } from "../../../../../../logics/voice/useSettingsDraft";
 import type { StdoutResult } from "@useStdoutToPython";
+import type { TargetHolder } from "../../../../../../logics/common/targetHolder.ts";
 
 import { useCopyToClipboard, useOpenFolder, useNotificationStatus } from "@logics_common";
 import {
@@ -533,6 +534,8 @@ const WebsocketTlsContainer = () => {
     // Saves by itself as a pair (#1111, decided 3): when focus leaves both fields, or on Enter,
     // once both paths are given or both are empty. The core takes the two only together.
     const form = useSettingsDraft(saved, error, updateError, { label: ([name]) => label(name), autoSave: true });
+    // The pair's rows, to tell focus moving between the two from focus leaving the pair.
+    const group = useRef<TargetHolder>(null);
     const draft = form.draft;
     if (!draft) return null;
     const commit = () => {
@@ -554,12 +557,13 @@ const WebsocketTlsContainer = () => {
         saveFunction: commit,
         autoSave: true,
         // Leaving one field for the other saves nothing yet: the group saves when focus leaves it.
-        leaveFunction: () => undefined,
+        leaveFunction: (event?: FocusEvent<HTMLInputElement>) => {
+            if (event?.relatedTarget && group.current?.contains(event.relatedTarget)) return;
+            return commit();
+        },
         onRevert: () => { form.discard(); setProblem(null); },
     });
-    return <div className={styles.field_group} onBlur={(event: FocusEvent<HTMLDivElement>) => {
-        if (!event.currentTarget.contains(event.relatedTarget)) commit();
-    }}>
+    return <div className={styles.field_group} ref={element => { group.current = element; }}>
         <EntryWithSaveButtonContainer {...field("cert_file")} remove_border_bottom={true} />
         {/* The pair's problem is said once, under the pair. */}
         <EntryWithSaveButtonContainer {...field("key_file")} error={problem} />
