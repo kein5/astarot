@@ -657,6 +657,9 @@ pub fn keys() -> Vec<Key> {
         key("MIC_NO_SPEECH_PROB", num_in(0.0, 1.0)),
         immediate("HOTKEYS", hotkeys()),
         immediate("EXPERIMENTAL_FEATURES", experimental_features()),
+        key("TALK_AI_SCREEN_INTERVAL_MS", int_in(250, 10_000)),
+        key("TALK_AI_SCREEN_LONG_EDGE", int_in(256, 2048)),
+        key("TALK_AI_SCREEN_DETAIL", managed(Ty::Str, false, |v, _| matches!(v.as_str(), Some("auto" | "low" | "high")))),
         key("TALK_AI_PROVIDER", managed(Ty::Str, false, |v, _| matches!(v.as_str(), Some("openai" | "vllm_omni")))),
         key("TALK_AI_LOCAL_URL", managed(Ty::Str, false, |v, _| v.as_str().is_some_and(crate::controller::talk_ai::valid_local_url))),
         // What the settings menu and the main switches show (#554). It changes no feature.
@@ -933,6 +936,9 @@ pub fn defaults(env: &Environment) -> Map<String, Value> {
         })),
         ("EXPERIMENTAL_FEATURES", experimental_features_default()),
         ("TALK_AI_PROVIDER", json!("openai")),
+        ("TALK_AI_SCREEN_INTERVAL_MS", json!(1000)),
+        ("TALK_AI_SCREEN_LONG_EDGE", json!(1024)),
+        ("TALK_AI_SCREEN_DETAIL", json!("auto")),
         ("TALK_AI_LOCAL_URL", json!("ws://127.0.0.1:8000/v1/realtime")),
         // A new install starts with the basic features; an update shows all (Config::migrate_usage_presets).
         ("USAGE_PRESETS", json!(["basic"])),

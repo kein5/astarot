@@ -104,7 +104,18 @@ pub fn truncate(item_id: &str, audio_end_ms: u64) -> Value {
 /// `conversation.item.create` with one picture from the user, as a JPEG data URL. It joins the
 /// conversation without asking for an answer.
 pub fn image(item_id: &str, jpeg: &[u8]) -> Value {
-    json!({
+    image_with_detail(item_id, jpeg, None)
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ImageDetail {
+    Low,
+    High,
+    Auto,
+}
+
+pub fn image_with_detail(item_id: &str, jpeg: &[u8], detail: Option<ImageDetail>) -> Value {
+    let mut event = json!({
         "type": "conversation.item.create",
         "item": {
             "id": item_id,
@@ -112,7 +123,15 @@ pub fn image(item_id: &str, jpeg: &[u8]) -> Value {
             "role": "user",
             "content": [{ "type": "input_image", "image_url": format!("data:image/jpeg;base64,{}", STANDARD.encode(jpeg)) }],
         },
-    })
+    });
+    if let Some(detail) = detail {
+        event["item"]["content"][0]["detail"] = json!(match detail {
+            ImageDetail::Low => "low",
+            ImageDetail::High => "high",
+            ImageDetail::Auto => "auto",
+        });
+    }
+    event
 }
 
 /// `conversation.item.delete`: an item leaves the conversation.

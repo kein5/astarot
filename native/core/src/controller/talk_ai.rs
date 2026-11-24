@@ -4,16 +4,23 @@ use super::routes::{Builder, OPEN};
 use super::{Core, ok};
 use crate::config::Kept;
 use crate::protocol::Reply;
-use astarot_talk_ai::{Closed, Event, Key, Options, Service, SessionSettings, Talk, Turns, Update};
+use astarot_talk_ai::{
+    Closed, Event, Key, Network, Options, Service, SessionSettings, Talk, Turns, Update,
+};
 use serde_json::{Value, json};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
 mod audio;
+mod screen;
+#[cfg(target_os = "linux")]
+pub use astarot_ocr_runtime::capture::portal::SharedWindowCapture;
+pub use astarot_ocr_runtime::image::BgrImage;
+pub use screen::{Reader as ScreenReader, ScreenFactory, open_native_screen};
 static NEXT_SESSION: AtomicU64 = AtomicU64::new(1);
 
 const SECRET: &str = "TALK_AI/openai";
-const OPENAI_URL: &str = "wss://api.openai.com/v1/realtime";
+pub(super) const OPENAI_URL: &str = "wss://api.openai.com/v1/realtime";
 const OPENAI_MODEL: &str = "gpt-realtime";
 
 /// Validate a local endpoint without resolving names. The web transport repeats the LAN check
@@ -22,6 +29,7 @@ pub(crate) fn valid_local_url(url: &str) -> bool {
     let Some((scheme, rest)) = url.split_once("://") else {
         return false;
     };
+    let requires_ip = scheme == "wss";
     let scheme = match scheme {
         "ws" => "http",
         "wss" => "https",
@@ -31,8 +39,10 @@ pub(crate) fn valid_local_url(url: &str) -> bool {
     if rest.contains(['?', '#']) || crate::net_policy::validate_api_url(&http, false).is_err() {
         return false;
     }
-    astarot_translation::http::Url::parse(&http)
-        .is_ok_and(|url| crate::net_policy::is_local_host(&url.host))
+    astarot_translation::http::Url::parse(&http).is_ok_and(|url| {
+        crate::net_policy::is_local_host(&url.host)
+            && (!requires_ip || url.host.parse::<std::net::IpAddr>().is_ok())
+    })
 }
 
 #[derive(Default)]
@@ -45,6 +55,7 @@ struct State {
     id: u64,
     local: bool,
     audio: Option<Arc<audio::Audio>>,
+    screen: Option<Arc<screen::Screen>>,
     phase: &'static str,
     error: Option<&'static str>,
 }
@@ -55,13 +66,13 @@ impl Session {
             talk.cancel();
         }
         if let Some(state) = self.state.take() {
-            state.lock().unwrap().stop_audio();
+            state.lock().unwrap().stop_media();
         }
     }
 
     fn status(&self) -> Value {
         self.state.as_ref().map_or_else(
-            || json!({ "session_id": null, "phase": "idle", "error": null, "sending_audio": false, "sending_screen": false }),
+            || json!({ "session_id": null, "phase": "idle", "error": null, "sending_audio": false, "sending_screen": false, "screen_source": null }),
             |state| state.lock().unwrap().status(),
         )
     }
@@ -74,13 +85,17 @@ impl State {
             "phase": self.phase,
             "error": self.error,
             "sending_audio": self.audio.as_ref().is_some_and(|audio| audio.sending()),
-            "sending_screen": false
+            "sending_screen": self.screen.as_ref().is_some_and(|screen| screen.sending()),
+            "screen_source": self.screen.as_ref().map(|screen| screen.source())
         })
     }
 
-    fn stop_audio(&mut self) {
+    fn stop_media(&mut self) {
         if let Some(audio) = self.audio.take() {
             audio.stop();
+        }
+        if let Some(screen) = self.screen.take() {
+            screen.stop();
         }
     }
 }
@@ -125,7 +140,7 @@ fn start(core: &Arc<Core>, data: &Value) -> Reply {
     let url = if local {
         core.config().get("TALK_AI_LOCAL_URL")
     } else {
-        json!(OPENAI_URL)
+        json!(core.services().talk_cloud_url)
     };
     // Consent is tied to the actual destination and is supplied anew for every start.
     if data["provider"] != provider
@@ -148,6 +163,7 @@ fn start(core: &Arc<Core>, data: &Value) -> Reply {
         id: NEXT_SESSION.fetch_add(1, Ordering::Relaxed),
         local,
         audio: None,
+        screen: None,
         phase: "connecting",
         error: None,
     }));
@@ -170,7 +186,15 @@ fn start(core: &Arc<Core>, data: &Value) -> Reply {
     session.talk = Some(Arc::new(Talk::start(
         service,
         settings,
-        Options::default(),
+        Options {
+            network: if local {
+                Network::Direct
+            } else {
+                Network::SystemProxy
+            },
+            image_detail: (!local).then(|| screen::detail(core)),
+            ..Options::default()
+        },
         Box::new(move |update| {
             let report = matches!(update, Update::Event(Event::Ready) | Update::Closed(_));
             let mut state = on_update.lock().unwrap();
@@ -187,7 +211,7 @@ fn start(core: &Arc<Core>, data: &Value) -> Reply {
                     }
                 }
                 Update::Closed(closed) => {
-                    state.stop_audio();
+                    state.stop_media();
                     if state.phase != "failed" {
                         match closed {
                             Closed::Failed(error) => {
@@ -243,7 +267,7 @@ fn set_key(core: &Core, data: &Value) -> Reply {
 
 pub(super) fn add(b: &mut Builder<'_>) {
     b.with("/get/data/talk_ai_catalog", OPEN, |core, _| ok(json!([
-        { "id": "openai", "name": "OpenAI Realtime", "vision": true, "cloud": true, "destination": OPENAI_URL },
+        { "id": "openai", "name": "OpenAI Realtime", "vision": true, "cloud": true, "destination": core.services().talk_cloud_url },
         { "id": "vllm_omni", "name": "vLLM-Omni", "vision": false, "cloud": false, "destination": core.config().get("TALK_AI_LOCAL_URL"),
           "recommended_model": "Qwen3-Omni", "minimum_gpu_memory_gib": 24, "recommended_gpu_memory_gib": 32 }
     ])));
@@ -265,6 +289,7 @@ pub(super) fn add(b: &mut Builder<'_>) {
     b.with("/get/data/talk_ai_status", OPEN, |core, _| {
         ok(core.talk_ai.lock().unwrap().status())
     });
+    screen::add(b);
     b.with("/set/enable/talk_ai_audio", OPEN, audio::start);
     b.with("/set/data/talk_ai_interrupt", OPEN, |core, data| {
         audio::control(core, data, false)

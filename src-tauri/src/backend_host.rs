@@ -223,6 +223,10 @@ fn start_run(
     options.services.retire_legacy_translation_weights = CORE_IS_DEFAULT;
     // The update endpoints use the update page's updater (app_update.rs; decision 20).
     options.services.software_updates = std::sync::Arc::new(crate::app_update::CoreUpdates::new(app.clone()));
+    #[cfg(target_os = "linux")]
+    {
+        options.services.talk_screen = std::sync::Arc::new(crate::portal_screencast::open_talk_screen);
+    }
     let backend = Backend::start(options, sink);
     let host = app.state::<BackendHost>();
     *host.session.lock().unwrap_or_else(|poisoned| poisoned.into_inner()) = Some((session, backend));

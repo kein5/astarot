@@ -21,7 +21,7 @@ use std::os::fd::OwnedFd;
 use std::path::{Path, PathBuf};
 use std::pin::Pin;
 use std::process::{Child, ChildStdout, Command, Stdio};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{mpsc, Arc, Mutex};
 use std::task::Poll;
 use std::time::{Duration, Instant};
@@ -41,6 +41,7 @@ const IMPL_INTERFACE: &str = "org.freedesktop.impl.portal.ScreenCast";
 const HELPER: &str = "astarot-screen-capture";
 /// The backend reads this file in the directory `vr_panel_surface` prepared.
 const FRAME_NAME: &str = "screen-frame";
+const SOURCE_MONITOR: u32 = 1;
 const SOURCE_WINDOW: u32 = 2;
 const CURSOR_HIDDEN: u32 = 1;
 /// The desktop keeps the permission until the user revokes it there.
@@ -105,19 +106,35 @@ fn usable_token(token: Option<&str>) -> Option<&str> {
     token.filter(|token| !token.is_empty() && token.len() <= TOKEN_LIMIT && !token.chars().any(char::is_control))
 }
 
+#[derive(Clone, Copy)]
+enum Selection<'a> {
+    OcrWindow(Option<&'a str>),
+    TalkWindow,
+    TalkMonitor,
+}
+
+impl Selection<'_> {
+    fn source(self) -> u32 {
+        match self {
+            Selection::OcrWindow(_) | Selection::TalkWindow => SOURCE_WINDOW,
+            Selection::TalkMonitor => SOURCE_MONITOR,
+        }
+    }
+}
+
 /// The options of `SelectSources`: one window, no pointer in the picture, and a permission the desktop remembers.
 /// `version` and `cursor_modes` are what this desktop's portal says it supports.
-fn select_options<'a>(handle_token: &'a str, version: u32, cursor_modes: u32, restore_token: Option<&'a str>) -> HashMap<&'static str, Variant<'a>> {
+fn select_options<'a>(handle_token: &'a str, version: u32, cursor_modes: u32, selection: Selection<'a>) -> HashMap<&'static str, Variant<'a>> {
     let mut options = HashMap::from([
         ("handle_token", Variant::from(handle_token)),
-        ("types", Variant::from(SOURCE_WINDOW)),
+        ("types", Variant::from(selection.source())),
         ("multiple", Variant::from(false)),
     ]);
     if cursor_modes & CURSOR_HIDDEN != 0 {
         options.insert("cursor_mode", Variant::from(CURSOR_HIDDEN));
     }
     // Restoring a choice exists from version 4 on; an older portal rejects the unknown options.
-    if version >= 4 {
+    if version >= 4 && let Selection::OcrWindow(restore_token) = selection {
         options.insert("persist_mode", Variant::from(PERSIST_UNTIL_REVOKED));
         if let Some(token) = usable_token(restore_token) {
             options.insert("restore_token", Variant::from(token));
@@ -426,11 +443,11 @@ impl Portal {
 
     /// Asks the user for a window (or restores the remembered one) and returns its PipeWire node,
     /// the connection to read it with, and the token for next time.
-    fn share(&mut self, check: &dyn Fn() -> Result<(), String>, restore_token: Option<&str>) -> Result<(u32, OwnedFd, Started), String> {
+    fn share(&mut self, check: &dyn Fn() -> Result<(), String>, selection: Selection<'_>) -> Result<(u32, OwnedFd, Started), String> {
         let setup = Instant::now() + SETUP_TIMEOUT;
         let version = self.property(setup, check, "version")?.ok_or("screencast_unsupported")?;
         let sources = self.property(setup, check, "AvailableSourceTypes")?.unwrap_or(0);
-        if version < 1 || sources & SOURCE_WINDOW == 0 {
+        if version < 1 || sources & selection.source() == 0 {
             return Err("screencast_unsupported".into());
         }
         let cursor_modes = if version >= 2 { self.property(setup, check, "AvailableCursorModes")?.unwrap_or(0) } else { 0 };
@@ -448,7 +465,7 @@ impl Portal {
         self.session = Some(session.clone());
 
         let token = self.token();
-        let options = select_options(&token, version, cursor_modes, restore_token);
+        let options = select_options(&token, version, cursor_modes, selection);
         self.request(Instant::now() + SETUP_TIMEOUT, check, "SelectSources", &token, &(&session, options))?;
 
         let token = self.token();
@@ -521,7 +538,7 @@ fn run(app: AppHandle, program: PathBuf, frame: PathBuf, restore_token: Option<S
     reply: mpsc::Sender<Result<Started, String>>) {
     let check = || if stop.load(Ordering::Acquire) { Err("portal_cancelled".to_owned()) } else { Ok(()) };
     let opened = Portal::open(&check).and_then(|mut portal| {
-        let (node, remote, started) = portal.share(&check, restore_token.as_deref())?;
+        let (node, remote, started) = portal.share(&check, Selection::OcrWindow(restore_token.as_deref()))?;
         // Declared after the portal, so the helper stops first when both go away.
         let mut helper = Helper::start(&program, remote, node, &frame)?;
         helper.wait_streaming(check)?;
@@ -559,6 +576,50 @@ fn run(app: AppHandle, program: PathBuf, frame: PathBuf, restore_token: Option<S
         crate::startup_log(&format!("Window sharing is over: {reason}"));
         let _ = app.emit_to("main", "screencast-ended", Ended { reason });
     }
+}
+
+/// One monitor or window chosen in the desktop's own dialog for a Talk AI session. The portal
+/// permission is never restored or written to settings. Dropping the screen worker closes
+/// its own helper and portal session, independently of chat reading.
+struct TalkScreen {
+    reader: astarot_core::controller::talk_ai::SharedWindowCapture,
+    helper: Helper,
+    portal: Portal,
+    error: &'static str,
+}
+
+impl astarot_core::controller::talk_ai::ScreenReader for TalkScreen {
+    fn frame(&mut self) -> Result<Option<astarot_core::controller::talk_ai::BgrImage>, &'static str> {
+        if self.helper.stopped().is_some() || !matches!(self.portal.poll(Duration::from_millis(1)), Signal::Nothing) {
+            return Err(self.error);
+        }
+        self.reader.capture().map_err(|_| self.error)
+    }
+}
+
+pub(crate) fn open_talk_screen(source: &str, stop: &AtomicBool) -> Result<Box<dyn astarot_core::controller::talk_ai::ScreenReader>, &'static str> {
+    use astarot_core::controller::talk_ai::{SharedWindowCapture, open_native_screen};
+
+    let kind = match source {
+        "monitor" if crate::quick_chat::wayland_session() => Selection::TalkMonitor,
+        "window" if crate::quick_chat::wayland_session() => Selection::TalkWindow,
+        _ => return open_native_screen(source, stop),
+    };
+    let error = if matches!(kind, Selection::TalkMonitor) { "talk_monitor_unavailable" } else { "talk_window_unavailable" };
+    static NEXT_FRAME: AtomicU64 = AtomicU64::new(0);
+    let name = format!("talk-screen-{}", NEXT_FRAME.fetch_add(1, Ordering::Relaxed));
+    let frame = frame_path().ok_or(error)?.with_file_name(name);
+    let program = helper_path().ok_or(error)?;
+    let check = || if stop.load(Ordering::Acquire) { Err("portal_cancelled".into()) } else { Ok(()) };
+    let open = || {
+        let mut portal = Portal::open(&check)?;
+        let (node, remote, _) = portal.share(&check, kind)?;
+        let mut helper = Helper::start(&program, remote, node, &frame)?;
+        helper.wait_streaming(check)?;
+        Ok::<_, String>(TalkScreen { reader: SharedWindowCapture::new(Some(frame)), helper, portal, error })
+    };
+    open().map(|monitor| Box::new(monitor) as Box<dyn astarot_core::controller::talk_ai::ScreenReader>)
+        .map_err(|_| error)
 }
 
 async fn finish(state: &Screencast) {
@@ -648,6 +709,20 @@ pub fn shutdown<R: tauri::Runtime>(app: &AppHandle<R>) {
 mod tests {
     use super::*;
 
+    #[test]
+    fn talk_ai_asks_for_one_new_source_and_never_persists_the_permission() {
+        for (selection, source) in [
+            (Selection::TalkWindow, SOURCE_WINDOW),
+            (Selection::TalkMonitor, SOURCE_MONITOR),
+        ] {
+            let options = select_options("t1", 5, 1, selection);
+            assert_eq!(options["types"], Variant::from(source));
+            assert_eq!(options["multiple"], Variant::from(false));
+            assert!(!options.contains_key("persist_mode"));
+            assert!(!options.contains_key("restore_token"));
+        }
+    }
+
     fn results(entries: Vec<(&str, Variant<'_>)>) -> HashMap<String, OwnedVariant> {
         entries.into_iter().map(|(key, value)| (key.to_owned(), OwnedVariant::try_from(value).unwrap())).collect()
     }
@@ -661,7 +736,7 @@ mod tests {
 
     #[test]
     fn asks_for_one_window_without_the_pointer_and_remembers_the_choice() {
-        let options = select_options("t1", 5, 7, Some("saved"));
+        let options = select_options("t1", 5, 7, Selection::OcrWindow(Some("saved")));
         assert_eq!(options["handle_token"], Variant::from("t1"));
         assert_eq!(options["types"], Variant::from(2u32));
         assert_eq!(options["multiple"], Variant::from(false));
@@ -674,15 +749,15 @@ mod tests {
     #[test]
     fn leaves_out_what_the_desktop_does_not_support() {
         // No saved token: the desktop asks, and still remembers the answer.
-        let first = select_options("t1", 4, 1, None);
+        let first = select_options("t1", 4, 1, Selection::OcrWindow(None));
         assert!(first.contains_key("persist_mode") && !first.contains_key("restore_token"));
         // Before version 4 there is no restoring; an unknown option would fail the request.
-        let old = select_options("t1", 3, 1, Some("saved"));
+        let old = select_options("t1", 3, 1, Selection::OcrWindow(Some("saved")));
         assert!(!old.contains_key("persist_mode") && !old.contains_key("restore_token"));
         // The pointer can only be embedded or sent as metadata here: say nothing rather than ask for it.
-        assert!(!select_options("t1", 5, 6, None).contains_key("cursor_mode"));
+        assert!(!select_options("t1", 5, 6, Selection::OcrWindow(None)).contains_key("cursor_mode"));
         // A token that is not one is not sent.
-        assert!(!select_options("t1", 5, 1, Some("")).contains_key("restore_token"));
+        assert!(!select_options("t1", 5, 1, Selection::OcrWindow(Some(""))).contains_key("restore_token"));
     }
 
     #[test]

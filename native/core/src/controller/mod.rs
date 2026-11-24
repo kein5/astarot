@@ -11,7 +11,7 @@ pub mod adapters;
 pub mod audio_devices;
 pub mod clipboard;
 mod credentials;
-pub(crate) mod talk_ai;
+pub mod talk_ai;
 mod files;
 pub mod gpu_check;
 mod gpu_memory;
@@ -230,6 +230,10 @@ pub struct Services {
     pub steamvr_poll: Duration,
     /// Chat reading's screen, VR runtime, ONNX Runtime and model files ([`ocr::RealOcr`]).
     pub ocr: Arc<dyn ocr::OcrPlatform>,
+    /// Opens the source selected for a Talk AI session on a screen worker.
+    pub talk_screen: talk_ai::ScreenFactory,
+    /// OpenAI Realtime endpoint. Tests replace it with a loopback service.
+    pub talk_cloud_url: &'static str,
     /// Where chat lines read by OCR go: the message pipeline ([`ocr::OcrDelivery`]).
     pub ocr_message: ocr::OcrDelivery,
     /// The app's own updater behind the update endpoints ([`updates`]). Switched off by
@@ -294,6 +298,8 @@ impl Default for Services {
             overlay_fonts: Arc::new(overlay::default_fonts),
             steamvr_poll: Duration::from_secs(10),
             ocr: ocr::real_platform(),
+            talk_screen: Arc::new(talk_ai::open_native_screen),
+            talk_cloud_url: talk_ai::OPENAI_URL,
             ocr_message: Arc::new(ocr::pipeline_delivery),
             software_updates: Arc::new(updates::Disabled),
             transcription_capture: Arc::new(default_transcription_capture),

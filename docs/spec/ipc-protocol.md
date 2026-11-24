@@ -428,7 +428,7 @@ Rustの中核は、準備の途中で止まったときも終了コードで知�
 
 ## おしゃべりAI
 
-`/get/data/talk_ai_catalog` は、接続先ごとに `id`、`name`、`vision`、`cloud`、`destination` を返す。初期選択は `openai`。OpenAI Realtime の送信先は固定し、`vllm_omni` の接続先は `/set/data/talk_ai_local_url` で変更できる。
+`/get/data/talk_ai_catalog` は、接続先ごとに `id`、`name`、`vision`、`cloud`、`destination` を返す。初期選択は `openai`。OpenAI Realtime の送信先は固定し、`vllm_omni` の接続先は `/set/data/talk_ai_local_url` で変更できる。接続先はループバックかLANに限る。TLSを使うLAN接続にはローカルIPアドレスを指定する。
 
 OpenAI のキーは `/set/data/talk_ai_auth_key` に文字列を渡して登録し、`null` で削除する。取得と登録の応答はキーの有無を `configured`、資格情報ストアに保存済みかを `stored` で返す。キーは設定ファイルに書かない。
 
@@ -441,6 +441,12 @@ OpenAI のキーは `/set/data/talk_ai_auth_key` に文字列を渡して登録�
 段階4では、`phase: "ready"` の応答を受けてから、画面に音声の送信表示を出す。その後、現在の `session_id` と `indicator_visible: true` を `/set/enable/talk_ai_audio` へ渡す。応答音声は既定でシステムの再生先へ出す。別の再生先は `output` に指定し、仮想マイクに送るときは `share_output: true` も渡す。対話中はマイクの文字起こしを止める。対話の終了後に、利用者が文字起こしを再開できる。
 
 `/set/data/talk_ai_interrupt` は応答の再生を止める。vLLM-Omni で利用者の発話を区切るには `/set/data/talk_ai_end_turn` を呼ぶ。両方に現在の `session_id` を渡す。
+
+画面共有は音声の同意と別に始める。利用者が接続先と取り込み元を確認して同意し、画面の送信表示を出してから、`/set/enable/talk_ai_screen` に `session_id`、`destination`、`source`、`consent: { screen: true }`、`indicator_visible: true` を渡す。`source` は `/get/data/talk_ai_screen_sources` が返す `window`、`vr`、`monitor` のいずれか。WindowsとX11の `monitor` は主モニターを使う。Waylandでは、デスクトップの画面選択ダイアログを開く。
+
+設定は `talk_ai_screen_interval_ms`（250〜10000ミリ秒、既定1000）、`talk_ai_screen_long_edge`（256〜2048ピクセル、既定1024）、`talk_ai_screen_detail`（`auto`、`low`、`high`、既定 `auto`）。いずれも `/get/data/` と `/set/data/` の受け口を持つ。画像は縮小してJPEGで送る。次の画像を送ったあとで、前の画像を対話履歴から削除する。
+
+`/get/data/talk_ai_status` は取り込み元を `screen_source`、JPEGの送信状態を `sending_screen` で返す。`/set/disable/talk_ai_screen` は `session_id` が一致する共有を止め、送信待ちの画像も破棄するため対話を終了する。取り込みが失敗したときは対話を終了し、固定のエラーコードを返す。
 
 ### 設定ファイルと会話ログの保存先
 

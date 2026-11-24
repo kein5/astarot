@@ -12,7 +12,7 @@
 
 use crate::connection::{self, Network, OpenError, Service, Socket};
 use crate::conversation::{Conversation, Effect, Event, Input};
-use crate::protocol::{self, ServerEvent, SessionSettings};
+use crate::protocol::{self, ImageDetail, ServerEvent, SessionSettings};
 use serde_json::Value;
 use std::collections::VecDeque;
 use std::sync::mpsc::{self, Receiver, Sender, SyncSender};
@@ -35,11 +35,12 @@ pub struct Options {
     /// How many of the latest pictures stay in the conversation (at least 1); older ones are
     /// taken out, so that a long conversation does not carry every picture it was shown.
     pub keep_images: usize,
+    pub image_detail: Option<ImageDetail>,
 }
 
 impl Default for Options {
     fn default() -> Options {
-        Options { network: Network::SystemProxy, wait: Duration::from_secs(10), keep_images: 1 }
+        Options { network: Network::SystemProxy, wait: Duration::from_secs(10), keep_images: 1, image_detail: None }
     }
 }
 
@@ -319,7 +320,7 @@ impl Session {
     fn send_image(&mut self, jpeg: &[u8]) -> Result<(), Failure> {
         self.image_count += 1;
         let id = format!("img_{}", self.image_count);
-        self.send(&protocol::image(&id, jpeg))?;
+        self.send(&protocol::image_with_detail(&id, jpeg, self.options.image_detail))?;
         self.images.push_back(id);
         while self.images.len() > self.options.keep_images.max(1) {
             let Some(old) = self.images.pop_front() else { break };

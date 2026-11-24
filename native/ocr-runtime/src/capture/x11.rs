@@ -16,6 +16,7 @@
 //! [`ocr_capture_x11.py`]: https://github.com/kein5/astarot/blob/v0.5.2/src-python/models/ocr/ocr_capture_x11.py
 
 use x11rb::connection::Connection;
+use x11rb::protocol::randr::{ConnectionExt as _, MonitorInfo};
 use x11rb::protocol::xproto::{AtomEnum, ConnectionExt, ImageFormat, ImageOrder, MapState, Window};
 use x11rb::rust_connection::RustConnection;
 
@@ -244,21 +245,65 @@ impl X11WindowCapture {
                 return Err(capture_error("X11 frame capture failed"));
             }
         };
-        let setup = conn.setup();
-        let format = setup.pixmap_formats.iter().find(|f| f.depth == reply.depth);
-        let visual = setup.roots.iter().flat_map(|s| s.allowed_depths.iter()).flat_map(|d| d.visuals.iter()).find(|v| v.visual_id == reply.visual);
-        let (Some(format), Some(visual)) = (format, visual) else {
-            return Err(capture_error("Unsupported or invalid X11 pixel format"));
-        };
-        let bits = format.bits_per_pixel as usize;
-        let pad = format.scanline_pad as usize;
-        let bytes_per_line = (width as usize * bits).div_ceil(pad) * pad / 8;
-        let lsb_first = setup.image_byte_order == ImageOrder::LSB_FIRST;
-        let frame = frame_from_ximage(width as usize, height as usize, bytes_per_line, format.bits_per_pixel, visual.red_mask, visual.blue_mask, lsb_first, &reply.data);
-        match frame {
-            Some(frame) if visual.green_mask == 0xFF00 => Ok(Some(frame)),
-            _ => Err(capture_error("Unsupported or invalid X11 pixel format")),
+        decode_frame(conn, width, height, reply).map(Some)
+    }
+}
+
+fn decode_frame(conn: &RustConnection, width: u16, height: u16, reply: x11rb::protocol::xproto::GetImageReply) -> Result<BgrImage, Failure> {
+    let setup = conn.setup();
+    let format = setup.pixmap_formats.iter().find(|f| f.depth == reply.depth);
+    let visual = setup.roots.iter().flat_map(|s| s.allowed_depths.iter()).flat_map(|d| d.visuals.iter()).find(|v| v.visual_id == reply.visual);
+    let (Some(format), Some(visual)) = (format, visual) else {
+        return Err(capture_error("Unsupported or invalid X11 pixel format"));
+    };
+    let bits = format.bits_per_pixel as usize;
+    let pad = format.scanline_pad as usize;
+    let bytes_per_line = (width as usize * bits).div_ceil(pad) * pad / 8;
+    let lsb_first = setup.image_byte_order == ImageOrder::LSB_FIRST;
+    let frame = frame_from_ximage(width as usize, height as usize, bytes_per_line, format.bits_per_pixel, visual.red_mask, visual.blue_mask, lsb_first, &reply.data);
+    match frame {
+        Some(frame) if visual.green_mask == 0xFF00 => Ok(frame),
+        _ => Err(capture_error("Unsupported or invalid X11 pixel format")),
+    }
+}
+
+/// The primary monitor at the start of sharing on an X11 session. The monitor's
+/// RandR name stays fixed so a removed monitor is never replaced silently.
+pub struct MonitorCapture {
+    conn: RustConnection,
+    root: Window,
+    name: u32,
+}
+
+fn monitors(conn: &RustConnection, root: Window) -> Result<Vec<MonitorInfo>, &'static str> {
+    conn.randr_get_monitors(root, true).map_err(|_| "talk_monitor_unavailable")?
+        .reply().map(|reply| reply.monitors).map_err(|_| "talk_monitor_unavailable")
+}
+
+impl MonitorCapture {
+    pub fn open() -> Result<Self, &'static str> {
+        if std::env::var_os("WAYLAND_DISPLAY").is_some() || std::env::var("XDG_SESSION_TYPE").is_ok_and(|kind| kind == "wayland") {
+            return Err("talk_monitor_unavailable");
         }
+        let (conn, index) = x11rb::connect(None).map_err(|_| "talk_monitor_unavailable")?;
+        let root = conn.setup().roots[index].root;
+        let monitors = monitors(&conn, root)?;
+        let monitor = monitors.iter().find(|monitor| monitor.primary)
+            .or_else(|| (monitors.len() == 1).then(|| &monitors[0]))
+            .ok_or("talk_monitor_unavailable")?;
+        Ok(Self { conn, root, name: monitor.name })
+    }
+
+    pub fn read(&self) -> Result<BgrImage, &'static str> {
+        let monitor = monitors(&self.conn, self.root)?.into_iter()
+            .find(|monitor| monitor.name == self.name).ok_or("talk_monitor_unavailable")?;
+        let (width, height) = (monitor.width, monitor.height);
+        if u32::from(width) * u32::from(height) > 34_000_000 || width == 0 || height == 0 {
+            return Err("talk_monitor_unavailable");
+        }
+        let reply = self.conn.get_image(ImageFormat::Z_PIXMAP, self.root, monitor.x, monitor.y, width, height, !0)
+            .map_err(|_| "talk_monitor_unavailable")?.reply().map_err(|_| "talk_monitor_unavailable")?;
+        decode_frame(&self.conn, width, height, reply).map_err(|_| "talk_monitor_unavailable")
     }
 }
 
