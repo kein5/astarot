@@ -190,3 +190,38 @@ test("the API form's address says what it sends in one sentence, and warns of pl
     assert.equal(url.props["aria-describedby"], lead.props.id);
     assert.ok(!nodesIn(api).some(node => node.props?.role === "note"), "no warning for an empty address");
 });
+
+test("when a group has no user-added entries, its empty state names that group's add action (#1113)", async context => {
+    shownCatalog = unchecked<TranslationCatalog>({
+        engine: [{ id: "shipped", weight: "shipped", origin: "builtin", name: "Shipped", runtime: "onnx", available: true, in_use: false }],
+        api: [{ id: "cloud", origin: "builtin", name: "Cloud", kind: "cloud", available: true }],
+        runtimes: ["onnx"], protocols: ["openai_compatible"],
+    });
+    context.onTestFinished(() => { shownCatalog = CATALOG; });
+    const runtime = hooks();
+    context.onTestFinished(() => runtime.unmount());
+    const heading = await loadModule<typeof import("../advanced_settings/catalogHeading.tsx")>(
+        new URL("../advanced_settings/catalogHeading.tsx", import.meta.url), runtime, { "../_components/hint/Hint": { Hint: "hint" } });
+    const module = await loadModule<typeof import("./TranslationCatalog.tsx")>(new URL("./TranslationCatalog.tsx", import.meta.url), runtime, {
+        "../../../../../../logics/translation/useTranslationCatalog": { useTranslationCatalog: () => ({ catalog: shownCatalog, error: null, pending: null, send: () => {} }) },
+        "../../../../../../logics/translation/useListedLocalWeights": { useListedLocalWeights: () => listed },
+        "../../../../../../logics/translation/translationCatalog": translationCatalog,
+        "../../../../../../logics/common/endpointPrivacy": endpointPrivacy,
+        "@useI18n": { useI18n: () => ({ t: (key: string, values?: Record<string, unknown>) => values ? `${key}:${JSON.stringify(values)}` : key }) },
+        "../_components": { SectionLabelComponent: "section-label" },
+        "../_components/hint/Hint": { useHintDescriptions: () => true },
+        "../_components/fold/Fold": { Fold: "fold" },
+        "../_components/lead/Lead": { Lead: "lead" },
+        "../advanced_settings/catalogHeading": heading,
+        "../advanced_settings/catalogLayout": { CatalogSection: "catalog-section", useCatalogLayout: () => "list", CatalogList: "ul", CatalogFacts: "catalog-facts", CatalogLayoutSwitch: "catalog-layout-switch" },
+        "./TranslationLlamaRuntimes": { TranslationLlamaRuntimes: "llama-runtimes" },
+    });
+    const groups = nodesIn(runtime.render(module.TranslationCatalogSection))
+        .filter(node => componentName(node) === "CatalogGroup")
+        .map(node => { runtime.remount(); return drawWith(runtime, node); });
+    const emptyLines = groups.map(group => findIn(group, node => node.type === "p").props.children);
+    assert.deepEqual(emptyLines, [
+        'translation_catalog.none_added:{"add":"translation_catalog.add.engine"}',
+        'translation_catalog.none_added:{"add":"translation_catalog.add.api"}',
+    ]);
+});

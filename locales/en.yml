@@ -2409,7 +2409,7 @@ translation_catalog:
     group_help:
         engine: "Translation models that an inference engine runs on your PC. Add a model you have by its folder."
         api: "Translation services the app calls over the network, including servers on your PC or your local network. Add one by its address, model and key."
-    none_added: "You have not added any yet."
+    none_added: "No items added by you yet. Add one under \"{{add}}\" below."
     shipped_title: "Included with the app ({{count}})"
     # llama.cpp's server for translation LLMs such as TranslateGemma (ADR-015).
     llamacpp:

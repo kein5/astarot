@@ -79,7 +79,7 @@ const CatalogGroup = ({ group, catalog, layout }: { group: CatalogGroupId; catal
             help={[t(`translation_catalog.group_help.${group}`)]} readout={t("translation_catalog.group_readout", { count: entries.length })}>
             {own.length > 0
                 ? <CatalogList layout={layout}>{own.map(entry => <EntryCard key={entry.item.id} {...entry} layout={layout} />)}</CatalogList>
-                : <p>{t("translation_catalog.none_added")}</p>}
+                : <p>{t("translation_catalog.none_added", { add: t(`translation_catalog.add.${group}`) })}</p>}
             <Fold summary={t("translation_catalog.shipped_title", { count: shipped.length })}>
                 <CatalogList layout={layout}>{shipped.map(entry => <ShippedCard key={entry.item.id} {...entry} layout={layout} />)}</CatalogList>
             </Fold>
