@@ -58,9 +58,17 @@ async function voicePage(context: TestContext, given: Partial<Voice> = {}, optio
         ...ui, "./draftRebase": draftRebase,
         "./saveBar": { changedPaths, setSaveBarEntry: (id: string, entry: SaveBarEntry | null) => { if (entry) entries.set(id, entry); else entries.delete(id); } },
     });
+    // The forms save by themselves (#1111): the tests read the form drawn last where they read the
+    // save bar's entry, and save it as focus leaving it does.
+    let last: { value: ReturnType<typeof useSettingsDraft<Settings>>; saved: unknown; canSave: unknown } | undefined;
+    const drafts = { useSettingsDraft: (...args: Parameters<typeof useSettingsDraft<Settings>>) => {
+        const value = useSettingsDraft(...args);
+        last = { value, saved: args[0], canSave: args[3]?.canSave };
+        return value;
+    } };
     const module = await loadModule<typeof import("./VoiceSettings.tsx")>(new URL("./VoiceSettings.tsx", import.meta.url), runtime, { ...ui,
         "../../../../../../logics/voice/useVoice": { useVoice: () => ({ ...voice, ...hook }) },
-        "../../../../../../logics/voice/useSettingsDraft": { useSettingsDraft },
+        "../../../../../../logics/voice/useSettingsDraft": drafts,
         "../tts/GenerationOptions": { GenerationOptions: "generation-options", validGenerationOptions: (draft: Settings) => draft.seed !== "bad" },
         "../tts/TtsEngine": { TtsEngine: "engine", TTS_ENGINES, AUDIO_QUERY_ENGINES: ["voicevox"],
             validCoeiroinkOptions: (draft: Settings) => draft.coeiroink_speed !== "bad", validAudioQueryOptions: (draft: Settings) => draft.voicevox_speed !== "bad" },
@@ -81,9 +89,13 @@ async function voicePage(context: TestContext, given: Partial<Voice> = {}, optio
     const open = () => { draw(); return draw(); };
     const drawDevice = (title = "Output") => runtime.render(module.TtsOutputDeviceSettings, { title });
     const entry = () => {
-        const [only] = entries.values();
-        assert.ok(only, "the form's entry in the save bar");
-        return only;
+        assert.ok(last, "the form");
+        const { value, saved: savedNow, canSave } = last;
+        const before: Record<string, unknown> = savedNow && typeof savedNow === "object" ? { ...savedNow } : {};
+        const draft: Record<string, unknown> = value.draft && typeof value.draft === "object" ? { ...value.draft } : {};
+        return { changes: [...new Set([...Object.keys(before), ...Object.keys(draft)])].filter(key => JSON.stringify(before[key]) !== JSON.stringify(draft[key])),
+            canSave: typeof canSave === "function" ? !!canSave(value.draft) : canSave !== false,
+            save: async () => { value.commit(); await Promise.resolve(); }, discard: () => value.discard() };
     };
     return { runtime, voice, hook, sent, draw, open, drawDevice, entry };
 }
@@ -313,30 +325,6 @@ test("the microphone's captions can be read aloud, which decides whether the voi
     assert.ok(tree);
 });
 
-test("the save bar names each changed setting in the user's words", async context => {
-    const v = await voicePage(context);
-    v.open();
-    const changes = (edit: Settings) => {
-        const engine = findIn(v.draw(), node => node.type === "engine").props;
-        engine.setDraft((draft: Settings) => ({ ...draft, ...edit }));
-        v.draw();
-        const named = v.entry().changes;
-        v.entry().discard();
-        v.draw();
-        return named;
-    };
-    assert.deepEqual(changes({ japanese_engine: "coeiroink" }), ["voice_ui.engine.label"]);
-    assert.deepEqual(changes({ coeiroink_url: "http://c", voicevox_url: "http://v" }), ["voice_ui.engine.url"]);
-    assert.deepEqual(changes({ engine_voice_coeiroink: "a" }), ["voice_ui.engine.voice"]);
-    assert.deepEqual(changes({ coeiroink_speed: 1 }), ["COEIROINK: voice_ui.engine.coeiroink.coeiroink_speed"]);
-    assert.deepEqual(changes({ voicevox_pitch: 1 }), ["VOICEVOX: voice_ui.engine.audio_query.pitch"]);
-    assert.deepEqual(changes({ japanese_server: "external", multilingual_server: "external" }), ["speech_servers.japanese_selection", "speech_servers.multilingual_selection"]);
-    assert.deepEqual(changes({ multilingual_seed: 1 }), ["speech_servers.multilingual: voice_ui.seed_mode"]);
-    assert.deepEqual(changes({ japanese_instructions: "calm" }), ["speech_servers.japanese: voice_ui.instruction"]);
-    assert.deepEqual(changes({ monitor: "on", japanese_voice: "Kei" }), ["voice.monitor", "voice.japanese_voice"]);
-    assert.deepEqual(changes({ absent_setting: 1 }), ["absent_setting"]);
-});
-
 test("the form saves only valid settings, and writes only what changed", async context => {
     const v = await voicePage(context);
     v.open();
@@ -408,7 +396,7 @@ test("the output device alone, for other pages, edits the same voice settings", 
     tree = v.drawDevice("VRChat output");
     assert.equal(selectNamed(tree, "voice.output_device").props.value, "speakers");
     assert.deepEqual(optionsOf(selectNamed(tree, "voice.output_device")).map(option => option[0]), ["", "speakers", "vrct.virtual"], "found again: not disconnected");
-    assert.deepEqual(v.entry().changes, ["voice.output_device"]);
+    assert.deepEqual(v.entry().changes, ["output_device"]);
     assert.equal(v.entry().canSave, true);
     await v.entry().save();
     assert.deepEqual(v.sent.at(-1), ["/set/data/voice_settings", { output_device: "speakers" }]);
@@ -442,7 +430,7 @@ test("each list's visible words are its name, and the conversion turned on witho
     }
     choose(tree, "voice.conversion", "on");
     v.draw();
-    assert.deepEqual(v.entry().changes, ["voice.conversion"]);
+    assert.deepEqual(v.entry().changes, ["conversion"]);
     // Turned on over a mix, the voice is suppressed, and the save writes that.
     const mixed = await voicePage(context, { settings: { ...saved, direct_policy: "mix" } });
     choose(mixed.open(), "voice.conversion", "on");
@@ -451,7 +439,7 @@ test("each list's visible words are its name, and the conversion turned on witho
     assert.deepEqual(mixed.sent.at(-1), ["/set/data/voice_settings", { direct_policy: "suppress", conversion: "on" }]);
 });
 
-test("the save bar's save writes the changed settings, and a new connection asks for the settings again", async context => {
+test("a save writes the changed settings, and a new connection asks for the settings again", async context => {
     const v = await voicePage(context);
     v.open();
     choose(v.draw(), "voice.monitor", "on");
