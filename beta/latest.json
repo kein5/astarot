@@ -1,15 +1,15 @@
 {
-  "version": "0.6.0",
-  "notes": "https://github.com/kein5/astarot/releases/tag/v0.6.0",
-  "pub_date": "2026-11-22T12:16:01Z",
+  "version": "0.7.0-beta.1",
+  "notes": "https://github.com/kein5/astarot/releases/tag/v0.7.0-beta.1",
+  "pub_date": "2026-11-24T02:27:13Z",
   "platforms": {
     "windows-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRTFVaOWNib040RVdYOGxnS3NSMGYzVWxZY1BmeHg4aDBPVDk0RUtXamFaWFJNMElVQThIVTlKd25pYXVoNzdTNVFBU0RsT2FZLytnc2pLOUx0eFBLdzFNWDdoZ0tQZXdZPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzk1MzQ5NzYwCWZpbGU6VlJDVC1WT1hfc2V0dXAuZXhlCXZlcnNpb246MC42LjAKb2s4YnR1bVQyNVVlVFBuU1ZPdmpXZmdoQVNyT1BYQkhxYXV1R096OEo1RytNZloyU1NMK2hJUW4rT0l2RXVZeFI0SHJkSXFQUk1XUktLdlBwYlVHQmc9PQo=",
-      "url": "https://github.com/kein5/astarot/releases/download/v0.6.0/VRCT-VOX_setup.exe"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRTFVaOWNib040RVp3aXFrNEFlNyt2azY1aXdOdTlCekJJTmFKNjdSMldncGZGamFJa0xyVndMdVVRQ1FWNVA3dDJIcFFxRE1qL3F3eTc0d3E1eHA0bnZqdVErN2MvS1FnPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzk1NDg3MjMxCWZpbGU6QVNUQVJPVF9zZXR1cC5leGUJdmVyc2lvbjowLjcuMC1iZXRhLjEKT1NnM2ZYUnBMSzFhSnFjNHpCeE5PcHpGOG4zR3NUK2FKYWFTT041VWhFdGxFbU5oR3VvNEJxY1FFK1RtMlB6K3YvQXd0cVBCZnc0OGJOMVcvZ0hFQ1E9PQo=",
+      "url": "https://github.com/kein5/astarot/releases/download/v0.7.0-beta.1/ASTAROT_setup.exe"
     },
     "linux-x86_64": {
-      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRTFVaOWNib040RWJ4Um9uSkcwUWVXUTV2YkNwT0ptOElWZXRGaUhGd2U1cVM0a1l3Mnh5WVU4ZXFEUVhrclgwRlpxcGlDcXdJdm11cmZiR24rcXFnNjZ1aVJvTllHUUFNPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzk1MzQ5NzYwCWZpbGU6VlJDVC1WT1gtMC42LjAtbGludXgteDY0LXJlbGVhc2UuQXBwSW1hZ2UJdmVyc2lvbjowLjYuMApUWFhiVjRTcXZ6anJPZ1VtN0wxNVZMaWdCK3QxK0FQeHR0Z1VxZ2hUbUdIUnBYNkJXZUhKNDJPYTNEcmhDWnVBbmNMRjd6dXltbENGeVRaZnpHM3RBUT09Cg==",
-      "url": "https://github.com/kein5/astarot/releases/download/v0.6.0/VRCT-VOX-0.6.0-linux-x64-release.AppImage"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVRTFVaOWNib040RVl4TTBoNmFhaTNzeVhVU1VaeC9lWEc3VFltZ1NrR0dNUzlzckx0R1VqVFl4ZS82UXN4L3JCYlJsRVkzUGJXWlV2dm5QMUJDd0dmSEFiOWdaRklCWGc0PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzk1NDg3MjMyCWZpbGU6QVNUQVJPVC0wLjcuMC1iZXRhLjEtbGludXgteDY0LXJlbGVhc2UuQXBwSW1hZ2UJdmVyc2lvbjowLjcuMC1iZXRhLjEKRnRVcDJ4TDFPYitycUl2YWpVeWMvYnRZZ1B5cGdEOFVvNVdFbnRxTGRnN0xOZDBHZ3BTbmU3YldFb2NRUFVTdHNhVy9HUTM4ZEVlRi8xdnUrSEUvQ1E9PQo=",
+      "url": "https://github.com/kein5/astarot/releases/download/v0.7.0-beta.1/ASTAROT-0.7.0-beta.1-linux-x64-release.AppImage"
     }
   }
 }
