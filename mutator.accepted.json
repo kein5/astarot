@@ -95,6 +95,10 @@
     "reason": "A timer started for no target or for the dismissed target does nothing: show returns at once for a missing or dismissed target.",
     "where": "src-ui/views/vr/VrTooltip.tsx:118:27 dismissed !== target -> true"
   },
+  "19b07orixsg": {
+    "reason": "Closing leaves no dialog to read the consent, and the review button sets it to false again before the next one opens.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/advanced_settings/VcRuntimeSetup.tsx:49:69 false -> true"
+  },
   "19oho4g4eyp": {
     "reason": "Number.isFinite is false for every value that is not a number.",
     "where": "src-ui/logics/common/initializationFields.ts:32:36 typeof value === \"number\" -> true"
@@ -690,6 +694,10 @@
   "9mu2c7j4nw": {
     "reason": "The engine's label key is voice.vc_engine either way: the general rule makes the same key.",
     "where": "src-ui/views/app/config_page/setting_section/setting_box/advanced_settings/DirectVoiceSettings.tsx:97:92 \"engine\" -> \"\""
+  },
+  "ac9vjcj13c": {
+    "reason": "The review button sets the consent to false before it opens the dialog, the only place the consent is read.",
+    "where": "src-ui/views/app/config_page/setting_section/setting_box/advanced_settings/VcRuntimeSetup.tsx:33:79 false -> true"
   },
   "ad4vcjgb17": {
     "reason": "Neither the empty string nor the placeholder is INPUT, so a key on a target without a tag registers nothing either way.",
